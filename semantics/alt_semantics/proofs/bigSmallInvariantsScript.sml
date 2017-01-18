@@ -93,24 +93,24 @@ evaluate_ctxt env s (Cif ()  e2 e3) v (s, Rerr (Rabort Rtype_error)))
 evaluate_ctxt env s (Cmat ()  pes err_v) v bv)
 
 /\ (! env n e2 v bv s.
-(evaluate F ( env with<| v := (nsOptBind n v env.v) |>) s e2 bv)
+(evaluate F ( env with<| v := nsOptBind n v env.v |>) s e2 bv)
 ==>
 evaluate_ctxt env s (Clet n ()  e2) v bv)
 
 /\ (! env cn es vs v vs' s1 s2 v'.
-(do_con_check env.c cn ((LENGTH vs + LENGTH es) +( 1 : num)) /\
+(do_con_check env.c cn ((LENGTH vs + LENGTH es) + 1) /\
 (build_conv env.c cn ((REVERSE vs' ++ [v]) ++ vs) = SOME v') /\
 evaluate_list F env s1 es (s2, Rval vs'))
 ==>
 evaluate_ctxt env s1 (Ccon cn vs ()  es) v (s2, Rval v'))
 
 /\ (! env cn es vs v s.
-(~ (do_con_check env.c cn ((LENGTH vs + LENGTH es) +( 1 : num))))
+(~ (do_con_check env.c cn ((LENGTH vs + LENGTH es) + 1)))
 ==>
 evaluate_ctxt env s (Ccon cn vs ()  es) v (s, Rerr (Rabort Rtype_error)))
 
 /\ (! env cn es vs v err s s'.
-(do_con_check env.c cn ((LENGTH vs + LENGTH es) +( 1 : num)) /\
+(do_con_check env.c cn ((LENGTH vs + LENGTH es) + 1) /\
 evaluate_list F env s es (s', Rerr err))
 ==>
 evaluate_ctxt env s (Ccon cn vs ()  es) v (s', Rerr err))
@@ -146,13 +146,13 @@ evaluate_ctxts s' cs res1 res2)
 evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)`;
 
 val _ = Hol_reln ` (! env e c res bv ffi refs st.
-(evaluate F env <| ffi := ffi; clock :=(( 0 : num)); refs := refs; defined_types := ({}); defined_mods := ({}) |> e (st, res) /\
+(evaluate F env <| ffi := ffi; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> e (st, res) /\
 evaluate_ctxts st c res bv)
 ==>
 evaluate_state (env, (refs, ffi), Exp e, c) bv)
 
 /\ (! env ffi refs v c bv.
-(evaluate_ctxts <| ffi := ffi; clock :=(( 0 : num)); refs := refs; defined_types := ({}); defined_mods := ({}) |> c (Rval v) bv)
+(evaluate_ctxts <| ffi := ffi; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> c (Rval v) bv)
 ==>
 evaluate_state (env, (refs, ffi), Val v, c) bv)`;
 val _ = export_theory()

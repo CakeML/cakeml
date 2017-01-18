@@ -25,6 +25,7 @@ type ctxt_frame =
    * The v list should be in reverse order. *)
   | Ccon of maybe (id modN conN) * list v * unit * list exp
   | Ctannot of unit * t
+  | Clannot of unit * locn
 type ctxt = ctxt_frame * sem_env v
 
 (* State for CEK-style expression evaluation
@@ -130,6 +131,8 @@ let continue s v cs =
           Eabort Rtype_error
     | (Ctannot () t, env) :: c ->
         return env s v c
+    | (Clannot () l, env) :: c ->
+        return env s v c
   end
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -186,6 +189,7 @@ let e_step (env, s, ev, c) =
                 Estep (<| env with v = build_rec_env funs env env.v |>,
                        s, Exp e, c)
           | Tannot e t -> push env s e (Ctannot () t) c
+          | Lannot e l -> push env s e (Clannot () l) c
         end
   end
 

@@ -703,7 +703,7 @@ to_small_st s = (s.refs,s.ffi)`;
 val to_small_res_def = Define `
 to_small_res r = (to_small_st (FST r), SND r)`;
 
-val s = ``s:'ffi state``
+val s = ``s:'ffi state``;
 
 val big_exp_to_small_exp = Q.prove (
   `(∀ck env ^s e r.
@@ -1185,6 +1185,7 @@ val big_exp_to_small_exp = Q.prove (
        >> rw []
        >- metis_tac [APPEND,e_step_add_ctxt]
        >> metis_tac [e_single_error_add_ctxt]))
+   >- cheat
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
        metis_tac [APPEND,e_step_add_ctxt, small_eval_list_rules])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
@@ -1328,6 +1329,7 @@ val one_step_backward = Q.prove (
           full_simp_tac(srw_ss())[] >>
           srw_tac[][] >>
           tac3)
+      >- tac3
       >- tac3)
  >- (full_simp_tac(srw_ss())[continue_def] >>
      cases_on `c` >>
@@ -1407,6 +1409,7 @@ val one_step_backward = Q.prove (
      full_simp_tac (srw_ss()++ARITH_ss++boolSimps.DNF_ss) [] >>
      ONCE_REWRITE_TAC [evaluate_cases] >>
      srw_tac[][] >>
+     cheat >>
      metis_tac [APPEND_ASSOC, APPEND, REVERSE_APPEND, REVERSE_REVERSE, REVERSE_DEF]));
 
 val evaluate_ctxts_type_error = Q.prove (

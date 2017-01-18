@@ -266,6 +266,12 @@ evaluate ck env s e bv
 ==>
 evaluate ck env s (Tannot e t) bv
 
+and
+
+locannot : forall ck env e l s bv.
+evaluate ck env s e bv
+==>
+evaluate ck env s (Lannot e l) bv
 
 and
 

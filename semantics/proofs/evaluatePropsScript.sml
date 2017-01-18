@@ -652,7 +652,7 @@ val option_CASE_fst_cong = Q.prove(
    (c, option_CASE r f (λb. g b))`,
   Cases_on`r` \\ fs[]);
 
-val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged
+val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
 
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
   (∀(s:'a state) env e s' r.
@@ -839,9 +839,12 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- rw[state_component_equality]
     \\ TOP_CASE_TAC \\ fs[]
-    \\ rw[state_component_equality] ))
+    \\ rw[state_component_equality] ));
 
 val _ = export_theory();

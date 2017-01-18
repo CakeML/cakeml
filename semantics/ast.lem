@@ -31,6 +31,9 @@ type typeN = string
 (* Type variable names *)
 type tvarN = string
 
+(* Source locations *)
+type locn = <| row : nat;  col : nat; offset : nat |>
+
 type word_size = W8 | W64
 
 type op =
@@ -161,6 +164,8 @@ type exp =
      is its parameter. *)
   | Letrec of list (varN * varN * exp) * exp
   | Tannot of exp * t
+  (* Location annotated expressions, not expected in source programs *)
+  | Lannot of exp * locn
 
 type type_def = list (list tvarN * typeN * list (conN * list t))
 

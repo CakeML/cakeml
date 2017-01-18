@@ -3,7 +3,7 @@ open terminationTheory
 
 val _ = new_theory"funBigStepEquiv"
 
-val s = ``s:'ffi state``
+val s = ``s:'ffi state``;
 
 val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
   `(∀^s env e. evaluate s env e = run_eval_list env e s) ∧
@@ -33,7 +33,7 @@ val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
    every_case_tac >> fs[dec_clock_def,evaluateTheory.dec_clock_def] >> rfs[] >>
    fs[state_transformerTheory.UNIT_DEF] >> rw[list_result_def] >>
    fs[set_store_def] >> rw[] >>
-   fs[FST_triple])
+   fs[FST_triple]);
 
 val functional_evaluate_list = Q.store_thm("functional_evaluate_list",
   `evaluate s env es = (s',r) ⇔ evaluate_list T env s es (s',r)`,

@@ -134,6 +134,9 @@ and
 evaluate st env [Tannot e t] =
   evaluate st env [e]
 and
+evaluate st env [Lannot e l] =
+  evaluate st env [e]
+and
 evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
 and
 evaluate_match st env v ((p,e)::pes) err_v  =

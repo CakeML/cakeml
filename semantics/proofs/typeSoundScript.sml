@@ -1492,6 +1492,15 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> first_x_assum irule
    >> rw []
    >> metis_tac [store_type_extension_refl])
+ >- (
+   pop_assum mp_tac
+   >> simp [Once type_e_cases]
+   >> rw []
+   >> rfs [is_value_def, bind_tvar_def]
+   >> fs [PULL_EXISTS]
+   >> first_x_assum irule
+   >> rw []
+   >> metis_tac [store_type_extension_refl])
  >- metis_tac [store_type_extension_refl]
  >- (
    fs [type_pes_def, RES_FORALL]

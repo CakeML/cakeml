@@ -52,6 +52,11 @@ val _ = type_abbrev( "typeN" , ``: string``);
 (* Type variable names *)
 val _ = type_abbrev( "tvarN" , ``: string``);
 
+(* Source locations *)
+val _ = Hol_datatype `
+ locn = <| row : num;  col : num; offset : num |>`;
+
+
 val _ = Hol_datatype `
  word_size = W8 | W64`;
 
@@ -216,7 +221,9 @@ val _ = Hol_datatype `
      The first varN is the function's name, and the second varN
      is its parameter. *)
   | Letrec of (varN # varN # exp) list => exp
-  | Tannot of exp => t`;
+  | Tannot of exp => t
+  (* Location annotated expressions, not expected in source programs *)
+  | Lannot of exp => locn`;
 
 
 val _ = type_abbrev( "type_def" , ``: ( tvarN list # typeN # (conN # t list) list) list``);
