@@ -85,6 +85,8 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp env (Tannot e t) = compile_exp env e)
   ∧
+  (compile_exp env (Lannot e l) = compile_exp env e)
+  ∧
   (compile_exps env [] = [])
   ∧
   (compile_exps env (e::es) =
