@@ -72,7 +72,7 @@ val lookup_var_empty = Q.prove(`
   lookup_var x (bind_tvar tvs Empty) tenv =
   lookup_var x Empty tenv`,
   rw[bind_tvar_def,lookup_var_def,lookup_varE_def]>>
-  EVERY_CASE_TAC>>fs[tveLookup_def])
+  EVERY_CASE_TAC>>fs[tveLookup_def]);
 
 (* TODO: This should be generalized eventually *)
 val env_rel_complete_bind = Q.store_thm("env_rel_complete_bind",`
@@ -84,7 +84,7 @@ val env_rel_complete_bind = Q.store_thm("env_rel_complete_bind",`
   >>
   match_mp_tac tscheme_approx_weakening>>qexists_tac`0`>>
   HINT_EXISTS_TAC>>
-  fs[t_wfs_def])
+  fs[t_wfs_def]);
 
 val infer_d_sound = Q.store_thm ("infer_d_sound",
   `!mn decls tenv ienv d st1 st2 decls' ienv'.
@@ -433,8 +433,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    >-
      (EVAL_TAC>>fs[])
    >-
-     (simp[ienv_to_tenv_def]>>
-     AP_TERM_TAC>>
+     (simp[ienv_to_tenv_def, tenv_add_tvs_def, convert_env_def, MAP2_ZIP]>>
      pop_assum mp_tac>>
      simp[Abbr`bindings`,MAP_MAP_o,o_DEF,MAP2_MAP,LENGTH_COUNT_LIST,LAMBDA_PROD,tenv_add_tvs_def,LIST_EQ_REWRITE,convert_env_def,EL_MAP]>>
      rw[]>>
