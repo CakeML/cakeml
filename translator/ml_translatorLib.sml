@@ -9,7 +9,6 @@ open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax packLib ml_progTheory ml_progLib
-exception IndLemma of {goal : term, ind_thm : thm, fst_snd_goals : thm list} (*TODO: delete*)
 
 infix \\ val op \\ = op THEN;
 
@@ -1567,7 +1566,6 @@ val prove_EvalPatRel_fail = ref T;
 val goal = !prove_EvalPatRel_fail;
 
 fun prove_EvalPatRel goal hol2deep = let
-  val _ = print "prove_EvalPatRel...\n"
   val asms =
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
@@ -1581,7 +1579,6 @@ fun prove_EvalPatRel goal hol2deep = let
   (*
     set_goal(asms,goal)
   *)
-  (* TODO: something less horrible *)
   fun tac2 (asms,concl) =
     (let
         val pmatch_asm = can (match_term ``pmatch _ _ _ _ _ = Match_type_error``)
@@ -1619,7 +1616,6 @@ fun prove_EvalPatRel goal hol2deep = let
     fs [build_conv_def,do_con_check_def] >>
     fs [Once evaluate_cases] >> every_case_tac >>
     rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
-  val _ = print "...prove_EvalPatRel done.\n"
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -1628,7 +1624,6 @@ val prove_EvalPatBind_fail = ref T;
 val goal = !prove_EvalPatBind_fail;
 
 fun prove_EvalPatBind goal hol2deep = let
-  val _ = print "prove_EvalPatBind...\n"
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> rand |> rand |> rator
                       |> dest_pabs
@@ -1701,11 +1696,8 @@ fun prove_EvalPatBind goal hol2deep = let
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
     \\ full_simp_tac std_ss [FORALL_PROD] \\ REPEAT STRIP_TAC
-(*    \\ fsrw_tac[][FORALL_PROD] \\ REPEAT STRIP_TAC*)
     \\ (MATCH_MP_TAC (D res) ORELSE
         MATCH_MP_TAC (D(res |> SIMP_RULE (std_ss) [FORALL_PROD])))
-(*    \\ (MATCH_MP_TAC (D res) ORELSE
-        MATCH_MP_TAC (D(res |> SIMP_RULE (std_ss) ([FORALL_PROD,w2n_n2w]@get_dimwords new_goal))))*)
     \\ fsrw_tac[][]
     \\ fsrw_tac[][EvalPatBind_def,Pmatch_def]
     \\ tac
@@ -1717,7 +1709,6 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ fsrw_tac[][GSYM FORALL_PROD,lookup_var_id_def,lookup_cons_def,LIST_TYPE_IF_ELIM]
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
     \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
-  val _ = print "prove_EvalPatBind done.\n"
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -3236,8 +3227,6 @@ val (fname,ml_fname,def,th,v) = hd thms
             [r]
           else
             []
-        fun free_in_var_closure concl x =
-          List.exists (fn x => free_in x concl) (eq_closure [x] var_equalities)
       in
         case List.find is_all_disj_of_ineq asms of
             NONE => tac
@@ -3256,36 +3245,6 @@ val (fname,ml_fname,def,th,v) = hd thms
                 | l => foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
             end
       end
-(*        case List.find is_all_ineq asms of
-            NONE =>
-            (case List.find is_all_disj_of_ineq asms of
-                 NONE => tac
-               | SOME asm =>
-                 let val asm' = snd(strip_forall asm)
-                     val disjuncts = strip_disj asm'
-                     val lsrs = map (dest_eq o rand) disjuncts
-                     fun case_split_tac (l,r) =
-(*                       if exists (free_in_var_closure concl) (free_vars r) then*)
-                         case case_split_vars (l,r) of
-                             [] => tac
-                           | x::_ => Cases_on [ANTIQUOTE x]
-(*                       else
-                         tac*)
-                 in
-                   foldr (fn (lr,t) => case_split_tac lr \\ t) ALL_TAC lsrs
-                 end)
-          | SOME asm =>
-            let val asm' = snd(strip_forall asm)
-                val (l,r) = dest_eq(rand asm')
-            in
-              if exists (free_in_var_closure concl) (free_vars r) then
-                case case_split_vars (l,r) of
-                    [] => tac
-                  | x::_ => Cases_on [ANTIQUOTE x]
-              else
-                tac
-            end
-      end*)
     (*
       set_goal([],goal)
     *)
@@ -3364,8 +3323,6 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ SIMP_TAC std_ss [UNCURRY_SIMP]
         \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
         \\ rpt(split_ineq_orelse_tac(metis_tac [])))
-      handle HOL_ERR e => (* TODO: remove *)
-             (raise(IndLemma {goal=goal,ind_thm=ind_thm,fst_snd_goals=map (fst o snd) goals}))
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 (*
 val (th,(fname,def,_,pre)) = hd (zip results thms)
