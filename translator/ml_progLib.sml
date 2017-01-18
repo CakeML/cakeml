@@ -267,13 +267,15 @@ fun unpack_ml_prog_state th =
 fun clean_state (ML_code (ss,envs,vs,th)) = let
   fun FIRST_CONJUNCT th = CONJUNCTS th |> hd handle HOL_ERR _ => th
   fun delete_def def = let
-    val name = def |> SPEC_ALL |> FIRST_CONJUNCT |> SPEC_ALL |> concl
-                   |> dest_eq |> fst |> repeat rator |> dest_const |> fst
-    in Theory.delete_binding (name ^ "_def") end
-  fun dd [] = []
-    | dd [def] = [def]
-    | dd (def::d::defs) = (delete_def d; dd (def::defs))
-  in (ML_code (dd ss,dd envs,tl (dd (TRUTH::vs)),th)) end
+    val {Name,Thy,Ty} =
+      def |> SPEC_ALL |> FIRST_CONJUNCT |> SPEC_ALL |> concl
+          |> dest_eq |> fst |> repeat rator |> dest_thy_const
+    in if not (Thy = Theory.current_theory()) then ()
+       else Theory.delete_binding (Name ^ "_def") end
+  fun split x = ([hd x], tl x) handle Empty => (x,x)
+  fun dd ls = let val (ls,ds) = split ls in app delete_def ds; ls end
+  val () = app delete_def vs
+  in (ML_code (dd ss, dd envs, [], th)) end
 
 (*
 

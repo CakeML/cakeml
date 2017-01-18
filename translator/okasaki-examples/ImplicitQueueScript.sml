@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib; val _ = new_theory "ImplicitQueue";
 
-open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory;
+open listTheory arithmeticTheory ml_translatorLib mllistProgTheory;
 
-val _ = translation_extends "mini_prelude";
+val _ = translation_extends "mllistProg";
 
 (* Okasaki page 174 *)
 

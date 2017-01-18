@@ -1,0 +1,2 @@
+INCLUDES = ../.. $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+OPTIONS = QUIT_ON_FAILURE

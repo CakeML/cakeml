@@ -124,7 +124,7 @@ val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_R
 val _ = translate (encode_header_def |> conv64_RHS)
 
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
-val inline_simp = SIMP_RULE std_ss [shift_def,bytes_in_word_def]
+val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def]
 
 val _ = translate (StoreEach_def |> inline_simp |> conv64)
 
@@ -318,10 +318,12 @@ val WORDLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,            
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_CMP_TYPE]);
+
 
 val WORDLANG_PROG_TYPE_types_match = Q.prove(
   `∀a b c d. WORDLANG_PROG_TYPE a b ∧ WORDLANG_PROG_TYPE c d ⇒ types_match b d`,
@@ -364,6 +366,7 @@ val WORDLANG_PROG_TYPE_types_match = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_CMP_TYPE])
 
 val WORDLANG_PROG_TYPE_11 = Q.prove(
@@ -430,6 +433,7 @@ val WORDLANG_PROG_TYPE_11 = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_CMP_TYPE]);
 
 val EqualityType_WORDLANG_PROG_TYPE = Q.prove(
@@ -651,8 +655,16 @@ val _ = translate(Compare_code_def|> inline_simp |> conv64)
 val _ = translate(Equal1_code_def|> inline_simp |> conv64)
 val _ = translate(Equal_code_def|> inline_simp |> SIMP_RULE std_ss [backend_commonTheory.closure_tag_def,backend_commonTheory.partial_app_tag_def] |> conv64)
 
+
+val _ = translate(LongDiv1_code_def|> inline_simp |> conv64)
+val _ = translate(LongDiv_code_def|> inline_simp |> conv64)
+
+val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv64)
+
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

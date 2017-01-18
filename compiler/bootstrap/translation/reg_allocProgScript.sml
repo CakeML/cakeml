@@ -224,4 +224,7 @@ val _ = TextIO.output(t,term_to_string prog)
 val _ = TextIO.closeOut(t)
 
 *)
+
+val _ = (ml_translatorLib.clean_on_exit := true);
+
 val _ = export_theory();

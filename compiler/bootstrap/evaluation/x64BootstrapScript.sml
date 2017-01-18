@@ -925,7 +925,7 @@ val () = Lib.say"Writing output: "
 
 val () = time (
   x64_exportLib.write_cake_S stack_mb heap_mb
-    (numSyntax.int_of_term ffi_names_tm)
+    (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
     bytes_tm ) filename
 
 val _ = export_theory();

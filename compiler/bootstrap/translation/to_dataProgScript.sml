@@ -1009,4 +1009,6 @@ val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
+val _ = (ml_translatorLib.clean_on_exit := true);
+
 val _ = export_theory();

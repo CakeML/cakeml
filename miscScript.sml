@@ -483,6 +483,13 @@ val take1 = Q.store_thm ("take1",
   `!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`,
   Induct_on `l` >> srw_tac[][]);
 
+val take1_drop = Q.store_thm (
+  "take1_drop",
+  `!n l. n < LENGTH l ==> (TAKE 1 (DROP n l) = [EL n l])`,
+  Induct_on `l` \\ rw[] \\
+  Cases_on `n` \\ rw[EL_restricted]
+);
+
 val SPLIT_LIST = Q.store_thm("SPLIT_LIST",
   `!xs.
       ?ys zs. (xs = ys ++ zs) /\

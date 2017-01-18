@@ -1,26 +1,2 @@
-INCLUDES = .. ../semantics ../semantics/alt_semantics/proofs ../lem_lib_stub ../explorer/pp/astPP ../translator $(HOLDIR)/examples/machine-code/hoare-triple ../compiler/parsing ../characteristic
+INCLUDES = .. pure ../translator ../characteristic
 OPTIONS = QUIT_ON_FAILURE
-
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../semantics/proofs/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-all: $(HOLHEAP)
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP)
-.PHONY: all
-
-PRE_BARE_THYS1 = astTheory tokensTheory semanticPrimitivesTheory
-
-PRE_BARE_THYS3 = determTheory bigClockTheory
-
-BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
-BARE_THYS3 =  $(patsubst %,../semantics/alt_semantics/proofs/%,$(PRE_BARE_THYS3))
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS3)) ../explorer/pp/astPP/astPP.uo $(PARENTHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2) ../explorer/pp/astPP/astPP
-endif
