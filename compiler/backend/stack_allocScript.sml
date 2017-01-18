@@ -172,9 +172,10 @@ val next_lab_pmatch = Q.store_thm("next_lab_pmatch",`∀p aux.` @
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
   rpt strip_tac
-  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
-  >> fs[Once next_lab_def] >> every_case_tac >> fs[]);
+  >> rw[Once next_lab_def]
+  >> every_case_tac >> fs[]);
 end
 
 local
@@ -210,9 +211,9 @@ val comp_pmatch = Q.store_thm("comp_pmatch",`∀n m p.` @
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
   rpt strip_tac
-  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
-  >> fs[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+  >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end 
 val prog_comp_def = Define `
   prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`

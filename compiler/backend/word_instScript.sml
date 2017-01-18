@@ -3,8 +3,8 @@ open preamble wordLangTheory stackLangTheory sortingTheory;
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (*Scheme:
 1) Pull all nested ops and consts as far up as possible and convert
@@ -93,7 +93,7 @@ val pull_exp_def = tDefine "pull_exp"`
    \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
 
-val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!exp.
+val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!(exp:'a exp).
   pull_exp exp =
   case exp of
    Op Sub ls => (
@@ -106,7 +106,7 @@ val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!exp.
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
-  | Shift shift exp nexp => Shift shift (pull_exp exp) nexp
+  | Shift sh exp nexp => Shift sh (pull_exp exp) nexp
   | exp => exp`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

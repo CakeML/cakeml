@@ -1042,11 +1042,11 @@ val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.
        | aq => aq)),
   rpt strip_tac
   >> Ho_Rewrite.PURE_REWRITE_TAC assign_pmatch_lemmas
-  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
   >> ASSUME_TAC(fetch "ast" "word_size_nchotomy")
   >> fs[assign_def]
-  >> metis_tac[])
+  >> Cases_on `w` >> fs[]);
 end
 
 val comp_def = Define `

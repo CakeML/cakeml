@@ -688,50 +688,6 @@ val get_clash_sets_def = Define`
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
 
-val get_clash_sets_pmatch = Q.store_thm("get_clash_sets_pmatch",`!prog live.
-  get_clash_sets prog live =
-  case prog of
-    Seq s1 s2 => (
-    let (hd,ls) = get_clash_sets s2 live in
-    let (hd',ls') = get_clash_sets s1 hd in
-      (hd',(ls' ++ ls)))
-  | MustTerminate s1 =>
-     get_clash_sets s1 live
-  | If cmp r1 ri e2 e3 => (
-    let (h2,ls2) = get_clash_sets e2 live in
-    let (h3,ls3) = get_clash_sets e3 live in
-    let union_live = union h2 h3 in
-    let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
-                      | _ => insert r1 () union_live in
-      (merged,ls2++ls3))
-  | Call (SOME(v,cutset,ret_handler,l1,l2)) dest args h => (
-    (*top level*)
-    let args_set = numset_list_insert args LN in
-    let (hd,ls) = get_clash_sets ret_handler live in
-    (*Outer liveset*)
-    let live_set = union cutset args_set in
-    (*Returning clash set*)
-    let ret_clash = insert v () cutset in
-    (case h of
-      NONE => (live_set,ret_clash::hd::ls)
-    | SOME(v',prog,l1,l2) =>
-        let (hd',ls') = get_clash_sets prog live in
-        (*Handler clash set*)
-        let h_clash = insert v' () cutset in
-        (live_set,h_clash::ret_clash::hd::hd'::ls++ls')))
-  (*Catchall for cases where we dont have in sub programs live sets*)
-  | prog =>
-    let i_set = union (get_writes prog) live in
-      (get_live prog live,[i_set])`,
-  rpt strip_tac
-  >> rpt(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
-  >> rpt strip_tac >> TRY(PURE_REWRITE_TAC [LET_DEF] >> BETA_TAC))
-  >> fs [get_clash_sets_def,pairTheory.ELIM_UNCURRY] >> every_case_tac
-  >> fs[] >> TRY(metis_tac[pair_CASES])
-  >> Cases_on `prog` >> fs[get_clash_sets_def] >> Cases_on `o'`
-  >> fs[get_clash_sets_def] >> metis_tac[pair_CASES]);
-
-
 (* Potentially more efficient liveset representation for checking / allocation*)
 val get_delta_inst_def = Define`
   (get_delta_inst Skip = Delta [] []) ∧
@@ -839,14 +795,15 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
     get_prefs prog (get_prefs ret_handler acc)
     | prog => acc`,
   rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> fs[get_prefs_def,pairTheory.ELIM_UNCURRY]
-  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac      
+  >> every_case_tac
+  >> fs [get_prefs_def]
+  >- (rpt(POP_ASSUM MP_TAC)
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)  
   >> ho_match_mp_tac (theorem "get_prefs_ind")
-  >> rpt strip_tac
-  >> fs[get_prefs_def]
-  >> rpt(Cases_on `h` ORELSE Cases_on `x` ORELSE Cases_on `r` ORELSE Cases_on `r'`)
-  >> fs[]);
+  >> rpt strip_tac >> fs[Once get_prefs_def]
+  >> every_case_tac >> metis_tac[pair_CASES]));
 
 (* Forced edges for certain instructions
   At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
@@ -930,17 +887,19 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
       get_forced c prog (get_forced c ret_handler acc)
     | _ => acc)`,
   rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
   >> fs[get_forced_def]
+  >> rpt(POP_ASSUM MP_TAC)
   >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
   >> ho_match_mp_tac (theorem "get_forced_ind")
   >> rpt strip_tac
   >> fs[get_forced_def]
   >> every_case_tac
-  >> fs [] >> Cases_on `r'` >> fs[])
+  >> fs[]
+  >> metis_tac[pair_CASES])
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`

@@ -361,23 +361,23 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
   | p => (p, cs)`,
   rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
+  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
      >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]  
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
-  >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-     >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
+  >- (CONV_TAC(RAND_CONV(patternMatchesLib.PMATCH_ELIM_CONV))
+              >> every_case_tac >> fs[Once const_fp_loop_def])
+  >- (CONV_TAC(RAND_CONV(patternMatchesLib.PMATCH_ELIM_CONV))
+      >> every_case_tac >> fs[const_fp_loop_def])
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >> Cases_on `p` >> fs[const_fp_loop_def]);
+  >> Cases_on `p` >> fs[const_fp_loop_def] >> every_case_tac >> fs[pairTheory.ELIM_UNCURRY]);
 
 val const_fp_loop_ind = fetch "-" "const_fp_loop_ind";
 

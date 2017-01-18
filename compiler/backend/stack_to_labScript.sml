@@ -86,9 +86,9 @@ val flatten_pmatch = Q.store_thm("flatten_pmatch",`∀p n m.` @
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
   rpt strip_tac
-  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
-  >> fs[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+  >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end 
 
 val prog_to_section_def = Define `

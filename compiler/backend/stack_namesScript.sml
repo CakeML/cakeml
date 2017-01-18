@@ -74,10 +74,11 @@ val comp_pmatch = Q.store_thm("comp_pmatch",`∀f p.` @
   (comp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
-  rpt strip_tac
-  >> CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV
-  >> rpt strip_tac
-  >> fs[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+  rpt(
+    rpt strip_tac
+    >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+    >> every_case_tac
+    >> fs[Once comp_def]));
 end
 
 val prog_comp_def = Define `
