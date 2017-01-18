@@ -146,6 +146,12 @@ true
 ==>
 evaluate_ctxt env s (Ctannot () t) v (s, Rval v)
 
+and
+
+tannot : forall env v s l.
+true
+==>
+evaluate_ctxt env s (Clannot () l) v (s, Rval v)
 
 indreln
 [evaluate_ctxts : forall 'ffi. state 'ffi -> list ctxt -> result v v -> state 'ffi * result v v -> bool]

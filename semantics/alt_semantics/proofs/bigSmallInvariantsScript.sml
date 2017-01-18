@@ -118,8 +118,12 @@ evaluate_ctxt env s (Ccon cn vs ()  es) v (s', Rerr err))
 /\ (! env v s t.
 T
 ==>
-evaluate_ctxt env s (Ctannot ()  t) v (s, Rval v))`;
+evaluate_ctxt env s (Ctannot ()  t) v (s, Rval v))
 
+/\ (! env v s l.
+T
+==>
+evaluate_ctxt env s (Clannot ()  l) v (s, Rval v))`;
 
 val _ = Hol_reln ` (! res s.
 T
