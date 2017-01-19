@@ -306,9 +306,7 @@ val exhaustive_env_correct_exh_weak = Q.store_thm("exhaustive_env_correct_exh_we
   res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> simp[])
 
-  (*
-
-val envC_tagged_extend = Q.prove(
+val envC_tagged_extend = Q.prove (
   `!envC tagenv gtagenv gtagenv' cenv acc mn.
     gtagenv_weak gtagenv gtagenv' ∧
     envC_tagged envC tagenv gtagenv ∧
@@ -318,79 +316,75 @@ val envC_tagged_extend = Q.prove(
     ⇒
     envC_tagged (nsAppend (FOLDR nsLift cenv mn) envC)
       (nsAppend (FOLDR nsLift acc mn) tagenv) gtagenv'`,
-
-  induct_on `mn` >>
-  rw []
+  rw [envC_tagged_def, lookup_tag_env_def, nsLookup_nsAppend_some,
+      nsLookup_FOLDR_nsLift_some, nsLookupMod_FOLDR_nsLift_none]
+  >- metis_tac []
   >- (
-    fs [envC_tagged_def, nsLookup_nsAppend_some, lookup_tag_env_def] >>
-    rw []
-    >- (
-      first_x_assum drule >>
-      rw [] >>
-      rw [])
-    >- (
-      first_x_assum drule >>
-      rw [] >>
-      fs [gtagenv_weak_def] >>
-      drule (GEN_ALL FLOOKUP_SUBMAP) >>
-      disch_then drule >>
-      rw [] >>
-      qexists_tac `z` >>
-      rw [] >>
-      disj2_tac >>
-      rw []
-      >- metis_tac [nsLookup_nsDom, option_nchotomy, NOT_SOME_NONE] >>
-      ...))
-  >- (
-    rw [envC_tagged_def] >>
     first_x_assum drule >>
-    rpt (disch_then drule) >>
-    simp [envC_tagged_def, lookup_tag_env_def] >>
-    Cases_on `cn` >>
-    fs [nsLookup_nsLift_append]
+    rw [] >>
+    metis_tac [])
+  >- (
+    first_x_assum drule >>
+    rw [] >>
+    qexists_tac `tag` >>
     rw []
-    disch_then irule
+    >- (
+      `!mn. nsLookupMod acc mn = NONE ⇔ nsLookupMod cenv mn = NONE`
+      by (
+        fs [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+        metis_tac [option_nchotomy, NOT_SOME_NONE]) >>
+      `!mn mn'. nsLookup (FOLDR nsLift acc mn') mn = NONE ⇔ nsLookup (FOLDR nsLift cenv mn') mn = NONE`
+      by (
+        rw [] >>
+        `(?x. nsLookup (FOLDR nsLift acc mn'') mn' = SOME x) ⇔
+         (?x. nsLookup (FOLDR nsLift cenv mn'') mn' = SOME x)`
+        suffices_by metis_tac [option_nchotomy, NOT_SOME_NONE] >>
+        simp [nsLookup_FOLDR_nsLift_some] >>
+        metis_tac [nsLookup_nsDom]) >>
+      metis_tac [])
+    >- metis_tac [gtagenv_weak_def, FLOOKUP_SUBMAP]));
 
-
-  Cases_on`mn`>>simp[modSemTheory.mod_cenv_def,mod_tagenv_def,merge_alist_mod_env_def,flat_envC_tagged_def] >- (
-    srw_tac[][lookup_alist_mod_env_def,lookup_tag_env_def,lookup_tag_flat_def,FLOOKUP_FUNION,ALOOKUP_APPEND] >>
-    first_x_assum(qspec_then`cn`mp_tac) >>
-    pop_assum mp_tac >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-        imp_res_tac ALOOKUP_NONE >>
-        `FLOOKUP acc a = NONE` by (
-          full_simp_tac(srw_ss())[FLOOKUP_DEF] ) >>
-        simp[] >> strip_tac >>
-        full_simp_tac(srw_ss())[gtagenv_weak_def] >>
-        metis_tac[FLOOKUP_SUBMAP] ) >>
-      strip_tac >> BasicProvers.VAR_EQ_TAC >>
-      first_x_assum(fn th => first_assum (mp_tac o MATCH_MP th)) >>
-      simp[astTheory.id_to_n_def] >> strip_tac >>
-      BasicProvers.CASE_TAC >> simp[] >- (
-        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
-      BasicProvers.CASE_TAC >> simp[] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
-    BasicProvers.CASE_TAC >>
-    strip_tac >>
-    full_simp_tac(srw_ss())[gtagenv_weak_def] >>
-    metis_tac[FLOOKUP_SUBMAP] ) >>
-  simp[lookup_alist_mod_env_def,lookup_tag_flat_def,lookup_tag_env_def,FLOOKUP_UPDATE] >>
-  srw_tac[][] >>
-  first_x_assum(qspec_then`cn`mp_tac) >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-    full_simp_tac(srw_ss())[gtagenv_weak_def] >>
-    metis_tac[FLOOKUP_SUBMAP] ) >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[FLOOKUP_UPDATE, FLOOKUP_FUNION] >- (
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    simp[astTheory.id_to_n_def] >> srw_tac[][]  >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
-  pop_assum mp_tac >>
-  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  metis_tac[gtagenv_weak_def,FLOOKUP_SUBMAP]);
-*)
+val envC_tagged_extend_error = Q.prove (
+  `!envC tagenv gtagenv gtagenv' acc mn.
+    (!m p. m ∈ nsDomMod envC ∧ p ≼ m ⇒ ~(p ≼ mn)) ∧
+    gtagenv_weak gtagenv gtagenv' ∧
+    envC_tagged envC tagenv gtagenv ∧
+    nsDomMod acc = {[]}
+    ⇒
+    envC_tagged envC (nsAppend (FOLDR nsLift acc mn) tagenv) gtagenv'`,
+  rw [envC_tagged_def, lookup_tag_env_def, nsLookup_nsAppend_some] >>
+  first_x_assum drule >>
+  rw [] >>
+  qexists_tac `tag` >>
+  reverse (rw [])
+  >- metis_tac [gtagenv_weak_def, FLOOKUP_SUBMAP] >>
+  rw [] >>
+  qexists_tac `z` >>
+  rw [] >>
+  imp_res_tac nsLookup_to_nsLookupMod >>
+  rw [] >>
+  `id_to_mods cn ∈ nsDomMod envC`
+  by fs [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  first_x_assum drule >>
+  rw [] >>
+  `nsLookup (FOLDR nsLift acc mn) cn = NONE`
+  by (
+    CCONTR_TAC >>
+    `?x. nsLookup (FOLDR nsLift acc mn) cn = SOME x`
+    by metis_tac [option_nchotomy, NOT_SOME_NONE] >>
+    fs [nsLookup_FOLDR_nsLift_some] >>
+    fs []
+    >- (
+      first_x_assum (qspec_then `[]` mp_tac) >>
+      simp [])
+    >- (
+      first_x_assum (qspec_then `mn` mp_tac) >>
+      simp [])) >>
+  rw [nsLookupMod_FOLDR_nsLift_none] >>
+  fs [] >>
+  first_x_assum (qspec_then `mn` mp_tac) >>
+  simp [] >>
+  fs [IS_PREFIX_APPEND]);
 
 (* value relation *)
 
@@ -687,7 +681,6 @@ val match_result_rel_def = Define
 
 val invariant_def = Define `
   invariant envC tagenv_st gtagenv s s_i2 ⇔
-    (*set (MAP FST (FST envC)) ⊆ s.defined_mods ∧*)
     (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ s.defined_types) ∧
     (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ id_to_mods (Long mn x) ∈ s.defined_mods) ∧
     cenv_inv envC (get_exh tagenv_st) (get_tagenv ((tagenv_st,nsEmpty):tagenv_state_acc)) gtagenv ∧
@@ -2374,6 +2367,22 @@ val compile_decs_dummy_env_num_defs =prove(
   srw_tac[][] >>
   simp[modSemTheory.dec_to_dummy_env_def,conLangTheory.num_defs_def,compile_funs_map]);
 
+val compile_decs_acc_flat = Q.prove (
+  `!st ds next' tagenv' exh' acc' ds'.
+    compile_decs st ds = (((next',tagenv',exh'),acc'),ds')
+    ⇒
+    nsDomMod acc' = nsDomMod (SND st)`,
+  Induct_on `ds` >>
+  rw [compile_decs_def] >>
+  every_case_tac >>
+  fs [] >>
+  pairarg_tac >>
+  fs [] >>
+  rw [] >>
+  first_x_assum drule >>
+  rw [] >>
+  cheat);
+
 val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
   `!env s prompt s_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
     evaluate_prompt env s prompt = (s', envC', genv', res) ∧
@@ -2410,13 +2419,16 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     simp [PULL_EXISTS] >>
     imp_res_tac FDOM_compile_decs_exh >>
     full_simp_tac(srw_ss())[get_exh_def] >>
-     (*
+    (*
     conj_tac >- (
-      Cases_on`env.c`>> Cases_on`mn`>>
       simp[modSemTheory.update_mod_state_def] >>
       full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
       imp_res_tac modPropsTheory.evaluate_decs_state_const >>
-      full_simp_tac(srw_ss())[]) >>
+      full_simp_tac(srw_ss())[] >>
+      rw [] >>
+      every_case_tac >>
+      fs [] >>
+      fs [envC_tagged_def] >>
       *)
     conj_tac >- (
       imp_res_tac modPropsTheory.evaluate_decs_tids >> full_simp_tac(srw_ss())[] >>
@@ -2439,10 +2451,10 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     conj_tac >- (
       full_simp_tac(srw_ss())[cenv_inv_def] >>
       simp[get_tagenv_def] >>
-      cheat
-      (*match_mp_tac envC_tagged_extend >>
+      irule envC_tagged_extend >>
       simp[] >>
-      PairCases_on`tagenv_st`>>full_simp_tac(srw_ss())[get_tagenv_def]*) ) >>
+      PairCases_on`tagenv_st`>>full_simp_tac(srw_ss())[get_tagenv_def] >>
+      metis_tac []) >>
     rpt var_eq_tac >>
     full_simp_tac(srw_ss())[s_rel_cases,vs_rel_list_rel] >>
     match_mp_tac EVERY2_APPEND_suff >> full_simp_tac(srw_ss())[] >>
@@ -2462,10 +2474,14 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     full_simp_tac(srw_ss())[get_exh_def] >>
     (*
     conj_tac >- (
-      Cases_on`env.c`>> Cases_on`mn`>>
-      simp[modSemTheory.mod_cenv_def,modSemTheory.update_mod_state_def,merge_alist_mod_env_def] >>
+      simp[modSemTheory.update_mod_state_def] >>
       full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
-      imp_res_tac modPropsTheory.evaluate_decs_state_const >> full_simp_tac(srw_ss())[]) >>
+      imp_res_tac modPropsTheory.evaluate_decs_state_const >>
+      full_simp_tac(srw_ss())[] >>
+      rw [] >>
+      every_case_tac >>
+      fs [] >>
+      metis_tac []) >>
       *)
     conj_tac >- (
       imp_res_tac modPropsTheory.evaluate_decs_tids_acc >> full_simp_tac(srw_ss())[] >>
@@ -2500,36 +2516,13 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
       full_simp_tac(srw_ss())[cenv_inv_def] >>
       simp[get_tagenv_def] >>
       PairCases_on`tagenv_st`>>full_simp_tac(srw_ss())[get_tagenv_def] >>
-      full_simp_tac(srw_ss())[envC_tagged_def] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[get_exh_def] >>
-      first_x_assum(fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
-      cheat
-      (*
-      `∀m a. mn = SOME m ⇒ cn ≠ Long m a` by (
-        Cases_on`env.c`>>full_simp_tac(srw_ss())[lookup_alist_mod_env_def] >>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-        spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
-        every_case_tac >> full_simp_tac(srw_ss())[] >>
-        imp_res_tac ALOOKUP_MEM >>
-        full_simp_tac(srw_ss())[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
-        res_tac >> full_simp_tac(srw_ss())[] ) >>
-      Cases_on`mn`>>simp[mod_tagenv_def] >> full_simp_tac(srw_ss())[lookup_tag_env_def] >>
-      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[gtagenv_weak_def]
+      irule envC_tagged_extend_error >>
+      rw []
+      >- cheat
       >- (
-        full_simp_tac(srw_ss())[lookup_tag_flat_def,FLOOKUP_FUNION] >>
-        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
-        >- metis_tac[FLOOKUP_SUBMAP] >>
-        Cases_on`env.c`>>full_simp_tac(srw_ss())[lookup_alist_mod_env_def]>>
-        full_simp_tac(srw_ss())[modSemTheory.prompt_mods_ok_def] >>
-        Cases_on`ds`>>full_simp_tac(srw_ss())[compile_decs_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
-        Cases_on`t'`>>fsrw_tac[ARITH_ss][]>>
-        full_simp_tac(srw_ss())[LET_THM,compile_decs_def] >>
-        Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
-        full_simp_tac(srw_ss())[modSemTheory.evaluate_decs_def,modSemTheory.evaluate_dec_def,LET_THM] >>
-        every_case_tac >> full_simp_tac(srw_ss())[])
-      >- metis_tac[FLOOKUP_SUBMAP]
-      >- metis_tac[FLOOKUP_SUBMAP]
-      >- ( simp[FLOOKUP_UPDATE] >> metis_tac[FLOOKUP_SUBMAP])*)) >>
+        drule compile_decs_acc_flat >>
+        simp [])
+      >- metis_tac []) >>
     rpt var_eq_tac >>
     conj_tac >- (
       full_simp_tac(srw_ss())[s_rel_cases] >>
