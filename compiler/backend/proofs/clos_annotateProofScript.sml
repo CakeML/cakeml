@@ -23,6 +23,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (EVERY2 v_rel (xs:closSem$v list) (ys:closSem$v list) ==>
    v_rel (Block t xs) (Block t ys))
   /\
+  (v_rel (ByteVector ws) (ByteVector ws))
+  /\
   (v_rel (RefPtr r1) (RefPtr r1))
   /\
   ((shift (FST (free [c])) m num_args i = [c']) /\
@@ -62,11 +64,13 @@ val v_rel_simp = let
   in map f [``v_rel (Number x) y``,
             ``v_rel (Word64 n) y``,
             ``v_rel (Block n l) y``,
+            ``v_rel (ByteVector ws) y``,
             ``v_rel (RefPtr x) y``,
             ``v_rel (Closure n l v x w) y``,
             ``v_rel (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel y (Number x)``,
             ``v_rel y (Block n l)``,
+            ``v_rel y (ByteVector ws)``,
             ``v_rel y (RefPtr x)``,
             ``v_rel y (Closure n l v x w)``,
             ``v_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
@@ -312,6 +316,21 @@ val do_app_thm = Q.prove(
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
+  THEN1 (* DerefByteVec *)
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
+    \\ METIS_TAC[LIST_REL_LENGTH])
+  THEN1 (* LengthByteVec *)
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
+    \\ METIS_TAC[LIST_REL_LENGTH])
+  THEN1 (* FromListByte *)
+   (fs[do_app_def] \\ every_case_tac \\ fs[]
+    \\ rpt (qpat_x_assum`$some _ = _`mp_tac)
+    \\ rpt (DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
+    \\ IMP_RES_TAC v_to_list \\ fs[] \\ rw[]
+    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_simp]
+    \\ rfs[EL_MAP] \\ qexists_tac`x` \\ rw[EL_MAP])
   THEN1 (* FromList *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
@@ -417,6 +436,7 @@ val do_app_thm = Q.prove(
 val v_rel_Number = prove(
   ``(v_rel x (Number i) <=> (x = Number i)) /\
     (v_rel (Number i) x <=> (x = Number i)) /\
+    (v_rel (ByteVector ws) x <=> (x = ByteVector ws)) /\
     (v_rel x (Word64 w) <=> (x = Word64 w)) /\
     (v_rel (Word64 w) x <=> (x = Word64 w))``,
   once_rewrite_tac [v_rel_cases] \\ fs []);
