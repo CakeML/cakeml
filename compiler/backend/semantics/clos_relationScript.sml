@@ -66,6 +66,8 @@ val val_rel_def = tDefine "val_rel" `
   wd = wd') ∧
 (val_rel (:'ffi) (i:num) w (Block n vs) (Block n' vs') ⇔
   n = n' ∧ LIST_REL (val_rel (:'ffi) i w) vs vs') ∧
+(val_rel (:'ffi) (i:num) w (ByteVector ws) (ByteVector ws') ⇔
+  ws = ws') ∧
 (val_rel (:'ffi) (i:num) w (RefPtr p) (RefPtr p') ⇔ p = p') ∧
 (val_rel (:'ffi) (i:num) w cl cl' ⇔
   if is_closure cl ∧ is_closure cl' ∧ check_closures cl cl' then
@@ -1166,6 +1168,26 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        simp [OPTREL_SOME] >>
        srw_tac[][] >>
        srw_tac[][val_rel_rw])
+     >- (
+       pop_assum mp_tac >>
+       DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac >>
+       imp_res_tac v_to_list_val_rel \\ rfs[OPTREL_SOME] >>
+       `z = MAP (Number o $&) ns` by (
+         fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\
+         rw[] \\ rfs[] \\ first_x_assum drule \\
+         Cases_on`EL x z` \\ rw[val_rel_rw] ) \\
+       fs[] \\
+       DEEP_INTRO_TAC some_intro \\ simp[] \\
+       reverse conj_tac >- metis_tac[] \\
+       simp[val_rel_rw] \\
+       rw[LIST_EQ_REWRITE,EL_MAP] \\
+       rfs[] \\ first_x_assum drule \\
+       rw[EL_MAP])
+     >- (Cases_on`y` \\ fs[val_rel_rw])
+     >- (fs[SWAP_REVERSE_SYM,PULL_EXISTS]
+         \\ Cases_on`y` \\ fs[val_rel_rw]
+         \\ CASE_TAC \\ fs[val_rel_rw]
+         \\ rveq \\ fs[val_rel_rw] )
      >- (Cases_on `y` >>
          full_simp_tac(srw_ss())[val_rel_rw,Boolv_def,LIST_REL_EL_EQN])
      >- (Cases_on `y` >>
@@ -2110,6 +2132,7 @@ val val_rel_refl = Q.store_thm ("val_rel_refl",
  >- srw_tac[][val_rel_rw]
  >- srw_tac[][val_rel_rw]
  >- srw_tac[][val_rel_rw]
+ >- srw_tac[][val_rel_rw]
  >- metis_tac [exp_rel_refl, compat_closure]
  >- metis_tac [exp_rel_refl, compat_recclosure]);
 
@@ -2184,6 +2207,17 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
    full_simp_tac(srw_ss())[val_rel_rw] >>
    match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] LIST_REL_trans) >>
    metis_tac [LIST_REL_LENGTH, MEM_EL, LIST_REL_EL_EQN])
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
  >- full_simp_tac(srw_ss())[val_rel_rw]
  >- full_simp_tac(srw_ss())[val_rel_rw]
  >- full_simp_tac(srw_ss())[val_rel_rw]
