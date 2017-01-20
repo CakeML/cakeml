@@ -66,7 +66,7 @@ val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
 val semantics_def = Define`
   semantics state prelude input =
-  case parse (lexer_fun input) of
+  case parse (MAP FST (lexer_fun input)) of
   | NONE => CannotParse
   | SOME prog =>
     if can_type_prog state (prelude ++ prog)

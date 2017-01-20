@@ -46,23 +46,31 @@ val is_single_char_symbol_def = Define `
 val isSymbol_def = Define `
   isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")`;
 
+(* Source locations 
+* TODO: duplicate with astScript *)
+val _ = Hol_datatype `
+ locn = <| row : num;  col : num; offset : num |>`;
+
 val read_string_def = tDefine "read_string" `
-  read_string str s =
-    if str = "" then (ErrorS,"") else
-    if HD str = #"\"" then (StringS s,TL str) else
-    if HD str = #"\n" then (ErrorS,TL str) else
-    if HD str <> #"\\" then read_string (TL str) (s ++ [HD str]) else
+  read_string str s loc =
+    if str = "" then (ErrorS, loc, "") else
+    if HD str = #"\"" then (StringS s, loc with col := loc.col, TL str) else
+    if HD str = #"\n" then (ErrorS, loc with <|row := loc.row + 1; col := 0|>, TL str) else
+    if HD str <> #"\\" then 
+      read_string (TL str) (s ++ [HD str]) (loc with col := loc.col + 1)
+    else
       case TL str of
-      | #"\\"::cs => read_string cs (s ++ "\\")
-      | #"\""::cs => read_string cs (s ++ "\"")
-      | #"n"::cs => read_string cs (s ++ "\n")
-      | #"t"::cs => read_string cs (s ++ "\t")
-      | _ => (ErrorS,TL str)`
+      | #"\\"::cs => read_string cs (s ++ "\\") (loc with col := loc.col + 2)
+      | #"\""::cs => read_string cs (s ++ "\"") (loc with col := loc.col + 2)
+      | #"n"::cs => read_string cs (s ++ "\n") (loc with <|row := loc.row + 1;
+                                                           col := 0|>)
+      | #"t"::cs => read_string cs (s ++ "\t") (loc with col := loc.col + 2)
+      | _ => (ErrorS, loc, TL str)`
   (WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
    THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC)
 
 val read_string_thm = Q.store_thm("read_string_thm",
-  `!s t x1 x2. (read_string s t = (x1,x2)) ==>
+  `!s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
                 (LENGTH x2 <= LENGTH s + LENGTH t)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
@@ -72,22 +80,27 @@ val read_string_thm = Q.store_thm("read_string_thm",
   THEN SRW_TAC [] [LENGTH] THEN RES_TAC THEN TRY DECIDE_TAC
   THEN SRW_TAC [] [LENGTH] THEN Cases_on `t'`
   THEN FULL_SIMP_TAC (srw_ss()) [] THEN CCONTR_TAC
-  THEN Q.PAT_X_ASSUM `(x1,x2) = xxx` MP_TAC
+  THEN Q.PAT_X_ASSUM `(x1, l', x2) = xxx` MP_TAC
   THEN SIMP_TAC std_ss [] THEN SRW_TAC [] []
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
   THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
   THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
 
 val skip_comment_def = Define `
-  (skip_comment "" d = NONE) /\
-  (skip_comment [x] d = NONE) /\
-  (skip_comment (x::y::xs) d =
-     if [x;y] = "(*" then skip_comment xs (d+1) else
-     if [x;y] = "*)" then (if d = 0 then SOME xs else skip_comment xs (d-1))
-     else skip_comment (y::xs) d)`
+  (skip_comment "" d _ = NONE) /\
+  (skip_comment [x] d _ = NONE) /\
+  (skip_comment (x::y::xs) d loc =
+    if [x;y] = "(*" then 
+      skip_comment xs (d+1) (loc with col := loc.col + 2)
+    else if [x;y] = "*)" then 
+      (if d = 0 then SOME (xs, loc with col := loc.col + 2) 
+       else skip_comment xs (d-1) (loc with col := loc.col +2))
+    else if ORD x = 10 then 
+      skip_comment (y::xs) d <|row := loc.row +1; col := 0; offset := 0|>
+    else skip_comment (y::xs) d (loc with col := loc.col + 1))`
 
 val skip_comment_thm = Q.store_thm("skip_comment_thm",
-  `!xs d str. (skip_comment xs d = SOME str) ==> LENGTH str <= LENGTH xs`,
+  `!xs d l l' str. (skip_comment xs d l = SOME (str, l')) ==> LENGTH str <= LENGTH xs`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]
@@ -99,68 +112,87 @@ val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
 
 (* next_sym reads the next symbol from a string *)
+(* TODO: why do we need an option type? *)
 
 val next_sym_def = tDefine "next_sym" `
-  (next_sym "" = NONE) /\
-  (next_sym (c::str) =
-     if isSpace c then (* skip blank space *)
-       next_sym str
+  (next_sym "" _ = NONE) /\
+  (next_sym (c::str) loc =
+     if c = #"\n" then (* skip new line *)
+        next_sym str <| row := loc.row + 1; col := 1; offset := 0|>
+     else if isSpace c then (* skip blank space *)
+       next_sym str (loc with col := loc.col + 1)
      else if isDigit c then (* read number *)
-       if str <> "" /\ c = #"0" /\ HD str = #"w" then
-         if TL str = "" then SOME (ErrorS, [])
+       if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
+         if TL str = "" then SOME (ErrorS, (loc, loc), "")
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) [] in
-             SOME (WordS (num_from_dec_string n), rest)
+             SOME (WordS (num_from_dec_string n), 
+                   (loc, loc with col := loc.col + LENGTH n + 1), 
+                   rest)
          else if HD(TL str) = #"x" then
-             let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
-               SOME (WordS (num_from_hex_string n), rest)
-         else SOME (ErrorS, TL str)
+           let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
+             SOME (WordS (num_from_hex_string n),
+                   (loc, loc with col := loc.col + LENGTH n + 2),
+                   rest)
+         else SOME (ErrorS, (loc, loc), TL str)
        else
          let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string (c::n))), rest)
+           SOME (NumberS (&(num_from_dec_string (c::n))), 
+                 (loc, loc with col := loc.col + LENGTH n),
+                 rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (0- &(num_from_dec_string n)), rest)
+         SOME (NumberS (0- &(num_from_dec_string n)), 
+               (loc, loc with col := loc.col + LENGTH n),
+               rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
-         SOME (OtherS n, rest)
+         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
      else if c = #"\"" then (* read string *)
-       let (t,rest) = read_string str "" in
-         SOME (t, rest)
+       let (t, loc', rest) = read_string str "" (loc with col := loc.col + 1) in
+         SOME (t, (loc, loc'), rest)
      else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, TL str)
+       SOME (ErrorS, (loc, loc with col := loc.col +2), TL str)
      else if isPREFIX "#\"" (c::str) then
-       let (t,rest) = read_string (TL str) "" in
-         SOME (mkCharS t, rest)
+       let (t, loc', rest) = read_string (TL str) "" (loc with col := loc.col + 2) in
+         SOME (mkCharS t, (loc, loc'), rest)
      else if isPREFIX "(*" (c::str) then
-       case skip_comment (TL str) 0 of
-       | NONE => SOME (ErrorS, "")
-       | SOME rest => next_sym rest
+       case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
+       | NONE => SOME (ErrorS, (loc, loc with col := loc.col + 2), "")
+       | SOME (rest, loc') => next_sym rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], str)
+       SOME (OtherS [c], (loc, loc), str)
      else if isSymbol c then
        let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n, rest)
+         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
      else if isAlpha c then (* read identifier *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
               #"."::rest' =>
-                  (case rest' of
+                (case rest' of
                       c'::rest' =>
                         if isAlpha c' then
                           let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), rest'')
+                            SOME (LongS (n ++ "." ++ n'), 
+                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'),
+                                  rest'')
                         else if isSymbol c' then
                           let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), rest'')
-                             else
-                               SOME (ErrorS, rest')
-                    | "" => SOME (ErrorS, []))
-            | _ => SOME (OtherS n, rest)
-     else if c = #"_" then SOME (OtherS "_", str)
+                            SOME (LongS (n ++ "." ++ n'), 
+                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'), 
+                                  rest'')
+                        else
+                          SOME (ErrorS, 
+                                (loc, loc with col := loc.col + LENGTH n), 
+                                rest')
+                    | "" => SOME (ErrorS, 
+                                  (loc, loc with col := loc.col + LENGTH n),
+                                  []))
+            | _ => SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
+     else if c = #"_" then SOME (OtherS "_", (loc, loc), str)
      else (* input not recognised *)
-       SOME (ErrorS, str))`
-  (WF_REL_TAC `measure LENGTH` THEN REPEAT STRIP_TAC
+       SOME (ErrorS, (loc, loc), str))`
+ ( WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
    THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
@@ -195,24 +227,30 @@ val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
 
 
 val next_sym_LESS = Q.store_thm("next_sym_LESS",
-  `!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input`,
+  `!input l. (next_sym input l = SOME (s, l', rest)) 
+    ==> LENGTH rest < LENGTH input`,
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
   rveq >> fs[] >> rveq >> fs[] >>
-  MAP_EVERY imp_res_tac [read_while_thm,read_string_thm] >>
+  MAP_EVERY imp_res_tac [read_while_thm,read_string_thm] >> every_case_tac >>
   fs[listeq, optioneq, bool_case_eq] >> rveq >> fs[] >>
   TRY (rename1 `skip_comment` >>
        res_tac >> imp_res_tac skip_comment_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `UNCURRY` >>
        rpt (pairarg_tac>> fs[]) >> rveq >>
-       imp_res_tac read_while_thm >> simp[] >> NO_TAC))
+       imp_res_tac read_while_thm >> simp[] >> NO_TAC)
+  (* TODO simpler? *)
+  >> `STRLEN rest < STRLEN input` by fs[]
+  >> fs[]);
+
+val _ = Define ` init_loc = <| row := 1; col := 1; offset := 0|>`
+
 (*
 
-  EVAL ``next_sym "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
-  EVAL ``next_sym " (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
-  EVAL ``next_sym "0w10 +"``;
-  EVAL ``next_sym "0wx1A +"``;
+  EVAL ``next_sym " (* hi (* there \" *) *)\n  ~4 \" (* *)\" <= ;; " init_loc ``
+  EVAL ``next_sym "0w10 +" init_loc``;
+  EVAL ``next_sym "0wx1A +" init_loc``;
 
 *)
 
@@ -298,40 +336,46 @@ val token_of_sym_def = Define `
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
-  next_token input =
-    case next_sym input of
+  next_token input loc =
+    case next_sym input loc of
     | NONE => NONE
-    | SOME (sym, rest_of_input) => SOME (token_of_sym sym, rest_of_input)`;
+    | SOME (sym, locs, rest_of_input) => 
+        SOME (token_of_sym sym, locs, rest_of_input)`;
 
 val next_token_LESS = Q.store_thm("next_token_LESS",
-  `!s rest input. (next_token input = SOME (s,rest)) ==>
+  `!s l l' rest input. (next_token input l = SOME (s, l', rest)) ==>
                    LENGTH rest < LENGTH input`,
-  NTAC 3 STRIP_TAC THEN Cases_on `next_sym input`
+  NTAC 5 STRIP_TAC THEN Cases_on `next_sym input l`
   THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
-  THEN Cases_on `x` THEN ASM_SIMP_TAC (srw_ss()) []
+  THEN every_case_tac 
+  THEN ASM_SIMP_TAC (srw_ss()) []
   THEN IMP_RES_TAC next_sym_LESS THEN REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC std_ss []);
 
 (* top-level lexer specification *)
 
-val tac = WF_REL_TAC `measure LENGTH` THEN SRW_TAC [] [next_token_LESS];
-
-val lexer_fun_def = tDefine "lexer_fun" `
-  lexer_fun input =
-    case next_token input of
+val lexer_fun_aux_def = tDefine "lexer_fun_aux" `
+  lexer_fun_aux input loc =
+    case next_token input loc of
     | NONE => []
-    | SOME (token, rest_of_input) => token :: lexer_fun rest_of_input ` tac;
+    | SOME (token, (loc', loc''), rest_of_input) => 
+        (token, (loc', loc'')) :: 
+            lexer_fun_aux rest_of_input (loc'' with col := loc''.col +1)`
+    (WF_REL_TAC `measure (LENGTH o FST)` >> rw[] >> imp_res_tac next_token_LESS);
+
+val lexer_fun_def = Define` lexer_fun input = lexer_fun_aux input init_loc`;
 
 (*
 
   A few tests:
 
     EVAL ``lexer_fun "3 (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``;
+    EVAL ``lexer_fun "3 (* hi (* there  *) *) ~4 \" (* *)\" <= ;; "``;
     EVAL ``lexer_fun "a b cd c2 c3'"``;
     EVAL ``lexer_fun "'a 'b '2"``;
     EVAL ``lexer_fun "'"``;
     EVAL ``lexer_fun "0w10 + 0wxAa3F"``;
-    EVAL ``lexer_fun "0w"``;
+    EVAL ``lexer_fun "0w"`;
 
 *)
 
@@ -339,7 +383,7 @@ val lexer_fun_def = tDefine "lexer_fun" `
 
 val toplevel_semi_dex_def = Define`
   (toplevel_semi_dex (i:num) (d:num) [] = NONE) /\
-  (toplevel_semi_dex i d (h::t) =
+  (toplevel_semi_dex i d ((h,l)::t) =
     if h = SemicolonT /\ (d = 0) then SOME (i+1)
     else if h = LetT then toplevel_semi_dex (i + 1) (d + 1) t
     else if h = StructT then toplevel_semi_dex (i + 1) (d + 1) t
@@ -352,10 +396,11 @@ val toplevel_semi_dex_def = Define`
 val toplevel_semi_dex_non0 = Q.prove (
 `!i d toks j. (toplevel_semi_dex i d toks = SOME j) ==> 0 < j`,
 induct_on `toks` >>
-rw [toplevel_semi_dex_def] >>
-TRY (Cases_on `d`) >> FULL_SIMP_TAC (srw_ss()) [] >>
-TRY (Cases_on `h`) >> FULL_SIMP_TAC (srw_ss()) [] >>
-RES_TAC >> DECIDE_TAC);
+fs [toplevel_semi_dex_def] >>
+TRY (Cases_on `d`) >> fs[] >>
+TRY (Cases_on `h`) >> fs[] >>
+TRY (Cases_on `q`) >> fs[toplevel_semi_dex_def] >>
+prove_tac[]);
 
 val split_top_level_semi_def = tDefine "split_top_level_semi" `
 (split_top_level_semi toks =
