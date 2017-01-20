@@ -12,8 +12,7 @@ val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (Word8 w)) = (Number (& (w2n w)))) ∧
   (compile_v (Litv (Word64 w)) = (Word64 w)) ∧
   (compile_v (Litv (Char c)) = (Number (& ORD c))) ∧
-  (compile_v (Litv (StrLit s)) =
-    (Block string_tag (MAP (Number o $& o ORD) s))) ∧
+  (compile_v (Litv (StrLit s)) = (ByteVector (MAP (n2w o ORD) s))) ∧
   (compile_v (Loc m) = (RefPtr m)) ∧
   (compile_v (Conv cn vs) = (Block cn (MAP (compile_v) vs))) ∧
   (compile_v (Vectorv vs) = (Block vector_tag (MAP (compile_v) vs))) ∧
@@ -64,13 +63,9 @@ val do_eq = Q.store_thm("do_eq",
   ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
-    Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def,ORD_11] >>
-    TRY(rw[] >> pop_assum mp_tac >> rw[] >> NO_TAC) >>
-    qid_spec_tac`s'` >>
-    Induct_on`s` >> simp[LENGTH_NIL_SYM,closSemTheory.do_eq_def] >> rw[] >>
-    TRY (
-      spose_not_then strip_assume_tac >> rw[] >> fs[] >> NO_TAC) >>
-    Cases_on`s'`>>fs[closSemTheory.do_eq_def,ORD_11] >> rw[]) >>
+    Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def] >>
+    rw[LIST_EQ_REWRITE,EL_MAP,EQ_IMP_THM] \\ rfs[EL_MAP] \\ res_tac
+    \\ fs[ORD_11,ORD_BOUND]) >>
   conj_tac >- rw[ETA_AX] >>
   conj_tac >- rw[ETA_AX] >>
   rw[] >>
@@ -158,8 +153,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     Cases_on`l`>>
     rw[evaluate_def,do_app_def] >> rw[] >>
-    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF] >>
-    every_case_tac \\ simp[]) >>
+    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF]) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def] >>
     every_case_tac >> fs[] >>
@@ -478,12 +472,17 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         `F` suffices_by rw[] \\
         intLib.COOPER_TAC) >>
       rpt strip_tac >> rpt var_eq_tac >>
-      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] )
+      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP,ORD_BOUND] )
     >- ( (* Implode *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       imp_res_tac v_to_char_list >>
-      simp[IMPLODE_EXPLODE_I])
+      simp[IMPLODE_EXPLODE_I] >>
+      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+      qexists_tac`MAP ORD ls` \\
+      simp[MAP_MAP_o,EVERY_MAP,ORD_BOUND] \\
+      rw[LIST_EQ_REWRITE,EL_MAP,ORD_BOUND] \\ rfs[]
+      \\ fs[EL_MAP] \\ metis_tac[ORD_BOUND])
     >- ( (* Strlen *)fs[MAP_REVERSE] >>simp[evaluate_def,ETA_AX,do_app_def] )
     >- ( (* FromList *)
       fs[MAP_REVERSE] >>
@@ -756,8 +755,6 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
   `∀e. set_globals e = set_globals (compile e)`,
   ho_match_mp_tac compile_ind >>
   rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse]
-  >-
-    (Induct_on`s`>>fs[op_gbag_def])
   >>
     TRY
     (TRY(qpat_x_assum`LENGTH es ≠ A` kall_tac)>>

@@ -25,7 +25,7 @@ val compile_def = tDefine"compile"`
   (compile (Lit (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (compile (Lit (StrLit s)) =
-    Op FromListByte (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
+    Op (String s) []) ∧
   (compile (Con cn es) =
     Op (Cons cn) (REVERSE (MAP compile es))) ∧
   (compile (Var_local n) =
@@ -131,7 +131,7 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op Implode)) es) =
     Op (FromListByte) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strlen)) es) =
-    Op LengthBlock (REVERSE (MAP compile es))) ∧
+    Op LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op VfromList)) es) =
     Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Vsub)) es) =

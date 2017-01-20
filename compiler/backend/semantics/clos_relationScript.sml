@@ -1067,6 +1067,15 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[do_app_def, val_rel_rw]
+     >> TRY (
+       fs[SWAP_REVERSE_SYM] >>
+       Cases_on`y` >>
+       fs[val_rel_rw, Boolv_def, LIST_REL_EL_EQN, ref_v_rel_rw] >>
+       imp_res_tac state_rel_refs >>
+       fs[val_rel_rw, Boolv_def, LIST_REL_EL_EQN, ref_v_rel_rw] >> rw[val_rel_rw] >>
+       Cases_on `y'` >>
+       fs[val_rel_rw, Boolv_def, LIST_REL_EL_EQN, ref_v_rel_rw] >> rw[val_rel_rw] >>
+       NO_TAC)
      >- ((* global lookup *)
        imp_res_tac get_global_state_rel >>
        pop_assum (qspec_then `n` mp_tac) >>
@@ -1103,26 +1112,6 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        \\ BasicProvers.CASE_TAC \\ fs[val_rel_rw]
        \\ fs[SWAP_REVERSE_SYM]
        \\ imp_res_tac EVERY2_REVERSE \\ fs[])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][] >>
-         full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-         decide_tac)
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw, LIST_REL_EL_EQN])
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         imp_res_tac state_rel_refs >>
-         full_simp_tac(srw_ss())[val_rel_rw, ref_v_rel_rw] >>
-         srw_tac[][val_rel_rw] >>
-         full_simp_tac(srw_ss())[LIST_REL_EL_EQN])
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         imp_res_tac state_rel_refs >>
-         full_simp_tac(srw_ss())[val_rel_rw, ref_v_rel_rw] >>
-         srw_tac[][val_rel_rw, LIST_REL_EL_EQN])
      >- (full_simp_tac(srw_ss())[LET_THM, SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
@@ -1142,14 +1131,6 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
          srw_tac[][ref_v_rel_rw, LIST_REL_REPLICATE_same])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][val_rel_rw] >>
-         imp_res_tac state_rel_refs >>
-         full_simp_tac(srw_ss())[ref_v_rel_rw] >>
-         srw_tac[][val_rel_rw])
      >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
@@ -1169,31 +1150,21 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        srw_tac[][] >>
        srw_tac[][val_rel_rw])
      >- (
-       pop_assum mp_tac >>
-       DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac >>
-       imp_res_tac v_to_list_val_rel \\ rfs[OPTREL_SOME] >>
-       `z = MAP (Number o $&) ns` by (
-         fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\
-         rw[] \\ rfs[] \\ first_x_assum drule \\
-         Cases_on`EL x z` \\ rw[val_rel_rw] ) \\
-       fs[] \\
-       DEEP_INTRO_TAC some_intro \\ simp[] \\
-       reverse conj_tac >- metis_tac[] \\
-       simp[val_rel_rw] \\
-       rw[LIST_EQ_REWRITE,EL_MAP] \\
-       rfs[] \\ first_x_assum drule \\
-       rw[EL_MAP])
-     >- (Cases_on`y` \\ fs[val_rel_rw])
-     >- (fs[SWAP_REVERSE_SYM,PULL_EXISTS]
-         \\ Cases_on`y` \\ fs[val_rel_rw]
-         \\ CASE_TAC \\ fs[val_rel_rw]
-         \\ rveq \\ fs[val_rel_rw] )
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw,Boolv_def,LIST_REL_EL_EQN])
-     >- (Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][val_rel_rw, Boolv_def] >>
-         full_simp_tac(srw_ss())[LIST_REL_EL_EQN])
+       Cases_on`REVERSE vs'` \\ fs[] \\ rfs[PULL_EXISTS] \\
+       fs[SWAP_REVERSE_SYM,LIST_REL_REVERSE_EQ] \\
+       rpt(qpat_x_assum`$some _ = _`mp_tac) \\
+       rpt(DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[val_rel_rw] \\
+       spose_not_then strip_assume_tac \\
+       imp_res_tac v_to_list_val_rel \\ fs[] \\ rfs[OPTREL_def] \\
+       TRY (
+         fs[EVERY2_MAP,val_rel_rw] \\
+         fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
+         NO_TAC ) \\ fs[] \\
+       qhdtm_x_assum`$!`mp_tac \\ simp[] \\
+       first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) \\ fs[] \\
+       rfs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rw[] \\
+       first_x_assum(qspec_then`x`mp_tac) \\ simp[] \\
+       Cases_on`EL x y0` \\ fs[val_rel_rw])
      >- (full_simp_tac(srw_ss())[LET_THM] >>
          srw_tac[][val_rel_rw] >>
          BasicProvers.CASE_TAC \\ fs[val_rel_rw] \\ rfs[] >>
@@ -1245,72 +1216,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
          `do_eq y' y = Eq_val b` by metis_tac [do_eq_val_rel] >>
-         srw_tac[][val_rel_rw, Boolv_def])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw] >>
-         srw_tac[][val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         srw_tac[][val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         Cases_on `y'` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw])
-     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
-         Cases_on `y` >>
-         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
-         rw[val_rel_rw]))
+         srw_tac[][val_rel_rw, Boolv_def]))
  >- (Cases_on `e` >>
      srw_tac[][res_rel_rw]
      >- (imp_res_tac do_app_cases_err >>

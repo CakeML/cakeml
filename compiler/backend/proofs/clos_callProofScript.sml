@@ -1346,7 +1346,8 @@ val do_app_thm = Q.prove(
     \\ fs[] \\ rw[] \\ spose_not_then strip_assume_tac
     \\ imp_res_tac v_to_list_thm \\ fs[] \\ rw[]
     \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_def]
-    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ])
+    \\ fs[EXISTS_MEM,EVERY_MEM]
+    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,ORD_BOUND])
   \\ Cases_on `op = LengthBlock` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
@@ -1422,7 +1423,7 @@ val do_app_thm = Q.prove(
     \\ TRY (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     \\ TRY (`FDOM r.refs = FDOM t.refs` by (fs [fmap_rel_def] \\ NO_TAC)) \\ fs []
     \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [])
-  \\ Cases_on `?i. op = Const i` THEN1
+  \\ Cases_on `(?i. op = Const i) ∨ ∃s. op = String s` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])

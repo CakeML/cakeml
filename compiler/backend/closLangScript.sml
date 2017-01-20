@@ -24,6 +24,7 @@ val _ = Datatype `
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | FromList num  (* convert list to packed Block *)
+     | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)

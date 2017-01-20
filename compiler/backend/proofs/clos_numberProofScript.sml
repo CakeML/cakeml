@@ -493,6 +493,7 @@ val do_app = Q.prove(
     \\ rpt(DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
     \\ imp_res_tac v_to_list \\ rfs[OPTREL_def]
     \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[EL_MAP,v_rel_simp]
+    \\ fs[EVERY_MEM,EXISTS_MEM]
     \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,v_rel_simp])
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>

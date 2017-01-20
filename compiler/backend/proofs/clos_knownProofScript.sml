@@ -1298,7 +1298,8 @@ val kvrel_op_correct_Rval = Q.store_thm(
     imp_res_tac kvrel_v_to_list \\
     rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\ fs[EL_MAP] \\
     rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
-    metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM] )
+    fs[EVERY_MEM,EXISTS_MEM] \\
+    metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM,ORD_BOUND] )
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])

@@ -330,7 +330,9 @@ val do_app_thm = Q.prove(
     \\ rpt (DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
     \\ IMP_RES_TAC v_to_list \\ fs[] \\ rw[]
     \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_simp]
-    \\ rfs[EL_MAP] \\ qexists_tac`x` \\ rw[EL_MAP])
+    \\ rfs[EL_MAP,EVERY_MEM] \\ qexists_tac`x` \\ rw[EL_MAP])
+  THEN1 (* String *)
+    (fs[do_app_def] \\ every_case_tac \\ fs[] \\ rw[v_rel_simp])
   THEN1 (* FromList *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
