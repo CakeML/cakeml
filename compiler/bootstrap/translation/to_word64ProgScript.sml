@@ -491,14 +491,20 @@ val _ = translate (ShiftVar_def |> inline_simp |> conv64);
 
 val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
-(*
+val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
+                  
 val data_to_word_assign_side = Q.prove(`
   ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
-  rw[]>>
+  rpt strip_tac>>
   simp[fetch "-" "data_to_word_assign_side_def",NULL]>>
-  Cases_on`e`>>rw[]>>
-  Cases_on`f`>>TRY(Cases_on`t`)>>TRY(Cases_on`t'`)>>fs[]) |> update_precondition
-*)
+  Cases_on`e`>>fs[]>>
+  Cases_on`f`>>fs[]>>
+  TRY(Cases_on`t`)>>TRY(Cases_on`t'`)>>
+  TRY(Cases_on`w`)>>fs[]>>
+  TRY(Cases_on`(encode_header a 3 1):word64 option`)>>
+  TRY(Cases_on`o'`)>>
+  TRY(Cases_on`s`)>>
+  metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
 
 val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv64|> wcomp_simp)
 (* Inlines the let k = 8 manually *)
