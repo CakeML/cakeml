@@ -153,6 +153,7 @@ val v_rel_def = tDefine"v_rel"`
   (v_rel g l (Word64 w) v ⇔ v = Word64 w) ∧
   (v_rel g l (Block n vs) v ⇔
     ∃vs'. v = Block n vs' ∧ LIST_REL (v_rel g l) vs vs') ∧
+  (v_rel g l (ByteVector ws) v ⇔ v = ByteVector ws) ∧
   (v_rel g l (RefPtr n) v ⇔ v = RefPtr n) ∧
   (v_rel g l (Closure loco vs1 env1 n bod1) v ⇔
      ∃loc vs2 env2 bod2.
@@ -1331,6 +1332,21 @@ val do_app_thm = Q.prove(
     \\ fs [EVERY_EL] \\ res_tac \\ fs []
     \\ CCONTR_TAC \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
     \\ fs [LIST_REL_EL_EQN] \\ res_tac \\ rw [])
+  \\ Cases_on `op = LengthByteVec` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs[v_rel_def] )
+  \\ Cases_on `op = DerefByteVec` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs[v_rel_def]
+    \\ spose_not_then strip_assume_tac \\ fs[] )
+  \\ Cases_on `op = FromListByte` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def]
+    \\ every_case_tac \\ fs[v_rel_def]
+    \\ spose_not_then strip_assume_tac \\ fs[]
+    \\ rpt(qpat_x_assum`$some _ = _`mp_tac)
+    \\ rpt (DEEP_INTRO_TAC some_intro)
+    \\ fs[] \\ rw[] \\ spose_not_then strip_assume_tac
+    \\ imp_res_tac v_to_list_thm \\ fs[] \\ rw[]
+    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_def]
+    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ])
   \\ Cases_on `op = LengthBlock` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []

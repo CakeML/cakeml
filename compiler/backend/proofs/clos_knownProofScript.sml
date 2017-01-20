@@ -1002,6 +1002,7 @@ val val_rel_def = tDefine "val_rel" `
   (val_rel g (Word64 w) v ⇔ v = Word64 w) ∧
   (val_rel g (Block n vs) v ⇔
      ∃vs'. v = Block n vs' ∧ LIST_REL (val_rel g) vs vs') ∧
+  (val_rel g (ByteVector ws) v ⇔ v = ByteVector ws) ∧
   (val_rel g (RefPtr n) v ⇔ v = RefPtr n) ∧
   (val_rel g (Closure lopt vs1 env1 n bod1) v ⇔
      every_Fn_vs_NONE [bod1] ∧
@@ -1244,7 +1245,7 @@ val kvrel_do_eq0 = Q.prove(
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[]));
 
-val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1)
+val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1);
 
 (* necessary(!) *)
 val kvrel_op_correct_Rval = Q.store_thm(
@@ -1289,6 +1290,15 @@ val kvrel_op_correct_Rval = Q.store_thm(
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
+  >- (
+    rw[] \\ fs[] \\
+    rpt(qpat_x_assum`$some _ = _`mp_tac) \\
+    rpt(DEEP_INTRO_TAC some_intro) \\ rw[] \\
+    spose_not_then strip_assume_tac \\
+    imp_res_tac kvrel_v_to_list \\
+    rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\ fs[EL_MAP] \\
+    rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
+    metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM] )
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])

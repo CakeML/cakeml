@@ -134,6 +134,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (EVERY2 (v_rel max_app) (xs:closSem$v list) (ys:closSem$v list) ==>
    v_rel max_app (Block t xs) (Block t ys))
   /\
+  (v_rel max_app (ByteVector ws) (ByteVector ws))
+  /\
   (v_rel max_app (RefPtr r1) (RefPtr r1))
   /\
   (LIST_REL (v_rel max_app) env env' ∧
@@ -184,11 +186,13 @@ val v_rel_simp = let
   in map f [``v_rel max_app (Number x) y``,
             ``v_rel max_app (Word64 n) y``,
             ``v_rel max_app (Block n l) y``,
+            ``v_rel max_app (ByteVector ws) y``,
             ``v_rel max_app (RefPtr x) y``,
             ``v_rel max_app (Closure n a l narg x) y``,
             ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel max_app y (Number x)``,
             ``v_rel max_app y (Block n l)``,
+            ``v_rel max_app y (ByteVector ws)``,
             ``v_rel max_app y (RefPtr x)``,
             ``v_rel max_app y (Closure n a l narg x)``,
             ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
@@ -482,13 +486,21 @@ val do_app = Q.prove(
     imp_res_tac v_to_list >>
     every_case_tac >> full_simp_tac(srw_ss())[OPTREL_def] >>
     simp[v_rel_simp] )
+  (* FromListByte *)
+  >- (
+    every_case_tac \\ fs[v_rel_simp]
+    \\ rpt(qpat_x_assum`$some _ = _`mp_tac)
+    \\ rpt(DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
+    \\ imp_res_tac v_to_list \\ rfs[OPTREL_def]
+    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[EL_MAP,v_rel_simp]
+    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,v_rel_simp])
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
-  >- (
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp])
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[] )
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- (
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> srw_tac[][] )
   >- (
