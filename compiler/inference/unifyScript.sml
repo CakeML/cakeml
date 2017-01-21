@@ -3,10 +3,12 @@ open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val option_map_case = Q.prove (
   `!f opt.
     OPTION_MAP f opt =
-    case opt of
+    dtcase opt of
          NONE => NONE
        | SOME a => SOME (f a)`,
   simp[FUN_EQ_THM] >>
@@ -16,7 +18,7 @@ val option_map_case = Q.prove (
 
 val option_bind_thm = Q.prove (
 `!x f. OPTION_BIND x f =
-  case x of
+  dtcase x of
     | NONE => NONE
     | SOME y => f y`,
 cases_on `x` >>
@@ -58,7 +60,25 @@ val decode_infer_t_def = Define `
   []) ∧
 (decode_infer_ts (Pair s1 s2) =
   decode_infer_t s1 :: decode_infer_ts s2) ∧
-(decode_infer_t _ = Infer_Tuvar 5)`;
+(decode_infer_t _ = Infer_Tuvar 5) ∧
+(decode_infer_ts _ = [])`;
+
+val decode_infer_t_pmatch = Q.store_thm("decode_infer_t_pmatch",`
+  (!t. decode_infer_t t =
+    case t of
+      Var n => Infer_Tuvar n
+    | Const (DB_tag n) => Infer_Tvar_db n
+    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) => 
+      Infer_Tapp (decode_infer_ts s) tc'
+    | _ => Infer_Tuvar 5) /\
+  (!ts. decode_infer_ts ts =
+    case ts of
+    | Const Null_tag => []
+    | Pair s1 s2 => decode_infer_t s1 :: decode_infer_ts s2
+    | _ => [])`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> TRY (Cases_on `a`) >> fs[decode_infer_t_def]);
 
 val decode_left_inverse = Q.prove (
 `(!t. decode_infer_t (encode_infer_t t) = t) ∧
@@ -106,7 +126,7 @@ val t_vwalk_eqn = Q.store_thm ("t_vwalk_eqn",
   t_wfs s ⇒
   (!v.
     t_vwalk s v =
-    case FLOOKUP s v of
+    dtcase FLOOKUP s v of
       | NONE => Infer_Tuvar v
       | SOME (Infer_Tuvar u) => t_vwalk s u
       | SOME (Infer_Tapp ts tc') => Infer_Tapp ts tc'
@@ -193,7 +213,7 @@ rw [encode_infer_t_def]);
 val t_oc_eqn = Q.store_thm ("t_oc_eqn",
 `!s. t_wfs s ⇒
   !t v. t_oc s t v =
-    case t_walk s t of
+    dtcase t_walk s t of
       | Infer_Tuvar u => v = u
       | Infer_Tapp ts tc' => EXISTS (\t. t_oc s t v) ts
       | Infer_Tvar_db n => F`,
@@ -228,7 +248,7 @@ t_unify s t1 t2 =
 val ts_unify_def = Define `
 (ts_unify s [] [] = SOME s) ∧
 (ts_unify s (t1::ts1) (t2::ts2) =
-  case t_unify s t1 t2 of
+  dtcase t_unify s t1 t2 of
    | NONE => NONE
    | SOME s' => ts_unify s' ts1 ts2) ∧
 (ts_unify s _ _ = NONE)`;
@@ -442,7 +462,7 @@ val t_unify_eqn = Q.store_thm ("t_unify_eqn",
 `(!t1 t2 s.
   t_wfs s ⇒
   (t_unify s t1 t2 =
-   case (t_walk s t1, t_walk s t2) of
+   dtcase (t_walk s t1, t_walk s t2) of
       (Infer_Tuvar v1, Infer_Tuvar v2) =>
         SOME (if v1 = v2 then s else s |+ (v1,Infer_Tuvar v2))
     | (Infer_Tuvar v1, t2) => t_ext_s_check s v1 t2
@@ -646,7 +666,7 @@ apply_subst_t s t = decode_infer_t (subst_APPLY (encode_infer_t o_f s) (encode_i
 val apply_subst_t_eqn = Q.store_thm ("apply_subst_t_eqn",
 `(!s n.
   apply_subst_t s (Infer_Tuvar n) =
-   case FLOOKUP s n of
+   dtcase FLOOKUP s n of
      | NONE => Infer_Tuvar n
      | SOME t => t) ∧
  (!s ts tc.
@@ -679,7 +699,7 @@ val t_walkstar_eqn = Q.store_thm ("t_walkstar_eqn",
 `!s. t_wfs s ⇒
   !t.
     t_walkstar s t =
-    case t_walk s t of
+    dtcase t_walk s t of
       | Infer_Tuvar v => Infer_Tuvar v
       | Infer_Tapp ts tctor => Infer_Tapp (MAP (t_walkstar s) ts) tctor
       | Infer_Tvar_db n => Infer_Tvar_db n`,
@@ -824,7 +844,7 @@ val t_vR_def = Define `
 t_vR s = vR (encode_infer_t o_f s)`;
 
 val t_vR_eqn = Q.store_thm ("t_vR_eqn",
-`!s x y. t_vR s y x = case FLOOKUP s x of SOME t => y IN t_vars t | _ => F`,
+`!s x y. t_vR s y x = dtcase FLOOKUP s x of SOME t => y IN t_vars t | _ => F`,
 rw [t_vR_def, vR_def] >>
 every_case_tac >>
 fs [FLOOKUP_o_f, t_vars_def]);

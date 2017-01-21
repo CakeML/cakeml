@@ -2,6 +2,7 @@ open preamble bvlTheory db_varsTheory bvl_constTheory;
 
 val _ = new_theory "bvl_handle";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* BVL transformation that introduces a Let into each Handle
    body. This is preparation for BVL --> BVI compilation.  This phase
    also removes Handles in case the body cannot raise an exception. *)
@@ -14,7 +15,7 @@ val LetLet_def = Define `
     let xs = GENLIST I env_length in
     let zs = FILTER (\n. IS_SOME (lookup n fvs)) xs in
     let ys = MAPi (\i x. (x,i)) zs in
-    let long_list = GENLIST (\n. case ALOOKUP ys n of
+    let long_list = GENLIST (\n. dtcase ALOOKUP ys n of
                                  | NONE => Op (Const 0) []
                                  | SOME k => Var k) env_length in
       Let (MAP Var zs) (SmartLet long_list body)`;
@@ -82,11 +83,20 @@ val dest_Seq_def = Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
   (dest_Seq _ = NONE)`
 
+val dest_Seq_pmatch = Q.store_thm("dest_Seq_pmatch",`∀exp.
+  dest_Seq exp =
+    case exp of
+      Let [e1;e2] (Var 1) => SOME (e1,e2)
+     | _ => NONE`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[dest_Seq_def])
+
 val compile_seqs_def = tDefine "compile_seqs" `
   compile_seqs cut_size e acc =
-    case dest_Seq e of
+    dtcase dest_Seq e of
     | NONE => (let new_e = compile_exp cut_size 0 e in
-                 case acc of
+                 dtcase acc of
                  | NONE => new_e
                  | SOME rest => Let [new_e] (Let [] (Let [] rest)))
     | SOME (e1,e2) =>
