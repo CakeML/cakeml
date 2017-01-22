@@ -85,7 +85,7 @@ val id_to_string_def = Define `
 
 val lookup_st_ex_def = Define `
   lookup_st_ex id ienv st =
-    case nsLookup ienv id of
+    dtcase nsLookup ienv id of
     | NONE => (Failure (id_to_string id), st)
     | SOME v => (Success v, st)`;
 
@@ -236,7 +236,7 @@ val infer_p_def = tDefine "infer_p" `
 (infer_p ienv (Plit (Word64 w)) =
   return (Infer_Tapp [] TC_word64, [])) ∧
 (infer_p ienv (Pcon cn_opt ps) =
-  case cn_opt of
+  dtcase cn_opt of
     | NONE =>
         do (ts,tenv) <- infer_ps ienv ps;
            return (Infer_Tapp ts TC_tup, tenv)
@@ -739,7 +739,7 @@ val check_tscheme_inst_def = Define `
        () <- add_constraint t_spec t
     od
     in
-    case M init_infer_state of
+    dtcase M init_infer_state of
     | (Success _, _) => T
     | _ => F `;
 
@@ -802,7 +802,7 @@ val init_config_def = Define`
 
 val infertype_prog_def = Define`
   infertype_prog c prog =
-    case FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
+    dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
     | Success (new_decls, new_ienv) =>
         SOME ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
