@@ -34,6 +34,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -78,7 +79,7 @@ val dec_to_exh_compile_side = Q.prove(
   rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
   |> update_precondition;
 
-val _ = translate (exh_to_patTheory.pure_op_op_eqn);
+val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
 val _ = translate (exh_to_patTheory.compile_def);
 
 local
@@ -326,13 +327,24 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
   metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
 
 (* known *)
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val _ = translate clos_knownTheory.merge_alt
 
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
   rw[]>>intLib.COOPER_TAC);
 
-val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
+(*val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);*)
+
+(* TODO: 
+   This is uglier than previously, to prevent SIMP_RULE from rewriting guards
+   OF PMATCH_ROWs to K T *)
+val lemma = ``(if 0 <= i /\ q
+            then (EL (Num i) xs,g)
+            else x)`` |> (ONCE_REWRITE_CONV [num_abs_intro] THENC SIMP_CONV std_ss [])
+
+val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 
 val _ = translate (clos_knownTheory.known_def)
 
@@ -347,9 +359,13 @@ val clos_known_merge_side = Q.prove(`
 
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
+  rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  rw[clos_known_merge_side]>>
-  intLib.COOPER_TAC)
+  fs[clos_known_merge_side]>-
+  metis_tac[option_nchotomy]>-
+  (rpt strip_tac >-
+  metis_tac[option_nchotomy] >-
+  intLib.COOPER_TAC))
 
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
@@ -840,7 +856,7 @@ val bvl_handle_compile_exp_side = Q.prove(`
 
 val _ = translate(bvl_to_bviTheory.compile_def)
 
-val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
+val _ = translate (bvi_to_dataTheory.op_requires_names_pmatch)
 val _ = translate (COUNT_LIST_compute)
 
 (* TODO: For some reason, the following def on sptrees fails to translate in a standalone manner (when the rest of this file's translation isn't loaded). Needs investigation. *)

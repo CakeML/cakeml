@@ -1662,6 +1662,26 @@ fun prove_EvalPatRel goal hol2deep = let
   (*
     set_goal(asms,goal)
   *)
+  fun tac2 (asms,concl) =
+    (let
+        val pmatch_asm = can (match_term ``pmatch _ _ _ _ _ = Match_type_error``)
+        val v = List.find pmatch_asm asms |> valOf |> lhs |> rator |> rand
+        val asm = List.find
+                      (fn asm =>
+                          (asm |> free_vars |> List.exists (term_eq v))
+                          andalso
+                          not(is_eq asm)
+                      )
+                      asms |> valOf
+        val vname = asm |> rator |> rand |> dest_var |> fst
+        val {Name,Thy,Ty} = asm |> strip_comb |> fst |> dest_thy_const
+        val thm = fetch Thy (Name^"_def")
+    in
+        Cases_on [QUOTE vname]
+                 >> rfs [thm]
+                 >> rfs []
+                 >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
+    end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
   val th = TAC_PROOF((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -1676,7 +1696,9 @@ fun prove_EvalPatRel goal hol2deep = let
          pat_bindings_def,lit_same_type_def] >>
     fs[Once evaluate_cases] >>
     rw[] >> simp[Once evaluate_cases] >>
-    fs [build_conv_def,do_con_check_def])
+    fs [build_conv_def,do_con_check_def] >>
+    fs [Once evaluate_cases] >> every_case_tac >>
+    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -1704,34 +1726,72 @@ fun prove_EvalPatBind goal hol2deep = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
-  val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs' |> mlibUseful.setify
+  val new_goal = goal |> subst [mk_var("e",astSyntax.exp_ty)|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
+  fun tac (asms,goal) = let
+    fun is_TYPE tm = let
+      val (args,ret) = strip_fun(type_of tm)
+    in not(null args) andalso ret = ``:bool`` andalso last args = ``:v`` end
+    fun types tm = let
+      val (rator,rands) = strip_comb tm
+    in
+      if is_TYPE rator then
+          rator :: List.concat(map types rands)
+      else []
+    end
+    val relevant_asms = List.filter (is_TYPE o fst o strip_comb) asms
+    val consts = map types relevant_asms |> List.concat |> filter is_const |> map dest_thy_const
+    val thms = map (fn {Name,Thy,Ty} => [fetch Thy (Name^"_def")] handle _ => []) consts |> List.concat
+  in
+    REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC (length vs) STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ Ho_Rewrite.REWRITE_TAC [GSYM LIST_TYPE_SIMP']
+    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+                      |> map (REWRITE_RULE [CONTAINER_def]))
+    \\ Ho_Rewrite.REWRITE_TAC ([GSYM LIST_TYPE_SIMP'] |> map (REWRITE_RULE [CONTAINER_def]))
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+    \\ TRY STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+  end (asms,goal)
+  fun find_equality_type_thm tm =
+    first (can (C match_term tm) o rand o snd o strip_imp o concl) (eq_lemmas())
+  fun tac2 (asms,concl) = (asms,concl) |>
+    (if can (match_term ``PRECONDITION _``) concl then
+      METIS_TAC []
+    else if can(match_term ``EqualityType _``) concl then
+      ACCEPT_TAC (find_equality_type_thm (rand concl))
+    else if can(match_term ``PreImp _ (Eval _ _ _)``) concl then
+      METIS_TAC [CONTAINER_def]
+    else ALL_TAC)
+  fun tac3 (asms,concl) = (asms,concl) |>
+    (if is_exists concl andalso
+        can (match_term ``evaluate _ _ _ _ _``) (snd(dest_abs(rand concl)))
+     then
+       fs[Once evaluate_cases,Once Eval_def,INT_def]
+       >> EVAL_TAC
+     else ALL_TAC)
   (*
     set_goal([],new_goal)
   *)
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
-    \\ fsrw_tac[][FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res) \\ fsrw_tac[][]
+    \\ full_simp_tac std_ss [FORALL_PROD] \\ REPEAT STRIP_TAC
+    \\ (MATCH_MP_TAC (D res) ORELSE
+        MATCH_MP_TAC (D(res |> SIMP_RULE (std_ss) [FORALL_PROD])))
+    \\ fsrw_tac[][]
     \\ fsrw_tac[][EvalPatBind_def,Pmatch_def]
-    \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC (length vs) STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    (*
-    \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
-      \\ SRW_TAC [] [Eval_Var_SIMP]
-      \\ EVAL_TAC \\ NO_TAC)
-    *)
+    \\ tac
     \\ BasicProvers.EVERY_CASE_TAC \\ fsrw_tac[][]
     \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    \\ fsrw_tac[][GSYM FORALL_PROD]
-    \\ EVAL_TAC)
+    \\ TRY tac3
+    \\ fsrw_tac[][GSYM FORALL_PROD,lookup_var_id_def,lookup_cons_def,LIST_TYPE_IF_ELIM]
+    \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
+    \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -3201,6 +3261,58 @@ val (fname,ml_fname,def,th,v) = hd thms
           POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
     val pres = map (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
 
+    fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
+      let
+        val (asms',concl) = strip_imp concl
+        val asms = asms'@asms
+        fun is_ineq t = is_neg t andalso is_eq(rand t)
+        fun is_disj_of_ineq t = all is_ineq (strip_disj t)
+        fun is_all_disj_of_ineq t = is_disj_of_ineq(snd(strip_forall t))
+        val var_equalities =
+            map strip_conj asms
+            |> List.concat
+            |> filter is_eq
+            |> filter (is_var o lhs)
+            |> filter (is_var o rhs)
+        fun eq_closure l [] = l
+          | eq_closure l (f::r) =
+            let val (lhs,rhs) = (lhs f, rhs f) in
+              if List.exists (fn x => term_eq lhs x) l then
+                eq_closure (insert rhs l) r
+              else if List.exists (fn x => term_eq rhs x) l then
+                eq_closure (insert lhs l) r
+              else
+                eq_closure l r
+            end
+        fun case_split_vars (l,r) =
+          if can (match_term r) l then
+            match_term r l
+            |> fst
+            |> filter (fn {residue,...} => not(is_var residue))
+            |> map (fn {redex,...} => redex)
+          else if is_comb r andalso
+                  not(TypeBase.is_constructor(fst(strip_comb r))) then
+            [r]
+          else
+            []
+      in
+        case List.find is_all_disj_of_ineq asms of
+            NONE => tac
+          | SOME asm =>
+            let val asm' = snd(strip_forall asm)
+                val disjuncts = strip_disj asm'
+                val lsrs = map (dest_eq o rand) disjuncts
+                val vars =
+                    map case_split_vars lsrs
+                    |> filter (not o null)
+                    |> map hd
+                    |> mlibUseful.setify
+            in
+              case vars of
+                  [] => tac
+                | l => foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
+            end
+      end
     (*
       set_goal([],goal)
     *)
@@ -3267,6 +3379,18 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ METIS_TAC [])
+      handle HOL_ERR e =>
+        auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ POP_MP_TACs
+        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
+        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
+        \\ rpt(split_ineq_orelse_tac(metis_tac [])))
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 (*
 val (th,(fname,def,_,pre)) = hd (zip results thms)

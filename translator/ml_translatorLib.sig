@@ -92,4 +92,14 @@ sig
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
 
+    (* for debugging *)
+    val pmatch_hol2deep_fail : term ref
+    val pmatch_hol2deep : term -> (term -> thm) -> thm
+
+    val prove_EvalPatBind_fail : term ref
+    val prove_EvalPatBind : term -> (term -> thm) -> thm
+
+    val prove_EvalPatRel_fail : term ref
+    val get_term :string -> term
+
 end

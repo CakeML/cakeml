@@ -2,6 +2,7 @@ open preamble exhLangTheory patLangTheory
 open backend_commonTheory
 
 val _ = new_theory"exh_to_pat"
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `
   Bool b = Con (if b then true_tag else false_tag) []`;
@@ -11,14 +12,27 @@ val Bool_eqns = save_thm("Bool_eqns[simp]",
   |> List.map (SIMP_CONV(std_ss)[Bool_def])
   |> LIST_CONJ)
 
-val _ = Define `
+val sIf_def = Define `
+  sIf e1 e2 e3 =
+  if e2 = Bool T ∧ e3 = Bool F
+    then e1
+  else
+    (dtcase e1 of
+     | Con t [] => if t = true_tag then e2 else e3
+     | _ => If e1 e2 e3)`;
+
+val sIf_pmatch = Q.store_thm("sIf_pmatch",`!e1 e2 e3.
   sIf e1 e2 e3 =
   if e2 = Bool T ∧ e3 = Bool F
     then e1
   else
     (case e1 of
      | Con t [] => if t = true_tag then e2 else e3
-     | _ => If e1 e2 e3)`;
+     | _ => If e1 e2 e3)`, 
+  rpt strip_tac
+  >> every_case_tac
+  >- fs[sIf_def]
+  >- (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >> fs[sIf_def]));
 
 val _ = Define `
   pure_op_op op ⇔
@@ -123,7 +137,7 @@ val _ = export_rewrites["ground_list_EVERY"]
 
 val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   pure_op_op op =
-  case op of
+  dtcase op of
     Opref => F
   | Opapp => F
   | Opassign => F
@@ -142,6 +156,29 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | _ => T`,
   Cases_on`op`>>fs[]>>
   Cases_on`o'`>>fs[])
+
+val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
+  pure_op_op op =
+  case op of
+    Opref => F
+  | Opapp => F
+  | Opassign => F
+  | Aw8update => F
+  | Aw8alloc => F
+  | Aw8sub => F
+  | Vsub => F
+  | Strsub => F
+  | Chr => F
+  | Aupdate => F
+  | Aalloc => F
+  | Asub => F
+  | Opn Divide => F
+  | Opn Modulo => F
+  | FFI _ => F
+  | _ => T`,
+  PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> REFL_TAC)
 
 val _ = Define `
   sLet e1 e2 =
@@ -189,7 +226,7 @@ val _ = tDefine"compile_pat"`
    sIf (sLet (Var_local n) (compile_pat p))
      (compile_pats (n+1) ps)
      (Bool F))`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL p => pat_size p
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL p => pat_size p
                                          | INR (n,ps) => pat1_size ps)`);
 
 (* given a pattern in a context of bound variables where the most recently
@@ -218,7 +255,7 @@ val _ = tDefine"compile_row"`
    (bvs,(1+m)+ms,
     (λe. sLet (App (El k) [Var_local n])
            (f (fs e)))))`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,p) => pat_size p
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (bvs,p) => pat_size p
                                          | INR (bvs,n,k,ps) => pat1_size ps)`);
 
 (* translate under a context of bound variables *)
@@ -234,7 +271,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp bvs (Con tag es) = Con tag (compile_exps bvs es))
   ∧
   (compile_exp bvs (Var_local x) =
-   (case find_index (SOME x) bvs 0 of
+   (dtcase find_index (SOME x) bvs 0 of
     | SOME k => Var_local k
     | NONE => Lit (IntLit 0) (* should not happen *)))
   ∧
@@ -270,15 +307,15 @@ val compile_exp_def = tDefine"compile_exp"`
    compile_exp (SOME x::bvs) e :: compile_funs bvs funs)
   ∧
   (compile_pes bvs [(p,e)] =
-   (case compile_row bvs p of (bvs,_,f) => f (compile_exp bvs e)))
+   (dtcase compile_row bvs p of (bvs,_,f) => f (compile_exp bvs e)))
   ∧
   (compile_pes bvs ((p,e)::pes) =
    sIf (compile_pat p)
-     (case compile_row bvs p of (bvs,_,f) => f (compile_exp bvs e) )
+     (dtcase compile_row bvs p of (bvs,_,f) => f (compile_exp bvs e) )
      (compile_pes bvs pes))
   ∧
   (compile_pes _ _ = Lit (IntLit 0))`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (bvs,e) => exp_size e
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (bvs,e) => exp_size e
                                          | INR (INL (bvs,es)) => exp6_size es
                                          | INR (INR (INL (bvs,funs))) => exp1_size funs
                                          | INR (INR (INR (bvs,pes))) => exp3_size pes)`);
