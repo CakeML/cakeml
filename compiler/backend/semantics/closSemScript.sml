@@ -2,10 +2,16 @@ open preamble closLangTheory conLangTheory
 
 val _ = new_theory"closSem"
 
-(* differs from store_v by removing the single value Refv *)
+(* differs from store_v by removing the single value Refv,
+   also, adds flag to ByteArray for equality semantics *)
 val _ = Datatype `
   ref = ValueArray ('a list)
-      | ByteArray (word8 list)`
+      | ByteArray bool (word8 list)`
+               (* T = compare-by-contents, immutable
+                  F = compare-by-pointer, mutable *)
+(* in closLang all are ByteArray F,
+   ByteArray T introduced in BVL to implement ByteVector *)
+
 
 (* --- Semantics of ClosLang --- *)
 
@@ -123,14 +129,14 @@ val do_app_def = Define `
           | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-          | SOME (ByteArray xs) =>
+          | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefByte,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -140,18 +146,18 @@ val do_app_def = Define `
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray bs) =>
+         | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (FromList n,[lv]) =>
@@ -228,11 +234,11 @@ val do_app_def = Define `
         Rval (Number (&(w2n w)),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray f ws) =>
            (case call_FFI s.ffi n ws of
             | (ffi',ws') =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray ws')
+                      s with <| refs := s.refs |+ (ptr,ByteArray f ws')
                               ; ffi   := ffi'|>))
          | _ => Error)
     | _ => Error`;

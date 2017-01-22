@@ -119,7 +119,7 @@ val val_rel_def = tDefine "val_rel" `
            | _ => F
     else
       T) ∧
-(ref_v_rel (:'ffi) i w (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
+(ref_v_rel (:'ffi) i w (ByteArray f ws) (ByteArray f' ws') ⇔ f = f' ∧ ws = ws') ∧
 (ref_v_rel (:'ffi) i w (ValueArray vs) (ValueArray vs') ⇔ LIST_REL (val_rel (:'ffi) i w) vs vs') ∧
 (ref_v_rel (:'ffi) i w _ _ ⇔ F) ∧
 (* state_rel is not very flexible *)
@@ -246,7 +246,7 @@ val state_rel_rw =
 val _ = save_thm ("state_rel_rw", state_rel_rw);
 
 val ref_v_rel_rw = Q.store_thm ("ref_v_rel_rw",
-`(ref_v_rel (:'ffi) c w (ByteArray ws) x ⇔ x = ByteArray ws) ∧
+`(ref_v_rel (:'ffi) c w (ByteArray f ws) x ⇔ x = ByteArray f ws) ∧
  (ref_v_rel (:'ffi) c w (ValueArray vs) x ⇔
    ?vs'. x = ValueArray vs' ∧
          LIST_REL (val_rel (:'ffi) c w) vs vs')`,

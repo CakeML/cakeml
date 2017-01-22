@@ -106,14 +106,14 @@ val do_app_def = Define `
           | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-          | SOME (ByteArray xs) =>
+          | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefByte,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -123,24 +123,34 @@ val do_app_def = Define `
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray bs) =>
+         | SOME (ByteArray F bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray F (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
+    | (String str,[]) =>
+      let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+        Rval (RefPtr ptr, s with refs := s.refs |+
+          (ptr,ByteArray T (MAP (n2w o ORD) str)))
+    | (FromListByte,[lv]) =>
+        (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
+          | SOME ns => let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+                         Rval (RefPtr ptr, s with refs := s.refs |+
+                           (ptr,ByteArray T (MAP n2w ns)))
+          | NONE => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
@@ -206,11 +216,11 @@ val do_app_def = Define `
         Rval (Number (&(w2n w)),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n ws of
             | (ffi',ws') =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray ws')
+                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
                               ; ffi  := ffi'|>))
          | _ => Error)
     | _ => Error`;
