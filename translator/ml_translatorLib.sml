@@ -1132,7 +1132,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
     val env = mk_var("env",venvironment)
     val pr = pairSyntax.mk_pair(l,tyi name)
-    in mk_eq (mk_lookup_cons (full_id x1,env), optionSyntax.mk_some (pr)) end
+    in mk_eq (mk_lookup_cons (x1,env), optionSyntax.mk_some (pr)) end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1332,7 +1332,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand |> rand ) str)
+                           (tm |> rator |> rand |> rator |> rand ) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1566,7 +1566,7 @@ fun inst_case_thm tm hol2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,
-               lookup_var_write] THENC
+                 lookup_var_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -1690,7 +1690,7 @@ fun prove_EvalPatRel goal hol2deep = let
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
     \\ REPEAT STRIP_TAC \\ fs [] >>
     fs[Once evaluate_cases] >>
-    fs[lookup_cons_thm] >>
+    fs[(*lookup_cons_thm*) lookup_cons_def] >>
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
@@ -1789,7 +1789,7 @@ fun prove_EvalPatBind goal hol2deep = let
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ TRY tac3
-    \\ fsrw_tac[][GSYM FORALL_PROD,lookup_var_id_def,lookup_cons_def,LIST_TYPE_IF_ELIM]
+    \\ fsrw_tac[][GSYM FORALL_PROD,(*lookup_var_id_def,*)lookup_cons_def,LIST_TYPE_IF_ELIM]
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
     \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
@@ -2378,7 +2378,7 @@ fun inst_Eval_env v th = let
   val c1 = ((RATOR_CONV o RAND_CONV) (REWRITE_CONV [ASSUME assum]))
   val th = thx |> D |> CONV_RULE c1 |> DISCH assum
                |> INST [old_env|->new_env]
-               |> PURE_REWRITE_RULE [lookup_cons_write,lookup_var_id_write]
+               |> PURE_REWRITE_RULE [lookup_cons_write,lookup_var_write,nsLookup_write]
                |> CONV_RULE c
   val new_assum = fst (dest_imp (concl th))
   val th1 = th |> UNDISCH_ALL
@@ -2473,10 +2473,11 @@ fun move_Eval_conv tm =
     else NO_CONV tm
   end
 
+(* TODO: Some fixes here are definitely wrong *)
 fun clean_assumptions th = let
-  val lhs1 = lookup_var_id_def |> SPEC_ALL |> concl |> dest_eq |> fst
+  val lhs1 = lookup_var_def (*lookup_var_id_def*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
-  val lhs2 = lookup_cons_thm |> SPEC_ALL |> concl |> dest_eq |> fst
+  val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
@@ -2491,10 +2492,10 @@ fun clean_assumptions th = let
   val pattern = get_term "lookup_cons"
   val lookup_cons_assums = find_terms (can (match_term pattern)) (concl th)
   val th = REWRITE_RULE (map ASSUME lookup_cons_assums) th
-  (* lift lookup_var_id out *)
-  val pattern = get_term "lookup_var_id"
-  val lookup_var_id_assums = find_terms (can (match_term pattern)) (concl th)
-  val th = REWRITE_RULE (map ASSUME lookup_var_id_assums) th
+  (* lift nsLookup out *)
+  val pattern = get_term "nsLookup"
+  val nsLookup_assums = find_terms (can (match_term pattern)) (concl th)
+  val th = REWRITE_RULE (map ASSUME nsLookup_assums) th
   (* lift Eval out *)
   val th1 = th |> REWRITE_RULE [GSYM PreImpEval_def]
   val th2 = CONV_RULE (QCONV (LAND_CONV (ONCE_DEPTH_CONV move_Eval_conv))) th1
@@ -3151,7 +3152,7 @@ can (find_term is_arb) (rhs |> rand |> rator)
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
 (*
-val (fname,th,def) = hd thms
+val (fname,ml_fname,th,def) = hd thms
 *)
   fun optimise_and_abstract (fname,ml_fname,th,def) = let
     (* replace rhs with lhs *)
@@ -3452,7 +3453,7 @@ fun translate def =
         val lemmas = LOOKUP_VAR_def :: map GSYM v_defs
         val th = th |> ii |> jj |> D |> REWRITE_RULE lemmas
                     |> SIMP_RULE std_ss [Eval_Var]
-                    |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                    (*|> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]*)
                     |> clean_assumptions |> UNDISCH_ALL
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
@@ -3567,7 +3568,7 @@ fun prove_Eval_assumptions th =
         val th1 =
           (ONCE_DEPTH_CONV(
             REWR_CONV Eval_Var THENC
-            PURE_REWRITE_CONV[lookup_var_eq_lookup_var_id] THENC
+            PURE_REWRITE_CONV[(*lookup_var_eq_lookup_var_id*)] THENC
             QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
         val const =
           th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
@@ -3620,7 +3621,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
@@ -3640,7 +3641,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
@@ -3698,7 +3699,8 @@ val () = reset_translation();
 val _ = Datatype`num_or_list = Num num | List ('a list)`;
 val len_def = Define`len (Num n) = n ∧ len (List ls) = LENGTH ls`;
 val res = abs_register_type``:'a num_or_list``;
-val res = abs_translate LENGTH;
+val res = translate
+val def = LENGTH;
 val res = abs_translate APPEND;
 val res = abs_translate len_def;
 val test_def = Define`test = len (List [3n])`;

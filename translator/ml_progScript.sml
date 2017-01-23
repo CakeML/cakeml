@@ -40,26 +40,26 @@ val merge_env_def = zDefine `
 val SND_ALOOKUP_def = Define `
   (SND_ALOOKUP (x,[]) q = NONE) /\
   (SND_ALOOKUP (x,(y,z)::xs) q = if q = y then SOME z else SND_ALOOKUP (x,xs) q)`;
+*)
 
 val write_simp = Q.store_thm("write_simp[compute]",
   `(write n v env).c = env.c /\
-    (write n v env).m = env.m /\
-    ALOOKUP (write n v env).v q =
-      if n = q then SOME v else ALOOKUP env.v q`,
-  fs [write_def]);
+    nsLookup (write n v env).v (Short q) =
+      if n = q then SOME v else nsLookup env.v (Short q)`,
+  IF_CASES_TAC>>fs[write_def,namespacePropsTheory.nsLookup_nsBind]);
 
 val write_cons_simp = Q.store_thm("write_cons_simp[compute]",
   `(write_cons n v env).v = env.v /\
-    (write_cons n v env).m = env.m /\
-    SND_ALOOKUP (write_cons n v env).c q =
-      if n = q then SOME v else SND_ALOOKUP env.c q`,
-  Cases_on `env.c`
-  \\ rw [write_cons_def,merge_alist_mod_env_def,SND_ALOOKUP_def]);
+    nsLookup (write_cons n v env).c (Short q) =
+      if n = q then SOME v else nsLookup env.c (Short q)`,
+  IF_CASES_TAC>>fs[write_cons_def,namespacePropsTheory.nsLookup_nsBind]);
 
+(*
 val SND_ALOOKUP_EQ_ALOOKUP = Q.store_thm("SND_ALOOKUP_EQ_ALOOKUP",
   `!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q`,
   Induct_on `ys` \\ fs [ALOOKUP_def,SND_ALOOKUP_def,FORALL_PROD] \\ rw []);
 
+This is not true because v now gets modified..
 val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
   `(write_mod n v env).v = env.v /\
     SND_ALOOKUP (write_mod n v env).c k = SND_ALOOKUP env.c k /\
@@ -67,25 +67,27 @@ val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
       if n = q then SOME v.v else ALOOKUP env.m q`,
   Cases_on `env.c`
   \\ rw [write_mod_def,merge_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
+*)
 
 val empty_simp = Q.store_thm("empty_simp[compute]",
-  `ALOOKUP empty_env.v q = NONE /\
-    ALOOKUP empty_env.m q = NONE /\
-    SND_ALOOKUP empty_env.c q = NONE`,
-  fs [empty_env_def,SND_ALOOKUP_def] );
+  `nsLookup empty_env.v q = NONE /\
+    (*ALOOKUP empty_env.m q = NONE /\*)
+    nsLookup empty_env.c q = NONE`,
+  fs [empty_env_def] );
 
 val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
-  `(ALOOKUP (merge_env e1 e2).v k =
-      case ALOOKUP e1.v k of SOME x => SOME x | NONE => ALOOKUP e2.v k) /\
-    (ALOOKUP (merge_env e1 e2).m k =
-      case ALOOKUP e1.m k of SOME x => SOME x | NONE => ALOOKUP e2.m k) /\
-    (SND_ALOOKUP (merge_env e1 e2).c k =
-      case SND_ALOOKUP e1.c k of SOME x => SOME x | NONE => SND_ALOOKUP e2.c k)`,
-  fs [merge_env_def,ALOOKUP_APPEND]
-  \\ Cases_on `e1.c` \\ pop_assum kall_tac \\ fs []
-  \\ Cases_on `e2.c` \\ pop_assum kall_tac \\ fs []
-  \\ fs [SND_ALOOKUP_EQ_ALOOKUP,ALOOKUP_APPEND]);
+  `(nsLookup (merge_env e1 e2).v (Short k) =
+      case nsLookup e1.v (Short k) of SOME x => SOME x | NONE => nsLookup e2.v (Short k)) /\
+    (*(ALOOKUP (merge_env e1 e2).m k =
+      case ALOOKUP e1.m k of SOME x => SOME x | NONE => ALOOKUP e2.m k) /\*)
+    (nsLookup (merge_env e1 e2).c (Short k) =
+      case nsLookup e1.c (Short k) of SOME x => SOME x | NONE => nsLookup e2.c (Short k))`,
+  fs [merge_env_def] >> every_case_tac >> fs[namespacePropsTheory.nsLookup_nsAppend_some] >>
+  try(Cases_on`nsLookup e2.v (Short k)`)>>
+  try(Cases_on`nsLookup e2.c (Short k)`)>>
+  fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
 
+(*
 val SND_ALOOKUP_INTRO = Q.store_thm("SND_ALOOKUP_INTRO[compute]",
   `lookup_alist_mod_env (Short v) x = SND_ALOOKUP x v`,
   Cases_on `x` \\ fs [lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
@@ -140,14 +142,14 @@ val write_exn_thm = Q.store_thm("write_exn_thm",
     nsAppend (nsSing n (LENGTH l, TypeExn (mk_id mn n))) env.c`,
   fs [write_exn_def,write_cons_def]);
 
-
 (* --- declarations --- *)
 
 (* TODO: Not clear if the empty bind check is actually needed *)
 val Decls_def = Define `
   Decls mn env s1 ds env2 s2 =
-    (evaluate_decs F mn env s1 ds (s2,Rval env2) ∧
-    ?bnd. env2.v = Bind bnd [])`;
+    (evaluate_decs F mn env s1 ds (s2,Rval env2))`;
+    (*To faithfully reflect the original, this also needs to say that the modules are empty:
+    ?bnd. env2.v = Bind bnd [])`;*)
 (*
 ?new_tds res_env.
       evaluate_decs F mn env s1 ds (s2,new_tds, Rval res_env) /\
@@ -360,7 +362,6 @@ val Prog_APPEND = Q.store_thm("Prog_APPEND",
   Induct_on `ds1` \\ fs [Prog_NIL] \\ once_rewrite_tac [Prog_CONS]
   \\ fs [] \\ metis_tac [merge_env_assoc,merge_env_empty_env]);
 
-(* Should be proved somewhere? *)
 val Prog_Tdec = Q.store_thm("Prog_Tdec",
   `Prog env1 s1 [Tdec d] env2 s2 <=>
     Decls [] env1 s1 [d] env2 s2`,
@@ -368,10 +369,7 @@ val Prog_Tdec = Q.store_thm("Prog_Tdec",
   \\ fs [Prog_def,Decls_def,Once evaluate_prog_cases]
   \\ fs [combine_dec_result_def,Once evaluate_top_cases,PULL_EXISTS]
   \\ fs [Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def]
-  \\ fs [Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def,extend_dec_env_def]
-  \\ rw [] \\ eq_tac
-  \\ rw []
-  \\ cheat);
+  \\ fs [Once evaluate_decs_cases,PULL_EXISTS,combine_dec_result_def,extend_dec_env_def]);
 
 val Prog_Tmod = Q.store_thm("Prog_Tmod",
   `Prog env1 s1 [Tmod mn specs ds] env2 s2 <=>
@@ -385,7 +383,6 @@ val Prog_Tmod = Q.store_thm("Prog_Tmod",
   \\ fs [write_mod_def,empty_env_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ TRY (asm_exists_tac \\ fs [])
-  >- cheat
   \\ qexists_tac `s` \\ fs[]
   \\ qexists_tac`env` \\ fs[]);
 

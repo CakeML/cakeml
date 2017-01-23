@@ -179,7 +179,7 @@ val lookup_var_def = Define `
   lookup_var name (env:v sem_env) = nsLookup env.v (Short name)`;
 
 val lookup_cons_def = Define `
-  lookup_cons name (env:v sem_env) = nsLookup env.c name`;
+  lookup_cons name (env:v sem_env) = nsLookup env.c (Short name)`;
 
 (*
 val lookup_mod_def = Define `
@@ -191,49 +191,58 @@ val lookup_cons_thm = Q.store_thm("lookup_cons_thm",
   Cases_on `env.c`
   \\ fs [lookup_cons_def,lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
 
-val lookup_var_id_thm = Q.store_thm("lookup_var_id_thm",
+Note: replaced by nsLookup??
+
+val lookup_var_thm = Q.store_thm("lookup_var_thm",
   `(lookup_var_id (Short v) env = lookup_var v env) /\
     (lookup_var_id (Long mn v) env =
        case lookup_mod mn env of
        | NONE => NONE
        | SOME env1 => ALOOKUP env1 v)`,
   fs [lookup_var_id_def,lookup_mod_def,lookup_var_def] \\ CASE_TAC \\ fs []);
+*)
 
 val lookup_var_write = Q.store_thm("lookup_var_write",
   `(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
-    (lookup_var_id (Short v) (write w x env) =
+    (*(lookup_var_id (Short v) (write w x env) =
         if v = w then SOME x else lookup_var_id (Short v) env) /\
     (lookup_var_id (Long mn v) (write w x env) =
-        lookup_var_id (Long mn v) env) /\
+        lookup_var_id (Long mn v) env) /\*)
     (lookup_cons name (write w x env) = lookup_cons name env)`,
-  fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);
+  (*fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);*)
+  fs [lookup_var_def,write_def,lookup_cons_def] \\ rw []);
 
 val lookup_var_write_mod = Q.store_thm("lookup_var_write_mod",
   `(lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
-    (lookup_mod m (write_mod mn e1 env) =
-     if m = mn then SOME e1.v else lookup_mod m env) /\
+    (*(lookup_mod m (write_mod mn e1 env) =
+     if m = mn then SOME e1.v else lookup_mod m env) /\*)
     (lookup_cons name (write_mod mn e1 env) = lookup_cons name env)`,
-  fs [lookup_var_id_def,lookup_var_def,write_mod_def,
+  fs [lookup_var_def,write_mod_def,
+      lookup_cons_def] \\ rw [] \\ Cases_on`name` \\ fs[namespacePropsTheory.nsLookup_nsLift_append]);
+ (*fs [lookup_var_id_def,lookup_var_def,write_mod_def,
       lookup_cons_thm,lookup_mod_def] \\ rw []
-  \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);
+  \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);*)
 
 val lookup_var_write_cons = Q.store_thm("lookup_var_write_mod",
   `(lookup_var v (write_cons n d env) = lookup_var v env) /\
-    (lookup_mod m (write_cons n d env) = lookup_mod m env) /\
+    (*(lookup_mod m (write_cons n d env) = lookup_mod m env) /\*)
     (lookup_cons name (write_cons n d env) =
      if name = n then SOME d else lookup_cons name env)`,
+  fs [lookup_var_def,write_cons_def,lookup_cons_def] \\ rw []);
+  (*
   fs [lookup_var_id_def,lookup_var_def,write_cons_def,
       lookup_cons_thm,lookup_mod_def] \\ rw []
   \\ Cases_on `env.c` \\ fs []
-  \\ fs [lookup_alist_mod_env_def,merge_alist_mod_env_def]);
+  \\ fs [lookup_alist_mod_env_def,merge_alist_mod_env_def]);*)
 
 val lookup_var_empty_env = Q.store_thm("lookup_var_empty_env",
   `(lookup_var v empty_env = NONE) /\
-    (lookup_var_id (Short v) empty_env = NONE) /\
-    (lookup_var_id (Long m v) empty_env = NONE) /\
+    (*(lookup_var_id (Short v) empty_env = NONE) /\
+    (lookup_var_id (Long m v) empty_env = NONE) /\*)
     (lookup_cons name empty_env = NONE)`,
-  fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
-  \\ fs [lookup_alist_mod_env_def]);
+  fs[lookup_var_def,empty_env_def,lookup_cons_def]);
+  (*fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
+  \\ fs [lookup_alist_mod_env_def]);*)
 
 val lookup_var_merge_env = Q.store_thm("lookup_var_merge_env",
   `(lookup_var v1 (merge_env e1 e2) =
@@ -243,15 +252,19 @@ val lookup_var_merge_env = Q.store_thm("lookup_var_merge_env",
     (lookup_cons v1 (merge_env e1 e2) =
        case lookup_cons v1 e1 of
        | NONE => lookup_cons v1 e2
-       | res => res) /\
-    (lookup_mod v1 (merge_env e1 e2) =
+       | res => res)
+    (*(lookup_mod v1 (merge_env e1 e2) =
        case lookup_mod v1 e1 of
        | NONE => lookup_mod v1 e2
-       | res => res)`,
-  fs [lookup_var_def,lookup_cons_thm,merge_env_def,ALOOKUP_APPEND,lookup_mod_def]
-  \\ Cases_on `e1.c` \\ Cases_on `e2.c`
-  \\ fs [lookup_alist_mod_env_def,ALOOKUP_APPEND]);
-*)
+       | res => res)*)`,
+  fs [lookup_var_def,lookup_cons_def,merge_env_def] \\ rw[] \\ every_case_tac \\
+  fs[namespacePropsTheory.nsLookup_nsAppend_some]
+  >-
+    (Cases_on`nsLookup e2.v (Short v1)`>>
+    fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
+  >>
+    (Cases_on`nsLookup e2.c (Short v1)`>>
+    fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def]));
 
 val Eval_Var_Short = Q.store_thm("Eval_Var_Short",
   `P v ==> !name env.
@@ -1492,14 +1505,12 @@ val lookup_cons_write = Q.store_thm("lookup_cons_write",
   Induct \\ REPEAT STRIP_TAC
   \\ fs [write_rec_thm,write_def,lookup_cons_def]);
 
-(*
-val lookup_var_id_write = Q.store_thm("lookup_var_id_write",
-  `(lookup_var_id (Short name) (write n v env) =
-       if n = name then SOME v else lookup_var_id (Short name) env) /\
-    (lookup_var_id (Long mn name) (write n v env) =
-       lookup_var_id (Long mn name) env)`,
-  fs [write_def] \\ EVAL_TAC \\ rw [] \\ fs [lookup_var_id_def]);
-*)
+val nsLookup_write = Q.store_thm("nsLookup_write",
+  `(nsLookup (write n v env).v (Short name)  =
+       if n = name then SOME v else nsLookup env.v (Short name) ) /\
+   (nsLookup (write n v env).v (Long mn lname)  =
+       nsLookup env.v (Long mn lname))`,
+  fs [write_def] \\ EVAL_TAC \\ rw []);
 
 val DISJOINT_set_SIMP = Q.store_thm("DISJOINT_set_SIMP",
   `(DISJOINT (set []) s <=> T) /\
@@ -1855,7 +1866,7 @@ val translator_terms = save_thm("translator_terms",
     [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
      ("eq type",``EqualityType (a:'a->v->bool)``),
      ("lookup_cons",``lookup_cons s e = SOME x``),
-     (*("lookup_var_id",``lookup_var_id s e = SOME (x:v)``), *)
+     ("nsLookup",``nsLookup e s = SOME (x:v)``), (*TODO: Should this be e or e.v?*)
      ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
      ("map pat",``MAP (f:'a->'b)``),
      ("filter pat",``FILTER (f:'a->bool)``),
