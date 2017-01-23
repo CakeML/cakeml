@@ -3143,9 +3143,10 @@ fun translate_main translate register_type def = (let
       val _ = is_const tm orelse raise (UnableToTranslate tm)
       val _ = translate ((!find_def_for_const) tm)
       in loop info end
+
 (*
-val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
-val (fname,lhs,rhs,def) = el 1 info
+val _ = map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
+val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
   val thms = loop info

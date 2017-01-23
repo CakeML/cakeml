@@ -201,15 +201,21 @@ val lookup_var_thm = Q.store_thm("lookup_var_thm",
        | SOME env1 => ALOOKUP env1 v)`,
   fs [lookup_var_id_def,lookup_mod_def,lookup_var_def] \\ CASE_TAC \\ fs []);
 *)
+val nsLookup_write = Q.store_thm("nsLookup_write",
+  `(nsLookup (write n v env).v (Short name)  =
+       if n = name then SOME v else nsLookup env.v (Short name) ) /\
+   (nsLookup (write n v env).v (Long mn lname)  =
+       nsLookup env.v (Long mn lname))`,
+  fs [write_def] \\ EVAL_TAC \\ rw []);
 
+(* No idea why this is sparated out *)
 val lookup_var_write = Q.store_thm("lookup_var_write",
   `(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
-    (*(lookup_var_id (Short v) (write w x env) =
-        if v = w then SOME x else lookup_var_id (Short v) env) /\
-    (lookup_var_id (Long mn v) (write w x env) =
-        lookup_var_id (Long mn v) env) /\*)
+    (nsLookup (write w x env).v (Short v)  =
+       if v = w then SOME x else nsLookup env.v (Short v) ) /\
+   (nsLookup (write w x env).v (Long mn lname)  =
+       nsLookup env.v (Long mn lname)) ∧
     (lookup_cons name (write w x env) = lookup_cons name env)`,
-  (*fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);*)
   fs [lookup_var_def,write_def,lookup_cons_def] \\ rw []);
 
 val lookup_var_write_mod = Q.store_thm("lookup_var_write_mod",
@@ -1504,13 +1510,6 @@ val lookup_cons_write = Q.store_thm("lookup_cons_write",
       (lookup_cons name (write_rec funs env1 env) = lookup_cons name env)`,
   Induct \\ REPEAT STRIP_TAC
   \\ fs [write_rec_thm,write_def,lookup_cons_def]);
-
-val nsLookup_write = Q.store_thm("nsLookup_write",
-  `(nsLookup (write n v env).v (Short name)  =
-       if n = name then SOME v else nsLookup env.v (Short name) ) /\
-   (nsLookup (write n v env).v (Long mn lname)  =
-       nsLookup env.v (Long mn lname))`,
-  fs [write_def] \\ EVAL_TAC \\ rw []);
 
 val DISJOINT_set_SIMP = Q.store_thm("DISJOINT_set_SIMP",
   `(DISJOINT (set []) s <=> T) /\
