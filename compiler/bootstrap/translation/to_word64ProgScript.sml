@@ -560,25 +560,6 @@ val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
 val _ = translate (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
-val word_inst_inst_select_side = Q.prove(`
-∀prog c n. word_inst_inst_select_side c n prog ⇔ T`,
-`(∀prog c n. word_inst_inst_select_side c n prog ⇔ T) /\
- (∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = SOME(a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
-(∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = (a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
- (∀opt (a:num) b (c:num) (d:num) x n. opt = SOME(a,b,c,d) ==> word_inst_inst_select_side x n b) /\
- (∀opt (a:num_set) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
- (∀opt (a:num) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
-(∀opt a (b:num) (c:num) x n. opt = (a,b,c) ==> word_inst_inst_select_side x n a)`
-   suffices_by fs[]
->> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
->> rpt strip_tac
->> fs[]
->> rw[Once(fetch "-" "word_inst_inst_select_side_def")]
->> fs[]
->> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
->> fs[]
->> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
-
 val _ = translate (op_consts_pmatch|>conv64|>econv)
 
 val _ = translate (convert_sub_pmatch |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
@@ -717,6 +698,25 @@ val word_simp_compile_exp_side = Q.prove(`
   ∀prog. word_simp_compile_exp_side prog ⇔ T`,
   fs[fetch "-" "word_simp_compile_exp_side_def",
      word_simp_const_fp_side]) |> update_precondition
+
+val word_inst_inst_select_side = Q.prove(`
+∀prog c n. word_inst_inst_select_side c n prog ⇔ T`,
+`(∀prog c n. word_inst_inst_select_side c n prog ⇔ T) /\
+ (∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = SOME(a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
+(∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = (a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
+ (∀opt (a:num) b (c:num) (d:num) x n. opt = SOME(a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+ (∀opt (a:num_set) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+ (∀opt (a:num) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+(∀opt a (b:num) (c:num) x n. opt = (a,b,c) ==> word_inst_inst_select_side x n a)`
+   suffices_by fs[]
+>> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
+>> rpt strip_tac
+>> fs[]
+>> rw[Once(fetch "-" "word_inst_inst_select_side_def")]
+>> fs[]
+>> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
+>> fs[]
+>> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition                                        
 
 val word_to_word_compile_single_side = Q.prove(`
   ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
