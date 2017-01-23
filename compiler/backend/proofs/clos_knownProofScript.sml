@@ -1278,13 +1278,13 @@ val kvrel_op_correct_Rval = Q.store_thm(
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >> simp[] >>
       irule fmap_rel_FUPDATE_same >> simp[LIST_REL_REPLICATE_same])
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray barray)` >>
-      qexists_tac `barray` >> simp[] >> fs[fmap_rel_OPTREL_FLOOKUP] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
+      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[fmap_rel_OPTREL_FLOOKUP] >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray barray)` >>
-      qexists_tac `barray` >> simp[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
+      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[ksrel_def] >>
       reverse conj_tac >- simp[fmap_rel_FUPDATE_same] >>
       fs[fmap_rel_OPTREL_FLOOKUP] >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
@@ -1324,8 +1324,8 @@ val kvrel_op_correct_Rval = Q.store_thm(
       rpt (first_x_assum (qspec_then `kk` mp_tac)) >>
       simp[OPTREL_def, PULL_EXISTS] >> rw[] >> rw[])
   >- (rw[ksrel_def, pair_case_eq] >> simp[] >> fs[] >>
-      simp[PULL_EXISTS] >> rename1 `FLOOKUP _ PTR = SOME (ByteArray bytes)` >>
-      `FLOOKUP s02.refs PTR = SOME (ByteArray bytes)`
+      simp[PULL_EXISTS] >> rename1 `FLOOKUP _ PTR = SOME (ByteArray bf bytes)` >>
+      `FLOOKUP s02.refs PTR = SOME (ByteArray bf bytes)`
          by (fs[fmap_rel_OPTREL_FLOOKUP] >>
              rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
              simp[OPTREL_def]) >> simp[] >>

@@ -32,6 +32,8 @@ val compile_op_def = Define`
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
+  compile_op LengthByteVec = LengthByte ∧
+  compile_op DerefByteVec = DerefByte ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
