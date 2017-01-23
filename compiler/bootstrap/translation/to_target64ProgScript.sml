@@ -259,6 +259,27 @@ val _ = translate (spec64 stubs_def)
 
 val _ = translate (spec64 compile_def)
 
+val stack_alloc_comp_side = Q.prove(`
+  ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,
+`(∀prog n m. stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) (z:num) n m. opt = SOME(prog,x,y,z) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) (z:num) n m. opt = (prog,x,y,z) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) n m. opt = SOME(prog,x,y) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) n m. opt = (prog,x,y) ⇒ stack_alloc_comp_side n m prog ⇔ T)`
+  suffices_by fs[]
+  >> ho_match_mp_tac(TypeBase.induction_of ``:64 stackLang$prog``)
+  >> fs[]
+  >> rpt strip_tac
+  >> rw[Once(fetch "-" "stack_alloc_comp_side_def")]
+  >> fs[]
+  >> metis_tac[option_nchotomy, pair_CASES]) |> update_precondition
+
+val stack_alloc_prog_comp_side = Q.prove(`∀prog. stack_alloc_prog_comp_side prog ⇔ T`,
+  fs[fetch "-" "stack_alloc_prog_comp_side_def", stack_alloc_comp_side]) |> update_precondition;
+
+val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side conf prog ⇔ T`,
+  fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
+
 open stack_removeTheory
 
 (* Might be better to inline this *)
