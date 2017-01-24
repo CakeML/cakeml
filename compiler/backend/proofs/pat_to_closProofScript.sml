@@ -27,7 +27,7 @@ val _ = export_rewrites["compile_v_def"]
 val compile_sv_def = Define `
   (compile_sv (Refv v) = ValueArray [compile_v v]) ∧
   (compile_sv (Varray vs) = ValueArray (MAP compile_v vs)) ∧
-  (compile_sv (W8array bs) = ByteArray bs)`
+  (compile_sv (W8array bs) = ByteArray F bs)`
 val _ = export_rewrites["compile_sv_def"];
 
 val compile_state_def = Define`
