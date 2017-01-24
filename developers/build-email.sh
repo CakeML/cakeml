@@ -11,7 +11,7 @@ trap "rm -f $log_f $state_f" 0 2 3 15 EXIT
 
 to='builds@cakeml.org'
 
-timeout 12h developers/regression-test.sh $state_f &> >(tee $log_f)
+timeout 16h developers/regression-test.sh $state_f &> >(tee $log_f)
 result=$?
 
 cur_build_dir=`cat $state_f`
