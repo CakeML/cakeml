@@ -191,10 +191,10 @@ val compile_top_def = Define `
    case top of
     | Tdec d =>
       let (next', new_env, d') = (compile_dec next [] env d) in
-        (next', nsAppend new_env env, Prompt [] [d'])
+        (next', nsAppend new_env env, Prompt NONE [d'])
     | Tmod mn specs ds =>
       let (next', new_env, ds') = (compile_decs next [mn] env ds) in
-        (next', nsAppend (nsLift mn new_env) env, Prompt [mn] ds')`;
+        (next', nsAppend (nsLift mn new_env) env, Prompt (SOME mn) ds')`;
 
 val compile_prog_def = Define `
   (compile_prog next env [] = (next, env, [])) ∧

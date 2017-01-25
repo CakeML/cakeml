@@ -483,20 +483,23 @@ val no_dup_mods_eqn = Q.store_thm ("no_dup_mods_eqn",
     (no_dup_mods [] mods ⇔ T) ∧
     (no_dup_mods (p::ps) mods ⇔
        (case p of
-         | Prompt mns ds =>
-           mns ≠ [] ⇒ ~MEM mns (prog_to_mods ps) ∧ mns ∉ mods) ∧
+         | Prompt (SOME mn) ds =>
+           ~MEM mn (prog_to_mods ps) ∧ mn ∉ mods
+         | Prompt NONE ds => T) ∧
       no_dup_mods ps mods)`,
   srw_tac[][modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def] >>
-  every_case_tac >>
-  srw_tac[][ALL_DISTINCT_FILTER, MEM_FILTER] >>
-  metis_tac []);
+  eq_tac >>
+  rw [] >>
+  Cases_on `p` >>
+  Cases_on `o'` >>
+  fs [modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def]);
 
 val no_dup_top_types_eqn = Q.store_thm ("no_dup_top_types_eqn",
   `!p ps.
     (no_dup_top_types [] tids ⇔ T) ∧
     (no_dup_top_types (p::ps) tids ⇔
        (case p of
-         | Prompt [] ds =>
+         | Prompt NONE ds =>
              ALL_DISTINCT (decs_to_types ds) ∧
              DISJOINT (set (decs_to_types ds)) (set (prog_to_top_types ps)) ∧
              DISJOINT (IMAGE (\tn. TypeId (Short tn)) (set (decs_to_types ds))) tids

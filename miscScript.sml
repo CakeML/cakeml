@@ -2090,4 +2090,8 @@ val MOD_MINUS = Q.store_thm("MOD_MINUS",
   \\ impl_tac THEN1 (fs [MOD_LESS,ZERO_LESS_MULT])
   \\ fs [MOD_MULT_MOD]);
 
+val option_fold_def = Define `
+  (option_fold f x NONE = x) ∧
+  (option_fold f x (SOME y) = f y x)`;
+
 val _ = export_theory()

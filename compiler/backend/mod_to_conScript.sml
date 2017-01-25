@@ -12,7 +12,7 @@ open backend_commonTheory;
  *)
 
 val _ = new_theory "mod_to_con";
-val _ = set_grammar_ancestry ["backend_common", "modLang", "conLang",
+val _ = set_grammar_ancestry ["misc", "backend_common", "modLang", "conLang",
                               "semanticPrimitives" (* for TypeId *)];
 
 (* for each constructor, its arity, tag, and type *)
@@ -184,7 +184,7 @@ val _ = Define `
   (case prompt of
    Prompt mn ds =>
      let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
-       ((next',nsAppend (FOLDR nsLift acc' mn) (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
+       ((next',nsAppend (option_fold nsLift acc' mn) (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
 
 val _ = Define `
   (compile_prog st [] = (st, []))

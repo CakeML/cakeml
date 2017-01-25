@@ -32,7 +32,8 @@ val _ = Datatype`
     refs    : modSem$v store;
     ffi     : 'ffi ffi_state;
     defined_types : tid_or_exn set;
-    defined_mods : modN list set;
+    (* Top level module names *)
+    defined_mods : modN set;
     globals : (modSem$v option) list
   |>`;
 
@@ -548,10 +549,10 @@ val evaluate_decs_def = Define`
    | (s, Rerr e) => (s, nsEmpty, [], SOME e))`;
 
 val update_mod_state_def = Define `
-  update_mod_state (mn:modN list) mods =
+  update_mod_state (mn:modN option) mods =
     case mn of
-      [] => mods
-    | mn => mn INSERT mods`;
+      NONE => mods
+    | SOME mn => mn INSERT mods`;
 
 val dec_to_dummy_env_def = Define `
   (dec_to_dummy_env (modLang$Dlet n e) = n) ∧
@@ -576,24 +577,25 @@ val no_dup_types_def = Define `
 val prompt_mods_ok_def = Define `
   (prompt_mods_ok mn ds ⇔
     (case mn of
-       [] => LENGTH ds < 2
+       NONE => LENGTH ds < 2
      | _ => T) ∧
     EVERY (λd.
       (case d of
-          Dtype mn' _ => mn' = mn
-        | Dexn mn' _ _ => mn' = mn
+          Dtype (mn'::_) _ => SOME mn' = mn
+        | Dexn (mn'::_) _ _ => SOME mn' = mn
         | _ => T))
     ds)`;
 
+
 val evaluate_prompt_def = Define`
   evaluate_prompt env s (Prompt mn ds) =
-  if no_dup_types ds ∧ prompt_mods_ok mn ds ∧ mn ∉ s.defined_mods then
+  if no_dup_types ds ∧ prompt_mods_ok mn ds ∧ mn ∉ IMAGE SOME s.defined_mods then
   let (s, cenv, genv, r) = evaluate_decs env s ds in
     (s with defined_mods updated_by update_mod_state mn,
-     FOLDR nsLift cenv mn,
+     option_fold nsLift cenv mn,
      MAP SOME genv ++ (if r = NONE then [] else GENLIST (K NONE) (decs_to_dummy_env ds - LENGTH genv)),
      r)
-  else (s, FOLDR nsLift nsEmpty mn, [], SOME (Rabort Rtype_error))`;
+  else (s, option_fold nsLift nsEmpty mn, [], SOME (Rabort Rtype_error))`;
 
 val evaluate_prompts_def = Define`
   (evaluate_prompts env s [] = (s, nsEmpty, [], NONE)) ∧
@@ -608,17 +610,18 @@ val evaluate_prompts_def = Define`
    | res => res)`;
 
 val prog_to_mods_def = Define `
-  prog_to_mods prompts =
-   FILTER ((<>) []) (MAP (λprompt. (case prompt of Prompt mn ds => mn)) prompts)`;
+  (prog_to_mods [] = []) ∧
+  (prog_to_mods (Prompt NONE ds :: mods) = prog_to_mods mods) ∧
+  (prog_to_mods (Prompt (SOME mn) ds :: mods) = mn::prog_to_mods mods)`;
 
 val no_dup_mods_def = Define `
   no_dup_mods prompts mods ⇔
     ALL_DISTINCT (prog_to_mods prompts) /\
-    DISJOINT (LIST_TO_SET (prog_to_mods prompts)) mods`;
+    DISJOINT (set (prog_to_mods prompts)) mods`;
 
 val prog_to_top_types_def = Define `
   prog_to_top_types prompts =
-    FLAT (MAP (λprompt. case prompt of Prompt [] ds => decs_to_types ds | _ => []) prompts)`;
+    FLAT (MAP (λprompt. case prompt of Prompt NONE ds => decs_to_types ds | _ => []) prompts)`;
 
 val no_dup_top_types_def = Define `
   no_dup_top_types prompts tids ⇔
@@ -627,7 +630,7 @@ val no_dup_top_types_def = Define `
 
 val evaluate_prog_def = Define `
  (evaluate_prog env s prompts =
-  if no_dup_mods prompts s.defined_mods ∧
+  if modSem$no_dup_mods prompts s.defined_mods ∧
      no_dup_top_types prompts s.defined_types ∧
      EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
   then let (s,_,_,r) = evaluate_prompts env s prompts in (s,r)
