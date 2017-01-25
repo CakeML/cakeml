@@ -434,7 +434,8 @@ val compile_correct = Q.prove(
                 bvlSemTheory.do_app_def]
       \\ reverse (Cases_on `t'`)
       THEN1 (fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
-                 bvlSemTheory.do_app_def] \\ Cases_on `h` \\ fs [])
+                 bvlSemTheory.do_app_def] \\ Cases_on `h'` \\ fs []
+                 \\ Cases_on`h` \\ fs[])
       \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
       \\ Cases_on `h`
       \\ fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
