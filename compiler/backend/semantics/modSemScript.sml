@@ -583,6 +583,8 @@ val prompt_mods_ok_def = Define `
       (case d of
           Dtype (mn'::_) _ => SOME mn' = mn
         | Dexn (mn'::_) _ _ => SOME mn' = mn
+        | Dtype [] _ => mn = NONE
+        | Dexn [] _ _ => mn = NONE
         | _ => T))
     ds)`;
 

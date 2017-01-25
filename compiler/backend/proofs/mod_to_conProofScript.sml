@@ -352,7 +352,8 @@ val envC_tagged_extend = Q.prove (
 
 val envC_tagged_extend_error = Q.prove (
   `!envC tagenv gtagenv gtagenv' acc mn.
-    (!m p. m ∈ nsDomMod envC ∧ p ≼ m ⇒ ~(p ≼ (option_fold CONS [] mn))) ∧
+    mn ≠ NONE ∧
+    (!x. x ∈ nsDomMod envC ∧ x ≠ [] ⇒ mn ≠ SOME (HD x)) ∧
     gtagenv_weak gtagenv gtagenv' ∧
     envC_tagged envC tagenv gtagenv
     ⇒
@@ -372,35 +373,14 @@ val envC_tagged_extend_error = Q.prove (
   by fs [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
   first_x_assum drule >>
   rw [] >>
-  `nsLookup (option_fold nsLift acc mn) cn = NONE`
-  by (
-    CCONTR_TAC >>
-    `?x. nsLookup (option_fold nsLift acc mn) cn = SOME x`
-    by metis_tac [option_nchotomy, NOT_SOME_NONE] >>
-    Cases_on `mn` >>
-    fs [nsLookup_nsLift] >>
-    fs []
-    >- (
-      first_x_assum (qspec_then `[]` mp_tac) >>
-      simp [])
-    >- (
-      first_x_assum (qspec_then `[x']` mp_tac) >>
-      fs [option_fold_def, nsLookup_nsLift] >>
-      every_case_tac >>
-      fs [namespaceTheory.id_to_mods_def] >>
-      rw [])) >>
-  rw [] >>
+  Cases_on `cn` >>
   Cases_on `mn` >>
-  fs [option_fold_def]
-  >- (
-    first_x_assum (qspec_then `[]` mp_tac) >>
-    simp [])
-  >- (
-    simp [nsLookupMod_nsLift] >>
-    every_case_tac >>
-    fs []
-    first_x_assum (qspec_then `[h]` mp_tac) >>
-    simp []));
+  fs [option_fold_def, nsLookup_nsLift, namespaceTheory.id_to_mods_def,
+      namespaceTheory.id_to_n_def] >>
+  rw [nsLookupMod_nsLift] >>
+  CASE_TAC >>
+  rw [] >>
+  fs []);
 
 (* value relation *)
 
@@ -697,8 +677,9 @@ val match_result_rel_def = Define
 
 val invariant_def = Define `
   invariant envC tagenv_st gtagenv s s_i2 ⇔
+    nsDomMod envC ⊆ [] INSERT IMAGE (\x. [x]) s.defined_mods ∧
     (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ s.defined_types) ∧
-    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ HD (id_to_mods (Long mn x)) ∈ s.defined_mods) ∧
+    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ s.defined_mods) ∧
     cenv_inv envC (get_exh tagenv_st) (get_tagenv ((tagenv_st,nsEmpty):tagenv_state_acc)) gtagenv ∧
     s_rel gtagenv s s_i2 ∧
     next_inv s.defined_types (FST tagenv_st) gtagenv`;
@@ -2383,6 +2364,39 @@ val compile_decs_dummy_env_num_defs =prove(
   srw_tac[][] >>
   simp[modSemTheory.dec_to_dummy_env_def,conLangTheory.num_defs_def,compile_funs_map]);
 
+val compile_decs_flat = Q.prove (
+  `!tagenv_st acc ds next' tagenv' exh' acc' ds'.
+    nsDomMod acc = {[]} ∧
+    compile_decs (tagenv_st,acc) ds = (((next',tagenv',exh'),acc'),ds')
+    ⇒
+    nsDomMod acc' = {[]}`,
+  induct_on `ds` >>
+  fs [compile_decs_def] >>
+  rw [] >>
+  rw [] >>
+  every_case_tac >>
+  fs [] >>
+  first_x_assum irule >>
+  pairarg_tac >>
+  fs []
+  >- metis_tac []
+  >- metis_tac [] >>
+  rw []
+  >- (
+    `?acc2. SND (alloc_tags l (tagenv_st,acc) l0) = nsAppend acc2 acc ∧ nsDomMod acc2 = {[]}`
+    by metis_tac [SND, alloc_tags_accumulates] >>
+    Cases_on `alloc_tags l (tagenv_st,acc) l0` >>
+    fs [] >>
+    rw [] >>
+    metis_tac [nsDomMod_nsAppend_flat])
+  >- (
+    `?acc2. SND (alloc_tag (TypeExn (mk_id l s)) s (LENGTH l0) (tagenv_st,acc)) = nsAppend acc2 acc ∧ nsDomMod acc2 = {[]}`
+    by metis_tac [SND, alloc_tag_accumulates] >>
+    Cases_on `alloc_tag (TypeExn (mk_id l s)) s (LENGTH l0) (tagenv_st,acc)` >>
+    fs [] >>
+    rw [] >>
+    metis_tac [nsDomMod_nsAppend_flat]));
+
 val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
   `!env s prompt s_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
     evaluate_prompt env s prompt = (s', envC', genv', res) ∧
@@ -2399,7 +2413,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = env.c ∧
                     s_rel gtagenv' s' s'_i2 ∧
                     result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
-
   srw_tac[][compile_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   rename1`Prompt mn ds` >>
@@ -2420,7 +2433,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     simp [PULL_EXISTS] >>
     imp_res_tac FDOM_compile_decs_exh >>
     full_simp_tac(srw_ss())[get_exh_def] >>
-    (*
     conj_tac >- (
       simp[modSemTheory.update_mod_state_def] >>
       full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
@@ -2429,8 +2441,20 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
       rw [] >>
       every_case_tac >>
       fs [] >>
-      fs [envC_tagged_def] >>
-      *)
+      fs [option_fold_def] >>
+      imp_res_tac compile_decs_flat >>
+      fs [] >>
+      rw [] >>
+      rfs [nsDomMod_nsAppend_flat] >>
+      Cases_on `x = [x']` >>
+      rw [] >>
+      Cases_on `x ∈ nsDomMod env.c`
+      >- metis_tac [] >>
+      fs [namespaceTheory.nsDomMod_def, GSPECIFICATION, EXTENSION, LAMBDA_PROD, EXISTS_PROD, nsLookupMod_nsAppend_some] >>
+      Cases_on `x` >>
+      fs [nsLookupMod_nsLift] >>
+      fs [] >>
+      metis_tac []) >>
     conj_tac >- (
       imp_res_tac modPropsTheory.evaluate_decs_tids >> full_simp_tac(srw_ss())[] >>
       imp_res_tac modPropsTheory.evaluate_decs_tids_acc >> full_simp_tac(srw_ss())[] >>
@@ -2462,7 +2486,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     simp[EVERY2_MAP,OPTREL_def] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
     full_simp_tac(srw_ss())[OPTREL_def] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
     res_tac >> simp[] >> metis_tac[v_rel_weakening])
-
   >- (
     drule compile_decs_correct >>
     simp [] >>
@@ -2474,7 +2497,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
     simp [PULL_EXISTS] >>
     imp_res_tac FDOM_compile_decs_exh >>
     full_simp_tac(srw_ss())[get_exh_def] >>
-    (*
     conj_tac >- (
       simp[modSemTheory.update_mod_state_def] >>
       full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
@@ -2484,7 +2506,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
       every_case_tac >>
       fs [] >>
       metis_tac []) >>
-      *)
     conj_tac >- (
       imp_res_tac modPropsTheory.evaluate_decs_tids_acc >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
@@ -2496,16 +2517,6 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
       srw_tac[][] >> full_simp_tac(srw_ss())[MEM_MAP] >>
       rename1 `MEM (Dtype mn2 ty) ds` >>
       Cases_on`mn2`>>full_simp_tac(srw_ss())[namespaceTheory.mk_id_def] >> srw_tac[][] >>
-      res_tac >>
-      res_tac
-      >- metis_tac []
-      >- metis_tac []
-      >- metis_tac [] >>
-      rw [] >>
-      Cases_on `d` >>
-      fs [MEM_MAP]
-      metis_tac []
-
       Cases_on`ds`>>fsrw_tac[boolSimps.DNF_ss,ARITH_ss][compile_decs_def]>>
       TRY(Cases_on`t`>>fsrw_tac[ARITH_ss][])>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
       full_simp_tac(srw_ss())[LET_THM,compile_decs_def]>>srw_tac[][]>>
@@ -2521,17 +2532,40 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
       first_x_assum(qspec_then`d`mp_tac) >>
       simp[] >> BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[MEM_MAP] >>
-      rename1 `MEM (Dtype mn ty) _` >>
-      Cases_on`mn`>>full_simp_tac(srw_ss())[namespaceTheory.mk_id_def] >>
+      rename1 `MEM (Dtype mn2 ty) _` >>
+      Cases_on`mn2`>>full_simp_tac(srw_ss())[namespaceTheory.mk_id_def] >>
       srw_tac[][modSemTheory.update_mod_state_def] ) >>
     conj_tac >- (
       full_simp_tac(srw_ss())[cenv_inv_def] >>
       simp[get_tagenv_def] >>
       PairCases_on`tagenv_st`>>full_simp_tac(srw_ss())[get_tagenv_def] >>
-      irule envC_tagged_extend_error >>
-      rw []
-      >- cheat
-      >- metis_tac []) >>
+      reverse (Cases_on `mn`)
+      >- (
+        irule envC_tagged_extend_error >>
+        rw []
+        >- (
+          Cases_on `x''` >>
+          fs [SUBSET_DEF] >>
+          first_x_assum drule >>
+          fs [] >>
+          metis_tac [])
+        >- metis_tac [])
+      >- (
+        fs [option_fold_def, modSemTheory.prompt_mods_ok_def] >>
+        Cases_on `ds` >>
+        fs [modSemTheory.evaluate_decs_def] >>
+        Cases_on `t` >>
+        fs [modSemTheory.evaluate_decs_def] >>
+        every_case_tac >>
+        fs [compile_decs_def, modSemTheory.evaluate_dec_def] >>
+        rw [] >>
+        rfs [modSemTheory.no_dup_types_def, decs_to_types_def]
+        >- (
+          fs [envC_tagged_def] >>
+          rw [] >>
+          metis_tac [gtagenv_weak_def, FLOOKUP_SUBMAP]) >>
+        every_case_tac >>
+        fs [])) >>
     rpt var_eq_tac >>
     conj_tac >- (
       full_simp_tac(srw_ss())[s_rel_cases] >>
@@ -2552,7 +2586,7 @@ val compile_prompt_exh_weak = Q.store_thm("compile_prompt_exh_weak",
   srw_tac[][compile_prompt_def] >>
   every_case_tac >> simp[] >>
   simp[UNCURRY,get_exh_def] >>
-  qspecl_then[`l0`,`st,nsEmpty`]strip_assume_tac compile_decs_exh_weak >>
+  qspecl_then[`l`,`st,nsEmpty`]strip_assume_tac compile_decs_exh_weak >>
   metis_tac[get_exh_def,SND,FST,PAIR])
 
 val compile_prog_exh_weak = Q.store_thm("compile_prog_exh_weak",
@@ -2649,7 +2683,9 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >> srw_tac[][] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     spose_not_then strip_assume_tac >>
-    res_tac >> full_simp_tac(srw_ss())[namespaceTheory.mk_id_def,MEM_MAP]) >>
+    res_tac >> full_simp_tac(srw_ss())[namespaceTheory.mk_id_def,MEM_MAP] >>
+    Cases_on `l'` >>
+    fs [namespaceTheory.mk_id_def]) >>
   reverse strip_tac >- (
     rpt var_eq_tac >> simp[] >>
     simp[conSemTheory.evaluate_prog_def] >>
@@ -2886,10 +2922,9 @@ val alloc_tags_exh_unchanged = Q.store_thm("alloc_tags_exh_unchanged",
   every_case_tac >> full_simp_tac(srw_ss())[get_exh_def] >>
   simp[FLOOKUP_UPDATE]);
 
-(* Not sure if theorem was modified correctly *)
 val compile_decs_exh_unchanged = Q.store_thm("compile_decs_exh_unchanged",
   `∀ds a st sta st' ac b.
-   EVERY (λd. case d of Dtype mn _ => mn = (x::y) | Dexn mn _ _ => mn = (x::y) | _ => T) ds ∧
+   EVERY (λd. case d of Dtype mn _ => ?x y. mn = (x::y) | Dexn mn _ _ => ?x y. mn = (x::y) | _ => T) ds ∧
    compile_decs sta ds = ((st',ac),b) ∧ st = FST sta ∧
    FLOOKUP (get_exh st) (Short t) = SOME v
    ⇒
@@ -2906,7 +2941,7 @@ val compile_decs_exh_unchanged = Q.store_thm("compile_decs_exh_unchanged",
   full_simp_tac(srw_ss())[get_exh_def]);
 
 val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
-  `(∀ds. p = Prompt [] ds ⇒ ¬MEM t (decs_to_types ds)) ∧
+  `(∀ds. p = Prompt NONE ds ⇒ ¬MEM t (decs_to_types ds)) ∧
    (∀mn ds. p = Prompt mn ds ⇒ prompt_mods_ok mn ds) ∧
    FLOOKUP (get_exh st) (Short t) = SOME v ⇒
    FLOOKUP (get_exh (FST (compile_prompt st p))) (Short t) = SOME v`,
@@ -2914,7 +2949,7 @@ val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
   BasicProvers.TOP_CASE_TAC >> srw_tac[][] >> srw_tac[][get_exh_def] >>
   full_simp_tac(srw_ss())[modSemTheory.prompt_mods_ok_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >- (
-    Cases_on`l0`>>full_simp_tac(srw_ss())[compile_decs_def] >> rveq >- full_simp_tac(srw_ss())[get_exh_def] >>
+    Cases_on`l`>>full_simp_tac(srw_ss())[compile_decs_def] >> rveq >- full_simp_tac(srw_ss())[get_exh_def] >>
     Cases_on`t'`>>fsrw_tac[ARITH_ss][]>>
     every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
@@ -2928,7 +2963,17 @@ val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
     simp[Abbr`b`,get_exh_def,MEM_MAP,UNCURRY] >>
     Cases_on`a`>>simp[namespaceTheory.mk_id_def,FORALL_PROD] >>
     full_simp_tac(srw_ss())[MEM_MAP,EXISTS_PROD]) >>
-  imp_res_tac compile_decs_exh_unchanged >> full_simp_tac(srw_ss())[get_exh_def]);
+  imp_res_tac compile_decs_exh_unchanged >> full_simp_tac(srw_ss())[get_exh_def] >>
+  first_x_assum drule >>
+  disch_then irule >>
+  rw [] >>
+  fs [EVERY_MEM] >>
+  rw [] >>
+  first_x_assum drule >>
+  CASE_TAC >>
+  rw [] >>
+  Cases_on `l'` >>
+  fs []);
 
 val compile_prog_exh_unchanged = Q.store_thm("compile_prog_exh_unchanged",
   `∀p st.
