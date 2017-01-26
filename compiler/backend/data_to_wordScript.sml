@@ -338,27 +338,27 @@ val AnyArith_code_def = Define `
   AnyArith_code c = GiveUp:'a wordLang$prog`;
 
 val Add_code_def = Define `
-  Add_code = Seq (Assign 6 (Const 0w))
+  Add_code = Seq (Assign 6 (Const (n2w (4 * 0))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Sub_code_def = Define `
-  Sub_code = Seq (Assign 6 (Const 4w))
+  Sub_code = Seq (Assign 6 (Const (n2w (4 * 1))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Mul_code_def = Define `
-  Mul_code = Seq (Assign 6 (Const 8w))
+  Mul_code = Seq (Assign 6 (Const (n2w (4 * 4))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Div_code_def = Define `
-  Div_code = Seq (Assign 6 (Const 12w))
+  Div_code = Seq (Assign 6 (Const (n2w (4 * 5))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Mod_code_def = Define `
-  Mod_code = Seq (Assign 6 (Const 16w))
+  Mod_code = Seq (Assign 6 (Const (n2w (4 * 6))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 

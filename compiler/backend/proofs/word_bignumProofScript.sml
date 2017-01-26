@@ -1644,14 +1644,75 @@ val const_def = time (first (not o time (can derive_corr_thm)))
 
 val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
 
-(*
+(* connecting all the theormes *)
 
-val th = mc_iop_corr_thm
+val iop_lemma =
+  mc_multiwordTheory.mc_iop_thm
+    |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> UNDISCH_ALL
+
+val lemma = METIS_PROVE [] ``b /\ c <=> b /\ (b ==> c)``
+
+val lemma2 = multiwordTheory.mwi_op_thm |> Q.SPECL [`iop`,`i1`,`i2`]
+
+val i2mw_NOT_NIL = prove(
+  ``SND (i2mw i2) ≠ [] <=> i2 <> 0``,
+  fs [multiwordTheory.i2mw_def,Once multiwordTheory.n2mw_def]
+  \\ rw [] \\ Cases_on `i2` \\ fs [] \\ intLib.COOPER_TAC);
+
+val mw_ok_SND_i2mw = prove(
+  ``mw_ok (SND (i2mw fg))``,
+  fs [multiwordTheory.i2mw_def,multiwordTheory.mw_ok_n2mw]);
+
+val code_subset_refl = prove(
+  ``!cs. code_subset cs cs``,
+  fs [code_subset_def,FORALL_PROD]);
+
+val mc_iop_corr_thm = fetch "-" "mc_iop_corr_thm"
+
+val evaluate_mc_iop = save_thm("evaluate_mc_iop",
+  mc_iop_corr_thm
   |> REWRITE_RULE [Corr_def] |> UNDISCH_ALL
   |> MATCH_MP compile_thm
   |> SIMP_RULE (srw_ss()) [SIMP_RULE std_ss [] (EVAL ``syntax_ok mc_iop_code``)]
   |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-
-*)
+  |> DISCH_ALL
+  |> Q.GEN `s`
+  |> Q.SPEC `<| clock := ck;
+                regs := ((FEMPTY |+ (0,mc_header (s,xs)))
+                                 |+ (1,mc_header (t,ys)))
+                                 |+ (3,int_op_rep iop);
+                arrays := (In1 =+ xs) ((In2 =+ ys) (K zs)) |>`
+  |> Q.INST [`i`|->`1`,`i1`|->`i'`]
+  |> SIMP_RULE (srw_ss()) [FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM,
+       EVAL ``mc_iop_code = LoopBody body``]
+  |> REWRITE_RULE [UNDISCH_ALL mc_multiwordTheory.mc_iop_thm]
+  |> (fn th => MATCH_MP th (CONJUNCT1 iop_lemma))
+  |> UNDISCH_ALL
+  |> CONJ (CONJUNCT2 iop_lemma)
+  |> SIMP_RULE std_ss [PULL_EXISTS]
+  |> ONCE_REWRITE_RULE [lemma]
+  |> SIMP_RULE std_ss []
+  |> REWRITE_RULE [GSYM lemma]
+  |> REWRITE_RULE [GSYM CONJ_ASSOC]
+  |> DISCH_ALL
+  |> Q.INST [`p9`|->`Return 0 0`]
+  |> Q.INST [`s`|->`FST ((i2mw i1): bool # 'a word list)`,
+             `xs`|->`SND (i2mw i1: bool # 'a word list)`,
+             `t`|->`FST (i2mw i2: bool # 'a word list)`,
+             `ys`|->`SND (i2mw i2: bool # 'a word list)`]
+  |> DISCH (lemma2 |> concl |> rand)
+  |> SIMP_RULE std_ss [PAIR]
+  |> (fn th => MATCH_MP th (lemma2 |> UNDISCH))
+  |> DISCH_ALL |> SIMP_RULE std_ss [i2mw_NOT_NIL]
+  |> Q.INST [`t0`|->`t`,`t1`|->`t`]
+  |> SIMP_RULE std_ss [mw_ok_SND_i2mw,GSYM AND_IMP_INTRO]
+  |> UNDISCH_ALL |> DISCH_ALL
+  |> Q.INST [`cs`|->`(n+1n,[])`]
+  |> INST_TYPE [``:'b``|->``:num``]
+  |> Q.INST [`cs1`|->`cs`]
+  |> Q.INST [`cs2`|->`cs`]
+  |> SIMP_RULE std_ss [code_subset_refl]
+  |> Q.GENL (rev [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
+                  `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]));
 
 val _ = export_theory();
