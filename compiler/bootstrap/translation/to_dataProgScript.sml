@@ -1007,6 +1007,25 @@ val EqualityType_DATALANG_PROG_TYPE = Q.prove(
 
 val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
+val data_space_space_side = Q.prove(`∀prog. data_space_space_side prog ⇔ T`,
+`(∀prog. data_space_space_side prog ⇔ T) ∧
+(∀opt (n:num) prog. opt = SOME(n,prog) ⇒ data_space_space_side prog ⇔ T) ∧
+(∀opt (n:num) prog. opt = (n,prog) ⇒ data_space_space_side prog ⇔ T)`
+  suffices_by simp[]
+  >> ho_match_mp_tac (TypeBase.induction_of ``:dataLang$prog``)
+  >> fs[]
+  >> rpt strip_tac
+  >> rw[Once (fetch "-" "data_space_space_side_def")]
+  >> metis_tac[sum_CASES, pair_CASES]) |> update_precondition;
+
+val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_side prog`,
+  rw[fetch "-" "data_space_compile_side_def",
+     fetch "-" "bvi_to_data_optimise_side_def",
+     fetch "-" "bvi_to_data_compile_exp_side_def",
+     fetch "-" "bvi_to_data_compile_part_side_def",
+     fetch "-" "bvi_to_data_compile_prog_side_def",
+     data_space_space_side]) |> update_precondition;
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
