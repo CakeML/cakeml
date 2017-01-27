@@ -19,7 +19,7 @@ val _ = Datatype `
      | LengthBlock   (* get length of Block *)
      | Length        (* get length of reference *)
      | LengthByte    (* get length of byte array *)
-     | RefByte       (* makes a byte array *)
+     | RefByte bool  (* makes a byte array, T = immutable/compare-by-contents *)
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
@@ -78,7 +78,7 @@ val pure_op_def = Define `
       FFI _ => F
     | SetGlobal _ => F
     | AllocGlobal => F
-    | RefByte => F
+    | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
     | Ref => F

@@ -2269,7 +2269,8 @@ val word_payload_def = Define `
           IS_SOME ((encode_header conf (w2n (b2w b << 2 || 3w:'a word))
                       (LENGTH qs)):'a word option))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     (* header: ...10111 here i in ...i[11] must be 1 for the GC *)
+     (* header: ...101[11] or ...001[11] here i in ...i[11] must be 1 for the GC *)
+     (* TODO: update BytesTag to take the immutable? flag, and make_byte_header accordingly *)
      ((make_byte_header conf n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           let k = if dimindex(:'a) = 32 then 2 else 3 in

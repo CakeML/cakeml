@@ -103,7 +103,7 @@ val compile_def = tDefine"compile"`
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons subscript_tag) []))
-          (Op RefByte [Var 0; Var 1]))) ∧
+          (Op (RefByte F) [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Aw8sub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])

@@ -18,7 +18,7 @@ val op_space_reset_def = Define `
   (op_space_reset Equal = T) /\
   (op_space_reset (FromList _) = T) /\
   (op_space_reset RefArray = T) /\
-  (op_space_reset RefByte = T) /\
+  (op_space_reset (RefByte _) = T) /\
   (op_space_reset _ = F)`;
 
 val op_requires_names_def = Define`

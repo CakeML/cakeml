@@ -222,7 +222,7 @@ val RefByte_code_def = Define`
            AllocVar limit (fromList [();()]);
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
-           Assign 6 (Shift Lsl (Var 5) (Nat 2));
+           Assign 7 (Shift Lsl (Var 5) (Nat 2));
            (* adjust end of heap *)
            Assign 1 (Op Sub [Lookup EndOfHeap;
                        Shift Lsl (Op Add [Var 5; Const 1w]) (Nat (shift (:'a)))]);
@@ -231,14 +231,14 @@ val RefByte_code_def = Define`
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
            (* compute header *)
-           Assign 5 (Op Or [y; Const 0b10111w]);
+           Assign 5 (Op Or [y; Var 6]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
            Store (Var 1) 5;
            Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;6;3] NONE]:'a wordLang$prog`;
+              [0;1;4;7;3] NONE]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
@@ -616,13 +616,15 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
-    | RefByte =>
+    | RefByte immutable =>
       (case args of
        | [v1;v2] =>
-         (MustTerminate
-            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-               (SOME RefByte_location)
-                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+         (Seq
+           (Assign 1 (Const (if immutable then 0b00111w else 0b10111w)))
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME RefByte_location)
+                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
        | _ => (Skip,l))
     | RefArray =>
       (case args of
@@ -995,7 +997,7 @@ val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
     (FromList1_location,6n,FromList1_code data_conf);
-    (RefByte_location,3n,RefByte_code data_conf);
+    (RefByte_location,4n,RefByte_code data_conf);
     (RefArray_location,3n,RefArray_code data_conf);
     (Replicate_location,5n,Replicate_code);
     (AnyArith_location,4n,AnyArith_code data_conf);

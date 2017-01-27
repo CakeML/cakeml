@@ -132,11 +132,11 @@ val do_app_def = Define `
           | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (RefByte,[Number i;Number b]) =>
+    | (RefByte f,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray f (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then

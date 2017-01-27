@@ -1370,7 +1370,7 @@ val do_app_thm = Q.prove(
     \\ fs [OPTREL_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ CCONTR_TAC \\ fs [])
-  \\ Cases_on `op = RefByte` \\ fs [] \\ rw [] THEN1
+  \\ Cases_on `∃flag. op = RefByte flag` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw [] \\ CCONTR_TAC \\ fs []
     \\ fs [wfv_state_def]
