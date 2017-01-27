@@ -2473,9 +2473,8 @@ fun move_Eval_conv tm =
     else NO_CONV tm
   end
 
-(* TODO: Some fixes here are definitely wrong *)
 fun clean_assumptions th = let
-  val lhs1 = lookup_var_def (*lookup_var_id_def*) |> SPEC_ALL |> concl |> dest_eq |> fst
+  val lhs1 = ``nsLookup env name`` (*TODO: Probably want to generate this programmatically instead.. *)
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
   val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
@@ -3454,7 +3453,7 @@ fun translate def =
         val lemmas = LOOKUP_VAR_def :: map GSYM v_defs
         val th = th |> ii |> jj |> D |> REWRITE_RULE lemmas
                     |> SIMP_RULE std_ss [Eval_Var]
-                    (*|> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]*)
+                    |> SIMP_RULE std_ss [lookup_var_def]
                     |> clean_assumptions |> UNDISCH_ALL
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)

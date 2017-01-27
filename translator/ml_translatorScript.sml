@@ -243,8 +243,8 @@ val lookup_var_write_cons = Q.store_thm("lookup_var_write_mod",
 
 val lookup_var_empty_env = Q.store_thm("lookup_var_empty_env",
   `(lookup_var v empty_env = NONE) /\
-    (*(lookup_var_id (Short v) empty_env = NONE) /\
-    (lookup_var_id (Long m v) empty_env = NONE) /\*)
+    (nsLookup empty_env.v (Short k) = NONE) /\
+    (nsLookup empty_env.v (Long mn m) = NONE) /\
     (lookup_cons name empty_env = NONE)`,
   fs[lookup_var_def,empty_env_def,lookup_cons_def]);
   (*fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
