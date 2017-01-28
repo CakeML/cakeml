@@ -139,7 +139,7 @@ val parse_t =
    Parse.Term
      `\inputnt sem s.
         case
-          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
+          peg_exec cmlPEG (nt (mkNT inputnt) I) (MAP FST (lexer_fun s)) [] done failed
         of
           Result (SOME(_,[x])) => sem x : 'a`
 

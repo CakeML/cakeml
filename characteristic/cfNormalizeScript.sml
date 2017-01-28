@@ -16,7 +16,7 @@ val _ = new_theory "cfNormalize"
 
 val exp2v_def = Define `
   exp2v _ (Lit l) = SOME (Litv l) /\
-  exp2v env (Var name) = lookup_var_id name env /\
+  exp2v env (Var name) = nsLookup env.v name /\
   exp2v _ _ = NONE`
 
 val exp2v_evaluate = Q.store_thm ("exp2v_evaluate",
@@ -301,7 +301,7 @@ val full_normalise_def = Define `
   full_normalise ns e = FST (protect T ns e)`;
 
 val MEM_v_size = Q.prove(
-  `!xs. MEM a xs ==> v_size a < v6_size xs`,
+  `!xs. MEM a xs ==> v_size a < v7_size xs`,
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val norm_exp_rel_def = Define `
@@ -336,8 +336,8 @@ val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
      norm_rel (Recclosure env1 es1 v) (Recclosure env2 es2 v)) /\
   (!env1 env2 s.
      (!v x y. v IN s /\
-              lookup_var_id v env1 = SOME x /\
-              lookup_var_id v env2 = SOME y ==>
+              nsLookup env1.v v = SOME x /\
+              nsLookup env2.v v = SOME y ==>
               norm_rel x y) ==>
      env_rel s env1 env2)`
 

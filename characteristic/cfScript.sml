@@ -191,7 +191,7 @@ val app_one_naryClosure = Q.store_thm ("app_one_naryClosure",
   `!env n ns x xs body H Q.
      ns <> [] ==> xs <> [] ==>
      app (p:'ffi ffi_proj) (naryClosure env (n::ns) body) (x::xs) H Q ==>
-     app (p:'ffi ffi_proj) (naryClosure (env with v := (n, x)::env.v) ns body) xs H Q`,
+     app (p:'ffi ffi_proj) (naryClosure (env with v := nsBind n x env.v) ns body) xs H Q`,
 
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
   rename1 `app _ (naryClosure _ (n::n'::ns) _) (x::x'::xs) _ _` \\
@@ -226,8 +226,8 @@ val curried_naryClosure = Q.store_thm ("curried_naryClosure",
     fs [emp_def, cond_def, do_opapp_def, POSTv_def] \\
     rename1 `SPLIT (st2heap _ st) ({}, h_k)` \\
     `SPLIT3 (st2heap (p:'ffi ffi_proj) st) ({}, h_k, {})` by SPLIT_TAC \\
-    instantiate \\ rename1 `(n, x) :: _` \\
-    first_x_assum (qspecl_then [`env with v := (n,x)::env.v`, `body`]
+    instantiate \\ rename1 `nsBind n x  _` \\
+    first_x_assum (qspecl_then [`env with v := nsBind n x env.v`, `body`]
       assume_tac) \\
     qmatch_assum_abbrev_tac `curried _ _ v` \\ qexists_tac `Val v` \\
     qunabbrev_tac `v` \\ fs [] \\
@@ -255,7 +255,7 @@ val do_opapp_naryRecclosure = Q.store_thm ("do_opapp_naryRecclosure",
       SOME (env', exp)
      <=>
      (ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
-      env' = (env with v := (n, x)::build_rec_env funs env env.v) /\
+      env' = (env with v := nsBind n x (build_rec_env funs env env.v)) /\
       exp = naryFun ns body))`,
   rpt strip_tac \\ progress find_recfun_letrec_pull_params \\
   fs [naryRecclosure_def, do_opapp_def, letrec_pull_params_cancel] \\
@@ -269,7 +269,7 @@ val app_one_naryRecclosure = Q.store_thm ("app_one_naryRecclosure",
      (app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) (x::xs) H Q ==>
       app (p:'ffi ffi_proj)
         (naryClosure
-          (env with v := (n, x)::build_rec_env funs env env.v)
+          (env with v := nsBind n x (build_rec_env funs env env.v))
           ns body) xs H Q)`,
 
   rpt strip_tac \\ Cases_on `ns` \\ Cases_on `xs` \\ fs [] \\
@@ -306,7 +306,7 @@ val curried_naryRecclosure = Q.store_thm ("curried_naryRecclosure",
     fs [POSTv_def, emp_def, cond_def] \\
     progress_then (fs o sing) do_opapp_naryRecclosure \\ rw [] \\
     Q.LIST_EXISTS_TAC [
-      `Val (naryClosure (env with v := (n, x)::build_rec_env funs env env.v)
+      `Val (naryClosure (env with v := nsBind n x (build_rec_env funs env env.v))
                         (n'::ns) body)`,
       `{}`, `{}`, `st`, `st.clock`
     ] \\ simp [] \\ rpt strip_tac
@@ -332,20 +332,21 @@ val letrec_pull_params_repack = Q.store_thm ("letrec_pull_params_repack",
 
 (** Extending environments *)
 
+(* TODO: there's a version of this already defined ...*)
 (* [extend_env] *)
 val extend_env_v_def = Define `
   extend_env_v [] [] env_v = env_v /\
   extend_env_v (n::ns) (xv::xvs) env_v =
-    extend_env_v ns xvs ((n,xv)::env_v)`;
+    extend_env_v ns xvs (nsBind n xv env_v)`;
 
 val extend_env_def = Define `
-  extend_env ns xvs env = (env with v := extend_env_v ns xvs env.v)`;
+  extend_env ns xvs (env:'v sem_env) = (env with v := extend_env_v ns xvs env.v)`;
 
 val extend_env_v_rcons = Q.store_thm ("extend_env_v_rcons",
   `!ns xvs n xv env_v.
      LENGTH ns = LENGTH xvs ==>
      extend_env_v (ns ++ [n]) (xvs ++ [xv]) env_v =
-     (n,xv) :: extend_env_v ns xvs env_v`,
+     nsBind n xv (extend_env_v ns xvs env_v)`,
   Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
   fs [LENGTH_NIL, LENGTH_CONS, extend_env_v_def]
 );
@@ -353,25 +354,28 @@ val extend_env_v_rcons = Q.store_thm ("extend_env_v_rcons",
 val extend_env_v_zip = Q.store_thm ("extend_env_v_zip",
   `!ns xvs env_v.
     LENGTH ns = LENGTH xvs ==>
-    extend_env_v ns xvs env_v = ZIP (REVERSE ns, REVERSE xvs) ++ env_v`,
+    extend_env_v ns xvs env_v = nsAppend (alist_to_ns (ZIP (REVERSE ns, REVERSE xvs))) env_v`,
   Induct \\ rpt strip_tac \\ first_assum (assume_tac o GSYM) \\
-  fs [LENGTH_NIL, LENGTH_CONS, extend_env_v_def, GSYM ZIP_APPEND]
-);
+  fs [LENGTH_NIL, LENGTH_CONS, extend_env_v_def, GSYM ZIP_APPEND] \\
+  FULL_SIMP_TAC std_ss [Once (GSYM namespacePropsTheory.nsAppend_alist_to_ns),Once (GSYM (namespacePropsTheory.nsAppend_assoc))] \\
+  Cases_on`env_v`>> EVAL_TAC);
 
 (* [build_rec_env_aux] *)
 val build_rec_env_aux_def = Define `
   build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =
     FOLDR
-      (\ (f,x,e) env'. (f, Recclosure env funs f) :: env')
+      (\ (f,x,e) env'. nsBind f (Recclosure env funs f) env')
       add_to_env
       fs`;
 
 val build_rec_env_zip_aux = Q.prove (
   `!(fs: (tvarN, tvarN # exp) alist) funs env env_v.
-    ZIP (MAP (\ (f,_,_). f) fs,
-         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) fs)
-      ++ env_v =
-    FOLDR (\ (f,x,e) env'. (f,Recclosure env funs f)::env') env_v fs`,
+    nsAppend
+    (alist_to_ns
+      (ZIP (MAP (\ (f,_,_). f) fs,
+         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) fs)))
+      env_v =
+    FOLDR (\ (f,x,e) env'. nsBind f (Recclosure env funs f) env') env_v fs`,
   Induct \\ rpt strip_tac THEN1 (fs []) \\
   rename1 `ftuple::fs` \\ PairCases_on `ftuple` \\ rename1 `(f,n,body)` \\
   fs [letrec_pull_params_repack]
@@ -379,9 +383,11 @@ val build_rec_env_zip_aux = Q.prove (
 
 val build_rec_env_zip = Q.store_thm ("build_rec_env_zip",
   `!funs env env_v.
-     ZIP (MAP (\ (f,_,_). f) funs,
-          MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
-       ++ env_v =
+     nsAppend
+     (alist_to_ns
+       (ZIP (MAP (\ (f,_,_). f) funs,
+          MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)))
+       env_v =
      build_rec_env funs env env_v`,
   fs [build_rec_env_def, build_rec_env_zip_aux]
 );
@@ -389,10 +395,10 @@ val build_rec_env_zip = Q.store_thm ("build_rec_env_zip",
 (* [extend_env_rec] *)
 val extend_env_v_rec_def = Define `
   extend_env_v_rec rec_ns rec_xvs ns xvs env_v =
-    extend_env_v ns xvs (ZIP (rec_ns, rec_xvs) ++ env_v)`;
+    extend_env_v ns xvs (nsAppend (alist_to_ns (ZIP (rec_ns, rec_xvs))) env_v)`;
 
 val extend_env_rec_def = Define `
-  extend_env_rec rec_ns rec_xvs ns xvs env =
+  extend_env_rec rec_ns rec_xvs ns xvs (env:'v sem_env) =
     env with v := extend_env_v_rec rec_ns rec_xvs ns xvs env.v`;
 
 val extend_env_rec_build_rec_env = Q.store_thm ("extend_env_rec_build_rec_env",
@@ -443,7 +449,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
          (case c of
               NONE => SOME (Conv NONE argsv, insts_rest)
             | SOME id =>
-              case lookup_alist_mod_env id envC of
+              case nsLookup envC id of
                   NONE => NONE
                 | SOME (len, t) =>
                   if len = LENGTH argsv then
@@ -665,9 +671,10 @@ val v_of_pat_norest_insts_unique = Q.store_thm ("v_of_pat_norest_insts_unique",
    with. [validate_pat] packs them all up.
 *)
 
+(* might be wrong *)
 val pat_typechecks_def = Define `
-  pat_typechecks envC s pat v env =
-    (pmatch envC s pat v env <> Match_type_error)`;
+  pat_typechecks envC s pat v =
+    (pmatch envC s pat v [] <> Match_type_error)`;
 
 val pat_without_Pref_def = tDefine "pat_without_Pref" `
   pat_without_Pref (Pvar _) = T /\
@@ -684,7 +691,7 @@ val pat_without_Pref_def = tDefine "pat_without_Pref" `
 
 val validate_pat_def = Define `
   validate_pat envC s pat v env =
-    (pat_typechecks envC s pat v env /\
+    (pat_typechecks envC s pat v /\
      pat_without_Pref pat /\
      ALL_DISTINCT (pat_bindings pat []))`;
 
@@ -1018,9 +1025,9 @@ val app_rec_of_htriple_valid_aux = Q.prove (
     progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
     (* fixme *)
     qexists_tac `naryClosure
-      (env with v := (n,xv)::(ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
+      (env with v := nsBind n xv (nsAppend (alist_to_ns (ZIP (MAP (\ (f,_,_). f) (letrec_pull_params funs),
         MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
-            (letrec_pull_params funs)) ++ env.v))
+            (letrec_pull_params funs)))) env.v))
       (n'::params) body` \\
     qexists_tac `st.clock` \\
     strip_tac
@@ -1253,14 +1260,14 @@ val cf_con_def = Define `
 val cf_var_def = Define `
   cf_var name = \env. local (\H Q.
     (?v.
-       lookup_var_id name env = SOME v /\
+       nsLookup env.v name = SOME v /\
        H ==>> Q (Val v)) /\
     Q ==e> POST_F)`
 
 val cf_let_def = Define `
   cf_let n F1 F2 = \env. local (\H Q.
     ?Q'. (F1 env H Q' /\ Q' ==e> Q) /\
-         (!xv. F2 (env with <| v := opt_bind n xv env.v |>) (Q' (Val xv)) Q))`
+         (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))`
 
 val cf_opn_def = Define `
   cf_opn opn x1 x2 = \env. local (\H Q.
@@ -1299,7 +1306,7 @@ val cf_fun_def = Define `
         F1 (extend_env ns xvs env) H' Q' ==>
         app (p:'ffi ffi_proj) fv xvs H' Q')
       ==>
-      F2 (env with v := (f, fv)::env.v) H Q)`
+      F2 (env with v := nsBind f fv env.v) H Q)`
 
 val fun_rec_aux_def = Define `
   fun_rec_aux (p:'ffi ffi_proj) fs fvs [] [] [] F2 env H Q =
@@ -2156,6 +2163,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE] \\
       fs [Fun_params_Fun_body_repack, evaluate_ck_def, terminationTheory.evaluate_def] \\
+      fs [namespaceTheory.nsOptBind_def] \\
       instantiate
     )
     THEN1 (
