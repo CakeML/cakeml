@@ -436,7 +436,7 @@ val compile_def = Define `
      | INR new_index =>
          let (new_code,a,b,cs) = compile new_index 1 1 (code_acc_next cs) body in
            (Call (SOME (i,LS (),Skip,n,l)) (SOME new_index) [] NONE,l+1,i+1,
-            install (body,new_index,Seq new_code (Return 0 0)) cs)) /\
+            install (body,new_index,new_code) cs)) /\
   (compile n l i cs (LoopBody b) = compile n l i cs b) /\
   (compile n l i cs (Seq p1 p2) =
      let (p1,l,i,cs) = compile n l i cs p1 in
@@ -491,7 +491,7 @@ val _ = (max_print_depth := 25);
 val generated_bignum_stubs_def = Define `
   generated_bignum_stubs n =
     let (x1,_,_,(_,cs)) = compile n 1 1 (n+1,[]) mc_iop_code in
-      (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,z)) cs`
+      (n,1n,Seq x1 (Return 0 0)) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 0))) cs`
 
 val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",
   EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);

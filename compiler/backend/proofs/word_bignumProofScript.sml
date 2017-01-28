@@ -748,7 +748,7 @@ val compile_thm = store_thm("compile_thm",
       \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
       \\ fs [state_rel_def])
     \\ pairarg_tac \\ fs [] \\ rveq
-    \\ qabbrev_tac `cs1 = install (p,y,Seq new_code (Return 0 0)) cs'`
+    \\ qabbrev_tac `cs1 = install (p,y,new_code) cs'`
     \\ `has_compiled p cs1 = INL y` by
      (fs [has_compiled_def,Abbr`cs1`]
       \\ Cases_on `cs'` \\ Cases_on `cs` \\ fs []
@@ -819,6 +819,81 @@ val compile_thm = store_thm("compile_thm",
     \\ fs [call_env_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
     \\ every_case_tac \\ fs []));
+
+val good_code_def = Define `
+  good_code cs3 =
+    !prog n p2.
+      MEM (prog,n,p2) (SND cs3) ==>
+      ∃cs1 l2' i2 cs2.
+        compile n 1 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3`;
+
+val compile_LESS_mini_size = prove(
+  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+      !x. MEM x (SND xx5) /\ ~MEM x (SND yy5) ==>
+          mini_size (K 0) (FST x) < mini_size (K 0) code``,
+  HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
+  \\ TRY (fs [compile_def] \\ rfs [] \\ res_tac \\ fs [mini_size_def] \\ NO_TAC)
+  \\ fs [compile_def] \\ rfs []
+  \\ TRY
+   (pairarg_tac \\ fs [mini_size_def]
+    \\ pairarg_tac \\ fs [mini_size_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ res_tac \\ Cases_on `MEM x (SND cs')` \\ fs [] \\ NO_TAC)
+  \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs [mini_size_def] \\ rveq
+  \\ Cases_on `cs'` \\ fs [install_def]
+  \\ Cases_on `yy5` \\ fs [code_acc_next_def]
+  \\ res_tac \\ fs []);
+
+val MEM_compile = prove(
+  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      good_code yy5 /\
+      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+      good_code xx5``,
+  HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
+  \\ TRY (fs [compile_def] \\ rfs [] \\ NO_TAC)
+  THEN1
+   (fs [compile_def]
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ rfs [])
+  THEN1
+   (fs [compile_def]
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs [])
+  \\ fs [compile_def]
+  \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ Cases_on `yy5`
+  \\ fs [has_compiled_def]
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ `good_code (code_acc_next (q,r))` by
+    (fs [code_acc_next_def,good_code_def,
+         code_subset_def,FORALL_PROD,EXISTS_PROD] \\ NO_TAC) \\ fs []
+  \\ qpat_x_assum `good_code cs'` mp_tac
+  \\ simp [good_code_def]
+  \\ Cases_on `cs'`
+  \\ `ALOOKUP r' code = NONE` by
+   (fs [ALOOKUP_FAILS] \\ CCONTR_TAC \\ fs []
+    \\ drule compile_LESS_mini_size
+    \\ fs [code_acc_next_def]
+    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+  \\ fs [install_def]
+  \\ reverse (rw []) \\ fs []
+  \\ res_tac \\ fs []
+  THEN1 (asm_exists_tac \\ fs []
+         \\ Cases_on `cs2` \\ fs [code_subset_def]
+         \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+  \\ qexists_tac `(code_acc_next (n,r))` \\ fs []
+  \\ fs [code_subset_def]
+  \\ rw [] \\ fs []);
+
+val compile_NIL_IMP = save_thm("compile_NIL_IMP",
+  MEM_compile
+  |> Q.SPECL [`k`,`l1`,`l2`,`(l,[])`]
+  |> SIMP_RULE std_ss [good_code_def,MEM]);
 
 
 (* correctenss judgement *)
