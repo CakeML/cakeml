@@ -274,7 +274,8 @@ end
 
 fun full_id n =
   case get_curr_module_name () of
-    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,n)
+    (* Single-level module *)
+    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,astSyntax.mk_Short n)
   | NONE => astSyntax.mk_Short n
 
 
@@ -1053,6 +1054,8 @@ val ty = ``:'a # 'b``; derive_thms_for_type false ty
 val ty = ``:'a + num``; derive_thms_for_type false ty
 val ty = ``:num option``; derive_thms_for_type false ty
 val is_exn_type = false;
+
+val ty = ``:even``;
 *)
 
 fun derive_thms_for_type is_exn_type ty = let
@@ -1096,7 +1099,9 @@ fun derive_thms_for_type is_exn_type ty = let
                                         y |> list_dest dest_exists |> last
                                           |> list_dest dest_conj |> hd
                                           |> rand |> rator |> rand |> rand))
-      val tyname = ys |> hd |> snd |> rand |> rand |> rand
+      (* TODO: assumes single level module only *)
+      val tyname = ys |> hd |> snd |> rand |> rand |>
+        (fn id => if astSyntax.is_Short id then rand id else (rand o rand) id)
       val ys = map (fn (x,y) => (y |> rator |> rand,
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
@@ -1113,6 +1118,7 @@ fun derive_thms_for_type is_exn_type ty = let
       val ts_tm = listSyntax.mk_list(ts,stringSyntax.string_ty)
       val dtype = pairSyntax.list_mk_pair[ts_tm,tyname,lines]
       in dtype end
+      val th = hd (inv_defs |> map #2 )
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
     in (astSyntax.mk_Dtype dtype_list,dtype_list) end
