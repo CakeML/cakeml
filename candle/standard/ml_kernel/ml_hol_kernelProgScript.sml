@@ -134,8 +134,8 @@ fun derive_case_of ty = let
         \\ strip_tac \\ asm_exists_tac
         \\ ASM_SIMP_TAC std_ss []
         \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
-        \\ fs[pmatch_def,pat_bindings_def,write_def,lookup_alist_mod_env_def,
-              lookup_cons_thm,same_tid_def,id_to_n_def,same_ctor_def]
+        \\ fs[pmatch_def,pat_bindings_def,write_def,
+              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
         \\ ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ first_x_assum (match_mp_tac o MP_CANON)
         \\ fs[]

@@ -161,7 +161,7 @@ val unhex_alt_def = Define`
 val num_from_dec_string_alt_def = Define `num_from_dec_string_alt = s2n 10 unhex_alt`;
 val num_from_hex_string_alt_def = Define `num_from_hex_string_alt = s2n 16 unhex_alt`;
 
-val next_sym_alt_def = tDefine "next_sym" `
+val next_sym_alt_def = tDefine "next_sym_alt" `
   (next_sym_alt "" _ = NONE) /\
   (next_sym_alt (c::str) loc =
      if c = #"\n" then (* skip new line *)
