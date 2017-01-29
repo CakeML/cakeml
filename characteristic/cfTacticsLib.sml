@@ -225,7 +225,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [libTheory.opt_bind_def] \\
+  simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
   CONJ_TAC THENL [
     CONJ_TAC THENL [

@@ -11,8 +11,8 @@ val _ = translation_extends"mlcharioProg";
 fun basis_st () = get_ml_prog_state ()
 
 val e =
-  ``LetApps "_" (Long "CharIO" "write") [Lit (Word8 (n2w (ORD #"H")))]
-      (LetApps "_" (Long "CharIO" "write") [Lit (Word8 (n2w (ORD #"i")))]
+  ``LetApps "_" (Long "CharIO" (Short "write")) [Lit (Word8 (n2w (ORD #"H")))]
+      (LetApps "_" (Long "CharIO" (Short "write")) [Lit (Word8 (n2w (ORD #"i")))]
          (Var (Short "_")))`` |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"main"`` ``"c"`` e "main_v")
@@ -42,7 +42,7 @@ val main_applied = let
   val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
   val th = goal |> NCONV 6 (SIMP_CONV (srw_ss())
                     [Once bigStepTheory.evaluate_cases,PULL_EXISTS])
-  val p = find_term (can (match_term ``lookup_var_id _ _ = SOME _``)) (concl th)
+  val p = find_term (can (match_term ``nsLookup _ _ = SOME _``)) (concl th)
   val th = th |> SIMP_RULE std_ss [EVAL p]
   val exists_lemma = METIS_PROVE []
     ``(?x1 x2 x3 x4 x5 x6. P x1 x2 x3 x4 x5 x6) <=>
