@@ -12,6 +12,7 @@ val add_env_compset = computeLib.extend_compset
     ,ml_progTheory.merge_env_simp
     (*,ml_progTheory.SND_ALOOKUP_INTRO*)
     ,namespaceTheory.mk_id_def
+    ,namespaceTheory.id_to_n_def
     ,ml_progTheory.nsLookup_nsAppend_Short
     ]]
 

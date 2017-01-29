@@ -95,7 +95,6 @@ val _ = append_prog
      Tdec (mk_unop "!" Opderef);
      Tdec (mk_unop "ref" Opref)]``
 
-val op_name = "op ref"
 fun prove_ref_spec op_name =
   xcf op_name (basis_st ()) \\
   fs [cf_ref_def, cf_deref_def, cf_assign_def] \\ irule local_elim \\

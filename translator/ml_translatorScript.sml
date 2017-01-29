@@ -278,10 +278,11 @@ val Eval_Var_Short = Q.store_thm("Eval_Var_Short",
                Eval env (Var (Short name)) P`,
   fs [Eval_def,Once evaluate_cases,state_component_equality]);
 
+(*TODO: Single level mdule *)
 val Eval_Var_Long = Q.store_thm("Eval_Var_Long",
   `P v ==> !m name env.
-               (nsLookup env.v (Long m name) = SOME v) ==>
-               Eval env (Var (Long m name)) P`,
+               (nsLookup env.v (Long m (Short name)) = SOME v) ==>
+               Eval env (Var (Long m (Short name))) P`,
   fs [Eval_def,Once evaluate_cases,state_component_equality]);
 
 val Eval_Var_SWAP_ENV = Q.store_thm("Eval_Var_SWAP_ENV",
