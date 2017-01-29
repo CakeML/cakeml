@@ -180,7 +180,7 @@ fun fetch_v name st =
   let val env = ml_progLib.get_env st
       val ident_expr = parse nEbase_t ptree_t [QUOTE name]
       val ident = astSyntax.dest_Var ident_expr
-      val evalth = EVAL ``lookup_var_id ^ident ^env``
+      val evalth = EVAL ``nsLookup (^env).v ^ident``
   in (optionLib.dest_some o rhs o concl) evalth end
 
 fun fetch_def name st =

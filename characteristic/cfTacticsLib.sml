@@ -43,8 +43,8 @@ val () = computeLib.extend_compset [
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
     ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def,
-    semanticPrimitivesTheory.merge_alist_mod_env_def
+    ml_progTheory.empty_env_def
+    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
   ]] cs
 
 val _ = (max_print_depth := 15)
@@ -107,7 +107,7 @@ val reducible_pats = [
   ``exp2v_list _ _``,
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
-  ``lookup_var_id _ _``,
+  ``nsLookup _ _``,
   ``Fun_body _``,
   ``normalise _``
 ]

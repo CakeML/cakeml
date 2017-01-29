@@ -75,15 +75,20 @@ val SND_ALOOKUP_EQ_ALOOKUP = Q.store_thm("SND_ALOOKUP_EQ_ALOOKUP",
   `!xs ys q. SND_ALOOKUP (xs,ys) q = ALOOKUP ys q`,
   Induct_on `ys` \\ fs [ALOOKUP_def,SND_ALOOKUP_def,FORALL_PROD] \\ rw []);
 
-This is not true because v now gets modified..
-val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
-  `(write_mod n v env).v = env.v /\
-    SND_ALOOKUP (write_mod n v env).c k = SND_ALOOKUP env.c k /\
-    ALOOKUP (write_mod n v env).m q =
-      if n = q then SOME v.v else ALOOKUP env.m q`,
-  Cases_on `env.c`
-  \\ rw [write_mod_def,merge_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
 *)
+
+val write_mod_simp = Q.store_thm("write_mod_simp[compute]",
+  `(nsLookup (write_mod mn env env2).v (Short q) =
+    nsLookup env2.v (Short q)) ∧
+   (nsLookup (write_mod mn env env2).c (Short c) =
+    nsLookup env2.c (Short c)) ∧
+   (nsLookup (write_mod mn env env2).v (Long mn' r) =
+    if mn = mn' then nsLookup env.v r
+    else nsLookup env2.v (Long mn' r)) ∧
+   (nsLookup (write_mod mn env env2).c (Long mn' s) =
+    if mn = mn' then nsLookup env.c s
+    else nsLookup env2.c (Long mn' s))`,
+  rw[write_mod_def]);
 
 val empty_simp = Q.store_thm("empty_simp[compute]",
   `nsLookup empty_env.v q = NONE /\
