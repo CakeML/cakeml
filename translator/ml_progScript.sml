@@ -121,10 +121,16 @@ val write_rec_def = Define `
   write_rec funs env1 env =
     FOLDR (\f env. write (FST f) (Recclosure env1 funs (FST f)) env) env funs`;
 
-(* TODO: Probably change to a zDefine *)
 val write_tds_def = Define `
   write_tds mn tds env =
-    (env with c := nsAppend (build_tdefs mn tds) env.c)`
+    FOLDR (\(n,d) env. write_cons n d env) env
+       (REVERSE
+          (FLAT
+             (MAP
+                (λ(tvs,tn,condefs).
+                   MAP
+                     (λ(conN,ts). (conN,LENGTH ts,TypeId (mk_id mn tn)))
+                     condefs) tds)))`;
 
 val write_exn_def = Define `
   write_exn mn n l env =
@@ -139,23 +145,25 @@ val write_rec_thm = Q.store_thm("write_rec_thm",
   \\ Induct_on `funs` \\ fs [FORALL_PROD]
   \\ fs [write_def]);
 
-(*
 val write_tds_thm = Q.store_thm("write_tds_thm",
   `write_tds mn tds env =
-    env with c := merge_alist_mod_env ([],build_tdefs mn tds) env.c`,
-  Cases_on `env.c`
-  \\ fs [write_tds_def,merge_alist_mod_env_def]
-  \\ pop_assum mp_tac
-  \\ qspec_tac (`build_tdefs mn tds`,`xs`)
-  \\ `!xs.
-        FOLDR (λ(n,d) env. write_cons n d env) env xs =
-        env with c := (FST env.c,xs ++ SND env.c)` by all_tac
-  \\ rw [] \\ fs []
-  \\ qspec_tac (`env`,`env`)
-  \\ Induct_on `xs`
-  \\ simp [environment_component_equality,FORALL_PROD,write_cons_def,
-           merge_alist_mod_env_def]);
-*)
+    env with c := nsAppend (build_tdefs mn tds) env.c`,
+  fs [write_tds_def,build_tdefs_def,REVERSE_FLAT] \\
+  qid_spec_tac`env` \\ Induct_on`tds` \\ rw[]
+  >-
+    fs[sem_env_component_equality]
+  >>
+  fs[FOLDR_APPEND]>>
+  FULL_SIMP_TAC std_ss [GSYM namespacePropsTheory.nsAppend_alist_to_ns]>>
+  PairCases_on`h`>>fs[]>>
+  pop_assum kall_tac>>
+  qid_spec_tac`env`>>
+  Induct_on`h2`>>fs[FOLDR_REVERSE]>>rw[] >>
+  pairarg_tac>>fs[REVERSE_FLAT]>>
+  FULL_SIMP_TAC std_ss [GSYM namespacePropsTheory.nsAppend_alist_to_ns]>>
+  fs[write_cons_def]>>
+  FULL_SIMP_TAC std_ss [GSYM namespacePropsTheory.nsAppend_assoc]>>
+  FULL_SIMP_TAC std_ss [namespacePropsTheory.nsAppend_nsBind,namespacePropsTheory.nsAppend_nsEmpty]);
 
 val write_exn_thm = Q.store_thm("write_exn_thm",
   `write_exn mn n l env =
@@ -177,10 +185,6 @@ val Decls_def = Define `
       env2.m = [] ∧
       env2.c = ([],new_tds) ∧
       env2.v = res_env`;*)
-
-(* TODO: This used to delay the Cons arising inside write_tds, but that may not be needed now
-  because the alist_to_ns Bind in build_tdefs is more efficient
-*)
 
 val Decls_Dtype = Q.store_thm("Decls_Dtype",
   `!mn env s tds env2 s2.
@@ -479,7 +483,7 @@ val ML_code_NONE_Dtype = Q.store_thm("ML_code_NONE_Dtype",
                    type_defs_to_new_tdecs [] tds ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtype]
   \\ rw [] \\ asm_exists_tac \\ fs [] \\ Cases_on `env2.c`
-  \\ fs [write_tds_def,merge_env_def,empty_env_def,sem_env_component_equality]);
+  \\ fs [write_tds_thm,merge_env_def,empty_env_def,sem_env_component_equality]);
 
 val ML_code_SOME_Dtype = Q.store_thm("ML_code_SOME_Dtype",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
@@ -493,7 +497,7 @@ val ML_code_SOME_Dtype = Q.store_thm("ML_code_SOME_Dtype",
                    type_defs_to_new_tdecs [mn] tds ∪ s2.defined_types)`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtype,Decls_SNOC]
   \\ rw [] \\ asm_exists_tac \\ fs [] \\ rw [] \\ asm_exists_tac
-  \\ fs [write_tds_def,merge_env_def,empty_env_def,sem_env_component_equality]);
+  \\ fs [write_tds_thm,merge_env_def,empty_env_def,sem_env_component_equality]);
 
 (* appending a Dexn *)
 
