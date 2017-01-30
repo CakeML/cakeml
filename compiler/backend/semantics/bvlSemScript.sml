@@ -137,11 +137,11 @@ val do_app_def = Define `
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray F bs) =>
+         | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray F (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (FromList n,[lv]) =>

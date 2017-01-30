@@ -508,7 +508,7 @@ val compile_exps_Var_list = Q.prove(
   `!l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])`,
   Induct \\ fs[compile_exps_def] \\ Cases \\ rw[isVar_def] \\ fs[]
   \\ Cases_on`l` \\ fs[compile_exps_def,destVar_def]
-  \\ qmatch_goalsub_rename_tac`bvl_to_bvi$compile_exps a`
+  \\ qmatch_goalsub_rename_tac`compile_exps a`
   \\ first_x_assum(qspec_then`a`strip_assume_tac) \\ fs[]);
 
 val compile_int_thm = Q.prove(
@@ -531,6 +531,40 @@ val compile_int_thm = Q.prove(
     \\ STRIP_ASSUME_TAC
          (MATCH_MP DIVISION (DECIDE ``0 < 268435457:num``) |> Q.SPEC `n`)
     \\ intLib.COOPER_TAC));
+
+val compile_string_thm = Q.prove(
+  `∀str s ls vs.
+   FLOOKUP s.refs ptr = SOME (ByteArray T ls) ∧ LENGTH vs + LENGTH str = LENGTH ls ⇒
+   evaluate (MAPi (λn c. Op UpdateByte [Op (Const (&ORD c)) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
+    RefPtr ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
+      s with refs := s.refs |+ (ptr, ByteArray T (TAKE (LENGTH vs) ls ++ (MAP (n2w o ORD) str))))`,
+  Induct \\ rw[evaluate_def,REPLICATE]
+  >- (rw[state_component_equality]
+      \\ match_mp_tac (GSYM FUPDATE_ELIM) \\ fs[FLOOKUP_DEF])
+  \\ rw[Once evaluate_CONS]
+  \\ reverse(rw[evaluate_def,do_app_def,do_app_aux_def,small_enough_int_def])
+  >- ( qspec_then`h`strip_assume_tac ORD_BOUND \\ fs[] )
+  \\ reverse(rw[bvlSemTheory.do_app_def,compile_int_thm,EL_LENGTH_APPEND])
+  >- (
+    fs[] \\ first_x_assum(qspec_then`n2w (ORD h)`mp_tac)
+    \\ simp[w2n_n2w,ORD_BOUND] )
+  \\ simp[o_DEF,ADD1]
+  \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ qpat_abbrev_tac`ss = s with refs := _`
+  \\ first_x_assum(qspec_then`ss`mp_tac)
+  \\ simp[Abbr`ss`,FLOOKUP_UPDATE]
+  \\ disch_then(qspec_then`ARB::vs`mp_tac)
+  \\ rw[ADD1,state_component_equality]
+  \\ rw[fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
+  \\ rw[LIST_EQ_REWRITE]
+  \\ Cases_on`x = LENGTH vs` \\ simp[EL_APPEND1,EL_LUPDATE,EL_APPEND2,EL_TAKE]
+  \\ Cases_on`x < LENGTH vs` \\ simp[EL_APPEND1,EL_TAKE,EL_LUPDATE]
+  \\ simp[EL_TAKE,EL_APPEND2,o_DEF])
+  |> Q.SPECL[`str`,`s`,`ls`,`[]`]
+  |> SIMP_RULE(srw_ss())[]
+  |> Q.GENL[`env`,`s`,`ptr`,`ls`,`str`]
+  |> INST_TYPE[alpha|->``:'ffi``];
+
 
 val iEval_bVarBound = Q.prove(
   `!(n:num) xs n vs (t:'ffi bvlSem$state) (s:'ffi bviSem$state) env.
@@ -588,6 +622,29 @@ val iEval_bVarBound = Q.prove(
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ Cases_on `a` \\ fs [LENGTH_NIL]
       \\ fs [bviSemTheory.evaluate_def])
+    \\ Cases_on`∃str. op = String str`
+    >- (
+      fs[] \\ fs[compile_op_def]
+      \\ once_rewrite_tac[bviSemTheory.evaluate_def]
+      \\ once_rewrite_tac[bviSemTheory.evaluate_def]
+      \\ once_rewrite_tac[bviSemTheory.evaluate_def]
+      \\ once_rewrite_tac[bviSemTheory.evaluate_def]
+      \\ simp[iEval_append]
+      \\ simp[compile_int_thm]
+      \\ first_x_assum(qspecl_then[`n`,`vs`]mp_tac) \\ fs[]
+      \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[]
+      \\ simp[do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
+      \\ IF_CASES_TAC \\ fs[] \\ pop_assum(SUBST_ALL_TAC o SYM)
+      \\ qmatch_goalsub_abbrev_tac`r.refs |+ (ptr,ByteArray T ls)`
+      \\ qpat_abbrev_tac`rr = r with refs := _`
+      \\ qspecl_then[`str`,`ls`,`ptr`,`rr`,`vs`]mp_tac compile_string_thm
+      \\ impl_tac >- simp[Abbr`ls`,Abbr`rr`,FLOOKUP_UPDATE,LENGTH_REPLICATE]
+      \\ simp[]
+      \\ qspecl_then[`str`,`ls`,`ptr`,`rr`,`vs++env`]mp_tac compile_string_thm
+      \\ impl_tac >- simp[Abbr`ls`,Abbr`rr`,FLOOKUP_UPDATE,LENGTH_REPLICATE]
+      \\ simp[]
+      \\ ntac 3 (disch_then kall_tac)
+      \\ simp[LENGTH_REPLICATE,Abbr`ls`,EL_APPEND1] )
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `op`
     \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def,compile_int_thm]
@@ -659,7 +716,7 @@ val do_eq_adjust = Q.prove(
 
 val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
-   (!i. op <> Const i) /\ (op <> Ref) /\ (op ≠ RefByte) ∧ (op ≠ RefArray) ∧
+   (!i. op <> Const i) /\ (op <> Ref) /\ (∀flag. op ≠ RefByte flag) ∧ (op ≠ RefArray) ∧
    (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
    (∀n. op ≠ FromList n) ∧ (op ≠ FromListByte) ∧ (∀str. op ≠ String str) ∧
    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
@@ -814,8 +871,8 @@ val do_app_adjust = Q.prove(
       `n ∈ FDOM s5.refs` by full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
       metis_tac[INJ_DEF]) >>
     simp[FLOOKUP_UPDATE] >>
-    srw_tac[][] >- (
-      last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
+    srw_tac[][] >> TRY (
+      last_x_assum(qspec_then`k`mp_tac) >> simp[] >> NO_TAC) >>
     full_simp_tac(srw_ss())[bv_ok_def] >>
     TRY (
       qexists_tac`array_size`>>simp[]>>
@@ -1596,7 +1653,7 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on`op = RefByte` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on`∃flag. op = RefByte flag` \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
            (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
@@ -1650,6 +1707,7 @@ val compile_exps_correct = Q.prove(
       \\ qpat_x_assum`X = Rval Y`mp_tac
       \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ rpt var_eq_tac
       \\ Cases_on`a`>>full_simp_tac(srw_ss())[adjust_bv_def]
+      \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[adjust_bv_def]
       \\ STRIP_TAC THEN1 (
         rpt var_eq_tac >>
         simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
@@ -1808,9 +1866,8 @@ val compile_exps_correct = Q.prove(
     \\ Cases_on`∃str. op = String str` \\ fs[] >- (
       fs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
-      \\ simp[iEval_def]
+      \\ simp[iEval_def,compile_int_thm]
       \\ qmatch_goalsub_abbrev_tac`_ |+ (ptr,_)`
-      \\ simp[iEvalOp_def,do_app_aux_def,bEvalOp_def]
       \\ qabbrev_tac`b2' = (ptr =+ (LEAST ptr. ptr ∉ FDOM (bvi_to_bvl t2).refs)) b2`
       \\ `MAP (adjust_bv b2') env = MAP (adjust_bv b2) env` by
        (full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
@@ -1824,15 +1881,23 @@ val compile_exps_correct = Q.prove(
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2'`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
       \\ simp[adjust_bv_def,Abbr`b2'`,APPLY_UPDATE_THM]
+      \\ simp[iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def]
+      \\ reverse IF_CASES_TAC \\ fs[]
+      >- (first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
+      \\ qmatch_goalsub_abbrev_tac`RefPtr ptr'::MAP _ env,ss`
+      \\ qmatch_asmsub_abbrev_tac`ByteArray T ls`
+      \\ qspecl_then[`str`,`ls`,`ptr'`,`ss`,`MAP (adjust_bv b2) env`]mp_tac compile_string_thm
+      \\ impl_tac >- simp[Abbr`ss`,FLOOKUP_UPDATE,Abbr`ls`,LENGTH_REPLICATE]
+      \\ simp[] \\ disch_then kall_tac
+      \\ simp[LENGTH_REPLICATE,Abbr`ls`,EL_APPEND1,EL_APPEND2]
+      \\ qpat_x_assum`0 = _`(SUBST_ALL_TAC o SYM) \\ simp[]
       \\ reverse conj_tac
       >- (
         rw[Abbr`ptr`]
         \\ imp_res_tac evaluate_refs_SUBSET
         \\ fs[SUBSET_DEF]
         \\ res_tac \\ fs[LEAST_NOTIN_FDOM] )
-      \\ pop_assum kall_tac
-      \\ fs[bvl_to_bvi_def,bvi_to_bvl_def]
-      \\ fs[state_rel_def]
+      \\ fs[state_rel_def,Abbr`ptr'`,Abbr`ss`]
       \\ conj_tac
       >- (
         MATCH_MP_TAC INJ_EXTEND
@@ -1871,7 +1936,7 @@ val compile_exps_correct = Q.prove(
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
       \\ fs[Abbr`a`,LEAST_NOTIN_FDOM] )
-    \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- (
+    \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- cheat (*
       fs[compile_op_def,bEvalOp_def]
       \\ `∃lv. REVERSE a = [lv]` by (every_case_tac \\ fs[]) \\ fs[]
       \\ qpat_x_assum`_ = Rval _`mp_tac
@@ -1946,7 +2011,7 @@ val compile_exps_correct = Q.prove(
       \\ imp_res_tac evaluate_ok
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
-      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM] )
+      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM] *)
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ full_simp_tac(srw_ss())[compile_op_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[iEval_def]

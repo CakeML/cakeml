@@ -129,6 +129,10 @@ val compile_op_def = Define `
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
+    | String str =>
+        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
+            (Var (LENGTH str)))
     | _ => Op op c1`
 
 val _ = temp_overload_on("++",``SmartAppend``);
