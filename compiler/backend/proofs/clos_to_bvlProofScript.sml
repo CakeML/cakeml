@@ -1096,7 +1096,7 @@ val do_app = Q.prove(
    LIST_REL (v_rel s1.max_app f t1.refs t1.code) xs ys /\
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
-   (op ≠ RefArray) ∧ (op ≠ RefByte) ∧ (op ≠ UpdateByte) ∧
+   (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
    (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
@@ -2756,7 +2756,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       srw_tac[][] >>
       simp[Abbr`pp`,LEAST_NOTIN_FDOM])
-    \\ Cases_on `op = RefByte` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on `∃flag. op = RefByte flag` \\ full_simp_tac(srw_ss())[] THEN1 (
       full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def] >>
       Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
       Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -2767,7 +2767,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       full_simp_tac(srw_ss())[v_rel_SIMP,LET_THM] >> rpt var_eq_tac >>
       simp[PULL_EXISTS] >>
       qpat_x_assum`_ = Rval _`mp_tac >>
-      IF_CASES_TAC >> fsrw_tac[][] >> fsrw_tac[][] >> srw_tac[][] >>
+      IF_CASES_TAC >> fsrw_tac[][] >>
+      IF_CASES_TAC \\ fsrw_tac[][] >> srw_tac[][] >>
       qpat_abbrev_tac`pp = $LEAST P` >>
       qpat_abbrev_tac`qq = $LEAST P` >>
       simp[v_rel_SIMP] >>
