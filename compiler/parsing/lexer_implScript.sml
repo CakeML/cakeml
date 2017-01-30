@@ -165,7 +165,7 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
   (next_sym_alt "" _ = NONE) /\
   (next_sym_alt (c::str) loc =
      if c = #"\n" then (* skip new line *)
-        next_sym_alt str <| row := loc.row + 1; col := 1; offset := 0|>
+        next_sym_alt str (loc_row (loc.row +1))
      else if isSpace c then (* skip blank space *)
        next_sym_alt str (loc with col := loc.col + 1)
      else if isDigit c then (* read number *)

@@ -86,6 +86,11 @@ val read_string_thm = Q.store_thm("read_string_thm",
   THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
   THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
 
+val loc_row_def = Define`
+  loc_row n = <| row := n ; col := 1; offset := 0|>`
+
+val _ = computeLib.add_persistent_funs(["loc_row_def"]);
+
 val skip_comment_def = Define `
   (skip_comment "" d _ = NONE) /\
   (skip_comment [x] d _ = NONE) /\
@@ -96,7 +101,7 @@ val skip_comment_def = Define `
       (if d = 0 then SOME (xs, loc with col := loc.col + 2) 
        else skip_comment xs (d-1) (loc with col := loc.col +2))
     else if ORD x = 10 then 
-      skip_comment (y::xs) d <|row := loc.row +1; col := 0; offset := 0|>
+      skip_comment (y::xs) d (loc_row (loc.row+1))
     else skip_comment (y::xs) d (loc with col := loc.col + 1))`
 
 val skip_comment_thm = Q.store_thm("skip_comment_thm",
@@ -118,7 +123,7 @@ val next_sym_def = tDefine "next_sym" `
   (next_sym "" _ = NONE) /\
   (next_sym (c::str) loc =
      if c = #"\n" then (* skip new line *)
-        next_sym str <| row := loc.row + 1; col := 1; offset := 0|>
+        next_sym str (loc_row (loc.row + 1))
      else if isSpace c then (* skip blank space *)
        next_sym str (loc with col := loc.col + 1)
      else if isDigit c then (* read number *)
