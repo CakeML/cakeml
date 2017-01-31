@@ -5518,8 +5518,8 @@ val AnyArith_code_def = prove(
       Set (Temp 29w) (Var 1);
       AllocVar (2 ** c.len_size) (fromList [();();()]);
       (* convert smallnums to bignum if necessary *)
-      AnyHeader c 2 F 0w 11w 30w;
-      AnyHeader c 4 T 1w 12w 31w;
+      AnyHeader c 2 F 0w 31w 12w;
+      AnyHeader c 4 T 1w 30w 11w;
       Get 1 (Temp 11w);
       Store (Lookup OtherHeap) 1;
       Get 1 (Temp 12w);
@@ -5776,7 +5776,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
             space := il + (jl + 2)|>)`
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ rpt_drule AnyHeader_thm
-  \\ disch_then (qspecl_then [`i`,`F`,`0w`,`11w`,`30w`,`0`] mp_tac)
+  \\ disch_then (qspecl_then [`i`,`F`,`0w`,`31w`,`12w`,`0`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [get_vars_SOME_IFF_data]
     \\ fs [fromList_def,get_var_def,lookup_insert])
@@ -5786,7 +5786,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ `state_rel c l1 l2 s0 s8 [] locs` by
       (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7] \\ NO_TAC)
   \\ rpt_drule AnyHeader_thm
-  \\ disch_then (qspecl_then [`j`,`T`,`1w`,`12w`,`31w`,`1`] mp_tac)
+  \\ disch_then (qspecl_then [`j`,`T`,`1w`,`30w`,`11w`,`1`] mp_tac)
   \\ impl_tac THEN1
    (fs [get_vars_SOME_IFF_data,Abbr`s0`]
     \\ fs [fromList_def,get_var_def,lookup_insert])
@@ -5835,9 +5835,11 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ fs [heap_length_def,el_length_def] \\ NO_TAC)
   \\ fs [word_heap_non_empty_limit]
   \\ fs [SEP_CLAUSES,SEP_EXISTS_THM]
-  \\ `FLOOKUP s9.store (Temp 11w) = SOME (Word a2) /\
-      FLOOKUP s9.store (Temp 12w) = SOME (Word a2') /\
-      FLOOKUP s9.store (Temp 29w) = SOME (Word w1)` by
+  \\ `FLOOKUP s9.store (Temp 11w) = SOME (Word a3') /\
+      FLOOKUP s9.store (Temp 12w) = SOME (Word a3) /\
+      FLOOKUP s9.store (Temp 29w) = SOME (Word w1) /\
+      FLOOKUP s9.store (Temp 31w) = SOME (Word a2) /\
+      FLOOKUP s9.store (Temp 30w) = SOME (Word a2')` by
         (fs [Abbr`s9`,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordSemTheory.set_var_def,Abbr `t4`] \\ NO_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
@@ -5896,8 +5898,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ `(word_list
           (curr + bytes_in_word + bytes_in_word * n2w (heap_length ha))
           xs * (word_heap curr ha c *
-        one (curr + bytes_in_word * n2w (heap_length ha),Word a2') *
-        hb_heap * hb_heap1 * one (other,Word a2) * other_heap))
+        one (curr + bytes_in_word * n2w (heap_length ha),Word a3) *
+        hb_heap * hb_heap1 * one (other,Word a3') * other_heap))
          (fun2set (m5,dm))` by
     (fs [Abbr`m5`] \\ SEP_W_TAC \\ fs [AC STAR_COMM STAR_ASSOC] \\ NO_TAC)
   \\ drule word_list_store_list
@@ -5969,8 +5971,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ `t9.mdomain = dm` by cheat
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (Seq q (Return 0 0),t3)` \\ rveq
   \\ qabbrev_tac `my_frame = word_heap curr ha c *
-         one (curr + bytes_in_word * n2w (heap_length ha),Word a2') *
-         hb_heap * hb_heap1 * one (other,Word a2) * other_heap`
+         one (curr + bytes_in_word * n2w (heap_length ha),Word a3) *
+         hb_heap * hb_heap1 * one (other,Word a3') * other_heap`
   \\ qspecl_then [`i`,`j`,`1`,`my_frame`,`REPLICATE (LENGTH xs) 0w`,`t3`,
           `Loc AnyArith_location 2`,`Bignum_location`,`t3.clock`,
           `get_iop op_index`] mp_tac
@@ -6057,8 +6059,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ rewrite_tac [GSYM w2n_11,w2n_lsr,w2n_n2w]
       \\ fs [good_dimindex_def,dimword_def]
       \\ EVAL_TAC \\ fs [dimword_def])
-    \\ `FLOOKUP t9.store TempIn1 = SOME (Word a3') /\
-        FLOOKUP t9.store TempIn2 = SOME (Word a3)` by1
+    \\ `FLOOKUP t9.store TempIn1 = SOME (Word a2) /\
+        FLOOKUP t9.store TempIn2 = SOME (Word a2')` by1
      (qunabbrev_tac `t9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE,
          EVAL ``TempOut``,EVAL ``TempIn1``,EVAL ``TempIn2``]
       \\ qunabbrev_tac `s9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE])
@@ -6068,15 +6070,49 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ reverse (rpt strip_tac)
     \\ qpat_x_assum `_ (fun2set (m2,dm))` mp_tac
     THEN1 (fs [map_replicate])
-
-    (* part of array_rel *)
-
-    \\ cheat)
-
+    THEN1
+     (Cases_on `j = 0` THEN1
+       (qunabbrev_tac `jl` \\ fs [EVAL ``i2mw 0``]
+        \\ fs [word_list_def,SEP_CLAUSES,map_replicate]
+        \\ strip_tac \\ asm_exists_tac \\ fs [])
+      \\ Cases_on `small_int (:'a) j` \\ fs [] THEN1
+       (qunabbrev_tac `my_frame`
+        \\ qunabbrev_tac `t9`
+        \\ qunabbrev_tac `s9` \\ fs []
+        \\ fs [EVAL ``TempIn2``,EVAL ``TempIn1``,
+               wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+        \\ rveq \\ fs [word_list_def,SEP_CLAUSES]
+        \\ strip_tac
+        \\ qexists_tac `word_heap curr ha c *
+             one (curr + bytes_in_word * n2w (heap_length ha),Word a3) *
+             hb_heap * hb_heap1 * other_heap`
+        \\ pop_assum mp_tac
+        \\ simp_tac std_ss [AC STAR_COMM STAR_ASSOC,map_replicate])
+      \\ fs [wordSemTheory.set_store_def,lookup_insert] \\ rveq
+      \\ cheat (* prove that bignum is in mem *))
+    THEN1
+     (Cases_on `i = 0` THEN1
+       (qunabbrev_tac `il` \\ fs [EVAL ``i2mw 0``]
+        \\ fs [word_list_def,SEP_CLAUSES,map_replicate]
+        \\ strip_tac \\ asm_exists_tac \\ fs [])
+      \\ Cases_on `small_int (:'a) i` \\ fs [] THEN1
+       (qunabbrev_tac `my_frame`
+        \\ qunabbrev_tac `t9`
+        \\ qunabbrev_tac `s9` \\ fs []
+        \\ fs [EVAL ``TempIn2``,EVAL ``TempIn1``,
+               wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+        \\ rveq \\ fs [word_list_def,SEP_CLAUSES]
+        \\ strip_tac
+        \\ qexists_tac `word_heap curr ha c *
+             one (other,Word a3') * hb_heap * hb_heap1 * other_heap`
+        \\ pop_assum mp_tac
+        \\ simp_tac std_ss [AC STAR_COMM STAR_ASSOC,map_replicate])
+      \\ fs [wordSemTheory.set_store_def,lookup_insert] \\ rveq
+      \\ cheat (* almost same as above *)))
   \\ strip_tac \\ simp []
   \\ rewrite_tac [eq_eval]
   \\ fs [wordSemTheory.get_var_def]
-  \\ cheat);
+  \\ cheat (* return small num or create bignum *));
 
 val TWO_LESS_MustTerminate_limit = store_thm("TWO_LESS_MustTerminate_limit[simp]",
   ``2 < MustTerminate_limit (:α) /\
