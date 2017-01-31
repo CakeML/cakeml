@@ -5697,6 +5697,14 @@ val IMP_bignum_code_rel = prove(
   \\ imp_res_tac compile_NIL_IMP \\ fs []
   \\ asm_exists_tac \\ fs []);
 
+val heap_lookup_Unused_Bignum = prove(
+  ``heap_lookup a (Unused k::hb) = SOME (Bignum j) <=>
+    k+1 <= a /\
+    heap_lookup (a - (k+1)) hb = SOME (Bignum j)``,
+  fs [heap_lookup_def,el_length_def]
+  \\ rw [] \\ fs [Bignum_def]
+  \\ pairarg_tac \\ fs []);
+
 val AnyArith_thm = Q.store_thm("AnyArith_thm",
   `∀op_index i j v t s r2 r1 locs l2 l1 c.
      state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
@@ -5979,10 +5987,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
        (evaluate_mc_iop |> INST_TYPE [``:'c``|->``:'ffi``])
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [AND_IMP_INTRO]
   \\ impl_tac THEN1
-
-   (
-
-    simp [LENGTH_REPLICATE]
+   (simp [LENGTH_REPLICATE]
     \\ simp_tac (srw_ss()) [word_bignumProofTheory.state_rel_def,GSYM CONJ_ASSOC]
     \\ simp [mc_multiwordTheory.mc_div_max_def,LENGTH_REPLICATE]
     \\ fs [X_LT_DIV]
@@ -6088,8 +6093,73 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
              hb_heap * hb_heap1 * other_heap`
         \\ pop_assum mp_tac
         \\ simp_tac std_ss [AC STAR_COMM STAR_ASSOC,map_replicate])
+      \\ simp_tac std_ss [map_replicate]
+      \\ qmatch_goalsub_rename_tac `repl_list * my_frame`
       \\ fs [wordSemTheory.set_store_def,lookup_insert] \\ rveq
-      \\ cheat (* prove that bignum is in mem *))
+      \\ qpat_x_assum `lookup 4 s1.locals = SOME (Word w)` assume_tac
+      \\ `get_real_addr c s1.store w = SOME x` by1
+            fs [get_real_addr_def,FLOOKUP_UPDATE]
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ `lookup 4 s9.locals = SOME (Word w)` by1
+        (qunabbrev_tac `s9`
+         \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
+         \\ asm_rewrite_tac [])
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ rpt_drule word_ml_inv_get_var_IMP
+      \\ disch_then (qspecl_then [`Number j`,`1`,`Word w`] mp_tac)
+      \\ impl_tac THEN1
+       (asm_rewrite_tac [EVAL ``adjust_var 0``,EVAL ``adjust_var 1``,
+               wordSemTheory.get_var_def,get_var_def]
+        \\ qunabbrev_tac `s0` \\ EVAL_TAC)
+      \\ qmatch_goalsub_rename_tac `((Number j,Word w)::vars)`
+      \\ asm_simp_tac (srw_ss()) [word_ml_inv_def,abs_ml_inv_def,
+             bc_stack_ref_inv_def,PULL_EXISTS,v_inv_def,word_addr_def]
+      \\ rpt strip_tac \\ rveq
+      \\ `curr + bytes_in_word * n2w ptr = x` by1
+       (rpt_drule get_real_addr_get_addr
+        \\ qpat_x_assum `get_real_addr _ _ _ = _` mp_tac
+        \\ `FLOOKUP s1.store CurrHeap = SOME (Word curr)` by1
+         (unabbrev_all_tac \\ simp_tac (srw_ss()) []
+          \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE])
+        \\ asm_simp_tac (srw_ss()) [get_real_addr_def]
+        \\ rpt strip_tac \\ fs [])
+      \\ rveq
+      \\ qunabbrev_tac `my_frame`
+      \\ qunabbrev_tac `hb_heap1`
+      \\ qunabbrev_tac `heap`
+      \\ full_simp_tac std_ss [APPEND]
+      \\ fs [heap_lookup_APPEND]
+      \\ Cases_on `ptr < heap_length ha` \\ full_simp_tac std_ss []
+      THEN1
+       (drule heap_lookup_SPLIT
+        \\ strip_tac \\ rveq
+        \\ qpat_x_assum `_ (fun2set _)` mp_tac
+        \\ simp_tac std_ss [word_heap_APPEND,word_heap_def,word_el_def,
+              Bignum_def,LET_THM]
+        \\ pairarg_tac
+        \\ asm_simp_tac std_ss [word_el_def,word_payload_def,LET_THM,word_list_def]
+        \\ strip_tac \\ fs []
+        \\ qmatch_goalsub_rename_tac `a * repl_list`
+        \\ qabbrev_tac `b = repl_list`
+        \\ full_simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
+        \\ asm_exists_tac \\ asm_rewrite_tac [])
+      \\ full_simp_tac std_ss [heap_lookup_Unused_Bignum]
+      THEN1
+       (drule heap_lookup_SPLIT
+        \\ strip_tac \\ rveq
+        \\ qpat_x_assum `_ (fun2set _)` mp_tac
+        \\ simp_tac std_ss [word_heap_APPEND,word_heap_def,word_el_def,
+              Bignum_def,LET_THM]
+        \\ pairarg_tac
+        \\ asm_simp_tac std_ss [word_el_def,word_payload_def,LET_THM,word_list_def]
+        \\ `ptr = heap_length ha' + heap_length ha + (il + (jl + (k + 2)))`
+              by decide_tac \\ rveq \\ fs []
+        \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+        \\ strip_tac \\ fs []
+        \\ qmatch_goalsub_rename_tac `a * repl_list`
+        \\ qabbrev_tac `b = repl_list`
+        \\ full_simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
+        \\ asm_exists_tac \\ asm_rewrite_tac []))
     THEN1
      (Cases_on `i = 0` THEN1
        (qunabbrev_tac `il` \\ fs [EVAL ``i2mw 0``]
@@ -6107,11 +6177,77 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
              one (other,Word a3') * hb_heap * hb_heap1 * other_heap`
         \\ pop_assum mp_tac
         \\ simp_tac std_ss [AC STAR_COMM STAR_ASSOC,map_replicate])
+      \\ simp_tac std_ss [map_replicate]
+      \\ qmatch_goalsub_rename_tac `repl_list * my_frame`
       \\ fs [wordSemTheory.set_store_def,lookup_insert] \\ rveq
-      \\ cheat (* almost same as above *)))
+      \\ qpat_x_assum `lookup 2 s1.locals = SOME (Word w)` assume_tac
+      \\ `get_real_addr c s1.store w = SOME x` by1
+            fs [get_real_addr_def,FLOOKUP_UPDATE]
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ `lookup 2 s9.locals = SOME (Word w)` by1
+        (qunabbrev_tac `s9`
+         \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
+         \\ asm_rewrite_tac [])
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ rpt_drule word_ml_inv_get_var_IMP
+      \\ disch_then (qspecl_then [`Number i`,`0`,`Word w`] mp_tac)
+      \\ impl_tac THEN1
+       (asm_rewrite_tac [EVAL ``adjust_var 0``,EVAL ``adjust_var 1``,
+               wordSemTheory.get_var_def,get_var_def]
+        \\ qunabbrev_tac `s0` \\ EVAL_TAC)
+      \\ qmatch_goalsub_rename_tac `((Number i,Word w)::vars)`
+      \\ asm_simp_tac (srw_ss()) [word_ml_inv_def,abs_ml_inv_def,
+             bc_stack_ref_inv_def,PULL_EXISTS,v_inv_def,word_addr_def]
+      \\ rpt strip_tac \\ rveq
+      \\ `curr + bytes_in_word * n2w ptr = x` by1
+       (rpt_drule get_real_addr_get_addr
+        \\ qpat_x_assum `get_real_addr _ _ _ = _` mp_tac
+        \\ `FLOOKUP s1.store CurrHeap = SOME (Word curr)` by1
+         (unabbrev_all_tac \\ simp_tac (srw_ss()) []
+          \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE])
+        \\ asm_simp_tac (srw_ss()) [get_real_addr_def]
+        \\ rpt strip_tac \\ fs [])
+      \\ rveq
+      \\ qunabbrev_tac `my_frame`
+      \\ qunabbrev_tac `hb_heap1`
+      \\ qunabbrev_tac `heap`
+      \\ full_simp_tac std_ss [APPEND]
+      \\ fs [heap_lookup_APPEND]
+      \\ Cases_on `ptr < heap_length ha` \\ full_simp_tac std_ss []
+      THEN1
+       (drule heap_lookup_SPLIT
+        \\ strip_tac \\ rveq
+        \\ qpat_x_assum `_ (fun2set _)` mp_tac
+        \\ simp_tac std_ss [word_heap_APPEND,word_heap_def,word_el_def,
+              Bignum_def,LET_THM]
+        \\ pairarg_tac
+        \\ asm_simp_tac std_ss [word_el_def,word_payload_def,LET_THM,word_list_def]
+        \\ strip_tac \\ fs []
+        \\ qmatch_goalsub_rename_tac `a * repl_list`
+        \\ qabbrev_tac `b = repl_list`
+        \\ full_simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
+        \\ asm_exists_tac \\ asm_rewrite_tac [])
+      \\ full_simp_tac std_ss [heap_lookup_Unused_Bignum]
+      THEN1
+       (drule heap_lookup_SPLIT
+        \\ strip_tac \\ rveq
+        \\ qpat_x_assum `_ (fun2set _)` mp_tac
+        \\ simp_tac std_ss [word_heap_APPEND,word_heap_def,word_el_def,
+              Bignum_def,LET_THM]
+        \\ pairarg_tac
+        \\ asm_simp_tac std_ss [word_el_def,word_payload_def,LET_THM,word_list_def]
+        \\ `ptr = heap_length ha' + heap_length ha + (il + (jl + (k + 2)))`
+              by decide_tac \\ rveq \\ fs []
+        \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+        \\ strip_tac \\ fs []
+        \\ qmatch_goalsub_rename_tac `a * repl_list`
+        \\ qabbrev_tac `b = repl_list`
+        \\ full_simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
+        \\ asm_exists_tac \\ asm_rewrite_tac [])))
   \\ strip_tac \\ simp []
   \\ rewrite_tac [eq_eval]
   \\ fs [wordSemTheory.get_var_def]
+
   \\ cheat (* return small num or create bignum *));
 
 val TWO_LESS_MustTerminate_limit = store_thm("TWO_LESS_MustTerminate_limit[simp]",
