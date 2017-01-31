@@ -2559,15 +2559,14 @@ val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
     pop_assum mp_tac >>
     unabbrev_all_tac >> simp[MEM_MAP,EXISTS_PROD] >>
     METIS_TAC[EQ_MULT_LCANCEL,DECIDE``2 ≠ 0n``] ) >>
-  reverse conj_tac >- (
-    `EVERY ODD (MAP FST (append aux))`
-    suffices_by (
-      simp[EVERY_MEM]
-      \\ rw[] \\ spose_not_then strip_assume_tac \\ res_tac
-      \\ fs[ODD_ADD,ODD_MULT,ODD_num_stubs] ) >>
-    fs[EVERY_MEM] \\ rw[] \\ res_tac \\ rw[ODD_ADD,ODD_MULT,ODD_num_stubs]) >>
-  irule SORTED_ALL_DISTINCT >>
-  METIS_TAC[irreflexive_def,prim_recTheory.LESS_REFL,transitive_LESS]);
+  conj_tac >- (
+    irule SORTED_ALL_DISTINCT >>
+    METIS_TAC[irreflexive_def,prim_recTheory.LESS_REFL,transitive_LESS]) >>
+  `EVERY EVEN (MAP FST (append aux))` by (
+    fs[EVERY_MEM] \\ rw[] \\ res_tac \\ rw[EVEN_ADD,EVEN_MULT,EVEN_ODD,ODD_num_stubs]) >>
+  fs[EVERY_MEM] \\
+  rw[] \\ spose_not_then strip_assume_tac \\ res_tac
+  \\ fs[EVEN_ADD,EVEN_MULT,EVEN_ODD,ODD_num_stubs]);
 
 val compile_list_imp = Q.prove(
   `∀n prog code n' name arity exp.
