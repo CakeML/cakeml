@@ -70,6 +70,7 @@ val state_rel_def = Define `
     (lookup AllocGlobal_location t.code = SOME AllocGlobal_code) ∧
     (lookup CopyGlobals_location t.code = SOME CopyGlobals_code) ∧
     (lookup ListLength_location t.code = SOME ListLength_code) ∧
+    (lookup FromListByte_location t.code = SOME FromListByte_code) ∧
     (* (lookup InitGlobals_location t.code = SOME InitGlobals_code start) ∧ *)
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
@@ -498,6 +499,48 @@ val evaluate_ListLength_code = Q.store_thm("evaluate_ListLength_code",
        bviSemTheory.dec_clock_def])
   \\ fs [] \\ pop_assum kall_tac
   \\ `(1 + &n) = (&(n + 1))` by intLib.COOPER_TAC \\ fs []);
+
+val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
+  `∀lv vs n bs s.
+    v_to_list lv = SOME (MAP (Number o $&) vs) ∧ LENGTH vs ≤ LENGTH bs ∧
+    lookup FromListByte_location s.code = SOME (3,SND FromListByte_code) ∧
+    EVERY (λn. n < 256) vs ∧
+    FLOOKUP s.refs p = SOME (ByteArray fl bs) ∧ n = LENGTH bs - LENGTH vs
+    ⇒
+    ∃c.
+      evaluate ([SND FromListByte_code],[lv;Number (&n);RefPtr p],inc_clock c s) =
+        (Rval [RefPtr p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP n2w vs))))`,
+  ho_match_mp_tac v_to_list_ind \\ rw[] \\ fs[v_to_list_def] \\ rveq
+  \\ rfs[FromListByte_code_def]
+  >- (
+    simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
+         bvl_to_bvi_with_clock,inc_clock_def,bvl_to_bvi_id,
+         state_component_equality]
+    \\ simp[fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[] \\ fs[] )
+  \\ Cases_on`v_to_list lv` \\ fs[] \\ Cases_on`vs` \\ fs[]
+  \\ Cases_on`bs` \\ fs[]
+  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
+          bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ reverse CASE_TAC \\ fs[]
+  >- ( first_x_assum(qspec_then`n2w h'`mp_tac) \\ fs[] )
+  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
+          bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ simp[find_code_def]
+  \\ qmatch_goalsub_abbrev_tac`inc_clock _ _ with refs := refs`
+  \\ qmatch_asmsub_abbrev_tac`ByteArray fl (h1::t1)`
+  \\ qmatch_asmsub_abbrev_tac`h2 = w2n w`
+  \\ first_x_assum(qspecl_then[`t`,`LUPDATE w (LENGTH t1 - LENGTH t) (h1::t1)`,`s with refs := refs`]mp_tac)
+  \\ impl_tac >- simp[Abbr`refs`,FLOOKUP_UPDATE] \\ strip_tac
+  \\ qexists_tac`c+1`
+  \\ simp[] \\ fs[ADD1]
+  \\ fs[dec_clock_def,inc_clock_def]
+  \\ qmatch_goalsub_abbrev_tac`Number n1`
+  \\ qmatch_asmsub_abbrev_tac`Number n2`
+  \\ `n1 = n2` by (simp[Abbr`n1`,Abbr`n2`,integerTheory.INT_ADD])
+  \\ fs[Abbr`n1`,Abbr`n2`,state_component_equality]
+  \\ simp[Abbr`refs`,fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
+  \\ rw[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE]
+  \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]);
 
 (* compiler correctness *)
 
