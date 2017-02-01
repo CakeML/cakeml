@@ -1,11 +1,11 @@
 open preamble
      ml_translatorLib ml_progLib miscTheory
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     mlcharioProgTheory ml_progLib ml_translatorTheory
+     ioProgTheory ml_progLib ml_translatorTheory mlcharioProgTheory
 
 val _ = new_theory "mlcommandLineProg";
 
-val _ = translation_extends "mlcharioProg";
+val _ = translation_extends "ioProg";
 
 val _ = ml_prog_update (open_module "commandLine")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
@@ -69,28 +69,49 @@ options:
   - write/use a custom (non higher-order) version of tabulate for this module instead
 *)
 
+(*
 val tabulate_spec = Q.store_thm("tabulate_spec",
   `!f fv A heap_inv n nv.
     NUM n nv /\ ls = GENLIST f n /\
     (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
     ==>
     app p ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
-    cheat);
-
-(*
-  can't prove this with xcf because tabulate comes from the translator so is
-  not in A normal form, but CF tactics require code in A normal form
-
   ntac 4 gen_tac
   \\ Induct
   >- (
     rw[]
     \\ xcf "List.tabulate" st
+    \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov)`
+      >-(
+        rw[cf_opb_def, cfNormalizeTheory.exp2v_def, app_opb_def] \\ xsimpl
+
+
+
     \\ xpull_check_not_needed
     \\ head_unfold cf_if_def
     \\ irule local_elim
     \\ hnf
-    \\ CONV_TAC(STRIP_QUANT_CONV(LAND_CONV(reduce_conv)))
+    val (asl,w) = top_goal()
+    DEPTH_CONV (
+        List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
+                 ALL_CONV reducible_pats
+        ) w  
+    CONV_TAC (ALL_CONV reducible_pats)  
+   
+
+val reduce_conv =
+    DEPTH_CONV (
+      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
+                 ALL_CONV reducible_pats
+    ) THENC
+    (simp_conv [])
+
+val reduce_tac = CONV_TAC reduce_conv
+    
+
+
+    \\ CONV_TAC
+        STRIP_QUANT_CONV(LAND_CONV(reduce_conv)))
 
     \\ app_
     val (asl,w) = top_goal()
