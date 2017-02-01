@@ -38,27 +38,9 @@ val arguments = process_topdecs `fun arguments u = List.tl (cline ())`
       
 val _ = ml_prog_update(ml_progLib.add_prog arguments pick_name)
 
-(*
-val e =
-  ``Let NONE (App (FFI "getArgs") [Var (Short "commandLine_state")])
-      (LetApps "ss" (Short "w8arrayToStrings") [Var (Short "commandLine_state")]
-        (Apps [Var (Long "List" "hd"); Var (Short "ss")]))``
-  |> EVAL |> concl |> rand
-
-val _ = ml_prog_update(add_Dlet_Fun ``"name"`` ``"u"`` e "name_v")
-
-val e =
-  ``Let NONE (App (FFI "getArgs") [Var (Short "commandLine_state")])
-      (LetApps "ss" (Short "w8arrayToStrings") [Var (Short "commandLine_state")]
-        (Apps [Var (Long "List" "tl"); Var (Short "ss")]))``
-  |> EVAL |> concl |> rand
-
-val _ = ml_prog_update(add_Dlet_Fun ``"arguments"`` ``"u"`` e "arguments_v")
-*)
 val _ = ml_prog_update (close_module NONE);
 
 
-(* TODO: define more generally (it's used in cat example too I think) *)
 val destStr_def = Define`destStr (Str s) = s`;
 val isStr_def = Define`(isStr (Str _) = T) ∧ (isStr _ = F)`;
  val _ = export_rewrites["isStr_def","destStr_def"];
@@ -75,18 +57,12 @@ val commandLine_fun_def = Define `
         else NONE 
       | _ => NONE)`
 
-(*
-val COMMANDLINE_def = Define `
-  COMMANDLINE (cl:string list) =
-    IO (List (MAP Str cl)) commandLine_fun ["getArgs"] *
-    SEP_EXISTS w. W8ARRAY commandLine_state w * &(LENGTH w = 256)` 
-*)
-
 val COMMANDLINE_def = Define `
   COMMANDLINE (cl:string list) =
     IO (List (MAP Str cl)) commandLine_fun ["getArgs"]`
  
 val st = get_ml_prog_state()
+
 (*
 options:
   - ask Magnus + Armael how to prove the spec below
@@ -314,96 +290,6 @@ val commandLine_arguments_spec = Q.store_thm("commandLine_arguments_spec",
     \\ xapp \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]
 );
 
-
-(*
-val commandLine_name_spec = Q.store_thm("commandLine_name_spec",
-  `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl)  ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "commandLine.name" st) [uv]
-    (COMMANDLINE cl)
-    (POSTv namev. & STRING_TYPE (implode (HD cl)) namev * COMMANDLINE cl)`,
-    xcf "commandLine.name" st
-    \\ fs [COMMANDLINE_def] \\ xpull
-    \\ Cases_on `LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (destStr s) ++ [CHR 0]) (MAP Str cl)))) < 257` 
-    >-(
-      qmatch_assum_abbrev_tac `LENGTH args < 257` 
-      \\ xlet `POSTv zv. IO (List (MAP Str cl)) commandLine_fun ["getArgs"] * 
-      W8ARRAY commandLine_state (args ++ DROP (LENGTH args) w) * & (UNIT_TYPE () zv)`
-      >-(xffi \\ fs [EVAL ``commandLine_state``, COMMANDLINE_def]
-        \\ map_every qexists_tac [`w`,  `emp`, `args ++ DROP (LENGTH args) w`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
-        \\ xsimpl \\ fs[commandLine_fun_def, Abbr `args`] \\ simp[EVERY_MAP])
-      \\ xlet `POSTv strlv. SEP_EXISTS ss. &LIST_TYPE STRING_TYPE ss strlv * & (TAKE (LENGTH cl) ss = MAP implode cl) * IO (List (MAP Str cl)) commandLine_fun ["getArgs"] * 
-          W8ARRAY commandLine_state (args ++ DROP (LENGTH args) w) `  
-      >-(
-        xapp \\ xsimpl 
-        \\ qexists_tac `IO (List (MAP Str cl)) commandLine_fun ["getArgs"]` 
-        \\ qexists_tac `args ++ DROP (LENGTH args) w`
-        \\ fs[EVAL ``commandLine_state``] \\ xsimpl
-        \\ rpt strip_tac \\ instantiate 
-        \\ fs[Abbr `args`]
-        \\ qmatch_abbrev_tac`TAKE (LENGTH cl) ls = _`
-        \\ `IS_PREFIX ls (MAP implode cl)` suffices_by
-        ( rw[IS_PREFIX_APPEND,TAKE_APPEND1]
-        \\ rw[TAKE_APPEND1,TAKE_LENGTH_ID_rwt] )
-        \\ simp[Abbr`ls`]
-        \\ simp[IS_PREFIX_APPEND]
-        \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD] 
-        \\ simp[GSYM MAP_MAP_o]
-        \\ drule map_app_last_Str
-        \\ disch_then SUBST_ALL_TAC
-        \\ rw[mlstringTheory.implode_STRCAT, GSYM mlstringTheory.str_def, mlstringTheory.strcat_assoc, mlstringTheory.tokens_append]
-        \\ qexists_tac `tokens (\x. x = #"\^@") (implode (MAP CHR (MAP w2n (DROP (STRLEN (FRONT (FLAT (MAP (\s. STRCAT (destStr s) "\^@") (MAP Str cl)))) + 1) w))))`
-        \\ rw[] 
-        (*now tokens is isolated*)
-        \\ Q.ISPEC_THEN`explode`match_mp_tac INJ_MAP_EQ 
-        \\ simp[MAP_MAP_o, INJ_DEF, mlstringTheory.explode_11, o_DEF, mlstringTheory.explode_implode, mlstringTheory.TOKENS_eq_tokens_sym]
-        \\ rw[TOKENS_FRONT_MAP_inv])
-      \\ xapp \\ xsimpl \\ fs [Abbr `args`] 
-      \\ instantiate
-      \\ `MAP implode cl <> []` by fs[MAP_EQ_NIL]
-      \\ `TAKE (LENGTH cl) ss <> []` by metis_tac[]
-      \\ fs[TAKE_EQ_NIL]
-      \\ Cases_on `cl` \\ fs[]
-      \\ Cases_on `ss` \\ fs[]
-    )
-    (*the commandline is too long here*)
-    \\ qmatch_assum_abbrev_tac `¬(LENGTH args < 257)`
-    \\ xlet `POSTv zv. IO (List (MAP Str cl)) commandLine_fun ["getArgs"] * 
-      W8ARRAY commandLine_state (TAKE 256 args) * & (UNIT_TYPE () zv)`
-    >-(xffi \\ fs [EVAL ``commandLine_state``, COMMANDLINE_def]
-      \\ map_every qexists_tac [`w`,  `emp`, `TAKE 256 args`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
-      \\ xsimpl \\ fs[commandLine_fun_def, Abbr `args`] \\ simp[EVERY_MAP, MAP_TAKE] \\ xsimpl)
-    \\ xlet `POSTv strlv. & LIST_TYPE STRING_TYPE (tokens (\x. x = #"\^@") (implode (TAKE 256 (FLAT (MAP (\l. l ++ "\^@") cl))))) strlv
-        * IO (List (MAP Str cl)) commandLine_fun ["getArgs"] * W8ARRAY commandLine_state (TAKE 256 args)`
-    >-(xapp \\ xsimpl
-      \\ qexists_tac `IO (List (MAP Str cl)) commandLine_fun ["getArgs"]` 
-      \\ qexists_tac `TAKE 256 args`
-      \\ fs[EVAL ``commandLine_state``] \\ xsimpl
-      \\ rpt strip_tac \\ fs[Abbr `args`]
-      \\ fs[MAP_MAP_o, CHR_w2n_n2w_ORD, MAP_TAKE]
-      \\ fs[GSYM MAP_MAP_o]
-      \\ fs[destStr_str] )
-    \\ xapp \\ xsimpl \\ instantiate
-    \\ fs[LENGTH_NIL, LENGTH_TAKE_EQ, validArg_def, EVERY_MEM]
-    \\ rw[mlstringTheory.TOKENS_eq_tokens_sym, mlstringTheory.explode_implode]
-    >-(
-      CCONTR_TAC \\ fs[]
-      \\ imp_res_tac TOKENS_EMPTY
-      \\ `MAP (\x. STRCAT x "\^@") cl <> []` by fs[MAP_EQ_NIL]
-      \\ `CONCAT (MAP (\x. STRCAT x "\^@") cl) <> []` by fs[FLAT_EQ_NIL] >-(Cases_on `cl` \\ rw[])
-      \\ fs[LENGTH_NIL, LENGTH_TAKE_EQ]
-      \\ Cases_on `cl` \\ fs[]
-      \\ Cases_on `h` >-(last_x_assum (qspecl_then [`""`] mp_tac) \\ rw[])
-      \\ first_x_assum (qspecl_then [`h'`] mp_tac) \\ rw[]
-      \\ metis_tac[MEM])
-    \\ Cases_on `cl` \\ fs[Once TAKE_APPEND]
-    \\ first_x_assum (qspecl_then [`h`] mp_tac) \\ rw[]
-    \\ fs[TAKE_LENGTH_TOO_LONG]
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, GSYM CONS_APPEND, TOKENS_APPEND]
-    \\ fs[MAP_APPEND]
-    \\ `validArg h` by fs [validArg_def, EVERY_MEM]
-    \\ fs[validArg_TOKENS]
-);    
-
 val validArg_TOKENS = Q.prove(
   `!l. validArg l ==> TOKENS (\x. x = #"\^@") l = [l]`,
     Induct \\ rw[validArg_def, TOKENS_def]
@@ -415,18 +301,6 @@ val validArg_TOKENS = Q.prove(
     \\ Cases_on `r` >-(rw[TOKENS_def]) 
       \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS]
 );
- 
 
-
-*)
-
-(*
-AIM: to be able to define echo using the arguments function so that
-  `!cl. (*some specification about length of cl being less than 256*) ==>
-  app (p:'ffi ffi_proj) echo_v [uv] (COMMANDLINE cl * STDOUT out)
-  (POSTv u. COMMANDLINE cl * STDOUT (out ++ (CONCAT (MAP implode (arguments cl)))))`
-
-  is true *)
-*)
 val _ = export_theory();
 
