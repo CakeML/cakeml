@@ -3,7 +3,7 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
+open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory stringTheory
 ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -2089,5 +2089,164 @@ val MOD_MINUS = store_thm("MOD_MINUS",
   \\ mp_tac (wordsTheory.MOD_COMPLEMENT |> Q.SPECL [`k`,`p`,`n MOD (p * k)`])
   \\ impl_tac THEN1 (fs [MOD_LESS,ZERO_LESS_MULT])
   \\ fs [MOD_MULT_MOD]);
+
+
+val SPLITP_JOIN = Q.store_thm("SPLITP_JOIN",
+  `!ls l r.
+    (SPLITP P ls = (l, r)) ==>
+    (ls = l ++ r)`,
+    Induct \\ rw[SPLITP] \\ 
+    Cases_on `SPLITP P ls`
+    \\ rw[FST, SND]
+);
+
+
+val SPLITP_IMP = Q.store_thm("SPLITP_IMP",
+  `∀P ls l r.
+    (SPLITP P ls = (l,r)) ==>
+    EVERY ($~ o P) l /\ (~NULL r ==> P (HD r))`,
+  Induct_on`ls`
+  \\ rw[SPLITP]
+  \\ rw[] \\ fs[]
+  \\ Cases_on`SPLITP P ls` \\ fs[]);
+
+val SPLITP_NIL_IMP = Q.store_thm("SPLITP_NIL_IMP",
+  `∀ls r. (SPLITP P ls = ([],r)) ==> (r = ls) /\ ((ls <> "") ==> (P (HD ls)))`,
+  Induct \\ rw[SPLITP]);
+
+
+val SPLITP_NIL_SND_EQ = Q.store_thm("SPLIT_NIL_SND_EQ",
+  `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`,
+    rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
+
+val SPLITP_NIL_SND_EVERY = Q.store_thm("SPLITP_NIL_SND_EVERY",
+  `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`,
+  rw[] \\ EQ_TAC  
+    >-(rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN \\ fs[])
+  \\ rw[] \\ Induct_on `ls` \\ rw[SPLITP]
+);
+
+val SPLITP_CONS_IMP = Q.store_thm("SPLITP_CONS_IMP",
+  `∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)`,
+  rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on `r` \\ rfs[NULL_EQ, EXISTS_DEF, HD]);
+
+
+val LAST_CONS_alt = Q.store_thm("LAST_CONS_alt",
+  `P x ==> ((ls <> [] ==> P (LAST ls)) <=> (P (LAST (CONS x ls))))`,
+  Cases_on`ls` \\ rw[]);
+
+val SPLITP_APPEND = Q.store_thm("SPLITP_APPEND",
+  `!l1 l2.
+   SPLITP P (l1 ++ l2) =
+    if EXISTS P l1 then
+      (FST (SPLITP P l1), SND (SPLITP P l1) ++ l2)
+    else
+      (l1 ++ FST(SPLITP P l2), SND (SPLITP P l2))`,
+  Induct \\ rw[SPLITP] \\ fs[]);
+
+
+val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
+  `!l.
+    LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`,
+    Induct \\ rw[SPLITP, LENGTH] 
+);
+
+
+val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
+  `∀P l1 x l2.
+    P x ==>
+    (TOKENS P (l1 ++ x::l2) = TOKENS P l1 ++ TOKENS P l2)`,
+  ho_match_mp_tac TOKENS_ind
+  \\ rw[TOKENS_def] >- (fs[SPLITP])
+  \\ pairarg_tac  \\ fs[]
+  \\ pairarg_tac  \\ fs[]
+  \\ fs[NULL_EQ, SPLITP]
+  \\ Cases_on `P h` \\ full_simp_tac bool_ss []
+  \\ rw[]
+  \\ fs[TL]
+  \\ Cases_on `EXISTS P t` \\ rw[SPLITP_APPEND, SPLITP]
+  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]
+  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
+
+
+val TOKENS_EMPTY = Q.store_thm("TOKENS_EMPTY",
+  `!ls n. (TOKENS f ls = []) ==> (ls = []) \/ (MEM n ls ==> f n)`,
+  gen_tac \\ Induct_on `ls` >-(rw[])
+  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP] 
+  \\ Cases_on `f h` \\  Cases_on `l` 
+  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL] 
+  \\ Cases_on`ls` \\ fs[MEM]);
+
+
+val TOKENS_START = Q.store_thm("TOKENS_START",
+  `!l a.
+      TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l`,
+    gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+    >-(imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[TOKENS_def])
+    >-(fs[SPLITP])
+    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+      \\ simp[TOKENS_def] \\ rw[NULL_EQ])
+    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
+);
+
+val TOKENS_END = Q.store_thm("TOKENS_END",
+  `!l a.
+      TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l`,
+    rw[]
+    \\ `TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l ++ TOKENS (\x. x = a) ""` by fs[TOKENS_APPEND]
+    \\ fs[TOKENS_def] \\ rw[]
+);
+
+
+val TOKENS_LENGTH_END  = Q.store_thm("TOKENS_LENGTH_END",
+  `!l a. 
+      LENGTH (TOKENS (\x. x = a) (l ++ [a])) = LENGTH (TOKENS (\x. x = a) l)`,
+  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_END]
+);
+
+val TOKENS_LENGTH_START = Q.store_thm("TOKENS_LENGTH_START",
+  `!l a.
+      LENGTH (TOKENS (\x. x = a) (a::l)) = LENGTH (TOKENS (\x. x= a) l)`,
+  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_START]
+);
+
+
+val DROP_EMPTY = Q.store_thm("DROP_EMPTY",
+  `!ls n. (DROP n ls = []) ==> (n >= LENGTH ls)`,
+    Induct \\ rw[DROP]
+    \\ Cases_on `n > LENGTH ls` \\ fs[]
+    \\ `n < LENGTH (h::ls)` by fs[]
+    \\ fs[DROP_EL_CONS]);
+
+val FRONT_APPEND' = Q.prove(
+  `!l h a b t. l = h ++ [a; b] ++ t ==>
+      FRONT l = h ++ FRONT([a; b] ++ t)`,
+      Induct \\ rw[FRONT_DEF, FRONT_APPEND] 
+      >-(rw[LIST_EQ_REWRITE])
+      \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
+);
+
+
+val EVERY_NOT_IMP = Q.prove(
+  `!ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)`,
+    Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+);
+
+val LIST_ELEM_COUNT_CONS = Q.prove(
+  `!h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t`,
+    simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
+);
+
+val FRONT_COUNT_IMP = Q.prove(
+  `!l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)`,
+    gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
+    >-(Cases_on `h = a` \\ rw[LIST_ELEM_COUNT_DEF])
+    \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+    \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
+    \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
+);
+
 
 val _ = export_theory()
