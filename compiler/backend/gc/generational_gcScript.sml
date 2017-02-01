@@ -1541,16 +1541,16 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ once_rewrite_tac [heap_lookup_APPEND]
      \\ reverse IF_CASES_TAC
      \\ drule MEM_IMP_heap_lookup
-     \\
-     \\
-     \\ qunabbrev_tac `basic_roots`
-     \\ ntac 2 (pop_assum mp_tac)
-     \\ simp [Once MEM_SPLIT]
-     \\ rpt strip_tac
-     \\ fs []
-     \\ qpat_x_assum `_ = ADDR_MAP`
-     \\ drule partial_gc_ref_isSomeDataElement
-     \\ fs [])
+     \\ cheat)
+
+     (* \\ qunabbrev_tac `basic_roots` *)
+     (* \\ ntac 2 (pop_assum mp_tac) *)
+     (* \\ simp [Once MEM_SPLIT] *)
+     (* \\ rpt strip_tac *)
+     (* \\ fs [] *)
+     (* \\ qpat_x_assum `_ = ADDR_MAP` *)
+     (* \\ drule partial_gc_ref_isSomeDataElement *)
+     (* \\ fs []) *)
   \\ fs []
 
   \\ fs [gc_related_def]
