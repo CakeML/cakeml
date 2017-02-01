@@ -108,7 +108,7 @@ val heap_split_heap_length = store_thm("heap_split_heap_length",
     (heap_split a heap = SOME (h1,h2))
     ==>
     (heap_length h1 = a) /\
-    (heap_length h2 = heap_length heap - a) /\
+    (heap_length (h1 ++ h2) = heap_length heap) /\
     (h1 ++ h2 = heap)``,
   Induct
   \\ fs [heap_split_def]
@@ -144,7 +144,7 @@ val heap_segment_IMP = store_thm("heap_segment_IMP",
     a <= b ==>
     (h1 ++ h2 ++ h3 = heap) /\
     (heap_length h1 = a) /\
-    (heap_length h2 = (b - a)) /\
+    (heap_length (h1 ++ h2) = b) /\
     (heap_length h3 = (heap_length heap - b))``,
   rpt gen_tac
   \\ fs [heap_segment_def]
@@ -159,9 +159,9 @@ val heap_segment_IMP = store_thm("heap_segment_IMP",
   \\ drule heap_split_heap_length
   \\ fs []
   \\ strip_tac \\ strip_tac
-  \\ fs []
   \\ rveq
-  \\ fs []);
+  \\ fs []
+  \\ fs [heap_length_APPEND]);
 
 val heap_restrict_def = Define `
   heap_restrict start end (heap:('a,'b) heap_element list) =
@@ -195,7 +195,7 @@ val heap_ok_def = Define `
     (* no forward pointers *)
     (FILTER isForwardPointer heap = []) /\
     (* all pointers in DataElements point to some DataElement *)
-    (!ptr xs l d u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
+    (!xs l d ptr u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
                     isSomeDataElement (heap_lookup ptr heap))`;
 
 val gc_forward_ptr_def = Define `

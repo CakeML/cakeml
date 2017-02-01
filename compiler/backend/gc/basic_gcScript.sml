@@ -1624,11 +1624,11 @@ val heap_lookup_IMP_heap_addresses_GEN = prove(
   \\ `n + el_length h + (j - el_length h) = n + j` by decide_tac
   \\ metis_tac []);
 
-val heap_lookup_IMP_heap_addresses =
+val heap_lookup_IMP_heap_addresses = save_thm("heap_lookup_IMP_heap_addresses",
     heap_lookup_IMP_heap_addresses_GEN
       |> Q.SPECL [`xs`,`0`]
       |> SIMP_RULE std_ss []
-      |> GEN_ALL;
+      |> GEN_ALL);
 
 val basic_gc_LENGTH = store_thm("basic_gc_LENGTH",
   ``roots_ok roots heap /\
