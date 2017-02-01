@@ -26,6 +26,12 @@ val _ = Define`closure_tag = 30:num`
 val _ = Define`partial_app_tag = 31:num`
 val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 
+val _ = Datatype`
+  trace =
+    | Empty
+    | Cons trace num
+    | Union trace trace`
+
 val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 
