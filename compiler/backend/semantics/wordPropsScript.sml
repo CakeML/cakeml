@@ -525,22 +525,26 @@ val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
   r.gc_fun = x.gc_fun ∧
-  r.clock = x.clock`,
+  r.clock = x.clock ∧
+  r.mdomain = x.mdomain`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
 val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code /\ t.gc_fun = s.gc_fun`,
+  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_gc_fun_clock>>fs[])
 
 val inst_code_gc_fun_const = Q.prove(`
-  inst i s = SOME t ⇒ s.code = t.code /\ s.gc_fun = t.gc_fun`,
+  inst i s = SOME t ⇒
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
 val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code /\ s1.gc_fun = s2.gc_fun`,
+  `!xs s1 vs s2.
+     evaluate (xs,s1) = (vs,s2) ==>
+     s1.code = s2.code /\ s1.gc_fun = s2.gc_fun /\ s1.mdomain = s2.mdomain`,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
@@ -567,6 +571,10 @@ val evaluate_code_const = Q.store_thm("evaluate_code_const",
 
 val evaluate_gc_fun_const = Q.store_thm("evaluate_gc_fun_const",
   `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.gc_fun = s2.gc_fun`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_mdomain_const = Q.store_thm("evaluate_mdomain_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.mdomain = s2.mdomain`,
   metis_tac [evaluate_code_gc_fun_const]);
 
 (* -- *)

@@ -205,6 +205,7 @@ val state_rel_def = Define `
     t0.code = t.code /\
     t0.be = t.be /\
     t0.ffi = t.ffi /\
+    FLOOKUP t.store TempOut = FLOOKUP t0.store TempOut /\
     (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)`
 
 val state_rel_delete_vars = prove(
@@ -495,7 +496,7 @@ val compile_thm = store_thm("compile_thm",
      \\ Q.MATCH_GOALSUB_ABBREV_TAC `wordSem$evaluate (_,t5)`
      \\ qpat_assum `!v1 v2. _` drule
      \\ `state_rel s1 t5 cs2 t0 frame` by
-          (unabbrev_all_tac \\ fs [state_rel_def] \\ NO_TAC)
+          (unabbrev_all_tac \\ fs [state_rel_def] \\ fs [] \\ NO_TAC)
      \\ disch_then drule
      \\ imp_res_tac compile_IMP_code_subset
      \\ imp_res_tac code_subset_trans
@@ -736,7 +737,7 @@ val compile_thm = store_thm("compile_thm",
                wordSemTheory.dec_clock_def]
         \\ match_mp_tac state_rel_delete_vars
         \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
-        \\ fs [state_rel_def])
+        \\ fs [state_rel_def] \\ fs [])
       \\ strip_tac \\ fs []
       \\ fs [evaluate_def]
       \\ unabbrev_all_tac
@@ -746,7 +747,7 @@ val compile_thm = store_thm("compile_thm",
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
       \\ qexists_tac `t8` \\ fs []
       \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
-      \\ fs [state_rel_def])
+      \\ fs [state_rel_def] \\ fs [])
     \\ pairarg_tac \\ fs [] \\ rveq
     \\ qabbrev_tac `cs1 = install (p,y,new_code) cs'`
     \\ `has_compiled p cs1 = INL y` by
@@ -774,7 +775,7 @@ val compile_thm = store_thm("compile_thm",
              wordSemTheory.dec_clock_def]
       \\ match_mp_tac state_rel_delete_vars
       \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
-      \\ fs [state_rel_def])
+      \\ fs [state_rel_def] \\ fs [])
     \\ strip_tac \\ fs []
     \\ fs [evaluate_def]
     \\ unabbrev_all_tac
@@ -784,7 +785,7 @@ val compile_thm = store_thm("compile_thm",
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
     \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
-    \\ fs [state_rel_def])
+    \\ fs [state_rel_def] \\ fs [])
   THEN1 (* LoopBody ret *)
    (fs [syntax_ok_def,compile_def]
     \\ `syntax_ok prog /\ !r. prog <> LoopBody r` by
@@ -804,7 +805,7 @@ val compile_thm = store_thm("compile_thm",
     \\ disch_then drule \\ fs []
     \\ `state_rel (dec_clock s2) (call_env [ret_val] (dec_clock t2)) cs2 t0 frame` by
       (fs [state_rel_def,call_env_def,wordSemTheory.dec_clock_def,dec_clock_def]
-       \\ NO_TAC)
+       \\ fs [] \\ NO_TAC)
     \\ disch_then drule
     \\ `get_var 0 (call_env [ret_val] (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
