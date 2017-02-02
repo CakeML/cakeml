@@ -2248,5 +2248,16 @@ val FRONT_COUNT_IMP = Q.prove(
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 );
 
+val CONCAT_WITH_aux_def = Define` 
+    (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
+    (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
+    (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
+    (CONCAT_WITH_aux (h::t) ([]::[]) fl = REVERSE fl) /\
+    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))`
+
+val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
+
+val CONCAT_WITH_def = Define`
+    CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
 
 val _ = export_theory()
