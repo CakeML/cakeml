@@ -166,7 +166,18 @@ val concatWith_aux_def = tDefine "concatWith_aux"`
 val concatWith_def = Define`
   concatWith s l = concatWith_aux s l T`;
 
-
+val concatWith_CONCAT_WITH_aux = Q.prove (
+  `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`, 
+  ho_match_mp_tac CONCAT_WITH_aux_ind
+  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_def]
+  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_def]
+  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_def, implode_def])
+);
+ 
+val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
+  `!s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))`,
+    rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
+);
 
 val str_def = Define`
   str (c: char) = implode [c]`;

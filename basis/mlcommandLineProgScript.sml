@@ -69,13 +69,15 @@ options:
   - write/use a custom (non higher-order) version of tabulate for this module instead
 *)
 
-(*
 val tabulate_spec = Q.store_thm("tabulate_spec",
   `!f fv A heap_inv n nv.
     NUM n nv /\ ls = GENLIST f n /\
     (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
     ==>
     app p ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+    cheat);
+
+(*
   ntac 4 gen_tac
   \\ Induct
   >- (
@@ -83,6 +85,7 @@ val tabulate_spec = Q.store_thm("tabulate_spec",
     \\ xcf "List.tabulate" st
     \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov)`
       >-(
+         
         rw[cf_opb_def, cfNormalizeTheory.exp2v_def, app_opb_def] \\ xsimpl
 
 
@@ -302,7 +305,7 @@ val commandLine_arguments_spec = Q.store_thm("commandLine_arguments_spec",
     LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (destStr s) ++ [CHR 0]) (MAP Str cl)))) < 257 ==>
     app (p:'ffi ffi_proj) ^(fetch_v "commandLine.arguments" st) [uv]
     (COMMANDLINE cl)
-    (POSTv namev. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) namev * COMMANDLINE cl)`,
+    (POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * COMMANDLINE cl)`,
     xcf "commandLine.arguments" st
     \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
     >-(xcon \\ xsimpl)
