@@ -32,6 +32,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -102,5 +103,7 @@ val lexer_fun_side = Q.prove(`
        Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

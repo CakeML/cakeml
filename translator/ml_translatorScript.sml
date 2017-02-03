@@ -7,7 +7,7 @@ open preamble integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
-     mlstringTheory ml_progTheory packLib;
+     mlvectorTheory mlstringTheory ml_progTheory packLib;
 open terminationTheory
 local open funBigStepEquivTheory evaluatePropsTheory in end
 
@@ -1178,14 +1178,25 @@ val LIST_TYPE_def = Define `
      LIST_TYPE a [] v <=>
      v = Conv (SOME ("nil",TypeId (Short "list"))) []`
 
-val LIST_TYPE_SIMP = Q.prove(
+val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
               (\x v. if b x \/ MEM x xs then p x v else ARB) xs =
            LIST_TYPE (p:('a -> v -> bool)) xs`,
   Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,LIST_TYPE_def,MEM,
-    DISJ_ASSOC,CONTAINER_def])
-  |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss [] |> GSYM
+    DISJ_ASSOC,CONTAINER_def]) |> GSYM
+  |> curry save_thm "LIST_TYPE_SIMP'";
+
+val LIST_TYPE_SIMP = LIST_TYPE_SIMP'
+  |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss []
   |> curry save_thm "LIST_TYPE_SIMP";
+
+val LIST_TYPE_IF_ELIM = Q.store_thm("LIST_TYPE_IF_ELIM",
+`!v. LIST_TYPE (\x v. if MEM x l then P x v else Q x v) l v = LIST_TYPE P l v`,
+  `!l' v. (!x. MEM x l ⇒ MEM x l') ⇒
+  LIST_TYPE (\x v. if MEM x l' then P x v else Q x v) l v = LIST_TYPE P l v`
+   suffices_by metis_tac[]
+  >> Induct_on `l`
+  >> fs[LIST_TYPE_def]);
 
 (* pair definition *)
 
@@ -1350,18 +1361,6 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
 
 (* vectors *)
 
-val _ = Datatype `
-  vector = Vector ('a list)`;
-
-val fromList_def = Define `
-  fromList l = Vector l`;
-
-val sub_def = Define `
-  sub (Vector l) n = EL n l`;
-
-val length_def = Define `
-  length (Vector l) = LENGTH l`;
-
 val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
@@ -1382,7 +1381,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
   asm_exists_tac >> fs[] >>
   rw [do_app_cases,PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   qexists_tac`EL n l'` >>
@@ -1425,7 +1424,7 @@ val Eval_length = Q.store_thm("Eval_length",
   asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 

@@ -1,0 +1,28 @@
+(*
+This file records the current, linear dependency order between the
+translation/CF theories making up the basis library verification.
+
+This unnatural linear dependency graph is required by the concrete mode
+translator (which provides only translation_extends as a method for joining two
+translations). Eventually, when we have an abstract mode translator, the
+different modules can be made more independent and different combinations can
+be selected than simple prefixes of the current ordering.
+
+Note: CharIO is not in the SML basis, but is used for our
+current examples (hello, cat, compiler bootstrap). We should
+add a TextIO like the basis instead. Once we have an abstract
+translator, we could eiher keep CharIO as "more basic" I/O
+primitives, or replace with TextIO.
+*)
+
+std_prelude
+option
+list
+vector
+string
+basics
+char
+word8
+w8array
+| \_ chario _ io
+array

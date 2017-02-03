@@ -2,6 +2,7 @@ open preamble stackLangTheory data_to_wordTheory;
 
 val _ = new_theory "stack_alloc";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* implementation of alloc and the GC *)
 
 val memcpy_code_def = Define `
@@ -150,9 +151,10 @@ val stubs_def = Define `
 
 (* compiler *)
 
-val next_lab_def = Define `
+local
+val next_lab_quotation = `
   next_lab (p:'a stackLang$prog) aux =
-    case p of
+    dtcase p of
     | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
     | While _ _ _ p => next_lab p aux
@@ -162,10 +164,24 @@ val next_lab_def = Define `
     | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
           next_lab p (next_lab p' ((MAX (MAX l2 l3 + 1) aux)))
     | _ => aux`
+in
+val next_lab_def = Define next_lab_quotation
 
-val comp_def = Define `
+val next_lab_pmatch = Q.store_thm("next_lab_pmatch",`∀p aux.` @
+  (next_lab_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac
+  >> rw[Once next_lab_def]
+  >> every_case_tac >> fs[]);
+end
+
+local
+val comp_quotation = `
   comp n m p =
-    case p of
+    dtcase p of
     | Seq p1 p2 =>
         let (q1,m) = comp n m p1 in
         let (q2,m) = comp n m p2 in
@@ -180,14 +196,25 @@ val comp_def = Define `
     | Call NONE dest exc => (Call NONE dest NONE,m)
     | Call (SOME (p1,lr,l1,l2)) dest exc =>
         let (q1,m) = comp n m p1 in
-         (case exc of
+         (dtcase exc of
           | NONE => (Call (SOME (q1,lr,l1,l2)) dest NONE,m)
           | SOME (p2,k1,k2) =>
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
     | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
     | _ => (p,m) `
+in
+val comp_def = Define comp_quotation
 
+val comp_pmatch = Q.store_thm("comp_pmatch",`∀n m p.` @
+  (comp_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac
+  >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+end 
 val prog_comp_def = Define `
   prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`
 

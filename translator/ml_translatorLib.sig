@@ -60,6 +60,7 @@ sig
     val use_full_type_names  : bool ref
     val add_preferred_thy    : string -> unit
     val find_def_for_const   : (term -> thm) ref
+    val clean_on_exit        : bool ref
 
     (* internals, for ml_hol_kernel *)
 
@@ -90,5 +91,15 @@ sig
     val find_const_name : string -> string
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
+
+    (* for debugging *)
+    val pmatch_hol2deep_fail : term ref
+    val pmatch_hol2deep : term -> (term -> thm) -> thm
+
+    val prove_EvalPatBind_fail : term ref
+    val prove_EvalPatBind : term -> (term -> thm) -> thm
+
+    val prove_EvalPatRel_fail : term ref
+    val get_term :string -> term
 
 end

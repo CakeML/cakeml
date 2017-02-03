@@ -37,6 +37,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -50,6 +51,29 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
+
+(* TODO:
+   these things are a discrepancy between HOL's standard libraries and
+   mllist. probably the compiler should be using the mllist versions? *)
+
+val res = translate ZIP;
+val res = translate EL;
+
+val zip_1_side_def = theorem"zip_1_side_def";
+
+val zip_1_side_thm = Q.prove(
+  `∀p. zip_1_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
+  gen_tac \\ PairCases_on`p`
+  \\ qid_spec_tac`p1` \\ Induct_on`p0`
+  \\ rw[Once zip_1_side_def,LENGTH_NIL_SYM]
+  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
+
+val el_side_def = Q.prove(
+  `!n xs. el_side n xs = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+(* -- *)
 
 (* type inference: t_walkstar and t_unify *)
 
@@ -308,12 +332,89 @@ val list_apply = Q.prove(
          (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))`,
   Cases THEN SRW_TAC [] []);
 
+(* TODO: duplicated from ml_translatorLib, should go elsewhere*)
+fun list_conv c tm =
+  if listSyntax.is_cons tm then
+    ((RATOR_CONV o RAND_CONV) c THENC
+     RAND_CONV (list_conv c)) tm
+  else if listSyntax.is_nil tm then ALL_CONV tm
+  else NO_CONV tm
+
+(* TODO: is it really necessary to prove this four times? *)
+val pmatch_row_lemmas =
+    map
+      (fn goal =>
+          Q.prove(goal,
+                  Cases_on `(∃v. f v = t ∧ g v)`
+                  >> rw[patternMatchesTheory.PMATCH_def,
+                        patternMatchesTheory.PMATCH_ROW_def,
+                        patternMatchesTheory.PMATCH_ROW_COND_def,
+                        some_def,pairTheory.ELIM_UNCURRY]))
+      [`PMATCH t ((PMATCH_ROW f g (λt x. h t x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λt. h t x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t') x. h t t' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t'). h t t' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'') x. h t t' t'' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t''). h t t' t'' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''') x. h t t' t'' t''' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t'''). h t t' t'' t''' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`
+      ]
+
+(* Attempts to convert (pmatch) expressions of the form
+
+     (case x of
+       p1 => λ v1. b1 v1
+     | p2 => λ v2. b2 v2
+     | ....) a
+
+into
+
+     case x of
+       p1 => b1 a
+     | p2 => b2 a
+     | ....
+ *)
+fun pmatch_app_distrib_conv tm =
+  let
+    fun mk_pmatch_beta tm =
+    let
+      val (pm_exp,arg) = dest_comb tm
+      val (pmatch,pml) = dest_comb pm_exp
+      val (rows,row_type) = listSyntax.dest_list pml
+      fun gify arg row =
+        let
+          val (pmatch_row,[pat,guard,body]) = strip_comb row          
+          val (binders,term) = dest_pabs body
+        in
+          Term(`PMATCH_ROW ` @ map ANTIQUOTE [pat,guard,mk_pabs(binders,beta_conv(mk_comb(term,arg)))])
+        end
+      val new_rows = map (gify arg) rows
+      val new_row_type = type_of(hd new_rows)
+      val new_list = listSyntax.mk_list(map (gify arg) rows, new_row_type)
+    in
+      mk_eq(tm,
+            Term(`PMATCH` @ [ANTIQUOTE(rand pmatch),ANTIQUOTE(new_list)]))
+    end
+    val g = mk_pmatch_beta tm
+  in
+    prove(g,
+      CONV_TAC(Ho_Rewrite.PURE_REWRITE_CONV pmatch_row_lemmas) >> rw[pairTheory.ELIM_UNCURRY])
+  end
+
 fun full_infer_def aggressive const = let
   val def = if aggressive then
               def_of_const const
               |> RW1 [FUN_EQ_THM]
               |> RW [op_apply,if_apply,option_case_apply,pr_CASE]
-              |> SIMP_RULE std_ss [op_apply,if_apply,
+              |> SIMP_RULE (std_ss) [op_apply,if_apply,
                    option_case_apply,list_apply]
             else
               def_of_const const
@@ -350,8 +451,9 @@ val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   \\ fs[add_constraint_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[unifyTheory.t_unify_wfs]);
-
-val _ = translate (aggr_infer_def ``constrain_op``);
+    
+val _ = translate (infer_def ``constrain_op``
+                   |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
 val _ = translate (infer_def ``t_to_freevars``);
 
@@ -690,7 +792,7 @@ val apply_subst_list_side_def = definition"apply_subst_list_side_def";
 val apply_subst_side_def = definition"apply_subst_side_def";
 val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def";
-
+    
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
   `(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
    (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\
@@ -888,5 +990,7 @@ val _ = translate infer_prog_def;
 val _ = translate (infer_def ``infertype_prog``);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

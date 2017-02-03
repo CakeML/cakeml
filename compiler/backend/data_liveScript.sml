@@ -6,6 +6,8 @@ val _ = new_theory "data_live";
    annotations that are attached to MakeSpace, Assign and Call in
    dataLang programs. It also deletes dead code. *)
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val is_pure_def = Define `
   (is_pure SetGlobalsPtr = F) /\
   (is_pure Ref = F) /\
@@ -29,6 +31,35 @@ val is_pure_def = Define `
   (is_pure WordFromInt = F) /\
   (is_pure WordToInt = F) /\
   (is_pure _ = T)`
+
+val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
+  is_pure op =
+    case op of
+      SetGlobalsPtr => F
+    | Ref => F
+    | RefByte => F
+    | RefArray => F
+    | Update => F
+    | UpdateByte => F
+    | Cons _ => F
+    | FFI _ => F
+    | FromList _ => F
+    | Add => F
+    | Sub => F
+    | Mult => F
+    | Div => F
+    | Mod => F
+    | Less => F
+    | LessEq => F
+    | Equal => F
+    | WordOp W64 _ => F
+    | WordShift W64 _ _ => F
+    | WordFromInt => F
+    | WordToInt => F
+    | _ => T`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> fs[is_pure_def]);
 
 val compile_def = Define `
   (compile Skip live = (Skip,live)) /\

@@ -21,6 +21,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -223,4 +224,7 @@ val _ = TextIO.output(t,term_to_string prog)
 val _ = TextIO.closeOut(t)
 
 *)
+
+val _ = (ml_translatorLib.clean_on_exit := true);
+
 val _ = export_theory();

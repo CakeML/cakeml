@@ -62,12 +62,10 @@ val _ = Define `
 
 val _ = append_prog
   ``[Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
-     Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
      Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
      Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
      Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
      Tdec (Dtabbrev [] "word" (Tapp [] TC_word8));
-     Tdec (Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
      Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
      Tdec (Dtabbrev [] "char" (Tapp [] TC_char))]``
 
@@ -127,6 +125,7 @@ val _ = ml_prog_update (open_module "Word8");
 val _ = append_dec ``Dtabbrev [] "word" (Tapp [] TC_word8)``;
 val _ = trans "fromInt" `n2w:num->word8`
 val _ = trans "toInt" `w2n:word8->num`
+val _ = trans "andb" `word_and:word8->word8->word8`;
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -186,19 +185,7 @@ val w8array_update_spec = Q.store_thm ("w8array_update_spec",
   prove_array_spec "Word8Array.update");
 
 
-(* Vector module -- translated *)
-
-val _ = ml_prog_update (open_module "Vector");
-
-val _ = append_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)``;
-val _ = trans "fromList" `Vector`
-val _ = trans "length" `length`
-val _ = trans "sub" `sub`
-
-val _ = ml_prog_update (close_module NONE);
-
-
-(* Array module -- CF verified *)
+(* Array module -- CF verified
 
 val _ = ml_prog_update (open_module "Array");
 
@@ -243,6 +230,7 @@ val array_update_spec = Q.store_thm ("array_update_spec",
        (POSTv uv. cond (UNIT_TYPE () uv) * ARRAY av (LUPDATE v n a))`,
   prove_array_spec "Array.update");
 
+*)
 
 (* Char module -- translated *)
 
@@ -259,16 +247,6 @@ val _ = trans ">=" `string$char_ge`
 val _ = ml_prog_update (close_module NONE);
 
 
-(* String module -- translated *)
-
-val _ = ml_prog_update (open_module "String");
-
-val _ = append_dec ``Dtabbrev [] "string" (Tapp [] TC_string)``;
-val _ = trans "sub" `strsub`
-val _ = trans "implode" `implode`
-val _ = trans "size" `strlen`
-
-val _ = ml_prog_update (close_module NONE);
 
 
 (* CharIO -- CF verified *)

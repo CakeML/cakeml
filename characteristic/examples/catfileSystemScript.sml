@@ -1,4 +1,4 @@
-open preamble
+open preamble mlstringTheory
 
 val _ = new_theory "catfileSystem";
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -84,10 +84,8 @@ val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
   NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
 
 val _ = Datatype`
-  RO_fs = <| files : (mlstring # string) list ;
-             infds : (num # (mlstring # num)) list ;
-             stdout : string
-  |>
+  RO_fs = <| files : (mlstring # word8 list) list ;
+             infds : (num # (mlstring # num)) list |>
 `
 
 val wfFS_def = Define`
@@ -100,11 +98,6 @@ val wfFS_def = Define`
 
 val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
-`;
-
-val writeStdOut_def = Define`
-  writeStdOut c fsys =
-    SOME (fsys with stdout := fsys.stdout ++ [c])
 `;
 
 val openFile_def = Define`
@@ -272,7 +265,7 @@ val decode_encode_list = Q.store_thm(
   simp[OPT_MMAP_def]);
 
 val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair (Str o explode) Str) fs
+  encode_files fs = encode_list (encode_pair (Str o explode) (Str o MAP (CHR o (w2n:word8->num)))) fs
 `;
 
 val encode_fds_def = Define`
@@ -283,19 +276,22 @@ val encode_fds_def = Define`
 val encode_def = Define`
   encode fs = cfHeapsBase$Cons
                          (encode_files fs.files)
-                         (Cons (encode_fds fs.infds) (Str fs.stdout))
+                         (encode_fds fs.infds)
 `
 
 
 val decode_files_def = Define`
-  decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
+  decode_files f = decode_list (decode_pair (lift implode o destStr) (lift (MAP ((n2w:num->word8) o ORD)) o destStr)) f
 `
 
 val decode_encode_files = Q.store_thm(
   "decode_encode_files",
   `∀l. decode_files (encode_files l) = return l`,
-  simp[encode_files_def, decode_files_def] >>
-  simp[decode_encode_list, decode_encode_pair, implode_explode]);
+  rw[encode_files_def, decode_files_def] >>
+  match_mp_tac decode_encode_list >>
+  match_mp_tac decode_encode_pair >>
+  rw[implode_explode,MAP_MAP_o,ORD_CHR,MAP_EQ_ID] >>
+  Q.ISPEC_THEN`x`mp_tac w2n_lt \\ rw[]);
 
 val decode_fds_def = Define`
   decode_fds =
@@ -310,12 +306,11 @@ val decode_encode_fds = Q.store_thm(
   simp[decode_encode_list, decode_encode_pair, implode_explode]);
 
 val decode_def = Define`
-  (decode (Cons files0 (Cons fds0 stdout0)) =
+  (decode (Cons files0 fds0) =
      do
         files <- decode_files files0 ;
         fds <- decode_fds fds0 ;
-        stdout <- destStr stdout0 ;
-        return <| files := files ; infds := fds ; stdout := stdout |>
+        return <| files := files ; infds := fds |>
      od) ∧
   (decode _ = fail)
 `;
@@ -358,12 +353,7 @@ val fs_ffi_next_def = Define`
     do
       fs <- decode fs_ffi ;
       case name of
-        "write" => do
-               assert(LENGTH bytes = 1);
-               fs' <- writeStdOut (CHR (w2n (HD bytes))) fs;
-               return (bytes, encode fs')
-             od
-      | "open" => do
+        "open" => do
                fname <- getNullTermStr bytes;
                (fd, fs') <- openFile (implode fname) fs;
                assert(fd < 255);
@@ -374,7 +364,7 @@ val fs_ffi_next_def = Define`
                (copt, fs') <- fgetc (w2n (HD bytes)) fs;
                case copt of
                    NONE => return ([255w], encode fs')
-                 | SOME c => return ([n2w (ORD c)], encode fs')
+                 | SOME c => return ([c], encode fs')
              od
       | "close" => do
                assert(LENGTH bytes = 1);
@@ -405,12 +395,6 @@ val closeFD_lemma = Q.store_thm(
        EXISTS_PROD] >>
   rpt strip_tac >> res_tac >> simp[LUPDATE_def] >>
   simp[theorem "RO_fs_component_equality"]);
-
-val write_lemma = Q.store_thm(
-  "write_lemma",
-  `fs_ffi_next "write" [c] (encode fs) =
-     SOME ([c], encode (fs with stdout := fs.stdout ++ [CHR (w2n c)]))`,
-  simp[fs_ffi_next_def, decode_encode_FS, writeStdOut_def]);
 
 (* insert null-terminated-string (l1) at specified index (n) in a list (l2) *)
 val insertNTS_atI_def = Define`
