@@ -167,7 +167,9 @@ val code_rel_def = Define `
 val div_code_assum_def = Define `
   div_code_assum (:'ffi) code =
     !(t1:('a,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
-      0 < i0 /\ 0 < i1 /\ i0 <> i1 /\ t1.code = code /\ t1.termdep <> 0 /\
+      0 < i0 /\ 0 < i1 /\ 0 < i2 /\ 0 < i3 /\ 0 < i4 /\
+      ALL_DISTINCT [i0;i1;i2;i3;i4] /\
+      t1.code = code /\ t1.termdep <> 0 /\
       get_var 0 t1 = SOME ret_val /\ single_div_pre w3 w4 w5 ==>
       evaluate
         (DivCode n l i0 i1 i2 i3 i4,
@@ -177,7 +179,9 @@ val div_code_assum_def = Define `
       (NONE,
         let (w1,w2) = single_div w3 w4 w5 in
           (set_var 0 ret_val o set_var i1 (Word w2) o
-           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) t1)`
+           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) (t1
+          with <| permute := (λn. t1.permute (n + 1)) ;
+                  locals := LN |> ))`
 
 val _ = temp_overload_on("max_var_name",``25n``);
 

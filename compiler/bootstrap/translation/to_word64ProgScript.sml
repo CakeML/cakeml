@@ -317,7 +317,7 @@ val WORDLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_ASM_REG_IMM_TYPE,
             EqualityType_OPTION_TYPE_NUM,
             EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,            
+            EqualityType_LIST_TYPE_CHAR,
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_INST_TYPE,
             EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
@@ -640,6 +640,8 @@ val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[
 val _ = translate(RefArray_code_def |> inline_simp |> conv64|>econv)
 val _ = translate(Replicate_code_def|> inline_simp |> conv64)
 val _ = translate(Replicate_code_def|> inline_simp |> conv64)
+val _ = translate(AddNumSize_def|> conv64)
+val _ = translate(AnyHeader_def|> conv64)
 val _ = translate(AnyArith_code_def|> conv64)
 val _ = translate(Add_code_def|> conv64)
 val _ = translate(Sub_code_def|> conv64)

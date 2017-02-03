@@ -5260,16 +5260,6 @@ val eq_eval =
              list_insert_def,wordSemTheory.dec_clock_def,wordSemTheory.the_words_def,
              wordLangTheory.word_op_def];
 
-val AddNumSize_def = Define `
-  AddNumSize c src =
-    If Equal (adjust_var src) (Imm 0w) Skip
-      (If Test (adjust_var src) (Imm 1w)
-         (Assign 1 (Op Add [Var 1; Const 4w]))
-       (Assign 1 (Op Add [Var 1;
-         (Shift Lsl (Shift Lsr
-            (Load (real_addr c (adjust_var src)))
-               (Nat (dimindex (:'a) - c.len_size))) (Nat 2))]))):'a prog`
-
 val evaluate_AddNumSize = prove(
   ``!src c l1 l2 s t locs i w.
       state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
@@ -5326,33 +5316,6 @@ val evaluate_AddNumSize = prove(
    (fs [good_dimindex_def] \\ rfs [])
   \\ pop_assum kall_tac \\ fs []
   \\ fs [WORD_MUL_LSL,GSYM word_mul_n2w,multiwordTheory.i2mw_def]);
-
-val AnyHeader_def = Define `
-  AnyHeader c r a t1 (* header *) t2 (* pointer *) t3 (* payload *) =
-    If Equal r (Imm (0w:'a word))
-      (list_Seq [Assign 7 (Const 0w);
-                 Set (Temp t1) (Var r);
-                 Set (Temp t2) (Var r);
-                 Set (Temp t3) (Var r)])
-   (If NotTest r (Imm 1w)
-      (list_Seq
-        [Assign 7 (real_addr c r);
-         Set (Temp t2) (Op Add [Var 7; Const bytes_in_word]);
-         Set (Temp t1) (Op Add
-           [Shift Lsl (Shift Lsr (Load (Var 7)) (Nat ((dimindex (:'a)) - c.len_size))) (Nat 1);
-            Op And [Const 1w; Shift Lsr (Load (Var 7)) (Nat 4)]]);
-         Set (Temp t3) (Const 0w)])
-   (If NotLess r (Imm 0w)
-      (list_Seq
-        [Set (Temp t1) (Const 2w);
-         Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (Shift Lsr (Var r) (Nat 2));
-         Assign 7 (Const 0w)])
-      (list_Seq
-        [Set (Temp t1) (Const 3w);
-         Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
-         Set (Temp t3) (Op Sub [Const 0w; Shift Asr (Var r) (Nat 2)]);
-         Assign 7 (Const 0w)])))`
 
 val get_sign_word_lemma = prove(
   ``good_dimindex (:α) ⇒ (1w && x ⋙ 4) = if word_bit 4 x then 1w else 0w:'a word``,
@@ -5509,66 +5472,6 @@ val AnyHeader_thm = prove(
     \\ rw [] \\ fs [] \\ TRY (eq_tac \\ rw [] \\ fs [])
     \\ EVAL_TAC \\ fs [n2w_mod]));
 
-val AnyArith_code_def = prove(
-  ``AnyArith_code c = list_Seq [
-      (* perform allocation *)
-      Assign 1 (Const 4w);
-      AddNumSize c 0;
-      AddNumSize c 1;
-      Set (Temp 29w) (Var 1);
-      AllocVar (2 ** c.len_size) (fromList [();();()]);
-      (* convert smallnums to bignum if necessary *)
-      AnyHeader c 2 F 0w 31w 12w;
-      AnyHeader c 4 T 1w 30w 11w;
-      Get 1 (Temp 11w);
-      Store (Lookup OtherHeap) 1;
-      Get 1 (Temp 12w);
-      Store (Lookup NextFree) 1;
-      Get 1 (Temp 29w);
-      Assign 2 (Lookup NextFree);
-      Set (Temp 29w) (Var 2);
-      Set (Temp 3w) (Shift Lsr (Var 6) (Nat 2));
-      Assign 3 (Const 0w);
-      (* zero out result array *)
-      Call (SOME (0,fromList [()],Skip,AnyArith_location,1))
-        (SOME Replicate_location) [2;3;1;0] NONE;
-      (* perform bignum calculation *)
-      Set (Temp 29w) (Op Add [Lookup (Temp 29w); Const bytes_in_word]);
-      Call (SOME (1,fromList [()],Skip,AnyArith_location,2))
-        (SOME Bignum_location) [] NONE;
-      (* convert bignum to smallnum if possible without loss of info *)
-      Get 1 (Temp 10w);
-      If Test 1 (Reg 1) (Return 0 1) Skip;
-      Assign 3 (Load (Op Add [Lookup NextFree; Const bytes_in_word]));
-      If Equal 1 (Imm 2w)
-        (Seq (Assign 5 (Shift Lsr (Var 3) (Nat (dimindex (:'a) - 3))))
-             (If Test 5 (Reg 5)
-                (Seq (Assign 1 (Shift Lsl (Var 3) (Nat 2)))
-                     (Return 0 1))
-                Skip))
-        (If Equal 1 (Imm 3w)
-          (Seq (Assign 5 (Shift Lsr (Op Sub [Var 3; Const 1w])
-                            (Nat (dimindex (:'a) - 3))))
-               (If Test 5 (Reg 5)
-                  (Seq (Assign 1 (Op Sub [Const 0w; Shift Lsl (Var 3) (Nat 2)]))
-                       (Return 0 1))
-                  Skip))
-          (Assign 5 (Const 0w)));
-      (* return the bignum *)
-      Assign 5 (Lookup NextFree);
-      Assign 6 (ShiftVar Lsr 1 1);
-      Assign 8 (Op And [Var 1; Const 1w]);
-      Assign 7 (Op Or [Const 0b1111w;
-                       ShiftVar Lsl 6 (dimindex (:'a) − c.len_size);
-                       ShiftVar Lsl 8 4]);
-      Store (Var 5) 7;
-      Assign 1 (Op Sub [Var 5; Lookup CurrHeap]);
-      Assign 1 (Op Or [ShiftVar Lsl 1 (shift_length c − shift (:'a)); Const 1w]);
-      Set NextFree (Op Add [Var 5; Const bytes_in_word;
-                            ShiftVar Lsl 6 (shift (:'a))]);
-      Return 0 1]``,
-  cheat);
-
 val word_exp_set_var_ShiftVar_lemma = store_thm("word_exp_set_var_ShiftVar_lemma",
   ``word_exp t (ShiftVar sow v n) =
     case lookup v t.locals of
@@ -5659,10 +5562,173 @@ val cut_env_fromList_sing = prove(
     SOME (insert 0 (Loc l1 l2) LN)``,
   EVAL_TAC);
 
+val if_eq_b2w = prove(
+  ``(if b then 1w else 0w) = b2w b``,
+  Cases_on `b` \\ EVAL_TAC);
+
+val LongDiv1_thm = prove(
+  ``!k n1 n2 m i1 i2 (t2:('a,'ffi) wordSem$state)
+        r1 r2 m1 is1 c:data_to_word$config.
+      single_div_loop (n2w k,[n1;n2],m,[i1;i2]) = (m1,is1) /\
+      lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      lookup 0 t2.locals = SOME (Loc r1 r2) /\
+      lookup 2 t2.locals = SOME (Word (n2w k)) /\
+      lookup 4 t2.locals = SOME (Word n2) /\
+      lookup 6 t2.locals = SOME (Word n1) /\
+      lookup 8 t2.locals = SOME (Word m) /\
+      lookup 10 t2.locals = SOME (Word i1) /\
+      lookup 12 t2.locals = SOME (Word i2) /\
+      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) ==>
+      ?j1 j2.
+        is1 = [j1;j2] /\
+        evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
+          t2 with <| clock := t2.clock - k;
+                     locals := LN;
+                     store := t2.store |+ (Temp 28w,Word (HD is1)) |>)``,
+  Induct THEN1
+   (fs [Once multiwordTheory.single_div_loop_def] \\ rw []
+    \\ rewrite_tac [LongDiv1_code_def]
+    \\ fs [eq_eval,wordSemTheory.set_store_def]
+    \\ fs [wordSemTheory.state_component_equality])
+  \\ once_rewrite_tac [multiwordTheory.single_div_loop_def]
+  \\ rpt strip_tac \\ fs []
+  \\ fs [multiwordTheory.mw_shift_def]
+  \\ fs [ADD1,GSYM word_add_n2w]
+  \\ qpat_x_assum `_ = (m1,is1)` mp_tac
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
+  \\ qabbrev_tac `n2' = n2 ⋙ 1`
+  \\ qabbrev_tac `n1' = (n2 ≪ (dimindex (:α) − 1) ‖ n1 ⋙ 1)`
+  \\ rewrite_tac [LongDiv1_code_def]
+  \\ fs [eq_eval,word_add_n2w]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ fs [GSYM word_add_n2w]
+  \\ Cases_on `i2 <+ n2'` \\ fs [WORD_LOWER_NOT_EQ] THEN1
+   (strip_tac
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+    \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
+  \\ Cases_on `i2 = n2' /\ i1 <+ n1'` \\ asm_rewrite_tac [] THEN1
+   (fs [WORD_LOWER_NOT_EQ] \\ rveq \\ strip_tac
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+    \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
+  \\ IF_CASES_TAC
+  THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
+  \\ pop_assum kall_tac
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ `i2 = n2' ==> ~(i1 <₊ n1')` by metis_tac []
+  \\ simp [] \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ fs [multiwordTheory.mw_sub_def,multiwordTheory.single_sub_def]
+  \\ pairarg_tac \\ fs []
+  \\ rename1 `_ = (is2,r)`
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
+  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ `i1 + ¬n1' + 1w = z /\ (dimword (:α) ≤ w2n i1 + (w2n (¬n1') + 1)) = c1` by1
+   (fs [multiwordTheory.single_add_def] \\ rveq
+    \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
+  \\ fs [] \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
+  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac `b2w new_c`
+  \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
+  \\ `z' = new_z /\ c1' = new_c` by
+   (unabbrev_all_tac \\ pop_assum mp_tac
+    \\ simp [multiwordTheory.single_add_def] \\ strip_tac \\ rveq
+    \\ qpat_abbrev_tac `ppp = if b2w c1 = 0w then 0 else 1n`
+    \\ qsuff_tac `ppp = b2n c1`
+    THEN1 (fs [] \\ Cases_on `c1` \\ EVAL_TAC)
+    \\ unabbrev_all_tac \\ Cases_on `c1` \\ EVAL_TAC \\ fs [] \\ NO_TAC)
+  \\ fs [list_Seq_def,eq_eval]
+  \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t3)`
+  \\ strip_tac \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`t3`,`r1`,`r2`,`c`] mp_tac)
+  \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [lookup_insert])
+  \\ strip_tac \\ fs []
+  \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality]);
+
+val single_div_pre_IMP_single_div_full = prove(
+  ``single_div_pre x1 x2 y ==>
+    single_div x1 x2 y = single_div_full x1 x2 y``,
+  strip_tac
+  \\ match_mp_tac (GSYM multiwordTheory.single_div_full_thm)
+  \\ fs [mc_multiwordTheory.single_div_pre_def,multiwordTheory.mw2n_def]
+  \\ Cases_on `y` \\ fs [] \\ rfs [DIV_LT_X]);
+
 val div_code_assum_thm = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
     div_code_assum (:'ffi) t.code``,
-  cheat);
+  fs [DivCode_def,div_code_assum_def,eq_eval] \\ rpt strip_tac
+  \\ fs [state_rel_thm,code_rel_def,stubs_def]
+  \\ fs [EVAL ``LongDiv_location``,div_location_def]
+  \\ qpat_abbrev_tac `x = cut_env (LS ()) _`
+  \\ `x = SOME (insert 0 ret_val LN)` by
+   (unabbrev_all_tac \\ fs [wordSemTheory.cut_env_def,domain_lookup]
+    \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
+                       |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
+                       |> DISCH_ALL |> MP_CANON |> GEN_ALL)
+    \\ conj_tac THEN1 (rewrite_tac [wf_inter] \\ EVAL_TAC)
+    \\ simp_tac std_ss [lookup_inter_alt,lookup_def,domain_lookup]
+    \\ fs [lookup_insert,lookup_def] \\ NO_TAC)
+  \\ fs [LongDiv_code_def,eq_eval,wordSemTheory.push_env_def]
+  \\ `env_to_list (insert 0 ret_val LN) t1.permute =
+        ([(0,ret_val)],\n. t1.permute (n+1))` by
+   (fs [wordSemTheory.env_to_list_def,wordSemTheory.list_rearrange_def]
+    \\ fs [EVAL ``(QSORT key_val_compare (toAList (insert 0 x LN)))``]
+    \\ fs [EVAL ``count 1``] \\ rw []
+    \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
+  \\ `dimindex (:'a) + 5 < dimword (:'a)` by
+        (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
+  \\ imp_res_tac IMP_LESS_MustTerminate_limit
+  \\ IF_CASES_TAC
+  THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ fs [GSYM NOT_LESS])
+  \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv1_code c,t2)`
+  \\ fs [single_div_pre_IMP_single_div_full]
+  \\ fs [multiwordTheory.single_div_full_def]
+  \\ Cases_on `(single_div_loop (n2w (dimindex (:α)),[0w; w5],0w,[w4; w3]))`
+  \\ fs []
+  \\ `lookup LongDiv1_location t2.code = SOME (7,LongDiv1_code c) /\
+      lookup 0 t2.locals = SOME (Loc n l)` by1
+    (qunabbrev_tac `t2` \\ fs [lookup_insert])
+  \\ rpt_drule LongDiv1_thm
+  \\ impl_tac THEN1 (qunabbrev_tac `t2` \\ EVAL_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ qunabbrev_tac `t2`
+  \\ fs [wordSemTheory.pop_env_def,EVAL ``domain (fromAList [(0,x)])``]
+  \\ pop_assum kall_tac
+  \\ fs [FLOOKUP_UPDATE,wordSemTheory.set_store_def,
+         wordSemTheory.state_component_equality,fromAList_def]
+  \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
+                     |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
+                     |> DISCH_ALL |> MP_CANON |> GEN_ALL)
+  \\ conj_tac THEN1 metis_tac [wf_def,wf_insert]
+  \\ simp_tac std_ss [lookup_insert,lookup_def]
+  \\ rpt strip_tac
+  \\ rpt (IF_CASES_TAC \\ asm_rewrite_tac [])
+  \\ rveq \\ qpat_x_assum `0 < 0n` mp_tac
+  \\ simp_tac (srw_ss()) []);
 
 val get_iop_def = Define `
   get_iop (n:num) =
@@ -6636,7 +6702,9 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ qmatch_goalsub_abbrev_tac `mc_header hh`
     \\ `(mc_header hh ≪ 4 && 1w ≪ 4) = (b2w (v < 0) ≪ 4):'a word` by
      (rewrite_tac [LSL_BITWISE] \\ AP_THM_TAC \\ AP_TERM_TAC
-      \\ qunabbrev_tac `hh` \\ simp_tac std_ss [mc_header_AND_1] \\ NO_TAC)
+      \\ qunabbrev_tac `hh`
+      \\ simp_tac std_ss [mc_multiwordTheory.mc_header_AND_1]
+      \\ Cases_on `v < 0i` \\ asm_rewrite_tac [] \\ EVAL_TAC \\ NO_TAC)
     \\ asm_rewrite_tac []
     \\ reverse conj_tac THEN1 simp [WORD_MUL_LSL]
     \\ rpt strip_tac THEN1
@@ -10262,12 +10330,15 @@ val compile_semantics = save_thm("compile_semantics",let
          |> UNDISCH
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
+val _ = (max_print_depth := 15);
+
 val assign_def_extras = LIST_CONJ
   [LoadWord64_def,WriteWord64_def,BignumHalt_def,LoadBignum_def,
    AnyArith_code_def,Add_code_def,Sub_code_def,Mul_code_def,
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
    Equal1_code_def, Equal_code_def, LongDiv1_code_def, LongDiv_code_def,
-   ShiftVar_def, generated_bignum_stubs_eq, DivCode_def];
+   ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
+   AddNumSize_def, AnyHeader_def];
 
 val extract_labels_def = wordPropsTheory.extract_labels_def;
 
