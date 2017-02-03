@@ -2260,4 +2260,11 @@ val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
 val CONCAT_WITH_def = Define`
     CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
 
+val OPT_MMAP_def = Define`
+  (OPT_MMAP f [] = SOME []) ∧
+  (OPT_MMAP f (h0::t0) =
+     OPTION_BIND (f h0)
+     (λh. OPTION_BIND (OPT_MMAP f t0)
+       (λt. SOME (h::t))))`;
+
 val _ = export_theory()
