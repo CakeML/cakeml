@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
 
-open preamble;
+open preamble locationTheory;
 open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
 (* This script defines the functional spec for the assembly
@@ -45,11 +45,6 @@ val is_single_char_symbol_def = Define `
 
 val isSymbol_def = Define `
   isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")`;
-
-(* Source locations 
-* TODO: duplicate with astScript *)
-val _ = Hol_datatype `
- locn = <| row : num;  col : num; offset : num |>`;
 
 val read_string_def = tDefine "read_string" `
   read_string str s loc =

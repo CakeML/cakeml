@@ -515,7 +515,8 @@ val cmlPEG_exec_thm = save_thm(
     |> LIST_CONJ)
 val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
-val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
+val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) (map_loc [IntT 3; StarT;
+IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] 0) [] done failed``
 
 val frange_image = Q.prove(
   `FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)`,

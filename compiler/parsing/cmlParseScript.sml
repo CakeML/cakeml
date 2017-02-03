@@ -9,7 +9,7 @@ val _ = overload_on ("cmlpegexec",
                      ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``)
 
 val destResult_def = Define`
-  destResult (Result x) = x ∧
+  destResult (Result (x,l)) = x ∧
   destResult _ = NONE
 `;
 
