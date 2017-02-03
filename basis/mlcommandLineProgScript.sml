@@ -7,6 +7,32 @@ val _ = new_theory "mlcommandLineProg";
 
 val _ = translation_extends "ioProg";
 
+(* TODO: put these calls in a re-usable Lib? *)
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+
+(* TODO: move? *)
+(* replace TOKENS_EMPTY in misc with this *)
+val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
+  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
+  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP] 
+  \\ every_case_tac \\ fs[] \\ rw[]);
+
+val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
+  `MEM x (REPLICATE n y) ==> x = y`,
+  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
+
+val CHR_w2n_n2w_ORD = Q.prove(
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+(* -- *)
+
 val _ = ml_prog_update (open_module "commandLine")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 
@@ -40,22 +66,38 @@ val _ = ml_prog_update(ml_progLib.add_prog arguments pick_name)
 
 val _ = ml_prog_update (close_module NONE);
 
+(*
+type CL_state = string list
+type bytes = word8 list
+encode : CL_state -> ffi
+encode = encode_list Str
+decode : ffi -> CL_state
+decode = decode_list destStr
+ffi_getArgs : bytes -> CL_state -> (bytes # CL_state) option
+*)
 
-val destStr_def = Define`destStr (Str s) = s`;
-val isStr_def = Define`(isStr (Str _) = T) ∧ (isStr _ = F)`;
- val _ = export_rewrites["isStr_def","destStr_def"];
+val encode_def = Define`encode = encode_list Str`;
+val decode_def = Define`decode = decode_list destStr`;
+
+val ffi_getArgs_def = Define`
+  ffi_getArgs bytes cls  = 
+    if LENGTH bytes = 256 then
+      let cl = FLAT (MAP (\s. s ++ [CHR 0]) cls) in
+        if (LENGTH cl < 257) then 
+          SOME(MAP (n2w o ORD) cl ++ DROP (LENGTH cl) bytes, cls)
+        else
+          SOME(MAP (n2w o ORD) (TAKE 256 cl), cls)
+    else NONE`; 
 
 val commandLine_fun_def = Define `
-  commandLine_fun = (\i bytes s. case (bytes,s) of
-      | (b, List commandLineStrings) =>
-        if i = "getArgs" ∧ LENGTH b = 256 ∧ EVERY isStr commandLineStrings then
-            let commandLine = FLAT (MAP (\s. destStr s ++ [CHR 0]) commandLineStrings) in
-            if (LENGTH commandLine < 257) then 
-              SOME (((MAP (n2w o ORD) commandLine) ++ DROP (LENGTH commandLine) b), List commandLineStrings)
-            else
-              SOME ((MAP (n2w o ORD) (TAKE 256 commandLine)), List commandLineStrings)
-        else NONE 
-      | _ => NONE)`
+  commandLine_fun i bytes s =
+    if i = "getArgs" then
+      do
+        cls <- decode s;
+        (bytes,cls) <- ffi_getArgs bytes cls;
+        return (bytes, encode cls)
+      od
+    else NONE`;
 
 val COMMANDLINE_def = Define `
   COMMANDLINE (cl:string list) =
@@ -127,8 +169,7 @@ val reduce_tac = CONV_TAC reduce_conv
 *)
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
-val eq_num_v_thm = save_thm("eq_num_v_thm",
-        MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1))
+val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
 val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
     `!av a.
@@ -182,22 +223,28 @@ val map_app_last_thm = Q.prove(
   Induct \\ rw[] \\ first_x_assum(qspecl_then [`a`] mp_tac) \\ Cases_on `ls` \\ rw[]
 );
 
-
 val map_app_last_Str = Q.prove(
   `!ls. ls <> [] ==>
-      CONCAT(MAP(\s. STRCAT (destStr s) "\^@") (MAP Str ls)) = FRONT(CONCAT(MAP(\s. STRCAT (destStr s) "\^@") (MAP Str ls))) ++ [CHR 0]`,
+      CONCAT(MAP(\s. STRCAT s "\^@") (ls)) = FRONT(CONCAT(MAP(\s. STRCAT (s) "\^@") (ls))) ++ [CHR 0]`,
   Induct \\ rw[] \\ Cases_on `ls` \\ rw[FRONT_APPEND] 
   \\ simp_tac std_ss [GSYM APPEND_ASSOC, GSYM CONS_APPEND, FRONT_APPEND] \\ rw[]
   \\ rw[FRONT_DEF]
 );
 
-val CHR_w2n_n2w_ORD = Q.prove(
-  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
-  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
-);
-
 val validArg_def = Define`
     validArg l <=>  (l <> []) /\ EVERY (\x. x <> #"\^@") l /\ LENGTH l < 256`;
+
+val validArg_TOKENS = Q.store_thm("validArg_TOKENS",
+  `!l. validArg l ==> TOKENS (\x. x = #"\^@") l = [l]`,
+    Induct \\ rw[validArg_def, TOKENS_def]
+    \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+    >-(Cases_on `r` \\ imp_res_tac SPLITP_JOIN \\ fs[]
+      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[])
+    >-(Cases_on `r` >-(imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[])
+      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS])
+    \\ Cases_on `r` >-(rw[TOKENS_def]) 
+      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS]
+);
 
 val TOKENS_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
 `!ls P l1. (P = (\x. x = #"\^@")) /\ EVERY validArg ls /\ l1 = (FLAT (MAP (\s. s ++ "\^@") ls)) ==>
@@ -229,22 +276,8 @@ val TOKENS_FRONT_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
   rw[TOKENS_FRONT_MAP, TOKENS_MAP_inv] 
 );
 
-val hd_v_thm = fetch "mllistProg" "hd_v_thm";
-val mlstring_hd_v_thm = save_thm("mlstring_hd_v_thm",
-  hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty])
-
-(* replace TOKENS_EMPTY in misc with this *)
-val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
-  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP] 
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
-  `MEM x (REPLICATE n y) ==> x = y`,
-  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
-
 val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
-  `UNIT_TYPE u uv /\ cl <> [] /\ EVERY validArg cl /\ l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (destStr s) ++ [CHR 0]) (MAP Str cl)))
+  `UNIT_TYPE u uv /\ cl <> [] /\ EVERY validArg cl /\ l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. s ++ [CHR 0]) cl))
     /\ LENGTH l < 257 ==>
     app (p:'ffi ffi_proj) ^(fetch_v "commandLine.cline" st) [uv]
     (COMMANDLINE cl)
@@ -256,7 +289,7 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
     >-(xffi \\ fs [COMMANDLINE_def]
       \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
-      \\ xsimpl \\ fs[commandLine_fun_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[] \\ fs[])
+      \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac 
     \\  reverse (conj_tac)  >-(fs[COMMANDLINE_def] \\ xsimpl)
     \\ pop_assum mp_tac  
@@ -281,9 +314,12 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
     \\ simp[]
 );
 
+val hd_v_thm = fetch "mllistProg" "hd_v_thm";
+val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
+
 val commandLine_name_spec = Q.store_thm("commandLine_name_spec",
   `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
-    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (destStr s) ++ [CHR 0]) (MAP Str cl)))) < 257 ==>
+    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) cl))) < 257 ==>
     app (p:'ffi ffi_proj) ^(fetch_v "commandLine.name" st) [uv]
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (implode (HD cl)) namev * COMMANDLINE cl)`,
@@ -292,17 +328,15 @@ val commandLine_name_spec = Q.store_thm("commandLine_name_spec",
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl` 
     >-(xapp \\ rw[])
-    \\ xapp \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]
+    \\ xapp_spec mlstring_hd_v_thm \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]
 );
 
 val tl_v_thm = fetch "mllistProg" "tl_v_thm";
-val mlstring_tl_v_thm = save_thm("mlstring_tl_v_thm",
-  tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty])
-
+val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val commandLine_arguments_spec = Q.store_thm("commandLine_arguments_spec",
   `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
-    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (destStr s) ++ [CHR 0]) (MAP Str cl)))) < 257 ==>
+    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
     app (p:'ffi ffi_proj) ^(fetch_v "commandLine.arguments" st) [uv]
     (COMMANDLINE cl)
     (POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * COMMANDLINE cl)`,
@@ -311,19 +345,7 @@ val commandLine_arguments_spec = Q.store_thm("commandLine_arguments_spec",
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl` 
     >-(xapp \\ rw[])
-    \\ xapp \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]
-);
-
-val validArg_TOKENS = Q.prove(
-  `!l. validArg l ==> TOKENS (\x. x = #"\^@") l = [l]`,
-    Induct \\ rw[validArg_def, TOKENS_def]
-    \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-    >-(Cases_on `r` \\ imp_res_tac SPLITP_JOIN \\ fs[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[])
-    >-(Cases_on `r` >-(imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[])
-      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS])
-    \\ Cases_on `r` >-(rw[TOKENS_def]) 
-      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS]
+    \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]
 );
 
 val _ = export_theory();
