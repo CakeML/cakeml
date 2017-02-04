@@ -10,7 +10,8 @@ val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
-            ; len_size : num (* size of length field in block header *) |>`
+            ; len_size : num (* size of length field in block header *)
+            ; has_div  : bool (* LongDiv available in machine_config *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
