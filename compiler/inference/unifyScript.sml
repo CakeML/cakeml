@@ -68,7 +68,7 @@ val decode_infer_t_pmatch = Q.store_thm("decode_infer_t_pmatch",`
     case t of
       Var n => Infer_Tuvar n
     | Const (DB_tag n) => Infer_Tvar_db n
-    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) => 
+    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) =>
       Infer_Tapp (decode_infer_ts s) tc'
     | _ => Infer_Tuvar 5) /\
   (!ts. decode_infer_ts ts =
@@ -536,13 +536,8 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse
      rw [o_f_FUPDATE, I_o_f, decode_left_inverse, decode_left_inverse_I,
          decode_infer_t_def, t_ext_s_check_eqn, option_map_case] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def,
-     option_bind_thm, option_map_case] >|
-     [metis_tac [FUPDATE_PURGE],
-      rw [Once unify_def],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE]]]);
+     option_bind_thm, option_map_case] >>
+     rw [Once unify_def]]);
 
 val encode_infer_t_inj = Q.prove(
 `(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
