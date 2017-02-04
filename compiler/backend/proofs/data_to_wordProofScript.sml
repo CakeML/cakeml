@@ -5578,7 +5578,7 @@ val LongDiv1_thm = prove(
       lookup 8 t2.locals = SOME (Word m) /\
       lookup 10 t2.locals = SOME (Word i1) /\
       lookup 12 t2.locals = SOME (Word i2) /\
-      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) ==>
+      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_div ==>
       ?j1 j2.
         is1 = [j1;j2] /\
         evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
@@ -5692,6 +5692,7 @@ val div_code_assum_thm = prove(
     \\ conj_tac THEN1 (rewrite_tac [wf_inter] \\ EVAL_TAC)
     \\ simp_tac std_ss [lookup_inter_alt,lookup_def,domain_lookup]
     \\ fs [lookup_insert,lookup_def] \\ NO_TAC)
+  \\ Cases_on `c.has_div` \\ simp []
   \\ fs [LongDiv_code_def,eq_eval,wordSemTheory.push_env_def]
   \\ `env_to_list (insert 0 ret_val LN) t1.permute =
         ([(0,ret_val)],\n. t1.permute (n+1))` by
@@ -5701,6 +5702,25 @@ val div_code_assum_thm = prove(
     \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
+  THEN1 (* has_div case *)
+   (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
+    \\ reverse IF_CASES_TAC THEN1
+     (`F` by all_tac \\ pop_assum mp_tac \\ simp []
+      \\ fs [mc_multiwordTheory.single_div_pre_def])
+    \\ fs []
+    \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
+    \\ fs [wordSemTheory.pop_env_def,EVAL ``domain (fromAList [(0,r)])``,
+           FLOOKUP_UPDATE,multiwordTheory.single_div_def]
+    \\ fs [fromAList_def,wordSemTheory.state_component_equality]
+    \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
+                       |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
+                       |> DISCH_ALL |> MP_CANON |> GEN_ALL)
+    \\ conj_tac THEN1 metis_tac [wf_def,wf_insert]
+    \\ simp_tac std_ss [lookup_insert,lookup_def]
+    \\ rpt strip_tac
+    \\ rpt (IF_CASES_TAC \\ asm_rewrite_tac [])
+    \\ rveq \\ qpat_x_assum `0 < 0n` mp_tac
+    \\ simp_tac (srw_ss()) [])
   \\ imp_res_tac IMP_LESS_MustTerminate_limit
   \\ IF_CASES_TAC
   THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ fs [GSYM NOT_LESS])

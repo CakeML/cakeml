@@ -576,13 +576,19 @@ val Equal_code_def = Define `
 
 val LongDiv_code_def = Define `
   LongDiv_code c =
+    if c.has_div then
+      list_Seq [Inst (Arith (LongDiv 1 3 2 4 6));
+                Set (Temp 28w) (Var 3);
+                Return 0 1]
+    else
       Seq (Assign 10 (Const (0w:'a word)))
      (Seq (Assign 11 (Const (n2w (dimindex (:'a)))))
           (Call NONE (SOME LongDiv1_location) [0;11;6;10;10;4;2] NONE))`;
 
 val LongDiv1_code_def = Define `
   LongDiv1_code c =
-    (* this code is based on multiwordTheory.single_div_loop_def *)
+    if c.has_div then Skip else
+    (* the following code is based on multiwordTheory.single_div_loop_def *)
       If Test 2 (Reg 2)
         (Seq (Set (Temp 28w) (Var 10):'a wordLang$prog) (Return 0 8))
         (list_Seq [Assign 6 (Op Or [ShiftVar Lsr 6 1;
