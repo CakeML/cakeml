@@ -5578,7 +5578,7 @@ val LongDiv1_thm = prove(
       lookup 8 t2.locals = SOME (Word m) /\
       lookup 10 t2.locals = SOME (Word i1) /\
       lookup 12 t2.locals = SOME (Word i2) /\
-      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_div ==>
+      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_longdiv ==>
       ?j1 j2.
         is1 = [j1;j2] /\
         evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
@@ -5692,7 +5692,7 @@ val div_code_assum_thm = prove(
     \\ conj_tac THEN1 (rewrite_tac [wf_inter] \\ EVAL_TAC)
     \\ simp_tac std_ss [lookup_inter_alt,lookup_def,domain_lookup]
     \\ fs [lookup_insert,lookup_def] \\ NO_TAC)
-  \\ Cases_on `c.has_div` \\ simp []
+  \\ Cases_on `c.has_longdiv` \\ simp []
   \\ fs [LongDiv_code_def,eq_eval,wordSemTheory.push_env_def]
   \\ `env_to_list (insert 0 ret_val LN) t1.permute =
         ([(0,ret_val)],\n. t1.permute (n+1))` by
@@ -5702,7 +5702,7 @@ val div_code_assum_thm = prove(
     \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
-  THEN1 (* has_div case *)
+  THEN1 (* has_longdiv case *)
    (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
     \\ reverse IF_CASES_TAC THEN1
      (`F` by all_tac \\ pop_assum mp_tac \\ simp []

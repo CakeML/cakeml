@@ -11,7 +11,8 @@ val _ = Datatype `
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
             ; len_size : num (* size of length field in block header *)
-            ; has_div  : bool (* LongDiv available in machine_config *) |>`
+            ; has_div : bool (* Div available in target *)
+            ; has_longdiv : bool (* LongDiv available in target *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
@@ -576,7 +577,7 @@ val Equal_code_def = Define `
 
 val LongDiv_code_def = Define `
   LongDiv_code c =
-    if c.has_div then
+    if c.has_longdiv then
       list_Seq [Inst (Arith (LongDiv 1 3 2 4 6));
                 Set (Temp 28w) (Var 3);
                 Return 0 1]
@@ -587,7 +588,7 @@ val LongDiv_code_def = Define `
 
 val LongDiv1_code_def = Define `
   LongDiv1_code c =
-    if c.has_div then Skip else
+    if c.has_longdiv then Skip else
     (* the following code is based on multiwordTheory.single_div_loop_def *)
       If Test 2 (Reg 2)
         (Seq (Set (Temp 28w) (Var 10):'a wordLang$prog) (Return 0 8))
