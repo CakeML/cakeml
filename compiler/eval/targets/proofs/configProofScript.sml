@@ -151,8 +151,8 @@ val x64_conf_ok = Q.prove(`
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC)
-  >>
+    \\ rveq \\ fs [] \\ EVAL_TAC)>>
+  rpt (pop_assum mp_tac) >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
 val arm6_machine_config_def = Define`
@@ -198,8 +198,8 @@ val arm6_conf_ok = Q.prove(`
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC)
-  >>
+    \\ rveq \\ fs [] \\ EVAL_TAC)>>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
 
@@ -247,6 +247,7 @@ val arm8_conf_ok = Q.prove(`
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC \\ cheat (* false *))
   >>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);
@@ -295,6 +296,7 @@ val riscv_conf_ok = Q.prove(`
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);
@@ -343,6 +345,7 @@ val mips_conf_ok = Q.prove(`
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
+  rpt(pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);
