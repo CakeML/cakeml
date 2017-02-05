@@ -10,7 +10,9 @@ val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
-            ; len_size : num (* size of length field in block header *) |>`
+            ; len_size : num (* size of length field in block header *)
+            ; has_div : bool (* Div available in target *)
+            ; has_longdiv : bool (* LongDiv available in target *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
@@ -575,13 +577,19 @@ val Equal_code_def = Define `
 
 val LongDiv_code_def = Define `
   LongDiv_code c =
+    if c.has_longdiv then
+      list_Seq [Inst (Arith (LongDiv 1 3 2 4 6));
+                Set (Temp 28w) (Var 3);
+                Return 0 1]
+    else
       Seq (Assign 10 (Const (0w:'a word)))
      (Seq (Assign 11 (Const (n2w (dimindex (:'a)))))
           (Call NONE (SOME LongDiv1_location) [0;11;6;10;10;4;2] NONE))`;
 
 val LongDiv1_code_def = Define `
   LongDiv1_code c =
-    (* this code is based on multiwordTheory.single_div_loop_def *)
+    if c.has_longdiv then Skip else
+    (* the following code is based on multiwordTheory.single_div_loop_def *)
       If Test 2 (Reg 2)
         (Seq (Set (Temp 28w) (Var 10):'a wordLang$prog) (Return 0 8))
         (list_Seq [Assign 6 (Op Or [ShiftVar Lsr 6 1;
@@ -903,13 +911,34 @@ local val assign_quotation = `
                    Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
     | Div => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+              | [v1;v2] => (list_Seq [
+           Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+           Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
+           If Test 1 (Imm (1w:'a word))
+             (if c.has_div then
+                list_Seq
+                 [Inst (Arith (Div 1 (adjust_var v2) (adjust_var v1)));
+                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+              else if c.has_longdiv then
+                list_Seq
+                 [Assign 1 (Const 0w);
+                  Inst (Arith (LongDiv 1 3 (adjust_var v2) 1 (adjust_var v1)));
+                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+              else
+                list_Seq
+                  [Assign 1 (Const 0w);
+                   MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
+                      (SOME LongDiv_location)
+                        [adjust_var v1; 1; adjust_var v2] NONE);
+                   Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
+             (list_Seq
+                [MustTerminate
+                   (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
-                   Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
-    | Mod => (dtcase args of
+                 Move 2 [(adjust_var dest,1)]])],l + 2)
+                  | _ => (Skip,l))
+        | Mod => (dtcase args of
               | [v1;v2] => (list_Seq
                   [MustTerminate
                     (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))

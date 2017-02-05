@@ -5578,7 +5578,7 @@ val LongDiv1_thm = prove(
       lookup 8 t2.locals = SOME (Word m) /\
       lookup 10 t2.locals = SOME (Word i1) /\
       lookup 12 t2.locals = SOME (Word i2) /\
-      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) ==>
+      k < dimword (:'a) /\ k < t2.clock /\ good_dimindex (:'a) /\ ~c.has_longdiv ==>
       ?j1 j2.
         is1 = [j1;j2] /\
         evaluate (LongDiv1_code c,t2) = (SOME (Result (Loc r1 r2) (Word m1)),
@@ -5692,6 +5692,7 @@ val div_code_assum_thm = prove(
     \\ conj_tac THEN1 (rewrite_tac [wf_inter] \\ EVAL_TAC)
     \\ simp_tac std_ss [lookup_inter_alt,lookup_def,domain_lookup]
     \\ fs [lookup_insert,lookup_def] \\ NO_TAC)
+  \\ Cases_on `c.has_longdiv` \\ simp []
   \\ fs [LongDiv_code_def,eq_eval,wordSemTheory.push_env_def]
   \\ `env_to_list (insert 0 ret_val LN) t1.permute =
         ([(0,ret_val)],\n. t1.permute (n+1))` by
@@ -5701,6 +5702,25 @@ val div_code_assum_thm = prove(
     \\ fs [BIJ_DEF,SURJ_DEF]) \\ fs []
   \\ `dimindex (:'a) + 5 < dimword (:'a)` by
         (fs [dimword_def,good_dimindex_def] \\ NO_TAC)
+  THEN1 (* has_longdiv case *)
+   (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
+    \\ reverse IF_CASES_TAC THEN1
+     (`F` by all_tac \\ pop_assum mp_tac \\ simp []
+      \\ fs [mc_multiwordTheory.single_div_pre_def])
+    \\ fs []
+    \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
+    \\ fs [wordSemTheory.pop_env_def,EVAL ``domain (fromAList [(0,r)])``,
+           FLOOKUP_UPDATE,multiwordTheory.single_div_def]
+    \\ fs [fromAList_def,wordSemTheory.state_component_equality]
+    \\ match_mp_tac (spt_eq_thm |> REWRITE_RULE [EQ_IMP_THM]
+                       |> SPEC_ALL |> UNDISCH_ALL |> CONJUNCT2
+                       |> DISCH_ALL |> MP_CANON |> GEN_ALL)
+    \\ conj_tac THEN1 metis_tac [wf_def,wf_insert]
+    \\ simp_tac std_ss [lookup_insert,lookup_def]
+    \\ rpt strip_tac
+    \\ rpt (IF_CASES_TAC \\ asm_rewrite_tac [])
+    \\ rveq \\ qpat_x_assum `0 < 0n` mp_tac
+    \\ simp_tac (srw_ss()) [])
   \\ imp_res_tac IMP_LESS_MustTerminate_limit
   \\ IF_CASES_TAC
   THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ fs [GSYM NOT_LESS])
@@ -7057,8 +7077,40 @@ val th = Q.store_thm("assign_Mult",
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
   \\ match_mp_tac (eval_Call_Mul |> REWRITE_RULE [list_Seq_def]) \\ fs []);
 
+(*
+val assign_Div = prove(
+  ``assign c n l dest Div [a1; a2] names_opt =
+     (list_Seq [
+       Assign 1 (Op Or [Var (adjust_var a1); Var (adjust_var a2)]);
+       Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
+       If Test 1 (Imm (1w:'a word))
+         (if c.has_div then
+            list_Seq [Inst (Arith (Div 1 (adjust_var a2) (adjust_var a1)));
+                      Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+          else if c.has_longdiv then
+            list_Seq [Assign 1 (Const 0w);
+                      Inst (Arith (LongDiv 1 3 (adjust_var a2) 1 (adjust_var a1)));
+                      Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+          else
+            list_Seq
+              [Assign 1 (Const 0w);
+               MustTerminate
+                (Call (SOME (1,adjust_set (get_names names_opt),Skip,n,l+1))
+                  (SOME LongDiv_location)
+                    [adjust_var a1; 1; adjust_var a2] NONE);
+               Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
+         (list_Seq
+            [MustTerminate
+               (Call (SOME (1,adjust_set (get_names names_opt),Skip,n,l))
+                  (SOME Div_location) [adjust_var a1; adjust_var a2] NONE);
+             Move 2 [(adjust_var dest,1)]])],l + 2)``,
+  cheat);
+*)
+
 val th = Q.store_thm("assign_Div",
   `op = Div ==> ^assign_thm_goal`,
+  cheat);
+(*
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -7078,6 +7130,7 @@ val th = Q.store_thm("assign_Div",
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
   \\ match_mp_tac (eval_Call_Div |> REWRITE_RULE [list_Seq_def]) \\ fs []);
+*)
 
 val th = Q.store_thm("assign_Mod",
   `op = Mod ==> ^assign_thm_goal`,
@@ -10448,31 +10501,37 @@ val MemEqList_no_inst = Q.prove(`
   Induct_on `x` \\ fs [MemEqList_def,every_inst_def]);
 
 val assign_no_inst = Q.prove(`
-  addr_offset_ok 0w ac ⇒
+  ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
+   (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+  addr_offset_ok 0w ac) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
-  Cases_on`o'`>>fs[])
+  Cases_on`o'`>>fs[]);
 
 val comp_no_inst = Q.prove(`
   ∀c n m p.
-  addr_offset_ok 0w ac ⇒
+  ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
+   (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+  addr_offset_ok 0w ac) ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))`,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def,every_inst_def]>>
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
-  EVAL_TAC>>fs[])
+  EVAL_TAC>>fs[]);
 
 val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_conventions",`
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
+    ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
+    (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+    addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p`,
  fs[data_to_wordTheory.compile_def]>>
  qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
@@ -10483,7 +10542,10 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
  first_assum match_mp_tac>>
  simp[Abbr`p`]>>rw[]
  >-
-   (pop_assum mp_tac>>rpt(pop_assum kall_tac)>>
+   (pop_assum mp_tac>>
+   qpat_assum`data_conf.has_longdiv ⇒ P` mp_tac>>
+   qpat_assum`data_conf.has_div⇒ P` mp_tac>>
+   rpt(pop_assum kall_tac)>>
    fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
    rpt(EVAL_TAC>>rw[]))
  >>

@@ -14,7 +14,7 @@ open preamble primSemEnvTheory semanticsPropsTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
      backend_commonTheory
-local open compilerComputeLib dataPropsTheory in end
+local open dataPropsTheory in end
 open word_to_stackTheory
 
 val _ = new_theory"backendProof";
@@ -402,7 +402,9 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
        post_alloc_conventions
          (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5)) prog' ∧
-       (addr_offset_ok 0w mc_conf.target.config ⇒
+       ((c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
+       (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+       addr_offset_ok 0w mc_conf.target.config ⇒
         full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
@@ -992,6 +994,9 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
        case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
     (* Syntactic constraints on asm_config*)
     conf_constraint mc_conf.target.config ∧
+    (* Extra correctness constraints for div *)
+    (c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
+    (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
     (* Specific to register renamings*)
     names_ok c.stack_conf.reg_names mc_conf.target.config.reg_count mc_conf.target.config.avoid_regs ∧
     fixed_names c.stack_conf.reg_names mc_conf.target.config ∧
@@ -1273,14 +1278,7 @@ val clean_data_to_target_thm = let
   val th = th |> REWRITE_RULE [GSYM installed_def]
   in th end;
 
-(* --- composing source-to-target --- *)
-
-val cnv = computeLib.compset_conv (wordsLib.words_compset())
-  [computeLib.Extenders [compilerComputeLib.add_compiler_compset],
-   computeLib.Defs
-     [prim_config_def, primTypesTheory.prim_types_program_def]];
-
-val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config``);
+val prim_config_eq = save_thm("prim_config_eq", EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
 
 val id_CASE_eq_SOME = Q.prove(
   `id_CASE x f (λa b. NONE) = SOME z ⇔ ∃y. x = Short y ∧ f y = SOME z`,
