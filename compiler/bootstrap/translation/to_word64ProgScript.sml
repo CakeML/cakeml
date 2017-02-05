@@ -24,6 +24,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
@@ -488,16 +489,22 @@ val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
 
-val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
-(*
+val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
+                  
 val data_to_word_assign_side = Q.prove(`
   ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
-  rw[]>>
+  rpt strip_tac>>
   simp[fetch "-" "data_to_word_assign_side_def",NULL]>>
-  Cases_on`e`>>rw[]>>
-  Cases_on`f`>>TRY(Cases_on`t`)>>TRY(Cases_on`t'`)>>fs[]) |> update_precondition
-*)
+  Cases_on`e`>>fs[]>>
+  Cases_on`f`>>fs[]>>
+  TRY(Cases_on`t`)>>TRY(Cases_on`t'`)>>
+  TRY(Cases_on`w`)>>fs[]>>
+  TRY(Cases_on`(encode_header a 3 1):word64 option`)>>
+  TRY(Cases_on`o'`)>>
+  TRY(Cases_on`s`)>>
+  metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
 
 val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv64|> wcomp_simp)
 (* Inlines the let k = 8 manually *)
@@ -551,13 +558,13 @@ val _ = translate (spec64 max_var_def)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.aligned_bitwise_and] |> conv64)
-val _ = translate (inst_select_exp_def |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
+val _ = translate (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
-val _ = translate (op_consts_def|>conv64|>econv)
+val _ = translate (op_consts_pmatch|>conv64|>econv)
 
-val _ = translate (convert_sub_def |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
+val _ = translate (convert_sub_pmatch |> conv64 |> SIMP_RULE std_ss [word_2comp_def,word_mul_def] |> conv64)
 
-val _ = translate (spec64 pull_exp_def)
+val _ = translate (spec64 pull_exp_def(*_pmatch*)) (* TODO: MAP pull_exp inside pmatch seems to throw the translator into an infinite loop *)
 
 val word_inst_pull_exp_side = Q.prove(`
   ∀x. word_inst_pull_exp_side x ⇔ T`,
@@ -567,7 +574,7 @@ val word_inst_pull_exp_side = Q.prove(`
       wordLangTheory.word_op_def]>>
   metis_tac[]) |> update_precondition
 
-val _ = translate (spec64 inst_select_def)
+val _ = translate (spec64 inst_select_pmatch)
 
 val _ = translate (spec64 list_next_var_rename_move_def)
 
@@ -604,7 +611,7 @@ val word_alloc_full_ssa_cc_trans_side = Q.prove(`
 
 val _ = translate (spec64 remove_dead_def)
 
-val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_def)
+val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch)
 
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
@@ -619,16 +626,115 @@ val word_alloc_word_alloc_side = Q.prove(`
   Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
   word_alloc_apply_colour_side]) |> update_precondition
 
-val _ = translate (spec64 three_to_two_reg_def)
+val _ = translate (spec64 three_to_two_reg_pmatch)
 
-val _ = translate (spec64 word_removeTheory.remove_must_terminate_def)
+val word_inst_three_to_two_reg_side = Q.prove(`
+∀prog. word_inst_three_to_two_reg_side prog ⇔ T`,
+`(∀prog. word_inst_three_to_two_reg_side prog ⇔ T) /\
+ (∀opt (a:num) (b:num_set) c (d:num) (e:num). opt = SOME(a,b,c,d,e) ==> word_inst_three_to_two_reg_side c) /\
+(∀opt (a:num) (b:num_set) c (d:num) (e:num). opt = (a,b,c,d,e) ==> word_inst_three_to_two_reg_side c) /\
+ (∀opt (a:num) b (c:num) (d:num). opt = SOME(a,b,c,d) ==> word_inst_three_to_two_reg_side b) /\
+ (∀opt (a:num_set) b (c:num) (d:num). opt = (a,b,c,d) ==> word_inst_three_to_two_reg_side b) /\
+ (∀opt (a:num) b (c:num) (d:num). opt = (a,b,c,d) ==> word_inst_three_to_two_reg_side b) /\
+(∀opt a (b:num) (c:num). opt = (a,b,c) ==> word_inst_three_to_two_reg_side a)`
+   suffices_by fs[]
+>> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
+>> rpt strip_tac
+>> fs[]
+>> rw[Once(fetch "-" "word_inst_three_to_two_reg_side_def")]
+>> fs[]
+>> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
+>> fs[]
+>> metis_tac[pair_CASES,option_CASES]) |> update_precondition
 
+val _ = translate (spec64 word_removeTheory.remove_must_terminate_pmatch)
+
+val word_remove_remove_must_terminate_side = Q.prove(`
+∀prog. word_remove_remove_must_terminate_side prog ⇔ T`,
+`(∀prog. word_remove_remove_must_terminate_side prog ⇔ T) /\
+ (∀opt (a:num) (b:num_set) c (d:num) (e:num). opt = SOME(a,b,c,d,e) ==> word_remove_remove_must_terminate_side c) /\
+(∀opt (a:num) (b:num_set) c (d:num) (e:num). opt = (a,b,c,d,e) ==> word_remove_remove_must_terminate_side c) /\
+ (∀opt (a:num) b (c:num) (d:num). opt = SOME(a,b,c,d) ==> word_remove_remove_must_terminate_side b) /\
+ (∀opt (a:num_set) b (c:num) (d:num). opt = (a,b,c,d) ==> word_remove_remove_must_terminate_side b) /\
+ (∀opt (a:num) b (c:num) (d:num). opt = (a,b,c,d) ==> word_remove_remove_must_terminate_side b) /\
+(∀opt a (b:num) (c:num). opt = (a,b,c) ==> word_remove_remove_must_terminate_side a)`
+   suffices_by fs[]
+>> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
+>> rpt strip_tac
+>> fs[]
+>> rw[Once(fetch "-" "word_remove_remove_must_terminate_side_def")]
+>> fs[]
+>> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
+>> fs[]
+>> metis_tac[pair_CASES,option_CASES]) |> update_precondition
+                  
 val _ = translate (spec64 word_to_wordTheory.compile_def)
+
+val word_simp_const_fp_loop_side = Q.prove(`
+∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T`,
+`(∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T) /\
+ (∀opt (a:num) (b:num_set) c (d:num) (e:num) nm. opt = SOME(a,b,c,d,e) ==> word_simp_const_fp_loop_side c nm) /\
+(∀opt (a:num) (b:num_set) c (d:num) (e:num) nm. opt = (a,b,c,d,e) ==> word_simp_const_fp_loop_side c nm) /\
+ (∀opt (a:num) b (c:num) (d:num) nm. opt = SOME(a,b,c,d) ==> word_simp_const_fp_loop_side b nm) /\
+ (∀opt (a:num_set) b (c:num) (d:num) nm. opt = (a,b,c,d) ==> word_simp_const_fp_loop_side b nm) /\
+ (∀opt (a:num) b (c:num) (d:num) nm. opt = (a,b,c,d) ==> word_simp_const_fp_loop_side b nm) /\
+(∀opt a (b:num) (c:num) nm. opt = (a,b,c) ==> word_simp_const_fp_loop_side a nm)`
+   suffices_by fs[]
+>> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
+>> rpt strip_tac
+>> fs[]
+>> rw[Once(fetch "-" "word_simp_const_fp_loop_side_def")]
+>> fs[]
+>> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_simp_const_fp_loop_side_def"])
+>> fs[]
+>> metis_tac[pair_CASES,option_CASES]) |> update_precondition
+
+val word_simp_const_fp_side = Q.prove(`
+  ∀prog. word_simp_const_fp_side prog ⇔ T`,
+  fs[fetch "-" "word_simp_const_fp_side_def",
+     word_simp_const_fp_loop_side]) |> update_precondition
+
+val word_simp_compile_exp_side = Q.prove(`
+  ∀prog. word_simp_compile_exp_side prog ⇔ T`,
+  fs[fetch "-" "word_simp_compile_exp_side_def",
+     word_simp_const_fp_side]) |> update_precondition
+
+val word_inst_inst_select_side = Q.prove(`
+∀prog c n. word_inst_inst_select_side c n prog ⇔ T`,
+`(∀prog c n. word_inst_inst_select_side c n prog ⇔ T) /\
+ (∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = SOME(a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
+(∀opt (a:num) (b:num_set) c (d:num) (e:num) x n. opt = (a,b,c,d,e) ==> word_inst_inst_select_side x n c) /\
+ (∀opt (a:num) b (c:num) (d:num) x n. opt = SOME(a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+ (∀opt (a:num_set) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+ (∀opt (a:num) b (c:num) (d:num) x n. opt = (a,b,c,d) ==> word_inst_inst_select_side x n b) /\
+(∀opt a (b:num) (c:num) x n. opt = (a,b,c) ==> word_inst_inst_select_side x n a)`
+   suffices_by fs[]
+>> ho_match_mp_tac(TypeBase.induction_of ``:64 prog``)
+>> rpt strip_tac
+>> fs[]
+>> rw[Once(fetch "-" "word_inst_inst_select_side_def")]
+>> fs[]
+>> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
+>> fs[]
+>> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition                                        
+
+val word_to_word_compile_single_side = Q.prove(`
+  ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
+  fs[fetch "-" "word_to_word_compile_single_side_def",
+     word_simp_compile_exp_side, word_inst_inst_select_side,
+     word_inst_three_to_two_reg_side]) |> update_precondition
+
+val word_to_word_full_compile_single_side = Q.prove(`
+  ∀a b c d prog. word_to_word_full_compile_single_side a b c d prog ⇔ T`,
+  fs[fetch "-" "word_to_word_full_compile_single_side_def",
+     word_to_word_compile_single_side,
+     word_remove_remove_must_terminate_side]) |> update_precondition
 
 val word_to_word_compile_side = Q.prove(`
   ∀x y z. word_to_word_compile_side x y z ⇔ T`,
-  simp[fetch"-""word_to_word_compile_side_def"]>>
-  Induct_on`z`>>fs[word_to_wordTheory.next_n_oracle_def]) |> update_precondition
+  fs[fetch"-""word_to_word_compile_side_def",
+     word_to_word_full_compile_single_side,
+     word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
 val _ = translate(Maxout_bits_code_def |> conv64)
 val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64)
