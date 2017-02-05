@@ -39,10 +39,12 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     case op of
       SetGlobalsPtr => F
     | Ref => F
-    | RefByte => F
+    | RefByte _ => F
     | RefArray => F
     | Update => F
     | UpdateByte => F
+    | FromListByte => F
+    | String _ => F
     | Cons _ => F
     | FFI _ => F
     | FromList _ => F

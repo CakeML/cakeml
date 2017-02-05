@@ -38,7 +38,7 @@ val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
     | Equal => T
     | FromList _ => T
     | RefArray => T
-    | RefByte => T
+    | RefByte _ => T
     | _ => F`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -58,7 +58,7 @@ val op_requires_names_pmatch = Q.store_thm("op_requires_names_pmatch",
   rpt strip_tac >>
   CONV_TAC(RAND_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)) >>
   fs[op_requires_names_eqn])
-                                       
+
 val iAssign_def = Define `
   iAssign n1 op vs live env =
     if op_requires_names op then
