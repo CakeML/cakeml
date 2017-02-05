@@ -2855,7 +2855,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ simp[PULL_EXISTS]
       \\ qpat_x_assum`_ = Rval _`mp_tac
       \\ srw_tac[][] >> fsrw_tac[][]
-      >- ( fs[state_rel_def] \\ METIS_TAC[] )
       \\ IMP_RES_TAC EVERY2_LENGTH \\ fsrw_tac[][]
       \\ Q.EXISTS_TAC `f2` \\ fsrw_tac[][]
       \\ rpt var_eq_tac >> simp[]
@@ -2869,6 +2868,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
           \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         THEN1 (
           pop_assum mp_tac \\ rw[] \\
+          TRY(disj1_tac \\ strip_tac \\ rw[] \\ qpat_x_assum`_ = SOME (ByteArray T _)`mp_tac \\ simp[]) \\
           first_x_assum MATCH_MP_TAC \\
           asm_exists_tac \\ rw[] )
         THEN1 (full_simp_tac(srw_ss())[EXTENSION,FLOOKUP_DEF] \\ METIS_TAC [])
