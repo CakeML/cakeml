@@ -10474,7 +10474,7 @@ val assign_no_inst = Q.prove(`
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
-  Cases_on`o'`>>fs[])
+  Cases_on`o'`>>fs[]);
 
 val comp_no_inst = Q.prove(`
   ∀c n m p.
@@ -10485,14 +10485,16 @@ val comp_no_inst = Q.prove(`
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
-  EVAL_TAC>>fs[])
+  EVAL_TAC>>fs[]);
 
 val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_conventions",`
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
-    (addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
+    ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
+    (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+    addr_offset_ok 0w ac ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p`,
  fs[data_to_wordTheory.compile_def]>>
  qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
@@ -10503,7 +10505,10 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
  first_assum match_mp_tac>>
  simp[Abbr`p`]>>rw[]
  >-
-   (pop_assum mp_tac>>rpt(pop_assum kall_tac)>>
+   (pop_assum mp_tac>>
+   qpat_assum`data_conf.has_longdiv ⇒ P` mp_tac>>
+   qpat_assum`data_conf.has_div⇒ P` mp_tac>>
+   rpt(pop_assum kall_tac)>>
    fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
    rpt(EVAL_TAC>>rw[]))
  >>
