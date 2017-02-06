@@ -242,7 +242,7 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
           (SOME ``Dlet
                     (Pcon (SOME (Short "::"))
                               [Pvar "h";
-                               Pcon (SOME (Long "List" "nil")) []])
+                               Pcon (SOME (Long "List" (Short "nil"))) []])
                     (Con (SOME (Short "::"))
                              [Lit (IntLit 3);
                               Con (SOME (Short "nil")) []])``)
