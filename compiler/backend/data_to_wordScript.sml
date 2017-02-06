@@ -916,21 +916,19 @@ local val assign_quotation = `
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm (1w:'a word))
              (if c.has_div then
-                list_Seq
-                 [Inst (Arith (Div 1 (adjust_var v2) (adjust_var v1)));
-                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
               else if c.has_longdiv then
-                list_Seq
-                 [Assign 1 (Const 0w);
-                  Inst (Arith (LongDiv 1 3 (adjust_var v2) 1 (adjust_var v1)));
-                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                list_Seq [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
               else
                 list_Seq
                   [Assign 1 (Const 0w);
                    MustTerminate
                     (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
                       (SOME LongDiv_location)
-                        [adjust_var v1; 1; adjust_var v2] NONE);
+                        [1; adjust_var v1; adjust_var v2] NONE);
                    Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
              (list_Seq
                 [MustTerminate

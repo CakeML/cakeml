@@ -5154,6 +5154,18 @@ val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
   \\ drule memory_rel_Number_EQ \\ fs [] \\ rw [] \\ fs []
   \\ fs [WORD_LESS_OR_EQ,integerTheory.INT_LE_LT]);
 
+val memory_rel_Number_word_msb = store_thm("memory_rel_Number_word_msb",
+  ``memory_rel c be refs sp st m dm ((Number i1,Word (w:'a word))::vars) /\
+    good_dimindex(:'a) /\ small_int (:'a) i1 ==>
+    (word_msb w <=> i1 < 0)``,
+  rw []
+  \\ `small_int (:'a) 0` by (EVAL_TAC \\ fs [good_dimindex_def,dimword_def])
+  \\ rpt_drule (IMP_memory_rel_Number
+       |> REWRITE_RULE [CONJ_ASSOC] |> ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ fs [EVAL ``Smallnum 0``] \\ strip_tac
+  \\ rpt_drule memory_rel_Number_LESS_EQ
+  \\ Cases_on `i1` \\ fs [GSYM WORD_NOT_LESS,word_msb_neg]);
+
 val memory_rel_RefPtr_EQ_lemma = Q.prove(
   `n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
     (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m`,
