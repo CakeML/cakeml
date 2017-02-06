@@ -4,6 +4,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
 local open blastLib in end;
 
 val shift_def = wordLangTheory.shift_def;
+val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_wordProps";
 
@@ -1054,7 +1055,7 @@ val cons_thm_alt = Q.store_thm("cons_thm_alt",
     \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP
     \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL] \\ res_tac)
   \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma
-  \\ metis_tac [])
+  \\ metis_tac []);
 
 val cons_thm_EMPTY = Q.store_thm("cons_thm_EMPTY",
   `abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp) limit /\
@@ -1149,7 +1150,7 @@ val word64_thm = Q.store_thm("word64_thm",
   \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
   \\ simp[FORALL_PROD] \\ rw[]
   \\ match_mp_tac v_inv_SUBMAP
-  \\ simp[] )
+  \\ simp[]);
 
 (* bignum *)
 
@@ -1226,7 +1227,81 @@ val bignum_thm = Q.store_thm("bignum_thm",
   \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
   \\ simp[FORALL_PROD] \\ rw[]
   \\ match_mp_tac v_inv_SUBMAP
-  \\ simp[] )
+  \\ simp[]);
+
+val bignum_alt_thm = Q.store_thm("bignum_alt_thm",
+  `abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp) limit ∧
+   LENGTH ws = LENGTH rs ∧ ¬small_int (:α) i ∧
+   (Bignum i :α ml_el) = DataElement [] len (tag,xs) ∧
+   LENGTH xs < sp ⇒
+   ∃heap2.
+   heap_store_unused_alt a sp (Bignum i) heap = (heap2,T) ∧
+   abs_ml_inv conf (Number i::stack) refs
+     (Pointer a (Word (0w:α word))::roots,heap2,be,a+len+1,sp-len-1) limit`,
+  rw[abs_ml_inv_def]
+  \\ qmatch_assum_abbrev_tac`br = DataElement _ _ _`
+  \\ `el_length br = len + 1` by
+   (fs[Bignum_def,Abbr`br`] \\ pairarg_tac \\ rw[] \\ fs[el_length_def])
+  \\ `LENGTH xs = len` by
+   (fs[Bignum_def,Abbr`br`,el_length_def]
+    \\ pairarg_tac \\ fs[]
+    \\ clean_tac \\ fs[])
+  \\ var_eq_tac
+  \\ `el_length br ≤ sp` by simp[]
+  \\ Q.ISPEC_THEN`br`rpt_drule (Q.GEN`x`(IMP_heap_store_unused_alt))
+  \\ disch_then strip_assume_tac
+  \\ rfs[]
+  \\ conj_tac
+  >- (
+    fs[roots_ok_def,heap_store_rel_def]
+    \\ rw[] \\ rfs[]
+    >- (rw[isSomeDataElement_def])
+    \\ res_tac \\ res_tac \\ fs[] )
+  \\ conj_tac
+  >- (
+    fs[heap_ok_def] \\ rfs[]
+    \\ conj_tac
+    >- (
+      first_x_assum match_mp_tac
+      \\ rw[isForwardPointer_def] )
+    \\ rw[]
+    >- (
+      every_case_tac \\ rfs[]
+      \\ clean_tac \\ fs[] )
+    \\ metis_tac[heap_store_rel_lemma,isSomeDataElement_def] )
+  \\ rfs[]
+  \\ fs[bc_stack_ref_inv_def]
+  \\ qexists_tac`f` \\ fs[]
+  \\ fs[isDataElement_def]
+  \\ conj_tac
+  >- fs[INJ_DEF]
+  \\ conj_tac
+  >- (
+    simp[v_inv_def]
+    \\ match_mp_tac EVERY2_MEM_MONO
+    \\ imp_res_tac LIST_REL_APPEND_IMP
+    \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+    \\ simp[FORALL_PROD] \\ rw[]
+    \\ match_mp_tac v_inv_SUBMAP
+    \\ simp[] )
+  \\ fs[reachable_refs_def,PULL_EXISTS]
+  \\ rw[]
+  >- fs[get_refs_def]
+  \\ fs[bc_ref_inv_def]
+  \\ fsrw_tac[boolSimps.DNF_ss][]
+  \\ first_x_assum rpt_drule
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
+  \\ fs[RefBlock_def,Bytes_def]
+  \\ imp_res_tac heap_store_rel_lemma
+  \\ fs[]
+  \\ TRY (qexists_tac`ws'` \\ simp[])
+  \\ match_mp_tac EVERY2_MEM_MONO
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+  \\ simp[FORALL_PROD] \\ rw[]
+  \\ match_mp_tac v_inv_SUBMAP
+  \\ simp[]);
 
 (* update ref *)
 
@@ -3157,12 +3232,13 @@ val IMP_memory_rel_bignum = Q.store_thm("IMP_memory_rel_bignum",
   \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
   \\ simp[AC STAR_ASSOC STAR_COMM]);
 
-val IMP_memory_rel_bignum_alt = Q.store_thm("IMP_memory_rel_bignum_alt",
-  `memory_rel c be refs sp st m dm vars ∧
+val IMP_memory_rel_bignum_alt = Q.prove(
+  `memory_rel c be refs sp st m dm (vs ++ vars) ∧
    good_dimindex (:α) ∧ ¬small_int (:α) i ∧
    (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag sign,MAP Word ws) ∧
    LENGTH ws < sp ∧
-   encode_header c (w2n ((b2w sign <<2 || 3w):α word)) (LENGTH ws) = SOME (hd:α word) ⇒
+   encode_header c (w2n ((b2w sign <<2 || 3w):α word)) (LENGTH ws) =
+     SOME (hd:α word) ⇒
    ∃next curr m1.
      FLOOKUP st NextFree = SOME (Word next) ∧
      FLOOKUP st CurrHeap = SOME (Word curr) ∧
@@ -3170,7 +3246,76 @@ val IMP_memory_rel_bignum_alt = Q.store_thm("IMP_memory_rel_bignum_alt",
       memory_rel c be refs (sp - (LENGTH ws + 1))
         (st |+ (NextFree,Word (next + bytes_in_word * n2w (LENGTH ws + 1))))
         m1 dm ((Number i,make_ptr c (next - curr) (0w:α word) (LENGTH ws))::vars))`,
-  cheat);
+  rw[memory_rel_def,word_ml_inv_def,PULL_EXISTS]
+  \\ imp_res_tac EVERY2_SWAP
+  \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[] \\ clean_tac
+  \\ drule (GEN_ALL bignum_alt_thm) \\ fs[]
+  \\ disch_then drule
+  \\ disch_then drule \\ impl_tac >- fs[] \\ strip_tac
+  \\ first_assum(part_match_exists_tac
+        (find_term (same_const``abs_ml_inv`` o #1 o strip_comb)) o concl)
+  \\ simp[]
+  \\ fs[heap_in_memory_store_def,FLOOKUP_UPDATE]
+  \\ imp_res_tac heap_store_unused_alt_IMP_length \\ fs[]
+  \\ fs[heap_store_unused_alt_def]
+  \\ rfs[el_length_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ clean_tac
+  \\ qpat_x_assum`_ (fun2set _)`mp_tac
+  \\ ONCE_REWRITE_TAC[STAR_COMM]
+  \\ ONCE_REWRITE_TAC[CONS_APPEND]
+  \\ simp[word_heap_APPEND]
+  \\ qmatch_goalsub_rename_tac`[Unused (ex - 1)]`
+  \\ qpat_abbrev_tac`hex = [Unused _]`
+  \\ `hex = heap_expand ex` by simp[Abbr`hex`,heap_expand_def]
+  \\ qunabbrev_tac`hex`
+  \\ simp[word_heap_heap_expand,heap_length_heap_expand]
+  \\ qpat_abbrev_tac`len = LENGTH ws + 1`
+  \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,minus_lemma]
+  \\ REWRITE_TAC[GSYM WORD_LEFT_ADD_DISTRIB,GSYM WORD_ADD_ASSOC]
+  \\ REWRITE_TAC[WORD_ADD_ASSOC,word_add_n2w]
+  \\ `len ≤ ex` by simp[Abbr`len`]
+  \\ `ex = len + (ex - len)` by simp[]
+  \\ pop_assum SUBST1_TAC
+  \\ REWRITE_TAC[word_list_exists_ADD]
+  \\ qmatch_goalsub_abbrev_tac`word_list_exists x len`
+  \\ simp[GSYM STAR_ASSOC]
+  \\ simp [AC STAR_COMM STAR_ASSOC]
+  \\ once_rewrite_tac [STAR_COMM]
+  \\ rewrite_tac [GSYM STAR_ASSOC]
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`Word hd::_`
+  \\ `len = LENGTH (Word hd::MAP Word ws)` by simp[Abbr`len`]
+  \\ qunabbrev_tac `len` \\ pop_assum SUBST_ALL_TAC
+  \\ drule store_list_thm \\ strip_tac
+  \\ asm_exists_tac \\ fs[]
+  \\ fs[heap_store_lemma]
+  \\ clean_tac
+  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ reverse conj_tac
+  >- (
+    simp[word_addr_def,make_ptr_def,get_addr_def,
+         get_lowerbits_def,bytes_in_word_mul_eq_shift]
+    \\ imp_res_tac EVERY2_SWAP \\ fs[])
+  \\ pop_assum mp_tac
+  \\ simp[word_heap_APPEND,heap_length_APPEND,
+          heap_length_heap_expand,word_heap_heap_expand]
+  \\ simp[AC STAR_ASSOC STAR_COMM]
+  \\ simp[word_list_def,word_heap_def,SEP_CLAUSES]
+  \\ simp[word_el_def,word_payload_def]
+  \\ imp_res_tac encode_header_IMP
+  \\ fs[encode_header_def,SEP_CLAUSES]
+  \\ simp[word_list_def]
+  \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
+  \\ unabbrev_all_tac
+  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
+
+val IMP_memory_rel_bignum_alt = save_thm("IMP_memory_rel_bignum_alt",
+  IMP_memory_rel_bignum_alt |> Q.INST [`vs`|->`[]`] |> SIMP_RULE std_ss [APPEND]);
 
 val memory_rel_Cons = Q.store_thm("memory_rel_Cons",
   `memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
