@@ -6748,30 +6748,90 @@ val mw2n_inj = Q.store_thm("mw2n_inj",
 val write_bytes_inj = Q.store_thm("write_bytes_inj",
   `good_dimindex(:'a) ==>
    ∀ws bs1 bs2.
+     LENGTH bs1 = LENGTH bs2 ∧
      LENGTH bs1 ≤ LENGTH ws * (dimindex(:'a) DIV 8) ∧
-     LENGTH bs2 ≤ LENGTH ws * (dimindex(:'a) DIV 8) ∧
-     LENGTH ws ≤ LENGTH bs1 DIV (dimindex(:'a) DIV 8) + 1 ∧
-     LENGTH ws ≤ LENGTH bs2 DIV (dimindex(:'a) DIV 8) + 1 ⇒
+     LENGTH ws ≤ LENGTH bs1 DIV (dimindex(:'a) DIV 8) + 1 ⇒
      (write_bytes bs1 (ws:'a word list) be = write_bytes bs2 ws be ⇔ bs1 = bs2)`,
-  strip_tac \\
-  Induct
+  strip_tac \\ Induct
   \\ simp[write_bytes_def,LENGTH_NIL,LENGTH_NIL_SYM]
   \\ rw[] \\ rw[EQ_IMP_THM] \\ fs[MULT_CLAUSES]
   \\ qmatch_asmsub_abbrev_tac`bytes_to_word bw 0w bs1 _ _`
   \\ `0 < bw` by fs[Abbr`bw`,X_LT_DIV,good_dimindex_def]
+  \\ fs[ADD1]
   \\ first_x_assum(qspecl_then[`DROP bw bs1`,`DROP bw bs2`]mp_tac)
   \\ impl_tac
   >- (
-    simp[] \\ fs[ADD1] \\
-    Cases_on`LENGTH bs1 < bw` \\ fs[LESS_DIV_EQ_ZERO] \\
-    Cases_on`LENGTH bs2 < bw` \\ fs[LESS_DIV_EQ_ZERO] \\
-    qspecl_then[`LENGTH bs1`,`bw`,`1`]mp_tac(Q.GENL[`q`,`n`,`m`]DIV_SUB) \\
-    impl_tac >- fs[Abbr`bw`,good_dimindex_def,X_LT_DIV] \\ simp[] \\
+    rfs[] \\
+    Cases_on`LENGTH ws = 0` \\ fs[] \\
     qspecl_then[`LENGTH bs2`,`bw`,`1`]mp_tac(Q.GENL[`q`,`n`,`m`]DIV_SUB) \\
-    impl_tac >- fs[Abbr`bw`,good_dimindex_def,X_LT_DIV] \\ simp[] )
-  \\ simp[] \\ strip_tac \\ fs[ADD1]
-  \\ fs[X_LE_DIV] \\ rw[]
-  \\ cheat);
+    impl_tac >- (
+      fs[X_LE_DIV]
+      \\ Cases_on`LENGTH ws` \\ fs[MULT_CLAUSES] )
+    \\ simp[] )
+  \\ simp[] \\ strip_tac \\ fs[]
+  \\ `TAKE bw bs1 = TAKE bw bs2` suffices_by metis_tac[TAKE_DROP]
+  \\ map_every (fn i =>
+       qpat_assum`bytes_to_word _ _ _ _ _ = _`(strip_assume_tac o
+         Q.AP_TERM`get_byte (n2w ^(numSyntax.term_of_int i))`))
+      (List.tabulate(8,I ))
+  \\ qspec_then`2`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
+  \\ qspec_then`3`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
+  \\ simp[Abbr`bw`]
+  \\ ntac 2 strip_tac
+  \\ qhdtm_x_assum`good_dimindex`mp_tac
+  \\ first_assum(qspec_then`bs1`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ first_x_assum(qspec_then`bs2`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ first_assum(qspec_then`bs1`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ first_x_assum(qspec_then`bs2`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+  \\ ntac 4 (disch_then(qspec_then`h`strip_assume_tac o CONV_RULE SWAP_FORALL_CONV))
+  \\ rw[good_dimindex_def]
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`0`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`0`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss())[]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`1`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`1`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`2`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`2`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`3`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`3`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (TRY conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`4`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`4`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`5`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`5`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`6`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`6`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ ntac 2 strip_tac \\ (conj_tac >- metis_tac[])
+  \\ qmatch_goalsub_rename_tac`TAKE _ bs1 = TAKE _ bs2`
+  \\ Cases_on`bs1` \\ Cases_on`bs2` \\ fs[]
+  \\ first_x_assum(fn th => qspec_then`7`mp_tac th \\ assume_tac th)
+  \\ last_x_assum(fn th => qspec_then`7`mp_tac th \\ assume_tac th)
+  \\ simp_tac(srw_ss()++ARITH_ss)[ADD1]
+  \\ metis_tac[]);
 
 val word_eq_thm = store_thm("word_eq_thm",
   ``(!refs v1 v2 l b w1 w2.
@@ -6928,9 +6988,18 @@ val word_eq_thm = store_thm("word_eq_thm",
     \\ disch_then kall_tac
     \\ simp[Abbr`xs1`]
     \\ simp[mw_cmp_thm,mw2n_inj]
+    \\ Cases_on`w2n (decode_length c x) = 0`
+    >- ( fs[LENGTH_NIL] )
+    \\ `LENGTH bs1 = LENGTH bs2`
+    by (
+      imp_res_tac memory_rel_tail
+      \\ imp_res_tac memory_rel_ByteArray_IMP
+      \\ fs[] \\ clean_tac \\ fs[]
+      \\ clean_tac \\ fs[]
+      \\ clean_tac \\ fs[]
+      \\ fs[good_dimindex_def] \\ rfs[dimword_def] \\ rfs[] \\ fs[] )
     \\ simp[write_bytes_inj]
-    \\ rw[]
-    \\ rw[]
+    \\ rw[] \\ rw[]
     \\ fs[good_dimindex_def,dimword_def])
   THEN1 (* do_eq Blocks *)
    (rpt gen_tac \\ strip_tac \\ rpt gen_tac
