@@ -36,7 +36,9 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("Parsing\n")
   val evalth = time EVAL
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
-  val r = rhs (concl evalth)
+  val r0 = rhs (concl evalth)
+  val loc = r0 |> rand |> rand |> rator |> rand
+  val r = r0 |> rand |> rator |> rand 
   fun diag(s,t) = let
     fun pp pps (s,t) =
         (PP.begin_block pps PP.CONSISTENT 0;
@@ -50,9 +52,9 @@ fun parsetest0 nt sem s opt = let
   fun die (s,t) = (diag (s,t); raise Fail "Failed")
 
 in
-  if same_const (rator r) result_t then
-    if optionSyntax.is_some (rand r) then let
-      val pair = rand (rand r)
+  if same_const (rator r0) result_t then
+    if optionSyntax.is_some r then let
+      val pair = rand r
       val remaining_input = pair |> rator |> rand
       val res = pair |> rand |> rator |> rand
     in
