@@ -1,7 +1,7 @@
 open preamble bootstrapLib
      backendTheory
      to_dataBootstrapTheory
-     x64_configTheory
+     configTheory
      x64_targetTheory
      x64_targetLib asmLib
 
