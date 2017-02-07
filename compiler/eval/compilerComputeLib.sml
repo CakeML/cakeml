@@ -424,6 +424,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
+    ,data_to_wordTheory.WriteLastByte_aux_def
+    ,data_to_wordTheory.WriteLastBytes_def
     ,data_to_wordTheory.SmallLsr_def
     ,data_to_wordTheory.RefByte_code_def
     ,data_to_wordTheory.Maxout_bits_code_def

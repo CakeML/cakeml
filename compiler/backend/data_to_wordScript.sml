@@ -212,6 +212,23 @@ val MakeBytes_def = Define `
 val SmallLsr_def = Define `
   SmallLsr e n = if n = 0 then e else Shift Lsr e (Nat n)`;
 
+val WriteLastByte_aux_def = Define`
+  WriteLastByte_aux offset a b n p =
+    If Equal n (Imm offset) Skip
+      (Seq (Inst (Mem Store8 b (Addr a offset))) p)`;
+
+val WriteLastBytes_def = Define`
+  WriteLastBytes a b n =
+    WriteLastByte_aux (0w:'a word) a b n (
+      WriteLastByte_aux 1w a b n (
+        WriteLastByte_aux 2w a b n (
+          WriteLastByte_aux 3w a b n (
+            if dimindex(:'a) = 32 then Skip else
+            WriteLastByte_aux 4w a b n (
+              WriteLastByte_aux 5w a b n (
+                WriteLastByte_aux 6w a b n (
+                  WriteLastByte_aux 7w a b n Skip)))))))`;
+
 val RefByte_code_def = Define`
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
@@ -225,8 +242,9 @@ val RefByte_code_def = Define`
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
            Assign 7 (Shift Lsl (Var 5) (Nat 2));
+           Assign 9 (Lookup EndOfHeap);
            (* adjust end of heap *)
-           Assign 1 (Op Sub [Lookup EndOfHeap;
+           Assign 1 (Op Sub [Var 9;
                        Shift Lsl (Op Add [Var 5; Const 1w]) (Nat (shift (:'a)))]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
@@ -238,9 +256,22 @@ val RefByte_code_def = Define`
            MakeBytes 4;
            (* store header *)
            Store (Var 1) 5;
-           Call NONE (SOME Replicate_location)
+           (* return for empty byte array *)
+           If Equal 7 (Imm 0w) (Return 0 3)
+           (list_Seq [
+             (* write last word of byte array *)
+             Assign 11 (Op And [Shift Lsr (Var 2) (Nat 2); Const (bytes_in_word - 1w)]);
+             If Equal 11 (Imm 0w) Skip
+             (list_Seq [
+               Assign 9 (Op Sub [Var 9; Const bytes_in_word]);
+               Assign 13 (Const 0w);
+               Store (Var 9) 13;
+               WriteLastBytes 9 4 11;
+               Assign 7 (Op Sub [Var 7; Const 4w])]);
+             (* write rest of byte array *)
+             Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;7;3] NONE]:'a wordLang$prog`;
+              [0;1;4;7;3] NONE])]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
@@ -622,7 +653,7 @@ local val assign_quotation = `
       (dtcase args of
        | [v1;v2] =>
          (Seq
-           (Assign 1 (Const (if immutable then 0w else 16w)))
+           (Assign 1 (Const (if immutable then 0w else 16w))) (* n.b. this would have been better done with Set Temp *)
            (MustTerminate
              (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                 (SOME RefByte_location)
