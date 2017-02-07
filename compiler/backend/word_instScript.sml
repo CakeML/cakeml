@@ -177,7 +177,7 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
     dtcase exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok w c then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
@@ -231,7 +231,7 @@ val inst_select_exp_pmatch = Q.store_thm("inst_select_exp_pmatch",`!c tar temp e
   inst_select_exp (c:'a asm_config) tar temp exp =
   case exp of
     Load(Op Add [exp';Const w]) =>
-      if addr_offset_ok w c then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (Inst (Mem Load tar (Addr temp w)))
       else
@@ -301,7 +301,7 @@ val inst_select_def = Define`
     let exp = (flatten_exp o pull_exp) exp in
     dtcase exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok w c then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (Inst (Mem Store var (Addr temp w)))
       else
@@ -350,7 +350,7 @@ val inst_select_pmatch = Q.store_thm("inst_select_pmatch",`!c temp prog.
     (let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
-      if addr_offset_ok w c then
+      if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (Inst (Mem Store var (Addr temp w)))
       else

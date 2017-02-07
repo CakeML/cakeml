@@ -404,7 +404,8 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
           (LENGTH mc_conf.target.config.avoid_regs + 5)) prog' ∧
        ((c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
        (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-       addr_offset_ok 0w mc_conf.target.config ⇒
+       addr_offset_ok mc_conf.target.config 0w /\
+       byte_offset_ok mc_conf.target.config 0w ⇒
         full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
@@ -957,7 +958,8 @@ val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
 (* asm config's syntactic constraints needed for asm_ok to hold *)
 val conf_constraint_def = Define`
   conf_constraint (conf:'a asm_config) ⇔
-  addr_offset_ok 0w conf ∧
+  addr_offset_ok conf 0w ∧
+  byte_offset_ok conf 0w ∧
   (∀n.
      n ≤ max_stack_alloc ⇒
      conf.valid_imm (INL Sub)
@@ -968,7 +970,7 @@ val conf_constraint_def = Define`
   conf.valid_imm (INL Sub) 1w ∧
   conf.valid_imm (INL Add) 4w ∧
   conf.valid_imm (INL Add) 8w ∧
-  ∀s. addr_offset_ok (store_offset s) conf`;
+  ∀s. addr_offset_ok conf (store_offset s)`;
 
 local
 val lemma = Q.store_thm("imples_data_to_word_precond",
@@ -1114,8 +1116,10 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
-  \\ Cases_on`mc_conf.target.config.addr_offset`
-  \\ qexists_tac`ffis` \\ qexists_tac`q` \\ qexists_tac `r` \\ fs[]
+  \\ qexists_tac`ffis`
+  \\ qexists_tac`FST mc_conf.target.config.addr_offset`
+  \\ qexists_tac`SND mc_conf.target.config.addr_offset`
+  \\ fs[]
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)

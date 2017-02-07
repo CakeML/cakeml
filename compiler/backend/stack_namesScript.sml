@@ -147,9 +147,10 @@ val arm_names_def = Define `
 val arm_names_def = save_thm("arm_names_def",
   CONV_RULE (RAND_CONV EVAL) arm_names_def);
 
+(* needs fixing *)
 val arm8_names_def = Define `
   arm8_names =
-    (* source can use 31 regs (0-30),
+    (* source can use 30 regs (0-30, not 26),
        target's r31 must be avoided (stack pointer),
        source 0 must represent r30 (link register),
        source 1-2 must be r0,r1 (1st 2 args),

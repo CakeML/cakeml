@@ -6877,7 +6877,8 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
     EVAL_TAC>>fs[]>>
     rw[]>>
     TRY(metis_tac[EVEN_DIV_2_props])>>
-    qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])
+    (qpat_assum`addr_offset_ok c c'` mp_tac ORELSE
+     qpat_assum`byte_offset_ok c c'` mp_tac) >>EVAL_TAC>>fs[])
   >-
     (PairCases_on`kf'`>>
     ntac 3 (EVAL_TAC>>rw[])>>

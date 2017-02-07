@@ -209,6 +209,8 @@ val mips_config_def = Define`
               else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
                    i <= ^max16)
     ; addr_offset := (^min16, ^max16)
+    ; byte_offset := (^min16, ^max16)
+    ; byte_offset := (^min16, ^max16)
     ; jump_offset := (^min16, ^max16)
     ; cjump_offset := (^min16, ^max16)
     ; loc_offset := (^min16 + 12w, ^max16 + 8w)

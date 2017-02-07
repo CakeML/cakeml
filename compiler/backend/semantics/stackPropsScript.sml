@@ -502,11 +502,13 @@ val arith_name_def = Define`
     (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))`
 
 val addr_name_def = Define`
-  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
+  addr_name m (Addr r w) c ⇔
+  reg_name r c ∧
+  (if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)`
 
 val inst_name_def = Define`
   (inst_name c (Const r w) ⇔ reg_name r c) ∧
-  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
+  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name _ _ = T)`
 

@@ -2703,13 +2703,13 @@ val stack_remove_lab_pres = Q.store_thm("stack_remove_lab_pres",`
 val sr_comp_stack_asm_name = Q.prove(`
   ∀off k p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ∧
-  addr_offset_ok 0w c ∧
+  addr_offset_ok c 0w ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
   c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
   (* Needed to implement the global store *)
-  (∀s. addr_offset_ok (store_offset s) c) ∧
+  (∀s. addr_offset_ok c (store_offset s)) ∧
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
   reg_name k c ∧
@@ -2760,12 +2760,13 @@ val sr_comp_stack_asm_name = Q.prove(`
     rw[]>>completeInduct_on`n0`>>
     simp[Once upshift_def,Once downshift_def]>>rw[]>>
     fs[stack_asm_name_def,inst_name_def,arith_name_def,reg_imm_name_def,word_offset_def]>>
-    first_x_assum match_mp_tac>>fs[max_stack_alloc_def])
+    first_x_assum match_mp_tac>>fs[max_stack_alloc_def]
+  )
 
 val sr_compile_stack_asm_name = Q.store_thm("sr_compile_stack_asm_name",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
-  addr_offset_ok 0w c ∧
+  addr_offset_ok c 0w ∧
   good_dimindex (:'a) ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
@@ -2773,7 +2774,7 @@ val sr_compile_stack_asm_name = Q.store_thm("sr_compile_stack_asm_name",`
   c.valid_imm (INL Add) 4w ∧
   c.valid_imm (INL Add) 8w ∧
   (* Needed to implement the global store *)
-  (∀s. addr_offset_ok (store_offset s) c) ∧
+  (∀s. addr_offset_ok c (store_offset s)) ∧
   reg_name 5 c ∧
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
