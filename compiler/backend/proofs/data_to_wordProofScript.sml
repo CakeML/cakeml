@@ -574,6 +574,12 @@ val is_fws_ptr_OR_10111 = Q.prove(
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
   \\ qexists_tac `0` \\ fs []);
 
+val is_fws_ptr_OR_7 = Q.prove(
+  `~is_fwd_ptr (Word (w || 7w))`,
+  full_simp_tac(srw_ss())[is_fwd_ptr_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
+  \\ qexists_tac `0` \\ fs []);
+
 val select_get_lowerbits = Q.prove(
   `(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
    get_lowerbits conf a /\
@@ -660,9 +666,9 @@ val LESS_EQ_IMP_APPEND = Q.prove(
 
 val NOT_is_fwd_ptr = Q.prove(
   `word_payload addrs ll tag tt1 conf = (h,ts,c5) ==> ~is_fwd_ptr (Word h)`,
-  Cases_on `tag` \\ fs [word_payload_def] \\ rw []
+  Cases_on `tag` \\ fs [word_payload_def] \\ rw [make_byte_header_def]
   \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,is_fws_ptr_OR_15,
-      is_fws_ptr_OR_10111,isWord_def,theWord_def,make_header_def,LET_DEF,make_byte_header_def]);
+      is_fws_ptr_OR_10111,is_fws_ptr_OR_7,isWord_def,theWord_def,make_header_def,LET_DEF]);
 
 val word_gc_move_thm = Q.prove(
   `(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
@@ -3160,7 +3166,7 @@ val get_vars_termdep = Q.store_thm("get_vars_termdep[simp]",
 
 val lookup_RefByte_location = Q.prove(
   `state_rel c l1 l2 x t [] locs ==>
-    lookup RefByte_location t.code = SOME (3,RefByte_code c) /\
+    lookup RefByte_location t.code = SOME (4,RefByte_code c) /\
     lookup RefArray_location t.code = SOME (3,RefArray_code c) /\
     lookup FromList_location t.code = SOME (4,FromList_code c) /\
     lookup Replicate_location t.code = SOME (5,Replicate_code) /\
@@ -3667,9 +3673,9 @@ val w2w_shift_shift = Q.store_thm("w2w_shift_shift",
 
 val RefByte_thm = Q.store_thm("RefByte_thm",
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
-    get_vars [0;1] s.locals = SOME vals /\
+    get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
-    do_app RefByte vals s = Rval (v,s2) ==>
+    do_app (RefByte fl) vals s = Rval (v,s2) ==>
     ?q r new_c.
       evaluate (RefByte_code c,t) = (q,r) /\
       if q = SOME NotEnoughSpace then
@@ -3678,8 +3684,9 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs`,
-  fs [RefByte_code_def]
-  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefByte``,
+  qpat_abbrev_tac`tag = if fl then _ else _`
+  \\ fs [RefByte_code_def]
+  \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset (RefByte fl)``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
          bviSemTheory.do_app_aux_def]
   \\ Cases_on `vals` \\ fs []
@@ -3690,14 +3697,14 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ IF_CASES_TAC \\ fs [] \\ rw []
   \\ `good_dimindex (:'a)` by fs [state_rel_def]
   \\ drule NONNEG_INT \\ strip_tac \\ rveq \\ fs []
-  \\ rename1 `get_vars [0; 1] s.locals = SOME [Number (&i); Number (&w2n w)]`
+  \\ rename1 `get_vars [0; 1; 2] s.locals = SOME [Number (&i); Number (&w2n w); Number &tag]`
   \\ qpat_abbrev_tac `s3 = bvi_to_data _ _`
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw]
-  \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_2]
+  \\ rpt_drule state_rel_get_vars_IMP \\ strip_tac \\ fs [LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs [adjust_var_def,get_vars_SOME_IFF]
   \\ fs [get_vars_SOME_IFF_data]
-  \\ drule (Q.SPEC `0` state_rel_get_var_Number_IMP_alt) \\ fs []
+  \\ drule (Q.GEN`a1`(Q.SPEC `0` state_rel_get_var_Number_IMP_alt)) \\ fs []
   \\ strip_tac \\ rveq
   \\ rpt_drule evaluate_BignumHalt
   \\ Cases_on `small_int (:α) (&i)` \\ fs [] \\ strip_tac \\ fs []
@@ -3735,15 +3742,15 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ `state_rel c l1 l2 s (set_var 1 (Word wA) t) [] locs` by
         fs [wordSemTheory.set_var_def,state_rel_insert_1]
   \\ rpt_drule AllocVar_thm
-  \\ `?x. dataSem$cut_env (fromList [();()]) s.locals = SOME x` by
-    (fs [EVAL ``fromList [(); ()]``,cut_env_def,domain_lookup,
+  \\ `?x. dataSem$cut_env (fromList [();();()]) s.locals = SOME x` by
+    (fs [EVAL ``fromList [(); (); ()]``,cut_env_def,domain_lookup,
          get_var_def,get_vars_SOME_IFF_data] \\ NO_TAC)
   \\ disch_then drule
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ qabbrev_tac `limit = MIN (2 ** c.len_size) (dimword (:α) DIV 16)`
   \\ fs [get_var_set_var_thm]
   \\ Cases_on `evaluate
-       (AllocVar limit (fromList [(); ()]),set_var 1 (Word wA) t)` \\ fs []
+       (AllocVar limit (fromList [(); (); ()]),set_var 1 (Word wA) t)` \\ fs []
   \\ disch_then drule
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs []
                      \\ fs [state_rel_def,EVAL ``good_dimindex (:'a)``,dimword_def])
@@ -3803,6 +3810,28 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
     \\ fs [small_int_def,X_LT_DIV]
     \\ match_mp_tac minus_2_word_and_id
     \\ fs [word_index,word_mul_n2w,bitTheory.BIT0_ODD,ODD_MULT] \\ NO_TAC)
+  \\ `lookup 6 r.locals = SOME (Word (n2w (4 * tag)))` by
+   (qabbrev_tac `s9 = s with <|locals := x; space := w2n wA DIV 4 + 1|>`
+    \\ fs [state_rel_def,get_vars_SOME_IFF_data]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,get_var_def]
+    \\ rpt_drule word_ml_inv_get_var_IMP
+    \\ fs [get_var_def,wordSemTheory.get_var_def,adjust_var_def]
+    \\ `lookup 2 s9.locals = SOME (Number &tag)` by
+     (unabbrev_all_tac \\ fs [cut_env_def] \\ rveq
+      \\ fs [lookup_inter_alt] \\ EVAL_TAC)
+    \\ rpt (disch_then drule) \\ fs []
+    \\ `IS_SOME (lookup 2 s9.locals)` by fs []
+    \\ res_tac \\ Cases_on `lookup 6 r.locals` \\ fs []
+    \\ fs [word_ml_inv_def] \\ rw []
+    \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def] \\ rfs []
+    \\ `small_int (:'a) (&tag)`
+    by (
+      rw[small_int_def,Abbr`tag`]
+      \\ fs[labPropsTheory.good_dimindex_def,dimword_def] )
+    \\ fs[word_addr_def,Smallnum_def]
+    \\ match_mp_tac minus_2_word_and_id
+    \\ simp[word_index,bitTheory.BIT0_ODD,ODD_MULT]
+    \\ NO_TAC)
   \\ fs [] \\ once_rewrite_tac [list_Seq_def]
   \\ once_rewrite_tac [wordSemTheory.evaluate_def]
   \\ IF_CASES_TAC
@@ -3838,7 +3867,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
     \\ fs [GSYM word_add_n2w] \\ fs [word_add_n2w,dimword_def]
     \\ fs [DIV_DIV_DIV_MULT] \\ NO_TAC)
   \\ rpt_drule memory_rel_RefByte
-  \\ disch_then (qspecl_then [`w`,`i`] mp_tac) \\ fs []
+  \\ disch_then (qspecl_then [`w`,`i`,`fl`] mp_tac) \\ fs []
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs []
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
@@ -3870,10 +3899,12 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ fs [wordSemTheory.get_var_def,lookup_insert] \\ rfs []
   \\ pop_assum mp_tac
   \\ qpat_abbrev_tac `ppp = Word (_ || _:'a word)`
-  \\ `ppp = Word (make_byte_header c i)` by
+  \\ `ppp = Word (make_byte_header c fl i)` by
    (unabbrev_all_tac \\ fs [make_byte_header_def,bytes_in_word_def]
+    \\ Cases_on`fl`
     \\ fs [labPropsTheory.good_dimindex_def,GSYM word_add_n2w,WORD_MUL_LSL]
-    \\ fs [word_mul_n2w,word_add_n2w,shift_def,RIGHT_ADD_DISTRIB] \\ NO_TAC)
+    \\ fs [word_mul_n2w,word_add_n2w,shift_def,RIGHT_ADD_DISTRIB]
+    \\ NO_TAC)
   \\ rveq \\ pop_assum kall_tac \\ pop_assum kall_tac
   \\ disch_then drule
   \\ impl_tac THEN1

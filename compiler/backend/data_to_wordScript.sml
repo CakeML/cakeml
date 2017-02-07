@@ -221,7 +221,7 @@ val RefByte_code_def = Define`
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
-           AllocVar limit (fromList [();()]);
+           AllocVar limit (fromList [();();()]);
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
            Assign 7 (Shift Lsl (Var 5) (Nat 2));
@@ -233,7 +233,7 @@ val RefByte_code_def = Define`
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
            (* compute header *)
-           Assign 5 (Op Or [y; Var 6]);
+           Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
@@ -622,7 +622,7 @@ local val assign_quotation = `
       (dtcase args of
        | [v1;v2] =>
          (Seq
-           (Assign 1 (Const (if immutable then 0b00111w else 0b10111w)))
+           (Assign 1 (Const (if immutable then 0w else 16w)))
            (MustTerminate
              (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                 (SOME RefByte_location)
