@@ -5682,6 +5682,8 @@ val word_cmp_loop_def = Define `
         | _ => NONE
       else NONE`
 
+val word_cmp_loop_ind =  theorem"word_cmp_loop_ind";
+
 val word_cmp_loop_thm = prove(
   ``!xs1 (xs2:'a word list) f1 f2 (a1:'a word) a2.
       LENGTH xs1 = LENGTH xs2 /\ LENGTH xs1 < dimword (:'a) /\
@@ -5802,8 +5804,6 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
   \\ Cases_on `n = n'` \\ fs []
   \\ Cases_on `n <= n'` \\ Cases_on `n' <= n`
   \\ imp_res_tac LENGTH_n2mw_LESS_LENGTH_n2mw \\ fs []);
-
-val word_cmp_loop_ind =  theorem"word_cmp_loop_ind";
 
 val word_cmp_loop_refl = Q.prove(
   `∀l a b dm m x. a = b ∧ word_cmp_loop l a a dm m = SOME x ⇒ x = 1w`,
@@ -6918,5 +6918,120 @@ val memory_rel_Number_const_test = Q.store_thm("memory_rel_Number_const_test",
   \\ pop_assum mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ intLib.COOPER_TAC);
+
+val word_or_eq_0 = store_thm("word_or_eq_0",
+  ``(w || v) = 0w <=> w = 0w /\ v = 0w``,
+  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
+
+val word_1_and_eq_0 = prove(
+  ``((1w && w) = 0w) <=> ~(word_bit 0 w)``,
+  fs [word_bit_test]);
+
+val memory_rel_Number_single_mul = store_thm("memory_rel_Number_single_mul",
+  ``memory_rel c be refs sp st m dm
+      ((Number i1,Word (w1:'a word))::(Number i2,Word w2)::vars) /\
+    good_dimindex(:'a) ==>
+      let (lw,hw) = single_mul w1 (w2 >>> 1) 0w in
+        (hw || ((w1 || w2) && 1w)) = 0w ==>
+        memory_rel c be refs sp st m dm ((Number (i1 * i2),Word (lw >>> 1))::vars)``,
+  Cases_on `i2 = 0` \\ fs []
+  \\ rpt strip_tac \\ fs [word_or_eq_0,word_bit_or]
+  THEN1
+   (drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_Number_const_test
+    \\ disch_then (qspec_then `0` mp_tac)
+    \\ `small_int (:α) 0` by
+     (fs [good_dimindex_def,dimword_def,small_int_def])
+    \\ fs [Smallnum_def] \\ strip_tac \\ rveq
+    \\ fs [multiwordTheory.single_mul_def]
+    \\ strip_tac \\ first_x_assum (fn th => mp_tac th THEN
+         match_mp_tac memory_rel_rearrange) \\ fs [] \\ rw [] \\ fs [])
+  \\ Cases_on `i1 = 0` \\ fs []
+  \\ rpt strip_tac \\ fs [word_or_eq_0,word_bit_or]
+  THEN1
+   (rpt_drule memory_rel_Number_const_test
+    \\ disch_then (qspec_then `0` mp_tac)
+    \\ `small_int (:α) 0` by
+     (fs [good_dimindex_def,dimword_def,small_int_def])
+    \\ fs [Smallnum_def] \\ strip_tac \\ rveq
+    \\ fs [multiwordTheory.single_mul_def]
+    \\ strip_tac \\ first_x_assum (fn th => mp_tac th THEN
+         match_mp_tac memory_rel_rearrange) \\ fs [] \\ rw [] \\ fs [])
+  \\ pairarg_tac \\ fs []
+  \\ rpt_drule memory_rel_any_Number_IMP \\ strip_tac
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ rpt_drule memory_rel_any_Number_IMP \\ strip_tac
+  \\ reverse (Cases_on `small_int (:'a) i1`) \\ fs [word_1_and_eq_0]
+  THEN1 (fs [word_bit_or] \\fs [word_bit_def])
+  \\ reverse (Cases_on `small_int (:'a) i2`) \\ fs [word_1_and_eq_0]
+  THEN1 (fs [word_bit_or] \\fs [word_bit_def])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ rpt_drule memory_rel_Number_IMP
+  \\ qpat_x_assum `memory_rel c be refs sp st m dm _` kall_tac
+  \\ qpat_x_assum `small_int (:α) i2` mp_tac
+  \\ rpt_drule memory_rel_Number_IMP
+  \\ rw [] \\ fs []
+  \\ fs [multiwordTheory.single_mul_def]
+  \\ `w2n ((Smallnum i1):'a word) * w2n ((Smallnum i2 ⋙ 1):'a word)
+      DIV dimword (:α) < dimword (:'a)` by
+   (simp_tac std_ss [DIV_LT_X,ZERO_LT_dimword]
+    \\ match_mp_tac bitTheory.LESS_MULT_MONO2 \\ fs [w2n_lt] \\ NO_TAC)
+  \\ fs [] \\ fs [DIV_EQ_X] \\ rveq
+  \\ `4 <= w2n ((Smallnum i1):'a word)` by
+   (Cases_on `i1` \\ fs [small_int_def,Smallnum_def,word_2comp_n2w]
+    \\ `(4 * n) < dimword (:α)` by
+      (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
+    \\ fs []
+    \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
+  \\ `4 <= w2n ((Smallnum i2):'a word)` by
+   (Cases_on `i2` \\ fs [small_int_def,Smallnum_def,word_2comp_n2w]
+    \\ `(4 * n) < dimword (:α)` by
+      (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
+    \\ fs []
+    \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
+  \\ `2 <= w2n ((Smallnum i2 >>> 1):'a word)` by fs [w2n_lsr,X_LE_DIV]
+  \\ reverse (Cases_on `i2`) \\ fs [Smallnum_def]
+  \\ fs [GSYM Smallnum_def |> SIMP_RULE (srw_ss()) []]
+  THEN1
+   (fs [DIV_LT_X]
+    \\ `dimword (:'a) DIV 4 <= w2n ((-n2w (4 * n) ⋙ 1):'a word)` by
+     (fs [w2n_lsr,word_2comp_n2w] \\ fs [X_LE_DIV]
+      \\ `(4 * n) < dimword (:α)` by
+        (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
+      \\ fs [] \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
+    \\ `F` by all_tac \\ fs []
+    \\ qpat_x_assum `_ < dimword (:α)` mp_tac \\ fs [NOT_LESS]
+    \\ match_mp_tac LESS_EQ_TRANS
+    \\ qexists_tac `4 * (dimword (:α) DIV 4)`
+    \\ conj_tac THEN1 fs [good_dimindex_def,dimword_def]
+    \\ match_mp_tac LESS_MONO_MULT2 \\ fs [])
+  \\ reverse (Cases_on `i1`) \\ fs [Smallnum_def]
+  THEN1
+   (fs [DIV_LT_X]
+    \\ `dimword (:'a) DIV 2 <= w2n ((-n2w (4 * n')):'a word)` by
+     (fs [w2n_lsr,word_2comp_n2w] \\ fs [X_LE_DIV]
+      \\ `(4 * n') < dimword (:α)` by
+        (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
+      \\ fs [] \\ rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [])
+    \\ `F` by all_tac \\ fs []
+    \\ qpat_x_assum `_ < dimword (:α)` mp_tac \\ fs [NOT_LESS]
+    \\ match_mp_tac LESS_EQ_TRANS
+    \\ qexists_tac `(dimword (:α) DIV 2) * 2`
+    \\ conj_tac THEN1 fs [good_dimindex_def,dimword_def]
+    \\ match_mp_tac LESS_MONO_MULT2 \\ fs [])
+  \\ `(2 * n) < dimword (:'a) /\ (4 * n') < dimword (:α) /\
+      (4 * n) < dimword (:α)` by
+    (rfs [good_dimindex_def,dimword_def,small_int_def] \\ rfs [] \\ NO_TAC)
+  \\ `n2w (4 * n) ⋙ 1 = n2w (2 * n):'a word` by
+       (rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [] \\ fs [DIV_EQ_X])
+  \\ fs [] \\ fs [word_mul_n2w]
+  \\ `n2w (8 * (n * n')) >>> 1 = n2w (n * n') << 2` by
+       (rewrite_tac [GSYM w2n_11,w2n_lsr,WORD_MUL_LSL,word_mul_n2w]
+        \\ fs [] \\ fs [DIV_EQ_X]) \\ fs []
+  \\ match_mp_tac IMP_memory_rel_Number_num3
+  \\ fs [] \\ rfs [good_dimindex_def,dimword_def] \\ rfs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+  \\ fs [] \\ rw [] \\ fs []);
 
 val _ = export_theory();
