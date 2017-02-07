@@ -243,7 +243,6 @@ val riscv_config_def = Define`
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
-    ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min21, ^max21)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
     ; loc_offset := (^min32, 0x7FFFF7FFw)
