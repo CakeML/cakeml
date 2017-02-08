@@ -2457,7 +2457,7 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
   conf_ok (:'a) conf ∧
-  addr_offset_ok 0w c ∧
+  addr_offset_ok c 0w ∧
   reg_name 10 c ∧ good_dimindex(:'a) ∧
   c.valid_imm (INL Add) 8w ∧
   c.valid_imm (INL Add) 4w ∧

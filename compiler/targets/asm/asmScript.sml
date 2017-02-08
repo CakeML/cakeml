@@ -134,6 +134,7 @@ val () = Datatype `
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
+     ; byte_offset    : 'a word # 'a word
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
      ; loc_offset     : 'a word # 'a word
@@ -191,31 +192,34 @@ val offset_ok_def = Define`
   offset_ok a offset w =
   let (min, max) = offset in min <= w /\ w <= max /\ aligned a w`
 
-val () =
-   List.app overload_on
-    [("addr_offset_ok",  ``\w c. offset_ok 0 c.addr_offset w``),
-     ("jump_offset_ok",  ``\w c. offset_ok c.code_alignment c.jump_offset w``),
-     ("cjump_offset_ok", ``\w c. offset_ok c.code_alignment c.cjump_offset w``),
-     ("loc_offset_ok",   ``\w c. offset_ok c.code_alignment c.loc_offset w``)]
-
-val addr_ok_def = Define `
-  addr_ok (Addr r w) c <=> reg_ok r c /\ addr_offset_ok w c`
+val () = List.app overload_on
+  [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
+   ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
+   ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
+   ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
+   ("loc_offset_ok",   ``\c. offset_ok c.code_alignment c.loc_offset``)]
 
 val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
-  (inst_ok (Mem m r a : 'a inst) c <=> reg_ok r c /\ addr_ok a c)`
+  (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
+     reg_ok r1 c /\ reg_ok r2 c /\
+     (if m IN {Load; Store} then
+        addr_offset_ok c w
+      else
+        byte_offset_ok c w))`
 
 val asm_ok_def = Define `
   (asm_ok (Inst i) c <=> inst_ok i c) /\
-  (asm_ok (Jump w) c <=> jump_offset_ok w c) /\
-  (asm_ok (JumpCmp cmp r ri w) c <=> cjump_offset_ok w c /\ cmp_ok cmp r ri c) /\
+  (asm_ok (Jump w) c <=> jump_offset_ok c w) /\
+  (asm_ok (JumpCmp cmp r ri w) c <=>
+     cjump_offset_ok c w /\ cmp_ok cmp r ri c) /\
   (asm_ok (Call w) c <=>
      (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
-     jump_offset_ok w c) /\
+     jump_offset_ok c w) /\
   (asm_ok (JumpReg r) c <=> reg_ok r c) /\
-  (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok w c)`
+  (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok c w)`
 
 val word_cmp_def = Define `
   (word_cmp Equal w1 w2 = (w1 = w2)) /\

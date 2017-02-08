@@ -156,6 +156,7 @@ val x64_config_def = Define`
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset := (^min32, ^max32)
+    ; byte_offset := (^min32, ^max32)
     ; jump_offset := (^min32 + 13w, ^max32 + 5w)
     ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
     ; loc_offset := (^min32 + 7w, ^max32 + 7w)
