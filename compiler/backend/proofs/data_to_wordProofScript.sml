@@ -7079,8 +7079,59 @@ val th = Q.store_thm("assign_Mult",
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
-  \\ fs [assign_def,list_Seq_def]
-  \\ once_rewrite_tac [wordSemTheory.evaluate_def] \\ fs []
+  \\ fs [assign_def]
+  \\ fs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
+  \\ pop_assum kall_tac
+  \\ `(?w1. a1' = Word w1) /\ (?w2. a2' = Word w2)` by
+         metis_tac [state_rel_get_var_Number_IMP_alt,adjust_var_def]
+  \\ rveq \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
+  \\ `n2w (w2n w2 * w2n (w1 ⋙ 1)) = FST (single_mul w2 (w1 >>> 1) 0w) /\
+      n2w (w2n w2 * w2n (w1 ⋙ 1) DIV dimword (:α)) =
+        SND (single_mul w2 (w1 >>> 1) 0w)` by
+    (fs [multiwordTheory.single_mul_def,GSYM word_mul_n2w] \\ NO_TAC) \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+  \\ rewrite_tac [list_Seq_def]
+  \\ once_rewrite_tac [``list_Seq [MustTerminate x]``
+       |> REWRITE_CONV [list_Seq_def] |> GSYM]
+  \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+  \\ simp [Once wordSemTheory.evaluate_def]
+  \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def,lookup_insert,
+         asmTheory.word_cmp_def]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (fs [eq_eval,wordSemTheory.set_vars_def,alist_insert_def]
+    \\ fs [bviSemTheory.bvl_to_bvi_def,
+         bviSemTheory.bvi_to_bvl_def,
+         dataSemTheory.bvi_to_data_def,
+         dataSemTheory.call_env_def,alist_insert_def,
+         dataSemTheory.data_to_bvi_def,push_env_def,
+         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ fs [state_rel_thm,lookup_insert,adjust_var_11]
+    \\ conj_tac THEN1 (rw [] \\ fs [])
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs [APPEND]
+    \\ once_rewrite_tac [integerTheory.INT_MUL_COMM]
+    \\ match_mp_tac (memory_rel_Number_single_mul
+        |> SIMP_RULE std_ss [LET_THM,AND_IMP_INTRO]
+        |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
+        |> SIMP_RULE std_ss [LET_THM,AND_IMP_INTRO])
+    \\ fs []
+    \\ imp_res_tac memory_rel_zero_space \\ fs []
+    \\ pop_assum kall_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule memory_rel_get_vars_IMP
+    \\ disch_then (qspecl_then [`[Number i2; Number i1]`,
+         `[Word w2; Word w1]`,`[a2;a1]`] mp_tac)
+    \\ reverse impl_tac THEN1 fs []
+    \\ fs [get_vars_SOME_IFF,wordSemTheory.get_var_def,get_vars_def])
+  \\ rewrite_tac [list_Seq_def]
   \\ fs [bviSemTheory.bvl_to_bvi_def,
          bviSemTheory.bvi_to_bvl_def,
          dataSemTheory.bvi_to_data_def,
@@ -7088,7 +7139,12 @@ val th = Q.store_thm("assign_Mult",
          dataSemTheory.data_to_bvi_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
-  \\ match_mp_tac (eval_Call_Mul |> REWRITE_RULE [list_Seq_def]) \\ fs []);
+  \\ match_mp_tac (eval_Call_Mul |> REWRITE_RULE [list_Seq_def])
+  \\ fs []
+  \\ fs [get_vars_def,get_var_def]
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
+  \\ fs [state_rel_thm,lookup_insert]
+  \\ fs [inter_insert_ODD_adjust_set_alt]);
 
 val word_bit_test_0 = prove(
   ``(1w && w) = 0w <=> ~word_bit 0 w``,
@@ -7301,7 +7357,161 @@ val th = Q.store_thm("assign_Mod",
   \\ rename1 `get_vars args x.locals = SOME [Number i1; Number i2]`
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
-  \\ fs [assign_def,list_Seq_def]
+  \\ fs [assign_def]
+  \\ fs [get_vars_SOME_IFF]
+  \\ fs [get_vars_SOME_IFF_data]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ rename1 `lookup (adjust_var a1) t.locals = SOME v1`
+  \\ rename1 `lookup (adjust_var a2) t.locals = SOME v2`
+  \\ `?w1. v1 = Word w1 /\
+        (~(word_bit 0 w1) <=> small_int (:'a) i1) /\
+        (~(word_msb w1) /\ ~(word_bit 0 w1) ==> 0 <= i1 /\ w1 = n2w (4 * Num i1))` by1
+          (metis_tac [state_rel_Number_IMP])
+  \\ `?w2. v2 = Word w2 /\
+        (~(word_bit 0 w2) <=> small_int (:'a) i2) /\
+        (~(word_msb w2) /\ ~(word_bit 0 w2) ==> 0 <= i2 /\ w2 = n2w (4 * Num i2))` by1
+          (metis_tac [state_rel_Number_IMP])
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+  \\ simp [word_bit_test_0]
+  \\ IF_CASES_TAC THEN1
+   (fs [word_bit_or,word_bit_lsr_dimindex_1] \\ rveq
+    \\ `?n1. i1 = & n1` by (Cases_on `i1` \\ fs [])
+    \\ `?n2. i2 = & n2` by (Cases_on `i2` \\ fs [])
+    \\ fs [] \\ rveq
+    \\ `4 * n2 < dimword (:'a) /\ 4 * n1 < dimword (:'a)` by1
+          fs [small_int_def,X_LT_DIV]
+    \\ `n2w (4 * n2) <> 0w` by1 fs []
+    \\ `small_int (:α) (&(n1 MOD n2))` by
+     (fs [small_int_def,DIV_LT_X]
+      \\ match_mp_tac LESS_TRANS
+      \\ qexists_tac `n2` \\ fs [])
+    \\ Cases_on `c.has_div` \\ fs [] THEN1
+     (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
+      \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
+           bviSemTheory.bvi_to_bvl_def,lookup_insert,
+           dataSemTheory.bvi_to_data_def,
+           dataSemTheory.call_env_def,alist_insert_def,
+           dataSemTheory.data_to_bvi_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ conj_tac THEN1 (rw [] \\ fs [])
+      \\ fs [inter_insert_ODD_adjust_set]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+      \\ `(n2w (4 * n1) / n2w (4 * n2)) = n2w (n1 DIV n2)` by
+       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+        \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
+               MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]])
+      \\ fs [] \\ qmatch_goalsub_abbrev_tac `Word ww`
+      \\ qsuff_tac `ww = Smallnum (&(n1 MOD n2))`
+      THEN1 (rw [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
+             \\ imp_res_tac memory_rel_zero_space \\ fs [])
+      \\ fs [Abbr`ww`,Smallnum_def]
+      \\ `(n1 DIV n2) < dimword (:α)` by
+        (fs [DIV_LT_X] \\Cases_on `n2` \\ fs [MULT_CLAUSES] \\ NO_TAC)
+      \\ fs [WORD_EQ_SUB_RADD |> SIMP_RULE (srw_ss()) []]
+      \\ rewrite_tac [word_add_n2w] \\ AP_TERM_TAC
+      \\ rewrite_tac [GSYM LEFT_ADD_DISTRIB] \\ AP_TERM_TAC
+      \\ `0 < n2` by fs []
+      \\ drule DIVISION
+      \\ disch_then (qspec_then `n1` (fn th => simp [Once th])))
+    \\ Cases_on `c.has_longdiv` \\ fs [] THEN1
+     (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
+      \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+      \\ reverse IF_CASES_TAC THEN1
+       (`F` by all_tac \\ rfs [DIV_LT_X]
+        \\ pop_assum mp_tac
+        \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
+      \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
+           bviSemTheory.bvi_to_bvl_def,lookup_insert,
+           dataSemTheory.bvi_to_data_def,
+           dataSemTheory.call_env_def,alist_insert_def,
+           dataSemTheory.data_to_bvi_def,push_env_def,
+           dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+      \\ conj_tac THEN1 (rw [] \\ fs [])
+      \\ fs [inter_insert_ODD_adjust_set]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+      \\ `n2w ((4 * n1) MOD (4 * n2)) = Smallnum (&(n1 MOD n2))` by
+       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+        \\ fs [MOD_COMMON_FACTOR] \\ NO_TAC)
+      \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
+      \\ imp_res_tac memory_rel_zero_space \\ fs [])
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ once_rewrite_tac [list_Seq_def] \\ fs []
+    \\ once_rewrite_tac [wordSemTheory.evaluate_def]
+    \\ rewrite_tac [insert_shadow]
+    \\ qpat_x_assum `state_rel c l1 l2 x t [] locs`
+          (mp_tac o REWRITE_RULE [state_rel_thm])
+    \\ fs [] \\ strip_tac
+    \\ fs [eq_eval,code_rel_def,stubs_def,cut_env_adjust_set_insert_1]
+    \\ Cases_on `names_opt` \\ fs [cut_state_opt_def,cut_state_def]
+    \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
+    \\ imp_res_tac cut_env_IMP_cut_env
+    \\ fs [get_names_def,wordSemTheory.push_env_def]
+    \\ Cases_on `env_to_list y t.permute` \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate (LongDiv_code c,t2)`
+    \\ qspecl_then [`t2`,`n`,`l+1`,`c`] mp_tac evaluate_LongDiv_code
+    \\ fs [] \\ disch_then (qspecl_then [`0w`,`n2w (4 * n1)`,`n2w (4 * n2)`] mp_tac)
+    \\ fs [multiwordTheory.single_div_def]
+    \\ impl_tac THEN1
+     (unabbrev_all_tac
+      \\ fs [lookup_insert,wordSemTheory.MustTerminate_limit_def,
+             mc_multiwordTheory.single_div_pre_def]
+      \\ fs [DIV_LT_X] \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
+    \\ strip_tac \\ fs []
+    \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
+    \\ reverse IF_CASES_TAC THEN1
+     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+      \\ drule env_to_list_lookup_equiv
+      \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
+    \\ fs [list_Seq_def,eq_eval,FLOOKUP_UPDATE]
+    \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [lookup_insert]
+    \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,
+         bviSemTheory.bvi_to_bvl_def,lookup_insert,
+         dataSemTheory.bvi_to_data_def,adjust_var_11,
+         dataSemTheory.call_env_def,alist_insert_def,
+         dataSemTheory.data_to_bvi_def,push_env_def,
+         dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
+    \\ rveq \\ fs []
+    \\ conj_tac THEN1
+     (drule env_to_list_lookup_equiv \\ fs []
+      \\ drule cut_env_adjust_set_lookup_0 \\ fs [lookup_fromAList])
+    \\ conj_tac THEN1
+     (rw [] \\ fs []
+      \\ drule env_to_list_lookup_equiv \\ fs []
+      \\ drule cut_env_IMP_MEM \\ fs [lookup_fromAList]
+      \\ drule (GEN_ALL adjust_var_cut_env_IMP_MEM) \\ fs []
+      \\ drule (GEN_ALL cut_env_IMP_MEM) \\ fs []
+      \\ strip_tac \\ fs [])
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    \\ fs [FAPPLY_FUPDATE_THM,memory_rel_Temp]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ `n2w ((4 * n1) MOD (4 * n2)) = Smallnum (&(n1 MOD n2))` by
+       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+        \\ fs [MOD_COMMON_FACTOR] \\ NO_TAC)
+    \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
+    \\ imp_res_tac memory_rel_zero_space \\ fs [APPEND]
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+    \\ fs [] \\ rw [] \\ fs [] \\ disj1_tac
+    \\ fs [join_env_def,MEM_MAP,MEM_FILTER]
+    \\ Cases_on `y'` \\ fs []
+    \\ rename1 `MEM (y1,y2) _`
+    \\ qexists_tac `(y1,y2)` \\ fs [MEM_toAList]
+    \\ fs [lookup_inter_alt]
+    \\ fs [cut_env_def,wordSemTheory.cut_env_def] \\ rveq
+    \\ fs [domain_lookup] \\ rfs [lookup_adjust_set]
+    \\ fs [domain_lookup,lookup_inter_alt]
+    \\ drule env_to_list_lookup_equiv
+    \\ fs [lookup_fromAList] \\ strip_tac \\ fs [] \\ fs [lookup_inter_alt])
+  \\ pop_assum kall_tac
+  \\ fs [list_Seq_def]
   \\ once_rewrite_tac [wordSemTheory.evaluate_def] \\ fs []
   \\ fs [bviSemTheory.bvl_to_bvi_def,
          bviSemTheory.bvi_to_bvl_def,
@@ -7310,7 +7520,10 @@ val th = Q.store_thm("assign_Mod",
          dataSemTheory.data_to_bvi_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ imp_res_tac cut_state_opt_IMP_ffi \\ fs []
-  \\ match_mp_tac (eval_Call_Mod |> REWRITE_RULE [list_Seq_def]) \\ fs []);
+  \\ match_mp_tac (eval_Call_Mod |> REWRITE_RULE [list_Seq_def])
+  \\ fs [get_vars_SOME_IFF_data,insert_shadow]
+  \\ fs [GSYM wordSemTheory.set_var_def]
+  \\ fs [wordSemTheory.set_var_def,state_rel_insert_1]);
 
 val th = Q.store_thm("assign_LengthByte",
   `op = LengthByte ==> ^assign_thm_goal`,
