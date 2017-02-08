@@ -1,6 +1,6 @@
 open preamble
      x64ProgTheory
-     x64_configTheory
+     configTheory
      ml_translatorLib
      ioProgLib
 
