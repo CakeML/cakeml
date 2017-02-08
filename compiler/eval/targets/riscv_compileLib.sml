@@ -17,7 +17,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [configTheory.riscv_compiler_config_def]
+      [configTheory.riscv_compiler_config_def
+      ,configTheory.riscv_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

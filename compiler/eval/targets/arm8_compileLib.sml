@@ -17,7 +17,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [configTheory.arm8_compiler_config_def]
+      [configTheory.arm8_compiler_config_def
+      ,configTheory.arm8_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp
