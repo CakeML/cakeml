@@ -2943,6 +2943,14 @@ val store_list_thm = Q.store_thm("store_list_thm",
   \\ SEP_R_TAC \\ fs [] \\ SEP_W_TAC
   \\ SEP_F_TAC \\ rw [] \\ fs [AC STAR_COMM STAR_ASSOC])
 
+val store_list_domain = Q.store_thm("store_list_domain",
+  `∀a xs m dm m1.
+   store_list a xs m dm = SOME m1 ==>
+   ∀n. n < LENGTH xs ==> a + n2w n * bytes_in_word ∈ dm`,
+  Induct_on`xs`
+  \\ rw[store_list_def] \\ res_tac
+  \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
 val word_payload_IMP = Q.store_thm("word_payload_IMP",
   `word_payload addrs ll tags tt1 conf = (h,ts,T) ==> LENGTH ts = ll`,
   Cases_on `tags` \\ full_simp_tac(srw_ss())[word_payload_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
@@ -3786,6 +3794,13 @@ val last_bytes_def = Define`
   last_bytes k b a w be =
     if k = 0n then w else
       set_byte a b (last_bytes (k-1) b (a+1w) w be) be`;
+
+val last_bytes_simp = Q.prove(
+  `(last_bytes 0 b a w be = w) ∧
+   (last_bytes (SUC n) b a w be = set_byte a b (last_bytes n b (a + 1w) w be) be)`,
+  rw[Once last_bytes_def] \\ rw[Once last_bytes_def])
+|> CONJUNCTS |> map GEN_ALL |> LIST_CONJ |> CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV
+|> curry save_thm "last_bytes_simp";
 
 val last_bytes_bytes_to_word_REPLICATE = Q.store_thm("last_bytes_bytes_to_word_REPLICATE",
   `!n k a w.
