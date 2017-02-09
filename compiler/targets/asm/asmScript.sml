@@ -170,7 +170,7 @@ val arith_ok_def = Define `
      ((c.ISA = ARMv6) ==> r1 <> r2) /\
      (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
   (arith_ok (LongDiv r1 r2 r3 r4 r5) c <=>
-     (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 0) /\ (r4 = 2) /\
+     (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 2) /\ (r4 = 0) /\
      reg_ok r5 c) /\
   (arith_ok (AddCarry r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
