@@ -5849,7 +5849,9 @@ val th = Q.store_thm("assign_LengthByte",
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
   \\ strip_tac
-  \\ rpt_drule memory_rel_ByteArray_IMP \\ fs [] \\ rw []
+  \\ rpt_drule memory_rel_ByteArray_IMP \\ fs []
+  \\ qpat_abbrev_tac`ttt = COND _ _ _`
+  \\ rw []
   \\ fs [assign_def]
   \\ fs [wordSemTheory.get_vars_def]
   \\ Cases_on `get_var (adjust_var a1) t` \\ fs [] \\ clean_tac
@@ -5872,7 +5874,7 @@ val th = Q.store_thm("assign_LengthByte",
   \\ fs [word_mul_n2w]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []
-  \\ fs[good_dimindex_def]
+  \\ fs[good_dimindex_def,markerTheory.Abbrev_def]
   \\ rfs[shift_def,bytes_in_word_def,WORD_LEFT_ADD_DISTRIB,word_mul_n2w]
   \\ match_mp_tac (IMP_memory_rel_Number_num3
        |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs []
