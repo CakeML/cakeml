@@ -2951,6 +2951,33 @@ val store_list_domain = Q.store_thm("store_list_domain",
   \\ rw[store_list_def] \\ res_tac
   \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
+val store_list_append_imp = Q.store_thm("store_list_append_imp",
+  `∀w1 a m dm m' w2.
+   store_list a (w1 ++ w2) m dm = SOME m' ⇒
+   ∃m''. store_list a w1 m dm = SOME m'' ∧
+         store_list (a + n2w (LENGTH w1) * bytes_in_word) w2 m'' dm = SOME m'`,
+  Induct \\ rw[store_list_def]
+  \\ first_x_assum drule \\ rw[] \\ rw[]
+  \\ rw[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
+val store_list_update_m_outside = Q.store_thm("store_list_update_m_outside",
+  `∀ws a m dm m'.
+   store_list a ws m dm = SOME m' ∧
+   (∀i. i < LENGTH ws ⇒ a + n2w i * bytes_in_word ≠ a')
+   ⇒
+   store_list a ws ((a' =+ v) m) dm = SOME ((a' =+ v) m')`,
+  Induct \\ rw[store_list_def]
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- (
+    qx_gen_tac`i` \\ first_x_assum(qspec_then`SUC i`mp_tac)
+    \\ simp[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] )
+  \\ disch_then((SUBST1_TAC o SYM))
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ match_mp_tac UPDATE_COMMUTES
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ simp[]);
+
 val word_payload_IMP = Q.store_thm("word_payload_IMP",
   `word_payload addrs ll tags tt1 conf = (h,ts,T) ==> LENGTH ts = ll`,
   Cases_on `tags` \\ full_simp_tac(srw_ss())[word_payload_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
