@@ -139,9 +139,9 @@ val parse_t =
    Parse.Term
      `\inputnt sem s.
         case
-          peg_exec cmlPEG (nt (mkNT inputnt) I) (MAP FST (lexer_fun s)) [] done failed
+          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
         of
-          Result (SOME(_,[x])) => sem x : 'a`
+          Result (SOME(_,[x]),_) => sem x : 'a`
 
 fun string_of_q [] = ""
   | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
