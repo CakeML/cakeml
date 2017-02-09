@@ -3532,6 +3532,12 @@ val set_byte_word_of_byte = Q.prove(
   \\ fs [fcpTheory.CART_EQ,word_or_def,word_lsl_def,fcpTheory.FCP_BETA,
         word_slice_alt_def,w2w] \\ rw [] \\ EQ_TAC \\ rw [] \\ fs []);
 
+val w2w_word_of_byte_w2w = Q.store_thm("w2w_word_of_byte_w2w",
+  `good_dimindex(:'a) ==>
+   w2w (word_of_byte (w2w w:'a word)):word8 = w`,
+  rw[word_of_byte_def,labPropsTheory.good_dimindex_def]
+  \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+
 val write_bytes_REPLICATE = Q.prove(
   `!n m.
       good_dimindex (:'a) ==>

@@ -4121,54 +4121,59 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
   \\ impl_tac
   >- (
     simp[Abbr`a'`,LENGTH_REPLICATE]
+    \\ rewrite_tac[GSYM WORD_ADD_ASSOC]
+    \\ simp[WORD_EQ_ADD_LCANCEL]
+    \\ CONV_TAC(PATH_CONV"brrlrr"(REWR_CONV WORD_MULT_COMM))
+    \\ rewrite_tac[GSYM WORD_MULT_ASSOC]
+    \\ rewrite_tac[GSYM WORD_LEFT_ADD_DISTRIB]
     \\ CONV_TAC(PATH_CONV"brrlrrr"(REWR_CONV WORD_MULT_COMM))
+    \\ rewrite_tac[WORD_SUB_INTRO,WORD_MULT_CLAUSES,addressTheory.word_arith_lemma2]
+    \\ simp_tac (std_ss++ARITH_ss) []
+    \\ CONV_TAC(PATH_CONV"brrlrr"(REWR_CONV(WORD_SUB_INTRO |> CONJUNCTS |> el 5 |> GSYM)))
     \\ rewrite_tac[WORD_MULT_ASSOC]
-    \\ CONV_TAC(PATH_CONV"brrlrlrr"(REWR_CONV WORD_MULT_COMM))
-    \\ rewrite_tac[GSYM WORD_RIGHT_ADD_DISTRIB,GSYM WORD_ADD_ASSOC]
-    \\ rewrite_tac[WORD_EQ_ADD_LCANCEL]
-    \\ once_rewrite_tac[WORD_ADD_COMM]
-    \\ rewrite_tac[WORD_SUB_INTRO,WORD_MULT_CLAUSES]
-    \\ rewrite_tac[GSYM WORD_SUM_ZERO]
-    \\ qx_gen_tac`a` \\ strip_tac
-    \\ CONV_TAC(PATH_CONV"rlrr"(REWR_CONV(
-         WORD_MULT_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 3 |> GSYM)))
-    \\ rewrite_tac[GSYM WORD_RIGHT_ADD_DISTRIB]
-
-    m``_ * _ = 0w``
-    m``0w = _ * _``
-
-
-    \\ `len ≤ a` by simp[]
-    \\ simp[GSYM n2w_sub]
-    m``_ = -_``
-    word_
-    m``(_:'a word) * _ = _ * _``
-  m``(k =+ v) ((k =+ v') m)``
-
-  \\ disch_then drule
-  \\ impl_tac THEN1
-   (fs [WORD_MUL_LSL,word_mul_n2w,state_rel_def]
-    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs []
+    \\ CONV_TAC(PATH_CONV"brrlrlr"(REWR_CONV WORD_MULT_COMM))
+    \\ rewrite_tac[GSYM WORD_MULT_ASSOC]
+    \\ CONV_TAC(PATH_CONV"brrlr"(REWR_CONV(WORD_SUB_INTRO |> CONJUNCTS |> el 5)))
+    \\ rewrite_tac[WORD_EQ_NEG]
+    \\ fs[labPropsTheory.good_dimindex_def,bytes_in_word_def,word_mul_n2w,dimword_def]
+    \\ rfs[Abbr`limit`] )
+  \\ ntac 2 strip_tac \\ disch_then drule
+  \\ impl_tac THEN1 (
+    simp[Abbr`len`,WORD_MUL_LSL,word_mul_n2w,LEFT_SUB_DISTRIB,n2w_sub]
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def,state_rel_thm] \\ rfs []
     \\ unabbrev_all_tac \\ fs []
-    \\ `byte_len (:α) i < dimword (:'a)` by (fs [dimword_def])
-    \\ fs [IMP_LESS_MustTerminate_limit])
-  \\ fs [] \\ strip_tac \\ fs [WORD_MUL_LSL,word_mul_n2w]
-  \\ pop_assum kall_tac
+    \\ `byte_len (:α) i -1 < dimword (:'a)` by (fs [dimword_def])
+    \\ imp_res_tac IMP_LESS_MustTerminate_limit \\ fs[])
+  \\ simp[WORD_MUL_LSL,n2w_sub,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ disch_then kall_tac
   \\ simp [state_rel_thm]
   \\ qunabbrev_tac `s3` \\ fs []
   \\ fs [lookup_def]
-  \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _` mp_tac
+  \\ qhdtm_x_assum `memory_rel` mp_tac
   \\ fs [EVAL ``join_env LN []``]
-  \\ drule memory_rel_zero_space
-  \\ match_mp_tac memory_rel_rearrange
-  \\ fs [] \\ rw [] \\ rw []
-  \\ fs [FAPPLY_FUPDATE_THM]
-  \\ disj1_tac
-  \\ fs [make_ptr_def]
-  \\ unabbrev_all_tac
-  \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
-  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [WORD_MUL_LSL,word_mul_n2w]);
+  \\ fs[store_list_def]
+  \\ fs[Abbr`a'`,Abbr`v`,LENGTH_REPLICATE]
+  \\ clean_tac
+  \\ fs[make_ptr_def,WORD_MUL_LSL]
+  \\ qmatch_abbrev_tac`P xx yy zz ⇒ P x' yy z'`
+  \\ `xx = x'`
+  by (
+    simp[Abbr`xx`,Abbr`x'`,FUN_EQ_THM,APPLY_UPDATE_THM,Abbr`lw`]
+    \\ simp[n2w_sub,WORD_LEFT_ADD_DISTRIB] \\ rw[]
+    \\ simp[w2w_word_of_byte_w2w] )
+  \\ simp[Abbr`xx`]
+  \\ fs[FAPPLY_FUPDATE_THM]
+  \\ simp[Abbr`x'`,Abbr`yy`,Abbr`zz`,Abbr`z'`,Abbr`P`]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ qmatch_abbrev_tac`P (xx::(ll++rest)) ==> _`
+  \\ strip_tac
+  \\ `P (ll ++ (xx::rest))`
+    by (
+    fs[Abbr`P`]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac memory_rel_rearrange
+    \\ simp[] \\ metis_tac[] )
+  \\ metis_tac[memory_rel_drop] );
 
 val FromList1_code_thm = Q.store_thm("Replicate_code_thm",
   `!k a b r x m1 a1 a2 a3 a4 a5 a6.
