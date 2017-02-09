@@ -302,9 +302,6 @@ val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
-val _ = translate x64_names_def
-val _ = translate arm_names_def
-
 open stack_to_labTheory
 
 val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
