@@ -4926,7 +4926,7 @@ val th = Q.store_thm("assign_FromList",
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val th = Q.store_thm("assign_RefByte",
-  `op = RefByte ==> ^assign_thm_goal`,
+  `op = RefByte fl ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
@@ -4934,6 +4934,7 @@ val th = Q.store_thm("assign_RefByte",
   \\ fs [bvi_to_dataTheory.op_requires_names_def,
          bvi_to_dataTheory.op_space_reset_def,cut_state_opt_def]
   \\ Cases_on `names_opt` \\ fs []
+  \\ qmatch_goalsub_abbrev_tac`Const tag`
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [do_app]
   \\ `?i b. vals = [Number i; Number b]` by (every_case_tac \\ fs [] \\ NO_TAC)
@@ -4944,10 +4945,14 @@ val th = Q.store_thm("assign_RefByte",
   \\ qpat_assum `_ = Rval (v,s2)` mp_tac
   \\ reverse IF_CASES_TAC \\ fs []
   \\ clean_tac \\ fs [wordSemTheory.evaluate_def]
+  \\ simp[word_exp_rw,wordSemTheory.set_var_def]
   \\ fs [wordSemTheory.bad_dest_args_def]
   \\ fs [wordSemTheory.add_ret_loc_def,wordSemTheory.find_code_def]
   \\ drule lookup_RefByte_location \\ fs [get_names_def]
   \\ disch_then kall_tac
+  \\ fs[get_vars_SOME_IFF]
+  \\ simp[wordSemTheory.get_vars_def]
+  \\ fs[wordSemTheory.get_var_def,lookup_insert]
   \\ fs [cut_state_opt_def,cut_state_def]
   \\ rename1 `state_rel c l1 l2 s1 t [] locs`
   \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
@@ -4956,10 +4961,12 @@ val th = Q.store_thm("assign_RefByte",
   \\ `?y. cut_env (adjust_set x') t.locals = SOME y` by
        (match_mp_tac (GEN_ALL cut_env_IMP_cut_env) \\ fs []
         \\ metis_tac []) \\ fs []
+  \\ simp[cut_env_adjust_set_insert_1]
   \\ `dimword (:α) <> 0` by (assume_tac ZERO_LT_dimword \\ decide_tac)
   \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
-  \\ qpat_abbrev_tac `t4 = wordSem$call_env [Loc n l; _; _] _ with clock := _`
-  \\ rename1 `get_vars [adjust_var a1; adjust_var a2] t = SOME [w1;w2]`
+  \\ qmatch_goalsub_abbrev_tac `RefByte_code c,t4`
+  \\ rename1 `lookup (adjust_var a1) _ = SOME w1`
+  \\ rename1 `lookup (adjust_var a2) _ = SOME w2`
   \\ rename1 `get_vars [a1; a2] x = SOME [Number i; Number (&w2n w)]`
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
         (t with <| clock := MustTerminate_limit(:'a); termdep := t.termdep - 1 |>)
@@ -4970,6 +4977,7 @@ val th = Q.store_thm("assign_RefByte",
      \\ clean_tac \\ fs [lookup_inter_alt,get_var_def] \\ NO_TAC)
   \\ `s1.locals = x` by (unabbrev_all_tac \\ fs []) \\ fs []
   \\ disch_then drule \\ fs []
+  \\ simp[wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ `dataSem$cut_env x' x = SOME x` by
    (unabbrev_all_tac \\ fs []
     \\ fs [cut_env_def] \\ clean_tac
@@ -4977,13 +4985,22 @@ val th = Q.store_thm("assign_RefByte",
   \\ disch_then drule \\ fs []
   \\ disch_then (qspecl_then [`n`,`l`,`NONE`] mp_tac) \\ fs []
   \\ strip_tac
+  \\ `w2n (tag) DIV 4 < dimword (:'a) DIV 16`
+  by (fs[Abbr`tag`,labPropsTheory.good_dimindex_def,state_rel_def] \\ rw[dimword_def] )
+  \\ rpt_drule state_rel_IMP_Number_arg \\ strip_tac
   \\ rpt_drule RefByte_thm
   \\ simp [get_vars_def,call_env_def,get_var_def,lookup_fromList]
+  \\ `w2n tag DIV 4 = if fl then 0 else 4`
+  by (
+    fs[Abbr`tag`] \\ rw[]
+    \\ fs[state_rel_def,dimword_def,good_dimindex_def] )
+  \\ `n2w (4 * if fl then 0 else 4) = tag`
+  by (rw[Abbr`tag`] )
   \\ fs [do_app,EVAL ``(data_to_bvi s).refs``]
   \\ fs [EVAL ``get_var 0 (call_env [x1;x2;x3] y)``]
-  \\ disch_then (qspecl_then [`l1`,`l2`] mp_tac)
+  \\ disch_then (qspecl_then [`l1`,`l2`,`fl`] mp_tac)
   \\ impl_tac THEN1 EVAL_TAC
-  \\ qpat_abbrev_tac `t5 = call_env [Loc n l; w1; w2] _`
+  \\ qpat_abbrev_tac `t5 = call_env [Loc n l; w1; w2; _] _`
   \\ `t5 = t4` by
    (unabbrev_all_tac \\ fs [wordSemTheory.call_env_def,
        wordSemTheory.push_env_def] \\ pairarg_tac \\ fs []
