@@ -486,7 +486,7 @@ val arith_name_def = Define`
     (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
-    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 4 ∧ r4 = 0 ∧
     reg_name r5 c) ∧
   (arith_name (AddCarry r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
