@@ -1008,8 +1008,8 @@ val names = ["qsortimp","nqueens","hello","foldl","reverse","fib","btree","queue
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
-val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
-                                                                        
+val extract_ffi_names = rev o map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_names))::xs) =
     (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
@@ -1019,6 +1019,7 @@ fun write_asm [] = ()
 val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
+
 val _ = write_asm (zip names benchmarks_bytes);
 
 val _ = map save_thm (zip names benchmarks_compiled);

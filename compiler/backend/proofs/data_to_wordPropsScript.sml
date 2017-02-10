@@ -3201,6 +3201,21 @@ val IMP_memory_rel_bignum = Q.store_thm("IMP_memory_rel_bignum",
   \\ simp[Q.SPEC`[_]`heap_length_def,el_length_def,ADD1]
   \\ simp[AC STAR_ASSOC STAR_COMM]);
 
+val IMP_memory_rel_bignum_alt = Q.store_thm("IMP_memory_rel_bignum_alt",
+  `memory_rel c be refs sp st m dm vars ∧
+   good_dimindex (:α) ∧ ¬small_int (:α) i ∧
+   (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag sign,MAP Word ws) ∧
+   LENGTH ws < sp ∧
+   encode_header c (w2n ((b2w sign <<2 || 3w):α word)) (LENGTH ws) = SOME (hd:α word) ⇒
+   ∃next curr m1.
+     FLOOKUP st NextFree = SOME (Word next) ∧
+     FLOOKUP st CurrHeap = SOME (Word curr) ∧
+     (store_list next (MAP Word (hd::ws)) m dm = SOME m1 ∧
+      memory_rel c be refs (sp - (LENGTH ws + 1))
+        (st |+ (NextFree,Word (next + bytes_in_word * n2w (LENGTH ws + 1))))
+        m1 dm ((Number i,make_ptr c (next - curr) (0w:α word) (LENGTH ws))::vars))`,
+  cheat);
+
 val memory_rel_Cons = Q.store_thm("memory_rel_Cons",
   `memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
     LENGTH vals = LENGTH (ws:'a word_loc list) /\ vals <> [] /\
@@ -5186,6 +5201,7 @@ val memory_rel_Number_bignum_IMP_ALT = store_thm("memory_rel_Number_bignum_IMP_A
       a + bytes_in_word IN dm /\
       m (a + bytes_in_word) = Word (n2w (Num (ABS i))) /\
       ((x && 16w) = 0w <=> 0 <= i) /\
+      LENGTH (n2mw (Num (ABS i)):'a word list) < 2 ** (dimindex (:α) − 4) /\
       LENGTH (n2mw (Num (ABS i)):'a word list) < dimword (:'a) /\
       decode_length c x = n2w
         (LENGTH (n2mw (Num (ABS i)):'a word list))``,

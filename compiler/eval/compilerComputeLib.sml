@@ -444,14 +444,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
     ,data_to_wordTheory.Equal_code_def
-    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.LongDiv_code_def
+    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.Dummy_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.ShiftVar_def
+    ,data_to_wordTheory.AnyHeader_def
+    ,data_to_wordTheory.AddNumSize_def
     ,multiwordTheory.n2mw_def
     ,multiwordTheory.i2mw_def
     ,data_to_wordTheory.bignum_words_def
