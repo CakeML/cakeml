@@ -153,15 +153,15 @@ val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = Q.
   conj_tac >- METIS_TAC[GRAMMAR_PARSETREE_TYPE_no_closures] >>
   METIS_TAC[GRAMMAR_PARSETREE_TYPE_types_match,GRAMMAR_PARSETREE_TYPE_11])
   |> store_eq_thm
-  
+
 val _ = translate (def_of_const ``cmlPEG``);
 
 val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
   `(if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
-     else Result NONE) =
+     else Result xx) =
     (case FLOOKUP G.rules n of
-       NONE => Result NONE
+       NONE => Result xx
      | SOME x => EV x i r y fk)`,
   SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
 
