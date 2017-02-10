@@ -504,7 +504,8 @@ val Equal_code_def = Define `
         (Seq (Assign 2 (Const 0w)) (Return 0 2));
       If Test 21 (Imm 4w)
         (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
-      If Test 21 (Imm 8w)
+      Assign 1 (Op And [Var 21; Const 24w]);
+      If Equal 1 (Imm 16w)
         (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
       Assign 6 (ShiftVar Lsr 21 ((dimindex(:'a) − c.len_size)));
       Assign 2 (Op Add [Var 20; ShiftVar Lsl 6 (shift (:'a))]);

@@ -6776,10 +6776,32 @@ val Equal_code_lemma = prove(
     \\ IF_CASES_TAC THEN1
      (fs [] \\ strip_tac \\ rw [] \\ fs []
       \\ fs [wordSemTheory.state_component_equality])
-    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,word_bit_test]
+    \\ once_rewrite_tac [list_Seq_def]
+    \\ once_rewrite_tac [list_Seq_def]
+    \\ fs [eq_eval,word_bit_test]
+    \\ qmatch_goalsub_abbrev_tac`COND test1`
+    \\ `(24w && c1) = 16w ⇔ test1`
+    by (
+      simp[Abbr`test1`]
+      \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][]
+      \\ rw[Once EQ_IMP_THM]
+      >- (
+        spose_not_then strip_assume_tac
+        \\ first_x_assum(qspec_then`i`mp_tac)
+        \\ simp[] \\ rfs[word_index] )
+      >- (
+        `4 < dimindex(:'a)` by fs[good_dimindex_def]
+        \\ asm_exists_tac \\ fs[word_index]
+        \\ metis_tac[] )
+      >- (
+        rfs[word_index]
+        \\ `3 < dimindex(:'a)` by fs[good_dimindex_def]
+        \\ metis_tac[] ))
+    \\ pop_assum SUBST1_TAC \\ qunabbrev_tac`test1`
     \\ IF_CASES_TAC THEN1
      (fs [] \\ strip_tac \\ rw [] \\ fs []
       \\ fs [wordSemTheory.state_component_equality])
+    \\ pop_assum kall_tac
     \\ fs [] \\ TOP_CASE_TAC \\ fs []
     \\ strip_tac \\ rveq \\ fs []
     \\ ntac 3 (once_rewrite_tac [list_Seq_def]) \\ fs [eq_eval]
