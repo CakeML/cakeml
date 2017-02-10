@@ -910,8 +910,8 @@ val renumber_code_locs_elist_globals = Q.store_thm(
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+  qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
   simp[] >> simp[MAP_ZIP]);
 
@@ -926,8 +926,8 @@ val renumber_code_locs_esgc_free = Q.store_thm(
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
   >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
-  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  >- (rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+      qspecl_then [`locn1`, `MAP SND functions`] mp_tac
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]))
