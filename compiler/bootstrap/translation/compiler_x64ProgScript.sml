@@ -29,6 +29,8 @@ val res = translate inferTheory.init_env_def;
 
 val res = translate prim_config_def;
 
+val res = translate x64_names_def;
+
 (* TODO: x64_compiler_config should be called x64_backend_config, and should
          probably be defined elsewhere *)
 val compiler_x64_def = Define`
