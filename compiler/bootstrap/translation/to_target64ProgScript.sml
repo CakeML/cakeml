@@ -325,12 +325,13 @@ val _ = translate (conv64 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_E
 
 val _ = translate (conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
+val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
-
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
