@@ -8380,7 +8380,8 @@ val assign_thm = Q.store_thm("assign_thm",
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
   \\ Cases_on `op` \\ fs []
-  \\ fs [assign_def] \\ every_case_tac \\ fs []);
+  \\ fs [assign_def] \\ every_case_tac \\ fs []
+  \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC);
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
