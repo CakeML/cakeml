@@ -4926,7 +4926,7 @@ val th = Q.store_thm("assign_FromList",
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val th = Q.store_thm("assign_RefByte",
-  `op = RefByte fl ==> ^assign_thm_goal`,
+  `(?fl. op = RefByte fl) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
@@ -8127,10 +8127,8 @@ val th = Q.store_thm("assign_Cons",
   \\ disch_then drule \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
   \\ strip_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ qabbrev_tac `vals = h::t'`
   \\ `vals <> [] /\ (LENGTH vals = LENGTH ws)` by
-         (fs [GSYM LENGTH_NIL,Abbr`vals`] \\ NO_TAC)
-  \\ ntac 2 (pop_assum mp_tac) \\ pop_assum kall_tac \\ rpt strip_tac
+         (fs [GSYM LENGTH_NIL] \\ NO_TAC)
   \\ rpt_drule memory_rel_Cons \\ strip_tac
   \\ fs [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.set_store_def]
@@ -8264,7 +8262,7 @@ val th = Q.store_thm("assign_FFI",
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs[]
   \\ match_mp_tac memory_rel_Unit \\ fs[]
-  \\ qmatch_goalsub_rename_tac`ByteArray ls'`
+  \\ qmatch_goalsub_rename_tac`ByteArray F ls'`
   \\ `LENGTH ls' = LENGTH ls`
   by (
     qhdtm_x_assum`call_FFI`mp_tac
@@ -8276,10 +8274,10 @@ val th = Q.store_thm("assign_FFI",
   \\ qmatch_asmsub_abbrev_tac`((RefPtr p,Word w)::vars)`
   \\ `∀n. n ≤ LENGTH ls ⇒
       let new_m = write_bytearray (aa + n2w (LENGTH ls - n)) (DROP (LENGTH ls - n) ls') t.memory t.mdomain t.be in
-      memory_rel c t.be (x.refs |+ (p,ByteArray (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))) x.space t.store
+      memory_rel c t.be (x.refs |+ (p,ByteArray F (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))) x.space t.store
         new_m t.mdomain ((RefPtr p,Word w)::vars) ∧
       (∀i v. i < LENGTH ls ⇒
-        memory_rel c t.be (x.refs |+ (p,ByteArray (LUPDATE v i (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))))
+        memory_rel c t.be (x.refs |+ (p,ByteArray F (LUPDATE v i (TAKE (LENGTH ls - n) ls ++ DROP (LENGTH ls - n) ls'))))
           x.space t.store
           ((byte_align (aa + n2w i) =+
             Word (set_byte (aa + n2w i) v
@@ -8297,7 +8295,7 @@ val th = Q.store_thm("assign_FFI",
       \\ rw[] )
     \\ strip_tac \\ fs[]
     \\ qpat_abbrev_tac`ls2 = TAKE _ _ ++ _`
-    \\ qmatch_asmsub_abbrev_tac`ByteArray ls1`
+    \\ qmatch_asmsub_abbrev_tac`ByteArray F ls1`
     \\ `ls2 = LUPDATE (EL (LENGTH ls - SUC n) ls') (LENGTH ls - SUC n) ls1`
     by (
       simp[Abbr`ls1`,Abbr`ls2`,LIST_EQ_REWRITE,EL_APPEND_EQN,EL_LUPDATE,DROP_def,TAKE_def]
@@ -8313,9 +8311,9 @@ val th = Q.store_thm("assign_FFI",
       \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
       \\ Induct \\ rw[ADD1]
       \\ simp[EL_DROP]
-      \\ `x''' + LENGTH ls - n = SUC(x''' + LENGTH ls - (n+1))` by decide_tac
-      \\ pop_assum SUBST1_TAC
-      \\ simp[EL])
+      \\ `x'' + LENGTH ls - n = SUC(x'' + LENGTH ls - (n+1))` by decide_tac
+      \\ pop_assum (CHANGED_TAC o SUBST1_TAC)
+      \\ simp[EL] \\ NO_TAC)
     \\ first_assum SUBST1_TAC
     \\ qpat_abbrev_tac`wb = write_bytearray _ (_ :: _) _ _ _`
     \\ qpat_abbrev_tac `wb1 = write_bytearray _ _ _ _ _`
