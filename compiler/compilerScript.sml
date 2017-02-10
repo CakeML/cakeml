@@ -17,7 +17,7 @@ val _ = Datatype`compile_error = ParseError | TypeError | CompileError`;
 
 val compile_def = Define`
   compile c prelude input =
-    case parse_prog (MAP FST (lexer_fun input)) of
+    case parse_prog (lexer_fun input) of
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
