@@ -391,7 +391,7 @@ fun pmatch_app_distrib_conv tm =
       val (rows,row_type) = listSyntax.dest_list pml
       fun gify arg row =
         let
-          val (pmatch_row,[pat,guard,body]) = strip_comb row          
+          val (pmatch_row,[pat,guard,body]) = strip_comb row
           val (binders,term) = dest_pabs body
         in
           Term(`PMATCH_ROW ` @ map ANTIQUOTE [pat,guard,mk_pabs(binders,beta_conv(mk_comb(term,arg)))])
@@ -451,17 +451,24 @@ val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   \\ fs[add_constraint_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[unifyTheory.t_unify_wfs]);
-    
+
 val _ = translate (infer_def ``constrain_op``
                    |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
 val _ = translate (infer_def ``t_to_freevars``);
 
+val MAP_type_name_subst = prove(
+  ``MAP (type_name_subst tenvT) ts =
+    MAP (\x. type_name_subst tenvT x) ts``,
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []);
+
+val lemma = prove(
+  ``MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))``,
+  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]);
+
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
-                   |> CONV_RULE(((STRIP_QUANT_CONV o funpow 3 RAND_CONV o
-                                  funpow 2 (LAND_CONV o PairRules.PABS_CONV) o
-                                  funpow 2 RAND_CONV o funpow 2 LAND_CONV)
-                                 (ONCE_REWRITE_CONV [GSYM ETA_AX]))))
+		   |> REWRITE_RULE [MAP_type_name_subst]
+  	           |> SIMP_RULE std_ss [lemma]);
 
 val type_name_subst_side_def = theorem"type_name_subst_side_def";
 
@@ -476,15 +483,18 @@ val type_name_subst_side_thm = Q.store_thm("type_name_subst_side_thm",
 val build_ctor_tenv_side_def = definition"build_ctor_tenv_side_def";
 
 val build_ctor_tenv_side_thm = Q.store_thm("build_ctor_tenv_side_thm",
-  `∀x y z. check_ctor_tenv x y z ⇒ build_ctor_tenv_side x y z`,
+  `∀x y z. check_ctor_tenv y z ⇒ build_ctor_tenv_side x y z`,
   rw[build_ctor_tenv_side_def] >>
   fs[typeSystemTheory.check_ctor_tenv_def] >>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  last_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
-  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
   match_mp_tac type_name_subst_side_thm >>
-  pop_assum ACCEPT_TAC);
+  fs [FORALL_PROD] >>
+  res_tac >> fs [] >>
+  res_tac >> fs [] >>
+  rename1 `MEM _ (SND vvv)` >>
+  Cases_on `vvv` >> fs [] >>
+  res_tac >> fs [] >>
+  res_tac >> fs []);
 
 val EVERY_INTRO = Q.prove(
   `(!x::set s. P x) = EVERY P s`,
@@ -792,7 +802,7 @@ val apply_subst_list_side_def = definition"apply_subst_list_side_def";
 val apply_subst_side_def = definition"apply_subst_side_def";
 val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def";
-    
+
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
   `(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
    (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\
