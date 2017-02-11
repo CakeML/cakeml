@@ -35,6 +35,11 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 
 (* TODO: this section is full of stuff that needs to be moved *)
 
+val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
+  `nsLookup (Bind v []) k = SOME x ⇔
+   ∃y. k = Short y ∧ ALOOKUP v y = SOME x`,
+  Cases_on`k` \\ EVAL_TAC \\ simp[]);
+
 val from_stack = let
   val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
@@ -1343,53 +1348,56 @@ val compile_correct = Q.store_thm("compile_correct",
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
   `∃s2 env2 gtagenv.
      precondition s env c.source_conf s2 env2 ∧
-     FST env2.c = [] ∧
+     nsDomMod env2.c = {[]} ∧
      s2.globals = [] ∧
      s2.ffi = ffi ∧
      s2.refs = [] ∧
      s2.defined_types = s.defined_types ∧
-     s2.defined_mods = s.defined_mods ∧
-     envC_tagged env2.c prim_config.mod_conf.tag_env gtagenv ∧
-     exhaustive_env_correct prim_config.mod_conf.exh_ctors_env gtagenv ∧
+     (* s2.defined_mods = s.defined_mods ∧ *)
+     envC_tagged env2.c (prim_config:'a backend$config).mod_conf.tag_env gtagenv ∧
+     exhaustive_env_correct (prim_config:'a backend$config).mod_conf.exh_ctors_env gtagenv ∧
      gtagenv_wf gtagenv ∧
-     next_inv (IMAGE (SND o SND) (FRANGE (SND(prim_config.mod_conf.tag_env))))
-       prim_config.mod_conf.next_exception gtagenv` by (
+     next_inv s.defined_types
+       (prim_config:'a backend$config).mod_conf.next_exception gtagenv` by (
     simp[source_to_modProofTheory.precondition_def] >>
     simp[Abbr`env`,Abbr`s`] >>
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
     rw[source_to_modProofTheory.invariant_def] >>
     rw[source_to_modProofTheory.s_rel_cases] >>
     rw[source_to_modProofTheory.v_rel_cases] >>
-    rw[prim_config_eq] >>
-    Cases_on`ffi`>>rw[ffiTheory.ffi_state_component_equality] >>
-    fs[semanticPrimitivesTheory.merge_alist_mod_env_def] >>
-    CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[DOMSUB_FUPDATE_THM] THENC EVAL)) >>
-    rpt(CHANGED_TAC(CONV_TAC(PATH_CONV"brrrllr"(REWRITE_CONV[FRANGE_FUPDATE,DRESTRICT_FUPDATE] THENC EVAL)))) >>
-    rw[DRESTRICT_DRESTRICT] >>
-    rw[envC_tagged_def,
-       semanticPrimitivesTheory.lookup_alist_mod_env_def,
-       mod_to_conTheory.lookup_tag_env_def,
-       mod_to_conTheory.lookup_tag_flat_def,
-       FLOOKUP_DEF] >>
-    simp[id_CASE_eq_SOME,PULL_EXISTS] >>
-    simp[option_CASE_eq_SOME] >>
-    simp[astTheory.id_to_n_def] >>
-    simp[FAPPLY_FUPDATE_THM] >>
-    simp[pair_CASE_eq,PULL_EXISTS] >>
-    simp[COND_eq_SOME] >>
-    srw_tac[DNF_ss][] >>
-    (fn g =>
-       let
-         val tms = g |> #2 |> dest_exists |> #2
-                     |> dest_conj |> #1
-                     |> strip_conj |> filter is_eq
-         val fm = tms |> hd |> lhs |> rator |> rand
-         val ps = map ((rand ## I) o dest_eq) tms
-         val tm = finite_mapSyntax.list_mk_fupdate
-                  (finite_mapSyntax.mk_fempty (finite_mapSyntax.dest_fmap_ty(type_of fm)),
-                   map pairSyntax.mk_pair ps)
-       in exists_tac tm end g) >>
-    simp[FAPPLY_FUPDATE_THM] >>
+    rw[Once prim_config_eq] >>
+    rw[envC_tagged_def, mod_to_conTheory.lookup_tag_env_def,PULL_EXISTS] >>
+    CONV_TAC(PATH_CONV"blrbbblr"EVAL) >>
+    rw[prim_config_eq,option_fold_def] >>
+    CONV_TAC(PATH_CONV"blrbbbrbblr"EVAL) >>
+    (fn g as (asl,w) =>
+      let
+        val tms = w |> dest_exists |> #2
+                    |> dest_conj |> #1
+                    |> strip_forall |> #2
+                    |> dest_imp |> #2
+                    |> strip_exists |> #2
+                    |> funpow 2 (rand o rator)
+                    |> lhs |> funpow 2 (rand o rator)
+        val (ls,ty) = listSyntax.dest_list tms
+        val (ty1,ty2) = pairSyntax.dest_prod ty
+        val (ty2,ty3) = pairSyntax.dest_prod ty2
+        val (ty3,ty4) = pairSyntax.dest_prod ty3
+        val ty1 = pairSyntax.mk_prod(ty1,ty4)
+        val ty2 = pairSyntax.mk_prod (ty3,ty2)
+        fun fix_pair tm =
+          let val ls = pairSyntax.strip_pair tm
+          in pairSyntax.mk_pair(pairSyntax.mk_pair(el 1 ls, el 4 ls),
+                                pairSyntax.mk_pair(el 3 ls, el 2 ls))
+          end
+        val ls = map fix_pair ls
+        val fm = finite_mapSyntax.list_mk_fupdate
+                  (finite_mapSyntax.mk_fempty (ty1,ty2), ls)
+      in exists_tac fm end g) >>
+    conj_tac
+    >- (
+      Cases \\ simp[nsLookup_Bind_v_some,FLOOKUP_UPDATE,namespaceTheory.id_to_n_def] >>
+      rpt ( IF_CASES_TAC \\ fs[] \\ rveq \\ fs[] )) >>
     conj_tac >- (
       simp[exhaustive_env_correct_def,IN_FRANGE,FLOOKUP_UPDATE,PULL_EXISTS] >>
       srw_tac[DNF_ss][] >>
@@ -1398,7 +1406,7 @@ val compile_correct = Q.store_thm("compile_correct",
       EVAL_TAC >>
       simp[PULL_EXISTS]) >>
     conj_tac >- (
-      EVAL_TAC >> rw[] >> fs[semanticPrimitivesTheory.same_tid_def] ) >>
+      EVAL_TAC >> rw[] >> fs[semanticPrimitivesTheory.same_tid_def,namespaceTheory.id_to_n_def] ) >>
     simp[next_inv_def,PULL_EXISTS] >>
     simp[FLOOKUP_UPDATE] >>
     rw[] >> EVAL_TAC >>
@@ -1424,17 +1432,7 @@ val compile_correct = Q.store_thm("compile_correct",
   CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
   simp[mod_to_conProofTheory.cenv_inv_def] >>
   disch_then(qspec_then`gtagenv`mp_tac)>>
-  impl_tac >- (
-    rw[Abbr`s`,prim_config_eq] >>
-    fs[prim_config_eq] >>
-    qhdtm_x_assum`next_inv`mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    REWRITE_TAC[FRANGE_FUPDATE,DRESTRICT_FUPDATE,DOMSUB_FUPDATE_THM] >>
-    EVAL_TAC >> rw[SUBSET_DEF] >> fs[PULL_EXISTS] >>
-    res_tac >> fs[] >>
-    pop_assum mp_tac >>
-    rpt(CHANGED_TAC(REWRITE_TAC[FRANGE_FUPDATE,DRESTRICT_FUPDATE,DOMSUB_FUPDATE_THM] >> EVAL_TAC)) >>
-    rw[DRESTRICT_DRESTRICT] >> rw[]) >>
+  impl_tac >- ( fs[] >> rw[Abbr`s`,prim_config_eq] ) >>
   strip_tac >>
   pop_assum(assume_tac o SYM) >> simp[] >>
   qunabbrev_tac`c'''`>>
@@ -1469,7 +1467,6 @@ val compile_correct = Q.store_thm("compile_correct",
   qhdtm_x_assum`con_to_dec$compile`mp_tac >>
   `c'.next_global = 0` by (
     fs[source_to_modTheory.compile_def,LET_THM] >>
-    pairarg_tac >> fs[] >>
     pairarg_tac >> fs[] >>
     rveq >> simp[prim_config_eq] ) >> fs[] >>
   strip_tac >> fs[] >>
