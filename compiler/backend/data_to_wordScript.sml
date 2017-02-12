@@ -939,9 +939,16 @@ local val assign_quotation = `
               | _ => (Skip,l))
     | Mult => (dtcase args of
               | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
-                      (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE);
+                  [Assign 1 (ShiftVar Lsr (adjust_var v1) 1);
+                   Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                   Assign 3 (Op Or [Var 3;
+                               Op And [Const 1w;
+                                 Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
+                   Assign 1 (ShiftVar Lsr 1 1);
+                   If Equal 3 (Imm 0w) Skip
+                     (MustTerminate
+                       (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                        (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
     | Div => (dtcase args of
@@ -950,21 +957,19 @@ local val assign_quotation = `
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm (1w:'a word))
              (if c.has_div then
-                list_Seq
-                 [Inst (Arith (Div 1 (adjust_var v2) (adjust_var v1)));
-                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
               else if c.has_longdiv then
-                list_Seq
-                 [Assign 1 (Const 0w);
-                  Inst (Arith (LongDiv 1 3 (adjust_var v2) 1 (adjust_var v1)));
-                  Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+                list_Seq [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
               else
                 list_Seq
                   [Assign 1 (Const 0w);
                    MustTerminate
                     (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
                       (SOME LongDiv_location)
-                        [adjust_var v1; 1; adjust_var v2] NONE);
+                        [1; adjust_var v1; adjust_var v2] NONE);
                    Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
              (list_Seq
                 [MustTerminate
@@ -972,13 +977,34 @@ local val assign_quotation = `
                       (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
                  Move 2 [(adjust_var dest,1)]])],l + 2)
                   | _ => (Skip,l))
-        | Mod => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+    | Mod => (dtcase args of
+              | [v1;v2] => (list_Seq [
+           Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+           Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
+           If Test 1 (Imm (1w:'a word))
+             (if c.has_div then
+                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
+                          Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                          Assign (adjust_var dest)
+                            (Op Sub [Var (adjust_var v1); Var 1])]
+              else if c.has_longdiv then
+                list_Seq [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
+                          Move 2 [(adjust_var dest,3)]]
+              else
+                list_Seq
+                  [Assign 1 (Const 0w);
+                   MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
+                      (SOME LongDiv_location)
+                        [1; adjust_var v1; adjust_var v2] NONE);
+                   Get (adjust_var dest) (Temp 28w)])
+             (list_Seq
+                [MustTerminate
+                   (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
-                   Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
+                 Move 2 [(adjust_var dest,1)]])],l + 2)
+                  | _ => (Skip,l))
     | WordOp W8 opw =>
       (dtcase args of
         | [v1;v2] =>

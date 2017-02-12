@@ -156,11 +156,11 @@ val ssa_cc_trans_inst_def = Define`
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(0,r3');(8,r4')] in
+    let mov_in = Move 0 [(8,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
     let mov_out = Move 0 [(r2',8);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 0 8 r5'))) mov_out),ssa'',na'')) ∧
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 8 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in

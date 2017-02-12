@@ -64,8 +64,9 @@ val valid_immediate_thm = Q.prove(
         if (b = INL Add) \/ (b = INL Sub) \/
            (b = INR Less) \/ (b = INR Lower) \/ (b = INR Equal) \/
            (b = INR NotLess) \/ (b = INR NotLower) \/ (b = INR NotEqual) then
-           ((0xFFFw && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) \/
-           (0xFFFw && c) <> 0w /\ ((0xFFFFFFFFFFFFF000w && c) = 0w)
+           ((0xFFFFFFFFFFFFF000w && c) = 0w) \/
+           ((0xFFFFFFFFFFFFF000w && c) <> 0w) /\
+           ((0xFFFFFFFFFF000FFFw && c) = 0w)
         else
            ?N imms immr. EncodeBitMask c = SOME (N, imms, immr)`,
    Cases
@@ -93,7 +94,14 @@ val lem6 = bitstringLib.v2w_n2w_CONV ``v2w [T; T; T; T; T; T] : word6``
 val lem7 =
    blastLib.BBLAST_PROVE
      ``!c: word64.
-        0xFFFFFFFFFFFFFF00w <= c /\ c <= 255w ==>
+        0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw /\ word_msb c  ==>
+        (c = sw2sw ((8 >< 0) c : word9))``
+
+val lem7b =
+   blastLib.BBLAST_PROVE
+     ``!c: word64.
+        0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw /\
+        c <> w2w ((11 >< 0) c : word12) ==>
         (c = sw2sw ((8 >< 0) c : word9))``
 
 val lem8 = Q.prove(
@@ -137,15 +145,41 @@ val lem13 = Q.prove(
 
 val lem14 = Q.prove(
    `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n < 31 /\
+      target_state_rel arm8_target s state /\ n <> 26 /\ n <> 31 /\ n < 32 /\
       aligned 3 (c + s.regs n) ==> aligned 3 (c + state.REG (n2w n))`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
+(*
+val lem14b = Q.prove(
+   `!s state c: word64 n.
+      target_state_rel arm8_target s state /\ n <> 26 /\ n <> 31 /\ n < 32 /\
+      aligned 2 (c + s.regs n) ==> aligned 2 (c + state.REG (n2w n))`,
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
+   )
+*)
+
 val lem16 =
    blastLib.BBLAST_PROVE
     ``!c: word64.
-       0xFFFFFFFFFFFFFF00w <= c /\ c <= 255w ==>
+       0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw /\ word_msb c ==>
+       (sw2sw (v2w
+               [c ' 8; c ' 7; c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1;
+                c ' 0] : word9) = c)``
+
+val lem16b =
+   blastLib.BBLAST_PROVE
+    ``!c: word64.
+       0xFFFFFFFFFFFFFF00w <= c /\ c <= 0xFFFw /\
+       c <> w2w ((11 >< 0) c : word12) ==>
+       (sw2sw (v2w
+               [c ' 8; c ' 7; c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1;
+                c ' 0] : word9) = c)``
+
+val lem16c =
+   blastLib.BBLAST_PROVE
+    ``!c: word64.
+       (c = sw2sw ((8 >< 0) c : word9)) ==>
        (sw2sw (v2w
                [c ' 8; c ' 7; c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1;
                 c ' 0] : word9) = c)``
@@ -166,13 +200,6 @@ val lem18 = Q.prove(
    blastLib.BBLAST_TAC
    )
 
-val lem19 = Q.prove(
-   `!s state c: word64 n.
-      target_state_rel arm8_target s state /\ n < 31 /\
-      aligned 2 (c + s.regs n) ==> aligned 2 (c + state.REG (n2w n))`,
-   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
-   )
-
 val lem20 = blastLib.BBLAST_PROVE ``a <> b ==> (a + -1w * b <> 0w: word64)``
 
 val lem21 =
@@ -190,11 +217,11 @@ val lem22 =
 val lem23 =
    blastLib.BBLAST_PROVE
       ``!c: word64.
-         ((4095w && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) ==>
-          ((-1w *
-           w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
-                     c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12))
-            << 12 = -c)``
+         ((0xFFFFFFFFFF000FFFw && c) = 0w) ==>
+         ((-1w *
+          w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
+                    c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12))
+           << 12 = -c)``
 
 val lem24 =
    blastLib.BBLAST_PROVE ``!c: word64 n. n <> c ==> (-1w * c + n <> 0w)``
@@ -209,10 +236,10 @@ val lem25 =
 val lem26 =
    blastLib.BBLAST_PROVE
       ``!c: word64.
-         ((4095w && c) = 0w) /\ ((0xFFFFFFFFFF000000w && c) = 0w) ==>
-          (w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
-                     c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12)
-            << 12 = c)``
+         ((0xFFFFFFFFFF000FFFw && c) = 0w) ==>
+         (w2w (v2w [c ' 23; c ' 22; c ' 21; c ' 20; c ' 19; c ' 18;
+                    c ' 17; c ' 16; c ' 15; c ' 14; c ' 13; c ' 12] : word12)
+           << 12 = c)``
 
 val lem27 = Q.prove(
    `!c: word64 q r.
@@ -237,6 +264,102 @@ val lem28 = metisLib.METIS_PROVE [wordsTheory.WORD_NOT_NOT]
 val lem29 = Q.prove( `!i. i < 31 ==> (i MOD 32 <> 31)`, rw [] )
 
 val lem30 = DECIDE ``!a. a < 32n /\ a <> 31 <=> a < 31``
+
+val lem31 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+       0xFFFFFFFFFFFFEF01w <= c /\
+       c <> sw2sw ((8 >< 0) c : word9) /\
+       word_msb c ==>
+       ((0xFFFFFFFFFFFFF000w && (-1w * c + 0xFFFFFFFFFFFFFF00w)) = 0w)``
+
+val lem32 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+      0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw ==>
+      (v2w [c ' 11 <=>
+            c ' 10 /\ c ' 9 /\ c ' 8 /\
+            (c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3 \/ c ' 2 \/
+             c ' 1 \/ c ' 0);
+            c ' 10 <=>
+            c ' 9 /\ c ' 8 /\
+            (c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3 \/ c ' 2 \/
+             c ' 1 \/ c ' 0);
+            c ' 9 <=>
+            c ' 8 /\
+            (c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3 \/ c ' 2 \/
+             c ' 1 \/ c ' 0);
+            c ' 8 <=>
+            c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3 \/ c ' 2 \/
+            c ' 1 \/ c ' 0;
+            c ' 7 <=>
+            ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\ ~c ' 3 /\ ~c ' 2 /\
+            ~c ' 1 /\ ~c ' 0;
+            c ' 6 <=>
+            ~c ' 5 /\ ~c ' 4 /\ ~c ' 3 /\ ~c ' 2 /\ ~c ' 1 /\
+            ~c ' 0;
+            c ' 5 <=>
+            ~c ' 4 /\ ~c ' 3 /\ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+            c ' 4 <=> ~c ' 3 /\ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+            c ' 3 <=> ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+            c ' 2 <=> ~c ' 1 /\ ~c ' 0; ~c ' 1 <=> c ' 0; c ' 0] : word12 =
+        (11 >< 0) (-1w * c - 0x100w))``
+
+val lem33 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+      0xFFFFFFFFFFFFEF01w <= c /\
+      c <> sw2sw ((8 >< 0) c : word9) /\ word_msb c ==>
+      (-1w * w2w ((11 >< 0) (-1w * c + 0xFFFFFFFFFFFFFF00w) : word12) =
+       c + 0x100w)``
+
+val lem35 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+       c <= 0x10FEw /\
+       c <> sw2sw ((8 >< 0) c : word9) /\
+       ~word_msb c ==>
+       ((0xFFFFFFFFFFFFF000w && (c + 0xFFFFFFFFFFFFFF01w)) = 0w)``
+
+val lem36 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+      0xFFFFFFFFFFFFEF01w <= c /\ c <= 0x10FEw ==>
+      (v2w [c ' 11 <=>
+            c ' 10 \/ c ' 9 \/ c ' 8 \/
+            c ' 7 /\ c ' 6 /\ c ' 5 /\ c ' 4 /\ c ' 3 /\
+            c ' 2 /\ c ' 1 /\ c ' 0;
+            c ' 10 <=>
+            c ' 9 \/ c ' 8 \/
+            c ' 7 /\ c ' 6 /\ c ' 5 /\ c ' 4 /\ c ' 3 /\
+            c ' 2 /\ c ' 1 /\ c ' 0;
+            c ' 9 <=>
+            c ' 8 \/
+            c ' 7 /\ c ' 6 /\ c ' 5 /\ c ' 4 /\ c ' 3 /\
+            c ' 2 /\ c ' 1 /\ c ' 0;
+            c ' 8 <=>
+            c ' 7 /\ c ' 6 /\ c ' 5 /\ c ' 4 /\ c ' 3 /\
+            c ' 2 /\ c ' 1 /\ c ' 0;
+            c ' 7 <=>
+            ~c ' 6 \/ ~c ' 5 \/ ~c ' 4 \/ ~c ' 3 \/ ~c ' 2 \/
+            ~c ' 1 \/ ~c ' 0;
+            c ' 6 <=>
+            ~c ' 5 \/ ~c ' 4 \/ ~c ' 3 \/ ~c ' 2 \/ ~c ' 1 \/
+            ~c ' 0;
+            c ' 5 <=>
+            ~c ' 4 \/ ~c ' 3 \/ ~c ' 2 \/ ~c ' 1 \/ ~c ' 0;
+            c ' 4 <=> ~c ' 3 \/ ~c ' 2 \/ ~c ' 1 \/ ~c ' 0;
+            c ' 3 <=> ~c ' 2 \/ ~c ' 1 \/ ~c ' 0;
+            c ' 2 <=> ~c ' 1 \/ ~c ' 0; c ' 1 <=> ~c ' 0;
+            ~c ' 0] : word12 = (11 >< 0) (c - 0xFFw))``
+
+val lem37 =
+  blastLib.BBLAST_PROVE
+    ``!c : word64.
+       c <= 0x10FEw /\
+       c <> sw2sw ((8 >< 0) c : word9) /\
+       ~word_msb c ==>
+       (w2w ((11 >< 0) (c + 0xFFFFFFFFFFFFFF01w) : word12) = c - 0xFFw)``
 
 val ev = EVAL THENC DEPTH_CONV bitstringLib.v2w_n2w_CONV
 
@@ -449,16 +572,18 @@ val encode_rwts =
    let
       open arm8Theory
    in
-      [arm8_enc, arm8_ast, arm8_encode_def, Encode_def, e_data_def,
-       e_branch_def, e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
-       EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
-       SystemHintOp2num_thm, ShiftType2num_thm, asmSemTheory.is_test_def
+      [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_encode_def, Encode_def,
+       e_data_def, e_branch_def, e_load_store_def, e_sf_def,
+       e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
+       ShiftType2num_thm, SystemHintOp2num_thm, ShiftType2num_thm,
+       asmSemTheory.is_test_def
       ]
    end
 
 val enc_rwts =
    [arm8_config, asmPropsTheory.offset_monotonic_def, cmp_cond_def,
-    valid_immediate_thm, lem3, lem7, lem8, lem9, lem10, lem11, arm8_asm_ok] @
+    valid_immediate_thm, lem3, lem7, lem7b, lem8, lem9, lem10, lem11,
+    arm8_asm_ok] @
    encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
@@ -562,9 +687,11 @@ fun next_state_tac0 imp_res pick fltr q =
    \\ rfs []
    \\ fs [lem1, lem2, lem3, lem5, lem6, GSYM wordsTheory.WORD_NOT_LOWER]
    \\ asmLib.byte_eq_tac
-   \\ rfs [lem13, lem16, lem17, lem18, lem20, lem21, lem22, lem23, lem24, lem25,
-           lem26, comm lem21, comm lem22, lem29, combinTheory.UPDATE_APPLY,
-           ShiftValue0, alignmentTheory.aligned_numeric,
+   \\ rfs [lem13, lem16, lem16b, lem16c, lem17, lem18, lem20, lem21, lem22,
+           lem23, lem24, lem25, lem26, comm lem21, comm lem22, lem29, lem32,
+           lem33, lem36, lem37,
+           combinTheory.UPDATE_APPLY, ShiftValue0,
+           alignmentTheory.aligned_numeric,
            arm8_stepTheory.ConditionTest, wordsTheory.ADD_WITH_CARRY_SUB,
            ConditionTest_not_overflow, wordsTheory.WORD_NOT_LOWER_EQUAL]
 
@@ -659,7 +786,7 @@ val arm8_encoding = Q.prove (
   strip_tac
   \\ asmLib.asm_cases_tac `i`
   \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
-           arm8_encode_fail_def, arm8_ast]
+           arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def]
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode]
   )
@@ -875,25 +1002,48 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
              Mem
            --------------*)
          \\ print_tac "Mem"
-         \\ next_tac `0`
          \\ Cases_on `a`
          \\ Cases_on `m`
          >| [
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`,
-         (* Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)`, *)
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-            Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
-         (* Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 2)) << 2)` *)
+            Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+            >| [next_tac `0`
+                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                Cases_on `word_msb c`
+                >| [next_tac `1`,
+                    Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                    >| [next_tac `0`,
+                        next_tac `1`
+                    ]
+                ]
+            ]
+            ,
+            next_tac `0`
+            \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+            ,
+            Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+            >| [next_tac `0`
+                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                Cases_on `word_msb c`
+                >| [next_tac `1`,
+                    Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                    >| [next_tac `0`,
+                        next_tac `1`
+                    ]
+                ]
+            ]
+            ,
+            next_tac `0`
+            \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
          ]
          \\ enc_rwts_tac
          \\ rfs []
-         \\ fs []
+         \\ fs [lem7, lem7b, lem31, lem35]
          \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
-                 by (imp_res_tac lem14 \\ NO_TAC)
-                 ORELSE `aligned 2 (c + ms.REG (n2w n'))`
-                        by (imp_res_tac lem19 \\ NO_TAC))
+                 by (imp_res_tac lem14 \\ NO_TAC))
+         \\ split_bytes_in_memory_tac 4
          \\ next_state_tac01
+         \\ TRY (asmLib.split_bytes_in_memory_tac 4
+                 \\ next_state_tacN (`4w`, 1) filter_reg_31)
          \\ state_tac
                [arm8_stepTheory.mem_dword_def, arm8_stepTheory.mem_word_def,
                 arm8Theory.ExtendWord_def, set_sepTheory.fun2set_eq]

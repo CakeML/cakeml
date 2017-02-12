@@ -17,7 +17,7 @@ fun write_mem_word n =
    |> SIMP_RULE (srw_ss()) []
 
 val asm_ok_rwts =
-   [asm_ok_def, inst_ok_def, addr_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
+   [asm_ok_def, inst_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
     reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
 
 val asm_rwts =
@@ -161,6 +161,8 @@ in
           [] => NO_TAC
         | l :: _ =>
             let
+               val _ = n <= List.length l orelse
+                       raise ERR "split_bytes_in_memory_tac" "too few bytes"
                val l1 = listSyntax.mk_list (List.take (l, n), w8)
                val l2 = listSyntax.mk_list (List.drop (l, n), w8)
                val l = listSyntax.mk_list (l, w8)
