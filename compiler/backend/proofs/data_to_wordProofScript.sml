@@ -11211,13 +11211,24 @@ val comp_no_inst = Q.prove(`
   EVAL_TAC>>fs[]);
 
 val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_conventions",`
+  good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
-    flat_exp_conventions prog ∧
+    flat_exp_conventions (prog:'a prog) ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-    addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒ full_inst_ok_less ac prog) ∧
+    addr_offset_ok ac 0w /\
+    byte_offset_ok ac 0w /\
+    byte_offset_ok ac 1w /\
+    byte_offset_ok ac 2w /\
+    byte_offset_ok ac 3w /\
+    (dimindex(:'a) <> 32 ==>
+      byte_offset_ok ac 4w /\
+      byte_offset_ok ac 5w /\
+      byte_offset_ok ac 6w /\
+      byte_offset_ok ac 7w )
+    ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p`,
  fs[data_to_wordTheory.compile_def]>>
  qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
@@ -11229,11 +11240,17 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
  simp[Abbr`p`]>>rw[]
  >-
    (pop_assum mp_tac>>
-   qpat_assum`data_conf.has_longdiv ⇒ P` mp_tac>>
-   qpat_assum`data_conf.has_div⇒ P` mp_tac>>
+   qpat_x_assum`data_conf.has_longdiv ⇒ P` mp_tac>>
+   qpat_x_assum`data_conf.has_div⇒ P` mp_tac>>
+   rpt(qpat_x_assum`byte_offset_ok _ _` mp_tac)>>
+   qpat_x_assum`_ ==> byte_offset_ok _ _ /\ _` mp_tac>>
+   qpat_x_assum`good_dimindex _` mp_tac>>
    rpt(pop_assum kall_tac)>>
    fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
-   rpt(EVAL_TAC>>rw[]))
+   EVAL_TAC>>rw[]>> TRY(pairarg_tac \\ fs[]) >> EVAL_TAC >> fs[] >>
+   fs[good_dimindex_def] \\ fs[] \\ EVAL_TAC \\ fs[dimword_def] >>
+   rpt(qhdtm_x_assum`offset_ok`mp_tac) >> EVAL_TAC \\ simp[] >>
+   rpt(pairarg_tac \\ fs[]))
  >>
    fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
    match_mp_tac comp_no_inst>>fs[])
