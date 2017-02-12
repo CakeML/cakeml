@@ -392,7 +392,7 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
   >-
     (simp[Once inst_find_name_def]>>every_case_tac>>
-    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.addr_ok_def]>>
+    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def]>>
     (* Some of these are extremely annoying to prove with the separation of
        stack_names and configs... *)
     TRY(metis_tac[names_ok_imp,names_ok_imp2])

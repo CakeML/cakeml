@@ -302,9 +302,6 @@ val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
-val _ = translate x64_names_def
-val _ = translate arm_names_def
-
 open stack_to_labTheory
 
 val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
@@ -328,12 +325,13 @@ val _ = translate (conv64 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_E
 
 val _ = translate (conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
+val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
-
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

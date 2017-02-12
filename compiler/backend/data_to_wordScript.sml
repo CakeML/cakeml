@@ -10,7 +10,9 @@ val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
-            ; len_size : num (* size of length field in block header *) |>`
+            ; len_size : num (* size of length field in block header *)
+            ; has_div : bool (* Div available in target *)
+            ; has_longdiv : bool (* LongDiv available in target *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
@@ -336,31 +338,131 @@ val Replicate_code_def = Define `
                  Call NONE (SOME Replicate_location) [0;2;4;6;8] NONE])
       :'a wordLang$prog`;
 
+val AddNumSize_def = Define `
+  AddNumSize c src =
+    If Equal (adjust_var src) (Imm 0w) Skip
+      (If Test (adjust_var src) (Imm 1w)
+         (Assign 1 (Op Add [Var 1; Const 4w]))
+       (Assign 1 (Op Add [Var 1;
+         (Shift Lsl (Shift Lsr
+            (Load (real_addr c (adjust_var src)))
+               (Nat (dimindex (:'a) - c.len_size))) (Nat 2))]))):'a prog`
+
+val AnyHeader_def = Define `
+  AnyHeader c r a t1 (* header *) t2 (* pointer *) t3 (* payload *) =
+    If Equal r (Imm (0w:'a word))
+      (list_Seq [Assign 7 (Const 0w);
+                 Set (Temp t1) (Var r);
+                 Set (Temp t2) (Var r);
+                 Set (Temp t3) (Var r)])
+   (If NotTest r (Imm 1w)
+      (list_Seq
+        [Assign 7 (real_addr c r);
+         Set (Temp t2) (Op Add [Var 7; Const bytes_in_word]);
+         Set (Temp t1) (Op Add
+           [Shift Lsl (Shift Lsr (Load (Var 7)) (Nat ((dimindex (:'a)) - c.len_size))) (Nat 1);
+            Op And [Const 1w; Shift Lsr (Load (Var 7)) (Nat 4)]]);
+         Set (Temp t3) (Const 0w)])
+   (If NotLess r (Imm 0w)
+      (list_Seq
+        [Set (Temp t1) (Const 2w);
+         Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
+         Set (Temp t3) (Shift Lsr (Var r) (Nat 2));
+         Assign 7 (Const 0w)])
+      (list_Seq
+        [Set (Temp t1) (Const 3w);
+         Set (Temp t2) (Lookup (if a then OtherHeap else NextFree));
+         Set (Temp t3) (Op Sub [Const 0w; Shift Asr (Var r) (Nat 2)]);
+         Assign 7 (Const 0w)])))`
+
+val ShiftVar_def = Define `
+  ShiftVar sh v n =
+    if n = 0 then Var v else
+    if dimindex (:'a) <= n then
+      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
+    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
+
 val AnyArith_code_def = Define `
-  AnyArith_code c = GiveUp:'a wordLang$prog`;
+  AnyArith_code c = list_Seq [
+      (* perform allocation *)
+      Assign 1 (Const 4w);
+      AddNumSize c 0;
+      AddNumSize c 1;
+      Set (Temp 29w) (Var 1);
+      AllocVar (2 ** c.len_size) (fromList [();();()]);
+      (* convert smallnums to bignum if necessary *)
+      AnyHeader c 2 F 0w 31w 12w;
+      AnyHeader c 4 T 1w 30w 11w;
+      Get 1 (Temp 11w);
+      Store (Lookup OtherHeap) 1;
+      Get 1 (Temp 12w);
+      Store (Lookup NextFree) 1;
+      Get 1 (Temp 29w);
+      Assign 2 (Lookup NextFree);
+      Set (Temp 29w) (Var 2);
+      Set (Temp 3w) (Shift Lsr (Var 6) (Nat 2));
+      Assign 3 (Const 0w);
+      (* zero out result array *)
+      Call (SOME (0,fromList [()],Skip,AnyArith_location,1))
+        (SOME Replicate_location) [2;3;1;0] NONE;
+      (* perform bignum calculation *)
+      Set (Temp 29w) (Op Add [Lookup (Temp 29w); Const bytes_in_word]);
+      Call (SOME (1,fromList [()],Skip,AnyArith_location,2))
+        (SOME Bignum_location) [] NONE;
+      (* convert bignum to smallnum if possible without loss of info *)
+      Get 1 (Temp 10w);
+      If Test 1 (Reg 1) (Return 0 1) Skip;
+      Assign 3 (Load (Op Add [Lookup NextFree; Const bytes_in_word]));
+      If Equal 1 (Imm 2w)
+        (Seq (Assign 5 (Shift Lsr (Var 3) (Nat (dimindex (:'a) - 3))))
+             (If Test 5 (Reg 5)
+                (Seq (Assign 1 (Shift Lsl (Var 3) (Nat 2)))
+                     (Return 0 1))
+                Skip))
+        (If Equal 1 (Imm 3w)
+          (Seq (Assign 5 (Shift Lsr (Op Sub [Var 3; Const 1w])
+                            (Nat (dimindex (:'a) - 3))))
+               (If Test 5 (Reg 5)
+                  (Seq (Assign 1 (Op Sub [Const 0w; Shift Lsl (Var 3) (Nat 2)]))
+                       (Return 0 1))
+                  Skip))
+          (Assign 5 (Const 0w)));
+      (* return the bignum *)
+      Assign 5 (Lookup NextFree);
+      Assign 6 (ShiftVar Lsr 1 1);
+      Assign 8 (Op And [Var 1; Const 1w]);
+      Assign 7 (Op Or [Const 0b1111w;
+                       ShiftVar Lsl 6 (dimindex (:'a) − c.len_size);
+                       ShiftVar Lsl 8 4]);
+      Store (Var 5) 7;
+      Assign 1 (Op Sub [Var 5; Lookup CurrHeap]);
+      Assign 1 (Op Or [ShiftVar Lsl 1 (shift_length c − shift (:'a)); Const 1w]);
+      Set NextFree (Op Add [Var 5; Const bytes_in_word;
+                            ShiftVar Lsl 6 (shift (:'a))]);
+      Return 0 1]:'a wordLang$prog`;
 
 val Add_code_def = Define `
-  Add_code = Seq (Assign 6 (Const 0w))
+  Add_code = Seq (Assign 6 (Const (n2w (4 * 0))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Sub_code_def = Define `
-  Sub_code = Seq (Assign 6 (Const 4w))
+  Sub_code = Seq (Assign 6 (Const (n2w (4 * 1))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Mul_code_def = Define `
-  Mul_code = Seq (Assign 6 (Const 8w))
+  Mul_code = Seq (Assign 6 (Const (n2w (4 * 4))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Div_code_def = Define `
-  Div_code = Seq (Assign 6 (Const 12w))
+  Div_code = Seq (Assign 6 (Const (n2w (4 * 5))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
 val Mod_code_def = Define `
-  Mod_code = Seq (Assign 6 (Const 16w))
+  Mod_code = Seq (Assign 6 (Const (n2w (4 * 6))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
 
@@ -422,13 +524,6 @@ val Compare_code_def = Define `
                             (Seq (Assign 2 (Const 2w)) (Return 0 2))
                             (Seq (Assign 2 (Const 0w)) (Return 0 2)))))]))`;
 
-val ShiftVar_def = Define `
-  ShiftVar sh v n =
-    if n = 0 then Var v else
-    if dimindex (:'a) <= n then
-      if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
-    else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
-
 val Equal1_code_def = Define `
   Equal1_code =
     list_Seq [
@@ -481,10 +576,41 @@ val Equal_code_def = Define `
       Call NONE (SOME Compare1_location) [0;6;2;4] NONE]`;
 
 val LongDiv_code_def = Define `
-  LongDiv_code c = Skip:'a wordLang$prog`;
+  LongDiv_code c =
+    if c.has_longdiv then
+      list_Seq [Inst (Arith (LongDiv 1 3 2 4 6));
+                Set (Temp 28w) (Var 3);
+                Return 0 1]
+    else
+      Seq (Assign 10 (Const (0w:'a word)))
+     (Seq (Assign 11 (Const (n2w (dimindex (:'a)))))
+          (Call NONE (SOME LongDiv1_location) [0;11;6;10;10;4;2] NONE))`;
 
 val LongDiv1_code_def = Define `
-  LongDiv1_code c = Skip:'a wordLang$prog`;
+  LongDiv1_code c =
+    if c.has_longdiv then Skip else
+    (* the following code is based on multiwordTheory.single_div_loop_def *)
+      If Test 2 (Reg 2)
+        (Seq (Set (Temp 28w) (Var 10):'a wordLang$prog) (Return 0 8))
+        (list_Seq [Assign 6 (Op Or [ShiftVar Lsr 6 1;
+                                    ShiftVar Lsl 4 (dimindex (:'a) - 1)]);
+                   Assign 4 (ShiftVar Lsr 4 1);
+                   Assign 8 (ShiftVar Lsl 8 1);
+                   Assign 2 (Op Sub [Var 2; Const (1w:'a word)]);
+                   If Lower 12 (Reg 4)
+                     (Call NONE (SOME LongDiv1_location)
+                       [0;2;4;6;8;10;12] NONE) Skip;
+                   If Equal 12 (Reg 4)
+                     (If Lower 10 (Reg 6)
+                        (Call NONE (SOME LongDiv1_location)
+                           [0;2;4;6;8;10;12] NONE) Skip) Skip;
+                   Assign 8 (Op Add [Var 8; Const 1w]);
+                   Assign 16 (Op Xor [Var 6; Const (-1w)]);
+                   Assign 14 (Op Xor [Var 4; Const (-1w)]);
+                   Assign 1 (Const 1w);
+                   Inst (Arith (AddCarry 10 10 16 1));
+                   Inst (Arith (AddCarry 12 12 14 1));
+                   Call NONE (SOME LongDiv1_location) [0;2;4;6;8;10;12] NONE])`;
 
 val get_names_def = Define `
   (get_names NONE = LN) /\
@@ -779,25 +905,72 @@ local val assign_quotation = `
               | _ => (Skip,l))
     | Mult => (dtcase args of
               | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
-                      (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE);
+                  [Assign 1 (ShiftVar Lsr (adjust_var v1) 1);
+                   Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                   Assign 3 (Op Or [Var 3;
+                               Op And [Const 1w;
+                                 Op Or [Var (adjust_var v1); Var (adjust_var v2)]]]);
+                   Assign 1 (ShiftVar Lsr 1 1);
+                   If Equal 3 (Imm 0w) Skip
+                     (MustTerminate
+                       (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                        (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
               | _ => (Skip,l))
     | Div => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+              | [v1;v2] => (list_Seq [
+           Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+           Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
+           If Test 1 (Imm (1w:'a word))
+             (if c.has_div then
+                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+              else if c.has_longdiv then
+                list_Seq [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
+                          Assign (adjust_var dest) (ShiftVar Lsl 1 2)]
+              else
+                list_Seq
+                  [Assign 1 (Const 0w);
+                   MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
+                      (SOME LongDiv_location)
+                        [1; adjust_var v1; adjust_var v2] NONE);
+                   Assign (adjust_var dest) (ShiftVar Lsl 1 2)])
+             (list_Seq
+                [MustTerminate
+                   (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
-                   Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
+                 Move 2 [(adjust_var dest,1)]])],l + 2)
+                  | _ => (Skip,l))
     | Mod => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [MustTerminate
-                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+              | [v1;v2] => (list_Seq [
+           Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
+           Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
+           If Test 1 (Imm (1w:'a word))
+             (if c.has_div then
+                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
+                          Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+                          Assign (adjust_var dest)
+                            (Op Sub [Var (adjust_var v1); Var 1])]
+              else if c.has_longdiv then
+                list_Seq [Assign 1 (Const 0w);
+                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
+                          Move 2 [(adjust_var dest,3)]]
+              else
+                list_Seq
+                  [Assign 1 (Const 0w);
+                   MustTerminate
+                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l+1))
+                      (SOME LongDiv_location)
+                        [1; adjust_var v1; adjust_var v2] NONE);
+                   Get (adjust_var dest) (Temp 28w)])
+             (list_Seq
+                [MustTerminate
+                   (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
-                   Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
+                 Move 2 [(adjust_var dest,1)]])],l + 2)
+                  | _ => (Skip,l))
     | WordOp W8 opw =>
       (dtcase args of
         | [v1;v2] =>
@@ -1109,7 +1282,7 @@ val stubs_def = Define`
     (Compare_location,3n,Compare_code data_conf);
     (Equal1_location,4n,Equal1_code);
     (Equal_location,3n,Equal_code data_conf);
-    (LongDiv1_location,4n,LongDiv1_code data_conf);
+    (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Dummy_location,0n,Dummy_code)
   ] ++ generated_bignum_stubs Bignum_location`;

@@ -440,14 +440,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
     ,data_to_wordTheory.Equal_code_def
-    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.LongDiv_code_def
+    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.Dummy_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.ShiftVar_def
+    ,data_to_wordTheory.AnyHeader_def
+    ,data_to_wordTheory.AddNumSize_def
     ,multiwordTheory.n2mw_def
     ,multiwordTheory.i2mw_def
     ,data_to_wordTheory.bignum_words_def
@@ -716,12 +718,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_namesTheory.comp_def
     ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.compile_def
-    ,stack_namesTheory.x64_names_def
-    ,stack_namesTheory.arm_names_def
-    ,stack_namesTheory.arm8_names_def
-    ,stack_namesTheory.mips_names_def
-    ,stack_namesTheory.riscv_names_def
-      (* ---- stack_to_lab ---- *)
+    (* ---- stack_to_lab ---- *)
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
     ,stack_to_labTheory.flatten_def
