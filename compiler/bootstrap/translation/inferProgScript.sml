@@ -555,15 +555,15 @@ val EqualityType_AST_LIT_TYPE = find_equality_type_thm``AST_LIT_TYPE``
   |> SIMP_RULE std_ss [EqualityType_CHAR,EqualityType_LIST_TYPE_CHAR,
                        EqualityType_INT,EqualityType_BOOL,EqualityType_WORD]
 
-val EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``AST_ID_TYPE a``
-  |> Q.GEN`a` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
+(* (string,string) id*)
+val EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``NAMESPACE_ID_TYPE m n`` |> Q.GEN`m` |> Q.ISPEC`LIST_TYPE CHAR` |> Q.GEN`n` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
 
-val EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
-  |> Q.GEN`a` |> Q.ISPEC`AST_ID_TYPE (LIST_TYPE CHAR)`
-  |> SIMP_RULE std_ss [EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR]
+val EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
+  |> Q.GEN`a` |> Q.ISPEC`NAMESPACE_ID_TYPE (LIST_TYPE CHAR) (LIST_TYPE CHAR)`
+  |> SIMP_RULE std_ss [EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR]
 
 val EqualityType_AST_TCTOR_TYPE = find_equality_type_thm``AST_TCTOR_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR]
+  |> SIMP_RULE std_ss [EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR]
 
 val AST_T_TYPE_no_closures = Q.prove(
   `∀a b. AST_T_TYPE a b ⇒ no_closures b`,
@@ -638,7 +638,7 @@ val AST_PAT_TYPE_no_closures = Q.prove(
     Induct >> simp[LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
     rw[] >> METIS_TAC[] ) >>
   METIS_TAC[EqualityType_def,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
             EqualityType_AST_LIT_TYPE,
             EqualityType_AST_T_TYPE,
             EqualityType_LIST_TYPE_CHAR])
@@ -657,7 +657,8 @@ val AST_PAT_TYPE_types_match = Q.prove(
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[types_match_def,ctor_same_type_def] >>
     METIS_TAC[] ) >>
   METIS_TAC[EqualityType_def,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_LIT_TYPE,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,EqualityType_AST_T_TYPE])
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_AST_T_TYPE])
 
 val AST_PAT_TYPE_11 = Q.prove(
   `∀a b c d. AST_PAT_TYPE a b ∧ AST_PAT_TYPE c d ⇒ (a = c ⇔ b = d)`,
@@ -667,7 +668,7 @@ val AST_PAT_TYPE_11 = Q.prove(
   ( METIS_TAC[EqualityType_def,EqualityType_AST_T_TYPE] )
   >- (
     rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
-    `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_def,EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] >>
+    `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_def, EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
     simp[] >>
     ntac 3 (pop_assum kall_tac) >> pop_assum mp_tac >>
     map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
@@ -676,7 +677,7 @@ val AST_PAT_TYPE_11 = Q.prove(
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[] >>
     METIS_TAC[] ) >>
   METIS_TAC[EqualityType_def,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_LIT_TYPE,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR])
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR])
 
 val EqualityType_AST_PAT_TYPE = Q.prove(
   `EqualityType AST_PAT_TYPE`,
@@ -701,6 +702,8 @@ val EqualityType_AST_LOP_TYPE = find_equality_type_thm``AST_LOP_TYPE``
 val EqualityType_OPTION_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
   |> Q.GEN`a` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
 
+val EqualityType_AST_LOCN_TYPE = find_equality_type_thm ``AST_LOCN_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM]
+
 val AST_EXP_TYPE_no_closures = Q.prove(
   `∀a b. AST_EXP_TYPE a b ⇒ no_closures b`,
   ho_match_mp_tac AST_EXP_TYPE_ind >>
@@ -719,9 +722,9 @@ val AST_EXP_TYPE_no_closures = Q.prove(
     METIS_TAC[EqualityType_def,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_PAT_TYPE] ) >>
   METIS_TAC[EqualityType_def,EqualityType_OPTION_TYPE_LIST_TYPE_CHAR,
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
-            EqualityType_LIST_TYPE_CHAR,EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE])
+            EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
 
 val AST_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. AST_EXP_TYPE a b ∧ AST_EXP_TYPE c d ⇒ types_match b d`,
@@ -747,9 +750,9 @@ val AST_EXP_TYPE_types_match = Q.prove(
     PROVE_TAC[EqualityType_def,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_PAT_TYPE] ) >>
   METIS_TAC[EqualityType_def,EqualityType_OPTION_TYPE_LIST_TYPE_CHAR,
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
-            EqualityType_LIST_TYPE_CHAR,EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE])
+            EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
 
 val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.prove(
   `∀a b c d. AST_EXP_TYPE a b ∧ AST_EXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
@@ -772,7 +775,7 @@ val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.pro
       strip_tac >>
       `a2 = a1 ⇔ b2 = b1` by
         METIS_TAC[EqualityType_def,EqualityType_AST_OP_TYPE,
-                  EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR] >>
+                  EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
       simp[] ) >>
     rpt(pop_assum kall_tac) >>
     map_every qid_spec_tac[`y1`,`x1`,`y2`,`x2`] >>
@@ -789,9 +792,9 @@ val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.pro
     metis_tac[EqualityType_def,EqualityType_LIST_TYPE_CHAR,EqualityType_AST_PAT_TYPE] ) >>
   METIS_TAC[EqualityType_def,EqualityType_OPTION_TYPE_LIST_TYPE_CHAR,
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
-            EqualityType_LIST_TYPE_CHAR,EqualityType_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_OPTION_TYPE_AST_ID_TYPE_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE])
+            EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
 
 val EqualityType_AST_EXP_TYPE = Q.prove(
   `EqualityType AST_EXP_TYPE`,
@@ -881,63 +884,53 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   fs [init_state_def, success_eqns] >>
   rw [add_constraint_side_def, apply_subst_list_side_def] >>
   `t_wfs init_infer_state.subst`
-            by rw [init_infer_state_def, unifyTheory.t_wfs_def] >|
-  [match_mp_tac (hd (CONJUNCTS infer_e_side_thm)) >>
-       rw [],
-   match_mp_tac (hd (CONJUNCTS infer_p_side_thm)) >>
-       rw [] >>
-       imp_res_tac infer_e_wfs >>
-       fs [],
-   every_case_tac >>
+            by rw [init_infer_state_def, unifyTheory.t_wfs_def]
+  >-
+    (Cases_on`d`>>fs[])
+  >-
+    (match_mp_tac (hd (CONJUNCTS infer_e_side_thm)) >> rw [])
+  >-
+    (match_mp_tac (hd (CONJUNCTS infer_p_side_thm)) >>
+    rw [] >>
+    imp_res_tac infer_e_wfs >>
+    fs [])
+  >-
+    (every_case_tac >>
        fs [] >>
        imp_res_tac infer_e_wfs >>
        fs [] >>
        PairCases_on `v20` >>
        imp_res_tac infer_p_wfs >>
        fs [] >>
-       prove_tac [],
-   every_case_tac >>
+       prove_tac [])
+  >-
+    (every_case_tac >>
        fs [] >>
        imp_res_tac infer_e_wfs >>
        fs [] >>
        PairCases_on `v20` >>
        imp_res_tac infer_p_wfs >>
        fs [] >>
-       prove_tac [unifyTheory.t_unify_wfs],
-   metis_tac [generalise_list_length],
-   match_mp_tac (List.nth (CONJUNCTS infer_e_side_thm, 3)) >>
-       rw [],
-   match_mp_tac add_constraints_side_thm >>
+       prove_tac [unifyTheory.t_unify_wfs])
+  >- metis_tac [generalise_list_length]
+  >- (match_mp_tac (List.nth (CONJUNCTS infer_e_side_thm, 3)) >> rw [])
+  >- (match_mp_tac add_constraints_side_thm >>
        rw [] >>
        imp_res_tac infer_e_wfs >>
-       fs [],
-   imp_res_tac pure_add_constraints_wfs >>
+       fs [])
+  >- (imp_res_tac pure_add_constraints_wfs >>
        imp_res_tac infer_e_wfs >>
-       fs [],
-   match_mp_tac build_ctor_tenv_side_thm >>
-   last_x_assum mp_tac >> rw[],
-   match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[],
-   match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]
-   ]);
+       fs [])
+  >- (match_mp_tac build_ctor_tenv_side_thm >>
+     last_x_assum mp_tac >> rw[])
+  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[])
+  >> match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]);
 
 val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 
 val _ = translate (infer_def ``infer_ds``)
-val _ = translate (infer_def ``check_weakE``)
 
-val check_weake_side_def = theorem"check_weake_side_def";
-
-val check_weake_side_thm = Q.store_thm ("check_weake_side_thm",
-  `!env specs st. check_weake_side env specs st`,
-  induct_on `specs` >>
-  rw [] >>
-  rw [add_constraint_side_def, Once check_weake_side_def] >>
-  fs [success_eqns, init_state_def] >>
-  rw [] >>
-  fs [init_infer_state_def, unifyTheory.t_wfs_def]);
-
-val _ = check_weake_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
-
+(* Broken *)
 val _ = translate (infer_def ``check_specs``)
 
 val check_specs_side_def = theorem"check_specs_side_def";
