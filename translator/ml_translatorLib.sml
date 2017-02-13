@@ -838,6 +838,8 @@ fun define_ref_inv is_exn_type tys = let
   val cases_thms = map (SPEC_ALL o get_nchotomy_of) tys |> LIST_CONJ
                    |> rename_bound_vars_rule "x_" |> CONJUNCTS
   val all = zip names (zip tys cases_thms) |> map (fn (x,(y,z)) => (x,y,z))
+  val tmp_v_var = genvar v_ty
+  val real_v_var = mk_var("v",v_ty)                         
   fun mk_lhs (name,ty,case_th) = let
     val xs = map rand (find_terms is_eq (concl case_th))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
@@ -846,7 +848,7 @@ fun define_ref_inv is_exn_type tys = let
     val input = mk_var("input",ty)
     val ml_ty_name = full_name_of_type ty
     val def_name = mk_var(name,list_mk_type (ss @ [input]) (v_ty --> bool))
-    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,mk_var("v",v_ty)])
+    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,tmp_v_var])
     in (ml_ty_name,xs,ty,lhs,input) end
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
@@ -881,8 +883,8 @@ fun define_ref_inv is_exn_type tys = let
                      optionSyntax.mk_some(pairSyntax.mk_pair(str,
                        mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
-      val tm = mk_conj(mk_eq(mk_var("v", v_ty),
-                            mk_Conv(tag_tm, vs)),tm)
+      val tm = mk_conj(mk_eq(tmp_v_var,
+                             mk_Conv(tag_tm, vs)),tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -933,15 +935,19 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
                 if is_option_type then OPTION_TYPE_def else
-                  tDefine name [ANTIQUOTE def_tm] tac
-  val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
+                tDefine name [ANTIQUOTE def_tm] tac
+  val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
+                  if not (is_abs tm) then NO_CONV tm else
+                  if fst (dest_abs tm) = tmp_v_var then ALPHA_CONV real_v_var tm
+                  else NO_CONV tm))
+  val inv_def = inv_def |> clean_rule
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_option_type then inv_def else
             save_thm(name ^ "_def",inv_def)
-  val ind = fetch "-" (name ^ "_ind")
-            handle HOL_ERR _ => TypeBase.induction_of (hd tys)
+  val ind = fetch "-" (name ^ "_ind") |> clean_rule
+            handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*
   val inv_def = tDefine name [ANTIQUOTE def_tm] ALL_TAC
 *)
