@@ -928,15 +928,73 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
 
 val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 
-val _ = translate (infer_def ``infer_ds``)
+val _ = translate (infer_def ``infer_ds``);
 
-(* Broken *)
+val MEM_anub = prove(``
+  ∀e1M ls k v1.
+  MEM (k,v1) (anub e1M ls) ⇒
+  MEM (k,v1) e1M``,
+  ho_match_mp_tac anub_ind>>rw[anub_def]>>metis_tac[]);
+
+val nsSub_translate_def = tDefine "nsSub_translate"
+  `nsSub_translate path R b1 b2 ⇔
+   case b1 of (Bind e1V e1M) => case b2 of (Bind e2V e2M) =>
+     EVERY (λ(k,v1).
+       case ALOOKUP e2V k of
+         NONE => F
+       | SOME v2 => R (mk_id (REVERSE path) k) v1 v2) (anub e1V []) ∧
+     EVERY (λ(k,v1).
+       case ALOOKUP e2M k of
+         NONE => F
+       | SOME v2 => nsSub_translate (k::path) R v1 v2) (anub e1M [])`
+  (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+   >> rw[]
+   >> imp_res_tac MEM_anub >> last_x_assum kall_tac
+   >> Induct_on `e1M`
+   >> rw [namespaceTheory.namespace_size_def]
+   >> fs [namespaceTheory.namespace_size_def]);
+
+val ALOOKUP_MEM_anub = prove(
+  ``∀ls acc k v.
+    MEM (k,v) (anub ls acc) ⇔
+    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
+    ho_match_mp_tac anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
+    metis_tac[]);
+
+val MEM_ALOOKUP = prove(``
+  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v``,
+  Induct>>fs[MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]>>rw[]>>
+  metis_tac[]);
+
+val nsSub_thm = prove(``
+  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2``,
+  ho_match_mp_tac (fetch "-" "nsSub_translate_ind")>>
+  rw[]>>
+  simp[Once nsSub_translate_def]>> every_case_tac>>
+  simp[namespacePropsTheory.nsSub_compute_def]>>
+  fs[PULL_FORALL,namespacePropsTheory.alistSub_def]>>
+  fs[namespacePropsTheory.alist_rel_restr_thm]>> eq_tac>>rw[]
+  >-
+    (match_mp_tac EVERY_anub_suff>>rw[]>>every_case_tac>>
+    imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS]>>
+    res_tac>>fs[]>>rfs[])
+  >-
+    (match_mp_tac EVERY_anub_suff>>rw[]>>every_case_tac>>
+    imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS]>>
+    res_tac>>fs[]>>rfs[]>>
+    fs[ALOOKUP_MEM_anub]>>
+    metis_tac[])
+  >>
+    (fs[ALOOKUP_MEM_anub,EVERY_MEM,FORALL_PROD]>>
+    imp_res_tac MEM_ALOOKUP>>fs[]>>
+    res_tac>>fs[]>>every_case_tac>>fs[]))
+
 val _ = translate (infer_def ``check_specs``)
 
 val check_specs_side_def = theorem"check_specs_side_def";
 
 val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
-  `!mn decls z y cenv env specs st. check_specs_side mn decls z y cenv env specs st`,
+  `!a b c d e f. check_specs_side a b c d e f`,
   (check_specs_ind |> SPEC_ALL |> UNDISCH |> Q.SPEC`v`
     |> SIMP_RULE std_ss [GSYM FORALL_PROD] |> Q.GEN`v` |> DISCH_ALL
     |> Q.GEN`P` |> ho_match_mp_tac) >>
@@ -944,51 +1002,74 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
   rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
   TRY (match_mp_tac build_ctor_tenv_side_thm >>rw[])>>
   TRY (match_mp_tac type_name_subst_side_thm>>every_case_tac>>fs[EVERY_MEM])>>
-  fsrw_tac[boolSimps.ETA_ss][]);
+  fsrw_tac[boolSimps.ETA_ss][]
+  >-
+    (qmatch_goalsub_abbrev_tac`check_specs_side a ls (c with inf_defined_types := A ++ _) _ _ _`>>
+    qmatch_goalsub_abbrev_tac `nsAppend B d.inf_t`>>
+    first_x_assum(qspecl_then[`ls`,`A`,`B`,`f`] assume_tac)>>
+    qmatch_asmsub_abbrev_tac `check_specs_side _ _ _ C _ _`>>
+    qmatch_goalsub_abbrev_tac `check_specs_side _ _ _ D _ _`>>
+    `C = D` by
+      fs[Abbr`C`,Abbr`D`,inf_env_component_equality]>>
+    metis_tac[])
+  >>
+  PURE_REWRITE_TAC [(GSYM namespacePropsTheory.nsAppend_nsSing),namespaceTheory.nsSing_def]>>
+  metis_tac[]
+  );
 
 val _ = check_specs_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
+
+val check_tscheme_inst_alt = prove(``
+  check_tscheme_inst v0 tspec timpl ⇔
+  case tspec of (tvs_spec,t_spec) =>
+  case timpl of (tvs_impl,t_impl) =>
+  (let M s =
+            case init_state s of
+              (Success y,s) =>
+                (case n_fresh_uvar tvs_impl s of
+                   (Success y,s) =>
+                     (case Success (infer_deBruijn_subst y t_impl) of
+                        Success y => add_constraint t_spec y s
+                      | Failure e => (Failure e,s))
+                 | (Failure e,s) => (Failure e,s))
+            | (Failure e,s) => (Failure e,s)
+      in
+        case M init_infer_state of
+          (Success v6,v3) => T
+        | (Failure v7,v3) => F)``,
+  EVERY_CASE_TAC>>fs[]>>
+  PURE_REWRITE_TAC [(aggr_infer_def ``check_tscheme_inst``)]>>
+  rw[])|>GEN_ALL;
+
+val _ = translate check_tscheme_inst_alt
+
+val check_tscheme_inst_side_def = fetch "-" "check_tscheme_inst_side_def"
+
+val n_fresh_uvar_wfs = prove(``
+  ∀n r a r'.
+    t_wfs r.subst ∧ n_fresh_uvar n r = (Success a,r') ⇒ t_wfs r'.subst``,
+  ho_match_mp_tac n_fresh_uvar_ind>> rw[]>>
+  pop_assum mp_tac >> simp[Once n_fresh_uvar_def]>>
+  IF_CASES_TAC>>fs[st_ex_return_def,st_ex_bind_def,fresh_uvar_def]>>every_case_tac>>rw[]>>
+  fs[]>>
+  first_assum match_mp_tac>>fs[]>>
+  qexists_tac`r with next_uvar := r.next_uvar +1`>>
+  fs[]);
+
+val check_tscheme_inst_side = prove(``
+  ∀a b c. check_tscheme_inst_side a b c``,
+  rw[check_tscheme_inst_side_def,add_constraint_side_def,init_state_def]>>
+  imp_res_tac n_fresh_uvar_wfs>>
+  pop_assum match_mp_tac>>
+  EVAL_TAC>>fs[unifyTheory.t_wfs_def])|> update_precondition
+
+val _ = translate (check_weak_ienv_def |> SIMP_RULE std_ss [nsSub_thm])
 
 val _ = translate (infer_def ``check_signature``)
 
 val _ = translate (infer_def ``infer_top``)
 
-val infer_prog_def = Q.prove(`
-  (∀idecls ienv x.
-      infer_prog idecls ienv [] x =
-      (Success (empty_inf_decls,(FEMPTY,FEMPTY),FEMPTY,([],[]),[]),x)) ∧
-   ∀idecls ienv top ds x.
-     infer_prog idecls ienv (top::ds) x =
-     case infer_top idecls ienv top x of
-       (Success y,s) =>
-         (case
-            infer_prog (append_decls (FST y) idecls)
-              (ienv with <|inf_t := merge_mod_env (FST (SND y)) ienv.inf_t;
-                inf_c :=
-                  merge_alist_mod_env (FST (SND (SND (SND y))))
-                    ienv.inf_c;
-                inf_v := SND (SND (SND (SND y))) ++ ienv.inf_v;
-                inf_m := FST (SND (SND y)) ⊌ ienv.inf_m|>) ds s
-          of
-            (Success y',s) =>
-              (Success
-                 (append_decls (FST y') (FST y),
-                  merge_mod_env (FST (SND y')) (FST (SND y)),
-                  FST (SND (SND y')) ⊌ FST (SND (SND y)),
-                  merge_alist_mod_env (FST (SND (SND (SND y'))))
-                    (FST (SND (SND (SND y)))),
-                  SND (SND (SND (SND y'))) ++ SND (SND (SND (SND y)))),
-               s)
-          | (Failure e,s) => (Failure e,s))
-     | (Failure e,s) => (Failure e,s)`,
-     rw[infer_prog_def]>>EVAL_TAC>>
-     BasicProvers.EVERY_CASE_TAC>>PairCases_on`a`>>
-     fs[]>>
-     PairCases_on`a'`>>fs[]);
-
-(* translating infer ``infer_prog`` doesn't work, maybe because
-  there is an explicit record not written as an update inside
-*)
-val _ = translate infer_prog_def;
+val _ = translate (infer_def ``infer_prog``)
 
 val _ = translate (infer_def ``infertype_prog``);
 
