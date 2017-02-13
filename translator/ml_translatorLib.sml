@@ -2348,6 +2348,12 @@ fun preprocess_def def = let
     in def end;
   val defs = map rephrase_def defs
   val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
+  (* TODO: This performs e.g.special <| |> rewrites that are also applied to defs in the rephrase step to the induction theorem so that they match up *)
+  fun rephrase_ind th = let
+    val th = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,
+                num_case_thm] @ get_preprocessor_rws()) th
+    in th end;
+  val ind = case ind of SOME ind => SOME (rephrase_ind ind) | NONE => ind
   fun option_apply f NONE = NONE | option_apply f (SOME x) = SOME (f x)
   val mem_intro_rule = PURE_REWRITE_RULE [MEMBER_INTRO]
   val (defs,ind) = if not (!use_mem_intro) then (defs,ind) else
