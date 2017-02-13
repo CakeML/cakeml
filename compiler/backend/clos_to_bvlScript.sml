@@ -34,6 +34,8 @@ val compile_op_def = Define`
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
+  compile_op LengthByteVec = LengthByte ∧
+  compile_op DerefByteVec = DerefByte ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -44,6 +46,8 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
       | TagEq tag => TagEq (clos_tag_shift tag)
       | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
       | FromList tag => FromList (clos_tag_shift tag)
+      | LengthByteVec => LengthByte
+      | DerefByteVec => DerefByte
       | x => x`,
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)

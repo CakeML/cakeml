@@ -178,7 +178,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
-    ,pat_to_closTheory.string_tag_def
     ,pat_to_closTheory.vector_tag_def
     ,pat_to_closTheory.compile_def
       (*,pat_to_closTheory.pat_tag_shift_def*)
@@ -424,6 +423,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
+    ,data_to_wordTheory.WriteLastByte_aux_def
+    ,data_to_wordTheory.WriteLastBytes_def
     ,data_to_wordTheory.SmallLsr_def
     ,data_to_wordTheory.RefByte_code_def
     ,data_to_wordTheory.Maxout_bits_code_def

@@ -386,7 +386,8 @@ val word_to_stack_sl_gs = Q.store_thm("word_to_stack_sl_gs",`
   >- (rpt(pairarg_tac>>fs[sl_gs_def])>>rveq>>fs[sl_gs_def]));
 
 val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
-  `LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count ∧
+  `good_dimindex(:'a) /\
+   LENGTH mc_conf.target.config.avoid_regs + 9 ≤ mc_conf.target.config.reg_count ∧
     EVERY (λn. data_num_stubs ≤ n) (MAP FST prog) ∧
     compile (c:'a backend$config).word_to_word_conf mc_conf.target.config
         (stubs(:'a) c.data_conf ++ MAP (compile_part c.data_conf) prog) = (col,p) ==>
@@ -405,7 +406,16 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
        ((c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
        (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
        addr_offset_ok mc_conf.target.config 0w /\
-       byte_offset_ok mc_conf.target.config 0w ⇒
+       byte_offset_ok mc_conf.target.config 0w /\
+       byte_offset_ok mc_conf.target.config 1w /\
+       byte_offset_ok mc_conf.target.config 2w /\
+       byte_offset_ok mc_conf.target.config 3w /\
+       (dimindex(:'a) <> 32 ==>
+       byte_offset_ok mc_conf.target.config 4w /\
+       byte_offset_ok mc_conf.target.config 5w /\
+       byte_offset_ok mc_conf.target.config 6w /\
+       byte_offset_ok mc_conf.target.config 7w )
+       ⇒
         full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
@@ -959,7 +969,9 @@ val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
 val conf_constraint_def = Define`
   conf_constraint (conf:'a asm_config) ⇔
   addr_offset_ok conf 0w ∧
-  byte_offset_ok conf 0w ∧
+  byte_offset_ok conf 0w ∧ byte_offset_ok conf 1w ∧ byte_offset_ok conf 2w ∧ byte_offset_ok conf 3w ∧
+  (dimindex(:'a) <> 32 ==>
+   byte_offset_ok conf 4w ∧ byte_offset_ok conf 5w ∧ byte_offset_ok conf 6w ∧ byte_offset_ok conf 7w) ∧
   (∀n.
      n ≤ max_stack_alloc ⇒
      conf.valid_imm (INL Sub)
