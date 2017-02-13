@@ -81,9 +81,9 @@ val decode_def = Define`decode = decode_list destStr`;
 
 val ffi_getArgs_def = Define`
   ffi_getArgs bytes cls  = 
-    if LENGTH bytes = 256 then
+    if LENGTH bytes = 256 /\ EVERY (\c. c = n2w 0) bytes then
       let cl = FLAT (MAP (\s. s ++ [CHR 0]) cls) in
-        if (LENGTH cl < 257) then 
+        if (LENGTH cl < 257) then
           SOME(MAP (n2w o ORD) cl ++ DROP (LENGTH cl) bytes, cls)
         else
           SOME(MAP (n2w o ORD) (TAKE 256 cl), cls)
@@ -289,7 +289,7 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
     >-(xffi \\ fs [COMMANDLINE_def]
       \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
-      \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[])
+      \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[EVERY_REPLICATE])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac 
     \\  reverse (conj_tac)  >-(fs[COMMANDLINE_def] \\ xsimpl)
     \\ pop_assum mp_tac  
