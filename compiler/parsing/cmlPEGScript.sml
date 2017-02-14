@@ -34,33 +34,43 @@ val sumID_def = Define`
   sumID (INR y) = y
 `;
 
+val mlptree_loc_def = Define`
+  (mlptree_loc (Lf(_,l)) = l)/\
+  (mlptree_loc (Nd(_,l) _) = l)`
+
+val mlptree_list_loc = Define`
+  mlptree_list_loc l = merge_list_locs (MAP mlptree_loc l)`
+
+val mktokLf_def = Define`mktokLf t = [Lf (TK (FST t), SND t)]`
+
+val mkNd_def = Define`
+  mkNd ntnm l = Nd (ntnm, mlptree_list_loc l) l`
+
+val bindNT_def = Define`
+  bindNT ntnm l = [Nd (mkNT ntnm, mlptree_list_loc l) l]`
+
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
   mk_linfix tgt acc [t] = acc ∧
   mk_linfix tgt acc (opt::t::rest) =
-    mk_linfix tgt (Nd tgt [acc; opt; t]) rest
+   mk_linfix tgt (mkNd tgt [acc; opt; t]) rest
 `;
 
 val mk_rinfix_def = Define`
-  mk_rinfix tgt [] = Nd tgt [] ∧
-  mk_rinfix tgt [t] = Nd tgt [t] ∧
-  mk_rinfix tgt (t::opt::rest) = Nd tgt [t; opt; mk_rinfix tgt rest]`;
+  mk_rinfix tgt [] = mkNd tgt [] ∧
+  mk_rinfix tgt [t] = mkNd tgt [t] ∧
+  mk_rinfix tgt (t::opt::rest) = mkNd tgt [t; opt; mk_rinfix tgt rest]`;
 
 val peg_linfix_def = Define`
   peg_linfix tgtnt rptsym opsym =
     seq rptsym (rpt (seq opsym rptsym (++)) FLAT)
         (λa b. case a of
                    [] => []
-                  | h::_ => [mk_linfix tgtnt (Nd tgtnt [h]) b])
+                  | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 `;
 val _ = ThmSetData.store_attribute {
   attribute = "cakeml/parsing", thm_name = "peg_linfix_def"
 }
-
-val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
-val bindNT_def = Define`
-  bindNT ntnm l = [Nd (mkNT ntnm) l]
-`
 
 (* have to use these versions of choicel and pegf below because the
    "built-in" versions from HOL/examples/ use ARB in their definitions.
@@ -78,10 +88,11 @@ val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
 `;
 
+(* unused
 val peg_nonfix_def = Define`
   peg_nonfix tgtnt argsym opsym =
     seql [argsym; choicel [seq opsym argsym (++); empty []]] (bindNT tgtnt)
-`
+` *)
 
 val try_def = Define`
   try sym = choicel [sym; empty []]
@@ -109,7 +120,7 @@ val peg_TypeDec_def = Define`
     seq (tokeq DatatypeT)
         (peg_linfix (mkNT nDtypeDecls) (pnt nDtypeDecl)
                     (tokeq AndT))
-        (λl1 l2. [Nd (mkNT nTypeDec) (l1 ++ l2)])
+        (λl1 l2. bindNT nTypeDec (l1 ++ l2))
 `;
 
 (* expressions *)
@@ -143,16 +154,16 @@ val peg_EbaseParenFn_def = Define`
   peg_EbaseParenFn l =
     case l of
         [lp; e; rp] =>
-        [Nd (mkNT nEbase) [lp; Nd (mkNT nEseq) [e]; rp]]
-      | [lp; e; cs; rest; rp] =>
-        if cs = Lf (TK CommaT) then
+        [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e]; rp]]
+      | [lp; e; Lf (TK CommaT,loc) ; rest; rp] =>
           [
-            Nd (mkNT nEbase) [
-              Nd (mkNT nEtuple) [lp; Nd (mkNT nElist2) [e; cs; rest]; rp]
+            mkNd (mkNT nEbase) [
+              mkNd (mkNT nEtuple)
+                   [lp; mkNd (mkNT nElist2) [e; Lf (TK CommaT,loc); rest]; rp]
             ]
           ]
-        else
-          [Nd (mkNT nEbase) [lp; Nd (mkNT nEseq) [e; cs; rest]; rp]]
+      | [lp; e; cs; rest; rp] =>
+          [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; cs; rest]; rp]]
       | _ => []
 `
 
@@ -184,8 +195,8 @@ val cmlPEG_def = zDefine`
                     (λl.
                        case l of
                          [] => []
-                       | h::t => [FOLDL (λa b. Nd (mkNT nEapp) [a;b])
-                                        (Nd (mkNT nEapp) [h]) t]));
+                       | h::t => [FOLDL (λa b. mkNd (mkNT nEapp) [a;b])
+                                        (mkNd (mkNT nEapp) [h]) t]));
               (mkNT nElist1,
                seql [pnt nE; try (seql [tokeq CommaT; pnt nElist1] I)]
                     (bindNT nElist1));
@@ -302,8 +313,8 @@ val cmlPEG_def = zDefine`
                     (λsubs.
                        case subs of
                            [] => []
-                         | h::t => [FOLDL (λa b. Nd (mkNT nDType) [a; b])
-                                          (Nd (mkNT nDType) [h]) t]));
+                         | h::t => [FOLDL (λa b. mkNd (mkNT nDType) [a; b])
+                                          (mkNd (mkNT nDType) [h]) t]));
               (mkNT nTbase,
                choicel [
                  seql [tokeq LparT; pnt nType; tokeq RparT] (bindNT nTbase);
@@ -583,7 +594,7 @@ fun pegnt(t,acc) = let
                   peg_StructName_def,
                   peg_EbaseParen_def,
                   peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
-                  pegf_def, peg_nonfix_def, peg_linfix_def]) >>
+                  pegf_def, peg_linfix_def]) >>
             simp(peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -672,7 +683,7 @@ fun wfnt(t,acc) = let
                     [wfpeg_pnt, FDOM_cmlPEG, try_def, peg_longV_def,
                      seql_def, peg_TypeDec_def, peg_V_def,
                      peg_EbaseParen_def, peg_StructName_def,
-                     peg_UQConstructorName_def, peg_nonfix_def,
+                     peg_UQConstructorName_def,
                      tokeq_def, peg_linfix_def]) THEN
           simp(wfpeg_rwts @ npeg0_rwts @ peg0_rwts @ acc))
 in
@@ -721,7 +732,7 @@ val PEG_exprs = save_thm(
     |> SIMP_CONV (srw_ss())
          [Gexprs_def, subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
-          seql_def, pegf_def, peg_V_def, peg_nonfix_def, peg_EbaseParen_def,
+          seql_def, pegf_def, peg_V_def, peg_EbaseParen_def,
           peg_longV_def, peg_linfix_def, peg_StructName_def,
           peg_TypeDec_def, peg_UQConstructorName_def,
           pred_setTheory.INSERT_UNION_EQ
@@ -734,7 +745,7 @@ val PEG_wellformed = Q.store_thm(
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
-       peg_V_def, peg_EbaseParen_def, peg_nonfix_def,
+       peg_V_def, peg_EbaseParen_def, 
        peg_longV_def, peg_StructName_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 val _ = export_rewrites ["PEG_wellformed"]
