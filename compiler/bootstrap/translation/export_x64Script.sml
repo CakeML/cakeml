@@ -127,4 +127,4 @@ val x64_export_def = Define `
                            ^startup ++ ^ffi_code)))
            (split16 bytes)`
 
-val _ = export_theory():
+val _ = export_theory ();
