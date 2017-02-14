@@ -14,12 +14,15 @@ val _ = new_theory"source_to_mod";
  * Closures rather than Recclosures.
  *)
 
+ (*
+  * EXPLORER: The `t` parameter is the position information ("t" for "trace").
+  *)
 val Bool_def = Define `
  Bool t b = (App t (Opb (if b then Leq else Lt)) [Lit t (IntLit 0); Lit t (IntLit 0)])`;
 
 (*
- * EXPLORER: No patterna propagates here. compile_pat just calls itself until the trace is
- * discared.
+ * EXPLORER: No patterna propagates here. compile_pat just calls itself until
+ * the trace is discared.
  *)
 val compile_pat_def = tDefine "compile_pat" `
   (compile_pat (ast$Pvar v) = ast$Pvar v) ∧
@@ -35,6 +38,11 @@ val compile_pat_def = tDefine "compile_pat" `
    res_tac >>
    decide_tac);
 
+(*
+ * EXPLORER: As for `Bool_def`, the `t` parameter is positional information.
+ * Currently we only carrying forward the same position information without
+ * transforming it in any way.
+ *)
 val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Raise e) =
     Raise t (compile_exp t env e))
@@ -117,6 +125,9 @@ val compile_exp_def = tDefine"compile_exp"`
                                         | INR (INR (INR (t,x,funs))) => funs_size funs)` >>
    srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
+(*
+ * EXPLORER: Again, the `t` is for position information.
+ *)
 val compile_exps_append = Q.store_thm("compile_exps_append",
   `!env es es'.
     compile_exps t env (es ++ es') =
@@ -124,12 +135,18 @@ val compile_exps_append = Q.store_thm("compile_exps_append",
   Induct_on `es` >>
   fs [compile_exp_def]);
 
+(*
+ * EXPLORER: Again, the `t` is for position information.
+ *)
 val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
   `!env es.
     compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`,
   Induct_on `es` >>
   rw [compile_exp_def, compile_exps_append]);
 
+(*
+ * EXPLORER: Again, the `t` is for position information.
+ *)
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `!env funs.
     compile_funs t env funs = MAP (\(f,x,e). (f,x,compile_exp t (nsBind x (Var_local
@@ -139,6 +156,9 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
   PairCases_on `h` >>
   rw [compile_exp_def]);
 
+(*
+ * EXPLORER: Again, the `t` is for position information.
+ *)
 val compile_funs_dom = Q.store_thm("compile_funs_dom",
   `!funs.
     (MAP (λ(x,y,z). x) funs)
@@ -149,6 +169,11 @@ val compile_funs_dom = Q.store_thm("compile_funs_dom",
    PairCases_on `h` >>
    rw [compile_exp_def]);
 
+(*
+ * EXPLORER: Currently there exists no initial position information for
+ * declarations and other non-expression stuff. Therefore, we just feed it with
+ * `Empty` position information until further notice.
+ *)
 val alloc_defs_def = Define `
   (alloc_defs next [] = []) ∧
   (alloc_defs next (x::xs) =
@@ -164,6 +189,10 @@ val alloc_defs_append = Q.store_thm("alloc_defs_append",
   induct_on `l1` >>
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
 
+(*
+ * EXPLORER: As above, we just feed it `Empty` since we do not have any initial
+ * position information yet.
+ *)
 val compile_dec_def = Define `
  (compile_dec next mn env d =
   case d of
