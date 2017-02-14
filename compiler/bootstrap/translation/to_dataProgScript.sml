@@ -456,7 +456,8 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_AST_SHIFT_TYPE,
       EqualityType_AST_OPW_TYPE,
       EqualityType_AST_WORD_SIZE_TYPE,
-      EqualityType_LIST_TYPE_CHAR]
+      EqualityType_LIST_TYPE_CHAR,
+      EqualityType_BOOL]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]

@@ -16,13 +16,13 @@ val dec_clock_ffi = Q.store_thm("dec_clock_ffi",
 
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
-  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
+  (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)`
 val _ = export_rewrites["ref_rel_def"];
 
 val ref_rel_simp = Q.store_thm("ref_rel_simp[simp]",
   `(ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
-   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs)`,
+   (ref_rel R (ByteArray f bs) y ⇔ y = ByteArray f bs)`,
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM])
 
 val code_locs_def = tDefine "code_locs" `

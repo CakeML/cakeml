@@ -69,12 +69,12 @@ val do_app_data_to_bvi = Q.prove(
     \\ every_case_tac
     \\ full_simp_tac(srw_ss())[data_to_bvi_def,bviSemTheory.state_component_equality]
     \\ fs [domain_lookup,lookup_map]
-    \\ fs [code_rel_def]
+    \\ fs [code_rel_def] \\ rw[]
     \\ rename1 `lookup _ s1.code = SOME vvv`
     \\ PairCases_on `vvv` \\ res_tac \\ fs [])
   \\ `do_app_aux op a (data_to_bvi t1) = SOME NONE` by
    (Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+    \\ every_case_tac \\ fs[])
   \\ `bvi_to_bvl (data_to_bvi t1) = bvi_to_bvl s1` by ALL_TAC THEN1
    (full_simp_tac(srw_ss())[bvi_to_bvl_def,data_to_bvi_def,code_rel_def,
         spt_eq_thm,lookup_map_K,domain_map,
@@ -434,7 +434,8 @@ val compile_correct = Q.prove(
                 bvlSemTheory.do_app_def]
       \\ reverse (Cases_on `t'`)
       THEN1 (fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
-                 bvlSemTheory.do_app_def] \\ Cases_on `h` \\ fs [])
+                 bvlSemTheory.do_app_def] \\ Cases_on `h'` \\ fs []
+                 \\ Cases_on`h` \\ fs[])
       \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
       \\ Cases_on `h`
       \\ fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
