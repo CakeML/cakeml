@@ -77,12 +77,12 @@ val destLongidT_EQ_SOME = Q.store_thm(
   Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`
-  (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
+  (destTyvarPT (Lf (TOK (TyvarT s), _)) = SOME s) ∧
   (destTyvarPT _ = NONE)
 `;
 val _ = export_rewrites ["destTyvarPT_def"]
 
-val destLf_def = Define`(destLf (Lf x) = SOME x) ∧ (destLf _ = NONE)`;
+val destLf_def = Define`(destLf (Lf x) = SOME (FST x)) ∧ (destLf _ = NONE)`;
 val _ = export_rewrites ["destLf_def"]
 
 val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;

@@ -204,16 +204,18 @@ end
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 
 val ast =
-  ``let mkI = λn. Nd (mkNT nEbase) [Nd (mkNT nEliteral) [Lf (TK (IntT n))]]
+  ``let Nd' n l = Nd (n,ARB) l in
+    let Lf' s = Lf (s,ARB) in
+    let mkI n = Nd' (mkNT nEbase) [Nd' (mkNT nEliteral) [Lf' (TK (IntT n))]]
     in
-      Nd (mkNT nEmult) [
-              Nd (mkNT nEmult) [
-                Nd (mkNT nEmult) [Nd (mkNT nEapp) [mkI 3]];
-                Nd (mkNT nMultOps) [Lf (TK StarT)];
-                Nd (mkNT nEapp) [mkI 4]
+      Nd' (mkNT nEmult) [
+              Nd' (mkNT nEmult) [
+                Nd' (mkNT nEmult) [Nd' (mkNT nEapp) [mkI 3]];
+                Nd' (mkNT nMultOps) [Lf' (TK StarT)];
+                Nd' (mkNT nEapp) [mkI 4]
               ];
-              Nd (mkNT nMultOps) [Lf (TK (SymbolT "/"))];
-              Nd (mkNT nEapp) [mkI 5]
+              Nd' (mkNT nMultOps) [Lf' (TK (SymbolT "/"))];
+              Nd' (mkNT nEapp) [mkI 5]
             ]``
 
 val check_results =
