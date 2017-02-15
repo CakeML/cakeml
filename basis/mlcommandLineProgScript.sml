@@ -40,7 +40,7 @@ val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
 
 (* -- *)
 
-val _ = ml_prog_update (open_module "commandLine")
+val _ = ml_prog_update (open_module "Commandline")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 
 val _ = ml_prog_update (add_Dlet (derive_eval_thm "commandLine_state" e) "commandLine_state" [])
@@ -180,10 +180,10 @@ val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJU
 
 val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
     `!av a.
-        app (p:'ffi ffi_proj) ^(fetch_v "commandLine.w8arrayToStrings" st) [av]
+        app (p:'ffi ffi_proj) ^(fetch_v "Commandline.w8arrayToStrings" st) [av]
         (W8ARRAY av a)
         (POSTv strlv. &LIST_TYPE STRING_TYPE (tokens (\x. x = (CHR 0)) (implode (MAP (CHR o w2n) a))) strlv * W8ARRAY av a)`,
-    xcf "commandLine.w8arrayToStrings" st
+    xcf "Commandline.w8arrayToStrings" st
     \\ xfun_spec `e`
       `!x xv.
         NUM x xv /\ x < LENGTH a ==>
@@ -283,19 +283,18 @@ val TOKENS_FRONT_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
   rw[TOKENS_FRONT_MAP, TOKENS_MAP_inv] 
 );
 
-val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
+val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
   `UNIT_TYPE u uv /\ cl <> [] /\ EVERY validArg cl /\ l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. s ++ [CHR 0]) cl))
     /\ LENGTH l < 257 ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "commandLine.cline" st) [uv]
+    app (p:'ffi ffi_proj) ^(fetch_v "Commandline.cline" st) [uv]
     (COMMANDLINE cl)
     (POSTv clinev. & LIST_TYPE STRING_TYPE (MAP implode  cl) clinev * COMMANDLINE cl)`,
-    xcf "commandLine.cline" st
+    xcf "Commandline.cline" st
     \\ xlet `POSTv cs. W8ARRAY cs (REPLICATE 256 (n2w 0)) * COMMANDLINE cl` 
       >-(xapp \\ xsimpl)
     \\ fs [COMMANDLINE_def] 
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
-    >-(
-      xffi \\ fs [COMMANDLINE_def]
+    >-(xffi \\ fs [COMMANDLINE_def]
       \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
       \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[EVERY_REPLICATE])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac 
@@ -326,13 +325,13 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
 val hd_v_thm = fetch "mllistProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
-val commandLine_name_spec = Q.store_thm("commandLine_name_spec",
+val Commandline_name_spec = Q.store_thm("Commandline_name_spec",
   `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
     LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) cl))) < 257 ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "commandLine.name" st) [uv]
+    app (p:'ffi ffi_proj) ^(fetch_v "Commandline.name" st) [uv]
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (implode (HD cl)) namev * COMMANDLINE cl)`,
-    xcf "commandLine.name" st
+    xcf "Commandline.name" st
     \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl` 
@@ -343,13 +342,13 @@ val commandLine_name_spec = Q.store_thm("commandLine_name_spec",
 val tl_v_thm = fetch "mllistProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
-val commandLine_arguments_spec = Q.store_thm("commandLine_arguments_spec",
+val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
   `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
     LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "commandLine.arguments" st) [uv]
+    app (p:'ffi ffi_proj) ^(fetch_v "Commandline.arguments" st) [uv]
     (COMMANDLINE cl)
     (POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * COMMANDLINE cl)`,
-    xcf "commandLine.arguments" st
+    xcf "Commandline.arguments" st
     \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl` 
