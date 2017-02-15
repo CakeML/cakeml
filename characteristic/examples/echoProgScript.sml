@@ -6,7 +6,7 @@ open preamble
      semanticsLib ioProgTheory mlcharioProgTheory
  
 
-val _ = new_theory "echo";
+val _ = new_theory "echoProg";
 
 val _ = translation_extends"mlcommandLineProg";
 
@@ -41,7 +41,7 @@ val byte_map_v_thm = save_thm("byte_map_v_thm",
   map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta|->``:word8``])
 
 
-val print_spec = Q.store_thm("print",
+val print_spec = Q.store_thm("print_spec",
   `!s sv. STRING_TYPE s sv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "print" st) [sv]
    (STDOUT output)
@@ -58,7 +58,7 @@ val print_spec = Q.store_thm("print",
     \\ xapp \\ fs[MAP_MAP_o] 
 );
 
-val echo_spec = Q.store_thm("echo",
+val echo_spec = Q.store_thm("echo_spec",
   `!ls. cl <> [] /\ EVERY validArg cl /\
    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
@@ -279,17 +279,19 @@ val state = init_state |> remove_snocs |> get_state
 val prog =  ML_code_thm |> SPEC_ALL |> concl |> rator |> rator |> rator |> rand 
 
 val echo_dlet = mk_main_call (stringSyntax.fromMLstring "echo");
-val echo_prog = listSyntax.mk_snoc(echo_dlet,prog);
+val echo_prog_tm = listSyntax.mk_snoc(echo_dlet,prog);
+val echo_prog_def = Define`
+  echo_prog = ^echo_prog_tm`;
 
 Q.store_thm("no_dup_mods_echo",
-  `no_dup_mods ^echo_prog ^state.defined_mods`,
+  `no_dup_mods ^echo_prog_tm ^state.defined_mods`,
   CONV_TAC(RAND_CONV EVAL)
   \\ CONV_TAC(RATOR_CONV(RAND_CONV EVAL)) (* this is only for the snoc *)
   \\ CONV_TAC(no_dup_mods_conv)
 );  
 
 Q.store_thm ("no_dup_tops_types_echo",
-  `no_dup_top_types ^echo_prog ^state.defined_types`,
+  `no_dup_top_types ^echo_prog_tm ^state.defined_types`,
   CONV_TAC(RAND_CONV EVAL)
   \\ CONV_TAC(RATOR_CONV(RAND_CONV EVAL)) (* this is only for the snoc *)
   \\ CONV_TAC(no_dup_top_types_conv)
@@ -318,9 +320,9 @@ val call_thm_instantiated1 =
 
 
 
-
-
 (* TODO: Fix this attempt to specify what the output of a program is on an abstract level
+
+
 val extract_output_not_putChar = Q.prove(
     `!xs name bytes. name <> "putChar" ==>
       extract_output (xs ++ [IO_event name bytes]) = extract_output xs`,
