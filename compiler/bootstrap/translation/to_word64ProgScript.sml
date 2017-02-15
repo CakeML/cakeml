@@ -489,10 +489,13 @@ val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
 
-val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+(*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
+
+val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
-                  
+
+(*
 val data_to_word_assign_side = Q.prove(`
   ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
   rpt strip_tac>>
@@ -505,10 +508,11 @@ val data_to_word_assign_side = Q.prove(`
   TRY(Cases_on`o'`)>>
   TRY(Cases_on`s`)>>
   metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
+*)
 
 val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv64|> wcomp_simp)
 (* Inlines the let k = 8 manually *)
-val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]])
+val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]]);
 
 open word_simpTheory word_allocTheory word_instTheory
 
@@ -550,6 +554,9 @@ val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_r
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
 
 val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw])
+
+(* TODO: remove when pmatch is fixed *)
+val _ = translate (spec64 const_fp_loop_def)
 
 val _ = translate (spec64 compile_exp_def)
 
