@@ -8,16 +8,17 @@ val _ = new_theory "cmlPtreeConversionProps";
 val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
 
 val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
+(* " *)
 
 val ptree_head_TOK = Q.store_thm(
   "ptree_head_TOK",
-  `(ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)) ∧
-    (TOK sym = ptree_head pt ⇔ pt = Lf (TOK sym))`,
-  Cases_on `pt` >> simp[] >> metis_tac[]);
+  `(ptree_head pt = TOK sym ⇔ ?l. pt = Lf (TOK sym,l)) ∧
+    (TOK sym = ptree_head pt ⇔ ?l. pt = Lf (TOK sym,l))`,
+  Cases_on `pt` >> Cases_on`p` >> simp[] >> metis_tac[]);
 val _ = export_rewrites ["ptree_head_TOK"]
 
 val start =
-  Cases_on `pt` >> simp[]
+  Cases_on `pt` >> Cases_on `p` >> simp[]
   >- (rw[] >> fs[]) >>
   strip_tac >> rveq >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
   rveq >> fs[MAP_EQ_CONS] >> rveq

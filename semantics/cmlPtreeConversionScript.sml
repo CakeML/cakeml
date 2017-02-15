@@ -772,8 +772,8 @@ val ptree_Eliteral_def = Define`
 local
   val ptree_Expr_quotation = `
   ptree_Expr ent (Lf _) = NONE ∧
-  ptree_Expr ent (Nd (nt,_) subs) =
-    (if mkNT ent = nt then
+  ptree_Expr ent (Nd (nt,loc) subs) = do
+  e <- (if mkNT ent = nt then
       if nt = mkNT nEbase then
         dtcase subs of
             [Lf (TK LparT,_) ; pt; Lf (TK RparT,_)] =>
@@ -975,7 +975,9 @@ local
             od
           | _ => NONE
       else NONE
-    else NONE) ∧
+    else NONE);
+   SOME (Lannot e loc)
+  od  ∧
   (ptree_Exprlist nm ast =
      dtcase ast of
          Lf _ => NONE

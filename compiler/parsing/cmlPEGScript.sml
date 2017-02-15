@@ -34,20 +34,13 @@ val sumID_def = Define`
   sumID (INR y) = y
 `;
 
-val mlptree_loc_def = Define`
-  (mlptree_loc (Lf(_,l)) = l)/\
-  (mlptree_loc (Nd(_,l) _) = l)`
-
-val mlptree_list_loc = Define`
-  mlptree_list_loc l = merge_list_locs (MAP mlptree_loc l)`
-
 val mktokLf_def = Define`mktokLf t = [Lf (TK (FST t), SND t)]`
 
 val mkNd_def = Define`
-  mkNd ntnm l = Nd (ntnm, mlptree_list_loc l) l`
+  mkNd ntnm l = Nd (ntnm, ptree_list_loc l) l`
 
 val bindNT_def = Define`
-  bindNT ntnm l = [Nd (mkNT ntnm, mlptree_list_loc l) l]`
+  bindNT ntnm l = [Nd (mkNT ntnm, ptree_list_loc l) l]`
 
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
