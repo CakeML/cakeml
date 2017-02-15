@@ -36,11 +36,15 @@ val res = translate def
 
 val res = translate basisProgTheory.basis_def
 
+(*
+
 val res = translate compilerTheory.encode_error_def
 
 val def = spec64 compilerTheory.compile_to_bytes_def
 
 val res = translate def
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
