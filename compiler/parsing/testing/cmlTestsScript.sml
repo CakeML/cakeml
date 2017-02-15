@@ -7,10 +7,10 @@ local open ASCIInumbersLib in end
 
 val _ = new_theory "cmlTests"
 
-val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
-val _ = overload_on ("Tf", ``λt. Lf (TK t)``)
-val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s))``)
-val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s))``)
+val _ = overload_on ("NN", ``λn. Nd (mkNT n,unknown_loc)``)
+val _ = overload_on ("Tf", ``λt. Lf (TK t,unknown_loc)``)
+val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s),unknown_loc)``)
+val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s),unknown_loc)``)
 val _ = overload_on (
   "EREL",
   ``λl. NN nE [NN nEhandle
@@ -36,9 +36,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("Parsing\n")
   val evalth = time EVAL
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
-  val r0 = rhs (concl evalth)
-  val loc = r0 |> rand |> rand |> rator |> rand
-  val r = r0 |> rand |> rator |> rand 
+  val r = rhs (concl evalth)
   fun diag(s,t) = let
     fun pp pps (s,t) =
         (PP.begin_block pps PP.CONSISTENT 0;
@@ -52,9 +50,9 @@ fun parsetest0 nt sem s opt = let
   fun die (s,t) = (diag (s,t); raise Fail "Failed")
 
 in
-  if same_const (rator r0) result_t then
-    if optionSyntax.is_some r then let
-      val pair = rand r
+  if same_const (rator r) result_t then
+    if optionSyntax.is_some (rand r) then let
+      val pair = rand (rand r)
       val remaining_input = pair |> rator |> rand
       val res = pair |> rand |> rator |> rand
     in
@@ -242,7 +240,7 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
           (SOME ``Dlet
                     (Pcon (SOME (Short "::"))
                               [Pvar "h";
-                               Pcon (SOME (Long "List" (Short "nil"))) []])
+                               Pcon (SOME (Long "List" "nil")) []])
                     (Con (SOME (Short "::"))
                              [Lit (IntLit 3);
                               Con (SOME (Short "nil")) []])``)
