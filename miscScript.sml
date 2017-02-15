@@ -3,7 +3,7 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory stringTheory
+open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
 ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -743,19 +743,19 @@ val BIT_TIMES2 = Q.store_thm("BIT_TIMES2",
 
 val BIT_TIMES2_1 = Q.store_thm("BIT_TIMES2_1",
   `∀n z. BIT z (2 * n + 1) ⇔ (z=0) ∨ BIT z (2 * n)`,
-  Induct >> simp[] >- (
-    simp[BIT_ZERO] >>
-    Cases_on`z`>>simp[BIT0_ODD] >>
-    simp[GSYM BIT_DIV2,BIT_ZERO] ) >>
-  Cases >> simp[BIT0_ODD] >- (
-    simp[arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
+  Induct >> simp_tac std_ss [] >- (
+    simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`z`>>simp_tac std_ss [BIT0_ODD] >>
+    simp_tac arith_ss [GSYM BIT_DIV2,BIT_ZERO] ) >>
+  Cases >> simp_tac std_ss [BIT0_ODD] >- (
+    simp_tac std_ss [arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
     metis_tac[] ) >>
-  simp[GSYM BIT_DIV2] >>
+  simp_tac std_ss [GSYM BIT_DIV2] >>
   qspec_then`2`mp_tac arithmeticTheory.ADD_DIV_RWT >>
   simp[] >>
   disch_then(qspecl_then[`2 * SUC n`,`1`]mp_tac) >>
-  simp[] >>
-  simp[arithmeticTheory.MOD_EQ_0_DIVISOR] >>
+  simp_tac std_ss [] >>
+  simp_tac std_ss [arithmeticTheory.MOD_EQ_0_DIVISOR] >>
   metis_tac[] )
 
 val LOG2_TIMES2 = Q.store_thm("LOG2_TIMES2",
@@ -807,56 +807,56 @@ val LOG2_TIMES2_1 = Q.store_thm("LOG2_TIMES2_1",
 
 val C_BIT_11 = Q.store_thm("C_BIT_11",
   `∀n m. (∀z. (z ≤ LOG2 (MAX n m)) ⇒ (BIT z n ⇔ BIT z m)) ⇔ (n = m)`,
-  simp[Once EQ_IMP_THM] >>
+  simp_tac std_ss [Once EQ_IMP_THM] >>
   ho_match_mp_tac binary_induct >>
-  simp[] >>
+  simp_tac std_ss [] >>
   conj_tac >- (
-    Cases >> simp[] >>
+    Cases >> simp_tac arith_ss [] >>
     qexists_tac`LOG2 (SUC n)` >>
-    simp[BIT_LOG2,BIT_ZERO] ) >>
+    simp_tac arith_ss [BIT_LOG2,BIT_ZERO] ) >>
   gen_tac >> strip_tac >>
-  simp[BIT_TIMES2,BIT_TIMES2_1] >>
+  simp_tac std_ss [BIT_TIMES2,BIT_TIMES2_1] >>
   srw_tac[][] >- (
-    Cases_on`n=0`>>full_simp_tac(srw_ss())[]>-(
-      Cases_on`m=0`>>full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`LOG2 m`mp_tac)>>simp[BIT_ZERO] >>
-      simp[BIT_LOG2]) >>
+    Cases_on`n=0`>>full_simp_tac std_ss []>-(
+      Cases_on`m=0`>>full_simp_tac std_ss []>>
+      first_x_assum(qspec_then`LOG2 m`mp_tac)>>simp_tac std_ss [BIT_ZERO] >>
+      full_simp_tac std_ss [BIT_LOG2]) >>
     `¬ODD m` by (
-      simp[SYM BIT0_ODD] >>
+      simp_tac std_ss [SYM BIT0_ODD] >>
       first_x_assum(qspec_then`0`mp_tac) >>
-      simp[] ) >>
-    full_simp_tac(srw_ss())[arithmeticTheory.ODD_EVEN] >>
-    full_simp_tac(srw_ss())[arithmeticTheory.EVEN_EXISTS] >>
-    simp[arithmeticTheory.EQ_MULT_LCANCEL] >>
+      simp_tac std_ss [] ) >>
+    full_simp_tac std_ss [arithmeticTheory.ODD_EVEN] >>
+    full_simp_tac std_ss [arithmeticTheory.EVEN_EXISTS] >>
+    simp_tac std_ss [arithmeticTheory.EQ_MULT_LCANCEL] >>
     first_x_assum MATCH_MP_TAC >>
     srw_tac[][] >>
     first_x_assum(qspec_then`SUC z`mp_tac) >>
     impl_tac >- (
-      full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2] ) >>
-    simp[BIT_TIMES2] ) >>
-  Cases_on`n=0`>>full_simp_tac(srw_ss())[]>-(
-    full_simp_tac(srw_ss())[BIT_ZERO] >>
-    Cases_on`m=0`>>full_simp_tac(srw_ss())[BIT_ZERO] >>
-    Cases_on`m=1`>>full_simp_tac(srw_ss())[]>>
+      full_simp_tac std_ss [arithmeticTheory.MAX_DEF] >>
+      srw_tac[][] >> full_simp_tac arith_ss [LOG2_TIMES2] ) >>
+    simp_tac std_ss [BIT_TIMES2] ) >>
+  Cases_on`n=0`>>full_simp_tac std_ss []>-(
+    full_simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`m=0`>>full_simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`m=1`>>full_simp_tac std_ss []>>
     first_x_assum(qspec_then`LOG2 m`mp_tac) >>
-    simp[arithmeticTheory.MAX_DEF,BIT_LOG2] >>
+    full_simp_tac std_ss [arithmeticTheory.MAX_DEF,BIT_LOG2] >>
     spose_not_then strip_assume_tac >>
     qspec_then`m`mp_tac logrootTheory.LOG_MOD >>
-    simp[GSYM LOG2_def] ) >>
+    full_simp_tac arith_ss [GSYM LOG2_def] ) >>
   `ODD m` by (
-    simp[SYM BIT0_ODD] >>
+    simp_tac std_ss [SYM BIT0_ODD] >>
     first_x_assum(qspec_then`0`mp_tac) >>
-    simp[] ) >>
-  full_simp_tac(srw_ss())[arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
-  simp[arithmeticTheory.EQ_MULT_LCANCEL] >>
+    simp_tac std_ss [] ) >>
+  full_simp_tac std_ss [arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
+  simp_tac std_ss [arithmeticTheory.EQ_MULT_LCANCEL] >>
   first_x_assum MATCH_MP_TAC >>
   srw_tac[][] >>
   first_x_assum(qspec_then`SUC z`mp_tac) >>
   impl_tac >- (
-    full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2_1,LOG2_TIMES2] ) >>
-  simp[BIT_TIMES2_1,BIT_TIMES2])
+    full_simp_tac std_ss [arithmeticTheory.MAX_DEF] >>
+    srw_tac[][] >> full_simp_tac arith_ss [LOG2_TIMES2_1,LOG2_TIMES2] ) >>
+  full_simp_tac arith_ss [BIT_TIMES2_1,BIT_TIMES2])
 
 val BIT_num_from_bin_list_leading = Q.store_thm("BIT_num_from_bin_list_leading",
   `∀l x. EVERY ($> 2) l ∧ LENGTH l ≤ x ⇒ ¬BIT x (num_from_bin_list l)`,
@@ -866,6 +866,11 @@ val BIT_num_from_bin_list_leading = Q.store_thm("BIT_num_from_bin_list_leading",
   MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
   qexists_tac`2 ** LENGTH l` >>
   simp[numposrepTheory.l2n_lt] )
+
+val word_bit_test = Q.store_thm("word_bit_test",
+  `word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)`,
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
 
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
