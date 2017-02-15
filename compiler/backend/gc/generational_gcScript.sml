@@ -1194,37 +1194,6 @@ val partial_gc_refs_isSomeDataElement_isSomeDataElement = prove(
   \\ first_x_assum match_mp_tac
   \\ metis_tac []);
 
-val partial_gc_ref_isOld_isSomeDataElement = prove(
-  ``(partial_gc conf (roots,heap) = (roots1,state1)) /\
-    (heap_segment (conf.gen_start,conf.refs_start) (state1.old ++ heap_current ++ heap_refs)
-     = SOME (state1.old,heap_current,heap_refs)) /\
-    MEM (DataElement xs l d) state1.r1 /\
-    MEM (Pointer ptr u) xs /\
-    (ptr < conf.gen_start)
-    ==>
-    isSomeDataElement (heap_lookup ptr state1.old)
-  ``,
-  cheat);
-
-val partial_gc_ref_isSomeDataElement = prove(
-  ``(partial_gc conf (roots,heap) = (roots1,state1)) /\
-    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs)) /\
-    MEM (DataElement xs l d) state1.r1 /\
-    MEM (Pointer ptr u) xs
-    ==>
-    isSomeDataElement
-      (heap_lookup ptr (state1.old ++ state1.h1 ++ heap_expand state1.n ++ state1.r1))
-  ``,
-  cheat
-     (* \\ fs [partial_gc_def] \\ rfs [] *)
-     (* \\ pairarg_tac \\ fs [] *)
-     (* \\ pairarg_tac \\ fs [] *)
-     (* \\ `(gc_move_data conf (state'' with r1 := refs')).r1 = refs'` by cheat *)
-     (* \\ `state1.r1 = refs'` by cheat *)
-     (* \\ drule gc_move_refs_ptr_ok *)
-     (* \\ fs []) *)
-  );
-
 val isSomeData_to_basic_heap_IMP_isSomeData = prove (
   ``!heap ptr.
     isSomeDataElement (heap_lookup ptr (to_basic_heap_list conf heap ++ heap_expand state1.n)) ==>
