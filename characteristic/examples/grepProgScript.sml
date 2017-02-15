@@ -24,11 +24,7 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-val word_bit_mask = Q.store_thm("word_bit_mask",
-  `!w. word_bit n (w:64 word) = (((n2w(2**n):64 word) && w) = 1w)`,
-  cheat);
-
-translate word_bit_mask;
+val _ = translate(word_bit_test |> spec64);
 
 open charsetTheory;
 
