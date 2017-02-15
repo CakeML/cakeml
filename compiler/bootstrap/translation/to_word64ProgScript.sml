@@ -492,7 +492,7 @@ val _ = translate (ShiftVar_def |> inline_simp |> conv64);
 val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
-                  
+
 val data_to_word_assign_side = Q.prove(`
   ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
   rpt strip_tac>>
@@ -667,7 +667,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
-                  
+
 val _ = translate (spec64 word_to_wordTheory.compile_def)
 
 val word_simp_const_fp_loop_side = Q.prove(`
@@ -716,7 +716,7 @@ val word_inst_inst_select_side = Q.prove(`
 >> fs[]
 >> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
 >> fs[]
->> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition                                        
+>> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 
 val word_to_word_compile_single_side = Q.prove(`
   ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
@@ -742,6 +742,8 @@ val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
 val _ = translate(FromList_code_def |> conv64 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv64)
 val _ = translate(MakeBytes_def |> conv64)
+val _ = translate(WriteLastByte_aux_def |> conv64)
+val _ = translate(WriteLastBytes_def |> conv64)
 val _ = translate(RefByte_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss[SmallLsr_def])
 val _ = translate(RefArray_code_def |> inline_simp |> conv64|>econv)
 val _ = translate(Replicate_code_def|> inline_simp |> conv64)
