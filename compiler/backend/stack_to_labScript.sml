@@ -4,6 +4,8 @@ local open stack_allocTheory stack_removeTheory stack_namesTheory
 
 val _ = new_theory "stack_to_lab";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)`;
@@ -22,9 +24,9 @@ val _ = export_rewrites ["negate_def"];
 
 val _ = temp_overload_on("++",``Append``)
 
-val flatten_def = Define `
+local val flatten_quotation = `
   flatten p n m =
-    case p of
+    dtcase p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
     | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
@@ -63,7 +65,7 @@ val flatten_def = Define `
         let (xs,nr1,m) = flatten p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
-        (case handler of
+        (dtcase handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
             let (ys,nr2,m) = flatten p2 n m in
@@ -76,6 +78,18 @@ val flatten_def = Define `
                                      Label n m 0],F,m+1)
     | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
     | _  => (List [],F,m)`
+in
+val flatten_def = Define flatten_quotation
+
+val flatten_pmatch = Q.store_thm("flatten_pmatch",`∀p n m.` @
+  (flatten_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac
+  >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+end 
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =

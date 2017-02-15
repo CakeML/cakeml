@@ -3,8 +3,7 @@ open preamble patLangTheory closLangTheory backend_commonTheory
 val _ = new_theory"pat_to_clos"
 val _ = set_grammar_ancestry ["patLang", "closLang", "backend_common"]
 
-val string_tag_def = Define`string_tag = 0:num`
-val vector_tag_def = Define`vector_tag = 1:num`
+val vector_tag_def = Define`vector_tag = 0:num`
 
 (* The translation from patLang to closLang is very simple.
    Its main purpose is simplifying the semantics of some operations,
@@ -26,7 +25,7 @@ val compile_def = tDefine"compile"`
   (compile (Lit (Char c)) =
     Op (Const (& ORD c)) []) ∧
   (compile (Lit (StrLit s)) =
-    Op (Cons string_tag) (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
+    Op (String s) []) ∧
   (compile (Con cn es) =
     Op (Cons cn) (REVERSE (MAP compile es))) ∧
   (compile (Var_local n) =
@@ -104,7 +103,7 @@ val compile_def = tDefine"compile"`
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
           (Raise (Op (Cons subscript_tag) []))
-          (Op RefByte [Var 0; Var 1]))) ∧
+          (Op (RefByte F) [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Aw8sub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
@@ -126,13 +125,13 @@ val compile_def = tDefine"compile"`
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
           (Raise (Op (Cons subscript_tag) []))
-          (If (Op Less [Op LengthBlock [Var 1]; Var 0])
-              (Op El [Var 0; Var 1])
+          (If (Op Less [Op LengthByteVec [Var 1]; Var 0])
+              (Op DerefByteVec [Var 0; Var 1])
               (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Implode)) es) =
-    Op (FromList string_tag) (REVERSE (MAP compile es))) ∧
+    Op (FromListByte) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strlen)) es) =
-    Op LengthBlock (REVERSE (MAP compile es))) ∧
+    Op LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op VfromList)) es) =
     Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Vsub)) es) =

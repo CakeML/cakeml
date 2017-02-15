@@ -82,13 +82,18 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
   `is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ EVAL_TAC \\ every_case_tac \\ fs []
-  \\ fs [state_component_equality]);
+  \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
+          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs[]);
 
 val is_pure_do_app_Rval_IMP = Q.prove(
   `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ EVAL_TAC \\ every_case_tac \\ fs [data_spaceTheory.op_space_req_def]
+  \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
+          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def,
+          bviSemTheory.bvl_to_bvi_def,dataSemTheory.data_to_bvi_def,dataSemTheory.bvi_to_data_def,
+          dataSemTheory.consume_space_def]
+  \\ every_case_tac \\ fs [data_spaceTheory.op_space_req_def] \\ rw[]
   \\ fs [state_component_equality,is_pure_def]);
 
 val evaluate_compile = Q.prove(

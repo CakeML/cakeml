@@ -875,6 +875,22 @@ val htriple_valid_def = Define `
           | Val v => evaluate_ck ck st env [e] = (st', Rval [v])
           | Exn v => evaluate_ck ck st env [e] = (st', Rerr (Rraise v))`;
 
+(* Not used, but interesting: app_basic as an instance of htriple_valid *)
+val app_basic_iff_htriple_valid = Q.store_thm("app_basic_iff_htriple_valid",
+  `∀env exp. do_opapp [fv; argv] = SOME (env,exp) ⇒
+   (app_basic p fv argv H Q ⇔ htriple_valid p exp env H Q)`,
+  rw[EQ_IMP_THM,app_basic_def,htriple_valid_def]
+  \\ res_tac \\ rpt (asm_exists_tac \\ rw[]));
+
+val app_basic_eq_htriple_valid = Q.store_thm("app_basic_eq_htriple_valid",
+  `app_basic (p:'ffi ffi_proj) (f: v) (x: v) H Q <=>
+    case do_opapp [f; x] of
+       SOME (env, exp) => htriple_valid p exp env H Q
+     | NONE => ∀st h1 h2. SPLIT (st2heap p st) (h1,h2) ⇒ ¬ H h1`,
+  reverse CASE_TAC
+  >- ( CASE_TAC \\ rw[app_basic_iff_htriple_valid] )
+  \\ rw[app_basic_def] \\ metis_tac[]);
+
 (* Soundness for relation [R] *)
 val sound_def = Define `
   sound (p:'ffi ffi_proj) e R =

@@ -181,6 +181,7 @@ val arm6_config_def = Define`
     ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
     ; addr_offset := (^min12, ^max12)
+    ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min26 + 8w, ^max26 + 8w)
     ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
     ; loc_offset := (^min16, ^max16)

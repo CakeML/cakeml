@@ -1,6 +1,6 @@
 open preamble
      x64ProgTheory
-     x64_configTheory
+     configTheory
      ml_translatorLib
      ioProgLib
 
@@ -28,6 +28,8 @@ EVAL_TAC \\ rw[SUBSET_DEF]
 val res = translate inferTheory.init_env_def;
 
 val res = translate prim_config_def;
+
+val res = translate x64_names_def;
 
 (* TODO: x64_compiler_config should be called x64_backend_config, and should
          probably be defined elsewhere *)

@@ -57,6 +57,26 @@ val arm8_enc_mov_imm_def = Define`
    else
       NONE`
 
+val temp = ``26w : word5``
+
+val arm8_load_store_ast_def = Define`
+  arm8_load_store_ast ls r1 r2 a =
+  let unsigned = ~word_msb a in
+  if a <> sw2sw ((8 >< 0) a : word9) /\
+     (unsigned ==> a <> w2w ((11 >< 0) (a >>> 3) : word12) << 3) then
+    let (b, c) = if unsigned then (a - 0xFFw, 0xFFw) else (-a - 0x100w, -0x100w)
+    in
+      [Data (AddSubImmediate@64 (1w, ~unsigned, F, b, n2w r2, ^temp));
+       LoadStore
+         (LoadStoreImmediate@64
+            (3w, F, ls, AccType_NORMAL, F, F, F, F, F, unsigned, c,
+             ^temp, n2w r1))]
+  else
+    [LoadStore
+       (LoadStoreImmediate@64
+          (3w, F, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
+           n2w r2, n2w r1))]`
+
 val arm8_ast_def = Define`
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
@@ -142,10 +162,7 @@ val arm8_ast_def = Define`
                (1w, T, T, ShiftType_LSL, n2w r3, 0w, n2w r2, n2w r1));
        Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4))]) /\
    (arm8_ast (Inst (Mem Load r1 (Addr r2 a))) =
-      [LoadStore
-         (LoadStoreImmediate@64
-            (3w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-             a, n2w r2, n2w r1))]) /\
+      arm8_load_store_ast MemOp_LOAD r1 r2 a) /\
    (*
    (arm8_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
         (LoadStore
@@ -159,10 +176,7 @@ val arm8_ast_def = Define`
             (0w, F, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
              a, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Mem Store r1 (Addr r2 a))) =
-      [LoadStore
-         (LoadStoreImmediate@64
-            (3w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-             a, n2w r2, n2w r1))]) /\
+      arm8_load_store_ast MemOp_STORE r1 r2 a) /\
    (*
    (arm8_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
         (LoadStore
@@ -205,8 +219,12 @@ val arm8_enc_def = zDefine
 (* --- Configuration for ARMv8 --- *)
 
 val eval = rhs o concl o EVAL
-val off_min = eval ``sw2sw (INT_MINw: word9) : word64``
-val off_max = eval ``sw2sw (INT_MAXw: word9) : word64``
+val off_min9 = eval ``sw2sw (INT_MINw: word9) : word64``
+val off_max9 = eval ``sw2sw (INT_MAXw: word9) : word64``
+val off_max12 = eval ``w2w (UINT_MAXw: word12) : word64``
+val off_min = eval ``-^off_max12 + ^off_min9``
+val off_max = eval ``^off_max12 + ^off_max9``
+
 val loc_min = eval ``sw2sw (INT_MINw: word20) : word64``
 val loc_max = eval ``sw2sw (INT_MAXw: word20) : word64``
 val cjump_min = eval ``sw2sw (INT_MINw: 21 word) + 4w : word64``
@@ -228,13 +246,14 @@ val arm8_config_def = Define`
    <| ISA := ARMv8
     ; encode := arm8_enc
     ; reg_count := 32
-    ; avoid_regs := [31]
+    ; avoid_regs := [26; 31]
     ; link_reg := SOME 30
     ; two_reg_arith := F
     ; big_endian := F
     ; code_alignment := 2
     ; valid_imm := valid_immediate
     ; addr_offset := (^off_min, ^off_max)
+    ; byte_offset := (^off_min9, ^off_max12)
     ; jump_offset := (^jump_min, ^jump_max)
     ; cjump_offset := (^cjump_min, ^cjump_max)
     ; loc_offset := (^loc_min, ^loc_max)

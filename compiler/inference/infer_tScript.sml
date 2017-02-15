@@ -21,22 +21,22 @@ val _ = Hol_datatype `
   | Infer_Tuvar of num`;
 
 
- val inf_type_to_string_defn = Hol_defn "inf_type_to_string" `
- (inf_type_to_string (Infer_Tuvar _) = "<unification variable>")
-/\ (inf_type_to_string (Infer_Tvar_db n) = (num_to_dec_string n))
-/\ (inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) =   
-(STRCAT"("  (STRCAT(inf_type_to_string t1)  (STRCAT"->"  (STRCAT(inf_type_to_string t2) ")")))))
-/\ (inf_type_to_string (Infer_Tapp ts TC_fn) = "<bad function type>")
-/\ (inf_type_to_string (Infer_Tapp ts TC_tup) =   
-(STRCAT"("  (STRCAT(inf_types_to_string ts) ")")))
-/\ (inf_type_to_string (Infer_Tapp [] tc1) = (tc_to_string tc1))
-/\ (inf_type_to_string (Infer_Tapp ts tc1) =   
-(STRCAT"("  (STRCAT(inf_types_to_string ts)  (STRCAT") " (tc_to_string tc1)))))
-/\ (inf_types_to_string [] = "")
-/\ (inf_types_to_string [t] = (inf_type_to_string t))
-/\ (inf_types_to_string (t::ts) =  (STRCAT(inf_type_to_string t)  (STRCAT", " (inf_types_to_string ts))))`;
+ val inf_type_to_string_defn = Defn.Hol_multi_defns `
+ (inf_type_to_string (Infer_Tuvar _)=  "<unification variable>")
+/\ (inf_type_to_string (Infer_Tvar_db n)=  (num_to_dec_string n))
+/\ (inf_type_to_string (Infer_Tapp [t1;t2] TC_fn)=   
+ (STRCAT"("  (STRCAT(inf_type_to_string t1)  (STRCAT"->"  (STRCAT(inf_type_to_string t2) ")")))))
+/\ (inf_type_to_string (Infer_Tapp ts TC_fn)=  "<bad function type>")
+/\ (inf_type_to_string (Infer_Tapp ts TC_tup)=   
+ (STRCAT"("  (STRCAT(inf_types_to_string ts) ")")))
+/\ (inf_type_to_string (Infer_Tapp [] tc1)=  (tc_to_string tc1))
+/\ (inf_type_to_string (Infer_Tapp ts tc1)=   
+ (STRCAT"("  (STRCAT(inf_types_to_string ts)  (STRCAT") " (tc_to_string tc1)))))
+/\ (inf_types_to_string []=  "")
+/\ (inf_types_to_string [t]=  (inf_type_to_string t))
+/\ (inf_types_to_string (t::ts)=   (STRCAT(inf_type_to_string t)  (STRCAT", " (inf_types_to_string ts))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn inf_type_to_string_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) inf_type_to_string_defn;
 
 
 (*
