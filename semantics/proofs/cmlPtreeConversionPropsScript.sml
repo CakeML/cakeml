@@ -11,9 +11,11 @@ val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
 val ptree_head_TOK = Q.store_thm(
   "ptree_head_TOK",
-  `(ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)) ∧
-    (TOK sym = ptree_head pt ⇔ pt = Lf (TOK sym))`,
-  Cases_on `pt` >> simp[] >> metis_tac[]);
+  `(ptree_head pt = TOK sym ⇔ ?x. pt = Lf (TOK sym,x)) ∧
+    (TOK sym = ptree_head pt ⇔ ?x. pt = Lf (TOK sym,x))`,
+  Cases_on `pt` >> Cases_on `p` >>
+  simp[grammarTheory.ptree_head_def] >>
+  rw [] >> eq_tac >> rw []);
 val _ = export_rewrites ["ptree_head_TOK"]
 
 val start =
