@@ -1,4 +1,4 @@
-open preamble ml_translatorLib ml_translatorTheory;
+open preamble mlstringTheory;
 
 val () = new_theory "export_x64";
 
