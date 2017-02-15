@@ -674,9 +674,10 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
-                  
+
 val _ = translate (spec64 word_to_wordTheory.compile_def)
 
+(* TODO: remove when pmatch is fixedd
 val word_simp_const_fp_loop_side = Q.prove(`
 ∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T`,
 `(∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T) /\
@@ -705,6 +706,7 @@ val word_simp_compile_exp_side = Q.prove(`
   ∀prog. word_simp_compile_exp_side prog ⇔ T`,
   fs[fetch "-" "word_simp_compile_exp_side_def",
      word_simp_const_fp_side]) |> update_precondition
+*)
 
 val word_inst_inst_select_side = Q.prove(`
 ∀prog c n. word_inst_inst_select_side c n prog ⇔ T`,
@@ -723,12 +725,12 @@ val word_inst_inst_select_side = Q.prove(`
 >> fs[]
 >> POP_ASSUM(ASSUME_TAC o RW.PURE_ONCE_RW_RULE[fetch"-" "word_inst_inst_select_side_def"])
 >> fs[]
->> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition                                        
+>> metis_tac[pair_CASES,option_CASES,fetch "asm" "reg_imm_nchotomy"]) |> update_precondition
 
 val word_to_word_compile_single_side = Q.prove(`
   ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
   fs[fetch "-" "word_to_word_compile_single_side_def",
-     word_simp_compile_exp_side, word_inst_inst_select_side,
+     (*word_simp_compile_exp_side,*) word_inst_inst_select_side,
      word_inst_three_to_two_reg_side]) |> update_precondition
 
 val word_to_word_full_compile_single_side = Q.prove(`
