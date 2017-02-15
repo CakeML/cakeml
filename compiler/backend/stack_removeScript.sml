@@ -12,7 +12,14 @@ val word_offset_def = Define `
 
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap;
-                AllocSize; Handler; Globals; ProgStart; BitmapBase]`
+                AllocSize; Handler; Globals; ProgStart; BitmapBase;
+                Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
+                Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
+                Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
+                Temp 15w; Temp 16w; Temp 17w; Temp 18w; Temp 19w;
+                Temp 20w; Temp 21w; Temp 22w; Temp 23w; Temp 24w;
+                Temp 25w; Temp 26w; Temp 27w; Temp 28w; Temp 29w;
+                Temp 30w; Temp 31w]`
 
 val store_pos_def = Define `
   store_pos name =

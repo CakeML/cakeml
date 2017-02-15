@@ -184,4 +184,7 @@ val word_sh_def = Define `
       | Lsr => SOME (w >>> n)
       | Asr => SOME (w >> n)`;
 
+val shift_def = Define `
+  shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
+
 val _ = export_theory();

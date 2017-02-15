@@ -66,9 +66,20 @@ val do_app_aux_def = Define `
                           else NONE
              | _ => NONE)
          | _ => NONE)
+    | (RefByte f, xs) =>
+        (case xs of
+          | [Number i; Number b] =>
+            if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
+              let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+                SOME (SOME (RefPtr ptr, s with refs := s.refs |+
+                  (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
+            else NONE
+          | _ => NONE)
     | (Global n, _) => NONE
     | (SetGlobal n, _) => NONE
     | (AllocGlobal, _) => NONE
+    | (String _, _) => NONE
+    | (FromListByte, _) => NONE
     | _ => SOME NONE`
 
 val do_app_def = Define `

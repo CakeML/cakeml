@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../targets ../../bootstrap/io
+INCLUDES = .. ../targets ../../../characteristic/examples
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))

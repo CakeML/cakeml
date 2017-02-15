@@ -35,6 +35,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -152,7 +153,7 @@ val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = Q.
   conj_tac >- METIS_TAC[GRAMMAR_PARSETREE_TYPE_no_closures] >>
   METIS_TAC[GRAMMAR_PARSETREE_TYPE_types_match,GRAMMAR_PARSETREE_TYPE_11])
   |> store_eq_thm
-
+  
 val _ = translate (def_of_const ``cmlPEG``);
 
 val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",

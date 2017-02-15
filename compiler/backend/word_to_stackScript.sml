@@ -103,10 +103,10 @@ val wInst_def = Define `
     (*n1 = 4, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
       (Inst (Arith (LongMul 4 0 0 2)))) /\
   (wInst (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
-    (*n1 = 0, n2 = 2, n3 = 0, n4 = 2 no spills necessary*)
+    (*n1 = 0, n2 = 2, n3 = 2, n4 = 0 no spills necessary*)
     let (l,n5) = wReg1 n5 kf in
     wStackLoad l
-      (Inst (Arith (LongDiv 0 4 0 4 n5)))) /\
+      (Inst (Arith (LongDiv 0 4 4 0 n5)))) /\
   (wInst (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l

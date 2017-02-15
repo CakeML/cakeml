@@ -261,7 +261,7 @@ val evaluate_code_const_lemma = Q.prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[bvl_to_bvi_def] \\ full_simp_tac(srw_ss())[do_app_aux_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]);
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs[] \\ srw_tac[][]);
 
 val evaluate_code_const = Q.store_thm("evaluate_code_const",
   `!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)`,
@@ -275,7 +275,7 @@ val evaluate_global_mono_lemma = Q.prove(
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   srw_tac[][bvl_to_bvi_def] >>
   full_simp_tac(srw_ss())[do_app_aux_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> fs[] >> srw_tac[][]);
 
 val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
   `∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global`,
@@ -290,7 +290,7 @@ val do_app_code = Q.store_thm("do_app_code",
    (Cases_on `do_app op a (bvi_to_bvl s1)` \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][bvl_to_bvi_def])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[do_app_aux_def]
-  \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `a` \\ fs[]
   \\ srw_tac[][]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -303,7 +303,7 @@ val do_app_err = Q.store_thm("do_app_err",
 val do_app_aux_const = Q.store_thm("do_app_aux_const",
   `do_app_aux op vs s = SOME (SOME (y,z)) ⇒
    z.clock = s.clock`,
-  Cases_on`op`>>srw_tac[][do_app_aux_def] >>
+  Cases_on`op`>>rw[do_app_aux_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
 
 val do_app_with_code = Q.store_thm("do_app_with_code",
@@ -381,7 +381,7 @@ val do_app_aux_with_clock = Q.store_thm("do_app_aux_with_clock",
   `do_app_aux op vs (s with clock := c) =
    OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)`,
   srw_tac[][do_app_aux_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]);
+  every_case_tac >> fs[]);
 
 val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>
@@ -465,7 +465,7 @@ val do_app_aux_io_events_mono = Q.store_thm("do_app_aux_io_events_mono",
    s.ffi.io_events ≼ y.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ y.ffi = s.ffi)`,
   srw_tac[][do_app_aux_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> fs[] >> srw_tac[][]);
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app op vs s1 = Rval (x,s2) ⇒

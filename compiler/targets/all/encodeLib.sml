@@ -254,10 +254,12 @@ val () = Count.apply (encodings [All])
     `Inst (Arith (SubOverflow 7 7 8 9))`,
     `Inst (Mem Load 6 (Addr 7 0w))`,
     `Inst (Mem Load 6 (Addr 7 0x10w))`,
+    `Inst (Mem Load 6 (Addr 7 0x101w))`,
     `Inst (Mem Load8 6 (Addr 7 0x10w))`,
  (* `Inst (Mem Load32 6 (Addr 7 0x10w))`, *)
     `Inst (Mem Store 6 (Addr 7 0w))`,
     `Inst (Mem Store 6 (Addr 7 0x10w))`,
+    `Inst (Mem Store 6 (Addr 7 0x101w))`,
     `Inst (Mem Store8 6 (Addr 7 0x10w))`,
  (* `Inst (Mem Store32 6 (Addr 7 0x10w))`, *)
     `Jump 12w`,
