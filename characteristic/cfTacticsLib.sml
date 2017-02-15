@@ -1,4 +1,4 @@
-structure cfTacticsLib :> cfTacticsLib =
+structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
 open preamble

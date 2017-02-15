@@ -27,10 +27,17 @@ val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
   `MEM x (REPLICATE n y) ==> x = y`,
   Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
 
-val CHR_w2n_n2w_ORD = Q.prove(
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
   `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
   rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
 );
+
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
 (* -- *)
 
 val _ = ml_prog_update (open_module "commandLine")
@@ -287,7 +294,8 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
       >-(xapp \\ xsimpl)
     \\ fs [COMMANDLINE_def] 
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
-    >-(xffi \\ fs [COMMANDLINE_def]
+    >-(
+      xffi \\ fs [COMMANDLINE_def]
       \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
       \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[EVERY_REPLICATE])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac 
@@ -313,6 +321,7 @@ val commandLine_cline_spec = Q.store_thm("commandLine_cline_spec",
     \\ match_mp_tac TOKENS_FRONT_MAP_inv
     \\ simp[]
 );
+
 
 val hd_v_thm = fetch "mllistProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
