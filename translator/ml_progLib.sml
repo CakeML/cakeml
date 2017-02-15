@@ -72,11 +72,51 @@ fun cond_abbrev dest conv eval name th = let
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        in (th,[def]) end end
 
+fun cond_env_abbrev dest conv name th = let
+  val tm = dest th
+  val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
+  in if is_const x andalso all is_var vs then (th,[])
+     else let
+       val def = define_abbrev false (find_name name) tm |> SPEC_ALL
+       val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
+       val env_const = def |> concl |> dest_eq |> fst
+       (* compute lookup_var thm *)
+       val v = lookup_var_def |> concl |> dest_forall |> fst
+       val lookup_var_tm =
+         lookup_var_def |> SPECL [v,env_const] |> concl |> dest_eq |> fst
+       val lookup_var_eq = lookup_var_tm |> REWRITE_CONV [def,
+              lookup_var_write,
+              lookup_var_write_mod,
+              lookup_var_write_cons,
+              lookup_var_empty_env,
+              lookup_var_merge_env] |> REWRITE_RULE [lookup_var_def]
+       val var_thm_name = "lookup_var_" ^ fst (dest_const env_const)
+       val _ = save_thm(var_thm_name ^ "[compute]",lookup_var_eq)
+       (* compute lookup_cons thm *)
+       val v = lookup_cons_def |> concl |> dest_forall |> fst
+       val lookup_cons_tm =
+         lookup_cons_def |> SPECL [v,env_const] |> concl |> dest_eq |> fst
+       val lookup_cons_eq = lookup_cons_tm |> REWRITE_CONV [def,
+              lookup_var_write,
+              lookup_var_write_mod,
+              lookup_var_write_cons,
+              lookup_var_empty_env,
+              lookup_var_merge_env] |> REWRITE_RULE [lookup_cons_def]
+       val cons_thm_name = "lookup_cons_" ^ fst (dest_const env_const)
+       val _ = save_thm(cons_thm_name ^ "[compute]",lookup_cons_eq)
+       in (th,[def]) end end
+
+(*
+val (ML_code (ss,envs,vs,th)) = (ML_code (ss,envs,v_def :: vs,th))
+*)
+
 fun clean (ML_code (ss,envs,vs,th)) = let
   val (th,new_ss) = cond_abbrev (rand o concl)
                       RAND_CONV reduce_conv "auto_state" th
-  val (th,new_envs) = cond_abbrev (rand o rator o concl)
-                        (RATOR_CONV o RAND_CONV) EVAL "auto_env" th
+  val dest = (rand o rator o concl)
+  val conv = (RATOR_CONV o RAND_CONV)
+  val name = "auto_env"
+  val (th,new_envs) = cond_env_abbrev dest conv name th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
 
 (* --- *)
@@ -143,6 +183,11 @@ fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
   val th = th |> SPEC (stringSyntax.fromMLstring var_str)
   in clean (ML_code (ss,envs,v_thms @ vs,th)) end
 
+(*
+val (ML_code (ss,envs,vs,th)) = s
+val (n,v,exp) = (v_tm,w,body)
+*)
+
 fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dlet_Fun th
            handle HOL_ERR _ =>
@@ -179,6 +224,10 @@ fun get_mod_prefix (ML_code (ss,envs,vs,th)) = let
   in if optionSyntax.is_none tm then "" else
        (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring) ^ "_"
   end
+
+(*
+val dec_tm = dec1_tm
+*)
 
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
@@ -281,11 +330,6 @@ fun clean_state (ML_code (ss,envs,vs,th)) = let
 
 (*
 
-val s = init_state
-val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
-val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
-val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
-
 fun pick_name str =
   if str = "<" then "lt" else
   if str = ">" then "gt" else
@@ -298,6 +342,11 @@ fun pick_name str =
   if str = "*" then "times" else
   if str = "!" then "deref" else
   if str = ":=" then "update" else str
+
+val s = init_state
+val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
+val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
 

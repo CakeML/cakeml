@@ -2491,6 +2491,10 @@ fun move_Eval_conv tm =
     else NO_CONV tm
   end
 
+(*
+val th = D res
+*)
+
 fun clean_assumptions th = let
   val lhs1 = ``nsLookup env name`` (*TODO: Probably want to generate this programmatically instead.. *)
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
@@ -2499,6 +2503,7 @@ fun clean_assumptions th = let
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
   val lemmas = map EVAL lookup_assums
+
                |> filter (fn th => th |> concl |> rand |> is_const)
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
