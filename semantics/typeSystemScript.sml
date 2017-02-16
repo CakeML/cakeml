@@ -18,70 +18,70 @@ val _ = new_theory "typeSystem"
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
 (*val check_freevars : nat -> list tvarN -> t -> bool*)
- val check_freevars_defn = Hol_defn "check_freevars" `
+ val check_freevars_defn = Defn.Hol_multi_defns `
 
-(check_freevars dbmax tvs (Tvar tv) =  
-(MEM tv tvs))
+(check_freevars dbmax tvs (Tvar tv)=  
+ (MEM tv tvs))
 /\
-(check_freevars dbmax tvs (Tapp ts tn) =  
-(EVERY (check_freevars dbmax tvs) ts))
+(check_freevars dbmax tvs (Tapp ts tn)=  
+ (EVERY (check_freevars dbmax tvs) ts))
 /\
-(check_freevars dbmax tvs (Tvar_db n) = (n < dbmax))`;
+(check_freevars dbmax tvs (Tvar_db n)=  (n < dbmax))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_freevars_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_freevars_defn;
 
 (* Simultaneous substitution of types for type variables in a type *)
 (*val type_subst : Map.map tvarN t -> t -> t*)
- val type_subst_defn = Hol_defn "type_subst" `
+ val type_subst_defn = Defn.Hol_multi_defns `
 
-(type_subst s (Tvar tv) =  
-((case FLOOKUP s tv of
+(type_subst s (Tvar tv)=  
+ ((case FLOOKUP s tv of
       NONE => Tvar tv
     | SOME(t) => t
   )))
 /\
-(type_subst s (Tapp ts tn) =  
-(Tapp (MAP (type_subst s) ts) tn))
+(type_subst s (Tapp ts tn)=  
+ (Tapp (MAP (type_subst s) ts) tn))
 /\
-(type_subst s (Tvar_db n) = (Tvar_db n))`;
+(type_subst s (Tvar_db n)=  (Tvar_db n))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_subst_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_subst_defn;
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
 (*val deBruijn_inc : nat -> nat -> t -> t*)
- val deBruijn_inc_defn = Hol_defn "deBruijn_inc" `
+ val deBruijn_inc_defn = Defn.Hol_multi_defns `
 
-(deBruijn_inc skip n (Tvar tv) = (Tvar tv))
+(deBruijn_inc skip n (Tvar tv)=  (Tvar tv))
 /\
-(deBruijn_inc skip n (Tvar_db m) =  
-(if m < skip then
+(deBruijn_inc skip n (Tvar_db m)=  
+ (if m < skip then
     Tvar_db m
   else
     Tvar_db (m + n)))
 /\
-(deBruijn_inc skip n (Tapp ts tn) = (Tapp (MAP (deBruijn_inc skip n) ts) tn))`;
+(deBruijn_inc skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_inc_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_inc_defn;
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 (*val deBruijn_subst : nat -> list t -> t -> t*)
- val deBruijn_subst_defn = Hol_defn "deBruijn_subst" `
+ val deBruijn_subst_defn = Defn.Hol_multi_defns `
 
-(deBruijn_subst skip ts (Tvar tv) = (Tvar tv))
+(deBruijn_subst skip ts (Tvar tv)=  (Tvar tv))
 /\
-(deBruijn_subst skip ts (Tvar_db n) =  
-(if ~ (n < skip) /\ (n < (LENGTH ts + skip)) then
+(deBruijn_subst skip ts (Tvar_db n)=  
+ (if ~ (n < skip) /\ (n < (LENGTH ts + skip)) then
     EL (n - skip) ts
   else if ~ (n < skip) then
     Tvar_db (n - LENGTH ts)
   else
     Tvar_db n))
 /\
-(deBruijn_subst skip ts (Tapp ts' tn) =  
-(Tapp (MAP (deBruijn_subst skip ts) ts') tn))`;
+(deBruijn_subst skip ts (Tapp ts' tn)=  
+ (Tapp (MAP (deBruijn_subst skip ts) ts') tn))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn deBruijn_subst_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_subst_defn;
 
 (* Type environments *)
 val _ = Hol_datatype `
@@ -95,13 +95,13 @@ val _ = Hol_datatype `
 
 (*val bind_tvar : nat -> tenv_val_exp -> tenv_val_exp*)
 val _ = Define `
- (bind_tvar tvs tenvE = (if tvs = 0 then tenvE else Bind_tvar tvs tenvE))`;
+ (bind_tvar tvs tenvE=  (if tvs =( 0 : num) then tenvE else Bind_tvar tvs tenvE))`;
 
 
 (*val opt_bind_name : maybe varN -> nat -> t -> tenv_val_exp -> tenv_val_exp*)
 val _ = Define `
- (opt_bind_name n tvs t tenvE =  
-((case n of
+ (opt_bind_name n tvs t tenvE=  
+ ((case n of
       NONE => tenvE
     | SOME n' => Bind_name n' tvs t tenvE
   )))`;
@@ -110,12 +110,12 @@ val _ = Define `
 (*val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
  val _ = Define `
 
-(tveLookup n inc Empty = NONE)
+(tveLookup n inc Empty=  NONE)
 /\
-(tveLookup n inc (Bind_tvar tvs tenvE) = (tveLookup n (inc + tvs) tenvE))
+(tveLookup n inc (Bind_tvar tvs tenvE)=  (tveLookup n (inc + tvs) tenvE))
 /\
-(tveLookup n inc (Bind_name n' tvs t tenvE) =  
-(if n' = n then
+(tveLookup n inc (Bind_name n' tvs t tenvE)=  
+ (if n' = n then
     SOME (tvs, deBruijn_inc tvs inc t)
   else
     tveLookup n inc tenvE))`;
@@ -135,25 +135,25 @@ val _ = Hol_datatype `
 
 (*val extend_dec_tenv : type_env -> type_env -> type_env*)
 val _ = Define `
- (extend_dec_tenv tenv' tenv =  
-(<| v := (nsAppend tenv'.v tenv.v);
+ (extend_dec_tenv tenv' tenv=  
+ (<| v := (nsAppend tenv'.v tenv.v);
      c := (nsAppend tenv'.c tenv.c);
      t := (nsAppend tenv'.t tenv.t) |>))`;
 
 
 (*val lookup_varE : id modN varN -> tenv_val_exp -> maybe (nat * t)*)
 val _ = Define `
- (lookup_varE id tenvE =  
-((case id of
-    Short x => tveLookup x( 0) tenvE
+ (lookup_varE id tenvE=  
+ ((case id of
+    Short x => tveLookup x(( 0 : num)) tenvE
   | _ => NONE
   )))`;
 
 
 (*val lookup_var : id modN varN -> tenv_val_exp -> type_env -> maybe (nat * t)*)
 val _ = Define `
- (lookup_var id tenvE tenv =  
-((case lookup_varE id tenvE of
+ (lookup_var id tenvE tenv=  
+ ((case lookup_varE id tenvE of
     SOME x => SOME x
   | NONE => nsLookup tenv.v id
   )))`;
@@ -162,20 +162,20 @@ val _ = Define `
 (*val num_tvs : tenv_val_exp -> nat*)
  val _ = Define `
 
-(num_tvs Empty =( 0))
+(num_tvs Empty= (( 0 : num)))
 /\
-(num_tvs (Bind_tvar tvs tenvE) = (tvs + num_tvs tenvE))
+(num_tvs (Bind_tvar tvs tenvE)=  (tvs + num_tvs tenvE))
 /\
-(num_tvs (Bind_name n tvs t tenvE) = (num_tvs tenvE))`;
+(num_tvs (Bind_name n tvs t tenvE)=  (num_tvs tenvE))`;
 
 
 (*val bind_var_list : nat -> list (varN * t) -> tenv_val_exp -> tenv_val_exp*)
  val _ = Define `
 
-(bind_var_list tvs [] tenvE = tenvE)
+(bind_var_list tvs [] tenvE=  tenvE)
 /\
-(bind_var_list tvs ((n,t)::binds) tenvE =  
-(Bind_name n tvs t (bind_var_list tvs binds tenvE)))`;
+(bind_var_list tvs ((n,t)::binds) tenvE=  
+ (Bind_name n tvs t (bind_var_list tvs binds tenvE)))`;
 
 
 (* A pattern matches values of a certain type and extends the type environment
@@ -203,13 +203,13 @@ val _ = Hol_datatype `
 
 (*val empty_decls : decls*)
 val _ = Define `
- (empty_decls = (<|defined_mods := {}; defined_types := {}; defined_exns := {}|>))`;
+ (empty_decls=  (<|defined_mods := ({}); defined_types := ({}); defined_exns := ({})|>))`;
 
 
 (*val union_decls : decls -> decls -> decls*)
 val _ = Define `
- (union_decls d1 d2 =  
-(<| defined_mods := (d1.defined_mods UNION d2.defined_mods);
+ (union_decls d1 d2=  
+ (<| defined_mods := (d1.defined_mods UNION d2.defined_mods);
      defined_types := (d1.defined_types UNION d2.defined_types);
      defined_exns := (d1.defined_exns UNION d2.defined_exns) |>))`;
 
@@ -233,8 +233,8 @@ val _ = Define `
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- (type_op op ts t =  
-((case (op,ts) of
+ (type_op op ts t=  
+ ((case (op,ts) of
       (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
     | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tapp [] (TC_name (Short "bool")))
@@ -273,13 +273,13 @@ val _ = Define `
 
 
 (*val check_type_names : tenv_abbrev -> t -> bool*)
- val check_type_names_defn = Hol_defn "check_type_names" `
+ val check_type_names_defn = Defn.Hol_multi_defns `
 
-(check_type_names tenvT (Tvar tv) =
+(check_type_names tenvT (Tvar tv)= 
   T)
 /\
-(check_type_names tenvT (Tapp ts tn) =  
-((case tn of
+(check_type_names tenvT (Tapp ts tn)=  
+ ((case tn of
      TC_name tn =>
        (case nsLookup tenvT tn of
            SOME (tvs, t) => LENGTH tvs = LENGTH ts
@@ -289,19 +289,19 @@ val _ = Define `
   ) /\
   EVERY (check_type_names tenvT) ts))
 /\
-(check_type_names tenvT (Tvar_db n) =
+(check_type_names tenvT (Tvar_db n)= 
   T)`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn check_type_names_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_type_names_defn;
 
 (* Substitution of type names for the type they abbreviate *)
 (*val type_name_subst : tenv_abbrev -> t -> t*)
- val type_name_subst_defn = Hol_defn "type_name_subst" `
+ val type_name_subst_defn = Defn.Hol_multi_defns `
 
-(type_name_subst tenvT (Tvar tv) = (Tvar tv))
+(type_name_subst tenvT (Tvar tv)=  (Tvar tv))
 /\
-(type_name_subst tenvT (Tapp ts tc) =  
-(let args = (MAP (type_name_subst tenvT) ts) in
+(type_name_subst tenvT (Tapp ts tc)=  
+ (let args = (MAP (type_name_subst tenvT) ts) in
     (case tc of
         TC_name tn =>
           (case nsLookup tenvT tn of
@@ -311,9 +311,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       | _ => Tapp args tc
     )))
 /\
-(type_name_subst tenvT (Tvar_db n) = (Tvar_db n))`;
+(type_name_subst tenvT (Tvar_db n)=  (Tvar_db n))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn type_name_subst_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_name_subst_defn;
 
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
@@ -321,13 +321,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  * types mentioned are in scope. *)
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
- (check_ctor_tenv tenvT tds =  
-(check_dup_ctors tds /\
+ (check_ctor_tenv tenvT tds=  
+ (check_dup_ctors tds /\
   EVERY
     (\ (tvs,tn,ctors) . 
        ALL_DISTINCT tvs /\
        EVERY
-         (\ (cn,ts) .  EVERY (check_freevars( 0) tvs) ts /\ EVERY (check_type_names tenvT) ts)
+         (\ (cn,ts) .  EVERY (check_freevars(( 0 : num)) tvs) ts /\ EVERY (check_type_names tenvT) ts)
          ctors)
     tds /\
   ALL_DISTINCT (MAP (\p .  
@@ -336,8 +336,8 @@ val _ = Define `
 
 (*val build_ctor_tenv : list modN -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> tenv_ctor*)
 val _ = Define `
- (build_ctor_tenv mn tenvT tds =  
-(alist_to_ns
+ (build_ctor_tenv mn tenvT tds=  
+ (alist_to_ns
     (REVERSE
       (FLAT
         (MAP
@@ -350,30 +350,30 @@ val _ = Define `
  * constructors, and that the arguments have no free type variables. *)
 (*val check_exn_tenv : list modN -> conN -> list t -> bool*)
 val _ = Define `
- (check_exn_tenv mn cn ts =  
-(EVERY (check_freevars( 0) []) ts))`;
+ (check_exn_tenv mn cn ts=  
+ (EVERY (check_freevars(( 0 : num)) []) ts))`;
 
 
 (* For the value restriction on let-based polymorphism *)
 (*val is_value : exp -> bool*)
- val is_value_defn = Hol_defn "is_value" `
+ val is_value_defn = Defn.Hol_multi_defns `
 
-(is_value (Lit _) = T)
+(is_value (Lit _)=  T)
 /\
-(is_value (Con _ es) = (EVERY is_value es))
+(is_value (Con _ es)=  (EVERY is_value es))
 /\
-(is_value (Var _) = T)
+(is_value (Var _)=  T)
 /\
-(is_value (Fun _ _) = T)
+(is_value (Fun _ _)=  T)
 /\
-(is_value _ = F)`;
+(is_value _=  F)`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn is_value_defn;
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) is_value_defn;
 
 (*val tid_exn_to_tc : tid_or_exn -> tctor*)
 val _ = Define `
- (tid_exn_to_tc t =  
-((case t of
+ (tid_exn_to_tc t=  
+ ((case t of
       TypeId tid => TC_name tid
     | TypeExn _ => TC_exn
   )))`;
@@ -428,7 +428,7 @@ type_p tvs tenv (Pcon NONE ps) (Tapp ts TC_tup) bindings)
 type_p tvs tenv (Pref p) (Tref t) bindings)
 
 /\ (! tvs tenv p t bindings.
-(check_freevars( 0) [] t /\
+(check_freevars(( 0 : num)) [] t /\
 check_type_names tenv.t t /\
 type_p tvs tenv p (type_name_subst tenv.t t) bindings)
 ==>
@@ -482,7 +482,7 @@ type_e tenv tenvE (Raise e) t)
 (! ((p,e) :: LIST_TO_SET pes). ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
    type_p (num_tvs tenvE) tenv p Texn bindings /\
-   type_e tenv (bind_var_list( 0) bindings tenvE) e t))
+   type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t))
 ==>
 type_e tenv tenvE (Handle e pes) t)
 
@@ -504,11 +504,11 @@ type_e tenv tenvE (Con NONE es) (Tapp ts TC_tup))
 EVERY (check_freevars (num_tvs tenvE) []) targs /\
 (lookup_var n tenvE tenv = SOME (tvs,t)))
 ==>
-type_e tenv tenvE (Var n) (deBruijn_subst( 0) targs t))
+type_e tenv tenvE (Var n) (deBruijn_subst(( 0 : num)) targs t))
 
 /\ (! tenv tenvE n e t1 t2.
 (check_freevars (num_tvs tenvE) [] t1 /\
-type_e tenv (Bind_name n( 0) t1 tenvE) e t2)
+type_e tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2)
 ==>
 type_e tenv tenvE (Fun n e) (Tfn t1 t2))
 
@@ -536,13 +536,13 @@ type_e tenv tenvE (If e1 e2 e3) t)
 (! ((p,e) :: LIST_TO_SET pes) . ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
    type_p (num_tvs tenvE) tenv p t1 bindings /\
-   type_e tenv (bind_var_list( 0) bindings tenvE) e t2))
+   type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t2))
 ==>
 type_e tenv tenvE (Mat e pes) t2)
 
 /\ (! tenv tenvE n e1 e2 t1 t2.
 (type_e tenv tenvE e1 t1 /\
-type_e tenv (opt_bind_name n( 0) t1 tenvE) e2 t2)
+type_e tenv (opt_bind_name n(( 0 : num)) t1 tenvE) e2 t2)
 ==>
 type_e tenv tenvE (Let n e1 e2) t2)
 
@@ -557,13 +557,13 @@ type_e tenv tenvE (Letrec funs e) t
 *)
 
 /\ (! tenv tenvE funs e t bindings.
-(type_funs tenv (bind_var_list( 0) bindings tenvE) funs bindings /\
-type_e tenv (bind_var_list( 0) bindings tenvE) e t)
+(type_funs tenv (bind_var_list(( 0 : num)) bindings tenvE) funs bindings /\
+type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t)
 ==>
 type_e tenv tenvE (Letrec funs e) t)
 
 /\ (! tenv tenvE e t.
-(check_freevars( 0) [] t /\
+(check_freevars(( 0 : num)) [] t /\
 check_type_names tenv.t t /\
 type_e tenv tenvE e (type_name_subst tenv.t t))
 ==>
@@ -592,7 +592,7 @@ type_funs tenv tenvE [] [])
 
 /\ (! tenv tenvE fn n e funs bindings t1 t2.
 (check_freevars (num_tvs tenvE) [] (Tfn t1 t2) /\
-type_e tenv (Bind_name n( 0) t1 tenvE) e t2 /\
+type_e tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2 /\
 type_funs tenv tenvE funs bindings /\
 (ALOOKUP bindings fn = NONE))
 ==>
@@ -600,28 +600,28 @@ type_funs tenv tenvE ((fn, n, e)::funs) ((fn, Tfn t1 t2)::bindings))`;
 
 (*val tenv_add_tvs : nat -> alist varN t -> alist varN (nat * t)*)
 val _ = Define `
- (tenv_add_tvs tvs bindings =  
-(MAP (\ (n,t) .  (n,(tvs,t))) bindings))`;
+ (tenv_add_tvs tvs bindings=  
+ (MAP (\ (n,t) .  (n,(tvs,t))) bindings))`;
 
 
 (*val type_pe_determ : type_env -> tenv_val_exp -> pat -> exp -> bool*)
 val _ = Define `
- (type_pe_determ tenv tenvE p e =  
-(! t1 tenv1 t2 tenv2.    
-(type_p( 0) tenv p t1 tenv1 /\ type_e tenv tenvE e t1 /\
-    type_p( 0) tenv p t2 tenv2 /\ type_e tenv tenvE e t2)
+ (type_pe_determ tenv tenvE p e=  
+ (! t1 tenv1 t2 tenv2.    
+(type_p(( 0 : num)) tenv p t1 tenv1 /\ type_e tenv tenvE e t1 /\
+    type_p(( 0 : num)) tenv p t2 tenv2 /\ type_e tenv tenvE e t2)
     ==>    
 (tenv1 = tenv2)))`;
 
 
 (*val tscheme_inst : (nat * t) -> (nat * t) -> bool*)
 val _ = Define `
- (tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =  
-(? subst.    
+ (tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl)=  
+ (? subst.    
 (LENGTH subst = tvs_impl) /\
     check_freevars tvs_impl [] t_impl /\
     EVERY (check_freevars tvs_spec []) subst /\    
-(deBruijn_subst( 0) subst t_impl = t_spec)))`;
+(deBruijn_subst(( 0 : num)) subst t_impl = t_spec)))`;
 
 
 val _ = Hol_reln ` (! extra_checks tvs mn tenv p e t bindings decls.
@@ -645,17 +645,17 @@ type_d extra_checks mn decls tenv (Dlet p e)
    instantiation. However, we should only do the check when the extra_checks
    argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ tenv Empty p e)) /\
 ALL_DISTINCT (pat_bindings p []) /\
-type_p( 0) tenv p t bindings /\
+type_p(( 0 : num)) tenv p t bindings /\
 type_e tenv Empty e t)
 ==>
 type_d extra_checks mn decls tenv (Dlet p e)
-  empty_decls <| v := (alist_to_ns (tenv_add_tvs( 0) bindings)); c := nsEmpty; t := nsEmpty |>)
+  empty_decls <| v := (alist_to_ns (tenv_add_tvs(( 0 : num)) bindings)); c := nsEmpty; t := nsEmpty |>)
 
 /\ (! extra_checks mn tenv funs bindings tvs decls.
-(type_funs tenv (bind_var_list( 0) bindings (bind_tvar tvs Empty)) funs bindings /\
+(type_funs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
 (extra_checks ==>  
 (! tvs' bindings'.
-    type_funs tenv (bind_var_list( 0) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
+    type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
 type_d extra_checks mn decls tenv (Dletrec funs)
@@ -666,13 +666,13 @@ type_d extra_checks mn decls tenv (Dletrec funs)
 (defined_types' = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) tdefs)) /\
 DISJOINT defined_types' decls.defined_types /\
 (tenvT = alist_to_ns (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs)) /\
-(decls' = <| defined_mods := {}; defined_types := defined_types'; defined_exns := {} |>))
+(decls' = <| defined_mods := ({}); defined_types := defined_types'; defined_exns := ({}) |>))
 ==>
 type_d extra_checks mn decls tenv (Dtype tdefs)
   decls' <| v := nsEmpty; c := (build_ctor_tenv mn (nsAppend tenvT tenv.t) tdefs); t := tenvT |>)
 
 /\ (! extra_checks mn decls tenv tvs tn t.
-(check_freevars( 0) tvs t /\
+(check_freevars(( 0 : num)) tvs t /\
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
@@ -684,7 +684,7 @@ type_d extra_checks mn decls tenv (Dtabbrev tvs tn t)
 (check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN decls.defined_exns) /\
 EVERY (check_type_names tenv.t) ts /\
-(decls' = <| defined_mods := {}; defined_types := {}; defined_exns := {mk_id mn cn} |>))
+(decls' = <| defined_mods := ({}); defined_types := ({}); defined_exns := ({mk_id mn cn}) |>))
 ==>
 type_d extra_checks mn decls tenv (Dexn cn ts)
   decls' <| v := nsEmpty;
@@ -711,7 +711,7 @@ type_specs mn tenvT []
   empty_decls <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>)
 
 /\ (! mn tenvT x t specs tenv fvs decls subst.
-(check_freevars( 0) fvs t /\
+(check_freevars(( 0 : num)) fvs t /\
 check_type_names tenvT t /\
 type_specs mn tenvT specs decls tenv /\
 (subst = alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))))
@@ -727,9 +727,9 @@ type_specs mn tenvT (Sval x t :: specs)
 ((tenvT' = alist_to_ns (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) td)) /\
 check_ctor_tenv (nsAppend tenvT' tenvT) td /\
 type_specs mn (nsAppend tenvT' tenvT) specs decls tenv /\
-(decls' = <| defined_mods := {};
+(decls' = <| defined_mods := ({});
             defined_types := (LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) td));
-            defined_exns := {} |>))
+            defined_exns := ({}) |>))
 ==>
 type_specs mn tenvT (Stype td :: specs)
   (union_decls decls decls')
@@ -740,7 +740,7 @@ type_specs mn tenvT (Stype td :: specs)
 
 /\ (! mn tenvT tenvT' tvs tn t specs decls tenv.
 (ALL_DISTINCT tvs /\
-check_freevars( 0) tvs t /\
+check_freevars(( 0 : num)) tvs t /\
 check_type_names tenvT t /\
 (tenvT' = nsSing tn (tvs,type_name_subst tenvT t)) /\
 type_specs mn (nsAppend tenvT' tenvT) specs decls tenv)
@@ -754,7 +754,7 @@ type_specs mn tenvT specs decls tenv /\
 EVERY (check_type_names tenvT) ts)
 ==>
 type_specs mn tenvT (Sexn cn ts :: specs)
-  (union_decls decls <| defined_mods := {}; defined_types := {}; defined_exns := {mk_id mn cn} |>)
+  (union_decls decls <| defined_mods := ({}); defined_types := ({}); defined_exns := ({mk_id mn cn}) |>)
   (extend_dec_tenv tenv
    <| v := nsEmpty;
       c := (nsSing cn ([], MAP (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)));
@@ -766,21 +766,21 @@ type_specs mn tenvT (Sexn cn ts :: specs)
 type_specs mn (nsAppend tenvT' tenvT) specs decls tenv)
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs)
-  (union_decls decls <| defined_mods := {}; defined_types := {mk_id mn tn}; defined_exns := {} |>)
+  (union_decls decls <| defined_mods := ({}); defined_types := ({mk_id mn tn}); defined_exns := ({}) |>)
   (extend_dec_tenv tenv <| v := nsEmpty; c := nsEmpty; t := tenvT' |>))`;
 
 (*val weak_decls : decls -> decls -> bool*)
 val _ = Define `
- (weak_decls decls_impl decls_spec =
-  ((decls_impl.defined_mods = decls_spec.defined_mods) /\  
+ (weak_decls decls_impl decls_spec=
+   ((decls_impl.defined_mods = decls_spec.defined_mods) /\  
 (decls_spec.defined_types SUBSET decls_impl.defined_types) /\  
 (decls_spec.defined_exns SUBSET decls_impl.defined_exns)))`;
 
 
 (*val weak_tenvT : id modN typeN -> (list tvarN * t) -> (list tvarN * t) -> bool*)
 val _ = Define `
- (weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
-  ((
+ (weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl)=
+   ((
   (* For simplicity, we reject matches that differ only by renaming of bound type variables *)tvs_spec = tvs_impl) /\
   ((t_spec = t_impl) \/   
 (
@@ -788,13 +788,13 @@ val _ = Define `
 
 
 val _ = Define `
- (tscheme_inst2 _ ts1 ts2 = (tscheme_inst ts1 ts2))`;
+ (tscheme_inst2 _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
 
 
 (*val weak_tenv : type_env -> type_env -> bool*)
 val _ = Define `
- (weak_tenv tenv_impl tenv_spec =  
-(nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
+ (weak_tenv tenv_impl tenv_spec=  
+ (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
   nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c /\
   nsSub weak_tenvT tenv_spec.t tenv_impl.t))`;
 
@@ -812,8 +812,8 @@ type_specs mn tenvT specs decls_spec tenv_spec)
 check_signature mn tenvT decls_impl tenv_impl (SOME specs) decls_spec tenv_spec)`;
 
 val _ = Define `
- (tenvLift mn tenv =  
-(<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
+ (tenvLift mn tenv=  
+ (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
 
 
 val _ = Hol_reln ` (! extra_checks tenv d tenv' decls decls'.
@@ -827,7 +827,7 @@ type_ds extra_checks [mn] decls tenv ds decls_impl tenv_impl /\
 check_signature [mn] tenv.t decls_impl tenv_impl spec decls_spec tenv_spec)
 ==>
 type_top extra_checks decls tenv (Tmod mn spec ds)
-  (union_decls <| defined_mods := {[mn]}; defined_types := {}; defined_exns := {} |> decls_spec)
+  (union_decls <| defined_mods := ({[mn]}); defined_types := ({}); defined_exns := ({}) |> decls_spec)
   (tenvLift mn tenv_spec))`;
 
 val _ = Hol_reln ` (! extra_checks tenv decls.

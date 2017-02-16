@@ -36,7 +36,7 @@ val _ = Hol_datatype `
    * The v list should be in reverse order. *)
   | Ccon of  ( (modN, conN)id)option => v list => unit => exp list
   | Ctannot of unit => t
-  | Clannot of unit => locn`;
+  | Clannot of unit => locs`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v sem_env``);
 

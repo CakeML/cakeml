@@ -25,7 +25,7 @@ type ctxt_frame =
    * The v list should be in reverse order. *)
   | Ccon of maybe (id modN conN) * list v * unit * list exp
   | Ctannot of unit * t
-  | Clannot of unit * locn
+  | Clannot of unit * locs
 type ctxt = ctxt_frame * sem_env v
 
 (* State for CEK-style expression evaluation
