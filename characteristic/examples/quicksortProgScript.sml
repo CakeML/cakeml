@@ -18,7 +18,7 @@ let
   let
     val lower = lower + 1
   in
-    if cmp (sub a lower) pivot then
+    if cmp (Array.sub a lower) pivot then
       scan_lower lower
     else
       lower
@@ -28,7 +28,7 @@ let
   let
     val upper = upper - 1
   in
-    if cmp pivot (sub a upper) then
+    if cmp pivot (Array.sub a upper) then
       scan_upper upper
     else
       upper
@@ -41,11 +41,11 @@ let
   in
     if lower < upper then
       let
-        val v = sub a lower
+        val v = Array.sub a lower
       in
-        (update a lower (sub a upper);
-        update a upper v;
-        part_loop lower upper)
+        (Array.update a lower (Array.sub a upper);
+         Array.update a upper v;
+         part_loop lower upper)
       end
     else
       upper
@@ -56,7 +56,6 @@ end;
 `;
 val partition_st = ml_progLib.add_prog partition pick_name (basis_st ());
 
-(*
 val partition_spec = Q.store_thm ("partition_spec",
 
   `!a ffi_p cmp cmp_v arr_v elem_vs pivot pivot_v lower lower_v upper upper_v.
@@ -103,16 +102,30 @@ val partition_spec = Q.store_thm ("partition_spec",
     >- (
       `i = &LENGTH elems` by intLib.ARITH_TAC >>
       fs []) >>
-    last_x_assum xapp_spec >> (* Start to run through the loop body *)
+    (* Start to run through the loop body.
+     * It was slightly confusing to have to do this manually, because the
+     * default xapp tactic wanted to use the spec, which we don't want to
+     * do until the recursive call. *)
+    last_x_assum xapp_spec >>
+    (* It was confusing, and then annoying to have to manually keep adding the
+     * frame *)
     xlet `POSTv j_v. ARRAY arr_v elem_vs * &(?j. INT j j_v ∧ j = i + 1)`
     >- (
       xapp >>
       xsimpl >>
       fs [INT_def]) >>
+    `?n:num. i+1 = &n`
+    by (
+      `i + 1 = 0 ∨ 0 < i + 1` by intLib.ARITH_TAC >>
+      rw [] >>
+      qexists_tac `Num (i+1)` >>
+      intLib.ARITH_TAC) >>
     xlet `POSTv x_v. ARRAY arr_v elem_vs * &(a (EL (Num (i+1)) elems) x_v)`
     >- (
-      (*xapp_spec array_sub_spec*)
-      cheat) >>
+      xapp >>
+      xsimpl >>
+      qexists_tac `n` >>
+      fs [NUM_def, LIST_REL_EL_EQN]) >>
     xlet `POSTv b_v. ARRAY arr_v elem_vs * &(BOOL (cmp (EL (Num (i + 1)) elems) pivot) b_v)`
     >- (
       xapp >>
@@ -121,7 +134,10 @@ val partition_spec = Q.store_thm ("partition_spec",
       metis_tac []) >>
     xif
     >- (
-      (* Set up the invariant for the recursive call *)
+      (* Set up the invariant for the recursive call.
+       * This was really confusing, because the default tactics without doing
+       * this first did reasonable looking things, but that led to unprovable
+       * goals  *)
       first_x_assum (qspecl_then [`elems`, `i+1`] mp_tac) >>
       impl_keep_tac
       >- intLib.ARITH_TAC >>
@@ -136,7 +152,6 @@ val partition_spec = Q.store_thm ("partition_spec",
         `i + 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
         fs [])
-      >- intLib.ARITH_TAC
       >- (
         `&LENGTH elems ≠ i + 1 + 1` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
@@ -149,47 +164,108 @@ val partition_spec = Q.store_thm ("partition_spec",
         >- intLib.ARITH_TAC >>
         `i + 1 = &k ∨ i + 1 < &k` by intLib.ARITH_TAC >>
         rw [] >>
-        fs []))
+        fs [] >>
+        rfs []))
     >- (
       xvar >>
       xsimpl >>
-      `?n:num. i+1 = &n`
-      by (
-        `i + 1 = 0 ∨ 0 < i + 1` by intLib.ARITH_TAC >>
-        rw [] >>
-        qexists_tac `Num (i+1)` >>
-        intLib.ARITH_TAC) >>
       qexists_tac `n` >>
       fs [] >>
       rw []
       >- intLib.ARITH_TAC >>
       `i+1 < &n` by intLib.ARITH_TAC >>
-      rfs []))
-
-
-
-
-
-
-
-
-
+      rfs [])) >>
   xfun_spec `scan_upper`
-    `!i_v i arr_v elem_vs elems.
-      INT i i_v ∧ 0 ≤ i ∧ i ≤ &(LENGTH elems) ∧
-      (?x:num. (&x) ≤ i ∧ x < LENGTH elems ∧ ¬cmp pivot (EL x elems)) ∧
+    `!i i_v elems.
+      INT i i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
+      (?x:num. (&x) < i ∧ ¬cmp pivot (EL x elems)) ∧
       LIST_REL a elems elem_vs
       ⇒
       app (ffi_p:'ffi ffi_proj) scan_upper
         [i_v]
         (ARRAY arr_v elem_vs)
         (POSTv (j_v:v).
+          (ARRAY arr_v elem_vs) *
           &(∃j:num.
              INT (&j) j_v ∧ (&j) < i ∧ 0 ≤ j ∧
              ¬cmp pivot (EL j elems) ∧
              !k:num. (&k) < i ∧ j < k ⇒ ¬cmp (EL k elems) pivot))`
-  >- cheat
-  xfun_spec `par_loop`
+  >- (
+    (* Scan upper has the above invariant *)
+    gen_tac >>
+    Induct_on `Num i` >>
+    rw []
+    >- (
+      `i = 0` by intLib.ARITH_TAC >>
+      fs []) >>
+    last_x_assum xapp_spec >>
+    xlet `POSTv j_v. ARRAY arr_v elem_vs * &(?j. INT j j_v ∧ j = i - 1)`
+    >- (
+      xapp >>
+      xsimpl >>
+      fs [INT_def]) >>
+    `?n:num. i-1 = &n`
+    by (
+      `i - 1 = 0 ∨ 0 < i - 1` by intLib.ARITH_TAC >>
+      rw [] >>
+      qexists_tac `Num (i-1)` >>
+      intLib.ARITH_TAC) >>
+    xlet `POSTv x_v. ARRAY arr_v elem_vs * &(a (EL (Num (i-1)) elems) x_v)`
+    >- (
+      xapp >>
+      xsimpl >>
+      qexists_tac `n` >>
+      fs [NUM_def, LIST_REL_EL_EQN] >>
+      `n < LENGTH elem_vs` by intLib.ARITH_TAC >>
+      rw []) >>
+    xlet `POSTv b_v. ARRAY arr_v elem_vs * &(BOOL (cmp pivot (EL (Num (i - 1)) elems)) b_v)`
+    >- (
+      xapp >>
+      xsimpl >>
+      rw [BOOL_def] >>
+      metis_tac []) >>
+    xif
+    >- (
+      first_x_assum (qspecl_then [`i-1`] mp_tac) >>
+      impl_keep_tac
+      >- intLib.ARITH_TAC >>
+      fs [] >>
+      disch_then xapp_spec >>
+      xsimpl >>
+      simp [GSYM PULL_EXISTS] >>
+      qexists_tac `elems` >>
+      rw []
+      >- (
+        qexists_tac `x` >>
+        rw [] >>
+        `i - 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
+        CCONTR_TAC >>
+        fs [])
+      >- intLib.ARITH_TAC
+      >- (
+        Cases_on `n` >>
+        fs [] >>
+        rfs [] >>
+        intLib.ARITH_TAC)
+      >- (
+        qexists_tac `j` >>
+        rw []
+        >- intLib.ARITH_TAC >>
+        `i - 1 = &k ∨ &k < i - 1` by intLib.ARITH_TAC >>
+        rw [] >>
+        fs [] >>
+        rfs []))
+    >- (
+      xvar >>
+      xsimpl >>
+      qexists_tac `n` >>
+      fs [] >>
+      rw []
+      >- intLib.ARITH_TAC >>
+      `i ≤ &k` by intLib.ARITH_TAC >>
+      fs [] >>
+      CCONTR_TAC >>
+      intLib.ARITH_TAC))
 
   *)
 
@@ -207,7 +283,7 @@ let
          quicksort_help (p + 1) upper)
       end
 in
-  quicksort_help 0 (length a - 1)
+  quicksort_help 0 (Array.length a - 1)
 end;
 `;
 val quicksort_st = ml_progLib.add_prog quicksort pick_name partition_st;
@@ -303,7 +379,9 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       *)
 
 val my_cmp = process_topdecs `
-fun my_cmp (x1,y1) (x2,y2) = !x1 < !x2;
+fun my_cmp (x1,y1) (x2,y2) =
+  (log := log + 1;
+   !x1 < !x2);
 `;
 val my_cmp_st = ml_progLib.add_prog my_cmp pick_name quicksort_st;
 
