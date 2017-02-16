@@ -1,7 +1,3 @@
-(*
-   Small theory of wrapped strings, so the translator can distinguish
-   them from char lists and can target CakeML strings directly.
-*)
 open preamble
     mllistTheory miscTheory totoTheory 
 
@@ -32,6 +28,8 @@ val strsub_def = Define`
   strsub (strlit s) n = EL n s`;
 
 val _ = export_rewrites["strlen_def","strsub_def"];
+
+
 
 val explode_aux_def = Define`
   (explode_aux s n 0 = []) ∧
@@ -131,6 +129,19 @@ val strcat_def = Define`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
 
+val strcat_assoc = Q.store_thm("strcat_assoc",
+  `!s1 s2 s3.
+    s1 ^ s2 ^ s3 = s1 ^ (s2 ^ s3)`,
+    Cases_on `s1` \\ Cases_on `s2` \\ Cases_on `s3`
+    \\rw[strcat_def, implode_def, explode_implode]
+);
+
+val implode_STRCAT = Q.store_thm("implode_STRCAT",
+  `!l1 l2. 
+    implode(STRCAT l1 l2) = implode l1 ^ implode l2`,
+    rw[implode_def, strcat_def]
+);
+
 
 val concat_def = Define`
   (concat [] = implode []) /\
@@ -155,10 +166,21 @@ val concatWith_aux_def = tDefine "concatWith_aux"`
 val concatWith_def = Define`
   concatWith s l = concatWith_aux s l T`;
 
-
+val concatWith_CONCAT_WITH_aux = Q.prove (
+  `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`, 
+  ho_match_mp_tac CONCAT_WITH_aux_ind
+  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_def]
+  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_def]
+  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_def, implode_def])
+);
+ 
+val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
+  `!s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))`,
+    rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
+);
 
 val str_def = Define`
-  str (c: char) = [c]`;
+  str (c: char) = implode [c]`;
 
 val translate_aux_def = Define`
   (translate_aux f s n 0 = []) /\
@@ -180,10 +202,9 @@ val translate_thm = Q.store_thm (
   rw [translate_def, translate_aux_thm]
 );
 
-
-
 val tokens_aux_def = Define`
-  (tokens_aux f s ss n 0 = [implode (REVERSE ss)]) /\
+  (tokens_aux f s [] n 0 = []) /\
+  (tokens_aux f s (h::t) n 0 = [implode (REVERSE (h::t))]) /\
   (tokens_aux f s [] n (SUC len) =
     if f (strsub s n)
       then tokens_aux f s [] (n + 1) len
@@ -192,6 +213,8 @@ val tokens_aux_def = Define`
     if f (strsub s n)
       then (implode (REVERSE (h::t)))::(tokens_aux f s [] (n + 1) len)
     else tokens_aux f s (strsub s n::(h::t)) (n + 1) len)`;
+
+val tokens_aux_ind = theorem"tokens_aux_ind";
 
 val tokens_def = Define `
  tokens f s = tokens_aux f s [] 0 (strlen s)`;
@@ -211,7 +234,99 @@ val tokens_filter = Q.store_thm (
   rw [tokens_def, tokens_aux_filter]
 );
 
-  
+val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
+  `!P ls ss n len. (n + len = LENGTH (explode ls)) ==> 
+      (MAP explode (tokens_aux P ls ss n len) = case ss of
+        | (h::t) => if (len <> 0) /\ ($~ (P (EL n (explode ls)))) then 
+          (REVERSE (h::t) ++ HD (TOKENS P (DROP n (explode ls))))::TL (TOKENS P (DROP n (explode ls)))
+           else if (len <> 0) then
+              REVERSE (h::t)::(TOKENS P (DROP n (explode ls)))
+           else [REVERSE(h::t)]
+        | [] => (TOKENS P (DROP n (explode ls))))`,   
+    ho_match_mp_tac tokens_aux_ind \\ rw[] \\ Cases_on `s`
+    \\ rw[explode_thm, tokens_aux_def, TOKENS_def, implode_def, strlen_def, strsub_def]
+    \\ fs[strsub_def, DROP_LENGTH_TOO_LONG, TOKENS_def]
+    >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]   
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
+      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[SPLITP] \\ rfs[]) 
+     >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS]
+      \\ rw[TOKENS_def]  
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`) 
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'` 
+        >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
+        \\ Cases_on `f h` \\ rw[]
+        >-(`n + 1 < LENGTH s'` by fs[] 
+          \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
+        \\ rw[TOKENS_def, SPLITP]
+      ) (*this is a copy*)
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'` 
+        >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
+        \\ Cases_on `f h` \\ rw[]
+        >-(`n + 1 < LENGTH s'` by fs[] 
+          \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
+        \\ rw[TOKENS_def, SPLITP]))
+    >-(rw[DROP_EL_CONS, TOKENS_def]
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
+      \\ rw[TOKENS_def] 
+      \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL])
+    (*This is a copy *)
+    >-(rw[DROP_EL_CONS, TOKENS_def]
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
+      \\ rw[TOKENS_def] 
+      \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL])
+    >-(`n = LENGTH s' - 1` by DECIDE_TAC 
+      \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
+      \\ `LENGTH r = 1` by EVAL_TAC >-(rw[])
+      \\ Cases_on `TL r` >-(rw[TOKENS_def])
+      \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
+    >-(fs[ADD1]
+      \\ `x0 = implode [EL n s']` by fs[implode_explode] \\ rw[explode_implode]
+      \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ rw[TOKENS_def]) 
+    \\(rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ rw[TOKENS_def]
+      \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL]));
+(*
+  >> TRY (
+  recogniser (e.g., rename1_tac or qmatch_goalsub_rename_tac ...) >>
+  ... >> NO_TAC)
+  >> TRY (
+  ... >> NO_TAC)
+  >> TRY (
+  ... >> NO_TAC)
+*)
+
+
+val TOKENS_eq_tokens = Q.store_thm("TOKENS_eq_tokens",
+  `!P ls.(MAP explode (tokens P ls) = TOKENS P (explode ls))`,
+  Cases_on `ls` \\ rw[tokens_def, TOKENS_eq_tokens_aux]
+);
+
+(*
+val TOKENS_eq_tokens_sym = Q.store_thm("TOKENS_eq_tokens_sym",
+  `!P ls. tokens P ls = MAP implode (TOKENS P (explode ls))`,
+  rw[]
+  \\ Q.ISPEC_THEN`explode`match_mp_tac INJ_MAP_EQ
+  \\ simp[MAP_MAP_o,INJ_DEF,explode_11,o_DEF,explode_implode,TOKENS_eq_tokens]
+*)
+
+val TOKENS_eq_tokens_sym = save_thm("TOKENS_eq_tokens_sym",
+        TOKENS_eq_tokens
+        |> SPEC_ALL
+        |> Q.AP_TERM`MAP implode`
+        |> SIMP_RULE(srw_ss())[MAP_MAP_o,implode_explode,o_DEF]);
+
+
+val tokens_append = Q.store_thm("tokens_append",
+  `!P s1 x s2.
+    P x ==>
+      (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
+    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_def, str_def, TOKENS_APPEND]
+) 
+
+
 
 val fields_aux_def = Define `
   (fields_aux f s ss n 0 = [implode (REVERSE ss)]) /\
@@ -219,6 +334,8 @@ val fields_aux_def = Define `
     if f (strsub s n)
       then implode (REVERSE ss)::(fields_aux f s [] (n + 1) len)
     else fields_aux f s (strsub s n::ss) (n + 1) len)`;
+
+
 
 val fields_def = Define`
   fields f s = fields_aux f s [] 0 (strlen s)`;

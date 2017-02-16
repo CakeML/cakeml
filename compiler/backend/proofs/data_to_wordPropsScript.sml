@@ -309,11 +309,6 @@ val word_list_limit = Q.store_thm("word_list_limit",
   \\ rw[] \\ res_tac \\ fs[theWord_def]
   \\ metis_tac[w2n_lt]);
 
-val word_bit_test = Q.store_thm("word_bit_test",
-  `word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
-    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
-
 val MOD_EQ_0_0 = Q.store_thm("MOD_EQ_0_0",
   `∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)`,
   rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[])

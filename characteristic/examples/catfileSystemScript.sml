@@ -1,4 +1,4 @@
-open preamble mlstringTheory
+open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory "catfileSystem";
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -210,59 +210,6 @@ val inFS_fname_def = Define `
 (* ----------------------------------------------------------------------
     Coding RO_fs values as ffi values
    ---------------------------------------------------------------------- *)
-
-val destStr_def = Define`
-  (destStr (Str s) = SOME s) ∧
-  (destStr _ = NONE)
-`
-val _ = export_rewrites ["destStr_def"]
-
-val destNum_def = Define`
-  (destNum (Num n) = SOME n) ∧
-  (destNum _ = NONE)
-`;
-val _ = export_rewrites ["destNum_def"]
-
-val encode_pair_def = Define`
-  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)
-`;
-
-val decode_pair_def = Define`
-  (decode_pair d1 d2 (Cons f1 f2) =
-      do
-        x <- d1 f1;
-        y <- d2 f2;
-        return (x,y)
-      od) ∧
-  (decode_pair _ _ _ = fail)
-`;
-
-val decode_encode_pair = Q.store_thm(
-  "decode_encode_pair",
-  `(∀x. d1 (e1 x) = return x) ∧ (∀y. d2 (e2 y) = return y) ⇒
-   ∀p. decode_pair d1 d2 (encode_pair e1 e2 p) = return p`,
-  strip_tac >> Cases >> simp[encode_pair_def, decode_pair_def])
-
-val encode_list_def = Define`
-  encode_list e l = List (MAP e l)
-`;
-
-val OPT_MMAP_def = Define`
-  (OPT_MMAP f [] = return []) ∧
-  (OPT_MMAP f (h0::t0) = do h <- f h0 ; t <- OPT_MMAP f t0 ; return (h::t) od)
-`;
-
-val decode_list_def = Define`
-  (decode_list d (List fs) = OPT_MMAP d fs) ∧
-  (decode_list d _ = fail)
-`;
-
-val decode_encode_list = Q.store_thm(
-  "decode_encode_list[simp]",
-  `(∀x. d (e x) = return x) ⇒
-   ∀l. decode_list d (encode_list e l) = return l`,
-  strip_tac >> simp[decode_list_def, encode_list_def] >> Induct >>
-  simp[OPT_MMAP_def]);
 
 val encode_files_def = Define`
   encode_files fs = encode_list (encode_pair (Str o explode) (Str o MAP (CHR o (w2n:word8->num)))) fs

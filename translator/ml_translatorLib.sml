@@ -838,6 +838,8 @@ fun define_ref_inv is_exn_type tys = let
   val cases_thms = map (SPEC_ALL o get_nchotomy_of) tys |> LIST_CONJ
                    |> rename_bound_vars_rule "x_" |> CONJUNCTS
   val all = zip names (zip tys cases_thms) |> map (fn (x,(y,z)) => (x,y,z))
+  val tmp_v_var = genvar v_ty
+  val real_v_var = mk_var("v",v_ty)                         
   fun mk_lhs (name,ty,case_th) = let
     val xs = map rand (find_terms is_eq (concl case_th))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
@@ -846,7 +848,7 @@ fun define_ref_inv is_exn_type tys = let
     val input = mk_var("input",ty)
     val ml_ty_name = full_name_of_type ty
     val def_name = mk_var(name,list_mk_type (ss @ [input]) (v_ty --> bool))
-    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,mk_var("v",v_ty)])
+    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,tmp_v_var])
     in (ml_ty_name,xs,ty,lhs,input) end
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
@@ -881,8 +883,8 @@ fun define_ref_inv is_exn_type tys = let
                      optionSyntax.mk_some(pairSyntax.mk_pair(str,
                        mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
-      val tm = mk_conj(mk_eq(mk_var("v", v_ty),
-                            mk_Conv(tag_tm, vs)),tm)
+      val tm = mk_conj(mk_eq(tmp_v_var,
+                             mk_Conv(tag_tm, vs)),tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -933,15 +935,19 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
                 if is_option_type then OPTION_TYPE_def else
-                  tDefine name [ANTIQUOTE def_tm] tac
-  val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
+                tDefine name [ANTIQUOTE def_tm] tac
+  val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
+                  if not (is_abs tm) then NO_CONV tm else
+                  if fst (dest_abs tm) = tmp_v_var then ALPHA_CONV real_v_var tm
+                  else NO_CONV tm))
+  val inv_def = inv_def |> clean_rule
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_option_type then inv_def else
             save_thm(name ^ "_def",inv_def)
-  val ind = fetch "-" (name ^ "_ind")
-            handle HOL_ERR _ => TypeBase.induction_of (hd tys)
+  val ind = fetch "-" (name ^ "_ind") |> clean_rule
+            handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*
   val inv_def = tDefine name [ANTIQUOTE def_tm] ALL_TAC
 *)
@@ -1054,9 +1060,25 @@ val ty = ``:num option``; derive_thms_for_type false ty
 val is_exn_type = false;
 *)
 
+fun avoid_v_subst ty = let
+  val tyargs = (ty::find_mutrec_types ty) |> map type_vars |> List.concat |> map dest_vartype
+  fun prime_v v =
+    if exists (curry op = v) tyargs then
+      prime_v (v^"w")
+    else
+      v
+  in
+    if exists (curry op = "'v") tyargs then
+      [mk_vartype "'v" |-> mk_vartype(prime_v "'w")]
+    else
+      []
+  end
+
 fun derive_thms_for_type is_exn_type ty = let
+  val tsubst = avoid_v_subst ty;
+  val ty = type_subst tsubst ty;
   val (_,tyargs) = dest_type ty
-  val (ty_pre,ret_ty_pre) = dest_fun_type (type_of_cases_const ty)
+  val (ty_pre,ret_ty_pre) = dest_fun_type (type_subst tsubst (type_of_cases_const ty))
   val (_,gen_tyargs) = dest_type ty_pre
   fun inst_fcp_types (x::xs) (y::ys) ty =
     if is_vartype y andalso fcpSyntax.is_numeric_type x
@@ -1070,7 +1092,7 @@ fun derive_thms_for_type is_exn_type ty = let
   val ty = inst_fcp_types ty_pre
   val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
-  val tys_pre = find_mutrec_types ty
+  val tys_pre = find_mutrec_types ty |> map (type_subst tsubst)
   val tys = map inst_fcp_types tys_pre
   val is_pair_type =
     (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
@@ -1150,7 +1172,7 @@ fun derive_thms_for_type is_exn_type ty = let
 *)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
-    val cases_th = TypeBase.case_def_of ty
+    val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
