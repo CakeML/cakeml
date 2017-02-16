@@ -769,10 +769,16 @@ val ptree_Eliteral_def = Define`
     od
 `
 
+val bind_loc_def = Define`
+  bind_loc (Lannot e l) l' = Lannot e l /\
+  bind_loc e l = Lannot e l
+`
+
 local
   val ptree_Expr_quotation = `
   ptree_Expr ent (Lf _) = NONE ∧
-  ptree_Expr ent (Nd (nt,loc) subs) = do
+  ptree_Expr ent (Nd (nt,loc) subs) = 
+  do
   e <- (if mkNT ent = nt then
       if nt = mkNT nEbase then
         dtcase subs of
@@ -976,7 +982,7 @@ local
           | _ => NONE
       else NONE
     else NONE);
-   SOME (Lannot e loc)
+    SOME(bind_loc e loc)
   od  ∧
   (ptree_Exprlist nm ast =
      dtcase ast of
