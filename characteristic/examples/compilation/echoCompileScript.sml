@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs
 open x64_compileLib x64_exportLib echoProgTheory
 
-val _ = new_theory "echoCompilation"
+val _ = new_theory "echoCompile"
 
 val rconc = rhs o concl
 
