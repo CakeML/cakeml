@@ -1,4 +1,5 @@
 open preamble astTheory terminationTheory modLangTheory;
+open jsonTheory;
 
 val _ = numLib.prefer_num();
 
@@ -254,5 +255,8 @@ val compile_def = Define`
   compile c p =
     let (_,e,p') = compile_prog c.next_global c.mod_env p in
     (c with mod_env := e, p')`;
+
+val ast_to_json_def = Define`
+  ast_to_json _ = json$String "Hello, Ast!"`
 
 val _ = export_theory();
