@@ -693,38 +693,6 @@ val roots_ok_CONS = prove(
     roots_ok t heap``,
   metis_tac [CONS_APPEND,roots_ok_APPEND]);
 
-val roots_ok_simulation = prove(
-  ``!roots heap heap_old heap_current heap_refs (conf :'b gen_gc_conf).
-    roots_ok roots (heap :('a,'b) heap_element list) /\
-    heap_ok heap conf.limit /\
-    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs)) /\
-    (conf.gen_start ≤ conf.refs_start)
-    ==>
-    roots_ok
-      (to_basic_roots conf roots ++ refs_to_roots conf heap_refs)
-      (MAP (to_basic_heap_element conf) heap_current)
-  ``,
-  Induct
-  \\ rpt strip_tac
-  \\ drule heap_segment_IMP \\ simp []
-  \\ strip_tac \\ rveq
-  >- (fs [to_basic_roots_def]
-     \\ qpat_x_assum `roots_ok _ _` kall_tac
-     \\ cheat)
-  \\ cheat);
-
-val heap_length_to_basic_heap_list = store_thm("heap_length_to_basic_heap_list[simp]",
-  ``!h2. heap_length (to_basic_heap_list conf h2) = heap_length h2``,
-  rewrite_tac [to_basic_heap_list_def]
-  \\ Induct
-  \\ fs [heap_length_def]
-  \\ Cases
-  \\ fs [to_basic_heap_element_def]
-  \\ fs [el_length_def]);
-
-val heap_length_to_basic_heap_element = save_thm("heap_length_to_basic_heap_element[simp]",
-  heap_length_to_basic_heap_list |> SIMP_RULE std_ss [to_basic_heap_list_def]);
-
 val isSomeDataElement_to_basic_heap_list
   = store_thm("isSomeDataElement_to_basic_heap_list[simp]",
   ``!n heap.
@@ -741,6 +709,103 @@ val isSomeDataElement_to_basic_heap_list
      \\ IF_CASES_TAC
      \\ fs [el_length_def]
      \\ fs [isSomeDataElement_def]));
+
+val isSomeDataElement_to_basic_heap_element = save_thm("isSomeDataElement_to_basic_heap_element",
+  isSomeDataElement_to_basic_heap_list |> SIMP_RULE std_ss [to_basic_heap_list_def]);
+
+val MEM_refs_to_roots_IMP_MEM = prove(
+  ``!heap_refs.
+    MEM (Pointer ptr u) (refs_to_roots conf heap_refs) ==>
+    ?xs l d ptr' u'.
+    MEM (DataElement xs l d) heap_refs /\
+    MEM (Pointer ptr' u') xs /\
+    (ptr = ptr' - conf.gen_start) /\
+    (u = Real u') /\
+    (conf.gen_start <= ptr') /\
+    (ptr' < conf.refs_start)
+  ``,
+  Induct \\ fs [refs_to_roots_def]
+  \\ Cases \\ fs [refs_to_roots_def]
+  \\ reverse strip_tac
+  >- metis_tac []
+  \\ qexists_tac `l` \\ qexists_tac `n` \\ qexists_tac `b`
+  \\ simp []
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`l`,`xs`)
+  \\ Induct \\ fs []
+  \\ Cases \\ fs [to_basic_heap_address_def]
+  \\ IF_CASES_TAC \\ fs [] >- metis_tac []
+  \\ IF_CASES_TAC \\ fs [] >- metis_tac []
+  \\ reverse strip_tac \\ rveq
+  >- metis_tac []
+  \\ qexists_tac `n` \\ qexists_tac `a`
+  \\ fs []);
+
+val MEM_to_basic_roots_IMP_MEM = prove(
+  ``!roots.
+    MEM (Pointer ptr u) (to_basic_roots conf roots)
+    ==>
+    ?ptr' u'.
+    MEM (Pointer ptr' u') roots /\
+    (ptr = ptr' - conf.gen_start) /\
+    (u = Real u') /\
+    (conf.gen_start <= ptr') /\
+    (ptr' < conf.refs_start)
+  ``,
+  Induct \\ fs [to_basic_roots_def]
+  \\ Cases \\ fs [to_basic_heap_address_def]
+  \\ IF_CASES_TAC \\ fs []
+  >- metis_tac []
+  \\ IF_CASES_TAC \\ fs []
+  >- metis_tac []
+  \\ reverse strip_tac \\ rveq
+  >- metis_tac []
+  \\ qexists_tac `n` \\ qexists_tac `a`
+  \\ strip_tac \\ fs []);
+
+val roots_ok_simulation = prove(
+  ``!roots heap heap_old heap_current heap_refs (conf :'b gen_gc_conf).
+    roots_ok roots (heap :('a,'b) heap_element list) /\
+    heap_ok heap conf.limit /\
+    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs)) /\
+    (conf.gen_start ≤ conf.refs_start)
+    ==>
+    roots_ok
+      (to_basic_roots conf roots ++ refs_to_roots conf heap_refs)
+      (MAP (to_basic_heap_element conf) heap_current)
+  ``,
+  rpt strip_tac
+  \\ drule heap_segment_IMP
+  \\ simp [] \\ strip_tac \\ rveq
+  \\ simp [roots_ok_def]
+  \\ rpt strip_tac
+  >- (fs [roots_ok_def]
+     \\ drule MEM_to_basic_roots_IMP_MEM
+     \\ strip_tac \\ rveq
+     \\ first_x_assum drule
+     \\ rewrite_tac [heap_lookup_APPEND]
+     \\ fs []
+     \\ simp [isSomeDataElement_to_basic_heap_element])
+  \\ drule MEM_refs_to_roots_IMP_MEM
+  \\ strip_tac \\ rveq
+  \\ fs [heap_ok_def]
+  \\ qpat_x_assum `!xs. _` (qspecl_then [`xs`,`l`,`d`] mp_tac) \\ simp []
+  \\ disch_then drule
+  \\ rewrite_tac [heap_lookup_APPEND]
+  \\ fs []
+  \\ simp [isSomeDataElement_to_basic_heap_element]);
+
+val heap_length_to_basic_heap_list = store_thm("heap_length_to_basic_heap_list[simp]",
+  ``!h2. heap_length (to_basic_heap_list conf h2) = heap_length h2``,
+  rewrite_tac [to_basic_heap_list_def]
+  \\ Induct
+  \\ fs [heap_length_def]
+  \\ Cases
+  \\ fs [to_basic_heap_element_def]
+  \\ fs [el_length_def]);
+
+val heap_length_to_basic_heap_element = save_thm("heap_length_to_basic_heap_element[simp]",
+  heap_length_to_basic_heap_list |> SIMP_RULE std_ss [to_basic_heap_list_def]);
 
 val MEM_to_basic_heap_IMP_MEM = prove(
   ``!heap_current xs l d ptr u.
@@ -809,7 +874,7 @@ val heap_ok_simulation = prove(
   \\ rewrite_tac [Once heap_lookup_APPEND] \\ fs []
   \\ drule heap_segment_IMP \\ simp []
   \\ rewrite_tac [Once heap_lookup_APPEND] \\ fs [heap_length_APPEND]
-  \\ simp [isSomeDataElement_to_basic_heap_list |> SIMP_RULE std_ss [to_basic_heap_list_def]]);
+  \\ simp [isSomeDataElement_to_basic_heap_element]);
 
 val new_f_FDOM = prove(``
   (∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)) ==>
@@ -960,19 +1025,6 @@ val ADDR_MAP_ID = prove(
   \\ fs [ADDR_MAP_def]
   \\ metis_tac []);
 
-val heap_lookup_IMP_MEM = store_thm("heap_lookup_IMP_MEM",
-  ``!xs x i. (heap_lookup i xs = SOME x) ==> MEM x xs``,
-  Induct
-  \\ fs [heap_lookup_def]
-  \\ Cases
-  \\ rpt
-     (rpt gen_tac
-     \\ IF_CASES_TAC
-     >- fs []
-     \\ IF_CASES_TAC
-     >- fs []
-     \\ metis_tac []));
-
 val MEM_heap_old = prove(
   ``!n m i x.
     (heap_segment (n,m) heap = SOME (heap_old,heap_current,heap_refs)) /\
@@ -994,14 +1046,29 @@ val FILTER_isForward_to_basic = prove(
   ``!xs.
     (FILTER isForwardPointer (to_basic_heap_list conf xs) = []) ==>
     (FILTER isForwardPointer xs = [])``,
-  cheat);
+  Induct
+  \\ fs [to_basic_heap_list_def]
+  \\ Cases
+  \\ fs [to_basic_heap_element_def,isForwardPointer_def]);
 
-val isSomeDataElement_to_basic = prove(
-  ``!xs f x' n conf.
-    isSomeDataElement (heap_lookup (f ' x') (to_basic_heap_list conf xs ++ heap_expand n))
+val isSomeData_to_basic_heap_IMP = prove(
+  ``!xs ptr conf ys l d.
+    (heap_lookup ptr (to_basic_heap_list conf xs) = SOME (DataElement ys l d))
     ==>
-    isSomeDataElement (heap_lookup (f ' x') (xs ++ heap_expand n))``,
-  cheat);
+    isSomeDataElement (heap_lookup ptr xs)``,
+  Induct
+  \\ fs [to_basic_heap_list_def,heap_lookup_def]
+  \\ Cases \\ fs [to_basic_heap_element_def] \\ rpt gen_tac
+  >- (IF_CASES_TAC \\ fs [el_length_def]
+     \\ strip_tac
+     \\ metis_tac [])
+  >- (IF_CASES_TAC \\ fs [el_length_def]
+     \\ strip_tac
+     \\ metis_tac [])
+  \\ IF_CASES_TAC \\ fs [el_length_def]
+  >- simp [isSomeDataElement_def]
+  \\ strip_tac
+  \\ metis_tac []);
 
 val gc_move_list_APPEND_APPEND = store_thm("gc_move_list_APPEND_APPEND",
   ``!conf state0 xs ys state' rs1 rs2.
@@ -1858,7 +1925,8 @@ val partial_gc_related = store_thm("partial_gc_related",
         \\ fs [heap_lookup_to_basic_heap_element])
      \\ fs [heap_lookup_to_basic_heap_element]
      \\ fs [heap_lookup_GT_FALSE])
-  \\ strip_tac                  (* INJ new_f *)
+  \\ strip_tac
+  (* INJ new_f *)
   >- (fs [INJ_DEF] \\ strip_tac
      >- (fs [new_f_FAPPLY]
         \\ fs [new_f_FDOM]
@@ -1895,17 +1963,20 @@ val partial_gc_related = store_thm("partial_gc_related",
         \\ IF_CASES_TAC
         >- (qpat_x_assum `isSomeDataElement (heap_lookup _ _)` mp_tac
            \\ unabbrev_all_tac
-           \\ strip_tac
-           \\ drule to_basic_heap_element_isSomeData
-           \\ fs []
+           (* \\ strip_tac *)
+           (* \\ simp [isSomeDataElement_to_basic_heap_element] *)
+           (* \\ simp [isSomeDataElement_def] *)
+           \\ simp [Once isSomeDataElement_def]
            \\ strip_tac
            \\ qpat_x_assum `!i xs l d. i IN FDOM f /\ _ ==> _` drule
-           \\ fs [isSomeDataElement_def]
-           \\ once_rewrite_tac [heap_lookup_APPEND] \\ fs []
-           \\ simp [to_basic_heap_list_def]
+           \\ disch_then drule
+           \\ rewrite_tac [heap_lookup_APPEND]
+           \\ reverse IF_CASES_TAC
+           >- (rewrite_tac [heap_expand_def] \\ Cases_on `state1.n` \\ simp [heap_lookup_def])
            \\ strip_tac
-           \\ mp_tac to_basic_heap_element_isSomeData
-           \\ fs [isSomeDataElement_def])              (* current heap *)
+           \\ drule isSomeData_to_basic_heap_IMP
+           \\ simp [])
+        (* current heap *)
         \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_basic_heap_list conf state1.h1 ++ heap_expand state1.n)` by all_tac
         >- (fs [heap_length_APPEND]
            \\ fs [heap_expand_def]
