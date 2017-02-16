@@ -21,12 +21,21 @@ val print = process_topdecs
 
 val res = ml_prog_update(ml_progLib.add_prog print pick_name)
 
+(*
 val echo = process_topdecs
   `fun echo u = 
       let 
         val cl = Commandline.arguments ()
         val cls = String.concatwith " " cl
       in print cls end`
+*)
+val echo = process_topdecs
+  `fun echo u = 
+      let 
+        val cl = Commandline.arguments ()
+        val cls = String.concatwith " " cl
+        val ok = print cls
+      in CharIO.write (Word8.fromInt 10) end`
 
 val res = ml_prog_update(ml_progLib.add_prog echo pick_name)
 
@@ -59,11 +68,11 @@ val print_spec = Q.store_thm("print_spec",
 );
 
 val echo_spec = Q.store_thm("echo_spec",
-  `!ls. cl <> [] /\ EVERY validArg cl /\
+  `!ls b bv. cl <> [] /\ EVERY validArg cl /\
    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDOUT output * COMMANDLINE cl)
-   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl))`,
+   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl)) ++ [n2w 10]) * COMMANDLINE cl))`,
     xcf "echo" st
     \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * COMMANDLINE cl` 
     >-(xcon \\ xsimpl)
@@ -74,8 +83,12 @@ val echo_spec = Q.store_thm("echo_spec",
     >-(xapp \\ xsimpl \\ instantiate
       \\ rw[mlstringTheory.concatWith_CONCAT_WITH, mlstringTheory.implode_explode, Once mlstringTheory.implode_def]
       \\ Cases_on `cl` \\ fs[mlstringTheory.implode_def])
-    \\ xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
-    \\ rw[mlstringTheory.explode_implode] \\ xsimpl 
+    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
+    >-(xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
+      \\ rw[mlstringTheory.explode_implode] \\ xsimpl)
+    \\ xlet `POSTv u. STDOUT (output ++ MAP (n2w ∘ ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl * & WORD (n2w 10:word8) u`
+    >-(xapp \\ xsimpl)
+    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))`, `n2w 10`] \\ xsimpl
 );
 
 val echo_ffi_oracle_def = Define `

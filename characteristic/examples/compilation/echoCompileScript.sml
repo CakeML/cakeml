@@ -42,22 +42,16 @@ val extract_ffi_names = rev o map stringSyntax.fromHOLstring o fst o listSyntax.
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_names))::xs) =
     (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
-       bytes ("cakeml/" ^ name ^ ".S") ;
+       bytes (name ^ ".S") ;
     write_asm xs)
 
 val echo_prog = echo_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
 
 val echo_compiled = to_bytes 3 ``x64_compiler_config`` echo_prog
-(* step by step 
-  val init = Count.apply eval``to_livesets ^(``x64_compiler_config``) ^(echo_prog)``  
-  val oracles = reg_allocComputeLib.get_oracle 3 (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
-*)
-
 
 val echo_bytes = extract_bytes echo_compiled
 
-val store1 = write_asm ["echo", echo_bytes]
-val store2 = save_thm ["echo", echo_compiled]
+val store2 = save_thm ("echo", echo_compiled)
+val store1 = write_asm [ ("echo", echo_bytes) ]
 
 val _ = export_theory ();
