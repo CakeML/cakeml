@@ -3,7 +3,6 @@ open semanticPrimitivesTheory;
 open ml_translatorTheory ml_translatorLib ml_progLib;
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
 open basisFunctionsLib;
-
 open mlarrayProgTheory;
 
 val _ = new_theory "quicksortProg";
@@ -66,7 +65,7 @@ val partition_spec = Q.store_thm ("partition_spec",
     MEM pivot_v elem_vs ∧
     a pivot pivot_v ∧
     (a --> a --> BOOL) cmp cmp_v ∧
-    transitive cmp
+    transitive cmp ∧ (!x y. cmp x y ⇒ ~cmp y x)
     ⇒
     app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" partition_st)
       [cmp_v; arr_v; pivot_v; lower_v; upper_v]
@@ -83,41 +82,95 @@ val partition_spec = Q.store_thm ("partition_spec",
   xcf "partition" partition_st >>
   xfun_spec `scan_lower`
     `!i elems i_v.
-      INT i i_v ∧ -1 ≤ i ∧ i < &(LENGTH elems) ∧
-      (?x:num. i ≤ (&x) ∧ x < LENGTH elems ∧ ¬cmp (EL x elems) pivot) ∧
+      INT i i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
+      (?x:num. i < (&x) ∧ x < LENGTH elems ∧ ¬cmp (EL x elems) pivot) ∧
       LIST_REL a elems elem_vs
       ⇒
       app (ffi_p:'ffi ffi_proj) scan_lower
         [i_v]
         (ARRAY arr_v elem_vs)
         (POSTv (j_v:v).
+          (ARRAY arr_v elem_vs) *
           &(∃j:num.
              INT (&j) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
              ¬cmp (EL j elems) pivot ∧
              !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
-
   >- (
-    rpt gen_tac >>
+    (* Scan lower has the above invariant *)
+    ntac 2 gen_tac >>
     Induct_on `Num(&(LENGTH elems) - i)` >>
-    rw [] >>
-    >- cheat
-    xapp >>
     rw []
-
-    xlet `POSTv j_v. &(?j. INT j j_v ∧ j = i + 1)`
+    >- (
+      `i = &LENGTH elems` by intLib.ARITH_TAC >>
+      fs []) >>
+    last_x_assum xapp_spec >> (* Start to run through the loop body *)
+    xlet `POSTv j_v. ARRAY arr_v elem_vs * &(?j. INT j j_v ∧ j = i + 1)`
     >- (
       xapp >>
       xsimpl >>
       fs [INT_def]) >>
-    xlet `POSTv x_v. &(∃idx. (&idx) = i + 1 ∧ a (EL idx elems) x_v)`
-    >- cheat >>
-    xlet `POSTv b_v. &(BOOL (cmp (EL idx elems) pivot) b_v)`
+    xlet `POSTv x_v. ARRAY arr_v elem_vs * &(a (EL (Num (i+1)) elems) x_v)`
+    >- (
+      (*xapp_spec array_sub_spec*)
+      cheat) >>
+    xlet `POSTv b_v. ARRAY arr_v elem_vs * &(BOOL (cmp (EL (Num (i + 1)) elems) pivot) b_v)`
     >- (
       xapp >>
+      xsimpl >>
+      rw [BOOL_def] >>
       metis_tac []) >>
     xif
     >- (
-      xapp
+      (* Set up the invariant for the recursive call *)
+      first_x_assum (qspecl_then [`elems`, `i+1`] mp_tac) >>
+      impl_keep_tac
+      >- intLib.ARITH_TAC >>
+      fs [] >>
+      disch_then xapp_spec >> (* Use the invariant for the recursive call *)
+      xsimpl >>
+      simp [GSYM PULL_EXISTS] >>
+      rw []
+      >- (
+        qexists_tac `x` >>
+        rw [] >>
+        `i + 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
+        CCONTR_TAC >>
+        fs [])
+      >- intLib.ARITH_TAC
+      >- (
+        `&LENGTH elems ≠ i + 1 + 1` suffices_by intLib.ARITH_TAC >>
+        CCONTR_TAC >>
+        fs [] >>
+        `i + 1 = &x` by intLib.ARITH_TAC >>
+        fs [])
+      >- (
+        qexists_tac `j` >>
+        rw []
+        >- intLib.ARITH_TAC >>
+        `i + 1 = &k ∨ i + 1 < &k` by intLib.ARITH_TAC >>
+        rw [] >>
+        fs []))
+    >- (
+      xvar >>
+      xsimpl >>
+      `?n:num. i+1 = &n`
+      by (
+        `i + 1 = 0 ∨ 0 < i + 1` by intLib.ARITH_TAC >>
+        rw [] >>
+        qexists_tac `Num (i+1)` >>
+        intLib.ARITH_TAC) >>
+      qexists_tac `n` >>
+      fs [] >>
+      rw []
+      >- intLib.ARITH_TAC >>
+      `i+1 < &n` by intLib.ARITH_TAC >>
+      rfs []))
+
+
+
+
+
+
 
 
 
@@ -249,6 +302,21 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
 
       *)
 
+val my_cmp = process_topdecs `
+fun my_cmp (x1,y1) (x2,y2) = !x1 < !x2;
+`;
+val my_cmp_st = ml_progLib.add_prog my_cmp pick_name quicksort_st;
+
+val example_sort = process_topdecs `
+val sorted =
+  quicksort my_cmp
+  (fromList [(ref 0, 1), (ref 1, 2), (ref 0, 3), (ref 2, 4), (ref 1, 5)])
+`;
+val example_sort_st = ml_progLib.add_prog my_cmp pick_name my_cmp_st;
+
+
+val example_sorted_correct = Q.store_thm ("example_sorted_correct",
+  
 
 val _ = export_theory ();
 
