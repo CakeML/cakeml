@@ -1,5 +1,6 @@
 open preamble astTheory;
 open backend_commonTheory;
+open jsonTheory;
 
 val _ = new_theory "modLang";
 
@@ -62,5 +63,8 @@ val _ = Datatype`
 val _ = Datatype`
  prompt =
     Prompt (modN option) (dec list)`;
+
+val to_json_def = Define`
+  to_json _ = json$String "Hello, ModLang!"`
 
 val _ = export_theory ();

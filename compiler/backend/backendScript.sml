@@ -14,6 +14,7 @@ open preamble
      lab_to_targetTheory
 local open primTypesTheory in end
 open word_to_wordTheory
+open jsonTheory
 
 val _ = new_theory"backend";
 
@@ -33,7 +34,9 @@ val config_component_equality = theorem"config_component_equality";
 
 val compile_def = Define`
   compile c p =
+    let res = [ast_to_json p] in
     let (c',p) = source_to_mod$compile c.source_conf p in
+    let res = modLang$to_json p :: res in
     let c = c with source_conf := c' in
     let (c',p) = mod_to_con$compile c.mod_conf p in
     let c = c with mod_conf := c' in
