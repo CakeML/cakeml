@@ -3,7 +3,6 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     basisProgTheory
 
 val _ = new_theory"compiler";
 
