@@ -882,113 +882,128 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             \\ next_tac [3, 5]
             )
          )
-         (*--------------
-             Mem
-           --------------*)
-         \\ qexists_tac `0`
-         \\ simp [asmPropsTheory.asserts_eval,
-                  asmPropsTheory.interference_ok_def,
-                  x64_next_def, x64_proj_def]
-         \\ NTAC 2 STRIP_TAC
-         \\ Cases_on `a`
-         \\ qabbrev_tac `r1 = n2w n : word4`
-         \\ qabbrev_tac `r2 = n2w n' : word4`
-         \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
-         by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`]
-             \\ fsrw_tac [] (x64_config :: asmLib.asm_ok_rwts))
-         \\ Cases_on `m`
-         \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
-         \\ NO_STRIP_REV_FULL_SIMP_TAC
-               (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
-         \\ qunabbrev_tac `instr`
-         \\ NO_STRIP_FULL_SIMP_TAC (std_ss++listSimps.LIST_ss) []
-         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
          >- (
             (*--------------
-                Load
+                Mem
               --------------*)
-            print_tac "Load"
-            \\ `read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) =
-                s1.mem (s1.regs n' + c + 7w) @@ s1.mem (s1.regs n' + c + 6w) @@
-                s1.mem (s1.regs n' + c + 5w) @@ s1.mem (s1.regs n' + c + 4w) @@
-                s1.mem (s1.regs n' + c + 3w) @@ s1.mem (s1.regs n' + c + 2w) @@
-                s1.mem (s1.regs n' + c + 1w) @@ s1.mem (s1.regs n' + c)`
-            by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem3)
-                \\ simp [])
-            \\ load_tac
-            )
-         >- (
-            (*--------------
-                Load8
-              --------------*)
-            print_tac "Load8"
-            \\ `ms.MEM (ms.REG (num2Zreg n') + c) = s1.mem (s1.regs n' + c)`
-            by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
-            \\ load_tac
-            )
-         (*
-         >- (
-            (*--------------
-                Load32
-              --------------*)
-            print_tac "Load32"
-            \\ `read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) =
-                s1.mem (s1.regs n' + c + 3w) @@ s1.mem (s1.regs n' + c + 2w) @@
-                s1.mem (s1.regs n' + c + 1w) @@ s1.mem (s1.regs n' + c)`
-            by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2)
-                \\ simp [])
+            qexists_tac `0`
+            \\ simp [asmPropsTheory.asserts_eval,
+                     asmPropsTheory.interference_ok_def,
+                     x64_next_def, x64_proj_def]
+            \\ NTAC 2 STRIP_TAC
+            \\ Cases_on `a`
+            \\ qabbrev_tac `r1 = n2w n : word4`
+            \\ qabbrev_tac `r2 = n2w n' : word4`
+            \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
+            by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`]
+                \\ fsrw_tac [] (x64_config :: asmLib.asm_ok_rwts))
+            \\ Cases_on `m`
+            \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
+            \\ NO_STRIP_REV_FULL_SIMP_TAC
+                  (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
+            \\ qunabbrev_tac `instr`
+            \\ NO_STRIP_FULL_SIMP_TAC (std_ss++listSimps.LIST_ss) []
+            \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
+            >- (
+               (*--------------
+                   Load
+                 --------------*)
+               print_tac "Load"
+               \\ `read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) =
+                   s1.mem (s1.regs n' + c + 7w) @@
+                   s1.mem (s1.regs n' + c + 6w) @@
+                   s1.mem (s1.regs n' + c + 5w) @@
+                   s1.mem (s1.regs n' + c + 4w) @@
+                   s1.mem (s1.regs n' + c + 3w) @@
+                   s1.mem (s1.regs n' + c + 2w) @@
+                   s1.mem (s1.regs n' + c + 1w) @@
+                   s1.mem (s1.regs n' + c)`
+               by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem3)
+                   \\ simp [])
+               \\ load_tac
+               )
+            >- (
+               (*--------------
+                   Load8
+                 --------------*)
+               print_tac "Load8"
+               \\ `ms.MEM (ms.REG (num2Zreg n') + c) = s1.mem (s1.regs n' + c)`
+               by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
+               \\ load_tac
+               )
+            (*
+            >- (
+               (*--------------
+                   Load32
+                 --------------*)
+               print_tac "Load32"
+               \\ `read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) =
+                   s1.mem (s1.regs n' + c + 3w) @@
+                   s1.mem (s1.regs n' + c + 2w) @@
+                   s1.mem (s1.regs n' + c + 1w) @@
+                   s1.mem (s1.regs n' + c)`
+               by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2)
+                   \\ simp [])
+               \\ Cases_on
+                    `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
+               >- (fsrw_tac [] [] \\ load_tac)
+               \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
+                          (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
+               by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+               \\ qpat_x_assum `~(a /\ b)` (K all_tac)
+               \\ load_tac
+               )
+            *)
+            >- (
+               (*--------------
+                   Store
+                 --------------*)
+               print_tac "Store"
+               \\ `?wv. read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
+               by metis_tac [mem_lem3]
+               \\ store_tac
+               )
+            >- (
+               (*--------------
+                   Store8
+                 --------------*)
+               print_tac "Store8"
+               \\ `?wv. ms.MEM (ms.REG (num2Zreg n') + c) = wv`
+               by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
+               \\ wordsLib.Cases_on_word_value `(3 >< 3) r1: word1`
+               >| [
+                  `3w <+ r1` by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                  \\ `3 < n` by rfs [Abbr `r1`, wordsTheory.word_lo_n2w],
+                  all_tac
+               ]
+               \\ wordsLib.Cases_on_word_value `(3 >< 3) r2: word1`
+               >| [all_tac, all_tac, all_tac,
+                   Cases_on `3 < n` >| [all_tac, imp_res_tac mem_lem8]
+               ]
+               \\ store_tac
+               )
+            (*
+               (*--------------
+                   Store32
+                 --------------*)
+            \\ print_tac "Store32"
+            \\ `?wv. read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
+            by metis_tac [mem_lem2]
             \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-            >- (fsrw_tac [] [] \\ load_tac)
+            >- (fsrw_tac [] [] \\ store_tac)
             \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                        (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ qpat_x_assum `~(a /\ b)` (K all_tac)
-            \\ load_tac
-            )
-         *)
-         >- (
-            (*--------------
-                Store
-              --------------*)
-            print_tac "Store"
-            \\ `?wv. read_mem64 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
-            by metis_tac [mem_lem3]
             \\ store_tac
+            *)
             )
-         >- (
-            (*--------------
-                Store8
-              --------------*)
-            print_tac "Store8"
-            \\ `?wv. ms.MEM (ms.REG (num2Zreg n') + c) = wv`
-            by metis_tac [mem_lem1, wordsTheory.WORD_ADD_COMM]
-            \\ wordsLib.Cases_on_word_value `(3 >< 3) r1: word1`
-            >| [
-               `3w <+ r1` by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-               \\ `3 < n` by rfs [Abbr `r1`, wordsTheory.word_lo_n2w],
-               all_tac
-            ]
-            \\ wordsLib.Cases_on_word_value `(3 >< 3) r2: word1`
-            >| [all_tac, all_tac, all_tac,
-                Cases_on `3 < n` >| [all_tac, imp_res_tac mem_lem8]
-            ]
-            \\ store_tac
-            )
-         (*
-            (*--------------
-                Store32
-              --------------*)
-         \\ print_tac "Store32"
-         \\ `?wv. read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
-         by metis_tac [mem_lem2]
-         \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-         >- (fsrw_tac [] [] \\ store_tac)
-         \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
-                    (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
-         by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
-         \\ qpat_x_assum `~(a /\ b)` (K all_tac)
-         \\ store_tac
-         *)
+         (*--------------
+             FP
+           --------------*)
+         \\ print_tac "FP"
+         \\ Cases_on `f`
+         \\ next_tac []
       ) (* close Inst *)
       (*--------------
           Jump

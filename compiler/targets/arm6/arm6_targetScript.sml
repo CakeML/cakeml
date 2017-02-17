@@ -128,6 +128,7 @@ val arm6_enc_def = Define`
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreByte (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
+   (arm6_enc (Inst (FP _)) = arm6_encode_fail) /\
    (arm6_enc (Jump a) = enc (Branch (BranchTarget (a - 8w)))) /\
    (arm6_enc (JumpCmp cmp r1 (Reg r2) a) =
       let (opc, c) = arm6_cmp cmp in
@@ -175,6 +176,7 @@ val arm6_config_def = Define`
     ; encode := arm6_enc
     ; code_alignment := 2
     ; reg_count := 16
+    ; fp_reg_count := 0
     ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
     ; two_reg_arith := F

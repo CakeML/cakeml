@@ -13,7 +13,7 @@ local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
-           "jump", "cjump reg", "cjump imm", "call", "jump reg", "loc"]
+           "fp", "jump", "cjump reg", "cjump imm", "call", "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS arm6_enc_def)
   val thm =  Q.SPEC `f` boolTheory.LET_THM
   val bits30 =
@@ -59,6 +59,8 @@ val store_rwt = enc_thm "store" [e_store_def]
 (* val store32_rwt = enc_thm "store32" [e_store_def] *)
 val store8_rwt = enc_thm "store8" [e_store_def]
 
+val fp_rwt = enc_thm "fp" []
+
 val jump_rwt = enc_thm "jump" [e_branch_def]
 val jump_cmp_rwt = enc_thm "cjump reg"
   [e_branch_def, e_data_def, EncodeImmShift_def,
@@ -79,6 +81,7 @@ val arm6_encode_rwts = Theory.save_thm("arm6_encode_rwts",
     [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_mul_rwt,
      add_carry_rwt, add_overflow_rwt, sub_overflow_rwt, load_rwt,
      (* load32_rwt, *) load8_rwt, store_rwt, (* store32_rwt, *) store8_rwt,
-     jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
+     fp_rwt, jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt,
+     loc_rwt])
 
 val () = export_theory ()

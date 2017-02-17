@@ -101,6 +101,7 @@ val x64_ast_def = Define`
    *)
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
+   (x64_ast (Inst (FP _)) = []) /\
    (x64_ast (Jump a) = [Zjcc (Z_ALWAYS, a - 5w)]) /\
    (x64_ast (JumpCmp cmp r1 (Reg r2) a) =
       [Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
@@ -150,6 +151,7 @@ val x64_config_def = Define`
    <| ISA := x86_64
     ; encode := x64_enc
     ; reg_count := 16
+    ; fp_reg_count := 0
     ; avoid_regs := [4;5]
     ; link_reg := NONE
     ; two_reg_arith := T

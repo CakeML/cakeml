@@ -189,6 +189,7 @@ val arm8_ast_def = Define`
          (LoadStoreImmediate@8
             (0w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
              a, n2w r2, n2w r1))]) /\
+   (arm8_ast (Inst (FP _)) = arm8_encode_fail) /\
    (arm8_ast (Jump a) =
       [Branch (BranchImmediate (a, BranchType_JMP))]) /\
    (arm8_ast (JumpCmp cmp r1 (Reg r2) a) =
@@ -246,6 +247,7 @@ val arm8_config_def = Define`
    <| ISA := ARMv8
     ; encode := arm8_enc
     ; reg_count := 32
+    ; fp_reg_count := 0
     ; avoid_regs := [26; 31]
     ; link_reg := SOME 30
     ; two_reg_arith := F
@@ -276,7 +278,8 @@ val arm8_target_def = Define`
     |>`
 
 val (arm8_config, arm8_asm_ok) =
-  asmLib.target_asm_rwts [DECIDE ``a < 32 /\ a <> 31n <=> a < 31``]
+  asmLib.target_asm_rwts
+    [DECIDE ``a < 32 /\ a <> 26 /\ a <> 31n <=> a <> 26 /\ a < 31``]
     ``arm8_config``
 
 val arm8_config = save_thm("arm8_config", arm8_config)

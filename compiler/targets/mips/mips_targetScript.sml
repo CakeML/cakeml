@@ -150,6 +150,7 @@ val mips_enc_def = Define`
        case mips_memop mop of
           INL f => [Load (f (n2w r2, n2w r1, w2w a))]
         | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+   (mips_ast (Inst (FP _ )) = mips_encode_fail) /\
    (mips_ast (Jump a) =
        [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]) /\
    (mips_ast (JumpCmp c r1 (Reg r2) a) =
@@ -199,6 +200,7 @@ val mips_config_def = Define`
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
+    ; fp_reg_count := 0
     ; avoid_regs := [0; 1; 25; 26; 27; 28; 29]
     ; link_reg := SOME 31
     ; two_reg_arith := F

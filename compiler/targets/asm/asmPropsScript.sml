@@ -133,6 +133,7 @@ val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
    ((asmSem$upd_pc x s).be = s.be) ∧
    ((asmSem$upd_pc x s).mem = s.mem) ∧
    ((asmSem$upd_pc x s).regs = s.regs) ∧
+   ((asmSem$upd_pc x s).fp_regs = s.fp_regs) ∧
    ((asmSem$upd_pc x s).lr = s.lr) ∧
    ((asmSem$upd_pc x s).pc = x)`,
   EVAL_TAC);
@@ -180,12 +181,21 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    ((arith_upd a x).be = x.be)`,
   Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
 
+val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
+  `((fp_upd a x).mem_domain = x.mem_domain) ∧
+   ((fp_upd a x).align = x.align) ∧
+   ((fp_upd a x).mem = x.mem) ∧
+   ((fp_upd a x).lr = x.lr) ∧
+   ((fp_upd a x).be = x.be)`,
+  Cases_on`a` >> EVAL_TAC >> srw_tac[][] \\ CASE_TAC \\ rw []);
+
 val asm_consts = Q.store_thm("asm_consts[simp]",
   `!i w s. ((asm i w s).be = s.be) /\
             ((asm i w s).lr = s.lr) /\
             ((asm i w s).align = s.align) /\
             ((asm i w s).mem_domain = s.mem_domain)`,
-  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  Cases
+  \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
   \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `m`)

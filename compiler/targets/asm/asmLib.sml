@@ -17,13 +17,14 @@ fun write_mem_word n =
    |> SIMP_RULE (srw_ss()) []
 
 val asm_ok_rwts =
-   [asm_ok_def, inst_ok_def, reg_ok_def, arith_ok_def, cmp_ok_def,
-    reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
+   [asm_ok_def, inst_ok_def, reg_ok_def, fp_reg_ok_def, arith_ok_def, fp_ok_def,
+    cmp_ok_def, reg_imm_ok_def, offset_ok_def, alignmentTheory.aligned_0]
 
 val asm_rwts =
-   [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
-    assert_def, reg_imm_def, binop_upd_def, word_cmp_def, word_shift_def,
-    arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
+   [upd_pc_def, upd_reg_def, upd_fp_reg_def, upd_mem_def, read_reg_def,
+    read_fp_reg_def, read_mem_def, assert_def, reg_imm_def, binop_upd_def,
+    word_cmp_def, word_shift_def, arith_upd_def, fp_upd_def, addr_def,
+    mem_load_def, write_mem_word_def, mem_store_def,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
     mem_op_def, inst_def, jump_to_offset_def, asm_def,
@@ -63,6 +64,23 @@ local
      `Inst (Mem Store r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Store8 r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Store32 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (FP (FPLess r d1 d2)) : 'a asm`,
+     `Inst (FP (FPLessEqual r d1 d2)) : 'a asm`,
+     `Inst (FP (FPGreater r d1 d2)) : 'a asm`,
+     `Inst (FP (FPGreaterEqual r d1 d2)) : 'a asm`,
+     `Inst (FP (FPEqual r d1 d2)) : 'a asm`,
+     `Inst (FP (FPMov d1 d2)) : 'a asm`,
+     `Inst (FP (FPMovToReg r1 r2 d)) : 'a asm`,
+     `Inst (FP (FPMovToInt r d)) : 'a asm`,
+     `Inst (FP (FPMovFromReg d r1 r2)) : 'a asm`,
+     `Inst (FP (FPMovFromInt d r)) : 'a asm`,
+     `Inst (FP (FPAbs d1 d2)) : 'a asm`,
+     `Inst (FP (FPNeg d1 d2)) : 'a asm`,
+     `Inst (FP (FPSqrt d1 d2)) : 'a asm`,
+     `Inst (FP (FPAdd d1 d2 d3)) : 'a asm`,
+     `Inst (FP (FPSub d1 d2 d3)) : 'a asm`,
+     `Inst (FP (FPMul d1 d2 d3)) : 'a asm`,
+     `Inst (FP (FPDiv d1 d2 d3)) : 'a asm`,
      `Jump w : 'a asm`,
      `JumpCmp x r1 (Reg r2) w : 'a asm`,
      `JumpCmp x r1 (Imm i) w : 'a asm`,
@@ -111,17 +129,18 @@ val asm_type = asm_type [``:64``]
 
 val add_asm_compset = computeLib.extend_compset
   [computeLib.Defs
-     [upd_pc_def, upd_reg_def, upd_mem_def, read_reg_def, read_mem_def,
-      assert_def, reg_imm_def, binop_upd_def, word_cmp_def, word_shift_def,
-      arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
-      read_mem_word_def, mem_op_def, is_test_def, inst_def, jump_to_offset_def,
+     [upd_pc_def, upd_reg_def, upd_fp_reg_def, upd_mem_def, read_reg_def,
+      read_fp_reg_def, read_mem_def, assert_def, reg_imm_def, binop_upd_def,
+      word_cmp_def, word_shift_def, arith_upd_def, fp_upd_def, addr_def,
+      mem_load_def, write_mem_word_def, mem_store_def, read_mem_word_def,
+      mem_op_def, is_test_def, inst_def, jump_to_offset_def,
       asm_def, alignmentTheory.aligned_extract,offset_ok_def],
    computeLib.Convs
      [(asm_ok_tm, 2, asm_ok_conv)],
    computeLib.Tys
      (List.map ast_type0 ["shift"] @
-      List.map asm_type0 ["cmp", "memop", "binop"] @
-      List.map asm_type  ["asm_config", "asm", "inst"])]
+      List.map asm_type0 ["cmp", "memop", "binop", "fp"] @
+      List.map asm_type  ["asm_config", "asm", "inst", "arith"])]
 
 (* some custom tools/tactics ---------------------------------------------- *)
 
@@ -311,7 +330,9 @@ fun asm_cases_tac i =
       ],
       Q.MATCH_GOALSUB_RENAME_TAC `Mem m _ a`
       \\ Cases_on `a`
-      \\ Cases_on `m`
+      \\ Cases_on `m`,
+      Q.MATCH_GOALSUB_RENAME_TAC `FP a`
+      \\ Cases_on `a`
     ],
     all_tac, (* Jump *)
     Q.MATCH_GOALSUB_RENAME_TAC `JumpCmp c _ r _`
@@ -339,6 +360,7 @@ in
   val isSkip = can_match `asm$Inst (asm$Const _ _)`
   val isConst = can_match `asm$Inst (asm$Const _ _)`
   val isArith = can_match `asm$Inst (asm$Arith _)`
+  val isFP = can_match `asm$Inst (asm$FP _)`
   val isMem = can_match `asm$Inst (asm$Mem _ _ _)`
   val isBinop = can_match `asm$Inst (asm$Arith (asm$Binop _ _ _ _))`
   val isShift = can_match `asm$Inst (asm$Arith (asm$Shift _ _ _ _))`
