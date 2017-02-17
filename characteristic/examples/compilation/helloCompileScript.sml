@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs
-open x64_compileLib x64_exportLib echoProgTheory
+open x64_compileLib x64_exportLib helloProgTheory
 
-val _ = new_theory "echoCompile"
+val _ = new_theory "helloCompile"
 
 val rconc = rhs o concl
 
@@ -45,13 +45,13 @@ fun write_asm [] = ()
        bytes (name ^ ".S") ;
     write_asm xs)
 
-val echo_prog = echo_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
+val hello_prog = hello_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
 
-val echo_compiled = to_bytes 3 ``x64_compiler_config`` echo_prog
+val hello_compiled = to_bytes 3 ``x64_compiler_config`` hello_prog
 
-val echo_bytes = extract_bytes echo_compiled
+val hello_bytes = extract_bytes hello_compiled
 
-val store2 = save_thm ("echo", echo_compiled)
-val store1 = write_asm [ ("echo", echo_bytes) ]
+val store2 = save_thm ("hello", hello_compiled)
+val store1 = write_asm [ ("hello", hello_bytes) ]
 
 val _ = export_theory ();

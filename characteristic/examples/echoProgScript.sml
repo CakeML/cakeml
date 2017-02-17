@@ -10,60 +10,24 @@ val _ = new_theory "echoProg";
 
 val _ = translation_extends"mlcommandLineProg";
 
-(*TODO: update this to include Char.fromByte and move to a more appropriate location*)
-val print = process_topdecs
-  `fun print s =
-    let 
-      val l = String.explode s
-      val nl = List.map_1 (Char.ord) l
-      val bl = List.map_1 (Word8.fromInt) nl
-    in write_list bl end`
-
-val res = ml_prog_update(ml_progLib.add_prog print pick_name)
-
 val echo = process_topdecs
   `fun echo u = 
       let 
         val cl = Commandline.arguments ()
         val cls = String.concatwith " " cl
-      in print cls end`
+        val ok = print cls
+      in CharIO.write (Word8.fromInt 10) end`
 
 val res = ml_prog_update(ml_progLib.add_prog echo pick_name)
 
 val st = get_ml_prog_state()
 
-
-(*TODO fix the use of map_1 instead of map *)
-val map_1_v_thm = fetch "mllistProg" "map_1_v_thm";
-val string_map_v_thm = save_thm("string_map_v_thm",
-  map_1_v_thm |> INST_TYPE [alpha |-> ``:char``, beta|->``:num``])
-val byte_map_v_thm = save_thm("byte_map_v_thm",
-  map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta|->``:word8``])
-
-
-val print_spec = Q.store_thm("print_spec",
-  `!s sv. STRING_TYPE s sv ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "print" st) [sv]
-   (STDOUT output)
-   (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ MAP (n2w o ORD) (explode s)))`,  
-    xcf "print" st
-    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
-    >-(xapp \\ xsimpl \\ instantiate)
-    \\ xlet `POSTv nlv. & LIST_TYPE NUM (MAP ORD (explode s)) nlv * STDOUT output`
-    >-(xapp_spec string_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
-      \\ instantiate \\ qexists_tac `ORD` \\ qexists_tac `NUM`  \\ rw[mlcharProgTheory.char_ord_v_thm])
-    \\ xlet `POSTv blv. & LIST_TYPE (WORD:word8 -> v -> bool) (MAP n2w (MAP ORD (explode s))) blv * STDOUT output`    
-    >-(xapp_spec byte_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
-      \\ instantiate \\ qexists_tac `n2w` \\ qexists_tac `WORD` \\ rw[mlword8ProgTheory.word8_fromint_v_thm])
-    \\ xapp \\ fs[MAP_MAP_o] 
-);
-
 val echo_spec = Q.store_thm("echo_spec",
-  `!ls. cl <> [] /\ EVERY validArg cl /\
+  `!ls b bv. cl <> [] /\ EVERY validArg cl /\
    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDOUT output * COMMANDLINE cl)
-   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl))`,
+   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl)) ++ [n2w 10]) * COMMANDLINE cl))`,
     xcf "echo" st
     \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * COMMANDLINE cl` 
     >-(xcon \\ xsimpl)
@@ -74,8 +38,12 @@ val echo_spec = Q.store_thm("echo_spec",
     >-(xapp \\ xsimpl \\ instantiate
       \\ rw[mlstringTheory.concatWith_CONCAT_WITH, mlstringTheory.implode_explode, Once mlstringTheory.implode_def]
       \\ Cases_on `cl` \\ fs[mlstringTheory.implode_def])
-    \\ xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
-    \\ rw[mlstringTheory.explode_implode] \\ xsimpl 
+    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
+    >-(xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
+      \\ rw[mlstringTheory.explode_implode] \\ xsimpl)
+    \\ xlet `POSTv u. STDOUT (output ++ MAP (n2w ∘ ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl * & WORD (n2w 10:word8) u`
+    >-(xapp \\ xsimpl)
+    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))`, `n2w 10`] \\ xsimpl
 );
 
 val echo_ffi_oracle_def = Define `
@@ -240,38 +208,133 @@ val prog_to_semantics_prog = Q.prove(
     \\ fs[] \\ rpt (CASE_TAC \\ fs[])    
 );
 
-(*TODO: Need to generalize this to not just STDOUT x by changing STDOUT x to Q, and having some assumption about Q e.g. Q h1 ==> A IN ffi_part h1 ==> A = STDOUT, COMMANDLINE, STDIN *)
+val FFI_part_hprop_def = Define`
+  FFI_part_hprop Q =
+   (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))`;
+
+val FFI_part_hprop_STAR = Q.store_thm("FFI_part_hprop_STAR",
+  `FFI_part_hprop P \/ FFI_part_hprop Q ==> FFI_part_hprop (P * Q)`,
+  rw[FFI_part_hprop_def]
+  \\ fs[set_sepTheory.STAR_def,SPLIT_def] \\ rw[]
+  \\ metis_tac[]);
+
 val call_main_thm2 = Q.store_thm("call_main_thm2",
 `ML_code env1 st1 prog NONE env2 st2 ==> 
    lookup_var fname env2 = SOME fv ==> 
-  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * STDOUT x) ==>     
-  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1  /\
+  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==>     
+  FFI_part_hprop Q ==>
   no_dup_mods (SNOC ^main_call prog) st1.defined_mods /\ 
-  no_dup_top_types (SNOC ^main_call prog) st1.defined_types /\
-  parts_ok st2.ffi (proj1, proj2) 
+  no_dup_top_types (SNOC ^main_call prog) st1.defined_types ==>
+  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1 
   ==>  
     ∃st3.
     semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
-    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ (STDOUT x) h3)`,
+    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q h3)`,
   rw[]
-  \\ imp_res_tac call_main_thm1 \\ fs[]
-  (*gets rid of extra assumptions *)
-  \\ first_x_assum(fn th => rw[th])
-  \\ first_x_assum(fn th => rw[th])
-  \\ first_x_assum(fn th => rw[th])
-  \\ qexists_tac `st3`
-  \\ reverse conj_tac >-(qexists_tac `h3` \\ qexists_tac `h4` \\ fs[]) 
+  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3`
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3`
+  suffices_by metis_tac[prog_to_semantics_prog]
+  \\ simp[Abbr`A`,Abbr`B`]
+  \\ drule (GEN_ALL call_main_thm1)
+  \\ rpt (disch_then drule)
+  \\ simp[] \\ strip_tac
+  \\ asm_exists_tac \\ simp[]
+  \\ reverse conj_tac >- metis_tac[]
   \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
   >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
     \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
   \\ fs[ml_progTheory.Prog_def]
-  \\ fs[STDOUT_def, cfHeapsBaseTheory.IO_def, set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES] 
-  \\ fs[set_sepTheory.one_STAR] 
-  \\ `FFI_part (Str (MAP (CHR ∘ w2n) x)) stdout_fun ["putChar"] events IN (st2heap (proj1, proj2) st3)`
-        by cfHeapsBaseLib.SPLIT_TAC  
-  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap]
-  \\ rfs[cfStoreTheory.ffi2heap_def]
+  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
+  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
+  \\ fs[FFI_part_hprop_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ fs[EXTENSION]
+  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
+  \\ simp[FFI_part_NOT_IN_store2heap]);
+
+val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
+  `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
+  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND]
+  \\ fs[] \\ rw[extract_output_def] \\ full_case_tac 
+  \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
 );
+
+(*STDOUT may need to be abstracted but its whats meant to be at the end with extract_output *)
+val call_main_thm2 = Q.store_thm("call_main_thm2",
+`ML_code env1 st1 prog NONE env2 st2 ==> 
+   lookup_var fname env2 = SOME fv ==> 
+  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * Q)) ==>     
+  no_dup_mods (SNOC ^main_call prog) st1.defined_mods /\ 
+  no_dup_top_types (SNOC ^main_call prog) st1.defined_types ==>
+  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1 
+  ==>  
+    ∃st3.
+    semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
+    extract_output st3.ffi.io_events = SOME (x) /\
+    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ (STDOUT x * Q) h3)`,
+  rw[]
+  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st3`
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3 /\ C st3`
+  suffices_by metis_tac[prog_to_semantics_prog]
+  \\ simp[Abbr`A`,Abbr`B`, Abbr`C`]
+  \\ drule (GEN_ALL call_main_thm1)
+  \\ rpt (disch_then drule)
+  \\ simp[] \\ strip_tac
+  \\ asm_exists_tac \\ simp[]
+  \\ conj_tac  >-( Cases_on `parts_ok st3.ffi (proj1, proj2)`
+  >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
+    \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
+  \\ fs[ml_progTheory.Prog_def]
+  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
+  \\ `FFI_part_hprop (STDOUT x * Q)` by metis_tac[FFI_part_hprop_def, STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
+  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
+  \\ fs[FFI_part_hprop_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ fs[EXTENSION]
+  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
+  \\ simp[FFI_part_NOT_IN_store2heap])
+  \\ reverse conj_tac >- metis_tac[]
+  \\ fs[STDOUT_def, cfHeapsBaseTheory.IO_def, set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+  \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+  \\ `FFI_part (Str (MAP (CHR o w2n) x)) stdout_fun ["putChar"] events IN (st2heap (proj1, proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+  \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap]
+  \\ fs [cfStoreTheory.ffi2heap_def]
+  \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
+  >-(
+    (*This can be true if we have that h3 and h4 have no ffi parts and h2 only has one STDOUT part --> one STDOUT part comes from parts_ok, one h3 and h4 can be subsets of the .refs of the total thing and extract_output_not_putChar can be used to show that the other FFI calls don't affect extract_output*)
+    fs[extract_output_FILTER, cfStoreTheory.parts_ok_def]  
+    \\ Cases_on `st3` \\ Cases_on `f` \\ Cases_on `l'` \\ fs[extract_output_def, cfStoreTheory.parts_ok_def]
+
+val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
+  `FFI_part_hprop (STDOUT x)`,
+  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
+  `FFI_part_hprop (STDIN b x)`,
+  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
+  `FFI_part_hprop (COMMANDLINE x)`,
+  rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+  \\ fs[set_sepTheory.one_def]);
 
 val ML_code_thm = get_ml_prog_state() |> remove_snocs |> get_thm
 val env = init_state |> remove_snocs |> get_env
@@ -283,33 +346,36 @@ val echo_prog_tm = listSyntax.mk_snoc(echo_dlet,prog);
 val echo_prog_def = Define`
   echo_prog = ^echo_prog_tm`;
 
-Q.store_thm("no_dup_mods_echo",
+val no_dup_mods_echo = Q.store_thm("no_dup_mods_echo",
   `no_dup_mods ^echo_prog_tm ^state.defined_mods`,
   CONV_TAC(RAND_CONV EVAL)
   \\ CONV_TAC(RATOR_CONV(RAND_CONV EVAL)) (* this is only for the snoc *)
   \\ CONV_TAC(no_dup_mods_conv)
 );  
 
-Q.store_thm ("no_dup_tops_types_echo",
+val no_dup_tops_types_echo = Q.store_thm ("no_dup_tops_types_echo",
   `no_dup_top_types ^echo_prog_tm ^state.defined_types`,
   CONV_TAC(RAND_CONV EVAL)
   \\ CONV_TAC(RATOR_CONV(RAND_CONV EVAL)) (* this is only for the snoc *)
   \\ CONV_TAC(no_dup_top_types_conv)
 );
 
+val FFI_part_hprop_STDOUT_COMMANDLINE =
+  Q.prove(`FFI_part_hprop (STDOUT x * COMMANDLINE y)`, metis_tac[FFI_part_hprop_STAR,STDOUT_FFI_part_hprop,COMMANDLINE_FFI_part_hprop]);
 
-(*TODO:  Fix call_main_thm2 and apply in this fashion *)
-val call_thm_instantiated1 =
-  call_main_thm1
+val call_thm_instantiated =
+  call_main_thm2
   |> C MATCH_MP ML_code_thm
   |> Q.GENL[`fv`,`fname`] |> Q.SPEC`"echo"`
   |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
   |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-  |> C MATCH_MP (echo_spec |> SPEC_ALL |> UNDISCH)
+  |> C MATCH_MP (echo_spec |> SPEC_ALL |> UNDISCH |> Q.GEN`p` |> Q.SPEC`(proj1,proj2)`)
   |> Q.GEN `ffi` |> ISPEC ``echo_ffi cls``
-  |> Q.INST [`p`|->`(echo_proj1,echo_proj2)`]
-  |> UNDISCH
-
+  |> Q.INST [`proj1`|->`echo_proj1`,`proj2`|->`echo_proj2`]
+  |> CONV_RULE(LAND_CONV(REWR_CONV(EQT_INTRO FFI_part_hprop_STDOUT_COMMANDLINE)))
+  |> C MATCH_MP TRUTH
+  |> CONV_RULE(LAND_CONV(REWRITE_CONV[EQT_INTRO no_dup_mods_echo, EQT_INTRO no_dup_tops_types_echo]))
+  |> C MATCH_MP TRUTH
 
 
 (* May need to do something with this to change reasoning about h1
@@ -329,6 +395,11 @@ val extract_output_not_putChar = Q.prove(
       rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
 );
 
+
+
+extract_output_append
+DB.find"extract_output_APPEND"
+DB.find"ffi_has_index_in"
 
 val RTC_call_FFI_rel_IMP = Q.store_thm("RTC_call_FFI_rel_IMP",
   `!st st'.

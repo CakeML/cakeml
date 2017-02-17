@@ -106,6 +106,47 @@ val read_all_spec = Q.store_thm ("read_all_spec",
   \\ qexists_tac`F`
   \\ xsimpl);
 
+
+
+(*TODO: update this to include Char.fromByte and move to a more appropriate location*)
+val print = process_topdecs
+  `fun print s =
+    let 
+      val l = String.explode s
+      val nl = List.map_1 (Char.ord) l
+      val bl = List.map_1 (Word8.fromInt) nl
+    in write_list bl end`
+
+val res = ml_prog_update(ml_progLib.add_prog print pick_name)
+
+
+(*TODO fix the use of map_1 instead of map *)
+val map_1_v_thm = fetch "mllistProg" "map_1_v_thm";
+val string_map_v_thm = save_thm("string_map_v_thm",
+  map_1_v_thm |> INST_TYPE [alpha |-> ``:char``, beta|->``:num``])
+val byte_map_v_thm = save_thm("byte_map_v_thm",
+  map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta|->``:word8``])
+
+
+val print_spec = Q.store_thm("print_spec",
+  `!s sv. STRING_TYPE s sv ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "print" (basis_st())) [sv]
+   (STDOUT output)
+   (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ MAP (n2w o ORD) (explode s)))`,  
+    xcf "print" (basis_st())
+    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
+    >-(xapp \\ xsimpl \\ instantiate)
+    \\ xlet `POSTv nlv. & LIST_TYPE NUM (MAP ORD (explode s)) nlv * STDOUT output`
+    >-(xapp_spec string_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
+      \\ instantiate \\ qexists_tac `ORD` \\ qexists_tac `NUM`  \\ rw[mlcharProgTheory.char_ord_v_thm])
+    \\ xlet `POSTv blv. & LIST_TYPE (WORD:word8 -> v -> bool) (MAP n2w (MAP ORD (explode s))) blv * STDOUT output`    
+    >-(xapp_spec byte_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
+      \\ instantiate \\ qexists_tac `n2w` \\ qexists_tac `WORD` \\ rw[mlword8ProgTheory.word8_fromint_v_thm])
+    \\ xapp \\ fs[MAP_MAP_o] 
+);
+
+
+
 (* --- the following are defs and lemmas used by ioProgLib --- *)
 
 val io_ffi_oracle_def = Define `
