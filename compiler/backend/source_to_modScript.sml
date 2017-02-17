@@ -1,5 +1,5 @@
 open preamble astTheory terminationTheory modLangTheory;
-open jsonTheory;
+open jsonTheory presLangTheory;
 
 val _ = numLib.prefer_num();
 
@@ -256,7 +256,92 @@ val compile_def = Define`
     let (_,e,p') = compile_prog c.next_global c.mod_env p in
     (c with mod_env := e, p')`;
 
+val ast_to_pres_pat_def = tDefine "ast_to_pres_pat"`
+  ast_to_pres_pat (ast$Pvar varN) = presLang$Pvar varN
+  /\
+  ast_to_pres_pat (Plit lit) = Plit lit
+  /\
+  ast_to_pres_pat (Pcon id pats) = Pcon id (MAP ast_to_pres_pat pats)
+  /\
+  ast_to_pres_pat (Pref pat) = Pref (ast_to_pres_pat pat)
+  /\
+  ast_to_pres_pat (Ptannot pat t) = Ptannot (ast_to_pres_pat pat) t`
+  cheat;
+
+val zip3_def = Define`
+  (zip3 (x::xs, y::ys, z::zs) = (x,y,z)::zip3 (xs, ys, zs))
+  /\
+  (zip3 _  = [])`;
+
+val ast_to_pres_exp_def = tDefine "ast_to_pres_exp"`
+  (ast_to_pres_exp (ast$Raise exp) = presLang$Raise (ast_to_pres_exp exp))
+  /\
+  (ast_to_pres_exp (Handle exp cases) =
+      Handle (ast_to_pres_exp exp) (pat_exp_list_to_pres cases))
+  /\
+  (ast_to_pres_exp (Var v) = Var v)
+  /\
+  (ast_to_pres_exp (Lit l) = Lit l)
+  /\
+  (ast_to_pres_exp (Con con exps) = Con con (MAP ast_to_pres_exp exps))
+  /\
+  (ast_to_pres_exp (App op exps) = App op (MAP ast_to_pres_exp exps))
+  /\
+  (ast_to_pres_exp (Fun varN exp) = Fun varN (ast_to_pres_exp exp))
+  /\
+  (ast_to_pres_exp (Log lop exp1 exp2) =
+    Log lop (ast_to_pres_exp exp1) (ast_to_pres_exp exp2))
+  /\
+  (ast_to_pres_exp (Mat exp cases) =
+    Mat (ast_to_pres_exp exp) (pat_exp_list_to_pres cases))
+  /\
+  (ast_to_pres_exp (Let varN exp1 exp2) =
+    Let varN (ast_to_pres_exp exp1) (ast_to_pres_exp exp2))
+  /\
+  (ast_to_pres_exp (Letrec vars exp) =
+    let unzip3 = FOLDR (\ (x,y,z) (xs, ys, zs).(x::xs, y::ys, z::zs)) ([],[],[]) in
+    let (vs1, vs2, exps) = unzip3 vars in
+    let exps' = MAP ast_to_pres_exp exps in
+      Letrec (zip3 (vs1,vs2,exps')) (ast_to_pres_exp exp))
+  /\
+  (ast_to_pres_exp (Tannot exp t) = Tannot (ast_to_pres_exp exp) t)
+  /\
+  (ast_to_pres_exp (Lannot exp l) = Lannot (ast_to_pres_exp exp) l)
+  /\
+  (pat_exp_list_to_pres (cases) =
+    let (pats, exps) = UNZIP cases in
+    let pats' = MAP ast_to_pres_pat pats in
+    let exps' = MAP ast_to_pres_exp exps in
+      ZIP (pats', exps'))`
+  cheat;
+
+(* Turn declarations into presLang. *)
+val ast_to_pres_dec_def = Define`
+  ast_to_pres_dec (ast$Dlet p e)= Dlet (ast_to_pres_pat p) (ast_to_pres_exp e)
+  /\
+  ast_to_pres_dec (Dletrec lst) =
+    Dletrec (MAP (\(v1,v2,e).(v1, v2, ast_to_pres_exp e)) lst)
+  /\
+  ast_to_pres_dec (Dtype type_def) = Dtype type_def
+  /\
+  ast_to_pres_dec (Dtabbrev tvars typeN t) = Dtabbrev tvars typeN t
+  /\
+  ast_to_pres_dec (Dexn conN ts) = Dexn conN ts`;
+
+(* Turn top level declarations into presLang. *)
+val ast_to_pres_top_def = Define`
+  ast_to_pres_top (ast$Tdec d) = presLang$Tdec (ast_to_pres_dec d)
+  /\
+  ast_to_pres_top (Tmod m s d) = Tmod m s (MAP ast_to_pres_dec d)`;
+
+(* Turn a given full program ast into presLang.*)
+val ast_to_pres_def = Define`
+  (ast_to_pres tops = Prog (MAP ast_to_pres_top tops))`;
+
 val ast_to_json_def = Define`
-  ast_to_json _ = json$String "Hello, Ast!"`
+  ast_to_json p =
+    json$Object [
+                  ("lang", json$String "ast");
+                  ("prog", presLang$to_json (ast_to_pres p))]`;
 
 val _ = export_theory();
