@@ -56,46 +56,76 @@ end;
 `;
 val partition_st = ml_progLib.add_prog partition pick_name (basis_st ());
 
+(*
+
 val partition_spec = Q.store_thm ("partition_spec",
 
   `!a ffi_p cmp cmp_v arr_v elem_vs pivot pivot_v lower lower_v upper upper_v.
-    INT lower lower_v ∧ INT upper upper_v ∧ lower < upper ∧ 0 ≤ lower ∧
-    upper < &(LENGTH elem_vs) ∧
-    MEM pivot_v elem_vs ∧
+    (* Partition takes two integers, and a comparison function of "semantic
+     * type" a -> a -> bool *)
+    INT lower lower_v ∧ INT upper upper_v ∧ (a --> a --> BOOL) cmp cmp_v ∧
+    (* It also takes a pivot of semantic type a *)
     a pivot pivot_v ∧
-    (a --> a --> BOOL) cmp cmp_v ∧
+    (* The integers must point to array elements, with lower before upper *)
+    lower < upper ∧ 0 ≤ lower ∧ upper < &(LENGTH elem_vs) ∧
+    (* The pivot must be in the array elements, other than at the last element.
+     * This ensures that neither side of the partition is empty. *)
+    MEM pivot_v (FRONT elem_vs) ∧
+    (* The comparison function is a strict partial order *)
     transitive cmp ∧ (!x y. cmp x y ⇒ ~cmp y x)
     ⇒
     app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" partition_st)
       [cmp_v; arr_v; pivot_v; lower_v; upper_v]
+      (* The array argument is in the heap with contents elem_vs *)
       (ARRAY arr_v elem_vs)
+      (* The partition function returns with a index p_v into the array *)
       (POSTv p_v. SEP_EXISTS elem_vs1 elem_vs2.
+        (* The array is still in the heap, with elements that form a partition *)
         ARRAY arr_v (elem_vs1++elem_vs2) *
+        &((* Neither part is empty *)
+          elem_vs1 ≠ [] ∧ elem_vs2 ≠ [] ∧
+          (* The returned index points to the end of the first partition *)
+          INT (&LENGTH elem_vs1 - 1) p_v ∧
+          (* The partition permutes the original array *)
+          PERM elem_vs (elem_vs1 ++ elem_vs2)) *
         &(∃elems1 elems2.
-            PERM elem_vs (elem_vs1 ++ elem_vs2) ∧
+           (* The elements of the first part aren't greater than the pivot *)
             LIST_REL a elems1 elem_vs1 ∧
-            LIST_REL a elems2 elem_vs2 ∧
             EVERY (\e. ¬cmp pivot e) elems1 ∧
+            (* The elements of the second part aren't less than the pivot *)
+            LIST_REL a elems2 elem_vs2 ∧
             EVERY (\e. ¬cmp e pivot) elems2))`,
 
   xcf "partition" partition_st >>
   xfun_spec `scan_lower`
     `!i elems i_v.
+      (* scan_lower takes an integer i, where i+1 indexes into the array *)
       INT i i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
+      (* There is an array index after i where the element is not less than the
+       * pivot. This ensures termination before hitting the end of the array. *)
       (?x:num. i < (&x) ∧ x < LENGTH elems ∧ ¬cmp (EL x elems) pivot) ∧
+      (* The elements of the array have semantic type a *)
       LIST_REL a elems elem_vs
       ⇒
       app (ffi_p:'ffi ffi_proj) scan_lower
         [i_v]
+        (* The array argument is in the heap with contents elem_vs *)
         (ARRAY arr_v elem_vs)
+        (* The scan terminates with an resulting index j *)
         (POSTv (j_v:v).
+          (* The array argument is still in the heap unchanged *)
           (ARRAY arr_v elem_vs) *
           &(∃j:num.
+             (* The index increased, and did not run off the end *)
              INT (&j) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
+             (* The result index j points to an element not smaller than the
+              * pivot *)
              ¬cmp (EL j elems) pivot ∧
+             (* There is nothing bigger than the pivot between where the scan
+              * started and finished *)
              !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
   >- (
-    (* Scan lower has the above invariant *)
+    (* Prove that scan lower has the above invariant *)
     ntac 2 gen_tac >>
     Induct_on `Num(&(LENGTH elems) - i)` >>
     rw []
@@ -176,6 +206,8 @@ val partition_spec = Q.store_thm ("partition_spec",
       `i+1 < &n` by intLib.ARITH_TAC >>
       rfs [])) >>
   xfun_spec `scan_upper`
+    (* Similar to the scan_lower invariant, except that i-1 indexes the array,
+     * and we scan down passing over elements bigger thatn the pivot *)
     `!i i_v elems.
       INT i i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
       (?x:num. (&x) < i ∧ ¬cmp pivot (EL x elems)) ∧
@@ -191,7 +223,8 @@ val partition_spec = Q.store_thm ("partition_spec",
              ¬cmp pivot (EL j elems) ∧
              !k:num. (&k) < i ∧ j < k ⇒ ¬cmp (EL k elems) pivot))`
   >- (
-    (* Scan upper has the above invariant *)
+    (* Prove that scan upper has the above invariant. Similar to the scan lower
+     * proof above *)
     gen_tac >>
     Induct_on `Num i` >>
     rw []
@@ -265,7 +298,28 @@ val partition_spec = Q.store_thm ("partition_spec",
       `i ≤ &k` by intLib.ARITH_TAC >>
       fs [] >>
       CCONTR_TAC >>
-      intLib.ARITH_TAC))
+      intLib.ARITH_TAC)) >>
+
+  xfun_spec `part_loop`
+    `∀lower lower_v upper upper_v elem_vs.
+      INT lower lower_v ∧ INT upper upper_v ∧
+      lower < upper ∧ -1 ≤ lower ∧ upper ≤ &(LENGTH elem_vs) ∧
+      (?stop_v1. MEM stop_v1 (SEG (Num (upper-lower)) (Num (lower + 1)) elem_vs)) ∧
+      (?stop_v2. MEM stop_v2 (SEG (Num (upper-lower)) (Num (lower + 1)) elem_vs)) ∧
+    ⇒
+    app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" partition_st)
+      [lower_v; upper_v]
+      (ARRAY arr_v elem_vs)
+      (POSTv p_v. SEP_EXISTS elem_vs1 elem_vs2.
+        ARRAY arr_v (elem_vs1++elem_vs2) *
+        &(∃elems1 elems2.
+            elem_vs1 ≠ [] ∧ elem_vs2 ≠ [] ∧
+            INT (&LENGTH elem_vs1 - 1) p_v ∧
+            PERM elem_vs (elem_vs1 ++ elem_vs2) ∧
+            LIST_REL a elems1 elem_vs1 ∧
+            LIST_REL a elems2 elem_vs2 ∧
+            EVERY (\e. ¬cmp pivot e) elems1 ∧
+            EVERY (\e. ¬cmp e pivot) elems2))`,
 
   *)
 
