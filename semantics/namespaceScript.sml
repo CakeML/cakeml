@@ -21,25 +21,22 @@ val _ = Hol_datatype `
 
 
 (*val mk_id : forall 'n 'm. list 'm -> 'n -> id 'm 'n*)
- val mk_id_defn = Defn.Hol_multi_defns `
+ val _ = Define `
  (mk_id [] n=  (Short n))
     /\ (mk_id (mn::mns) n=  (Long mn (mk_id mns n)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) mk_id_defn;
 
 (*val id_to_n : forall 'n 'm. id 'm 'n -> 'n*)
- val id_to_n_defn = Defn.Hol_multi_defns `
+ val _ = Define `
  (id_to_n (Short n)=  n)
     /\ (id_to_n (Long _ id)=  (id_to_n id))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) id_to_n_defn;
 
 (*val id_to_mods : forall 'n 'm. id 'm 'n -> list 'm*)
- val id_to_mods_defn = Defn.Hol_multi_defns `
+ val _ = Define `
  (id_to_mods (Short _)=  ([]))
     /\ (id_to_mods (Long mn id)=  (mn :: id_to_mods id))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) id_to_mods_defn;
 
 val _ = Hol_datatype `
  namespace =

@@ -10,14 +10,17 @@ type id 'm 'n =
 val mk_id : forall 'n 'm. list 'm -> 'n -> id 'm 'n
 let rec mk_id [] n = Short n
     and mk_id (mn::mns) n = Long mn (mk_id mns n)
+declare termination_argument mk_id = automatic
 
 val id_to_n : forall 'n 'm. id 'm 'n -> 'n
 let rec id_to_n (Short n) = n
     and id_to_n (Long _ id) = id_to_n id
+declare termination_argument id_to_n = automatic
 
 val id_to_mods : forall 'n 'm. id 'm 'n -> list 'm
 let rec id_to_mods (Short _) = []
     and id_to_mods (Long mn id) = mn :: id_to_mods id
+declare termination_argument id_to_mods = automatic
 
 type namespace 'm 'n 'v =
   Bind of alist 'n 'v * alist 'm (namespace 'm 'n 'v)

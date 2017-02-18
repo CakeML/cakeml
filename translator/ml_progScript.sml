@@ -21,8 +21,6 @@ val nsLookup_nsAppend_Short = Q.store_thm("nsLookup_nsAppend_Short[compute]",`
   Cases_on`nsLookup e2(Short id)`>>
   fs[namespacePropsTheory.nsLookup_nsAppend_some,namespacePropsTheory.nsLookup_nsAppend_none,id_to_mods_def]);
 
-val _ = computeLib.add_persistent_funs ["namespace.mk_id_def"]
-
 (* --- env operators --- *)
 
 (* Functions write, write_cons, write_mod, empty_env, merge_env should

@@ -19,7 +19,7 @@ val reduce_conv =
      TODO: Might need more custom rewrites for env-refactor updates
   *)
   EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
-  EVAL THENC SIMP_CONV (srw_ss()) [namespaceTheory.mk_id_def] THENC EVAL;
+  EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL;
 
 fun prove_assum_by_eval th = let
   val (x,y) = dest_imp (concl th)

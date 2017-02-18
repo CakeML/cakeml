@@ -815,6 +815,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
     ,semanticsComputeLib.add_ast_compset
+    ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset
     ]
   ]

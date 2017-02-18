@@ -17,13 +17,41 @@ end
 
 open Parse
 
+val add_namespace_compset = computeLib.extend_compset
+  [computeLib.Defs
+    [namespaceTheory.mk_id_def
+    ,namespaceTheory.nsSub_def
+    ,namespaceTheory.nsDomMod_def
+    ,namespaceTheory.nsDom_def
+    ,namespaceTheory.nsAll2_def
+    ,namespaceTheory.nsAll_def
+    ,namespaceTheory.nsOptBind_def
+    ,namespaceTheory.nsSing_def
+    ,namespaceTheory.nsLift_def
+    ,namespaceTheory.nsBindList_def
+    ,namespaceTheory.nsBind_def
+    ,namespaceTheory.alist_to_ns_def
+    ,namespaceTheory.nsAppend_def
+    ,namespaceTheory.nsEmpty_def
+    ,namespaceTheory.nsLookupMod_def
+    ,namespaceTheory.nsLookup_def
+    ,namespaceTheory.id_to_mods_def
+    ,namespaceTheory.id_to_n_def
+    ,terminationTheory.nsMap_def
+    ],
+   computeLib.Tys
+    [``:('a,'b) namespace$id``
+    ,``:('a,'b,'c) namespace$namespace``
+    ]
+  ]
+
+
 val add_ast_compset = computeLib.extend_compset
   [computeLib.Defs
     [gramTheory.nt_distinct_ths
     ,libTheory.opt_bind_def
     ,terminationTheory.is_value_def
     ,astTheory.pat_bindings_def
-    ,namespaceTheory.mk_id_def
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
@@ -69,7 +97,6 @@ val add_ast_compset = computeLib.extend_compset
     ,``:opw``
     ,``:ast$shift``
     ,``:ast$word_size``
-     ,``:('a,'b) namespace$id``
     ,``:eq_result``
     ,``:ast$tctor``
     ,``:'a sem_env``
@@ -162,6 +189,6 @@ val add_lexparse_compset = computeLib.extend_compset
   ]
 
 val add_semantics_compset = computeLib.extend_compset
-  [computeLib.Extenders [add_ast_compset, add_lexparse_compset]]
+  [computeLib.Extenders [add_ast_compset, add_lexparse_compset,add_namespace_compset]]
 
 end
