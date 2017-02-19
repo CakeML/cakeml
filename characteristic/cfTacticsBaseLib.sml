@@ -100,7 +100,7 @@ val qeval_pat_tac = Q_TAC eval_pat_tac
 
 fun compute_pat cs pat tm =
   if can (match_term pat) tm then
-    computeLib.CBV_CONV cs tm
+    (* computeLib.CBV_CONV cs tm *) EVAL tm
   else
     NO_CONV tm
 
@@ -141,7 +141,7 @@ val parse_t =
         case
           peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
         of
-          Result (SOME(_,[x]),_) => sem x : 'a`
+          Result (SOME(_,[x])) => sem x : 'a`
 
 fun string_of_q [] = ""
   | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
@@ -179,6 +179,7 @@ val ptree_t = ``ptree_Expr nEbase``
 fun fetch_v name st =
   let val env = ml_progLib.get_env st
       val ident_expr = parse nEbase_t ptree_t [QUOTE name]
+      val ident_expr = find_term astSyntax.is_Var ident_expr
       val ident = astSyntax.dest_Var ident_expr
       val evalth = EVAL ``nsLookup (^env).v ^ident``
   in (optionLib.dest_some o rhs o concl) evalth end
