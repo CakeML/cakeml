@@ -642,7 +642,7 @@ val lookup_cons_def = Define `
 
 (* theorems about lookup functions *)
 
-val mod_defined_def = Define `
+val mod_defined_def = zDefine `
   mod_defined env n =
     ∃p1 p2 e3.
       p1 ≠ [] ∧ id_to_mods n = p1 ++ p2 ∧

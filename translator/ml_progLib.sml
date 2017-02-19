@@ -100,10 +100,10 @@ fun cond_env_abbrev dest conv name th = let
        val xs = nsLookup_eq_format |> SPEC env_const |> concl
                    |> find_terms is_eq |> map (fst o dest_eq)
        fun derive_rewrite tm = let
-         val lemma = SIMP_CONV (srw_ss())
+         val lemma = (REWRITE_CONV
                       ([def,nsLookup_write_cons,nsLookup_write,
                         nsLookup_merge_env,nsLookup_write_mod,nsLookup_empty]
-                       @ (get_fast_rewrites ())) tm
+                       @ (get_fast_rewrites ())) THENC SIMP_CONV (srw_ss()) []) tm
          val _ = add_fast_rewrite lemma
          in lemma end
        val compute_th = LIST_CONJ (map derive_rewrite xs)
@@ -144,7 +144,6 @@ fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
                   NONE => mk_const("NONE",type_of v)
                 | SOME tm => optionSyntax.mk_some(tm))
   val th = SPEC sig_tm th
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes BUTLASTN *)
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
@@ -156,7 +155,9 @@ fun add_Dtype tds_tm (ML_code (ss,envs,vs,th)) = let
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtype th
   val th = SPEC tds_tm th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes write_tds *)
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
@@ -169,7 +170,9 @@ fun add_Dexn n_tm l_tm (ML_code (ss,envs,vs,th)) = let
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dexn th
   val th = SPECL [n_tm,l_tm] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes write_tds *)
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
 fun add_Dtabbrev l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
