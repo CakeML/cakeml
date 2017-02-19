@@ -427,11 +427,11 @@ local open primSemEnvTheory in
 local
   val init_env_tm =
     ``SND (THE (prim_sem_env (ARB:unit ffi_state)))``
-    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
+    |> (SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq] THENC EVAL)
     |> concl |> rand
   val init_state_tm =
     ``FST(THE (prim_sem_env (ffi:'ffi ffi_state)))``
-    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
+    |> (SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq] THENC EVAL)
     |> concl |> rand
 in
   val init_env_def = Define `
@@ -445,6 +445,13 @@ end
 val ML_code_NIL = Q.store_thm("ML_code_NIL",
   `ML_code init_env (init_state ffi) [] NONE empty_env (init_state ffi)`,
   fs [ML_code_def,Prog_NIL]);
+
+val nsLookup_init_env = save_thm("nsLookup_init_env[compute]",
+  init_env_def
+  |> concl
+  |> find_terms (can (match_term ``(s:string,_)``))
+  |> map (fn tm => EVAL ``nsLookup init_env.c (Short ^(rand(rator tm)))``)
+  |> LIST_CONJ);
 
 (* opening and closing of modules *)
 
@@ -822,6 +829,16 @@ val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env",
       first_x_assum(qspecl_then [`p1'`,`p2'++p2`,`e3'`] assume_tac)>>
       fs[])
   );
+
+val nsLookup_eq_format = Q.store_thm("nsLookup_eq_format",
+  `!env:v sem_env.
+     (nsLookup env.v (Short n) = nsLookup env.v (Short n)) /\
+     (nsLookup env.c (Short n) = nsLookup env.c (Short n)) /\
+     (nsLookup env.v (Long n1 n2) = nsLookup env.v (Long n1 n2)) /\
+     (nsLookup env.c (Long n1 n2) = nsLookup env.c (Long n1 n2)) /\
+     (mod_defined env.v (Long n1 n2) = mod_defined env.v (Long n1 n2)) /\
+     (mod_defined env.c (Long n1 n2) = mod_defined env.c (Long n1 n2))`,
+  rewrite_tac []);
 
 (* --- the rest of this file might be unused junk --- *)
 

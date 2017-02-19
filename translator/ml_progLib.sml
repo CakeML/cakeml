@@ -72,6 +72,22 @@ fun cond_abbrev dest conv eval name th = let
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        in (th,[def]) end end
 
+local
+  val fast_rewrites = ref ([]:thm list);
+  fun has_fast_result lemma = let
+    val rhs = lemma |> concl |> dest_eq |> snd
+    val c = repeat (fst o dest_comb) rhs
+    val cname = dest_const c |> fst
+    in mem cname ["F","NONE","mod_defined","nsLookup"] end
+    handle HOL_ERR _ => false
+in
+  fun get_fast_rewrites () = !fast_rewrites
+  fun add_fast_rewrite lemma =
+    if has_fast_result lemma then
+      fast_rewrites := lemma::(!fast_rewrites)
+    else ()
+end;
+
 fun cond_env_abbrev dest conv name th = let
   val tm = dest th
   val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
@@ -80,30 +96,19 @@ fun cond_env_abbrev dest conv name th = let
        val def = define_abbrev false (find_name name) tm |> SPEC_ALL
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        val env_const = def |> concl |> dest_eq |> fst
-       (* compute lookup_var thm *)
-       val v = lookup_var_def |> concl |> dest_forall |> fst
-       val lookup_var_tm =
-         lookup_var_def |> SPECL [v,env_const] |> concl |> dest_eq |> fst
-       val lookup_var_eq = lookup_var_tm |> REWRITE_CONV [def,
-              lookup_var_write,
-              lookup_var_write_mod,
-              lookup_var_write_cons,
-              lookup_var_empty_env,
-              lookup_var_merge_env] |> REWRITE_RULE [lookup_var_def]
-       val var_thm_name = "lookup_var_" ^ fst (dest_const env_const)
-       val _ = save_thm(var_thm_name ^ "[compute]",lookup_var_eq)
-       (* compute lookup_cons thm *)
-       val v = lookup_cons_def |> concl |> dest_forall |> fst
-       val lookup_cons_tm =
-         lookup_cons_def |> SPECL [v,env_const] |> concl |> dest_eq |> fst
-       val lookup_cons_eq = lookup_cons_tm |> REWRITE_CONV [def,
-              lookup_var_write,
-              lookup_var_write_mod,
-              lookup_var_write_cons,
-              lookup_var_empty_env,
-              lookup_var_merge_env] |> REWRITE_RULE [lookup_cons_def]
-       val cons_thm_name = "lookup_cons_" ^ fst (dest_const env_const)
-       val _ = save_thm(cons_thm_name ^ "[compute]",lookup_cons_eq)
+       (* derive theorem for computeLib *)
+       val xs = nsLookup_eq_format |> SPEC env_const |> concl
+                   |> find_terms is_eq |> map (fst o dest_eq)
+       fun derive_rewrite tm = let
+         val lemma = SIMP_CONV (srw_ss())
+                      ([def,nsLookup_write_cons,nsLookup_write,
+                        nsLookup_merge_env,nsLookup_write_mod,nsLookup_empty]
+                       @ (get_fast_rewrites ())) tm
+         val _ = add_fast_rewrite lemma
+         in lemma end
+       val compute_th = LIST_CONJ (map derive_rewrite xs)
+       val thm_name = "nsLookup_" ^ fst (dest_const env_const)
+       val _ = save_thm(thm_name ^ "[compute]",compute_th)
        in (th,[def]) end end
 
 (*
@@ -195,7 +200,8 @@ fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = SPECL [n,v,exp] th
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
-  val th = th |> PURE_REWRITE_RULE [GSYM v_def]
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
+                   (REWR_CONV (GSYM v_def)))
   in clean (ML_code (ss,envs,v_def :: vs,th)) end
 
 val Recclosure_pat =
