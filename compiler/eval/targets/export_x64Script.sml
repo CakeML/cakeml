@@ -68,7 +68,7 @@ val heap_stack_space =
       ["     .space 1024 * 1024 * " ++ num_to_str heap_space ++ "\n"] ++
       MAP (\n. n ++ "\n")
        ["     .p2align 3";
-        "cake_heap:"] ++
+        "cake_stack:"] ++
       ["     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n"] ++
       MAP (\n. n ++ "\n")
        ["     .p2align 3";
