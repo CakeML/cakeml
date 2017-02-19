@@ -23,7 +23,7 @@ val write_list_spec = Q.store_thm ("write_list_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (STDOUT output)
-       (POSTv uv. STDOUT (output ++ xs))`,
+       (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ xs))`,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]

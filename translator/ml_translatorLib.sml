@@ -858,6 +858,7 @@ fun define_ref_inv is_exn_type tys = let
   val _ = map reg_type ys
   val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP]
   val def_tm = let
+
     fun mk_lines ml_ty_name lhs ty [] input = []
       | mk_lines ml_ty_name lhs ty (x::xs) input = let
       val k = length xs + 1
@@ -883,7 +884,7 @@ fun define_ref_inv is_exn_type tys = let
                        stringSyntax.string_ty, tid_or_exn_ty))
                    else if is_list_type orelse is_option_type then
                      optionSyntax.mk_some(pairSyntax.mk_pair(str,
-                       mk_TypeId((astSyntax.mk_Short str_ty_name) )))
+                       mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
       val tm = mk_conj(mk_eq(tmp_v_var,
                              mk_Conv(tag_tm, vs)),tm)
@@ -892,9 +893,13 @@ fun define_ref_inv is_exn_type tys = let
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
       val ws = free_vars x
       in tm :: mk_lines ml_ty_name lhs ty xs input end
+
 (*
+
 val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
+
 *)
+
     val zs = Lib.flatten (map (fn (ml_ty_name,xs,ty,lhs,input) =>
                mk_lines ml_ty_name lhs ty xs input) ys)
     val def_tm = list_mk_conj zs
@@ -1060,13 +1065,27 @@ val ty = ``:'a # 'b``; derive_thms_for_type false ty
 val ty = ``:'a + num``; derive_thms_for_type false ty
 val ty = ``:num option``; derive_thms_for_type false ty
 val is_exn_type = false;
-
-val ty = ``:even``;
 *)
 
+fun avoid_v_subst ty = let
+  val tyargs = (ty::find_mutrec_types ty) |> map type_vars |> List.concat |> map dest_vartype
+  fun prime_v v =
+    if exists (curry op = v) tyargs then
+      prime_v (v^"w")
+    else
+      v
+  in
+    if exists (curry op = "'v") tyargs then
+      [mk_vartype "'v" |-> mk_vartype(prime_v "'w")]
+    else
+      []
+  end
+
 fun derive_thms_for_type is_exn_type ty = let
+  val tsubst = avoid_v_subst ty;
+  val ty = type_subst tsubst ty;
   val (_,tyargs) = dest_type ty
-  val (ty_pre,ret_ty_pre) = dest_fun_type (type_of_cases_const ty)
+  val (ty_pre,ret_ty_pre) = dest_fun_type (type_subst tsubst (type_of_cases_const ty))
   val (_,gen_tyargs) = dest_type ty_pre
   fun inst_fcp_types (x::xs) (y::ys) ty =
     if is_vartype y andalso fcpSyntax.is_numeric_type x
@@ -1080,7 +1099,7 @@ fun derive_thms_for_type is_exn_type ty = let
   val ty = inst_fcp_types ty_pre
   val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
-  val tys_pre = find_mutrec_types ty
+  val tys_pre = find_mutrec_types ty |> map (type_subst tsubst)
   val tys = map inst_fcp_types tys_pre
   val is_pair_type =
     (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
@@ -1124,7 +1143,6 @@ fun derive_thms_for_type is_exn_type ty = let
       val ts_tm = listSyntax.mk_list(ts,stringSyntax.string_ty)
       val dtype = pairSyntax.list_mk_pair[ts_tm,tyname,lines]
       in dtype end
-      val th = hd (inv_defs |> map #2 )
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
     in (astSyntax.mk_Dtype dtype_list,dtype_list) end
@@ -1163,7 +1181,7 @@ fun derive_thms_for_type is_exn_type ty = let
 *)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
-    val cases_th = TypeBase.case_def_of ty
+    val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
@@ -1344,7 +1362,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val cons_assum = type_assum
                      |> list_dest dest_conj
                      |> filter (fn tm => aconv
-                           (tm |> rator |> rand |> rator |> rand ) str)
+                           (tm |> rator |> rand |> rator |> rand) str)
                      |> list_mk_conj
                      handle HOL_ERR _ => T
     val goal = mk_imp(cons_assum,mk_imp(tm,result))
@@ -1490,8 +1508,8 @@ fun register_term_types register_type tm = let
 (* tests:
 register_type ``:'a list``;
 register_type ``:'a # 'b``;
-register_type ``:num option``;
 register_type ``:'a + num``;
+register_type ``:num option``;
 register_type ``:unit``;
 *)
 
@@ -3722,8 +3740,7 @@ val () = reset_translation();
 val _ = Datatype`num_or_list = Num num | List ('a list)`;
 val len_def = Define`len (Num n) = n ∧ len (List ls) = LENGTH ls`;
 val res = abs_register_type``:'a num_or_list``;
-val res = translate
-val def = LENGTH;
+val res = abs_translate LENGTH;
 val res = abs_translate APPEND;
 val res = abs_translate len_def;
 val test_def = Define`test = len (List [3n])`;

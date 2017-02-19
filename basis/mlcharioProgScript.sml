@@ -73,9 +73,9 @@ val stdin_fun_def = Define `
                          if i = "getChar" then (* read *)
                            if input = "" then
                              SOME ([b;1w],Str input)
-                           else (* i = "putChar" *)
+                           else 
                              SOME ([n2w (ORD (HD input)); 0w],Str (TL input))
-                         else NONE
+                         else NONE (* i = "putChar" *)
                     | _ => NONE)`
 
 val stdout_fun_def = Define `

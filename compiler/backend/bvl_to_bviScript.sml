@@ -73,6 +73,8 @@ val InitGlobals_location_def = Define`
   InitGlobals_location = CopyGlobals_location+1`;
 val ListLength_location_def = Define`
   ListLength_location = InitGlobals_location+1`;
+val FromListByte_location_def = Define`
+  FromListByte_location = ListLength_location+1`;
 
 val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
   ``AllocGlobal_location`` |> EVAL);
@@ -82,6 +84,8 @@ val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
   ``InitGlobals_location`` |> EVAL);
 val ListLength_location_eq = save_thm("ListLength_location_eq",
   ``ListLength_location`` |> EVAL);
+val FromListByte_location_eq = save_thm("FromListByte_location_eq",
+  ``FromListByte_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -118,11 +122,21 @@ val ListLength_code_def = Define `
                 [Op El [Op (Const 1) []; Var 0];
                  Op Add [Var 1; Op (Const 1) []]] NONE))`
 
+val FromListByte_code_def = Define`
+  FromListByte_code = (3n, (* list, current index, byte array *)
+    If (Op (TagLenEq nil_tag 0) [Var 0]) (Var 2)
+      (Let [Op UpdateByte [Op El [Op (Const 0) []; Var 0]; Var 1; Var 2]]
+        (Call 0 (SOME FromListByte_location)
+          [Op El [Op (Const 1) []; Var 1];
+           Op Add [Var 2; Op (Const 1) []];
+           Var 3] NONE)))`;
+
 val stubs_def = Define `
   stubs start n = [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
-                   (ListLength_location, ListLength_code)]`;
+                   (ListLength_location, ListLength_code);
+                   (FromListByte_location, FromListByte_code)]`;
 
 val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
@@ -140,6 +154,20 @@ local val compile_op_quotation = `
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
+    | String str =>
+        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
+            (Var (LENGTH str)))
+    | FromListByte =>
+        Let (if NULL c1 then [Op (Const 0) []] else c1)
+          (Call 0 (SOME FromListByte_location)
+             [Var 0;
+              Op (Const 0) [];
+              Op (RefByte T)
+                [Op (Const 0) [];
+                 Call 0 (SOME ListLength_location)
+                   [Var 0; Op (Const 0) []] NONE]]
+             NONE)
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation

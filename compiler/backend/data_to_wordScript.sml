@@ -214,6 +214,23 @@ val MakeBytes_def = Define `
 val SmallLsr_def = Define `
   SmallLsr e n = if n = 0 then e else Shift Lsr e (Nat n)`;
 
+val WriteLastByte_aux_def = Define`
+  WriteLastByte_aux offset a b n p =
+    If Equal n (Imm offset) Skip
+      (Seq (Inst (Mem Store8 b (Addr a offset))) p)`;
+
+val WriteLastBytes_def = Define`
+  WriteLastBytes a b n =
+    WriteLastByte_aux (0w:'a word) a b n (
+      WriteLastByte_aux 1w a b n (
+        WriteLastByte_aux 2w a b n (
+          WriteLastByte_aux 3w a b n (
+            if dimindex(:'a) = 32 then Skip else
+            WriteLastByte_aux 4w a b n (
+              WriteLastByte_aux 5w a b n (
+                WriteLastByte_aux 6w a b n (
+                  WriteLastByte_aux 7w a b n Skip)))))))`;
+
 val RefByte_code_def = Define`
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
@@ -223,26 +240,40 @@ val RefByte_code_def = Define`
         list_Seq
           [BignumHalt 2;
            Assign 1 x;
-           AllocVar limit (fromList [();()]);
+           AllocVar limit (fromList [();();()]);
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
-           Assign 6 (Shift Lsl (Var 5) (Nat 2));
+           Assign 7 (Shift Lsl (Var 5) (Nat 2));
+           Assign 9 (Lookup EndOfHeap);
            (* adjust end of heap *)
-           Assign 1 (Op Sub [Lookup EndOfHeap;
+           Assign 1 (Op Sub [Var 9;
                        Shift Lsl (Op Add [Var 5; Const 1w]) (Nat (shift (:'a)))]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
            (* compute header *)
-           Assign 5 (Op Or [y; Const 0b10111w]);
+           Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
            Store (Var 1) 5;
-           Call NONE (SOME Replicate_location)
+           (* return for empty byte array *)
+           If Equal 7 (Imm 0w) (Return 0 3)
+           (list_Seq [
+             (* write last word of byte array *)
+             Assign 11 (Op And [Shift Lsr (Var 2) (Nat 2); Const (bytes_in_word - 1w)]);
+             If Equal 11 (Imm 0w) Skip
+             (list_Seq [
+               Assign 9 (Op Sub [Var 9; Const bytes_in_word]);
+               Assign 13 (Const 0w);
+               Store (Var 9) 13;
+               WriteLastBytes 9 4 11;
+               Assign 7 (Op Sub [Var 7; Const 4w])]);
+             (* write rest of byte array *)
+             Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;6;3] NONE]:'a wordLang$prog`;
+              [0;1;4;7;3] NONE])]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
@@ -568,7 +599,8 @@ val Equal_code_def = Define `
         (Seq (Assign 2 (Const 0w)) (Return 0 2));
       If Test 21 (Imm 4w)
         (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
-      If Test 21 (Imm 8w)
+      Assign 1 (Op And [Var 21; Const 24w]);
+      If Equal 1 (Imm 16w)
         (Seq (Assign 2 (Const 0w)) (Return 0 2)) Skip;
       Assign 6 (ShiftVar Lsr 21 ((dimindex(:'a) − c.len_size)));
       Assign 2 (Op Add [Var 20; ShiftVar Lsl 6 (shift (:'a))]);
@@ -744,13 +776,15 @@ local val assign_quotation = `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
-    | RefByte =>
+    | RefByte immutable =>
       (dtcase args of
        | [v1;v2] =>
-         (MustTerminate
-            (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-               (SOME RefByte_location)
-                  [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+         (Seq
+           (Assign 1 (Const (if immutable then 0w else 16w))) (* n.b. this would have been better done with Set Temp *)
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME RefByte_location)
+                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
        | _ => (Skip,l))
     | RefArray =>
       (dtcase args of
@@ -1269,7 +1303,7 @@ val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
     (FromList1_location,6n,FromList1_code data_conf);
-    (RefByte_location,3n,RefByte_code data_conf);
+    (RefByte_location,4n,RefByte_code data_conf);
     (RefArray_location,3n,RefArray_code data_conf);
     (Replicate_location,5n,Replicate_code);
     (AnyArith_location,4n,AnyArith_code data_conf);
