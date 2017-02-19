@@ -1592,6 +1592,7 @@ val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Raise e) = cf_raise e /\
   cf (p:'ffi ffi_proj) (Handle e branches) =
     cf_handle (cf p e) (MAP (\b. (FST b, cf p (SND b))) branches) /\
+(* cf (p:'ffi ffi_proj) (Lannot e _) = cf p e /\ *)
   cf _ _ = cf_bottom
 `
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw [normalise_def]

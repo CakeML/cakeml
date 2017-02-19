@@ -662,8 +662,8 @@ val nsLookup_write = Q.store_thm("nsLookup_write",
    (nsLookup (write n v env).c a = nsLookup env.c a) /\
    (mod_defined (write n v env).v x = mod_defined env.v x) /\
    (mod_defined (write n v env).c x = mod_defined env.c x)`,
-  fs [write_def] \\ EVAL_TAC \\ rw [] \\
-  metis_tac[nsLookupMod_nsBind]);
+  fs [write_def] \\ EVAL_TAC \\ rw []
+  \\ metis_tac[nsLookupMod_nsBind,mod_defined_def]);
 
 val nsLookup_write_cons = Q.store_thm("nsLookup_write_cons",
   `(nsLookup (write_cons n v env).v a = nsLookup env.v a) /\
@@ -674,15 +674,15 @@ val nsLookup_write_cons = Q.store_thm("nsLookup_write_cons",
    (nsLookup (write_cons n d env).c (Long mn lname) =
     nsLookup env.c (Long mn lname))`,
   fs [write_cons_def] \\ EVAL_TAC \\ rw [] \\
-  metis_tac[nsLookupMod_nsBind]);
+  metis_tac[nsLookupMod_nsBind,mod_defined_def]);
 
 val nsLookup_empty = Q.store_thm("nsLookup_empty",
   `(nsLookup empty_env.v a = NONE) /\
    (nsLookup empty_env.c b = NONE) /\
    (mod_defined empty_env.v x = F) /\
    (mod_defined empty_env.c x = F)`,
-  EVAL_TAC \\ rw [] \\
-  Cases_on`p1`>>fs[nsLookupMod_def,empty_env_def]);
+  EVAL_TAC \\ rw [mod_defined_def]
+  \\ Cases_on`p1`>>fs[nsLookupMod_def,empty_env_def]);
 
 val nsLookupMod_nsAppend = Q.prove(`
   nsLookupMod (nsAppend env1 env2) p =
@@ -717,7 +717,7 @@ val nsLookup_write_mod = Q.store_thm("nsLookup_write_mod",
    (nsLookup (write_mod mn env1 env2).c (Long mn1 ln) =
     if mn = mn1 then nsLookup env1.c ln else
       nsLookup env2.c (Long mn1 ln))`,
-  fs [write_mod_def] \\
+  fs [write_mod_def,mod_defined_def] \\
   EVAL_TAC \\
   fs[GSYM nsLift_def,id_to_mods_def,nsLookupMod_nsAppend] \\
   simp[] >> CONJ_TAC>>
@@ -762,7 +762,7 @@ val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env",
    (mod_defined e1.v x ∨ mod_defined e2.v x)) /\
    (mod_defined (merge_env e1 e2).c x =
    (mod_defined e1.c x ∨ mod_defined e2.c x))`,
-  fs [merge_env_def] \\ rw[] \\ every_case_tac
+  fs [merge_env_def,mod_defined_def] \\ rw[] \\ every_case_tac
   \\ fs[namespacePropsTheory.nsLookup_nsAppend_some]
   THEN1 (Cases_on `nsLookup e2.v (Short n)`
          \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
@@ -841,9 +841,17 @@ val nsLookup_eq_format = Q.store_thm("nsLookup_eq_format",
   rewrite_tac []);
 
 val nsLookup_nsBind_compute = Q.store_thm("nsLookup_nsBind_compute[compute]",
-  `nsLookup (nsBind n v e) (Short n1) =
-   if n = n1 then SOME v else nsLookup e (Short n1)`,
+  `(nsLookup (nsBind n v e) (Short n1) =
+    if n = n1 then SOME v else nsLookup e (Short n1)) /\
+   (nsLookup (nsBind n v e) (Long l1 l2) = nsLookup e (Long l1 l2))`,
   rw [namespacePropsTheory.nsLookup_nsBind]);
+
+val nsLookup_nsAppend = save_thm("nsLookup_nsAppend[compute]",
+  nsLookup_merge_env
+  |> SIMP_RULE (srw_ss()) [merge_env_def]
+  |> Q.INST [`e1`|->`<|c:=e1c;v:=e1v|>`,`e2`|->`<|c:=e2c;v:=e2v|>`]
+  |> SIMP_RULE (srw_ss()) []);
+
 
 (* --- the rest of this file might be unused junk --- *)
 
