@@ -100,7 +100,7 @@ val qeval_pat_tac = Q_TAC eval_pat_tac
 
 fun compute_pat cs pat tm =
   if can (match_term pat) tm then
-    (* computeLib.CBV_CONV cs tm *) EVAL tm
+    (computeLib.CBV_CONV cs THENC EVAL) tm   (* TODO: remove EVAL *)
   else
     NO_CONV tm
 

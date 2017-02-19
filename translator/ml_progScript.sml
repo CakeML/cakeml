@@ -840,6 +840,11 @@ val nsLookup_eq_format = Q.store_thm("nsLookup_eq_format",
      (mod_defined env.c (Long n1 n2) = mod_defined env.c (Long n1 n2))`,
   rewrite_tac []);
 
+val nsLookup_nsBind_compute = Q.store_thm("nsLookup_nsBind_compute[compute]",
+  `nsLookup (nsBind n v e) (Short n1) =
+   if n = n1 then SOME v else nsLookup e (Short n1)`,
+  rw [namespacePropsTheory.nsLookup_nsBind]);
+
 (* --- the rest of this file might be unused junk --- *)
 
 (* misc theorems about lookup functions *)
