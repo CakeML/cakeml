@@ -1378,8 +1378,14 @@ val compile_correct = Q.store_thm("compile_correct",
     srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
     rw[source_to_modProofTheory.invariant_def] >>
     rw[source_to_modProofTheory.s_rel_cases] >>
-    rw[source_to_modProofTheory.v_rel_cases] >>
+    (* TODO: Not sure why these got broken *)
+    rw[Once source_to_modProofTheory.v_rel_cases] >>
+    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
+      (rw[]>>Cases_on`x`>>fs[namespaceTheory.nsLookup_def])>>
     rw[Once prim_config_eq] >>
+    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
+      (rw[namespaceTheory.nsDomMod_def,EXTENSION,GSPECIFICATION,PULL_EXISTS]>>
+      simp[EXISTS_PROD]>>Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])>>
     rw[envC_tagged_def, mod_to_conTheory.lookup_tag_env_def,PULL_EXISTS] >>
     CONV_TAC(PATH_CONV"blrbbblr"EVAL) >>
     rw[prim_config_eq,option_fold_def] >>
