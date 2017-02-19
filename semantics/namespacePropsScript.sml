@@ -947,7 +947,7 @@ val nsMap_nsAppend = Q.store_thm ("nsMap_nsAppend",
   rw [nsAppend_def, nsMap_def]);
 
 val nsLookupMod_nsMap = Q.store_thm ("nsLookupMod_nsMap",
-  `!n x f. nsLookupMod (nsMap f n) x = lift (nsMap f) (nsLookupMod n x)`,
+  `!n x f. nsLookupMod (nsMap f n) x = OPTION_MAP (nsMap f) (nsLookupMod n x)`,
   ho_match_mp_tac nsLookupMod_ind >>
   rw [nsLookupMod_def, nsMap_def, ALOOKUP_MAP] >>
   every_case_tac >>
@@ -955,7 +955,7 @@ val nsLookupMod_nsMap = Q.store_thm ("nsLookupMod_nsMap",
   fs []);
 
 val nsLookup_nsMap = Q.store_thm ("nsLookup_nsMap",
-  `!n x f. nsLookup (nsMap f n) x = lift f (nsLookup n x)`,
+  `!n x f. nsLookup (nsMap f n) x = OPTION_MAP f (nsLookup n x)`,
   ho_match_mp_tac nsLookup_ind >>
   rw [nsLookup_def, nsMap_def, ALOOKUP_MAP] >>
   every_case_tac >>
