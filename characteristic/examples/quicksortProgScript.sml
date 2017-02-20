@@ -9,23 +9,27 @@ val _ = new_theory "quicksortProg";
 
 val _ = translation_extends"mlarrayProg";
 
+val sing_length1 = Q.store_thm ("sing_length1",
+  `!l. LENGTH l = 1 ⇔ ?x. l = [x]`,
+  Cases >>
+  rw [LENGTH_NIL]);
+
+(* The definition that should be in the list library. Just to get the induction
+ * principle *)
+val my_seg_def = Define `
+  (my_seg 0 k l = []) ∧
+  (my_seg (SUC m) 0 (x::l) = x::my_seg m 0 l) ∧
+  (my_seg (SUC m) (SUC k) (x::l) = my_seg (SUC m) k l)`;
+val seg_ind = theorem "my_seg_ind";
+
 val hd_seg = Q.store_thm ("hd_seg",
   `!len start l.
     0 < len ∧
     start < LENGTH l
     ⇒
     HD (SEG len start l) = EL start l`,
-  Induct_on `start` >>
-  rw []
-  >- (
-    Cases_on `len` >>
-    fs [SEG] >>
-    Cases_on `l` >>
-    fs [SEG]) >>
-  Cases_on `len` >>
-  fs [EL, SEG] >>
-  Cases_on `l` >>
-  fs [EL, SEG]);
+  recInduct seg_ind >>
+  rw [SEG]);
 
 val tl_seg = Q.store_thm ("tl_seg",
   `!len start l.
@@ -33,22 +37,15 @@ val tl_seg = Q.store_thm ("tl_seg",
     start < LENGTH l
     ⇒
     TL (SEG len start l) = SEG (len - 1) (start + 1) l`,
-  Induct_on `start` >>
-  rw []
+  recInduct seg_ind >>
+  rw [SEG]
   >- (
-    Cases_on `len` >>
-    fs [SEG] >>
-    Cases_on `l` >>
-    fs [SEG] >>
     `1 = SUC 0` by decide_tac >>
-    Cases_on `n` >>
-    ASM_REWRITE_TAC [SEG]) >>
-  Cases_on `len` >>
-  fs [EL, SEG] >>
-  Cases_on `l` >>
-  fs [EL, SEG, GSYM ADD1] >>
-  Cases_on `n` >>
-  simp [SEG]);
+    Cases_on `m` >>
+    ASM_REWRITE_TAC [SEG])
+  >- (
+    Cases_on `m` >>
+    fs [SEG, GSYM ADD1]));
 
 val el_seg = Q.store_thm ("el_seg",
   `!n len start l.
@@ -66,6 +63,14 @@ val list_rel_seg = Q.store_thm ("list_rel_seg",
     ⇒
     LIST_REL r (SEG len start l1) (SEG len start l2)`,
   rw [LIST_REL_EL_EQN, el_seg, LENGTH_SEG]);
+
+val map_seg = Q.store_thm ("map_seg",
+  `!start len l f.
+    start + len ≤ LENGTH l
+    ⇒
+    MAP f (SEG start len l) = SEG start len (MAP f l)`,
+  recInduct seg_ind >>
+  rw [SEG]);
 
 (* Split a list into the part before lower, the part between lower and upper,
  * inclusive, and the part after upper. Need lower < upper and upper < LENGTH l
@@ -99,8 +104,12 @@ val split_list_append = Q.store_thm ("split_list_append",
     split_list lower upper l = (l1, l2, l3)
     ⇒
     l1 ++ l2 ++ l3 = l`,
- rw [split_list_def] >>
- cheat);
+  rw [split_list_def] >>
+  `lower+0 ≤ LENGTH l ∧ (upper - lower + 1) + lower ≤ LENGTH l ∧
+   (LENGTH l - (upper + 1)) + (upper + 1) ≤ LENGTH l`
+  by decide_tac >>
+  irule LIST_EQ >>
+  rw [EL_APPEND_EQN, el_seg, LENGTH_SEG]);
 
 val split_list_combine = Q.store_thm ("split_list_append2",
   `!l l1 l2 l3.
@@ -207,7 +216,7 @@ val partition_spec = Q.store_thm ("partition_spec",
   `!a ffi_p cmp cmp_v arr_v elems elem_vs pivot pivot_v lower lower_v upper upper_v
     elem_vs1 elem_vs2 elem_vs3.
     (* The comparison function is a strict partial order over a *)
-    transitive cmp ∧
+    transitive (\x y. ¬cmp y x) ∧
     (!x y. cmp x y ⇒ ~cmp y x) ∧
     (a --> a --> BOOL) cmp cmp_v ∧
     (* The elements of the array have "semantic type" a *)
@@ -487,9 +496,7 @@ val quicksort_st = ml_progLib.add_prog quicksort pick_name partition_st;
 
 val quicksort_spec = Q.store_thm ("quicksort_spec",
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
-    (* The comparison function is a strict partial order over a *)
-    transitive cmp ∧
-    (!x y. cmp x y ⇒ ~cmp y x) ∧
+    (* TODO: The comparison function needs some restrictions *)
     (a --> a --> BOOL) cmp cmp_v ∧
     (* The elements of the array are all of "semantic type" a *)
     LIST_REL a elems elem_vs
@@ -500,54 +507,56 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       (ARRAY arr_v elem_vs)
       (* Quicksort terminates *)
       (POSTv u.
-        SEP_EXISTS elem_vs'.
+        SEP_EXISTS elems' elem_vs'.
           (* The array argument is in the heap with contents elem_vs *)
           ARRAY arr_v elem_vs' *
-          (* Those contents permute the original contents *)
-          &(PERM elem_vs' elem_vs) *
+          (* Those contents permute the original contents. Note that we need to
+           * get the corresponding permutation on the shallowly embedded side
+           * too. That's what the ZIP is for, to uniquely determine elems'. *)
+          &(PERM (ZIP (elems',elem_vs')) (ZIP (elems,elem_vs))) *
           (* The new contents all have semantic type a and are sorted *)
-          &(?elems'.
-              LIST_REL a elems' elem_vs' ∧
-              (* We use "not greater than" as equivalent to "less or equal" *)
-              SORTED (\x y. ¬(cmp y x)) elems'))`,
+          &((* We use "not greater than" as equivalent to "less or equal" *)
+            SORTED (\x y. ¬(cmp y x)) elems'))`,
+
   xcf "quicksort" quicksort_st >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)
   xfun_spec `quicksort_help`
-    `!lower upper lower_v upper_v perm_elems perm_elem_vs elem_vs1 elem_vs2 elem_vs3.
-      (* The array has elements of type a *)
-      LIST_REL a perm_elems perm_elem_vs ∧
-      (* The indices must point to array elements, with lower before upper *)
-      INT (&lower) lower_v ∧ INT (&upper) upper_v ∧
-      lower ≤ upper ∧ upper < LENGTH perm_elem_vs ∧
-      (* We split the elements into those before lower, those we are sorting
-       * and those after upper *)
-      (elem_vs1, elem_vs2, elem_vs3) = split_list lower upper perm_elem_vs
+    `!elems2 lower_v upper_v elems1 elems3 elem_vs1 elem_vs2 elem_vs3.
+      (* The array has elements of type a, split into 3 parts, with the second
+       * non-empty *)
+      LIST_REL a elems1 elem_vs1 ∧
+      LIST_REL a elems2 elem_vs2 ∧
+      LIST_REL a elems3 elem_vs3 ∧
+      elems2 ≠ [] ∧
+      (* The lower index must point to the beginning of elems2, and the upper
+       * to its end *)
+      INT (&LENGTH elems1) lower_v ∧
+      INT (&(LENGTH elems1 + LENGTH elems2 - 1)) upper_v
       ⇒
       app ffi_p quicksort_help
         [lower_v; upper_v]
-        (ARRAY arr_v perm_elem_vs)
+        (ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3))
         (* The loop terminates and has sorted the sub-array between lower and
          * upper *)
         (POSTv u.
-          SEP_EXISTS sorted_vs.
+          SEP_EXISTS sorted sorted_vs.
             ARRAY arr_v (elem_vs1 ++ sorted_vs ++ elem_vs3) *
-            &(PERM sorted_vs elem_vs2) *
-            &(?sorted.
-                LIST_REL a sorted sorted_vs ∧
-                SORTED (\x y. ¬(cmp y x)) sorted))`
+            &(PERM (ZIP (sorted, sorted_vs)) (ZIP (elems2, elem_vs2))) *
+            &(SORTED (\x y. ¬(cmp y x)) sorted))`
   >- (
     (* Prove the loop invariant, by induction on how big the segment to sort is *)
-    ntac 2 gen_tac >>
-    completeInduct_on `upper - lower` >>
+    gen_tac >>
+    completeInduct_on `LENGTH elems2` >>
     rw [] >>
-    `lower = upper ∨ lower < upper` by decide_tac
+    `LENGTH elems2 = 1 ∨ LENGTH elems2 > 1`
+    by fs [GSYM LENGTH_NIL]
     >- (
       (* A single element segment array *)
-      fs [] >>
+      fs [GSYM LENGTH_NIL] >>
       xapp >>
       rw [] >>
-      xlet `POSTv b_v. &(BOOL T b_v) * ARRAY arr_v perm_elem_vs`
+      xlet `POSTv b_v. &(BOOL T b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
       >- (
         xapp >>
         xsimpl >>
@@ -557,22 +566,11 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       rw [] >>
       xret >>
       xsimpl >>
-      `elem_vs1 ++ elem_vs2 ++ elem_vs3 = perm_elem_vs`
-      by (
-        irule split_list_append >>
-        qexists_tac `lower` >>
-        qexists_tac `lower` >>
-        rw []) >>
-      drule split_list_same >>
-      rw [] >>
-      fs [] >>
-      qexists_tac `[EL lower perm_elems]` >>
-      rw [] >>
-      fs [LIST_REL_EL_EQN] >>
-      metis_tac []) >>
+      qexists_tac `elems2` >>
+      fs [sing_length1]) >>
     (* Get the code of the loop *)
     last_x_assum irule >>
-    xlet `POSTv b_v. &(BOOL F b_v) * ARRAY arr_v perm_elem_vs`
+    xlet `POSTv b_v. &(BOOL F b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
     >- (
       xapp >>
       xsimpl >>
@@ -581,12 +579,15 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     qexists_tac `F` >>
     rw [] >>
     (* Get the pivot *)
-    xlet `POSTv pivot_v. ARRAY arr_v perm_elem_vs * &(pivot_v = EL lower perm_elem_vs)`
+    xlet `POSTv pivot_v. ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) * &(pivot_v = HD elem_vs2)`
     >- (
       xapp >>
       xsimpl >>
-      qexists_tac `lower` >>
-      fs [NUM_def, INT_def]) >>
+      qexists_tac `LENGTH elems1` >>
+      fs [NUM_def, INT_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      simp [EL_APPEND1, EL_APPEND2]) >>
+
     (* The post-condition of partition *)
     xlet
       `POSTv p_v. SEP_EXISTS pivot part1 part2.
@@ -659,7 +660,34 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       rw [GSYM PULL_EXISTS]
       >- metis_tac [APPEND_ASSOC, split_list_combine]
       >- simp [int_arithTheory.INT_NUM_SUB]
-      >- cheat) >>
+      >- (
+        qexists_tac `SEG (LENGTH elem_vs1) 0 perm_elems ++
+                     elems1++elems2 ++
+                     SEG (LENGTH elem_vs3) (LENGTH elem_vs1 + LENGTH elem_vs2) perm_elems` >>
+        rpt (irule EVERY2_APPEND_suff) >>
+        simp []
+        >- (
+          fs [LIST_REL_EL_EQN, LENGTH_SEG] >>
+          rw [] >>
+          `n < LENGTH perm_elems` by decide_tac >>
+          first_x_assum drule >>
+          rw [] >>
+          fs [EL_APPEND_EQN, el_seg] >>
+          rfs [])
+        >- (
+          `elem_vs3 = SEG (LENGTH elem_vs3) (LENGTH elem_vs1 + (LENGTH part1 + LENGTH part2))
+            (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
+          by rw [SEG_APPEND2, SEG_LENGTH_ID] >>
+          ONCE_ASM_REWRITE_TAC [] >>
+          simp [] >>
+          `LENGTH elem_vs1 + (LENGTH elem_vs3 + (LENGTH part1 + LENGTH part2)) − (upper + 1) =
+           LENGTH elem_vs3 `
+          by decide_tac >>
+          simp [] >>
+          irule list_rel_seg >>
+          simp [] >>
+          imp_res_tac LIST_REL_LENGTH >>
+          simp []))) >>
     xlet `POSTv upper_v2. ARRAY arr_v (elem_vs1++sorted_vs1++part2++elem_vs3) *
               &(INT (&(LENGTH elem_vs1 + LENGTH part1)) upper_v2)`
     >- (
@@ -699,7 +727,15 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       >- metis_tac [EVERY2_APPEND, LIST_REL_LENGTH] >>
       rw [SORTED_APPEND_IFF] >>
       CCONTR_TAC >>
-      fs [] >>
+      fs [EVERY_MEM] >>
+      `~cmp (HD sorted) pivot`
+      by (
+        first_x_assum match_mp_tac >>
+        `MEM (HD sorted) sorted`
+        by (Cases_on `sorted` >> fs []) >>
+        cheat) >>
+      `~cmp pivot (LAST sorted1)` by cheat >>
+      (* Work out exactly what properties the cmp needs *)
       cheat)) >>
   (* Make the initial call to the sorting loop, unless the array is empty *)
   xlet `POSTv len_v. ARRAY arr_v elem_vs * &INT (&LENGTH elem_vs) len_v`
