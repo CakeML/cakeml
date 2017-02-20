@@ -68,7 +68,7 @@ val heap_stack_space =
       ["     .space 1024 * 1024 * " ++ num_to_str heap_space ++ "\n"] ++
       MAP (\n. n ++ "\n")
        ["     .p2align 3";
-        "cake_heap:"] ++
+        "cake_stack:"] ++
       ["     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n"] ++
       MAP (\n. n ++ "\n")
        ["     .p2align 3";
@@ -105,7 +105,7 @@ val ffi_code =
        "";
        "     .p2align 3";
        ""] ++
-     ffi_asm ffi_names ++
+     ffi_asm (REVERSE ffi_names) ++
      MAP (\n. n ++ "\n")
       ["cake_clear:";
        "     callq   cdecl(exit)";
