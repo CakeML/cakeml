@@ -7,7 +7,7 @@ val _ = new_theory "ioProg"
 
 val _ = translation_extends "mlcharioProg";
 
-val write_list = parse_topdecs
+val write_list = normalise_topdecs
   `fun write_list xs =
      case xs of
          [] => ()

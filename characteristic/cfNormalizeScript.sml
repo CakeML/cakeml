@@ -271,6 +271,10 @@ val norm_def = tDefine "norm" `
     (let (rs', ns) = norm_letrec_branches ns rs in
      let (e', ns) = protect F ns e in
      wrap_if_needed as_value ns (Letrec rs' e') []) /\
+  norm is_named as_value ns (Tannot e _) =
+    norm is_named as_value ns e /\
+  norm is_named as_value ns (Lannot e _) =
+    norm is_named as_value ns e /\
   norm_list is_named as_value ns ([]: exp list) = ([], ns, []) /\
   norm_list is_named as_value ns (e::es) =
     (let (e', ns, b) = norm is_named as_value ns e in

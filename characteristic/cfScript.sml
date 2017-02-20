@@ -1592,7 +1592,8 @@ val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Raise e) = cf_raise e /\
   cf (p:'ffi ffi_proj) (Handle e branches) =
     cf_handle (cf p e) (MAP (\b. (FST b, cf p (SND b))) branches) /\
-(* cf (p:'ffi ffi_proj) (Lannot e _) = cf p e /\ *)
+  cf (p:'ffi ffi_proj) (Lannot e _) = cf p e /\
+  cf (p:'ffi ffi_proj) (Tannot e _) = cf p e /\
   cf _ _ = cf_bottom
 `
   (WF_REL_TAC `measure (exp_size o SND)` \\ rw [normalise_def]
@@ -2547,6 +2548,18 @@ val cf_sound = Q.store_thm ("cf_sound",
       )
     )
   )
+  THEN1 (
+    (* Lannot *)
+    cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
+    first_assum progress \\ fs [evaluate_ck_def] \\
+    metis_tac[]
+  )
+  THEN1 (
+    (* Tannot *)
+    cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
+    first_assum progress \\ fs [evaluate_ck_def] \\
+    metis_tac[]
+  )
 );
 
 val cf_sound' = Q.store_thm ("cf_sound'",
@@ -2622,4 +2635,4 @@ val app_rec_of_cf = Q.store_thm ("app_rec_of_cf",
   progress (REWRITE_RULE [sound_def] cf_sound)
 )
 
-val _ = export_theory()
+val _ = export_theory();
