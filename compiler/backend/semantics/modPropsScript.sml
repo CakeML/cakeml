@@ -275,7 +275,7 @@ val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_
   qmatch_assum_abbrev_tac`evaluate ee (s with clock := _) pp = _` >>
   qispl_then[`ee`,`s`,`pp`,`extra`]mp_tac(CONJUNCT1 evaluate_add_to_clock_io_events_mono) >>
   simp[] >> strip_tac >>
-  every_case_tac >> full_simp_tac(srw_ss())[]);
+  every_case_tac >> full_simp_tac(srw_ss())[]) |> INST_TYPE [beta|->``:modN``, gamma |-> ``:modN``,delta |->``:modN``, ``:'e``|->``:modN``,``:'f``|->``:modN``];
 
 val evaluate_decs_io_events_mono = Q.store_thm("evaluate_decs_io_events_mono",
   `∀prog env s s' x y. evaluate_decs env s prog = (s',x,y) ⇒
@@ -293,21 +293,21 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
    (IS_SOME ((FST (evaluate_decs env s prog)).ffi.final_event) ⇒
      (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi =
      (FST (evaluate_decs env s prog)).ffi)`,
-  cheat);
-  (*
-  Induct_on`prog`>>srw_tac[][evaluate_decs_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  qmatch_assum_abbrev_tac`evaluate_dec ee (ss with clock := _ + extra) pp = _` >>
-  qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_dec_add_to_clock_io_events_mono >>
-  simp[] >> strip_tac >>
-  imp_res_tac evaluate_dec_add_to_clock >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_decs_io_events_mono >> full_simp_tac(srw_ss())[] >>
-  rveq >|[qhdtm_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
-  qmatch_assum_abbrev_tac`evaluate_decs eee sss prog = _` >>
-  last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
-  fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+  Induct_on`prog`>>simp[evaluate_decs_def]>> ntac 4 strip_tac>>
+  every_case_tac>>fs[]>>
+  qmatch_assum_abbrev_tac`evaluate_dec ee (ss with clock := extra + _) pp = _` >>
+  qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_dec_add_to_clock_io_events_mono>>
+  strip_tac>> fs[]>> rfs[]>>
+  imp_res_tac evaluate_dec_add_to_clock >> fs[] >>
+  imp_res_tac evaluate_decs_io_events_mono >> fs[]>>
+  rveq >> fs[]
+  >-
+    (qmatch_assum_abbrev_tac`evaluate_decs eee sss prog = (q'',_,_,_)` >>
+    last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
+    fsrw_tac[ARITH_ss][] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+    metis_tac[IS_PREFIX_TRANS,FST])
+  >>
   metis_tac[IS_PREFIX_TRANS,FST]);
-  *)
 
 val evaluate_prompt_io_events_mono = Q.store_thm("evaluate_prompt_io_events_mono",
   `∀x y z. evaluate_prompt x y z = (a,b) ⇒
