@@ -669,6 +669,9 @@ val code =
 
 in
 
+val int_to_num_def = Define `
+  int_to_num i = Num (ABS i)`;
+
 val Eval_Num_ABS = Q.store_thm("Eval_Num_ABS",
   `Eval env x1 (INT i) ==>
     Eval env ^code (NUM (Num (ABS i)))`,
