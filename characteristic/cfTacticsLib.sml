@@ -51,7 +51,7 @@ val _ = (max_print_depth := 15)
 
 val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
 val eval_tac = CONV_TAC eval
-val eval_pat = compute_pat cs
+fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local

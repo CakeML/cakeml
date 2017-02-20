@@ -852,6 +852,11 @@ val nsLookup_nsAppend = save_thm("nsLookup_nsAppend[compute]",
   |> Q.INST [`e1`|->`<|c:=e1c;v:=e1v|>`,`e2`|->`<|c:=e2c;v:=e2v|>`]
   |> SIMP_RULE (srw_ss()) []);
 
+(* Base case for mod_defined (?) *)
+val mod_defined_base = store_thm("mod_defined_base[compute]",
+  ``mod_defined (Bind _ []) _ = F``,
+  rw[mod_defined_def]>>Cases_on`p1`>>EVAL_TAC);
+
 
 (* --- the rest of this file might be unused junk --- *)
 
