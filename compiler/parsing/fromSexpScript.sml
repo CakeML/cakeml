@@ -1280,8 +1280,9 @@ val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
   \\ Cases_on`e1` \\ fs[odestSXNUM_def]);
 
 val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
-  `sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y`,
-  rw[Once sexpid_def]
+  `∀y x. sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y`,
+  Induct
+  \\ rw[Once sexpid_def]
   \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[]
   \\ fs[OPTION_CHOICE_EQ_SOME]
@@ -1289,8 +1290,7 @@ val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[]
   \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[] >>
-  cheat);
+  \\ every_case_tac \\ fs[]);
 
 val strip_sxcons_NIL = Q.store_thm(
   "strip_sxcons_NIL[simp]",
