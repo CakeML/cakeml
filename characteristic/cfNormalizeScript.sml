@@ -193,6 +193,80 @@ val wrap_if_needed_def = Define `
       (e, ns, b)
     )`;
 
+val strip_annot_pat_def = Define `
+  strip_annot_pat (Pvar v) = Pvar v /\
+  strip_annot_pat (Plit l) = Plit l /\
+  strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
+  strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
+  strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat_list [] = [] /\
+  strip_annot_pat_list (x::xs) =
+    strip_annot_pat x :: strip_annot_pat_list xs`;
+
+val strip_annot_exp_def = tDefine"strip_annot_exp"`
+  (strip_annot_exp (Raise e) =
+    ast$Raise (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Handle e pes) =
+    Handle (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (ast$Lit l) = Lit l)
+  ∧
+  (strip_annot_exp (Con cn es) = Con cn (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Var x) = Var x)
+  ∧
+  (strip_annot_exp (Fun x e) =
+    Fun x (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (App op es) =
+    App op (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Log lop e1 e2) =
+    Log lop (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (If e1 e2 e3) =
+    If (strip_annot_exp e1)
+       (strip_annot_exp e2)
+       (strip_annot_exp e3))
+  ∧
+  (strip_annot_exp (Mat e pes) =
+    Mat (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (Let (SOME x) e1 e2) =
+    Let (SOME x) (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Let NONE e1 e2) =
+    Let NONE (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Letrec funs e) =
+      Letrec (strip_annot_funs funs) (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Tannot e t) = strip_annot_exp e)
+  ∧
+  (strip_annot_exp (Lannot e l) = strip_annot_exp e)
+  ∧
+  (strip_annot_exps [] = [])
+  ∧
+  (strip_annot_exps (e::es) =
+     strip_annot_exp e :: strip_annot_exps es)
+  ∧
+  (strip_annot_pes [] = [])
+  ∧
+  (strip_annot_pes ((p,e)::pes) =
+    (strip_annot_pat p, strip_annot_exp e)
+    :: strip_annot_pes pes)
+  ∧
+  (strip_annot_funs [] = [])
+  ∧
+  (strip_annot_funs ((f,x,e)::funs) =
+    (f,x,strip_annot_exp e) :: strip_annot_funs funs)`
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => exp_size e
+                                 | INR (INL es) => exps_size es
+                                 | INR (INR (INL pes)) => pes_size pes
+                                 | INR (INR (INR funs)) => funs_size funs)` >>
+   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+
 val norm_def = tDefine "norm" `
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
   norm is_named as_value ns (Var (Short name)) = (Var (Short name), name::ns, []) /\
@@ -302,7 +376,7 @@ val norm_def = tDefine "norm" `
  cheat;
 
 val full_normalise_def = Define `
-  full_normalise ns e = FST (protect T ns e)`;
+  full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
 
 val MEM_v_size = Q.prove(
   `!xs. MEM a xs ==> v_size a < v7_size xs`,
