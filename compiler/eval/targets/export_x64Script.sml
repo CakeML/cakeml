@@ -105,7 +105,7 @@ val ffi_code =
        "";
        "     .p2align 3";
        ""] ++
-     ffi_asm ffi_names ++
+     ffi_asm (REVERSE ffi_names) ++
      MAP (\n. n ++ "\n")
       ["cake_clear:";
        "     callq   cdecl(exit)";

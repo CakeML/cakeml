@@ -1012,7 +1012,7 @@ val names = ["foo","qsortimp","nqueens","foldl","reverse","fib","btree","queue",
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
-val extract_ffi_names = rev o map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
 
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_names))::xs) =
