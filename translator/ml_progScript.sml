@@ -94,6 +94,7 @@ val empty_simp = Q.store_thm("empty_simp[compute]",
     nsLookup empty_env.c q = NONE`,
   fs [empty_env_def] );
 
+(*
 val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
   `(nsLookup (merge_env e1 e2).v (Short k) =
       case nsLookup e1.v (Short k) of SOME x => SOME x | NONE => nsLookup e2.v (Short k)) /\
@@ -105,6 +106,7 @@ val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
   try(Cases_on`nsLookup e2.v (Short k)`)>>
   try(Cases_on`nsLookup e2.c (Short k)`)>>
   fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
+*)
 
 (*
 val SND_ALOOKUP_INTRO = Q.store_thm("SND_ALOOKUP_INTRO[compute]",
@@ -739,7 +741,7 @@ val nsLookup_write_mod = Q.store_thm("nsLookup_write_mod",
     Cases_on`p1'`>>fs[]>>
     metis_tac[]));
 
-val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env",
+val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env[compute]",
   `(nsLookup (merge_env e1 e2).v (Short n) =
       case nsLookup e1.v (Short n) of
       | NONE => nsLookup e2.v (Short n)
