@@ -15,6 +15,8 @@ cd polyml
 make
 make compiler
 make install
+## alternatively on macOS
+# brew install polyml
 
 ## build HOL
 cd
