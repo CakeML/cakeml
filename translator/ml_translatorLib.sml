@@ -715,14 +715,17 @@ fun tag_name type_name const_name =
     val name = if y = "" then upper_case_hd x else upper_case_hd y
     val write_cons_pat =
       write_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator
-    val taken_names = EVAL (get_curr_env ())
-       |> concl |> rand |> find_terms (can (match_term write_cons_pat))
-       |> map (stringSyntax.fromHOLstring o rand o rator)
+    fun is_taken_name name =
+      (lookup_cons_def
+        |> SPEC (stringSyntax.fromMLstring name)
+        |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
+        |> EVAL |> concl |> rand
+        |> optionSyntax.is_some)
     fun find_unique name n =
-      if not (mem name taken_names) then name else
-      if not (mem (name ^ "_" ^ int_to_string n) taken_names) then
-        name ^ "_" ^ int_to_string n
-      else find_unique name (n+1)
+      if not (is_taken_name name) then name else let
+        val new_name = name ^ "_" ^ int_to_string n
+        in if not (is_taken_name new_name) then new_name else
+           find_unique name (n+1) end
     in find_unique name 1 end;
 
 val last_def_fail = ref T
