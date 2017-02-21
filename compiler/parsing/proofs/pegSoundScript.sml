@@ -76,26 +76,26 @@ val _ = augment_srw_ss [rewrites [
 
 val peg_eval_TypeDec_wrongtok = Q.store_thm(
   "peg_eval_TypeDec_wrongtok",
-  `tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)`,
+  `FST tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
 val peg_eval_TypeAbbrevDec_wrongtok = Q.store_thm(
   "peg_eval_TypeAbbrevDec_wrongtok",
-  `tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)`,
+  `FST tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
 val peg_eval_LetDec_wrongtok = Q.store_thm(
   "peg_eval_LetDec_wrongtok",
-  `¬peg_eval cmlPEG (SemicolonT::i, nt (mkNT nLetDec) f) (SOME x)`,
+  `FST tk = SemicolonT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS]);
 
 val peg_eval_nUQConstructor_wrongtok = Q.store_thm(
   "peg_eval_nUQConstructor_wrongtok",
-  `(∀s. t ≠ AlphaT s) ⇒
+  `(∀s. FST t ≠ AlphaT s) ⇒
     ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_tok_SOME,
@@ -103,7 +103,7 @@ val peg_eval_nUQConstructor_wrongtok = Q.store_thm(
 
 val peg_eval_nConstructor_wrongtok = Q.store_thm(
   "peg_eval_nConstructor_wrongtok",
-  `(∀s. t ≠ AlphaT s) ∧ (∀s1 s2. t ≠ LongidT s1 s2) ⇒
+  `(∀s. FST t ≠ AlphaT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
     ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seq_NONE, pegf_def, pnt_def,
@@ -112,7 +112,7 @@ val peg_eval_nConstructor_wrongtok = Q.store_thm(
 
 val peg_eval_nV_wrongtok = Q.store_thm(
   "peg_eval_nV_wrongtok",
-  `(∀s. t ≠ AlphaT s) ∧ (∀s. t ≠ SymbolT s) ⇒
+  `(∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ⇒
     ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
        peg_eval_seq_NONE, peg_eval_choice] >>
@@ -120,7 +120,7 @@ val peg_eval_nV_wrongtok = Q.store_thm(
 
 val peg_eval_nFQV_wrongtok = Q.store_thm(
   "peg_eval_nFQV_wrongtok",
-  `(∀s. t ≠ AlphaT s) ∧ (∀s. t ≠ SymbolT s) ∧ (∀s1 s2. t ≠ LongidT s1 s2) ⇒
+  `(∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
     ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)`,
   simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_seq_NONE, peg_eval_choice, peg_eval_nV_wrongtok] >>
