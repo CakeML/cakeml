@@ -1697,7 +1697,7 @@ fun prove_EvalPatRel goal hol2deep = let
   *)
   fun tac2 (asms,concl) =
     (let
-        val pmatch_asm = can (match_term ``pmatch _ _ _ _ _ = Match_type_error``)
+        val pmatch_asm = can (match_term (get_term "pmatch_eq_Match_type_error"))
         val v = List.find pmatch_asm asms |> valOf |> lhs |> rator |> rand
         val asm = List.find
                       (fn asm =>
@@ -1765,7 +1765,7 @@ fun prove_EvalPatBind goal hol2deep = let
   fun tac (asms,goal) = let
     fun is_TYPE tm = let
       val (args,ret) = strip_fun(type_of tm)
-    in not(null args) andalso ret = ``:bool`` andalso last args = ``:v`` end
+    in not(null args) andalso ret = type_of T andalso last args = v_ty end
     fun types tm = let
       val (rator,rands) = strip_comb tm
     in
@@ -1792,16 +1792,16 @@ fun prove_EvalPatBind goal hol2deep = let
   fun find_equality_type_thm tm =
     first (can (C match_term tm) o rand o snd o strip_imp o concl) (eq_lemmas())
   fun tac2 (asms,concl) = (asms,concl) |>
-    (if can (match_term ``PRECONDITION _``) concl then
+    (if is_PRECONDITION concl then
       METIS_TAC []
-    else if can(match_term ``EqualityType _``) concl then
+    else if is_EqualityType concl then
       ACCEPT_TAC (find_equality_type_thm (rand concl))
-    else if can(match_term ``PreImp _ (Eval _ _ _)``) concl then
+    else if can(match_term (get_term "PreImp_Eval")) concl then
       METIS_TAC [CONTAINER_def]
     else ALL_TAC)
   fun tac3 (asms,concl) = (asms,concl) |>
     (if is_exists concl andalso
-        can (match_term ``evaluate _ _ _ _ _``) (snd(dest_abs(rand concl)))
+        can (match_term (get_term "evaluate_pat")) (snd(dest_abs(rand concl)))
      then
        fs[Once evaluate_cases,Once Eval_def,INT_def]
        >> EVAL_TAC
@@ -2517,7 +2517,7 @@ val th = D res
 *)
 
 fun clean_assumptions th = let
-  val lhs1 = ``nsLookup env name`` (*TODO: Probably want to generate this programmatically instead.. *)
+  val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
   val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
