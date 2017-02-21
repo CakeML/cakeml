@@ -97,17 +97,20 @@ val EqualityType_GRAMMAR_SYMBOL_TYPE = Q.prove(
 val GRAMMAR_PARSETREE_TYPE_def = theorem"GRAMMAR_PARSETREE_TYPE_def";
 val GRAMMAR_PARSETREE_TYPE_ind = theorem"GRAMMAR_PARSETREE_TYPE_ind";
 
+val EqualityType_PAIR_TYPE = find_equality_type_thm``PAIR_TYPE a b``;
+val EqualityType_LOCATION_LOCN_TYPE = find_equality_type_thm``LOCATION_LOCN_TYPE`` |> SIMP_RULE std_ss[EqualityType_NUM]
+
 val GRAMMAR_PARSETREE_TYPE_no_closures = Q.prove(
   `∀a b c d. EqualityType a ∧ EqualityType b ∧ GRAMMAR_PARSETREE_TYPE a b c d ⇒ no_closures d`,
   ho_match_mp_tac GRAMMAR_PARSETREE_TYPE_ind >>
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,no_closures_def] >>
-  rw[] >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def]
+  rw[] >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def,EqualityType_PAIR_TYPE,EqualityType_LOCATION_LOCN_TYPE]
   >- (
     pop_assum mp_tac >>
     Q.ID_SPEC_TAC`v2_2` >>
     Induct_on`x_2` >> simp[LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
     rw[] >> METIS_TAC[]) >>
-  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val GRAMMAR_PARSETREE_TYPE_types_match = Q.prove(
   `∀a b c d e f.
@@ -117,7 +120,7 @@ val GRAMMAR_PARSETREE_TYPE_types_match = Q.prove(
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS,types_match_def] >>
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def,types_match_def,ctor_same_type_def] >>
-    conj_tac >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
+    conj_tac >- METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE] >>
     rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
@@ -125,7 +128,7 @@ val GRAMMAR_PARSETREE_TYPE_types_match = Q.prove(
     Cases_on`x_2`>>fs[LIST_TYPE_def,types_match_def,ctor_same_type_def] >>
     METIS_TAC[]) >>
   Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def,types_match_def,ctor_same_type_def] >>
-  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val GRAMMAR_PARSETREE_TYPE_11 = Q.prove(
   `∀a b c d e f.
@@ -135,7 +138,7 @@ val GRAMMAR_PARSETREE_TYPE_11 = Q.prove(
   simp[GRAMMAR_PARSETREE_TYPE_def,PULL_EXISTS] >>
   rw[] >- (
     Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def] >>
-    `x_3 = s ⇔ v2_1 = v2_1'` by METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def] >>
+    `x_3 = p ⇔ v2_1 = v2_1'` by METIS_TAC[EqualityType_SUM_TYPE,EqualityType_NUM,EqualityType_def,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE] >>
     rw[] >> rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     last_x_assum mp_tac >>
     map_every qid_spec_tac[`v2_2`,`v2_2'`,`x_2`,`l`] >>
@@ -143,7 +146,7 @@ val GRAMMAR_PARSETREE_TYPE_11 = Q.prove(
     Cases_on`x_2`>>fs[LIST_TYPE_def] >>
     METIS_TAC[]) >>
   Cases_on`e`>>fs[GRAMMAR_PARSETREE_TYPE_def] >>
-  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def])
+  METIS_TAC[EqualityType_GRAMMAR_SYMBOL_TYPE,EqualityType_def,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE = Q.prove(
   `EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE)`,
