@@ -19,11 +19,11 @@ val basis_st = get_ml_prog_state;
 
 val write_list_spec = Q.store_thm ("write_list_spec",
   `!xs cv output.
-     LIST_TYPE WORD (xs:word8 list) cv ==>
+     LIST_TYPE CHAR xs cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (STDOUT output)
-       (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ (MAP (CHR o w2n) xs)))`,
+       (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ xs))`,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -31,13 +31,13 @@ val write_list_spec = Q.store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `POSTv uv. STDOUT (output ++ [(CHR o w2n) h])`
+  \\ xlet `POSTv uv. STDOUT (output ++ [h])`
   THEN1
    (xapp  \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
   \\ xapp \\ xsimpl
   \\ qexists_tac `emp`
-  \\ qexists_tac `output ++ [(CHR o w2n) h]`
+  \\ qexists_tac `output ++ [h]`
   \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ xsimpl);
 
@@ -113,30 +113,9 @@ val print = process_topdecs
   `fun print s =
     let 
       val l = String.explode s
-      val nl = List.map_1 (Char.ord) l
-      val bl = List.map_1 (Word8.fromInt) nl
-    in write_list bl end`
+    in write_list l end`
 
 val res = ml_prog_update(ml_progLib.add_prog print pick_name)
-
-val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
-  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
-  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
-);
-
-val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
-  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
-  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
-);
-
-
-(*TODO fix the use of map_1 instead of map *)
-val map_1_v_thm = fetch "mllistProg" "map_1_v_thm";
-val string_map_v_thm = save_thm("string_map_v_thm",
-  map_1_v_thm |> INST_TYPE [alpha |-> ``:char``, beta|->``:num``])
-val byte_map_v_thm = save_thm("byte_map_v_thm",
-  map_1_v_thm |> INST_TYPE [alpha |-> ``:num``, beta|->``:word8``])
-
 
 val print_spec = Q.store_thm("print_spec",
   `!s sv. STRING_TYPE s sv ==>

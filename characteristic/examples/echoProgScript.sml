@@ -16,7 +16,7 @@ val echo = process_topdecs
         val cl = Commandline.arguments ()
         val cls = String.concatwith " " cl
         val ok = print cls
-      in CharIO.write (Word8.fromInt 10) end`
+      in CharIO.write #"\n" end`
 
 val res = ml_prog_update(ml_progLib.add_prog echo pick_name)
 
@@ -41,9 +41,7 @@ val echo_spec = Q.store_thm("echo_spec",
     \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
     >-(xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
       \\ rw[mlstringTheory.explode_implode] \\ xsimpl)
-    \\ xlet `POSTv u. STDOUT (output ++ (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl * & WORD (n2w 10:word8) u`
-    >-(xapp \\ xsimpl)
-    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ (CONCAT_WITH " " (TL cl))`, `n2w 10`] \\ xsimpl
+    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ (CONCAT_WITH " " (TL cl))`, `(CHR 10)`] \\ xsimpl
 );
 
 (*-------------------------------------------------------------------------------------------------*)
