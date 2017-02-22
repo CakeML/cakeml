@@ -1,4 +1,5 @@
 open preamble exhLangTheory
+val _ = Parse.hide "exp";
 
 val _ = new_theory"exhSem"
 

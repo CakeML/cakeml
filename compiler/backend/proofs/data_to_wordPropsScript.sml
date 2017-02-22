@@ -2,6 +2,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
 local open blastLib in end;
+val _ = map Parse.hide ["exp","max","pos"];
 
 val shift_def = wordLangTheory.shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
@@ -194,7 +195,7 @@ val v_size_LEMMA = Q.prove(
 
 val small_int_def = Define `
   small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int`
 
 (*
   code pointers (i.e. Locs) will end in ...0
@@ -2729,7 +2730,7 @@ val memory_rel_El = Q.store_thm("memory_rel_El",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs [])
     \\ fs [] \\ clean_tac \\ fs [word_addr_def]
     \\ fs [Smallnum_def,GSYM word_mul_n2w,word_ml_inv_num_lemma] \\ NO_TAC)
@@ -2791,7 +2792,7 @@ val memory_rel_Deref = Q.store_thm("memory_rel_Deref",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
       \\ rw [] \\ rfs [] \\ fs [] \\ NO_TAC)
     \\ fs [] \\ clean_tac \\ fs [word_addr_def]
@@ -2874,7 +2875,7 @@ val memory_rel_Update = Q.store_thm("memory_rel_Update",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
       \\ rw [] \\ rfs [] \\ fs [] \\ NO_TAC)
     \\ fs [] \\ clean_tac \\ fs [word_addr_def]

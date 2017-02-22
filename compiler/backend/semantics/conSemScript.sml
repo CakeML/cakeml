@@ -1,4 +1,5 @@
 open preamble conLangTheory
+val _ = map Parse.hide ["exp","max"];
 
 val _ = new_theory"conSem"
 

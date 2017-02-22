@@ -43,4 +43,27 @@ val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 5
 `;
 
+val _ = Datatype `
+  fp_cmp =
+    | FP_Less
+    | FP_LessEqual
+    | FP_Greater
+    | FP_GreaterEqual
+    | FP_Equal`
+
+val _ = Datatype `
+  fp_uop =
+ (* | FP_ToInt *)
+    | FP_FromInt
+    | FP_Abs
+    | FP_Neg
+    | FP_Sqrt`
+
+val _ = Datatype `
+  fp_bop =
+    | FP_Add
+    | FP_Sub
+    | FP_Mul
+    | FP_Div`
+
 val _ = export_theory();

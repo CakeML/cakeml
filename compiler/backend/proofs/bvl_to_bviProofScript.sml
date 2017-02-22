@@ -8,6 +8,7 @@ local open
   bvi_letProofTheory
   bvl_inlineProofTheory
 in end;
+val _ = Parse.hide "exp";
 
 val _ = new_theory"bvl_to_bviProof";
 
@@ -139,7 +140,7 @@ val v_to_list_ok = Q.prove(
          EVERY (bv_ok refs) x`,
   ho_match_mp_tac v_to_list_ind >>
   simp[v_to_list_def,bv_ok_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val do_app_ok_lemma = Q.prove(
   `state_ok r /\ EVERY (bv_ok r.refs) a /\
@@ -403,7 +404,7 @@ val evaluate_CopyGlobals_code = Q.prove(
     simp[Abbr`ss`] >> EVAL_TAC >>
     simp[state_component_equality] ) >>
   simp[Abbr`ss`] >>
-  `&SUC n - 1 = &n` by (
+  `&SUC n - 1 = &n:int` by (
     simp[ADD1] >> intLib.COOPER_TAC ) >>
   simp[state_component_equality] >>
   simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE] >>
@@ -462,7 +463,7 @@ val evaluate_AllocGlobal_code = Q.prove(
     simp[Abbr`ss`] >> EVAL_TAC >>
     simp[state_component_equality] ) >>
   simp[Abbr`ss`] >>
-  `&SUC n - 1 = &n` by (Cases_on`n`>>full_simp_tac(srw_ss())[]>>simp[ADD1]>>intLib.COOPER_TAC) >> full_simp_tac(srw_ss())[] >>
+  `&SUC n - 1 = &n:int` by (Cases_on`n`>>full_simp_tac(srw_ss())[]>>simp[ADD1]>>intLib.COOPER_TAC) >> full_simp_tac(srw_ss())[] >>
   simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE,state_component_equality] >>
   srw_tac[][] >> simp[] >> TRY(intLib.COOPER_TAC) >>
   `n = LENGTH ls`by decide_tac >>
@@ -498,7 +499,7 @@ val evaluate_ListLength_code = Q.store_thm("evaluate_ListLength_code",
    (unabbrev_all_tac \\ fs [bviSemTheory.state_component_equality,
        bviSemTheory.dec_clock_def])
   \\ fs [] \\ pop_assum kall_tac
-  \\ `(1 + &n) = (&(n + 1))` by intLib.COOPER_TAC \\ fs []);
+  \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []);
 
 val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
   `∀lv vs n bs (s:'ffi bviSem$state).

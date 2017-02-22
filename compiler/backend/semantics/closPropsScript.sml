@@ -1,4 +1,5 @@
 open preamble closLangTheory closSemTheory
+val _ = map Parse.hide ["exp","max"];
 
 val _ = new_theory"closProps"
 

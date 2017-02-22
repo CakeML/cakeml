@@ -3,6 +3,7 @@ open preamble
      closSemTheory closPropsTheory
      clos_freeTheory clos_freeProofTheory
      clos_annotateTheory;
+val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = new_theory"clos_annotateProof";
 

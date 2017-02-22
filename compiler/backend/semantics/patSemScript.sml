@@ -1,4 +1,5 @@
 open preamble patLangTheory
+val _ = Parse.hide "exp";
 
 val _ = new_theory"patSem"
 

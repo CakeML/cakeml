@@ -1,5 +1,6 @@
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
+val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = new_theory"labSem";
 
@@ -183,7 +184,8 @@ val asm_inst_def = Define `
   (asm_inst Skip s = (s:('a,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
-  (asm_inst (Mem m r a) s = mem_op m r a s)`;
+  (asm_inst (Mem m r a) s = mem_op m r a s) /\
+  (asm_inst (FP f) s = assert F s)`;
 
 val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def"]
 
@@ -217,25 +219,25 @@ val lab_to_loc_def = Define `
 val loc_to_pc_def = Define `
   (loc_to_pc n1 n2 [] = NONE) /\
   (loc_to_pc n1 n2 ((Section k xs)::ys) =
-     if (k = n1) /\ (n2 = 0) then SOME (0:num) else
+     if (k = n1) /\ (n2 = 0n) then SOME (0:num) else
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
-         if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0 else
+         if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0n else
            if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
            else
              case loc_to_pc n1 n2 ((Section k zs)::ys) of
              | NONE => NONE
-             | SOME pos => SOME (pos + 1))`;
+             | SOME pos => SOME (pos + 1:num))`;
 
 val asm_inst_consts = Q.store_thm("asm_inst_consts",
   `((asm_inst i s).pc = s.pc) /\
-    ((asm_inst i s).code = s.code) /\
-    ((asm_inst i s).clock = s.clock) /\
-    ((asm_inst i s).ffi = s.ffi) ∧
-    ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
-    ((asm_inst i s).len_reg = s.len_reg) ∧
-    ((asm_inst i s).link_reg = s.link_reg)`,
+   ((asm_inst i s).code = s.code) /\
+   ((asm_inst i s).clock = s.clock) /\
+   ((asm_inst i s).ffi = s.ffi) ∧
+   ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
+   ((asm_inst i s).len_reg = s.len_reg) ∧
+   ((asm_inst i s).link_reg = s.link_reg)`,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]

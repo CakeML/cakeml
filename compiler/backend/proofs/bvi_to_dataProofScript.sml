@@ -5,6 +5,7 @@ open preamble
      data_simpProofTheory
      data_liveProofTheory
      data_spaceProofTheory;
+val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = new_theory"bvi_to_dataProof";
 

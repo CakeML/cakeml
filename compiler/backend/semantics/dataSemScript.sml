@@ -1,5 +1,6 @@
 open preamble dataLangTheory bvi_to_dataTheory;
 local open bvlSemTheory bvlPropsTheory bviSemTheory in end;
+val _ = Parse.hide "exp";
 
 val _ = new_theory"dataSem";
 

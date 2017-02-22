@@ -1,6 +1,7 @@
 open preamble
      reg_allocTheory reg_allocProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory
+val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = new_theory "word_allocProof";
 
@@ -5998,7 +5999,7 @@ val ssa_cc_trans_pre_alloc_conventions = Q.store_thm("ssa_cc_trans_pre_alloc_con
   imp_res_tac list_next_var_rename_lemma_2>>
   pop_assum(qspecl_then[`ssa`,`na+2`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   qabbrev_tac `lss = MAP (λx. THE(lookup x ssa')) ls`>>
-  (qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`  
+  (qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`
    ORELSE
    qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s0)`)>>
   `∀x. MEM x lss' ⇒ MEM x lss` by

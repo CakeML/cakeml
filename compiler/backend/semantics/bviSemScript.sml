@@ -1,5 +1,6 @@
 open preamble bviTheory;
 local open backend_commonTheory bvlSemTheory in end;
+val _ = map Parse.hide ["exp","max"];
 
 val _ = new_theory"bviSem";
 
@@ -34,7 +35,7 @@ val bvl_to_bvi_def = Define `
             ; ffi := s.ffi |>`;
 
 val small_enough_int_def = Define `
-  small_enough_int i <=> -268435457 <= i /\ i <= 268435457`;
+  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
 
 val do_app_aux_def = Define `
   do_app_aux op (vs:bvlSem$v list) (s:'ffi bviSem$state) =

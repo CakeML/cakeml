@@ -1,4 +1,4 @@
-open preamble;
+open preamble backend_commonTheory;
 
 val _ = new_theory "closLang";
 
@@ -50,7 +50,10 @@ val _ = Datatype `
      | WordOp word_size opw
      | WordShift word_size shift num
      | WordFromInt
-     | WordToInt`
+     | WordToInt
+     | FP_cmp fp_cmp
+     | FP_uop fp_uop
+     | FP_bop fp_bop`
 
 val _ = Datatype `
   exp = Var num

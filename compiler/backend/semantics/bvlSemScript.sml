@@ -1,4 +1,5 @@
 open preamble bvlTheory closSemTheory
+val _ = Parse.hide "exp";
 
 val _ = new_theory"bvlSem"
 
@@ -229,6 +230,18 @@ val do_app_def = Define `
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')
                               ; ffi  := ffi'|>))
+         | _ => Error)
+    | (FP_bop bop, ws) =>
+        (case ws of
+         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
+         | _ => Error)
+    | (FP_uop uop, ws) =>
+        (case ws of
+         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
+         | _ => Error)
+    | (FP_cmp cmp, ws) =>
+        (case ws of
+         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
          | _ => Error)
     | _ => Error`;
 
