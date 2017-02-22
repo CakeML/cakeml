@@ -27,7 +27,7 @@ val echo_spec = Q.store_thm("echo_spec",
    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDOUT output * COMMANDLINE cl)
-   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl)) ++ [n2w 10]) * COMMANDLINE cl))`,
+   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ (CONCAT_WITH " " (TL cl)) ++ [CHR 10]) * COMMANDLINE cl))`,
     xcf "echo" st
     \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * COMMANDLINE cl` 
     >-(xcon \\ xsimpl)

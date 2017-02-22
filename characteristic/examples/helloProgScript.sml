@@ -20,7 +20,7 @@ val hello_spec = Q.store_thm ("hello_spec",
       app (p:'ffi ffi_proj) ^(fetch_v "hello" st)
         [cv]
         (STDOUT [])
-        (POSTv uv. STDOUT (MAP (n2w o ORD) "Hello World!\n"))`,
+        (POSTv uv. STDOUT ("Hello World!\n"))`,
   xcf "hello" st 
   \\ xapp 
   \\ xsimpl \\ qexists_tac `emp` \\ qexists_tac `[]` \\ xsimpl 

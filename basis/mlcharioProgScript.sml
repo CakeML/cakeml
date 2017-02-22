@@ -67,21 +67,48 @@ val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
 val _ = ml_prog_update (close_module NONE);
 
-val stdin_fun_def = Define `
-  stdin_fun = (\i bytes s. case (bytes,s) of
-                    | ([b;f],Str input) =>
-                         if i = "getChar" then (* read *)
-                           if input = "" then
-                             SOME ([b;1w],Str input)
-                           else 
-                             SOME ([n2w (ORD (HD input)); 0w],Str (TL input))
-                         else NONE (* i = "putChar" *)
-                    | _ => NONE)`
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+(*TODO: move these to a more sensible location *) 
+
+val ffi_putChar_def = Define`
+  ffi_putChar bytes out =
+    case(bytes, out) of
+    | ([w], out) => SOME ([w], out ++ [CHR (w2n w)])
+    | _ => NONE` 
 
 val stdout_fun_def = Define `
-  stdout_fun = (\_ bytes s. case (bytes,s) of (* write *)
-                    | ([w],Str output) => SOME ([w],Str (output ++ [CHR (w2n w)]))
-                    | _ => NONE)`
+  stdout_fun i bytes s = 
+    if i = "putChar" then
+      do
+        out <- destStr s;
+        (bytes, out) <- ffi_putChar bytes out;
+        return (bytes, Str out)
+      od
+    else NONE`;
+
+val ffi_getChar_def = Define`
+  ffi_getChar bytes inp =
+    case(bytes, inp) of
+    | ([b;f], "") => SOME ([b; 1w], "")
+    | ([b;f], h::t) => SOME ([n2w (ORD h); 0w], t)
+    | _ => NONE`
+
+
+val stdin_fun_def = Define `
+  stdin_fun i bytes s =
+    if i = "getChar" then
+      do
+        inp <- destStr s;
+        (bytes, inp) <- ffi_getChar bytes inp;
+        return (bytes, Str inp)
+      od
+    else NONE`;
 
 val STDIN_def = Define `
   STDIN input read_failed =
@@ -89,8 +116,8 @@ val STDIN_def = Define `
     SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
 
 val STDOUT_def = Define `
-  STDOUT (output:word8 list) =
-    IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] *
+  STDOUT output =
+    IO (Str output) stdout_fun ["putChar"] *
     SEP_EXISTS w. W8ARRAY write_state_loc [w]`;
 
 val w2n_lt_256 =
@@ -116,7 +143,7 @@ val read_spec = Q.store_thm ("read_spec",
       xffi
       \\ fs[STDIN_def, EVAL ``read_state_loc``]
       \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-      \\ fs[stdin_fun_def] )
+      \\ fs[stdin_fun_def, ffi_getChar_def] )
     \\ fs[STDIN_def] \\ xpull
     \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
     >- (
@@ -132,7 +159,8 @@ val read_spec = Q.store_thm ("read_spec",
     xffi
     \\ fs[STDIN_def, EVAL ``read_state_loc``]
     \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-    \\ fs[stdin_fun_def] )
+    \\ fs[stdin_fun_def, ffi_getChar_def] \\ Cases_on `input` \\ rw[]
+     )
   \\ xlet `POSTv x. STDIN (TL input) F * cond (WORD ((n2w(ORD(HD input))):word8) x)`
   >- (
     xapp \\ xsimpl \\ fs[STDIN_def]
@@ -162,23 +190,23 @@ val read_failed_spec = Q.store_thm("read_failed_spec",
   \\ rw[]);
 
 val write_spec = Q.store_thm ("write_spec",
-  `WORD c cv ==>
+  `WORD (c:word8) cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (STDOUT output)
-       (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [c]))`,
+       (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [CHR (w2n c)]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [STDOUT_def] \\ xpull
-  \\ xlet `POSTv zv. IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c] *
+  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c] *
                      & (UNIT_TYPE () zv)`
   THEN1
    (xapp \\ xsimpl \\ fs [EVAL ``write_state_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `POSTv _. IO (Str (MAP (CHR o w2n) (output ++ [c]))) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c]`
+  \\ xlet `POSTv _. IO (Str (output ++ [CHR (w2n c)])) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_state_loc``, STDOUT_def]
-    \\ `MEM "putChar" ["putChar"]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
+    \\ `MEM "putChar" ["putChar"]` by simp[] \\ instantiate \\ xsimpl \\ EVAL_TAC)
   \\ xret \\ xsimpl);
 
 val _ = export_theory()

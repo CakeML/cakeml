@@ -27,17 +27,6 @@ val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
   `MEM x (REPLICATE n y) ==> x = y`,
   Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
 
-val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
-  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
-  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
-);
-
-
-val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
-  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
-  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
-);
-
 (* -- *)
 
 val _ = ml_prog_update (open_module "Commandline")
@@ -73,15 +62,6 @@ val _ = ml_prog_update(ml_progLib.add_prog arguments pick_name)
 
 val _ = ml_prog_update (close_module NONE);
 
-(*
-type CL_state = string list
-type bytes = word8 list
-encode : CL_state -> ffi
-encode = encode_list Str
-decode : ffi -> CL_state
-decode = decode_list destStr
-ffi_getArgs : bytes -> CL_state -> (bytes # CL_state) option
-*)
 
 val encode_def = Define`encode = encode_list Str`;
 val decode_def = Define`decode = decode_list destStr`;

@@ -19,11 +19,11 @@ val basis_st = get_ml_prog_state;
 
 val write_list_spec = Q.store_thm ("write_list_spec",
   `!xs cv output.
-     LIST_TYPE WORD xs cv ==>
+     LIST_TYPE WORD (xs:word8 list) cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "write_list" (basis_st()))
        [cv]
        (STDOUT output)
-       (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ xs))`,
+       (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ (MAP (CHR o w2n) xs)))`,
   Induct
   THEN1
    (xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
@@ -31,13 +31,13 @@ val write_list_spec = Q.store_thm ("write_list_spec",
   \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
-  \\ xlet `POSTv uv. STDOUT (output ++ [h])`
+  \\ xlet `POSTv uv. STDOUT (output ++ [(CHR o w2n) h])`
   THEN1
-   (xapp \\ instantiate
+   (xapp  \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
   \\ xapp \\ xsimpl
   \\ qexists_tac `emp`
-  \\ qexists_tac `output ++ [h]`
+  \\ qexists_tac `output ++ [(CHR o w2n) h]`
   \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ xsimpl);
 
@@ -119,6 +119,16 @@ val print = process_topdecs
 
 val res = ml_prog_update(ml_progLib.add_prog print pick_name)
 
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
 
 (*TODO fix the use of map_1 instead of map *)
 val map_1_v_thm = fetch "mllistProg" "map_1_v_thm";
@@ -132,7 +142,7 @@ val print_spec = Q.store_thm("print_spec",
   `!s sv. STRING_TYPE s sv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "print" (basis_st())) [sv]
    (STDOUT output)
-   (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ MAP (n2w o ORD) (explode s)))`,  
+   (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ (explode s)))`,  
     xcf "print" (basis_st())
     \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
     >-(xapp \\ xsimpl \\ instantiate)
@@ -142,19 +152,19 @@ val print_spec = Q.store_thm("print_spec",
     \\ xlet `POSTv blv. & LIST_TYPE (WORD:word8 -> v -> bool) (MAP n2w (MAP ORD (explode s))) blv * STDOUT output`    
     >-(xapp_spec byte_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
       \\ instantiate \\ qexists_tac `n2w` \\ qexists_tac `WORD` \\ rw[mlword8ProgTheory.word8_fromint_v_thm])
-    \\ xapp \\ fs[MAP_MAP_o] 
+    \\ xapp 
+    \\ instantiate \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl 
+    \\ fs[MAP_MAP_o, CHR_w2n_n2w_ORD] \\ xsimpl 
 );
 
-
-
-(* --- the following are defs and lemmas used by ioProgLib --- *)
+(* --- the following are defs and lemmas used by compiler/bootstrap/io/ioProgLib --- *)
 
 val io_ffi_oracle_def = Define `
-  (io_ffi_oracle:(string # (word8 list)) oracle) =
+  (io_ffi_oracle:(string # string) oracle) =
     \name (inp,out) bytes.
        if name = "putChar" then
          case bytes of
-         | [b] => Oracle_return (inp,out ++ [b]) [b]
+         | [b] => Oracle_return (inp,out ++ [CHR (w2n b)]) [b]
          | _ => Oracle_fail
        else if name = "getChar" then
          case bytes of
@@ -174,8 +184,8 @@ val io_ffi_def = Define `
      ; io_events := [] |>`;
 
 val io_proj1_def = Define `
-  io_proj1 = (\(inp,out:word8 list).
-    FEMPTY |++ [("putChar",Str (MAP (CHR o w2n) out));("getChar",Str inp)])`;
+  io_proj1 = (\(inp,out).
+    FEMPTY |++ [("putChar",Str out);("getChar",Str inp)])`;
 
 val io_proj2_def = Define `
   io_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun)]`;
@@ -220,8 +230,8 @@ val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events
   `!st st'.
       call_FFI_rel^* st st' ==>
       st.oracle = io_ffi_oracle /\
-      extract_output st.io_events = SOME (SND (st.ffi_state)) ==>
-      extract_output st'.io_events = SOME (SND (st'.ffi_state))`,
+      extract_output st.io_events = SOME (MAP (n2w o ORD) (SND (st.ffi_state))) ==>
+      extract_output st'.io_events = SOME (MAP (n2w o ORD) (SND (st'.ffi_state)))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -244,7 +254,10 @@ val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events
   \\ Cases_on `bytes` \\ fs [] \\ Cases_on `l` \\ fs []
   \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs []
   \\ fs [io_ffi_oracle_def]
-  \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []);
+  \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []
+  \\ fs[MAP_APPEND]
+  \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
+);
 
 val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
   `!ws1 ws2:word8 list.
@@ -280,16 +293,23 @@ val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
    (fs [io_proj2_def,io_proj1_def,io_ffi_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
     \\ EVAL_TAC \\ qexists_tac `Str input` \\ fs [] \\ rw [])
   THEN1
-   (fs [io_proj2_def] \\ rveq \\ fs [stdout_fun_def,stdin_fun_def]
+   (fs [io_proj2_def] \\ rveq \\ fs [stdout_fun_def,stdin_fun_def, ffi_putChar_def, ffi_getChar_def]
     \\ rfs [io_proj1_def] \\ pairarg_tac \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+  \\ fs [io_ffi_def,io_ffi_oracle_def,io_proj2_def] \\ rveq \\ fs []
   THEN1
-   (fs [io_ffi_def,io_ffi_oracle_def,io_proj2_def] \\ rveq \\ fs []
-    \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
-    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def]
+    (pairarg_tac \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def, ffi_putChar_def, ffi_getChar_def]
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs [] \\ rfs[] \\ metis_tac[]));
+    \\ rw [] \\ fs [] \\ rfs[] \\ metis_tac[])
+  \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def, ffi_putChar_def, ffi_getChar_def]
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rw [] \\ fs [] \\ rfs[] \\ pairarg_tac \\ Cases_on `inp'` \\ Cases_on `inp` \\ rw[] \\ fs[]
+);
 
 val _ = export_theory ()
