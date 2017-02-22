@@ -932,6 +932,16 @@ val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 
 val _ = translate (infer_def ``infer_ds``);
 
+val infer_ds_side_thm = Q.store_thm ("infer_ds_side_thm",
+  `!mn decls env ds st. infer_ds_side mn decls env ds st`,
+  Induct_on`ds`>>fs[Once (fetch "-" "infer_ds_side_def"),FORALL_PROD]>>rw[]>>
+  Cases_on`ds`>>fs[]
+  >-
+    simp[Once (fetch "-" "infer_ds_side_def"),FORALL_PROD]
+  >>
+    rw[Once (fetch "-" "infer_ds_side_def"),FORALL_PROD]>>
+    res_tac>>fs[PULL_FORALL]) |> update_precondition
+
 val MEM_anub = prove(``
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
@@ -1069,9 +1079,23 @@ val _ = translate (check_weak_ienv_def |> SIMP_RULE std_ss [nsSub_thm])
 
 val _ = translate (infer_def ``check_signature``)
 
+val check_signature_side = prove(``
+  ∀a b c d e f g. check_signature_side a b c d e f g``,
+  Cases_on`f`>>rw[fetch"-""check_signature_side_def"]) |> update_precondition
+
 val _ = translate (infer_def ``infer_top``)
 
 val _ = translate (infer_def ``infer_prog``)
+
+val infer_prog_side = prove(``
+  ∀a b c d. infer_prog_side a b c d ⇔ T``,
+  Induct_on`c`>>fs[Once (fetch "-" "infer_prog_side_def"),FORALL_PROD]>>rw[]>>
+  Cases_on`c`>>fs[]
+  >-
+    simp[Once (fetch "-" "infer_prog_side_def"),FORALL_PROD]
+  >>
+    rw[Once (fetch "-" "infer_prog_side_def"),FORALL_PROD]>>
+    res_tac>>fs[PULL_FORALL]) |> update_precondition
 
 val _ = translate (infer_def ``infertype_prog``);
 
