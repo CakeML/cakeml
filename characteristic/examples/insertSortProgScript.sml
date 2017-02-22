@@ -90,7 +90,7 @@ val arith = Q.prove (
   `!x. x ≠ 0 ⇒ &(x-1) = &x - 1`,
   rw [int_arithTheory.INT_NUM_SUB]);
 
-val insertsort_spec = Q.store_thm ("insertquicksort_spec",
+val insertsort_spec = Q.store_thm ("insertsort_spec",
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
     LIST_REL a elems elem_vs ∧
     (a --> a --> BOOL) cmp cmp_v ∧
