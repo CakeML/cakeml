@@ -702,7 +702,9 @@ val EqualityType_AST_LOP_TYPE = find_equality_type_thm``AST_LOP_TYPE``
 val EqualityType_OPTION_TYPE_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
   |> Q.GEN`a` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
 
-val EqualityType_AST_LOCN_TYPE = find_equality_type_thm ``AST_LOCN_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM]
+val EqualityType_LOCATION_LOCN_TYPE = find_equality_type_thm ``LOCATION_LOCN_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM]
+
+val EqualityType_PAIR_TYPE = find_equality_type_thm ``PAIR_TYPE a b``
 
 val AST_EXP_TYPE_no_closures = Q.prove(
   `∀a b. AST_EXP_TYPE a b ⇒ no_closures b`,
@@ -724,7 +726,7 @@ val AST_EXP_TYPE_no_closures = Q.prove(
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
             EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
             EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val AST_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. AST_EXP_TYPE a b ∧ AST_EXP_TYPE c d ⇒ types_match b d`,
@@ -752,7 +754,7 @@ val AST_EXP_TYPE_types_match = Q.prove(
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
             EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
             EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.prove(
   `∀a b c d. AST_EXP_TYPE a b ∧ AST_EXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
@@ -794,7 +796,7 @@ val AST_EXP_TYPE_11 = with_flag (metisTools.limit,{infs=SOME 1,time=NONE}) Q.pro
             EqualityType_AST_LOP_TYPE,EqualityType_AST_OP_TYPE,
             EqualityType_LIST_TYPE_CHAR,EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
             EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR,
-            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_AST_LOCN_TYPE])
+            EqualityType_AST_LIT_TYPE,EqualityType_AST_T_TYPE,EqualityType_LOCATION_LOCN_TYPE,EqualityType_PAIR_TYPE])
 
 val EqualityType_AST_EXP_TYPE = Q.prove(
   `EqualityType AST_EXP_TYPE`,
