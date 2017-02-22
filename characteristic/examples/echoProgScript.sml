@@ -38,41 +38,51 @@ val echo_spec = Q.store_thm("echo_spec",
     >-(xapp \\ xsimpl \\ instantiate
       \\ rw[mlstringTheory.concatWith_CONCAT_WITH, mlstringTheory.implode_explode, Once mlstringTheory.implode_def]
       \\ Cases_on `cl` \\ fs[mlstringTheory.implode_def])
-    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
+    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
     >-(xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
       \\ rw[mlstringTheory.explode_implode] \\ xsimpl)
-    \\ xlet `POSTv u. STDOUT (output ++ MAP (n2w ∘ ORD) (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl * & WORD (n2w 10:word8) u`
+    \\ xlet `POSTv u. STDOUT (output ++ (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl * & WORD (n2w 10:word8) u`
     >-(xapp \\ xsimpl)
-    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ MAP (n2w o ORD) (CONCAT_WITH " " (TL cl))`, `n2w 10`] \\ xsimpl
+    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ (CONCAT_WITH " " (TL cl))`, `n2w 10`] \\ xsimpl
 );
 
-val echo_ffi_oracle_def = Define `
-  (echo_ffi_oracle:((string list) # (word8 list)) oracle) = 
-    \name (cls, out) bytes.
-      if name = "putChar" then
-        case bytes of
-        | [b] => Oracle_return (cls, out ++ [b]) [b]
-        | _ => Oracle_fail
-      else if name = "getArgs" then
-        case ffi_getArgs bytes cls of
-          | SOME(bytes, cls) => Oracle_return (cls, out) bytes
-          | NONE => Oracle_fail
-      else Oracle_fail`
+(*-------------------------------------------------------------------------------------------------*)
+(* GENERALISED FFI *)
 
-val echo_ffi_def = Define `
-  echo_ffi (cls: string list) =
-    <| oracle := echo_ffi_oracle
-     ; ffi_state := (cls, [])
+val basis_ffi_oracle_def = Define `
+  basis_ffi_oracle =
+    \name (inp, out,cls) bytes.
+     if name = "putChar" then
+       case ffi_putChar bytes out of
+       | SOME (bytes,out) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     if name = "getChar" then
+       case ffi_getChar bytes inp of
+       | SOME (bytes,inp) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     if name = "getArgs" then
+       case ffi_getArgs bytes cls of
+       | SOME (bytes,cls) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     Oracle_fail`
+
+
+(*Output is always empty to start *)
+val basis_ffi_def = Define `
+  basis_ffi (inp: string) (cls: string list) = 
+    <| oracle := basis_ffi_oracle
+     ; ffi_state := (inp, [], cls)
      ; final_event := NONE
-     ; io_events := [] |>`;  
+     ; io_events := [] |>`; 
+ 
+val basis_proj1_def = Define `
+  basis_proj1 = (\(inp, out, cls).
+    FEMPTY |++ [("putChar", Str out);("getChar",Str inp);("getArgs", List (MAP Str cls))])`;
 
+val basis_proj2_def = Define `
+  basis_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun); (["getArgs"], commandLine_fun)]`;
 
-val echo_proj1_def = Define`
-  echo_proj1 = (\(cl:string list, out:word8 list).
-    FEMPTY |++ [("getArgs", List (MAP Str cl));("putChar", Str (MAP (CHR o w2n) out))])`
-
-val echo_proj2_def = Define`
-  echo_proj2 = [(["getArgs"], commandLine_fun);(["putChar"], stdout_fun)]`;
+(*-------------------------------------------------------------------------------------------------*)
 
 (* TODO: move to where these are defined *)
 (*
@@ -87,7 +97,10 @@ val ffi_getArgs_length = Q.store_thm("ffi_getArgs_length",
 
 val stdout_fun_length = Q.store_thm("stdout_fun_length",
   `stdout_fun m bytes w = SOME (bytes',w') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on`bytes` \\ fs[]);
+  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on`bytes` \\ fs[]
+  \\ fs[ffi_putChar_def] \\ Cases_on `t`  \\ fs[]
+  \\ var_eq_tac \\ fs[] \\ rw[] 
+  );
 
 val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
   `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
@@ -99,21 +112,6 @@ val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
 val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
   `OPT_MMAP SOME ls = SOME ls`,
   Induct_on`ls` \\ rw[OPT_MMAP_def]);
-
-(* -- *)
-
-val parts_ok_echo_proj = Q.store_thm("parts_ok_echo_proj",
-  `parts_ok (echo_ffi cls) (echo_proj1, echo_proj2)`,
-  rw[cfStoreTheory.parts_ok_def,echo_proj2_def,echo_ffi_def,echo_proj1_def,FUPDATE_LIST_THM,FLOOKUP_UPDATE]
-  \\ rw[] \\ fs[commandLine_fun_def]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ imp_res_tac ffi_getArgs_length
-  \\ imp_res_tac stdout_fun_length \\ fs[]
-  \\ fs[FAPPLY_FUPDATE_THM]
-  \\ rw[echo_ffi_oracle_def]
-  \\ fs[decode_def,cfHeapsBaseTheory.decode_list_def,OPT_MMAP_MAP_o,FUPDATE_LIST_THM,encode_def,cfHeapsBaseTheory.encode_list_def,FUPDATE_COMMUTES]
-  \\ every_case_tac \\ fs[stdout_fun_def,FUPDATE_COMMUTES]);
-
 
 
 (* TODO: Generalise the heap requirements for STDOUT, COMMANDLINE, etc. so that the assumptions can be discharged in the proof 
@@ -136,7 +134,13 @@ val STDOUT_precond = Q.store_thm("STDOUT_precond",
 );
 *)
 
-(*----------------------------------------------------------------------------------------*)
+(*-------------------------------------------------------------------------------------------------*)
+
+(*The following section culminates in call_main_thm2 which takes a spec and some aspects
+  of the current state, and proves a Semantics_prog statement. It also proves call_FFI_rel^*
+  between the initial state, and the state after creating the prog and then calling the main
+  function - this is useful for theorizing about the output of the program  *)
+
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
   ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
@@ -218,96 +222,6 @@ val FFI_part_hprop_STAR = Q.store_thm("FFI_part_hprop_STAR",
   \\ fs[set_sepTheory.STAR_def,SPLIT_def] \\ rw[]
   \\ metis_tac[]);
 
-val call_main_thm2 = Q.store_thm("call_main_thm2",
-`ML_code env1 st1 prog NONE env2 st2 ==> 
-   lookup_var fname env2 = SOME fv ==> 
-  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==>     
-  FFI_part_hprop Q ==>
-  no_dup_mods (SNOC ^main_call prog) st1.defined_mods /\ 
-  no_dup_top_types (SNOC ^main_call prog) st1.defined_types ==>
-  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1 
-  ==>  
-    ∃st3.
-    semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
-    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q h3)`,
-  rw[]
-  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3`
-  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3`
-  suffices_by metis_tac[prog_to_semantics_prog]
-  \\ simp[Abbr`A`,Abbr`B`]
-  \\ drule (GEN_ALL call_main_thm1)
-  \\ rpt (disch_then drule)
-  \\ simp[] \\ strip_tac
-  \\ asm_exists_tac \\ simp[]
-  \\ reverse conj_tac >- metis_tac[]
-  \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
-  >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
-    \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
-  \\ fs[ml_progTheory.Prog_def]
-  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
-  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
-  \\ fs[FFI_part_hprop_def]
-  \\ first_x_assum drule \\ strip_tac
-  \\ fs[EXTENSION]
-  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
-  \\ simp[FFI_part_NOT_IN_store2heap]);
-
-val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
-  `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
-  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND]
-  \\ fs[] \\ rw[extract_output_def] \\ full_case_tac 
-  \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
-  \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
-);
-
-(*STDOUT may need to be abstracted but its whats meant to be at the end with extract_output *)
-val call_main_thm2 = Q.store_thm("call_main_thm2",
-`ML_code env1 st1 prog NONE env2 st2 ==> 
-   lookup_var fname env2 = SOME fv ==> 
-  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * Q)) ==>     
-  no_dup_mods (SNOC ^main_call prog) st1.defined_mods /\ 
-  no_dup_top_types (SNOC ^main_call prog) st1.defined_types ==>
-  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1 
-  ==>  
-    ∃st3.
-    semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
-    extract_output st3.ffi.io_events = SOME (x) /\
-    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ (STDOUT x * Q) h3)`,
-  rw[]
-  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st3`
-  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3 /\ C st3`
-  suffices_by metis_tac[prog_to_semantics_prog]
-  \\ simp[Abbr`A`,Abbr`B`, Abbr`C`]
-  \\ drule (GEN_ALL call_main_thm1)
-  \\ rpt (disch_then drule)
-  \\ simp[] \\ strip_tac
-  \\ asm_exists_tac \\ simp[]
-  \\ conj_tac  >-( Cases_on `parts_ok st3.ffi (proj1, proj2)`
-  >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
-    \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
-  \\ fs[ml_progTheory.Prog_def]
-  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
-  \\ `FFI_part_hprop (STDOUT x * Q)` by metis_tac[FFI_part_hprop_def, STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
-  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
-  \\ fs[FFI_part_hprop_def]
-  \\ first_x_assum drule \\ strip_tac
-  \\ fs[EXTENSION]
-  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
-  \\ simp[FFI_part_NOT_IN_store2heap])
-  \\ reverse conj_tac >- metis_tac[]
-  \\ fs[STDOUT_def, cfHeapsBaseTheory.IO_def, set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
-  \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
-  \\ `FFI_part (Str (MAP (CHR o w2n) x)) stdout_fun ["putChar"] events IN (st2heap (proj1, proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
-  \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap]
-  \\ fs [cfStoreTheory.ffi2heap_def]
-  \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
-  >-(
-    (*This can be true if we have that h3 and h4 have no ffi parts and h2 only has one STDOUT part --> one STDOUT part comes from parts_ok, one h3 and h4 can be subsets of the .refs of the total thing and extract_output_not_putChar can be used to show that the other FFI calls don't affect extract_output*)
-    fs[extract_output_FILTER, cfStoreTheory.parts_ok_def]  
-    \\ Cases_on `st3` \\ Cases_on `f` \\ Cases_on `l'` \\ fs[extract_output_def, cfStoreTheory.parts_ok_def]
-
 val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
   `FFI_part_hprop (STDOUT x)`,
   rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
@@ -318,6 +232,8 @@ val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
     cfHeapsBaseTheory.cell_def]
   \\ fs[set_sepTheory.one_STAR]
   \\ metis_tac[]);
+
+
 
 val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
   `FFI_part_hprop (STDIN b x)`,
@@ -335,6 +251,138 @@ val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
   rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
     set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
   \\ fs[set_sepTheory.one_def]);
+
+
+val call_main_thm2 = Q.store_thm("call_main_thm2",
+  `ML_code env1 st1 prog NONE env2 st2 ==> 
+   lookup_var fname env2 = SOME fv ==> 
+  app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==>     
+  FFI_part_hprop Q ==>
+  no_dup_mods (SNOC ^main_call prog) st1.defined_mods /\ 
+  no_dup_top_types (SNOC ^main_call prog) st1.defined_types ==>
+  SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1 
+  ==>  
+    ∃st3.
+    semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
+    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q h3) /\
+    call_FFI_rel^* st1.ffi st3.ffi`,
+  rw[]
+  \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st1 st3`
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3 /\ C st1 st3`
+  suffices_by metis_tac[prog_to_semantics_prog]
+  \\ `?st3. Prog env1 st1 (SNOC ^main_call prog) env2 st3 ∧ st3.ffi.final_event = NONE /\ B st3`
+  suffices_by metis_tac[ml_progTheory.Prog_def, evaluate_prog_RTC_call_FFI_rel]
+  \\ simp[Abbr`A`,Abbr`B`]
+  \\ drule (GEN_ALL call_main_thm1)
+  \\ rpt (disch_then drule)
+  \\ simp[] \\ strip_tac
+  \\ asm_exists_tac \\ simp[]
+  \\ reverse conj_tac >- metis_tac[]
+  \\ Cases_on `parts_ok st3.ffi (proj1, proj2)`
+  >-(`st3.ffi.final_event = NONE` by fs[cfStoreTheory.parts_ok_def]
+    \\ imp_res_tac prog_to_semantics_prog \\ rfs[])
+  \\ fs[ml_progTheory.Prog_def]
+  \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.ffi2heap_def,cfHeapsBaseTheory.SPLIT3_def]
+  \\ `h3 <> {}` by metis_tac[FFI_part_hprop_def,MEMBER_NOT_EMPTY]
+  \\ fs[FFI_part_hprop_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ fs[EXTENSION]
+  \\ last_x_assum(qspec_then`FFI_part s u ns us`mp_tac)
+  \\ simp[FFI_part_NOT_IN_store2heap]
+);
+
+
+(*-------------------------------------------------------------------------------------------------*)
+(*These theorems are the theorems necessary if you use a projs, oracle and ffi that aren't
+  basis_ffi*)
+
+(*RTC_call_FFI_rel_IMP_basis_events show that extracting output from two ffi_states will use the 
+  same function if the two states are related by a series of FFI_calls. If this is the case for
+  your oracle (and projs), then this proof should be relatively similar. Note
+  that to make the subsequent proofs similar one should show an equivalence between
+  extract_output and proj1  *)
+
+val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
+  `!st st'. call_FFI_rel^* st st' ==>
+  st.oracle = basis_ffi_oracle /\ 
+  extract_output st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar")))) ==>
+  extract_output st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar"))))`,
+  HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
+  \\ fs [evaluatePropsTheory.call_FFI_rel_def]
+  \\ fs [ffiTheory.call_FFI_def]
+  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ Cases_on `f` \\ fs []
+  \\ reverse (Cases_on `n = "putChar"`) \\ fs []
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ fs [extract_output_APPEND,extract_output_def, basis_proj1_def] \\ rfs []
+  \\ (rpt (pairarg_tac \\ fs[])
+    \\ fs[FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
+    \\ Cases_on `st.ffi_state` \\ fs[]
+    \\ fs [basis_ffi_oracle_def]
+    \\ every_case_tac \\ fs[])    
+  \\ fs[ffi_putChar_def] \\ every_case_tac \\ fs[] 
+  \\ rw[] \\ fs[]
+  \\ first_x_assum match_mp_tac 
+  \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
+);
+
+
+(*extract_output_basis_ffi shows that the first condition for the previous theorem holds for the 
+  init_state ffi  *)
+
+val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
+  `extract_output (init_state (basis_ffi inp cls)).ffi.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls)).ffi.ffi_state ' "putChar"))))`,
+  rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def, basis_proj1_def, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
+);
+
+
+(*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
+  theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
+  showing that post-condition which gives effects your programs output is an FFI_part and 
+  assuming that parts_ok is satisfied, an assumption about proj1 and the ffi_state should be
+  derived which should fit the function on some st.ffi_state which returns extract_output on 
+  st.io_events  *) 
+
+val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
+`ML_code env1 (init_state (basis_ffi inp cls)) prog NONE env2 st2 ==> 
+   lookup_var fname env2 = SOME fv ==> 
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * Q)) ==>     
+  no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls)).defined_mods /\
+  no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls)).defined_types ==>
+  SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1 
+  ==>  
+    ∃(st3:(tvarN # tvarN # tvarN list) semanticPrimitives$state).
+    semantics_prog (init_state (basis_ffi inp cls)) env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
+    extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x)`,
+    rw[]
+    \\ drule (GEN_ALL call_main_thm2)
+    \\ rpt(disch_then drule)
+    \\ simp[] \\ strip_tac
+    \\ `FFI_part_hprop (STDOUT x * Q)` by metis_tac[FFI_part_hprop_def, STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
+    \\ first_x_assum (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[] \\ fs[]
+    \\ qexists_tac `st3` \\ rw[]
+    \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x` suffices_by 
+      (imp_res_tac RTC_call_FFI_rel_IMP_basis_events 
+      \\ fs[extract_output_basis_ffi, ml_progTheory.init_state_def, basis_ffi_def]
+      \\ qexists_tac `st3` 
+      \\ rw[basis_proj1_def, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM])
+    \\ fs[STDOUT_def, cfHeapsBaseTheory.IO_def, set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+    \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+    \\ `FFI_part (Str x)
+         stdout_fun ["putChar"] events ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+    \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap]
+    \\ fs [cfStoreTheory.ffi2heap_def]
+    \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
+    \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n]
+);
+
+
+(*-------------------------------------------------------------------------------------------------*)
+
+(*This should stay here - it is the expected workflow for getting the semantics and the output of
+  a program using basis_projs, basis_oracle and basis_ffi*)
 
 val ML_code_thm = get_ml_prog_state() |> remove_snocs |> get_thm
 val env = init_state |> remove_snocs |> get_env
@@ -360,105 +408,36 @@ val no_dup_tops_types_echo = Q.store_thm ("no_dup_tops_types_echo",
   \\ CONV_TAC(no_dup_top_types_conv)
 );
 
-val FFI_part_hprop_STDOUT_COMMANDLINE =
-  Q.prove(`FFI_part_hprop (STDOUT x * COMMANDLINE y)`, metis_tac[FFI_part_hprop_STAR,STDOUT_FFI_part_hprop,COMMANDLINE_FFI_part_hprop]);
-
-val call_thm_instantiated =
-  call_main_thm2
-  |> C MATCH_MP ML_code_thm
+val call_thm_echo =
+  call_main_thm_basis
+  |> C MATCH_MP (ML_code_thm |> Q.GEN `ffi` |> ISPEC ``basis_ffi inp cls``)
   |> Q.GENL[`fv`,`fname`] |> Q.SPEC`"echo"`
   |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
   |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-  |> C MATCH_MP (echo_spec |> SPEC_ALL |> UNDISCH |> Q.GEN`p` |> Q.SPEC`(proj1,proj2)`)
-  |> Q.GEN `ffi` |> ISPEC ``echo_ffi cls``
-  |> Q.INST [`proj1`|->`echo_proj1`,`proj2`|->`echo_proj2`]
-  |> CONV_RULE(LAND_CONV(REWR_CONV(EQT_INTRO FFI_part_hprop_STDOUT_COMMANDLINE)))
-  |> C MATCH_MP TRUTH
+  |> C MATCH_MP (
+    echo_spec |> SPEC_ALL |> UNDISCH |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2):(string#string#string list) ffi_proj` 
+  )
   |> CONV_RULE(LAND_CONV(REWRITE_CONV[EQT_INTRO no_dup_mods_echo, EQT_INTRO no_dup_tops_types_echo]))
   |> C MATCH_MP TRUTH
 
+(*-------------------------------------------------------------------------------------------------*)
 
-(* May need to do something with this to change reasoning about h1
-  |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[STAR_def,STDOUT_def,COMMANDLINE_def,PULL_EXISTS])) *)
-
-(*----------------------------------------------------------------------------------------*)
-(*SOME USEFUL LEMMAS*)
-
-
-
-(* TODO: Fix this attempt to specify what the output of a program is on an abstract level
-
-
+(* TODO: Move these to somewhere relevant *) 
 val extract_output_not_putChar = Q.prove(
     `!xs name bytes. name <> "putChar" ==>
       extract_output (xs ++ [IO_event name bytes]) = extract_output xs`,
       rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
 );
 
-
-
-extract_output_append
-DB.find"extract_output_APPEND"
-DB.find"ffi_has_index_in"
-
-val RTC_call_FFI_rel_IMP = Q.store_thm("RTC_call_FFI_rel_IMP",
-  `!st st'.
-    call_FFI_rel^* st.ffi st'.ffi ==>
-    extract_output st.ffi.io_events = SOME(SND(st.ffi.ffi_state)) ==>
-    extract_output st'.ffi.io_events = SOME(SND(st'.ffi.ffi_state))`,
-    cheat
+val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
+  `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
+  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND]
+  \\ fs[] \\ rw[extract_output_def] \\ full_case_tac 
+  \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
 );
-
-val extract_output_STDOUT = Q.prove(
-    `!env1 s1 prog env2 s2 proj1 proj2 h1 x. 
-      Prog env1 s1 prog env2 s2 /\
-      SPLIT3 (st2heap (proj1, proj2) s2) (h1, h2, h3) /\
-     (STDOUT x) h1 ==>
-(* these should be assumptions in the proof - they just mean the oracle is correctly constructed *)
-         extract_output s1.ffi.io_events = 
-             SOME ((MAP (n2w o ORD))(THE(destStr (proj1 (s1.ffi.ffi_state) ' "putChar")))) ==>  
-    extract_output s2.ffi.io_events = SOME (x) /\
-    destStr (proj1 (s2.ffi.ffi_state) ' "putChar") = SOME (MAP (CHR o w2n) x)`,
-    simp[ml_progTheory.Prog_def] \\
-    rpt gen_tac \\ strip_tac \\
-    imp_res_tac evaluate_prog_RTC_call_FFI_rel
-(*a generalised version of RTC_call_FFI_rel_IMP_io_events needs to be made *) 
-    \\ qho_match_abbrev_tac`extract_output _ = SOME (getOutput s1.ffi.ffi_state) ==> _`
-    \\ strip_tac
-    \\ drule RTC_call_FFI_rel_IMP (*this is cheated *)
-    \\ simp[]
-    \\ strip_tac
-    \\ fs [STDOUT_def,cfHeapsBaseTheory.IO_def,
-            set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
-    \\ fs[set_sepTheory.one_STAR, cfStoreTheory.st2heap_def]
-    \\ `FFI_part (Str (MAP (CHR o w2n) x)) stdout_fun ["putChar"] events IN
-            (store2heap s2.refs ∪ ffi2heap (proj1, proj2) s2.ffi)` by cfHeapsBaseLib.SPLIT_TAC
-    \\ fs[cfStoreTheory.FFI_part_NOT_IN_store2heap]
-    \\ rfs[cfStoreTheory.ffi2heap_def, Abbr `getOutput`, FLOOKUP_DEF]
-    \\ Cases_on `parts_ok s2.ffi (proj1, proj2)` \\ fs[]
-    \\ rw[MAP_MAP_o, n2w_ORD_CHR_w2n] 
-);
-
-
-val ffi_outcomes = Q.prove(
-  `!proj1 proj2 h1 h2 h3. 
-  SPLIT3 (st2heap (proj1, proj2) s2) (h1, h2, h3) /\ (STDOUT x) h1 /\
-  Prog init_env s1 prog env2 s2 /\
-  parts_ok s2.ffi (proj1, proj2) /\  
-  extract_output s1.ffi.io_events = 
-             SOME ((MAP (n2w o ORD))(THE(destStr (proj1 (s1.ffi.ffi_state) ' "putChar")))) 
-  ==>
-  Prog init_env s1 prog env2 s2 /\
-  s2.ffi.final_event = NONE /\  (*this allows us to use prog_to_semantics_prog*)
-  extract_output s2.ffi.io_events = SOME (x)`,
-  (*this should suffice to prove the overall goal *)
-  rw[] >- fs[cfStoreTheory.parts_ok_def] 
-  \\ drule extract_output_STDOUT
-  \\ strip_tac
-  \\ first_x_assum (qspecl_then [`proj1`, `proj2`, `h1`, `x`] mp_tac) \\ rw[]
-);
-
-*)
 
 
 val _ = export_theory();
