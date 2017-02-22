@@ -515,12 +515,12 @@ val peg_sound = Q.store_thm(
       dsimp[cmlG_applied, cmlG_FDOM] >> lrresolve X (K true) mp_tac>>
       simp[] >> strip_tac >> rveq >> simp[])
   >- (print_tac "nPatternList" >> strip_tac >> rveq >>
-      TRY(qpat_x_assum`CommaT = FST _`(assume_tac o SYM) \\ fs[]) >>
+      TRY(qpat_x_assum`CommaT = FST _`(assume_tac o SYM) >> fs[]) >>
       simp[cmlG_FDOM, cmlG_applied] >>
       `NT_rank (mkNT nPattern) < NT_rank (mkNT nPatternList)`
         by simp[NT_rank_def] >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
-      imp_res_tac length_no_greater \\ fs[]
+      imp_res_tac length_no_greater >> fs[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
       lrresolve X (free_in ``nPatternList``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[] >> rfs[] >>
@@ -634,7 +634,7 @@ val peg_sound = Q.store_thm(
       dsimp[cmlG_FDOM, cmlG_applied, mktokLf_def, MAP_EQ_SING] >> csimp[] >>
       fs[] >> pop_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[pegsym_to_sym_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
-           DISJ_IMP_THM, FORALL_AND_THM] >> strip_tac >> rveq >> simp[])
+           DISJ_IMP_THM, FORALL_AND_THM, EXISTS_PROD] >> dsimp[])
   >- (print_tac "nTyVarList" >> strip_tac >>
       `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
         by simp[NT_rank_def] >>
@@ -664,27 +664,37 @@ val peg_sound = Q.store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[] >> strip_tac >> rveq >> simp[] >> asm_match `isTyvarT HH` >>
           qpat_x_assum `isTyvarT HH` mp_tac >> Cases_on `HH` >> simp[])
-      >- (fs[] >> rveq >> fs[])
-      >- (fs[] >> rveq >> fs[]) >>
+      >- (rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
+          fs[] >> rveq >> fs[])
+      >- (rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
+          fs[] >> rveq >> fs[]) >>
+      rename [`LparT = FST sometok`] >> Cases_on `sometok` >>
       fs[] >> rveq >> fs[])
   >- (print_tac "nPType" >>
       `NT_rank (mkNT nDType) < NT_rank (mkNT nPType)` by simp[NT_rank_def] >>
+      simp[EXISTS_PROD] >>
       strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM]
-      >- (first_x_assum (erule mp_tac) >> simp[MAP_EQ_APPEND, MAP_EQ_CONS] >>
+      >- (first_x_assum (erule mp_tac) >>
+          simp[MAP_EQ_APPEND, MAP_EQ_CONS, EXISTS_PROD] >>
           strip_tac >> rveq >> lrresolve X (free_in ``nPType``) mp_tac >>
+          rename[`MAP (TK o FST) input1 = MAP (TK o FST) input1'`] >>
+          `LENGTH input1' = LENGTH input1` by metis_tac[LENGTH_MAP] >>
           simp[] >> strip_tac >> rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
           dsimp[] >> metis_tac[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[]) >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
-  >- (print_tac "nUQTyOp" >> dsimp[cmlG_FDOM, cmlG_applied] >>
+  >- (print_tac "nUQTyOp" >>
+      dsimp[cmlG_FDOM, cmlG_applied, EXISTS_PROD, FORALL_PROD] >>
       qx_gen_tac `h` >> Cases_on `h` >> simp[])
   >- (print_tac "nTyOp" >> strip_tac >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
       >- (first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
-      asm_match `isLongidT h` >> Cases_on `h` >> fs[])
-  >- (print_tac "nTypeList1" >> strip_tac >> rveq >>
+      asm_match `isLongidT (FST h)` >> Cases_on `FST h` >> fs[])
+  >- (print_tac "nTypeList1" >>
+      CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
+      strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, listTheory.APPEND_EQ_CONS, MAP_EQ_SING] >>
       csimp[] >>
       `NT_rank (mkNT nType) < NT_rank (mkNT nTypeList1)` by simp[NT_rank_def]
@@ -697,7 +707,9 @@ val peg_sound = Q.store_thm(
           fs[] >> simp[] >> rpt strip_tac >> rveq >> simp[])
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
-  >- (print_tac "nTypeList2" >> strip_tac >> rveq >>
+  >- (print_tac "nTypeList2" >>
+      CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
+      strip_tac >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM, listTheory.APPEND_EQ_CONS, MAP_EQ_SING]>>
       csimp[] >>
       `NT_rank (mkNT nType) < NT_rank (mkNT nTypeList2)` by simp[NT_rank_def]>>
@@ -708,7 +720,9 @@ val peg_sound = Q.store_thm(
             (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
                                |> GEN_ALL) >> fs[] >> simp[] >>
       strip_tac >> rveq >> simp[])
-  >- (print_tac "nTbase" >> strip_tac >> rveq >>
+  >- (print_tac "nTbase" >>
+      CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
+      strip_tac >> rveq >>
       fs[cmlG_FDOM, cmlG_applied, peg_eval_nTyOp_wrongtok] >>
       rveq >> fs[]
       >- (lrresolve X (K true) mp_tac >> simp[] >> strip_tac >> rveq >>
@@ -747,10 +761,10 @@ val peg_sound = Q.store_thm(
       pop_assum SUBST1_TAC >> pop_assum mp_tac >>
       `∃acc.
          ptree_head acc = NN nDType ∧ valid_ptree cmlG acc ∧
-         ptree_fringe base_pt ++ MAP TK i2 =
-           ptree_fringe acc ++ MAP TK i2 ∧
-         Nd (mkNT nDType) [base_pt] = acc`
-        by (simp[cmlG_FDOM, cmlG_applied]) >>
+         ptree_fringe base_pt ++ MAP (TK o FST) i2 =
+           ptree_fringe acc ++ MAP (TK o FST) i2 ∧
+         mkNd (mkNT nDType) [base_pt] = acc`
+        by (simp[cmlG_FDOM, cmlG_applied, mkNd_def]) >>
       ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
       map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
       >- (simp[Once peg_eval_cases] >>
@@ -765,16 +779,19 @@ val peg_sound = Q.store_thm(
         by metis_tac[not_peg0_LENGTH_decreases, peg0_nTyOp] >>
       `LENGTH i3 < LENGTH i0` by decide_tac >>
       first_x_assum
-        (qspecl_then [`i`, `i3`, `Nd (mkNT nDType) [acc; tyop_pt2]`]
+        (qspecl_then [`i`, `i3`, `mkNd (mkNT nDType) [acc; tyop_pt2]`]
                      mp_tac)>>
-      simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
-  >- (print_tac "nType" >> simp[peg_eval_choice] >>
+      simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM, mkNd_def])
+  >- (print_tac "nType" >> simp[peg_eval_choice, EXISTS_PROD] >>
       `NT_rank (mkNT nPType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
           fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
           lrresolve X (free_in ``nType``) mp_tac >>
-          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
+          rename[`MAP (TK o FST) inp1 = MAP (TK o FST) inp1'`] >>
+          `LENGTH inp1' = LENGTH inp1` by metis_tac[LENGTH_MAP] >>
+          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied] >>
+          metis_tac[]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nPbaseList1" >> strip_tac >> rveq >>
@@ -785,7 +802,7 @@ val peg_sound = Q.store_thm(
       dsimp[MAP_EQ_CONS] >> csimp[] >>
       fs[MAP_EQ_APPEND] >> disj2_tac >>
       erule assume_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPbase) >>
-      first_x_assum (erule strip_assume_tac) >> simp[])
+      first_x_assum (erule strip_assume_tac) >> simp[] >> metis_tac[])
   >- (print_tac "nFDecl" >> strip_tac >> rveq >> simp[] >>
       `NT_rank (mkNT nV) < NT_rank (mkNT nFDecl)` by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
@@ -800,8 +817,9 @@ val peg_sound = Q.store_thm(
       simp[] >> strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nAndFDecls" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
-      simp[SUBSET_DEF, pegsym_to_sym_def, DISJ_IMP_THM, FORALL_AND_THM,
-           cmlG_applied, cmlG_FDOM] >> first_x_assum match_mp_tac >>
+      dsimp[SUBSET_DEF, pegsym_to_sym_def, DISJ_IMP_THM, FORALL_AND_THM,
+            cmlG_applied, cmlG_FDOM, EXISTS_PROD] >>
+      first_x_assum match_mp_tac >>
       simp[NT_rank_def])
   >- (print_tac "nPE'" >> strip_tac >> rveq >> simp[] >>
       `NT_rank (mkNT nPattern) < NT_rank (mkNT nPE')` by simp[NT_rank_def] >>
