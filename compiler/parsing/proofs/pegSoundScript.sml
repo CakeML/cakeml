@@ -515,13 +515,16 @@ val peg_sound = Q.store_thm(
       dsimp[cmlG_applied, cmlG_FDOM] >> lrresolve X (K true) mp_tac>>
       simp[] >> strip_tac >> rveq >> simp[])
   >- (print_tac "nPatternList" >> strip_tac >> rveq >>
+      TRY(qpat_x_assum`CommaT = FST _`(assume_tac o SYM) \\ fs[]) >>
       simp[cmlG_FDOM, cmlG_applied] >>
       `NT_rank (mkNT nPattern) < NT_rank (mkNT nPatternList)`
         by simp[NT_rank_def] >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
-      fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >>
+      imp_res_tac length_no_greater \\ fs[]
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
       lrresolve X (free_in ``nPatternList``) mp_tac >> simp[] >>
-      strip_tac >> rveq >> dsimp[])
+      strip_tac >> rveq >> dsimp[] >> rfs[] >>
+      metis_tac[])
   >- (print_tac "nPattern" >> strip_tac >> rveq >>
       `NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)` by simp[NT_rank_def] >>
       simp[cmlG_FDOM, cmlG_applied]
@@ -530,6 +533,7 @@ val peg_sound = Q.store_thm(
           fs[MAP_EQ_APPEND] >> rveq >> dsimp[] >> fs[] >>
           rename1`peg_eval _ (inp2, nt (mkNT nType) I)` >>
           first_x_assum (qspecl_then [`mkNT nType`, `inp2`] mp_tac) >>
+          imp_res_tac length_no_greater \\ fs[] >>
           simp[] >> metis_tac[])
       >- (dsimp[MAP_EQ_CONS] >> disj1_tac >>
           first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
@@ -571,12 +575,12 @@ val peg_sound = Q.store_thm(
           dsimp[cmlG_applied, cmlG_FDOM])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >>
           dsimp[cmlG_applied, cmlG_FDOM])
-      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isInt h` >>
-          Cases_on `h` >> fs[])
-      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isString h` >>
-          Cases_on `h` >> fs[])
-      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isCharT h` >>
-          Cases_on `h` >> fs[])
+      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isInt (FST h)` >>
+          Cases_on `FST h` >> fs[])
+      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isString (FST h)` >>
+          Cases_on `FST h` >> fs[])
+      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isCharT (FST h)` >>
+          Cases_on `FST h` >> fs[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >>
           dsimp[cmlG_applied, cmlG_FDOM])
       >- simp[cmlG_FDOM, cmlG_applied]
@@ -625,7 +629,7 @@ val peg_sound = Q.store_thm(
            mktokLf_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF] >>
       (peg0_nTypeName |> Q.INST[`f` |-> `I`] |> assume_tac) >>
       erule mp_tac (GEN_ALL not_peg0_LENGTH_decreases)>>
-      simp[])
+      simp[] >> rw[])
   >- (print_tac "nTypeDec" >> simp[peg_TypeDec_def] >> strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, mktokLf_def, MAP_EQ_SING] >> csimp[] >>
       fs[] >> pop_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
