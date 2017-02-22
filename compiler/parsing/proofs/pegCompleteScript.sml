@@ -100,8 +100,9 @@ val peg_eval_choice_NONE =
 val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
 
 val ptree_head_eq_tok0 = Q.prove(
-  `(ptree_head pt = TOK tk) ⇔ (pt = Lf (TOK tk))`,
-  Cases_on `pt` >> simp[]);
+  `(ptree_head pt = TOK tk) ⇔ (?l. pt = Lf (TOK tk,l))`,
+  Cases_on `pt` >> Cases_on `p` >> simp[]);
+
 val ptree_head_eq_tok = save_thm(
   "ptree_head_eq_tok",
   CONJ ptree_head_eq_tok0
@@ -798,24 +799,25 @@ val peg_respects_firstSets = Q.store_thm(
   `∀N i0 t.
       t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧
       nt N I ∈ Gexprs cmlPEG ⇒
-      peg_eval cmlPEG (t::i0, nt N I) NONE`,
+      peg_eval cmlPEG ((t,l)::i0, nt N I) NONE`,
   rpt gen_tac >> CONV_TAC CONTRAPOS_CONV >> simp[] >>
   Cases_on `nt N I ∈ Gexprs cmlPEG` >> simp[] >>
-  IMP_RES_THEN (qspec_then `t::i0` (qxchl [`r`] assume_tac)) cmlPEG_total >>
+  IMP_RES_THEN (qspec_then `(t,l)::i0` (qxchl [`r`] assume_tac)) cmlPEG_total >>
   pop_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
   simp[] >>
   `r = NONE ∨ ∃i ptl. r = SOME(i,ptl)`
     by metis_tac[optionTheory.option_CASES, pairTheory.pair_CASES] >>
   simp[] >> rveq >>
   `∃pt. ptl = [pt] ∧ ptree_head pt = NT N ∧ valid_ptree cmlG pt ∧
-        MAP TK (t::i0) = ptree_fringe pt ++ MAP TK i`
+        MAP (TK o FST) ((t,l)::i0) = ptree_fringe pt ++ MAP (TK o FST) i`
     by metis_tac [peg_sound] >>
   rveq >> Cases_on `peg0 cmlPEG (nt N I)` >> simp[] >>
-  `LENGTH i < LENGTH (t::i0)` by metis_tac [not_peg0_LENGTH_decreases] >>
-  `ptree_fringe pt = [] ∨ ∃tk rest. ptree_fringe pt = TK tk:: MAP TK rest`
-    by (Cases_on `ptree_fringe pt` >> simp[] >> fs[] >> rveq >>
-        fs[MAP_EQ_APPEND] >> metis_tac[])
-  >- (fs[] >> pop_assum kall_tac >>
+  `LENGTH i < LENGTH ((t,l)::i0)` by metis_tac [not_peg0_LENGTH_decreases] >>
+  `ptree_fringe pt = [] ∨ ∃ tk rest : (token # locs) list. 
+                            ptree_fringe pt = TK tk :: MAP (TK o FST) rest`
+    by ( Cases_on `ptree_fringe pt` >> simp[] >> fs[] >> rw[] >> rveq >>
+        fs[MAP_EQ_APPEND] >> metis_tac[]) 
+   >- (fs[] >> pop_assum kall_tac >>
       first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
   fs[] >> rveq >> metis_tac [firstSet_nonempty_fringe])
 
@@ -848,24 +850,31 @@ val left_insert1_def = Define`
        | _ => Nd n subs)
 `;
 
+open grammarTheory
+val ptree_loc_left_insert1 = Q.prove(
+    `ptree_loc (left_insert1 pt acc) = ptree_loc acc`,
+    Cases_on `acc` >> TRY(Cases_on `p`) >>
+    rpt( every_case_tac >> simp[ptree_loc_def,left_insert1_def]))
+
 val left_insert1_FOLDL = Q.store_thm(
   "left_insert1_FOLDL",
-  `left_insert1 pt (FOLDL (λa b. Nd (mkNT P) [a; b]) acc arg) =
-    FOLDL (λa b. Nd (mkNT P) [a; b]) (left_insert1 pt acc) arg`,
-  qid_spec_tac `acc` >> Induct_on `arg` >> simp[left_insert1_def]);
+  `left_insert1 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
+    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert1 pt acc) arg`,
+  qid_spec_tac `acc` >> Induct_on `arg` >> 
+  fs[left_insert1_def,mkNd_def,ptree_list_loc_def,ptree_loc_left_insert1]);
 
 val eapp_reassociated = Q.store_thm(
   "eapp_reassociated",
   `∀pt bpt pf bf.
       valid_ptree cmlG pt ∧ ptree_head pt = NN nEapp ∧
-      ptree_fringe pt = MAP TK pf ∧
+      ptree_fringe pt = MAP (TK o FST) pf ∧
       valid_ptree cmlG bpt ∧ ptree_head bpt = NN nEbase ∧
-      ptree_fringe bpt = MAP TK bf ⇒
+      ptree_fringe bpt = MAP (TK o FST) bf ⇒
       ∃pt' bpt'.
         valid_ptree cmlG pt' ∧ valid_ptree cmlG bpt' ∧
         ptree_head pt' = NN nEapp ∧ ptree_head bpt' = NN nEbase ∧
-        ptree_fringe bpt' ++ ptree_fringe pt' = MAP TK (pf ++ bf) ∧
-        Nd (mkNT nEapp) [pt; bpt] = left_insert1 bpt' pt'`,
+        ptree_fringe bpt' ++ ptree_fringe pt' = MAP (TK o FST) (pf ++ bf) ∧
+        mkNd (mkNT nEapp) [pt; bpt] = left_insert1 bpt' pt'`,
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
   qx_gen_tac `subs` >> strip_tac >>
