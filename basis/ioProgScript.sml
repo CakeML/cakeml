@@ -1,11 +1,11 @@
 open preamble
      ml_translatorTheory ml_translatorLib semanticPrimitivesTheory evaluatePropsTheory
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib basisFunctionsLib
-     mlcharioProgTheory
+     mlcharioProgTheory mlcommandLineProgTheory cfMainTheory
 
 val _ = new_theory "ioProg"
 
-val _ = translation_extends "mlcharioProg";
+val _ = translation_extends "mlcommandLineProg";
 
 val write_list = parse_topdecs
   `fun write_list xs =
@@ -125,49 +125,68 @@ val print_spec = Q.store_thm("print_spec",
     xcf "print" (basis_st())
     \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
     >-(xapp \\ xsimpl \\ instantiate)
-    \\ xlet `POSTv nlv. & LIST_TYPE NUM (MAP ORD (explode s)) nlv * STDOUT output`
-    >-(xapp_spec string_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
-      \\ instantiate \\ qexists_tac `ORD` \\ qexists_tac `NUM`  \\ rw[mlcharProgTheory.char_ord_v_thm])
-    \\ xlet `POSTv blv. & LIST_TYPE (WORD:word8 -> v -> bool) (MAP n2w (MAP ORD (explode s))) blv * STDOUT output`    
-    >-(xapp_spec byte_map_v_thm \\ xsimpl \\ Cases_on `s` \\ fs[mlstringTheory.explode_thm]
-      \\ instantiate \\ qexists_tac `n2w` \\ qexists_tac `WORD` \\ rw[mlword8ProgTheory.word8_fromint_v_thm])
-    \\ xapp 
-    \\ instantiate \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl 
-    \\ fs[MAP_MAP_o, CHR_w2n_n2w_ORD] \\ xsimpl 
+    \\ xapp \\ rw[]
 );
 
-(* --- the following are defs and lemmas used by compiler/bootstrap/io/ioProgLib --- *)
+(*-------------------------------------------------------------------------------------------------*)
+(* GENERALISED FFI *)
 
-val io_ffi_oracle_def = Define `
-  (io_ffi_oracle:(string # string) oracle) =
-    \name (inp,out) bytes.
-       if name = "putChar" then
-         case bytes of
-         | [b] => Oracle_return (inp,out ++ [CHR (w2n b)]) [b]
-         | _ => Oracle_fail
-       else if name = "getChar" then
-         case bytes of
-         | [b;f] =>
-           if inp = "" then
-             Oracle_return (inp,out) [b; 1w]
-           else
-             Oracle_return (TL inp,out) [n2w(ORD(HD inp)); 0w]
-         | _ => Oracle_fail
-       else Oracle_fail`
+val basis_ffi_oracle_def = Define `
+  basis_ffi_oracle =
+    \name (inp, out,cls) bytes.
+     if name = "putChar" then
+       case ffi_putChar bytes out of
+       | SOME (bytes,out) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     if name = "getChar" then
+       case ffi_getChar bytes inp of
+       | SOME (bytes,inp) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     if name = "getArgs" then
+       case ffi_getArgs bytes cls of
+       | SOME (bytes,cls) => Oracle_return (inp,out,cls) bytes
+       | _ => Oracle_fail else
+     Oracle_fail`
 
-val io_ffi_def = Define `
-  io_ffi (inp:string) =
-    <| oracle := io_ffi_oracle
-     ; ffi_state := (inp,[])
+
+(*Output is always empty to start *)
+val basis_ffi_def = Define `
+  basis_ffi (inp: string) (cls: string list) = 
+    <| oracle := basis_ffi_oracle
+     ; ffi_state := (inp, [], cls)
      ; final_event := NONE
-     ; io_events := [] |>`;
+     ; io_events := [] |>`; 
+ 
+val basis_proj1_def = Define `
+  basis_proj1 = (\(inp, out, cls).
+    FEMPTY |++ [("putChar", Str out);("getChar",Str inp);("getArgs", List (MAP Str cls))])`;
 
-val io_proj1_def = Define `
-  io_proj1 = (\(inp,out).
-    FEMPTY |++ [("putChar",Str out);("getChar",Str inp)])`;
+val basis_proj2_def = Define `
+  basis_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun); (["getArgs"], commandLine_fun)]`;
 
-val io_proj2_def = Define `
-  io_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun)]`;
+
+val ffi_getArgs_length = Q.store_thm("ffi_getArgs_length",
+  `ffi_getArgs bytes cls = SOME (bytes',cls') ==> LENGTH bytes' = LENGTH bytes`,
+  EVAL_TAC \\ rw[] \\ rw[]);
+
+val stdout_fun_length = Q.store_thm("stdout_fun_length",
+  `stdout_fun m bytes w = SOME (bytes',w') ==> LENGTH bytes' = LENGTH bytes`,
+  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on`bytes` \\ fs[]
+  \\ fs[ffi_putChar_def] \\ Cases_on `t`  \\ fs[]
+  \\ var_eq_tac \\ fs[] \\ rw[] 
+  );
+
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
+  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
 
 val extract_output_def = Define `
   (extract_output [] = SOME []) /\
@@ -192,25 +211,58 @@ val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
 
-val evaluate_prog_RTC_call_FFI_rel = Q.store_thm("evaluate_prog_RTC_call_FFI_rel",
-  `evaluate_prog F env st prog (st',tds,res) ==>
-    RTC call_FFI_rel st.ffi st'.ffi`,
-  rw[bigClockTheory.prog_clocked_unclocked_equiv]
-  \\ (funBigStepEquivTheory.functional_evaluate_tops
-      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO
-      |> Q.GENL[`tops`,`s`,`env`]
-      |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
-  \\ rw[] \\ pairarg_tac \\ fs[]
-  \\ drule evaluatePropsTheory.evaluate_tops_call_FFI_rel_imp
-  \\ imp_res_tac determTheory.prog_determ
-  \\ fs[] \\ rw[]);
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
-val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events",
-  `!st st'.
-      call_FFI_rel^* st st' ==>
-      st.oracle = io_ffi_oracle /\
-      extract_output st.io_events = SOME (MAP (n2w o ORD) (SND (st.ffi_state))) ==>
-      extract_output st'.io_events = SOME (MAP (n2w o ORD) (SND (st'.ffi_state)))`,
+
+(*-------------------------------------------------------------------------------------------------*)
+
+val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
+  `FFI_part_hprop (STDOUT x)`,
+  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
+  `FFI_part_hprop (STDIN b x)`,
+  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
+  `FFI_part_hprop (COMMANDLINE x)`,
+  rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+  \\ fs[set_sepTheory.one_def]);
+
+
+(*-------------------------------------------------------------------------------------------------*)
+(*These theorems are need to be remade to use cfMain for projs, oracle or ffi that aren't basis_ffi*)
+
+(*RTC_call_FFI_rel_IMP_basis_events show that extracting output from two ffi_states will use the 
+  same function if the two states are related by a series of FFI_calls. If this is the case for
+  your oracle (and projs), then this proof should be relatively similar. Note
+  that to make the subsequent proofs similar one should show an equivalence between
+  extract_output and proj1  *)
+
+val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
+  `!st st'. call_FFI_rel^* st st' ==>
+  st.oracle = basis_ffi_oracle /\ 
+  extract_output st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar")))) ==>
+  extract_output st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar"))))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -220,75 +272,74 @@ val RTC_call_FFI_rel_IMP_io_events = Q.store_thm("RTC_call_FFI_rel_IMP_io_events
   \\ Cases_on `f` \\ fs []
   \\ reverse (Cases_on `n = "putChar"`) \\ fs []
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ fs [extract_output_APPEND,extract_output_def] \\ rfs []
-  THEN1
-   (fs [io_ffi_oracle_def]
-    \\ fs [] \\ Cases_on `st.ffi_state` \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ every_case_tac \\ fs []
-  THEN1
-   (fs [io_ffi_oracle_def]
-    \\ fs [] \\ Cases_on `st.ffi_state` \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ Cases_on `bytes` \\ fs [] \\ Cases_on `l` \\ fs []
-  \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs []
-  \\ fs [io_ffi_oracle_def]
-  \\ Cases_on `st.ffi_state` \\ fs [] \\ rw []
-  \\ fs[MAP_APPEND]
+  \\ fs [extract_output_APPEND,extract_output_def, basis_proj1_def] \\ rfs []
+  \\ (rpt (pairarg_tac \\ fs[])
+    \\ fs[FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
+    \\ Cases_on `st.ffi_state` \\ fs[]
+    \\ fs [basis_ffi_oracle_def]
+    \\ every_case_tac \\ fs[])    
+  \\ fs[ffi_putChar_def] \\ every_case_tac \\ fs[] 
+  \\ rw[] \\ fs[]
+  \\ first_x_assum match_mp_tac 
   \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
 );
 
-val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
-  `!ws1 ws2:word8 list.
-      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
-  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
-val evaluate_prog_rel_IMP_evaluate_prog_fun = Q.store_thm(
-   "evaluate_prog_rel_IMP_evaluate_prog_fun",
-  `bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
-    ?k. evaluate$evaluate_prog (st with clock := k) env prog =
-          (st',new_tds,Rval r)`,
-  rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
-  \\ qexists_tac`c + st.clock`
-  \\ (funBigStepEquivTheory.functional_evaluate_prog
-      |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO |> GEN_ALL
-      |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","env","prog"]))
-      |> qspecl_then[`st with clock := c + st.clock`,`env`,`prog`]mp_tac)
-  \\ rw[] \\ pairarg_tac \\ fs[]
-  \\ fs[bigStepTheory.evaluate_whole_prog_def]
-  \\ drule bigClockTheory.prog_add_to_counter \\ simp[]
-  \\ disch_then(qspec_then`st.clock`strip_assume_tac)
-  \\ drule determTheory.prog_determ
-  \\ every_case_tac \\ fs[]
-  \\ TRY (disch_then drule \\ rw[])
-  \\ fs[semanticPrimitivesTheory.state_component_equality]);
+(*extract_output_basis_ffi shows that the first condition for the previous theorem holds for the 
+  init_state ffi  *)
 
-val parts_ok_io_ffi = Q.store_thm("parts_ok_io_ffi",
-  `parts_ok (io_ffi input) (io_proj1,io_proj2)`,
-  fs [cfStoreTheory.parts_ok_def]
-  \\ rw [] \\ TRY (EVAL_TAC \\ NO_TAC)
-  THEN1
-   (fs [io_proj2_def,io_proj1_def,io_ffi_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ EVAL_TAC \\ qexists_tac `Str input` \\ fs [] \\ rw [])
-  THEN1
-   (fs [io_proj2_def] \\ rveq \\ fs [stdout_fun_def,stdin_fun_def, ffi_putChar_def, ffi_getChar_def]
-    \\ rfs [io_proj1_def] \\ pairarg_tac \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
-  \\ fs [io_ffi_def,io_ffi_oracle_def,io_proj2_def] \\ rveq \\ fs []
-  THEN1
-    (pairarg_tac \\ fs [] \\ rveq \\ fs []
-    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def, ffi_putChar_def, ffi_getChar_def]
-    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
-    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs [] \\ rfs[] \\ metis_tac[])
-  \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
-    \\ every_case_tac \\ fs [stdout_fun_def,stdin_fun_def,io_proj1_def, ffi_putChar_def, ffi_getChar_def]
-    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rveq \\ fs [GSYM fmap_EQ,FUN_EQ_THM]
-    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw [] \\ fs [] \\ rfs[] \\ pairarg_tac \\ Cases_on `inp'` \\ Cases_on `inp` \\ rw[] \\ fs[]
+val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
+  `extract_output (init_state (basis_ffi inp cls)).ffi.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls)).ffi.ffi_state ' "putChar"))))`,
+  rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def, basis_proj1_def, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
+);
+
+
+(*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
+  theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
+  showing that post-condition which gives effects your programs output is an FFI_part and 
+  assuming that parts_ok is satisfied, an assumption about proj1 and the ffi_state should be
+  derived which should fit the function on some st.ffi_state which returns extract_output on 
+  st.io_events  *) 
+
+fun mk_main_call s =
+(* TODO: don't use the parser so much here? *)
+  ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+val fname = mk_var("fname",``:string``);
+val main_call = mk_main_call fname;
+
+
+val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
+`!fname fv.
+ ML_code env1 (init_state (basis_ffi inp cls)) prog NONE env2 st2 ==> 
+   lookup_var fname env2 = SOME fv ==> 
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * Q)) ==>     
+  no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls)).defined_mods /\
+  no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls)).defined_types ==>
+  !h2 h1. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) ==> P h1 
+  ==>  
+    ∃(st3:(tvarN # tvarN # tvarN list) semanticPrimitives$state).
+    semantics_prog (init_state (basis_ffi inp cls)) env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
+    extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x)`,
+    rw[]
+    \\ drule (GEN_ALL call_main_thm2)
+    \\ rpt(disch_then drule)
+    \\ simp[] \\ strip_tac
+    \\ `FFI_part_hprop (STDOUT x * Q)` by metis_tac[FFI_part_hprop_def, STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
+    \\ first_x_assum (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[] \\ fs[]
+    \\ qexists_tac `st3` \\ rw[]
+    \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x` suffices_by 
+      (imp_res_tac RTC_call_FFI_rel_IMP_basis_events 
+      \\ fs[extract_output_basis_ffi, ml_progTheory.init_state_def, basis_ffi_def]
+      \\ qexists_tac `st3` 
+      \\ rw[basis_proj1_def, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM])
+    \\ fs[STDOUT_def, cfHeapsBaseTheory.IO_def, set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+    \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
+    \\ `FFI_part (Str x)
+         stdout_fun ["putChar"] events ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+    \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap]
+    \\ fs [cfStoreTheory.ffi2heap_def]
+    \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
+    \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n]
 );
 
 val _ = export_theory ()

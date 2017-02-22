@@ -1,8 +1,8 @@
-open preamble ml_translatorLib ml_progLib mlcommandLineProgTheory
+open preamble ml_translatorLib ml_progLib ioProgTheory
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"mlcommandLineProg";
+val _ = translation_extends"ioProg";
 
 val basis_st = get_ml_prog_state ();
 
