@@ -5,6 +5,11 @@ open preamble
 open ml_progLib ioProgTheory semanticsLib
 
 
+val append_emp = Q.prove(
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * Q) ==> app p fv xs (P * emp) (POSTv uv. (A uv) * (Q * emp))`,
+  rw[set_sepTheory.SEP_CLAUSES]
+);
+
 fun mk_main_call s =
   ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 
@@ -15,7 +20,9 @@ val basis_ffi_tm =
      mk_var("cls",listSyntax.mk_list_type(stringSyntax.string_ty))])
 
 fun add_basis_proj spec =
-  ( spec |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2):(string#string#string list) ffi_proj` )
+  let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in 
+    spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2):(string#string#string list) ffi_proj`
+  end
 
 fun ERR f s = mk_HOL_ERR"ioProgLib" f s 
 
