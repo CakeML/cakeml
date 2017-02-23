@@ -6,7 +6,7 @@ open ml_progLib ioProgTheory semanticsLib
 
 
 val append_emp = Q.prove(
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * Q) ==> app p fv xs (P * emp) (POSTv uv. (A uv) * (Q * emp))`,
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x) ==> app p fv xs (P * emp) (POSTv uv. (A uv) * (STDOUT x * emp))`,
   rw[set_sepTheory.SEP_CLAUSES]
 );
 
