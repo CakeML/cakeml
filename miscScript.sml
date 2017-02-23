@@ -2100,7 +2100,7 @@ val SPLITP_JOIN = Q.store_thm("SPLITP_JOIN",
   `!ls l r.
     (SPLITP P ls = (l, r)) ==>
     (ls = l ++ r)`,
-    Induct \\ rw[SPLITP] \\ 
+    Induct \\ rw[SPLITP] \\
     Cases_on `SPLITP P ls`
     \\ rw[FST, SND]
 );
@@ -2126,7 +2126,7 @@ val SPLITP_NIL_SND_EQ = Q.store_thm("SPLIT_NIL_SND_EQ",
 
 val SPLITP_NIL_SND_EVERY = Q.store_thm("SPLITP_NIL_SND_EVERY",
   `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`,
-  rw[] \\ EQ_TAC  
+  rw[] \\ EQ_TAC
     >-(rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN \\ fs[])
   \\ rw[] \\ Induct_on `ls` \\ rw[SPLITP]
 );
@@ -2154,7 +2154,7 @@ val SPLITP_APPEND = Q.store_thm("SPLITP_APPEND",
 val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
   `!l.
     LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`,
-    Induct \\ rw[SPLITP, LENGTH] 
+    Induct \\ rw[SPLITP, LENGTH]
 );
 
 
@@ -2178,9 +2178,9 @@ val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
 val TOKENS_EMPTY = Q.store_thm("TOKENS_EMPTY",
   `!ls n. (TOKENS f ls = []) ==> (ls = []) \/ (MEM n ls ==> f n)`,
   gen_tac \\ Induct_on `ls` >-(rw[])
-  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP] 
-  \\ Cases_on `f h` \\  Cases_on `l` 
-  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL] 
+  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
+  \\ Cases_on `f h` \\  Cases_on `l`
+  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL]
   \\ Cases_on`ls` \\ fs[MEM]);
 
 
@@ -2206,7 +2206,7 @@ val TOKENS_END = Q.store_thm("TOKENS_END",
 
 
 val TOKENS_LENGTH_END  = Q.store_thm("TOKENS_LENGTH_END",
-  `!l a. 
+  `!l a.
       LENGTH (TOKENS (\x. x = a) (l ++ [a])) = LENGTH (TOKENS (\x. x = a) l)`,
   rw[] \\ AP_TERM_TAC \\ rw[TOKENS_END]
 );
@@ -2228,7 +2228,7 @@ val DROP_EMPTY = Q.store_thm("DROP_EMPTY",
 val FRONT_APPEND' = Q.prove(
   `!l h a b t. l = h ++ [a; b] ++ t ==>
       FRONT l = h ++ FRONT([a; b] ++ t)`,
-      Induct \\ rw[FRONT_DEF, FRONT_APPEND] 
+      Induct \\ rw[FRONT_DEF, FRONT_APPEND]
       >-(rw[LIST_EQ_REWRITE])
       \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
 );
@@ -2253,7 +2253,7 @@ val FRONT_COUNT_IMP = Q.prove(
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 );
 
-val CONCAT_WITH_aux_def = Define` 
+val CONCAT_WITH_aux_def = Define`
     (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
     (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
     (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
@@ -2271,5 +2271,10 @@ val OPT_MMAP_def = Define`
      OPTION_BIND (f h0)
      (λh. OPTION_BIND (OPT_MMAP f t0)
        (λt. SOME (h::t))))`;
+
+val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
+  `DISJOINT (set []) s /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
+  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
 val _ = export_theory()
