@@ -1410,6 +1410,9 @@ val ADDR_MAP_APPEND_LENGTH_IMP = prove(
 val refs_related_lemma = prove (
   ``!i (heap_refs : ('a,'b) heap_element list) r1
      (heap : ('a,'b) heap_element list) (conf : 'b gen_gc_conf).
+    (∀xs l d ptr u.
+        MEM (DataElement xs l d) heap_old ∧ MEM (Pointer ptr u) xs ⇒
+        ptr < conf.gen_start ∨ conf.refs_start ≤ ptr) /\
     (heap_lookup i heap_refs = SOME (DataElement xs l d)) /\
     (ADDR_MAP ($' f) (refs_to_roots conf heap_refs) = refs_to_roots conf r1)
     ==>
@@ -1970,7 +1973,6 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ IF_CASES_TAC
      >- (`MEM (DataElement xs l d) heap` by all_tac
         >- (drule heap_segment_IMP \\ fs []
-           \\ strip_tac
            \\ rveq
            \\ metis_tac [MEM_APPEND])
         \\ fs [heap_ok_def] \\ metis_tac [])
@@ -1997,6 +1999,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ drule ADDR_MAP_APPEND_LENGTH_IMP
      \\ simp [] \\ strip_tac
      \\ drule refs_related_lemma
+     \\ disch_then drule
      \\ disch_then drule
      \\ disch_then (qspec_then `heap` mp_tac) \\ strip_tac
      \\ simp []
