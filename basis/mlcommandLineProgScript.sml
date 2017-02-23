@@ -92,67 +92,44 @@ val COMMANDLINE_def = Define `
  
 val st = get_ml_prog_state()
 
-(*
-options:
-  - ask Magnus + Armael how to prove the spec below
-  - write/use a custom (non higher-order) version of tabulate for this module instead
+(* TODO: using p:'b ffi_proj makes xapp fail in hard to trace ways
+      - ultimately it's because app_of_Arrow_rule is not robust when ffi_ty is either 'a or 'b
 *)
-
 val tabulate_spec = Q.store_thm("tabulate_spec",
-  `!f fv A heap_inv n nv.
+  `!f fv A heap_inv n nv ls.
     NUM n nv /\ ls = GENLIST f n /\
     (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
     ==>
-    app p ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
-    cheat);
-
-(*
+    app (p:'ffi ffi_proj) ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
   ntac 4 gen_tac
   \\ Induct
-  >- (
+  >-(
     rw[]
     \\ xcf "List.tabulate" st
-    \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov)`
-      >-(
-         
-        rw[cf_opb_def, cfNormalizeTheory.exp2v_def, app_opb_def] \\ xsimpl
-
-
-
-    \\ xpull_check_not_needed
-    \\ head_unfold cf_if_def
-    \\ irule local_elim
-    \\ hnf
-    val (asl,w) = top_goal()
-    DEPTH_CONV (
-        List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-        ) w  
-    CONV_TAC (ALL_CONV reducible_pats)  
-   
-
-val reduce_conv =
-    DEPTH_CONV (
-      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    ) THENC
-    (simp_conv [])
-
-val reduce_tac = CONV_TAC reduce_conv
-    
-
-
-    \\ CONV_TAC
-        STRIP_QUANT_CONV(LAND_CONV(reduce_conv)))
-
-    \\ app_
-    val (asl,w) = top_goal()
-    spec_kind_for (#2 (goal_app_infos w))
-    xapp_spec
-    rw[app_def]
-    DB.find"exp2v_def"
-    app_basic_def
-    hide_environments false
+    \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
+      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
+    \\ xif
+    >-(xcon \\ xsimpl \\ EVAL_TAC)
+    \\ fs[NUM_def, INT_def] \\ rw[])
+  \\ rw[]
+  \\ xcf "List.tabulate" st
+  \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
+    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
+  \\ xif
+  >-(fs[NUM_def, INT_def] \\ rw[])
+  \\ xlet `POSTv nv. &NUM n nv * heap_inv`
+  >-( xapp \\  xsimpl \\ instantiate )
+  \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
+  >- ( xapp \\ xsimpl )
+  \\ xlet `POSTv v. &LIST_TYPE A (GENLIST f n) v * heap_inv`
+  >- ( xapp \\ xsimpl )
+  \\ xapp
+  \\ xsimpl
+  \\ instantiate
+  \\ simp[GENLIST]);
+(*
+an alternative to the theorem above would be
+to write/use a custom (non higher-order) version of tabulate for this module instead
 *)
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
@@ -180,11 +157,7 @@ val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
         >-(xapp)
       \\ xlet `POSTv lv. &LIST_TYPE CHAR (MAP (CHR o w2n) a) lv * W8ARRAY av a`
       >-( 
-           (*
-           `MAP (CHR o w2n) a = GENLIST (\x. CHR(w2n(EL x a))) (LENGTH a)` by simp[LIST_EQ_REWRITE,EL_MAP]
-           \\ pop_assum SUBST1_TAC
-           *)
-           xapp
+        xapp
         \\ simp[LIST_EQ_REWRITE,EL_MAP]
         \\ qexists_tac`\x. CHR(w2n(EL x a))`
         \\ simp[]
@@ -346,4 +319,3 @@ val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
 );
 
 val _ = export_theory();
-

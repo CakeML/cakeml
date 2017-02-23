@@ -685,4 +685,22 @@ in
     g
 end
 
+(* [xopb] *)
+val xopb =
+  xpull_check_not_needed \\
+  head_unfold cf_opb_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opb_def, semanticPrimitivesTheory.opb_lookup_def] \\
+  cleanup_exn_side_cond
+
+(* [xopn] *)
+val xopn =
+  xpull_check_not_needed \\
+  head_unfold cf_opn_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opn_def, semanticPrimitivesTheory.opn_lookup_def] \\
+  cleanup_exn_side_cond
+
 end

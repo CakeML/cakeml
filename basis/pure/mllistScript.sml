@@ -136,7 +136,7 @@ val tabulate_def = Define
   `tabulate n f =
     let n0 = (n = 0n) in
     if n0 then [] else
-      let n = n - 1 in
+      let n = PRE n in
       let v = f n in
       let vs = tabulate n f in
         SNOC v vs`;
