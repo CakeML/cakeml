@@ -605,11 +605,4 @@ val ML_code_SOME_Dlet_Fun = Q.store_thm("ML_code_SOME_Dlet_Fun",
   rw [] \\ match_mp_tac (ML_code_SOME_Dlet_var |> MP_CANON) \\ fs []
   \\ fs [Once evaluate_cases]);
 
-(* misc used by automation *)
-
-val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
-  `DISJOINT (set []) s /\
-    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
-  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
-
 val _ = export_theory();
