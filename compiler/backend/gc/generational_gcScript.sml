@@ -108,37 +108,22 @@ val gc_move_data_def = tDefine "gc_move_data"  `
   \\ decide_tac)
 
 val gc_move_data_IMP = prove(
-  ``!state state1.
+  ``!conf state state1.
     (gc_move_data conf state = state1) ==>
     (state1.old = state.old) /\
     (state1.r1 = state.r1)
   ``,
-  Induct_on `state.h2` \\ once_rewrite_tac [gc_move_data_def]
+  recInduct (fetch "-" "gc_move_data_ind")
   \\ rpt gen_tac
   \\ strip_tac
-  \\ qpat_x_assum `_ = state.h2` (assume_tac o GSYM)
-  >- simp []
-  \\ gen_tac
-  \\ strip_tac
-  \\ rfs []
-  \\ pop_assum mp_tac
-  \\ IF_CASES_TAC
-  >- fs [gc_state_component_equality]
-  \\ Cases_on `h`
-  >- fs [gc_state_component_equality]
-  >- fs [gc_state_component_equality]
-  \\ fs []
+  \\ once_rewrite_tac [gc_move_data_def]
+  \\ CASE_TAC
+  \\ IF_CASES_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
   \\ pairarg_tac \\ fs []
-  \\ Induct_on `l` \\ TRY gen_tac
-  \\ fs [] \\ ntac 4 strip_tac
-  >- (fs [gc_move_list_def]
-     \\ rveq
-     \\ cheat)
-  \\ fs [gc_move_list_def]
-  (* \\ drule gc_move_list_IMP *)
-  \\ strip_tac \\ fs []
-  \\ rveq
-  \\ cheat);
+  \\ rfs []
+  \\ drule gc_move_list_IMP
+  \\ strip_tac \\ fs []);
 
 val gc_move_ref_list_def = Define `
   (gc_move_ref_list conf state [] = ([], state)) /\
@@ -149,26 +134,31 @@ val gc_move_ref_list_def = Define `
   (gc_move_ref_list conf state (x::xs) = (x::xs,state with ok := F))`;
 
 val gc_move_ref_list_IMP = prove (
-  ``!refs refs1 state state1.
+  ``!conf state refs state1 refs1.
     (gc_move_ref_list conf state refs = (refs1,state1)) ==>
     (state1.old = state.old) /\
-    (heap_length refs = heap_length refs1)
+    (heap_length refs = heap_length refs1) /\
+    (!ptr.
+       isSomeDataElement (heap_lookup ptr refs) ==>
+       isSomeDataElement (heap_lookup ptr refs1))
   ``,
-  Induct
-  \\ fs [gc_move_ref_list_def]
-  \\ Cases \\ fs [gc_move_ref_list_def]
+  recInduct (theorem "gc_move_ref_list_ind")
+  \\ once_rewrite_tac [gc_move_ref_list_def] \\ fs []
+  \\ rpt gen_tac
+  \\ strip_tac
   \\ rpt gen_tac
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
-  \\ Cases_on `refs1` \\ fs []
-  \\ strip_tac
-  \\ rveq
+  \\ strip_tac \\ rveq
   \\ drule gc_move_list_IMP
-  \\ strip_tac \\ fs []
-  \\ first_x_assum drule
+  \\ strip_tac \\ rveq
   \\ fs []
+  \\ fs [heap_length_def,el_length_def]
+  \\ simp [heap_lookup_def]
   \\ strip_tac
-  \\ fs [heap_length_def,el_length_def]);
+  \\ IF_CASES_TAC \\ fs []
+  >- simp [isSomeDataElement_def]
+  \\ IF_CASES_TAC \\ fs [el_length_def]);
 
 val partial_gc_def = Define `
   partial_gc conf (roots,heap) =
@@ -203,7 +193,10 @@ val partial_gc_IMP = prove(
       SOME (heap_old,heap_current,heap_refs)) ==>
     (state1.old = heap_old) /\
     (heap_length state1.r1 = heap_length heap_refs) /\
-    (LENGTH roots = LENGTH roots1)
+    (LENGTH roots = LENGTH roots1) /\
+    (!ptr.
+       isSomeDataElement (heap_lookup ptr heap_refs) ==>
+       isSomeDataElement (heap_lookup ptr state1.r1))
   ``,
   rpt gen_tac
   \\ strip_tac
@@ -215,8 +208,7 @@ val partial_gc_IMP = prove(
   \\ rveq
   \\ pop_assum (assume_tac o GSYM)
   \\ fs []
-  \\ drule gc_move_ref_list_IMP
-  \\ strip_tac
+  \\ drule gc_move_ref_list_IMP \\ strip_tac
   \\ fs []
   \\ drule gc_move_list_IMP
   \\ strip_tac \\ fs []);
@@ -371,6 +363,7 @@ val gen_inv_def = Define `
         SOME (heap_old,heap_current,heap_refs)) /\
       EVERY (λe. ¬heap_element_is_ref conf e) heap_old /\
       EVERY (λe. ¬heap_element_is_ref conf e) heap_current /\
+      EVERY isDataElement heap_refs /\
       !xs l d ptr u.
       MEM (DataElement xs l d) heap_old /\ MEM (Pointer ptr u) xs ==>
       ptr < conf.gen_start \/ conf.refs_start <= ptr
@@ -488,35 +481,58 @@ val gc_move_data_r1 = prove(
   \\ strip_tac
   \\ fs []);
 
-val gc_move_ref_simulation = prove(
-  ``!refs0 refs1 state' conf.
-    (gc_move_ref_list conf state' refs0 = (refs1,state'')) /\
-    (gc_move_list (to_basic_conf conf) state1 (refs_to_roots conf refs0) = (roots2,state))
+val gc_move_ref_list_simulation = prove(
+  ``!conf state refs0 state1 state1' refs1 refs1'.
+    (gc_move_ref_list conf (state : ('b,'a) gc_state) (refs0 : ('b,'a) heap_element list)
+      = (refs1,state1)) /\
+    (gc_move_list (to_basic_conf conf)
+                  (to_basic_state conf state)
+                  (refs_to_roots conf refs0)
+      = (refs1',state1')) /\
+    EVERY isDataElement refs0
     ==>
-    (roots2 = refs_to_roots conf refs1)
+    (refs1' = refs_to_roots conf refs1) /\
+    (state1' = to_basic_state conf state1)
   ``,
-  (* rpt strip_tac *)
-  (* \\ Induct_on `heap0_refs` *)
-  (* >- (fs [gc_move_ref_list_def] *)
-  (*    \\ rpt strip_tac *)
-  (*    \\ rveq *)
-  (*    \\ fs [refs_to_roots_def] *)
-  (*    \\ fs [basic_gcTheory.gc_move_list_def]) *)
-  (* \\ Cases \\ fs [gc_move_ref_list_def] *)
-  (* \\ rpt strip_tac *)
-  (* >- (fs [refs_to_roots_def,gc_move_ref_list_def,basic_gcTheory.gc_move_list_def] *)
-  (*    \\ cheat) *)
-  cheat);
-
+  recInduct (theorem "gc_move_ref_list_ind")
+  \\ strip_tac
+  >- (rpt gen_tac
+     \\ once_rewrite_tac [gc_move_ref_list_def]
+     \\ simp [refs_to_roots_def]
+     \\ once_rewrite_tac [basic_gcTheory.gc_move_list_def]
+     \\ strip_tac \\ rveq
+     \\ simp [refs_to_roots_def]
+     \\ fs [])
+  \\ reverse strip_tac
+  >- fs [EVERY_DEF,isDataElement_def]
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ rpt gen_tac
+  \\ once_rewrite_tac [gc_move_ref_list_def]
+  \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ rveq
+  \\ drule gc_move_list_simulation
+  \\ strip_tac
+  \\ fs [refs_to_roots_def]
+  \\ drule gc_move_list_APPEND
+  \\ strip_tac
+  \\ rveq
+  \\ fs [to_basic_roots_def]
+  \\ rveq
+  \\ first_x_assum drule
+  \\ fs []);
 
 val partial_gc_simulation = prove(
-  ``!roots heap0 roots1 state1 heap0_old heap0_current heap0_refs.
+  ``!conf roots heap0 roots1 state1 heap0_old heap0_current heap0_refs.
     (partial_gc conf (roots,heap0) = (roots1,state1)) /\
     heap_gen_ok heap0 conf /\
     conf.gen_start ≤ conf.refs_start ∧ conf.refs_start ≤ conf.limit /\
     (heap_segment (conf.gen_start,conf.refs_start) heap0
       = SOME (heap0_old,heap0_current,heap0_refs)) /\
     EVERY (\e. ~(heap_element_is_ref conf e)) (heap0_old ++ heap0_current) /\
+    EVERY isDataElement heap0_refs /\
     roots_ok roots heap0 /\
     heap_ok heap0 conf.limit ==>
     ?refs refs1.
@@ -540,7 +556,6 @@ val partial_gc_simulation = prove(
   \\ fs [basic_gc_def]
   \\ pairarg_tac \\ fs []
   \\ fs [partial_gc_def]
-  \\ fs []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ rveq
@@ -548,32 +563,29 @@ val partial_gc_simulation = prove(
   \\ strip_tac \\ fs []
   \\ rveq
   \\ drule gc_move_list_simulation
-  \\ strip_tac
-  \\ qmatch_asmsub_abbrev_tac `gc_move_list _ s5`
-  \\ qmatch_asmsub_abbrev_tac `basic_gc$gc_move_list _ s6 _ = (roots1,state1)`
-  \\ `to_basic_state conf s5 = s6` by all_tac
+  \\ qmatch_asmsub_abbrev_tac `generational_gc$gc_move_list _ stateA`
+  \\ qmatch_asmsub_abbrev_tac `basic_gc$gc_move_list _ stateB _ = (roots1,state1)`
+  \\ `stateB = to_basic_state conf stateA` by all_tac
   >- (unabbrev_all_tac
      \\ simp [to_basic_state_def,empty_state_def]
-     \\ simp [to_basic_heap_def,to_basic_conf_def]
+     \\ simp [to_basic_conf_def,to_basic_heap_def]
      \\ simp [heap_restrict_def]
      \\ drule heap_segment_IMP
-     \\ simp []
-     \\ strip_tac
-     \\ fs [heap_length_APPEND])
-  \\ `roots1 = to_basic_roots conf roots''` by all_tac
-  >- fs [to_basic_roots_def]
+     \\ simp [heap_length_APPEND])
   \\ fs []
-  \\ fs [gc_move_data_r1]
-  \\ rveq
-  \\ qmatch_goalsub_rename_tac `state_refs with r1 := refs2`
   \\ strip_tac
-  (* >- (qpat_x_assum `gc_move_ref_list _ _ _ = _` mp_tac *)
-  (*    \\ qpat_x_assum `basic_gc$gc_move_list _ _ _ = (roots2,state)` mp_tac *)
-  (*    \\ qspec_tac (``,`references`) *)
-  (*    \\ qspec_tac (`heap0_refs`,`references`) *)
-  (*    \\ qspec_tac (`heap0_refs`,`references`) *)
-  (*    \\ qspec_tac (`heap0_refs`,`references`) *)
-  (* ) *)
+  \\ simp [gc_move_data_r1]
+  \\ rveq
+  \\ drule gc_move_ref_list_simulation
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ strip_tac \\ rveq
+  \\ fs []
+  \\ rewrite_tac [METIS_PROVE [] ``b \/ c <=> (~b ==> c)``]
+  \\ strip_tac
+  >- (once_rewrite_tac [gc_move_loop_def]
+     \\ cheat
+  )
   \\ cheat
   );
 
@@ -1384,152 +1396,36 @@ val refs_root_IMP_isSomeData = prove(
   \\ simp [to_basic_heap_address_def]
   \\ metis_tac [isSomeData_to_basic_heap_IMP_isSomeData]);
 
-
-val lemma = prove (
-  ``!ptr refs refs1.
-    (ADDR_MAP ($' f) (refs_to_roots conf refs) = refs_to_roots conf refs1) /\
-    (heap_lookup ptr refs = SOME (DataElement xs l d)) ==>
-    (heap_lookup ptr refs1 = SOME (DataElement (ADDR_MAP ($' (new_f f conf heap)) xs) l d))
+val ADDR_MAP_APPEND_LENGTH_IMP = prove(
+  ``!(roots : 'a heap_address list) (heap_refs : ('a,'b) heap_element list) (f : num |-> num) roots1 (r1 : ('a,'b) heap_element list) (conf : 'b gen_gc_conf).
+    (ADDR_MAP ($' f) (to_basic_roots conf roots ++ refs_to_roots conf heap_refs) =
+       to_basic_roots conf roots1 ++ refs_to_roots conf r1) /\
+    (LENGTH roots = LENGTH roots1)
+    ==>
+    (ADDR_MAP ($' f) (to_basic_roots conf roots) = to_basic_roots conf roots1) /\
+    (ADDR_MAP ($' f) (refs_to_roots conf heap_refs) = refs_to_roots conf r1)
   ``,
-  rpt strip_tac
-  \\ drule heap_lookup_SPLIT
-  \\ drule heap_lookup_IMP_MEM
-  \\ strip_tac \\ fs [MEM_SPLIT]
-  \\ fs []
-  \\ cheat);
+  cheat);
 
 val refs_related_lemma = prove (
-  ``(heap_segment (conf.gen_start,conf.refs_start) heap =
-      SOME (heap_old,heap_current,heap_refs)) /\
-    (partial_gc conf (roots,heap) = (roots1,state1)) /\
-    (ADDR_MAP ($' f) (to_basic_roots conf roots ++ refs_to_roots conf heap_refs) =
-       to_basic_roots conf roots1 ++ refs_to_roots conf state1.r1) /\
-    (basic_gc (to_basic_conf conf)
-         (to_basic_roots conf roots ++ refs_to_roots conf heap_refs,
-          MAP (to_basic_heap_element conf) heap_current) =
-       (ADDR_MAP ($' f)
-          (to_basic_roots conf roots ++ refs_to_roots conf heap_refs),
-        to_basic_state conf state1)) /\
-    (heap_lookup (i − conf.refs_start) heap_refs = SOME (DataElement xs l d))
+  ``!i (heap_refs : ('a,'b) heap_element list) r1
+     (heap : ('a,'b) heap_element list) (conf : 'b gen_gc_conf).
+    (heap_lookup i heap_refs = SOME (DataElement xs l d)) /\
+    (ADDR_MAP ($' f) (refs_to_roots conf heap_refs) = refs_to_roots conf r1)
     ==>
-    (heap_lookup (i − conf.refs_start) state1.r1 =
-      SOME (DataElement (ADDR_MAP ($' (new_f f conf heap)) xs) l d)) ∧
+    (heap_lookup i r1 = SOME (DataElement (ADDR_MAP ($' (new_f f conf heap)) xs) l d)) ∧
     ∀ptr u.
       MEM (Pointer ptr u) xs ⇒
       if ptr < conf.gen_start ∨ conf.refs_start ≤ ptr then
         isSomeDataElement (heap_lookup ptr heap)
       else ∃x. (ptr = x + conf.gen_start) ∧ x ∈ FDOM f
   ``,
-  strip_tac
-  \\ fs [ADDR_MAP_APPEND]
-  \\ drule partial_gc_IMP \\ fs []
+  rpt gen_tac
   \\ strip_tac
-  \\ `LENGTH (ADDR_MAP ($' f) (to_basic_roots conf roots)) = LENGTH (to_basic_roots conf roots1)` by all_tac
-  >- fs [GSYM ADDR_MAP_LENGTH,to_basic_roots_def]
-  \\ fs [APPEND_11_LENGTH]
+  \\ drule heap_lookup_SPLIT
+  \\ strip_tac \\ rveq
 
   \\ cheat);
-
-     (* \\ drule basic_gc_ok *)
-     (* \\ disch_then drule *)
-     (* \\ strip_tac *)
-     (* \\ fs [partial_gc_def] \\ rfs [] *)
-     (* \\ pairarg_tac \\ fs [] *)
-     (* \\ rveq *)
-     (* \\ pairarg_tac \\ fs [] *)
-     (* \\ rveq *)
-     (* \\ simp [gc_move_data_r1] *)
-     (* \\ fs [basic_gc_def] *)
-     (* \\ pairarg_tac \\ fs [] \\ rveq *)
-     (* \\ qunabbrev_tac `basic_roots` *)
-     (* \\ drule gc_move_list_APPEND_APPEND *)
-     (* \\ impl_tac *)
-     (* >- (drule gc_move_list_IMP *)
-     (*    \\ strip_tac *)
-     (*    \\ fs [to_basic_roots_def]) *)
-     (* \\ strip_tac *)
-     (* \\ `to_basic_state conf state' = state1` by all_tac *)
-     (* >- (drule gc_move_list_simulation *)
-     (*    \\ fs [to_basic_state_def,empty_state_def] *)
-     (*    \\ simp [to_basic_heap_def,heap_restrict_def] *)
-     (*    \\ qunabbrev_tac `basic_heap` *)
-     (*    \\ fs [to_basic_heap_list_def] *)
-     (*    \\ `(to_basic_conf conf).limit = heap_length heap_current` by all_tac *)
-     (*    >- (fs [to_basic_conf_def] *)
-     (*       \\ drule heap_segment_IMP *)
-     (*       \\ simp [] \\ strip_tac *)
-     (*       \\ cheat) *)
-     (*    \\ fs [] *)
-     (*    \\ cheat) *)
-     (* \\ rveq *)
-     (* \\ drule heap_lookup_SPLIT *)
-     (* \\ strip_tac \\ fs [] *)
-     (* \\ rveq *)
-     (* \\ drule gc_move_ref_list_SPLIT *)
-     (* \\ impl_tac *)
-     (* >- cheat *)
-     (* \\ strip_tac *)
-     (* \\ fs [] *)
-     (* \\ rewrite_tac [GSYM APPEND_ASSOC] *)
-     (* \\ once_rewrite_tac [heap_lookup_APPEND] *)
-     (* \\ fs [] *)
-     (* \\ simp [heap_lookup_def] *)
-     (* \\ qpat_x_assum `ADDR_MAP ($' f) _ = _` mp_tac *)
-     (* \\ simp [ADDR_MAP_APPEND] *)
-     (* \\ strip_tac *)
-     (* \\ drule APPEND_LENGTH_IMP *)
-     (* \\ impl_tac *)
-     (* >- (simp [to_basic_roots_def] *)
-     (*    \\ simp [GSYM ADDR_MAP_LENGTH] *)
-     (*    \\ drule gc_move_list_IMP *)
-     (*    \\ fs []) *)
-     (* \\ strip_tac *)
-     (* \\ pop_assum (assume_tac o GSYM) \\ fs [] *)
-     (* \\ fs [refs_to_roots_APPEND] *)
-     (* \\ fs [ADDR_MAP_APPEND] *)
-     (* \\ full_simp_tac std_ss [GSYM APPEND_ASSOC] *)
-     (* \\ drule APPEND_LENGTH_IMP *)
-     (* \\ impl_tac *)
-     (* >- (simp [GSYM ADDR_MAP_LENGTH] *)
-     (*    \\ metis_tac [refs_to_roots_LENGTH]) *)
-     (* \\ strip_tac *)
-     (* \\ `LENGTH xs = LENGTH xs1` by cheat *)
-     (* \\ drule APPEND_LENGTH_IMP *)
-     (* \\ impl_tac *)
-     (* >- (simp [GSYM ADDR_MAP_LENGTH] *)
-     (*    \\ simp [refs_to_roots_def] *)
-     (*    (* \\ cheat *)) *)
-     (* \\ strip_tac *)
-     (* \\ fs [refs_to_roots_def] *)
-     (* \\ qpat_x_assum `MAP _ xs1 = _` mp_tac *)
-     (* \\ qpat_x_assum `LENGTH _ = _` mp_tac *)
-     (* \\ qspec_tac (`xs1`,`xs1`) *)
-     (* \\ qspec_tac (`xs`,`xs`) *)
-     (* \\ Induct *)
-     (* >- (Cases \\ fs [ADDR_MAP_def]) *)
-     (* \\ strip_tac *)
-     (* \\ Cases \\ fs [] *)
-     (* \\ Cases_on `h` *)
-     (* \\ Cases_on `h'` \\ fs [] *)
-     (* \\ strip_tac) *)
-     (* \\ drule basic_gc_thm *)
-     (* \\ disch_then drule *)
-     (* \\ fs [] *)
-     (* \\ strip_tac *)
-     (* \\ drule heap_lookup_refs_IMP *)
-     (* \\ fs [] *)
-     (* \\ disch_then (qspec_then `i` drule) *)
-     (* \\ fs [] *)
-     (* \\ impl_tac *)
-     (* >- (drule heap_segment_IMP \\ fs [] \\ strip_tac *)
-     (*    \\ drule partial_gc_old_const \\ fs [] \\ strip_tac *)
-     (*    \\ fs [] *)
-     (*    \\ rewrite_tac [heap_length_APPEND] *)
-     (*    \\ simp [] *)
-     (*    \\ cheat *)
-     (*   ) *)
-     (* \\ strip_tac *)
-  (* \\ strip_tac *)
 
 val heap_lookup_by_f_isSomeData_lemma = prove(
   ``!h1 x xs (state1 : ('a,'b) gc_state) (heap : ('a,'b) heap_element list) conf.
@@ -2083,6 +1979,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ fs []
      \\ res_tac \\ fs [])
   \\ Cases_on `conf.refs_start ≤ i` \\ fs []
+
   >- (strip_tac
      \\ once_rewrite_tac [heap_lookup_APPEND]
      \\ IF_CASES_TAC \\ fs []
@@ -2094,8 +1991,18 @@ val partial_gc_related = store_thm("partial_gc_related",
         \\ once_rewrite_tac [heap_lookup_APPEND]
         \\ simp [heap_length_APPEND])
      \\ unabbrev_all_tac
-     \\ drule refs_related_lemma \\ fs []
-     \\ strip_tac \\ fs [])
+     \\ drule partial_gc_IMP
+     \\ simp []
+     \\ strip_tac
+     \\ drule ADDR_MAP_APPEND_LENGTH_IMP
+     \\ simp [] \\ strip_tac
+     \\ drule refs_related_lemma
+     \\ disch_then drule
+     \\ disch_then (qspec_then `heap` mp_tac) \\ strip_tac
+     \\ simp []
+     \\ rpt strip_tac
+     \\ first_x_assum drule
+     \\ simp [])
   \\ strip_tac
   \\ rveq
   \\ fs []

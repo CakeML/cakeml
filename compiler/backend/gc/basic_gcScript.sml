@@ -66,7 +66,7 @@ val gc_move_list_def = Define `
     let (xs,state) = gc_move_list conf state xs in
       (x::xs,state))`;
 
-val gc_move_list_IMP = prove(
+val gc_move_list_IMP = store_thm("gc_move_list_IMP",
   ``!xs xs' state state'.
     (gc_move_list conf state xs = (xs',state')) ==>
     (state.h1 = state'.h1) /\
