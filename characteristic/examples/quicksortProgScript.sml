@@ -36,7 +36,14 @@ val strict_weak_order_def = Define `
   strict_weak_order r ⇔
     transitive r ∧
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r x y ∧ ¬ r y x)`;
+    transitive (\x y. ~r x y ∧ ¬r y x)`;
+
+val strict_weak_order_alt = Q.store_thm ("strict_weak_order_alt",
+  `strict_weak_order r ⇔
+    (!x y. r x y ⇒ ~r y x) ∧
+    transitive (\x y. ~r y x)`,
+  rw [strict_weak_order_def, transitive_def] >>
+  metis_tac []);
 
 val sing_length1 = Q.store_thm ("sing_length1",
   `!l. LENGTH l = 1 ⇔ ?x. l = [x]`,
@@ -253,7 +260,7 @@ val partition_pred_def = Define `
 
 val partition_spec = Q.store_thm ("partition_spec",
   `!a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
-    (* TODO: The comparison function needs some restrictions *)
+    strict_weak_order cmp ∧
     (a --> a --> BOOL) cmp cmp_v ∧
     (* We split the array into 3 parts. The second must have elements of type
      * a and be non-empty. *)
@@ -278,14 +285,24 @@ val partition_spec = Q.store_thm ("partition_spec",
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
-  cheat);
 
-  (*
+
   xcf "partition" partition_st >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
+  `a pivot pivot_v`
+  by (
+    Cases_on `elems2` >>
+    Cases_on `elem_vs2` >>
+    fs [] >>
+    drule MEM_FRONT >>
+    rw [] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs [MEM_ZIP] >>
+    metis_tac [LIST_REL_EL_EQN]) >>
   xfun_spec `scan_lower`
-    `!i i_v.
+    `!i elems i_v elem_vs.
       (* scan_lower takes an integer i, where i+1 indexes into the current seg. *)
       INT i i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
       (* There is an array index after i where the element is not less than the
@@ -313,7 +330,7 @@ val partition_spec = Q.store_thm ("partition_spec",
              !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
   >- (
     (* Prove that scan lower has the above invariant *)
-    gen_tac >>
+    ntac 2 gen_tac >>
     Induct_on `Num(&(LENGTH elems) - i)` >>
     rw []
     >- (
@@ -362,9 +379,10 @@ val partition_spec = Q.store_thm ("partition_spec",
       disch_then xapp_spec >> (* Use the invariant for the recursive call *)
       xsimpl >>
       simp [GSYM PULL_EXISTS] >>
+      rw [] >>
+      qexists_tac `x` >>
       rw []
       >- (
-        qexists_tac `x` >>
         rw [] >>
         `i + 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
@@ -382,7 +400,8 @@ val partition_spec = Q.store_thm ("partition_spec",
         `i + 1 = &k ∨ i + 1 < &k` by intLib.ARITH_TAC >>
         rw [] >>
         fs [] >>
-        rfs []))
+        rfs [strict_weak_order_def] >>
+        metis_tac []))
     >- (
       xvar >>
       xsimpl >>
@@ -395,7 +414,7 @@ val partition_spec = Q.store_thm ("partition_spec",
   xfun_spec `scan_upper`
     (* Similar to the scan_lower invariant, except that i-1 indexes the array,
      * and we scan down passing over elements bigger thatn the pivot *)
-    `!i i_v.
+    `!i elems i_v elem_Vs.
       INT i i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
       (?x:num. (&x) < i ∧ ¬cmp pivot (EL x elems)) ∧
       LIST_REL a elems elem_vs
@@ -412,7 +431,7 @@ val partition_spec = Q.store_thm ("partition_spec",
   >- (
     (* Prove that scan upper has the above invariant. Similar to the scan lower
      * proof above *)
-    gen_tac >>
+    ntac 2 gen_tac >>
     Induct_on `Num i` >>
     rw []
     >- (
@@ -473,7 +492,7 @@ val partition_spec = Q.store_thm ("partition_spec",
         `i - 1 = &k ∨ &k < i - 1` by intLib.ARITH_TAC >>
         rw [] >>
         fs [] >>
-        rfs []))
+        rfs [strict_weak_order_def]))
     >- (
       xvar >>
       xsimpl >>
@@ -485,30 +504,64 @@ val partition_spec = Q.store_thm ("partition_spec",
       fs [] >>
       CCONTR_TAC >>
       intLib.ARITH_TAC)) >>
-  cheat);
 
+  (* Don't know why this is needed *)
+  xpull >>
   xfun_spec `part_loop`
-    `∀lower lower_v upper upper_v elem_vs.
-      INT lower lower_v ∧ INT upper upper_v ∧
-      lower < upper ∧ -1 ≤ lower ∧ upper ≤ &(LENGTH elem_vs) ∧
-      (?stop_v1. MEM stop_v1 (SEG (Num (upper-lower)) (Num (lower + 1)) elem_vs)) ∧
-      (?stop_v2. MEM stop_v2 (SEG (Num (upper-lower)) (Num (lower + 1)) elem_vs)) ∧
+   `!middle_vs l_v u_v ignore1 lower_part upper_part ignore2 elems1 elems2 elems3.
+    LIST_REL a elems1 lower_part ∧
+    LIST_REL a elems2 middle_vs ∧
+    LIST_REL a elems3 upper_part ∧
+    INT (&(LENGTH (ignore1 ++ lower_part)) - 1) l_v ∧
+    INT (&LENGTH (ignore1 ++ lower_part ++ middle_vs)) u_v ∧
+    MEM (pivot,pivot_v) (FRONT (ZIP (elems2,middle_vs))) ∧
+    LENGTH middle_vs ≥ 2 ∧
+    EVERY (\e. ¬cmp pivot e) elems1 ∧
+    EVERY (\e. ¬cmp e pivot) elems3
     ⇒
-    app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" partition_st)
-      [lower_v; upper_v]
-      (ARRAY arr_v elem_vs)
-      (POSTv p_v. SEP_EXISTS elem_vs1 elem_vs2.
-        ARRAY arr_v (elem_vs1++elem_vs2) *
-        &(∃elems1 elems2.
-            elem_vs1 ≠ [] ∧ elem_vs2 ≠ [] ∧
-            INT (&LENGTH elem_vs1 - 1) p_v ∧
-            PERM elem_vs (elem_vs1 ++ elem_vs2) ∧
-            LIST_REL a elems1 elem_vs1 ∧
-            LIST_REL a elems2 elem_vs2 ∧
-            EVERY (\e. ¬cmp pivot e) elems1 ∧
-            EVERY (\e. ¬cmp e pivot) elems2))`,
-
-  *)
+    app (ffi_p:'ffi ffi_proj) part_loop
+      [l_v; u_v]
+      (ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2))
+      (POSTv p_v. SEP_EXISTS lower_part' upper_part'.
+        ARRAY arr_v (ignore1 ++ lower_part ++ lower_part' ++ upper_part' ++ upper_part ++ ignore2) *
+        &(partition_pred cmp (LENGTH ignore1)
+            p_v pivot
+            (elems1 ++ elems2 ++ elems3) (lower_part ++ middle_vs ++ upper_part)
+            (lower_part ++ lower_part')
+            (upper_part' ++ upper_part)))`
+  >- cheat >>
+  (*
+    gen_tac >>
+    induct_on `LENGTH middle_vs - 2` >>
+    rw []
+    >- (
+      xapp >>
+      xlet `POSTv l_v'.
+          ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2) *
+          &(∃j:num.
+             (* The index increased, and did not run off the end *)
+             INT (&j) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
+             (* The result index j points to an element not smaller than the
+              * pivot *)
+             ¬cmp (EL j elems) pivot ∧
+             (* There is nothing bigger than the pivot between where the scan
+              * started and finished *)
+             !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
+             *)
+  xlet `POSTv i1_v.
+          Array arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
+          &NUM (lower + LENGTH elem_vs2) i1_v`
+  >- (
+    xapp >>
+    xsimpl >>
+    qexists_tac `&upper` >>
+    rw [] >>
+    UNABBREV_ALL_TAC >>
+    fs [INT_def, NUM_def, int_arithTheory.INT_NUM_SUB] >>
+    rw [] >>
+    fs [LENGTH_NIL] >>
+    cheat) >>
+  cheat);
 
 val quicksort = process_topdecs `
 fun quicksort cmp a =
