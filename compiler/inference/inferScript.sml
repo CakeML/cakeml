@@ -792,14 +792,6 @@ val _ = Datatype`
   <| inf_decls : inf_decls
    ; inf_env   : inf_env|>`
 
-val init_env_def = Define`
-   init_env = <|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |> `;
-
-val init_config_def = Define`
-  init_config =
-  <| inf_decls := empty_inf_decls
-   ; inf_env := init_env|>`
-
 val infertype_prog_def = Define`
   infertype_prog c prog =
     dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
@@ -807,6 +799,15 @@ val infertype_prog_def = Define`
         SOME ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
     | _ => NONE`;
+
+
+open primTypesTheory
+
+val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
+
+val init_config = Define`
+  init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
+                 |> concl |> rand |> rand)`
 
 val Infer_Tfn_def = Define `
 Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] TC_fn`;
