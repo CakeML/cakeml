@@ -56,9 +56,9 @@ explorer
 # tests
 translator/okasaki-examples
 translator/other-examples
-# these tests were broken by env-refactor:
+characteristic/examples
+# this test was broken by env-refactor:
 # compiler/parsing/testing
-# characteristic/examples
 
 # compiler bootstrap
 compiler/bootstrap/translation
