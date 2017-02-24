@@ -80,7 +80,11 @@ val startup =
        "";
        "     .text";
        "     .globl  cdecl(main)";
+       "     .globl  cdecl(argc)";
+       "     .globl  cdecl(argv)";
        "cdecl(main):";
+       "     movq    %rdi, argc  # %rdi stores argc",
+       "     movq    %rsi, argv  # %rsi stores argv",
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
@@ -88,6 +92,10 @@ val startup =
        "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack";
        "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack";
        "     jmp     cake_main";
+       "";
+       "     .data";
+       "argc:  .quad 0";
+       "argv:  .quad 0";
        ""])`` |> EVAL |> concl |> rand
 
 val ffi_asm_def = Define `
