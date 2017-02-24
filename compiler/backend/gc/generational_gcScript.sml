@@ -1405,7 +1405,24 @@ val ADDR_MAP_APPEND_LENGTH_IMP = prove(
     (ADDR_MAP ($' f) (to_basic_roots conf roots) = to_basic_roots conf roots1) /\
     (ADDR_MAP ($' f) (refs_to_roots conf heap_refs) = refs_to_roots conf r1)
   ``,
-  cheat);
+  Induct \\ rpt gen_tac
+  >- (simp [to_basic_roots_def]
+     \\ simp [ADDR_MAP_def]
+     \\ Cases_on `roots1`
+     \\ fs [])
+  \\ fs [to_basic_roots_def]
+  \\ Cases_on `roots1`
+  \\ fs []
+  \\ strip_tac
+  \\ Cases_on `h`
+  \\ fs [to_basic_heap_address_def]
+  >- (IF_CASES_TAC
+     \\ fs [ADDR_MAP_def]
+     >- (first_x_assum drule \\ fs [])
+     \\ IF_CASES_TAC \\ fs [ADDR_MAP_def]
+     \\ first_x_assum drule \\ fs [])
+  \\ fs [ADDR_MAP_def]
+  \\ first_x_assum drule \\ fs []);
 
 val refs_related_lemma = prove (
   ``!i (heap_refs : ('a,'b) heap_element list) r1
