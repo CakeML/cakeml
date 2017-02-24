@@ -2,7 +2,7 @@ open preamble match_goal
 open simpleSexpTheory astTheory
 
 val _ = new_theory "fromSexp";
-val _ = set_grammar_ancestry ["simpleSexp", "ast"]
+val _ = set_grammar_ancestry ["simpleSexp", "ast", "location"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("return", ``SOME``)
@@ -543,10 +543,15 @@ val sexplocn_def = Define`
   sexplocn s =
     do
       ls <- strip_sxcons s;
-      guard (LENGTH ls = 3)
-      (lift locn (odestSXNUM (EL 0 ls)) <*>
-                 (odestSXNUM (EL 1 ls)) <*>
-                 (odestSXNUM (EL 2 ls)))
+      guard (LENGTH ls = 6)
+      (lift2 $, 
+            (lift locn (odestSXNUM (EL 0 ls)) <*>
+                       (odestSXNUM (EL 1 ls)) <*>
+                       (odestSXNUM (EL 2 ls)))
+            (lift locn (odestSXNUM (EL 3 ls)) <*>
+                       (odestSXNUM (EL 4 ls)) <*>
+                       (odestSXNUM (EL 5 ls)))
+                       )
     od`;
 
 val sexpexp_def = tDefine "sexpexp" `
@@ -879,11 +884,13 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
-  locnsexp (locn n1 n2 n3) = listsexp (MAP SX_NUM [n1;n2;n3])`;
+  locnsexp (locn n1 n2 n3,locn n4 n5 n6) = 
+    listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",
   `∀l1 l2. locnsexp l1 = locnsexp l2 ⇔ l1 = l2`,
-  Cases \\ Cases \\ rw[locnsexp_def]);
+  Cases \\ Cases \\ Cases_on `q` >> Cases_on `q'` >>
+  Cases_on `r` >> Cases_on `r'` >> rw[locnsexp_def]);
 
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
@@ -1177,7 +1184,7 @@ val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
 
 val sexplocn_locnsexp = Q.store_thm("sexplocn_locnsexp[simp]",
   `sexplocn (locnsexp l) = SOME l`,
-  Cases_on`l` \\ rw[locnsexp_def,sexplocn_def]);
+  Cases_on `l` \\ Cases_on`q` \\ Cases_on`r` \\ rw[locnsexp_def,sexplocn_def]);
 
 val sexpexp_expsexp = Q.store_thm("sexpexp_expsexp[simp]",
   `sexpexp (expsexp e) = SOME e`,
@@ -1273,8 +1280,9 @@ val litsexp_sexplit = Q.store_thm("litsexp_sexplit",
   \\ Cases_on`e1` \\ fs[odestSXNUM_def]);
 
 val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
-  `sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y`,
-  rw[Once sexpid_def]
+  `∀y x. sexpid odestSEXSTR x = SOME y ⇒ x = idsexp y`,
+  Induct
+  \\ rw[Once sexpid_def]
   \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[]
   \\ fs[OPTION_CHOICE_EQ_SOME]
@@ -1282,8 +1290,7 @@ val idsexp_sexpid_odestSEXSTR = Q.store_thm("idsexp_sexpid_odestSEXSTR",
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[]
   \\ fs[Once strip_sxcons_def]
-  \\ every_case_tac \\ fs[] >>
-  cheat);
+  \\ every_case_tac \\ fs[]);
 
 val strip_sxcons_NIL = Q.store_thm(
   "strip_sxcons_NIL[simp]",
@@ -1385,12 +1392,17 @@ val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
 
 val locnsexp_sexplocn = Q.store_thm("locnsexp_sexplocn",
   `sexplocn s = SOME z ⇒ locnsexp z = s`,
-  Cases_on`z`
+  Cases_on`z` \\ Cases_on`q` \\ Cases_on `r`
   \\ rw[sexplocn_def,locnsexp_def]
   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[Once strip_sxcons_def]
   \\ simp[listsexp_def]
-  \\ Cases_on`h` \\ Cases_on`h'` \\ Cases_on`h''` \\ fs[odestSXNUM_def]);
+  \\ Cases_on`h` \\ fs[odestSXNUM_def]
+  \\ Cases_on`h'`  \\ fs[odestSXNUM_def]
+  \\ Cases_on`h''`  \\ fs[odestSXNUM_def]
+  \\ Cases_on`h'''` \\ fs[odestSXNUM_def]
+  \\ Cases_on`h''''`  \\ fs[odestSXNUM_def]
+  \\ Cases_on`h'''''`  \\ fs[odestSXNUM_def]);
 
 val expsexp_sexpexp = Q.store_thm("expsexp_sexpexp",
   `∀s e. sexpexp s = SOME e ⇒ expsexp e = s`,
@@ -1633,7 +1645,7 @@ val lopsexp_valid = Q.store_thm("lopsexp_valid[simp]",
 
 val locnsexp_valid = Q.store_thm("locnsexp_valid[simp]",
   `∀l. valid_sexp (locnsexp l)`,
-  Cases \\ EVAL_TAC);
+  Cases \\ Cases_on `q` \\ Cases_on `r` \\ EVAL_TAC);
 
 val expsexp_valid = Q.store_thm("expsexp_valid[simp]",
   `∀e. valid_sexp (expsexp e)`,

@@ -22,7 +22,7 @@ $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
 
 astScript.sml: ast.lem namespace.lem ../lib.lem ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< ;  ./addancs $@ integer words string namespace; \
+          $(LEM_CMD) $< ;  ./addancs $@ integer words string namespace location; \
         else touch astScript.sml ; fi
 
 tokensScript.sml: tokens.lem ../lib.lem ffi/ffi.lem addancs

@@ -21,25 +21,22 @@ val _ = Hol_datatype `
 
 
 (*val mk_id : forall 'n 'm. list 'm -> 'n -> id 'm 'n*)
- val mk_id_defn = Hol_defn "mk_id" `
- (mk_id [] n = (Short n))
-    /\ (mk_id (mn::mns) n = (Long mn (mk_id mns n)))`;
+ val _ = Define `
+ (mk_id [] n=  (Short n))
+    /\ (mk_id (mn::mns) n=  (Long mn (mk_id mns n)))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn mk_id_defn;
 
 (*val id_to_n : forall 'n 'm. id 'm 'n -> 'n*)
- val id_to_n_defn = Hol_defn "id_to_n" `
- (id_to_n (Short n) = n)
-    /\ (id_to_n (Long _ id) = (id_to_n id))`;
+ val _ = Define `
+ (id_to_n (Short n)=  n)
+    /\ (id_to_n (Long _ id)=  (id_to_n id))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn id_to_n_defn;
 
 (*val id_to_mods : forall 'n 'm. id 'm 'n -> list 'm*)
- val id_to_mods_defn = Hol_defn "id_to_mods" `
- (id_to_mods (Short _) = ([]))
-    /\ (id_to_mods (Long mn id) = (mn :: id_to_mods id))`;
+ val _ = Define `
+ (id_to_mods (Short _)=  ([]))
+    /\ (id_to_mods (Long mn id)=  (mn :: id_to_mods id))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn id_to_mods_defn;
 
 val _ = Hol_datatype `
  namespace =
@@ -48,9 +45,9 @@ val _ = Hol_datatype `
 
 (*val nsLookup : forall 'v 'm 'n. Eq 'n, Eq 'm => namespace 'm 'n 'v -> id 'm 'n -> maybe 'v*)
  val _ = Define `
- (nsLookup (Bind v m) (Short n) = (ALOOKUP v n))
-    /\ (nsLookup (Bind v m) (Long mn id) =      
-((case ALOOKUP m mn of
+ (nsLookup (Bind v m) (Short n)=  (ALOOKUP v n))
+    /\ (nsLookup (Bind v m) (Long mn id)=      
+ ((case ALOOKUP m mn of
         NONE => NONE
       | SOME env => nsLookup env id
       )))`;
@@ -58,9 +55,9 @@ val _ = Hol_datatype `
 
 (*val nsLookupMod : forall 'm 'n 'v. Eq 'n, Eq 'm => namespace 'm 'n 'v -> list 'm -> maybe (namespace 'm 'n 'v)*)
  val _ = Define `
- (nsLookupMod e [] = (SOME e))
-    /\ (nsLookupMod (Bind v m) (mn::path) =      
-((case ALOOKUP m mn of
+ (nsLookupMod e []=  (SOME e))
+    /\ (nsLookupMod (Bind v m) (mn::path)=      
+ ((case ALOOKUP m mn of
         NONE => NONE
       | SOME env => nsLookupMod env path
       )))`;
@@ -68,38 +65,38 @@ val _ = Hol_datatype `
 
 (*val nsEmpty : forall 'v 'm 'n. namespace 'm 'n 'v*)
 val _ = Define `
- (nsEmpty = (Bind [] []))`;
+ (nsEmpty=  (Bind [] []))`;
 
 
 (*val nsAppend : forall 'v 'm 'n. namespace 'm 'n 'v -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsAppend (Bind v1 m1) (Bind v2 m2) = (Bind (v1 ++ v2) (m1 ++ m2)))`;
+ (nsAppend (Bind v1 m1) (Bind v2 m2)=  (Bind (v1 ++ v2) (m1 ++ m2)))`;
 
 
 (*val nsLift : forall 'v 'm 'n. 'm -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsLift mn env = (Bind [] [(mn, env)]))`;
+ (nsLift mn env=  (Bind [] [(mn, env)]))`;
 
 
 (*val alist_to_ns : forall 'v 'm 'n. alist 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (alist_to_ns a = (Bind a []))`;
+ (alist_to_ns a=  (Bind a []))`;
 
 
 (*val nsBind : forall 'v 'm 'n. 'n -> 'v -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsBind k x (Bind v m) = (Bind ((k,x)::v) m))`;
+ (nsBind k x (Bind v m)=  (Bind ((k,x)::v) m))`;
 
 
 (*val nsBindList : forall 'v 'm 'n. list ('n * 'v) -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsBindList l e = (FOLDR (\ (x,v) e .  nsBind x v e) e l))`;
+ (nsBindList l e=  (FOLDR (\ (x,v) e .  nsBind x v e) e l))`;
 
 
 (*val nsOptBind : forall 'v 'm 'n. maybe 'n -> 'v -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsOptBind n x env =  
-((case n of
+ (nsOptBind n x env=  
+ ((case n of
     NONE => env
   | SOME n' => nsBind n' x env
   )))`;
@@ -107,14 +104,14 @@ val _ = Define `
 
 (*val nsSing : forall 'v 'm 'n. 'n -> 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsSing n x = (Bind ([(n,x)]) []))`;
+ (nsSing n x=  (Bind ([(n,x)]) []))`;
 
 
 (*val nsSub : forall 'v1 'v2 'm 'n. Eq 'm, Eq 'n, Eq 'v1, Eq 'v2 =>
   (id 'm 'n -> 'v1 -> 'v2 -> bool) -> namespace 'm 'n 'v1 -> namespace 'm 'n 'v2 -> bool*)
 val _ = Define `
- (nsSub r env1 env2 =  
-((! id v1.    
+ (nsSub r env1 env2=  
+ ((! id v1.    
 (nsLookup env1 id = SOME v1)
     ==>    
 (? v2. (nsLookup env2 id = SOME v2) /\ r id v1 v2))
@@ -125,7 +122,7 @@ val _ = Define `
 
 (*val nsAll : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v => (id 'm 'n -> 'v -> bool) -> namespace 'm 'n 'v -> bool*)
  val _ = Define `
- (nsAll f env =
+ (nsAll f env= 
   (! id v.     
 (nsLookup env id = SOME v)
      ==>
@@ -135,25 +132,25 @@ val _ = Define `
 (*val eAll2 : forall 'v1 'v2 'm 'n. Eq 'm, Eq 'n, Eq 'v1, Eq 'v2 =>
    (id 'm 'n -> 'v1 -> 'v2 -> bool) -> namespace 'm 'n 'v1 -> namespace 'm 'n 'v2 -> bool*)
 val _ = Define `
- (nsAll2 r env1 env2 =  
-(nsSub r env1 env2 /\
+ (nsAll2 r env1 env2=  
+ (nsSub r env1 env2 /\
   nsSub (\ x y z .  r x z y) env2 env1))`;
 
 
 (*val nsDom : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (id 'm 'n)*)
 val _ = Define `
- (nsDom env = ({ n |  v, n | nsLookup env n = SOME v }))`;
+ (nsDom env=  ({ n |  v, n | nsLookup env n = SOME v }))`;
 
 
 (*val nsDomMod : forall 'v 'm 'n. SetType 'm, Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (list 'm)*)
 val _ = Define `
- (nsDomMod env = ({ n |  v, n | nsLookupMod env n = SOME v }))`;
+ (nsDomMod env=  ({ n |  v, n | nsLookupMod env n = SOME v }))`;
 
 
 (*val nsMap : forall 'v 'w 'm 'n. ('v -> 'w) -> namespace 'm 'n 'v -> namespace 'm 'n 'w*)
  val nsMap_defn = Hol_defn "nsMap" `
- (nsMap f (Bind v m) =  
-(Bind (MAP (\ (n,x) .  (n, f x)) v)
+ (nsMap f (Bind v m)=  
+ (Bind (MAP (\ (n,x) .  (n, f x)) v)
        (MAP (\ (mn,e) .  (mn, nsMap f e)) m)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn nsMap_defn;

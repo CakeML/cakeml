@@ -36,6 +36,11 @@ fun to_bytes alg conf prog =
     compile_thm
   end
 
+val hello = entire_program_def |> concl |> rand
+
+(* Prints Hi, reads a char and does 2^2^(char-48)*)
+val foo = rconc (EVAL ``^(hello) ++ (THE o parse_prog o lexer_fun) "fun writeD d = CharIO.write (Word8.fromInt (d+48)); fun digitInt n = if n >= 10 then (n mod 10) :: digitInt (n div 10) else [n]; fun pow2 n = if n = 0 then 1 else 2 * pow2 (n-1); fun map f ls = case ls of [] => [] | (x::xs) => (f x) :: map f xs ; val i = CharIO.read(); val main = map writeD (digitInt (pow2 (pow2 (Char.ord i - 48))));"``)
+
 val qsortimp =``
 [Tdec
   (Dletrec
@@ -1002,14 +1007,13 @@ val nqueens =
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
               *)
 
-val hello = entire_program_def |> concl |> rand
-val benchmarks = [qsortimp,nqueens,hello,foldl,reverse,fib,btree,queue,qsort]
-val names = ["qsortimp","nqueens","hello","foldl","reverse","fib","btree","queue","qsort"]
+val benchmarks = [foo,qsortimp,nqueens,foldl,reverse,fib,btree,queue,qsort]
+val names = ["foo","qsortimp","nqueens","foldl","reverse","fib","btree","queue","qsort"]
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
-                                                                        
+
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_names))::xs) =
     (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
@@ -1019,6 +1023,7 @@ fun write_asm [] = ()
 val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
+
 val _ = write_asm (zip names benchmarks_bytes);
 
 val _ = map save_thm (zip names benchmarks_compiled);

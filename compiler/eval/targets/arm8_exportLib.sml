@@ -94,7 +94,7 @@ fun byte_list_to_asm_lines bytes = let
   in bytes_to_strings xs end;
 
 fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
-  cake_boilerplate_lines stack_mb heap_mb ffi_names @
+  cake_boilerplate_lines stack_mb heap_mb (List.rev ffi_names) @
   byte_list_to_asm_lines bytes_tm;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let

@@ -132,10 +132,18 @@ val foldli_thm = Q.store_thm (
   rw [foldli_def, foldli_aux_thm]
 );
 
+val tabulate_def = Define
+  `tabulate n f =
+    let n0 = (n = 0n) in
+    if n0 then [] else
+      let n = n - 1 in
+      let v = f n in
+      let vs = tabulate n f in
+        SNOC v vs`;
 
-val tabulate_def = Define`
-  tabulate n f = GENLIST f n`;
-
+val tabulate_GENLIST = Q.store_thm("tabulate_GENLIST",
+  `!n. tabulate n f = GENLIST f n`,
+  Induct \\ rw[GENLIST] \\ rw[Once tabulate_def]);
 
 val collate_def = Define`
   (collate f [] [] = EQUAL) /\

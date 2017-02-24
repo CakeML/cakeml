@@ -327,7 +327,7 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
   metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
 
 (* known *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+(*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
 
 val _ = translate clos_knownTheory.merge_alt
 
@@ -335,8 +335,9 @@ val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
   rw[]>>intLib.COOPER_TAC);
 
-(*val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);*)
+val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
 
+(*
 (* TODO: 
    This is uglier than previously, to prevent SIMP_RULE from rewriting guards
    OF PMATCH_ROWs to K T *)
@@ -345,6 +346,7 @@ val lemma = ``(if 0 <= i /\ q
             else x)`` |> (ONCE_REWRITE_CONV [num_abs_intro] THENC SIMP_CONV std_ss [])
 
 val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
+*)
 
 val _ = translate (clos_knownTheory.known_def)
 
@@ -361,11 +363,20 @@ val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
+  fs[clos_known_merge_side]>>rw[]>>
+  intLib.COOPER_TAC)
+
+(*
+val clos_known_known_op_side = Q.prove(`
+  ∀a b c. clos_known_known_op_side a b c ⇔ T`,
+  rpt strip_tac >> Cases_on `b` >>
+  simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
   fs[clos_known_merge_side]>-
   metis_tac[option_nchotomy]>-
   (rpt strip_tac >-
   metis_tac[option_nchotomy] >-
   intLib.COOPER_TAC))
+*)
 
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
@@ -456,7 +467,8 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_AST_SHIFT_TYPE,
       EqualityType_AST_OPW_TYPE,
       EqualityType_AST_WORD_SIZE_TYPE,
-      EqualityType_LIST_TYPE_CHAR]
+      EqualityType_LIST_TYPE_CHAR,
+      EqualityType_BOOL]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
@@ -1005,9 +1017,12 @@ val EqualityType_DATALANG_PROG_TYPE = Q.prove(
   metis_tac[EqualityType_def,DATALANG_PROG_TYPE_no_closures,DATALANG_PROG_TYPE_types_match,DATALANG_PROG_TYPE_11])
   |> store_eq_thm;
 
+(*TODO: pmatch for bvl_space is broken *)
+val _ = translate data_spaceTheory.space_def
+
 val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
-val data_space_space_side = Q.prove(`∀prog. data_space_space_side prog ⇔ T`,
+(*val data_space_space_side = Q.prove(`∀prog. data_space_space_side prog ⇔ T`,
 `(∀prog. data_space_space_side prog ⇔ T) ∧
 (∀opt (n:num) prog. opt = SOME(n,prog) ⇒ data_space_space_side prog ⇔ T) ∧
 (∀opt (n:num) prog. opt = (n,prog) ⇒ data_space_space_side prog ⇔ T)`
@@ -1024,7 +1039,7 @@ val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_s
      fetch "-" "bvi_to_data_compile_exp_side_def",
      fetch "-" "bvi_to_data_compile_part_side_def",
      fetch "-" "bvi_to_data_compile_prog_side_def",
-     data_space_space_side]) |> update_precondition;
+     data_space_space_side]) |> update_precondition; *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

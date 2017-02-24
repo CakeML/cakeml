@@ -1,7 +1,7 @@
 open preamble bootstrapLib
      backendTheory
      to_dataBootstrapTheory
-     x64_configTheory
+     configTheory
      x64_targetTheory
      x64_targetLib asmLib
 
@@ -60,7 +60,7 @@ val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
 val to_livesets_thm0 =
-  ``to_livesets ^bootstrap_conf prog_x64``
+  ``to_livesets ^bootstrap_conf entire_program``
   |> (REWR_CONV to_livesets_def THENC
       RAND_CONV (REWR_CONV to_data_thm1) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC

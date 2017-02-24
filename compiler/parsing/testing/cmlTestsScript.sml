@@ -7,10 +7,10 @@ local open ASCIInumbersLib in end
 
 val _ = new_theory "cmlTests"
 
-val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
-val _ = overload_on ("Tf", ``λt. Lf (TK t)``)
-val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s))``)
-val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s))``)
+val _ = overload_on ("NN", ``λn. Nd (mkNT n,unknown_loc)``)
+val _ = overload_on ("Tf", ``λt. Lf (TK t,unknown_loc)``)
+val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s),unknown_loc)``)
+val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s),unknown_loc)``)
 val _ = overload_on (
   "EREL",
   ``λl. NN nE [NN nEhandle
@@ -31,7 +31,7 @@ fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
-  val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+  val ttoks = rhs (concl (EVAL ``MAP (TK o FST)  ^t``))
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL

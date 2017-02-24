@@ -1,4 +1,4 @@
-structure cfTacticsLib :> cfTacticsLib =
+structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
 open preamble
@@ -49,9 +49,9 @@ val () = computeLib.extend_compset [
 
 val _ = (max_print_depth := 15)
 
-val eval = computeLib.CBV_CONV cs
+val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
 val eval_tac = CONV_TAC eval
-val eval_pat = compute_pat cs
+fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local
@@ -425,9 +425,10 @@ fun is_cf_spec_for f tm =
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
-  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
-  (rand tm) = f
-  handle HOL_ERR _ => false
+  let val tm = tm |> strip_imp |> #2 in
+    ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+    (rand tm) = f
+  end handle HOL_ERR _ => false
 
 fun spec_kind_for f tm : spec_kind option =
   if is_cf_spec_for f tm then SOME CF_spec

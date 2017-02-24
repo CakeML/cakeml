@@ -5,7 +5,7 @@ open lexer_funTheory lexer_implTheory;
 val _ = new_theory "lexerTests";
 
 fun run_test test expected =
-  let val result = EVAL (Term`lexer_fun ^test`) |> concl |> rhs;
+  let val result = EVAL (Term`MAP FST (lexer_fun ^test)`) |> concl |> rhs;
       val ok = term_eq expected result
   in
     if ok then

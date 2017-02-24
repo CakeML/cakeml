@@ -68,7 +68,7 @@ val decode_infer_t_pmatch = Q.store_thm("decode_infer_t_pmatch",`
     case t of
       Var n => Infer_Tuvar n
     | Const (DB_tag n) => Infer_Tvar_db n
-    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) => 
+    | Pair (Const Tapp_tag) (Pair (Const (TC_tag tc')) s) =>
       Infer_Tapp (decode_infer_ts s) tc'
     | _ => Infer_Tuvar 5) /\
   (!ts. decode_infer_ts ts =
@@ -484,8 +484,9 @@ rw [Once unify_def, t_walk_def] >>
 cases_on `t1` >>
 cases_on `t2` >>
 rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse,
-    decode_left_inverse_I, I_o_f, encode_vwalk, option_bind_thm] >|
-[cases_on `t_vwalk s n'` >>
+    decode_left_inverse_I, I_o_f, encode_vwalk, option_bind_thm]
+THEN1
+(cases_on `t_vwalk s n'` >>
      rw [encode_infer_t_def, decode_left_inverse,
          decode_left_inverse_I, I_o_f, o_f_FUPDATE, decode_infer_t_def] >>
      rw [t_ext_s_check_eqn] >>
@@ -495,13 +496,16 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse
      pop_assum (ASSUME_TAC o Q.SPECL [`n''`, `Infer_Tvar_db n`]) >>
      fs [] >>
      rw [t_walk_def, encode_infer_t_def, decode_infer_t_def] >>
-     metis_tac [FUPDATE_PURGE],
- rw [Once unify_def] >>
-     rw [ts_unify_thm, option_map_case],
- rw [Once unify_def] >>
+     metis_tac [FUPDATE_PURGE])
+THEN1
+(rw [Once unify_def] >>
+     rw [ts_unify_thm, option_map_case])
+THEN1
+(rw [Once unify_def] >>
      rw [Once unify_def, option_map_case] >>
-     rw [Once unify_def],
- cases_on `t_vwalk s n` >>
+     rw [Once unify_def])
+THEN1
+(cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
      rw [ts_unify_thm, decode_left_inverse, decode_left_inverse_I,
@@ -509,16 +513,18 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse
          I_o_f, o_f_FUPDATE, decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [Once oc_walking, encode_infer_t_def, t_oc_def] >>
      rw [Once unify_def] >>
-     metis_tac [FUPDATE_PURGE],
- cases_on `t_vwalk s n` >>
+     metis_tac [FUPDATE_PURGE])
+THEN1
+(cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def] >>
      rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
          decode_infer_t_def, t_ext_s_check_eqn] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
      rw [Once unify_def] >>
-     metis_tac [FUPDATE_PURGE],
- cases_on `t_vwalk s n` >>
+     metis_tac [FUPDATE_PURGE])
+THEN1
+(cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      rw [Once unify_def, option_map_case] >>
      rw [o_f_FUPDATE, I_o_f, decode_left_inverse_I, decode_left_inverse,
@@ -527,7 +533,7 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def, option_bind_thm] >>
      rw [option_map_case] >>
      rw [Once unify_def] >>
-     metis_tac [FUPDATE_PURGE],
+     metis_tac [FUPDATE_PURGE]) >>
  cases_on `t_vwalk s n` >>
      rw [encode_infer_t_def] >>
      cases_on `t_vwalk s n'` >>
@@ -536,13 +542,8 @@ rw [encode_infer_t_def, decode_infer_t_def, option_map_case, decode_left_inverse
      rw [o_f_FUPDATE, I_o_f, decode_left_inverse, decode_left_inverse_I,
          decode_infer_t_def, t_ext_s_check_eqn, option_map_case] >>
      rw [ts_unify_thm, Once oc_walking, encode_infer_t_def, t_oc_def,
-     option_bind_thm, option_map_case] >|
-     [metis_tac [FUPDATE_PURGE],
-      rw [Once unify_def],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE],
-      metis_tac [FUPDATE_PURGE]]]);
+     option_bind_thm, option_map_case] >>
+     rw [Once unify_def]);
 
 val encode_infer_t_inj = Q.prove(
 `(!t1 t2. (encode_infer_t t1 = encode_infer_t t2) ==> (t1 = t2)) /\
@@ -1167,11 +1168,6 @@ val t_compat_eqs_t_unify = Q.store_thm("t_compat_eqs_t_unify",
   CONJ_ASM1_TAC>-metis_tac[t_unify_wfs]>>
   rw[]>>
   Q.ISPECL_THEN [`s`,`t1`,`t2`,`sx'`,`sx`] assume_tac t_unify_mgu>>
-  rfs[])
-
-
-
-
-
+  rfs[]);
 
 val _ = export_theory ();

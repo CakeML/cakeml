@@ -32,6 +32,8 @@ fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
   in if is_imp (concl th) then th else DISCH T th end
 
+val env_tm = mk_var("env",semanticPrimitivesSyntax.mk_environment semanticPrimitivesSyntax.v_ty)
+
 (* ---- *)
 
 fun get_m_type_inv ty =
@@ -226,7 +228,7 @@ fun inst_case_thm tm m2deep = let
                 else hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:v environment``)
+    val env = env_tm
     val lemma = INST [env|->new_env] lemma
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -380,7 +382,7 @@ fun inst_EvalM_env v th = let
   val str = stringLib.fromMLstring name
   val inv = smart_get_type_inv (type_of v)
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
-  val new_env = ``write ^str (v:v) (env:v environment)``
+  val new_env = ``write ^str (v:v) ^env_tm``
   val old_env = new_env |> rand
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
@@ -411,7 +413,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val inv = smart_get_type_inv (type_of v)
   val new_env = ``write ^vname_str v (write_rec
                     [(^fname_str,^vname_str,^body)] env env)``
-  val old_env = ``env:v environment``
+  val old_env = env_tm
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -738,7 +740,7 @@ fun m_translate def = let
   val th = RW [ArrowM_def] th
   val th = if is_rec then let
       val recc = (first (can (find_term
-                    (fn tm => tm = rator ``Recclosure (ARB:v environment)``)))
+                    (fn tm => tm = rator ``Recclosure ^env_tm``)))
                         (hyp th)) |> rand |> rator |> rand
       val v_names = map (fn x => find_const_name (x ^ "_v"))
                       (recc |> listSyntax.dest_list |> fst

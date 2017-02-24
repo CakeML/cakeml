@@ -41,7 +41,11 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "",
    "     .text",
    "     .globl  cdecl(main)",
+   "     .globl  cdecl(argc)",
+   "     .globl  cdecl(argv)",
    "cdecl(main):",
+   "     movq    %rdi, argc  # %rdi stores argc",
+   "     movq    %rsi, argv  # %rsi stores argv",
    "     pushq   %rbp        # push base pointer",
    "     movq    %rsp, %rbp  # save stack pointer",
    "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
@@ -49,6 +53,10 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack",
    "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack",
    "     jmp     cake_main",
+   "",
+   "     .data",
+   "argc:  .quad 0",
+   "argv:  .quad 0",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
@@ -98,7 +106,7 @@ fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
   byte_list_to_asm_lines bytes_tm;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)

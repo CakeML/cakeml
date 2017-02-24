@@ -13,7 +13,6 @@ structure inferenceComputeLib = struct
     ,st_ex_bind_def
     ,st_ex_return_def
     ,failwith_def
-    ,lookup_tenvC_st_ex_def
     ,lookup_st_ex_def
     ,init_state_def
     ,init_infer_state_def
@@ -39,12 +38,8 @@ structure inferenceComputeLib = struct
     ,exc_case_def
     ,check_specs_def
     ,t_to_freevars_def
-    ,check_flat_weakT_def
-    ,check_flat_weakC_def
-    ,check_weakE_def
     ,check_weak_decls_def
     ,list_subset_def
-    ,flookup_st_ex_def
     ,init_config_def
     ,infertype_prog_def
     ,empty_inf_decls_def
@@ -57,7 +52,6 @@ structure inferenceComputeLib = struct
     ,``:'a infer_st``
     ,``:inferencer_config``
     ,``:inf_decls``
-    ,``:inf_environment``
     ]
     ,computeLib.Extenders
     [semanticsComputeLib.add_ast_compset

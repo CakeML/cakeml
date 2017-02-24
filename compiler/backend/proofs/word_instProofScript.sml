@@ -815,15 +815,16 @@ val inst_select_flat_exp_conventions = Q.store_thm("inst_select_flat_exp_convent
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 val inst_select_exp_full_inst_ok_less = Q.prove(`
   ∀c tar temp exp.
-  addr_offset_ok 0w c ⇒
+  addr_offset_ok c 0w ⇒
   full_inst_ok_less c (inst_select_exp c tar temp exp)`,
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
   fs[inst_select_exp_def,LET_THM,inst_ok_less_def,full_inst_ok_less_def]>>
-  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM]);
+  every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM]
+  );
 
 val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",`
   ∀c temp prog.
-  addr_offset_ok 0w c ∧
+  addr_offset_ok c 0w ∧
   every_inst (inst_ok_less c) prog
   ⇒
   full_inst_ok_less c (inst_select c temp prog)`,

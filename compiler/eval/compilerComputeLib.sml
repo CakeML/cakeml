@@ -107,9 +107,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,mod_to_conTheory.compile_exp_def
     ,mod_to_conTheory.compile_pat_def
     ,mod_to_conTheory.lookup_tag_env_def
-    ,mod_to_conTheory.lookup_tag_flat_def
     ,mod_to_conTheory.insert_tag_env_def
-    ,mod_to_conTheory.mod_tagenv_def
     ,mod_to_conTheory.get_tagenv_def
     ,mod_to_conTheory.get_exh_def
     ,mod_to_conTheory.alloc_tag_def
@@ -178,7 +176,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
-    ,pat_to_closTheory.string_tag_def
     ,pat_to_closTheory.vector_tag_def
     ,pat_to_closTheory.compile_def
       (*,pat_to_closTheory.pat_tag_shift_def*)
@@ -313,11 +310,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.AllocGlobal_code_def
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
+    ,bvl_to_bviTheory.FromListByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
     ,bvl_to_bviTheory.AllocGlobal_location_eq
     ,bvl_to_bviTheory.InitGlobals_max_def
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
+    ,bvl_to_bviTheory.FromListByte_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
@@ -424,6 +423,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
+    ,data_to_wordTheory.WriteLastByte_aux_def
+    ,data_to_wordTheory.WriteLastBytes_def
     ,data_to_wordTheory.SmallLsr_def
     ,data_to_wordTheory.RefByte_code_def
     ,data_to_wordTheory.Maxout_bits_code_def
@@ -442,14 +443,16 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def
     ,data_to_wordTheory.Equal_code_def
-    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.LongDiv_code_def
+    ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.Dummy_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.ShiftVar_def
+    ,data_to_wordTheory.AnyHeader_def
+    ,data_to_wordTheory.AddNumSize_def
     ,multiwordTheory.n2mw_def
     ,multiwordTheory.i2mw_def
     ,data_to_wordTheory.bignum_words_def
@@ -718,12 +721,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_namesTheory.comp_def
     ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.compile_def
-    ,stack_namesTheory.x64_names_def
-    ,stack_namesTheory.arm_names_def
-    ,stack_namesTheory.arm8_names_def
-    ,stack_namesTheory.mips_names_def
-    ,stack_namesTheory.riscv_names_def
-      (* ---- stack_to_lab ---- *)
+    (* ---- stack_to_lab ---- *)
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
     ,stack_to_labTheory.flatten_def
@@ -820,6 +818,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
     ,semanticsComputeLib.add_ast_compset
+    ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset
     ]
   ]

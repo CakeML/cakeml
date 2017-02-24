@@ -793,7 +793,7 @@ val _ = Datatype`
    ; inf_env   : inf_env|>`
 
 val init_env_def = Define`
-   init_env = <|inf_v := nsEmpty; inf_c := nsEmpty ; inf_v := nsEmpty |> `;
+   init_env = <|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |> `;
 
 val init_config_def = Define`
   init_config =

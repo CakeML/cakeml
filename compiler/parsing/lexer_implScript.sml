@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib lcsymtacs;
 open stringTheory stringLib listTheory tokensTheory lexer_funTheory;
 
 val _ = new_theory "lexer_impl";
-val _ = set_grammar_ancestry ["tokens", "lexer_fun", "ASCIInumbers"]
+val _ = set_grammar_ancestry ["tokens", "lexer_fun", "ASCIInumbers", "location"]
 
 val _ = ParseExtras.tight_equality()
 

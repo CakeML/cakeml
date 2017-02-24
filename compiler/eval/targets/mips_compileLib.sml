@@ -17,7 +17,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [configTheory.mips_compiler_config_def]
+      [configTheory.mips_compiler_config_def
+      ,configTheory.mips_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

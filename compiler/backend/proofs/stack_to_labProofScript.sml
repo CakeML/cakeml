@@ -2065,13 +2065,13 @@ val stack_to_lab_compile_all_enc_ok = Q.store_thm("stack_to_lab_compile_all_enc_
   EVERY (λ(n,p). stack_asm_remove c p) prog ∧
   names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
-  addr_offset_ok 0w c ∧ good_dimindex (:α) ∧
+  addr_offset_ok c 0w ∧ good_dimindex (:α) ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
   c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
   c.valid_imm (INL Add) 1w ∧ c.valid_imm (INL Sub) 1w ∧
   c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
-  (∀s. addr_offset_ok (store_offset s) c) ∧ reg_name 10 c ∧
+  (∀s. addr_offset_ok c (store_offset s)) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
   conf_ok (:'a) c2 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)`,

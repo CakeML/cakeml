@@ -47,7 +47,7 @@ val data_num_stubs_def = Define`
   data_num_stubs = word_num_stubs + (* general: *) 17 + (* dummy to make it odd *) 1 + (* bignum: *) 23 `;
 
 val bvl_num_stubs_def = Define`
-  bvl_num_stubs = data_num_stubs + 4
+  bvl_num_stubs = data_num_stubs + 5
 `;
 
 val _ = export_theory();

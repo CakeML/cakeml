@@ -1,16 +1,13 @@
 open preamble
-      mllistTheory miscTheory
+      mllistTheory miscTheory regexp_compilerTheory
 
 val _ = new_theory"mlvector"
 
-val _ = Datatype `
-  vector = Vector ('a list)`;
+val vector_nchotomy = save_thm("vector_nchotomy",regexp_compilerTheory.vector_nchotomy);
 
-val sub_def = Define `
-  sub (Vector l) n = EL n l`;
+val sub_def = save_thm("sub_def",regexp_compilerTheory.sub_def);
 
-val length_def = Define `
-  length (Vector l) = LENGTH l`;
+val length_def = save_thm("length_def",regexp_compilerTheory.length_def);
 
 val tabulate_def = Define`
   tabulate n f = Vector (GENLIST f n)`;

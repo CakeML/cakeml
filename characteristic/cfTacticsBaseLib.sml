@@ -100,7 +100,7 @@ val qeval_pat_tac = Q_TAC eval_pat_tac
 
 fun compute_pat cs pat tm =
   if can (match_term pat) tm then
-    computeLib.CBV_CONV cs tm
+    (computeLib.CBV_CONV cs THENC EVAL) tm   (* TODO: remove EVAL *)
   else
     NO_CONV tm
 
@@ -139,7 +139,7 @@ val parse_t =
    Parse.Term
      `\inputnt sem s.
         case
-          peg_exec cmlPEG (nt (mkNT inputnt) I) (MAP FST (lexer_fun s)) [] done failed
+          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
         of
           Result (SOME(_,[x])) => sem x : 'a`
 
@@ -174,13 +174,21 @@ fun pick_name str =
   if str = "!" then "deref" else
   if str = ":=" then "assign" else str (* name is fine *)
 
+(* for debugging
+val st = (basis_st())
+val name = "Word8Array.array"
+*)
+
 val nEbase_t = ``nEbase``
 val ptree_t = ``ptree_Expr nEbase``
 fun fetch_v name st =
-  let val env = ml_progLib.get_env st
+  let
+      val env = ml_progLib.get_env st
       val ident_expr = parse nEbase_t ptree_t [QUOTE name]
+      val ident_expr = find_term astSyntax.is_Var ident_expr
       val ident = astSyntax.dest_Var ident_expr
-      val evalth = EVAL ``nsLookup (^env).v ^ident``
+      val evalth = (REWRITE_CONV [ml_progTheory.nsLookup_merge_env] THENC EVAL)
+                      ``nsLookup (^env).v ^ident``
   in (optionLib.dest_some o rhs o concl) evalth end
 
 fun fetch_def name st =

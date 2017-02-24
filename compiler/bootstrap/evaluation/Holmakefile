@@ -1,4 +1,4 @@
-INCLUDES = ../translation ../../../semantics ../../eval ../../eval/x64 ../../targets/asm ../../targets/x64
+INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../targets/asm ../../targets/x64
 CLINE_OPTIONS = --qof
 
 ifdef POLY
@@ -14,7 +14,7 @@ all: $(TARGETS) $(HOLHEAP)
 BARE_THYS = ../translation/compiler_x64ProgTheory\
 						../../../semantics/semanticsComputeLib\
 						../../eval/compilerComputeLib\
-						../../eval/x64/x64_configTheory
+						../../eval/targets/configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

@@ -21,8 +21,6 @@ val nsLookup_nsAppend_Short = Q.store_thm("nsLookup_nsAppend_Short[compute]",`
   Cases_on`nsLookup e2(Short id)`>>
   fs[namespacePropsTheory.nsLookup_nsAppend_some,namespacePropsTheory.nsLookup_nsAppend_none,id_to_mods_def]);
 
-val _ = computeLib.add_persistent_funs ["namespace.mk_id_def"]
-
 (* --- env operators --- *)
 
 (* Functions write, write_cons, write_mod, empty_env, merge_env should
@@ -96,6 +94,7 @@ val empty_simp = Q.store_thm("empty_simp[compute]",
     nsLookup empty_env.c q = NONE`,
   fs [empty_env_def] );
 
+(*
 val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
   `(nsLookup (merge_env e1 e2).v (Short k) =
       case nsLookup e1.v (Short k) of SOME x => SOME x | NONE => nsLookup e2.v (Short k)) /\
@@ -107,6 +106,7 @@ val merge_env_simp = Q.store_thm("merge_env_simp[compute]",
   try(Cases_on`nsLookup e2.v (Short k)`)>>
   try(Cases_on`nsLookup e2.c (Short k)`)>>
   fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
+*)
 
 (*
 val SND_ALOOKUP_INTRO = Q.store_thm("SND_ALOOKUP_INTRO[compute]",
@@ -429,11 +429,11 @@ local open primSemEnvTheory in
 local
   val init_env_tm =
     ``SND (THE (prim_sem_env (ARB:unit ffi_state)))``
-    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
+    |> (SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq] THENC EVAL)
     |> concl |> rand
   val init_state_tm =
     ``FST(THE (prim_sem_env (ffi:'ffi ffi_state)))``
-    |> SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq]
+    |> (SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq] THENC EVAL)
     |> concl |> rand
 in
   val init_env_def = Define `
@@ -447,6 +447,13 @@ end
 val ML_code_NIL = Q.store_thm("ML_code_NIL",
   `ML_code init_env (init_state ffi) [] NONE empty_env (init_state ffi)`,
   fs [ML_code_def,Prog_NIL]);
+
+val nsLookup_init_env = save_thm("nsLookup_init_env[compute]",
+  init_env_def
+  |> concl
+  |> find_terms (can (match_term ``(s:string,_)``))
+  |> map (fn tm => EVAL ``nsLookup init_env.c (Short ^(rand(rator tm)))``)
+  |> LIST_CONJ);
 
 (* opening and closing of modules *)
 
@@ -626,5 +633,294 @@ val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
   `DISJOINT (set []) s /\
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
   fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
+
+(* lookup function definitions *)
+
+val lookup_var_def = Define `
+  lookup_var name (env:v sem_env) = nsLookup env.v (Short name)`;
+
+val lookup_cons_def = Define `
+  lookup_cons name (env:v sem_env) = nsLookup env.c (Short name)`;
+
+(* theorems about lookup functions *)
+
+val mod_defined_def = zDefine `
+  mod_defined env n =
+    ∃p1 p2 e3.
+      p1 ≠ [] ∧ id_to_mods n = p1 ++ p2 ∧
+      nsLookupMod env p1 = SOME e3`;
+
+val nsLookupMod_nsBind = Q.prove(`
+  p ≠ [] ⇒
+  nsLookupMod (nsBind k v env) p = nsLookupMod env p`,
+  Cases_on`env`>>fs[nsBind_def]>> Induct_on`p`>>
+  fs[nsLookupMod_def]);
+
+val nsLookup_write = Q.store_thm("nsLookup_write",
+  `(nsLookup (write n v env).v (Short name) =
+       if n = name then SOME v else nsLookup env.v (Short name)) /\
+   (nsLookup (write n v env).v (Long mn lname)  =
+       nsLookup env.v (Long mn lname)) /\
+   (nsLookup (write n v env).c a = nsLookup env.c a) /\
+   (mod_defined (write n v env).v x = mod_defined env.v x) /\
+   (mod_defined (write n v env).c x = mod_defined env.c x)`,
+  fs [write_def] \\ EVAL_TAC \\ rw []
+  \\ metis_tac[nsLookupMod_nsBind,mod_defined_def]);
+
+val nsLookup_write_cons = Q.store_thm("nsLookup_write_cons",
+  `(nsLookup (write_cons n v env).v a = nsLookup env.v a) /\
+   (nsLookup (write_cons n d env).c (Short name) =
+     if name = n then SOME d else nsLookup env.c (Short name)) /\
+   (mod_defined (write_cons n d env).v x = mod_defined env.v x) /\
+   (mod_defined (write_cons n d env).c x = mod_defined env.c x) /\
+   (nsLookup (write_cons n d env).c (Long mn lname) =
+    nsLookup env.c (Long mn lname))`,
+  fs [write_cons_def] \\ EVAL_TAC \\ rw [] \\
+  metis_tac[nsLookupMod_nsBind,mod_defined_def]);
+
+val nsLookup_empty = Q.store_thm("nsLookup_empty",
+  `(nsLookup empty_env.v a = NONE) /\
+   (nsLookup empty_env.c b = NONE) /\
+   (mod_defined empty_env.v x = F) /\
+   (mod_defined empty_env.c x = F)`,
+  EVAL_TAC \\ rw [mod_defined_def]
+  \\ Cases_on`p1`>>fs[nsLookupMod_def,empty_env_def]);
+
+val nsLookupMod_nsAppend = Q.prove(`
+  nsLookupMod (nsAppend env1 env2) p =
+  if p = [] then SOME (nsAppend env1 env2)
+  else
+    case nsLookupMod env1 p of
+      SOME v => SOME v
+    | NONE =>
+      if (∃p1 p2 e3. p1 ≠ [] ∧ p = p1 ++ p2 ∧ nsLookupMod env1 p1 = SOME e3) then NONE
+      else nsLookupMod env2 p`,
+  IF_CASES_TAC>-
+    fs[nsLookupMod_def]>>
+  BasicProvers.TOP_CASE_TAC>>
+  rw[]>>
+  TRY(Cases_on`nsLookupMod env2 p`)>>
+  fs[namespacePropsTheory.nsLookupMod_nsAppend_none,namespacePropsTheory.nsLookupMod_nsAppend_some]>>
+  metis_tac[option_CLAUSES]) |> GEN_ALL;
+
+val nsLookup_write_mod = Q.store_thm("nsLookup_write_mod",
+  `(nsLookup (write_mod mn env1 env2).v (Short n) =
+    nsLookup env2.v (Short n)) /\
+   (nsLookup (write_mod mn env1 env2).c (Short n) =
+    nsLookup env2.c (Short n)) /\
+   (mod_defined (write_mod mn env1 env2).v (Long mn' r) =
+     ((mn = mn') \/ mod_defined env2.v (Long mn' r))) /\
+   (mod_defined (write_mod mn env1 env2).c (Long mn' r) =
+     if mn = mn' then T
+     else mod_defined env2.c (Long mn' r)) /\
+   (nsLookup (write_mod mn env1 env2).v (Long mn1 ln) =
+    if mn = mn1 then nsLookup env1.v ln else
+      nsLookup env2.v (Long mn1 ln)) /\
+   (nsLookup (write_mod mn env1 env2).c (Long mn1 ln) =
+    if mn = mn1 then nsLookup env1.c ln else
+      nsLookup env2.c (Long mn1 ln))`,
+  fs [write_mod_def,mod_defined_def] \\
+  EVAL_TAC \\
+  fs[GSYM nsLift_def,id_to_mods_def,nsLookupMod_nsAppend] \\
+  simp[] >> CONJ_TAC>>
+  (eq_tac
+  >-
+    (strip_tac>>
+    Cases_on`p1`>>fs[]>>
+    fs[namespacePropsTheory.nsLookupMod_nsLift]>>
+    Cases_on`mn=h`>>fs[]>>
+    qexists_tac`h::t`>>fs[])
+  >>
+  Cases_on`mn=mn'`>>fs[]
+  >-
+    (qexists_tac`[mn']`>>fs[namespacePropsTheory.nsLookupMod_nsLift,nsLookupMod_def])
+  >>
+    strip_tac>>
+    asm_exists_tac>>fs[namespacePropsTheory.nsLookupMod_nsLift,nsLookupMod_def]>>
+    Cases_on`p1`>>fs[]>> rw[]>>
+    Cases_on`p1'`>>fs[]>>
+    metis_tac[]));
+
+val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env[compute]",
+  `(nsLookup (merge_env e1 e2).v (Short n) =
+      case nsLookup e1.v (Short n) of
+      | NONE => nsLookup e2.v (Short n)
+      | SOME x => SOME x) /\
+   (nsLookup (merge_env e1 e2).c (Short n) =
+      case nsLookup e1.c (Short n) of
+      | NONE => nsLookup e2.c (Short n)
+      | SOME x => SOME x) /\
+   (nsLookup (merge_env e1 e2).v (Long mn ln) =
+      case nsLookup e1.v (Long mn ln) of
+      | NONE => if mod_defined e1.v (Long mn ln) then NONE
+                else nsLookup e2.v (Long mn ln)
+      | SOME x => SOME x) /\
+   (nsLookup (merge_env e1 e2).c (Long mn ln) =
+      case nsLookup e1.c (Long mn ln) of
+      | NONE => if mod_defined e1.c (Long mn ln) then NONE
+                else nsLookup e2.c (Long mn ln)
+      | SOME x => SOME x) ∧
+   (mod_defined (merge_env e1 e2).v x =
+   (mod_defined e1.v x ∨ mod_defined e2.v x)) /\
+   (mod_defined (merge_env e1 e2).c x =
+   (mod_defined e1.c x ∨ mod_defined e2.c x))`,
+  fs [merge_env_def,mod_defined_def] \\ rw[] \\ every_case_tac
+  \\ fs[namespacePropsTheory.nsLookup_nsAppend_some]
+  THEN1 (Cases_on `nsLookup e2.v (Short n)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ rw [] \\ fs [namespaceTheory.id_to_mods_def])
+  THEN1 (Cases_on `nsLookup e2.c (Short n)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ rw [] \\ fs [namespaceTheory.id_to_mods_def])
+  THEN1 (Cases_on `nsLookup e2.v (Long mn ln)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ metis_tac [mod_defined_def])
+  THEN1 (Cases_on `nsLookup e2.v (Long mn ln)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ fs [mod_defined_def] \\ rw []
+         \\ CCONTR_TAC \\ Cases_on `nsLookupMod e1.v p1` \\ fs []
+         \\ metis_tac [])
+  THEN1 (Cases_on `nsLookup e2.c (Long mn ln)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ metis_tac [mod_defined_def])
+  THEN1 (Cases_on `nsLookup e2.c (Long mn ln)`
+         \\ fs [namespacePropsTheory.nsLookup_nsAppend_none,
+                namespacePropsTheory.nsLookup_nsAppend_some]
+         \\ fs [mod_defined_def] \\ rw []
+         \\ CCONTR_TAC \\ Cases_on `nsLookupMod e1.c p1` \\ fs []
+         \\ metis_tac [])
+  THEN1
+    (EVAL_TAC>>fs[nsLookupMod_nsAppend]>>eq_tac>>rw[]>>rfs[]
+    >-
+      (every_case_tac>>
+      metis_tac[])
+    >-
+      (asm_exists_tac>>fs[])
+    >>
+      Cases_on`mod_defined e1.v x`>>fs[mod_defined_def]
+      >-
+        (rveq>>asm_exists_tac>>qexists_tac`p2'`>>fs[])
+      >>
+      asm_exists_tac>>fs[]>>
+      first_assum(qspecl_then[`p1`,`p2`] assume_tac)>>rfs[]>>
+      Cases_on`nsLookupMod e1.v p1`>>fs[]>>
+      rw[]>>
+      first_x_assum(qspecl_then [`p1'`,`p2'++p2`,`e3'`] assume_tac)>>
+      fs[])
+  THEN1
+    (EVAL_TAC>>fs[nsLookupMod_nsAppend]>>eq_tac>>rw[]>>rfs[]
+    >-
+      (every_case_tac>>
+      metis_tac[])
+    >-
+      (asm_exists_tac>>fs[])
+    >>
+      Cases_on`mod_defined e1.c x`>>fs[mod_defined_def]
+      >-
+        (rveq>>asm_exists_tac>>qexists_tac`p2'`>>fs[])
+      >>
+      asm_exists_tac>>fs[]>>
+      first_assum(qspecl_then[`p1`,`p2`] assume_tac)>>rfs[]>>
+      Cases_on`nsLookupMod e1.c p1`>>fs[]>>
+      rw[]>>
+      first_x_assum(qspecl_then [`p1'`,`p2'++p2`,`e3'`] assume_tac)>>
+      fs[])
+  );
+
+val nsLookup_eq_format = Q.store_thm("nsLookup_eq_format",
+  `!env:v sem_env.
+     (nsLookup env.v (Short n) = nsLookup env.v (Short n)) /\
+     (nsLookup env.c (Short n) = nsLookup env.c (Short n)) /\
+     (nsLookup env.v (Long n1 n2) = nsLookup env.v (Long n1 n2)) /\
+     (nsLookup env.c (Long n1 n2) = nsLookup env.c (Long n1 n2)) /\
+     (mod_defined env.v (Long n1 n2) = mod_defined env.v (Long n1 n2)) /\
+     (mod_defined env.c (Long n1 n2) = mod_defined env.c (Long n1 n2))`,
+  rewrite_tac []);
+
+val nsLookup_nsBind_compute = Q.store_thm("nsLookup_nsBind_compute[compute]",
+  `(nsLookup (nsBind n v e) (Short n1) =
+    if n = n1 then SOME v else nsLookup e (Short n1)) /\
+   (nsLookup (nsBind n v e) (Long l1 l2) = nsLookup e (Long l1 l2))`,
+  rw [namespacePropsTheory.nsLookup_nsBind]);
+
+val nsLookup_nsAppend = save_thm("nsLookup_nsAppend[compute]",
+  nsLookup_merge_env
+  |> SIMP_RULE (srw_ss()) [merge_env_def]
+  |> Q.INST [`e1`|->`<|c:=e1c;v:=e1v|>`,`e2`|->`<|c:=e2c;v:=e2v|>`]
+  |> SIMP_RULE (srw_ss()) []);
+
+(* Base case for mod_defined (?) *)
+val mod_defined_base = store_thm("mod_defined_base[compute]",
+  ``mod_defined (Bind _ []) _ = F``,
+  rw[mod_defined_def]>>Cases_on`p1`>>EVAL_TAC);
+
+
+(* --- the rest of this file might be unused junk --- *)
+
+(* misc theorems about lookup functions *)
+
+(* No idea why this is sparated out *)
+val lookup_var_write = Q.store_thm("lookup_var_write",
+  `(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
+    (nsLookup (write w x env).v (Short v)  =
+       if v = w then SOME x else nsLookup env.v (Short v) ) /\
+   (nsLookup (write w x env).v (Long mn lname)  =
+       nsLookup env.v (Long mn lname)) ∧
+    (lookup_cons name (write w x env) = lookup_cons name env)`,
+  fs [lookup_var_def,write_def,lookup_cons_def] \\ rw []);
+
+val lookup_var_write_mod = Q.store_thm("lookup_var_write_mod",
+  `(lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
+    (*(lookup_mod m (write_mod mn e1 env) =
+     if m = mn then SOME e1.v else lookup_mod m env) /\*)
+    (lookup_cons name (write_mod mn e1 env) = lookup_cons name env)`,
+  fs [lookup_var_def,write_mod_def,
+      lookup_cons_def] \\ rw [] \\ Cases_on`name` \\ fs[namespacePropsTheory.nsLookup_nsLift_append]);
+ (*fs [lookup_var_id_def,lookup_var_def,write_mod_def,
+      lookup_cons_thm,lookup_mod_def] \\ rw []
+  \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);*)
+
+val lookup_var_write_cons = Q.store_thm("lookup_var_write_cons",
+  `(lookup_var v (write_cons n d env) = lookup_var v env) /\
+   (lookup_cons name (write_cons n d env) =
+     if name = n then SOME d else lookup_cons name env) /\
+   (nsLookup (write_cons n d env).v x = nsLookup env.v x)`,
+  fs [lookup_var_def,write_cons_def,lookup_cons_def] \\ rw []);
+
+val lookup_var_empty_env = Q.store_thm("lookup_var_empty_env",
+  `(lookup_var v empty_env = NONE) /\
+    (nsLookup empty_env.v (Short k) = NONE) /\
+    (nsLookup empty_env.v (Long mn m) = NONE) /\
+    (lookup_cons name empty_env = NONE)`,
+  fs[lookup_var_def,empty_env_def,lookup_cons_def]);
+  (*fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
+  \\ fs [lookup_alist_mod_env_def]);*)
+
+val lookup_var_merge_env = Q.store_thm("lookup_var_merge_env",
+  `(lookup_var v1 (merge_env e1 e2) =
+       case lookup_var v1 e1 of
+       | NONE => lookup_var v1 e2
+       | res => res) /\
+    (lookup_cons v1 (merge_env e1 e2) =
+       case lookup_cons v1 e1 of
+       | NONE => lookup_cons v1 e2
+       | res => res)
+    (*(lookup_mod v1 (merge_env e1 e2) =
+       case lookup_mod v1 e1 of
+       | NONE => lookup_mod v1 e2
+       | res => res)*)`,
+  fs [lookup_var_def,lookup_cons_def,merge_env_def] \\ rw[] \\ every_case_tac \\
+  fs[namespacePropsTheory.nsLookup_nsAppend_some]
+  >-
+    (Cases_on`nsLookup e2.v (Short v1)`>>
+    fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
+  >>
+    (Cases_on`nsLookup e2.c (Short v1)`>>
+    fs[namespacePropsTheory.nsLookup_nsAppend_none,namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def]));
 
 val _ = export_theory();
