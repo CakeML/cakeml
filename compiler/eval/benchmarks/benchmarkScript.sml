@@ -1,7 +1,10 @@
 open HolKernel boolLib bossLib lcsymtacs;
-open x64_compileLib x64_exportLib
-open helloProgTheory
+open x64_compileLib x64_exportLib;
+open parsingComputeLib basisProgTheory;
+open inferenceComputeLib;
 
+(* TODO: Not too sure why parsingComputeLib has to be opened to get EVAL to
+   work for parsing *)
 val _ = new_theory "benchmark"
 
 val rconc = rhs o concl
@@ -23,992 +26,245 @@ fun to_bytes alg conf prog =
   (*This repeats the "to_livesets" step, but that isn't very costly*)
   val compile_thm = Count.apply eval``
     compile (^(conf) with word_to_word_conf := ^(wc)) ^(prog)``
-  (* Alternatively: we can use the theories to manipulate init directly
-  however, running the simplifier on the result takes quite long as well
-  val rw = backendTheory.to_livesets_invariant |> SIMP_RULE std_ss[LET_THM]
-   |> GEN_ALL |> ISPECL [wc,prog,``x64_compiler_config``]
-   |> ONCE_REWRITE_RULE[init] |> SIMP_RULE std_ss []
-  val test2 = Count.apply eval``
-    let (rcm,c,p) = ^(rconc init) in
-    from_livesets (rcm,c with word_to_word_conf:= ^(wc),p)``
-   *)
   in
     compile_thm
   end
 
-val hello = entire_program_def |> concl |> rand
+(* A simple test for the inferencer, precomputes the basis config, but doesn't store it as a constant *)
+val cmp = wordsLib.words_compset ()
+val () = computeLib.extend_compset
+    [computeLib.Extenders
+      [inferenceComputeLib.add_inference_compset,
+      basicComputeLib.add_basic_compset
+      ],
+     computeLib.Defs
+      [basisProgTheory.basis_def]
+    ] cmp
+val inf_eval = computeLib.CBV_CONV cmp
+val basis_config = optionSyntax.dest_some (rconc (inf_eval ``infertype_prog init_config basis``))
 
-(* Prints Hi, reads a char and does 2^2^(char-48)*)
-val foo = rconc (EVAL ``^(hello) ++ (THE o parse_prog o lexer_fun) "fun writeD d = CharIO.write (Word8.fromInt (d+48)); fun digitInt n = if n >= 10 then (n mod 10) :: digitInt (n div 10) else [n]; fun pow2 n = if n = 0 then 1 else 2 * pow2 (n-1); fun map f ls = case ls of [] => [] | (x::xs) => (f x) :: map f xs ; val i = CharIO.read(); val main = map writeD (digitInt (pow2 (pow2 (Char.ord i - 48))));"``)
+fun check_inf prog =
+  inf_eval ``infertype_prog ^(basis_config) ^(prog)``
 
-val qsortimp =``
-[Tdec
-  (Dletrec
-     [("swap","i",
-       Fun "j"
-         (Fun "arr"
-            (Let (SOME "ti")
-               (App Asub [Var (Short "arr"); Var (Short "i")])
-               (Let (SOME "tj")
-                  (App Asub [Var (Short "arr"); Var (Short "j")])
-                  (Let (SOME "u")
-                     (App Aupdate [Var (Short "arr");Var (Short "i"); Var (Short "tj")])
-                     (App Aupdate [Var (Short "arr");Var (Short "j"); Var (Short "ti")]))))))]);
-Tdec
-  (Dletrec
-     [("part_loop","i",
-       Fun "j"
-         (Fun "k"
-            (Fun "arr"
-               (If
-                  (App (Opb Lt) [Var (Short "i"); Var (Short "j")])
-                  (If
-                     (App (Opb Leq) [App Asub [Var (Short "arr"); Var (Short "i")]; Var (Short "k")])
-                     (App Opapp
-                        [App Opapp
-                           [App Opapp
-                              [App Opapp
-                                 [Var (Short "part_loop");
-                                  App (Opn Plus) [Var (Short "i");Lit (IntLit 1)]];
-                               Var (Short "j")]; Var (Short "k")];
-                         Var (Short "arr")])
-                     (Let (SOME "u")
-                        (App Opapp
-                           [App Opapp
-                              [App Opapp
-                                 [Var (Short "swap");
-                                  Var (Short "i")];
-                               App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
-                            Var (Short "arr")])
-                        (App Opapp
-                           [App Opapp
-                              [App Opapp
-                                 [App Opapp
-                                    [Var (Short "part_loop");
-                                     Var (Short "i")];
-                                  App (Opn Minus) [Var (Short "j"); Lit (IntLit 1)]];
-                               Var (Short "k")];
-                            Var (Short "arr")])))
-                  (Var (Short "i"))))))]);
-Tdec
-  (Dletrec
-     [("inplace_partition","b",
-       Fun "e"
-         (Fun "arr"
-            (Let (SOME "k")
-               (App Asub [Var (Short "arr"); Var (Short "b")])
-               (Let (SOME "i")
-                  (App Opapp
-                     [App Opapp
-                        [App Opapp
-                           [App Opapp
-                              [Var (Short "part_loop");
-                               App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]];
-                            Var (Short "e")]; Var (Short "k")];
-                      Var (Short "arr")])
-                  (Let (SOME "u")
-                     (App Opapp
-                            [App Opapp
-                               [App Opapp
-                                  [Var (Short "swap");
-                                   Var (Short "b")];
-                                App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]];
-                             Var (Short "arr")])
-                     (App (Opn Minus) [Var (Short "i"); Lit (IntLit 1)]))))))]);
-Tdec
-  (Dletrec
-     [("inplace_qsort","b",
-       Fun "e"
-         (Fun "arr"
-            (If
-               (App (Opb Lt) [App (Opn Plus) [Var (Short "b"); Lit (IntLit 1)]; Var (Short "e")])
-               (Let (SOME "i")
-                  (App Opapp
-                     [App Opapp
-                        [App Opapp
-                           [Var (Short "inplace_partition");
-                            Var (Short "b")]; Var (Short "e")];
-                      Var (Short "arr")])
-                  (Let (SOME "u")
-                     (App Opapp
-                            [App Opapp
-                               [App Opapp
-                                  [Var (Short "inplace_qsort");
-                                   Var (Short "b")];
-                                Var (Short "i")];
-                             Var (Short "arr")])
-                     (App Opapp
-                               [App Opapp
-                                  [App Opapp
-                                     [Var (Short "inplace_qsort");
-                                      App (Opn Plus) [Var (Short "i"); Lit (IntLit 1)]];
-                                   Var (Short "e")];
-                                Var (Short "arr")])
-                     )) (Con NONE []))))]);
-Tdec
-  (Dletrec
-     [("initarr","len",
-       Fun "arr"
-         (Fun "n"
-            (If
-               (App Equality [Var (Short "n"); Var (Short "len")])
-               (Var (Short "arr"))
-               (Let (SOME "u")
-                  (App Aupdate [Var (Short "arr"); Var (Short "n");
-                      App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
-                  (Let (SOME "u")
-                     (App Aupdate [Var (Short "arr"); App (Opn Plus) [Var (Short "n"); Var (Short "len")];App (Opn Minus) [Var (Short "len"); Var (Short "n")]])
-                     (App Opapp
-                        [App Opapp
-                           [App Opapp
-                              [Var (Short "initarr");
-                               Var (Short "len")];
-                            Var (Short "arr")];
-                         App (Opn Plus) [Var (Short "n"); Lit (IntLit 1)]]))
-                  ))))]);
-Tdec
-  (Dletrec
-     [("mkarr","n",
-       App Opapp
-         [App Opapp
-            [App Opapp [Var (Short "initarr"); Var (Short "n")];
-             App Aalloc [App (Opn Plus) [Var (Short "n"); Var (Short "n")]; Lit (IntLit 0)]];
-          Lit (IntLit 0)])]);
-Tdec
-  (Dlet (Pvar "foo")
-     (App Opapp [Var (Short "mkarr"); Lit (IntLit 20000)]));
-Tdec
-  (Dlet (Pvar "test")
-     (App Opapp
-        [App Opapp
-           [App Opapp
-              [Var (Short "inplace_qsort"); Lit (IntLit 0)];
-            Lit (IntLit 40000)]; Var (Short "foo")]))]``
-
-val btree = ``
-[Tdec
-  (Dtype
-     [([],"tree",
-       [("Leaf",[]);
-        ("Branch",
-         [Tapp [] (TC_name (Short "tree"));
-          Tapp [] (TC_int);
-          Tapp [] (TC_name (Short "tree"))])])]);
-Tdec
-  (Dletrec
-     [("insert","x",
-       Fun "t"
-         (Mat (Var (Short "t"))
-            [(Pcon (SOME (Short "Leaf")) [],
-              Con (SOME (Short "Branch"))
-                [Con (SOME (Short "Leaf")) []; Var (Short "x");
-                 Con (SOME (Short "Leaf")) []]);
-             (Pcon (SOME (Short "Branch"))
-                [Pvar "t1"; Pvar "y"; Pvar "t2"],
-              If
-                (App (Opb Lt) [Var (Short "x"); Var (Short "y")])
-                (Con (SOME (Short "Branch"))
-                   [App Opapp
-                      [App Opapp
-                         [Var (Short "insert"); Var (Short "x")];
-                       Var (Short "t1")]; Var (Short "y");
-                    Var (Short "t2")])
-                (If
-                   (App (Opb Lt) [Var (Short "y"); Var (Short "x")])
-                   (Con (SOME (Short "Branch"))
-                      [Var (Short "t1"); Var (Short "y");
-                       App Opapp
-                         [App Opapp
-                            [Var (Short "insert");
-                             Var (Short "x")]; Var (Short "t2")]])
-                   (Con (SOME (Short "Branch"))
-                      [Var (Short "t1"); Var (Short "y");
-                       Var (Short "t2")])))]))]);
-Tdec
-  (Dletrec
-     [("build_tree","l",
-       Mat (Var (Short "l"))
-         [(Pcon (SOME (Short "nil")) [],
-           Con (SOME (Short "Leaf")) []);
-          (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-           App Opapp
-             [App Opapp [Var (Short "insert"); Var (Short "x")];
-              App Opapp
-                [Var (Short "build_tree");
-                 Var (Short "xs")]])])]);
-Tdec
-  (Dletrec
-     [("append","l",
-       Fun "ys"
-         (Mat (Var (Short "l"))
-            [(Pcon (SOME (Short "nil")) [],Var (Short "ys"));
-             (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-              Con (SOME (Short "::"))
-                [Var (Short "x");
-                 App Opapp
-                   [App Opapp
-                      [Var (Short "append"); Var (Short "xs")];
-                    Var (Short "ys")]])]))]);
-Tdec
-  (Dletrec
-     [("flatten","t",
-       Mat (Var (Short "t"))
-         [(Pcon (SOME (Short "Leaf")) [],
-           Con (SOME (Short "nil")) []);
-          (Pcon (SOME (Short "Branch"))
-             [Pvar "t1"; Pvar "x"; Pvar "t2"],
-           App Opapp
-             [App Opapp
-                [Var (Short "append");
-                 App Opapp
-                   [Var (Short "flatten"); Var (Short "t1")]];
-              App Opapp
-                [App Opapp
-                   [Var (Short "append");
-                    Con (SOME (Short "::"))
-                      [Var (Short "x");
-                       Con (SOME (Short "nil")) []]];
-                 App Opapp
-                   [Var (Short "flatten");
-                    Var (Short "t2")]]])])]);
-Tdec
-  (Dletrec
-     [("tree_sort","xs",
-       App Opapp
-         [Var (Short "flatten");
-          App Opapp
-            [Var (Short "build_tree"); Var (Short "xs")]])]);
-Tdec
-  (Dletrec
-     [("mk_list","n",
-       If (App Equality [Var (Short "n"); Lit (IntLit 0)])
-         (Con (SOME (Short "nil")) [])
-         (Con (SOME (Short "::"))
-            [Var (Short "n");
-             App Opapp
-               [Var (Short "mk_list");
-                App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]]))]);
-Tdec
-  (Dletrec
-     [("use_tree","n",
-       App Opapp
-         [Var (Short "tree_sort");
-          App Opapp
-            [App Opapp
-               [Var (Short "append");
-                App Opapp
-                  [Var (Short "mk_list"); Var (Short "n")]];
-             App Opapp
-               [Var (Short "mk_list"); Var (Short "n")]]])]);
-Tdec
-  (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_tree"); Lit (IntLit 10000)]))]``
-
-val queue = ``
-[Tdec
-  (Dtype
-     [(["'a"],"q",
-       [("QUEUE",
-         [Tapp [Tvar "'a"] (TC_name (Short "list"));
-          Tapp [Tvar "'a"] (TC_name (Short "list"))])])]);
-Tdec
-  (Dlet (Pvar "empty")
-     (Con (SOME (Short "QUEUE"))
-        [Con (SOME (Short "nil")) [];
-         Con (SOME (Short "nil")) []]));
-Tdec
-  (Dletrec
-     [("is_empty","q",
-       Mat (Var (Short "q"))
-         [(Pcon (SOME (Short "QUEUE"))
-             [Pcon (SOME (Short "nil")) []; Pvar "xs"],
-           Con (SOME (Short "true")) []);
-          (Pvar "_",Con (SOME (Short "false")) [])])]);
-Tdec
-  (Dletrec
-     [("reverse_aux","l",
-       Fun "acc"
-         (Mat (Var (Short "l"))
-            [(Pcon (SOME (Short "nil")) [],Var (Short "acc"));
-             (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-              App Opapp
-                [App Opapp
-                   [Var (Short "reverse_aux"); Var (Short "xs")];
-                 Con (SOME (Short "::"))
-                   [Var (Short "x"); Var (Short "acc")]])]))]);
-Tdec
-  (Dletrec
-     [("reverse","xs",
-       App Opapp
-         [App Opapp [Var (Short "reverse_aux"); Var (Short "xs")];
-          Con (SOME (Short "nil")) []])]);
-Tdec
-  (Dletrec
-     [("checkf","q",
-       Mat (Var (Short "q"))
-         [(Pcon (SOME (Short "QUEUE"))
-             [Pcon (SOME (Short "nil")) []; Pvar "xs"],
-           Con (SOME (Short "QUEUE"))
-             [App Opapp [Var (Short "reverse"); Var (Short "xs")];
-              Con (SOME (Short "nil")) []]);
-          (Pvar "_",Var (Short "q"))])]);
-Tdec
-  (Dletrec
-     [("snoc","q",
-       Fun "x"
-         (Mat (Var (Short "q"))
-            [(Pcon (SOME (Short "QUEUE")) [Pvar "f"; Pvar "r"],
-              App Opapp
-                [Var (Short "checkf");
-                 Con (SOME (Short "QUEUE"))
-                   [Var (Short "f");
-                    Con (SOME (Short "::"))
-                      [Var (Short "x"); Var (Short "r")]]])]))]);
-Tdec
-  (Dletrec
-     [("head","q",
-       Mat (Var (Short "q"))
-         [(Pcon (SOME (Short "QUEUE"))
-             [Pcon (SOME (Short "::")) [Pvar "x"; Pvar "f"];
-              Pvar "r"],Var (Short "x"))])]);
-Tdec
-  (Dletrec
-     [("tail","q",
-       Mat (Var (Short "q"))
-         [(Pcon (SOME (Short "QUEUE"))
-             [Pcon (SOME (Short "::")) [Pvar "x"; Pvar "f"];
-              Pvar "r"],
-           App Opapp
-             [Var (Short "checkf");
-              Con (SOME (Short "QUEUE"))
-                [Var (Short "f"); Var (Short "r")]])])]);
-Tdec
-  (Dletrec
-     [("use_queue","n",
-       Fun "q"
-         (If (App Equality [Var (Short "n"); Lit (IntLit 0)])
-            (Var (Short "q"))
-            (App Opapp
-               [App Opapp
-                  [Var (Short "use_queue");
-                   App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]];
-                App Opapp
-                  [Var (Short "tail");
-                   App Opapp
-                     [App Opapp
-                        [Var (Short "snoc");
-                         App Opapp
-                           [App Opapp [Var (Short "snoc"); Var (Short "q")];
-                            App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]];
-                      App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]
-                  ]
-              ])))]);
-Tdec
-  (Dletrec
-     [("run_queue","n",
-       App Opapp
-         [Var (Short "head");
-          App Opapp
-            [App Opapp [Var (Short "use_queue"); Var (Short "n")];
-             Var (Short "empty")]])]);
-Tdec
-  (Dlet (Pvar "test")
-     (App Opapp [Var (Short "run_queue"); Lit (IntLit 20000000)]))]``
-
-(* 4-argument part
-val qsort = ``
-[Tdec
-  (Dletrec
-     [("part","p",
-       Fun "l"
-         (Fun "l1"
-            (Fun "l2"
-               (Mat (Var (Short "l"))
-                  [(Pcon (SOME (Short "nil")) [],
-                    Con NONE
-                      [Var (Short "l1"); Var (Short "l2")]);
-                   (Pcon (SOME (Short "::"))
-                      [Pvar "h"; Pvar "rst"],
-                    If
-                      (App Opapp
-                         [Var (Short "p"); Var (Short "h")])
-                      (App Opapp
-                         [App Opapp
-                            [App Opapp
-                               [App Opapp
-                                  [Var (Short "part");
-                                   Var (Short "p")];
-                                Var (Short "rst")];
-                             Con (SOME (Short "::"))
-                               [Var (Short "h");
-                                Var (Short "l1")]];
-                          Var (Short "l2")])
-                      (App Opapp
-                         [App Opapp
-                            [App Opapp
-                               [App Opapp
-                                  [Var (Short "part");
-                                   Var (Short "p")];
-                                Var (Short "rst")];
-                             Var (Short "l1")];
-                          Con (SOME (Short "::"))
-                            [Var (Short "h");
-                             Var (Short "l2")]]))]))))]);
-Tdec
-  (Dletrec
-     [("partition","p",
-       Fun "l"
-         (App Opapp
-            [App Opapp
-               [App Opapp
-                  [App Opapp
-                     [Var (Short "part"); Var (Short "p")];
-                   Var (Short "l")]; Con (SOME (Short "nil")) []];
-             Con (SOME (Short "nil")) []]))]);
-Tdec
-  (Dletrec
-     [("append","l1",
-       Fun "l2"
-         (Mat (Var (Short "l1"))
-            [(Pcon (SOME (Short "nil")) [],Var (Short "l2"));
-             (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-              Con (SOME (Short "::"))
-                [Var (Short "x");
-                 App Opapp
-                   [App Opapp
-                      [Var (Short "append"); Var (Short "xs")];
-                    Var (Short "l2")]])]))]);
-Tdec
-  (Dletrec
-     [("qsort","r",
-       Fun "l"
-         (Mat (Var (Short "l"))
-            [(Pcon (SOME (Short "nil")) [],
-              Con (SOME (Short "nil")) []);
-             (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
-              Mat
-                (App Opapp
-                   [App Opapp
-                      [Var (Short "partition");
-                       Fun "y"
-                         (App Opapp
-                            [App Opapp
-                               [Var (Short "r"); Var (Short "y")];
-                             Var (Short "h")])]; Var (Short "t")])
-                [(Pcon NONE [Pvar "l1"; Pvar "l2"],
-                  App Opapp
-                    [App Opapp
-                       [Var (Short "append");
-                        App Opapp
-                          [App Opapp
-                             [Var (Short "qsort");
-                              Var (Short "r")];
-                           Var (Short "l1")]];
-                     App Opapp
-                       [App Opapp
-                          [Var (Short "append");
-                           Con (SOME (Short "::"))
-                             [Var (Short "h");
-                              Con (SOME (Short "nil")) []]];
-                        App Opapp
-                          [App Opapp
-                             [Var (Short "qsort");
-                              Var (Short "r")];
-                           Var (Short "l2")]]])])]))]);
-Tdec
-  (Dletrec
-     [("mk_list","n",
-       If (App Equality [Var (Short "n"); Lit (IntLit 0)])
-         (Con (SOME (Short "nil")) [])
-         (Con (SOME (Short "::"))
-            [Var (Short "n");
-             App Opapp
-               [Var (Short "mk_list");
-                App (Opn Minus)
-                  [Var (Short "n"); Lit (IntLit 1)]]]))]);
-Tdec
-  (Dletrec
-     [("use_qsort","n",
-       App Opapp
-         [App Opapp
-            [Var (Short "qsort");
-             Fun "x"
-               (Fun "y"
-                  (App (Opb Leq) [Var (Short "x"); Var (Short "y")]))];
-          App Opapp
-            [App Opapp
-               [Var (Short "append");
-                App Opapp
-                  [Var (Short "mk_list"); Var (Short "n")]];
-             App Opapp
-               [Var (Short "mk_list"); Var (Short "n")]]])]);
-Tdec
-  (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_qsort"); Lit (IntLit 10000)]))]``
+(* Check that a prog represented as a string parses and type checks
+   Returns the parsed program it if typechecks
 *)
+fun check_prog str =
+let
+  val parsed = rconc (EVAL ``parse_prog (lexer_fun ^(stringSyntax.fromMLstring str))``)
+in
+  if optionSyntax.is_some parsed then
+    let val parsed = optionSyntax.dest_some parsed in
+      if optionSyntax.is_some (rconc (check_inf parsed))
+      then SOME(rconc (EVAL``basis ++ ^(parsed)``))
+      else NONE
+    end
+  else
+    NONE
+end;
 
-(* 3-argument part *)
-val qsort = ``
-[Tdec
-  (Dletrec
-     [("part","p",
-       Fun "l"
-         (Fun ""
-            (Mat (Var (Short ""))
-               [(Pcon NONE [Pvar "l1"; Pvar "l2"],
-                 Mat (Var (Short "l"))
-                   [(Pcon (SOME (Short "nil")) [],
-                     Con NONE [Var (Short "l1"); Var (Short "l2")]);
-                    (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "rst"],
-                     If
-                       (App Opapp [Var (Short "p"); Var (Short "h")])
-                       (App Opapp
-                          [App Opapp
-                             [App Opapp
-                                [Var (Short "part");
-                                 Var (Short "p")];
-                              Var (Short "rst")];
-                           Con NONE
-                             [Con (SOME (Short "::"))
-                                [Var (Short "h"); Var (Short "l1")];
-                              Var (Short "l2")]])
-                       (App Opapp
-                          [App Opapp
-                             [App Opapp
-                                [Var (Short "part");
-                                 Var (Short "p")];
-                              Var (Short "rst")];
-                           Con NONE
-                             [Var (Short "l1");
-                              Con (SOME (Short "::"))
-                                [Var (Short "h");
-                                 Var (Short "l2")]]]))])])))]);
-Tdec
-  (Dletrec
-     [("partition","p",
-       Fun "l"
-         (App Opapp
-            [App Opapp
-               [App Opapp [Var (Short "part"); Var (Short "p")];
-                Var (Short "l")];
-             Con NONE
-               [Con (SOME (Short "nil")) [];
-                Con (SOME (Short "nil")) []]]))]);
-Tdec
-  (Dletrec
-     [("append","l1",
-       Fun "l2"
-         (Mat (Var (Short "l1"))
-            [(Pcon (SOME (Short "nil")) [],Var (Short "l2"));
-             (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-              Con (SOME (Short "::"))
-                [Var (Short "x");
-                 App Opapp
-                   [App Opapp
-                      [Var (Short "append"); Var (Short "xs")];
-                    Var (Short "l2")]])]))]);
-Tdec
-  (Dletrec
-     [("qsort","r",
-       Fun "l"
-         (Mat (Var (Short "l"))
-            [(Pcon (SOME (Short "nil")) [],
-              Con (SOME (Short "nil")) []);
-             (Pcon (SOME (Short "::")) [Pvar "h"; Pvar "t"],
-              Mat
-                (App Opapp
-                   [App Opapp
-                      [Var (Short "partition");
-                       Fun "y"
-                         (App Opapp
-                            [App Opapp
-                               [Var (Short "r"); Var (Short "y")];
-                             Var (Short "h")])]; Var (Short "t")])
-                [(Pcon NONE [Pvar "l1"; Pvar "l2"],
-                  App Opapp
-                    [App Opapp
-                       [Var (Short "append");
-                        App Opapp
-                          [App Opapp
-                             [Var (Short "qsort"); Var (Short "r")];
-                           Var (Short "l1")]];
-                     App Opapp
-                       [App Opapp
-                          [Var (Short "append");
-                           Con (SOME (Short "::"))
-                             [Var (Short "h");
-                              Con (SOME (Short "nil")) []]];
-                        App Opapp
-                          [App Opapp
-                             [Var (Short "qsort"); Var (Short "r")];
-                           Var (Short "l2")]]])])]))]);
-Tdec
-  (Dletrec
-     [("mk_list","n",
-       If (App Equality [Var (Short "n"); Lit (IntLit 0)])
-         (Con (SOME (Short "nil")) [])
-         (Con (SOME (Short "::"))
-            [Var (Short "n");
-             App Opapp
-               [Var (Short "mk_list");
-                App (Opn Minus)
-                  [Var (Short "n"); Lit (IntLit 1)]]]))]);
-Tdec
-  (Dletrec
-     [("use_qsort","n",
-       App Opapp
-         [App Opapp
-            [Var (Short "qsort");
-             Fun "x"
-               (Fun "y"
-                  (App (Opb Leq) [Var (Short "x"); Var (Short "y")]))];
-          App Opapp
-            [App Opapp
-               [Var (Short "append");
-                App Opapp
-                  [Var (Short "mk_list"); Var (Short "n")]];
-             App Opapp
-               [Var (Short "mk_list"); Var (Short "n")]]])]);
-Tdec
-     (Dlet (Pvar "test")
-        (App Opapp [Var (Short "use_qsort"); Lit (IntLit 10000)]))]``
+val btree_str =
+  "datatype tree = Leaf"^
+  "              | Branch of tree * int * tree;"^
+  "fun insert x t ="^
+  "  case t "^
+  "  of Leaf => (Branch(Leaf,x,Leaf))"^
+  "  |  Branch(t1,y,t2) => (if (x < y)"^
+  "                         then (Branch(insert x t1,y,t2)) "^
+  "                         else (if (y < x)"^
+  "                               then (Branch(t1,y,insert x t2))"^
+  "                               else (Branch(t1,y,t2))));"^
+  "fun build_tree l ="^
+  "  case l"^
+  "  of [] => Leaf"^
+  "  |  x::xs => (insert x (build_tree xs));"^
+  "fun append l ys ="^
+  "  case l"^
+  "  of [] => ys"^
+  "  |  x::xs => (x::(append xs ys));"^
+  "fun flatten t ="^
+  "  case t"^
+  "  of Leaf => []"^
+  "  |  Branch(t1,x,t2) => (append (flatten t1) (append [x] (flatten t2)));"^
+  "fun tree_sort xs = flatten (build_tree xs);"^
+  "fun mk_list n ="^
+  "  if (n = 0)"^
+  "  then []"^
+  "  else (n::(mk_list (n - 1)));"^
+  "fun use_tree n = tree_sort (append (mk_list n) (mk_list n));"^
+  "val test = use_tree 10000;";
 
-val fib = ``
-[Tdec
-  (Dletrec
-     [("fib","n",
-       If
-         (App (Opb Lt) [Var (Short "n"); Lit (IntLit 2)]) (Var (Short "n"))
-         (App (Opn Plus)
-            [App Opapp [Var (Short "fib"); App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]];
-             App Opapp [Var (Short "fib"); App (Opn Minus) [Var (Short "n"); Lit (IntLit 2)]]]))]);
-Tdec
-  (Dletrec
-     [("use_fib","n",
-      App (Opn Plus)
-         [App (Opn Plus)
-            [App (Opn Plus)
-                   [App (Opn Plus)
-                           [App (Opn Plus)
-                              [App Opapp [Var (Short "fib"); Var (Short "n")];
-                               App Opapp [Var (Short "fib"); Var (Short "n")]];
-                           App Opapp [Var (Short "fib"); Var (Short "n")]];
-                   App Opapp [Var (Short "fib"); Var (Short "n")]];
-            App Opapp [Var (Short "fib"); Var (Short "n")]];
-         App Opapp [Var (Short "fib"); Var (Short "n")]]
-     )]);
-Tdec
-  (Dlet (Pvar "test")
-     (App Opapp [Var (Short "use_fib"); Lit (IntLit 36)]))]``
+(* TODO: FAILS type checking for parsing reasons (?) *)
+val btree = check_prog btree_str
 
-val reverse =``
-[Tdec
-   (Dletrec
-      [("reverse","xs",
-        Letrec
-          [("append","xs",
-            Fun "ys"
-              (Mat (Var (Short "xs"))
-                 [(Pcon (SOME (Short "nil")) [],Var (Short "ys"));
-                  (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-                   Con (SOME (Short "::"))
-                     [Var (Short "x");
-                      App Opapp
-                        [App Opapp
-                           [Var (Short "append"); Var (Short "xs")];
-                         Var (Short "ys")]])]))]
-          (Letrec
-             [("rev","xs",
-               Mat (Var (Short "xs"))
-                 [(Pcon (SOME (Short "nil")) [],Var (Short "xs"));
-                  (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-                   App Opapp
-                     [App Opapp
-                        [Var (Short "append");
-                         App Opapp
-                           [Var (Short "rev"); Var (Short "xs")]];
-                      Con (SOME (Short "::"))
-                        [Var (Short "x");
-                         Con (SOME (Short "nil")) []]])])]
-             (App Opapp [Var (Short "rev"); Var (Short "xs")])))]);
-Tdec
-   (Dletrec
-      [("mk_list","n",
-        If (App Equality [Var (Short "n"); Lit (IntLit 0)])
-          (Con (SOME (Short "nil")) [])
-          (Con (SOME (Short "::"))
-             [Var (Short "n");
-              App Opapp
-                [Var (Short "mk_list");
-                 App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]]))]);
+val fib_str =
+  "fun fib n = if (n < 2) then n else ((fib (n - 1)) + (fib (n - 2)));"^
+  "fun use_fib n = (((((fib n) + (fib n)) + (fib n)) + (fib n)) + (fib n)) + (fib n);"^
+  "val test = use_fib 36;"
 
-Tdec
-   (Dlet (Pvar "test")
-      (App Opapp
-         [Var (Short "reverse");
-          App Opapp [Var (Short "mk_list"); Lit (IntLit 20000)]]))]``
+val fib = check_prog fib_str;
 
-val foldl = ``
-[Tdec
- (Dletrec
-    [("foldl","f",
-      Fun "e"
-        (Fun "xs"
-           (Mat (Var (Short "xs"))
-              [(Pcon (SOME (Short "nil")) [],Var (Short "e"));
-               (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "xs"],
-                App Opapp
-                  [App Opapp
-                     [App Opapp
-                        [Var (Short "foldl"); Var (Short "f")];
-                      App Opapp
-                        [App Opapp
-                           [Var (Short "f"); Var (Short "e")];
-                         Var (Short "x")]];
-                   Var (Short "xs")])])))]);
-Tdec
- (Dletrec
-    [("repeat","x",
-      Fun "n"
-        (If
-           (App Equality [Var (Short "n"); Lit (IntLit 0)])
-           (Con (SOME (Short "nil")) [])
-           (Con (SOME (Short "::"))
-              [Var (Short "x");
-               App Opapp
-                 [App Opapp [Var (Short "repeat"); Var (Short "x")];
-                  App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]
-                  ])))]);
-Tdec
- (Dlet (Pvar "test")
-    (App Opapp
-       [App Opapp
-          [App Opapp
-             [Var (Short "foldl");
-              Fun "x"
-                (Fun "y"
-                   (App (Opn Plus) [Var (Short "x");
-                       App Opapp
-                         [App Opapp
-                            [App Opapp
-                               [Var (Short "foldl");
-                                Fun "x"
-                                  (Fun "y"
-                                     (App (Opn Plus) [Var (Short "x");
-                                                      Var (Short "y")]))];
-                             Lit (IntLit 0)]; Var (Short "y")]]))];
-           Lit (IntLit 0)];
-        App Opapp
-          [App Opapp
-             [Var (Short "repeat");
-              App Opapp
-                [App Opapp [Var (Short "repeat"); Lit (IntLit 1)];
-                 Lit (IntLit 15000)]]; Lit (IntLit 15000)]]))]``;
+val foldl_str =
+  "fun foldl f e xs ="^
+  "  case xs of [] => e"^
+  "  | (x::xs) => foldl f (f e x) xs;"^
+  "fun repeat x n ="^
+  "  if (n = 0)"^
+  "  then []"^
+  "  else (x::(repeat x (n - 1)));"^
+  "val test = foldl (fn x => fn y => x + (foldl (fn x => fn y => x+y) 0 y)) 0"^
+  "           (repeat (repeat 1 15000) 15000);"
 
-(* TODO: Flipped order of comparison for abs *)
-val nqueens =
-``[Tdec (Dexn "Fail" []);
-  Tdec
-    (Dletrec
-       [("abs","x",
-         If
-           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
-           (Var (Short "x"))
-           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
-  Tdec
-      (Dletrec
-         [("int_eq","x",
-           Fun "y"
-             (Log And
-                (App (Opb Leq) [Var (Short "x"); Var (Short "y")])
-                (App (Opb Leq) [Var (Short "y"); Var (Short "x")])))]);
-  Tdec
-    (Dletrec
-       [("curcheck","p",
-         Fun "ls"
-           (Mat (Var (Short "ls"))
-              [(Pcon (SOME (Short "nil")) [],Con NONE []);
-               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
-                Mat (Var (Short "p"))
-                  [(Pcon NONE [Pvar "x"; Pvar "y"],
-                    Mat (Var (Short "l"))
-                      [(Pcon NONE [Pvar "a"; Pvar "b"],
-                        If
-                          (Log Or
-                             (Log Or
-                                 (App Opapp
-                                       [App Opapp
-                                          [Var (Short "int_eq");
-                                           Var (Short "a")];
-                                        Var (Short "x")])
-                                (App Opapp
-                                       [App Opapp
-                                          [Var (Short "int_eq");
-                                           Var (Short "b")];
-                                        Var (Short "y")]))
-                             (App Opapp
-                                    [App Opapp
-                                       [Var (Short "int_eq");
-                                        App Opapp [Var (Short "abs");
-                                   App (Opn Minus)
-                                     [Var (Short "a");Var (Short "x")]]
-                                        ];
-                                   App Opapp [Var (Short "abs");
-                                    App (Opn Minus)
-                                       [Var (Short "b");Var (Short "y")]]])
-                            )
-                          (Raise (Con (SOME (Short "Fail")) []))
-                          (App Opapp
-                             [App Opapp
-                                [Var (Short "curcheck");
-                                 Con NONE
-                                   [Var (Short "x");
-                                    Var (Short "y")]];
-                              Var (Short "ls")]))])])]))]);
-  Tdec
-    (Dletrec
-       [("nqueens","n",
-         Fun "cur"
-           (Fun "ls"
-              (If
-                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
-                 (Var (Short "ls"))
-                 (Letrec
-                    [("find_queen","y",
-                      If
-                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
-                        (Raise (Con (SOME (Short "Fail")) []))
-                        (Handle
-                           (Let NONE
-                              (App Opapp
-                                 [App Opapp
-                                    [Var (Short "curcheck");
-                                     Con NONE
-                                       [Var (Short "cur");
-                                        Var (Short "y")]];
-                                  Var (Short "ls")])
-                              (App Opapp
-                                 [App Opapp
-                                    [App Opapp
-                                       [Var (Short "nqueens");
-                                        Var (Short "n")];
-                                     App (Opn Plus)[Var (Short "cur");
-                                        Lit (IntLit 1)]];
-                                  Con (SOME (Short "::"))
-                                    [Con NONE
-                                       [Var (Short "cur");
-                                        Var (Short "y")];
-                                     Var (Short "ls")]]))
-                           [(Pcon (SOME (Short "Fail")) [],
-                             App Opapp
-                               [Var (Short "find_queen");
-                                App (Opn Plus) [Var (Short "y");
-                                   Lit (IntLit 1)]])]))]
-                    (App Opapp
-                       [Var (Short "find_queen");
-                        Lit (IntLit 0)])))))]);
-  Tdec
-    (Dlet (Pvar "foo")
-       (App Opapp
-          [App Opapp
-             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
-              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
-(* With polymorphic equality
-val nqueens =
-``[Tdec (Dexn "Fail" []);
-  Tdec
-    (Dletrec
-       [("abs","x",
-         If
-           (App (Opb Lt) [Var (Short "x");Lit (IntLit 0)])
-           (Var (Short "x"))
-           (App (Opn Minus) [Lit (IntLit 0); Var (Short "x")]))]);
-  Tdec
-    (Dletrec
-       [("curcheck","p",
-         Fun "ls"
-           (Mat (Var (Short "ls"))
-              [(Pcon (SOME (Short "nil")) [],Con NONE []);
-               (Pcon (SOME (Short "::")) [Pvar "l"; Pvar "ls"],
-                Mat (Var (Short "p"))
-                  [(Pcon NONE [Pvar "x"; Pvar "y"],
-                    Mat (Var (Short "l"))
-                      [(Pcon NONE [Pvar "a"; Pvar "b"],
-                        If
-                          (Log Or
-                             (Log Or
-                                (App Equality
-                                   [Var (Short "a");Var (Short "x")])
-                                (App Equality
-                                   [Var (Short "b");Var (Short "y")]))
-                             (App Equality
-                                [App Opapp [Var (Short "abs");
-                                   App (Opn Minus)
-                                     [Var (Short "a");Var (Short "x")]];
-                                 App Opapp [Var (Short "abs");
-                                    App (Opn Minus)
-                                       [Var (Short "b");Var (Short "y")]]])
-                            )
-                          (Raise (Con (SOME (Short "Fail")) []))
-                          (App Opapp
-                             [App Opapp
-                                [Var (Short "curcheck");
-                                 Con NONE
-                                   [Var (Short "x");
-                                    Var (Short "y")]];
-                              Var (Short "ls")]))])])]))]);
-  Tdec
-    (Dletrec
-       [("nqueens","n",
-         Fun "cur"
-           (Fun "ls"
-              (If
-                 (App (Opb Geq) [Var (Short "cur");Var (Short "n")])
-                 (Var (Short "ls"))
-                 (Letrec
-                    [("find_queen","y",
-                      If
-                        (App (Opb Geq) [Var (Short "y");Var (Short "n")])
-                        (Raise (Con (SOME (Short "Fail")) []))
-                        (Handle
-                           (Let NONE
-                              (App Opapp
-                                 [App Opapp
-                                    [Var (Short "curcheck");
-                                     Con NONE
-                                       [Var (Short "cur");
-                                        Var (Short "y")]];
-                                  Var (Short "ls")])
-                              (App Opapp
-                                 [App Opapp
-                                    [App Opapp
-                                       [Var (Short "nqueens");
-                                        Var (Short "n")];
-                                     App (Opn Plus)[Var (Short "cur");
-                                        Lit (IntLit 1)]];
-                                  Con (SOME (Short "::"))
-                                    [Con NONE
-                                       [Var (Short "cur");
-                                        Var (Short "y")];
-                                     Var (Short "ls")]]))
-                           [(Pcon (SOME (Short "Fail")) [],
-                             App Opapp
-                               [Var (Short "find_queen");
-                                App (Opn Plus) [Var (Short "y");
-                                   Lit (IntLit 1)]])]))]
-                    (App Opapp
-                       [Var (Short "find_queen");
-                        Lit (IntLit 0)])))))]);
-  Tdec
-    (Dlet (Pvar "foo")
-       (App Opapp
-          [App Opapp
-             [App Opapp [Var (Short "nqueens"); Lit (IntLit 29)];
-              Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
-              *)
+val foldl = check_prog foldl_str;
 
-val benchmarks = [foo,qsortimp,nqueens,foldl,reverse,fib,btree,queue,qsort]
-val names = ["foo","qsortimp","nqueens","foldl","reverse","fib","btree","queue","qsort"]
+(* TODO: Note!! benchmark updated!! *)
+val nqueens_str =
+  "exception Fail;"^
+  "fun abs x = if x >= 0 then x else 0-x;"^
+  "fun curcheck p ls ="^
+  "  case ls of"^
+  "    [] => ()"^
+  "  | (l::ls) =>"^
+  "  case p of (x,y) =>"^
+  "  case l of (a,b) =>"^
+  "  if a = x orelse b = y orelse abs(a-x)=abs(b-y) then raise Fail else curcheck (x,y) ls;"^
+  "fun nqueens n cur ls ="^
+  "  if cur >= n then ls"^
+  "  else"^
+  "    let fun find_queen y ="^
+  "      if y >= n then raise Fail"^
+  "      else"^
+  "      (curcheck (cur,y) ls;nqueens n (cur+1) ((cur,y)::ls))"^
+  "      handle Fail => find_queen (y+1)"^
+  "    in"^
+  "      find_queen 0"^
+  "    end;"^
+  "val foo = nqueens 29 0 [];"
+
+val nqueens = check_prog nqueens_str;
+
+val qsort_str =
+  "fun part p l (l1,l2) ="^
+  "  case l "^
+  "  of [] => (l1,l2)"^
+  "  |  h::rst => (if (p h)"^
+  "                then (part p rst (h::l1,l2))"^
+  "                else (part p rst (l1,h::l2)));"^
+  "fun partition p l = part p l ([],[]);"^
+  "fun append l1 l2 ="^
+  "  case l1"^
+  "  of [] => l2"^
+  "  |  x::xs => (x::(append xs l2));"^
+  "fun qsort r l ="^
+  "  case l"^
+  "  of [] => []"^
+  "  |  h::t => (case (partition (fn y => (r y h)) t)"^
+  "              of (l1,l2) => (append (qsort r l1) (append [h] (qsort r l2))));"^
+  "fun mk_list n ="^
+  "  if (n = 0)"^
+  "  then []"^
+  "  else (n::(mk_list (n - 1)));"^
+  "fun use_qsort n ="^
+  "  qsort (fn x => (fn y => (x <= y))) (append (mk_list n) (mk_list n));"^
+  "val test = use_qsort 10000;"
+
+val qsort = check_prog qsort_str;
+
+val qsortimp_str =
+  "fun swap i j arr ="^
+  "  let val ti = Array.sub arr i"^
+  "      val tj = Array.sub arr j"^
+  "      val u = Array.update arr i tj in"^
+  "        Array.update arr j ti"^
+  "  end;"^
+  "fun part_loop i j k arr ="^
+  "  if i < j then"^
+  "    (if Array.sub arr i <= k then"^
+  "         part_loop (i+1) j k arr"^
+  "     else"^
+  "       let val u = swap i (j-1) arr in"^
+  "         part_loop i (j-1) k arr"^
+  "       end)"^
+  "  else i;"^
+  "fun inplace_partition b e arr ="^
+  "    let val k = Array.sub arr b"^
+  "        val i = part_loop (b+1) e k arr"^
+  "        val u = swap b (i-1) arr in"^
+  "           i-1"^
+  "        end;"^
+  "fun inplace_qsort b e arr ="^
+  "    if b+1 < e then"^
+  "      let val i = inplace_partition b e arr"^
+  "          val u = inplace_qsort b i arr in"^
+  "             inplace_qsort (i+1) e arr"^
+  "      end"^
+  "    else ();"^
+  "fun initarr len arr n ="^
+  "  if n = len then"^
+  "    arr"^
+  "  else"^
+  "    let val u = Array.update arr n (len-n)"^
+  "        val u = Array.update arr (n+len) (len-n) in"^
+  "          initarr len arr (n+1)"^
+  "        end;"^
+  "fun mkarr n = initarr n (Array.array (n+n) 0) 0;"^
+  "val foo = mkarr 20000"^
+  "val test = inplace_qsort 0 40000 foo;"
+
+(* TODO: FAILS type checking because array is not in the basis *)
+val qsortimp = check_prog qsortimp_str;
+
+val queue_str =
+  "datatype 'a q = QUEUE of 'a list * 'a list;"^
+  "val empty = QUEUE([],[]);"^
+  "fun is_empty q ="^
+  "  case q"^
+  "  of QUEUE([],xs) => true"^
+  "  |  _ => false;"^
+  "fun reverse_aux l acc ="^
+  "  case l"^
+  "  of [] => acc"^
+  "  |  x::xs => (reverse_aux xs (x::acc));"^
+  "fun reverse xs = reverse_aux xs [];"^
+  "fun checkf q ="^
+  "  case q"^
+  "  of QUEUE([],xs) => (QUEUE(reverse xs,[]))"^
+  "  |  _ => q;"^
+  "fun snoc q x = case q of QUEUE(f,r) => (checkf (QUEUE(f,x::r)));"^
+  "fun head q = case q of QUEUE(x::f,r) => x;"^
+  "fun tail q = case q of QUEUE(x::f,r) => (checkf (QUEUE(f,r)));"^
+  "fun use_queue n q ="^
+  "  if (n = 0)"^
+  "  then q"^
+  "  else (use_queue (n - 1) (tail (snoc (snoc q (n - 1)) (n - 1))));"^
+  "fun run_queue n = head (use_queue n empty);"^
+  "val test = run_queue 20000000;"
+
+(* TODO: fails because of parsing, same as btree *)
+val queue = check_prog queue_str
+
+val reverse_str =
+  "fun reverse xs ="^
+  "  let"^
+  "    fun append xs ys ="^
+  "      case xs of [] => ys"^
+  "      | (x::xs) => x :: append xs ys;"^
+  "    fun rev xs ="^
+  "      case xs of [] => xs"^
+  "      | (x::xs) => append (rev xs) [x]"^
+  "  in"^
+  "    rev xs"^
+  "  end;"^
+  "fun mk_list n ="^
+  "  if (n = 0)"^
+  "  then []"^
+  "  else (n::(mk_list (n - 1)));"^
+  "val test = reverse (mk_list 20000);"
+
+val reverse = check_prog reverse_str
+
+val benchmarks = map (fn (SOME x) => x) [nqueens,foldl,reverse,fib,qsort]
+val names = ["nqueens","foldl","reverse","fib","qsort"]
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 

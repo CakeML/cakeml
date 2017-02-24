@@ -121,6 +121,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,processIdent_def
       ,mkCharS_def
       ,lexer_fun_def
+      ,init_loc_def
       ]
     end,
    computeLib.Defs
