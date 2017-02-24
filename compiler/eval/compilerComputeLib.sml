@@ -107,9 +107,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,mod_to_conTheory.compile_exp_def
     ,mod_to_conTheory.compile_pat_def
     ,mod_to_conTheory.lookup_tag_env_def
-    ,mod_to_conTheory.lookup_tag_flat_def
     ,mod_to_conTheory.insert_tag_env_def
-    ,mod_to_conTheory.mod_tagenv_def
     ,mod_to_conTheory.get_tagenv_def
     ,mod_to_conTheory.get_exh_def
     ,mod_to_conTheory.alloc_tag_def
@@ -312,11 +310,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.AllocGlobal_code_def
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
+    ,bvl_to_bviTheory.FromListByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
     ,bvl_to_bviTheory.AllocGlobal_location_eq
     ,bvl_to_bviTheory.InitGlobals_max_def
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
+    ,bvl_to_bviTheory.FromListByte_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
@@ -818,6 +818,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
     ,semanticsComputeLib.add_ast_compset
+    ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset
     ]
   ]

@@ -1,5 +1,4 @@
 open preamble bootstrapLib
-     ml_translatorLib ml_progLib
      backendTheory compilerComputeLib
      compiler_x64ProgTheory
 
@@ -28,20 +27,6 @@ val _ = new_theory"to_dataBootstrap";
 
 val _ = Globals.max_print_depth := 20;
 
-val _ = translation_extends"compiler_x64Prog";
-
-val ML_code_prog =
-  get_ml_prog_state ()
-  |> clean_state |> remove_snocs
-  |> get_thm
-
-val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
-
-val _ = reset_translation();
-
-val prog_x64_def = zDefine`
-  prog_x64 = ^prog`;
-
 val cs = wordsLib.words_compset();
 val () = basicComputeLib.add_basic_compset cs;
 val () = semanticsComputeLib.add_ast_compset cs;
@@ -60,9 +45,9 @@ val init_conf_def = zDefine`
     bvl_conf    := bvl_to_bvi$default_config with <| inline_size_limit := 3; exp_cut := 200 |>
   |>`;
 
-val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, prog_x64_def]] cs;
+val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, entire_program_def]] cs;
 
-val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf prog_x64``;
+val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf entire_program``;
 val (c,p) = to_mod_thm0 |> rconc |> dest_pair
 val mod_conf_def = zDefine`mod_conf = ^c`;
 val mod_prog_def = zDefine`mod_prog = ^p`;
@@ -89,7 +74,7 @@ val mod_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
 
 val to_con_thm0 =
-  ``to_con init_conf prog_x64``
+  ``to_con init_conf entire_program``
   |> (REWR_CONV to_con_def THENC
       RAND_CONV (REWR_CONV to_mod_thm) THENC
       REWR_CONV LET_THM THENC
@@ -125,7 +110,7 @@ val con_conf_bvl_conf =
       THENC REWR_CONV mod_conf_bvl_conf)
 
 val to_dec_thm0 =
-  ``to_dec init_conf prog_x64``
+  ``to_dec init_conf entire_program``
   |> (REWR_CONV to_dec_def THENC
       RAND_CONV (REWR_CONV to_con_thm) THENC
       REWR_CONV LET_THM THENC
@@ -157,7 +142,7 @@ val dec_conf_bvl_conf =
       THENC REWR_CONV con_conf_bvl_conf)
 
 val to_exh_thm0 =
-  ``to_exh init_conf prog_x64``
+  ``to_exh init_conf entire_program``
   |> (REWR_CONV to_exh_def THENC
       RAND_CONV (REWR_CONV to_dec_thm) THENC
       REWR_CONV LET_THM THENC
@@ -172,7 +157,7 @@ val to_exh_thm =
 val () = computeLib.extend_compset [computeLib.Defs [exh_prog_def]] cs;
 
 val to_pat_thm0 =
-  ``to_pat init_conf prog_x64``
+  ``to_pat init_conf entire_program``
   |> (REWR_CONV to_pat_def THENC
       RAND_CONV (REWR_CONV to_exh_thm) THENC
       REWR_CONV LET_THM THENC
@@ -187,7 +172,7 @@ val to_pat_thm =
 val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
 
 val to_clos_thm0 =
-  ``to_clos init_conf prog_x64``
+  ``to_clos init_conf entire_program``
   |> (REWR_CONV to_clos_def THENC
       RAND_CONV (REWR_CONV to_pat_thm) THENC
       REWR_CONV LET_THM THENC
@@ -202,7 +187,7 @@ val to_clos_thm =
 val () = computeLib.extend_compset [computeLib.Defs [clos_prog_def]] cs;
 
 val to_bvl_thm0 =
-  ``to_bvl init_conf prog_x64``
+  ``to_bvl init_conf entire_program``
   |> (REWR_CONV to_bvl_def THENC
       RAND_CONV (REWR_CONV to_clos_thm) THENC
       REWR_CONV LET_THM THENC
@@ -232,7 +217,7 @@ val bvl_conf_bvl_conf =
       THENC REWR_CONV dec_conf_bvl_conf)
 
 val to_bvi_thm0 =
-  ``to_bvi init_conf prog_x64``
+  ``to_bvi init_conf entire_program``
   |> (REWR_CONV to_bvi_def THENC
       RAND_CONV (REWR_CONV to_bvl_thm) THENC
       REWR_CONV LET_THM THENC
@@ -283,7 +268,7 @@ val to_bvi_thm =
 val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
 val to_data_thm0 =
-  ``to_data init_conf prog_x64``
+  ``to_data init_conf entire_program``
   |> (REWR_CONV to_data_def THENC
       RAND_CONV (REWR_CONV to_bvi_thm) THENC
       REWR_CONV LET_THM THENC

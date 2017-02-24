@@ -1,2 +1,2 @@
-INCLUDES = .. pure ../translator ../characteristic
+INCLUDES = .. pure ../translator ../characteristic ../semantics
 OPTIONS = QUIT_ON_FAILURE

@@ -84,7 +84,7 @@ val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
   NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
 
 val _ = Datatype`
-  RO_fs = <| files : (mlstring # word8 list) list ;
+  RO_fs = <| files : (mlstring # char list) list ;
              infds : (num # (mlstring # num)) list |>
 `
 
@@ -212,7 +212,7 @@ val inFS_fname_def = Define `
    ---------------------------------------------------------------------- *)
 
 val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair (Str o explode) (Str o MAP (CHR o (w2n:word8->num)))) fs
+  encode_files fs = encode_list (encode_pair (Str o explode) Str) fs
 `;
 
 val encode_fds_def = Define`
@@ -228,7 +228,7 @@ val encode_def = Define`
 
 
 val decode_files_def = Define`
-  decode_files f = decode_list (decode_pair (lift implode o destStr) (lift (MAP ((n2w:num->word8) o ORD)) o destStr)) f
+  decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
 `
 
 val decode_encode_files = Q.store_thm(
@@ -311,7 +311,7 @@ val fs_ffi_next_def = Define`
                (copt, fs') <- fgetc (w2n (HD bytes)) fs;
                case copt of
                    NONE => return ([255w], encode fs')
-                 | SOME c => return ([c], encode fs')
+                 | SOME c => return ([n2w (ORD c)], encode fs')
              od
       | "close" => do
                assert(LENGTH bytes = 1);

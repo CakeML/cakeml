@@ -24,13 +24,8 @@ val LetApps_def = Define `
 
 val _ = ml_prog_update (open_module "CharIO");
 
-(* TODO: do these occur more naturally somewhere else in the basis ? *)
+(* TODO: does this occur more naturally somewhere else in the basis ? *)
 val _ = trans "bool_of_byte" `\(w:word8). w <> 0w`
-val _ = trans "char_of_byte" `\(w:word8). CHR (w2n w)`
-
-val chario_char_of_byte_side = Q.store_thm("chario_char_of_byte_side",
-  `chario_char_of_byte_side w`,
-  metis_tac [fetch"-" "chario_char_of_byte_side_def",w2n_lt,EVAL ``dimword(:8)``]);
 (* -- *)
 
 val e = ``(App Aw8alloc [Lit (IntLit 2); Lit (Word8 0w)])``
@@ -43,55 +38,135 @@ val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_st
 
 val e =
   ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
-     (LetApps "c" (Long "Word8Array" "sub") [Var (Short "read_state");  Lit (IntLit 0)]
-       (Apps [Var (Short "char_of_byte"); Var (Short "c")]))``
+     (LetApps "b" (Long "Word8Array" (Short "sub")) [Var (Short "read_state");  Lit (IntLit 0)]
+       (LetApps "i" (Long "Word8" (Short "toInt")) [Var (Short "b")]
+         (Apps [Var (Long "Char" (Short "chr")); Var (Short "i")])))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read"`` ``"u"`` e "read_v")
 
 val e =
-  ``LetApps "f" (Long "Word8Array" "sub") [Var (Short "read_state"); Lit (IntLit 1)]
+  ``LetApps "f" (Long "Word8Array" (Short "sub")) [Var (Short "read_state"); Lit (IntLit 1)]
       (Apps [Var (Short "bool_of_byte"); Var (Short "f")])``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read_failed"`` ``"u"`` e "read_failed_v")
 
 val e =
-  ``Let (SOME "c") (Apps [Var (Long "Word8Array" "update");
+  ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
+    (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
+     (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_state");
-                          Lit (IntLit 0); Var (Short "c")])
-      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "c")))``
+                          Lit (IntLit 0); Var (Short "b")])
+      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
 val _ = ml_prog_update (close_module NONE);
 
-val stdin_fun_def = Define `
-  stdin_fun = (\i bytes s. case (bytes,s) of
-                    | ([b;f],Str input) =>
-                         if i = "getChar" then (* read *)
-                           if input = "" then
-                             SOME ([b;1w],Str input)
-                           else 
-                             SOME ([n2w (ORD (HD input)); 0w],Str (TL input))
-                         else NONE (* i = "putChar" *)
-                    | _ => NONE)`
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+(*TODO: move these to a more sensible location *)
+
+val ffi_putChar_def = Define`
+  ffi_putChar bytes out =
+    case(bytes, out) of
+    | ([w], out) => SOME ([w], out ++ [CHR (w2n w)])
+    | _ => NONE`
 
 val stdout_fun_def = Define `
-  stdout_fun = (\_ bytes s. case (bytes,s) of (* write *)
-                    | ([w],Str output) => SOME ([w],Str (output ++ [CHR (w2n w)]))
-                    | _ => NONE)`
+  stdout_fun i bytes s =
+    if i = "putChar" then
+      do
+        out <- destStr s;
+        (bytes, out) <- ffi_putChar bytes out;
+        return (bytes, Str out)
+      od
+    else NONE`;
+
+val ffi_getChar_def = Define`
+  ffi_getChar bytes inp =
+    case(bytes, inp) of
+    | ([b;f], "") => SOME ([b; 1w], "")
+    | ([b;f], h::t) => SOME ([n2w (ORD h); 0w], t)
+    | _ => NONE`
+
+
+val stdin_fun_def = Define `
+  stdin_fun i bytes s =
+    if i = "getChar" then
+      do
+        inp <- destStr s;
+        (bytes, inp) <- ffi_getChar bytes inp;
+        return (bytes, Str inp)
+      od
+    else NONE`;
 
 val STDIN_def = Define `
   STDIN input read_failed =
     IO (Str input) stdin_fun ["getChar"] *
     SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
 
+val STDIN_T_precond = Q.store_thm("STDIN_T_precond",
+  `(STDIN inp T) 
+     {FFI_part (Str inp) stdin_fun ["getChar"] events;
+      Mem 0 (W8array [w; 1w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
+
+val STDIN_F_precond = Q.store_thm("STDIN_F_precond",
+  `(STDIN inp F) 
+     {FFI_part (Str inp) stdin_fun ["getChar"] events;
+      Mem 0 (W8array [w; 0w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
 val STDOUT_def = Define `
-  STDOUT (output:word8 list) =
-    IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] *
+  STDOUT output =
+    IO (Str output) stdout_fun ["putChar"] *
     SEP_EXISTS w. W8ARRAY write_state_loc [w]`;
+
+val STDOUT_precond = Q.store_thm("STDOUT_precond",
+  `(STDOUT out) 
+    {FFI_part (Str out) stdout_fun ["putChar"] events;
+     Mem 1 (W8array [w])}`,
+  rw[STDOUT_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``write_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.one_def]
+  \\ qexists_tac `w` 
+  \\ rw[EXTENSION, EQ_IMP_THM]
+);
 
 val w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
@@ -116,12 +191,14 @@ val read_spec = Q.store_thm ("read_spec",
       xffi
       \\ fs[STDIN_def, EVAL ``read_state_loc``]
       \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-      \\ fs[stdin_fun_def] )
+      \\ fs[stdin_fun_def, ffi_getChar_def] )
     \\ fs[STDIN_def] \\ xpull
     \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
     >- (
       xapp \\ xsimpl \\ fs[STDIN_def]
       \\ fs[EVAL``read_state_loc``] \\ xsimpl)
+    \\ xlet `POSTv x. STDIN "" T * cond (NUM (w2n w) x)`
+    >- ( xapp \\ xsimpl \\ fs[] \\ metis_tac[] )
     \\ rw[STDIN_def] \\ xpull
     \\ xapp \\ xsimpl \\ instantiate
     \\ simp[w2n_lt_256] )
@@ -132,11 +209,13 @@ val read_spec = Q.store_thm ("read_spec",
     xffi
     \\ fs[STDIN_def, EVAL ``read_state_loc``]
     \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-    \\ fs[stdin_fun_def] )
+    \\ fs[stdin_fun_def, ffi_getChar_def] \\ Cases_on `input` \\ rw[])
   \\ xlet `POSTv x. STDIN (TL input) F * cond (WORD ((n2w(ORD(HD input))):word8) x)`
   >- (
     xapp \\ xsimpl \\ fs[STDIN_def]
     \\ fs[EVAL``read_state_loc``] \\ xsimpl)
+  \\ xlet `POSTv x. STDIN (TL input) F * cond (NUM (ORD (HD input)) x)`
+  >- (xapp \\ xsimpl \\ instantiate \\ simp[ORD_BOUND])
   \\ rw[STDIN_def] \\ xpull
   \\ xapp \\ xsimpl \\ instantiate
   \\ simp[CHR_ORD,ORD_BOUND])
@@ -162,23 +241,30 @@ val read_failed_spec = Q.store_thm("read_failed_spec",
   \\ rw[]);
 
 val write_spec = Q.store_thm ("write_spec",
-  `WORD c cv ==>
+  `CHAR c cv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write" (basis_st()))
        [cv]
        (STDOUT output)
        (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [c]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [STDOUT_def] \\ xpull
-  \\ xlet `POSTv zv. IO (Str (MAP (CHR o w2n) output)) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c] *
-                     & (UNIT_TYPE () zv)`
+  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [w] *
+                     & (NUM (ORD c) zv)`
+  >- (xapp \\ xsimpl \\ metis_tac[])
+  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [w] *
+                     & (WORD ((n2w (ORD c)):word8) zv)`
+  >- (xapp \\ xsimpl \\ metis_tac[])
+  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [n2w (ORD c)] *
+                     & UNIT_TYPE () zv`
   THEN1
    (xapp \\ xsimpl \\ fs [EVAL ``write_state_loc``]
-    \\ instantiate \\ xsimpl \\ EVAL_TAC \\ fs [])
-  \\ xlet `POSTv _. IO (Str (MAP (CHR o w2n) (output ++ [c]))) stdout_fun ["putChar"] * W8ARRAY write_state_loc [c]`
+    \\ instantiate \\ xsimpl \\ EVAL_TAC)
+  \\ xlet `POSTv _. IO (Str (output ++ [c])) stdout_fun ["putChar"] * W8ARRAY write_state_loc [n2w (ORD c)]`
   THEN1
    (xffi
     \\ fs [EVAL ``write_state_loc``, STDOUT_def]
-    \\ `MEM "putChar" ["putChar"]` by EVAL_TAC \\ instantiate \\ xsimpl \\ EVAL_TAC)
+    \\ `MEM "putChar" ["putChar"]` by simp[] \\ instantiate \\ xsimpl \\ EVAL_TAC
+    \\ simp[ORD_BOUND,CHR_ORD])
   \\ xret \\ xsimpl);
 
 val _ = export_theory()

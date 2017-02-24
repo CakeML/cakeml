@@ -15,10 +15,10 @@ parse toks =
 val _ = Datatype`
   state = <| (* Type system state *)
             tdecs : decls;
-            tenv : type_environment;
+            tenv : type_env;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
-            sem_env : v environment |>`;
+            sem_env : v sem_env |>`;
 
 val _ = hide "state";
 
@@ -28,7 +28,7 @@ can_type_prog state prog ⇔
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
-    let (st',envC,r) =
+    let (st',r) =
       evaluate_prog (st with clock := k) env prog
     in (st'.ffi,r)`;
 
@@ -66,7 +66,7 @@ val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
 val semantics_def = Define`
   semantics state prelude input =
-  case parse (lexer_fun input) of
+  case parse (MAP FST (lexer_fun input)) of
   | NONE => CannotParse
   | SOME prog =>
     if can_type_prog state (prelude ++ prog)
