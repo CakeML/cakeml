@@ -17,18 +17,18 @@ val basis_ffi_tm =
      mk_var("cls",listSyntax.mk_list_type(stringSyntax.string_ty))])
 
 fun add_basis_proj spec =
-  let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in 
+  let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in
     spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2):(string#string#string list) ffi_proj`
   end
 
-fun ERR f s = mk_HOL_ERR"ioProgLib" f s 
+fun ERR f s = mk_HOL_ERR"ioProgLib" f s
 
 (*This function proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
-fun parts_ok_basis_st st = 
+fun parts_ok_basis_st st =
   let val goal = ``parts_ok ^st.ffi (basis_proj1, basis_proj2)``
   val th = prove(goal,
     rw[cfStoreTheory.parts_ok_def] \\ TRY (
-    EVAL_TAC 
+    EVAL_TAC
     \\ fs[basis_proj2_def, basis_proj1_def, FLOOKUP_UPDATE, FAPPLY_FUPDATE_THM,FUPDATE_LIST]
     \\ rw[]
     \\ imp_res_tac stdout_fun_length
@@ -42,7 +42,7 @@ fun parts_ok_basis_st st =
 
 (* This function proves the SPLIT pre-condition of call_main_thm_basis *)
 fun subset_basis_st st precond =
-  let 
+  let
   val hprops = precond |>  helperLib.list_dest helperLib.dest_star
   fun match_and_instantiate tm th =
     INST_TY_TERM (match_term (rator(concl th)) tm) th
@@ -61,20 +61,27 @@ fun subset_basis_st st precond =
           val th = CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
         in build_set (th::ths) end
   val sets_thm = build_set heap_thms
-  val sets = rand(concl sets_thm)
+  val (precond',sets) = dest_comb(concl sets_thm)
+  val sets_thm = PURE_REWRITE_RULE [precond_rw] sets_thm
+  val precond_rw = prove(mk_eq(precond',precond),SIMP_TAC (pure_ss ++ star_ss) [] \\ REFL_TAC)
   val to_inst = free_vars sets
   val goal = pred_setSyntax.mk_subset(sets,st)
-  val pok_thm = parts_ok_basis_st (rand st) 
+  val pok_thm = parts_ok_basis_st (rand st)
   val tac = (strip_assume_tac pok_thm
-     \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap, 
+     \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
            cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
      \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF])
   val (subgoals,_) = tac ([],goal)
   fun mk_mapping (x,y) =
     if mem x to_inst then SOME (x |-> y) else
     if mem y to_inst then SOME (y |-> x) else NONE
-  val s = 
-     List.mapPartial (mk_mapping o dest_eq o #2) subgoals
+  fun safe_dest_eq tm =
+    if boolSyntax.is_eq tm then boolSyntax.dest_eq tm else
+    Lib.tryfind boolSyntax.dest_eq (boolSyntax.strip_disj tm)
+    handle HOL_ERR _ =>
+      raise(ERR"subset_basis_st"("Could not prove heap subgoal: "^(Parse.term_to_string tm)))
+  val s =
+     List.mapPartial (mk_mapping o safe_dest_eq o #2) subgoals
   val goal' = Term.subst s goal
   val th = prove(goal',tac)
   val th = MATCH_MP SPLIT_exists (CONJ (INST s sets_thm) th)
@@ -83,7 +90,7 @@ fun subset_basis_st st precond =
 
 (*
   - st is the ML prog state of the final desired program
-  - name (string) is the name of the program's main function (unit->unit) 
+  - name (string) is the name of the program's main function (unit->unit)
   - spec is a theorem of the form
      |- app (basis_proj1, basis_proj2) main_v [Conv NONE []] P
           (POSTv uv. &UNIT_TYPE () uv * STDOUT x * Q)
@@ -96,7 +103,7 @@ fun subset_basis_st st precond =
 *)
 
 fun call_thm st name spec =
-  let 
+  let
     val call_ERR = ERR "call_thm"
     val th =
       call_main_thm_basis
@@ -106,13 +113,13 @@ fun call_thm st name spec =
         |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
         |> C MATCH_MP spec
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-    val prog_rewrite = EVAL prog_with_snoc
+    val prog_rewrite = EVAL prog_with_snoc (* TODO: this is too slow for large progs *)
     val th = PURE_REWRITE_RULE[prog_rewrite] th
     val (mods_tm,types_tm) = th |> concl |> dest_imp |> #1 |> dest_conj
-    val mods_thm = 
+    val mods_thm =
       mods_tm |> (RAND_CONV EVAL THENC no_dup_mods_conv)
       |> EQT_ELIM handle HOL_ERR _ => raise(call_ERR "duplicate modules")
-    val types_thm = 
+    val types_thm =
       types_tm |> (RAND_CONV EVAL THENC no_dup_top_types_conv)
       |> EQT_ELIM handle HOL_ERR _ => raise(call_ERR "duplicate top types")
     val th = MATCH_MP th (CONJ mods_thm types_thm)
