@@ -1,5 +1,5 @@
 open preamble astTheory terminationTheory modLangTheory;
-open jsonTheory presLangTheory;
+open jsonTheory;
 
 val _ = numLib.prefer_num();
 
@@ -103,7 +103,7 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp t env (Lannot e (st,en)) =
     let t' = case t of None => None | _ => t in
-     compile_exp (mk_cons (mk_cons (mk_cons (mk_cons t' en.col) en.row) st.col) st.row) env e)
+     compile_exp (mk_cons (mk_cons (mk_cons (mk_cons t' st.row) st.col) en.row) en.col) env e)
   ∧
   (compile_exps t env [] = [])
   ∧

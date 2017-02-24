@@ -4,21 +4,29 @@ open preamble
      inferTheory
      backendTheory
      basisProgTheory
-open jsonTheory
+open jsonTheory presLangTheory
 
 (* COMPILING *)
-val _ = Define`
-  parse p = parse_prog (MAP FST (lexer_fun p))`;
-val _ = Define`
-  basic_prog = "1; val (x,y) = let val my1 = 1 in (3 + 5 mod 10, my1) end; fun foo(x:int) = [x,x,x]; val x = String.size \"bob\"; exception ExplorerException of string; fun mk_ref(x,v) = x := v"`;
-val _ = Define`
+val parse_def = Define`
+  parse p = parse_prog (lexer_fun p)`;
+val basic_prog_def = Define`
+  basic_prog = "val x = 3 + 5"`;
+val parsed_basic_def = Define`
   parsed_basic =
     case parse basic_prog of
          NONE => [] 
        | SOME x => x`;
 
 EVAL ``parsed_basic``;
-EVAL ``source_to_mod$ast_to_pres parsed_basic``;
+
+val mod_prog_def = Define`
+  mod_prog = SND (source_to_mod$compile source_to_mod$empty_config parsed_basic)`;
+
+EVAL ``mod_prog``;
+EVAL ``mod_to_pres mod_prog``
+
+    let res = [modLang$to_json p] in
+    let c = c with source_conf := c' in
 
 (* JSON *)
 val _ = Define `
