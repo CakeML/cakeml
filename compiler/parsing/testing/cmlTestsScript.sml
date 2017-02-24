@@ -26,6 +26,18 @@ val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
 val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
 
+fun strip_Lannot t =
+  if is_comb t then
+	let val (tl, tr) = dest_comb t in
+	  if is_comb tl then
+		let val (t1, t2) = dest_comb tl in
+		  if t1 = ``Lannot`` then strip_Lannot t2
+		  else mk_comb(mk_comb(strip_Lannot t1, strip_Lannot t2), strip_Lannot tr)
+		end
+	  else mk_comb(tl, strip_Lannot tr)
+    end
+  else t
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
@@ -74,12 +86,13 @@ in
                       rand rt
                     else die ("Sem. failure", rt)
                   end
-          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
+          val ptree_clean = strip_Lannot ptree_res
+          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_clean)
         in
           if not (optionSyntax.is_none ptree_res) then
             case opt of
                 NONE => ()
-              | SOME t => if aconv t ptree_res then
+              | SOME t => if aconv t (ptree_clean) then
                             print "Semantic output as expected\n"
                           else
                             die ("Semantics fails; is not the required ", t)
