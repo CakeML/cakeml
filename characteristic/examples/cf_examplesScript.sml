@@ -66,7 +66,6 @@ val example_let_spec = Q.prove (
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 )
 
-(*
 val alloc_ref2 = process_topdecs
   `fun alloc_ref2 a b = (ref a, ref b);`
 
@@ -85,7 +84,6 @@ val alloc_ref2_spec = Q.prove (
   xlet `POSTv r1. REF r1 av * REF r2 bv` THEN1 (xapp \\ xsimpl) \\
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 )
-*)
 
 val swap = process_topdecs
   `fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end`
@@ -199,8 +197,7 @@ val example_raise_spec = Q.prove (
   xraise \\ xsimpl
 );
 
-(*
-val example_handle = parse_topdecs
+val example_handle = process_topdecs
   `exception Foo of int
    fun example_handle x = (raise (Foo 3)) handle Foo i => i`
 (* handle precedence bug in the parser? *)
@@ -260,7 +257,6 @@ val example_handle2_spec = Q.prove (
   THEN1 xsimpl \\
   fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
 );
-*)
 
 val example_nested_apps = process_topdecs
   `fun f i = ~ (~ (~ i))`;

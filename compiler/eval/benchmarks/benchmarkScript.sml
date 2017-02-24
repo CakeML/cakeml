@@ -49,12 +49,15 @@ fun check_inf prog =
 (* Check that a prog represented as a string parses and type checks
    Returns the parsed program it if typechecks
 *)
+
 fun check_prog str =
 let
   val parsed = rconc (EVAL ``parse_prog (lexer_fun ^(stringSyntax.fromMLstring str))``)
 in
   if optionSyntax.is_some parsed then
-    let val parsed = optionSyntax.dest_some parsed in
+    let
+      val parsed = optionSyntax.dest_some parsed
+    in
       if optionSyntax.is_some (rconc (check_inf parsed))
       then SOME(rconc (EVAL``basis ++ ^(parsed)``))
       else NONE
@@ -94,7 +97,6 @@ val btree_str =
   "fun use_tree n = tree_sort (append (mk_list n) (mk_list n));"^
   "val test = use_tree 10000;";
 
-(* TODO: FAILS type checking for parsing reasons (?) *)
 val btree = check_prog btree_str
 
 val fib_str =
@@ -240,7 +242,6 @@ val queue_str =
   "fun run_queue n = head (use_queue n empty);"^
   "val test = run_queue 20000000;"
 
-(* TODO: fails because of parsing, same as btree *)
 val queue = check_prog queue_str
 
 val reverse_str =
