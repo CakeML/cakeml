@@ -83,8 +83,8 @@ val startup =
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
        "cdecl(main):";
-       "     movq    %rdi, argc  # %rdi stores argc",
-       "     movq    %rsi, argv  # %rsi stores argv",
+       "     movq    %rdi, argc  # %rdi stores argc";
+       "     movq    %rsi, argv  # %rsi stores argv";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
