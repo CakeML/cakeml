@@ -10,7 +10,7 @@ fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name =
 val _ = bring_fwd_ctors "ast" ``:ast$lit``
 val _ = bring_fwd_ctors "ast" ``:ast$opn``
 val _ = bring_fwd_ctors "ast" ``:ast$opb``
-val _ = bring_fwd_ctors "ast" ``:'a ast$id``
+val _ = bring_fwd_ctors "namespace" ``:('a,'b) namespace$id``
 val _ = bring_fwd_ctors "ast" ``:ast$op``
 val _ = bring_fwd_ctors "ast" ``:ast$lop``
 val _ = bring_fwd_ctors "ast" ``:ast$tctor``
