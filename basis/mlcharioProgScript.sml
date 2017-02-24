@@ -113,10 +113,60 @@ val STDIN_def = Define `
     IO (Str input) stdin_fun ["getChar"] *
     SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
 
+val STDIN_T_precond = Q.store_thm("STDIN_T_precond",
+  `(STDIN inp T) 
+     {FFI_part (Str inp) stdin_fun ["getChar"] events;
+      Mem 0 (W8array [w; 1w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
+
+val STDIN_F_precond = Q.store_thm("STDIN_F_precond",
+  `(STDIN inp F) 
+     {FFI_part (Str inp) stdin_fun ["getChar"] events;
+      Mem 0 (W8array [w; 0w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
 val STDOUT_def = Define `
   STDOUT output =
     IO (Str output) stdout_fun ["putChar"] *
     SEP_EXISTS w. W8ARRAY write_state_loc [w]`;
+
+val STDOUT_precond = Q.store_thm("STDOUT_precond",
+  `(STDOUT out) 
+    {FFI_part (Str out) stdout_fun ["putChar"] events;
+     Mem 1 (W8array [w])}`,
+  rw[STDOUT_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``write_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.one_def]
+  \\ qexists_tac `w` 
+  \\ rw[EXTENSION, EQ_IMP_THM]
+);
 
 val w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]

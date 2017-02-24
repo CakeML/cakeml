@@ -90,6 +90,13 @@ val COMMANDLINE_def = Define `
   COMMANDLINE (cl:string list) =
     IO (List (MAP Str cl)) commandLine_fun ["getArgs"]`
  
+val COMMANDLINE_precond = Q.store_thm("COMMANDLINE_precond",
+  `(COMMANDLINE cl) 
+     {FFI_part (List (MAP Str cl)) commandLine_fun ["getArgs"] events}`,
+  rw[COMMANDLINE_def, cfHeapsBaseTheory.IO_def,
+     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp [set_sepTheory.one_def]);
+
 val st = get_ml_prog_state()
 
 (* TODO: using p:'b ffi_proj makes xapp fail in hard to trace ways
