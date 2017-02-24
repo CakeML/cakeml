@@ -62,8 +62,8 @@ fun subset_basis_st st precond =
         in build_set (th::ths) end
   val sets_thm = build_set heap_thms
   val (precond',sets) = dest_comb(concl sets_thm)
+  val precond_rw = prove(mk_eq(precond',precond),SIMP_TAC (pure_ss ++ helperLib.star_ss) [] \\ REFL_TAC)
   val sets_thm = PURE_REWRITE_RULE [precond_rw] sets_thm
-  val precond_rw = prove(mk_eq(precond',precond),SIMP_TAC (pure_ss ++ star_ss) [] \\ REFL_TAC)
   val to_inst = free_vars sets
   val goal = pred_setSyntax.mk_subset(sets,st)
   val pok_thm = parts_ok_basis_st (rand st)
