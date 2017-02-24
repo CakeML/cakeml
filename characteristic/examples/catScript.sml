@@ -62,7 +62,7 @@ val LENGTH_explode = Q.store_thm("LENGTH_explode",
   Cases_on`s` \\ simp[]);
 
 val parse_t =
-  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (lexer_fun s) [] done failed of
+  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (MAP FST (lexer_fun s)) [] done failed of
           Result (SOME(_,[x])) => ptree_Decl x``
 fun ParseDecl [QUOTE s] =
   EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
@@ -215,9 +215,9 @@ val str_to_w8array_spec = Q.store_thm(
 (* not used - using CharIO.write directly (which takes a byte)
 (* ML implementation of write function, with parameter "c" (type char) *)
 val write_e =
-  ``LetApps "ci" (Long "Char" "ord") [Var (Short "c")] (
-    LetApps "cw" (Long "Word8" "fromInt") [Var(Short "ci")] (
-    LetApps "u1" (Long "Word8Array" "update")
+  ``LetApps "ci" (Long "Char" (Short "ord")) [Var (Short "c")] (
+    LetApps "cw" (Long "Word8" (Short "fromInt")) [Var(Short "ci")] (
+    LetApps "u1" (Long "Word8Array" (Short "update"))
                  [Var (Short "onechar"); Lit (IntLit 0); Var (Short "cw")] (
     Let (SOME "_") (App (FFI "write") [Var (Short "onechar")])
         (Con NONE []))))``
@@ -233,11 +233,11 @@ val _ = process_topdecs `
 (* Predicates for exceptions BadFileName and InvalidFD *)
 val BadFileName_exn_def = Define `
   BadFileName_exn v =
-    (v = Conv (SOME ("BadFileName", TypeExn (Long "FileIO" "BadFileName"))) [])`
+    (v = Conv (SOME ("BadFileName", TypeExn (Long "FileIO" (Short "BadFileName")))) [])`
 
 val InvalidFD_exn_def = Define `
   InvalidFD_exn v =
-    (v = Conv (SOME ("InvalidFD", TypeExn (Long "FileIO" "InvalidFD"))) [])`
+    (v = Conv (SOME ("InvalidFD", TypeExn (Long "FileIO" (Short "InvalidFD")))) [])`
 
 (* ML implementation of open function, with parameter name "fname" *)
 val openIn_e =
@@ -248,7 +248,7 @@ val openIn_e =
     Let (SOME "_")
         (App (FFI "open") [Var (Short "filename_array")]) (
     Let (SOME "fd")
-        (Apps [Var (Long "Word8Array" "sub"); Var (Short "filename_array");
+        (Apps [Var (Long "Word8Array" (Short "sub")); Var (Short "filename_array");
                Lit (IntLit 0)]) (
     Let (SOME "eqneg1p") (Apps [Var (Short "word_eqneg1"); Var (Short "fd")]) (
     If (Var (Short "eqneg1p"))
@@ -262,11 +262,11 @@ val openIn_v_def = definition "openIn_v_def"
 
 (* ML implementation of eof function, with parameter w8 (a fd) *)
 val eof_e =
-  ``Let (SOME "_") (Apps [Var (Long "Word8Array" "update");
+  ``Let (SOME "_") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "onechar"); Lit (IntLit 0);
                           Var (Short "w8")]) (
     Let (SOME "_") (App (FFI "isEof") [Var (Short "onechar")]) (
-    Let (SOME "bw") (Apps [Var (Long "Word8Array" "sub");
+    Let (SOME "bw") (Apps [Var (Long "Word8Array" (Short "sub"));
                            Var (Short "onechar"); Lit (IntLit 0)]) (
       Mat (Var (Short "bw")) [
         (Plit (Word8 255w), Raise (Con (SOME (Short "InvalidFD")) []));
@@ -282,12 +282,12 @@ val fgetc_e =
     If (Var (Short "eofp"))
        (Con (SOME (Short "NONE")) [])
        (Let (SOME "u1")
-            (Apps [Var (Long "Word8Array" "update");
+            (Apps [Var (Long "Word8Array" (Short "update"));
                    Var (Short "onechar");
                    Lit (IntLit 0);
                    Var (Short "fd")]) (
         Let (SOME "u2") (App (FFI "fgetc") [Var (Short "onechar")]) (
-        Let (SOME "cw") (Apps [Var (Long "Word8Array" "sub");
+        Let (SOME "cw") (Apps [Var (Long "Word8Array" (Short "sub"));
                                Var (Short "onechar"); Lit (IntLit 0)]) (
           Con (SOME (Short "SOME")) [Var (Short "cw")])))))``
    |> EVAL |> concl |> rand
@@ -296,12 +296,12 @@ val fgetc_v_def = definition "fgetc_v_def"
 
 (* ML implementation of close function, with parameter "w8" *)
 val close_e =
-  ``Let (SOME "_") (Apps [Var (Long "Word8Array" "update");
+  ``Let (SOME "_") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "onechar");
                           Lit (IntLit 0);
                           Var (Short "w8")]) (
     Let (SOME "u2") (App (FFI "close") [Var (Short "onechar")]) (
-    Let (SOME "okw") (Apps [Var (Long "Word8Array" "sub");
+    Let (SOME "okw") (Apps [Var (Long "Word8Array" (Short "sub"));
                             Var (Short "onechar");
                             Lit (IntLit 0)]) (
     Let (SOME "ok") (Apps [Var (Short "word_eq1"); Var (Short "okw")]) (

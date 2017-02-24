@@ -7,7 +7,7 @@ val _ = new_theory "ioProg"
 
 val _ = translation_extends "mlcharioProg";
 
-val write_list = parse_topdecs
+val write_list = normalise_topdecs
   `fun write_list xs =
      case xs of
          [] => ()
@@ -163,7 +163,7 @@ val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   \\ rpt (CASE_TAC \\ fs []));
 
 val evaluate_prog_RTC_call_FFI_rel = Q.store_thm("evaluate_prog_RTC_call_FFI_rel",
-  `evaluate_prog F env st prog (st',tds,res) ==>
+  `evaluate_prog F env st prog (st',res) ==>
     RTC call_FFI_rel st.ffi st'.ffi`,
   rw[bigClockTheory.prog_clocked_unclocked_equiv]
   \\ (funBigStepEquivTheory.functional_evaluate_tops
@@ -213,9 +213,9 @@ val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
 
 val evaluate_prog_rel_IMP_evaluate_prog_fun = Q.store_thm(
    "evaluate_prog_rel_IMP_evaluate_prog_fun",
-  `bigStep$evaluate_whole_prog F env st prog (st',new_tds,Rval r) ==>
+  `bigStep$evaluate_whole_prog F env st prog (st',Rval r) ==>
     ?k. evaluate$evaluate_prog (st with clock := k) env prog =
-          (st',new_tds,Rval r)`,
+          (st',Rval r)`,
   rw[bigClockTheory.prog_clocked_unclocked_equiv,bigStepTheory.evaluate_whole_prog_def]
   \\ qexists_tac`c + st.clock`
   \\ (funBigStepEquivTheory.functional_evaluate_prog

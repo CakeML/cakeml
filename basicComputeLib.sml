@@ -57,10 +57,12 @@ val add_basic_compset =
    , miscTheory.append_aux_def
    , miscTheory.append_def
    , miscTheory.SmartAppend_thm
+   , miscTheory.option_fold_def
    , listTheory.LIST_REL_def
    , libTheory.the_def
    (* TODO: should be in HOL *)
    ,optionTheory.OPTION_MAP2_DEF
+   ,optionTheory.OPTION_JOIN_DEF
    ,alistTheory.alist_to_fmap_def
    ,alistTheory.ALOOKUP_def
    ,sortingTheory.PARTITION_DEF

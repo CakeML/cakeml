@@ -25,10 +25,12 @@ val TRUE  = prim_mk_const{Thy="ml_translator",Name="TRUE"}
 val FALSE = prim_mk_const{Thy="ml_translator",Name="FALSE"}
 
 val binop = HolKernel.syntax_fns2 "ml_translator"
-
 val (TAG,mk_TAG,dest_TAG,is_TAG) = binop "TAG";
 val (PreImp,mk_PreImp,dest_PreImp,is_PreImp) = binop "PreImp";
+
+val binop = HolKernel.syntax_fns2 "ml_prog"
 val (lookup_cons,mk_lookup_cons,dest_lookup_cons,is_lookup_cons) = binop "lookup_cons";
+val (lookup_var,mk_lookup_var,dest_lookup_var,is_lookup_var) = binop "lookup_var";
 
 val (Eval,mk_Eval,dest_Eval,is_Eval) = HolKernel.syntax_fns3 "ml_translator" "Eval";
 

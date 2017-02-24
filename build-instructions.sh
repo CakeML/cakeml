@@ -1,5 +1,5 @@
 #!/bin/sh
-## This script installs Poly/ML, HOL and CakeML.
+## This file describes how to install Poly/ML, HOL and CakeML.
 
 ## build Poly/ML
 cd

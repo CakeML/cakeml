@@ -288,9 +288,9 @@ val Apps_def = tDefine "Apps" `
   (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_FRONT]);
 
 val e =
-  ``Let (SOME "c") (App Opapp [Var (Long "Char" "ord"); Var (Short "c")])
-     (Let (SOME "c") (App Opapp [Var (Long "Word8" "fromInt"); Var (Short "c")])
-       (Let (SOME "c") (Apps [Var (Long "Word8Array" "update"); Var (Short "print");  Lit (IntLit 0); Var (Short "c")])
+  ``Let (SOME "c") (App Opapp [Var (Long "Char" (Short "ord")); Var (Short "c")])
+     (Let (SOME "c") (App Opapp [Var (Long "Word8" (Short "fromInt")); Var (Short "c")])
+       (Let (SOME "c") (Apps [Var (Long "Word8Array" (Short "update")); Var (Short "print");  Lit (IntLit 0); Var (Short "c")])
          (Let (SOME "_") (App (FFI "putChar") [Var (Short "print")])
            (Var (Short "c")))))``
   |> EVAL |> concl |> rand
