@@ -61,12 +61,6 @@ val LENGTH_explode = Q.store_thm("LENGTH_explode",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
 
-val parse_t =
-  ``λs. case peg_exec cmlPEG (nt (mkNT nDecl) I) (MAP FST (lexer_fun s)) [] done failed of
-          Result (SOME(_,[x])) => ptree_Decl x``
-fun ParseDecl [QUOTE s] =
-  EVAL (mk_comb(parse_t, stringSyntax.fromMLstring s))
-       |> concl |> rhs |> rand
 (* -- *)
 
 val _ = ml_prog_update (open_module "FileIO");
@@ -155,8 +149,8 @@ val copyi_q =
           in
             copyi a suci cs
           end`
-val copyi_d = ParseDecl copyi_q
-val _ = append_dec copyi_d
+val copyi_d = process_topdecs copyi_q
+val _ = append_prog copyi_d
 
 val copyi_spec = Q.store_thm(
   "copyi_spec",
@@ -194,8 +188,8 @@ val str_to_w8array_q =
    in
       copyi a 0 clist
    end`
-val str_to_w8array_d = ParseDecl str_to_w8array_q
-val _ = append_dec str_to_w8array_d
+val str_to_w8array_d = process_topdecs str_to_w8array_q
+val _ = append_prog str_to_w8array_d
 
 val str_to_w8array_spec = Q.store_thm(
   "str_to_w8array_spec",
