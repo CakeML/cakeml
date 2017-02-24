@@ -8,7 +8,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
   val stack_line = "    .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
   fun ffi_asm [] = []
-    | ffi_asm (ffi::ffis) = 
+    | ffi_asm (ffi::ffis) =
        ("cake_ffi" ^ ffi ^ ":") ::
        "     j     cdecl(ffi" ^ ffi ^ ")"::
        "     .p2align 3"::
@@ -95,7 +95,7 @@ fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
   byte_list_to_asm_lines bytes_tm;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)

@@ -43,15 +43,15 @@ val () = computeLib.extend_compset [
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
     ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def,
-    semanticPrimitivesTheory.merge_alist_mod_env_def
+    ml_progTheory.empty_env_def
+    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
   ]] cs
 
 val _ = (max_print_depth := 15)
 
-val eval = computeLib.CBV_CONV cs
+val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
 val eval_tac = CONV_TAC eval
-val eval_pat = compute_pat cs
+fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local
@@ -107,7 +107,7 @@ val reducible_pats = [
   ``exp2v_list _ _``,
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
-  ``lookup_var_id _ _``,
+  ``nsLookup _ _``,
   ``Fun_body _``,
   ``normalise _``
 ]
@@ -225,7 +225,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [libTheory.opt_bind_def] \\
+  simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
   CONJ_TAC THENL [
     CONJ_TAC THENL [

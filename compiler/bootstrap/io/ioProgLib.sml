@@ -21,7 +21,7 @@ val compile_tm = ``compile``
 
   val compile = compile_tm
 
-  val main = parse_topdecs
+  val main = process_topdecs
     `fun main u = let
        val u = []
        val input = read_all u

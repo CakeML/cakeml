@@ -22,7 +22,6 @@ val add_parsing_compset = computeLib.extend_compset
     ,peg_UQConstructorName_def
     ,pnt_def
     ,try_def
-    ,peg_nonfix_def
     ,pegf_def
     ,seql_def
     ,choicel_def

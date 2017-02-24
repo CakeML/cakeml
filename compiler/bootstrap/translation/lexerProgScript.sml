@@ -83,24 +83,28 @@ val num_from_hex_string_alt_side = Q.prove(`
     fs[]);
 
 val read_string_side = Q.prove(`
-  ∀x y.
-  read_string_side x y ⇔ T`,
+  ∀x y l.
+  read_string_side x y l ⇔ T`,
   ho_match_mp_tac read_string_ind>>
   rw[]>>
   simp[Once (fetch"-""read_string_side_def")]);
 
 val next_sym_alt_side = Q.prove(`
-  ∀x. next_sym_alt_side x ⇔ T`,
+  ∀x l. next_sym_alt_side x l ⇔ T`,
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
   simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side,num_from_hex_string_alt_side]>>
   rw[]>>
   fs[FALSE_def]);
 
+val lexer_fun_aux_side = Q.prove(`
+  ∀x l. lexer_fun_aux_side x l ⇔ T`,
+  ho_match_mp_tac lexer_fun_aux_ind>>rw[]>>
+  simp[Once (fetch"-""lexer_fun_aux_side_def"),
+       Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
+
 val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,
-  ho_match_mp_tac lexer_fun_ind>>rw[]>>
-  simp[Once (fetch"-""lexer_fun_side_def"),
-       Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
+  EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 

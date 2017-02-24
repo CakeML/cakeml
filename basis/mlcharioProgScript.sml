@@ -38,24 +38,24 @@ val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_st
 
 val e =
   ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
-     (LetApps "b" (Long "Word8Array" "sub") [Var (Short "read_state");  Lit (IntLit 0)]
-       (LetApps "i" (Long "Word8" "toInt") [Var (Short "b")]
-         (Apps [Var (Long "Char" "chr"); Var (Short "i")])))``
+     (LetApps "b" (Long "Word8Array" (Short "sub")) [Var (Short "read_state");  Lit (IntLit 0)]
+       (LetApps "i" (Long "Word8" (Short "toInt")) [Var (Short "b")]
+         (Apps [Var (Long "Char" (Short "chr")); Var (Short "i")])))``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read"`` ``"u"`` e "read_v")
 
 val e =
-  ``LetApps "f" (Long "Word8Array" "sub") [Var (Short "read_state"); Lit (IntLit 1)]
+  ``LetApps "f" (Long "Word8Array" (Short "sub")) [Var (Short "read_state"); Lit (IntLit 1)]
       (Apps [Var (Short "bool_of_byte"); Var (Short "f")])``
   |> EVAL |> concl |> rand
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read_failed"`` ``"u"`` e "read_failed_v")
 
 val e =
-  ``Let (SOME "i") (Apps [Var (Long "Char" "ord"); Var (Short "c")])
-    (Let (SOME "b") (Apps [Var (Long "Word8" "fromInt"); Var (Short "i")])
-     (Let (SOME "u") (Apps [Var (Long "Word8Array" "update");
+  ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
+    (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
+     (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_state");
                           Lit (IntLit 0); Var (Short "b")])
       (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
