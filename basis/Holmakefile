@@ -1,2 +1,11 @@
 INCLUDES = .. pure ../translator ../characteristic ../semantics
 OPTIONS = QUIT_ON_FAILURE
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) basis_ffi.o
+.PHONY: all
+ifndef CC
+CC=gcc
+endif
+basis_ffi.o: basis_ffi.c
+	$(CC) -c $< -o $@
