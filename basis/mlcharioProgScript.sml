@@ -5,7 +5,7 @@ open preamble
 
 val _ = new_theory "mlcharioProg";
 
-val _ = translation_extends "mlw8arrayProg";
+val _ = translation_extends "mlarrayProg";
 
 (* TODO: where should these be defined? *)
 

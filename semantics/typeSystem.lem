@@ -307,6 +307,10 @@ is_value (Var _) = true
 and
 is_value (Fun _ _) = true
 and
+is_value (Tannot e _) = is_value e
+and
+is_value (Lannot e _) = is_value e
+and
 is_value _ = false
 
 val tid_exn_to_tc : tid_or_exn -> tctor

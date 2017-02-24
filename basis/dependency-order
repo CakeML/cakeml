@@ -24,5 +24,8 @@ basics
 char
 word8
 w8array
-| \_ chario _ commandLine _ io _ basis
+|
 array
+ \_ chario _ commandLine _ io _ basis
+
+(* Note: temporary update to dependency order to get arrays into the basis *)
