@@ -1,7 +1,7 @@
 open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     mlw8arrayProgTheory
+     mlarrayProgTheory
 
 val _ = new_theory "mlcharioProg";
 
