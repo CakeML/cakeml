@@ -56,7 +56,7 @@ val _ = translate lexer_fun_def
 val l2n_side = Q.prove(`
   ∀b a. a ≠ 0 ⇒ l2n_side a b`,
   Induct>>
-  rw[Once (fetch"-""l2n_side_def")])
+  rw[Once (fetch"-""l2n_side_def")]) |> update_precondition;
 
 val num_from_dec_string_alt_side = Q.prove(`
   ∀x. num_from_dec_string_alt_side x ⇔ T`,
@@ -68,7 +68,7 @@ val num_from_dec_string_alt_side = Q.prove(`
     simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
     fs[ORD_CHR]>>
     strip_tac>>
-    fs[]);
+    fs[]) |> update_precondition;
 
 val num_from_hex_string_alt_side = Q.prove(`
   ∀x. num_from_hex_string_alt_side x ⇔ T`,
@@ -80,7 +80,7 @@ val num_from_hex_string_alt_side = Q.prove(`
     simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
     fs[ORD_CHR]>>
     strip_tac>>
-    fs[]);
+    fs[]) |> update_precondition;
 
 val read_string_side = Q.prove(`
   ∀x y l.

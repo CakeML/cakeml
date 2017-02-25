@@ -213,7 +213,6 @@ val qsortimp_str =
   "val foo = mkarr 20000"^
   "val test = inplace_qsort 0 40000 foo;"
 
-(* TODO: FAILS type checking because array is not in the basis *)
 val qsortimp = check_prog qsortimp_str;
 
 val queue_str =

@@ -48,6 +48,63 @@ val error_to_str_def = Define`
 
 val res = translate error_to_str_def;
 
+(* TODO: translator fails inside mlstringLib.mlstring_case_conv
+  when the following definition just matches against (strlit str) directly
+*)
+val parse_num_def = Define`
+  parse_num str =
+  let str = explode str in
+  if EVERY isDigit str
+  then
+    SOME (num_from_dec_string_alt str)
+  else NONE `
+
+val res = translate parse_num_def;
+
+val find_parse_def = Define`
+  (find_parse flag [] = NONE) ∧
+  (find_parse flag (x::xs) =
+    if isPrefix flag x then
+      parse_num (substring x (strlen flag) (strlen x))
+    else find_parse flag xs)`
+
+val res = translate find_parse_def;
+
+(* parses a list of strings to configurations and modifies the configuration *)
+val extend_with_args_def = Define`
+  extend_with_args ls conf =
+    let multi = ¬(MEMBER (strlit"--no_multi") ls) in
+    let known = ¬(MEMBER (strlit"--no_known") ls) in
+    let call = ¬(MEMBER (strlit"--no_call") ls) in
+    let remove = ¬(MEMBER (strlit"--no_remove") ls) in
+    let maxapp = find_parse (strlit "--max_app=") ls in
+    let clos = conf.clos_conf in
+    let updated_clos =
+      clos with <|
+        do_mti:= multi; do_known:= known;
+        do_call:= call; do_remove:= remove;
+        max_app:= (case maxapp of NONE => clos.max_app | SOME v => v)
+      |> in
+    let inlinesz = find_parse (strlit "--inline_size=") ls in
+    let expcut = find_parse (strlit "--exp_cut=") ls in
+    let splitmain = ¬(MEMBER (strlit"--no_split") ls) in
+    let bvl = conf.bvl_conf in
+    let updated_bvl =
+      bvl with <|
+        inline_size_limit:= case inlinesz of NONE => bvl.inline_size_limit | SOME v => v;
+        exp_cut:= case expcut of NONE => bvl.exp_cut | SOME v => v;
+        split_main_at_seq := splitmain
+      |> in
+    let regalg = find_parse (strlit "--reg_alg=") ls in
+    let wtw = conf.word_to_word_conf in
+    let updated_wtw =
+      wtw with <|reg_alg:= case regalg of NONE => wtw.reg_alg | SOME v =>v |> in
+    conf with <|clos_conf := updated_clos; bvl_conf:=updated_bvl; word_to_word_conf := updated_wtw|>`
+
+val spec64 = INST_TYPE[alpha|->``:64``];
+
+val _ = translate (extend_with_args_def |> spec64 )
+
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
@@ -56,9 +113,9 @@ val compile_to_bytes_def = Define `
 
 (* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
-  compiler_x64 = compile_to_bytes
+  compiler_x64 cl = compile_to_bytes
     <| inferencer_config := init_config;
-       backend_config := x64_compiler_config |>`;
+       backend_config := extend_with_args cl x64_compiler_config |>`;
 
 val res = translate
   (compiler_x64_def
@@ -69,7 +126,7 @@ val main = process_topdecs`
     let
       val cl = Commandline.arguments ()
     in
-      write_list (compiler_x64 (read_all []))
+      write_list (compiler_x64 cl (read_all []))
     end`;
 
 val res = ml_prog_update(ml_progLib.add_prog main I)
@@ -85,7 +142,7 @@ val main_spec = Q.store_thm("main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDOUT out * (STDIN inp F * COMMANDLINE cl))
-     (POSTv uv. &UNIT_TYPE () uv * (STDOUT (out ++ (compiler_x64 inp)) * (STDIN "" T * COMMANDLINE cl)))`,
+     (POSTv uv. &UNIT_TYPE () uv * (STDOUT (out ++ (compiler_x64 (TL(MAP implode cl)) inp)) * (STDIN "" T * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
@@ -105,7 +162,7 @@ val main_spec = Q.store_thm("main_spec",
       \\ map_every qexists_tac[`STDOUT out * COMMANDLINE cl`,`F`,`inp`]
       \\ xsimpl )
   \\ qmatch_abbrev_tac`_ frame _`
-  \\ xlet`POSTv xv. &LIST_TYPE CHAR (compiler_x64 inp) xv * frame`
+  \\ xlet`POSTv xv. &LIST_TYPE CHAR (compiler_x64 (TL (MAP implode cl)) inp) xv * frame`
   >- (xapp \\ instantiate \\ xsimpl)
   \\ xapp \\ instantiate
   \\ simp[Abbr`frame`]
