@@ -832,17 +832,27 @@ val () = time (
     (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
     bytes_tm ) filename
 
-(*
-val temp_defs = (List.map #1 (definitions"-"))
-val () = List.app delete_binding temp_defs;
-
 val sec_ok_light_tm =
   tm18 |> rator |> rand
 
-val line_ok_light_tm =
-  lab_to_targetTheory.sec_ok_light_def
-  |> ISPEC(rand sec_ok_light_tm)
-  |> SPEC_ALL |> rconc |> rator |> rand
+fun eval_fn i n (p,d) =
+  let
+    val () = say_str"sec_ok" i n
+    val conv = (
+      REWR_CONV lab_to_targetTheory.sec_ok_light_def THENC
+      RAND_CONV (REWR_CONV d) THENC
+      listLib.ALL_EL_CONV eval)
+    val tm = mk_comb(sec_ok_light_tm, p)
+  in
+    (*time*) conv tm
+  end
+
+(*
+  val p = el 5 padded_code_els
+  val d = el 5 pad_code_defs
+*)
+
+val pad_code_els_defs = zip padded_code_els pad_code_defs;
 
 val secs_ok = time_with_size thms_size "sec_ok (par)" (parlist num_threads chunk_size eval_fn) pad_code_els_defs;
 
@@ -862,6 +872,12 @@ val encs_ok =
   tm18
   |> (RAND_CONV(REWR_CONV padded_code_def) THENC
       REWR_CONV (EQT_INTRO all_secs_ok))
-*)
+
+val bootstrap_thm = save_thm("bootstrap_thm",
+  MP (DISCH_ALL assum_all_enc_ok_light_bootstrap_thm)
+     (EQT_ELIM encs_ok));
+
+val temp_defs = (List.map #1 (definitions"-"))
+val () = List.app delete_binding temp_defs;
 
 val _ = export_theory();
