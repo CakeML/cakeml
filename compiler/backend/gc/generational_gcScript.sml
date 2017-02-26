@@ -20,19 +20,13 @@ val gc_move_def = Define `
        (Pointer ptr d,state) else
      case heap_lookup ptr state.heap of
      | SOME (DataElement xs l dd) =>
-       let ok = state.ok /\ l+1 <= state.n in
+      (let ok = state.ok /\ l+1 <= state.n /\ ~(conf.isRef dd) in
        let n = state.n - (l + 1) in
-        if conf.isRef dd then
-          let r4 = (DataElement xs l dd) :: state.r4 in
-          let (heap,ok) = gc_forward_ptr ptr state.heap (state.a + n) d ok in
-            (Pointer (state.a + n) d
-            ,state with <| r4 := r4; n := n; heap := heap; ok := ok |>)
-        else
-          let h2 = state.h2 ++ [DataElement xs l dd] in
-          let (heap,ok) = gc_forward_ptr ptr state.heap state.a d ok in
-          let a = state.a + l + 1 in
-            (Pointer state.a d
-            ,state with <| h2 := h2; n := n; a := a; heap := heap; ok := ok |>)
+       let h2 = state.h2 ++ [DataElement xs l dd] in
+       let (heap,ok) = gc_forward_ptr ptr state.heap state.a d ok in
+       let a = state.a + l + 1 in
+         (Pointer state.a d
+         ,state with <| h2 := h2; n := n; a := a; heap := heap; ok := ok |>))
      | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,state)
      | _ => (Pointer ptr d, state with <| ok := F |>) )`;
 
@@ -54,10 +48,7 @@ val gc_move_IMP = prove(
   \\ fs [gc_state_component_equality]
   \\ Cases_on `x`
   \\ fs [LET_THM,gc_state_component_equality]
-  \\ pairarg_tac
-  \\ fs []
-  \\ Cases_on `conf.isRef b`
-  \\ pairarg_tac
+  \\ rpt (pairarg_tac \\ fs [])
   \\ fs [gc_state_component_equality]);
 
 val gc_move_list_def = Define `
@@ -403,7 +394,13 @@ val gc_move_simulation = prove(
      \\ fs [to_basic_heap_address_def]
      \\ metis_tac [])
   \\ fs [gc_move_def,basic_gcTheory.gc_move_def]
-  \\ strip_tac >- cheat
+  \\ strip_tac THEN1
+   (Cases_on `heap_lookup n state.heap` \\ fs []
+    \\ rveq \\ fs [] THEN1 metis_tac []
+    \\ Cases_on `x` \\ fs [] \\ rveq \\ fs []
+    THEN1 (metis_tac [])
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+    \\ cheat)
   \\ BasicProvers.TOP_CASE_TAC \\ fs []
   >- (`heap_lookup n state.heap = NONE` by all_tac
      >- (pop_assum mp_tac
