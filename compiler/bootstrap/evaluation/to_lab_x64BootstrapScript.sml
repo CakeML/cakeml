@@ -59,6 +59,13 @@ val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
 val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
+(*
+val (ls,ty) = data_prog_x64_def |> rconc |> listSyntax.dest_list
+val data_prog_x64' =  listSyntax.mk_list(List.take(ls,10),ty)
+val data_prog_x64_shorten = mk_thm([],``data_prog_x64 = ^data_prog_x64'``)
+val to_data_thm1 = PURE_REWRITE_RULE[data_prog_x64_shorten]to_data_thm1
+*)
+
 val to_livesets_thm0 =
   ``to_livesets ^bootstrap_conf entire_program``
   |> (REWR_CONV to_livesets_def THENC
