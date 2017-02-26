@@ -626,14 +626,6 @@ val f_old_ptrs_def = Define `
     {a | isSomeDataElement (heap_lookup a heap)
          /\ (a < conf.gen_start \/ conf.refs_start <= a)}`;
 
-(* val heap_lookup_heap_length_NONE = prove( *)
-(*   ``!heap. heap_lookup (heap_length heap) heap = NONE``, *)
-(*   cheat); *)
-
-(* val heap_lookup_heap_length_GT_NONE = prove( *)
-(*   ``!heap x. heap_length heap < x ==> (heap_lookup x heap = NONE)``, *)
-(*   cheat); *)
-
 val f_old_ptrs_finite = store_thm("f_old_ptrs_finite[simp]",
   ``!heap conf.
     FINITE (f_old_ptrs conf heap)``,
@@ -1082,16 +1074,6 @@ val isSomeData_to_basic_heap_IMP = prove(
   \\ strip_tac
   \\ metis_tac []);
 
-val gc_move_list_APPEND_APPEND = store_thm("gc_move_list_APPEND_APPEND",
-  ``!conf state0 xs ys state' rs1 rs2.
-     (basic_gc$gc_move_list conf state0 (xs ++ ys) = (rs1 ++ rs2,state')) /\
-     (LENGTH xs = LENGTH rs1) ⇒
-     ∃state1.
-       (gc_move_list conf state0 xs = (rs1,state1)) ∧
-       (gc_move_list conf state1 ys = (rs2,state'))
-  ``,
-  cheat);
-
 val refs_to_roots_APPEND = prove(
   ``!xs ys.
     refs_to_roots conf (xs ++ ys) = refs_to_roots conf xs ++ refs_to_roots conf ys``,
@@ -1120,14 +1102,6 @@ val gc_move_refs_isForwardPointer = prove(
   \\ rveq
   \\ simp [FILTER] \\ fs [isForwardPointer_def]
   \\ res_tac);
-
-val gc_move_refs_ptr_ok = prove(
-  ``(gc_move_ref_list conf state' heap_refs = (refs',state'')) /\
-    (gc_move_data conf (state'' with r1 := refs') = state1) /\
-    MEM (DataElement xs l d) refs' /\
-    MEM (Pointer ptr u) xs ==>
-    isSomeDataElement (heap_lookup ptr (state1.old ++ state1.h1 ++ heap_expand state1.n ++ refs'))``,
-  cheat);
 
 val el_length_to_basic_heap_element = store_thm("el_length_to_basic_heap_element[simp]",
   ``el_length (to_basic_heap_element conf h) = el_length h``,
@@ -1165,17 +1139,13 @@ val heap_lookup_GT_FALSE = prove(
   \\ metis_tac [el_length_NOT_0]);
 
 val heap_lookup_to_basic_heap_element = prove(
-  ``isSomeDataElement (heap_lookup i (MAP (to_basic_heap_element conf) heap_current)) =
-    isSomeDataElement (heap_lookup i heap_current)
-  ``,
-  cheat);
-
-val refs_to_roots_LENGTH = prove (
-  ``!ha ha1 conf.
-    (heap_length ha = heap_length ha1) ==>
-    (LENGTH (refs_to_roots conf ha1) = LENGTH (refs_to_roots conf ha))
-  ``,
-  cheat);
+  ``!heap_current i.
+      isSomeDataElement
+        (heap_lookup i (MAP (to_basic_heap_element conf) heap_current)) =
+      isSomeDataElement (heap_lookup i heap_current)``,
+  Induct THEN1 fs [heap_lookup_def,isSomeDataElement_def]
+  \\ fs [heap_lookup_def] \\ rw []
+  \\ Cases_on `h` \\ fs [to_basic_heap_element_def,isSomeDataElement_def]);
 
 val partial_gc_heap_length_lemma = prove (
   ``!roots'.
@@ -1260,41 +1230,6 @@ val heap_lookup_MEM = prove (
   >- (Cases_on `h` \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   \\ metis_tac []);
-
-val ADDR_MAP_to_basic_heap = prove(
-  ``(ADDR_MAP (heap_map1 (to_basic_heap conf state1.heap)) (MAP (to_basic_heap_address conf) ys)
-      = MAP (to_basic_heap_address conf) xs)
-    ==>
-    (ADDR_MAP (heap_map1 state1.heap) ys = xs)
-  ``,
-  Induct_on `ys`
-  >- fs [ADDR_MAP_def]
-  \\ reverse Cases
-  >- (fs [ADDR_MAP_def,MAP,to_basic_heap_address_def]
-     \\ strip_tac
-     \\ Cases_on `xs`
-     >- fs []
-     \\ Cases_on `h`
-     >- (fs [to_basic_heap_address_def]
-        \\ ntac 2 (pop_assum mp_tac)
-        \\ IF_CASES_TAC \\ fs []
-        \\ IF_CASES_TAC \\ fs [])
-     \\ fs [to_basic_heap_address_def]
-     \\ cheat)
-  \\ cheat);
-
-val MEM_ADDR_MAP_IMP = prove(
-  ``!heap_current heap_old heap_refs conf state1 heap ys l d ptr u.
-    (heap_segment (conf.gen_start,conf.refs_start) heap = SOME (heap_old,heap_current,heap_refs)) /\
-    MEM (DataElement ys l d) heap_current /\
-    MEM (DataElement (ADDR_MAP (heap_map1 state1.heap) ys) l d) state1.h1 /\
-    MEM (Pointer ptr u) (ADDR_MAP (heap_map1 state1.heap) ys) /\
-    (ptr < conf.gen_start \/ conf.refs_start <= ptr)
-    ==>
-    MEM (Pointer ptr u) ys
-  ``,
-  strip_tac
-  \\ cheat);
 
 val ptr_Real_lemma = prove(
   ``!ys ptr. MEM (Pointer ptr u) ys /\
