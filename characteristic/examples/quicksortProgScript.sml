@@ -57,142 +57,6 @@ val length_gt1 = Q.store_thm ("length_gt1",
   Cases_on `t` >>
   fs []);
 
-    (*
-(* The definition that should be in the list library. Just to get the induction
- * principle *)
-val my_seg_def = Define `
-  (my_seg 0 k l = []) ∧
-  (my_seg (SUC m) 0 (x::l) = x::my_seg m 0 l) ∧
-  (my_seg (SUC m) (SUC k) (x::l) = my_seg (SUC m) k l)`;
-val seg_ind = theorem "my_seg_ind";
-
-val hd_seg = Q.store_thm ("hd_seg",
-  `!len start l.
-    0 < len ∧
-    start < LENGTH l
-    ⇒
-    HD (SEG len start l) = EL start l`,
-  recInduct seg_ind >>
-  rw [SEG]);
-
-val tl_seg = Q.store_thm ("tl_seg",
-  `!len start l.
-    0 < len ∧
-    start < LENGTH l
-    ⇒
-    TL (SEG len start l) = SEG (len - 1) (start + 1) l`,
-  recInduct seg_ind >>
-  rw [SEG]
-  >- (
-    `1 = SUC 0` by decide_tac >>
-    Cases_on `m` >>
-    ASM_REWRITE_TAC [SEG])
-  >- (
-    Cases_on `m` >>
-    fs [SEG, GSYM ADD1]));
-
-val el_seg = Q.store_thm ("el_seg",
-  `!n len start l.
-    len + start ≤ LENGTH l ∧
-    n < len
-    ⇒
-    EL n (SEG len start l) = EL (n+start) l`,
-  Induct_on `n` >>
-  rw [hd_seg, EL, tl_seg, ADD1]);
-
-val list_rel_seg = Q.store_thm ("list_rel_seg",
-  `!r start len l1 l2.
-    start + len ≤ LENGTH l1 ∧
-    LIST_REL r l1 l2
-    ⇒
-    LIST_REL r (SEG len start l1) (SEG len start l2)`,
-  rw [LIST_REL_EL_EQN, el_seg, LENGTH_SEG]);
-
-val map_seg = Q.store_thm ("map_seg",
-  `!start len l f.
-    start + len ≤ LENGTH l
-    ⇒
-    MAP f (SEG start len l) = SEG start len (MAP f l)`,
-  recInduct seg_ind >>
-  rw [SEG]);
-
-(* Split a list into the part before lower, the part between lower and upper,
- * inclusive, and the part after upper. Need lower < upper and upper < LENGTH l
- * *)
-val split_list_def = Define `
-  split_list lower upper l =
-    (SEG lower 0 l,
-     SEG (upper - lower + 1) lower l,
-     SEG (LENGTH l - upper - 1) (upper + 1) l)`;
-
-val split_list_same = Q.store_thm ("split_list_same",
-  `!idx l.
-    idx < LENGTH l ⇒
-    split_list idx idx l =
-      (SEG idx 0 l, [EL idx l], SEG (LENGTH l - idx - 1) (idx + 1) l)`,
-  rw [split_list_def] >>
-  drule EL_SEG >>
-  rw [] >>
-  `LENGTH (SEG 1 idx l) = 1`
-  by (
-    irule LENGTH_SEG >>
-    decide_tac) >>
-  Cases_on `SEG 1 idx l` >>
-  fs [] >>
-  Cases_on `t` >>
-  fs []);
-
-val split_list_append = Q.store_thm ("split_list_append",
-  `!lower upper l l1 l2 l3.
-    lower ≤ upper ∧ upper < LENGTH l ∧
-    split_list lower upper l = (l1, l2, l3)
-    ⇒
-    l1 ++ l2 ++ l3 = l`,
-  rw [split_list_def] >>
-  `lower+0 ≤ LENGTH l ∧ (upper - lower + 1) + lower ≤ LENGTH l ∧
-   (LENGTH l - (upper + 1)) + (upper + 1) ≤ LENGTH l`
-  by decide_tac >>
-  irule LIST_EQ >>
-  rw [EL_APPEND_EQN, el_seg, LENGTH_SEG]);
-
-val split_list_combine = Q.store_thm ("split_list_append2",
-  `!l l1 l2 l3.
-    LENGTH l2 ≠ 0 ⇒
-    split_list (LENGTH l1) (LENGTH l1 + LENGTH l2 - 1) (l1++l2++l3) = (l1, l2, l3)`,
-  rw [split_list_def]
-  >- (
-    Induct_on `l1` >>
-    fs [SEG])
-  >- (
-    Induct_on `l1` >>
-    fs [SEG] >>
-    Induct_on `l2` >>
-    fs [SEG] >>
-    Induct_on `l2` >>
-    fs [SEG])
-  >- (
-    `LENGTH (l1 ++ l2) ≤ LENGTH l1 + LENGTH l2` by rw [] >>
-    drule SEG_APPEND2 >>
-    `LENGTH l3 ≤ LENGTH l3` by rw [] >>
-    disch_then drule >>
-    simp [] >>
-    rw [] >>
-    rpt (pop_assum kall_tac) >>
-    Induct_on `l3` >>
-    rw [SEG]));
-
-val split_list_length = Q.store_thm ("split_list_length",
-  `!lower upper l l1 l2 l3.
-    lower ≤ upper ∧ upper < LENGTH l ∧
-    split_list lower upper l = (l1, l2, l3)
-    ⇒
-    LENGTH l1 = lower ∧
-    LENGTH l2 = upper - lower + 1 ∧
-    LENGTH l3 = LENGTH l - upper - 1`,
-  rw [split_list_def] >>
-  rw [LENGTH_SEG]);
-  *)
-
 fun basis_st () = get_ml_prog_state ()
 
 val partition = process_topdecs `
@@ -285,8 +149,6 @@ val partition_spec = Q.store_thm ("partition_spec",
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
-
-
   xcf "partition" partition_st >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
@@ -414,7 +276,7 @@ val partition_spec = Q.store_thm ("partition_spec",
   xfun_spec `scan_upper`
     (* Similar to the scan_lower invariant, except that i-1 indexes the array,
      * and we scan down passing over elements bigger thatn the pivot *)
-    `!i elems i_v elem_Vs.
+    `!i elems i_v elem_vs.
       INT i i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
       (?x:num. (&x) < i ∧ ¬cmp pivot (EL x elems)) ∧
       LIST_REL a elems elem_vs
@@ -472,10 +334,10 @@ val partition_spec = Q.store_thm ("partition_spec",
       disch_then xapp_spec >>
       xsimpl >>
       simp [GSYM PULL_EXISTS] >>
+      rw [] >>
+      qexists_tac `x` >>
       rw []
       >- (
-        qexists_tac `x` >>
-        rw [] >>
         `i - 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
         fs [])
@@ -504,9 +366,35 @@ val partition_spec = Q.store_thm ("partition_spec",
       fs [] >>
       CCONTR_TAC >>
       intLib.ARITH_TAC)) >>
-
-  (* Don't know why this is needed *)
-  xpull >>
+  (* Don't know why the previous xfun_spec expanded ARRAY_def *)
+  `(SEP_EXISTS loc.
+     (λs.
+        ∃v.
+          v ⊆ s ∧ s ⊆ v ∧ arr_v = Loc loc ∧
+          v ⊆ {Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3))} ∧
+          Mem loc (Varray (elem_vs1 ++ elem_vs2 ++ elem_vs3)) ∈ v))
+    =
+    ARRAY arr_v (elem_vs1++elem_vs2++elem_vs3)`
+   by (
+     rw [cfHeapsBaseTheory.ARRAY_def, SEP_EXISTS_THM, STAR_def,
+         EXTENSION, SUBSET_DEF, DISJOINT_DEF, SPLIT_def, IN_DEF,
+         one_def, cfHeapsBaseTheory.cell_def, cfHeapsBaseTheory.REF_def] >>
+     simp [PULL_EXISTS, PULL_FORALL, cond_def, EQ_IMP_THM] >>
+     rw []
+     >- (
+       qexists_tac `loc` >>
+       qexists_tac `{}` >>
+       simp [] >>
+       metis_tac [])
+     >- (
+       qexists_tac `loc'` >>
+       qexists_tac `v'` >>
+       rw [] >>
+       first_x_assum (qspecl_then [`x''`, `x''`, `x''`] mp_tac) >>
+       simp [] >>
+       rw [] >>
+       fs [])) >>
+  simp [] >>
   xfun_spec `part_loop`
    `!middle_vs l_v u_v ignore1 lower_part upper_part ignore2 elems1 elems2 elems3.
     LIST_REL a elems1 lower_part ∧
@@ -514,10 +402,10 @@ val partition_spec = Q.store_thm ("partition_spec",
     LIST_REL a elems3 upper_part ∧
     INT (&(LENGTH (ignore1 ++ lower_part)) - 1) l_v ∧
     INT (&LENGTH (ignore1 ++ lower_part ++ middle_vs)) u_v ∧
-    MEM (pivot,pivot_v) (FRONT (ZIP (elems2,middle_vs))) ∧
-    LENGTH middle_vs ≥ 2 ∧
     EVERY (\e. ¬cmp pivot e) elems1 ∧
-    EVERY (\e. ¬cmp e pivot) elems3
+    EXISTS (\e. ¬cmp e pivot) (elems2 ++ elems3) ∧
+    EVERY (\e. ¬cmp e pivot) elems3 ∧
+    EXISTS (\e. ¬cmp pivot e) (elems1 ++ elems2)
     ⇒
     app (ffi_p:'ffi ffi_proj) part_loop
       [l_v; u_v]
@@ -529,27 +417,20 @@ val partition_spec = Q.store_thm ("partition_spec",
             (elems1 ++ elems2 ++ elems3) (lower_part ++ middle_vs ++ upper_part)
             (lower_part ++ lower_part')
             (upper_part' ++ upper_part)))`
-  >- cheat >>
-  (*
+  >- (
     gen_tac >>
-    induct_on `LENGTH middle_vs - 2` >>
-    rw []
-    >- (
-      xapp >>
-      xlet `POSTv l_v'.
-          ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2) *
-          &(∃j:num.
-             (* The index increased, and did not run off the end *)
-             INT (&j) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
-             (* The result index j points to an element not smaller than the
-              * pivot *)
-             ¬cmp (EL j elems) pivot ∧
-             (* There is nothing bigger than the pivot between where the scan
-              * started and finished *)
-             !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
-             *)
+    completeInduct_on `LENGTH middle_vs` >>
+    gen_tac >>
+    strip_tac >>
+    rpt gen_tac >>
+    qpat_abbrev_tac `upper_stop = elem1++elems2'` >>
+    qpat_abbrev_tac `lower_stop = elem2'++elems3` >>
+    rw [] >>
+    last_x_assum xapp_spec >>
+    cheat) >>
+  simp [] >>
   xlet `POSTv i1_v.
-          Array arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
+          ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
           &NUM (lower + LENGTH elem_vs2) i1_v`
   >- (
     xapp >>
@@ -559,9 +440,40 @@ val partition_spec = Q.store_thm ("partition_spec",
     UNABBREV_ALL_TAC >>
     fs [INT_def, NUM_def, int_arithTheory.INT_NUM_SUB] >>
     rw [] >>
-    fs [LENGTH_NIL] >>
-    cheat) >>
-  cheat);
+    fs [LENGTH_NIL]) >>
+  xlet `POSTv i2_v.
+          ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
+          &INT (&lower - 1) i2_v`
+  >- (
+    xapp >>
+    xsimpl >>
+    fs [NUM_def, INT_def]) >>
+  simp [SEP_CLAUSES] >>
+  xapp >>
+  xsimpl >>
+  MAP_EVERY qexists_tac [`[]`, `elem_vs2`, `[]`, `elem_vs3`, `elem_vs1`, `[]`, `elems2`, `[]`] >>
+  `MEM pivot elems2`
+  by (
+    Cases_on `elems2` >>
+    fs [] >>
+    rfs [] >>
+    drule MEM_FRONT >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs [MEM_ZIP, EL_MEM]) >>
+  rw []
+  >- (
+    simp [EXISTS_MEM] >>
+    qexists_tac `pivot` >>
+    rw [] >>
+    metis_tac [strict_weak_order_def])
+  >- (
+    simp [EXISTS_MEM] >>
+    qexists_tac `pivot` >>
+    rw [] >>
+    metis_tac [strict_weak_order_def])
+  >- fs [INT_def, NUM_def]
+  >- metis_tac []);
 
 val quicksort = process_topdecs `
 fun quicksort cmp a =
