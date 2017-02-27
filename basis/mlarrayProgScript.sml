@@ -346,8 +346,7 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
       simp[LENGTH_REPLICATE]);
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
-val eq_num_v_thm = save_thm("eq_num_v_thm",
-        MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1))
+val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
 val num_eq_thm = Q.prove(
   `!n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)`,
@@ -370,14 +369,14 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
     >- (Induct_on `n - x` 
       >- (rw []  \\ first_x_assum match_mp_tac 
         \\ xlet `POSTv bv. & BOOL (xv=nv) bv * ARRAY av l_pre`
-          >- (xapp \\ rw[BOOL_def] \\ xsimpl \\`LENGTH rest = 0 /\ xv = nv` by fs [NUM_def, INT_def] 
+          >- (xapp_spec eq_num_v_thm \\ rw[BOOL_def] \\ xsimpl \\`LENGTH rest = 0 /\ xv = nv` by fs [NUM_def, INT_def]
           \\ instantiate \\ fs [LENGTH_NIL])
         \\ xif
           >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def] \\ fs[LENGTH_NIL] )
         \\ fs [NUM_def, INT_def] \\ rfs[])  
       \\ rw[] \\ first_assum match_mp_tac 
       \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
-        >- (xapp \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
+        >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
       \\ xif
         >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def]
           \\ fs [GENLIST, LENGTH_NIL])
@@ -439,14 +438,14 @@ val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
     (POSTv uv. ARRAY srcv src * ARRAY dstv (bfr ++ TAKE n mid ++ DROP n src ++ afr))`,
       gen_tac \\ gen_tac \\ Induct_on `LENGTH src - n`
         >-( xcf "copy_aux" copy_st
-        \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)` 
-          >- (xapp \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def] )
-        \\ xif 
+        \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
+          >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def] )
+        \\ xif
           >- (xcon \\ xsimpl \\ `n = LENGTH src` by DECIDE_TAC \\ rw[DROP_LENGTH_NIL])
         \\ `n = LENGTH src` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[]) 
       \\ xcf "copy_aux" copy_st
       \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
-        >- (xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
+        >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
       \\ xif
         >-(fs[NUM_def, INT_def, numTheory.NOT_SUC])
       \\ xlet `POSTv vsub. & (vsub = EL n src) * ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr)`
@@ -568,13 +567,13 @@ val array_modifyi_aux_spec = Q.store_thm("array_modifyi_aux_spec",
     gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
       >-(xcf "modifyi_aux" modifyi_st
         \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
-          >-(xapp \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
+          >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
         \\ xif
           >-(xcon \\ xsimpl \\ fs[NUM_def, INT_def] \\ rw[DROP_LENGTH_NIL])
         \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
     \\ xcf "modifyi_aux" modifyi_st
     \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
-      >-(xapp \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
+      >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
     \\ xif
       >-(xcon \\ xsimpl \\ qexists_tac `vs` \\ fs[NUM_def, INT_def] \\ rw[DROP_LENGTH_NIL])
     \\ xlet `POSTv val. &(val = EL n vs) * ARRAY av vs`
@@ -754,13 +753,13 @@ val array_foldr_aux_spec = Q.store_thm("array_foldr_spec",
     gen_tac \\ Induct_on `n`
       >-(xcf "foldr_aux" foldr_st
       \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
-        >-(xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
+        >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
       \\ xif
         >-(xvar \\ xsimpl)
       \\ fs[NUM_def, INT_def] \\ rfs[])
     \\ xcf "foldr_aux" foldr_st
     \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
-      >-(xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
+      >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
     \\ xif
       >-(fs[NUM_def, INT_def, numTheory.NOT_SUC])
     \\ xlet `POSTv n1. & NUM (SUC n - 1) n1 * ARRAY av vs`
