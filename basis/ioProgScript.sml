@@ -131,9 +131,55 @@ val print_spec = Q.store_thm("print_spec",
 val res = register_type``:'a app_list``;
 
 val print_app_list = process_topdecs
-  `fun print_app_list Nil = ()
-     | print_app_list (List ls) = List.app print ls
-     | print_app_list (Append l1 l2) = (print_app_list l1; print_app_list l2)`;
+  `fun print_app_list ls =
+   (case ls of
+      Nil => ()
+    | List ls => List.app print ls
+    | Append(l1,l2)=> (print_app_list l1; print_app_list l2))`;
+val res = ml_prog_update(ml_progLib.add_prog print_app_list pick_name);
+
+val st = get_ml_prog_state();
+
+val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";
+
+val print_app_list_spec = Q.store_thm("print_app_list_spec",
+  `∀ls lv out. MISC_APP_LIST_TYPE STRING_TYPE ls lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_app_list" st) [lv]
+     (STDOUT out) (POSTv v. &UNIT_TYPE () v * STDOUT (out ++ FLAT (MAP explode (append ls))))`,
+  reverse Induct \\ rw[MISC_APP_LIST_TYPE_def]
+  >- (
+    xcf "print_app_list" st
+    \\ xmatch \\ xcon \\ xsimpl )
+  >- (
+    xcf "print_app_list" st
+    \\ xmatch
+    \\ ntac 2 (first_x_assum drule)
+    \\ ntac 2 strip_tac
+    \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT (out ++ FLAT (MAP explode (append ls)))`
+    >- ( first_x_assum xapp_spec )
+    \\ first_x_assum xapp_spec )
+  \\ xcf "print_app_list" st
+  \\ xmatch
+  \\ xapp_spec (INST_TYPE[alpha|->mlstringSyntax.mlstring_ty]mllistProgTheory.app_spec)
+  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+  \\ qexists_tac`λn. STDOUT (out ++ FLAT (MAP explode (TAKE n l)))`
+  \\ qexists_tac`l`
+  \\ xsimpl
+  \\ instantiate
+  \\ rw[]
+  \\ xapp
+  \\ xsimpl
+  \\ instantiate
+  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+  \\ qexists_tac`out ++ FLAT(MAP explode (TAKE n l))`
+  \\ xsimpl
+  \\ qmatch_abbrev_tac`STDOUT s1 ==>> STDOUT s2 * _`
+  \\ `s1 = s2` suffices_by xsimpl
+  \\ unabbrev_all_tac
+  \\ `TAKE (n + 1) l = SNOC (EL n l) (TAKE n l)`
+  by metis_tac[SNOC_EL_TAKE,ADD1]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[]);
 
 (*-------------------------------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
