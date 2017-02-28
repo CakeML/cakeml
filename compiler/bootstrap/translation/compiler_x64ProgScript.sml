@@ -142,7 +142,9 @@ val main_spec = Q.store_thm("main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDOUT out * (STDIN inp F * COMMANDLINE cl))
-     (POSTv uv. &UNIT_TYPE () uv * (STDOUT (out ++ (compiler_x64 (TL(MAP implode cl)) inp)) * (STDIN "" T * COMMANDLINE cl)))`,
+     (POSTv uv. &UNIT_TYPE () uv *
+      (STDOUT (out ++ (FLAT (MAP explode (append (compiler_x64 (TL(MAP implode cl)) inp))))) *
+       (STDIN "" T * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
@@ -162,7 +164,8 @@ val main_spec = Q.store_thm("main_spec",
       \\ map_every qexists_tac[`STDOUT out * COMMANDLINE cl`,`F`,`inp`]
       \\ xsimpl )
   \\ qmatch_abbrev_tac`_ frame _`
-  \\ xlet`POSTv xv. &LIST_TYPE CHAR (compiler_x64 (TL (MAP implode cl)) inp) xv * frame`
+  \\ qmatch_goalsub_abbrev_tac`append res`
+  \\ xlet`POSTv xv. &MISC_APP_LIST_TYPE STRING_TYPE res xv * frame`
   >- (xapp \\ instantiate \\ xsimpl)
   \\ xapp \\ instantiate
   \\ simp[Abbr`frame`]
