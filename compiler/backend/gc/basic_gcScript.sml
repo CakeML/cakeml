@@ -1960,10 +1960,7 @@ val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
   \\ pairarg_tac \\ fs [] \\ rfs []);
 
 val gc_move_ok = store_thm("gc_move_ok",
-  ``(gc_move conf state x = (x',state')) /\ state'.ok ==>
-    state.ok(*  /\ *)
-    (* ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\ *)
-    (* ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4)) *)``,
+  ``(gc_move conf state x = (x',state')) /\ state'.ok ==> state.ok``,
   Cases_on `x`
   \\ fs [gc_move_def]
   \\ Cases_on `heap_lookup n state.heap`
@@ -1979,22 +1976,12 @@ val gc_move_ok = store_thm("gc_move_ok",
   \\ rpt var_eq_tac
   \\ imp_res_tac gc_forward_ptr_ok);
 
-(* val gc_move_list_ok = store_thm("gc_move_list_ok", *)
-(*   ``!xs xs' state state'. *)
-(*       (gc_move_list conf state xs = (xs',state')) /\ state'.ok ==> *)
-(*       state.ok (* /\ *) *)
-(*       (* ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\ *) *)
-(*       (* ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4)) *)``, *)
-(*   Induct *)
-(*   \\ fs [gc_move_list_def] *)
-(*   \\ rpt strip_tac *)
-(*   \\ pairarg_tac \\ fs [] *)
-(*   \\ pairarg_tac \\ fs [] *)
-(*   \\ rpt var_eq_tac \\ fs [] *)
-(*   \\ qpat_assum `!xs'. _` (qspecl_then [`xs''`, `state''`,`state'`] mp_tac) *)
-(*   \\ strip_tac *)
-(*   \\ res_tac *)
-(*   \\ fs [] *)
-(*   \\ drule gc_move_ok \\ strip_tac \\ fs []); *)
+val gc_move_list_ok = store_thm("gc_move_list_ok",
+   ``!xs xs' state state'.
+       (gc_move_list conf state xs = (xs',state')) /\ state'.ok ==>
+       state.ok``,
+  Induct \\ fs [gc_move_list_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ res_tac \\ fs [] \\ imp_res_tac gc_move_ok);
 
 val _ = export_theory();

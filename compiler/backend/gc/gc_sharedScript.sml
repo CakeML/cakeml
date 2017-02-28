@@ -82,7 +82,7 @@ val heap_lookup_def = Define `
      if a < el_length x then NONE else heap_lookup (a - el_length x) xs)`;
 
 val heap_split_def = Define `
-  (heap_split a [] = NONE) /\
+  (heap_split a [] = if a = 0 then SOME ([],[]) else NONE) /\
   (heap_split a (el::heap) =
     if a = 0 then SOME ([],el::heap) else
     if a < el_length el then NONE else
