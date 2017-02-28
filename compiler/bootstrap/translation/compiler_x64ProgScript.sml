@@ -108,8 +108,8 @@ val _ = translate (extend_with_args_def |> spec64 )
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
-    | Failure err => error_to_str err
-    | Success (bytes,ffis) => explode (x64_export ffis 400 100 bytes)`;
+    | Failure err => List[implode(error_to_str err)]
+    | Success (bytes,ffis) => x64_export ffis 400 100 bytes`;
 
 (* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
@@ -126,7 +126,7 @@ val main = process_topdecs`
     let
       val cl = Commandline.arguments ()
     in
-      write_list (compiler_x64 cl (read_all []))
+      print_app_list (compiler_x64 cl (read_all []))
     end`;
 
 val res = ml_prog_update(ml_progLib.add_prog main I)
