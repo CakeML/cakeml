@@ -32,6 +32,13 @@ val list_rel_perm = Q.store_thm ("list_rel_perm",
   imp_res_tac LIST_REL_LENGTH >>
   rw [MAP_ZIP]);
 
+val el_append_length1 = Q.prove (
+  `!n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2`,
+  Induct_on `l1` >>
+  rw [EL_CONS] >>
+  `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
+  metis_tac []);
+
 val strict_weak_order_def = Define `
   strict_weak_order r ⇔
     transitive r ∧
@@ -149,6 +156,7 @@ val partition_spec = Q.store_thm ("partition_spec",
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
+
   xcf "partition" partition_st >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
@@ -164,9 +172,11 @@ val partition_spec = Q.store_thm ("partition_spec",
     fs [MEM_ZIP] >>
     metis_tac [LIST_REL_EL_EQN]) >>
   xfun_spec `scan_lower`
-    `!i elems i_v elem_vs.
-      (* scan_lower takes an integer i, where i+1 indexes into the current seg. *)
-      INT i i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
+    (* We split the array into 3 pieces. We work on the middle one *)
+    `!i elems i_v elem_vs ignore1 ignore2.
+      (* scan_lower takes an integer i, where i+1 indexes into the middle
+       * section. *)
+      INT (&LENGTH ignore1 + i) i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
       (* There is an array index after i where the element is not less than the
        * pivot. This ensures termination before hitting the end of the array. *)
       (?x:num. i < (&x) ∧ x < LENGTH elems ∧ ¬cmp (EL x elems) pivot) ∧
@@ -176,14 +186,14 @@ val partition_spec = Q.store_thm ("partition_spec",
       app (ffi_p:'ffi ffi_proj) scan_lower
         [i_v]
         (* The array argument is in the heap with contents elem_vs *)
-        (ARRAY arr_v elem_vs)
+        (ARRAY arr_v (ignore1++elem_vs++ignore2))
         (* The scan terminates with an resulting index j *)
         (POSTv (j_v:v).
           (* The array argument is still in the heap unchanged *)
-          (ARRAY arr_v elem_vs) *
+          (ARRAY arr_v (ignore1++elem_vs++ignore2)) *
           &(∃j:num.
              (* The index increased, and did not run off the end *)
-             INT (&j) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
+             INT (&(LENGTH ignore1 + j)) j_v ∧ i < (&j) ∧ j < LENGTH elems ∧
              (* The result index j points to an element not smaller than the
               * pivot *)
              ¬cmp (EL j elems) pivot ∧
@@ -205,24 +215,29 @@ val partition_spec = Q.store_thm ("partition_spec",
     last_x_assum xapp_spec >>
     (* It was confusing, and then annoying to have to manually keep adding the
      * frame *)
-    xlet `POSTv j_v. ARRAY arr_v elem_vs * &(?j. INT j j_v ∧ j = i + 1)`
+    xlet `POSTv j_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+            &(?j. INT (&LENGTH ignore1 + j) j_v ∧ j = i + 1)`
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def]) >>
+      fs [INT_def] >>
+      intLib.ARITH_TAC) >>
     `?n:num. i+1 = &n`
     by (
       `i + 1 = 0 ∨ 0 < i + 1` by intLib.ARITH_TAC >>
       rw [] >>
       qexists_tac `Num (i+1)` >>
       intLib.ARITH_TAC) >>
-    xlet `POSTv x_v. ARRAY arr_v elem_vs * &(a (EL (Num (i+1)) elems) x_v)`
+    xlet `POSTv x_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+            &(a (EL (Num (i+1)) elems) x_v)`
     >- (
       xapp >>
       xsimpl >>
-      qexists_tac `n` >>
-      fs [NUM_def, LIST_REL_EL_EQN]) >>
-    xlet `POSTv b_v. ARRAY arr_v elem_vs * &(BOOL (cmp (EL (Num (i + 1)) elems) pivot) b_v)`
+      qexists_tac `LENGTH ignore1 + n` >>
+      fs [NUM_def, LIST_REL_EL_EQN, integerTheory.INT_ADD] >>
+      simp [EL_APPEND_EQN]) >>
+    xlet `POSTv b_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+              &(BOOL (cmp (EL (Num (i + 1)) elems) pivot) b_v)`
     >- (
       xapp >>
       xsimpl >>
@@ -242,9 +257,11 @@ val partition_spec = Q.store_thm ("partition_spec",
       xsimpl >>
       simp [GSYM PULL_EXISTS] >>
       rw [] >>
-      qexists_tac `x` >>
+      MAP_EVERY qexists_tac [`ignore2`, `ignore1`, `elem_vs`] >>
+      simp [] >>
       rw []
       >- (
+        qexists_tac `x` >>
         rw [] >>
         `i + 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
@@ -270,24 +287,25 @@ val partition_spec = Q.store_thm ("partition_spec",
       qexists_tac `n` >>
       fs [] >>
       rw []
+      >- metis_tac [integerTheory.INT_ADD, integerTheory.INT_ADD_SYM]
       >- intLib.ARITH_TAC >>
       `i+1 < &n` by intLib.ARITH_TAC >>
       rfs [])) >>
   xfun_spec `scan_upper`
     (* Similar to the scan_lower invariant, except that i-1 indexes the array,
      * and we scan down passing over elements bigger thatn the pivot *)
-    `!i elems i_v elem_vs.
-      INT i i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
+    `!i elems i_v elem_vs ignore1 ignore2.
+      INT (&LENGTH ignore1 + i) i_v ∧ 0 ≤ i - 1 ∧ i ≤ &(LENGTH elems) ∧
       (?x:num. (&x) < i ∧ ¬cmp pivot (EL x elems)) ∧
       LIST_REL a elems elem_vs
       ⇒
       app (ffi_p:'ffi ffi_proj) scan_upper
         [i_v]
-        (ARRAY arr_v elem_vs)
+        (ARRAY arr_v (ignore1++elem_vs++ignore2))
         (POSTv (j_v:v).
-          (ARRAY arr_v elem_vs) *
+          (ARRAY arr_v (ignore1++elem_vs++ignore2)) *
           &(∃j:num.
-             INT (&j) j_v ∧ (&j) < i ∧ 0 ≤ j ∧
+             INT (&(LENGTH ignore1 + j)) j_v ∧ (&j) < i ∧ 0 ≤ j ∧
              ¬cmp pivot (EL j elems) ∧
              !k:num. (&k) < i ∧ j < k ⇒ ¬cmp (EL k elems) pivot))`
   >- (
@@ -300,26 +318,31 @@ val partition_spec = Q.store_thm ("partition_spec",
       `i = 0` by intLib.ARITH_TAC >>
       fs []) >>
     last_x_assum xapp_spec >>
-    xlet `POSTv j_v. ARRAY arr_v elem_vs * &(?j. INT j j_v ∧ j = i - 1)`
+    xlet `POSTv j_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+             &(?j. INT (&LENGTH ignore1 + j) j_v ∧ j = i - 1)`
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def]) >>
+      fs [INT_def] >>
+      intLib.ARITH_TAC) >>
     `?n:num. i-1 = &n`
     by (
       `i - 1 = 0 ∨ 0 < i - 1` by intLib.ARITH_TAC >>
       rw [] >>
       qexists_tac `Num (i-1)` >>
       intLib.ARITH_TAC) >>
-    xlet `POSTv x_v. ARRAY arr_v elem_vs * &(a (EL (Num (i-1)) elems) x_v)`
+    xlet `POSTv x_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+              &(a (EL (Num (i-1)) elems) x_v)`
     >- (
       xapp >>
       xsimpl >>
-      qexists_tac `n` >>
+      qexists_tac `LENGTH ignore1 + n` >>
       fs [NUM_def, LIST_REL_EL_EQN] >>
       `n < LENGTH elem_vs` by intLib.ARITH_TAC >>
-      rw []) >>
-    xlet `POSTv b_v. ARRAY arr_v elem_vs * &(BOOL (cmp pivot (EL (Num (i - 1)) elems)) b_v)`
+      rw [GSYM integerTheory.INT_ADD, EL_APPEND_EQN] >>
+      metis_tac [integerTheory.INT_ADD_SYM]) >>
+    xlet `POSTv b_v. ARRAY arr_v (ignore1++elem_vs++ignore2) *
+             &(BOOL (cmp pivot (EL (Num (i - 1)) elems)) b_v)`
     >- (
       xapp >>
       xsimpl >>
@@ -335,9 +358,11 @@ val partition_spec = Q.store_thm ("partition_spec",
       xsimpl >>
       simp [GSYM PULL_EXISTS] >>
       rw [] >>
-      qexists_tac `x` >>
+      MAP_EVERY qexists_tac [`ignore2`, `ignore1`, `elem_vs`] >>
       rw []
       >- (
+        qexists_tac `x` >>
+        simp [] >>
         `i - 1 ≠ &x` suffices_by intLib.ARITH_TAC >>
         CCONTR_TAC >>
         fs [])
@@ -361,12 +386,13 @@ val partition_spec = Q.store_thm ("partition_spec",
       qexists_tac `n` >>
       fs [] >>
       rw []
+      >- metis_tac [integerTheory.INT_ADD, integerTheory.INT_ADD_SYM]
       >- intLib.ARITH_TAC >>
       `i ≤ &k` by intLib.ARITH_TAC >>
       fs [] >>
       CCONTR_TAC >>
       intLib.ARITH_TAC)) >>
-  (* Don't know why the previous xfun_spec expanded ARRAY_def *)
+  (* Don't know why the previous xfun_spec expanded ARRAY_def. Probably a CFBUG *)
   `(SEP_EXISTS loc.
      (λs.
         ∃v.
@@ -395,6 +421,7 @@ val partition_spec = Q.store_thm ("partition_spec",
        rw [] >>
        fs [])) >>
   simp [] >>
+
   xfun_spec `part_loop`
    `!middle_vs l_v u_v ignore1 lower_part upper_part ignore2 elems1 elems2 elems3.
     LIST_REL a elems1 lower_part ∧
@@ -417,6 +444,7 @@ val partition_spec = Q.store_thm ("partition_spec",
             (elems1 ++ elems2 ++ elems3) (lower_part ++ middle_vs ++ upper_part)
             (lower_part ++ lower_part')
             (upper_part' ++ upper_part)))`
+
   >- (
     gen_tac >>
     completeInduct_on `LENGTH middle_vs` >>
@@ -427,7 +455,97 @@ val partition_spec = Q.store_thm ("partition_spec",
     qpat_abbrev_tac `lower_stop = elem2'++elems3` >>
     rw [] >>
     last_x_assum xapp_spec >>
-    cheat) >>
+    (* scan lower's postcondition *)
+    xlet
+      `POSTv (new_lower_v:v).
+        (ARRAY arr_v (ignore1++lower_part++middle_vs++upper_part++ignore2)) *
+        &(∃new_lower:num.
+           INT (&(LENGTH ignore1 + LENGTH lower_part + new_lower)) new_lower_v ∧
+           new_lower < LENGTH (elems2'++elems3) ∧
+           ¬cmp (EL new_lower (elems2'++elems3)) pivot ∧
+           !k:num. k < new_lower ⇒ ¬cmp pivot (EL k (elems2'++elems3)))`
+    >- (
+      xapp >>
+      xsimpl >>
+      fs [EXISTS_MEM, MEM_EL] >>
+      MAP_EVERY qexists_tac [`ignore2`, `ignore1++lower_part`,
+             `-1`, `elems2'++elems3`,
+             `middle_vs++upper_part`, `n'`] >>
+      simp [] >>
+      rw []
+      >- metis_tac [LENGTH_APPEND]
+      >- (
+        `!x. x + -1 = x - 1` by intLib.ARITH_TAC >>
+        simp [])
+      >- (
+        unabbrev_all_tac >>
+        fs [])
+      >- (
+        unabbrev_all_tac >>
+        fs [] >>
+        metis_tac [EVERY2_APPEND])) >>
+    (* scan upper's postcondition *)
+    xlet
+      `POSTv (new_upper_v:v).
+        (ARRAY arr_v (ignore1++lower_part++middle_vs++upper_part++ignore2)) *
+        &(∃new_upper:num.
+           INT (&(LENGTH ignore1 + new_upper)) new_upper_v ∧
+           new_upper < LENGTH (elems1++elems2') ∧
+           ¬cmp pivot (EL new_upper (elems1++elems2')) ∧
+           !k:num.
+             (&k) < LENGTH (elems1++elems2') ∧ new_upper < k ⇒
+             ¬cmp (EL k (elems1++elems2')) pivot)`
+    >- (
+      xapp >>
+      xsimpl >>
+      fs [EXISTS_MEM, MEM_EL] >>
+      MAP_EVERY qexists_tac [`upper_part++ignore2`, `ignore1`,
+             `&LENGTH (lower_part++middle_vs)`, `elems1++elems2'`,
+             `lower_part++middle_vs`, `n''`] >>
+      simp [] >>
+      rw []
+      >- metis_tac [LENGTH_APPEND, LIST_REL_LENGTH]
+      >- fs [integerTheory.INT_ADD]
+      >- metis_tac [LIST_REL_LENGTH, LESS_EQ_REFL]
+      >- (
+        unabbrev_all_tac >>
+        fs [] >>
+        imp_res_tac LIST_REL_LENGTH >>
+        intLib.ARITH_TAC)
+      >- (
+        unabbrev_all_tac >>
+        fs [] >>
+        metis_tac [EVERY2_APPEND])
+      >- (
+        qexists_tac `j` >>
+        rw []
+        >- (
+          imp_res_tac LIST_REL_LENGTH >>
+          fs [])
+        >- (
+          unabbrev_all_tac >>
+          fs [] >>
+          first_x_assum match_mp_tac >>
+          rw [] >>
+          metis_tac [LIST_REL_LENGTH]))) >>
+    xlet `POSTv b_v.
+             ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2) *
+             &(BOOL (LENGTH lower_part + new_lower < new_upper) b_v)`
+    >- (
+      xapp >>
+      xsimpl >>
+      fs [INT_def, BOOL_def]) >>
+    xif
+    (* The pointers haven't crossed yet, we have to loop *)
+    >- cheat
+    (* The pointers have crossed, time to stop *)
+    >- (
+      xvar >>
+      xsimpl >>
+      qexists_tac `TAKE new_upper middle_vs` >>
+      qexists_tac `DROP new_upper middle_vs` >>
+      rw [partition_pred_def] >>
+      cheat)) >>
   simp [] >>
   xlet `POSTv i1_v.
           ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
