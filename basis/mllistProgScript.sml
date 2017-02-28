@@ -1,7 +1,6 @@
-open preamble ml_translatorLib ml_progLib std_preludeTheory 
-open mllistTheory ml_translatorTheory mloptionProgTheory 
-
-
+open preamble ml_translatorLib ml_progLib std_preludeTheory
+open mllistTheory ml_translatorTheory mloptionProgTheory
+     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
 
 (*this library depends on nothing*)
 val _ = new_theory"mllistProg"
@@ -58,6 +57,43 @@ val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
 
+val app = process_topdecs`
+  fun app f ls = case ls of [] => ()
+    | (x::xs) => (f x; app f xs)`;
+val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
+
+val st = get_ml_prog_state();
+
+val app_spec = Q.prove(
+  `∀l start lv A.
+   LIST_TYPE A l lv /\
+   (!n xv. n < LENGTH l ∧ A (EL n l) xv ==> app p fv [xv] (eff (start+n)) (POSTv v. &UNIT_TYPE () v * (eff (start+n+1))))
+   ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "app" st) [fv; lv] (eff start)
+     (POSTv v. &UNIT_TYPE () v * (eff (start + (LENGTH l))))`,
+  Induct \\ rw[LIST_TYPE_def]
+  >- ( xcf "app" st \\ xmatch \\ xcon \\ xsimpl )
+  \\ xcf "app" st
+  \\ xmatch
+  \\ xlet`POSTv v. &UNIT_TYPE () v * eff (start+1)`
+  >- (
+    xapp
+    \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["n"]))
+    \\ qexists_tac`0` \\ xsimpl )
+  \\ first_x_assum drule
+  \\ disch_then(qspec_then`start+1`mp_tac)
+  \\ simp[ADD1]
+  \\ impl_tac
+  >- (
+    rw[]
+    \\ first_x_assum(qspec_then`n+1`mp_tac)
+    \\ simp[EL_CONS,PRE_SUB1] )
+  \\ strip_tac \\ xapp)
+|> CONV_RULE SWAP_FORALL_CONV
+|> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]
+|> Q.GENL[`fv`,`eff`]
+|> curry save_thm "app_spec";
+
 val result = translate FIND_thm;
 
 
@@ -65,7 +101,7 @@ val result = translate FILTER;
 
 
 val result = translate partition_aux_def;
-val result = translate partition_def;
+val result = translate mllistTheory.partition_def;
 
 
 val result = translate FOLDL;
