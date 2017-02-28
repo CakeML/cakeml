@@ -89,7 +89,7 @@ val commandLine_fun_def = Define `
 val COMMANDLINE_def = Define `
   COMMANDLINE (cl:string list) =
     IO (List (MAP Str cl)) commandLine_fun ["getArgs"]`
- 
+
 val COMMANDLINE_precond = Q.store_thm("COMMANDLINE_precond",
   `(COMMANDLINE cl)
      {FFI_part (List (MAP Str cl)) commandLine_fun ["getArgs"] events}`,
@@ -163,7 +163,7 @@ val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
       \\ xlet `POSTv lenv. & NUM (LENGTH a) lenv * W8ARRAY av a`
         >-(xapp)
       \\ xlet `POSTv lv. &LIST_TYPE CHAR (MAP (CHR o w2n) a) lv * W8ARRAY av a`
-      >-( 
+      >-(
         xapp
         \\ simp[LIST_EQ_REWRITE,EL_MAP]
         \\ qexists_tac`\x. CHR(w2n(EL x a))`

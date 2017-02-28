@@ -5,13 +5,13 @@ val _ = new_theory"mllist"
 
 
 val tl_def = Define`
-  (tl [] = []) /\ 
+  (tl [] = []) /\
   (tl (h::t) = t)`;
 
 
 val getItem_def = Define`
-  (getItem [] = NONE) /\ 
-  (getItem (h::t) = SOME(h, t))`; 
+  (getItem [] = NONE) /\
+  (getItem (h::t) = SOME(h, t))`;
 
 
 val nth_def = Define`
@@ -42,16 +42,16 @@ val MAPI_thm_gen = Q.prove (
 
 val MAPI_thm = Q.store_thm (
   "MAPI_thm",
-  `!f l. MAPi f l = mapi f 0 l`, 
+  `!f l. MAPi f l = mapi f 0 l`,
   rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
-  |> SIMP_RULE (srw_ss()++ETA_ss) [])] 
+  |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 );
 
 
 val mapPartial_def = Define`
-  (mapPartial f [] = []) /\ 
+  (mapPartial f [] = []) /\
   (mapPartial f (h::t) = case (f h) of
-    NONE => mapPartial f t 
+    NONE => mapPartial f t
     |(SOME x) => x::mapPartial f t)`;
 
 val mapPartial_thm = Q.store_thm (

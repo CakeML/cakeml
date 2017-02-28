@@ -22,7 +22,7 @@ val hd_side_def = Q.prove(
   |> update_precondition;
 
 val result = translate tl_def;
-val result = next_ml_names := ["TL_hol"]; 
+val result = next_ml_names := ["TL_hol"];
 val result = translate TL;
 val tl_1_side_def = Q.prove(
   `!xs. tl_1_side xs = ~(xs = [])`,
