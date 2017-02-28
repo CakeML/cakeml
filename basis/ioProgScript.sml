@@ -128,6 +128,13 @@ val print_spec = Q.store_thm("print_spec",
     \\ xapp \\ rw[]
 );
 
+val res = register_type``:'a app_list``;
+
+val print_app_list = process_topdecs
+  `fun print_app_list Nil = ()
+     | print_app_list (List ls) = List.app print ls
+     | print_app_list (Append l1 l2) = (print_app_list l1; print_app_list l2)`;
+
 (*-------------------------------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
 
