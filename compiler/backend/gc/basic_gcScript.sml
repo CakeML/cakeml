@@ -1984,4 +1984,32 @@ val gc_move_list_ok = store_thm("gc_move_list_ok",
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ res_tac \\ fs [] \\ imp_res_tac gc_move_ok);
 
+val gc_move_data_ok = store_thm("gc_move_data_ok",
+   ``!conf s. (gc_move_data conf s).ok ==> s.ok``,
+  recInduct (fetch "-" "gc_move_data_ind") \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gc_move_data_def]
+  \\ rpt (CASE_TAC \\ simp_tac (srw_ss()) [LET_THM])
+  \\ pairarg_tac \\ fs [] \\ strip_tac \\ res_tac
+  \\ imp_res_tac gc_move_list_ok);
+
+val gc_move_refs_ok = store_thm("gc_move_refs_ok",
+   ``!conf s. (gc_move_refs conf s).ok ==> s.ok``,
+  recInduct (fetch "-" "gc_move_refs_ind") \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gc_move_refs_def]
+  \\ rpt (CASE_TAC \\ simp_tac (srw_ss()) [LET_THM])
+  \\ pairarg_tac \\ fs [] \\ strip_tac \\ res_tac
+  \\ imp_res_tac gc_move_list_ok);
+
+val gc_move_loop_ok = store_thm("gc_move_loop_ok",
+  ``!conf s c. (gc_move_loop conf s c).ok ==> s.ok``,
+  recInduct (fetch "-" "gc_move_loop_ind") \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gc_move_loop_def]
+  \\ every_case_tac \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ imp_res_tac gc_move_refs_ok
+  \\ imp_res_tac gc_move_data_ok \\ fs []);
+
 val _ = export_theory();
