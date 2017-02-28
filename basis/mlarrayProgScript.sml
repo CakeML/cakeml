@@ -500,13 +500,13 @@ val array_modify_aux_spec = Q.store_thm("array_modify_aux_spec",
     gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
       >-(xcf "modify_aux" modify_st
       \\ rw[] \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
-        >- (xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
+        >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
       \\ xif
         >- (xcon \\ xsimpl \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
       \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
     \\ xcf "modify_aux" modify_st
     \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
-      >- (xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
+      >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
     \\ xif
       >- (xcon \\ xsimpl \\ qexists_tac `vs` \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
     \\ xlet `POSTv vsub. &(vsub = EL n vs)* ARRAY av vs`
