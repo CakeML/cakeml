@@ -22,6 +22,9 @@ val byte_to_string_side_def = prove(
   \\ Cases \\ fs [] \\ EVAL_TAC \\ fs [])
   |> update_precondition;
 
+val res = translate byte_strlit_def;
+val res = translate comm_strlit_def;
+val res = translate newl_strlit_def;
 val res = translate comma_cat_def;
 val res = translate num_to_str_def;
 

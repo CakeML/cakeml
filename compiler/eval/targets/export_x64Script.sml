@@ -19,16 +19,19 @@ val byte_to_string_eq = store_thm("byte_to_string_eq",
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
   \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);
 
+val byte_strlit_def = Define `byte_strlit = strlit "\t.byte "`;
+val comm_strlit_def = Define `comm_strlit = strlit ","`;
+val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+
 val comma_cat_def = Define `
   comma_cat x =
     case x of
-    | [] => strlit ""
-    | [x] => byte_to_string x
-    | (x::xs) => strcat (byte_to_string x) (strcat (strlit ",") (comma_cat xs))`
+    | [] => [newl_strlit]
+    | [x] => [byte_to_string x; newl_strlit]
+    | (x::xs) => byte_to_string x :: comm_strlit :: comma_cat xs`
 
 val bytes_row_def = Define `
-  bytes_row xs =
-    List [strlit "\t.byte "; comma_cat xs; strlit "\n"]`;
+  bytes_row xs = List (byte_strlit :: comma_cat xs)`;
 
 val split16_def = tDefine "split16" `
   (split16 [] = Nil) /\
@@ -72,7 +75,13 @@ val heap_stack_space =
       [implode("     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n")] ++
       MAP (\n. (strlit (n ++ "\n")))
        ["     .p2align 3";
-        "cake_end:"; ""])``
+        "cake_end:";
+        "";
+        "     .data";
+        "     .p2align 3";
+        "cdecl(argc): .quad 0";
+        "cdecl(argv): .quad 0";
+        ""])``
       |> (PATH_CONV"r" EVAL THENC
           PATH_CONV"lrlrr" EVAL THENC
           PATH_CONV"lrlrlrlr" EVAL)
@@ -83,12 +92,15 @@ val startup =
       ["#### Start up code";
        "";
        "     .text";
+       "     .p2align 3";
        "     .globl  cdecl(main)";
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
        "cdecl(main):";
-       "     movq    %rdi, argc  # %rdi stores argc";
-       "     movq    %rsi, argv  # %rsi stores argv";
+       "     leaq    cdecl(argc)(%rip), %rbx";
+       "     leaq    cdecl(argv)(%rip), %rdx";
+       "     movq    %rdi, 0(%rbx)  # %rdi stores argc";
+       "     movq    %rsi, 0(%rdx)  # %rsi stores argv";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
@@ -96,10 +108,6 @@ val startup =
        "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack";
        "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack";
        "     jmp     cake_main";
-       "";
-       "     .data";
-       "argc:  .quad 0";
-       "argv:  .quad 0";
        ""])`` |> EVAL |> concl |> rand
 
 val ffi_asm_def = Define `
@@ -142,5 +150,11 @@ val x64_export_def = Define `
       (SmartAppend (List ^heap_stack_space)
       (SmartAppend (List ^startup) ^ffi_code)))
       (split16 bytes)`;
+
+(*
+  EVAL ``append (x64_export ["getArgs";"putChar";"getChar"] 400 300 [3w;4w;5w])``
+  |> concl |> rand |> listSyntax.dest_list |> fst |> map rand
+  |> map stringSyntax.fromHOLstring |> concat |> print
+*)
 
 val _ = export_theory ();
