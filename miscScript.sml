@@ -2280,4 +2280,96 @@ val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
   fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
+val ALOOKUP_EXISTS_IFF = Q.store_thm(
+  "ALOOKUP_EXISTS_IFF",
+  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
+  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
+val ALIST_FUPDKEY_def = Define`
+  (ALIST_FUPDKEY k f [] = []) ∧
+  (ALIST_FUPDKEY k f ((k',v)::rest) =
+     if k = k' then (k,f v)::rest
+     else (k',v) :: ALIST_FUPDKEY k f rest)
+`;
+
+val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
+  "ALIST_FUPDKEY_ALOOKUP",
+  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
+     case ALOOKUP al k1 of
+         NONE => NONE
+       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
+  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
+  simp[]);
+
+val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
+  "MAP_FST_ALIST_FUPDKEY[simp]",
+  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
+  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
+
+val A_DELKEY_def = Define`
+  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
+`;
+
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
+val MEM_DELKEY = Q.store_thm(
+  "MEM_DELKEY[simp]",
+  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`,
+  Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
+  metis_tac[]);
+
+val ALOOKUP_ADELKEY = Q.store_thm(
+  "ALOOKUP_ADELKEY",
+  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`,
+  simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
+
+val findi_APPEND = Q.store_thm(
+  "findi_APPEND",
+  `∀l1 l2 x.
+      findi x (l1 ++ l2) =
+        let n0 = findi x l1
+        in
+          if n0 = LENGTH l1 then n0 + findi x l2
+          else n0`,
+  Induct >> simp[findi_def] >> rw[] >> fs[]);
+
+val NOT_MEM_findi_IFF = Q.store_thm(
+  "NOT_MEM_findi_IFF",
+  `¬MEM e l ⇔ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]);
+
+val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
+  "NOT_MEM_findi",
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
+
+val ORD_eq_0 = Q.store_thm(
+  "ORD_eq_0",
+  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
+  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
+
+val HD_LUPDATE = Q.store_thm(
+  "HD_LUPDATE",
+  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
+  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
+
+val ALIST_FUPDKEY_unchanged = Q.store_thm(
+  "ALIST_FUPDKEY_unchanged",
+  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
+  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
+
+val ALIST_FUPDKEY_o = Q.store_thm(
+  "ALIST_FUPDKEY_o",
+  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
+  rw[ALIST_FUPDKEY_def]);
+
 val _ = export_theory()

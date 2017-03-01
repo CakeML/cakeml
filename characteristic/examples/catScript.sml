@@ -6,29 +6,6 @@ open preamble
 
 val _ = new_theory "cat"
 
-(* TODO: move *)
-val ORD_eq_0 = Q.store_thm(
-  "ORD_eq_0",
-  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
-  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
-
-val HD_LUPDATE = Q.store_thm(
-  "HD_LUPDATE",
-  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
-  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
-
-val ALIST_FUPDKEY_unchanged = Q.store_thm(
-  "ALIST_FUPDKEY_unchanged",
-  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
-  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
-
-val ALIST_FUPDKEY_o = Q.store_thm(
-  "ALIST_FUPDKEY_o",
-  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
-  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
-  rw[ALIST_FUPDKEY_def]);
-(* -- *)
-
 (* ----------------------------------------------------------------------
 
     Our operations require memory to be allocated in the heap for the
@@ -55,13 +32,6 @@ val ALIST_FUPDKEY_o = Q.store_thm(
 val _ = translation_extends"mlcharioProg";
 
 fun basis_st () = get_ml_prog_state ()
-
-(* TODO: move? *)
-val LENGTH_explode = Q.store_thm("LENGTH_explode",
-  `LENGTH (explode s) = strlen s`,
-  Cases_on`s` \\ simp[]);
-
-(* -- *)
 
 val _ = ml_prog_update (open_module "FileIO");
 

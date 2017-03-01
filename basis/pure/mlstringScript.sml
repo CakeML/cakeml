@@ -78,6 +78,10 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
   rw[implode_explode,
      explode_implode])
 
+val LENGTH_explode = Q.store_thm("LENGTH_explode",
+  `LENGTH (explode s) = strlen s`,
+  Cases_on`s` \\ simp[]);
+
 val extract_aux_def = Define`
   (extract_aux s n 0 = []) /\
   (extract_aux s n (SUC len) = strsub s n:: extract_aux s (n + 1) len)`;
