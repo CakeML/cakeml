@@ -1993,6 +1993,18 @@ val gc_move_data_ok = store_thm("gc_move_data_ok",
   \\ pairarg_tac \\ fs [] \\ strip_tac \\ res_tac
   \\ imp_res_tac gc_move_list_ok);
 
+val gc_move_data_h2 = store_thm("gc_move_data_h2",
+   ``!conf s. (gc_move_data conf s).ok ==>
+              ((gc_move_data conf s).h2 = [])``,
+  recInduct (fetch "-" "gc_move_data_ind") \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gc_move_data_def]
+  \\ rpt (CASE_TAC \\ simp_tac (srw_ss()) [LET_THM])
+  \\ asm_rewrite_tac []
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ simp_tac bool_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ pairarg_tac \\ fs [] \\ rpt strip_tac \\ res_tac);
+
 val gc_move_refs_ok = store_thm("gc_move_refs_ok",
    ``!conf s. (gc_move_refs conf s).ok ==> s.ok``,
   recInduct (fetch "-" "gc_move_refs_ind") \\ rw []

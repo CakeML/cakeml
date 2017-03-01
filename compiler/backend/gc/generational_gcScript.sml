@@ -363,6 +363,13 @@ val gen_inv_def = Define `
         MEM (DataElement xs l d) heap_old /\ MEM (Pointer ptr u) xs ==>
         ptr < conf.gen_start \/ conf.refs_start <= ptr`;
 
+val sim_inv_def = Define `
+  sim_inv conf state <=>
+    gen_inv conf state.heap /\
+    conf.gen_start <= state.a /\
+    state.a + state.n <= conf.refs_start /\
+    (conf.refs_start <= conf.gen_start ==> (state.h1 = []) /\ (state.h2 = []))`;
+
 val heap_length_to_basic_heap_list = store_thm("heap_length_to_basic_heap_list[simp]",
   ``!h2. heap_length (to_basic_heap_list conf h2) = heap_length h2``,
   rewrite_tac [to_basic_heap_list_def]
@@ -394,20 +401,16 @@ val heap_segment_length = prove(
 val gc_move_simulation = prove(
   ``!ptr ptr' state state' ptr1' state1'.
       (gc_move conf state ptr = (ptr', state')) /\
-      gen_inv conf state.heap /\
-      conf.gen_start <= state.a /\
-      state.a + state.n <= conf.refs_start /\
+      sim_inv conf state /\
       (basic_gc$gc_move
          (to_basic_conf conf)
          (to_basic_state conf state)
          (to_basic_heap_address conf ptr) = (ptr1', state1')) /\ state1'.ok ==>
-      gen_inv conf state'.heap /\
-      conf.gen_start <= state'.a /\
-      state'.a + state'.n <= conf.refs_start /\
+      sim_inv conf state' /\
       ((ptr1', state1')
        = (to_basic_heap_address conf ptr', to_basic_state conf state'))``,
   reverse Cases
-  \\ fs []
+  \\ fs [sim_inv_def]
   \\ rpt gen_tac
   \\ strip_tac
   \\ fs [to_basic_heap_address_def]
@@ -527,16 +530,12 @@ val gc_move_simulation = prove(
 val gc_move_list_simulation = prove(
   ``!ptr ptr' state state' ptr1' state1'.
       (gc_move_list conf state ptr = (ptr', state')) /\
-      gen_inv conf state.heap /\
-      conf.gen_start <= state.a /\
-      state.a + state.n <= conf.refs_start /\
+      sim_inv conf state /\
       (basic_gc$gc_move_list
          (to_basic_conf conf)
          (to_basic_state conf state)
          (MAP (to_basic_heap_address conf) ptr) = (ptr1', state1')) /\ state1'.ok ==>
-      gen_inv conf state'.heap /\
-      conf.gen_start <= state'.a /\
-      state'.a + state'.n <= conf.refs_start /\
+      sim_inv conf state' /\
       ((ptr1', state1')
        = (MAP (to_basic_heap_address conf) ptr', to_basic_state conf state'))``,
   Induct
@@ -599,14 +598,10 @@ val gc_move_ref_list_simulation = prove(
                   (to_basic_state conf state)
                   (refs_to_roots conf refs0)
       = (refs1',state1')) /\ state1'.ok /\
-    gen_inv conf state.heap /\
-    conf.gen_start <= state.a /\
-    state.a + state.n <= conf.refs_start /\
+    sim_inv conf state /\
     EVERY isDataElement refs0
     ==>
-    gen_inv conf state1.heap /\
-    conf.gen_start <= state1.a /\
-    state1.a + state1.n <= conf.refs_start /\
+    sim_inv conf state1 /\
     (refs1' = refs_to_roots conf refs1) /\
     (state1' = to_basic_state conf state1)``,
   recInduct (theorem "gc_move_ref_list_ind")
@@ -672,6 +667,53 @@ val gc_move_data_r1 = prove(
   \\ pairarg_tac \\ fs []
   \\ drule gc_move_list_r1 \\ fs []);
 
+val gc_move_data_simulation = prove(
+  ``!conf state state' ptr1' state1'.
+      (gc_move_data conf state = state') /\
+      sim_inv conf state /\
+      (basic_gc$gc_move_data
+         (to_basic_conf conf)
+         (to_basic_state conf state) = state1') /\ state1'.ok ==>
+      sim_inv conf state' /\
+      (state1' = to_basic_state conf state')``,
+  recInduct (fetch "-" "gc_move_data_ind")
+  \\ rpt gen_tac \\ rpt (disch_then assume_tac) \\ rpt gen_tac
+  \\ once_rewrite_tac [gc_move_data_def,basic_gcTheory.gc_move_data_def]
+  \\ TOP_CASE_TAC \\ fs []
+  THEN1
+   (fs [EVAL ``(to_basic_state conf state).h2``]
+    \\ strip_tac \\ rveq \\ fs [])
+  \\ fs [EVAL ``(to_basic_state conf state).h2``]
+  \\ cheat);
+
+val gc_move_with_refs = prove(
+  ``!l. gc_move conf (state with r1 := refs) l =
+        let (xs,s) = gc_move conf state l in (xs,s with r1 := refs)``,
+  Cases
+  \\ fs [gc_move_def]
+  \\ rpt (fs [] \\ TOP_CASE_TAC)
+  \\ pairarg_tac \\ fs []);
+
+val gc_move_list_with_refs = prove(
+  ``!l state.
+      gc_move_list conf (state with r1 := refs) l =
+      let (xs,s) = gc_move_list conf state l in (xs,s with r1 := refs)``,
+  Induct \\ fs [gc_move_list_def,gc_move_with_refs]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
+  \\ rfs [] \\ fs []);
+
+val gc_move_data_with_refs = prove(
+  ``!conf state refs.
+      gc_move_data conf (state with r1 := refs) =
+      (gc_move_data conf state) with r1 := refs``,
+  recInduct (fetch "-" "gc_move_data_ind") \\ rw []
+  \\ once_rewrite_tac [gc_move_data_def]
+  \\ rpt (fs [] \\ TOP_CASE_TAC)
+  \\ fs [gc_move_list_with_refs]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ pairarg_tac \\ fs []);
+
 val partial_gc_simulation = prove(
   ``!conf roots heap0 roots1 state1 heap0_old heap0_current heap0_refs
      new_roots new_state.
@@ -688,14 +730,7 @@ val partial_gc_simulation = prove(
          to_basic_heap_list conf heap0_current) = (new_roots,new_state)) /\
       heap_ok heap0 conf.limit /\ new_state.ok ==>
       (new_roots = to_basic_roots conf roots1 ++ refs_to_roots conf state1.r1) /\
-      (new_state = to_basic_state conf state1) /\
-      (!xs l d ptr u.
-         (MEM (DataElement xs l d) state1.h1 \/ MEM (DataElement xs l d) state1.r1) /\
-         MEM (Pointer ptr u) xs /\
-         (ptr < conf.gen_start \/ conf.refs_start <= ptr) ==>
-         isSomeDataElement
-           (heap_lookup ptr (state1.old ++ state1.h1 ++
-                             heap_expand state1.n ++ state1.r1)))``,
+      (new_state = to_basic_state conf state1)``,
   rpt gen_tac
   \\ rpt (disch_then assume_tac)
   \\ fs [basic_gc_def]
@@ -706,7 +741,9 @@ val partial_gc_simulation = prove(
   \\ strip_tac \\ fs []
   \\ rveq
   \\ drule gc_move_list_simulation
-  \\ fs []
+  \\ qpat_abbrev_tac `xx = sim_inv _ _`
+  \\ `xx` by cheat
+  \\ asm_rewrite_tac [] \\ qunabbrev_tac `xx`
   \\ qmatch_asmsub_abbrev_tac `generational_gc$gc_move_list _ stateA`
   \\ qmatch_asmsub_abbrev_tac `basic_gc$gc_move_list _ stateB _ = (roots1,state1)`
   \\ `stateB = to_basic_state conf stateA` by all_tac
@@ -719,11 +756,7 @@ val partial_gc_simulation = prove(
   \\ fs [to_basic_roots_def]
   \\ impl_tac THEN1
    (imp_res_tac gc_move_loop_ok \\ fs []
-    \\ imp_res_tac gc_move_list_ok \\ fs []
-    \\ qpat_x_assum `heap_gen_ok heap0 conf` mp_tac
-    \\ fs [heap_gen_ok_def,gen_inv_def]
-    \\ strip_tac
-    \\ cheat)
+    \\ imp_res_tac gc_move_list_ok \\ fs [])
   \\ strip_tac \\ rveq \\ fs [APPEND_11]
   \\ drule gc_move_ref_list_simulation
   \\ fs [] \\ impl_tac
@@ -737,8 +770,22 @@ val partial_gc_simulation = prove(
   \\ Cases_on `state''.h2` \\ fs []
   THEN1
    (once_rewrite_tac [gc_move_data_def] \\ fs []
-    \\ simp [to_basic_state_def] \\ cheat)
-  \\ cheat);
+    \\ simp [to_basic_state_def])
+  \\ IF_CASES_TAC THEN1 fs [sim_inv_def]
+  \\ qpat_x_assum `(gc_move_loop _ _ _).ok` mp_tac
+  \\ simp [Once gc_move_loop_def]
+  \\ fs [EVAL ``(to_basic_state conf state'').r4``]
+  \\ fs [EVAL ``(to_basic_state conf state'').h2``]
+  \\ strip_tac \\ drule gc_move_loop_ok
+  \\ qpat_abbrev_tac `s5 = basic_gc$gc_move_data _ _`
+  \\ strip_tac
+  \\ `s5.h2 = []` by metis_tac [gc_move_data_h2]
+  \\ drule (gc_move_data_simulation
+            |> SIMP_RULE std_ss [] |> GEN_ALL)
+  \\ fs [] \\ strip_tac \\ rveq
+  \\ once_rewrite_tac [gc_move_loop_def]
+  \\ fs [EVAL ``(to_basic_state conf state'').r4``,gc_move_data_with_refs]
+  \\ simp [to_basic_state_def]);
 
 val f_old_ptrs_def = Define `
   f_old_ptrs conf heap =
@@ -1660,6 +1707,14 @@ val partial_gc_related = store_thm("partial_gc_related",
     \\ disch_then drule
     \\ fs [to_basic_heap_list_def])
   \\ strip_tac \\ rveq
+  \\ `∀xs l d ptr u.
+         (MEM (DataElement xs l d) state1.h1 ∨
+          MEM (DataElement xs l d) state1.r1) ∧ MEM (Pointer ptr u) xs ∧
+         (ptr < conf.gen_start ∨ conf.refs_start ≤ ptr) ⇒
+         isSomeDataElement
+           (heap_lookup ptr
+              (state1.old ++ state1.h1 ++ heap_expand state1.n ++
+               state1.r1))` by cheat
   \\ qabbrev_tac
        `basic_roots = to_basic_roots conf roots ++ refs_to_roots conf heap_refs`
   \\ qabbrev_tac
