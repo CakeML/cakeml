@@ -64,7 +64,4 @@ val _ = Datatype`
  prompt =
     Prompt (modN option) (dec list)`;
 
-val to_json_def = Define`
-  to_json _ = json$String "Hello, ModLang!"`
-
 val _ = export_theory ();
