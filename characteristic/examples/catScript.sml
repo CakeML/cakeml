@@ -2,7 +2,7 @@ open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     catfileSystemTheory mlcharioProgTheory basisFunctionsLib
+     catfileSystemTheory mlstringTheory mlcharioProgTheory basisFunctionsLib
 
 val _ = new_theory "cat"
 
@@ -313,7 +313,7 @@ val openIn_spec = Q.store_thm(
                 CATFS (openFileFS s fs))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * CATFS fs))`,
   xcf "openIn" (basis_st()) >>
-  fs[FILENAME_def, mlstringTheory.strlen_def, CATFS_def, CHAR_IO_fname_def] >> xpull >>
+  fs[FILENAME_def, strlen_def, CATFS_def, CHAR_IO_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
   qmatch_goalsub_abbrev_tac`CATIO * _ * _` >>
   xlet `POSTv u. &(UNIT_TYPE () u) * CHAR_IO_char1 *
@@ -339,7 +339,7 @@ val openIn_spec = Q.store_thm(
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             mlstringTheory.implode_explode, LENGTH_explode] >>
+             implode_explode, LENGTH_explode] >>
         `∃content. ALOOKUP fs.files s = SOME content`
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
@@ -368,7 +368,7 @@ val openIn_spec = Q.store_thm(
         simp[fs_ffi_next_def, decode_encode_FS, Abbr`fnm`,
              getNullTermStr_insertNTS_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
-             mlstringTheory.implode_explode, LENGTH_explode] >>
+             implode_explode, LENGTH_explode] >>
         simp[not_inFS_fname_openFile]) >>
     xlet `POSTv fdv. &WORD (255w: word8) fdv *
                      CHAR_IO_char1 * CATIO *
