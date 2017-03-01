@@ -90,6 +90,11 @@ val arith = Q.prove (
   `!x. x ≠ 0 ⇒ &(x-1) = &x - 1`,
   rw [int_arithTheory.INT_NUM_SUB]);
 
+val eq_num_v_thm =
+  MATCH_MP
+    (DISCH_ALL mlbasicsProgTheory.eq_v_thm)
+    (ml_translatorTheory.EqualityType_NUM_BOOL |> CONJUNCT1)
+
 val insertsort_spec = Q.store_thm ("insertsort_spec",
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
     LIST_REL a elems elem_vs ∧
@@ -450,7 +455,7 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
     fs [NUM_def, INT_def]) >>
   xlet `POSTv b_v. ARRAY arr_v elem_vs * &BOOL (LENGTH elem_vs = 0) b_v`
   >- (
-    xapp >>
+    xapp_spec eq_num_v_thm >>
     xsimpl >>
     fs [INT_def, NUM_def]) >>
   xif

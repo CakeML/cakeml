@@ -614,6 +614,11 @@ end;
 `;
 val quicksort_st = ml_progLib.add_prog quicksort pick_name partition_st;
 
+val eq_int_v_thm =
+  MATCH_MP
+    (DISCH_ALL mlbasicsProgTheory.eq_v_thm)
+    (ml_translatorTheory.EqualityType_NUM_BOOL |> CONJUNCT2 |> CONJUNCT1)
+
 val quicksort_spec = Q.store_thm ("quicksort_spec",
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
     strict_weak_order cmp ∧
@@ -677,7 +682,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       rw [] >>
       xlet `POSTv b_v. &(BOOL T b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
       >- (
-        xapp >>
+        xapp_spec eq_int_v_thm >>
         xsimpl >>
         fs [BOOL_def, INT_def]) >>
       xif >>
@@ -691,7 +696,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     last_x_assum irule >>
     xlet `POSTv b_v. &(BOOL F b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
     >- (
-      xapp >>
+      xapp_spec eq_int_v_thm >>
       xsimpl >>
       fs [BOOL_def, INT_def]) >>
     xif >>
@@ -805,7 +810,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     simp [NUM_def, INT_def]) >>
   xlet `POSTv b_v. ARRAY arr_v elem_vs * &BOOL (LENGTH elem_vs = 0) b_v`
   >- (
-    xapp >>
+    xapp_spec eq_int_v_thm >>
     xsimpl >>
     fs [NUM_def, BOOL_def, INT_def]) >>
   xif
@@ -843,7 +848,7 @@ val example_sort_st = ml_progLib.add_prog my_cmp pick_name my_cmp_st;
 
 
 val example_sorted_correct = Q.store_thm ("example_sorted_correct",
-  
+
 *)
 
 val _ = export_theory ();
