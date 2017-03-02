@@ -7,25 +7,6 @@ val _ = new_theory "ioProg"
 
 val _ = translation_extends "mlfileioProg";
 
-(* TODO: move *)
-val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
-  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
-  Induct \\ rw[OPT_MMAP_def]);
-
-val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
-  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
-
-val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
-  `OPT_MMAP SOME ls = SOME ls`,
-  Induct_on`ls` \\ rw[OPT_MMAP_def]);
-
-val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
-  `!ws1 ws2:word8 list.
-      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
-  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
-(* -- *)
-
 val write_list = normalise_topdecs
   `fun write_list xs =
      case xs of

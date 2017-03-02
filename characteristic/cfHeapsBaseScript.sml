@@ -64,6 +64,9 @@ val destNum_def = Define`
   (destNum _ = NONE)`;
 val _ = export_rewrites ["destNum_def"]
 
+val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
+  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+
 val encode_pair_def = Define`
   encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
 

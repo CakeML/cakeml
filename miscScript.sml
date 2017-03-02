@@ -2275,6 +2275,14 @@ val OPT_MMAP_def = Define`
      (λh. OPTION_BIND (OPT_MMAP f t0)
        (λt. SOME (h::t))))`;
 
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
 val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
   `DISJOINT (set []) s /\
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
@@ -2386,5 +2394,11 @@ val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
   `((n2w:num->word8) o ORD o CHR o w2n) = I`,
   rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
 );
+
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
 val _ = export_theory()
