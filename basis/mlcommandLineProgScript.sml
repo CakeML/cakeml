@@ -1,13 +1,13 @@
 open preamble
-     ml_translatorLib ml_progLib miscTheory
+     ml_translatorLib ml_progLib ml_translatorTheory
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     ml_progLib ml_translatorTheory mlcharioProgTheory
+     mlarrayProgTheory commandLineFFITheory
 
 val _ = new_theory "mlcommandLineProg";
 
-val _ = translation_extends "mlcharioProg";
+val _ = translation_extends "mlarrayProg";
 
-(* TODO: put these calls in a re-usable Lib? *)
+(* TODO: put these calls in a re-usable option syntax Lib *)
 val _ = monadsyntax.temp_add_monadsyntax();
 val _ = temp_overload_on ("return", ``SOME``)
 val _ = temp_overload_on ("fail", ``NONE``)
@@ -15,6 +15,19 @@ val _ = temp_overload_on ("SOME", ``SOME``)
 val _ = temp_overload_on ("NONE", ``NONE``)
 val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+(* -- *)
+
+(* TODO: where should these be defined? They are not necessary if we have
+concrete syntax for FFI calls (issue #161) *)
+val Apps_def = tDefine "Apps" `
+  (Apps [x;y] = App Opapp [x;y]) /\
+  (Apps [] = ARB) /\
+  (Apps xs = App Opapp [Apps (FRONT xs); LAST xs])`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_FRONT]);
+
+val LetApps_def = Define `
+  LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
+(* -- *)
 
 (* TODO: move? *)
 (* replace TOKENS_EMPTY in misc with this *)
@@ -26,7 +39,6 @@ val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
 val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
   `MEM x (REPLICATE n y) ==> x = y`,
   Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
-
 (* -- *)
 
 val _ = ml_prog_update (open_module "Commandline")
@@ -63,39 +75,28 @@ val _ = ml_prog_update(ml_progLib.add_prog arguments pick_name)
 val _ = ml_prog_update (close_module NONE);
 
 
-val encode_def = Define`encode = encode_list Str`;
-val decode_def = Define`decode = decode_list destStr`;
-
-val ffi_getArgs_def = Define`
-  ffi_getArgs bytes cls  =
-    if LENGTH bytes = 256 /\ EVERY (\c. c = n2w 0) bytes then
-      let cl = FLAT (MAP (\s. s ++ [CHR 0]) cls) in
-        if (LENGTH cl < 257) then
-          SOME(MAP (n2w o ORD) cl ++ DROP (LENGTH cl) bytes, cls)
-        else
-          SOME(MAP (n2w o ORD) (TAKE 256 cl), cls)
-    else NONE`;
-
-val commandLine_fun_def = Define `
-  commandLine_fun i bytes s =
-    if i = "getArgs" then
-      do
-        cls <- decode s;
-        (bytes,cls) <- ffi_getArgs bytes cls;
-        return (bytes, encode cls)
-      od
-    else NONE`;
-
 val COMMANDLINE_def = Define `
-  COMMANDLINE (cl:string list) =
-    IO (List (MAP Str cl)) commandLine_fun ["getArgs"]`
+  COMMANDLINE = IOx commandLine_ffi_part`
+
+val set_thm =
+  COMMANDLINE_def
+  |> SIMP_RULE(srw_ss())[
+       cfHeapsBaseTheory.IOx_def,commandLine_ffi_part_def,Once FUN_EQ_THM,
+       cfHeapsBaseTheory.IO_def, set_sepTheory.one_def ]
+  |> SIMP_RULE(srw_ss())[Once FUN_EQ_THM,set_sepTheory.SEP_EXISTS_THM]
+  |> Q.SPEC`cl`
+val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
 val COMMANDLINE_precond = Q.store_thm("COMMANDLINE_precond",
-  `(COMMANDLINE cl)
-     {FFI_part (List (MAP Str cl)) commandLine_fun ["getArgs"] events}`,
-  rw[COMMANDLINE_def, cfHeapsBaseTheory.IO_def,
-     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
-  \\ simp [set_sepTheory.one_def]);
+  `(COMMANDLINE cl) ^set_tm`,
+  rw[set_thm]);
+
+val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
+  `FFI_part_hprop (COMMANDLINE x)`,
+  rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,cfMainTheory.FFI_part_hprop_def,
+      cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def,
+      set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+  \\ fs[set_sepTheory.one_def]);
 
 val st = get_ml_prog_state()
 
@@ -198,21 +199,6 @@ val map_app_last_Str = Q.prove(
   \\ rw[FRONT_DEF]
 );
 
-val validArg_def = Define`
-    validArg l <=>  (l <> []) /\ EVERY (\x. x <> #"\^@") l /\ LENGTH l < 256`;
-
-val validArg_TOKENS = Q.store_thm("validArg_TOKENS",
-  `!l. validArg l ==> TOKENS (\x. x = #"\^@") l = [l]`,
-    Induct \\ rw[validArg_def, TOKENS_def]
-    \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-    >-(Cases_on `r` \\ imp_res_tac SPLITP_JOIN \\ fs[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[])
-    >-(Cases_on `r` >-(imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[])
-      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS])
-    \\ Cases_on `r` >-(rw[TOKENS_def])
-      \\ imp_res_tac SPLITP_CONS_IMP \\ fs[] \\ full_simp_tac std_ss [EVERY_NOT_EXISTS]
-);
-
 val TOKENS_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
 `!ls P l1. (P = (\x. x = #"\^@")) /\ EVERY validArg ls /\ l1 = (FLAT (MAP (\s. s ++ "\^@") ls)) ==>
  (TOKENS P l1 = ls)`,
@@ -254,9 +240,14 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
       >-(xapp \\ xsimpl)
     \\ fs [COMMANDLINE_def]
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
-    >-(xffi \\ fs [COMMANDLINE_def]
-      \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`, `List (MAP Str cl)`, `List (MAP Str cl)`, `commandLine_fun`, `["getArgs"]`]
-      \\ xsimpl \\ fs[commandLine_fun_def, ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]  \\ simp[EVERY_MAP, LENGTH_REPLICATE] \\ rw[encode_def] \\ fs[EVERY_REPLICATE])
+    >-(xffi \\ fs [COMMANDLINE_def,cfHeapsBaseTheory.IOx_def,commandLine_ffi_part_def]
+       \\ qmatch_goalsub_abbrev_tac`IO s u ns`
+      \\ map_every qexists_tac [`REPLICATE 256 (n2w 0)`,  `emp`, `l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))`,
+                                `s`, `s`, `u`, `ns`]
+      \\ xsimpl
+      \\ fs[Abbr`u`,Abbr`ns`,cfHeapsBaseTheory.mk_ffi_next_def,ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]
+      \\ simp[EVERY_MAP, LENGTH_REPLICATE]
+      \\ rw[Abbr`s`,encode_def] \\ fs[EVERY_REPLICATE])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac
     \\  reverse (conj_tac)  >-(fs[COMMANDLINE_def] \\ xsimpl)
     \\ pop_assum mp_tac

@@ -1,11 +1,30 @@
 open preamble
      ml_translatorTheory ml_translatorLib semanticPrimitivesTheory evaluatePropsTheory
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib basisFunctionsLib
-     mlcharioProgTheory mlcommandLineProgTheory cfMainTheory
+     mlfileioProgTheory cfMainTheory
 
 val _ = new_theory "ioProg"
 
-val _ = translation_extends "mlcommandLineProg";
+val _ = translation_extends "mlfileioProg";
+
+(* TODO: move *)
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
+  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
+(* -- *)
 
 val write_list = normalise_topdecs
   `fun write_list xs =
@@ -186,71 +205,59 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
 
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
-    \name (inp, out,cls) bytes.
+    \name (inp,out,cls,fs) bytes.
      if name = "putChar" then
        case ffi_putChar bytes out of
-       | SOME (bytes,out) => Oracle_return (inp,out,cls) bytes
+       | SOME (bytes,out) => Oracle_return (inp,out,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getChar" then
        case ffi_getChar bytes inp of
-       | SOME (bytes,inp) => Oracle_return (inp,out,cls) bytes
+       | SOME (bytes,inp) => Oracle_return (inp,out,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getArgs" then
        case ffi_getArgs bytes cls of
-       | SOME (bytes,cls) => Oracle_return (inp,out,cls) bytes
+       | SOME (bytes,cls) => Oracle_return (inp,out,cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "open" then
+       case ffi_open bytes fs of
+       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "fgetc" then
+       case ffi_fgetc bytes fs of
+       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "close" then
+       case ffi_close bytes fs of
+       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "isEof" then
+       case ffi_isEof bytes fs of
+       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
        | _ => Oracle_fail else
      Oracle_fail`
 
-
 (*Output is always empty to start *)
 val basis_ffi_def = Define `
-  basis_ffi (inp: string) (cls: string list) =
+  basis_ffi (inp: string) (cls: string list) files =
     <| oracle := basis_ffi_oracle
-     ; ffi_state := (inp, [], cls)
+     ; ffi_state := (inp, [], cls, (<| files := files; infds := [] |> : RO_fs))
      ; final_event := NONE
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
-  basis_proj1 = (\(inp, out, cls).
-    FEMPTY |++ [("putChar", Str out);("getChar",Str inp);("getArgs", List (MAP Str cls))])`;
+  basis_proj1 = (\(inp, out, cls, fs).
+    FEMPTY |++
+      ((mk_proj1 stdin_ffi_part inp) ++
+       (mk_proj1 stdout_ffi_part out) ++
+       (mk_proj1 commandLine_ffi_part cls) ++
+       (mk_proj1 rofs_ffi_part fs)))`;
 
 val basis_proj2_def = Define `
-  basis_proj2 = [(["putChar"],stdout_fun);(["getChar"],stdin_fun); (["getArgs"], commandLine_fun)]`;
-
-
-val ffi_getArgs_length = Q.store_thm("ffi_getArgs_length",
-  `ffi_getArgs bytes cls = SOME (bytes',cls') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ rw[] \\ rw[]);
-
-val stdout_fun_length = Q.store_thm("stdout_fun_length",
-  `stdout_fun m bytes w = SOME (bytes',w') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on`bytes` \\ fs[]
-  \\ fs[ffi_putChar_def] \\ Cases_on `t`  \\ fs[]
-  \\ var_eq_tac \\ fs[] \\ rw[] );
-
-val stdin_fun_length = Q.store_thm("stdin_fun_length",
-  `stdin_fun m bytes w = SOME (bytes', w') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on `bytes`
-  \\ fs[ffi_getChar_def] \\ Cases_on `t` \\ fs[] \\ Cases_on `t'` \\ Cases_on `inp` \\ fs[]
-  \\ pairarg_tac \\ fs[] \\ rw[]);
-
-val commandLine_fun_length = Q.store_thm("commandLine_fun_length",
-  `commandLine_fun m bytes w = SOME (bytes', w') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ every_case_tac \\ rw[] \\ Cases_on `bytes` \\ pairarg_tac \\ fs[] \\ imp_res_tac ffi_getArgs_length
-  \\ rw[]);
-
-
-val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
-  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
-  Induct \\ rw[OPT_MMAP_def]);
-
-val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
-  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
-
-val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
-  `OPT_MMAP SOME ls = SOME ls`,
-  Induct_on`ls` \\ rw[OPT_MMAP_def]);
-
+  basis_proj2 =
+    [mk_proj2 stdin_ffi_part;
+     mk_proj2 stdout_ffi_part;
+     mk_proj2 commandLine_ffi_part;
+     mk_proj2 rofs_ffi_part]`;
 
 val extract_output_def = Define `
   (extract_output [] = SOME []) /\
@@ -275,42 +282,7 @@ val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
 
-val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
-  `!ws1 ws2:word8 list.
-      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
-  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
-
-
 (*-------------------------------------------------------------------------------------------------*)
-
-val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
-  `FFI_part_hprop (STDOUT x)`,
-  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
-    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
-    EVAL ``read_state_loc``,
-    EVAL ``write_state_loc``,
-    cfHeapsBaseTheory.W8ARRAY_def,
-    cfHeapsBaseTheory.cell_def]
-  \\ fs[set_sepTheory.one_STAR]
-  \\ metis_tac[]);
-
-val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
-  `FFI_part_hprop (STDIN b x)`,
-  rw [STDIN_def,STDOUT_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
-    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
-    EVAL ``read_state_loc``,
-    EVAL ``write_state_loc``,
-    cfHeapsBaseTheory.W8ARRAY_def,
-    cfHeapsBaseTheory.cell_def]
-  \\ fs[set_sepTheory.one_STAR]
-  \\ metis_tac[]);
-
-val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
-  `FFI_part_hprop (COMMANDLINE x)`,
-  rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,FFI_part_hprop_def,
-    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
-  \\ fs[set_sepTheory.one_def]);
 
 (*The following thms are used to automate the proof of the SPLIT of the heap in ioProgLib*)
 val append_hprop = Q.store_thm ("append_hprop",
