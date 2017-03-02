@@ -2372,4 +2372,19 @@ val ALIST_FUPDKEY_o = Q.store_thm(
   Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
   rw[ALIST_FUPDKEY_def]);
 
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
+         |> curry save_thm "w2n_lt_256"
+
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
 val _ = export_theory()

@@ -168,11 +168,6 @@ val STDOUT_precond = Q.store_thm("STDOUT_precond",
   \\ rw[EXTENSION, EQ_IMP_THM]
 );
 
-val w2n_lt_256 =
-  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
-         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
-         |> curry save_thm "w2n_lt_256"
-
 val basis_st = get_ml_prog_state;
 
 val read_spec = Q.store_thm ("read_spec",

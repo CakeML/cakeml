@@ -243,15 +243,6 @@ val TOKENS_FRONT_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
   rw[TOKENS_FRONT_MAP, TOKENS_MAP_inv]
 );
 
-val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
-  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
-  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
-);
-
-val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
-  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
-  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
-);
 val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
   `UNIT_TYPE u uv /\ cl <> [] /\ EVERY validArg cl /\ l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. s ++ [CHR 0]) cl))
     /\ LENGTH l < 257 ==>
