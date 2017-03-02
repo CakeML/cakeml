@@ -6,6 +6,10 @@ val _ = new_theory"commandLineFFI";
 val encode_def = Define`encode = encode_list Str`;
 val decode_def = Define`decode = decode_list destStr`;
 
+val decode_encode = Q.store_thm("decode_encode[simp]",
+  `decode (encode cls) = SOME cls`,
+  EVAL_TAC \\ simp[OPT_MMAP_MAP_o]);
+
 val ffi_getArgs_def = Define`
   ffi_getArgs (bytes:word8 list) cls  =
     if LENGTH bytes = 256 /\ EVERY (\c. c = n2w 0) bytes then

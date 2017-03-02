@@ -300,6 +300,29 @@ val rofs_ffi_part_def = Define`
        ("close",ffi_close);
        ("isEof",ffi_isEof)])`;
 
+val ffi_open_length = Q.store_thm("ffi_open_length",
+  `ffi_open bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_open_def]
+  \\ Cases_on`getNullTermStr bytes` \\ fs[] \\ rw[]
+  \\ Cases_on`openFile (implode x) fs` \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`fd < 255` \\ fs[] \\ rw[]);
+
+val ffi_fgetc_length = Q.store_thm("ffi_fgetc_length",
+  `ffi_fgetc bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[]);
+
+val ffi_close_length = Q.store_thm("ffi_close_length",
+  `ffi_close bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_close_def]
+  \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[] \\ rw[]);
+
+val ffi_isEof_length = Q.store_thm("ffi_isEof_length",
+  `ffi_isEof bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_isEof_def]
+  \\ Cases_on`eof (w2n (HD bytes)) fs` \\ fs[] \\ rw[]);
+
 (* insert null-terminated-string (l1) at specified index (n) in a list (l2) *)
 val insertNTS_atI_def = Define`
   insertNTS_atI (l1:word8 list) n l2 =

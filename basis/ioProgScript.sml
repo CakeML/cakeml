@@ -383,40 +383,57 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_putChar]
 );
 
+val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
+[stdinFFITheory.ffi_getChar_length,
+ stdoutFFITheory.ffi_putChar_length,
+ commandLineFFITheory.ffi_getArgs_length,
+ rofsFFITheory.ffi_open_length,
+ rofsFFITheory.ffi_fgetc_length,
+ rofsFFITheory.ffi_close_length,
+ rofsFFITheory.ffi_isEof_length]);
+
+val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
+[stdinFFITheory.stdin_ffi_part_def,
+ stdoutFFITheory.stdout_ffi_part_def,
+ commandLineFFITheory.commandLine_ffi_part_def,
+ rofsFFITheory.rofs_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
   `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
     ==> (?y. st.ffi.oracle m x bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
-  rw[basis_ffi_oracle_def, basis_proj2_def, basis_proj1_def] \\ pairarg_tac \\ fs[] \\ Cases_on `m = "putChar"` \\ Cases_on `m = "getChar"` \\ Cases_on `m = "getArgs"`
-  \\ rw[ffi_putChar_def, ffi_getChar_def, ffi_getArgs_def]
-  >-(Cases_on `bytes` \\ fs[stdout_fun_def, stdin_fun_def, commandLine_fun_def, ffi_putChar_def, ffi_getChar_def, ffi_getArgs_def]
-    \\ Cases_on `t` \\ pairarg_tac \\ fs[FUPDATE_LIST, FLOOKUP_UPDATE, FAPPLY_FUPDATE_THM] \\ rw[]
-    \\ rw[FUPDATE_EQ, FUPDATE_COMMUTES] \\ metis_tac[FUPDATE_EQ, FUPDATE_COMMUTES] \\ NO_TAC)
-  >-(Cases_on `bytes` \\ fs[stdout_fun_def, stdin_fun_def, commandLine_fun_def, ffi_putChar_def, ffi_getChar_def, ffi_getArgs_def]
-    \\ Cases_on `t` \\ pairarg_tac \\ fs[FUPDATE_LIST, FLOOKUP_UPDATE, FAPPLY_FUPDATE_THM] \\ rw[]
-    \\ rw[FUPDATE_EQ, FUPDATE_COMMUTES] \\ metis_tac[FUPDATE_EQ, FUPDATE_COMMUTES] \\ NO_TAC)
-  \\ TRY ( Cases_on `bytes` \\ fs[stdout_fun_def, stdin_fun_def, commandLine_fun_def, ffi_putChar_def, ffi_getChar_def, ffi_getArgs_def]
-    \\ fs[FUPDATE_LIST, FLOOKUP_UPDATE, OPT_MMAP_MAP_o, decode_def, cfHeapsBaseTheory.decode_list_def, cfHeapsBaseTheory.destStr_def, encode_def, cfHeapsBaseTheory.encode_list_def]
-    \\ pairarg_tac \\ fs[] \\ rw[] \\ fs[] \\ NO_TAC)
-  \\ fs[commandLine_fun_def, decode_def, cfHeapsBaseTheory.decode_list_def, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST, FLOOKUP_UPDATE, OPT_MMAP_MAP_o, ffi_getArgs_def, o_DEF]
-  \\ full_simp_tac std_ss [EVERY_NOT_EXISTS]
+  simp[basis_proj2_def,basis_proj1_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[cfHeapsBaseTheory.mk_proj1_def,
+        cfHeapsBaseTheory.mk_proj2_def,
+        basis_ffi_oracle_def,basis_ffi_part_defs]
+  \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
+  \\ TRY (
+     CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
+  \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
+  \\ rw[] )
+  \\ disj2_tac
+  \\ CCONTR_TAC \\ fs[] \\ rfs[]
 );
 
 (*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
-  `parts_ok (auto_state_1 (basis_ffi inp cls)).ffi (basis_proj1, basis_proj2)` ,
-  rw[cfStoreTheory.parts_ok_def] \\ TRY (
-  EVAL_TAC
-  \\ fs[basis_proj2_def, basis_proj1_def, FLOOKUP_UPDATE, FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-  \\ rw[]
-  \\ imp_res_tac stdout_fun_length
-  \\ imp_res_tac stdin_fun_length
-  \\ imp_res_tac commandLine_fun_length
-  \\ NO_TAC)
-  \\ `(auto_state_1 (basis_ffi inp cls)).ffi.oracle = basis_ffi_oracle` suffices_by
-    metis_tac[oracle_parts]
-  \\ EVAL_TAC
+  `parts_ok (auto_state_1 (basis_ffi inp cls fs)).ffi (basis_proj1, basis_proj2)` ,
+  qmatch_goalsub_abbrev_tac`st.ffi`
+  \\ `st.ffi.oracle = basis_ffi_oracle`
+  by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
+  \\ rw[cfStoreTheory.parts_ok_def]
+  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
+  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+  \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+  \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+  \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+  \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+  \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
+  \\ srw_tac[DNF_ss][]
 );
 
 (* TODO: Move these to somewhere relevant *)
