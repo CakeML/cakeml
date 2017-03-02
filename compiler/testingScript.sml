@@ -14,7 +14,7 @@ val basic_prog_def = Define`
 val parsed_basic_def = Define`
   parsed_basic =
     case parse basic_prog of
-         NONE => [] 
+         NONE => []
        | SOME x => x`;
 
 EVAL ``parsed_basic``;
@@ -24,9 +24,7 @@ val mod_prog_def = Define`
 
 EVAL ``mod_prog``;
 EVAL ``mod_to_pres mod_prog``
-
-    let res = [modLang$to_json p] in
-    let c = c with source_conf := c' in
+EVAL ``pres_to_json (mod_to_pres mod_prog)``
 
 (* JSON *)
 val _ = Define `
