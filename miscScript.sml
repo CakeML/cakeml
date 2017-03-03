@@ -2401,4 +2401,8 @@ val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
 
+val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
+  `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
+  Induct_on`ls` \\ rw[REPLICATE]);
+
 val _ = export_theory()
