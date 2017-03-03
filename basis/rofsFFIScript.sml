@@ -35,6 +35,30 @@ val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
 `;
 
+val nextFD_ltX = Q.store_thm(
+  "nextFD_ltX",
+  `CARD (set (MAP FST fs.infds)) < x ⇒ nextFD fs < x`,
+  simp[nextFD_def] >> strip_tac >> numLib.LEAST_ELIM_TAC >> simp[] >>
+  qabbrev_tac `ns = MAP FST fs.infds` >> RM_ALL_ABBREVS_TAC >> conj_tac
+  >- (qexists_tac `MAX_SET (set ns) + 1` >>
+      pop_assum kall_tac >> DEEP_INTRO_TAC MAX_SET_ELIM >> simp[] >>
+      rpt strip_tac >> res_tac >> fs[]) >>
+  rpt strip_tac >> spose_not_then assume_tac >>
+  `count x ⊆ set ns` by simp[SUBSET_DEF] >>
+  `x ≤ CARD (set ns)`
+     by metis_tac[CARD_COUNT, CARD_SUBSET, FINITE_LIST_TO_SET] >>
+  fs[]);
+
+val nextFD_NOT_MEM = Q.store_thm(
+  "nextFD_NOT_MEM",
+  `∀f n fs. ¬MEM (nextFD fs,f,n) fs.infds`,
+  rpt gen_tac >> simp[nextFD_def] >> numLib.LEAST_ELIM_TAC >> conj_tac
+  >- (qexists_tac `MAX_SET (set (MAP FST fs.infds)) + 1` >>
+      DEEP_INTRO_TAC MAX_SET_ELIM >>
+      simp[MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >> strip_tac >>
+      res_tac >> fs[]) >>
+  simp[EXISTS_PROD, FORALL_PROD, MEM_MAP]);
+
 val openFile_def = Define`
   openFile fnm fsys =
      let fd = nextFD fsys
