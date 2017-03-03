@@ -24,8 +24,8 @@ val printers = [
 ]
 
 fun hide_environments b =
-  if b then app add_user_printer printers
-  else app (ignore o remove_user_printer) (map #1 printers)
+  if b then app temp_add_user_printer printers
+  else app (ignore o temp_remove_user_printer) (map #1 printers)
 
 val _ = hide_environments true
 
