@@ -75,11 +75,14 @@ void fficlose (char *a) {
 }
 
 void ffiisEof (char *a) {
+  char c;
   if (infds[a[0]])
-    if (feof(infds[a[0]]))
+    if ((c = fgetc(infds[a[0]])) == EOF)
       a[0] = 1;
-    else
+    else {
+      ungetc(c, infds[a[0]]);
       a[0] = 0;
+    }
   else
     a[0] = 255;
 }
