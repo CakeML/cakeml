@@ -297,7 +297,7 @@ val openIn_spec = Q.store_thm(
   xcf "openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, ROFS_def, ROFS_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
-  qmatch_goalsub_abbrev_tac`catfs fs * _ * _` >>
+  qmatch_goalsub_abbrev_tac`catfs fs` >>
   xlet `POSTv u. &(UNIT_TYPE () u) * ROFS_char1 *
                  W8ARRAY filename_loc
                          (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0) *
@@ -392,7 +392,7 @@ val eof_spec = Q.store_thm(
   xcf "eof" (basis_st()) >>
   simp[ROFS_def, ROFS_char1_def] >> xpull >>
   rename [`W8ARRAY onechar_loc [byte]`] >>
-  qmatch_goalsub_abbrev_tac`CATIO * _ * _` >>
+  qmatch_goalsub_abbrev_tac`CATIO * _ * ROFS_fname` >>
   xlet `POSTv u. &(UNIT_TYPE () u) * ROFS_fname * CATIO *
                  W8ARRAY onechar_loc [w]`
   >- (xapp >> xsimpl >> simp[onechar_loc_def] >> xsimpl >>
