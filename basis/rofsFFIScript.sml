@@ -201,7 +201,7 @@ val encode_fds_def = Define`
      encode_list (encode_pair Num (encode_pair (Str o explode) Num)) fds
 `;
 
-val encode_def = Define`
+val encode_def = zDefine`
   encode fs = cfHeapsBase$Cons
                          (encode_files fs.files)
                          (encode_fds fs.infds)
@@ -233,7 +233,7 @@ val decode_encode_fds = Q.store_thm(
   simp[decode_fds_def, encode_fds_def] >>
   simp[decode_encode_list, decode_encode_pair, implode_explode]);
 
-val decode_def = Define`
+val decode_def = zDefine`
   (decode (Cons files0 fds0) =
      do
         files <- decode_files files0 ;

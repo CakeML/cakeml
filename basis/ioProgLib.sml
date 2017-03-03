@@ -10,7 +10,8 @@ val hprop_heap_thms =
     mlcharioProgTheory.STDOUT_precond,
     mlcharioProgTheory.STDIN_T_precond,
     mlcharioProgTheory.STDIN_F_precond,
-    mlcommandLineProgTheory.COMMANDLINE_precond];
+    mlcommandLineProgTheory.COMMANDLINE_precond,
+    mlfileioProgTheory.ROFS_precond];
 
 fun mk_main_call s =
   ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;

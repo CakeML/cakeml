@@ -273,6 +273,26 @@ val ROFS_fname_def = Define`
 val ROFS_def = Define `
   ROFS fs = IOx rofs_ffi_part fs * &(wfFS fs) * ROFS_char1 * ROFS_fname`
 
+val onechar_loc = EVAL``onechar_loc``
+val filename_loc = EVAL``filename_loc``
+
+val ROFS_precond = Q.prove(
+  `wfFS fs ∧ LENGTH v = 256 ⇒
+   ROFS fs
+    {FFI_part (encode fs) (mk_ffi_next rofs_ffi_part) (MAP FST (SND(SND rofs_ffi_part))) events;
+     Mem ^(rand(rand(concl(onechar_loc)))) (W8array [w]);
+     Mem ^(rand(rand(concl(filename_loc)))) (W8array v)}`,
+  rw[ROFS_def,cfHeapsBaseTheory.IOx_def,rofs_ffi_part_def,cfHeapsBaseTheory.IO_def,ROFS_char1_def,ROFS_fname_def]
+  \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES]
+  \\ qexists_tac`v`
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,set_sepTheory.SEP_CLAUSES,
+        cfHeapsBaseTheory.cell_def,onechar_loc,filename_loc,
+        set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR]
+  \\ rw[GSYM STAR_ASSOC]
+  \\ rw[set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ rw[set_sepTheory.one_def]
+  \\ rw[DELETE_INSERT]) |> UNDISCH_ALL |> curry save_thm "ROFS_precond";
+
 val FILENAME_def = Define `
   FILENAME s sv =
     (STRING_TYPE s sv ∧

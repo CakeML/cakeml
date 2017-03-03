@@ -288,4 +288,16 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ instantiate
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]);
 
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
+val name = "cat_main"
+val (semantics_thm,prog_tm) = call_thm st name spec
+val cat_prog_def = Define`cat_prog = ^prog_tm`;
+
+val cat_semantics_thm =
+  semantics_thm
+  |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
+  |> DISCH_ALL
+  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
+  |> curry save_thm "cat_semantics_thm";
+
 val _ = export_theory();
