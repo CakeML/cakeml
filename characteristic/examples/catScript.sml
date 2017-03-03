@@ -2,7 +2,8 @@ open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     mlstringTheory ioProgTheory basisFunctionsLib
+     mlstringTheory rofsFFITheory mlfileioProgTheory
+     ioProgTheory basisFunctionsLib
 
 val _ = new_theory "cat"
 
@@ -33,26 +34,26 @@ val do_onefile_spec = Q.store_thm(
       FILENAME fnm fnv ∧
       CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
-      app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (basis_st())) [fnv]
-       (CATFS fs * STDOUT out)
+      app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (get_ml_prog_state())) [fnv]
+       (ROFS fs * STDOUT out)
        (POST
          (\u. SEP_EXISTS content.
               &UNIT_TYPE () u *
               &(ALOOKUP fs.files fnm = SOME content) *
-              CATFS fs * STDOUT (out ++ content))
+              ROFS fs * STDOUT (out ++ content))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fnm fs) *
-              CATFS fs * STDOUT out))`,
-  rpt strip_tac >> xcf "do_onefile" (basis_st()) >>
+              ROFS fs * STDOUT out))`,
+  rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   xlet `POST
           (\fdv.
             &(WORD (n2w (nextFD fs) : word8) fdv ∧
               validFD (nextFD fs) (openFileFS fnm fs) ∧
               inFS_fname fnm fs) *
-            CATFS (openFileFS fnm fs) * STDOUT out)
+            ROFS (openFileFS fnm fs) * STDOUT out)
           (\e.
             &(BadFileName_exn e ∧ ~inFS_fname fnm fs) *
-            CATFS fs * STDOUT out)`
+            ROFS fs * STDOUT out)`
   >- (xapp >> fs[] >> instantiate >> xsimpl)
   >- xsimpl >>
   qabbrev_tac `fd = nextFD fs` >>
@@ -70,10 +71,10 @@ val do_onefile_spec = Q.store_thm(
        ALOOKUP fs00.infds fd = SOME (fnm, n)
          ==>
        app p recurse [uv]
-         (CATFS fs00 * STDOUT out00)
+         (ROFS fs00 * STDOUT out00)
          (POSTv u.
             &UNIT_TYPE () u *
-            CATFS (fs00 with <|
+            ROFS (fs00 with <|
                      infds updated_by
                            ALIST_FUPDKEY fd (I ## K (LENGTH content))
                    |>) * STDOUT (out00 ++ DROP n content))`
@@ -82,7 +83,7 @@ val do_onefile_spec = Q.store_thm(
           rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
           xapp >> fs[UNIT_TYPE_def] >> xmatch >>
           xlet `POSTv av.
-                  &OPTION_TYPE CHAR NONE av * CATFS fs00 * STDOUT out00`
+                  &OPTION_TYPE CHAR NONE av * ROFS fs00 * STDOUT out00`
           >- (rveq >> xapp >> xsimpl >> instantiate >>
               `fd < 256` by simp[Abbr`fd`, nextFD_ltX] >> simp[] >>
               xsimpl >> map_every qexists_tac [`STDOUT out00`, `fs00`] >> xsimpl >>
@@ -103,7 +104,7 @@ val do_onefile_spec = Q.store_thm(
       qpat_x_assum `UNIT_TYPE () _` mp_tac >> simp[UNIT_TYPE_def] >>
       strip_tac >> xmatch >>
       xlet `POSTv av. &OPTION_TYPE CHAR (FDchar fd fs00) av *
-                      CATFS (bumpFD fd fs00) * STDOUT out00`
+                      ROFS (bumpFD fd fs00) * STDOUT out00`
       >- (xapp >> xsimpl >> instantiate >>
           `fd < 256` by simp[Abbr`fd`, nextFD_ltX] >> simp[] >>
           xsimpl >> map_every qexists_tac [`STDOUT out00`, `fs00`] >> xsimpl >>
@@ -112,15 +113,15 @@ val do_onefile_spec = Q.store_thm(
       `∃c. FDchar fd fs00 = SOME c` by (irule neof_FDchar >> simp[eof_def] >> NO_TAC) >>
       fs[OPTION_TYPE_def] >> rveq >> xmatch >>
       qabbrev_tac `fs01 = bumpFD fd fs00` >>
-      xlet `POSTv u. &UNIT_TYPE () u * CATFS fs01 * STDOUT (out00 ++ [c])`
+      xlet `POSTv u. &UNIT_TYPE () u * ROFS fs01 * STDOUT (out00 ++ [c])`
       >- (xapp >> xsimpl >> instantiate >> xsimpl >>
-          map_every qexists_tac [`CATFS fs01`,`out00`] >> xsimpl) >>
-      xlet `POSTv bv. &UNIT_TYPE () bv * CATFS fs01 * STDOUT (out00 ++ [c])`
+          map_every qexists_tac [`ROFS fs01`,`out00`] >> xsimpl) >>
+      xlet `POSTv bv. &UNIT_TYPE () bv * ROFS fs01 * STDOUT (out00 ++ [c])`
       >- (xret >> xsimpl) >>
       first_x_assum xapp_spec >>
       map_every qexists_tac [`emp`, `out00 ++ [c]`, `n + 1`, `fs01`] >> simp[] >> xsimpl >>
       simp[UNIT_TYPE_def] >> reverse conj_tac
-      >- (qmatch_abbrev_tac `CATFS fs1 * STDOUT s1 ==>> CATFS fs2 * STDOUT s2 * GC` >>
+      >- (qmatch_abbrev_tac `ROFS fs1 * STDOUT s1 ==>> ROFS fs2 * STDOUT s2 * GC` >>
           `fs2 = fs1 ∧ s1 = s2` suffices_by xsimpl >>
           UNABBREV_ALL_TAC >> simp[RO_fs_component_equality, bumpFD_def] >>
           conj_tac
@@ -132,11 +133,11 @@ val do_onefile_spec = Q.store_thm(
           fs[FDchar_def] >> rfs[] >> rveq >> fs[]>> rfs[]) >> conj_tac
       >- simp[Abbr`fs01`, bumpFD_def]
       >- simp[Abbr`fs01`, bumpFD_def, ALIST_FUPDKEY_ALOOKUP]) >>
-  xlet `POSTv u2. &UNIT_TYPE () u2 * CATFS fs0 * STDOUT out`
+  xlet `POSTv u2. &UNIT_TYPE () u2 * ROFS fs0 * STDOUT out`
   >- (xret >> xsimpl) >>
   (* calling recurse *)
   xlet `POSTv u3. &UNIT_TYPE () u3 *
-                  CATFS (fs0 with <|
+                  ROFS (fs0 with <|
                            infds updated_by
                               ALIST_FUPDKEY fd (I ## K (LENGTH content))
                          |>) * STDOUT (out ++ content)`
@@ -153,7 +154,7 @@ val do_onefile_spec = Q.store_thm(
   >- (simp[validFD_def, EXISTS_PROD, MEM_MAP] >>
       metis_tac[EXISTS_PROD, ALOOKUP_EXISTS_IFF, PAIR]) >>
   rpt strip_tac >>
-  qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+  qmatch_abbrev_tac `ROFS fs1 ==>> ROFS fs2 * GC` >>
   `fs1 = fs2` suffices_by xsimpl >> UNABBREV_ALL_TAC >>
   simp[RO_fs_component_equality, openFileFS_def, openFile_def] >> fs[] >>
   simp[nextFD_ltX] >>
@@ -174,24 +175,24 @@ val cat_spec0 = Q.prove(
      EVERY (\fnm. inFS_fname fnm fs) fns ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "cat" (basis_st())) [fnsv]
-       (CATFS fs * STDOUT out)
+     app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
+       (ROFS fs * STDOUT out)
        (POSTv u.
           &UNIT_TYPE () u *
-          CATFS fs *
+          ROFS fs *
           STDOUT (out ++ catfiles_string fs fns))`,
   Induct >>
-  rpt strip_tac >> xcf "cat" (basis_st()) >>
+  rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def]
   >- (xmatch >> xret >> simp[catfiles_string_def, file_contents_def] >> xsimpl >>
-      qmatch_abbrev_tac `CATFS fs1 ==>> CATFS fs2 * GC` >>
+      qmatch_abbrev_tac `ROFS fs1 ==>> ROFS fs2 * GC` >>
       `fs1 = fs2` suffices_by xsimpl >>
       UNABBREV_ALL_TAC >> simp[RO_fs_component_equality]) >>
   xmatch >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   rename1 `ALOOKUP fs.files _ = SOME cnts` >>
   xlet `POSTv uv.
-         &UNIT_TYPE () uv * CATFS fs *
+         &UNIT_TYPE () uv * ROFS fs *
          STDOUT (out ++ cnts)`
   >- (xapp >> xsimpl >> instantiate >> map_every qexists_tac[`emp`,`out`] >> xsimpl) >>
   xapp >>
@@ -222,19 +223,19 @@ val cat1_spec = Q.store_thm (
   `!fnm fnmv.
      FILENAME fnm fnmv /\
      CARD (FDOM (alist_to_fmap fs.infds)) < 255 ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "cat1" (basis_st())) [fnmv]
-       (CATFS fs * STDOUT out)
+     app (p:'ffi ffi_proj) ^(fetch_v "cat1" (get_ml_prog_state())) [fnmv]
+       (ROFS fs * STDOUT out)
        (POSTv u.
-          &UNIT_TYPE () u * CATFS fs *
+          &UNIT_TYPE () u * ROFS fs *
           STDOUT (out ++ catfile_string fs fnm))`,
-  xcf "cat1" (basis_st()) >>
+  xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POST
              (\u. SEP_EXISTS content. &UNIT_TYPE () u *
                &(ALOOKUP fs.files fnm = SOME content) *
-               CATFS fs *
+               ROFS fs *
                STDOUT (out ++ content))
              (\e. &BadFileName_exn e * &(~inFS_fname fnm fs) *
-                  CATFS fs * STDOUT out)` >> fs[]
+                  ROFS fs * STDOUT out)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
       qmatch_abbrev_tac `STDOUT fs1 ==>> STDOUT fs2` >>
