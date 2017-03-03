@@ -5,7 +5,7 @@ open preamble
      mlstringTheory rofsFFITheory mlfileioProgTheory
      ioProgTheory basisFunctionsLib
 
-val _ = new_theory "cat"
+val _ = new_theory "catProg"
 
 val _ = translation_extends"ioProg";
 
