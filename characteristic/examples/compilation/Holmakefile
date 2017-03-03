@@ -9,3 +9,5 @@ cake_echo: echo.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@
 cake_hello: hello.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@
+cake_cat: cat.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@
