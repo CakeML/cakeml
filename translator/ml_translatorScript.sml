@@ -1115,6 +1115,12 @@ val LIST_TYPE_IF_ELIM = Q.store_thm("LIST_TYPE_IF_ELIM",
   >> Induct_on `l`
   >> fs[LIST_TYPE_def]);
 
+val LIST_TYPE_mono = Q.store_thm("LIST_TYPE_mono",
+  `∀P Q l v.
+   LIST_TYPE P l v ∧ (∀x v. MEM x l ∧ P x v ⇒ Q x v) ⇒
+   LIST_TYPE Q l v`,
+  ntac 2 gen_tac \\ Induct \\ rw[LIST_TYPE_def]);
+
 (* pair definition *)
 
 val PAIR_TYPE_def = Define `
