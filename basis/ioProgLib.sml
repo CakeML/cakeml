@@ -81,7 +81,7 @@ fun subset_basis_st st precond =
   val tac = (strip_assume_tac pok_thm
      \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
            cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
-     \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF])
+     \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE])
   val (subgoals,_) = tac ([],goal)
   fun mk_mapping (x,y) =
     if mem x to_inst then SOME (x |-> y) else
