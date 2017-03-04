@@ -450,6 +450,8 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
+    ,data_to_wordTheory.WriteWord64_on_32_def
+    ,data_to_wordTheory.WordOp64_on_32_def
     ,data_to_wordTheory.ShiftVar_def
     ,data_to_wordTheory.AnyHeader_def
     ,data_to_wordTheory.AddNumSize_def
