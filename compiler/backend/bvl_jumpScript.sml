@@ -10,8 +10,9 @@ val JumpList_def = tDefine "JumpList" `
          let k = l DIV 2 in
          let ys = TAKE k xs in
          let zs = DROP k xs in
-           If (Op Less [Op (Const (&(n+k))) []; Var 0])
-             (JumpList n ys) (JumpList (n + k) zs))`
+         let lt = (if n + l < 1000000 then Op (LessConstSmall (n+k)) [Var 0]
+                   else Op Less [Op (Const (&(n+k))) []; Var 0]) in
+           If lt (JumpList n ys) (JumpList (n + k) zs))`
   (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
    \\ Q.ISPEC_THEN`xs`STRIP_ASSUME_TAC SPLIT_LIST \\ FULL_SIMP_TAC std_ss []
    \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.TAKE_LENGTH_APPEND,
