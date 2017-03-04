@@ -1,24 +1,11 @@
 open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     mlarrayProgTheory
+     stdinFFITheory stdoutFFITheory mlcommandLineProgTheory
 
 val _ = new_theory "mlcharioProg";
 
-val _ = translation_extends "mlarrayProg";
-
-(* TODO: where should these be defined? *)
-
-val Apps_def = tDefine "Apps" `
-  (Apps [x;y] = App Opapp [x;y]) /\
-  (Apps [] = ARB) /\
-  (Apps xs = App Opapp [Apps (FRONT xs); LAST xs])`
-  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_FRONT]);
-
-val LetApps_def = Define `
-  LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
-
-(* -- *)
+val _ = translation_extends "mlcommandLineProg";
 
 (* CharIO -- CF verified *)
 
@@ -65,98 +52,17 @@ val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-(*TODO: move these to a more sensible location *)
-
-val ffi_putChar_def = Define`
-  ffi_putChar bytes out =
-    case(bytes, out) of
-    | ([w], out) => SOME ([w], out ++ [CHR (w2n w)])
-    | _ => NONE`
-
-val stdout_fun_def = Define `
-  stdout_fun i bytes s =
-    if i = "putChar" then
-      do
-        out <- destStr s;
-        (bytes, out) <- ffi_putChar bytes out;
-        return (bytes, Str out)
-      od
-    else NONE`;
-
-val ffi_getChar_def = Define`
-  ffi_getChar bytes inp =
-    case(bytes, inp) of
-    | ([b;f], "") => SOME ([b; 1w], "")
-    | ([b;f], h::t) => SOME ([n2w (ORD h); 0w], t)
-    | _ => NONE`
-
-
-val stdin_fun_def = Define `
-  stdin_fun i bytes s =
-    if i = "getChar" then
-      do
-        inp <- destStr s;
-        (bytes, inp) <- ffi_getChar bytes inp;
-        return (bytes, Str inp)
-      od
-    else NONE`;
-
-val STDIN_def = Define `
-  STDIN input read_failed =
-    IO (Str input) stdin_fun ["getChar"] *
-    SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
-
-val STDIN_T_precond = Q.store_thm("STDIN_T_precond",
-  `(STDIN inp T)
-     {FFI_part (Str inp) stdin_fun ["getChar"] events;
-      Mem 0 (W8array [w; 1w])}`,
-  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
-     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
-  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
-  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
-        cfHeapsBaseTheory.cell_def,
-        EVAL``read_state_loc``,
-        set_sepTheory.SEP_EXISTS_THM]
-  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
-  \\ simp [set_sepTheory.one_def]
-  \\ qexists_tac`w`
-  \\ rw[EXTENSION,EQ_IMP_THM]);
-
-
-val STDIN_F_precond = Q.store_thm("STDIN_F_precond",
-  `(STDIN inp F)
-     {FFI_part (Str inp) stdin_fun ["getChar"] events;
-      Mem 0 (W8array [w; 0w])}`,
-  rw[STDIN_def, cfHeapsBaseTheory.IO_def,
-     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
-  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
-  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
-        cfHeapsBaseTheory.cell_def,
-        EVAL``read_state_loc``,
-        set_sepTheory.SEP_EXISTS_THM]
-  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
-  \\ simp [set_sepTheory.one_def]
-  \\ qexists_tac`w`
-  \\ rw[EXTENSION,EQ_IMP_THM]);
-
 val STDOUT_def = Define `
   STDOUT output =
-    IO (Str output) stdout_fun ["putChar"] *
+    IOx stdout_ffi_part output *
     SEP_EXISTS w. W8ARRAY write_state_loc [w]`;
 
 val STDOUT_precond = Q.store_thm("STDOUT_precond",
   `(STDOUT out)
-    {FFI_part (Str out) stdout_fun ["putChar"] events;
-     Mem 1 (W8array [w])}`,
-  rw[STDOUT_def, cfHeapsBaseTheory.IO_def,
-     set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+    {FFI_part (Str out) (mk_ffi_next (Str,destStr,[("putChar",ffi_putChar)])) ["putChar"] events;
+     Mem 2 (W8array [w])}`,
+  rw[STDOUT_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+     stdout_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
   \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
   \\ fs[cfHeapsBaseTheory.W8ARRAY_def,
         cfHeapsBaseTheory.cell_def,
@@ -168,10 +74,68 @@ val STDOUT_precond = Q.store_thm("STDOUT_precond",
   \\ rw[EXTENSION, EQ_IMP_THM]
 );
 
-val w2n_lt_256 =
-  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
-         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
-         |> curry save_thm "w2n_lt_256"
+val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
+  `FFI_part_hprop (STDOUT x)`,
+  rw [STDOUT_def,
+      cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+      stdoutFFITheory.stdout_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val STDIN_def = Define `
+  STDIN input read_failed =
+    IOx stdin_ffi_part input *
+    SEP_EXISTS w. W8ARRAY read_state_loc [w;if read_failed then 1w else 0w]`;
+
+val STDIN_T_precond = Q.store_thm("STDIN_T_precond",
+  `(STDIN inp T)
+     {FFI_part (Str inp) (mk_ffi_next (Str,destStr,[("getChar",ffi_getChar)])) ["getChar"] events;
+      Mem 1 (W8array [w; 1w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+     stdin_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
+val STDIN_F_precond = Q.store_thm("STDIN_F_precond",
+  `(STDIN inp F)
+     {FFI_part (Str inp) (mk_ffi_next (Str,destStr,[("getChar",ffi_getChar)])) ["getChar"] events;
+      Mem 1 (W8array [w; 0w])}`,
+  rw[STDIN_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+     stdin_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ rw[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``read_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ simp [set_sepTheory.one_def]
+  \\ qexists_tac`w`
+  \\ rw[EXTENSION,EQ_IMP_THM]);
+
+val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
+  `FFI_part_hprop (STDIN b x)`,
+  rw [STDIN_def,
+      cfHeapsBaseTheory.IO_def,cfHeapsBaseTheory.IOx_def,
+      stdinFFITheory.stdin_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``read_state_loc``,
+    EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
 
 val basis_st = get_ml_prog_state;
 
@@ -189,9 +153,12 @@ val read_spec = Q.store_thm ("read_spec",
     \\ xlet `POSTv x. STDIN "" T * cond (UNIT_TYPE () x)`
     >- (
       xffi
-      \\ fs[STDIN_def, EVAL ``read_state_loc``]
-      \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-      \\ fs[stdin_fun_def, ffi_getChar_def] )
+      \\ fs[STDIN_def, EVAL ``read_state_loc``, cfHeapsBaseTheory.IOx_def, stdin_ffi_part_def]
+      \\ qmatch_goalsub_abbrev_tac`IO s u ns`
+      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\ map_every qexists_tac[`ns`,`u`] \\ rpt(qexists_tac`s`)
+      \\ simp[cfHeapsBaseTheory.mk_ffi_next_def,Abbr`u`,Abbr`s`]
+      \\ xsimpl \\ fs[ ffi_getChar_def,Abbr`ns`] )
     \\ fs[STDIN_def] \\ xpull
     \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
     >- (
@@ -203,13 +170,18 @@ val read_spec = Q.store_thm ("read_spec",
     \\ xapp \\ xsimpl \\ instantiate
     \\ simp[w2n_lt_256] )
   \\ fs[STDIN_def] \\ xpull
-  \\ xlet `POSTv x. IO (Str (TL input)) stdin_fun ["getChar"] *
+  \\ qmatch_goalsub_abbrev_tac`IOxx input`
+  \\ xlet `POSTv x. IOxx (TL input) *
                     W8ARRAY read_state_loc [n2w (ORD (HD input)); 0w]`
   >- (
     xffi
-    \\ fs[STDIN_def, EVAL ``read_state_loc``]
-    \\ `MEM "getChar" ["getChar"]` by simp[] \\ instantiate \\ xsimpl
-    \\ fs[stdin_fun_def, ffi_getChar_def] \\ Cases_on `input` \\ rw[])
+    \\ fs[Abbr`IOxx`,STDIN_def, EVAL ``read_state_loc``,cfHeapsBaseTheory.IOx_def,stdin_ffi_part_def]
+    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ map_every qexists_tac[`ns`,`u`]
+    \\ xsimpl
+    \\ simp[cfHeapsBaseTheory.mk_ffi_next_def,Abbr`u`,Abbr`s`]
+    \\ fs[ffi_getChar_def] \\ Cases_on `input` \\ rw[Abbr`ns`])
   \\ xlet `POSTv x. STDIN (TL input) F * cond (WORD ((n2w(ORD(HD input))):word8) x)`
   >- (
     xapp \\ xsimpl \\ fs[STDIN_def]
@@ -248,22 +220,26 @@ val write_spec = Q.store_thm ("write_spec",
        (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ [c]))`,
   xcf "CharIO.write" (basis_st())
   \\ fs [STDOUT_def] \\ xpull
-  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [w] *
+  \\ qmatch_goalsub_abbrev_tac`IOxx output`
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_state_loc [w] *
                      & (NUM (ORD c) zv)`
   >- (xapp \\ xsimpl \\ metis_tac[])
-  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [w] *
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_state_loc [w] *
                      & (WORD ((n2w (ORD c)):word8) zv)`
   >- (xapp \\ xsimpl \\ metis_tac[])
-  \\ xlet `POSTv zv. IO (Str output) stdout_fun ["putChar"] * W8ARRAY write_state_loc [n2w (ORD c)] *
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_state_loc [n2w (ORD c)] *
                      & UNIT_TYPE () zv`
   THEN1
    (xapp \\ xsimpl \\ fs [EVAL ``write_state_loc``]
     \\ instantiate \\ xsimpl \\ EVAL_TAC)
-  \\ xlet `POSTv _. IO (Str (output ++ [c])) stdout_fun ["putChar"] * W8ARRAY write_state_loc [n2w (ORD c)]`
+  \\ xlet `POSTv _. IOxx (output ++ [c]) * W8ARRAY write_state_loc [n2w (ORD c)]`
   THEN1
    (xffi
-    \\ fs [EVAL ``write_state_loc``, STDOUT_def]
-    \\ `MEM "putChar" ["putChar"]` by simp[] \\ instantiate \\ xsimpl \\ EVAL_TAC
+    \\ fs [EVAL ``write_state_loc``, STDOUT_def, Abbr`IOxx`, cfHeapsBaseTheory.IOx_def,stdout_ffi_part_def]
+    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ map_every qexists_tac[`ns`,`u`]
+    \\ xsimpl
+    \\ unabbrev_all_tac \\ EVAL_TAC
     \\ simp[ORD_BOUND,CHR_ORD])
   \\ xret \\ xsimpl);
 

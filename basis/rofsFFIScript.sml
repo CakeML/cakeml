@@ -1,15 +1,16 @@
 open preamble mlstringTheory cfHeapsBaseTheory
 
-val _ = new_theory "catfileSystem";
-val _ = monadsyntax.temp_add_monadsyntax()
+val _ = new_theory"rofsFFI"
 
-val _ = overload_on ("return", ``SOME``)
-val _ = overload_on ("fail", ``NONE``)
-val _ = overload_on ("SOME", ``SOME``)
-val _ = overload_on ("NONE", ``NONE``)
-val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-val _ = overload_on ("++", ``OPTION_CHOICE``)
+(* TODO: put these calls in a re-usable option syntax Lib *)
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+(* -- *)
 
 val _ = Datatype`
   RO_fs = <| files : (mlstring # char list) list ;
@@ -24,9 +25,39 @@ val wfFS_def = Define`
                    fnm ∈ FDOM (alist_to_fmap fs.files)
 `;
 
+val wfFS_DELKEY = Q.store_thm(
+  "wfFS_DELKEY[simp]",
+  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
+  simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
+       ALOOKUP_ADELKEY] >> metis_tac[]);
+
 val nextFD_def = Define`
   nextFD fsys = LEAST n. ~ MEM n (MAP FST fsys.infds)
 `;
+
+val nextFD_ltX = Q.store_thm(
+  "nextFD_ltX",
+  `CARD (set (MAP FST fs.infds)) < x ⇒ nextFD fs < x`,
+  simp[nextFD_def] >> strip_tac >> numLib.LEAST_ELIM_TAC >> simp[] >>
+  qabbrev_tac `ns = MAP FST fs.infds` >> RM_ALL_ABBREVS_TAC >> conj_tac
+  >- (qexists_tac `MAX_SET (set ns) + 1` >>
+      pop_assum kall_tac >> DEEP_INTRO_TAC MAX_SET_ELIM >> simp[] >>
+      rpt strip_tac >> res_tac >> fs[]) >>
+  rpt strip_tac >> spose_not_then assume_tac >>
+  `count x ⊆ set ns` by simp[SUBSET_DEF] >>
+  `x ≤ CARD (set ns)`
+     by metis_tac[CARD_COUNT, CARD_SUBSET, FINITE_LIST_TO_SET] >>
+  fs[]);
+
+val nextFD_NOT_MEM = Q.store_thm(
+  "nextFD_NOT_MEM",
+  `∀f n fs. ¬MEM (nextFD fs,f,n) fs.infds`,
+  rpt gen_tac >> simp[nextFD_def] >> numLib.LEAST_ELIM_TAC >> conj_tac
+  >- (qexists_tac `MAX_SET (set (MAP FST fs.infds)) + 1` >>
+      DEEP_INTRO_TAC MAX_SET_ELIM >>
+      simp[MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >> strip_tac >>
+      res_tac >> fs[]) >>
+  simp[EXISTS_PROD, FORALL_PROD, MEM_MAP]);
 
 val openFile_def = Define`
   openFile fnm fsys =
@@ -135,6 +166,28 @@ val closeFD_def = Define`
 val inFS_fname_def = Define `
   inFS_fname s fs = (s ∈ FDOM (alist_to_fmap fs.files))`
 
+val not_inFS_fname_openFile = Q.store_thm(
+  "not_inFS_fname_openFile",
+  `~inFS_fname fname fs ⇒ openFile fname fs = NONE`,
+  fs [inFS_fname_def, openFile_def, ALOOKUP_NONE]);
+
+val inFS_fname_ALOOKUP_EXISTS = Q.store_thm(
+  "inFS_fname_ALOOKUP_EXISTS",
+  `inFS_fname fname fs ⇒ ∃content. ALOOKUP fs.files fname = SOME content`,
+  fs [inFS_fname_def, MEM_MAP] >> rpt strip_tac >> fs[] >>
+  rename1 `fname = FST p` >> Cases_on `p` >>
+  fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
+
+val ALOOKUP_SOME_inFS_fname = Q.store_thm(
+  "ALOOKUP_SOME_inFS_fname",
+  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fnm fs`,
+  Induct_on `fs.files` >> rpt strip_tac >>
+  qpat_x_assum `_ = fs.files` (assume_tac o GSYM) >> rw[] >>
+  fs [inFS_fname_def] >> rename1 `fs.files = p::ps` >>
+  Cases_on `p` >> fs [ALOOKUP_def] >> every_case_tac >> fs[] >> rw[] >>
+  first_assum (qspec_then `fs with files := ps` assume_tac) >> fs []
+);
+
 (* ----------------------------------------------------------------------
     Coding RO_fs values as ffi values
    ---------------------------------------------------------------------- *)
@@ -148,7 +201,7 @@ val encode_fds_def = Define`
      encode_list (encode_pair Num (encode_pair (Str o explode) Num)) fds
 `;
 
-val encode_def = Define`
+val encode_def = zDefine`
   encode fs = cfHeapsBase$Cons
                          (encode_files fs.files)
                          (encode_fds fs.infds)
@@ -180,7 +233,7 @@ val decode_encode_fds = Q.store_thm(
   simp[decode_fds_def, encode_fds_def] >>
   simp[decode_encode_list, decode_encode_pair, implode_explode]);
 
-val decode_def = Define`
+val decode_def = zDefine`
   (decode (Cons files0 fds0) =
      do
         files <- decode_files files0 ;
@@ -202,7 +255,7 @@ val encode_11 = Q.store_thm(
   metis_tac[decode_encode_FS, SOME_11]);
 
 (* ----------------------------------------------------------------------
-    Making the above available in the ffi_next view of the world
+    Making the above available as FFI functions
    ----------------------------------------------------------------------
 
     There are four operations to be used in the example:
@@ -221,55 +274,78 @@ val getNullTermStr_def = Define`
        if sz = LENGTH bytes then NONE
        else SOME(MAP (CHR o w2n) (TAKE sz bytes))
 `
-
-
-val fs_ffi_next_def = Define`
-  fs_ffi_next name bytes fs_ffi =
+val ffi_open_def = Define`
+  ffi_open bytes fs =
     do
-      fs <- decode fs_ffi ;
-      case name of
-        "open" => do
-               fname <- getNullTermStr bytes;
-               (fd, fs') <- openFile (implode fname) fs;
-               assert(fd < 255);
-               return (LUPDATE (n2w fd) 0 bytes, encode fs')
-             od ++ return (LUPDATE 255w 0 bytes, encode fs)
-      | "fgetc" => do
-               assert(LENGTH bytes = 1);
-               (copt, fs') <- fgetc (w2n (HD bytes)) fs;
-               case copt of
-                   NONE => return ([255w], encode fs')
-                 | SOME c => return ([n2w (ORD c)], encode fs')
-             od
-      | "close" => do
-               assert(LENGTH bytes = 1);
-               do
-                 (_, fs') <- closeFD (w2n (HD bytes)) fs;
-                 return (LUPDATE 1w 0 bytes, encode fs')
-               od ++ return (LUPDATE 0w 0 bytes, encode fs)
-             od
-      | "isEof" => do
-               assert(LENGTH bytes = 1);
-               do
-                 b <- eof (w2n (HD bytes)) fs ;
-                 return (LUPDATE (if b then 1w else 0w) 0 bytes, encode fs)
-               od ++ return (LUPDATE 255w 0 bytes, encode fs)
-             od
-      | _ => fail
-    od
-`;
+      fname <- getNullTermStr bytes;
+      (fd, fs') <- openFile (implode fname) fs;
+      assert(fd < 255);
+      return (LUPDATE (n2w fd) 0 bytes, fs')
+    od ++
+    return (LUPDATE 255w 0 bytes, fs)`;
 
-val closeFD_lemma = Q.store_thm(
-  "closeFD_lemma",
-  `validFD fd fs ∧ wfFS fs
-     ⇒
-   fs_ffi_next "close" [n2w fd] (encode fs) =
-     SOME ([1w], encode (fs with infds updated_by A_DELKEY fd))`,
-  simp[fs_ffi_next_def, decode_encode_FS, closeFD_def, PULL_EXISTS,
-       MEM_MAP, FORALL_PROD, ALOOKUP_EXISTS_IFF, validFD_def, wfFS_def,
-       EXISTS_PROD] >>
-  rpt strip_tac >> res_tac >> simp[LUPDATE_def] >>
-  simp[theorem "RO_fs_component_equality"]);
+val ffi_fgetc_def = Define`
+  ffi_fgetc bytes fs =
+    do
+      assert(LENGTH bytes = 1);
+      (copt, fs') <- fgetc (w2n (HD bytes)) fs;
+      case copt of
+      | NONE => return ([255w], fs')
+      | SOME c => return ([n2w (ORD c)], fs')
+    od`;
+
+val ffi_close_def = Define`
+  ffi_close bytes fs =
+    do
+      assert(LENGTH bytes = 1);
+      do
+        (_, fs') <- closeFD (w2n (HD bytes)) fs;
+        return (LUPDATE 1w 0 bytes, fs')
+      od ++
+      return (LUPDATE 0w 0 bytes, fs)
+    od`;
+
+val ffi_isEof_def = Define`
+  ffi_isEof bytes fs =
+    do
+      assert(LENGTH bytes = 1);
+      do
+        b <- eof (w2n (HD bytes)) fs ;
+        return (LUPDATE (if b then 1w else 0w) 0 bytes, fs)
+      od ++
+      return (LUPDATE 255w 0 bytes, fs)
+    od`;
+
+val rofs_ffi_part_def = Define`
+  rofs_ffi_part =
+    (encode,decode,
+      [("open",ffi_open);
+       ("fgetc",ffi_fgetc);
+       ("close",ffi_close);
+       ("isEof",ffi_isEof)])`;
+
+val ffi_open_length = Q.store_thm("ffi_open_length",
+  `ffi_open bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_open_def]
+  \\ Cases_on`getNullTermStr bytes` \\ fs[] \\ rw[]
+  \\ Cases_on`openFile (implode x) fs` \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`fd < 255` \\ fs[] \\ rw[]);
+
+val ffi_fgetc_length = Q.store_thm("ffi_fgetc_length",
+  `ffi_fgetc bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[]);
+
+val ffi_close_length = Q.store_thm("ffi_close_length",
+  `ffi_close bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_close_def]
+  \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[] \\ rw[]);
+
+val ffi_isEof_length = Q.store_thm("ffi_isEof_length",
+  `ffi_isEof bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  rw[ffi_isEof_def]
+  \\ Cases_on`eof (w2n (HD bytes)) fs` \\ fs[] \\ rw[]);
 
 (* insert null-terminated-string (l1) at specified index (n) in a list (l2) *)
 val insertNTS_atI_def = Define`
@@ -315,32 +391,4 @@ val LENGTH_insertNTS_atI = Q.store_thm(
   `p + LENGTH l1 < LENGTH l2 ⇒ LENGTH (insertNTS_atI l1 p l2) = LENGTH l2`,
   simp[insertNTS_atI_def]);
 
-val wfFS_DELKEY = Q.store_thm(
-  "wfFS_DELKEY[simp]",
-  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
-  simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
-       ALOOKUP_ADELKEY] >> metis_tac[]);
-
-val not_inFS_fname_openFile = Q.store_thm(
-  "not_inFS_fname_openFile",
-  `~inFS_fname fname fs ⇒ openFile fname fs = NONE`,
-  fs [inFS_fname_def, openFile_def, ALOOKUP_NONE]);
-
-val inFS_fname_ALOOKUP_EXISTS = Q.store_thm(
-  "inFS_fname_ALOOKUP_EXISTS",
-  `inFS_fname fname fs ⇒ ∃content. ALOOKUP fs.files fname = SOME content`,
-  fs [inFS_fname_def, MEM_MAP] >> rpt strip_tac >> fs[] >>
-  rename1 `fname = FST p` >> Cases_on `p` >>
-  fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
-
-val ALOOKUP_SOME_inFS_fname = Q.store_thm(
-  "ALOOKUP_SOME_inFS_fname",
-  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fnm fs`,
-  Induct_on `fs.files` >> rpt strip_tac >>
-  qpat_x_assum `_ = fs.files` (assume_tac o GSYM) >> rw[] >>
-  fs [inFS_fname_def] >> rename1 `fs.files = p::ps` >>
-  Cases_on `p` >> fs [ALOOKUP_def] >> every_case_tac >> fs[] >> rw[] >>
-  first_assum (qspec_then `fs with files := ps` assume_tac) >> fs []
-);
-
-val _ = export_theory()
+val _ = export_theory();
