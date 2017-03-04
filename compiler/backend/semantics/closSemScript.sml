@@ -267,7 +267,7 @@ val do_app_def = Define `
     | (LessConstSmall n,xs) =>
         (case xs of
          | [Number i] => if 0 <= i /\ i <= 1000000
-                         then Rval (Boolv (&n < i),s) else Error
+                         then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | _ => Error`;
 
