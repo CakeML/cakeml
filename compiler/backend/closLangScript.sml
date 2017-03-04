@@ -50,7 +50,11 @@ val _ = Datatype `
      | WordOp word_size opw
      | WordShift word_size shift num
      | WordFromInt
-     | WordToInt`
+     | WordToInt
+     | BoundsCheckBlock
+     | BoundsCheckArray
+     | BoundsCheckByte
+     | LessConstSmall num`
 
 val _ = Datatype `
   exp = Var num
