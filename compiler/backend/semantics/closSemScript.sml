@@ -241,6 +241,34 @@ val do_app_def = Define `
                       s with <| refs := s.refs |+ (ptr,ByteArray f ws')
                               ; ffi   := ffi'|>))
          | _ => Error)
+    | (BoundsCheckBlock,xs) =>
+        (case xs of
+         | [Block tag ys; Number i] =>
+               Rval (Boolv (0 <= i /\ i < & LENGTH xs),s)
+         | _ => Error)
+    | (BoundsCheckByte,xs) =>
+        (case xs of
+         | [ByteVector bs; Number i] =>
+               Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
+         | [RefPtr ptr; Number i] =>
+          (case FLOOKUP s.refs ptr of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
+    | (BoundsCheckArray,xs) =>
+        (case xs of
+         | [RefPtr ptr; Number i] =>
+          (case FLOOKUP s.refs ptr of
+           | SOME (ValueArray ws) =>
+               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
+    | (LessConstSmall n,xs) =>
+        (case xs of
+         | [Number i] => if 0 <= i /\ i <= 1000000
+                         then Rval (Boolv (&n < i),s) else Error
+         | _ => Error)
     | _ => Error`;
 
 val dec_clock_def = Define `

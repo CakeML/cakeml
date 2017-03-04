@@ -1059,12 +1059,19 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
      Rval (v,s') => (Rval [v],s')
    | Rerr err => (Rerr err,s'))`,
  srw_tac[][] >>
- Cases_on `do_app op (REVERSE vs) s`
- >- (`?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
+ Cases_on `do_app op (REVERSE vs) s` >> cheat
+(*
+ >- (
+
+     `?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
      srw_tac[][] >>
      srw_tac[][res_rel_rw] >>
-     imp_res_tac do_app_cases_val >>
-     full_simp_tac(srw_ss())[] >>
+     Cases_on `?nn. op = LessConstSmall nn` THEN1 cheat >>
+     Cases_on `op = BoundsCheckByte` THEN1 cheat >>
+     Cases_on `op = BoundsCheckBlock` THEN1 cheat >>
+     Cases_on `op = BoundsCheckArray` THEN1 cheat >>
+     drule (MATCH_MP (METIS_PROVE [] ``(b<=>c) ==> (b ==> c)``) do_app_cases_val) >>
+     full_simp_tac(srw_ss())[] >> strip_tac >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[do_app_def, val_rel_rw]
      >> TRY (
@@ -1087,7 +1094,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        rpt (pop_assum mp_tac) >>
        ONCE_REWRITE_TAC [state_rel_rw] >>
        srw_tac[][] >>
-       srw_tac[][OPTREL_def])
+       srw_tac[][OPTREL_def] \\ cheat)
      >- (full_simp_tac(srw_ss())[LET_THM, SWAP_REVERSE_SYM] >>
          full_simp_tac(srw_ss())[val_rel_rw] >>
          `(LEAST ptr. ptr ∉ FDOM s.refs) = LEAST ptr. ptr ∉ FDOM s'.refs`
@@ -1237,7 +1244,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
          Cases_on `do_eq x1 x2` >>
-         full_simp_tac(srw_ss())[])));
+         full_simp_tac(srw_ss())[])) *));
 
 val val_rel_lookup_vars = Q.store_thm ("val_rel_lookup_vars",
 `!c w vars vs1 vs1' vs2.
