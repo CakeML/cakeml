@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../../../backend/proofs .. ../../../targets/x64/proofs ../../../targets/arm6/proofs ../../../targets/arm8/proofs ../../../targets/mips/proofs ../../../targets/riscv/proofs
+INCLUDES = ../../../backend/proofs .. ../../../encoders/x64/proofs ../../../encoders/arm6/proofs ../../../encoders/arm8/proofs ../../../encoders/mips/proofs ../../../encoders/riscv/proofs
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS)
@@ -12,11 +12,11 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
 BARE_THYS = ../../../backend/proofs/backendProofTheory\
-						../../../targets/x64/proofs/x64_targetProofTheory\
-						../../../targets/arm6/proofs/arm6_targetProofTheory\
-						../../../targets/arm8/proofs/arm8_targetProofTheory\
-						../../../targets/riscv/proofs/riscv_targetProofTheory\
-						../../../targets/mips/proofs/mips_targetProofTheory
+						../../../encoders/x64/proofs/x64_targetProofTheory\
+						../../../encoders/arm6/proofs/arm6_targetProofTheory\
+						../../../encoders/arm8/proofs/arm8_targetProofTheory\
+						../../../encoders/riscv/proofs/riscv_targetProofTheory\
+						../../../encoders/mips/proofs/mips_targetProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
