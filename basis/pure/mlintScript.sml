@@ -143,7 +143,7 @@ val toChars_thm = Q.store_thm("toChars_thm",
 val toString_def = Define`
   toString i =
     if 0i ≤ i ∧ i < 10 then
-      str (toChar (Num i))
+      str (toChar (Num (ABS i)))
     else
       implode ((if i < 0i then "~" else "")++
                (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
@@ -155,23 +155,16 @@ val toString_thm = Q.store_thm("toString_thm",
   >- (
     rw[str_def]
     \\ AP_TERM_TAC
-    \\ `Num i < 10` by intLib.COOPER_TAC
+    \\ `Num (ABS i) < 10` by intLib.COOPER_TAC
     \\ simp[toChar_HEX]
     \\ simp[ASCIInumbersTheory.num_to_dec_string_def]
     \\ simp[ASCIInumbersTheory.n2s_def]
-    \\ simp[Once numposrepTheory.n2l_def]
-    \\ simp[integerTheory.INT_ABS] )
-  >- (
+    \\ simp[Once numposrepTheory.n2l_def])
+  \\ (
     AP_TERM_TAC \\ simp[]
     \\ `0 < maxSmall_DEC` by EVAL_TAC
     \\ simp[toChars_thm]
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[] )
-  >- (
-    AP_TERM_TAC \\ simp[]
-    \\ `0 < maxSmall_DEC` by EVAL_TAC
-    \\ simp[toChars_thm]
-    \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[]));
+    \\ simp[] ));
 
 val _ = export_theory();
