@@ -487,7 +487,7 @@ val word_msb_rw = Q.prove(
   >- ( qexists_tac`0` \\ simp[] )
   \\ `i = 0` by decide_tac \\ fs[]);
 
-val arith_shift_right_ind_orig = theorem"arith_shift_right_ind"
+val arith_shift_right_ind_orig = arith_shift_right_ind
 
 val arith_shift_right_ind = (
   arith_shift_right_ind_orig |> spec64
