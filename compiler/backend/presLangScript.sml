@@ -136,8 +136,4 @@ val mod_to_pres_prompt_def = Define`
 val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
 
-val mod_to_json_def = Define`
-  mod_to_json prog = to_json (mod_to_pres prog)`;
-
-
 val _ = export_theory();
