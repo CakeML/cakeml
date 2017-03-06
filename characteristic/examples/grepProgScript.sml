@@ -1,9 +1,10 @@
 open preamble ml_translatorLib ml_progLib
-     mlvectorProgTheory basisFunctionsLib
+     ioProgTheory basisFunctionsLib
+     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
 
-val _ = translation_extends"mlvectorProg";
+val _ = translation_extends"ioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -18,29 +19,47 @@ fun def_of_const tm = let
             failwith ("Unable to find definition of " ^ name)
   in def end
 
-val _ = (find_def_for_const := def_of_const);
+val _ = find_def_for_const := def_of_const;
+
+(* TODO: translate balanced_map module separately? *)
+val _ = pick_name :=
+  let val default = !pick_name in
+    fn c =>
+    if same_const c ``balanced_map$member`` then "balanced_map_member" else
+    if same_const c ``balanced_map$empty`` then "balanced_map_empty" else
+      default c
+  end
 
 val spec64 = INST_TYPE[alpha|->``:64``]
-val conv64 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec64 o SPEC_ALL
-val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
-
 val _ = translate(word_bit_test |> spec64);
-
-open charsetTheory;
 
 val _ = translate (charsetTheory.charset_full_def |> CONV_RULE (RHS_CONV EVAL));
 val _ = translate charset_mem_def;
 
-open regexpTheory;
+(* TODO: can the regexp one be avoided by using the mllist one instead? *)
+val zip_eq_zip = Q.store_thm("zip_eq_zip",
+  `regexp$zip = mllist$zip`,
+  simp[FUN_EQ_THM]
+  \\ ho_match_mp_tac mllistTheory.zip_ind
+  \\ EVAL_TAC \\ rw[]);
 
-val _ = translate normalize_def;
+val r = save_thm("regexp_compareW_ind", regexp_compareW_ind |> REWRITE_RULE[zip_eq_zip])
+val _ = add_preferred_thy"-";
+val r = translate (regexp_compareW_def |> REWRITE_RULE[zip_eq_zip]);
 
-open regexp_compilerTheory;
+val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
+val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 
-val _ = translate mem_regexp_def;
-val _ = translate exec_dfa_def;
+val _ = use_mem_intro := true;
+val r = translate build_or_def;
+val _ = use_mem_intro := false;
 
-val _ = translate Brz_def;
+val r = translate (normalize_def);
+
+val r = translate mem_regexp_def;
+val r = translate exec_dfa_def;
+
+val r = translate Brz_def;
 
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
@@ -85,7 +104,7 @@ val compile_regexp_with_limit_sound = Q.store_thm("compile_regexp_with_limit_sou
   >> IMP_RES_TAC Brz_sound_wrt_Brzozowski
   >> rw[pairTheory.ELIM_UNCURRY]);
 
-val _ = translate compile_regexp_with_limit_def;
+val r = translate compile_regexp_with_limit_def;
 
 val regexp_matcher_with_limit_def =
  Define
@@ -117,7 +136,7 @@ val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = 
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[EL_toList]);
+  >> fs[mlvectorTheory.EL_toList]);
 
 val length_tolist_cancel = Q.prove(
   `!n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)`,
@@ -125,7 +144,7 @@ val length_tolist_cancel = Q.prove(
   >> fs[]
   >> rpt strip_tac
   >> Cases_on `n`
-  >> fs[length_toList]);
+  >> fs[mlvectorTheory.length_toList]);
 
 val exec_dfa_side_imp = Q.prove(
   `!finals table n s.
@@ -150,13 +169,13 @@ val exec_dfa_side_imp = Q.prove(
     >- metis_tac[]
     >> first_x_assum(ASSUME_TAC o Q.SPECL [`toList (EL n l)`,`ORD h`])
     >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`n`,`ORD h`,`x1`])
-    >> rfs[length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
+    >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]);
 
 val compile_regexp_with_limit_dom_brz = Q.prove(
   `!r result.
     compile_regexp_with_limit r = SOME result
     ==> dom_Brz empty [normalize r] (1,singleton (normalize r) 0, [])`,
-  rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]  
+  rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]
   >> every_case_tac
   >> metis_tac [IS_SOME_EXISTS]);
 
@@ -195,6 +214,6 @@ val regexp_matcher_with_limit_side_def = Q.prove(
           >> fs[good_vec_def] >> metis_tac []))
   >- metis_tac [compile_regexp_with_limit_lookup]) |> update_precondition;
 
-(* TODO: translate regexp parser *)               
+(* TODO: translate regexp parser *)
 
 val _ = export_theory ();
