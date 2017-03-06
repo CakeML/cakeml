@@ -59,62 +59,6 @@ val compile_regexp_with_limit_def =
           delta_vecs,
           accepts_vec))`;
 
-(* TODO: Copypasta from regexp_compilerScript follows --- these should either be
-   exported from regexp_compilerScript, or the proofs below should go there. *)
-
-val IS_SOME_Brz = Q.prove
-(`!d seen worklist acc.
-      IS_SOME (Brz seen worklist acc d)
-         ==>
-        d <> 0`,
- Cases >> rw[Once Brz_def])
-
-val Brz_SOME = Q.prove
-(`!d seen worklist acc res.
-   (Brz seen worklist acc d = SOME res)
-   ==> d <> 0`,
- METIS_TAC [IS_SOME_Brz,IS_SOME_EXISTS]);
-
-val Brz_dlem = Q.prove
-(`!d seen worklist acc.
-  IS_SOME (Brz seen worklist acc d)
-   ==>
-  (Brz seen worklist acc d = Brz seen worklist acc (SUC d))`,
- Ho_Rewrite.REWRITE_TAC [IS_SOME_EXISTS,GSYM LEFT_FORALL_IMP_THM]
- >> Induct
-    >- metis_tac [Brz_SOME]
-    >- (rw[] >> rw[Once Brz_def,LET_THM]
-         >> pop_assum mp_tac
-         >> BasicProvers.EVERY_CASE_TAC
-            >- rw [Brz_def]
-            >- (rw [Once Brz_def] >> metis_tac [])
-            >- (DISCH_THEN (mp_tac o SIMP_RULE list_ss [Once Brz_def])
-                 >> rw[LET_THM]
-                 >> metis_tac[]))
-);
-
-val Brz_monotone = Q.prove
-(`!d1 d2 seen worklist acc.
-      IS_SOME(Brz seen worklist acc d1) /\ d1 <= d2
-       ==> (Brz seen worklist acc d1 = Brz seen worklist acc d2)`,
- RW_TAC arith_ss [LESS_EQ_EXISTS] THEN
- Induct_on `p` THEN METIS_TAC [ADD_CLAUSES,Brz_dlem]);
-
-val Brz_norm = Q.prove
-(`!d seen worklist acc.
-   IS_SOME(Brz seen worklist acc d)
-    ==>
-   (Brz seen worklist acc d = Brz seen worklist acc (rdepth seen worklist acc))`,
-  METIS_TAC [Brz_monotone,rdepth_thm]);
-
-val Brz_determ = Q.prove
-(`!d1 d2 seen worklist acc.
-    IS_SOME(Brz seen worklist acc d1) /\ IS_SOME(Brz seen worklist acc d2)
-       ==> (Brz seen worklist acc d1 = Brz seen worklist acc d2)`,
-  METIS_TAC [Brz_norm]);
-
-(* End of copypasta *)
-
 val Brz_sound_wrt_Brzozo = Q.store_thm("Brz_sound_wrt_Brzozo",
   `Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result`,
   rpt strip_tac
