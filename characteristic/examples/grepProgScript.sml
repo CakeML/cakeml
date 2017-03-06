@@ -1,5 +1,5 @@
 open preamble ml_translatorLib ml_progLib
-     ioProgTheory basisFunctionsLib
+     ioProgTheory cfTacticsLib basisFunctionsLib
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
@@ -282,5 +282,343 @@ val parse_regexp_side = Q.prove(
     \\ simp[FUN_EQ_THM]
     \\ Cases \\ simp[]
     \\ TOP_CASE_TAC \\ simp[] ) \\ fs[]) |> update_precondition;
+
+(* TODO: move to FileIO or rofsFFI *)
+open rofsFFITheory mlfileioProgTheory
+
+val _ = temp_add_monadsyntax();
+
+val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
+  `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,
+  Induct \\ rw[] \\ Cases_on`ls` \\ fs[]);
+
+(* TODO: replace ALIST_FUPDKEY_unchanged? *)
+val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
+  `∀k f alist.
+   (∀v. ALOOKUP alist k = SOME v ⇒ f v = v)
+   ==> ALIST_FUPDKEY k f alist = alist`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def]);
+
+val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
+  `validFD fd fs ⇒ validFD fd (bumpFD fd fs)`,
+  rw[bumpFD_def]
+  \\ CASE_TAC \\ fs[]
+  \\ fs[validFD_def]);
+
+val bumpFD_files = Q.store_thm("bumpFD_files[simp]",
+  `(bumpFD fd fs).files = fs.files`,
+  EVAL_TAC \\ CASE_TAC \\ rw[]);
+
+val FDline_def = Define`
+  FDline fd fs =
+    do
+      (fnm,off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.files fnm;
+      assert (off < STRLEN content);
+      let (l,r) = SPLITP ((=)#"\n") (DROP off content) in
+       SOME (l++"\n")
+    od`;
+
+val bumpLineFD_def = Define`
+  bumpLineFD fd fs =
+    case FDline fd fs of
+    | NONE => fs
+    | SOME ln => bumpFD fd (fs with infds updated_by
+        ALIST_FUPDKEY fd (I ## ((+) (LENGTH ln -1))))`;
+
+val FDchar_FDline_NONE = Q.store_thm("FDchar_FDline_NONE",
+  `FDchar fd fs = NONE <=> FDline fd fs = NONE`,
+  rw[FDline_def,FDchar_def] \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]);
+
+val FDchar_SOME_IMP_FDline = Q.store_thm("FDchar_SOME_IMP_FDline",
+  `FDchar fd fs = SOME c ⇒ ∃ls. FDline fd fs = SOME (c::ls)`,
+  rw[FDchar_def,FDline_def] \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`DROP off content` \\ rfs[DROP_NIL]
+  \\ rfs[DROP_CONS_EL]
+  \\ fs[SPLITP]
+  \\ rveq
+  \\ pop_assum mp_tac \\ CASE_TAC \\ strip_tac \\ rveq
+  \\ simp[]);
+
+(*
+val bumpLineFD_bumpFD = Q.store_thm("bumpLineFD_bumpFD",
+  `bumpLineFD fd (bumpFD fd fs) = bumpLineFD fd fs`,
+  rw[bumpLineFD_def,bumpFD_def,FDline_def,FDchar_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ qmatch_assum_rename_tac`off < STRLEN content`
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac TL_DROP_SUC
+  \\ Cases_on`DROP off content` \\ fs[DROP_NIL]
+  \\ fs[SPLITP] \\ rveq
+  \\ qpat_x_assum`COND _ _ _ = _`mp_tac
+  \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]
+  \\ Cases_on`SUC off < STRLEN content` \\ fs[]
+  \\ TRY (
+    `SUC off = STRLEN content` by decide_tac
+    \\ fs[DROP_LENGTH_NIL]
+    \\ fs[SPLITP] \\ rw[] )
+  \\ TRY IF_CASES_TAC \\ fs[]
+  \\ simp[ALIST_FUPDKEY_o,RO_fs_component_equality]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM,FORALL_PROD] );
+*)
+
+val FDline_bumpFD = Q.store_thm("FDline_bumpFD",
+  `FDline fd fs = SOME (c::cs) ∧ c ≠ #"\n" ⇒
+   (case FDline fd (bumpFD fd fs) of NONE => cs = "\n" | SOME cs' => cs = cs') ∧
+   bumpLineFD fd (bumpFD fd fs) = bumpLineFD fd fs`,
+  rw[FDline_def] \\ rw[Once bumpFD_def,Once bumpLineFD_def]
+  \\ rw[FDchar_def,FDline_def]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac TL_DROP_SUC
+  \\ Cases_on`DROP off content`
+  \\ fs[DROP_NIL]
+  \\ fs[SPLITP]
+  \\ rveq
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ (IF_CASES_TAC \\ rveq >- ( EVAL_TAC \\ strip_tac \\ rveq \\ fs[] ))
+  \\ simp[]
+  \\ strip_tac \\ rveq \\ fs[] \\ rveq \\ fs[]
+  \\ strip_tac
+  \\ Cases_on`SUC off < STRLEN content` \\ fs[]
+  \\ TRY (
+    `SUC off = STRLEN content` by decide_tac
+    \\ fs[DROP_LENGTH_NIL]
+    \\ fs[SPLITP] \\ rw[] )
+  \\ fs[bumpFD_def,bumpLineFD_def,FDchar_def,FDline_def]
+  \\ simp[SPLITP,ALIST_FUPDKEY_ALOOKUP,ADD1]
+  \\ TRY (IF_CASES_TAC \\ fs[])
+  \\ simp[RO_fs_component_equality]
+  \\ simp[ALIST_FUPDKEY_o]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM,FORALL_PROD] );
+
+val eq_char_v_thm =
+  mlbasicsProgTheory.eq_v_thm
+  |> DISCH_ALL
+  |> C MATCH_MP (ml_translatorTheory.EqualityType_NUM_BOOL
+                 |> CONJUNCTS |> el 5)
+
+val inputLine = process_topdecs`
+  fun inputLine fd =
+    let
+      fun loop acc =
+        case FileIO.fgetc fd of
+          NONE => #"\n"::acc
+        | SOME c => if c = #"\n" then c::acc else loop (c::acc)
+    in
+      case FileIO.fgetc fd of NONE => NONE
+      | SOME c => if c = #"\n" then SOME (String.str c)
+                  else SOME (String.implode (rev (loop [c])))
+    end`;
+val _ = append_prog inputLine;
+
+val inputLine_spec = Q.store_thm("inputLine_spec",
+  `∀fd fdv.
+    WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "inputLine" (get_ml_prog_state())) [fdv]
+      (ROFS fs)
+      (POSTv sov. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs)) sov *
+                  ROFS (bumpLineFD (w2n fd) fs))`,
+  rw[]
+  \\ xcf"inputLine"(get_ml_prog_state())
+  \\ xfun_spec `loop`
+    `!ls acc accv fs.
+       LIST_TYPE CHAR acc accv ∧ validFD (w2n fd) fs ∧
+       (ls = case FDline (w2n fd) fs of NONE => "\n" | SOME ls => ls)
+       ⇒
+       app p loop [accv]
+         (ROFS fs)
+         (POSTv lv. &LIST_TYPE CHAR (REVERSE ls ++ acc) lv *
+            ROFS (bumpLineFD (w2n fd) fs))`
+  >- (
+    ho_match_mp_tac list_INDUCT
+    \\ qpat_x_assum`_ fs`kall_tac
+    \\ conj_tac
+    >- (
+      ntac 2 gen_tac \\ qx_gen_tac`fs`
+      \\ CASE_TAC
+      \\ strip_tac \\ rveq
+      \\ fs[FDline_def]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[] )
+    \\ gen_tac \\ strip_tac
+    \\ qx_gen_tac`h`
+    \\ ntac 2 gen_tac \\ qx_gen_tac`fs`
+    \\ CASE_TAC \\ strip_tac \\ rveq
+    >- (
+      first_x_assum match_mp_tac
+      \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                       ROFS (bumpFD (w2n fd) fs)`
+      >- (xapp \\ rw[])
+      \\ xmatch
+      \\ rfs[GSYM FDchar_FDline_NONE]
+      \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+      \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+      \\ xcon
+      \\ fs[ml_translatorTheory.LIST_TYPE_def]
+      \\ fs[bumpFD_def,bumpLineFD_def]
+      \\ fs[FDchar_FDline_NONE]
+      \\ xsimpl )
+    \\ last_x_assum match_mp_tac
+    \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                     ROFS (bumpFD (w2n fd) fs)`
+    >- (xapp \\ rw[])
+    \\ xmatch
+    \\ Cases_on`FDchar (w2n fd) fs` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+    >- fs[FDchar_FDline_NONE]
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ rename1`CHAR c cv`
+    \\ xlet`POSTv bv. &BOOL(c = #"\n") bv * ROFS (bumpFD (w2n fd)fs)`
+    >- ( xapp_spec eq_char_v_thm \\ instantiate \\ xsimpl )
+    \\ imp_res_tac FDchar_SOME_IMP_FDline
+    \\ fs[] \\ rveq
+    \\ xif
+    >- (
+      xcon
+      \\ fs[bumpFD_def,bumpLineFD_def,FDchar_def,FDline_def]
+      \\ fs[] \\ rveq
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ rveq
+      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ Cases_on`l` \\ rveq
+      >- (
+        qpat_x_assum`_ = #"\n" :: _`mp_tac
+        \\ simp[] \\ strip_tac \\ rveq
+        \\ full_simp_tac std_ss [] \\ rfs[] \\ rveq
+        \\ simp[ml_translatorTheory.LIST_TYPE_def]
+        \\ qmatch_goalsub_abbrev_tac`_ o xx`
+        \\ `xx = I`
+        by (
+          rw[Abbr`xx`,FUN_EQ_THM]
+          \\ match_mp_tac ALIST_FUPDKEY_I
+          \\ simp[FORALL_PROD] )
+        \\ xsimpl)
+      \\ fs[] \\ rveq
+      \\ imp_res_tac SPLITP_IMP
+      \\ fs[])
+    \\ xlet`POSTv x. &LIST_TYPE CHAR (c::acc) x * ROFS (bumpFD (w2n fd) fs)`
+    >- ( xcon \\ simp[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl )
+    \\ xapp \\ first_x_assum(qspec_then`ARB`kall_tac)
+    \\ imp_res_tac validFD_bumpFD
+    \\ instantiate
+    \\ imp_res_tac FDline_bumpFD
+    \\ CASE_TAC \\ fs[] \\ rveq
+    \\ xsimpl
+    \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] )
+  \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                   ROFS (bumpFD (w2n fd) fs)`
+  >- (xapp \\ rw[])
+  \\ xmatch
+  \\ Cases_on`FDchar (w2n fd) fs` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (
+    reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ xcon
+    \\ fs[FDchar_FDline_NONE,ml_translatorTheory.OPTION_TYPE_def]
+    \\ simp[bumpFD_def,bumpLineFD_def]
+    \\ fs[GSYM FDchar_FDline_NONE]
+    \\ xsimpl )
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+  \\ rename1`CHAR c cv`
+  \\ xlet`POSTv bv. &BOOL(c = #"\n") bv * ROFS (bumpFD (w2n fd)fs)`
+  >- ( xapp_spec eq_char_v_thm \\ instantiate \\ xsimpl )
+  \\ xif
+  >- (
+    xlet`POSTv sv. &STRING_TYPE (str c) sv * ROFS (bumpFD (w2n fd) fs)`
+    >- ( xapp \\ instantiate \\ xsimpl )
+    \\ xcon
+    \\ fs[FDchar_def,FDline_def]
+    \\ pairarg_tac \\ fs[]
+    \\ Cases_on`DROP off content` \\ fs[DROP_NIL]
+    \\ simp[SPLITP] \\ rfs[DROP_CONS_EL]
+    \\ simp[ml_translatorTheory.OPTION_TYPE_def]
+    \\ fs[mlstringTheory.str_def]
+    \\ fs[bumpFD_def,bumpLineFD_def,FDchar_def,FDline_def,DROP_CONS_EL,SPLITP]
+    \\ simp[ALIST_FUPDKEY_ALOOKUP]
+    \\ qmatch_goalsub_abbrev_tac`_ o xx`
+    \\ `xx = I`
+    by (
+      rw[Abbr`xx`,FUN_EQ_THM]
+      \\ match_mp_tac ALIST_FUPDKEY_I
+      \\ simp[FORALL_PROD] )
+    \\ xsimpl)
+  \\ xlet`POSTv x. &LIST_TYPE CHAR [] x * ROFS (bumpFD (w2n fd) fs)`
+  >- (xcon \\ simp[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl)
+  \\ xlet`POSTv accv. &LIST_TYPE CHAR [c] accv * ROFS (bumpFD (w2n fd) fs)`
+  >- (xcon \\ fs[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl)
+  \\ first_x_assum drule
+  \\ imp_res_tac validFD_bumpFD
+  \\ disch_then drule
+  \\ imp_res_tac FDchar_SOME_IMP_FDline
+  \\ imp_res_tac FDline_bumpFD
+  \\ qmatch_goalsub_abbrev_tac`REVERSE l`
+  \\ `l = ls`
+  by ( unabbrev_all_tac \\ CASE_TAC \\ fs[] )
+  \\ fs[] \\ ntac 2 (pop_assum kall_tac)
+  \\ simp[GSYM SNOC_APPEND]
+  \\ once_rewrite_tac[GSYM (CONJUNCT2 REVERSE)]
+  \\ strip_tac
+  \\ xlet`POSTv v. &LIST_TYPE CHAR (REVERSE (c::ls)) v *
+                   ROFS (bumpLineFD (w2n fd) fs)`
+  >- (xapp \\ xsimpl)
+  \\ xlet`POSTv lv. &LIST_TYPE CHAR (c::ls) lv * ROFS (bumpLineFD (w2n fd) fs)`
+  >- ( xapp \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
+  \\ xlet`POSTv sv. &STRING_TYPE (implode (c::ls)) sv * ROFS (bumpLineFD (w2n fd) fs)`
+  >- (xapp \\ instantiate \\ xsimpl )
+  \\ xcon
+  \\ simp[ml_translatorTheory.OPTION_TYPE_def]
+  \\ xsimpl);
+
+val bumpAllFD_def = Define`
+  bumpAllFD fd fs =
+    the fs (do
+      (fnm,off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.files fnm;
+      SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (K (LENGTH content))))
+    od)`;
+
+(* -- *)
+
+val match_line_def = Define`
+  match_line matcher line =
+  (* TODO: the explode is unfortunate... should there be a version of inputLine that doesn't create a string? *)
+  case matcher (explode line) of | SOME T => T | _ => F`;
+
+val r = translate match_line_def;
+
+val print_matching_lines = process_topdecs`
+  fun print_matching_lines matcher fd =
+    case inputLine fd of NONE => ()
+    | SOME ln => (if match_line matcher ln then print ln else ();
+                  print_matching_lines matcher fd)`;
+val _ = append_prog print_matching_lines;
+
+(*
+val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
+  `∀(fd:word8) fdv fs.
+   WORD fd fdv ∧ validFD (w2n fd) fs ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_matching_lines"(get_ml_prog_state()))
+     (ROFS fs * STDOUT out)
+     (POSTv uv. &UNIT_TYPE () uv *
+                ROFS (bumpAllFD (w2n fd) fs) *
+                STDOUT (out ++ matching_lines matcher (w2n fd) fs)
+  `,
+*)
 
 val _ = export_theory ();
