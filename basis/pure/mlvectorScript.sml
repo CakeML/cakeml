@@ -53,7 +53,7 @@ val EL_toList= Q.store_thm("EL_toList",`EL n (toList l) = sub l n`,
   Induct_on `l` >> fs[sub_def,toList_thm]);
 
 val toList_fromList = Q.store_thm("toList_fromList[simp]",
-  `(toList(fromList l) = l) /\ (fromList(toList v) = v)`,
+  `(toList(fromList l) = l) /\ (fromList(mlvector$toList v) = v)`,
   Cases_on `v` >> fs[toList_thm,fromList_def]);
 
 val update_def = Define`
