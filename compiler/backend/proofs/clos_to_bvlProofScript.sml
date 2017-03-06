@@ -360,7 +360,6 @@ val evaluate_generic_app1 = Q.prove (
       TAKE_LENGTH_APPEND] >>
   decide_tac);
 
-
 val evaluate_generic_app2 = Q.prove (
   `!n args st rem_args prev_args l clo cl.
     partial_app_fn_location max_app (rem_args + LENGTH prev_args) (n + LENGTH prev_args) ∈ domain st.code ∧

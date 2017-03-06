@@ -201,7 +201,7 @@ val generate_generic_app_def = Define `
               (* Can't Call because we don't have enough clock ticks *)
               (Jump (mk_el (Var 2) (mk_const 1))
                 (GENLIST
-                  (\total_args. mk_label (partial_app_fn_location max_app total_args 1))
+                  (\total_args. mk_label (partial_app_fn_location max_app total_args 0))
                   max_app) ::
                Var 0 ::
                Var 2 ::
