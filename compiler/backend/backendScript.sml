@@ -37,7 +37,7 @@ val intersperse_def = Define`
   /\
   (intersperse _ [x] = [x])
   /\
-  (intersperse e (x::x'::xs) = x::e::(intersperse e xs))`;
+  (intersperse e (x::xs) = x::e::(intersperse e xs))`;
 
 val compile_def = Define`
   compile c p =
