@@ -579,15 +579,36 @@ val pegnt_case_ths = peg0_cases
                       |> map (Q.SPEC `pnt n`)
                       |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
 
+val peg0_pegf = Store_thm(
+  "peg0_pegf",
+  ``peg0 G (pegf s f) = peg0 G s``,
+  simp[pegf_def])
+
+val peg0_seql = Store_thm(
+  "peg0_seql",
+  ``(peg0 G (seql [] f) ⇔ T) ∧
+    (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))``,
+  simp[seql_def])
+
+val peg0_tokeq = Store_thm(
+  "peg0_tokeq",
+  ``peg0 G (tokeq t) = F``,
+  simp[tokeq_def])
+
+val peg0_choicel = Store_thm(
+  "peg0_choicel",
+  ``(peg0 G (choicel []) = F) ∧
+    (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))``,
+  simp[choicel_def])
+
 fun pegnt(t,acc) = let
   val th =
       Q.prove(`¬peg0 cmlPEG (pnt ^t)`,
-            simp(pegnt_case_ths @ cmlpeg_rules_applied @
-                 [FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
-                  peg_StructName_def,
-                  peg_EbaseParen_def,
-                  peg_TypeDec_def, choicel_def, seql_def, peg_longV_def,
-                  pegf_def, peg_linfix_def]) >>
+            simp pegnt_case_ths >>
+            simp cmlpeg_rules_applied >>
+            simp[FDOM_cmlPEG, peg_V_def, peg_UQConstructorName_def,
+                 peg_StructName_def, peg_EbaseParen_def,
+                 peg_TypeDec_def, peg_longV_def, peg_linfix_def] >>
             simp(peg0_rwts @ acc))
   val nm = "peg0_" ^ term_to_string t
   val th' = save_thm(nm, SIMP_RULE bool_ss [pnt_def] th)
@@ -615,58 +636,6 @@ val npeg0_rwts =
                 ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
                 ``nE``, ``nE'``, ``nElist1``,
                 ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
-
-val pegfail_empty = Store_thm(
-  "pegfail_empty",
-  ``pegfail G (empty r) = F``,
-  simp[Once peg0_cases]);
-
-val peg0_empty = Store_thm(
-  "peg0_empty",
-  ``peg0 G (empty r) = T``,
-  simp[Once peg0_cases]);
-
-val peg0_not = Store_thm(
-  "peg0_not",
-  ``peg0 G (not s r) ⇔ pegfail G s``,
-  simp[Once peg0_cases, SimpLHS]);
-
-val peg0_choice = Store_thm(
-  "peg0_choice",
-  ``peg0 G (choice s1 s2 f) ⇔ peg0 G s1 ∨ pegfail G s1 ∧ peg0 G s2``,
-  simp[Once peg0_cases, SimpLHS]);
-
-val peg0_choicel = Store_thm(
-  "peg0_choicel",
-  ``(peg0 G (choicel []) = F) ∧
-    (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))``,
-  simp[choicel_def])
-
-val peg0_seq = Store_thm(
-  "peg0_seq",
-  ``peg0 G (seq s1 s2 f) ⇔ peg0 G s1 ∧ peg0 G s2``,
-  simp[Once peg0_cases, SimpLHS])
-
-val peg0_pegf = Store_thm(
-  "peg0_pegf",
-  ``peg0 G (pegf s f) = peg0 G s``,
-  simp[pegf_def])
-
-val peg0_seql = Store_thm(
-  "peg0_seql",
-  ``(peg0 G (seql [] f) ⇔ T) ∧
-    (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))``,
-  simp[seql_def])
-
-val peg0_tok = Store_thm(
-  "peg0_tok",
-  ``peg0 G (tok P f) = F``,
-  simp[Once peg0_cases])
-
-val peg0_tokeq = Store_thm(
-  "peg0_tokeq",
-  ``peg0 G (tokeq t) = F``,
-  simp[tokeq_def])
 
 fun wfnt(t,acc) = let
   val th =
@@ -738,7 +707,7 @@ val PEG_wellformed = Q.store_thm(
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
-       peg_V_def, peg_EbaseParen_def, 
+       peg_V_def, peg_EbaseParen_def,
        peg_longV_def, peg_StructName_def] >>
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 val _ = export_rewrites ["PEG_wellformed"]
