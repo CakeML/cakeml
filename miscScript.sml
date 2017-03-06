@@ -2413,4 +2413,53 @@ val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
   `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
   Induct_on`ls` \\ rw[REPLICATE]);
 
+val shift_left_def = Define`
+  shift_left (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) then 0w
+  else if n > 32 then shift_left (a << 32) (n - 32)
+  else if n > 16 then shift_left (a << 16) (n - 16)
+  else if n > 8 then shift_left (a << 8) (n - 8)
+  else shift_left (a << 1) (n - 1)`
+
+val shift_left_rwt = Q.store_thm("shift_left_rwt",
+  `!a n. a << n = shift_left a n`,
+  completeInduct_on `n`
+  \\ rw [Once shift_left_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [])
+
+val shift_right_def = Define`
+  shift_right (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) then 0w
+  else if n > 32 then shift_right (a >>> 32) (n - 32)
+  else if n > 16 then shift_right (a >>> 16) (n - 16)
+  else if n > 8 then shift_right (a >>> 8) (n - 8)
+  else shift_right (a >>> 1) (n - 1)`
+
+val shift_right_rwt = Q.store_thm("shift_right_rwt",
+  `!a n. a >>> n = shift_right a n`,
+  completeInduct_on `n`
+  \\ rw [Once shift_right_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [])
+
+val arith_shift_right_def = Define`
+  arith_shift_right (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) /\ ~word_msb a then 0w
+  else if (a = -1w) \/ n > dimindex(:'a) /\ word_msb a then -1w
+  else if n > 32 then arith_shift_right (a >> 32) (n - 32)
+  else if n > 16 then arith_shift_right (a >> 16) (n - 16)
+  else if n > 8 then arith_shift_right (a >> 8) (n - 8)
+  else arith_shift_right (a >> 1) (n - 1)`
+
+val arith_shift_right_rwt = Q.store_thm("arith_shift_right_rwt",
+  `!a n. a >> n = arith_shift_right a n`,
+  completeInduct_on `n`
+  \\ rw [Once arith_shift_right_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
+
 val _ = export_theory()
