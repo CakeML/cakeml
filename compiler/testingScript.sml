@@ -7,6 +7,8 @@ open preamble
 open jsonTheory presLangTheory
 open source_to_modTheory
 
+computeLib.add_funs [pat_bindings]
+
 (* COMPILING *)
 val parse_def = Define`
   parse p = parse_prog (lexer_fun p)`;
@@ -19,7 +21,7 @@ val basic_prog_def = Define`
 val parsed_basic_def = Define`
   parsed_basic =
     case parse basic_prog of
-         NONE => [] 
+         NONE => []
        | SOME x => x`;
 
 EVAL ``parsed_basic``;
@@ -35,7 +37,13 @@ EVAL ``backend$compile backend$prim_config parsed_basic``;
 
 (* PRESLANG *)
 (* Test converting mod to pres *)
-EVAL ``mod_to_pres mod_prog``
+EVAL ``mod_to_pres mod_prog``;
+
+(* Test converting pres to json *)
+EVAL ``pres_to_json (mod_to_pres mod_prog)``;
+
+(* Test converting json to string *)
+EVAL ``json_to_string (pres_to_json (mod_to_pres mod_prog))``;
 
 (* Unit test JSON *)
 val _ = Define `

@@ -43,7 +43,7 @@ val compile_def = Define`
   compile c p =
     let res = [] in
     let (c',p) = source_to_mod$compile c.source_conf p in
-    let res = to_json (mod_to_pres p)::res in
+    let res = pres_to_json (mod_to_pres p)::res in
     let c = c with source_conf := c' in
     let (c',p) = mod_to_con$compile c.mod_conf p in
       CONCAT (intersperse "," (MAP json_to_string res))`;

@@ -3,12 +3,12 @@ open modLangTheory;
 
 val _ = new_theory"presLang";
 
-(* 
+(*
 * presLang is a presentation language, encompassing many intermediate languages
 * of the compiler, adopting their constructors. The purpose of presLang is to be
 * an intermediate representation between an intermediate language of the
 * compiler and JSON. By translating an intermediate language to presLang, it can
-* be given a JSON representation by calling to_json on the presLang
+* be given a JSON representation by calling pres_to_json on the presLang
 * representation. presLang has no semantics, as it is never evaluated, and may
 * therefore mix operators, declarations, patterns and expressions.
 *)
@@ -61,11 +61,6 @@ val _ = Datatype`
          The first varN is the function's name, and the second varN
          is its parameter. *)
     | Letrec tra ((varN # varN # exp) list) exp`;
-
-(* TODO: Implement to_json based on presLang structure. *)
-val to_json_def = tDefine "to_json"`
-  to_json _ = json$Null`
-  cheat;
 
 (* Functions for converting intermediate languages to presLang. *)
 
@@ -135,5 +130,172 @@ val mod_to_pres_prompt_def = Define`
 
 val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
+
+(* pres_to_json *)
+val lit_to_value_def = Define`
+  (lit_to_value (IntLit i) = Int i)
+  /\
+  (lit_to_value (Char c) = String (c::""))
+  /\
+  (lit_to_value (StrLit s) = String s)`;
+
+(* Create a new json$Object with keys and values as in the tuples. Every object
+* has constructor name field, cons *)
+val new_obj_def = Define`
+  new_obj cons fields = json$Object (("cons", String cons)::fields)`;
+(* TODO: Define num_to_json *)
+val num_to_json_def = Define`
+  num_to_json n = Int (int_of_num n)`;
+(* TODO: Define tdef_to_json *)
+val tdef_to_json_def = Define`
+  tdef_to_json td = Null`;
+
+(* TODO: Define trace_to_json *)
+val trace_to_json_def = Define`
+  trace_to_json _ = Null`;
+
+(* TODO: Define t_to_json*)
+val t_to_json_def = Define`
+  t_to_json t = Null`;
+
+(* TODO: Define op_to_json*)
+val op_to_json_def = Define`
+  op_to_json op = Null`;
+
+(* TODO: Define log_to_json*)
+val log_to_json_def = Define`
+  log_to_json l = Null`;
+val id_to_list_def = Define`
+  id_to_list i = case i of
+                      | Long modN i' => modN::id_to_list i'
+                      | Short conN => [conN]`;
+
+val id_to_object_def = Define`
+    id_to_object ids = Array (MAP String (id_to_list ids))`
+
+val lit_to_json_def = Define`
+  (lit_to_json (IntLit i) = ("IntLit", Int i))
+  /\
+  (lit_to_json (Char c) = ("Char", String (c::"")))
+  /\
+  (lit_to_json (StrLit s) = ("StrLit", String s))
+  /\
+  (lit_to_json (Word8 w) = ("word8", String (word_to_hex_string w)))
+  /\
+  (lit_to_json (Word64 w) = ("word64", String (word_to_hex_string w)))`
+
+val option_to_json_def = Define`
+  (option_to_json opt = case opt of
+                      | NONE => Null
+                      | SOME opt' => String opt')`
+(* Takes a presLang$exp and produces json$obj that mimics its structure. *)
+val pres_to_json_def = tDefine"pres_to_json"`
+  (* Top level *)
+  (pres_to_json (presLang$Prog tops) =
+    let tops' = Array (MAP pres_to_json tops) in
+      new_obj "Prog" [("tops", tops')])
+  /\
+  (pres_to_json (Prompt modN decs) =
+    let decs' = Array (MAP pres_to_json decs) in
+    let modN' = option_to_json modN in
+      new_obj "Prompt" [("modN", modN'); ("decs", decs')])
+  /\
+  (pres_to_json (Dlet num exp) =
+      new_obj "Dlet" [("num", num_to_json num); ("exp", pres_to_json exp)])
+  /\
+  (pres_to_json (Dletrec lst) =
+    let fields = Array (MAP (\(v1,v2,exp) . Object [("var1",String v1); ("var2",String v2); ("exp", pres_to_json exp)]) lst) in
+      new_obj "Dletrec" [("exps",fields)])
+  /\
+  (pres_to_json (Dtype modNs tDef) =
+    let modNs' = Array (MAP String modNs) in
+      new_obj "Dtype" [("modNs", modNs'); ("tDef", tdef_to_json tDef)])
+  /\
+  (pres_to_json (Dexn modNs conN ts) =
+    let modNs' = Array (MAP String modNs) in
+    let ts' = Array (MAP t_to_json ts) in
+      new_obj "Dexn" [("modNs", modNs'); ("con", String conN); ("ts", ts')])
+  /\
+  (pres_to_json (Pvar varN) =
+      new_obj "Pvar" [("pat", Object[("var",String varN)])])
+  /\
+  (pres_to_json (Plit lit) =
+      new_obj "Plit" [("pat", Object[lit_to_json lit])])
+  /\
+  (pres_to_json (Pcon optTup exps) =
+    let exps' = ("pat", Array (MAP pres_to_json exps)) in
+    let ids' = case optTup of
+                  | NONE => ("modscon", Null)
+                  | SOME optUp' => ("modscon", (id_to_object optUp')) in
+
+      new_obj "Pcon" [ids';exps'])
+  /\
+  (pres_to_json (Pref exp) =
+      new_obj "Pref" [("pat", pres_to_json exp)])
+  /\
+  (pres_to_json (Ptannot exp t) =
+      new_obj "Ptannot" [("pat", pres_to_json exp);("t", t_to_json t)])
+  /\
+  (pres_to_json (Raise tra exp) =
+      new_obj "Raise" [("tra", trace_to_json tra);("exp", pres_to_json exp)])
+  /\
+  (pres_to_json (Handle tra exp expsTup) =
+    let expsTup' = Array (MAP(\(e1, e2) . Object[("pat", pres_to_json e1);("exp",
+    pres_to_json e2)])
+    expsTup) in
+      new_obj "Handle" [("tra", trace_to_json tra);("exp", pres_to_json exp);("exps", expsTup')])
+  /\
+  (pres_to_json (Var_local tra varN) =
+      new_obj "Var_local" [("tra", trace_to_json tra);("var", String varN)])
+  /\
+  (pres_to_json (Var_global tra num) =
+      new_obj "Var_global" [("tra", trace_to_json tra);("num", num_to_json num)])
+  /\
+  (pres_to_json (Lit tra lit) =
+      new_obj "Lit" [("tra", trace_to_json tra);lit_to_json lit])
+  /\
+  (pres_to_json (Con tra optTup exps) =
+    let exps' = ("exps", Array (MAP pres_to_json exps)) in
+    let ids' = case optTup of
+                  | NONE => ("modscon", Null)
+                  | SOME optUp' => ("modscon", (id_to_object optUp')) in
+      new_obj "Con" [("tra", trace_to_json tra);ids';exps'])
+  /\
+  (pres_to_json (App tra op exps) =
+    let exps' = ("exps", Array (MAP pres_to_json exps)) in
+      new_obj "App" [("tra", trace_to_json tra);("op", op_to_json op);exps'])
+  /\
+  (pres_to_json (Fun tra varN exp) =
+      new_obj "Fun" [("tra", trace_to_json tra);("var", String varN);("exp",
+      pres_to_json exp)])
+  /\
+  (pres_to_json (Log tra log exp1 exp2) =
+      new_obj "Log" [("tra", trace_to_json tra);("log", log_to_json
+      log);("exp1", pres_to_json exp1);("exp2", pres_to_json exp2)])
+  /\
+  (pres_to_json (If tra exp1 exp2 exp3) =
+      new_obj "If" [("tra", trace_to_json tra);("exp1", pres_to_json exp1);("exp2",
+      pres_to_json exp2);("exp3", pres_to_json exp3)])
+  /\
+  (pres_to_json (Mat tra exp expsTup) =
+    let expsTup' = Array (MAP(\(e1, e2) . Object[("pat", pres_to_json e1);("exp",
+    pres_to_json e2)]) expsTup) in
+      new_obj "Mat" [("tra", trace_to_json tra);("exp", pres_to_json
+      exp);("exps",expsTup')])
+  /\
+  (pres_to_json (Let tra varN exp1 exp2) =
+    let varN' = option_to_json varN in
+      new_obj "Let" [("tra", trace_to_json tra);("var", varN');("exp1", pres_to_json
+      exp1);("exp2", pres_to_json exp2)])
+  /\
+  (*TODO: Decide on whether "varsexp" is a reasonable name, probably not *)
+  (pres_to_json (Letrec tra varexpTup exp) =
+    let varexpTup' = Array (MAP (\(v1,v2,e) . Object [("var1", String
+    v1);("var2", String v2);("exp", pres_to_json e)]) varexpTup) in
+      new_obj "Letrec" [("tra", trace_to_json tra);("varsexp",
+      varexpTup');("exp", pres_to_json exp)])
+  /\
+  (pres_to_json _ = Null)`
+  cheat;
 
 val _ = export_theory();
