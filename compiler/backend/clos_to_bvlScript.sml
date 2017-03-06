@@ -178,10 +178,10 @@ val get_partial_app_label_fn_def = Define `
      * the closure wants, and the ones already there. Both must be 1 less than
      * the actual value, since there is no possibility of 0 total or partial
      * arguments *)
-    Jump (Var 0)
+    Jump (Var 1)
       (GENLIST
         (\total_args.
-          (Jump (Var 2)
+          (Jump (Var 1)
             (GENLIST
               (\prev_args. mk_label (partial_app_fn_location max_app total_args prev_args))
               max_app)))
@@ -190,6 +190,39 @@ val get_partial_app_label_fn_def = Define `
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
   generate_generic_app max_app n =
+  if n = 0 then
+    (* Special case a single argument application. We don't need to check
+     * for overapplication. But we still need to know how many arguments remain. *)
+    Let [Op Sub [mk_const 1; mk_el (Var 1) (mk_const 1)]] (* The number of arguments remaining - 1 *)
+     (If (Op (TagEq closure_tag) [Var 2])
+        (* Partial application of a normal closure *)
+        (Op (Cons partial_app_tag)
+            (REVERSE
+              (* Can't Call because we don't have enough clock ticks *)
+              (Jump (mk_el (Var 2) (mk_const 1))
+                (GENLIST
+                  (\total_args. mk_label (partial_app_fn_location max_app total_args 1))
+                  max_app) ::
+               Var 0 ::
+               Var 2 ::
+               [Var 1])))
+        (* Partial application of a partially applied closure *)
+        (Jump (Op Sub [mk_const 4; Op LengthBlock [Var 2]])
+          (GENLIST (\prev_args.
+            Op (Cons partial_app_tag)
+               (REVERSE
+                 (* Can't Call because we don't have enough clock ticks *)
+                  (Jump (Op Add [mk_const (prev_args + 2); Var 1])
+                    (GENLIST
+                      (\total_args. mk_label (partial_app_fn_location max_app total_args (prev_args + 1)))
+                      max_app) ::
+                  Var 1 ::
+                  mk_el (Var 3) (mk_const 2) ::
+                  GENLIST (\this_arg. Var (this_arg + 2)) 1 ++
+                  GENLIST (\prev_arg.
+                    mk_el (Var 3) (mk_const (prev_arg + 3))) (prev_args + 1))))
+            (max_app-1))))
+  else
     Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
         (If (Op Less [mk_const 0; Var 0])
             (* Over application *)
@@ -203,7 +236,7 @@ val generate_generic_app_def = Define `
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
                max_app))
             (* Partial application *)
-            (mk_tick n
+            (mk_tick (n-1) (* Since we do a call in either case *)
             (If (Op (TagEq closure_tag) [Var (n+2)])
                 (* Partial application of a normal closure *)
                 (Op (Cons partial_app_tag)

@@ -287,6 +287,8 @@ val evaluate_generic_app1 = Q.prove (
     n < total_args ∧
     total_args < max_app ∧
     n + 1 = LENGTH args ∧
+    find_code (SOME 0) [Number (&n); Number (&total_args)] st.code =
+      SOME ([Number (&n); Number (&total_args)], get_partial_app_label_fn max_app) ∧
     cl = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
     ⇒
     evaluate ([generate_generic_app max_app n], args++[cl], st) =
@@ -298,32 +300,66 @@ val evaluate_generic_app1 = Q.prove (
                                       cl::
                                       args)],
          dec_clock n st)`,
-cheat );
-
-(*
+  rpt strip_tac >>
+  Cases_on `n = 0`
+  >- (
+    srw_tac[][generate_generic_app_def, get_partial_app_label_fn_location_def] >>
+    srw_tac[][evaluate_def, do_app_def] >>
+    full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
+    `~(&total_args − &1 < 0)` by intLib.ARITH_TAC >>
+    qpat_x_assum `1 = LENGTH _` (assume_tac o GSYM) >>
+    simp [EL_CONS] >>
+    `?a. args = [a]`
+    by (
+      Cases_on `args` >>
+      simp [] >>
+      fs [LENGTH_NIL]) >>
+    simp [] >>
+    `evaluate ([Op El [Op (Const 1) []; Var 2]],
+               [Number (&total_args − 1); a; Block closure_tag (CodePtr l::Number (&total_args)::fvs)],
+               st) =
+    (Rval [Number (&total_args)], st)`
+          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
+    imp_res_tac evaluate_Jump >>
+    rev_full_simp_tac(srw_ss())[] >>
+    simp [] >>
+    srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND] >>
+    simp [int_arithTheory.INT_NUM_SUB]) >>
   srw_tac[][generate_generic_app_def, get_partial_app_label_fn_location_def] >>
   srw_tac[][evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
   `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
+  TRY (rfs [] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick, evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac [ARITH_ss] [ADD1, evaluate_genlist_vars_rev, evaluate_def] >>
-  `evaluate ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
-          Number (&total_args − &(LENGTH args))::(args++[Block closure_tag (CodePtr l::Number (&total_args)::fvs)]),
-          dec_clock n st) =
-    (Rval [Number (&total_args)], dec_clock n st)`
+  rw [get_partial_app_label_fn_def, LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
+  TRY (fs [dec_clock_def, LESS_OR_EQ]) >>
+  `evaluate ([Var 1],
+             [Number (&n); Number (&total_args)],
+             st with clock := st.clock − n) =
+    (Rval [Number (&total_args)], st with clock := st.clock − n)`
           by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
               srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
   imp_res_tac evaluate_Jump >>
   rev_full_simp_tac(srw_ss())[] >>
+  `evaluate ([Var 1],
+             [Number (&total_args); Number (&n); Number (&total_args)],
+             st with clock := st.clock − n) =
+    (Rval [Number (&n)], st with clock := st.clock − n)`
+          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
+  imp_res_tac evaluate_Jump >>
+  simp [] >>
   srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND] >>
   fs [REVERSE_APPEND] >>
   srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2,
       TAKE_LENGTH_APPEND] >>
   decide_tac);
-  *)
+
 
 val evaluate_generic_app2 = Q.prove (
   `!n args st rem_args prev_args l clo cl.
@@ -332,6 +368,8 @@ val evaluate_generic_app2 = Q.prove (
     n + 1 = LENGTH args ∧
     LENGTH prev_args > 0 ∧
     rem_args + LENGTH prev_args < max_app ∧
+    find_code (SOME 0) [Number (&n); Number (&total_args)] st.code =
+      SOME ([Number (&n); Number (&total_args)], get_partial_app_label_fn max_app) ∧
     cl = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
     ⇒
     evaluate ([generate_generic_app max_app n], args++[cl], st) =
@@ -400,6 +438,8 @@ val evaluate_generic_app_partial = Q.prove (
     total_args < max_app ∧
     LENGTH args < (total_args + 1) - LENGTH prev_args ∧
     LENGTH args ≠ 0 ∧
+    find_code (SOME 0) [Number (&(LENGTH args - 1)); Number (&total_args)] st.code =
+      SOME ([Number (&(LENGTH args - 1)); Number (&total_args)], get_partial_app_label_fn max_app) ∧
     unpack_closure cl (prev_args, total_args, sub_cl)
     ⇒
     evaluate ([generate_generic_app max_app (LENGTH args - 1)], args++[cl], st) =
@@ -832,6 +872,8 @@ val state_rel_def = Define `
            ?y m. (FLOOKUP f n = SOME m) /\
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel (v_rel s.max_app f t.refs t.code) x y) /\
+    lookup get_partial_app_label_fn_location t.code =
+      SOME (2, get_partial_app_label_fn s.max_app) ∧
     (!n. n < s.max_app ⇒
          lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
     (!m n. m < s.max_app ∧ n < s.max_app ⇒
@@ -3526,7 +3568,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         full_simp_tac(srw_ss())[] >>
         Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
         rev_full_simp_tac(srw_ss())[domain_lookup] >>
-        pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
+        pop_assum mp_tac >>
+        REWRITE_TAC [Once CONJ_SYM] >>
+        disch_then drule >>
+        impl_tac
+        >- (
+          qpat_x_assum `state_rel _ _ _` mp_tac >>
+          rw [state_rel_def, find_code_def, get_partial_app_label_fn_location_def]) >>
+        strip_tac >>
         srw_tac[][]
         >- ((* A TimeOut *)
             full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, int_arithTheory.INT_NUM_SUB] >>
