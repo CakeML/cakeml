@@ -214,6 +214,73 @@ val regexp_matcher_with_limit_side_def = Q.prove(
           >> fs[good_vec_def] >> metis_tac []))
   >- metis_tac [compile_regexp_with_limit_lookup]) |> update_precondition;
 
-(* TODO: translate regexp parser *)
+(* TODO: translate PEG machinery as separate module?
+         n.b. INTRO_FLOOKUP is copied from parserProgScript.sml
+*)
+
+val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
+  `(if n IN FDOM G.rules
+     then EV (G.rules ' n) i r y fk
+     else Result xx) =
+    (case FLOOKUP G.rules n of
+       NONE => Result xx
+     | SOME x => EV x i r y fk)`,
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
+
+val coreloop_def' =
+( pegexecTheory.coreloop_def
+    |> REWRITE_RULE [INTRO_FLOOKUP]
+    |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]);
+
+val r = translate coreloop_def';
+
+val r = translate (pegexecTheory.peg_exec_def);
+
+(* -- *)
+
+(* TODO: translate shifts as part of a separate module? word module? *)
+
+val r = translate (shift_left_def |> spec64 |> CONV_RULE (wordsLib.WORD_CONV));
+
+(* -- *)
+
+val r = translate (charset_sing_def |> SIMP_RULE(srw_ss())[shift_left_rwt]);
+
+val _ = use_mem_intro := true;
+val r = translate EscapableChar_def;
+val _ = use_mem_intro := false;
+
+val r = translate uncharset_char_def
+val uncharset_char_side = Q.prove(
+  `!x. uncharset_char_side x = T`,
+    rw[definition"uncharset_char_side_def"]
+    \\ once_rewrite_tac[WORD_AND_COMM]
+    \\ `255n = 2 ** 8 - 1` by simp[] \\ pop_assum SUBST1_TAC
+    \\ rename1`w  && _` \\ Cases_on`w`
+    \\ simp[WORD_AND_EXP_SUB1]
+    \\ `n MOD 256 < 256` by simp[]
+    \\ simp[]) |> update_precondition;
+
+val r = translate rePEG_def;
+
+val r = translate parse_regexp_def;
+
+val termination_lemma =
+  MATCH_MP pegexecTheory.coreloop_total wfG_rePEG
+  |> SIMP_RULE(srw_ss())[coreloop_def']
+
+val parse_regexp_side = Q.prove(
+  `∀x. parse_regexp_side x = T`,
+  rw[definition"parse_regexp_side_def"] \\
+  rw[definition"peg_exec_side_def"] \\
+  rw[definition"coreloop_side_def"] \\
+  qspec_then`MAP add_loc x`strip_assume_tac (Q.GEN`i`termination_lemma) \\
+  qmatch_abbrev_tac`IS_SOME (OWHILE f g h)` \\
+  qmatch_assum_abbrev_tac`OWHILE f g' h = SOME _` \\
+  `g' = g` by (
+    unabbrev_all_tac
+    \\ simp[FUN_EQ_THM]
+    \\ Cases \\ simp[]
+    \\ TOP_CASE_TAC \\ simp[] ) \\ fs[]) |> update_precondition;
 
 val _ = export_theory ();
