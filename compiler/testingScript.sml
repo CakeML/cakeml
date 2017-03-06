@@ -5,9 +5,9 @@ open preamble
      backendTheory
      basisProgTheory
 open jsonTheory presLangTheory
-open source_to_modTheory
+open astTheory source_to_modTheory
 
-computeLib.add_funs [pat_bindings]
+computeLib.add_funs [pat_bindings_def];
 
 (* COMPILING *)
 val parse_def = Define`
