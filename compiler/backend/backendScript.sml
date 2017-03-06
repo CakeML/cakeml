@@ -32,13 +32,22 @@ val _ = Datatype`config =
 
 val config_component_equality = theorem"config_component_equality";
 
+val intersperse_def = Define`
+  (intersperse _ [] = [])
+  /\
+  (intersperse _ [x] = [x])
+  /\
+  (intersperse e (x::xs) = x::e::(intersperse e xs))`;
+
 val compile_def = Define`
   compile c p =
+    let res = [] in
     let (c',p) = source_to_mod$compile c.source_conf p in
-    let res = [mod_to_json p] in
+    let res = pres_to_json (mod_to_pres p)::res in
     let c = c with source_conf := c' in
     let (c',p) = mod_to_con$compile c.mod_conf p in
-    let c = c with mod_conf := c' in
+      CONCAT (intersperse "," (MAP json_to_string res))`;
+(*  let c = c with mod_conf := c' in
     let (n,e) = con_to_dec$compile c.source_conf.next_global p in
     let c = c with source_conf updated_by (λc. c with next_global := n) in
     let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
@@ -55,8 +64,7 @@ val compile_def = Define`
     let c = c with word_conf := c' in
     let c = c with stack_conf updated_by
              (\c1. c1 with max_heap := 2 * max_heap_limit (:'a) c.data_conf - 1) in
-    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in
-      lab_to_target$compile c.lab_conf (p:'a prog)`;
+    let p = stack_to_lab$compile c.stack_conf c.data_conf c.word_conf (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3)) (c.lab_conf.asm_conf.addr_offset) p in *)
 
 val to_mod_def = Define`
   to_mod c p =
@@ -143,6 +151,7 @@ val to_target_def = Define`
   let (c,p) = to_lab c p in
     lab_to_target$compile c.lab_conf p`;
 
+(*
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
   srw_tac[][FUN_EQ_THM,compile_def,
@@ -161,6 +170,7 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_mod_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
+*)
 
 val prim_config_def = Define`
   prim_config =
@@ -239,6 +249,7 @@ val from_source_def = Define`
   let c = c with source_conf := c' in
   from_mod c p`;
 
+(*
 val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
   `compile = from_source`,
   srw_tac[][FUN_EQ_THM,compile_def,
@@ -257,6 +268,7 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_mod_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
+*)
 
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
@@ -296,6 +308,7 @@ val from_livesets_def = Define`
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`
 
+(*
 val compile_oracle = Q.store_thm("compile_oracle",`
   from_livesets (to_livesets c p) = compile c p`,
   srw_tac[][FUN_EQ_THM,
@@ -338,6 +351,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
   rveq>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])
+*)
 
 val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   to_livesets (c with word_to_word_conf:=wc) p =

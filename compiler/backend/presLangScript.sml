@@ -131,7 +131,7 @@ val mod_to_pres_prompt_def = Define`
 val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
 
-(* --- TO_JSON function with helper functions below --- *)
+(* pres_to_json *)
 val lit_to_value_def = Define`
   (lit_to_value (IntLit i) = Int i)
   /\
@@ -298,6 +298,4 @@ val pres_to_json_def = tDefine"pres_to_json"`
   (pres_to_json _ = Null)`
   cheat;
 
-val mod_to_json_def = Define`
-    mod_to_json _ = Null`;
 val _ = export_theory();
