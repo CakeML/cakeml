@@ -165,23 +165,9 @@ val regexp_matcher_with_limit_sound = Q.store_thm("regexp_matcher_with_limit_sou
 
 val _ = translate (regexp_matcher_with_limit_def);
 
-val length_toList = Q.store_thm("length_tolist",
-  `LENGTH (toList vec) = length vec`,
-  Induct_on `vec` >> rw[length_def, mlvectorTheory.toList_thm]);
-
-val toList_inject = Q.prove(`(mlvector$toList l = toList l') = (l = l')`,
-  Induct_on `l`
-  >> Induct_on `l'`
-  >> fs[mlvectorTheory.toList_thm]);
-
 val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
-  Induct_on `ll`
->> fs[toList_inject]);
+  Induct_on `ll` >> fs[]);
 
-val EL_toList= Q.prove(`EL n (toList l) = sub l n`,
-  Induct_on `l`
-  >> fs[sub_def,mlvectorTheory.toList_thm])
-                      
 val EL_map_toList = Q.prove(`!n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'`,
   Induct_on `l`
   >> fs[]
@@ -241,13 +227,9 @@ val compile_regexp_with_limit_lookup = Q.prove(
                     compile_regexp_with_limit_sound])
   >> fs[eq_cmp_bmapTheory.fdom_def]);
 
-val tolist_fromlist_cancel = Q.store_thm("tolist_fromlist_cancel",
-  `mlvector$toList(fromList l) = l /\ fromList(mlvector$toList v) = v`,
-  Cases_on `v` >> fs[mlvectorTheory.toList_thm,fromList_def]);
-
 val tolist_fromlist_map_cancel = Q.store_thm("tolist_fromlist_map_cancel",
   `MAP mlvector$toList (MAP fromList ll) = ll`,
-  Induct_on `ll` >> fs[tolist_fromlist_cancel]);
+  Induct_on `ll` >> fs[]);
 
 val regexp_matcher_with_limit_side_def = Q.prove(
   `!r s. regexp_matcher_with_limit_side r s ⇔ T`,
@@ -255,7 +237,7 @@ val regexp_matcher_with_limit_side_def = Q.prove(
   >> rpt strip_tac
   >- (match_mp_tac exec_dfa_side_imp
       >> rpt strip_tac
-      >- (rw[tolist_fromlist_cancel,tolist_fromlist_map_cancel]
+      >- (rw[tolist_fromlist_map_cancel]
        >> metis_tac[compile_regexp_with_limit_dom_brz,
                     compile_regexp_good_vec,
                     compile_regexp_with_limit_sound])
