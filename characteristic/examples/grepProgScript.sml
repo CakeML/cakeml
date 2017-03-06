@@ -155,14 +155,14 @@ val exec_dfa_side_imp = Q.prove(
   Induct_on `s`
   >- fs[fetch "-" "exec_dfa_side_def"]
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "exec_dfa_side_def"]
-  >> fs[good_vec_def,length_toList]
+  >> fs[good_vec_def,mlvectorTheory.length_toList]
   >> rpt GEN_TAC
   >> Induct_on `table`
    >> rpt strip_tac
    >> fs[sub_def,length_def,mlvectorTheory.toList_thm]
    >> `MEM (toList (EL n l)) (MAP toList l)`
         by fs[EL_MEM,mem_tolist,mlvectorTheory.toList_thm]
-   >- metis_tac[length_toList]
+   >- metis_tac[mlvectorTheory.length_toList]
    >> first_x_assum(MATCH_MP_TAC o Q.SPECL [`finals`,`Vector l`, `x1`])
     >> rpt strip_tac
     >> fs[mlvectorTheory.toList_thm, length_def, mem_tolist]
