@@ -26,7 +26,7 @@ val _ = Datatype`
     (* Declarations *)
     | Dlet num exp(*exp*)
     | Dletrec ((varN # varN # exp(*exp*)) list)
-    | Dtype (modN list) type_def
+    | Dtype (modN list)
     | Dexn (modN list) conN (t list)
     (* Patterns *)
     | Pvar varN
@@ -121,7 +121,7 @@ val mod_to_pres_dec_def = Define`
     case d of
        | modLang$Dlet num exp => presLang$Dlet num (mod_to_pres_exp exp)
        | Dletrec funs => Dletrec (MAP (\(v1,v2,e). (v1,v2,mod_to_pres_exp e)) funs)
-       | Dtype mods type_def => Dtype mods type_def
+       | Dtype mods type_def => Dtype mods
        | Dexn mods conN ts => Dexn mods conN ts`;
 
 val mod_to_pres_prompt_def = Define`
@@ -143,12 +143,9 @@ val lit_to_value_def = Define`
 * has constructor name field, cons *)
 val new_obj_def = Define`
   new_obj cons fields = json$Object (("cons", String cons)::fields)`;
-(* TODO: Define num_to_json *)
+
 val num_to_json_def = Define`
   num_to_json n = Int (int_of_num n)`;
-(* TODO: Define tdef_to_json *)
-val tdef_to_json_def = Define`
-  tdef_to_json td = Null`;
 
 (* TODO: Define trace_to_json *)
 val trace_to_json_def = Define`
@@ -207,9 +204,9 @@ val pres_to_json_def = tDefine"pres_to_json"`
     let fields = Array (MAP (\(v1,v2,exp) . Object [("var1",String v1); ("var2",String v2); ("exp", pres_to_json exp)]) lst) in
       new_obj "Dletrec" [("exps",fields)])
   /\
-  (pres_to_json (Dtype modNs tDef) =
+  (pres_to_json (Dtype modNs) =
     let modNs' = Array (MAP String modNs) in
-      new_obj "Dtype" [("modNs", modNs'); ("tDef", tdef_to_json tDef)])
+      new_obj "Dtype" [("modNs", modNs')])
   /\
   (pres_to_json (Dexn modNs conN ts) =
     let modNs' = Array (MAP String modNs) in
