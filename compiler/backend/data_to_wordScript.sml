@@ -689,22 +689,26 @@ val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
     case opw of
     | Andw => list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
                         Assign 33 (Op And [Var 13; Var 23]);
                         Assign 31 (Op And [Var 11; Var 21])]
     | Orw =>  list_Seq [Assign 29 (Const 0w);
-                        Assign 33 (Op Or  [Var 13; Var 23]);
-                        Assign 31 (Op Or  [Var 11; Var 21])]
+                        Assign 27 (Const 0w);
+                        Assign 33 (Op Or [Var 13; Var 23]);
+                        Assign 31 (Op Or [Var 11; Var 21])]
     | Xor =>  list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
                         Assign 33 (Op Xor [Var 13; Var 23]);
                         Assign 31 (Op Xor [Var 11; Var 21])]
     | Add =>  list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
                         Inst (Arith (AddCarry 33 13 23 29));
                         Inst (Arith (AddCarry 31 11 21 29))]
     | Sub =>  list_Seq [Assign 29 (Const 1w);
-                        Assign 33 (Op Xor [Const (-1w); Var 23]);
-                        Inst (Arith (AddCarry 33 13 33 29));
-                        Assign 31 (Op Xor [Const (-1w); Var 21]);
-                        Inst (Arith (AddCarry 31 11 31 29))]`
+                        Assign 27 (Op Xor [Const (-1w); Var 23]);
+                        Inst (Arith (AddCarry 33 13 27 29));
+                        Assign 27 (Op Xor [Const (-1w); Var 21]);
+                        Inst (Arith (AddCarry 31 11 27 29))]`
 
 val WordShift64_on_32_def = Define `
   WordShift64_on_32 sh n =
