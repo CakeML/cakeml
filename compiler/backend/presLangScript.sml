@@ -154,7 +154,6 @@ val trace_to_json_def = Define`
 (* TODO: Define t_to_json*)
 val t_to_json_def = Define`
   t_to_json t = Null`;
-  (* t = Tapp (t list) tctor, rad 133 astScript. *) 
 
 (* TODO: Define op_to_json*)
 val op_to_json_def = Define`
