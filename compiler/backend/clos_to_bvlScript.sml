@@ -146,7 +146,8 @@ val num_stubs_def = Define `
     (* equality of values *) + 1n
     (* equality of blocks *) + 1
     (* ToList *)             + 1
-    (* Empty, because the must be an odd number *) + 1`;
+    (* Padding, there must be an odd number of stubs. *)
+       + (if (max_app + max_app * (max_app - 1) DIV 2 + 4) MOD 2 = 0 then 1 else 0)`;
 
 val get_partial_app_label_fn_location_def = Define `
   get_partial_app_label_fn_location = 0n`;

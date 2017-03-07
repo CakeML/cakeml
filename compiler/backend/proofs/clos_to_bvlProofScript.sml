@@ -197,12 +197,49 @@ val triangle_table_size = Q.prove (
   rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle]);
 
 val triangle_div_lemma = Q.prove (
+  `!max_app n tot.
+    0 < max_app ∧ tot < max_app ∧ n < tot
+    ⇒
+    n + tot * (tot − 1) DIV 2 + 1 < max_app * (max_app − 1) DIV 2 + 4`,
+  Induct_on `tot` >>
+  rw [] >>
+  `tot = max_app ∨ tot < max_app` by decide_tac >>
+  rw [] >>
+  `n = tot ∨ n < tot` by decide_tac >>
+  rw [] >>
+  cheat);
+
+(*
+val triangle_div_lemma = Q.prove (
   `!x y z.
     x * (x - 1) DIV 2 + y = (x * (x - 1) + 2 * y) DIV 2 ∧
     y + x * (x - 1) DIV 2 = (2 * y + x * (x - 1)) DIV 2 ∧
     y + x * (x - 1) DIV 2 + z = (2 * y + x * (x - 1) + 2 * z) DIV 2`,
   rw [ADD_DIV_RWT] >>
   ARITH_TAC);
+  *)
+
+val triangle_el = Q.prove (
+  `!n tot max_app stuff f g.
+    n < tot ∧ tot < max_app
+    ⇒
+    EL (n + tot * (tot − 1) DIV 2)
+      (FLAT
+         (GENLIST
+            (λtot.
+               GENLIST
+                 (λprev. (g tot prev, f tot prev)) tot)
+            max_app) ++
+       stuff) =
+    (g tot n, f tot n)`,
+  Induct_on `max_app` >>
+  rw [GENLIST, FLAT_SNOC] >>
+  `tot = max_app ∨ tot < max_app` by decide_tac >>
+  rw []
+  >- simp [triangle_table_size, EL_APPEND_EQN] >>
+  res_tac >>
+  fs [] >>
+  metis_tac [APPEND_ASSOC]);
 
 val if_expand = Q.prove (
   `!w x y z. (if x then y else z) = w ⇔ x ∧ y = w ∨ ~x ∧ z = w`,
@@ -4071,29 +4108,18 @@ val init_code_ok = Q.store_thm ("init_code_ok",
     srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
     simp [ADD1] >>
     REWRITE_TAC [ADD_ASSOC] >>
-    simp [triangle_div_lemma] >>
-    cheat)
+    simp [triangle_div_lemma])
   >- (
       simp [GSYM ADD_ASSOC, DECIDE ``!x. 1 + x = SUC x``, EL_CONS] >>
       `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
       ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
       simp[EL_APPEND2] >>
-      cheat)
-      (*
-      `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
-      srw_tac[][twod_table] >>
-      asm_simp_tac std_ss [EL_APPEND1,LENGTH_GENLIST] >>
-      srw_tac[][EL_GENLIST] >>
-      srw_tac[][DIV_MULT, Once ADD_COMM] >>
-      ONCE_REWRITE_TAC [ADD_COMM] >>
-      srw_tac[][MOD_MULT])
-      *)
+      rw [triangle_el])
   >- simp [triangle_table_size, equality_location_def, ADD1]
   >- (
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, equality_location_def] >>
     simp_tac (srw_ss()) [DECIDE ``!x. 1 + x = SUC x``] >>
-    simp[EL_APPEND2,equality_location_def] >>
-    cheat)
+    simp[triangle_table_size, EL_APPEND2,equality_location_def])
   >- simp [triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
   >- (
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, block_equality_location_def] >>
@@ -4208,6 +4234,12 @@ val fromAList_code_sort = Q.store_thm("fromAList_code_sort",
   rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
   \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
 
+val even_stubs1 = Q.prove (
+  `!max_app. EVEN (num_stubs max_app + 1)`,
+  Induct_on `max_app` >>
+  rw [num_stubs_def, EVEN_ADD, EVEN, GSYM EVEN_MOD2] >>
+  metis_tac []);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   srw_tac[][compile_def] >>
@@ -4317,8 +4349,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   rpt var_eq_tac>>fs[]>>
   Q.SPECL_THEN [`num_stubs c.max_app + 1`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
   rfs[EVERY_MEM,SUBSET_DEF]>>
-  `EVEN (num_stubs c.max_app + 1)` by (simp[num_stubs_def,EVEN_ADD,EVEN_EXP_IFF] \\ metis_tac[]) >>
-  metis_tac[IN_DEF]);
+  metis_tac [even_stubs1, IN_DEF]);
 
 val full_result_rel_def = Define`
   full_result_rel c (r1,s1) (r2,s2) ⇔
