@@ -177,11 +177,32 @@ val less_rectangle2 = Q.prove (
   `!(x:num) y m n. m < x ∧ n < y ⇒ m + n * x< x * y`,
   metis_tac [less_rectangle, ADD_COMM, MULT_COMM]);
 
-val sum_genlist_square = Q.prove (
-  `!x z. SUM (GENLIST (\y. z) x) = x * z`,
+val sum_genlist_triangle_help = Q.prove (
+  `!x. SUM (GENLIST (\y. y) (x+1)) = x * (x + 1) DIV 2`,
   Induct >>
-  srw_tac[][GENLIST, SUM_SNOC, ADD1] >>
-  decide_tac);
+  fs [GENLIST, SUM_SNOC, GSYM ADD1] >>
+  simp [ADD1] >>
+  ARITH_TAC);
+
+val sum_genlist_triangle = Q.prove (
+  `!x. SUM (GENLIST (\y. y) x) = x * (x - 1) DIV 2`,
+  rw [] >>
+  mp_tac (Q.SPEC `x-1` sum_genlist_triangle_help) >>
+  Cases_on `x = 0` >>
+  simp []);
+
+val triangle_table_size = Q.prove (
+  `!max f. LENGTH (FLAT (GENLIST (\x. (GENLIST (\y. f x y) x)) max)) =
+    max * (max -1) DIV 2`,
+  rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle]);
+
+val triangle_div_lemma = Q.prove (
+  `!x y z.
+    x * (x - 1) DIV 2 + y = (x * (x - 1) + 2 * y) DIV 2 ∧
+    y + x * (x - 1) DIV 2 = (2 * y + x * (x - 1)) DIV 2 ∧
+    y + x * (x - 1) DIV 2 + z = (2 * y + x * (x - 1) + 2 * z) DIV 2`,
+  rw [ADD_DIV_RWT] >>
+  ARITH_TAC);
 
 val if_expand = Q.prove (
   `!w x y z. (if x then y else z) = w ⇔ x ∧ y = w ∨ ~x ∧ z = w`,
@@ -316,7 +337,7 @@ val evaluate_genlist_prev_args1_no_rev = Q.prove (
 val evaluate_get_partial_app_label_fn = Q.prove (
   `!max_app n total_args st.
      partial_app_fn_location max_app total_args n ∈ domain st.code ∧
-     n < max_app ∧ total_args < max_app ⇒
+     n < total_args ∧ total_args < max_app ⇒
      evaluate
        ([get_partial_app_label_fn max_app],
         [Number (&n); Number (&total_args)],
@@ -372,10 +393,10 @@ val evaluate_generic_app1 = Q.prove (
       simp [] >>
       fs [LENGTH_NIL]) >>
     simp [] >>
-    `evaluate ([Op El [Op (Const 1) []; Var 2]],
+    `evaluate ([Var 0],
                [Number (&total_args − 1); a; Block closure_tag (CodePtr l::Number (&total_args)::fvs)],
                st) =
-    (Rval [Number (&total_args)], st)`
+    (Rval [Number (&(total_args - 1))], st)`
           by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
               srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
     imp_res_tac evaluate_Jump >>
@@ -449,10 +470,10 @@ val evaluate_generic_app2 = Q.prove (
     imp_res_tac evaluate_Jump >>
     srw_tac [ARITH_ss] [evaluate_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def] >>
     simp [evaluate_genlist_prev_args1_simpl] >>
-    `evaluate ([Op Add [Op (Const (&(LENGTH prev_args + 1))) []; Var 1]],
+    `evaluate ([Var 1],
             Number (&(LENGTH prev_args − 1))::Number (&rem_args − 1)::a::[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)],
             st) =
-      (Rval [Number (&(LENGTH prev_args + rem_args))], st)`
+      (Rval [Number (&(rem_args - 1))], st)`
     by (
       srw_tac [ARITH_ss] [partial_app_tag_def, evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
       intLib.ARITH_TAC) >>
@@ -947,8 +968,8 @@ val state_rel_def = Define `
       SOME (2, get_partial_app_label_fn s.max_app) ∧
     (!n. n < s.max_app ⇒
          lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
-    (!m n. m < s.max_app ∧ n < s.max_app ⇒
-      lookup (partial_app_fn_location s.max_app m n) t.code = SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+    (!tot n. tot < s.max_app ∧ n < tot ⇒
+      lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
     (lookup (equality_location s.max_app) t.code = SOME (equality_code s.max_app)) ∧
     (lookup (block_equality_location s.max_app) t.code = SOME (block_equality_code s.max_app)) ∧
     (lookup (ToList_location s.max_app) t.code = SOME (ToList_code s.max_app)) ∧
@@ -4035,10 +4056,10 @@ val init_code_ok = Q.store_thm ("init_code_ok",
        SOME (2, get_partial_app_label_fn max_app)) ∧
    (!n.
       n < max_app ⇒ lookup (generic_app_fn_location n) (init_code max_app) = SOME (n + 2, generate_generic_app max_app n)) ∧
-   (!m n.
-      m < max_app ∧ n < max_app ⇒
-        lookup (partial_app_fn_location max_app m n) (init_code max_app) =
-          SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+   (!tot n.
+      tot < max_app ∧ n < tot ⇒
+        lookup (partial_app_fn_location max_app tot n) (init_code max_app) =
+          SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
    (lookup (equality_location max_app) (init_code max_app) = SOME (equality_code max_app)) ∧
    (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
    (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
@@ -4046,15 +4067,19 @@ val init_code_ok = Q.store_thm ("init_code_ok",
             get_partial_app_label_fn_location_def, generic_app_fn_location_def]
   >- decide_tac
   >- simp[EL_APPEND1, GSYM ADD1]
-  >- (srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_square] >>
-      srw_tac[][DECIDE ``!(x:num) y z n. x + y +n < x + z + a ⇔ y +n < z + a``] >>
-      `max_app * m + n < max_app * max_app` by metis_tac[less_rectangle] >>
-      DECIDE_TAC)
+  >- (
+    srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
+    simp [ADD1] >>
+    REWRITE_TAC [ADD_ASSOC] >>
+    simp [triangle_div_lemma] >>
+    cheat)
   >- (
       simp [GSYM ADD_ASSOC, DECIDE ``!x. 1 + x = SUC x``, EL_CONS] >>
-      `max_app ≤ max_app + max_app * m + n` by decide_tac >>
+      `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
       ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
       simp[EL_APPEND2] >>
+      cheat)
+      (*
       `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
       srw_tac[][twod_table] >>
       asm_simp_tac std_ss [EL_APPEND1,LENGTH_GENLIST] >>
@@ -4062,35 +4087,29 @@ val init_code_ok = Q.store_thm ("init_code_ok",
       srw_tac[][DIV_MULT, Once ADD_COMM] >>
       ONCE_REWRITE_TAC [ADD_COMM] >>
       srw_tac[][MOD_MULT])
+      *)
+  >- simp [triangle_table_size, equality_location_def, ADD1]
   >- (
-    srw_tac[][twod_table] >>
-    simp[equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, equality_location_def] >>
     simp_tac (srw_ss()) [DECIDE ``!x. 1 + x = SUC x``] >>
-    simp[EL_APPEND2,equality_location_def] )
+    simp[EL_APPEND2,equality_location_def] >>
+    cheat)
+  >- simp [triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
   >- (
-    srw_tac[][twod_table] >>
-    simp[equality_location_def,block_equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, block_equality_location_def] >>
     simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[EL_APPEND2,block_equality_location_def,equality_location_def] )
+    simp[EL_APPEND2,block_equality_location_def,equality_location_def, triangle_table_size])
+  >- simp [ToList_location_def, triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
   >- (
-    srw_tac[][twod_table] >>
-    simp[ToList_location_def,equality_location_def,block_equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, ToList_location_def] >>
     simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def] ));
+    simp[triangle_table_size, EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def]));
 
 val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`,
   simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
-  \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]);
+  \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
+  \\ simp [sum_genlist_triangle]);
 
 (*TODO: This rewrite might make it worse, not sure...*)
 val compile_prog_code_locs = Q.store_thm("compile_prog_code_locs",

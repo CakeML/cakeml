@@ -142,7 +142,7 @@ val num_stubs_def = Define `
   num_stubs max_app =
     (* partial app labels *)   1
     (* generic apps *)       + max_app
-    (* partial apps *)       + max_app * max_app
+    (* partial apps *)       + max_app * (max_app - 1) DIV 2
     (* equality of values *) + 1n
     (* equality of blocks *) + 1
     (* ToList *)             + 1
@@ -155,10 +155,11 @@ val generic_app_fn_location_def = Define `
   generic_app_fn_location n = n + 1n`;
 
 val partial_app_fn_location_def = Define `
-  partial_app_fn_location (max_app:num) m n = 1 + max_app + max_app * m + n`;
+  partial_app_fn_location (max_app:num) tot prev =
+    1 + max_app + tot * (tot - 1) DIV 2 + prev`;
 
 val equality_location_def = Define`
-  equality_location (max_app:num) = 1 + max_app + max_app * max_app`;
+  equality_location (max_app:num) = 1 + max_app + max_app * (max_app - 1) DIV 2`;
 
 val block_equality_location_def = Define`
   block_equality_location max_app = equality_location max_app + 1`;
@@ -184,7 +185,7 @@ val get_partial_app_label_fn_def = Define `
           (Jump (Var 1)
             (GENLIST
               (\prev_args. mk_label (partial_app_fn_location max_app total_args prev_args))
-              max_app)))
+              total_args)))
         max_app)`;
 
 (* Generic application of a function to n+1 arguments *)
@@ -199,10 +200,12 @@ val generate_generic_app_def = Define `
         (Op (Cons partial_app_tag)
             (REVERSE
               (* Can't Call because we don't have enough clock ticks *)
-              (Jump (mk_el (Var 2) (mk_const 1))
+              (Jump (Var 0)
                 (GENLIST
-                  (\total_args. mk_label (partial_app_fn_location max_app total_args 0))
-                  max_app) ::
+                  (* There could be up to max_app - 1 arguments remaining, and
+                   * since we've just seen 1, the total is rem+1 *)
+                  (\rem_args. mk_label (partial_app_fn_location max_app (rem_args+1) 0))
+                  (max_app - 1)) ::
                Var 0 ::
                Var 2 ::
                [Var 1])))
@@ -212,16 +215,17 @@ val generate_generic_app_def = Define `
             Op (Cons partial_app_tag)
                (REVERSE
                  (* Can't Call because we don't have enough clock ticks *)
-                  (Jump (Op Add [mk_const (prev_args + 2); Var 1])
+                  (Jump (Var 1)
                     (GENLIST
-                      (\total_args. mk_label (partial_app_fn_location max_app total_args (prev_args + 1)))
-                      max_app) ::
+                      (\rem_args.
+                        mk_label (partial_app_fn_location max_app (rem_args + prev_args + 2) (prev_args + 1)))
+                      (max_app - (prev_args + 1))) ::
                   Var 1 ::
                   mk_el (Var 3) (mk_const 2) ::
                   GENLIST (\this_arg. Var (this_arg + 2)) 1 ++
                   GENLIST (\prev_arg.
                     mk_el (Var 3) (mk_const (prev_arg + 3))) (prev_args + 1))))
-            (max_app-1))))
+            (max_app - 1))))
   else
     Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
         (If (Op Less [mk_const 0; Var 0])
@@ -258,9 +262,13 @@ val generate_generic_app_def = Define `
                           GENLIST (\this_arg. Var (this_arg + 2)) (n+1) ++
                           GENLIST (\prev_arg.
                             mk_el (Var (n+3)) (mk_const (prev_arg + 3))) (prev_args + 1))))
-                    (max_app-(n+1)))))))`;
+                    (max_app - (n + 1)))))))`;
 
-(* The functions to complete the application of a partial closure *)
+(* The functions to complete the application of a partial closure.
+ * We expect prev_args < total_args, also the function should take one more
+ * argument than total, and have seen one more than prev (since there is
+ * possiblity for a 0 argument function, or a partial application wrapper that
+ * has seen no arguments yet. *)
 val generate_partial_app_closure_fn_def = Define `
   generate_partial_app_closure_fn total_args prev_args =
     Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
@@ -306,10 +314,13 @@ val init_code_def = Define `
     sptree$fromList
       ((2, get_partial_app_label_fn max_app) ::
        GENLIST (\n. (n + 2, generate_generic_app max_app n)) max_app ++
-               (* TODO: Shouldn't need the full complement. The number of
-                * partial args must be less than the total *)
-               FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
-                                     generate_partial_app_closure_fn m n)) max_app) max_app) ++
+       FLAT
+         (GENLIST
+           (\tot.
+             GENLIST
+               (\prev. (tot - prev + 1, generate_partial_app_closure_fn tot prev))
+               tot)
+           max_app) ++
        [equality_code max_app;
         block_equality_code max_app;
         ToList_code max_app])`;
