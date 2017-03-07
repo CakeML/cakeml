@@ -2889,12 +2889,12 @@ val real_fringe_def = tDefine "real_fringe" `
 
 val cmlG_unambiguous = Q.store_thm(
   "cmlG_unambiguous",
-  `valid_ptree cmlG pt1 ∧ ptree_head pt1 = NT (mkNT N) ∧
-    valid_ptree cmlG pt2 ∧ ptree_head pt2 = NT (mkNT N) ∧
-    mkNT N ∈ FDOM cmlPEG.rules ∧ (* e.g., nTopLevelDecs *)
-    ptree_fringe pt2 = ptree_fringe pt1 ∧
-    (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
-    ptloc_eq pt1 pt2`,
+  `valid_lptree cmlG pt1 ∧ ptree_head pt1 = NT (mkNT N) ∧
+   valid_lptree cmlG pt2 ∧ ptree_head pt2 = NT (mkNT N) ∧
+   mkNT N ∈ FDOM cmlPEG.rules ∧ (* e.g., nTopLevelDecs *)
+   real_fringe pt2 = real_fringe pt1 ∧
+   (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
+     pt1 = pt2`,
   cheat (* rpt strip_tac >>
   `∃ts. real_fringe pt1 = MAP (λ(t,l). (TK t, l)) ts`
     by (Q.UNDISCH_THEN `ptree_fringe pt2 = ptree_fringe pt1` kall_tac >>
