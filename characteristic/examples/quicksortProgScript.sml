@@ -32,12 +32,94 @@ val list_rel_perm = Q.store_thm ("list_rel_perm",
   imp_res_tac LIST_REL_LENGTH >>
   rw [MAP_ZIP]);
 
+val split_list = Q.prove (
+  `!l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2`,
+  induct_on `l` >>
+  rw [] >>
+  Cases_on `x` >>
+  fs [] >>
+  metis_tac [APPEND, LENGTH]);
+
+val split_list2 = Q.prove (
+  `!l1 l2 l3 l4.
+    LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
+    ⇒
+    ?l1'. l3 = l1++l1'`,
+  induct_on `l1` >>
+  rw [] >>
+  Cases_on `l3` >>
+  fs [] >>
+  metis_tac []);
+
+val perm_swap_help = Q.prove (
+  `!l x y.
+    x < LENGTH l ∧ y < LENGTH l ∧ y < x
+    ⇒
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`,
+  rw [] >>
+  `?l1 l2. LENGTH l1 = x ∧ l = l1++[EL x l]++l2`
+  by metis_tac [split_list] >>
+  qabbrev_tac `ex = EL x l` >>
+  rw [lupdate_append2] >>
+  pop_assum kall_tac >>
+  qabbrev_tac `l' = l1 ++ [EL y (l1 ++ [ex] ++ l2)] ++ l2` >>
+  `y < LENGTH l'` by fs [Abbr `l'`] >>
+  `?l1' l2'. LENGTH l1' = y ∧ l' = l1'++[EL y l']++l2'`
+  by metis_tac [split_list] >>
+  qabbrev_tac `ey = EL y l'` >>
+  rw [lupdate_append2] >>
+  pop_assum kall_tac >>
+  fs [markerTheory.Abbrev_def] >>
+  simp [PERM_alt] >>
+  rw [] >>
+  `?l1''. l1 = l1'++l1''` by metis_tac [split_list2, APPEND_ASSOC] >>
+  rw [] >>
+  fs [FILTER_APPEND, EL_APPEND_EQN] >>
+  Cases_on `l1''` >>
+  fs [] >>
+  rw [FILTER_APPEND]);
+
+val perm_swap = Q.store_thm ("perm_swap",
+  `!l x y.
+    x < LENGTH l ∧ y < LENGTH l
+    ⇒
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`,
+  rw [] >>
+  `x < y ∨ y < x ∨ x = y` by decide_tac >>
+  rw [] >>
+  metis_tac [perm_swap_help, LUPDATE_commutes , PERM_REFL, LUPDATE_SAME]);
+
+val lupdate_zip = Q.store_thm ("lupdate_zip",
+  `!l1 l2 x y n.
+    LENGTH l1 = LENGTH l2 ∧ n < LENGTH l1 ⇒
+    LUPDATE (x,y) n (ZIP (l1,l2)) =
+    ZIP (LUPDATE x n l1, LUPDATE y n l2)`,
+  induct_on `n` >>
+  rw [] >>
+  Cases_on `l1` >>
+  Cases_on `l2` >>
+  fs [LUPDATE_def]);
+
 val el_append_length1 = Q.prove (
   `!n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2`,
   Induct_on `l1` >>
   rw [EL_CONS] >>
   `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
   metis_tac []);
+
+val front_zip = Q.store_thm ("front_zip",
+  `!l1 l2.
+    l1 ≠ [] ∧ LENGTH l1 = LENGTH l2 ⇒
+    FRONT (ZIP (l1,l2)) = ZIP (FRONT l1, FRONT l2)`,
+  Induct_on `l1` >>
+  rw [] >>
+  Cases_on `l2` >>
+  fs [] >>
+  Cases_on `l1` >>
+  Cases_on `t` >>
+  fs [] >>
+  first_x_assum (qspec_then `h'''::t''` mp_tac) >>
+  rw []);
 
 val strict_weak_order_def = Define `
   strict_weak_order r ⇔
@@ -129,6 +211,10 @@ val partition_pred_def = Define `
       (* The elements of the second part aren't less than the pivot *)
       EVERY (\e. ¬cmp e pivot) elems2`;
 
+val perm_helper = Q.prove(
+  `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,
+  metis_tac [PERM_SYM, PERM_TRANS]);
+
 val partition_spec = Q.store_thm ("partition_spec",
   `!a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
     strict_weak_order cmp ∧
@@ -156,7 +242,6 @@ val partition_spec = Q.store_thm ("partition_spec",
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
-
   xcf "partition" partition_st >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
@@ -172,13 +257,14 @@ val partition_spec = Q.store_thm ("partition_spec",
     fs [MEM_ZIP] >>
     metis_tac [LIST_REL_EL_EQN]) >>
   xfun_spec `scan_lower`
-    (* We split the array into 3 pieces. We work on the middle one *)
+    (* We split the array into 3 pieces. We work on the middle one. *)
     `!i elems i_v elem_vs ignore1 ignore2.
       (* scan_lower takes an integer i, where i+1 indexes into the middle
        * section. *)
       INT (&LENGTH ignore1 + i) i_v ∧ -1 ≤ i ∧ i + 1 < &(LENGTH elems) ∧
       (* There is an array index after i where the element is not less than the
-       * pivot. This ensures termination before hitting the end of the array. *)
+       * pivot. This ensures termination before hitting the end of the middle
+       * array piece. *)
       (?x:num. i < (&x) ∧ x < LENGTH elems ∧ ¬cmp (EL x elems) pivot) ∧
       (* The elements of the array have semantic type a *)
       LIST_REL a elems elem_vs
@@ -197,9 +283,9 @@ val partition_spec = Q.store_thm ("partition_spec",
              (* The result index j points to an element not smaller than the
               * pivot *)
              ¬cmp (EL j elems) pivot ∧
-             (* There is nothing bigger than the pivot between where the scan
+             (* Everything is smaller than the pivot between where the scan
               * started and finished *)
-             !k:num. i < (&k) ∧ k < j ⇒ ¬cmp pivot (EL k elems)))`
+             !k:num. i < (&k) ∧ k < j ⇒ cmp (EL k elems) pivot))`
   >- (
     (* Prove that scan lower has the above invariant *)
     ntac 2 gen_tac >>
@@ -307,7 +393,7 @@ val partition_spec = Q.store_thm ("partition_spec",
           &(∃j:num.
              INT (&(LENGTH ignore1 + j)) j_v ∧ (&j) < i ∧ 0 ≤ j ∧
              ¬cmp pivot (EL j elems) ∧
-             !k:num. (&k) < i ∧ j < k ⇒ ¬cmp (EL k elems) pivot))`
+             !k:num. (&k) < i ∧ j < k ⇒ cmp pivot (EL k elems)))`
   >- (
     (* Prove that scan upper has the above invariant. Similar to the scan lower
      * proof above *)
@@ -421,30 +507,51 @@ val partition_spec = Q.store_thm ("partition_spec",
        rw [] >>
        fs [])) >>
   simp [] >>
-
   xfun_spec `part_loop`
+   (* Partition the part of the array, middle_vs, between two pointers. The
+    * pointers point to before and after the part to be partitioned, even if
+    * that makes them out of bounds. Also, when part_loop is first called, the
+    * pivot will be in middle_vs, but on subsequent iterations it might not be,
+    * so we have to separate out the previously partitioned parts, lower_part
+    * and upper_part and remember that they contain values that will stop the
+    * traversal in case a pointer runs off of middle_vs. Lastly, on the first
+    * iteration, if the pointers cross, and the upper part is empty, the we are
+    * putting all of the elements in the lower part. We need to know that there
+    * is a lower blocker before the last element of the middle to stop this
+    * situation. But on subsequent iterations, there might not be such a
+    * blocker. However, by then the upper part is not empty. *)
    `!middle_vs l_v u_v ignore1 lower_part upper_part ignore2 elems1 elems2 elems3.
+    (* The already partitioned parts, and the middle part. *)
     LIST_REL a elems1 lower_part ∧
     LIST_REL a elems2 middle_vs ∧
     LIST_REL a elems3 upper_part ∧
+    (* The lower pointer points to the last element of lower_part *)
     INT (&(LENGTH (ignore1 ++ lower_part)) - 1) l_v ∧
+    (* The upper pointer points to the first element of upper_part *)
     INT (&LENGTH (ignore1 ++ lower_part ++ middle_vs)) u_v ∧
     EVERY (\e. ¬cmp pivot e) elems1 ∧
-    EXISTS (\e. ¬cmp e pivot) (elems2 ++ elems3) ∧
     EVERY (\e. ¬cmp e pivot) elems3 ∧
-    EXISTS (\e. ¬cmp pivot e) (elems1 ++ elems2)
+    (* There is an element in the middle and upper that will stop scan lower *)
+    EXISTS (\e. ¬cmp e pivot) (elems2 ++ elems3) ∧
+    (* There is an element in the lower and middle that will stop scan upper *)
+    EXISTS (\e. ¬cmp pivot e) (elems1 ++ elems2) ∧
+    (* We need at least two elements to get two non-empty partitions *)
+    1 < LENGTH (lower_part ++ middle_vs ++ upper_part) ∧
+    (* If the upper part is empty, there is a blocker for the lower part to
+     * prevent the pointers crossing on the first iteration and giving an empty
+     * partition. *)
+    (upper_part = [] ⇒ elems2 ≠ [] ∧ EXISTS (\e. ¬cmp e pivot) (FRONT elems2))
     ⇒
     app (ffi_p:'ffi ffi_proj) part_loop
       [l_v; u_v]
       (ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2))
+      (* The array has new lower and upper partitions with no more in the middle *)
       (POSTv p_v. SEP_EXISTS lower_part' upper_part'.
-        ARRAY arr_v (ignore1 ++ lower_part ++ lower_part' ++ upper_part' ++ upper_part ++ ignore2) *
+        ARRAY arr_v (ignore1 ++ lower_part' ++ upper_part' ++ ignore2) *
         &(partition_pred cmp (LENGTH ignore1)
-            p_v pivot
-            (elems1 ++ elems2 ++ elems3) (lower_part ++ middle_vs ++ upper_part)
-            (lower_part ++ lower_part')
-            (upper_part' ++ upper_part)))`
-
+            p_v pivot (elems1++elems2++elems3)
+            (lower_part++middle_vs++upper_part)
+            lower_part' upper_part'))`
   >- (
     gen_tac >>
     completeInduct_on `LENGTH middle_vs` >>
@@ -455,15 +562,18 @@ val partition_spec = Q.store_thm ("partition_spec",
     qpat_abbrev_tac `lower_stop = elem2'++elems3` >>
     rw [] >>
     last_x_assum xapp_spec >>
-    (* scan lower's postcondition *)
+    (* scan lower's postcondition, we instantiate i to -1 and elems to
+     * elems2'++elems3, since we might need an element of elems3 to stop the
+     * traversal *)
     xlet
       `POSTv (new_lower_v:v).
         (ARRAY arr_v (ignore1++lower_part++middle_vs++upper_part++ignore2)) *
         &(∃new_lower:num.
            INT (&(LENGTH ignore1 + LENGTH lower_part + new_lower)) new_lower_v ∧
+           0 ≤ new_lower ∧
            new_lower < LENGTH (elems2'++elems3) ∧
            ¬cmp (EL new_lower (elems2'++elems3)) pivot ∧
-           !k:num. k < new_lower ⇒ ¬cmp pivot (EL k (elems2'++elems3)))`
+           !k:num. k < new_lower ⇒ cmp (EL k (elems2'++elems3)) pivot)`
     >- (
       xapp >>
       xsimpl >>
@@ -484,7 +594,9 @@ val partition_spec = Q.store_thm ("partition_spec",
         unabbrev_all_tac >>
         fs [] >>
         metis_tac [EVERY2_APPEND])) >>
-    (* scan upper's postcondition *)
+    (* scan uppers's postcondition, we instantiate i to LENGTH lower_part +
+     * LENGTH middle_v and elems to elems1++elems2', since we might need an
+     * element of elems1 to stop the traversal *)
     xlet
       `POSTv (new_upper_v:v).
         (ARRAY arr_v (ignore1++lower_part++middle_vs++upper_part++ignore2)) *
@@ -494,7 +606,7 @@ val partition_spec = Q.store_thm ("partition_spec",
            ¬cmp pivot (EL new_upper (elems1++elems2')) ∧
            !k:num.
              (&k) < LENGTH (elems1++elems2') ∧ new_upper < k ⇒
-             ¬cmp (EL k (elems1++elems2')) pivot)`
+             cmp pivot (EL k (elems1++elems2')))`
     >- (
       xapp >>
       xsimpl >>
@@ -535,17 +647,258 @@ val partition_spec = Q.store_thm ("partition_spec",
       xapp >>
       xsimpl >>
       fs [INT_def, BOOL_def]) >>
+    `lower_stop ≠ [] ∧ upper_stop ≠ []` by metis_tac [EXISTS_DEF] >>
     xif
-    (* The pointers haven't crossed yet, we have to loop *)
-    >- cheat
-    (* The pointers have crossed, time to stop *)
+    (* The pointers haven't crossed yet, loop *)
+    >- (
+      imp_res_tac LIST_REL_LENGTH >>
+      `new_lower < LENGTH elems2'` by intLib.ARITH_TAC >>
+      xlet `POSTv x1_v.
+             (ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2)) *
+             &(x1_v = EL new_lower middle_vs ∧ a (EL new_lower elems2') x1_v)`
+      >- (
+        xapp >>
+        xsimpl >>
+        qexists_tac `LENGTH ignore1 + LENGTH lower_part + new_lower` >>
+        imp_res_tac LIST_REL_LENGTH >>
+        rw [] >>
+        fs [INT_def, NUM_def, EL_APPEND_EQN, Abbr`lower_stop`, LIST_REL_EL_EQN]) >>
+      xlet `POSTv x2_v.
+             (ARRAY arr_v (ignore1 ++ lower_part ++ middle_vs ++ upper_part ++ ignore2)) *
+             &(x2_v = EL (new_upper - LENGTH lower_part) middle_vs ∧
+               a (EL (new_upper - LENGTH lower_part) elems2') x2_v)`
+      >- (
+        xapp >>
+        xsimpl >>
+        qexists_tac `LENGTH ignore1 + new_upper` >>
+        imp_res_tac LIST_REL_LENGTH >>
+        rw [] >>
+        fs [INT_def, NUM_def, EL_APPEND_EQN, Abbr`upper_stop`, LIST_REL_EL_EQN]) >>
+      xlet
+        `POSTv u_v.
+           ARRAY arr_v
+             (ignore1 ++ lower_part ++
+              LUPDATE x2_v new_lower middle_vs ++
+              upper_part ++ ignore2)`
+      >- (
+        xapp >>
+        xsimpl >>
+        qexists_tac `new_lower + (LENGTH ignore1 + LENGTH lower_part)` >>
+        simp [NUM_def] >>
+        simp [LIST_EQ_REWRITE, EL_LUPDATE, EL_APPEND_EQN] >>
+        rw [] >>
+        fs []) >>
+      xlet
+        `POSTv u_v.
+           ARRAY arr_v
+             (ignore1 ++ lower_part ++
+              LUPDATE x1_v (new_upper - LENGTH lower_part)
+                (LUPDATE x2_v new_lower middle_vs) ++
+              upper_part ++ ignore2)`
+      >- (
+        xapp >>
+        xsimpl >>
+        qexists_tac `new_upper + LENGTH ignore1` >>
+        simp [NUM_def] >>
+        simp [LIST_EQ_REWRITE, EL_LUPDATE, EL_APPEND_EQN] >>
+        rw [] >>
+        fs []) >>
+      imp_res_tac LIST_REL_LENGTH >>
+      qabbrev_tac `new_middle_size = new_upper - LENGTH lower_part - new_lower - 1` >>
+      `new_middle_size  < LENGTH middle_vs`
+      by (
+        unabbrev_all_tac >>
+        intLib.ARITH_TAC) >>
+      last_x_assum drule >>
+      disch_then (qspec_then `TAKE new_middle_size (DROP (new_lower + 1) middle_vs)` mp_tac) >>
+      `new_middle_size ≤ LENGTH (DROP (new_lower + 1) middle_vs)`
+      by (
+        simp [LENGTH_DROP] >>
+        unabbrev_all_tac >>
+        intLib.ARITH_TAC) >>
+      simp [LENGTH_TAKE] >>
+      disch_then xapp_spec >>
+      xsimpl >>
+      MAP_EVERY qexists_tac
+        [`LUPDATE x1_v 0 (DROP (new_upper - LENGTH lower_part) middle_vs) ++ upper_part`,
+         `lower_part ++ LUPDATE x2_v new_lower (TAKE (new_lower + 1) middle_vs)`,
+         `ignore2`,
+         `ignore1`,
+         `LUPDATE (EL new_lower elems2') 0 (DROP (new_upper - LENGTH lower_part) elems2') ++ elems3`,
+         `TAKE new_middle_size (DROP (new_lower + 1) elems2')`,
+         `elems1 ++ LUPDATE (EL (new_upper − LENGTH lower_part) elems2') new_lower
+                            (TAKE (new_lower + 1) elems2')`] >>
+      unabbrev_all_tac >>
+      simp [GSYM CONJ_ASSOC] >>
+      conj_tac
+      (* If the upper partition is empty, there is a good blocker. Here, the
+       * upper partition cannot be empty *)
+      >- (
+        rw [] >>
+        drule DROP_EMPTY >>
+        rw []) >>
+      conj_tac
+      (* The pivot is not less than the new lower partition *)
+      >- (
+        simp [EVERY_EL] >>
+        rw [EL_TAKE, EL_LUPDATE]
+        >- fs [EL_APPEND_EQN] >>
+        `n < new_lower` by decide_tac >>
+        `cmp (EL n elems2') pivot` suffices_by metis_tac [strict_weak_order_def] >>
+        fs [EL_APPEND_EQN]) >>
+      conj_tac
+      (* The new upper partition is not less than the pivot *)
+      >- (
+        simp [EVERY_EL] >>
+        rw [EL_DROP, EL_LUPDATE]
+        >- fs [EL_APPEND_EQN] >>
+        `cmp pivot (EL (n + new_upper − LENGTH lower_part) elems2')`
+        suffices_by metis_tac [strict_weak_order_def] >>
+        fs [EL_APPEND_EQN]) >>
+      conj_tac
+      (* We got the lower index value right in the above exists_tac *)
+      >- simp [integerTheory.INT_SUB] >>
+      conj_tac
+      (* There is a stopping element in the new lower partition, plus new
+       * middle. The one we just swapped in will do. *)
+      >- (
+        simp [EXISTS_MEM, MEM_LUPDATE, GSYM DISJ_ASSOC] >>
+        disj2_tac >>
+        disj1_tac >>
+        qexists_tac `EL new_upper (elems1 ++ elems2')` >>
+        simp [EL_APPEND_EQN]) >>
+      conj_tac
+      (* There is a stopping element in the new upper partition, plus new
+       * middle. The one we just swapped in will do. *)
+      >- (
+        simp [EXISTS_MEM, MEM_LUPDATE] >>
+        disj2_tac >>
+        disj1_tac >>
+        qexists_tac `EL new_lower (elems2' ++ elems3)` >>
+        simp [EL_APPEND_EQN]) >>
+      conj_tac
+      (* The new lower partitions are related by a, essentially book keeping *)
+      >- metis_tac [EVERY2_APPEND_suff, EVERY2_LUPDATE_same, EVERY2_TAKE] >>
+      conj_tac
+      (* The new middle partition is related by a, essentially book keeping *)
+      >- metis_tac [EVERY2_APPEND_suff, EVERY2_TAKE, EVERY2_DROP] >>
+      conj_tac
+      (* The new upper partitions are related by a, essentially book keeping *)
+      >- metis_tac [EVERY2_APPEND_suff, EVERY2_LUPDATE_same, EVERY2_DROP] >>
+      conj_asm1_tac
+      (* The ARRAY pre/post conditions line up *)
+      >- (
+        simp [EL_LUPDATE, LIST_EQ_REWRITE, EL_APPEND_EQN, EL_TAKE, EL_DROP] >>
+        rw [] >>
+        fs [prim_recTheory.LESS_REFL]) >>
+      (* We still have a partition *)
+      pop_assum (assume_tac o GSYM) >>
+      rw [partition_pred_def] >>
+      MAP_EVERY qexists_tac [`x`, `x'`] >>
+      rw [] >>
+      MAP_EVERY qexists_tac [`elems1'`, `elems2''`] >>
+      simp [] >>
+      (* Permutation *)
+      qpat_x_assum `PERM _ _` mp_tac >>
+      `LUPDATE (EL (new_upper − LENGTH lower_part) elems2') new_lower (TAKE (new_lower + 1) elems2') ++
+       TAKE (new_upper − (new_lower + (LENGTH lower_part + 1)))
+         (DROP (new_lower + 1) elems2') ++
+       LUPDATE (EL new_lower elems2') 0 (DROP (new_upper − LENGTH lower_part) elems2') =
+       LUPDATE (EL new_lower elems2') (new_upper − LENGTH lower_part)
+         (LUPDATE (EL (new_upper − LENGTH lower_part) elems2') new_lower elems2')`
+      by (
+        simp [EL_LUPDATE, LIST_EQ_REWRITE, EL_APPEND_EQN, EL_TAKE, EL_DROP] >>
+        rw [] >>
+        fs [prim_recTheory.LESS_REFL]) >>
+      ASM_REWRITE_TAC [METIS_PROVE [APPEND_ASSOC] ``!a b c d e:'a list. a++b++c++d++e=a++(b++c++d)++e``] >>
+      rw [] >>
+      drule perm_helper >>
+      disch_then irule >>
+      simp [GSYM ZIP_APPEND, PERM_APPEND_IFF, GSYM lupdate_zip] >>
+      simp [GSYM EL_ZIP] >>
+      irule perm_swap
+      >- metis_tac [LENGTH_ZIP] >>
+      simp [LENGTH_ZIP])
+    (* The pointers have crossed, stop *)
     >- (
       xvar >>
       xsimpl >>
-      qexists_tac `TAKE new_upper middle_vs` >>
-      qexists_tac `DROP new_upper middle_vs` >>
-      rw [partition_pred_def] >>
-      cheat)) >>
+      imp_res_tac LIST_REL_LENGTH >>
+      fs [] >>
+      `new_upper + 1 ≤ LENGTH (lower_part++middle_vs)`
+      by (
+        fs [] >>
+        intLib.ARITH_TAC) >>
+      (* new_upper indexes from the start of lower_part, and we include the
+       * element that new_upper points to in the lower partition *)
+      qexists_tac `TAKE (new_upper + 1) (lower_part++middle_vs)` >>
+      qexists_tac `DROP (new_upper + 1) (lower_part++middle_vs++upper_part)` >>
+      simp [partition_pred_def, GSYM CONJ_ASSOC] >>
+      conj_tac
+      (* The lower partition is non-empty *)
+      >- metis_tac [APPEND_eq_NIL, LIST_REL_LENGTH, LENGTH_NIL] >>
+      conj_tac
+      (* The upper partition is non-empty *)
+      >- (
+        simp [DROP_NIL, DECIDE ``!a:num b. ¬(a ≥ b) ⇔ a < b``] >>
+        fs [DECIDE ``!a b:num. ¬(a < b) ⇔ b ≤ a``] >>
+        Cases_on `upper_part ≠ []` >>
+        simp [] >>
+        fs []
+        >- fs [GSYM LENGTH_NIL] >>
+        fs [] >>
+        `new_lower + 1 ≠ LENGTH middle_vs` suffices_by intLib.ARITH_TAC >>
+        `?n. n < LENGTH elems2' - 1 ∧ ~cmp (EL n elems2') pivot`
+        by (
+          fs [EXISTS_MEM, MEM_EL] >>
+          `~NULL elems2'` by rw [GSYM LENGTH_NOT_NULL] >>
+          rw [] >>
+          drule EL_FRONT >>
+          rw [] >>
+          metis_tac [LENGTH_FRONT, PRE_SUB1]) >>
+        CCONTR_TAC >>
+        fs [] >>
+        `n < new_lower` by intLib.ARITH_TAC >>
+        metis_tac []) >>
+      conj_asm2_tac
+      >- (
+        pop_assum (assume_tac o GSYM) >>
+        qexists_tac `TAKE (new_upper + 1) (elems1++elems2'++elems3)` >>
+        qexists_tac `DROP (new_upper + 1) (elems1++elems2'++elems3)` >>
+        simp [] >>
+        rw []
+        (* The pivot is not less than any of the elements in the first partition *)
+        >- (
+          fs [EVERY_EL] >>
+          rw [EL_TAKE, Abbr `upper_stop`] >>
+          rw [EL_APPEND_EQN] >>
+          (* Because the pointers crossed *)
+          `n - LENGTH lower_part ≤ new_lower` by intLib.ARITH_TAC >>
+          pop_assum mp_tac >>
+          REWRITE_TAC [LESS_OR_EQ] >>
+          strip_tac
+          >- (
+            first_x_assum drule >>
+            simp [Abbr `lower_stop`, EL_APPEND_EQN] >>
+            metis_tac [strict_weak_order_def]) >>
+          `n = new_upper` by intLib.ARITH_TAC >>
+          var_eq_tac >>
+          fs [Abbr`lower_stop`, EL_APPEND_EQN])
+        (* The elements of the second partition are not less than the pivot *)
+        >- (
+          fs [EVERY_EL] >>
+          rw [EL_DROP, Abbr `lower_stop`, Abbr `upper_stop`] >>
+          rw [EL_APPEND_EQN] >>
+          first_x_assum (qspec_then `n + (new_upper + 1)` mp_tac) >>
+          simp [EL_APPEND_EQN] >>
+          first_x_assum (qspec_then `n + (new_upper + 1)` mp_tac) >>
+          simp [EL_APPEND_EQN] >>
+          metis_tac [strict_weak_order_def]))
+      >- (
+        `TAKE (new_upper + 1) (lower_part ++ middle_vs ++ upper_part) =
+         TAKE (new_upper + 1) (lower_part ++ middle_vs)`
+        by rw [TAKE_APPEND] >>
+        metis_tac [TAKE_DROP]))) >>
   simp [] >>
   xlet `POSTv i1_v.
           ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) *
@@ -566,20 +919,36 @@ val partition_spec = Q.store_thm ("partition_spec",
     xapp >>
     xsimpl >>
     fs [NUM_def, INT_def]) >>
-  simp [SEP_CLAUSES] >>
   xapp >>
   xsimpl >>
-  MAP_EVERY qexists_tac [`[]`, `elem_vs2`, `[]`, `elem_vs3`, `elem_vs1`, `[]`, `elems2`, `[]`] >>
+  `1 < LENGTH elem_vs2`
+  by (
+    Cases_on `elem_vs2` >>
+    fs [] >>
+    Cases_on `t` >>
+    fs [] >>
+    rfs []) >>
+  imp_res_tac LIST_REL_LENGTH >>
+  `elems2 ≠ []` by metis_tac [LENGTH_NIL] >>
+  `MEM pivot (FRONT elems2)`
+  by (
+    fs [front_zip] >>
+    qpat_x_assum `MEM _ (ZIP _)` mp_tac >>
+    simp [MEM_ZIP, LENGTH_FRONT, MEM_EL, EL_FRONT, NULL_DEF] >>
+    rw [] >>
+    fs [LIST_REL_EL_EQN] >>
+    metis_tac []) >>
   `MEM pivot elems2`
   by (
     Cases_on `elems2` >>
-    fs [] >>
-    rfs [] >>
-    drule MEM_FRONT >>
-    rw [] >>
-    imp_res_tac LIST_REL_LENGTH >>
-    fs [MEM_ZIP, EL_MEM]) >>
+    fs [MEM_FRONT]) >>
+  MAP_EVERY qexists_tac [`[]`, `elem_vs2`, `[]`, `elem_vs3`, `elem_vs1`, `[]`, `elems2`, `[]`] >>
   rw []
+  >- (
+    simp [EXISTS_MEM] >>
+    qexists_tac `pivot` >>
+    rw [] >>
+    metis_tac [strict_weak_order_def])
   >- (
     simp [EXISTS_MEM] >>
     qexists_tac `pivot` >>
@@ -830,25 +1199,5 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
   MAP_EVERY qexists_tac [`elems`, `[]`, `elem_vs`, `[]`] >>
   rw [GSYM LENGTH_NIL] >>
   metis_tac []);
-
-  (*
-val my_cmp = process_topdecs `
-fun my_cmp (x1,y1) (x2,y2) =
-  (log := log + 1;
-   !x1 < !x2);
-`;
-val my_cmp_st = ml_progLib.add_prog my_cmp pick_name quicksort_st;
-
-val example_sort = process_topdecs `
-val sorted =
-  quicksort my_cmp
-  (fromList [(ref 0, 1), (ref 1, 2), (ref 0, 3), (ref 2, 4), (ref 1, 5)])
-`;
-val example_sort_st = ml_progLib.add_prog my_cmp pick_name my_cmp_st;
-
-
-val example_sorted_correct = Q.store_thm ("example_sorted_correct",
-
-*)
 
 val _ = export_theory ();

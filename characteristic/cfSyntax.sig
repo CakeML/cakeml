@@ -1,19 +1,41 @@
 signature cfSyntax = sig
   include Abbrev
 
+  (* cf_lit lit env H Q *)
   val cf_lit_tm   : term
   val mk_cf_lit   : term * term * term * term -> term
   val dest_cf_lit : term -> term * term * term * term
   val is_cf_lit   : term -> bool
 
+  (* cf_con cname args env H Q *)
   val cf_con_tm   : term
   val mk_cf_con   : term * term * term * term * term -> term
   val dest_cf_con : term -> term * term * term * term * term
   val is_cf_con   : term -> bool
 
+  (* cf_var name env H Q *)
   val cf_var_tm   : term
   val mk_cf_var   : term * term * term * term -> term
   val dest_cf_var : term -> term * term * term * term
   val is_cf_var   : term -> bool
 
+  (* cf_fun p f ns F1 F2 env H Q *)
+  val cf_fun_tm   : term
+  val mk_cf_fun   : term * term * term * term * term * term * term * term ->
+                    term
+  val dest_cf_fun : term ->
+                    term * term * term * term * term * term * term * term
+  val is_cf_fun   : term -> bool
+
+  (* cf_fun_rec p fs_FS F2 env H Q *)
+  val cf_fun_rec_tm   : term
+  val mk_cf_fun_rec   : term * term * term * term * term * term -> term
+  val dest_cf_fun_rec : term -> term * term * term * term * term * term
+  val is_cf_fun_rec   : term -> bool
+
+  (* cf_app p f args env H Q *)
+  val cf_app_tm   : term
+  val mk_cf_app   : term * term * term * term * term * term -> term
+  val dest_cf_app : term -> term * term * term * term * term * term
+  val is_cf_app   : term -> bool
 end
