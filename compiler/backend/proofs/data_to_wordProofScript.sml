@@ -9206,7 +9206,7 @@ val IMP_mw2n_2 = prove(
 val evaluate_WordOp64_on_32 = prove(
   ``!l.
     dimindex (:'a) = 32 ==>
-    ?www.
+    ?w27 w29.
       evaluate
        (WordOp64_on_32 opw,
         (t:('a,'ffi) wordSem$state) with
@@ -9218,11 +9218,12 @@ val evaluate_WordOp64_on_32 = prove(
      (NONE,t with locals :=
        insert 31 (Word ((63 >< 32) (opw_lookup opw c' c'')))
         (insert 33 (Word ((31 >< 0) (opw_lookup opw (c':word64) (c'':word64))))
-          (insert 29 www
-            (insert 23 (Word ((31 >< 0) c''))
-              (insert 21 (Word ((63 >< 32) c''))
-                (insert 13 (Word ((31 >< 0) c'))
-                  (insert 11 (Word ((63 >< 32) c')) l)))))))``,
+          (insert 27 w27
+            (insert 29 w29
+              (insert 23 (Word ((31 >< 0) c''))
+                (insert 21 (Word ((63 >< 32) c''))
+                  (insert 13 (Word ((31 >< 0) c'))
+                    (insert 11 (Word ((63 >< 32) c')) l))))))))``,
   Cases_on `opw`
   \\ fs [WordOp64_on_32_def,semanticPrimitivesPropsTheory.opw_lookup_def,
          list_Seq_def]
@@ -9239,11 +9240,14 @@ val evaluate_WordOp64_on_32 = prove(
                     w2n ((31 >< 0) c') + w2n ((31 >< 0) c'')`
     \\ qpat_abbrev_tac `c2 <=> dimword (:α) ≤ _`
     \\ rpt strip_tac
+    \\ qexists_tac `(Word 0w)`
     \\ qexists_tac `(Word (if c2 then 1w else 0w))`
     \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
     \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert)]
     \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
     \\ simp [Once (Q.SPECL [`29`,`33`] insert_insert)]
+    \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
+    \\ simp [Once (Q.SPECL [`29`,`27`] insert_insert)]
     \\ simp [Once (Q.SPECL [`29`,`29`] insert_insert)]
     \\ qmatch_goalsub_abbrev_tac `insert 31 (Word w1)`
     \\ qmatch_goalsub_abbrev_tac `insert 33 (Word w2)`
@@ -9283,11 +9287,15 @@ val evaluate_WordOp64_on_32 = prove(
   \\ qpat_abbrev_tac `c1 <=> dimword (:α) ≤ _ + (_ + 1)`
   \\ qpat_abbrev_tac `c2 <=> dimword (:α) ≤ _`
   \\ rpt strip_tac
+  \\ qexists_tac `(Word (¬(63 >< 32) c''))`
   \\ qexists_tac `(Word (if c2 then 1w else 0w))`
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert)]
   \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert),insert_shadow]
   \\ simp [(Q.SPECL [`29`,`33`] insert_insert)]
+  \\ simp [(Q.SPECL [`27`,`33`] insert_insert)]
+  \\ simp [(Q.SPECL [`29`,`33`] insert_insert)]
+  \\ simp [(Q.SPECL [`29`,`27`] insert_insert),insert_shadow]
   \\ qmatch_goalsub_abbrev_tac `insert 31 (Word w1)`
   \\ qmatch_goalsub_abbrev_tac `insert 33 (Word w2)`
   \\ qsuff_tac `w1 = (63 >< 32) (c' - c'') /\ w2 = (31 >< 0) (c' - c'')`
@@ -9709,7 +9717,7 @@ val th = Q.store_thm("assign_WordShiftW64",
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
   \\ clean_tac
-  \\ simp[assign_WordShift64]
+  \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
@@ -11301,7 +11309,8 @@ val assign_def_extras = LIST_CONJ
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
    Equal1_code_def, Equal_code_def, LongDiv1_code_def, LongDiv_code_def,
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
-   AddNumSize_def, AnyHeader_def];
+   AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
+   WordOp64_on_32_def, WordShift64_on_32_def];
 
 val extract_labels_def = wordPropsTheory.extract_labels_def;
 
@@ -11419,7 +11428,8 @@ val assign_no_inst = Q.prove(`
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
-  Cases_on`o'`>>fs[]);
+  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
 
 val comp_no_inst = Q.prove(`
   ∀c n m p.
