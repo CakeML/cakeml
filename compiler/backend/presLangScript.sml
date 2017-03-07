@@ -147,9 +147,19 @@ val new_obj_def = Define`
 val num_to_json_def = Define`
   num_to_json n = Int (int_of_num n)`;
 
-(* TODO: Define trace_to_json *)
 val trace_to_json_def = Define`
-  trace_to_json _ = Null`;
+  (trace_to_json (backend_common$Cons tra num) =
+    new_obj "Cons" [("num", num_to_json num); ("trace", trace_to_json tra)])
+  /\
+  (trace_to_json (Union tra1 tra2) =
+    new_obj "Union"
+      [("trace1", trace_to_json tra1); ("trace2", trace_to_json tra2)])
+  /\
+  (trace_to_json Empty = Null)
+  /\
+  (* TODO: cancel entire trace when None, or verify that None will always be at
+  * the top level of a trace. *)
+  (trace_to_json None = Null)`;
 
 (* TODO: Define t_to_json*)
 val t_to_json_def = Define`
