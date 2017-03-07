@@ -706,6 +706,28 @@ val WordOp64_on_32_def = Define `
                         Assign 31 (Op Xor [Const (-1w); Var 21]);
                         Inst (Arith (AddCarry 31 11 31 29))]`
 
+val WordShift64_on_32_def = Define `
+  WordShift64_on_32 sh n =
+    list_Seq
+      (* inputs in 11 and 13, writes results in 31 and 33 *)
+      if n < 32 then
+        (case sh of
+         | Lsl => [Assign 33 (ShiftVar sh 13 n);
+                   Assign 31 (Op Or [ShiftVar Lsr 13 (32 - n);
+                                     ShiftVar sh 11 n])]
+         | Lsr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                                     ShiftVar sh 13 n]);
+                   Assign 31 (ShiftVar sh 11 n)]
+         | Asr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                                     ShiftVar Lsr 13 n]);
+                   Assign 31 (ShiftVar sh 11 n)])
+      else
+        (case sh of
+         | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
+         | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
+         | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
+                   Assign 31 (ShiftVar sh 11 32)])`
+
 val bignum_words_def = Define `
   bignum_words c i =
     let (sign,payload) = i2mw i in
@@ -1115,14 +1137,18 @@ local val assign_quotation = `
          (dtcase encode_header c 3 len of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
-                (if len = 1 then
-                  list_Seq [
-                    LoadWord64 c 3 (adjust_var v1);
-                    Assign 3
-                     (ShiftVar (dtcase sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
-                        3 n);
-                    WriteWord64 c header dest 3]
-                 else GiveUp (* TODO: 32bit *)), l)
+            (if len = 1 then
+               list_Seq
+                 [LoadWord64 c 3 (adjust_var v1);
+                  Assign 3 (ShiftVar sh 3 n);
+                  WriteWord64 c header dest 3]
+             else
+               list_Seq [
+                 Assign 15 (real_addr c (adjust_var v1));
+                 Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+                 Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                 WordShift64_on_32 sh n;
+                 WriteWord64_on_32 c header dest 33 31],l))
        | _ => (Skip,l))
     | WordFromInt => (dtcase args of
       | [v1] =>
