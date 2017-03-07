@@ -282,11 +282,6 @@ val evaluate_genlist_prev_args_no_rev = Q.prove (
   srw_tac[][el_append3] >>
   decide_tac);
 
-
-  srw_tac[][] >>
-  (Q.SPECL_THEN [`prev_args`, `[p;n;cl]`, `x::y::args`]assume_tac evaluate_genlist_prev_args) >>
-  full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
-
 val evaluate_genlist_prev_args_no_rev = Q.prove (
   `!prev_args z x tag arg_list st.
     evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
