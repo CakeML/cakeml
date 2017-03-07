@@ -196,28 +196,22 @@ val triangle_table_size = Q.prove (
     max * (max -1) DIV 2`,
   rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle]);
 
+val triangle_div_lemma1 = Q.prove (
+  `!max_app n tot.
+    max_app = tot + 1 ∧ tot = n + 1
+    ⇒
+    n + tot * (tot − 1) DIV 2 < max_app * (max_app − 1) DIV 2`,
+  rw [] >>
+  ARITH_TAC);
+
 val triangle_div_lemma = Q.prove (
   `!max_app n tot.
     0 < max_app ∧ tot < max_app ∧ n < tot
     ⇒
     n + tot * (tot − 1) DIV 2 + 1 < max_app * (max_app − 1) DIV 2 + 4`,
-  Induct_on `tot` >>
-  rw [] >>
-  `tot = max_app ∨ tot < max_app` by decide_tac >>
-  rw [] >>
-  `n = tot ∨ n < tot` by decide_tac >>
-  rw [] >>
+  (* This follows from triangle_div_lemma1 by a monotonicity argument, but that
+   * seems too horrible to formalize. Is there a better way? *)
   cheat);
-
-(*
-val triangle_div_lemma = Q.prove (
-  `!x y z.
-    x * (x - 1) DIV 2 + y = (x * (x - 1) + 2 * y) DIV 2 ∧
-    y + x * (x - 1) DIV 2 = (2 * y + x * (x - 1)) DIV 2 ∧
-    y + x * (x - 1) DIV 2 + z = (2 * y + x * (x - 1) + 2 * z) DIV 2`,
-  rw [ADD_DIV_RWT] >>
-  ARITH_TAC);
-  *)
 
 val triangle_el = Q.prove (
   `!n tot max_app stuff f g.
