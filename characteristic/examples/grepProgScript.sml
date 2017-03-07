@@ -22,8 +22,8 @@ fun def_of_const tm = let
 val _ = find_def_for_const := def_of_const;
 
 (* TODO: translate balanced_map module separately? *)
-val _ = pick_name :=
-  let val default = !pick_name in
+val _ = ml_translatorLib.pick_name :=
+  let val default = !ml_translatorLib.pick_name in
     fn c =>
     if same_const c ``balanced_map$member`` then "balanced_map_member" else
     if same_const c ``balanced_map$empty`` then "balanced_map_empty" else
@@ -283,11 +283,7 @@ val parse_regexp_side = Q.prove(
     \\ Cases \\ simp[]
     \\ TOP_CASE_TAC \\ simp[] ) \\ fs[]) |> update_precondition;
 
-(* TODO: move to FileIO or rofsFFI *)
-open rofsFFITheory mlfileioProgTheory
-
-val _ = temp_add_monadsyntax();
-
+(* TODO: move *)
 val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
   `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,
   Induct \\ rw[] \\ Cases_on`ls` \\ fs[]);
@@ -299,6 +295,82 @@ val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
    ==> ALIST_FUPDKEY k f alist = alist`,
   ho_match_mp_tac ALIST_FUPDKEY_ind
   \\ rw[ALIST_FUPDKEY_def]);
+
+val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
+  `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ rw[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[] \\ fs[] \\ rw[ADD1]
+  \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_NIL_IMP
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY
+  \\ imp_res_tac SPLITP_IMP
+  \\ fs[NULL_EQ]
+  \\ fs[SPLITP] \\ rfs[] \\ rw[]
+  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
+  \\ disch_then(qspec_then`t`mp_tac)
+  \\ Cases_on`t` \\ rw[FIELDS_def]
+  \\ fs[SPLITP] \\ rfs[]
+  \\ rfs[NULL_EQ]);
+
+val FIELDS_NEQ_NIL = Q.store_thm("FIELDS_NEQ_NIL[simp]",
+  `FIELDS P ls ≠ []`,
+  disch_then(assume_tac o Q.AP_TERM`LENGTH`)
+  \\ fs[LENGTH_FIELDS]);
+
+(*
+val FLAT_FIELDS = Q.store_thm("FLAT_FIELDS",
+  `∀ls. FLAT (FIELDS P ls) = FILTER ($~ o P) ls`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ simp[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ fs[Once SPLITP]
+  \\ Cases_on`P h` \\ fs[] \\ rveq \\ simp[]
+  \\ first_x_assum(qspec_then`LENGTH t`mp_tac)
+  \\ simp[]
+  \\ disch_then(qspec_then`t`mp_tac)
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ rw[] \\ fs[NULL_EQ]
+*)
+
+(*
+val FIELDS_IMP = Q.store_thm("FIELDS_IMP",
+  `!ls l1 l2.
+     FIELDS P ls = l1::l2 ⇒
+     EVERY ($~ o P) l1 ∧ (~NULL l2 /\ ~NULL (HD l2) ==> P (HD (HD l2)))`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ simp[FIELDS_def]
+  \\ ntac 4 strip_tac
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac SPLITP_IMP
+  \\ conj_tac
+  >- ( every_case_tac \\ fs[NULL_EQ] \\ rw[] )
+  \\ every_case_tac \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+  >- (
+    first_x_assum(qspec_then`LENGTH (FIELDS P t)`mp_tac)
+    \\ simp[LENGTH_FIELDS]
+    \\ impl_tac
+    >- (qispl_then[`P`,`t`]mp_tac LENGTH_FILTER_LEQ
+        \\ simp[ADD1]
+    f"lENGTH_FILTER"
+*)
+
+(* -- *)
+
+(* TODO: move to FileIO or rofsFFI *)
+open rofsFFITheory mlfileioProgTheory
+
+val _ = temp_add_monadsyntax();
 
 val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
   `validFD fd fs ⇒ validFD fd (bumpFD fd fs)`,
@@ -344,34 +416,6 @@ val FDchar_SOME_IMP_FDline = Q.store_thm("FDchar_SOME_IMP_FDline",
   \\ rveq
   \\ pop_assum mp_tac \\ CASE_TAC \\ strip_tac \\ rveq
   \\ simp[]);
-
-(*
-val bumpLineFD_bumpFD = Q.store_thm("bumpLineFD_bumpFD",
-  `bumpLineFD fd (bumpFD fd fs) = bumpLineFD fd fs`,
-  rw[bumpLineFD_def,bumpFD_def,FDline_def,FDchar_def]
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ IF_CASES_TAC \\ fs[]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
-  \\ qmatch_assum_rename_tac`off < STRLEN content`
-  \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac TL_DROP_SUC
-  \\ Cases_on`DROP off content` \\ fs[DROP_NIL]
-  \\ fs[SPLITP] \\ rveq
-  \\ qpat_x_assum`COND _ _ _ = _`mp_tac
-  \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ fs[]
-  \\ Cases_on`SUC off < STRLEN content` \\ fs[]
-  \\ TRY (
-    `SUC off = STRLEN content` by decide_tac
-    \\ fs[DROP_LENGTH_NIL]
-    \\ fs[SPLITP] \\ rw[] )
-  \\ TRY IF_CASES_TAC \\ fs[]
-  \\ simp[ALIST_FUPDKEY_o,RO_fs_component_equality]
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ simp[FUN_EQ_THM,FORALL_PROD] );
-*)
 
 val FDline_bumpFD = Q.store_thm("FDline_bumpFD",
   `FDline fd fs = SOME (c::cs) ∧ c ≠ #"\n" ⇒
@@ -590,35 +634,128 @@ val bumpAllFD_def = Define`
     the fs (do
       (fnm,off) <- ALOOKUP fs.infds fd;
       content <- ALOOKUP fs.files fnm;
-      SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (K (LENGTH content))))
+      SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (MAX (LENGTH content))))
     od)`;
+
+val FDline_NONE_bumpAll_bumpLine = Q.store_thm("FDline_NONE_bumpAll_bumpLine",
+  `FDline fd fs = NONE ⇒
+   bumpLineFD fd fs = bumpAllFD fd fs`,
+  rw[bumpLineFD_def,bumpAllFD_def]
+  \\ fs[FDline_def,libTheory.the_def]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ simp[RO_fs_component_equality]
+  \\ match_mp_tac EQ_SYM
+  \\ match_mp_tac ALIST_FUPDKEY_I
+  \\ simp[MAX_DEF]);
+
+val linesFD_def = Define`
+  linesFD fd fs = the [] (
+    do
+      (fnm,off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.files fnm;
+      assert (off < LENGTH content);
+      SOME (FIELDS ((=) #"\n") (DROP off content))
+    od )`;
 
 (* -- *)
 
-val match_line_def = Define`
-  match_line matcher line =
-  (* TODO: the explode is unfortunate... should there be a version of inputLine that doesn't create a string? *)
-  case matcher (explode line) of | SOME T => T | _ => F`;
-
-val r = translate match_line_def;
-
 val print_matching_lines = process_topdecs`
-  fun print_matching_lines matcher fd =
+  fun print_matching_lines match fd =
     case inputLine fd of NONE => ()
-    | SOME ln => (if match_line matcher ln then print ln else ();
+    | SOME ln => (if match ln then print ln else ();
                   print_matching_lines matcher fd)`;
 val _ = append_prog print_matching_lines;
 
+val FDline_NONE_linesFD = Q.store_thm("FDline_NONE_linesFD",
+  `FDline fd fs = NONE ⇔ linesFD fd fs = []`,
+  rw[FDline_def,linesFD_def,EQ_IMP_THM] \\ rw[libTheory.the_def]
+  >- ( pairarg_tac \\ fs[libTheory.the_def] \\ pairarg_tac \\ fs[])
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac \\ fs[libTheory.the_def]);
+
+val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
+  `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
+  Cases_on`x` \\ EVAL_TAC);
+
 (*
+val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
+  `linesFD fd fs = ln::ls ⇒
+   FDline fd fs = SOME (ln++"\n") ∧
+   linesFD fd (bumpLineFD fd fs) = ls`,
+  simp[linesFD_def,bumpLineFD_def,the_nil_eq_cons]
+  \\ strip_tac \\ pairarg_tac \\ fs[]
+  \\ conj_asm1_tac
+  >- (
+    simp[FDline_def]
+    \\ Cases_on`DROP off content` \\ rfs[DROP_NIL]
+    \\ fs[FIELDS_def]
+    \\ pairarg_tac \\ fs[]
+    \\ every_case_tac \\ fs[] \\ rw[]
+    \\ fs[NULL_EQ] )
+  \\ simp[]
+  \\ simp[bumpFD_def,FDchar_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ reverse IF_CASES_TAC \\ fs[ALIST_FUPDKEY_ALOOKUP,libTheory.the_def]
+  \\ cheat);
+
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
-  `∀(fd:word8) fdv fs.
-   WORD fd fdv ∧ validFD (w2n fd) fs ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "print_matching_lines"(get_ml_prog_state()))
+  `∀fs.
+   (STRING_TYPE --> BOOL) m mv ∧
+   WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
+   app (p:'ffi ffi_proj)
+     ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; fdv]
      (ROFS fs * STDOUT out)
      (POSTv uv. &UNIT_TYPE () uv *
                 ROFS (bumpAllFD (w2n fd) fs) *
-                STDOUT (out ++ matching_lines matcher (w2n fd) fs)
-  `,
+                STDOUT (out ++ CONCAT (FILTER (m o implode) (linesFD (w2n fd) fs))))`,
+  Induct_on`linesFD (w2n fd) fs` \\ rw[]
+  >- (
+    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
+    \\ xcf"print_matching_lines"(get_ml_prog_state())
+    \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
+                     ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
+    >- ( xapp \\ instantiate \\ xsimpl )
+    \\ rfs[GSYM FDline_NONE_linesFD,ml_translatorTheory.OPTION_TYPE_def]
+    \\ xmatch
+    \\ xcon
+    \\ imp_res_tac FDline_NONE_bumpAll_bumpLine
+    \\ xsimpl )
+  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
+  \\ xcf"print_matching_lines"(get_ml_prog_state())
+  \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
+                   ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
+  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ Cases_on`FDline (w2n fd) fs` \\ fs[FDline_NONE_linesFD]
+  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ xmatch
+  \\ rename1`FDline _ _ = SOME ln`
+  \\ rveq
+  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
+  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ (if m (implode ln) then ln else ""))`
+  >- (
+    xif
+    >- (
+      xapp \\ instantiate \\ xsimpl
+      \\ simp[mlstringTheory.explode_implode]
+      \\ CONV_TAC(SWAP_EXISTS_CONV)
+      \\ qexists_tac`out`
+      \\ xsimpl )
+    \\ xcon \\ xsimpl )
+  \\ imp_res_tac linesFD_eq_cons_imp \\ rveq
+  \\ first_x_assum(qspecl_then[`fd`,`bumpLineFD (w2n fd) fs`]mp_tac)
+  \\ simp[]
+  \\ impl_tac >- cheat
+  \\ strip_tac
 *)
+
+val match_line_def = Define`
+  match_line matcher (line:string) =
+  case matcher line of | SOME T => T | _ => F`;
+
+val r = translate match_line_def;
 
 val _ = export_theory ();
