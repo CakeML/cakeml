@@ -3959,6 +3959,8 @@ val compile_exps_code_locs = Q.store_thm("compile_exps_code_locs",
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `0 < max_app ⇒
+   (lookup get_partial_app_label_fn_location (init_code max_app) =
+       SOME (2, get_partial_app_label_fn max_app)) ∧
    (!n.
       n < max_app ⇒ lookup (generic_app_fn_location n) (init_code max_app) = SOME (n + 2, generate_generic_app max_app n)) ∧
    (!m n.
@@ -3968,7 +3970,8 @@ val init_code_ok = Q.store_thm ("init_code_ok",
    (lookup (equality_location max_app) (init_code max_app) = SOME (equality_code max_app)) ∧
    (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
    (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
-  srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def, generic_app_fn_location_def]
+  srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
+            get_partial_app_label_fn_location_def, generic_app_fn_location_def]
   >- decide_tac
   >- simp[EL_APPEND1, GSYM ADD1]
   >- (srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_square] >>
@@ -4527,6 +4530,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_annotateProof$state_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+
   (* clos_to_bvl *)
   qmatch_assum_abbrev_tac`closSem$evaluate tmp = _` >>
   qspec_then`tmp`mp_tac(CONJUNCT1 compile_exps_correct) >>
