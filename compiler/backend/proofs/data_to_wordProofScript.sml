@@ -9181,6 +9181,28 @@ val assign_WordOp64 =
   ``assign c n l dest (WordOp W64 opw) [e1; e2] names_opt``
   |> SIMP_CONV (srw_ss()) [assign_def]
 
+val mw2n_2_IMP = prove(
+  ``mw2n [w1;w2:'a word] = n ==>
+    w2 = n2w (n DIV dimword (:'a)) /\
+    w1 = n2w n``,
+  fs [multiwordTheory.mw2n_def] \\ rw []
+  \\ Cases_on `w1` \\ Cases_on `w2` \\ fs []
+  \\ once_rewrite_tac [ADD_COMM]
+  \\ asm_simp_tac std_ss [DIV_MULT]);
+
+val IMP_mw2n_2 = prove(
+  ``Abbrev (x2 = (63 >< 32) (n2w n:word64)) /\
+    Abbrev (x1 = (31 >< 0) (n2w n:word64)) /\
+    n < dimword (:64) /\ dimindex (:'a) = 32 ==>
+    mw2n [x1;x2:'a word] = n``,
+  fs [markerTheory.Abbrev_def]
+  \\ rw [multiwordTheory.mw2n_def]
+  \\ fs [word_extract_n2w]
+  \\ fs [bitTheory.BITS_THM2,dimword_def]
+  \\ fs [DIV_MOD_MOD_DIV]
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ simp [Once (MATCH_MP DIVISION (DECIDE ``0 < 4294967296n``))]);
+
 val evaluate_WordOp64_on_32 = prove(
   ``!l.
     dimindex (:'a) = 32 ==>
@@ -9258,7 +9280,56 @@ val evaluate_WordOp64_on_32 = prove(
     \\ `n MOD 4294967296 < 4294967296` by fs []
     \\ `n' MOD 4294967296 < 4294967296` by fs []
     \\ decide_tac)
-  \\ cheat (* Sub for Word64 on 32-bit arch (Add is cheat free) *));
+  \\ qpat_abbrev_tac `c1 <=> dimword (:α) ≤ _ + (_ + 1)`
+  \\ qpat_abbrev_tac `c2 <=> dimword (:α) ≤ _`
+  \\ rpt strip_tac
+  \\ qexists_tac `(Word (if c2 then 1w else 0w))`
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert)]
+  \\ simp [Once (Q.SPECL [`29`,`31`] insert_insert),insert_shadow]
+  \\ simp [(Q.SPECL [`29`,`33`] insert_insert)]
+  \\ qmatch_goalsub_abbrev_tac `insert 31 (Word w1)`
+  \\ qmatch_goalsub_abbrev_tac `insert 33 (Word w2)`
+  \\ qsuff_tac `w1 = (63 >< 32) (c' - c'') /\ w2 = (31 >< 0) (c' - c'')`
+  THEN1 fs [insert_shadow]
+  \\ qabbrev_tac `x2 = (63 >< 32) c'`
+  \\ qabbrev_tac `x1 = (31 >< 0) c'`
+  \\ qabbrev_tac `y2 = (63 >< 32) c''`
+  \\ qabbrev_tac `y1 = (31 >< 0) c''`
+  \\ `?c. mw_sub [x1;x2] [y1;y2] T = ([w2;w1],c)` by
+    (fs [multiwordTheory.mw_sub_def,multiwordTheory.single_sub_def,
+         multiwordTheory.single_add_def,EVAL ``multiword$b2w T``]
+     \\ fs [GSYM word_add_n2w,multiwordTheory.b2n_def]
+     \\ Cases_on `c1` \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
+  \\ drule multiwordTheory.mw_sub_lemma
+  \\ fs [multiwordTheory.b2n_def,multiwordTheory.dimwords_def]
+  \\ strip_tac
+  \\ drule (DECIDE ``m+(w+r)=k ==> w = k-m-r:num``)
+  \\ strip_tac
+  \\ drule mw2n_2_IMP
+  \\ simp []
+  \\ disch_then kall_tac
+  \\ pop_assum kall_tac
+  \\ Cases_on `c'`
+  \\ Cases_on `c''`
+  \\ `mw2n [x1;x2] = n /\ mw2n [y1;y2] = n'` by
+    (rw [] \\ match_mp_tac IMP_mw2n_2 \\ fs [] \\ fs [markerTheory.Abbrev_def])
+  \\ fs [] \\ ntac 2 (pop_assum kall_tac)
+  \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``w-x``)]
+  \\ rewrite_tac [word_sub_def,word_2comp_n2w,word_add_n2w]
+  \\ fs [word_extract_n2w]
+  \\ fs [bitTheory.BITS_THM2,dimword_def] \\ rfs []
+  \\ fs [DIV_MOD_MOD_DIV]
+  \\ once_rewrite_tac [
+      Q.SPECL [`4294967296`,`4294967296`] MOD_MULT_MOD
+      |> SIMP_RULE std_ss [] |> GSYM]
+  \\ qsuff_tac `(n + 18446744073709551616 − (n' + 18446744073709551616 * b2n c))
+        MOD 18446744073709551616 =
+      (n + 18446744073709551616 − n') MOD 18446744073709551616`
+  THEN1 fs []
+  \\ Cases_on `c` \\ fs [multiwordTheory.b2n_def]
+  \\ `n' <= n` by decide_tac
+  \\ fs [LESS_EQ_EXISTS]);
 
 val th = Q.store_thm("assign_WordOpW64",
   `(?opw. op = WordOp W64 opw) ==> ^assign_thm_goal`,
