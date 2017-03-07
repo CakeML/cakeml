@@ -841,64 +841,168 @@ val list_case_lemma = Q.prove(
     (a ≠ [] ∧ [x] = f (HD a) (TL a))`,
   Cases_on `a` >> simp[]);
 
+(* only the subs = [x] and subs = [x;y] cases are relevant *)
 val left_insert1_def = Define`
-  (left_insert1 pt (Lf x) = Lf x) ∧
-  (left_insert1 pt (Nd n subs) =
+  (left_insert1 pt (Lf (tk, l)) = Lf (tk, merge_locs (ptree_loc pt) l)) ∧
+  (left_insert1 pt (Nd (n,l0) subs) =
      case subs of
-         [x] => Nd n [Nd n [pt]; x]
-       | [x; y] => Nd n [left_insert1 pt x; y]
-       | _ => Nd n subs)
+         [] => Nd (n, merge_locs (ptree_loc pt) l0) [pt]
+       | [x] => mkNd n [mkNd n [pt]; x]
+       | x::xs => mkNd n (left_insert1 pt x :: xs))
 `;
+val left_insert1_ind = theorem "left_insert1_ind"
 
 open grammarTheory
-val ptree_loc_left_insert1 = Q.prove(
-    `ptree_loc (left_insert1 pt acc) = ptree_loc acc`,
-    Cases_on `acc` >> TRY(Cases_on `p`) >>
-    rpt( every_case_tac >> simp[ptree_loc_def,left_insert1_def]))
-val _ = augment_srw_ss[rewrites[ptree_loc_left_insert1]]
 
 val left_insert1_FOLDL = Q.store_thm(
   "left_insert1_FOLDL",
   `left_insert1 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
     FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert1 pt acc) arg`,
   qid_spec_tac `acc` >> Induct_on `arg` >>
-  fs[left_insert1_def,mkNd_def,ptree_list_loc_def,ptree_loc_left_insert1]);
+  fs[left_insert1_def,mkNd_def,ptree_list_loc_def]);
 
+val _ = export_rewrites ["grammar.ptree_loc_def"]
 
-(* val eapp_reassociated = Q.store_thm(
+val merge_locs_assoc = Q.store_thm(
+  "merge_locs_assoc[simp]",
+  ‘merge_locs (merge_locs l1 l2) l3 = merge_locs l1 l3 ∧
+   merge_locs l1 (merge_locs l2 l3) = merge_locs l1 l3’,
+  map_every Cases_on [`l1`, `l2`, `l3`] >>
+  simp[locationTheory.merge_locs_def]);
+
+val merge_list_locs_2 = Q.store_thm(
+  "merge_list_locs_2[simp]",
+  ‘∀h1 h2 t.
+     merge_list_locs (h1 :: h2 :: t) = merge_list_locs (merge_locs h1 h2 :: t)’,
+  Induct_on ‘t’ >> simp[locationTheory.merge_list_locs_def]);
+
+val merge_list_locs_nested = Q.store_thm(
+  "merge_list_locs_nested[simp]",
+  ‘∀h t1 t2. merge_list_locs (merge_list_locs (h::t1) :: t2) =
+             merge_list_locs (h :: t1 ++ t2)’,
+  Induct_on ‘t1’ >> simp[locationTheory.merge_list_locs_def]);
+
+val merge_list_locs_sing = Q.store_thm(
+  "merge_list_locs_sing[simp]",
+  ‘merge_list_locs [h] = h’,
+  simp[locationTheory.merge_list_locs_def]);
+
+val merge_locs_idem = Q.store_thm(
+  "merge_locs_idem[simp]",
+  ‘merge_locs l l = l’,
+  Cases_on ‘l’ >> simp[locationTheory.merge_locs_def]);
+
+val ptree_loc_mkNd = Q.store_thm(
+  "ptree_loc_mkNd[simp]",
+  ‘ptree_loc (mkNd n subs) = ptree_list_loc subs’,
+  simp[mkNd_def]);
+
+val merge_list_locs_HDLAST = Q.store_thm(
+  "merge_list_locs_HDLAST",
+  ‘∀h. merge_list_locs (h::t) = merge_locs h (LAST (h::t))’,
+  Induct_on ‘t’ >> simp[] >> Cases_on ‘t’ >> simp[]);
+
+val valid_locs_def = tDefine "valid_locs" ‘
+  (valid_locs (Lf _) ⇔ T) ∧
+  (valid_locs (Nd (_, l) children) ⇔
+     l = merge_list_locs (MAP ptree_loc children) ∧
+     ∀pt. MEM pt children ⇒ valid_locs pt)’
+  (WF_REL_TAC ‘measure ptree_size’ >> simp[] >> Induct >> dsimp[] >>
+   rpt strip_tac >> res_tac >> simp[]);
+val _ = export_rewrites ["valid_locs_def"]
+
+val valid_lptree_def = Define `
+  valid_lptree G pt ⇔ valid_locs pt ∧ valid_ptree G pt
+`;
+
+val ptree_loc_left_insert1 = Q.store_thm(
+  "ptree_loc_left_insert1",
+  `∀subpt pt.
+      valid_locs pt ⇒
+        ptree_loc (left_insert1 subpt pt) =
+        merge_locs (ptree_loc subpt) (ptree_loc pt)`,
+  ho_match_mp_tac left_insert1_ind >> simp[left_insert1_def, ptree_loc_def] >>
+  rw[] >> Cases_on `subs` >> simp[] >> fs[] >> rename [`list_CASE t`] >>
+  Cases_on `t` >>
+  fs[mkNd_def, ptree_list_loc_def, locationTheory.merge_list_locs_def,
+     merge_list_locs_HDLAST] >>
+  rename [`MAP ptree_loc t2`] >> Cases_on ‘t2’ >> simp[]);
+
+val _ = overload_on("leftLoc", ``FST : locs -> locn``)
+val _ = overload_on("rightLoc", ``SND : locs -> locn``)
+val _ = overload_on("mkLoc", ``(,) : locn -> locn -> locs``)
+
+val merge_locs_LR = Q.store_thm(
+  "merge_locs_LR",
+  ‘merge_locs l1 l2 = mkLoc (leftLoc l1) (rightLoc l2)’,
+  map_every Cases_on [‘l1’, ‘l2’] >> simp[locationTheory.merge_locs_def]);
+
+val leftLoc_merge_locs = Q.store_thm(
+  "leftLoc_merge_locs[simp]",
+  ‘leftLoc (merge_locs l1 l2) = leftLoc l1’,
+  simp[merge_locs_LR]);
+
+val rightLoc_merge_locs = Q.store_thm(
+  "rightLoc_merge_locs[simp]",
+  ‘rightLoc (merge_locs l1 l2) = rightLoc l2’,
+  simp[merge_locs_LR]);
+
+(* Problem with Eapp is that it's left-recursive in the grammar :
+
+     Eapp ::= Eapp Ebase | Ebase
+
+   but the PEG parses it by calling Ebase >> rpt Ebase, and then doing
+   a FOLDL on the resulting list to assemble it into a valid parse-tree.
+
+   Then, when it comes time to prove completeness (eapp_completeness
+   below), we know that we have a valid Eapp parse-tree, but we expand
+   the PEG invocation out into Ebase >> rpt Ebase, and do an induction on the
+   length of the token-list to be consumed.  The gist of it all is that we
+   end up wanting to know that if we've generated an Eapp to our right, then
+   we can insert an Ebase from its left, generating a valid tree.
+
+   This next result says that if we have a parse tree (i.e., with an
+   Eapp (pt) to the left, and an Ebase bpt to the right, then we can
+   "reassociate", giving us an Ebase (bpt') sitting to the left and an
+   Eapp (pt') sitting to the right, such that left-inserting the
+   former into the latter gives us back what we started with.
+*)
+
+val eapp_reassociated = Q.store_thm(
   "eapp_reassociated",
   `∀pt bpt pf bf.
-      valid_ptree cmlG pt ∧ ptree_head pt = NN nEapp ∧
+      valid_lptree cmlG pt ∧ ptree_head pt = NN nEapp ∧
       ptree_fringe pt = MAP (TK o FST) pf ∧
-      valid_ptree cmlG bpt ∧ ptree_head bpt = NN nEbase ∧
+      valid_lptree cmlG bpt ∧ ptree_head bpt = NN nEbase ∧
       ptree_fringe bpt = MAP (TK o FST) bf ⇒
       ∃pt' bpt'.
-        valid_ptree cmlG pt' ∧ valid_ptree cmlG bpt' ∧
+        valid_lptree cmlG pt' ∧ valid_lptree cmlG bpt' ∧
+        leftLoc (ptree_loc bpt') = leftLoc (ptree_loc pt) ∧
+        rightLoc (ptree_loc pt') = rightLoc (ptree_loc bpt) ∧
         ptree_head pt' = NN nEapp ∧ ptree_head bpt' = NN nEbase ∧
         ptree_fringe bpt' ++ ptree_fringe pt' = MAP (TK o FST) (pf ++ bf) ∧
         mkNd (mkNT nEapp) [pt; bpt] = left_insert1 bpt' pt'`,
-  cheat (*
+  simp[valid_lptree_def] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM, FORALL_PROD, EXISTS_PROD] >>
   qx_gen_tac `subs` >> strip_tac >>
   rpt strip_tac >> rveq >> fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
   rveq
-  >- (rename [`ptree_head pt0 = NN nEapp`, `ptree_head bpt = NN nEbase`,
-              `ptree_fringe pt0 = MAP (TK o FST) pf`] >>
-      Q.UNDISCH_THEN `ptree_head bpt = NN nEbase` mp_tac >>
-      rename [`ptree_head bpt0 = NN nEbase`,
-              `MAP _ pf ++ MAP _ bf0 ++ MAP _ bf`,
-              `ptree_fringe bpt0 = MAP (TK o FST) bf0`] >> strip_tac >>
+  >- (rename [`[Nd _ [pt0; bpt0]; bpt]`,
+              `ptree_head pt0 = NN nEapp`, `ptree_head bpt = NN nEbase`,
+              `ptree_fringe pt0 = MAP (TK o FST) pf`,
+              `ptree_fringe bpt0 = MAP _ bf0`] >>
       first_x_assum (qspecl_then [`bpt0`, `pf`, `bf0`] mp_tac) >>
       simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
       map_every qexists_tac [`mkNd (mkNT nEapp) [ppt'; bpt]`, `bpt'`] >>
-      dsimp[cmlG_FDOM, cmlG_applied, left_insert1_def, mkNd_def]) >>
-  Q.UNDISCH_THEN `ptree_head bpt = NN nEbase` mp_tac >>
-  asm_match `ptree_head bpt0 = NN nEbase` >> strip_tac >>
+      dsimp[cmlG_FDOM, cmlG_applied, left_insert1_def, mkNd_def,
+            ptree_list_loc_def, ptree_loc_def, ptree_loc_left_insert1] >>
+      fs[mkNd_def, ptree_list_loc_def, merge_locs_LR]) >>
+  rename [`[Nd _ [bpt0]; bpt]`] >>
   map_every qexists_tac [`mkNd (mkNT nEapp) [bpt]`, `bpt0`] >>
   dsimp[cmlG_applied, cmlG_FDOM, left_insert1_def, mkNd_def,
         ptree_list_loc_def, ptree_loc_def,
-        locationTheory.merge_list_locs_def] *));
+        locationTheory.merge_list_locs_def]);
 
 val leftmost_def = Define`
   leftmost (Lf s) = Lf s ∧
@@ -910,23 +1014,58 @@ val leftmost_def = Define`
         | h::_ => leftmost h
 `;
 
+(* pt is a Tbase, and n will be DType all the way down *)
 val left_insert2_def = Define`
-  (left_insert2 pt (Lf x) = Lf x) ∧
-  (left_insert2 pt (Nd n subs) =
+  (left_insert2 pt (Lf (tk, l)) = Lf (tk, merge_locs (ptree_loc pt) l)) ∧
+  (left_insert2 pt (Nd (n, l0) subs) =
      case subs of
-         [Nd n2 [tb]] => if n2 <> mkNT nTbase then Nd n subs
-                         else Nd n [Nd n [pt]; tb]
-       | [x; y] => Nd n [left_insert2 pt x; y]
-       | _ => Nd n subs)
+         [] => Nd(n,merge_locs (ptree_loc pt) l0) [pt]
+       | [Nd _ (* nTbase *) [tyop]] => mkNd n [mkNd n [pt]; tyop]
+       | x::ys => mkNd n (left_insert2 pt x :: ys))
 `;
+val left_insert2_ind = theorem "left_insert2_ind"
+val _ = export_rewrites ["left_insert2_def"]
+
+val ptree_loc_left_insert2 = Q.store_thm(
+  "ptree_loc_left_insert2",
+  ‘∀bpt dpt.
+     valid_locs dpt ⇒
+       ptree_loc (left_insert2 bpt dpt) =
+       merge_locs (ptree_loc bpt) (ptree_loc dpt)’,
+  ho_match_mp_tac left_insert2_ind >> rw[] >>
+  rename [`MAP ptree_loc subs`] >> Cases_on `subs` >> fs[] >>
+  rename [`list_CASE t`] >> reverse (Cases_on `t`) >> fs[]
+  >- (simp[ptree_list_loc_def, merge_list_locs_HDLAST] >>
+      rename [`MAP ptree_loc t2`] >> Cases_on `t2` >> simp[]) >>
+  rename [`parsetree_CASE pt`] >> Cases_on `pt` >> fs[ptree_list_loc_def] >>
+  rename [`list_CASE ptl`] >> Cases_on `ptl` >> fs[ptree_list_loc_def] >>
+  rename [`list_CASE ptl'`] >> Cases_on `ptl'` >> fs[ptree_list_loc_def] >>
+  rename [`Nd nl _`] >> Cases_on `nl` >> fs[]);
 
 val left_insert2_FOLDL = Q.store_thm(
   "left_insert2_FOLDL",
-  `left_insert2 pt (FOLDL (λa b. Nd (mkNT P) [a; b]) acc arg) =
-    FOLDL (λa b. Nd (mkNT P) [a; b]) (left_insert2 pt acc) arg`,
-  qid_spec_tac `acc` >> Induct_on `arg` >> simp[left_insert2_def]);
+  `left_insert2 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
+    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert2 pt acc) arg`,
+  qid_spec_tac `acc` >> Induct_on `arg` >> simp[] >> simp[mkNd_def]);
 
+(* the situation with DType is similar to that with Eapp and Ebase.
 
+   The grammar rules are
+
+      DType ::= DType TyOp | Tbase
+
+   and the PEG handles this by grabbing a TBase, and then a sequence
+   of TyOps (think something like "num list option").
+
+   The reassociated theorem to come states that if we have a good
+   DType (num list) followed by a TyOp (option), then it's possible to
+   recast this as a Tbase (num) followed by a DType (list option).  This
+   latter is bogus as an SML type, but is fine syntax because "list" is both
+   a valid TyOp and thus a Tbase as well.  The left_insert1 function
+
+*)
+
+(*
 val dtype_reassociated = Q.store_thm(
   "dtype_reassociated",
   `∀pt bpt pf bf.
