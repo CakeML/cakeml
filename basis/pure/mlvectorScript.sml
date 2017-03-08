@@ -3,6 +3,8 @@ open preamble
 
 val _ = new_theory"mlvector"
 
+val _ = set_grammar_ancestry ["mllist", "regexp_compiler"]
+
 val vector_nchotomy = save_thm("vector_nchotomy",regexp_compilerTheory.vector_nchotomy);
 
 val sub_def = save_thm("sub_def",regexp_compilerTheory.sub_def);
@@ -53,7 +55,7 @@ val EL_toList= Q.store_thm("EL_toList",`EL n (toList l) = sub l n`,
   Induct_on `l` >> fs[sub_def,toList_thm]);
 
 val toList_fromList = Q.store_thm("toList_fromList[simp]",
-  `(toList(fromList l) = l) /\ (fromList(mlvector$toList v) = v)`,
+  `(toList(fromList l) = l) /\ (fromList(toList v) = v)`,
   Cases_on `v` >> fs[toList_thm,fromList_def]);
 
 val update_def = Define`
