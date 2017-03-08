@@ -64,6 +64,9 @@ val destNum_def = Define`
   (destNum _ = NONE)`;
 val _ = export_rewrites ["destNum_def"]
 
+val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
+  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+
 val encode_pair_def = Define`
   encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
 
@@ -94,6 +97,14 @@ val decode_encode_list = Q.store_thm(
    ∀l. decode_list d (encode_list e l) = SOME l`,
   strip_tac >> simp[decode_list_def, encode_list_def] >> Induct >>
   simp[OPT_MMAP_def]);
+
+(* make an ffi_next function from base functions and encode/decode *)
+val mk_ffi_next_def = Define`
+  mk_ffi_next (encode,decode,ls) name bytes s =
+    OPTION_BIND (ALOOKUP ls name) (λf.
+    OPTION_BIND (decode s) (λs.
+    OPTION_BIND (f bytes s) (λ(bytes,s).
+    SOME (bytes,encode s))))`;
 
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
@@ -168,6 +179,18 @@ val W8ARRAY_def = Define `
 
 val IO_def = Define `
   IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events)`;
+
+val IOx_def = Define`
+  IOx (encode,decode,ls) s =
+    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP FST ls)`;
+
+val mk_proj1_def = Define`
+  mk_proj1 (encode,decode,ls) s =
+    MAP (λx. (x, encode s)) (MAP FST ls)`;
+
+val mk_proj2_def = Define`
+  mk_proj2 (encode,decode,ls) =
+    (MAP FST ls, mk_ffi_next (encode,decode,ls))`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

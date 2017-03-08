@@ -1,4 +1,5 @@
 open preamble evaluateTheory;
+open namespaceTheory namespacePropsTheory;
 open terminationTheory
 open semanticPrimitivesTheory;
 open semanticPrimitivesPropsTheory;
@@ -314,56 +315,48 @@ val evaluate_cons = Q.store_thm ("evaluate_cons",
  >> drule evaluate_sing
  >> rw []);
 
-val evaluate_length = Q.store_thm("evaluate_length",
-  `(∀(s:'ffi state) e p s' r. evaluate s e p = (s',Rval r) ⇒ LENGTH r = LENGTH p) ∧
-   (∀(s:'ffi state) e v p er s' r. evaluate_match s e v p er = (s',Rval r) ⇒ LENGTH r = 1)`,
-  ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][])
-
 val evaluate_decs_nil = Q.store_thm("evaluate_decs_nil[simp]",
-  `∀mn (s:'ffi state) env. evaluate_decs mn s env [] = (s,[],Rval [])`,
+  `∀mn (s:'ffi state) env.
+    evaluate_decs mn s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty |>)`,
  rw [evaluate_decs_def]);
 
 val evaluate_decs_cons = Q.store_thm ("evaluate_decs_cons",
  `∀mn (s:'ffi state) env d ds.
    evaluate_decs mn s env (d::ds) =
      case evaluate_decs mn s env [d] of
-     | (s', ctors, Rval new_vals) =>
-      (case evaluate_decs mn s' (extend_dec_env new_vals ctors env) ds of
-       | (s'', ctors', r) => (s'', ctors'++ctors, combine_dec_result new_vals r)
+     | (s1, Rval env1) =>
+      (case evaluate_decs mn s1 (extend_dec_env env1 env) ds of
+       | (s2, r) => (s2, combine_dec_result env1 r)
        | err => err)
      | err => err`,
  Cases_on `ds`
  >> rw [evaluate_decs_def]
  >> split_pair_case_tac
  >> simp []
- >> rename1 `evaluate_decs _ _ _ _ = (s',ctors,r)`
+ >> rename1 `evaluate_decs _ _ _ _ = (s1,r)`
  >> Cases_on `r`
- >> simp [combine_dec_result_def]);
+ >> simp [combine_dec_result_def, sem_env_component_equality]);
 
 val evaluate_tops_nil = Q.store_thm("evaluate_tops_nil[simp]",
-  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,([],[]),Rval ([],[]))`,
+  `∀(s:'ffi state) env. evaluate_tops s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty |>)`,
  rw [evaluate_tops_def]);
 
 val evaluate_tops_cons = Q.store_thm ("evaluate_tops_cons",
  `∀(s:'ffi state) env top tops.
    evaluate_tops s env (top::tops) =
      case evaluate_tops s env [top] of
-     | (s', ctors, Rval (new_mods, new_vals)) =>
-      (case evaluate_tops s' (extend_top_env new_mods new_vals ctors env) tops of
-       | (s'', ctors', r) => (s'', merge_alist_mod_env ctors' ctors, combine_mod_result new_mods new_vals r)
+     | (s1, Rval env1) =>
+      (case evaluate_tops s1 (extend_dec_env env1 env) tops of
+       | (s2, r) => (s2, combine_dec_result env1 r)
        | err => err)
      | err => err`,
  Cases_on `tops`
  >> rw [evaluate_tops_def]
  >> split_pair_case_tac
  >> simp []
- >> rename1 `evaluate_tops _ _ _ = (s',ctors,r)`
+ >> rename1 `evaluate_tops _ _ _ = (s1,r)`
  >> Cases_on `r`
- >> simp [combine_mod_result_def]
- >> split_pair_case_tac
- >> simp []);
+ >> simp [combine_dec_result_def, sem_env_component_equality]);
 
 val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
   `evaluate_match s e v p er = (s',r) ⇒
@@ -374,17 +367,16 @@ val evaluate_match_list_result = Q.store_thm("evaluate_match_list_result",
   metis_tac[list_result_def]);
 
 val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
-  `!m s e p s' c r extra.
-   evaluate_decs m s e p = (s',c,r) ∧
+  `!m s e p s' r extra.
+   evaluate_decs m s e p = (s',r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_decs m (s with clock := s.clock + extra) e p =
-   (s' with clock := s'.clock + extra,c,r)`,
+   (s' with clock := s'.clock + extra,r)`,
   ho_match_mp_tac evaluate_decs_ind
   >> rw [evaluate_decs_def]
   >- (
     pop_assum mp_tac
     >> pop_assum mp_tac
-    >> CASE_TAC
     >> CASE_TAC
     >> CASE_TAC
     >> fs []
@@ -411,32 +403,29 @@ val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
   >> rw []);
 
 val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
- `!s e p s' c r extra.
-   evaluate_tops s e p = (s',c,r) ∧
+ `!s e p s' r extra.
+   evaluate_tops s e p = (s',r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_tops (s with clock := s.clock + extra) e p =
-   (s' with clock := s'.clock + extra,c,r)`,
+   (s' with clock := s'.clock + extra,r)`,
  ho_match_mp_tac evaluate_tops_ind
  >> rw [evaluate_tops_def]
  >- (
-   pop_assum mp_tac
-   >> pop_assum mp_tac
+   split_pair_case_tac
+   >> fs []
    >> split_pair_case_tac
    >> fs []
-   >> CASE_TAC
-   >> simp []
+   >> every_case_tac
    >> fs []
-   >- (
-     CASE_TAC
-     >> fs []
-     >> split_pair_case_tac
-     >> simp []
-     >> rw []
-     >> Cases_on `r''`
-     >> fs [combine_mod_result_def])
-   >- (
-     rw []
-     >> fs []))
+   >> rpt var_eq_tac
+   >> simp []
+   >> rfs [combine_dec_result_def]
+   >> fs []
+   >> Cases_on `r'`
+   >> Cases_on `r''`
+   >> simp []
+   >> rfs []
+   >> fs [])
  >- (
    every_case_tac
    >> fs []
@@ -448,6 +437,7 @@ val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
    >> fs []
    >> rw []
    >> imp_res_tac evaluate_decs_add_to_clock
+   >> rfs []
    >> fs []
    >> rw []));
 
@@ -470,9 +460,9 @@ val tac1 =
             state_component_equality, with_clock_with_clock]
 
 val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
-`!s e p s1 c1 r1 s2 c2 r2 k1 k2.
-  evaluate_prog (s with clock := k1) e p = (s1,c1,r1) ∧
-  evaluate_prog (s with clock := k2) e p = (s2,c2,r2)
+`!s e p s1 r1 s2 r2 k1 k2.
+  evaluate_prog (s with clock := k1) e p = (s1,r1) ∧
+  evaluate_prog (s with clock := k2) e p = (s2,r2)
   ⇒
   case (r1,r2) of
   | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
@@ -482,7 +472,7 @@ val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
   | (_, Rerr (Rabort Rtimeout_error)) =>
     k2 < k1
   | _ =>
-    s1.ffi = s2.ffi ∧ c1 = c2 ∧ r1 = r2`,
+    s1.ffi = s2.ffi ∧ r1 = r2`,
  rw []
  >> Cases_on `r2 = Rerr (Rabort Rtimeout_error)`
  >> Cases_on `r1 = Rerr (Rabort Rtimeout_error)`
@@ -602,7 +592,7 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
     (FST (evaluate_prog (s with clock := k2) e p)).ffi`,
   srw_tac[][evaluate_prog_def] >>
   qabbrev_tac`ss = s with clock := k1` >>
-  `∃s1 c r. evaluate_tops ss e p = (s1,c,r)` by metis_tac[PAIR] >>
+  `∃s1 r. evaluate_tops ss e p = (s1,r)` by metis_tac[PAIR] >>
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
 
@@ -624,8 +614,8 @@ val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  >> rw [dec_clock_def]);
 
 val evaluate_decs_state_unchanged = Q.store_thm ("evaluate_decs_state_unchanged",
- `!mn st env ds st' new_ctors r.
-  evaluate_decs mn st env ds = (st',new_ctors,r)
+ `!mn st env ds st' r.
+  evaluate_decs mn st env ds = (st',r)
   ⇒
   st.defined_mods = st'.defined_mods`,
  ho_match_mp_tac evaluate_decs_ind
@@ -662,7 +652,7 @@ val option_CASE_fst_cong = Q.prove(
    (c, option_CASE r f (λb. g b))`,
   Cases_on`r` \\ fs[]);
 
-val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged
+val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
 
 val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
   (∀(s:'a state) env e s' r.
@@ -849,9 +839,12 @@ val evaluate_ffi_intro = Q.store_thm("evaluate_ffi_intro",`
     \\ rw[state_component_equality] )
   >- (
     rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- rw[state_component_equality]
     \\ TOP_CASE_TAC \\ fs[]
-    \\ rw[state_component_equality] ))
+    \\ rw[state_component_equality] ));
 
 val _ = export_theory();

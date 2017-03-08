@@ -12,7 +12,8 @@ Note: CharIO is not in the SML basis, but is used for our
 current examples (hello, cat, compiler bootstrap). We should
 add a TextIO like the basis instead. Once we have an abstract
 translator, we could eiher keep CharIO as "more basic" I/O
-primitives, or replace with TextIO.
+primitives, or replace with TextIO. Similarly, IO and FileIO
+diverge from SML too.
 *)
 
 std_prelude
@@ -24,5 +25,9 @@ basics
 char
 word8
 w8array
-| \_ chario _ io _ commandLine
 array
+commandLine
+chario
+fileio
+io
+basis

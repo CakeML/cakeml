@@ -42,5 +42,5 @@ val res = translate OPTION_MAP2_DEF;
 
 
 val _ = ml_prog_update (close_module NONE);
-val _ = export_theory(); 
+val _ = export_theory();
 

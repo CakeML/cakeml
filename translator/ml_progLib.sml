@@ -15,7 +15,9 @@ datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
 
 val reduce_conv =
   (* this could be a custom compset, but it's easier to get the
-     necessary state updates directly from EVAL *)
+     necessary state updates directly from EVAL
+     TODO: Might need more custom rewrites for env-refactor updates
+  *)
   EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
   EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL;
 
@@ -70,11 +72,56 @@ fun cond_abbrev dest conv eval name th = let
        val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
        in (th,[def]) end end
 
+local
+  val fast_rewrites = ref ([]:thm list);
+  fun has_fast_result lemma = let
+    val rhs = lemma |> concl |> dest_eq |> snd
+    val c = repeat (fst o dest_comb) rhs
+    val cname = dest_const c |> fst
+    in mem cname ["F","NONE","mod_defined","nsLookup"] end
+    handle HOL_ERR _ => false
+in
+  fun get_fast_rewrites () = !fast_rewrites
+  fun add_fast_rewrite lemma =
+    if has_fast_result lemma then
+      fast_rewrites := lemma::(!fast_rewrites)
+    else ()
+end;
+
+fun cond_env_abbrev dest conv name th = let
+  val tm = dest th
+  val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
+  in if is_const x andalso all is_var vs then (th,[])
+     else let
+       val def = define_abbrev false (find_name name) tm |> SPEC_ALL
+       val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
+       val env_const = def |> concl |> dest_eq |> fst
+       (* derive theorem for computeLib *)
+       val xs = nsLookup_eq_format |> SPEC env_const |> concl
+                   |> find_terms is_eq |> map (fst o dest_eq)
+       fun derive_rewrite tm = let
+         val lemma = (REWRITE_CONV
+                      ([def,nsLookup_write_cons,nsLookup_write,
+                        nsLookup_merge_env,nsLookup_write_mod,nsLookup_empty]
+                       @ (get_fast_rewrites ())) THENC SIMP_CONV (srw_ss()) []) tm
+         val _ = add_fast_rewrite lemma
+         in lemma end
+       val compute_th = LIST_CONJ (map derive_rewrite xs)
+       val thm_name = "nsLookup_" ^ fst (dest_const env_const)
+       val _ = save_thm(thm_name ^ "[compute]",compute_th)
+       in (th,[def]) end end
+
+(*
+val (ML_code (ss,envs,vs,th)) = (ML_code (ss,envs,v_def :: vs,th))
+*)
+
 fun clean (ML_code (ss,envs,vs,th)) = let
   val (th,new_ss) = cond_abbrev (rand o concl)
                       RAND_CONV reduce_conv "auto_state" th
-  val (th,new_envs) = cond_abbrev (rand o rator o concl)
-                        (RATOR_CONV o RAND_CONV) EVAL "auto_env" th
+  val dest = (rand o rator o concl)
+  val conv = (RATOR_CONV o RAND_CONV)
+  val name = "auto_env"
+  val (th,new_envs) = cond_env_abbrev dest conv name th
   in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
 
 (* --- *)
@@ -97,7 +144,6 @@ fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
                   NONE => mk_const("NONE",type_of v)
                 | SOME tm => optionSyntax.mk_some(tm))
   val th = SPEC sig_tm th
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes BUTLASTN *)
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
@@ -109,7 +155,9 @@ fun add_Dtype tds_tm (ML_code (ss,envs,vs,th)) = let
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtype th
   val th = SPEC tds_tm th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes write_tds *)
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
 (*
@@ -122,7 +170,9 @@ fun add_Dexn n_tm l_tm (ML_code (ss,envs,vs,th)) = let
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dexn th
   val th = SPECL [n_tm,l_tm] th |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) (* removes write_tds *)
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+            (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                               APPEND,namespaceTheory.mk_id_def]))
   in clean (ML_code (ss,envs,vs,th)) end
 
 fun add_Dtabbrev l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
@@ -141,6 +191,11 @@ fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
   val th = th |> SPEC (stringSyntax.fromMLstring var_str)
   in clean (ML_code (ss,envs,v_thms @ vs,th)) end
 
+(*
+val (ML_code (ss,envs,vs,th)) = s
+val (n,v,exp) = (v_tm,w,body)
+*)
+
 fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dlet_Fun th
            handle HOL_ERR _ =>
@@ -148,7 +203,8 @@ fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = SPECL [n,v,exp] th
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
-  val th = th |> PURE_REWRITE_RULE [GSYM v_def]
+  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
+                   (REWR_CONV (GSYM v_def)))
   in clean (ML_code (ss,envs,v_def :: vs,th)) end
 
 val Recclosure_pat =
@@ -177,6 +233,10 @@ fun get_mod_prefix (ML_code (ss,envs,vs,th)) = let
   in if optionSyntax.is_none tm then "" else
        (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring) ^ "_"
   end
+
+(*
+val dec_tm = dec1_tm
+*)
 
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
@@ -279,11 +339,6 @@ fun clean_state (ML_code (ss,envs,vs,th)) = let
 
 (*
 
-val s = init_state
-val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
-val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
-val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
-
 fun pick_name str =
   if str = "<" then "lt" else
   if str = ">" then "gt" else
@@ -296,6 +351,11 @@ fun pick_name str =
   if str = "*" then "times" else
   if str = "!" then "deref" else
   if str = ":=" then "update" else str
+
+val s = init_state
+val dec1_tm = ``Dlet (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec2_tm = ``Dlet (Pvar "g") (Fun "x" (Var (Short "x")))``
+val prog_tm = ``[Tdec ^dec1_tm; Tdec ^dec2_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
 

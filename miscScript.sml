@@ -999,10 +999,18 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
   Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> full_simp_tac(srw_ss())[INJ_IFF] >>
   metis_tac[] )
 
-
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
+  `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,
+  Induct_on`xs` \\ rw[find_index_def]
+  \\ rw[Once INDEX_FIND_def,ADD1]);
+
+val find_index_INDEX_OF = Q.store_thm("find_index_INDEX_OF",
+  `find_index y xs 0 = INDEX_OF y xs`,
+  rw[INDEX_OF_def,find_index_INDEX_FIND])
 
 val find_index_NOT_MEM = Q.store_thm("find_index_NOT_MEM",
   `∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)`,
@@ -2088,19 +2096,22 @@ val any_el_ALT = Q.store_thm(
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
   fs[]);
 
-val MOD_MINUS = store_thm("MOD_MINUS",
-  ``0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k``,
+val MOD_MINUS = Q.store_thm("MOD_MINUS",
+  `0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k`,
   strip_tac
   \\ mp_tac (wordsTheory.MOD_COMPLEMENT |> Q.SPECL [`k`,`p`,`n MOD (p * k)`])
   \\ impl_tac THEN1 (fs [MOD_LESS,ZERO_LESS_MULT])
   \\ fs [MOD_MULT_MOD]);
 
+val option_fold_def = Define `
+  (option_fold f x NONE = x) ∧
+  (option_fold f x (SOME y) = f y x)`;
 
 val SPLITP_JOIN = Q.store_thm("SPLITP_JOIN",
   `!ls l r.
     (SPLITP P ls = (l, r)) ==>
     (ls = l ++ r)`,
-    Induct \\ rw[SPLITP] \\ 
+    Induct \\ rw[SPLITP] \\
     Cases_on `SPLITP P ls`
     \\ rw[FST, SND]
 );
@@ -2126,7 +2137,7 @@ val SPLITP_NIL_SND_EQ = Q.store_thm("SPLIT_NIL_SND_EQ",
 
 val SPLITP_NIL_SND_EVERY = Q.store_thm("SPLITP_NIL_SND_EVERY",
   `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`,
-  rw[] \\ EQ_TAC  
+  rw[] \\ EQ_TAC
     >-(rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN \\ fs[])
   \\ rw[] \\ Induct_on `ls` \\ rw[SPLITP]
 );
@@ -2154,7 +2165,7 @@ val SPLITP_APPEND = Q.store_thm("SPLITP_APPEND",
 val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
   `!l.
     LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`,
-    Induct \\ rw[SPLITP, LENGTH] 
+    Induct \\ rw[SPLITP, LENGTH]
 );
 
 
@@ -2178,9 +2189,9 @@ val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
 val TOKENS_EMPTY = Q.store_thm("TOKENS_EMPTY",
   `!ls n. (TOKENS f ls = []) ==> (ls = []) \/ (MEM n ls ==> f n)`,
   gen_tac \\ Induct_on `ls` >-(rw[])
-  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP] 
-  \\ Cases_on `f h` \\  Cases_on `l` 
-  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL] 
+  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
+  \\ Cases_on `f h` \\  Cases_on `l`
+  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL]
   \\ Cases_on`ls` \\ fs[MEM]);
 
 
@@ -2206,7 +2217,7 @@ val TOKENS_END = Q.store_thm("TOKENS_END",
 
 
 val TOKENS_LENGTH_END  = Q.store_thm("TOKENS_LENGTH_END",
-  `!l a. 
+  `!l a.
       LENGTH (TOKENS (\x. x = a) (l ++ [a])) = LENGTH (TOKENS (\x. x = a) l)`,
   rw[] \\ AP_TERM_TAC \\ rw[TOKENS_END]
 );
@@ -2228,7 +2239,7 @@ val DROP_EMPTY = Q.store_thm("DROP_EMPTY",
 val FRONT_APPEND' = Q.prove(
   `!l h a b t. l = h ++ [a; b] ++ t ==>
       FRONT l = h ++ FRONT([a; b] ++ t)`,
-      Induct \\ rw[FRONT_DEF, FRONT_APPEND] 
+      Induct \\ rw[FRONT_DEF, FRONT_APPEND]
       >-(rw[LIST_EQ_REWRITE])
       \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
 );
@@ -2253,7 +2264,7 @@ val FRONT_COUNT_IMP = Q.prove(
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
 );
 
-val CONCAT_WITH_aux_def = Define` 
+val CONCAT_WITH_aux_def = Define`
     (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
     (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
     (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
@@ -2271,5 +2282,135 @@ val OPT_MMAP_def = Define`
      OPTION_BIND (f h0)
      (λh. OPTION_BIND (OPT_MMAP f t0)
        (λt. SOME (h::t))))`;
+
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
+val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
+  `DISJOINT (set []) s /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
+  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
+
+val ALOOKUP_EXISTS_IFF = Q.store_thm(
+  "ALOOKUP_EXISTS_IFF",
+  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
+  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
+val ALIST_FUPDKEY_def = Define`
+  (ALIST_FUPDKEY k f [] = []) ∧
+  (ALIST_FUPDKEY k f ((k',v)::rest) =
+     if k = k' then (k,f v)::rest
+     else (k',v) :: ALIST_FUPDKEY k f rest)
+`;
+
+val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
+  "ALIST_FUPDKEY_ALOOKUP",
+  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
+     case ALOOKUP al k1 of
+         NONE => NONE
+       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
+  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
+  simp[]);
+
+val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
+  "MAP_FST_ALIST_FUPDKEY[simp]",
+  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
+  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
+
+val A_DELKEY_def = Define`
+  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
+`;
+
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
+val MEM_DELKEY = Q.store_thm(
+  "MEM_DELKEY[simp]",
+  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`,
+  Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
+  metis_tac[]);
+
+val ALOOKUP_ADELKEY = Q.store_thm(
+  "ALOOKUP_ADELKEY",
+  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`,
+  simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
+
+val findi_APPEND = Q.store_thm(
+  "findi_APPEND",
+  `∀l1 l2 x.
+      findi x (l1 ++ l2) =
+        let n0 = findi x l1
+        in
+          if n0 = LENGTH l1 then n0 + findi x l2
+          else n0`,
+  Induct >> simp[findi_def] >> rw[] >> fs[]);
+
+val NOT_MEM_findi_IFF = Q.store_thm(
+  "NOT_MEM_findi_IFF",
+  `¬MEM e l ⇔ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]);
+
+val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
+  "NOT_MEM_findi",
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
+
+val ORD_eq_0 = Q.store_thm(
+  "ORD_eq_0",
+  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
+  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
+
+val HD_LUPDATE = Q.store_thm(
+  "HD_LUPDATE",
+  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
+  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
+
+val ALIST_FUPDKEY_unchanged = Q.store_thm(
+  "ALIST_FUPDKEY_unchanged",
+  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
+  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
+
+val ALIST_FUPDKEY_o = Q.store_thm(
+  "ALIST_FUPDKEY_o",
+  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
+  rw[ALIST_FUPDKEY_def]);
+
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
+         |> curry save_thm "w2n_lt_256"
+
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
+
+val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
+  `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
+  Induct_on`ls` \\ rw[REPLICATE]);
 
 val _ = export_theory()

@@ -54,10 +54,10 @@ explorer/pp
 explorer
 
 # tests
-compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
 characteristic/examples
+compiler/parsing/testing
 
 # compiler bootstrap
 compiler/bootstrap/translation

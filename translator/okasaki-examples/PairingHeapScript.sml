@@ -10,8 +10,8 @@ val _ = translation_extends "mllistProg";
 
 (* Okasaki page 54 *)
 
-val _ = Hol_datatype `
-heap = Empty | Tree of 'a => heap list`;
+val _ = Datatype`
+  heap = Empty | Tree 'a (heap list)`;
 
 val heap_to_bag_def = Define `
 (heap_to_bag Empty = {||}) ∧

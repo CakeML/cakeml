@@ -9,7 +9,7 @@ val _ = overload_on ("cmlpegexec",
                      ``λn t. peg_exec cmlPEG (pnt n) t [] done failed``)
 
 val destResult_def = Define`
-  destResult (Result x) = x ∧
+  destResult (Result (SOME x)) = SOME x ∧
   destResult _ = NONE
 `;
 
@@ -18,7 +18,7 @@ val cmlParseExpr_def = Define`
     (toks', pts) <- destResult (cmlpegexec nE toks);
     pt <- misc$oHD pts;
     ast <- ptree_Expr nE pt;
-    SOME(toks',ast)
+    SOME(toks', ast)
   od
 `;
 

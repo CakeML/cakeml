@@ -1,4 +1,4 @@
-open preamble mlstringTheory;
+open preamble mlstringTheory mlvectorTheory;
 
 val () = new_theory "export_x64";
 
@@ -19,23 +19,26 @@ val byte_to_string_eq = store_thm("byte_to_string_eq",
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
   \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);
 
+val byte_strlit_def = Define `byte_strlit = strlit "\t.byte "`;
+val comm_strlit_def = Define `comm_strlit = strlit ","`;
+val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+
 val comma_cat_def = Define `
   comma_cat x =
     case x of
-    | [] => strlit ""
-    | [x] => byte_to_string x
-    | (x::xs) => strcat (byte_to_string x) (strcat (strlit ",") (comma_cat xs))`
+    | [] => [newl_strlit]
+    | [x] => [byte_to_string x; newl_strlit]
+    | (x::xs) => byte_to_string x :: comm_strlit :: comma_cat xs`
 
 val bytes_row_def = Define `
-  bytes_row xs =
-    strcat (strcat (strlit "\t.byte ") (comma_cat xs)) (strlit "\n")`;
+  bytes_row xs = List (byte_strlit :: comma_cat xs)`;
 
 val split16_def = tDefine "split16" `
-  (split16 [] = strlit "") /\
+  (split16 [] = Nil) /\
   (split16 xs =
      let xs1 = TAKE 16 xs in
      let xs2 = DROP 16 xs in
-       strcat (bytes_row xs1) (split16 xs2))`
+       SmartAppend (bytes_row xs1) (split16 xs2))`
   (WF_REL_TAC `measure LENGTH`
    \\ fs [listTheory.LENGTH_DROP]);
 
@@ -46,7 +49,7 @@ val num_to_str_def = Define `
 val num_to_str_ind = fetch "-" "num_to_str_ind";
 
 val preamble =
-  ``(MAP (\n. n ++ "\n")
+  ``(MAP (\n. strlit(n ++ "\n"))
       ["#### Preprocessor to get around Mac OS and Linux differences in naming";
        "";
        "#if defined(__APPLE__)";
@@ -59,28 +62,45 @@ val preamble =
        ""])`` |> EVAL |> concl |> rand
 
 val heap_stack_space =
-  `` (MAP (\n. n ++ "\n")
+  `` (MAP (\n. strlit (n ++ "\n"))
        ["#### Data section -- modify the numbers to change stack/heap size";
         "";
         "     .bss";
         "     .p2align 3";
         "cake_heap:"] ++
-      ["     .space 1024 * 1024 * " ++ num_to_str heap_space ++ "\n"] ++
-      MAP (\n. n ++ "\n")
+      [implode("     .space 1024 * 1024 * " ++ num_to_str heap_space ++ "\n")] ++
+      MAP (\n. strlit (n ++ "\n"))
        ["     .p2align 3";
         "cake_stack:"] ++
-      ["     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n"] ++
-      MAP (\n. n ++ "\n")
+      [implode("     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n")] ++
+      MAP (\n. (strlit (n ++ "\n")))
        ["     .p2align 3";
-        "cake_end:"; ""])``
+        "cake_end:";
+        "";
+        "     .data";
+        "     .p2align 3";
+        "cdecl(argc): .quad 0";
+        "cdecl(argv): .quad 0";
+        ""])``
+      |> (PATH_CONV"r" EVAL THENC
+          PATH_CONV"lrlrr" EVAL THENC
+          PATH_CONV"lrlrlrlr" EVAL)
+      |> concl |> rand
 
 val startup =
-  ``(MAP (\n. n ++ "\n")
+  ``(MAP (\n. strlit(n ++ "\n"))
       ["#### Start up code";
        "";
        "     .text";
+       "     .p2align 3";
        "     .globl  cdecl(main)";
+       "     .globl  cdecl(argc)";
+       "     .globl  cdecl(argv)";
        "cdecl(main):";
+       "     leaq    cdecl(argc)(%rip), %rbx";
+       "     leaq    cdecl(argv)(%rip), %rdx";
+       "     movq    %rdi, 0(%rbx)  # %rdi stores argc";
+       "     movq    %rsi, 0(%rdx)  # %rsi stores argv";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
@@ -91,22 +111,25 @@ val startup =
        ""])`` |> EVAL |> concl |> rand
 
 val ffi_asm_def = Define `
-  ffi_asm [] = [] /\
+  ffi_asm [] = Nil /\
   ffi_asm (ffi::ffis) =
-      ("cake_ffi" ++ ffi ++ ":\n") ::
-       "     pushq   %rax\n"::
-       ("     jmp     cdecl(ffi" ++ ffi ++ ")\n")::
-       "     .p2align 3\n"::
-       "\n":: ffi_asm ffis`
+      SmartAppend (List [
+       strlit"cake_ffi"; implode ffi; strlit":\n";
+       strlit"     pushq   %rax\n";
+       strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"     .p2align 3\n";
+       strlit"\n"]) (ffi_asm ffis)`
 
 val ffi_code =
-  ``(MAP (\n. n ++ "\n")
+  ``SmartAppend
+    (List (MAP (\n. strlit(n ++ "\n"))
      ["#### CakeML FFI interface (each block is 8 bytes long)";
        "";
        "     .p2align 3";
-       ""] ++
-     ffi_asm (REVERSE ffi_names) ++
-     MAP (\n. n ++ "\n")
+       ""]))(
+    SmartAppend
+     (ffi_asm (REVERSE ffi_names))
+     (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
        "     callq   cdecl(exit)";
        "     .p2align 3";
@@ -118,13 +141,20 @@ val ffi_code =
        "cake_main:";
        "";
        "#### Generated machine code follows";
-       ""])`` |> EVAL |> concl |> rand
+       ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
   x64_export ffi_names heap_space stack_space bytes =
-    strcat (implode (FLAT (^preamble ++
-                           ^heap_stack_space ++
-                           ^startup ++ ^ffi_code)))
-           (split16 bytes)`
+    SmartAppend
+      (SmartAppend (List ^preamble)
+      (SmartAppend (List ^heap_stack_space)
+      (SmartAppend (List ^startup) ^ffi_code)))
+      (split16 bytes)`;
+
+(*
+  EVAL ``append (x64_export ["getArgs";"putChar";"getChar"] 400 300 [3w;4w;5w])``
+  |> concl |> rand |> listSyntax.dest_list |> fst |> map rand
+  |> map stringSyntax.fromHOLstring |> concat |> print
+*)
 
 val _ = export_theory ();
