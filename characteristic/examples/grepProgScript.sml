@@ -322,9 +322,8 @@ val FIELDS_NEQ_NIL = Q.store_thm("FIELDS_NEQ_NIL[simp]",
   disch_then(assume_tac o Q.AP_TERM`LENGTH`)
   \\ fs[LENGTH_FIELDS]);
 
-(*
-val FLAT_FIELDS = Q.store_thm("FLAT_FIELDS",
-  `∀ls. FLAT (FIELDS P ls) = FILTER ($~ o P) ls`,
+val CONCAT_FIELDS = Q.store_thm("CONCAT_FIELDS",
+  `∀ls. CONCAT (FIELDS P ls) = FILTER ($~ o P) ls`,
   gen_tac
   \\ completeInduct_on`LENGTH ls`
   \\ Cases
@@ -333,37 +332,82 @@ val FLAT_FIELDS = Q.store_thm("FLAT_FIELDS",
   \\ strip_tac
   \\ fs[Once SPLITP]
   \\ Cases_on`P h` \\ fs[] \\ rveq \\ simp[]
-  \\ first_x_assum(qspec_then`LENGTH t`mp_tac)
-  \\ simp[]
-  \\ disch_then(qspec_then`t`mp_tac)
   \\ Cases_on`SPLITP P t` \\ fs[]
-  \\ rw[] \\ fs[NULL_EQ]
-*)
+  \\ Cases_on`NULL r` \\ fs[NULL_EQ]
+  >- (
+    imp_res_tac SPLITP_NIL_SND_EVERY
+    \\ fs[FILTER_EQ_ID] )
+  \\ imp_res_tac SPLITP_IMP
+  \\ rfs[NULL_EQ]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ simp[FILTER_APPEND]
+  \\ fs[GSYM FILTER_EQ_ID]
+  \\ Cases_on`r` \\ fs[] );
 
-(*
-val FIELDS_IMP = Q.store_thm("FIELDS_IMP",
-  `!ls l1 l2.
-     FIELDS P ls = l1::l2 ⇒
-     EVERY ($~ o P) l1 ∧ (~NULL l2 /\ ~NULL (HD l2) ==> P (HD (HD l2)))`,
+val FIELDS_next = Q.store_thm("FIELDS_next",
+  `∀ls l1 l2.
+   FIELDS P ls = l1::l2 ⇒
+   LENGTH l1 < LENGTH ls ⇒
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
   gen_tac
   \\ completeInduct_on`LENGTH ls`
-  \\ Cases
-  \\ simp[FIELDS_def]
   \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ rw[FIELDS_def]
   \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac SPLITP_IMP
-  \\ conj_tac
-  >- ( every_case_tac \\ fs[NULL_EQ] \\ rw[] )
-  \\ every_case_tac \\ fs[NULL_EQ]
-  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+  \\ every_case_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[]
+  \\ rfs[PULL_FORALL,NULL_EQ]
+  \\ fs[SPLITP]
+  \\ every_case_tac \\ fs[]
+  \\ rw[]
+  \\ fs[SPLITP]
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ Cases_on`SPLITP P q` \\ fs[]
+  \\ rw[]
+  \\ `FIELDS P t = q::FIELDS P (TL r)`
+  by (
+    Cases_on`t` \\ fs[]
+    \\ rw[FIELDS_def,NULL_EQ] )
+  \\ first_x_assum(qspecl_then[`t`,`q`,`FIELDS P (TL r)`]mp_tac)
+  \\ simp[] );
+
+val FIELDS_full = Q.store_thm("FIELDS_full",
+  `∀P ls l1 l2.
+   FIELDS P ls = l1::l2 ∧ LENGTH ls ≤ LENGTH l1 ⇒
+   l1 = ls ∧ l2 = []`,
+  ntac 2 gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ simp_tac(srw_ss()++LET_ss)[FIELDS_def]
+  \\ pairarg_tac \\ pop_assum mp_tac \\ simp_tac(srw_ss())[]
+  \\ strip_tac
+  \\ IF_CASES_TAC
   >- (
-    first_x_assum(qspec_then`LENGTH (FIELDS P t)`mp_tac)
-    \\ simp[LENGTH_FIELDS]
-    \\ impl_tac
-    >- (qispl_then[`P`,`t`]mp_tac LENGTH_FILTER_LEQ
-        \\ simp[ADD1]
-    f"lENGTH_FILTER"
-*)
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_SND_EVERY )
+  \\ simp_tac(srw_ss())[]
+  \\ strip_tac \\ rveq
+  \\ Q.ISPEC_THEN`h::t`mp_tac SPLITP_LENGTH
+  \\ last_x_assum kall_tac
+  \\ simp[]
+  \\ strip_tac \\ fs[]
+  \\ `LENGTH r = 0` by decide_tac
+  \\ fs[LENGTH_NIL]);
+
+val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
+  `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
+  Cases_on`x` \\ EVAL_TAC);
 
 (* -- *)
 
@@ -649,14 +693,71 @@ val FDline_NONE_bumpAll_bumpLine = Q.store_thm("FDline_NONE_bumpAll_bumpLine",
   \\ match_mp_tac ALIST_FUPDKEY_I
   \\ simp[MAX_DEF]);
 
+val splitlines_def = Define`
+  splitlines ls =
+  let lines = FIELDS ((=) #"\n") ls in
+  (* discard trailing newline *)
+  if NULL (LAST lines) then FRONT lines else lines`;
+
+val splitlines_next = Q.store_thm("splitlines_next",
+  `splitlines ls = ln::lns ⇒
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+  simp[splitlines_def]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ Cases_on`LENGTH h < LENGTH ls`
+  >- (
+    imp_res_tac FIELDS_next
+    \\ strip_tac
+    \\ `ln = h`
+    by (
+      pop_assum mp_tac \\ rw[]
+      \\ fs[FRONT_DEF] )
+    \\ fs[]
+    \\ fs[LAST_DEF,NULL_EQ]
+    \\ Cases_on`t = []` \\ fs[]
+    \\ fs[FRONT_DEF]
+    \\ IF_CASES_TAC \\ fs[] )
+  \\ fs[NOT_LESS]
+  \\ imp_res_tac FIELDS_full \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ simp[DROP_LENGTH_TOO_LONG,FIELDS_def]);
+
+val splitlines_nil = save_thm("splitlines_nil[simp]",
+  EVAL``splitlines ""``);
+
+val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
+  `splitlines ls = [] ⇔ (ls = [])`,
+  rw[EQ_IMP_THM]
+  \\ fs[splitlines_def]
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ fs[LAST_DEF] \\ rfs[NULL_EQ]
+  \\ Cases_on`LENGTH "" < LENGTH ls`
+  >- ( imp_res_tac FIELDS_next \\ fs[] )
+  \\ fs[LENGTH_NIL]);
+
 val linesFD_def = Define`
   linesFD fd fs = the [] (
     do
       (fnm,off) <- ALOOKUP fs.infds fd;
       content <- ALOOKUP fs.files fnm;
       assert (off < LENGTH content);
-      SOME (FIELDS ((=) #"\n") (DROP off content))
+      SOME (splitlines (DROP off content))
     od )`;
+
+val FDline_NONE_linesFD = Q.store_thm("FDline_NONE_linesFD",
+  `FDline fd fs = NONE ⇒ linesFD fd fs = []`,
+  rw[FDline_def,linesFD_def,EQ_IMP_THM] \\ rw[libTheory.the_def]
+  >- ( pairarg_tac \\ fs[libTheory.the_def] \\ pairarg_tac \\ fs[]));
+
+val linesFD_nil_FDline = Q.store_thm("linesFD_nil_FDline",
+  `linesFD fd fs = [] ∧ FDline fd fs = SOME ls ⇒ ls = "\n"`,
+  rw[FDline_def,linesFD_def]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[libTheory.the_def]
+  \\ fs[DROP_NIL]);
 
 (* -- *)
 
@@ -667,21 +768,6 @@ val print_matching_lines = process_topdecs`
                   print_matching_lines matcher fd)`;
 val _ = append_prog print_matching_lines;
 
-val FDline_NONE_linesFD = Q.store_thm("FDline_NONE_linesFD",
-  `FDline fd fs = NONE ⇔ linesFD fd fs = []`,
-  rw[FDline_def,linesFD_def,EQ_IMP_THM] \\ rw[libTheory.the_def]
-  >- ( pairarg_tac \\ fs[libTheory.the_def] \\ pairarg_tac \\ fs[])
-  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ strip_tac \\ fs[libTheory.the_def]);
-
-val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
-  `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
-  Cases_on`x` \\ EVAL_TAC);
-
-(*
 val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
   `linesFD fd fs = ln::ls ⇒
    FDline fd fs = SOME (ln++"\n") ∧
@@ -692,15 +778,29 @@ val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
   >- (
     simp[FDline_def]
     \\ Cases_on`DROP off content` \\ rfs[DROP_NIL]
-    \\ fs[FIELDS_def]
+    \\ fs[splitlines_def,FIELDS_def]
     \\ pairarg_tac \\ fs[]
     \\ every_case_tac \\ fs[] \\ rw[]
-    \\ fs[NULL_EQ] )
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+    >- ( Cases_on`FIELDS ($= #"\n") t` \\ fs[] )
+    >- ( Cases_on`FIELDS ($= #"\n") (TL r)` \\ fs[] ))
   \\ simp[]
   \\ simp[bumpFD_def,FDchar_def,ALIST_FUPDKEY_ALOOKUP]
   \\ reverse IF_CASES_TAC \\ fs[ALIST_FUPDKEY_ALOOKUP,libTheory.the_def]
-  \\ cheat);
+  >- (
+    fs[NOT_LESS]
+    \\ imp_res_tac splitlines_next
+    \\ fs[DROP_DROP_T]
+    \\ rfs[DROP_LENGTH_TOO_LONG] )
+  \\ imp_res_tac splitlines_next
+  \\ fs[DROP_DROP_T,ADD1]
+  \\ Cases_on`off + (STRLEN ln + 1) < LENGTH content` \\ fs[libTheory.the_def]
+  \\ fs[NOT_LESS]
+  \\ `off + LENGTH ln + 1 = LENGTH content` by simp[]
+  \\ fs[DROP_LENGTH_NIL_rwt]);
 
+(*
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   `∀fs.
    (STRING_TYPE --> BOOL) m mv ∧
