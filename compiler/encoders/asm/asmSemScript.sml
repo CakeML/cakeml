@@ -43,7 +43,8 @@ val is_test_def = Define `is_test c <=> (c = Test) \/ (c = NotTest)`
 val word_shift_def = Define `
   (word_shift Lsl w n = w << n) /\
   (word_shift Lsr w n = w >>> n) /\
-  (word_shift Asr w n = w >> n)`
+  (word_shift Asr w n = w >> n) /\
+  (word_shift Ror w n = word_ror w n)`;
 
 val arith_upd_def = Define `
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
