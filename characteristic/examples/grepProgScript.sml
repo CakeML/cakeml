@@ -296,6 +296,12 @@ val ALIST_FUPDKEY_I = Q.store_thm("ALIST_FUPDKEY_I",
   ho_match_mp_tac ALIST_FUPDKEY_ind
   \\ rw[ALIST_FUPDKEY_def]);
 
+val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
+  `∀k f1 l f2.
+   (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
+   ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
+
 val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
   gen_tac
@@ -442,6 +448,12 @@ val bumpLineFD_def = Define`
     | NONE => fs
     | SOME ln => bumpFD fd (fs with infds updated_by
         ALIST_FUPDKEY fd (I ## ((+) (LENGTH ln -1))))`;
+
+val validFD_bumpLineFD = Q.store_thm("validFD_bumpLineFD[simp]",
+  `validFD fd (bumpLineFD fd fs) = validFD fd fs`,
+  rw[validFD_def,bumpLineFD_def]
+  \\ CASE_TAC \\ simp[] \\ rw[bumpFD_def]
+  \\ CASE_TAC \\ simp[]);
 
 val FDchar_FDline_NONE = Q.store_thm("FDchar_FDline_NONE",
   `FDchar fd fs = NONE <=> FDline fd fs = NONE`,
@@ -693,6 +705,25 @@ val FDline_NONE_bumpAll_bumpLine = Q.store_thm("FDline_NONE_bumpAll_bumpLine",
   \\ match_mp_tac ALIST_FUPDKEY_I
   \\ simp[MAX_DEF]);
 
+val bumpAllFD_bumpLineFD = Q.store_thm("bumpAllFD_bumpLineFD[simp]",
+  `bumpAllFD fd (bumpLineFD fd fs) = bumpAllFD fd fs`,
+  rw[bumpAllFD_def,bumpLineFD_def]
+  \\ TOP_CASE_TAC
+  \\ fs[FDline_def]
+  \\ rw[bumpFD_def,FDchar_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ TOP_CASE_TAC
+  \\ fs[ALIST_FUPDKEY_ALOOKUP,libTheory.the_def,
+        RO_fs_component_equality,ALIST_FUPDKEY_o]
+  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ simp[MAX_DEF] \\ rw[] \\ fs[]
+  \\ qmatch_assum_abbrev_tac`SPLITP P ls = (l,r)`
+  \\ Q.ISPEC_THEN`ls`mp_tac SPLITP_LENGTH
+  \\ simp[Abbr`ls`]);
+
 val splitlines_def = Define`
   splitlines ls =
   let lines = FIELDS ((=) #"\n") ls in
@@ -747,26 +778,15 @@ val linesFD_def = Define`
     od )`;
 
 val FDline_NONE_linesFD = Q.store_thm("FDline_NONE_linesFD",
-  `FDline fd fs = NONE ⇒ linesFD fd fs = []`,
+  `FDline fd fs = NONE ⇔ linesFD fd fs = []`,
   rw[FDline_def,linesFD_def,EQ_IMP_THM] \\ rw[libTheory.the_def]
-  >- ( pairarg_tac \\ fs[libTheory.the_def] \\ pairarg_tac \\ fs[]));
-
-val linesFD_nil_FDline = Q.store_thm("linesFD_nil_FDline",
-  `linesFD fd fs = [] ∧ FDline fd fs = SOME ls ⇒ ls = "\n"`,
-  rw[FDline_def,linesFD_def]
+  >- ( pairarg_tac \\ fs[libTheory.the_def] \\ pairarg_tac \\ fs[])
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[libTheory.the_def]
-  \\ fs[DROP_NIL]);
-
-(* -- *)
-
-val print_matching_lines = process_topdecs`
-  fun print_matching_lines match fd =
-    case inputLine fd of NONE => ()
-    | SOME ln => (if match ln then print ln else ();
-                  print_matching_lines matcher fd)`;
-val _ = append_prog print_matching_lines;
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]
+  \\ rveq \\ rename1`off < LENGTH ln`
+  \\ Cases_on`off < LENGTH ln` \\ fs[]
+  \\ fs[libTheory.the_def,DROP_NIL]);
 
 val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
   `linesFD fd fs = ln::ls ⇒
@@ -800,17 +820,28 @@ val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
   \\ `off + LENGTH ln + 1 = LENGTH content` by simp[]
   \\ fs[DROP_LENGTH_NIL_rwt]);
 
-(*
+(* -- *)
+
+val print_matching_lines = process_topdecs`
+  fun print_matching_lines match fd =
+    case inputLine fd of NONE => ()
+    | SOME ln => (if match ln then print ln else ();
+                  print_matching_lines match fd)`;
+val _ = append_prog print_matching_lines;
+
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
-  `∀fs.
+  `∀fs out.
    (STRING_TYPE --> BOOL) m mv ∧
    WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; fdv]
      (ROFS fs * STDOUT out)
-     (POSTv uv. &UNIT_TYPE () uv *
-                ROFS (bumpAllFD (w2n fd) fs) *
-                STDOUT (out ++ CONCAT (FILTER (m o implode) (linesFD (w2n fd) fs))))`,
+     (POSTv uv.
+       &UNIT_TYPE () uv *
+       ROFS (bumpAllFD (w2n fd) fs) *
+       STDOUT (out ++ CONCAT (FILTER (m o implode)
+                               (MAP (combin$C (++) "\n")
+                                 (linesFD (w2n fd) fs)))))`,
   Induct_on`linesFD (w2n fd) fs` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
@@ -845,12 +876,15 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
       \\ qexists_tac`out`
       \\ xsimpl )
     \\ xcon \\ xsimpl )
-  \\ imp_res_tac linesFD_eq_cons_imp \\ rveq
+  \\ imp_res_tac linesFD_eq_cons_imp \\ rveq \\ fs[]
   \\ first_x_assum(qspecl_then[`fd`,`bumpLineFD (w2n fd) fs`]mp_tac)
-  \\ simp[]
-  \\ impl_tac >- cheat
-  \\ strip_tac
-*)
+  \\ simp[] \\ strip_tac
+  \\ xapp
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`out ++ (if m (implode ln) then ln else "")`
+  \\ fs[] \\ xsimpl
+  \\ Cases_on`m (implode ln)` \\ fs[]
+  \\ xsimpl);
 
 val match_line_def = Define`
   match_line matcher (line:string) =
