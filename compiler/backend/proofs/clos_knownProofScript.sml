@@ -326,7 +326,12 @@ val do_app_ssgc = Q.store_thm(
             vsgc_free v ∧ ssgc_free s ∧
             mglobals_extend s0 (SET_OF_BAG (op_gbag opn)) s) ∧
      (∀v. res = Rerr (Rraise v) ⇒ vsgc_free v)`,
-  Cases_on `opn` >>
+  strip_tac
+  \\ Cases_on `opn = BoundsCheckByte` THEN1 cheat
+  \\ Cases_on `opn = BoundsCheckArray` THEN1 cheat
+  \\ Cases_on `opn = BoundsCheckBlock` THEN1 cheat
+  \\ Cases_on `?nn. opn = LessConstSmall nn` THEN1 cheat
+  \\ Cases_on `opn` >> fs [] >> cheat) (*
   simp[do_app_def, eqs, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
   >- ((* GetGlobal *)
@@ -385,7 +390,7 @@ val do_app_ssgc = Q.store_thm(
       >- metis_tac[])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- dsimp[]
-  >- dsimp[])
+  >- dsimp[]) *)
 
 val EVERY_lookup_vars = Q.store_thm(
   "EVERY_lookup_vars",

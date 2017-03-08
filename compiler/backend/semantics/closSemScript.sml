@@ -241,34 +241,22 @@ val do_app_def = Define `
                       s with <| refs := s.refs |+ (ptr,ByteArray f ws')
                               ; ffi   := ffi'|>))
          | _ => Error)
-    | (BoundsCheckBlock,xs) =>
-        (case xs of
-         | [Block tag ys; Number i] =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH xs),s)
+    | (BoundsCheckBlock,[Block tag ys; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
+    | (BoundsCheckByte,[ByteVector bs; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
+    | (BoundsCheckByte,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (BoundsCheckByte,xs) =>
-        (case xs of
-         | [ByteVector bs; Number i] =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
-         | [RefPtr ptr; Number i] =>
-          (case FLOOKUP s.refs ptr of
-           | SOME (ByteArray _ ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
-           | _ => Error)
+    | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (BoundsCheckArray,xs) =>
-        (case xs of
-         | [RefPtr ptr; Number i] =>
-          (case FLOOKUP s.refs ptr of
-           | SOME (ValueArray ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
-           | _ => Error)
-         | _ => Error)
-    | (LessConstSmall n,xs) =>
-        (case xs of
-         | [Number i] => if 0 <= i /\ i <= 1000000
-                         then Rval (Boolv (i < &n),s) else Error
-         | _ => Error)
+    | (LessConstSmall n,[Number i]) =>
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | _ => Error`;
 
 val dec_clock_def = Define `
