@@ -204,14 +204,44 @@ val triangle_div_lemma1 = Q.prove (
   rw [] >>
   ARITH_TAC);
 
+val tri_lemma = Q.prove (
+  `!tot max_app.
+    tot < max_app ⇒
+    tot + tot * (tot − 1) DIV 2 < max_app + (max_app − 1) * (max_app − 2) DIV 2`,
+  Induct_on `max_app` >>
+  rw [ADD1] >>
+  `tot = max_app ∨ tot < max_app` by decide_tac >>
+  rw [] >>
+  res_tac >>
+  `max_app + (max_app − 1) * (max_app − 2) DIV 2 < max_app + (max_app * (max_app − 1) DIV 2 + 1)`
+  suffices_by decide_tac >>
+  simp [] >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on `max_app` >>
+  rw [ADD1] >>
+  ARITH_TAC);
+
 val triangle_div_lemma = Q.prove (
   `!max_app n tot.
     0 < max_app ∧ tot < max_app ∧ n < tot
     ⇒
     n + tot * (tot − 1) DIV 2 + 1 < max_app * (max_app − 1) DIV 2 + 4`,
-  (* This follows from triangle_div_lemma1 by a monotonicity argument, but that
-   * seems too horrible to formalize. Is there a better way? *)
-  cheat);
+  rw [] >>
+  `(tot - 1) + (tot * (tot − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
+  suffices_by decide_tac >>
+  `((max_app - 1) - 1) + ((max_app - 1) * ((max_app - 1) − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
+  suffices_by (
+    rw [] >>
+    `tot + tot * (tot − 1) DIV 2 < max_app + (max_app − 1) * (max_app − 2) DIV 2`
+    suffices_by rw [] >>
+    simp [tri_lemma]) >>
+  Cases_on `max_app` >>
+  fs [] >>
+  Cases_on `tot` >>
+  fs [ADD1] >>
+  Cases_on `n'` >>
+  fs [ADD1] >>
+  ARITH_TAC);
 
 val triangle_el = Q.prove (
   `!n tot max_app stuff f g.
