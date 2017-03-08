@@ -108,8 +108,7 @@ val reducible_pats = [
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
   ``nsLookup _ _``,
-  ``Fun_body _``,
-  ``normalise _``
+  ``Fun_body _``
 ]
 
 val reduce_conv =
