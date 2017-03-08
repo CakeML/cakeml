@@ -10,7 +10,8 @@ val JumpList_def = tDefine "JumpList" `
          let k = l DIV 2 in
          let ys = TAKE k xs in
          let zs = DROP k xs in
-         let lt = (if n + l < 1000000 then Op (LessConstSmall (n+k)) [Var 0]
+         let lt = (if n + l < 1000000 /\ n + k < 1000000
+                   then Op (LessConstSmall (n+k)) [Var 0]
                    else Op Less [Op (Const (&(n+k))) []; Var 0]) in
            If lt (JumpList n ys) (JumpList (n + k) zs))`
   (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
