@@ -23,6 +23,8 @@ val e = ``(App Aw8alloc [Lit (IntLit 1); Lit (Word8 0w)])``
 
 val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_state" [])
 
+val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_err_state_loc" e) "write_err_state" [])
+
 val e =
   ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
      (LetApps "b" (Long "Word8Array" (Short "sub")) [Var (Short "read_state");  Lit (IntLit 0)]
@@ -39,16 +41,18 @@ val e =
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read_failed"`` ``"u"`` e "read_failed_v")
 
-val e =
+fun e name =
   ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
     (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
-                          Var (Short "write_state");
+                          Var (Short ^name);
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar") [Var (Short ^name)]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 
-val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
+val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` (e ``"write_state"``) "write_v")
+
+val _ = ml_prog_update (add_Dlet_Fun ``"write_err"`` ``"c"`` (e ``"write_err_state"``) "write_err_v")
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -82,6 +86,40 @@ val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
     set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
     EVAL ``read_state_loc``,
     EVAL ``write_state_loc``,
+    cfHeapsBaseTheory.W8ARRAY_def,
+    cfHeapsBaseTheory.cell_def]
+  \\ fs[set_sepTheory.one_STAR]
+  \\ metis_tac[]);
+
+val STDERR_def = Define `
+  STDERR output =
+    IOx stdout_ffi_part output *
+    SEP_EXISTS w. W8ARRAY write_err_state_loc [w]`;
+
+val STDERR_precond = Q.store_thm("STDERR_precond",
+  `(STDERR out)
+    {FFI_part (Str out) (mk_ffi_next (Str,destStr,[("putChar",ffi_putChar)])) ["putChar"] events;
+     Mem 3 (W8array [w])}`,
+  rw[STDERR_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+     stdout_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+  \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
+  \\ fs[cfHeapsBaseTheory.W8ARRAY_def,
+        cfHeapsBaseTheory.cell_def,
+        EVAL``write_err_state_loc``,
+        set_sepTheory.SEP_EXISTS_THM]
+  \\ fs [set_sepTheory.one_STAR,set_sepTheory.cond_STAR]
+  \\ fs [set_sepTheory.one_def]
+  \\ qexists_tac `w`
+  \\ rw[EXTENSION, EQ_IMP_THM]
+);
+
+val STDERR_FFI_part_hprop = Q.store_thm("STDERR_FFI_part_hprop",
+  `FFI_part_hprop (STDERR x)`,
+  rw [STDERR_def,
+      cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+      stdoutFFITheory.stdout_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
+    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+    EVAL ``write_err_state_loc``,
     cfHeapsBaseTheory.W8ARRAY_def,
     cfHeapsBaseTheory.cell_def]
   \\ fs[set_sepTheory.one_STAR]
@@ -236,6 +274,38 @@ val write_spec = Q.store_thm ("write_spec",
   THEN1
    (xffi
     \\ fs [EVAL ``write_state_loc``, STDOUT_def, Abbr`IOxx`, cfHeapsBaseTheory.IOx_def,stdout_ffi_part_def]
+    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ map_every qexists_tac[`ns`,`u`]
+    \\ xsimpl
+    \\ unabbrev_all_tac \\ EVAL_TAC
+    \\ simp[ORD_BOUND,CHR_ORD])
+  \\ xret \\ xsimpl);
+
+
+val write_err_spec = Q.store_thm ("write_err_spec",
+  `CHAR c cv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.write_err" (basis_st()))
+       [cv]
+       (STDERR output)
+       (POSTv uv. cond (UNIT_TYPE () uv) * STDERR (output ++ [c]))`,
+  xcf "CharIO.write_err" (basis_st())
+  \\ fs [STDERR_def] \\ xpull
+  \\ qmatch_goalsub_abbrev_tac`IOxx output`
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_err_state_loc [w] *
+                     & (NUM (ORD c) zv)`
+  >- (xapp \\ xsimpl \\ metis_tac[])
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_err_state_loc [w] *
+                     & (WORD ((n2w (ORD c)):word8) zv)`
+  >- (xapp \\ xsimpl \\ metis_tac[])
+  \\ xlet `POSTv zv. IOxx output * W8ARRAY write_err_state_loc [n2w (ORD c)] *
+                     & UNIT_TYPE () zv`
+  THEN1
+   (xapp \\ xsimpl \\ fs [EVAL ``write_err_state_loc``]
+    \\ instantiate \\ xsimpl \\ EVAL_TAC)
+  \\ xlet `POSTv _. IOxx (output ++ [c]) * W8ARRAY write_err_state_loc [n2w (ORD c)]`
+  THEN1
+   (xffi
+    \\ fs [EVAL ``write_err_state_loc``, STDOUT_def, Abbr`IOxx`, cfHeapsBaseTheory.IOx_def,stdout_ffi_part_def]
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
     \\ CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ map_every qexists_tac[`ns`,`u`]
     \\ xsimpl
