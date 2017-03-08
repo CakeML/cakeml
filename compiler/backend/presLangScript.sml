@@ -269,9 +269,9 @@ val id_to_object_def = Define`
     id_to_object ids = Array (MAP String (id_to_list ids))`
 
 val tctor_to_json_def = Define`
-  (tctor_to_json (ast$TC_name tuple) = 
+  (tctor_to_json (ast$TC_name tuple) =
     let tuple' = id_to_object tuple in
-     Object [("TC_name", tuple')]) 
+     Object [("TC_name", tuple')])
   /\
   (tctor_to_json TC_int = String "TC_int")
   /\
