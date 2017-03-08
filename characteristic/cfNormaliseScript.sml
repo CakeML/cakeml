@@ -6,7 +6,7 @@ open cfTacticsBaseLib;
 open terminationTheory
 open ASCIInumbersTheory
 
-val _ = new_theory "cfNormalize"
+val _ = new_theory "cfNormalise"
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
