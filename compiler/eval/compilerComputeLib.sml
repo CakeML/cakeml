@@ -243,6 +243,10 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.get_partial_app_label_fn_def
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
+    ,clos_to_bvlTheory.num_added_globals_def
+    ,clos_to_bvlTheory.partial_app_label_table_loc_def
+    ,clos_to_bvlTheory.partial_app_fn_location_code_def
+    ,clos_to_bvlTheory.init_globals_def
     ,bvlTheory.mk_tick_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def

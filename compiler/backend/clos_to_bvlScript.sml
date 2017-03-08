@@ -29,6 +29,12 @@ val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
   `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
   EVAL_TAC >> rw[] >> simp[])
 
+val num_added_globals_def = Define
+  `num_added_globals = 1n`;
+
+val partial_app_label_table_loc_def = Define
+  `partial_app_label_table_loc = 0n`;
+
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
@@ -36,6 +42,8 @@ val compile_op_def = Define`
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
   compile_op LengthByteVec = LengthByte ∧
   compile_op DerefByteVec = DerefByte ∧
+  compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
+  compile_op (Global n) = Global (n + num_added_globals) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -48,6 +56,8 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
       | FromList tag => FromList (clos_tag_shift tag)
       | LengthByteVec => LengthByte
       | DerefByteVec => DerefByte
+      | SetGlobal n => SetGlobal (n + num_added_globals)
+      | Global n => Global (n + num_added_globals)
       | x => x`,
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
@@ -159,6 +169,14 @@ val partial_app_fn_location_def = Define `
   partial_app_fn_location (max_app:num) tot prev =
     1 + max_app + tot * (tot - 1) DIV 2 + prev`;
 
+val partial_app_fn_location_code_def = Define `
+  partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
+    Let [tot_exp]
+     (Op Add [mk_const (1 + max_app);
+        Op Add [prev_exp;
+          Op Div [mk_const 2;
+            Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]]])`;
+
 val equality_location_def = Define`
   equality_location (max_app:num) = 1 + max_app + max_app * (max_app - 1) DIV 2`;
 
@@ -246,8 +264,10 @@ val generate_generic_app_def = Define `
                 (* Partial application of a normal closure *)
                 (Op (Cons partial_app_tag)
                     (REVERSE
-                      (Call 0 (SOME get_partial_app_label_fn_location)
-                        [mk_const n; mk_el (Var (n+2)) (mk_const 1)] ::
+                      (mk_el (Op (Global 0) [])
+                        (partial_app_fn_location_code max_app
+                          (mk_el (Var (n+2)) (mk_const 1))
+                          (mk_const n)) ::
                        Var 0 ::
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
@@ -325,6 +345,21 @@ val init_code_def = Define `
        [equality_code max_app;
         block_equality_code max_app;
         ToList_code max_app])`;
+
+val init_globals_def = Define `
+  init_globals max_app =
+    Let
+      [Op (SetGlobal partial_app_label_table_loc)
+        [Op (Cons tuple_tag)
+          (REVERSE (FLAT
+            (GENLIST
+              (\tot.
+                GENLIST
+                  (\prev. mk_label (partial_app_fn_location max_app tot prev))
+                  tot)
+              max_app)))]]
+      (* Expect the real start of the program in code location 3 *)
+      (Call 0 (SOME 3) [])`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
@@ -554,11 +589,11 @@ val compile_def = Define`
     let c = c with next_loc := n in
     let e = clos_known$compile c.do_known (HD es) in
     let (e,aux) = clos_call$compile c.do_call e in
-    let prog = (1,0,e) :: aux in
+    let prog = (3,0,e) :: aux in
     let c = c with start := num_stubs c.max_app + 1 in
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
-    let prog = compile_prog c.max_app prog in
+    let prog = (1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
     let prog = toAList (init_code c.max_app) ++ prog in
       (c,code_sort prog)`;
 
