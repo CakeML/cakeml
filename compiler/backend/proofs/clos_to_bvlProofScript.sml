@@ -4,7 +4,9 @@ open preamble
      bvl_jumpProofTheory
      clos_to_bvlTheory
      backend_commonTheory;
-local open
+
+local
+open
   clos_mtiProofTheory
   clos_numberProofTheory
   clos_knownProofTheory
@@ -29,6 +31,12 @@ val _ = temp_overload_on ("state_rel", ``clos_relation$state_rel``)
 (* TODO: move? *)
 
 val ARITH_TAC = intLib.ARITH_TAC;
+
+val drop_lupdate = Q.store_thm ("drop_lupdate",
+  `!n x m l. n ≤ m ⇒ DROP n (LUPDATE x m l) = LUPDATE x (m - n) (DROP n l)`,
+  rw [LIST_EQ_REWRITE, EL_DROP, EL_LUPDATE] >>
+  rw [] >>
+  fs []);
 
 val SUM_REPLICATE = Q.store_thm("SUM_REPLICATE",
   `∀n m. SUM (REPLICATE n m) = n * m`,
@@ -235,28 +243,6 @@ val triangle_div_lemma = Q.prove (
   fs [ADD1] >>
   ARITH_TAC);
 
-val triangle_div_lemma2 = Q.prove (
-  `!max_app n tot.
-    0 < max_app ∧ tot < max_app ∧ n < tot
-    ⇒
-    n + tot * (tot − 1) DIV 2 + 1 < max_app * (max_app − 1) DIV 2 + 4`,
-  rw [] >>
-  `(tot - 1) + (tot * (tot − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
-  suffices_by decide_tac >>
-  `((max_app - 1) - 1) + ((max_app - 1) * ((max_app - 1) − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
-  suffices_by (
-    rw [] >>
-    `tot + tot * (tot − 1) DIV 2 < max_app + (max_app − 1) * (max_app − 2) DIV 2`
-    suffices_by rw [] >>
-    simp [tri_lemma]) >>
-  Cases_on `max_app` >>
-  fs [] >>
-  Cases_on `tot` >>
-  fs [ADD1] >>
-  Cases_on `n'` >>
-  fs [ADD1] >>
-  ARITH_TAC);
-
 val triangle_el = Q.prove (
   `!n tot max_app stuff f g.
     n < tot ∧ tot < max_app
@@ -270,28 +256,6 @@ val triangle_el = Q.prove (
             max_app) ++
        stuff) =
     f tot n`,
-  Induct_on `max_app` >>
-  rw [GENLIST, FLAT_SNOC] >>
-  `tot = max_app ∨ tot < max_app` by decide_tac >>
-  rw []
-  >- simp [triangle_table_size, EL_APPEND_EQN] >>
-  res_tac >>
-  fs [] >>
-  metis_tac [APPEND_ASSOC]);
-
-val triangle_el_pair = Q.prove (
-  `!n tot max_app stuff f g.
-    n < tot ∧ tot < max_app
-    ⇒
-    EL (n + tot * (tot − 1) DIV 2)
-      (FLAT
-         (GENLIST
-            (λtot.
-               GENLIST
-                 (λprev. (g tot prev, f tot prev)) tot)
-            max_app) ++
-       stuff) =
-    (g tot n, f tot n)`,
   Induct_on `max_app` >>
   rw [GENLIST, FLAT_SNOC] >>
   `tot = max_app ∨ tot < max_app` by decide_tac >>
@@ -1316,24 +1280,50 @@ val do_app = Q.prove(
                             bvlSemTheory.do_eq_def]
   >- (
     imp_res_tac state_rel_globals >>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-    BasicProvers.EVERY_CASE_TAC >> rev_full_simp_tac(srw_ss())[get_global_def]>>
-    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[optionTheory.OPTREL_def] )
+    every_case_tac >>
+    fs [get_global_def, num_added_globals_def] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH
+    >- fs [DROP_CONS_EL, ADD1] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >>
+    first_x_assum drule >>
+    simp [EL_DROP, optionTheory.OPTREL_def])
   >- (
     imp_res_tac state_rel_globals >>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-    BasicProvers.EVERY_CASE_TAC >> rev_full_simp_tac(srw_ss())[get_global_def]>>
-    srw_tac[][v_rel_SIMP] >>
-    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[OPTREL_def] >>
+    every_case_tac >>
+    fs [get_global_def, num_added_globals_def] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH
+    >- fs [DROP_CONS_EL, ADD1] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >>
+    first_x_assum drule >>
+    simp [EL_DROP, optionTheory.OPTREL_def] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    reverse conj_tac >- metis_tac[] >>
-    MATCH_MP_TAC EVERY2_LUPDATE_same >>
-    rev_full_simp_tac(srw_ss())[OPTREL_def] )
+    rw []
+    >- (
+      fs [num_added_globals_def, drop_lupdate] >>
+      MATCH_MP_TAC EVERY2_LUPDATE_same >>
+      rev_full_simp_tac(srw_ss())[OPTREL_def] )
+    >- fs [get_global_def, HD_LUPDATE]
+    >- metis_tac [])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] \\ metis_tac[])
+    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] >>
+    rw []
+    >- (
+      fs [num_added_globals_def, DROP_APPEND] >>
+      irule EVERY2_APPEND_suff >>
+      simp [optionTheory.OPTREL_def] >>
+      fs [get_global_def] >>
+      `1 - LENGTH t1.globals = 0` by decide_tac >>
+      simp [])
+    >- (
+      fs [get_global_def] >>
+      Cases_on `t1.globals` >>
+      fs [])
+    >- metis_tac[])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] )
@@ -2833,7 +2823,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy (DROP _ t2.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3055,7 +3045,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy (DROP _ t2.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3108,7 +3098,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
-         (Q.PAT_X_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL tt yy (DROP _ t2.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ full_simp_tac(srw_ss())[]
@@ -3428,7 +3418,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     THEN1
      (reverse (REPEAT STRIP_TAC) THEN1
        (full_simp_tac(srw_ss())[state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
-         (Q.PAT_X_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
+         (Q.PAT_X_ASSUM `LIST_REL ppp s.globals (DROP _ t1.globals)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
         \\ STRIP_TAC >- (
@@ -3715,7 +3705,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         impl_tac
         >- (
           qpat_x_assum `state_rel _ _ _` mp_tac >>
-          simp_tac (srw_ss()) [state_rel_def, find_code_def, get_partial_app_label_fn_location_def]) >>
+          simp_tac (srw_ss()) [state_rel_def, dec_clock_def]) >>
         strip_tac >>
         srw_tac[][]
         >- ((* A TimeOut *)
@@ -4101,8 +4091,6 @@ val compile_exps_code_locs = Q.store_thm("compile_exps_code_locs",
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `0 < max_app ⇒
-   (lookup get_partial_app_label_fn_location (init_code max_app) =
-       SOME (2, get_partial_app_label_fn max_app)) ∧
    (!n.
       n < max_app ⇒ lookup (generic_app_fn_location n) (init_code max_app) = SOME (n + 2, generate_generic_app max_app n)) ∧
    (!tot n.
@@ -4113,14 +4101,15 @@ val init_code_ok = Q.store_thm ("init_code_ok",
    (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
    (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
   srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
-            get_partial_app_label_fn_location_def, generic_app_fn_location_def]
+            generic_app_fn_location_def]
   >- decide_tac
   >- simp[EL_APPEND1, GSYM ADD1]
   >- (
     srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
     simp [ADD1] >>
     REWRITE_TAC [ADD_ASSOC] >>
-    simp [triangle_div_lemma])
+    imp_res_tac triangle_div_lemma >>
+    simp [])
   >- (
       simp [GSYM ADD_ASSOC, DECIDE ``!x. 1 + x = SUC x``, EL_CONS] >>
       `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
@@ -4141,7 +4130,8 @@ val init_code_ok = Q.store_thm ("init_code_ok",
   >- (
     simp_tac (srw_ss()) [GSYM ADD_ASSOC, ToList_location_def] >>
     simp_tac (srw_ss()) [GSYM ADD1] >>
-    simp[triangle_table_size, EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def]));
+    simp[triangle_table_size, block_equality_location_def,equality_location_def, EL_APPEND2] >>
+    simp [ADD1]));
 
 val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`,
@@ -4774,7 +4764,7 @@ val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   \\ rveq \\ fs[] \\ rveq \\ fs[]
   \\ qmatch_rename_tac`_ = ab`
   \\ Cases_on`ab` >> fs[]
-  \\ rveq \\ fs[] \\ every_case_tac \\ fs[] \\ rveq \\ fs[])
+  \\ rveq \\ fs[] \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
 
 val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
   `full_result_rel c (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒

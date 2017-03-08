@@ -173,7 +173,7 @@ val partial_app_fn_location_code_def = Define `
           Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])`;
 
 val equality_location_def = Define`
-  equality_location (max_app:num) = 1 + max_app + max_app * (max_app - 1) DIV 2`;
+  equality_location (max_app:num) = max_app + max_app * (max_app - 1) DIV 2`;
 
 val block_equality_location_def = Define`
   block_equality_location max_app = equality_location max_app + 1`;
