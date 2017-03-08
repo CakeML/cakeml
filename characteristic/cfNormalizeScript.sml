@@ -105,17 +105,6 @@ val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
 );
 
 (*------------------------------------------------------------------*)
-(* [normalise] *)
-
-val normalise_def = Define `
-  normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
-
-val evaluate_normalise = Q.store_thm("evaluate_normalise",
-  `evaluate s env [normalise exp] = evaluate s env [exp]`,
-  fs [normalise_def]);
-
-
-(*------------------------------------------------------------------*)
 (* [full_normalise]
 
    The implementation follows the structure of the CFML one, in
