@@ -233,7 +233,7 @@ val do_app_def = Define `
     | (BoundsCheckBlock,xs) =>
         (case xs of
          | [Block tag ys; Number i] =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH xs),s)
+               Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Error)
     | (BoundsCheckByte,xs) =>
         (case xs of
@@ -253,7 +253,7 @@ val do_app_def = Define `
          | _ => Error)
     | (LessConstSmall n,xs) =>
         (case xs of
-         | [Number i] => if 0 <= i /\ i <= 1000000
+         | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
     | _ => Error`;
