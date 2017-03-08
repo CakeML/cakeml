@@ -7,7 +7,7 @@ open preamble
 open jsonTheory presLangTheory
 open astTheory source_to_modTheory
 
-computeLib.add_funs [pat_bindings_def];
+val _ = computeLib.add_funs [pat_bindings_def];
 
 (* COMPILING *)
 val parse_def = Define`
@@ -31,7 +31,6 @@ val mod_prog_def = Define`
   mod_prog = SND (source_to_mod$compile source_to_mod$empty_config parsed_basic)`;
 
 EVAL ``mod_prog``;
-
 (* Test running the compiler backend on the basic program *)
 EVAL ``backend$compile backend$prim_config parsed_basic``;
 
@@ -62,3 +61,4 @@ val _ = Define `
     )`;
 
 EVAL ``json_to_string json``;
+EVAL ``pres_to_json (Dexn ["modul"; "modul1"] "conN" [Tvar "TVARN"; Tvar_db 5])``
