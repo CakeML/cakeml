@@ -12,6 +12,9 @@ val _ = new_theory "cfNormalize"
 (** The [cf] function assumes that programs are in "normal form"
     (which is close to ANF). These lemmas exploit the fact that some
     program is in normal form.
+
+    The [full_normalise] function (defined below) puts an arbitrary
+    program in normal form.
 *)
 
 val exp2v_def = Define `
@@ -107,6 +110,17 @@ val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
 (*------------------------------------------------------------------*)
 (* [full_normalise]
 
+   [full_normalise] implements a preprocessing pass on the CakeML
+   program to be fed to [cf]. It turns a CakeML program into A-normal
+   form; [cf] then assumes the input program is in A-normal form. [cf]
+   evaluates to [F] for programs not in A-normal form.
+
+   At the moment, nothing particular is proved about [full_normalise]:
+   therefore, formally, the specification proved using CF is a
+   specification for the _normalised_ program, not the original one.
+   Eventually it would be nice to have a proof that [full_normalise]
+   preserves the semantics of its input in some way.
+
    The implementation follows the structure of the CFML one, in
    generator/normalize.ml in the CFML sources.
 *)
@@ -122,6 +136,7 @@ val dest_opapp_def = Define `
           | _ => NONE) /\
   dest_opapp _ = NONE`
 
+(* [mk_opapp]: construct an n-ary application. *)
 val mk_opapp_def = tDefine "mk_opapp" `
   mk_opapp xs =
     if LENGTH xs < 2 then HD xs else
@@ -138,6 +153,19 @@ val MEM_exp1_size = Q.prove(
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
   \\ fs [astTheory.exp_size_def]);
 
+val exp6_size_lemma = Q.prove(
+  `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
+  Induct \\ fs [astTheory.exp_size_def]);
+
+val dest_opapp_size = Q.prove(
+  `!xs p_1 p_2.
+      dest_opapp xs = SOME (p_1,p_2) ==>
+      exp_size p_1 + exp6_size p_2 < exp_size xs`,
+  recInduct (theorem "dest_opapp_ind") \\ fs [dest_opapp_def]
+  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
+  \\ fs [astTheory.exp_size_def]
+  \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
+
 val get_name_aux_def = tDefine "get_name_aux" `
   get_name_aux n vs =
     let v = "t" ++ num_to_dec_string n in
@@ -151,27 +179,24 @@ val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
 
 val alpha_def = Define `alpha = ^alpha`;
 
+(* [get_name vs] returns a fresh name given a list [vs] of already
+   used names. *)
 val get_name_def = Define `
   get_name vs =
     let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
       if NULL ws then get_name_aux 0 vs else [HD ws]`;
 
+(* [Lets [(n1, x1); ...; (nm, xm)] e] is the sequence of Lets:
+
+   let n1 = x1 in
+   let n2 = x2 in
+   ...
+   let nm = xm in
+   e
+*)
 val Lets_def = Define `
   Lets [] e = e /\
   Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
-
-val exp6_size_lemma = Q.prove(
-  `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
-  Induct \\ fs [astTheory.exp_size_def]);
-
-val dest_opapp_size = Q.prove(
-  `!xs p_1 p_2.
-      dest_opapp xs = SOME (p_1,p_2) ==>
-      exp_size p_1 + exp6_size p_2 < exp_size xs`,
-  recInduct (theorem "dest_opapp_ind") \\ fs [dest_opapp_def]
-  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
-  \\ fs [astTheory.exp_size_def]
-  \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
 
 val wrap_if_needed_def = Define `
   wrap_if_needed needs_wrapping ns e b =
@@ -363,6 +388,8 @@ val norm_def = tDefine "norm" `
     (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
      ((FST branch, FST (SND branch), branch_e'), ns))`
  cheat;
+(* TODO: prove the termination of [norm]. This is probably a bit tricky and
+   requires refactoring the way [norm] is defined. *)
 
 val full_normalise_def = Define `
   full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
