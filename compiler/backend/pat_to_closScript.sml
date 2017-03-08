@@ -106,20 +106,20 @@ val compile_def = tDefine"compile"`
           (Op (RefByte F) [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Aw8sub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 1; Var 0])
+      (If (Op BoundsCheckByte [Var 0; Var 1])
          (Op DerefByte [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Aw8length)) es) =
     Op LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aw8update)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 2; Var 1])
+      (If (Op BoundsCheckByte [Var 1; Var 2])
          (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
            (Op (Cons tuple_tag) []))
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Strsub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 1; Var 0])
+      (If (Op BoundsCheckByte [Var 0; Var 1])
          (Op DerefByteVec [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Implode)) es) =
@@ -130,7 +130,7 @@ val compile_def = tDefine"compile"`
     Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Vsub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckBlock [Var 1; Var 0])
+      (If (Op BoundsCheckBlock [Var 0; Var 1])
          (Op El [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Vlength)) es) =
@@ -142,14 +142,14 @@ val compile_def = tDefine"compile"`
           (Op RefArray [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Asub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckArray [Var 1; Var 0])
+      (If (Op BoundsCheckArray [Var 0; Var 1])
          (Op Deref [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Alength)) es) =
     Op Length (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aupdate)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckArray [Var 2; Var 1])
+      (If (Op BoundsCheckArray [Var 1; Var 2])
          (Let [Op Update [Var 0; Var 1; Var 2]]
             (Op (Cons tuple_tag) []))
          (Raise (Op (Cons subscript_tag) [])))) ∧
