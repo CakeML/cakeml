@@ -326,12 +326,7 @@ val do_app_ssgc = Q.store_thm(
             vsgc_free v ∧ ssgc_free s ∧
             mglobals_extend s0 (SET_OF_BAG (op_gbag opn)) s) ∧
      (∀v. res = Rerr (Rraise v) ⇒ vsgc_free v)`,
-  strip_tac
-  \\ Cases_on `opn = BoundsCheckByte` THEN1 cheat
-  \\ Cases_on `opn = BoundsCheckArray` THEN1 cheat
-  \\ Cases_on `opn = BoundsCheckBlock` THEN1 cheat
-  \\ Cases_on `?nn. opn = LessConstSmall nn` THEN1 cheat
-  \\ Cases_on `opn` >> fs [] >> cheat) (*
+  Cases_on `opn` >>
   simp[do_app_def, eqs, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
   >- ((* GetGlobal *)
@@ -357,7 +352,6 @@ val do_app_ssgc = Q.store_thm(
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
-  >- dsimp[]
   >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -389,8 +383,7 @@ val do_app_ssgc = Q.store_thm(
       >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
       >- metis_tac[])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- dsimp[]
-  >- dsimp[]) *)
+  >> dsimp[]);
 
 val EVERY_lookup_vars = Q.store_thm(
   "EVERY_lookup_vars",
@@ -1336,7 +1329,29 @@ val kvrel_op_correct_Rval = Q.store_thm(
              simp[OPTREL_def]) >> simp[] >>
       simp[fmap_rel_FUPDATE_same])
   >- (rw[] >> fs[] >> rw[] >> metis_tac[kvrel_do_eq])
-  >- (rw[] >> fs[pair_case_eq] >> rveq >> simp[]))
+  >- (rw[] >> fs[pair_case_eq] >> rveq >> simp[])
+  >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ValueArray vas)` >>
+      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
+      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
+      `OPTREL (ref_rel (kvrel g))
+              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
+         by simp[] >> pop_assum mp_tac >>
+      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
+      rw[LIST_REL_EL_EQN])
+  >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray _ vas)` >>
+      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
+      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
+      `OPTREL (ref_rel (kvrel g))
+              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
+         by simp[] >> pop_assum mp_tac >>
+      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
+      rpt strip_tac >>
+      fs [METIS_PROVE [] ``b \/ v <=> ~b ==> v``] >>
+      rpt strip_tac >>
+      Cases_on `FLOOKUP s01.refs k` >> fs [] >>
+      first_x_assum (qspec_then `k` mp_tac) >> fs [OPTREL_def]));
 
 val do_app_EQ_Rerr = Q.store_thm(
   "do_app_EQ_Rerr",
