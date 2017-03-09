@@ -238,6 +238,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.equality_code_def
     ,clos_to_bvlTheory.check_closure_def
     ,clos_to_bvlTheory.ToList_code_def
+    ,clos_to_bvlTheory.get_partial_app_label_fn_location_def
+    ,clos_to_bvlTheory.generic_app_fn_location_def
+    ,clos_to_bvlTheory.get_partial_app_label_fn_def
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
     ,bvlTheory.mk_tick_def

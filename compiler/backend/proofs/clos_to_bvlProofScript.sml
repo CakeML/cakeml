@@ -177,11 +177,93 @@ val less_rectangle2 = Q.prove (
   `!(x:num) y m n. m < x ∧ n < y ⇒ m + n * x< x * y`,
   metis_tac [less_rectangle, ADD_COMM, MULT_COMM]);
 
-val sum_genlist_square = Q.prove (
-  `!x z. SUM (GENLIST (\y. z) x) = x * z`,
+val sum_genlist_triangle_help = Q.prove (
+  `!x. SUM (GENLIST (\y. y) (x+1)) = x * (x + 1) DIV 2`,
   Induct >>
-  srw_tac[][GENLIST, SUM_SNOC, ADD1] >>
-  decide_tac);
+  fs [GENLIST, SUM_SNOC, GSYM ADD1] >>
+  simp [ADD1] >>
+  ARITH_TAC);
+
+val sum_genlist_triangle = Q.prove (
+  `!x. SUM (GENLIST (\y. y) x) = x * (x - 1) DIV 2`,
+  rw [] >>
+  mp_tac (Q.SPEC `x-1` sum_genlist_triangle_help) >>
+  Cases_on `x = 0` >>
+  simp []);
+
+val triangle_table_size = Q.prove (
+  `!max f. LENGTH (FLAT (GENLIST (\x. (GENLIST (\y. f x y) x)) max)) =
+    max * (max -1) DIV 2`,
+  rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle]);
+
+val triangle_div_lemma1 = Q.prove (
+  `!max_app n tot.
+    max_app = tot + 1 ∧ tot = n + 1
+    ⇒
+    n + tot * (tot − 1) DIV 2 < max_app * (max_app − 1) DIV 2`,
+  rw [] >>
+  ARITH_TAC);
+
+val tri_lemma = Q.prove (
+  `!tot max_app.
+    tot < max_app ⇒
+    tot + tot * (tot − 1) DIV 2 < max_app + (max_app − 1) * (max_app − 2) DIV 2`,
+  Induct_on `max_app` >>
+  rw [ADD1] >>
+  `tot = max_app ∨ tot < max_app` by decide_tac >>
+  rw [] >>
+  res_tac >>
+  `max_app + (max_app − 1) * (max_app − 2) DIV 2 < max_app + (max_app * (max_app − 1) DIV 2 + 1)`
+  suffices_by decide_tac >>
+  simp [] >>
+  rpt (pop_assum kall_tac) >>
+  Induct_on `max_app` >>
+  rw [ADD1] >>
+  ARITH_TAC);
+
+val triangle_div_lemma = Q.prove (
+  `!max_app n tot.
+    0 < max_app ∧ tot < max_app ∧ n < tot
+    ⇒
+    n + tot * (tot − 1) DIV 2 + 1 < max_app * (max_app − 1) DIV 2 + 4`,
+  rw [] >>
+  `(tot - 1) + (tot * (tot − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
+  suffices_by decide_tac >>
+  `((max_app - 1) - 1) + ((max_app - 1) * ((max_app - 1) − 1) DIV 2 + 1) < max_app * (max_app − 1) DIV 2 + 4`
+  suffices_by (
+    rw [] >>
+    `tot + tot * (tot − 1) DIV 2 < max_app + (max_app − 1) * (max_app − 2) DIV 2`
+    suffices_by rw [] >>
+    simp [tri_lemma]) >>
+  Cases_on `max_app` >>
+  fs [] >>
+  Cases_on `tot` >>
+  fs [ADD1] >>
+  Cases_on `n'` >>
+  fs [ADD1] >>
+  ARITH_TAC);
+
+val triangle_el = Q.prove (
+  `!n tot max_app stuff f g.
+    n < tot ∧ tot < max_app
+    ⇒
+    EL (n + tot * (tot − 1) DIV 2)
+      (FLAT
+         (GENLIST
+            (λtot.
+               GENLIST
+                 (λprev. (g tot prev, f tot prev)) tot)
+            max_app) ++
+       stuff) =
+    (g tot n, f tot n)`,
+  Induct_on `max_app` >>
+  rw [GENLIST, FLAT_SNOC] >>
+  `tot = max_app ∨ tot < max_app` by decide_tac >>
+  rw []
+  >- simp [triangle_table_size, EL_APPEND_EQN] >>
+  res_tac >>
+  fs [] >>
+  metis_tac [APPEND_ASSOC]);
 
 val if_expand = Q.prove (
   `!w x y z. (if x then y else z) = w ⇔ x ∧ y = w ∨ ~x ∧ z = w`,
@@ -250,6 +332,38 @@ val evaluate_genlist_prev_args1 = Q.prove (
   (Q.SPECL_THEN [`prev_args`, `[p;n;cl]`, `x::y::args`]assume_tac evaluate_genlist_prev_args) >>
   full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
 
+val evaluate_genlist_prev_args1_simpl = Q.prove (
+  `!prev_args x y tag p n cl a st.
+    evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var 3]) (LENGTH prev_args)),
+           [x;y;a; Block tag (p::n::cl::prev_args)],
+           st)
+    =
+    (Rval (REVERSE prev_args),st)`,
+  srw_tac[][] >>
+  (Q.SPECL_THEN [`prev_args`, `[p;n;cl]`, `[x;y;a]`]assume_tac evaluate_genlist_prev_args) >>
+  full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
+
+val evaluate_genlist_prev_args_no_rev = Q.prove (
+  `!prev_args z x tag arg_list st.
+    evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
+           x++(Block tag (z++prev_args))::arg_list,
+           st)
+    =
+    (Rval prev_args,st)`,
+  Induct_on `prev_args` >>
+  srw_tac[][evaluate_def, GENLIST_CONS] >>
+  srw_tac[][Once evaluate_CONS, evaluate_def, do_app_def] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  srw_tac[][] >>
+  pop_assum (qspecl_then [`z++[h]`] mp_tac) >>
+  srw_tac [ARITH_ss] [combinTheory.o_DEF, ADD1] >>
+  `z ++ h :: prev_args = z ++ [h] ++ prev_args` by metis_tac [APPEND, APPEND_ASSOC] >>
+  srw_tac[][el_append3] >>
+  `x ++ Block tag (z ++ [h] ++ prev_args)::arg_list = x ++ [Block tag (z ++ [h] ++ prev_args)] ++ arg_list`
+          by metis_tac [APPEND, APPEND_ASSOC] >>
+  srw_tac[][el_append3] >>
+  decide_tac);
+
 val evaluate_genlist_prev_args_no_rev = Q.prove (
   `!prev_args z x tag arg_list st.
     evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
@@ -281,12 +395,39 @@ val evaluate_genlist_prev_args1_no_rev = Q.prove (
   metis_tac [evaluate_genlist_prev_args_no_rev, APPEND, LENGTH, DECIDE ``SUC (SUC (SUC 0)) = 3``,
              DECIDE ``(SUC 0) = 1``, DECIDE ``SUC (SUC 0) = 2``, ADD1]);
 
+val evaluate_get_partial_app_label_fn = Q.prove (
+  `!max_app n total_args st.
+     partial_app_fn_location max_app total_args n ∈ domain st.code ∧
+     n < total_args ∧ total_args < max_app ⇒
+     evaluate
+       ([get_partial_app_label_fn max_app],
+        [Number (&n); Number (&total_args)],
+        st)
+     =
+     (Rval [CodePtr (partial_app_fn_location max_app total_args n)], st)`,
+  rw [get_partial_app_label_fn_def, LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
+  `evaluate ([Var 1], [Number (&n); Number (&total_args)], st) =
+    (Rval [Number (&total_args)], st)`
+          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
+  imp_res_tac evaluate_Jump >>
+  simp [] >>
+  `evaluate ([Var 1], [Number (&total_args); Number (&n); Number (&total_args)], st) =
+    (Rval [Number (&n)], st)`
+          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
+  imp_res_tac evaluate_Jump >>
+  simp [] >>
+  srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND]);
+
 val evaluate_generic_app1 = Q.prove (
   `!n args st total_args l fvs cl.
     partial_app_fn_location max_app total_args n ∈ domain st.code ∧
     n < total_args ∧
     total_args < max_app ∧
     n + 1 = LENGTH args ∧
+    find_code (SOME 0) [Number (&n); Number (&total_args)] st.code =
+      SOME ([Number (&n); Number (&total_args)], get_partial_app_label_fn max_app) ∧
     cl = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
     ⇒
     evaluate ([generate_generic_app max_app n], args++[cl], st) =
@@ -298,27 +439,46 @@ val evaluate_generic_app1 = Q.prove (
                                       cl::
                                       args)],
          dec_clock n st)`,
-  srw_tac[][generate_generic_app_def] >>
+  rpt strip_tac >>
+  Cases_on `n = 0`
+  >- (
+    srw_tac[][generate_generic_app_def, get_partial_app_label_fn_location_def] >>
+    srw_tac[][evaluate_def, do_app_def] >>
+    full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
+    `~(&total_args − &1 < 0)` by intLib.ARITH_TAC >>
+    qpat_x_assum `1 = LENGTH _` (assume_tac o GSYM) >>
+    simp [EL_CONS] >>
+    `?a. args = [a]`
+    by (
+      Cases_on `args` >>
+      simp [] >>
+      fs [LENGTH_NIL]) >>
+    simp [] >>
+    `evaluate ([Var 0],
+               [Number (&total_args − 1); a; Block closure_tag (CodePtr l::Number (&total_args)::fvs)],
+               st) =
+    (Rval [Number (&(total_args - 1))], st)`
+          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
+    imp_res_tac evaluate_Jump >>
+    rev_full_simp_tac(srw_ss())[] >>
+    simp [] >>
+    srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND] >>
+    simp [int_arithTheory.INT_NUM_SUB]) >>
+  srw_tac[][generate_generic_app_def, get_partial_app_label_fn_location_def] >>
   srw_tac[][evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
   `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
+  TRY (rfs [] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick, evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac [ARITH_ss] [ADD1, evaluate_genlist_vars_rev, evaluate_def] >>
-  `evaluate ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
-          Number (&total_args − &(LENGTH args))::(args++[Block closure_tag (CodePtr l::Number (&total_args)::fvs)]),
-          dec_clock n st) =
-    (Rval [Number (&total_args)], dec_clock n st)`
-          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
-              srw_tac [ARITH_ss][PRE_SUB1, EL_CONS, el_append2] >> NO_TAC) >>
-  imp_res_tac evaluate_Jump >>
-  rev_full_simp_tac(srw_ss())[] >>
-  srw_tac [ARITH_ss] [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND] >>
-  fs [REVERSE_APPEND] >>
-  srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2,
-      TAKE_LENGTH_APPEND] >>
+  rw [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
+  TRY (fs [dec_clock_def, LESS_OR_EQ]) >>
+  simp [evaluate_get_partial_app_label_fn] >>
+   srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2, TAKE_LENGTH_APPEND] >>
   decide_tac);
 
 val evaluate_generic_app2 = Q.prove (
@@ -328,6 +488,13 @@ val evaluate_generic_app2 = Q.prove (
     n + 1 = LENGTH args ∧
     LENGTH prev_args > 0 ∧
     rem_args + LENGTH prev_args < max_app ∧
+    find_code (SOME 0)
+      [Number (&(n + LENGTH prev_args));
+       Number (&(rem_args + LENGTH prev_args))]
+      st.code =
+        SOME ([Number (&(n + LENGTH prev_args));
+               Number (&(rem_args + LENGTH prev_args))],
+              get_partial_app_label_fn max_app) ∧
     cl = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
     ⇒
     evaluate ([generate_generic_app max_app n], args++[cl], st) =
@@ -340,39 +507,70 @@ val evaluate_generic_app2 = Q.prove (
                                       args ++
                                       prev_args)],
          dec_clock n st)`,
+  rpt strip_tac >>
+  Cases_on `n = 0`
+  >- (
+    srw_tac[][generate_generic_app_def, mk_const_def] >>
+    srw_tac[][evaluate_def, do_app_def] >>
+    full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
+    `~(&rem_args − &1 < 0)` by intLib.ARITH_TAC >>
+    qpat_x_assum `1 = LENGTH _` (assume_tac o GSYM) >>
+    `?a. args = [a]`
+    by (
+      Cases_on `args` >>
+      simp [] >>
+      fs [LENGTH_NIL]) >>
+    simp [] >>
+    `evaluate ([Op Sub [Op (Const 4) []; Op LengthBlock [Var 2]]],
+            [Number (&rem_args − 1); a; Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)],st) =
+      (Rval [Number (&(LENGTH prev_args - 1))], st)`
+    by (
+      srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+      srw_tac [ARITH_ss] [EL_CONS, GSYM ADD1, el_append2] >>
+      intLib.ARITH_TAC) >>
+    imp_res_tac evaluate_Jump >>
+    srw_tac [ARITH_ss] [evaluate_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def] >>
+    simp [evaluate_genlist_prev_args1_simpl] >>
+    `evaluate ([Var 1],
+            Number (&(LENGTH prev_args − 1))::Number (&rem_args − 1)::a::[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)],
+            st) =
+      (Rval [Number (&(rem_args - 1))], st)`
+    by (
+      srw_tac [ARITH_ss] [partial_app_tag_def, evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
+      intLib.ARITH_TAC) >>
+    imp_res_tac evaluate_Jump >>
+    simp [] >>
+    srw_tac [ARITH_ss] [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def, mk_label_def]) >>
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
   `~(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
   srw_tac[][el_append2] >>
+  TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick] >>
   full_simp_tac (srw_ss()++ARITH_ss) [] >>
   srw_tac[][evaluate_def, do_app_def] >>
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac[][ADD1] >>
   full_simp_tac(srw_ss())[] >>
+  TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
+  fs [] >>
   `evaluate ([Op Sub [Op (Const 4) []; Op LengthBlock [Var (LENGTH args + 1)]]],
-          Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock n st) =
-    (Rval [Number (&(LENGTH prev_args - 1))], dec_clock n st)`
+          Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock (n-1) st) =
+    (Rval [Number (&(LENGTH prev_args - 1))], dec_clock (n-1) st)`
           by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
               srw_tac [ARITH_ss] [EL_CONS, GSYM ADD1, el_append2] >>
               intLib.ARITH_TAC) >>
   imp_res_tac evaluate_Jump >>
-  rev_full_simp_tac(srw_ss())[] >>
+  simp [] >>
   srw_tac [ARITH_ss] [evaluate_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def] >>
   srw_tac[][REVERSE_APPEND, evaluate_APPEND] >>
   `n + 3 = LENGTH args + 2` by decide_tac >>
   srw_tac[][evaluate_genlist_prev_args1] >>
   srw_tac [ARITH_ss] [evaluate_genlist_vars_rev, EL_CONS, PRE_SUB1, el_append2] >>
-  `evaluate ([Op Add [Op (Const (&(n + (LENGTH prev_args + 1)))) []; Var 1]],
-          Number (&(LENGTH prev_args − 1))::Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),
-          dec_clock n st) =
-    (Rval [Number (&(LENGTH prev_args + rem_args))], dec_clock n st)`
-          by (srw_tac [ARITH_ss] [partial_app_tag_def, evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
-              intLib.ARITH_TAC) >>
-  imp_res_tac evaluate_Jump >>
-  `LENGTH prev_args - 1 < max_app` by decide_tac >>
-  full_simp_tac(srw_ss())[partial_app_tag_def] >>
+  simp [get_partial_app_label_fn_location_def, dec_clock_def] >>
+  `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)) = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
+  simp [evaluate_get_partial_app_label_fn] >>
   srw_tac [ARITH_ss] [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def, mk_label_def]);
 
 val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln `
@@ -392,6 +590,8 @@ val evaluate_generic_app_partial = Q.prove (
     total_args < max_app ∧
     LENGTH args < (total_args + 1) - LENGTH prev_args ∧
     LENGTH args ≠ 0 ∧
+    find_code (SOME 0) [Number (&(LENGTH args + LENGTH prev_args - 1)); Number (&total_args)] st.code =
+      SOME ([Number (&(LENGTH args + LENGTH prev_args - 1)); Number (&total_args)], get_partial_app_label_fn max_app) ∧
     unpack_closure cl (prev_args, total_args, sub_cl)
     ⇒
     evaluate ([generate_generic_app max_app (LENGTH args - 1)], args++[cl], st) =
@@ -419,6 +619,7 @@ val evaluate_generic_app_partial = Q.prove (
       Cases_on `prev_args` >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][] >>
+      rfs [] >>
       `&Num rem_args = rem_args` by intLib.ARITH_TAC >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][int_arithTheory.INT_NUM_SUB] >>
@@ -537,7 +738,8 @@ val evaluate_mk_cl_call = Q.prove (
     evaluate ([cl],env,s) = (Rval [Block tag (CodePtr p::Number &n::xs)], s) ∧
     evaluate (args,env,s) = (Rval args', s) ∧
     lookup p s.code = SOME (n+2, exp) ∧
-    lookup (LENGTH args' - 1) s.code = SOME (LENGTH args' + 1, generate_generic_app max_app (LENGTH args' - 1)) ∧
+    lookup (generic_app_fn_location (LENGTH args' - 1)) s.code =
+      SOME (LENGTH args' + 1, generate_generic_app max_app (LENGTH args' - 1)) ∧
     LENGTH args' - 1 ≥ n ∧
     n < max_app ∧
     LENGTH args ≠ 0
@@ -564,7 +766,7 @@ val evaluate_mk_cl_call = Q.prove (
                     | (Rval v,s2) => (Rval [HD v],s2)
                     | x => x)
             | x => x`,
-  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def, do_eq_def] >>
+  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def, do_eq_def, generic_app_fn_location_def] >>
   full_simp_tac(srw_ss())[ADD1] >>
   Cases_on `n = &(LENGTH args − 1)` >>
   srw_tac[][evaluate_APPEND, evaluate_def, do_app_def, do_eq_def, find_code_def, FRONT_APPEND] >>
@@ -823,9 +1025,12 @@ val state_rel_def = Define `
            ?y m. (FLOOKUP f n = SOME m) /\
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel (v_rel s.max_app f t.refs t.code) x y) /\
-    (!n. n < s.max_app ⇒ lookup n t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
-    (!m n. m < s.max_app ∧ n < s.max_app ⇒
-      lookup (partial_app_fn_location s.max_app m n) t.code = SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+    lookup get_partial_app_label_fn_location t.code =
+      SOME (2, get_partial_app_label_fn s.max_app) ∧
+    (!n. n < s.max_app ⇒
+         lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
+    (!tot n. tot < s.max_app ∧ n < tot ⇒
+      lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
     (lookup (equality_location s.max_app) t.code = SOME (equality_code s.max_app)) ∧
     (lookup (block_equality_location s.max_app) t.code = SOME (block_equality_code s.max_app)) ∧
     (lookup (ToList_location s.max_app) t.code = SOME (ToList_code s.max_app)) ∧
@@ -1760,7 +1965,8 @@ val bEvalOp_def = bvlSemTheory.do_app_def;
 val evaluate_mk_cl_call_spec = Q.prove (
   `!s env tag p n args exp xs.
     lookup p s.code = SOME (n+2, exp) ∧
-    lookup (LENGTH args - 1) s.code = SOME (LENGTH args + 1, generate_generic_app max_app (LENGTH args - 1)) ∧
+    lookup (generic_app_fn_location (LENGTH args - 1)) s.code =
+      SOME (LENGTH args + 1, generate_generic_app max_app (LENGTH args - 1)) ∧
     LENGTH args - 1 ≥ n ∧
     n < max_app ∧
     LENGTH args ≠ 0
@@ -3489,7 +3695,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         qexists_tac `0` >>
         srw_tac[][] >>
         `LENGTH args' - 1 < s1.max_app` by decide_tac >>
-        `lookup (LENGTH args' - 1) t1.code = SOME (LENGTH args' + 1, generate_generic_app s1.max_app (LENGTH args' - 1))`
+        `lookup (generic_app_fn_location (LENGTH args' - 1)) t1.code = SOME (LENGTH args' + 1, generate_generic_app s1.max_app (LENGTH args' - 1))`
                by (full_simp_tac(srw_ss())[state_rel_def] >>
                    decide_tac) >>
         simp [find_code_def] >>
@@ -3517,7 +3723,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         full_simp_tac(srw_ss())[] >>
         Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
         rev_full_simp_tac(srw_ss())[domain_lookup] >>
-        pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
+        pop_assum mp_tac >>
+        REWRITE_TAC [Once CONJ_SYM] >>
+        disch_then drule >>
+        impl_tac
+        >- (
+          qpat_x_assum `state_rel _ _ _` mp_tac >>
+          simp_tac (srw_ss()) [state_rel_def, find_code_def, get_partial_app_label_fn_location_def]) >>
+        strip_tac >>
         srw_tac[][]
         >- ((* A TimeOut *)
             full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, int_arithTheory.INT_NUM_SUB] >>
@@ -3575,7 +3788,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
          >- ((* App NONE *)
              qabbrev_tac `n = rem_args - 1` >>
              imp_res_tac EVERY2_LENGTH >>
-             `lookup (LENGTH args' − 1) t1.code =
+             `lookup (generic_app_fn_location (LENGTH args' − 1)) t1.code =
                 SOME ((LENGTH args' - 1) + 2,generate_generic_app s1.max_app (LENGTH args' − 1))`
                          by (full_simp_tac(srw_ss())[state_rel_def] >>
                              `LENGTH args' - 1 < s1.max_app` by decide_tac >>
@@ -3902,55 +4115,53 @@ val compile_exps_code_locs = Q.store_thm("compile_exps_code_locs",
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `0 < max_app ⇒
+   (lookup get_partial_app_label_fn_location (init_code max_app) =
+       SOME (2, get_partial_app_label_fn max_app)) ∧
    (!n.
-      n < max_app ⇒ lookup n (init_code max_app) = SOME (n + 2, generate_generic_app max_app n)) ∧
-   (!m n.
-      m < max_app ∧ n < max_app ⇒
-        lookup (partial_app_fn_location max_app m n) (init_code max_app) =
-          SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+      n < max_app ⇒ lookup (generic_app_fn_location n) (init_code max_app) = SOME (n + 2, generate_generic_app max_app n)) ∧
+   (!tot n.
+      tot < max_app ∧ n < tot ⇒
+        lookup (partial_app_fn_location max_app tot n) (init_code max_app) =
+          SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
    (lookup (equality_location max_app) (init_code max_app) = SOME (equality_code max_app)) ∧
    (lookup (block_equality_location max_app) (init_code max_app) = SOME (block_equality_code max_app)) ∧
    (lookup (ToList_location max_app) (init_code max_app) = SOME (ToList_code max_app))`,
-  srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def]
+  srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
+            get_partial_app_label_fn_location_def, generic_app_fn_location_def]
   >- decide_tac
-  >- simp[EL_APPEND1]
-  >- (srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_square] >>
-      srw_tac[][DECIDE ``!(x:num) y z n. x + y +n < x + z + a ⇔ y +n < z + a``] >>
-      `max_app * m + n < max_app * max_app` by metis_tac[less_rectangle] >>
-      DECIDE_TAC)
-  >- (`max_app ≤ max_app + max_app * m + n` by decide_tac >>
+  >- simp[EL_APPEND1, GSYM ADD1]
+  >- (
+    srw_tac[][LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_triangle] >>
+    simp [ADD1] >>
+    REWRITE_TAC [ADD_ASSOC] >>
+    simp [triangle_div_lemma])
+  >- (
+      simp [GSYM ADD_ASSOC, DECIDE ``!x. 1 + x = SUC x``, EL_CONS] >>
+      `max_app ≤ max_app + (n + tot * (tot − 1) DIV 2)` by decide_tac >>
       ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
       simp[EL_APPEND2] >>
-      `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
-      srw_tac[][twod_table] >>
-      asm_simp_tac std_ss [EL_APPEND1,LENGTH_GENLIST] >>
-      srw_tac[][EL_GENLIST] >>
-      srw_tac[][DIV_MULT, Once ADD_COMM] >>
-      ONCE_REWRITE_TAC [ADD_COMM] >>
-      srw_tac[][MOD_MULT])
+      rw [triangle_el])
+  >- simp [triangle_table_size, equality_location_def, ADD1]
   >- (
-    srw_tac[][twod_table] >>
-    simp[equality_location_def] )
+    simp_tac (srw_ss()) [GSYM ADD_ASSOC, equality_location_def] >>
+    simp_tac (srw_ss()) [DECIDE ``!x. 1 + x = SUC x``] >>
+    simp[triangle_table_size, EL_APPEND2,equality_location_def])
+  >- simp [triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
   >- (
-    srw_tac[][twod_table] >>
-    simp[EL_APPEND2,equality_location_def] )
+    simp_tac (srw_ss()) [GSYM ADD_ASSOC, block_equality_location_def] >>
+    simp_tac (srw_ss()) [GSYM ADD1] >>
+    simp[EL_APPEND2,block_equality_location_def,equality_location_def, triangle_table_size])
+  >- simp [ToList_location_def, triangle_table_size, equality_location_def, ADD1 ,block_equality_location_def]
   >- (
-    srw_tac[][twod_table] >>
-    simp[equality_location_def,block_equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
-    simp[EL_APPEND2,block_equality_location_def,equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
-    simp[ToList_location_def,equality_location_def,block_equality_location_def] )
-  >- (
-    srw_tac[][twod_table] >>
-    simp[EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def] ));
+    simp_tac (srw_ss()) [GSYM ADD_ASSOC, ToList_location_def] >>
+    simp_tac (srw_ss()) [GSYM ADD1] >>
+    simp[triangle_table_size, EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def]));
 
 val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`,
   simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
-  \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]);
+  \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
+  \\ simp [sum_genlist_triangle]);
 
 (*TODO: This rewrite might make it worse, not sure...*)
 val compile_prog_code_locs = Q.store_thm("compile_prog_code_locs",
@@ -4048,6 +4259,12 @@ val fromAList_code_sort = Q.store_thm("fromAList_code_sort",
     fromAList (code_sort xs) = fromAList xs`,
   rw [] \\ match_mp_tac (MP_CANON PERM_IMP_fromAList_EQ_fromAList)
   \\ fs [PERM_code_sort,ALL_DISTINCT_code_sort]);
+
+val even_stubs1 = Q.prove (
+  `!max_app. EVEN (num_stubs max_app + 1)`,
+  Induct_on `max_app` >>
+  rw [num_stubs_def, EVEN_ADD, EVEN, GSYM EVEN_MOD2] >>
+  metis_tac []);
 
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   `clos_to_bvl$compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
@@ -4158,8 +4375,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
   rpt var_eq_tac>>fs[]>>
   Q.SPECL_THEN [`num_stubs c.max_app + 1`,`z`] assume_tac (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)>>
   rfs[EVERY_MEM,SUBSET_DEF]>>
-  `EVEN (num_stubs c.max_app + 1)` by (simp[num_stubs_def,EVEN_ADD,EVEN_EXP_IFF] \\ metis_tac[]) >>
-  metis_tac[IN_DEF]);
+  metis_tac [even_stubs1, IN_DEF]);
 
 val full_result_rel_def = Define`
   full_result_rel c (r1,s1) (r2,s2) ⇔
@@ -4462,6 +4678,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   first_assum(match_exists_tac o concl) >> simp[] >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``clos_annotateProof$state_rel`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
+
   (* clos_to_bvl *)
   qmatch_assum_abbrev_tac`closSem$evaluate tmp = _` >>
   qspec_then`tmp`mp_tac(CONJUNCT1 compile_exps_correct) >>
