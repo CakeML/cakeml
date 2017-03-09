@@ -823,25 +823,27 @@ val linesFD_eq_cons_imp = Q.store_thm("linesFD_eq_cons_imp",
 (* -- *)
 
 val print_matching_lines = process_topdecs`
-  fun print_matching_lines match fd =
+  fun print_matching_lines match prefix fd =
     case inputLine fd of NONE => ()
-    | SOME ln => (if match ln then print ln else ();
-                  print_matching_lines match fd)`;
+    | SOME ln => (if match ln then (print prefix; print ln) else ();
+                  print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   `∀fs out.
-   (STRING_TYPE --> BOOL) m mv ∧
+   (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
    WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
    app (p:'ffi ffi_proj)
-     ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; fdv]
+     ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
      (ROFS fs * STDOUT out)
      (POSTv uv.
        &UNIT_TYPE () uv *
        ROFS (bumpAllFD (w2n fd) fs) *
-       STDOUT (out ++ CONCAT (FILTER (m o implode)
-                               (MAP (combin$C (++) "\n")
-                                 (linesFD (w2n fd) fs)))))`,
+       STDOUT (out ++ CONCAT
+         (MAP ((++) (explode pfx))
+           (FILTER (m o implode)
+             (MAP (combin$C (++) "\n")
+               (linesFD (w2n fd) fs))))))`,
   Induct_on`linesFD (w2n fd) fs` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
@@ -866,14 +868,17 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ rveq
   \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
   >- ( xapp \\ instantiate \\ xsimpl )
-  \\ xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ (if m (implode ln) then ln else ""))`
+  \\ xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ (if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif
     >- (
-      xapp \\ instantiate \\ xsimpl
+      xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ explode pfx)`
+      >- (xapp \\ instantiate \\ xsimpl
+          \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out`
+          \\ xsimpl )
+      \\ xapp \\ instantiate \\ xsimpl
       \\ simp[mlstringTheory.explode_implode]
-      \\ CONV_TAC(SWAP_EXISTS_CONV)
-      \\ qexists_tac`out`
+      \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out ++ explode pfx`
       \\ xsimpl )
     \\ xcon \\ xsimpl )
   \\ imp_res_tac linesFD_eq_cons_imp \\ rveq \\ fs[]
@@ -881,7 +886,7 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ simp[] \\ strip_tac
   \\ xapp
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`out ++ (if m (implode ln) then ln else "")`
+  \\ qexists_tac`out ++ (if m (implode ln) then explode pfx ++ ln else "")`
   \\ fs[] \\ xsimpl
   \\ Cases_on`m (implode ln)` \\ fs[]
   \\ xsimpl);
