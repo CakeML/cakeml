@@ -1,12 +1,12 @@
 open HolKernel Parse boolLib bossLib;
-open bagTheory relationTheory bagLib miscTheory ml_translatorLib mini_preludeTheory;
+open bagTheory relationTheory bagLib miscTheory ml_translatorLib;
 open preamble
 
 val _ = new_theory "benchmark";
 
-open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory;
+open listTheory arithmeticTheory ml_translatorLib mllistProgTheory;
 
-val _ = translation_extends "mini_prelude";
+val _ = translation_extends "mllistProg";
 
 (* copied from ImplicitQueueScript *)
 val _ = Hol_datatype `times = Once of 'a | Twice of times => times`;
@@ -51,8 +51,8 @@ run_queue ⇔ head (use_queue 1000 empty)`;
 
 (* Copied from SplayHeapScript *)
 
-val _ = Hol_datatype `
-heap = Empty | Tree of heap => 'a => heap`;
+val _ = Datatype`
+  heap = Empty | Tree heap 'a heap`;
 
 val heap_to_bag_def = Define `
 (heap_to_bag Empty = {||}) ∧

@@ -100,7 +100,7 @@ val ex_return_def = Define `
 
 (* setup fancy syntax *)
 
-open monadsyntax;
+val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. ex_bind x (\z. y)``);

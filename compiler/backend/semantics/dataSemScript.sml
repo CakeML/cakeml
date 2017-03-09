@@ -49,6 +49,7 @@ val do_space_def = Define `
 
 val do_app_def = Define `
   do_app op vs (s:'ffi dataSem$state) =
+    if MEM op [Greater; GreaterEq] then Rerr(Rabort Rtype_error) else
     case do_space op (LENGTH vs) s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME s1 => (case bviSem$do_app op vs (data_to_bvi s1) of

@@ -17,9 +17,8 @@ val _ = set_grammar_ancestry [
   "bvl_jump"
 ]
 
-val closure_tag_def = Define`closure_tag = 30:num`
-val partial_app_tag_def = Define`partial_app_tag = 31:num`
-val clos_tag_shift_def = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
   |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
 val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
@@ -35,8 +34,24 @@ val compile_op_def = Define`
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
+  compile_op LengthByteVec = LengthByte ∧
+  compile_op DerefByteVec = DerefByte ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
+
+val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
+  compile_op op =
+    case op of
+      Cons tag => Cons (clos_tag_shift tag)
+      | TagEq tag => TagEq (clos_tag_shift tag)
+      | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
+      | FromList tag => FromList (clos_tag_shift tag)
+      | LengthByteVec => LengthByte
+      | DerefByteVec => DerefByte
+      | x => x`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[compile_op_def]);
 
 val mk_const_def = Define `
   mk_const n : bvl$exp = Op (Const (&n)) []`;
@@ -219,15 +234,7 @@ val check_closure_def = Define`
       (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)`;
 
 val equality_code_def = Define`
-  equality_code max_app = (2:num,
-    If (Op IsBlock [Var 0])
-       (check_closure 0
-         (check_closure 1
-           (If (Op BlockCmp [Var 0; Var 1])
-               (Call 0 (SOME (block_equality_location max_app))
-                 [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
-               (Bool F))))
-       (Op Equal [Var 0; Var 1]))`;
+  equality_code (max_app:num) = (2:num,Var 0)`;
 
 val block_equality_code_def = Define`
   (* 4 arguments: block1, block2, length, index to check*)
@@ -275,28 +282,25 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Tick (HD c1)], aux1)) /\
   (compile_exps max_app [Op op xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
-     ([if op = ToList then
-         Let c1
-           (Call 0 (SOME (ToList_location max_app))
-             [Var 0; Op(LengthBlock)[Var 0];
-              Op(Cons nil_tag)[]])
-       else if op = Equal then
+     ([(* if op = Equal then
+         TODO: remove everything related to the equality stubs
+         TODO: also remove everything related to the ToList stubs
          Call 0 (SOME (equality_location max_app)) c1
-       else
+       else *)
          Op (compile_op op) c1]
      ,aux1)) /\
   (compile_exps max_app [App loc_opt x1 xs2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app xs2 aux1 in
-       ([case loc_opt of
+       ([dtcase loc_opt of
          | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ c1))],
         aux2)) /\
   (compile_exps max_app [Fn loc_opt vs_opt num_args x1] aux =
-     let loc = case loc_opt of NONE => 0 | SOME n => n in
-     let vs = case vs_opt of NONE => [] | SOME vs => vs in
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
@@ -306,9 +310,9 @@ val compile_exps_def = tDefine "compile_exps" `
             (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exps max_app [Letrec loc_opt vsopt fns x1] aux =
-     let loc = case loc_opt of NONE => 0 | SOME n => n in
-     let vs = case vsopt of NONE => [] | SOME x => x in
-     case fns of
+     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
+     let vs = dtcase vsopt of NONE => [] | SOME x => x in
+     dtcase fns of
      | [] => compile_exps max_app [x1] aux
      | [(num_args, exp)] =>
          let (c1,aux1) = compile_exps max_app [exp] aux in
@@ -442,7 +446,7 @@ val code_split_def = Define `
 
 val code_merge_def = tDefine "code_merge" `
   code_merge xs ys =
-    case (xs,ys) of
+    dtcase (xs,ys) of
     | ([],[]) => []
     | ([],_) => ys
     | (_,[]) => xs

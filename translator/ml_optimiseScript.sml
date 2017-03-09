@@ -50,7 +50,8 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
            language, but perhaps it should be now? *)
   (BOTTOM_UP_OPT f (Handle x ys) = Handle x ys) /\
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
-  (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t)`
+  (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t) ∧
+  (BOTTOM_UP_OPT f (Lannot x l) = Lannot (BOTTOM_UP_OPT f x) l)`
  (WF_REL_TAC `measure (exp_size o SND)` THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC MEM_exp_size1 THEN IMP_RES_TAC MEM_exp_size2 THEN DECIDE_TAC)
 
@@ -179,7 +180,7 @@ val abs2let_thm = Q.prove(
   \\ Q.PAT_X_ASSUM `evaluate F env _ (Fun s' e) _` MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [opt_bind_def, SWAP_REVERSE_SYM]
+  \\ FULL_SIMP_TAC (srw_ss()) [namespaceTheory.nsOptBind_def, SWAP_REVERSE_SYM]
   \\ METIS_TAC []);
 
 (* rewrite optimisation: let x = y in x --> y *)
@@ -198,7 +199,7 @@ val let_id_thm = Q.prove(
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [lookup_var_id_def,opt_bind_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [namespaceTheory.nsOptBind_def]);
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)

@@ -12,10 +12,11 @@ val _ = Datatype `
    <| prog_addresses : ('a word) set
     (* FFI-specific configurations *)
     ; ffi_entry_pcs : ('a word) list
+    ; ffi_names : string list
     ; ptr_reg : num
     ; len_reg : num
     (* major interference by FFI calls *)
-    ; ffi_interfer : num -> num -> word8 list -> 'b -> 'b
+    ; ffi_interfer : num -> num # word8 list # 'b -> 'b
     ; callee_saved_regs : num list
     (* minor interference during exeuction *)
     ; next_interfer : num -> 'b -> 'b
@@ -25,15 +26,18 @@ val _ = Datatype `
     ; target : ('a,'b,'c) target
     |>`
 
+val apply_oracle_def = Define `
+  apply_oracle oracle x =
+    (oracle (0:num) x, shift_seq 1 oracle)`
+
 val evaluate_def = Define `
   evaluate config (ffi:'ffi ffi_state) k (ms:'a) =
     if k = 0 then (TimeOut,ms,ffi)
     else
       if config.target.get_pc ms IN config.prog_addresses then
         let ms1 = config.target.next ms in
-        let ms2 = config.next_interfer 0 ms1 in
-        let config = config with next_interfer :=
-                       shift_seq 1 config.next_interfer in
+        let (ms2,new_oracle) = apply_oracle config.next_interfer ms1 in
+        let config = config with next_interfer := new_oracle in
           if EVERY config.target.state_ok [ms;ms1;ms2] then
             evaluate config ffi (k - 1) ms2
           else
@@ -51,13 +55,12 @@ val evaluate_def = Define `
                       then SOME (config.target.get_byte ms a) else NONE) of
           | NONE => (Error,ms,ffi)
           | SOME bytes =>
-            let do_ffi = config.ffi_interfer 0 ffi_index in
-            let config = config with ffi_interfer :=
-                           shift_seq 1 config.ffi_interfer in
-            let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
+            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index config.ffi_names) bytes in
+            let (ms1,new_oracle) = apply_oracle config.ffi_interfer (ffi_index,new_bytes,ms) in
+            let config = config with ffi_interfer := new_oracle in
               if new_ffi.final_event <> NONE
               then (Halt (FFI_outcome (THE new_ffi.final_event)),ms,new_ffi)
-              else evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
+              else evaluate config new_ffi (k - 1:num) ms1`
 
 val _ = ParseExtras.temp_tight_equality()
 

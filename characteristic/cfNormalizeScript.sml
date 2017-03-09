@@ -16,7 +16,7 @@ val _ = new_theory "cfNormalize"
 
 val exp2v_def = Define `
   exp2v _ (Lit l) = SOME (Litv l) /\
-  exp2v env (Var name) = lookup_var_id name env /\
+  exp2v env (Var name) = nsLookup env.v name /\
   exp2v _ _ = NONE`
 
 val exp2v_evaluate = Q.store_thm ("exp2v_evaluate",
@@ -116,7 +116,11 @@ val evaluate_normalise = Q.store_thm("evaluate_normalise",
 
 
 (*------------------------------------------------------------------*)
-(* [full_normalise] *)
+(* [full_normalise]
+
+   The implementation follows the structure of the CFML one, in
+   generator/normalize.ml in the CFML sources.
+*)
 
 (* [dest_opapp]: destruct an n-ary application. *)
 val dest_opapp_def = Define `
@@ -184,10 +188,84 @@ val wrap_if_needed_def = Define `
   wrap_if_needed needs_wrapping ns e b =
     if needs_wrapping then (
       let x = get_name ns in
-      (Var (Short x), x::ns, (x,e)::b)
+      (Var (Short x), x::ns, SNOC (x,e) b)
     ) else (
       (e, ns, b)
     )`;
+
+val strip_annot_pat_def = Define `
+  strip_annot_pat (Pvar v) = Pvar v /\
+  strip_annot_pat (Plit l) = Plit l /\
+  strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
+  strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
+  strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat_list [] = [] /\
+  strip_annot_pat_list (x::xs) =
+    strip_annot_pat x :: strip_annot_pat_list xs`;
+
+val strip_annot_exp_def = tDefine"strip_annot_exp"`
+  (strip_annot_exp (Raise e) =
+    ast$Raise (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Handle e pes) =
+    Handle (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (ast$Lit l) = Lit l)
+  ∧
+  (strip_annot_exp (Con cn es) = Con cn (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Var x) = Var x)
+  ∧
+  (strip_annot_exp (Fun x e) =
+    Fun x (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (App op es) =
+    App op (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Log lop e1 e2) =
+    Log lop (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (If e1 e2 e3) =
+    If (strip_annot_exp e1)
+       (strip_annot_exp e2)
+       (strip_annot_exp e3))
+  ∧
+  (strip_annot_exp (Mat e pes) =
+    Mat (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (Let (SOME x) e1 e2) =
+    Let (SOME x) (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Let NONE e1 e2) =
+    Let NONE (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Letrec funs e) =
+      Letrec (strip_annot_funs funs) (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Tannot e t) = strip_annot_exp e)
+  ∧
+  (strip_annot_exp (Lannot e l) = strip_annot_exp e)
+  ∧
+  (strip_annot_exps [] = [])
+  ∧
+  (strip_annot_exps (e::es) =
+     strip_annot_exp e :: strip_annot_exps es)
+  ∧
+  (strip_annot_pes [] = [])
+  ∧
+  (strip_annot_pes ((p,e)::pes) =
+    (strip_annot_pat p, strip_annot_exp e)
+    :: strip_annot_pes pes)
+  ∧
+  (strip_annot_funs [] = [])
+  ∧
+  (strip_annot_funs ((f,x,e)::funs) =
+    (f,x,strip_annot_exp e) :: strip_annot_funs funs)`
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => exp_size e
+                                 | INR (INL es) => exps_size es
+                                 | INR (INR (INL pes)) => pes_size pes
+                                 | INR (INR (INR funs)) => funs_size funs)` >>
+   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
 val norm_def = tDefine "norm" `
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
@@ -267,37 +345,41 @@ val norm_def = tDefine "norm" `
     (let (rs', ns) = norm_letrec_branches ns rs in
      let (e', ns) = protect F ns e in
      wrap_if_needed as_value ns (Letrec rs' e') []) /\
+  norm is_named as_value ns (Tannot e _) =
+    norm is_named as_value ns e /\
+  norm is_named as_value ns (Lannot e _) =
+    norm is_named as_value ns e /\
   norm_list is_named as_value ns ([]: exp list) = ([], ns, []) /\
   norm_list is_named as_value ns (e::es) =
-    (let (e', ns', b) = norm is_named as_value ns e in
-     let (es', ns'', bs) = norm_list is_named as_value ns' es in
-     (e' :: es', ns'', b::bs)) /\
+    (let (e', ns, b) = norm is_named as_value ns e in
+     let (es', ns, bs) = norm_list is_named as_value ns es in
+     (e' :: es', ns, b::bs)) /\
   norm_rows ns ([]: (pat, exp) alist) = ([], ns) /\
   norm_rows ns (row :: rows) =
-    (let (row', ns') = protect_row F ns row in
-     let (rows', ns'') = norm_rows ns' rows in
-     (row' :: rows', ns'')) /\
+    (let (row', ns) = protect_row F ns row in
+     let (rows', ns) = norm_rows ns rows in
+     (row' :: rows', ns)) /\
   norm_letrec_branches ns ([]: (string, string # exp) alist) = ([], ns) /\
   norm_letrec_branches ns (branch :: branches) =
-    (let (branch', ns') = protect_letrec_branch T ns branch in
-     let (branches', ns'') = norm_letrec_branches ns' branches in
-     (branch' :: branches', ns'')) /\
+    (let (branch', ns) = protect_letrec_branch T ns branch in
+     let (branches', ns) = norm_letrec_branches ns branches in
+     (branch' :: branches', ns)) /\
   protect is_named ns e =
-    (let (e',ns',b) = norm is_named F ns e in
-     (Lets b e', ns')) /\
+    (let (e',ns,b) = norm is_named F ns e in
+     (Lets b e', ns)) /\
   protect_row is_named ns row =
-    (let (row_e', ns') = protect is_named ns (SND row) in
-     ((FST row, row_e'), ns')) /\
+    (let (row_e', ns) = protect is_named ns (SND row) in
+     ((FST row, row_e'), ns)) /\
   protect_letrec_branch is_named ns branch =
-    (let (branch_e', ns') = protect is_named ns (SND (SND branch)) in
-     ((FST branch, FST (SND branch), branch_e'), ns'))`
+    (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
+     ((FST branch, FST (SND branch), branch_e'), ns))`
  cheat;
 
 val full_normalise_def = Define `
-  full_normalise ns e = FST (protect T ns e)`;
+  full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
 
 val MEM_v_size = Q.prove(
-  `!xs. MEM a xs ==> v_size a < v6_size xs`,
+  `!xs. MEM a xs ==> v_size a < v7_size xs`,
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val norm_exp_rel_def = Define `
@@ -332,8 +414,8 @@ val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
      norm_rel (Recclosure env1 es1 v) (Recclosure env2 es2 v)) /\
   (!env1 env2 s.
      (!v x y. v IN s /\
-              lookup_var_id v env1 = SOME x /\
-              lookup_var_id v env2 = SOME y ==>
+              nsLookup env1.v v = SOME x /\
+              nsLookup env2.v v = SOME y ==>
               norm_rel x y) ==>
      env_rel s env1 env2)`
 

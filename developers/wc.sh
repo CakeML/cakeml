@@ -1,4 +1,6 @@
 #!/bin/sh
+## A script that counts non-blank lines.
+
 find . -name '*Script.sml' -o -name '*Lib.sml' |
 egrep -v 'hol-light|whole-prog|sem-reason|lem_lib|okasaki|other-examples|simulator|hardware|tests|testing|unverified|print_ast|word_prelude|_demo|validate_printer' |
 xargs cat |

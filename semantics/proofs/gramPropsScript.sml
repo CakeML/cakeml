@@ -33,6 +33,7 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
 val _ = new_theory "gramProps"
+val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
 val NT_rank_def = Define`
   NT_rank N =
@@ -236,14 +237,15 @@ fun fold_nullprove (t, a) =
 end
 
 val nullacc =
-    foldl fold_nullprove [] [``nE``, ``nType``, ``nTyvarN``, ``nSpecLine``,
-                             ``nPtuple``, ``nPbase``, ``nLetDec``,
-                             ``nTyVarList``, ``nDtypeDecl``, ``nDecl``, ``nE'``,
-                             ``nElist1``, ``nCompOps``, ``nListOps``,
-                             ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
-                             ``nAddOps``, ``nDconstructor``, ``nFDecl``,
-                             ``nPatternList``, ``nPbaseList1``,
-                             ``nEseq``, ``nEtuple``, ``nTopLevelDecs``, ``nTopLevelDec``]
+    foldl fold_nullprove []
+          [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
+           “nPtuple”, “nPbase”, “nLetDec”,
+           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
+           “nElist1”, “nCompOps”, “nListOps”,
+           “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
+           “nAddOps”, “nDconstructor”, “nFDecl”,
+           “nPatternList”, “nPbaseList1”, “nElist2”,
+           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
 
 local
   fun appthis th = let
@@ -283,12 +285,12 @@ val fringe_length_ptree = Q.store_thm(
   ntac 2 gen_tac >>
   HO_MATCH_MP_TAC grammarTheory.ptree_ind >> dsimp[MAP_EQ_SING] >>
   conj_tac
-  >- (simp[fringe_lengths_def] >> rpt strip_tac >> qexists_tac `i` >>
-      simp[]) >>
+  >- ( simp[fringe_lengths_def] >> rpt strip_tac >>
+       Cases_on `pt` >> qexists_tac `i` >> fs[]) >>
   map_every qx_gen_tac [`subs`, `N`] >> rpt strip_tac >>
   simp[fringe_lengths_def] >> qexists_tac `i` >> simp[] >>
-  qabbrev_tac `pt = Nd N subs` >>
-  `NT N = ptree_head pt` by simp[Abbr`pt`] >>
+  qabbrev_tac `pt = Nd N subs` >> Cases_on `N` >>
+  `NT q = ptree_head pt` by simp[Abbr`pt`] >>
   `MAP TOK i = ptree_fringe pt` by simp[Abbr`pt`] >> simp[] >>
   match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]);
 

@@ -6,13 +6,17 @@ val _ = new_theory "data_live";
    annotations that are attached to MakeSpace, Assign and Call in
    dataLang programs. It also deletes dead code. *)
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val is_pure_def = Define `
   (is_pure SetGlobalsPtr = F) /\
   (is_pure Ref = F) /\
-  (is_pure RefByte = F) /\
+  (is_pure (RefByte _) = F) /\
   (is_pure RefArray = F) /\
   (is_pure Update = F) /\
   (is_pure UpdateByte = F) /\
+  (is_pure FromListByte = F) /\
+  (is_pure (String _) = F) /\
   (is_pure (Cons _) = F) /\
   (is_pure (FFI _) = F) /\
   (is_pure (FromList _) = F) /\
@@ -21,10 +25,45 @@ val is_pure_def = Define `
   (is_pure Mult = F) /\
   (is_pure Div = F) /\
   (is_pure Mod = F) /\
+  (is_pure Less = F) /\
+  (is_pure LessEq = F) /\
+  (is_pure Equal = F) /\
   (is_pure (WordOp W64 _) = F) /\
   (is_pure (WordShift W64 _ _) = F) /\
   (is_pure WordFromInt = F) /\
+  (is_pure WordToInt = F) /\
   (is_pure _ = T)`
+
+val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
+  is_pure op =
+    case op of
+      SetGlobalsPtr => F
+    | Ref => F
+    | RefByte _ => F
+    | RefArray => F
+    | Update => F
+    | UpdateByte => F
+    | FromListByte => F
+    | String _ => F
+    | Cons _ => F
+    | FFI _ => F
+    | FromList _ => F
+    | Add => F
+    | Sub => F
+    | Mult => F
+    | Div => F
+    | Mod => F
+    | Less => F
+    | LessEq => F
+    | Equal => F
+    | WordOp W64 _ => F
+    | WordShift W64 _ _ => F
+    | WordFromInt => F
+    | WordToInt => F
+    | _ => T`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> fs[is_pure_def]);
 
 val compile_def = Define `
   (compile Skip live = (Skip,live)) /\

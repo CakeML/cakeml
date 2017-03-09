@@ -443,12 +443,12 @@ val LENGTH_FILTER_EQ_IMP_LENGTH_EQ = Q.prove(
       LENGTH xs = LENGTH ys`,
   Induct \\ fs [] THEN1
    (Cases_on `ys` \\ fs [] \\ Cases_on `h` \\ fs [ffi_has_index_in_def]
-    \\ qexists_tac `n` \\ fs [])
+    \\ qexists_tac `s` \\ fs [])
   \\ Cases \\ fs [ffi_has_index_in_def] \\ rw []
-  \\ qpat_assum `_` (qspec_then `n` mp_tac)
+  \\ qpat_assum `_` (qspec_then `s` mp_tac)
   \\ rewrite_tac [] \\ fs [LENGTH]
   \\ strip_tac
-  \\ `LENGTH (FILTER (ffi_has_index_in [n]) ys) <> 0` by decide_tac
+  \\ `LENGTH (FILTER (ffi_has_index_in [s]) ys) <> 0` by decide_tac
   \\ fs [LENGTH_NIL]
   \\ fs [FILTER_NEQ_NIL]
   \\ fs [MEM_SPLIT]
@@ -456,7 +456,7 @@ val LENGTH_FILTER_EQ_IMP_LENGTH_EQ = Q.prove(
   \\ first_x_assum (qspec_then `l1 ++ l2` mp_tac)
   \\ impl_tac \\ fs []
   \\ Cases_on `x` \\ fs [ffi_has_index_in_def] \\ rveq
-  \\ rw [] \\ first_x_assum (qspec_then `n'` mp_tac)
+  \\ rw [] \\ first_x_assum (qspec_then `n` mp_tac)
   \\ rw [] \\ fs [FILTER_APPEND]);
 
 val IN_DISJOINT_LEMMA1 = Q.prove(

@@ -1,12 +1,15 @@
+(*
+   Proof tools (e.g. tactics) used throughout the development.
+*)
 structure preamble =
 struct
 local open intLib wordsLib in end;
 open set_relationTheory;
-open BasicProvers Defn HolKernel Parse Tactic
+open BasicProvers Defn HolKernel Parse Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     mlstringTheory optionTheory pairLib pairTheory pred_setTheory
+     optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
 (* TOOD: move? *)
@@ -182,7 +185,13 @@ fun any_match_mp impth th =
   in
     MATCH_MP th2 th  end
 
-val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
+val SWAP_IMP = let
+  val P = mk_var("P", bool)
+  val Q = mk_var("Q", bool)
+  val R = mk_var("R", bool)
+in
+  PROVE[] (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
+end
 
 fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 

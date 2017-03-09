@@ -1,4 +1,5 @@
 #!/bin/sh
+## This file describes how to install Poly/ML, HOL and CakeML.
 
 ## build Poly/ML
 cd
@@ -14,6 +15,8 @@ cd polyml
 make
 make compiler
 make install
+## alternatively on macOS
+# brew install polyml
 
 ## build HOL
 cd

@@ -111,12 +111,6 @@ val _ = Define `
   ∧
   (v_to_char_list _ = NONE)`;
 
-val _ = Define`
-  (char_list_to_v [] = (Conv nil_tag []))
-  ∧
-  (char_list_to_v (c::cs) =
-   Conv cons_tag [Litv (Char c); char_list_to_v cs])`;
-
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
@@ -237,8 +231,15 @@ val do_app_def = Define `
               SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
           )
-    | (Op (Op Explode), [Litv (StrLit str)]) =>
-        SOME (s, Rval (char_list_to_v (EXPLODE str)))
+    | (Op (Op Strsub), [Litv (StrLit str); Litv (IntLit i)]) =>
+        if i <( 0 : int) then
+          SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+        else
+          let n = (Num (ABS ( i))) in
+            if n >= LENGTH str then
+              SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+            else
+              SOME (s, Rval (Litv (Char (EL n str))))
     | (Op (Op Strlen), [Litv (StrLit str)]) =>
         SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
     | (Op (Op VfromList), [v]) =>
@@ -342,7 +343,7 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃c. op = (Op (Op Ord)) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op (Op Chr)) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Op (Chopb z))) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃s. op = (Op (Op Explode)) ∧ vs = [Litv (StrLit s)]) ∨
+    (∃s i. op = (Op (Op Strsub)) ∧ vs = [Litv (StrLit s); Litv (IntLit i)]) ∨
     (∃v ls. op = (Op (Op Implode)) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
     (∃s. op = (Op (Op Strlen)) ∧ vs = [Litv (StrLit s)]) ∨
     (∃v vs'. op = (Op (Op VfromList)) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨

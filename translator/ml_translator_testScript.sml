@@ -25,8 +25,11 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+
 val string_to_bytes_def = Define`
-  string_to_bytes s = MAP char_to_byte (mlstring$explode s)`;
+  string_to_bytes s = MAP char_to_byte (explode s)`;
 
 val res = translate string_to_bytes_def;
 
@@ -55,6 +58,11 @@ val foo_def = tDefine"foo"`
   (WF_REL_TAC `measure SND`\\fs[])
 
 val res = translate foo_def
+
+val _ = Datatype `bar1 = ta | ti`
+val _ = Datatype `bar2 = Ta | TI`
+val _ = register_type ``:bar1``
+val _ = register_type ``:bar2``
 
 val _ = (print_asts := true);
 

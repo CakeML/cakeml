@@ -3,6 +3,8 @@ open HolKernel Parse boolLib bossLib
 open tokensTheory lcsymtacs
 
 val _ = new_theory "tokenUtils"
+val _ = set_grammar_ancestry ["tokens", "grammar"]
+val _ = ParseExtras.tight_equality()
 
 (* ----------------------------------------------------------------------
     Utility functions over tokens; perhaps should just appear in
@@ -51,6 +53,12 @@ val isCharT_def = Define`
 `;
 val _ = export_rewrites ["isCharT_def"]
 
+val isWordT_def = Define`
+  (isWordT (WordT _) ⇔ T) ∧
+  (isWordT _ ⇔ F)
+`;
+val _ = export_rewrites ["isWordT_def"]
+
 val isLongidT_def = Define`
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
@@ -69,12 +77,12 @@ val destLongidT_EQ_SOME = Q.store_thm(
   Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`
-  (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
+  (destTyvarPT (Lf (TOK (TyvarT s),_)) = SOME s) ∧
   (destTyvarPT _ = NONE)
 `;
 val _ = export_rewrites ["destTyvarPT_def"]
 
-val destLf_def = Define`(destLf (Lf x) = SOME x) ∧ (destLf _ = NONE)`;
+val destLf_def = Define`(destLf (Lf (x,_)) = SOME x) ∧ (destLf _ = NONE)`;
 val _ = export_rewrites ["destLf_def"]
 
 val destTOK_def = Define`(destTOK (TOK t) = SOME t) ∧ (destTOK _ = NONE)`;
@@ -118,5 +126,11 @@ val destStringT_def = Define`
   (destStringT _ = NONE)
 `;
 val _ = export_rewrites ["destStringT_def"]
+
+val destWordT_def = Define`
+  (destWordT (WordT w) = SOME w) ∧
+  (destWordT _ = NONE)
+`;
+val _ = export_rewrites ["destWordT_def"]
 
 val _ = export_theory()

@@ -78,7 +78,7 @@ val CHAR_IMP_no_closures = Q.prove(
 
 val STRING_IMP_no_closures = Q.prove(
   `STRING_TYPE x v ==> no_closures v`,
-  SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
+  Cases_on`x` \\ SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
 
 val EqualityType_thm = Q.prove(
   `EqualityType abs <=>
@@ -331,7 +331,7 @@ val EvalM_bind = Q.store_thm("EvalM_bind",
     asm_exists_tac \\ rw[] \\
     first_x_assum drule \\ disch_then drule \\
     disch_then(qspec_then`[]`strip_assume_tac) \\
-    fs[GSYM write_def,opt_bind_def,ex_bind_def,with_same_refs] \\
+    fs[GSYM write_def,namespaceTheory.nsOptBind_def,ex_bind_def,with_same_refs] \\
     asm_exists_tac \\ fs[] \\ metis_tac[] )
   \\ Cases_on`e` \\ fs[] \\
   rw[Once evaluate_cases] \\
@@ -493,8 +493,8 @@ val LOOKUP_VAR_EvalM_IMP = Q.store_thm("LOOKUP_VAR_EvalM_IMP",
   `(!env. LOOKUP_VAR n env v ==> EvalM env (Var (Short n)) (PURE P g)) ==>
     P g v`,
   fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,PURE_def,AND_IMP_INTRO,
-      Once evaluate_cases,PULL_EXISTS,lookup_var_id_def,PULL_FORALL]
-  \\ `ALOOKUP (<|v := [n,v]|>).v n = SOME v` by EVAL_TAC
+      Once evaluate_cases,PULL_EXISTS,PULL_FORALL]
+  \\ `nsLookup (<|v := nsBind n v nsEmpty|>).v (Short n) = SOME v` by EVAL_TAC
   \\ metis_tac[HOL_STORE_EXISTS]);
 
 val EvalM_ArrowM_IMP = Q.store_thm("EvalM_ArrowM_IMP",
@@ -524,7 +524,7 @@ val EvalM_Var_SIMP = Q.store_thm("EvalM_Var_SIMP",
              else EvalM env (Var (Short y)) p`,
   SIMP_TAC std_ss [EvalM_def] \\ SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,write_def,lookup_var_id_def]);
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,write_def]);
 
 val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   `(!v. a n v ==>
@@ -551,7 +551,7 @@ val IND_HELP = Q.store_thm("IND_HELP",
   rw[EvalM_def,Eval_def,ArrowM_def,PURE_def,PULL_EXISTS,LOOKUP_VAR_def]
   \\ rw[Once evaluate_cases]
   \\ fs[Once evaluate_cases]
-  \\ rfs[lookup_var_id_def,write_def,state_component_equality,lookup_var_def]
+  \\ rfs[write_def,state_component_equality,lookup_var_def]
   \\ METIS_TAC[]);
 
 val write_rec_one = Q.store_thm("write_rec_one",
@@ -610,7 +610,7 @@ val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
 
 val EvalM_failwith = Q.store_thm("EvalM_failwith",
   `!x a.
-      (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" "Fail"))) ==>
+      (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" (Short "Fail")))) ==>
       Eval env exp1 (STRING_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Fail")) [exp1]))
         (HOL_MONAD a (failwith x))`,
@@ -624,8 +624,8 @@ val EvalM_failwith = Q.store_thm("EvalM_failwith",
   IMP_RES_TAC (evaluate_empty_state_IMP
                |> INST_TYPE [``:'ffi``|->``:unit``]) >>
   rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_thm] >>
-  fs[HOL_EXN_TYPE_def,id_to_n_def] >>
+  fs [lookup_cons_def] >>
+  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
   asm_exists_tac \\ fs[] >>
   METIS_TAC[HOL_STORE_append]);
 
@@ -633,7 +633,7 @@ val EvalM_failwith = Q.store_thm("EvalM_failwith",
 
 val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
   `!x a.
-      (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" "Clash"))) ==>
+      (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
       Eval env exp1 (TERM_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
         (HOL_MONAD a (raise_clash x))`,
@@ -644,8 +644,8 @@ val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[Once(CONJUNCT2 evaluate_cases)] >>
   rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_thm] >>
-  fs[HOL_EXN_TYPE_def,id_to_n_def] >>
+  fs [lookup_cons_def] >>
+  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
   first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
   IMP_RES_TAC (evaluate_empty_state_IMP
                |> INST_TYPE [``:'ffi``|->``:unit``]) >>
@@ -688,7 +688,7 @@ val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
 (* handle_clash *)
 
 val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
-  `!n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" "Clash"))) ==>
+  `!n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
         EvalM env exp1 (HOL_MONAD a x1) ==>
         (!t v.
           TERM_TYPE t v ==>
@@ -713,8 +713,8 @@ val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
   \\ asm_exists_tac \\ fs[]
   \\ simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def]
   \\ Cases_on `h` >> fs[HOL_EXN_TYPE_def] >>
-  simp[pmatch_def] >> fs[lookup_cons_thm] >>
-  fs[same_tid_def,id_to_n_def,same_ctor_def] >- (
+  simp[pmatch_def] >> fs[lookup_cons_def] >>
+  fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def] >- (
     simp[Once evaluate_cases,HOL_MONAD_def,HOL_EXN_TYPE_def] ) >>
   first_x_assum drule >>
   disch_then drule >>
@@ -757,7 +757,7 @@ val Eval_Var_SIMP2 = Q.store_thm("Eval_Var_SIMP2",
   SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases] \\ SRW_TAC [] []
   \\ ASM_SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases]
   \\ ASM_SIMP_TAC (srw_ss()) [Eval_def,
-       Once evaluate_cases,lookup_var_id_def,write_def]
+       Once evaluate_cases,write_def]
   \\ simp[state_component_equality]);
 
 val EvalM_Let = Q.store_thm("EvalM_Let",
@@ -770,7 +770,7 @@ val EvalM_Let = Q.store_thm("EvalM_Let",
   \\ rpt strip_tac
   \\ first_x_assum drule
   \\ disch_then(qspec_then`junk`strip_assume_tac)
-  \\ simp[Once evaluate_cases,opt_bind_def,GSYM write_def]
+  \\ simp[Once evaluate_cases,GSYM write_def,namespaceTheory.nsOptBind_def]
   \\ srw_tac[DNF_ss][]
   \\ fs[PURE_def] \\ rveq
   \\ srw_tac[DNF_ss][] \\ disj1_tac
@@ -820,10 +820,10 @@ val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
     first_x_assum(qspec_then`s.refs++junk'`mp_tac) >>
     ntac 4 (simp[Once evaluate_cases]) \\ rw[] \\
     fs[PMATCH_ROW_COND_def] \\
-    `EvalPatBind env a p pat vars (env with v := env2)`
+    `EvalPatBind env a p pat vars (env with v := nsAppend (alist_to_ns env2) env.v)`
     by (
-      simp[EvalPatBind_def,environment_component_equality] \\
-      qspecl_then[`s.refs++junk'`,`p`,`v`,`env`]mp_tac(CONJUNCT1 pmatch_imp_Pmatch) \\
+      simp[EvalPatBind_def,sem_env_component_equality] \\
+      qspecl_then[`s.refs++junk'`,`p`,`v`,`[]`,`env`]mp_tac(CONJUNCT1 pmatch_imp_Pmatch) \\
       simp[] \\
       metis_tac[] ) \\
     first_x_assum drule \\ simp[]
@@ -866,27 +866,27 @@ val read_tac =
   \\ fs[HOL_MONAD_def];
 
 val get_type_constants_thm = Q.store_thm("get_the_type_constants_thm",
-  `lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
+  `nsLookup env.v (Short "the_type_constants") = SOME the_type_constants ==>
     EvalM env (App Opderef [Var (Short "the_type_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM))
                  get_the_type_constants)`,
   read_tac);
 
 val get_term_constants_thm = Q.store_thm("get_the_term_constants_thm",
-  `lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
+  `nsLookup env.v (Short "the_term_constants") = SOME the_term_constants ==>
     EvalM env (App Opderef [Var (Short "the_term_constants")])
       (HOL_MONAD (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE))
                  get_the_term_constants)`,
   read_tac);
 
 val get_the_axioms_thm = Q.store_thm("get_the_axioms_thm",
-  `lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
+  `nsLookup env.v (Short "the_axioms") = SOME the_axioms ==>
     EvalM env (App Opderef [Var (Short "the_axioms")])
       (HOL_MONAD (LIST_TYPE THM_TYPE) get_the_axioms)`,
   read_tac);
 
 val get_the_context_thm = Q.store_thm("get_the_context_thm",
-  `lookup_var_id (Short "the_context") env = SOME the_context ==>
+  `nsLookup env.v (Short "the_context") = SOME the_context ==>
     EvalM env (App Opderef [Var (Short "the_context")])
       (HOL_MONAD (LIST_TYPE UPDATE_TYPE) get_the_context)`,
   read_tac);
@@ -913,28 +913,28 @@ val update_tac =
   \\ EVAL_TAC;
 
 val set_the_type_constants_thm = Q.store_thm("set_the_type_constants_thm",
-  `lookup_var_id (Short "the_type_constants") env = SOME the_type_constants ==>
+  `nsLookup env.v (Short "the_type_constants") = SOME the_type_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x) ==>
     EvalM env (App Opassign [Var (Short "the_type_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_type_constants x))`,
   update_tac);
 
 val set_the_term_constants_thm = Q.store_thm("set_the_term_constants_thm",
-  `lookup_var_id (Short "the_term_constants") env = SOME the_term_constants ==>
+  `nsLookup env.v (Short "the_term_constants") = SOME the_term_constants ==>
     Eval env exp (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x) ==>
     EvalM env (App Opassign [Var (Short "the_term_constants"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_term_constants x))`,
   update_tac);
 
 val set_the_axioms_thm = Q.store_thm("set_the_axioms_thm",
-  `lookup_var_id (Short "the_axioms") env = SOME the_axioms ==>
+  `nsLookup env.v (Short "the_axioms") = SOME the_axioms ==>
     Eval env exp (LIST_TYPE THM_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_axioms"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_axioms x))`,
   update_tac);
 
 val set_the_context_thm = Q.store_thm("set_the_context_thm",
-  `lookup_var_id (Short "the_context") env = SOME the_context ==>
+  `nsLookup env.v (Short "the_context") = SOME the_context ==>
     Eval env exp (LIST_TYPE UPDATE_TYPE x) ==>
     EvalM env (App Opassign [Var (Short "the_context"); exp])
       ((HOL_MONAD UNIT_TYPE) (set_the_context x))`,

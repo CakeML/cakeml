@@ -1,2 +1,2 @@
 
-void ffi0 (char* a, long len);
+void ffiwrite (char* a, long len);

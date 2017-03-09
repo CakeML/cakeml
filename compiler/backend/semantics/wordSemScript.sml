@@ -5,7 +5,6 @@ val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [
   "wordLang", "alignment", "finite_map", "misc", "asm",
   "ffi", (* for call_FFI *)
-  "asmSem", (* for word_cmp *)
   "lprefix_lub" (* for build_lprefix_lub *)
 ]
 
@@ -127,14 +126,6 @@ val mem_load_def = Define `
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
-
-val word_sh_def = Define `
-  word_sh sh (w:'a word) n =
-    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
-      case sh of
-      | Lsl => SOME (w << n)
-      | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)`;
 
 val the_words_def = Define `
   (the_words [] = SOME []) /\
@@ -387,7 +378,7 @@ val inst_def = Define `
        case vs of
        SOME [Word q;Word w2] =>
          if q ≠ 0w then
-           SOME (set_var r1 (Word (w2 // q)) s)
+           SOME (set_var r1 (Word (w2 / q)) s)
          else NONE
       | _ => NONE)
     | Arith (AddCarry r1 r2 r3 r4) =>
@@ -398,6 +389,20 @@ val inst_def = Define `
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
 
+        | _ => NONE)
+    | Arith (AddOverflow r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3] s in
+        case vs of
+        SOME [Word w2;Word w3] =>
+          SOME (set_var r4 (Word (if w2i (w2 + w3) ≠ w2i w2 + w2i w3 then 1w else 0w))
+                 (set_var r1 (Word (w2 + w3)) s))
+        | _ => NONE)
+    | Arith (SubOverflow r1 r2 r3 r4) =>
+        (let vs = get_vars [r2;r3] s in
+        case vs of
+        SOME [Word w2;Word w3] =>
+          SOME (set_var r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
+                 (set_var r1 (Word (w2 - w3)) s))
         | _ => NONE)
     | Arith (LongMul r1 r2 r3 r4) =>
         (let vs = get_vars [r3;r4] s in
@@ -469,6 +474,15 @@ val fix_clock_IMP_LESS_EQ = Q.prove(
   `!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
+val MustTerminate_limit_def = zDefine `
+  MustTerminate_limit (:'a) =
+    (* This is just a number that's large enough for our purposes.
+       It stated in a way that makes proofs easy. *)
+    2 * dimword (:'a) +
+    dimword (:'a) * dimword (:'a) +
+    dimword (:'a) ** dimword (:'a) +
+    dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
   (evaluate (Alloc n names,s) =
@@ -509,9 +523,11 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
                     else (NONE,dec_clock s)) /\
-  (evaluate (MustTerminate n p,s) =
+  (evaluate (MustTerminate p,s) =
      if s.termdep = 0 then (SOME Error, s) else
-       let (res,s1) = evaluate (p,s with <| clock := n; termdep := s.termdep-1 |>) in
+       let (res,s1) = evaluate (p,s with
+                                  <| clock := MustTerminate_limit (:'a);
+                                     termdep := s.termdep-1 |>) in
          if res = SOME TimeOut then (SOME Error, s)
          else (res,s1 with <| clock := s.clock; termdep := s.termdep |>)) /\
   (evaluate (Seq c1 c2,s) =

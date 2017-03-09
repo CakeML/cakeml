@@ -19,22 +19,24 @@ val _ = Datatype `
      | LengthBlock   (* get length of Block *)
      | Length        (* get length of reference *)
      | LengthByte    (* get length of byte array *)
-     | RefByte       (* makes a byte array *)
+     | RefByte bool  (* makes a byte array, T = immutable/compare-by-contents *)
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | FromList num  (* convert list to packed Block *)
-     | ToList        (* convert packed Block to list *)
+     | String string (* create a ByteVector from a constant *)
+     | FromListByte  (* convert list of chars to ByteVector *)
+     | LengthByteVec (* get length of ByteVector *)
+     | DerefByteVec  (* load a byte from a ByteVector *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
-     | BlockCmp      (* do two blocks have the same tag and length? *)
-     | IsBlock       (* is it a Block value? *)
      | Ref           (* makes a reference *)
      | Deref         (* loads a value from a reference *)
      | Update        (* updates a reference *)
      | Label num     (* constructs a CodePtr *)
-     | FFI num       (* calls the FFI *)
-     | Equal         (* structural equality (non-recursive in BVL) *)
+     | FFI string    (* calls the FFI *)
+     | Equal         (* structural equality *)
+     | EqualInt int  (* equal to integer constant *)
      | Const int     (* integer *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
@@ -48,7 +50,11 @@ val _ = Datatype `
      | WordOp word_size opw
      | WordShift word_size shift num
      | WordFromInt
-     | WordToInt`
+     | WordToInt
+     | BoundsCheckBlock
+     | BoundsCheckArray
+     | BoundsCheckByte
+     | LessConstSmall num`
 
 val _ = Datatype `
   exp = Var num
@@ -76,7 +82,7 @@ val pure_op_def = Define `
       FFI _ => F
     | SetGlobal _ => F
     | AllocGlobal => F
-    | RefByte => F
+    | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
     | Ref => F

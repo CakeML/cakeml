@@ -1,4 +1,4 @@
-open preamble
+open preamble mlstringTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxLib"
 infix \\ val op \\ = op THEN;

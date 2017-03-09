@@ -1,8 +1,9 @@
-open HolKernel boolLib bossLib lcsymtacs
-open Parse patternMatchesLib patternMatchesSyntax patternMatchesTheory
-open holKernelTheory monadsyntax
+open preamble
+open patternMatchesLib patternMatchesSyntax patternMatchesTheory
+open holKernelTheory
 
 val _ = new_theory"holKernelPmatch"
+val _ = monadsyntax.temp_add_monadsyntax()
 
 (* This file proves alternative definitions of those HOL kernel functions that
 have complex pattern matching. The new definitions use PMATCH-based case

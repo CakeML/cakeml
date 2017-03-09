@@ -73,14 +73,14 @@ val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
                 (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
 val lem8 = Q.prove(
-  `((if b then 1w else 0w : word64) = v2w [x] || v2w [y]) = (b = x \/ y)`,
+  `((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))`,
   rw [] \\ blastLib.BBLAST_TAC)
 
 val lem9 = Q.prove(
   `!r2 : word64 r3 : word64.
-    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) =
+    (18446744073709551616 <= w2n r2 + (w2n r3 + 1) <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
-    (18446744073709551616 <= w2n r2 + w2n r3 =
+    (18446744073709551616 <= w2n r2 + w2n r3 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 : 65 word)`,
    Cases
    \\ Cases
@@ -98,15 +98,32 @@ val mul_long = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val riscv_overflow =
+  REWRITE_RULE
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x = word_msb y) /\ (word_msb x <> word_msb (x + y))) =
+         ((~(x ?? y) && (y ?? (x + y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.overflow)
+
+val riscv_sub_overflow =
+  SIMP_RULE (srw_ss())
+    [blastLib.BBLAST_PROVE
+      ``!x y : word64.
+         ((word_msb x <> word_msb y) /\ (word_msb x <> word_msb (x - y))) =
+         (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
+    (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
    let
       open riscvTheory
    in
-      [riscv_enc_def, riscv_encode_def, riscv_const32_def, riscv_bop_r_def,
-       riscv_bop_i_def, riscv_sh_def, riscv_memop_def, Encode_def, opc_def,
-       Itype_def, Rtype_def, Stype_def, SBtype_def, Utype_def, UJtype_def]
+      [riscv_enc_def, riscv_ast_def, riscv_encode_def, riscv_const32_def,
+       riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
+       Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
+       Utype_def, UJtype_def]
    end
 
 val enc_rwts =
@@ -240,7 +257,8 @@ in
            else
              srw_tac []
                 [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
-                 GSYM wordsTheory.word_mul_def, mul_long, thm]
+                 GSYM wordsTheory.word_mul_def, mul_long, riscv_overflow,
+                 riscv_sub_overflow, thm]
              \\ (if asmLib.isMem asm then
                    full_simp_tac
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++
@@ -300,7 +318,13 @@ end
 
 val length_riscv_encode = Q.prove(
   `!i. LENGTH (riscv_encode i) = 4`,
-  rw [riscv_encode_def]
+  rw [riscv_encode_def])
+
+val length_riscv_enc = Q.prove(
+  `!l. LENGTH (LIST_BIND l riscv_encode) = 4 * LENGTH l`,
+  Induct
+  \\ rw [riscv_encode_def]
+  \\ fs [riscv_encode_def]
   )
 
 val riscv_encoding = Q.prove (
@@ -308,11 +332,11 @@ val riscv_encoding = Q.prove (
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ rw [riscv_enc_def, riscv_const32_def, riscv_encode_fail_def,
-          length_riscv_encode]
+          length_riscv_encode, riscv_ast_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_riscv_encode]
    )
-   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
+   |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
 val riscv_target_ok = Q.prove (
    `target_ok riscv_target`,
@@ -329,7 +353,7 @@ val riscv_target_ok = Q.prove (
    ]
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
          (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
-   \\ fs [alignmentTheory.aligned_extract]
+   \\ DISCH_THEN kall_tac
    \\ blastLib.FULL_BBLAST_TAC
    )
 
@@ -416,11 +440,27 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
             print_tac "LongDiv"
             \\ next_tac
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ next_tac
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ next_tac
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ next_tac
+            )
          )
          (*--------------
              Mem
@@ -452,8 +492,8 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
         jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) &&
-                     ms.c_gpr ms.procID (n2w n') = 0w`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) = 0w`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
                        ms.c_gpr ms.procID (n2w n'))`,
@@ -464,7 +504,7 @@ val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
         jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) && c' = 0w`,
+        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') = 0w`,
         jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,

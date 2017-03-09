@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../syntax-lib ../../set-theory ../syntax
+INCLUDES = ../../.. ../../../basis/pure ../../syntax-lib ../../set-theory ../syntax
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

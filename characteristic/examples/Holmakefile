@@ -1,9 +1,9 @@
-INCLUDES = .. ../../basis ../../translator
+INCLUDES = .. ../../basis ../../translator  ../.. $(HOLDIR)/examples/formal-languages/regular ../../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../basis/heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

@@ -1,4 +1,4 @@
-open preamble setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holExtension"

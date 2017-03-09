@@ -32,6 +32,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -55,7 +56,7 @@ val _ = translate lexer_fun_def
 val l2n_side = Q.prove(`
   ∀b a. a ≠ 0 ⇒ l2n_side a b`,
   Induct>>
-  rw[Once (fetch"-""l2n_side_def")])
+  rw[Once (fetch"-""l2n_side_def")]) |> update_precondition;
 
 val num_from_dec_string_alt_side = Q.prove(`
   ∀x. num_from_dec_string_alt_side x ⇔ T`,
@@ -64,35 +65,49 @@ val num_from_dec_string_alt_side = Q.prove(`
   >-
     simp[Once (fetch"-""s2n_side_def"),l2n_side]
   >>
-    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def]>>Cases>>
+    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
+    fs[ORD_CHR]>>
     strip_tac>>
-    `48 ≤ n ∧ n ≤ 57` by
-      fs[ORD_CHR]>>
-    `n = 48 ∨ n = 49 ∨ n = 50 ∨
-     n = 51 ∨ n = 52 ∨ n = 53 ∨
-     n = 54 ∨ n = 55 ∨ n = 56 ∨ n = 57` by
-       DECIDE_TAC>>
-    fs[]);
+    fs[]) |> update_precondition;
+
+val num_from_hex_string_alt_side = Q.prove(`
+  ∀x. num_from_hex_string_alt_side x ⇔ T`,
+  simp[Once (fetch"-""num_from_hex_string_alt_side_def")]>>
+  strip_tac>>CONJ_TAC
+  >-
+    simp[Once (fetch"-""s2n_side_def"),l2n_side]
+  >>
+    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
+    fs[ORD_CHR]>>
+    strip_tac>>
+    fs[]) |> update_precondition;
 
 val read_string_side = Q.prove(`
-  ∀x y.
-  read_string_side x y ⇔ T`,
+  ∀x y l.
+  read_string_side x y l ⇔ T`,
   ho_match_mp_tac read_string_ind>>
   rw[]>>
   simp[Once (fetch"-""read_string_side_def")]);
 
 val next_sym_alt_side = Q.prove(`
-  ∀x. next_sym_alt_side x ⇔ T`,
+  ∀x l. next_sym_alt_side x l ⇔ T`,
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
-  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side]>>
-  rw[]>>metis_tac[]);
+  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,read_string_side,num_from_hex_string_alt_side]>>
+  rw[]>>
+  fs[FALSE_def]);
+
+val lexer_fun_aux_side = Q.prove(`
+  ∀x l. lexer_fun_aux_side x l ⇔ T`,
+  ho_match_mp_tac lexer_fun_aux_ind>>rw[]>>
+  simp[Once (fetch"-""lexer_fun_aux_side_def"),
+       Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
 
 val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,
-  ho_match_mp_tac lexer_fun_ind>>rw[]>>
-  simp[Once (fetch"-""lexer_fun_side_def"),
-       Once (fetch"-""next_token_side_def"),next_sym_alt_side]) |> update_precondition
+  EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

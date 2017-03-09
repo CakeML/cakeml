@@ -34,6 +34,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
@@ -61,8 +62,8 @@ val _ = translate (con_to_decTheory.compile_def);
 val _ = translate (exh_reorderTheory.compile_def);
 
 val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
-val exh_reorder_compile_side = prove(``
-  ∀x. exh_reorder_compile_side x ⇔ T``,
+val exh_reorder_compile_side = Q.prove(`
+  ∀x. exh_reorder_compile_side x ⇔ T`,
   recInduct exh_reorderTheory.compile_ind>>
   rw[]>>
   rw[Once exh_reorder_compile_side_def]>>
@@ -78,7 +79,7 @@ val dec_to_exh_compile_side = Q.prove(
   rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
   |> update_precondition;
 
-val _ = translate (exh_to_patTheory.pure_op_op_eqn);
+val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
 val _ = translate (exh_to_patTheory.compile_def);
 
 local
@@ -110,7 +111,8 @@ val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE`` |> SI
 val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
                        EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
-                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE]
+                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
+                       EqualityType_LIST_TYPE_CHAR]
 
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
@@ -325,6 +327,8 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
   metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
 
 (* known *)
+(*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
+
 val _ = translate clos_knownTheory.merge_alt
 
 val num_abs_intro = Q.prove(`
@@ -332,6 +336,17 @@ val num_abs_intro = Q.prove(`
   rw[]>>intLib.COOPER_TAC);
 
 val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
+
+(*
+(* TODO: 
+   This is uglier than previously, to prevent SIMP_RULE from rewriting guards
+   OF PMATCH_ROWs to K T *)
+val lemma = ``(if 0 <= i /\ q
+            then (EL (Num i) xs,g)
+            else x)`` |> (ONCE_REWRITE_CONV [num_abs_intro] THENC SIMP_CONV std_ss [])
+
+val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
+*)
 
 val _ = translate (clos_knownTheory.known_def)
 
@@ -346,9 +361,22 @@ val clos_known_merge_side = Q.prove(`
 
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
+  rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  rw[clos_known_merge_side]>>
+  fs[clos_known_merge_side]>>rw[]>>
   intLib.COOPER_TAC)
+
+(*
+val clos_known_known_op_side = Q.prove(`
+  ∀a b c. clos_known_known_op_side a b c ⇔ T`,
+  rpt strip_tac >> Cases_on `b` >>
+  simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
+  fs[clos_known_merge_side]>-
+  metis_tac[option_nchotomy]>-
+  (rpt strip_tac >-
+  metis_tac[option_nchotomy] >-
+  intLib.COOPER_TAC))
+*)
 
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
@@ -438,7 +466,9 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_NUM,EqualityType_INT,
       EqualityType_AST_SHIFT_TYPE,
       EqualityType_AST_OPW_TYPE,
-      EqualityType_AST_WORD_SIZE_TYPE]
+      EqualityType_AST_WORD_SIZE_TYPE,
+      EqualityType_LIST_TYPE_CHAR,
+      EqualityType_BOOL]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
@@ -838,7 +868,7 @@ val bvl_handle_compile_exp_side = Q.prove(`
 
 val _ = translate(bvl_to_bviTheory.compile_def)
 
-val _ = translate (bvi_to_dataTheory.op_requires_names_eqn)
+val _ = translate (bvi_to_dataTheory.op_requires_names_pmatch)
 val _ = translate (COUNT_LIST_compute)
 
 (* TODO: For some reason, the following def on sptrees fails to translate in a standalone manner (when the rest of this file's translation isn't loaded). Needs investigation. *)
@@ -987,8 +1017,32 @@ val EqualityType_DATALANG_PROG_TYPE = Q.prove(
   metis_tac[EqualityType_def,DATALANG_PROG_TYPE_no_closures,DATALANG_PROG_TYPE_types_match,DATALANG_PROG_TYPE_11])
   |> store_eq_thm;
 
+(*TODO: pmatch for bvl_space is broken *)
+val _ = translate data_spaceTheory.space_def
+
 val _ = translate (bvi_to_dataTheory.compile_prog_def)
 
+(*val data_space_space_side = Q.prove(`∀prog. data_space_space_side prog ⇔ T`,
+`(∀prog. data_space_space_side prog ⇔ T) ∧
+(∀opt (n:num) prog. opt = SOME(n,prog) ⇒ data_space_space_side prog ⇔ T) ∧
+(∀opt (n:num) prog. opt = (n,prog) ⇒ data_space_space_side prog ⇔ T)`
+  suffices_by simp[]
+  >> ho_match_mp_tac (TypeBase.induction_of ``:dataLang$prog``)
+  >> fs[]
+  >> rpt strip_tac
+  >> rw[Once (fetch "-" "data_space_space_side_def")]
+  >> metis_tac[sum_CASES, pair_CASES]) |> update_precondition;
+
+val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_side prog`,
+  rw[fetch "-" "data_space_compile_side_def",
+     fetch "-" "bvi_to_data_optimise_side_def",
+     fetch "-" "bvi_to_data_compile_exp_side_def",
+     fetch "-" "bvi_to_data_compile_part_side_def",
+     fetch "-" "bvi_to_data_compile_prog_side_def",
+     data_space_space_side]) |> update_precondition; *)
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

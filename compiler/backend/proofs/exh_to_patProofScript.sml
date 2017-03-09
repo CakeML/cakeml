@@ -110,10 +110,6 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [optionTheory.NOT_SOME_NONE, optionTheory.SOME_11]);
 
-val char_list_to_v = Q.prove(
-  `∀ls. char_list_to_v ls = compile_v (char_list_to_v ls)`,
-  Induct >> simp[exhSemTheory.char_list_to_v_def,patSemTheory.char_list_to_v_def])
-
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
     compile_v v1 = v2 ∧
@@ -176,14 +172,25 @@ val do_app = Q.prove(
       metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
   >- (tac >>
       metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
+  (* word_to_int *)
   >- tac
+  (* word_from_int *)
   >- tac
+  (* ord *)
   >- tac
+  (* chr *)
   >- tac
+  (* chopb *)
   >- tac
-  >- (tac >> simp[char_list_to_v])
   >- (imp_res_tac v_to_char_list >> tac)
+  (* strsub *)
+  >- (
+    fs[patSemTheory.do_app_def]
+    \\ every_case_tac \\ fs[] \\ rw[]
+    \\ EVAL_TAC)
+  (* strlen *)
   >- tac
+  (* vfromlist *)
   >- (srw_tac[][patSemTheory.do_app_def] >>
       BasicProvers.EVERY_CASE_TAC >>
       imp_res_tac v_to_list >>
@@ -242,10 +249,6 @@ val v_to_list_no_closures = Q.prove (
   BasicProvers.EVERY_CASE_TAC >>
   full_simp_tac(srw_ss())[compile_v_def, patSemTheory.v_to_list_def] >>
   srw_tac[][]);
-
-val char_list_to_v_no_closures = Q.prove(
-  `∀ls. no_closures (char_list_to_v ls)`,
-  Induct >> simp[patSemTheory.char_list_to_v_def])
 
 val s = mk_var("s",
   ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
@@ -1214,7 +1217,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
         BasicProvers.EVERY_CASE_TAC >>
         full_simp_tac(srw_ss())[store_alloc_def,LET_THM] )
       >- (
-        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
+        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
         srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
         full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1226,7 +1229,19 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
         metis_tac[sv_rel_def] )
       >- (BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[])
       >- (
-        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
+        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
+        Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
+        srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+        full_simp_tac(srw_ss())[store_lookup_def] >>
+        srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+        imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
+        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
+        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
+        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+        pop_assum mp_tac >>
+        simp[Once v_rel_cases])
+      >- (
+        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
         Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
         srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
         full_simp_tac(srw_ss())[store_lookup_def] >>
@@ -1250,7 +1265,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
           pop_assum mp_tac >>
           ASM_REWRITE_TAC [sv_rel_def]) ) >>
     srw_tac[][] >>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>Cases_on`l`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
+    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>Cases_on`l`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>fs[]>>
     Cases_on`y`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
     BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM,state_rel_def]>>srw_tac[][] >>
     full_simp_tac(srw_ss())[store_lookup_def,store_assign_def,
@@ -1259,7 +1274,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     metis_tac[sv_rel_def] ) >>
   imp_res_tac patSemTheory.do_app_cases >>
-  full_simp_tac(srw_ss())[patSemTheory.do_app_def,state_rel_def] >>
+  fs[patSemTheory.do_app_def,state_rel_def] >>
   srw_tac[][]>>full_simp_tac(srw_ss())[UNCURRY]>>srw_tac[][] >>
   full_simp_tac(srw_ss())[store_assign_def,store_lookup_def]>>
   full_simp_tac(srw_ss())[store_alloc_def,LET_THM]>>

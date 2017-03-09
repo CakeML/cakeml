@@ -134,6 +134,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (EVERY2 (v_rel max_app) (xs:closSem$v list) (ys:closSem$v list) ==>
    v_rel max_app (Block t xs) (Block t ys))
   /\
+  (v_rel max_app (ByteVector ws) (ByteVector ws))
+  /\
   (v_rel max_app (RefPtr r1) (RefPtr r1))
   /\
   (LIST_REL (v_rel max_app) env env' ∧
@@ -184,11 +186,13 @@ val v_rel_simp = let
   in map f [``v_rel max_app (Number x) y``,
             ``v_rel max_app (Word64 n) y``,
             ``v_rel max_app (Block n l) y``,
+            ``v_rel max_app (ByteVector ws) y``,
             ``v_rel max_app (RefPtr x) y``,
             ``v_rel max_app (Closure n a l narg x) y``,
             ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel max_app y (Number x)``,
             ``v_rel max_app y (Block n l)``,
+            ``v_rel max_app y (ByteVector ws)``,
             ``v_rel max_app y (RefPtr x)``,
             ``v_rel max_app y (Closure n a l narg x)``,
             ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
@@ -341,12 +345,6 @@ val helper = Q.prove (
   `SND ((λ(n',x'). (n',[x'])) x) = [SND x]`,
   Cases_on `x` >> full_simp_tac(srw_ss())[]);
 
-val list_to_v = Q.prove(
-  `∀l1 l2. LIST_REL (v_rel max_app) l1 l2 ⇒
-    v_rel max_app (list_to_v l1) (list_to_v l2)`,
-  Induct >> simp[list_to_v_def,v_rel_simp] >>
-  srw_tac[][PULL_EXISTS,list_to_v_def])
-
 val v_rel_Boolv_mono = Q.prove(
   `(x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))`,
   Cases_on`x`>>simp[Boolv_def,v_rel_simp])
@@ -384,11 +382,13 @@ val do_app = Q.prove(
   Cases_on`op`>>simp[v_rel_simp]>>
   Cases_on`x1`>>full_simp_tac(srw_ss())[v_rel_simp] >>
   rpt BasicProvers.VAR_EQ_TAC
+  (* GetGlobal *)
   >- (
     simp[get_global_def] >>
     imp_res_tac state_rel_globals >>
     every_case_tac >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN,OPTREL_def] >>
     res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] )
+  (* SetGlobal *)
   >- (
     simp[get_global_def] >>
     imp_res_tac state_rel_globals >>
@@ -397,7 +397,9 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def] >>
     match_mp_tac EVERY2_LUPDATE_same >>
     simp[OPTREL_def])
+  (* AllocGlobal *)
   >- ( full_simp_tac(srw_ss())[state_rel_def] >> simp[OPTREL_def])
+  (* El *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -405,10 +407,12 @@ val do_app = Q.prove(
     Cases_on`t'` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     rpt var_eq_tac >>
     srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rev_full_simp_tac(srw_ss())[] )
+  (* LengthBlock *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
+  (* LengthArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -417,6 +421,7 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     simp[LIST_REL_EL_EQN] )
+  (* LengthByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -424,6 +429,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
+  (* AllocByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -435,6 +441,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
     full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] )
+  (* AllocArray *)
   >- (
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -446,6 +453,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[OPTREL_def,FLOOKUP_UPDATE] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     simp[LIST_REL_REPLICATE_same])
+  (* SubByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -457,6 +465,7 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     metis_tac[])
+  (* UpdateByteArray *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
@@ -477,17 +486,22 @@ val do_app = Q.prove(
     imp_res_tac v_to_list >>
     every_case_tac >> full_simp_tac(srw_ss())[OPTREL_def] >>
     simp[v_rel_simp] )
+  (* FromListByte *)
   >- (
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    imp_res_tac list_to_v )
+    every_case_tac \\ fs[v_rel_simp]
+    \\ rpt(qpat_x_assum`$some _ = _`mp_tac)
+    \\ rpt(DEEP_INTRO_TAC some_intro) \\ fs[] \\ rw[]
+    \\ imp_res_tac v_to_list \\ rfs[OPTREL_def]
+    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[EL_MAP,v_rel_simp]
+    \\ fs[EVERY_MEM,EXISTS_MEM]
+    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,v_rel_simp])
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
-  >- (
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
-    Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp])
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[] )
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
+  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- (
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> srw_tac[][] )
   >- (
@@ -523,7 +537,7 @@ val do_app = Q.prove(
     \\ rveq
     \\ imp_res_tac state_rel_refs
     \\ fs[fmap_rel_OPTREL_FLOOKUP]
-    \\ first_x_assum(qspec_then`n'`mp_tac)>>srw_tac[][v_rel_simp]
+    \\ first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]
     \\ every_case_tac \\ fs[OPTREL_def]
     \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
     \\ rw[] \\ rfs[])
@@ -538,7 +552,13 @@ val do_app = Q.prove(
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp])>>
     TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp]));
+    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+    imp_res_tac LIST_REL_LENGTH >> fs [] >>
+    imp_res_tac state_rel_refs >>
+    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
+    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
+    simp[LIST_REL_EL_EQN] ));
 
 (* compiler correctness *)
 
@@ -909,8 +929,8 @@ val renumber_code_locs_elist_globals = Q.store_thm(
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+  qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
   simp[] >> simp[MAP_ZIP]);
 
@@ -925,8 +945,8 @@ val renumber_code_locs_esgc_free = Q.store_thm(
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
   >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
-  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  >- (rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+      qspecl_then [`locn1`, `MAP SND functions`] mp_tac
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]))

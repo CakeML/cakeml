@@ -25,8 +25,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃s. op = (Op Explode) ∧ vs = [Litv (StrLit s)]) ∨
     (∃v ls. op = (Op Implode) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
+    (∃s i. op = (Op Strsub) ∧ vs = [Litv (StrLit s); Litv (IntLit i)]) ∨
     (∃s. op = (Op Strlen) ∧ vs = [Litv (StrLit s)]) ∨
     (∃v vs'. op = (Op VfromList) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
     (∃vs' i. op = (Op Vsub) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨

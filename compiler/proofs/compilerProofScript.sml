@@ -29,7 +29,7 @@ val initial_condition_def = Define`
     backendProof$conf_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
-  `parse_prog = parse`,
+  `parse_prog = parse o MAP FST`,
   simp[FUN_EQ_THM] \\ gen_tac
   \\ simp[parse_def,cmlParseTheory.parse_prog_def]
   \\ DEEP_INTRO_TAC some_intro
@@ -38,7 +38,9 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   >- (
     rpt strip_tac
     \\ drule completeness
-    \\ simp[]
+    \\ simp[MAP_MAP_o]
+    \\ disch_then(qspec_then`x`mp_tac)
+    \\ impl_tac >- simp[]
     \\ strip_tac
     \\ assume_tac cmlPEGTheory.PEG_wellformed
     \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
@@ -47,7 +49,8 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
     \\ strip_tac
     \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
-    \\ simp[ETA_AX,OPTION_BIND_SOME] )
+    \\ simp[ETA_AX,OPTION_BIND_SOME]
+    \\ cheat (* due to locations... *) )
   \\ qmatch_goalsub_abbrev_tac`opt = NONE`
   \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
   \\ strip_tac
@@ -67,10 +70,13 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ fs[cmlPEGTheory.pnt_def]
   \\ qmatch_asmsub_rename_tac`SOME p`
   \\ Cases_on`p`
+  \\ qpat_x_assum`Result r = _`(assume_tac o SYM)
+  \\ Cases_on`r` \\ fs[cmlParseTheory.destResult_def]
+  \\ rveq
   \\ drule peg_sound
   \\ strip_tac \\ rveq \\ simp[]
   \\ Cases_on`ptree_TopLevelDecs pt`\\simp[]
-  \\ strip_tac \\ fs[]
+  \\ strip_tac \\ fs[MAP_MAP_o]
   \\ metis_tac[]);
 
 val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
@@ -86,19 +92,18 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ pop_assum (assume_tac o SYM)
   \\ BasicProvers.TOP_CASE_TAC
   >- (
-    ntac 4 BasicProvers.TOP_CASE_TAC
+    BasicProvers.TOP_CASE_TAC
     \\ simp[]
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
     \\ asm_exists_tac \\ fs[] )
   \\ rw[] \\ CCONTR_TAC \\ fs[]
-  \\ `∃a b c d. new_tenv = (a,b,c,d)` by metis_tac[PAIR]
-  \\ rveq
-  \\ drule (SIMP_RULE(srw_ss())[GSYM AND_IMP_INTRO]infer_prog_complete) (* TODO: why is AND_IMP_INTRO necessary? *)
+  \\ drule infer_prog_complete
   \\ disch_then drule
   \\ disch_then(qspec_then`init_infer_state`mp_tac)
-  \\ strip_tac \\ fs[]);
+  \\ disch_then(qspec_then`c.inf_decls`mp_tac)
+  \\ simp[]);
 
 val compile_correct_gen = Q.store_thm("compile_correct_gen",
   `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc.

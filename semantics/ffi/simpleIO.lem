@@ -34,14 +34,14 @@ val exit : oracle_function simpleIO
 let exit st input = Oracle_diverge
 
 val simpleIO_oracle : oracle simpleIO
-let simpleIO_oracle n st input =
-  if n = 0 then
+let simpleIO_oracle s st input =
+  if s = "isEof" then
     isEof st input
-  else if n = 1 then
+  else if s = "getChar" then
     getChar st input
-  else if n = 2 then
+  else if s = "putChar" then
     putChar st input
-  else if n = 3 then
+  else if s = "exit" then
     exit st input
   else
     Oracle_fail

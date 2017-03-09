@@ -6,6 +6,7 @@ val _ = set_grammar_ancestry [
   "wordLang",
   "reg_alloc"
 ]
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (*Defines the algorithms related to the register allocator, currently:
 0) Syntactic forms before and after allocation
@@ -20,7 +21,7 @@ val apply_nummap_key_def = Define`
   fromAList (MAP (λx,y.f x,y) (toAList names))`
 
 val option_lookup_def = Define`
-  option_lookup t v = case lookup v t of NONE => v | SOME x => x`
+  option_lookup t v = dtcase lookup v t of NONE => 0n | SOME x => x`
 
 val even_list_def = Define `
   (even_list = GENLIST (\x.2*x))`
@@ -48,7 +49,7 @@ val merge_moves_def = Define`
       merge_moves xs ssa_L ssa_R na in
     let optLx = lookup x ssa_L' in
     let optLy = lookup x ssa_R' in
-    case (optLx,optLy) of
+    dtcase (optLx,optLy) of
       (SOME Lx,SOME Ly) =>
       if Lx = Ly then
         (seqL,seqR,na',ssa_L',ssa_R')
@@ -67,7 +68,7 @@ val fake_moves_def = Define`
       fake_moves xs ssa_L ssa_R na in
     let optLx = lookup x ssa_L' in
     let optLy = lookup x ssa_R' in
-    case (optLx,optLy) of
+    dtcase (optLx,optLy) of
       (NONE,SOME Ly) =>
         let Lmove = Seq seqL (fake_move na') in
         let Rmove = Seq seqR (Move 1 [(na',Ly)]) in
@@ -96,7 +97,7 @@ val ssa_cc_trans_inst_def = Define`
     let (reg',ssa',na') = next_var_rename reg ssa na in
       (Inst (Const reg' w),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
-    case ri of
+    dtcase ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
       let r2' = option_lookup ssa r2 in
@@ -124,6 +125,25 @@ val ssa_cc_trans_inst_def = Define`
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move 0 [(r4'',0)] in
       (Seq mov_in (Seq (Inst (Arith (AddCarry r1' r2' r3' 0))) mov_out), ssa'',na'')) ∧
+  (* Note: for AddOverflow and SubOverflow, setting r4 to 0 is not necessary
+     However, this helps with word_to_stack which currently only spills
+     one register on writes
+  *)
+  (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    (* TODO: This might need to be made a strong preference *)
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
+    let mov_out = Move 0 [(r4'',0)] in
+      (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
+  (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
+    let r2' = option_lookup ssa r2 in
+    let r3' = option_lookup ssa r3 in
+    let (r1',ssa',na') = next_var_rename r1 ssa na in
+    let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
+    let mov_out = Move 0 [(r4'',0)] in
+      (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
@@ -136,11 +156,11 @@ val ssa_cc_trans_inst_def = Define`
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(0,r3');(8,r4')] in
+    let mov_in = Move 0 [(8,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
     let mov_out = Move 0 [(r2',8);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 0 8 r5'))) mov_out),ssa'',na'')) ∧
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 8 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -164,7 +184,7 @@ val ssa_cc_trans_inst_def = Define`
   so it doesn't need the other parts *)
 val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
   (ssa_cc_trans_exp t (Var num) =
-    Var (case lookup num t of NONE => num | SOME x => x)) ∧
+    Var (option_lookup t num)) ∧
   (ssa_cc_trans_exp t (Load exp) = Load (ssa_cc_trans_exp t exp)) ∧
   (ssa_cc_trans_exp t (Op wop ls) =
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
@@ -212,15 +232,15 @@ val ssa_cc_trans_def = Define`
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
     let (s2',ssa'',na'') = ssa_cc_trans s2 ssa' na' in
       (Seq s1' s2',ssa'',na'')) ∧
-  (ssa_cc_trans (MustTerminate n s1) ssa na =
+  (ssa_cc_trans (MustTerminate s1) ssa na =
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
-      (MustTerminate n s1',ssa',na')) ∧
+      (MustTerminate s1',ssa',na')) ∧
   (*Tricky case 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
   (ssa_cc_trans (If cmp r1 ri e2 e3) ssa na =
     let r1' = option_lookup ssa r1 in
-    let ri' = case ri of Reg r => Reg (option_lookup ssa r)
+    let ri' = dtcase ri of Reg r => Reg (option_lookup ssa r)
                       |  Imm v => Imm v in
     (*ssa is the copy for both branches,
       however, we can use new na2 and ns2*)
@@ -301,7 +321,7 @@ val ssa_cc_trans_def = Define`
       ssa_cc_trans ret_handler ssa_2_p na_2_p in
     let mov_ret_handler =
         (Seq ret_mov (Seq (Move 0 [ret',2]) (ren_ret_handler))) in
-    (case h of
+    (dtcase h of
       NONE =>
         let prog =
           (Seq stack_mov (Seq move_args
@@ -352,6 +372,10 @@ val apply_colour_inst_def = Define`
     Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
     Arith (AddCarry (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (AddOverflow r1 r2 r3 r4)) =
+    Arith (AddOverflow (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (SubOverflow r1 r2 r3 r4)) =
+    Arith (SubOverflow (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
     Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
@@ -375,15 +399,15 @@ val apply_colour_def = Define `
   (apply_colour f (Get num store) = Get (f num) store) ∧
   (apply_colour f (Store exp num) = Store (apply_colour_exp f exp) (f num)) ∧
   (apply_colour f (Call ret dest args h) =
-    let ret = case ret of NONE => NONE
+    let ret = dtcase ret of NONE => NONE
                         | SOME (v,cutset,ret_handler,l1,l2) =>
                           SOME (f v,apply_nummap_key f cutset,apply_colour f ret_handler,l1,l2) in
     let args = MAP f args in
-    let h = case h of NONE => NONE
+    let h = dtcase h of NONE => NONE
                      | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
       Call ret dest args h) ∧
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧
-  (apply_colour f (MustTerminate n s1) = MustTerminate n (apply_colour f s1)) ∧
+  (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
@@ -411,6 +435,8 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
@@ -423,7 +449,7 @@ val get_live_inst_def = Define`
   (get_live_inst Skip live:num_set = live) ∧
   (get_live_inst (Const reg w) live = delete reg live) ∧
   (get_live_inst (Arith (Binop bop r1 r2 ri)) live =
-    case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
+    dtcase ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
@@ -432,6 +458,10 @@ val get_live_inst_def = Define`
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
     (*r4 is live anyway*)
     insert r4 () (insert r3 () (insert r2 () (delete r1 live)))) ∧
+  (get_live_inst (Arith (AddOverflow r1 r2 r3 r4)) live =
+    insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
+  (get_live_inst (Arith (SubOverflow r1 r2 r3 r4)) live =
+    insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
   (get_live_inst (Arith (LongMul r1 r2 r3 r4)) live =
     insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
   (get_live_inst (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -484,7 +514,7 @@ val get_live_def = Define`
   (*Find liveset just before s2 which is the input liveset to s1*)
   (get_live (Seq s1 s2) live =
     get_live s1 (get_live s2 live)) ∧
-  (get_live (MustTerminate n s1) live =
+  (get_live (MustTerminate s1) live =
     get_live s1 live) ∧
   (*First case where branching appears:
     We get the livesets for e2 and e3, union them, add the if variable
@@ -494,7 +524,7 @@ val get_live_def = Define`
     let e2_live = get_live e2 live in
     let e3_live = get_live e3 live in
     let union_live = union e2_live e3_live in
-       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+       dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
   (get_live (FFI ffi_index ptr len numset) live =
@@ -521,6 +551,10 @@ val remove_dead_inst_def = Define`
   (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (Div r1 r2 r3)) live = (lookup r1 live = NONE)) ∧
   (remove_dead_inst (Arith (AddCarry r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (AddOverflow r1 r2 r3 r4)) live =
+    (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst (Arith (SubOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst (Arith (LongMul r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
@@ -567,18 +601,18 @@ val remove_dead_def = Define`
         if s2 = Skip then s1
         else Seq s1 s2
     in (prog,s1live)) ∧
-  (remove_dead (MustTerminate n s1) live =
+  (remove_dead (MustTerminate s1) live =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
     let (s1,s1live) = remove_dead s1 live in
-      (MustTerminate n s1,s1live)) ∧
+      (MustTerminate s1,s1live)) ∧
   (remove_dead (If cmp r1 ri e2 e3) live =
     let (e2,e2_live) = remove_dead e2 live in
     let (e3,e3_live) = remove_dead e3 live in
     let union_live = union e2_live e3_live in
     let liveset =
-       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+       dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live in
     let prog =
       if e2 = Skip ∧ e3 = Skip then Skip
@@ -590,7 +624,7 @@ val remove_dead_def = Define`
     let live_set = union cutset args_set in
     let (ret_handler,_) = remove_dead ret_handler live in
     let h =
-      (case h of
+      (dtcase h of
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live),l1,l2)) in
@@ -606,19 +640,32 @@ val get_writes_def = Define`
   (get_writes (LocValue r l1) = insert r () LN) ∧
   (get_writes prog = LN)`
 
+val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
+  get_writes inst =
+    case inst of
+    | Move pri ls => numset_list_insert (MAP FST ls) LN
+    | Inst i => get_writes_inst i
+    | Assign num exp => insert num () LN
+    | Get num store => insert num () LN
+    | LocValue r l1 => insert r () LN
+    | prog => LN`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> fs[get_writes_def])
+
 (* Old representation *)
 val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
       (hd',(ls' ++ ls))) ∧
-  (get_clash_sets (MustTerminate n s1) live =
+  (get_clash_sets (MustTerminate s1) live =
      get_clash_sets s1 live) ∧
   (get_clash_sets (If cmp r1 ri e2 e3) live =
     let (h2,ls2) = get_clash_sets e2 live in
     let (h3,ls3) = get_clash_sets e3 live in
     let union_live = union h2 h3 in
-    let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+    let merged = dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
                       | _ => insert r1 () union_live in
       (merged,ls2++ls3)) ∧
   (get_clash_sets (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
@@ -629,7 +676,7 @@ val get_clash_sets_def = Define`
     let live_set = union cutset args_set in
     (*Returning clash set*)
     let ret_clash = insert v () cutset in
-    (case h of
+    (dtcase h of
       NONE => (live_set,ret_clash::hd::ls)
     | SOME(v',prog,l1,l2) =>
         let (hd',ls') = get_clash_sets prog live in
@@ -646,11 +693,13 @@ val get_delta_inst_def = Define`
   (get_delta_inst Skip = Delta [] []) ∧
   (get_delta_inst (Const reg w) = Delta [reg] []) ∧
   (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
-    case ri of Reg r3 => Delta [r1] [r2;r3]
+    dtcase ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
+  (get_delta_inst (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
   (get_delta_inst (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
@@ -684,10 +733,10 @@ val get_clash_tree_def = Define`
   (get_clash_tree (If cmp r1 ri e2 e3) =
     let e2t = get_clash_tree e2 in
     let e3t = get_clash_tree e3 in
-    case ri of
+    dtcase ri of
       Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
     | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
-  (get_clash_tree (MustTerminate n s) =
+  (get_clash_tree (MustTerminate s) =
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
@@ -700,13 +749,13 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
-    case ret of
+    dtcase ret of
       NONE => Set (numset_list_insert args LN)
     | SOME (v,cutset,ret_handler,_,_) =>
       let live_set = union cutset args_set in
       (*Might be inefficient..*)
       let ret_tree = Seq (Set (insert v () cutset)) (get_clash_tree ret_handler) in
-      case h of
+      dtcase h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
         let handler_tree =
@@ -718,28 +767,64 @@ val get_clash_tree_def = Define`
 (*Preference edges*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
-  (get_prefs (MustTerminate n s1) acc =
+  (get_prefs (MustTerminate s1) acc =
     get_prefs s1 acc) ∧
   (get_prefs (Seq s1 s2) acc =
     get_prefs s1 (get_prefs s2 acc)) ∧
   (get_prefs (If cmp num rimm e2 e3) acc =
     get_prefs e2 (get_prefs e3 acc)) ∧
   (get_prefs (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
-    case h of
+    dtcase h of
       NONE => get_prefs ret_handler acc
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
+val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
+  get_prefs s acc =
+    case s of
+    | (Move pri ls) => (MAP (λx,y. (pri,x,y)) ls) ++ acc
+    | (MustTerminate s1) =>
+    get_prefs s1 acc
+    | (Seq s1 s2) =>
+    get_prefs s1 (get_prefs s2 acc)
+    | (If cmp num rimm e2 e3) =>
+    get_prefs e2 (get_prefs e3 acc)
+    | (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args NONE) =>
+    get_prefs ret_handler acc
+    | (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_))) =>
+    get_prefs prog (get_prefs ret_handler acc)
+    | prog => acc`,
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac      
+  >> every_case_tac
+  >> fs [get_prefs_def]
+  >- (rpt(POP_ASSUM MP_TAC)
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)  
+  >> ho_match_mp_tac (theorem "get_prefs_ind")
+  >> rpt strip_tac >> fs[Once get_prefs_def]
+  >> every_case_tac >> metis_tac[pair_CASES]));
+
 (* Forced edges for certain instructions
-  At the moment this really only ever occurs for AddCarry
+  At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
 *)
 val get_forced_def = Define`
   (get_forced c (Inst i) acc =
-    case i of
+    dtcase i of
       Arith (AddCarry r1 r2 r3 r4) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
           (if r1=r3 then [] else [(r1,r3)]) ++
           (if r1=r4 then [] else [(r1,r4)]) ++
+          acc
+       else acc
+    | Arith (AddOverflow r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          acc
+       else acc
+    | Arith (SubOverflow r1 r2 r3 r4) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
           acc
        else acc
     | Arith (LongMul r1 r2 r3 r4) =>
@@ -752,17 +837,69 @@ val get_forced_def = Define`
        else
          acc
     | _ => acc) ∧
-  (get_forced c (MustTerminate n s1) acc =
+  (get_forced c (MustTerminate s1) acc =
     get_forced c s1 acc) ∧
   (get_forced c (Seq s1 s2) acc =
     get_forced c s1 (get_forced c s2 acc)) ∧
   (get_forced c (If cmp num rimm e2 e3) acc =
     get_forced c e2 (get_forced c e3 acc)) ∧
   (get_forced c (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
-    case h of
+    dtcase h of
       NONE => get_forced c ret_handler acc
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
   (get_forced c prog acc = acc)`
+
+val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
+  (get_forced c prog acc =
+    case prog of
+      Inst(Arith (AddCarry r1 r2 r3 r4)) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          (if r1=r4 then [] else [(r1,r4)]) ++
+          acc
+       else acc
+    | Inst(Arith (AddOverflow r1 r2 r3 r4)) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          acc
+       else acc
+    | Inst(Arith (SubOverflow r1 r2 r3 r4)) =>
+       if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
+          (if r1=r3 then [] else [(r1,r3)]) ++
+          acc
+       else acc
+    | Inst(Arith (LongMul r1 r2 r3 r4)) =>
+       if (c.ISA = ARMv6) then
+         (if (r1=r2) then [] else [(r1,r2)]) ++ acc
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+         (if r1=r3 then [] else [(r1,r3)]) ++
+         (if r1=r4 then [] else [(r1,r4)]) ++
+         acc
+       else
+         acc
+    | MustTerminate s1 => get_forced c s1 acc
+    | Seq s1 s2 => get_forced c s1 (get_forced c s2 acc)
+    | If cmp num rimm e2 e3 =>
+      get_forced c e2 (get_forced c e3 acc)
+    | Call (SOME (v,cutset,ret_handler,l1,l2)) dest args NONE =>
+      get_forced c ret_handler acc
+    | Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_)) =>
+      get_forced c prog (get_forced c ret_handler acc)
+    | _ => acc)`,
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac
+  >> every_case_tac
+  >> fs[get_forced_def]
+  >> rpt(POP_ASSUM MP_TAC)
+  >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
+  >> ho_match_mp_tac (theorem "get_forced_ind")
+  >> rpt strip_tac
+  >> fs[get_forced_def]
+  >> every_case_tac
+  >> fs[]
+  >> metis_tac[pair_CASES])
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
@@ -778,7 +915,7 @@ val every_even_colour_def = Define`
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
   oracle_colour_ok k col_opt tree prog ls ⇔
-  case col_opt of
+  dtcase col_opt of
     NONE => NONE
   | SOME col =>
      let tcol = total_colour col in
@@ -806,7 +943,7 @@ val word_alloc_def = Define`
   let tree = get_clash_tree prog in
   let moves = get_prefs prog [] in
   let forced = get_forced c prog [] in
-  case oracle_colour_ok k col_opt tree prog forced of
+  dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
     let (clash_graph,_) = clash_tree_to_spg tree [] LN in
     let ext_graph = FOLDR (λ(x,y) g. undir_g_insert x y g) clash_graph forced in
@@ -819,7 +956,8 @@ val word_alloc_def = Define`
 val setup_ssa_def = Define`
   setup_ssa n lim (prog:'a wordLang$prog) =
   let args = even_list n in
-    list_next_var_rename_move LN lim (even_list n)`
+  let (new_ls,ssa',n') = list_next_var_rename args LN lim in
+    (Move 1 (ZIP(new_ls,args)),ssa',n')`
 
 val max3_def = Define`
   max3 (x:num) y z = if x > y then (if z > x then z else x)
@@ -843,10 +981,12 @@ val max_var_inst_def = Define`
   (max_var_inst Skip = 0) ∧
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
-    case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
+    dtcase ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
   (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
   (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
@@ -865,19 +1005,19 @@ val max_var_def = Define `
   (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
   (max_var (Call ret dest args h) =
     let n = list_max args in
-    case ret of
+    dtcase ret of
       NONE => n
     | SOME (v,cutset,ret_handler,l1,l2) =>
       let cutset_max = MAX n (list_max (MAP FST (toAList cutset))) in
       let ret_max = max3 v cutset_max (max_var ret_handler) in
-      (case h of
+      (dtcase h of
         NONE => ret_max
       | SOME (v,prog,l1,l2) =>
         max3 v ret_max (max_var prog))) ∧
   (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
-  (max_var (MustTerminate n s1) = max_var s1) ∧
+  (max_var (MustTerminate s1) = max_var s1) ∧
   (max_var (If cmp r1 ri e2 e3) =
-    let r = case ri of Reg r => MAX r r1 | _ => r1 in
+    let r = dtcase ri of Reg r => MAX r r1 | _ => r1 in
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     MAX num (list_max (MAP FST (toAList numset)))) ∧

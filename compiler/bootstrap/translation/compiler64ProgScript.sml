@@ -16,7 +16,7 @@ val max_heap_limit_64_def = Define`
   max_heap_limit_64 c =
     ^(spec64 data_to_wordTheory.max_heap_limit_def
       |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[data_to_wordTheory.shift_def]
+      |> SIMP_RULE (srw_ss())[wordLangTheory.shift_def]
       |> concl |> rhs)`;
 
 val res = translate max_heap_limit_64_def
@@ -36,11 +36,15 @@ val res = translate def
 
 val res = translate basisProgTheory.basis_def
 
+(*
+
 val res = translate compilerTheory.encode_error_def
 
 val def = spec64 compilerTheory.compile_to_bytes_def
 
 val res = translate def
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

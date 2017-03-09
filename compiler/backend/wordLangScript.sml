@@ -4,7 +4,7 @@ val _ = new_theory "wordLang";
 
 (* word lang = structured program with words, stack and memory *)
 
-val _ = Parse.type_abbrev("shift",``:asm$shift``);
+val _ = Parse.type_abbrev("shift",``:ast$shift``);
 val _ = ParseExtras.tight_equality()
 
 val _ = Datatype `
@@ -37,7 +37,7 @@ val _ = Datatype `
        | Get num store_name
        | Set store_name ('a exp)
        | Store ('a exp) num
-       | MustTerminate num wordLang$prog
+       | MustTerminate wordLang$prog
        | Call ((num # num_set # wordLang$prog # num # num) option)
               (* return var, cut-set, return-handler code, labels l1,l2*)
               (num option) (* target of call *)
@@ -51,7 +51,7 @@ val _ = Datatype `
        | Return num num
        | Tick
        | LocValue num num        (* assign v1 := Loc v2 0 *)
-       | FFI num num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
+       | FFI string num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 1`;
@@ -85,6 +85,8 @@ val every_var_inst_def = Define`
   (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
+  (every_var_inst P (Arith (SubOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (LongMul r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (LongDiv r1 r2 r3 r4 r5)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ P r5)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
@@ -107,7 +109,7 @@ val every_var_def = Define `
   (every_var P (LocValue r _) = P r) ∧
   (every_var P (FFI ffi_index ptr len names) =
     (P ptr ∧ P len ∧ every_name P names)) ∧
-  (every_var P (MustTerminate n s1) = every_var P s1) ∧
+  (every_var P (MustTerminate s1) = every_var P s1) ∧
   (every_var P (Call ret dest args h) =
     ((EVERY P args) ∧
     (case ret of
@@ -147,7 +149,7 @@ val every_stack_var_def = Define `
       every_stack_var P prog))) ∧
   (every_stack_var P (Alloc num numset) =
     every_name P numset) ∧
-  (every_stack_var P (MustTerminate n s1) =
+  (every_stack_var P (MustTerminate s1) =
     every_stack_var P s1) ∧
   (every_stack_var P (Seq s1 s2) =
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
@@ -173,5 +175,16 @@ val word_op_def = Define `
     | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
     | (Sub,[w1;w2]) => SOME (w1 - w2)
     | _ => NONE`;
+
+val word_sh_def = Define `
+  word_sh sh (w:'a word) n =
+    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
+      case sh of
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)`;
+
+val shift_def = Define `
+  shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
 
 val _ = export_theory();

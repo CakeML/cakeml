@@ -1,3 +1,6 @@
+(*
+   Build a basic compset for evaluation in the logic.
+*)
 structure basicComputeLib :> basicComputeLib =
 struct
 
@@ -54,12 +57,17 @@ val add_basic_compset =
    , miscTheory.append_aux_def
    , miscTheory.append_def
    , miscTheory.SmartAppend_thm
+   , miscTheory.option_fold_def
    , listTheory.LIST_REL_def
+   , libTheory.the_def
    (* TODO: should be in HOL *)
    ,optionTheory.OPTION_MAP2_DEF
+   ,optionTheory.OPTION_JOIN_DEF
    ,alistTheory.alist_to_fmap_def
    ,alistTheory.ALOOKUP_def
    ,sortingTheory.PARTITION_DEF
    ,sortingTheory.PART_DEF
-   ,sortingTheory.QSORT_DEF] ]
+   ,sortingTheory.QSORT_DEF
+   ,sptreeTheory.inter_eq_def
+   ,sptreeTheory.filter_v_def] ]
 end

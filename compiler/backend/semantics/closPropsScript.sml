@@ -16,13 +16,13 @@ val dec_clock_ffi = Q.store_thm("dec_clock_ffi",
 
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
-  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
+  (ref_rel R (ByteArray f as) (ByteArray g bs) ⇔ f = g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)`
 val _ = export_rewrites["ref_rel_def"];
 
 val ref_rel_simp = Q.store_thm("ref_rel_simp[simp]",
   `(ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
-   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs)`,
+   (ref_rel R (ByteArray f bs) y ⇔ y = ByteArray f bs)`,
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM])
 
 val code_locs_def = tDefine "code_locs" `
@@ -617,27 +617,38 @@ val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
  srw_tac[][]);
 
+val do_app_split_list = prove(
+  ``do_app op vs s = res
+    <=>
+    vs = [] /\ do_app op [] s = res \/
+    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
+  Cases_on `vs` \\ fs []);
+
 val do_app_cases_val = save_thm ("do_app_cases_val",
-``do_app op vs s = Rval (v,s')`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+  ``do_app op vs s = Rval (v,s')`` |>
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 val do_app_cases_err = save_thm ("do_app_cases_err",
 ``do_app op vs s = Rerr (Rraise v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 val do_app_cases_timeout = save_thm ("do_app_cases_timeout",
 ``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
 ``do_app op vs s = Rerr (Rabort Rtype_error)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 

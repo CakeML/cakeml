@@ -2,8 +2,6 @@ open preamble labSemTheory labPropsTheory lab_filterTheory;
 
 val _ = new_theory "lab_filterProof";
 
-val is_Label_def = lab_to_targetTheory.is_Label_def;
-
 val adjust_pc_def = Define `
   adjust_pc p xs =
     if p = 0n then 0n else
@@ -643,7 +641,7 @@ val filter_correct = Q.prove(
       reverse(Cases_on`t1.regs t1.ptr_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       Cases_on`read_bytearray c'' (w2n c') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
       >- same_inst_tac>>
-      Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
+      Cases_on`loc_to_pc n' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
       >-
         (imp_res_tac loc_to_pc_eq_NONE>>full_simp_tac(srw_ss())[]>>
         same_inst_tac)

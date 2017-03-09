@@ -121,14 +121,6 @@ val binop_lem7 =
           0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
           (sw2sw (w2w c: word32) = c)``
 
-val binop_lem8 = Q.prove(
-   `!i. is_rax (reg i) = (RAX = total_num2Zreg i)`,
-   strip_tac
-   \\ simp [x64_targetTheory.total_num2Zreg_def]
-   \\ wordsLib.Cases_on_word_value `num2Zreg i`
-   \\ rw [x64Theory.is_rax_def]
-   )
-
 val binop_lem9b = Q.prove(
    `!n. n < 64 ==>
         (0xFFFFFFFFFFFFFF80w: word64) <= n2w n /\ n2w n <= (0x7Fw: word64)`,
@@ -323,13 +315,13 @@ val cmp_lem2 =
 
 val cmp_lem3 = Thm.CONJ
   (blastLib.BBLAST_PROVE
-     ``!a b: word64.
-        ((-1w * b + a) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) = a < b``)
+    ``!a b: word64.
+       ((-1w * b + a) ' 63 <=/=>
+        (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) <=> a < b``)
   (blastLib.BBLAST_PROVE
-     ``!a b: word64.
-        ((a + -1w * b) ' 63 <=/=>
-         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) = a < b``)
+    ``!a b: word64.
+       ((a + -1w * b) ' 63 <=/=>
+        (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) <=> a < b``)
 
 val cmp_lem4 = Q.prove(
    `!w: word64 a b.
@@ -339,8 +331,8 @@ val cmp_lem4 = Q.prove(
 val cmp_lem5 = Q.prove(
    `!c: word64.
        0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw ==>
-       ((if (7 >< 7) c = 1w: word8 then 0xFFFFFFFFFFFFFF00w else 0w) ||
-         (7 >< 0) c = c)`,
+       (((if (7 >< 7) c = 1w: word8 then 0xFFFFFFFFFFFFFF00w else 0w) ||
+         ((7 >< 0) c)) = c)`,
    rw []
    \\ blastLib.FULL_BBLAST_TAC
    )
@@ -348,16 +340,17 @@ val cmp_lem5 = Q.prove(
 val cmp_lem6 = Q.prove(
    `!c: word64.
        0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
-       ((if (31 >< 31) c = 1w: word32 then 0xFFFFFFFF00000000w else 0w) ||
-         (31 >< 0) c = c)`,
+       (((if (31 >< 31) c = 1w: word32 then 0xFFFFFFFF00000000w else 0w) ||
+         (31 >< 0) c) = c)`,
    rw []
    \\ blastLib.FULL_BBLAST_TAC
    )
 
 val cmp_lem7 = Q.prove(
-   `!n. n < 16 ==> (is_rax (reg n) = (n = 0))`,
-   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM, x64Theory.num2Zreg_thm]
+   `!rm. is_rax rm = (Zr RAX = rm)`,
+   Cases \\ rw [x64Theory.is_rax_def]
+   \\ CASE_TAC
+   \\ simp []
    )
 
 val cmp_lem8 =
@@ -416,16 +409,10 @@ val adc_lem1 =
   Thm.CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
            (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
-val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 = (a = 0w)``
+val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 <=> (a = 0w)``
 
-val dec_neq0 = blastLib.BBLAST_PROVE ``!x: word4. (x || 8w) <> 0w``
-
-val is_rax_Zreg2num = Q.prove(
-   `!n. n < 16 /\ is_rax (reg n) ==> (0 = n)`,
-   rw [x64Theory.is_rax_def, x64_targetTheory.total_num2Zreg_def]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ rfs []
-   )
+val overflow_lem =
+  blastLib.BBLAST_PROVE ``!a: word64. word_bit 63 a = word_msb a``
 
 val is_rax = Q.prove(
    `!n. n < 16 ==> ((RAX = num2Zreg n) = (n = 0))`,
@@ -443,8 +430,8 @@ val encode_rwts =
    let
       open x64Theory
    in
-      [x64_enc_def, x64_enc0_def, x64_bop_def, x64_cmp_def, x64_sh_def,
-       x64_encode_jcc_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
+      [x64_enc_def, x64_ast_def, x64_bop_def, x64_cmp_def, x64_sh_def,
+       x64_encode_def, encode_def, e_rm_reg_def, e_gen_rm_reg_def,
        e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
        e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
        e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
@@ -456,7 +443,7 @@ val encode_rwts =
 val enc_rwts =
   [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
-   jump_lem5, jump_lem6, cmp_lem7, x64_asm_ok,
+   jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok,
    utilsLib.mk_cond_rand_thms [``asmSem$asm_state_failed``]] @
   encode_rwts @ asmLib.asm_rwts
 
@@ -599,6 +586,7 @@ local
     MAP_EVERY
       (fn (v, tm) => Q.UNABBREV_TAC `^(Term.mk_var (v, Term.type_of tm))`)
       (List.mapPartial (Lib.total markerSyntax.dest_abbrev) asl) (asl, g)
+  val sub_overflow = SIMP_RULE (srw_ss()) [] integer_wordTheory.sub_overflow
 in
   fun next_tac l =
     let
@@ -612,15 +600,17 @@ in
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ NO_STRIP_REV_FULL_SIMP_TAC
            (srw_ss()++ARITH_ss++boolSimps.LET_ss) enc_rwts
+      \\ NO_STRIP_FULL_SIMP_TAC std_ss []
+      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ qunabbrev_tac `instr`
       \\ abbreviate_n2w
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac l
       \\ NTAC (i + 1) next_state_tac
-      \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs,
-             asmPropsTheory.sym_target_state_rel, x64_target_def,
-             x64_config, set_sepTheory.fun2set_eq,
+      \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs, overflow_lem,
+             asmPropsTheory.sym_target_state_rel, x64_target_def, sub_overflow,
+             x64_config, set_sepTheory.fun2set_eq, integer_wordTheory.overflow,
              const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
-             binop_lem6, binop_lem7, binop_lem8, jump_lem2, cmp_lem1, cmp_lem3]
+             binop_lem6, binop_lem7, jump_lem2, cmp_lem1, cmp_lem3]
       \\ unabbrev_all_tac
       \\ rw [combinTheory.APPLY_UPDATE_THM, x64Theory.num2Zreg_11,
              binop_lem10b, adc_lem2, wordsTheory.w2w_n2w,
@@ -732,7 +722,7 @@ end
 val x64_encoding = Q.prove (
    `!i. LENGTH (x64_enc i) <> 0`,
    strip_tac
-   \\ Cases_on `x64_enc0 i`
+   \\ Cases_on `LIST_BIND (x64_ast i) x64_encode`
    \\ simp [x64_enc_def, x64_dec_fail_def]
    )
 
@@ -809,7 +799,10 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
                \\ next_tac []
                )
                (* Imm *)
+            \\ Cases_on `(b = Xor) /\ (c = -1w)`
+            >- next_tac []
             \\ Cases_on `b`
+            \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
             \\ (
                 Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
                 >- next_tac []
@@ -847,13 +840,47 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
             print_tac "LongDiv"
             \\ next_tac []
             )
+         >- (
             (*--------------
                 AddCarry
               --------------*)
-            \\ print_tac "AddCarry"
+            print_tac "AddCarry"
             \\ Cases_on `word_bit 3 (n2w n2 : word4)`
-            >- next_tac [4,1,3,6]
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [4,1,3,6])
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
             \\ next_tac [4,1,3,5]
+            )
+         >- (
+            (*--------------
+                AddOverflow
+              --------------*)
+            print_tac "AddOverflow"
+            \\ Cases_on `word_bit 3 (n2w n2 : word4)`
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [3, 6]
+               )
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac [3, 5]
+            )
+         >- (
+            (*--------------
+                SubOverflow
+              --------------*)
+            print_tac "SubOverflow"
+            \\ Cases_on `word_bit 3 (n2w n2 : word4)`
+            >- (`(3 >< 3) (n2w n2 : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+                \\ next_tac [3, 6]
+               )
+            \\ `(3 >< 3) (n2w n2 : word4) = 0w : word1`
+            by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac [3, 5]
+            )
          )
          (*--------------
              Mem

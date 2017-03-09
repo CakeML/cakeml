@@ -2,25 +2,34 @@
  * semantic primitives. *)
 
 open preamble;
-open libTheory astTheory semanticPrimitivesTheory;
+open libTheory astTheory namespaceTheory semanticPrimitivesTheory;
 open terminationTheory;
+open namespacePropsTheory;
 open boolSimps;
 
 val _ = new_theory "semanticPrimitivesProps";
 
 val with_same_v = Q.store_thm("with_same_v[simp]",
-  `(env:'v environment) with v := env.v = env`,
-  srw_tac[][environment_component_equality]);
+  `(env:'v sem_env) with v := env.v = env`,
+  srw_tac[][sem_env_component_equality]);
+
+val unchanged_env = Q.store_thm ("unchanged_env[simp]",
+ `!(env : 'a sem_env).
+  <| v := env.v; c := env.c |> = env`,
+ rw [sem_env_component_equality]);
 
 val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])
 
-val mk_id_11 = Q.store_thm("mk_id_11[simp]",
-  `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
-  map_every Cases_on[`a`,`c`] >> EVAL_TAC)
-
 val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,srw_tac[][Boolv_def]);
+
+val extend_dec_env_assoc = Q.store_thm ("extend_dec_env_assoc[simp]",
+  `!env1 env2 env3.
+    extend_dec_env env1 (extend_dec_env env2 env3)
+    =
+    extend_dec_env (extend_dec_env env1 env2) env3`,
+ rw [extend_dec_env_def]);
 
 val Tword_simp = Q.store_thm("Tword_simp[simp]",
   `(∀z1 z2. (Tword z1 = Tword z2) ⇔ (z1 = z2)) ∧
@@ -343,12 +352,12 @@ val do_opapp_cases = Q.store_thm("do_opapp_cases",
     =
   ((∃v2 env'' n e.
     (vs = [Closure env'' n e; v2]) ∧
-    (env' = env'' with <| v := (n,v2)::env''.v |>) ∧ (v = e)) ∨
+    (env' = env'' with <| v := nsBind n v2 env''.v |>) ∧ (v = e)) ∨
   (?v2 env'' funs n' n'' e.
     (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))`,
+    (env' = env'' with <| v :=  nsBind n'' v2 (build_rec_env funs env'' env''.v) |> ∧ (v = e))))`,
   srw_tac[][do_opapp_def] >>
   cases_on `vs` >> srw_tac[][] >>
   every_case_tac >> metis_tac []);
@@ -374,19 +383,19 @@ val do_app_SOME_ffi_same = Q.store_thm("do_app_SOME_ffi_same",
   \\ rfs[]);
 
 val build_rec_env_help_lem = Q.prove (
-`∀funs env funs'.
-FOLDR (λ(f,x,e) env'. (f,Recclosure env funs' f)::env') env' funs =
-MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'`,
-Induct >>
-srw_tac[][] >>
-PairCases_on `h` >>
-srw_tac[][]);
+  `∀funs env funs'.
+    FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
+    nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'`,
+ Induct >>
+ srw_tac[][] >>
+ PairCases_on `h` >>
+ srw_tac[][]);
 
 (* Alternate definition for build_rec_env *)
 val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
 `∀funs funs' env env'.
   build_rec_env funs env env' =
-  MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs ++ env'`,
+  nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs f)) funs)) env'`,
 srw_tac[][build_rec_env_def, build_rec_env_help_lem]);
 
 val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
@@ -395,31 +404,6 @@ val do_con_check_build_conv = Q.store_thm ("do_con_check_build_conv",
 srw_tac[][do_con_check_def, build_conv_def] >>
 every_case_tac >>
 full_simp_tac(srw_ss())[]);
-
-val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty[simp]",
-  `!mod_env. merge_alist_mod_env ([],[]) mod_env = mod_env`,
-  srw_tac[][] >>
-  PairCases_on `mod_env` >>
-  srw_tac[][merge_alist_mod_env_def]);
-
-val merge_alist_mod_env_assoc = Q.store_thm ("merge_alist_mod_env_assoc",
-`∀env1 env2 env3.
-  merge_alist_mod_env env1 (merge_alist_mod_env env2 env3) =
-  merge_alist_mod_env (merge_alist_mod_env env1 env2) env3`,
-srw_tac[][] >>
-PairCases_on `env1` >>
-PairCases_on `env2` >>
-PairCases_on `env3` >>
-srw_tac[][merge_alist_mod_env_def, FUNION_ASSOC]);
-
-val merge_alist_mod_env_empty_assoc = Q.store_thm ("merge_alist_mod_env_empty_assoc",
-`!env1 env2 env3.
-  merge_alist_mod_env ([],env1) (merge_alist_mod_env ([],env2) env3)
-  =
-  merge_alist_mod_env ([],env1 ++ env2) env3`,
- srw_tac[][] >>
- PairCases_on `env3` >>
- srw_tac[][merge_alist_mod_env_def]);
 
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
 `!cn1 tn1 cn2 tn2.
@@ -460,10 +444,12 @@ val same_tid_tid = Q.store_thm("same_tid_tid",
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
-    build_tdefs mn tds  ++ REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
- (!mn. build_tdefs mn [] = [])`,
- srw_tac[][build_tdefs_def]);
+    nsAppend (build_tdefs mn tds)
+           (alist_to_ns (REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)))) ∧
+ (!mn. build_tdefs mn [] = nsEmpty)`,
+ srw_tac[][build_tdefs_def, REVERSE_APPEND]);
 
+ (*
 val MAP_FST_build_tdefs = Q.store_thm("MAP_FST_build_tdefs",
   `set (MAP FST (build_tdefs mn ls)) =
     set (MAP FST (FLAT (MAP (SND o SND) ls)))`,
@@ -471,6 +457,7 @@ val MAP_FST_build_tdefs = Q.store_thm("MAP_FST_build_tdefs",
   qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
   simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
   metis_tac[UNION_COMM])
+  *)
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
@@ -678,7 +665,7 @@ val EVERY_store_vs_intro = Q.store_thm("EVERY_store_vs_intro",
   srw_tac[][EVERY_MEM,store_vs_def,MEM_MAP,MEM_FILTER,MEM_FLAT] >>
   res_tac >>
   qmatch_assum_rename_tac`sv_every P x` >>
-  Cases_on`x`>>full_simp_tac(srw_ss())[EVERY_MEM])
+  Cases_on`x`>>full_simp_tac(srw_ss())[EVERY_MEM]);
 
 val map_sv_compose = Q.store_thm("map_sv_compose",
   `map_sv f (map_sv g x) = map_sv (f o g) x`,
@@ -695,7 +682,7 @@ val find_recfun_ALOOKUP = Q.store_thm(
 Induct >- srw_tac[][semanticPrimitivesTheory.find_recfun_def] >>
 qx_gen_tac `d` >>
 PairCases_on `d` >>
-srw_tac[][semanticPrimitivesTheory.find_recfun_def])
+srw_tac[][semanticPrimitivesTheory.find_recfun_def]);
 
 val find_recfun_el = Q.store_thm("find_recfun_el",
   `!f funs x e n.
@@ -754,7 +741,7 @@ val FV_def = tDefine "FV"`
      | INL e => exp_size e
      | INR (INL es) => exp6_size es
      | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`)
+     | INR (INR (INR (defs))) => exp1_size defs)`);
 val _ = export_rewrites["FV_def"]
 
 val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
@@ -782,7 +769,7 @@ val new_dec_vs_def = Define`
   (new_dec_vs (Dexn _ _) = []) ∧
   (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
   (new_dec_vs (Dletrec funs) = MAP FST funs)`
-val _ = export_rewrites["new_dec_vs_def"]
+val _ = export_rewrites["new_dec_vs_def"];
 
 val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
 
@@ -793,12 +780,12 @@ val FV_decs_def = Define`
 val FV_top_def = Define`
   (FV_top (Tdec d) = FV_dec d) ∧
   (FV_top (Tmod mn _ ds) = FV_decs ds)`
-val _ = export_rewrites["FV_top_def"]
+val _ = export_rewrites["FV_top_def"];
 
 val new_top_vs_def = Define`
   new_top_vs (Tdec d) = MAP Short (new_dec_vs d) ∧
-  new_top_vs (Tmod mn _ ds) = MAP (Long mn) (new_decs_vs ds)`
-val _ = export_rewrites["new_top_vs_def"]
+  new_top_vs (Tmod mn _ ds) = MAP (Long mn o Short) (new_decs_vs ds)`
+val _ = export_rewrites["new_top_vs_def"];
 
 val FV_prog_def = Define`
   (FV_prog [] = {}) ∧
@@ -807,14 +794,6 @@ val FV_prog_def = Define`
 val all_env_dom_def = Define`
   all_env_dom (envM,envC,envE) =
     IMAGE Short (set (MAP FST envE)) ∪
-    { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`
-
-val extend_dec_env_append = Q.store_thm ("extend_dec_env_append",
- `extend_dec_env new_v1 new_ctors1 (extend_dec_env new_v2 new_ctors2 env)
-  =
-  extend_dec_env (new_v1 ++ new_v2) (new_ctors1 ++ new_ctors2) env`,
- rw [extend_dec_env_def]
- >> Cases_on `env.c`
- >> simp [merge_alist_mod_env_def]);
+    { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
 
 val _ = export_theory ();

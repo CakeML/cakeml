@@ -310,11 +310,6 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
-val char_list_to_v = Q.prove(
-  `∀ls. v_rel exh (char_list_to_v ls) (char_list_to_v ls)`,
-  Induct >> simp[conSemTheory.char_list_to_v_def,exhSemTheory.char_list_to_v_def] >>
-  simp[v_rel_eqn])
-
 val v_to_char_list = Q.prove (
   `!v1 v2 vs1.
     v_rel genv v1 v2 ∧
@@ -331,7 +326,7 @@ val tac =
       exhSemTheory.prim_exn_def, v_rel_eqn, conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
   full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[store_assign_def,store_lookup_def, store_alloc_def,
-      LET_THM] >>
+      LET_THM,markerTheory.Abbrev_def] >>
   srw_tac[][] >>
   imp_res_tac LIST_REL_LENGTH >>
   full_simp_tac(srw_ss())[conSemTheory.prim_exn_def, v_rel_eqn, conSemTheory.exn_tag_def] >>
@@ -389,8 +384,8 @@ val do_app_lem = Q.prove (
   >- tac
   >- tac
   >- tac
-  >- ( tac >> metis_tac[char_list_to_v] )
   >- ( imp_res_tac v_to_char_list >> tac)
+  >- tac
   >- tac
   >- (imp_res_tac v_to_list >>
       srw_tac[][exhSemTheory.do_app_def, result_rel_cases, v_rel_eqn] >>

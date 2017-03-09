@@ -32,6 +32,8 @@ fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
   in if is_imp (concl th) then th else DISCH T th end
 
+val env_tm = mk_var("env",semanticPrimitivesSyntax.mk_environment semanticPrimitivesSyntax.v_ty)
+
 (* ---- *)
 
 fun get_m_type_inv ty =
@@ -134,8 +136,8 @@ fun derive_case_of ty = let
         \\ strip_tac \\ asm_exists_tac
         \\ ASM_SIMP_TAC std_ss []
         \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
-        \\ fs[pmatch_def,pat_bindings_def,write_def,lookup_alist_mod_env_def,
-              lookup_cons_thm,same_tid_def,id_to_n_def,same_ctor_def]
+        \\ fs[pmatch_def,pat_bindings_def,write_def,
+              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
         \\ ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ first_x_assum (match_mp_tac o MP_CANON)
         \\ fs[]
@@ -226,7 +228,7 @@ fun inst_case_thm tm m2deep = let
                 else hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:v environment``)
+    val env = env_tm
     val lemma = INST [env|->new_env] lemma
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -380,7 +382,7 @@ fun inst_EvalM_env v th = let
   val str = stringLib.fromMLstring name
   val inv = smart_get_type_inv (type_of v)
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
-  val new_env = ``write ^str (v:v) (env:v environment)``
+  val new_env = ``write ^str (v:v) ^env_tm``
   val old_env = new_env |> rand
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
@@ -411,7 +413,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val inv = smart_get_type_inv (type_of v)
   val new_env = ``write ^vname_str v (write_rec
                     [(^fname_str,^vname_str,^body)] env env)``
-  val old_env = ``env:v environment``
+  val old_env = env_tm
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -478,7 +480,7 @@ fun m2deep tm =
     val result = MATCH_MP Eval_IMP_PURE result |> RW [GSYM ArrowM_def]
     in check_inv "var" tm result end else
   (* failwith *)
-  if can (match_term ``(failwith str):'a M``) tm then let
+  if can (match_term ``(failwith s):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
     val th = hol2deep (rand tm)
@@ -738,7 +740,7 @@ fun m_translate def = let
   val th = RW [ArrowM_def] th
   val th = if is_rec then let
       val recc = (first (can (find_term
-                    (fn tm => tm = rator ``Recclosure (ARB:v environment)``)))
+                    (fn tm => tm = rator ``Recclosure ^env_tm``)))
                         (hyp th)) |> rand |> rator |> rand
       val v_names = map (fn x => find_const_name (x ^ "_v"))
                       (recc |> listSyntax.dest_list |> fst
@@ -769,7 +771,7 @@ fun m_translate def = let
   val th = RW [GSYM ArrowM_def] th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-  val _ = add_v_thms (fname,th,pre)
+  val _ = add_v_thms (fname,fname,th,pre)
   val th = save_thm(fname ^ "_v_thm",th)
   in th end handle UnableToTranslate tm => let
     val _ = print "\n\nCannot translate term:  "
@@ -791,6 +793,15 @@ val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
+val res = translate mlstringTheory.explode_aux_def;
+val res = translate mlstringTheory.explode_def;
+val explode_aux_side_thm = Q.prove(
+  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+val explode_side_thm = Q.prove(
+  `explode_side x`,
+  rw[definition"explode_side_def",explode_aux_side_thm])
+  |> update_precondition
 val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def

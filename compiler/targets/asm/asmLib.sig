@@ -13,6 +13,7 @@ sig
    val find_env:
       (Term.term -> bool) -> Term.term -> (Term.term * Term.term) option
    val isAddCarry: Term.term -> bool
+   val isAddOverflow: Term.term -> bool
    val isArith: Term.term -> bool
    val isBinop: Term.term -> bool
    val isCall: Term.term -> bool
@@ -25,6 +26,7 @@ sig
    val isMem: Term.term -> bool
    val isShift: Term.term -> bool
    val isSkip: Term.term -> bool
+   val isSubOverflow: Term.term -> bool
    val mk_bytes_in_memory:
       Term.term * Term.term * Term.term * Term.term -> Term.term
    val print_tac : string -> string -> Tactic.tactic

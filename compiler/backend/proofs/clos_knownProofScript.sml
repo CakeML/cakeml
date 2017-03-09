@@ -352,7 +352,6 @@ val do_app_ssgc = Q.store_thm(
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
-  >- dsimp[]
   >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -374,8 +373,6 @@ val do_app_ssgc = Q.store_thm(
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, eqs, PULL_EXISTS, PULL_FORALL])
-  >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `EVERY vsgc_free vs` >>
-      Induct_on `vs` >> simp[list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
@@ -386,8 +383,7 @@ val do_app_ssgc = Q.store_thm(
       >- (irule IMP_EVERY_LUPDATE >> simp[] >> metis_tac[])
       >- metis_tac[])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- dsimp[]
-  >- dsimp[])
+  >> dsimp[]);
 
 val EVERY_lookup_vars = Q.store_thm(
   "EVERY_lookup_vars",
@@ -1004,6 +1000,7 @@ val val_rel_def = tDefine "val_rel" `
   (val_rel g (Word64 w) v ⇔ v = Word64 w) ∧
   (val_rel g (Block n vs) v ⇔
      ∃vs'. v = Block n vs' ∧ LIST_REL (val_rel g) vs vs') ∧
+  (val_rel g (ByteVector ws) v ⇔ v = ByteVector ws) ∧
   (val_rel g (RefPtr n) v ⇔ v = RefPtr n) ∧
   (val_rel g (Closure lopt vs1 env1 n bod1) v ⇔
      every_Fn_vs_NONE [bod1] ∧
@@ -1225,12 +1222,6 @@ val kvrel_v_to_list = Q.store_thm(
   Cases_on `vs2''` >> fs[v_to_list_def] >> rw[] >> fs[v_to_list_def] >>
   fs[eqs] >> rveq >> simp[PULL_EXISTS] >> metis_tac[MEM]);
 
-val kvrel_list_to_v = Q.store_thm(
-  "kvrel_list_to_v",
-  `∀vs1 vs2. LIST_REL (kvrel g) vs1 vs2 ⇒
-             kvrel g (list_to_v vs1) (list_to_v vs2)`,
-  Induct_on `LIST_REL` >> simp[list_to_v_def])
-
 val kvrel_do_eq0 = Q.prove(
   `(∀u1 v1 u2 v2 b g.
       kvrel g u1 u2 ∧ kvrel g v1 v2 ∧ do_eq u1 v1 = Eq_val b ⇒
@@ -1245,14 +1236,14 @@ val kvrel_do_eq0 = Q.prove(
       fs[] >> simp[do_eq_def] >> rw[] >> fs[LIST_REL_EL_EQN] >> metis_tac[])
   >- simp[]
   >- (simp[PULL_EXISTS] >> rpt gen_tac >> strip_tac >>
-      ONCE_REWRITE_TAC [do_eq_def] >> rename1 `do_eq uu1 vv1` >>
-      Cases_on `do_eq uu1 vv1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
-      rename1 `do_eq uu1 vv1 = Eq_val b` >> Cases_on `b` >> simp[] >>
+      ONCE_REWRITE_TAC [do_eq_def] >>
+      Cases_on `do_eq u1 v1` >> fs[] >> simp[bool_case_eq] >> dsimp[] >>
+      rename1 `do_eq u1 v1 = Eq_val b` >> Cases_on `b` >> simp[] >>
       rpt strip_tac >> nailIHx strip_assume_tac >> simp[] >> metis_tac[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[])
   >- (simp[PULL_EXISTS] >> ONCE_REWRITE_TAC[do_eq_def] >> simp[]));
 
-val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1)
+val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1);
 
 (* necessary(!) *)
 val kvrel_op_correct_Rval = Q.store_thm(
@@ -1285,19 +1276,28 @@ val kvrel_op_correct_Rval = Q.store_thm(
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >> simp[] >>
       irule fmap_rel_FUPDATE_same >> simp[LIST_REL_REPLICATE_same])
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray barray)` >>
-      qexists_tac `barray` >> simp[] >> fs[fmap_rel_OPTREL_FLOOKUP] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
+      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[fmap_rel_OPTREL_FLOOKUP] >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray barray)` >>
-      qexists_tac `barray` >> simp[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
+      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[ksrel_def] >>
       reverse conj_tac >- simp[fmap_rel_FUPDATE_same] >>
       fs[fmap_rel_OPTREL_FLOOKUP] >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
-  >- (rw[] >> fs[] >> simp[kvrel_list_to_v])
+  >- (
+    rw[] \\ fs[] \\
+    rpt(qpat_x_assum`$some _ = _`mp_tac) \\
+    rpt(DEEP_INTRO_TAC some_intro) \\ rw[] \\
+    spose_not_then strip_assume_tac \\
+    imp_res_tac kvrel_v_to_list \\
+    rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\ fs[EL_MAP] \\
+    rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
+    fs[EVERY_MEM,EXISTS_MEM] \\
+    metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM,ORD_BOUND] )
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])
@@ -1322,14 +1322,36 @@ val kvrel_op_correct_Rval = Q.store_thm(
       rpt (first_x_assum (qspec_then `kk` mp_tac)) >>
       simp[OPTREL_def, PULL_EXISTS] >> rw[] >> rw[])
   >- (rw[ksrel_def, pair_case_eq] >> simp[] >> fs[] >>
-      simp[PULL_EXISTS] >> rename1 `FLOOKUP _ PTR = SOME (ByteArray bytes)` >>
-      `FLOOKUP s02.refs PTR = SOME (ByteArray bytes)`
+      simp[PULL_EXISTS] >> rename1 `FLOOKUP _ PTR = SOME (ByteArray bf bytes)` >>
+      `FLOOKUP s02.refs PTR = SOME (ByteArray bf bytes)`
          by (fs[fmap_rel_OPTREL_FLOOKUP] >>
              rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
              simp[OPTREL_def]) >> simp[] >>
       simp[fmap_rel_FUPDATE_same])
   >- (rw[] >> fs[] >> rw[] >> metis_tac[kvrel_do_eq])
-  >- (rw[] >> fs[pair_case_eq] >> rveq >> simp[]))
+  >- (rw[] >> fs[pair_case_eq] >> rveq >> simp[])
+  >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ValueArray vas)` >>
+      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
+      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
+      `OPTREL (ref_rel (kvrel g))
+              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
+         by simp[] >> pop_assum mp_tac >>
+      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
+      rw[LIST_REL_EL_EQN])
+  >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME (ByteArray _ vas)` >>
+      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
+      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
+      `OPTREL (ref_rel (kvrel g))
+              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
+         by simp[] >> pop_assum mp_tac >>
+      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
+      rpt strip_tac >>
+      fs [METIS_PROVE [] ``b \/ v <=> ~b ==> v``] >>
+      rpt strip_tac >>
+      Cases_on `FLOOKUP s01.refs k` >> fs [] >>
+      first_x_assum (qspec_then `k` mp_tac) >> fs [OPTREL_def]));
 
 val do_app_EQ_Rerr = Q.store_thm(
   "do_app_EQ_Rerr",

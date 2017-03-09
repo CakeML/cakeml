@@ -24,6 +24,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>    
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
@@ -45,7 +46,6 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-val _ = translate (conv64_RHS integer_wordTheory.w2i_eq_w2n)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 val _ = register_type``:64 asm_config``
@@ -93,7 +93,7 @@ val _ = translate (e_imm64_def |> we_simp |> econv)
 
 val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> gconv)
 
-val _ = translate (x64_enc0_def |> we_simp |> gconv)
+val _ = translate (x64_ast_def |> we_simp |> gconv)
 
 val total_num2zreg_side = Q.prove(`
   ∀x. total_num2zreg_side x ⇔ T`,
@@ -106,14 +106,16 @@ val total_num2zreg_side = Q.prove(`
   Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
   Cases_on`n`>>fs[])
 
-val x64_enc0_side = Q.prove(`
-  ∀x. x64_enc0_side x ⇔ T`,
-  simp[fetch "-" "x64_enc0_side_def",total_num2zreg_side]) |> update_precondition
+val x64_ast_side = Q.prove(`
+  ∀x. x64_ast_side x ⇔ T`,
+  simp[fetch "-" "x64_ast_side_def",total_num2zreg_side]) |> update_precondition
 
 val _ = translate x64_enc_def
 
 val _ = translate (x64_config_def |> gconv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

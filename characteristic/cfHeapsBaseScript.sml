@@ -15,12 +15,12 @@ val _ = Datatype `
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:num -> word8 list -> ffi -> (word8 list # ffi) option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> ffi -> (word8 list # ffi) option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
-            | FFI_part ffi ffi_next (num list) (io_event list)
+            | FFI_part ffi ffi_next (string list) (io_event list)
             | FFI_full (final_event option) (io_event list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
@@ -31,8 +31,8 @@ val _ = Datatype `
       | Exn v`
 
 val _ = type_abbrev("ffi_proj",
-  ``: ('ffi -> (num |-> ffi)) #
-      ((num list # ffi_next) list)``)
+  ``: ('ffi -> (string |-> ffi)) #
+      ((string list # ffi_next) list)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
@@ -47,6 +47,64 @@ val SPLIT3_def = Define `
 val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_INSERT,UNION_DEF,
                          SEP_EQ_def,EXTENSION,NOT_IN_EMPTY,IN_DEF,IN_UNION,IN_INTER,IN_DIFF]
                 \\ metis_tac []
+
+val ffi_proj_pack = save_thm("ffi_proj_pack", packLib.pack_type ``:'ffi ffi_proj``);
+val heap_pack = save_thm("heap_pack", packLib.pack_type ``:heap``);
+val hprop_pack = save_thm("hprop_pack", packLib.pack_type ``:hprop``);
+
+(* encoding and decoding into ffi type *)
+
+val destStr_def = Define`
+  (destStr (Str s) = SOME s) ∧
+  (destStr _ = NONE)`;
+val _ = export_rewrites ["destStr_def"]
+
+val destNum_def = Define`
+  (destNum (Num n) = SOME n) ∧
+  (destNum _ = NONE)`;
+val _ = export_rewrites ["destNum_def"]
+
+val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
+  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+
+val encode_pair_def = Define`
+  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
+
+val decode_pair_def = Define`
+  (decode_pair d1 d2 (Cons f1 f2) =
+      OPTION_BIND (d1 f1)
+      (λx. OPTION_BIND (d2 f2)
+      (λy. SOME (x,y)))) ∧
+  (decode_pair _ _ _ = NONE)`;
+
+val decode_encode_pair = Q.store_thm(
+  "decode_encode_pair",
+  `(∀x. d1 (e1 x) = SOME x) ∧ (∀y. d2 (e2 y) = SOME y) ⇒
+   ∀p. decode_pair d1 d2 (encode_pair e1 e2 p) = SOME p`,
+  strip_tac >> Cases >> simp[encode_pair_def, decode_pair_def]);
+
+val encode_list_def = Define`
+  encode_list e l = List (MAP e l)`;
+
+val decode_list_def = Define`
+  (decode_list d (List fs) = OPT_MMAP d fs) ∧
+  (decode_list d _ = NONE)
+`;
+
+val decode_encode_list = Q.store_thm(
+  "decode_encode_list[simp]",
+  `(∀x. d (e x) = SOME x) ⇒
+   ∀l. decode_list d (encode_list e l) = SOME l`,
+  strip_tac >> simp[decode_list_def, encode_list_def] >> Induct >>
+  simp[OPT_MMAP_def]);
+
+(* make an ffi_next function from base functions and encode/decode *)
+val mk_ffi_next_def = Define`
+  mk_ffi_next (encode,decode,ls) name bytes s =
+    OPTION_BIND (ALOOKUP ls name) (λf.
+    OPTION_BIND (decode s) (λs.
+    OPTION_BIND (f bytes s) (λ(bytes,s).
+    SOME (bytes,encode s))))`;
 
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
@@ -121,6 +179,18 @@ val W8ARRAY_def = Define `
 
 val IO_def = Define `
   IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events)`;
+
+val IOx_def = Define`
+  IOx (encode,decode,ls) s =
+    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP FST ls)`;
+
+val mk_proj1_def = Define`
+  mk_proj1 (encode,decode,ls) s =
+    MAP (λx. (x, encode s)) (MAP FST ls)`;
+
+val mk_proj2_def = Define`
+  mk_proj2 (encode,decode,ls) =
+    (MAP FST ls, mk_ffi_next (encode,decode,ls))`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

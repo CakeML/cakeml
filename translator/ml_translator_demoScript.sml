@@ -33,8 +33,7 @@ val evaluate_prog_thm = save_thm("evaluate_prog_thm",
 
 (* looking up "qsort" in this env finds the qsort value (qsort_v) *)
 val lookup_qsort = save_thm("lookup_qsort",
-  EVAL ``lookup_var_id (Short "qsort") ^(concl Prog_thm |> rator |> rand)``);
-
+  EVAL ``nsLookup  ^(concl Prog_thm |> rator |> rand).v (Short "qsort")``);
 
 (* --- a more concrete example, not much use --- *)
 
@@ -44,7 +43,7 @@ val Eval_Var_lemma = Q.prove(
 
 val ML_QSORT_CORRECT = Q.store_thm ("ML_QSORT_CORRECT",
   `!env tys a ord R l xs refs.
-      lookup_var_id (Short "qsort") env = SOME qsort_v /\
+      nsLookup env.v (Short "qsort") = SOME qsort_v /\
       LIST_TYPE a l xs /\ (lookup_var "xs" env = SOME xs) /\
       (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
       transitive ord /\ total ord

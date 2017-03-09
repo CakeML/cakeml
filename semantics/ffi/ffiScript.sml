@@ -19,21 +19,21 @@ val _ = Hol_datatype `
  oracle_result = Oracle_return of 'ffi => word8 list | Oracle_diverge | Oracle_fail`;
 
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list -> 'ffi oracle_result``);
-val _ = type_abbrev((*  'ffi *) "oracle" , ``: num -> 'ffi oracle_function``);
+val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
 
-(* An I/O event, IO_event n bytes2, represents the call of FFI function n with
+(* An I/O event, IO_event s bytes2, represents the call of FFI function s with
 * input map fst bytes2 in the passed array, returning map snd bytes2 in the
 * array. *)
 
 val _ = Hol_datatype `
- io_event = IO_event of num => ( (word8 # word8)list)`;
+ io_event = IO_event of string => ( (word8 # word8)list)`;
 
 
 val _ = Hol_datatype `
  ffi_outcome = FFI_diverged | FFI_failed`;
 
 val _ = Hol_datatype `
- final_event = Final_event of num => word8 list => ffi_outcome`;
+ final_event = Final_event of string => word8 list => ffi_outcome`;
 
 
 val _ = Hol_datatype `
@@ -48,30 +48,30 @@ val _ = Hol_datatype `
 (*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
  (initial_ffi_state oc ffi =
-(<| oracle      := oc
+ (<| oracle      := oc
  ; ffi_state   := ffi
  ; final_event := NONE
- ; io_events   := []
+ ; io_events   := ([])
  |>))`;
 
 
-(*val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8*)
+(*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> ffi_state 'ffi * list word8*)
 val _ = Define `
- (call_FFI st n bytes =  
-(if st.final_event = NONE then
-    (case st.oracle n st.ffi_state bytes of
+ (call_FFI st s bytes =  
+ (if st.final_event = NONE then
+    (case st.oracle s st.ffi_state bytes of
       Oracle_return ffi' bytes' =>
         if LENGTH bytes' = LENGTH bytes then
           (( st with<| ffi_state := ffi'
-                    ; io_events :=
-                        st.io_events ++
-                          [IO_event n (ZIP (bytes, bytes'))]
+                    ; io_events :=                        
+(st.io_events ++
+                          [IO_event s (ZIP (bytes, bytes'))])
             |>), bytes')
-        else (( st with<| final_event := SOME (Final_event n bytes FFI_failed) |>), bytes)
+        else (( st with<| final_event := (SOME (Final_event s bytes FFI_failed)) |>), bytes)
     | Oracle_diverge =>
-          (( st with<| final_event := SOME (Final_event n bytes FFI_diverged) |>), bytes)
+          (( st with<| final_event := (SOME (Final_event s bytes FFI_diverged)) |>), bytes)
     | Oracle_fail =>
-        (( st with<| final_event := SOME (Final_event n bytes FFI_failed) |>), bytes)
+        (( st with<| final_event := (SOME (Final_event s bytes FFI_failed)) |>), bytes)
     )
   else (st, bytes)))`;
 
@@ -103,10 +103,10 @@ val _ = Hol_datatype `
 
 (*val trace_oracle : oracle (llist io_event)*)
 val _ = Define `
- (trace_oracle n io_trace input =  
-((case LHD io_trace of
-    SOME (IO_event n' bytes2) =>
-      if (n = n') /\ (MAP FST bytes2 = input) then
+ (trace_oracle s io_trace input=  
+ ((case LHD io_trace of
+    SOME (IO_event s' bytes2) =>
+      if (s = s') /\ (MAP FST bytes2 = input) then
         Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
       else Oracle_fail
   | _ => Oracle_fail

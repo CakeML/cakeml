@@ -153,6 +153,7 @@ val v_rel_def = tDefine"v_rel"`
   (v_rel g l (Word64 w) v ⇔ v = Word64 w) ∧
   (v_rel g l (Block n vs) v ⇔
     ∃vs'. v = Block n vs' ∧ LIST_REL (v_rel g l) vs vs') ∧
+  (v_rel g l (ByteVector ws) v ⇔ v = ByteVector ws) ∧
   (v_rel g l (RefPtr n) v ⇔ v = RefPtr n) ∧
   (v_rel g l (Closure loco vs1 env1 n bod1) v ⇔
      ∃loc vs2 env2 bod2.
@@ -1252,16 +1253,6 @@ val v_to_list_wfv = Q.store_thm("v_to_list_wfv",
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw []);
 
-val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
-  `!l1 l2.
-      LIST_REL (v_rel g1 l) l1 l2 ==>
-      v_rel g1 l (list_to_v l1) (list_to_v l2)`,
-  Induct \\ fs [v_rel_def,list_to_v_def,PULL_EXISTS]);
-
-val wfv_list_to_v = Q.store_thm("wfv_list_to_v",
-  `!l. EVERY (wfv g1 l1) l ==> wfv g1 l1 (list_to_v l)`,
-  Induct \\ fs [wfv_def,list_to_v_def,PULL_EXISTS]);
-
 val wfv_Boolv = Q.store_thm("wfv_Boolv",
   `wfv g1 l1 (Boolv b) /\ wfv g1 l1 Unit`,
   Cases_on `b` \\ EVAL_TAC);
@@ -1280,6 +1271,24 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
+  \\ Cases_on `op = BoundsCheckByte \/ op = BoundsCheckArray` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def]
+    \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP] \\ CCONTR_TAC \\ fs []
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ rw [] \\ fs [ref_rel_def,LIST_REL_EL_EQN] \\ rfs [])
+  \\ Cases_on `op = BoundsCheckBlock` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `?i. op = LessConstSmall i` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def] \\ rw []
+    \\ CCONTR_TAC \\ fs [])
+  \\ Cases_on `?i. op = EqualInt i` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Equal` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
@@ -1295,13 +1304,6 @@ val do_app_thm = Q.prove(
     \\ CCONTR_TAC \\ fs []
     \\ imp_res_tac v_to_list_thm \\ fs [] \\ rw []
     \\ fs [Boolv_def,v_rel_def,LIST_REL_EL_EQN])
-  \\ Cases_on `op = ToList` THEN1
-   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
-    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
-    \\ every_case_tac \\ fs [v_rel_def] \\ rw []
-    \\ rpt (pop_assum mp_tac) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ rw []
-    \\ imp_res_tac wfv_list_to_v \\ fs []
-    \\ match_mp_tac v_rel_list_to_v \\ fs [LIST_REL_EL_EQN])
   \\ Cases_on `op = Add \/ op = Sub \/ op = Mult \/ op = Div \/ op = Mod \/
                op = Less \/ op = LessEq \/ op = Greater \/ op = GreaterEq` THEN1
    (fs [] \\ rw []
@@ -1346,6 +1348,22 @@ val do_app_thm = Q.prove(
     \\ fs [EVERY_EL] \\ res_tac \\ fs []
     \\ CCONTR_TAC \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
     \\ fs [LIST_REL_EL_EQN] \\ res_tac \\ rw [])
+  \\ Cases_on `op = LengthByteVec` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs[v_rel_def] )
+  \\ Cases_on `op = DerefByteVec` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs[v_rel_def]
+    \\ spose_not_then strip_assume_tac \\ fs[] )
+  \\ Cases_on `op = FromListByte` \\ fs[] \\ rw[] THEN1
+   (fs [do_app_def,state_rel_def]
+    \\ every_case_tac \\ fs[v_rel_def]
+    \\ spose_not_then strip_assume_tac \\ fs[]
+    \\ rpt(qpat_x_assum`$some _ = _`mp_tac)
+    \\ rpt (DEEP_INTRO_TAC some_intro)
+    \\ fs[] \\ rw[] \\ spose_not_then strip_assume_tac
+    \\ imp_res_tac v_to_list_thm \\ fs[] \\ rw[]
+    \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_def]
+    \\ fs[EXISTS_MEM,EVERY_MEM]
+    \\ metis_tac[EL_MAP,o_THM,v_11,integerTheory.INT_INJ,ORD_BOUND])
   \\ Cases_on `op = LengthBlock` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
@@ -1368,7 +1386,7 @@ val do_app_thm = Q.prove(
     \\ fs [OPTREL_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ CCONTR_TAC \\ fs [])
-  \\ Cases_on `op = RefByte` \\ fs [] \\ rw [] THEN1
+  \\ Cases_on `∃flag. op = RefByte flag` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw [] \\ CCONTR_TAC \\ fs []
     \\ fs [wfv_state_def]
@@ -1395,7 +1413,7 @@ val do_app_thm = Q.prove(
     \\ fs [FEVERY_DEF,FAPPLY_FUPDATE_THM] \\ rw []
     \\ fs [MEM_REPLICATE_EQ,EVERY_REPLICATE,EXISTS_MEM])
   \\ Cases_on `?n1 n2. op = TagLenEq n1 n2 \/ op = TagEq n1 \/
-                       op = BlockCmp \/ op = IsBlock \/ op = Label n1` THEN1
+                       op = Label n1` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ CCONTR_TAC \\ fs []
@@ -1421,7 +1439,7 @@ val do_app_thm = Q.prove(
     \\ TRY (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     \\ TRY (`FDOM r.refs = FDOM t.refs` by (fs [fmap_rel_def] \\ NO_TAC)) \\ fs []
     \\ match_mp_tac fmap_rel_FUPDATE_same \\ fs [])
-  \\ Cases_on `?i. op = Const i` THEN1
+  \\ Cases_on `(?i. op = Const i) ∨ ∃s. op = String s` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])

@@ -1,0 +1,13 @@
+INCLUDES = .. ../../../compiler/eval/targets/ ../../.. ../../../basis
+TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+all: $(TARGETS)
+.PHONY: all
+ifndef CC
+CC=gcc
+endif
+cake_echo: echo.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@
+cake_hello: hello.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@
+cake_cat: cat.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@

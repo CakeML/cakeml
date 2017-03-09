@@ -48,7 +48,7 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
     \\ full_simp_tac(srw_ss())[interference_ok_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[shift_interfer_def]
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[shift_interfer_def,apply_oracle_def]
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[arithmeticTheory.ADD_CLAUSES]
@@ -75,7 +75,8 @@ val evaluate_EQ_evaluate_lemma = Q.prove(
     \\ srw_tac[][FUN_EQ_THM] \\ `F` by decide_tac)
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ Q.EXISTS_TAC `ms2` \\ STRIP_TAC
   \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`)
-  \\ full_simp_tac(srw_ss())[GSYM shift_interfer_def,shift_interfer_intro] \\ full_simp_tac(srw_ss())[GSYM ADD1]);
+  \\ full_simp_tac(srw_ss())[GSYM shift_interfer_def,shift_interfer_intro,apply_oracle_def]
+  \\ full_simp_tac(srw_ss())[GSYM ADD1]);
 
 val enc_ok_not_empty = Q.prove(
   `enc_ok c /\ asm_ok w c ==> (c.encode w <> [])`,
@@ -146,7 +147,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   simp[Once evaluate_def,SimpR``$==>``] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >- (
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     first_x_assum(qspec_then`k1`mp_tac) >> simp[] ) >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -166,10 +167,10 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     simp[Once evaluate_def] ) >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   TRY(simp[Once evaluate_def]>>NO_TAC) >>
-  simp[Once evaluate_def,SimpR``$/\``] >>
+  simp[Once evaluate_def,SimpR``$/\``,apply_oracle_def] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   (fn g => subterm split_uncurry_arg_tac (#2 g) g) >> full_simp_tac(srw_ss())[] >>
@@ -192,12 +193,12 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     simp[Once evaluate_def,SimpR``$/\``] >>
     simp[Once evaluate_def,SimpRHS,SimpR``$/\``] >>
     METIS_TAC[evaluate_io_events_mono] ) >>
-  simp[] >>
+  simp[apply_oracle_def] >>
   qpat_abbrev_tac`hide = (SND(SND _))` >>
   Q.ISPECL_THEN[`ms`,`k`,`ffi`,`mc_conf`](fn th => CONV_TAC(DEPTH_CONV(REWR_CONV th)))evaluate_def >>
   simp[] >>
   simp[Abbr`hide`] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     first_x_assum match_mp_tac >> simp[] ) >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>

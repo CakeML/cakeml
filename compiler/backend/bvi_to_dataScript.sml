@@ -3,6 +3,8 @@ open preamble bviTheory dataLangTheory
 
 val _ = new_theory "bvi_to_data";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 (* compilation from BVI to dataLang *)
 
 val op_space_reset_def = Define `
@@ -11,23 +13,62 @@ val op_space_reset_def = Define `
   (op_space_reset Mult = T) /\
   (op_space_reset Div = T) /\
   (op_space_reset Mod = T) /\
+  (op_space_reset Less = T) /\
+  (op_space_reset LessEq = T) /\
+  (op_space_reset Greater = T) /\
+  (op_space_reset GreaterEq = T) /\
+  (op_space_reset Equal = T) /\
   (op_space_reset (FromList _) = T) /\
   (op_space_reset RefArray = T) /\
-  (op_space_reset RefByte = T) /\
+  (op_space_reset (RefByte _) = T) /\
   (op_space_reset _ = F)`;
+
+val op_space_reset_pmatch = Q.store_thm("op_space_reset_pmatch",`! op.
+  op_space_reset op =
+    case op of
+      Add => T
+    | Sub => T
+    | Mult => T
+    | Div => T
+    | Mod => T
+    | Less => T
+    | LessEq => T
+    | Greater => T
+    | GreaterEq => T
+    | Equal => T
+    | FromList _ => T
+    | RefArray => T
+    | RefByte _ => T
+    | _ => F`,
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> Cases_on `op` >> fs[op_space_reset_def]);
 
 val op_requires_names_def = Define`
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n))`;
 
 val op_requires_names_eqn = Q.store_thm("op_requires_names_eqn",
   `∀op. op_requires_names op =
-    (op_space_reset op ∨ (case op of FFI n => T | _ => F))`,
-    Cases>>fs[op_requires_names_def])
+    (op_space_reset op ∨ (dtcase op of FFI n => T | _ => F))`,
+  Cases>>fs[op_requires_names_def])
+
+val op_requires_names_pmatch = Q.store_thm("op_requires_names_pmatch",
+  `∀op. op_requires_names op =
+  (op_space_reset op ∨ (case op of FFI n => T | _ => F))`,
+  rpt strip_tac >>
+  CONV_TAC(RAND_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)) >>
+  fs[op_requires_names_eqn])
 
 val iAssign_def = Define `
   iAssign n1 op vs live env =
     if op_requires_names op then
-      Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
+      let xs = SOME (list_to_num_set (vs++live++env)) in
+        if op = Greater then
+          Assign n1 Less (REVERSE vs) xs
+        else if op = GreaterEq then
+          Assign n1 LessEq (REVERSE vs) xs
+        else
+          Assign n1 op vs xs
     else
       let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE

@@ -8,6 +8,9 @@
 .HOLMK
 .hollogs
 
+# README.md generator's executable
+developers/readme_gen
+
 # regression test logs
 regression.log
 timing.log

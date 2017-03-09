@@ -134,11 +134,19 @@ val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
   `mem_load x (y with clock := k) = mem_load x y`,
   EVAL_TAC);
 
+val mem_store_const_full = Q.store_thm("mem_store_const_full",
+  `mem_store x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+
 val mem_store_const = Q.store_thm("mem_store_const",
   `mem_store x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [mem_store_const_full]);
 
 val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
   `mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y)`,
@@ -156,11 +164,19 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
     unabbrev_all_tac>>fs[MAP_EQ_f]>>
   rw[])
 
+val assign_const_full = Q.store_thm("assign_const_full",
+  `assign x y z = SOME a ⇒
+   a.clock = z.clock ∧
+   a.ffi = z.ffi ∧
+   a.handler = z.handler ∧
+   a.stack = z.stack`,
+  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+
 val assign_const = Q.store_thm("assign_const",
   `assign x y z = SOME a ⇒
    a.clock = z.clock ∧
    a.ffi = z.ffi`,
-  EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
+  metis_tac [assign_const_full]);
 
 val assign_with_const = Q.store_thm("assign_with_const[simp]",
   `assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z)`,
@@ -170,14 +186,22 @@ val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
   rw[inst_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
+val inst_const_full = Q.store_thm("inst_const_full",
+  `inst i s = SOME s' ⇒
+   s'.clock = s.clock ∧
+   s'.ffi = s.ffi ∧
+   s'.handler = s.handler ∧
+   s'.stack = s.stack`,
+  rw[inst_def, set_var_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME s' ⇒
    s'.clock = s.clock ∧
    s'.ffi = s.ffi`,
-  rw[inst_def] >>
-  every_case_tac >>full_simp_tac(srw_ss())[] >>
-  imp_res_tac assign_const >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  metis_tac [inst_const_full]);
 
 val jump_exc_const = Q.store_thm("jump_exc_const",
   `jump_exc s = SOME (x,y) ⇒
@@ -496,27 +520,34 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
-(*code is unchanged across eval*)
-val pop_env_code_clock = Q.store_thm("pop_env_code_clock",`
+(*code and gc_fun are unchanged across eval*)
+val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
-  r.clock = x.clock`,
+  r.gc_fun = x.gc_fun ∧
+  r.clock = x.clock ∧
+  r.be = x.be ∧
+  r.mdomain = x.mdomain`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
-val alloc_code_const = Q.store_thm("alloc_code_const",`
+val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code`,
+  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
-  imp_res_tac pop_env_code_clock>>fs[])
+  imp_res_tac pop_env_code_gc_fun_clock>>fs[])
 
-val inst_code_const = Q.prove(`
-  inst i s = SOME t ⇒ s.code = t.code`,
+val inst_code_gc_fun_const = Q.prove(`
+  inst i s = SOME t ⇒
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
-val evaluate_code_const = Q.store_thm("evaluate_code_const",`
-  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code`,
-  recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
+val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
+  `!xs s1 vs s2.
+     evaluate (xs,s1) = (vs,s2) ==>
+     s1.code = s2.code /\ s1.gc_fun = s2.gc_fun /\
+     s1.mdomain = s2.mdomain /\ s1.be = s2.be`,
+  recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
     pop_assum mp_tac>>
@@ -528,13 +559,29 @@ val evaluate_code_const = Q.store_thm("evaluate_code_const",`
       Cases_on`handler`>>TRY(PairCases_on`x''`)>>fs[state_component_equality,call_env_def,push_env_def,LET_THM,env_to_list_def,dec_clock_def]>>
       TOP_CASE_TAC>>fs[state_component_equality]>>
       ntac 6 (TOP_CASE_TAC>>fs[set_var_def])>>
-      imp_res_tac pop_env_code_clock>>fs[])
+      imp_res_tac pop_env_code_gc_fun_clock>>fs[])
   >>
     fs[jump_exc_def]>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
     TRY(pairarg_tac>>fs[state_component_equality])>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
-    metis_tac[alloc_code_const,inst_code_const])
+    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const])
+
+val evaluate_code_const = Q.store_thm("evaluate_code_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_gc_fun_const = Q.store_thm("evaluate_gc_fun_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.gc_fun = s2.gc_fun`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_mdomain_const = Q.store_thm("evaluate_mdomain_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.mdomain = s2.mdomain`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_be_const = Q.store_thm("evaluate_be_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.be = s2.be`,
+  metis_tac [evaluate_code_gc_fun_const]);
 
 (* -- *)
 
@@ -2138,6 +2185,23 @@ val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   >- metis_tac[]>>
   qexists_tac `g n`>>full_simp_tac(srw_ss())[])
 
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
+  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
+  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
+  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
+
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
     !wl m d s wl1 m1 s1.
@@ -2161,7 +2225,7 @@ val flat_exp_conventions_def = Define`
   (flat_exp_conventions (If cmp r1 ri e2 e3) =
     (flat_exp_conventions e2 ∧
     flat_exp_conventions e3)) ∧
-  (flat_exp_conventions (MustTerminate n p) =
+  (flat_exp_conventions (MustTerminate p) =
     flat_exp_conventions p) ∧
   (flat_exp_conventions (Call ret dest args h) =
     ((case ret of
@@ -2189,9 +2253,13 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
     (c.ISA = x86_64)) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
+  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) =
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) =
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
-    addr_offset_ok w c) ∧
+    if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
   (inst_ok_less _ _ = T)`
 
 (* Instructions have distinct targets and read vars -- set by SSA form *)
@@ -2201,6 +2269,10 @@ val distinct_tar_reg_def = Define`
   (distinct_tar_reg  (Arith (Shift l r1 r2 n))
     ⇔ r1 ≠ r2) ∧
   (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
+    ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
+  (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ r1 ≠ r2 ∧ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg _ ⇔ T)`
 
@@ -2214,6 +2286,10 @@ val two_reg_inst_def = Define`
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (AddOverflow r1 r2 r3 r4))
+    ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
+    ⇔ (r1 = r2)) ∧
   (two_reg_inst _ ⇔ T)`
 
 (* Recursor over instructions *)
@@ -2221,7 +2297,7 @@ val every_inst_def = Define`
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
-  (every_inst P (MustTerminate n p) ⇔ every_inst P p) ∧
+  (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
   (every_inst P (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T
@@ -2239,7 +2315,7 @@ val full_inst_ok_less_def = Define`
   (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
     ((case ri of Imm w => c.valid_imm (INR cmp) w | _ => T) ∧
     full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
-  (full_inst_ok_less c (MustTerminate n p) ⇔ full_inst_ok_less c p) ∧
+  (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
   (full_inst_ok_less c (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T
@@ -2263,7 +2339,7 @@ val wf_cutsets_def = Define`
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
   (wf_cutsets (FFI x y z args) = wf args) ∧
-  (wf_cutsets (MustTerminate _ s) = wf_cutsets s) ∧
+  (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
   (wf_cutsets (If cmp r1 ri e2 e3) =
@@ -2273,9 +2349,12 @@ val wf_cutsets_def = Define`
 
 val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (* Note: these are not necessary *)
+  (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Follows conventions for x86 *)
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
-  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 0 ∧ r4 = 8) ∧
+  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 8 ∧ r4 = 0) ∧
   (inst_arg_convention _ = T)`
 
 (* Syntactic conventions for allocator *)
@@ -2295,7 +2374,7 @@ val call_arg_convention_def = Define`
       NONE => T
     | SOME (v,prog,l1,l2) =>
       (v = 2) ∧ call_arg_convention prog))) ∧
-  (call_arg_convention (MustTerminate _ s1) =
+  (call_arg_convention (MustTerminate s1) =
     call_arg_convention s1) ∧
   (call_arg_convention (Seq s1 s2) =
     (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
@@ -2346,7 +2425,7 @@ val extract_labels_def = Define`
     | SOME (v,prog,l1',l2') =>
       let h_rest = extract_labels prog in
       [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
-  (extract_labels (MustTerminate _ s1) = extract_labels s1) ∧
+  (extract_labels (MustTerminate s1) = extract_labels s1) ∧
   (extract_labels (Seq s1 s2) =
     extract_labels s1 ++ extract_labels s2) ∧
   (extract_labels (If cmp r1 ri e2 e3) =

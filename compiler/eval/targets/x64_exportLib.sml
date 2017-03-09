@@ -2,19 +2,18 @@ structure x64_exportLib =
 struct
 local open HolKernel boolLib bossLib lcsymtacs in
 
-fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
-  val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
+fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
+  val heap_line  = "     .space  " ^ (Int.toString heap_mb) ^
                    " * 1024 * 1024   # heap size in bytes"
-  val stack_line = "    .space  " ^ Int.toString stack_mb ^
+  val stack_line = "     .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
-  fun ffi_asm 0 = []
-    | ffi_asm n = let
-    val n = n - 1
-    in ("cake_ffi" ^ (Int.toString n) ^ ":") ::
+  fun ffi_asm [] = []
+    | ffi_asm (ffi::ffis) =
+      ("cake_ffi" ^ ffi ^ ":") ::
        "     pushq   %rax"::
-       "     jmp     cdecl(ffi" ^ (Int.toString n) ^ ")"::
+       "     jmp     cdecl(ffi" ^ ffi ^ ")"::
        "     .p2align 3"::
-       "":: ffi_asm n end
+       "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
    "",
@@ -38,11 +37,23 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "     .p2align 3",
    "cake_end:",
    "",
+   "     .data",
+   "     .p2align 3",
+   "cdecl(argc): .quad 0",
+   "cdecl(argv): .quad 0",
+   "",
    "#### Start up code",
    "",
    "     .text",
+   "     .p2align 3",
    "     .globl  cdecl(main)",
+   "     .globl  cdecl(argc)",
+   "     .globl  cdecl(argv)",
    "cdecl(main):",
+   "     leaq    cdecl(argc)(%rip), %rbx",
+   "     leaq    cdecl(argv)(%rip), %rdx",
+   "     movq    %rdi, 0(%rbx)  # %rdi stores argc",
+   "     movq    %rsi, 0(%rdx)  # %rsi stores argv",
    "     pushq   %rbp        # push base pointer",
    "     movq    %rsp, %rbp  # save stack pointer",
    "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
@@ -55,7 +66,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "",
    "     .p2align 3",
    ""] @
-   ffi_asm ffi_count @
+   ffi_asm ffi_names @
   ["cake_clear:",
    "     callq   cdecl(exit)",
    "     .p2align 3",
@@ -90,16 +101,16 @@ fun byte_list_to_asm_lines bytes = let
   fun bytes_to_strings [] = []
     | bytes_to_strings xs = let
         val (ys,zs) = take_drop bytes_per_line xs
-        in "  .byte " ^ commas (map word2hex ys) ^ "\n" ::
+        in "     .byte " ^ commas (map word2hex ys) ^ "\n" ::
            bytes_to_strings zs end
   in bytes_to_strings xs end;
 
-fun cake_lines stack_mb heap_mb ffi_count bytes_tm =
-  cake_boilerplate_lines stack_mb heap_mb ffi_count @
+fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
+  cake_boilerplate_lines stack_mb heap_mb ffi_names @
   byte_list_to_asm_lines bytes_tm;
 
-fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_count bytes_tm
+fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)
@@ -110,7 +121,7 @@ fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
 
 (*
 
-val _ = write_cake_S 50 50 0 bytes_tm ""
+val _ = write_cake_S 50 50 [] ``[3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8]`` "t"
 
 *)
 end
