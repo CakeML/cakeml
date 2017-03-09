@@ -1024,10 +1024,61 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ `fs' = fs` suffices_by xsimpl
   \\ simp[Abbr`fs'`,RO_fs_component_equality]);
 
+val usage_string_def = Define`
+  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;
+
+val r = translate usage_string_def;
+
+val usage_string_v_thm = theorem"usage_string_v_thm";
+
+val parse_failure_string_def = Define`
+  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]`;
+
+val r = translate parse_failure_string_def;
+
 val match_line_def = Define`
   match_line matcher (line:string) =
   case matcher line of | SOME T => T | _ => F`;
 
 val r = translate match_line_def;
+
+val grep = process_topdecs`
+  fun grep u =
+    case Commandline.arguments ()
+    of [] => print usage_string
+     | [_] => print usage_string
+     | (regexp::files) =>
+       case parse_regexp (String.explode regexp) of
+         NONE => print (parse_failure_string regexp)
+       | SOME r =>
+         let
+           (* TODO: this would be nicer as
+           val raw_match = match_line (regexp_matcher_with_limit r) s
+           but does CF support it? *)
+           fun raw_match s = match_line (fn s => regexp_matcher_with_limit r s) s
+           fun matcher s =
+             if String.strlen s = 0 then
+               raw_match []
+             else
+               raw_match (List.front (String.explode s))
+         in List.app (print_matching_lines_in_file matcher) files end`;
+val _ = append_prog grep;
+
+val grep_sem_file_def = Define`
+  grep_sem_file L fs filename =
+    case ALOOKUP fs.files filename of
+    | NONE => ""
+    | SOME contents =>
+        CONCAT
+          (MAP (λmatching_line. explode filename ++ ":" ++ matching_line ++ "\n")
+             (FILTER (λline. line ∈ L) (splitlines contents)))`;
+
+val grep_sem_def = Define`
+  (grep_sem (_::regexp::filenames) fs =
+   if NULL filenames then explode usage_string else
+   case parse_regexp regexp of
+   | NONE => explode (parse_failure_string (implode regexp))
+   | SOME r => CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames))) ∧
+  (grep_sem _ _ = explode usage_string)`;
 
 val _ = export_theory ();
