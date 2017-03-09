@@ -568,7 +568,7 @@ val code_sort_def = tDefine "code_sort" `
 val compile_def = Define`
   compile c e =
     let es = clos_mti$compile c.do_mti c.max_app [e] in
-    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 1) es in
+    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 3) es in
     let c = c with next_loc := n in
     let e = clos_known$compile c.do_known (HD es) in
     let (e,aux) = clos_call$compile c.do_call e in
@@ -576,7 +576,7 @@ val compile_def = Define`
     let c = c with start := num_stubs c.max_app + 1 in
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
-    let prog = (1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
+    let prog = (num_stubs c.max_app+1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
     let prog = toAList (init_code c.max_app) ++ prog in
       (c,code_sort prog)`;
 
