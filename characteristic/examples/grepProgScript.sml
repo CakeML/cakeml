@@ -302,6 +302,23 @@ val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
    ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
   ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
 
+val A_DELKEY_ALIST_FUPDKEY = Q.store_thm("A_DELKEY_ALIST_FUPDKEY[simp]",
+  `∀fd f ls. A_DELKEY fd (ALIST_FUPDKEY fd f ls) = A_DELKEY fd ls`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def,A_DELKEY_def]);
+
+val A_DELKEY_I = Q.store_thm("A_DELKEY_I",
+  `∀x ls. (A_DELKEY x ls = ls ⇔ ¬MEM x (MAP FST ls))`,
+  Induct_on`ls`
+  \\ rw[A_DELKEY_def,FILTER_EQ_ID,MEM_MAP,EVERY_MEM]
+  >- metis_tac[]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    `LENGTH (h::ls) ≤ LENGTH ls` by metis_tac[LENGTH_FILTER_LEQ]
+    \\ fs[] )
+  \\ first_x_assum(qspec_then`h`mp_tac)
+  \\ simp[]);
+
 val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
   gen_tac
@@ -431,6 +448,28 @@ val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
 val bumpFD_files = Q.store_thm("bumpFD_files[simp]",
   `(bumpFD fd fs).files = fs.files`,
   EVAL_TAC \\ CASE_TAC \\ rw[]);
+
+val ALOOKUP_inFS_fname_openFileFS_nextFD = Q.store_thm("ALOOKUP_inFS_fname_openFileFS_nextFD",
+  `inFS_fname f fs ∧ nextFD fs < 255
+   ⇒
+   ALOOKUP (openFileFS f fs).infds (nextFD fs) = SOME (f,0)`,
+  rw[openFileFS_def,openFile_def]
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+  \\ rw[]);
+
+val openFileFS_files = Q.store_thm("openFileFS_files[simp]",
+  `(openFileFS f fs).files = fs.files`,
+  EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[]);
+
+val A_DELKEY_nextFD_openFileFS = Q.store_thm("A_DELKEY_nextFD_openFileFS[simp]",
+  `nextFD fs < 255 ⇒
+   A_DELKEY (nextFD fs) (openFileFS f fs).infds = fs.infds`,
+  rw[openFileFS_def]
+  \\ CASE_TAC
+  \\ TRY CASE_TAC
+  \\ simp[A_DELKEY_I,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  \\ fs[openFile_def] \\ rw[]
+  \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
 
 val FDline_def = Define`
   FDline fd fs =
@@ -693,6 +732,20 @@ val bumpAllFD_def = Define`
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (MAX (LENGTH content))))
     od)`;
 
+val validFD_bumpAllFD = Q.store_thm("validFD_bumpAllFD[simp]",
+  `validFD fd (bumpAllFD fd fs) = validFD fd fs`,
+  rw[validFD_def,bumpAllFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
+
+val bumpAllFD_files = Q.store_thm("bumpAllFD_files[simp]",
+  `(bumpAllFD fd fs).files = fs.files`,
+  EVAL_TAC
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
+
 val FDline_NONE_bumpAll_bumpLine = Q.store_thm("FDline_NONE_bumpAll_bumpLine",
   `FDline fd fs = NONE ⇒
    bumpLineFD fd fs = bumpAllFD fd fs`,
@@ -723,6 +776,13 @@ val bumpAllFD_bumpLineFD = Q.store_thm("bumpAllFD_bumpLineFD[simp]",
   \\ qmatch_assum_abbrev_tac`SPLITP P ls = (l,r)`
   \\ Q.ISPEC_THEN`ls`mp_tac SPLITP_LENGTH
   \\ simp[Abbr`ls`]);
+
+val A_DELKEY_bumpAllFD_elim = Q.store_thm("A_DELKEY_bumpAllFD_elim[simp]",
+  `A_DELKEY fd (bumpAllFD fd fs).infds = A_DELKEY fd fs.infds`,
+  rw[bumpAllFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
 
 val splitlines_def = Define`
   splitlines ls =
@@ -890,6 +950,79 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ fs[] \\ xsimpl
   \\ Cases_on`m (implode ln)` \\ fs[]
   \\ xsimpl);
+
+(* TODO: fix concat_2 problem in mlstringProg *)
+
+val print_matching_lines_in_file = process_topdecs`
+  fun print_matching_lines_in_file m file =
+    let val fd = FileIO.openIn file
+    in (print_matching_lines m (String.concat_2[file,":"]) fd;
+        FileIO.close fd)
+    end handle FileIO.BadFileName => ()`;
+val _ = append_prog print_matching_lines_in_file;
+
+val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
+  `FILENAME f fv ∧
+   CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+   (STRING_TYPE --> BOOL) m mv
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
+     [mv; fv]
+     (ROFS fs * STDOUT out)
+     (POSTv uv. &UNIT_TYPE () uv * ROFS fs *
+                STDOUT (out ++
+                  if inFS_fname f fs then
+                    CONCAT
+                      (MAP ((++)(explode f ++ ":"))
+                        (FILTER (m o implode)
+                           (MAP (combin$C (++) "\n")
+                             (splitlines (THE (ALOOKUP fs.files f))))))
+                  else ""))`,
+  xcf"print_matching_lines_in_file"(get_ml_prog_state())
+  \\ qmatch_goalsub_abbrev_tac`_ * ROFS fs * STDOUT result`
+  \\ reverse(xhandle`POST
+       (λv. &UNIT_TYPE () v * ROFS fs * STDOUT result)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname f fs) * ROFS fs * STDOUT out)`)
+  >- (
+    xcases
+    \\ fs[BadFileName_exn_def]
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xcon \\ xsimpl )
+  >- ( xsimpl )
+  \\ xlet`POST (λv. &(WORD ((n2w (nextFD fs)):word8) v ∧ validFD (nextFD fs) (openFileFS f fs) ∧
+                      inFS_fname f fs) * ROFS (openFileFS f fs) * STDOUT out)
+               (λe. &(BadFileName_exn e ∧ ¬inFS_fname f fs) * ROFS fs * STDOUT out)`
+  >- ( xapp \\ instantiate \\ xsimpl )
+  >- ( xsimpl )
+  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE [] v * ROFS (openFileFS f fs) * STDOUT out`
+  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
+  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE [strlit":"] v * ROFS (openFileFS f fs) * STDOUT out`
+  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
+  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE [f;strlit":"] v * ROFS (openFileFS f fs) * STDOUT out`
+  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def,FILENAME_def] )
+  \\ xlet`POSTv v. &STRING_TYPE (concat[f;strlit":"]) v * ROFS (openFileFS f fs) * STDOUT out`
+  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet`POSTv v. &UNIT_TYPE () v * ROFS (bumpAllFD (nextFD fs) (openFileFS f fs)) * STDOUT result`
+  \\ fs[] \\ imp_res_tac nextFD_ltX \\ simp[]
+  >- (
+    xapp
+    \\ instantiate
+    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`out`
+    \\ xsimpl
+    \\ fs[mlstringTheory.concat_thm,mlstringTheory.explode_implode]
+    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ simp[linesFD_def]
+    \\ Cases_on`0 < LENGTH content` \\ fs[libTheory.the_def,LENGTH_NIL]
+    \\ xsimpl )
+  \\ xapp
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`bumpAllFD (nextFD fs) (openFileFS f fs)`
+  \\ instantiate
+  \\ xsimpl
+  \\ qmatch_goalsub_abbrev_tac`ROFS fs'`
+  \\ `fs' = fs` suffices_by xsimpl
+  \\ simp[Abbr`fs'`,RO_fs_component_equality]);
 
 val match_line_def = Define`
   match_line matcher (line:string) =
