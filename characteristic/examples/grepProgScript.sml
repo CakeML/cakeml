@@ -36,6 +36,109 @@ val _ = translate(word_bit_test |> spec64);
 val _ = translate (charsetTheory.charset_full_def |> CONV_RULE (RHS_CONV EVAL));
 val _ = translate charset_mem_def;
 
+val _ = register_type``:regexp``;
+
+(* TODO: this is largely copied from the bootstrap translation
+         can it be properly abstracted out? *)
+local
+  val ths = ml_translatorLib.eq_lemmas();
+in
+  fun find_equality_type_thm tm =
+    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
+end
+
+val EqualityType_WORD = find_equality_type_thm``WORD``
+val EqualityType_CHARSET_CHARSET_TYPE = find_equality_type_thm``CHARSET_CHARSET_TYPE``
+  |> REWRITE_RULE[EqualityType_WORD]
+
+val REGEXP_REGEXP_TYPE_def = theorem"REGEXP_REGEXP_TYPE_def";
+val REGEXP_REGEXP_TYPE_ind = theorem"REGEXP_REGEXP_TYPE_ind";
+val no_closures_def = ml_translatorTheory.no_closures_def;
+val LIST_TYPE_def = ml_translatorTheory.LIST_TYPE_def;
+val EqualityType_def = ml_translatorTheory.EqualityType_def;
+val types_match_def = ml_translatorTheory.types_match_def;
+val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
+
+val REGEXP_REGEXP_TYPE_no_closures = Q.prove(
+  `∀a b. REGEXP_REGEXP_TYPE a b ⇒ no_closures b`,
+  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind
+  \\ rw[REGEXP_REGEXP_TYPE_def]
+  \\ rw[no_closures_def]
+  \\ TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y1`,`x1`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,no_closures_def] >>
+    qx_gen_tac`p` >>
+    simp[PULL_EXISTS,no_closures_def] >>
+    rw[] >>
+    METIS_TAC[EqualityType_def] ) >>
+  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
+            EqualityType_def]);
+
+val REGEXP_REGEXP_TYPE_types_match = Q.prove(
+  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ types_match b d`,
+  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
+  rw[REGEXP_REGEXP_TYPE_def] \\
+  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] >- (
+      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def] ) >>
+    qx_gen_tac`p` >>
+    gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
+    rw[types_match_def,ctor_same_type_def] >>
+    PROVE_TAC[EqualityType_def] ) >>
+  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
+            EqualityType_def]);
+
+val REGEXP_REGEXP_TYPE_11 = Q.prove(
+  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
+  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
+  rw[REGEXP_REGEXP_TYPE_def] \\
+  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def] \\ rw[EQ_IMP_THM] \\
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x y2` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y2`,`y1`,`x`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >>
+    rw[] >>
+    metis_tac[]) >>
+  TRY (
+    qmatch_assum_rename_tac`LIST_TYPE _ x1 y` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    qmatch_assum_rename_tac`LIST_TYPE _ x2 y` >>
+    qhdtm_x_assum`LIST_TYPE`mp_tac >>
+    last_x_assum mp_tac >>
+    rpt(pop_assum kall_tac) >>
+    map_every qid_spec_tac[`y`,`x1`,`x2`] >>
+    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >- (
+      Cases \\ rw[LIST_TYPE_def] ) \\
+    gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
+    metis_tac[]) >>
+  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
+            EqualityType_def]);
+
+val EqualityType_REGEXP_REGEXP_TYPE = Q.store_thm("EqualityType_REGEXP_REGEXP_TYPE",
+  `EqualityType REGEXP_REGEXP_TYPE`,
+  metis_tac[REGEXP_REGEXP_TYPE_no_closures,REGEXP_REGEXP_TYPE_types_match,REGEXP_REGEXP_TYPE_11,
+  EqualityType_def]);
+
+val _ = store_eq_thm EqualityType_REGEXP_REGEXP_TYPE;
+(* -- *)
+
 (* TODO: can the regexp one be avoided by using the mllist one instead? *)
 val zip_eq_zip = Q.store_thm("zip_eq_zip",
   `regexp$zip = mllist$zip`,
@@ -126,7 +229,7 @@ val regexp_matcher_with_limit_sound = Q.store_thm("regexp_matcher_with_limit_sou
   >> IMP_RES_TAC compile_regexp_with_limit_sound
   >> rw[pairTheory.ELIM_UNCURRY]);
 
-val _ = translate (regexp_matcher_with_limit_def);
+val r = translate (regexp_matcher_with_limit_def);
 
 val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
   Induct_on `ll` >> fs[]);
@@ -1036,11 +1139,44 @@ val parse_failure_string_def = Define`
 
 val r = translate parse_failure_string_def;
 
+(* TODO: This approach (with matcher argument as a function) does not play nicely with CF
 val match_line_def = Define`
   match_line matcher (line:string) =
   case matcher line of | SOME T => T | _ => F`;
 
 val r = translate match_line_def;
+*)
+val match_line_def = Define`
+  match_line r s =
+    case regexp_matcher_with_limit r s of | SOME T => T | _ => F`;
+
+val r = translate match_line_def;
+
+val build_matcher_def = Define`
+  build_matcher r s =
+    if strlen s = 0 then
+      match_line r []
+    else
+      match_line r (FRONT (explode s))`;
+
+val r = translate build_matcher_def;
+
+val build_matcher_side = Q.prove(
+  `∀r s. build_matcher_side r s = T`,
+  rw[definition"build_matcher_side_def"]
+  \\ Cases_on`s` \\ fs[LENGTH_NIL]) |> update_precondition;
+
+val build_matcher_v_thm = theorem"build_matcher_v_thm"
+
+val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
+  `REGEXP_REGEXP_TYPE r rv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v"build_matcher"(get_ml_prog_state())) [rv] emp
+    (POSTv v. &(STRING_TYPE --> BOOL) (build_matcher r) v)`,
+  strip_tac
+  \\ rw[app_def]
+  \\ irule Arrow_IMP_app_basic
+  \\ instantiate
+  \\ simp[build_matcher_v_thm]);
 
 val grep = process_topdecs`
   fun grep u =
@@ -1051,17 +1187,17 @@ val grep = process_topdecs`
        case parse_regexp (String.explode regexp) of
          NONE => print (parse_failure_string regexp)
        | SOME r =>
+           (* abandoning this approach for now ...
          let
-           (* TODO: this would be nicer as
-           val raw_match = match_line (regexp_matcher_with_limit r) s
-           but does CF support it? *)
-           fun raw_match s = match_line (fn s => regexp_matcher_with_limit r s) s
-           fun matcher s =
-             if String.strlen s = 0 then
-               raw_match []
-             else
-               raw_match (List.front (String.explode s))
-         in List.app (print_matching_lines_in_file matcher) files end`;
+           (* TODO: this would be nicer as:
+           val raw_match = match_line (regexp_matcher_with_limit r)
+             but how does partial application work in CF? *)
+           val raw_match = (fn s => match_line (fn s => regexp_matcher_with_limit r s) s)
+         in
+           *)
+           (* TODO: similar issue with higher-order function, CF seems to need this eta  *)
+           List.app (fn file => print_matching_lines_in_file (build_matcher r) file) files
+         (* end *)`;
 val _ = append_prog grep;
 
 val grep_sem_file_def = Define`
@@ -1080,5 +1216,155 @@ val grep_sem_def = Define`
    | NONE => explode (parse_failure_string (implode regexp))
    | SOME r => CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames))) ∧
   (grep_sem _ _ = explode usage_string)`;
+
+val grep_spec = Q.store_thm("grep_spec",
+  `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
+   CARD (set (MAP FST fs.infds)) < 255
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
+    [Conv NONE []]
+    (STDOUT out * COMMANDLINE cl * ROFS fs)
+    (POSTv v. &UNIT_TYPE () v *
+      (STDOUT (out ++ grep_sem cl fs)
+       * (COMMANDLINE cl * ROFS fs)))`,
+  strip_tac
+  \\ xcf"grep"(get_ml_prog_state())
+  \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  >- (xcon \\ xsimpl)
+  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  >- (xapp \\ instantiate \\ xsimpl
+      \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF] (* TODO: this is duplicated in catProg and bootstrap *)
+      \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
+      \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
+      \\ simp[MAP_K_REPLICATE,SUM_REPLICATE,GSYM LENGTH_FLAT])
+  \\ Cases_on`cl` \\ fs[]
+  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    xmatch
+    \\ xapp
+    \\ simp[grep_sem_def]
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`usage_string`
+    \\ simp[usage_string_v_thm]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`out`
+    \\ xsimpl )
+  \\ rveq
+  \\ rename1`EVERY validArg t`
+  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  >- (
+    xmatch
+    \\ xapp
+    \\ simp[grep_sem_def]
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`usage_string`
+    \\ simp[usage_string_v_thm]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`out`
+    \\ xsimpl )
+  \\ rveq
+  \\ xmatch
+  \\ rename1`grep_sem (grep::regexp::file1::files)`
+  \\ simp[grep_sem_def,MAP_MAP_o,o_DEF]
+  \\ qmatch_goalsub_abbrev_tac`COMMANDLINE cl`
+  \\ qmatch_assum_abbrev_tac`Abbrev(cl = grep::regexp::fls)`
+  \\ xlet`POSTv v. &LIST_TYPE CHAR regexp v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  >- (
+    xapp
+    \\ instantiate
+    \\ simp[mlstringTheory.explode_implode]
+    \\ xsimpl )
+  \\ xlet`POSTv v. &OPTION_TYPE REGEXP_REGEXP_TYPE  (parse_regexp regexp) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ Cases_on`parse_regexp regexp` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (
+    xmatch
+    \\ xlet`POSTv v. &STRING_TYPE (parse_failure_string (implode regexp)) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+    >- (xapp \\ instantiate \\ xsimpl )
+    \\ xapp
+    \\ instantiate
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`out`
+    \\ xsimpl )
+  \\ qmatch_goalsub_abbrev_tac`gs1 ++ (FLAT (MAP ff files))`
+  \\ `gs1 ++ (FLAT (MAP ff files)) = out ++ FLAT (MAP ff fls)`
+  by ( unabbrev_all_tac \\ simp[] )
+  \\ pop_assum SUBST1_TAC
+  \\ simp[Abbr`gs1`,Abbr`ff`]
+  \\ xmatch
+  \\ rename1`parse_regexp regexp = SOME r`
+  \\ xfun_spec`appthis`
+     `∀f fv outp.
+      FILENAME f fv ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
+      app p appthis [fv] (STDOUT outp * COMMANDLINE cl * ROFS fs)
+        (POSTv v. &UNIT_TYPE () v * STDOUT (outp ++ grep_sem_file (regexp_lang r) fs f) * COMMANDLINE cl * ROFS fs)`
+  >- (
+    rw[]
+    \\ first_x_assum match_mp_tac
+    \\ xlet`POSTv mv. &(STRING_TYPE --> BOOL) (build_matcher r) mv * STDOUT outp * COMMANDLINE cl * ROFS fs`
+    >- ( xapp_spec build_matcher_partial_spec \\ instantiate \\ xsimpl )
+    \\ xapp
+    \\ simp[]
+    \\ instantiate
+    \\ xsimpl
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`outp`
+    \\ xsimpl
+    \\ simp[grep_sem_file_def]
+    \\ reverse IF_CASES_TAC
+    >- (
+      CASE_TAC \\ xsimpl
+      \\ imp_res_tac ALOOKUP_SOME_inFS_fname )
+    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+    \\ simp[]
+    \\ qmatch_goalsub_abbrev_tac`STDOUT (outp ++ s1)`
+    \\ qmatch_goalsub_abbrev_tac`STDOUT (outp ++ s2) * _`
+    \\ `s1 = s2` suffices_by xsimpl
+    \\ simp[Abbr`s1`,Abbr`s2`]
+    \\ AP_TERM_TAC
+    \\ simp[FILTER_MAP,MAP_MAP_o]
+    \\ simp[Once o_DEF]
+    \\ AP_TERM_TAC
+    \\ AP_THM_TAC
+    \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM,build_matcher_def]
+    \\ simp[mlstringTheory.explode_implode]
+    \\ simp[mlstringTheory.implode_def]
+    \\ simp[FRONT_APPEND]
+    \\ simp[match_line_def]
+    \\ gen_tac
+    \\ TOP_CASE_TAC
+    >- cheat (* false : this is because of the termination proof. grep_sem will need to be uglified to accommodate this *)
+    \\ imp_res_tac regexp_matcher_with_limit_sound
+    \\ rveq
+    \\ cheat (* this should be proved separately as a top-level theorem about regexp_matcher *) )
+  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
+  \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
+  \\ qexists_tac`λn. STDOUT (out ++ (CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (TAKE n (MAP implode fls))))) * COMMANDLINE cl * ROFS fs`
+  \\ xsimpl
+  \\ qexists_tac`MAP implode fls`
+  \\ qexists_tac`STRING_TYPE`
+  \\ reverse conj_tac
+  >- ( simp[Abbr`fls`,MAP_MAP_o,o_DEF] \\ xsimpl )
+  \\ reverse conj_tac
+  >- ( simp[Abbr`fls`,ml_translatorTheory.LIST_TYPE_def] )
+  \\ rw[] \\ rfs[EL_MAP]
+  \\ qmatch_assum_abbrev_tac`STRING_TYPE f xv`
+  \\ `validArg (explode f)`
+  by (
+    fs[Abbr`fls`,Abbr`f`,mlstringTheory.explode_implode,EVERY_MEM,MEM_EL,PULL_EXISTS]
+    \\ Cases_on`n` \\ fs[] )
+  \\ `FILENAME f xv`
+  by (
+    fs[FILENAME_def,commandLineFFITheory.validArg_def,Abbr`f`,mlstringTheory.explode_implode,mlstringTheory.implode_def]
+    \\ fs[EVERY_MEM] )
+  \\ first_x_assum drule
+  \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )
+  \\ simp[GSYM MAP_TAKE]
+  \\ simp[MAP_MAP_o]
+  \\ simp[set_sepTheory.STAR_ASSOC]);
 
 val _ = export_theory ();
