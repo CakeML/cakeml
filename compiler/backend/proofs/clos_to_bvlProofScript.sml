@@ -1104,7 +1104,27 @@ val do_app = Q.prove(
      v_rel s1.max_app f t1.refs t1.code v w /\
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
-  Cases_on `?i. op = EqualInt i` THEN1
+  Cases_on `?i. op = LessConstSmall i` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = BoundsCheckBlock` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `op = BoundsCheckByte` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
+     \\ res_tac \\ fs [] \\ rveq \\ fs []
+     \\ rw [] \\ res_tac \\ fs [])
+  \\ Cases_on `op = BoundsCheckArray` THEN1
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
+     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
+     \\ res_tac \\ fs [] \\ rveq \\ fs []
+     \\ rw [] \\ res_tac \\ fs []
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `?i. op = EqualInt i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Equal` THEN1
    (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
@@ -1132,7 +1152,8 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
     BasicProvers.EVERY_CASE_TAC >> rev_full_simp_tac(srw_ss())[get_global_def]>>
     srw_tac[][v_rel_SIMP] >>
-    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> srw_tac[][] >>
+    first_x_assum(fn th =>
+        first_x_assum(strip_assume_tac o MATCH_MP th))>> srw_tac[][] >>
     rev_full_simp_tac(srw_ss())[OPTREL_def] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
     reverse conj_tac >- metis_tac[] >>
@@ -1143,23 +1164,14 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] \\ metis_tac[])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] )
+    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def,v_rel_cases] \\ fs [] )
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def] )
-  >- (Cases_on`v` \\ every_case_tac \\ fs[v_rel_SIMP] \\ rw[])
-  >- (every_case_tac \\ fs[])
-  >- (
-    `?tt xx ii. xs = [Block tt xx; Number ii]` by
-        (every_case_tac \\ fs [] \\ NO_TAC) \\ fs [] \\ rveq \\ fs []
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[v_rel_SIMP]
-    \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> rveq >>
-    rev_full_simp_tac(srw_ss())[v_rel_SIMP])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    rw[v_rel_SIMP] >> fs[LIST_REL_EL_EQN])
+    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def,v_rel_cases] \\ fs [] )
+  >- (every_case_tac \\ fs[v_rel_SIMP] \\ rveq \\ fs [v_rel_SIMP]
+      \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ rfs [])
+  >- (every_case_tac \\ fs[v_rel_SIMP] \\ rveq \\ fs [v_rel_SIMP]
+      \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ rfs [])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1224,24 +1236,16 @@ val do_app = Q.prove(
     Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`h'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
-    full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>srw_tac[][]>>full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[state_rel_def] >> res_tac >>
+    full_simp_tac(srw_ss())[v_rel_SIMP] >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
+    srw_tac[][]>>full_simp_tac(srw_ss())[] >>
     first_x_assum match_mp_tac >> intLib.COOPER_TAC)
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] )
-  >> (
-    TRY(Cases_on`w`)>>fs[v_rel_SIMP]>>
-    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
-    TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP])>>
-    TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_SIMP])>>
-    srw_tac[][v_rel_SIMP] >>
-    last_x_assum mp_tac >>
-    srw_tac[][v_rel_SIMP] >>
-    srw_tac[][v_rel_SIMP] >>
-    every_case_tac \\ fs[] \\ rw[] \\ fs[v_rel_SIMP]));
+  \\ rpt (pop_assum mp_tac)
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
+  \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
+  \\ CCONTR_TAC \\ fs []);
 
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
@@ -1263,9 +1267,6 @@ val do_app_err = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[get_global_def,LIST_REL_EL_EQN] >>
     rev_full_simp_tac(srw_ss())[OPTREL_def] >> res_tac >> full_simp_tac(srw_ss())[])
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- (
-    spose_not_then strip_assume_tac
-    \\ every_case_tac >> full_simp_tac(srw_ss())[] )
   >- (
     spose_not_then strip_assume_tac
     \\ every_case_tac >> full_simp_tac(srw_ss())[] )
@@ -1355,7 +1356,8 @@ val do_app_err = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[])
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+    rev_full_simp_tac(srw_ss())[state_rel_def] >> res_tac >>
+    full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[])
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )

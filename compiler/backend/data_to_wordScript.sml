@@ -866,6 +866,58 @@ local val assign_quotation = `
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
     | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
+    | LessConstSmall i =>
+       (dtcase args of
+        | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))
+                    (Assign (adjust_var dest) TRUE_CONST)
+                    (Assign (adjust_var dest) FALSE_CONST),l)
+        | _ => (Skip,l))
+    | BoundsCheckByte =>
+     (dtcase args of
+      | [v1;v2] => (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let extra = (if dimindex (:'a) = 32 then 2 else 3) in
+                                let k = dimindex (:'a) - c.len_size - extra in
+                                let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
+                                  Op Sub [Shift Lsr header (Nat k); Const kk]);
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip,l))
+    | BoundsCheckArray =>
+      (dtcase args of
+      | [v1;v2] => (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let k = dimindex (:'a) - c.len_size in
+                                  Shift Lsr header (Nat k));
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip,l))
+    | BoundsCheckBlock =>
+      (dtcase args of
+      | [v1;v2] => (list_Seq [If Test (adjust_var v1) (Imm 1w)
+                               (Assign 1 (Const 0w))
+                               (Assign 1
+                                 (let addr = real_addr c (adjust_var v1) in
+                                  let header = Load addr in
+                                  let k = dimindex (:'a) - c.len_size in
+                                    Shift Lsr header (Nat k)));
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip,l))
     | Equal => (dtcase args of
                | [v1;v2] => (list_Seq [
                    Assign 1 (Var (adjust_var v1));
