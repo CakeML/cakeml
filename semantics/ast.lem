@@ -14,7 +14,7 @@ type lit =
 type opn = Plus | Minus | Times | Divide | Modulo
 type opb = Lt | Gt | Leq | Geq
 type opw = Andw | Orw | Xor | Add | Sub
-type shift = Lsl | Lsr | Asr
+type shift = Lsl | Lsr | Asr | Ror
 
 (* Module names *)
 type modN = string

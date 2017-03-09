@@ -393,6 +393,7 @@ let shift8_lookup sh = match sh with
   | Lsl -> W8lsl
   | Lsr -> W8lsr
   | Asr -> W8asr
+  | Ror -> W8ror
 end
 
 val shift64_lookup : shift -> word64 -> nat -> word64
@@ -400,6 +401,7 @@ let shift64_lookup sh = match sh with
   | Lsl -> W64lsl
   | Lsr -> W64lsr
   | Asr -> W64asr
+  | Ror -> W64ror
 end
 
 val Boolv : bool -> v
