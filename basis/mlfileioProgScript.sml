@@ -539,8 +539,6 @@ val close_spec = Q.store_thm(
   xif >> qexists_tac `T` >> simp[Abbr`catfs`,ROFS_def] >>
   xpull >> xret >> xsimpl);
 
-val _ = ml_prog_update (close_module NONE);
-
 val eq_char_v_thm =
   mlbasicsProgTheory.eq_v_thm
   |> DISCH_ALL
@@ -551,11 +549,11 @@ val inputLine = process_topdecs`
   fun inputLine fd =
     let
       fun loop acc =
-        case FileIO.fgetc fd of
+        case fgetc fd of
           NONE => #"\n"::acc
         | SOME c => if c = #"\n" then c::acc else loop (c::acc)
     in
-      case FileIO.fgetc fd of NONE => NONE
+      case fgetc fd of NONE => NONE
       | SOME c => if c = #"\n" then SOME (String.str c)
                   else SOME (String.implode (rev (loop [c])))
     end`;
@@ -668,8 +666,8 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     \\ simp[bumpFD_def,bumpLineFD_def]
     \\ fs[GSYM FDchar_FDline_NONE]
     \\ xsimpl )
-  \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
-  \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
   \\ rename1`CHAR c cv`
   \\ xlet`POSTv bv. &BOOL(c = #"\n") bv * ROFS (bumpFD (w2n fd)fs)`
   >- ( xapp_spec eq_char_v_thm \\ instantiate \\ xsimpl )
@@ -713,11 +711,12 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
                    ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ xsimpl)
   \\ xlet`POSTv lv. &LIST_TYPE CHAR (c::ls) lv * ROFS (bumpLineFD (w2n fd) fs)`
-  >- ( xapp \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
+  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]std_preludeTheory.reverse_v_thm)
+       \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
   \\ xlet`POSTv sv. &STRING_TYPE (implode (c::ls)) sv * ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ instantiate \\ xsimpl )
-  \\ xcon
-  \\ simp[ml_translatorTheory.OPTION_TYPE_def]
-  \\ xsimpl);
+  \\ xcon \\ simp[ml_translatorTheory.OPTION_TYPE_def] \\ xsimpl);
+
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
