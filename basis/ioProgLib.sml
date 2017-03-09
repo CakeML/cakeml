@@ -2,23 +2,30 @@ structure ioProgLib =
 struct
 
 open preamble
-open ml_progLib ioProgTheory mlcharioProgTheory mlcommandLineProgTheory semanticsLib
+open ml_progLib ioProgTheory semanticsLib
 
 val hprop_heap_thms =
-        ref [STDOUT_precond,COMMANDLINE_precond,STDIN_T_precond,STDIN_F_precond,emp_precond];
+  ref [
+    emp_precond,
+    mlcharioProgTheory.STDOUT_precond,
+    mlcharioProgTheory.STDIN_T_precond,
+    mlcharioProgTheory.STDIN_F_precond,
+    mlcommandLineProgTheory.COMMANDLINE_precond,
+    mlfileioProgTheory.ROFS_precond];
 
 fun mk_main_call s =
   ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 
+val basis_ffi_const = prim_mk_const{Thy="ioProg",Name="basis_ffi"};
 val basis_ffi_tm =
-  list_mk_comb(
-    prim_mk_const{Thy="ioProg",Name="basis_ffi"},
-    [mk_var("inp",stringSyntax.string_ty),
-     mk_var("cls",listSyntax.mk_list_type(stringSyntax.string_ty))])
+  list_mk_comb(basis_ffi_const,
+    map mk_var
+      (zip ["inp","cls","files"]
+        (#1(strip_fun(type_of basis_ffi_const)))))
 
 fun add_basis_proj spec =
   let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in
-    spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2):(string#string#string list) ffi_proj`
+    spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end
 
 fun ERR f s = mk_HOL_ERR"ioProgLib" f s
@@ -27,17 +34,21 @@ fun ERR f s = mk_HOL_ERR"ioProgLib" f s
 fun parts_ok_basis_st st =
   let val goal = ``parts_ok ^st.ffi (basis_proj1, basis_proj2)``
   val th = prove(goal,
-    rw[cfStoreTheory.parts_ok_def] \\ TRY (
-    EVAL_TAC
-    \\ fs[basis_proj2_def, basis_proj1_def, FLOOKUP_UPDATE, FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rw[]
-    \\ imp_res_tac stdout_fun_length
-    \\ imp_res_tac stdin_fun_length
-    \\ imp_res_tac commandLine_fun_length
-    \\ NO_TAC)
-    \\ `^st.ffi.oracle = basis_ffi_oracle` suffices_by
-      metis_tac[oracle_parts]
-    \\ EVAL_TAC)
+    qmatch_goalsub_abbrev_tac`st.ffi`
+    \\ `st.ffi.oracle = basis_ffi_oracle`
+    by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
+    \\ rw[cfStoreTheory.parts_ok_def]
+    \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
+    \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+    \\ TRY pairarg_tac \\ fs[]
+    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
+    \\ srw_tac[DNF_ss][])
   in th end
 
 (* This function proves the SPLIT pre-condition of call_main_thm_basis *)
@@ -70,7 +81,7 @@ fun subset_basis_st st precond =
   val tac = (strip_assume_tac pok_thm
      \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
            cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
-     \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF])
+     \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE])
   val (subgoals,_) = tac ([],goal)
   fun mk_mapping (x,y) =
     if mem x to_inst then SOME (x |-> y) else

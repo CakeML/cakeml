@@ -244,36 +244,37 @@ val RefByte_code_def = Define`
            (* compute length *)
            Assign 5 (Shift Lsr h (Nat (shift (:'a))));
            Assign 7 (Shift Lsl (Var 5) (Nat 2));
-           Assign 9 (Lookup EndOfHeap);
+           Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
-           Assign 1 (Op Sub [Var 9;
-                       Shift Lsl (Op Add [Var 5; Const 1w]) (Nat (shift (:'a)))]);
-           Set EndOfHeap (Var 1);
+           Assign 1 (Op Add [Var 9;
+                             Shift Lsl (Var 5) (Nat (shift (:'a)))]);
+           Set NextFree (Op Add [Var 1; Const bytes_in_word]);
            (* 3 := return value *)
-           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+           Assign 3 (Op Or [Shift Lsl (Op Sub [Var 9; Lookup CurrHeap])
                (Nat (shift_length c − shift (:'a))); Const (1w:'a word)]);
            (* compute header *)
            Assign 5 (Op Or [Op Or [y; Const 7w]; Var 6]);
            (* compute repeated byte *)
            MakeBytes 4;
            (* store header *)
-           Store (Var 1) 5;
+           Store (Var 9) 5;
            (* return for empty byte array *)
            If Equal 7 (Imm 0w) (Return 0 3)
            (list_Seq [
              (* write last word of byte array *)
-             Assign 11 (Op And [Shift Lsr (Var 2) (Nat 2); Const (bytes_in_word - 1w)]);
+             Assign 11 (Op And [Shift Lsr (Var 2) (Nat 2);
+                                Const (bytes_in_word - 1w)]);
              If Equal 11 (Imm 0w) Skip
              (list_Seq [
-               Assign 9 (Op Sub [Var 9; Const bytes_in_word]);
+               (* Assign 9 (Op Add [Var 9; Const bytes_in_word]); *)
                Assign 13 (Const 0w);
-               Store (Var 9) 13;
-               WriteLastBytes 9 4 11;
+               Store (Var 1) 13;
+               WriteLastBytes 1 4 11;
                Assign 7 (Op Sub [Var 7; Const 4w])]);
              (* write rest of byte array *)
              Call NONE (SOME Replicate_location)
               (* ret_loc, addr, v, n, ret_val *)
-              [0;1;4;7;3] NONE])]:'a wordLang$prog`;
+              [0;9;4;7;3] NONE])]:'a wordLang$prog`;
 
 val Maxout_bits_code_def = Define `
   Maxout_bits_code rep_len k dest n =
@@ -377,7 +378,7 @@ val AddNumSize_def = Define `
        (Assign 1 (Op Add [Var 1;
          (Shift Lsl (Shift Lsr
             (Load (real_addr c (adjust_var src)))
-               (Nat (dimindex (:'a) - c.len_size))) (Nat 2))]))):'a prog`
+               (Nat (dimindex (:'a) - c.len_size))) (Nat 2))]))):'a wordLang$prog`
 
 val AnyHeader_def = Define `
   AnyHeader c r a t1 (* header *) t2 (* pointer *) t3 (* payload *) =
@@ -661,15 +662,75 @@ val LoadBignum_def = Define`
 
 val WriteWord64_def = Define ` (* also works for storing bignums of length 1 *)
   WriteWord64 c (header:'a word) dest i =
-    list_Seq [Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * 2w)]);
+    list_Seq [Assign 1 (Lookup NextFree);
               Store (Op Add [Var 1; Const bytes_in_word]) i;
               Assign 3 (Const header);
               Store (Var 1) 3;
-              Set EndOfHeap (Var 1);
+              Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
               Assign (adjust_var dest)
                 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]:'a wordLang$prog`;
+
+val WriteWord64_on_32_def = Define `
+  WriteWord64_on_32 c (header:'a word) dest i1 i2 =
+    list_Seq [Assign 1 (Lookup NextFree);
+              Store (Op Add [Var 1; Const bytes_in_word]) i2;
+              Store (Op Add [Var 1; Const (2w * bytes_in_word)]) i1;
+              Assign 3 (Const header);
+              Store (Var 1) 3;
+              Set NextFree (Op Add [Var 1; Const (3w * bytes_in_word)]);
+              Assign (adjust_var dest)
+                (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                          (Nat (shift_length c − shift (:'a)));
+                        Const 1w])]:'a wordLang$prog`;
+
+val WordOp64_on_32_def = Define `
+  WordOp64_on_32 (opw:opw) =
+    case opw of
+    | Andw => list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
+                        Assign 33 (Op And [Var 13; Var 23]);
+                        Assign 31 (Op And [Var 11; Var 21])]
+    | Orw =>  list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
+                        Assign 33 (Op Or [Var 13; Var 23]);
+                        Assign 31 (Op Or [Var 11; Var 21])]
+    | Xor =>  list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
+                        Assign 33 (Op Xor [Var 13; Var 23]);
+                        Assign 31 (Op Xor [Var 11; Var 21])]
+    | Add =>  list_Seq [Assign 29 (Const 0w);
+                        Assign 27 (Const 0w);
+                        Inst (Arith (AddCarry 33 13 23 29));
+                        Inst (Arith (AddCarry 31 11 21 29))]
+    | Sub =>  list_Seq [Assign 29 (Const 1w);
+                        Assign 27 (Op Xor [Const (-1w); Var 23]);
+                        Inst (Arith (AddCarry 33 13 27 29));
+                        Assign 27 (Op Xor [Const (-1w); Var 21]);
+                        Inst (Arith (AddCarry 31 11 27 29))]`
+
+val WordShift64_on_32_def = Define `
+  WordShift64_on_32 sh n =
+    list_Seq
+      (* inputs in 11 and 13, writes results in 31 and 33 *)
+      if n < 32 then
+        (case sh of
+         | Lsl => [Assign 33 (ShiftVar sh 13 n);
+                   Assign 31 (Op Or [ShiftVar Lsr 13 (32 - n);
+                                     ShiftVar sh 11 n])]
+         | Lsr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                                     ShiftVar sh 13 n]);
+                   Assign 31 (ShiftVar sh 11 n)]
+         | Asr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                                     ShiftVar Lsr 13 n]);
+                   Assign 31 (ShiftVar sh 11 n)])
+      else
+        (case sh of
+         | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
+         | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
+         | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
+                   Assign 31 (ShiftVar sh 11 32)])`
 
 val bignum_words_def = Define `
   bignum_words c i =
@@ -753,9 +814,7 @@ local val assign_quotation = `
                     (dtcase encode_header c (4 * tag) (LENGTH args) of
                      | NONE => (GiveUp,l)
                      | SOME (header:'a word) => (list_Seq
-                        [Assign 1 (Op Sub [Lookup EndOfHeap;
-                            Const (bytes_in_word * n2w (LENGTH args + 1))]);
-                         Set EndOfHeap (Var 1);
+                        [Assign 1 (Lookup NextFree);
                          Assign 3 (Const header);
                          StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
@@ -763,7 +822,9 @@ local val assign_quotation = `
                                      (Nat (shift_length c − shift (:'a)));
                                    Const (1w ||
                                            (small_shift_length c − 1 -- 0)
-                                              (ptr_bits c tag (LENGTH args)))])],l))
+                                              (ptr_bits c tag (LENGTH args)))]);
+                         Set NextFree (Op Add [Var 1;
+                           Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
     | Ref => (dtcase encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
@@ -1018,40 +1079,39 @@ local val assign_quotation = `
     | WordOp W64 opw =>
       (dtcase args of
        | [v1;v2] =>
-         let len = if dimindex(:'a) < 64 then 2 else 1 in
-         (dtcase encode_header c 3 len of
+       (if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
-          | SOME (header:'a word) => (list_Seq [
-                Assign 1 (Op Sub [Lookup EndOfHeap; Const (bytes_in_word * n2w (len+1))]);
-                if len = 1 then
-                  (Assign 3
-                     (Op (dtcase opw of Andw => And
-                                    | Orw => Or
-                                    | Xor => Xor
-                                    | Add => Add
-                                    | Sub => Sub)
-                       [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
-                        Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]))
-                else
-                (dtcase lookup_word_op opw of
-                 | Bitwise op => list_Seq [
-                     Assign 3 (Op op
-                      [Load (Op Add [real_addr c (adjust_var v1); Const bytes_in_word]);
-                       Load (Op Add [real_addr c (adjust_var v2); Const bytes_in_word])]);
-                     Assign 5 (Op op
-                       [Load (Op Add [real_addr c (adjust_var v1); Const (bytes_in_word <<1)]);
-                        Load (Op Add [real_addr c (adjust_var v2); Const (bytes_in_word <<1)])]);
-                     Store (Op Add [Var 1; Const (bytes_in_word <<1)]) 5]
-                 | Carried Add => GiveUp (* TODO: 32bit *)
-                 | Carried Sub => GiveUp (* TODO: 32bit *));
-                Store (Op Add [Var 1; Const bytes_in_word]) 3;
-                Assign 3 (Const header);
-                Store (Var 1) 3;
-                Set EndOfHeap (Var 1);
-                Assign (adjust_var dest)
-                  (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
-                            (Nat (shift_length c − shift (:'a)));
-                          Const 1w])], l))
+          | SOME (header:'a word) =>
+                (Seq (Assign 3
+                  (Op (dtcase opw of
+                          Andw => And
+                        | Orw => Or
+                        | Xor => Xor
+                        | Add => Add
+                        | Sub => Sub)
+                         [Load
+                            (Op Add
+                               [real_addr c (adjust_var v1);
+                                Const bytes_in_word]);
+                          Load
+                            (Op Add
+                               [real_addr c (adjust_var v2);
+                                Const bytes_in_word])]))
+                   (WriteWord64 c header dest 3),l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               WordOp64_on_32 opw;
+               WriteWord64_on_32 c header dest 33 31],l)))
        | _ => (Skip,l))
     | WordShift W8 sh n => (dtcase args of
       | [v1] =>
@@ -1059,7 +1119,7 @@ local val assign_quotation = `
            (dtcase sh of
             | Lsl =>
               Shift Lsr
-                (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10 + (MIN n 8))))
+                (Shift Lsl (Var (adjust_var v1)) (Nat(dimindex(:'a)-10+(MIN n 8))))
                 (Nat (dimindex(:'a) - 10))
             | Lsr =>
               Shift Lsl
@@ -1081,14 +1141,18 @@ local val assign_quotation = `
          (dtcase encode_header c 3 len of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
-                (if len = 1 then
-                  list_Seq [
-                    LoadWord64 c 3 (adjust_var v1);
-                    Assign 3
-                     (ShiftVar (dtcase sh of Lsl => Lsl | Lsr => Lsr | Asr => Asr)
-                        3 n);
-                    WriteWord64 c header dest 3]
-                 else GiveUp (* TODO: 32bit *)), l)
+            (if len = 1 then
+               list_Seq
+                 [LoadWord64 c 3 (adjust_var v1);
+                  Assign 3 (ShiftVar sh 3 n);
+                  WriteWord64 c header dest 3]
+             else
+               list_Seq [
+                 Assign 15 (real_addr c (adjust_var v1));
+                 Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+                 Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                 WordShift64_on_32 sh n;
+                 WriteWord64_on_32 c header dest 33 31],l))
        | _ => (Skip,l))
     | WordFromInt => (dtcase args of
       | [v1] =>
@@ -1243,7 +1307,7 @@ val assign_pmatch_lemmas = [
 in
 val assign_def = Define assign_quotation
 
-val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.` @
+val assign_pmatch = Q.store_thm("assign_pmatch", `∀c secn l dest op args names.` @
   (assign_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
@@ -1251,9 +1315,10 @@ val assign_pmatch = Q.store_thm("assign_pmatch",`∀c secn l dest op args names.
   >> Ho_Rewrite.PURE_REWRITE_TAC assign_pmatch_lemmas
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
-  >> ASSUME_TAC(fetch "ast" "word_size_nchotomy")
+  >> Cases_on `op` >> fs []
   >> fs[assign_def]
-  >> Cases_on `w` >> fs[]);
+  >> Cases_on `w` >> fs[]
+  >> every_case_tac >> fs []);
 end
 
 val comp_def = Define `

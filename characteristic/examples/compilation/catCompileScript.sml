@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs
-open x64_compileLib x64_exportLib helloProgTheory
+open x64_compileLib x64_exportLib catProgTheory
 
-val _ = new_theory "helloCompile"
+val _ = new_theory "catCompile"
 
 val rconc = rhs o concl
 
@@ -10,7 +10,6 @@ val _ = Globals.max_print_depth := 20;
 val _ = PolyML.print_depth 5;
 
 fun println s = print (strcat s "\n");
-
 
 fun to_bytes alg conf prog =
   let
@@ -45,13 +44,13 @@ fun write_asm [] = ()
        bytes (name ^ ".S") ;
     write_asm xs)
 
-val hello_prog = hello_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
+val cat_prog = cat_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
 
-val hello_compiled = to_bytes 3 ``x64_compiler_config`` hello_prog
+val cat_compiled = to_bytes 3 ``x64_compiler_config`` cat_prog
 
-val hello_bytes = extract_bytes hello_compiled
+val cat_bytes = extract_bytes cat_compiled
 
-val store2 = save_thm ("hello", hello_compiled)
-val store1 = write_asm [ ("hello", hello_bytes) ]
+val store2 = save_thm ("cat", cat_compiled)
+val store1 = write_asm [ ("cat", cat_bytes) ]
 
 val _ = export_theory ();

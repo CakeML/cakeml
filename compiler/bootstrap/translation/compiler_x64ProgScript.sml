@@ -135,12 +135,6 @@ val main = process_topdecs`
 val res = ml_prog_update(ml_progLib.add_prog main I)
 val st = get_ml_prog_state()
 
-(* TODO: move *)
-val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
-  `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
-  Induct_on`ls` \\ rw[REPLICATE]);
-(* -- *)
-
 val main_spec = Q.store_thm("main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)

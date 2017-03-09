@@ -999,10 +999,18 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
   Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> full_simp_tac(srw_ss())[INJ_IFF] >>
   metis_tac[] )
 
-
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
+  `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,
+  Induct_on`xs` \\ rw[find_index_def]
+  \\ rw[Once INDEX_FIND_def,ADD1]);
+
+val find_index_INDEX_OF = Q.store_thm("find_index_INDEX_OF",
+  `find_index y xs 0 = INDEX_OF y xs`,
+  rw[INDEX_OF_def,find_index_INDEX_FIND])
 
 val find_index_NOT_MEM = Q.store_thm("find_index_NOT_MEM",
   `∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)`,
@@ -2275,6 +2283,14 @@ val OPT_MMAP_def = Define`
      (λh. OPTION_BIND (OPT_MMAP f t0)
        (λt. SOME (h::t))))`;
 
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
 val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
   `DISJOINT (set []) s /\
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
@@ -2371,5 +2387,30 @@ val ALIST_FUPDKEY_o = Q.store_thm(
   `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
   Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
   rw[ALIST_FUPDKEY_def]);
+
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
+         |> curry save_thm "w2n_lt_256"
+
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
+
+val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
+  `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
+  Induct_on`ls` \\ rw[REPLICATE]);
 
 val _ = export_theory()
