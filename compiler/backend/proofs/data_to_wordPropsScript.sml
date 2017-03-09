@@ -7985,4 +7985,67 @@ val memory_rel_Number_single_mul = store_thm("memory_rel_Number_single_mul",
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
   \\ fs [] \\ rw [] \\ fs []);
 
+val memory_rel_bounds_check = store_thm("memory_rel_bounds_check",
+  ``memory_rel c be refs sp st m dm ((Number i1,Word (w1:'a word))::vars) /\
+    small_int (:'a) (& n) /\ good_dimindex (:'a) ==>
+    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n)``,
+  rw [] \\ imp_res_tac memory_rel_any_Number_IMP
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ `n < dimword (:'a) /\ n < dimword (:'a) DIV 4 /\ n < dimword (:'a) DIV 8` by
+      (fs [small_int_def,good_dimindex_def,dimword_def] \\ fs [] \\ NO_TAC)
+  \\ fs [WORD_LO]
+  \\ reverse (Cases_on `small_int (:α) i1`) \\ fs []
+  THEN1
+   (qsuff_tac `dimword (:α) DIV 4 <= w2n (w ⇄ 2)`
+    THEN1 (fs [] \\ fs [small_int_def] \\ intLib.COOPER_TAC)
+    \\ `(word_ror w 2) ' (dimindex (:'a) - 2)` by
+      (fs [word_ror_def,fcpTheory.FCP_BETA,good_dimindex_def] \\ NO_TAC)
+    \\ Cases_on `word_ror w 2` \\ fs []
+    \\ fs [word_index]
+    \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ fs [good_dimindex_def,dimword_def]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ CCONTR_TAC \\ fs [GSYM NOT_LESS,LESS_DIV_EQ_ZERO])
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ fs [] \\ rveq \\ fs []
+  \\ Cases_on `i1 < 0` THEN1
+   (qsuff_tac `dimword (:α) DIV 8 <= w2n ((Smallnum i1 ⇄ 2) :'a word)`
+    THEN1 (fs [] \\ fs [small_int_def] \\ intLib.COOPER_TAC)
+    \\ `(if dimindex (:'a) = 32
+         then i1 <> - 536870912
+         else i1 <> - 2305843009213693952) ==>
+        ((Smallnum i1 ⇄ 2):'a word) ' (dimindex (:'a) - 3)` by
+      (strip_tac
+       \\ fs [word_ror_def,fcpTheory.FCP_BETA,good_dimindex_def]
+       \\ fs [Smallnum_def]
+       \\ assume_tac (GSYM word_msb_def) \\ rfs []
+       \\ match_mp_tac (MP_CANON
+           (TWO_COMP_POS |> REWRITE_RULE [METIS_PROVE [] ``b\/c <=> ~b==>c``]))
+       \\ fs [dimword_def]
+       \\ rfs [word_msb_n2w,bitTheory.BIT_def,bitTheory.BITS_THM2]
+       \\ Cases_on `i1` \\ rfs [small_int_def,dimword_def]
+       \\ fs [DIV_EQ_X]
+       \\ CCONTR_TAC \\ fs [] \\ NO_TAC)
+    \\ qmatch_assum_abbrev_tac `abb ==> _`
+    \\ reverse (Cases_on `abb`) THEN1
+     (rfs [markerTheory.Abbrev_def,good_dimindex_def,dimword_def]
+      \\ rfs [Smallnum_def,word_2comp_n2w,dimword_def,word_ror_n2w])
+    \\ fs []
+    \\ Cases_on `word_ror ((Smallnum i1):'a word) 2` \\ fs []
+    \\ fs [word_index]
+    \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ fs [good_dimindex_def,dimword_def]
+    \\ rfs [good_dimindex_def,dimword_def]
+    \\ CCONTR_TAC \\ fs [GSYM NOT_LESS,LESS_DIV_EQ_ZERO])
+  \\ reverse (Cases_on `i1`) \\ fs []
+  \\ fs [Smallnum_def,small_int_def]
+  \\ fs [word_ror_n2w,bitTheory.BIT_def,bitTheory.BITS_THM2]
+  \\ fs [good_dimindex_def,dimword_def]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ rfs []);
+
 val _ = export_theory();
