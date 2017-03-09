@@ -29,6 +29,12 @@ val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
   `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
   EVAL_TAC >> rw[] >> simp[])
 
+val num_added_globals_def = Define
+  `num_added_globals = 1n`;
+
+val partial_app_label_table_loc_def = Define
+  `partial_app_label_table_loc = 0n`;
+
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
@@ -36,6 +42,8 @@ val compile_op_def = Define`
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
   compile_op LengthByteVec = LengthByte ∧
   compile_op DerefByteVec = DerefByte ∧
+  compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
+  compile_op (Global n) = Global (n + num_added_globals) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -48,6 +56,8 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
       | FromList tag => FromList (clos_tag_shift tag)
       | LengthByteVec => LengthByte
       | DerefByteVec => DerefByte
+      | SetGlobal n => SetGlobal (n + num_added_globals)
+      | Global n => Global (n + num_added_globals)
       | x => x`,
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
@@ -141,13 +151,29 @@ val build_recc_lets_def = Define `
 val num_stubs_def = Define `
   num_stubs max_app =
     (* generic apps *)         max_app
-    (* partial apps *)       + max_app * max_app
+    (* partial apps *)       + max_app * (max_app - 1) DIV 2
     (* equality of values *) + 1n
     (* equality of blocks *) + 1
-    (* ToList *)             + 1`;
+    (* ToList *)             + 1
+    (* Padding, there must be an odd number of stubs. *)
+       + (if (max_app + max_app * (max_app - 1) DIV 2 + 3) MOD 2 = 0 then 1 else 0)`;
+
+val generic_app_fn_location_def = Define `
+  generic_app_fn_location n = n`;
+
+val partial_app_fn_location_def = Define `
+  partial_app_fn_location (max_app:num) tot prev =
+    max_app + tot * (tot - 1) DIV 2 + prev`;
+
+val partial_app_fn_location_code_def = Define `
+  partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
+    Let [tot_exp]
+     (Op Add [prev_exp;
+        Op Div [mk_const 2;
+          Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])`;
 
 val equality_location_def = Define`
-  equality_location (max_app:num) = max_app + max_app * max_app`;
+  equality_location (max_app:num) = max_app + max_app * (max_app - 1) DIV 2`;
 
 val block_equality_location_def = Define`
   block_equality_location max_app = equality_location max_app + 1`;
@@ -159,23 +185,59 @@ val mk_cl_call_def = Define `
   mk_cl_call cl args =
     If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
        (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
-       (Call 0 (SOME (LENGTH args - 1)) (args ++ [cl]))`;
-
-val partial_app_fn_location_def = Define `
-  partial_app_fn_location (max_app:num) m n = max_app + max_app * m + n`;
+       (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))`;
 
 (* Generic application of a function to n+1 arguments *)
 val generate_generic_app_def = Define `
   generate_generic_app max_app n =
+  (*
+  if n = 0 then
+    (* Special case a single argument application. We don't need to check
+     * for overapplication. But we still need to know how many arguments remain. *)
+    Let [Op Sub [mk_const 1; mk_el (Var 1) (mk_const 1)]] (* The number of arguments remaining - 1 *)
+     (If (Op (TagEq closure_tag) [Var 2])
+        (* Partial application of a normal closure *)
+        (Op (Cons partial_app_tag)
+            (REVERSE
+              (* Can't Call because we don't have enough clock ticks *)
+              (Jump (Var 0)
+                (GENLIST
+                  (* There could be up to max_app - 1 arguments remaining, and
+                   * since we've just seen 1, the total is rem+1 *)
+                  (\rem_args. mk_label (partial_app_fn_location max_app (rem_args+1) 0))
+                  (max_app - 1)) ::
+               Var 0 ::
+               Var 2 ::
+               [Var 1])))
+        (* Partial application of a partially applied closure *)
+        (Jump (Op Sub [mk_const 4; Op LengthBlock [Var 2]])
+          (GENLIST (\prev_args.
+            Op (Cons partial_app_tag)
+               (REVERSE
+                 (* Can't Call because we don't have enough clock ticks *)
+                  (Jump (Var 1)
+                    (GENLIST
+                      (\rem_args.
+                        mk_label (partial_app_fn_location max_app (rem_args + prev_args + 2) (prev_args + 1)))
+                      (max_app - (prev_args + 1))) ::
+                  Var 1 ::
+                  mk_el (Var 3) (mk_const 2) ::
+                  GENLIST (\this_arg. Var (this_arg + 2)) 1 ++
+                  GENLIST (\prev_arg.
+                    mk_el (Var 3) (mk_const (prev_arg + 3))) (prev_args + 1))))
+            (max_app - 1))))
+  else
+    *)
     Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
         (If (Op Less [mk_const 0; Var 0])
             (* Over application *)
             (Jump (mk_el (Var (n+2)) (mk_const 1))
               (GENLIST (\num_args.
                  Let [Call num_args
-                           NONE (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
-                                 [Var (n + 3)] ++
-                                 [mk_el (Var (n + 3)) (mk_const 0)])]
+                           NONE
+                           (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
+                            [Var (n + 3)] ++
+                            [mk_el (Var (n + 3)) (mk_const 0)])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
                max_app))
             (* Partial application *)
@@ -184,10 +246,10 @@ val generate_generic_app_def = Define `
                 (* Partial application of a normal closure *)
                 (Op (Cons partial_app_tag)
                     (REVERSE
-                      (Jump (mk_el (Var (n+2)) (mk_const 1))
-                        (GENLIST (\total_args.
-                          mk_label (partial_app_fn_location max_app total_args n))
-                         max_app) ::
+                      (mk_el (Op (Global 0) [])
+                        (partial_app_fn_location_code max_app
+                          (mk_el (Var (n+2)) (mk_const 1))
+                          (mk_const n)) ::
                        Var 0 ::
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
@@ -196,18 +258,22 @@ val generate_generic_app_def = Define `
                   (GENLIST (\prev_args.
                     Op (Cons partial_app_tag)
                        (REVERSE
-                         (Jump (Op Add [mk_const (n + prev_args + 2); Var 1])
-                            (GENLIST (\total_args.
-                              mk_label (partial_app_fn_location max_app total_args (n + prev_args + 1)))
-                             max_app) ::
+                         (mk_el (Op (Global 0) [])
+                            (partial_app_fn_location_code max_app
+                              (Op Add [mk_const (n + prev_args + 2); Var 1])
+                              (mk_const (n + prev_args + 1))) ::
                           Var 1 ::
                           mk_el (Var (n+3)) (mk_const 2) ::
                           GENLIST (\this_arg. Var (this_arg + 2)) (n+1) ++
                           GENLIST (\prev_arg.
                             mk_el (Var (n+3)) (mk_const (prev_arg + 3))) (prev_args + 1))))
-                    (max_app-(n+1)))))))`;
+                    (max_app - (n + 1)))))))`;
 
-(* The functions to complete the application of a partial closure *)
+(* The functions to complete the application of a partial closure.
+ * We expect prev_args < total_args, also the function should take one more
+ * argument than total, and have seen one more than prev (since there is
+ * possiblity for a 0 argument function, or a partial application wrapper that
+ * has seen no arguments yet. *)
 val generate_partial_app_closure_fn_def = Define `
   generate_partial_app_closure_fn total_args prev_args =
     Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
@@ -252,11 +318,31 @@ val init_code_def = Define `
   init_code max_app =
     sptree$fromList
       (GENLIST (\n. (n + 2, generate_generic_app max_app n)) max_app ++
-               FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
-                                     generate_partial_app_closure_fn m n)) max_app) max_app) ++
+       FLAT
+         (GENLIST
+           (\tot.
+             GENLIST
+               (\prev. (tot - prev + 1, generate_partial_app_closure_fn tot prev))
+               tot)
+           max_app) ++
        [equality_code max_app;
         block_equality_code max_app;
         ToList_code max_app])`;
+
+val init_globals_def = Define `
+  init_globals max_app =
+    Let
+      [Op (SetGlobal partial_app_label_table_loc)
+        [Op (Cons tuple_tag)
+          (REVERSE (FLAT
+            (GENLIST
+              (\tot.
+                GENLIST
+                  (\prev. mk_label (partial_app_fn_location max_app tot prev))
+                  tot)
+              max_app)))]]
+      (* Expect the real start of the program in code location 3 *)
+      (Call 0 (SOME 3) [])`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
@@ -482,15 +568,15 @@ val code_sort_def = tDefine "code_sort" `
 val compile_def = Define`
   compile c e =
     let es = clos_mti$compile c.do_mti c.max_app [e] in
-    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 1) es in
+    let (n,es) = renumber_code_locs_list (num_stubs c.max_app + 3) es in
     let c = c with next_loc := n in
     let e = clos_known$compile c.do_known (HD es) in
     let (e,aux) = clos_call$compile c.do_call e in
-    let prog = (1,0,e) :: aux in
+    let prog = (3,0,e) :: aux in
     let c = c with start := num_stubs c.max_app + 1 in
     let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
-    let prog = compile_prog c.max_app prog in
+    let prog = (num_stubs c.max_app+1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
     let prog = toAList (init_code c.max_app) ++ prog in
       (c,code_sort prog)`;
 
