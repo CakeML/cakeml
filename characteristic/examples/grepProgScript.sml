@@ -317,6 +317,30 @@ val regexp_matcher_with_limit_side_def = Q.prove(
           >> fs[good_vec_def] >> metis_tac []))
   >- metis_tac [compile_regexp_with_limit_lookup]) |> update_precondition;
 
+(* TODO: move to regexp_compilerTheory *)
+
+val regexp_matcher_correct = Q.store_thm("regexp_matcher_correct",
+  `dom_Brz_alt empty [normalize r] ⇒
+   (regexp_matcher r s ⇔ s ∈ regexp_lang r)`,
+  rw[regexp_matcher_def]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac compile_regexp_good_vec
+  \\ rfs[dom_Brz_alt_equal,eq_cmp_bmapTheory.fdom_def]
+  \\ imp_res_tac Brzozowski_partial_eval_256
+  \\ simp[IN_DEF]);
+
+val regexp_matcher_with_limit_termination = Q.store_thm("regexp_matcher_with_limit_termination",
+  `dom_Brz_alt empty [normalize r] ⇒
+   ∃result. regexp_matcher_with_limit r s = SOME result`,
+  rw[regexp_matcher_with_limit_def]
+  \\ every_case_tac \\ simp[]
+  \\ fs[compile_regexp_with_limit_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[dom_Brz_alt_equal
+  dom_Brz_def
+
+(* -- *)
+
 (* TODO: translate PEG machinery as separate module?
          n.b. INTRO_FLOOKUP is copied from parserProgScript.sml
 *)
@@ -1217,9 +1241,18 @@ val grep_sem_def = Define`
    | SOME r => CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames))) ∧
   (grep_sem _ _ = explode usage_string)`;
 
+val grep_termination_assum_def = Define`
+  (grep_termination_assum (_::regexp::filenames) ⇔
+   if NULL filenames then T else
+     case parse_regexp regexp of
+     | NONE => T
+     | SOME r => IS_SOME (Brz empty [normalize r] (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
+  (grep_termination_assum _ ⇔ T)`;
+
 val grep_spec = Q.store_thm("grep_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
-   CARD (set (MAP FST fs.infds)) < 255
+   CARD (set (MAP FST fs.infds)) < 255 ∧
+   grep_termination_assum cl
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
     [Conv NONE []]
@@ -1336,11 +1369,18 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ simp[FRONT_APPEND]
     \\ simp[match_line_def]
     \\ gen_tac
+    \\ fs[Abbr`cl`,grep_termination_assum_def,Abbr`fls`]
+    \\ `dom_Brz_alt empty [normalize r]`
+    by ( metis_tac[dom_Brz_alt_equal,dom_Brz_def] )
+    \\ imp_res_tac regexp_matcher_correct
     \\ TOP_CASE_TAC
-    >- cheat (* false : this is because of the termination proof. grep_sem will need to be uglified to accommodate this *)
+    >- (
+      fs[regexp_matcher_with_limit_def,compile_regexp_with_limit_def]
+      \\ rfs[IS_SOME_EXISTS] \\ rfs[]
+      \\ every_case_tac \\ fs[] )
     \\ imp_res_tac regexp_matcher_with_limit_sound
     \\ rveq
-    \\ cheat (* this should be proved separately as a top-level theorem about regexp_matcher *) )
+    \\ fs[])
   \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`λn. STDOUT (out ++ (CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (TAKE n (MAP implode fls))))) * COMMANDLINE cl * ROFS fs`
@@ -1366,5 +1406,20 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ simp[GSYM MAP_TAKE]
   \\ simp[MAP_MAP_o]
   \\ simp[set_sepTheory.STAR_ASSOC]);
+
+val st = get_ml_prog_state()
+val name = "grep"
+val spec = grep_spec |> UNDISCH |> ioProgLib.add_basis_proj
+val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
+
+val grep_prog_def = Define`grep_prog = ^prog_tm`;
+
+val grep_semantics = save_thm("grep_semantics",
+  sem_thm
+  |> REWRITE_RULE[GSYM grep_prog_def]
+  |> DISCH_ALL
+  |> REWRITE_RULE[AND_IMP_INTRO]
+  |> CONV_RULE(LAND_CONV EVAL)
+  |> REWRITE_RULE[APPEND]);
 
 val _ = export_theory ();
