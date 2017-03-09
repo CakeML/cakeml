@@ -2,7 +2,7 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
-open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
+open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
 open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
 ASCIInumbersLib
 
@@ -13,6 +13,7 @@ val _ = ParseExtras.temp_tight_equality()
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+val rveq = rpt BasicProvers.VAR_EQ_TAC
 (* -- *)
 
 (* TODO: move/categorize *)
@@ -2301,12 +2302,24 @@ val ALOOKUP_EXISTS_IFF = Q.store_thm(
   `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
   Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
 
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
 val ALIST_FUPDKEY_def = Define`
   (ALIST_FUPDKEY k f [] = []) ∧
   (ALIST_FUPDKEY k f ((k',v)::rest) =
      if k = k' then (k,f v)::rest
      else (k',v) :: ALIST_FUPDKEY k f rest)
 `;
+
+val ALIST_FUPDKEY_ind = theorem"ALIST_FUPDKEY_ind";
 
 val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
   "ALIST_FUPDKEY_ALOOKUP",
@@ -2323,19 +2336,29 @@ val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
   `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
   Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
 
+val ALIST_FUPDKEY_unchanged = Q.store_thm(
+  "ALIST_FUPDKEY_unchanged",
+  `∀k f alist.
+   (∀v. ALOOKUP alist k = SOME v ⇒ f v = v)
+   ==> ALIST_FUPDKEY k f alist = alist`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def]);
+
+val ALIST_FUPDKEY_o = Q.store_thm(
+  "ALIST_FUPDKEY_o",
+  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
+  rw[ALIST_FUPDKEY_def]);
+
+val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
+  `∀k f1 l f2.
+   (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
+   ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
+
 val A_DELKEY_def = Define`
   A_DELKEY k alist = FILTER (λp. FST p <> k) alist
 `;
-
-val LUPDATE_commutes = Q.store_thm(
-  "LUPDATE_commutes",
-  `∀m n e1 e2 l.
-    m ≠ n ⇒
-    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
-  Induct_on `l` >> simp[LUPDATE_def] >>
-  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
-  rename[`LUPDATE _ nn (_ :: _)`] >>
-  Cases_on `nn` >> fs[LUPDATE_def]);
 
 val MEM_DELKEY = Q.store_thm(
   "MEM_DELKEY[simp]",
@@ -2347,6 +2370,23 @@ val ALOOKUP_ADELKEY = Q.store_thm(
   "ALOOKUP_ADELKEY",
   `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`,
   simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
+
+val A_DELKEY_ALIST_FUPDKEY = Q.store_thm("A_DELKEY_ALIST_FUPDKEY[simp]",
+  `∀fd f ls. A_DELKEY fd (ALIST_FUPDKEY fd f ls) = A_DELKEY fd ls`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def,A_DELKEY_def]);
+
+val A_DELKEY_I = Q.store_thm("A_DELKEY_I",
+  `∀x ls. (A_DELKEY x ls = ls ⇔ ¬MEM x (MAP FST ls))`,
+  Induct_on`ls`
+  \\ rw[A_DELKEY_def,FILTER_EQ_ID,MEM_MAP,EVERY_MEM]
+  >- metis_tac[]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    `LENGTH (h::ls) ≤ LENGTH ls` by metis_tac[LENGTH_FILTER_LEQ]
+    \\ fs[] )
+  \\ first_x_assum(qspec_then`h`mp_tac)
+  \\ simp[]);
 
 val findi_APPEND = Q.store_thm(
   "findi_APPEND",
@@ -2376,17 +2416,6 @@ val HD_LUPDATE = Q.store_thm(
   "HD_LUPDATE",
   `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
   Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
-
-val ALIST_FUPDKEY_unchanged = Q.store_thm(
-  "ALIST_FUPDKEY_unchanged",
-  `ALOOKUP alist k = SOME v ∧ f v = v ⇒ ALIST_FUPDKEY k f alist = alist`,
-  Induct_on `alist`>> simp[FORALL_PROD, ALIST_FUPDKEY_def] >> rw[]);
-
-val ALIST_FUPDKEY_o = Q.store_thm(
-  "ALIST_FUPDKEY_o",
-  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
-  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
-  rw[ALIST_FUPDKEY_def]);
 
 val w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
@@ -2461,5 +2490,166 @@ val arith_shift_right_rwt = Q.store_thm("arith_shift_right_rwt",
   \\ rw [Once arith_shift_right_def]
   \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
   \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
+
+val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
+  `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,
+  Induct \\ rw[] \\ Cases_on`ls` \\ fs[]);
+
+val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
+  `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ rw[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[] \\ fs[] \\ rw[ADD1]
+  \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_NIL_IMP
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY
+  \\ imp_res_tac SPLITP_IMP
+  \\ fs[NULL_EQ]
+  \\ fs[SPLITP] \\ rfs[] \\ rw[]
+  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
+  \\ disch_then(qspec_then`t`mp_tac)
+  \\ Cases_on`t` \\ rw[FIELDS_def]
+  \\ fs[SPLITP] \\ rfs[]
+  \\ rfs[NULL_EQ]);
+
+val FIELDS_NEQ_NIL = Q.store_thm("FIELDS_NEQ_NIL[simp]",
+  `FIELDS P ls ≠ []`,
+  disch_then(assume_tac o Q.AP_TERM`LENGTH`)
+  \\ fs[LENGTH_FIELDS]);
+
+val CONCAT_FIELDS = Q.store_thm("CONCAT_FIELDS",
+  `∀ls. CONCAT (FIELDS P ls) = FILTER ($~ o P) ls`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ simp[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ fs[Once SPLITP]
+  \\ Cases_on`P h` \\ fs[] \\ rveq \\ simp[]
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ Cases_on`NULL r` \\ fs[NULL_EQ]
+  >- (
+    imp_res_tac SPLITP_NIL_SND_EVERY
+    \\ fs[FILTER_EQ_ID] )
+  \\ imp_res_tac SPLITP_IMP
+  \\ rfs[NULL_EQ]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ simp[FILTER_APPEND]
+  \\ fs[GSYM FILTER_EQ_ID]
+  \\ Cases_on`r` \\ fs[] );
+
+val FIELDS_next = Q.store_thm("FIELDS_next",
+  `∀ls l1 l2.
+   FIELDS P ls = l1::l2 ⇒
+   LENGTH l1 < LENGTH ls ⇒
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ rw[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[]
+  \\ rfs[PULL_FORALL,NULL_EQ]
+  \\ fs[SPLITP]
+  \\ every_case_tac \\ fs[]
+  \\ rw[]
+  \\ fs[SPLITP]
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ Cases_on`SPLITP P q` \\ fs[]
+  \\ rw[]
+  \\ `FIELDS P t = q::FIELDS P (TL r)`
+  by (
+    Cases_on`t` \\ fs[]
+    \\ rw[FIELDS_def,NULL_EQ] )
+  \\ first_x_assum(qspecl_then[`t`,`q`,`FIELDS P (TL r)`]mp_tac)
+  \\ simp[] );
+
+val FIELDS_full = Q.store_thm("FIELDS_full",
+  `∀P ls l1 l2.
+   FIELDS P ls = l1::l2 ∧ LENGTH ls ≤ LENGTH l1 ⇒
+   l1 = ls ∧ l2 = []`,
+  ntac 2 gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ simp_tac(srw_ss()++LET_ss)[FIELDS_def]
+  \\ pairarg_tac \\ pop_assum mp_tac \\ simp_tac(srw_ss())[]
+  \\ strip_tac
+  \\ IF_CASES_TAC
+  >- (
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_SND_EVERY )
+  \\ simp_tac(srw_ss())[]
+  \\ strip_tac \\ rveq
+  \\ Q.ISPEC_THEN`h::t`mp_tac SPLITP_LENGTH
+  \\ last_x_assum kall_tac
+  \\ simp[]
+  \\ strip_tac \\ fs[]
+  \\ `LENGTH r = 0` by decide_tac
+  \\ fs[LENGTH_NIL]);
+
+val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
+  `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val splitlines_def = Define`
+  splitlines ls =
+  let lines = FIELDS ((=) #"\n") ls in
+  (* discard trailing newline *)
+  if NULL (LAST lines) then FRONT lines else lines`;
+
+val splitlines_next = Q.store_thm("splitlines_next",
+  `splitlines ls = ln::lns ⇒
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+  simp[splitlines_def]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ Cases_on`LENGTH h < LENGTH ls`
+  >- (
+    imp_res_tac FIELDS_next
+    \\ strip_tac
+    \\ `ln = h`
+    by (
+      pop_assum mp_tac \\ rw[]
+      \\ fs[FRONT_DEF] )
+    \\ fs[]
+    \\ fs[LAST_DEF,NULL_EQ]
+    \\ Cases_on`t = []` \\ fs[]
+    \\ fs[FRONT_DEF]
+    \\ IF_CASES_TAC \\ fs[] )
+  \\ fs[NOT_LESS]
+  \\ imp_res_tac FIELDS_full \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ simp[DROP_LENGTH_TOO_LONG,FIELDS_def]);
+
+val splitlines_nil = save_thm("splitlines_nil[simp]",
+  EVAL``splitlines ""``);
+
+val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
+  `splitlines ls = [] ⇔ (ls = [])`,
+  rw[EQ_IMP_THM]
+  \\ fs[splitlines_def]
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ fs[LAST_DEF] \\ rfs[NULL_EQ]
+  \\ Cases_on`LENGTH "" < LENGTH ls`
+  >- ( imp_res_tac FIELDS_next \\ fs[] )
+  \\ fs[LENGTH_NIL]);
 
 val _ = export_theory()
