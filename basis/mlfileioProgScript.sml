@@ -539,6 +539,184 @@ val close_spec = Q.store_thm(
   xif >> qexists_tac `T` >> simp[Abbr`catfs`,ROFS_def] >>
   xpull >> xret >> xsimpl);
 
+val eq_char_v_thm =
+  mlbasicsProgTheory.eq_v_thm
+  |> DISCH_ALL
+  |> C MATCH_MP (ml_translatorTheory.EqualityType_NUM_BOOL
+                 |> CONJUNCTS |> el 5)
+
+val inputLine = process_topdecs`
+  fun inputLine fd =
+    let
+      fun loop acc =
+        case fgetc fd of
+          NONE => #"\n"::acc
+        | SOME c => if c = #"\n" then c::acc else loop (c::acc)
+    in
+      case fgetc fd of NONE => NONE
+      | SOME c => if c = #"\n" then SOME (String.str c)
+                  else SOME (String.implode (rev (loop [c])))
+    end`;
+val _ = append_prog inputLine;
+
+val inputLine_spec = Q.store_thm("inputLine_spec",
+  `∀fd fdv.
+    WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "inputLine" (get_ml_prog_state())) [fdv]
+      (ROFS fs)
+      (POSTv sov. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs)) sov *
+                  ROFS (bumpLineFD (w2n fd) fs))`,
+  rw[]
+  \\ xcf"inputLine"(get_ml_prog_state())
+  \\ xfun_spec `loop`
+    `!ls acc accv fs.
+       LIST_TYPE CHAR acc accv ∧ validFD (w2n fd) fs ∧
+       (ls = case FDline (w2n fd) fs of NONE => "\n" | SOME ls => ls)
+       ⇒
+       app p loop [accv]
+         (ROFS fs)
+         (POSTv lv. &LIST_TYPE CHAR (REVERSE ls ++ acc) lv *
+            ROFS (bumpLineFD (w2n fd) fs))`
+  >- (
+    ho_match_mp_tac list_INDUCT
+    \\ qpat_x_assum`_ fs`kall_tac
+    \\ conj_tac
+    >- (
+      ntac 2 gen_tac \\ qx_gen_tac`fs`
+      \\ CASE_TAC
+      \\ strip_tac \\ rveq
+      \\ fs[FDline_def]
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[] )
+    \\ gen_tac \\ strip_tac
+    \\ qx_gen_tac`h`
+    \\ ntac 2 gen_tac \\ qx_gen_tac`fs`
+    \\ CASE_TAC \\ strip_tac \\ rveq
+    >- (
+      first_x_assum match_mp_tac
+      \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                       ROFS (bumpFD (w2n fd) fs)`
+      >- (xapp \\ rw[])
+      \\ xmatch
+      \\ rfs[GSYM FDchar_FDline_NONE]
+      \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+      \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+      \\ xcon
+      \\ fs[ml_translatorTheory.LIST_TYPE_def]
+      \\ fs[bumpFD_def,bumpLineFD_def]
+      \\ fs[FDchar_FDline_NONE]
+      \\ xsimpl )
+    \\ last_x_assum match_mp_tac
+    \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                     ROFS (bumpFD (w2n fd) fs)`
+    >- (xapp \\ rw[])
+    \\ xmatch
+    \\ Cases_on`FDchar (w2n fd) fs` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+    >- fs[FDchar_FDline_NONE]
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ rename1`CHAR c cv`
+    \\ xlet`POSTv bv. &BOOL(c = #"\n") bv * ROFS (bumpFD (w2n fd)fs)`
+    >- ( xapp_spec eq_char_v_thm \\ instantiate \\ xsimpl )
+    \\ imp_res_tac FDchar_SOME_IMP_FDline
+    \\ fs[] \\ rveq
+    \\ xif
+    >- (
+      xcon
+      \\ fs[bumpFD_def,bumpLineFD_def,FDchar_def,FDline_def]
+      \\ fs[] \\ rveq
+      \\ pairarg_tac \\ fs[]
+      \\ pairarg_tac \\ fs[]
+      \\ rveq
+      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ Cases_on`l` \\ rveq
+      >- (
+        qpat_x_assum`_ = #"\n" :: _`mp_tac
+        \\ simp[] \\ strip_tac \\ rveq
+        \\ full_simp_tac std_ss [] \\ rfs[] \\ rveq
+        \\ simp[ml_translatorTheory.LIST_TYPE_def]
+        \\ qmatch_goalsub_abbrev_tac`_ o xx`
+        \\ `xx = I`
+        by (
+          rw[Abbr`xx`,FUN_EQ_THM]
+          \\ match_mp_tac ALIST_FUPDKEY_unchanged
+          \\ simp[FORALL_PROD] )
+        \\ xsimpl)
+      \\ fs[] \\ rveq
+      \\ imp_res_tac SPLITP_IMP
+      \\ fs[])
+    \\ xlet`POSTv x. &LIST_TYPE CHAR (c::acc) x * ROFS (bumpFD (w2n fd) fs)`
+    >- ( xcon \\ simp[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl )
+    \\ xapp \\ first_x_assum(qspec_then`ARB`kall_tac)
+    \\ imp_res_tac validFD_bumpFD
+    \\ instantiate
+    \\ imp_res_tac FDline_bumpFD
+    \\ CASE_TAC \\ fs[] \\ rveq
+    \\ xsimpl
+    \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] )
+  \\ xlet`POSTv x. &OPTION_TYPE CHAR (FDchar (w2n fd) fs) x *
+                   ROFS (bumpFD (w2n fd) fs)`
+  >- (xapp \\ rw[])
+  \\ xmatch
+  \\ Cases_on`FDchar (w2n fd) fs` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (
+    reverse conj_tac >- (EVAL_TAC \\ rw[]) (* should CF do this automatically? *)
+    \\ xcon
+    \\ fs[FDchar_FDline_NONE,ml_translatorTheory.OPTION_TYPE_def]
+    \\ simp[bumpFD_def,bumpLineFD_def]
+    \\ fs[GSYM FDchar_FDline_NONE]
+    \\ xsimpl )
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+  \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+  \\ rename1`CHAR c cv`
+  \\ xlet`POSTv bv. &BOOL(c = #"\n") bv * ROFS (bumpFD (w2n fd)fs)`
+  >- ( xapp_spec eq_char_v_thm \\ instantiate \\ xsimpl )
+  \\ xif
+  >- (
+    xlet`POSTv sv. &STRING_TYPE (str c) sv * ROFS (bumpFD (w2n fd) fs)`
+    >- ( xapp \\ instantiate \\ xsimpl )
+    \\ xcon
+    \\ fs[FDchar_def,FDline_def]
+    \\ pairarg_tac \\ fs[]
+    \\ Cases_on`DROP off content` \\ fs[DROP_NIL]
+    \\ simp[SPLITP] \\ rfs[DROP_CONS_EL]
+    \\ simp[ml_translatorTheory.OPTION_TYPE_def]
+    \\ fs[mlstringTheory.str_def]
+    \\ fs[bumpFD_def,bumpLineFD_def,FDchar_def,FDline_def,DROP_CONS_EL,SPLITP]
+    \\ simp[ALIST_FUPDKEY_ALOOKUP]
+    \\ qmatch_goalsub_abbrev_tac`_ o xx`
+    \\ `xx = I`
+    by (
+      rw[Abbr`xx`,FUN_EQ_THM]
+      \\ match_mp_tac ALIST_FUPDKEY_unchanged
+      \\ simp[FORALL_PROD] )
+    \\ xsimpl)
+  \\ xlet`POSTv x. &LIST_TYPE CHAR [] x * ROFS (bumpFD (w2n fd) fs)`
+  >- (xcon \\ simp[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl)
+  \\ xlet`POSTv accv. &LIST_TYPE CHAR [c] accv * ROFS (bumpFD (w2n fd) fs)`
+  >- (xcon \\ fs[ml_translatorTheory.LIST_TYPE_def] \\ xsimpl)
+  \\ first_x_assum drule
+  \\ imp_res_tac validFD_bumpFD
+  \\ disch_then drule
+  \\ imp_res_tac FDchar_SOME_IMP_FDline
+  \\ imp_res_tac FDline_bumpFD
+  \\ qmatch_goalsub_abbrev_tac`REVERSE l`
+  \\ `l = ls`
+  by ( unabbrev_all_tac \\ CASE_TAC \\ fs[] )
+  \\ fs[] \\ ntac 2 (pop_assum kall_tac)
+  \\ simp[GSYM SNOC_APPEND]
+  \\ once_rewrite_tac[GSYM (CONJUNCT2 REVERSE)]
+  \\ strip_tac
+  \\ xlet`POSTv v. &LIST_TYPE CHAR (REVERSE (c::ls)) v *
+                   ROFS (bumpLineFD (w2n fd) fs)`
+  >- (xapp \\ xsimpl)
+  \\ xlet`POSTv lv. &LIST_TYPE CHAR (c::ls) lv * ROFS (bumpLineFD (w2n fd) fs)`
+  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]std_preludeTheory.reverse_v_thm)
+       \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
+  \\ xlet`POSTv sv. &STRING_TYPE (implode (c::ls)) sv * ROFS (bumpLineFD (w2n fd) fs)`
+  >- (xapp \\ instantiate \\ xsimpl )
+  \\ xcon \\ simp[ml_translatorTheory.OPTION_TYPE_def] \\ xsimpl);
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();

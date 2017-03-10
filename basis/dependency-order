@@ -22,6 +22,7 @@ list
 vector
 string
 basics
+int
 char
 word8
 w8array
