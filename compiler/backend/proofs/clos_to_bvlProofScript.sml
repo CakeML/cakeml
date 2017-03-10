@@ -1311,10 +1311,6 @@ val do_app = Q.prove(
     simp [EL_DROP, optionTheory.OPTREL_def])
   >- (
     imp_res_tac state_rel_globals >>
-    (*
-<<<<<<< HEAD
-*)
-
     every_case_tac >>
     fs [get_global_def, num_added_globals_def] >>
     rw [] >>
@@ -1324,16 +1320,6 @@ val do_app = Q.prove(
     rw [] >>
     first_x_assum drule >>
     simp [EL_DROP, optionTheory.OPTREL_def] >>
-    (*
-=======
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-    BasicProvers.EVERY_CASE_TAC >> rev_full_simp_tac(srw_ss())[get_global_def]>>
-    srw_tac[][v_rel_SIMP] >>
-    first_x_assum(fn th =>
-        first_x_assum(strip_assume_tac o MATCH_MP th))>> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[OPTREL_def] >>
->>>>>>> Fix do_app proofs in clos_to_bvl
-*)
     full_simp_tac(srw_ss())[state_rel_def] >>
     rw []
     >- (
