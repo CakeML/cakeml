@@ -8,6 +8,7 @@ val hprop_heap_thms =
   ref [
     emp_precond,
     mlcharioProgTheory.STDOUT_precond,
+    mlcharioProgTheory.STDERR_precond,
     mlcharioProgTheory.STDIN_T_precond,
     mlcharioProgTheory.STDIN_F_precond,
     mlcommandLineProgTheory.COMMANDLINE_precond,

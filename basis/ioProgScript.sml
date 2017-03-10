@@ -15,6 +15,14 @@ val write_list = normalise_topdecs
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
+val write_err_list = normalise_topdecs
+  `fun write_err_list xs =
+     case xs of
+         [] => ()
+       | x::xs => (CharIO.write_err x; write_err_list xs)`;
+
+val _ = ml_prog_update (ml_progLib.add_prog write_err_list pick_name);
+
 val basis_st = get_ml_prog_state;
 
 val write_list_spec = Q.store_thm ("write_list_spec",
@@ -32,6 +40,30 @@ val write_list_spec = Q.store_thm ("write_list_spec",
   \\ xcf "write_list" (basis_st()) \\ fs [LIST_TYPE_def]
   \\ xmatch
   \\ xlet `POSTv uv. STDOUT (output ++ [h])`
+  THEN1
+   (xapp  \\ instantiate
+    \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
+  \\ xapp \\ xsimpl
+  \\ qexists_tac `emp`
+  \\ qexists_tac `output ++ [h]`
+  \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ xsimpl);
+
+val write_err_list_spec = Q.store_thm ("write_err_list_spec",
+  `!xs cv output.
+     LIST_TYPE CHAR xs cv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "write_err_list" (basis_st()))
+       [cv]
+       (STDERR output)
+       (POSTv uv. &UNIT_TYPE () uv * STDERR (output ++ xs))`,
+  Induct
+  THEN1
+   (xcf "write_err_list" (basis_st()) \\ fs [LIST_TYPE_def]
+    \\ xmatch \\ xcon \\ xsimpl)
+  \\ fs [LIST_TYPE_def,PULL_EXISTS] \\ rw []
+  \\ xcf "write_err_list" (basis_st()) \\ fs [LIST_TYPE_def]
+  \\ xmatch
+  \\ xlet `POSTv uv. STDERR (output ++ [h])`
   THEN1
    (xapp  \\ instantiate
     \\ qexists_tac `emp` \\ qexists_tac `output` \\ xsimpl)
@@ -128,6 +160,25 @@ val print_spec = Q.store_thm("print_spec",
     \\ xapp \\ rw[]
 );
 
+val print_err = process_topdecs
+  `fun print_err s =
+    let
+      val l = String.explode s
+    in write_err_list l end`
+
+val res = ml_prog_update(ml_progLib.add_prog print_err pick_name)
+
+val print_err_spec = Q.store_thm("print_err_spec",
+  `!s sv. STRING_TYPE s sv ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "print_err" (basis_st())) [sv]
+   (STDERR output)
+   (POSTv uv. &UNIT_TYPE () uv * STDERR (output ++ (explode s)))`,
+    xcf "print_err" (basis_st())
+    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDERR output`
+    >-(xapp \\ xsimpl \\ instantiate)
+    \\ xapp \\ rw[]
+);
+
 val res = register_type``:'a app_list``;
 
 val print_app_list = process_topdecs
@@ -186,50 +237,55 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
 
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
-    \name (inp,out,cls,fs) bytes.
+    \name (inp,out,err,cls,fs) bytes.
      if name = "putChar" then
        case ffi_putChar bytes out of
-       | SOME (bytes,out) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,out) => Oracle_return (inp,out,err,cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "putChar_err" then
+       case ffi_putChar_err bytes err of
+       | SOME (bytes,err) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getChar" then
        case ffi_getChar bytes inp of
-       | SOME (bytes,inp) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,inp) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getArgs" then
        case ffi_getArgs bytes cls of
-       | SOME (bytes,cls) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,cls) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "open" then
        case ffi_open bytes fs of
-       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "fgetc" then
        case ffi_fgetc bytes fs of
-       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "close" then
        case ffi_close bytes fs of
-       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "isEof" then
        case ffi_isEof bytes fs of
-       | SOME (bytes,fs) => Oracle_return (inp,out,cls,fs) bytes
+       | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      Oracle_fail`
 
-(*Output is always empty to start *)
+(*Outputs are always empty to start *)
 val basis_ffi_def = Define `
   basis_ffi (inp: string) (cls: string list) files =
     <| oracle := basis_ffi_oracle
-     ; ffi_state := (inp, [], cls, (<| files := files; infds := [] |> : RO_fs))
+     ; ffi_state := (inp, [], [], cls, (<| files := files; infds := [] |> : RO_fs))
      ; final_event := NONE
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
-  basis_proj1 = (\(inp, out, cls, fs).
+  basis_proj1 = (\(inp, out, err, cls, fs).
     FEMPTY |++
       ((mk_proj1 stdin_ffi_part inp) ++
        (mk_proj1 stdout_ffi_part out) ++
+       (mk_proj1 stderr_ffi_part err) ++
        (mk_proj1 commandLine_ffi_part cls) ++
        (mk_proj1 rofs_ffi_part fs)))`;
 
@@ -237,6 +293,7 @@ val basis_proj2_def = Define `
   basis_proj2 =
     [mk_proj2 stdin_ffi_part;
      mk_proj2 stdout_ffi_part;
+     mk_proj2 stderr_ffi_part;
      mk_proj2 commandLine_ffi_part;
      mk_proj2 rofs_ffi_part]`;
 
@@ -319,7 +376,7 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ fs[stdoutFFITheory.ffi_putChar_def]
+  \\ fs[stdoutFFITheory.ffi_putChar_def,stderrFFITheory.ffi_putChar_err_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
 );
@@ -357,7 +414,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
-    ∃(st3:(string # string # string list # RO_fs) semanticPrimitives$state).
+    ∃(st3:(string # string # string # string list # RO_fs) semanticPrimitives$state).
     semantics_prog (init_state (basis_ffi inp cls fs)) env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
     extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x)`,
     rw[]
@@ -386,6 +443,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [stdinFFITheory.ffi_getChar_length,
  stdoutFFITheory.ffi_putChar_length,
+ stderrFFITheory.ffi_putChar_err_length,
  commandLineFFITheory.ffi_getArgs_length,
  rofsFFITheory.ffi_open_length,
  rofsFFITheory.ffi_fgetc_length,
@@ -395,6 +453,7 @@ val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
 [stdinFFITheory.stdin_ffi_part_def,
  stdoutFFITheory.stdout_ffi_part_def,
+ stderrFFITheory.stderr_ffi_part_def,
  commandLineFFITheory.commandLine_ffi_part_def,
  rofsFFITheory.rofs_ffi_part_def]);
 
