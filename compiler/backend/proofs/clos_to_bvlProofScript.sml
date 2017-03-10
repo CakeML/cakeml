@@ -4458,6 +4458,37 @@ val compile_prog_stubs = Q.prove(`
   DISJ2_TAC>>
   metis_tac[IS_SUBLIST_APPEND2]);
 
+val evaluate_init1 = Q.prove(`
+  ∀mapp2 mapp1 tot st.
+  (∀n. n < mapp2 ⇒
+  partial_app_fn_location mapp1 tot n ∈ domain st.code) ⇒
+  bvlSem$evaluate (REVERSE
+  (GENLIST (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) mapp2) ,[Unit],st) =
+  (Rval (REVERSE
+  (GENLIST (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) mapp2)),st)`,
+  Induct>>fs[bvlSemTheory.evaluate_def]>>
+  rw[]>>simp[GENLIST,REVERSE_SNOC]>>
+  ONCE_REWRITE_TAC[CONS_APPEND]>>
+  simp[bvlPropsTheory.evaluate_APPEND,bvlSemTheory.evaluate_def,do_app_def])
+
+val evaluate_init = Q.prove(`
+  ∀mapp2 mapp1 st.
+  (∀m n. m < mapp2 ∧ n < m ⇒
+  partial_app_fn_location mapp1 m n ∈ domain st.code) ⇒
+  bvlSem$evaluate (REVERSE
+  (FLAT (GENLIST (λtot. GENLIST
+  (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) tot) mapp2)) ,[Unit],st) =
+    (Rval (REVERSE
+    (FLAT (GENLIST (λtot. GENLIST
+    (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) tot) mapp2))),st)`,
+  Induct>>fs[bvlSemTheory.evaluate_def]>>
+  simp[GENLIST,FLAT_SNOC]>>
+  simp[REVERSE_APPEND,bvlPropsTheory.evaluate_APPEND]>>
+  rw[]>>
+  `∀n. n < mapp2 ⇒ partial_app_fn_location mapp1 mapp2 n ∈ domain st.code` by fs[] >>
+  drule evaluate_init1>>
+  simp[]);
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s:'ffi closSem$state) = (r,s') ∧
   clos_init c.max_app s ∧
@@ -4710,7 +4741,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
   qpat_abbrev_tac`s_annot = s_remove with code:=A`>>
   (* Constructed BVL state *)
-  disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock)`,`[]`,`FEMPTY`] mp_tac)>>
+  disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock) with globals:=[SOME (global_table c.max_app)] `,`[]`,`FEMPTY`] mp_tac)>>
   impl_tac >-
     (fs(map Abbr [`s_annot`,`s_remove`,`s_call`])>>
     rveq>>
@@ -4718,7 +4749,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     reverse CONJ_TAC>-
       (simp[state_rel_def,CONJ_ASSOC]>>
       CONJ_TAC>-
-        simp[lookup_fromAList,ALOOKUP_APPEND,ALOOKUP_toAList,init_code_ok]>>
+        (simp[lookup_fromAList,ALOOKUP_APPEND,ALOOKUP_toAList,init_code_ok]>>
+        EVAL_TAC>>fs[])>>
       qmatch_assum_abbrev_tac`ALL_DISTINCT (MAP FST ls)`>>
       rfs[]>>
       rw[]>>qexists_tac`[]`>>
@@ -4781,12 +4813,26 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   (* needs a +1 on the clock*)
   qexists_tac`res'''`>>
   qexists_tac`t2'''`>>
-  qexists_tac`ck+ck'+1`>>
+  qexists_tac`ck+ck'+2`>>
   qexists_tac`f2`>>
   unabbrev_all_tac>>fs[bvlSemTheory.dec_clock_def]>>
-  rfs[]>>
-  fs[]);
-
+  fs[evaluate_def,init_globals_def]>>
+  simp[do_app_def]>>
+  qmatch_goalsub_abbrev_tac`evaluate (_,_,st)`>>
+  `(∀m n. m < c.max_app ∧ n < m ⇒ partial_app_fn_location c.max_app m n ∈ domain st.code)` by
+  (fs[Abbr`st`,domain_fromAList,MEM_MAP,MEM_toAList,EXISTS_PROD]>>
+  drule init_code_ok>>
+  simp[])>>
+  imp_res_tac evaluate_init>>
+  simp[get_global_def,Abbr`st`,partial_app_label_table_loc_def,dec_clock_def]>>
+  simp[find_code_def,lookup_fromAList,ALOOKUP_APPEND]>>
+  `ALOOKUP (toAList (init_code c.max_app)) (num_stubs c.max_app + 3) = NONE` by
+    (simp[ALOOKUP_NONE,toAList_domain]>>
+    CCONTR_TAC>>
+    fs[]>>imp_res_tac domain_init_code_lt_num_stubs>>
+    fs[])>>
+  fs[LUPDATE_def,partial_app_label_table_loc_def,global_table_def]);
+  
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel c (r,x) (Rerr (Rabort a),y) ⇒
    r = Rerr (Rabort a)`,

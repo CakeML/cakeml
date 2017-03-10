@@ -331,7 +331,8 @@ val init_code_def = Define `
 
 val init_globals_def = Define `
   init_globals max_app =
-    Let
+    Let [Op AllocGlobal []]
+    (Let
       [Op (SetGlobal partial_app_label_table_loc)
         [Op (Cons tuple_tag)
           (REVERSE (FLAT
@@ -342,7 +343,7 @@ val init_globals_def = Define `
                   tot)
               max_app)))]]
       (* Expect the real start of the program in code location 3 *)
-      (Call 0 (SOME 3) [])`;
+      (Call 0 (SOME (num_stubs max_app + 3)) []))`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps max_app [] aux = ([],aux)) /\
