@@ -26,6 +26,32 @@ val _ = Define`closure_tag = 30:num`
 val _ = Define`partial_app_tag = 31:num`
 val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 
+(* Trace of an expression through the compiler, for exploring transformations *)
+val _ = Datatype`
+  tra =
+    | Empty
+    | None (* Dead trace, do not make traces at all *)
+    | Cons tra num
+    | Union tra tra`
+
+(* Create new Cons trace, unless original trace is `None`, indicating traces are
+* turned off. *)
+val mk_cons_def = Define`
+  mk_cons tr n =
+    case tr of
+       | None => None
+       | _    => Cons tr n`;
+
+(* Create new Cons trace, unless any of the original traces are `None`,
+* indicating traces are turned off. *)
+val mk_union_def = Define`
+  mk_union tr1 tr2 =
+    case tr1 of
+       | None => None
+       | _    => case tr2 of
+                  | None  => None
+                  | _     => Union tr1 tr2`;
+
 val bool_to_tag_def = Define`
   bool_to_tag b = if b then true_tag else false_tag`
 

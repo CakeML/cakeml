@@ -23,7 +23,7 @@ val compile_def = Define`
        | NONE => Failure TypeError
        | SOME ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
-          | NONE => Failure CompileError
-          | SOME (bytes,limit) => Success (bytes,limit)`;
+          | [] => Failure CompileError
+          | json => Success json`;
 
 val _ = export_theory();

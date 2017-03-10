@@ -42,38 +42,38 @@ val compile_pat_def = tDefine"compile_pat"`
    decide_tac);
 
 val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp tagenv (Raise e) = Raise (compile_exp tagenv e))
+  (compile_exp tagenv (Raise _ e) = Raise (compile_exp tagenv e))
   ∧
-  (compile_exp tagenv (Handle e pes) =
+  (compile_exp tagenv (Handle _ e pes) =
    Handle (compile_exp tagenv e) (compile_pes tagenv pes))
   ∧
-  (compile_exp tagenv ((Lit l):modLang$exp) = (Lit l:conLang$exp))
+  (compile_exp tagenv ((Lit _ l):modLang$exp) = (Lit l:conLang$exp))
   ∧
-  (compile_exp tagenv (Con cn es) =
+  (compile_exp tagenv (Con _ cn es) =
    Con (lookup_tag_env cn tagenv) (compile_exps tagenv es))
   ∧
-  (compile_exp tagenv (Var_local x) = Var_local x)
+  (compile_exp tagenv (Var_local _ x) = Var_local x)
   ∧
-  (compile_exp tagenv (Var_global n) = Var_global n)
+  (compile_exp tagenv (Var_global _ n) = Var_global n)
   ∧
-  (compile_exp tagenv (Fun x e) =
+  (compile_exp tagenv (Fun _ x e) =
    Fun x (compile_exp tagenv e))
   ∧
-  (compile_exp tagenv (App op es) =
+  (compile_exp tagenv (App _ op es) =
    App (Op op) (compile_exps tagenv es))
   ∧
-  (compile_exp tagenv (If e1 e2 e3) =
+  (compile_exp tagenv (If _ e1 e2 e3) =
    Mat (compile_exp tagenv e1)
      [(Pcon(SOME(true_tag,TypeId(Short"bool")))[],compile_exp tagenv e2);
       (Pcon(SOME(false_tag,TypeId(Short"bool")))[],compile_exp tagenv e3)])
   ∧
-  (compile_exp tagenv (Mat e pes) =
+  (compile_exp tagenv (Mat _ e pes) =
    Mat (compile_exp tagenv e) (compile_pes tagenv pes))
   ∧
-  (compile_exp tagenv (Let a e1 e2) =
+  (compile_exp tagenv (Let _ a e1 e2) =
    Let a (compile_exp tagenv e1) (compile_exp tagenv e2))
   ∧
-  (compile_exp tagenv (Letrec funs e) =
+  (compile_exp tagenv (Letrec _ funs e) =
    Letrec (compile_funs tagenv funs) (compile_exp tagenv e))
   ∧
   (compile_exps tagenv [] = [])
