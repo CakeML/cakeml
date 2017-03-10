@@ -1,5 +1,6 @@
 open preamble ml_translatorLib ml_progLib
-     ioProgTheory cfTacticsLib basisFunctionsLib
+     cfTacticsLib basisFunctionsLib
+     rofsFFITheory mlfileioProgTheory ioProgTheory
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
@@ -316,16 +317,6 @@ val regexp_matcher_with_limit_side_def = Q.prove(
           >> first_assum (ASSUME_TAC o MATCH_MP compile_regexp_good_vec)
           >> fs[good_vec_def] >> metis_tac []))
   >- metis_tac [compile_regexp_with_limit_lookup]) |> update_precondition;
-
-val regexp_matcher_with_limit_termination = Q.store_thm("regexp_matcher_with_limit_termination",
-  `dom_Brz_alt empty [normalize r] ⇒
-   ∃result. regexp_matcher_with_limit r s = SOME result`,
-  rw[regexp_matcher_with_limit_def]
-  \\ every_case_tac \\ simp[]
-  \\ fs[compile_regexp_with_limit_def]
-  \\ every_case_tac \\ fs[]
-  \\ fs[dom_Brz_alt_equal
-  dom_Brz_def
 
 (* TODO: should this be in regexp_compilerTheory *)
 
