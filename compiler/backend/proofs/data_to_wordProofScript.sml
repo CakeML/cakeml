@@ -5821,10 +5821,20 @@ val word_exp_set_var_ShiftVar_lemma = store_thm("word_exp_set_var_ShiftVar_lemma
     | SOME (Word w) =>
         lift Word (case sow of Lsl => SOME (w << n)
                              | Lsr => SOME (w >>> n)
-                             | Asl => SOME (w >> n))
-    | _ => FAIL (word_exp t (ShiftVar sow v n)) "hi"``,
+                             | Asr => SOME (w >> n)
+                             | Ror => SOME (word_ror w n))
+    | _ => FAIL (word_exp t (ShiftVar sow v n)) "lookup failed"``,
   Cases_on `lookup v t.locals` \\ fs [] \\ rw [FAIL_DEF]
   \\ fs [ShiftVar_def]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (Cases_on `n < dimindex (:'a)` \\ fs []
+    THEN1
+     (Cases_on `n = 0` \\ fs []
+      \\ eval_tac \\ every_case_tac \\ fs [])
+    \\ eval_tac \\ every_case_tac \\ fs [] \\ eval_tac
+    \\ qspec_then `n` assume_tac (MATCH_MP MOD_LESS DIMINDEX_GT_0)
+    \\ simp [])
   \\ IF_CASES_TAC \\ fs []
   THEN1 (eval_tac \\ every_case_tac \\ fs [])
   \\ IF_CASES_TAC \\ fs []
@@ -8760,16 +8770,10 @@ val word_exp_set_var_ShiftVar = store_thm("word_exp_set_var_ShiftVar",
   ``word_exp (set_var v (Word w) t) (ShiftVar sow v n) =
     lift Word (case sow of Lsl => SOME (w << n)
                          | Lsr => SOME (w >>> n)
-                         | Asl => SOME (w >> n))``,
-  fs [ShiftVar_def]
-  \\ IF_CASES_TAC \\ fs []
-  THEN1 (eval_tac \\ every_case_tac \\ fs [])
-  \\ IF_CASES_TAC \\ fs []
-  THEN1
-   (drule word_asr_dimindex
-    \\ IF_CASES_TAC \\ eval_tac
-    \\ every_case_tac \\ eval_tac)
-  \\ eval_tac \\ every_case_tac \\ fs [] \\ eval_tac);
+                         | Asr => SOME (w >> n)
+                         | Ror => SOME (word_ror w n))``,
+  once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
+  \\ eval_tac \\ fs [lookup_insert] \\ fs []);
 
 val MemEqList_thm = prove(
   ``!offset t xs dm m b a.

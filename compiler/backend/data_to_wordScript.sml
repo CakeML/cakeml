@@ -409,8 +409,11 @@ val AnyHeader_def = Define `
 
 val ShiftVar_def = Define `
   ShiftVar sh v n =
-    if n = 0 then Var v else
-    if dimindex (:'a) <= n then
+    if sh = Ror then
+      (let m = if n < dimindex (:'a) then n else n MOD (dimindex (:'a)) in
+         if m = 0 then Var v else Shift sh (Var v) (Nat m))
+    else if n = 0 then Var v
+    else if dimindex (:'a) <= n then
       if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
     else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
 
