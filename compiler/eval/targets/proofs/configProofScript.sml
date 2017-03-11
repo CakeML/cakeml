@@ -128,7 +128,7 @@ val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
     (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
   fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
 
-val x64_conf_ok = Q.prove(`
+val x64_conf_ok = Q.store_thm("x64_conf_ok",`
   conf_ok x64_compiler_config x64_machine_config`,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_machine_config_def,x64_backend_correct]
@@ -158,7 +158,7 @@ val x64_conf_ok = Q.prove(`
 val arm6_machine_config_def = Define`
   arm6_machine_config = <|target:= arm6_target ; len_reg:=1  ; ptr_reg := 0 ; callee_saved_regs := [8;10;11]|>`
 
-val arm6_conf_ok = Q.prove(`
+val arm6_conf_ok = Q.store_thm("arm6_conf_ok",`
   conf_ok arm_compiler_config arm6_machine_config`,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
@@ -203,7 +203,7 @@ val arm6_conf_ok = Q.prove(`
 val arm8_machine_config_def = Define`
   arm8_machine_config = <|target:= arm8_target ; len_reg:=1  ; ptr_reg := 0 ; callee_saved_regs := [27;28;29]|>`
 
-val arm8_conf_ok = Q.prove(`
+val arm8_conf_ok = Q.store_thm("arm8_conf_ok",`
   conf_ok arm8_compiler_config arm8_machine_config`,
   simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
@@ -252,7 +252,7 @@ val arm8_conf_ok = Q.prove(`
 val riscv_machine_config_def = Define`
   riscv_machine_config = <|target:= riscv_target; len_reg:= 11 ; ptr_reg :=10 ; callee_saved_regs := [25;26;27]|>`
 
-val riscv_conf_ok = Q.prove(`
+val riscv_conf_ok = Q.store_thm("riscv_conf_ok",`
   conf_ok riscv_compiler_config riscv_machine_config`,
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_machine_config_def,riscv_backend_correct]
@@ -301,7 +301,7 @@ val riscv_conf_ok = Q.prove(`
 val mips_machine_config_def = Define`
   mips_machine_config = <|target:= mips_target; len_reg:=5  ; ptr_reg := 4 ; callee_saved_regs := [21;22;23]|>`
 
-val mips_conf_ok = Q.prove(`
+val mips_conf_ok = Q.store_thm("mips_conf_ok",`
   conf_ok mips_compiler_config mips_machine_config`,
   simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
