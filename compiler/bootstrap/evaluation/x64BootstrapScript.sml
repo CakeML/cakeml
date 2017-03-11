@@ -835,13 +835,21 @@ val () = time (
 val sec_ok_light_tm =
   tm18 |> rator |> rand
 
+fun eval_T tm =
+  let
+    val th = eval tm
+  in
+    if aconv (rconc th) boolSyntax.T then th
+    else raise (mk_HOL_ERR"x64Bootstrap""sec_ok"(Parse.thm_to_string th))
+  end
+
 fun eval_fn i n (p,d) =
   let
     val () = say_str"sec_ok" i n
     val conv = (
       REWR_CONV lab_to_targetTheory.sec_ok_light_def THENC
       RAND_CONV (REWR_CONV d) THENC
-      listLib.ALL_EL_CONV eval)
+      listLib.ALL_EL_CONV eval_T)
     val tm = mk_comb(sec_ok_light_tm, p)
   in
     (*time*) conv tm
