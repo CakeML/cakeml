@@ -26,7 +26,7 @@ val semantics_prog_Terminate_not_Fail = Q.store_thm("semantics_prog_Terminate_no
 val compile_correct_matchable =
   compile_correct
   |> CONV_RULE(
-       RAND_CONV(REWR_CONV init_state_env_thm)
+       RAND_CONV(REWR_CONV ml_progTheory.init_state_env_thm)
        THENC REWR_CONV LET_THM
        THENC PAIRED_BETA_CONV THENC
        LAND_CONV(move_conj_left(equal"compile" o #1 o dest_const o #1 o strip_comb o lhs)))
