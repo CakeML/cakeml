@@ -134,6 +134,7 @@ val arm8_ast_def = Define`
                                (1w, T, F, wmask, tmask, w2n r, w2n s, n2w r2,
                                 n2w r1))]
                      | NONE => arm8_encode_fail)
+       | Ror => [Data (ExtractRegister@64 (1w, n2w n, n2w r2, n2w r2, n2w r1))]
        | x => (case DecodeBitMasks (1w, 63w, n2w n, F) of
                   SOME (wmask, tmask) =>
                      [Data
