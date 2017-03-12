@@ -139,7 +139,7 @@ val v_to_list_ok = Q.prove(
          EVERY (bv_ok refs) x`,
   ho_match_mp_tac v_to_list_ind >>
   simp[v_to_list_def,bv_ok_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val do_app_ok_lemma = Q.prove(
   `state_ok r /\ EVERY (bv_ok r.refs) a /\
@@ -160,6 +160,16 @@ val do_app_ok_lemma = Q.prove(
   THEN1
    (SRW_TAC [] [bv_ok_def] \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
     \\ MATCH_MP_TAC IMP_EVERY_LUPDATE \\ full_simp_tac(srw_ss())[])
+  >- (
+    rw [bv_ok_def]
+    >- fs [EVERY_MEM] >>
+    irule EVERY_TAKE >>
+    simp []
+    >- intLib.ARITH_TAC >>
+    irule EVERY_DROP
+    >- intLib.ARITH_TAC >>
+    rw [] >>
+    fs [bv_ok_def])
   THEN1
    (srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
     srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
@@ -960,7 +970,17 @@ val do_app_adjust = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    last_x_assum(qspec_then`n`mp_tac) >> simp[])
+    last_x_assum(qspec_then`n`mp_tac) >> simp[]) >>
+  Cases_on `?tag. op = Cons' tag`
+  >- (
+    rw [] >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    fs [adjust_bv_def, bvlSemTheory.do_app_def] >>
+    rw [MAP_TAKE, MAP_DROP] >>
+    metis_tac [bvl_to_bvi_id])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
   \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
           \\ every_case_tac \\ fs [adjust_bv_def]
