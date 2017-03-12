@@ -502,6 +502,8 @@ val do_app_const = Q.store_thm("do_app_const",
     fs [] >>
     BasicProvers.EVERY_CASE_TAC >>
     fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []) >>
+  Cases_on `op` >>
+  fs [] >>
   BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 

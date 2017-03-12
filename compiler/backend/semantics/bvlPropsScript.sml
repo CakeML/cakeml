@@ -25,7 +25,11 @@ val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bvlSem$do_app op vs s = Rerr e ⇒
    (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
+  Cases_on `?tag. op = ConsExtend tag`
+  >- cheat >>
   srw_tac[][do_app_def] >>
+  Cases_on `op` >>
+  rw [] >>
   TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
