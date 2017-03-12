@@ -1,4 +1,4 @@
-open preamble bootstrapLib
+open preamble
      backendTheory compilerComputeLib
      compiler_x64ProgTheory
 

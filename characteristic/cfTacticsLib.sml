@@ -5,7 +5,7 @@ open preamble
 open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormalizeSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -108,8 +108,7 @@ val reducible_pats = [
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
   ``nsLookup _ _``,
-  ``Fun_body _``,
-  ``normalise _``
+  ``Fun_body _``
 ]
 
 val reduce_conv =

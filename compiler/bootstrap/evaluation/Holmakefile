@@ -1,4 +1,4 @@
-INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../targets/asm ../../targets/x64 ../../../basis
+INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../encoders/asm ../../encoders/x64 ../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY

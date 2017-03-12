@@ -1,7 +1,7 @@
 open preamble
 open set_sepTheory helperLib ConseqConv ml_translatorTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormalizeTheory cfAppTheory cfTheory
+open cfNormaliseTheory cfAppTheory cfTheory
 open cfTacticsBaseLib cfHeapsLib
 
 val _ = new_theory "cfTactics"

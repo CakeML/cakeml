@@ -67,55 +67,6 @@ val _ = translate adjust_set_def
 
 val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv64_RHS)
 
-val shift_left_def = Define`
-  shift_left (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_left (a << 32) (n - 32)
-  else if n > 16 then shift_left (a << 16) (n - 16)
-  else if n > 8 then shift_left (a << 8) (n - 8)
-  else shift_left (a << 1) (n - 1)`
-
-val shift_left_rwt = Q.prove(
-  `!a n. a << n = shift_left a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_left_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val shift_right_def = Define`
-  shift_right (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_right (a >>> 32) (n - 32)
-  else if n > 16 then shift_right (a >>> 16) (n - 16)
-  else if n > 8 then shift_right (a >>> 8) (n - 8)
-  else shift_right (a >>> 1) (n - 1)`
-
-val shift_right_rwt = Q.prove(
-  `!a n. a >>> n = shift_right a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_right_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val arith_shift_right_def = Define`
-  arith_shift_right (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) /\ ~word_msb a then 0w
-  else if (a = -1w) \/ n > dimindex(:'a) /\ word_msb a then -1w
-  else if n > 32 then arith_shift_right (a >> 32) (n - 32)
-  else if n > 16 then arith_shift_right (a >> 16) (n - 16)
-  else if n > 8 then arith_shift_right (a >> 8) (n - 8)
-  else arith_shift_right (a >> 1) (n - 1)`
-
-val arith_shift_right_rwt = Q.prove(
-  `!a n. a >> n = arith_shift_right a n`,
-  completeInduct_on `n`
-  \\ rw [Once arith_shift_right_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
-
 val _ = translate (shift_left_def |> conv64)
 val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
 
@@ -536,7 +487,7 @@ val word_msb_rw = Q.prove(
   >- ( qexists_tac`0` \\ simp[] )
   \\ `i = 0` by decide_tac \\ fs[]);
 
-val arith_shift_right_ind_orig = theorem"arith_shift_right_ind"
+val arith_shift_right_ind_orig = arith_shift_right_ind
 
 val arith_shift_right_ind = (
   arith_shift_right_ind_orig |> spec64
