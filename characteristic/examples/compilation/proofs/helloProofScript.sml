@@ -7,14 +7,8 @@ val _ = new_theory"helloProof";
 val _ = Globals.max_print_depth := 20;
 
 (* TODO: move, export for reuse *)
-val init_state_env_thm = Q.store_thm("init_state_env_thm",
-  `THE (prim_sem_env ffi) = (init_state ffi,init_env)`,
-  CONV_TAC(RAND_CONV EVAL)
-  \\ rewrite_tac[primSemEnvTheory.prim_sem_env_eq,THE_DEF]);
-
 val conf_ok_with_word_to_word_conf = Q.store_thm("conf_ok_with_word_to_word_conf",
-  `conf_ok (cc with word_to_word_conf := wc) mc ⇔ conf_ok cc mc`,
-  rw[conf_ok_def]);
+  `conf_ok (cc with word_to_word_conf := wc) mc ⇔ conf_ok cc mc`, rw[conf_ok_def]);
 
 val installed_with_word_to_word_conf = Q.store_thm("installed_with_word_to_word_conf",
   `installed (bytes,cc with word_to_word_conf := wc,rest) ⇔ installed(bytes,cc,rest)`,
