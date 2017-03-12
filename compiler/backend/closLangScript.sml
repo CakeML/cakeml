@@ -15,10 +15,11 @@ val _ = Datatype `
      | GlobalsPtr    (* get pointer to globals array *)
      | SetGlobalsPtr (* set pointer to globals array *)
      | Cons num      (* construct a Block with given tag *)
-     | Cons' num     (* construct a Block with given tag. The first three
+     | ConsExtend num  (* construct a Block with given tag. The first three
                         arguments should be a block followed by two numbers
                         indicating the first element, and how many, should be
-                        copied into the end of the new block. *)
+                        copied into the end of the new block. The fourth
+                        argument is the total size of the new block. *)
      | El            (* read Block field index *)
      | LengthBlock   (* get length of Block *)
      | Length        (* get length of reference *)

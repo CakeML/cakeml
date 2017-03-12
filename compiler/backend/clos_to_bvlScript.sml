@@ -37,7 +37,7 @@ val partial_app_label_table_loc_def = Define
 
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
-  compile_op (Cons' tag) = (Cons' (clos_tag_shift tag)) ∧
+  compile_op (ConsExtends tag) = (ConsExtends (clos_tag_shift tag)) ∧
   compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
   compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
@@ -52,7 +52,7 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op.
   compile_op op =
     case op of
         Cons tag => Cons (clos_tag_shift tag)
-      | Cons' tag => Cons' (clos_tag_shift tag)
+      | ConsExtends tag => ConsExtends (clos_tag_shift tag)
       | TagEq tag => TagEq (clos_tag_shift tag)
       | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
       | FromList tag => FromList (clos_tag_shift tag)
@@ -219,7 +219,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -264,53 +264,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
-                    (REVERSE
-                      (Var (n + 3) ::
-                       mk_const 3 ::
-                       Var 0 ::
-                       mk_el (Op (Global 0) [])
-                         (partial_app_fn_location_code max_app
-                           (Op Add [Var 0; Op Add [mk_const (n + 1); Var 1]])
-                           (* Shift from Var0 to Var1 because of Let in
-                             * partial_app_fn_location_code *)
-                           (Op Add [Var 1; mk_const n])) ::
-                       Var 1 ::
-                       mk_el (Var (n+3)) (mk_const 2) ::
-                       GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))`;
-
-
-(* Generic application of a function to n+1 arguments *)
-val generate_generic_app_def = Define `
-  generate_generic_app max_app n =
-    Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
-        (If (Op Less [mk_const 0; Var 0])
-            (* Over application *)
-            (Jump (mk_el (Var (n+2)) (mk_const 1))
-              (GENLIST (\num_args.
-                 Let [Call num_args
-                           NONE
-                           (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
-                            [Var (n + 3)] ++
-                            [mk_el (Var (n + 3)) (mk_const 0)])]
-                   (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
-               max_app))
-            (* Partial application *)
-            (mk_tick n
-            (If (Op (TagEq closure_tag) [Var (n+2)])
-                (* Partial application of a normal closure *)
-                (Op (Cons partial_app_tag)
-                    (REVERSE
-                      (mk_el (Op (Global 0) [])
-                        (partial_app_fn_location_code max_app
-                          (mk_el (Var (n+2)) (mk_const 1))
-                          (mk_const n)) ::
-                       Var 0 ::
-                       Var (n + 2) ::
-                       GENLIST (\n. Var (n + 1)) (n + 1))))
-                (* Partial application of a partially applied closure *)
-                (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -356,7 +310,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -402,7 +356,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -448,7 +402,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -494,7 +448,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -540,7 +494,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -586,7 +540,7 @@ val generate_generic_app_def = Define `
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
                 (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (Cons' partial_app_tag)
+                  (Op (ConsExtends partial_app_tag)
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
@@ -596,6 +550,53 @@ val generate_generic_app_def = Define `
                            (Op Add [Var 0; Op Add [mk_const (n + 1); Var 1]])
                            (* Shift from Var0 to Var1 because of Let in
                              * partial_app_fn_location_code *)
+                           (Op Add [Var 1; mk_const n])) ::
+                       Var 1 ::
+                       mk_el (Var (n+3)) (mk_const 2) ::
+                       GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))`;
+
+
+(* Generic application of a function to n+1 arguments *)
+val generate_generic_app_def = Define `
+  generate_generic_app max_app n =
+    Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
+        (If (Op Less [mk_const 0; Var 0])
+            (* Over application *)
+            (Jump (mk_el (Var (n+2)) (mk_const 1))
+              (GENLIST (\num_args.
+                 Let [Call num_args
+                           NONE
+                           (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
+                            [Var (n + 3)] ++
+                            [mk_el (Var (n + 3)) (mk_const 0)])]
+                   (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
+               max_app))
+            (* Partial application *)
+            (mk_tick n
+            (If (Op (TagEq closure_tag) [Var (n+2)])
+                (* Partial application of a normal closure *)
+                (Op (Cons partial_app_tag)
+                    (REVERSE
+                      (mk_el (Op (Global 0) [])
+                        (partial_app_fn_location_code max_app
+                          (mk_el (Var (n+2)) (mk_const 1))
+                          (mk_const n)) ::
+                       Var 0 ::
+                       Var (n + 2) ::
+                       GENLIST (\n. Var (n + 1)) (n + 1))))
+                (* Partial application of a partially applied closure *)
+                (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
+                  (Op (ConsExtends partial_app_tag)
+                    (REVERSE
+                      (Var (n + 3) ::
+                       mk_const 3 ::
+                       Var 0 ::
+                       Op Add [Var 0; mk_const n] ::
+                       mk_el (Op (Global 0) [])
+                         (partial_app_fn_location_code max_app
+                           (Op Add [Var 0; Op Add [mk_const (n + 1); Var 1]])
+                           (* Shift from Var0 to Var1 because of Let in
+                            * partial_app_fn_location_code *)
                            (Op Add [Var 1; mk_const n])) ::
                        Var 1 ::
                        mk_el (Var (n+3)) (mk_const 2) ::
