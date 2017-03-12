@@ -335,17 +335,6 @@ val evaluate_genlist_prev_args = Q.prove (
   srw_tac[][el_append3] >>
   decide_tac);
 
-val evaluate_genlist_prev_args1 = Q.prove (
-  `!prev_args x y tag p n cl args st.
-    evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var (LENGTH args + 2)]) (LENGTH prev_args)),
-           x::y::(args++[Block tag (p::n::cl::prev_args)]),
-           st)
-    =
-    (Rval (REVERSE prev_args),st)`,
-  srw_tac[][] >>
-  (Q.SPECL_THEN [`prev_args`, `[p;n;cl]`, `x::y::args`]assume_tac evaluate_genlist_prev_args) >>
-  full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
-
 val evaluate_genlist_prev_args1_simpl = Q.prove (
   `!prev_args x y tag p n cl a st.
     evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + 3))) []; Var 3]) (LENGTH prev_args)),
@@ -502,29 +491,32 @@ val evaluate_generic_app2 = Q.prove (
   full_simp_tac(srw_ss())[] >>
   TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
   fs [] >>
-  `evaluate ([Op Sub [Op (Const 4) []; Op LengthBlock [Var (LENGTH args + 1)]]],
-          Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock n st) =
-    (Rval [Number (&(LENGTH prev_args - 1))], dec_clock n st)`
-          by (srw_tac [ARITH_ss] [evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB] >>
-              srw_tac [ARITH_ss] [EL_CONS, GSYM ADD1, el_append2] >>
-              intLib.ARITH_TAC) >>
-  imp_res_tac evaluate_Jump >>
-  simp [] >>
-  srw_tac [ARITH_ss] [evaluate_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def] >>
-  srw_tac[][REVERSE_APPEND, evaluate_APPEND] >>
-  `n + 3 = LENGTH args + 2` by decide_tac >>
-  srw_tac[][evaluate_genlist_prev_args1] >>
   srw_tac [ARITH_ss] [evaluate_genlist_vars_rev, EL_CONS, PRE_SUB1, el_append2] >>
+  simp [evaluate_def, do_app_def] >>
+  srw_tac [ARITH_ss] [EL_CONS, PRE_SUB1, el_append2] >>
   simp [dec_clock_def] >>
   `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)) = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
   fs [partial_app_fn_location_code_def, global_table_def] >>
   simp [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def, mk_label_def] >>
   simp [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV, integerTheory.INT_SUB] >>
-  simp [triangle_table_size] >>
-  `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
-  `rem_args + LENGTH prev_args < max_app` by decide_tac >>
-  REWRITE_TAC [ADD_ASSOC] >>
-  simp [triangle_el_no_suff, triangle_div_lemma]);
+  rw [REVERSE_APPEND, ADD1] >>
+  rw [] >>
+  fs [ADD1]
+  >- intLib.ARITH_TAC
+  >- (
+    REWRITE_TAC [ADD_ASSOC, triangle_el_no_suff] >>
+    `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
+    `rem_args + LENGTH prev_args < max_app` by decide_tac >>
+    REWRITE_TAC [ADD_ASSOC] >>
+    simp [triangle_el_no_suff, triangle_div_lemma])
+  >- (
+    fs [triangle_table_size] >>
+    pop_assum mp_tac >>
+    REWRITE_TAC [ADD_ASSOC, triangle_el_no_suff] >>
+    `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
+    `rem_args + LENGTH prev_args < max_app` by decide_tac >>
+    REWRITE_TAC [ADD_ASSOC] >>
+    simp [triangle_div_lemma]));
 
 val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln `
   (total_args ≥ 0
@@ -1295,7 +1287,30 @@ val do_app = Q.prove(
     \\ drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
     \\ disch_then drule
     \\ strip_tac
-    \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
+    \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs []) >>
+  Cases_on `?tag. op = Cons tag`
+  >- (
+    rw [closSemTheory.do_app_def] >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [do_app_def] >>
+    fs [v_rel_SIMP] >>
+    rw []) >>
+  Cases_on `?tag. op = Cons' tag`
+  >- (
+    rw [closSemTheory.do_app_def] >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [do_app_def] >>
+    fs [v_rel_SIMP] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH
+    >- intLib.ARITH_TAC >>
+    irule EVERY2_APPEND_suff >>
+    simp [] >>
+    metis_tac [EVERY2_TAKE, EVERY2_DROP])
   >> Cases_on`op`>>fs[]>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
                             bvlSemTheory.do_eq_def]
   >- (
@@ -1345,15 +1360,21 @@ val do_app = Q.prove(
       fs [])
     >- metis_tac[])
   >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def,v_rel_cases] \\ fs [] )
+    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    rw[v_rel_SIMP] >> fs[LIST_REL_EL_EQN]>>
+    every_case_tac \\ fs[v_rel_SIMP] \\ rw[]
+    \\ full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
+    rw[] \\ fs[LIST_REL_EL_EQN])
   >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[state_rel_def,OPTREL_def,v_rel_cases] \\ fs [] )
-  >- (every_case_tac \\ fs[v_rel_SIMP] \\ rveq \\ fs [v_rel_SIMP]
-      \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ rfs [])
-  >- (every_case_tac \\ fs[v_rel_SIMP] \\ rveq \\ fs [v_rel_SIMP]
-      \\ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ rfs [])
+    Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
+    rw[v_rel_SIMP] >> fs[LIST_REL_EL_EQN]>>
+    every_case_tac \\ fs[v_rel_SIMP] \\ rw[]
+    \\ full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >>
+    rw[] \\ fs[LIST_REL_EL_EQN])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1438,7 +1459,13 @@ val do_app_err = Q.prove(
    ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
        exc_rel (v_rel s1.max_app f t1.refs t1.code) err e`,
   Cases_on `?i. op = EqualInt i` THEN1
-    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs [])
+    (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
+  Cases_on `?tag. op = Cons' tag`
+  >- (
+    rw [closSemTheory.do_app_def] >>
+    fs [] >>
+    every_case_tac >>
+    fs [])
   \\ Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   >- (
     imp_res_tac state_rel_globals >>

@@ -404,6 +404,37 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC EVERY2_EL
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
+  THEN1 (* Cons' *)
+   (
+    full_simp_tac(srw_ss())[do_app_def] >>
+    CASE_TAC >>
+    fs [] >>
+    rw [] >>
+    Cases_on `x` >>
+    fs [v_rel_simp] >>
+    CASE_TAC >>
+    fs [] >>
+    rw [] >>
+    fs [] >>
+    Cases_on `xs` >>
+    fs [] >>
+    Cases_on `h` >>
+    fs [v_rel_simp] >>
+    rw [] >>
+    Cases_on `x` >>
+    fs [v_rel_simp] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs [] >>
+    rw [] >>
+    simp [v_rel_simp] >>
+    irule EVERY2_APPEND_suff >>
+    simp [] >>
+    irule EVERY2_TAKE >>
+    irule EVERY2_DROP >>
+    simp [])
   THEN1 (* Cons *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[])

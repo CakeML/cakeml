@@ -1120,6 +1120,27 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        \\ strip_tac \\ fs [SNOC_APPEND] \\ fs []
        \\ fs[GSYM SWAP_REVERSE_SYM]
        \\ once_rewrite_tac [EVERY2_REVERSE1] \\ asm_rewrite_tac [])
+     >- ( (* Cons' *)
+       drule EVERY2_REVERSE >>
+       rw [] >>
+       rename1 `val_rel _ _ _ _ arg` >>
+       Cases_on `arg` >>
+       fs [val_rel_rw] >>
+       rename1 `val_rel _ _ _ _ arg` >>
+       Cases_on `arg` >>
+       fs [val_rel_rw] >>
+       rename1 `val_rel _ _ _ _ arg` >>
+       Cases_on `arg` >>
+       fs [val_rel_rw] >>
+       rw [] >>
+       imp_res_tac LIST_REL_LENGTH
+       >- intLib.ARITH_TAC >>
+       simp [val_rel_rw] >>
+       irule EVERY2_APPEND_suff >>
+       simp [] >>
+       irule EVERY2_TAKE >>
+       irule EVERY2_DROP >>
+       rw [])
      >- (full_simp_tac(srw_ss())[LET_THM, SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>

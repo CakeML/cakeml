@@ -399,6 +399,27 @@ val do_app = Q.prove(
     simp[OPTREL_def])
   (* AllocGlobal *)
   >- ( full_simp_tac(srw_ss())[state_rel_def] >> simp[OPTREL_def])
+  (* Cons' *)
+  >- (
+    fs [v_rel_cases] >>
+    rw [] >>
+    Cases_on `t` >>
+    fs [] >>
+    rw [] >>
+    fs [v_rel_cases] >>
+    Cases_on `t'` >>
+    fs [] >>
+    fs [v_rel_cases] >>
+    rw [] >>
+    fs [] >>
+    imp_res_tac LIST_REL_LENGTH >>
+    fs [] >>
+    rw [] >>
+    irule EVERY2_APPEND_suff >>
+    rw [] >>
+    irule EVERY2_TAKE >>
+    irule EVERY2_DROP >>
+    simp [])
   (* El *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>
