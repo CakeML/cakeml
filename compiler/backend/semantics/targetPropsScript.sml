@@ -3,8 +3,10 @@ open preamble
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory;
 
-val _ = ParseExtras.temp_tight_equality();
 val _ = new_theory"targetProps";
+
+val _ = ParseExtras.temp_tight_equality();
+val _ = set_grammar_ancestry["ffi","asm","targetSem"];
 
 val asserts_restrict = Q.prove(
   `!n next1 next2 s P Q.
@@ -195,7 +197,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     METIS_TAC[evaluate_io_events_mono] ) >>
   simp[apply_oracle_def] >>
   qpat_abbrev_tac`hide = (SND(SND _))` >>
-  Q.ISPECL_THEN[`ms`,`k`,`ffi`,`mc_conf`](fn th => CONV_TAC(DEPTH_CONV(REWR_CONV th)))evaluate_def >>
+  Q.ISPECL_THEN[`ms`,`mc_conf`,`k`,`ffi`](fn th => CONV_TAC(DEPTH_CONV(REWR_CONV th)))evaluate_def >>
   simp[] >>
   simp[Abbr`hide`] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[apply_oracle_def] >>

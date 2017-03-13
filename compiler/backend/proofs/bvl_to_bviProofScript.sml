@@ -932,11 +932,41 @@ val do_app_adjust = Q.prove(
     \\ fs [bvlSemTheory.do_app_def]
     \\ drule do_eq_adjust \\ fs []
     \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def])
+  \\ Cases_on `op = BoundsCheckArray` THEN1
+   (fs [] \\ strip_tac
+    \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
+    \\ Cases_on `x1` \\ fs []
+    \\ Cases_on `x2` \\ fs []
+    \\ rpt (pop_assum mp_tac)
+    \\ TOP_CASE_TAC \\ fs []
+    \\ Cases_on `x` \\ fs []
+    \\ rpt strip_tac \\ rveq
+    \\ fs [bviSemTheory.do_app_def]
+    \\ simp[bEvalOp_def,adjust_bv_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
+    srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[])
+  \\ Cases_on `op = BoundsCheckByte` THEN1
+   (fs [] \\ strip_tac
+    \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
+    \\ Cases_on `x1` \\ fs []
+    \\ Cases_on `x2` \\ fs []
+    \\ rpt (pop_assum mp_tac)
+    \\ TOP_CASE_TAC \\ fs []
+    \\ Cases_on `x` \\ fs []
+    \\ rpt strip_tac \\ rveq
+    \\ fs [bviSemTheory.do_app_def]
+    \\ simp[bEvalOp_def,adjust_bv_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
+    srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[bEvalOp_def]
-  \\ every_case_tac \\ fs [adjust_bv_def]
-  \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
-  \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id]);
+  \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
+          \\ every_case_tac \\ fs [adjust_bv_def]
+          \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
+          \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ NO_TAC));
 
 val eval_ind_alt = Q.store_thm("eval_ind_alt",
   `∀P.
@@ -1013,22 +1043,22 @@ val EVERY_isVar_evaluate_Rval_MEM = Q.store_thm("EVERY_isVar_evaluate_Rval_MEM",
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rveq
   \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []);
 
-val bvl_do_app_Ref = prove(
-  ``bvlSem$do_app Ref vs s = Rval
+val bvl_do_app_Ref = Q.prove(
+  `bvlSem$do_app Ref vs s = Rval
        (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
         s with refs :=
-          s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))``,
+          s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`,
   fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
   \\ every_case_tac \\ fs []);
 
-val do_app_Ref = prove(
-  ``do_app Ref vs s =
+val do_app_Ref = Q.prove(
+  `do_app Ref vs s =
      Rval
       (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
        bvl_to_bvi
         (bvi_to_bvl s with
          refs :=
-           s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs)) s)``,
+           s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs)) s)`,
   fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
   \\ every_case_tac \\ fs []);
 

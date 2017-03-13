@@ -53,7 +53,11 @@ val _ = Datatype `
      | WordToInt
      | FP_cmp fp_cmp
      | FP_uop fp_uop
-     | FP_bop fp_bop`
+     | FP_bop fp_bop
+     | BoundsCheckBlock
+     | BoundsCheckArray
+     | BoundsCheckByte
+     | LessConstSmall num`
 
 val _ = Datatype `
   exp = Var num

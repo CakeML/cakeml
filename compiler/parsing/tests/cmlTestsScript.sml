@@ -7,10 +7,10 @@ local open ASCIInumbersLib in end
 
 val _ = new_theory "cmlTests"
 
-val _ = overload_on ("NN", ``λn. Nd (mkNT n)``)
-val _ = overload_on ("Tf", ``λt. Lf (TK t)``)
-val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s))``)
-val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s))``)
+val _ = overload_on ("NN", ``λn. Nd (mkNT n,unknown_loc)``)
+val _ = overload_on ("Tf", ``λt. Lf (TK t,unknown_loc)``)
+val _ = overload_on ("Tfa", ``λs. Lf (TK (AlphaT s),unknown_loc)``)
+val _ = overload_on ("Tfs", ``λs. Lf (TK (SymbolT s),unknown_loc)``)
 val _ = overload_on (
   "EREL",
   ``λl. NN nE [NN nEhandle
@@ -26,12 +26,24 @@ val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
 val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
 
+fun strip_Lannot t =
+  if is_comb t then
+	let val (tl, tr) = dest_comb t in
+	  if is_comb tl then
+		let val (t1, t2) = dest_comb tl in
+		  if t1 = ``Lannot`` then strip_Lannot t2
+		  else mk_comb(mk_comb(strip_Lannot t1, strip_Lannot t2), strip_Lannot tr)
+		end
+	  else mk_comb(tl, strip_Lannot tr)
+    end
+  else t
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
-  val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+  val ttoks = rhs (concl (EVAL ``MAP (TK o FST)  ^t``))
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
@@ -74,12 +86,13 @@ in
                       rand rt
                     else die ("Sem. failure", rt)
                   end
-          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_res)
+          val ptree_clean = strip_Lannot ptree_res
+          val _ = diag ("Semantics ("^term_to_string sem^") to ", ptree_clean)
         in
           if not (optionSyntax.is_none ptree_res) then
             case opt of
                 NONE => ()
-              | SOME t => if aconv t ptree_res then
+              | SOME t => if aconv t (ptree_clean) then
                             print "Semantic output as expected\n"
                           else
                             die ("Semantics fails; is not the required ", t)
@@ -240,7 +253,7 @@ val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val h::List.nil = [3]"
           (SOME ``Dlet
                     (Pcon (SOME (Short "::"))
                               [Pvar "h";
-                               Pcon (SOME (Long "List" "nil")) []])
+                               Pcon (SOME (Long "List" (Short "nil"))) []])
                     (Con (SOME (Short "::"))
                              [Lit (IntLit 3);
                               Con (SOME (Short "nil")) []])``)

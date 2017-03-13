@@ -6,17 +6,20 @@ open cfTacticsBaseLib;
 open terminationTheory
 open ASCIInumbersTheory
 
-val _ = new_theory "cfNormalize"
+val _ = new_theory "cfNormalise"
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
     (which is close to ANF). These lemmas exploit the fact that some
     program is in normal form.
+
+    The [full_normalise] function (defined below) puts an arbitrary
+    program in normal form.
 *)
 
 val exp2v_def = Define `
   exp2v _ (Lit l) = SOME (Litv l) /\
-  exp2v env (Var name) = lookup_var_id name env /\
+  exp2v env (Var name) = nsLookup env.v name /\
   exp2v _ _ = NONE`
 
 val exp2v_evaluate = Q.store_thm ("exp2v_evaluate",
@@ -105,18 +108,18 @@ val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
 );
 
 (*------------------------------------------------------------------*)
-(* [normalise] *)
-
-val normalise_def = Define `
-  normalise x = (x:exp)` (* TODO: actually implement this without going into closures *)
-
-val evaluate_normalise = Q.store_thm("evaluate_normalise",
-  `evaluate s env [normalise exp] = evaluate s env [exp]`,
-  fs [normalise_def]);
-
-
-(*------------------------------------------------------------------*)
 (* [full_normalise]
+
+   [full_normalise] implements a preprocessing pass on the CakeML
+   program to be fed to [cf]. It turns a CakeML program into A-normal
+   form; [cf] then assumes the input program is in A-normal form. [cf]
+   evaluates to [F] for programs not in A-normal form.
+
+   At the moment, nothing particular is proved about [full_normalise]:
+   therefore, formally, the specification proved using CF is a
+   specification for the _normalised_ program, not the original one.
+   Eventually it would be nice to have a proof that [full_normalise]
+   preserves the semantics of its input in some way.
 
    The implementation follows the structure of the CFML one, in
    generator/normalize.ml in the CFML sources.
@@ -133,6 +136,7 @@ val dest_opapp_def = Define `
           | _ => NONE) /\
   dest_opapp _ = NONE`
 
+(* [mk_opapp]: construct an n-ary application. *)
 val mk_opapp_def = tDefine "mk_opapp" `
   mk_opapp xs =
     if LENGTH xs < 2 then HD xs else
@@ -149,28 +153,6 @@ val MEM_exp1_size = Q.prove(
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
   \\ fs [astTheory.exp_size_def]);
 
-val get_name_aux_def = tDefine "get_name_aux" `
-  get_name_aux n vs =
-    let v = "t" ++ num_to_dec_string n in
-      if MEM v vs then get_name_aux (n+1) (FILTER (\x. v <> x) vs) else v`
- (WF_REL_TAC `measure (\(n,vs). LENGTH vs)`
-  \\ rw [] \\ fs [MEM_SPLIT,FILTER_APPEND]
-  \\ match_mp_tac (DECIDE ``m <= m1 /\ n <= n1 ==> m + n < m1 + (n1 + 1n)``)
-  \\ fs [LENGTH_FILTER_LEQ]);
-
-val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
-
-val alpha_def = Define `alpha = ^alpha`;
-
-val get_name_def = Define `
-  get_name vs =
-    let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
-      if NULL ws then get_name_aux 0 vs else [HD ws]`;
-
-val Lets_def = Define `
-  Lets [] e = e /\
-  Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
-
 val exp6_size_lemma = Q.prove(
   `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
   Induct \\ fs [astTheory.exp_size_def]);
@@ -184,6 +166,38 @@ val dest_opapp_size = Q.prove(
   \\ fs [astTheory.exp_size_def]
   \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
 
+val get_name_aux_def = tDefine "get_name_aux" `
+  get_name_aux n vs =
+    let v = "t" ++ num_to_dec_string n in
+      if MEM v vs then get_name_aux (n+1) (FILTER (\x. v <> x) vs) else v`
+ (WF_REL_TAC `measure (\(n,vs). LENGTH vs)`
+  \\ rw [] \\ fs [MEM_SPLIT,FILTER_APPEND]
+  \\ match_mp_tac (DECIDE ``m <= m1 /\ n <= n1 ==> m + n < m1 + (n1 + 1n)``)
+  \\ fs [LENGTH_FILTER_LEQ]);
+
+val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
+
+val alpha_def = Define `alpha = ^alpha`;
+
+(* [get_name vs] returns a fresh name given a list [vs] of already
+   used names. *)
+val get_name_def = Define `
+  get_name vs =
+    let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
+      if NULL ws then get_name_aux 0 vs else [HD ws]`;
+
+(* [Lets [(n1, x1); ...; (nm, xm)] e] is the sequence of Lets:
+
+   let n1 = x1 in
+   let n2 = x2 in
+   ...
+   let nm = xm in
+   e
+*)
+val Lets_def = Define `
+  Lets [] e = e /\
+  Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
+
 val wrap_if_needed_def = Define `
   wrap_if_needed needs_wrapping ns e b =
     if needs_wrapping then (
@@ -192,6 +206,80 @@ val wrap_if_needed_def = Define `
     ) else (
       (e, ns, b)
     )`;
+
+val strip_annot_pat_def = Define `
+  strip_annot_pat (Pvar v) = Pvar v /\
+  strip_annot_pat (Plit l) = Plit l /\
+  strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
+  strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
+  strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat_list [] = [] /\
+  strip_annot_pat_list (x::xs) =
+    strip_annot_pat x :: strip_annot_pat_list xs`;
+
+val strip_annot_exp_def = tDefine"strip_annot_exp"`
+  (strip_annot_exp (Raise e) =
+    ast$Raise (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Handle e pes) =
+    Handle (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (ast$Lit l) = Lit l)
+  ∧
+  (strip_annot_exp (Con cn es) = Con cn (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Var x) = Var x)
+  ∧
+  (strip_annot_exp (Fun x e) =
+    Fun x (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (App op es) =
+    App op (strip_annot_exps es))
+  ∧
+  (strip_annot_exp (Log lop e1 e2) =
+    Log lop (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (If e1 e2 e3) =
+    If (strip_annot_exp e1)
+       (strip_annot_exp e2)
+       (strip_annot_exp e3))
+  ∧
+  (strip_annot_exp (Mat e pes) =
+    Mat (strip_annot_exp e) (strip_annot_pes pes))
+  ∧
+  (strip_annot_exp (Let (SOME x) e1 e2) =
+    Let (SOME x) (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Let NONE e1 e2) =
+    Let NONE (strip_annot_exp e1) (strip_annot_exp e2))
+  ∧
+  (strip_annot_exp (Letrec funs e) =
+      Letrec (strip_annot_funs funs) (strip_annot_exp e))
+  ∧
+  (strip_annot_exp (Tannot e t) = strip_annot_exp e)
+  ∧
+  (strip_annot_exp (Lannot e l) = strip_annot_exp e)
+  ∧
+  (strip_annot_exps [] = [])
+  ∧
+  (strip_annot_exps (e::es) =
+     strip_annot_exp e :: strip_annot_exps es)
+  ∧
+  (strip_annot_pes [] = [])
+  ∧
+  (strip_annot_pes ((p,e)::pes) =
+    (strip_annot_pat p, strip_annot_exp e)
+    :: strip_annot_pes pes)
+  ∧
+  (strip_annot_funs [] = [])
+  ∧
+  (strip_annot_funs ((f,x,e)::funs) =
+    (f,x,strip_annot_exp e) :: strip_annot_funs funs)`
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => exp_size e
+                                 | INR (INL es) => exps_size es
+                                 | INR (INR (INL pes)) => pes_size pes
+                                 | INR (INR (INR funs)) => funs_size funs)` >>
+   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
 val norm_def = tDefine "norm" `
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
@@ -271,6 +359,10 @@ val norm_def = tDefine "norm" `
     (let (rs', ns) = norm_letrec_branches ns rs in
      let (e', ns) = protect F ns e in
      wrap_if_needed as_value ns (Letrec rs' e') []) /\
+  norm is_named as_value ns (Tannot e _) =
+    norm is_named as_value ns e /\
+  norm is_named as_value ns (Lannot e _) =
+    norm is_named as_value ns e /\
   norm_list is_named as_value ns ([]: exp list) = ([], ns, []) /\
   norm_list is_named as_value ns (e::es) =
     (let (e', ns, b) = norm is_named as_value ns e in
@@ -296,12 +388,14 @@ val norm_def = tDefine "norm" `
     (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
      ((FST branch, FST (SND branch), branch_e'), ns))`
  cheat;
+(* TODO: prove the termination of [norm]. This is probably a bit tricky and
+   requires refactoring the way [norm] is defined. *)
 
 val full_normalise_def = Define `
-  full_normalise ns e = FST (protect T ns e)`;
+  full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
 
 val MEM_v_size = Q.prove(
-  `!xs. MEM a xs ==> v_size a < v6_size xs`,
+  `!xs. MEM a xs ==> v_size a < v7_size xs`,
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
 
 val norm_exp_rel_def = Define `
@@ -336,8 +430,8 @@ val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
      norm_rel (Recclosure env1 es1 v) (Recclosure env2 es2 v)) /\
   (!env1 env2 s.
      (!v x y. v IN s /\
-              lookup_var_id v env1 = SOME x /\
-              lookup_var_id v env2 = SOME y ==>
+              nsLookup env1.v v = SOME x /\
+              nsLookup env2.v v = SOME y ==>
               norm_rel x y) ==>
      env_rel s env1 env2)`
 

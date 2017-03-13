@@ -59,6 +59,11 @@ val foo_def = tDefine"foo"`
 
 val res = translate foo_def
 
+val _ = Datatype `bar1 = ta | ti`
+val _ = Datatype `bar2 = Ta | TI`
+val _ = register_type ``:bar1``
+val _ = register_type ``:bar2``
+
 val _ = (print_asts := true);
 
 val _ = export_theory();

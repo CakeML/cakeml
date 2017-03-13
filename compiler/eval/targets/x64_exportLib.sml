@@ -3,9 +3,9 @@ struct
 local open HolKernel boolLib bossLib lcsymtacs in
 
 fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
-  val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
+  val heap_line  = "     .space  " ^ (Int.toString heap_mb) ^
                    " * 1024 * 1024   # heap size in bytes"
-  val stack_line = "    .space  " ^ Int.toString stack_mb ^
+  val stack_line = "     .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
   fun ffi_asm [] = []
     | ffi_asm (ffi::ffis) =
@@ -37,15 +37,23 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     .p2align 3",
    "cake_end:",
    "",
+   "     .data",
+   "     .p2align 3",
+   "cdecl(argc): .quad 0",
+   "cdecl(argv): .quad 0",
+   "",
    "#### Start up code",
    "",
    "     .text",
+   "     .p2align 3",
    "     .globl  cdecl(main)",
    "     .globl  cdecl(argc)",
    "     .globl  cdecl(argv)",
    "cdecl(main):",
-   "     movq    %rdi, argc  # %rdi stores argc",
-   "     movq    %rsi, argv  # %rsi stores argv",
+   "     leaq    cdecl(argc)(%rip), %rbx",
+   "     leaq    cdecl(argv)(%rip), %rdx",
+   "     movq    %rdi, 0(%rbx)  # %rdi stores argc",
+   "     movq    %rsi, 0(%rdx)  # %rsi stores argv",
    "     pushq   %rbp        # push base pointer",
    "     movq    %rsp, %rbp  # save stack pointer",
    "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
@@ -53,10 +61,6 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack",
    "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack",
    "     jmp     cake_main",
-   "",
-   "     .data",
-   "argc:  .quad 0",
-   "argv:  .quad 0",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
@@ -97,7 +101,7 @@ fun byte_list_to_asm_lines bytes = let
   fun bytes_to_strings [] = []
     | bytes_to_strings xs = let
         val (ys,zs) = take_drop bytes_per_line xs
-        in "  .byte " ^ commas (map word2hex ys) ^ "\n" ::
+        in "     .byte " ^ commas (map word2hex ys) ^ "\n" ::
            bytes_to_strings zs end
   in bytes_to_strings xs end;
 
@@ -106,7 +110,7 @@ fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
   byte_list_to_asm_lines bytes_tm;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)
@@ -117,7 +121,7 @@ fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
 
 (*
 
-val _ = write_cake_S 50 50 0 bytes_tm ""
+val _ = write_cake_S 50 50 [] ``[3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8;3w:word8]`` "t"
 
 *)
 end

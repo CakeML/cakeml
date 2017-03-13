@@ -107,9 +107,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,mod_to_conTheory.compile_exp_def
     ,mod_to_conTheory.compile_pat_def
     ,mod_to_conTheory.lookup_tag_env_def
-    ,mod_to_conTheory.lookup_tag_flat_def
     ,mod_to_conTheory.insert_tag_env_def
-    ,mod_to_conTheory.mod_tagenv_def
     ,mod_to_conTheory.get_tagenv_def
     ,mod_to_conTheory.get_exh_def
     ,mod_to_conTheory.alloc_tag_def
@@ -240,8 +238,13 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.equality_code_def
     ,clos_to_bvlTheory.check_closure_def
     ,clos_to_bvlTheory.ToList_code_def
+    ,clos_to_bvlTheory.generic_app_fn_location_def
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
+    ,clos_to_bvlTheory.num_added_globals_def
+    ,clos_to_bvlTheory.partial_app_label_table_loc_def
+    ,clos_to_bvlTheory.partial_app_fn_location_code_def
+    ,clos_to_bvlTheory.init_globals_def
     ,bvlTheory.mk_tick_def
     ,clos_to_bvlTheory.mk_cl_call_def
     ,clos_to_bvlTheory.ToList_location_def
@@ -452,6 +455,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
+    ,data_to_wordTheory.WriteWord64_on_32_def
+    ,data_to_wordTheory.WordOp64_on_32_def
+    ,data_to_wordTheory.WordShift64_on_32_def
     ,data_to_wordTheory.ShiftVar_def
     ,data_to_wordTheory.AnyHeader_def
     ,data_to_wordTheory.AddNumSize_def
@@ -820,6 +826,7 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
     ,semanticsComputeLib.add_ast_compset
+    ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset
     ]
   ]

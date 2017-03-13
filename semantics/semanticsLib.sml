@@ -46,7 +46,8 @@ fun all_distinct_conv eq_conv tm =
   )
 
 val all_distinct_string_conv = all_distinct_conv string_EQ_CONV
-       
+val all_distinct_list_string_conv = all_distinct_conv (list_EQ_CONV string_EQ_CONV)
+
 val decs_to_types_conv =
   REWR_CONV decs_to_types_def
   THENC RAND_CONV (MAP_CONV EVAL) THENC FLAT_CONV
@@ -89,7 +90,7 @@ fun no_dup_top_types_conv tm =
     THENC RATOR_CONV(RAND_CONV(RAND_CONV (REWR_CONV thm1) THENC all_distinct_string_conv))
     THENC AND_CONV
     THENC RATOR_CONV(RAND_CONV(RAND_CONV(RAND_CONV(REWR_CONV thm1) THENC MAP_CONV BETA_CONV)))
-    THENC REWRITE_CONV [ml_progTheory.DISJOINT_set_simp]
+    THENC REWRITE_CONV [DISJOINT_set_simp]
     THENC EVERY_CONJ_CONV (RAND_CONV(IN_CONV EVAL) THENC NOT_CONV)
     THENC REPEATC AND_CONV
   end tm
@@ -100,10 +101,10 @@ fun no_dup_mods_conv tm =
     val thm1 = prog_to_mods_conv(mk_comb(``prog_to_mods``,tops))
   in
     REWR_CONV no_dup_mods_def
-    THENC RATOR_CONV(RAND_CONV(RAND_CONV (REWR_CONV thm1) THENC all_distinct_string_conv))
+    THENC RATOR_CONV(RAND_CONV(RAND_CONV (REWR_CONV thm1) THENC all_distinct_list_string_conv))
     THENC AND_CONV
     THENC RATOR_CONV(RAND_CONV(RAND_CONV(REWR_CONV thm1)))
-    THENC REWRITE_CONV [ml_progTheory.DISJOINT_set_simp]
+    THENC REWRITE_CONV [DISJOINT_set_simp]
     THENC EVERY_CONJ_CONV (RAND_CONV(IN_CONV EVAL) THENC NOT_CONV)
     THENC REPEATC AND_CONV
   end tm

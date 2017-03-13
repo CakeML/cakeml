@@ -102,7 +102,7 @@ fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
   byte_list_to_asm_lines bytes_tm;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)

@@ -553,7 +553,13 @@ val do_app = Q.prove(
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp])>>
     TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp]));
+    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+    imp_res_tac LIST_REL_LENGTH >> fs [] >>
+    imp_res_tac state_rel_refs >>
+    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
+    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
+    simp[LIST_REL_EL_EQN] ));
 
 (* compiler correctness *)
 
@@ -924,8 +930,8 @@ val renumber_code_locs_elist_globals = Q.store_thm(
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
-  rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-  qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+  qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
   simp[] >> simp[MAP_ZIP]);
 
@@ -940,8 +946,8 @@ val renumber_code_locs_esgc_free = Q.store_thm(
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
   >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
-  >- (rename1`renumber_code_locs_list locn (MAP SND functions)` >>
-      qspecl_then [`locn`, `MAP SND functions`] mp_tac
+  >- (rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
+      qspecl_then [`locn1`, `MAP SND functions`] mp_tac
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
       simp[]))

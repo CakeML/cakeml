@@ -254,6 +254,22 @@ val do_app_def = Define `
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
          | _ => Error)
+    | (BoundsCheckBlock,[Block tag ys; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
+    | (BoundsCheckByte,[ByteVector bs; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
+    | (BoundsCheckByte,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+         | _ => Error)
+    | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+         | _ => Error)
+    | (LessConstSmall n,[Number i]) =>
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | _ => Error`;
 
 val dec_clock_def = Define `

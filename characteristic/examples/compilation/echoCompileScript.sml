@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs
 open x64_compileLib x64_exportLib echoProgTheory
 
-val _ = new_theory "echoCompilation"
+val _ = new_theory "echoCompile"
 
 val rconc = rhs o concl
 
@@ -37,7 +37,7 @@ fun to_bytes alg conf prog =
   end
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val extract_ffi_names = rev o map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
 
 fun write_asm [] = ()
   | write_asm ((name,(bytes,ffi_names))::xs) =

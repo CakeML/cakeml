@@ -67,55 +67,6 @@ val _ = translate adjust_set_def
 
 val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv64_RHS)
 
-val shift_left_def = Define`
-  shift_left (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_left (a << 32) (n - 32)
-  else if n > 16 then shift_left (a << 16) (n - 16)
-  else if n > 8 then shift_left (a << 8) (n - 8)
-  else shift_left (a << 1) (n - 1)`
-
-val shift_left_rwt = Q.prove(
-  `!a n. a << n = shift_left a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_left_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val shift_right_def = Define`
-  shift_right (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) then 0w
-  else if n > 32 then shift_right (a >>> 32) (n - 32)
-  else if n > 16 then shift_right (a >>> 16) (n - 16)
-  else if n > 8 then shift_right (a >>> 8) (n - 8)
-  else shift_right (a >>> 1) (n - 1)`
-
-val shift_right_rwt = Q.prove(
-  `!a n. a >>> n = shift_right a n`,
-  completeInduct_on `n`
-  \\ rw [Once shift_right_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [])
-
-val arith_shift_right_def = Define`
-  arith_shift_right (a : 'a word) n =
-  if n = 0 then a
-  else if (a = 0w) \/ n > dimindex(:'a) /\ ~word_msb a then 0w
-  else if (a = -1w) \/ n > dimindex(:'a) /\ word_msb a then -1w
-  else if n > 32 then arith_shift_right (a >> 32) (n - 32)
-  else if n > 16 then arith_shift_right (a >> 16) (n - 16)
-  else if n > 8 then arith_shift_right (a >> 8) (n - 8)
-  else arith_shift_right (a >> 1) (n - 1)`
-
-val arith_shift_right_rwt = Q.prove(
-  `!a n. a >> n = arith_shift_right a n`,
-  completeInduct_on `n`
-  \\ rw [Once arith_shift_right_def]
-  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
-  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
-
 val _ = translate (shift_left_def |> conv64)
 val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
 
@@ -489,10 +440,13 @@ val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
 
-val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+(*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
+
+val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
 
+(*
 val data_to_word_assign_side = Q.prove(`
   ∀a b c d e f g. data_to_word_assign_side a b c d e f g ⇔ T`,
   rpt strip_tac>>
@@ -505,10 +459,11 @@ val data_to_word_assign_side = Q.prove(`
   TRY(Cases_on`o'`)>>
   TRY(Cases_on`s`)>>
   metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
+*)
 
 val _ = save_thm ("comp_ind",data_to_wordTheory.comp_ind|> conv64|> wcomp_simp)
 (* Inlines the let k = 8 manually *)
-val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]])
+val _ = translate (comp_def |> conv64 |> wcomp_simp |> conv64 |> SIMP_RULE std_ss[LET_THM |> INST_TYPE [alpha|->``:num``]]);
 
 open word_simpTheory word_allocTheory word_instTheory
 
@@ -532,7 +487,7 @@ val word_msb_rw = Q.prove(
   >- ( qexists_tac`0` \\ simp[] )
   \\ `i = 0` by decide_tac \\ fs[]);
 
-val arith_shift_right_ind_orig = theorem"arith_shift_right_ind"
+val arith_shift_right_ind_orig = arith_shift_right_ind
 
 val arith_shift_right_ind = (
   arith_shift_right_ind_orig |> spec64
@@ -550,6 +505,9 @@ val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_r
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
 
 val _ = translate (asmTheory.word_cmp_def |> REWRITE_RULE[WORD_LO,WORD_LT] |> spec64 |> REWRITE_RULE[word_msb_rw])
+
+(* TODO: remove when pmatch is fixed *)
+val _ = translate (spec64 const_fp_loop_def)
 
 val _ = translate (spec64 compile_exp_def)
 
@@ -670,6 +628,7 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 
 val _ = translate (spec64 word_to_wordTheory.compile_def)
 
+(* TODO: remove when pmatch is fixedd
 val word_simp_const_fp_loop_side = Q.prove(`
 ∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T`,
 `(∀prog nm. word_simp_const_fp_loop_side prog nm ⇔ T) /\
@@ -698,6 +657,7 @@ val word_simp_compile_exp_side = Q.prove(`
   ∀prog. word_simp_compile_exp_side prog ⇔ T`,
   fs[fetch "-" "word_simp_compile_exp_side_def",
      word_simp_const_fp_side]) |> update_precondition
+*)
 
 val word_inst_inst_select_side = Q.prove(`
 ∀prog c n. word_inst_inst_select_side c n prog ⇔ T`,
@@ -721,7 +681,7 @@ val word_inst_inst_select_side = Q.prove(`
 val word_to_word_compile_single_side = Q.prove(`
   ∀a b c d prog. word_to_word_compile_single_side a b c d prog ⇔ T`,
   fs[fetch "-" "word_to_word_compile_single_side_def",
-     word_simp_compile_exp_side, word_inst_inst_select_side,
+     (*word_simp_compile_exp_side,*) word_inst_inst_select_side,
      word_inst_three_to_two_reg_side]) |> update_precondition
 
 val word_to_word_full_compile_single_side = Q.prove(`

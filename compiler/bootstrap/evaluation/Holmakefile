@@ -1,4 +1,4 @@
-INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../targets/asm ../../targets/x64
+INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../encoders/asm ../../encoders/x64 ../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY
@@ -22,5 +22,9 @@ $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
 
-cake: cake.S
-	gcc $< ../io/io_ffi.c -g -o $@
+ifndef CC
+CC=gcc
+endif
+
+cake: cake.S ../../../basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@
