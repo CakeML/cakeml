@@ -1343,7 +1343,7 @@ val do_app_thm = Q.prove(
     \\ fs [do_app_def,state_rel_def]
     \\ fs [v_rel_def] \\ rw []
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
-  \\ Cases_on `?tag. op = Cons' tag` \\ fs [] \\ rw [] THEN1
+  \\ Cases_on `?tag. op = ConsExtend tag` \\ fs [] \\ rw [] THEN1
    (fs [Once do_app_def] \\ every_case_tac \\ rw []
     \\ fs [do_app_def,state_rel_def]
     \\ fs [v_rel_def] \\ rw []

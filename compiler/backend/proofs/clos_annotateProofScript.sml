@@ -404,7 +404,7 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC EVERY2_EL
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
-  THEN1 (* Cons' *)
+  THEN1 (* ConsExtend *)
    (
     full_simp_tac(srw_ss())[do_app_def] >>
     CASE_TAC >>

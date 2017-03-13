@@ -1297,7 +1297,7 @@ val do_app = Q.prove(
     rw [do_app_def] >>
     fs [v_rel_SIMP] >>
     rw []) >>
-  Cases_on `?tag. op = Cons' tag`
+  Cases_on `?tag. op = ConsExtend tag`
   >- (
     rw [closSemTheory.do_app_def] >>
     fs [] >>
@@ -1460,7 +1460,7 @@ val do_app_err = Q.prove(
        exc_rel (v_rel s1.max_app f t1.refs t1.code) err e`,
   Cases_on `?i. op = EqualInt i` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
-  Cases_on `?tag. op = Cons' tag`
+  Cases_on `?tag. op = ConsExtend tag`
   >- (
     rw [closSemTheory.do_app_def] >>
     fs [] >>

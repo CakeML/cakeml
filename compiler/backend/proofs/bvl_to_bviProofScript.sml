@@ -971,7 +971,7 @@ val do_app_adjust = Q.prove(
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[]) >>
-  Cases_on `?tag. op = Cons' tag`
+  Cases_on `?tag. op = ConsExtend tag`
   >- (
     rw [] >>
     fs [] >>
