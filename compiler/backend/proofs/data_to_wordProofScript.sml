@@ -9,6 +9,9 @@ val _ = new_theory "data_to_wordProof";
 
 val _ = hide "next";
 
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+
 (* TODO: move *)
 val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 
@@ -46,6 +49,10 @@ val word_index_test = Q.store_thm("word_index_test",
 val word_and_one_eq_0_iff = Q.store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
   `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
+
+val word_index_0 = Q.store_thm("word_index_0",
+  `!w. w ' 0 <=> ~((1w && w) = 0w)`,
+  metis_tac [word_and_one_eq_0_iff,WORD_AND_COMM]);
 
 val ABS_w2n = Q.store_thm("ABS_w2n[simp]",
   `ABS (&w2n w) = &w2n w`,
@@ -7995,6 +8002,291 @@ val th = Q.store_thm("assign_LengthBlock",
   \\ match_mp_tac memory_rel_insert \\ fs []
   \\ fs [decode_length_def]
   \\ match_mp_tac IMP_memory_rel_Number_num \\ fs [])
+
+val word_ror_2 = prove(
+  ``good_dimindex (:'a) ==>
+    (wi ≪ (dimindex (:α) − 2) ‖ (wi ⋙ 2):'a word) = word_ror wi 2``,
+  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_lsl_def,
+      word_lsr_def,word_ror_def]
+  \\ rw [good_dimindex_def] \\ fs [] \\ rfs []
+  \\ Cases_on `i` \\ fs []
+  \\ rpt (Cases_on `n` \\ fs [ADD1] \\ Cases_on `n'` \\ fs [ADD1]));
+
+val assign_BoundsCheckBlock = prove(
+  ``assign c secn l dest BoundsCheckBlock args names =
+      case args of
+      | [v1;v2] => (list_Seq [If Test (adjust_var v1) (Imm 1w)
+                               (Assign 1 (Const 0w))
+                               (Assign 1
+                                 (let addr = real_addr c (adjust_var v1) in
+                                  let header = Load addr in
+                                  let k = dimindex (:'a) - c.len_size in
+                                    Shift Lsr header (Nat k)));
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip:'a wordLang$prog,l)``,
+  fs [assign_def] \\ every_case_tac \\ fs []) ;
+
+val th = Q.store_thm("assign_BoundsCheckBlock",
+  `op = BoundsCheckBlock ==> ^assign_thm_goal`,
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
+  \\ fs [assign_BoundsCheckBlock]
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ qmatch_asmsub_rename_tac `(Number i,w2)`
+  \\ `?wi. w2 = Word wi` by
+    (drule memory_rel_tl \\ strip_tac
+     \\ imp_res_tac memory_rel_any_Number_IMP \\ simp [] \\ NO_TAC)
+  \\ rveq
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [eq_eval]
+  \\ reverse (Cases_on `w ' 0`) \\ fs [word_index_0] THEN1
+   (fs [lookup_insert,adjust_var_11]
+    \\ rw [] \\ fs []
+    \\ fs [eq_eval,list_Seq_def]
+    \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
+    \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11]
+    \\ rw []
+    \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ fs [intLib.COOPER_PROVE ``~(0<=i /\ i<0:int)``]
+    \\ match_mp_tac memory_rel_Boolv_F \\ fs [])
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
+       (match_mp_tac (GEN_ALL get_real_addr_lemma)
+        \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
+  \\ `c.len_size < dimindex (:α) /\
+      ~(dimindex (:α) ≥ c.len_size + dimindex (:α))` by
+         (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11,word_ror_2]
+  \\ fs [decode_length_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_bounds_check)
+  \\ disch_then (qspec_then `LENGTH l'` mp_tac)
+  \\ impl_tac THEN1
+    (fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [])
+  \\ strip_tac \\ fs []
+  \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
+  \\ Cases_on `bool_res`
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
+
+val assign_BoundsCheckArray = prove(
+  ``assign c secn l dest BoundsCheckArray args names =
+      case args of
+      | [v1;v2] => (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let k = dimindex (:'a) - c.len_size in
+                                  Shift Lsr header (Nat k));
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip:'a wordLang$prog,l)``,
+  fs [assign_def] \\ every_case_tac \\ fs []) ;
+
+val th = Q.store_thm("assign_BoundsCheckArray",
+  `op = BoundsCheckArray ==> ^assign_thm_goal`,
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_ValueArray_IMP) \\ fs [] \\ rw []
+  \\ fs [assign_BoundsCheckArray]
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ qmatch_asmsub_rename_tac `(Number i,w2)`
+  \\ `?wi. w2 = Word wi` by
+    (drule memory_rel_tl \\ strip_tac
+     \\ imp_res_tac memory_rel_any_Number_IMP \\ simp [] \\ NO_TAC)
+  \\ rveq
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [eq_eval]
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
+       (match_mp_tac (GEN_ALL get_real_addr_lemma)
+        \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
+  \\ `c.len_size < dimindex (:α) /\
+      ~(dimindex (:α) ≥ c.len_size + dimindex (:α))` by
+         (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11,word_ror_2]
+  \\ fs [decode_length_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_bounds_check)
+  \\ disch_then (qspec_then `LENGTH l'` mp_tac)
+  \\ impl_tac THEN1
+    (fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [])
+  \\ strip_tac \\ fs []
+  \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
+  \\ Cases_on `bool_res`
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
+
+val assign_BoundsCheckByte = prove(
+  ``assign c secn l dest BoundsCheckByte args names =
+      case args of
+      | [v1;v2] => (list_Seq [Assign 1
+                               (let addr = real_addr c (adjust_var v1) in
+                                let header = Load addr in
+                                let extra = (if dimindex (:'a) = 32 then 2 else 3) in
+                                let k = dimindex (:'a) - c.len_size - extra in
+                                let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
+                                  Op Sub [Shift Lsr header (Nat k); Const kk]);
+                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
+                                               ShiftVar Lsl (adjust_var v2)
+                                                  (dimindex (:'a) - 2)]);
+                              If Lower 3 (Reg 1)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST)],l)
+      | _ => (Skip:'a wordLang$prog,l)``,
+  fs [assign_def] \\ every_case_tac \\ fs []) ;
+
+val th = Q.store_thm("assign_BoundsCheckByte",
+  `op = BoundsCheckByte ==> ^assign_thm_goal`,
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_ByteArray_IMP) \\ fs [] \\ rw []
+  \\ fs [assign_BoundsCheckByte]
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ qmatch_asmsub_rename_tac `(Number i,w2)`
+  \\ `?wi. w2 = Word wi` by
+    (drule memory_rel_tl \\ strip_tac
+     \\ imp_res_tac memory_rel_any_Number_IMP \\ simp [] \\ NO_TAC)
+  \\ rveq
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [eq_eval]
+  \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+  \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
+       (match_mp_tac (GEN_ALL get_real_addr_lemma)
+        \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+  \\ fs [eq_eval,word_sh_def,num_exp_def]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
+  \\ `c.len_size < dimindex (:α) /\
+      ~(dimindex (:α) ≥ c.len_size + dimindex (:α))` by
+         (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11,word_ror_2]
+  \\ assume_tac word_ror_2
+  \\ fs [good_dimindex_def] \\ rfs []
+  \\ fs [decode_length_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule (GEN_ALL memory_rel_bounds_check)
+  \\ disch_then (qspec_then `LENGTH l'` mp_tac)
+  \\ impl_tac
+  \\ TRY (fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [] \\ NO_TAC)
+  \\ fs [GSYM word_add_n2w]
+  \\ strip_tac \\ fs []
+  \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
+  \\ Cases_on `bool_res`
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
+  \\ fs [good_dimindex_def]);
+
+val assign_LessConstSmall = prove(
+  ``assign c secn l dest (LessConstSmall i) args names =
+      case args of
+      | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))
+                  (Assign (adjust_var dest) TRUE_CONST)
+                  (Assign (adjust_var dest) FALSE_CONST),l)
+      | _ => (Skip:'a wordLang$prog,l)``,
+  fs [assign_def] \\ every_case_tac \\ fs []) ;
+
+val th = Q.store_thm("assign_LessSmallConst",
+  `(?i. op = LessConstSmall i) ==> ^assign_thm_goal`,
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ `?k. i' = &k` by (Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs []
+  \\ `small_int (:'a) (&k)` by
+       (fs [small_int_def,good_dimindex_def,dimword_def] \\ NO_TAC)
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs [] \\ rveq \\ fs []
+  \\ fs [assign_LessConstSmall]
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11,word_ror_2]
+  \\ fs [Smallnum_def]
+  \\ `n2w (4 * k) < (n2w (4 * i):'a word) <=> k < i` by
+    (fs [word_lt_n2w,bitTheory.BIT_def,bitTheory.BITS_THM]
+     \\ fs [good_dimindex_def,LESS_DIV_EQ_ZERO,dimword_def] \\ NO_TAC)
+  \\ fs []
+  \\ qpat_abbrev_tac `bool_res <=> k < i`
+  \\ Cases_on `bool_res`
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
 
 val Compare1_code_thm = store_thm("Compare1_code_thm",
   ``!l a1 a2 dm m res (t:('a,'b) wordSem$state).

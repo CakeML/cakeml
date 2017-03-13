@@ -22,8 +22,7 @@ compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
 compiler/backend
-compiler/targets/asm
-compiler/targets
+compiler/encoders/asm
 compiler/eval/targets
 
 # compiler verification
@@ -32,11 +31,11 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
-compiler/targets/x64/proofs
-compiler/targets/arm6/proofs
-compiler/targets/arm8/proofs
-compiler/targets/mips/proofs
-compiler/targets/riscv/proofs
+compiler/encoders/x64/proofs
+compiler/encoders/arm6/proofs
+compiler/encoders/arm8/proofs
+compiler/encoders/mips/proofs
+compiler/encoders/riscv/proofs
 compiler/eval/targets/proofs
 compiler/proofs
 
@@ -57,7 +56,7 @@ explorer
 translator/okasaki-examples
 translator/other-examples
 characteristic/examples
-compiler/parsing/testing
+compiler/parsing/tests
 
 # compiler bootstrap
 compiler/bootstrap/translation

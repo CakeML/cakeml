@@ -552,7 +552,13 @@ val do_app = Q.prove(
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     TRY(Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp])>>
     TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp]));
+    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+    imp_res_tac LIST_REL_LENGTH >> fs [] >>
+    imp_res_tac state_rel_refs >>
+    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
+    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
+    simp[LIST_REL_EL_EQN] ));
 
 (* compiler correctness *)
 

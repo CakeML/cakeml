@@ -1,4 +1,4 @@
-signature cfNormalizeSyntax = sig
+signature cfNormaliseSyntax = sig
   include Abbrev
 
   val full_normalise_prog_tm   : term
