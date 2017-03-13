@@ -33,6 +33,8 @@ val string_to_bytes_def = Define`
 
 val res = translate string_to_bytes_def;
 
+val res = translate miscTheory.any_word64_ror_def
+
 val def = Define `bar = []:'a list`
 val res = translate def
 
