@@ -301,6 +301,10 @@ val basis_proj1_putChar = Q.store_thm("basis_proj1_putChar",
   `basis_proj1 ffi ' "putChar" = Str(FST(SND ffi))`,
   PairCases_on`ffi` \\ EVAL_TAC);
 
+val basis_proj1_putChar_err = Q.store_thm("basis_proj1_putChar_err",
+  `basis_proj1 ffi ' "putChar_err" = Str(FST(SND (SND ffi)))`,
+  PairCases_on`ffi` \\ EVAL_TAC);
+
 val extract_output_def = Define `
   (extract_output [] = SOME []) /\
   (extract_output ((IO_event name bytes)::xs) =
@@ -311,6 +315,16 @@ val extract_output_def = Define `
          if LENGTH bytes <> 1 then NONE else
            SOME ((SND (HD bytes)) :: rest))`
 
+val extract_err_def = Define `
+  (extract_err [] = SOME []) /\
+  (extract_err ((IO_event name bytes)::xs) =
+     case extract_err xs of
+     | NONE => NONE
+     | SOME rest =>
+         if name <> "putChar_err" then SOME rest else
+         if LENGTH bytes <> 1 then NONE else
+           SOME ((SND (HD bytes)) :: rest))`
+           
 val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   `!xs ys.
       extract_output (xs ++ ys) =
@@ -324,6 +338,18 @@ val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   \\ Cases_on `h` \\ fs [extract_output_def]
   \\ rpt (CASE_TAC \\ fs []));
 
+val extract_err_APPEND = Q.store_thm("extract_err_APPEND",
+  `!xs ys.
+      extract_err (xs ++ ys) =
+      case extract_err ys of
+      | NONE => NONE
+      | SOME rest => case extract_err xs of
+                     | NONE => NONE
+                     | SOME front => SOME (front ++ rest)`,
+  Induct \\ fs [APPEND,extract_err_def] \\ rw []
+  THEN1 (every_case_tac \\ fs [])
+  \\ Cases_on `h` \\ fs [extract_err_def]
+  \\ rpt (CASE_TAC \\ fs []));
 (*-------------------------------------------------------------------------------------------------*)
 
 (*The following thms are used to automate the proof of the SPLIT of the heap in ioProgLib*)
@@ -341,9 +367,9 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
 );
 
 val append_emp = Q.store_thm("append_emp",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x) ==> app p fv xs (P * emp) (POSTv uv. (A uv) * (STDOUT x * emp))`,
-  rw[set_sepTheory.SEP_CLAUSES]
-);
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y) 
+  ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
+  rw[set_sepTheory.SEP_CLAUSES]);
 
 val emp_precond = Q.store_thm("emp_precond",
   `emp {}`, EVAL_TAC);
@@ -359,9 +385,11 @@ val emp_precond = Q.store_thm("emp_precond",
 
 val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
   `!st st'. call_FFI_rel^* st st' ==>
-  st.oracle = basis_ffi_oracle /\
-  extract_output st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar")))) ==>
-  extract_output st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar"))))`,
+  st.oracle = basis_ffi_oracle ==>
+  (extract_output st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar")))) ==>
+   extract_output st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar"))))) /\
+  (extract_err st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar_err")))) ==>
+   extract_err st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar_err")))))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -369,18 +397,19 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
-  \\ fs [extract_output_APPEND,extract_output_def,basis_proj1_putChar] \\ rfs []
+  \\ fs [extract_output_APPEND,extract_output_def,basis_proj1_putChar,
+         extract_err_APPEND,extract_err_def,basis_proj1_putChar_err] \\ rfs []
   \\ first_x_assum match_mp_tac
   \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
   \\ simp[basis_ffi_oracle_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ fs[stdoutFFITheory.ffi_putChar_def,stderrFFITheory.ffi_putChar_err_def]
+  \\ fs[stdoutFFITheory.ffi_putChar_def,stderrFFITheory.ffi_putChar_err_def,
+        stderrFFITheory.ffi_putChar_err_def,stderrFFITheory.ffi_putChar_err_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
 );
-
 
 (*extract_output_basis_ffi shows that the first condition for the previous theorem holds for the
   init_state ffi  *)
@@ -390,6 +419,12 @@ val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
   rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def, basis_proj1_putChar, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
 );
 
+val extract_err_basis_ffi = Q.store_thm ("extract_err_basis_ffi",
+  `extract_err (init_state (basis_ffi inp cls fs)).ffi.io_events = SOME (MAP
+  (n2w o ORD) (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls fs)).ffi.ffi_state ' "putChar_err"))))`,
+  rw[ml_progTheory.init_state_def, extract_err_def, basis_ffi_def,
+  basis_proj1_putChar_err, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
+);
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
@@ -409,35 +444,50 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 `!fname fv.
  ML_code env1 (init_state (basis_ffi inp cls fs)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
-  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * Q)) ==>
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * STDERR y * Q)) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
     ∃(st3:(string # string # string # string list # RO_fs) semanticPrimitives$state).
     semantics_prog (init_state (basis_ffi inp cls fs)) env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
-    extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x)`,
+    extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x) /\
+    extract_err st3.ffi.io_events = SOME (MAP (n2w o ORD) y)`,
     rw[]
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
     \\ simp[] \\ strip_tac
-    \\ `FFI_part_hprop (STDOUT x * Q)`
-    by metis_tac[FFI_part_hprop_def, mlcharioProgTheory.STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
+    \\ `FFI_part_hprop (STDOUT x * STDERR y * Q)`
+    by metis_tac[FFI_part_hprop_def, mlcharioProgTheory.STDOUT_FFI_part_hprop, 
+                 mlcharioProgTheory.STDERR_FFI_part_hprop,FFI_part_hprop_STAR]
     \\ first_x_assum (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[] \\ fs[]
-    \\ qexists_tac `st3` \\ rw[]
-    \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x` suffices_by
+    \\ qexists_tac `st3` \\ simp[]
+    \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x /\
+        (THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar_err"))) = y`suffices_by
       (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
-      \\ fs[extract_output_basis_ffi, ml_progTheory.init_state_def, basis_ffi_def])
-    \\ fs[basis_proj1_putChar]
-    \\ fs[mlcharioProgTheory.STDOUT_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-          set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM, stdoutFFITheory.stdout_ffi_part_def]
+       \\ fs[extract_output_basis_ffi, extract_err_basis_ffi,
+            ml_progTheory.init_state_def, basis_ffi_def])
+    \\ fs[basis_proj1_putChar,basis_proj1_putChar_err]
+    \\ fs[mlcharioProgTheory.STDOUT_def, mlcharioProgTheory.STDERR_def,
+          cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
+          set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM, 
+          stdoutFFITheory.stdout_ffi_part_def,stderrFFITheory.stderr_ffi_part_def]
     \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
     \\ qmatch_assum_abbrev_tac`ffip ∈ h3`
+    \\ fs[Once set_sepTheory.STAR_ASSOC]
+    \\ NTAC 3 (fs[Once set_sepTheory.STAR_COMM])
+    \\ fs[Once set_sepTheory.STAR_ASSOC]
+    \\ fs[Once set_sepTheory.STAR_COMM]
+    \\ fs [set_sepTheory.one_STAR]
+    \\ qmatch_assum_abbrev_tac`ffip2 ∈ h3`
     \\ `ffip ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
-    \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,Abbr`ffip`]
+    \\ `ffip2 ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+    \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+           Abbr`ffip`, Abbr`ffip2`]
     \\ fs [cfStoreTheory.ffi2heap_def]
     \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
-    \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_putChar]
+    \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n,
+          basis_proj1_putChar,basis_proj1_putChar_err]
 );
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
@@ -502,6 +552,12 @@ val extract_output_not_putChar = Q.prove(
       rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
 );
 
+val extract_err_not_putChar_err = Q.prove(
+    `!xs name bytes. name <> "putChar_err" ==>
+      extract_err (xs ++ [IO_event name bytes]) = extract_err xs`,
+      rw[extract_err_APPEND, extract_err_def] \\ Cases_on `extract_err xs` \\ rw[]
+);
+
 val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
   `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
   Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
@@ -510,6 +566,17 @@ val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
   \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
   \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
   \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
+);
+
+val extract_err_FILTER = Q.store_thm("extract_err_FILTER",
+  `!st. extract_err st.ffi.io_events = extract_err (FILTER (ffi_has_index_in ["putChar_err"]) st.ffi.io_events)`,
+  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND]
+  \\ fs[] \\ rw[extract_err_def] \\ full_case_tac
+  \\ Cases_on `extract_err (FILTER (ffi_has_index_in ["putChar_err"]) l')` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND] \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `s = "putChar_err"` \\
+  fs[cfStoreTheory.ffi_has_index_in_def, extract_err_def]
 );
 
 val UNION_DIFF_3 = Q.store_thm("UNION_DIFF_3",
