@@ -51,10 +51,8 @@ val hello_compiled =
   hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def,GSYM hello_oracle_def,GSYM hello_bytes_def,GSYM hello_ffis_def]
 (* -- *)
 
-(* TODO: make this actually the io_events rather than st3 *)
 val io_events_def = new_specification("io_events_def",["io_events"],
   hello_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`]) |> SIMP_RULE bool_ss [SKOLEM_THM]);
-(* -- *)
 
 val hello_sem1 = io_events_def |> SPEC_ALL |> CONJUNCT1
 val hello_sem2 = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem1
