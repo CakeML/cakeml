@@ -769,14 +769,18 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
    ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tapp [] TC_tup) ∨
+   ((op = Aw8concat) ∧ ts = [Tapp [Tword8array] (TC_name (Short "list"))] ∧ t3 = Tword8array) ∨
    (∃wz. (op = WordFromInt wz) ∧ ts = [Tint] ∧ t3 = Tword wz) ∨
    (∃wz. (op = WordToInt wz) ∧ ts = [Tword wz] ∧ t3 = Tint) ∨
+   ((op = StrFromW8Array) ∧ ts = [Tword8array] ∧ t3 = Tstring) ∨
+   ((op = StrToW8Array) ∧ ts = [Tstring] ∧ t3 = Tword8array) ∨
    ((op = Ord) ∧ ts = [Tchar] ∧ t3 = Tint) ∨
    ((op = Chr) ∧ ts = [Tint] ∧ t3 = Tchar) ∨
    ((∃op'. op = Chopb op') ∧ ts = [Tchar; Tchar] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
    ((op = Implode) ∧ ts = [Tapp [Tchar] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
    ((op = Strsub) ∧ ts = [Tstring; Tint] ∧ t3 = Tchar) ∨
    ((op = Strlen) ∧ ts = [Tstring] ∧ t3 = Tint) ∨
+   ((op = Strcat) ∧ ts = [Tapp [Tstring] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
    ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
    ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
    ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨

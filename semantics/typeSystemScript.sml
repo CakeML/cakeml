@@ -250,16 +250,20 @@ val _ = Define `
     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
     | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
     | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_tup
+    | (Aw8concat, [Tapp [Tapp [] TC_word8array] (TC_name (Short "list"))]) => t = Tapp [] TC_word8array
     | (WordFromInt W8, [Tapp [] TC_int]) => t = Tapp [] TC_word8
     | (WordToInt W8, [Tapp [] TC_word8]) => t = Tapp [] TC_int
     | (WordFromInt W64, [Tapp [] TC_int]) => t = Tapp [] TC_word64
     | (WordToInt W64, [Tapp [] TC_word64]) => t = Tapp [] TC_int
+    | (StrFromW8Array, [Tapp [] TC_word8array]) => t = Tapp [] TC_string
+    | (StrToW8Array, [Tapp [] TC_string]) => t = Tapp [] TC_word8array
     | (Chr, [Tapp [] TC_int]) => (t = Tchar)
     | (Ord, [Tapp [] TC_char]) => (t = Tint)
     | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tapp [] (TC_name (Short "bool")))
     | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) => t = Tapp [] TC_string
     | (Strsub, [Tapp [] TC_string; Tapp [] TC_int]) => t = Tchar
     | (Strlen, [Tapp [] TC_string]) => t = Tint
+    | (Strcat, [Tapp [Tapp [] TC_string] (TC_name (Short "list"))]) => t = Tapp [] TC_string
     | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) => t = Tapp [t1] TC_vector
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
     | (Vlength, [Tapp [t1] TC_vector]) => (t = Tapp [] TC_int)

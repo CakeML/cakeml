@@ -50,7 +50,11 @@ val has_lists_v_to_list = Q.prove (
   type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list")))
   ⇒
   ?vs. v_to_list v = SOME vs ∧
-  (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs)`,
+  (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs) ∧
+  (t3 = Tstring ⇒ ∃str. vs_to_string vs = SOME str) ∧
+  (t3 = Tword8array ⇒
+   ∀store. type_s ctMap store tenvS ⇒
+     ∃ws. vs_to_w8s store vs = SOME ws)`,
  measureInduct_on `v_size v` >>
  srw_tac[][] >>
  pop_assum mp_tac >>
@@ -68,7 +72,7 @@ val has_lists_v_to_list = Q.prove (
  srw_tac[][] >>
  fs [EVERY2_THM] >>
  full_simp_tac(srw_ss())[] >>
- srw_tac[][v_to_list_def,v_to_char_list_def] >>
+ srw_tac[][v_to_list_def,v_to_char_list_def,vs_to_string_def,vs_to_w8s_def] >>
  full_simp_tac(srw_ss())[type_subst_def] >>
  rename1 `type_v _ _ _ v _` >>
  LAST_X_ASSUM (mp_tac o Q.SPEC `v`) >>
@@ -79,6 +83,29 @@ val has_lists_v_to_list = Q.prove (
  full_simp_tac(srw_ss())[flookup_fupdate_list] >> srw_tac[][] >> full_simp_tac(srw_ss())[GSYM Tchar_def] >>
  simp [GSYM PULL_EXISTS] >>
  rw [] >>
+ TRY (
+   qmatch_goalsub_rename_tac`vs_to_string (v1::_)`
+   \\ qpat_x_assum`type_v _ _ _ v1 _`mp_tac
+   \\ simp[Once type_v_cases,Tstring_def,Tchar_def]
+   \\ strip_tac \\ simp[vs_to_string_def]
+   \\ imp_res_tac type_funs_Tfn \\ fs[]
+   \\ fs[tid_exn_to_tc_def]
+   \\ every_case_tac \\ fs[] \\ NO_TAC) \\
+ TRY (
+   qmatch_goalsub_rename_tac`vs_to_w8s _ (v1::_)`
+   \\ qpat_x_assum`type_v _ _ _ v1 _`mp_tac
+   \\ simp[Once type_v_cases,Tstring_def,Tchar_def]
+   \\ strip_tac \\ simp[vs_to_w8s_def]
+   \\ TRY (imp_res_tac type_funs_Tfn \\ fs[] \\ NO_TAC)
+   \\ TRY (fs[tid_exn_to_tc_def] \\ every_case_tac \\ fs[] \\ NO_TAC)
+   \\ fs[type_s_def]
+   \\ first_assum(qspec_then`n`mp_tac)
+   \\ pop_assum mp_tac
+   \\ simp_tac(srw_ss())[] \\ ntac 2 strip_tac \\ simp[] \\ rfs[]
+   \\ TOP_CASE_TAC \\ fs[type_sv_def]
+   \\ TOP_CASE_TAC \\ fs[]
+   \\ first_x_assum(qspec_then`store`mp_tac)
+   \\ simp[] \\ metis_tac[] ) \\
  qpat_x_assum`type_v _ _ _ _ Tchar`mp_tac >>
  simp[Once type_v_cases,Tchar_def] >>
  srw_tac[][] >> srw_tac[][v_to_char_list_def] >>
@@ -125,13 +152,11 @@ val canonical_values_thm = Q.store_thm ("canonical_values_thm",
    rw [] >> fs []>- metis_tac[] >>
    metis_tac[optionTheory.NOT_SOME_NONE]) >>
  fs[Tword64_def,Tchar_def] >>
+ qmatch_goalsub_abbrev_tac`_ v = SOME _` >>
  imp_res_tac has_lists_v_to_list >>
- full_simp_tac(srw_ss())[] >>
- fsrw_tac[][GSYM PULL_EXISTS] >>
- fsrw_tac[boolSimps.DNF_ss][] >>
- first_x_assum match_mp_tac >>
- srw_tac[][Once type_v_cases, tid_exn_to_tc_def] >>
- metis_tac [Tchar_def]);
+ first_x_assum(qspec_then`v`mp_tac) >>
+ simp[Once type_v_cases,Tchar_def,Abbr`v`,tid_exn_to_tc_def] >>
+ rw[] >> metis_tac[]);
 
 val eq_same_type = Q.prove (
 `(!v1 v2 tvs ctMap cns tenvS t.
@@ -662,6 +687,15 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> rw []
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
+ >- ( (* W8array concat *)
+   imp_res_tac has_lists_v_to_list
+   \\ fs[] \\ rveq
+   \\ first_x_assum drule \\ strip_tac \\ fs[]
+   \\ `type_sv ctMap tenvS (W8array ws) W8array_t`
+   by ( simp[type_sv_def] )
+   \\ imp_res_tac store_alloc_type_sound
+   \\ asm_exists_tac
+   \\ simp[Once type_v_cases] )
  >- ( (* Int to Word8 *)
    simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
@@ -674,6 +708,20 @@ val op_type_sound = Q.store_thm ("op_type_sound",
  >- ( (* Word64 to Int *)
    simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
+ >- ( (* Word8 array to string *)
+   simp[Once type_v_cases]
+   \\ qhdtm_x_assum`type_v`mp_tac
+   \\ simp[Once type_v_cases] \\ strip_tac
+   \\ imp_res_tac store_lookup_type_sound \\ simp[]
+   \\ fs[] \\ Cases_on`sv` \\ fs[type_sv_def]
+   \\ metis_tac[store_type_extension_refl] )
+ >- ( (* string to word8 array *)
+   qmatch_goalsub_abbrev_tac`store_alloc (W8array ws)`
+   \\ `type_sv ctMap tenvS (W8array ws) W8array_t`
+   by ( simp[type_sv_def] )
+   \\ imp_res_tac store_alloc_type_sound
+   \\ asm_exists_tac
+   \\ simp[Once type_v_cases] )
  >- ( (* Char to Int *)
    simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
@@ -710,6 +758,12 @@ val op_type_sound = Q.store_thm ("op_type_sound",
  >- ( (* string length *)
    simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
+ >- ( (* string concat *)
+   simp[Once type_v_cases]
+   \\ imp_res_tac has_lists_v_to_list
+   \\ fs[Tstring_def]
+   \\ rveq \\ fs[]
+   \\ metis_tac[store_type_extension_refl] )
  >- ( (* list to vector *)
    metis_tac [v_to_list_type, store_type_extension_refl])
  >- ( (* vector lookup *)
