@@ -247,8 +247,6 @@ val cat1_spec = Q.store_thm (
       simp[catfile_string_def, file_contents_def]
 );
 
-val _ = overload_on ("noNullBytes", ``λs. ¬MEM (CHR 0) (explode s)``)
-
 val cat_main = process_topdecs`
   fun cat_main _ = cat (Commandline.arguments())`;
 val _ = append_prog cat_main;
@@ -258,7 +256,7 @@ val st = get_ml_prog_state();
 val cat_main_spec = Q.store_thm("cat_main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
   (* TODO: package the above assumptions up better? e.g. inside COMMANDLINE *)
-   EVERY (λfnm. noNullBytes fnm ∧ strlen fnm < 256 ∧ inFS_fname fnm fs) (MAP implode (TL cl)) ∧
+   EVERY (λfnm. inFS_fname fnm fs) (MAP implode (TL cl)) ∧
    CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
@@ -281,12 +279,14 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xapp
   \\ instantiate
   \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-  \\ map_every qexists_tac[`MAP implode (TL cl)`,`out`]
+  \\ map_every qexists_tac[`out`]
   \\ xsimpl
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
   \\ instantiate
-  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]);
+  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS,explode_implode]
+  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
+  \\ Cases_on`cl` \\ fs[]);
 
 val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "cat_main"
