@@ -4,8 +4,6 @@ open preamble
 
 val _ = new_theory"helloProof";
 
-val _ = Globals.max_print_depth := 20;
-
 val hello_io_events_def = new_specification("hello_io_events_def",["hello_io_events"],
   hello_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`]) |> SIMP_RULE bool_ss [SKOLEM_THM]);
 
