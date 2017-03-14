@@ -378,6 +378,33 @@ val do_app = Q.prove(
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
                      v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
   strip_tac >>
+  Cases_on `?tag. op = ConsExtend tag`
+  >- (
+    rw [do_app_cases_val]
+    >- (
+      Cases_on `err` >>
+      fs [do_app_cases_err] >>
+      fs [] >>
+      Cases_on `a` >>
+      fs [do_app_cases_timeout] >>
+      fs [] >>
+      pop_assum mp_tac >>
+      simp [Once do_app_cases_type_error] >>
+      rw [] >>
+      rw [do_app_def] >>
+      fs [v_rel_cases] >>
+      rw [] >>
+      fs [] >>
+      rw [] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      intLib.ARITH_TAC)
+    >- (
+      fs [] >>
+      rw [] >>
+      fs [v_rel_cases] >>
+      rw [PULL_EXISTS] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      metis_tac [EVERY2_APPEND_suff, EVERY2_TAKE, EVERY2_DROP])) >>
   simp[do_app_def] >>
   Cases_on`op`>>simp[v_rel_simp]>>
   Cases_on`x1`>>full_simp_tac(srw_ss())[v_rel_simp] >>
@@ -399,29 +426,6 @@ val do_app = Q.prove(
     simp[OPTREL_def])
   (* AllocGlobal *)
   >- ( full_simp_tac(srw_ss())[state_rel_def] >> simp[OPTREL_def])
-  (* ConsExtend *)
-  >- (
-    cheat
-    (*
-    fs [v_rel_cases] >>
-    rw [] >>
-    Cases_on `t` >>
-    fs [] >>
-    rw [] >>
-    fs [v_rel_cases] >>
-    Cases_on `t'` >>
-    fs [] >>
-    fs [v_rel_cases] >>
-    rw [] >>
-    fs [] >>
-    imp_res_tac LIST_REL_LENGTH >>
-    fs [] >>
-    rw [] >>
-    irule EVERY2_APPEND_suff >>
-    rw [] >>
-    irule EVERY2_TAKE >>
-    irule EVERY2_DROP >>
-    simp [] *) )
   (* El *)
   >- (
     Cases_on`h` >> full_simp_tac(srw_ss())[v_rel_simp]>>

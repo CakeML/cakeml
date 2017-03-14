@@ -1359,6 +1359,9 @@ val do_app_thm = Q.prove(
       imp_res_tac LIST_REL_LENGTH >>
       fs [])
     >- (
+      imp_res_tac LIST_REL_LENGTH >>
+      fs [])
+    >- (
       irule EVERY2_APPEND_suff >>
       simp [] >>
       irule EVERY2_TAKE >>

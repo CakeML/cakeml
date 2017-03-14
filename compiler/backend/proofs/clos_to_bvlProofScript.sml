@@ -503,6 +503,7 @@ val evaluate_generic_app2 = Q.prove (
   rw [] >>
   fs [ADD1]
   >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
   >- (
     REWRITE_TAC [ADD_ASSOC, triangle_el_no_suff] >>
     `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
@@ -1299,9 +1300,7 @@ val do_app = Q.prove(
     rw []) >>
   Cases_on `?tag. op = ConsExtend tag`
   >- (
-    rw [closSemTheory.do_app_def] >>
-    fs [] >>
-    every_case_tac >>
+    fs [closPropsTheory.do_app_cases_val] >>
     fs [] >>
     rw [do_app_def] >>
     fs [v_rel_SIMP] >>
@@ -1462,10 +1461,11 @@ val do_app_err = Q.prove(
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
   Cases_on `?tag. op = ConsExtend tag`
   >- (
-    rw [closSemTheory.do_app_def] >>
-    fs [] >>
-    every_case_tac >>
-    fs [])
+    Cases_on `err` >>
+    rw [closPropsTheory.do_app_cases_err] >>
+    Cases_on `a` >>
+    rw [closPropsTheory.do_app_cases_timeout] >>
+    fs [closPropsTheory.do_app_cases_type_error])
   \\ Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   >- (
     imp_res_tac state_rel_globals >>

@@ -438,7 +438,7 @@ val lem = Q.prove(
   >- (fs[pair_case_eq, result_case_eq, eqs, bool_case_eq] >> rveq >> fixeqs >>
       fs[] >> metis_tac[SUBSET_TRANS])
   >- (fs[eqs, bool_case_eq, pair_case_eq] >> rveq >> fs[] >>
-      metis_tac[SUBSET_TRANS]))
+      metis_tac[SUBSET_TRANS]));
 
 val mapped_globals_grow = save_thm(
   "mapped_globals_grow",
@@ -1275,6 +1275,7 @@ val kvrel_op_correct_Rval = Q.store_thm(
     fs [] >>
     rw [] >>
     imp_res_tac LIST_REL_LENGTH
+    >- intLib.ARITH_TAC
     >- intLib.ARITH_TAC >>
     irule EVERY2_APPEND_suff >>
     simp [] >>
