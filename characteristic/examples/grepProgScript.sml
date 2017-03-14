@@ -492,7 +492,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
      (ROFS fs * STDOUT out)
      (POSTv uv. &UNIT_TYPE () uv * ROFS fs *
                 STDOUT (out ++
-                  if inFS_fname f fs then
+                  if inFS_fname fs f then
                     CONCAT
                       (MAP ((++)(explode f ++ ":"))
                         (FILTER (m o implode)
@@ -503,7 +503,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ qmatch_goalsub_abbrev_tac`_ * ROFS fs * STDOUT result`
   \\ reverse(xhandle`POST
        (λv. &UNIT_TYPE () v * ROFS fs * STDOUT result)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname f fs) * ROFS fs * STDOUT out)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * ROFS fs * STDOUT out)`)
   >- (
     xcases
     \\ fs[BadFileName_exn_def]
@@ -511,8 +511,8 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     \\ xcon \\ xsimpl )
   >- ( xsimpl )
   \\ xlet`POST (λv. &(WORD ((n2w (nextFD fs)):word8) v ∧ validFD (nextFD fs) (openFileFS f fs) ∧
-                      inFS_fname f fs) * ROFS (openFileFS f fs) * STDOUT out)
-               (λe. &(BadFileName_exn e ∧ ¬inFS_fname f fs) * ROFS fs * STDOUT out)`
+                      inFS_fname fs f) * ROFS (openFileFS f fs) * STDOUT out)
+               (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * ROFS fs * STDOUT out)`
   >- ( xapp \\ instantiate \\ xsimpl )
   >- ( xsimpl )
   \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE [] v * ROFS (openFileFS f fs) * STDOUT out`
