@@ -884,6 +884,18 @@ t = convert_t (t_walkstar s' t')`,
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);B;C]`>>
     pac_tac)
+  >- (
+    unconversion_tac >>
+    qpat_abbrev_tac `ls = [(h,_)]`>>
+    pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
   >-(fs[Tchar_def] >>
      unconversion_tac >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
@@ -923,6 +935,10 @@ t = convert_t (t_walkstar s' t')`,
   >-(fs[Tchar_def] >> unconversion_tac >>
      fs[pure_add_constraints_combine] >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,_)]`>>
      pac_tac)
   >-
     (extend_uvar_tac `t2`>>

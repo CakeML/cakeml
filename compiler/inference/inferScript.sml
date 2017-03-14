@@ -332,6 +332,10 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_tup)
         od
+    | (Aw8concat, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_word8array] (TC_name (Short "list")));
+          return (Infer_Tapp [] TC_word8array)
+        od
    | (WordFromInt wz, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] (TC_word wz))
@@ -340,6 +344,14 @@ constrain_op op ts =
        do () <- add_constraint t (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] TC_int)
        od
+   | (StrFromW8Array, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_word8array);
+          return (Infer_Tapp [] TC_string)
+        od
+   | (StrToW8Array, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_string);
+          return (Infer_Tapp [] TC_word8array)
+        od
    | (Chr, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_char)
@@ -366,6 +378,10 @@ constrain_op op ts =
        do () <- add_constraint t (Infer_Tapp [] TC_string);
           return (Infer_Tapp [] TC_int)
        od
+   | (Strcat, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_string] (TC_name (Short "list")));
+          return (Infer_Tapp [] TC_string)
+        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint t (Infer_Tapp [uvar] (TC_name (Short "list")));
