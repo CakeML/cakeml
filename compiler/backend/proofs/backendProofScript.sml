@@ -989,24 +989,17 @@ val conf_constraint_def = Define`
   conf.valid_imm (INL Add) 8w ∧
   ∀s. addr_offset_ok conf (store_offset s)`;
 
-local
-val lemma = Q.store_thm("imples_data_to_word_precond",
-  `(from_data c prog = SOME (bytes,ffis) /\
-     EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
-     byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
-     byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
-     t.regs (find_name c.stack_conf.reg_names 2) <=+
-     t.regs (find_name c.stack_conf.reg_names 4) /\
-     Abbrev (dm = { w | t.regs (find_name c.stack_conf.reg_names 2) <=+ w /\
-                        w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
-     good_init_state mc_conf (t:'a asm_state)
-       m ms ffi ffis bytes io_regs save_regs dm) /\
-    (data_to_wordProof$conf_ok (:α) c.data_conf /\
+
+(* TODO: these conf_ok should be defined in backendTheory, so that we
+         can prove that each backend's config is correct without
+         requiring to build all the proofs. *)
+val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
+   (data_to_wordProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\
     (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) ∉
-      ({mc_conf.len_reg; mc_conf.ptr_reg} UNION save_regs) /\
+      ({mc_conf.len_reg; mc_conf.ptr_reg} UNION set mc_conf.callee_saved_regs) /\
     find_name c.stack_conf.reg_names 2 = mc_conf.len_reg /\
     find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
     (find_name c.stack_conf.reg_names 0 =
@@ -1019,10 +1012,10 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     (* Specific to register renamings*)
     names_ok c.stack_conf.reg_names mc_conf.target.config.reg_count mc_conf.target.config.avoid_regs ∧
     fixed_names c.stack_conf.reg_names mc_conf.target.config ∧
+    (∃ra_regs.
     Abbrev (ra_regs = (mc_conf.target.config.reg_count −
           (LENGTH mc_conf.target.config.avoid_regs + 5))) /\
     2 < ra_regs ∧
-    save_regs = set mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+2))
       mc_conf.callee_saved_regs /\
     MEM (find_name c.stack_conf.reg_names (ra_regs+3))
@@ -1032,9 +1025,31 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
     10 ≤ ra_regs +2 /\
     (* At least 11 register available*)
     LENGTH mc_conf.target.config.avoid_regs + 11 ≤
-      (mc_conf:('a,'b,'c) machine_config).target.config.reg_count) ==>
+      (mc_conf:('a,'b,'c) machine_config).target.config.reg_count))`;
+
+val conf_ok_def = Define `conf_ok (c:'a config) mc_conf ⇔
+  (c.source_conf = (prim_config:'a backend$config).source_conf) ∧
+  (c.mod_conf = (prim_config:'a backend$config).mod_conf) ∧
+  0 < c.clos_conf.max_app ∧
+  lower_conf_ok c mc_conf`;
+
+val conf_ok_with_word_to_word_conf = Q.store_thm("conf_ok_with_word_to_word_conf[simp]",
+  `conf_ok (cc with word_to_word_conf := wc) mc ⇔ conf_ok cc mc`, rw[conf_ok_def,lower_conf_ok_def]);
+
+val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
+  `(from_data c prog = SOME (bytes,ffis) /\
+     EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
+     byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
+     byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
+     t.regs (find_name c.stack_conf.reg_names 2) <=+
+     t.regs (find_name c.stack_conf.reg_names 4) /\
+     Abbrev (dm = { w | t.regs (find_name c.stack_conf.reg_names 2) <=+ w /\
+                        w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
+     good_init_state mc_conf (t:'a asm_state)
+       m ms ffi ffis bytes io_regs (set mc_conf.callee_saved_regs) dm) /\
+    lower_conf_ok c mc_conf ==>
     data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffis,mc_conf,ms,prog)`,
-  strip_tac \\ fs [data_to_word_precond_def]
+  strip_tac \\ fs [data_to_word_precond_def,lower_conf_ok_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
@@ -1137,6 +1152,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ qexists_tac`FST mc_conf.target.config.addr_offset`
   \\ qexists_tac`SND mc_conf.target.config.addr_offset`
   \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`make_init _ _ save_regs`
   \\ `?regs. init_pre (2 * max_heap_limit (:α) c.data_conf - 1) c2.bitmaps
         (ra_regs + 2) InitGlobals_location
         (make_init c.stack_conf.reg_names (fromAList prog3)
@@ -1271,18 +1287,7 @@ val lemma = Q.store_thm("imples_data_to_word_precond",
   \\ ntac 2 (first_x_assum (qspec_then`c` assume_tac))\\ rfs []
   \\ drule stack_remove_syntax_pres \\ fs [] \\ strip_tac
   \\ drule stack_names_syntax_pres \\ fs []
-  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs [])
-  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  |> Q.GEN `ra_regs` |> SIMP_RULE std_ss [GSYM PULL_EXISTS,
-       METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``];
-val tm = lemma |> concl |> dest_imp |> fst |> dest_conj |> snd
-in
-(* TODO: this conf_ok should be defined in backendTheory, so that we
-         can prove that each backend's config is correct without
-         requiring to build all the proofs. *)
-val conf_ok_def = Define `conf_ok c mc_conf = ^tm`
-val imp_data_to_word_precond = lemma |> REWRITE_RULE [GSYM conf_ok_def]
-end;
+  \\ simp [EVERY_MEM] \\ disch_then drule \\ fs []);
 
 val clean_data_to_target_thm = let
   val th =
@@ -1298,6 +1303,12 @@ val clean_data_to_target_thm = let
   val installed_def = define_abbrev "installed" tm
   val th = th |> REWRITE_RULE [GSYM installed_def]
   in th end;
+
+val installed_def = definition"installed_def";
+
+val installed_with_word_to_word_conf = Q.store_thm("installed_with_word_to_word_conf[simp]",
+  `installed (bytes,cc with word_to_word_conf := wc,rest) ⇔ installed(bytes,cc,rest)`,
+  PairCases_on`rest` \\ rw[installed_def]);
 
 val prim_config_eq = save_thm("prim_config_eq", EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
 
@@ -1346,16 +1357,14 @@ val clos_to_data_names = Q.store_thm("clos_to_data_names",
   \\ EVAL_TAC \\ rw[]);
 
 val compile_correct = Q.store_thm("compile_correct",
-  `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
-   (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
-   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
-   0 < c.clos_conf.max_app ∧ conf_ok c mc ∧
+  `compile c prog = SOME (bytes,ffis) ⇒
+   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   conf_ok c mc ∧
    ¬semantics_prog s env prog Fail ∧
-   compile c prog = SOME (bytes,ffis) ∧
    installed (bytes,c,ffi,ffis,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
-  srw_tac[][compile_eq_from_source,from_source_def] >>
+  srw_tac[][compile_eq_from_source,from_source_def,conf_ok_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
@@ -1432,8 +1441,9 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[] >> EVAL_TAC >>
     srw_tac[QUANT_INST_ss[std_qp]][]) >>
   disch_then drule >> strip_tac >>
+  pairarg_tac \\ fs[] >>
   qhdtm_x_assum`from_mod`mp_tac >>
-  srw_tac[][from_mod_def,Abbr`c''`,mod_to_conTheory.compile_def] >>
+  srw_tac[][from_mod_def,mod_to_conTheory.compile_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
   `sem2 ≠ Fail` by metis_tac[] >>
@@ -1576,10 +1586,10 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ pairarg_tac \\ fs [])
   \\ rename1 `from_data c4 p4 = _`
   \\ `installed (bytes,c4,ffi,ffis,mc,ms)` by
-       (fs [fetch "-" "installed_def",Abbr`c4`] \\ metis_tac [])
+       (fs [installed_def,Abbr`c4`] \\ metis_tac [])
   \\ drule (GEN_ALL clean_data_to_target_thm)
   \\ disch_then drule
-  \\ `conf_ok c4 mc` by (unabbrev_all_tac \\ fs [conf_ok_def] \\ metis_tac [])
+  \\ `lower_conf_ok c4 mc` by (unabbrev_all_tac \\ fs [lower_conf_ok_def] \\ metis_tac [])
   \\ simp[implements_def,AND_IMP_INTRO]
   \\ disch_then match_mp_tac \\ fs []
   \\ qunabbrev_tac `p4` \\ fs []

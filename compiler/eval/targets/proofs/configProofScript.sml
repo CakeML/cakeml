@@ -130,7 +130,7 @@ val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
 
 val x64_conf_ok = Q.store_thm("x64_conf_ok",`
   conf_ok x64_compiler_config x64_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_machine_config_def,x64_backend_correct]
   >- names_tac
   >-
@@ -160,7 +160,7 @@ val arm6_machine_config_def = Define`
 
 val arm6_conf_ok = Q.store_thm("arm6_conf_ok",`
   conf_ok arm_compiler_config arm6_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
   >- names_tac
   >-
@@ -205,7 +205,7 @@ val arm8_machine_config_def = Define`
 
 val arm8_conf_ok = Q.store_thm("arm8_conf_ok",`
   conf_ok arm8_compiler_config arm8_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
   >- names_tac
   >-
@@ -254,7 +254,7 @@ val riscv_machine_config_def = Define`
 
 val riscv_conf_ok = Q.store_thm("riscv_conf_ok",`
   conf_ok riscv_compiler_config riscv_machine_config`,
-  simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_machine_config_def,riscv_backend_correct]
   >- names_tac
   >-
@@ -303,7 +303,7 @@ val mips_machine_config_def = Define`
 
 val mips_conf_ok = Q.store_thm("mips_conf_ok",`
   conf_ok mips_compiler_config mips_machine_config`,
-  simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
   >- names_tac
   >-
