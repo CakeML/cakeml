@@ -57,12 +57,14 @@ val mips_bop_i_def = Define`
 val mips_sh_def = Define`
    (mips_sh Lsl = DSLL) /\
    (mips_sh Lsr = DSRL) /\
-   (mips_sh Asr = DSRA)`
+   (mips_sh Asr = DSRA) /\
+   (mips_sh _   = DSRA)`
 
 val mips_sh32_def = Define`
    (mips_sh32 Lsl = DSLL32) /\
    (mips_sh32 Lsr = DSRL32) /\
-   (mips_sh32 Asr = DSRA32)`
+   (mips_sh32 Asr = DSRA32) /\
+   (mips_sh32 _   = DSRA32)`
 
 val mips_memop_def = Define`
    (mips_memop Load    = INL LD) /\
