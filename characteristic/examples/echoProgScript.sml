@@ -26,22 +26,26 @@ val echo_spec = Q.store_thm("echo_spec",
   `!ls b bv. cl <> [] /\ EVERY validArg cl /\
    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
-   (STDOUT output * COMMANDLINE cl)
-   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ (CONCAT_WITH " " (TL cl)) ++ [CHR 10]) * COMMANDLINE cl))`,
+   (STDOUT output * STDERR err * COMMANDLINE cl)
+   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ (CONCAT_WITH " " (TL cl)) ++ [CHR 10]) 
+                               * STDERR err* COMMANDLINE cl))`,
     xcf "echo" st
-    \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * COMMANDLINE cl` 
+    \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * STDERR err * COMMANDLINE cl` 
     >-(xcon \\ xsimpl)
-    \\ xlet `POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * STDOUT output
-      * COMMANDLINE cl`
-    >-(xapp \\ instantiate \\ qexists_tac `STDOUT output` \\ xsimpl)
-    \\ xlet `POSTv clv. STDOUT output * COMMANDLINE cl * & STRING_TYPE (implode (CONCAT_WITH " " (TL cl))) clv`
+    \\ xlet `POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * 
+             STDOUT output * STDERR err * COMMANDLINE cl`
+    >-(xapp \\ instantiate \\ qexists_tac `STDOUT output * STDERR err` \\ xsimpl)
+    \\ xlet `POSTv clv. STDOUT output * STDERR err * COMMANDLINE cl * 
+             & STRING_TYPE (implode (CONCAT_WITH " " (TL cl))) clv`
     >-(xapp \\ xsimpl \\ instantiate
       \\ rw[mlstringTheory.concatWith_CONCAT_WITH, mlstringTheory.implode_explode, Once mlstringTheory.implode_def]
       \\ Cases_on `cl` \\ fs[mlstringTheory.implode_def])
-    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ (CONCAT_WITH " " (TL cl))) * COMMANDLINE cl`
-    >-(xapp \\ qexists_tac `COMMANDLINE cl` \\ xsimpl \\ qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
+    \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (output ++ (CONCAT_WITH " " (TL cl))) 
+                                        * STDERR err * COMMANDLINE cl`
+    >-(xapp \\ qexists_tac `STDERR err * COMMANDLINE cl` \\ xsimpl \\ 
+       qexists_tac `implode (CONCAT_WITH " " (TL cl))` \\ qexists_tac `output`
       \\ rw[mlstringTheory.explode_implode] \\ xsimpl)
-    \\ xapp \\ map_every qexists_tac [`COMMANDLINE cl`, `output ++ (CONCAT_WITH " " (TL cl))`, `(CHR 10)`] \\ xsimpl
+    \\ xapp \\ map_every qexists_tac [`STDERR err * COMMANDLINE cl`, `output ++ (CONCAT_WITH " " (TL cl))`, `(CHR 10)`] \\ xsimpl
 );
 
 val st = get_ml_prog_state();

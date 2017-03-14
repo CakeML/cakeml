@@ -262,14 +262,15 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
    CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
-     (STDOUT out * ROFS fs * COMMANDLINE cl)
+     (STDOUT out * STDERR err * ROFS fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv * (STDOUT (out ++ (catfiles_string fs (MAP implode (TL cl))))
-                                    * (ROFS fs * COMMANDLINE cl)))`,
+                                    * STDERR err * (ROFS fs * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
-  \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * ROFS fs * COMMANDLINE cl`
+  \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * STDERR err * ROFS fs * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
-  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * ROFS fs * COMMANDLINE cl`
+  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * 
+                    STDERR err * ROFS fs * COMMANDLINE cl`
   >- (
     xapp (* TODO: this fails in obscure ways if 'ffi is replaced by 'a in the goal. this is too fragile *)
     \\ instantiate

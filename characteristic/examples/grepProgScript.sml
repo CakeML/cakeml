@@ -599,11 +599,11 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 val grep = process_topdecs`
   fun grep u =
     case Commandline.arguments ()
-    of [] => print usage_string
-     | [_] => print usage_string
+    of [] => print_err usage_string
+     | [_] => print_err usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
-         NONE => print (parse_failure_string regexp)
+         NONE => print_err (parse_failure_string regexp)
        | SOME r =>
            (* abandoning this approach for now ...
          let
@@ -629,11 +629,11 @@ val grep_sem_file_def = Define`
 
 val grep_sem_def = Define`
   (grep_sem (_::regexp::filenames) fs =
-   if NULL filenames then explode usage_string else
+   if NULL filenames then ("",explode usage_string) else
    case parse_regexp regexp of
-   | NONE => explode (parse_failure_string (implode regexp))
-   | SOME r => CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames))) ∧
-  (grep_sem _ _ = explode usage_string)`;
+   | NONE => ("",explode (parse_failure_string (implode regexp)))
+   | SOME r => (CONCAT (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames)),"")) ∧
+  (grep_sem _ _ = ("",explode usage_string))`;
 
 val grep_termination_assum_def = Define`
   (grep_termination_assum (_::regexp::filenames) ⇔
@@ -650,15 +650,16 @@ val grep_spec = Q.store_thm("grep_spec",
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
     [Conv NONE []]
-    (STDOUT out * COMMANDLINE cl * ROFS fs)
+    (STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs)
     (POSTv v. &UNIT_TYPE () v *
-      (STDOUT (out ++ grep_sem cl fs)
-       * (COMMANDLINE cl * ROFS fs)))`,
+      (STDOUT (out ++ FST(grep_sem cl fs))
+       * STDERR(err ++ SND(grep_sem cl fs))
+          * (COMMANDLINE cl * ROFS fs)))`,
   strip_tac
   \\ xcf"grep"(get_ml_prog_state())
-  \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- (xcon \\ xsimpl)
-  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- (xapp \\ instantiate \\ xsimpl
       \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF] (* TODO: this is duplicated in catProg and bootstrap *)
       \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
@@ -675,8 +676,9 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ qexists_tac`usage_string`
     \\ simp[usage_string_v_thm]
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`out`
-    \\ xsimpl )
+    \\ qexists_tac`err`
+    \\ xsimpl 
+    )
   \\ rveq
   \\ rename1`EVERY validArg t`
   \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
@@ -689,7 +691,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ qexists_tac`usage_string`
     \\ simp[usage_string_v_thm]
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`out`
+    \\ qexists_tac`err`
     \\ xsimpl )
   \\ rveq
   \\ xmatch
@@ -697,25 +699,27 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ simp[grep_sem_def,MAP_MAP_o,o_DEF]
   \\ qmatch_goalsub_abbrev_tac`COMMANDLINE cl`
   \\ qmatch_assum_abbrev_tac`Abbrev(cl = grep::regexp::fls)`
-  \\ xlet`POSTv v. &LIST_TYPE CHAR regexp v * STDOUT out * COMMANDLINE cl * ROFS fs`
+  \\ xlet`POSTv v. &LIST_TYPE CHAR regexp v * STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- (
     xapp
     \\ instantiate
     \\ simp[mlstringTheory.explode_implode]
-    \\ xsimpl )
-  \\ xlet`POSTv v. &OPTION_TYPE REGEXP_REGEXP_TYPE  (parse_regexp regexp) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+    \\ xsimpl)
+  \\ xlet`POSTv v. &OPTION_TYPE REGEXP_REGEXP_TYPE  (parse_regexp regexp) v * 
+          STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- ( xapp \\ instantiate \\ xsimpl )
   \\ Cases_on`parse_regexp regexp` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (
     xmatch
-    \\ xlet`POSTv v. &STRING_TYPE (parse_failure_string (implode regexp)) v * STDOUT out * COMMANDLINE cl * ROFS fs`
+    \\ xlet`POSTv v. &STRING_TYPE (parse_failure_string (implode regexp)) v * 
+            STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
     >- (xapp \\ instantiate \\ xsimpl )
     \\ xapp
     \\ instantiate
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`out`
-    \\ xsimpl )
+    \\ qexists_tac`err`
+    \\ xsimpl)
   \\ qmatch_goalsub_abbrev_tac`gs1 ++ (FLAT (MAP ff files))`
   \\ `gs1 ++ (FLAT (MAP ff files)) = out ++ FLAT (MAP ff fls)`
   by ( unabbrev_all_tac \\ simp[] )

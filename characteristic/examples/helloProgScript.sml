@@ -13,14 +13,15 @@ val res = ml_prog_update(ml_progLib.add_prog hello pick_name)
 val st = get_ml_prog_state ()
 
 val hello_spec = Q.store_thm ("hello_spec",
-  `!cv input output.
+  `!cv input output err.
       app (p:'ffi ffi_proj) ^(fetch_v "hello" st)
         [Conv NONE []]
-        (STDOUT [])
-        (POSTv uv. &UNIT_TYPE () uv * (STDOUT ("Hello World!\n")))`,
+        (STDOUT output * STDERR err)
+        (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ "Hello World!\n")
+                                       * STDERR err * emp))`,
   xcf "hello" st
   \\ xapp
-  \\ xsimpl \\ qexists_tac `emp` \\ qexists_tac `[]` \\ xsimpl
+  \\ xsimpl \\ qexists_tac `emp * STDERR err` \\ qexists_tac `output` \\ xsimpl
 );
 
 val st = get_ml_prog_state();
