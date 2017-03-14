@@ -311,9 +311,9 @@ val openIn_spec = Q.store_thm(
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                   validFD (nextFD fs) (openFileFS s fs) ∧
-                  inFS_fname s fs) *
+                  inFS_fname fs s) *
                 ROFS (openFileFS s fs))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * ROFS fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * ROFS fs))`,
   xcf "openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, ROFS_def, ROFS_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
@@ -327,7 +327,7 @@ val openIn_spec = Q.store_thm(
       Cases_on`s` \\ fs[]) >>
   qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _ * _ * _` >>
-  Cases_on `inFS_fname s fs`
+  Cases_on `inFS_fname fs s`
   >- (
     xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < 255 /\
