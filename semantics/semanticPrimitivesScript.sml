@@ -427,6 +427,34 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_char_list_defn;
 
+(*val vs_to_w8s : store v -> list v -> maybe (list word8)*)
+ val vs_to_w8s_defn = Defn.Hol_multi_defns `
+ (vs_to_w8s s []=  (SOME []))
+/\ (vs_to_w8s s (Loc l::vs)=  
+ ((case store_lookup l s of
+    SOME (W8array ws1) =>
+      (case vs_to_w8s s vs of
+        SOME ws2 => SOME (ws1++ws2)
+      | _ => NONE
+      )
+  | _ => NONE
+  )))
+/\ (vs_to_w8s _ _=  NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) vs_to_w8s_defn;
+
+(*val vs_to_string : list v -> maybe string*)
+ val vs_to_string_defn = Defn.Hol_multi_defns `
+ (vs_to_string []=  (SOME ""))
+/\ (vs_to_string (Litv(StrLit s1)::vs)=  
+ ((case vs_to_string vs of
+    SOME s2 => SOME ( STRCAT s1 s2)
+  | _ => NONE
+  )))
+/\ (vs_to_string _=  NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) vs_to_string_defn;
+
 (*val opn_lookup : opn -> integer -> integer -> integer*)
 val _ = Define `
  (opn_lookup n : int -> int -> int=  ((case n of
@@ -583,6 +611,19 @@ val _ = Define `
                   )
         | _ => NONE
       )
+        | (Aw8concat, [v]) =>
+            (case v_to_list v of
+              SOME vs =>
+                (case vs_to_w8s s vs of
+                  SOME ws =>
+                  let (s',lnum) =                    
+(store_alloc (W8array ws) s)
+                  in
+                    SOME ((s',t), Rval (Loc lnum))
+                | _ => NONE
+                )
+            | _ => NONE
+            )
     | (WordFromInt W8, [Litv(IntLit i)]) =>
         SOME ((s,t), Rval (Litv (Word8 (i2w i))))
     | (WordFromInt W64, [Litv(IntLit i)]) =>
@@ -591,6 +632,18 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (StrFromW8Array, [Loc lnum]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            SOME ((s,t), Rval (Litv(StrLit(IMPLODE(MAP (\ w .  CHR(w2n w)) ws)))))
+        | _ => NONE
+        )
+    | (StrToW8Array, [Litv(StrLit str)]) =>
+        let (s',lnum) =          
+(store_alloc
+            (W8array (MAP (\ c .  i2w(int_of_num(ORD c))) (EXPLODE str))) s)
+        in
+          SOME ((s',t), Rval (Loc lnum))
     | (Ord, [Litv (Char c)]) =>
           SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Chr, [Litv (IntLit i)]) =>
@@ -618,6 +671,16 @@ val _ = Define `
               SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+    | (Strcat, [v]) =>
+        (case v_to_list v of
+          SOME vs =>
+            (case vs_to_string vs of
+              SOME str =>
+                SOME ((s,t), Rval (Litv(StrLit str)))
+            | _ => NONE
+            )
+        | _ => NONE
+        )
     | (VfromList, [v]) =>
           (case v_to_list v of
               SOME vs =>
