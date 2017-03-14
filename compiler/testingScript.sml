@@ -32,7 +32,7 @@ val mod_prog_def = Define`
 
 EVAL ``mod_prog``;
 (* Test running the compiler backend on the basic program *)
-EVAL ``backend$compile backend$prim_config parsed_basic``;
+EVAL ``backend$compile_explorer backend$prim_config parsed_basic``;
 
 (* PRESLANG *)
 (* Test converting mod to pres *)
