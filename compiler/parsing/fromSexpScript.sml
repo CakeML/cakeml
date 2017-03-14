@@ -501,6 +501,9 @@ val sexpop_def = Define`
   if s = "Aw8sub" then SOME Aw8sub else
   if s = "Aw8length" then SOME Aw8length else
   if s = "Aw8update" then SOME Aw8update else
+  if s = "Aw8concat" then SOME Aw8concat else
+  if s = "StrFromW8Array" then SOME StrFromW8Array else
+  if s = "StrToW8Array" then SOME StrToW8Array else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
   if s = "W8fromInt" then SOME (WordFromInt W8) else
@@ -514,6 +517,7 @@ val sexpop_def = Define`
   if s = "Implode" then SOME Implode else
   if s = "Strsub" then SOME Strsub else
   if s = "Strlen" then SOME Strlen else
+  if s = "Strcat" then SOME Strcat else
   if s = "VfromList" then SOME VfromList else
   if s = "Vsub" then SOME Vsub else
   if s = "Vlength" then SOME Vlength else
@@ -544,7 +548,7 @@ val sexplocn_def = Define`
     do
       ls <- strip_sxcons s;
       guard (LENGTH ls = 6)
-      (lift2 $, 
+      (lift2 $,
             (lift locn (odestSXNUM (EL 0 ls)) <*>
                        (odestSXNUM (EL 1 ls)) <*>
                        (odestSXNUM (EL 2 ls)))
@@ -847,6 +851,9 @@ val opsexp_def = Define`
   (opsexp Aw8sub = SX_SYM "Aw8sub") ∧
   (opsexp Aw8length = SX_SYM "Aw8length") ∧
   (opsexp Aw8update = SX_SYM "Aw8update") ∧
+  (opsexp Aw8concat = SX_SYM "Aw8concat") ∧
+  (opsexp StrFromW8Array = SX_SYM "StrFromW8Array") ∧
+  (opsexp StrToW8Array = SX_SYM "StrToW8Array") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
   (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
@@ -860,6 +867,7 @@ val opsexp_def = Define`
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
   (opsexp Strlen = SX_SYM "Strlen") ∧
+  (opsexp Strcat = SX_SYM "Strcat") ∧
   (opsexp VfromList = SX_SYM "VfromList") ∧
   (opsexp Vsub = SX_SYM "Vsub") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
@@ -884,7 +892,7 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
-  locnsexp (locn n1 n2 n3,locn n4 n5 n6) = 
+  locnsexp (locn n1 n2 n3,locn n4 n5 n6) =
     listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",
