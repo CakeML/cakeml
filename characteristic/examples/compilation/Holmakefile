@@ -1,4 +1,5 @@
 INCLUDES = .. ../../../compiler/eval/targets/ ../../.. ../../../basis
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
+	make
 .PHONY: all
