@@ -1,5 +1,5 @@
 open preamble bvlTheory bvlSemTheory bvl_constTheory;
-open backend_commonTheory
+open closPropsTheory backend_commonTheory;
 
 val _ = new_theory"bvlProps";
 
@@ -11,27 +11,50 @@ val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
   `bvlSem$dec_clock n (s with code := c) = dec_clock n s with code := c`,
   EVAL_TAC );
 
+val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
+val eqs = CONJ (prove_case_eq_thm v_thms) closPropsTheory.eqs
+
+val _ = save_thm ("eqs", eqs);
+
+val do_app_split_list = prove(
+  ``do_app op vs s = res
+    <=>
+    vs = [] /\ do_app op [] s = res \/
+    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
+  Cases_on `vs` \\ fs []);
+
+val pair_lam_lem = Q.prove (
+`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
+ srw_tac[][]);
+
+val do_app_cases_val = save_thm ("do_app_cases_val",
+  ``do_app op vs s = Rval (v,s')`` |>
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
+   ALL_CONV));
+
+val do_app_cases_err = save_thm ("do_app_cases_err",
+``do_app op vs s = Rerr err`` |>
+  (ONCE_REWRITE_CONV [do_app_split_list] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
+   ALL_CONV));
+
 val do_app_with_code = Q.store_thm("do_app_with_code",
   `bvlSem$do_app op vs s = Rval (r,s') ⇒
    domain s.code ⊆ domain c ⇒
    do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
-  srw_tac[][do_app_def] >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[SUBSET_DEF] >> METIS_TAC[]);
+  rw [do_app_cases_val] >>
+  fs [SUBSET_DEF]);
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bvlSem$do_app op vs s = Rerr e ⇒
    (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
-  srw_tac[][do_app_def] >>
-  Cases_on `op` >>
-  rw [] >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
-  full_simp_tac(srw_ss())[SUBSET_DEF] >> METIS_TAC[]);
+  rw [Once do_app_cases_err] >>
+  rw [do_app_def] >>
+  fs [SUBSET_DEF]);
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
   `(initial_state f c k).code = c ∧
@@ -67,7 +90,8 @@ val find_code_EVERY_IMP = Q.store_thm("find_code_EVERY_IMP",
 
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
-  srw_tac[][do_app_def] >> every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][]);
+  rw [do_app_cases_err] >>
+  fs []);
 
 val evaluate_LENGTH = Q.prove(
   `!xs s env. (\(xs,s,env).
@@ -259,19 +283,12 @@ val _ = export_rewrites ["dec_clock_refs", "dec_clock_code", "dec_clock0"];
 val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
-  SIMP_TAC std_ss [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\
-  CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[]);
+  rw [do_app_cases_val]);
 
 val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
   `(do_app op args s1 = Rerr e) ==>
    (do_app op args (s1 with clock := ck) = Rerr e)`,
-  SIMP_TAC std_ss [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  rw [do_app_cases_err]);
 
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
   `!exps env s1 res s2.
@@ -332,8 +349,9 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app op vs s1 = Rval (x,s2) ⇒
    s1.ffi.io_events ≼ s2.ffi.io_events ∧
    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
-  srw_tac[][do_app_def] >> every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  rw [do_app_cases_val] >>
+  fs [ffiTheory.call_FFI_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps env s1 res s2.
@@ -473,10 +491,8 @@ val evaluate_genlist_vars_rev = Q.store_thm ("evaluate_genlist_vars_rev",
 
 val do_app_refs_SUBSET = Q.store_thm("do_app_refs_SUBSET",
   `(do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs`,
-  full_simp_tac(srw_ss())[do_app_def]
-  \\ NTAC 5 (full_simp_tac(srw_ss())[SUBSET_DEF,IN_INSERT] \\ SRW_TAC [] []
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ full_simp_tac(srw_ss())[LET_DEF,dec_clock_def]));
+  rw [do_app_cases_val] >>
+  fs [SUBSET_DEF,IN_INSERT, LET_DEF,dec_clock_def]);
 
 val evaluate_refs_SUBSET_lemma = Q.prove(
   `!xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs`,
