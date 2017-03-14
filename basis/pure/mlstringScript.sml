@@ -27,8 +27,13 @@ val strlen_def = Define`
 val strsub_def = Define`
   strsub (strlit s) n = EL n s`;
 
-val _ = export_rewrites["strlen_def","strsub_def"];
+val concat_def = Define`
+  concat l = strlit (FLAT (MAP (λs. case s of strlit x => x) l))`;
 
+val concat_nil = Q.store_thm("concat_nil[simp]",
+  `concat [] = strlit ""`, EVAL_TAC);
+
+val _ = export_rewrites["strlen_def","strsub_def"];
 
 
 val explode_aux_def = Define`
@@ -82,6 +87,12 @@ val LENGTH_explode = Q.store_thm("LENGTH_explode",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
 
+val concat_thm = Q.store_thm("concat_thm",
+  `concat l = implode (FLAT (MAP explode l))`,
+  rw[concat_def,implode_def] \\
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\
+  rw[FUN_EQ_THM] \\ CASE_TAC \\ simp[]);
+
 val extract_aux_def = Define`
   (extract_aux s n 0 = []) /\
   (extract_aux s n (SUC len) = strsub s n:: extract_aux s (n + 1) len)`;
@@ -127,37 +138,34 @@ val substring_thm = Q.store_thm (
 
 
 
-(* TODO: don't explode/implode once CakeML supports string append *)
-val strcat_def = Define`
-  strcat s1 s2 = implode(explode s1 ++ explode s2)`
+val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
+
+val concat_cons = Q.store_thm("concat_cons",
+  `concat (h::t) = strcat h (concat t)`,
+  rw[strcat_def,concat_def]);
+
+val strcat_thm = Q.store_thm("strcat_thm",
+  `strcat s1 s2 = implode (explode s1 ++ explode s2)`,
+  rw[strcat_def,concat_def]
+  \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[implode_def]);
 
 val strcat_assoc = Q.store_thm("strcat_assoc",
   `!s1 s2 s3.
     s1 ^ s2 ^ s3 = s1 ^ (s2 ^ s3)`,
-    Cases_on `s1` \\ Cases_on `s2` \\ Cases_on `s3`
-    \\rw[strcat_def, implode_def, explode_implode]
-);
+    rw[strcat_def,concat_def]);
+
+val strcat_nil = Q.store_thm("strcat_nil[simp]",
+  `(strcat (strlit "") s = s) ∧
+   (strcat s (strlit "") = s)`,
+  rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]);
 
 val implode_STRCAT = Q.store_thm("implode_STRCAT",
   `!l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2`,
-    rw[implode_def, strcat_def]
+    rw[implode_def, strcat_def, concat_def]
 );
-
-
-val concat_def = Define`
-  (concat [] = implode []) /\
-  (concat (h::t) = strcat h (concat t))`;
-
-val concat_thm = Q.store_thm (
-  "concat_thm",
-  `!l. concat l = implode (FLAT (MAP explode l))`,
-  Induct_on `l` \\ rw [concat_def] \\ Cases_on `h` \\
-  rw [strcat_def, implode_def, explode_thm]
-);
-
 
 
 val concatWith_aux_def = tDefine "concatWith_aux"`
@@ -173,9 +181,9 @@ val concatWith_def = Define`
 val concatWith_CONCAT_WITH_aux = Q.prove (
   `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`,
   ho_match_mp_tac CONCAT_WITH_aux_ind
-  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_def]
-  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_def]
-  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_def, implode_def])
+  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_thm]
+  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_thm]
+  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm, implode_def])
 );
 
 val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
@@ -228,8 +236,8 @@ val tokens_aux_filter = Q.prove (
   `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
   Cases_on `s` \\ Induct_on `len` \\
-  rw [strlen_def, tokens_aux_def, concat_def, DROP_LENGTH_NIL, strcat_def, implode_def] \\
-  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_def, strcat_def, implode_def]
+  rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm, implode_def] \\
+  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm, implode_def]
 );
 
 val tokens_filter = Q.store_thm (
@@ -327,7 +335,7 @@ val tokens_append = Q.store_thm("tokens_append",
   `!P s1 x s2.
     P x ==>
       (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
-    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_def, str_def, TOKENS_APPEND]
+    rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_thm, str_def, TOKENS_APPEND]
 )
 
 
@@ -349,8 +357,8 @@ val fields_def = Define`
 val fields_aux_filter = Q.prove (
   `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
-  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_def,
-    implode_def, explode_thm, DROP_LENGTH_NIL, strcat_def] \\
+  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_cons,
+    implode_def, explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
   rw [DROP_EL_CONS]
 );
 
