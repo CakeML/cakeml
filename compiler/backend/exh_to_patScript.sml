@@ -28,7 +28,7 @@ val sIf_pmatch = Q.store_thm("sIf_pmatch",`!e1 e2 e3.
   else
     (case e1 of
      | Con t [] => if t = true_tag then e2 else e3
-     | _ => If e1 e2 e3)`, 
+     | _ => If e1 e2 e3)`,
   rpt strip_tac
   >> every_case_tac
   >- fs[sIf_def]
@@ -41,9 +41,11 @@ val _ = Define `
     (op <> Opassign) ∧
     (op <> Aw8update) ∧
     (op <> Aw8alloc) ∧
+    (op <> Aw8concat) ∧
     (op <> Aw8sub) ∧
     (op <> Vsub) ∧
     (op <> Strsub) ∧
+    (op <> StrToW8Array) ∧
     (op <> Chr) ∧
     (op <> Aupdate) ∧
     (op <> Aalloc) ∧
@@ -144,8 +146,10 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
+  | Aw8concat => F
   | Vsub => F
   | Strsub => F
+  | StrToW8Array => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F
@@ -166,8 +170,10 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
+  | Aw8concat => F
   | Vsub => F
   | Strsub => F
+  | StrToW8Array => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F

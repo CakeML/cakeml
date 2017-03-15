@@ -121,25 +121,17 @@ val v_to_char_list = Q.prove (
   BasicProvers.EVERY_CASE_TAC >>
   full_simp_tac(srw_ss())[compile_v_def, patSemTheory.v_to_char_list_def]);
 
-val tac =
-  srw_tac[][patSemTheory.do_app_def, exhSemTheory.prim_exn_def, patSemTheory.prim_exn_def,
-      patSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[store_assign_def, store_lookup_def, store_alloc_def, LET_THM] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[LUPDATE_MAP, EL_MAP] >>
-  full_simp_tac(srw_ss())[store_v_same_type_def] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][exhSemTheory.prim_exn_def, compile_v_def];
+val vs_to_w8s = Q.prove(
+  `∀s vs ws.
+    vs_to_w8s (MAP (map_sv compile_v) s) (MAP compile_v vs) = vs_to_w8s s vs`,
+  ho_match_mp_tac exhSemTheory.vs_to_w8s_ind
+  \\ rw[exhSemTheory.vs_to_w8s_def,patSemTheory.vs_to_w8s_def,store_lookup_def,EL_MAP]
+  \\ match_mp_tac EQ_SYM \\ TOP_CASE_TAC \\ fs[]);
+
+val vs_to_string = Q.prove(
+  `∀v. vs_to_string (MAP compile_v v) = vs_to_string v`,
+  ho_match_mp_tac exhSemTheory.vs_to_string_ind
+  \\ rw[exhSemTheory.vs_to_string_def,patSemTheory.vs_to_string_def]);
 
 val do_app = Q.prove(
   `∀op vs s0 s0_pat env s res.
@@ -148,67 +140,19 @@ val do_app = Q.prove(
      do_app (compile_state s0) (Op op) (compile_vs vs) =
        SOME (compile_state s,map_result compile_v compile_v res)`,
   srw_tac[][compile_state_def] >>
-  imp_res_tac exhSemTheory.do_app_cases >>
-  full_simp_tac(srw_ss())[exhSemTheory.do_app_def]
-  >- tac
-  >- tac
-  >- (every_case_tac \\ tac)
-  >- tac
-  >- (BasicProvers.EVERY_CASE_TAC >>
-      full_simp_tac(srw_ss())[do_eq, patSemTheory.do_app_def] >>
-      srw_tac[][exhSemTheory.prim_exn_def, patSemTheory.prim_exn_def, patSemTheory.Boolv_def, exhSemTheory.Boolv_def])
-  >- tac
-  >- (tac >>
-      metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
-  >- tac
-  >- (tac >>
-      metis_tac [EL_MAP, compile_v_def, optionTheory.NOT_SOME_NONE,
-                 optionTheory.OPTION_MAP_DEF])
-  >- (tac >>
-      metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
-  >- (tac >>
-      metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
-  >- (tac >>
-      metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
-  >- (tac >>
-      metis_tac [EL_MAP, map_sv_def, store_v_distinct, store_v_11])
-  (* word_to_int *)
-  >- tac
-  (* word_from_int *)
-  >- tac
-  (* ord *)
-  >- tac
-  (* chr *)
-  >- tac
-  (* chopb *)
-  >- tac
-  >- (imp_res_tac v_to_char_list >> tac)
-  (* strsub *)
-  >- (
-    fs[patSemTheory.do_app_def]
-    \\ every_case_tac \\ fs[] \\ rw[]
-    \\ EVAL_TAC)
-  (* strlen *)
-  >- tac
-  (* vfromlist *)
-  >- (srw_tac[][patSemTheory.do_app_def] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      imp_res_tac v_to_list >>
-      full_simp_tac(srw_ss())[])
-  >- (tac >>
-      UNABBREV_ALL_TAC >>
-      full_simp_tac(srw_ss())[DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP])
-  >- tac
-  >- (tac >>
-      srw_tac[][rich_listTheory.map_replicate])
-  >- (tac >>
-      metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, map_sv_def, store_v_distinct, store_v_11, LENGTH_MAP])
-  >- (tac >>
-      metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, map_sv_def, store_v_distinct, store_v_11, LENGTH_MAP])
-  >- (tac >>
-      metis_tac [DECIDE ``~(x ≥ y:num) ⇔ x < y``, EL_MAP, map_sv_def, store_v_distinct, store_v_11, LENGTH_MAP])
-  >- (tac >>
-      rev_full_simp_tac(srw_ss())[EL_MAP] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[]));
+  fs[exhSemTheory.do_app_cases] >> rw[] >>
+  rw[patSemTheory.do_app_def,
+     patSemTheory.prim_exn_def, exhSemTheory.prim_exn_def,
+     patSemTheory.Boolv_def, exhSemTheory.Boolv_def,
+     GSYM do_eq ] >>
+  rfs [store_assign_def, store_lookup_def, store_alloc_def, LET_THM, EL_MAP, LUPDATE_MAP] >>
+  rveq >>
+  rfs [store_v_same_type_def, LUPDATE_MAP,map_replicate] >>
+  imp_res_tac v_to_list >>
+  imp_res_tac v_to_char_list >>
+  fs[vs_to_w8s, vs_to_string] >>
+  last_x_assum mp_tac >>
+  TOP_CASE_TAC \\ fs[] \\ rw[exhSemTheory.Boolv_def]);
 
 (* pattern compiler correctness *)
 
@@ -277,8 +221,7 @@ val pure_correct = Q.store_thm("pure_correct",
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   TRY (
     rename1`op ≠ Op (Op Opapp)` >>
-    imp_res_tac patSemTheory.do_app_cases >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[patSemTheory.do_app_def] >>
+    fs[patSemTheory.do_app_cases] >> rw[] >>
     rev_full_simp_tac(srw_ss())[]>>srw_tac[][] >>
     first_x_assum(qspecl_then[`env`,`s`]mp_tac)>>srw_tac[][] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
@@ -1073,6 +1016,12 @@ val do_eq_v_rel = Q.store_thm("do_eq_v_rel",
   BasicProvers.CASE_TAC >> srw_tac[][] >>
   res_tac >> full_simp_tac(srw_ss())[])
 
+val do_eq_list_v_rel = Q.store_thm("do_eq_list_v_rel",
+  `∀v1 v2 v3 v4. LIST_REL v_rel v1 v2 ∧ LIST_REL v_rel v3 v4 ⇒ do_eq_list v1 v3 = do_eq_list v2 v4`,
+  Induct \\ simp[do_eq_def] \\ Cases_on`v3` \\ simp[do_eq_def,PULL_EXISTS] \\ rw[]
+  \\ imp_res_tac do_eq_v_rel \\ fs[]
+  \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[]);
+
 val do_opapp_v_rel = Q.store_thm("do_opapp_v_rel",
   `∀vs vs'.
     LIST_REL v_rel vs vs' ⇒
@@ -1137,6 +1086,18 @@ val v_to_list_v_rel = Q.prove(
   BasicProvers.CASE_TAC >> srw_tac[][] >>
   res_tac >> simp[])
 
+val v_to_list_v_rel_none = Q.prove(
+  `∀l1 l2 n l3.
+    v_rel l1 l2 ∧ v_to_list l1 = NONE ⇒
+    v_to_list l2 = NONE`,
+  ho_match_mp_tac patSemTheory.v_to_list_ind >>
+  simp[patSemTheory.v_to_list_def] >> srw_tac[][] >>
+  qpat_x_assum`v_rel _ _`mp_tac >>
+  simp[Once v_rel_cases,patSemTheory.v_to_list_def] >>
+  strip_tac \\ fs[patSemTheory.v_to_list_def] >>
+  rw[] >> every_case_tac >> fs[] >>
+  res_tac >> fs[]);
+
 val v_to_char_list_v_rel = Q.prove(
   `∀l1 l2 n l3.
     v_rel l1 l2 ∧ v_to_char_list l1 = SOME l3 ⇒
@@ -1151,6 +1112,42 @@ val v_to_char_list_v_rel = Q.prove(
   last_x_assum mp_tac >>
   BasicProvers.CASE_TAC >> srw_tac[][] >>
   res_tac >> simp[])
+
+val v_to_char_list_v_rel_none = Q.prove(
+  `∀l1 l2 n l3.
+    v_rel l1 l2 ∧ v_to_char_list l1 = NONE ⇒
+    v_to_char_list l2 = NONE`,
+  ho_match_mp_tac patSemTheory.v_to_char_list_ind >>
+  simp[patSemTheory.v_to_char_list_def] >> srw_tac[][] >>
+  qpat_x_assum`v_rel _ _`mp_tac >>
+  simp[Once v_rel_cases,patSemTheory.v_to_char_list_def] >>
+  strip_tac \\ fs[patSemTheory.v_to_char_list_def] >>
+  rw[] >> every_case_tac >> fs[] >>
+  res_tac >> fs[] >> fs[Once v_rel_cases] >>
+  fs[patSemTheory.v_to_char_list_def]);
+
+val vs_to_w8s_v_rel = Q.prove(
+  `∀s1 l1 s2 l2.
+   LIST_REL v_rel l1 l2 ∧
+   LIST_REL (sv_rel v_rel) s1 s2 ⇒
+   vs_to_w8s s2 l2 = vs_to_w8s s1 l1`,
+  ho_match_mp_tac patSemTheory.vs_to_w8s_ind
+  \\ rw[patSemTheory.vs_to_w8s_def,exhSemTheory.vs_to_w8s_def]
+  \\ fs[v_rel_cases]
+  \\ rw[patSemTheory.vs_to_w8s_def,exhSemTheory.vs_to_w8s_def]
+  \\ fs[store_lookup_def] \\ fs[LIST_REL_EL_EQN]
+  \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[]
+  \\ metis_tac[sv_rel_cases, store_v_distinct, NOT_SOME_NONE, SOME_11, store_v_11]);
+
+val vs_to_string_v_rel = Q.prove(
+  `∀l1 l2.
+    LIST_REL v_rel l1 l2 ⇒
+    vs_to_string l2 = vs_to_string l1`,
+  ho_match_mp_tac patSemTheory.vs_to_string_ind
+  \\ rw[patSemTheory.vs_to_string_def,exhSemTheory.vs_to_string_def]
+  \\ fs[v_rel_cases]
+  \\ rw[patSemTheory.vs_to_string_def,exhSemTheory.vs_to_string_def]);
 
 val do_app_def = patSemTheory.do_app_def
 
@@ -1176,137 +1173,92 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
   srw_tac[][] >>
   srw_tac[][optionTheory.OPTREL_def] >>
   Cases_on`do_app s op vs`>>srw_tac[][]>-(
-    full_simp_tac(srw_ss())[patSemTheory.do_app_def] >>
-    Cases_on`vs`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`ys`>>full_simp_tac(srw_ss())[]>-(
-      srw_tac[][]>>full_simp_tac(srw_ss())[]>>
-      Cases_on`op`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      TRY(Cases_on`o'`>>full_simp_tac(srw_ss())[LET_THM])>>
-      TRY(Cases_on`o''`>>full_simp_tac(srw_ss())[LET_THM])>>
-      BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM,UNCURRY,state_rel_def]>>srw_tac[][]>>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN,optionTheory.OPTREL_def] >>
-      full_simp_tac(srw_ss())[Once v_rel_cases,store_lookup_def,store_assign_def] >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[patSemTheory.v_to_list_def,patSemTheory.v_to_char_list_def] >>
-      imp_res_tac v_to_list_v_rel >>
-      imp_res_tac v_to_char_list_v_rel >>
-      TRY(CHANGED_TAC(full_simp_tac(srw_ss())[store_v_same_type_def]) >> every_case_tac >> full_simp_tac(srw_ss())[]) >>
-      metis_tac[v_rel_cases,v_rel_sym,optionTheory.NOT_SOME_NONE,LIST_REL_LENGTH,sv_rel_def]) >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    Cases_on`xs`>>full_simp_tac(srw_ss())[] >- (
-      Cases_on`op`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      Cases_on`o'`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`o''`>>full_simp_tac(srw_ss())[state_rel_def]
-      >- (BasicProvers.EVERY_CASE_TAC >>
-          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
-      >- (BasicProvers.EVERY_CASE_TAC >>
-          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
-      >- (BasicProvers.EVERY_CASE_TAC >>
-          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
-      >- (
-        imp_res_tac do_eq_v_rel >>
-        BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[] )
-      >- (
-        BasicProvers.EVERY_CASE_TAC >>
-        full_simp_tac(srw_ss())[store_assign_def] >>
-        srw_tac[][] >> imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
-        full_simp_tac(srw_ss())[store_v_same_type_def] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-        metis_tac[sv_rel_def])
-      >- (
-        BasicProvers.EVERY_CASE_TAC >>
-        full_simp_tac(srw_ss())[store_alloc_def,LET_THM] )
-      >- (
-        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
-        Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[store_lookup_def] >>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-        imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-        metis_tac[sv_rel_def] )
-      >- (BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[])
-      >- (
-        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
-        Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[store_lookup_def] >>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-        imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-        pop_assum mp_tac >>
-        simp[Once v_rel_cases])
-      >- (
-        Cases_on`x`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>fs[]>>
-        Cases_on`y`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`l:lit`)>>full_simp_tac(srw_ss())[]>>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[store_lookup_def] >>
-        srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-        imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-        BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-        pop_assum mp_tac >>
-        simp[Once v_rel_cases])
-      >- (BasicProvers.EVERY_CASE_TAC >>
-          full_simp_tac(srw_ss())[LET_THM, store_alloc_def])
-      >- (BasicProvers.EVERY_CASE_TAC >>
-          full_simp_tac(srw_ss())[LET_THM, store_lookup_def] >>
-          imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-          rpt (pop_assum mp_tac) >>
-          srw_tac[][] >>
-          res_tac >>
-          pop_assum mp_tac >>
-          ASM_REWRITE_TAC [sv_rel_def]) ) >>
-    srw_tac[][] >>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>Cases_on`l`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>fs[]>>
-    Cases_on`y`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
-    BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM,state_rel_def]>>srw_tac[][] >>
-    full_simp_tac(srw_ss())[store_lookup_def,store_assign_def,
-       store_v_same_type_def,LIST_REL_EL_EQN] >>
-    srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    metis_tac[sv_rel_def] ) >>
-  imp_res_tac patSemTheory.do_app_cases >>
-  fs[patSemTheory.do_app_def,state_rel_def] >>
-  srw_tac[][]>>full_simp_tac(srw_ss())[UNCURRY]>>srw_tac[][] >>
-  full_simp_tac(srw_ss())[store_assign_def,store_lookup_def]>>
-  full_simp_tac(srw_ss())[store_alloc_def,LET_THM]>>
-  imp_res_tac LIST_REL_LENGTH >> srw_tac[][]>>full_simp_tac(srw_ss())[]>>srw_tac[][sv_rel_def] >>
-  imp_res_tac do_eq_v_rel >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac v_to_list_v_rel >> simp[] >>
-  imp_res_tac v_to_char_list_v_rel >> simp[] >>
-  BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[LIST_REL_EL_EQN,EL_LUPDATE]>>srw_tac[][sv_rel_def] >>
-  full_simp_tac(srw_ss())[rich_listTheory.LENGTH_REPLICATE,rich_listTheory.EL_REPLICATE] >>
-  TRY(
-    simp[Once v_rel_cases] >>
-    simp[LIST_REL_EL_EQN] >> NO_TAC) >>
-  TRY(full_simp_tac(srw_ss())[Once v_rel_cases]>>NO_TAC)>>
-  full_simp_tac(srw_ss())[optionTheory.OPTREL_def] >>
-  TRY(
-    qmatch_assum_rename_tac`v_rel (Conv t1 v1) (Conv t2 v2)` >>
-    qhdtm_x_assum`v_rel`mp_tac >>
-    simp[Once v_rel_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
-  TRY(
-    qmatch_assum_rename_tac`v_rel (Vectorv l1) (Vectorv l2)` >>
-    qhdtm_x_assum`v_rel`mp_tac >>
+    pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases_none]) >>
+    rw[] >> fs[v_rel_cases] >>
+    rw[patSemTheory.do_app_def] >>
+    fs[store_alloc_def, store_lookup_def, store_assign_def, state_rel_def, OPTREL_def, do_eq_def] >>
+    imp_res_tac LIST_REL_LENGTH >> fs[] >>
+    fs [patSemTheory.v_to_list_def, patSemTheory.v_to_char_list_def] \\ fs[] >>
+    TRY (
+      fs[LIST_REL_EL_EQN,OPTREL_def]
+      \\ res_tac \\ fs[sv_rel_cases] \\ fs[]
+      \\ NO_TAC ) >>
+    TRY (
+      rename1`v_to_list (Conv tag vs1) = NONE`
+      \\ Cases_on`vs1` \\ fs[patSemTheory.v_to_list_def]
+      \\ rename1`v_to_list (Conv tag (_::vs1))`
+      \\ Cases_on`vs1` \\ fs[patSemTheory.v_to_list_def]
+      \\ rename1`v_to_list (Conv tag (_::_::vs1))`
+      \\ Cases_on`vs1` \\ fs[patSemTheory.v_to_list_def]
+      \\ rveq \\ fs[patSemTheory.v_to_list_def]
+      \\ IF_CASES_TAC \\ fs[]
+      \\ qpat_x_assum`_ = NONE`mp_tac
+      \\ CASE_TAC \\ fs[]
+      \\ imp_res_tac v_to_list_v_rel_none \\ fs[] >> NO_TAC) >>
+    TRY (
+      rename1`v_to_list (Conv tag vs1) = SOME _` >>
+      `v_rel (Conv tag vs1) (Conv tag vs2)`
+      by ( simp[Once v_rel_cases] ) >>
+      imp_res_tac v_to_list_v_rel >> fs[] >>
+      imp_res_tac vs_to_w8s_v_rel >> fs[] >>
+      imp_res_tac vs_to_string_v_rel >> fs[] >> NO_TAC) >>
+    TRY (
+      rename1`v_to_list (Conv tag vs1) = SOME _` >>
+      `v_rel (Conv tag vs1) (Conv tag vs2)`
+      by ( simp[Once v_rel_cases] ) >>
+      imp_res_tac v_to_list_v_rel >> fs[] >>
+      imp_res_tac vs_to_w8s_v_rel >> fs[] >>
+      imp_res_tac vs_to_string_v_rel >> fs[] >> NO_TAC) >>
+    TRY (
+      rename1`v_to_char_list (Conv tag vs1) = NONE`
+      \\ Cases_on`vs1` \\ fs[patSemTheory.v_to_char_list_def]
+      \\ rename1`v_to_char_list (Conv tag (c::vs1)) = NONE`
+      \\ Cases_on`c` \\ fs[Once v_rel_cases,patSemTheory.v_to_char_list_def]
+      \\ rename1`v_to_char_list (Conv tag (Litv l::vs1))`
+      \\ Cases_on`l` \\ fs[patSemTheory.v_to_char_list_def]
+      \\ Cases_on`vs1` \\ rfs[patSemTheory.v_to_char_list_def]
+      \\ rename1`v_to_char_list (Conv tag (_::_::vs1))`
+      \\ Cases_on`vs1` \\ fs[patSemTheory.v_to_char_list_def]
+      \\ rveq \\ fs[patSemTheory.v_to_char_list_def]
+      \\ IF_CASES_TAC \\ fs[]
+      \\ qpat_x_assum`_ = NONE`mp_tac
+      \\ CASE_TAC \\ fs[]
+      \\ imp_res_tac v_to_char_list_v_rel_none
+      \\ fs[] >> NO_TAC) >>
+    rw[] \\ fs[] \\ rfs[]
+    \\ imp_res_tac do_eq_list_v_rel \\ fs[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ fs[LIST_REL_EL_EQN,OPTREL_def]
+    \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]) >>
+  pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases]) >>
+  rw[patSemTheory.do_app_def] >>
+  fs[store_alloc_def,store_lookup_def,store_assign_def] >> rw[] >>
+  fs[state_rel_def] >>
+  TRY (
+    fs[LIST_REL_EL_EQN,OPTREL_def]
+    \\ res_tac \\ fs[sv_rel_cases] \\ fs[] \\ rw[]
+    \\ NO_TAC ) >>
+  TRY (
+    rename1`v_to_list v1 = SOME _` >>
+    imp_res_tac v_to_list_v_rel >> fs[] >>
+    imp_res_tac vs_to_w8s_v_rel >> fs[] >>
+    imp_res_tac vs_to_string_v_rel >> fs[] >>
+    fs[LIST_REL_EL_EQN] >>
     simp[Once v_rel_cases,LIST_REL_EL_EQN] >> NO_TAC) >>
   TRY (
-    CHANGED_TAC(full_simp_tac(srw_ss())[store_v_same_type_def]) >>
-    BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+    rename1`v_to_char_list v1 = SOME _` >>
+    imp_res_tac v_to_char_list_v_rel >> fs[] >> NO_TAC ) >>
   TRY (
-    qmatch_assum_rename_tac`EL lnum s1 = Varray l1` >>
-    last_x_assum(qspec_then`lnum`mp_tac) >>
-    simp[Once sv_rel_cases,LIST_REL_EL_EQN] >>
-    simp[EL_LUPDATE] >> srw_tac[][] >> srw_tac[][] >> NO_TAC) >>
-  metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE,optionTheory.SOME_11,PAIR_EQ])
+    qpat_x_assum`v_rel _ _`mp_tac
+    \\ simp[Once v_rel_cases] \\ strip_tac \\ fs[]
+    \\ fs[LIST_REL_EL_EQN] \\ NO_TAC ) >>
+  TRY (
+    rename1`patSem$do_eq _ _`
+    \\ imp_res_tac do_eq_v_rel \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[] \\ rw[] \\ NO_TAC ) >>
+  fs[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,LENGTH_REPLICATE,EL_REPLICATE] >>
+  res_tac >> fs[sv_rel_cases] >> rfs[] >> fs[LIST_REL_EL_EQN,EL_LUPDATE,store_v_same_type_def] >>
+  rw[EL_LUPDATE] >> rw[]);
 
 val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
   `(∀env1 ^s1 es1 s'1 r1. evaluate env1 s1 es1 = (s'1,r1) ⇒
