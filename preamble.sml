@@ -56,6 +56,8 @@ fun pad_to sz str =
   CharVector.tabulate(Int.max(0,sz-String.size str),K #" ")^str
 
 val sum = foldl (op+) 0
+
+fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
