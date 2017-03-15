@@ -9,7 +9,7 @@ open preamble integerTheory
      bigClockTheory determTheory
      mlvectorTheory mlstringTheory ml_progTheory packLib;
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory in end
+local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end
 
 val _ = new_theory "ml_translator";
 
