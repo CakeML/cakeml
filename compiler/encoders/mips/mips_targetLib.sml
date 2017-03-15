@@ -28,7 +28,7 @@ in
             mips_bop_i_def, mips_sh_def, mips_cmp_def, mips_sh32_def,
             mips_memop_def, form1_def, form2_def, form3_def, form4_def,
             form5_def],
-         computeLib.Tys (``:('a, 'b) sum`` :: mips_tys),
+         computeLib.Tys ([``:('a, 'b) sum``, ``:ast$shift``] @ mips_tys),
          computeLib.Extenders [optionLib.OPTION_rws, pairLib.add_pair_compset]])
 end
 
