@@ -376,6 +376,34 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val vs_to_w8s = Q.prove(
+  `∀s1 v1 s2 v2 ws.
+    LIST_REL (v_rel genv) v1 v2 ∧
+    LIST_REL (sv_rel genv) s1 s2 ⇒
+    vs_to_w8s s1 v1 = SOME ws ⇒
+    vs_to_w8s s2 v2 = SOME ws`,
+  ho_match_mp_tac terminationTheory.vs_to_w8s_ind
+  \\ rw[terminationTheory.vs_to_w8s_def,vs_to_w8s_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ rpt TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[vs_to_w8s_def]
+  \\ fs[store_lookup_def,LIST_REL_EL_EQN]
+  \\ first_x_assum drule
+  \\ simp[sv_rel_cases]);
+
+val vs_to_string = Q.prove(
+  `∀v1 v2 s.
+    LIST_REL (v_rel genv) v1 v2 ⇒
+    vs_to_string v1 = SOME s ⇒
+    vs_to_string v2 = SOME s`,
+  ho_match_mp_tac terminationTheory.vs_to_string_ind
+  \\ rw[terminationTheory.vs_to_string_def,vs_to_string_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[vs_to_string_def]);
+
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -482,12 +510,34 @@ val do_app = Q.prove (
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][])
+  >- ((* Aw8concat *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[LIST_REL_def]
+    \\ fs[store_alloc_def] \\ rw[]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_w8s \\ fs[]
+    \\ simp[sv_rel_cases,result_rel_cases,v_rel_eqns]
+    \\ fs[LIST_REL_EL_EQN] )
   >- ((* WordFromInt *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* WordToInt *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
+  >- ((* StrFromW8Array *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[LIST_REL_def,v_rel_eqns,store_lookup_def]
+    \\ fs[LIST_REL_EL_EQN,result_rel_cases,PULL_EXISTS,v_rel_eqns]
+    \\ simp[EXISTS_PROD] \\ rw[] \\ rfs[]
+    \\ first_assum(part_match_exists_tac(el 2 o strip_conj) o concl) \\ simp[]
+    \\ first_x_assum drule
+    \\ simp[Once sv_rel_cases,IMPLODE_EXPLODE_I,o_DEF] )
+  >- ((* StrToW8Array *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[LIST_REL_def,v_rel_eqns,store_alloc_def,result_rel_cases]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw[sv_rel_cases,IMPLODE_EXPLODE_I,o_DEF,MAP_EQ_f]
+    \\ simp[integer_wordTheory.i2w_def] )
   >- ((* Ord *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
@@ -511,6 +561,11 @@ val do_app = Q.prove (
   >- ((* Strlen *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
+  >- ((* Strcat *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases,modSemTheory.do_app_def]
+    \\ fs[LIST_REL_def]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
   >- ((* VfromList *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>

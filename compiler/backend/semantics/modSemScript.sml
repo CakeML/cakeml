@@ -154,6 +154,25 @@ val v_to_char_list_def = Define `
  ∧
  (v_to_char_list _ = NONE)`;
 
+val vs_to_w8s_def = Define`
+  (vs_to_w8s s [] = SOME []) ∧
+  (vs_to_w8s s (Loc l::vs) =
+   case store_lookup l s of
+   | SOME (W8array ws1) =>
+     (case vs_to_w8s s vs of
+      | SOME ws2 => SOME (ws1++ws2)
+      | _ => NONE)
+   | _ => NONE) ∧
+  (vs_to_w8s _ _ = NONE)`;
+
+val vs_to_string_def = Define`
+  (vs_to_string [] = SOME "") ∧
+  (vs_to_string (Litv(StrLit s1)::vs) =
+   case vs_to_string vs of
+   | SOME s2 => SOME (s1++s2)
+   | _ => NONE) ∧
+  (vs_to_string _ = NONE)`;
+
 val do_app_def = Define `
   do_app (s,t) op (vs:modSem$v list) =
   case (op, vs) of
@@ -226,12 +245,31 @@ val do_app_def = Define `
               | NONE => NONE
               | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
+  | (Aw8concat, [v]) =>
+    (case v_to_list v of
+      SOME vs =>
+        (case vs_to_w8s s vs of
+          SOME ws =>
+            let (s',lnum) = (store_alloc (W8array ws) s)
+            in SOME ((s',t), Rval (Loc lnum))
+          | _ => NONE)
+      | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME ((s,t), Rval (Litv (do_word_from_int wz i)))
   | (WordToInt wz, [Litv w]) =>
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME ((s,t), Rval (Litv (IntLit i))))
+  | (StrFromW8Array, [Loc lnum]) =>
+      (case store_lookup lnum s of
+        SOME (W8array ws) =>
+          SOME ((s,t), Rval (Litv(StrLit(MAP (CHR o w2n) ws))))
+      | _ => NONE)
+  | (StrToW8Array, [Litv(StrLit str)]) =>
+      let (s',lnum) =
+        (store_alloc (W8array (MAP (n2w o ORD) str)) s)
+      in
+        SOME ((s',t), Rval (Loc lnum))
   | (Ord, [Litv (Char c)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -258,6 +296,14 @@ val do_app_def = Define `
           SOME ((s,t), Rval (Litv (Char (EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+  | (Strcat, [v]) =>
+      (case v_to_list v of
+        SOME vs =>
+          (case vs_to_string vs of
+            SOME str =>
+              SOME ((s,t), Rval (Litv(StrLit str)))
+          | _ => NONE)
+      | _ => NONE)
   | (VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>
