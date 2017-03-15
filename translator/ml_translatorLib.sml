@@ -2300,6 +2300,7 @@ val builtin_binops =
 val builtin_monops =
   [Eval_implode,
    Eval_strlen,
+   Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
    Eval_length,

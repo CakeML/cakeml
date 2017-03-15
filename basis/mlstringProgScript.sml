@@ -13,6 +13,7 @@ val _ = ml_prog_update (add_dec ``Dtabbrev [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "strlen" `strlen`
+val _ = trans "concat" `concat`
 
 val result = translate explode_aux_def;
 val result = translate explode_def;
@@ -46,8 +47,6 @@ val substring_side_thm = Q.prove (
   rw [substring_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
 
 val result = translate strcat_def;
-
-val result = translate concat_def;
 
 val result = translate concatWith_aux_def;
 val result = translate concatWith_def;

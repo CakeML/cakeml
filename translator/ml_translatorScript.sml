@@ -1282,6 +1282,29 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
   \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
   \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
 
+val Eval_concat = Q.store_thm("Eval_concat",
+  `∀env x ls.
+     Eval env x (LIST_TYPE STRING_TYPE ls) ==>
+     Eval env (App Strcat [x]) (STRING_TYPE (concat ls))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases)]
+  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ qhdtm_x_assum`evaluate`kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`res`
+  \\ Induct_on`ls`
+  \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
+  \\ rw[v_to_list_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ rename1`concat (s::ls)`
+  \\ Cases_on`s` \\ fs[STRING_TYPE_def]
+  \\ rw[vs_to_string_def]
+  \\ fs[concat_def,STRING_TYPE_def]);
+
 (* vectors *)
 
 val VECTOR_TYPE_def = Define `
