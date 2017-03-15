@@ -890,6 +890,34 @@ val v_to_char_list = Q.prove (
   res_tac >>
   full_simp_tac(srw_ss())[gtagenv_wf_def, has_lists_def])
 
+val vs_to_w8s = Q.prove(
+  `∀s1 v1 s2 v2 ws.
+    LIST_REL (v_rel genv) v1 v2 ∧
+    LIST_REL (sv_rel genv) s1 s2 ⇒
+    vs_to_w8s s1 v1 = SOME ws ⇒
+    vs_to_w8s s2 v2 = SOME ws`,
+  ho_match_mp_tac modSemTheory.vs_to_w8s_ind
+  \\ rw[modSemTheory.vs_to_w8s_def,conSemTheory.vs_to_w8s_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ rpt TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[conSemTheory.vs_to_w8s_def]
+  \\ fs[store_lookup_def,LIST_REL_EL_EQN]
+  \\ first_x_assum drule
+  \\ simp[sv_rel_cases]);
+
+val vs_to_string = Q.prove(
+  `∀v1 v2 s.
+    LIST_REL (v_rel genv) v1 v2 ⇒
+    vs_to_string v1 = SOME s ⇒
+    vs_to_string v2 = SOME s`,
+  ho_match_mp_tac modSemTheory.vs_to_string_ind
+  \\ rw[modSemTheory.vs_to_string_def,conSemTheory.vs_to_string_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[conSemTheory.vs_to_string_def]);
+
 val Boolv = Q.prove(
   `gtagenv_wf gtagenv ⇒
    v_rel gtagenv (Boolv b) (Boolv b) ∧
@@ -973,6 +1001,16 @@ val do_app = Q.prove (
       pop_assum mp_tac >>
       pop_assum mp_tac >>
       srw_tac[][])
+  >- (
+    fs[modSemTheory.do_app_def,conSemTheory.do_app_def]
+    \\ every_case_tac \\ fs[vs_rel_list_rel,store_alloc_def]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_w8s \\ fs[]
+    \\ rw[] \\ fs[vs_rel_list_rel]
+    \\ res_tac \\ fs[sv_rel_cases,result_rel_cases,v_rel_eqns]
+    \\ fs[LIST_REL_EL_EQN] )
+  >- tac
+  >- tac
   >- tac
   >- tac
   >- tac
@@ -990,6 +1028,13 @@ val do_app = Q.prove (
     every_case_tac >> full_simp_tac(srw_ss())[])
   >- tac
   >- tac
+  >- (
+    fs[modSemTheory.do_app_def,conSemTheory.do_app_def]
+    \\ every_case_tac \\ fs[vs_rel_list_rel]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_string \\ fs[]
+    \\ rw[] \\ fs[vs_rel_list_rel]
+    \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
   >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
