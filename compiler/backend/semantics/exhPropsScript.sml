@@ -163,7 +163,7 @@ val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  srw_tac[][] >> imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
