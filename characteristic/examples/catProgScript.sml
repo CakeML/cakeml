@@ -260,15 +260,14 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
    CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
-     (STDOUT out * STDERR err * ROFS fs * COMMANDLINE cl)
+     (STDOUT out * ROFS fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv * (STDOUT (out ++ (catfiles_string fs (MAP implode (TL cl))))
-                                    * STDERR err * (ROFS fs * COMMANDLINE cl)))`,
+                                    * (ROFS fs * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
-  \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * STDERR err * ROFS fs * COMMANDLINE cl`
+  \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
-  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * 
-                    STDERR err * ROFS fs * COMMANDLINE cl`
+  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (
     xapp (* TODO: this fails in obscure ways if 'ffi is replaced by 'a in the goal. this is too fragile *)
     \\ instantiate
@@ -289,7 +288,8 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
   \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL 
+            |> SIMP_RULE std_ss [Once STAR_ASSOC] |> add_basis_proj;
 val name = "cat_main"
 val (semantics_thm,prog_tm) = call_thm st name spec
 val cat_prog_def = Define`cat_prog = ^prog_tm`;

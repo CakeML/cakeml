@@ -17,7 +17,7 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
       app (p:'ffi ffi_proj) ^(fetch_v "helloErr" st)
         [Conv NONE []]
         (STDOUT s * STDERR [])
-        (POSTv uv. &UNIT_TYPE () uv * (STDOUT s * STDERR ("Well oH lord!\n") * emp))`,
+        (POSTv uv. &UNIT_TYPE () uv * STDOUT s * STDERR ("Well oH lord!\n"))`,
   xcf "helloErr" st
   \\ xapp \\ xsimpl \\ 
   qexists_tac `STDOUT s` \\ qexists_tac `[]` \\ xsimpl

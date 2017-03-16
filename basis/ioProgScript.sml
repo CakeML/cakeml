@@ -366,10 +366,35 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
   \\ SPLIT_TAC
 );
 
-val append_emp = Q.store_thm("append_emp",
+val append_emp_err = Q.store_thm("append_emp_err",
   `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y) 
-  ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
+    ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
   rw[set_sepTheory.SEP_CLAUSES]);
+
+val append_emp_out = Q.store_thm("append_emp_out",
+   `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x)
+    ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * emp)`,
+  rw[set_sepTheory.SEP_CLAUSES]);
+
+val append_STDERR = Q.store_thm("append_STDERR",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * P') 
+  ==> app p fv xs (P * STDERR y) (POSTv uv. (A uv) * STDOUT x * STDERR y * P')`,
+  rw[]
+  \\ qmatch_abbrev_tac `app p fv xs H Q`
+  \\ `H ==>> P * STDERR y` by (rw[] \\ fs[SEP_IMP_REFL])
+  \\ imp_res_tac app_wgframe
+  \\ `(POSTv uv. A uv * STDOUT x * P') *+ STDERR y ==+> Q *+ GC`
+       suffices_by (fs[])
+  \\ rw[Abbr `Q`]
+  \\ rw[cfHeapsBaseTheory.GC_def,cfHeapsBaseTheory.STARPOST_def,
+       cfHeapsBaseTheory.SEP_IMPPOST_def,set_sepTheory.SEP_CLAUSES]
+  \\ rw[SEP_IMP_def,SEP_EXISTS,set_sepTheory.SEP_CLAUSES]
+  \\ qexists_tac`emp`
+  \\ rw[set_sepTheory.SEP_CLAUSES]
+  \\ fs[cfHeapsBaseTheory.POSTv_def]
+  \\ every_case_tac \\ fs[set_sepTheory.SEP_CLAUSES]
+  \\ metis_tac[STAR_COMM,STAR_ASSOC]
+  );
 
 val emp_precond = Q.store_thm("emp_precond",
   `emp {}`, EVAL_TAC);
@@ -444,7 +469,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 `!fname fv.
  ML_code env1 (init_state (basis_ffi inp cls fs)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
-  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * (STDOUT x * STDERR y * Q)) ==>
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * STDOUT x * STDERR y * Q) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
@@ -454,6 +479,8 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     extract_output io_events = SOME (MAP (n2w o ORD) x) /\
     extract_err    io_events = SOME (MAP (n2w o ORD) y)`,
     rw[]
+    \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
+          &UNIT_TYPE () uv * (STDOUT x * STDERR y * Q))` by (fs[STAR_ASSOC])
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
     \\ simp[] \\ strip_tac

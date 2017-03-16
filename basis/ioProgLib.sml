@@ -25,8 +25,11 @@ val basis_ffi_tm =
         (#1(strip_fun(type_of basis_ffi_const)))))
 
 fun add_basis_proj spec =
-  let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in
-    spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
+  let val spec0 = HO_MATCH_MP append_emp_err spec handle 
+        HOL_ERR _ => HO_MATCH_MP append_emp_out spec handle _ => spec in
+    let val spec1 = HO_MATCH_MP append_STDERR spec0 handle HOL_ERR _ => spec0 in
+      spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
+    end
   end
 
 fun ERR f s = mk_HOL_ERR"ioProgLib" f s
