@@ -481,6 +481,51 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
     simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
     simp[OPTREL_def] )
+  (* ConcatByte *)
+  >- (
+    Cases_on`t` \\ fs[]
+    \\ imp_res_tac v_to_list
+    \\ rename1`v_rel _ v1 v2`
+    \\ Cases_on`v_to_list v1` \\ fs[OPTREL_def]
+    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS]
+    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS,v_rel_simp]
+    \\ rename1`LIST_REL _ l1 l2`
+    \\ reverse(Cases_on`∃ps. l2 = MAP RefPtr ps` \\ fs[])
+    >- (
+      spose_not_then strip_assume_tac
+      \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_simp]
+      \\ metis_tac[EL_MAP] )
+    \\ `l1 = MAP RefPtr ps`
+    by (
+      fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE] \\
+      metis_tac[EL_MAP,v_rel_simp] )
+    \\ fs[]
+    \\ `∀ps'. l1 = MAP RefPtr ps' ⇔ ps' = ps`
+    by (
+      rw[EQ_IMP_THM]
+      \\ imp_res_tac INJ_MAP_EQ
+      \\ fs[INJ_DEF] )
+    \\ rfs[]
+    \\ `∀ls. MAP (FLOOKUP s2.refs) ps = MAP (SOME o ByteArray F) ls ⇔
+             MAP (FLOOKUP s1.refs) ps = MAP (SOME o ByteArray F) ls`
+    by (
+      rw[LIST_EQ_REWRITE,EL_MAP,EQ_IMP_THM] \\ rfs[]
+      \\ res_tac
+      \\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP]
+      \\ last_x_assum(qspec_then`EL x ps`mp_tac)
+      \\ rw[EL_MAP,OPTREL_def] \\ rw[]
+      \\ qmatch_rename_tac`v = _`
+      \\ Cases_on`v` \\ fs[] )
+    \\ simp[]
+    \\ qx_gen_tac`wss` \\ strip_tac
+    \\ `∀ws1. MAP (SOME o ByteArray F) wss : closSem$v ref option list = MAP (SOME o ByteArray F) ws1 ⇔ wss = ws1`
+    by (
+      rw[EQ_IMP_THM]
+      \\ imp_res_tac INJ_MAP_EQ
+      \\ fs[INJ_DEF] )
+    \\ simp[]
+    \\ fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM]
+    \\ rw[] )
   >- (
     Cases_on`t` >> fsrw_tac[][v_rel_simp]>>
     imp_res_tac v_to_list >>
@@ -500,6 +545,27 @@ val do_app = Q.prove(
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
   >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[] )
+  >- (
+    DEEP_INTRO_TAC some_intro \\ fs[] \\
+    DEEP_INTRO_TAC some_intro \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\
+    imp_res_tac v_to_list \\ fs[OPTREL_def] \\
+    simp[v_rel_simp] \\ rw[] \\
+    fs[LIST_REL_EL_EQN,EL_MAP,v_rel_simp] \\ rfs[EL_MAP,v_rel_simp] \\
+    TRY AP_TERM_TAC \\
+    fs[LIST_EQ_REWRITE] \\
+    metis_tac[EL_MAP,v_rel_simp] )
+  >- (
+    every_case_tac \\ fs[v_rel_simp,state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] \\ rw[] )
+  >- (
+    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
+    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
+    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+    imp_res_tac LIST_REL_LENGTH >> fs [] >>
+    imp_res_tac state_rel_refs >>
+    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
+    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
   >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- (
