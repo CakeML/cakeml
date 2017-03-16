@@ -635,7 +635,7 @@ val _ = append_prog grep;
 val grep_sem_file_def = Define`
   grep_sem_file L fs filename =
     case ALOOKUP fs.files filename of
-    | NONE => ("", "cake_grep: " ++ explode filename ++ ": No such file or directory")
+    | NONE => ("", explode (notfound_string filename) )
     | SOME contents =>
         (CONCAT
           (MAP (λmatching_line. explode filename ++ ":" ++ matching_line ++ "\n")
