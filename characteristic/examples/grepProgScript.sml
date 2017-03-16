@@ -474,7 +474,7 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
 
 (* TODO: fix concat_2 problem in mlstringProg *)
 val notfound_string_def = Define`
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory"]`;
+  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
 
 val r = translate notfound_string_def;
 
