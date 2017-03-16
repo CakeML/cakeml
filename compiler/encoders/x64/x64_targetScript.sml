@@ -36,7 +36,8 @@ val x64_bop_def = Define`
 val x64_sh_def = Define`
    (x64_sh Lsl = Zshl) /\
    (x64_sh Lsr = Zshr) /\
-   (x64_sh Asr = Zsar)`
+   (x64_sh Asr = Zsar) /\
+   (x64_sh Ror = Zror)`
 
 val x64_cmp_def = Define`
    (x64_cmp Less  = Z_L) /\

@@ -57,12 +57,14 @@ val mips_bop_i_def = Define`
 val mips_sh_def = Define`
    (mips_sh Lsl = DSLL) /\
    (mips_sh Lsr = DSRL) /\
-   (mips_sh Asr = DSRA)`
+   (mips_sh Asr = DSRA) /\
+   (mips_sh _   = DSRA)`
 
 val mips_sh32_def = Define`
    (mips_sh32 Lsl = DSLL32) /\
    (mips_sh32 Lsr = DSRL32) /\
-   (mips_sh32 Asr = DSRA32)`
+   (mips_sh32 Asr = DSRA32) /\
+   (mips_sh32 _   = DSRA32)`
 
 val mips_memop_def = Define`
    (mips_memop Load    = INL LD) /\
@@ -115,8 +117,22 @@ val mips_enc_def = Define`
        else
          [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i))]) /\
    (mips_ast (Inst (Arith (Shift sh r1 r2 n))) =
-       let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
-         [Shift (f sh (n2w r2, n2w r1, n2w n))]) /\
+       if sh = Ror then
+         if n < 32 then
+           [Shift (DSRL (n2w r2, temp_reg, n2w n));
+            Shift (DSLL32 (n2w r2, n2w r1, n2w (32 - n)));
+            ArithR (OR (n2w r1, temp_reg, n2w r1))]
+         else if n = 32 then
+           [Shift (DSRL32 (n2w r2, temp_reg, 0w));
+            Shift (DSLL32 (n2w r2, n2w r1, 0w));
+            ArithR (OR (n2w r1, temp_reg, n2w r1))]
+         else
+           [Shift (DSRL32 (n2w r2, temp_reg, n2w (n - 32)));
+            Shift (DSLL (n2w r2, n2w r1, n2w (64 - n)));
+            ArithR (OR (n2w r1, temp_reg, n2w r1))]
+       else
+         let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
+           [Shift (f sh (n2w r2, n2w r1, n2w n))]) /\
    (mips_ast (Inst (Arith (Div r1 r2 r3))) =
        [MultDiv (DDIV (n2w r2, n2w r3));
         MultDiv (MFLO (n2w r1))]) /\

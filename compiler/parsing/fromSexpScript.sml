@@ -528,9 +528,11 @@ val sexpop_def = Define`
     if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
     if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
     if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
+    if s = "Shift8Ror" then SOME (Shift W8 Ror n) else
     if s = "Shift64Lsl" then SOME (Shift W64 Lsl n) else
     if s = "Shift64Lsr" then SOME (Shift W64 Lsr n) else
-    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else NONE) ∧
+    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
+    if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop _ = NONE)`;
 
 val sexplop_def = Define`
@@ -544,7 +546,7 @@ val sexplocn_def = Define`
     do
       ls <- strip_sxcons s;
       guard (LENGTH ls = 6)
-      (lift2 $, 
+      (lift2 $,
             (lift locn (odestSXNUM (EL 0 ls)) <*>
                        (odestSXNUM (EL 1 ls)) <*>
                        (odestSXNUM (EL 2 ls)))
@@ -835,9 +837,11 @@ val opsexp_def = Define`
   (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
   (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
   (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
+  (opsexp (Shift W8 Ror n) = SX_CONS (SX_SYM "Shift8Ror") (SX_NUM n)) ∧
   (opsexp (Shift W64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
   (opsexp (Shift W64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
+  (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -884,7 +888,7 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
-  locnsexp (locn n1 n2 n3,locn n4 n5 n6) = 
+  locnsexp (locn n1 n2 n3,locn n4 n5 n6) =
     listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",

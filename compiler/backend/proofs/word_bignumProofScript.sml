@@ -24,7 +24,8 @@ val eval_exp_def = Define `
   eval_exp s (Op Xor [x1;x2]) = word_xor (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Shift Lsl x (Nat n)) = eval_exp s x << n /\
   eval_exp s (Shift Asr x (Nat n)) = eval_exp s x >> n /\
-  eval_exp s (Shift Lsr x (Nat n)) = eval_exp s x >>> n`
+  eval_exp s (Shift Lsr x (Nat n)) = eval_exp s x >>> n /\
+  eval_exp s (Shift Ror x (Nat n)) = word_ror (eval_exp s x) n`
 
 val eval_exp_pre_def = Define `
   (eval_exp_pre s (Const w) <=> T) /\

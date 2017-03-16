@@ -544,6 +544,23 @@ val asr2 = Q.prove(
            bitTheory.BIT_EXP_SUB1]
    )
 
+val ror = Q.prove(
+  `!w : word64 n.
+     n < 64 ==> (v2w (shiftr (w2v w ++ w2v w) n): word64 = w #>> n)`,
+  rpt strip_tac
+  \\ bitstringLib.Cases_on_v2w `w`
+  \\ fs [markerTheory.Abbrev_def]
+  \\ simp [bitstringTheory.word_ror_v2w, bitstringTheory.v2w_11,
+           bitstringTheory.w2v_v2w]
+  \\ match_mp_tac listTheory.LIST_EQ
+  \\ rw [bitstringTheory.el_fixwidth, bitstringTheory.shiftr_def,
+         bitstringTheory.rotate_def, rich_listTheory.EL_TAKE,
+         rich_listTheory.EL_APPEND2]
+  \\ Cases_on `x < n`
+  \\ simp [rich_listTheory.EL_APPEND1, rich_listTheory.EL_APPEND2,
+           bitstringTheory.el_field, DECIDE ``n <> 0n ==> (SUC (n - 1) = n)``]
+  )
+
 val mul_long = Q.prove(
   `!a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
@@ -737,7 +754,8 @@ val shift_cases_tac =
            \\ qunabbrev_tac `q`
            \\ blastLib.FULL_BBLAST_TAC),
        Q.SPECL_THEN [`n2w n1`, `63w`] STRIP_ASSUME_TAC DecodeBitMasks_SOME,
-       Q.SPECL_THEN [`n2w n1`, `63w`] STRIP_ASSUME_TAC DecodeBitMasks_SOME
+       Q.SPECL_THEN [`n2w n1`, `63w`] STRIP_ASSUME_TAC DecodeBitMasks_SOME,
+       all_tac
    ]
    \\ qpat_x_assum `Abbrev (instr = arm8_enc xx)` assume_tac
 
@@ -911,7 +929,7 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             \\ enc_rwts_tac
             \\ fs []
             \\ next_state_tac01
-            \\ state_tac [lsr, asr]
+            \\ state_tac [lsr, asr, ror]
             >| [
                 imp_res_tac lsl,
                 imp_res_tac (lsl |> Q.SPEC `0w` |> SIMP_RULE (srw_ss()) []),
