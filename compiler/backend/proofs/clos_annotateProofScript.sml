@@ -320,6 +320,24 @@ val do_app_thm = Q.prove(
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
+  THEN1 (* ByteVecFromArr *)
+   (fs[do_app_def] \\
+    every_case_tac \\ fs[v_rel_simp] \\
+    fs[state_rel_def] \\ res_tac \\ fs[] \\ rw[] )
+  THEN1 (* ByteVecToArr *)
+   (fs[do_app_def] \\
+    every_case_tac \\ fs[v_rel_simp] \\
+    fs[state_rel_def] \\ rw[] \\
+    fs[FLOOKUP_UPDATE] \\ rw[] \\ fs[])
+  THEN1 (* ConcatByteVec *)
+   (fs[do_app_def] \\
+    every_case_tac \\ fs[] \\ rw[] \\
+    imp_res_tac v_to_list \\ fs[] \\ rw[v_rel_simp] \\
+    rpt(qpat_x_assum`$some _ = _`mp_tac) \\
+    rpt(DEEP_INTRO_TAC some_intro \\ fs[]) \\ rw[] \\
+    TRY AP_TERM_TAC \\ fs[EVERY2_MAP,v_rel_simp] \\
+    fs[LIST_REL_EL_EQN] \\ simp[LIST_EQ_REWRITE] \\
+    METIS_TAC[EL_MAP] )
   THEN1 (* DerefByteVec *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
@@ -342,6 +360,26 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ IMP_RES_TAC v_to_list \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [])
+  THEN1 (* ConcatByte *)
+   (fs[do_app_def] \\
+    TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[] \\
+    imp_res_tac v_to_list \\ fs[] \\ rw[v_rel_simp] \\
+    qpat_x_assum`_ = Rval _ `mp_tac \\
+    DEEP_INTRO_TAC some_intro \\ fs[] \\
+    ntac 3 strip_tac \\ rveq \\ fs[] \\
+    fs[EVERY2_MAP,v_rel_simp] \\
+    DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+    rename1`MAP _ ps = MAP _ ws` \\
+    map_every qexists_tac[`ws`,`ps`] \\
+    reverse conj_asm2_tac >- (
+      fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,state_rel_def] \\
+      rfs[EL_MAP] \\ rw[] \\ res_tac \\ res_tac \\ fs[] ) \\
+    simp[] \\ fs[state_rel_def,FLOOKUP_UPDATE] \\ rw[] \\
+    rw[] \\ fs[] \\
+    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
+    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   THEN1 (* UpdateByte *)
    (rpt strip_tac >>IMP_RES_TAC do_app_IMP_case
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
