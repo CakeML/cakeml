@@ -365,6 +365,7 @@ val do_app_ssgc = Q.store_thm(
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
+  >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
       simp[v_to_list_def] >> Cases >>
@@ -374,6 +375,7 @@ val do_app_ssgc = Q.store_thm(
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, case_eq_thms, PULL_EXISTS, PULL_FORALL])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
+  >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
                 integerTheory.INT_OF_NUM, integerTheory.INT_LT])
@@ -1287,6 +1289,22 @@ val kvrel_op_correct_Rval = Q.store_thm(
       fs[fmap_rel_OPTREL_FLOOKUP] >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
       simp[OPTREL_def])
+  >- (rw[] >> fs[] >>
+      imp_res_tac kvrel_v_to_list >> fs[ksrel_def] \\ rfs[] >>
+      qpat_x_assum`_ = SOME wss`mp_tac >>
+      DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
+      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+      map_every qexists_tac[`wss`,`ps`] \\
+      reverse conj_asm2_tac >- (
+        fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,fmap_rel_def,FLOOKUP_DEF] \\
+        rfs[EL_MAP] \\ rw[] \\ res_tac \\ res_tac \\ fs[] \\
+        Cases_on`s02.refs ' (EL x ps)` \\ fs[] >>
+        metis_tac[ref_rel_def,ref_11]) \\
+      ntac 3 strip_tac >>
+      reverse conj_asm2_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
+      match_mp_tac fmap_rel_FUPDATE_same >> fs[] \\
+      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
+      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
   >- (
     rw[] \\ fs[] \\
@@ -1298,7 +1316,27 @@ val kvrel_op_correct_Rval = Q.store_thm(
     rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
     fs[EVERY_MEM,EXISTS_MEM] \\
     metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM,ORD_BOUND] )
+  >- (rw[] >> fs[] >>
+      qpat_x_assum`_ = SOME wss`mp_tac >>
+      DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
+      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+      imp_res_tac kvrel_v_to_list \\ fs[] \\
+      qexists_tac`wss` \\
+      reverse conj_asm2_tac >- (
+        fs[LIST_REL_EL_EQN,EL_MAP] \\
+        simp[LIST_EQ_REWRITE,EL_MAP] )
+      \\ rw[] \\
+      imp_res_tac INJ_MAP_EQ \\
+      fs[INJ_DEF] )
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
+      simp[fmap_rel_FUPDATE_same])
+  >- (rw[] >> fs[] >> fs[ksrel_def] >>
+      rename1 `FLOOKUP _ PTR = SOME _` >>
+      fs[fmap_rel_OPTREL_FLOOKUP] >>
+      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
+      simp[OPTREL_def] )
+  >- (rw[] \\ fs[ksrel_def] >>
       `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
       simp[fmap_rel_FUPDATE_same])
   >- (rw[] >> fs[] >> fs[ksrel_def] >>
