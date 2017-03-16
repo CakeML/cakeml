@@ -448,6 +448,12 @@ val LEAST_NOTIN_FDOM = Q.store_thm("LEAST_NOTIN_FDOM",
   ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ full_simp_tac(srw_ss())[]);
 
+val LEAST_LESS_EQ = Q.store_thm("LEAST_LESS_EQ",
+  `(LEAST x. y ≤ x) = y`,
+  numLib.LEAST_ELIM_TAC \\ rw[]
+  >- (qexists_tac`y` \\ simp[])
+  \\ fs[LESS_OR_EQ] \\ res_tac \\ fs[]);
+
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;

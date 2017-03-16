@@ -53,6 +53,26 @@ val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
   `compile_state max_app (s with clock := k) = compile_state max_app s with clock := k`,
   EVAL_TAC >> simp[])
 
+val compile_state_ffi = Q.store_thm("compile_state_ffi[simp]",
+  `(compile_state w s).ffi = s.ffi`,
+  EVAL_TAC);
+
+val FLOOKUP_compile_state_refs = Q.store_thm("FLOOKUP_compile_state_refs",
+  `FLOOKUP (compile_state w s).refs =
+   OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `,
+  rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]);
+
+val FDOM_compile_state_refs = Q.store_thm("FDOM_compile_state_refs[simp]",
+  `FDOM (compile_state w s).refs = count (LENGTH s.refs)`,
+  rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]);
+
+val compile_state_with_refs_snoc = Q.store_thm("compile_state_with_refs_snoc",
+  `compile_state w (s with refs := s.refs ++ [x]) =
+   compile_state w s with refs :=
+     (compile_state w s).refs |+ (LENGTH s.refs, compile_sv x)`,
+  rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
+  \\ rw[EL_APPEND1,EL_APPEND2]);
+
 (* semantic functions respect translation *)
 
 val do_eq = Q.store_thm("do_eq",
@@ -101,6 +121,29 @@ val v_to_list = Q.store_thm("v_to_list",
   ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
   rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
+
+val vs_to_w8s = Q.store_thm("vs_to_w8s",
+  `∀refs vs ws. vs_to_w8s refs vs = SOME ws ⇒
+   ∃ps wss.
+     MAP compile_v vs = MAP RefPtr ps ∧
+     MAP (OPTION_MAP compile_sv o combin$C store_lookup refs) ps =
+     MAP (SOME o ByteArray F) wss ∧ ws = FLAT wss`,
+  ho_match_mp_tac vs_to_w8s_ind
+  \\ rw[vs_to_w8s_def]
+  \\ every_case_tac \\ fs[] \\ rveq
+  \\ rename1`store_lookup p refs = SOME (W8array ws)`
+  \\ qexists_tac`p::ps` \\ qexists_tac`ws::wss`
+  \\ simp[]);
+
+val vs_to_string = Q.store_thm("vs_to_string",
+  `∀vs ws. vs_to_string vs = SOME ws ⇒
+    ∃wss. MAP compile_v vs = MAP ByteVector wss ∧
+      FLAT wss = MAP (n2w o ORD) ws`,
+  ho_match_mp_tac vs_to_string_ind
+  \\ rw[vs_to_string_def]
+  \\ every_case_tac \\ fs[] \\ rveq
+  \\ qmatch_goalsub_abbrev_tac`ByteVector ws1`
+  \\ qexists_tac`ws1::wss` \\ simp[]);
 
 val Boolv = Q.store_thm("Boolv[simp]",
   `compile_v (Boolv b) = Boolv b`,
@@ -256,361 +299,107 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         fs[do_app_def])) >>
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
-    imp_res_tac patSemTheory.do_app_cases >>
-    fs[do_app_pat_def] >> rw[]
-    >- ( (* Opn *)
-      Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE,SWAP_REVERSE_SYM,PULL_EXISTS] >>
-      rw[opn_lookup_def,closSemTheory.do_eq_def] >>
-      TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[backend_commonTheory.false_tag_def,backend_commonTheory.true_tag_def] >>
-      rw[prim_exn_def,opn_lookup_def] )
-    >- ( (* Opb *)
-      Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,
-                      MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
-      rw[] >> COOPER_TAC )
-    >- ( (* Opw *)
-         every_case_tac \\ fs[] \\ rveq
-         \\ fs[SWAP_REVERSE_SYM] \\ rveq
-         \\ Cases_on`wz`\\Cases_on`w1`\\Cases_on`w2`\\fs[]\\rveq
-         \\ fs[ETA_AX,MAP_REVERSE]
-         \\ simp[evaluate_def,do_app_def]
-         \\ DEEP_INTRO_TAC some_intro
-         \\ simp[FORALL_PROD] )
-    >- ( (* Shift *)
-         every_case_tac \\ fs[] \\ rveq
-         \\ Cases_on`wz`\\Cases_on`w`\\fs[]\\rveq
-         \\ fs[ETA_AX,MAP_REVERSE]
-         \\ simp[evaluate_def,do_app_def] )
-    >- ( (* Equal *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      Cases_on`do_eq v1 v2 = Eq_type_error`>>fs[] >>
-      imp_res_tac do_eq >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >> rw[] >>
-      fsrw_tac[ARITH_ss][prim_exn_def] >>
-      EVAL_TAC)
-    >- ( (* wrong args for Update *)
-      imp_res_tac evaluate_length >>
-      fs[LENGTH_eq,Once SWAP_REVERSE_SYM] >>
-      rw[] >> fs[LENGTH_eq] >> fs[])
-    >- ( (* Update *)
-      fs[LENGTH_eq] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >> rw[] >>
-      Cases_on`a`>>fs[]>>rw[]>>
-      fs[store_assign_def] >> simp[] >>
-      pop_assum mp_tac >> IF_CASES_TAC >> simp[] >> rw[] >>
-      fs[evaluate_def] >>
-      BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
-      BasicProvers.CASE_TAC >- (
-        fs[compile_state_def] >>
-        imp_res_tac ALOOKUP_FAILS >> fs[MEM_GENLIST] ) >>
-      pop_assum mp_tac >> simp[Once compile_state_def] >> strip_tac >>
-      imp_res_tac ALOOKUP_MEM >> fs[MEM_GENLIST] >>
-      rpt var_eq_tac >> qmatch_assum_abbrev_tac`lnum < LENGTH s21` >>
-      Cases_on`EL lnum s21`>> fs[store_v_same_type_def,compile_sv_def] >>
-      simp[compile_state_def,Unit_def] >>
-      simp[fmap_eq_flookup,FLOOKUP_UPDATE] >>
-      simp[ALOOKUP_GENLIST,EL_LUPDATE] >>
-      rw[] >> fs[compile_sv_def] >> EVAL_TAC )
-    >- ( (* Deref *)
-      simp[ETA_AX,evaluate_def,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      fs[store_lookup_def] >>
-      imp_res_tac evaluate_length >>
-      Cases_on`es`>>fs[LENGTH_NIL] >>
-      simp[Once evaluate_CONS,evaluate_def,do_app_def] >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      rw[]>>fs[] >>
-      ntac 2 (pop_assum mp_tac )>> BasicProvers.CASE_TAC >>
-      fs[compile_sv_def] >> rw[] )
-    >- ( (* Ref *)
-      simp[ETA_AX,evaluate_def,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      fs[store_alloc_def,LET_THM] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      simp[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
-      conj_asm1_tac >- (
-        numLib.LEAST_ELIM_TAC >>
-        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qpat_abbrev_tac`ll = LENGTH _` >>
-        qexists_tac`ll`>>simp[]>>rw[]>>
-        `¬(ll< ll)` by simp[] >>
-        `¬(ll < n)` by metis_tac[] >>
-        DECIDE_TAC ) >>
-      simp[ALOOKUP_GENLIST] >>
-      rw[] >> simp[EL_APPEND1,EL_APPEND2,compile_sv_def] )
-    >- ( (* SetGlobal *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[compile_state_def,get_global_def,EL_MAP] >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >>fs[] >>
-      strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-      simp[LUPDATE_MAP,backend_commonTheory.tuple_tag_def] )
-    >- ( (* TagLenEq *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] )
-    >- ( (* wrong args for El *)
-      imp_res_tac evaluate_length >> fs[])
-    >- ( (* El *)
-      fs[LENGTH_eq] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[EL_MAP] )
-    >- ( (* RefByte *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
-      fs[store_alloc_def,LET_THM] >>
-      Cases_on`n<0`>>fs[prim_exn_def] >- srw_tac[ARITH_ss][] >>
-      `0 ≤ n` by COOPER_TAC >>
-      simp[PULL_EXISTS] >>
-      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[compile_state_def,true_neq_false] >>
-      conj_asm1_tac >- (
-        numLib.LEAST_ELIM_TAC >>
-        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qpat_abbrev_tac`ll = LENGTH _` >>
-        qexists_tac`ll`>>simp[]>>rw[]>>
-        `¬(ll< ll)` by simp[] >>
-        `¬(ll < n')` by metis_tac[] >>
-        DECIDE_TAC ) >>
-      simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
-      rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
-      metis_tac[INT_ABS_EQ_ID])
-    >- ( (* DerefByte *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
-      fs[store_lookup_def,LET_THM] >>
-      ntac 2 (pop_assum mp_tac) >>
-      IF_CASES_TAC >> fs[] >> strip_tac >>
-      Cases_on`i < 0` >> fs[] >- (
-        ntac 2 (pop_assum mp_tac) >>
-        TOP_CASE_TAC \\ fs []
-        \\ fs [compile_state_def]
-        \\ simp[compile_state_def,ALOOKUP_GENLIST]
-        \\ strip_tac \\ fs []
-        \\ simp[compile_state_def,ALOOKUP_GENLIST]
-        \\ strip_tac
-        \\ fs [COOPER_PROVE ``i < 0 ==> ~(0 <= i: int)``]
-        \\ rveq \\ fs [compile_v_def]
-        \\ srw_tac[ARITH_ss][prim_exn_def]) >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      ntac 2 (pop_assum mp_tac) >>
-      BasicProvers.CASE_TAC >> fs[] >> strip_tac >> strip_tac >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        srw_tac[ARITH_ss][prim_exn_def] ) >>
-      simp[ALOOKUP_GENLIST,compile_sv_def] >> rw[] )
-    >- ( (* LengthByte *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[compile_sv_def] >> rw[] )
-    >- ( (* UpdateByte *)
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[] >>
-      fs[store_lookup_def,LET_THM] >>
-      ntac 2 (pop_assum mp_tac) >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      Cases_on`i < 0` >> fs[] >- (
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        BasicProvers.CASE_TAC >> fs[] >>
-        arw[prim_exn_def] >>
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        intLib.COOPER_TAC) >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      BasicProvers.CASE_TAC >>fs[compile_sv_def]>>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[prim_exn_def] ) >>
-      simp[ALOOKUP_GENLIST,compile_sv_def] >>
-      fs[store_assign_def,store_v_same_type_def] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
-      simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,compile_sv_def,backend_commonTheory.tuple_tag_def,true_neq_false])
-    >- ( (* WordToInt *)
-      every_case_tac \\ fs[] \\ rveq
-      \\ imp_res_tac evaluate_length \\ fs[quantHeuristicsTheory.LIST_LENGTH_1]
-      \\ Cases_on`wz` \\ Cases_on`w` \\ fs[ETA_AX] \\ rveq
-      \\ simp[evaluate_def,do_app_def])
-    >- ( (* WordFromInt *)
-      Cases_on`wz`\\fs[ETA_AX,MAP_REVERSE]
-      >- (
-        simp[Once evaluate_CONS,evaluate_def,do_app_def]
-        \\ simp[integer_wordTheory.w2n_i2w] )
-      \\ simp[evaluate_def,do_app_def])
-    >- ( (* wrong args for Chr *)
-      imp_res_tac evaluate_length >> fs[] )
-    >- ( (* Chr *)
-      Cases_on`es`>>fs[LENGTH_NIL])
-    >- (
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def,prim_exn_def])
-    >- (
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def,prim_exn_def] >>
-      Cases_on`n < 0` >> fs[] >>
-      `255 < n` by COOPER_TAC >> simp[])
-    >- (
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def,prim_exn_def] >> fs[] >>
-      `¬(255 < n)` by COOPER_TAC >> simp[] >>
-      `ABS n = n` by COOPER_TAC >>
-      `Num n < 256` by COOPER_TAC >>
-      `0 ≤ n` by COOPER_TAC >>
-      EVAL_TAC >>
-      simp[ORD_CHR,INT_OF_NUM])
-    >- ( (* Chopb *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def] >>
-      simp[] >> rw[] >> COOPER_TAC )
-    >- ( (* Strsub *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      Cases_on`i < 0` >> fs[] >- (
-        rveq
-        \\ `~(0 ≤ i)` by COOPER_TAC
-        \\ asm_rewrite_tac []
-        \\ simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP,ORD_BOUND]
-        \\ EVAL_TAC) >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH s'' ⇔ ¬(Num i ≥ LENGTH s'')` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH s''`>>fs[] >- (
-        arw[prim_exn_def] \\
-        `F` suffices_by rw[] \\
-        intLib.COOPER_TAC) >>
-      rpt strip_tac >> rpt var_eq_tac >>
-      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP,ORD_BOUND] )
-    >- ( (* Implode *)
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      imp_res_tac v_to_char_list >>
-      simp[IMPLODE_EXPLODE_I] >>
-      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+    fs[patSemTheory.do_app_cases] >> rw[] >>
+    fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
+    fs[evaluate_def,MAP_REVERSE,do_app_def,PULL_EXISTS,
+       store_alloc_def,FLOOKUP_compile_state_refs,int_gt,
+       prim_exn_def,NOT_LESS,LEAST_LESS_EQ,EL_MAP,GREATER_EQ] >>
+    imp_res_tac evaluate_length >> fs[LENGTH_EQ_NUM_compute] >>
+    rveq \\
+    fs[evaluate_def,do_app_def,FLOOKUP_compile_state_refs,
+       compile_state_with_refs_snoc,case_eq_thms,pair_case_eq,
+       INT_NOT_LT,int_ge,PULL_EXISTS,IMPLODE_EXPLODE_I,
+       INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
+    simp[MAP_MAP_o,n2w_ORD_CHR_w2n,EL_MAP,Unit_def] >>
+    rfs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
+    TRY (
+      rename1`do_shift sh n wz w`
+      \\ Cases_on`wz` \\ Cases_on`w` \\ fs[]
+      \\ rw[] \\ NO_TAC) >>
+    TRY (
+      rename1`do_word_from_int wz i`
+      \\ Cases_on`wz` \\ fs[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w]
+      \\ NO_TAC) >>
+    TRY (
+      rename1`do_word_to_int wz w`
+      \\ Cases_on`wz` \\ Cases_on`w` \\ fs[evaluate_def,do_app_def]
+      \\ NO_TAC) >>
+    TRY (
+      rename1`ORD(CHR(Num i))`
+      \\ `Num i < 256` by COOPER_TAC
+      \\ simp[ORD_CHR,INT_OF_NUM]
+      \\ COOPER_TAC ) >>
+    TRY (
+      rename1`Opn opn`
+      \\ Cases_on`opn`
+      \\ fs[evaluate_def,do_app_def,opn_lookup_def,
+            closSemTheory.do_eq_def]
+      \\ NO_TAC) >>
+    TRY (
+      rename1`do_eq (Number 0) (Number 0)`
+      \\ simp[closSemTheory.do_eq_def]
+      \\ NO_TAC ) >>
+    TRY (
+      rename1`Opb opb`
+      \\ Cases_on`opb`
+      \\ fs[evaluate_def,do_app_def,opb_lookup_def]
+      \\ NO_TAC) >>
+    TRY (
+      rename1`Chopb op` >>
+      Cases_on`op`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def] >>
+      NO_TAC) >>
+    TRY (
+      rename1`do_word_op op wz w1 w2`
+      \\ Cases_on`wz` \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[evaluate_def]
+      \\ rveq \\ fs[]
+      \\ DEEP_INTRO_TAC some_intro
+      \\ simp[FORALL_PROD]
+      \\ NO_TAC) >>
+    imp_res_tac v_to_list \\ fs[] >>
+    TRY (
+      rename1`vs_to_w8s` >>
+      DEEP_INTRO_TAC some_intro >>
+      imp_res_tac vs_to_w8s \\ fs[] >>
+      reverse conj_tac >- metis_tac[] >>
+      rw[] >>
+      imp_res_tac INJ_MAP_EQ >> fs[INJ_DEF] >>
+      imp_res_tac INJ_MAP_EQ >> fs[INJ_DEF] >>
+      NO_TAC ) >>
+    TRY (
+      rename1`v_to_char_list` >>
+      imp_res_tac v_to_char_list \\ fs[] >>
+      DEEP_INTRO_TAC some_intro >> fs[PULL_EXISTS] >>
       qexists_tac`MAP ORD ls` \\
       simp[MAP_MAP_o,EVERY_MAP,ORD_BOUND] \\
       rw[LIST_EQ_REWRITE,EL_MAP,ORD_BOUND] \\ rfs[]
-      \\ fs[EL_MAP] \\ metis_tac[ORD_BOUND])
-    >- ( (* Strlen *)fs[MAP_REVERSE] >>simp[evaluate_def,ETA_AX,do_app_def] )
-    >- ( (* FromList *)
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      imp_res_tac v_to_list >>
-      simp[])
-    >- ( (* LengthBlock *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      Cases_on`i < 0` >> fs[LET_THM] >- (
-        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
-        arw[prim_exn_def] ) >>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH vs' ⇔ ¬(Num i ≥ LENGTH vs')` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH vs'`>>fs[] >- (
-        arw[prim_exn_def] ) >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      simp[EL_MAP,true_neq_false] )
-    >- ( fs[MAP_REVERSE] >> simp[evaluate_def,ETA_AX,do_app_def])
-    >- ( (* RefArray *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[store_alloc_def,LET_THM] >>
-      Cases_on`n<0`>>fs[prim_exn_def] >- arw[] >>
-      `0 ≤ n` by COOPER_TAC >>
-      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[compile_state_def,true_neq_false] >>
-      conj_asm1_tac >- (
-        numLib.LEAST_ELIM_TAC >>
-        simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qpat_abbrev_tac`ll = LENGTH _` >>
-        qexists_tac`ll`>>simp[]>>rw[]>>
-        `¬(ll< ll)` by simp[] >>
-        `¬(ll < n')` by metis_tac[] >>
-        DECIDE_TAC ) >>
-      simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
-      rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
-      simp[REPLICATE_GENLIST,MAP_GENLIST] >>
-      metis_tac[INT_ABS_EQ_ID])
-    >- ( (* Deref *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[store_lookup_def,LET_THM] >>
-      ntac 2 (pop_assum mp_tac) >> BasicProvers.CASE_TAC >> fs[] >>
-      Cases_on`i < 0` >> fs[] >- (
-        BasicProvers.CASE_TAC >> fs[] >>
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
-        strip_tac \\ rveq \\ fs [] >>
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
-        arw[prim_exn_def] ) >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[prim_exn_def] ) >>
-      rpt strip_tac >> rpt var_eq_tac >>
-      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] )
-    >- ( (* Length *)
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[store_lookup_def] >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
-      BasicProvers.CASE_TAC>>fs[compile_sv_def] >> rw[] )
-    >- ( (* Update *)
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[store_lookup_def,LET_THM] >>
-      rpt var_eq_tac >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
-      Cases_on`i < 0` >> fs[] >- (
-        BasicProvers.CASE_TAC>>fs[]>>
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
-        rpt strip_tac \\ rveq \\ fs [] >>
-        simp[compile_state_def,ALOOKUP_GENLIST] >>
-        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
-        arw[prim_exn_def] >>
-        CCONTR_TAC \\ fs [] ) >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
-      `0 ≤ i` by COOPER_TAC >>
-      `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
-      `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
-      Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[prim_exn_def] ) >>
-      simp[ALOOKUP_GENLIST,compile_sv_def] >>
-      fs[store_assign_def,store_v_same_type_def] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
-      simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,backend_commonTheory.tuple_tag_def,true_neq_false])
-    >- ( (* FFI *)
-      fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      simp[compile_state_def,ALOOKUP_GENLIST] >>
-      fs[store_lookup_def] >>
-      IF_CASES_TAC >> fs[] >>
-      ntac 2 (pop_assum mp_tac) >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >>
-      fs[store_assign_def] >> rfs[] >>
-      fs[store_v_same_type_def] >>
-      BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      simp[Unit_def] >>
-      simp[fmap_eq_flookup,ALOOKUP_GENLIST,FLOOKUP_UPDATE,EL_LUPDATE] >>
-      rw[] >> fs[])) >>
+      \\ fs[EL_MAP] \\ metis_tac[ORD_BOUND]) >>
+    TRY (
+      rename1`vs_to_string` >>
+      imp_res_tac vs_to_string \\ fs[] >>
+      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] >>
+      qexists_tac`wss` \\ rw[] >>
+      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+      \\ NO_TAC) >>
+    TRY (
+      rename1`get_global` >>
+      simp[compile_state_def,get_global_def,EL_MAP] >>
+      simp[LUPDATE_MAP] >> NO_TAC) >>
+    TRY (
+      rename1`patSem$do_eq v1 v2`
+      \\ Cases_on`do_eq v1 v2 = Eq_type_error` \\ fs[]
+      \\ imp_res_tac do_eq \\ fs[] \\ rw[]
+      \\ NO_TAC ) >>
+    TRY (
+      IF_CASES_TAC \\ TRY (`F` by COOPER_TAC)
+      \\ simp[EL_MAP,ORD_BOUND] ) >>
+    TRY (
+      rename1`store_lookup`
+      \\ fs[store_lookup_def,store_assign_def]
+      \\ qmatch_assum_rename_tac`store_v_same_type (EL lnum t.refs) _`
+      \\ Cases_on`EL lnum t.refs` \\ fs[store_v_same_type_def] ) >>
+    fs[state_component_equality,compile_state_def,fmap_eq_flookup,
+       ALOOKUP_GENLIST,FLOOKUP_UPDATE,store_assign_def,store_lookup_def]
+    \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     every_case_tac >> fs[] >>
@@ -708,8 +497,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
-      reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>- (
-        fs[] >> rfs[compile_state_def] ) >>
+      reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>>
       qhdtm_x_assum`closSem$evaluate`mp_tac >>
       drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
       simp[] >>

@@ -117,6 +117,8 @@ val compile_def = tDefine"compile"`
          (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
            (Op (Cons tuple_tag) []))
          (Raise (Op (Cons subscript_tag) [])))) ∧
+  (compile (App (Op (Op Aw8concat)) es) =
+     Op ConcatByte (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strsub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op BoundsCheckByte [Var 0; Var 1])
@@ -126,6 +128,12 @@ val compile_def = tDefine"compile"`
     Op (FromListByte) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strlen)) es) =
     Op LengthByteVec (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op Strcat)) es) =
+    Op ConcatByteVec (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op StrFromW8Array)) es) =
+    Op ByteVecFromArr (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op StrToW8Array)) es) =
+    Op ByteVecToArr (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op VfromList)) es) =
     Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Vsub)) es) =
