@@ -481,6 +481,28 @@ val evaluate_app_NIL = save_thm(
   "evaluate_app_NIL[simp]",
   ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
 
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
+val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
+val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
+                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
+                          case_def = TypeBase.case_def_of ``:'a error_result`` }
+val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
+                       case_def = TypeBase.case_def_of ``:eq_result`` }
+val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
+                     case_def = TypeBase.case_def_of ``:app_kind`` }
+val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
+                     case_def = TypeBase.case_def_of ``:word_size`` }
+
+val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, list_thms, option_thms, v_thms, ref_thms,
+   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
+
+val _ = save_thm ("case_eq_thms", case_eq_thms);
+
 (* We prove that the clock never increases. *)
 
 val do_app_const = Q.store_thm("do_app_const",
@@ -488,9 +510,9 @@ val do_app_const = Q.store_thm("do_app_const",
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
     (s2.code = s1.code)`,
-  SIMP_TAC std_ss [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
+  simp[do_app_def,case_eq_thms]
+  \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
 
 val evaluate_ind = theorem"evaluate_ind"
 

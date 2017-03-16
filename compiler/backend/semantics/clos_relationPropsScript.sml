@@ -802,7 +802,7 @@ val exp_rel_NIL_CONS = Q.store_thm(
   "exp_rel_NIL_CONS[simp]",
   `exp_rel (:'ffi) w [] (e::es) ⇔ F`,
   simp[exp_rel_thm, evaluate_def] >>
-  simp[Once evaluate_CONS, res_rel_rw, pair_case_eq, eqs] >>
+  simp[Once evaluate_CONS, res_rel_rw, pair_case_eq, case_eq_thms] >>
   CONV_TAC(RESORT_EXISTS_CONV(sort_vars["s","s'"])) >>
   qexists_tac`s with max_app := w` >>
   qexists_tac`s with max_app := w` >>

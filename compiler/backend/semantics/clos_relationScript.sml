@@ -808,7 +808,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, eqs]
+         dsimp[SimpL ``$==>``, res_rel_rw, case_eq_thms]
          >- (qx_gen_tac `rv2` >> simp[] >> strip_tac >> first_assum irule
              >- first_x_assum ACCEPT_TAC >>
              qexists_tac `s1.clock` >> simp[] >>
@@ -863,7 +863,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
+         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, case_eq_thms, pair_case_eq] >>
          simp[] >> strip_tac >>
          qmatch_abbrev_tac `res_rel _ (evaluate_app NONE rv1 rest1 s1) RHS` >>
          rename1 `state_rel s1.clock _ s1 s2` >>
@@ -936,7 +936,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
+         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, case_eq_thms, pair_case_eq] >>
          simp[] >> strip_tac >>
          qmatch_abbrev_tac `res_rel _ LHS (evaluate_app NONE rv2 rest2 s2)` >>
          full_simp_tac(srw_ss())[] >> rename1 `state_rel s2.clock _ s1 s2` >>
@@ -2105,7 +2105,7 @@ val fmap_rel_t = prim_mk_const{Thy = "finite_map", Name = "fmap_rel"}
 val evaluate_ev_timeout_clocks0 = Q.store_thm(
   "evaluate_ev_timeout_clocks0",
   `evaluate_ev j e s0 = (Rerr (Rabort Rtimeout_error), s) ⇒ s.clock = 0`,
-  Cases_on `e` >> dsimp[evaluate_ev_def, eqs, pair_case_eq, bool_case_eq] >>
+  Cases_on `e` >> dsimp[evaluate_ev_def, case_eq_thms, pair_case_eq, bool_case_eq] >>
   rpt strip_tac >> imp_res_tac evaluate_timeout_clocks0);
 
 val val_rel_trans = Q.store_thm ("val_rel_trans",
