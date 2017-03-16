@@ -1152,6 +1152,51 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          match_mp_tac fmap_rel_FUPDATE_same >>
          simp [state_rel_rw])
      >- (
+       fs[]
+       \\ imp_res_tac v_to_list_val_rel
+       \\ rfs[OPTREL_SOME,PULL_EXISTS]
+       \\ qpat_x_assum`$some _ = SOME _`mp_tac
+       \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\ rveq
+       \\ fs[EVERY2_MAP]
+       \\ DEEP_INTRO_TAC some_intro \\ fs[val_rel_rw]
+       \\ fs[state_rel_refs]
+       \\ reverse conj_asm2_tac
+       >- (
+         fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP]
+         \\ map_every qexists_tac[`wss`,`ps`]
+         \\ simp[EL_MAP] \\ rfs[EL_MAP]
+         \\ simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM]
+         \\ qx_gen_tac`x` \\ strip_tac
+         \\ rpt(first_x_assum(qspec_then`x`mp_tac))
+         \\ Cases_on`EL x z` \\ simp[val_rel_rw]
+         \\ rw[]
+         \\ imp_res_tac state_rel_refs
+         \\ fs[ref_v_rel_rw] )
+       \\ simp[PULL_EXISTS]
+       \\ ntac 3 strip_tac \\ rveq \\ fs[]
+       \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\ rveq
+       \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+       \\ conj_asm1_tac
+       >- ( fs[Once state_rel_rw,fmap_rel_def] )
+       \\ fs[EVERY2_MAP,val_rel_rw]
+       \\ `ps = ps'` by fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE]
+       \\ rw[]
+       \\ `MAP (FLOOKUP s.refs) ps = MAP (FLOOKUP s'.refs) ps`
+       by (
+         fs[MAP_EQ_f]
+         \\ fs[LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS]
+         \\ rw[]
+         \\ rfs[EL_MAP] \\ fs[EL_MAP]
+         \\ imp_res_tac state_rel_refs
+         \\ res_tac
+         \\ res_tac
+         \\ fs[ref_v_rel_rw] )
+       \\ fs[]
+       \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+       \\ fs[Once state_rel_rw]
+       \\ match_mp_tac fmap_rel_FUPDATE_same
+       \\ simp[ref_v_rel_rw] \\ rw[])
+     >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>
        simp [OPTREL_SOME] >>
@@ -1173,6 +1218,33 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        rfs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rw[] \\
        first_x_assum(qspec_then`x`mp_tac) \\ simp[] \\
        Cases_on`EL x y0` \\ fs[val_rel_rw])
+     >- (
+       pop_assum mp_tac
+       \\ DEEP_INTRO_TAC some_intro \\ fs[]
+       \\ strip_tac \\ fs[PULL_EXISTS]
+       \\ DEEP_INTRO_TAC some_intro \\ fs[val_rel_rw]
+       \\ imp_res_tac v_to_list_val_rel
+       \\ rfs[OPTREL_SOME]
+       \\ fs[EVERY2_MAP]
+       \\ reverse conj_asm2_tac
+       >- (
+         fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN]
+         \\ qexists_tac`wss` \\ rfs[EL_MAP]
+         \\ rw[] \\ res_tac
+         \\ Cases_on`EL x z` \\ fs[val_rel_rw] )
+       \\ rw[]
+       \\ imp_res_tac INJ_MAP_EQ
+       \\ fs[INJ_DEF] \\ fs[EVERY2_MAP,val_rel_rw]
+       \\ AP_TERM_TAC
+       \\ simp[Once LIST_EQ_REWRITE]
+       \\ fs[LIST_REL_EL_EQN] )
+     >- (
+       fs[PULL_EXISTS]
+       \\ CASE_TAC \\ fs[val_rel_rw]
+       \\ conj_asm1_tac >- fs[Once state_rel_rw,fmap_rel_def]
+       \\ fs[Once state_rel_rw]
+       \\ match_mp_tac fmap_rel_FUPDATE_same
+       \\ simp[ref_v_rel_rw] )
      >- (full_simp_tac(srw_ss())[LET_THM] >>
          srw_tac[][val_rel_rw] >>
          `(LEAST ptr. ptr ∉ FDOM s.refs) = LEAST ptr. ptr ∉ FDOM s'.refs`

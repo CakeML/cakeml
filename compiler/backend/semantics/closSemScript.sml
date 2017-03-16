@@ -160,6 +160,19 @@ val do_app_def = Define `
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (ConcatByte,[lv]) =>
+        (case v_to_list lv of
+         | SOME vs =>
+           (case
+              (some wss. ∃ps.
+                v_to_list lv = SOME (MAP RefPtr ps) ∧
+                MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray F) wss)
+            of SOME wss =>
+              let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+                Rval (RefPtr ptr, s with refs := s.refs |+
+                         (ptr,ByteArray F (FLAT wss)))
+            | _ => Error)
+         | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
@@ -175,6 +188,18 @@ val do_app_def = Define `
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
+    | (ConcatByteVec,[lv]) =>
+       (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
+        | SOME wss => Rval (ByteVector (FLAT wss),s)
+        | _ => Error)
+    | (ByteVecToArr,[ByteVector ws]) =>
+        let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+          Rval (RefPtr ptr, s with refs := s.refs |+
+                   (ptr, ByteArray F ws))
+    | (ByteVecFromArr,[RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray F ws) => Rval (ByteVector ws, s)
+         | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
