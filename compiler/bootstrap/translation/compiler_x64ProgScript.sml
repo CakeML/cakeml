@@ -140,8 +140,8 @@ val main_spec = Q.store_thm("main_spec",
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDOUT out * (STDIN inp F * COMMANDLINE cl))
      (POSTv uv. &UNIT_TYPE () uv *
-      (STDOUT (out ++ (FLAT (MAP explode (append (compiler_x64 (TL(MAP implode cl)) inp))))) *
-       (STDIN "" T * COMMANDLINE cl)))`,
+      STDOUT (out ++ (FLAT (MAP explode (append (compiler_x64 (TL(MAP implode cl)) inp))))) *
+       (STDIN "" T * COMMANDLINE cl))`,
   strip_tac
   \\ xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
