@@ -160,7 +160,7 @@ val do_app_def = Define `
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
-    | (ConcatByte,[lv]) =>
+    | (ConcatByte F,[lv]) =>
         (case v_to_list lv of
          | SOME vs =>
            (case

@@ -23,7 +23,7 @@ val _ = Datatype `
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
-     | ConcatByte    (* concatenate list of byte arrays *)
+     | ConcatByte bool  (* concatenate list of byte arrays *)
      | FromList num  (* convert list to packed Block *)
      | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
@@ -89,7 +89,7 @@ val pure_op_def = Define `
     | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
-    | ConcatByte => F
+    | (ConcatByte _) => F
     | ByteVecToArr => F
     | Ref => F
     | Update => F

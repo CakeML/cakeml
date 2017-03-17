@@ -506,6 +506,7 @@ val do_app = Q.prove(
       \\ imp_res_tac INJ_MAP_EQ
       \\ fs[INJ_DEF] )
     \\ rfs[]
+    \\ Cases_on`b` \\ fs[]
     \\ `∀ls. MAP (FLOOKUP s2.refs) ps = MAP (SOME o ByteArray F) ls ⇔
              MAP (FLOOKUP s1.refs) ps = MAP (SOME o ByteArray F) ls`
     by (
@@ -525,7 +526,7 @@ val do_app = Q.prove(
       \\ fs[INJ_DEF] )
     \\ simp[]
     \\ fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM]
-    \\ rw[] )
+    \\ rw[v_rel_simp] )
   >- (
     Cases_on`t` >> fsrw_tac[][v_rel_simp]>>
     imp_res_tac v_to_list >>

@@ -1271,9 +1271,11 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
-  \\ Cases_on `op = ConcatByte` THEN1 (
+  \\ Cases_on `∃fl. op = ConcatByte fl` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
     fs[case_eq_thms] \\
+    Cases_on`fl` \\ fs[]
+    >- (every_case_tac \\ fs[]) \\
     CASE_TAC \\ fs[PULL_EXISTS] \\
     rename1`EVERY (wfv _ _) tt` \\
     Cases_on`tt` \\ fs[] \\

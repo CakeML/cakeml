@@ -118,7 +118,7 @@ val compile_def = tDefine"compile"`
            (Op (Cons tuple_tag) []))
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Aw8concat)) es) =
-     Op ConcatByte (REVERSE (MAP compile es))) ∧
+     Op (ConcatByte F) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strsub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op BoundsCheckByte [Var 0; Var 1])
