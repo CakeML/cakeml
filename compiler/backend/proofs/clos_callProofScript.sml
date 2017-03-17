@@ -1271,6 +1271,83 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
+  \\ Cases_on `op = ConcatByte` THEN1 (
+    rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
+    fs[case_eq_thms] \\
+    CASE_TAC \\ fs[PULL_EXISTS] \\
+    rename1`EVERY (wfv _ _) tt` \\
+    Cases_on`tt` \\ fs[] \\
+    Cases_on`v_to_list h` \\ fs[] \\
+    CASE_TAC \\ fs[] \\
+    conj_tac >- (
+      rw[wfv_state_def]
+      \\ match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)
+      \\ rw[] ) \\
+    rw[] \\
+    imp_res_tac v_to_list_thm \\ fs[v_rel_def] \\ rw[] \\
+    qpat_x_assum`$some _ = SOME _`mp_tac >>
+    DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
+    DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+    rename1`_ = MAP _ wss` \\
+    map_every qexists_tac[`wss`,`ps`] \\
+    reverse conj_asm2_tac >- (
+      fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,fmap_rel_def,FLOOKUP_DEF] \\
+      rfs[EL_MAP] \\ rw[] \\ res_tac \\ res_tac \\ fs[v_rel_def] \\
+      qmatch_rename_tac`rr = _` \\
+      Cases_on`rr` \\ metis_tac[ref_rel_def,ref_11]) \\
+    ntac 3 strip_tac >>
+    conj_asm1_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
+    match_mp_tac fmap_rel_FUPDATE_same >> fs[] \\
+    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
+    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
+  \\ Cases_on `op = ConcatByteVec` THEN1 (
+    rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
+    fs[case_eq_thms] \\
+    CASE_TAC \\ fs[PULL_EXISTS] \\
+    rename1`EVERY (wfv _ _) tt` \\
+    Cases_on`tt` \\ fs[] \\
+    CASE_TAC \\ fs[] \\ rw[] \\
+    qpat_x_assum`$some _ = SOME _`mp_tac >>
+    DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
+    DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+    imp_res_tac v_to_list_thm \\ fs[] \\
+    rename1`LIST_REL _ (MAP ByteVector wss) _` \\
+    qexists_tac`wss` \\ fs[v_rel_def] \\
+    reverse conj_asm2_tac >- (
+      fs[LIST_REL_EL_EQN,EL_MAP,v_rel_def] \\
+      simp[LIST_EQ_REWRITE,EL_MAP] )
+    \\ rw[] \\
+    imp_res_tac INJ_MAP_EQ \\
+    fs[INJ_DEF] )
+  \\ Cases_on `op = ByteVecToArr` THEN1 (
+    rw[] \\ fs[do_app_def,state_rel_def] \\
+    CASE_TAC \\ fs[] \\
+    fs[case_eq_thms,PULL_EXISTS] \\
+    Cases_on`h` \\ fs[] \\
+    rename1`EVERY (wfv _ _) tt` \\
+    Cases_on`tt` \\ fs[] \\
+    conj_tac >- (
+      rw[wfv_state_def]
+      \\ match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)
+      \\ rw[] ) \\
+    simp[v_rel_def] \\ strip_tac \\
+    conj_asm1_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
+    match_mp_tac fmap_rel_FUPDATE_same >> fs[] )
+  \\ Cases_on `op = ByteVecFromArr` THEN1 (
+    rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
+    CASE_TAC \\ fs[] \\
+    fs[case_eq_thms,PULL_EXISTS] \\
+    Cases_on`h` \\ fs[] \\
+    rename1`EVERY (wfv _ _) tt` \\
+    Cases_on`tt` \\ fs[] \\
+    CASE_TAC \\ fs[] \\
+    CASE_TAC \\ fs[] \\
+    CASE_TAC \\ fs[] \\
+    rw[] \\ fs[v_rel_def] \\
+    fs[fmap_rel_OPTREL_FLOOKUP] \\
+    first_assum(qspec_then`n`mp_tac) \\
+    simp_tac(srw_ss())[Once OPTREL_def] \\
+    simp[] )
   \\ Cases_on `op = BoundsCheckByte \/ op = BoundsCheckArray` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
     \\ fs [Boolv_def,v_rel_def]
