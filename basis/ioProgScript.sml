@@ -357,9 +357,9 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
-    ∃(st3:(string # string # string list # RO_fs) semanticPrimitives$state).
-    semantics_prog (init_state (basis_ffi inp cls fs)) env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
-    extract_output st3.ffi.io_events = SOME (MAP (n2w o ORD) x)`,
+    ∃io_events.
+    semantics_prog (init_state (basis_ffi inp cls fs)) env1  (SNOC ^main_call prog) (Terminate Success io_events) /\
+    extract_output io_events = SOME (MAP (n2w o ORD) x)`,
     rw[]
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
@@ -367,7 +367,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     \\ `FFI_part_hprop (STDOUT x * Q)`
     by metis_tac[FFI_part_hprop_def, mlcharioProgTheory.STDOUT_FFI_part_hprop, FFI_part_hprop_STAR]
     \\ first_x_assum (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[] \\ fs[]
-    \\ qexists_tac `st3` \\ rw[]
+    \\ qexists_tac `st3.ffi.io_events` \\ rw[]
     \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x` suffices_by
       (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
       \\ fs[extract_output_basis_ffi, ml_progTheory.init_state_def, basis_ffi_def])

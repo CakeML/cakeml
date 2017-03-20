@@ -146,12 +146,16 @@ val W8lsr : word8 -> nat -> word8
 declare hol target_rep function W8lsr = `word_lsr`
 val W8asr : word8 -> nat -> word8
 declare hol target_rep function W8asr = `word_asr`
+val W8ror : word8 -> nat -> word8
+declare hol target_rep function W8ror = `word_ror`
 val W64lsl : word64 -> nat -> word64
 declare hol target_rep function W64lsl = `word_lsl`
 val W64lsr : word64 -> nat -> word64
 declare hol target_rep function W64lsr = `word_lsr`
 val W64asr : word64 -> nat -> word64
 declare hol target_rep function W64asr = `word_asr`
+val W64ror : word64 -> nat -> word64
+declare hol target_rep function W64ror = `word_ror`
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)
@@ -177,5 +181,3 @@ type locn = <| row : nat;  col : nat; offset : nat |>
 type locs = (locn * locn)
 declare hol target_rep type locn = `locn`
 declare hol target_rep type locs = `locs`
-
-

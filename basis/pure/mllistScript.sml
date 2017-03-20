@@ -2,7 +2,7 @@ open preamble
 
 val _ = new_theory"mllist"
 
-
+val _ = set_grammar_ancestry ["indexedLists", "toto"]
 
 val tl_def = Define`
   (tl [] = []) /\
