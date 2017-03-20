@@ -1,5 +1,5 @@
 open preamble
-    mllistTheory miscTheory totoTheory 
+    mllistTheory miscTheory totoTheory
 
 val _ = new_theory"mlstring"
 
@@ -78,6 +78,10 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
   rw[implode_explode,
      explode_implode])
 
+val LENGTH_explode = Q.store_thm("LENGTH_explode",
+  `LENGTH (explode s) = strlen s`,
+  Cases_on`s` \\ simp[]);
+
 val extract_aux_def = Define`
   (extract_aux s n 0 = []) /\
   (extract_aux s n (SUC len) = strsub s n:: extract_aux s (n + 1) len)`;
@@ -91,7 +95,7 @@ val extract_def = Define`
       | NONE => implode (extract_aux s i ((strlen s) - i))`;
 
 val substring_def = Define`
-  substring s i j = 
+  substring s i j =
     if strlen s <= i
       then implode []
     else implode (extract_aux s i (MIN (strlen s - i) j))`;
@@ -118,7 +122,7 @@ val extract_thm = Q.store_thm (
 val substring_thm = Q.store_thm (
   "substring_thm",
   `!s i j. (i < strlen s) ==> (substring s i j = implode (SEG (MIN (strlen s - i) j) i (explode s)))`,
-  rw [substring_def] \\ AP_TERM_TAC \\ rw [MIN_DEF, extract_aux_thm] 
+  rw [substring_def] \\ AP_TERM_TAC \\ rw [MIN_DEF, extract_aux_thm]
 );
 
 
@@ -137,7 +141,7 @@ val strcat_assoc = Q.store_thm("strcat_assoc",
 );
 
 val implode_STRCAT = Q.store_thm("implode_STRCAT",
-  `!l1 l2. 
+  `!l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2`,
     rw[implode_def, strcat_def]
 );
@@ -167,13 +171,13 @@ val concatWith_def = Define`
   concatWith s l = concatWith_aux s l T`;
 
 val concatWith_CONCAT_WITH_aux = Q.prove (
-  `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`, 
+  `!s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))`,
   ho_match_mp_tac CONCAT_WITH_aux_ind
   \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_def]
   >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_def]
   \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_def, implode_def])
 );
- 
+
 val concatWith_CONCAT_WITH = Q.store_thm ("concatWith_CONCAT_WITH",
   `!s l. CONCAT_WITH s l = explode (concatWith (implode s) (MAP implode l))`,
     rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
@@ -221,12 +225,12 @@ val tokens_def = Define `
 
 
 val tokens_aux_filter = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) = 
+  `!f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
-  Cases_on `s` \\ Induct_on `len` \\ 
+  Cases_on `s` \\ Induct_on `len` \\
   rw [strlen_def, tokens_aux_def, concat_def, DROP_LENGTH_NIL, strcat_def, implode_def] \\
   Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_def, strcat_def, implode_def]
-);  
+);
 
 val tokens_filter = Q.store_thm (
   "tokens_filter",
@@ -235,56 +239,56 @@ val tokens_filter = Q.store_thm (
 );
 
 val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
-  `!P ls ss n len. (n + len = LENGTH (explode ls)) ==> 
+  `!P ls ss n len. (n + len = LENGTH (explode ls)) ==>
       (MAP explode (tokens_aux P ls ss n len) = case ss of
-        | (h::t) => if (len <> 0) /\ ($~ (P (EL n (explode ls)))) then 
+        | (h::t) => if (len <> 0) /\ ($~ (P (EL n (explode ls)))) then
           (REVERSE (h::t) ++ HD (TOKENS P (DROP n (explode ls))))::TL (TOKENS P (DROP n (explode ls)))
            else if (len <> 0) then
               REVERSE (h::t)::(TOKENS P (DROP n (explode ls)))
            else [REVERSE(h::t)]
-        | [] => (TOKENS P (DROP n (explode ls))))`,   
+        | [] => (TOKENS P (DROP n (explode ls))))`,
     ho_match_mp_tac tokens_aux_ind \\ rw[] \\ Cases_on `s`
     \\ rw[explode_thm, tokens_aux_def, TOKENS_def, implode_def, strlen_def, strsub_def]
     \\ fs[strsub_def, DROP_LENGTH_TOO_LONG, TOKENS_def]
-    >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]   
+    >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[SPLITP] \\ rfs[]) 
+      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[SPLITP] \\ rfs[])
      >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS]
-      \\ rw[TOKENS_def]  
+      \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
-      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`) 
-      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'` 
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`)
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`
         >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
         \\ Cases_on `f h` \\ rw[]
-        >-(`n + 1 < LENGTH s'` by fs[] 
+        >-(`n + 1 < LENGTH s'` by fs[]
           \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
         \\ rw[TOKENS_def, SPLITP]
       ) (*this is a copy*)
-      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'` 
+      >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`
         >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
         \\ Cases_on `f h` \\ rw[]
-        >-(`n + 1 < LENGTH s'` by fs[] 
+        >-(`n + 1 < LENGTH s'` by fs[]
           \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
         \\ rw[TOKENS_def, SPLITP]))
     >-(rw[DROP_EL_CONS, TOKENS_def]
-      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
-      \\ rw[TOKENS_def] 
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
+      \\ rw[TOKENS_def]
       \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL])
     (*This is a copy *)
     >-(rw[DROP_EL_CONS, TOKENS_def]
-      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
-      \\ rw[TOKENS_def] 
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
+      \\ rw[TOKENS_def]
       \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL])
-    >-(`n = LENGTH s' - 1` by DECIDE_TAC 
+    >-(`n = LENGTH s' - 1` by DECIDE_TAC
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
-      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] 
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
       \\ `LENGTH r = 1` by EVAL_TAC >-(rw[])
       \\ Cases_on `TL r` >-(rw[TOKENS_def])
       \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
     >-(fs[ADD1]
       \\ `x0 = implode [EL n s']` by fs[implode_explode] \\ rw[explode_implode]
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
-      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ rw[TOKENS_def]) 
+      \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ rw[TOKENS_def])
     \\(rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ rw[TOKENS_def]
       \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[] \\ metis_tac[TL]));
@@ -324,7 +328,7 @@ val tokens_append = Q.store_thm("tokens_append",
     P x ==>
       (tokens P (strcat s1 (strcat (str x) s2)) = tokens P s1 ++ tokens P s2)`,
     rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`  \\ rw[implode_def, explode_thm, strcat_def, str_def, TOKENS_APPEND]
-) 
+)
 
 
 
@@ -343,12 +347,12 @@ val fields_def = Define`
 
 
 val fields_aux_filter = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) = 
+  `!f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))`,
-  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_def, 
+  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_def,
     implode_def, explode_thm, DROP_LENGTH_NIL, strcat_def] \\
   rw [DROP_EL_CONS]
-);  
+);
 
 val fields_filter = Q.store_thm (
   "fields_filter",
@@ -357,9 +361,9 @@ val fields_filter = Q.store_thm (
 );
 
 val fields_aux_length = Q.prove (
-  `!f s ss n len. (n + len = strlen s) ==> 
+  `!f s ss n len. (n + len = strlen s) ==>
     (LENGTH (fields_aux f s ss n len) = LENGTH (FILTER f (DROP n (explode s))) + 1)`,
-  Cases_on `s` \\ Induct_on `len` \\ 
+  Cases_on `s` \\ Induct_on `len` \\
   rw [strlen_def, fields_aux_def, explode_thm, DROP_LENGTH_NIL, ADD1, DROP_EL_CONS]
 );
 
@@ -372,7 +376,7 @@ val fields_length = Q.store_thm (
 
 val isStringThere_aux_def = Define`
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
-  (isStringThere_aux s1 s2 s1i s2i (SUC len) = 
+  (isStringThere_aux s1 s2 s1i s2i (SUC len) =
     if strsub s1 s1i = strsub s2 s2i
       then isStringThere_aux s1 s2 (s1i + 1) (s2i + 1) len
     else F)`;
@@ -386,7 +390,7 @@ val isStringThere_thm = Q.prove (
   (SEG len s2i (explode s2) = TAKE len (explode s1))`
   Cases_on `s1` \\ Cases_on `s2` \\
   rw [strlen_def, explode_thm, SEG, SEG_TAKE_BUTFISTN] \\
-  Cases_on `len` \\ rw [SEG] \\ `s2i < STRLEN s'` by DECIDE_TAC \\ 
+  Cases_on `len` \\ rw [SEG] \\ `s2i < STRLEN s'` by DECIDE_TAC \\
 );
 *)
 
@@ -450,37 +454,37 @@ val collate_def = Define`
 
 
 val collate_aux_less_thm = Q.prove (
-  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==> 
+  `!f s1 s2 n len. (n + len = strlen s1) /\ (strlen s1 < strlen s2) ==>
     (collate_aux f s1 s2 Less n len = mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
       Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
       rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
 );
 
 val collate_aux_equal_thm = Q.prove (
   `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s1 = strlen s2) ==>
-    (collate_aux f s1 s2 Equal n len = 
+    (collate_aux f s1 s2 Equal n len =
       mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
   rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def]
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
-  fs [DROP_EL_CONS, mllistTheory.collate_def] 
+  fs [DROP_EL_CONS, mllistTheory.collate_def]
 );
 
 val collate_aux_greater_thm = Q.prove (
   `!f s1 s2 n len. (n + len = strlen s2) /\ (strlen s2 < strlen s1) ==>
-    (collate_aux f s1 s2 Greater n len = 
+    (collate_aux f s1 s2 Greater n len =
       mllist$collate f (DROP n (explode s1)) (DROP n (explode s2)))`,
   Cases_on `s1` \\ Cases_on `s2` \\ Induct_on `len` \\
   rw [collate_aux_def, mllistTheory.collate_def, strlen_def, explode_thm, strsub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] 
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
 );
 
 val collate_thm = Q.store_thm (
   "collate_thm",
   `!f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)`,
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
-);   
+);
 
 
 

@@ -442,6 +442,10 @@ in
     init_state ffi = ^init_state_tm`;
 end
 
+val init_state_env_thm = Q.store_thm("init_state_env_thm",
+  `THE (prim_sem_env ffi) = (init_state ffi,init_env)`,
+  CONV_TAC(RAND_CONV EVAL) \\ rewrite_tac[prim_sem_env_eq,THE_DEF]);
+
 end
 
 val ML_code_NIL = Q.store_thm("ML_code_NIL",
@@ -626,13 +630,6 @@ val ML_code_SOME_Dlet_Fun = Q.store_thm("ML_code_SOME_Dlet_Fun",
         (write n (Closure (merge_env env2 (merge_env env env1)) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_SOME_Dlet_var |> MP_CANON) \\ fs []
   \\ fs [Once evaluate_cases]);
-
-(* misc used by automation *)
-
-val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
-  `DISJOINT (set []) s /\
-    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
-  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
 (* lookup function definitions *)
 

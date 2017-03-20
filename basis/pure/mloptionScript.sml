@@ -1,4 +1,4 @@
-open preamble 
+open preamble
 
 val _ = new_theory"mloption"
 
@@ -26,4 +26,4 @@ val composePartial_def = Define`
 
 
 
-val _ = export_theory() 
+val _ = export_theory()

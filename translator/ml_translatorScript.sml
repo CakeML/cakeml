@@ -1083,6 +1083,26 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
   \\ imp_res_tac (DECIDE ``8 = k ==> 7 = k - 1n``) \\ fs []
   \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs []);
 
+val Eval_word_ror = Q.store_thm("Eval_word_ror",
+  `!n.
+      Eval env x1 (WORD (w1:'a word)) ==>
+      (dimindex (:'a) <> 8 ==> dimindex (:'a) = 64) ==>
+      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Ror n) [x1])
+        (WORD (word_ror w1 n))`,
+  Cases_on `dimindex (:'a) = 8` \\ fs []
+  \\ Cases_on `dimindex (:'a) = 64` \\ fs []
+  \\ rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
+  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ fs[]
+  \\ fs [LESS_EQ_EXISTS]
+  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []);
+
 (* list definition *)
 
 val LIST_TYPE_def = Define `
@@ -1114,6 +1134,12 @@ val LIST_TYPE_IF_ELIM = Q.store_thm("LIST_TYPE_IF_ELIM",
    suffices_by metis_tac[]
   >> Induct_on `l`
   >> fs[LIST_TYPE_def]);
+
+val LIST_TYPE_mono = Q.store_thm("LIST_TYPE_mono",
+  `∀P Q l v.
+   LIST_TYPE P l v ∧ (∀x v. MEM x l ∧ P x v ⇒ Q x v) ⇒
+   LIST_TYPE Q l v`,
+  ntac 2 gen_tac \\ Induct \\ rw[LIST_TYPE_def]);
 
 (* pair definition *)
 

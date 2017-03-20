@@ -34,7 +34,7 @@ val _ = Hol_datatype `
  opw = Andw | Orw | Xor | Add | Sub`;
 
 val _ = Hol_datatype `
- shift = Lsl | Lsr | Asr`;
+ shift = Lsl | Lsr | Asr | Ror`;
 
 
 (* Module names *)

@@ -1271,6 +1271,22 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
+  \\ Cases_on `op = BoundsCheckByte \/ op = BoundsCheckArray` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def]
+    \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP] \\ CCONTR_TAC \\ fs []
+    \\ first_assum (qspec_then `n` assume_tac)
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [OPTREL_def] \\ rw [] \\ fs [ref_rel_def]
+    \\ rw [] \\ fs [ref_rel_def,LIST_REL_EL_EQN] \\ rfs [])
+  \\ Cases_on `op = BoundsCheckBlock` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def] \\ rw []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ Cases_on `?i. op = LessConstSmall i` THEN1
+   (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
+    \\ fs [Boolv_def,v_rel_def] \\ rw []
+    \\ CCONTR_TAC \\ fs [])
   \\ Cases_on `?i. op = EqualInt i` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = Equal` THEN1

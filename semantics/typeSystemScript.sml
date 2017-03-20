@@ -366,6 +366,10 @@ val _ = Define `
 /\
 (is_value (Fun _ _)=  T)
 /\
+(is_value (Tannot e _)=  (is_value e))
+/\
+(is_value (Lannot e _)=  (is_value e))
+/\
 (is_value _=  F)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) is_value_defn;

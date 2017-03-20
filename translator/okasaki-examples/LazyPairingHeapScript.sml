@@ -1,5 +1,5 @@
 open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory 
+open bagTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory
 
 val _ = new_theory "LazyPairingHeap"
 
@@ -10,8 +10,8 @@ val _ = translation_extends "mllistProg";
 (* Note, we're following Chargueraud and just cutting out the laziness since it
  * shouldn't affect functional correctness *)
 
-val _ = Hol_datatype `
-heap = Empty | Tree of 'a => heap => heap`;
+val _ = Datatype`
+  heap = Empty | Tree 'a heap heap`;
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
