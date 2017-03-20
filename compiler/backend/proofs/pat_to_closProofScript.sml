@@ -383,11 +383,20 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       ntac 2 (pop_assum mp_tac) >>
       IF_CASES_TAC >> fs[] >> strip_tac >>
       Cases_on`i < 0` >> fs[] >- (
-        every_case_tac >> fs[] >>
-        srw_tac[ARITH_ss][prim_exn_def] ) >>
+        ntac 2 (pop_assum mp_tac) >>
+        TOP_CASE_TAC \\ fs []
+        \\ fs [compile_state_def]
+        \\ simp[compile_state_def,ALOOKUP_GENLIST]
+        \\ strip_tac \\ fs []
+        \\ simp[compile_state_def,ALOOKUP_GENLIST]
+        \\ strip_tac
+        \\ fs [COOPER_PROVE ``i < 0 ==> ~(0 <= i: int)``]
+        \\ rveq \\ fs [compile_v_def]
+        \\ srw_tac[ARITH_ss][prim_exn_def]) >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       ntac 2 (pop_assum mp_tac) >>
       BasicProvers.CASE_TAC >> fs[] >> strip_tac >> strip_tac >>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
@@ -408,8 +417,11 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       ntac 2 (pop_assum mp_tac) >>
       BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
         BasicProvers.CASE_TAC >> fs[] >>
-        arw[prim_exn_def] ) >>
+        arw[prim_exn_def] >>
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
+        intLib.COOPER_TAC) >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       BasicProvers.CASE_TAC >>fs[compile_sv_def]>>
       `0 ≤ i` by COOPER_TAC >>
@@ -462,7 +474,11 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       Cases_on`i < 0` >> fs[] >- (
-        fs[] >> arw[prim_exn_def] ) >>
+        rveq
+        \\ `~(0 ≤ i)` by COOPER_TAC
+        \\ asm_rewrite_tac []
+        \\ simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP,ORD_BOUND]
+        \\ EVAL_TAC) >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
@@ -493,6 +509,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       Cases_on`i < 0` >> fs[LET_THM] >- (
+        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
         arw[prim_exn_def] ) >>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
@@ -529,6 +546,11 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       ntac 2 (pop_assum mp_tac) >> BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
         BasicProvers.CASE_TAC >> fs[] >>
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
+        BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
+        strip_tac \\ rveq \\ fs [] >>
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
+        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
         arw[prim_exn_def] ) >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
@@ -554,7 +576,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
         BasicProvers.CASE_TAC>>fs[]>>
-        arw[prim_exn_def] ) >>
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
+        BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
+        rpt strip_tac \\ rveq \\ fs [] >>
+        simp[compile_state_def,ALOOKUP_GENLIST] >>
+        fs [intLib.COOPER_PROVE ``i < 0 <=> ~(0 <= i:int)``] >>
+        arw[prim_exn_def] >>
+        CCONTR_TAC \\ fs [] ) >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
       `0 ≤ i` by COOPER_TAC >>

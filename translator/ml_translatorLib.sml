@@ -2637,6 +2637,7 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
   if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
   if wordsSyntax.is_word_asr tm then Eval_word_asr else
+  if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
 
 (*
@@ -2837,6 +2838,8 @@ fun hol2deep tm =
     val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
     val th1 = hol2deep (tm |> rator |> rand)
     val result = MATCH_MP lemma th1
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE []
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_shift" tm result end else
   (* $& o f *)
@@ -3839,8 +3842,6 @@ fun mltDefine name q tac = let
 TODO:
  - ensure datatypes defined in modules can be used outside a module
    (the type thms need to be reproved)
-
- val def =  sortingTheory.QSORT_DEF
 
 *)
 

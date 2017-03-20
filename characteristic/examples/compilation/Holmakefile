@@ -5,6 +5,8 @@ all: $(TARGETS)
 ifndef CC
 CC=gcc
 endif
+cake_grep: grep.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o -o $@
 cake_echo: echo.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@
 cake_hello: hello.S ../../../basis/basis_ffi.o

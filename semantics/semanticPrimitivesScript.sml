@@ -476,6 +476,7 @@ val _ = Define `
     Lsl => word_lsl
   | Lsr => word_lsr
   | Asr => word_asr
+  | Ror => word_ror
 )))`;
 
 
@@ -485,6 +486,7 @@ val _ = Define `
     Lsl => word_lsl
   | Lsr => word_lsr
   | Asr => word_asr
+  | Ror => word_ror
 )))`;
 
 
