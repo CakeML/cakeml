@@ -518,7 +518,7 @@ val Eval_WEAKEN = Q.store_thm("Eval_WEAKEN",
 val Eval_CONST = Q.store_thm("Eval_CONST",
   `(!v. P v = (v = x)) ==>
     Eval env (Var name) ($= x) ==> Eval env (Var name) P`,
-  SIMP_TAC std_ss [Eval_def])
+  SIMP_TAC std_ss [Eval_def]);
 
 (* arithmetic for integers *)
 
@@ -544,7 +544,7 @@ in
   val Eval_INT_MULT = f "INT_MULT" `Times`
   val Eval_INT_DIV  = f "INT_DIV" `Divide`
   val Eval_INT_MOD  = f "INT_MOD" `Modulo`
-end
+end;
 
 val Eval_Opb = Q.prove(
   `!f n1 n2.
@@ -567,7 +567,7 @@ in
   val Eval_INT_LESS_EQ = f "INT_LESS_EQ" `Leq`
   val Eval_INT_GREATER = f "INT_GREATER" `Gt`
   val Eval_INT_GREATER_EQ = f "INT_GREATER_EQ" `Geq`
-end
+end;
 
 local
 
@@ -589,7 +589,7 @@ in
 
 val Eval_Num_ABS = Q.store_thm("Eval_Num_ABS",
   `Eval env x1 (INT i) ==>
-    Eval env ^code (NUM (Num (ABS i)))`,
+   Eval env ^code (NUM (Num (ABS i)))`,
   SIMP_TAC std_ss [NUM_def]
   \\ `&(Num (ABS i)) = let k = i in if k < 0 then 0 - k else k` by
     (FULL_SIMP_TAC std_ss [LET_DEF] THEN intLib.COOPER_TAC)
@@ -601,25 +601,35 @@ val Eval_Num_ABS = Q.store_thm("Eval_Num_ABS",
 
 end;
 
+val num_of_int_def = Define `
+  num_of_int i = Num (ABS i)`;
+
+val num_of_int_num = store_thm("num_of_int_num[simp]",
+  ``num_of_int (& n) = n /\ num_of_int (- & n) = n``,
+  fs [num_of_int_def] \\ intLib.COOPER_TAC);
+
+val Eval_num_of_int = save_thm("Eval_num_of_int",
+  Eval_Num_ABS |> REWRITE_RULE [GSYM num_of_int_def]);
+
 val Eval_int_of_num = Q.store_thm("Eval_int_of_num",
   `Eval env x1 (NUM n) ==>
-    Eval env x1 (INT (int_of_num n))`,
+   Eval env x1 (INT (int_of_num n))`,
   SIMP_TAC std_ss [NUM_def]);
 
 val Eval_int_of_num_o = Q.store_thm("Eval_int_of_num_o",
   `Eval env x1 ((A --> NUM) f) ==>
-    Eval env x1 ((A --> INT) (int_of_num o f))`,
+   Eval env x1 ((A --> INT) (int_of_num o f))`,
   SIMP_TAC std_ss [NUM_def,Arrow_def]);
 
 val Eval_o_int_of_num = Q.store_thm("Eval_o_int_of_num",
   `Eval env x1 ((INT --> A) f) ==>
-    Eval env x1 ((NUM --> A) (f o int_of_num))`,
+   Eval env x1 ((NUM --> A) (f o int_of_num))`,
   SIMP_TAC std_ss [NUM_def,Arrow_def,Eval_def]
   \\ METIS_TAC[]);
 
 val Eval_int_negate = Q.store_thm("Eval_int_negate",
   `Eval env x1 (INT i) ==>
-    Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))`,
+   Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))`,
   rw[Eval_def] >> rw[Once evaluate_cases] >>
   rw[empty_state_with_refs_eq,PULL_EXISTS] >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
