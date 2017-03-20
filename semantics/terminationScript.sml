@@ -202,16 +202,6 @@ val (v_to_char_list_def,v_to_char_list_ind) =
 wf_rel_tac `measure v_size`);
 val _ = register "v_to_char_list" v_to_char_list_def v_to_char_list_ind;
 
-val (vs_to_w8s_def,vs_to_w8s_ind) =
-  tprove_no_defn ((vs_to_w8s_def,vs_to_w8s_ind),
-wf_rel_tac `measure (LENGTH o SND)` \\ rw[]);
-val _ = register "vs_to_w8s" vs_to_w8s_def vs_to_w8s_ind;
-
-val (vs_to_string_def,vs_to_string_ind) =
-  tprove_no_defn ((vs_to_string_def,vs_to_string_ind),
-wf_rel_tac `measure LENGTH` \\ rw[]);
-val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
-
 val check_ctor_foldr_flat_map = Q.prove (
 `!c. (FOLDR
          (λ(tvs,tn,condefs) x2.

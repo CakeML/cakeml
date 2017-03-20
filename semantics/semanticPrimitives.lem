@@ -353,28 +353,6 @@ and v_to_char_list (Conv (Just (cn,TypeId (Short tn))) [Litv (Char c);v]) =
     Nothing
 and v_to_char_list _ = Nothing
 
-val vs_to_w8s : store v -> list v -> maybe (list word8)
-let rec vs_to_w8s s [] = Just []
-and vs_to_w8s s (Loc l::vs) =
-  match store_lookup l s with
-  | Just (W8array ws1) ->
-      match vs_to_w8s s vs with
-      | Just ws2 -> Just (ws1++ws2)
-      | _ -> Nothing
-      end
-  | _ -> Nothing
-  end
-and vs_to_w8s _ _ = Nothing
-
-val vs_to_string : list v -> maybe string
-let rec vs_to_string [] = Just ""
-and vs_to_string (Litv(StrLit s1)::vs) =
-  match vs_to_string vs with
-  | Just s2 -> Just (s1 ^ s2)
-  | _ -> Nothing
-  end
-and vs_to_string _ = Nothing
-
 val opn_lookup : opn -> integer -> integer -> integer
 let opn_lookup n : integer -> integer -> integer = match n with
   | Plus -> (+)
@@ -514,19 +492,6 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                   end
         | _ -> Nothing
       end
-        | (Aw8concat, [v]) ->
-            match v_to_list v with
-            | Just vs ->
-                match vs_to_w8s s vs with
-                | Just ws ->
-                  let (s',lnum) =
-                    store_alloc (W8array ws) s
-                  in
-                    Just ((s',t), Rval (Loc lnum))
-                | _ -> Nothing
-                end
-            | _ -> Nothing
-            end
     | (WordFromInt W8, [Litv(IntLit i)]) ->
         Just ((s,t), Rval (Litv (Word8 (word8FromInteger i))))
     | (WordFromInt W64, [Litv(IntLit i)]) ->
@@ -541,12 +506,60 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
             Just ((s,t), Rval (Litv(StrLit(toString(List.map (fun w -> String_extra.chr(natFromWord8 w)) ws)))))
         | _ -> Nothing
         end
-    | (StrToW8Array, [Litv(StrLit str)]) ->
-        let (s',lnum) =
-          store_alloc
-            (W8array (List.map (fun c -> word8FromInteger(integerFromNat(String_extra.ord c))) (toCharList str))) s
-        in
-          Just ((s',t), Rval (Loc lnum))
+    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
+        Just ((s,t),
+        if off < 0 || len < 0 || stringLength str < natFromInteger(off + len)
+          then Rerr (Rraise (prim_exn "Subscript"))
+          else Rval (Litv(StrLit(toString(
+            List.take(natFromInteger len)
+              (List.drop(natFromInteger off)
+                (toCharList str)))))))
+    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                    Loc dst;Litv(IntLit dstoff)]) ->
+        match store_lookup dst s with
+        | Just (W8array ds) ->
+          if off < 0 || len < 0 || stringLength str < natFromInteger(off + len) ||
+             dstoff < 0 || List.length ds < natFromInteger(dstoff + len)
+          then Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          else
+          match store_assign dst
+            (W8array (List.take (natFromInteger dstoff) ds ++
+                      List.take (natFromInteger len)
+                        (List.map (fun c -> word8FromInteger(integerFromNat(String_extra.ord c))) (toCharList str)) ++
+                      List.drop (natFromInteger(dstoff + len)) ds)) s with
+          | Just s' ->  Just ((s',t), Rval (Conv Nothing []))
+          | _ -> Nothing
+          end
+        | _ -> Nothing
+        end
+    | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) ->
+      match store_lookup src s with
+      | Just (W8array ws) ->
+        Just ((s,t),
+          if off < 0 || len < 0 || List.length ws < natFromInteger(off + len)
+          then Rerr (Rraise (prim_exn "Subscript"))
+          else Rval (Litv(StrLit(toString(
+            List.map (fun w -> String_extra.chr(natFromWord8 w))
+            (List.take (natFromInteger len) (List.drop (natFromInteger off) ws)))))))
+      | _ -> Nothing
+      end
+    | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                    Loc dst;Litv(IntLit dstoff)]) ->
+      match (store_lookup src s, store_lookup dst s) with
+      | (Just (W8array ws), Just (W8array ds)) ->
+        if off < 0 || len < 0 || List.length ws < natFromInteger(off + len) ||
+           dstoff < 0 || List.length ds < natFromInteger(dstoff + len)
+        then Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        else
+        match store_assign dst
+            (W8array (List.take (natFromInteger dstoff) ds ++
+                      List.take (natFromInteger len) (List.drop (natFromInteger off) ws) ++
+                      List.drop (natFromInteger(dstoff + len)) ds)) s with
+        | Just s' -> Just ((s',t), Rval (Conv Nothing []))
+        | _ -> Nothing
+        end
+      | _ -> Nothing
+      end
     | (Ord, [Litv (Char c)]) ->
           Just ((s,t), Rval (Litv(IntLit(integerFromNat(String_extra.ord c)))))
     | (Chr, [Litv (IntLit i)]) ->
@@ -574,16 +587,6 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               Just ((s,t), Rval (Litv (Char (List_extra.nth (toCharList str) n))))
     | (Strlen, [Litv (StrLit str)]) ->
         Just ((s,t), Rval (Litv(IntLit(integerFromNat(stringLength str)))))
-    | (Strcat, [v]) ->
-        match v_to_list v with
-        | Just vs ->
-            match vs_to_string vs with
-            | Just str ->
-                Just ((s,t), Rval (Litv(StrLit str)))
-            | _ -> Nothing
-            end
-        | _ -> Nothing
-        end
     | (VfromList, [v]) ->
           match v_to_list v with
             | Just vs ->

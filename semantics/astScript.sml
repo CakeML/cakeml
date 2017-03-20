@@ -7,7 +7,6 @@ val _ = numLib.prefer_num();
 
 
 val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
 (*open import Pervasives*)
 (*open import Lib*)
@@ -76,13 +75,14 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
-  | Aw8concat
   (* Word/integer conversions *)
   | WordFromInt of word_size
   | WordToInt of word_size
   (* string/bytearray conversions *)
-  | StrFromW8Array
-  | StrToW8Array
+  | CopyStrStr
+  | CopyStrAw8
+  | CopyAw8Str
+  | CopyAw8Aw8
   (* Char operations *)
   | Ord
   | Chr
@@ -91,7 +91,6 @@ val _ = Hol_datatype `
   | Implode
   | Strsub
   | Strlen
-  | Strcat
   (* Vector operations *)
   | VfromList
   | Vsub
