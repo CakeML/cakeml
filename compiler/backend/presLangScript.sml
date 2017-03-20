@@ -132,6 +132,7 @@ val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
 
 (* pres_to_json *)
+(* TODO: Add words *)
 val lit_to_value_def = Define`
   (lit_to_value (IntLit i) = Int i)
   /\
