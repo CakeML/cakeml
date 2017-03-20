@@ -32,19 +32,14 @@ val concat_with_def = Define`
   (concat_with (s::ss) c acc = concat_with ss c (acc ++ s ++ c))`;
 
 val json_to_string_def = tDefine "json_to_string" `
-  (json_to_string (Object mems) =
-    "{ " ++ (concat_with (MAP mem_to_string mems) ", " "") ++ " }")
-  /\
-  (json_to_string (Array obs) =
-    "[ " ++ (concat_with (MAP json_to_string obs) ", " "") ++ " ]")
-  /\
-  (json_to_string (String s) = "'" ++ s ++ "'")
-  /\
-  (json_to_string (Int i) = int_to_str i)
-  /\
-  (json_to_string (Bool b) = if b then "true" else "false")
-  /\
-  (json_to_string (Null) = "null")
+  (json_to_string obj =
+    case obj of
+       | Object mems => "{ " ++ (concat_with (MAP mem_to_string mems) ", " "") ++ " }"
+       | Array obs => "[ " ++ (concat_with (MAP json_to_string obs) ", " "") ++ " ]"
+       | String s => "'" ++ s ++ "'"
+       | Int i => int_to_str i
+       | Bool b => if b then "true" else "false"
+       | Null => "null")
   /\
   (mem_to_string (n, ob) = "'" ++ n ++ "': " ++ (json_to_string ob))`
   cheat;
