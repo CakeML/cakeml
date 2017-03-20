@@ -135,7 +135,7 @@ val mod_to_pres_def = Define`
 val lit_to_value_def = Define`
   (lit_to_value (IntLit i) = Int i)
   /\
-  (lit_to_value (Char c) = String (c::""))
+  (lit_to_value (Char c) = String [c])
   /\
   (lit_to_value (StrLit s) = String s)`;
 
