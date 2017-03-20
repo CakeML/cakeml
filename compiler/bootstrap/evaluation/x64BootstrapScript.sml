@@ -1,4 +1,4 @@
-open preamble bootstrapLib
+open preamble
      backendTheory
      to_lab_x64BootstrapTheory
      configTheory
@@ -86,7 +86,7 @@ val filter_skip_thm =
       RAND_CONV(REWR_CONV lab_prog_def) THENC
       map_ths_conv ths))
 
-val skip_prog_def = mk_def"skip_prog" (filter_skip_thm |> rconc |> rand);
+val skip_prog_def = mk_abbrev"skip_prog" (filter_skip_thm |> rconc |> rand);
 
 val filter_skip_thm' = filter_skip_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM skip_prog_def))))
@@ -139,7 +139,7 @@ val remove_labels_thm1 =
          RAND_CONV(REWR_CONV skip_prog_def) THENC
          map_ths_conv ths)))
 
-val encoded_prog_def = mk_def"encoded_prog" (remove_labels_thm1 |> rconc |> rand);
+val encoded_prog_def = mk_abbrev"encoded_prog" (remove_labels_thm1 |> rconc |> rand);
 
 val remove_labels_thm1' =
   remove_labels_thm1 |>
@@ -206,7 +206,7 @@ val compute_labels_thm =
       val th = RATOR_CONV(RAND_CONV(REWR_CONV encoded_prog_thm)) tm
     in compute_labels_alt_rule (List.rev encoded_prog_defs) th end)
 
-val computed_labs_def = mk_def"computed_labs"(compute_labels_thm |> rconc)
+val computed_labs_def = mk_abbrev"computed_labs"(compute_labels_thm |> rconc)
 val compute_labels_thm' =
   compute_labels_thm |>
   CONV_RULE(RAND_CONV(REWR_CONV(SYM computed_labs_def)))
@@ -413,9 +413,9 @@ fun enc_secs_again_conv str ela_conv n [] tm = REWR_CONV esn tm
         RAND_CONV(
           RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
           ela_conv))
-      val def = mk_def(str^Int.toString n)
+      val def = mk_abbrev(str^Int.toString n)
                   (th1 |> rconc |> rand |> rator |> rand)
-      val () = print (String.concat[Int.toString n," "])
+      (* val () = print (String.concat[Int.toString n," "]) *)
       val rec_conv = enc_secs_again_conv str ela_conv (n+1) dths
     in
       th1 |> CONV_RULE(RAND_CONV(
@@ -552,7 +552,7 @@ val tm14 =
   lab_to_target_thm4 |> rconc |> funpow 2 rator |> funpow 2 rand
 
 val enc_again_defs =
-  for 0 (num_enc-1) (fn i => definition(mk_def_name("enc_again_"^(Int.toString i))))
+  for 0 (num_enc-1) (fn i => definition(mk_abbrev_name("enc_again_"^(Int.toString i))))
 
 val (uln,ulc) = lab_to_targetTheory.upd_lab_len_def |> spec64 |> CONJ_PAIR
 
@@ -591,7 +591,7 @@ fun upd_lab_len_conv _ [] tm = REWR_CONV uln tm
           RAND_CONV(
             RATOR_CONV(RAND_CONV(REWR_CONV dth)) THENC
             lines_upd_lab_len_conv))
-      val def = mk_def ("upd_lab_"^(Int.toString n)) (rand(rator(rand(rconc th1))))
+      val def = mk_abbrev ("upd_lab_"^(Int.toString n)) (rand(rator(rand(rconc th1))))
     in
       th1 |> CONV_RULE(RAND_CONV(
         RAND_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM def)))) THENC
@@ -615,12 +615,12 @@ val tm15 =
   lab_to_target_thm5 |> rconc |> funpow 2 rator |> funpow 2 rand
 
 val upd_lab_defs =
-  for 0 (num_enc-1) (fn i => definition(mk_def_name("upd_lab_"^(Int.toString i))))
+  for 0 (num_enc-1) (fn i => definition(mk_abbrev_name("upd_lab_"^(Int.toString i))))
 
 val compute_labels_thm2 =
   tm15 |> timez "compute_labels2" (compute_labels_alt_rule upd_lab_defs o REFL)
 
-val computed_labs2_def = mk_def"computed_labs2"(compute_labels_thm2 |> rconc)
+val computed_labs2_def = mk_abbrev"computed_labs2"(compute_labels_thm2 |> rconc)
 val compute_labels_thm2' =
   compute_labels_thm2 |>
   CONV_RULE(RAND_CONV(REWR_CONV(SYM computed_labs2_def)))
@@ -666,7 +666,7 @@ val pad_section_tm =
   tm17 |> rator |> rand
 
 val enc_again2_defs =
-  for 0 (num_enc-1) (fn i => definition(mk_def_name("enc_again2_"^(Int.toString i))));
+  for 0 (num_enc-1) (fn i => definition(mk_abbrev_name("enc_again2_"^(Int.toString i))));
 
 (*
 val (dth::_) = enc_again2_defs
@@ -704,7 +704,7 @@ val pad_code_thms' =
 val pad_code_thm =
   tm17 |> (map_ths_conv pad_code_thms')
 
-val padded_code_def = mk_def"padded_code"(rconc pad_code_thm);
+val padded_code_def = mk_abbrev"padded_code"(rconc pad_code_thm);
 
 val pad_code_thm' =
   pad_code_thm |> CONV_RULE(RAND_CONV(REWR_CONV(SYM padded_code_def)))
@@ -736,7 +736,7 @@ val padded_code_els =
   padded_code_def |> rconc |> listSyntax.dest_list |> #1
 
 val pad_code_defs =
-  for 1 num_enc (fn i => definition(mk_def_name("pad_code_"^(Int.toString i))));
+  for 1 num_enc (fn i => definition(mk_abbrev_name("pad_code_"^(Int.toString i))));
 
 (*
   val p = el 1 padded_code_els
@@ -777,7 +777,7 @@ fun app_conv _ [] tm = raise UNCHANGED
   | app_conv n (dth::dths) tm =
     let
       val th = FORK_CONV(REWR_CONV dth, app_conv (n+1) dths) tm
-      val def = mk_def ("all_bytes_"^(Int.toString n)) (rand(rconc th))
+      val def = mk_abbrev ("all_bytes_"^(Int.toString n)) (rand(rconc th))
       (* val () = Lib.say (str n) *)
     in
       CONV_RULE(RAND_CONV
@@ -801,7 +801,7 @@ fun expand_defs_conv [] tm = raise UNCHANGED
     tm
 
 val all_bytes_defs =
-  for 0 (num_enc-1) (fn i => definition(mk_def_name("all_bytes_"^(Int.toString i))));
+  for 0 (num_enc-1) (fn i => definition(mk_abbrev_name("all_bytes_"^(Int.toString i))));
 
 (* also quite slow, 32 mins *)
 
@@ -835,13 +835,21 @@ val () = time (
 val sec_ok_light_tm =
   tm18 |> rator |> rand
 
+fun eval_T tm =
+  let
+    val th = eval tm
+  in
+    if aconv (rconc th) boolSyntax.T then th
+    else raise (mk_HOL_ERR"x64Bootstrap""sec_ok"(Parse.thm_to_string th))
+  end
+
 fun eval_fn i n (p,d) =
   let
     val () = say_str"sec_ok" i n
     val conv = (
       REWR_CONV lab_to_targetTheory.sec_ok_light_def THENC
       RAND_CONV (REWR_CONV d) THENC
-      listLib.ALL_EL_CONV eval)
+      listLib.ALL_EL_CONV eval_T)
     val tm = mk_comb(sec_ok_light_tm, p)
   in
     (*time*) conv tm

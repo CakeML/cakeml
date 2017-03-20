@@ -409,8 +409,11 @@ val AnyHeader_def = Define `
 
 val ShiftVar_def = Define `
   ShiftVar sh v n =
-    if n = 0 then Var v else
-    if dimindex (:'a) <= n then
+    if sh = Ror then
+      (let m = if n < dimindex (:'a) then n else n MOD (dimindex (:'a)) in
+         if m = 0 then Var v else Shift sh (Var v) (Nat m))
+    else if n = 0 then Var v
+    else if dimindex (:'a) <= n then
       if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
     else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
 
@@ -711,9 +714,21 @@ val WordOp64_on_32_def = Define `
                         Inst (Arith (AddCarry 31 11 27 29))]`
 
 val WordShift64_on_32_def = Define `
-  WordShift64_on_32 sh n =
-    list_Seq
-      (* inputs in 11 and 13, writes results in 31 and 33 *)
+  WordShift64_on_32 sh n = list_Seq
+    (* inputs in 11 and 13, writes results in 31 and 33 *)
+    (if sh = Ror then
+      (let n = n MOD 64 in
+        (if n < 32 then
+           [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                              ShiftVar Lsr 13 n]);
+            Assign 31 (Op Or [ShiftVar Lsl 13 (32 - n);
+                              ShiftVar Lsr 11 n])]
+         else
+           [Assign 33 (Op Or [ShiftVar Lsl 13 (64 - n);
+                              ShiftVar Lsr 11 (n - 32)]);
+            Assign 31 (Op Or [ShiftVar Lsl 11 (64 - n);
+                              ShiftVar Lsr 13 (n - 32)])]))
+    else
       if n < 32 then
         (case sh of
          | Lsl => [Assign 33 (ShiftVar sh 13 n);
@@ -724,13 +739,15 @@ val WordShift64_on_32_def = Define `
                    Assign 31 (ShiftVar sh 11 n)]
          | Asr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
                                      ShiftVar Lsr 13 n]);
-                   Assign 31 (ShiftVar sh 11 n)])
+                   Assign 31 (ShiftVar sh 11 n)]
+         | Ror => [])
       else
         (case sh of
          | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
          | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
          | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
-                   Assign 31 (ShiftVar sh 11 32)])`
+                   Assign 31 (ShiftVar sh 11 32)]
+         | Ror => []))`;
 
 val bignum_words_def = Define `
   bignum_words c i =
@@ -881,9 +898,7 @@ local val assign_quotation = `
                                 let k = dimindex (:'a) - c.len_size - extra in
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
                                   Op Sub [Shift Lsr header (Nat k); Const kk]);
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -895,9 +910,7 @@ local val assign_quotation = `
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
                                   Shift Lsr header (Nat k));
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -911,9 +924,7 @@ local val assign_quotation = `
                                   let header = Load addr in
                                   let k = dimindex (:'a) - c.len_size in
                                     Shift Lsr header (Nat k)));
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -1184,8 +1195,13 @@ local val assign_quotation = `
                       (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
                       (Nat (MIN n 8)))
                    (Nat (dimindex(:'a) - 8)))
-                (Nat 2))
-        ,l)
+                (Nat 2)
+            | Ror =>
+              (let n = n MOD 8 in
+                 Op Or
+                  [Shift Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) (Nat 2);
+                   Shift Lsr (ShiftVar Lsl (adjust_var v1)
+                     ((dimindex (:'a) - 2) - n)) (Nat (dimindex (:'a) - 10))])),l)
       | _ => (Skip,l))
     | WordShift W64 sh n => (dtcase args of
        | [v1] =>

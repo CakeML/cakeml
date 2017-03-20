@@ -68,7 +68,8 @@ val _ = export_rewrites["opw_lookup_def"];
 val shift_lookup_def = Define`
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
-  (shift_lookup Asr = word_asr)`;
+  (shift_lookup Asr = word_asr) ∧
+  (shift_lookup Ror = word_ror)`;
 val _ = export_rewrites["shift_lookup_def"];
 
 val do_word_op_def = Define`

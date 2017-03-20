@@ -2,7 +2,7 @@ open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormalizeTheory cfAppTheory
+open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
 
 val _ = new_theory "cf"
@@ -906,17 +906,6 @@ val sound_def = Define `
       htriple_valid p e env H Q`;
 
 
-val htriple_valid_normalise = Q.store_thm ("htriple_valid_normalise",
-  `!e env H Q.
-      htriple_valid (p:'ffi ffi_proj) (normalise e) env H Q <=>
-      htriple_valid (p:'ffi ffi_proj) e env H Q`,
-  fs [htriple_valid_def, evaluate_ck_def, evaluate_normalise]
-);
-
-val sound_normalise = Q.store_thm("sound_normalise",
-  `sound p (normalise e) R <=> sound p e R`,
-  fs [sound_def, htriple_valid_normalise]);
-
 val star_split = Q.prove (
   `!H1 H2 H3 H4 h1 h2 h3 h4.
      ((H1 * H2) (h1 UNION h2) ==> (H3 * H4) (h3 UNION h4)) ==>
@@ -1492,13 +1481,13 @@ val cf_def = tDefine "cf" `
        (case Fun_body e1 of
           | SOME body =>
             cf_fun (p:'ffi ffi_proj) (THE opt) (Fun_params e1)
-              (cf (p:'ffi ffi_proj) (normalise body)) (cf (p:'ffi ffi_proj) e2)
+              (cf (p:'ffi ffi_proj) body) (cf (p:'ffi ffi_proj) e2)
           | NONE => cf_bottom)
      else
        cf_let opt (cf (p:'ffi ffi_proj) e1) (cf (p:'ffi ffi_proj) e2)) /\
   cf (p:'ffi ffi_proj) (Letrec funs e) =
     (cf_fun_rec (p:'ffi ffi_proj)
-       (MAP (\x. (x, cf p (normalise (SND (SND x))))) (letrec_pull_params funs))
+       (MAP (\x. (x, cf p (SND (SND x)))) (letrec_pull_params funs))
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
@@ -1596,7 +1585,7 @@ val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Tannot e _) = cf p e /\
   cf _ _ = cf_bottom
 `
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw [normalise_def]
+  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
      THEN1 (
        Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
        drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
@@ -1720,8 +1709,8 @@ val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
      (∀x. MEM x naryfuns ==>
-          sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
-            (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
+          sound (p:'ffi ffi_proj) (SND (SND x))
+            (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
      sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
      !fns rest.
        funs = rest ++ fns ==>
@@ -1735,7 +1724,7 @@ val cf_letrec_sound_aux = Q.prove (
               (MAP (\ (f,_,_). f) naryfuns) fvs
               (MAP (\ (_,ns,_). ns) naryfns)
               (DROP (LENGTH naryrest) fvs)
-              (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x)))) naryfns)
+              (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
               (cf (p:'ffi ffi_proj) e) env H Q)`,
 
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
@@ -1766,7 +1755,7 @@ val cf_letrec_sound_aux = Q.prove (
         (case opt of NONE => b | SOME x => b'),
         (case opt of NONE => c | SOME x => c' x))`,
       rpt strip_tac \\ every_case_tac \\ fs [])] \\
-    qmatch_goalsub_abbrev_tac `cf _ (normalise inner_body)::_ _` \\
+    qmatch_goalsub_abbrev_tac `cf _ inner_body::_ _` \\
     qmatch_goalsub_abbrev_tac `fun_rec_aux _ _ _ (params::_)` \\
     (* unfold "sound _ (Letrec _ _)" in the goal *)
     cf_strip_sound_full_tac \\
@@ -1817,10 +1806,9 @@ val cf_letrec_sound_aux = Q.prove (
         irule curried_naryRecclosure \\ fs []
       )
       THEN1 (
-        `sound p (normalise inner_body) (cf p (normalise inner_body))` by all_tac
+        `sound p inner_body (cf p inner_body)` by all_tac
         THEN1 (first_assum progress \\ fs []) \\
         pop_assum (progress o REWRITE_RULE [sound_def]) \\
-        fs [htriple_valid_normalise] \\
         irule app_rec_of_htriple_valid \\ fs [] \\
         qunabbrev_tac `params` \\ full_case_tac
       )
@@ -1838,8 +1826,8 @@ val cf_letrec_sound_aux = Q.prove (
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
-         sound (p:'ffi ffi_proj) (normalise (SND (SND x)))
-           (cf (p:'ffi ffi_proj) (normalise (SND (SND x))))) ==>
+         sound (p:'ffi ffi_proj) (SND (SND x))
+           (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
     sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
     sound (p:'ffi ffi_proj) (Letrec funs e)
       (\env H Q.
@@ -1850,7 +1838,7 @@ val cf_letrec_sound = Q.prove (
         fun_rec_aux (p:'ffi ffi_proj)
           (MAP (\ (f,_,_). f) funs) fvs
           (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
-          (MAP (\x. cf (p:'ffi ffi_proj) (normalise (SND (SND x))))
+          (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x)))
              (letrec_pull_params funs))
           (cf (p:'ffi ffi_proj) e) env H Q)`,
   rpt strip_tac \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound_aux) \\
@@ -2152,9 +2140,9 @@ val cf_sound = Q.store_thm ("cf_sound",
       THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
       THEN1
        (rw []
-        \\ qpat_assum `sound _ (normalise _) _`
+        \\ qpat_assum `sound _ inner_body _`
              (assume_tac o REWRITE_RULE [sound_def])
-        \\ pop_assum progress \\ fs [htriple_valid_normalise]
+        \\ pop_assum progress
         \\ irule app_of_htriple_valid
         \\ fs [Fun_params_def]) \\
       qpat_x_assum `sound _ e2 _`

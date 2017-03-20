@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../../.. ../../../semantics ../../../semantics/proofs ../../targets ../reg_alloc/proofs ../gc $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = .. ../semantics ../../.. ../../../semantics ../../../semantics/proofs ../../encoders ../reg_alloc/proofs ../gc $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/machine-code/multiword
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -16,7 +16,7 @@ all: $(HOLHEAP)
 BARE_THYS = ../../../semantics/terminationTheory\
 						../../../semantics/proofs/semanticsPropsTheory\
 						../../../semantics/proofs/semanticPrimitivesPropsTheory\
-						../../targets/targetPropsTheory\
+						../semantics/targetPropsTheory\
 						../semantics/modPropsTheory\
 						../semantics/conPropsTheory\
 						../semantics/decPropsTheory\

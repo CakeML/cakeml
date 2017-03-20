@@ -179,8 +179,7 @@ val semantics_entire_program =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM entire_program_def]
   |> CONV_RULE(PATH_CONV"brrr"(SIMP_CONV std_ss [APPEND])) (* remove STRCAT "" *)
-  (* TODO: change call_main_thm_basis to existentially quantify an io_list instead? *)
-  |> CONV_RULE(RENAME_VARS_CONV["st"])
+  |> CONV_RULE(RENAME_VARS_CONV["io_events"])
   |> DISCH_ALL |> GEN_ALL
   |> CONV_RULE(RENAME_VARS_CONV["inp","cls"])
   |> curry save_thm "semantics_entire_program";
