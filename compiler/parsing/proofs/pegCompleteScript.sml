@@ -1059,45 +1059,68 @@ val left_insert2_FOLDL = Q.store_thm(
 
    The reassociated theorem to come states that if we have a good
    DType (num list) followed by a TyOp (option), then it's possible to
-   recast this as a Tbase (num) followed by a DType (list option).  This
-   latter is bogus as an SML type, but is fine syntax because "list" is both
-   a valid TyOp and thus a Tbase as well.  The left_insert1 function
+   recast this as a Tbase (num) followed by a DType (list option).
+   This latter is bogus as an SML type, but is fine syntax because
+   "list" is both a valid TyOp and thus a Tbase as well. The
+   left_insert2 function does the work to turn something like
 
+    DType -+- DType -- TBase -- TyOp -- "list"
+           |
+           `- TyOp  -- "option"
+
+   into
+
+    DType -+- DType --- DType --- TBase -- TyOp -- "num"
+           |         |
+           |         `- TyOp  -- "list"
+           |
+           `- TyOp -- "option"
 *)
 
-(*
 val dtype_reassociated = Q.store_thm(
   "dtype_reassociated",
   `∀pt bpt pf bf.
-      valid_ptree cmlG pt ∧ ptree_head pt = NN nDType ∧
-      ptree_fringe pt = MAP TK pf ∧
-      valid_ptree cmlG bpt ∧ ptree_head bpt = NN nTyOp ∧
-      ptree_fringe bpt = MAP TK bf ⇒
+      valid_lptree cmlG pt ∧ ptree_head pt = NN nDType ∧
+      ptree_fringe pt = MAP (TK o FST) pf ∧
+      valid_lptree cmlG bpt ∧ ptree_head bpt = NN nTyOp ∧
+      ptree_fringe bpt = MAP (TK o FST) bf ⇒
       ∃pt' bpt'.
-        valid_ptree cmlG pt' ∧ valid_ptree cmlG bpt' ∧
-        valid_ptree cmlG (leftmost pt') ∧ ptree_head (leftmost pt') = NN nTyOp ∧
+        valid_lptree cmlG pt' ∧ valid_lptree cmlG bpt' ∧
+        valid_lptree cmlG (leftmost pt') ∧
+        ptree_head (leftmost pt') = NN nTyOp ∧
         ptree_head pt' = NN nDType ∧ ptree_head bpt' = NN nTbase ∧
-        ptree_fringe bpt' ++ ptree_fringe pt' = MAP TK (pf ++ bf) ∧
-        Nd (mkNT nDType) [pt; bpt] = left_insert2 bpt' pt'`,
-  ho_match_mp_tac grammarTheory.ptree_ind >>
-  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
+        ptree_fringe bpt' ++ ptree_fringe pt' = MAP (TK o FST) (pf ++ bf) ∧
+        leftLoc (ptree_loc bpt') = leftLoc (ptree_loc pt) ∧
+        rightLoc (ptree_loc pt') = rightLoc (ptree_loc bpt) ∧
+        mkNd (mkNT nDType) [pt; bpt] = left_insert2 bpt' pt'`,
+  ho_match_mp_tac grammarTheory.ptree_ind >> conj_tac
+  >- simp[FORALL_PROD] >>
+  simp[Once FORALL_PROD, MAP_EQ_CONS, cmlG_applied, cmlG_FDOM,
+       valid_lptree_def] >>
   qx_gen_tac `subs` >> strip_tac >>
   map_every qx_gen_tac [`bpt`, `pf`, `bf`] >> strip_tac >> rveq >>
-  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rveq
-  >- (asm_match `ptree_head pt0 = NN nDType` >>
-      asm_match `ptree_fringe pt0 = MAP TK pf` >>
-      Q.UNDISCH_THEN `ptree_head bpt = NN nTyOp` mp_tac >>
-      asm_match `ptree_head bpt0 = NN nTyOp` >>
-      asm_match `ptree_fringe bpt0 = MAP TK bf0` >> strip_tac >>
-      first_x_assum (qspecl_then [`bpt0`, `pf`, `bf0`] mp_tac) >>
+  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_CONS, cmlG_FDOM,
+     cmlG_applied] >> rveq
+  >- (rename [`[bpt0; oppt0]`, `ptree_head bpt0 = NN nDType`,
+              `ptree_head oppt0 = NN nTyOp`,
+              `ptree_fringe bpt0 = MAP _ bpf0`,
+              `ptree_fringe oppt0 = MAP _ opf0`,
+              `MAP _ bpf0 ++ MAP _ opf0 ++ MAP _ bf`,
+              `ptree_fringe bpt = MAP _ bf`] >>
+      first_x_assum (qspecl_then [`oppt0`, `bpf0`, `opf0`] mp_tac) >>
       simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
-      map_every qexists_tac [`Nd (mkNT nDType) [ppt'; bpt]`, `bpt'`] >>
-      dsimp[cmlG_FDOM, cmlG_applied, left_insert2_def, leftmost_def]) >>
+      map_every qexists_tac [`mkNd (mkNT nDType) [ppt'; bpt]`, `bpt'`] >>
+      dsimp[cmlG_FDOM, cmlG_applied, left_insert2_def, leftmost_def,
+            mkNd_def, ptree_list_loc_def, ptree_loc_left_insert2,
+            merge_locs_LR] >>
+      fs[mkNd_def, ptree_list_loc_def, merge_locs_LR]) >>
   asm_match `ptree_head bpt0 = NN nTbase` >>
-  map_every qexists_tac [`Nd (mkNT nDType) [Nd (mkNT nTbase) [bpt]]`, `bpt0`] >>
-  dsimp[cmlG_applied, cmlG_FDOM, left_insert2_def, leftmost_def]);
+  map_every qexists_tac
+    [`mkNd (mkNT nDType) [mkNd (mkNT nTbase) [bpt]]`, `bpt0`] >>
+  dsimp[cmlG_applied, cmlG_FDOM, left_insert2_def, leftmost_def, mkNd_def,
+        ptree_list_loc_def]);
 
-
+(*
 val left_insert_def = Define`
   (left_insert (Lf x) p sep c = Lf x) ∧
   (left_insert (Nd n subs) p sep c =
