@@ -52,6 +52,7 @@ type op =
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8concat
   (* Word/integer conversions *)
   | WordFromInt of word_size
   | WordToInt of word_size
@@ -68,6 +69,7 @@ type op =
   | Implode
   | Strsub
   | Strlen
+  | Strcat
   (* Vector operations *)
   | VfromList
   | Vsub
