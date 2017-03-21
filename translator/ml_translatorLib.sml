@@ -845,7 +845,6 @@ fun define_ref_inv is_exn_type tys = let
 
   val tmp_v_var = genvar v_ty
   val real_v_var = mk_var("v",v_ty)
-
   fun mk_lhs (name,ty,case_th) = let
     val xs = map rand (find_terms is_eq (concl case_th))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
@@ -2305,6 +2304,7 @@ val builtin_monops =
    Eval_length,
    Eval_vector,
    Eval_int_of_num,
+   Eval_num_of_int,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL
