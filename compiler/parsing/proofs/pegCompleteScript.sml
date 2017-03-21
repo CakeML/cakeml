@@ -1121,17 +1121,54 @@ val dtype_reassociated = Q.store_thm(
         ptree_list_loc_def]);
 
 (*
+  The next reassociation scenario is the general story of a left-associative
+  binary operator, such that the rule is of the form
+
+    P ::= P SEP C | C
+
+  Imagine you have a valid P-tree to the right, and a single C to the left.
+  You can insert that C-tree into the valid P-tree in the leftmost position,
+  generating a new, valid P-tree.
+*)
+
+
 val left_insert_def = Define`
-  (left_insert (Lf x) p sep c = Lf x) ∧
-  (left_insert (Nd n subs) p sep c =
-     if n <> p then Nd n subs
+  (left_insert (Lf (tk,l)) p sep c = Lf (tk,merge_locs (ptree_loc c) l)) ∧
+  (left_insert (Nd (n,l) subs) p sep c =
+     if n <> p then Nd (n,merge_locs (ptree_loc c) l) subs
      else
        case subs of
-           [c0] => Nd p [Nd p [c]; sep; c0]
-         | [p'; s'; c'] => Nd p [left_insert p' p sep c; s'; c']
-         | _ => Nd p subs)
+           [c0] => mkNd p [mkNd p [c]; sep; c0]
+         | [p'; s'; c'] => mkNd p [left_insert p' p sep c; s'; c']
+         | _ => Nd (n, merge_locs (ptree_loc c) l) subs)
 `;
 
+
+val left_insert_mkNd = Q.store_thm(
+  "left_insert_mkNd[simp]",
+  `(left_insert (mkNd n [c0]) n sep c = mkNd n [mkNd n [c]; sep; c0]) ∧
+   (left_insert (mkNd n [p'; s'; c']) n sep c =
+      mkNd n [left_insert p' n sep c; s'; c'])`,
+  simp[left_insert_def, mkNd_def, ptree_list_loc_def])
+
+val list_case_eq = Q.prove(
+  ‘(list_CASE l n c = v) ⇔
+     (l = [] ∧ v = n) ∨ (∃h t. l = h::t ∧ v = c h t)’,
+  Cases_on `l` >> simp[] >> metis_tac[]);
+
+
+val ptree_loc_left_insert = Q.store_thm(
+  "ptree_loc_left_insert",
+  ‘∀bpt n sep c.
+     valid_locs bpt ⇒
+       ptree_loc (left_insert bpt n sep c) =
+       merge_locs (ptree_loc c) (ptree_loc bpt)’,
+  ho_match_mp_tac (theorem "left_insert_ind") >> simp[left_insert_def] >>
+  simp[FORALL_PROD] >> rw[] >>
+  rpt (rename [`list_CASE subtl`] >>
+       Cases_on `subtl` >> simp[ptree_list_loc_def]))
+
+(*
 val lassoc_reassociated = Q.store_thm(
   "lassoc_reassociated",
   `∀G P SEP C ppt spt cpt pf sf cf.
