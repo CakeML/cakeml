@@ -7,6 +7,11 @@ void ffiputChar (char* a) {
   putchar(a[0]);
 }
 
+/* stderr */
+void ffiputChar_err(char* a, long len) {
+  putc(a[0], stderr);
+}
+
 /* stdin */
 
 void ffigetChar (char* a) {
