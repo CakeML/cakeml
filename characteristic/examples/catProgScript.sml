@@ -288,7 +288,8 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
   \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL 
+            |> SIMP_RULE std_ss [Once STAR_ASSOC] |> add_basis_proj;
 val name = "cat_main"
 val (semantics_thm,prog_tm) = call_thm st name spec
 val cat_prog_def = Define`cat_prog = ^prog_tm`;

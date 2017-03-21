@@ -16,11 +16,11 @@ val hello_spec = Q.store_thm ("hello_spec",
   `!cv input output.
       app (p:'ffi ffi_proj) ^(fetch_v "hello" st)
         [Conv NONE []]
-        (STDOUT [])
-        (POSTv uv. &UNIT_TYPE () uv * (STDOUT ("Hello World!\n")))`,
+        (STDOUT output)
+        (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ "Hello World!\n"))`,
   xcf "hello" st
-  \\ xapp
-  \\ xsimpl \\ qexists_tac `emp` \\ qexists_tac `[]` \\ xsimpl
+  \\ xapp \\ xsimpl \\ CONV_TAC(SWAP_EXISTS_CONV) 
+  \\ qexists_tac `output` \\ xsimpl 
 );
 
 val st = get_ml_prog_state();

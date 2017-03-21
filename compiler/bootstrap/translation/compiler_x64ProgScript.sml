@@ -111,8 +111,8 @@ val _ = translate (extend_with_args_def |> spec64 )
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
-    | Failure err => List[implode(error_to_str err)]
-    | Success (bytes,ffis) => x64_export ffis 400 100 bytes`;
+    | Failure err => (List[], implode (error_to_str err))
+    | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
 (* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
@@ -129,7 +129,8 @@ val main = process_topdecs`
     let
       val cl = Commandline.arguments ()
     in
-      print_app_list (compiler_x64 cl (read_all []))
+      case compiler_x64 cl (read_all [])  of
+        (c, e) => (print_app_list c; print_err e)
     end`;
 
 val res = ml_prog_update(ml_progLib.add_prog main I)
@@ -138,10 +139,11 @@ val st = get_ml_prog_state()
 val main_spec = Q.store_thm("main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)
-     [Conv NONE []] (STDOUT out * (STDIN inp F * COMMANDLINE cl))
+     [Conv NONE []] (STDOUT out * STDERR err * (STDIN inp F * COMMANDLINE cl))
      (POSTv uv. &UNIT_TYPE () uv *
-      (STDOUT (out ++ (FLAT (MAP explode (append (compiler_x64 (TL(MAP implode cl)) inp))))) *
-       (STDIN "" T * COMMANDLINE cl)))`,
+      STDOUT (out ++ (FLAT (MAP explode (append (FST(compiler_x64 (TL(MAP implode cl)) inp)))))) *
+      STDERR (err ++ explode (SND(compiler_x64 (TL(MAP implode cl)) inp))) *
+       (STDIN "" T * COMMANDLINE cl))`,
   strip_tac
   \\ xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
@@ -156,18 +158,27 @@ val main_spec = Q.store_thm("main_spec",
   \\ xlet`POSTv nv. &LIST_TYPE CHAR [] nv * frame`
   >- (xcon \\ xsimpl \\ EVAL_TAC)
   \\ qunabbrev_tac`frame`
-  \\ xlet`POSTv cv. &LIST_TYPE CHAR inp cv * STDIN "" T * STDOUT out * COMMANDLINE cl`
-  >- (xapp \\ instantiate \\ xsimpl
-      \\ map_every qexists_tac[`STDOUT out * COMMANDLINE cl`,`F`,`inp`]
-      \\ xsimpl )
+  \\ xlet`POSTv cv. &LIST_TYPE CHAR inp cv * STDIN "" T * STDOUT out * STDERR err * COMMANDLINE cl`
+  >- ( xapp \\ instantiate \\ xsimpl
+      \\ map_every qexists_tac[`STDOUT out * STDERR err * COMMANDLINE cl`,`F`,`inp`]
+      \\ xsimpl)
   \\ qmatch_abbrev_tac`_ frame _`
-  \\ qmatch_goalsub_abbrev_tac`append res`
-  \\ xlet`POSTv xv. &MISC_APP_LIST_TYPE STRING_TYPE res xv * frame`
+  \\ qmatch_goalsub_abbrev_tac`append (FST res)`
+  \\ xlet`POSTv xv. &PAIR_TYPE (MISC_APP_LIST_TYPE STRING_TYPE) STRING_TYPE res xv * frame`
   >- (xapp \\ instantiate \\ xsimpl)
+  \\ xmatch
+  \\ Cases_on `res` \\ qmatch_goalsub_abbrev_tac`FST (c,e)` 
+  \\ every_case_tac \\ fs [ml_translatorTheory.PAIR_TYPE_def]
+  \\ rw[validate_pat_def,pat_typechecks_def,pat_without_Pref_def,
+     ALL_DISTINCT,astTheory.pat_bindings_def,terminationTheory.pmatch_def]
+  \\ qunabbrev_tac`frame`
+  \\ qmatch_goalsub_abbrev_tac`STDOUT (out ++ output)`
+  \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (out ++ output) *
+           STDERR err * (STDIN "" T * COMMANDLINE cl)`
   \\ xapp \\ instantiate
-  \\ simp[Abbr`frame`]
-  \\ map_every qexists_tac[`STDIN "" T * COMMANDLINE cl`,`out`]
-  \\ xsimpl);
+  >- (CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out` \\ xsimpl)
+  \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`err` \\ xsimpl
+  );
 
 val spec = main_spec |> UNDISCH_ALL |> add_basis_proj;
 val name = "main"
