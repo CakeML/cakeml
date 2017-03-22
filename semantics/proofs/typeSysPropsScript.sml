@@ -753,46 +753,32 @@ val tveLookup_db_merge_some = Q.store_thm ("tveLookup_db_merge_some",
 
 (* ---------- type_op ---------- *)
 
-val type_op_cases = Q.store_thm ("type_op_cases",
-`!op ts t3.
-  type_op op ts t3 ⇔
-  (((∃op'. op = Opn op') ∧ ts = [Tint; Tint] ∧ (t3 = Tint)) ∨
-   ((∃op'. op = Opb op') ∧ ts = [Tint; Tint] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
-   (∃wz. (∃op'. op = Opw wz op') ∧ ts = [Tword wz; Tword wz] ∧ (t3 = Tword wz)) ∨
-   (∃wz. (∃sh n. op = Shift wz sh n) ∧ ts = [Tword wz] ∧ (t3 = Tword wz)) ∨
-   ((op = Opapp) ∧ ?t2. ts = [Tfn t2 t3;t2]) ∨
-   ((op = Equality) ∧ ?t1. ts = [t1; t1] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
-   ((op = Opassign) ∧ ?t2. ts = [Tref t2; t2] ∧ (t3 = Tapp [] TC_tup)) ∨
-   ((op = Opref) ∧ ?t1. ts = [t1] ∧ t3 = Tref t1) ∨
-   ((op = Opderef) ∧ ts = [Tref t3]) ∨
-   ((op = Aw8alloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
-   ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
-   ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
-   ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tapp [] TC_tup) ∨
-   ((op = Aw8concat) ∧ ts = [Tapp [Tword8array] (TC_name (Short "list"))] ∧ t3 = Tword8array) ∨
-   (∃wz. (op = WordFromInt wz) ∧ ts = [Tint] ∧ t3 = Tword wz) ∨
-   (∃wz. (op = WordToInt wz) ∧ ts = [Tword wz] ∧ t3 = Tint) ∨
-   ((op = StrFromW8Array) ∧ ts = [Tword8array] ∧ t3 = Tstring) ∨
-   ((op = StrToW8Array) ∧ ts = [Tstring] ∧ t3 = Tword8array) ∨
-   ((op = Ord) ∧ ts = [Tchar] ∧ t3 = Tint) ∨
-   ((op = Chr) ∧ ts = [Tint] ∧ t3 = Tchar) ∨
-   ((∃op'. op = Chopb op') ∧ ts = [Tchar; Tchar] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
-   ((op = Implode) ∧ ts = [Tapp [Tchar] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
-   ((op = Strsub) ∧ ts = [Tstring; Tint] ∧ t3 = Tchar) ∨
-   ((op = Strlen) ∧ ts = [Tstring] ∧ t3 = Tint) ∨
-   ((op = Strcat) ∧ ts = [Tapp [Tstring] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
-   ((op = VfromList) ∧ ?t2. ts = [Tapp [t2] (TC_name (Short "list"))] ∧ t3 = Tapp [t2] TC_vector) ∨
-   ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
-   ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨
-   ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
-   ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
-   ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup) ∨
-   ((?n. op = FFI n) ∧ ts = [Tword8array] ∧ t3 = Tapp [] TC_tup))`,
- srw_tac[][type_op_def] >>
- every_case_tac >>
- full_simp_tac(srw_ss())[Tchar_def,Tword_def,Tword8_def,Tword64_def,TC_word_def] >>
- metis_tac []);
+val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def };
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
+val tctor_thms = { nchotomy = tctor_nchotomy, case_def = tctor_case_def };
+val t_thms = { nchotomy = t_nchotomy, case_def = t_case_def };
+val word_size_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def };
+val id_thms = { nchotomy = id_nchotomy, case_def = id_case_def };
+val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm [
+  op_thms, list_thms, tctor_thms, t_thms, word_size_thms, id_thms ]))
+
+val eqt = EQ_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 2 |> SYM
+
+fun simp_bool_case tm =
+  (REWR_CONV eqt THENC (SIMP_CONV(srw_ss()) (PULL_EXISTS::eqs)))
+    (assert TypeBase.is_case tm)
+
+val type_op_cases = save_thm("type_op_cases",
+  ``type_op op ts t3``
+  |> (SIMP_CONV(srw_ss())[type_op_def] THENC
+      ONCE_DEPTH_CONV simp_bool_case THENC
+      SIMP_CONV (bool_ss++DNF_ss) [
+        PULL_EXISTS,
+        GSYM Tchar_def,
+        GSYM Tword_def,
+        GSYM Tword8_def,
+        GSYM Tword64_def,
+        GSYM TC_word_def]));
 
 (* ---------- type_p ---------- *)
 
@@ -944,8 +930,7 @@ val type_e_freevars = Q.store_thm ("type_e_freevars",
  ho_match_mp_tac type_e_strongind >>
  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
- full_simp_tac(srw_ss())[check_freevars_def,Tchar_def,Tword_def]
- >- rw[Tword64_def,Tword_def,check_freevars_def]
+ full_simp_tac(srw_ss())[check_freevars_def,Tchar_def,Tword_def,Tword64_def]
  >- metis_tac [deBruijn_subst_check_freevars]
  >- metis_tac []
  >- (
@@ -1160,7 +1145,7 @@ val type_e_subst = Q.store_thm ("type_e_subst",
  >- (full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[Tword_def,Tword8_def,Tword64_def])) >>
-     full_simp_tac(srw_ss())[deBruijn_subst_def,Tchar_def,Tword_def] >>
+     full_simp_tac(srw_ss())[deBruijn_subst_def,Tchar_def,Tword_def,Tword8_def,Tword64_def] >>
      metis_tac [])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
