@@ -76,7 +76,6 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
-  | Aw8concat
   (* Word/integer conversions *)
   | WordFromInt of word_size
   | WordToInt of word_size
