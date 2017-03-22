@@ -1387,6 +1387,15 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
      fs [infer_st_rewrs, EVERY_MAP, check_t_def, check_t_infer_db_subst] >>
      res_tac >>
      fs [])
+ >- (res_tac >>
+     fs [check_t_def] >>
+     pop_assum match_mp_tac  >>
+     rw [opt_bind_def] >>
+     every_case_tac >>
+     fs [ienv_val_ok_def] >>
+     irule nsAll_nsOptBind
+     >> simp [option_nchotomy]
+     >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
  >- (
    first_x_assum drule
    >> first_x_assum drule

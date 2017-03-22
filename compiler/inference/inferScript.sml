@@ -332,10 +332,6 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_tup)
         od
-    | (Aw8concat, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [Infer_Tapp [] TC_word8array] (TC_name (Short "list")));
-          return (Infer_Tapp [] TC_word8array)
-        od
    | (WordFromInt wz, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] (TC_word wz))
@@ -344,12 +340,36 @@ constrain_op op ts =
        do () <- add_constraint t (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] TC_int)
        od
-   | (StrFromW8Array, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [] TC_word8array);
+   | (CopyStrStr, [t1;t2;t3]) =>
+       do
+         () <- add_constraint t1 (Infer_Tapp [] TC_string);
+         () <- add_constraint t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint t3 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_string)
         od
-   | (StrToW8Array, [t]) =>
-       do () <- add_constraint t (Infer_Tapp [] TC_string);
+   | (CopyStrAw8, [t1;t2;t3;t4;t5]) =>
+       do
+         () <- add_constraint t1 (Infer_Tapp [] TC_string);
+         () <- add_constraint t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint t3 (Infer_Tapp [] TC_int);
+         () <- add_constraint t4 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint t5 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_word8array)
+        od
+   | (CopyAw8Str, [t1;t2;t3]) =>
+       do
+         () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint t3 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_string)
+        od
+   | (CopyAw8Aw8, [t1;t2;t3;t4;t5]) =>
+       do
+         () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint t3 (Infer_Tapp [] TC_int);
+         () <- add_constraint t4 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint t5 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_word8array)
         od
    | (Chr, [t]) =>
