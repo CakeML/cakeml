@@ -28,8 +28,8 @@ val get_file_contents = process_topdecs `
         val fd = FileIO.openIn file
         val res = get_file_contents fd acc
       in
-        (FileIO.closeIn fd;
-         res)
+        (FileIO.close fd;
+         get_files_contents files res)
       end;
 
   fun sort () =
@@ -128,6 +128,92 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
     >- metis_tac [wfFS_bumpLineFD]
     >- metis_tac [APPEND, APPEND_ASSOC]));
 
+val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
+  `!fnames_v fnames acc_v acc fs.
+    wfFS fs ∧
+    CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+    LIST_TYPE FILENAME fnames fnames_v ∧
+    LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
+    ⇒
+    app (p : 'ffi ffi_proj)
+      ^(fetch_v "get_files_contents" (get_ml_prog_state ()))
+      [fnames_v; acc_v]
+      (ROFS fs)
+      (POST
+        (\strings_v.
+          ROFS fs *
+          &(LIST_TYPE STRING_TYPE
+             (MAP (\str. implode (str ++ "\n"))
+               (REVERSE
+                 (FLAT
+                   (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames)))
+              ++ (MAP implode acc))
+             strings_v ∧
+            EVERY (\fname. inFS_fname fs fname) fnames))
+        (\e.
+          ROFS fs *
+          &(BadFileName_exn e ∧
+            EXISTS (\fname. ~inFS_fname fs fname) fnames)))`,
+
+  Induct_on `fnames` >>
+  rw [] >>
+  xcf "get_files_contents" (get_ml_prog_state ()) >>
+  fs [LIST_TYPE_def] >>
+  xmatch >>
+  rw []
+  >- (
+    xvar >>
+    xsimpl) >>
+  qmatch_assum_rename_tac `FILENAME fname fname_v` >>
+  xlet
+    `(POST
+       (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
+               validFD (nextFD fs) (openFileFS fname fs) ∧
+               inFS_fname fs fname) *
+             ROFS (openFileFS fname fs))
+       (\e. &(BadFileName_exn e ∧ ~inFS_fname fs fname) * ROFS fs))`
+  >- (
+    xapp >>
+    xsimpl)
+  >- xsimpl >>
+  qmatch_assum_abbrev_tac `validFD fd fs'` >>
+  xlet
+    `POSTv strings_v.
+       ROFS (bumpAllFD fd fs') *
+       &(LIST_TYPE STRING_TYPE
+          (MAP implode (REVERSE (MAP (\l. l++"\n") (linesFD fd fs')) ++ acc))
+          strings_v)`
+  >- (
+    xapp >>
+    xsimpl >>
+    qexists_tac `GC` >>
+    qexists_tac `fs'` >>
+    qexists_tac `fd` >>
+    qexists_tac `acc` >>
+    xsimpl >>
+    metis_tac [wfFS_openFile]) >>
+  xlet `POSTv u. ROFS (bumpAllFD fd fs' with infds updated_by A_DELKEY fd)`
+  >- (
+    xapp >>
+    xsimpl >>
+    qexists_tac `GC` >>
+    qexists_tac `bumpAllFD fd fs'` >>
+    qexists_tac `n2w fd` >>
+    xsimpl >>
+    `fd < 255` by metis_tac [nextFD_ltX] >>
+    rw [] >>
+    xsimpl) >>
+  xapp >>
+  xsimpl >>
+  qexists_tac `GC` >>
+  qexists_tac `fs` >>
+  qexists_tac `REVERSE (MAP (λl. STRCAT l "\n") (linesFD fd fs')) ++ acc` >>
+  rw [] >>
+  xsimpl >>
+
+
+  
+
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm sort_st name spec
@@ -141,4 +227,3 @@ val sort_semantics_thm =
 
 
 val _ = export_theory ();
-
