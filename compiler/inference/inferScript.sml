@@ -354,7 +354,7 @@ constrain_op op ts =
          () <- add_constraint t3 (Infer_Tapp [] TC_int);
          () <- add_constraint t4 (Infer_Tapp [] TC_word8array);
          () <- add_constraint t5 (Infer_Tapp [] TC_int);
-          return (Infer_Tapp [] TC_word8array)
+          return (Infer_Tapp [] TC_tup)
         od
    | (CopyAw8Str, [t1;t2;t3]) =>
        do
@@ -370,7 +370,7 @@ constrain_op op ts =
          () <- add_constraint t3 (Infer_Tapp [] TC_int);
          () <- add_constraint t4 (Infer_Tapp [] TC_word8array);
          () <- add_constraint t5 (Infer_Tapp [] TC_int);
-          return (Infer_Tapp [] TC_word8array)
+          return (Infer_Tapp [] TC_tup)
         od
    | (Chr, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
