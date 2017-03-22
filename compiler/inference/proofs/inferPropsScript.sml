@@ -455,85 +455,32 @@ val lookup_st_ex_success = Q.prove (
  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
  >> every_case_tac);
 
-val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 f31 f32 f33 op st v st'.
-  ((case op of
-       Opn opn => f1
-     | Opb opb => f2
-     | Equality => f3
-     | Opapp => f4
-     | Opassign => f5
-     | Opref => f6
-     | Opderef => f7
-     | Aw8length => f8
-     | Aw8alloc => f9
-     | Aw8sub => f10
-     | Aw8update => f11
-     | Ord => f12
-     | Chr => f13
-     | Chopb opb => f14
-     | Strsub => f15
-     | Implode => f16
-     | Strlen => f17
-     | VfromList => f18
-     | Vsub => f19
-     | Vlength => f20
-     | Alength => f21
-     | Aalloc => f22
-     | Asub => f23
-     | Aupdate => f24
-     | FFI n => f25
-     | WordFromInt wz => f26
-     | WordToInt wz => f27
-     | Opw wz opw => f28
-     | Shift wz sh n => f29
-     | Aw8concat => f30
-     | Strcat => f31
-     | StrFromW8Array => f32
-     | StrToW8Array => f33) st
-   = (Success v, st'))
-  =
-  ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
-   (?opb. (op = Opb opb) ∧ (f2 st = (Success v, st'))) ∨
-   (?wz opw. (op = Opw wz opw) ∧ (f28 st = (Success v, st'))) ∨
-   (?wz sh n. (op = Shift wz sh n) ∧ (f29 st = (Success v, st'))) ∨
-   ((op = Equality) ∧ (f3 st = (Success v, st'))) ∨
-   ((op = Opapp) ∧ (f4 st = (Success v, st'))) ∨
-   ((op = Opassign) ∧ (f5 st = (Success v, st'))) ∨
-   ((op = Opref) ∧ (f6 st = (Success v, st'))) ∨
-   ((op = Opderef) ∧ (f7 st = (Success v, st'))) ∨
-   ((op = Aw8length) ∧ (f8 st = (Success v, st'))) ∨
-   ((op = Aw8alloc) ∧ (f9 st = (Success v, st'))) ∨
-   ((op = Aw8sub) ∧ (f10 st = (Success v, st'))) ∨
-   ((op = Aw8update) ∧ (f11 st = (Success v, st'))) ∨
-   ((op = Ord) ∧ (f12 st = (Success v, st'))) ∨
-   ((op = Chr) ∧ (f13 st = (Success v, st'))) ∨
-   ((?wz. op = WordFromInt wz) ∧ (f26 st = (Success v, st'))) ∨
-   ((?wz. op = WordToInt wz) ∧ (f27 st = (Success v, st'))) ∨
-   (?opb. (op = Chopb opb)) ∧ (f14 st = (Success v, st')) ∨
-   ((op = Strsub) ∧ (f15 st = (Success v, st'))) ∨
-   ((op = Implode) ∧ (f16 st = (Success v, st'))) ∨
-   ((op = Strlen) ∧ (f17 st = (Success v, st'))) ∨
-   ((op = VfromList) ∧ (f18 st = (Success v, st'))) ∨
-   ((op = Vsub) ∧ (f19 st = (Success v, st'))) ∨
-   ((op = Vlength) ∧ (f20 st = (Success v, st'))) ∨
-   ((op = Alength) ∧ (f21 st = (Success v, st'))) ∨
-   ((op = Aalloc) ∧ (f22 st = (Success v, st'))) ∨
-   ((op = Asub) ∧ (f23 st = (Success v, st'))) ∨
-   ((op = Aupdate) ∧ (f24 st = (Success v, st'))) ∨
-   ((op = Aw8concat) ∧ (f30 st = (Success v, st'))) ∨
-   ((op = Strcat) ∧ (f31 st = (Success v, st'))) ∨
-   ((op = StrFromW8Array) ∧ (f32 st = (Success v, st'))) ∨
-   ((op = StrToW8Array) ∧ (f33 st = (Success v, st'))) ∨
-   (?n. (op = FFI n) ∧ (f25 st = (Success v, st'))))`,
-rw [] >>
-cases_on `op` >>
-rw []);
+val op_data = {nchotomy = op_nchotomy, case_def = op_case_def};
+val op_case_eq = prove_case_eq_thm op_data;
+val op_case_rand = prove_case_rand_thm op_data;
+val list_data = {nchotomy = list_nchotomy, case_def = list_case_def}
+val list_case_eq = prove_case_eq_thm list_data;
+val list_case_rand = prove_case_rand_thm list_data;
+
+fun mk_case_rator case_rand =
+  case_rand
+  |> GEN (case_rand |> concl |> lhs |> rator)
+  |> ISPEC (let val z = genvar(gen_tyvar())
+                val r = genvar(type_of z --> gen_tyvar())
+            in mk_abs(r,mk_comb(r,z)) end)
+  |> BETA_RULE
+
+val list_case_rator = mk_case_rator list_case_rand
+val op_case_rator = mk_case_rator op_case_rand
 
 val constrain_op_success =
-  SIMP_CONV (srw_ss()) [constrain_op_def, op_case_expand, st_ex_bind_success,
-                        st_ex_return_success, add_constraint_success]
   ``(constrain_op op ts st = (Success v, st'))``
+  |> SIMP_CONV (srw_ss()) [
+       constrain_op_def,
+       st_ex_bind_success,st_ex_return_success,
+       add_constraint_success,failwith_success,
+       list_case_rator, op_case_rator,
+       list_case_eq, op_case_eq, PULL_EXISTS]
 
 val _ = save_thm ("constrain_op_success", constrain_op_success);
 
