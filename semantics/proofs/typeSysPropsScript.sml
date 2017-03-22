@@ -759,19 +759,13 @@ val tctor_thms = { nchotomy = tctor_nchotomy, case_def = tctor_case_def };
 val t_thms = { nchotomy = t_nchotomy, case_def = t_case_def };
 val word_size_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def };
 val id_thms = { nchotomy = id_nchotomy, case_def = id_case_def };
-val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm [
-  op_thms, list_thms, tctor_thms, t_thms, word_size_thms, id_thms ]))
-
-val eqt = EQ_CLAUSES |> SPEC_ALL |> CONJUNCTS |> el 2 |> SYM
-
-fun simp_bool_case tm =
-  (REWR_CONV eqt THENC (SIMP_CONV(srw_ss()) (PULL_EXISTS::eqs)))
-    (assert TypeBase.is_case tm)
+val thms = [ op_thms, list_thms, tctor_thms, t_thms, word_size_thms, id_thms ]
+val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms))
+val elims = List.map prove_case_elim_thm thms
 
 val type_op_cases = save_thm("type_op_cases",
   ``type_op op ts t3``
-  |> (SIMP_CONV(srw_ss())[type_op_def] THENC
-      ONCE_DEPTH_CONV simp_bool_case THENC
+  |> (SIMP_CONV(srw_ss())(type_op_def::eqs@elims) THENC
       SIMP_CONV (bool_ss++DNF_ss) [
         PULL_EXISTS,
         GSYM Tchar_def,
