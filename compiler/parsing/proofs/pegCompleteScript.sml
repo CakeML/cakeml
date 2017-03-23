@@ -794,9 +794,52 @@ val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
 
+val FLAT_EQ_CONS = Q.prove(
+  `∀ll h t.
+     FLAT ll = h::t ⇔
+     ∃p t0 s. ll = p ++ [h::t0] ++ s ∧
+              EVERY ((=) []) p ∧ FLAT (t0::s) = t`,
+  Induct >> simp[] >> rpt gen_tac >>
+  rename [`list0 ++ FLAT ll = h::t`] >>
+  Cases_on `list0` >> simp[]
+  >- (eq_tac >> rw[]
+      >- (rename [`[]::(pfx ++ [h::t0] ++ sfx)`] >>
+          map_every qexists_tac [`[]::pfx`, `t0`, `sfx`] >> simp[]) >>
+      rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >> rfs[] >>
+      metis_tac[]) >>
+  eq_tac >> rw[]
+  >- (qexists_tac `[]` >> simp[])
+  >- (rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >> rfs[] >> rw[]) >>
+  rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >- fs[] >>
+  full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
+
+val real_fringe_NIL_ptree_fringe = Q.prove(
+  `∀pt. real_fringe pt = [] ⇔ ptree_fringe pt = []`,
+  ho_match_mp_tac real_fringe_ind >>
+  dsimp[FORALL_PROD, FLAT_EQ_NIL, EVERY_MEM, MEM_MAP] >> metis_tac[]);
+
+val real_fringe_CONS_ptree_fringe = Q.prove(
+  `∀pt rest. real_fringe pt = (TOK t, l) :: rest ⇒
+             ∃rest'. ptree_fringe pt = TOK t :: rest'`,
+  ho_match_mp_tac real_fringe_ind >> dsimp[FLAT_EQ_CONS] >>
+  dsimp[MAP_EQ_APPEND] >> rpt strip_tac >>
+  rename [`pfx ++ [pt] ++ sfx = _ ++ _ ++ _`,
+          `(TOK tk, tkl) :: tail = real_fringe pt`] >>
+  `∃pfrest. ptree_fringe pt = TOK tk :: pfrest` by metis_tac[] >>
+  map_every qexists_tac [`pfrest`, `sfx`, `pfx`, `pt`] >> simp[] >>
+  fs[EVERY_MEM, MEM_MAP] >> metis_tac[real_fringe_NIL_ptree_fringe]);
+
+val rfirstSet_nonempty_fringe = Q.store_thm(
+  "rfirstSet_nonempty_fringe",
+  ‘∀pt t l rest.
+     real_fringe pt = (TOK t, l) :: rest ∧ valid_lptree G pt ⇒
+     t ∈ firstSet G [ptree_head pt]’,
+  rw[] >> imp_res_tac real_fringe_CONS_ptree_fringe >> fs[valid_lptree_def] >>
+  metis_tac[firstSet_nonempty_fringe]);
+
 val peg_respects_firstSets = Q.store_thm(
   "peg_respects_firstSets",
-  `∀N i0 t.
+  `∀N i0 t l.
       t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧
       nt N I ∈ Gexprs cmlPEG ⇒
       peg_eval cmlPEG ((t,l)::i0, nt N I) NONE`,
@@ -808,18 +851,19 @@ val peg_respects_firstSets = Q.store_thm(
   `r = NONE ∨ ∃i ptl. r = SOME(i,ptl)`
     by metis_tac[optionTheory.option_CASES, pairTheory.pair_CASES] >>
   simp[] >> rveq >>
-  `∃pt. ptl = [pt] ∧ ptree_head pt = NT N ∧ valid_ptree cmlG pt ∧
-        MAP (TK o FST) ((t,l)::i0) = ptree_fringe pt ++ MAP (TK o FST) i`
+  `∃pt. ptl = [pt] ∧ ptree_head pt = NT N ∧ valid_lptree cmlG pt ∧
+        MAP (TK ## I) ((t,l)::i0) = real_fringe pt ++ MAP (TK ## I) i`
     by metis_tac [peg_sound] >>
   rveq >> Cases_on `peg0 cmlPEG (nt N I)` >> simp[] >>
   `LENGTH i < LENGTH ((t,l)::i0)` by metis_tac [not_peg0_LENGTH_decreases] >>
-  `ptree_fringe pt = [] ∨ ∃ tk rest : (token # locs) list.
-                            ptree_fringe pt = TK tk :: MAP (TK o FST) rest`
-    by ( Cases_on `ptree_fringe pt` >> simp[] >> fs[] >> rw[] >> rveq >>
-        fs[MAP_EQ_APPEND] >> metis_tac[])
+  `real_fringe pt = [] ∨
+   ∃tk tkl rest : (token # locs) list.
+     real_fringe pt = (TK tk, tkl) :: MAP (TK ## I) rest`
+    by (Cases_on `real_fringe pt` >> simp[] >> fs[] >> rw[] >> rveq >>
+        fs[MAP_EQ_APPEND])
    >- (fs[] >> pop_assum kall_tac >>
-      first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
-  fs[] >> rveq >> metis_tac [firstSet_nonempty_fringe])
+       first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
+  fs[] >> rveq >> metis_tac [rfirstSet_nonempty_fringe])
 
 val sym2peg_def = Define`
   sym2peg (TOK tk) = tokeq tk ∧
@@ -862,7 +906,6 @@ val left_insert1_FOLDL = Q.store_thm(
   fs[left_insert1_def,mkNd_def,ptree_list_loc_def]);
 
 val _ = export_rewrites ["grammar.ptree_loc_def"]
-
 
 val ptree_loc_mkNd = Q.store_thm(
   "ptree_loc_mkNd[simp]",
@@ -1531,7 +1574,8 @@ val eapp_complete = Q.store_thm(
        valid_lptree cmlG pt' ∧ ptree_head pt' = NN nEbase ∧
        real_fringe pt' = MAP (TK ## I) master ∧
        (sfx' ≠ [] ⇒ FST (HD sfx') ∈ stoppers nEbase) ⇒
-       peg_eval cmlPEG (master ++ sfx', nt (mkNT nEbase) I) (SOME (sfx', [pt'])))
+       peg_eval cmlPEG (master ++ sfx', nt (mkNT nEbase) I)
+                (SOME (sfx', [pt'])))
     ⇒
      ∀pfx apt sfx.
        IS_SUFFIX master pfx ∧ valid_lptree cmlG apt ∧
@@ -1597,9 +1641,14 @@ val eapp_complete = Q.store_thm(
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]);
 
-val leftmost_mkNd = Q.store_thm(
+val leftmost_mkNd_DType = Q.store_thm(
   "leftmost_mkNd_DType[simp]",
   ‘leftmost (mkNd (mkNT nDType) (c::cs)) = leftmost c’,
+  simp[leftmost_def, mkNd_def]);
+
+val leftmost_mkNd_Tbase = Q.store_thm(
+  "leftmost_mkNd_Tbase[simp]",
+  ‘leftmost (mkNd (mkNT nTbase) (x::xs)) = x’,
   simp[leftmost_def, mkNd_def]);
 
 val leftmost_FOLDL = Q.store_thm(
@@ -1607,6 +1656,12 @@ val leftmost_FOLDL = Q.store_thm(
   `leftmost (FOLDL (λa b. mkNd (mkNT nDType) [a;b]) acc args) =
     leftmost acc`,
   qid_spec_tac `acc` >> Induct_on `args` >> simp[]);
+
+val left_insert2_mkNd = Q.store_thm(
+  "left_insert2_mkNd[simp]",
+  ‘left_insert2 bpt (mkNd (mkNT nDType) [mkNd n [sub]]) =
+   mkNd (mkNT nDType) [mkNd (mkNT nDType) [bpt]; sub]’,
+  simp[left_insert2_def, mkNd_def, ptree_list_loc_def]);
 
 val dtype_complete = Q.store_thm(
   "dtype_complete",
@@ -1667,35 +1722,42 @@ val dtype_complete = Q.store_thm(
       disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
       erule mp_tac peg_sound >> disch_then (qxchl [`bpt2`] strip_assume_tac) >>
       fs[] >> rveq >> fs[leftmost_FOLDL] >>
-      `∃subs. bpt2 = Nd (mkNT nTbase) subs`
-        by (Cases_on`bpt2` >> fs[listTheory.APPEND_EQ_CONS] >> rw[] >>
-            fs[MAP_EQ_CONS]) >>
+      `∃subs. bpt2 = mkNd (mkNT nTbase) subs`
+        by (`∃f. real_fringe bpt2 = MAP (TK ## I) f`
+             suffices_by metis_tac[ptree_head_NT_mkNd] >>
+            metis_tac[MAP_EQ_APPEND, MAP_APPEND]) >>
       `∃tyoppt. subs = [tyoppt] ∧ ptree_head tyoppt = NN nTyOp ∧
-                valid_ptree cmlG tyoppt`
-        by (fs[cmlG_applied, cmlG_FDOM, leftmost_def, MAP_EQ_CONS] >> fs[]) >>
+                valid_lptree cmlG tyoppt`
+        by (fs[cmlG_applied, cmlG_FDOM, MAP_EQ_CONS] >> rveq >> fs[]) >>
       rveq >>
       qexists_tac `[tyoppt]::blist` >>
-      simp[left_insert2_def, left_insert2_FOLDL] >>
+      simp[left_insert2_FOLDL] >>
       simp[Once peg_eval_cases] >>
       qexists_tac `ii` >> simp[] >>
       qpat_x_assum `peg_eval X Y Z` mp_tac >>
       simp[SimpL ``(==>)``, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
-      erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Tbase) >>
+      erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Tbase) >>
       simp[] >> strip_tac >> fs[cmlG_FDOM, cmlG_applied] >>
       Cases_on `af'` >> fs[] >>
-      Cases_on `ptree_fringe tyoppt` >> fs[] >> rveq >>
-      asm_match `ptree_fringe tyoppt = TK h::tks` >>
+      Cases_on `real_fringe tyoppt` >> fs[] >> rveq >>
+      rename [`real_fringe tyoppt = (TK ## I) h::tks`] >>
+      Cases_on `h` >> fs[] >>
+      rename [`real_fringe tyoppt = (TK h, _) ::tks`] >>
       `h ≠ LparT ∧ ¬isTyvarT h`
         by (erule mp_tac
-                  (REWRITE_RULE [GSYM AND_IMP_INTRO] firstSet_nonempty_fringe)>>
+                  (REWRITE_RULE [GSYM AND_IMP_INTRO]
+                                rfirstSet_nonempty_fringe)>>
             simp[] >> rpt strip_tac >> rveq >> fs[]) >>
-      simp[]) >>
+      simp[peg_eval_tok_NONE, mkNd_def]) >>
   asm_match `ptree_head bpt = NN nTbase` >>
   map_every qexists_tac [`[bpt]`, `sfx`, `[]`] >>
   simp[] >> reverse conj_tac
   >- (simp[Once peg_eval_cases] >>
       Cases_on `sfx` >>
-      fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE]) >>
+      fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE] >>
+      rename [`peg_eval cmlPEG (h::rest, _) NONE`] >>
+      Cases_on `h` >> fs[] >>
+      fs[peg_respects_firstSets]) >>
   first_x_assum (kall_tac o assert (is_forall o concl)) >>
   fs[rich_listTheory.IS_SUFFIX_compute] >>
   imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
@@ -1705,6 +1767,7 @@ val dtype_complete = Q.store_thm(
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]);
 
+(*
 (* could generalise this slightly: allowing for nullable seps, but this would
    require a more complicated condition on the sfx, something like
      (sfx ≠ [] ∧ ¬nullable cmlG [SEP] ⇒ HD sfx ∉ firstSet cmlG [SEP]) ∧
