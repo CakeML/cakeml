@@ -154,7 +154,6 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
           ROFS fs *
           &(BadFileName_exn e ∧
             EXISTS (\fname. ~inFS_fname fs fname) fnames)))`,
-
   Induct_on `fnames` >>
   rw [] >>
   xcf "get_files_contents" (get_ml_prog_state ()) >>
@@ -209,10 +208,26 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   qexists_tac `fs` >>
   qexists_tac `REVERSE (MAP (λl. STRCAT l "\n") (linesFD fd fs')) ++ acc` >>
   rw [] >>
+  `bumpAllFD fd fs' with infds updated_by A_DELKEY fd = fs`
+  by (
+    rw [RO_fs_component_equality, Abbr`fs'`, Abbr `fd`] >>
+    irule A_DELKEY_nextFD_openFileFS >>
+    rw [nextFD_ltX]) >>
   xsimpl >>
+  fs [REVERSE_APPEND, MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF] >>
+  `splitlines (THE (ALOOKUP fs.files fname)) = linesFD fd fs'`
+  by (
+    simp [linesFD_def, Abbr `fd`, Abbr `fs'`] >>
+    drule ALOOKUP_inFS_fname_openFileFS_nextFD >>
+    simp [nextFD_ltX] >>
+    drule inFS_fname_ALOOKUP_EXISTS >>
+    rw [] >>
+    rw [] >>
+    Cases_on `0 < STRLEN content` >>
+    simp [libTheory.the_def, GSYM LENGTH_NIL]) >>
+  simp []);
 
 
-  
 
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
