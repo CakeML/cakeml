@@ -1,5 +1,5 @@
 (*
-   Verification of least common subsequence algorithms.
+   Verification of longest common subsequence algorithms.
 *)
 open preamble;
 
@@ -181,7 +181,10 @@ val common_subsequence_sym = Q.store_thm("common_subsequence_sym",
 
 val lcs_empty = Q.prove(`lcs [] l [] /\ lcs [] [] l`,
   fs[lcs_def,common_subsequence_def,is_subsequence_nil]);
-                                        
+
+val lcs_empty' = Q.prove(`(lcs l l' [] = (l = [])) /\ (lcs l [] l' = (l = []))`,
+  fs[lcs_def,common_subsequence_def,is_subsequence_nil,EQ_IMP_THM]);
+
 val cons_lcs_optimal_substructure = Q.store_thm("cons_lcs_optimal_substructure",
   `lcs (f::l) (f::l') (f::l'') = lcs l l' l''`,
   fs[lcs_def,common_subsequence_def, Once is_subsequence_def, EQ_IMP_THM]
@@ -259,7 +262,7 @@ val snoc_lcs_optimal_substructure_right = Q.store_thm(
   ==> lcs l''' (l'++[f]) (l''++[f'])`,
   metis_tac[snoc_lcs_optimal_substructure_left,common_subsequence_sym,lcs_def]);
 
-val lcs_length_left = Q.prove(`
+val lcs_length_left = Q.store_thm("lcs_length_left",`
   (lcs xl yl zl /\ lcs xl' (yl ++ [y]) zl)
   ==> SUC(LENGTH xl) >= LENGTH xl'`,
   fs[lcs_def,common_subsequence_def] >> rpt strip_tac
@@ -271,10 +274,45 @@ val lcs_length_left = Q.prove(`
    >> rpt(first_x_assum(assume_tac o MATCH_MP prefix_is_subsequence))
    >> `LENGTH l <= LENGTH xl` by metis_tac[] >> fs[])
 
-val lcs_length_right = Q.prove(`
+val lcs_length_right = Q.store_thm("lcs_length_right",`
   (lcs xl yl zl /\ lcs xl' (yl) (zl ++ [z]))
   ==> SUC(LENGTH xl) >= LENGTH xl'`,
   metis_tac[lcs_def,common_subsequence_sym,lcs_length_left]);
+
+val is_subsequence_rev = Q.store_thm("is_subsequence_rev",`
+  !l r. is_subsequence (REVERSE l) (REVERSE r) = is_subsequence l r`,
+  ho_match_mp_tac (theorem "is_subsequence_ind")
+  >> rpt strip_tac
+  >> fs[is_subsequence_nil]
+  >> Cases_on `r`
+  >> fs[is_subsequence_nil,is_subsequence_snoc',is_subsequence_cons]);
+
+val is_subsequence_rev' = Q.store_thm("is_subsequence_rev",`
+  !l r. is_subsequence l (REVERSE r) = is_subsequence (REVERSE l) r`,
+  ho_match_mp_tac SNOC_INDUCT
+  >> strip_tac
+   >- fs[is_subsequence_nil]
+   >> rpt strip_tac
+   >> Induct_on `r`
+   >> fs[is_subsequence_nil,is_subsequence_cons,is_subsequence_snoc',SNOC_APPEND,REVERSE_APPEND]);
+
+val common_subsequence_rev = Q.store_thm("common_subsequence_rev",
+  `!l r s. common_subsequence (REVERSE l) (REVERSE r) (REVERSE s) = common_subsequence l r s`,
+  rw[common_subsequence_def,is_subsequence_rev]);
+
+val common_subsequence_rev' = Q.store_thm("common_subsequence_rev",
+  `!l r s. common_subsequence l (REVERSE r) (REVERSE s) = common_subsequence (REVERSE l) r s`,
+  rw[common_subsequence_def,is_subsequence_rev']);
+
+val lcs_rev = Q.store_thm("lcs_rev",
+  `!l r s. lcs (REVERSE l) (REVERSE r) (REVERSE s) = lcs l r s`,
+  rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
+  >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);
+
+val lcs_rev' = Q.store_thm("lcs_rev",
+  `!l r s. lcs l (REVERSE r) (REVERSE s) = lcs (REVERSE l) r s`,
+  rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
+  >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);
 
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
@@ -599,7 +637,7 @@ val dynamic_lcs_correct = Q.store_thm("dynamic_lcs_correct",
   >> fs[dynamic_lcs_def, dynamic_lcs_rows_correct]);
 
 (* Further optimisation of the dynamic LCS algorithm: prune common
-   prefixes first *)
+   prefixes and suffixes as a preprocessing step *)
 
 val longest_common_prefix_def = Define `
   (longest_common_prefix [] l = []) /\
@@ -611,9 +649,13 @@ val optimised_lcs_def = Define `
   optimised_lcs l r =
     let prefix = longest_common_prefix l r in
       let len = LENGTH prefix in
-        let l = DROP len l in
-          let r = DROP len r in
-            prefix++dynamic_lcs l r`;
+        let l = REVERSE(DROP len l) in
+          let r = REVERSE(DROP len r) in
+            let suffix = longest_common_prefix l r in
+              let len = LENGTH suffix in
+                let l = DROP len l in
+                  let r = DROP len r in
+                    prefix++REVERSE(dynamic_lcs l r)++REVERSE suffix`;
 
 (* Verification of optimised LCS *)
 
@@ -623,6 +665,33 @@ val longest_common_prefix_clauses = Q.store_thm("longest_common_prefix_clauses",
   (longest_common_prefix (f::r) (f'::r') =
     if f = f' then f::longest_common_prefix r r' else [])`,
   Cases_on `l` >> fs[longest_common_prefix_def]);
+
+val longest_common_suffix_def = Define `
+  (longest_common_suffix [] l = []) /\
+  (longest_common_suffix l [] = []) /\
+  (longest_common_suffix (f::r) (f'::r') =
+   if LENGTH r > LENGTH r' then
+     longest_common_suffix r (f'::r')
+   else if LENGTH r' > LENGTH r then
+     longest_common_suffix (f::r) r'
+   else let l = longest_common_suffix r r' in
+     if f = f' /\ LENGTH l = LENGTH r then
+       f::l
+     else l)`
+
+val longest_common_suffix_clauses = Q.store_thm("longest_common_suffix_clauses",`!r r' f f'.
+  (longest_common_suffix [] l = []) /\
+  (longest_common_suffix l [] = []) /\
+  (longest_common_suffix (r ++ [f]) (r' ++ [f']) =
+    if f = f' then SNOC f (longest_common_suffix r r') else [])`,
+  fs[longest_common_suffix_def,
+     Q.prove(`longest_common_suffix l [] = []`, Cases_on `l` >> fs[longest_common_suffix_def])]
+  >> ho_match_mp_tac (theorem "longest_common_suffix_ind")
+  >> rpt strip_tac
+  >> fs[longest_common_suffix_def]
+  >- (Induct_on `r'` >> fs[longest_common_suffix_def,APPEND] >> Induct_on `v3` >> fs[longest_common_suffix_def])
+  >- (Induct_on `v3` >> fs[longest_common_suffix_def] >> rw[] >> fs[] >> rfs[])
+  >> rw[] >> fs[] >> rfs[]);
 
 val longest_prefix_is_prefix = Q.store_thm("longest_prefix_is_prefix",
   `!l r. IS_PREFIX l (longest_common_prefix l r) /\ IS_PREFIX r (longest_common_prefix l r)`,
@@ -635,10 +704,37 @@ val longest_prefix_correct = Q.store_thm("longest_prefix_correct",
   >> rpt strip_tac
   >> rw[longest_common_prefix_clauses,cons_lcs_optimal_substructure]);
 
+val longest_suffix_correct = Q.store_thm("longest_prefix_correct",
+`!l r s. lcs (s ++ longest_common_suffix l r) l r = lcs s (REVERSE (DROP (LENGTH (longest_common_suffix l r)) (REVERSE l))) (REVERSE (DROP (LENGTH (longest_common_suffix l r)) (REVERSE r)))`,
+  ho_match_mp_tac SNOC_INDUCT
+  >> strip_tac
+  >- fs[longest_common_suffix_clauses]
+  >> ntac 3 strip_tac
+  >> ho_match_mp_tac SNOC_INDUCT
+  >> rpt strip_tac
+   >- (fs[SNOC_APPEND] >> fs[lcs_empty',longest_common_suffix_clauses])
+   >> fs[SNOC_APPEND]
+   >> fs[longest_common_suffix_clauses]
+   >> rw[]
+   >> fs[SNOC_APPEND,snoc_lcs_optimal_substructure,REVERSE_APPEND,
+         Q.prove(`l - r - l = (0:num)`,intLib.COOPER_TAC),take_suc_length]);
+
+val longest_common_prefix_reverse = Q.store_thm("longest_common_prefix_reverse",`
+  !l r. longest_common_prefix (REVERSE l) (REVERSE r) = REVERSE(longest_common_suffix l r)`,
+  ho_match_mp_tac (SNOC_INDUCT)
+  >> strip_tac
+  >- fs[longest_common_prefix_clauses,longest_common_suffix_clauses]
+  >> ntac 3 strip_tac
+  >> ho_match_mp_tac (SNOC_INDUCT)
+  >> rpt strip_tac
+  >> fs[longest_common_prefix_clauses,longest_common_suffix_clauses]
+  >> rw[]);
+
 val optimised_lcs_correct = Q.store_thm("optimised_lcs_correct",
   `lcs (optimised_lcs l r) l r`,
-  fs[optimised_lcs_def,longest_prefix_correct,dynamic_lcs_correct]);
-
-(* TODO: prune common suffixes *)
+  fs[optimised_lcs_def,longest_prefix_correct]
+  >> PURE_ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  >> fs[longest_prefix_correct,longest_common_prefix_reverse,
+        longest_suffix_correct,lcs_rev,dynamic_lcs_correct]);
 
 val _ = export_theory ();
