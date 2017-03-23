@@ -161,17 +161,6 @@ val _ = Define `
   ∧
   (v_to_char_list _ = NONE)`;
 
-val vs_to_w8s_def = Define`
-  (vs_to_w8s s [] = SOME []) ∧
-  (vs_to_w8s s (Loc l::vs) =
-   case store_lookup l s of
-   | SOME (W8array ws1) =>
-     (case vs_to_w8s s vs of
-      | SOME ws2 => SOME (ws1++ws2)
-      | _ => NONE)
-   | _ => NONE) ∧
-  (vs_to_w8s _ _ = NONE)`;
-
 val vs_to_string_def = Define`
   (vs_to_string [] = SOME "") ∧
   (vs_to_string (Litv(StrLit s1)::vs) =
@@ -258,31 +247,47 @@ val do_app_def = Define `
               | NONE => NONE
               | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
-  | (Aw8concat, [v]) =>
-    (case v_to_list v of
-      SOME vs =>
-        (case vs_to_w8s s vs of
-          SOME ws =>
-            let (s',lnum) = (store_alloc (W8array ws) s)
-            in SOME ((s',t), Rval (Loc lnum))
-          | _ => NONE)
-      | _ => NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME ((s,t), Rval (Litv (do_word_from_int wz i)))
   | (WordToInt wz, [Litv w]) =>
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME ((s,t), Rval (Litv (IntLit i))))
-  | (StrFromW8Array, [Loc lnum]) =>
-      (case store_lookup lnum s of
+  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME ((s,t),
+      (case copy_array (str,off) len NONE of
+        NONE => Rerr (Rraise (prim_exn "Subscript"))
+      | SOME cs => Rval (Litv(StrLit(cs)))))
+  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s of
         SOME (W8array ws) =>
-          SOME ((s,t), Rval (Litv(StrLit(MAP (CHR o w2n) ws))))
+          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          | SOME cs =>
+            (case store_assign dst (W8array (chars_to_ws cs)) s of
+              SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
       | _ => NONE)
-  | (StrToW8Array, [Litv(StrLit str)]) =>
-      let (s',lnum) =
-        (store_alloc (W8array (MAP (n2w o ORD) str)) s)
-      in
-        SOME ((s',t), Rval (Loc lnum))
+  | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s of
+      SOME (W8array ws) =>
+      SOME ((s,t),
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise (prim_exn "Subscript"))
+        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+    | _ => NONE)
+  | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s, store_lookup dst s) of
+      (SOME (W8array ws), SOME (W8array ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        | SOME ws =>
+            (case store_assign dst (W8array ws) s of
+              SOME s' => SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
+    | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
