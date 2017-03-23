@@ -915,6 +915,45 @@ val valid_lptree_def = Define `
   valid_lptree G pt ⇔ valid_locs pt ∧ valid_ptree G pt
 `;
 
+val valid_ptree_mkNd = Q.store_thm(
+  "valid_ptree_mkNd[simp]",
+  ‘valid_ptree G (mkNd N subs) ⇔
+     N ∈ FDOM G.rules ∧ MAP ptree_head subs ∈ G.rules ' N ∧
+     ∀pt. MEM pt subs ⇒ valid_ptree G pt’,
+  simp[mkNd_def]);
+
+val ptree_head_mkNd = Q.store_thm(
+  "ptree_head_mkNd[simp]",
+  ‘ptree_head (mkNd N subs) = NT N’,
+  simp[mkNd_def]);
+
+val ptree_list_loc_SING = Q.store_thm(
+  "ptree_list_loc_SING[simp]",
+  ‘ptree_list_loc [pt] = ptree_loc pt’,
+  simp[ptree_list_loc_def]);
+
+val ptree_fringe_mkNd = Q.store_thm(
+  "ptree_fringe_mkNd[simp]",
+  ‘ptree_fringe (mkNd N subs) = FLAT (MAP ptree_fringe subs)’,
+  simp[mkNd_def]);
+
+val valid_locs_mkNd = Q.store_thm(
+  "valid_locs_mkNd[simp]",
+  ‘valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt’,
+  simp[mkNd_def, ptree_list_loc_def]);
+
+val valid_lptree_thm = Q.store_thm(
+  "valid_lptree_thm",
+  ‘(valid_lptree G (Lf p) ⇔ T) ∧
+   (valid_lptree G (Nd (n, l) children) ⇔
+      l = merge_list_locs (MAP ptree_loc children) ∧
+      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
+      ∀pt. MEM pt children ⇒ valid_lptree G pt) ∧
+   (valid_lptree G (mkNd n children) ⇔
+      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
+      ∀pt. MEM pt children ⇒ valid_lptree G pt)’,
+  simp[valid_lptree_def] >> metis_tac[]);
+
 val ptree_loc_left_insert1 = Q.store_thm(
   "ptree_loc_left_insert1",
   `∀subpt pt.
@@ -947,6 +986,16 @@ val rightLoc_merge_locs = Q.store_thm(
   ‘rightLoc (merge_locs l1 l2) = rightLoc l2’,
   simp[merge_locs_LR]);
 
+(* two valid parse-trees with the same head, and the same fringes, which
+   are all tokens, must be identical. *)
+val real_fringe_def = tDefine "real_fringe" `
+  (real_fringe (Lf t) = [t]) ∧
+  (real_fringe (Nd n ptl) = FLAT (MAP real_fringe ptl))
+` (WF_REL_TAC `measure ptree_size` >> Induct_on `ptl` >> dsimp[] >>
+   fs[] >> rpt strip_tac >> res_tac >> simp[]);
+val _ = export_rewrites ["real_fringe_def"]
+
+
 (* Problem with Eapp is that it's left-recursive in the grammar :
 
      Eapp ::= Eapp Ebase | Ebase
@@ -968,30 +1017,35 @@ val rightLoc_merge_locs = Q.store_thm(
    former into the latter gives us back what we started with.
 *)
 
+val MAP_TKI_11 = Q.store_thm(
+  "MAP_TKI_11[simp]",
+  ‘(MAP (TK ## I) l1 = MAP (TK ## I) l2) ⇔ (l1 = l2)’,
+  irule INJ_MAP_EQ_IFF >> simp[INJ_DEF, FORALL_PROD]);
+
 val eapp_reassociated = Q.store_thm(
   "eapp_reassociated",
   `∀pt bpt pf bf.
       valid_lptree cmlG pt ∧ ptree_head pt = NN nEapp ∧
-      ptree_fringe pt = MAP (TK o FST) pf ∧
+      real_fringe pt = MAP (TK ## I) pf ∧
       valid_lptree cmlG bpt ∧ ptree_head bpt = NN nEbase ∧
-      ptree_fringe bpt = MAP (TK o FST) bf ⇒
+      real_fringe bpt = MAP (TK ## I) bf ⇒
       ∃pt' bpt'.
         valid_lptree cmlG pt' ∧ valid_lptree cmlG bpt' ∧
         leftLoc (ptree_loc bpt') = leftLoc (ptree_loc pt) ∧
         rightLoc (ptree_loc pt') = rightLoc (ptree_loc bpt) ∧
         ptree_head pt' = NN nEapp ∧ ptree_head bpt' = NN nEbase ∧
-        ptree_fringe bpt' ++ ptree_fringe pt' = MAP (TK o FST) (pf ++ bf) ∧
+        real_fringe bpt' ++ real_fringe pt' = MAP (TK ## I) (pf ++ bf) ∧
         mkNd (mkNT nEapp) [pt; bpt] = left_insert1 bpt' pt'`,
   simp[valid_lptree_def] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM, FORALL_PROD, EXISTS_PROD] >>
-  qx_gen_tac `subs` >> strip_tac >>
-  rpt strip_tac >> rveq >> fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
+  qx_gen_tac `subs` >> rpt strip_tac >> rveq >>
+  fs[MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
   rveq
   >- (rename [`[Nd _ [pt0; bpt0]; bpt]`,
               `ptree_head pt0 = NN nEapp`, `ptree_head bpt = NN nEbase`,
-              `ptree_fringe pt0 = MAP (TK o FST) pf`,
-              `ptree_fringe bpt0 = MAP _ bf0`] >>
+              `real_fringe pt0 = MAP _ pf`,
+              `real_fringe bpt0 = MAP _ bf0`] >>
       first_x_assum (qspecl_then [`bpt0`, `pf`, `bf0`] mp_tac) >>
       simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
       map_every qexists_tac [`mkNd (mkNT nEapp) [ppt'; bpt]`, `bpt'`] >>
@@ -1081,20 +1135,20 @@ val dtype_reassociated = Q.store_thm(
   "dtype_reassociated",
   `∀pt bpt pf bf.
       valid_lptree cmlG pt ∧ ptree_head pt = NN nDType ∧
-      ptree_fringe pt = MAP (TK o FST) pf ∧
+      real_fringe pt = MAP (TK ## I) pf ∧
       valid_lptree cmlG bpt ∧ ptree_head bpt = NN nTyOp ∧
-      ptree_fringe bpt = MAP (TK o FST) bf ⇒
+      real_fringe bpt = MAP (TK ## I) bf ⇒
       ∃pt' bpt'.
         valid_lptree cmlG pt' ∧ valid_lptree cmlG bpt' ∧
         valid_lptree cmlG (leftmost pt') ∧
         ptree_head (leftmost pt') = NN nTyOp ∧
         ptree_head pt' = NN nDType ∧ ptree_head bpt' = NN nTbase ∧
-        ptree_fringe bpt' ++ ptree_fringe pt' = MAP (TK o FST) (pf ++ bf) ∧
+        real_fringe bpt' ++ real_fringe pt' = MAP (TK ## I) (pf ++ bf) ∧
         leftLoc (ptree_loc bpt') = leftLoc (ptree_loc pt) ∧
         rightLoc (ptree_loc pt') = rightLoc (ptree_loc bpt) ∧
         mkNd (mkNT nDType) [pt; bpt] = left_insert2 bpt' pt'`,
   ho_match_mp_tac grammarTheory.ptree_ind >> conj_tac
-  >- simp[FORALL_PROD] >>
+  >- dsimp[FORALL_PROD] >>
   simp[Once FORALL_PROD, MAP_EQ_CONS, cmlG_applied, cmlG_FDOM,
        valid_lptree_def] >>
   qx_gen_tac `subs` >> strip_tac >>
@@ -1103,10 +1157,10 @@ val dtype_reassociated = Q.store_thm(
      cmlG_applied] >> rveq
   >- (rename [`[bpt0; oppt0]`, `ptree_head bpt0 = NN nDType`,
               `ptree_head oppt0 = NN nTyOp`,
-              `ptree_fringe bpt0 = MAP _ bpf0`,
-              `ptree_fringe oppt0 = MAP _ opf0`,
+              `real_fringe bpt0 = MAP _ bpf0`,
+              `real_fringe oppt0 = MAP _ opf0`,
               `MAP _ bpf0 ++ MAP _ opf0 ++ MAP _ bf`,
-              `ptree_fringe bpt = MAP _ bf`] >>
+              `real_fringe bpt = MAP _ bf`] >>
       first_x_assum (qspecl_then [`oppt0`, `bpf0`, `opf0`] mp_tac) >>
       simp[] >> disch_then (qxchl [`ppt'`, `bpt'`] strip_assume_tac) >>
       map_every qexists_tac [`mkNd (mkNT nDType) [ppt'; bpt]`, `bpt'`] >>
@@ -1168,49 +1222,22 @@ val ptree_loc_left_insert = Q.store_thm(
   rpt (rename [`list_CASE subtl`] >>
        Cases_on `subtl` >> simp[ptree_list_loc_def]))
 
-val valid_ptree_mkNd = Q.store_thm(
-  "valid_ptree_mkNd[simp]",
-  ‘valid_ptree G (mkNd N subs) ⇔
-     N ∈ FDOM G.rules ∧ MAP ptree_head subs ∈ G.rules ' N ∧
-     ∀pt. MEM pt subs ⇒ valid_ptree G pt’,
-  simp[mkNd_def]);
-
-val ptree_head_mkNd = Q.store_thm(
-  "ptree_head_mkNd[simp]",
-  ‘ptree_head (mkNd N subs) = NT N’,
-  simp[mkNd_def]);
-
-val ptree_list_loc_SING = Q.store_thm(
-  "ptree_list_loc_SING[simp]",
-  ‘ptree_list_loc [pt] = ptree_loc pt’,
-  simp[ptree_list_loc_def]);
-
-val ptree_fringe_mkNd = Q.store_thm(
-  "ptree_fringe_mkNd[simp]",
-  ‘ptree_fringe (mkNd N subs) = FLAT (MAP ptree_fringe subs)’,
-  simp[mkNd_def]);
-
-val valid_locs_mkNd = Q.store_thm(
-  "valid_locs_mkNd[simp]",
-  ‘valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt’,
-  simp[mkNd_def, ptree_list_loc_def]);
-
 val lassoc_reassociated = Q.store_thm(
   "lassoc_reassociated",
   `∀G P SEP C ppt spt cpt pf sf cf.
       G.rules ' P = {[NT P; SEP; C]; [C]} ⇒
       valid_lptree G ppt ∧ ptree_head ppt = NT P ∧
-        ptree_fringe ppt = MAP (TOK o FST) pf ∧
+        real_fringe ppt = MAP (TOK ## I) pf ∧
       valid_lptree G spt ∧ ptree_head spt = SEP ∧
-        ptree_fringe spt = MAP (TOK o FST) sf ∧
+        real_fringe spt = MAP (TOK ## I) sf ∧
       valid_lptree G cpt ∧ ptree_head cpt = C ∧
-        ptree_fringe cpt = MAP (TOK o FST) cf ⇒
+        real_fringe cpt = MAP (TOK ## I) cf ⇒
       ∃cpt' spt' ppt'.
         valid_lptree G ppt' ∧ ptree_head ppt' = NT P ∧
         valid_lptree G spt' ∧ ptree_head spt' = SEP ∧
         valid_lptree G cpt' ∧ ptree_head cpt' = C ∧
-        ptree_fringe cpt' ++ ptree_fringe spt' ++ ptree_fringe ppt' =
-          MAP (TOK o FST) (pf ++ sf ++ cf) ∧
+        real_fringe cpt' ++ real_fringe spt' ++ real_fringe ppt' =
+          MAP (TOK ## I) (pf ++ sf ++ cf) ∧
         leftLoc (ptree_loc cpt') = leftLoc (ptree_loc ppt) ∧
         rightLoc (ptree_loc ppt') = rightLoc (ptree_loc cpt) ∧
         mkNd P [ppt; spt; cpt] = left_insert ppt' P spt' cpt'`,
@@ -1218,21 +1245,21 @@ val lassoc_reassociated = Q.store_thm(
   map_every qid_spec_tac [`cf`, `sf`, `pf`, `cpt`, `spt`, `ppt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_SING, valid_lptree_def] >>
-  conj_tac >- simp[FORALL_PROD] >>
+  conj_tac >- dsimp[FORALL_PROD] >>
   qx_gen_tac `subs` >> strip_tac >>
   simp[MAP_EQ_CONS, FORALL_PROD] >>
   reverse (rpt strip_tac) >> rveq >> fs[]
   >- (qpat_x_assum `!x. PP x` kall_tac >>
-      rename1 `ptree_fringe c0pt = MAP _ pf` >>
+      rename1 `real_fringe c0pt = MAP _ pf` >>
       map_every qexists_tac [`c0pt`, `spt`, `mkNd P [cpt]`] >>
       simp[] >> simp[mkNd_def]) >>
   fs [MAP_EQ_APPEND] >> rveq >>
   rename [`ptree_head ppt = NT P`, `[ppt; s0pt; c0pt]`,
           `ptree_head s0pt = ptree_head spt`,
           `ptree_head cpt = ptree_head c0pt`,
-          `ptree_fringe ppt = MAP _ pf`,
-          `ptree_fringe s0pt = MAP _ sf0`,
-          `ptree_fringe c0pt = MAP _ cf0`] >>
+          `real_fringe ppt = MAP _ pf`,
+          `real_fringe s0pt = MAP _ sf0`,
+          `real_fringe c0pt = MAP _ cf0`] >>
   first_x_assum (fn th =>
     qspec_then `ppt` (mp_tac o REWRITE_RULE []) th >>
     disch_then (mp_tac o assert (is_forall o concl))) >>
@@ -1569,7 +1596,6 @@ val stoppers_def = Define`
 `;
 val _ = export_rewrites ["stoppers_def"]
 
-(*
 fun attack_asmguard (g as (asl,w)) = let
   val (l,r) = dest_imp w
   val (h,c) = dest_imp l
@@ -1578,40 +1604,89 @@ in
 end g
 val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 
+val SUM_MAP_FOLDR = Q.store_thm(
+  "SUM_MAP_FOLDR",
+  `SUM (MAP f l) = FOLDR (λe a. a + f e) 0 l`,
+  Induct_on `l` >> simp[]);
+
+val real_fringe_ind = theorem "real_fringe_ind"
+val LENGTH_real_fringe = Q.store_thm(
+  "LENGTH_real_fringe",
+  ‘∀pt. LENGTH (real_fringe pt) = LENGTH (ptree_fringe pt)’,
+  ho_match_mp_tac real_fringe_ind >>
+  simp[FORALL_PROD, LENGTH_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+  simp[SUM_MAP_FOLDR] >> Induct >> simp[]);
+val rfringe_length_not_nullable = Q.prove(
+  ‘∀G s. ¬nullable G [s] ⇒
+         ∀pt. ptree_head pt = s ⇒ valid_lptree G pt ⇒
+              0 < LENGTH (real_fringe pt)’,
+  metis_tac[fringe_length_not_nullable, LENGTH_real_fringe, valid_lptree_def]);
+
+val real_fringe_mkNd = Q.store_thm(
+  "real_fringe_mkNd[simp]",
+  ‘real_fringe (mkNd n subs) = FLAT (MAP real_fringe subs)’,
+  simp[mkNd_def] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM]);
+
+val ptree_head_NT_mkNd = Q.store_thm(
+  "ptree_head_NT_mkNd",
+  ‘ptree_head pt = NN n ∧ valid_lptree cmlG pt ∧
+   real_fringe pt = MAP (TK ## I) pf ⇒
+   ∃subs. pt = mkNd (mkNT n) subs’,
+  Cases_on `pt`
+  >- (rename [`ptree_head (Lf pair)`] >> Cases_on `pair` >> simp[] >>
+      rw[valid_lptree_def] >> rename [`(NN _, _) = (TK ## I) pair`] >>
+      Cases_on `pair` >> fs[]) >>
+  rename [`ptree_head (Nd pair _)`] >> Cases_on `pair` >>
+  simp[MAP_EQ_CONS, valid_lptree_thm, mkNd_def, ptree_list_loc_def]);
+
+val mkNd_11 = Q.store_thm(
+  "mkNd_11[simp]",
+  ‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
+  csimp[mkNd_def]);
+
+val left_insert1_mkNd = Q.store_thm(
+  "left_insert1_mkNd",
+  ‘left_insert1 pt1 (mkNd (mkNT nEapp) [pt2]) =
+   mkNd (mkNT nEapp) [mkNd (mkNT nEapp) [pt1]; pt2]’,
+  simp[mkNd_def, left_insert1_def]);
+
 val eapp_complete = Q.store_thm(
   "eapp_complete",
   `(∀pt' pfx' sfx' N.
-       LENGTH pfx' < LENGTH master ∧ valid_ptree cmlG pt' ∧
+       LENGTH pfx' < LENGTH master ∧ valid_lptree cmlG pt' ∧
        mkNT N ∈ FDOM cmlPEG.rules ∧
-       ptree_head pt' = NN N ∧ ptree_fringe pt' = MAP TK pfx' ∧
-       (sfx' ≠ [] ⇒ HD sfx' ∈ stoppers N) ⇒
+       ptree_head pt' = NN N ∧ real_fringe pt' = MAP (TK ## I) pfx' ∧
+       (sfx' ≠ [] ⇒ FST (HD sfx') ∈ stoppers N) ⇒
        peg_eval cmlPEG (pfx' ++ sfx', nt (mkNT N) I) (SOME(sfx', [pt']))) ∧
     (∀pt' sfx'.
-       valid_ptree cmlG pt' ∧ ptree_head pt' = NN nEbase ∧
-       ptree_fringe pt' = MAP TK master ∧
-       (sfx' ≠ [] ⇒ HD sfx' ∈ stoppers nEbase) ⇒
+       valid_lptree cmlG pt' ∧ ptree_head pt' = NN nEbase ∧
+       real_fringe pt' = MAP (TK ## I) master ∧
+       (sfx' ≠ [] ⇒ FST (HD sfx') ∈ stoppers nEbase) ⇒
        peg_eval cmlPEG (master ++ sfx', nt (mkNT nEbase) I) (SOME (sfx', [pt'])))
     ⇒
      ∀pfx apt sfx.
-       IS_SUFFIX master pfx ∧ valid_ptree cmlG apt ∧
-       ptree_head apt = NN nEapp ∧ ptree_fringe apt = MAP TK pfx ∧
-       (sfx ≠ [] ⇒ HD sfx ∈ stoppers nEapp) ⇒
+       IS_SUFFIX master pfx ∧ valid_lptree cmlG apt ∧
+       ptree_head apt = NN nEapp ∧ real_fringe apt = MAP (TK ## I) pfx ∧
+       (sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers nEapp) ⇒
        peg_eval cmlPEG (pfx ++ sfx, nt (mkNT nEapp) I) (SOME(sfx, [apt]))`,
   strip_tac >>
   simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, (*list_case_lemma, *)
-       peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM] >>
+       peg_eval_rpt, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM,
+       valid_lptree_thm] >>
   gen_tac >>
   completeInduct_on `LENGTH pfx` >> qx_gen_tac `pfx` >> strip_tac >>
   rveq >> fs[GSYM RIGHT_FORALL_IMP_THM] >>
   map_every qx_gen_tac [`apt`, `sfx`] >> strip_tac >>
-  `∃subs. apt = Nd (mkNT nEapp) subs`
-    by (Cases_on `apt` >> fs[MAP_EQ_CONS] >> rw[]) >>
-  fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied] >> rw[] >>
+  `∃subs. apt = mkNd (mkNT nEapp) subs`
+    by metis_tac[ptree_head_NT_mkNd] >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
+  rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-  >- (asm_match `ptree_head apt = NN nEapp` >>
-      asm_match `ptree_fringe apt = MAP TK af` >>
-      asm_match `ptree_head bpt = NN nEbase` >>
-      asm_match `ptree_fringe bpt = MAP TK bf` >>
+  >- (rename [`ptree_head apt = NN nEapp`,
+              `real_fringe apt = MAP _ af`,
+              `ptree_head bpt = NN nEbase`,
+              `real_fringe bpt = MAP _ bf`] >>
       qspecl_then [`apt`, `bpt`, `af`, `bf`] mp_tac eapp_reassociated >>
       simp[MAP_EQ_APPEND, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM]>>
       disch_then (qxchl [`apt'`, `bpt'`, `bf'`, `af'`] strip_assume_tac) >>
@@ -1621,8 +1696,8 @@ val eapp_complete = Q.store_thm(
         by (Q.UNDISCH_THEN `af ++ bf = bf' ++ af'` SUBST_ALL_TAC >>
             fs[rich_listTheory.IS_SUFFIX_compute] >>
             imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >> fs[]) >>
-      erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Ebase) >>
-      erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eapp) >>
+      erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Ebase) >>
+      erule mp_tac (MATCH_MP rfringe_length_not_nullable nullable_Eapp) >>
       simp[] >> ntac 2 strip_tac >>
       `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
       conj_tac
@@ -1638,13 +1713,13 @@ val eapp_complete = Q.store_thm(
       fs[] >> rveq >>
       qexists_tac `[bpt2]::blist` >>
       simp[Once peg_eval_cases, left_insert1_FOLDL,
-           left_insert1_def] >> metis_tac[]) >>
-  asm_match `ptree_head bpt = NN nEbase` >>
+           left_insert1_mkNd] >> metis_tac[]) >>
+  rename [`ptree_head bpt = NN nEbase`] >>
   map_every qexists_tac [`[bpt]`, `sfx`, `[]`] >>
-  simp[left_insert1_def] >> reverse conj_tac
+  simp[] >> reverse conj_tac
   >- (simp[Once peg_eval_cases] >>
-      Cases_on `sfx` >>
-      fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE]) >>
+      Cases_on `sfx` >> fs[not_peg0_peg_eval_NIL_NONE] >>
+      rename [`FST h ≠ LetT`] >> Cases_on `h` >> fs[peg_respects_firstSets]) >>
   first_x_assum (kall_tac o assert (is_forall o concl)) >>
   fs[rich_listTheory.IS_SUFFIX_compute] >>
   imp_res_tac rich_listTheory.IS_PREFIX_LENGTH >>
@@ -1654,6 +1729,7 @@ val eapp_complete = Q.store_thm(
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]);
 
+(*
 val leftmost_FOLDL = Q.store_thm(
   "leftmost_FOLDL",
   `leftmost (FOLDL (λa b. Nd (mkNT nDType) [a;b]) acc args) =
@@ -2985,15 +3061,6 @@ val completeness = Q.store_thm(
   simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM,
      peg_eval_tok_NONE] *))
-
-(* two valid parse-trees with the same head, and the same fringes, which
-   are all tokens, must be identical. *)
-val real_fringe_def = tDefine "real_fringe" `
-  (real_fringe (Lf t) = [t]) ∧
-  (real_fringe (Nd n ptl) = FLAT (MAP real_fringe ptl))
-` (WF_REL_TAC `measure ptree_size` >> Induct_on `ptl` >> dsimp[] >>
-   fs[] >> rpt strip_tac >> res_tac >> simp[]);
-
 
 val cmlG_unambiguous = Q.store_thm(
   "cmlG_unambiguous",
