@@ -321,21 +321,6 @@ val v_to_char_list = Q.prove (
   every_case_tac >>
   full_simp_tac(srw_ss())[v_rel_eqn, exhSemTheory.v_to_char_list_def]);
 
-val vs_to_w8s = Q.prove(
-  `∀s1 v1 s2 v2 ws.
-    LIST_REL (v_rel genv) v1 v2 ∧
-    LIST_REL (sv_rel (v_rel genv)) s1 s2 ⇒
-    vs_to_w8s s1 v1 = SOME ws ⇒
-    vs_to_w8s s2 v2 = SOME ws`,
-  ho_match_mp_tac conSemTheory.vs_to_w8s_ind
-  \\ rw[conSemTheory.vs_to_w8s_def,exhSemTheory.vs_to_w8s_def]
-  \\ pop_assum mp_tac
-  \\ every_case_tac \\ fs[] \\ rveq
-  \\ rw[exhSemTheory.vs_to_w8s_def]
-  \\ fs[store_lookup_def,LIST_REL_EL_EQN]
-  \\ first_x_assum drule
-  \\ simp[semanticPrimitivesPropsTheory.sv_rel_cases]);
-
 val vs_to_string = Q.prove(
   `∀v1 v2 s.
     LIST_REL (v_rel genv) v1 v2 ⇒
@@ -388,14 +373,6 @@ val do_app_lem = Q.prove (
     full_simp_tac(srw_ss())[state_rel_def] >> NO_TAC)
   \\ TRY (
     rename1`exhSem$v_to_list`
-    \\ rename1`exhSem$vs_to_w8s`
-    \\ imp_res_tac v_to_list \\ fs[state_rel_def]
-    \\ imp_res_tac vs_to_w8s \\ fs[]
-    \\ tac >>
-    Cases_on`n < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
-    strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[] >> NO_TAC)
-  \\ TRY (
-    rename1`exhSem$v_to_list`
     \\ rename1`exhSem$vs_to_string`
     \\ imp_res_tac v_to_list \\ fs[state_rel_def]
     \\ imp_res_tac vs_to_string \\ fs[] >> NO_TAC)
@@ -416,7 +393,7 @@ val do_app_lem = Q.prove (
     NO_TAC)
   \\ (tac >> fsrw_tac[ARITH_ss][LIST_REL_EL_EQN,EL_LUPDATE] >>
       metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def,
-                 GREATER_EQ, NOT_LESS, LIST_REL_EL_EQN, PAIR_EQ]));
+                 NOT_SOME_NONE, SOME_11, GREATER_EQ, NOT_LESS, LIST_REL_EL_EQN, PAIR_EQ]));
 
 val do_app = Q.prove(
   `∀s1 op vs s2 res exh s1_exh vs_exh.

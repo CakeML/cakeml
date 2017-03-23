@@ -121,13 +121,6 @@ val v_to_char_list = Q.prove (
   BasicProvers.EVERY_CASE_TAC >>
   full_simp_tac(srw_ss())[compile_v_def, patSemTheory.v_to_char_list_def]);
 
-val vs_to_w8s = Q.prove(
-  `∀s vs ws.
-    vs_to_w8s (MAP (map_sv compile_v) s) (MAP compile_v vs) = vs_to_w8s s vs`,
-  ho_match_mp_tac exhSemTheory.vs_to_w8s_ind
-  \\ rw[exhSemTheory.vs_to_w8s_def,patSemTheory.vs_to_w8s_def,store_lookup_def,EL_MAP]
-  \\ match_mp_tac EQ_SYM \\ TOP_CASE_TAC \\ fs[]);
-
 val vs_to_string = Q.prove(
   `∀v. vs_to_string (MAP compile_v v) = vs_to_string v`,
   ho_match_mp_tac exhSemTheory.vs_to_string_ind
@@ -150,8 +143,8 @@ val do_app = Q.prove(
   rfs [store_v_same_type_def, LUPDATE_MAP,map_replicate] >>
   imp_res_tac v_to_list >>
   imp_res_tac v_to_char_list >>
-  fs[vs_to_w8s, vs_to_string] >>
-  last_x_assum mp_tac >>
+  fs[vs_to_string] >>
+  TRY (last_x_assum mp_tac) >>
   TOP_CASE_TAC \\ fs[] \\ rw[exhSemTheory.Boolv_def]);
 
 (* pattern compiler correctness *)
@@ -1126,20 +1119,6 @@ val v_to_char_list_v_rel_none = Q.prove(
   res_tac >> fs[] >> fs[Once v_rel_cases] >>
   fs[patSemTheory.v_to_char_list_def]);
 
-val vs_to_w8s_v_rel = Q.prove(
-  `∀s1 l1 s2 l2.
-   LIST_REL v_rel l1 l2 ∧
-   LIST_REL (sv_rel v_rel) s1 s2 ⇒
-   vs_to_w8s s2 l2 = vs_to_w8s s1 l1`,
-  ho_match_mp_tac patSemTheory.vs_to_w8s_ind
-  \\ rw[patSemTheory.vs_to_w8s_def,exhSemTheory.vs_to_w8s_def]
-  \\ fs[v_rel_cases]
-  \\ rw[patSemTheory.vs_to_w8s_def,exhSemTheory.vs_to_w8s_def]
-  \\ fs[store_lookup_def] \\ fs[LIST_REL_EL_EQN]
-  \\ rw[] \\ fs[]
-  \\ every_case_tac \\ fs[]
-  \\ metis_tac[sv_rel_cases, store_v_distinct, NOT_SOME_NONE, SOME_11, store_v_11]);
-
 val vs_to_string_v_rel = Q.prove(
   `∀l1 l2.
     LIST_REL v_rel l1 l2 ⇒
@@ -1200,14 +1179,12 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
       `v_rel (Conv tag vs1) (Conv tag vs2)`
       by ( simp[Once v_rel_cases] ) >>
       imp_res_tac v_to_list_v_rel >> fs[] >>
-      imp_res_tac vs_to_w8s_v_rel >> fs[] >>
       imp_res_tac vs_to_string_v_rel >> fs[] >> NO_TAC) >>
     TRY (
       rename1`v_to_list (Conv tag vs1) = SOME _` >>
       `v_rel (Conv tag vs1) (Conv tag vs2)`
       by ( simp[Once v_rel_cases] ) >>
       imp_res_tac v_to_list_v_rel >> fs[] >>
-      imp_res_tac vs_to_w8s_v_rel >> fs[] >>
       imp_res_tac vs_to_string_v_rel >> fs[] >> NO_TAC) >>
     TRY (
       rename1`v_to_char_list (Conv tag vs1) = NONE`
@@ -1239,9 +1216,8 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ res_tac \\ fs[sv_rel_cases] \\ fs[] \\ rw[]
     \\ NO_TAC ) >>
   TRY (
-    rename1`v_to_list v1 = SOME _` >>
+    rename1`patSem$v_to_list v1 = SOME _` >>
     imp_res_tac v_to_list_v_rel >> fs[] >>
-    imp_res_tac vs_to_w8s_v_rel >> fs[] >>
     imp_res_tac vs_to_string_v_rel >> fs[] >>
     fs[LIST_REL_EL_EQN] >>
     simp[Once v_rel_cases,LIST_REL_EL_EQN] >> NO_TAC) >>

@@ -491,13 +491,6 @@ val v_to_list_compile = Q.store_thm("v_to_list_compile[simp]",
   ho_match_mp_tac v_to_list_ind \\ rw[v_to_list_def]
   \\ every_case_tac \\ fs[]);
 
-val vs_to_w8s_compile = Q.store_thm("vs_to_w8s_compile[simp]",
-  `∀refs vs. vs_to_w8s (MAP compile_store_v refs) (MAP compile_v vs) = vs_to_w8s refs vs`,
-  ho_match_mp_tac vs_to_w8s_ind
-  \\ rw[vs_to_w8s_def,semanticPrimitivesTheory.store_lookup_def,EL_MAP]
-  \\ match_mp_tac EQ_SYM
-  \\ TOP_CASE_TAC \\ fs[compile_store_v_def]);
-
 val vs_to_strings_compile = Q.store_thm("vs_to_strings_compile[simp]",
   `∀vs. vs_to_string (MAP compile_v vs) = vs_to_string vs`,
   ho_match_mp_tac vs_to_string_ind \\ rw[vs_to_string_def]);

@@ -41,11 +41,13 @@ val _ = Define `
     (op <> Opassign) ∧
     (op <> Aw8update) ∧
     (op <> Aw8alloc) ∧
-    (op <> Aw8concat) ∧
     (op <> Aw8sub) ∧
     (op <> Vsub) ∧
     (op <> Strsub) ∧
-    (op <> StrToW8Array) ∧
+    (op <> CopyStrStr) ∧
+    (op <> CopyStrAw8) ∧
+    (op <> CopyAw8Str) ∧
+    (op <> CopyAw8Aw8) ∧
     (op <> Chr) ∧
     (op <> Aupdate) ∧
     (op <> Aalloc) ∧
@@ -146,10 +148,12 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
-  | Aw8concat => F
   | Vsub => F
   | Strsub => F
-  | StrToW8Array => F
+  | CopyStrStr => F
+  | CopyStrAw8 => F
+  | CopyAw8Str => F
+  | CopyAw8Aw8 => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F
@@ -170,10 +174,12 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   | Aw8update => F
   | Aw8alloc => F
   | Aw8sub => F
-  | Aw8concat => F
   | Vsub => F
   | Strsub => F
-  | StrToW8Array => F
+  | CopyStrStr => F
+  | CopyStrAw8 => F
+  | CopyAw8Str => F
+  | CopyAw8Aw8 => F
   | Chr => F
   | Aupdate => F
   | Aalloc => F
