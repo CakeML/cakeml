@@ -138,6 +138,143 @@ val pegsym_to_sym_def = Define`
   pegsym_to_sym _ = {}
 `
 
+val real_fringe_def = tDefine "real_fringe" `
+  (real_fringe (Lf t) = [t]) ∧
+  (real_fringe (Nd n ptl) = FLAT (MAP real_fringe ptl))
+` (WF_REL_TAC `measure ptree_size` >> Induct_on `ptl` >> dsimp[] >>
+   fs[] >> rpt strip_tac >> res_tac >> simp[]);
+val _ = export_rewrites ["real_fringe_def"]
+
+val MAP_TKI_11 = Q.store_thm(
+  "MAP_TKI_11[simp]",
+  ‘(MAP (TK ## I) l1 = MAP (TK ## I) l2) ⇔ (l1 = l2)’,
+  irule INJ_MAP_EQ_IFF >> simp[INJ_DEF, FORALL_PROD]);
+
+val SUM_MAP_FOLDR = Q.store_thm(
+  "SUM_MAP_FOLDR",
+  `SUM (MAP f l) = FOLDR (λe a. a + f e) 0 l`,
+  Induct_on `l` >> simp[]);
+
+val real_fringe_ind = theorem "real_fringe_ind"
+val LENGTH_real_fringe = Q.store_thm(
+  "LENGTH_real_fringe",
+  ‘∀pt. LENGTH (real_fringe pt) = LENGTH (ptree_fringe pt)’,
+  ho_match_mp_tac real_fringe_ind >>
+  simp[FORALL_PROD, LENGTH_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
+  simp[SUM_MAP_FOLDR] >> Induct >> simp[]);
+
+val valid_locs_def = tDefine "valid_locs" ‘
+  (valid_locs (Lf _) ⇔ T) ∧
+  (valid_locs (Nd (_, l) children) ⇔
+     l = merge_list_locs (MAP ptree_loc children) ∧
+     ∀pt. MEM pt children ⇒ valid_locs pt)’
+  (WF_REL_TAC ‘measure ptree_size’ >> simp[] >> Induct >> dsimp[] >>
+   rpt strip_tac >> res_tac >> simp[]);
+val _ = export_rewrites ["valid_locs_def"]
+
+val valid_ptree_mkNd = Q.store_thm(
+  "valid_ptree_mkNd[simp]",
+  ‘valid_ptree G (mkNd N subs) ⇔
+     N ∈ FDOM G.rules ∧ MAP ptree_head subs ∈ G.rules ' N ∧
+     ∀pt. MEM pt subs ⇒ valid_ptree G pt’,
+  simp[mkNd_def]);
+
+val ptree_head_mkNd = Q.store_thm(
+  "ptree_head_mkNd[simp]",
+  ‘ptree_head (mkNd N subs) = NT N’,
+  simp[mkNd_def]);
+
+val merge_locs_assoc = Q.store_thm(
+  "merge_locs_assoc[simp]",
+  ‘merge_locs (merge_locs l1 l2) l3 = merge_locs l1 l3 ∧
+   merge_locs l1 (merge_locs l2 l3) = merge_locs l1 l3’,
+  map_every Cases_on [`l1`, `l2`, `l3`] >>
+  simp[locationTheory.merge_locs_def]);
+
+val merge_list_locs_2 = Q.store_thm(
+  "merge_list_locs_2[simp]",
+  ‘∀h1 h2 t.
+     merge_list_locs (h1 :: h2 :: t) = merge_list_locs (merge_locs h1 h2 :: t)’,
+  Induct_on ‘t’ >> simp[locationTheory.merge_list_locs_def]);
+
+val merge_list_locs_nested = Q.store_thm(
+  "merge_list_locs_nested[simp]",
+  ‘∀h t1 t2. merge_list_locs (merge_list_locs (h::t1) :: t2) =
+             merge_list_locs (h :: t1 ++ t2)’,
+  Induct_on ‘t1’ >> simp[locationTheory.merge_list_locs_def]);
+
+val merge_list_locs_sing = Q.store_thm(
+  "merge_list_locs_sing[simp]",
+  ‘merge_list_locs [h] = h’,
+  simp[locationTheory.merge_list_locs_def]);
+
+val merge_locs_idem = Q.store_thm(
+  "merge_locs_idem[simp]",
+  ‘merge_locs l l = l’,
+  Cases_on ‘l’ >> simp[locationTheory.merge_locs_def]);
+
+val ptree_list_loc_def = grammarTheory.ptree_list_loc_def
+val ptree_list_loc_SING = Q.store_thm(
+  "ptree_list_loc_SING[simp]",
+  ‘ptree_list_loc [pt] = ptree_loc pt’,
+  simp[ptree_list_loc_def]);
+
+val ptree_fringe_mkNd = Q.store_thm(
+  "ptree_fringe_mkNd[simp]",
+  ‘ptree_fringe (mkNd N subs) = FLAT (MAP ptree_fringe subs)’,
+  simp[mkNd_def]);
+
+val valid_locs_mkNd = Q.store_thm(
+  "valid_locs_mkNd[simp]",
+  ‘valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt’,
+  simp[mkNd_def, ptree_list_loc_def]);
+
+val valid_lptree_def = Define `
+  valid_lptree G pt ⇔ valid_locs pt ∧ valid_ptree G pt
+`;
+
+val valid_lptree_thm = Q.store_thm(
+  "valid_lptree_thm[simp]",
+  ‘(valid_lptree G (Lf p) ⇔ T) ∧
+   (valid_lptree G (Nd (n, l) children) ⇔
+      l = merge_list_locs (MAP ptree_loc children) ∧
+      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
+      ∀pt. MEM pt children ⇒ valid_lptree G pt) ∧
+   (valid_lptree G (mkNd n children) ⇔
+      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
+      ∀pt. MEM pt children ⇒ valid_lptree G pt)’,
+  simp[valid_lptree_def] >> metis_tac[]);
+
+val rfringe_length_not_nullable = Q.store_thm(
+  "rfringe_length_not_nullable",
+  ‘∀G s. ¬nullable G [s] ⇒
+         ∀pt. ptree_head pt = s ⇒ valid_lptree G pt ⇒
+              0 < LENGTH (real_fringe pt)’,
+  metis_tac[fringe_length_not_nullable, LENGTH_real_fringe, valid_lptree_def]);
+
+val real_fringe_mkNd = Q.store_thm(
+  "real_fringe_mkNd[simp]",
+  ‘real_fringe (mkNd n subs) = FLAT (MAP real_fringe subs)’,
+  simp[mkNd_def] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM]);
+
+val ptree_head_NT_mkNd = Q.store_thm(
+  "ptree_head_NT_mkNd",
+  ‘ptree_head pt = NN n ∧ valid_lptree cmlG pt ∧
+   real_fringe pt = MAP (TK ## I) pf ⇒
+   ∃subs. pt = mkNd (mkNT n) subs’,
+  Cases_on `pt`
+  >- (rename [`ptree_head (Lf pair)`] >> Cases_on `pair` >> simp[] >>
+      rw[valid_lptree_def] >> rename [`(NN _, _) = (TK ## I) pair`] >>
+      Cases_on `pair` >> fs[]) >>
+  rename [`ptree_head (Nd pair _)`] >> Cases_on `pair` >>
+  simp[MAP_EQ_CONS, mkNd_def, ptree_list_loc_def]);
+
+val mkNd_11 = Q.store_thm(
+  "mkNd_11[simp]",
+  ‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
+  csimp[mkNd_def]);
+
 val peg_linfix_correct_lemma = Q.store_thm(
   "peg_linfix_correct_lemma",
   `∀UpperN sym sepsym i0 i pts.
@@ -147,20 +284,22 @@ val peg_linfix_correct_lemma = Q.store_thm(
          LENGTH i0' < LENGTH i0 ⇒
          peg_eval cmlPEG (i0',s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
-              valid_ptree cmlG pt ∧ MAP (TK o FST) i0' = ptree_fringe pt ++ MAP (TK o FST) i) ∧
+              valid_lptree cmlG pt ∧
+              MAP (TK ## I) i0' = real_fringe pt ++ MAP (TK ## I) i) ∧
       (∀i pts s.
          s ∈ {sym; sepsym} ⇒
          peg_eval cmlPEG (i0, s) (SOME(i,pts)) ⇒
          ∃pt. pts = [pt] ∧ ptree_head pt ∈ pegsym_to_sym s ∧
-              valid_ptree cmlG pt ∧ MAP (TK o FST) i0 = ptree_fringe pt ++ MAP (TK o FST) i) ∧
+              valid_lptree cmlG pt ∧
+              MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i) ∧
       ¬peg0 cmlPEG sym ∧
       UpperN ∈ FDOM cmlG.rules ∧
       {[gsym] | gsym ∈ pegsym_to_sym sym } ⊆ cmlG.rules ' UpperN ∧
       {[NT UpperN; gsep; gsym] |
           gsep ∈ pegsym_to_sym sepsym ∧ gsym ∈ pegsym_to_sym sym } ⊆
         cmlG.rules ' UpperN ⇒
-      ∃pt. pts = [pt] ∧ ptree_head pt = NT UpperN ∧ valid_ptree cmlG pt ∧
-           MAP (TK o FST) i0 = ptree_fringe pt ++ MAP (TK o FST) i`,
+      ∃pt. pts = [pt] ∧ ptree_head pt = NT UpperN ∧ valid_lptree cmlG pt ∧
+           MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i`,
   rpt strip_tac >> qpat_x_assum `peg_eval X Y Z` mp_tac >>
   simp[peg_linfix_def, peg_eval_rpt, peg_eval_seq_SOME] >>
   rpt strip_tac >> rveq >>
@@ -172,13 +311,13 @@ val peg_linfix_correct_lemma = Q.store_thm(
   `∃i2. i2 = i1 ∧ LENGTH i2 ≤ LENGTH i1` by simp[] >>
   Q.UNDISCH_THEN `i2 = i1` (SUBST1_TAC o SYM) >>
   `∃acc. MAP ptree_head acc ∈ cmlG.rules ' UpperN ∧
-         (∀pt. MEM pt acc ⇒ valid_ptree cmlG pt) ∧
-         [rpt1] = acc ∧ ptree_fringe rpt1 = FLAT (MAP ptree_fringe acc)`
+         (∀pt. MEM pt acc ⇒ valid_lptree cmlG pt) ∧
+         [rpt1] = acc ∧ real_fringe rpt1 = FLAT (MAP real_fringe acc)`
     by (simp[] >> fs[SUBSET_DEF]) >>
   ntac 2 (pop_assum (CHANGED_TAC o SUBST1_TAC)) >> ntac 2 (pop_assum mp_tac) >>
   pop_assum mp_tac >> simp[AND_IMP_INTRO, GSYM CONJ_ASSOC] >>
   map_every qid_spec_tac [`acc`, `i2`,`i`, `l`] >>
-  Induct >- simp[Once peg_eval_cases, mk_linfix_def, mkNd_def] >>
+  Induct >- simp[Once peg_eval_cases, mk_linfix_def] >>
   simp[Once peg_eval_cases] >>
   simp[peg_eval_seq_SOME, GSYM LEFT_EXISTS_AND_THM, GSYM RIGHT_EXISTS_AND_THM,
        GSYM LEFT_FORALL_IMP_THM, GSYM RIGHT_FORALL_IMP_THM] >>
@@ -204,7 +343,7 @@ val peg_linfix_correct_lemma = Q.store_thm(
   simp[DISJ_IMP_THM, FORALL_AND_THM] >>
   `[NT UpperN; ptree_head sep_pt; ptree_head sym_pt] ∈ cmlG.rules ' UpperN`
     by fs[SUBSET_DEF] >>
-  simp[mkNd_def]);
+  simp[]);
 
 val length_no_greater = Q.store_thm(
   "length_no_greater",
@@ -253,13 +392,16 @@ val peg_EbaseParen_sound = Q.store_thm(
         peg_eval cmlPEG (i0', nt (mkNT N) I) (SOME(i,pts)) ⇒
         ∃pt.
            pts = [pt] ∧ ptree_head pt = NT (mkNT N) ∧
-          valid_ptree cmlG pt ∧ MAP (TOK o FST) i0' = ptree_fringe pt ++ MAP (TOK o FST) i) ⇒
+           valid_lptree cmlG pt ∧
+           MAP (TOK ## I) i0' = real_fringe pt ++ MAP (TOK ## I) i) ⇒
       ∃pt.
         pts = [pt] ∧ ptree_head pt = NT (mkNT nEbase) ∧
-        valid_ptree cmlG pt ∧ MAP (TOK o FST) i0 = ptree_fringe pt ++ MAP (TOK o FST) i`,
+        valid_lptree cmlG pt ∧
+        MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`,
   rw[peg_EbaseParen_def]
   >- (rlresolve X (K true) mp_tac >> simp[] >> strip_tac >> rveq >>
-      simp[peg_EbaseParenFn_def, cmlG_FDOM, cmlG_applied, DISJ_IMP_THM, mkNd_def])
+      simp[peg_EbaseParenFn_def, cmlG_FDOM, cmlG_applied, DISJ_IMP_THM,
+           pairTheory.PAIR_MAP])
   >- (rlresolve KEEP (free_in ``nE``) mp_tac >>
       rpt kill_asm_guard >> strip_tac >> rveq >>
       rlresolve X (free_in ``nElist1``) mp_tac >>
@@ -268,7 +410,7 @@ val peg_EbaseParen_sound = Q.store_thm(
       simp[] >> rw[] >>
       rpt (qpat_x_assum`_ = FST _`(assume_tac o SYM)) >> rw[] >>
       simp[peg_EbaseParenFn_def, cmlG_applied, cmlG_FDOM,
-           DISJ_IMP_THM, FORALL_AND_THM, mkNd_def]) >>
+           DISJ_IMP_THM, FORALL_AND_THM, pairTheory.PAIR_MAP]) >>
   rlresolve KEEP (free_in ``nE``) mp_tac >> rpt kill_asm_guard >>
   strip_tac >> rveq >>
   rlresolve X (free_in ``nEseq``) mp_tac >>
@@ -277,15 +419,20 @@ val peg_EbaseParen_sound = Q.store_thm(
   simp[] >> rpt strip_tac >>rveq >>
   rpt (qpat_x_assum`_ = FST _`(assume_tac o SYM)) >>
   simp[peg_EbaseParenFn_def, cmlG_applied, cmlG_FDOM,
-       DISJ_IMP_THM, FORALL_AND_THM, mkNd_def] >> fs[])
+       DISJ_IMP_THM, FORALL_AND_THM, pairTheory.PAIR_MAP] >> fs[])
+
+val PAIR_MAP_I = Q.prove(
+  ‘(f ## I) x = (f (FST x), SND x) ⇔ T’,
+  simp[PAIR_MAP]);
+val _ = augment_srw_ss [rewrites [PAIR_MAP_I]]
 
 val peg_sound = Q.store_thm(
   "peg_sound",
   `∀N i0 i pts.
        peg_eval cmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NT N ∧
-            valid_ptree cmlG pt ∧
-            MAP (TOK o FST) i0 = ptree_fringe pt ++ MAP (TOK o FST) i`,
+            valid_lptree cmlG pt ∧
+            MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`,
   ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
   map_every qid_spec_tac [`i0`, `N`, `iN`] >>
   qispl_then [`measure (LENGTH:(token # locs) list->num) LEX measure NT_rank`]
@@ -297,7 +444,7 @@ val peg_sound = Q.store_thm(
   map_every qx_gen_tac [`N`, `i0`, `i`, `pts`] >> strip_tac >>
   simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
-  simp[cmlPEGTheory.cmlpeg_rules_applied]
+  simp[cmlPEGTheory.cmlpeg_rules_applied, ptree_list_loc_def]
   >- (print_tac "nNonETopLevelDecs" >>
       `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nNonETopLevelDecs)`
         by simp[NT_rank_def] >>
@@ -382,7 +529,7 @@ val peg_sound = Q.store_thm(
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
   >- (print_tac "nStructName" >> simp[peg_StructName_def] >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM, PAIR_MAP])
   >- (print_tac "nOptionalSignatureAscription" >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
       loseC ``NT_rank`` >> dsimp[MAP_EQ_SING] >> csimp[] >> fs[] >>
@@ -477,10 +624,10 @@ val peg_sound = Q.store_thm(
                          DECIDE``x≤y ⇔ x = y ∨ x < y:num``] >> fs[]>>
           `LENGTH i2 < SUC (LENGTH i1)` by decide_tac >>
           first_x_assum (erule strip_assume_tac) >> rveq >>
-          simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> dsimp[])
-      >- (dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[] >>
+          simp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> dsimp[PAIR_MAP])
+      >- (dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
           metis_tac[DECIDE ``x<SUC x``])
-      >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[] >>
+      >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
           metis_tac[DECIDE``x<SUC x``])
       >- (`NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
@@ -523,8 +670,7 @@ val peg_sound = Q.store_thm(
       imp_res_tac length_no_greater >> fs[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
       lrresolve X (free_in ``nPatternList``) mp_tac >> simp[] >>
-      strip_tac >> rveq >> dsimp[] >> rfs[] >>
-      metis_tac[])
+      strip_tac >> rveq >> dsimp[] >> rfs[PAIR_MAP])
   >- (print_tac "nPattern" >> strip_tac >> rveq >>
       `NT_rank (mkNT nPcons) < NT_rank (mkNT nPattern)` by simp[NT_rank_def] >>
       simp[cmlG_FDOM, cmlG_applied]
@@ -599,7 +745,7 @@ val peg_sound = Q.store_thm(
       asm_match `destLongidT t = SOME(m,v)` >> Cases_on `t` >> fs[])
   >- (print_tac "nUQConstructorName" >>
       simp[peg_UQConstructorName_def] >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM, FORALL_PROD])
   >- (print_tac "nDconstructor" >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nDconstructor)`
         by simp[NT_rank_def] >>
@@ -634,7 +780,8 @@ val peg_sound = Q.store_thm(
       dsimp[cmlG_FDOM, cmlG_applied, mktokLf_def, MAP_EQ_SING] >> csimp[] >>
       fs[] >> pop_assum (mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[pegsym_to_sym_def, cmlG_applied, cmlG_FDOM, SUBSET_DEF,
-           DISJ_IMP_THM, FORALL_AND_THM, EXISTS_PROD] >> dsimp[])
+           DISJ_IMP_THM, FORALL_AND_THM, EXISTS_PROD] >>
+      dsimp[ptree_list_loc_def])
   >- (print_tac "nTyVarList" >> strip_tac >>
       `NT_rank (mkNT nTyvarN) < NT_rank (mkNT nTyVarList)`
         by simp[NT_rank_def] >>
@@ -672,14 +819,12 @@ val peg_sound = Q.store_thm(
       fs[] >> rveq >> fs[])
   >- (print_tac "nPType" >>
       `NT_rank (mkNT nDType) < NT_rank (mkNT nPType)` by simp[NT_rank_def] >>
-      simp[EXISTS_PROD] >>
       strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM]
       >- (first_x_assum (erule mp_tac) >>
-          simp[MAP_EQ_APPEND, MAP_EQ_CONS, EXISTS_PROD] >>
+          simp[MAP_EQ_APPEND, MAP_EQ_CONS] >>
           strip_tac >> rveq >> lrresolve X (free_in ``nPType``) mp_tac >>
-          rename[`MAP (TK o FST) input1 = MAP (TK o FST) input1'`] >>
-          `LENGTH input1' = LENGTH input1` by metis_tac[LENGTH_MAP] >>
-          simp[] >> strip_tac >> rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
+          simp[] >> strip_tac >> rveq >>
+          fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
           dsimp[] >> metis_tac[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[]) >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
@@ -760,11 +905,11 @@ val peg_sound = Q.store_thm(
       `∃i2. LENGTH i2 < LENGTH i0 ∧ i1 = i2` by simp[] >>
       pop_assum SUBST1_TAC >> pop_assum mp_tac >>
       `∃acc.
-         ptree_head acc = NN nDType ∧ valid_ptree cmlG acc ∧
-         ptree_fringe base_pt ++ MAP (TK o FST) i2 =
-           ptree_fringe acc ++ MAP (TK o FST) i2 ∧
+         ptree_head acc = NN nDType ∧ valid_lptree cmlG acc ∧
+         real_fringe base_pt ++ MAP (TK ## I) i2 =
+           real_fringe acc ++ MAP (TK ## I) i2 ∧
          mkNd (mkNT nDType) [base_pt] = acc`
-        by (simp[cmlG_FDOM, cmlG_applied, mkNd_def]) >>
+        by (simp[cmlG_FDOM, cmlG_applied]) >>
       ntac 2 (pop_assum SUBST1_TAC) >> ntac 2 (pop_assum mp_tac) >>
       map_every qid_spec_tac [`acc`, `i2`, `i`, `tyops`] >> Induct
       >- (simp[Once peg_eval_cases] >>
@@ -781,15 +926,13 @@ val peg_sound = Q.store_thm(
       first_x_assum
         (qspecl_then [`i`, `i3`, `mkNd (mkNT nDType) [acc; tyop_pt2]`]
                      mp_tac)>>
-      simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM, mkNd_def])
-  >- (print_tac "nType" >> simp[peg_eval_choice, EXISTS_PROD] >>
+      simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
+  >- (print_tac "nType" >> simp[peg_eval_choice] >>
       `NT_rank (mkNT nPType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
           fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
           lrresolve X (free_in ``nType``) mp_tac >>
-          rename[`MAP (TK o FST) inp1 = MAP (TK o FST) inp1'`] >>
-          `LENGTH inp1' = LENGTH inp1` by metis_tac[LENGTH_MAP] >>
           simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied] >>
           metis_tac[]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
@@ -1022,7 +1165,7 @@ val peg_sound = Q.store_thm(
            FORALL_AND_THM, SUBSET_DEF] >> simp[NT_rank_def, EXISTS_PROD])
   >- (print_tac "nEseq" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nEseq)` by simp[NT_rank_def] >>
-      simp[EXISTS_PROD] >> strip_tac >> rveq >>
+      strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND, MAP_EQ_CONS,
             listTheory.APPEND_EQ_CONS]
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> csimp[] >>
@@ -1033,8 +1176,7 @@ val peg_sound = Q.store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nEseq``) o concl)) >>
           simp[] >> strip_tac >> rveq >> simp[] >>
-          fs[MAP_EQ_APPEND, MAP_EQ_CONS, EXISTS_PROD] >> rveq >>
-          fs[MAP_EQ_APPEND] >> metis_tac[])
+          fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_APPEND])
       >- (DISJ2_TAC >>
           first_x_assum (fn patth =>
            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
@@ -1044,7 +1186,7 @@ val peg_sound = Q.store_thm(
       first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
       simp[NT_rank_def] >> strip_tac >> rveq >> simp[] >>
-      fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> metis_tac[])
+      fs[MAP_EQ_APPEND, MAP_EQ_CONS, PAIR_MAP] >> metis_tac[PAIR])
   >- (print_tac "nEbase" >>
       `NT_rank (mkNT nFQV) < NT_rank (mkNT nEbase) ∧
        NT_rank (mkNT nConstructorName) < NT_rank (mkNT nEbase)`
@@ -1085,7 +1227,7 @@ val peg_sound = Q.store_thm(
       simp[cmlG_applied, cmlG_FDOM] >> rename [`tk = StringT _`] >>
       Cases_on `tk` >> fs[])
   >- (print_tac "nOpID" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
-      fs[] >> rveq >> fs[])
+      fs[] >> rveq >> fs[PAIR_MAP])
   >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nListOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nRelOps" >> dsimp[EXISTS_PROD] >> strip_tac >> rveq >>
@@ -1114,16 +1256,16 @@ val peg_sound = Q.store_thm(
       qpat_x_assum `peg_eval G (i1, rpt X R) Y` mp_tac >>
       simp[peg_eval_rpt] >> disch_then (qxchl [`pts`] strip_assume_tac) >>
       rveq >>
-      `∃acc. ptree_fringe pt = FLAT (MAP ptree_fringe acc) ∧
+      `∃acc. real_fringe pt = FLAT (MAP real_fringe acc) ∧
              [pt] = acc ∧ MAP ptree_head acc ∈ cmlG.rules ' (mkNT nEapp) ∧
-             (∀pt. MEM pt acc ⇒ valid_ptree cmlG pt)`
+             (∀pt. MEM pt acc ⇒ valid_lptree cmlG pt)`
         by simp[cmlG_applied, cmlG_FDOM] >>
       ntac 2 (pop_assum mp_tac) >> ntac 2 (pop_assum SUBST1_TAC) >>
       Q.UNDISCH_THEN `LENGTH i1 < LENGTH i0` mp_tac >>
       qpat_x_assum `peg_eval_list X Y Z` mp_tac >>
       map_every qid_spec_tac [`i`, `i1`, `acc`, `pts`] >> Induct
-      >- simp[Once peg_eval_cases, cmlG_FDOM, mkNd_def] >>
-      simp[Once peg_eval_cases, mkNd_def] >>
+      >- simp[Once peg_eval_cases, cmlG_FDOM] >>
+      simp[Once peg_eval_cases] >>
       map_every qx_gen_tac [`pt'`, `acc`, `i2`, `i`] >>
       disch_then (qxchl [`i3`] strip_assume_tac) >>
       ntac 3 strip_tac >>
@@ -1132,11 +1274,11 @@ val peg_sound = Q.store_thm(
       rveq >> simp[] >>
       first_x_assum (assume_tac o MATCH_MP length_no_greater o
                      assert (free_in ``ebpt:mlptree`` o concl)) >>
-      simp[GSYM mkNd_def] >>
+      simp[] >>
       first_x_assum
         (qspecl_then [`[mkNd (mkNT nEapp) acc; ebpt]`, `i3`, `i`]
                      mp_tac) >>
-      rpt kill_asm_guard >> dsimp[cmlG_FDOM, cmlG_applied, mkNd_def])
+      rpt kill_asm_guard >> dsimp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nFQV" >>
       simp[peg_longV_def, pairTheory.EXISTS_PROD] >>
       strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
@@ -1148,6 +1290,6 @@ val peg_sound = Q.store_thm(
       asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>
   simp[peg_V_def, peg_eval_choice] >>
-  strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]);
+  strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied, PAIR_MAP]);
 
 val _ = export_theory()
