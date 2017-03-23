@@ -82,10 +82,8 @@ val _ = export_rewrites["do_eq_def"];
 val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'ffi bvlSem$state,bvlSem$v)result``)
 
 (* same as closSem$do_app, except:
-    - LengthByteVec, DerefByteVec, and ConcatByteVec are removed
-    - FromListByte and String produces ByteArrays rather than ByteVectors
-    - ByteVecToArr, ByteVecFromArr simply change the tag on the ByteArray
-    - ConcatByte respects compare-by-contents tag
+    - LengthByteVec and DerefByteVec are removed
+    - FromListByte, String, ConcatByteVec, and CopyByte work on ByteArrays rather than ByteVectors
     - Label is added *)
 
 val do_app_def = Define `
@@ -146,19 +144,16 @@ val do_app_def = Define `
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
-    | (ConcatByte fl,[lv]) =>
-        (case v_to_list lv of
-         | SOME vs =>
-           (case
-              (some wss. ∃ps.
-                v_to_list lv = SOME (MAP RefPtr ps) ∧
-                MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray fl) wss)
-            of SOME wss =>
-              let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-                Rval (RefPtr ptr, s with refs := s.refs |+
-                         (ptr,ByteArray fl (FLAT wss)))
-            | _ => Error)
-         | _ => Error)
+    | (ConcatByteVec,[lv]) =>
+         (case
+            (some wss. ∃ps.
+              v_to_list lv = SOME (MAP RefPtr ps) ∧
+              MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss)
+          of SOME wss =>
+            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+              Rval (RefPtr ptr, s with refs := s.refs |+
+                       (ptr,ByteArray T (FLAT wss)))
+          | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
@@ -173,20 +168,23 @@ val do_app_def = Define `
                          Rval (RefPtr ptr, s with refs := s.refs |+
                            (ptr,ByteArray T (MAP n2w ns)))
           | NONE => Error)
-    | (ByteVecToArr,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray T ws) =>
-             let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-               Rval (RefPtr ptr, s with refs := s.refs |+
-                     (ptr, ByteArray F ws))
+    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
+            | NONE => Error)
          | _ => Error)
-    | (ByteVecFromArr,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray F ws) =>
-             let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-               Rval (RefPtr ptr, s with refs := s.refs |+
-                     (ptr, ByteArray T ws))
-         | _ => Error)
+    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+       (case (FLOOKUP s.refs src) of
+        | SOME (ByteArray _ ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds =>
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+              Rval (RefPtr ptr, s with
+                    refs := s.refs |+ (ptr, ByteArray T ds))
+            | _ => Error)
+        | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>

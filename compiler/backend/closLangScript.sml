@@ -23,15 +23,13 @@ val _ = Datatype `
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
-     | ConcatByte bool  (* concatenate list of byte arrays *)
+     | ConcatByteVec (* concatenate list of byte vectors *)
+     | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromList num  (* convert list to packed Block *)
      | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
-     | ConcatByteVec (* concatenate list of byte vectors *)
-     | ByteVecToArr  (* convert ByteVector to ByteArray *)
-     | ByteVecFromArr(* convert ByteArray to ByteVector *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
      | Ref           (* makes a reference *)
@@ -89,8 +87,7 @@ val pure_op_def = Define `
     | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
-    | (ConcatByte _) => F
-    | ByteVecToArr => F
+    | CopyByte F => F
     | Ref => F
     | Update => F
     | _ => T
