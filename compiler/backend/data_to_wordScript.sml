@@ -872,7 +872,7 @@ local val assign_quotation = `
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
         | _ => (Skip,l))
-    | BoundsCheckByte =>
+    | BoundsCheckByte F =>
      (dtcase args of
       | [v1;v2] => (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in

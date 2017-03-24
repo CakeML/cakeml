@@ -11,6 +11,26 @@ val vector_tag_def = Define`vector_tag = 0:num`
    in closLang can make more assumptions about the arguments.
 *)
 
+fun var_fun m n = ``closLang$Var ^(numSyntax.term_of_int(m-n))``;
+
+fun check1 tm var =
+``(If (Op Less [Op (Const 0) []; ^(var 2)]) (Raise (Op (Cons subscript_tag) []))
+  (If (Op Less [Op (Const 0) []; ^(var 1)]) (Raise (Op (Cons subscript_tag) []))
+  (If (Op (BoundsCheckByte T) [Op Add [^(var 2); ^(var 1)]; ^(var 0)]) ^tm
+  (Raise (Op (Cons subscript_tag) [])))))``;
+
+val checkT = check1
+  ``(closLang$Op (CopyByte T) [Var 0; Var 1; Var 2])`` (var_fun 2);
+
+val checkF = check1
+``(If (Op Less [Op (Const 0) []; Var 0]) (Raise (Op (Cons subscript_tag) []))
+  (If (Op (BoundsCheckByte T) [Op Add [Var 2; Var 0]; Var 1])
+     (Op (CopyByte F) [Var 0; Var 1; Var 2; Var 3; Var 4])
+     (Raise (Op (Cons subscript_tag) []))))`` (var_fun 4);
+
+val CopyByteStr_def = Define`CopyByteStr = ^checkT`;
+val CopyByteAw8_def = Define`CopyByteAw8 = ^checkF`;
+
 val compile_def = tDefine"compile"`
   (compile (Raise e) =
     Raise (compile e)) ∧
@@ -106,22 +126,20 @@ val compile_def = tDefine"compile"`
           (Op (RefByte F) [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Aw8sub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 0; Var 1])
+      (If (Op (BoundsCheckByte F) [Var 0; Var 1])
          (Op DerefByte [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Aw8length)) es) =
     Op LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aw8update)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 1; Var 2])
+      (If (Op (BoundsCheckByte F) [Var 1; Var 2])
          (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
            (Op (Cons tuple_tag) []))
          (Raise (Op (Cons subscript_tag) [])))) ∧
-  (compile (App (Op (Op Aw8concat)) es) =
-     Op (ConcatByte F) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strsub)) es) =
     Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 0; Var 1])
+      (If (Op (BoundsCheckByte F) [Var 0; Var 1])
          (Op DerefByteVec [Var 0; Var 1])
          (Raise (Op (Cons subscript_tag) [])))) ∧
   (compile (App (Op (Op Implode)) es) =
@@ -130,10 +148,14 @@ val compile_def = tDefine"compile"`
     Op LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Strcat)) es) =
     Op ConcatByteVec (REVERSE (MAP compile es))) ∧
-  (compile (App (Op (Op StrFromW8Array)) es) =
-    Op ByteVecFromArr (REVERSE (MAP compile es))) ∧
-  (compile (App (Op (Op StrToW8Array)) es) =
-    Op ByteVecToArr (REVERSE (MAP compile es))) ∧
+  (compile (App (Op (Op CopyStrStr)) es) =
+    Let (REVERSE (MAP compile es)) CopyByteStr) ∧
+  (compile (App (Op (Op CopyStrAw8)) es) =
+    Let (REVERSE (MAP compile es)) CopyByteAw8) ∧
+  (compile (App (Op (Op CopyAw8Str)) es) =
+    Let (REVERSE (MAP compile es)) CopyByteStr) ∧
+  (compile (App (Op (Op CopyAw8Aw8)) es) =
+    Let (REVERSE (MAP compile es)) CopyByteAw8) ∧
   (compile (App (Op (Op VfromList)) es) =
     Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Vsub)) es) =

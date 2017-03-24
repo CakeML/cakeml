@@ -57,6 +57,11 @@ val compile_state_ffi = Q.store_thm("compile_state_ffi[simp]",
   `(compile_state w s).ffi = s.ffi`,
   EVAL_TAC);
 
+val compile_state_with_refs_const = Q.store_thm("compile_state_with_refs_const[simp]",
+  `(compile_state w (s with refs := r)).globals = (compile_state w s).globals ∧
+   (compile_state w (s with refs := r)).code = (compile_state w s).code`,
+  EVAL_TAC);
+
 val FLOOKUP_compile_state_refs = Q.store_thm("FLOOKUP_compile_state_refs",
   `FLOOKUP (compile_state w s).refs =
    OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `,
@@ -121,19 +126,6 @@ val v_to_list = Q.store_thm("v_to_list",
   ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
   rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
-
-val vs_to_w8s = Q.store_thm("vs_to_w8s",
-  `∀refs vs ws. vs_to_w8s refs vs = SOME ws ⇒
-   ∃ps wss.
-     MAP compile_v vs = MAP RefPtr ps ∧
-     MAP (OPTION_MAP compile_sv o combin$C store_lookup refs) ps =
-     MAP (SOME o ByteArray F) wss ∧ ws = FLAT wss`,
-  ho_match_mp_tac vs_to_w8s_ind
-  \\ rw[vs_to_w8s_def]
-  \\ every_case_tac \\ fs[] \\ rveq
-  \\ rename1`store_lookup p refs = SOME (W8array ws)`
-  \\ qexists_tac`p::ps` \\ qexists_tac`ws::wss`
-  \\ simp[]);
 
 val vs_to_string = Q.store_thm("vs_to_string",
   `∀vs ws. vs_to_string vs = SOME ws ⇒
@@ -313,6 +305,49 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     simp[MAP_MAP_o,n2w_ORD_CHR_w2n,EL_MAP,Unit_def] >>
     rfs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
     TRY (
+      rename1`CopyByteStr`
+      \\ rw[CopyByteStr_def]
+      \\ fs[evaluate_def,do_app_def,do_eq_def,copy_array_def,store_lookup_def]
+      \\ IF_CASES_TAC \\ fs[INT_NOT_LT]
+      \\ IF_CASES_TAC \\ fs[INT_NOT_LT]
+      \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ fs[FLOOKUP_compile_state_refs,store_lookup_def]
+      \\ rename1`off + len ≤ &LENGTH str`
+      \\ `off + len ≤ &LENGTH str ⇔ ¬(LENGTH str < Num (off + len))` by COOPER_TAC
+      \\ simp[]
+      \\ IF_CASES_TAC \\ simp[]
+      \\ simp[MAP_TAKE,MAP_DROP,ws_to_chars_def,MAP_MAP_o,o_DEF,ORD_CHR,w2n_lt_256]
+      \\ NO_TAC ) \\
+    TRY (
+      rename1`CopyByteAw8`
+      \\ rw[CopyByteAw8_def]
+      \\ fs[evaluate_def,do_app_def,do_eq_def,copy_array_def,store_lookup_def]
+      \\ TRY IF_CASES_TAC \\ fs[INT_NOT_LT] \\ TRY COOPER_TAC
+      \\ TRY IF_CASES_TAC \\ fs[INT_NOT_LT]
+      \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ fs[FLOOKUP_compile_state_refs,store_lookup_def]
+      \\ rename1`off + len ≤ &LENGTH str`
+      \\ `off + len ≤ &LENGTH str ⇔ ¬(LENGTH str < Num (off + len))` by COOPER_TAC
+      \\ simp[]
+      \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ fs[ws_to_chars_def]
+      \\ TRY IF_CASES_TAC \\ fs[] \\ TRY COOPER_TAC
+      \\ TRY IF_CASES_TAC \\ fs[] \\ TRY COOPER_TAC
+      \\ simp[FLOOKUP_compile_state_refs,store_lookup_def]
+      \\ fs[INT_NOT_LT]
+      \\ simp[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ rename1`dstoff + len ≤ &LENGTH ds`
+      \\ `dstoff + len ≤ &LENGTH ds ⇔ ¬(LENGTH ds < Num (dstoff + len))` by COOPER_TAC
+      \\ simp[]
+      \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ TRY IF_CASES_TAC \\ fs[ws_to_chars_def] \\ TRY COOPER_TAC
+      \\ fs[Unit_def,store_assign_def]
+      \\ simp[state_component_equality,FLOOKUP_compile_state_refs,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
+      \\ rw[store_lookup_def,EL_LUPDATE,chars_to_ws_def,MAP_TAKE,MAP_DROP,MAP_MAP_o]
+      \\ simp[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+      \\ simp[o_DEF,ORD_CHR,w2n_lt_256,integer_wordTheory.i2w_def]
+      \\ `F` by COOPER_TAC) \\
+    TRY (
       rename1`do_shift sh n wz w`
       \\ Cases_on`wz` \\ Cases_on`w` \\ fs[]
       \\ rw[] \\ NO_TAC) >>
@@ -356,15 +391,6 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ simp[FORALL_PROD]
       \\ NO_TAC) >>
     imp_res_tac v_to_list \\ fs[] >>
-    TRY (
-      rename1`vs_to_w8s` >>
-      DEEP_INTRO_TAC some_intro >>
-      imp_res_tac vs_to_w8s \\ fs[] >>
-      reverse conj_tac >- metis_tac[] >>
-      rw[] >>
-      imp_res_tac INJ_MAP_EQ >> fs[INJ_DEF] >>
-      imp_res_tac INJ_MAP_EQ >> fs[INJ_DEF] >>
-      NO_TAC ) >>
     TRY (
       rename1`v_to_char_list` >>
       imp_res_tac v_to_char_list \\ fs[] >>
@@ -549,7 +575,7 @@ val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
   `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`,
   strip_tac >>
   ho_match_mp_tac compile_ind >>
-  simp[compile_def,contains_App_SOME_def] >>
+  simp[compile_def,contains_App_SOME_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
   rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
@@ -561,7 +587,7 @@ val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
 val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   `∀e. every_Fn_vs_NONE[compile e]`,
   ho_match_mp_tac compile_ind >>
-  rw[compile_def] >>
+  rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
   fs[EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST] >>
@@ -570,7 +596,7 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
 val set_globals_eq = Q.store_thm("set_globals_eq",
   `∀e. set_globals e = set_globals (compile e)`,
   ho_match_mp_tac compile_ind >>
-  rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse]
+  rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse,CopyByteStr_def,CopyByteAw8_def]
   >>
     TRY
     (TRY(qpat_x_assum`LENGTH es ≠ A` kall_tac)>>
@@ -584,7 +610,7 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `∀e. esgc_free e ⇒ esgc_free (compile e)`,
   ho_match_mp_tac compile_ind >>
-  rw[compile_def] >>
+  rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq]
   >- (Induct_on`es`>>fs[set_globals_eq])

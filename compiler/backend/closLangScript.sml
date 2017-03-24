@@ -55,7 +55,7 @@ val _ = Datatype `
      | WordToInt
      | BoundsCheckBlock
      | BoundsCheckArray
-     | BoundsCheckByte
+     | BoundsCheckByte bool (* T = loose (<=) bound *)
      | LessConstSmall num`
 
 val _ = Datatype `

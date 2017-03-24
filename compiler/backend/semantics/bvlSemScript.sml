@@ -262,12 +262,12 @@ val do_app_def = Define `
          | [Block tag ys; Number i] =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Error)
-    | (BoundsCheckByte,xs) =>
+    | (BoundsCheckByte loose,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ByteArray _ ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+               Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
     | (BoundsCheckArray,xs) =>

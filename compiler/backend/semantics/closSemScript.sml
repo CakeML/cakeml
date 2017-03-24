@@ -272,12 +272,12 @@ val do_app_def = Define `
          | _ => Error)
     | (BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
-    | (BoundsCheckByte,[ByteVector bs; Number i]) =>
-        Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
-    | (BoundsCheckByte,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckByte loose,[ByteVector bs; Number i]) =>
+        Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
+    | (BoundsCheckByte loose,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray _ ws) =>
-             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+             Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
     | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
