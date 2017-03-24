@@ -375,7 +375,6 @@ val do_app_ssgc = Q.store_thm(
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, case_eq_thms, PULL_EXISTS, PULL_FORALL])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
                 integerTheory.INT_OF_NUM, integerTheory.INT_LT])
@@ -1121,6 +1120,12 @@ val state_rel_max_app = Q.store_thm("state_rel_max_app",
   `state_rel g s1 s2 ⇒ s1.max_app = s2.max_app`,
   rw[state_rel_def]);
 
+val ksrel_flookup_refs = Q.store_thm("ksrel_flookup_refs",
+  `ksrel g s1 s2 ∧ FLOOKUP s1.refs k = SOME v ⇒
+   ∃v'. FLOOKUP s2.refs k = SOME v' ∧ ref_rel (kvrel g) v v'`,
+  rw[ksrel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def]
+  \\  first_x_assum(qspec_then`k`mp_tac) \\ rw[]);
+
 (* ksrel necessary *)
 val ksrel_sga = Q.store_thm(
   "ksrel_sga",
@@ -1255,54 +1260,33 @@ val kvrel_op_correct_Rval = Q.store_thm(
    ∃v2 s2. do_app opn vs2 s02 = Rval(v2,s2) ∧ ksrel g s1 s2 ∧
            kvrel g v1 v2`,
   Cases_on `opn` >> simp[do_app_def, case_eq_thms, bool_case_eq, PULL_EXISTS] >>
-  TRY (rw[] >> fs[LIST_REL_EL_EQN] >> NO_TAC)
+  TRY (rw[] >> fs[LIST_REL_EL_EQN] >> NO_TAC) \\
+  TRY (rw[] >> fs[] >>
+       imp_res_tac ksrel_flookup_refs \\ fs[ksrel_def] >>
+       imp_res_tac fmap_rel_def \\ fs[] \\
+       rveq \\ fs[LIST_REL_EL_EQN] \\
+       TRY (CASE_TAC \\ fs[] \\ rveq \\ fs[]) \\
+       TRY (match_mp_tac fmap_rel_FUPDATE_same) \\ fs[]
+       \\ fs[LIST_REL_EL_EQN,OPTREL_def,LIST_REL_REPLICATE_same,EVERY2_LUPDATE_same]
+       \\ first_x_assum match_mp_tac \\ rw[] \\ fs[] \\ intLib.COOPER_TAC)
   >- (csimp[get_global_def] >> simp[ksrel_def] >>
       simp[LIST_REL_EL_EQN, OPTREL_def] >> rpt strip_tac >> rveq >>
       res_tac >> fs[] >> rveq >> simp[])
   >- (csimp[get_global_def, PULL_EXISTS] >> simp[ksrel_def] >> rw[] >>
       fs[LIST_REL_EL_EQN] >> rfs[] >> res_tac >> fs[OPTREL_def] >> fs[] >>
       simp[EL_LUPDATE, bool_case_eq] >> metis_tac[])
-  >- (rw[] >> fs[] >> fs[ksrel_def, OPTREL_def])
-  >- (rw[] >> fs[] >> fs[ksrel_def, fmap_rel_OPTREL_FLOOKUP] >>
-      rename1 `FLOOKUP _ PTR` >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def] >> rw[] >> fs[LIST_REL_EL_EQN])
-  >- (rw[] >> fs[] >> fs[ksrel_def, fmap_rel_OPTREL_FLOOKUP] >>
-      rename1 `FLOOKUP _ PTR` >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def] >> rw[] >> fs[LIST_REL_EL_EQN])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >> simp[] >>
-      irule fmap_rel_FUPDATE_same >> simp[])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >> simp[] >>
-      irule fmap_rel_FUPDATE_same >> simp[LIST_REL_REPLICATE_same])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
-      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[fmap_rel_OPTREL_FLOOKUP] >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def])
-  >- (rw[] >> fs[] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray bf barray)` >>
-      map_every qexists_tac [`bf`,`barray`] >> simp[] >> fs[ksrel_def] >>
-      reverse conj_tac >- simp[fmap_rel_FUPDATE_same] >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def])
   >- (rw[] >> fs[] >>
       imp_res_tac kvrel_v_to_list >> fs[ksrel_def] \\ rfs[] >>
       qpat_x_assum`_ = SOME wss`mp_tac >>
       DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
       DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
-      map_every qexists_tac[`wss`,`ps`] \\
+      map_every qexists_tac[`wss`] \\
       reverse conj_asm2_tac >- (
         fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,fmap_rel_def,FLOOKUP_DEF] \\
         rfs[EL_MAP] \\ rw[] \\ res_tac \\ res_tac \\ fs[] \\
         Cases_on`s02.refs ' (EL x ps)` \\ fs[] >>
         metis_tac[ref_rel_def,ref_11]) \\
-      ntac 3 strip_tac >>
-      reverse conj_asm2_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
-      match_mp_tac fmap_rel_FUPDATE_same >> fs[] \\
+      ntac 2 strip_tac >>
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
@@ -1316,80 +1300,7 @@ val kvrel_op_correct_Rval = Q.store_thm(
     rfs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP] \\
     fs[EVERY_MEM,EXISTS_MEM] \\
     metis_tac[v_11,integerTheory.INT_INJ,EL_MAP,o_THM,ORD_BOUND] )
-  >- (rw[] >> fs[] >>
-      qpat_x_assum`_ = SOME wss`mp_tac >>
-      DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
-      DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
-      imp_res_tac kvrel_v_to_list \\ fs[] \\
-      qexists_tac`wss` \\
-      reverse conj_asm2_tac >- (
-        fs[LIST_REL_EL_EQN,EL_MAP] \\
-        simp[LIST_EQ_REWRITE,EL_MAP] )
-      \\ rw[] \\
-      imp_res_tac INJ_MAP_EQ \\
-      fs[INJ_DEF] )
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
-      simp[fmap_rel_FUPDATE_same])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME _` >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def] )
-  >- (rw[] \\ fs[ksrel_def] >>
-      `FDOM s02.refs = FDOM s01.refs` by fs[fmap_rel_def] >>
-      simp[fmap_rel_FUPDATE_same])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ValueArray vas)` >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >>
-      rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-      simp[OPTREL_def, PULL_EXISTS] >> simp[LIST_REL_EL_EQN] >> rw[] >>
-      metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,
-                integerTheory.INT_OF_NUM, integerTheory.INT_LT])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ValueArray vas)` >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
-      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
-      `OPTREL (ref_rel (kvrel g))
-              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
-         by simp[] >> pop_assum mp_tac >>
-      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
-      rw[LIST_REL_EL_EQN] >- fs[] >> rename1 `PTR = kk` >>
-      Cases_on `PTR = kk` >> simp[]
-      >- (irule EVERY2_LUPDATE_same >> simp[LIST_REL_EL_EQN]) >>
-      rpt (first_x_assum (qspec_then `kk` mp_tac)) >>
-      simp[OPTREL_def, PULL_EXISTS] >> rw[] >> rw[])
-  >- (rw[ksrel_def, pair_case_eq] >> simp[] >> fs[] >>
-      simp[PULL_EXISTS] >> rename1 `FLOOKUP _ PTR = SOME (ByteArray bf bytes)` >>
-      `FLOOKUP s02.refs PTR = SOME (ByteArray bf bytes)`
-         by (fs[fmap_rel_OPTREL_FLOOKUP] >>
-             rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>
-             simp[OPTREL_def]) >> simp[] >>
-      simp[fmap_rel_FUPDATE_same])
-  >- (rw[] >> fs[] >> rw[] >> metis_tac[kvrel_do_eq])
-  >- (rw[] >> fs[pair_case_eq] >> rveq >> simp[])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ValueArray vas)` >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
-      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
-      `OPTREL (ref_rel (kvrel g))
-              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
-         by simp[] >> pop_assum mp_tac >>
-      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
-      rw[LIST_REL_EL_EQN])
-  >- (rw[] >> fs[] >> fs[ksrel_def] >>
-      rename1 `FLOOKUP _ PTR = SOME (ByteArray _ vas)` >>
-      fs[fmap_rel_OPTREL_FLOOKUP] >> rveq >>
-      simp[OPTREL_def, FLOOKUP_UPDATE, bool_case_eq] >>
-      `OPTREL (ref_rel (kvrel g))
-              (FLOOKUP s01.refs PTR) (FLOOKUP s02.refs PTR)`
-         by simp[] >> pop_assum mp_tac >>
-      simp_tac (srw_ss()) [OPTREL_def] >> simp[PULL_EXISTS] >>
-      rpt strip_tac >>
-      fs [METIS_PROVE [] ``b \/ v <=> ~b ==> v``] >>
-      rpt strip_tac >>
-      Cases_on `FLOOKUP s01.refs k` >> fs [] >>
-      first_x_assum (qspec_then `k` mp_tac) >> fs [OPTREL_def]));
+  >- (rw[] >> fs[] >> rw[] >> metis_tac[kvrel_do_eq]));
 
 val do_app_EQ_Rerr = Q.store_thm(
   "do_app_EQ_Rerr",
