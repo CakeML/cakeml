@@ -154,7 +154,7 @@ val ConcatByte_code_def = Define`
       (Let [Op El [Op (Const 0) []; Var 0]]
         (Let [Op LengthByte [Var 0]]
           (Let [Op (CopyByte F)
-                  [Var 1; Op (Const 0) []; Var 0; Var 4; Var 3]]
+                  [Var 3; Var 4; Var 0; Op (Const 0) []; Var 1]]
             (Call 0 (SOME ConcatByte_location)
               [Op El [Op (Const 1) []; Var 3];
                Op Add [Var 4; Var 1];

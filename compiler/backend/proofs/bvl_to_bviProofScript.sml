@@ -1,4 +1,4 @@
-open preamble
+open preamble mp_then
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
      bviSemTheory bviPropsTheory;
@@ -575,6 +575,95 @@ val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
   \\ simp[Abbr`refs`,fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
   \\ rw[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE]
   \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]);
+
+val evaluate_SumListLength_code = Q.store_thm("evaluate_SumListLength_code",
+  `∀lv ps wss n.
+   lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
+   v_to_list lv = SOME (MAP RefPtr ps) ∧
+   MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss
+   ⇒
+   ∃c.
+     evaluate
+       ([SND SumListLength_code],[lv;Number(&n)],inc_clock c s) =
+       (Rval [Number (&(n + LENGTH (FLAT wss)))],s)`,
+  recInduct v_to_list_ind \\ rw[v_to_list_def]
+  \\ fs[SumListLength_code_def]
+  >- (
+    rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id]
+    \\ qexists_tac`0` \\ rw[inc_clock_ZERO] )
+  \\ rfs[]
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`ps` \\ fs[]
+  \\ Cases_on`wss` \\ fs[]
+  \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
+        small_enough_int_def,bvl_to_bvi_id]
+  \\ fs[GSYM SumListLength_code_def]
+  \\ rw[find_code_def]
+  \\ CASE_TAC
+  \\ rename1`SumListLength_code = (arity,code)`
+  \\ `arity = 2` by fs[SumListLength_code_def]
+  \\ rw[]
+  \\ qmatch_asmsub_abbrev_tac`evaluate ([code'],_,_)`
+  \\ `code' = code` by fs[SumListLength_code_def]
+  \\ rw[]
+  \\ fs[Once CONJ_COMM]
+  \\ first_x_assum drule
+  \\ simp[]
+  \\ rename1`&LENGTH ls + &n`
+  \\ disch_then(qspec_then`LENGTH ls + n`(qx_choose_then`c`strip_assume_tac))
+  \\ qexists_tac`c+1`
+  \\ fs[inc_clock_def,dec_clock_def,integerTheory.INT_ADD]);
+
+val evaluate_ConcatByte_code = Q.store_thm("evaluate_ConcatByte_code",
+  `∀lv ps wss s ds1 ds2 ds3 n.
+   lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
+   lookup ConcatByte_location s.code = SOME (3,SND ConcatByte_code) ∧
+   v_to_list lv = SOME (MAP RefPtr ps) ∧ dst ∉ set ps ∧
+   MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss ∧
+   FLOOKUP s.refs dst = SOME (ByteArray T (ds1++ds2)) ∧
+   n = LENGTH ds1 ∧ LENGTH (FLAT wss) = LENGTH ds2
+   ⇒
+   ∃c.
+     evaluate
+       ([SND ConcatByte_code],[lv;Number(&n);RefPtr dst],inc_clock c s) =
+       (Rval [RefPtr dst], s with refs := s.refs |+ (dst, ByteArray T (ds1++FLAT wss)))`,
+  recInduct v_to_list_ind
+  \\ rw[v_to_list_def]
+  \\ rw[ConcatByte_code_def]
+  >- (
+    rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id]
+    \\ qexists_tac`0` \\ fs[inc_clock_ZERO,state_component_equality,fmap_eq_flookup,FLOOKUP_UPDATE]
+    \\ rw[] \\ fs[LENGTH_NIL_SYM] )
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`ps` \\ fs[]
+  \\ Cases_on`wss` \\ fs[]
+  \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,small_enough_int_def,
+        semanticPrimitivesTheory.copy_array_def]
+  \\ TRY intLib.COOPER_TAC
+  \\ rw[find_code_def,inc_clock_ZERO,bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ qpat_abbrev_tac`refs = s.refs |+ _`
+  \\ qmatch_assum_abbrev_tac`lookup x s.code = y`
+  \\ `lookup x (s with refs := refs).code = y` by simp[]
+  \\ map_every qunabbrev_tac[`x`,`y`]
+  \\ first_x_assum(first_assum o mp_then Any mp_tac)
+  \\ simp[]
+  \\ rename1`¬MEM dst ts`
+  \\ `MAP (FLOOKUP s.refs) ts = MAP (FLOOKUP refs) ts`
+  by (
+    rw[MAP_EQ_f,Abbr`refs`,FLOOKUP_UPDATE]
+    \\ rw[] \\ fs[] \\ NO_TAC)
+  \\ fs[]
+  \\ disch_then(first_assum o mp_then Any mp_tac) \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`(dst,ByteArray T ds)`
+  \\ `FLOOKUP refs dst = SOME (ByteArray T ds)` by simp[Abbr`refs`,FLOOKUP_UPDATE]
+  \\ simp[Abbr`ds`]
+  \\ fs[integerTheory.INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
+  \\ fs[TAKE_APPEND1,integerTheory.INT_ADD,DROP_APPEND2]
+  \\ rename1`ds1 ++ ws ++ _`
+  \\ disch_then(qspec_then`ds1 ++ ws`mp_tac)
+  \\ simp[] \\ disch_then(qx_choose_then`c`strip_assume_tac)
+  \\ qexists_tac`c+1`
+  \\ fs[inc_clock_def,dec_clock_def,state_component_equality,Abbr`refs`]);
 
 (* compiler correctness *)
 
