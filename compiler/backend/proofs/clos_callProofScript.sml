@@ -222,6 +222,12 @@ val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
   `state_rel g l s t ⇒ state_rel g l (s with clock := k) (t with clock := k)`,
   rw[state_rel_def]);
 
+val state_rel_flookup_refs = Q.store_thm("state_rel_flookup_refs",
+  `state_rel g l s t ∧ FLOOKUP s.refs k = SOME v ⇒
+   ∃v'. FLOOKUP t.refs k = SOME v' ∧ ref_rel (v_rel g l) v v'`,
+  rw[state_rel_def,fmap_rel_OPTREL_FLOOKUP]
+  \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[OPTREL_def]);
+
 (* syntactic properties of compiler *)
 
 val FST_code_list = Q.store_thm("FST_code_list[simp]",
@@ -1271,37 +1277,6 @@ val do_app_thm = Q.prove(
   \\ qspec_tac (`REVERSE a`,`xs`)
   \\ qspec_tac (`REVERSE v`,`ys`)
   \\ fs [REVERSE_REVERSE,LIST_REL_REVERSE_EQ,EVERY_REVERSE]
-  \\ Cases_on `∃fl. op = ConcatByte fl` THEN1 (
-    rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
-    fs[case_eq_thms] \\
-    Cases_on`fl` \\ fs[]
-    >- (every_case_tac \\ fs[]) \\
-    CASE_TAC \\ fs[PULL_EXISTS] \\
-    rename1`EVERY (wfv _ _) tt` \\
-    Cases_on`tt` \\ fs[] \\
-    Cases_on`v_to_list h` \\ fs[] \\
-    CASE_TAC \\ fs[] \\
-    conj_tac >- (
-      rw[wfv_state_def]
-      \\ match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)
-      \\ rw[] ) \\
-    rw[] \\
-    imp_res_tac v_to_list_thm \\ fs[v_rel_def] \\ rw[] \\
-    qpat_x_assum`$some _ = SOME _`mp_tac >>
-    DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\
-    DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
-    rename1`_ = MAP _ wss` \\
-    map_every qexists_tac[`wss`,`ps`] \\
-    reverse conj_asm2_tac >- (
-      fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,fmap_rel_def,FLOOKUP_DEF] \\
-      rfs[EL_MAP] \\ rw[] \\ res_tac \\ res_tac \\ fs[v_rel_def] \\
-      qmatch_rename_tac`rr = _` \\
-      Cases_on`rr` \\ metis_tac[ref_rel_def,ref_11]) \\
-    ntac 3 strip_tac >>
-    conj_asm1_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
-    match_mp_tac fmap_rel_FUPDATE_same >> fs[] \\
-    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
-    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   \\ Cases_on `op = ConcatByteVec` THEN1 (
     rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
     fs[case_eq_thms] \\
@@ -1321,36 +1296,15 @@ val do_app_thm = Q.prove(
     \\ rw[] \\
     imp_res_tac INJ_MAP_EQ \\
     fs[INJ_DEF] )
-  \\ Cases_on `op = ByteVecToArr` THEN1 (
-    rw[] \\ fs[do_app_def,state_rel_def] \\
-    CASE_TAC \\ fs[] \\
-    fs[case_eq_thms,PULL_EXISTS] \\
-    Cases_on`h` \\ fs[] \\
-    rename1`EVERY (wfv _ _) tt` \\
-    Cases_on`tt` \\ fs[] \\
-    conj_tac >- (
-      rw[wfv_state_def]
-      \\ match_mp_tac (CONJUNCT2 FEVERY_STRENGTHEN_THM)
-      \\ rw[] ) \\
-    simp[v_rel_def] \\ strip_tac \\
-    conj_asm1_tac >- ( fs[fmap_rel_def] ) >> fs[] >>
-    match_mp_tac fmap_rel_FUPDATE_same >> fs[] )
-  \\ Cases_on `op = ByteVecFromArr` THEN1 (
-    rw[] \\ fs[do_app_def,state_rel_def,PULL_EXISTS] \\
-    CASE_TAC \\ fs[] \\
-    fs[case_eq_thms,PULL_EXISTS] \\
-    Cases_on`h` \\ fs[] \\
-    rename1`EVERY (wfv _ _) tt` \\
-    Cases_on`tt` \\ fs[] \\
-    CASE_TAC \\ fs[] \\
-    CASE_TAC \\ fs[] \\
-    CASE_TAC \\ fs[] \\
-    rw[] \\ fs[v_rel_def] \\
-    fs[fmap_rel_OPTREL_FLOOKUP] \\
-    first_assum(qspec_then`n`mp_tac) \\
-    simp_tac(srw_ss())[Once OPTREL_def] \\
-    simp[] )
-  \\ Cases_on `op = BoundsCheckByte \/ op = BoundsCheckArray` THEN1
+  \\ Cases_on `?b. op = CopyByte b` THEN1 (
+    rpt gen_tac
+    \\ reverse TOP_CASE_TAC
+    >- ( rfs[do_app_def,case_eq_thms,bool_case_eq] \\ rw[] )
+    \\ TOP_CASE_TAC \\ rfs[]
+    \\ rfs[do_app_def,case_eq_thms,bool_case_eq] \\ rw[] \\ fs[v_rel_def]
+    \\ imp_res_tac state_rel_flookup_refs \\ fs[wfv_Boolv]
+    \\ fs[wfv_state_def,FEVERY_STRENGTHEN_THM,state_rel_def,fmap_rel_FUPDATE_same] )
+  \\ Cases_on `(?b. op = BoundsCheckByte b) \/ op = BoundsCheckArray` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs [v_rel_def]
     \\ fs [Boolv_def,v_rel_def]
     \\ rw [] \\ fs [fmap_rel_OPTREL_FLOOKUP] \\ CCONTR_TAC \\ fs []
