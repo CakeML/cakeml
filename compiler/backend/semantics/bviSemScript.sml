@@ -80,6 +80,7 @@ val do_app_aux_def = Define `
     | (AllocGlobal, _) => NONE
     | (String _, _) => NONE
     | (FromListByte, _) => NONE
+    | (ConcatByteVec, _) => NONE
     | _ => SOME NONE`
 
 val do_app_def = Define `
