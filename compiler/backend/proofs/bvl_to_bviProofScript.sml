@@ -185,6 +185,40 @@ val do_app_ok_lemma = Q.prove(
     simp[] >> res_tac >> full_simp_tac(srw_ss())[] >>
     simp[SUBSET_DEF])
   THEN1 (
+    fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr ptr)`
+    \\ qexists_tac`r.refs |+ (ptr,X)`
+    \\ simp[bv_ok_def] )
+  THEN1 (
+    fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`bv_ok _ (RefPtr ptr)`
+    \\ qexists_tac`r.refs |+ (ptr,X)`
+    \\ simp[bv_ok_def] )
+  THEN1 (
+    fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ TRY CASE_TAC \\ fs[]
+    \\ TRY CASE_TAC \\ rw[]
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF] )
+  THEN1 (
     rename1 `_ () = FromList n`
     \\ simp[bv_ok_def] >>
     imp_res_tac v_to_list_ok >>
