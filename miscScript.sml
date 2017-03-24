@@ -28,6 +28,13 @@ val SUBSET_IMP = Q.store_thm("SUBSET_IMP",
 
 val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
 
+val fmap_rel_FLOOKUP_imp = Q.store_thm("fmap_rel_FLOOKUP_imp",
+  `fmap_rel R f1 f2 ⇒
+   (FLOOKUP f1 k = NONE ⇒ FLOOKUP f2 k = NONE) ∧
+   (FLOOKUP f1 k = SOME v1 ⇒ ∃v2. FLOOKUP f2 k = SOME v2 ∧ R v1 v2)`,
+  rw[fmap_rel_OPTREL_FLOOKUP,OPTREL_def]
+  \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]);
+
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val oHD_thm = Q.store_thm("oHD_thm[simp]",
   `oHD [] = NONE ∧ oHD (h::t) = SOME h`,
