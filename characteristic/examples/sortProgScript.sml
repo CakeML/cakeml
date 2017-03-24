@@ -1,7 +1,7 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib;
 open cfTacticsLib basisFunctionsLib;
 open rofsFFITheory mlfileioProgTheory ioProgTheory;
-open quicksortProgTheory;
+open quicksortProgTheory ioProgLib;
 
 val _ = new_theory "sortProg";
 
@@ -38,10 +38,11 @@ val get_file_contents = process_topdecs `
         [] => get_file_contents FileIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
-    val sorted = quicksort String.compare contents_array
     in
-      List.app print sorted
-    end`;
+      (quicksort String.compare contents_array;
+       List.app print sorted)
+    end
+    handle FileIO.BadFileName => write_err "Cannot open file"`;
 
 val _ = append_prog get_file_contents;
 
@@ -227,11 +228,149 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
     simp [libTheory.the_def, GSYM LENGTH_NIL]) >>
   simp []);
 
+val validArg_filename = Q.store_thm ("validArg_filename",
+  `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
+  rw [commandLineFFITheory.validArg_def, FILENAME_def, EVERY_MEM,
+      mlstringTheory.LENGTH_explode]);
 
+val validArg_filename_list = Q.store_thm ("validArg_filename_list",
+  `!x v. EVERY validArg (MAP explode x) ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
+  Induct_on `x` >>
+  rw [LIST_TYPE_def, validArg_filename]);
+
+val files_contents_def = Define `
+  files_contents fs fnames =
+    MAP (\str. str ++ "\n")
+      (FLAT (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames))`;
+
+val sort_spec = Q.store_thm ("sort_spec",
+  `!cl fs out err output err_msg unit_v.
+    (* The below seems needed, but misplaced. The person calling sort shouldn't
+     * ensure this stuff, but rather the system *)
+    cl ≠ [] ∧ EVERY validArg cl ∧ STRLEN (CONCAT (MAP (λs. STRCAT s "\^@") cl)) < 257 ∧
+    (* Until we get STDIN unified with the file system *)
+    LENGTH cl > 1 ∧
+    wfFS fs ∧
+    UNIT_TYPE () unit_v ∧
+    CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+    (if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
+       err_msg = "" ∧
+       PERM output (files_contents fs (MAP implode cl)) ∧
+       SORTED $< output
+      else
+       output = [] ∧ err_msg = "Cannot open file")
+    ⇒
+    app (p : 'ffi ffi_proj)
+      ^(fetch_v "sort" (get_ml_prog_state ()))
+      [unit_v]
+      (ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err)
+      (POSTv unit_v'.
+        ROFS fs * COMMANDLINE cl * STDOUT (CONCAT output ++ out) * STDERR (err_msg ++ err) *
+        &UNIT_TYPE () unit_v')`,
+  xcf "sort" (get_ml_prog_state ()) >>
+  fs [UNIT_TYPE_def] >>
+  xmatch >>
+  rw [] >>
+  qabbrev_tac `fnames = TL (MAP implode cl)` >>
+  xhandle
+    `POST
+      (\unit_v2.
+       ROFS fs * COMMANDLINE cl * STDOUT (CONCAT output ++ out) * STDERR (err_msg ++ err) *
+       &(EVERY (\fname. inFS_fname fs fname) fnames ∧
+         UNIT_TYPE () unit_v2))
+      (\e. ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+           &(BadFileName_exn e ∧
+             EXISTS (\fname. ~inFS_fname fs fname) fnames))` >>
+  xsimpl
+  >- (
+    xlet
+      `POSTv a_v.
+         ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+         &UNIT_TYPE () a_v`
+    >- (
+      xret >>
+      xsimpl) >>
+    xlet
+      `POSTv args_v.
+        ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+        &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) args_v`
+    >- (
+      xapp >>
+      xsimpl >>
+      qexists_tac `ROFS fs * STDOUT out * STDERR err * GC` >>
+      qexists_tac `cl` >>
+      xsimpl) >>
+    xlet
+      `POST
+         (\strings_v.
+            ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+            &(LIST_TYPE STRING_TYPE
+               (MAP (\str. implode (str ++ "\n"))
+                 (REVERSE
+                   (FLAT
+                     (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames))))
+               strings_v ∧
+              EVERY (\fname. inFS_fname fs fname) fnames))
+         (\e.
+            ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+            &(BadFileName_exn e ∧
+              EXISTS (\fname. ~inFS_fname fs fname) fnames))` >>
+    xsimpl
+    >- (
+      `?command arg1 args. MAP implode cl = command::arg1::args`
+      by (
+        Cases_on `cl` >>
+        fs [] >>
+        Cases_on `t` >>
+        fs [] >>
+        metis_tac []) >>
+      fs [LIST_TYPE_def, Abbr `fnames`] >>
+      xmatch >>
+      xlet `POSTv nil_v. ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+             &LIST_TYPE STRING_TYPE [] nil_v`
+      >- (
+        xret >>
+        xsimpl >>
+        simp [LIST_TYPE_def]) >>
+      xapp >>
+      xsimpl >>
+      qexists_tac `COMMANDLINE cl * STDOUT out * STDERR err * GC` >>
+      qexists_tac `fs` >>
+      qexists_tac `arg1::args` >>
+      qexists_tac `[]` >>
+      xsimpl >>
+      fs [LIST_TYPE_def] >>
+      `MAP explode (MAP implode cl) = MAP explode (command::arg1::args)` by metis_tac [] >>
+      fs [MAP_MAP_o, combinTheory.o_DEF, mlstringTheory.explode_implode] >>
+      rw [validArg_filename] >>
+      induct_on `args` >>
+      rw [LIST_TYPE_def, validArg_filename, validArg_filename_list]) >>
+    qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
+    xlet
+      `POSTv array_v.
+         ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+         ARRAY array_v (MAP (\s. Litv (StrLit (explode s))) strings)`
+    >- (
+      cheat) >>
+    xlet
+      `POSTv u_v. SEP_EXISTS sorted.
+         ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
+         ARRAY array_v (MAP (\s. Litv (StrLit (explode s))) sorted) *
+         &(PERM sorted strings ∧ SORTED $< (MAP explode sorted))`
+    >- (
+      cheat) >>
+    cheat)
+  >- fs [UNIT_TYPE_def]
+  >- (
+    fs [BadFileName_exn_def] >>
+    xcases >>
+    xsimpl >>
+    fs [] >>
+    cheat));
 
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
-val (sem_thm,prog_tm) = ioProgLib.call_thm sort_st name spec
+val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
 val sort_prog_def = Define `sort = ^prog_tm`;
 val sort_semantics_thm =
   semantics_thm
@@ -239,6 +378,5 @@ val sort_semantics_thm =
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
   |> curry save_thm "sort_semantics_thm";
-
 
 val _ = export_theory ();

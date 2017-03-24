@@ -7,7 +7,7 @@ open mlarrayProgTheory;
 
 val _ = new_theory "quicksortProg";
 
-val _ = translation_extends"mlarrayProg";
+val _ = translation_extends"ioProg";
 
 val list_rel_perm_help = Q.prove (
   `!l1 l2.
