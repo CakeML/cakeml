@@ -3,7 +3,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
-     word_bignumProofTheory;
+     word_bignumProofTheory gen_gc_partialTheory;
 
 val _ = new_theory "data_to_wordProof";
 
@@ -440,6 +440,8 @@ val word_gc_move_def = Define `
            let m1 = (header_addr =+ Word (i << 2)) m1 in
              (Word (update_addr conf i w),v,pa1,m1,c))`
 
+
+
 val word_gc_move_roots_def = Define `
   (word_gc_move_roots conf ([],i,pa,old,m,dm) = ([],i,pa,m,T)) /\
   (word_gc_move_roots conf (w::ws,i,pa,old,m,dm) =
@@ -684,7 +686,7 @@ val NOT_is_fwd_ptr = Q.prove(
       is_fws_ptr_OR_10111,is_fws_ptr_OR_7,isWord_def,theWord_def,make_header_def,LET_DEF]);
 
 val word_gc_move_thm = Q.prove(
-  `(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+  `(copying_gc$gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     (word_heap curr heap conf * word_list pa xs * frame) (fun2set (m,dm)) /\
     (word_gc_move conf (word_addr conf x,n2w a,pa,curr,m,dm) =
@@ -698,7 +700,7 @@ val word_gc_move_thm = Q.prove(
       heap_length heap1 = heap_length heap /\
       c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1 /\
       pa1 = pa + bytes_in_word * n2w (heap_length h1)`,
-  reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[gc_move_def] THEN1
+  reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[copying_gcTheory.gc_move_def] THEN1
    (srw_tac[][] \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES]
     \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[word_addr_def,word_gc_move_def]
     \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
@@ -722,7 +724,7 @@ val word_gc_move_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[shift_around_under_big_shift]
     \\ full_simp_tac(srw_ss())[get_addr_def,select_shift_out]
     \\ full_simp_tac(srw_ss())[select_get_lowerbits,heap_length_def])
-  \\ rename1 `_ = SOME (DataElement addrs ll tt)`
+  \\ rename1 `_ = SOME (copying_gc$DataElement addrs ll tt)`
   \\ PairCases_on `tt`
   \\ full_simp_tac(srw_ss())[word_el_def]
   \\ `?h ts c5. word_payload addrs ll tt0 tt1 conf =
@@ -791,9 +793,9 @@ val word_gc_move_roots_thm = Q.prove(
         c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1 /\
         pa1 = pa + n2w (heap_length h1) * bytes_in_word`,
   Induct THEN1
-   (full_simp_tac(srw_ss())[gc_move_list_def,word_gc_move_roots_def,word_heap_def,SEP_CLAUSES]
+   (full_simp_tac(srw_ss())[copying_gcTheory.gc_move_list_def,word_gc_move_roots_def,word_heap_def,SEP_CLAUSES]
     \\ srw_tac[][] \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[gc_move_list_def,LET_THM]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[copying_gcTheory.gc_move_list_def,LET_THM]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -827,7 +829,7 @@ val word_gc_move_roots_thm = Q.prove(
 
 val word_gc_move_list_thm = Q.prove(
   `!x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 frame k k1.
-      (gc_move_list (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+      (copying_gc$gc_move_list (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
       heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
       (word_gc_move_list conf (k,n2w (LENGTH x),n2w a,pa,curr,m,dm) =
         (k1,i1,pa1,m1,c1)) /\
@@ -844,9 +846,9 @@ val word_gc_move_list_thm = Q.prove(
         k1 = k + n2w (LENGTH x) * bytes_in_word /\
         pa1 = pa + n2w (heap_length h1) * bytes_in_word`,
   Induct THEN1
-   (full_simp_tac(srw_ss())[gc_move_list_def,Once word_gc_move_list_def,word_heap_def,SEP_CLAUSES]
+   (full_simp_tac(srw_ss())[copying_gcTheory.gc_move_list_def,Once word_gc_move_list_def,word_heap_def,SEP_CLAUSES]
     \\ srw_tac[][] \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[gc_move_list_def,LET_THM]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[copying_gcTheory.gc_move_list_def,LET_THM]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -930,7 +932,7 @@ val word_gc_move_loop_thm = Q.prove(
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac gc_move_loop_ok \\ full_simp_tac(srw_ss())[]
-  \\ rename1 `HD h5 = DataElement l5 n5 b5`
+  \\ rename1 `HD h5 = copying_gc$DataElement l5 n5 b5`
   \\ Cases_on `h5` \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_x_assum `word_gc_move_loop _ _ _ = _` mp_tac
@@ -976,7 +978,7 @@ val word_gc_move_loop_thm = Q.prove(
   \\ Cases_on `word_bit 2 h` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[]
   THEN1
-   (full_simp_tac(srw_ss())[gc_move_list_def] \\ rpt var_eq_tac
+   (full_simp_tac(srw_ss())[copying_gcTheory.gc_move_list_def] \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[heap_length_def,el_length_def,SUM_APPEND]
     \\ qpat_x_assum `!xx. nn` mp_tac
@@ -6882,7 +6884,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ qunabbrev_tac `heap`
     \\ simp_tac std_ss [word_heap_APPEND,word_heap_def,heap_length_APPEND,
          SEP_CLAUSES,word_el_def]
-    \\ simp_tac std_ss [EVAL ``heap_length [Unused k]``]
+    \\ simp_tac std_ss [EVAL ``copying_gc$heap_length [Unused k]``]
     \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
     \\ simp_tac std_ss [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
