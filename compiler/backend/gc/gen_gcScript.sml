@@ -1,6 +1,6 @@
 open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory;
 
-val _ = new_theory "basic_gc";
+val _ = new_theory "gen_gc";
 
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
@@ -8,7 +8,7 @@ val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equal
    implementation is a pre-stage to the generational GC. *)
 
 val _ = Datatype `
-  basic_gc_conf =
+  gen_gc_conf =
     <| limit : num
      ; isRef : 'a -> bool
      |>`;
@@ -142,8 +142,8 @@ val gc_move_loop_def = Define `
       if clock = 0 then state with <| ok := F |>
       else gc_move_loop conf state (clock-1)`;
 
-val basic_gc_def = Define `
-  basic_gc conf (roots,heap) =
+val gen_gc_def = Define `
+  gen_gc conf (roots,heap) =
     let ok0 = (heap_length heap = conf.limit) in
       let state = empty_state
           with <| heap := heap
@@ -1623,11 +1623,11 @@ val gc_inv_init = store_thm("gc_inv_init",
 (*   \\ strip_tac *)
 (*   \\ decide_tac); *)
 
-val basic_gc_thm = store_thm("basic_gc_thm",
+val gen_gc_thm = store_thm("gen_gc_thm",
   ``!conf roots heap.
     roots_ok roots heap /\ heap_ok heap conf.limit ==>
     ?state.
-      (basic_gc conf (roots,heap) =
+      (gen_gc conf (roots,heap) =
       (ADDR_MAP (heap_map1 state.heap) roots,state)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 state.heap)) /\
       gc_inv conf state heap /\
@@ -1637,7 +1637,7 @@ val basic_gc_thm = store_thm("basic_gc_thm",
       (state.r2 = [])``,
   rpt strip_tac
   \\ imp_res_tac gc_inv_init
-  \\ fs [basic_gc_def]
+  \\ fs [gen_gc_def]
   \\ pairarg_tac \\ fs []
   \\ drule gc_move_list_thm
   \\ disch_then (qspec_then `roots` mp_tac)
@@ -1696,17 +1696,17 @@ val heap_lookup_IMP_heap_addresses = save_thm("heap_lookup_IMP_heap_addresses",
       |> SIMP_RULE std_ss []
       |> GEN_ALL);
 
-val basic_gc_LENGTH = store_thm("basic_gc_LENGTH",
+val gen_gc_LENGTH = store_thm("gen_gc_LENGTH",
   ``roots_ok roots heap /\
     heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
     ?roots' state.
-      (basic_gc conf (roots:'a heap_address list,heap) =
+      (gen_gc conf (roots:'a heap_address list,heap) =
         (roots',state))``,
   rw []
-  \\ imp_res_tac basic_gc_thm
+  \\ imp_res_tac gen_gc_thm
   \\ fs []
   \\ rpt strip_tac
-  \\ fs [basic_gc_def,gc_inv_def,LET_THM]);
+  \\ fs [gen_gc_def,gc_inv_def,LET_THM]);
 
 val heap_lookup_AND_APPEND_IMP = prove(
   ``!xs n ys d d1.
@@ -1790,19 +1790,19 @@ val heap_lookup_PREPEND_EXTEND = prove(
   \\ fs [APPEND]
   \\ fs [heap_lookup_CONS_IMP]);
 
-val basic_gc_ok = store_thm("basic_gc_ok",
+val gen_gc_ok = store_thm("gen_gc_ok",
   ``!conf roots heap.
     roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
     ?state roots' heap'.
       (heap' = state.h1 ++ heap_expand state.n ++ state.r1) /\
-      (basic_gc conf (roots:'a heap_address list,heap) =
+      (gen_gc conf (roots:'a heap_address list,heap) =
         (roots',state)) /\
       state.ok /\
       (* state.a + state.r <= conf.limit /\ *)
       roots_ok roots' heap' /\
       heap_ok heap' conf.limit``,
   rpt strip_tac
-  \\ drule basic_gc_thm
+  \\ drule gen_gc_thm
   \\ disch_then drule
   \\ strip_tac
   \\ fs [gc_inv_def]
@@ -1892,16 +1892,16 @@ val heap_lookup_EXTEND = store_thm("heap_lookup_EXTEND",
                 (heap_lookup n (xs ++ ys) = SOME x)``,
   Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def] \\ SRW_TAC [] []);
 
-val basic_gc_related = store_thm("basic_gc_related",
+val gen_gc_related = store_thm("gen_gc_related",
   ``!conf roots heap.
     roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
     ?state f.
-      (basic_gc conf (roots:'a heap_address list,heap) =
+      (gen_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
   rpt strip_tac
-  \\ drule basic_gc_thm
+  \\ drule gen_gc_thm
   \\ disch_then drule
   \\ strip_tac \\ fs []
   \\ qexists_tac `heap_map 0 state.heap`
