@@ -3001,17 +3001,25 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     simp[stubs_def] >>
     IF_CASES_TAC >> simp[] >- (
       `F` suffices_by srw_tac[][] >> pop_assum mp_tac >> EVAL_TAC ) >>
-    rpt gen_tac >> strip_tac >>
+    rpt gen_tac \\
     rpt (
       IF_CASES_TAC >- (
         `F` suffices_by srw_tac[][] >>
         pop_assum mp_tac >> EVAL_TAC >> decide_tac)) >>
-    simp[] >>
+    simp_tac std_ss [] >>
+    rpt gen_tac \\ strip_tac \\
+    rpt (
+      IF_CASES_TAC >- (
+        `F` suffices_by srw_tac[][] >>
+        pop_assum mp_tac >> EVAL_TAC >>
+        rpt(pop_assum kall_tac) >>
+        decide_tac)) >>
+    simp_tac std_ss [] >>
     imp_res_tac compile_list_imp >>
-    rpt strip_tac >>
-    first_x_assum drule >> strip_tac >>
+    asm_simp_tac std_ss [] >>
     qmatch_assum_rename_tac`bvl_to_bvi$compile_exps nn _ = _` >>
-    qexists_tac`nn` >> simp[] >>
+    qexists_tac`nn` >>
+    asm_simp_tac std_ss [] >>
     rewrite_tac [CONJ_ASSOC] >>
     reverse conj_tac >- (
       qpat_x_assum `handle_ok (MAP (SND ∘ SND) prog)` mp_tac
@@ -3025,6 +3033,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     conj_tac >- (
       full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
       METIS_TAC[CONS_APPEND,APPEND_ASSOC] ) >>
+    rpt(qpat_x_assum`_ ≠ _`kall_tac) >>
     imp_res_tac compile_list_distinct_locs >>
     simp[] >> srw_tac[][] >> (TRY (EVAL_TAC >> NO_TAC)) >>
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[EVERY_MEM] >>
