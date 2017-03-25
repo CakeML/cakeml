@@ -5,7 +5,7 @@ open quicksortProgTheory ioProgLib;
 
 val _ = new_theory "sortProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"quicksortProg";
 
 val usage_string_def = Define`
   usage_string = strlit"Usage: sort <file> <file>...\n"`;
