@@ -813,21 +813,21 @@ val FLAT_EQ_CONS = Q.prove(
   rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >- fs[] >>
   full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
 
+val ptree_fringe_real_fringe = Q.store_thm(
+  "ptree_fringe_real_fringe",
+  ‘∀pt. ptree_fringe pt = MAP FST (real_fringe pt)’,
+  ho_match_mp_tac real_fringe_ind >>
+  simp[FORALL_PROD, MAP_FLAT, MAP_MAP_o, combinTheory.o_ABS_R] >>
+  rpt strip_tac >> AP_TERM_TAC >> simp[MAP_EQ_f]);
+
 val real_fringe_NIL_ptree_fringe = Q.prove(
   `∀pt. real_fringe pt = [] ⇔ ptree_fringe pt = []`,
-  ho_match_mp_tac real_fringe_ind >>
-  dsimp[FORALL_PROD, FLAT_EQ_NIL, EVERY_MEM, MEM_MAP] >> metis_tac[]);
+  simp[ptree_fringe_real_fringe]);
 
 val real_fringe_CONS_ptree_fringe = Q.prove(
   `∀pt rest. real_fringe pt = (TOK t, l) :: rest ⇒
              ∃rest'. ptree_fringe pt = TOK t :: rest'`,
-  ho_match_mp_tac real_fringe_ind >> dsimp[FLAT_EQ_CONS] >>
-  dsimp[MAP_EQ_APPEND] >> rpt strip_tac >>
-  rename [`pfx ++ [pt] ++ sfx = _ ++ _ ++ _`,
-          `(TOK tk, tkl) :: tail = real_fringe pt`] >>
-  `∃pfrest. ptree_fringe pt = TOK tk :: pfrest` by metis_tac[] >>
-  map_every qexists_tac [`pfrest`, `sfx`, `pfx`, `pt`] >> simp[] >>
-  fs[EVERY_MEM, MEM_MAP] >> metis_tac[real_fringe_NIL_ptree_fringe]);
+  simp[ptree_fringe_real_fringe]);
 
 val rfirstSet_nonempty_fringe = Q.store_thm(
   "rfirstSet_nonempty_fringe",
@@ -1927,24 +1927,15 @@ fun const_assum0 f cnm k =
 val const_assum = const_assum0 first_assum
 val const_x_assum = const_assum0 first_x_assum
 
-val ptloc_eq_def = tDefine "ptloc_eq" `
-  (ptloc_eq (Lf (t1, _)) (Lf (t2, _)) ⇔ (t1 = t2)) ∧
-  (ptloc_eq (Nd (nt1, _) ptl1) (Nd (nt2, _) ptl2) ⇔
-     nt1 = nt2 ∧ LIST_REL ptloc_eq ptl1 ptl2) ∧
-  (ptloc_eq _ _ ⇔ F)
-` (WF_REL_TAC `measure (ptree_size o FST)` >> Induct_on `ptl1` >>
-   dsimp[] >> fs[] >> rpt strip_tac >> res_tac >> simp[]);
-
 val completeness = Q.store_thm(
   "completeness",
-  `∀pt N pfx sfx.
-      valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
+  ‘∀pt N pfx sfx.
+      valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
       mkNT N ∈ FDOM cmlPEG.rules ∧
       (sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
-      ptree_fringe pt = MAP (TOK o FST) pfx ⇒
-      ∃pt'.
-        peg_eval cmlPEG (pfx ++ sfx, nt (mkNT N) I) (SOME(sfx, [pt'])) ∧
-        ptloc_eq pt pt'`,
+      real_fringe pt = MAP (TOK ## I) pfx ⇒
+
+        peg_eval cmlPEG (pfx ++ sfx, nt (mkNT N) I) (SOME(sfx, [pt]))’,
   cheat (*
   ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >>
   disch_then (strip_assume_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
@@ -3008,18 +2999,19 @@ val cmlG_unambiguous = Q.store_thm(
    real_fringe pt2 = real_fringe pt1 ∧
    (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
      pt1 = pt2`,
-  cheat (* rpt strip_tac >>
-  `∃ts. real_fringe pt1 = MAP (λ(t,l). (TK t, l)) ts`
-    by (Q.UNDISCH_THEN `ptree_fringe pt2 = ptree_fringe pt1` kall_tac >>
+  rpt strip_tac >>
+  `∃pfx. real_fringe pt1 = MAP (TK ## I) pfx`
+    by (Q.UNDISCH_THEN `real_fringe pt2 = real_fringe pt1` kall_tac >>
+        fs[ptree_fringe_real_fringe, MEM_MAP, GSYM LEFT_FORALL_IMP_THM] >>
         qabbrev_tac `l = real_fringe pt1` >> markerLib.RM_ALL_ABBREVS_TAC >>
         Induct_on `l` >>
         fs[DISJ_IMP_THM, FORALL_AND_THM, FORALL_PROD] >> rw[] >>
         simp[Once EXISTS_LIST] >> simp[Once EXISTS_PROD] >>
         metis_tac[listTheory.MAP]) >>
-  qspecl_then [`pt`, `N`, `real_fringe pt1`, `[]`] (ASSUME_TAC o Q.GEN `pt`)
+  qspecl_then [`pt`, `N`, `pfx`, `[]`] (ASSUME_TAC o Q.GEN `pt`)
     completeness >>
   pop_assum (fn th => MP_TAC (Q.SPEC `pt1` th) THEN
                       MP_TAC (Q.SPEC `pt2` th)) >> simp[] >>
-  metis_tac[PAIR_EQ, peg_deterministic, SOME_11, CONS_11] *))
+  metis_tac[PAIR_EQ, peg_deterministic, SOME_11, CONS_11])
 
 val _ = export_theory();
