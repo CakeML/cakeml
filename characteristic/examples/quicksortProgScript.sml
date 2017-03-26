@@ -1008,6 +1008,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
            * get the corresponding permutation on the shallowly embedded side
            * too. That's what the ZIP is for, to uniquely determine elems'. *)
           &(?elems'.
+              LIST_REL a elems' elem_vs' ∧
               PERM (ZIP (elems',elem_vs')) (ZIP (elems,elem_vs)) ∧
               (* We use "not greater than" as equivalent to "less or equal" *)
               SORTED (\x y. ¬(cmp y x)) elems'))`,
@@ -1198,6 +1199,10 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
   xsimpl >>
   MAP_EVERY qexists_tac [`elems`, `[]`, `elem_vs`, `[]`] >>
   rw [GSYM LENGTH_NIL] >>
-  metis_tac []);
+  qexists_tac `x` >>
+  rw [] >>
+  irule list_rel_perm >>
+  rw [] >>
+  metis_tac [PERM_SYM]);
 
 val _ = export_theory ();
