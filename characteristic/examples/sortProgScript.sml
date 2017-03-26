@@ -7,6 +7,26 @@ val _ = new_theory "sortProg";
 
 val _ = translation_extends"quicksortProg";
 
+val list_type_v_to_list = Q.store_thm ("list_type_v_to_list",
+  `!A l v.
+    LIST_TYPE A l v ⇒
+    ?l'. v_to_list v = SOME l' ∧ LIST_REL A l l'`,
+  Induct_on `l` >>
+  rw [LIST_TYPE_def, terminationTheory.v_to_list_def] >>
+  rw [terminationTheory.v_to_list_def] >>
+  first_x_assum drule >>
+  rw [] >>
+  every_case_tac >>
+  rw []);
+
+val string_list_uniq = Q.store_thm ("string_list_uniq",
+  `!l1 l2.
+    LIST_REL STRING_TYPE l1 l2 ⇒ l2 = MAP (λs. Litv (StrLit (explode s))) l1`,
+  Induct_on `l1` >>
+  rw [] >>
+  `?s'. h = strlit s'` by metis_tac [mlstringTheory.mlstring_nchotomy] >>
+  fs [STRING_TYPE_def]);
+
 val usage_string_def = Define`
   usage_string = strlit"Usage: sort <file> <file>...\n"`;
 
@@ -40,7 +60,7 @@ val get_file_contents = process_topdecs `
     val contents_array = Array.fromList contents_list
     in
       (quicksort String.compare contents_array;
-       List.app print sorted)
+       Array.app print contents_array)
     end
     handle FileIO.BadFileName => write_err "Cannot open file"`;
 
@@ -351,7 +371,14 @@ val sort_spec = Q.store_thm ("sort_spec",
          ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
          ARRAY array_v (MAP (\s. Litv (StrLit (explode s))) strings)`
     >- (
-      cheat) >>
+      xapp_spec (INST_TYPE [``:'a`` |-> ``:mlstring``] mlarrayProgTheory.array_fromList_spec) >>
+      xsimpl >>
+      qexists_tac `STRING_TYPE` >>
+      qexists_tac `strings` >>
+      rw [] >>
+      imp_res_tac list_type_v_to_list >>
+      fs [] >>
+      metis_tac [string_list_uniq]) >>
     xlet
       `POSTv u_v. SEP_EXISTS sorted.
          ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
