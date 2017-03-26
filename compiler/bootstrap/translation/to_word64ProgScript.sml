@@ -57,6 +57,56 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
+(* TODO: move *)
+
+val _ = translate jsonTheory.num_to_str_def;
+
+val json_num_to_str_side = prove(
+  ``!x. json_num_to_str_side x = T``,
+  recInduct jsonTheory.num_to_str_ind \\ rw []
+  \\ simp [Once (fetch "-" "json_num_to_str_side_def")]
+  \\ rw [] \\ `n MOD 10 < 10` by fs [] \\ simp [])
+ |> update_precondition
+
+val int_to_str_lemma = prove(
+  ``json$int_to_str i =
+      if i < 0 then STRCAT "-" (num_to_str (num_of_int i))
+      else num_to_str (num_of_int i)``,
+  fs [num_of_int_def,jsonTheory.int_to_str_def]
+  \\ rw [] \\ fs []
+  \\ AP_TERM_TAC \\ intLib.COOPER_TAC);
+
+val _ = translate int_to_str_lemma;
+
+val mem_to_string_lemma = prove(
+  ``mem_to_string x =
+    STRCAT (STRCAT (STRCAT "'" (FST x)) "': ") (json_to_string (SND x))``,
+  Cases_on `x` \\ simp [Once jsonTheory.json_to_string_def] \\ fs []);
+
+val res = translate
+  (jsonTheory.json_to_string_def
+   |> CONJUNCT1 |> SPEC_ALL
+   |> (fn th => LIST_CONJ [th,mem_to_string_lemma]));
+
+val res = translate presLangTheory.num_to_hex_digit_def;
+
+val num_to_hex_digit_side = prove(
+  ``preslang_num_to_hex_digit_side n = T``,
+  EVAL_TAC \\ fs [])
+  |> update_precondition;
+
+val res = translate presLangTheory.num_to_hex_def;
+
+val res = translate
+  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
+val res = translate
+  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
+
+val res = translate presLangTheory.pres_to_json_def;
+val res = translate presLangTheory.mod_to_pres_def;
+
+(* --- *)
+
 open data_to_wordTheory
 
 val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
@@ -73,6 +123,10 @@ val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
 val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv64)
 
 val _ = translate (encode_header_def |> conv64_RHS)
+
+val _ = translate (shift_length_def |> conv64_RHS)
+
+(*
 
 (* Manual inlines : shift_def, bytes_in_word because of 'a arg *)
 val inline_simp = SIMP_RULE std_ss [wordLangTheory.shift_def,bytes_in_word_def]
@@ -734,6 +788,8 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv64)
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv64)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

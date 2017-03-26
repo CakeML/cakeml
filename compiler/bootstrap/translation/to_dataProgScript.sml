@@ -57,6 +57,9 @@ val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
 
+(*
+
+
 val _ = translate (con_to_decTheory.compile_def);
 
 val _ = translate (exh_reorderTheory.compile_def);
@@ -338,7 +341,7 @@ val num_abs_intro = Q.prove(`
 val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
 
 (*
-(* TODO: 
+(* TODO:
    This is uglier than previously, to prevent SIMP_RULE from rewriting guards
    OF PMATCH_ROWs to K T *)
 val lemma = ``(if 0 <= i /\ q
@@ -1040,6 +1043,8 @@ val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_s
      fetch "-" "bvi_to_data_compile_part_side_def",
      fetch "-" "bvi_to_data_compile_prog_side_def",
      data_space_space_side]) |> update_precondition; *)
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

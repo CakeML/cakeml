@@ -25,6 +25,15 @@ val max_heap_limit_64_thm = Q.store_thm("max_heap_limit_64_thm",
   `max_heap_limit (:64) = max_heap_limit_64`,
   rw[FUN_EQ_THM] \\ EVAL_TAC);
 
+val def = spec64 backendTheory.compile_explorer_def
+
+val res = translate def
+
+(*
+
+val def = spec64 backendTheory.compile_def
+  |> REWRITE_RULE[max_heap_limit_64_thm]
+
 val def = spec64 backendTheory.compile_def
   |> REWRITE_RULE[max_heap_limit_64_thm]
 
@@ -35,8 +44,6 @@ val def = spec64 compilerTheory.compile_def
 val res = translate def
 
 val res = translate basisProgTheory.basis_def
-
-(*
 
 val res = translate compilerTheory.encode_error_def
 

@@ -13,6 +13,8 @@ val res = translate inferTheory.init_config_def;
 
 val res = translate x64_names_def;
 
+(*
+
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 
@@ -39,6 +41,8 @@ val res = translate bytes_row_def;
 val res = translate split16_def;
 val res = translate ffi_asm_def;
 val res = translate x64_export_def;
+
+*)
 
 val res = translate
   (x64_compiler_config_def
@@ -108,6 +112,14 @@ val spec64 = INST_TYPE[alpha|->``:64``];
 
 val _ = translate (extend_with_args_def |> spec64 )
 
+val compile_to_bytes_explorer_def = Define `
+  compile_to_bytes_explorer c input =
+    case compiler$compile_explorer c basis input of
+    | Failure err => List[implode(error_to_str err)]
+    | Success jsn => List[implode(jsn)]`;
+
+(*
+
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
@@ -123,6 +135,20 @@ val compiler_x64_def = Define`
 val res = translate
   (compiler_x64_def
    |> SIMP_RULE (srw_ss()) [compile_to_bytes_def,FUN_EQ_THM,compilerTheory.compile_def]);
+
+*)
+
+val compiler_x64_def = Define`
+  compiler_x64 cl = compile_to_bytes_explorer
+    <| inferencer_config := init_config;
+       backend_config := extend_with_args cl x64_compiler_config |>`;
+
+val res = translate basisProgTheory.basis_def;
+
+val res = translate
+  (compiler_x64_def
+   |> SIMP_RULE (srw_ss()) [compile_to_bytes_explorer_def,
+        FUN_EQ_THM,compilerTheory.compile_explorer_def]);
 
 val main = process_topdecs`
   fun main u =

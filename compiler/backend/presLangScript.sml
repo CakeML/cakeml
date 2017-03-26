@@ -307,6 +307,19 @@ val t_to_json_def = tDefine"t_to_json"`
   ("tctor", tctor_to_json tctor)])`
   cheat;
 
+val num_to_hex_digit_def = Define `
+  num_to_hex_digit n =
+    if n < 10 then [CHR (48 + n)] else
+    if n < 16 then [CHR (55 + n)] else []`;
+
+val num_to_hex_def = Define `
+  num_to_hex n =
+    (if n < 16 then [] else num_to_hex (n DIV 16)) ++
+    num_to_hex_digit (n MOD 16)`;
+
+val word_to_hex_string_def = Define `
+  word_to_hex_string w = "0x" ++ num_to_hex (w2n (w:'a word))`;
+
 val lit_to_json_def = Define`
   (lit_to_json (IntLit i) = ("IntLit", Int i))
   /\
