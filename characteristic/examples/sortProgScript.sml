@@ -7,6 +7,14 @@ val _ = new_theory "sortProg";
 
 val _ = translation_extends"quicksortProg";
 
+val perm_zip = Q.store_thm ("perm_zip",
+  `!l1 l2 l3 l4.
+    LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧ PERM (ZIP (l1,l2)) (ZIP (l3,l4))
+    ⇒
+    PERM l1 l3 ∧ PERM l2 l4`,
+  rw [] >>
+  metis_tac [MAP_ZIP, PERM_MAP]);
+
 val list_type_v_to_list = Q.store_thm ("list_type_v_to_list",
   `!A l v.
     LIST_TYPE A l v ⇒
@@ -26,6 +34,24 @@ val string_list_uniq = Q.store_thm ("string_list_uniq",
   rw [] >>
   `?s'. h = strlit s'` by metis_tac [mlstringTheory.mlstring_nchotomy] >>
   fs [STRING_TYPE_def]);
+
+val char_lt_total = Q.store_thm ("char_lt_total",
+  `!(c1:char) c2. ¬(c1 < c2) ∧ ¬(c2 < c1) ⇒ c1 = c2`,
+  rw [char_lt_def, CHAR_EQ_THM]);
+
+val string_lt_total = Q.store_thm ("string_lt_total",
+  `!(s1:string) s2. ¬(s1 < s2) ∧ ¬(s2 < s1) ⇒ s1 = s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, char_lt_total]
+  >- (
+    Cases_on `s1` >>
+    fs [string_lt_def]) >>
+  metis_tac [char_lt_total]);
+
+val strict_weak_order_string_cmp = Q.store_thm ("strict_weak_order_string_cmp",
+  `strict_weak_order (λs1 s2. explode s1 < explode s2)`,
+  rw [strict_weak_order_alt, transitive_def] >>
+  metis_tac [string_lt_antisym, string_lt_trans, string_lt_total]);
 
 val usage_string_def = Define`
   usage_string = strlit"Usage: sort <file> <file>...\n"`;
@@ -59,7 +85,7 @@ val get_file_contents = process_topdecs `
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
     in
-      (quicksort String.compare contents_array;
+      (quicksort (fn s1 => fn s2 => String.compare s1 s2 = LESS) contents_array;
        Array.app print contents_array)
     end
     handle FileIO.BadFileName => write_err "Cannot open file"`;
@@ -276,7 +302,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     (if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
        err_msg = "" ∧
        PERM output (files_contents fs (MAP implode cl)) ∧
-       SORTED $< output
+       SORTED $<= output
       else
        output = [] ∧ err_msg = "Cannot open file")
     ⇒
@@ -379,13 +405,37 @@ val sort_spec = Q.store_thm ("sort_spec",
       imp_res_tac list_type_v_to_list >>
       fs [] >>
       metis_tac [string_list_uniq]) >>
+    xfun `cmp` >>
     xlet
       `POSTv u_v. SEP_EXISTS sorted.
          ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
          ARRAY array_v (MAP (\s. Litv (StrLit (explode s))) sorted) *
-         &(PERM sorted strings ∧ SORTED $< (MAP explode sorted))`
+         &(PERM sorted strings ∧ SORTED $<= (MAP explode sorted))`
     >- (
-      cheat) >>
+      xapp_spec (INST_TYPE [``:'a`` |-> ``:mlstring``] quicksort_spec) >>
+      xsimpl >>
+      qexists_tac `strings` >>
+      qexists_tac `\s1 s2. explode s1 < explode s2` >>
+      qexists_tac `STRING_TYPE` >>
+      rw [strict_weak_order_string_cmp]
+      >- (
+        fs [LIST_REL_EL_EQN] >>
+        rw [EL_MAP] >>
+        metis_tac [mlstringTheory.implode_def, mlstringTheory.implode_explode])
+      >- cheat
+      >- (
+        qexists_tac `elems'` >>
+        rw []
+        >- metis_tac [perm_zip, LIST_REL_LENGTH, LENGTH_MAP]
+        >- (
+          `transitive (($<=) : string -> string -> bool)`
+          by metis_tac [string_lt_trans, transitive_def, string_le_def] >>
+          simp [sorted_map, inv_image_def] >>
+          irule SORTED_weaken >>
+          qexists_tac `(λx y. ¬(explode y < explode x))` >>
+          rw [string_le_def] >>
+          metis_tac [string_lt_total])
+        >- metis_tac [string_list_uniq])) >>
     cheat)
   >- fs [UNIT_TYPE_def]
   >- (
