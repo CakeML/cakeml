@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib
 
 open pred_setTheory
-open pegTheory cmlPEGTheory gramTheory gramPropsTheory
+open pegTheory cmlPEGTheory gramTheory grammarTheory gramPropsTheory
 open lcsymtacs boolSimps
 open preamble
 open mp_then
@@ -813,29 +813,14 @@ val FLAT_EQ_CONS = Q.prove(
   rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >- fs[] >>
   full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
 
-val ptree_fringe_real_fringe = Q.store_thm(
-  "ptree_fringe_real_fringe",
-  ‘∀pt. ptree_fringe pt = MAP FST (real_fringe pt)’,
-  ho_match_mp_tac real_fringe_ind >>
-  simp[FORALL_PROD, MAP_FLAT, MAP_MAP_o, combinTheory.o_ABS_R] >>
-  rpt strip_tac >> AP_TERM_TAC >> simp[MAP_EQ_f]);
-
-val real_fringe_NIL_ptree_fringe = Q.prove(
-  `∀pt. real_fringe pt = [] ⇔ ptree_fringe pt = []`,
-  simp[ptree_fringe_real_fringe]);
-
-val real_fringe_CONS_ptree_fringe = Q.prove(
-  `∀pt rest. real_fringe pt = (TOK t, l) :: rest ⇒
-             ∃rest'. ptree_fringe pt = TOK t :: rest'`,
-  simp[ptree_fringe_real_fringe]);
-
 val rfirstSet_nonempty_fringe = Q.store_thm(
   "rfirstSet_nonempty_fringe",
   ‘∀pt t l rest.
      real_fringe pt = (TOK t, l) :: rest ∧ valid_lptree G pt ⇒
      t ∈ firstSet G [ptree_head pt]’,
-  rw[] >> imp_res_tac real_fringe_CONS_ptree_fringe >> fs[valid_lptree_def] >>
-  metis_tac[firstSet_nonempty_fringe]);
+  rw[] >>
+  ‘∃r'. ptree_fringe pt = TOK t :: r'’ by simp[ptree_fringe_real_fringe] >>
+  metis_tac[firstSet_nonempty_fringe, valid_lptree_def]);
 
 val peg_respects_firstSets = Q.store_thm(
   "peg_respects_firstSets",
@@ -1215,7 +1200,7 @@ val lassoc_reassociated = Q.store_thm(
     qspec_then `ppt` (mp_tac o REWRITE_RULE []) th >>
     disch_then (mp_tac o assert (is_forall o concl))) >>
   simp[] >>
-  disch_then (qspecl_then [`s0pt`, `c0pt`, `pf`, `sf0`, `cf0`] mp_tac) >>
+  disch_then (qspecl_then [`s0pt`, `c0pt`, `sf0`, `cf0`] mp_tac) >>
   simp[] >>
   disch_then (qxchl [`cpt'`, `spt'`, `ppt'`] strip_assume_tac) >>
   map_every qexists_tac [`cpt'`, `spt'`, `mkNd P [ppt'; spt; cpt]`] >>

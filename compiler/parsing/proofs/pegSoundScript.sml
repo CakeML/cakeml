@@ -1,4 +1,5 @@
 open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
+     grammarTheory
 
 val _ = new_theory "pegSound";
 val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
@@ -137,31 +138,6 @@ val pegsym_to_sym_def = Define`
   pegsym_to_sym (nt N f) = { NT N } ∧
   pegsym_to_sym _ = {}
 `
-
-val real_fringe_def = tDefine "real_fringe" `
-  (real_fringe (Lf t) = [t]) ∧
-  (real_fringe (Nd n ptl) = FLAT (MAP real_fringe ptl))
-` (WF_REL_TAC `measure ptree_size` >> Induct_on `ptl` >> dsimp[] >>
-   fs[] >> rpt strip_tac >> res_tac >> simp[]);
-val _ = export_rewrites ["real_fringe_def"]
-
-val MAP_TKI_11 = Q.store_thm(
-  "MAP_TKI_11[simp]",
-  ‘(MAP (TK ## I) l1 = MAP (TK ## I) l2) ⇔ (l1 = l2)’,
-  irule INJ_MAP_EQ_IFF >> simp[INJ_DEF, FORALL_PROD]);
-
-val SUM_MAP_FOLDR = Q.store_thm(
-  "SUM_MAP_FOLDR",
-  `SUM (MAP f l) = FOLDR (λe a. a + f e) 0 l`,
-  Induct_on `l` >> simp[]);
-
-val real_fringe_ind = theorem "real_fringe_ind"
-val LENGTH_real_fringe = Q.store_thm(
-  "LENGTH_real_fringe",
-  ‘∀pt. LENGTH (real_fringe pt) = LENGTH (ptree_fringe pt)’,
-  ho_match_mp_tac real_fringe_ind >>
-  simp[FORALL_PROD, LENGTH_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
-  simp[SUM_MAP_FOLDR] >> Induct >> simp[]);
 
 val valid_locs_def = tDefine "valid_locs" ‘
   (valid_locs (Lf _) ⇔ T) ∧
