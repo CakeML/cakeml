@@ -63,11 +63,7 @@ void ffiopen (char *a) {
 }
 
 void ffifgetc (char *a) {
-  char c;
-  if (infds[a[0]] && (c = fgetc(infds[a[0]])) != EOF)
-    a[0] = c;
-  else
-    a[0] = 255;
+  a[0] = fgetc(infds[a[0]]);
 }
 
 void fficlose (char *a) {
