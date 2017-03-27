@@ -76,7 +76,7 @@ void fficlose (char *a) {
 }
 
 void ffiisEof (char *a) {
-  char c;
+  int c; /* not char, other EOF is mapped to a valid char */
   if (infds[a[0]])
     if ((c = fgetc(infds[a[0]])) == EOF)
       a[0] = 1;
