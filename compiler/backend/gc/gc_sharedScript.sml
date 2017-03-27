@@ -2,8 +2,50 @@ open preamble wordsTheory wordsLib integer_wordTheory;
 
 val _ = new_theory "gc_shared";
 
+(* TODO: move *)
+
+val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
+  ``!xs1 zs.
+      EVERY2 P zs (xs1 ++ x::xs2) ==>
+      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P ys1 xs1 /\
+                  EVERY2 P ys2 xs2 /\ P y x``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val EVERY2_SPLIT_ALT = store_thm("EVERY2_SPLIT_ALT",
+  ``!xs1 zs.
+      EVERY2 P (xs1 ++ x::xs2) zs ==>
+      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P xs1 ys1 /\
+                  EVERY2 P xs2 ys2 /\ P x y``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val EVERY2_APPEND = store_thm("EVERY2_APPEND",
+  ``!xs ts.
+      (LENGTH xs = LENGTH ts) ==>
+      (EVERY2 P (xs ++ ys) (ts ++ us) = EVERY2 P xs ts /\ EVERY2 P ys us)``,
+  Induct \\ Cases_on `ts` \\ full_simp_tac (srw_ss()) [LENGTH,CONJ_ASSOC]);
+
+val BIJ_UPDATE = store_thm("BIJ_UPDATE",
+  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
+
+val INJ_UPDATE = store_thm("INJ_UPDATE",
+  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
+
 (* Types, functions and lemmas that are shared between GC definitions
 *)
+
+(* The ML heap is represented as a list of heap_elements. *)
 
 val _ = Datatype `
   heap_address = Pointer num 'a | Data 'a`;
@@ -47,6 +89,8 @@ val empty_state_def = Define `
      ; heap0 := []
      |>`;
 
+(* The heap is accessed using the following lookup function. *)
+
 val el_length_def = Define `
   (el_length (Unused l) = l+1) /\
   (el_length (ForwardPointer n d l) = l+1) /\
@@ -71,8 +115,8 @@ val heap_length_GTE = store_thm("heap_length_GTE",
   ``!heap. 0 <= heap_length heap``,
   fs [heap_length_def])
 
-val heap_length_APPEND = store_thm("heap_length_APPEND",
-  ``heap_length (xs ++ ys) = heap_length xs + heap_length ys``,
+val heap_length_APPEND = Q.store_thm("heap_length_APPEND",
+  `heap_length (xs ++ ys) = heap_length xs + heap_length ys`,
   SRW_TAC [] [heap_length_def,SUM_APPEND]);
 
 val heap_lookup_def = Define `
@@ -80,6 +124,24 @@ val heap_lookup_def = Define `
   (heap_lookup a (x::xs) =
      if a = 0 then SOME x else
      if a < el_length x then NONE else heap_lookup (a - el_length x) xs)`;
+
+val heap_lookup_MEM = Q.store_thm("heap_lookup_MEM",
+  `!heap n x. (heap_lookup n heap = SOME x) ==> MEM x heap`,
+  Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
+  \\ res_tac \\ full_simp_tac std_ss []);
+
+val MEM_IMP_heap_lookup = Q.store_thm("MEM_IMP_heap_lookup",
+  `!xs x. MEM x xs ==> ?j. (heap_lookup j xs = SOME x)`,
+  Induct \\ full_simp_tac std_ss [MEM,heap_lookup_def]
+  \\ SRW_TAC [] [] \\ res_tac THEN1 metis_tac []
+  \\ qexists_tac `j + el_length h` \\ full_simp_tac std_ss [] \\ SRW_TAC [] []
+  \\ Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac);
+
+val heap_lookup_LESS = Q.store_thm("heap_lookup_LESS",
+  `!xs n. (heap_lookup n xs = SOME x) ==> n < heap_length xs`,
+  Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
+  \\ res_tac \\ Cases_on `h` \\ full_simp_tac (srw_ss())
+      [heap_length_def,el_length_def] \\ decide_tac);
 
 val heap_split_def = Define `
   (heap_split a [] = if a = 0 then SOME ([],[]) else NONE) /\
@@ -90,6 +152,14 @@ val heap_split_def = Define `
     | NONE => NONE
     | SOME (h1,h2) =>
       SOME (el::h1,h2))`;
+
+val heap_lookup_SPLIT = Q.store_thm("heap_lookup_SPLIT",
+  `!heap n x. (heap_lookup n heap = SOME x) ==>
+               ?ha hb. (heap = ha ++ x::hb) /\ (n = heap_length ha)`,
+  Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
+  THEN1 (Q.LIST_EXISTS_TAC [`[]`,`heap`] \\ full_simp_tac (srw_ss()) [heap_length_def])
+  \\ res_tac \\ Q.LIST_EXISTS_TAC [`h::ha`,`hb`]
+  \\ full_simp_tac (srw_ss()) [heap_length_def] \\ decide_tac);
 
 val heap_drop_def = Define `
   heap_drop n (heap:('a,'b) heap_element list) =
@@ -169,6 +239,8 @@ val heap_restrict_def = Define `
      | NONE => []
      | SOME (h1,h2,h3) => h2`;
 
+(* The heap is well-formed if heap_ok *)
+
 val isDataElement_def = Define `
   isDataElement x = ?ys l d. x = DataElement ys l d`;
 
@@ -208,7 +280,23 @@ val gc_forward_ptr_def = Define `
        let (xs,ok) = gc_forward_ptr (a - el_length x) xs ptr d ok in
          (x::xs,ok))`;
 
-val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
+val gc_forward_ptr_ok = Q.store_thm("gc_forward_ptr_ok",
+  `!heap n a c x. (gc_forward_ptr n heap a d c = (x,T)) ==> c`,
+  Induct \\ simp_tac std_ss [Once gc_forward_ptr_def] \\ rpt strip_tac
+  \\ Cases_on `n = 0` \\ full_simp_tac std_ss []
+  \\ Cases_on `n < el_length h` \\ full_simp_tac std_ss []
+  \\ Cases_on `gc_forward_ptr (n - el_length h) heap a d c`
+  \\ full_simp_tac std_ss [LET_DEF] \\ Cases_on `r`
+  \\ full_simp_tac std_ss [] \\ res_tac);
+
+val gc_forward_ptr_thm = Q.store_thm("gc_forward_ptr_thm",
+  `!ha. gc_forward_ptr (heap_length ha) (ha ++ DataElement ys l d::hb) a u c =
+         (ha ++ ForwardPointer a u l::hb,c)`,
+  Induct \\ full_simp_tac (srw_ss()) [gc_forward_ptr_def,heap_length_def,APPEND,
+    el_length_def,isDataElement_def,LET_DEF] \\ SRW_TAC [] []
+  \\ Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ decide_tac);
+
+(*val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
   ``!heap n a ok x. (gc_forward_ptr n heap a d ok = (x,T)) ==> ok``,
   Induct
   >- simp [gc_forward_ptr_def]
@@ -224,7 +312,7 @@ val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
   \\ DISCH_TAC
   \\ fs []
   \\ qpat_x_assum `!n a ok x. _` (qspecl_then [`n - el_length h`,`a`,`ok`,`xs`] assume_tac)
-  \\ fs []);
+  \\ fs []);*)
 
 val heap_expand_def = Define `
   heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
@@ -268,6 +356,19 @@ val ADDR_APPLY_def = Define `
   (ADDR_APPLY f (Pointer x d) = Pointer (f x) d) /\
   (ADDR_APPLY f (Data y) = Data y)`;
 
+val heap_lookup_FLOOKUP = save_thm("heap_lookup_FLOOKUP",Q.prove(
+  `!heap n k.
+      (heap_lookup n heap = SOME (ForwardPointer ptr u l)) ==>
+      (FLOOKUP (heap_map k heap) (n+k) = SOME ptr)`,
+  Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
+  THEN1 (full_simp_tac (srw_ss()) [heap_map_def,FLOOKUP_DEF])
+  \\ res_tac \\ pop_assum (ASSUME_TAC o Q.SPEC `k + el_length h`)
+  \\ `n - el_length h + (k + el_length h) = n + k` by decide_tac
+  \\ full_simp_tac std_ss []
+  \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def,el_length_def]
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,ADD_ASSOC,FAPPLY_FUPDATE_THM])
+  |> Q.SPECL [`heap`,`n`,`0`] |> SIMP_RULE std_ss []);
+
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
 val heaps_similar_def = Define `
@@ -275,8 +376,163 @@ val heaps_similar_def = Define `
     EVERY2 (\h0 h. if isForwardPointer h then
                      (el_length h = el_length h0) /\ isDataElement h0
                    else (h = h0)) heap0 heap`
-(*  *)
 
+val IN_heap_map_IMP = Q.store_thm("IN_heap_map_IMP",
+  `!heap n k. n IN FDOM (heap_map k heap) ==> k <= n`,
+  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [heap_map_def]
+  \\ rpt strip_tac \\ res_tac
+  \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def] \\ decide_tac);
+
+val NOT_IN_heap_map = save_thm("NOT_IN_heap_map", Q.prove(
+  `!ha n. ~(n + heap_length ha IN FDOM (heap_map n (ha ++ DataElement ys l d::hb)))`,
+  Induct \\ full_simp_tac (srw_ss()) [heap_map_def,APPEND,heap_length_def]
+  \\ rpt strip_tac \\ imp_res_tac IN_heap_map_IMP
+  \\ full_simp_tac std_ss [ADD_ASSOC] \\ res_tac
+  THEN1 (full_simp_tac std_ss [el_length_def] \\ decide_tac)
+  \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def]
+  \\ res_tac \\ full_simp_tac (srw_ss()) [el_length_def,ADD_ASSOC] \\ res_tac
+  \\ decide_tac) |> Q.SPECL [`ha`,`0`] |> SIMP_RULE std_ss [])
+
+val isSomeDataOrForward_lemma = Q.store_thm("isSomeDataOrForward_lemma",
+  `!ha ptr.
+      isSomeDataOrForward (heap_lookup ptr (ha ++ DataElement ys l d::hb)) <=>
+      isSomeDataOrForward (heap_lookup ptr (ha ++ [ForwardPointer a u l] ++ hb))`,
+  Induct \\ full_simp_tac std_ss [APPEND,heap_lookup_def]
+  \\ SRW_TAC [] [] \\ full_simp_tac std_ss []
+  \\ EVAL_TAC \\ full_simp_tac std_ss [el_length_def]);
+
+val heaps_similar_IMP_heap_length = Q.store_thm("heaps_similar_IMP_heap_length",
+  `!xs ys. heaps_similar xs ys ==> (heap_length xs = heap_length ys)`,
+  Induct \\ Cases_on `ys`
+  \\ full_simp_tac (srw_ss()) [heaps_similar_def,heap_length_def]
+  \\ rpt strip_tac \\ Cases_on `isForwardPointer h`
+  \\ full_simp_tac std_ss []);
+
+val heap_similar_Data_IMP = Q.store_thm("heap_similar_Data_IMP",
+  `heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
+    ?ha0 hb0. (heap0 = ha0 ++ DataElement ys l d::hb0) /\
+              (heap_length ha = heap_length ha0)`,
+  rpt strip_tac \\ full_simp_tac std_ss [heaps_similar_def]
+  \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss [isForwardPointer_def]
+  \\ pop_assum (ASSUME_TAC o GSYM) \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ full_simp_tac std_ss []
+  \\ `heaps_similar ys1 ha` by full_simp_tac std_ss [heaps_similar_def]
+  \\ full_simp_tac std_ss [heaps_similar_IMP_heap_length]);
+
+val heaps_similar_lemma = Q.store_thm("heaps_similar_lemma",
+  `!ha heap0.
+      heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
+      heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) u l] ++ hb)`,
+  full_simp_tac std_ss [heaps_similar_def] \\ rpt strip_tac
+  \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss []
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ full_simp_tac std_ss [EVERY2_APPEND,LIST_REL_def]
+  \\ EVAL_TAC \\ full_simp_tac std_ss [isForwardPointer_def]
+  \\ qpat_x_assum `DataElement ys l d = y` (mp_tac o GSYM)
+  \\ full_simp_tac (srw_ss()) [el_length_def]);
+
+val heap_lookup_PREFIX = Q.store_thm("heap_lookup_PREFIX",
+  `!xs. (heap_lookup (heap_length xs) (xs ++ x::ys) = SOME x)`,
+  Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def,APPEND,heap_length_def]
+  \\ SRW_TAC [] [] \\ Cases_on `h`
+  \\ full_simp_tac std_ss [el_length_def] \\ decide_tac);
+
+val heap_lookup_EXTEND = Q.store_thm("heap_lookup_EXTEND",
+  `!xs n ys x. (heap_lookup n xs = SOME x) ==>
+                (heap_lookup n (xs ++ ys) = SOME x)`,
+  Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def] \\ SRW_TAC [] []);
+
+val heap_map_APPEND = Q.store_thm("heap_map_APPEND",
+  `!xs n ys. (heap_map n (xs ++ ys)) =
+              FUNION (heap_map n xs) (heap_map (n + heap_length xs) ys)`,
+  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss())
+     [APPEND,heap_map_def,FUNION_DEF,FUNION_FEMPTY_1,heap_length_def,ADD_ASSOC]
+  \\ full_simp_tac std_ss [FUNION_FUPDATE_1,el_length_def,ADD_ASSOC]);
+
+val FDOM_heap_map = save_thm("FDOM_heap_map", Q.prove(
+  `!xs n. ~(n + heap_length xs IN FDOM (heap_map n xs))`,
+  Induct \\ TRY (Cases_on `h`)
+  \\ full_simp_tac (srw_ss()) [heap_map_def,heap_length_def,ADD_ASSOC]
+  \\ rpt strip_tac \\ full_simp_tac std_ss [el_length_def,ADD_ASSOC]
+  \\ TRY decide_tac \\ metis_tac [])
+  |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss []);
+
+val heap_addresses_APPEND = Q.store_thm("heap_addresses_APPEND",
+  `!xs ys n. heap_addresses n (xs ++ ys) =
+              heap_addresses n xs UNION heap_addresses (n + heap_length xs) ys`,
+  Induct \\ full_simp_tac (srw_ss()) [APPEND,heap_addresses_def,heap_length_def]
+  \\ full_simp_tac (srw_ss()) [EXTENSION,DISJ_ASSOC,ADD_ASSOC]);
+
+val LESS_IMP_heap_lookup = Q.store_thm("LESS_IMP_heap_lookup",
+  `!xs j ys. j < heap_length xs ==> (heap_lookup j (xs ++ ys) = heap_lookup j xs)`,
+  Induct \\ full_simp_tac (srw_ss()) [heap_length_def,heap_lookup_def]
+  \\ SRW_TAC [] [] \\ `j - el_length h < SUM (MAP el_length xs)` by decide_tac
+  \\ full_simp_tac std_ss []);
+
+val NOT_LESS_IMP_heap_lookup = Q.store_thm("NOT_LESS_IMP_heap_lookup",
+  `!xs j ys. ~(j < heap_length xs) ==>
+              (heap_lookup j (xs ++ ys) = heap_lookup (j - heap_length xs) ys)`,
+  Induct \\ full_simp_tac (srw_ss()) [heap_length_def,heap_lookup_def]
+  \\ SRW_TAC [] [SUB_PLUS]
+  THEN1 (Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac)
+  THEN1 (Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac));
+
+val heap_similar_Data_IMP_DataOrForward = Q.store_thm("heap_similar_Data_IMP_DataOrForward",
+  `!heap0 heap1 ptr.
+      heaps_similar heap0 heap1 /\ isSomeDataElement (heap_lookup ptr heap0) ==>
+      isSomeDataOrForward (heap_lookup ptr heap1)`,
+  Induct \\ Cases_on `heap1` \\ full_simp_tac (srw_ss()) [heaps_similar_def]
+  \\ full_simp_tac std_ss [heap_lookup_def]
+  THEN1 (full_simp_tac (srw_ss()) [isSomeDataElement_def,isSomeDataOrForward_def])
+  \\ rpt GEN_TAC \\ Cases_on `ptr = 0` \\ full_simp_tac std_ss [] THEN1
+   (Cases_on `isForwardPointer h` \\ full_simp_tac std_ss []
+    \\ rpt strip_tac \\ Cases_on `h`
+    \\ full_simp_tac (srw_ss()) [isSomeDataElement_def,isSomeDataOrForward_def,
+         isDataElement_def,isForwardPointer_def,isSomeForwardPointer_def])
+  \\ strip_tac \\ `(el_length h = el_length h')` by metis_tac []
+  \\ full_simp_tac std_ss [] \\ SRW_TAC [] [] \\ full_simp_tac std_ss []
+  THEN1 full_simp_tac std_ss [isSomeDataElement_def]
+  \\ full_simp_tac std_ss [] \\ res_tac);
+
+val FILTER_LEMMA = Q.store_thm("FILTER_LEMMA",
+  `!heap. (FILTER isForwardPointer heap = []) ==>
+           (FILTER (\h. ~isForwardPointer h) heap = heap)`,
+  Induct \\ full_simp_tac (srw_ss()) [] \\ SRW_TAC [] []);
+
+val heaps_similar_REFL = Q.store_thm("heaps_similar_REFL",
+  `!xs. (FILTER isForwardPointer xs = []) ==> heaps_similar xs xs`,
+  Induct \\ full_simp_tac (srw_ss()) [heaps_similar_def] \\ SRW_TAC [] []);
+
+val heap_map_EMPTY = Q.store_thm("heap_map_EMPTY",
+  `!xs n. (FILTER isForwardPointer xs = []) ==> (FDOM (heap_map n xs) = {})`,
+  Induct \\ TRY (Cases_on `h`)
+  \\ full_simp_tac (srw_ss()) [heap_map_def,isForwardPointer_def]);
+
+val MEM_ADDR_MAP = Q.store_thm("MEM_ADDR_MAP",
+  `!xs f ptr u. MEM (Pointer ptr u) (ADDR_MAP f xs) ==>
+                 ?y. MEM (Pointer y u) xs /\ (f y = ptr)`,
+  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]
+  \\ rpt strip_tac \\ full_simp_tac std_ss [] \\ res_tac \\ metis_tac []);
+
+val heap_length_heap_expand = Q.store_thm("heap_length_heap_expand",
+  `!n. heap_length (heap_expand n) = n`,
+  Cases \\ EVAL_TAC \\ full_simp_tac (srw_ss()) [el_length_def,ADD1,SUM_ACC_DEF]);
+
+val EVERY_isDataElement_IMP_LEMMA = Q.store_thm("EVERY_isDataElement_IMP_LEMMA",
+  `!heap2. EVERY isDataElement heap2 ==> (FILTER isForwardPointer heap2 = [])`,
+  Induct \\ full_simp_tac (srw_ss()) [isDataElement_def] \\ rpt strip_tac
+  \\ full_simp_tac (srw_ss()) [isForwardPointer_def]);
+
+val isSome_heap_looukp_IMP_APPEND = Q.store_thm("isSome_heap_looukp_IMP_APPEND",
+  `!xs ptr. isSomeDataElement (heap_lookup ptr xs) ==>
+             isSomeDataElement (heap_lookup ptr (xs ++ ys))`,
+  full_simp_tac std_ss [isSomeDataElement_def] \\ rpt strip_tac
+  \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac LESS_IMP_heap_lookup
+  \\ full_simp_tac (srw_ss()) []);
+
+
+(*  *)
 
 val gc_related_def = Define `
   gc_related (f:num|->num) heap1 heap2 =
@@ -285,46 +541,5 @@ val gc_related_def = Define `
       i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
       !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
-
-
-(* Lemmas, TODO: placed somewhere else? *)
-
-val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
-  ``!xs1 zs.
-      EVERY2 P zs (xs1 ++ x::xs2) ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P ys1 xs1 /\
-                  EVERY2 P ys2 xs2 /\ P y x``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val EVERY2_SPLIT_ALT = store_thm("EVERY2_SPLIT_ALT",
-  ``!xs1 zs.
-      EVERY2 P (xs1 ++ x::xs2) zs ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P xs1 ys1 /\
-                  EVERY2 P xs2 ys2 /\ P x y``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val EVERY2_APPEND = store_thm("EVERY2_APPEND",
-  ``!xs ts.
-      (LENGTH xs = LENGTH ts) ==>
-      (EVERY2 P (xs ++ ys) (ts ++ us) = EVERY2 P xs ts /\ EVERY2 P ys us)``,
-  Induct \\ Cases_on `ts` \\ full_simp_tac (srw_ss()) [LENGTH,CONJ_ASSOC]);
-
-val BIJ_UPDATE = store_thm("BIJ_UPDATE",
-  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ metis_tac []);
-
-val INJ_UPDATE = store_thm("INJ_UPDATE",
-  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ metis_tac []);
 
 val _ = export_theory();

@@ -1,6 +1,7 @@
 open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
+     gc_sharedTheory;
 local open blastLib in end;
 
 val shift_def = wordLangTheory.shift_def;
@@ -2735,7 +2736,7 @@ val get_real_addr_get_addr = Q.store_thm("get_real_addr_get_addr",
     good_dimindex (:'a) ==>
     get_real_addr c st (get_addr c n w) = SOME (curr + n2w n * bytes_in_word)`,
   fs [X_LE_DIV] \\ fs [get_addr_def,get_real_addr_def] \\ strip_tac
-  \\ imp_res_tac copying_gcTheory.heap_lookup_LESS \\ fs []
+  \\ imp_res_tac heap_lookup_LESS \\ fs []
   \\ `w2n ((n2w n):'a word) * 2 ** shift_length c < dimword (:'a)` by
    (`n < dimword (:'a)` by
      (Cases_on `2 ** (shift_length c)` \\ fs []
@@ -3643,7 +3644,7 @@ val memory_rel_Cons = Q.store_thm("memory_rel_Cons",
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
-  \\ fs [copying_gcTheory.EVERY2_APPEND,minus_lemma]
+  \\ fs [EVERY2_APPEND,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
   \\ `LENGTH ws + 1 <= sp'` by decide_tac
@@ -3711,7 +3712,7 @@ val memory_rel_Cons1 = Q.store_thm("memory_rel_Cons1",
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
-  \\ fs [copying_gcTheory.EVERY2_APPEND,minus_lemma]
+  \\ fs [EVERY2_APPEND,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
   \\ `LENGTH ws + 1 <= sp'` by decide_tac
@@ -3801,7 +3802,7 @@ val memory_rel_Ref = Q.store_thm("memory_rel_Ref",
   \\ pop_assum mp_tac \\ simp_tac std_ss [LESS_EQ_EXISTS]
   \\ strip_tac \\ clean_tac \\ fs []
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [copying_gcTheory.EVERY2_APPEND]
+  \\ fs [EVERY2_APPEND]
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_ptr_def,get_lowerbits_def]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift,GSYM word_add_n2w]
@@ -3933,7 +3934,7 @@ val memory_rel_Cons_alt = Q.store_thm("memory_rel_Cons_alt",
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_alt_IMP_length \\ fs []
-  \\ fs [copying_gcTheory.EVERY2_APPEND,minus_lemma]
+  \\ fs [EVERY2_APPEND,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
   \\ conj_tac THEN1 (fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])

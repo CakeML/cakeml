@@ -1473,18 +1473,6 @@ val gc_move_ref_list_isSomeDataElement = prove (
   \\ IF_CASES_TAC \\ fs [el_length_def]
   \\ res_tac);
 
-val heap_lookup_MEM = prove (
-  ``!heap x xs l b.
-    (heap_lookup x heap = SOME (DataElement xs l b)) ==>
-    MEM (DataElement xs l b) heap
-  ``,
-  Induct \\ fs [heap_lookup_def]
-  \\ rpt gen_tac
-  \\ IF_CASES_TAC
-  >- (Cases_on `h` \\ fs [])
-  \\ IF_CASES_TAC \\ fs []
-  \\ metis_tac []);
-
 val ptr_Real_lemma = prove(
   ``!ys ptr. MEM (Pointer ptr u) ys /\
     (conf.gen_start <= ptr) /\
