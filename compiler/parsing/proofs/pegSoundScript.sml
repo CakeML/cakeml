@@ -179,7 +179,7 @@ val valid_lptree_mkNd = Q.store_thm(
   ‘valid_lptree G (mkNd n children) ⇔
       n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
       ∀pt. MEM pt children ⇒ valid_lptree G pt’,
-  simp[mkNd_def]);
+  simp[mkNd_def, ptree_list_loc_def]);
 
 val real_fringe_mkNd = Q.store_thm(
   "real_fringe_mkNd[simp]",
