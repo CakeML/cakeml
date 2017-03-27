@@ -139,15 +139,6 @@ val pegsym_to_sym_def = Define`
   pegsym_to_sym _ = {}
 `
 
-val valid_locs_def = tDefine "valid_locs" ‘
-  (valid_locs (Lf _) ⇔ T) ∧
-  (valid_locs (Nd (_, l) children) ⇔
-     l = merge_list_locs (MAP ptree_loc children) ∧
-     ∀pt. MEM pt children ⇒ valid_locs pt)’
-  (WF_REL_TAC ‘measure ptree_size’ >> simp[] >> Induct >> dsimp[] >>
-   rpt strip_tac >> res_tac >> simp[]);
-val _ = export_rewrites ["valid_locs_def"]
-
 val valid_ptree_mkNd = Q.store_thm(
   "valid_ptree_mkNd[simp]",
   ‘valid_ptree G (mkNd N subs) ⇔
@@ -159,35 +150,6 @@ val ptree_head_mkNd = Q.store_thm(
   "ptree_head_mkNd[simp]",
   ‘ptree_head (mkNd N subs) = NT N’,
   simp[mkNd_def]);
-
-val merge_locs_assoc = Q.store_thm(
-  "merge_locs_assoc[simp]",
-  ‘merge_locs (merge_locs l1 l2) l3 = merge_locs l1 l3 ∧
-   merge_locs l1 (merge_locs l2 l3) = merge_locs l1 l3’,
-  map_every Cases_on [`l1`, `l2`, `l3`] >>
-  simp[locationTheory.merge_locs_def]);
-
-val merge_list_locs_2 = Q.store_thm(
-  "merge_list_locs_2[simp]",
-  ‘∀h1 h2 t.
-     merge_list_locs (h1 :: h2 :: t) = merge_list_locs (merge_locs h1 h2 :: t)’,
-  Induct_on ‘t’ >> simp[locationTheory.merge_list_locs_def]);
-
-val merge_list_locs_nested = Q.store_thm(
-  "merge_list_locs_nested[simp]",
-  ‘∀h t1 t2. merge_list_locs (merge_list_locs (h::t1) :: t2) =
-             merge_list_locs (h :: t1 ++ t2)’,
-  Induct_on ‘t1’ >> simp[locationTheory.merge_list_locs_def]);
-
-val merge_list_locs_sing = Q.store_thm(
-  "merge_list_locs_sing[simp]",
-  ‘merge_list_locs [h] = h’,
-  simp[locationTheory.merge_list_locs_def]);
-
-val merge_locs_idem = Q.store_thm(
-  "merge_locs_idem[simp]",
-  ‘merge_locs l l = l’,
-  Cases_on ‘l’ >> simp[locationTheory.merge_locs_def]);
 
 val ptree_list_loc_def = grammarTheory.ptree_list_loc_def
 val ptree_list_loc_SING = Q.store_thm(
@@ -205,28 +167,19 @@ val valid_locs_mkNd = Q.store_thm(
   ‘valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt’,
   simp[mkNd_def, ptree_list_loc_def]);
 
-val valid_lptree_def = Define `
-  valid_lptree G pt ⇔ valid_locs pt ∧ valid_ptree G pt
-`;
-
-val valid_lptree_thm = Q.store_thm(
-  "valid_lptree_thm[simp]",
-  ‘(valid_lptree G (Lf p) ⇔ T) ∧
-   (valid_lptree G (Nd (n, l) children) ⇔
-      l = merge_list_locs (MAP ptree_loc children) ∧
-      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
-      ∀pt. MEM pt children ⇒ valid_lptree G pt) ∧
-   (valid_lptree G (mkNd n children) ⇔
-      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
-      ∀pt. MEM pt children ⇒ valid_lptree G pt)’,
-  simp[valid_lptree_def] >> metis_tac[]);
-
 val rfringe_length_not_nullable = Q.store_thm(
   "rfringe_length_not_nullable",
   ‘∀G s. ¬nullable G [s] ⇒
          ∀pt. ptree_head pt = s ⇒ valid_lptree G pt ⇒
               0 < LENGTH (real_fringe pt)’,
   metis_tac[fringe_length_not_nullable, LENGTH_real_fringe, valid_lptree_def]);
+
+val valid_lptree_mkNd = Q.store_thm(
+  "valid_lptree_mkNd[simp]",
+  ‘valid_lptree G (mkNd n children) ⇔
+      n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
+      ∀pt. MEM pt children ⇒ valid_lptree G pt’,
+  simp[mkNd_def]);
 
 val real_fringe_mkNd = Q.store_thm(
   "real_fringe_mkNd[simp]",
