@@ -420,14 +420,16 @@ val isSubstring_def = Define`
   else F`;
 
 
+(* String orderings *)
 val compare_aux_def = Define`
-  (compare_aux (s1: mlstring) s2 ord n 0 = ord) /\
-  (compare_aux s1 s2 ord n (SUC len) =
-    if strsub s2 n < strsub s1 n
+  compare_aux (s1: mlstring) s2 ord start len =
+    if len = 0n then
+      ord
+    else if strsub s2 start < strsub s1 start
       then GREATER
-    else if strsub s1 n < strsub s2 n
+    else if strsub s1 start < strsub s2 start
       then LESS
-    else compare_aux s1 s2 ord (n + 1) len)`;
+    else compare_aux s1 s2 ord (start + 1) (len - 1)`;
 
 val compare_def = Define`
   compare s1 s2 = if (strlen s1) < (strlen s2)
@@ -436,6 +438,136 @@ val compare_def = Define`
     then compare_aux s1 s2 GREATER 0 (strlen s2)
   else compare_aux s1 s2 EQUAL 0 (strlen s2)`;
 
+val mlstring_lt_def = Define `
+  mlstring_lt s1 s2 ⇔ (compare s1 s2 = LESS)`;
+val _ = Parse.overload_on("<",``λx y. mlstring_lt x y``);
+
+val mlstring_le_def = Define `
+  mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)`;
+val _ = Parse.overload_on("<=",``λx y. mlstring_lt x y``);
+
+val mlstring_gt_def = Define `
+  mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)`;
+val _ = Parse.overload_on(">",``λx y. mlstring_lt x y``);
+
+val mlstring_ge_def = Define `
+  mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)`;
+val _ = Parse.overload_on(">=",``λx y. mlstring_lt x y``);
+
+(* Properties of string orderings *)
+
+val flip_ord_def = Define `
+  (flip_ord LESS = GREATER) ∧
+  (flip_ord GREATER = LESS) ∧
+  (flip_ord EQUAL = EQUAL)`;
+
+val compare_aux_spec = Q.prove (
+  `!s1 s2 ord_in start len.
+    len + start ≤ strlen s1 ∧ len + start ≤ strlen s2 ⇒
+    (compare_aux s1 s2 ord_in start len =
+      if TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2)) then
+        ord_in
+      else if string_lt (TAKE len (DROP start (explode s1))) (TAKE len (DROP start (explode s2))) then
+        LESS
+      else
+        GREATER)`,
+  Induct_on `len` >>
+  rw [] >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp [] >>
+  Cases_on `s1` >>
+  Cases_on `s2` >>
+  fs [] >>
+  full_simp_tac (srw_ss()) [TAKE_SUM, DECIDE ``!n. SUC n = 1 + n``] >>
+  fs [take1_drop, DROP_DROP_T, char_lt_def] >>
+  fs [string_lt_def] >>
+  simp [] >>
+  rw [] >>
+  fs [char_lt_def, CHAR_EQ_THM]);
+
+val compare_aux_refl = Q.prove (
+  `!s1 s2 start len.
+    start + len ≤ strlen s1 ∧ start + len ≤ strlen s2
+    ⇒
+    ((compare_aux s1 s2 EQUAL start len = EQUAL)
+     ⇔
+     (TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2))))`,
+  rw [compare_aux_spec]);
+
+val compare_aux_equal = Q.prove (
+  `!s1 s2 ord_in start len.
+    (compare_aux s1 s2 ord_in start len = EQUAL) ⇒ (ord_in = EQUAL)`,
+  Induct_on `len` >>
+  rw []
+  >- fs [Once compare_aux_def] >>
+  pop_assum mp_tac >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp_tac (std_ss++ARITH_ss) [] >>
+  rw [] >>
+  metis_tac []);
+
+val compare_aux_sym = Q.prove (
+  `!s1 s2 ord_in start len ord_out.
+    (compare_aux s1 s2 ord_in start len = ord_out)
+    ⇔
+    (compare_aux s2 s1 (flip_ord ord_in) start len = flip_ord ord_out)`,
+  Induct_on `len` >>
+  rw [] >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp []
+  >- (
+    Cases_on `ord_in` >>
+    Cases_on `ord_out` >>
+    simp [flip_ord_def]) >>
+  simp [char_lt_def, CHAR_EQ_THM] >>
+  `ORD (strsub s2 start) < ORD (strsub s1 start) ∨
+   ORD (strsub s1 start) < ORD (strsub s2 start) ∨
+   (ORD (strsub s1 start) = ORD (strsub s2 start))`
+  by decide_tac
+  >- (
+    Cases_on `ord_out` >>
+    simp [flip_ord_def])
+  >- (
+    simp [] >>
+    Cases_on `ord_out` >>
+    simp [flip_ord_def]) >>
+  ASM_REWRITE_TAC [] >>
+  simp_tac (std_ss++ARITH_ss) [] >>
+  metis_tac []);
+
+val take_strlen = Q.prove (
+  `!s. TAKE (STRLEN s) s = s`,
+  rw [TAKE_LENGTH_ID]);
+
+val TotOrd_compare = Q.store_thm ("TotOrd_compare",
+  `TotOrd compare`,
+  rw [compare_def, TotOrd]
+  >- (
+    rw [compare_aux_refl] >>
+    Cases_on `x` >>
+    Cases_on `y` >>
+    fs [strlen_def]
+    >- metis_tac [compare_aux_equal, cpn_distinct, prim_recTheory.LESS_NOT_EQ]
+    >- metis_tac [compare_aux_equal, cpn_distinct, prim_recTheory.LESS_NOT_EQ]
+    >- (
+      `STRLEN s' = STRLEN s` by decide_tac >>
+      simp []))
+  >- (
+    rw [] >>
+    fs []
+    >- metis_tac [compare_aux_sym, flip_ord_def]
+    >- metis_tac [compare_aux_sym, flip_ord_def] >>
+    `strlen x = strlen y` by decide_tac >>
+    metis_tac [compare_aux_sym, flip_ord_def])
+  >- (
+    fs [compare_aux_spec] >>
+    Cases_on `x` >>
+    Cases_on `y` >>
+    Cases_on `z` >>
+    fs [take_strlen] >>
+    fs [bool_case_eq] >>
+    rw [] >>
+    cheat));
 
 val collate_aux_def = Define`
   (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
