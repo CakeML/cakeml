@@ -444,15 +444,15 @@ val _ = Parse.overload_on("<",``λx y. mlstring_lt x y``);
 
 val mlstring_le_def = Define `
   mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)`;
-val _ = Parse.overload_on("<=",``λx y. mlstring_lt x y``);
+val _ = Parse.overload_on("<=",``λx y. mlstring_le x y``);
 
 val mlstring_gt_def = Define `
   mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)`;
-val _ = Parse.overload_on(">",``λx y. mlstring_lt x y``);
+val _ = Parse.overload_on(">",``λx y. mlstring_gt x y``);
 
 val mlstring_ge_def = Define `
   mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)`;
-val _ = Parse.overload_on(">=",``λx y. mlstring_lt x y``);
+val _ = Parse.overload_on(">=",``λx y. mlstring_ge x y``);
 
 (* Properties of string orderings *)
 
@@ -535,9 +535,44 @@ val compare_aux_sym = Q.prove (
   simp_tac (std_ss++ARITH_ss) [] >>
   metis_tac []);
 
-val take_strlen = Q.prove (
-  `!s. TAKE (STRLEN s) s = s`,
-  rw [TAKE_LENGTH_ID]);
+val prefix_less = Q.prove (
+  `!s1 s2 s3. s1 < s2 ∧ s3 ≼ s1 ⇒ s3 < s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, isPREFIX_STRCAT] >>
+  Cases_on `s3` >>
+  fs [string_lt_def]);
+
+val take_prefix = Q.prove (
+  `!l s. TAKE l s ≼ s`,
+  Induct_on `s` >>
+  rw [] >>
+  Cases_on `l` >>
+  fs []);
+
+val string_lt_take_mono = Q.prove (
+  `!s1 s2 x.
+    s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def] >>
+  Cases_on `x` >>
+  fs [string_lt_def] >>
+  metis_tac []);
+
+val string_lt_remove_take = Q.prove (
+  `!s1 s2 x. TAKE x s1 < TAKE x s2 ⇒ s1 < s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def] >>
+  Cases_on `x` >>
+  fs [string_lt_def] >>
+  metis_tac []);
+
+val string_lt_not_less_eq = Q.prove (
+  `!s1:string s2. s1 < s2 ⇒ s1 ≠ s2`,
+  metis_tac [string_lt_nonrefl]);
+
+val helper_rw = Q.prove (
+  `!s1:string s2. (s1 ≠ s2 ∧ s1 < s2) ⇔ s1 < s2`,
+  metis_tac [string_lt_nonrefl]);
 
 val TotOrd_compare = Q.store_thm ("TotOrd_compare",
   `TotOrd compare`,
@@ -564,10 +599,46 @@ val TotOrd_compare = Q.store_thm ("TotOrd_compare",
     Cases_on `x` >>
     Cases_on `y` >>
     Cases_on `z` >>
-    fs [take_strlen] >>
-    fs [bool_case_eq] >>
+    fs [] >>
+    pop_assum mp_tac >>
+    pop_assum mp_tac >>
+    rpt (qpat_abbrev_tac `x = STRLEN _`) >>
+    fs [bool_case_eq, string_lt_not_less_eq, helper_rw] >>
     rw [] >>
-    cheat));
+    rw [] >>
+    fs [] >>
+    rw []
+    >- metis_tac [TAKE_TAKE, LESS_OR_EQ]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES]
+    >- metis_tac [TAKE_TAKE, LESS_OR_EQ]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, string_lt_trans]
+    >- (
+      Cases_on `x < x''`
+      >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, string_lt_trans] >>
+      Cases_on `x'' < x` >>
+      metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans])
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]
+    >-  (
+      Cases_on `x < x''`
+      >- metis_tac [string_lt_remove_take, TAKE_TAKE, LESS_OR_EQ] >>
+      Cases_on `x'' < x` >>
+      metis_tac [string_lt_remove_take, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES])
+    >-  (
+      Cases_on `x < x''`
+      >- metis_tac [string_lt_remove_take, TAKE_TAKE, LESS_OR_EQ, string_lt_trans] >>
+      Cases_on `x'' < x` >>
+      metis_tac [string_lt_remove_take, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans])
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, string_lt_trans]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]
+    >- metis_tac [TAKE_LENGTH_ID, LESS_LESS_CASES]
+    >- metis_tac [TAKE_LENGTH_ID, LESS_LESS_CASES, string_lt_trans]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]
+    >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]));
+
+
+
 
 val collate_aux_def = Define`
   (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
