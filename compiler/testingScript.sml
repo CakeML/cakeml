@@ -1,12 +1,12 @@
-load "compilerTheory";
-load "lexer_funTheory";
+load "cfTacticsBaseLib";
 open preamble
-     lexer_funTheory
      cmlParseTheory
      inferTheory
      backendTheory
+     cfTacticsBaseLib
 open jsonTheory presLangTheory
 open astTheory source_to_modTheory
+open stringTheory;
 
 val _ = computeLib.add_funs [pat_bindings_def];
 
@@ -14,27 +14,19 @@ val _ = computeLib.add_funs [pat_bindings_def];
 val parse_def = Define`
   parse p = parse_prog (lexer_fun p)`;
 
-(* Basic string representation of a program. *)
-val basic_prog_def = Define`
-  basic_prog = "val x = 3 + 5;"`;
-
+val parsed_basic = parse_topdecs
+  `
+  val x = 3 + 5;
+  fun fromList l =
+    let val arr = array (List.length l) 0
+      fun f l i =
+       case l of
+          [] => arr
+        | (h::t) => (update arr i h; f t (i + 1))
+    in f l 0 end`;
 (* The input program, parsed *)
 val parsed_basic_def = Define`
-  parsed_basic =
-    case parse basic_prog of
-         NONE => []
-       | SOME x => x`;
-
-(* If parsing breaks, we can use the pre-parsed program for testing. Note that
-* it lacks traces *)
-val parsed_basic_def = Define`
-  parsed_basic = [Tdec
-      (Dlet (Pcon NONE [Pvar "x"; Pvar "y"])
-         (Con NONE
-            [App Opapp
-               [App Opapp [Var (Short "+"); Lit (IntLit 3)];
-                Lit (IntLit 5)]; Lit (IntLit 1)]));
-    Tdec (Dlet (Pvar "y") (Lit (StrLit "hello")))]`;
+  parsed_basic = ^parsed_basic`;
 
 EVAL ``parsed_basic``;
 
@@ -46,6 +38,9 @@ EVAL ``mod_prog``;
 (* Test running the compiler backend on the basic program *)
 EVAL ``backend$compile_explorer backend$prim_config parsed_basic``;
 
+(* Convert output to string *)
+EVAL ``append (backend$compile_explorer backend$prim_config parsed_basic)``;
+
 (* PRESLANG *)
 (* Test converting mod to pres *)
 EVAL ``mod_to_pres mod_prog``;
@@ -55,6 +50,9 @@ EVAL ``pres_to_json (mod_to_pres mod_prog)``;
 
 (* Test converting json to string *)
 EVAL ``json_to_string (pres_to_json (mod_to_pres mod_prog))``;
+
+val tm = ``"hel\"lo"``;
+val _ = print ("\n\n" ^ stringSyntax.fromHOLstring tm ^ "\n\n");
 
 (* Unit test JSON *)
 val _ = Define `
