@@ -88,7 +88,7 @@ val get_file_contents = process_topdecs `
       (quicksort String.< contents_array;
        Array.app print contents_array)
     end
-    handle FileIO.BadFileName => write_err "Cannot open file"`;
+    handle FileIO.BadFileName => print_err "Cannot open file"`;
 
 val _ = append_prog get_file_contents;
 
@@ -311,7 +311,7 @@ val sort_spec = Q.store_thm ("sort_spec",
       [unit_v]
       (ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err)
       (POSTv unit_v'.
-        ROFS fs * COMMANDLINE cl * STDOUT (CONCAT output ++ out) * STDERR (err_msg ++ err) *
+        ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR (err ++ err_msg) *
         &UNIT_TYPE () unit_v')`,
 
   xcf "sort" (get_ml_prog_state ()) >>
@@ -322,7 +322,7 @@ val sort_spec = Q.store_thm ("sort_spec",
   xhandle
     `POST
       (\unit_v2.
-       ROFS fs * COMMANDLINE cl * STDOUT (CONCAT output ++ out) * STDERR (err_msg ++ err) *
+       ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR (err ++ err_msg) *
        &(EVERY (\fname. inFS_fname fs fname) fnames ∧
          UNIT_TYPE () unit_v2))
       (\e. ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
@@ -439,6 +439,7 @@ val sort_spec = Q.store_thm ("sort_spec",
           rw [string_le_def] >>
           metis_tac [string_lt_total])
         >- metis_tac [string_list_uniq])) >>
+    xapp
     cheat)
   >- fs [UNIT_TYPE_def]
   >- (
@@ -446,7 +447,17 @@ val sort_spec = Q.store_thm ("sort_spec",
     xcases >>
     xsimpl >>
     fs [] >>
-    cheat));
+    xapp >>
+    xsimpl >>
+    fs [UNIT_TYPE_def] >>
+    qexists_tac `ROFS fs * COMMANDLINE cl * STDOUT (STRCAT out (CONCAT output)) * GC` >>
+    xsimpl >>
+    qexists_tac `err` >>
+    xsimpl >>
+    every_case_tac >>
+    fs [] >>
+    xsimpl >>
+    metis_tac [NOT_EVERY]));
 
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
