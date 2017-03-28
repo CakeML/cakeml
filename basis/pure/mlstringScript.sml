@@ -535,20 +535,6 @@ val compare_aux_sym = Q.prove (
   simp_tac (std_ss++ARITH_ss) [] >>
   metis_tac []);
 
-val prefix_less = Q.prove (
-  `!s1 s2 s3. s1 < s2 ∧ s3 ≼ s1 ⇒ s3 < s2`,
-  ho_match_mp_tac string_lt_ind >>
-  rw [string_lt_def, isPREFIX_STRCAT] >>
-  Cases_on `s3` >>
-  fs [string_lt_def]);
-
-val take_prefix = Q.prove (
-  `!l s. TAKE l s ≼ s`,
-  Induct_on `s` >>
-  rw [] >>
-  Cases_on `l` >>
-  fs []);
-
 val string_lt_take_mono = Q.prove (
   `!s1 s2 x.
     s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)`,
@@ -637,8 +623,40 @@ val TotOrd_compare = Q.store_thm ("TotOrd_compare",
     >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]
     >- metis_tac [string_lt_take_mono, TAKE_TAKE, LESS_OR_EQ, LESS_LESS_CASES, string_lt_trans]));
 
+val mlstring_lt_antisym = Q.store_thm ("mlstring_lt_antisym",
+  `∀s t. ¬(s < t ∧ t < s)`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct]);
 
+val mlstring_lt_cases = Q.store_thm ("mlstring_lt_cases",
+  `∀s t. (s = t) ∨ s < t ∨ t < s`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_nchotomy]);
 
+val mlstring_lt_nonrefl = Q.store_thm ("mlstring_lt_nonrefl",
+  `∀s. ¬(s < s)`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct]);
+
+val mlstring_lt_trans = Q.store_thm ("mlstring_lt_trans",
+  `∀s1 s2 s3. s1 < s2 ∧ s2 < s3 ⇒ s1 < s3`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
+
+val mlstring_le_thm = Q.store_thm ("mlstring_le_thm",
+  `!s1 s2. s1 ≤ s2 ⇔ (s1 = s2) ∨ s1 < s2`,
+  rw [mlstring_le_def, mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct, cpn_nchotomy]);
+
+val mlstring_gt_thm = Q.store_thm ("mlstring_gt_thm",
+  `!s1 s2. s1 > s2 ⇔ s2 < s1`,
+  rw [mlstring_gt_def, mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
+
+val mlstring_ge_thm = Q.store_thm ("mlstring_ge_thm",
+  `!s1 s2. s1 ≥ s2 ⇔ s2 ≤ s1`,
+  rw [mlstring_ge_def, mlstring_le_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
 
 val collate_aux_def = Define`
   (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
@@ -689,17 +707,41 @@ val collate_thm = Q.store_thm (
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 );
 
+val string_prefix_le = Q.prove (
+  `!s1 s2. s1 ≼ s2 ⇒ s1 ≤ s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, string_le_def, isPREFIX_STRCAT] >>
+  Cases_on `s3` >>
+  fs []);
 
-
-
-val mlstring_lt_def = Define`
-  mlstring_lt (strlit s1) (strlit s2) ⇔
-    string_lt s1 s2`
+val take_prefix = Q.prove (
+  `!l s. TAKE l s ≼ s`,
+  Induct_on `s` >>
+  rw [] >>
+  Cases_on `l` >>
+  fs []);
 
 val mlstring_lt_inv_image = Q.store_thm("mlstring_lt_inv_image",
   `mlstring_lt = inv_image string_lt explode`,
-  simp[inv_image_def,FUN_EQ_THM] >>
-  Cases >> Cases >> simp[mlstring_lt_def])
+  simp [inv_image_def, FUN_EQ_THM] >>
+  Cases >>
+  Cases >>
+  simp [mlstring_lt_def, compare_def, compare_aux_spec] >>
+  rpt (qpat_abbrev_tac `x = STRLEN _`) >>
+  rw []
+  >- (
+    `TAKE x s' ≤ s'` by metis_tac [take_prefix, string_prefix_le] >>
+    fs [string_le_def] >>
+    `x ≠ x'` by decide_tac >>
+    metis_tac [LENGTH_TAKE, LESS_OR_EQ])
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
+  >- metis_tac [take_prefix, string_prefix_le, LENGTH_TAKE, LESS_OR_EQ, string_lt_antisym, string_le_def]
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
+  >- metis_tac [take_prefix, string_prefix_le, string_lt_antisym, string_le_def]
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]);
 
 val transitive_mlstring_lt = Q.prove(
   `transitive mlstring_lt`,
