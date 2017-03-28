@@ -11,9 +11,6 @@ open stringTheory;
 val _ = computeLib.add_funs [pat_bindings_def];
 
 (* COMPILING *)
-val parse_def = Define`
-  parse p = parse_prog (lexer_fun p)`;
-
 val parsed_basic = parse_topdecs
   `
   val x = 3 + 5;
@@ -41,6 +38,19 @@ EVAL ``backend$compile_explorer backend$prim_config parsed_basic``;
 (* Convert output to string *)
 EVAL ``append (backend$compile_explorer backend$prim_config parsed_basic)``;
 
+fun explorer q fileN =
+  let val tm = parse_topdecs q
+      (* Using the ^ symbol means referencing an variable declared in ML from
+      * inside HOL. *)
+      val th = EVAL ``append (backend$compile_explorer backend$prim_config ^tm)``
+      val s = th |> concl |> rand |> stringSyntax.fromHOLstring
+      val f = TextIO.openOut fileN
+      val _ = TextIO.outputSubstr (f, Substring.full s)
+      val _ = TextIO.closeOut f
+  in ()
+  end
+
+
 (* PRESLANG *)
 (* Test converting mod to pres *)
 EVAL ``mod_to_pres mod_prog``;
@@ -50,9 +60,6 @@ EVAL ``pres_to_json (mod_to_pres mod_prog)``;
 
 (* Test converting json to string *)
 EVAL ``json_to_string (pres_to_json (mod_to_pres mod_prog))``;
-
-val tm = ``"hel\"lo"``;
-val _ = print ("\n\n" ^ stringSyntax.fromHOLstring tm ^ "\n\n");
 
 (* Unit test JSON *)
 val _ = Define `
