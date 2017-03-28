@@ -451,6 +451,48 @@ val array_copy_spec  = Q.store_thm("array_copy_spec",
     \\ xapp \\ xsimpl \\ qexists_tac `mid` \\ qexists_tac `bfr` \\ qexists_tac `afr` \\ fs[NUM_def, INT_def]
 );
 
+val array_app_aux_spec = Q.store_thm ("array_app_aux_spec",
+  `∀l len_v idx idx_v a_v f_v eff.
+   NUM (LENGTH l) len_v ∧
+   NUM idx idx_v ∧
+   (!n.
+     n < LENGTH l ⇒
+     app p f_v [EL n l] (eff l n) (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "Array.app_aux" (array_st())) [f_v; a_v; len_v; idx_v]
+     (eff l idx * ARRAY a_v l)
+     (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)`,
+  rw [] >>
+  xcf "Array.app_aux" (array_st ()) >>
+  completeInduct_on `LENGTH l - idx` >>
+  rw [] >>
+  xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
+  >- (
+    (* xapp is too polymorphic *)
+    cheat) >>
+  xif
+  >- (
+    xret >>
+    xsimpl) >>
+  cheat);
+
+(* eff is the effect of executing the function on the first n elements of l *)
+val array_app_spec = Q.store_thm  ("array_app_spec",
+  `∀l a_v f_v eff.
+   (!n.
+     n < LENGTH l ⇒
+     app p f_v [EL n l] (eff l n) (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "Array.app" (array_st())) [f_v; a_v] (eff l 0 * ARRAY a_v l)
+     (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)`,
+  rw [] >>
+  xcf "Array.app" (array_st ()) >>
+  xlet `POSTv len_v. eff l 0 * ARRAY a_v l * &NUM (LENGTH l) len_v`
+  >- (
+    xapp >>
+    xsimpl) >>
+  xapp >>
+  rw [NUM_def]);
 
 val list_rel_take_thm = Q.prove(
   `!A xs ys n.
