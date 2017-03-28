@@ -85,7 +85,7 @@ val get_file_contents = process_topdecs `
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
     in
-      (quicksort (fn s1 => fn s2 => String.compare s1 s2 = LESS) contents_array;
+      (quicksort String.< contents_array;
        Array.app print contents_array)
     end
     handle FileIO.BadFileName => write_err "Cannot open file"`;
@@ -313,6 +313,7 @@ val sort_spec = Q.store_thm ("sort_spec",
       (POSTv unit_v'.
         ROFS fs * COMMANDLINE cl * STDOUT (CONCAT output ++ out) * STDERR (err_msg ++ err) *
         &UNIT_TYPE () unit_v')`,
+
   xcf "sort" (get_ml_prog_state ()) >>
   fs [UNIT_TYPE_def] >>
   xmatch >>
@@ -328,6 +329,7 @@ val sort_spec = Q.store_thm ("sort_spec",
            &(BadFileName_exn e ∧
              EXISTS (\fname. ~inFS_fname fs fname) fnames))` >>
   xsimpl
+
   >- (
     xlet
       `POSTv a_v.
@@ -405,7 +407,6 @@ val sort_spec = Q.store_thm ("sort_spec",
       imp_res_tac list_type_v_to_list >>
       fs [] >>
       metis_tac [string_list_uniq]) >>
-    xfun `cmp` >>
     xlet
       `POSTv u_v. SEP_EXISTS sorted.
          ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
@@ -422,7 +423,9 @@ val sort_spec = Q.store_thm ("sort_spec",
         fs [LIST_REL_EL_EQN] >>
         rw [EL_MAP] >>
         metis_tac [mlstringTheory.implode_def, mlstringTheory.implode_explode])
-      >- cheat
+      >- (
+        assume_tac mlstringProgTheory.mlstring_lt_v_thm >>
+        fs [mlstringTheory.mlstring_lt_inv_image, inv_image_def])
       >- (
         qexists_tac `elems'` >>
         rw []
