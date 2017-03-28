@@ -179,10 +179,15 @@ val common_subsequence_sym = Q.store_thm("common_subsequence_sym",
   `common_subsequence s u t = common_subsequence s t u`,
   fs[common_subsequence_def,EQ_IMP_THM])
 
+val lcs_sym = Q.store_thm("lcs_sym",
+  `lcs l l' l'' = lcs l l'' l'`,
+  metis_tac[lcs_def,common_subsequence_sym]);
+
 val lcs_empty = Q.prove(`lcs [] l [] /\ lcs [] [] l`,
   fs[lcs_def,common_subsequence_def,is_subsequence_nil]);
 
-val lcs_empty' = Q.prove(`(lcs l l' [] = (l = [])) /\ (lcs l [] l' = (l = []))`,
+val lcs_empty' = Q.store_thm("lcs_empty'",
+  `(lcs l l' [] = (l = [])) /\ (lcs l [] l' = (l = []))`,
   fs[lcs_def,common_subsequence_def,is_subsequence_nil,EQ_IMP_THM]);
 
 val cons_lcs_optimal_substructure = Q.store_thm("cons_lcs_optimal_substructure",
@@ -252,7 +257,7 @@ val cons_lcs_optimal_substructure_right = Q.store_thm(
     /\ lcs l''' l' (f'::l'')
     /\ LENGTH l''' >= LENGTH l
   ==> lcs l''' (f::l') (f'::l'')`,
-  metis_tac[cons_lcs_optimal_substructure_left,common_subsequence_sym,lcs_def]);
+  metis_tac[cons_lcs_optimal_substructure_left,lcs_sym]);
 
 val snoc_lcs_optimal_substructure_right = Q.store_thm(
   "snoc_lcs_optimal_substructure_right",`
@@ -260,7 +265,7 @@ val snoc_lcs_optimal_substructure_right = Q.store_thm(
     /\ lcs l''' l' (l''++[f'])
     /\ LENGTH l''' >= LENGTH l
   ==> lcs l''' (l'++[f]) (l''++[f'])`,
-  metis_tac[snoc_lcs_optimal_substructure_left,common_subsequence_sym,lcs_def]);
+  metis_tac[snoc_lcs_optimal_substructure_left,lcs_sym]);
 
 val lcs_length_left = Q.store_thm("lcs_length_left",`
   (lcs xl yl zl /\ lcs xl' (yl ++ [y]) zl)
@@ -277,7 +282,7 @@ val lcs_length_left = Q.store_thm("lcs_length_left",`
 val lcs_length_right = Q.store_thm("lcs_length_right",`
   (lcs xl yl zl /\ lcs xl' (yl) (zl ++ [z]))
   ==> SUC(LENGTH xl) >= LENGTH xl'`,
-  metis_tac[lcs_def,common_subsequence_sym,lcs_length_left]);
+  metis_tac[lcs_sym,lcs_length_left]);
 
 val is_subsequence_rev = Q.store_thm("is_subsequence_rev",`
   !l r. is_subsequence (REVERSE l) (REVERSE r) = is_subsequence l r`,
@@ -313,6 +318,41 @@ val lcs_rev' = Q.store_thm("lcs_rev",
   `!l r s. lcs l (REVERSE r) (REVERSE s) = lcs (REVERSE l) r s`,
   rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
   >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);
+
+val lcs_drop_ineq = Q.store_thm("lcs_drop_ineq",
+`(lcs (f::r) (h::l) l' /\ f ≠ h) ==> lcs (f::r) l l'`,
+  rpt strip_tac
+  >> fs[lcs_def,common_subsequence_def,Once is_subsequence_cons]
+  >> metis_tac[cons_is_subsequence]);
+
+val lcs_split = Q.store_thm("lcs_split",
+  `lcs (f::r) l l' ==> ?ll lr. SPLITP ($= f) l = (ll,f::lr)`,
+  Induct_on `l`
+  >> rw[lcs_empty',SPLITP]
+  >> fs[SPLITP]
+  >> metis_tac[lcs_drop_ineq,SND]);
+
+val lcs_split2 = Q.store_thm("lcs_split2",
+  `lcs (f::r) l l' ==> ?ll lr. SPLITP ($= f) l' = (ll,f::lr)`,
+  metis_tac[lcs_split,lcs_sym]);
+
+val lcs_split_lcs = Q.store_thm("lcs_split_lcs",
+  `lcs (f::r) l l' ==> lcs (f::r) (SND(SPLITP ($= f) l)) l'`,
+  Induct_on `l`
+  >> rw[lcs_empty',SPLITP]
+  >> metis_tac[lcs_drop_ineq,SND]);
+
+val lcs_split_lcs2 = Q.store_thm("lcs_split_split_lcs2",
+  `lcs (f::r) l l' ==> lcs (f::r) l (SND(SPLITP ($= f) l'))`,
+  metis_tac[lcs_split_lcs,lcs_sym]);
+
+val split_lcs_optimal_substructure = Q.store_thm("split_lcs_optimal_substructure",
+  `lcs (f::r) l l' ==> lcs r (TL(SND(SPLITP ($= f) l))) (TL(SND(SPLITP ($= f) l')))`,
+  rpt strip_tac >>
+  drule lcs_split >> drule lcs_split2 >>      
+  pop_assum (assume_tac o MATCH_MP lcs_split_lcs2 o MATCH_MP lcs_split_lcs)
+  >> rpt strip_tac
+  >> fs[cons_lcs_optimal_substructure]);
 
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
@@ -729,6 +769,8 @@ val longest_common_prefix_reverse = Q.store_thm("longest_common_prefix_reverse",
   >> rpt strip_tac
   >> fs[longest_common_prefix_clauses,longest_common_suffix_clauses]
   >> rw[]);
+
+(* Main correctness theorem for optimised LCS algorithm *)
 
 val optimised_lcs_correct = Q.store_thm("optimised_lcs_correct",
   `lcs (optimised_lcs l r) l r`,
