@@ -26,22 +26,24 @@ val int_to_str_def = Define `
                 then "-" ++ (num_to_str (Num (-i)))
                 else num_to_str (Num i)`;
 
+val _ = temp_overload_on("++",``Append``)
+
 val concat_with_def = Define`
   (concat_with [] c acc = acc) /\
-  (concat_with [s:string] c acc = acc ++ s) /\
+  (concat_with [s] c acc = acc ++ s) /\
   (concat_with (s::ss) c acc = concat_with ss c (acc ++ s ++ c))`;
 
 val json_to_string_def = tDefine "json_to_string" `
   (json_to_string obj =
     case obj of
-       | Object mems => "{ " ++ (concat_with (MAP mem_to_string mems) ", " "") ++ " }"
-       | Array obs => "[ " ++ (concat_with (MAP json_to_string obs) ", " "") ++ " ]"
-       | String s => "'" ++ s ++ "'"
-       | Int i => int_to_str i
-       | Bool b => if b then "true" else "false"
-       | Null => "null")
+       | Object mems => List "{ " ++ (concat_with (MAP mem_to_string mems) (List ", ") (List "")) ++ List " }"
+       | Array obs => List "[ " ++ (concat_with (MAP json_to_string obs) (List ", ") (List "")) ++ List " ]"
+       | String s => List "'" ++ List s ++ List "'"
+       | Int i => List (int_to_str i)
+       | Bool b => if b then List "true" else List "false"
+       | Null => List "null")
   /\
-  (mem_to_string (n, ob) = "'" ++ n ++ "': " ++ (json_to_string ob))`
+  (mem_to_string (n, ob) = List "'" ++ List n ++ List "': " ++ (json_to_string ob))`
   cheat;
 
 val _ = export_theory();

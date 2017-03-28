@@ -33,9 +33,6 @@ val compile_explorer_def = Define`
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
        | NONE => Failure TypeError
-       | SOME ic =>
-          case backend$compile_explorer c.backend_config (prelude ++ prog) of
-          | "" => Failure CompileError
-          | json => Success json`;
+       | SOME ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
 val _ = export_theory();
