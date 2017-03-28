@@ -767,15 +767,6 @@ val StrongLinearOrder_mlstring_lt = Q.store_thm("StrongLinearOrder_mlstring_lt",
   rw[StrongLinearOrder,trichotomous_mlstring_lt,
      StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt])
 
-val mlstring_cmp_def = Define`
-  mlstring_cmp = TO_of_LinearOrder mlstring_lt`
-
-val TotOrd_mlstring_cmp = Q.store_thm("TotOrd_mlstring_cmp",
-  `TotOrd mlstring_cmp`,
-  simp[mlstring_cmp_def] >>
-  match_mp_tac TotOrd_TO_of_Strong >>
-  simp[StrongLinearOrder_mlstring_lt])
-
 val ALL_DISTINCT_MAP_implode = Q.store_thm("ALL_DISTINCT_MAP_implode",
   `ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)`,
   strip_tac >>
