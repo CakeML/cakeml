@@ -1194,17 +1194,35 @@ val word_gen_gc_move_def = Define `
               let m1 = (header_addr =+ Word (i << 2)) m1 in
                 (Word (update_addr conf i w),v,pa1,ib,pb,m1,c))`
 
+val is_ref_header_alt = prove(
+  ``good_dimindex (:'a) ==>
+    (is_ref_header (w:'a word) <=> ~(w ' 2) /\ (w ' 3) /\ ~(w ' 4))``,
+  fs [is_ref_header_def,fcpTheory.CART_EQ,good_dimindex_def] \\ rw []
+  \\ fs [word_and_def,word_index,fcpTheory.FCP_BETA]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ TRY (qpat_x_assum `!x._`
+       (fn th => qspec_then `2` mp_tac th
+                 \\ qspec_then `3` mp_tac th
+                 \\ qspec_then `4` mp_tac th ))
+  \\ fs [] \\ Cases_on `i = 2`
+  \\ fs [] \\ Cases_on `i = 3`
+  \\ fs [] \\ Cases_on `i = 4` \\ fs []);
+
 val is_ref_header_thm = prove(
-  ``(word_payload addrs ll tt0 tt1 conf = (h,ts,c5)) /\ good_dimindex (:'a) ==>
+  ``(word_payload addrs ll tt0 tt1 conf = (h,ts,c5)) /\ good_dimindex (:'a) /\
+    conf.len_size + 5 <= dimindex (:'a) ==>
     (is_ref_header (h:'a word) ⇔ tt0 = RefTag)``,
   Cases_on `tt0` \\ fs [word_payload_def] \\ rw []
-  \\ fs [make_header_def,make_byte_header_def]
-  \\ cheat);
+  \\ fs [make_header_def,make_byte_header_def,is_ref_header_alt]
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,good_dimindex_def,word_lsl_def,word_index]
+  \\ rw []
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,good_dimindex_def,word_lsl_def,word_index]);
 
 val word_gen_gc_move_thm = Q.prove(
   `(gen_gc$gc_move gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    conf.len_size + 5 <= dimindex (:'a) /\
     (word_heap curr s.heap conf *
      word_list pa xs * frame) (fun2set (m,dm)) /\
     (word_gen_gc_move conf (word_addr conf x,n2w s.a,pa,
@@ -1361,7 +1379,6 @@ val word_gen_gc_move_thm = Q.prove(
     \\ fs [WORD_MUL_LSL]));
 
 (*
-gen_gcTheory.gc_move_def
 gen_gcTheory.gc_move_list_def
 gen_gcTheory.gc_move_data_def
 gen_gcTheory.gc_move_refs_def
