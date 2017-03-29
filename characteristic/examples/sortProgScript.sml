@@ -293,7 +293,7 @@ val v_to_string_def = Define `
   v_to_string (Litv (StrLit s)) = s`;
 
 val sort_spec = Q.store_thm ("sort_spec",
-  `!cl fs out err output unit_v.
+  `!cl fs out err unit_v.
     (* The below seems needed, but misplaced. The person calling sort shouldn't
      * ensure this stuff, but rather the system *)
     cl ≠ [] ∧ EVERY validArg cl ∧ STRLEN (CONCAT (MAP (λs. STRCAT s "\^@") cl)) < 257 ∧
@@ -498,7 +498,6 @@ val sort_spec = Q.store_thm ("sort_spec",
     xsimpl >>
     metis_tac [NOT_EVERY]));
 
-    (*
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
@@ -509,6 +508,5 @@ val sort_semantics_thm =
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
   |> curry save_thm "sort_semantics_thm";
-  *)
 
 val _ = export_theory ();
