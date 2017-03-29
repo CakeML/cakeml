@@ -455,7 +455,7 @@ val word_gen_gc_partial_move_def = Define `
   (word_gen_gc_partial_move conf (Word w,i,pa,old,m,dm,gs,rs) =   
    if (w && 1w) = 0w then (Word w,i,pa,m,T) else
    let header_addr = ptr_to_addr conf old w in
-     if header_addr <+ gs \/ header_addr <=+ rs then
+     if header_addr <+ gs \/ rs <=+ header_addr then
          (Word w, i, pa, m, T)
        else
          let c = (ptr_to_addr conf old w IN dm) in
@@ -803,107 +803,7 @@ val word_gc_move_thm = Q.prove(
   \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,ADD1]
   \\ full_simp_tac(srw_ss())[word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ srw_tac[][] \\ qexists_tac `ts`
-  \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]);
-
-(*(x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T*)
-(*(word_addr conf x,n2w a,pa,curr,m,dm)*)
-val word_gen_gc_partial_move_thm = Q.prove(
-  `(gen_gc_partial$gc_move gc_conf gcstate x = (x1,gcstate1)) /\
-(*    gen_inv gc_conf gcstate.heap /\*)
-    gcstate.h2 = [] /\
-    heap_length gcstate.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
-    (word_heap curr gcstate.heap conf * word_list pa xs * frame) (fun2set (m,dm)) /\
-    (word_gen_gc_partial_move conf (word_addr conf x,n2w gcstate.a,pa,curr,m,dm,n2w gc_conf.gen_start,n2w gc_conf.refs_start) =
-      (w:'a word_loc,i1,pa1,m1,c1)) /\
-    LENGTH xs = gcstate.n ==>
-    ?xs1.
-      (word_heap curr gcstate1.heap conf *
-       word_heap pa gcstate1.h2 conf *
-       word_list pa1 xs1 * frame) (fun2set (m1,dm)) /\
-      (w = word_addr conf x1) /\
-      heap_length gcstate1.heap = heap_length gcstate.heap /\
-      c1 /\ (i1 = n2w gcstate1.a) /\ gcstate1.n = LENGTH xs1 /\
-      pa1 = pa + bytes_in_word * n2w (heap_length gcstate1.h2)`,
-  reverse (Cases_on `x`) \\ full_simp_tac(srw_ss())[gen_gc_partialTheory.gc_move_def] THEN1
-   (srw_tac[][] \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES]
-    \\ Cases_on `a` \\ full_simp_tac(srw_ss())[word_addr_def,word_gen_gc_partial_move_def]
-    \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
-  \\ IF_CASES_TAC THEN1
-  (srw_tac[][] \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES] \\
-   Cases_on `a` \\full_simp_tac(srw_ss())[word_addr_def,word_gen_gc_partial_move_def,get_addr_and_1_not_0] \\
-   qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def]
-  )
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ rename1 `heap_lookup k heap = SOME x`
-  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_addr_def]
-  \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[word_gc_move_def,get_addr_and_1_not_0]
-  \\ imp_res_tac heap_lookup_LESS
-  \\ drule LE_DIV_LT_IMP \\ full_simp_tac(srw_ss())[] \\ strip_tac
-  \\ full_simp_tac(srw_ss())[ptr_to_addr_get_addr,word_heap_def,SEP_CLAUSES]
-  \\ imp_res_tac heap_lookup_SPLIT \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,word_el_def]
-  \\ `small_shift_length conf <= shift_length conf /\
-      small_shift_length conf <> 0` by (EVAL_TAC \\ fs [] \\ NO_TAC)
-  THEN1
-   (helperLib.SEP_R_TAC
-    \\ full_simp_tac(srw_ss())[LET_THM,theWord_def,is_fws_ptr_OR_3]
-    \\ srw_tac[][] \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[update_addr_def,shift_to_zero]
-    \\ `2 <= shift_length conf` by (fs[shift_length_def] \\ decide_tac)
-    \\ full_simp_tac(srw_ss())[shift_around_under_big_shift]
-    \\ full_simp_tac(srw_ss())[get_addr_def,select_shift_out]
-    \\ full_simp_tac(srw_ss())[select_get_lowerbits,heap_length_def])
-  \\ rename1 `_ = SOME (DataElement addrs ll tt)`
-  \\ PairCases_on `tt`
-  \\ full_simp_tac(srw_ss())[word_el_def]
-  \\ `?h ts c5. word_payload addrs ll tt0 tt1 conf =
-         (h:'a word,ts,c5)` by METIS_TAC [PAIR]
-  \\ full_simp_tac(srw_ss())[LET_THM] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac bool_ss [word_list_def]
-  \\ SEP_R_TAC
-  \\ full_simp_tac bool_ss [GSYM word_list_def]
-  \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,isWord_def,theWord_def]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
-  \\ `~is_fwd_ptr (Word h)` by (imp_res_tac NOT_is_fwd_ptr \\ fs [])
-  \\ fs []
-  \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-  \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-  \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word h::ts)):'a word` by
-        full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
-  \\ full_simp_tac bool_ss []
-  \\ drule memcpy_thm
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ full_simp_tac(srw_ss())[gc_forward_ptr_thm] \\ rev_full_simp_tac(srw_ss())[]
-  \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[heap_length_def,el_length_def]
-  \\ full_simp_tac(srw_ss())[GSYM heap_length_def]
-  \\ imp_res_tac word_payload_IMP
-  \\ rpt var_eq_tac
-  \\ drule LESS_EQ_IMP_APPEND \\ strip_tac
-  \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[word_list_APPEND]
-  \\ disch_then (qspec_then `ys` assume_tac)
-  \\ SEP_F_TAC
-  \\ impl_tac THEN1
-   (full_simp_tac(srw_ss())[ADD1,SUM_APPEND,X_LE_DIV,RIGHT_ADD_DISTRIB]
-    \\ Cases_on `2 ** shift_length conf` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `n` \\ full_simp_tac(srw_ss())[MULT_CLAUSES]
-    \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[MULT_CLAUSES] \\ decide_tac)
-  \\ rpt strip_tac
-  \\ full_simp_tac(srw_ss())[word_addr_def,word_add_n2w,ADD_ASSOC] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,
-       SEP_CLAUSES,word_el_def,LET_THM]
-  \\ full_simp_tac(srw_ss())[word_list_def]
-  \\ SEP_W_TAC \\ qexists_tac `zs` \\ full_simp_tac(srw_ss())[]
-  \\ reverse conj_tac THEN1
-   (full_simp_tac(srw_ss())[update_addr_def,get_addr_def,
-       select_shift_out,select_get_lowerbits,ADD1])
-  \\ pop_assum mp_tac
-  \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM]
-  \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,ADD1]
-  \\ full_simp_tac(srw_ss())[word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
-  \\ srw_tac[][] \\ qexists_tac `ts`
-  \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]);
+  \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]);  
 
 val word_gc_move_roots_thm = Q.prove(
   `!x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 w frame.
@@ -1506,6 +1406,175 @@ gen_gcTheory.gc_move_refs_def
 gen_gcTheory.gc_move_loop_def
 gen_gcTheory.gen_gc_def
 *)
+
+val word_gen_gc_partial_move_thm = Q.prove(
+  `(gen_gc_partial$gc_move gc_conf gcstate x = (x1,gcstate1)) /\
+    gcstate.h2 = [] /\ gcstate1.ok /\
+    gc_conf.limit = heap_length gcstate.heap /\
+    good_dimindex (:α) /\
+    heap_length gcstate.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    gc_conf.gen_start <= gc_conf.refs_start /\  
+    gc_conf.refs_start <= heap_length gcstate.heap /\
+    w2n curr + heap_length gcstate.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
+    (word_heap curr gcstate.heap conf * word_list pa xs * frame) (fun2set (m,dm)) /\
+    (!t r. (gc_conf.isRef (t,r) <=> t = RefTag)) /\
+    (word_gen_gc_partial_move conf (word_addr conf x,n2w gcstate.a,pa,curr,m,dm,
+                                    curr + bytes_in_word * n2w gc_conf.gen_start,
+                                    curr + bytes_in_word * n2w gc_conf.refs_start) =
+      (w:'a word_loc,i1,pa1,m1,c1)) /\
+    LENGTH xs = gcstate.n ==>
+    ?xs1.
+      (word_heap curr gcstate1.heap conf *
+       word_heap pa gcstate1.h2 conf *
+       word_list pa1 xs1 * frame) (fun2set (m1,dm)) /\
+      (w = word_addr conf x1) /\
+      heap_length gcstate1.heap = heap_length gcstate.heap /\
+      c1 /\ (i1 = n2w gcstate1.a) /\ gcstate1.n = LENGTH xs1 /\
+      pa1 = pa + bytes_in_word * n2w (heap_length gcstate1.h2)`,
+  reverse (Cases_on `x`) \\ (*full_simp_tac(srw_ss())[gen_gc_partialTheory.gc_move_def]*)
+  full_simp_tac(srw_ss())[gc_move_def]
+  THEN1
+   (srw_tac[][] \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES]
+    \\ Cases_on `a` \\ full_simp_tac(srw_ss())[word_addr_def,word_gen_gc_partial_move_def]
+    \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[heap_length_def])
+  \\ rpt strip_tac
+  \\ `n < heap_length gcstate.heap`
+       by(every_case_tac >> fs[]
+          >> qpat_x_assum `(x with ok := y) = z` (assume_tac o GSYM)
+          >> fs[])
+  \\ `curr + bytes_in_word * n2w n <₊ curr + bytes_in_word * n2w gc_conf.gen_start
+       <=> n < gc_conf.gen_start` by
+    (Cases_on `curr` \\ fs[bytes_in_word_def,word_add_n2w,word_mul_n2w,WORD_LO]
+     \\ `n' + n * (dimindex (:α) DIV 8) <
+         n' + heap_length gcstate.heap * (dimindex (:α) DIV 8)`
+          by fs[good_dimindex_def]
+     \\ `n' + gc_conf.gen_start * (dimindex (:α) DIV 8) <=
+         n' + heap_length gcstate.heap * (dimindex (:α) DIV 8)`
+          by fs[good_dimindex_def]
+     \\ rw[LESS_MOD] \\ fs[good_dimindex_def])
+  \\ `curr + bytes_in_word * n2w gc_conf.refs_start ≤₊ curr + bytes_in_word * n2w n
+      <=> gc_conf.refs_start <= n` by
+     (Cases_on `curr`
+      \\ fs[bytes_in_word_def,word_add_n2w,word_mul_n2w,WORD_NOT_LOWER_EQUAL,WORD_LO]
+      \\ `n' + n * (dimindex (:α) DIV 8) <
+          n' + heap_length gcstate.heap * (dimindex (:α) DIV 8)`
+           by fs[good_dimindex_def]
+      \\ `n' + gc_conf.refs_start * (dimindex (:α) DIV 8) <=
+          n' + heap_length gcstate.heap * (dimindex (:α) DIV 8)`
+           by fs[good_dimindex_def]
+      \\ rw[LESS_MOD]  \\ fs[good_dimindex_def] \\ rfs[] \\ fs[WORD_LS])
+  \\ rpt (pop_assum MP_TAC)
+  \\ PURE_ONCE_REWRITE_TAC [LET_THM] \\ BETA_TAC
+  \\ IF_CASES_TAC THEN1  
+    (srw_tac[][]
+     \\ full_simp_tac(srw_ss())[word_heap_def,SEP_CLAUSES]
+     \\ full_simp_tac(srw_ss())[word_addr_def,word_gen_gc_partial_move_def,get_addr_and_1_not_0] 
+     \\ drule(GEN_ALL LE_DIV_LT_IMP)
+     \\ disch_then drule
+     \\ rpt strip_tac
+     \\ fs [ptr_to_addr_get_addr]
+     \\ rpt strip_tac
+     \\ qexists_tac `xs`
+     \\ fs[word_heap_def,heap_length_def,SEP_CLAUSES,word_addr_def])
+  \\ CASE_TAC \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ rename1 `heap_lookup k s.heap = SOME x`
+  \\ Cases_on `x` \\ fs[] \\ srw_tac[][] \\ fs[word_addr_def]
+  \\ qpat_x_assum `word_gen_gc_partial_move conf _ = _` mp_tac  
+  \\ full_simp_tac std_ss [word_gen_gc_partial_move_def,get_addr_and_1_not_0]
+  \\ fs[get_addr_and_1_not_0]
+  \\ imp_res_tac heap_lookup_LESS
+  \\ drule LE_DIV_LT_IMP
+  \\ impl_tac \\ asm_rewrite_tac [] \\ strip_tac
+  \\ asm_simp_tac std_ss [ptr_to_addr_get_addr]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ full_simp_tac std_ss [word_heap_def,SEP_CLAUSES] \\ rveq
+  \\ full_simp_tac std_ss [word_heap_APPEND,word_heap_def,word_el_def,
+       AC WORD_MULT_ASSOC WORD_MULT_COMM]
+  \\ `small_shift_length conf <= shift_length conf /\
+      small_shift_length conf <> 0` by (EVAL_TAC \\ fs [] \\ NO_TAC)
+  THEN1
+   (helperLib.SEP_R_TAC
+    \\ full_simp_tac(srw_ss())[LET_THM,theWord_def,is_fws_ptr_OR_3]
+    \\ rw [] \\ qexists_tac `xs` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[update_addr_def,shift_to_zero]
+    \\ `2 <= shift_length conf` by (fs[shift_length_def] \\ decide_tac)
+    \\ full_simp_tac(srw_ss())[shift_around_under_big_shift]
+    \\ full_simp_tac(srw_ss())[get_addr_def,select_shift_out]
+    \\ full_simp_tac(srw_ss())[select_get_lowerbits,heap_length_def,isWord_def])
+  \\ rename1 `_ = SOME (DataElement addrs ll tt)`
+  \\ PairCases_on `tt`
+  \\ full_simp_tac(srw_ss())[word_el_def]
+  \\ `?h ts c5. word_payload addrs ll tt0 tt1 conf =
+         (h:'a word,ts,c5)` by METIS_TAC [PAIR]
+  \\ full_simp_tac(srw_ss())[LET_THM] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac bool_ss [word_list_def]
+  \\ SEP_R_TAC
+  \\ full_simp_tac bool_ss [GSYM word_list_def,isWord_def]
+  \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,isWord_def,theWord_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
+  \\ `~is_fwd_ptr (Word h)` by (imp_res_tac NOT_is_fwd_ptr \\ fs [])
+  \\ asm_rewrite_tac []
+  \\ drule is_ref_header_thm
+  \\ asm_simp_tac std_ss []
+  \\ disch_then kall_tac
+  \\ reverse (Cases_on `tt0 = RefTag`) \\ fs []
+  THEN1
+   (pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word h::ts)):'a word` by
+          full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
+    \\ full_simp_tac bool_ss []
+    \\ drule memcpy_thm
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ full_simp_tac(srw_ss())[gc_forward_ptr_thm] \\ rev_full_simp_tac(srw_ss())[]
+    \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[heap_length_def,el_length_def]
+    \\ full_simp_tac(srw_ss())[GSYM heap_length_def]
+    \\ imp_res_tac word_payload_IMP
+    \\ rpt var_eq_tac
+    \\ qpat_x_assum `LENGTH xs = s.n` (assume_tac o GSYM)
+    \\ fs []
+    \\ drule LESS_EQ_IMP_APPEND \\ strip_tac
+    \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[word_list_APPEND]
+    \\ disch_then (qspec_then `ys` assume_tac)
+    \\ SEP_F_TAC
+    \\ impl_tac THEN1
+     (full_simp_tac(srw_ss())[ADD1,SUM_APPEND,X_LE_DIV,RIGHT_ADD_DISTRIB]
+      \\ Cases_on `2 ** shift_length conf` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `n` \\ full_simp_tac(srw_ss())[MULT_CLAUSES]
+      \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[MULT_CLAUSES] \\ decide_tac)
+    \\ rpt strip_tac
+    \\ full_simp_tac(srw_ss())[word_addr_def,word_add_n2w,ADD_ASSOC] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,
+         SEP_CLAUSES,word_el_def,LET_THM]
+    \\ full_simp_tac(srw_ss())[word_list_def]
+    \\ SEP_W_TAC \\ qexists_tac `zs` \\ full_simp_tac(srw_ss())[]
+    \\ reverse conj_tac THEN1
+     (full_simp_tac(srw_ss())[update_addr_def,get_addr_def,
+         select_shift_out,select_get_lowerbits,ADD1]
+      \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+      \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND])
+    \\ pop_assum mp_tac
+    \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM]
+    \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,ADD1]
+    \\ full_simp_tac(srw_ss())[word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
+    \\ srw_tac[][] \\ qexists_tac `ts`
+    \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]
+    \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+  THEN1
+   (rveq
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word h::ts)):'a word` by
+          full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
+    \\ full_simp_tac bool_ss []
+    \\ drule memcpy_thm
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ full_simp_tac(srw_ss())[gc_forward_ptr_thm] \\ rev_full_simp_tac(srw_ss())[]
+    \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[heap_length_def,el_length_def]));
 
 (* -------------------------------------------------------
     definition of state relation
