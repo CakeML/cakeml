@@ -1,4 +1,5 @@
 open preamble
+open backend_commonTheory
 
 val _ = numLib.prefer_num();
 
@@ -26,19 +27,19 @@ val _ = Datatype`
   | Pref pat`;
 
 val _ = Datatype`
- exp =
-  | Raise exp
-  | Handle exp ((pat # exp) list)
-  | Lit lit
-  | Con ((num # tid_or_exn)option) (exp list)
-  | Var_local varN
-  | Var_global num
-  | Fun varN exp
-  | App op (exp list)
-  | Mat exp ((pat # exp) list)
-  | Let (varN option) exp exp
-  | Letrec ((varN # varN # exp) list) exp
-  | Extend_global num`;
+   exp =
+  | Raise tra exp
+  | Handle tra exp ((pat # exp) list)
+  | Lit tra lit
+  | Con tra ((num # tid_or_exn)option) (exp list)
+  | Var_local tra varN
+  | Var_global tra num
+  | Fun tra varN exp
+  | App tra op (exp list)
+  | Mat tra exp ((pat # exp) list)
+  | Let tra (varN option) exp exp
+  | Letrec tra ((varN # varN # exp) list) exp
+  | Extend_global tra num`;
 
 val exp_size_def = definition"exp_size_def";
 

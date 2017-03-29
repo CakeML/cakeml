@@ -6,6 +6,8 @@ open preamble
      cfTacticsBaseLib
 open jsonTheory presLangTheory
 open astTheory source_to_modTheory
+open mod_to_conTheory
+open conLangTheory
 open stringTheory;
 
 val _ = computeLib.add_funs [pat_bindings_def];
@@ -32,9 +34,11 @@ val mod_prog_def = Define`
   mod_prog = SND (source_to_mod$compile source_to_mod$empty_config parsed_basic)`;
 
 EVAL ``mod_prog``;
-(* Test running the compiler backend on the basic program *)
-EVAL ``backend$compile_explorer backend$prim_config parsed_basic``;
 
+val con_prog_def = Define`
+  con_prog = SND (mod_to_con$compile  mod_to_con$empty_config mod_prog)`;
+
+EVAL ``con_prog``;
 (* Convert output to string *)
 EVAL ``append (backend$compile_explorer backend$prim_config parsed_basic)``;
 
@@ -49,18 +53,20 @@ fun explorer q fileN =
       val _ = TextIO.closeOut f
   in ()
   end
-
+(*Sample usage of explorer-function, saving to test.dat *)
+explorer `val x = 1+2;` "test.dat"
 
 (* PRESLANG *)
 (* Test converting mod to pres *)
 EVAL ``mod_to_pres mod_prog``;
-
+(* Test converting con to pres *)
+EVAL ``con_to_pres con_prog``;
 (* Test converting pres to json *)
 EVAL ``pres_to_json (mod_to_pres mod_prog)``;
-
+EVAL ``pres_to_json (con_to_pres con_prog)``;
 (* Test converting json to string *)
 EVAL ``json_to_string (pres_to_json (mod_to_pres mod_prog))``;
-
+EVAL ``append (json_to_string (pres_to_json (con_to_pres con_prog)))``;
 (* Unit test JSON *)
 val _ = Define `
   json =

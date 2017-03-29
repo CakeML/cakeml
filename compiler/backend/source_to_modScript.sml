@@ -101,6 +101,7 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp t env (Tannot e _) = compile_exp t env e)
   ∧
+  (*TODO: Dont throw away t and look at whether its none*)
   (compile_exp t env (Lannot e (st,en)) =
      compile_exp (mk_cons (mk_cons (mk_cons (mk_cons Empty st.row) st.col) en.row) en.col) env e)
   ∧
