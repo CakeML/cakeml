@@ -498,6 +498,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     xsimpl >>
     metis_tac [NOT_EVERY]));
 
+    (*
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
@@ -508,5 +509,6 @@ val sort_semantics_thm =
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
   |> curry save_thm "sort_semantics_thm";
+  *)
 
 val _ = export_theory ();
