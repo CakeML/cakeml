@@ -289,8 +289,11 @@ val files_contents_def = Define `
     MAP (\str. str ++ "\n")
       (FLAT (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames))`;
 
+val v_to_string_def = Define `
+  v_to_string (Litv (StrLit s)) = s`;
+
 val sort_spec = Q.store_thm ("sort_spec",
-  `!cl fs out err output err_msg unit_v.
+  `!cl fs out err output unit_v.
     (* The below seems needed, but misplaced. The person calling sort shouldn't
      * ensure this stuff, but rather the system *)
     cl ≠ [] ∧ EVERY validArg cl ∧ STRLEN (CONCAT (MAP (λs. STRCAT s "\^@") cl)) < 257 ∧
@@ -298,22 +301,21 @@ val sort_spec = Q.store_thm ("sort_spec",
     LENGTH cl > 1 ∧
     wfFS fs ∧
     UNIT_TYPE () unit_v ∧
-    CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
-    (if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
-       err_msg = "" ∧
-       PERM output (files_contents fs (MAP implode cl)) ∧
-       SORTED $<= output
-      else
-       output = [] ∧ err_msg = "Cannot open file")
+    CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
     app (p : 'ffi ffi_proj)
       ^(fetch_v "sort" (get_ml_prog_state ()))
       [unit_v]
       (ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err)
-      (POSTv unit_v'.
+      (POSTv unit_v'. SEP_EXISTS output. SEP_EXISTS err_msg.
+        &(if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
+            err_msg = "" ∧
+            PERM output (files_contents fs (TL (MAP implode cl))) ∧
+            SORTED $<= output
+           else
+            output = [] ∧ err_msg = "Cannot open file") *
         ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR (err ++ err_msg) *
         &UNIT_TYPE () unit_v')`,
-
   xcf "sort" (get_ml_prog_state ()) >>
   fs [UNIT_TYPE_def] >>
   xmatch >>
@@ -321,15 +323,15 @@ val sort_spec = Q.store_thm ("sort_spec",
   qabbrev_tac `fnames = TL (MAP implode cl)` >>
   xhandle
     `POST
-      (\unit_v2.
-       ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR (err ++ err_msg) *
+      (\unit_v2. SEP_EXISTS output.
+        &(PERM output (files_contents fs (TL (MAP implode cl))) ∧ SORTED $<= output) *
+       ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR err *
        &(EVERY (\fname. inFS_fname fs fname) fnames ∧
          UNIT_TYPE () unit_v2))
       (\e. ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
            &(BadFileName_exn e ∧
              EXISTS (\fname. ~inFS_fname fs fname) fnames))` >>
   xsimpl
-
   >- (
     xlet
       `POSTv a_v.
@@ -439,9 +441,48 @@ val sort_spec = Q.store_thm ("sort_spec",
           rw [string_le_def] >>
           metis_tac [string_lt_total])
         >- metis_tac [string_list_uniq])) >>
-    xapp
-    cheat)
-  >- fs [UNIT_TYPE_def]
+    fs [] >>
+    xapp >>
+    xsimpl >>
+    qexists_tac `ROFS fs * COMMANDLINE cl * STDERR err * GC` >>
+    xsimpl >>
+    qexists_tac `\l n. STDOUT (out ++ CONCAT (MAP v_to_string (TAKE n l)))` >>
+    xsimpl >>
+    rw []
+    >- (
+      xapp >>
+      xsimpl >>
+      simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def] >>
+      qexists_tac `GC` >>
+      xsimpl >>
+      qexists_tac `EL n sorted` >>
+      qexists_tac `out ++ CONCAT (TAKE n (MAP explode sorted))` >>
+      simp [ETA_THM, EL_MAP] >>
+      xsimpl >>
+      rw []
+      >- metis_tac [mlstringTheory.implode_explode, mlstringTheory.implode_def] >>
+      rw [TAKE_EL_SNOC, EL_MAP, SNOC_APPEND] >>
+      xsimpl)
+    >- (
+      qexists_tac `MAP explode sorted` >>
+      simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def, ETA_THM] >>
+      simp [GSYM MAP_TAKE] >>
+      xsimpl >>
+      rw []
+      >- (
+        drule (INST_TYPE [``:'b`` |-> ``:string``] PERM_MAP) >>
+        disch_then (qspec_then `explode` mp_tac) >>
+        `~NULL cl` by (Cases_on `cl` >> rw [NULL_DEF]) >>
+        simp [Abbr `fnames`, Abbr `strings`, MAP_MAP_o, MAP_REVERSE, combinTheory.o_DEF,
+              mlstringTheory.explode_implode, files_contents_def, GSYM MAP_TL])
+      >- cheat))
+  >- (
+    fs [UNIT_TYPE_def] >>
+    xsimpl >>
+    rw [] >>
+    qexists_tac `x` >>
+    rw [] >>
+    xsimpl)
   >- (
     fs [BadFileName_exn_def] >>
     xcases >>
@@ -450,7 +491,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     xapp >>
     xsimpl >>
     fs [UNIT_TYPE_def] >>
-    qexists_tac `ROFS fs * COMMANDLINE cl * STDOUT (STRCAT out (CONCAT output)) * GC` >>
+    qexists_tac `ROFS fs * COMMANDLINE cl * STDOUT out * GC` >>
     xsimpl >>
     qexists_tac `err` >>
     xsimpl >>
