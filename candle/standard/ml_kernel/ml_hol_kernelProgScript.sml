@@ -806,10 +806,29 @@ val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
 val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
-                Cases_on`x1`>>Cases_on`x2`>>rw[mlstringTheory.mlstring_lt_def])
+                simp [inv_image_def, mlstringTheory.mlstring_lt_inv_image])
           |> translate
 val res = translate totoTheory.TO_of_LinearOrder
-val res = translate mlstringTheory.mlstring_cmp_def
+val res = translate mlstringTheory.compare_aux_def
+val res = translate mlstringTheory.compare_def
+
+(* Copy and paste from mlstringProg *)
+val compare_aux_side_def = theorem"compare_aux_side_def";
+val compare_side_def = definition"compare_side_def";
+
+val compare_aux_side_thm = Q.prove (
+  `!s1 s2 ord n len. (n + len =
+    if strlen s1 < strlen s2
+      then strlen s1
+    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
+  Induct_on `len` \\ rw [Once compare_aux_side_def]
+);
+
+val compare_side_thm = Q.prove (
+  `!s1 s2. compare_side s1 s2`,
+  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
+(* end copy and paste *)
+
 val res = translate comparisonTheory.pair_cmp_def
 val res = translate comparisonTheory.list_cmp_def
 (* -- *)
@@ -851,11 +870,11 @@ val res = translate sortingTheory.QSORT_DEF;
 val type_compare_def = tDefine "type_compare" `
   (type_compare t1 t2 =
      case (t1,t2) of
-     | (Tyvar x1,Tyvar x2) => mlstring_cmp x1 x2
+     | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
      | (Tyvar x1,Tyapp _ _) => Less
      | (Tyapp x1 a1,Tyvar _) => Greater
      | (Tyapp x1 a1,Tyapp x2 a2) =>
-         case mlstring_cmp x1 x2 of
+         case mlstring$compare x1 x2 of
          | Equal => type_list_compare a1 a2
          | other => other) /\
   (type_list_compare ts1 ts2 =
@@ -892,7 +911,7 @@ val term_compare_def = Define `
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
-         (case mlstring_cmp x1 x2 of
+         (case mlstring$compare x1 x2 of
             Less => Less
           | Equal => type_cmp ty1 ty2
           | Greater => Greater)
@@ -901,7 +920,7 @@ val term_compare_def = Define `
      | (Var x1 ty1,Abs v56 v57) => Less
      | (Const x1' ty1',Var v66 v67) => Greater
      | (Const x1' ty1',Const x2' ty2') =>
-         (case mlstring_cmp x1' x2' of
+         (case mlstring$compare x1' x2' of
             Less => Less
           | Equal => type_cmp ty1' ty2'
           | Greater => Greater)
