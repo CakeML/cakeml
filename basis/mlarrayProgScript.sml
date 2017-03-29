@@ -452,9 +452,10 @@ val array_copy_spec  = Q.store_thm("array_copy_spec",
 );
 
 val array_app_aux_spec = Q.store_thm ("array_app_aux_spec",
-  `∀l len_v idx idx_v a_v f_v eff.
+  `∀l idx len_v idx_v a_v f_v eff.
    NUM (LENGTH l) len_v ∧
    NUM idx idx_v ∧
+   idx ≤ LENGTH l ∧
    (!n.
      n < LENGTH l ⇒
      app p f_v [EL n l] (eff l n) (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
@@ -462,19 +463,39 @@ val array_app_aux_spec = Q.store_thm ("array_app_aux_spec",
    app (p:'ffi ffi_proj) ^(fetch_v "Array.app_aux" (array_st())) [f_v; a_v; len_v; idx_v]
      (eff l idx * ARRAY a_v l)
      (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)`,
-  rw [] >>
-  xcf "Array.app_aux" (array_st ()) >>
+  ntac 2 gen_tac >>
   completeInduct_on `LENGTH l - idx` >>
+  xcf "Array.app_aux" (array_st ()) >>
   rw [] >>
   xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
   >- (
-    (* xapp is too polymorphic *)
-    cheat) >>
+    xapp_spec eq_num_v_thm >>
+    xsimpl >>
+    fs [NUM_def, BOOL_def, INT_def]) >>
   xif
   >- (
     xret >>
     xsimpl) >>
-  cheat);
+  xlet `POSTv x_v. eff l idx * ARRAY a_v l * &(EL idx l = x_v)`
+  >- (
+    xapp >>
+    xsimpl >>
+    qexists_tac `idx` >>
+    rw []) >>
+  xlet `POSTv u_v. eff l (idx + 1) * ARRAY a_v l`
+  >- (
+    first_x_assum (qspec_then `idx` mp_tac) >>
+    simp [] >>
+    disch_then xapp_spec >>
+    xsimpl) >>
+  xlet `POSTv next_idx_v. eff l (idx + 1) * ARRAY a_v l * & NUM (idx + 1) next_idx_v`
+  >- (
+    xapp >>
+    xsimpl >>
+    fs [NUM_def, INT_def] >>
+    intLib.ARITH_TAC) >>
+  first_x_assum xapp_spec >>
+  simp []);
 
 (* eff is the effect of executing the function on the first n elements of l *)
 val array_app_spec = Q.store_thm  ("array_app_spec",
