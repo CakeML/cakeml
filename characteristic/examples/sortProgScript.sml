@@ -132,7 +132,7 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   >- (
     xapp >>
     xsimpl >>
-    qexists_tac `GC` >>
+    qexists_tac `emp` >>
     qexists_tac `fs` >>
     qexists_tac `n2w fd` >>
     simp [] >>
@@ -161,7 +161,7 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
       simp [LIST_TYPE_def]) >>
     xapp >>
     xsimpl >>
-    qexists_tac `GC` >>
+    qexists_tac `emp` >>
     qexists_tac `bumpLineFD fd fs` >>
     qexists_tac `fd` >>
     qexists_tac `x::acc` >>
@@ -232,7 +232,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   >- (
     xapp >>
     xsimpl >>
-    qexists_tac `GC` >>
+    qexists_tac `emp` >>
     qexists_tac `fs'` >>
     qexists_tac `fd` >>
     qexists_tac `acc` >>
@@ -242,7 +242,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   >- (
     xapp >>
     xsimpl >>
-    qexists_tac `GC` >>
+    qexists_tac `emp` >>
     qexists_tac `bumpAllFD fd fs'` >>
     qexists_tac `n2w fd` >>
     xsimpl >>
@@ -251,7 +251,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
     xsimpl) >>
   xapp >>
   xsimpl >>
-  qexists_tac `GC` >>
+  qexists_tac `emp` >>
   qexists_tac `fs` >>
   qexists_tac `REVERSE (MAP (λl. STRCAT l "\n") (linesFD fd fs')) ++ acc` >>
   rw [] >>
@@ -347,7 +347,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     >- (
       xapp >>
       xsimpl >>
-      qexists_tac `ROFS fs * STDOUT out * STDERR err * GC` >>
+      qexists_tac `ROFS fs * STDOUT out * STDERR err` >>
       qexists_tac `cl` >>
       xsimpl) >>
     xlet
@@ -384,7 +384,7 @@ val sort_spec = Q.store_thm ("sort_spec",
         simp [LIST_TYPE_def]) >>
       xapp >>
       xsimpl >>
-      qexists_tac `COMMANDLINE cl * STDOUT out * STDERR err * GC` >>
+      qexists_tac `COMMANDLINE cl * STDOUT out * STDERR err` >>
       qexists_tac `fs` >>
       qexists_tac `arg1::args` >>
       qexists_tac `[]` >>
@@ -444,7 +444,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     fs [] >>
     xapp >>
     xsimpl >>
-    qexists_tac `ROFS fs * COMMANDLINE cl * STDERR err * GC` >>
+    qexists_tac `ROFS fs * COMMANDLINE cl * STDERR err` >>
     xsimpl >>
     qexists_tac `\l n. STDOUT (out ++ CONCAT (MAP v_to_string (TAKE n l)))` >>
     xsimpl >>
@@ -453,7 +453,7 @@ val sort_spec = Q.store_thm ("sort_spec",
       xapp >>
       xsimpl >>
       simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def] >>
-      qexists_tac `GC` >>
+      qexists_tac `emp` >>
       xsimpl >>
       qexists_tac `EL n sorted` >>
       qexists_tac `out ++ CONCAT (TAKE n (MAP explode sorted))` >>
@@ -468,14 +468,12 @@ val sort_spec = Q.store_thm ("sort_spec",
       simp [MAP_TAKE, MAP_MAP_o, combinTheory.o_DEF, v_to_string_def, ETA_THM] >>
       simp [GSYM MAP_TAKE] >>
       xsimpl >>
-      rw []
-      >- (
-        drule (INST_TYPE [``:'b`` |-> ``:string``] PERM_MAP) >>
-        disch_then (qspec_then `explode` mp_tac) >>
-        `~NULL cl` by (Cases_on `cl` >> rw [NULL_DEF]) >>
-        simp [Abbr `fnames`, Abbr `strings`, MAP_MAP_o, MAP_REVERSE, combinTheory.o_DEF,
-              mlstringTheory.explode_implode, files_contents_def, GSYM MAP_TL])
-      >- cheat))
+      rw [] >>
+      drule (INST_TYPE [``:'b`` |-> ``:string``] PERM_MAP) >>
+      disch_then (qspec_then `explode` mp_tac) >>
+      `~NULL cl` by (Cases_on `cl` >> rw [NULL_DEF]) >>
+      simp [Abbr `fnames`, Abbr `strings`, MAP_MAP_o, MAP_REVERSE, combinTheory.o_DEF,
+            mlstringTheory.explode_implode, files_contents_def, GSYM MAP_TL]))
   >- (
     fs [UNIT_TYPE_def] >>
     xsimpl >>
@@ -491,7 +489,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     xapp >>
     xsimpl >>
     fs [UNIT_TYPE_def] >>
-    qexists_tac `ROFS fs * COMMANDLINE cl * STDOUT out * GC` >>
+    qexists_tac `ROFS fs * COMMANDLINE cl * STDOUT out` >>
     xsimpl >>
     qexists_tac `err` >>
     xsimpl >>
