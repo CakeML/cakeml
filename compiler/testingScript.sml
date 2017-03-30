@@ -13,9 +13,10 @@ open stringTheory;
 val _ = computeLib.add_funs [pat_bindings_def];
 
 (* COMPILING *)
-val parsed_basic = parse_topdecs
+val basic_prog =
   `
   val x = 3 + 5;
+  val y = "He\"llo, World";
   fun fromList l =
     let val arr = array (List.length l) 0
       fun f l i =
@@ -23,6 +24,9 @@ val parsed_basic = parse_topdecs
           [] => arr
         | (h::t) => (update arr i h; f t (i + 1))
     in f l 0 end`;
+
+val parsed_basic = parse_topdecs basic_prog;
+
 (* The input program, parsed *)
 val parsed_basic_def = Define`
   parsed_basic = ^parsed_basic`;
@@ -53,8 +57,9 @@ fun explorer q fileN =
       val _ = TextIO.closeOut f
   in ()
   end
-(*Sample usage of explorer-function, saving to test.dat *)
-explorer `val x = 1+2;` "test.dat"
+
+(* Sample usage of explorer-function, saving to test.js *)
+explorer basic_prog "test.js"
 
 (* PRESLANG *)
 (* Test converting mod to pres *)
