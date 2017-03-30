@@ -38,12 +38,12 @@ val json_to_string_def = tDefine "json_to_string" `
     case obj of
        | Object mems => List "{ " ++ (concat_with (MAP mem_to_string mems) (List ", ") (List "")) ++ List " }"
        | Array obs => List "[ " ++ (concat_with (MAP json_to_string obs) (List ", ") (List "")) ++ List " ]"
-       | String s => List "'" ++ List s ++ List "'"
+       | String s => List "\"" ++ List s ++ List "\""
        | Int i => List (int_to_str i)
        | Bool b => if b then List "true" else List "false"
        | Null => List "null")
   /\
-  (mem_to_string (n, ob) = List "'" ++ List n ++ List "': " ++ (json_to_string ob))`
+  (mem_to_string (n, ob) = List "\"" ++ List n ++ List "\": " ++ (json_to_string ob))`
   cheat;
 
 val _ = export_theory();
