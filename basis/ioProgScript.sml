@@ -306,24 +306,24 @@ val basis_proj1_putChar_err = Q.store_thm("basis_proj1_putChar_err",
   PairCases_on`ffi` \\ EVAL_TAC);
 
 val extract_output_def = Define `
-  (extract_output [] = SOME []) /\
+  (extract_output [] = SOME "") /\
   (extract_output ((IO_event name bytes)::xs) =
      case extract_output xs of
      | NONE => NONE
      | SOME rest =>
          if name <> "putChar" then SOME rest else
          if LENGTH bytes <> 1 then NONE else
-           SOME ((SND (HD bytes)) :: rest))`
+           SOME (CHR(w2n(SND(HD bytes))) :: rest))`
 
 val extract_err_def = Define `
-  (extract_err [] = SOME []) /\
+  (extract_err [] = SOME "") /\
   (extract_err ((IO_event name bytes)::xs) =
      case extract_err xs of
      | NONE => NONE
      | SOME rest =>
          if name <> "putChar_err" then SOME rest else
          if LENGTH bytes <> 1 then NONE else
-           SOME ((SND (HD bytes)) :: rest))`
+           SOME (CHR(w2n(SND(HD bytes))) :: rest))`
 
 val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   `!xs ys.
@@ -422,10 +422,10 @@ val emp_precond = Q.store_thm("emp_precond",
 val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
   `!st st'. call_FFI_rel^* st st' ==>
   st.oracle = basis_ffi_oracle ==>
-  (extract_output st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar")))) ==>
-   extract_output st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar"))))) /\
-  (extract_err st.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st.ffi_state ' "putChar_err")))) ==>
-   extract_err st'.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 st'.ffi_state ' "putChar_err")))))`,
+  (extract_output st.io_events = SOME (THE (destStr (basis_proj1 st.ffi_state ' "putChar"))) ==>
+   extract_output st'.io_events = SOME (THE (destStr (basis_proj1 st'.ffi_state ' "putChar")))) /\
+  (extract_err st.io_events = SOME (THE (destStr (basis_proj1 st.ffi_state ' "putChar_err"))) ==>
+   extract_err st'.io_events = SOME (THE (destStr (basis_proj1 st'.ffi_state ' "putChar_err"))))`,
   HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -451,13 +451,12 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   init_state ffi  *)
 
 val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
-  `extract_output (init_state (basis_ffi inp cls fs)).ffi.io_events = SOME (MAP (n2w o ORD) (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls fs)).ffi.ffi_state ' "putChar"))))`,
+  `extract_output (init_state (basis_ffi inp cls fs)).ffi.io_events = SOME (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls fs)).ffi.ffi_state ' "putChar")))`,
   rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def, basis_proj1_putChar, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
 );
 
 val extract_err_basis_ffi = Q.store_thm ("extract_err_basis_ffi",
-  `extract_err (init_state (basis_ffi inp cls fs)).ffi.io_events = SOME (MAP
-  (n2w o ORD) (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls fs)).ffi.ffi_state ' "putChar_err"))))`,
+  `extract_err (init_state (basis_ffi inp cls fs)).ffi.io_events = SOME (THE (destStr (basis_proj1 (init_state (basis_ffi inp cls fs)).ffi.ffi_state ' "putChar_err")))`,
   rw[ml_progTheory.init_state_def, extract_err_def, basis_ffi_def,
   basis_proj1_putChar_err, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM]
 );
@@ -489,8 +488,8 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     ∃io_events x y. R x y /\
     semantics_prog (init_state (basis_ffi inp cls fs)) env1
       (SNOC ^main_call prog) (Terminate Success io_events) /\
-    extract_output io_events = SOME (MAP (n2w o ORD) x) /\
-    extract_err    io_events = SOME (MAP (n2w o ORD) y)`,
+    extract_output io_events = SOME x /\
+    extract_err    io_events = SOME y`,
     rw[]
     \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
           &UNIT_TYPE () uv * ((SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q))` by (fs[STAR_ASSOC])
