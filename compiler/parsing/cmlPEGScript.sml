@@ -145,19 +145,28 @@ val peg_longV_def = Define`
 
 val peg_EbaseParenFn_def = Define`
   peg_EbaseParenFn l =
-    case l of
-        [lp; e; rp] =>
-        [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e]; rp]]
-      | [lp; e; Lf (TK CommaT,loc) ; rest; rp] =>
-          [
-            mkNd (mkNT nEbase) [
-              mkNd (mkNT nEtuple)
-                   [lp; mkNd (mkNT nElist2) [e; Lf (TK CommaT,loc); rest]; rp]
-            ]
-          ]
-      | [lp; e; cs; rest; rp] =>
-          [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; cs; rest]; rp]]
-      | _ => []
+    if LENGTH l = 3 then
+      [mkNd (mkNT nEbase) [HD l; mkNd (mkNT nEseq) [EL 1 l]; EL 2 l]]
+    else if LENGTH l = 5 then
+      case destLf (EL 2 l) of
+        NONE => []
+      | SOME t =>
+        (case destTOK t of
+           NONE => []
+         | SOME t =>
+           if t = CommaT then
+             [
+               mkNd (mkNT nEbase) [
+                 mkNd (mkNT nEtuple)
+                   [HD l; mkNd (mkNT nElist2) [EL 1 l; EL 2 l; EL 3 l]; EL 4 l]
+               ]
+             ]
+           else
+             [
+               mkNd (mkNT nEbase) [
+                 HD l; mkNd (mkNT nEseq) [EL 1 l; EL 2 l; EL 3 l]; EL 4 l]
+             ])
+    else []
 `
 
 val peg_EbaseParen_def = Define`
