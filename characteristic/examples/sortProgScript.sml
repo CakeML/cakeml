@@ -503,12 +503,12 @@ val sort_spec = Q.store_thm ("sort_spec",
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
-val sort_prog_def = Define `sort = ^prog_tm`;
-val sort_semantics_thm =
+val sort_prog_def = Define `sort_prog = ^prog_tm`;
+val sort_semantics =
   sem_thm
   |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,PULL_EXISTS]
-  |> curry save_thm "sort_semantics_thm";
+  |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();
