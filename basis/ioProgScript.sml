@@ -324,7 +324,7 @@ val extract_err_def = Define `
          if name <> "putChar_err" then SOME rest else
          if LENGTH bytes <> 1 then NONE else
            SOME ((SND (HD bytes)) :: rest))`
-           
+
 val extract_output_APPEND = Q.store_thm("extract_output_APPEND",
   `!xs ys.
       extract_output (xs ++ ys) =
@@ -367,17 +367,17 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
 );
 
 val append_emp_err = Q.store_thm("append_emp_err",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y) 
-    ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y)
+    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
   rw[set_sepTheory.SEP_CLAUSES]);
 
 val append_emp_out = Q.store_thm("append_emp_out",
    `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x)
-    ==> app p fv xs (P * emp) (POSTv uv. (A uv) * STDOUT x * emp)`,
+    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * emp)`,
   rw[set_sepTheory.SEP_CLAUSES]);
 
 val append_STDERR = Q.store_thm("append_STDERR",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * P') 
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * P')
   ==> app p fv xs (P * STDERR y) (POSTv uv. (A uv) * STDOUT x * STDERR y * P')`,
   rw[]
   \\ qmatch_abbrev_tac `app p fv xs H Q`
@@ -395,6 +395,17 @@ val append_STDERR = Q.store_thm("append_STDERR",
   \\ every_case_tac \\ fs[set_sepTheory.SEP_CLAUSES]
   \\ metis_tac[STAR_COMM,STAR_ASSOC]
   );
+
+val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT a * STDERR b * Q) ==>
+   app p fv xs P (POSTv uv. (A uv) * (SEP_EXISTS x y. &(x = a /\ y = b) * STDOUT x * STDERR y) * Q)`,
+  qmatch_abbrev_tac`_ (_ X) ==> _ (_ Y)`
+  \\ `X = Y` suffices_by rw[]
+  \\ unabbrev_all_tac
+  \\ simp[FUN_EQ_THM,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ CONV_TAC(PATH_CONV"bbrbbllr"(REWR_CONV STAR_COMM))
+  \\ simp[cond_STAR,GSYM STAR_ASSOC]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
 
 val emp_precond = Q.store_thm("emp_precond",
   `emp {}`, EVAL_TAC);
@@ -469,26 +480,34 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 `!fname fv.
  ML_code env1 (init_state (basis_ffi inp cls fs)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
-  app (basis_proj1, basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * STDOUT x * STDERR y * Q) ==>
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P
+    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
-    ∃io_events.
-    semantics_prog (init_state (basis_ffi inp cls fs)) env1  (SNOC ^main_call prog) (Terminate Success io_events) /\
+    ∃io_events x y. R x y /\
+    semantics_prog (init_state (basis_ffi inp cls fs)) env1
+      (SNOC ^main_call prog) (Terminate Success io_events) /\
     extract_output io_events = SOME (MAP (n2w o ORD) x) /\
     extract_err    io_events = SOME (MAP (n2w o ORD) y)`,
     rw[]
     \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
-          &UNIT_TYPE () uv * (STDOUT x * STDERR y * Q))` by (fs[STAR_ASSOC])
+          &UNIT_TYPE () uv * ((SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q))` by (fs[STAR_ASSOC])
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
-    \\ simp[] \\ strip_tac
-    \\ `FFI_part_hprop (STDOUT x * STDERR y * Q)`
-    by metis_tac[FFI_part_hprop_def, mlcharioProgTheory.STDOUT_FFI_part_hprop, 
-                 mlcharioProgTheory.STDERR_FFI_part_hprop,FFI_part_hprop_STAR]
-    \\ first_x_assum (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[] \\ fs[]
-    \\ qexists_tac `st3.ffi.io_events` \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`FFI_part_hprop X`
+    \\ `FFI_part_hprop X`
+    by (
+      simp[Abbr`X`]
+      \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
+      \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
+      \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
+      \\ metis_tac[mlcharioProgTheory.STDOUT_FFI_part_hprop, FFI_part_hprop_STAR] )
+    \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[Abbr`X`]
+    \\ fs[SEP_EXISTS_THM,SEP_CLAUSES]
+    \\ `R x y` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
+    \\ map_every qexists_tac [`st3.ffi.io_events`,`x`,`y`]
     \\ `(THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar"))) = x /\
         (THE (destStr (basis_proj1 st3.ffi.ffi_state ' "putChar_err"))) = y`suffices_by
       (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
@@ -497,7 +516,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     \\ fs[basis_proj1_putChar,basis_proj1_putChar_err]
     \\ fs[mlcharioProgTheory.STDOUT_def, mlcharioProgTheory.STDERR_def,
           cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-          set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM, 
+          set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
           stdoutFFITheory.stdout_ffi_part_def,stderrFFITheory.stderr_ffi_part_def]
     \\ fs[GSYM set_sepTheory.STAR_ASSOC,set_sepTheory.one_STAR]
     \\ qmatch_assum_abbrev_tac`ffip ∈ h3`

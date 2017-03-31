@@ -293,29 +293,31 @@ val v_to_string_def = Define `
   v_to_string (Litv (StrLit s)) = s`;
 
 val sort_spec = Q.store_thm ("sort_spec",
-  `!cl fs out err unit_v.
+  `!cl fs out err.
     (* The below seems needed, but misplaced. The person calling sort shouldn't
      * ensure this stuff, but rather the system *)
     cl ≠ [] ∧ EVERY validArg cl ∧ STRLEN (CONCAT (MAP (λs. STRCAT s "\^@") cl)) < 257 ∧
     (* Until we get STDIN unified with the file system *)
     LENGTH cl > 1 ∧
     wfFS fs ∧
-    UNIT_TYPE () unit_v ∧
     CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
     app (p : 'ffi ffi_proj)
       ^(fetch_v "sort" (get_ml_prog_state ()))
-      [unit_v]
+      [Conv NONE []]
       (ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err)
-      (POSTv unit_v'. SEP_EXISTS output. SEP_EXISTS err_msg.
-        &(if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
-            err_msg = "" ∧
-            PERM output (files_contents fs (TL (MAP implode cl))) ∧
-            SORTED $<= output
-           else
-            output = [] ∧ err_msg = "Cannot open file") *
-        ROFS fs * COMMANDLINE cl * STDOUT (out ++ CONCAT output) * STDERR (err ++ err_msg) *
-        &UNIT_TYPE () unit_v')`,
+      (POSTv uv.
+        &UNIT_TYPE () uv *
+        (SEP_EXISTS out' error.
+         &(∃output err_msg. out' = out ++ CONCAT output ∧ error = err ++ err_msg ∧
+           if EVERY (\fname. inFS_fname fs fname) (TL (MAP implode cl)) then
+             err_msg = "" ∧
+             PERM output (files_contents fs (TL (MAP implode cl))) ∧
+             SORTED $<= output
+            else
+             output = [] ∧ err_msg = "Cannot open file")
+         * STDOUT out' * STDERR error) *
+        (ROFS fs * COMMANDLINE cl))`,
   xcf "sort" (get_ml_prog_state ()) >>
   fs [UNIT_TYPE_def] >>
   xmatch >>
@@ -503,10 +505,10 @@ val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
 val sort_prog_def = Define `sort = ^prog_tm`;
 val sort_semantics_thm =
-  semantics_thm
+  sem_thm
   |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
+  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,PULL_EXISTS]
   |> curry save_thm "sort_semantics_thm";
 
 val _ = export_theory ();
