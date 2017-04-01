@@ -1806,4 +1806,12 @@ val gc_move_loop_ok = store_thm("gc_move_loop_ok",
   \\ imp_res_tac gc_move_refs_ok
   \\ imp_res_tac gc_move_data_ok \\ fs []);
 
+val gc_move_list_length = store_thm("gc_move_list_length",
+   ``!xs xs' state state'.
+       (gc_move_list conf state xs = (xs',state')) ==>
+       (LENGTH xs' = LENGTH xs)``,
+  Induct \\ fs [gc_move_list_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ res_tac \\ fs []);
+
 val _ = export_theory();
