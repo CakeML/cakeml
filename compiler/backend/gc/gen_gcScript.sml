@@ -144,18 +144,13 @@ val gc_move_loop_def = Define `
 
 val gen_gc_def = Define `
   gen_gc conf (roots,heap) =
-    let ok0 = (heap_length heap = conf.limit) in
-      let state = empty_state
-          with <| heap := heap
-                ; n := conf.limit |> in
-        (* move roots: *)
-      let (roots,state) = gc_move_list conf state roots in
-        (* move heap: *)
-      let state = gc_move_loop conf state conf.limit in
-      (* let ok = ok0 /\ state.ok /\ *)
-      (*          (state.a = heap_length state.h1) /\ *)
-      (*          (heap_length state.heap = conf.limit) in *)
-          (roots,state)`;
+    let state = empty_state
+        with <| heap := heap
+              ; n := conf.limit
+              ; ok := (heap_length heap = conf.limit) |> in
+    let (roots,state) = gc_move_list conf state roots in
+    let state = gc_move_loop conf state conf.limit in
+      (roots,state)`;
 
 (* Do we point to something that is fully processed? I.e. all children
 are also copied. *)
@@ -1419,7 +1414,8 @@ val gc_move_loop_thm = store_thm("gc_move_loop_thm",
 
 val gc_inv_init = store_thm("gc_inv_init",
   ``heap_ok heap conf.limit ==>
-    gc_inv conf (empty_state with <| heap := heap; n := conf.limit |>) heap``,
+    gc_inv conf (empty_state with <| heap := heap; n := conf.limit;
+                                     ok := (heap_length heap = conf.limit) |>) heap``,
   fs [heap_ok_def,gc_inv_def,empty_state_def,LET_THM]
   \\ rw []
   >- fs [FILTER_LEMMA]
@@ -1430,14 +1426,6 @@ val gc_inv_init = store_thm("gc_inv_init",
   \\ rw [heap_lookup_def]
   \\ imp_res_tac heap_map_EMPTY
   \\ fs [FLOOKUP_DEF]);
-
-(* val gc_inv_imp_n = prove( *)
-(*   ``gc_inv conf state heap ==> *)
-(*     (state.n = conf.limit − state.a − state.r) /\ *)
-(*     (state.a + state.n + state.r = conf.limit)``, *)
-(*   fs [gc_inv_def,LET_THM] *)
-(*   \\ strip_tac *)
-(*   \\ decide_tac); *)
 
 val gen_gc_thm = store_thm("gen_gc_thm",
   ``!conf roots heap.
@@ -1542,7 +1530,6 @@ val FILTER_isForward_heap_expand_lemma = prove(
   fs [FILTER,heap_expand_def,isForwardPointer_def]
   \\ Cases
   \\ fs [isForwardPointer_def]);
-
 
 val heap_lookup_CONS_IMP = prove(
   ``(heap_lookup j ys = SOME el) ==>
