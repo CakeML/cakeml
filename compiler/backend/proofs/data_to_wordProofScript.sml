@@ -1675,6 +1675,39 @@ val gc_move_list_const = prove(
   \\ fs [] \\ imp_res_tac gc_move_const \\ res_tac \\ fs []
   \\ strip_tac \\ rveq \\ fs []);
 
+val gc_move_data_const = prove(
+  ``!gen_conf s s'.
+      gen_gc$gc_move_data gen_conf s = s' ==>
+      s'.r1 = s.r1 /\ s'.r2 = s.r2 /\ s'.r3 = s.r3``,
+  ho_match_mp_tac gen_gcTheory.gc_move_data_ind
+  \\ rpt (gen_tac ORELSE disch_then assume_tac)
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gen_gcTheory.gc_move_data_def]
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TRY (strip_tac \\ rveq \\ fs [] \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TRY (strip_tac \\ rveq \\ fs [] \\ NO_TAC)
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ fs []
+  \\ rfs [] \\ imp_res_tac gc_move_list_const \\ fs []);
+
+val gc_move_refs_const = prove(
+  ``!gen_conf s s'.
+      gen_gc$gc_move_refs gen_conf s = s' ==>
+      s'.h1 = s.h1``,
+  ho_match_mp_tac gen_gcTheory.gc_move_refs_ind
+  \\ rpt (gen_tac ORELSE disch_then assume_tac)
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gen_gcTheory.gc_move_refs_def]
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TRY (strip_tac \\ rveq \\ fs [] \\ NO_TAC)
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TRY (strip_tac \\ rveq \\ fs [] \\ NO_TAC)
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ fs []
+  \\ rfs [] \\ imp_res_tac gc_move_list_const \\ fs []);
+
 val heap_length_gc_forward_ptr = prove(
   ``!hs n k a ok heap.
       gc_forward_ptr n hs k a ok = (heap,T) ==>
@@ -1779,7 +1812,7 @@ val word_heap_IMP_limit = prove(
   \\ drule word_list_IMP_limit \\ fs []  );
 
 val word_gen_gc_move_refs_thm = Q.prove(
-  `!k s m dm curr xs s1 pb1 pa1 pa m1 ib1 i1 frame c1 p1.
+  `!k s m dm curr xs s1 pb1 pa1 m1 ib1 i1 frame c1 p1.
     (gen_gc$gc_move_refs gen_conf s = s1) /\ s1.ok /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -1801,15 +1834,17 @@ val word_gen_gc_move_refs_thm = Q.prove(
      word_heap_parts conf p s xs *
      frame) (fun2set (m,dm)) /\
     EVERY (is_Ref gen_conf.isRef) (s.r4 ++ s.r3 ++ s.r2 ++ s.r1) /\
-    LENGTH xs = s.n /\ good_dimindex (:'a) /\ LENGTH x < dimword (:'a) ==>
+    LENGTH xs = s.n /\ good_dimindex (:'a) ==>
     ?xs1.
       (word_heap curr s1.heap conf *
        word_heap_parts conf p s1 xs1 *
-       frame) (fun2set (m1,dm)) /\ s1.r3 = [] /\
+       frame) (fun2set (m1,dm)) /\ s1.r3 = [] /\ s1.r2 = [] /\
       heap_length s1.heap = heap_length s.heap /\
-      c1 /\ (i1 = n2w s1.a) /\ s1.n = LENGTH xs1 /\
+      c1 /\ (i1 = n2w s1.a) /\ (ib1 = n2w (s1.a + s1.n)) /\ s1.n = LENGTH xs1 /\
       heap_length s.h2 + s.n + heap_length s.r4 =
       heap_length s1.h2 + s1.n + heap_length s1.r4 /\
+      pa1 = p + bytes_in_word * n2w (heap_length (s1.h1 ++ s1.h2)) /\
+      pb1 = p + bytes_in_word * n2w (heap_length (s1.h1 ++ s1.h2) + s1.n) /\
       p1 = p + bytes_in_word * n2w (heap_length
               (s.h1 ++ s.h2 ++ s.r4 ++ s.r3 ++ s.r2) + LENGTH xs) /\ len_inv s1 /\
       EVERY (is_Ref gen_conf.isRef) (s1.r4 ++ s1.r3 ++ s1.r2 ++ s1.r1)`,
@@ -1952,7 +1987,7 @@ val word_gen_gc_move_data_def = Define `
             (i,pa,ib,pb,m,c /\ c1 /\ c2)`
 
 val word_gen_gc_move_data_thm = Q.prove(
-  `!k s m dm curr xs s1 pb1 pa1 pa m1 ib1 i1 frame c1 p1.
+  `!k s m dm curr xs s1 pb1 pa1 m1 ib1 i1 frame c1.
     (gen_gc$gc_move_data gen_conf s = s1) /\ s1.ok /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -1972,13 +2007,18 @@ val word_gen_gc_move_data_thm = Q.prove(
      word_heap_parts conf p s xs *
      frame) (fun2set (m,dm)) /\
     EVERY (is_Ref gen_conf.isRef) (s.r4 ++ s.r3 ++ s.r2 ++ s.r1) /\
-    LENGTH xs = s.n /\ good_dimindex (:'a) /\ LENGTH x < dimword (:'a) ==>
+    LENGTH xs = s.n /\ good_dimindex (:'a) ==>
     ?xs1.
       (word_heap curr s1.heap conf *
        word_heap_parts conf p s1 xs1 *
        frame) (fun2set (m1,dm)) /\ s1.h2 = [] /\
       heap_length s1.heap = heap_length s.heap /\
-      c1 /\ (i1 = n2w s1.a) /\ s1.n = LENGTH xs1 /\ len_inv s1 /\
+      c1 /\ (i1 = n2w s1.a) /\ (ib1 = n2w (s1.a + s1.n)) /\
+      s1.n = LENGTH xs1 /\ len_inv s1 /\
+      heap_length (s1.h1 ++ s1.h2 ++ s1.r4) + s1.n =
+      heap_length (s.h1 ++ s.h2 ++ s.r4) + s.n /\
+      pa1 = p + bytes_in_word * n2w (heap_length (s1.h1 ++ s1.h2)) /\
+      pb1 = p + bytes_in_word * n2w (heap_length (s1.h1 ++ s1.h2) + s1.n) /\
       EVERY (is_Ref gen_conf.isRef) (s1.r4 ++ s1.r3 ++ s1.r2 ++ s1.r1)`,
   completeInduct_on `k` \\ rpt strip_tac
   \\ fs [PULL_FORALL,AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -2145,6 +2185,179 @@ val word_gen_gc_move_data_thm = Q.prove(
   \\ fs [word_heap_parts_def,word_heap_APPEND,word_heap_def,word_el_def,
          heap_length_APPEND,word_payload_def,GSYM word_add_n2w,
          WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]);
+
+val word_gen_gc_move_loop_def = Define `
+  word_gen_gc_move_loop conf k
+   (pax:'a word,i,pa:'a word,ib,pb,pbx,old,m,dm) =
+    if pbx = pb then
+      if pax = pa then
+        (i,pa,ib,pb,m,T)
+      else
+        let (i,pa,ib,pb,m,c1) = word_gen_gc_move_data conf (dimword (:'a))
+                                   (pax,i,pa,ib,pb,old,m,dm) in
+          if k = 0 then (i,pa,ib,pb,m,F) else
+            let (i,pa,ib,pb,m,c2) = word_gen_gc_move_loop conf (k-1)
+                           (pa,i,pa,ib,pb,pbx,old,m,dm) in
+              (i,pa,ib,pb,m,c1 /\ c2)
+      else
+        let (pbx,i,pa,ib,pb',m,c1) = word_gen_gc_move_refs conf (dimword (:'a))
+                                   (pb,pbx,i,pa,ib,pb,old,m,dm) in
+          if k = 0n then (i,pa,ib,pb,m,F) else
+            let (i,pa,ib,pb,m,c2) = word_gen_gc_move_loop conf (k-1)
+                           (pax,i,pa,ib,pb',pb,old,m,dm) in
+              (i,pa,ib,pb,m,c1 /\ c2)`
+
+val LENGTH_LESS_EQ_SUM_el_length = prove(
+  ``!t. LENGTH t <= SUM (MAP el_length t)``,
+  Induct \\ fs [] \\ Cases \\ fs [el_length_def]);
+
+val word_gen_gc_move_loop_thm = Q.prove(
+  `!k s m dm curr xs s1 pb1 pa1 m1 ib1 i1 frame c1.
+    (gen_gc$gc_move_loop gen_conf s k = s1) /\ s1.ok /\
+    heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    conf.len_size + 2 < dimindex (:α) /\ s.r3 = [] /\ s.r2 = [] /\
+    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    conf.len_size + 5 <= dimindex (:'a) /\
+    (word_gen_gc_move_loop conf k
+       ((* pax *) p + bytes_in_word * n2w (heap_length s.h1),
+        n2w s.a,
+        (* pa *) p + bytes_in_word * n2w (heap_length (s.h1 ++ s.h2)),
+        n2w (s.a+s.n),
+        (* pb *) p + bytes_in_word * n2w (heap_length (s.h1 ++ s.h2) + s.n),
+        (* pbx *) p + bytes_in_word * n2w (heap_length (s.h1 ++ s.h2 ++ s.r4) + s.n),
+        curr:'a word,m,dm) =
+      (i1,pa1,ib1,pb1,m1,c1)) /\ len_inv s /\
+    (word_heap curr s.heap conf *
+     word_heap_parts conf p s xs *
+     frame) (fun2set (m,dm)) /\
+    EVERY (is_Ref gen_conf.isRef) (s.r4 ++ s.r3 ++ s.r2 ++ s.r1) /\
+    LENGTH xs = s.n /\ good_dimindex (:'a) ==>
+    ?xs1.
+      (word_heap curr s1.heap conf *
+       word_heap_parts conf p s1 xs1 *
+       frame) (fun2set (m1,dm)) /\
+      s1.h2 = [] /\ s1.r4 = [] /\ s1.r3 = [] /\ s1.r2 = [] /\
+      heap_length s1.heap = heap_length s.heap /\
+      c1 /\ (i1 = n2w s1.a) /\ s1.n = LENGTH xs1 /\ len_inv s1 /\
+      EVERY (is_Ref gen_conf.isRef) s1.r1`,
+  completeInduct_on `k` \\ rpt strip_tac
+  \\ fs [PULL_FORALL,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  \\ qpat_x_assum `gc_move_loop gen_conf s k = s1` mp_tac
+  \\ once_rewrite_tac [gen_gcTheory.gc_move_loop_def]
+  \\ TOP_CASE_TAC THEN1
+   (TOP_CASE_TAC THEN1
+     (rw [] \\ qexists_tac `xs` \\ fs []
+      \\ pop_assum mp_tac \\ fs [Once word_gen_gc_move_loop_def]
+      \\ rw [] \\ fs [])
+    \\ strip_tac
+    \\ `?s7. gen_gc$gc_move_data gen_conf s = s7` by fs [] \\ fs []
+    \\ Cases_on `k = 0` \\ fs [] THEN1 (rveq \\ fs [])
+    \\ drule word_gen_gc_move_data_thm
+    \\ disch_then (qspecl_then [`dimword (:'a)`,`m`,`dm`,`curr`] mp_tac)
+    \\ qpat_x_assum `word_gen_gc_move_loop conf k _ = _` mp_tac
+    \\ once_rewrite_tac [word_gen_gc_move_loop_def] \\ fs []
+    \\ IF_CASES_TAC THEN1
+     (qsuff_tac `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
+      \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+      \\ rewrite_tac [addressTheory.WORD_EQ_ADD_CANCEL,GSYM WORD_ADD_ASSOC]
+      \\ fs [heap_length_def,el_length_def]
+      \\ fs [bytes_in_word_def,word_mul_n2w]
+      \\ fs [RIGHT_ADD_DISTRIB]
+      \\ qmatch_goalsub_abbrev_tac `nn MOD _`
+      \\ qsuff_tac `nn < dimword (:α)`
+      THEN1
+       (fs [] \\ Cases_on `h` \\ fs [el_length_def]
+        \\ fs [] \\ unabbrev_all_tac \\ rfs [good_dimindex_def]
+        \\ rfs [dimword_def]
+        \\ fs [len_inv_def,heap_length_def,el_length_def,SUM_APPEND] \\ rfs [])
+      \\ fs [] \\ unabbrev_all_tac \\ rfs [good_dimindex_def]
+      \\ rfs [dimword_def]
+      \\ fs [len_inv_def,heap_length_def,el_length_def,SUM_APPEND] \\ rfs [])
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ imp_res_tac gen_gcTheory.gc_move_loop_ok \\ fs []
+    \\ strip_tac \\ SEP_F_TAC
+    \\ impl_tac THEN1
+     (fs [] \\ fs [el_length_def,heap_length_def]
+      \\ fs [] \\ unabbrev_all_tac \\ rfs [good_dimindex_def]
+      \\ rfs [dimword_def]
+      \\ fs [len_inv_def,heap_length_def,el_length_def,SUM_APPEND] \\ rfs [])
+    \\ strip_tac
+    \\ qpat_x_assum `!m:num. _`
+         (qspecl_then [`k-1`,`gc_move_data gen_conf s`,
+                       `m'`,`dm`,`curr`,`xs1`] mp_tac) \\ fs []
+    \\ rveq
+    \\ fs [word_heap_APPEND,word_heap_def,word_el_def,
+           heap_length_APPEND,word_payload_def,GSYM word_add_n2w,
+           WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]
+    \\ strip_tac \\ SEP_F_TAC
+    \\ impl_tac
+    THEN1 (fs [] \\ rveq \\ fs [SIMP_RULE std_ss [] gc_move_data_const])
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs [])
+  \\ strip_tac
+    \\ qmatch_asmsub_abbrev_tac `gc_move_refs gen_conf s2`
+    \\ `?s7. gen_gc$gc_move_refs gen_conf s2 = s7` by fs [] \\ fs []
+    \\ Cases_on `k = 0` \\ fs [] THEN1 (rveq \\ fs [])
+    \\ drule word_gen_gc_move_refs_thm
+    \\ disch_then (qspecl_then [`dimword (:'a)`,`m`,`dm`,`curr`,`xs`] mp_tac)
+    \\ qpat_x_assum `word_gen_gc_move_loop conf k _ = _` mp_tac
+    \\ once_rewrite_tac [word_gen_gc_move_loop_def] \\ fs []
+    \\ IF_CASES_TAC THEN1
+     (qsuff_tac `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
+      \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+      \\ rewrite_tac [addressTheory.WORD_EQ_ADD_CANCEL,GSYM WORD_ADD_ASSOC]
+      \\ fs [heap_length_def,el_length_def]
+      \\ fs [bytes_in_word_def,word_mul_n2w]
+      \\ fs [RIGHT_ADD_DISTRIB]
+      \\ qmatch_goalsub_abbrev_tac `nn MOD _`
+      \\ qsuff_tac `nn < dimword (:α)`
+      THEN1
+       (fs [] \\ Cases_on `h` \\ fs [el_length_def]
+        \\ fs [] \\ unabbrev_all_tac \\ rfs [good_dimindex_def]
+        \\ rfs [dimword_def]
+        \\ fs [len_inv_def,heap_length_def,el_length_def,SUM_APPEND] \\ rfs [])
+      \\ fs [] \\ unabbrev_all_tac \\ rfs [good_dimindex_def]
+      \\ rfs [dimword_def]
+      \\ fs [len_inv_def,heap_length_def,el_length_def,SUM_APPEND] \\ rfs [])
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ qunabbrev_tac `s2` \\ fs []
+    \\ disch_then (qspec_then `frame` mp_tac)
+    \\ impl_tac THEN1
+     (imp_res_tac (SIMP_RULE std_ss [] gen_gcTheory.gc_move_loop_ok)
+      \\ fs [word_heap_parts_def] \\ rfs []
+      \\ fs [len_inv_def] \\ rfs []
+      \\ fs [good_dimindex_def,dimword_def,heap_length_def,el_length_def,SUM_APPEND]
+      \\ `LENGTH t <= SUM (MAP el_length t)` by fs [LENGTH_LESS_EQ_SUM_el_length]
+      \\ rfs [] \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ qpat_abbrev_tac `s6 = gc_move_refs gen_conf _`
+    \\ qpat_x_assum `_ = s.n` (assume_tac o GSYM)
+    \\ fs []
+    \\ qpat_x_assum `!m:num. _`
+         (qspecl_then [`k-1`,`s6`,`m'`,`dm`,`curr`,`xs1`] mp_tac) \\ fs []
+    \\ rveq
+    \\ fs [word_heap_APPEND,word_heap_def,word_el_def,
+           heap_length_APPEND,word_payload_def,GSYM word_add_n2w,
+           WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]
+    \\ qmatch_goalsub_abbrev_tac `word_gen_gc_move_loop conf _ input2 = _`
+    \\ qmatch_asmsub_abbrev_tac `word_gen_gc_move_loop conf _ input1 = _`
+    \\ qsuff_tac `input1 = input2`
+    THEN1 (strip_tac \\ fs [])
+    \\ rfs [] \\ unabbrev_all_tac
+    \\ fs [SIMP_RULE std_ss [] gc_move_refs_const]
+  \\ rewrite_tac [GSYM WORD_ADD_ASSOC,addressTheory.WORD_EQ_ADD_CANCEL]
+  \\ fs [GSYM WORD_LEFT_ADD_DISTRIB,word_add_n2w]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ fs []
+  \\ qpat_abbrev_tac `n1 = SUM (MAP _ t)`
+  \\ qpat_abbrev_tac `n2 = SUM (MAP _ s.h2)`
+  \\ qpat_abbrev_tac `n3 = SUM (MAP _ s.h1)`
+  \\ qpat_abbrev_tac `n6 = SUM (MAP _ _.h2)`
+  \\ qpat_abbrev_tac `n7 = SUM (MAP _ _.r4)`
+  \\ qpat_x_assum `LENGTH xs + n2 = _` (assume_tac o GSYM)
+  \\ fs []);
 
 (*
 gen_gcTheory.gc_move_loop_def
