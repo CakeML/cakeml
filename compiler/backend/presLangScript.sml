@@ -29,9 +29,10 @@ val _ = Datatype`
     | Dletrec ((varN # varN # exp(*exp*)) list)
     | Dtype (modN list)
     | Dexn (modN list) conN (t list)
-    (* TODO: Consider doing what we did with op above for the patterns below*)
     | Pvar varN
     | Plit lit
+    (* TODO: Consider doing what we did with op above for the patterns below, in
+     * order to avoid creating separate constructors for separate languages *)
     | ModPcon (((modN, conN) id) option) (exp(*pat*) list)
     | ConPcon ((num # tid_or_exn) option) (exp(*pat*) list)
     | Pref exp(*pat*)
@@ -191,13 +192,15 @@ val con_to_pres_def = Define`
   con_to_pres prompts = Prog (MAP con_to_pres_prompt prompts)`;
 
 (* pres_to_json *)
-(* TODO: Add words, add ConCon and ConPcon *)
+(* TODO: Add words *)
 val lit_to_value_def = Define`
   (lit_to_value (IntLit i) = Int i)
   /\
   (lit_to_value (Char c) = String [c])
   /\
-  (lit_to_value (StrLit s) = String s)`;
+  (lit_to_value (StrLit s) = String s)
+  /\
+  (lit_to_value _ = String "word8/64")`;
 
 (* Create a new json$Object with keys and values as in the tuples. Every object
 * has constructor name field, cons *)
