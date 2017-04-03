@@ -1637,15 +1637,6 @@ val gen_gc_ok = store_thm("gen_gc_ok",
   \\ res_tac
   \\ fs [isSomeDataElement_def]);
 
-val gc_related_def = Define `
-  gc_related (f:num|->num) heap1 heap2 =
-    INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap2) } /\
-    (!i. i IN FDOM f ==> isSomeDataElement (heap_lookup i heap1)) /\
-    !i xs l d.
-      i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
-      (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
-      !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
-
 val IN_heap_addresses_LESS = prove(
   ``!heap n k. n IN heap_addresses k heap ==> k <= n /\ n < k + heap_length heap``,
   Induct
