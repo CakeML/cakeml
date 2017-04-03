@@ -1,5 +1,5 @@
 open preamble astTheory jsonTheory backend_commonTheory;
-open modLangTheory;
+open conLangTheory modLangTheory;
 
 val _ = new_theory"presLang";
 
@@ -16,7 +16,8 @@ val _ = new_theory"presLang";
 (* Special operator wrapper for presLang *)
 val _ = Datatype`
   op =
-    Ast ast$op`;
+    | Ast ast$op
+    | Conlang conLang$op`;
 
 val _ = Datatype`
   exp =
@@ -28,10 +29,12 @@ val _ = Datatype`
     | Dletrec ((varN # varN # exp(*exp*)) list)
     | Dtype (modN list)
     | Dexn (modN list) conN (t list)
-    (* Patterns *)
     | Pvar varN
     | Plit lit
-    | Pcon (((modN, conN) id) option) (exp(*pat*) list)
+    (* TODO: Consider doing what we did with op above for the patterns below, in
+     * order to avoid creating separate constructors for separate languages *)
+    | ModPcon (((modN, conN) id) option) (exp(*pat*) list)
+    | ConPcon ((num # tid_or_exn) option) (exp(*pat*) list)
     | Pref exp(*pat*)
     | Ptannot exp(*pat*) t
     (* Expressions *)
@@ -39,10 +42,12 @@ val _ = Datatype`
     | Handle tra exp ((exp(*pat*) # exp) list)
     | Var_local tra varN
     | Var_global tra num
+    | Extend_global tra num (* Introduced in conLang *)
     | Lit tra lit
       (* Constructor application.
        A Nothing constructor indicates a tuple pattern. *)
-    | Con tra (((modN, conN) id) option) (exp list)
+    | ModCon tra (((modN, conN) id) option) (exp list)
+    | ConCon tra ((num # tid_or_exn) option) (exp list)
       (* Application of a primitive operator to arguments.
        Includes function application. *)
     | App tra op (exp list)
@@ -71,7 +76,7 @@ val mod_to_pres_pat_def = tDefine "mod_to_pres_pat"`
     case p of
        | ast$Pvar varN => presLang$Pvar varN
        | Plit lit => Plit lit
-       | Pcon id pats => Pcon id (MAP mod_to_pres_pat pats)
+       | Pcon id pats => ModPcon id (MAP mod_to_pres_pat pats)
        | Pref pat => Pref (mod_to_pres_pat pat)
        (* Won't happen, these are removed in compilation from source to mod. *)
        | Ptannot pat t => Ptannot (mod_to_pres_pat pat) t`
@@ -85,7 +90,7 @@ val mod_to_pres_exp_def = tDefine"mod_to_pres_exp"`
   /\
   (mod_to_pres_exp (Lit tra lit) = Lit tra lit)
   /\
-  (mod_to_pres_exp (Con tra id_opt exps) = Con tra id_opt (MAP mod_to_pres_exp exps))
+  (mod_to_pres_exp (Con tra id_opt exps) = ModCon tra id_opt (MAP mod_to_pres_exp exps))
   /\
   (mod_to_pres_exp (Var_local tra varN) = Var_local tra varN)
   /\
@@ -131,6 +136,61 @@ val mod_to_pres_prompt_def = Define`
 val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
 
+(* con_to_pres *)
+val con_to_pres_pat_def = tDefine"con_to_pres_pat"`
+  con_to_pres_pat p =
+    case p of
+       | conLang$Pvar varN => presLang$Pvar varN
+       | Plit lit => Plit lit
+       | Pcon opt ps => ConPcon opt (MAP con_to_pres_pat ps)
+       | Pref pat => Pref (con_to_pres_pat pat)`
+    cheat;
+
+val con_to_pres_exp_def = tDefine"con_to_pres_exp"`
+  (con_to_pres_exp (conLang$Raise t e) = Raise t (con_to_pres_exp e))
+  /\ 
+  (con_to_pres_exp (Handle t e pes) = Handle t (con_to_pres_exp e) (con_to_pres_pes pes))
+  /\
+  (con_to_pres_exp (Lit t l) = Lit t l)
+  /\
+  (con_to_pres_exp (Con t ntOpt exps) = ConCon t ntOpt (MAP con_to_pres_exp
+  exps))
+  /\ 
+  (con_to_pres_exp (Var_local t varN) = Var_local t varN)
+  /\
+  (con_to_pres_exp (Var_global t num) = Var_global t num)
+  /\
+  (con_to_pres_exp (Fun t varN e) = Fun t varN (con_to_pres_exp e))
+  /\
+  (con_to_pres_exp (App t op exps) = App t (Conlang op) (MAP con_to_pres_exp exps))
+  /\
+  (con_to_pres_exp (Mat t e pes) = Mat t (con_to_pres_exp e) (con_to_pres_pes pes))
+  /\
+  (con_to_pres_exp (Let t varN e1 e2) = Let t varN (con_to_pres_exp e1)
+  (con_to_pres_exp e2))
+  /\ 
+  (con_to_pres_exp (Letrec t funs e) = Letrec t (MAP (\(v1,v2,e).(v1,v2,con_to_pres_exp e)) funs) (con_to_pres_exp e))
+  /\
+  (con_to_pres_exp (Extend_global t num) = Extend_global t num)
+  /\ 
+  (con_to_pres_pes [] = [])
+  /\
+  (con_to_pres_pes ((p,e)::pes) =
+    (con_to_pres_pat p, con_to_pres_exp e)::con_to_pres_pes pes)`
+  cheat; 
+
+val con_to_pres_dec_def = Define`
+  con_to_pres_dec d =
+    case d of
+       | conLang$Dlet num exp => presLang$Dlet num (con_to_pres_exp exp)
+       | Dletrec funs => Dletrec (MAP (\(v1,v2,e). (v1,v2,con_to_pres_exp e)) funs)`; 
+
+val con_to_pres_prompt_def = Define`
+  con_to_pres_prompt (Prompt decs) = Prompt NONE (MAP con_to_pres_dec decs)`;
+
+val con_to_pres_def = Define`
+  con_to_pres prompts = Prog (MAP con_to_pres_prompt prompts)`;
+
 (* pres_to_json *)
 (* TODO: Add words *)
 val lit_to_value_def = Define`
@@ -138,7 +198,9 @@ val lit_to_value_def = Define`
   /\
   (lit_to_value (Char c) = String [c])
   /\
-  (lit_to_value (StrLit s) = String s)`;
+  (lit_to_value (StrLit s) = String s)
+  /\
+  (lit_to_value _ = String "word8/64")`;
 
 (* Create a new json$Object with keys and values as in the tuples. Every object
 * has constructor name field, cons *)
@@ -168,6 +230,10 @@ val word_size_to_json_def = Define`
   (word_size_to_json W64 = String "W64")`
 
 val op_to_json_def = Define`
+  (op_to_json (Conlang (Init_global_var num)) = String "Init_global_var")
+  /\
+  (op_to_json (Conlang (Op astop)) = op_to_json (Ast (astop)))
+  /\
   (op_to_json (Ast (Opn Plus)) = String "Plus")
   /\
   (op_to_json (Ast (Opn Minus)) = String "Minus")
@@ -320,6 +386,7 @@ val num_to_hex_def = Define `
 val word_to_hex_string_def = Define `
   word_to_hex_string w = "0x" ++ num_to_hex (w2n (w:'a word))`;
 
+(*TODO: Update lits to be f.e Cons: IntLit, Val: 3 *)
 val lit_to_json_def = Define`
   (lit_to_json (IntLit i) = ("IntLit", Int i))
   /\
@@ -370,13 +437,23 @@ val pres_to_json_def = tDefine"pres_to_json"`
   (pres_to_json (Plit lit) =
       new_obj "Plit" [("pat", Object[lit_to_json lit])])
   /\
-  (pres_to_json (Pcon optTup exps) =
-    let exps' = ("pat", Array (MAP pres_to_json exps)) in
+  (pres_to_json (ModPcon optTup exps) =
+    let exps' = ("pats", Array (MAP pres_to_json exps)) in
     let ids' = case optTup of
                   | NONE => ("modscon", Null)
                   | SOME optUp' => ("modscon", (id_to_object optUp')) in
-
-      new_obj "Pcon" [ids';exps'])
+      new_obj "Pcon-modlang" [ids';exps'])
+  /\
+  (pres_to_json (ConPcon optTup exps) =
+    let exps' = Array (MAP pres_to_json exps) in 
+    let tup' = case optTup of
+                  | NONE => Null
+                  | SOME (num, te) => case te of
+                      | TypeId id => Array [num_to_json num; new_obj "TypeId"
+                      [("id", id_to_object id)]]
+                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn"
+                      [("id", id_to_object id)]] in
+      new_obj "Pcon-conlang" [("numtid",tup');("pats", exps')])
   /\
   (pres_to_json (Pref exp) =
       new_obj "Pref" [("pat", pres_to_json exp)])
@@ -399,15 +476,30 @@ val pres_to_json_def = tDefine"pres_to_json"`
   (pres_to_json (Var_global tra num) =
       new_obj "Var_global" [("tra", trace_to_json tra);("num", num_to_json num)])
   /\
+  (pres_to_json (Extend_global tra num) =
+      new_obj "Extend_global" [("tra", trace_to_json tra);("num", num_to_json
+      num)])
+  /\ 
   (pres_to_json (Lit tra lit) =
       new_obj "Lit" [("tra", trace_to_json tra);lit_to_json lit])
   /\
-  (pres_to_json (Con tra optTup exps) =
+  (pres_to_json (ModCon tra optTup exps) =
     let exps' = ("exps", Array (MAP pres_to_json exps)) in
     let ids' = case optTup of
                   | NONE => ("modscon", Null)
                   | SOME optUp' => ("modscon", (id_to_object optUp')) in
-      new_obj "Con" [("tra", trace_to_json tra);ids';exps'])
+      new_obj "Con-modlang" [("tra", trace_to_json tra);ids';exps'])
+  /\
+  (pres_to_json (ConCon tra optTup exps) =
+    let exps' = Array (MAP pres_to_json exps) in
+    let tup' = case optTup of
+                  | NONE => Null
+                  | SOME (num, te) => case te of
+                      | TypeId id => Array [num_to_json num; new_obj "TypeId"
+                      [("id", id_to_object id)]]
+                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn"
+                      [("id", id_to_object id)]] in
+      new_obj "Con-conlang" [("tra", trace_to_json tra);("numtid",tup');("pats", exps')])
   /\
   (pres_to_json (App tra op exps) =
     let exps' = ("exps", Array (MAP pres_to_json exps)) in
