@@ -40,7 +40,10 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o addancs
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
+GRAMMAR_DEPS0 = peg pegexec
+GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Theory,$(GRAMMAR_DEPS0))
+
+BARE_THYS = ../preamble $(GRAMMAR_DEPS) ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)
