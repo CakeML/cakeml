@@ -23,18 +23,17 @@ val initial_condition_def = Define`
     backendProof$conf_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
-  `parse_prog = parse o MAP FST`,
+  `parse_prog = parse`,
   simp[FUN_EQ_THM] \\ gen_tac
   \\ simp[parse_def,cmlParseTheory.parse_prog_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ simp[]
   \\ conj_tac
   >- (
+    (* some = SOME case *)
     rpt strip_tac
     \\ drule completeness
     \\ simp[MAP_MAP_o]
-    \\ disch_then(qspec_then`x`mp_tac)
-    \\ impl_tac >- simp[]
     \\ strip_tac
     \\ assume_tac cmlPEGTheory.PEG_wellformed
     \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
@@ -43,8 +42,8 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
     \\ strip_tac
     \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
-    \\ simp[ETA_AX,OPTION_BIND_SOME]
-    \\ cheat (* due to locations... *) )
+    \\ simp[ETA_AX,OPTION_BIND_SOME])
+  (* some = NONE case *)
   \\ qmatch_goalsub_abbrev_tac`opt = NONE`
   \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
   \\ strip_tac

@@ -1953,12 +1953,6 @@ val PERM_MAP_BIJ = Q.store_thm("PERM_MAP_BIJ",
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP])
 
-val INJ_MAP_EQ_IFF = Q.store_thm("INJ_MAP_EQ_IFF",
-  `∀f l1 l2.
-    INJ f (set l1 ∪ set l2) UNIV ⇒
-    (MAP f l1 = MAP f l2 ⇔ l1 = l2)`,
-  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
-
 val bool_case_eq = Q.store_thm("bool_case_eq",
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
   srw_tac[][] >> metis_tac[]);
