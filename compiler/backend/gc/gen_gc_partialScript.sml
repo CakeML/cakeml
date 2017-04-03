@@ -16,7 +16,7 @@ val _ = Datatype `
 val gc_move_def = Define `
   (gc_move conf state (Data d) = (Data d, state)) /\
   (gc_move conf state (Pointer ptr d) =
-     let ok = (state.ok /\ (ptr < heap_length state.heap)) in 
+     let ok = (state.ok /\ (ptr < heap_length state.heap)) in
      (if ptr < conf.gen_start \/ conf.refs_start <= ptr then
         (Pointer ptr d,state with <| ok := ok |>) else
       case heap_lookup ptr state.heap of
@@ -775,7 +775,7 @@ val gc_move_data_pres = Q.prove(
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
         = MEM (DataElement xs l dd) (state.heap++state.h2))`,
   Cases_on `x` >> rw[gc_move_def] >> rpt strip_tac
-  >> fs[] >> every_case_tac >> fs[] >> TRY(pairarg_tac >> fs[]) >> 
+  >> fs[] >> every_case_tac >> fs[] >> TRY(pairarg_tac >> fs[]) >>
   qpat_x_assum `_ = (y:('a,'b) gc_state)` (assume_tac o GSYM) >> fs[]
   >> drule gc_forward_ptr_data_pres >> strip_tac >> fs[] >> metis_tac[]);
 
@@ -1022,7 +1022,7 @@ val partial_gc_simulation = prove(
         \\ rpt strip_tac
         \\ drule gc_move_list_data_pres \\ disch_then(qspecl_then [`ptrs`,`l`,`d`] assume_tac)
         \\ drule gc_move_ref_list_data_pres \\ disch_then(qspecl_then [`ptrs`,`l`,`d`] assume_tac)
-        \\ fs[empty_state_def]  
+        \\ fs[empty_state_def]
         \\ `MEM (DataElement ptrs l d) heap0` by rfs[]
         \\ `isSomeDataElement (heap_lookup ptr' heap0)` by metis_tac[heap_ok_def]
         \\ metis_tac[isSomeDataElement_def,heap_lookup_LESS])
@@ -2605,5 +2605,7 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ strip_tac
   \\ fs []
   \\ simp [to_gen_heap_address_def]);
+
+
 
 val _ = export_theory();
