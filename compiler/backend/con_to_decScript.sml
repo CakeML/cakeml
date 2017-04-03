@@ -23,9 +23,10 @@ val _ = Define `
   ∧
   (init_global_funs tra tidx next ((f,x,e)::funs) =
    Let (mk_cons tra tidx) NONE (App (mk_cons tra (tidx+1)) (Init_global_var next) [Fun (mk_cons tra (tidx+2)) x e]) (init_global_funs tra (tidx+3) (next+1) funs))`;
-(*TODO: We should check whether introducing a trace to Dletrec and is sensible, in
-  * that case we should change from passing on Empty into init_global_funs to
-  * the correct trace *)
+
+(*TODO: We should find a solution to add traces to declarations based on the
+ * expression(s) they contain. Once we have a trace we should change from passing
+ * on Empty into init_global_funs to the correct trace *)
 val _ = Define `
   (compile_decs next [] = Con Empty NONE [])
   ∧
@@ -40,8 +41,7 @@ val _ = Define `
      let n = (LENGTH funs) in
        Let (mk_cons Empty 1) NONE (init_global_funs Empty 2 next funs) (compile_decs (next+n) ds))`;
 
-(* Since the Lets, cons and var_local doesn't have a trace, nor does the prompts we'll leave
-* them as empty *)
+(* TODO: Since the Lets, cons, var_local and prompts don't have a trace we'll leave them as empty *)
 val _ = Define `
   (compile_prompt none_tag some_tag next prompt =
    case prompt of
@@ -60,8 +60,7 @@ val _ = Define`
   (compile_prog none_tag some_tag next (p::ps) =
    let (next',p') = compile_prompt none_tag some_tag next p in
    let (next'',ps') = compile_prog none_tag some_tag next' ps in
-     (next'',Mat Empty p' [(Pcon (SOME none_tag) [], ps'); (Pvar "x", Var_local
-     Empty "x")]))`;
+     (next'',Mat Empty p' [(Pcon (SOME none_tag) [], ps'); (Pvar "x", Var_local Empty "x")]))`;
 
 val _ = Define`
   compile =

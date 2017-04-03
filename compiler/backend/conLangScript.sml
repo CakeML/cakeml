@@ -27,7 +27,7 @@ val _ = Datatype`
   | Pref pat`;
 
 val _ = Datatype`
-   exp =
+ exp =
   | Raise tra exp
   | Handle tra exp ((pat # exp) list)
   | Lit tra lit
