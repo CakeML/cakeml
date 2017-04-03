@@ -126,6 +126,10 @@ val FFI_part_hprop_STAR = Q.store_thm("FFI_part_hprop_STAR",
   \\ fs[set_sepTheory.STAR_def,SPLIT_def] \\ rw[]
   \\ metis_tac[]);
 
+val FFI_part_hprop_SEP_EXISTS = Q.store_thm("FFI_part_hprop_SEP_EXISTS",
+  `(∀x. FFI_part_hprop (P x)) ⇒ FFI_part_hprop (SEP_EXISTS x. P x)`,
+  rw[FFI_part_hprop_def,SEP_EXISTS_THM] \\ res_tac);
+
 val call_main_thm2 = Q.store_thm("call_main_thm2",
   `ML_code env1 st1 prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>

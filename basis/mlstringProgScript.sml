@@ -146,7 +146,6 @@ val compare_aux_side_def = theorem"compare_aux_side_def";
 val result = translate compare_def;
 val compare_side_def = definition"compare_side_def";
 
-
 val compare_aux_side_thm = Q.prove (
   `!s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
@@ -159,6 +158,14 @@ val compare_side_thm = Q.prove (
   `!s1 s2. compare_side s1 s2`,
   rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["<"];
+val _ = translate mlstring_lt_def;
+val _ = next_ml_names := ["<="];
+val _ = translate mlstring_le_def;
+val _ = next_ml_names := [">="];
+val _ = translate mlstring_ge_def;
+val _ = next_ml_names := [">"];
+val _ = translate mlstring_gt_def;
 
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_1_side_def";

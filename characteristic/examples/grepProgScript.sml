@@ -483,7 +483,7 @@ val print_matching_lines_in_file = process_topdecs`
     let val fd = FileIO.openIn file
     in (print_matching_lines m (String.concat_2[file,":"]) fd;
         FileIO.close fd)
-    end handle FileIO.BadFileName => 
+    end handle FileIO.BadFileName =>
         print_err (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
@@ -516,10 +516,10 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     xcases
     \\ fs[BadFileName_exn_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-    \\ xlet`POSTv v. &STRING_TYPE (notfound_string f) v 
+    \\ xlet`POSTv v. &STRING_TYPE (notfound_string f) v
                      * ROFS fs * STDOUT out * STDERR err`
     >- ( xapp \\ xsimpl \\ qexists_tac`f` \\ fs[FILENAME_def])
-    \\ xapp \\ instantiate \\ xsimpl 
+    \\ xapp \\ instantiate \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`err`
     \\ xsimpl)
   >- ( xsimpl )
@@ -536,7 +536,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def,FILENAME_def] )
   \\ xlet`POSTv v. &STRING_TYPE (concat[f;strlit":"]) v * ROFS (openFileFS f fs) * STDOUT out * STDERR err`
   >- ( xapp \\ instantiate \\ xsimpl )
-  \\ xlet`POSTv v. &UNIT_TYPE () v * ROFS (bumpAllFD (nextFD fs) (openFileFS f fs)) 
+  \\ xlet`POSTv v. &UNIT_TYPE () v * ROFS (bumpAllFD (nextFD fs) (openFileFS f fs))
                                    * STDOUT result * STDERR error`
   \\ fs[] \\ imp_res_tac nextFD_ltX \\ simp[]
   >- (
@@ -646,7 +646,7 @@ val grep_sem_def = Define`
    if NULL filenames then ("",explode usage_string) else
    case parse_regexp regexp of
    | NONE => ("",explode (parse_failure_string (implode regexp)))
-   | SOME r => let l = (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames)) 
+   | SOME r => let l = (MAP (grep_sem_file (regexp_lang r) fs) (MAP implode filenames))
                  in (CONCAT (MAP FST l), CONCAT (MAP SND l)))∧
   (grep_sem _ _ = ("",explode usage_string))`;
 
@@ -692,7 +692,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ simp[usage_string_v_thm]
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`err`
-    \\ xsimpl 
+    \\ xsimpl
     )
   \\ rveq
   \\ rename1`EVERY validArg t`
@@ -720,13 +720,13 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ instantiate
     \\ simp[mlstringTheory.explode_implode]
     \\ xsimpl)
-  \\ xlet`POSTv v. &OPTION_TYPE REGEXP_REGEXP_TYPE  (parse_regexp regexp) v * 
+  \\ xlet`POSTv v. &OPTION_TYPE REGEXP_REGEXP_TYPE  (parse_regexp regexp) v *
           STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- ( xapp \\ instantiate \\ xsimpl )
   \\ Cases_on`parse_regexp regexp` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (
     xmatch
-    \\ xlet`POSTv v. &STRING_TYPE (parse_failure_string (implode regexp)) v * 
+    \\ xlet`POSTv v. &STRING_TYPE (parse_failure_string (implode regexp)) v *
             STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
     >- (xapp \\ instantiate \\ xsimpl )
     \\ xapp
@@ -749,14 +749,14 @@ val grep_spec = Q.store_thm("grep_spec",
      `∀f fv outp erro.
       FILENAME f fv ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
       app p appthis [fv] (STDOUT outp * STDERR erro * COMMANDLINE cl * ROFS fs)
-        (POSTv v. &UNIT_TYPE () v 
-                  * STDOUT (outp ++ FST(grep_sem_file (regexp_lang r) fs f)) 
-                  * STDERR (erro ++ SND(grep_sem_file (regexp_lang r) fs f)) 
+        (POSTv v. &UNIT_TYPE () v
+                  * STDOUT (outp ++ FST(grep_sem_file (regexp_lang r) fs f))
+                  * STDERR (erro ++ SND(grep_sem_file (regexp_lang r) fs f))
                   * COMMANDLINE cl * ROFS fs)`
   >- (
     rw[]
     \\ first_x_assum match_mp_tac
-    \\ xlet`POSTv mv. &(STRING_TYPE --> BOOL) (build_matcher r) mv 
+    \\ xlet`POSTv mv. &(STRING_TYPE --> BOOL) (build_matcher r) mv
                       * STDOUT outp * STDERR erro * COMMANDLINE cl * ROFS fs`
     >- ( xapp_spec build_matcher_partial_spec \\ instantiate \\ xsimpl )
     \\ xapp
@@ -767,7 +767,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ xsimpl
     \\ simp[grep_sem_file_def]
     \\ reverse IF_CASES_TAC
-    >- (   
+    >- (
         CASE_TAC \\ xsimpl \\ fs[] \\ imp_res_tac ALOOKUP_SOME_inFS_fname
         \\ CASE_TAC \\ xsimpl \\ fs[] \\ imp_res_tac ALOOKUP_SOME_inFS_fname
         \\ simp[notfound_string_def,mlstringTheory.concat_thm,
@@ -806,7 +806,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ fs[])
   \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
-  \\ qexists_tac`λn. 
+  \\ qexists_tac`λn.
     STDOUT (out ++ (CONCAT (MAP FST (MAP (grep_sem_file (regexp_lang r) fs) (TAKE n (MAP implode fls)))))) *
     STDERR (err ++ (CONCAT (MAP SND (MAP (grep_sem_file (regexp_lang r) fs) (TAKE n (MAP implode fls)))))) *
     COMMANDLINE cl * ROFS fs`
@@ -847,6 +847,6 @@ val grep_semantics = save_thm("grep_semantics",
   |> DISCH_ALL
   |> REWRITE_RULE[AND_IMP_INTRO]
   |> CONV_RULE(LAND_CONV EVAL)
-  |> REWRITE_RULE[APPEND]);
+  |> SIMP_RULE(srw_ss())[]);
 
 val _ = export_theory ();

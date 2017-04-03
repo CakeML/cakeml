@@ -19,7 +19,7 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
         (STDOUT s * STDERR [])
         (POSTv uv. &UNIT_TYPE () uv * STDOUT s * STDERR ("Well oH lord!\n"))`,
   xcf "helloErr" st
-  \\ xapp \\ xsimpl \\ 
+  \\ xapp \\ xsimpl \\
   qexists_tac `STDOUT s` \\ qexists_tac `[]` \\ xsimpl
 );
 
@@ -30,6 +30,7 @@ val (call_thm_helloErr, helloErr_prog_tm) = call_thm st name spec;
 val helloErr_prog_def = Define`helloErr_prog = ^helloErr_prog_tm`;
 
 val helloErr_semantics = save_thm("helloErr_semantics",
-  call_thm_helloErr |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]);
+  call_thm_helloErr |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]
+  |> SIMP_RULE std_ss [APPEND]);
 
 val _ = export_theory ()

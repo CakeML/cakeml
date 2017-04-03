@@ -466,23 +466,35 @@ val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 val type_cmp_thm = Q.store_thm("type_cmp_thm",
   `∀t1 t2.  type_cmp t1 t2 =
     case (t1,t2) of
-    | (Tyvar x1, Tyvar x2) => mlstring_cmp x1 x2
+    | (Tyvar x1, Tyvar x2) => mlstring$compare x1 x2
     | (Tyvar _, _) => LESS
     | (_, Tyvar _) => GREATER
-    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring_cmp (list_cmp type_cmp) (x1,a1) (x2,a2)`,
+    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring$compare (list_cmp type_cmp) (x1,a1) (x2,a2)`,
   ho_match_mp_tac type_ind >>
   conj_tac >- (
     gen_tac >> Cases >>
-    simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm,mlstring_cmp_def] ) >>
+    simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm, mlstring_lt_def] >>
+    every_case_tac >>
+    assume_tac TotOrd_compare >>
+    fs [TotOrd] >>
+    metis_tac [cpn_distinct, cpn_nchotomy]) >>
   ntac 3 strip_tac >>
   Induct >> simp[] >>
   simp[Once type_cmp_def,TO_of_LinearOrder,type_lt_thm] >>
   simp[MATCH_MP pair_cmp_lexTO
-       (CONJ TotOrd_mlstring_cmp (MATCH_MP TotOrd_list_cmp TotOrd_type_cmp))] >>
-  simp[mlstring_cmp_def,type_cmp_def,
+       (CONJ TotOrd_compare (MATCH_MP TotOrd_list_cmp TotOrd_type_cmp))] >>
+  simp[type_cmp_def,
        SYM(MATCH_MP TO_of_LinearOrder_LLEX irreflexive_type_lt),
        SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_LLEX_type_lt))] >>
-  simp[TO_of_LinearOrder])
+  simp[TO_of_LinearOrder] >>
+  every_case_tac >>
+  fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+  rw [] >>
+  rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+  rfs [] >>
+  fs [] >>
+  every_case_tac >>
+  fs []);
 
 val type_cmp_ind = Q.store_thm("type_cmp_ind",
   `∀P.
@@ -505,10 +517,10 @@ val type_cmp_ind = Q.store_thm("type_cmp_ind",
 val term_cmp_thm = Q.store_thm("term_cmp_thm",
   `∀t1 t2. term_cmp t1 t2 =
     case (t1,t2) of
-    | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring$compare type_cmp (x1,ty1) (x2,ty2)
     | (Var _ _, _) => LESS
     | (_, Var _ _) => GREATER
-    | (Const x1 ty1, Const x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Const x1 ty1, Const x2 ty2) => pair_cmp mlstring$compare type_cmp (x1,ty1) (x2,ty2)
     | (Const _ _, _) => LESS
     | (_, Const _ _) => GREATER
     | (Comb s1 t1, Comb s2 t2) => pair_cmp term_cmp term_cmp (s1,t1) (s2,t2)
@@ -521,15 +533,28 @@ val term_cmp_thm = Q.store_thm("term_cmp_thm",
   conj_tac >- (
     ntac 2 gen_tac >> Cases >>
     simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
-         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
-    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
-         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_compare TotOrd_type_cmp)] >>
+    simp[type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt
+         irreflexive_type_lt))] >>
+    every_case_tac >>
+    fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+    rw [] >>
+    rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+    every_case_tac >>
+    fs []) >>
   conj_tac >- (
     ntac 2 gen_tac >> Cases >>
     simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
-         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
-    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
-         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_compare TotOrd_type_cmp)] >>
+    simp[type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] >>
+    every_case_tac >>
+    fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+    rw [] >>
+    rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+    every_case_tac >>
+    fs []) >>
   conj_tac >- (
     ntac 2 gen_tac >> strip_tac >>
     Cases >> fs[term_cmp_def,TO_of_LinearOrder,term_lt_thm]>>
