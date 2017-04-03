@@ -271,10 +271,28 @@ val unused_space_inv_def = Define `
   unused_space_inv ptr l heap <=>
     (l <> 0 ==> (heap_lookup ptr heap = SOME (Unused (l-1))))`;
 
+val _ = Datatype `
+  gen_starts = GenState (num list)`
+
+val isRef_def = Define `
+  isRef (DataElement ys l (tag,qs)) = (tag = RefTag) /\
+  isRef _ = F`;
+
+val gc_kind_inv_def = Define `
+  gc_kind_inv c a sp sp1 (gens:gen_starts) heap <=>
+    sp <= sp1 /\
+    case c.gc_kind of
+    | None => (sp = sp1:num)
+    | Simple => (sp = sp1)
+    | Generational sizes => T (*
+        ?h1 h2. (heap_split (a + sp1) heap = SOME (h1,h2)) /\
+                EVERY (\x. ~isRef x) h1 /\ EVERY isRef h2 *)`
+
 val abs_ml_inv_def = Define `
-  abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit <=>
+  abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit <=>
     roots_ok roots heap /\ heap_ok heap limit /\
-    unused_space_inv a sp heap /\
+    gc_kind_inv conf a sp sp1 gens heap /\
+    unused_space_inv a sp1 heap /\
     bc_stack_ref_inv conf stack refs (roots,heap,be)`;
 
 (* --- *)
@@ -2561,7 +2579,7 @@ val word_heap_def = Define `
      word_heap (a + bytes_in_word * n2w (el_length x)) xs conf)`;
 
 val heap_in_memory_store_def = Define `
-  heap_in_memory_store heap a sp c s m dm limit <=>
+  heap_in_memory_store heap a sp sp1 c s m dm limit <=>
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
@@ -2572,7 +2590,8 @@ val heap_in_memory_store_def = Define `
       (FLOOKUP s CurrHeap = SOME (Word (curr:'a word))) /\
       (FLOOKUP s OtherHeap = SOME (Word other)) /\
       (FLOOKUP s NextFree = SOME (Word (curr + bytes_in_word * n2w a))) /\
-      (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
+      (FLOOKUP s TriggerGC = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
+      (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a + sp1)))) /\
       (FLOOKUP s HeapLength = SOME (Word (bytes_in_word * n2w limit))) /\
       (word_heap curr heap c *
        word_heap other (heap_expand limit) c) (fun2set (m,dm))`
@@ -3001,6 +3020,14 @@ val LENGTH_EQ_3 = Q.store_thm("LENGTH_EQ_3",
   \\ Cases_on `t'` \\ fs [LENGTH_NIL]
   \\ Cases_on `t` \\ fs [LENGTH_NIL]);
 
+val gc_kind_update_Ref = prove(
+  ``gc_kind_inv c a trig sp'
+        (ha ++ DataElement (ys1 ++ y::ys2) l (RefTag,[])::hb) ==>
+    gc_kind_inv c a trig sp'
+        (ha ++ DataElement (ys1 ++ z::ys2) l (RefTag,[])::hb)``,
+  fs [gc_kind_inv_def] \\ CASE_TAC \\ fs [] \\ rw []
+  \\ cheat);
+
 val memory_rel_Update = Q.store_thm("memory_rel_Update",
   `memory_rel c be refs sp st m dm
      ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars) /\
@@ -3055,6 +3082,8 @@ val memory_rel_Update = Q.store_thm("memory_rel_Update",
   \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ fs [heap_store_RefBlock_thm,LENGTH_LUPDATE] \\ clean_tac
+  \\ fs [PULL_EXISTS]
+  \\ qexists_tac `sp1`
   \\ fs [heap_length_APPEND]
   \\ fs [heap_length_def,el_length_def,RefBlock_def]
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -3068,7 +3097,8 @@ val memory_rel_Update = Q.store_thm("memory_rel_Update",
   \\ fs [el_length_def,SUM_APPEND]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ SEP_R_TAC \\ fs []
-  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]);
+  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ imp_res_tac gc_kind_update_Ref \\ fs []);
 
 val make_cons_ptr_def = Define `
   make_cons_ptr conf nf tag len =
@@ -3263,6 +3293,7 @@ val get_lowerbits_or_1 = Q.prove(
   `get_lowerbits c v = (get_lowerbits c v || 1w)`,
   Cases_on `v` \\ fs [get_lowerbits_def]);
 
+(*
 val memory_rel_Word64 = Q.store_thm("memory_rel_Word64",
   `memory_rel c be refs sp st m dm (vs ++ vars) ∧ good_dimindex (:'a) ∧
    (Word64Rep (:'a) w64 : 'a ml_el) = DataElement [] (LENGTH ws) (Word64Tag,ws) ∧
@@ -3353,6 +3384,7 @@ val memory_rel_WordOp64 =
   memory_rel_Word64 |> Q.GEN`vs` |> Q.SPEC`[w1;w2]`
   |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
   |> curry save_thm"memory_rel_WordOp64"
+*)
 
 val memory_rel_Word64_alt = Q.store_thm("memory_rel_Word64_alt",
   `memory_rel c be refs sp st m dm (vs ++ vars) ∧ good_dimindex (:'a) ∧
@@ -3367,6 +3399,7 @@ val memory_rel_Word64_alt = Q.store_thm("memory_rel_Word64_alt",
      memory_rel c be refs (sp - (LENGTH ws + 1))
         (st |+ (NextFree,Word (ne + bytes_in_word * n2w (LENGTH ws + 1)))) m1  dm
         ((Word64 w64, make_ptr c (ne - curr) (0w:'a word) (LENGTH ws))::vars)`,
+
   rw[memory_rel_def,word_ml_inv_def,PULL_EXISTS]
   \\ imp_res_tac EVERY2_SWAP
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
@@ -3400,6 +3433,7 @@ val memory_rel_Word64_alt = Q.store_thm("memory_rel_Word64_alt",
   \\ `len ≤ ex` by simp[Abbr`len`]
   \\ `ex = len + (ex - len)` by simp[]
   \\ pop_assum SUBST1_TAC
+
   \\ REWRITE_TAC[word_list_exists_ADD]
   \\ qmatch_goalsub_abbrev_tac`word_list_exists x len`
   \\ qpat_abbrev_tac `ll = word_list_exists x _`
