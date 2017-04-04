@@ -5419,7 +5419,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     Cases_on`x'''`>>full_simp_tac(srw_ss())[]>>
     Cases_on`FLOOKUP x''.store NextFree`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`FLOOKUP x''.store EndOfHeap`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`FLOOKUP x''.store TriggerGC`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     ntac 2 strip_tac>> rveq >> full_simp_tac(srw_ss())[call_env_def] >-
@@ -5998,7 +5998,7 @@ val ssa_cc_trans_pre_alloc_conventions = Q.store_thm("ssa_cc_trans_pre_alloc_con
   imp_res_tac list_next_var_rename_lemma_2>>
   pop_assum(qspecl_then[`ssa`,`na+2`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   qabbrev_tac `lss = MAP (λx. THE(lookup x ssa')) ls`>>
-  (qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`  
+  (qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s)`
    ORELSE
    qabbrev_tac `lss' = MAP (option_lookup ssa' o FST) (toAList s0)`)>>
   `∀x. MEM x lss' ⇒ MEM x lss` by

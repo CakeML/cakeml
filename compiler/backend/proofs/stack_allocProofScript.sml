@@ -133,10 +133,15 @@ val word_gc_fun_thm = Q.prove(
             [(CurrHeap,Word (theWord (s ' OtherHeap)));
              (OtherHeap,Word (theWord (s ' CurrHeap)));
              (NextFree,Word pa1);
+             (TriggerGC,
+              Word
+                (theWord (s ' OtherHeap) +
+                 theWord (s ' HeapLength)));
              (EndOfHeap,
               Word
                 (theWord (s ' OtherHeap) +
-                 theWord (s ' HeapLength))); (Globals,w1)]
+                 theWord (s ' HeapLength)));
+	     (Globals,w1)]
       in
         if word_gc_fun_assum conf s /\ c2 then SOME (ws2,m1,s1) else NONE`,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
@@ -198,6 +203,10 @@ val gc_thm = Q.prove(
            [(CurrHeap,Word (theWord (s.store ' OtherHeap)));
             (OtherHeap,Word (theWord (s.store ' CurrHeap)));
             (NextFree,Word pa1);
+            (TriggerGC,
+             Word
+               (theWord (s.store ' OtherHeap) +
+                theWord (s.store ' HeapLength)));
             (EndOfHeap,
              Word
                (theWord (s.store ' OtherHeap) +
