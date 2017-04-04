@@ -80,7 +80,7 @@ val _ = translate int_to_str_lemma;
 
 val mem_to_string_lemma = prove(
   ``mem_to_string x =
-    Append (Append (Append (List "'") (List (FST x))) (List "': "))
+    Append (Append (Append (List "\"") (List (FST x))) (List "\": "))
        (json_to_string (SND x))``,
   Cases_on `x` \\ simp [Once jsonTheory.json_to_string_def] \\ fs []);
 
