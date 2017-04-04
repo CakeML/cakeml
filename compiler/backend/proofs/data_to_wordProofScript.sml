@@ -7710,8 +7710,6 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
               state_rel c r1 r2
                 (s with <| locals := LN; clock := new_c; space := 0 |>) r
                 [(Number v,rv)] locs`,
-  cheat);
-(*
   rpt strip_tac \\ fs [AnyArith_code_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
@@ -7799,10 +7797,10 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ simp [Once state_rel_thm,memory_rel_def]
   \\ fs [heap_in_memory_store_def]
   \\ strip_tac
-  \\ `unused_space_inv a sp heap` by fs [word_ml_inv_def,abs_ml_inv_def]
+  \\ `unused_space_inv a (sp+sp1) heap` by fs [word_ml_inv_def,abs_ml_inv_def]
   \\ fs [unused_space_inv_def]
-  \\ `?k. sp = il + jl + 2 + k` by
-      (qexists_tac `(sp - (il + jl + 2))`
+  \\ `?k. sp + sp1 = il + jl + 2 + k` by
+      (qexists_tac `(sp + sp1 - (il + jl + 2))`
        \\ unabbrev_all_tac \\ fs [] \\ NO_TAC)
   \\ fs []
   \\ rpt_drule heap_lookup_SPLIT
@@ -7854,6 +7852,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ once_rewrite_tac [list_Seq_def] \\ fs []
   \\ once_rewrite_tac [eq_eval]
   \\ qpat_abbrev_tac `m5 = (_ =+ _) _`
+  \\ fs [lookup_insert]
   \\ `lookup 6 s9.locals = SOME (Word (n2w (4 * op_index)))` by
    (`lookup 6 s9.locals = lookup 6 s1.locals` by
      (qunabbrev_tac `s9` \\ fs [lookup_insert,wordSemTheory.set_store_def])
@@ -8316,7 +8315,9 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ qexists_tac `heap`
     \\ qexists_tac `limit`
     \\ qexists_tac `heap_length ha`
-    \\ qexists_tac `il + (jl + (k + 2))`
+    \\ qexists_tac `sp`
+    \\ qexists_tac `sp1`
+    \\ qexists_tac `gens`
     \\ reverse (rpt strip_tac)
     THEN1 (simp [])
     THEN1 asm_simp_tac std_ss []
@@ -8348,6 +8349,8 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ simp_tac std_ss [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ strip_tac \\ rename1 `LENGTH leftover = k` \\ rveq
+    \\ fs [GSYM WORD_LEFT_ADD_DISTRIB,word_add_n2w]
+    \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ qexists_tac `Word a3'`
     \\ qexists_tac `Word a3 :: MAP Word (SND (i2mw v)) ++ MAP Word zs1 ++ leftover`
     \\ conj_tac THEN1 fs [LENGTH_REPLICATE,ADD1]
@@ -8587,7 +8590,6 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ match_mp_tac memory_rel_rearrange
   \\ rpt (pop_assum kall_tac)
   \\ fs [] \\ rw [] \\ fs []);
-*)
 
 val TWO_LESS_MustTerminate_limit = store_thm("TWO_LESS_MustTerminate_limit[simp]",
   ``2 < MustTerminate_limit (:α) /\
