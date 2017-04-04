@@ -133,4 +133,10 @@ val destWordT_def = Define`
 `;
 val _ = export_rewrites ["destWordT_def"]
 
+val destFFIT_def = Define`
+  (destFFIT (FFIT s) = SOME s) ∧
+  (destFFIT _ = NONE)
+`;
+val _ = export_rewrites ["destFFIT_def"]
+
 val _ = export_theory()
