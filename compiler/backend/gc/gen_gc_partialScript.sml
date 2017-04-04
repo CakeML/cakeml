@@ -31,11 +31,12 @@ val gc_move_def = Define `
         | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,state)
         | _ => (Pointer ptr d, state with <| ok := F |>)))`;
 
-val gc_move_IMP = prove(
+val gc_move_IMP = store_thm("gc_move_IMP",
   ``!x x' state state1.
     (gc_move conf state x = (x',state1)) ==>
     (state1.old = state.old) /\
     (state1.h1 = state.h1) /\
+    (state1.r4 = state.r4) /\
     (state1.r3 = state.r3) /\
     (state1.r2 = state.r2) /\
     (state1.r1 = state.r1)``,
@@ -59,12 +60,13 @@ val gc_move_list_def = Define `
     let (xs,state) = gc_move_list conf state xs in
       (x::xs,state))`;
 
-val gc_move_list_IMP = prove(
+val gc_move_list_IMP = store_thm("gc_move_list_IMP",
   ``!xs xs' state state1.
     (gc_move_list conf state xs = (xs',state1)) ==>
     (LENGTH xs = LENGTH xs') /\
     (state1.old = state.old) /\
     (state1.h1 = state.h1) /\
+    (state1.r4 = state.r4) /\
     (state1.r3 = state.r3) /\
     (state1.r2 = state.r2) /\
     (state1.r1 = state.r1)``,
@@ -99,7 +101,7 @@ val gc_move_data_def = tDefine "gc_move_data"  `
   \\ fs []
   \\ decide_tac)
 
-val gc_move_data_IMP = prove(
+val gc_move_data_IMP = store_thm("gc_move_data_IMP",
   ``!conf state state1.
     (gc_move_data conf state = state1) ==>
     (state1.old = state.old) /\
@@ -2638,6 +2640,12 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ fs []
   \\ simp [to_gen_heap_address_def]);
 
-
+val gc_move_list_length = store_thm("gc_move_list_length",
+   ``!xs xs' state state'.
+       (gc_move_list conf state xs = (xs',state')) ==>
+       (LENGTH xs' = LENGTH xs)``,
+  Induct \\ fs [gc_move_list_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ res_tac \\ fs []);
 
 val _ = export_theory();
