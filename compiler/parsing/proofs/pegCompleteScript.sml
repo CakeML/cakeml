@@ -307,7 +307,8 @@ val firstSet_nEtuple = Q.store_thm(
 val firstSet_nEliteral = Q.store_thm(
   "firstSet_nEliteral[simp]",
   `firstSet cmlG [NT (mkNT nEliteral)] =
-     {IntT i | T} ∪ {StringT s | T} ∪ {CharT c | T} ∪ {WordT w | T}`,
+     {IntT i | T} ∪ {StringT s | T} ∪ {CharT c | T} ∪ {WordT w | T} ∪
+     {FFIT s | T}`,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[]);
 
@@ -701,6 +702,7 @@ val NOTIN_firstSet_nV = Q.store_thm(
     ExceptionT ∉ firstSet cmlG [NN nV] ∧
     EndT ∉ firstSet cmlG [NN nV] ∧
     AndT ∉ firstSet cmlG [NN nV] ∧
+    FFIT s ∉ firstSet cmlG [NN nV] ∧
     FunT ∉ firstSet cmlG [NN nV] ∧
     LbrackT ∉ firstSet cmlG [NN nV] ∧
     RbrackT ∉ firstSet cmlG [NN nV] ∧
@@ -734,6 +736,7 @@ val NOTIN_firstSet_nFQV = Q.store_thm(
     EndT ∉ firstSet cmlG [NN nFQV] ∧
     EqualsT ∉ firstSet cmlG [NN nFQV] ∧
     ExceptionT ∉ firstSet cmlG [NN nFQV] ∧
+    FFIT s ∉ firstSet cmlG [NN nFQV] ∧
     FnT ∉ firstSet cmlG [NN nFQV] ∧
     FunT ∉ firstSet cmlG [NN nFQV] ∧
     IfT ∉ firstSet cmlG [NN nFQV] ∧
@@ -771,6 +774,7 @@ val NOTIN_firstSet_nConstructorName = Q.store_thm(
     EndT ∉ firstSet cmlG [NN nConstructorName] ∧
     EqualsT ∉ firstSet cmlG [NN nConstructorName] ∧
     ExceptionT ∉ firstSet cmlG [NN nConstructorName] ∧
+    FFIT s ∉ firstSet cmlG [NN nConstructorName] ∧
     FnT ∉ firstSet cmlG [NN nConstructorName] ∧
     FunT ∉ firstSet cmlG [NN nConstructorName] ∧
     IfT ∉ firstSet cmlG [NN nConstructorName] ∧
