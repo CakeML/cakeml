@@ -9,7 +9,7 @@ open BasicProvers Defn HolKernel Parse Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     mlstringTheory optionTheory pairLib pairTheory pred_setTheory
+     optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
 (* TOOD: move? *)
@@ -48,6 +48,16 @@ fun itlist3 f L1 L2 L3 base_value =
 
 fun zip3 ([],[],[]) = []
   | zip3 ((h1::t1),(h2::t2),(h3::t3)) = ((h1,h2,h3)::zip3(t1,t2,t3))
+
+infix 8 $
+fun op $ (f,x) = f x
+
+fun pad_to sz str =
+  CharVector.tabulate(Int.max(0,sz-String.size str),K #" ")^str
+
+val sum = foldl (op+) 0
+
+fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
@@ -168,6 +178,42 @@ fun map_ths_conv ths =
     listLib.MAP_CONV el_conv
   end
 
+val rconc = rhs o concl;
+
+local
+  val pad = pad_to 30
+in
+fun time_with_size size_fn name eval_fn x =
+  let
+    val () = Lib.say(pad (name^" eval: "))
+    val (timer,real_timer) = (start_time(), start_real_time())
+    val r = eval_fn x
+    val () = end_time timer
+    val () = Lib.say(String.concat[pad (name^" real: "),
+               Lib.time_to_string(Timer.checkRealTimer real_timer),"\n"])
+    val z = size_fn r
+    val () = Lib.say(String.concat[pad (name^" size: "),Int.toString z,"\n"])
+  in r end
+end
+
+fun thms_size ls = sum (map (term_size o rconc) ls)
+
+fun timez x y = time_with_size (term_size o rconc) x y
+
+fun mk_abbrev_name s = String.concat[s,!Defn.def_suffix]
+fun mk_abbrev s tm =
+  new_definition(mk_abbrev_name s,
+                 mk_eq(mk_var(s,type_of tm),tm))
+
+fun make_abbrevs str n [] acc = acc
+  | make_abbrevs str n (t::ts) acc =
+    make_abbrevs str (n-1) ts
+      (mk_abbrev (str^(Int.toString n)) t :: acc)
+
+fun intro_abbrev [] tm = raise UNCHANGED
+  | intro_abbrev (ab::abbs) tm =
+      FORK_CONV(REWR_CONV(SYM ab),intro_abbrev abbs) tm
+
 val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
@@ -185,7 +231,13 @@ fun any_match_mp impth th =
   in
     MATCH_MP th2 th  end
 
-val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
+val SWAP_IMP = let
+  val P = mk_var("P", bool)
+  val Q = mk_var("Q", bool)
+  val R = mk_var("R", bool)
+in
+  PROVE[] (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
+end
 
 fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 

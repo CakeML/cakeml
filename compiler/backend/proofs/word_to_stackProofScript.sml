@@ -3709,16 +3709,16 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       pairarg_tac>>fs[]>>
       strip_tac>>
       qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      `kont = (λn. Inst(Arith (LongDiv 0 4 0 4 n))) n5` by fs[]>>
+      `kont = (λn. Inst(Arith (LongDiv 0 4 4 0 n))) n5` by fs[]>>
       pop_assum SUBST1_TAC>>
       match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
       rfs[]>> asm_exists_tac >> simp[]>>
       drule (GEN_ALL state_rel_get_var_imp)>>
       disch_then assume_tac>>
-      first_assum (qspecl_then [`0`,`Word c`] mp_tac)>>
+      first_assum (qspecl_then [`4`,`Word c`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
-      first_x_assum (qspecl_then [`4`,`Word c'`] mp_tac)>>
+      first_x_assum (qspecl_then [`0`,`Word c'`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
       `4 < k` by fs[state_rel_def]>>
@@ -3732,9 +3732,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         first_assum (qspec_then`4` assume_tac)>>fs[])
       >-
         (imp_res_tac state_rel_get_var_imp2>>
-        qpat_abbrev_tac`A = FLOOKUP B 0n`>>
+        qpat_abbrev_tac`A = FLOOKUP B 4n`>>
         `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
-        qpat_abbrev_tac`B = FLOOKUP C 4n`>>
+        qpat_abbrev_tac`B = FLOOKUP C 0n`>>
         `B = SOME (Word c')` by fs[Abbr`B`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
         fs[]>>
         assume_tac (GEN_ALL state_rel_set_var)>>
@@ -6877,7 +6877,8 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
     EVAL_TAC>>fs[]>>
     rw[]>>
     TRY(metis_tac[EVEN_DIV_2_props])>>
-    qpat_assum`addr_offset_ok c' c` mp_tac>>EVAL_TAC>>fs[])
+    (qpat_assum`addr_offset_ok c c'` mp_tac ORELSE
+     qpat_assum`byte_offset_ok c c'` mp_tac) >>EVAL_TAC>>fs[])
   >-
     (PairCases_on`kf'`>>
     ntac 3 (EVAL_TAC>>rw[])>>

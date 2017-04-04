@@ -1,11 +1,11 @@
-structure cfTacticsLib :> cfTacticsLib =
+structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
 open preamble
-open ConseqConv match_goal
+open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormalizeSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -24,8 +24,8 @@ val printers = [
 ]
 
 fun hide_environments b =
-  if b then app add_user_printer printers
-  else app (ignore o remove_user_printer) (map #1 printers)
+  if b then app temp_add_user_printer printers
+  else app (ignore o temp_remove_user_printer) (map #1 printers)
 
 val _ = hide_environments true
 
@@ -43,15 +43,15 @@ val () = computeLib.extend_compset [
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
     ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def,
-    semanticPrimitivesTheory.merge_alist_mod_env_def
+    ml_progTheory.empty_env_def
+    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
   ]] cs
 
 val _ = (max_print_depth := 15)
 
-val eval = computeLib.CBV_CONV cs
+val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
 val eval_tac = CONV_TAC eval
-val eval_pat = compute_pat cs
+fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local
@@ -107,9 +107,8 @@ val reducible_pats = [
   ``exp2v_list _ _``,
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
-  ``lookup_var_id _ _``,
-  ``Fun_body _``,
-  ``normalise _``
+  ``nsLookup _ _``,
+  ``Fun_body _``
 ]
 
 val reduce_conv =
@@ -120,6 +119,9 @@ val reduce_conv =
     (simp_conv [])
 
 val reduce_tac = CONV_TAC reduce_conv
+
+fun err_tac orig msg : tactic =
+  fn _ => raise ERR orig msg
 
 (* [xpull] *)
 
@@ -191,14 +193,14 @@ val naryClosure_repack_conv =
 fun xcf name st =
   let
     val f_def = fetch_def name st
-    fun Closure_tac _ =
+    val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THENL [
         eval_tac,
         eval_tac,
         simp [cf_def]
       ]
-    fun Recclosure_tac _ =
+    val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
         eval_tac,
@@ -208,12 +210,19 @@ fun xcf name st =
             REWR_CONV letrec_pull_params_repack THENC
             REWR_CONV (GSYM f_def)))
       ]
+    fun closure_tac (g as (_, w)) =
+      let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
+          if is_Closure c then
+            Closure_tac g
+          else if is_Recclosure c then
+            Recclosure_tac g
+          else
+            err_tac "xcf" "argument of app is not a closure" g
+      end
+      handle HOL_ERR _ =>
+             err_tac "xcf" "goal is not an app" g
   in
-    rpt strip_tac \\ simp [f_def] \\
-    first_match_tac [
-      ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
-      ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ] \\ reduce_tac
+    rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
   end
 
 (* [xlet] *)
@@ -222,7 +231,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [libTheory.opt_bind_def] \\
+  simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
   CONJ_TAC THENL [
     CONJ_TAC THENL [
@@ -346,16 +355,18 @@ val xfun_rec_core =
   irule local_elim \\ hnf \\
   CONV_TAC fun_rec_reduce_conv
 
-val xfun_core =
-  xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_fun _ _ _ _ _ _ _ _`], K xfun_norec_core),
-    ([mg.c `cf_fun_rec _ _ _ _ _ _`], K xfun_rec_core)
-  ]
+fun xfun_core (g as (_, w)) =
+  if is_cf_fun w then
+    xfun_norec_core g
+  else if is_cf_fun_rec w then
+    xfun_rec_core g
+  else
+    err_tac "xfun" "goal is not a cf_fun or cf_fun_rec" g
 
 val simp_spec = (CONV_RULE reduce_conv) o (simp_rule [cf_def])
 
 fun xfun qname =
+  xpull_check_not_needed \\
   xfun_core \\
   qx_gen_tac qname \\
   disch_then (fn th => assume_tac (simp_spec th))
@@ -377,8 +388,6 @@ fun xfun_spec qname qspec =
 (* [xapply] *)
 
 fun xapply_core H cont1 cont2 =
-  (* todo: ask Arthur *)
-  (* try_progress_then (fn H => *)
   irule local_frame_gc THENL [
     xlocal,
     CONSEQ_CONV_TAC (K (
@@ -388,13 +397,20 @@ fun xapply_core H cont1 cont2 =
     )) \\
     CONV_TAC (DEPTH_CONV (REWR_CONV ConseqConvTheory.AND_CLAUSES_TX))
   ]
-  (* ) H *)
 
 fun xapply H =
   xpull_check_not_needed \\
   xapply_core H all_tac all_tac
+  ORELSE err_tac "xapply" "Failed to apply the given theorem"
 
 (* [xspec] *)
+
+datatype spec_kind =
+    CF_spec
+  | Translator_spec
+
+fun spec_kind_toString CF_spec = "CF"
+  | spec_kind_toString Translator_spec = "translator"
 
 fun concl_tm tm =
   let
@@ -407,53 +423,67 @@ fun concl_tm tm =
       body
   end
 
-fun app_f_tm tm =
-  let val (_, f_tm, _, _, _) = cfAppSyntax.dest_app tm
-  in f_tm end
+fun goal_app_infos tm : hol_type * term =
+  let val (p, f_tm, _, _, _) = cfAppSyntax.dest_app tm
+      val ffi_ty = cfHeapsBaseSyntax.dest_ffi_proj (type_of p)
+  in (ffi_ty, f_tm) end
 
-fun is_spec_for f tm =
-  (concl_tm tm |> app_f_tm) = f
+fun is_cf_spec_for f tm =
+  (concl_tm tm |> goal_app_infos |> snd) = f
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
-  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
-  (rand tm) = f
-  handle HOL_ERR _ => false
+  let val tm = tm |> strip_imp |> #2 in
+    ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+    (rand tm) = f
+  end handle HOL_ERR _ => false
 
-fun xspec_in_asl f asl =
-  List.find (is_spec_for f) asl
+fun spec_kind_for f tm : spec_kind option =
+  if is_cf_spec_for f tm then SOME CF_spec
+  else if is_arrow_spec_for f tm then SOME Translator_spec
+  else NONE
 
-fun xspec_in_db f =
+fun is_spec_for f tm : bool =
+  spec_kind_for f tm <> NONE
+
+fun xspec_in_asl f asl : (spec_kind * term) option =
+  find_map (fn tm =>
+    case spec_kind_for f tm of
+        SOME k => SOME (k, tm)
+      | NONE => NONE)
+  asl
+
+fun xspec_in_db f : (string * string * spec_kind * thm) option =
   case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
+      ((thy, name), (thm, _)) :: _ =>
+      (case spec_kind_for f (concl thm) of
+           SOME k => SOME (thy, name, k, thm)
+         | NONE => fail())
     | _ => NONE
 
-fun xspec_from_translator f =
-  case DB.matchp (fn thm => is_arrow_spec_for f (concl thm)) [] of
-      data :: _ => SOME data
-    | _ => NONE
+fun cf_spec (ffi_ty : hol_type) (kind : spec_kind) (spec : thm) : thm =
+  case kind of
+      CF_spec => spec
+    | Translator_spec => app_of_Arrow_rule ffi_ty spec
 
 (* todo: variants *)
-fun xspec f (ttac: thm_tactic) (g as (asl, _)) =
+fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
   case xspec_in_asl f asl of
-      SOME a =>
-      (print "Using a specification from the assumptions\n";
-       ttac (ASSUME a) g)
+      SOME (k, a) =>
+      (print
+         ("Using a " ^ (spec_kind_toString k) ^
+          " specification from the assumptions\n");
+       ttac (cf_spec ffi_ty k (ASSUME a)) g)
     | NONE =>
       case xspec_in_db f of
-          SOME ((thy, name), (thm, _)) =>
-          (print ("Using specification " ^ name ^
+          SOME (thy, name, k, thm) =>
+          (print ("Using " ^ (spec_kind_toString k) ^
+                  " specification " ^ name ^
                   " from theory " ^ thy ^ "\n");
-           ttac thm g)
+           ttac (cf_spec ffi_ty k thm) g)
         | NONE =>
-          case xspec_from_translator f of
-              SOME ((thy, name), (thm, _)) =>
-              (print ("Using translator specification " ^
-                      name ^ " from theory " ^ thy ^ "\n");
-               ttac (app_of_Arrow_rule thm) g)
-           | NONE =>
-             raise ERR "xspec" ("Could not find a specification for " ^
-                                fst (dest_const f))
+          raise ERR "xspec" ("Could not find a specification for " ^
+                             fst (dest_const f))
 
 (* [xapp] *)
 
@@ -464,23 +494,30 @@ val unfold_cf_app =
 
 val xapp_prepare_goal =
   xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_app _ _ _ _ _ _`], K unfold_cf_app),
-    ([mg.c `app _ _ _ _ _`], K all_tac)
-  ]
+  (fn (g as (_, w)) =>
+    if is_cf_app w then unfold_cf_app g
+    else if cfAppSyntax.is_app w then all_tac g
+    else err_tac "xapp"
+      "Goal is not of the right form (must be a cf_app or app)" g)
 
-fun app_f_tac tmtac (g as (_, w)) =
-  tmtac (app_f_tm w) g
+(* This tactical assumes the goal is of the form [app _ _ _ _ _].
+   This is the case after calling [xapp_prepare_goal] (if it doesn't fail).
+*)
+fun app_f_tac tmtac (g as (_, w)) = tmtac (goal_app_infos w) g
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
-  app_f_tac (fn f =>
+  app_f_tac (fn (ffi_ty, f) =>
     case spec of
-        SOME thm => do_xapp thm
-      | NONE => xspec f do_xapp)
+        SOME thm =>
+        (case spec_kind_for f (concl thm) of
+             SOME k => do_xapp (cf_spec ffi_ty k thm)
+           | NONE => failwith "Invalid specification")
+      | NONE => xspec ffi_ty f do_xapp)
 
 fun xapp_xapply_no_simpl K =
-  FIRST [irule K, xapply_core K all_tac all_tac]
+  FIRST [irule K, xapply_core K all_tac all_tac] ORELSE
+  err_tac "xapp" "Could not apply specification"
 
 fun xapp_core spec =
   xapp_common spec xapp_xapply_no_simpl
@@ -653,5 +690,23 @@ in
      TRY xpull)
     g
 end
+
+(* [xopb] *)
+val xopb =
+  xpull_check_not_needed \\
+  head_unfold cf_opb_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opb_def, semanticPrimitivesTheory.opb_lookup_def] \\
+  cleanup_exn_side_cond
+
+(* [xopn] *)
+val xopn =
+  xpull_check_not_needed \\
+  head_unfold cf_opn_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opn_def, semanticPrimitivesTheory.opn_lookup_def] \\
+  cleanup_exn_side_cond
 
 end

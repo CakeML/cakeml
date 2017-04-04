@@ -1,17 +1,17 @@
 open preamble
-open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib mini_preludeTheory;
+open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory;
 
 val rw = srw_tac []
 val fs = full_simp_tac (srw_ss())
 
 val _ = new_theory "SplayHeap"
 
-val _ = translation_extends "mini_prelude";
+val _ = translation_extends "mllistProg";
 
 (* Okasaki page 50 *)
 
-val _ = Hol_datatype `
-heap = Empty | Tree of heap => 'a => heap`;
+val _ = Datatype`
+  heap = Empty | Tree heap 'a heap`;
 
 val heap_to_bag_def = Define `
 (heap_to_bag Empty = {||}) ∧

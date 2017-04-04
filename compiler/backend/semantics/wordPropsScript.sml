@@ -525,22 +525,28 @@ val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   pop_env r = SOME x ⇒
   r.code = x.code ∧
   r.gc_fun = x.gc_fun ∧
-  r.clock = x.clock`,
+  r.clock = x.clock ∧
+  r.be = x.be ∧
+  r.mdomain = x.mdomain`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
 val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code /\ t.gc_fun = s.gc_fun`,
+  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_gc_fun_clock>>fs[])
 
 val inst_code_gc_fun_const = Q.prove(`
-  inst i s = SOME t ⇒ s.code = t.code /\ s.gc_fun = t.gc_fun`,
+  inst i s = SOME t ⇒
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
 
 val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
-  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code /\ s1.gc_fun = s2.gc_fun`,
+  `!xs s1 vs s2.
+     evaluate (xs,s1) = (vs,s2) ==>
+     s1.code = s2.code /\ s1.gc_fun = s2.gc_fun /\
+     s1.mdomain = s2.mdomain /\ s1.be = s2.be`,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
@@ -567,6 +573,14 @@ val evaluate_code_const = Q.store_thm("evaluate_code_const",
 
 val evaluate_gc_fun_const = Q.store_thm("evaluate_gc_fun_const",
   `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.gc_fun = s2.gc_fun`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_mdomain_const = Q.store_thm("evaluate_mdomain_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.mdomain = s2.mdomain`,
+  metis_tac [evaluate_code_gc_fun_const]);
+
+val evaluate_be_const = Q.store_thm("evaluate_be_const",
+  `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.be = s2.be`,
   metis_tac [evaluate_code_gc_fun_const]);
 
 (* -- *)
@@ -2179,8 +2193,8 @@ val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
   |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
   |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
 
-val PERM_list_rearrange = store_thm("PERM_list_rearrange",
-  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
+  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
   srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
   \\ full_simp_tac(srw_ss())[mem_list_rearrange]
   \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
@@ -2239,13 +2253,13 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
     (c.ISA = x86_64)) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
   (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) =
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) =
-    addr_offset_ok w c) ∧
+    if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
   (inst_ok_less _ _ = T)`
 
 (* Instructions have distinct targets and read vars -- set by SSA form *)
@@ -2340,7 +2354,7 @@ val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Follows conventions for x86 *)
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
-  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 0 ∧ r4 = 8) ∧
+  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 8 ∧ r4 = 0) ∧
   (inst_arg_convention _ = T)`
 
 (* Syntactic conventions for allocator *)

@@ -26,7 +26,7 @@ Contains the beginnings of a standard basis library for CakeML,
 similar to the standard basis library of SML.
 
 [build-instructions.sh](build-instructions.sh):
-This script installs Poly/ML, HOL and CakeML.
+This file describes how to install Poly/ML, HOL and CakeML.
 
 [candle](candle):
 Verification of a HOL theorem prover, based on HOL Light
@@ -68,10 +68,6 @@ Extensions to Lem's built-in library to target things we need in HOL.
 [miscScript.sml](miscScript.sml):
 Miscellaneous definitions and minor lemmas used throughout the
 development.
-
-[mlstringScript.sml](mlstringScript.sml):
-Small theory of wrapped strings, so the translator can distinguish
-them from char lists and can target CakeML strings directly.
 
 [semantics](semantics):
 The definition of the CakeML language. The definition is (mostly)

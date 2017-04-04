@@ -7,7 +7,7 @@ open preamble integerTheory
      astTheory libTheory semanticPrimitivesTheory bigStepTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
-     mlstringTheory ml_progTheory packLib;
+     mlvectorTheory mlstringTheory ml_progTheory packLib;
 open terminationTheory
 local open funBigStepEquivTheory evaluatePropsTheory in end
 
@@ -94,6 +94,8 @@ val PRECONDITION_def = Define `PRECONDITION b = (b:bool)`;
 val PreImp_def = Define `
   PreImp b1 b2 = (PRECONDITION b1 ==> b2)`;
 
+val PreImpEval_def = Define`
+  PreImpEval b env code P = PreImp b (Eval env code P)`;
 
 (* Theorems *)
 
@@ -170,95 +172,20 @@ val Eval_Let = Q.store_thm("Eval_Let",
     (!v. a res v ==> Eval (write name v env) body (b (f res))) ==>
     Eval env (Let (SOME name) exp body) (b (LET f res))`,
   rw[Eval_def,write_def] \\
-  rw[Once evaluate_cases,PULL_EXISTS,opt_bind_def] \\
+  rw[Once evaluate_cases,PULL_EXISTS,namespaceTheory.nsOptBind_def] \\
   metis_tac[APPEND_ASSOC]);
-
-val lookup_var_def = Define `
-  lookup_var name env = ALOOKUP env.v name`;
-
-val lookup_cons_def = Define `
-  lookup_cons name (env:v environment) = SND_ALOOKUP env.c name`;
-
-val lookup_mod_def = Define `
-  lookup_mod name env = ALOOKUP env.m name`;
-
-val lookup_cons_thm = Q.store_thm("lookup_cons_thm",
-  `lookup_cons name (env:v environment) =
-      lookup_alist_mod_env (Short name) env.c`,
-  Cases_on `env.c`
-  \\ fs [lookup_cons_def,lookup_alist_mod_env_def,SND_ALOOKUP_EQ_ALOOKUP]);
-
-val lookup_var_id_thm = Q.store_thm("lookup_var_id_thm",
-  `(lookup_var_id (Short v) env = lookup_var v env) /\
-    (lookup_var_id (Long mn v) env =
-       case lookup_mod mn env of
-       | NONE => NONE
-       | SOME env1 => ALOOKUP env1 v)`,
-  fs [lookup_var_id_def,lookup_mod_def,lookup_var_def] \\ CASE_TAC \\ fs []);
-
-val lookup_var_write = Q.store_thm("lookup_var_write",
-  `(lookup_var v (write w x env) = if v = w then SOME x else lookup_var v env) /\
-    (lookup_var_id (Short v) (write w x env) =
-        if v = w then SOME x else lookup_var_id (Short v) env) /\
-    (lookup_var_id (Long mn v) (write w x env) =
-        lookup_var_id (Long mn v) env) /\
-    (lookup_cons name (write w x env) = lookup_cons name env)`,
-  fs [lookup_var_id_def,lookup_var_def,write_def,lookup_cons_thm] \\ rw []);
-
-val lookup_var_write_mod = Q.store_thm("lookup_var_write_mod",
-  `(lookup_var v (write_mod mn e1 env) = lookup_var v env) /\
-    (lookup_mod m (write_mod mn e1 env) =
-     if m = mn then SOME e1.v else lookup_mod m env) /\
-    (lookup_cons name (write_mod mn e1 env) = lookup_cons name env)`,
-  fs [lookup_var_id_def,lookup_var_def,write_mod_def,
-      lookup_cons_thm,lookup_mod_def] \\ rw []
-  \\ Cases_on `env.c` \\ fs [] \\ fs [lookup_alist_mod_env_def]);
-
-val lookup_var_write_cons = Q.store_thm("lookup_var_write_mod",
-  `(lookup_var v (write_cons n d env) = lookup_var v env) /\
-    (lookup_mod m (write_cons n d env) = lookup_mod m env) /\
-    (lookup_cons name (write_cons n d env) =
-     if name = n then SOME d else lookup_cons name env)`,
-  fs [lookup_var_id_def,lookup_var_def,write_cons_def,
-      lookup_cons_thm,lookup_mod_def] \\ rw []
-  \\ Cases_on `env.c` \\ fs []
-  \\ fs [lookup_alist_mod_env_def,merge_alist_mod_env_def]);
-
-val lookup_var_empty_env = Q.store_thm("lookup_var_empty_env",
-  `(lookup_var v empty_env = NONE) /\
-    (lookup_var_id (Short v) empty_env = NONE) /\
-    (lookup_var_id (Long m v) empty_env = NONE) /\
-    (lookup_cons name empty_env = NONE)`,
-  fs [lookup_var_id_def,lookup_var_def,empty_env_def,lookup_cons_thm] \\ rw []
-  \\ fs [lookup_alist_mod_env_def]);
-
-val lookup_var_merge_env = Q.store_thm("lookup_var_merge_env",
-  `(lookup_var v1 (merge_env e1 e2) =
-       case lookup_var v1 e1 of
-       | NONE => lookup_var v1 e2
-       | res => res) /\
-    (lookup_cons v1 (merge_env e1 e2) =
-       case lookup_cons v1 e1 of
-       | NONE => lookup_cons v1 e2
-       | res => res) /\
-    (lookup_mod v1 (merge_env e1 e2) =
-       case lookup_mod v1 e1 of
-       | NONE => lookup_mod v1 e2
-       | res => res)`,
-  fs [lookup_var_def,lookup_cons_thm,merge_env_def,ALOOKUP_APPEND,lookup_mod_def]
-  \\ Cases_on `e1.c` \\ Cases_on `e2.c`
-  \\ fs [lookup_alist_mod_env_def,ALOOKUP_APPEND]);
 
 val Eval_Var_Short = Q.store_thm("Eval_Var_Short",
   `P v ==> !name env.
-               (lookup_var_id (Short name) env = SOME v) ==>
+               (nsLookup env.v (Short name) = SOME v) ==>
                Eval env (Var (Short name)) P`,
   fs [Eval_def,Once evaluate_cases,state_component_equality]);
 
+(*TODO: Single level mdule *)
 val Eval_Var_Long = Q.store_thm("Eval_Var_Long",
   `P v ==> !m name env.
-               (lookup_var_id (Long m name) env = SOME v) ==>
-               Eval env (Var (Long m name)) P`,
+               (nsLookup env.v (Long m (Short name)) = SOME v) ==>
+               Eval env (Var (Long m (Short name))) P`,
   fs [Eval_def,Once evaluate_cases,state_component_equality]);
 
 val Eval_Var_SWAP_ENV = Q.store_thm("Eval_Var_SWAP_ENV",
@@ -267,8 +194,8 @@ val Eval_Var_SWAP_ENV = Q.store_thm("Eval_Var_SWAP_ENV",
       (lookup_var name env = lookup_var name env1) ==>
       Eval env (Var (Short name)) P`,
   FULL_SIMP_TAC std_ss [FORALL_PROD,lookup_var_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def, lookup_var_id_def]
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def, lookup_var_id_def]);
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]
+  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def]);
 
 val LOOKUP_VAR_def = Define `
   LOOKUP_VAR name env x = (lookup_var name env = SOME x)`;
@@ -277,13 +204,12 @@ val LOOKUP_VAR_THM = Q.store_thm("LOOKUP_VAR_THM",
   `LOOKUP_VAR name env x ==> Eval env (Var (Short name)) ($= x)`,
   FULL_SIMP_TAC std_ss [FORALL_PROD,lookup_var_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,Eval_def,LOOKUP_VAR_def,
-       lookup_var_id_def,lookup_var_def,state_component_equality]);
+    lookup_var_def,state_component_equality]);
 
 val LOOKUP_VAR_SIMP = Q.store_thm("LOOKUP_VAR_SIMP",
   `LOOKUP_VAR name (write x v  env) y =
     if x = name then (v = y) else LOOKUP_VAR name env y`,
-  ASM_SIMP_TAC std_ss [LOOKUP_VAR_def,lookup_var_id_def,write_def,
-       lookup_var_def] \\ SRW_TAC [] []);
+  ASM_SIMP_TAC std_ss [LOOKUP_VAR_def,write_def,lookup_var_def] \\ SRW_TAC [] []);
 
 val Eval_Val_INT = Q.store_thm("Eval_Val_INT",
   `!n. Eval env (Lit (IntLit n)) (INT n)`,
@@ -353,7 +279,7 @@ val types_match_def = tDefine "types_match" `
  * when equality reaches unequal-length lists *)
   (types_match_list _ _ = F)`
   (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 |
-                                      INR (vs1,vs2) => v6_size vs1)`);
+                                      INR (vs1,vs2) => v7_size vs1)`);
 
 val EqualityType_def = Define `
   EqualityType (abs:'a->v->bool) <=>
@@ -492,10 +418,8 @@ val Eval_Implies = Q.store_thm("Eval_Implies",
 val Eval_Var_SIMP = Q.store_thm("Eval_Var_SIMP",
   `Eval (write x v env) (Var (Short y)) p =
       if x = y then p v else Eval env (Var (Short y)) p`,
-  ASM_SIMP_TAC (srw_ss()) [LOOKUP_VAR_def,lookup_var_id_def,write_def,
-       lookup_var_def,Eval_def,Once evaluate_cases,lookup_var_id_def]
-  \\ SRW_TAC [] [] \\ SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,
-       lookup_var_id_def,state_component_equality]);
+  ASM_SIMP_TAC (srw_ss()) [LOOKUP_VAR_def,write_def,lookup_var_def,Eval_def,Once evaluate_cases]
+  \\ SRW_TAC [] [] \\ SIMP_TAC (srw_ss()) [Eval_def,Once evaluate_cases,state_component_equality]);
 
 val Eval_Eq = Q.store_thm("Eval_Eq",
   `Eval env exp (a x) ==> Eval env exp ((Eq a x) x)`,
@@ -576,10 +500,7 @@ val Eval_Eq_Recclosure = Q.store_thm("Eval_Eq_Recclosure",
      Eval env (Var (Short name)) (P f))`,
   ASM_SIMP_TAC std_ss [Eval_Var_SIMP,Eval_def,LOOKUP_VAR_def,lookup_var_def]
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases,state_component_equality]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [lookup_var_id_def, LOOKUP_VAR_def]
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ METIS_TAC []);
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC);
 
 val Eval_Eq_Fun = Q.store_thm("Eval_Eq_Fun",
   `Eval env (Fun v x) p ==>
@@ -597,8 +518,7 @@ val Eval_WEAKEN = Q.store_thm("Eval_WEAKEN",
 val Eval_CONST = Q.store_thm("Eval_CONST",
   `(!v. P v = (v = x)) ==>
     Eval env (Var name) ($= x) ==> Eval env (Var name) P`,
-  SIMP_TAC std_ss [Eval_def])
-
+  SIMP_TAC std_ss [Eval_def]);
 
 (* arithmetic for integers *)
 
@@ -624,7 +544,7 @@ in
   val Eval_INT_MULT = f "INT_MULT" `Times`
   val Eval_INT_DIV  = f "INT_DIV" `Divide`
   val Eval_INT_MOD  = f "INT_MOD" `Modulo`
-end
+end;
 
 val Eval_Opb = Q.prove(
   `!f n1 n2.
@@ -647,7 +567,7 @@ in
   val Eval_INT_LESS_EQ = f "INT_LESS_EQ" `Leq`
   val Eval_INT_GREATER = f "INT_GREATER" `Gt`
   val Eval_INT_GREATER_EQ = f "INT_GREATER_EQ" `Geq`
-end
+end;
 
 local
 
@@ -669,7 +589,7 @@ in
 
 val Eval_Num_ABS = Q.store_thm("Eval_Num_ABS",
   `Eval env x1 (INT i) ==>
-    Eval env ^code (NUM (Num (ABS i)))`,
+   Eval env ^code (NUM (Num (ABS i)))`,
   SIMP_TAC std_ss [NUM_def]
   \\ `&(Num (ABS i)) = let k = i in if k < 0 then 0 - k else k` by
     (FULL_SIMP_TAC std_ss [LET_DEF] THEN intLib.COOPER_TAC)
@@ -681,25 +601,35 @@ val Eval_Num_ABS = Q.store_thm("Eval_Num_ABS",
 
 end;
 
+val num_of_int_def = Define `
+  num_of_int i = Num (ABS i)`;
+
+val num_of_int_num = store_thm("num_of_int_num[simp]",
+  ``num_of_int (& n) = n /\ num_of_int (- & n) = n``,
+  fs [num_of_int_def] \\ intLib.COOPER_TAC);
+
+val Eval_num_of_int = save_thm("Eval_num_of_int",
+  Eval_Num_ABS |> REWRITE_RULE [GSYM num_of_int_def]);
+
 val Eval_int_of_num = Q.store_thm("Eval_int_of_num",
   `Eval env x1 (NUM n) ==>
-    Eval env x1 (INT (int_of_num n))`,
+   Eval env x1 (INT (int_of_num n))`,
   SIMP_TAC std_ss [NUM_def]);
 
 val Eval_int_of_num_o = Q.store_thm("Eval_int_of_num_o",
   `Eval env x1 ((A --> NUM) f) ==>
-    Eval env x1 ((A --> INT) (int_of_num o f))`,
+   Eval env x1 ((A --> INT) (int_of_num o f))`,
   SIMP_TAC std_ss [NUM_def,Arrow_def]);
 
 val Eval_o_int_of_num = Q.store_thm("Eval_o_int_of_num",
   `Eval env x1 ((INT --> A) f) ==>
-    Eval env x1 ((NUM --> A) (f o int_of_num))`,
+   Eval env x1 ((NUM --> A) (f o int_of_num))`,
   SIMP_TAC std_ss [NUM_def,Arrow_def,Eval_def]
   \\ METIS_TAC[]);
 
 val Eval_int_negate = Q.store_thm("Eval_int_negate",
   `Eval env x1 (INT i) ==>
-    Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))`,
+   Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))`,
   rw[Eval_def] >> rw[Once evaluate_cases] >>
   rw[empty_state_with_refs_eq,PULL_EXISTS] >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
@@ -798,7 +728,6 @@ val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
   \\ FULL_SIMP_TAC std_ss [NUM_def]
   \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
-
 
 (* word operations *)
 
@@ -963,12 +892,12 @@ val Eval_w2n = Q.store_thm("Eval_w2n",
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]);
 
 local
-  val lemma = prove(
-    ``(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
+  val lemma = Q.prove(
+    `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
                  (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
                     (Var (Short "x"))
                     (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
-        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))``,
+        (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,
     fs [] \\ rpt strip_tac
     \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
     \\ qexists_tac `~(w2n w < k)`
@@ -1164,6 +1093,26 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
   \\ imp_res_tac (DECIDE ``8 = k ==> 7 = k - 1n``) \\ fs []
   \\ imp_res_tac (DECIDE ``64 = k ==> 63 = k - 1n``) \\ fs []);
 
+val Eval_word_ror = Q.store_thm("Eval_word_ror",
+  `!n.
+      Eval env x1 (WORD (w1:'a word)) ==>
+      (dimindex (:'a) <> 8 ==> dimindex (:'a) = 64) ==>
+      Eval env (App (Shift (if dimindex (:'a) <= 8 then W8 else W64) Ror n) [x1])
+        (WORD (word_ror w1 n))`,
+  Cases_on `dimindex (:'a) = 8` \\ fs []
+  \\ Cases_on `dimindex (:'a) = 64` \\ fs []
+  \\ rw[Eval_def,WORD_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS]
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"]))
+  \\ qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ fs[]
+  \\ fs [LESS_EQ_EXISTS]
+  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []);
+
 (* list definition *)
 
 val LIST_TYPE_def = Define `
@@ -1176,14 +1125,31 @@ val LIST_TYPE_def = Define `
      LIST_TYPE a [] v <=>
      v = Conv (SOME ("nil",TypeId (Short "list"))) []`
 
-val LIST_TYPE_SIMP = Q.prove(
+val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
               (\x v. if b x \/ MEM x xs then p x v else ARB) xs =
            LIST_TYPE (p:('a -> v -> bool)) xs`,
   Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,LIST_TYPE_def,MEM,
-    DISJ_ASSOC,CONTAINER_def])
-  |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss [] |> GSYM
+    DISJ_ASSOC,CONTAINER_def]) |> GSYM
+  |> curry save_thm "LIST_TYPE_SIMP'";
+
+val LIST_TYPE_SIMP = LIST_TYPE_SIMP'
+  |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss []
   |> curry save_thm "LIST_TYPE_SIMP";
+
+val LIST_TYPE_IF_ELIM = Q.store_thm("LIST_TYPE_IF_ELIM",
+`!v. LIST_TYPE (\x v. if MEM x l then P x v else Q x v) l v = LIST_TYPE P l v`,
+  `!l' v. (!x. MEM x l ⇒ MEM x l') ⇒
+  LIST_TYPE (\x v. if MEM x l' then P x v else Q x v) l v = LIST_TYPE P l v`
+   suffices_by metis_tac[]
+  >> Induct_on `l`
+  >> fs[LIST_TYPE_def]);
+
+val LIST_TYPE_mono = Q.store_thm("LIST_TYPE_mono",
+  `∀P Q l v.
+   LIST_TYPE P l v ∧ (∀x v. MEM x l ∧ P x v ⇒ Q x v) ⇒
+   LIST_TYPE Q l v`,
+  ntac 2 gen_tac \\ Induct \\ rw[LIST_TYPE_def]);
 
 (* pair definition *)
 
@@ -1348,18 +1314,6 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
 
 (* vectors *)
 
-val _ = Datatype `
-  vector = Vector ('a list)`;
-
-val fromList_def = Define `
-  fromList l = Vector l`;
-
-val sub_def = Define `
-  sub (Vector l) n = EL n l`;
-
-val length_def = Define `
-  length (Vector l) = LENGTH l`;
-
 val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
@@ -1380,7 +1334,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
   asm_exists_tac >> fs[] >>
   rw [do_app_cases,PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   qexists_tac`EL n l'` >>
@@ -1423,7 +1377,7 @@ val Eval_length = Q.store_thm("Eval_length",
   asm_exists_tac >> fs[] >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
-  `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
@@ -1495,14 +1449,7 @@ val lookup_cons_write = Q.store_thm("lookup_cons_write",
       (lookup_cons name (write n x env) = lookup_cons name env) /\
       (lookup_cons name (write_rec funs env1 env) = lookup_cons name env)`,
   Induct \\ REPEAT STRIP_TAC
-  \\ fs [write_rec_thm,write_def,lookup_cons_thm]);
-
-val lookup_var_id_write = Q.store_thm("lookup_var_id_write",
-  `(lookup_var_id (Short name) (write n v env) =
-       if n = name then SOME v else lookup_var_id (Short name) env) /\
-    (lookup_var_id (Long mn name) (write n v env) =
-       lookup_var_id (Long mn name) env)`,
-  fs [write_def] \\ EVAL_TAC \\ rw [] \\ fs [lookup_var_id_def]);
+  \\ fs [write_rec_thm,write_def,lookup_cons_def]);
 
 val DISJOINT_set_SIMP = Q.store_thm("DISJOINT_set_SIMP",
   `(DISJOINT (set []) s <=> T) /\
@@ -1587,33 +1534,36 @@ val ALL_DISTINCT_MAP_FST_ASHADOW = Q.prove(
 
 (* size lemmas *)
 
-val v6_size = Q.prove(
-  `!vs v. (MEM v vs ==> v_size v < v6_size vs)`,
+val v7_size = Q.prove(
+  `!vs v. (MEM v vs ==> v_size v < v7_size vs)`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
-val v4_size = Q.prove(
-  `!env x v. (MEM (x,v) env ==> v_size v < v4_size env)`,
+(* TODO: what are the correct size lemmas? One of them should be replacin lists with namespaces
+
+val v3_size = Q.prove(
+  `!env x v. (MEM (x,v) env ==> v_size v < v5_size env)`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
 val v2_size = Q.prove(
-  `!xs a. MEM a xs ==> v3_size a < v2_size xs`,
+  `!xs a. MEM a xs ==> v3_size a < v1_size xs`,
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
   \\ RES_TAC \\ DECIDE_TAC);
 
 val v_size_lemmas = Q.store_thm("v_size_lemmas",
-  `(MEM (x,y) envE ==> v_size y <= v4_size envE) /\
+  `(MEM (x,y) envE ==> v_size y <= v3_size envE) /\
     (MEM (x,y) xs /\ MEM (t,xs) p1 ==> v_size y <= v2_size p1) /\
-    (MEM v vs ==> v_size v < v6_size vs)`,
+    (MEM v vs ==> v_size v < v7_size vs)`,
   FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC v4_size
   \\ IMP_RES_TAC v2_size
   \\ IMP_RES_TAC v6_size
   \\ FULL_SIMP_TAC std_ss [semanticPrimitivesTheory.v_size_def]
   \\ DECIDE_TAC);
+*)
 
 (* introducing a module (Tmod) *)
 
@@ -1686,9 +1636,18 @@ val Eval_Var = Q.store_thm("Eval_Var",
   >- METIS_TAC[]
   \\ rw[state_component_equality]);
 
-val lookup_var_eq_lookup_var_id = Q.store_thm("lookup_var_eq_lookup_var_id",
-  `lookup_var n = lookup_var_id (Short n)`,
-  fs [FUN_EQ_THM] \\ EVAL_TAC \\ fs []);
+val Eval_Fun_Var_intro = Q.store_thm("Eval_Fun_Var_intro",
+  `Eval cl_env (Fun n exp) P ==>
+   ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
+   Eval env (Var (Short name)) P`,
+  rw[Eval_Fun_rw,Eval_Var,LOOKUP_VAR_def]);
+
+val Eval_Var_LOOKUP_VAR_elim = Q.store_thm("Eval_Var_LOOKUP_VAR_elim",
+  `(!env. LOOKUP_VAR name env v ==> Eval env (Var (Short name)) P) ==> P v`,
+  rw[Eval_Var,LOOKUP_VAR_def]
+  \\ first_x_assum match_mp_tac
+  \\ qexists_tac`<| v := nsSing name v |>`
+  \\ EVAL_TAC);
 
 val PRECONDITION_T = save_thm("PRECONDITION_T",EVAL ``PRECONDITION T``);
 
@@ -1726,6 +1685,9 @@ val IMP_EQ_T = Q.store_thm("IMP_EQ_T",`b ==> (b = T)`,REWRITE_TAC [])
 val IF_TAKEN = Q.store_thm("IF_TAKEN",
   `!b x y. b ==> ((if b then x else y) = x:'unlikely)`,
   SIMP_TAC std_ss []);
+
+val EQ_COND_INTRO = save_thm("EQ_COND_INTRO",
+  METIS_PROVE[]``(b ==> c) ==> (c = if b then T else c)``);
 
 val LIST_TYPE_And = Q.store_thm("LIST_TYPE_And",
   `LIST_TYPE (And a P) = And (LIST_TYPE a) (EVERY (P:'a->bool))`,
@@ -1808,15 +1770,15 @@ val evaluate_match_rw = Q.store_thm("evaluate_match_rw",
   `evaluate_match c env st args
       ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
     ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
-    case pmatch env.c st.refs (Pcon xx pats) args env.v of
+    case pmatch env.c st.refs (Pcon xx pats) args [] of
     | No_match =>
         evaluate_match c env st args pats2 errv (yyy,Rval y)
     | Match env7 =>
-        evaluate c (env with v := env7) st exp2 (yyy,Rval y)
+        evaluate c (env with v := (nsAppend (alist_to_ns env7) env.v)) st exp2 (yyy,Rval y)
     | _ => F`,
   SIMP_TAC std_ss [evaluate_match_Conv
     |> SIMP_RULE std_ss []]
-  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args env.v`
+  \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args []`
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
 (* terms used by the Lib file *)
@@ -1826,7 +1788,7 @@ val translator_terms = save_thm("translator_terms",
     [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
      ("eq type",``EqualityType (a:'a->v->bool)``),
      ("lookup_cons",``lookup_cons s e = SOME x``),
-     ("lookup_var_id",``lookup_var_id s e = SOME (x:v)``),
+     ("nsLookup",``nsLookup e s = SOME (x:v)``), (*TODO: Should this be e or e.v?*)
      ("eq remove",``!b x. Eq b x = (b:'a->v->bool)``),
      ("map pat",``MAP (f:'a->'b)``),
      ("filter pat",``FILTER (f:'a->bool)``),
@@ -1846,6 +1808,10 @@ val translator_terms = save_thm("translator_terms",
      ("PMATCH_ROW",``(PMATCH_ROW f1 f2):('a -> 'c) -> 'b -> 'c option``),
      ("PMATCH_ROW_T",``(PMATCH_ROW (f1:'a->'b) (K T) f3):'b -> 'c option``),
      ("PMATCH",``PMATCH x (l :('a -> 'b option) list)``),
+     ("evaluate_pat",``evaluate _ _ _ _ _``),
+     ("PreImp_Eval",``PreImp _ (Eval _ _ _)``),
+     ("nsLookup_pat",``nsLookup env name``),
+     ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
      ("auto eq proof 1",``!x1 x2 x3 x4. bbb``),
      ("auto eq proof 2",``!x1 x2. bbb ==> bbbb``),
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``)]);

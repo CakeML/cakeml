@@ -1,11 +1,11 @@
 open HolKernel Parse boolLib bossLib
 
-open tokensTheory grammarTheory
+open tokensTheory grammarTheory locationTheory
 
 open lcsymtacs grammarLib
 
 val _ = new_theory "gram"
-val _ = set_grammar_ancestry ["tokens", "grammar"]
+val _ = set_grammar_ancestry ["tokens", "grammar", "location"]
 
 (* ----------------------------------------------------------------------
     Define the CakeML Context-Free Grammar
@@ -201,25 +201,31 @@ in
   save_thm("nt_distinct_ths",  LIST_CONJ (recurse ntlist))
 end
 
+val Ndl_def = Define`
+  (Ndl n l = Nd (n, unknown_loc) l)`
+
+val Lfl_def = Define`
+  (Lfl t = Lf (t, unknown_loc))`
+
 val _ = computeLib.add_persistent_funs ["nt_distinct_ths"]
 
 val ast =
-  ``let mkI = λn. Nd (mkNT nEbase) [Nd (mkNT nEliteral) [Lf (TK (IntT n))]]
+  ``let mkI = λn. Ndl (mkNT nEbase) [Ndl (mkNT nEliteral) [Lfl (TK (IntT n))]]
     in
-      Nd (mkNT nEmult) [
-              Nd (mkNT nEmult) [
-                Nd (mkNT nEmult) [Nd (mkNT nEapp) [mkI 3]];
-                Nd (mkNT nMultOps) [Lf (TK StarT)];
-                Nd (mkNT nEapp) [mkI 4]
+      Ndl (mkNT nEmult) [
+              Ndl (mkNT nEmult) [
+                Ndl (mkNT nEmult) [Ndl (mkNT nEapp) [mkI 3]];
+                Ndl (mkNT nMultOps) [Lfl (TK StarT)];
+                Ndl (mkNT nEapp) [mkI 4]
               ];
-              Nd (mkNT nMultOps) [Lf (TK (SymbolT "/"))];
-              Nd (mkNT nEapp) [mkI 5]
+              Ndl (mkNT nMultOps) [Lfl (TK (SymbolT "/"))];
+              Ndl (mkNT nEapp) [mkI 5]
             ]``
 
 val check_results =
     time (SIMP_CONV (srw_ss())
               [valid_ptree_def, cmlG_def,DISJ_IMP_THM, FORALL_AND_THM,
-               finite_mapTheory.FAPPLY_FUPDATE_THM, LET_THM])
+               finite_mapTheory.FAPPLY_FUPDATE_THM, LET_THM,Ndl_def,Lfl_def])
  ``valid_ptree cmlG ^ast``
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"

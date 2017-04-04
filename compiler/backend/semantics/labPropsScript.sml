@@ -3,6 +3,17 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+val extract_labels_def = Define`
+  (extract_labels [] = []) ∧
+  (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
+  (extract_labels (x::xs) = extract_labels xs)`
+val _ = export_rewrites["extract_labels_def"];
+
+val extract_labels_append = Q.store_thm("extract_labels_append",`
+  ∀A B.
+  extract_labels (A++B) = extract_labels A ++ extract_labels B`,
+  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
+
 val sec_ends_with_label_def = Define`
   sec_ends_with_label (Section _ ls) ⇔
     ¬NULL ls ∧ is_Label (LAST ls)`;

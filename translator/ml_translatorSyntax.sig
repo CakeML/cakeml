@@ -32,10 +32,6 @@ sig
   val dest_PreImp : term -> term * term
   val is_PreImp   : term -> bool
 
-  val mk_vector_type   : hol_type -> hol_type
-  val dest_vector_type : hol_type -> hol_type
-  val is_vector_type   : hol_type -> bool
-
   val mk_lookup_cons   : term * term -> term
   val dest_lookup_cons : term -> term * term
   val is_lookup_cons   : term -> bool

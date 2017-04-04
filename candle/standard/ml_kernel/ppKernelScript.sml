@@ -63,7 +63,7 @@ fun implodeprinter _ _ sysp _ gs d t =
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
-    sys gs d ``App Opapp [Var(Long"String""implode");^a]``
+    sys gs d ``App Opapp [Var(Long"String" (Short "implode"));^a]``
   end
 val _ = add_astPP("implodeprinter",``App Implode [x]``,implodeprinter)
 
@@ -73,7 +73,7 @@ fun explodeprinter _ _ sysp _ gs d t =
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
-    sys gs d ``App Opapp [Var(Long"String""explode");^a]``
+    sys gs d ``App Opapp [Var(Long"String" (Short "explode"));^a]``
   end
 val _ = add_astPP("explodeprinter",``App Explode [x]``,explodeprinter)
 

@@ -1,9 +1,9 @@
 
 open HolKernel Parse boolLib bossLib; val _ = new_theory "BankersQueue";
 
-open listTheory arithmeticTheory ml_translatorLib mini_preludeTheory listLib;
+open listTheory arithmeticTheory ml_translatorLib listLib mllistProgTheory;
 
-val _ = translation_extends "mini_prelude";
+val _ = translation_extends "mllistProg";
 
 (* implementation *)
 

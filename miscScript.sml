@@ -2,8 +2,8 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
-open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory set_sepTheory indexedListsTheory
+open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
+open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
 ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -13,6 +13,7 @@ val _ = ParseExtras.temp_tight_equality()
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+val rveq = rpt BasicProvers.VAR_EQ_TAC
 (* -- *)
 
 (* TODO: move/categorize *)
@@ -483,6 +484,13 @@ val take1 = Q.store_thm ("take1",
   `!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`,
   Induct_on `l` >> srw_tac[][]);
 
+val take1_drop = Q.store_thm (
+  "take1_drop",
+  `!n l. n < LENGTH l ==> (TAKE 1 (DROP n l) = [EL n l])`,
+  Induct_on `l` \\ rw[] \\
+  Cases_on `n` \\ rw[EL_restricted]
+);
+
 val SPLIT_LIST = Q.store_thm("SPLIT_LIST",
   `!xs.
       ?ys zs. (xs = ys ++ zs) /\
@@ -736,19 +744,19 @@ val BIT_TIMES2 = Q.store_thm("BIT_TIMES2",
 
 val BIT_TIMES2_1 = Q.store_thm("BIT_TIMES2_1",
   `∀n z. BIT z (2 * n + 1) ⇔ (z=0) ∨ BIT z (2 * n)`,
-  Induct >> simp[] >- (
-    simp[BIT_ZERO] >>
-    Cases_on`z`>>simp[BIT0_ODD] >>
-    simp[GSYM BIT_DIV2,BIT_ZERO] ) >>
-  Cases >> simp[BIT0_ODD] >- (
-    simp[arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
+  Induct >> simp_tac std_ss [] >- (
+    simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`z`>>simp_tac std_ss [BIT0_ODD] >>
+    simp_tac arith_ss [GSYM BIT_DIV2,BIT_ZERO] ) >>
+  Cases >> simp_tac std_ss [BIT0_ODD] >- (
+    simp_tac std_ss [arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
     metis_tac[] ) >>
-  simp[GSYM BIT_DIV2] >>
+  simp_tac std_ss [GSYM BIT_DIV2] >>
   qspec_then`2`mp_tac arithmeticTheory.ADD_DIV_RWT >>
   simp[] >>
   disch_then(qspecl_then[`2 * SUC n`,`1`]mp_tac) >>
-  simp[] >>
-  simp[arithmeticTheory.MOD_EQ_0_DIVISOR] >>
+  simp_tac std_ss [] >>
+  simp_tac std_ss [arithmeticTheory.MOD_EQ_0_DIVISOR] >>
   metis_tac[] )
 
 val LOG2_TIMES2 = Q.store_thm("LOG2_TIMES2",
@@ -800,56 +808,56 @@ val LOG2_TIMES2_1 = Q.store_thm("LOG2_TIMES2_1",
 
 val C_BIT_11 = Q.store_thm("C_BIT_11",
   `∀n m. (∀z. (z ≤ LOG2 (MAX n m)) ⇒ (BIT z n ⇔ BIT z m)) ⇔ (n = m)`,
-  simp[Once EQ_IMP_THM] >>
+  simp_tac std_ss [Once EQ_IMP_THM] >>
   ho_match_mp_tac binary_induct >>
-  simp[] >>
+  simp_tac std_ss [] >>
   conj_tac >- (
-    Cases >> simp[] >>
+    Cases >> simp_tac arith_ss [] >>
     qexists_tac`LOG2 (SUC n)` >>
-    simp[BIT_LOG2,BIT_ZERO] ) >>
+    simp_tac arith_ss [BIT_LOG2,BIT_ZERO] ) >>
   gen_tac >> strip_tac >>
-  simp[BIT_TIMES2,BIT_TIMES2_1] >>
+  simp_tac std_ss [BIT_TIMES2,BIT_TIMES2_1] >>
   srw_tac[][] >- (
-    Cases_on`n=0`>>full_simp_tac(srw_ss())[]>-(
-      Cases_on`m=0`>>full_simp_tac(srw_ss())[]>>
-      first_x_assum(qspec_then`LOG2 m`mp_tac)>>simp[BIT_ZERO] >>
-      simp[BIT_LOG2]) >>
+    Cases_on`n=0`>>full_simp_tac std_ss []>-(
+      Cases_on`m=0`>>full_simp_tac std_ss []>>
+      first_x_assum(qspec_then`LOG2 m`mp_tac)>>simp_tac std_ss [BIT_ZERO] >>
+      full_simp_tac std_ss [BIT_LOG2]) >>
     `¬ODD m` by (
-      simp[SYM BIT0_ODD] >>
+      simp_tac std_ss [SYM BIT0_ODD] >>
       first_x_assum(qspec_then`0`mp_tac) >>
-      simp[] ) >>
-    full_simp_tac(srw_ss())[arithmeticTheory.ODD_EVEN] >>
-    full_simp_tac(srw_ss())[arithmeticTheory.EVEN_EXISTS] >>
-    simp[arithmeticTheory.EQ_MULT_LCANCEL] >>
+      simp_tac std_ss [] ) >>
+    full_simp_tac std_ss [arithmeticTheory.ODD_EVEN] >>
+    full_simp_tac std_ss [arithmeticTheory.EVEN_EXISTS] >>
+    simp_tac std_ss [arithmeticTheory.EQ_MULT_LCANCEL] >>
     first_x_assum MATCH_MP_TAC >>
     srw_tac[][] >>
     first_x_assum(qspec_then`SUC z`mp_tac) >>
     impl_tac >- (
-      full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2] ) >>
-    simp[BIT_TIMES2] ) >>
-  Cases_on`n=0`>>full_simp_tac(srw_ss())[]>-(
-    full_simp_tac(srw_ss())[BIT_ZERO] >>
-    Cases_on`m=0`>>full_simp_tac(srw_ss())[BIT_ZERO] >>
-    Cases_on`m=1`>>full_simp_tac(srw_ss())[]>>
+      full_simp_tac std_ss [arithmeticTheory.MAX_DEF] >>
+      srw_tac[][] >> full_simp_tac arith_ss [LOG2_TIMES2] ) >>
+    simp_tac std_ss [BIT_TIMES2] ) >>
+  Cases_on`n=0`>>full_simp_tac std_ss []>-(
+    full_simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`m=0`>>full_simp_tac std_ss [BIT_ZERO] >>
+    Cases_on`m=1`>>full_simp_tac std_ss []>>
     first_x_assum(qspec_then`LOG2 m`mp_tac) >>
-    simp[arithmeticTheory.MAX_DEF,BIT_LOG2] >>
+    full_simp_tac std_ss [arithmeticTheory.MAX_DEF,BIT_LOG2] >>
     spose_not_then strip_assume_tac >>
     qspec_then`m`mp_tac logrootTheory.LOG_MOD >>
-    simp[GSYM LOG2_def] ) >>
+    full_simp_tac arith_ss [GSYM LOG2_def] ) >>
   `ODD m` by (
-    simp[SYM BIT0_ODD] >>
+    simp_tac std_ss [SYM BIT0_ODD] >>
     first_x_assum(qspec_then`0`mp_tac) >>
-    simp[] ) >>
-  full_simp_tac(srw_ss())[arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
-  simp[arithmeticTheory.EQ_MULT_LCANCEL] >>
+    simp_tac std_ss [] ) >>
+  full_simp_tac std_ss [arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
+  simp_tac std_ss [arithmeticTheory.EQ_MULT_LCANCEL] >>
   first_x_assum MATCH_MP_TAC >>
   srw_tac[][] >>
   first_x_assum(qspec_then`SUC z`mp_tac) >>
   impl_tac >- (
-    full_simp_tac(srw_ss())[arithmeticTheory.MAX_DEF] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] >> simp[LOG2_TIMES2_1,LOG2_TIMES2] ) >>
-  simp[BIT_TIMES2_1,BIT_TIMES2])
+    full_simp_tac std_ss [arithmeticTheory.MAX_DEF] >>
+    srw_tac[][] >> full_simp_tac arith_ss [LOG2_TIMES2_1,LOG2_TIMES2] ) >>
+  full_simp_tac arith_ss [BIT_TIMES2_1,BIT_TIMES2])
 
 val BIT_num_from_bin_list_leading = Q.store_thm("BIT_num_from_bin_list_leading",
   `∀l x. EVERY ($> 2) l ∧ LENGTH l ≤ x ⇒ ¬BIT x (num_from_bin_list l)`,
@@ -859,6 +867,11 @@ val BIT_num_from_bin_list_leading = Q.store_thm("BIT_num_from_bin_list_leading",
   MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
   qexists_tac`2 ** LENGTH l` >>
   simp[numposrepTheory.l2n_lt] )
+
+val word_bit_test = Q.store_thm("word_bit_test",
+  `word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)`,
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
 
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
@@ -987,10 +1000,18 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
   Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> full_simp_tac(srw_ss())[INJ_IFF] >>
   metis_tac[] )
 
-
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
+  `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,
+  Induct_on`xs` \\ rw[find_index_def]
+  \\ rw[Once INDEX_FIND_def,ADD1]);
+
+val find_index_INDEX_OF = Q.store_thm("find_index_INDEX_OF",
+  `find_index y xs 0 = INDEX_OF y xs`,
+  rw[INDEX_OF_def,find_index_INDEX_FIND])
 
 val find_index_NOT_MEM = Q.store_thm("find_index_NOT_MEM",
   `∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)`,
@@ -1932,12 +1953,6 @@ val PERM_MAP_BIJ = Q.store_thm("PERM_MAP_BIJ",
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP])
 
-val INJ_MAP_EQ_IFF = Q.store_thm("INJ_MAP_EQ_IFF",
-  `∀f l1 l2.
-    INJ f (set l1 ∪ set l2) UNIV ⇒
-    (MAP f l1 = MAP f l2 ⇔ l1 = l2)`,
-  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
-
 val bool_case_eq = Q.store_thm("bool_case_eq",
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
   srw_tac[][] >> metis_tac[]);
@@ -2076,11 +2091,578 @@ val any_el_ALT = Q.store_thm(
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
   fs[]);
 
-val MOD_MINUS = store_thm("MOD_MINUS",
-  ``0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k``,
+val MOD_MINUS = Q.store_thm("MOD_MINUS",
+  `0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k`,
   strip_tac
   \\ mp_tac (wordsTheory.MOD_COMPLEMENT |> Q.SPECL [`k`,`p`,`n MOD (p * k)`])
   \\ impl_tac THEN1 (fs [MOD_LESS,ZERO_LESS_MULT])
   \\ fs [MOD_MULT_MOD]);
+
+val option_fold_def = Define `
+  (option_fold f x NONE = x) ∧
+  (option_fold f x (SOME y) = f y x)`;
+
+val SPLITP_JOIN = Q.store_thm("SPLITP_JOIN",
+  `!ls l r.
+    (SPLITP P ls = (l, r)) ==>
+    (ls = l ++ r)`,
+    Induct \\ rw[SPLITP] \\
+    Cases_on `SPLITP P ls`
+    \\ rw[FST, SND]
+);
+
+
+val SPLITP_IMP = Q.store_thm("SPLITP_IMP",
+  `∀P ls l r.
+    (SPLITP P ls = (l,r)) ==>
+    EVERY ($~ o P) l /\ (~NULL r ==> P (HD r))`,
+  Induct_on`ls`
+  \\ rw[SPLITP]
+  \\ rw[] \\ fs[]
+  \\ Cases_on`SPLITP P ls` \\ fs[]);
+
+val SPLITP_NIL_IMP = Q.store_thm("SPLITP_NIL_IMP",
+  `∀ls r. (SPLITP P ls = ([],r)) ==> (r = ls) /\ ((ls <> "") ==> (P (HD ls)))`,
+  Induct \\ rw[SPLITP]);
+
+
+val SPLITP_NIL_SND_EQ = Q.store_thm("SPLIT_NIL_SND_EQ",
+  `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`,
+    rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
+
+val SPLITP_NIL_SND_EVERY = Q.store_thm("SPLITP_NIL_SND_EVERY",
+  `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`,
+  rw[] \\ EQ_TAC
+    >-(rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN \\ fs[])
+  \\ rw[] \\ Induct_on `ls` \\ rw[SPLITP]
+);
+
+val SPLITP_CONS_IMP = Q.store_thm("SPLITP_CONS_IMP",
+  `∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)`,
+  rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on `r` \\ rfs[NULL_EQ, EXISTS_DEF, HD]);
+
+
+val LAST_CONS_alt = Q.store_thm("LAST_CONS_alt",
+  `P x ==> ((ls <> [] ==> P (LAST ls)) <=> (P (LAST (CONS x ls))))`,
+  Cases_on`ls` \\ rw[]);
+
+val SPLITP_APPEND = Q.store_thm("SPLITP_APPEND",
+  `!l1 l2.
+   SPLITP P (l1 ++ l2) =
+    if EXISTS P l1 then
+      (FST (SPLITP P l1), SND (SPLITP P l1) ++ l2)
+    else
+      (l1 ++ FST(SPLITP P l2), SND (SPLITP P l2))`,
+  Induct \\ rw[SPLITP] \\ fs[]);
+
+
+val SPLITP_LENGTH = Q.store_thm("SPLITP_LENGTH",
+  `!l.
+    LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`,
+    Induct \\ rw[SPLITP, LENGTH]
+);
+
+
+val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
+  `∀P l1 x l2.
+    P x ==>
+    (TOKENS P (l1 ++ x::l2) = TOKENS P l1 ++ TOKENS P l2)`,
+  ho_match_mp_tac TOKENS_ind
+  \\ rw[TOKENS_def] >- (fs[SPLITP])
+  \\ pairarg_tac  \\ fs[]
+  \\ pairarg_tac  \\ fs[]
+  \\ fs[NULL_EQ, SPLITP]
+  \\ Cases_on `P h` \\ full_simp_tac bool_ss []
+  \\ rw[]
+  \\ fs[TL]
+  \\ Cases_on `EXISTS P t` \\ rw[SPLITP_APPEND, SPLITP]
+  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]
+  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
+
+
+val TOKENS_EMPTY = Q.store_thm("TOKENS_EMPTY",
+  `!ls n. (TOKENS f ls = []) ==> (ls = []) \/ (MEM n ls ==> f n)`,
+  gen_tac \\ Induct_on `ls` >-(rw[])
+  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
+  \\ Cases_on `f h` \\  Cases_on `l`
+  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL]
+  \\ Cases_on`ls` \\ fs[MEM]);
+
+
+val TOKENS_START = Q.store_thm("TOKENS_START",
+  `!l a.
+      TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l`,
+    gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+    >-(imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[TOKENS_def])
+    >-(fs[SPLITP])
+    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+      \\ simp[TOKENS_def] \\ rw[NULL_EQ])
+    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
+);
+
+val TOKENS_END = Q.store_thm("TOKENS_END",
+  `!l a.
+      TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l`,
+    rw[]
+    \\ `TOKENS (\x. x = a) (l ++ [a]) = TOKENS (\x. x = a) l ++ TOKENS (\x. x = a) ""` by fs[TOKENS_APPEND]
+    \\ fs[TOKENS_def] \\ rw[]
+);
+
+
+val TOKENS_LENGTH_END  = Q.store_thm("TOKENS_LENGTH_END",
+  `!l a.
+      LENGTH (TOKENS (\x. x = a) (l ++ [a])) = LENGTH (TOKENS (\x. x = a) l)`,
+  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_END]
+);
+
+val TOKENS_LENGTH_START = Q.store_thm("TOKENS_LENGTH_START",
+  `!l a.
+      LENGTH (TOKENS (\x. x = a) (a::l)) = LENGTH (TOKENS (\x. x= a) l)`,
+  rw[] \\ AP_TERM_TAC \\ rw[TOKENS_START]
+);
+
+
+val DROP_EMPTY = Q.store_thm("DROP_EMPTY",
+  `!ls n. (DROP n ls = []) ==> (n >= LENGTH ls)`,
+    Induct \\ rw[DROP]
+    \\ Cases_on `n > LENGTH ls` \\ fs[]
+    \\ `n < LENGTH (h::ls)` by fs[]
+    \\ fs[DROP_EL_CONS]);
+
+val FRONT_APPEND' = Q.prove(
+  `!l h a b t. l = h ++ [a; b] ++ t ==>
+      FRONT l = h ++ FRONT([a; b] ++ t)`,
+      Induct \\ rw[FRONT_DEF, FRONT_APPEND]
+      >-(rw[LIST_EQ_REWRITE])
+      \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
+);
+
+
+val EVERY_NOT_IMP = Q.prove(
+  `!ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)`,
+    Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+);
+
+val LIST_ELEM_COUNT_CONS = Q.prove(
+  `!h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t`,
+    simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
+);
+
+val FRONT_COUNT_IMP = Q.prove(
+  `!l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)`,
+    gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
+    >-(Cases_on `h = a` \\ rw[LIST_ELEM_COUNT_DEF])
+    \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+    \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
+    \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
+);
+
+val CONCAT_WITH_aux_def = Define`
+    (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
+    (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
+    (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
+    (CONCAT_WITH_aux (h::t) ([]::[]) fl = REVERSE fl) /\
+    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))`
+
+val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
+
+val CONCAT_WITH_def = Define`
+    CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
+
+val OPT_MMAP_def = Define`
+  (OPT_MMAP f [] = SOME []) ∧
+  (OPT_MMAP f (h0::t0) =
+     OPTION_BIND (f h0)
+     (λh. OPTION_BIND (OPT_MMAP f t0)
+       (λt. SOME (h::t))))`;
+
+val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
+  `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
+  Induct \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
+  `OPT_MMAP SOME ls = SOME ls`,
+  Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
+val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
+  `DISJOINT (set []) s /\
+    (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
+  fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
+
+val ALOOKUP_EXISTS_IFF = Q.store_thm(
+  "ALOOKUP_EXISTS_IFF",
+  `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
+  Induct_on `alist` >> simp[FORALL_PROD] >> rw[] >> metis_tac[]);
+
+val LUPDATE_commutes = Q.store_thm(
+  "LUPDATE_commutes",
+  `∀m n e1 e2 l.
+    m ≠ n ⇒
+    LUPDATE e1 m (LUPDATE e2 n l) = LUPDATE e2 n (LUPDATE e1 m l)`,
+  Induct_on `l` >> simp[LUPDATE_def] >>
+  Cases_on `m` >> simp[LUPDATE_def] >> rpt strip_tac >>
+  rename[`LUPDATE _ nn (_ :: _)`] >>
+  Cases_on `nn` >> fs[LUPDATE_def]);
+
+val ALIST_FUPDKEY_def = Define`
+  (ALIST_FUPDKEY k f [] = []) ∧
+  (ALIST_FUPDKEY k f ((k',v)::rest) =
+     if k = k' then (k,f v)::rest
+     else (k',v) :: ALIST_FUPDKEY k f rest)
+`;
+
+val ALIST_FUPDKEY_ind = theorem"ALIST_FUPDKEY_ind";
+
+val ALIST_FUPDKEY_ALOOKUP = Q.store_thm(
+  "ALIST_FUPDKEY_ALOOKUP",
+  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
+     case ALOOKUP al k1 of
+         NONE => NONE
+       | SOME v => if k1 = k2 then SOME (f v) else SOME v`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
+  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
+  simp[]);
+
+val MAP_FST_ALIST_FUPDKEY = Q.store_thm(
+  "MAP_FST_ALIST_FUPDKEY[simp]",
+  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`,
+  Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
+
+val ALIST_FUPDKEY_unchanged = Q.store_thm(
+  "ALIST_FUPDKEY_unchanged",
+  `∀k f alist.
+   (∀v. ALOOKUP alist k = SOME v ⇒ f v = v)
+   ==> ALIST_FUPDKEY k f alist = alist`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def]);
+
+val ALIST_FUPDKEY_o = Q.store_thm(
+  "ALIST_FUPDKEY_o",
+  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`,
+  Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
+  rw[ALIST_FUPDKEY_def]);
+
+val ALIST_FUPDKEY_eq = Q.store_thm("ALIST_FUPDKEY_eq",
+  `∀k f1 l f2.
+   (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
+   ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
+
+val A_DELKEY_def = Define`
+  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
+`;
+
+val MEM_DELKEY = Q.store_thm(
+  "MEM_DELKEY[simp]",
+  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`,
+  Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
+  metis_tac[]);
+
+val ALOOKUP_ADELKEY = Q.store_thm(
+  "ALOOKUP_ADELKEY",
+  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`,
+  simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
+
+val A_DELKEY_ALIST_FUPDKEY = Q.store_thm("A_DELKEY_ALIST_FUPDKEY[simp]",
+  `∀fd f ls. A_DELKEY fd (ALIST_FUPDKEY fd f ls) = A_DELKEY fd ls`,
+  ho_match_mp_tac ALIST_FUPDKEY_ind
+  \\ rw[ALIST_FUPDKEY_def,A_DELKEY_def]);
+
+val A_DELKEY_I = Q.store_thm("A_DELKEY_I",
+  `∀x ls. (A_DELKEY x ls = ls ⇔ ¬MEM x (MAP FST ls))`,
+  Induct_on`ls`
+  \\ rw[A_DELKEY_def,FILTER_EQ_ID,MEM_MAP,EVERY_MEM]
+  >- metis_tac[]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    `LENGTH (h::ls) ≤ LENGTH ls` by metis_tac[LENGTH_FILTER_LEQ]
+    \\ fs[] )
+  \\ first_x_assum(qspec_then`h`mp_tac)
+  \\ simp[]);
+
+val findi_APPEND = Q.store_thm(
+  "findi_APPEND",
+  `∀l1 l2 x.
+      findi x (l1 ++ l2) =
+        let n0 = findi x l1
+        in
+          if n0 = LENGTH l1 then n0 + findi x l2
+          else n0`,
+  Induct >> simp[findi_def] >> rw[] >> fs[]);
+
+val NOT_MEM_findi_IFF = Q.store_thm(
+  "NOT_MEM_findi_IFF",
+  `¬MEM e l ⇔ findi e l = LENGTH l`,
+  Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]);
+
+val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
+  "NOT_MEM_findi",
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
+
+val ORD_eq_0 = Q.store_thm(
+  "ORD_eq_0",
+  `(ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)`,
+  metis_tac[char_BIJ, ORD_CHR, EVAL ``0n < 256``]);
+
+val HD_LUPDATE = Q.store_thm(
+  "HD_LUPDATE",
+  `0 < LENGTH l ⇒ HD (LUPDATE x p l) = if p = 0 then x else HD l`,
+  Cases_on `l` >> rw[LUPDATE_def] >> Cases_on `p` >> fs[LUPDATE_def]);
+
+val w2n_lt_256 =
+  w2n_lt |> INST_TYPE [``:'a``|->``:8``]
+         |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
+         |> curry save_thm "w2n_lt_256"
+
+val CHR_w2n_n2w_ORD = Q.store_thm("CHR_w2n_n2w_ORD",
+  `(CHR o w2n o (n2w:num->word8) o ORD) = I`,
+  rw[o_DEF, ORD_BOUND, CHR_ORD, FUN_EQ_THM]
+);
+
+val n2w_ORD_CHR_w2n = Q.store_thm("n2w_ORD_CHR_w2n",
+  `((n2w:num->word8) o ORD o CHR o w2n) = I`,
+  rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
+);
+
+val MAP_CHR_w2n_11 = Q.store_thm("MAP_CHR_w2n_11",
+  `!ws1 ws2:word8 list.
+      MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`,
+  Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `ws2` \\ fs [] \\ metis_tac [CHR_11,w2n_lt_256,w2n_11]);
+
+val MAP_K_REPLICATE = Q.store_thm("MAP_K_REPLICATE",
+  `MAP (K x) ls = REPLICATE (LENGTH ls) x`,
+  Induct_on`ls` \\ rw[REPLICATE]);
+
+val shift_left_def = Define`
+  shift_left (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) then 0w
+  else if n > 32 then shift_left (a << 32) (n - 32)
+  else if n > 16 then shift_left (a << 16) (n - 16)
+  else if n > 8 then shift_left (a << 8) (n - 8)
+  else shift_left (a << 1) (n - 1)`
+
+val shift_left_rwt = Q.store_thm("shift_left_rwt",
+  `!a n. a << n = shift_left a n`,
+  completeInduct_on `n`
+  \\ rw [Once shift_left_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [])
+
+val shift_right_def = Define`
+  shift_right (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) then 0w
+  else if n > 32 then shift_right (a >>> 32) (n - 32)
+  else if n > 16 then shift_right (a >>> 16) (n - 16)
+  else if n > 8 then shift_right (a >>> 8) (n - 8)
+  else shift_right (a >>> 1) (n - 1)`
+
+val shift_right_rwt = Q.store_thm("shift_right_rwt",
+  `!a n. a >>> n = shift_right a n`,
+  completeInduct_on `n`
+  \\ rw [Once shift_right_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [])
+
+val arith_shift_right_def = Define`
+  arith_shift_right (a : 'a word) n =
+  if n = 0 then a
+  else if (a = 0w) \/ n > dimindex(:'a) /\ ~word_msb a then 0w
+  else if (a = -1w) \/ n > dimindex(:'a) /\ word_msb a then -1w
+  else if n > 32 then arith_shift_right (a >> 32) (n - 32)
+  else if n > 16 then arith_shift_right (a >> 16) (n - 16)
+  else if n > 8 then arith_shift_right (a >> 8) (n - 8)
+  else arith_shift_right (a >> 1) (n - 1)`
+
+val arith_shift_right_rwt = Q.store_thm("arith_shift_right_rwt",
+  `!a n. a >> n = arith_shift_right a n`,
+  completeInduct_on `n`
+  \\ rw [Once arith_shift_right_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
+
+val any_word64_ror_def = Define `
+  any_word64_ror (w:word64) (n:num) =
+    if 64 <= n then any_word64_ror w (n - 64) else
+    if 32 <= n then any_word64_ror (word_ror w 32) (n - 32) else
+    if 16 <= n then any_word64_ror (word_ror w 16) (n - 16) else
+    if 8 <= n then any_word64_ror (word_ror w 8) (n - 8) else
+    if 4 <= n then any_word64_ror (word_ror w 4) (n - 4) else
+    if 2 <= n then any_word64_ror (word_ror w 2) (n - 2) else
+    if 1 <= n then word_ror w 1 else w`
+
+val word_ror_eq_any_word64_ror = Q.store_thm("word_ror_eq_any_word64_ror",
+  `!a n. word_ror a n = any_word64_ror a n`,
+  completeInduct_on `n`
+  \\ rw [Once any_word64_ror_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX]
+  THEN1 fs [fcpTheory.CART_EQ,wordsTheory.word_ror_def,arithmeticTheory.SUB_MOD]
+  \\ `n = 1 \/ n = 0` by fs [] \\ fs []);
+
+val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
+  `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,
+  Induct \\ rw[] \\ Cases_on`ls` \\ fs[]);
+
+val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
+  `∀ls. LENGTH (FIELDS P ls) = LENGTH (FILTER P ls) + 1`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ rw[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[] \\ fs[] \\ rw[ADD1]
+  \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_NIL_IMP
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY
+  \\ imp_res_tac SPLITP_IMP
+  \\ fs[NULL_EQ]
+  \\ fs[SPLITP] \\ rfs[] \\ rw[]
+  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
+  \\ disch_then(qspec_then`t`mp_tac)
+  \\ Cases_on`t` \\ rw[FIELDS_def]
+  \\ fs[SPLITP] \\ rfs[]
+  \\ rfs[NULL_EQ]);
+
+val FIELDS_NEQ_NIL = Q.store_thm("FIELDS_NEQ_NIL[simp]",
+  `FIELDS P ls ≠ []`,
+  disch_then(assume_tac o Q.AP_TERM`LENGTH`)
+  \\ fs[LENGTH_FIELDS]);
+
+val CONCAT_FIELDS = Q.store_thm("CONCAT_FIELDS",
+  `∀ls. CONCAT (FIELDS P ls) = FILTER ($~ o P) ls`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ Cases
+  \\ simp[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ fs[Once SPLITP]
+  \\ Cases_on`P h` \\ fs[] \\ rveq \\ simp[]
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ Cases_on`NULL r` \\ fs[NULL_EQ]
+  >- (
+    imp_res_tac SPLITP_NIL_SND_EVERY
+    \\ fs[FILTER_EQ_ID] )
+  \\ imp_res_tac SPLITP_IMP
+  \\ rfs[NULL_EQ]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ simp[FILTER_APPEND]
+  \\ fs[GSYM FILTER_EQ_ID]
+  \\ Cases_on`r` \\ fs[] );
+
+val FIELDS_next = Q.store_thm("FIELDS_next",
+  `∀ls l1 l2.
+   FIELDS P ls = l1::l2 ⇒
+   LENGTH l1 < LENGTH ls ⇒
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
+  gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ rw[FIELDS_def]
+  \\ pairarg_tac \\ fs[]
+  \\ every_case_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[]
+  \\ rfs[PULL_FORALL,NULL_EQ]
+  \\ fs[SPLITP]
+  \\ every_case_tac \\ fs[]
+  \\ rw[]
+  \\ fs[SPLITP]
+  \\ Cases_on`SPLITP P t` \\ fs[]
+  \\ Cases_on`SPLITP P q` \\ fs[]
+  \\ rw[]
+  \\ `FIELDS P t = q::FIELDS P (TL r)`
+  by (
+    Cases_on`t` \\ fs[]
+    \\ rw[FIELDS_def,NULL_EQ] )
+  \\ first_x_assum(qspecl_then[`t`,`q`,`FIELDS P (TL r)`]mp_tac)
+  \\ simp[] );
+
+val FIELDS_full = Q.store_thm("FIELDS_full",
+  `∀P ls l1 l2.
+   FIELDS P ls = l1::l2 ∧ LENGTH ls ≤ LENGTH l1 ⇒
+   l1 = ls ∧ l2 = []`,
+  ntac 2 gen_tac
+  \\ completeInduct_on`LENGTH ls`
+  \\ ntac 4 strip_tac
+  \\ Cases_on`ls`
+  \\ simp_tac(srw_ss()++LET_ss)[FIELDS_def]
+  \\ pairarg_tac \\ pop_assum mp_tac \\ simp_tac(srw_ss())[]
+  \\ strip_tac
+  \\ IF_CASES_TAC
+  >- (
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[] )
+  \\ IF_CASES_TAC
+  >- (
+    simp_tac(srw_ss())[]
+    \\ strip_tac \\ rveq
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_SND_EVERY )
+  \\ simp_tac(srw_ss())[]
+  \\ strip_tac \\ rveq
+  \\ Q.ISPEC_THEN`h::t`mp_tac SPLITP_LENGTH
+  \\ last_x_assum kall_tac
+  \\ simp[]
+  \\ strip_tac \\ fs[]
+  \\ `LENGTH r = 0` by decide_tac
+  \\ fs[LENGTH_NIL]);
+
+val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
+  `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
+  Cases_on`x` \\ EVAL_TAC);
+
+val splitlines_def = Define`
+  splitlines ls =
+  let lines = FIELDS ((=) #"\n") ls in
+  (* discard trailing newline *)
+  if NULL (LAST lines) then FRONT lines else lines`;
+
+val splitlines_next = Q.store_thm("splitlines_next",
+  `splitlines ls = ln::lns ⇒
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+  simp[splitlines_def]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ Cases_on`LENGTH h < LENGTH ls`
+  >- (
+    imp_res_tac FIELDS_next
+    \\ strip_tac
+    \\ `ln = h`
+    by (
+      pop_assum mp_tac \\ rw[]
+      \\ fs[FRONT_DEF] )
+    \\ fs[]
+    \\ fs[LAST_DEF,NULL_EQ]
+    \\ Cases_on`t = []` \\ fs[]
+    \\ fs[FRONT_DEF]
+    \\ IF_CASES_TAC \\ fs[] )
+  \\ fs[NOT_LESS]
+  \\ imp_res_tac FIELDS_full \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ simp[DROP_LENGTH_TOO_LONG,FIELDS_def]);
+
+val splitlines_nil = save_thm("splitlines_nil[simp]",
+  EVAL``splitlines ""``);
+
+val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
+  `splitlines ls = [] ⇔ (ls = [])`,
+  rw[EQ_IMP_THM]
+  \\ fs[splitlines_def]
+  \\ every_case_tac \\ fs[]
+  \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
+  \\ fs[LAST_DEF] \\ rfs[NULL_EQ]
+  \\ Cases_on`LENGTH "" < LENGTH ls`
+  >- ( imp_res_tac FIELDS_next \\ fs[] )
+  \\ fs[LENGTH_NIL]);
 
 val _ = export_theory()

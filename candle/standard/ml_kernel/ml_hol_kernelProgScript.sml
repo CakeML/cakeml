@@ -32,6 +32,8 @@ fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
   in if is_imp (concl th) then th else DISCH T th end
 
+val env_tm = mk_var("env",semanticPrimitivesSyntax.mk_environment semanticPrimitivesSyntax.v_ty)
+
 (* ---- *)
 
 fun get_m_type_inv ty =
@@ -134,8 +136,8 @@ fun derive_case_of ty = let
         \\ strip_tac \\ asm_exists_tac
         \\ ASM_SIMP_TAC std_ss []
         \\ REWRITE_TAC[evaluate_match_Conv,pmatch_def,LENGTH]
-        \\ fs[pmatch_def,pat_bindings_def,write_def,lookup_alist_mod_env_def,
-              lookup_cons_thm,same_tid_def,id_to_n_def,same_ctor_def]
+        \\ fs[pmatch_def,pat_bindings_def,write_def,
+              lookup_cons_def,same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
         \\ ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
         \\ first_x_assum (match_mp_tac o MP_CANON)
         \\ fs[]
@@ -226,7 +228,7 @@ fun inst_case_thm tm m2deep = let
                 else hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:v environment``)
+    val env = env_tm
     val lemma = INST [env|->new_env] lemma
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -380,7 +382,7 @@ fun inst_EvalM_env v th = let
   val str = stringLib.fromMLstring name
   val inv = smart_get_type_inv (type_of v)
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
-  val new_env = ``write ^str (v:v) (env:v environment)``
+  val new_env = ``write ^str (v:v) ^env_tm``
   val old_env = new_env |> rand
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
@@ -411,7 +413,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val inv = smart_get_type_inv (type_of v)
   val new_env = ``write ^vname_str v (write_rec
                     [(^fname_str,^vname_str,^body)] env env)``
-  val old_env = ``env:v environment``
+  val old_env = env_tm
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -478,7 +480,7 @@ fun m2deep tm =
     val result = MATCH_MP Eval_IMP_PURE result |> RW [GSYM ArrowM_def]
     in check_inv "var" tm result end else
   (* failwith *)
-  if can (match_term ``(failwith str):'a M``) tm then let
+  if can (match_term ``(failwith s):'a M``) tm then let
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv ty
     val th = hol2deep (rand tm)
@@ -738,7 +740,7 @@ fun m_translate def = let
   val th = RW [ArrowM_def] th
   val th = if is_rec then let
       val recc = (first (can (find_term
-                    (fn tm => tm = rator ``Recclosure (ARB:v environment)``)))
+                    (fn tm => tm = rator ``Recclosure ^env_tm``)))
                         (hyp th)) |> rand |> rator |> rand
       val v_names = map (fn x => find_const_name (x ^ "_v"))
                       (recc |> listSyntax.dest_list |> fst
@@ -804,10 +806,29 @@ val res = translate mlstringTheory.strcat_def;
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
 val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
-                Cases_on`x1`>>Cases_on`x2`>>rw[mlstringTheory.mlstring_lt_def])
+                simp [inv_image_def, mlstringTheory.mlstring_lt_inv_image])
           |> translate
 val res = translate totoTheory.TO_of_LinearOrder
-val res = translate mlstringTheory.mlstring_cmp_def
+val res = translate mlstringTheory.compare_aux_def
+val res = translate mlstringTheory.compare_def
+
+(* Copy and paste from mlstringProg *)
+val compare_aux_side_def = theorem"compare_aux_side_def";
+val compare_side_def = definition"compare_side_def";
+
+val compare_aux_side_thm = Q.prove (
+  `!s1 s2 ord n len. (n + len =
+    if strlen s1 < strlen s2
+      then strlen s1
+    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
+  Induct_on `len` \\ rw [Once compare_aux_side_def]
+);
+
+val compare_side_thm = Q.prove (
+  `!s1 s2. compare_side s1 s2`,
+  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
+(* end copy and paste *)
+
 val res = translate comparisonTheory.pair_cmp_def
 val res = translate comparisonTheory.list_cmp_def
 (* -- *)
@@ -849,11 +870,11 @@ val res = translate sortingTheory.QSORT_DEF;
 val type_compare_def = tDefine "type_compare" `
   (type_compare t1 t2 =
      case (t1,t2) of
-     | (Tyvar x1,Tyvar x2) => mlstring_cmp x1 x2
+     | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
      | (Tyvar x1,Tyapp _ _) => Less
      | (Tyapp x1 a1,Tyvar _) => Greater
      | (Tyapp x1 a1,Tyapp x2 a2) =>
-         case mlstring_cmp x1 x2 of
+         case mlstring$compare x1 x2 of
          | Equal => type_list_compare a1 a2
          | other => other) /\
   (type_list_compare ts1 ts2 =
@@ -890,7 +911,7 @@ val term_compare_def = Define `
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
-         (case mlstring_cmp x1 x2 of
+         (case mlstring$compare x1 x2 of
             Less => Less
           | Equal => type_cmp ty1 ty2
           | Greater => Greater)
@@ -899,7 +920,7 @@ val term_compare_def = Define `
      | (Var x1 ty1,Abs v56 v57) => Less
      | (Const x1' ty1',Var v66 v67) => Greater
      | (Const x1' ty1',Const x2' ty2') =>
-         (case mlstring_cmp x1' x2' of
+         (case mlstring$compare x1' x2' of
             Less => Less
           | Equal => type_cmp ty1' ty2'
           | Greater => Greater)

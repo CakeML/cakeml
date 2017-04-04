@@ -25,6 +25,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
@@ -143,7 +144,7 @@ val STACKLANG_PROG_TYPE_no_closures = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
-            
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
@@ -173,6 +174,7 @@ val STACKLANG_PROG_TYPE_types_match = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val STACKLANG_PROG_TYPE_11 = Q.prove(
@@ -208,6 +210,7 @@ val STACKLANG_PROG_TYPE_11 = Q.prove(
             EqualityType_STACKLANG_STORE_NAME_TYPE,
             EqualityType_ASM_CMP_TYPE,
             EqualityType_ASM_REG_IMM_TYPE,
+            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
             EqualityType_ASM_INST_TYPE]);
 
 val EqualityType_STACKLANG_PROG_TYPE = Q.prove(
@@ -256,6 +259,27 @@ val _ = translate (spec64 stubs_def)
 
 val _ = translate (spec64 compile_def)
 
+val stack_alloc_comp_side = Q.prove(`
+  ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,
+`(∀prog n m. stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) (z:num) n m. opt = SOME(prog,x,y,z) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) (z:num) n m. opt = (prog,x,y,z) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) n m. opt = SOME(prog,x,y) ⇒ stack_alloc_comp_side n m prog ⇔ T) ∧
+ (∀opt prog (x:num) (y:num) n m. opt = (prog,x,y) ⇒ stack_alloc_comp_side n m prog ⇔ T)`
+  suffices_by fs[]
+  >> ho_match_mp_tac(TypeBase.induction_of ``:64 stackLang$prog``)
+  >> fs[]
+  >> rpt strip_tac
+  >> rw[Once(fetch "-" "stack_alloc_comp_side_def")]
+  >> fs[]
+  >> metis_tac[option_nchotomy, pair_CASES]) |> update_precondition
+
+val stack_alloc_prog_comp_side = Q.prove(`∀prog. stack_alloc_prog_comp_side prog ⇔ T`,
+  fs[fetch "-" "stack_alloc_prog_comp_side_def", stack_alloc_comp_side]) |> update_precondition;
+
+val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side conf prog ⇔ T`,
+  fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
+
 open stack_removeTheory
 
 (* Might be better to inline this *)
@@ -277,9 +301,6 @@ open stack_namesTheory
 val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
-
-val _ = translate x64_names_def
-val _ = translate arm_names_def
 
 open stack_to_labTheory
 
@@ -304,13 +325,16 @@ val _ = translate (conv64 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_E
 
 val _ = translate (conv64 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
+val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
 
-
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = (ml_translatorLib.clean_on_exit := true);
 
 val _ = export_theory();

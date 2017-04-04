@@ -5,14 +5,6 @@ val _ = new_theory"lab_to_target";
 val ffi_offset_def = Define `
   ffi_offset = 8:num`;
 
-(* length of a section *)
-
-val sec_length_def = Define `
-  (sec_length [] k = k) /\
-  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
-
 (* basic assemble function *)
 
 val lab_inst_def = Define `
@@ -43,45 +35,25 @@ val enc_sec_list_def = Define `
 
 (* compute labels *)
 
-val asm_line_labs_def = Define `
-  (asm_line_labs pos [] acc = (acc,pos)) /\
-  (asm_line_labs pos ((Label k1 k2 l)::xs) acc =
-     asm_line_labs (pos+l) xs (union acc (insert k2 (pos+l) LN))) /\
-  (asm_line_labs pos ((Asm _ _ l)::xs) acc =
-     asm_line_labs (pos+l) xs acc) /\
-  (asm_line_labs pos ((LabAsm _ _ _ l)::xs) acc =
-     asm_line_labs (pos+l) xs acc)`
-
-val sec_labs_def = Define `
-  sec_labs pos lines =
-    asm_line_labs pos lines (insert 0 pos LN)`;
-
-val lab_insert_def = Define `
-  lab_insert l1 l2 pos labs =
-    insert l1 (insert l2 pos
-      (case lookup l1 labs of
-       | NONE => LN
-       | SOME t => t)) labs`
-
 val section_labels_def = Define `
-  (section_labels pos [] labs = labs) /\
-  (section_labels pos (Label l1 l2 len :: xs) labs =
+  (section_labels pos [] labs = (pos,labs)) /\
+  (section_labels pos (Label _ l2 len :: xs) labs =
      (*Ignore 0 labels*)
      if l2 = 0 then
        section_labels (pos+len) xs labs
      else
-       lab_insert l1 l2 (pos+len) (section_labels (pos+len) xs labs)) /\
+       section_labels (pos+len) xs ((l2,pos+len)::labs)) /\
   (section_labels pos (Asm _ _ len :: xs) labs =
      section_labels (pos+len) xs labs) /\
   (section_labels pos (LabAsm _ _ _ len :: xs) labs =
      section_labels (pos+len) xs labs)`
 
 val compute_labels_alt_def = Define `
-  (compute_labels_alt pos [] = LN) /\
-  (compute_labels_alt pos (Section k lines::rest) =
-    let new_pos = sec_length lines 0 in
-    let labs = compute_labels_alt (pos+new_pos) rest in
-      lab_insert k 0 pos (section_labels pos lines labs))`
+  (compute_labels_alt pos [] labs = labs) /\
+  (compute_labels_alt pos (Section k lines::rest) labs =
+    let (new_pos,sec_labs) = section_labels pos lines [] in
+    compute_labels_alt new_pos rest
+      (insert k (fromAList ((0,pos)::sec_labs)) labs))`
 
 (* update code, but not label lengths *)
 
@@ -102,7 +74,7 @@ val get_label_def = Define `
    painful side conditions.
  *)
 val get_ffi_index_def = Define `
-  get_ffi_index ffis s = 
+  get_ffi_index ffis s =
     the 0 (find_index s ffis 0)`
 
 val get_jump_offset_def = Define `
@@ -116,7 +88,7 @@ val get_jump_offset_def = Define `
      n2w (find_pos (get_label a) labs) - n2w pos)`
 
 val enc_lines_again_def = Define `
-  (enc_lines_again labs ffis pos enc [] (acc,ok) = (REVERSE acc,ok:bool)) /\
+  (enc_lines_again labs ffis pos enc [] (acc,ok) = (REVERSE acc,pos,ok:bool)) /\
   (enc_lines_again labs ffis pos enc ((Label k1 k2 l)::xs) (acc,ok) =
      enc_lines_again labs ffis (pos+l) enc xs ((Label k1 k2 l)::acc,ok)) /\
   (enc_lines_again labs ffis pos enc ((Asm x1 x2 l)::xs) (acc,ok) =
@@ -134,15 +106,14 @@ val enc_lines_again_def = Define `
 val enc_secs_again_def = Define `
   (enc_secs_again pos labs ffis enc [] = ([],T)) /\
   (enc_secs_again pos labs ffis enc ((Section s lines)::rest) =
-     let (lines1,ok) = enc_lines_again labs ffis pos enc lines ([],T) in
-     let pos1 = pos + sec_length lines1 0 in
+     let (lines1,pos1,ok) = enc_lines_again labs ffis pos enc lines ([],T) in
      let (rest1,ok1) = enc_secs_again pos1 labs ffis enc rest in
        ((Section s lines1)::rest1,ok /\ ok1))`
 
 (* update labels *)
 
 val lines_upd_lab_len_def = Define `
-  (lines_upd_lab_len pos [] acc = REVERSE acc) /\
+  (lines_upd_lab_len pos [] acc = (REVERSE acc,pos)) /\
   (lines_upd_lab_len pos ((Label k1 k2 l)::xs) acc =
      let l1 = if EVEN pos then 0 else 1 in
        lines_upd_lab_len (pos+l1) xs ((Label k1 k2 l1::acc))) /\
@@ -154,28 +125,11 @@ val lines_upd_lab_len_def = Define `
 val upd_lab_len_def = Define `
   (upd_lab_len pos [] = []) /\
   (upd_lab_len pos ((Section s lines)::rest) =
-     let lines1 = lines_upd_lab_len pos lines [] in
-     let pos1 = pos + sec_length lines1 0 in
+     let (lines1,pos1) = lines_upd_lab_len pos lines [] in
      let rest1 = upd_lab_len pos1 rest in
        (Section s lines1)::rest1)`
 
 (* checking that all labelled asm instructions are asm_ok *)
-
-(*
-
-val sec_asm_ok_def = Define `
-  (sec_asm_ok c [] <=> T) /\
-  (sec_asm_ok c ((Label _ _ l)::xs) <=> sec_asm_ok c xs) /\
-  (sec_asm_ok c ((Asm x1 x2 l)::xs) <=> sec_asm_ok c xs) /\
-  (sec_asm_ok c ((LabAsm a w bytes l)::xs) <=>
-     if asm_ok (lab_inst w a) c then sec_asm_ok c xs else F)`
-
-val all_asm_ok_def = Define `
-  (all_asm_ok c [] = T) /\
-  (all_asm_ok c ((Section s lines)::rest) =
-     if sec_asm_ok c lines then all_asm_ok c rest else F)`
-
-*)
 
 val line_ok_light_def = Define `
   (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
@@ -231,47 +185,12 @@ val pad_code_def = Define `
 (pad_code nop ((Section n xs)::ys) =
   Section n (pad_section nop xs []) :: pad_code nop ys)`
 
-(* some final checks on the result *)
-
-val loc_to_pc_comp_def = Define `
-  loc_to_pc_comp n1 n2 [] = NONE /\
-  loc_to_pc_comp n1 n2 (Section k xs::ys) =
-    if k = n1 ∧ n2 = 0 then SOME 0n
-    else
-      case xs of
-        [] => loc_to_pc_comp n1 n2 ys
-      | z::zs =>
-        case z of
-        | Label k1 k2 _ =>
-            if k1 = n1 /\ k2 = n2 /\ n2 <> 0 then SOME 0
-            else loc_to_pc_comp n1 n2 (Section k zs::ys)
-        | _ => case loc_to_pc_comp n1 n2 (Section k zs::ys) of
-                 NONE => NONE
-               | SOME pos => SOME (pos + 1)`
-
-val is_Label_def = Define `
-  (is_Label (Label _ _ _) = T) /\
-  (is_Label _ = F)`;
-val _ = export_rewrites["is_Label_def"];
-
-val check_lab_def = Define `
-  check_lab sec_list (l1,l2,pos) <=>
-    EVEN pos`
-
-val all_labels_def = Define `
-  all_labels labs =
-    FLAT (MAP (\(n,t). MAP (\x. (n, x)) (toAList t)) (toAList labs))`
-
-val sec_names_def = Define`
-  (sec_names [] = []) ∧
-  (sec_names ((Section k _)::xs) = k::sec_names xs)`
-
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
   remove_labels_loop clock c ffis sec_list =
     (* compute labels *)
-    let labs = compute_labels_alt 0 sec_list in
+    let labs = compute_labels_alt 0 sec_list LN in
     (* update encodings and lengths (but not label lengths) *)
     let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
       (* done ==> labs are still fine *)
@@ -279,7 +198,7 @@ val remove_labels_loop_def = Define `
         (* adjust label lengths *)
         let sec_list = upd_lab_len 0 sec_list in
         (* compute labels again *)
-        let labs = compute_labels_alt 0 sec_list in
+        let labs = compute_labels_alt 0 sec_list LN in
         (* update encodings *)
         let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
         (* move label padding into instructions *)

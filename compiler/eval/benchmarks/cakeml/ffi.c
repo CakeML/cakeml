@@ -1,5 +1,9 @@
 #include<stdio.h>
 
-void ffiwrite (char* a, long len) {
+void ffiputChar(char* a, long len) {
   putchar(a[0]);
+}
+
+void ffigetChar(char* a, long len) {
+  a[0] = getchar();
 }

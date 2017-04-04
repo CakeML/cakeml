@@ -3,7 +3,7 @@ open HolKernel boolLib bossLib
 open semanticPrimitivesTheory evaluateTheory
 
   val add_evaluate_compset = computeLib.extend_compset
-    [computeLib.Extenders [semanticsComputeLib.add_ast_compset]
+    [computeLib.Extenders [semanticsComputeLib.add_ast_compset,semanticsComputeLib.add_namespace_compset]
     ,computeLib.Tys [``:'ffi semanticPrimitives$state``]
     ,computeLib.Defs
       [evaluate_def
@@ -16,10 +16,8 @@ open semanticPrimitivesTheory evaluateTheory
       ,prog_to_mods_def
       ,no_dup_top_types_def
       ,prog_to_top_types_def
-      ,extend_top_env_def
       ,extend_dec_env_def
       ,type_defs_to_new_tdecs_def
-      ,combine_mod_result_def
       ]
     ]
 

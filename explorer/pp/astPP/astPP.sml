@@ -10,7 +10,7 @@ fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name =
 val _ = bring_fwd_ctors "ast" ``:ast$lit``
 val _ = bring_fwd_ctors "ast" ``:ast$opn``
 val _ = bring_fwd_ctors "ast" ``:ast$opb``
-val _ = bring_fwd_ctors "ast" ``:'a ast$id``
+val _ = bring_fwd_ctors "namespace" ``:('a,'b) namespace$id``
 val _ = bring_fwd_ctors "ast" ``:ast$op``
 val _ = bring_fwd_ctors "ast" ``:ast$lop``
 val _ = bring_fwd_ctors "ast" ``:ast$tctor``
@@ -162,6 +162,7 @@ fun deftypePrint typestr sys d t pg str brk blk=
 
 (*Fix these names*)
 val _=add_astPP("inttypeprint",``TC_int``,genPrint (deftypePrint "int"));
+val _=add_astPP("chartypeprint",``TC_char``,genPrint (deftypePrint "char"));
 val _=add_astPP("stringtypeprint",``TC_string``,genPrint (deftypePrint "string"));
 val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
