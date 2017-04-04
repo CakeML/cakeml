@@ -487,6 +487,22 @@ val word_gc_move_list_def = Define `
      let (a2,i2,pa2,m2,c2) = word_gc_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm) in
        (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
 
+val word_gen_gc_partial_move_roots_def = Define `
+  (word_gen_gc_partial_move_roots conf ([],i,pa,old,m,dm,gs,rs) = ([],i,pa,m,T)) /\
+  (word_gen_gc_partial_move_roots conf (w::ws,i,pa,old,m,dm,gs,rs) =
+     let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) in
+     let (ws2,i2,pa2,m2,c2) = word_gen_gc_partial_move_roots conf (ws,i1,pa1,old,m1,dm,gs,rs) in
+       (w1::ws2,i2,pa2,m2,c1 /\ c2))`
+
+val word_gen_gc_partial_move_list_def = Define `
+  word_gen_gc_partial_move_list conf (a:'a word,l:'a word,i,pa:'a word,old,m,dm,gs,rs) =
+   if l = 0w then (a,i,pa,m,T) else
+     let w = (m a):'a word_loc in
+     let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) in
+     let m1 = (a =+ w1) m1 in
+     let (a2,i2,pa2,m2,c2) = word_gen_gc_partial_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm,gs,rs) in
+       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
+
 val word_gc_move_loop_def = Define `
   word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) =
     if pb = pa then (i,pa,m,c) else
@@ -837,7 +853,7 @@ val word_gc_move_roots_thm = Q.prove(
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ `c'` by imp_res_tac gc_move_list_ok \\ full_simp_tac(srw_ss())[]
+  \\ `c'` by imp_res_tac copying_gcTheory.gc_move_list_ok \\ full_simp_tac(srw_ss())[]
   \\ drule (word_gc_move_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ once_rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -891,7 +907,8 @@ val word_gc_move_list_thm = Q.prove(
   \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,ADD1]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ `c'` by imp_res_tac gc_move_list_ok \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
+  \\ `c'` by imp_res_tac copying_gcTheory.gc_move_list_ok \\ full_simp_tac(srw_ss())[]
+  \\ pop_assum kall_tac
   \\ NTAC 2 (pop_assum mp_tac)
   \\ full_simp_tac(srw_ss())[word_list_def] \\ SEP_R_TAC \\ rpt strip_tac
   \\ drule (word_gc_move_thm |> GEN_ALL |> SIMP_RULE std_ss [])
@@ -1627,7 +1644,7 @@ gen_gcTheory.gen_gc_def
 
 val word_gen_gc_partial_move_thm = Q.prove(
   `(gen_gc_partial$gc_move gc_conf gcstate x = (x1,gcstate1)) /\
-    gcstate.h2 = [] /\ gcstate1.ok /\
+    gcstate.h2 = [] /\ gcstate.r4 = [] /\ gcstate1.ok /\
     gc_conf.limit = heap_length gcstate.heap /\
     good_dimindex (:α) /\
     heap_length gcstate.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
@@ -1648,6 +1665,7 @@ val word_gen_gc_partial_move_thm = Q.prove(
       (w = word_addr conf x1) /\
       heap_length gcstate1.heap = heap_length gcstate.heap /\
       c1 /\ (i1 = n2w gcstate1.a) /\ gcstate1.n = LENGTH xs1 /\
+      gcstate.n = heap_length gcstate1.h2 + gcstate1.n + heap_length gcstate1.r4 /\
       pa1 = pa + bytes_in_word * n2w (heap_length gcstate1.h2)`,
   reverse (Cases_on `x`) \\ (*full_simp_tac(srw_ss())[gen_gc_partialTheory.gc_move_def]*)
   full_simp_tac(srw_ss())[gc_move_def]
@@ -1793,6 +1811,254 @@ val word_gen_gc_partial_move_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[gc_forward_ptr_thm] \\ rev_full_simp_tac(srw_ss())[]
     \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[heap_length_def,el_length_def]));
+
+val gc_partial_move_list_ok_irr = prove(
+  ``!x s y1 y2 t1 t2 h2 r4.
+      gen_gc_partial$gc_move gen_conf s x = (y1,t1) /\
+      gen_gc_partial$gc_move gen_conf (s with <| h2 := h2 ; r4 := r4 |>) x = (y2,t2) ==>
+      y1 = y2 /\ ?x1 x2. t2 = t1 with <| h2 := x1 ; r4 := x2 |>``,
+  Cases \\ fs [gen_gc_partialTheory.gc_move_def] \\ rw []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
+
+val gc_partial_move_ok_before = Q.store_thm("gc_partial_move_ok_before",
+  `gen_gc_partial$gc_move gen_conf s x = (x1,s1) /\ s1.ok ==> s.ok`,
+  Induct_on `x` >> rw[gen_gc_partialTheory.gc_move_def]
+  >> fs[] >> every_case_tac >> fs[]
+  >- (qpat_x_assum `s with ok := F = s1` (assume_tac o GSYM)
+      >> fs[])
+  >- (qpat_x_assum `s with ok := F = s1` (assume_tac o GSYM)
+      >> fs[])
+  >> pairarg_tac >> fs[]
+  >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
+  >> `((s.ok ∧ n < heap_length s.heap) ∧ n' + 1 ≤ s.n ∧
+        ¬gen_conf.isRef b)` by (match_mp_tac (GEN_ALL gc_forward_ptr_ok))
+  >> qexists_tac `a` >> qexists_tac `s.heap`
+  >> qexists_tac `n` >> qexists_tac `s.a` >> qexists_tac `heap`
+  >> fs[]);
+  
+val gc_partial_move_list_ok_before = Q.store_thm("gc_partial_move_list_ok_before",
+  `!x s x1 s1. gen_gc_partial$gc_move_list gen_conf s x = (x1,s1) /\ s1.ok ==> s.ok`,
+  Induct_on `x` >> fs[gc_move_list_def] >> rpt strip_tac
+  >> ntac 2 (pairarg_tac >> fs[]) >> metis_tac[gc_partial_move_ok_before]);
+
+val gc_partial_move_list_ok_irr = prove(
+  ``!x s y1 y2 t1 t2 h2 r4.
+      gen_gc_partial$gc_move_list gen_conf s x = (y1,t1) /\ t1.ok /\
+      gen_gc_partial$gc_move_list gen_conf (s with <| h2 := h2 ; r4 := r4 |>) x = (y2,t2)
+      ==>
+      t2.ok``,
+  Induct \\ fs [gen_gc_partialTheory.gc_move_list_def]
+  \\ rw [] \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ drule gc_move_heap_length
+  \\ drule gc_move_list_heap_length
+  \\ `heap_length((s with <|h2 := h2; r4 := r4|>).heap) = heap_length state'.heap` by metis_tac[gc_move_heap_length]
+  \\ `heap_length state'.heap = heap_length state''.heap` by metis_tac[gc_move_list_heap_length]
+  \\ rpt DISCH_TAC
+  \\ fs[]
+  \\ imp_res_tac gc_partial_move_list_ok_before
+  \\ first_x_assum match_mp_tac
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ qpat_x_assum `_.ok` kall_tac
+  \\ asm_exists_tac \\ fs []
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ asm_exists_tac \\ fs []
+  \\ metis_tac [gc_partial_move_list_ok_irr]);
+
+val gc_partial_move_with_NIL = store_thm("gc_partial_move_with_NIL",
+  ``!x s y t.
+      gen_gc_partial$gc_move gen_conf s x = (y,t) /\ t.ok ==>
+      (let (y,s1) = gc_move gen_conf (s with <| h2 := []; r4 := [] |>) x in
+        (y,s1 with <| h2 := s.h2 ++ s1.h2; r4 := s1.r4 ++ s.r4 |>)) = (y,t)``,
+  Cases \\ fs [gen_gc_partialTheory.gc_move_def] \\ rw []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ CASE_TAC \\ fs []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ CASE_TAC \\ fs []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]);
+
+val gc_partial_move_with_NIL_LEMMA = store_thm("gc_partial_move_with_NIL_LEMMA",
+  ``!x s y t h2 r4 y1 t1.
+      gen_gc_partial$gc_move gen_conf s x = (y1,t1) /\ t1.ok ==>
+      ?x1 x2.
+        t1.h2 = s.h2 ++ x1 /\
+        t1.r4 = x2 ++ s.r4 /\
+        gen_gc_partial$gc_move gen_conf (s with <| h2 := []; r4 := [] |>) x =
+          (y1,t1 with <| h2 := x1; r4 := x2 |>)``,
+  Cases \\ fs [gen_gc_partialTheory.gc_move_def] \\ rw []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ CASE_TAC
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ CASE_TAC
+  \\ fs [gc_sharedTheory.gc_state_component_equality]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
+
+val gc_partial_move_list_with_NIL_LEMMA = store_thm("gc_move_list_with_NIL_LEMMA",
+  ``!x s y t h2 r4 y1 t1.
+      gen_gc_partial$gc_move_list gen_conf s x = (y1,t1) /\ t1.ok ==>
+      ?x1 x2.
+        t1.h2 = s.h2 ++ x1 /\
+        t1.r4 = x2 ++ s.r4 /\
+        gen_gc_partial$gc_move_list gen_conf (s with <| h2 := []; r4 := [] |>) x =
+          (y1,t1 with <| h2 := x1; r4 := x2 |>)``,
+  Induct \\ fs [gen_gc_partialTheory.gc_move_list_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ rename1 `gc_move gen_conf s h = (x3,state3)`
+  \\ rename1 `_ = (x4,state4)`
+  \\ `state3.ok` by imp_res_tac gc_partial_move_list_ok_before
+  \\ drule (SIMP_RULE std_ss [] gc_partial_move_with_NIL_LEMMA) \\ fs []
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ first_assum drule \\ asm_rewrite_tac []
+  \\ `state''.ok` by imp_res_tac gc_partial_move_list_ok_irr
+  \\ qpat_x_assum `gc_move_list gen_conf state3 x = _` kall_tac
+  \\ first_x_assum drule \\ asm_rewrite_tac []
+  \\ fs [] \\ rw [] \\ fs []
+  \\ fs [gc_sharedTheory.gc_state_component_equality]) |> SIMP_RULE std_ss [];
+
+val gc_partial_move_list_with_NIL = Q.store_thm("gc_partial_move_list_with_NIL",
+  `!x s y t.
+      gen_gc_partial$gc_move_list gen_conf s x = (y,t) /\ t.ok ==>
+      (let (y,s1) = gen_gc_partial$gc_move_list gen_conf (s with <| h2 := []; r4 := [] |>) x in
+       (y,s1 with <| h2 := s.h2 ++ s1.h2; r4 := s1.r4 ++ s.r4 |>)) = (y,t)`,
+  rw [] \\ drule gc_partial_move_list_with_NIL_LEMMA \\ fs []
+  \\ strip_tac \\ fs [] \\ fs [gc_sharedTheory.gc_state_component_equality]);
+
+val word_gen_gc_partial_move_roots_thm = Q.prove(
+  `!x xs x1 w s1 s pa1 pa m1 m i1 frame dm curr c1 gs rs.
+    (gen_gc_partial$gc_move_list gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
+    gen_conf.limit = heap_length s.heap /\
+    heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    gen_conf.gen_start <= gen_conf.refs_start /\  
+    gen_conf.refs_start <= heap_length s.heap /\
+    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    w2n curr + heap_length s.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
+    (word_heap curr s.heap conf * word_list pa xs * frame) (fun2set (m,dm)) /\
+    (word_gen_gc_partial_move_roots conf (MAP (word_addr conf) x,n2w s.a,pa,
+                                         curr:'a word,m,dm,
+                                         curr + bytes_in_word * n2w gen_conf.gen_start,
+                                         curr + bytes_in_word * n2w gen_conf.refs_start) =
+      (w:'a word_loc list,i1,pa1,m1,c1)) /\
+    LENGTH xs = s.n /\ good_dimindex (:'a) /\ LENGTH x < dimword (:'a) ==>
+    ?xs1.
+      (word_heap curr s1.heap conf *
+       word_heap pa s1.h2 conf *
+       word_list pa1 xs1 * frame) (fun2set (m1,dm)) /\
+      (w = MAP (word_addr conf) x1) /\
+      heap_length s1.heap = heap_length s.heap /\
+      c1 /\ (i1 = n2w s1.a) /\ s1.n = LENGTH xs1 /\
+      s.n = heap_length s1.h2 + s1.n + heap_length s1.r4 /\
+      pa1 = pa + bytes_in_word * n2w (heap_length s1.h2)`,
+  Induct
+  THEN1
+   (fs [gen_gc_partialTheory.gc_move_list_def,Once word_gen_gc_partial_move_roots_def] \\ rw []
+    \\ fs [word_heap_def,SEP_CLAUSES] \\ asm_exists_tac \\ fs [])
+  \\ fs [gen_gc_partialTheory.gc_move_list_def]
+  \\ once_rewrite_tac [word_gen_gc_partial_move_roots_def]
+  \\ rpt strip_tac \\ fs []
+  \\ rw [] \\ ntac 4 (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [ADD1,GSYM word_add_n2w,word_list_def]
+  \\ ntac 4 (pop_assum mp_tac) (*\\ SEP_R_TAC*) \\ fs []
+  \\ rpt strip_tac
+  \\ drule (GEN_ALL word_gen_gc_partial_move_thm) \\ fs []
+  \\ drule gc_move_heap_length \\ DISCH_TAC \\ fs[]
+  \\ drule gc_move_list_heap_length \\ DISCH_TAC \\ fs[]
+  \\ `state'.ok` by imp_res_tac gc_partial_move_list_ok_before
+  \\ fs [GSYM STAR_ASSOC]
+  \\ rpt (disch_then drule)
+  \\ fs [word_add_n2w]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ drule gc_partial_move_list_with_NIL
+  \\ fs [] \\ pairarg_tac \\ fs []
+  \\ strip_tac
+  \\ rveq \\ fs []
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then drule \\ fs[]
+  \\ qpat_x_assum `word_gen_gc_partial_move_roots conf _ = _` mp_tac
+  \\ SEP_W_TAC
+  \\ rpt strip_tac
+  \\ SEP_F_TAC \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ rename1 `s2.n = LENGTH xs2`
+  \\ rfs []
+  \\ qexists_tac `xs2` \\ fs []
+  \\ fs [word_heap_APPEND]
+  \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ qpat_x_assum `LENGTH xs = s.n` (assume_tac o GSYM)
+  \\ fs[]);
+
+val word_gen_gc_partial_move_list_thm = Q.prove(
+  `!x xs x1 w s1 s pa1 pa m1 m i1 frame dm curr c1 k gs rs.
+    (gen_gc_partial$gc_move_list gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
+    gen_conf.limit = heap_length s.heap /\
+    heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    gen_conf.gen_start <= gen_conf.refs_start /\  
+    gen_conf.refs_start <= heap_length s.heap /\
+    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    w2n curr + heap_length s.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
+    (word_heap curr s.heap conf * word_list pa xs *
+     word_list k (MAP (word_addr conf) x) * frame) (fun2set (m,dm)) /\
+    (word_gen_gc_partial_move_list conf (k,n2w (LENGTH x),n2w s.a,pa,
+                                         curr:'a word,m,dm,
+                                         curr + bytes_in_word * n2w gen_conf.gen_start,
+                                         curr + bytes_in_word * n2w gen_conf.refs_start) =
+      (k1,i1,pa1,m1,c1)) /\
+    LENGTH xs = s.n /\ good_dimindex (:'a) /\ LENGTH x < dimword (:'a) ==>
+    ?xs1.
+      (word_heap curr s1.heap conf *
+       word_heap pa s1.h2 conf *
+       word_list pa1 xs1 *
+       word_list k (MAP (word_addr conf) x1) *
+       frame) (fun2set (m1,dm)) /\
+      heap_length s1.heap = heap_length s.heap /\
+      c1 /\ (i1 = n2w s1.a) /\ s1.n = LENGTH xs1 /\
+      s.n = heap_length s1.h2 + s1.n + heap_length s1.r4 /\
+      k1 = k + n2w (LENGTH x) * bytes_in_word /\
+      pa1 = pa + bytes_in_word * n2w (heap_length s1.h2)`,
+  Induct
+  THEN1
+   (fs [gen_gc_partialTheory.gc_move_list_def,Once word_gen_gc_partial_move_list_def] \\ rw []
+    \\ fs [word_heap_def,SEP_CLAUSES] \\ asm_exists_tac \\ fs [])
+  \\ fs [gen_gc_partialTheory.gc_move_list_def]
+  \\ once_rewrite_tac [word_gen_gc_partial_move_list_def]
+  \\ rpt strip_tac \\ fs []
+  \\ rw [] \\ ntac 4 (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [ADD1,GSYM word_add_n2w,word_list_def]
+  \\ ntac 4 (pop_assum mp_tac) \\ SEP_R_TAC \\ fs []
+  \\ rpt strip_tac
+  \\ drule (GEN_ALL word_gen_gc_partial_move_thm) \\ fs []
+  \\ drule gc_move_heap_length \\ DISCH_TAC \\ fs[]
+  \\ drule gc_move_list_heap_length \\ DISCH_TAC \\ fs[]
+  \\ `state'.ok` by imp_res_tac gc_partial_move_list_ok_before
+  \\ fs [GSYM STAR_ASSOC]
+  \\ rpt (disch_then drule)
+  \\ fs [word_add_n2w]
+  \\ strip_tac \\ rveq \\ fs []
+  \\ drule gc_partial_move_list_with_NIL
+  \\ fs [] \\ pairarg_tac \\ fs []
+  \\ strip_tac
+  \\ rveq \\ fs []
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then drule \\ fs[]
+  \\ qpat_x_assum `word_gen_gc_partial_move_list conf _ = _` mp_tac
+  \\ SEP_W_TAC
+  \\ rpt strip_tac
+  \\ SEP_F_TAC \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ rename1 `s2.n = LENGTH xs2`
+  \\ rfs []
+  \\ qexists_tac `xs2` \\ fs []
+  \\ fs [word_heap_APPEND]
+  \\ fs [heap_length_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ qpat_x_assum `LENGTH xs = s.n` (assume_tac o GSYM)
+  \\ fs[]);
 
 (* -------------------------------------------------------
     definition of state relation

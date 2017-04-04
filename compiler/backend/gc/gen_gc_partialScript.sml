@@ -557,7 +557,7 @@ val gc_forward_ptr_heap_length = Q.prove(`
   >> Cases_on `gc_forward_ptr (n − el_length h') h m a ok`
   >> fs[] >> metis_tac[]);
 
-val gc_move_heap_length = Q.prove(
+val gc_move_heap_length = Q.store_thm("gc_move_heap_length",
   `(gc_move conf state h = (x,state')) ==> (heap_length state.heap = heap_length state'.heap)`,
   Cases_on `h`
   >> rpt strip_tac
@@ -568,7 +568,7 @@ val gc_move_heap_length = Q.prove(
   >> rfs[]
   >> metis_tac[pair_CASES,gc_forward_ptr_heap_length,FST]);
 
-val gc_move_list_heap_length = Q.prove(
+val gc_move_list_heap_length = Q.store_thm("gc_move_list_heap_length",
   `!h x state state'. (gc_move_list conf state h = (x,state')) ==> (heap_length state.heap = heap_length state'.heap)`,
   Induct_on `h`
   >> rpt strip_tac
@@ -577,6 +577,38 @@ val gc_move_list_heap_length = Q.prove(
   >> pairarg_tac >> fs[]
   >> pairarg_tac >> fs[]
   >> metis_tac[gc_move_heap_length]);
+
+val gc_move_ok = store_thm("gc_move_ok",
+  ``(gc_move conf state x = (x',state')) /\ state'.ok /\ (!ptr' u. (x = Pointer ptr' u) ==>  ptr' < heap_length state.heap) ==> state.ok``,
+  Cases_on `x`
+  \\ fs [gc_move_def]
+  \\ IF_CASES_TAC
+  \\ fs[]
+  \\ Cases_on `heap_lookup n state.heap`
+  \\ fs []
+  \\ rpt strip_tac
+  \\ fs [gc_state_component_equality]
+  \\ Cases_on `x`
+  \\ fs [gc_state_component_equality,LET_THM]
+  \\ pairarg_tac
+  \\ Cases_on `conf.isRef b` \\ fs []
+  \\ TRY pairarg_tac
+  \\ fs [gc_state_component_equality]
+  \\ rpt var_eq_tac
+  \\ imp_res_tac gc_forward_ptr_ok);
+
+val gc_move_list_ok = store_thm("gc_move_list_ok",
+   ``!xs xs' state state'.
+     (gc_move_list conf state xs = (xs',state')) /\ state'.ok
+       /\ (∀ptr' u. MEM (Pointer ptr' u) xs ⇒ ptr' < heap_length state.heap)
+      ==>
+       state.ok``,
+  Induct \\ fs [gc_move_list_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+  \\ drule gc_move_list_heap_length \\ DISCH_TAC
+  \\ drule gc_move_heap_length \\ DISCH_TAC \\ rveq
+  \\ res_tac \\ fs [] \\ imp_res_tac gc_move_ok
+  \\ metis_tac[]);
 
 val gc_move_list_simulation = prove(
   ``!ptr ptr' state state' ptr1' state1'.
@@ -695,7 +727,7 @@ val gc_move_ref_list_simulation = prove(
   \\ drule gc_move_list_APPEND
   \\ strip_tac
   \\ rveq
-  \\ imp_res_tac gc_move_list_ok
+  \\ imp_res_tac gen_gcTheory.gc_move_list_ok
   \\ asm_rewrite_tac []
   \\ drule gc_move_list_heap_length \\ DISCH_TAC
   \\ `(∀ptr' u. MEM (Pointer ptr' u) ptrs ⇒ ptr' < conf.limit)` by metis_tac[]
@@ -971,12 +1003,12 @@ val partial_gc_simulation = prove(
         >> qunabbrev_tac `stateA` >> fs[])
     >- (qunabbrev_tac `stateA` >> fs[heap_ok_def])
     >> imp_res_tac gc_move_loop_ok \\ fs []
-    \\ imp_res_tac gc_move_list_ok \\ fs [])
+    \\ imp_res_tac gen_gcTheory.gc_move_list_ok \\ fs [])
   \\ strip_tac \\ rveq \\ fs [APPEND_11]
   \\ drule gc_move_ref_list_simulation
   \\ disch_then (qspec_then `heap0` mp_tac)
   \\ fs [] \\ impl_tac
-  THEN1 (imp_res_tac gc_move_loop_ok \\ fs []
+  THEN1 (imp_res_tac gen_gcTheory.gc_move_loop_ok \\ fs []
          >> fs[heap_ok_def] >> drule gc_move_list_heap_length >> DISCH_THEN(assume_tac o GSYM)
          >> qunabbrev_tac `stateA` >> fs[heap_ok_def]
          >> rpt strip_tac >> drule heap_segment_IMP >> DISCH_THEN(assume_tac o GSYM)
@@ -1005,7 +1037,7 @@ val partial_gc_simulation = prove(
   \\ simp [Once gc_move_loop_def]
   \\ fs [EVAL ``(to_gen_state conf state'').r4``]
   \\ fs [EVAL ``(to_gen_state conf state'').h2``]
-  \\ strip_tac \\ drule gc_move_loop_ok
+  \\ strip_tac \\ drule gen_gcTheory.gc_move_loop_ok
   \\ qpat_abbrev_tac `s5 = gen_gc$gc_move_data _ _`
   \\ strip_tac
   \\ `s5.h2 = []` by metis_tac [gen_gcTheory.gc_move_data_h2]
