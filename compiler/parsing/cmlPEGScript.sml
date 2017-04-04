@@ -235,7 +235,8 @@ val cmlPEG_def = zDefine`
                choicel [tok isInt (bindNT nEliteral o mktokLf);
                         tok isString (bindNT nEliteral o mktokLf);
                         tok isCharT (bindNT nEliteral o mktokLf);
-                        tok isWordT (bindNT nEliteral o mktokLf)]);
+                        tok isWordT (bindNT nEliteral o mktokLf);
+                        tok (IS_SOME o destFFIT) (bindNT nEliteral o mktokLf)]);
               (mkNT nEbase,
                choicel [pegf (pnt nEliteral) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
