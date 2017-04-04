@@ -208,6 +208,8 @@ val mips_enc_def = zDefine`
 val eval = rhs o concl o EVAL
 val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
 val max16 = eval ``sw2sw (INT_MAXw: word16) : word64``
+val min18 = eval ``sw2sw (INT_MINw: 18 word) : word64``
+val max18 = eval ``sw2sw (INT_MAXw: 18 word) : word64``
 val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
 val mips_config_def = Define`
@@ -226,8 +228,8 @@ val mips_config_def = Define`
                    i <= ^max16)
     ; addr_offset := (^min16, ^max16)
     ; byte_offset := (^min16, ^max16)
-    ; jump_offset := (^min16, ^max16)
-    ; cjump_offset := (^min16, ^max16)
+    ; jump_offset := (^min18 + 4w, ^max18 + 4w)
+    ; cjump_offset := (^min18 + 8w, ^max18 + 4w)
     ; loc_offset := (^min16 + 12w, ^max16 + 8w)
     ; code_alignment := 2
     |>`

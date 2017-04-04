@@ -299,9 +299,11 @@ fun state_tac asm =
               \\ full_simp_tac
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
-            else
+             else
               NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-              \\ blastLib.FULL_BBLAST_TAC))
+              \\ blastLib.FULL_BBLAST_TAC
+             )
+      )
 
 local
    fun number_of_instructions asl =
