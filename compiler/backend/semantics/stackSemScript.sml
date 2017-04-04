@@ -208,7 +208,7 @@ val gc_def = Define `
 
 val has_space_def = Define `
   has_space wl store =
-    case (wl, FLOOKUP store NextFree, FLOOKUP store EndOfHeap) of
+    case (wl, FLOOKUP store NextFree, FLOOKUP store TriggerGC) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
