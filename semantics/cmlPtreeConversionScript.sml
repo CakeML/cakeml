@@ -654,89 +654,43 @@ val dest_Conk_def = Define`
   (dest_Conk _ k v = v)
 `;
 
+val destFFIop_def = Define`
+  (destFFIop (FFI s) = SOME s) ∧
+  (destFFIop _ = NONE)
+`;
+val _ = export_rewrites ["destFFIop_def"]
+
 val strip_loc_expr_def = Define`
- (strip_loc_expr (Lannot e l) = strip_loc_expr e) /\
- (strip_loc_expr e = e)
+ (strip_loc_expr (Lannot e l) =
+    dtcase (strip_loc_expr e) of
+      (e0, _) => (e0, (λe. Lannot e l))) ∧
+ (strip_loc_expr e = (e, (λe. e)))
 `
 
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
-    dest_Conk (strip_loc_expr a1)
-      (λnm_opt args.
-               if ~NULL args then App Opapp [a1;a2]
-               else if nm_opt = SOME (Short "ref") then
-                 App Opapp [Var (Short "ref"); a2]
-               else
-                 dest_Conk (strip_loc_expr a2)
-                           (λnm_opt2 args2.
-                                     if nm_opt2 = NONE ∧ ~ NULL args2 then
-                                       Con nm_opt args2
-                                     else
-                                       Con nm_opt [a2])
-                           (Con nm_opt [a2]))
-      (App Opapp [a1;a2]) 
+    let (a10, addloc) = strip_loc_expr a1
+    in
+      dest_Conk a10
+        (λnm_opt args.
+                 if ~NULL args then App Opapp [a1;a2]
+                 else if nm_opt = SOME (Short "ref") then
+                   App Opapp [addloc (Var (Short "ref")); a2]
+                 else
+                   dest_Conk (FST (strip_loc_expr a2))
+                             (λnm_opt2 args2.
+                                       if nm_opt2 = NONE ∧ ~ NULL args2 then
+                                         Con nm_opt args2
+                                       else
+                                         Con nm_opt [a2])
+                             (Con nm_opt [a2]))
+        (dtcase a10 of
+           App opn args =>
+             (dtcase (destFFIop opn) of
+                NONE => App Opapp [a1;a2]
+              | SOME s => App opn (args ++ [a2]))
+         | _ => App Opapp [a1;a2])
 `;
-
-(* this re-expression of the above blows up disgustingly when the case
-   expressions are expanded but is perhaps easier to understand. *)
-val mkAst_App_thm = Q.store_thm(
-  "mkAst_App_thm",
-  `mkAst_App a1 a2 =
-     dtcase strip_loc_expr a1 of
-         Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
-       | Con s [] =>
-         (dtcase strip_loc_expr a2 of
-              Con NONE [] => Con s [a2]
-                (* applying a constructor to unit has to be viewed as
-                   applying it to one argument (unit), rather than as
-                   applying it to none *)
-            | Con NONE tuple => Con s tuple
-            | _ => Con s [a2])
-       | _ => App Opapp [a1; a2]`,
-  Cases_on `strip_loc_expr a1` >> simp[mkAst_App_def, dest_Conk_def,strip_loc_expr_def] >>
-  rename1 `strip_loc_expr a1 = Con nm_opt args` >> 
-  Cases_on `args` >> simp[] >>
-  Cases_on `nm_opt` >> simp[]
-  >- ( Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >>
-      rename1 `strip_loc_expr a2 = Con opt2 args2` >> 
-      Cases_on `opt2` >> simp[] >> Cases_on `args2` >> simp[]) >>
-  rename1`ident = Short "ref"` >> reverse (Cases_on `ident`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1 `str = "ref"` >> Cases_on `str` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c str'))` >> Cases_on `str'` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c1 (STRING c2 str')))` >> Cases_on `str'` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >>
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c1 (STRING c2 (STRING c3 str'))))` >>
-  reverse (Cases_on `str'`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c1 = #"r"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c2 = #"e"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c3 = #"f"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]))
 
 val isSymbolicConstructor_def = Define`
   isSymbolicConstructor (structopt : modN option) s =
@@ -808,7 +762,8 @@ val ptree_Eliteral_def = Define`
       (do i <- destIntT t ; return (Lit (IntLit i)) od ++
        do c <- destCharT t ; return (Lit (Char c)) od ++
        do s <- destStringT t ; return (Lit (StrLit s)) od ++
-       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od)
+       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od ++
+       do s <- destFFIT t ; return (App (FFI s) []) od)
     od
 `
 
@@ -820,7 +775,7 @@ val bind_loc_def = Define`
 local
   val ptree_Expr_quotation = `
   ptree_Expr ent (Lf _) = NONE ∧
-  ptree_Expr ent (Nd (nt,loc) subs) = 
+  ptree_Expr ent (Nd (nt,loc) subs) =
   do
   e <- (if mkNT ent = nt then
       if nt = mkNT nEbase then
