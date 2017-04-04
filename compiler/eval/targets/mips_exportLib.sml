@@ -13,7 +13,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
        (*"     pushq   %rax"::*)
        "     j     cake_back_ffi" ^ ffi::
        "     .p2align 3"::
-       "":: ffi_asm ffis end
+       "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
    "",
