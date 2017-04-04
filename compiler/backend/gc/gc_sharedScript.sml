@@ -537,6 +537,7 @@ val isSome_heap_looukp_IMP_APPEND = Q.store_thm("isSome_heap_looukp_IMP_APPEND",
 val gc_related_def = Define `
   gc_related (f:num|->num) heap1 heap2 =
     INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap2) } /\
+    (!i. i IN FDOM f ==> isSomeDataElement (heap_lookup i heap1)) /\
     !i xs l d.
       i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\

@@ -442,9 +442,14 @@ val full_gc_related = Q.store_thm("full_gc_related",
     \\ imp_res_tac heap_lookup_LESS
     \\ imp_res_tac heap_lookup_EXTEND \\ full_simp_tac std_ss []
     \\ full_simp_tac (srw_ss()) [isSomeDataElement_def])
-  \\ ntac 5 strip_tac
-  \\ `(FLOOKUP (heap_map 0 heap3) i = SOME (heap_map1 heap3 i))` by all_tac
-  THEN1 full_simp_tac std_ss [FLOOKUP_DEF]
+  \\ ntac 3 strip_tac
+  >- (`(FLOOKUP (heap_map 0 heap3) i = SOME (heap_map1 heap3 i))` by all_tac
+      >- fs [FLOOKUP_DEF]
+      \\ res_tac \\ fs []
+      \\ fs [isSomeDataElement_def])
+  \\ ntac 3 strip_tac
+  \\ `(FLOOKUP (heap_map 0 heap3) i = SOME (heap_map1 heap3 i))`
+       by full_simp_tac std_ss [FLOOKUP_DEF]
   \\ res_tac \\ full_simp_tac (srw_ss()) [APPEND_NIL]
   \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac heap_lookup_EXTEND
   \\ full_simp_tac std_ss [] \\ metis_tac []);
