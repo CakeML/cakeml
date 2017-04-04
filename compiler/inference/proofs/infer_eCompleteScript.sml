@@ -356,8 +356,8 @@ t_unify s' h t = SOME s'')`,
 
 val add_constraint_success = Q.prove(
 `
-  !t1 t2 st st' x.
-  add_constraint t1 t2 st = (Success x, st') ⇔
+  !l t1 t2 st st' x.
+  add_constraint l t1 t2 st = (Success x, st') ⇔
   x = () ∧
   pure_add_constraints st.subst [t1,t2] st'.subst ∧
   st'.next_uvar = st.next_uvar`,
@@ -795,7 +795,7 @@ MAP (convert_t o (t_walkstar s)) ts' = ts ∧
 EVERY (check_t n {}) (MAP (t_walkstar s) ts')
 ⇒
 ?t' st' s' constraints'.
-constrain_op op ts' st = (Success t',st') ∧
+constrain_op l op ts' st = (Success t',st') ∧
 sub_completion n st'.next_uvar st'.subst constraints' s' ∧
 t_compat s s' ∧
 FDOM st'.subst ⊆ count st'.next_uvar ∧
