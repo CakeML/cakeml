@@ -98,9 +98,9 @@ val extend_with_args_def = Define`
         exp_cut:= case expcut of NONE => bvl.exp_cut | SOME v => v;
         split_main_at_seq := splitmain
       |> in
-    let gc_none = ¬(MEMBER (strlit"--gc=none") ls) in
-    let gc_simple = ¬(MEMBER (strlit"--gc=simple") ls) in
-    let gc_gen = ¬(MEMBER (strlit"--gc=gen") ls) in
+    let gc_none = (MEMBER (strlit"--gc=none") ls) in
+    let gc_simple = (MEMBER (strlit"--gc=simple") ls) in
+    let gc_gen = (MEMBER (strlit"--gc=gen") ls) in
     let gc_gen_size = find_parse (strlit "--gc=gen") ls in
     let data = conf.data_conf in
     let updated_data =
