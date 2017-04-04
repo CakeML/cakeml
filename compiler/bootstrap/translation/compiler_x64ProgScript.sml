@@ -112,11 +112,20 @@ val spec64 = INST_TYPE[alpha|->``:64``];
 
 val _ = translate (extend_with_args_def |> spec64 )
 
+val implode_all_def = Define `
+  implode_all Nil = Nil /\
+  implode_all (List xs) = List [implode xs] /\
+  implode_all (Append l1 l2) = Append (implode_all l1) (implode_all l2)`;
+
+val res = translate implode_all_def;
+
+val res = translate basisProgTheory.basis_def;
+
 val compile_to_bytes_explorer_def = Define `
   compile_to_bytes_explorer c input =
     case compiler$compile_explorer c basis input of
     | Failure err => List[implode(error_to_str err)]
-    | Success jsn => List[implode(jsn)]`;
+    | Success jsn => implode_all jsn`;
 
 (*
 
@@ -142,8 +151,6 @@ val compiler_x64_def = Define`
   compiler_x64 cl = compile_to_bytes_explorer
     <| inferencer_config := init_config;
        backend_config := extend_with_args cl x64_compiler_config |>`;
-
-val res = translate basisProgTheory.basis_def;
 
 val res = translate
   (compiler_x64_def
