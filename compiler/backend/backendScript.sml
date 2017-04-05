@@ -376,9 +376,13 @@ val compile_explorer_def = Define`
   compile_explorer c p =
     let res = [] in
     let (c',p) = source_to_mod$compile c.source_conf p in
-    let res = pres_to_json (mod_to_pres p)::res in
+    let res = mod_to_json p::res in
     let c = c with source_conf := c' in
     let (c',p) = mod_to_con$compile c.mod_conf p in
-      json_to_string (Array res)`;
+    let res = con_to_json p::res in
+    let c = c with mod_conf := c' in
+    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
+    let res = dec_to_json e::res in
+      json_to_string (Array (REVERSE res))`;
 
 val _ = export_theory();

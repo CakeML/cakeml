@@ -532,4 +532,22 @@ val pres_to_json_def = tDefine"pres_to_json"`
   (pres_to_json _ = Null)`
   cheat;
 
+(* Function to construct general functions from a language to JSON. Call with
+* the name of the language and what fucntion to use to convert it to preslang to
+* obtain a function which takes a program in an intermediate language and
+* returns a JSON representation of that program. *)
+val lang_to_json_def = Define`
+  lang_to_json langN func = \ p . Object [("lang", String langN); ("prog", pres_to_json (func p))]`;
+
+val mod_to_json_def = Define`
+  mod_to_json = lang_to_json "modLang" mod_to_pres`;
+
+val con_to_json_def = Define`
+  con_to_json = lang_to_json "conLang" con_to_pres`;
+
+(* decLang uses the same structure as conLang, but the compilation step from con
+* to dec returns an expression rather than a prompt. *)
+val dec_to_json_def = Define`
+  dec_to_json = lang_to_json "decLang" con_to_pres_exp`;
+
 val _ = export_theory();
