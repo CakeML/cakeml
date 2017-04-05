@@ -170,17 +170,59 @@ val array_find = process_topdecs
 
 val _ = append_prog array_find;
 
-val array_findi = process_topdecs
-  `fun findi_aux f arr max n =
-    if n = max
-      then NONE
-    else (if f n (sub arr n)
-        then SOME((n, sub arr n))
-      else findi_aux f arr max (n + 1))
+(* Parser bug, see Issue #25 *)
+val array_findi_aux =
+``[Tdec (Dletrec
+[("findi_aux","f",
+ Fun "arr"
+   (Fun "max"
+      (Fun "n"
+         (Let (SOME "a")
+            (App Opapp
+               [App Opapp [Var (Short "="); Var (Short "n")];
+                Var (Short "max")])
+            (If (Var (Short "a")) (Con (SOME (Short "NONE")) [])
+               (Let (SOME "b")
+                  (App Opapp
+                     [App Opapp
+                        [Var (Short "sub"); Var (Short "arr")];
+                      Var (Short "n")])
+                  (Let (SOME "c")
+                     (App Opapp
+                        [App Opapp
+                           [Var (Short "f"); Var (Short "n")];
+                         Var (Short "b")])
+                     (If (Var (Short "c"))
+                        (Let (SOME "d")
+                           (App Opapp
+                              [App Opapp
+                                 [Var (Short "sub");
+                                  Var (Short "arr")];
+                               Var (Short "n")])
+                           (Con (SOME (Short "SOME"))
+                              [Con NONE [Var (Short "n");
+                               Var (Short "d")]]))
+                        (Let (SOME "e")
+                           (App Opapp
+                              [App Opapp
+                                 [Var (Short "+");
+                                  Var (Short "n")];
+                               Lit (IntLit 1)])
+                           (App Opapp
+                              [App Opapp
+                                 [App Opapp
+                                    [App Opapp
+                                       [Var (Short "findi_aux");
+                                        Var (Short "f")];
+                                     Var (Short "arr")];
+                                  Var (Short "max")];
+                               Var (Short "e")]))))))))))])]``
 
-  fun findi f arr =
+val array_findi = process_topdecs
+  `fun findi f arr =
     findi_aux f arr (length arr) 0`
 
+val _ = append_prog array_findi_aux;
 val _ = append_prog array_findi;
 
 val array_exists = process_topdecs
@@ -188,7 +230,7 @@ val array_exists = process_topdecs
     if n = max
       then false
     else (if f (sub arr n)
-      then T
+      then true
     else exists_aux f arr max (n + 1))
 
   fun exists f arr =
@@ -199,10 +241,10 @@ val _ = append_prog array_exists;
 val array_all = process_topdecs
   `fun all_aux f arr max n =
     if n = max
-      then T
+      then true
     else (if f (sub arr n)
       then all_aux f arr max (n + 1)
-    else F)
+    else false)
 
   fun all f arr =
     all_aux f arr (length arr) 0`
@@ -219,10 +261,10 @@ val array_collate = process_topdecs
 
   fun collate f a1 a2 =
     if (length a1) < (length a2)
-      then collate_aux f a1 a2 (length a1) LESS 0
+      then collate_aux f a1 a2 (length a1) Less 0
     else if (length a2) < (length a1)
-      then collate_aux f a1 a2 (length a2) GREATER 0
-    else collate_aux f a1 a2 (length a2) EQUAL 0`
+      then collate_aux f a1 a2 (length a2) Greater 0
+    else collate_aux f a1 a2 (length a2) Equal 0`
 
 val _ = append_prog array_collate;
 
