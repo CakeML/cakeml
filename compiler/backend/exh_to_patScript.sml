@@ -6,7 +6,6 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `
   Bool b = Con (if b then true_tag else false_tag) []`;
-
 val Bool_eqns = save_thm("Bool_eqns[simp]",
   [``Bool T``,``Bool F``]
   |> List.map (SIMP_CONV(std_ss)[Bool_def])
@@ -261,40 +260,40 @@ val _ = tDefine"compile_row"`
 (* translate under a context of bound variables *)
 (* compile_pes assumes the value being matched is most recently bound *)
 val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp bvs (Raise e) = Raise (compile_exp bvs e))
+  (compile_exp bvs (Raise t e) = Raise (compile_exp bvs e))
   ∧
-  (compile_exp bvs (Handle e1 pes) =
+  (compile_exp bvs (Handle t e1 pes) =
    Handle (compile_exp bvs e1) (compile_pes (NONE::bvs) pes))
   ∧
-  (compile_exp _ (Lit l) = Lit l)
+  (compile_exp _ (Lit t l) = Lit l)
   ∧
-  (compile_exp bvs (Con tag es) = Con tag (compile_exps bvs es))
+  (compile_exp bvs (Con t tag es) = Con tag (compile_exps bvs es))
   ∧
-  (compile_exp bvs (Var_local x) =
+  (compile_exp bvs (Var_local t x) =
    (dtcase find_index (SOME x) bvs 0 of
     | SOME k => Var_local k
     | NONE => Lit (IntLit 0) (* should not happen *)))
   ∧
-  (compile_exp _ (Var_global n) = Var_global n)
+  (compile_exp _ (Var_global t n) = Var_global n)
   ∧
-  (compile_exp bvs (Fun x e) = Fun (compile_exp (SOME x::bvs) e))
+  (compile_exp bvs (Fun t x e) = Fun (compile_exp (SOME x::bvs) e))
   ∧
-  (compile_exp bvs (App op es) = App (Op op) (compile_exps bvs es))
+  (compile_exp bvs (App t op es) = App (Op op) (compile_exps bvs es))
   ∧
-  (compile_exp bvs (Mat e pes) =
+  (compile_exp bvs (Mat t e pes) =
    sLet (compile_exp bvs e) (compile_pes (NONE::bvs) pes))
   ∧
-  (compile_exp bvs (Let (SOME x) e1 e2) =
+  (compile_exp bvs (Let t (SOME x) e1 e2) =
    sLet (compile_exp bvs e1) (compile_exp (SOME x::bvs) e2))
   ∧
-  (compile_exp bvs (Let NONE e1 e2) =
+  (compile_exp bvs (Let t NONE e1 e2) =
    Seq (compile_exp bvs e1) (compile_exp bvs e2))
   ∧
-  (compile_exp bvs (Letrec funs e) =
+  (compile_exp bvs (Letrec t funs e) =
    let bvs = (MAP (SOME o FST) funs) ++ bvs in
    Letrec (compile_funs bvs funs) (compile_exp bvs e))
   ∧
-  (compile_exp _ (Extend_global n) = Extend_global n)
+  (compile_exp _ (Extend_global t n) = Extend_global n)
   ∧
   (compile_exps _ [] = [])
   ∧

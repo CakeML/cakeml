@@ -108,47 +108,47 @@ val p2sz_append = Q.prove(
   Cases >> simp[e2sz_def])
 
 val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp exh (Raise _ e) =
-   Raise (compile_exp exh e))
+  (compile_exp exh (Raise t e) =
+   Raise t (compile_exp exh e))
   ∧
   (compile_exp exh (Handle t e pes) =
-   Handle (compile_exp exh e)
+   Handle t (compile_exp exh e)
      (compile_pes exh (add_default t T (exhaustive_match exh (MAP FST pes)) pes)))
   ∧
-  (compile_exp exh (Lit _ l) =
-   Lit l)
+  (compile_exp exh (Lit t l) =
+   Lit t l)
   ∧
-  (compile_exp exh (Con _ NONE es) =
-   Con tuple_tag (compile_exps exh es))
+  (compile_exp exh (Con t NONE es) =
+   Con t tuple_tag (compile_exps exh es))
   ∧
-  (compile_exp exh (Con _ (SOME (tag,_)) es) =
-   Con tag (compile_exps exh es))
+  (compile_exp exh (Con t (SOME (tag,_)) es) =
+   Con t tag (compile_exps exh es))
   ∧
-  (compile_exp exh (Var_local _ x) =
-   Var_local x)
+  (compile_exp exh (Var_local t x) =
+   Var_local t x)
   ∧
-  (compile_exp exh (Var_global _ x) =
-   Var_global x)
+  (compile_exp exh (Var_global t x) =
+   Var_global t x)
   ∧
-  (compile_exp exh (Fun _ x e) =
-   Fun x (compile_exp exh e))
+  (compile_exp exh (Fun t x e) =
+   Fun t x (compile_exp exh e))
   ∧
-  (compile_exp exh (App _ op es) =
-   App op (compile_exps exh es))
+  (compile_exp exh (App t op es) =
+   App t op (compile_exps exh es))
   ∧
   (compile_exp exh (Mat t e pes) =
-   Mat (compile_exp exh e)
+   Mat t (compile_exp exh e)
      (compile_pes exh (add_default t F (exhaustive_match exh (MAP FST pes)) pes)))
   ∧
-  (compile_exp exh (Let _ x e1 e2) =
-   Let x (compile_exp exh e1) (compile_exp exh e2))
+  (compile_exp exh (Let t x e1 e2) =
+   Let t x (compile_exp exh e1) (compile_exp exh e2))
   ∧
-  (compile_exp exh (Letrec _ funs e) =
-   Letrec (compile_funs exh funs)
+  (compile_exp exh (Letrec t funs e) =
+   Letrec t (compile_funs exh funs)
      (compile_exp exh e))
   ∧
-  (compile_exp exh (Extend_global _ n) =
-   Extend_global n)
+  (compile_exp exh (Extend_global t n) =
+   Extend_global t n)
   ∧
   (compile_exps exh [] = [])
   ∧
