@@ -379,6 +379,10 @@ val compile_explorer_def = Define`
     let res = pres_to_json (mod_to_pres p)::res in
     let c = c with source_conf := c' in
     let (c',p) = mod_to_con$compile c.mod_conf p in
+    let res = pres_to_json (con_to_pres p)::res in
+    let c = c with mod_conf := c' in
+    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
+    let res = pres_to_json (con_to_pres_exp e)::res in
       json_to_string (Array res)`;
 
 val _ = export_theory();
