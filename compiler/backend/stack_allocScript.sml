@@ -142,6 +142,7 @@ val word_gc_code_def = Define `
                Get 0 NextFree;
                Set NextFree 8;
                Set EndOfHeap 2;
+               Set TriggerGC 2;
                Get 1 AllocSize;
                sub_inst 2 8;
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
@@ -214,7 +215,7 @@ val comp_pmatch = Q.store_thm("comp_pmatch",`∀n m p.` @
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
-end 
+end
 val prog_comp_def = Define `
   prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`
 
