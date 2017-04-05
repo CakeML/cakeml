@@ -191,17 +191,6 @@ val con_to_pres_prompt_def = Define`
 val con_to_pres_def = Define`
   con_to_pres prompts = Prog (MAP con_to_pres_prompt prompts)`;
 
-(* pres_to_json *)
-(* TODO: Add words *)
-val lit_to_value_def = Define`
-  (lit_to_value (IntLit i) = Int i)
-  /\
-  (lit_to_value (Char c) = String [c])
-  /\
-  (lit_to_value (StrLit s) = String s)
-  /\
-  (lit_to_value _ = String "word8/64")`;
-
 (* Create a new json$Object with keys and values as in the tuples. Every object
 * has constructor name field, cons *)
 val new_obj_def = Define`
@@ -227,100 +216,119 @@ val trace_to_json_def = Define`
 val word_size_to_json_def = Define`
   (word_size_to_json W8 = String "W8")
   /\
-  (word_size_to_json W64 = String "W64")`
+  (word_size_to_json W64 = String "W64")`;
+
+val opn_to_json_def = Define`
+  (opn_to_json Plus = new_obj "Plus" [])
+  /\
+  (opn_to_json Minus = new_obj "Minus" [])
+  /\
+  (opn_to_json Times = new_obj "Times" [])
+  /\
+  (opn_to_json Divide = new_obj "Divide" [])
+  /\
+  (opn_to_json Modulo = new_obj "Modulo" [])`;
+
+val opb_to_json_def = Define`
+  (opb_to_json Lt = new_obj "Lt" [])
+  /\
+  (opb_to_json Gt = new_obj "Gt" [])
+  /\
+  (opb_to_json Leq = new_obj "Leq" [])
+  /\
+  (opb_to_json Geq = new_obj "Geq" [])`;
+
+val opw_to_json_def = Define`
+  (opw_to_json Andw = new_obj "Andw" [])
+  /\
+  (opw_to_json Orw = new_obj "Orw" [])
+  /\
+  (opw_to_json Xor = new_obj "Xor" [])
+  /\
+  (opw_to_json Add = new_obj "Add" [])
+  /\
+  (opw_to_json Sub = new_obj "Sub" [])`;
+
+val shift_to_json_def = Define`
+  (shift_to_json Lsl = new_obj "Andw" [])
+  /\
+  (shift_to_json Lsr = new_obj "Orw" [])
+  /\
+  (shift_to_json Asr = new_obj "Xor" [])`;
 
 val op_to_json_def = Define`
-  (op_to_json (Conlang (Init_global_var num)) = String "Init_global_var")
+  (op_to_json (Conlang (Init_global_var num)) = new_obj "Init_global_var" [("num", num_to_json num)])
   /\
-  (op_to_json (Conlang (Op astop)) = op_to_json (Ast (astop)))
+  (op_to_json (Conlang (Op astop)) = new_obj "Op" [("op", op_to_json (Ast (astop)))])
   /\
-  (op_to_json (Ast (Opn Plus)) = String "Plus")
+  (op_to_json (Ast (Opn opn)) = new_obj "Opn" [("opn", opn_to_json opn)])
   /\
-  (op_to_json (Ast (Opn Minus)) = String "Minus")
+  (op_to_json (Ast (Opb opb)) = new_obj "Opb" [("opb", opb_to_json opb)])
   /\
-  (op_to_json (Ast (Opn Times)) = String "Times")
+  (op_to_json (Ast (Opw word_size opw)) = new_obj "Opw" [
+    ("word_size", word_size_to_json word_size);
+    ("opw", opw_to_json opw)
+  ])
   /\
-  (op_to_json (Ast (Opn Divide)) = String "Divide")
+  (op_to_json (Ast (Shift word_size shift num)) = new_obj "Shift" [
+    ("word_size", word_size_to_json word_size);
+    ("shift", shift_to_json shift);
+    ("num", num_to_json num)
+  ])
   /\
-  (op_to_json (Ast (Opn Modulo)) = String "Modulo")
+  (op_to_json (Ast Equality) = new_obj "Equality" [])
   /\
-  (op_to_json (Ast (Opb Lt)) = String "Lt")
+  (op_to_json (Ast Opapp) = new_obj "Opapp" [])
   /\
-  (op_to_json (Ast (Opb Gt)) = String "Gt")
+  (op_to_json (Ast Opassign) = new_obj "Opassign" [])
   /\
-  (op_to_json (Ast (Opb Leq)) = String "Leq")
+  (op_to_json (Ast Oprep) = new_obj "Oprep" [])
   /\
-  (op_to_json (Ast (Opb Geq)) = String "Geq")
+  (op_to_json (Ast Opderep) = new_obj "Opderep" [])
   /\
-  (op_to_json (Ast (Opw wordS Andw)) = Array [(word_size_to_json wordS); (String "Andw")])
+  (op_to_json (Ast Aw8alloc) = new_obj "Aw8alloc" [])
   /\
-  (op_to_json (Ast (Opw wordS Orw)) = Array [(word_size_to_json wordS); (String "Orw")])
+  (op_to_json (Ast Aw8sub) = new_obj "Aw8sub" [])
   /\
-  (op_to_json (Ast (Opw wordS Xor)) = Array [(word_size_to_json wordS); (String "Xor")])
+  (op_to_json (Ast Aw8length) = new_obj "Aw8length" [])
   /\
-  (op_to_json (Ast (Opw wordS Add)) = Array [(word_size_to_json wordS); (String "Add")])
+  (op_to_json (Ast Aw8update) = new_obj "Aw8update" [])
   /\
-  (op_to_json (Ast (Opw wordS Sub)) = Array [(word_size_to_json wordS); (String
-  "Sub")])
+  (op_to_json (Ast (WordFromInt word_size)) = new_obj "WordFromInt" [
+    ("word_size", word_size_to_json word_size)
+  ])
   /\
-  (op_to_json (Ast (Shift wordS Lsl num)) = Array [(word_size_to_json wordS);
-  (String "Lsl"); (num_to_json num)])
+  (op_to_json (Ast (WordToInt word_size)) = new_obj "WordToInt" [
+    ("word_size", word_size_to_json word_size)
+  ])
   /\
-  (op_to_json (Ast (Shift wordS Lsr num)) = Array [(word_size_to_json wordS); (String "Lsr"); (num_to_json num)])
+  (op_to_json (Ast Ord) = new_obj "Ord" [])
   /\
-  (op_to_json (Ast (Shift wordS Asr num)) = Array [(word_size_to_json wordS);
-  (String "Asr"); (num_to_json num)])
+  (op_to_json (Ast Chr) = new_obj "Chr" [])
   /\
-  (op_to_json (Ast Equality) = String "Equality")
+  (op_to_json (Ast (Chopb opb)) = new_obj "Chopb" [("op", opb_to_json opb)])
   /\
-  (op_to_json (Ast Opapp) = String "Opapp")
+  (op_to_json (Ast Implode) = new_obj "Implode" [])
   /\
-  (op_to_json (Ast Opassign) = String "Opassign")
+  (op_to_json (Ast Strsub) = new_obj "Strsub" [])
   /\
-  (op_to_json (Ast Oprep) = String "Oprep")
+  (op_to_json (Ast Strlen) = new_obj "Strlen" [])
   /\
-  (op_to_json (Ast Opderep) = String "Opderep")
+  (op_to_json (Ast VfromList) = new_obj "VfromList" [])
   /\
-  (op_to_json (Ast Aw8alloc) = String "Aw8alloc")
+  (op_to_json (Ast Vsub) = new_obj "Vsub" [])
   /\
-  (op_to_json (Ast Aw8sub) = String "Aw8sub")
+  (op_to_json (Ast Vlength) = new_obj "Vlength" [])
   /\
-  (op_to_json (Ast Aw8length) = String "Aw8length")
+  (op_to_json (Ast Aalloc) = new_obj "Aalloc" [])
   /\
-  (op_to_json (Ast Aw8update) = String "Aw8update")
+  (op_to_json (Ast Asub) = new_obj "Asub" [])
   /\
-  (op_to_json (Ast (WordFromInt wordS)) = Array [(String "WordFromInt");(word_size_to_json wordS)])
+  (op_to_json (Ast Alength) = new_obj "Alength" [])
   /\
-  (op_to_json (Ast (WordToInt wordS)) = Array [(String "WordToInt");(word_size_to_json wordS)])
+  (op_to_json (Ast Aupdate) = new_obj "Aupdate" [])
   /\
-  (op_to_json (Ast Ord) = String "Ord")
-  /\
-  (op_to_json (Ast Chr) = String "Chr")
-  /\
-  (op_to_json (Ast (Chopb opb)) = Array [(String "Chopb");op_to_json (Ast (Opb
-  opb))])
-  /\
-  (op_to_json (Ast Implode) = String "Implode")
-  /\
-  (op_to_json (Ast Strsub) = String "Strsub")
-  /\
-  (op_to_json (Ast Strlen) = String "Strlen")
-  /\
-  (op_to_json (Ast VfromList) = String "VfromList")
-  /\
-  (op_to_json (Ast Vsub) = String "Vsub")
-  /\
-  (op_to_json (Ast Vlength) = String "Vlength")
-  /\
-  (op_to_json (Ast Aalloc) = String "Aalloc")
-  /\
-  (op_to_json (Ast Asub) = String "Asub")
-  /\
-  (op_to_json (Ast Alength) = String "Alength")
-  /\
-  (op_to_json (Ast Aupdate) = String "Aupdate")
-  /\
-  (op_to_json (Ast (FFI str)) = Array [(String "FFI");(String str)])`;
+  (op_to_json (Ast (FFI str)) = new_obj "FFI" [("str", String str)])`;
 
 val lop_to_json_def = Define`
   (lop_to_json ast$And = String "And")
@@ -386,17 +394,16 @@ val num_to_hex_def = Define `
 val word_to_hex_string_def = Define `
   word_to_hex_string w = "0x" ++ num_to_hex (w2n (w:'a word))`;
 
-(*TODO: Update lits to be f.e Cons: IntLit, Val: 3 *)
 val lit_to_json_def = Define`
-  (lit_to_json (IntLit i) = ("IntLit", Int i))
+  (lit_to_json (IntLit i) = new_obj "IntLit" [("value", Int i)])
   /\
-  (lit_to_json (Char c) = ("Char", String (c::"")))
+  (lit_to_json (Char c) = new_obj "Char" [("value", String [c])])
   /\
-  (lit_to_json (StrLit s) = ("StrLit", String s))
+  (lit_to_json (StrLit s) = new_obj "StrLit" [("value", String s)])
   /\
-  (lit_to_json (Word8 w) = ("word8", String (word_to_hex_string w)))
+  (lit_to_json (Word8 w) = new_obj "Word8" [("value", String (word_to_hex_string w))])
   /\
-  (lit_to_json (Word64 w) = ("word64", String (word_to_hex_string w)))`
+  (lit_to_json (Word64 w) = new_obj "Word64" [("value",  String (word_to_hex_string w))])`
 
 val option_to_json_def = Define`
   (option_to_json opt = case opt of
@@ -419,8 +426,8 @@ val pres_to_json_def = tDefine"pres_to_json"`
       new_obj "Dlet" [("num", num_to_json num); ("exp", pres_to_json exp)])
   /\
   (pres_to_json (Dletrec lst) =
-    let fields = Array (MAP (\(v1,v2,exp) . Object [("var1",String v1); ("var2",String v2); ("exp", pres_to_json exp)]) lst) in
-      new_obj "Dletrec" [("exps",fields)])
+    let fields = Array (MAP (\(v1, v2, exp) . Object [("var1", String v1); ("var2", String v2); ("exp", pres_to_json exp)]) lst) in
+      new_obj "Dletrec" [("exps", fields)])
   /\
   (pres_to_json (Dtype modNs) =
     let modNs' = Array (MAP String modNs) in
@@ -432,102 +439,100 @@ val pres_to_json_def = tDefine"pres_to_json"`
       new_obj "Dexn" [("modNs", modNs'); ("con", String conN); ("ts", ts')])
   /\
   (pres_to_json (Pvar varN) =
-      new_obj "Pvar" [("pat", Object[("var",String varN)])])
+      new_obj "Pvar" [("varN", String varN)])
   /\
   (pres_to_json (Plit lit) =
-      new_obj "Plit" [("pat", Object[lit_to_json lit])])
+      new_obj "Plit" [("lit", lit_to_json lit)])
   /\
   (pres_to_json (ModPcon optTup exps) =
     let exps' = ("pats", Array (MAP pres_to_json exps)) in
     let ids' = case optTup of
                   | NONE => ("modscon", Null)
                   | SOME optUp' => ("modscon", (id_to_object optUp')) in
-      new_obj "Pcon-modlang" [ids';exps'])
+      new_obj "Pcon-modLang" [ids'; exps'])
   /\
   (pres_to_json (ConPcon optTup exps) =
-    let exps' = Array (MAP pres_to_json exps) in 
+    let exps' = Array (MAP pres_to_json exps) in
     let tup' = case optTup of
                   | NONE => Null
                   | SOME (num, te) => case te of
-                      | TypeId id => Array [num_to_json num; new_obj "TypeId"
-                      [("id", id_to_object id)]]
-                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn"
-                      [("id", id_to_object id)]] in
-      new_obj "Pcon-conlang" [("numtid",tup');("pats", exps')])
+                      | TypeId id => Array [num_to_json num; new_obj "TypeId" [("id", id_to_object id)]]
+                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn" [("id", id_to_object id)]]
+    in
+      new_obj "Pcon-conLang" [("numtid", tup'); ("pats", exps')])
   /\
   (pres_to_json (Pref exp) =
       new_obj "Pref" [("pat", pres_to_json exp)])
   /\
   (pres_to_json (Ptannot exp t) =
-      new_obj "Ptannot" [("pat", pres_to_json exp);("t", t_to_json t)])
+      new_obj "Ptannot" [("pat", pres_to_json exp); ("t", t_to_json t)])
   /\
   (pres_to_json (Raise tra exp) =
-      new_obj "Raise" [("tra", trace_to_json tra);("exp", pres_to_json exp)])
+      new_obj "Raise" [("tra", trace_to_json tra); ("exp", pres_to_json exp)])
   /\
   (pres_to_json (Handle tra exp expsTup) =
-    let expsTup' = Array (MAP(\(e1, e2) . Object[("pat", pres_to_json e1);("exp",
-    pres_to_json e2)])
-    expsTup) in
-      new_obj "Handle" [("tra", trace_to_json tra);("exp", pres_to_json exp);("exps", expsTup')])
+    let expsTup' = Array (MAP (\(e1, e2) . Object [
+      ("pat", pres_to_json e1);
+      ("exp", pres_to_json e2)
+    ]) expsTup) in
+      new_obj "Handle" [("tra", trace_to_json tra); ("exp", pres_to_json exp); ("exps", expsTup')])
   /\
   (pres_to_json (Var_local tra varN) =
-      new_obj "Var_local" [("tra", trace_to_json tra);("var", String varN)])
+      new_obj "Var_local" [("tra", trace_to_json tra); ("varN", String varN)])
   /\
   (pres_to_json (Var_global tra num) =
-      new_obj "Var_global" [("tra", trace_to_json tra);("num", num_to_json num)])
+      new_obj "Var_global" [("tra", trace_to_json tra); ("num", num_to_json num)])
   /\
   (pres_to_json (Extend_global tra num) =
-      new_obj "Extend_global" [("tra", trace_to_json tra);("num", num_to_json
-      num)])
+      new_obj "Extend_global" [("tra", trace_to_json tra); ("num", num_to_json num)])
   /\ 
   (pres_to_json (Lit tra lit) =
-      new_obj "Lit" [("tra", trace_to_json tra);lit_to_json lit])
+      new_obj "Lit" [("tra", trace_to_json tra); ("lit", lit_to_json lit)])
   /\
   (pres_to_json (ModCon tra optTup exps) =
     let exps' = ("exps", Array (MAP pres_to_json exps)) in
     let ids' = case optTup of
                   | NONE => ("modscon", Null)
                   | SOME optUp' => ("modscon", (id_to_object optUp')) in
-      new_obj "Con-modlang" [("tra", trace_to_json tra);ids';exps'])
+      new_obj "Con-modLang" [("tra", trace_to_json tra); ids'; exps'])
   /\
   (pres_to_json (ConCon tra optTup exps) =
     let exps' = Array (MAP pres_to_json exps) in
     let tup' = case optTup of
                   | NONE => Null
                   | SOME (num, te) => case te of
-                      | TypeId id => Array [num_to_json num; new_obj "TypeId"
-                      [("id", id_to_object id)]]
-                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn"
-                      [("id", id_to_object id)]] in
-      new_obj "Con-conlang" [("tra", trace_to_json tra);("numtid",tup');("pats", exps')])
+                      | TypeId id => Array [num_to_json num; new_obj "TypeId" [("id", id_to_object id)]]
+                      | TypeExn id => Array [num_to_json num; new_obj "TypeExn" [("id", id_to_object id)]] in
+      new_obj "Con-conLang" [("tra", trace_to_json tra); ("numtid", tup'); ("pats", exps')])
   /\
   (pres_to_json (App tra op exps) =
     let exps' = ("exps", Array (MAP pres_to_json exps)) in
-      new_obj "App" [("tra", trace_to_json tra);("op", op_to_json op);exps'])
+      new_obj "App" [("tra", trace_to_json tra); ("op", op_to_json op); exps'])
   /\
   (pres_to_json (Fun tra varN exp) =
-      new_obj "Fun" [("tra", trace_to_json tra);("var", String varN);("exp", pres_to_json exp)])
+      new_obj "Fun" [("tra", trace_to_json tra); ("varN", String varN); ("exp", pres_to_json exp)])
   /\
   (pres_to_json (Log tra lop exp1 exp2) =
-      new_obj "Log" [("tra", trace_to_json tra);("lop", lop_to_json lop);("exp1", pres_to_json exp1);("exp2", pres_to_json exp2)])
+      new_obj "Log" [("tra", trace_to_json tra); ("lop", lop_to_json lop); ("exp1", pres_to_json exp1); ("exp2", pres_to_json exp2)])
   /\
   (pres_to_json (If tra exp1 exp2 exp3) =
-      new_obj "If" [("tra", trace_to_json tra);("exp1", pres_to_json exp1);("exp2", pres_to_json exp2);("exp3", pres_to_json exp3)])
+      new_obj "If" [("tra", trace_to_json tra); ("exp1", pres_to_json exp1); ("exp2", pres_to_json exp2); ("exp3", pres_to_json exp3)])
   /\
   (pres_to_json (Mat tra exp expsTup) =
-    let expsTup' = Array (MAP(\(e1, e2) . Object[("pat", pres_to_json e1);("exp", pres_to_json e2)]) expsTup) in
-      new_obj "Mat" [("tra", trace_to_json tra);("exp", pres_to_json exp);("exps",expsTup')])
+    let expsTup' = Array (MAP (\(e1, e2) . Object [("pat", pres_to_json e1); ("exp", pres_to_json e2)]) expsTup) in
+      new_obj "Mat" [("tra", trace_to_json tra); ("exp", pres_to_json exp); ("exps", expsTup')])
   /\
   (pres_to_json (Let tra varN exp1 exp2) =
     let varN' = option_to_json varN in
-      new_obj "Let" [("tra", trace_to_json tra);("var", varN');("exp1", pres_to_json
-      exp1);("exp2", pres_to_json exp2)])
+      new_obj "Let" [("tra", trace_to_json tra); ("varN", varN'); ("exp1", pres_to_json exp1); ("exp2", pres_to_json exp2)])
   /\
   (pres_to_json (Letrec tra varexpTup exp) =
-    let varexpTup' = Array (MAP (\(v1,v2,e) . Object [("var1", String
-    v1);("var2", String v2);("exp", pres_to_json e)]) varexpTup) in
-      new_obj "Letrec" [("tra", trace_to_json tra);("varsexp",
-      varexpTup');("exp", pres_to_json exp)])
+    let varexpTup' = Array (MAP (\(v1, v2, e) . Object [
+      ("var1", String v1);
+      ("var2", String v2);
+      ("exp", pres_to_json e)
+    ]) varexpTup) in
+      new_obj "Letrec" [("tra", trace_to_json tra); ("varsexp", varexpTup'); ("exp", pres_to_json exp)])
   /\
   (pres_to_json _ = Null)`
   cheat;
