@@ -576,9 +576,19 @@ val gc_move_list_heap_length = Q.store_thm("gc_move_list_heap_length",
   >> rpt strip_tac
   >> first_x_assum (assume_tac o GSYM)
   >> fs[gc_move_list_def]
-  >> pairarg_tac >> fs[]
-  >> pairarg_tac >> fs[]
+  >> ntac 2 (pairarg_tac >> fs[])
   >> metis_tac[gc_move_heap_length]);
+
+val gc_move_ref_list_heap_length = Q.store_thm("gc_move_ref_list_heap_length",
+  `!h x state state'.
+   (gc_move_ref_list conf state h = (x,state'))
+    ==> (heap_length state.heap = heap_length state'.heap)`,
+  Induct >- fs[gc_move_ref_list_def] >> Cases
+  >> rpt strip_tac
+  >> first_x_assum (assume_tac o GSYM)
+  >> fs[gc_move_ref_list_def]
+  >> ntac 2 (pairarg_tac >> fs[])
+  >> metis_tac[gc_move_list_heap_length]);
 
 val gc_move_ok = store_thm("gc_move_ok",
   ``(gc_move conf state x = (x',state')) /\ state'.ok /\ (!ptr' u. (x = Pointer ptr' u) ==>  ptr' < heap_length state.heap) ==> state.ok``,
