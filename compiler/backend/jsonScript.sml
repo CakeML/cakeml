@@ -33,12 +33,23 @@ val concat_with_def = Define`
   (concat_with [s] c acc = acc ++ s) /\
   (concat_with (s::ss) c acc = concat_with ss c (acc ++ s ++ c))`;
 
+val escape_def = Define`
+  (escape "" = "")
+  /\
+  (escape (#"\n"::s) = #"\\":: #"n" ::escape s)
+  /\
+  (escape (#"\\"::s) = #"\\":: #"\\" ::escape s)
+  /\
+  (escape (#"\""::s) = #"\\":: #"\"" ::escape s)
+  /\
+  (escape (h::s) = h::escape s)`;
+
 val json_to_string_def = tDefine "json_to_string" `
   (json_to_string obj =
     case obj of
        | Object mems => List "{ " ++ (concat_with (MAP mem_to_string mems) (List ", ") (List "")) ++ List " }"
        | Array obs => List "[ " ++ (concat_with (MAP json_to_string obs) (List ", ") (List "")) ++ List " ]"
-       | String s => List "\"" ++ List s ++ List "\""
+       | String s => List "\"" ++ List (escape s) ++ List "\""
        | Int i => List (int_to_str i)
        | Bool b => if b then List "true" else List "false"
        | Null => List "null")
