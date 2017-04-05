@@ -176,7 +176,7 @@ val array_findi = process_topdecs
       then NONE
     else (if f n (sub arr n)
         then SOME((n, sub arr n))
-      else find_aux f arr max (n + 1))
+      else findi_aux f arr max (n + 1))
 
   fun findi f arr =
     findi_aux f arr (length arr) 0`
