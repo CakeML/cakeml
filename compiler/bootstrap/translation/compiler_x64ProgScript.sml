@@ -189,7 +189,7 @@ val entire_program_def = Define`entire_program = ^prog_tm`;
 val semantics_entire_program =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM entire_program_def]
-  |> CONV_RULE(PATH_CONV"brrr"(SIMP_CONV std_ss [APPEND])) (* remove STRCAT "" *)
+  |> CONV_RULE(PATH_CONV"b"(SIMP_CONV std_ss [APPEND])) (* remove STRCAT "" *)
   |> CONV_RULE(RENAME_VARS_CONV["io_events"])
   |> DISCH_ALL |> GEN_ALL
   |> CONV_RULE(RENAME_VARS_CONV["inp","cls"])
