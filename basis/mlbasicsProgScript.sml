@@ -7,20 +7,20 @@ val _ = new_theory "mlbasicsProg"
 val _ = translation_extends"mlstringProg"
 
 val mk_binop_def = Define `
-  mk_binop name prim = Dlet (Pvar name)
+  mk_binop name prim = Dlet unknown_loc (Pvar name)
     (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
 
 val mk_unop_def = Define `
-  mk_unop name prim = Dlet (Pvar name)
+  mk_unop name prim = Dlet unknown_loc (Pvar name)
     (Fun "x" (App prim [Var (Short "x")]))`;
 
 val _ = append_prog
-  ``[Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
-     Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
-     Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
-     Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
-     Tdec (Dtabbrev [] "word" (Tapp [] TC_word8));
-     Tdec (Dtabbrev [] "char" (Tapp [] TC_char))]``
+  ``[Tdec (Dtabbrev unknown_loc [] "int" (Tapp [] TC_int));
+     Tdec (Dtabbrev unknown_loc [] "unit" (Tapp [] TC_tup));
+     Tdec (Dtabbrev unknown_loc ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
+     Tdec (Dtabbrev unknown_loc [] "exn" (Tapp [] TC_exn));
+     Tdec (Dtabbrev unknown_loc [] "word" (Tapp [] TC_word8));
+     Tdec (Dtabbrev unknown_loc [] "char" (Tapp [] TC_char))]``
 
 
 val _ = trans "+" `(+):int->int->int`

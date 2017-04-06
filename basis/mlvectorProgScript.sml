@@ -7,7 +7,7 @@ val _ = translation_extends "mllistProg";
 
 val _ = ml_prog_update (open_module "Vector");
 
-val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector)`` I);
 
 val _ = trans "fromList" `Vector`
 val _ = trans "length" `length`

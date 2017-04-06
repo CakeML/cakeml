@@ -68,17 +68,24 @@ val word8 = wordsSyntax.mk_int_word_type 8
 val word = wordsSyntax.mk_word_type alpha
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
-val Dtype_x = astSyntax.mk_Dtype (mk_var("x",#1(dom_rng(type_of astSyntax.Dtype_tm))));
-val Dletrec_funs = astSyntax.mk_Dletrec (mk_var("funs",#1(dom_rng(type_of astSyntax.Dletrec_tm))));
+val Dtype_x = astSyntax.mk_Dtype 
+                (``unknown_loc``,
+                 mk_var("x",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm))))));
+val Dletrec_funs = astSyntax.mk_Dletrec
+                    (``unknown_loc``,
+                     mk_var("funs",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dletrec_tm))))));
 val Dexn_n_l =
-  let val args = #1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm)) in
-    astSyntax.mk_Dexn (mk_var("n",el 1 args), mk_var("l",el 2 args))
+  let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm))) in
+    astSyntax.mk_Dexn (``unknown_loc``,mk_var("n",el 1 args), mk_var("l",el 2 args))
   end
 val Dlet_v_x =
-  let val args = #1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm)) in
-    astSyntax.mk_Dlet (mk_var("v",el 1 args), mk_var("x",el 2 args))
+  let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm))) in
+    astSyntax.mk_Dlet (``unknown_loc``,mk_var("v",el 1 args), mk_var("x",el 2 args))
   end
-fun Dtype ls = astSyntax.mk_Dtype(listSyntax.mk_list(ls,listSyntax.dest_list_type(#1(dom_rng(type_of astSyntax.Dtype_tm)))))
+fun Dtype ls = astSyntax.mk_Dtype
+                (``unknown_loc``,
+                listSyntax.mk_list(ls,listSyntax.dest_list_type
+                                        (#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm)))))))
 fun Tapp ls x = astSyntax.mk_Tapp(listSyntax.mk_list(ls,astSyntax.t_ty),x)
 fun mk_store_v ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[ty]}
 val v_store_v = mk_store_v v_ty
@@ -1147,12 +1154,12 @@ fun derive_thms_for_type is_exn_type ty = let
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-    in (astSyntax.mk_Dtype dtype_list,dtype_list) end
+    in (astSyntax.mk_Dtype (``unknown_loc``,dtype_list),dtype_list) end
   val dexn_list = if not is_exn_type then [] else let
     val xs = dtype |> rand |> rator |> rand |> rand |> rand
                    |> listSyntax.dest_list |> fst
                    |> map pairSyntax.dest_pair
-    in map astSyntax.mk_Dexn xs end
+    in map (fn (x,y) => astSyntax.mk_Dexn (``unknown_loc``,x,y)) xs end
   (* cons assumption *)
   fun smart_full_id tyname =
     if is_list_type orelse is_option_type orelse is_pair_type

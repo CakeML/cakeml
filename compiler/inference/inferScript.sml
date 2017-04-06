@@ -588,7 +588,7 @@ val empty_inf_decls = Define `
  (empty_inf_decls = (<|inf_defined_mods := []; inf_defined_types := []; inf_defined_exns := []|>))`;
 
 val infer_d_def = Define `
-(infer_d mn idecls ienv (Dlet p e) =
+(infer_d mn idecls ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e ienv e;
@@ -603,7 +603,7 @@ val infer_d_def = Define `
                 inf_c := nsEmpty;
                 inf_t := nsEmpty |>)
   od) ∧
-(infer_d mn idecls ienv (Dletrec funs) =
+(infer_d mn idecls ienv (Dletrec locs funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      () <- init_state;
      next <- get_next_uvar;
@@ -618,7 +618,7 @@ val infer_d_def = Define `
                 inf_c := nsEmpty;
                 inf_t := nsEmpty |>)
   od) ∧
-(infer_d mn idecls ienv (Dtype tdefs) =
+(infer_d mn idecls ienv (Dtype locs tdefs) =
   do ienvT1 <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
      () <- guard (check_ctor_tenv ienvT2 tdefs) "Bad type definition";
@@ -629,7 +629,7 @@ val infer_d_def = Define `
                 inf_c := build_ctor_tenv mn ienvT2 tdefs;
                 inf_t := ienvT1 |>)
   od) ∧
-(infer_d mn idecls ienv (Dtabbrev tvs tn t) =
+(infer_d mn idecls ienv (Dtabbrev locs tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) "Bad type definition";
      return (empty_inf_decls,
@@ -637,7 +637,7 @@ val infer_d_def = Define `
                 inf_c := nsEmpty;
                 inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>)
   od) ∧
-(infer_d mn idecls ienv (Dexn cn ts) =
+(infer_d mn idecls ienv (Dexn locs cn ts) =
   do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) "Bad exception definition";
      () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) "Duplicate exception definition";
      return (empty_inf_decls with inf_defined_exns:=[mk_id mn cn],

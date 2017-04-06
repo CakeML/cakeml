@@ -13,7 +13,7 @@ val _ = append_decs
    ``[mk_binop "array" Aw8alloc;
       mk_binop "sub" Aw8sub;
       mk_unop "length" Aw8length;
-      Dlet (Pvar "update") (Fun "x" (Fun "y" (Fun "z"
+      Dlet unknown_loc (Pvar "update") (Fun "x" (Fun "y" (Fun "z"
         (App Aw8update [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``
 
 val _ = ml_prog_update (close_module NONE);

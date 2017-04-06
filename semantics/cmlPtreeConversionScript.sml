@@ -441,7 +441,7 @@ val ptree_TypeAbbrevDec_def = Define`
             assert(tokcheck typetok TypeT ∧ tokcheck eqtok EqualsT) ;
             (vars, nm) <- ptree_TypeName tynm;
             typ <- ptree_Type nType typ_pt;
-            SOME(Dtabbrev vars nm typ)
+            SOME(Dtabbrev (SND nt) vars nm typ)
           od
         | _ => NONE
       else NONE
@@ -1181,32 +1181,32 @@ val ptree_Decl_def = Define`
   ptree_Decl pt : dec option =
     dtcase pt of
        Lf _ => NONE
-     | Nd (nt,_) args =>
+     | Nd (nt,locs) args =>
        if nt <> mkNT nDecl then NONE
        else
          dtcase args of
              [dt] =>
              do
                tydec <- ptree_TypeDec dt;
-               SOME (Dtype tydec)
+               SOME (Dtype (locs) tydec)
              od ++ ptree_TypeAbbrevDec dt
            | [funtok; fdecls] =>
              do
                assert(tokcheck funtok FunT);
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (Dletrec fdecs)
+               SOME (Dletrec (locs) fdecs)
              od ++
              do
                assert (tokcheck funtok ExceptionT);
                (enm, etys) <- ptree_Dconstructor fdecls;
-               SOME (Dexn enm etys)
+               SOME (Dexn (locs) enm etys)
              od
            | [valtok; patpt; eqtok; ept] =>
              do
                assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (Dlet pat e)
+               SOME (Dlet (locs) pat e)
              od
            | _ => NONE
 `
@@ -1387,7 +1387,7 @@ val ptree_TopLevelDecs_def = Define`
              assert (tokcheck semitok SemicolonT);
              e <- ptree_Expr nE e_pt;
              tds <- ptree_TopLevelDecs tds_pt;
-             return (Tdec (Dlet (Pvar "it") e) :: tds)
+             return (Tdec (Dlet (SND nt) (Pvar "it") e) :: tds)
            od
          | _ => NONE) ∧
   (ptree_NonETopLevelDecs (Lf _) = fail) ∧

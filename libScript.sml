@@ -137,5 +137,6 @@ val _ = Define `
 (*open import {hol} `locationTheory`*)
 (*type locn = <| row : nat;  col : nat; offset : nat |>*)
 (*type locs = (locn * locn)*)
+(*val unknown_loc : locs*)
 val _ = export_theory()
 

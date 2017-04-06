@@ -240,16 +240,16 @@ val dec_tm = dec1_tm
 
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
-    val (x1,x2) = dest_Dexn dec_tm
+    val (locs,x1,x2) = dest_Dexn dec_tm
     in add_Dexn x1 x2 s end
   else if is_Dtype dec_tm then let
-    val x1 = dest_Dtype dec_tm
+    val (locs,x1) = dest_Dtype dec_tm
     in add_Dtype x1 s end
   else if is_Dtabbrev dec_tm then let
-    val (x1,x2,x3) = dest_Dtabbrev dec_tm
+    val (locs,x1,x2,x3) = dest_Dtabbrev dec_tm
     in add_Dtabbrev x1 x2 x3 s end
   else if is_Dletrec dec_tm then let
-    val x1 = dest_Dletrec dec_tm
+    val (locs,x1) = dest_Dletrec dec_tm
     val prefix = get_mod_prefix s
     fun f str = prefix ^ pick_name str ^ "_v"
     val xs = listSyntax.dest_list x1 |> fst
@@ -258,7 +258,7 @@ fun add_dec dec_tm pick_name s =
   else if is_Dlet dec_tm
           andalso is_Fun (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
-    val (p,f) = dest_Dlet dec_tm
+    val (locs,p,f) = dest_Dlet dec_tm
     val v_tm = dest_Pvar p
     val (w,body) = dest_Fun f
     val prefix = get_mod_prefix s
