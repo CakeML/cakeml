@@ -104,7 +104,10 @@ val res = translate
   (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
 val res = translate presLangTheory.pres_to_json_def;
-val res = translate presLangTheory.mod_to_pres_def;
+
+val res = translate presLangTheory.mod_to_json_def;
+val res = translate presLangTheory.con_to_json_def;
+val res = translate presLangTheory.dec_to_json_def;
 
 (* --- *)
 
