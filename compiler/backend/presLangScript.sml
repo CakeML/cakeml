@@ -214,9 +214,9 @@ val trace_to_json_def = Define`
   (trace_to_json None = Null)`;
 
 val word_size_to_json_def = Define`
-  (word_size_to_json W8 = String "W8")
+  (word_size_to_json W8 = new_obj "W8" [])
   /\
-  (word_size_to_json W64 = String "W64")`;
+  (word_size_to_json W64 = new_obj "W64" [])`;
 
 val opn_to_json_def = Define`
   (opn_to_json Plus = new_obj "Plus" [])
