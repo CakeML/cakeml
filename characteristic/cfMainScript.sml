@@ -13,7 +13,7 @@ val _ = new_theory "cfMain";
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
-  ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 

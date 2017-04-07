@@ -268,77 +268,77 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))`;
 
 (* The set tid_or_exn part of the state tracks all of the types and exceptions
  * that have been declared *)
-val _ = Hol_reln ` (! ck mn env p e v env' s1 s2.
+val _ = Hol_reln ` (! ck mn env p e v env' s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch env.c s2.refs p v [] = Match env'))
 ==>
-evaluate_dec ck mn env s1 (Dlet p e) (s2, Rval <| v := (alist_to_ns env'); c := nsEmpty |>))
+evaluate_dec ck mn env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c := nsEmpty |>))
 
-/\ (! ck mn env p e v s1 s2.
+/\ (! ck mn env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch env.c s2.refs p v [] = No_match))
 ==>
-evaluate_dec ck mn env s1 (Dlet p e) (s2, Rerr (Rraise Bindv)))
+evaluate_dec ck mn env s1 (Dlet locs p e) (s2, Rerr (Rraise Bindv)))
 
-/\ (! ck mn env p e v s1 s2.
+/\ (! ck mn env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
 (pmatch env.c s2.refs p v [] = Match_type_error))
 ==>
-evaluate_dec ck mn env s1 (Dlet p e) (s2, Rerr (Rabort Rtype_error)))
+evaluate_dec ck mn env s1 (Dlet locs p e) (s2, Rerr (Rabort Rtype_error)))
 
-/\ (! ck mn env p e s.
+/\ (! ck mn env p e s locs.
 (~ (ALL_DISTINCT (pat_bindings p [])))
 ==>
-evaluate_dec ck mn env s (Dlet p e) (s, Rerr (Rabort Rtype_error)))
+evaluate_dec ck mn env s (Dlet locs p e) (s, Rerr (Rabort Rtype_error)))
 
-/\ (! ck mn env p e err s s'.
+/\ (! ck mn env p e err s s' locs.
 (evaluate ck env s e (s', Rerr err) /\
 ALL_DISTINCT (pat_bindings p []))
 ==>
-evaluate_dec ck mn env s (Dlet p e) (s', Rerr err))
+evaluate_dec ck mn env s (Dlet locs p e) (s', Rerr err))
 
-/\ (! ck mn env funs s.
+/\ (! ck mn env funs s locs.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
 ==>
-evaluate_dec ck mn env s (Dletrec funs) (s, Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>))
+evaluate_dec ck mn env s (Dletrec locs funs) (s, Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>))
 
-/\ (! ck mn env funs s.
+/\ (! ck mn env funs s locs.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
 ==>
-evaluate_dec ck mn env s (Dletrec funs) (s, Rerr (Rabort Rtype_error)))
+evaluate_dec ck mn env s (Dletrec locs funs) (s, Rerr (Rabort Rtype_error)))
 
-/\ (! ck mn env tds s new_tdecs.
+/\ (! ck mn env tds s new_tdecs locs.
 (check_dup_ctors tds /\
 (new_tdecs = type_defs_to_new_tdecs mn tds) /\
 DISJOINT new_tdecs s.defined_types /\
 ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))
 ==>
-evaluate_dec ck mn env s (Dtype tds) (( s with<| defined_types := (new_tdecs UNION s.defined_types) |>), Rval <| v := nsEmpty; c := (build_tdefs mn tds) |>))
+evaluate_dec ck mn env s (Dtype locs tds) (( s with<| defined_types := (new_tdecs UNION s.defined_types) |>), Rval <| v := nsEmpty; c := (build_tdefs mn tds) |>))
 
-/\ (! ck mn env tds s.
+/\ (! ck mn env tds s locs.
 (~ (check_dup_ctors tds) \/
 (~ (DISJOINT (type_defs_to_new_tdecs mn tds) s.defined_types) \/
 ~ (ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))))
 ==>
-evaluate_dec ck mn env s (Dtype tds) (s, Rerr (Rabort Rtype_error)))
+evaluate_dec ck mn env s (Dtype locs tds) (s, Rerr (Rabort Rtype_error)))
 
-/\ (! ck mn env tvs tn t s.
+/\ (! ck mn env tvs tn t s locs.
 T
 ==>
-evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval <| v := nsEmpty; c := nsEmpty |>))
+evaluate_dec ck mn env s (Dtabbrev locs tvs tn t) (s, Rval <| v := nsEmpty; c := nsEmpty |>))
 
-/\ (! ck mn env cn ts s.
+/\ (! ck mn env cn ts s locs.
 (~ (TypeExn (mk_id mn cn) IN s.defined_types))
 ==>
-evaluate_dec ck mn env s (Dexn cn ts) (( s with<| defined_types := ({TypeExn (mk_id mn cn)} UNION s.defined_types) |>), Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn))) |>))
+evaluate_dec ck mn env s (Dexn locs cn ts) (( s with<| defined_types := ({TypeExn (mk_id mn cn)} UNION s.defined_types) |>), Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn))) |>))
 
-/\ (! ck mn env cn ts s.
+/\ (! ck mn env cn ts s locs.
 (TypeExn (mk_id mn cn) IN s.defined_types)
 ==>
-evaluate_dec ck mn env s (Dexn cn ts) (s, Rerr (Rabort Rtype_error)))`;
+evaluate_dec ck mn env s (Dexn locs cn ts) (s, Rerr (Rabort Rtype_error)))`;
 
 val _ = Hol_reln ` (! ck mn env s.
 T
@@ -420,11 +420,11 @@ val _ = Define `
 val _ = Define `
  (dec_diverges env st d=  
  ((case d of
-      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.ffi) e
-    | Dletrec funs => F
-    | Dtype tds => F
-    | Dtabbrev tvs tn t => F
-    | Dexn cn ts => F
+      Dlet locs p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.ffi) e
+    | Dletrec locs funs => F
+    | Dtype locs tds => F
+    | Dtabbrev locs tvs tn t => F
+    | Dexn locs cn ts => F
   )))`;
 
 

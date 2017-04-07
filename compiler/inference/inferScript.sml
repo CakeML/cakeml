@@ -588,29 +588,29 @@ val empty_inf_decls = Define `
  (empty_inf_decls = (<|inf_defined_mods := []; inf_defined_types := []; inf_defined_exns := []|>))`;
 
 val infer_d_def = Define `
-(infer_d mn idecls ienv (Dlet p e) =
+(infer_d mn idecls ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
-     t1 <- infer_e NONE ienv e;
-     (t2,env') <- infer_p NONE ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) NONE "Duplicate pattern variable";
-     () <- add_constraint NONE t1 t2;
+     t1 <- infer_e (SOME locs) ienv e;
+     (t2,env') <- infer_p (SOME locs) ienv p;
+     () <- guard (ALL_DISTINCT (MAP FST env')) (SOME locs) "Duplicate pattern variable";
+     () <- add_constraint (SOME locs) t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
-     () <- guard (num_tvs = 0 ∨ is_value e) NONE "Value restriction violated";
+     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) "Value restriction violated";
      return (empty_inf_decls,
              <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                 inf_c := nsEmpty;
                 inf_t := nsEmpty |>)
   od) ∧
-(infer_d mn idecls ienv (Dletrec funs) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) NONE "Duplicate function name";
+(infer_d mn idecls ienv (Dletrec locs funs) =
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) "Duplicate function name";
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
-     funs_ts <- infer_funs NONE (ienv with inf_v:= env') funs;
-     () <- add_constraints NONE uvars funs_ts;
+     funs_ts <- infer_funs (SOME locs) (ienv with inf_v:= env') funs;
+     () <- add_constraints (SOME locs) uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      return (empty_inf_decls,
@@ -618,28 +618,29 @@ val infer_d_def = Define `
                 inf_c := nsEmpty;
                 inf_t := nsEmpty |>)
   od) ∧
-(infer_d mn idecls ienv (Dtype tdefs) =
+(infer_d mn idecls ienv (Dtype locs tdefs) =
   do ienvT1 <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     () <- guard (check_ctor_tenv ienvT2 tdefs) NONE "Bad type definition";
+     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs) "Bad type definition";
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
-     () <- guard (EVERY (\new_id. ~MEM new_id idecls.inf_defined_types) new_tdecls) NONE "Duplicate type definition";
+     () <- guard (EVERY (\new_id. ~MEM new_id idecls.inf_defined_types)
+     new_tdecls) (SOME locs) "Duplicate type definition";
      return (empty_inf_decls with inf_defined_types := new_tdecls,
              <| inf_v := nsEmpty;
                 inf_c := build_ctor_tenv mn ienvT2 tdefs;
                 inf_t := ienvT1 |>)
   od) ∧
-(infer_d mn idecls ienv (Dtabbrev tvs tn t) =
-  do () <- guard (ALL_DISTINCT tvs) NONE "Duplicate type variables";
-     () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) NONE "Bad type definition";
+(infer_d mn idecls ienv (Dtabbrev locs tvs tn t) =
+  do () <- guard (ALL_DISTINCT tvs) (SOME locs) "Duplicate type variables";
+     () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) (SOME locs) "Bad type definition";
      return (empty_inf_decls,
              <| inf_v := nsEmpty;
                 inf_c := nsEmpty;
                 inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>)
   od) ∧
-(infer_d mn idecls ienv (Dexn cn ts) =
-  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) NONE "Bad exception definition";
-     () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) NONE "Duplicate exception definition";
+(infer_d mn idecls ienv (Dexn locs cn ts) =
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) (SOME locs) "Bad exception definition";
+     () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) (SOME locs) "Duplicate exception definition";
      return (empty_inf_decls with inf_defined_exns:=[mk_id mn cn],
              <| inf_v := nsEmpty;
                 inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, TypeExn (mk_id mn cn));

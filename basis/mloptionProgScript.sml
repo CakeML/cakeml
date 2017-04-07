@@ -7,7 +7,7 @@ val _ = new_theory"mloptionProg"
 val _ = translation_extends"std_prelude"
 val _ = ml_prog_update (open_module "Option");
 
-val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
 
 val result = translate getOpt_def;
 

@@ -770,7 +770,7 @@ val _ = Define `
  (decs_to_types ds=  
  (FLAT (MAP (\ d . 
         (case d of
-            Dtype tds => MAP (\ (tvs,tn,ctors) .  tn) tds
+            Dtype locs tds => MAP (\ (tvs,tn,ctors) .  tn) tds
           | _ => [] ))
      ds)))`;
 
