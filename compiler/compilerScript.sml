@@ -12,7 +12,7 @@ val _ = Datatype`
      ; backend_config : α backend$config
      |>`;
 
-val _ = Datatype`compile_error = ParseError | TypeError locs string | CompileError`;
+val _ = Datatype`compile_error = ParseError | TypeError (locs option) string | CompileError`;
 
 val compile_def = Define`
   compile c prelude input =
