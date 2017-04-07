@@ -154,7 +154,7 @@ fun add_Dtype tds_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dtype th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtype th
-  val th = SPEC tds_tm th |> prove_assum_by_eval
+  val th = SPECL [tds_tm,``unknown_loc``] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
             (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
@@ -169,7 +169,7 @@ fun add_Dexn n_tm l_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dexn th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dexn th
-  val th = SPECL [n_tm,l_tm] th |> prove_assum_by_eval
+  val th = SPECL [n_tm,l_tm,``unknown_loc``] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
             (SIMP_CONV std_ss [write_tds_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                                APPEND,namespaceTheory.mk_id_def]))
@@ -179,7 +179,7 @@ fun add_Dtabbrev l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dtabbrev th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dtabbrev th
-  val th = SPECL [l1_tm,l2_tm,l3_tm] th
+  val th = SPECL [l1_tm,l2_tm,l3_tm,``unknown_loc``] th
   in clean (ML_code (ss,envs,vs,th)) end
 
 fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
@@ -188,7 +188,7 @@ fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
            MATCH_MP ML_code_SOME_Dlet_var th
   val th = MATCH_MP th eval_thm
            handle HOL_ERR _ => failwith "add_Dlet eval_thm does not match"
-  val th = th |> SPEC (stringSyntax.fromMLstring var_str)
+  val th = th |> SPECL [stringSyntax.fromMLstring var_str,``unknown_loc``]
   in clean (ML_code (ss,envs,v_thms @ vs,th)) end
 
 (*
@@ -200,7 +200,7 @@ fun add_Dlet_Fun n v exp v_name (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dlet_Fun th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dlet_Fun th
-  val th = SPECL [n,v,exp] th
+  val th = SPECL [n,v,exp,``unknown_loc``] th
   val tm = th |> concl |> rator |> rand |> rator |> rand
   val v_def = define_abbrev false v_name tm
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
@@ -218,7 +218,7 @@ fun add_Dletrec funs v_names (ML_code (ss,envs,vs,th)) = let
   val th = MATCH_MP ML_code_NONE_Dletrec th
            handle HOL_ERR _ =>
            MATCH_MP ML_code_SOME_Dletrec th
-  val th = SPEC funs th |> prove_assum_by_eval
+  val th = SPECL [funs,``unknown_loc``] th |> prove_assum_by_eval
   val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
                   (SIMP_CONV std_ss [write_rec_def,FOLDR,
                     semanticPrimitivesTheory.build_rec_env_def]))
@@ -240,16 +240,16 @@ val dec_tm = dec1_tm
 
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
-    val (locs,x1,x2) = dest_Dexn dec_tm
+    val (_,x1,x2) = dest_Dexn dec_tm
     in add_Dexn x1 x2 s end
   else if is_Dtype dec_tm then let
-    val (locs,x1) = dest_Dtype dec_tm
+    val (_,x1) = dest_Dtype dec_tm
     in add_Dtype x1 s end
   else if is_Dtabbrev dec_tm then let
-    val (locs,x1,x2,x3) = dest_Dtabbrev dec_tm
+    val (_,x1,x2,x3) = dest_Dtabbrev dec_tm
     in add_Dtabbrev x1 x2 x3 s end
   else if is_Dletrec dec_tm then let
-    val (locs,x1) = dest_Dletrec dec_tm
+    val (_,x1) = dest_Dletrec dec_tm
     val prefix = get_mod_prefix s
     fun f str = prefix ^ pick_name str ^ "_v"
     val xs = listSyntax.dest_list x1 |> fst
@@ -258,7 +258,7 @@ fun add_dec dec_tm pick_name s =
   else if is_Dlet dec_tm
           andalso is_Fun (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
-    val (locs,p,f) = dest_Dlet dec_tm
+    val (_,p,f) = dest_Dlet dec_tm
     val v_tm = dest_Pvar p
     val (w,body) = dest_Fun f
     val prefix = get_mod_prefix s

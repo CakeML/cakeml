@@ -484,7 +484,7 @@ val ML_code_close_module = Q.store_thm("ML_code_close_module",
 
 val ML_code_NONE_Dtype = Q.store_thm("ML_code_NONE_Dtype",
   `ML_code env1 s1 prog NONE env2 s2 ==>
-    !tds.
+    !tds locs.
       check_dup_ctors tds ∧
       DISJOINT (type_defs_to_new_tdecs [] tds) s2.defined_types ∧
       ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds) ==>
@@ -498,7 +498,7 @@ val ML_code_NONE_Dtype = Q.store_thm("ML_code_NONE_Dtype",
 
 val ML_code_SOME_Dtype = Q.store_thm("ML_code_SOME_Dtype",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !tds.
+    !tds locs.
       check_dup_ctors tds ∧ no_dup_types (SNOC (Dtype locs tds) ds) /\
       DISJOINT (type_defs_to_new_tdecs [mn] tds) s2.defined_types ∧
       ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds) ==>
@@ -514,7 +514,7 @@ val ML_code_SOME_Dtype = Q.store_thm("ML_code_SOME_Dtype",
 
 val ML_code_NONE_Dexn = Q.store_thm("ML_code_NONE_Dexn",
   `ML_code env1 s1 prog NONE env2 s2 ==>
-    !n l.
+    !n l locs.
       TypeExn (mk_id [] n) ∉ s2.defined_types ==>
       ML_code env1 s1 (SNOC (Tdec (Dexn locs n l)) prog) NONE
         (write_exn [] n l env2)
@@ -525,7 +525,7 @@ val ML_code_NONE_Dexn = Q.store_thm("ML_code_NONE_Dexn",
 
 val ML_code_SOME_Dexn = Q.store_thm("ML_code_SOME_Dexn",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !n l.
+    !n l locs.
       TypeExn (mk_id [mn] n) ∉ s2.defined_types ==>
       ML_code env1 s1 prog (SOME (mn,SNOC (Dexn locs n l) ds,env))
         (write_exn [mn] n l env2)
@@ -541,14 +541,14 @@ val ML_code_SOME_Dexn = Q.store_thm("ML_code_SOME_Dexn",
 
 val ML_code_NONE_Dtabbrev = Q.store_thm("ML_code_NONE_Dtabbrev",
   `ML_code env1 s1 prog NONE env2 s2 ==>
-    !x y z.
+    !x y z locs.
       ML_code env1 s1 (SNOC (Tdec (Dtabbrev locs x y z)) prog) NONE env2 s2`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dtabbrev,
       merge_env_empty_env]);
 
 val ML_code_SOME_Dtabbrev = Q.store_thm("ML_code_SOME_Dtabbrev",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !x y z.
+    !x y z locs.
       ML_code env1 s1 prog (SOME (mn,SNOC (Dtabbrev locs x y z) ds,env)) env2 s2`,
   fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Prog_Tdec,Decls_Dtabbrev]
   \\ rw [] \\ asm_exists_tac \\ fs [no_dup_types_def,  decs_to_types_def]
@@ -565,7 +565,7 @@ val build_rec_env_APPEND = Q.prove(
 
 val ML_code_NONE_Dletrec = Q.store_thm("ML_code_NONE_Dletrec",
   `ML_code env1 s1 prog NONE env2 s2 ==>
-    !fns.
+    !fns locs.
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
       ML_code env1 s1 (SNOC (Tdec (Dletrec locs fns)) prog) NONE
         (write_rec fns (merge_env env2 env1) env2) s2`,
@@ -576,7 +576,7 @@ val ML_code_NONE_Dletrec = Q.store_thm("ML_code_NONE_Dletrec",
 
 val ML_code_SOME_Dletrec = Q.store_thm("ML_code_SOME_Dletrec",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !fns.
+    !fns locs.
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
       ML_code env1 s1 prog (SOME (mn,SNOC (Dletrec locs fns) ds,env))
         (write_rec fns (merge_env env2 (merge_env env env1)) env2) s2`,
@@ -593,7 +593,7 @@ val ML_code_NONE_Dlet_var = Q.store_thm("ML_code_NONE_Dlet_var",
   `ML_code env1 s1 prog NONE env2 s2 ==>
     !e x s3.
       evaluate F (merge_env env2 env1) s2 e (s3,Rval x) ==>
-      !n.
+      !n locs.
         ML_code env1 s1 (SNOC (Tdec (Dlet locs (Pvar n) e)) prog)
           NONE (write n x env2) s3`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet]
@@ -605,7 +605,7 @@ val ML_code_SOME_Dlet_var = Q.store_thm("ML_code_SOME_Dlet_var",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
     !e x s3.
       evaluate F (merge_env env2 (merge_env env env1)) s2 e (s3,Rval x) ==>
-      !n.
+      !n locs.
         ML_code env1 s1 prog (SOME (mn,SNOC (Dlet locs (Pvar n) e) ds,env))
           (write n x env2) s3`,
   fs [ML_code_def,SNOC_APPEND,Prog_APPEND,Prog_Tdec,Decls_Dlet,Decls_SNOC]
@@ -617,7 +617,7 @@ val ML_code_SOME_Dlet_var = Q.store_thm("ML_code_SOME_Dlet_var",
 
 val ML_code_NONE_Dlet_Fun = Q.store_thm("ML_code_NONE_Dlet_Fun",
   `ML_code env1 s1 prog NONE env2 s2 ==>
-    !n v e.
+    !n v e locs.
       ML_code env1 s1 (SNOC (Tdec (Dlet locs (Pvar n) (Fun v e))) prog)
         NONE (write n (Closure (merge_env env2 env1) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_NONE_Dlet_var |> MP_CANON) \\ fs []
@@ -625,7 +625,7 @@ val ML_code_NONE_Dlet_Fun = Q.store_thm("ML_code_NONE_Dlet_Fun",
 
 val ML_code_SOME_Dlet_Fun = Q.store_thm("ML_code_SOME_Dlet_Fun",
   `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-    !n v e.
+    !n v e locs.
       ML_code env1 s1 prog (SOME (mn,SNOC (Dlet locs (Pvar n) (Fun v e)) ds,env))
         (write n (Closure (merge_env env2 (merge_env env env1)) v e) env2) s2`,
   rw [] \\ match_mp_tac (ML_code_SOME_Dlet_var |> MP_CANON) \\ fs []
