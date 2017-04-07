@@ -45,7 +45,7 @@ list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
  * 'c is the type of exceptions *)
 
 val _ = Datatype `
-  exc = Success 'a | Failure (locs option) 'b`;
+  exc = Success 'a | Failure 'b`;
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
@@ -54,7 +54,7 @@ val st_ex_bind_def = Define `
   λs.
     dtcase x s of
       (Success y,s) => f y s
-    | (Failure e l,s) => (Failure e l,s)`;
+    | (Failure x,s) => (Failure x,s)`;
 
 val st_ex_return_def = Define `
 (st_ex_return (*: α -> (β, α, γ) M*)) x =
@@ -66,7 +66,7 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val failwith_def = Define `
-(failwith : locs option -> α -> (β, γ, α) M) l msg = (\s. (Failure l msg, s))`;
+(failwith : locs option -> α -> (β, γ, (locs option # α)) M) l msg = (\s. (Failure (l, msg), s))`;
 
 val guard_def = Define `
 guard P l msg = if P then return () else failwith l msg`;
@@ -86,7 +86,7 @@ val id_to_string_def = Define `
 val lookup_st_ex_def = Define `
   lookup_st_ex l id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure l (id_to_string id), st)
+    | NONE => (Failure (l,id_to_string id), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -116,11 +116,11 @@ init_state =
     (Success (), init_infer_state)`;
 
 val add_constraint_def = Define `
-add_constraint l t1 t2 =
+add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure l ("Type mismatch between " ++ inf_type_to_string t1 ++ " and " ++ inf_type_to_string t2), st)
+          (Failure (l, "Type mismatch between " ++ inf_type_to_string t1 ++ " and " ++ inf_type_to_string t2), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -742,7 +742,7 @@ val check_tscheme_inst_def = Define `
     in
     dtcase M init_infer_state of
     | (Success _, _) => T
-    | _ => F `;
+    | (Failure _, _) => F `;
 
 val check_weak_ienv_def = Define `
   check_weak_ienv ienv_impl ienv_spec ⇔
@@ -797,9 +797,9 @@ val infertype_prog_def = Define`
   infertype_prog c prog =
     dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
     | Success (new_decls, new_ienv) =>
-        SOME ( <| inf_decls := append_decls new_decls c.inf_decls
+        Success ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
-    | _ => NONE`;
+    | Failure x => Failure x`;
 
 
 open primTypesTheory

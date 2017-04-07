@@ -12,7 +12,7 @@ val _ = Datatype`
      ; backend_config : α backend$config
      |>`;
 
-val _ = Datatype`compile_error = ParseError | TypeError | CompileError`;
+val _ = Datatype`compile_error = ParseError | TypeError locs string | CompileError`;
 
 val compile_def = Define`
   compile c prelude input =
@@ -20,8 +20,8 @@ val compile_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | NONE => Failure TypeError
-       | SOME ic =>
+       | Failure (locs, msg) => Failure (TypeError locs msg)
+       | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
           | SOME (bytes,limit) => Success (bytes,limit)`;
