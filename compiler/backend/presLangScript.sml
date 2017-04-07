@@ -306,7 +306,7 @@ val op_to_json_def = Define`
   /\
   (op_to_json (Ast Chr) = new_obj "Chr" [])
   /\
-  (op_to_json (Ast (Chopb opb)) = new_obj "Chopb" [("op", opb_to_json opb)])
+  (op_to_json (Ast (Chopb opb)) = new_obj "Chopb" [("opb", opb_to_json opb)])
   /\
   (op_to_json (Ast Implode) = new_obj "Implode" [])
   /\
