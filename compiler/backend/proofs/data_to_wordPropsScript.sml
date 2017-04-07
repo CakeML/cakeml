@@ -636,7 +636,7 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
       (gen_gc (make_gc_conf limit) (roots,heap) = (roots2,state2)) /\
       abs_ml_inv conf stack refs
         (roots2,state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
-         state2.a,state2.n,0,gens) limit`,
+         state2.a,state2.n,0,gens) limit /\ state2.ok`,
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
   \\ `heap_ok heap cc.limit` by fs [Abbr `cc`]
@@ -654,6 +654,23 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
     \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def])
   THEN1 (fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []));
+
+val gc_combined_thm = Q.store_thm("gc_combined_thm",
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+    ?roots2 heap2 gens2 n2 a2.
+      (gc_combined (make_gc_conf limit) conf.gc_kind (roots,heap,gens) =
+         (roots2,heap2,a2,n2,gens2,T)) /\
+      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit`,
+  Cases_on `conf.gc_kind` \\ fs [gc_combined_def]
+  THEN1
+   (fs [make_gc_conf_def] \\ fs [abs_ml_inv_def]
+    \\ fs [unused_space_inv_def,gc_kind_inv_def])
+  THEN1
+   (pairarg_tac \\ fs [] \\ strip_tac
+    \\ drule (GEN_ALL full_gc_thm) \\ fs [make_gc_conf_def]
+    \\ strip_tac \\ rveq \\ fs [])
+  \\ pairarg_tac \\ fs [] \\ strip_tac
+  \\ drule (GEN_ALL gen_gc_thm) \\ fs []);
 
 (* Write to unused heap space is fine, e.g. cons *)
 

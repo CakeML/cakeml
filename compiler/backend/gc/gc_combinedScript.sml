@@ -11,10 +11,10 @@ val gc_combined_def = Define `
     (roots,heap,conf.limit,0,gs,T) /\
   gc_combined conf Simple (roots,heap,gs) =
     (let (roots,heap,a,c) = full_gc (roots,heap,conf.limit) in
-       (roots,heap,a,conf.limit-a,gs,c)) /\
+       (roots,heap ++ heap_expand (conf.limit-a),a,conf.limit-a,gs,c)) /\
   gc_combined conf (Generational limits) (roots,heap,gs) =
     (let (roots,state) = gen_gc conf (roots,heap) in
        (roots, state.h1 ++ heap_expand state.n ++ state.r1,
-        state.n, state.a, gs, state.ok))`
+        state.a, state.n, gs, state.ok))`
 
 val _ = export_theory();
