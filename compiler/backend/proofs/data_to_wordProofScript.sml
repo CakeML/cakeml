@@ -3496,6 +3496,13 @@ val word_gen_gc_partial_def = Define `
                                  (new,i,pa,curr,m,dm,gs,rs) in
       (roots,i,pa,m,c2 /\ c3)`
 
+val word_gen_gc_partial_full_def = Define `
+  word_gen_gc_partial_full conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
+    let (roots,i,pa,m,c1) = word_gen_gc_partial conf (roots,curr,new,len,m,dm,gs,rs) in
+    let cpy_length = pa - new in
+    let (b1,m,c2) = memcpy cpy_length new gs m dm in
+     (roots,i,b1,m,c1 /\ c2)`
+
 val gc_move_ref_list_IMP = prove (
   ``!conf state refs state1 refs1.
     (gc_move_ref_list conf state refs = (refs1,state1)) ==>
@@ -3570,15 +3577,15 @@ val word_gen_gc_partial_thm = Q.prove(
      word_list_exists new (gen_conf.refs_start - gen_conf.gen_start) *
      frame) (fun2set (m,dm)) /\ good_dimindex (:'a) ==>
     ?xs1 current1 refs1.
-      (word_heap curr (s1.old ++ current1 ++ s1.r1) conf *
-       word_heap new (s1.h1 ++ s1.h2) conf *
-       word_list (new + bytes_in_word * n2w(heap_length(s1.h1 ++ s1.h2))) xs1 *
+     (word_heap curr (s1.old ++ current1 ++ s1.r1) conf *
+       word_heap new s1.h1 conf *
+       word_list (new + bytes_in_word * n2w(heap_length(s1.h1))) xs1 *
        frame) (fun2set (m1,dm)) /\
       s1.h2 = [] /\ s1.r4 = [] /\ s1.r3 = [] /\ s1.r2 = [] /\
       roots1' = MAP (word_addr conf) roots1 /\
       heap_length s1.heap = heap_length heap /\
       heap_segment (gen_conf.gen_start,gen_conf.refs_start) s1.heap = SOME(s1.old,current1,refs1) /\
-      c1 /\ (i1 = n2w s1.a) /\
+      c1 /\ (i1 = n2w s1.a) /\ pa1 = new + bytes_in_word * n2w (heap_length s1.h1) /\
       s1.n = LENGTH xs1 /\ partial_len_inv s1 /\
       EVERY (is_Ref gen_conf.isRef) s1.r1`,
   rpt gen_tac \\ once_rewrite_tac [gen_gc_partialTheory.partial_gc_def]
@@ -3677,7 +3684,7 @@ val word_gen_gc_partial_thm = Q.prove(
   \\ qpat_abbrev_tac `a1 = gc_move_data _ _`
   \\ drule heap_segment_IMP \\ impl_tac THEN1 fs[]
   \\ disch_then (assume_tac o GSYM)
-  \\ fs[heap_length_APPEND,word_heap_APPEND]
+  \\ fs[heap_length_APPEND,word_heap_APPEND,word_heap_def,SEP_CLAUSES]
   \\ rfs[heap_length_APPEND,word_heap_APPEND]
   \\ fs[AC STAR_ASSOC STAR_COMM]
   \\ qexists_tac `xs1''` \\ fs[]
