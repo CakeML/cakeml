@@ -1567,7 +1567,7 @@ val gen_gc_ok = store_thm("gen_gc_ok",
       (gen_gc conf (roots:'a heap_address list,heap) =
         (roots',state)) /\
       state.ok /\
-      (* state.a + state.r <= conf.limit /\ *)
+      (state.a = heap_length state.h1) /\
       roots_ok roots' heap' /\
       heap_ok heap' conf.limit``,
   rpt strip_tac

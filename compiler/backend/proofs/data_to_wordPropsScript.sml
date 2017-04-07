@@ -625,6 +625,36 @@ val full_gc_thm = Q.store_thm("full_gc_thm",
     \\ full_simp_tac std_ss [] \\ metis_tac [])
   \\ fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []);
 
+val make_gc_conf_def = Define `
+  make_gc_conf limit =
+    <| limit := limit; isRef := \x. FST x = RefTag |>
+        : (tag # 'a) gen_gc$gen_gc_conf`
+
+val gen_gc_thm = Q.store_thm("gen_gc_thm",
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+    ?roots2 state2.
+      (gen_gc (make_gc_conf limit) (roots,heap) = (roots2,state2)) /\
+      abs_ml_inv conf stack refs
+        (roots2,state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
+         state2.a,state2.n,0,gens) limit`,
+  simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
+  \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
+  \\ `heap_ok heap cc.limit` by fs [Abbr `cc`]
+  \\ drule gen_gcTheory.gen_gc_related
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ drule gen_gcTheory.gen_gc_ok
+  \\ disch_then drule \\ strip_tac \\ fs [] \\ rveq \\ fs []
+  \\ `cc.limit = limit` by fs [Abbr`cc`] \\ fs []
+  \\ reverse (rpt conj_tac) THEN1
+   (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
+    \\ qexists_tac `heap` \\ full_simp_tac std_ss []
+    \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+  THEN1
+   (fs [unused_space_inv_def] \\ fs [heap_expand_def]
+    \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+    \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def])
+  THEN1 (fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []));
+
 (* Write to unused heap space is fine, e.g. cons *)
 
 val heap_store_def = Define `
