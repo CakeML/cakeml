@@ -3740,9 +3740,10 @@ val word_gen_gc_partial_full_thm = Q.prove(
 
 val word_gc_fun_assum_def = Define `
   word_gc_fun_assum (conf:data_to_word$config) (s:store_name |-> 'a word_loc) <=>
-    {Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s /\
+    {Globals; CurrHeap; OtherHeap; HeapLength; TriggerGC} SUBSET FDOM s /\
     isWord (s ' OtherHeap) /\
     isWord (s ' CurrHeap) /\
+    isWord (s ' TriggerGC) /\
     isWord (s ' HeapLength) /\
     good_dimindex (:'a) /\
     conf.len_size <> 0 /\

@@ -1464,7 +1464,93 @@ fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
         (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
 
-val alloc_correct_lemma = Q.store_thm("alloc_correct_lemma",
+val filter_bitmap_map_bitmap_IMP = prove(
+  ``!x ws q r x' q' q'' r''.
+      filter_bitmap x ws = SOME (q,r) /\
+      map_bitmap x (q ++ x') ws = SOME (q',q'',r'') ==>
+      q'' = x' /\ r = r'' /\ ws = q' ++ r``,
+  Induct \\ fs [filter_bitmap_def,map_bitmap_def]
+  \\ Cases \\ Cases
+  \\ fs [filter_bitmap_def,map_bitmap_def]
+  \\ every_case_tac \\ fs [map_bitmap_def]
+  \\ rw [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ res_tac \\ rveq \\ fs []);
+
+val enc_dec_stack = prove(
+  ``!bs ys2 x1 x2.
+      enc_stack bs ys2 = SOME x1 /\
+      dec_stack bs x1 ys2 = SOME x2 ==>
+      (ys2 = x2)``,
+  ho_match_mp_tac enc_stack_ind
+  \\ fs [enc_stack_def] \\ rw []
+  \\ rw [] \\ fs [dec_stack_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ ntac 5 (TOP_CASE_TAC \\ fs [])
+  \\ strip_tac \\ rveq
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ drule filter_bitmap_map_bitmap_IMP
+  \\ fs [] \\ strip_tac \\ rveq \\ fs []
+  \\ pop_assum drule \\ fs [] \\ rw []
+  \\ res_tac \\ rveq \\ fs []);
+
+val alloc_correct_lemma_None = Q.store_thm("alloc_correct_lemma_None",
+  `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+    s.gc_fun = word_gc_fun conf /\ conf.gc_kind = None /\
+    LENGTH s.bitmaps < dimword (:'a) - 1 /\
+    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    FLOOKUP l 0 = SOME ret /\
+    FLOOKUP l 1 = SOME (Word w) ==>
+    ?ck l2.
+      evaluate
+        (word_gc_code conf,
+         s with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              clock := s.clock + ck; regs := l; gc_fun := anything;
+              code := fromAList (compile c (toAList s.code))|>) =
+        (r,
+         t with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              code := fromAList (compile c (toAList s.code));
+              regs := l2; gc_fun := anything |>) /\
+       (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
+       t.regs SUBMAP l2 /\
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`,
+  Cases_on `conf.gc_kind = None` \\ fs []
+  \\ fs [word_gc_fun_def,word_gc_code_def] \\ rw []
+  \\ qpat_x_assum `alloc w s = (r,t)` mp_tac
+  \\ fs [alloc_def,gc_def,set_store_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rveq \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ strip_tac \\ rveq
+  \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
+  \\ IF_CASES_TAC \\ strip_tac \\ fs [] \\ rveq \\ fs []
+  \\ fs [list_Seq_def,evaluate_def,word_gc_fun_assum_def,
+       list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
+       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,FAPPLY_FUPDATE_THM,
+       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+  \\ fs [labSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
+  \\ fs [state_component_equality,FAPPLY_FUPDATE_THM]
+  \\ Cases_on `s.store ' CurrHeap` \\ fs [isWord_def,theWord_def]
+  \\ Cases_on `s.store ' NextFree` \\ fs [isWord_def,theWord_def]
+  \\ Cases_on `s.store ' TriggerGC` \\ fs [isWord_def,theWord_def]
+  \\ fs [empty_env_def,finite_mapTheory.SUBMAP_FEMPTY]
+  \\ fs [NOT_LESS]
+  \\ drule LESS_EQ_LENGTH
+  \\ strip_tac \\ fs []
+  \\ pop_assum (assume_tac o GSYM) \\ fs []
+  \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
+  \\ imp_res_tac enc_dec_stack \\ fs []);
+
+val alloc_correct_lemma_Simple = Q.store_thm("alloc_correct_lemma_Simple",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
@@ -1592,9 +1678,36 @@ val alloc_correct_lemma = Q.store_thm("alloc_correct_lemma",
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
   \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []);
 
-val alloc_correct_Simple = Q.prove(
+val alloc_correct_lemma = Q.store_thm("alloc_correct_lemma",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
-    s.gc_fun = word_gc_fun c /\ c.gc_kind = Simple /\
+    s.gc_fun = word_gc_fun conf /\
+    LENGTH s.bitmaps < dimword (:'a) - 1 /\
+    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    FLOOKUP l 0 = SOME ret /\
+    FLOOKUP l 1 = SOME (Word w) ==>
+    ?ck l2.
+      evaluate
+        (word_gc_code conf,
+         s with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              clock := s.clock + ck; regs := l; gc_fun := anything;
+              code := fromAList (compile c (toAList s.code))|>) =
+        (r,
+         t with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              code := fromAList (compile c (toAList s.code));
+              regs := l2; gc_fun := anything |>) /\
+       (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
+       t.regs SUBMAP l2 /\
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`,
+  Cases_on `conf.gc_kind`
+  THEN1 metis_tac [alloc_correct_lemma_None]
+  THEN1 metis_tac [alloc_correct_lemma_Simple]
+  THEN1 cheat);
+
+val alloc_correct = Q.prove(
+  `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+    s.gc_fun = word_gc_fun c /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     FLOOKUP l 1 = SOME (Word w) ==>
@@ -1619,29 +1732,6 @@ val alloc_correct_Simple = Q.prove(
   \\ fs [FLOOKUP_UPDATE] \\ strip_tac
   \\ qexists_tac `ck+1` \\ fs []
   \\ Cases_on `r` \\ fs [state_component_equality]);
-
-val alloc_correct = Q.prove(
-  `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
-    s.gc_fun = word_gc_fun c /\
-    LENGTH s.bitmaps < dimword (:'a) - 1 /\
-    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
-    FLOOKUP l 1 = SOME (Word w) ==>
-    ?ck l2.
-       evaluate
-          (Call (SOME (Skip,0,n',m)) (INL gc_stub_location) NONE,
-           s with
-           <| use_store := T; use_stack := T; use_alloc := F;
-              use_alloc := F; clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
-         (r,
-          t with
-           <| use_store := T; use_stack := T; use_alloc := F;
-              use_alloc := F; code := fromAList (compile c (toAList s.code));
-              regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2`,
-  Cases_on `c.gc_kind`
-  THEN1 cheat
-  THEN1 metis_tac [alloc_correct_Simple]
-  THEN1 cheat);
 
 val find_code_IMP_lookup = Q.prove(
   `find_code dest regs (s:'a num_map) = SOME x ==>
