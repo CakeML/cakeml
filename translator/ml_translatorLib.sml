@@ -3,7 +3,7 @@ struct
 
 open HolKernel boolLib bossLib;
 
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory namespaceTheory;
 open terminationTheory stringLib astSyntax semanticPrimitivesSyntax;
 open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
@@ -270,7 +270,8 @@ end
 
 fun full_id n =
   case get_curr_module_name () of
-    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,n)
+    (* Single-level module *)
+    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,astSyntax.mk_Short n)
   | NONE => astSyntax.mk_Short n
 
 
@@ -710,14 +711,17 @@ fun tag_name type_name const_name =
     val name = if y = "" then upper_case_hd x else upper_case_hd y
     val write_cons_pat =
       write_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator
-    val taken_names = EVAL (get_curr_env ())
-       |> concl |> rand |> find_terms (can (match_term write_cons_pat))
-       |> map (stringSyntax.fromHOLstring o rand o rator)
+    fun is_taken_name name =
+      (lookup_cons_def
+        |> SPEC (stringSyntax.fromMLstring name)
+        |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
+        |> EVAL |> concl |> rand
+        |> optionSyntax.is_some)
     fun find_unique name n =
-      if not (mem name taken_names) then name else
-      if not (mem (name ^ "_" ^ int_to_string n) taken_names) then
-        name ^ "_" ^ int_to_string n
-      else find_unique name (n+1)
+      if not (is_taken_name name) then name else let
+        val new_name = name ^ "_" ^ int_to_string n
+        in if not (is_taken_name new_name) then new_name else
+           find_unique name (n+1) end
     in find_unique name 1 end;
 
 val last_def_fail = ref T
@@ -819,14 +823,30 @@ fun list_dest f tm =
   val is_exn_type = false
 *)
 
+fun tys_is_pair_type tys =
+  (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
+fun tys_is_list_type tys =
+  (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
+fun tys_is_option_type tys =
+  (case tys of [ty] => optionSyntax.is_option ty | _ => false)
+fun tys_is_unit_type tys =
+  (case tys of [ty] => ty = oneSyntax.one_ty | _ => false)
+fun tys_is_order_type tys =
+  (case tys of [ty] => let val r = dest_thy_type ty in #Thy r = "toto" andalso #Tyop r = "cpn" end | _ => false)
+val unit_tyname = stringSyntax.fromMLstring "unit"
+val order_tyname = stringSyntax.fromMLstring "order"
+
 fun define_ref_inv is_exn_type tys = let
-  val is_pair_type =
-    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
-  val is_list_type =
-    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
-  val is_option_type =
-    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
-  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
+  val is_pair_type = tys_is_pair_type tys
+  val is_list_type = tys_is_list_type tys
+  val is_option_type = tys_is_option_type tys
+  val is_unit_type = tys_is_unit_type tys
+  val is_order_type = tys_is_order_type tys
+  fun smart_full_name_of_type ty =
+    if is_unit_type then "unit" else
+    if is_order_type then "order" else
+    full_name_of_type ty
+  fun get_name ty = clean_uppercase (smart_full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
   fun list_mk_type [] ret_ty = ret_ty
@@ -834,15 +854,18 @@ fun define_ref_inv is_exn_type tys = let
   val cases_thms = map (SPEC_ALL o get_nchotomy_of) tys |> LIST_CONJ
                    |> rename_bound_vars_rule "x_" |> CONJUNCTS
   val all = zip names (zip tys cases_thms) |> map (fn (x,(y,z)) => (x,y,z))
+
+  val tmp_v_var = genvar v_ty
+  val real_v_var = mk_var("v",v_ty)
   fun mk_lhs (name,ty,case_th) = let
     val xs = map rand (find_terms is_eq (concl case_th))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
     val vars = type_vars ty
     val ss = map get_type_inv vars
     val input = mk_var("input",ty)
-    val ml_ty_name = full_name_of_type ty
+    val ml_ty_name = smart_full_name_of_type ty
     val def_name = mk_var(name,list_mk_type (ss @ [input]) (v_ty --> bool))
-    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,mk_var("v",v_ty)])
+    val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,tmp_v_var])
     in (ml_ty_name,xs,ty,lhs,input) end
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
@@ -870,15 +893,15 @@ fun define_ref_inv is_exn_type tys = let
             (if is_exn_type then tag else ml_ty_name)
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,v_ty)
       val tyi = if is_exn_type then mk_TypeExn else mk_TypeId
-      val tag_tm = if is_pair_type then
+      val tag_tm = if is_pair_type orelse is_unit_type then
                      optionSyntax.mk_none(pairSyntax.mk_prod(
                        stringSyntax.string_ty, tid_or_exn_ty))
                    else if is_list_type orelse is_option_type then
                      optionSyntax.mk_some(pairSyntax.mk_pair(str,
                        mk_TypeId(astSyntax.mk_Short str_ty_name)))
                    else optionSyntax.mk_some(pairSyntax.mk_pair(str, tyi(full_id str_ty_name)))
-      val tm = mk_conj(mk_eq(mk_var("v", v_ty),
-                            mk_Conv(tag_tm, vs)),tm)
+      val tm = mk_conj(mk_eq(tmp_v_var,
+                             mk_Conv(tag_tm, vs)),tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
       (* val vs = filter (fn x => x <> def_name) (free_vars tm) *)
@@ -896,6 +919,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     val def_tm = list_mk_conj zs
     val def_tm = QCONV (REWRITE_CONV [rw_lemmas]) def_tm |> concl |> rand
     in def_tm end
+
   val size_def = snd (TypeBase.size_of (hd tys))
   fun right_list_dest f tm =
     let val (x,y) = f tm
@@ -918,7 +942,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val tac =
     (WF_REL_TAC [QUOTE ("measure (" ^ build_measure tys ^ ")")]
      \\ REPEAT STRIP_TAC
-     \\ IMP_RES_TAC v_size_lemmas \\ TRY DECIDE_TAC
+     (*TODO: \\ IMP_RES_TAC v_size_lemmas*)
+     \\ TRY DECIDE_TAC
      \\ TRY (PAT_X_ASSUM MEM_pat (fn th =>
               ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
      \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
@@ -928,16 +953,24 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 *)
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
+                if is_unit_type then UNIT_TYPE_def else
                 if is_option_type then OPTION_TYPE_def else
                   tDefine name [ANTIQUOTE def_tm] tac
+  val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
+                  if not (is_abs tm) then NO_CONV tm else
+                  if fst (dest_abs tm) = tmp_v_var then ALPHA_CONV real_v_var tm
+                  else NO_CONV tm))
+  val inv_def = inv_def |> clean_rule
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
+          if is_unit_type then inv_def else
           if is_option_type then inv_def else
             save_thm(name ^ "_def",inv_def)
-  val ind = fetch "-" (name ^ "_ind")
-            handle HOL_ERR _ => TypeBase.induction_of (hd tys)
+  val ind = fetch "-" (name ^ "_ind") |> clean_rule
+            handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
+
 (*
   val inv_def = tDefine name [ANTIQUOTE def_tm] ALL_TAC
 *)
@@ -1050,9 +1083,25 @@ val ty = ``:num option``; derive_thms_for_type false ty
 val is_exn_type = false;
 *)
 
+fun avoid_v_subst ty = let
+  val tyargs = (ty::find_mutrec_types ty) |> map type_vars |> List.concat |> map dest_vartype
+  fun prime_v v =
+    if exists (curry op = v) tyargs then
+      prime_v (v^"w")
+    else
+      v
+  in
+    if exists (curry op = "'v") tyargs then
+      [mk_vartype "'v" |-> mk_vartype(prime_v "'w")]
+    else
+      []
+  end
+
 fun derive_thms_for_type is_exn_type ty = let
+  val tsubst = avoid_v_subst ty;
+  val ty = type_subst tsubst ty;
   val (_,tyargs) = dest_type ty
-  val (ty_pre,ret_ty_pre) = dest_fun_type (type_of_cases_const ty)
+  val (ty_pre,ret_ty_pre) = dest_fun_type (type_subst tsubst (type_of_cases_const ty))
   val (_,gen_tyargs) = dest_type ty_pre
   fun inst_fcp_types (x::xs) (y::ys) ty =
     if is_vartype y andalso fcpSyntax.is_numeric_type x
@@ -1066,14 +1115,13 @@ fun derive_thms_for_type is_exn_type ty = let
   val ty = inst_fcp_types ty_pre
   val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
-  val tys_pre = find_mutrec_types ty
+  val tys_pre = find_mutrec_types ty |> map (type_subst tsubst)
   val tys = map inst_fcp_types tys_pre
-  val is_pair_type =
-    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
-  val is_list_type =
-    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
-  val is_option_type =
-    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
+  val is_pair_type = tys_is_pair_type tys
+  val is_list_type = tys_is_list_type tys
+  val is_option_type = tys_is_option_type tys
+  val is_unit_type = tys_is_unit_type tys
+  val is_order_type = tys_is_order_type tys
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
@@ -1091,7 +1139,12 @@ fun derive_thms_for_type is_exn_type ty = let
                                         y |> list_dest dest_exists |> last
                                           |> list_dest dest_conj |> hd
                                           |> rand |> rator |> rand |> rand))
-      val tyname = ys |> hd |> snd |> rand |> rand |> rand
+      (* TODO: assumes single level module only *)
+      val tyname =
+        if is_order_type then order_tyname else
+        if is_unit_type then unit_tyname else
+          ys |> hd |> snd |> rand |> rand |>
+          (fn id => if astSyntax.is_Short id then rand id else (rand o rand) id)
       val ys = map (fn (x,y) => (y |> rator |> rand,
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
@@ -1119,7 +1172,10 @@ fun derive_thms_for_type is_exn_type ty = let
   (* cons assumption *)
   fun smart_full_id tyname =
     if is_list_type orelse is_option_type orelse is_pair_type
-    then astSyntax.mk_Short tyname else full_id tyname
+    then astSyntax.mk_Short tyname
+    else if is_order_type then astSyntax.mk_Short order_tyname
+    else if is_unit_type then astSyntax.mk_Short unit_tyname
+    else full_id tyname
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
@@ -1145,7 +1201,7 @@ fun derive_thms_for_type is_exn_type ty = let
 *)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
-    val cases_th = TypeBase.case_def_of ty
+    val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
@@ -1274,7 +1330,7 @@ fun derive_thms_for_type is_exn_type ty = let
           \\ SIMP_TAC bool_ss [PULL_EXISTS]
           \\ first_assum(part_match_exists_tac (hd o strip_conj) o concl)
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
-                  lookup_cons_thm,same_tid_def,id_to_n_def,
+                  lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
@@ -1345,13 +1401,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
           o SPEC rprev) THEN
         mk_witness (n+1) (listSyntax.mk_append(rprev,rnext)) (rnext::rs) (vnext::acc)
       end
+    (*set_goal([],goal)*)
     val lemma = prove(goal,
       SIMP_TAC std_ss [Eval_def]
       \\ rpt (disch_then strip_assume_tac)
       \\ X_GEN_TAC refs
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
-           (*all_env_to_cenv_def,*)lookup_cons_thm,build_conv_def,id_to_n_def,
+           (*all_env_to_cenv_def,*)lookup_cons_def,build_conv_def,id_to_n_def,
            state_component_equality]
       \\ (if List.null xs then ALL_TAC else mk_witness 1 refs [] [])
       \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
@@ -1556,7 +1613,7 @@ fun inst_case_thm tm hol2deep = let
     val (z1,z2) = dest_imp (concl lemma)
     val thz =
       QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP,
-               lookup_var_write] THENC
+                 lookup_var_write] THENC
              DEPTH_CONV stringLib.string_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
@@ -1652,6 +1709,26 @@ fun prove_EvalPatRel goal hol2deep = let
   (*
     set_goal(asms,goal)
   *)
+  fun tac2 (asms,concl) =
+    (let
+        val pmatch_asm = can (match_term (get_term "pmatch_eq_Match_type_error"))
+        val v = List.find pmatch_asm asms |> valOf |> lhs |> rator |> rand
+        val asm = List.find
+                      (fn asm =>
+                          (asm |> free_vars |> List.exists (term_eq v))
+                          andalso
+                          not(is_eq asm)
+                      )
+                      asms |> valOf
+        val vname = asm |> rator |> rand |> dest_var |> fst
+        val {Name,Thy,Ty} = asm |> strip_comb |> fst |> dest_thy_const
+        val thm = fetch Thy (Name^"_def")
+    in
+        Cases_on [QUOTE vname]
+                 >> rfs [thm]
+                 >> rfs []
+                 >> rfs [pmatch_def,same_ctor_def,id_to_n_def]
+    end (asms,concl)) handle Option => raise(ERR "tac2" "No matching assumption found")
   val th = TAC_PROOF((asms,goal),
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
@@ -1660,13 +1737,15 @@ fun prove_EvalPatRel goal hol2deep = let
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
     \\ REPEAT STRIP_TAC \\ fs [] >>
     fs[Once evaluate_cases] >>
-    fs[lookup_cons_thm] >>
+    fs[(*lookup_cons_thm*) lookup_cons_def] >>
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
     fs[Once evaluate_cases] >>
     rw[] >> simp[Once evaluate_cases] >>
-    fs [build_conv_def,do_con_check_def])
+    fs [build_conv_def,do_con_check_def] >>
+    fs [Once evaluate_cases] >> every_case_tac >>
+    rpt (CHANGED_TAC (every_case_tac >> TRY(fs[] >> NO_TAC) >> tac2)))
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -1694,35 +1773,72 @@ fun prove_EvalPatBind goal hol2deep = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
-  val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs' |> mlibUseful.setify
+  val new_goal = goal |> subst [mk_var("e",astSyntax.exp_ty)|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
+  fun tac (asms,goal) = let
+    fun is_TYPE tm = let
+      val (args,ret) = strip_fun(type_of tm)
+    in not(null args) andalso ret = type_of T andalso last args = v_ty end
+    fun types tm = let
+      val (rator,rands) = strip_comb tm
+    in
+      if is_TYPE rator then
+          rator :: List.concat(map types rands)
+      else []
+    end
+    val relevant_asms = List.filter (is_TYPE o fst o strip_comb) asms
+    val consts = map types relevant_asms |> List.concat |> filter is_const |> map dest_thy_const
+    val thms = map (fn {Name,Thy,Ty} => [fetch Thy (Name^"_def")] handle _ => []) consts |> List.concat
+  in
+    REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC (length vs) STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ Ho_Rewrite.REWRITE_TAC [GSYM LIST_TYPE_SIMP']
+    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+                      |> map (REWRITE_RULE [CONTAINER_def]))
+    \\ Ho_Rewrite.REWRITE_TAC ([GSYM LIST_TYPE_SIMP'] |> map (REWRITE_RULE [CONTAINER_def]))
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+    \\ TRY STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+  end (asms,goal)
+  fun find_equality_type_thm tm =
+    first (can (C match_term tm) o rand o snd o strip_imp o concl) (eq_lemmas())
+  fun tac2 (asms,concl) = (asms,concl) |>
+    (if is_PRECONDITION concl then
+      METIS_TAC []
+    else if is_EqualityType concl then
+      ACCEPT_TAC (find_equality_type_thm (rand concl))
+    else if can(match_term (get_term "PreImp_Eval")) concl then
+      METIS_TAC [CONTAINER_def]
+    else ALL_TAC)
+  fun tac3 (asms,concl) = (asms,concl) |>
+    (if is_exists concl andalso
+        can (match_term (get_term "evaluate_pat")) (snd(dest_abs(rand concl)))
+     then
+       fs[Once evaluate_cases,Once Eval_def,INT_def]
+       >> EVAL_TAC
+     else ALL_TAC)
   (*
     set_goal([],new_goal)
   *)
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
-    \\ fsrw_tac[][FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ ((MATCH_MP_TAC (SIMP_RULE(srw_ss())[FORALL_PROD](D res)) handle HOL_ERR _ => NO_TAC)
-        ORELSE (MATCH_MP_TAC (D res))) \\ fsrw_tac[][]
+    \\ full_simp_tac std_ss [FORALL_PROD] \\ REPEAT STRIP_TAC
+    \\ (MATCH_MP_TAC (D res) ORELSE
+        MATCH_MP_TAC (D(res |> SIMP_RULE (std_ss) [FORALL_PROD])))
+    \\ fsrw_tac[][]
     \\ fsrw_tac[][EvalPatBind_def,Pmatch_def]
-    \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC (length vs) STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    \\ STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ fsrw_tac[][Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]
-    (*
-    \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
-      \\ SRW_TAC [] [Eval_Var_SIMP]
-      \\ EVAL_TAC \\ NO_TAC)
-    *)
+    \\ tac
     \\ BasicProvers.EVERY_CASE_TAC \\ fsrw_tac[][]
     \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    \\ fsrw_tac[][GSYM FORALL_PROD]
-    \\ EVAL_TAC)
+    \\ TRY tac3
+    \\ fsrw_tac[][GSYM FORALL_PROD,(*lookup_var_id_def,*)lookup_cons_def,LIST_TYPE_IF_ELIM]
+    \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
+    \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -2203,6 +2319,7 @@ val builtin_monops =
    Eval_length,
    Eval_vector,
    Eval_int_of_num,
+   Eval_num_of_int,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL
@@ -2267,6 +2384,12 @@ fun preprocess_def def = let
     in def end;
   val defs = map rephrase_def defs
   val ind = if is_rec andalso is_NONE ind then SOME (find_ind_thm (hd defs)) else ind
+  (* TODO: This performs e.g.special <| |> rewrites that are also applied to defs in the rephrase step to the induction theorem so that they match up *)
+  fun rephrase_ind th = let
+    val th = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,
+                num_case_thm] @ get_preprocessor_rws()) th
+    in th end;
+  val ind = case ind of SOME ind => SOME (rephrase_ind ind) | NONE => ind
   fun option_apply f NONE = NONE | option_apply f (SOME x) = SOME (f x)
   val mem_intro_rule = PURE_REWRITE_RULE [MEMBER_INTRO]
   val (defs,ind) = if not (!use_mem_intro) then (defs,ind) else
@@ -2309,7 +2432,7 @@ fun inst_Eval_env v th = let
   val c1 = ((RATOR_CONV o RAND_CONV) (REWRITE_CONV [ASSUME assum]))
   val th = thx |> D |> CONV_RULE c1 |> DISCH assum
                |> INST [old_env|->new_env]
-               |> PURE_REWRITE_RULE [lookup_cons_write,lookup_var_id_write]
+               |> PURE_REWRITE_RULE [lookup_cons_write,lookup_var_write,nsLookup_write]
                |> CONV_RULE c
   val new_assum = fst (dest_imp (concl th))
   val th1 = th |> UNDISCH_ALL
@@ -2401,14 +2524,19 @@ fun move_Eval_conv tm =
     else NO_CONV tm
   end
 
+(*
+val th = D res
+*)
+
 fun clean_assumptions th = let
-  val lhs1 = lookup_var_id_def |> SPEC_ALL |> concl |> dest_eq |> fst
+  val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
-  val lhs2 = lookup_cons_thm |> SPEC_ALL |> concl |> dest_eq |> fst
+  val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
   val lemmas = map EVAL lookup_assums
+
                |> filter (fn th => th |> concl |> rand |> is_const)
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
@@ -2419,10 +2547,10 @@ fun clean_assumptions th = let
   val pattern = get_term "lookup_cons"
   val lookup_cons_assums = find_terms (can (match_term pattern)) (concl th)
   val th = REWRITE_RULE (map ASSUME lookup_cons_assums) th
-  (* lift lookup_var_id out *)
-  val pattern = get_term "lookup_var_id"
-  val lookup_var_id_assums = find_terms (can (match_term pattern)) (concl th)
-  val th = REWRITE_RULE (map ASSUME lookup_var_id_assums) th
+  (* lift nsLookup out *)
+  val pattern = get_term "nsLookup"
+  val nsLookup_assums = find_terms (can (match_term pattern)) (concl th)
+  val th = REWRITE_RULE (map ASSUME nsLookup_assums) th
   (* lift Eval out *)
   val th1 = th |> REWRITE_RULE [GSYM PreImpEval_def]
   val th2 = CONV_RULE (QCONV (LAND_CONV (ONCE_DEPTH_CONV move_Eval_conv))) th1
@@ -2521,6 +2649,7 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_lsl tm then Eval_word_lsl else
   if wordsSyntax.is_word_lsr tm then Eval_word_lsr else
   if wordsSyntax.is_word_asr tm then Eval_word_asr else
+  if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
 
 (*
@@ -2721,6 +2850,8 @@ fun hol2deep tm =
     val lemma = dest_word_shift tm |> SPEC n |> SIMP_RULE std_ss [LET_THM]
     val th1 = hol2deep (tm |> rator |> rand)
     val result = MATCH_MP lemma th1
+                   |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                   |> REWRITE_RULE []
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_shift" tm result end else
   (* $& o f *)
@@ -3070,16 +3201,17 @@ fun translate_main translate register_type def = (let
       val _ = is_const tm orelse raise (UnableToTranslate tm)
       val _ = translate ((!find_def_for_const) tm)
       in loop info end
+
 (*
-val _ = map (fn (fname,lhs,_,_) => install_rec_pattern lhs fname) info
-val (fname,lhs,rhs,def) = el 1 info
+val _ = map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
+val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
   val thms = loop info
   val _ = print ("Translating " ^ msg ^ "\n")
   (* postprocess raw certificates *)
 (*
-val (fname,th,def) = hd thms
+val (fname,ml_fname,th,def) = hd thms
 *)
   fun optimise_and_abstract (fname,ml_fname,th,def) = let
     (* replace rhs with lhs *)
@@ -3188,6 +3320,58 @@ val (fname,ml_fname,def,th,v) = hd thms
           POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
     val pres = map (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
 
+    fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
+      let
+        val (asms',concl) = strip_imp concl
+        val asms = asms'@asms
+        fun is_ineq t = is_neg t andalso is_eq(rand t)
+        fun is_disj_of_ineq t = all is_ineq (strip_disj t)
+        fun is_all_disj_of_ineq t = is_disj_of_ineq(snd(strip_forall t))
+        val var_equalities =
+            map strip_conj asms
+            |> List.concat
+            |> filter is_eq
+            |> filter (is_var o lhs)
+            |> filter (is_var o rhs)
+        fun eq_closure l [] = l
+          | eq_closure l (f::r) =
+            let val (lhs,rhs) = (lhs f, rhs f) in
+              if List.exists (fn x => term_eq lhs x) l then
+                eq_closure (insert rhs l) r
+              else if List.exists (fn x => term_eq rhs x) l then
+                eq_closure (insert lhs l) r
+              else
+                eq_closure l r
+            end
+        fun case_split_vars (l,r) =
+          if can (match_term r) l then
+            match_term r l
+            |> fst
+            |> filter (fn {residue,...} => not(is_var residue))
+            |> map (fn {redex,...} => redex)
+          else if is_comb r andalso
+                  not(TypeBase.is_constructor(fst(strip_comb r))) then
+            [r]
+          else
+            []
+      in
+        case List.find is_all_disj_of_ineq asms of
+            NONE => tac
+          | SOME asm =>
+            let val asm' = snd(strip_forall asm)
+                val disjuncts = strip_disj asm'
+                val lsrs = map (dest_eq o rand) disjuncts
+                val vars =
+                    map case_split_vars lsrs
+                    |> filter (not o null)
+                    |> map hd
+                    |> mlibUseful.setify
+            in
+              case vars of
+                  [] => tac
+                | l => foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
+            end
+      end
     (*
       set_goal([],goal)
     *)
@@ -3254,6 +3438,18 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ METIS_TAC [])
+      handle HOL_ERR e =>
+        auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ POP_MP_TACs
+        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
+        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
+        \\ rpt(split_ineq_orelse_tac(metis_tac [])))
     val results = UNDISCH lemma |> CONJUNCTS |> map SPEC_ALL
 (*
 val (th,(fname,def,_,pre)) = hd (zip results thms)
@@ -3315,7 +3511,7 @@ fun translate def =
         val lemmas = LOOKUP_VAR_def :: map GSYM v_defs
         val th = th |> ii |> jj |> D |> REWRITE_RULE lemmas
                     |> SIMP_RULE std_ss [Eval_Var]
-                    |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                    |> SIMP_RULE std_ss [lookup_var_def]
                     |> clean_assumptions |> UNDISCH_ALL
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = add_v_thms (fname,ml_fname,th,pre_def)
@@ -3428,7 +3624,7 @@ fun prove_Eval_assumptions th =
         val th1 =
           (ONCE_DEPTH_CONV(
             REWR_CONV Eval_Var THENC
-            PURE_REWRITE_CONV[lookup_var_eq_lookup_var_id] THENC
+            PURE_REWRITE_CONV[(*lookup_var_eq_lookup_var_id*)] THENC
             QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
         val const =
           th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
@@ -3481,7 +3677,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
@@ -3501,7 +3697,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [lookup_var_eq_lookup_var_id]
+                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
@@ -3655,8 +3851,6 @@ fun mltDefine name q tac = let
 TODO:
  - ensure datatypes defined in modules can be used outside a module
    (the type thms need to be reproved)
-
- val def =  sortingTheory.QSORT_DEF
 
 *)
 

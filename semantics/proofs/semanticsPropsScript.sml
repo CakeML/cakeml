@@ -78,6 +78,15 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
   >- tac1
   >- tac1);
 
+val semantics_prog_Terminate_not_Fail = Q.store_thm("semantics_prog_Terminate_not_Fail",
+  `semantics_prog s e p (Terminate x y) ⇒
+    ¬semantics_prog s e p Fail ∧
+    semantics_prog s e p = {Terminate x y}`,
+  rpt strip_tac
+  \\ simp[FUN_EQ_THM]
+  \\ imp_res_tac semantics_prog_deterministic \\ fs[]
+  \\ metis_tac[semantics_prog_deterministic]);
+
 val state_invariant_def = Define`
   state_invariant st ⇔
   ?ctMap tenvS. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap tenvS st.tenv`;

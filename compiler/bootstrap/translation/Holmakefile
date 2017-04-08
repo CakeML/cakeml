@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../translator ../../inference ../../inference/proofs ../../parsing ../../backend ../.. ../../targets/x64 $(HOLDIR)/examples/l3-machine-code/x64/model ../../targets/mips $(HOLDIR)/examples/l3-machine-code/mips/model ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../io ../../../basis ../../eval/x64 ../../../explorer/pp/astPP
+INCLUDES = ../../.. ../../../translator ../../../characteristic ../../inference ../../inference/proofs ../../parsing ../../backend ../.. ../../encoders/x64 $(HOLDIR)/examples/l3-machine-code/x64/model ../../encoders/mips $(HOLDIR)/examples/l3-machine-code/mips/model ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis ../../eval/targets ../../../explorer/pp/astPP
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

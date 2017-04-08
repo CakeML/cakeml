@@ -19,3 +19,4 @@ type token =
 | AlphaT of string
 | SymbolT of string
 | LongidT of string * string
+| FFIT of string

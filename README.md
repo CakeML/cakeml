@@ -26,7 +26,7 @@ Contains the beginnings of a standard basis library for CakeML,
 similar to the standard basis library of SML.
 
 [build-instructions.sh](build-instructions.sh):
-This script installs Poly/ML, HOL and CakeML.
+This file describes how to install Poly/ML, HOL and CakeML.
 
 [candle](candle):
 Verification of a HOL theorem prover, based on HOL Light

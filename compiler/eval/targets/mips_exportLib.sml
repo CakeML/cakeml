@@ -13,7 +13,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
        (*"     pushq   %rax"::*)
        "     j     cake_back_ffi" ^ ffi::
        "     .p2align 3"::
-       "":: ffi_asm ffis end
+       "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
    "",
@@ -72,7 +72,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
 
 fun cake_tail_lines ffi_names = let
   fun ffi_asm [] = []
-    | ffi_asm (ffi::ffis) = 
+    | ffi_asm (ffi::ffis) =
        ("cake_back_ffi" ^ ffi ^ ":") ::
        (*"     pushq   %rax"::*)
        "     dla $t9, cdecl(ffi" ^ ffi ^ ")"::
@@ -124,7 +124,7 @@ fun cake_lines stack_mb heap_mb ffi_names bytes_tm =
   cake_tail_lines ffi_names;
 
 fun write_cake_S stack_mb heap_mb ffi_names bytes_tm filename = let
-  val lines = cake_lines stack_mb heap_mb ffi_names bytes_tm
+  val lines = cake_lines stack_mb heap_mb (List.rev ffi_names) bytes_tm
   val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)

@@ -128,9 +128,9 @@ val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
     (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
   fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
 
-val x64_conf_ok = Q.prove(`
+val x64_conf_ok = Q.store_thm("x64_conf_ok",`
   conf_ok x64_compiler_config x64_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_machine_config_def,x64_backend_correct]
   >- names_tac
   >-
@@ -151,16 +151,16 @@ val x64_conf_ok = Q.prove(`
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC)
-  >>
+    \\ rveq \\ fs [] \\ EVAL_TAC)>>
+  rpt (pop_assum mp_tac) >>
   fs[markerTheory.Abbrev_def]>>EVAL_TAC>>fs[]);
 
 val arm6_machine_config_def = Define`
   arm6_machine_config = <|target:= arm6_target ; len_reg:=1  ; ptr_reg := 0 ; callee_saved_regs := [8;10;11]|>`
 
-val arm6_conf_ok = Q.prove(`
+val arm6_conf_ok = Q.store_thm("arm6_conf_ok",`
   conf_ok arm_compiler_config arm6_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
   >- names_tac
   >-
@@ -168,47 +168,44 @@ val arm6_conf_ok = Q.prove(`
     TRY(EVAL_TAC>>fs[]>>
     fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]>> NO_TAC)>>
     fs[stack_removeTheory.max_stack_alloc_def]
-    >-
-      ntac 128 (
-      Cases_on`n`
-      >-
-        (EVAL_TAC>>
-        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
-      Cases_on`n'`
-      >-
-        (EVAL_TAC>>
-        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
-      >>
-      fs[ADD1])
-    >-
-      ntac 128 (
-      Cases_on`n`
-      >-
-        (EVAL_TAC>>
-        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))>>
-      Cases_on`n'`
-      >-
-        (EVAL_TAC>>
-        rpt(fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]))
-      >>
-      fs[ADD1])
-    >>
-    fs [stack_removeTheory.store_offset_def,
-        stack_removeTheory.store_pos_def]
+    >- (simp [arm6_machine_config_def, arm6_targetTheory.arm6_target_def,
+              arm6_targetTheory.arm6_config_def,
+              arm6_targetTheory.valid_immediate_def,
+              armTheory.EncodeARMImmediate_def,
+              Once (GSYM wordsTheory.word_mul_n2w)]
+        \\ qabbrev_tac `w = n2w n : word32`
+        \\ `w <=+ 255w` by simp [Abbr `w`, wordsTheory.word_ls_n2w]
+        \\ NTAC 16
+             (simp [Once armTheory.EncodeARMImmediate_aux_def]
+              \\ rw [boolTheory.COND_RAND])
+        \\ blastLib.FULL_BBLAST_TAC)
+    >- (simp [arm6_machine_config_def, arm6_targetTheory.arm6_target_def,
+              arm6_targetTheory.arm6_config_def,
+              arm6_targetTheory.valid_immediate_def,
+              armTheory.EncodeARMImmediate_def,
+              Once (GSYM wordsTheory.word_mul_n2w)]
+        \\ qabbrev_tac `w = n2w n : word32`
+        \\ `w <=+ 255w` by simp [Abbr `w`, wordsTheory.word_ls_n2w]
+        \\ NTAC 16
+             (simp [Once armTheory.EncodeARMImmediate_aux_def]
+              \\ rw [boolTheory.COND_RAND])
+        \\ blastLib.FULL_BBLAST_TAC)
+    \\ fs [stack_removeTheory.store_offset_def,
+           stack_removeTheory.store_pos_def]
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC)
-  >>
+    \\ rveq \\ fs [] \\ EVAL_TAC)>>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>fs[]);
 
 val arm8_machine_config_def = Define`
   arm8_machine_config = <|target:= arm8_target ; len_reg:=1  ; ptr_reg := 0 ; callee_saved_regs := [27;28;29]|>`
 
-val arm8_conf_ok = Q.prove(`
+val arm8_conf_ok = Q.store_thm("arm8_conf_ok",`
   conf_ok arm8_compiler_config arm8_machine_config`,
-  simp[conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
   >- names_tac
   >-
@@ -245,8 +242,9 @@ val arm8_conf_ok = Q.prove(`
     \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
-    \\ rveq \\ fs [] \\ EVAL_TAC \\ cheat (* false *))
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);
@@ -254,9 +252,9 @@ val arm8_conf_ok = Q.prove(`
 val riscv_machine_config_def = Define`
   riscv_machine_config = <|target:= riscv_target; len_reg:= 11 ; ptr_reg :=10 ; callee_saved_regs := [25;26;27]|>`
 
-val riscv_conf_ok = Q.prove(`
+val riscv_conf_ok = Q.store_thm("riscv_conf_ok",`
   conf_ok riscv_compiler_config riscv_machine_config`,
-  simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_machine_config_def,riscv_backend_correct]
   >- names_tac
   >-
@@ -295,6 +293,7 @@ val riscv_conf_ok = Q.prove(`
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
+  rpt (pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);
@@ -302,9 +301,9 @@ val riscv_conf_ok = Q.prove(`
 val mips_machine_config_def = Define`
   mips_machine_config = <|target:= mips_target; len_reg:=5  ; ptr_reg := 4 ; callee_saved_regs := [21;22;23]|>`
 
-val mips_conf_ok = Q.prove(`
+val mips_conf_ok = Q.store_thm("mips_conf_ok",`
   conf_ok mips_compiler_config mips_machine_config`,
-  simp[conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
+  simp[conf_ok_def,lower_conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
   >- names_tac
   >-
@@ -343,6 +342,7 @@ val mips_conf_ok = Q.prove(`
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   >>
+  rpt(pop_assum mp_tac)>>
   fs[markerTheory.Abbrev_def]>>
   EVAL_TAC>>
   fs[]);

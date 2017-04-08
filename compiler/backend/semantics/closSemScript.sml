@@ -1,11 +1,18 @@
-open preamble closLangTheory conLangTheory
+open preamble closLangTheory conLangTheory backend_commonTheory
+open semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
 
-(* differs from store_v by removing the single value Refv *)
+(* differs from store_v by removing the single value Refv,
+   also, adds flag to ByteArray for equality semantics *)
 val _ = Datatype `
   ref = ValueArray ('a list)
-      | ByteArray (word8 list)`
+      | ByteArray bool (word8 list)`
+               (* T = compare-by-contents, immutable
+                  F = compare-by-pointer, mutable *)
+(* in closLang all are ByteArray F,
+   ByteArray T introduced in BVL to implement ByteVector *)
+
 
 (* --- Semantics of ClosLang --- *)
 
@@ -14,6 +21,7 @@ val _ = Datatype `
     Number int
   | Word64 word64
   | Block num (v list)
+  | ByteVector (word8 list)
   | RefPtr num
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
@@ -54,6 +62,10 @@ val do_eq_def = tDefine "do_eq" `
                              do_eq_list xs ys
                            else Eq_val F
           | _ => Eq_type_error)
+     | ByteVector cs =>
+         (case y of
+          | ByteVector ds => Eq_val (cs = ds)
+          | _ => Eq_type_error)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
@@ -63,6 +75,7 @@ val do_eq_def = tDefine "do_eq" `
           | Number _ => Eq_type_error
           | Word64 _ => Eq_type_error
           | Block _ _ => Eq_type_error
+          | ByteVector _ => Eq_type_error
           | RefPtr _ => Eq_type_error
           | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
@@ -117,14 +130,14 @@ val do_app_def = Define `
           | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-          | SOME (ByteArray xs) =>
+          | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (RefByte,[Number i;Number b]) =>
+    | (RefByte F,[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -134,24 +147,35 @@ val do_app_def = Define `
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray bs) =>
+         | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
+    | (String str,[]) => Rval (ByteVector (MAP (n2w o ORD) str),s)
+    | (FromListByte,[lv]) =>
+        (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
+         | SOME ns => Rval (ByteVector (MAP n2w ns), s)
+         | NONE => Error)
+    | (LengthByteVec,[ByteVector bs]) =>
+        (Rval (Number (& LENGTH bs), s))
+    | (DerefByteVec,[ByteVector bs; Number i]) =>
+        (if 0 ≤ i ∧ i < &LENGTH bs then
+           Rval (Number (&(w2n(EL (Num i) bs))), s)
+         else Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
@@ -211,13 +235,29 @@ val do_app_def = Define `
         Rval (Number (&(w2n w)),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray ws) =>
+         | SOME (ByteArray f ws) =>
            (case call_FFI s.ffi n ws of
             | (ffi',ws') =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray ws')
+                      s with <| refs := s.refs |+ (ptr,ByteArray f ws')
                               ; ffi   := ffi'|>))
          | _ => Error)
+    | (BoundsCheckBlock,[Block tag ys; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
+    | (BoundsCheckByte,[ByteVector bs; Number i]) =>
+        Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
+    | (BoundsCheckByte,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+         | _ => Error)
+    | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray ws) =>
+             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+         | _ => Error)
+    | (LessConstSmall n,[Number i]) =>
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
     | _ => Error`;
 
 val dec_clock_def = Define `

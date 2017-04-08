@@ -303,6 +303,12 @@ val small_eval_tannot = Q.prove (
   small_eval env s e1 ((Ctannot () t,env)::c) r`,
  small_eval_step_tac);
 
+val small_eval_lannot = Q.prove (
+`!env s e1 l c r.
+  small_eval env s (Lannot e1 l) c r =
+  small_eval env s e1 ((Clannot () l,env)::c) r`,
+ small_eval_step_tac);
+
 val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
 (!env s. small_eval_list env s [] (s, Rval [])) ∧
 (!s1 env e es v vs s2 s3 env'.
@@ -447,13 +453,13 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!env s err_v v. small_eval_match env s v [] err_v (s, Rerr (Rraise err_v))) ∧
 (!env s p e pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  pmatch env.c (FST s) p v env.v = Match env' ∧
-  small_eval (env with v := env') s e [] r
+  pmatch env.c (FST s) p v [] = Match env' ∧
+  small_eval (env with v := nsAppend (alist_to_ns env') env.v) s e [] r
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v r) ∧
 (!env s e p pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  (pmatch env.c (FST s) p v env.v = No_match) ∧
+  (pmatch env.c (FST s) p v [] = No_match) ∧
   small_eval_match env s v pes err_v r
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v r) ∧
@@ -462,7 +468,7 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error))) ∧
 (!env s p e pes v err_v.
-  (pmatch env.c (FST s) p v env.v = Match_type_error)
+  (pmatch env.c (FST s) p v [] = Match_type_error)
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))`;
 
@@ -703,7 +709,7 @@ to_small_st s = (s.refs,s.ffi)`;
 val to_small_res_def = Define `
 to_small_res r = (to_small_st (FST r), SND r)`;
 
-val s = ``s:'ffi state``
+val s = ``s:'ffi state``;
 
 val big_exp_to_small_exp = Q.prove (
   `(∀ck env ^s e r.
@@ -716,9 +722,8 @@ val big_exp_to_small_exp = Q.prove (
      evaluate_match ck env s v pes err_v r ⇒
      (ck = F) ⇒ small_eval_match env (to_small_st s) v pes err_v (to_small_res r))`,
    ho_match_mp_tac evaluate_ind >>
-   srw_tac[][small_eval_log, small_eval_if, small_eval_match,
-             small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot,
-       to_small_res_def, small_eval_raise]
+   srw_tac[][small_eval_log, small_eval_if, small_eval_match, small_eval_lannot,
+             small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot, to_small_res_def, small_eval_raise]
    >- (srw_tac[][return_def, small_eval_def, Once RTC_CASES1, e_step_reln_def, e_step_def] >>
        metis_tac [RTC_REFL])
    >- (full_simp_tac(srw_ss())[small_eval_def] >>
@@ -1140,11 +1145,11 @@ val big_exp_to_small_exp = Q.prove (
                       (env',to_small_st s',Val v,[(Clet n () e',env)])`
                by metis_tac [e_step_add_ctxt, APPEND] >>
        `e_step_reln (env',to_small_st s',Val v,[(Clet n () e',env)])
-                    (env with v := opt_bind n v env.v,to_small_st s',Exp e',[])`
+                    (env with v := nsOptBind n v env.v,to_small_st s',Exp e',[])`
                by srw_tac[][e_step_def, e_step_reln_def, continue_def, push_def] >>
        Q.ISPEC_THEN`r`assume_tac result_cases >>
-       full_simp_tac(srw_ss())[small_eval_def, environment_component_equality] >>
-       full_simp_tac(srw_ss())[small_eval_def, environment_component_equality] >>
+       full_simp_tac(srw_ss())[small_eval_def, sem_env_component_equality] >>
+       full_simp_tac(srw_ss())[small_eval_def, sem_env_component_equality] >>
        metis_tac [transitive_RTC, RTC_SINGLE, transitive_def])
    >- (`small_eval env (to_small_st s) e ([] ++ [(Clet n () e2,env)]) (to_small_st s', Rerr err)`
                by (match_mp_tac small_eval_err_add_ctxt >>
@@ -1182,6 +1187,36 @@ val big_exp_to_small_exp = Q.prove (
        >> qexists_tac `env'`
        >> qexists_tac `e'`
        >> qexists_tac `c'++[(Ctannot () t,env)]`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> metis_tac [e_single_error_add_ctxt]))
+   >- (
+     fs []
+     >> Cases_on `SND r`
+     >| [all_tac,
+        cases_on `e'`]
+     >- (
+       fs [small_eval_def]
+       >> simp [Once RTC_CASES2]
+       >> qexists_tac `env`
+       >> qexists_tac `(env',to_small_st (FST r),Val a,[(Clannot () l,env)])`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> simp [e_step_reln_def, e_step_def, continue_def, return_def])
+     >- (
+       fs [small_eval_def]
+       >> simp [Once RTC_CASES2]
+       >> qexists_tac `env''`
+       >> qexists_tac `env''`
+       >> qexists_tac `(env',to_small_st (FST r),Val a,[(Craise (), env''); (Clannot () l,env)])`
+       >> rw []
+       >- metis_tac [APPEND,e_step_add_ctxt]
+       >> simp [e_step_reln_def, e_step_def, continue_def, return_def])
+     >- (
+       fs [small_eval_def]
+       >> qexists_tac `env'`
+       >> qexists_tac `e'`
+       >> qexists_tac `c'++[(Clannot () l,env)]`
        >> rw []
        >- metis_tac [APPEND,e_step_add_ctxt]
        >> metis_tac [e_single_error_add_ctxt]))
@@ -1328,6 +1363,7 @@ val one_step_backward = Q.prove (
           full_simp_tac(srw_ss())[] >>
           srw_tac[][] >>
           tac3)
+      >- tac3
       >- tac3)
  >- (full_simp_tac(srw_ss())[continue_def] >>
      cases_on `c` >>

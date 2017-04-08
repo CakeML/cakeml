@@ -1,4 +1,4 @@
-open preamble 
+open preamble
   ml_translatorLib ml_translatorTheory ml_progLib mlvectorProgTheory mlstringTheory
   basisFunctionsLib
 
@@ -32,9 +32,9 @@ val extract_aux_side_thm = Q.prove (
   `!s n len. (n + len <= strlen s) ==> extract_aux_side s n len`,
   Induct_on `len` \\ rw [Once extract_aux_side_def]
 );
- 
+
 val result = translate extract_def;
-val extract_side_def = definition"extract_side_def"; 
+val extract_side_def = definition"extract_side_def";
 val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
   rw [extract_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
@@ -42,7 +42,7 @@ val extract_side_thm = Q.prove(
 val result = translate substring_def;
 val substring_side_def = definition"substring_side_def";
 val substring_side_thm = Q.prove (
-  `!s i j. substring_side s i j`, 
+  `!s i j. substring_side s i j`,
   rw [substring_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
 
 val result = translate strcat_def;
@@ -87,19 +87,19 @@ val tokens_side_thm = Q.prove (
 
 
 
-val result = translate fields_aux_def; 
-val fields_aux_side_def = theorem"fields_aux_side_def"; 
-val result = translate fields_def; 
-val fields_side_def = definition"fields_side_def"; 
- 
-val fields_aux_side_thm = Q.prove ( 
-  `!f s ss n len. n + len = strlen s ==> fields_aux_side f s ss n len`, 
-  Induct_on `len` \\ rw [Once fields_aux_side_def] 
-); 
- 
-val fields_side_thm = Q.prove ( 
-  `!f s. fields_side f s`, 
-  rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition 
+val result = translate fields_aux_def;
+val fields_aux_side_def = theorem"fields_aux_side_def";
+val result = translate fields_def;
+val fields_side_def = definition"fields_side_def";
+
+val fields_aux_side_thm = Q.prove (
+  `!f s ss n len. n + len = strlen s ==> fields_aux_side f s ss n len`,
+  Induct_on `len` \\ rw [Once fields_aux_side_def]
+);
+
+val fields_side_thm = Q.prove (
+  `!f s. fields_side f s`,
+  rw [fields_side_def, fields_aux_side_thm] ) |> update_precondition
 
 
 
@@ -146,7 +146,6 @@ val compare_aux_side_def = theorem"compare_aux_side_def";
 val result = translate compare_def;
 val compare_side_def = definition"compare_side_def";
 
-
 val compare_aux_side_thm = Q.prove (
   `!s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
@@ -159,6 +158,14 @@ val compare_side_thm = Q.prove (
   `!s1 s2. compare_side s1 s2`,
   rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["<"];
+val _ = translate mlstring_lt_def;
+val _ = next_ml_names := ["<="];
+val _ = translate mlstring_le_def;
+val _ = next_ml_names := [">="];
+val _ = translate mlstring_ge_def;
+val _ = next_ml_names := [">"];
+val _ = translate mlstring_gt_def;
 
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_1_side_def";

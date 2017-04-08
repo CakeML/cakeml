@@ -24,7 +24,8 @@ val eval_exp_def = Define `
   eval_exp s (Op Xor [x1;x2]) = word_xor (eval_exp s x1) (eval_exp s x2) /\
   eval_exp s (Shift Lsl x (Nat n)) = eval_exp s x << n /\
   eval_exp s (Shift Asr x (Nat n)) = eval_exp s x >> n /\
-  eval_exp s (Shift Lsr x (Nat n)) = eval_exp s x >>> n`
+  eval_exp s (Shift Lsr x (Nat n)) = eval_exp s x >>> n /\
+  eval_exp s (Shift Ror x (Nat n)) = word_ror (eval_exp s x) n`
 
 val eval_exp_pre_def = Define `
   (eval_exp_pre s (Const w) <=> T) /\
@@ -167,7 +168,9 @@ val code_rel_def = Define `
 val div_code_assum_def = Define `
   div_code_assum (:'ffi) code =
     !(t1:('a,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
-      0 < i0 /\ 0 < i1 /\ i0 <> i1 /\ t1.code = code /\ t1.termdep <> 0 /\
+      0 < i0 /\ 0 < i1 /\ 0 < i2 /\ 0 < i3 /\ 0 < i4 /\
+      ALL_DISTINCT [i0;i1;i2;i3;i4] /\
+      t1.code = code /\ t1.termdep <> 0 /\
       get_var 0 t1 = SOME ret_val /\ single_div_pre w3 w4 w5 ==>
       evaluate
         (DivCode n l i0 i1 i2 i3 i4,
@@ -177,7 +180,9 @@ val div_code_assum_def = Define `
       (NONE,
         let (w1,w2) = single_div w3 w4 w5 in
           (set_var 0 ret_val o set_var i1 (Word w2) o
-           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) t1)`
+           set_var i0 (Word w1) o set_store (Temp 28w) (Word w2)) (t1
+          with <| permute := (λn. t1.permute (n + 1)) ;
+                  locals := LN |> ))`
 
 val _ = temp_overload_on("max_var_name",``25n``);
 
@@ -205,6 +210,7 @@ val state_rel_def = Define `
     t0.code = t.code /\
     t0.be = t.be /\
     t0.ffi = t.ffi /\
+    FLOOKUP t.store TempOut = FLOOKUP t0.store TempOut /\
     (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)`
 
 val state_rel_delete_vars = prove(
@@ -495,7 +501,7 @@ val compile_thm = store_thm("compile_thm",
      \\ Q.MATCH_GOALSUB_ABBREV_TAC `wordSem$evaluate (_,t5)`
      \\ qpat_assum `!v1 v2. _` drule
      \\ `state_rel s1 t5 cs2 t0 frame` by
-          (unabbrev_all_tac \\ fs [state_rel_def] \\ NO_TAC)
+          (unabbrev_all_tac \\ fs [state_rel_def] \\ fs [] \\ NO_TAC)
      \\ disch_then drule
      \\ imp_res_tac compile_IMP_code_subset
      \\ imp_res_tac code_subset_trans
@@ -736,7 +742,7 @@ val compile_thm = store_thm("compile_thm",
                wordSemTheory.dec_clock_def]
         \\ match_mp_tac state_rel_delete_vars
         \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
-        \\ fs [state_rel_def])
+        \\ fs [state_rel_def] \\ fs [])
       \\ strip_tac \\ fs []
       \\ fs [evaluate_def]
       \\ unabbrev_all_tac
@@ -746,9 +752,9 @@ val compile_thm = store_thm("compile_thm",
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
       \\ qexists_tac `t8` \\ fs []
       \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
-      \\ fs [state_rel_def])
+      \\ fs [state_rel_def] \\ fs [])
     \\ pairarg_tac \\ fs [] \\ rveq
-    \\ qabbrev_tac `cs1 = install (p,y,Seq new_code (Return 0 0)) cs'`
+    \\ qabbrev_tac `cs1 = install (p,y,new_code) cs'`
     \\ `has_compiled p cs1 = INL y` by
      (fs [has_compiled_def,Abbr`cs1`]
       \\ Cases_on `cs'` \\ Cases_on `cs` \\ fs []
@@ -774,7 +780,7 @@ val compile_thm = store_thm("compile_thm",
              wordSemTheory.dec_clock_def]
       \\ match_mp_tac state_rel_delete_vars
       \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
-      \\ fs [state_rel_def])
+      \\ fs [state_rel_def] \\ fs [])
     \\ strip_tac \\ fs []
     \\ fs [evaluate_def]
     \\ unabbrev_all_tac
@@ -784,7 +790,7 @@ val compile_thm = store_thm("compile_thm",
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
     \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
-    \\ fs [state_rel_def])
+    \\ fs [state_rel_def] \\ fs [])
   THEN1 (* LoopBody ret *)
    (fs [syntax_ok_def,compile_def]
     \\ `syntax_ok prog /\ !r. prog <> LoopBody r` by
@@ -804,7 +810,7 @@ val compile_thm = store_thm("compile_thm",
     \\ disch_then drule \\ fs []
     \\ `state_rel (dec_clock s2) (call_env [ret_val] (dec_clock t2)) cs2 t0 frame` by
       (fs [state_rel_def,call_env_def,wordSemTheory.dec_clock_def,dec_clock_def]
-       \\ NO_TAC)
+       \\ fs [] \\ NO_TAC)
     \\ disch_then drule
     \\ `get_var 0 (call_env [ret_val] (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
@@ -819,6 +825,81 @@ val compile_thm = store_thm("compile_thm",
     \\ fs [call_env_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
     \\ every_case_tac \\ fs []));
+
+val good_code_def = Define `
+  good_code cs3 =
+    !prog n p2.
+      MEM (prog,n,p2) (SND cs3) ==>
+      ∃cs1 l2' i2 cs2.
+        compile n 1 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3`;
+
+val compile_LESS_mini_size = prove(
+  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+      !x. MEM x (SND xx5) /\ ~MEM x (SND yy5) ==>
+          mini_size (K 0) (FST x) < mini_size (K 0) code``,
+  HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
+  \\ TRY (fs [compile_def] \\ rfs [] \\ res_tac \\ fs [mini_size_def] \\ NO_TAC)
+  \\ fs [compile_def] \\ rfs []
+  \\ TRY
+   (pairarg_tac \\ fs [mini_size_def]
+    \\ pairarg_tac \\ fs [mini_size_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ res_tac \\ Cases_on `MEM x (SND cs')` \\ fs [] \\ NO_TAC)
+  \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs [mini_size_def] \\ rveq
+  \\ Cases_on `cs'` \\ fs [install_def]
+  \\ Cases_on `yy5` \\ fs [code_acc_next_def]
+  \\ res_tac \\ fs []);
+
+val MEM_compile = prove(
+  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+      good_code yy5 /\
+      compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
+      good_code xx5``,
+  HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
+  \\ TRY (fs [compile_def] \\ rfs [] \\ NO_TAC)
+  THEN1
+   (fs [compile_def]
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ rfs [])
+  THEN1
+   (fs [compile_def]
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs [])
+  \\ fs [compile_def]
+  \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ Cases_on `yy5`
+  \\ fs [has_compiled_def]
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ `good_code (code_acc_next (q,r))` by
+    (fs [code_acc_next_def,good_code_def,
+         code_subset_def,FORALL_PROD,EXISTS_PROD] \\ NO_TAC) \\ fs []
+  \\ qpat_x_assum `good_code cs'` mp_tac
+  \\ simp [good_code_def]
+  \\ Cases_on `cs'`
+  \\ `ALOOKUP r' code = NONE` by
+   (fs [ALOOKUP_FAILS] \\ CCONTR_TAC \\ fs []
+    \\ drule compile_LESS_mini_size
+    \\ fs [code_acc_next_def]
+    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+  \\ fs [install_def]
+  \\ reverse (rw []) \\ fs []
+  \\ res_tac \\ fs []
+  THEN1 (asm_exists_tac \\ fs []
+         \\ Cases_on `cs2` \\ fs [code_subset_def]
+         \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+  \\ qexists_tac `(code_acc_next (n,r))` \\ fs []
+  \\ fs [code_subset_def]
+  \\ rw [] \\ fs []);
+
+val compile_NIL_IMP = save_thm("compile_NIL_IMP",
+  MEM_compile
+  |> Q.SPECL [`k`,`l1`,`l2`,`(l,[])`]
+  |> SIMP_RULE std_ss [good_code_def,MEM]);
 
 
 (* correctenss judgement *)
@@ -1644,14 +1725,75 @@ val const_def = time (first (not o time (can derive_corr_thm)))
 
 val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
 
-(*
+(* connecting all the theormes *)
 
-val th = fetch "-" "mc_iop_corr_thm"
+val iop_lemma =
+  mc_multiwordTheory.mc_iop_thm
+    |> SIMP_RULE std_ss [GSYM PULL_EXISTS] |> UNDISCH_ALL
+
+val lemma = METIS_PROVE [] ``b /\ c <=> b /\ (b ==> c)``
+
+val lemma2 = multiwordTheory.mwi_op_thm |> Q.SPECL [`iop`,`i1`,`i2`]
+
+val i2mw_NOT_NIL = prove(
+  ``SND (i2mw i2) ≠ [] <=> i2 <> 0``,
+  fs [multiwordTheory.i2mw_def,Once multiwordTheory.n2mw_def]
+  \\ rw [] \\ Cases_on `i2` \\ fs [] \\ intLib.COOPER_TAC);
+
+val mw_ok_SND_i2mw = prove(
+  ``mw_ok (SND (i2mw fg))``,
+  fs [multiwordTheory.i2mw_def,multiwordTheory.mw_ok_n2mw]);
+
+val code_subset_refl = prove(
+  ``!cs. code_subset cs cs``,
+  fs [code_subset_def,FORALL_PROD]);
+
+val mc_iop_corr_thm = fetch "-" "mc_iop_corr_thm"
+
+val evaluate_mc_iop = save_thm("evaluate_mc_iop",
+  mc_iop_corr_thm
   |> REWRITE_RULE [Corr_def] |> UNDISCH_ALL
   |> MATCH_MP compile_thm
   |> SIMP_RULE (srw_ss()) [SIMP_RULE std_ss [] (EVAL ``syntax_ok mc_iop_code``)]
   |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
-
-*)
+  |> DISCH_ALL
+  |> Q.GEN `s`
+  |> Q.SPEC `<| clock := ck;
+                regs := ((FEMPTY |+ (0,mc_header (s,xs)))
+                                 |+ (1,mc_header (t,ys)))
+                                 |+ (3,int_op_rep iop);
+                arrays := (In1 =+ xs) ((In2 =+ ys) (K zs)) |>`
+  |> Q.INST [`i`|->`1`,`i1`|->`i'`]
+  |> SIMP_RULE (srw_ss()) [FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM,
+       EVAL ``mc_iop_code = LoopBody body``]
+  |> REWRITE_RULE [UNDISCH_ALL mc_multiwordTheory.mc_iop_thm]
+  |> (fn th => MATCH_MP th (CONJUNCT1 iop_lemma))
+  |> UNDISCH_ALL
+  |> CONJ (CONJUNCT2 iop_lemma)
+  |> SIMP_RULE std_ss [PULL_EXISTS]
+  |> ONCE_REWRITE_RULE [lemma]
+  |> SIMP_RULE std_ss []
+  |> REWRITE_RULE [GSYM lemma]
+  |> REWRITE_RULE [GSYM CONJ_ASSOC]
+  |> DISCH_ALL
+  |> Q.INST [`p9`|->`Return 0 0`]
+  |> Q.INST [`s`|->`FST ((i2mw i1): bool # 'a word list)`,
+             `xs`|->`SND (i2mw i1: bool # 'a word list)`,
+             `t`|->`FST (i2mw i2: bool # 'a word list)`,
+             `ys`|->`SND (i2mw i2: bool # 'a word list)`]
+  |> DISCH (lemma2 |> concl |> rand)
+  |> SIMP_RULE std_ss [PAIR]
+  |> (fn th => MATCH_MP th (lemma2 |> UNDISCH))
+  |> DISCH_ALL |> SIMP_RULE std_ss [i2mw_NOT_NIL]
+  |> Q.INST [`t0`|->`t`,`t1`|->`t`]
+  |> SIMP_RULE std_ss [mw_ok_SND_i2mw,GSYM AND_IMP_INTRO]
+  |> UNDISCH_ALL |> DISCH_ALL
+  |> Q.INST [`cs`|->`(n+1n,[])`]
+  |> INST_TYPE [``:'b``|->``:num``]
+  |> Q.INST [`cs1`|->`cs`]
+  |> Q.INST [`cs2`|->`cs`]
+  |> SIMP_RULE std_ss [code_subset_refl]
+  |> Q.GENL (rev [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
+                  `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]));
 
 val _ = export_theory();

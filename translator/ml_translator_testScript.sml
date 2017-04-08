@@ -33,6 +33,8 @@ val string_to_bytes_def = Define`
 
 val res = translate string_to_bytes_def;
 
+val res = translate miscTheory.any_word64_ror_def
+
 val def = Define `bar = []:'a list`
 val res = translate def
 
@@ -58,6 +60,11 @@ val foo_def = tDefine"foo"`
   (WF_REL_TAC `measure SND`\\fs[])
 
 val res = translate foo_def
+
+val _ = Datatype `bar1 = ta | ti`
+val _ = Datatype `bar2 = Ta | TI`
+val _ = register_type ``:bar1``
+val _ = register_type ``:bar2``
 
 val _ = (print_asts := true);
 

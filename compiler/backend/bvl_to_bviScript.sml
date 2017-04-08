@@ -4,9 +4,20 @@ local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataL
 
 val _ = new_theory "bvl_to_bvi";
 
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
 val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
+
+val destLet_pmatch = Q.store_thm("destLet_pmatch",`∀exp.
+  destLet exp =
+    case exp of
+      Let xs b => (xs,b)
+    | _ => ([],Var 0)`,
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[destLet_def])
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
@@ -62,6 +73,8 @@ val InitGlobals_location_def = Define`
   InitGlobals_location = CopyGlobals_location+1`;
 val ListLength_location_def = Define`
   ListLength_location = InitGlobals_location+1`;
+val FromListByte_location_def = Define`
+  FromListByte_location = ListLength_location+1`;
 
 val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
   ``AllocGlobal_location`` |> EVAL);
@@ -71,6 +84,8 @@ val InitGlobals_location_eq = save_thm("InitGlobals_location_eq",
   ``InitGlobals_location`` |> EVAL);
 val ListLength_location_eq = save_thm("ListLength_location_eq",
   ``ListLength_location`` |> EVAL);
+val FromListByte_location_eq = save_thm("FromListByte_location_eq",
+  ``FromListByte_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -107,29 +122,64 @@ val ListLength_code_def = Define `
                 [Op El [Op (Const 1) []; Var 0];
                  Op Add [Var 1; Op (Const 1) []]] NONE))`
 
+val FromListByte_code_def = Define`
+  FromListByte_code = (3n, (* list, current index, byte array *)
+    If (Op (TagLenEq nil_tag 0) [Var 0]) (Var 2)
+      (Let [Op UpdateByte [Op El [Op (Const 0) []; Var 0]; Var 1; Var 2]]
+        (Call 0 (SOME FromListByte_location)
+          [Op El [Op (Const 1) []; Var 1];
+           Op Add [Var 2; Op (Const 1) []];
+           Var 3] NONE)))`;
+
 val stubs_def = Define `
   stubs start n = [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
-                   (ListLength_location, ListLength_code)]`;
+                   (ListLength_location, ListLength_code);
+                   (FromListByte_location, FromListByte_code)]`;
 
 val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
-val compile_op_def = Define `
+local val compile_op_quotation = `
   compile_op op c1 =
-    case op of
-    | Const i => (case c1 of [] => compile_int i
+    dtcase op of
+    | Const i => (dtcase c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
     | Global n => Op Deref (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | AllocGlobal =>
-        (case c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
+        (dtcase c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | (FromList n) => Let (if NULL c1 then [Op (Const 0) []] else c1)
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
+    | String str =>
+        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
+            (Var (LENGTH str)))
+    | FromListByte =>
+        Let (if NULL c1 then [Op (Const 0) []] else c1)
+          (Call 0 (SOME FromListByte_location)
+             [Var 0;
+              Op (Const 0) [];
+              Op (RefByte T)
+                [Op (Const 0) [];
+                 Call 0 (SOME ListLength_location)
+                   [Var 0; Op (Const 0) []] NONE]]
+             NONE)
     | _ => Op op c1`
+in
+val compile_op_def = Define compile_op_quotation
+
+val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
+  (compile_op_quotation |>
+   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+       | aq => aq)),
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+  >> fs[compile_op_def])
+end
 
 val _ = temp_overload_on("++",``SmartAppend``);
 
@@ -182,7 +232,7 @@ val compile_exps_def = tDefine "compile_exps" `
   (compile_exps n [Call ticks dest xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([Call ticks
-              (case dest of
+              (dtcase dest of
                | NONE => NONE
                | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`

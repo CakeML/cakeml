@@ -55,6 +55,7 @@ sig
 
     val pick_name            : (term -> string) ref
     val use_long_names       : bool ref
+    val use_mem_intro        : bool ref
     val next_ml_names        : (string list) ref
     val print_asts           : bool ref
     val use_full_type_names  : bool ref
@@ -91,5 +92,15 @@ sig
     val find_const_name : string -> string
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
+
+    (* for debugging *)
+    val pmatch_hol2deep_fail : term ref
+    val pmatch_hol2deep : term -> (term -> thm) -> thm
+
+    val prove_EvalPatBind_fail : term ref
+    val prove_EvalPatBind : term -> (term -> thm) -> thm
+
+    val prove_EvalPatRel_fail : term ref
+    val get_term :string -> term
 
 end

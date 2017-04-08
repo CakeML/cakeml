@@ -6,8 +6,8 @@ val _ = new_theory "semantics";
 
 val parse_def = Define`
 parse toks =
-  case some pt. valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
-                ptree_fringe pt = MAP TOK toks
+  case some pt. valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
+                real_fringe pt = MAP (TOK ## I) toks
   of
      NONE => NONE
    | SOME p => ptree_TopLevelDecs p`;
@@ -15,10 +15,10 @@ parse toks =
 val _ = Datatype`
   state = <| (* Type system state *)
             tdecs : decls;
-            tenv : type_environment;
+            tenv : type_env;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
-            sem_env : v environment |>`;
+            sem_env : v sem_env |>`;
 
 val _ = hide "state";
 
@@ -28,7 +28,7 @@ can_type_prog state prog ⇔
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
-    let (st',envC,r) =
+    let (st',r) =
       evaluate_prog (st with clock := k) env prog
     in (st'.ffi,r)`;
 

@@ -1,5 +1,5 @@
 open preamble intSimps;
-open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
+open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
 val _ = new_theory "termination";
@@ -10,7 +10,7 @@ val exps_size_def = Define `exps_size = exp6_size`;
 val pes_size_def = Define `pes_size = exp3_size`;
 val funs_size_def = Define `funs_size = exp1_size`;
 
-val vs_size_def = Define `vs_size = v6_size`;
+val vs_size_def = Define `vs_size = v7_size`;
 val envE_size_def = Define `envE_size = v2_size`;
 val envM_size_def = Define `envM_size = v4_size`;
 
@@ -30,9 +30,9 @@ val exps_size_thm = size_thm "exps_size_thm" ``exps_size`` ``exp_size``;
 val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
 val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
 val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
-val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
-val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
-val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
+(* val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``; *)
+(* val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``; *)
+(* val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``; *)
 
 val SUM_MAP_exp2_size_thm = Q.store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -50,7 +50,7 @@ val SUM_MAP_exp4_size_thm = Q.store_thm(
                                       SUM (MAP exp_size (MAP SND ls)) +
                                       LENGTH ls`,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 val SUM_MAP_exp5_size_thm = Q.store_thm(
 "SUM_MAP_exp5_size_thm",
@@ -58,7 +58,7 @@ val SUM_MAP_exp5_size_thm = Q.store_thm(
                                 SUM (MAP exp_size (MAP SND ls)) +
                                 LENGTH ls`,
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def])
+Cases >> srw_tac[ARITH_ss][exp_size_def]);
 
 (*
 val SUM_MAP_v2_size_thm = Q.store_thm(
@@ -93,6 +93,17 @@ fun register name def ind =
   in
     ()
   end;
+
+val (nsMap_def, nsMap_ind) =
+  tprove_no_defn ((nsMap_def, nsMap_ind),
+  wf_rel_tac `measure (\(_, env). namespace_size (\x. 1) (\x. 1) (\x. 1) env)`
+  >> Induct_on `m`
+  >> rw [namespace_size_def]
+  >> rw [namespace_size_def]
+  >> first_x_assum drule
+  >> disch_then (qspec_then `v` assume_tac)
+  >> decide_tac);
+val _ = register "nsMap" nsMap_def nsMap_ind;
 
 val (pmatch_def, pmatch_ind) =
   tprove_no_defn ((pmatch_def, pmatch_ind),
@@ -165,11 +176,13 @@ val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
 val (is_value_def,is_value_ind) =
   tprove_no_defn ((is_value_def,is_value_ind),
 wf_rel_tac `measure (exp_size)` >>
-srw_tac [] [] >>
-induct_on `es` >>
-srw_tac [] [exp_size_def] >>
-res_tac >>
-decide_tac);
+srw_tac [] []
+>-
+  (induct_on `es` >>
+  srw_tac [] [exp_size_def] >>
+  res_tac >>
+  decide_tac)
+>> decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
 
 val (do_eq_def,do_eq_ind) =

@@ -20,7 +20,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [configTheory.x64_compiler_config_def]
+      [configTheory.x64_compiler_config_def
+      ,configTheory.x64_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

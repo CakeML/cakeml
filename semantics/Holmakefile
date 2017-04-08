@@ -2,7 +2,8 @@ OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ../lem_lib_stub ffi
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 all: $(TARGETS) addancs
 .PHONY: all
 
@@ -20,9 +21,9 @@ $(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
 	then $(LEM_CMD) $(LEMS);\
 	else touch $(GENS); fi
 
-astScript.sml: ast.lem ../lib.lem ffi/ffi.lem addancs
+astScript.sml: ast.lem namespace.lem ../lib.lem ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< ;  ./addancs $@ integer words string ; \
+          $(LEM_CMD) $< ;  ./addancs $@ integer words string namespace location; \
         else touch astScript.sml ; fi
 
 tokensScript.sml: tokens.lem ../lib.lem ffi/ffi.lem addancs
@@ -30,12 +31,19 @@ tokensScript.sml: tokens.lem ../lib.lem ffi/ffi.lem addancs
           $(LEM_CMD) $< ;  ./addancs $@ integer string ; \
         else touch $@ ; fi
 
+namespaceScript.sml: namespace.lem ../lib.lem ffi/ffi.lem addancs
+	if type lem; then \
+          $(LEM_CMD) $< ;  ./addancs $@ integer words string alist; \
+        else touch namespaceScript.sml ; fi
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o addancs
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
+GRAMMAR_DEPS0 = peg pegexec
+GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Theory,$(GRAMMAR_DEPS0))
+
+BARE_THYS = ../preamble $(GRAMMAR_DEPS) ../basicComputeLib ffi/ffiTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)

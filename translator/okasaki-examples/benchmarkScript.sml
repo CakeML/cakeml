@@ -51,8 +51,8 @@ run_queue ⇔ head (use_queue 1000 empty)`;
 
 (* Copied from SplayHeapScript *)
 
-val _ = Hol_datatype `
-heap = Empty | Tree of heap => 'a => heap`;
+val _ = Datatype`
+  heap = Empty | Tree heap 'a heap`;
 
 val heap_to_bag_def = Define `
 (heap_to_bag Empty = {||}) ∧

@@ -1,11 +1,11 @@
-structure cfTacticsLib :> cfTacticsLib =
+structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
 open preamble
-open ConseqConv match_goal
+open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormalizeSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -24,8 +24,8 @@ val printers = [
 ]
 
 fun hide_environments b =
-  if b then app add_user_printer printers
-  else app (ignore o remove_user_printer) (map #1 printers)
+  if b then app temp_add_user_printer printers
+  else app (ignore o temp_remove_user_printer) (map #1 printers)
 
 val _ = hide_environments true
 
@@ -43,15 +43,15 @@ val () = computeLib.extend_compset [
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
     ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def,
-    semanticPrimitivesTheory.merge_alist_mod_env_def
+    ml_progTheory.empty_env_def
+    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
   ]] cs
 
 val _ = (max_print_depth := 15)
 
-val eval = computeLib.CBV_CONV cs
+val eval = computeLib.CBV_CONV cs THENC EVAL (* TODO: remove EVAL *)
 val eval_tac = CONV_TAC eval
-val eval_pat = compute_pat cs
+fun eval_pat t = (compute_pat cs t) THENC EVAL (* TODO: same *)
 fun eval_pat_tac pat = CONV_TAC (DEPTH_CONV (eval_pat pat))
 
 local
@@ -107,9 +107,8 @@ val reducible_pats = [
   ``exp2v_list _ _``,
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
-  ``lookup_var_id _ _``,
-  ``Fun_body _``,
-  ``normalise _``
+  ``nsLookup _ _``,
+  ``Fun_body _``
 ]
 
 val reduce_conv =
@@ -194,14 +193,14 @@ val naryClosure_repack_conv =
 fun xcf name st =
   let
     val f_def = fetch_def name st
-    fun Closure_tac _ =
+    val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THENL [
         eval_tac,
         eval_tac,
         simp [cf_def]
       ]
-    fun Recclosure_tac _ =
+    val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
         eval_tac,
@@ -211,12 +210,19 @@ fun xcf name st =
             REWR_CONV letrec_pull_params_repack THENC
             REWR_CONV (GSYM f_def)))
       ]
+    fun closure_tac (g as (_, w)) =
+      let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
+          if is_Closure c then
+            Closure_tac g
+          else if is_Recclosure c then
+            Recclosure_tac g
+          else
+            err_tac "xcf" "argument of app is not a closure" g
+      end
+      handle HOL_ERR _ =>
+             err_tac "xcf" "goal is not an app" g
   in
-    rpt strip_tac \\ simp [f_def] \\
-    first_match_tac [
-      ([mg.c `app _ (Closure _ _ _) _ _ _`], Closure_tac),
-      ([mg.c `app _ (Recclosure _ _ _) _ _ _`], Recclosure_tac)
-    ] \\ reduce_tac
+    rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
   end
 
 (* [xlet] *)
@@ -225,7 +231,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [libTheory.opt_bind_def] \\
+  simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
   CONJ_TAC THENL [
     CONJ_TAC THENL [
@@ -349,16 +355,18 @@ val xfun_rec_core =
   irule local_elim \\ hnf \\
   CONV_TAC fun_rec_reduce_conv
 
-val xfun_core =
-  xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_fun _ _ _ _ _ _ _ _`], K xfun_norec_core),
-    ([mg.c `cf_fun_rec _ _ _ _ _ _`], K xfun_rec_core)
-  ]
+fun xfun_core (g as (_, w)) =
+  if is_cf_fun w then
+    xfun_norec_core g
+  else if is_cf_fun_rec w then
+    xfun_rec_core g
+  else
+    err_tac "xfun" "goal is not a cf_fun or cf_fun_rec" g
 
 val simp_spec = (CONV_RULE reduce_conv) o (simp_rule [cf_def])
 
 fun xfun qname =
+  xpull_check_not_needed \\
   xfun_core \\
   qx_gen_tac qname \\
   disch_then (fn th => assume_tac (simp_spec th))
@@ -425,9 +433,10 @@ fun is_cf_spec_for f tm =
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
-  ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
-  (rand tm) = f
-  handle HOL_ERR _ => false
+  let val tm = tm |> strip_imp |> #2 in
+    ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
+    (rand tm) = f
+  end handle HOL_ERR _ => false
 
 fun spec_kind_for f tm : spec_kind option =
   if is_cf_spec_for f tm then SOME CF_spec
@@ -485,18 +494,16 @@ val unfold_cf_app =
 
 val xapp_prepare_goal =
   xpull_check_not_needed \\
-  first_match_tac [
-    ([mg.c `cf_app _ _ _ _ _ _`], K unfold_cf_app),
-    ([mg.c `app _ _ _ _ _`], K all_tac)
-  ]
+  (fn (g as (_, w)) =>
+    if is_cf_app w then unfold_cf_app g
+    else if cfAppSyntax.is_app w then all_tac g
+    else err_tac "xapp"
+      "Goal is not of the right form (must be a cf_app or app)" g)
 
-fun app_f_tac tmtac (g as (_, w)) =
-  tmtac (
-    goal_app_infos w
-    handle HOL_ERR _ =>
-      raise ERR "xapp"
-        "Goal is not of the right form (must be a cf_app or app)."
-  ) g
+(* This tactical assumes the goal is of the form [app _ _ _ _ _].
+   This is the case after calling [xapp_prepare_goal] (if it doesn't fail).
+*)
+fun app_f_tac tmtac (g as (_, w)) = tmtac (goal_app_infos w) g
 
 fun xapp_common spec do_xapp =
   xapp_prepare_goal \\
@@ -683,5 +690,23 @@ in
      TRY xpull)
     g
 end
+
+(* [xopb] *)
+val xopb =
+  xpull_check_not_needed \\
+  head_unfold cf_opb_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opb_def, semanticPrimitivesTheory.opb_lookup_def] \\
+  cleanup_exn_side_cond
+
+(* [xopn] *)
+val xopn =
+  xpull_check_not_needed \\
+  head_unfold cf_opn_def \\
+  reduce_tac \\
+  irule local_elim \\ hnf \\
+  simp[app_opn_def, semanticPrimitivesTheory.opn_lookup_def] \\
+  cleanup_exn_side_cond
 
 end

@@ -1,7 +1,7 @@
-open preamble bootstrapLib
+open preamble
      backendTheory
      to_dataBootstrapTheory
-     x64_configTheory
+     configTheory
      x64_targetTheory
      x64_targetLib asmLib
 
@@ -43,7 +43,7 @@ fun say_str s i n = ()
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
   *)
 
-val bootstrap_conf = ``x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>)``
+val bootstrap_conf = ``(x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))``
 
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
@@ -59,8 +59,15 @@ val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
 val to_data_thm1 =
   MATCH_MP to_data_thm0 same_config
 
+(*
+val (ls,ty) = data_prog_x64_def |> rconc |> listSyntax.dest_list
+val data_prog_x64' =  listSyntax.mk_list(List.take(ls,10),ty)
+val data_prog_x64_shorten = mk_thm([],``data_prog_x64 = ^data_prog_x64'``)
+val to_data_thm1 = PURE_REWRITE_RULE[data_prog_x64_shorten]to_data_thm1
+*)
+
 val to_livesets_thm0 =
-  ``to_livesets ^bootstrap_conf prog_x64``
+  ``to_livesets ^bootstrap_conf entire_program``
   |> (REWR_CONV to_livesets_def THENC
       RAND_CONV (REWR_CONV to_data_thm1) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
@@ -146,7 +153,7 @@ val thm1 =
   |> (RATOR_CONV(RAND_CONV(REWR_CONV(SYM word_to_word_fn_eq))) THENC
       RAND_CONV(REWR_CONV thm0) THENC map_ths_conv ths)
 
-val word_prog0_def = mk_def "word_prog0" (thm1 |> rconc)
+val word_prog0_def = mk_abbrev "word_prog0" (thm1 |> rconc)
 
 val thm1' = thm1 |> CONV_RULE(RAND_CONV(REWR_CONV(SYM word_prog0_def)))
 
@@ -198,7 +205,7 @@ val oracles =
   |> rconc |> pairSyntax.dest_pair |> #1
   |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
 
-val x64_oracle_def = mk_def"x64_oracle" oracles;
+val x64_oracle_def = mk_abbrev"x64_oracle" oracles;
 
 val wc =
   ``x64_compiler_config.word_to_word_conf
@@ -219,7 +226,7 @@ val to_livesets_invariant' = Q.prove(
 
 val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
 
-val word_prog1_def = mk_def"word_prog1"(thm2 |> rconc);
+val word_prog1_def = mk_abbrev"word_prog1"(thm2 |> rconc);
 
 val to_livesets_thm' =
   to_livesets_thm
@@ -255,7 +262,7 @@ val ZIP_GENLIST_lemma =
   |> MATCH_MP ZIP_GENLIST1
   |> ISPEC (lhs(concl(x64_oracle_def)))
 
-val x64_oracle_list_def = mk_def"x64_oracle_list" (x64_oracle_def |> rconc |> rand);
+val x64_oracle_list_def = mk_abbrev"x64_oracle_list" (x64_oracle_def |> rconc |> rand);
 
 val x64_oracle_thm = Q.prove(
   `n < LENGTH x64_oracle_list ⇒
@@ -359,7 +366,7 @@ avg (map term_size encoded_prog_els)
 
 val map3els = time_with_size thms_size "apply colour (par)" (parlist num_threads chunk_size eval_fn) lss
 
-val check_fn_def = mk_def"check_fn"check_fn;
+val check_fn_def = mk_abbrev"check_fn"check_fn;
 
 val word_prog1_defs = make_abbrevs "word_prog1_el_" num_progs word_prog1_els []
 
@@ -404,7 +411,7 @@ val compile_thm1 =
          RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV x64_oracle_list_def))) THENC
          timez "check colour" map3_conv)))
 
-val word_prog2_def = mk_def"word_prog2" (compile_thm1 |> rconc |> rand);
+val word_prog2_def = mk_abbrev"word_prog2" (compile_thm1 |> rconc |> rand);
 
 val compile_thm1' = compile_thm1
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM word_prog2_def))))
@@ -422,7 +429,7 @@ val from_word_thm =
        REWR_CONV LET_THM THENC
        BETA_CONV))
 
-val stack_prog_def = mk_def"stack_prog" (from_word_thm |> rconc |> rand);
+val stack_prog_def = mk_abbrev"stack_prog" (from_word_thm |> rconc |> rand);
 
 val from_word_thm' = from_word_thm
   |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM stack_prog_def))))
@@ -477,7 +484,7 @@ val stack_alloc_thm =
      listLib.APPEND_CONV))
 
 val stack_alloc_prog_def =
-  mk_def"stack_alloc_prog" (stack_alloc_thm |> rconc |> rand);
+  mk_abbrev"stack_alloc_prog" (stack_alloc_thm |> rconc |> rand);
 
 val stack_to_lab_thm1 =
   stack_to_lab_thm0
@@ -526,7 +533,7 @@ val stack_remove_thm =
        listLib.APPEND_CONV)))
 
 val stack_remove_prog_def =
-  mk_def"stack_remove_prog" (stack_remove_thm |> rconc |> rand);
+  mk_abbrev"stack_remove_prog" (stack_remove_thm |> rconc |> rand);
 
 val stack_to_lab_thm2 =
   stack_to_lab_thm1
@@ -562,7 +569,7 @@ val stack_names_thm0 =
       map_ths_conv ths)
 
 val stack_names_prog_def =
-  mk_def"stack_names_prog" (stack_names_thm0 |> rconc);
+  mk_abbrev"stack_names_prog" (stack_names_thm0 |> rconc);
 
 val stack_names_thm = stack_names_thm0
   |> CONV_RULE(RAND_CONV(REWR_CONV(SYM stack_names_prog_def)))
@@ -595,7 +602,7 @@ val stack_to_lab_thm4 =
        RAND_CONV(REWR_CONV stack_names_prog_def) THENC
        map_ths_conv ths)))
 
-val lab_prog_def = mk_def"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
+val lab_prog_def = mk_abbrev"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
 
 val temp_defs =
   set_diff (List.map #1 (definitions"-"))

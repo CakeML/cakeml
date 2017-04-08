@@ -2,16 +2,16 @@ open preamble
 
 val _ = new_theory"mllist"
 
-
+val _ = set_grammar_ancestry ["indexedLists", "toto"]
 
 val tl_def = Define`
-  (tl [] = []) /\ 
+  (tl [] = []) /\
   (tl (h::t) = t)`;
 
 
 val getItem_def = Define`
-  (getItem [] = NONE) /\ 
-  (getItem (h::t) = SOME(h, t))`; 
+  (getItem [] = NONE) /\
+  (getItem (h::t) = SOME(h, t))`;
 
 
 val nth_def = Define`
@@ -42,16 +42,16 @@ val MAPI_thm_gen = Q.prove (
 
 val MAPI_thm = Q.store_thm (
   "MAPI_thm",
-  `!f l. MAPi f l = mapi f 0 l`, 
+  `!f l. MAPi f l = mapi f 0 l`,
   rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
-  |> SIMP_RULE (srw_ss()++ETA_ss) [])] 
+  |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 );
 
 
 val mapPartial_def = Define`
-  (mapPartial f [] = []) /\ 
+  (mapPartial f [] = []) /\
   (mapPartial f (h::t) = case (f h) of
-    NONE => mapPartial f t 
+    NONE => mapPartial f t
     |(SOME x) => x::mapPartial f t)`;
 
 val mapPartial_thm = Q.store_thm (
@@ -132,10 +132,18 @@ val foldli_thm = Q.store_thm (
   rw [foldli_def, foldli_aux_thm]
 );
 
+val tabulate_def = Define
+  `tabulate n f =
+    let n0 = (n = 0n) in
+    if n0 then [] else
+      let n = PRE n in
+      let v = f n in
+      let vs = tabulate n f in
+        SNOC v vs`;
 
-val tabulate_def = Define`
-  tabulate n f = GENLIST f n`;
-
+val tabulate_GENLIST = Q.store_thm("tabulate_GENLIST",
+  `!n. tabulate n f = GENLIST f n`,
+  Induct \\ rw[GENLIST] \\ rw[Once tabulate_def]);
 
 val collate_def = Define`
   (collate f [] [] = EQUAL) /\

@@ -1,4 +1,4 @@
-open preamble stackSemTheory
+open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
@@ -486,7 +486,7 @@ val arith_name_def = Define`
     (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
-    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 0 ∧ r4 = 4 ∧
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 4 ∧ r4 = 0 ∧
     reg_name r5 c) ∧
   (arith_name (AddCarry r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
@@ -502,11 +502,13 @@ val arith_name_def = Define`
     (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))`
 
 val addr_name_def = Define`
-  addr_name (Addr r w) c ⇔ reg_name r c ∧ addr_offset_ok w c`
+  addr_name m (Addr r w) c ⇔
+  reg_name r c ∧
+  (if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w)`
 
 val inst_name_def = Define`
   (inst_name c (Const r w) ⇔ reg_name r c) ∧
-  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name a c) ∧
+  (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name _ _ = T)`
 
