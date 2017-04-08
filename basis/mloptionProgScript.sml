@@ -11,6 +11,7 @@ val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "option" (Tapp [Tvar "'a"] (TC
 
 val result = translate getOpt_def;
 
+val () = next_ml_names := ["isSome"];
 val result = translate IS_SOME_DEF;
 
 val result = next_ml_names := ["valOf"];
@@ -34,7 +35,9 @@ val result = translate compose_def;
 val result = translate composePartial_def;
 
 (*Functions declared in std_preludeLib *)
+val () = next_ml_names := ["isNone"];
 val res = translate IS_NONE_DEF;
+val () = next_ml_names := ["map2"];
 val res = translate OPTION_MAP2_DEF;
 
 
