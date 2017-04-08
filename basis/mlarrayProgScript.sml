@@ -172,7 +172,7 @@ val _ = append_prog array_find;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
-``[Tdec (Dletrec
+``[Tdec (Dletrec NONE
 [("findi_aux","f",
  Fun "arr"
    (Fun "max"

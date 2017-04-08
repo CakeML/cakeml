@@ -12,7 +12,13 @@ val _ = Datatype`
      ; backend_config : α backend$config
      |>`;
 
-val _ = Datatype`compile_error = ParseError | TypeError (locs option) string | CompileError`;
+val _ = Datatype`compile_error = ParseError | TypeError string | CompileError`;
+
+val locs_to_string_def = Define `
+  (locs_to_string NONE = "unknown location") ∧
+  (locs_to_string (SOME (startl, endl)) =
+    "location starting at row " ++ toString startl.row ++ " column " ++ toString startl.col ++
+    ", ending at row "  ++ toString startl.row ++ " column " ++ toString startl.col)`;
 
 val compile_def = Define`
   compile c prelude input =
@@ -20,7 +26,8 @@ val compile_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (locs, msg) => Failure (TypeError locs msg)
+       | Failure (locs, msg) =>
+           Failure (TypeError (msg ++ " at " ++ locs_to_string locs))
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
