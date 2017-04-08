@@ -280,9 +280,10 @@ val gc_kind_inv_def = Define `
     case c.gc_kind of
     | None => (sp1 = 0n)
     | Simple => (sp1 = 0n)
-    | Generational sizes => T (*
-        ?h1 h2. (heap_split (a + sp1) heap = SOME (h1,h2)) /\
-                EVERY (\x. ~isRef x) h1 /\ EVERY isRef h2 *)`
+    | Generational sizes => 
+        ?h1 h2. (heap_split (a + sp + sp1) heap = SOME (h1,h2)) /\
+                EVERY (\x. ~isRef x) h1 /\ EVERY isRef h2
+`
 
 val abs_ml_inv_def = Define `
   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit <=>
@@ -598,10 +599,11 @@ val bc_stack_ref_inv_related = Q.prove(
   \\ metis_tac [reachable_refs_lemma]);
 
 val full_gc_thm = Q.store_thm("full_gc_thm",
-  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   conf.gc_kind = Simple ==>
     ?roots2 heap2 a2.
-      (full_gc (roots,heap,limit) = (roots2,heap2,a2,T)) /\
-      abs_ml_inv conf stack refs
+      (full_gc (roots,heap,limit) = (roots2,heap2,a2,T)) /\       
+       abs_ml_inv conf stack refs
         (roots2,heap2 ++ heap_expand (limit - a2),be,
          a2,limit - a2,0,gens) limit /\
       (heap_length heap2 = a2)`,
@@ -630,6 +632,86 @@ val make_gc_conf_def = Define `
     <| limit := limit; isRef := \x. FST x = RefTag |>
         : (tag # 'a) gen_gc$gen_gc_conf`
 
+val gc_move_data_refs_split = Q.prove(`
+  (gen_gc$gc_move cc s x = (x1,s1)) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+   /\ (EVERY (λx. ¬isRef x)) s.h2 /\ EVERY isRef s.r4 ==>
+   (EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4`,
+  Cases_on `x` >> fs[gen_gcTheory.gc_move_def]
+  >> rpt strip_tac >> rveq >> fs[]
+  >> every_case_tac >> rveq >> fs[]
+  >> TRY pairarg_tac >> fs[]
+  >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
+  >> Cases_on `b` >> fs[isRef_def] >> metis_tac[]);
+
+val gc_move_list_data_refs_split = Q.prove(`!x x1 s s1.
+  (gen_gc$gc_move_list cc s x = (x1,s1)) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+   /\ (EVERY (λx. ¬isRef x)) s.h2 /\ EVERY isRef s.r4 ==>
+   (EVERY (λx. ¬isRef x)) s1.h2 /\ EVERY isRef s1.r4`,
+  Induct >> fs[gen_gcTheory.gc_move_list_def]
+  >> rpt strip_tac >> rpt(pairarg_tac >> fs[])
+  >> drule gc_move_data_refs_split >> metis_tac[]);
+
+val gc_move_refs_data_refs_split = Q.prove(`!cc s s1.
+  (gen_gc$gc_move_refs cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+   /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\ EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
+   (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\ EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+  recInduct (fetch "gen_gc" "gc_move_refs_ind")
+  >> rpt strip_tac
+  >> qpat_x_assum `gc_move_refs _ _ = _` mp_tac
+  >> simp[Once gen_gcTheory.gc_move_refs_def]
+  >> strip_tac >> every_case_tac
+  >> TRY pairarg_tac >> fs[]
+  >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
+  >> drule gen_gcTheory.gc_move_list_IMP >> strip_tac >> fs[]
+  >> drule gc_move_list_data_refs_split >> fs[] >> strip_tac
+  >> first_x_assum drule >> fs[]
+  >> Cases_on `b` >> fs[isRef_def]);
+
+val gc_move_data_data_refs_split = Q.prove(`!cc s s1.
+  (gen_gc$gc_move_data cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+   /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\ EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
+   (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\ EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+  recInduct (fetch "gen_gc" "gc_move_data_ind")
+  >> rpt strip_tac >> qpat_x_assum `gc_move_data _ _ = _` mp_tac
+  >> simp[Once gen_gcTheory.gc_move_data_def]
+  >> every_case_tac >> fs[] >> rpt strip_tac >> rveq >> fs[]
+  >> pairarg_tac >> fs[]
+  >> drule gen_gcTheory.gc_move_list_IMP >> strip_tac >> fs[]
+  >> drule gc_move_list_data_refs_split >> fs[] >> strip_tac
+  >> first_x_assum drule >> fs[]
+  >> Cases_on `b` >> fs[isRef_def]
+  >> Cases_on `state''.h2` >> fs[] >> rfs[]);
+
+val gc_move_loop_data_refs_split = Q.prove(`!clock s s1.
+  (gen_gc$gc_move_loop cc s clock = s1) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+   /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\ EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4) ==>
+   (EVERY (λx. ¬isRef x)) (s1.h1++s1.h2) /\ EVERY isRef (s1.r1 ++ s1.r2 ++ s1.r3 ++ s1.r4)`,
+  Induct >> rpt strip_tac >> qpat_x_assum `gc_move_loop _ _ _ = _` mp_tac
+  >> PURE_ONCE_REWRITE_TAC [gen_gcTheory.gc_move_loop_def]
+  >> every_case_tac >> fs[]
+  >> rpt strip_tac >> TRY(rveq >> fs[] >> NO_TAC)
+  >> TRY(rename1 `s.r4 = h1::t1`)
+  >> `gc_move_refs cc (s with <|r4 := []; r2 := h1::t1|>) = gc_move_refs cc (s with <|r4 := []; r2 := h1::t1|>)` by fs[]
+  >> `gc_move_data cc s = gc_move_data cc s` by fs[]
+  >> drule gc_move_refs_data_refs_split >> drule gc_move_data_data_refs_split
+  >> fs[] >> rpt strip_tac
+  >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
+  >> rpt strip_tac >> fs[]);
+
+val gen_gc_data_refs_split = Q.prove(`!cc roots heap.
+  (gen_gc cc (roots,heap) = (roots1,s)) /\ (!t r. (cc.isRef (t,r) <=> t = RefTag))
+    ==> (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\ EVERY isRef (s.r1 ++ s.r2 ++ s.r3 ++ s.r4)`,
+  rpt strip_tac >> fs[gen_gcTheory.gen_gc_def]
+  >> pairarg_tac >> fs[]
+  >> drule gc_move_list_data_refs_split >> fs[empty_state_def]
+  >> strip_tac >> drule gc_move_loop_data_refs_split >> fs[]
+  >> drule gen_gcTheory.gc_move_list_IMP
+  >> fs[] >> disch_then (assume_tac o GSYM) >> fs[]);
+
+val heap_expand_not_isRef = Q.store_thm("heap_expand_not_isRef",
+ `EVERY (λx. ¬isRef x) (heap_expand n)`,
+  Induct_on `n` >> fs[isRef_def,heap_expand_def])
+
 val gen_gc_thm = Q.store_thm("gen_gc_thm",
   `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
     ?roots2 state2.
@@ -653,7 +735,16 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
    (fs [unused_space_inv_def] \\ fs [heap_expand_def]
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
     \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def])
-  THEN1 (fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []));
+  THEN1 (fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []
+         \\ drule(GEN_ALL gen_gc_data_refs_split) \\ fs[]
+         \\ fs[]
+         \\ impl_tac THEN1 (unabbrev_all_tac >> fs[]) \\ fs[]
+         \\ strip_tac
+         \\ `state'.n + heap_length state'.h1 = heap_length(state'.h1 ++ heap_expand state'.n)`
+             by fs[heap_length_APPEND,heap_length_heap_expand]
+         \\ pop_assum (fn thm => PURE_ONCE_REWRITE_TAC [thm])
+         \\ PURE_ONCE_REWRITE_TAC [gen_gc_partialTheory.heap_split_length]
+         \\ fs[heap_expand_not_isRef]));
 
 val gc_combined_thm = Q.store_thm("gc_combined_thm",
   `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
@@ -1087,7 +1178,23 @@ val cons_thm_alt = Q.store_thm("cons_thm_alt",
    (full_simp_tac (srw_ss()) [roots_ok_def,MEM,BlockRep_def,heap_ok_def,
       isForwardPointer_def] \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ rpt strip_tac \\ metis_tac [heap_store_rel_def])
-  \\ strip_tac THEN1 fs [gc_kind_inv_def]
+  \\ strip_tac THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[heap_store_unused_alt_def]
+    \\ drule heap_split_heap_length \\ strip_tac \\ qpat_x_assum `_ ++ _ = _` (assume_tac o GSYM)
+    \\ fs[] \\ every_case_tac \\ fs[heap_lookup_APPEND] \\ rfs[]
+    \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[]
+    \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
+    \\ fs[]
+    \\ simp[el_length_def,BlockRep_def]
+    \\ qpat_abbrev_tac `a1 = DataElement _ _ _`
+    \\ `heap_length(ha ++ [a1] ++ heap_expand (sp + sp1 − (LENGTH ys1 + 1)) ++ hb) =
+        sp + (sp1 + heap_length ha)`
+       by (unabbrev_all_tac \\ fs[heap_length_APPEND,heap_length_heap_expand]
+             \\ fs[heap_length_def] \\ fs[BlockRep_def,el_length_def])
+    \\ pop_assum(fn thm => SIMP_TAC std_ss [GSYM thm])
+    \\ PURE_ONCE_REWRITE_TAC[gen_gc_partialTheory.heap_split_length]
+    \\ unabbrev_all_tac \\ fs[isRef_def,heap_expand_not_isRef])
   \\ strip_tac THEN1 (full_simp_tac std_ss [el_length_def,BlockRep_def] \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ strip_tac THEN1
@@ -1272,7 +1379,22 @@ val word64_alt_thm = Q.store_thm("word64_alt_thm",
     \\ metis_tac[heap_store_rel_lemma,isSomeDataElement_def] )
   \\ rfs[]
   \\ fs[bc_stack_ref_inv_def]
-  \\ conj_tac THEN1 fs [gc_kind_inv_def]
+  \\ conj_tac THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[heap_store_unused_alt_def]
+    \\ drule heap_split_heap_length \\ strip_tac \\ qpat_x_assum `_ ++ _ = _` (assume_tac o GSYM)
+    \\ fs[] \\ every_case_tac \\ fs[heap_lookup_APPEND] \\ rfs[]
+    \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[]
+    \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
+    \\ fs[]
+    \\ qpat_abbrev_tac `a1 = DataElement _ _ _`
+    \\ `heap_length(ha ++ [a1] ++ heap_expand (sp + sp1 − (LENGTH xs + 1)) ++ hb) =
+        sp + (sp1 + heap_length ha)`
+       by (unabbrev_all_tac \\ fs[heap_length_APPEND,heap_length_heap_expand]
+           \\ fs[heap_length_def] \\ fs[el_length_def])
+    \\ pop_assum(fn thm => SIMP_TAC std_ss [GSYM thm])
+    \\ PURE_ONCE_REWRITE_TAC[gen_gc_partialTheory.heap_split_length]
+    \\ unabbrev_all_tac \\ fs[isRef_def,heap_expand_not_isRef])
   \\ qexists_tac`f` \\ fs[]
   \\ fs[isDataElement_def]
   \\ conj_tac
@@ -1426,7 +1548,23 @@ val bignum_alt_thm = Q.store_thm("bignum_alt_thm",
     \\ metis_tac[heap_store_rel_lemma,isSomeDataElement_def] )
   \\ rfs[]
   \\ fs[bc_stack_ref_inv_def]
-  \\ conj_tac THEN1 fs [gc_kind_inv_def]
+  \\ conj_tac THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[heap_store_unused_alt_def]
+    \\ drule heap_split_heap_length \\ strip_tac \\ qpat_x_assum `_ ++ _ = _` (assume_tac o GSYM)
+    \\ fs[] \\ every_case_tac \\ fs[heap_lookup_APPEND] \\ rfs[]
+    \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[]
+    \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
+    \\ fs[]
+    \\ qpat_abbrev_tac `a1 = DataElement _ _ _`
+    \\ `heap_length(ha ++ [a1] ++ heap_expand (sp + sp1 − (LENGTH xs + 1)) ++ hb) =
+        sp + (sp1 + heap_length ha)`
+       by (unabbrev_all_tac \\ fs[heap_length_APPEND,heap_length_heap_expand]
+             \\ fs[heap_length_def] \\ fs[el_length_def])
+    \\ pop_assum(fn thm => SIMP_TAC std_ss [GSYM thm])
+    \\ PURE_ONCE_REWRITE_TAC[gen_gc_partialTheory.heap_split_length]
+    \\ unabbrev_all_tac \\ fs[heap_expand_not_isRef,Bignum_def]
+    \\ pairarg_tac \\ fs[isRef_def])
   \\ qexists_tac`f` \\ fs[]
   \\ fs[isDataElement_def]
   \\ conj_tac
@@ -1704,7 +1842,22 @@ val update_ref_thm = Q.store_thm("update_ref_thm",
     THEN1 (EVAL_TAC \\ simp_tac std_ss [])
     \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
     \\ fs [] \\ metis_tac [])
-  \\ strip_tac THEN1 fs [gc_kind_inv_def]
+  \\ strip_tac THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[]
+    \\ drule heap_split_heap_length \\ strip_tac \\ qpat_x_assum `_ ++ _ = _` (assume_tac o GSYM)
+    \\ fs[] \\ fs[heap_lookup_APPEND] \\ every_case_tac \\ fs[] \\ rfs[]
+    \\ qpat_x_assum `heap_lookup _ _ = SOME (RefBlock zs)` assume_tac
+    \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+    THEN1 fs[RefBlock_def,isRef_def]
+    \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
+    \\ fs[]
+    \\ `f ' ptr = heap_length(h1 ++ ha)` by fs[heap_length_APPEND]
+    \\ fs[heap_store_lemma]
+    \\ qpat_x_assum `heap_length h1 = _` (assume_tac o GSYM)
+    \\ fs[] 
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,gen_gc_partialTheory.heap_split_length]
+    \\ fs[isRef_def,RefBlock_def])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [unused_space_inv_def] \\ rpt strip_tac
     \\ res_tac \\ Cases_on `a = f ' ptr` \\ full_simp_tac (srw_ss()) []
@@ -1779,7 +1932,22 @@ val update_ref_thm1 = Q.store_thm("update_ref_thm1",
     \\ Cases_on`t1`>>fs[]
     \\ imp_res_tac MEM_LUPDATE_E >> fs[]
     \\ rfs[heap_deref_def] >> metis_tac[heap_lookup_MEM])
-  \\ strip_tac THEN1 fs [gc_kind_inv_def]
+  \\ strip_tac THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[]
+    \\ drule heap_split_heap_length \\ strip_tac \\ qpat_x_assum `_ ++ _ = _` (assume_tac o GSYM)
+    \\ fs[] \\ fs[heap_lookup_APPEND] \\ every_case_tac \\ fs[] \\ rfs[]
+    \\ qpat_x_assum `heap_lookup _ _ = SOME (RefBlock zs)` assume_tac
+    \\ drule heap_lookup_SPLIT \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+    THEN1 fs[RefBlock_def,isRef_def]
+    \\ qpat_x_assum `heap_store _ _ _ = _` mp_tac
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma] \\ disch_then (assume_tac o GSYM)
+    \\ fs[]
+    \\ `f ' ptr = heap_length(h1 ++ ha)` by fs[heap_length_APPEND]
+    \\ fs[heap_store_lemma]
+    \\ qpat_x_assum `heap_length h1 = _` (assume_tac o GSYM)
+    \\ fs[] 
+    \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,gen_gc_partialTheory.heap_split_length]
+    \\ fs[isRef_def,RefBlock_def])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [unused_space_inv_def] \\ rpt strip_tac
     \\ res_tac \\ Cases_on `a = f ' ptr` \\ full_simp_tac (srw_ss()) []
@@ -1853,6 +2021,23 @@ val v_inv_IMP = Q.prove(
          heap_length_APPEND,heap_length_def,SUM_APPEND,el_length_def]
   \\ rw [] \\ fs []);
 
+val heap_split_APPEND_if = Q.store_thm("heap_split_APPEND_if",
+  `!h1 n h2. heap_split n (h1 ++ h2) =
+  if n < heap_length h1 then
+    case heap_split n h1 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1',h2'++h2)
+  else
+    case heap_split (n - heap_length h1) h2 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1++h1',h2')`,
+  Induct >> fs[heap_split_def] >> rpt strip_tac
+  >- (Cases_on `heap_split n h2` >> fs[] >> Cases_on `x` >> fs[])
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> Cases_on `h` >> fs[el_length_def])
+  >> IF_CASES_TAC >- fs[heap_length_def]
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> every_case_tac >> fs[])
+  >> fs[heap_length_def] >> every_case_tac >> fs[]);
+  
 val update_byte_ref_thm = Q.store_thm("update_byte_ref_thm",
   `abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
     (FLOOKUP refs ptr = SOME (ByteArray fl xs)) /\ (LENGTH xs = LENGTH ys) ==>
@@ -1889,7 +2074,32 @@ val update_byte_ref_thm = Q.store_thm("update_byte_ref_thm",
            FILTER_APPEND,FILTER,isForwardPointer_def]
     \\ rfs [] \\ fs [] \\ rpt strip_tac
     \\ first_x_assum match_mp_tac \\ metis_tac [])
-  THEN1 fs [gc_kind_inv_def]
+   THEN1
+   (fs [gc_kind_inv_def] \\ every_case_tac \\ fs[]
+    \\ fs[Once heap_split_APPEND_if]      
+    \\ fs[heap_length_APPEND,heap_length_def,Bytes_def,el_length_def]
+    \\ IF_CASES_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[]
+    \\ every_case_tac \\ fs[]
+    >- (fs[Once heap_split_APPEND_if]
+        \\ fs[heap_length_APPEND,heap_length_def,Bytes_def,el_length_def]
+        \\ pop_assum mp_tac \\ IF_CASES_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC
+        \\ fs[] \\ fs[heap_split_def,el_length_def]
+        \\ Cases_on `a + (sp + sp1) ≤ SUM (MAP el_length ha)`
+        \\ fs[el_length_def])
+    >- (rveq \\ fs[]
+        \\ pop_assum mp_tac
+        \\ fs[Once heap_split_APPEND_if]
+        \\ IF_CASES_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[]
+        \\ disch_then (assume_tac o GSYM)
+        >- (qpat_x_assum `_ = r` (assume_tac o GSYM) \\ fs[isRef_def])
+        \\ fs[] \\ rveq \\ fs[] \\ every_case_tac \\ fs[]
+        \\ rveq \\ fs[] \\ fs[heap_split_def] \\ rfs[]
+        \\ every_case_tac \\ fs[]
+        \\ qpat_x_assum `_ = r` (assume_tac o GSYM) \\ fs[isRef_def]
+        \\ qpat_x_assum `_ = r'` (assume_tac o GSYM) \\ fs[isRef_def]
+        \\ qpat_x_assum `_ = q'` (assume_tac o GSYM) \\ fs[isRef_def]
+        \\ rveq \\ fs[isRef_def])
+    >- (rveq \\ fs[isRef_def]))
   THEN1
    (fs [unused_space_inv_def,heap_lookup_APPEND,heap_length_def]
     \\ fs [heap_length_def,Bytes_def,el_length_def,heap_lookup_def,
