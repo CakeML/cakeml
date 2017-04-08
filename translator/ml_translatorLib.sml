@@ -827,14 +827,30 @@ fun list_dest f tm =
   val is_exn_type = false
 *)
 
+fun tys_is_pair_type tys =
+  (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
+fun tys_is_list_type tys =
+  (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
+fun tys_is_option_type tys =
+  (case tys of [ty] => optionSyntax.is_option ty | _ => false)
+fun tys_is_unit_type tys =
+  (case tys of [ty] => ty = oneSyntax.one_ty | _ => false)
+fun tys_is_order_type tys =
+  (case tys of [ty] => let val r = dest_thy_type ty in #Thy r = "toto" andalso #Tyop r = "cpn" end | _ => false)
+val unit_tyname = stringSyntax.fromMLstring "unit"
+val order_tyname = stringSyntax.fromMLstring "order"
+
 fun define_ref_inv is_exn_type tys = let
-  val is_pair_type =
-    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
-  val is_list_type =
-    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
-  val is_option_type =
-    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
-  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
+  val is_pair_type = tys_is_pair_type tys
+  val is_list_type = tys_is_list_type tys
+  val is_option_type = tys_is_option_type tys
+  val is_unit_type = tys_is_unit_type tys
+  val is_order_type = tys_is_order_type tys
+  fun smart_full_name_of_type ty =
+    if is_unit_type then "unit" else
+    if is_order_type then "order" else
+    full_name_of_type ty
+  fun get_name ty = clean_uppercase (smart_full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
   fun list_mk_type [] ret_ty = ret_ty
@@ -851,7 +867,7 @@ fun define_ref_inv is_exn_type tys = let
     val vars = type_vars ty
     val ss = map get_type_inv vars
     val input = mk_var("input",ty)
-    val ml_ty_name = full_name_of_type ty
+    val ml_ty_name = smart_full_name_of_type ty
     val def_name = mk_var(name,list_mk_type (ss @ [input]) (v_ty --> bool))
     val lhs = foldl (fn (x,y) => mk_comb(y,x)) def_name (ss @ [input,tmp_v_var])
     in (ml_ty_name,xs,ty,lhs,input) end
@@ -881,7 +897,7 @@ fun define_ref_inv is_exn_type tys = let
             (if is_exn_type then tag else ml_ty_name)
       val vs = listSyntax.mk_list(map (fn (_,z) => z) vars,v_ty)
       val tyi = if is_exn_type then mk_TypeExn else mk_TypeId
-      val tag_tm = if is_pair_type then
+      val tag_tm = if is_pair_type orelse is_unit_type then
                      optionSyntax.mk_none(pairSyntax.mk_prod(
                        stringSyntax.string_ty, tid_or_exn_ty))
                    else if is_list_type orelse is_option_type then
@@ -941,6 +957,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 *)
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
+                if is_unit_type then UNIT_TYPE_def else
                 if is_option_type then OPTION_TYPE_def else
                   tDefine name [ANTIQUOTE def_tm] tac
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
@@ -952,6 +969,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
+          if is_unit_type then inv_def else
           if is_option_type then inv_def else
             save_thm(name ^ "_def",inv_def)
   val ind = fetch "-" (name ^ "_ind") |> clean_rule
@@ -1103,12 +1121,11 @@ fun derive_thms_for_type is_exn_type ty = let
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys_pre = find_mutrec_types ty |> map (type_subst tsubst)
   val tys = map inst_fcp_types tys_pre
-  val is_pair_type =
-    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
-  val is_list_type =
-    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
-  val is_option_type =
-    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
+  val is_pair_type = tys_is_pair_type tys
+  val is_list_type = tys_is_list_type tys
+  val is_option_type = tys_is_option_type tys
+  val is_unit_type = tys_is_unit_type tys
+  val is_order_type = tys_is_order_type tys
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
@@ -1127,8 +1144,11 @@ fun derive_thms_for_type is_exn_type ty = let
                                           |> list_dest dest_conj |> hd
                                           |> rand |> rator |> rand |> rand))
       (* TODO: assumes single level module only *)
-      val tyname = ys |> hd |> snd |> rand |> rand |>
-        (fn id => if astSyntax.is_Short id then rand id else (rand o rand) id)
+      val tyname =
+        if is_order_type then order_tyname else
+        if is_unit_type then unit_tyname else
+          ys |> hd |> snd |> rand |> rand |>
+          (fn id => if astSyntax.is_Short id then rand id else (rand o rand) id)
       val ys = map (fn (x,y) => (y |> rator |> rand,
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
@@ -1156,7 +1176,10 @@ fun derive_thms_for_type is_exn_type ty = let
   (* cons assumption *)
   fun smart_full_id tyname =
     if is_list_type orelse is_option_type orelse is_pair_type
-    then astSyntax.mk_Short tyname else full_id tyname
+    then astSyntax.mk_Short tyname
+    else if is_order_type then astSyntax.mk_Short order_tyname
+    else if is_unit_type then astSyntax.mk_Short unit_tyname
+    else full_id tyname
   fun make_assum tyname c = let
     val (x1,x2) = dest_pair c
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int

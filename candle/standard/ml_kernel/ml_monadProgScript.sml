@@ -23,6 +23,7 @@ val with_same_refs = Q.store_thm("with_same_refs",
 
 val _ = (use_full_type_names := false);
 
+val _ = register_type ``:cpn``;
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;

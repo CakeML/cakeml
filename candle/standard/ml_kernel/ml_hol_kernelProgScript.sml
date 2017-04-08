@@ -69,7 +69,10 @@ val ty = ``:def``; val th = derive_case_of ty;
 *)
 
 fun derive_case_of ty = let
-  fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
+  fun smart_full_name_of_type ty =
+    if let val r = dest_thy_type ty in #Tyop r = "cpn" andalso #Thy r = "toto" end then "order"
+    else full_name_of_type ty
+  fun get_name ty = clean_uppercase (smart_full_name_of_type ty) ^ "_TYPE"
   val name = get_name ty
   val inv_def = fetch "ml_monadProg" (name ^ "_def") handle HOL_ERR _ =>
                 fetch "ml_translator" (name ^ "_def")
