@@ -17,8 +17,11 @@ val _ = Datatype`compile_error = ParseError | TypeError string | CompileError`;
 val locs_to_string_def = Define `
   (locs_to_string NONE = "unknown location") ∧
   (locs_to_string (SOME (startl, endl)) =
-    "location starting at row " ++ toString startl.row ++ " column " ++ toString startl.col ++
-    ", ending at row "  ++ toString startl.row ++ " column " ++ toString startl.col)`;
+    if (startl, endl) = unknown_loc then
+      "unknown location"
+    else
+      "location starting at row " ++ toString startl.row ++ " column " ++ toString startl.col ++
+      ", ending at row "  ++ toString startl.row ++ " column " ++ toString startl.col)`;
 
 val compile_def = Define`
   compile c prelude input =

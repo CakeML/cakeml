@@ -42,6 +42,7 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
+            def_from_thy "infer" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
   val def = def |> RW (!extra_preprocessing)
@@ -435,6 +436,7 @@ val aggr_infer_def = full_infer_def true;
 
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
+val _ = translate (infer_def ``inf_type_to_string``);
 val _ = translate (infer_def ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
