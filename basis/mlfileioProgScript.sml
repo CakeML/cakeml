@@ -555,7 +555,7 @@ val inputLine = process_topdecs`
     in
       case fgetc fd of NONE => NONE
       | SOME c => if c = #"\n" then SOME (String.str c)
-                  else SOME (String.implode (rev (loop [c])))
+                  else SOME (String.implode (List.rev (loop [c])))
     end`;
 val _ = append_prog inputLine;
 
@@ -711,7 +711,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
                    ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ xsimpl)
   \\ xlet`POSTv lv. &LIST_TYPE CHAR (c::ls) lv * ROFS (bumpLineFD (w2n fd) fs)`
-  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]std_preludeTheory.reverse_v_thm)
+  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]mllistProgTheory.reverse_v_thm)
        \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
   \\ xlet`POSTv sv. &STRING_TYPE (implode (c::ls)) sv * ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ instantiate \\ xsimpl )

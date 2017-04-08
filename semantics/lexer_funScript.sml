@@ -115,8 +115,10 @@ val read_FFIcall_def = Define‘
       if c = #")" then
         (FFIS (REVERSE acc), loc with col updated_by (+) 2, s0)
       else if c = #"\n" then (ErrorS, loc, s0)
-      else if isSpace c then read_FFIcall s0 acc (loc with col updated_by SUC)
-      else read_FFIcall s0 (c::acc) (loc with col updated_by SUC))
+      else if isSpace c then
+        read_FFIcall s0 acc (loc with col updated_by (+) 1)
+      else
+        read_FFIcall s0 (c::acc) (loc with col updated_by (+) 1))
 ’
 
 val read_FFIcall_reduces_input = Q.store_thm(
