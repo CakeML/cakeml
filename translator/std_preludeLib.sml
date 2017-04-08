@@ -17,12 +17,10 @@ fun std_prelude () = let
 
 
 (* type registration *)
-val _ = Datatype `order = LESS | EQUAL | GREATER`;
-val _ = register_type ``:order``;
+val _ = register_type ``:cpn``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:cpn``;
 
 
 (* pair *)
