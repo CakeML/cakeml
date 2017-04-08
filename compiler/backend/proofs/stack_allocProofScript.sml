@@ -339,6 +339,14 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
+val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
+       asmTheory.word_cmp_def,wordLangTheory.num_exp_def,set_store_def,
+       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+
+
 fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
         (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
@@ -1982,6 +1990,232 @@ val word_gen_gc_move_bitmap_unroll = Q.prove(
   \\ ntac 3 (pairarg_tac \\ full_simp_tac(srw_ss())[]) \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
+
+val word_gen_gc_move_code_def = Define `
+  word_gen_gc_move_code conf =
+    If Test 5 (Imm (1w:'a word)) Skip
+      (list_Seq
+        [move 0 5;
+         Get 1 CurrHeap;
+         right_shift_inst 0 (shift_length conf);
+         left_shift_inst 0 (word_shift (:'a));
+         add_inst 0 1; (* here 0 is ptr_to_addr conf old w *)
+         load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
+         If Test 1 (Imm 3w)
+           (list_Seq [right_shift_inst 1 2;
+                      left_shift_inst 1 (shift_length conf);
+                      clear_top_inst 5 (small_shift_length conf - 1);
+                      or_inst 5 1])
+           (list_Seq [(* put header in 6 *)
+                      move 6 1;
+                      (* get len+1w *)
+                      right_shift_inst 1 (dimindex (:'a) - conf.len_size);
+                      add_1_inst 1;
+                      const_inst 2 28w;
+                      and_inst 6 2;
+                      If Equal 6 (Imm 8w)
+                        (list_Seq [
+                          Set (Temp 0w) 3;
+                          Set (Temp 1w) 4;
+                          Get 3 (Temp 2w); (* ib *)
+                          Get 4 (Temp 3w); (* pb *)
+                          (* store len+1w for later *)
+                          move 6 1;
+                          left_shift_inst 1 (word_shift (:'a));
+                          sub_inst 4 6;
+                          sub_inst 3 1;
+                          Set (Temp 2w) 3; (* new ib *)
+                          Set (Temp 3w) 4; (* new pb *)
+                          (* memcpy *)
+                          move 2 0;
+                          move 4 0;
+                          move 0 6;
+                          memcpy_code;
+                          (* compute original header_addr *)
+                          Get 0 (Temp 3w); (* fixed? *)
+                          left_shift_inst 0 2;
+                          store_inst 0 4;
+                          (* compute update_addr conf i w, where w in 5 *)
+                          Get 1 (Temp 3w);
+                          clear_top_inst 5 (small_shift_length conf - 1);
+                          left_shift_inst 1 (shift_length conf);
+                          or_inst 5 1;
+                          Get 3 (Temp 0w);
+                          Get 4 (Temp 1w)])
+                        (list_Seq [
+                          (* store len+1w for later *)
+                          move 6 1;
+                          (* memcpy *)
+                          move 2 0;
+                          move 0 1;
+                          memcpy_code;
+                          (* compute original header_addr *)
+                          move 0 6;
+                          left_shift_inst 0 (word_shift (:'a));
+                          sub_inst 2 0;
+                          (* store i << 2 into header_addr *)
+                          move 0 4;
+                          left_shift_inst 0 2;
+                          store_inst 0 2;
+                          (* compute update_addr conf i w, where i in 4 and w in 5 *)
+                          move 1 4;
+                          clear_top_inst 5 (small_shift_length conf - 1);
+                          left_shift_inst 1 (shift_length conf);
+                          or_inst 5 1;
+                          (* add to i in 4 *)
+                          add_inst 4 6])])]) :'a stackLang$prog`;
+
+val word_gen_gc_move_code_thm = Q.store_thm("word_gen_gc_move_code_thm",
+  `word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) = (w1,i1,pa1,ib1,pb1,m1,T) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
+    s.memory = m /\ s.mdomain = dm /\
+    0 IN FDOM s.regs /\
+    1 IN FDOM s.regs /\
+    2 IN FDOM s.regs /\
+    get_var 3 s = SOME (Word pa) /\
+    get_var 4 s = SOME (Word (i:'a word)) /\
+    get_var 5 s = SOME w /\
+    (Temp 0w) IN FDOM s.store /\
+    (Temp 1w) IN FDOM s.store /\
+    FLOOKUP s.store (Temp 2w) = SOME (Word pb) /\
+    FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
+    1 IN FDOM s.regs /\
+    2 IN FDOM s.regs /\
+    6 IN FDOM s.regs ==>
+    ?ck r0 r1 r2 r6 t0 t1.
+      evaluate (word_gen_gc_move_code conf,s with clock := s.clock + ck) =
+        (NONE,s with <| memory := m1;
+                        store := s.store |++ [(Temp 0w, t0);
+                                              (Temp 1w, t1);
+                                              (Temp 2w, Word pb1);
+                                              (Temp 3w, Word ib1)];
+                        regs := s.regs |++ [(0,r0);
+                                            (1,r1);
+                                            (2,r2);
+                                            (3,Word pa1);
+                                            (4,Word i1);
+                                            (5,w1);
+                                            (6,r6)] |>)`,
+  reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gen_gc_move_def] THEN1
+   (srw_tac[][word_gen_gc_move_code_def,evaluate_def]
+    \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ qexists_tac `s.store ' (Temp 0w)`
+    \\ qexists_tac `s.store ' (Temp 1w)`
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+  \\ full_simp_tac(srw_ss())[get_var_def,word_gen_gc_move_code_def,evaluate_def]
+  \\ tac1
+  \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[] THEN1
+   (tac \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ qexists_tac `s.store ' (Temp 0w)`
+    \\ qexists_tac `s.store ' (Temp 1w)`
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC
+  THEN1
+   (full_simp_tac(srw_ss())[ptr_to_addr_def] \\ tac
+    \\ strip_tac \\ rpt var_eq_tac \\ tac
+    \\ full_simp_tac(srw_ss())[is_fwd_ptr_iff] \\ tac
+    \\ full_simp_tac(srw_ss())[clear_top_inst_def,evaluate_def] \\ tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[theWord_def]
+    \\ full_simp_tac(srw_ss())[update_addr_def,select_lower_lemma]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ qexists_tac `s.store ' (Temp 0w)`
+    \\ qexists_tac `s.store ' (Temp 1w)`
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC THEN1
+   (pairarg_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
+    \\ strip_tac \\ rpt var_eq_tac \\ fs [theWord_def]
+    \\ ntac 6 tac1
+    \\ fs [is_fwd_ptr_def,is_ref_header_def,theWord_def]
+    \\ ntac 19 tac1
+    \\ qabbrev_tac `len = decode_length conf v`
+    \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
+    \\ qexists_tac `w2n (len + 1w)`
+    \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
+    \\ drule memcpy_code_thm
+    \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
+    \\ full_simp_tac(srw_ss())[]
+    \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
+         (unabbrev_all_tac
+          \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+    \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
+      (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+       \\ fs [data_to_wordPropsTheory.decode_length_def])
+    \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
+    \\ tac1 \\ qunabbrev_tac `s3` \\ fs []
+    \\ tac1 \\ full_simp_tac(srw_ss())[] \\ tac1
+    \\ pop_assum kall_tac
+    \\ fs [LET_THM,data_to_wordPropsTheory.decode_length_def]
+    \\ fs [] \\ tac \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[clear_top_inst_def] \\ tac
+    \\ full_simp_tac(srw_ss())[select_lower_lemma,
+          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+    \\ tac \\ full_simp_tac(srw_ss())[] \\ tac
+    \\ full_simp_tac(srw_ss())[update_addr_def]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
+    \\ full_simp_tac(srw_ss())[select_lower_lemma,
+          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+    \\ qexists_tac `Word pa`
+    \\ qexists_tac `Word i` \\ fs [])
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
+  \\ strip_tac \\ rpt var_eq_tac
+  \\ ntac 6 tac1
+  \\ fs [is_fwd_ptr_def,is_ref_header_def,theWord_def]
+  \\ ntac 9 tac1
+  \\ qabbrev_tac `len = decode_length conf v`
+  \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
+  \\ qexists_tac `w2n (len + 1w)`
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
+  \\ drule memcpy_code_thm
+  \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
+  \\ full_simp_tac(srw_ss())[]
+  \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
+       (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+  \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
+    (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+     \\ fs [data_to_wordPropsTheory.decode_length_def])
+  \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
+  \\ tac1 \\ qunabbrev_tac `s3` \\ fs []
+  \\ tac1 \\ full_simp_tac(srw_ss())[] \\ tac1
+  \\ fs [LET_THM,data_to_wordPropsTheory.decode_length_def]
+  \\ fs [] \\ tac \\ rpt var_eq_tac
+  \\ full_simp_tac(srw_ss())[clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+  \\ tac \\ full_simp_tac(srw_ss())[] \\ tac
+  \\ full_simp_tac(srw_ss())[update_addr_def]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]
+  \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+  \\ qexists_tac `s.store ' (Temp 0w)`
+  \\ qexists_tac `s.store ' (Temp 1w)`
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
 
 (*
 
