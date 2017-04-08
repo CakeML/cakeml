@@ -57,9 +57,6 @@ val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
 
-(*
-
-
 val _ = translate (con_to_decTheory.compile_def);
 
 val _ = translate (exh_reorderTheory.compile_def);
@@ -84,6 +81,8 @@ val dec_to_exh_compile_side = Q.prove(
 
 val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
 val _ = translate (exh_to_patTheory.compile_def);
+
+(*
 
 local
   val ths = ml_translatorLib.eq_lemmas();
