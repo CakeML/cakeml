@@ -254,6 +254,7 @@ val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
    st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
+val _ = translate (def_of_const``id_to_string``)
 val _ = translate (def_of_const``lookup_st_ex``)
 val _ = translate (def_of_const ``fresh_uvar``)
 val _ = translate (def_of_const ``n_fresh_uvar``)
@@ -436,7 +437,9 @@ val aggr_infer_def = full_infer_def true;
 
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
-val _ = translate (infer_def ``inf_type_to_string``);
+
+(* val _ = translate (inf_type_to_string_def); *)
+val _ = translate (def_of_const ``inf_type_to_string``);
 val _ = translate (infer_def ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"

@@ -79,10 +79,6 @@ val write_def = Define `
 (write : α -> (α, unit, β) M) v =
   \s. (Success (), v)`;
 
-val id_to_string_def = Define `
-(id_to_string (Short x) = x) ∧
-(id_to_string (Long x y) = x ++ "." ++ id_to_string y)`;
-
 val lookup_st_ex_def = Define `
   lookup_st_ex l id ienv st =
     dtcase nsLookup ienv id of
