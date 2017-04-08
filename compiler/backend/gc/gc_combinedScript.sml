@@ -8,7 +8,7 @@ val _ = Datatype `
 
 val gc_combined_def = Define `
   gc_combined conf None (roots,heap,gs:gen_state) =
-    (roots,heap,conf.limit,0,gs,T) /\
+    (roots,heap,0,0,gs,T) /\
   gc_combined conf Simple (roots,heap,gs) =
     (let (roots,heap,a,c) = full_gc (roots,heap,conf.limit) in
        (roots,heap ++ heap_expand (conf.limit-a),a,conf.limit-a,gs,c)) /\

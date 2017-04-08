@@ -1792,4 +1792,18 @@ val gc_move_list_length = store_thm("gc_move_list_length",
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ res_tac \\ fs []);
 
+val gen_gc_LENGTH = store_thm("gen_gc_LENGTH",
+  ``(gen_gc c (xs,heap) = (ys,s)) ==> (LENGTH ys = LENGTH xs)``,
+  fs [gen_gc_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac gc_move_list_length
+  \\ rw [] \\ fs []);
+
+val gen_gc_a = store_thm("gen_gc_a",
+  ``(gen_gc c (xs,heap) = (ys,s1)) /\ s1.ok /\
+    roots_ok xs heap /\ heap_ok heap c.limit ==>
+    (s1.a = heap_length s1.h1)``,
+  strip_tac \\ imp_res_tac gen_gc_thm
+  \\ fs [] \\ rveq \\ fs [] \\ fs [gc_inv_def]);
+
 val _ = export_theory();
