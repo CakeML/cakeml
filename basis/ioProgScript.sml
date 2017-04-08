@@ -80,7 +80,7 @@ val read_all = normalise_topdecs
       val c = CharIO.read u
     in
       if CharIO.read_failed u then
-        (*once it moves to mllist, List.*)rev cs
+        List.rev cs
       else
         read_all (c::cs)
       end`;
@@ -88,7 +88,7 @@ val read_all = normalise_topdecs
 val _ = ml_prog_update (ml_progLib.add_prog read_all pick_name);
 
 val char_reverse_v_thm = save_thm("char_reverse_v_thm",
-  std_preludeTheory.reverse_v_thm
+  mllistProgTheory.reverse_v_thm
   |> GEN_ALL |> ISPEC ``CHAR``);
 
 val read_all_spec = Q.store_thm ("read_all_spec",
