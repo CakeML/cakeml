@@ -3,6 +3,8 @@ open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
 val _ = new_theory "std_prelude";
 
+val register_type = abs_register_type;
+val translate = abs_translate;
 
 (* type registration *)
 

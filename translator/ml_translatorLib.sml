@@ -3641,6 +3641,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
   let
     val vname = assert is_Var (cert |> concl |> rator |> rand) |> rand |> rand
     val LOOKUP_VAR_pat = LOOKUP_VAR_def |> SPEC vname |> SPEC_ALL |> concl |> lhs
+    val cert = cert |> DISCH_ALL |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH_ALL
     val lookup_var_hyp = first (can (match_term LOOKUP_VAR_pat)) (hyp cert)
     val v = rand lookup_var_hyp
   in

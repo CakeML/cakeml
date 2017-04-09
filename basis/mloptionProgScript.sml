@@ -5,6 +5,9 @@ open preamble ml_translatorLib ml_progLib std_preludeTheory
 val _ = new_theory"mloptionProg"
 
 val _ = translation_extends"std_prelude"
+
+val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
+
 val _ = ml_prog_update (open_module "Option");
 
 val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
