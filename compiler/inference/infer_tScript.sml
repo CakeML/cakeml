@@ -1,4 +1,5 @@
 open HolKernel Parse boolLib bossLib;
+open mlstringTheory mlintTheory;
 open astTheory semanticPrimitivesTheory;
 
 val _ = numLib.prefer_num();
@@ -12,52 +13,50 @@ val _ = Datatype `
   | Infer_Tuvar num`;
 
 val id_to_string_def = Define `
-  (id_to_string (Short s) = s) ∧
-  (id_to_string (Long x id) = x ++ "." ++ id_to_string id)`;
+  (id_to_string (Short s) = implode s) ∧
+  (id_to_string (Long x id) =
+    concat [implode x; implode "."; id_to_string id])`;
 
 val tc_to_string_def = Define `
   tc =
     Case tc of
       TC_name id => id_to_string id
-    | TC_int => "<int>"
-    | TC_char => "<char>"
-    | TC_string => "<string>"
-    | TC_ref => "<ref>"
-    | TC_word8 => "<word8>"
-    | TC_word64 => "<word64>"
-    | TC_word8array => "<word8array>"
-    | TC_exn => "<exn>"
-    | TC_vector => "<vector>"
-    | TC_array => "<array>"
-    | TC_fn => "<fn>"
-    | TC_tup => "<tup>"`;
+    | TC_int => implode "<int>"
+    | TC_char => implode "<char>"
+    | TC_string => implode "<string>"
+    | TC_ref => implode "<ref>"
+    | TC_word8 => implode "<word8>"
+    | TC_word64 => implode "<word64>"
+    | TC_word8array => implode "<word8array>"
+    | TC_exn => implode "<exn>"
+    | TC_vector => implode "<vector>"
+    | TC_array => implode "<array>"
+    | TC_fn => implode "<fn>"
+    | TC_tup => implode "<tup>"`;
 
 val inf_type_to_string_def = Define `
   (inf_type_to_string (Infer_Tuvar _) =
-    "<unification variable>") ∧
+    implode "<unification variable>") ∧
   (inf_type_to_string (Infer_Tvar_db n) =
-    num_to_dec_string n) ∧
+    toString (&n)) ∧
   (inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) =
-    "(" ++ inf_type_to_string t1 ++ "->" ++ inf_type_to_string t2 ++ ")") ∧
+    concat [implode "("; inf_type_to_string t1; implode "->"; inf_type_to_string t2; implode ")"]) ∧
   (inf_type_to_string (Infer_Tapp ts TC_fn) =
-    "<bad function type>") ∧
+    implode "<bad function type>") ∧
   (inf_type_to_string (Infer_Tapp ts TC_tup) =
-    "(" ++ inf_types_to_string ts ++ ")") ∧
+    concat [implode "("; inf_types_to_string ts; implode ")"]) ∧
   (inf_type_to_string (Infer_Tapp [] tc1) =
     tc_to_string tc1) ∧
-  (inf_type_to_string (Infer_Tapp ts tc1)=
-    "("  ++ inf_types_to_string ts ++ ") " ++ tc_to_string tc1) ∧
+  (inf_type_to_string (Infer_Tapp ts tc1) =
+    concat [implode "("; inf_types_to_string ts; implode ") "; tc_to_string tc1]) ∧
   (inf_types_to_string [] =
-    "") ∧
+    implode "") ∧
   (inf_types_to_string [t] =
     inf_type_to_string t) ∧
   (inf_types_to_string (t::ts) =
-    inf_type_to_string t ++ ", " ++ inf_types_to_string ts)`;
+    concat [inf_type_to_string t; implode ", "; inf_types_to_string ts])`;
 
 (*WF_REL_TAC `measure (\x. dtcase x of INL x => infer_t_size x | INR x => infer_t1_size x)`*)
-val _ = save_thm("inf_type_to_string_def",inf_type_to_string_def);
-val _ = save_thm("inf_type_to_string_ind",inf_type_to_string_ind);
-val _ = computeLib.add_persistent_funs ["inf_type_to_string_def"];
 
 val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",`
  (∀t. inf_type_to_string t =
