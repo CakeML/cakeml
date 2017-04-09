@@ -90,7 +90,8 @@ add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, "Type mismatch between " ++ inf_type_to_string t1 ++ " and " ++ inf_type_to_string t2), st)
+          (Failure (l, concat [implode "Type mismatch between "; inf_type_to_string t1;
+                               implode " and "; inf_type_to_string t2]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -103,7 +104,7 @@ val add_constraints_def = Define `
      return ()
   od) ∧
 (add_constraints l _ _ =
-  failwith l "Internal error: Bad call to add_constraints")`;
+  failwith l (implode "Internal error: Bad call to add_constraints"))`;
 
 val get_next_uvar_def = Define `
 get_next_uvar =
@@ -224,7 +225,7 @@ val infer_p_def = tDefine "infer_p" `
   od) ∧
 (infer_p l ienv (Ptannot p t) =
  do (t',tenv) <- infer_p l ienv p;
-    () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l "Bad type annotation";
+    () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l (implode "Bad type annotation");
     () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
     return (t', tenv)
  od) ∧
@@ -376,7 +377,7 @@ constrain_op l op ts =
        do () <- add_constraint l t (Infer_Tapp [] TC_word8array);
           return (Infer_Tapp [] TC_tup)
        od
-   | _ => failwith l "Wrong number of arguments to primitive"`;
+   | _ => failwith l (implode "Wrong number of arguments to primitive")`;
 
 val constrain_op_def = Define constrain_op_quotation
 
@@ -397,7 +398,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Handle e pes) =
   if pes = [] then
-    failwith l "Empty pattern match"
+    failwith l (implode "Empty pattern match")
   else
     do t1 <- infer_e l ienv e;
        () <- infer_pes l ienv pes (Infer_Tapp [] TC_exn) t1;
@@ -458,7 +459,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Mat e pes) =
   if pes = [] then
-    failwith l "Empty pattern match"
+    failwith l (implode "Empty pattern match")
   else
     do t1 <- infer_e l ienv e;
        t2 <- fresh_uvar;
@@ -497,7 +498,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
   *)
 (infer_e l ienv (Letrec funs e) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) l "Duplicate function name";
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) l (implode "Duplicate function name");
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
      funs_ts <- infer_funs l (ienv with inf_v:=env') funs;
@@ -507,7 +508,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Tannot e t) =
   do t' <- infer_e l ienv e;
-     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l "Bad type annotation";
+     () <- guard (check_freevars 0 [] t ∧ check_type_names ienv.inf_t t) l (implode "Bad type annotation");
      () <- add_constraint l t' (infer_type_subst [] (type_name_subst ienv.inf_t t));
      return t'
    od) ∧
@@ -524,7 +525,7 @@ val infer_e_def = tDefine "infer_e" `
    return ()) ∧
 (infer_pes l ienv ((p,e)::pes) t1 t2 =
   do (t1', env') <- infer_p l ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) l "Duplicate pattern variable";
+     () <- guard (ALL_DISTINCT (MAP FST env')) l (implode "Duplicate pattern variable");
      () <- add_constraint l t1 t1';
      t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint l t2 t2';
@@ -563,18 +564,18 @@ val infer_d_def = Define `
      n <- get_next_uvar;
      t1 <- infer_e (SOME locs) ienv e;
      (t2,env') <- infer_p (SOME locs) ienv p;
-     () <- guard (ALL_DISTINCT (MAP FST env')) (SOME locs) "Duplicate pattern variable";
+     () <- guard (ALL_DISTINCT (MAP FST env')) (SOME locs) (implode "Duplicate pattern variable");
      () <- add_constraint (SOME locs) t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
-     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) "Value restriction violated";
+     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) (implode "Value restriction violated");
      return (empty_inf_decls,
              <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                 inf_c := nsEmpty;
                 inf_t := nsEmpty |>)
   od) ∧
 (infer_d mn idecls ienv (Dletrec locs funs) =
-  do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) "Duplicate function name";
+  do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) (implode "Duplicate function name");
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
@@ -591,26 +592,29 @@ val infer_d_def = Define `
 (infer_d mn idecls ienv (Dtype locs tdefs) =
   do ienvT1 <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs) "Bad type definition";
+     () <- guard (check_ctor_tenv ienvT2 tdefs) (SOME locs) (implode "Bad type definition");
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
      () <- guard (EVERY (\new_id. ~MEM new_id idecls.inf_defined_types)
-     new_tdecls) (SOME locs) "Duplicate type definition";
+     new_tdecls) (SOME locs) (implode "Duplicate type definition");
      return (empty_inf_decls with inf_defined_types := new_tdecls,
              <| inf_v := nsEmpty;
                 inf_c := build_ctor_tenv mn ienvT2 tdefs;
                 inf_t := ienvT1 |>)
   od) ∧
 (infer_d mn idecls ienv (Dtabbrev locs tvs tn t) =
-  do () <- guard (ALL_DISTINCT tvs) (SOME locs) "Duplicate type variables";
-     () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) (SOME locs) "Bad type definition";
+  do () <- guard (ALL_DISTINCT tvs) (SOME locs) (implode "Duplicate type variables");
+     () <- guard (check_freevars 0 tvs t ∧ check_type_names ienv.inf_t t) (SOME locs)
+                 (implode "Bad type definition");
      return (empty_inf_decls,
              <| inf_v := nsEmpty;
                 inf_c := nsEmpty;
                 inf_t := nsSing tn (tvs,type_name_subst ienv.inf_t t) |>)
   od) ∧
 (infer_d mn idecls ienv (Dexn locs cn ts) =
-  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) (SOME locs) "Bad exception definition";
-     () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) (SOME locs) "Duplicate exception definition";
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names ienv.inf_t) ts ) (SOME locs)
+                 (implode "Bad exception definition");
+     () <- guard (~MEM (mk_id mn cn) idecls.inf_defined_exns) (SOME locs)
+                 (implode "Duplicate exception definition");
      return (empty_inf_decls with inf_defined_exns:=[mk_id mn cn],
              <| inf_v := nsEmpty;
                 inf_c := nsSing cn ([], MAP (\x. type_name_subst ienv.inf_t x) ts, TypeExn (mk_id mn cn));
@@ -643,7 +647,7 @@ val t_to_freevars_def = Define `
 (t_to_freevars (Tvar tn) =
   return [tn]) ∧
 (t_to_freevars (Tvar_db _) =
-  failwith NONE "deBruijn index in type definition") ∧
+  failwith NONE (implode "deBruijn index in type definition")) ∧
 (t_to_freevars (Tapp ts tc) =
   ts_to_freevars ts) ∧
 (ts_to_freevars [] = return []) ∧
@@ -659,7 +663,7 @@ val check_specs_def = Define `
 (check_specs mn tenvT idecls ienv (Sval x t::specs) =
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
-     () <- guard (check_type_names tenvT t) NONE "Bad type annotation";
+     () <- guard (check_type_names tenvT t) NONE (implode "Bad type annotation");
      check_specs mn tenvT idecls
        (ienv with inf_v := nsBind x (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs'))))
                                                      (type_name_subst tenvT t))
@@ -669,7 +673,7 @@ val check_specs_def = Define `
 (check_specs mn tenvT idecls ienv (Stype tdefs :: specs) =
   do new_tenvT <- return (alist_to_ns (MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs));
      tenvT' <- return (nsAppend new_tenvT tenvT);
-     () <- guard (check_ctor_tenv tenvT' tdefs) NONE "Bad type definition";
+     () <- guard (check_ctor_tenv tenvT' tdefs) NONE (implode "Bad type definition");
      new_tdecls <- return (MAP (\(tvs,tn,ctors). mk_id mn tn) tdefs);
      check_specs mn tenvT' (idecls with <|inf_defined_types:=new_tdecls++idecls.inf_defined_types|>)
        <| inf_v := ienv.inf_v;
@@ -678,18 +682,19 @@ val check_specs_def = Define `
        specs
   od) ∧
 (check_specs mn tenvT idecls ienv (Stabbrev tvs tn t :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE "Duplicate type variables";
-     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) NONE "Bad type definition";
+  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
+     () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) NONE (implode "Bad type definition");
      new_tenvT <- return (nsSing tn (tvs,type_name_subst tenvT t));
      check_specs mn (nsAppend new_tenvT tenvT) idecls (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
   od) ∧
 (check_specs mn tenvT idecls ienv (Sexn cn ts :: specs) =
-  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts) NONE "Bad exception definition";
+  do () <- guard (check_exn_tenv mn cn ts ∧ EVERY (check_type_names tenvT) ts) NONE
+                 (implode "Bad exception definition");
      check_specs mn tenvT (idecls with <|inf_defined_exns:=mk_id mn cn::idecls.inf_defined_exns|>)
        (ienv with inf_c := nsBind cn ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) ienv.inf_c) specs
   od) ∧
 (check_specs mn tenvT idecls ienv (Stype_opq tvs tn :: specs) =
-  do () <- guard (ALL_DISTINCT tvs) NONE "Duplicate type variables";
+  do () <- guard (ALL_DISTINCT tvs) NONE (implode "Duplicate type variables");
      new_tenvT <- return (nsSing tn (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
      check_specs mn (nsAppend new_tenvT tenvT) (idecls with <|inf_defined_types:=mk_id mn tn::idecls.inf_defined_types|>)
        (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
@@ -725,8 +730,8 @@ val check_signature_def = Define `
   return (decls1, ienv)) ∧
 (check_signature mn tenvT init_decls decls1 ienv (SOME specs) =
   do (decls', ienv') <- check_specs mn tenvT empty_inf_decls <|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |> specs;
-     () <- guard (check_weak_ienv ienv ienv') NONE "Signature mismatch";
-     () <- guard (check_weak_decls decls1 decls') NONE "Signature mismatch";
+     () <- guard (check_weak_ienv ienv ienv') NONE (implode "Signature mismatch");
+     () <- guard (check_weak_decls decls1 decls') NONE (implode "Signature mismatch");
      return (decls',ienv')
   od)`;
 
@@ -742,7 +747,7 @@ val infer_top_def = Define `
   od) ∧
 (infer_top idecls ienv (Tmod mn spec ds1) =
   do
-    () <- guard (~MEM [mn] idecls.inf_defined_mods) NONE ("Duplicate module: " ++ mn);
+    () <- guard (~MEM [mn] idecls.inf_defined_mods) NONE (concat [implode "Duplicate module: "; implode mn]);
     (decls',ienv') <- infer_ds [mn] idecls ienv ds1;
     (new_decls,ienv'') <- check_signature [mn] ienv.inf_t idecls decls' ienv' spec;
     return (new_decls with inf_defined_mods := [mn] :: new_decls.inf_defined_mods, ienvLift mn ienv'')
