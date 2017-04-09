@@ -842,6 +842,8 @@ val _ = Define `
   | TC_exn => "<exn>"
   | TC_vector => "<vector>"
   | TC_array => "<array>"
+  | TC_fn => "<fn>"
+  | TC_tup => "<tup>"
   )))`;
 
 

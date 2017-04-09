@@ -438,16 +438,37 @@ val aggr_infer_def = full_infer_def true;
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
 
-(* val _ = translate (inf_type_to_string_def); *)
-val _ = translate (def_of_const ``inf_type_to_string``);
-val _ = translate (infer_def ``add_constraint``);
+val _ = translate num_to_dec_string_alt_def
+
+val n2l_side = Q.prove(`
+  ∀n. n2l_side 10 n`,
+  completeInduct_on`n`>>
+  simp[Once(fetch"-""n2l_side_def")]);
+
+val hex_alt_side = Q.prove(`
+  ∀n. hex_alt_side n`,
+  fs[fetch"-""hex_alt_side_def"]>>
+  rw[]>>
+  ntac 5 (* makes fs[] a lot faster... *)
+  (Cases_on`n`>> EVAL_TAC>>
+  Cases_on`n'`>> EVAL_TAC)>>
+  fs[]);
+
+val num_to_dec_string_alt_side = Q.prove(`
+  ∀a. num_to_dec_string_alt_side a`,
+  simp[fetch "-" "num_to_dec_string_alt_side_def",fetch"-""n2s_side_def"]>>
+  simp[n2l_side,hex_alt_side]) |> update_precondition;
+
+val _ = translate inf_type_to_string_alt_def
+
+val _ = translate (infer_def ``add_constraint`` |> REWRITE_RULE [GSYM inf_type_to_string_alt_eqn]);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
 
 val _ = translate (infer_def ``add_constraints``);
 
 val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
-  `∀x y z. t_wfs z.subst ⇒ add_constraints_side x y z`,
+  `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`,
   recInduct add_constraints_ind
   \\ rw[Once(theorem"add_constraints_side_def")]
   \\ rw[Once(theorem"add_constraints_side_def")]
@@ -526,8 +547,8 @@ val _ = translate (infer_def ``infer_p``)
 val infer_p_side_def = theorem"infer_p_side_def";
 
 val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
-  `(!cenv p st. t_wfs st.subst ⇒ infer_p_side cenv p st) ∧
-   (!cenv ps st. t_wfs st.subst ⇒ infer_ps_side cenv ps st)`,
+  `(!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
+   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)`,
   ho_match_mp_tac infer_p_ind >>
   rw [] >>
   rw [Once infer_p_side_def] >>
@@ -814,10 +835,10 @@ val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def";
 
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
-  `(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
-   (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\
-   (!menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side menv pes t1 t2 st) /\
-   (!menv funs st. t_wfs st.subst ⇒ infer_funs_side menv funs st)`,
+  `(!l menv e st. t_wfs st.subst ⇒ infer_e_side l menv e st) /\
+   (!l menv es st. t_wfs st.subst ⇒ infer_es_side l menv es st) /\
+   (!l menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side l menv pes t1 t2 st) /\
+   (!l menv funs st. t_wfs st.subst ⇒ infer_funs_side l menv funs st)`,
   ho_match_mp_tac infer_e_ind >>
   rw [] >>
   rw [Once infer_e_side_def, add_constraint_side_def] >>
@@ -864,7 +885,7 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
        fs [],
    every_case_tac >>
        fs [] >>
-       qpat_assum `!st. t_wfs st.subst ⇒ infer_pes_side _ _ _ _ st` match_mp_tac >>
+       qpat_assum `!st. t_wfs st.subst ⇒ infer_pes_side _ _ _ _ _ st` match_mp_tac >>
        fs [] >>
        imp_res_tac infer_e_wfs >>
        fs [] >>
@@ -1046,7 +1067,7 @@ val check_tscheme_inst_alt = prove(``
                 (case n_fresh_uvar tvs_impl s of
                    (Success y,s) =>
                      (case Success (infer_deBruijn_subst y t_impl) of
-                        Success y => add_constraint t_spec y s
+                        Success y => add_constraint NONE t_spec y s
                       | Failure e => (Failure e,s))
                  | (Failure e,s) => (Failure e,s))
             | (Failure e,s) => (Failure e,s)
