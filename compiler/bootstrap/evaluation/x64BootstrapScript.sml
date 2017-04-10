@@ -8,16 +8,6 @@ open preamble
 
 val _ = new_theory "x64Bootstrap";
 
-(* TODO: move *)
-
-val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
-  `∀ls. prog_to_bytes ls = FLAT
-          (MAP (FLAT o MAP line_bytes o Section_lines) ls)`,
-  ho_match_mp_tac lab_to_targetTheory.prog_to_bytes_ind
-  \\ rw[lab_to_targetTheory.prog_to_bytes_def]);
-
-(* -- *)
-
 val () = Globals.max_print_depth := 10;
 val () = ml_translatorLib.reset_translation();
 
