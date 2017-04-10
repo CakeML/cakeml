@@ -3,6 +3,8 @@ open clos_to_bvlTheory (* for closure_tag et al. *)
 
 val _ = new_theory"bvlSem"
 
+val _ = Parse.hide"str";
+
 (* --- Semantics of BVL --- *)
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need

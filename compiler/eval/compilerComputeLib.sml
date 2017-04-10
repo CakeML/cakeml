@@ -64,10 +64,22 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
+      (* basis, TODO: move? *)
+    ,``:mlstring$mlstring``
     ]
-  (* TODO: move (to basicCompute or HOL) *)
   ,computeLib.Defs
-    [ (* ---- source_to_mod ---- *)
+    [
+      (* basis, TODO: move to its own computeLib? *)
+    mlstringTheory.implode_def,
+    mlstringTheory.str_def,
+    mlintTheory.zero_pad_def,
+    mlintTheory.toChar_def,
+    mlintTheory.simple_toChars_def,
+    mlintTheory.maxSmall_DEC_def,
+    mlintTheory.padLen_DEC_eq,
+    mlintTheory.toChars_def,
+    mlintTheory.toString_def,
+      (* ---- source_to_mod ---- *)
      source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
