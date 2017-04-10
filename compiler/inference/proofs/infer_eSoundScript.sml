@@ -31,8 +31,8 @@ val sub_completion_unify2 = Q.store_thm ("sub_completion_unify2",
 rw [sub_completion_def, pure_add_constraints_def]);
 
 val sub_completion_infer = Q.prove (
-`!ienv e st1 t st2 n ts2 s.
-  (infer_e ienv e st1 = (Success t, st2)) ∧
+`!l ienv e st1 t st2 n ts2 s.
+  infer_e l ienv e st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
   ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
@@ -69,8 +69,8 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]);
 
 val sub_completion_infer_es = Q.prove (
-`!cenv es st1 t st2 n ts2 s.
-  infer_es cenv es st1 = (Success t, st2) ∧
+`!l cenv es st1 t st2 n ts2 s.
+  infer_es l cenv es st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
   ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
@@ -82,13 +82,13 @@ imp_res_tac sub_completion_infer >>
 metis_tac [APPEND_ASSOC]);
 
 val sub_completion_infer_p = Q.store_thm ("sub_completion_infer_p",
-`(!cenv p st t env st' tvs extra_constraints s.
-    (infer_p cenv p st = (Success (t,env), st')) ∧
+`(!l cenv p st t env st' tvs extra_constraints s.
+    infer_p l cenv p st = (Success (t,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s) ∧
- (!cenv ps st ts env st' tvs extra_constraints s.
-    (infer_ps cenv ps st = (Success (ts,env), st')) ∧
+ (!l cenv ps st ts env st' tvs extra_constraints s.
+    infer_ps l cenv ps st = (Success (ts,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s)`,
@@ -120,8 +120,8 @@ fs []
     metis_tac [APPEND_ASSOC]));
 
 val sub_completion_infer_pes = Q.prove (
-`!ienv pes t1 t2 st1 t st2 n ts2 s.
-  (infer_pes ienv pes t1 t2 st1 = (Success (), st2)) ∧
+`!l ienv pes t1 t2 st1 t st2 n ts2 s.
+  infer_pes l ienv pes t1 t2 st1 = (Success (), st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
   ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
@@ -144,8 +144,8 @@ fs [] >>
 metis_tac [APPEND, APPEND_ASSOC]);
 
 val sub_completion_infer_funs = Q.prove (
-`!ienv funs st1 t st2 n ts2 s.
-  (infer_funs ienv funs st1 = (Success t, st2)) ∧
+`!l ienv funs st1 t st2 n ts2 s.
+  infer_funs l ienv funs st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
   ⇒
   ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s`,
@@ -216,8 +216,8 @@ fs [sub_completion_def] >|
 (* ---------- Soundness ---------- *)
 
 val infer_p_sound = Q.store_thm ("infer_p_sound",
-`(!ienv p st t tenv env st' tvs extra_constraints s.
-    infer_p ienv p st = (Success (t,env), st') ∧
+`(!l ienv p st t tenv env st' tvs extra_constraints s.
+    infer_p l ienv p st = (Success (t,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
@@ -226,8 +226,8 @@ val infer_p_sound = Q.store_thm ("infer_p_sound",
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_p tvs tenv p (convert_t (t_walkstar s t)) (convert_env s env)) ∧
- (!ienv ps st ts tenv env st' tvs extra_constraints s.
-    infer_ps ienv ps st = (Success (ts,env), st') ∧
+ (!l ienv ps st ts tenv env st' tvs extra_constraints s.
+    infer_ps l ienv ps st = (Success (ts,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok tenv.c ∧
     ienv.inf_c = tenv.c ∧
@@ -408,7 +408,7 @@ fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t
 
 val constrain_op_sub_completion = Q.prove (
 `sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
- constrain_op op ts st' = (Success t,st)
+ constrain_op l op ts st' = (Success t,st)
  ⇒
  ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s`,
  rw [] >>
@@ -422,7 +422,7 @@ val constrain_op_sub_completion = Q.prove (
 val constrain_op_sound = Q.prove (
 `t_wfs st.subst ∧
  sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s ∧
- constrain_op op ts st = (Success t,st')
+ constrain_op l op ts st = (Success t,st')
  ⇒
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
  fs [constrain_op_def, type_op_cases] >>
@@ -448,32 +448,32 @@ val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar"
  >> simp [EL_MAP]);
 
 val infer_e_sound = Q.store_thm ("infer_e_sound",
-`(!ienv e st st' tenv tenvE t extra_constraints s.
-    infer_e ienv e st = (Success t, st') ∧
+`(!l ienv e st st' tenv tenvE t extra_constraints s.
+    infer_e l ienv e st = (Success t, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_e tenv tenvE e (convert_t (t_walkstar s t))) ∧
- (!ienv es st st' tenv tenvE ts extra_constraints s.
-    infer_es ienv es st = (Success ts, st') ∧
+ (!l ienv es st st' tenv tenvE ts extra_constraints s.
+    infer_es l ienv es st = (Success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_es tenv tenvE es (MAP (convert_t o t_walkstar s) ts)) ∧
- (!ienv pes t1 t2 st st' tenv tenvE extra_constraints s.
-    infer_pes ienv pes t1 t2 st = (Success (), st') ∧
+ (!l ienv pes t1 t2 st st' tenv tenvE extra_constraints s.
+    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s
     ⇒
     type_pes (num_tvs tenvE) 0 tenv tenvE pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s t2))) ∧
- (!ienv funs st st' tenv tenvE extra_constraints s ts.
-    infer_funs ienv funs st = (Success ts, st') ∧
+ (!l ienv funs st st' tenv tenvE extra_constraints s ts.
+    infer_funs l ienv funs st = (Success ts, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
     env_rel_sound s ienv tenv tenvE ∧
     t_wfs st.subst ∧
@@ -481,7 +481,6 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     ALL_DISTINCT (MAP FST funs)
     ⇒
     type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`,
-
   ho_match_mp_tac infer_e_ind >>
   rw [infer_e_def, success_eqns, remove_pair_lem] >>
   rw [check_t_def] >>
@@ -685,8 +684,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> fs []
    >> first_x_assum drule
    >> first_x_assum drule
-   >> rename1 `infer_e _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ e1 st1 = (Success t2, st2)`
+   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
+   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
    >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
    >> simp []
    >> disch_then drule
@@ -719,8 +718,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
    >> fs []
    >> first_x_assum drule
    >> first_x_assum drule
-   >> rename1 `infer_e _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ e1 st1 = (Success t2, st2)`
+   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
+   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
    >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
    >> simp []
    >> disch_then drule
@@ -868,9 +867,9 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >> metis_tac []))
  >- ( (* Letrec *)
    qmatch_assum_abbrev_tac
-       `infer_funs (_ with inf_v := nsAppend bindings _) _ _ = (Success funs_ts, st1)`
+       `infer_funs _ (_ with inf_v := nsAppend bindings _) _ _ = (Success funs_ts, st1)`
    >> rename1 `pure_add_constraints st1.subst _ st2.subst`
-   >> rename1 `infer_e _ _ _ = (Success t, st3)`
+   >> rename1 `infer_e _ _ _ _ = (Success t, st3)`
    >> drule (List.nth (CONJUNCTS infer_e_wfs, 3))
    >> rw []
    >> `t_wfs st2.subst ∧ t_wfs st3.subst ∧ t_wfs s`

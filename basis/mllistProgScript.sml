@@ -10,7 +10,7 @@ val _ = translation_extends "mloptionProg"
 val _ = ml_prog_update (open_module "List");
 
 
-val _ = ml_prog_update (add_dec ``Dtabbrev ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
 
 val result = translate LENGTH;
 (* val result = save_thm("length_v_thm",translate LENGTH); *)

@@ -13,11 +13,11 @@ fun array_st () = get_ml_prog_state ()
 val () = ml_prog_update (open_module "Array");
 
 val () = append_decs
-   ``[Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
+   ``[Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
-      Dlet (Pvar "update")
+      Dlet unknown_loc (Pvar "update")
        (Fun "x" (Fun "y" (Fun "z"
          (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
 
@@ -172,7 +172,7 @@ val _ = append_prog array_find;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
-``[Tdec (Dletrec
+``[Tdec (Dletrec unknown_loc
 [("findi_aux","f",
  Fun "arr"
    (Fun "max"

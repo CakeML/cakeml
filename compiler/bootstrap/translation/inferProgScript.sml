@@ -42,6 +42,7 @@ fun def_of_const tm = let
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy name
   val def = def_from_thy "termination" name handle HOL_ERR _ =>
+            def_from_thy "infer" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
   val def = def |> RW (!extra_preprocessing)
@@ -253,7 +254,8 @@ val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
    st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
-val _ = translate (def_of_const``lookup_st_ex``)
+val _ = translate (def_of_const ``id_to_string``)
+val _ = translate (def_of_const ``lookup_st_ex``)
 val _ = translate (def_of_const ``fresh_uvar``)
 val _ = translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
@@ -435,6 +437,23 @@ val aggr_infer_def = full_infer_def true;
 
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
+val _ = translate (infer_def ``tc_to_string``);
+
+val tc_to_string_side_thm = Q.store_thm ("tc_to_string_side_thm",
+  `!x. tc_to_string_side x`,
+  rw [definition"tc_to_string_side_def"] >>
+  Cases_on `x` >>
+  rw []) |> update_precondition;
+
+val _ = translate infer_tTheory.inf_type_to_string_pmatch;
+
+val inf_type_to_string_side_thm  = Q.store_thm ("inf_type_to_string_side_thm",
+  `(!x. inf_type_to_string_side x) ∧
+   (!xs. inf_types_to_string_side xs)`,
+  ho_match_mp_tac infer_tTheory.inf_type_to_string_ind >>
+  rw [] >>
+  rw [Once (theorem "inf_type_to_string_side_def")]) |> update_precondition;
+
 val _ = translate (infer_def ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
@@ -442,7 +461,7 @@ val add_constraint_side_def = definition"add_constraint_side_def"
 val _ = translate (infer_def ``add_constraints``);
 
 val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
-  `∀x y z. t_wfs z.subst ⇒ add_constraints_side x y z`,
+  `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`,
   recInduct add_constraints_ind
   \\ rw[Once(theorem"add_constraints_side_def")]
   \\ rw[Once(theorem"add_constraints_side_def")]
@@ -521,8 +540,8 @@ val _ = translate (infer_def ``infer_p``)
 val infer_p_side_def = theorem"infer_p_side_def";
 
 val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
-  `(!cenv p st. t_wfs st.subst ⇒ infer_p_side cenv p st) ∧
-   (!cenv ps st. t_wfs st.subst ⇒ infer_ps_side cenv ps st)`,
+  `(!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
+   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)`,
   ho_match_mp_tac infer_p_ind >>
   rw [] >>
   rw [Once infer_p_side_def] >>
@@ -809,10 +828,10 @@ val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def";
 
 val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
-  `(!menv e st. t_wfs st.subst ⇒ infer_e_side menv e st) /\
-   (!menv es st. t_wfs st.subst ⇒ infer_es_side menv es st) /\
-   (!menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side menv pes t1 t2 st) /\
-   (!menv funs st. t_wfs st.subst ⇒ infer_funs_side menv funs st)`,
+  `(!l menv e st. t_wfs st.subst ⇒ infer_e_side l menv e st) /\
+   (!l menv es st. t_wfs st.subst ⇒ infer_es_side l menv es st) /\
+   (!l menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side l menv pes t1 t2 st) /\
+   (!l menv funs st. t_wfs st.subst ⇒ infer_funs_side l menv funs st)`,
   ho_match_mp_tac infer_e_ind >>
   rw [] >>
   rw [Once infer_e_side_def, add_constraint_side_def] >>
@@ -859,7 +878,7 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
        fs [],
    every_case_tac >>
        fs [] >>
-       qpat_assum `!st. t_wfs st.subst ⇒ infer_pes_side _ _ _ _ st` match_mp_tac >>
+       qpat_assum `!st. t_wfs st.subst ⇒ infer_pes_side _ _ _ _ _ st` match_mp_tac >>
        fs [] >>
        imp_res_tac infer_e_wfs >>
        fs [] >>
@@ -1041,7 +1060,7 @@ val check_tscheme_inst_alt = prove(``
                 (case n_fresh_uvar tvs_impl s of
                    (Success y,s) =>
                      (case Success (infer_deBruijn_subst y t_impl) of
-                        Success y => add_constraint t_spec y s
+                        Success y => add_constraint NONE t_spec y s
                       | Failure e => (Failure e,s))
                  | (Failure e,s) => (Failure e,s))
             | (Failure e,s) => (Failure e,s)

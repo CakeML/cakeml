@@ -9,7 +9,7 @@ val _ = translation_extends "mlvectorProg";
 val _ = ml_prog_update (open_module "String");
 
 
-val _ = ml_prog_update (add_dec ``Dtabbrev [] "string" (Tapp [] TC_string)`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "strlen" `strlen`

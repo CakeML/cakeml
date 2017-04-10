@@ -56,7 +56,7 @@ val _ = ml_prog_update
 
 
 val word_eq1_d =
-  ``Dletrec [("word_eq1", "w",
+  ``Dletrec unknown_loc [("word_eq1", "w",
               Mat (Var (Short "w"))
                   [(Plit (Word8 1w), Con (SOME (Short "true")) []);
                    (Pvar "_", Con (SOME (Short "false")) [])])]``
@@ -81,7 +81,7 @@ val word_eq1_spec = Q.store_thm(
       rw[semanticPrimitivesTheory.lit_same_type_def]))
 
 val word_eqneg1_d =
-  ``Dletrec [("word_eqneg1", "w",
+  ``Dletrec unknown_loc [("word_eqneg1", "w",
               Mat (Var (Short "w"))
                   [(Plit (Word8 255w), Con (SOME (Short "true")) []);
                    (Pvar "_", Con (SOME (Short "false")) [])])]``

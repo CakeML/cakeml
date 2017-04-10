@@ -2150,11 +2150,11 @@ val type_ds_no_dup_types_helper = Q.prove (
   decls'.defined_types =
   set (FLAT (MAP (λd.
                 case d of
-                  Dlet v6 v7 => []
-                | Dletrec v8 => []
-                | Dtabbrev x y z => []
-                | Dtype tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
-                | Dexn v10 v11 => []) ds))`,
+                  Dlet _ v6 v7 => []
+                | Dletrec _ v8 => []
+                | Dtabbrev _ x y z => []
+                | Dtype _ tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
+                | Dexn _ v10 v11 => []) ds))`,
  induct_on `ds` >>
  srw_tac[][empty_decls_def] >>
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases,EXISTS_PROD]) >>
@@ -2213,7 +2213,7 @@ val type_ds_no_dup_types = Q.store_thm ("type_ds_no_dup_types",
      srw_tac[][] >>
      FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
      srw_tac[][]
-     >- (qexists_tac `Dtype l` >>
+     >- (qexists_tac `Dtype p l` >>
          srw_tac[][LAMBDA_PROD, combinTheory.o_DEF])
      >- (srw_tac[][combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
          srw_tac[][LAMBDA_PROD] >>

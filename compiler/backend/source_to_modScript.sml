@@ -157,24 +157,24 @@ val alloc_defs_append = Q.store_thm("alloc_defs_append",
 val compile_dec_def = Define `
  (compile_dec next mn env d =
   case d of
-   | Dlet p e =>
+   | Dlet locs p e =>
        let e' = compile_exp env e in
        let xs = REVERSE (pat_bindings p []) in
        let l = LENGTH xs in
          (next + l,
           alist_to_ns (alloc_defs next xs),
           Dlet l (Mat e' [(compile_pat p, Con NONE (MAP Var_local xs))]))
-   | Dletrec funs =>
+   | Dletrec locs funs =>
        let fun_names = REVERSE (MAP FST funs) in
        let env' = alist_to_ns (alloc_defs next fun_names) in
          (next + LENGTH fun_names,
           env',
           Dletrec (compile_funs (nsAppend env' env) (REVERSE funs)))
-   | Dtype type_def =>
+   | Dtype locs type_def =>
        (next, nsEmpty, Dtype mn type_def)
-   | Dtabbrev tvs tn t =>
+   | Dtabbrev locs tvs tn t =>
        (next, nsEmpty, Dtype mn [])
-   | Dexn cn ts =>
+   | Dexn locs cn ts =>
        (next, nsEmpty, Dexn mn cn ts))`;
 
 val compile_decs_def = Define`

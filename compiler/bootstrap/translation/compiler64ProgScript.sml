@@ -32,6 +32,7 @@ val res = translate def
 
 val def = spec64 compilerTheory.compile_def
 
+val _ = translate compilerTheory.locs_to_string_def;
 val res = translate def
 
 val res = translate basisProgTheory.basis_def

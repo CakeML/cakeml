@@ -628,7 +628,7 @@ val _ = Define `
 (deBruijn_subst(( 0 : num)) subst t_impl = t_spec)))`;
 
 
-val _ = Hol_reln ` (! extra_checks tvs mn tenv p e t bindings decls.
+val _ = Hol_reln ` (! extra_checks tvs mn tenv p e t bindings decls locs.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs tenv p t bindings /\
@@ -639,10 +639,10 @@ type_e tenv (bind_tvar tvs Empty) e t /\
     type_e tenv (bind_tvar tvs' Empty) e t') ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks mn decls tenv (Dlet p e)
+type_d extra_checks mn decls tenv (Dlet locs p e)
   empty_decls <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks mn tenv p e t bindings decls.
+/\ (! extra_checks mn tenv p e t bindings decls locs.
 (
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
@@ -652,45 +652,45 @@ ALL_DISTINCT (pat_bindings p []) /\
 type_p(( 0 : num)) tenv p t bindings /\
 type_e tenv Empty e t)
 ==>
-type_d extra_checks mn decls tenv (Dlet p e)
+type_d extra_checks mn decls tenv (Dlet locs p e)
   empty_decls <| v := (alist_to_ns (tenv_add_tvs(( 0 : num)) bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks mn tenv funs bindings tvs decls.
+/\ (! extra_checks mn tenv funs bindings tvs decls locs.
 (type_funs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
 (extra_checks ==>  
 (! tvs' bindings'.
     type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks mn decls tenv (Dletrec funs)
+type_d extra_checks mn decls tenv (Dletrec locs funs)
   empty_decls <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks mn tenv tdefs decls defined_types' decls' tenvT.
+/\ (! extra_checks mn tenv tdefs decls defined_types' decls' tenvT locs.
 (check_ctor_tenv (nsAppend tenvT tenv.t) tdefs /\
 (defined_types' = LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  (mk_id mn tn)) tdefs)) /\
 DISJOINT defined_types' decls.defined_types /\
 (tenvT = alist_to_ns (MAP (\ (tvs,tn,ctors) .  (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs)) /\
 (decls' = <| defined_mods := ({}); defined_types := defined_types'; defined_exns := ({}) |>))
 ==>
-type_d extra_checks mn decls tenv (Dtype tdefs)
+type_d extra_checks mn decls tenv (Dtype locs tdefs)
   decls' <| v := nsEmpty; c := (build_ctor_tenv mn (nsAppend tenvT tenv.t) tdefs); t := tenvT |>)
 
-/\ (! extra_checks mn decls tenv tvs tn t.
+/\ (! extra_checks mn decls tenv tvs tn t locs.
 (check_freevars(( 0 : num)) tvs t /\
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
-type_d extra_checks mn decls tenv (Dtabbrev tvs tn t)
+type_d extra_checks mn decls tenv (Dtabbrev locs tvs tn t)
   empty_decls <| v := nsEmpty; c := nsEmpty;
                  t := (nsSing tn (tvs,type_name_subst tenv.t t)) |>)
 
-/\ (! extra_checks mn tenv cn ts decls decls'.
+/\ (! extra_checks mn tenv cn ts decls decls' locs.
 (check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN decls.defined_exns) /\
 EVERY (check_type_names tenv.t) ts /\
 (decls' = <| defined_mods := ({}); defined_types := ({}); defined_exns := ({mk_id mn cn}) |>))
 ==>
-type_d extra_checks mn decls tenv (Dexn cn ts)
+type_d extra_checks mn decls tenv (Dexn locs cn ts)
   decls' <| v := nsEmpty;
             c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)));
             t := nsEmpty |>)`;

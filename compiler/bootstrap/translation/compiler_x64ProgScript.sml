@@ -45,9 +45,9 @@ val res = translate
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
 val error_to_str_def = Define`
-  (error_to_str ParseError = "### ERROR: parse error") /\
-  (error_to_str TypeError = "### ERROR: type error") /\
-  (error_to_str CompileError = "### ERROR: compile error")`;
+  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str (TypeError s) = concat [strlit "### ERROR: type error\n"; s; strlit "\n"]) /\
+  (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
 
 val res = translate error_to_str_def;
 
@@ -111,7 +111,7 @@ val _ = translate (extend_with_args_def |> spec64 )
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
-    | Failure err => (List[], implode (error_to_str err))
+    | Failure err => (List[], error_to_str err)
     | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
 (* TODO: x64_compiler_config should be called x64_backend_config *)
