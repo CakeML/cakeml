@@ -3681,6 +3681,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> SIMP_RULE std_ss [lookup_var_def]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
+        val _ = save_thm(fname ^ "_v_thm", th)
       in state' end
     else if is_Closure v
     then
@@ -3701,6 +3702,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> SIMP_RULE std_ss [lookup_var_def]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
+        val _ = save_thm(fname ^ "_v_thm", th)
       in state' end
     else failwith "bad v_thm"
   end
@@ -3733,6 +3735,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
       |> MATCH_MP evaluate_empty_state_IMP
     val state' = add_Dlet eval_thm ml_fname [] state
     val _ = replace_v_thm tm v_thm
+    val _ = save_thm(fname ^ "_v_thm", v_thm)
   in state' end
 
 fun concretise_main desired_tms = let
