@@ -3678,7 +3678,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
+                  |> SIMP_RULE std_ss [lookup_var_def]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
@@ -3698,7 +3698,7 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
                   |> prove_Eval_assumptions
                   |> D |> REWRITE_RULE lemmas
                   |> SIMP_RULE std_ss [Eval_Var]
-                  |> SIMP_RULE std_ss [(*lookup_var_eq_lookup_var_id*)]
+                  |> SIMP_RULE std_ss [lookup_var_def]
                   |> clean_assumptions |> UNDISCH_ALL
         val _ = replace_v_thm tm th
       in state' end
