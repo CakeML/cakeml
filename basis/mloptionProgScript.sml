@@ -5,12 +5,16 @@ open preamble ml_translatorLib ml_progLib std_preludeTheory
 val _ = new_theory"mloptionProg"
 
 val _ = translation_extends"std_prelude"
+
+val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
+
 val _ = ml_prog_update (open_module "Option");
 
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
 
 val result = translate getOpt_def;
 
+val () = next_ml_names := ["isSome"];
 val result = translate IS_SOME_DEF;
 
 val result = next_ml_names := ["valOf"];
@@ -34,7 +38,9 @@ val result = translate compose_def;
 val result = translate composePartial_def;
 
 (*Functions declared in std_preludeLib *)
+val () = next_ml_names := ["isNone"];
 val res = translate IS_NONE_DEF;
+val () = next_ml_names := ["map2"];
 val res = translate OPTION_MAP2_DEF;
 
 
