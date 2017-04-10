@@ -254,8 +254,8 @@ val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
    st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
-val _ = translate (def_of_const``id_to_string``)
-val _ = translate (def_of_const``lookup_st_ex``)
+val _ = translate (def_of_const ``id_to_string``)
+val _ = translate (def_of_const ``lookup_st_ex``)
 val _ = translate (def_of_const ``fresh_uvar``)
 val _ = translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
@@ -437,31 +437,24 @@ val aggr_infer_def = full_infer_def true;
 
 val _ = translate (infer_def ``apply_subst``);
 val _ = translate (infer_def ``apply_subst_list``);
+val _ = translate (infer_def ``tc_to_string``);
 
-val _ = translate num_to_dec_string_alt_def
+val tc_to_string_side_thm = Q.store_thm ("tc_to_string_side_thm",
+  `!x. tc_to_string_side x`,
+  rw [definition"tc_to_string_side_def"] >>
+  Cases_on `x` >>
+  rw []) |> update_precondition;
 
-val n2l_side = Q.prove(`
-  ∀n. n2l_side 10 n`,
-  completeInduct_on`n`>>
-  simp[Once(fetch"-""n2l_side_def")]);
+val _ = translate infer_tTheory.inf_type_to_string_pmatch;
 
-val hex_alt_side = Q.prove(`
-  ∀n. hex_alt_side n`,
-  fs[fetch"-""hex_alt_side_def"]>>
-  rw[]>>
-  ntac 5 (* makes fs[] a lot faster... *)
-  (Cases_on`n`>> EVAL_TAC>>
-  Cases_on`n'`>> EVAL_TAC)>>
-  fs[]);
+val inf_type_to_string_side_thm  = Q.store_thm ("inf_type_to_string_side_thm",
+  `(!x. inf_type_to_string_side x) ∧
+   (!xs. inf_types_to_string_side xs)`,
+  ho_match_mp_tac infer_tTheory.inf_type_to_string_ind >>
+  rw [] >>
+  rw [Once (theorem "inf_type_to_string_side_def")]) |> update_precondition;
 
-val num_to_dec_string_alt_side = Q.prove(`
-  ∀a. num_to_dec_string_alt_side a`,
-  simp[fetch "-" "num_to_dec_string_alt_side_def",fetch"-""n2s_side_def"]>>
-  simp[n2l_side,hex_alt_side]) |> update_precondition;
-
-val _ = translate inf_type_to_string_alt_def
-
-val _ = translate (infer_def ``add_constraint`` |> REWRITE_RULE [GSYM inf_type_to_string_alt_eqn]);
+val _ = translate (infer_def ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
 
