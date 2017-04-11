@@ -241,6 +241,8 @@ val prog_to_bytes_def = Define `
   (prog_to_bytes ((Section k (y::ys))::xs) =
      line_bytes y ++ prog_to_bytes ((Section k ys)::xs))`
 
+val prog_to_bytes_ind = theorem"prog_to_bytes_ind";
+
 val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
   `∀ls. prog_to_bytes ls = FLAT
           (MAP (FLAT o MAP line_bytes o Section_lines) ls)`,
