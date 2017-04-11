@@ -50,6 +50,7 @@ val () = Datatype `
      ; next : 'b -> 'b
      ; get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word
+     ; get_fp_reg : 'b -> num -> word64
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
@@ -60,7 +61,8 @@ val target_state_rel_def = Define`
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-       (t.get_reg ms i = s.regs i))`
+       (t.get_reg ms i = s.regs i)) /\
+  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))`
 
 val target_ok_def = Define`
   target_ok t <=>
@@ -102,7 +104,8 @@ val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
      t.state_ok ms /\ (s.pc = t.get_pc ms) /\
      (!a. a IN s.mem_domain ==> (s.mem a = t.get_byte ms a)) /\
      (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-          (s.regs i = t.get_reg ms i))`,
+          (s.regs i = t.get_reg ms i)) /\
+     (!i. i < t.config.fp_reg_count ==> (s.fp_regs i = t.get_fp_reg ms i))`,
   metis_tac [target_state_rel_def]
   )
 
@@ -187,7 +190,8 @@ val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
    ((fp_upd a x).mem = x.mem) ∧
    ((fp_upd a x).lr = x.lr) ∧
    ((fp_upd a x).be = x.be)`,
-  Cases_on`a` >> EVAL_TAC >> srw_tac[][] \\ CASE_TAC \\ rw []);
+  Cases_on`a`
+  \\ rpt (EVAL_TAC \\ srw_tac[][] \\ CASE_TAC \\ rw []));
 
 val asm_consts = Q.store_thm("asm_consts[simp]",
   `!i w s. ((asm i w s).be = s.be) /\

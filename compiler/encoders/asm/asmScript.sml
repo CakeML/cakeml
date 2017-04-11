@@ -99,12 +99,6 @@ val () = Datatype `
      | FPGreater reg fp_reg fp_reg
      | FPGreaterEqual reg fp_reg fp_reg
      | FPEqual reg fp_reg fp_reg
-       (* moves and converts *)
-     | FPMov fp_reg fp_reg
-     | FPMovToReg reg reg fp_reg
-     | FPMovToInt reg fp_reg
-     | FPMovFromReg fp_reg reg reg
-     | FPMovFromInt fp_reg reg
        (* unary ops *)
      | FPAbs fp_reg fp_reg (* IEEE754:2008 *)
      | FPNeg fp_reg fp_reg (* IEEE754:2008 *)
@@ -113,7 +107,13 @@ val () = Datatype `
      | FPAdd fp_reg fp_reg fp_reg
      | FPSub fp_reg fp_reg fp_reg
      | FPMul fp_reg fp_reg fp_reg
-     | FPDiv fp_reg fp_reg fp_reg`
+     | FPDiv fp_reg fp_reg fp_reg
+       (* moves and converts *)
+     | FPMov fp_reg fp_reg
+     | FPMovToReg reg reg fp_reg
+     | FPMovFromReg fp_reg reg reg
+     | FPToInt fp_reg fp_reg
+     | FPFromInt fp_reg reg`
 
 val () = Datatype `
   addr = Addr reg ('a word)`
@@ -225,15 +225,6 @@ val fp_ok_def = Define `
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPEqual r d1 d2) c <=>
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
-      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
-       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
-  (fp_ok (FPMovToInt r d) c <=> reg_ok r c /\ fp_reg_ok d c) /\
-  (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
-       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
-  (fp_ok (FPMovFromInt d r) c <=> reg_ok r c /\ fp_reg_ok d c) /\
   (fp_ok (FPAbs d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPNeg d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPSqrt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
@@ -244,7 +235,16 @@ val fp_ok_def = Define `
   (fp_ok (FPMul d1 d2 d3) c <=>
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPDiv d1 d2 d3) c <=>
-      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c)`
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
+      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
+       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
+  (fp_ok (FPToInt r d) c <=> reg_ok r c /\ fp_reg_ok d c) /\
+  (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
+      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
+       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
+  (fp_ok (FPFromInt d r) c <=> reg_ok r c /\ fp_reg_ok d c)`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
