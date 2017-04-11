@@ -15,6 +15,6 @@ val gc_combined_def = Define `
   gc_combined conf (Generational limits) (roots,heap,gs) =
     (let (roots,state) = gen_gc conf (roots,heap) in
        (roots, state.h1 ++ heap_expand state.n ++ state.r1,
-        state.a, state.n, gs, state.ok))`
+        state.a, state.n, GenState 0 (MAP (K state.a) limits), state.ok))`
 
 val _ = export_theory();

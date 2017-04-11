@@ -4047,6 +4047,7 @@ val state_rel_init = Q.store_thm("state_rel_init",
     \\ fs [heap_expand_def,heap_lookup_def]
     \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def,
                     gc_kind_inv_def] \\ CASE_TAC \\ fs []
+    \\ conj_tac THEN1 EVAL_TAC
     \\ fs [heap_split_def] \\ every_case_tac \\ fs []
     \\ EVAL_TAC \\ fs [el_length_def])
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
