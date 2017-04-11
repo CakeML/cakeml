@@ -2150,29 +2150,6 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       fs [s_rel_cases, update_mod_state_def, result_rel_cases] >>
       metis_tac [v_rel_weakening])));
 
-val compile_prog_mods = Q.prove (
-  `!l var_map prog l' prog_i1.
-    source_to_mod$compile_prog l var_map prog = (l',var_map',prog_i1)
-    ⇒
-    EVERY (\mn. LENGTH mn = 1) (prog_to_mods prog) ∧
-    modSem$prog_to_mods prog_i1 = MAP HD (semanticPrimitives$prog_to_mods prog)`,
-  induct_on `prog` >>
-  srw_tac[][compile_prog_def, LET_THM, modSemTheory.prog_to_mods_def, semanticPrimitivesTheory.prog_to_mods_def] >>
-  srw_tac[][modSemTheory.prog_to_mods_def] >>
-  srw_tac[][] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs [compile_top_def] >>
-  every_case_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM] >>
-  pairarg_tac >>
-  fs [] >>
-  first_x_assum drule >>
-  rw [] >>
-  fs [semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def]);
-
 val inj_hd_sing = Q.prove (
   `EVERY (\mn. LENGTH mn = 1) l
    ⇒
@@ -2187,33 +2164,6 @@ val inj_hd_sing = Q.prove (
   fs [] >>
   rw [] >>
   fs []);
-
-val compile_prog_top_types = Q.prove (
-  `!l var_map prog l' var_map' prog_i1.
-    compile_prog l var_map prog = (l',var_map',prog_i1)
-    ⇒
-    prog_to_top_types prog
-    =
-    prog_to_top_types prog_i1`,
-  induct_on `prog` >>
-  srw_tac[][compile_prog_def, LET_THM] >>
-  fs [semanticPrimitivesTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs [] >>
-  first_x_assum drule >>
-  rw [] >>
-  every_case_tac >>
-  fs [] >>
-  fs [compile_top_def] >>
-  pairarg_tac >>
-  fs [] >>
-  rw [] >>
-  full_simp_tac(srw_ss())[compile_dec_def] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[LET_THM] >>
-  srw_tac[][semanticPrimitivesTheory.decs_to_types_def, modSemTheory.decs_to_types_def]);
 
 val compile_prog_mods_ok = Q.prove (
   `!l var_map prog l' var_map' prog_i1.
@@ -2251,13 +2201,11 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
        ∃new_genv.
          result_rel (\a b (c:'a). T) (s_i1.globals ++ new_genv) r (Rerr err_i1))`,
   rw [modSemTheory.evaluate_prog_def, evaluateTheory.evaluate_prog_def]
-  \\ imp_res_tac compile_prog_mods
-  \\ imp_res_tac compile_prog_top_types
   \\ imp_res_tac compile_prog_mods_ok
   \\ imp_res_tac invariant_defined_mods
   \\ imp_res_tac invariant_defined_types
-  \\ fs[semanticPrimitivesTheory.no_dup_mods_def,modSemTheory.no_dup_mods_def,
-        semanticPrimitivesTheory.no_dup_top_types_def,modSemTheory.no_dup_top_types_def]
+  \\ fs[semanticPrimitivesTheory.no_dup_mods_def,
+        semanticPrimitivesTheory.no_dup_top_types_def]
   >- (
     fs[EVERY_MEM,EXISTS_MEM]
     \\ res_tac
@@ -2266,55 +2214,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
     \\ rw[] \\ fs[LIST_TO_SET_MAP]
     \\ TRY (Cases_on`r`\\fs[invariant_def])
     \\ rw []
-    \\ metis_tac[PAIR, ALL_DISTINCT_MAP, typeSoundTheory.disjoint_image])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs [])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs [])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs []));
+    \\ metis_tac[PAIR, ALL_DISTINCT_MAP, typeSoundTheory.disjoint_image]));
 
 open semanticsTheory
 

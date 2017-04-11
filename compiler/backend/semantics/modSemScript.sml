@@ -612,30 +612,9 @@ val evaluate_prompts_def = Define`
       | (s, cenv', genv', r) => (s, nsAppend cenv' cenv, genv ++ genv', r))
    | res => res)`;
 
-val prog_to_mods_def = Define `
-  (prog_to_mods [] = []) ∧
-  (prog_to_mods (Prompt NONE ds :: mods) = prog_to_mods mods) ∧
-  (prog_to_mods (Prompt (SOME mn) ds :: mods) = mn::prog_to_mods mods)`;
-
-val no_dup_mods_def = Define `
-  no_dup_mods prompts mods ⇔
-    ALL_DISTINCT (prog_to_mods prompts) /\
-    DISJOINT (set (prog_to_mods prompts)) mods`;
-
-val prog_to_top_types_def = Define `
-  prog_to_top_types prompts =
-    FLAT (MAP (λprompt. case prompt of Prompt NONE ds => decs_to_types ds | _ => []) prompts)`;
-
-val no_dup_top_types_def = Define `
-  no_dup_top_types prompts tids ⇔
-    ALL_DISTINCT (prog_to_top_types prompts) ∧
-    DISJOINT (LIST_TO_SET (MAP (\tn. TypeId (Short tn)) (prog_to_top_types prompts))) tids`;
-
 val evaluate_prog_def = Define `
  (evaluate_prog env s prompts =
-  if modSem$no_dup_mods prompts s.defined_mods ∧
-     no_dup_top_types prompts s.defined_types ∧
-     EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
+  if EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
   then let (s,_,_,r) = evaluate_prompts env s prompts in (s,r)
   else (s, SOME(Rabort Rtype_error)))`;
 

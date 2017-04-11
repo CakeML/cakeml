@@ -477,43 +477,6 @@ val evaluate_vars_reverse = Q.store_thm("evaluate_vars_reverse",
   match_mp_tac evaluate_append >>
   srw_tac[][evaluate_def]);
 
-val no_dup_types_cons_imp = Q.store_thm("no_dup_types_cons_imp",
-  `no_dup_types (d::ds) ⇒ no_dup_types ds`,
-  srw_tac[][decs_to_types_def,no_dup_types_def,ALL_DISTINCT_APPEND]);
-
-val no_dup_mods_eqn = Q.store_thm ("no_dup_mods_eqn",
-  `!p ps.
-    (no_dup_mods [] mods ⇔ T) ∧
-    (no_dup_mods (p::ps) mods ⇔
-       (case p of
-         | Prompt (SOME mn) ds =>
-           ~MEM mn (prog_to_mods ps) ∧ mn ∉ mods
-         | Prompt NONE ds => T) ∧
-      no_dup_mods ps mods)`,
-  srw_tac[][modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def] >>
-  eq_tac >>
-  rw [] >>
-  Cases_on `p` >>
-  Cases_on `o'` >>
-  fs [modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def]);
-
-val no_dup_top_types_eqn = Q.store_thm ("no_dup_top_types_eqn",
-  `!p ps.
-    (no_dup_top_types [] tids ⇔ T) ∧
-    (no_dup_top_types (p::ps) tids ⇔
-       (case p of
-         | Prompt NONE ds =>
-             ALL_DISTINCT (decs_to_types ds) ∧
-             DISJOINT (set (decs_to_types ds)) (set (prog_to_top_types ps)) ∧
-             DISJOINT (IMAGE (\tn. TypeId (Short tn)) (set (decs_to_types ds))) tids
-         | Prompt _ _ => T) ∧
-      no_dup_top_types ps tids)`,
-  srw_tac[][no_dup_top_types_def, prog_to_top_types_def] >>
-  every_case_tac >>
-  srw_tac[][ALL_DISTINCT_APPEND, DISJOINT_DEF, EXTENSION] >>
-  full_simp_tac(srw_ss())[MEM_MAP] >>
-  metis_tac []);
-
 val tids_of_decs_def = Define`
   tids_of_decs ds = set (FLAT (MAP (λd. case d of Dtype mn tds => MAP (mk_id mn o FST o SND) tds | _ => []) ds))`;
 
