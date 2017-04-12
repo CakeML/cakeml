@@ -124,8 +124,8 @@ val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
   \\ fs [bviTheory.exp_size_def]);
 
 (* somewhat wrong apparently, call gets nested inside extra op *)
-val ac_swap_def = Define `
-  ac_swap op from into =
+val assoc_swap_def = Define `
+  assoc_swap op from into =
     case op_binargs into of
     | NONE => apply_op op into from
     | SOME (x1, x2) => apply_op op x1 (apply_op op from x2)
@@ -143,10 +143,10 @@ val op_rewrite_def = tDefine "op_rewrite" `
         let (r2, y2) = op_rewrite op name x2 in
           case (binop_has_rec name op y1, binop_has_rec name op y2) of
           | (F, F) => (F, exp)
-          (*| (T, T) => (T, ac_swap op y1 y2)*)
+          (*| (T, T) => (T, assoc_swap op y1 y2)*)
           | (T, T) => (F, exp)
-          | (T, F) => if is_pure y2 then (T, ac_swap op y2 y1) else (F, exp)
-          | (F, T) => if is_pure y1 then (T, ac_swap op y1 y2) else (F, exp)
+          | (T, F) => if is_pure y2 then (T, assoc_swap op y2 y1) else (F, exp)
+          | (F, T) => if is_pure y1 then (T, assoc_swap op y1 y2) else (F, exp)
   `
   (WF_REL_TAC `measure (exp_size o SND o SND)`
   \\ rpt strip_tac
@@ -351,9 +351,9 @@ val testop2_def = Define `
 val test_expr0_def = Define `test_expr0 = Call 0 (SOME 127) [] NONE`;
 val test_op_rewrite0 = EVAL ``op_rewrite (IntOp Plus) 127 test_expr0``
 val test_binop_has_rec0 = EVAL ``binop_has_rec 127 (IntOp Plus) test_expr0``
-val test_ac_swap0 = EVAL ``ac_swap (IntOp Plus) (Var 17) test_expr0``
+val test_assoc_swap0 = EVAL ``assoc_swap (IntOp Plus) (Var 17) test_expr0``
 val test_push_call0 = EVAL
-  ``case op_binargs (ac_swap (IntOp Plus) (Var 17) test_expr0) of
+  ``case op_binargs (assoc_swap (IntOp Plus) (Var 17) test_expr0) of
     | NONE => Var 333
     | SOME (e1, e2) =>
       push_call 999 (IntOp Plus) 777 e2 (args_from e1)`` 
@@ -364,6 +364,37 @@ val test_op_rewrite1 = EVAL ``op_rewrite (IntOp Plus) 127 test_expr1``
 val test_binop_has_rec1 = EVAL ``
   binop_has_rec 127 (IntOp Plus) (SND (op_rewrite (IntOp Plus) 127 test_expr1))``
 
+val fac_tail_def = Define `
+  fac_tail =
+       (Op Mult
+         [Var 0;
+          Call 0 (SOME 1)
+            [Op Sub [Var 0; Op (Const 1) []]]
+            NONE])    
+  `;
+
+val fac_def = Define `
+  fac =
+    If (Op LessEq [Var 0; Op (Const 1) []])
+       (Op (Const 1) [])
+       (Op Mult
+         [Var 0;
+          Call 0 (SOME 1)
+            [Op Sub [Var 0; Op (Const 1) []]]
+            NONE])
+  `;
+
+val fac_tail_rewrite = EVAL ``tail_rewrite 2 (IntOp Times) 1 1 fac``
+val fac_tail_op_rewrite = EVAL ``op_rewrite (IntOp Times) 1 fac_tail``
+val fac_tail_rewrite_def = Define `
+  fac_tail_rewrite =
+    If (Op LessEq [Var 1; Op (Const 1) []])
+       (Op Mult [Op (Const 1) []; Var 0])
+         (Call 0 (SOME 1)
+            [Op Mult [Var 1; Var 0]; 
+             Op Sub [Var 1; Op (Const 1) []]] 
+             NONE)
+  `;
 
 val test1 = EVAL ``optimize_single 9 2 1 length1_fun``;
 val test1_tail_check = EVAL ``tail_check 2 length1_fun``;
