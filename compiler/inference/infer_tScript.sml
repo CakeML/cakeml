@@ -36,18 +36,20 @@ val tc_to_string_def = Define `
     | TC_tup => implode "<tup>"`;
 
 val inf_type_to_string_def = tDefine "inf_type_to_string" `
-  (inf_type_to_string (Infer_Tuvar _) =
-    implode "<unification variable>") ∧
+  (inf_type_to_string (Infer_Tuvar n) =
+    concat [implode "<unification variable "; toString (&n); implode ">"]) ∧
   (inf_type_to_string (Infer_Tvar_db n) =
-    toString (&n)) ∧
+    concat [implode "<type variable "; toString (&n); implode ">"]) ∧
   (inf_type_to_string (Infer_Tapp [t1;t2] TC_fn) =
-    concat [implode "("; inf_type_to_string t1; implode "->"; inf_type_to_string t2; implode ")"]) ∧
+    concat [implode "("; inf_type_to_string t1; implode " -> "; inf_type_to_string t2; implode ")"]) ∧
   (inf_type_to_string (Infer_Tapp ts TC_fn) =
     implode "<bad function type>") ∧
   (inf_type_to_string (Infer_Tapp ts TC_tup) =
     concat [implode "("; inf_types_to_string ts; implode ")"]) ∧
   (inf_type_to_string (Infer_Tapp [] tc1) =
     tc_to_string tc1) ∧
+  (inf_type_to_string (Infer_Tapp [t] tc1) =
+    concat [inf_type_to_string t; implode " "; tc_to_string tc1]) ∧
   (inf_type_to_string (Infer_Tapp ts tc1) =
     concat [implode "("; inf_types_to_string ts; implode ") "; tc_to_string tc1]) ∧
   (inf_types_to_string [] =
@@ -61,14 +63,18 @@ val inf_type_to_string_def = tDefine "inf_type_to_string" `
 val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
  `(∀t. inf_type_to_string t =
     case t of
-      Infer_Tuvar _ => implode "<unification variable>"
-    | Infer_Tvar_db n => toString (&n)
+      Infer_Tuvar n =>
+      concat [implode "<unification variable "; toString (&n); implode ">"]
+    | Infer_Tvar_db n =>
+      concat [implode "<type variable "; toString (&n); implode ">"]
     | Infer_Tapp [t1;t2] TC_fn =>
-      concat [implode "("; inf_type_to_string t1; implode "->"; inf_type_to_string t2; implode ")"]
+      concat [implode "("; inf_type_to_string t1; implode " -> "; inf_type_to_string t2; implode ")"]
     | Infer_Tapp _ TC_fn => implode "<bad function type>"
     | Infer_Tapp ts TC_tup =>
       concat [implode "("; inf_types_to_string ts; implode ")"]
     | Infer_Tapp [] tc1 => tc_to_string tc1
+    | Infer_Tapp [t] tc1 =>
+      concat [inf_type_to_string t; implode " "; tc_to_string tc1]
     | Infer_Tapp ts tc1 =>
       concat [implode "("; inf_types_to_string ts; implode ") "; tc_to_string tc1]) ∧
  (∀ts. inf_types_to_string ts =

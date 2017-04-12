@@ -90,8 +90,10 @@ add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between "; inf_type_to_string t1;
-                               implode " and "; inf_type_to_string t2]), st)
+          (Failure (l, concat [implode "Type mismatch between ";
+                               inf_type_to_string (t_walkstar st.subst t1);
+                               implode " and ";
+                               inf_type_to_string (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
