@@ -3273,7 +3273,7 @@ val word_gen_gc_partial_move_bitmaps_code_thm =
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac
     \\ rfs [RIGHT_ADD_DISTRIB]
-    \\ imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH \\ fs [] \\ cheat)
+    \\ imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH \\ fs [])
   \\ strip_tac
   \\ first_x_assum (qspec_then `ck'+1` assume_tac)
   \\ qexists_tac `ck+ck'+1` \\ fs []
@@ -4189,13 +4189,229 @@ val word_gen_gc_move_refs_code_thm = Q.prove(
   \\ qexists_tac `t0'` \\ qexists_tac `t1'`
   \\ rw [] \\ eq_tac \\ rw[] \\ fs []);
 
+val word_gen_gc_move_loop_code_def = Define `
+  word_gen_gc_move_loop_code conf =
+    (* 7 is 0w iff pbx = pb and pax = pa, 1 is pbx (Temp 4w), 2 is pb,
+       8 is pax, 3 is pa *)
+    While NotTest 7 (Reg 7)
+      (If Equal 1 (Reg 2)
+         (* case: pax <> pa, i.e. move_data *)
+         (list_Seq [word_gen_gc_move_data_code conf;
+                    Get 5 (Temp 2w);
+                    Get 7 (Temp 4w);
+                    move 1 7;
+                    move 2 5;
+                    sub_inst 7 5])
+         (* case: pbx <> pb i.e. move_refs *)
+         (list_Seq [move 0 1;
+                    Set (Temp 6w) 8;
+                    move 8 2;
+                    Set (Temp 5w) 8;
+                    word_gen_gc_move_refs_code conf;
+                    move 7 8; (* pbx' *)
+                    Get 1 (Temp 5w); (* pb *)
+                    Get 2 (Temp 5w);
+                    Set (Temp 4w) 2;
+                    Get 2 (Temp 2w); (* pb' *)
+                    move 3 3; (* pa' *)
+                    move 4 4; (* i' *)
+                    move 7 1;
+                    sub_inst 7 2; (* pbx' - pa' *)
+                    Get 8 (Temp 6w); (* pax *)
+                    move 5 8; (* pax - pa' *)
+                    sub_inst 5 3;
+                    or_inst 7 5]))`
+
+val word_gen_gc_move_loop_code_thm = Q.prove(
+  `!k pax i pa ib pb pbx old m dm i1 pa1 ib1 pb1 m1 tt s.
+      word_gen_gc_move_loop conf k (pax,i,pa,ib,pb,pbx,old,m,dm) =
+          (i1,pa1,ib1,pb1,m1,T) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      conf.len_size + 2 < dimindex (:'a) /\
+      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
+      s.memory = m /\ s.mdomain = dm /\
+      (tt = 0w <=> pbx = pb /\ pax = pa) /\
+      Temp 0w IN FDOM s.store /\
+      Temp 1w IN FDOM s.store /\
+      Temp 5w IN FDOM s.store /\
+      Temp 6w IN FDOM s.store /\
+      FLOOKUP s.store (Temp 2w) = SOME (Word pb) /\
+      FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
+      FLOOKUP s.store (Temp 4w) = SOME (Word pbx) /\
+      0 IN FDOM s.regs /\
+      get_var 1 s = SOME (Word pbx) /\
+      get_var 2 s = SOME (Word pb) /\
+      get_var 3 s = SOME (Word pa) /\
+      get_var 4 s = SOME (Word (i:'a word)) /\
+      get_var 7 s = SOME (Word tt) /\
+      get_var 8 s = SOME (Word pax) /\
+      5 IN FDOM s.regs /\
+      6 IN FDOM s.regs /\ c1 ==>
+      ?ck r0 r1 r2 r5 r6 r7 r8 t0 t1 t4 t5 t6.
+        evaluate (word_gen_gc_move_loop_code conf,s with clock := s.clock + ck) =
+          (NONE,s with <| memory := m1;
+                          store :=
+                            s.store |++
+                            [(Temp 0w,t0); (Temp 1w,t1); (Temp 2w,Word pb1);
+                             (Temp 3w,Word ib1);
+                             (Temp 4w,t4); (Temp 5w, t5); (Temp 6w, t6)];
+                          regs := s.regs |++ [(0,r0);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word pa1);
+                                              (4,Word i1);
+                                              (5,r5);
+                                              (6,r6);
+                                              (7,r7);
+                                              (8,r8)] |>)`,
+  strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
+  \\ qpat_x_assum `word_gen_gc_move_loop _ _ _ = _` mp_tac
+  \\ once_rewrite_tac [word_gen_gc_move_loop_def]
+  \\ Cases_on `pbx = pb /\ pax = pa`
+  THEN1
+   (fs [] \\ strip_tac \\ rveq
+    \\ fs [word_gen_gc_move_loop_code_def,get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ qexists_tac `s.store ' (Temp 0w)`
+    \\ qexists_tac `s.store ' (Temp 1w)`
+    \\ qexists_tac `s.store ' (Temp 4w)`
+    \\ qexists_tac `s.store ' (Temp 5w)`
+    \\ qexists_tac `s.store ' (Temp 6w)`
+    \\ rw [] \\ eq_tac \\ rw[] \\ fs [])
+  \\ Cases_on `pbx = pb` \\ fs [] \\ rveq
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
+  \\ Cases_on `k = 0` \\ fs [] \\ rveq \\ fs [PULL_FORALL]
+  THEN1
+   (drule word_gen_gc_move_data_code_thm
+    \\ disch_then (qspecl_then [`T`,`s`] mp_tac)
+    \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1 fs [FLOOKUP_DEF,get_var_def]
+    \\ strip_tac
+    \\ `k - 1 < k` by fs []
+    \\ first_x_assum drule
+    \\ qmatch_asmsub_abbrev_tac `(NONE,s2)`
+    \\ qabbrev_tac `s3 = s2 with <| regs := s2.regs |++
+             [(5,Word pb');(7,Word pb);(1,Word pb);(2,Word pb');(7,Word (pb-pb'))] |>`
+    \\ `s.mdomain = s3.mdomain /\ m' = s3.memory /\ s2.use_store` by
+          (unabbrev_all_tac \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ disch_then drule
+    \\ disch_then (qspec_then `pb - pb'` mp_tac)
+    \\ impl_tac
+    THEN1
+     (unabbrev_all_tac \\ fs [] \\ tac
+      \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs [])
+    \\ strip_tac
+    \\ pop_assum mp_tac
+    \\ drule (evaluate_add_clock |> GEN_ALL)
+    \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
+    \\ fs [] \\ strip_tac
+    \\ drule (evaluate_add_clock |> GEN_ALL)
+    \\ disch_then (qspec_then `1` strip_assume_tac)
+    \\ fs [] \\ qexists_tac `ck+ck'+1` \\ fs []
+    \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
+    \\ tac1 \\ fs [get_var_def]
+    \\ full_simp_tac std_ss [GSYM word_gen_gc_move_loop_code_def]
+    \\ fs [labSemTheory.word_cmp_def]
+    \\ ntac 18 tac1
+    \\ qunabbrev_tac `s2` \\ fs [] \\ tac1
+    \\ qunabbrev_tac `s3`
+    \\ fs [STOP_def,FUPDATE_LIST]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ qexists_tac `t0'`
+    \\ qexists_tac `t1'`
+    \\ qexists_tac `t4`
+    \\ qexists_tac `t5`
+    \\ qexists_tac `t6`
+    \\ rw [] \\ eq_tac \\ rw[] \\ fs [])
+  \\ qabbrev_tac `s1 = s with <| regs := s.regs |+ (0,Word pbx) |+ (8,Word pb);
+           store := s.store |+ (Temp 6w, Word pax) |+ (Temp 5w, Word pb) |>`
+  \\ `s.mdomain = s1.mdomain /\ s.memory = s1.memory` by
+        (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
+  \\ drule word_gen_gc_move_refs_code_thm
+  \\ disch_then (qspecl_then [`T`,`s1`] mp_tac)
+  \\ fs [AND_IMP_INTRO]
+  \\ impl_tac THEN1
+   (rpt strip_tac \\ unabbrev_all_tac \\ tac\\ fs [get_var_def,FLOOKUP_DEF])
+  \\ strip_tac \\ fs [FUPDATE_LIST]
+  \\ qmatch_asmsub_abbrev_tac `(NONE,s2)`
+  (*
+  (* for debugging *)
+  qexists_tac `ck`
+  \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
+  \\ tac1 \\ rewrite_tac [GSYM word_gen_gc_move_loop_code_def]
+  \\ tac1 \\ fs [get_var_def] \\ tac1
+  \\ qunabbrev_tac `s1` \\ fs []
+  \\ qunabbrev_tac `s2` \\ fs [] \\ tac1
+  \\ ntac 20 tac1 *)
+  \\ qabbrev_tac `s4 = s2 with <| regs :=
+        s2.regs |+
+         (7,Word pbx') |+
+         (1,Word pb) |+
+         (2,Word pb') |+
+         (3,Word pa') |+
+         (4,Word i') |+
+         (7,Word (-1w * pb' + pbx')) |+
+         (8,Word pax) |+
+         (5,Word (-1w * pa' + pax)) |+
+         (7,Word (-1w * pa' + pax ‖ -1w * pb' + pb)) ;
+       store := s2.store |+ (Temp 4w,Word pb) |>`
+  \\ `s1.mdomain = s4.mdomain /\ m' = s4.memory` by
+        (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
+  \\ `k - 1 < k` by fs [] \\ first_x_assum drule
+  \\ disch_then drule
+  \\ disch_then (qspec_then `(pb - pb') || (pax - pa')` mp_tac)
+  \\ impl_tac THEN1
+   (rpt strip_tac \\ TRY (unabbrev_all_tac \\ tac \\ fs [word_or_eq_0,get_var_def]
+    \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs [] \\ NO_TAC))
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck'+1` strip_assume_tac) \\ fs []
+  \\ rpt strip_tac
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `0` strip_assume_tac) \\ fs []
+  \\ qexists_tac `ck + ck'+1`
+  \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
+  \\ tac1 \\ fs [get_var_def] \\ ntac 12 tac1
+  \\ qunabbrev_tac `s1` \\ fs [set_store_def]
+  \\ unabbrev_all_tac \\ tac \\ fs [set_store_def] \\ tac
+  \\ fs [STOP_def,word_gen_gc_move_loop_code_def,list_Seq_def]
+  \\ fs [FUPDATE_LIST]
+  \\ qmatch_goalsub_abbrev_tac `(While _ _ _ _,s7)`
+  \\ qmatch_asmsub_abbrev_tac `(While _ _ _ _,s8)`
+  \\ `s8 = s7` by all_tac
+  THEN1
+   (unabbrev_all_tac
+    \\ fs [state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less]
+    \\ rpt strip_tac
+    \\ TRY (rw [] \\ eq_tac \\ rw [] \\ fs [] \\ NO_TAC))
+  \\ fs [] \\ fs [state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]
+  \\ qexists_tac `t0'`
+  \\ qexists_tac `t1'`
+  \\ qexists_tac `t4`
+  \\ qexists_tac `t5`
+  \\ qexists_tac `t6`
+  \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
 
 
-(*
 
-word_gen_gc_move_loop_def
-
-*)
 
 val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generational",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
