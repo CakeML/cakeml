@@ -1959,7 +1959,7 @@ val word_gen_gc_move_data_def = Define `
           let h2a = h2a + (l + 1w) * bytes_in_word in
           let (i,pa,ib,pb,m,c2) = word_gen_gc_move_data conf (k-1)
                         (h2a,i,pa,ib,pb,old,m,dm) in
-            (i,pa,ib,pb,m,c)
+            (i,pa,ib,pb,m,c /\ c2)
         else
           let (h2a,i,pa,ib,pb,m,c1) = word_gen_gc_move_list conf
                         (h2a+bytes_in_word,l,i,pa,ib,pb,old,m,dm) in
@@ -3067,7 +3067,7 @@ val word_gen_gc_partial_move_data_def = Define `
           let h2a = h2a + (l + 1w) * bytes_in_word in
           let (i,pa,m,c2) = word_gen_gc_partial_move_data conf (k-1)
                         (h2a,i,pa,old,m,dm,gs,rs) in
-            (i,pa,m,c)
+            (i,pa,m,c /\ c2)
         else
           let (h2a,i,pa,m,c1) = word_gen_gc_partial_move_list conf
                         (h2a+bytes_in_word,l,i,pa,old,m,dm,gs,rs) in
