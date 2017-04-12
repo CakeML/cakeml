@@ -25,6 +25,23 @@ val basic_prog =
         | (h::t) => (update arr i h; f t (i + 1))
     in f l 0 end`;
 
+(* Test full compilation. *)
+fun explorer q fileN =
+  let val tm = parse_topdecs q
+      (* Using the ^ symbol means referencing an variable declared in ML from
+      * inside HOL. *)
+      val th = EVAL ``append (backend$compile_explorer backend$prim_config ^tm)``
+      val s = th |> concl |> rand |> stringSyntax.fromHOLstring
+      val f = TextIO.openOut fileN
+      val _ = TextIO.outputSubstr (f, Substring.full s)
+      val _ = TextIO.closeOut f
+  in ()
+  end
+
+(* Sample usage of explorer-function, saving to test.js *)
+explorer basic_prog "test.js"
+
+(* Test compilation steps individually. *)
 val parsed_basic = parse_topdecs basic_prog;
 
 (* The input program, parsed *)
@@ -45,21 +62,6 @@ val con_prog_def = Define`
 EVAL ``con_prog``;
 (* Convert output to string *)
 EVAL ``append (backend$compile_explorer backend$prim_config parsed_basic)``;
-
-fun explorer q fileN =
-  let val tm = parse_topdecs q
-      (* Using the ^ symbol means referencing an variable declared in ML from
-      * inside HOL. *)
-      val th = EVAL ``append (backend$compile_explorer backend$prim_config ^tm)``
-      val s = th |> concl |> rand |> stringSyntax.fromHOLstring
-      val f = TextIO.openOut fileN
-      val _ = TextIO.outputSubstr (f, Substring.full s)
-      val _ = TextIO.closeOut f
-  in ()
-  end
-
-(* Sample usage of explorer-function, saving to test.js *)
-explorer basic_prog "test.js"
 
 (* PRESLANG *)
 (* Test converting mod to pres *)
