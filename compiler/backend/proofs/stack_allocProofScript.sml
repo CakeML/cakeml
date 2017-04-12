@@ -2217,6 +2217,179 @@ val word_gen_gc_move_code_thm = Q.store_thm("word_gen_gc_move_code_thm",
   \\ qexists_tac `s.store ' (Temp 1w)`
   \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
 
+val word_gen_gc_partial_move_code_def = Define `
+  word_gen_gc_partial_move_code conf =
+    (* uses 0,1,2,6 as temps *)
+    If Test 5 (Imm (1w:'a word)) Skip
+      (list_Seq
+        [move 0 5;
+         Get 6 (Temp 0w);
+         right_shift_inst 0 (shift_length conf);
+         left_shift_inst 0 (word_shift (:'a));
+         Get 1 (Temp 1w);
+         If Lower 0 (Reg 6) Skip
+          (Seq (Get 6 (Temp 1w))
+          (If NotLower 0 (Reg 1) Skip (list_Seq [
+             Get 1 CurrHeap;
+             add_inst 0 1; (* here 0 is ptr_to_addr conf old w *)
+             load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
+             If Test 1 (Imm 3w)
+               (list_Seq [right_shift_inst 1 2;
+                          left_shift_inst 1 (shift_length conf);
+                          clear_top_inst 5 (small_shift_length conf - 1);
+                          or_inst 5 1])
+               (list_Seq [(* put header in 6 *)
+                          move 6 1;
+                          (* get len+1w *)
+                          right_shift_inst 1 (dimindex (:'a) - conf.len_size);
+                          add_1_inst 1;
+                          (* store len+1w for later *)
+                          move 6 1;
+                          (* memcpy *)
+                          move 2 0;
+                          move 0 1;
+                          memcpy_code;
+                          (* compute original header_addr *)
+                          move 0 6;
+                          left_shift_inst 0 (word_shift (:'a));
+                          sub_inst 2 0;
+                          (* store i << 2 into header_addr *)
+                          move 0 4;
+                          left_shift_inst 0 2;
+                          store_inst 0 2;
+                          (* compute update_addr conf i w, where i in 4 and w in 5 *)
+                          move 1 4;
+                          clear_top_inst 5 (small_shift_length conf - 1);
+                          left_shift_inst 1 (shift_length conf);
+                          or_inst 5 1;
+                          (* add to i in 4 *)
+                          add_inst 4 6])])))]) :'a stackLang$prog`;
+
+val word_gen_gc_partial_move_code_thm = Q.store_thm("word_gen_gc_partial_move_code_thm",
+  `word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) = (w1,i1,pa1,m1,T) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
+    s.memory = m /\ s.mdomain = dm /\ good_dimindex (:'a) /\
+    0 IN FDOM s.regs /\
+    1 IN FDOM s.regs /\
+    2 IN FDOM s.regs /\
+    get_var 3 s = SOME (Word pa) /\
+    get_var 4 s = SOME (Word (i:'a word)) /\
+    get_var 5 s = SOME w /\
+    FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
+    FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
+    1 IN FDOM s.regs /\
+    2 IN FDOM s.regs /\
+    6 IN FDOM s.regs ==>
+    ?ck r0 r1 r2 r6.
+      evaluate (word_gen_gc_partial_move_code conf,s with clock := s.clock + ck) =
+        (NONE,s with <| memory := m1;
+                        regs := s.regs |++ [(0,r0);
+                                            (1,r1);
+                                            (2,r2);
+                                            (3,Word pa1);
+                                            (4,Word i1);
+                                            (5,w1);
+                                            (6,r6)] |>)`,
+  reverse (Cases_on `w`)
+  \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_def] THEN1
+   (srw_tac[][word_gen_gc_partial_move_code_def,evaluate_def]
+    \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ full_simp_tac(srw_ss())[get_var_def,
+       word_gen_gc_partial_move_code_def,evaluate_def]
+  \\ tac1
+  \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[] THEN1
+   (tac \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ simp [Once ptr_to_addr_def]
+  \\ simp [Once ptr_to_addr_def]
+  \\ Cases_on `good_dimindex (:'a)` \\ fs []
+  \\ drule (GEN_ALL data_to_wordPropsTheory.bytes_in_word_mul_eq_shift
+               |> GSYM) \\ fs [] \\ strip_tac
+  \\ Cases_on `c ⋙ shift_length conf ≪ shift (:α) <₊ gs`
+  THEN1
+   (rfs [] \\ fs [] \\ strip_tac \\ rveq
+    \\ ntac 5 tac1
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ Cases_on `rs ≤₊ c ⋙ shift_length conf ≪ shift (:α)`
+  THEN1
+   (rfs [] \\ fs [] \\ strip_tac \\ rveq
+    \\ ntac 5 tac1
+    \\ fs [GSYM WORD_NOT_LOWER]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ asm_simp_tac std_ss []
+  \\ ntac 9 tac1
+  \\ rev_full_simp_tac (srw_ss()) [GSYM WORD_NOT_LOWER]
+  \\ IF_CASES_TAC
+  THEN1
+   (full_simp_tac(srw_ss())[ptr_to_addr_def] \\ tac1
+    \\ strip_tac \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[is_fwd_ptr_iff] \\ tac
+    \\ full_simp_tac(srw_ss())[clear_top_inst_def,evaluate_def] \\ tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[theWord_def]
+    \\ full_simp_tac(srw_ss())[update_addr_def,select_lower_lemma]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ pairarg_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
+  \\ strip_tac \\ rpt var_eq_tac
+  \\ ntac 6 tac1
+  \\ fs [is_fwd_ptr_def,is_ref_header_def,theWord_def]
+  \\ ntac 4 tac1
+  \\ qabbrev_tac `len = decode_length conf v`
+  \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
+  \\ qexists_tac `w2n (len + 1w)`
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
+  \\ drule memcpy_code_thm
+  \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
+  \\ full_simp_tac(srw_ss())[]
+  \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
+       (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+  \\ full_simp_tac(srw_ss())[] \\ impl_tac THEN1
+    (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+     \\ fs [data_to_wordPropsTheory.decode_length_def])
+  \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
+  \\ tac1 \\ qunabbrev_tac `s3` \\ fs []
+  \\ tac1 \\ full_simp_tac(srw_ss())[] \\ tac1
+  \\ fs [LET_THM,data_to_wordPropsTheory.decode_length_def]
+  \\ fs [] \\ tac \\ rpt var_eq_tac
+  \\ full_simp_tac(srw_ss())[clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+  \\ tac \\ full_simp_tac(srw_ss())[] \\ tac
+  \\ full_simp_tac(srw_ss())[update_addr_def]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]
+  \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
+
+
+
 (*
 
 val word_gen_gc_move_code_thm = Q.store_thm("word_gen_gc_move_code_thm",
