@@ -116,7 +116,18 @@ val word_gc_move_roots_bitmaps_code_def = Define `
 
 val word_gc_code_def = Define `
   word_gc_code conf =
-    (list_Seq [Set AllocSize 1;
+    case conf.gc_kind of
+    | None =>
+        (list_Seq
+              [Set AllocSize 1;
+               Get 2 CurrHeap;
+               Set NextFree 2;
+               Set TriggerGC 2;
+               Set EndOfHeap 2;
+               If Test 1 (Reg 1) Skip (Seq (const_inst 1 1w) (Halt 1))])
+    | Simple =>
+        (list_Seq
+              [Set AllocSize 1;
                Set NextFree 0;
                const_inst 1 0w;
                move 2 1;
@@ -145,7 +156,9 @@ val word_gc_code_def = Define `
                Set TriggerGC 2;
                Get 1 AllocSize;
                sub_inst 2 8;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
+    | Generational gen_sizes =>
+        Skip`
 
 val stubs_def = Define `
   stubs conf = [(gc_stub_location,Seq (word_gc_code conf) (Return 0 0))]`
