@@ -5094,34 +5094,74 @@ val word_gc_move_IMP_isWord = Q.prove(
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
 
+val word_gen_gc_move_IMP_isWord = Q.prove(
+  `word_gen_gc_move c' (Word c,i,pa,ib,pb,old,m,dm) = (w1,i1,pa1,ib1,pb1,m1,c1) ==>
+   isWord w1`,
+  full_simp_tac(srw_ss())[word_gen_gc_move_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
+
 val word_gc_move_roots_IMP_FILTER = Q.prove(
   `!ws i pa old m dm ws2 i2 pa2 m2 c2 c.
       word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
       word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
                            (FILTER isWord ws2,i2,pa2,m2,c2)`,
-  Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def] \\ Cases \\ full_simp_tac(srw_ss())[]
+  Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
+  \\ Cases \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   THEN1
-   (srw_tac[][] \\ full_simp_tac(srw_ss())[LET_DEF] \\ imp_res_tac word_gc_move_IMP_isWord
-    \\ Cases_on `word_gc_move_roots c' (ws,i1,pa1,old,m1,dm)` \\ full_simp_tac(srw_ss())[]
-    \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
-  \\ full_simp_tac(srw_ss())[isWord_def,word_gc_move_def,LET_DEF]
-  \\ Cases_on `word_gc_move_roots c (ws,i,pa,old,m,dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]);
+   (srw_tac[][] \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ imp_res_tac word_gc_move_IMP_isWord
+    \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
+    \\ res_tac \\ fs [])
+  \\ fs [isWord_def,word_gc_move_def,LET_DEF]
+  \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
+  \\ res_tac \\ fs [isWord_def]);
+
+val word_gen_gc_move_roots_IMP_FILTER = Q.prove(
+  `!ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
+      word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
+         (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
+      word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
+                               (FILTER isWord ws2,i2,pa2,ib2,pb2,m2,c2)`,
+  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
+  \\ Cases \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
+  THEN1
+   (srw_tac[][] \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ imp_res_tac word_gen_gc_move_IMP_isWord
+    \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
+    \\ res_tac \\ fs [])
+  \\ fs [isWord_def,word_gen_gc_move_def,LET_DEF]
+  \\ rpt (pairarg_tac \\ fs []) \\ fs [] \\ rveq
+  \\ res_tac \\ fs [isWord_def]);
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
 val word_gc_fun_IMP_FILTER = Q.prove(
   `word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
     word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)`,
-  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac word_gc_move_roots_IMP_FILTER
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
+    word_full_gc_def,word_gen_gc_def]
+  \\ TOP_CASE_TAC \\ fs []
+  THEN1
+   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac word_gc_move_roots_IMP_FILTER
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+  THEN1
+   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]));
 
 val loc_merge_def = Define `
   (loc_merge [] ys = []) /\
@@ -5144,36 +5184,65 @@ val word_gc_move_roots_IMP_FILTER = Q.prove(
   \\ reverse Cases \\ full_simp_tac(srw_ss())[isWord_def,loc_merge_def,LET_DEF]
   THEN1
    (full_simp_tac(srw_ss())[word_gc_move_def] \\ srw_tac[][]
-    \\ Cases_on `word_gc_move_roots c (ws,i,pa,old,m,dm)` \\ full_simp_tac(srw_ss())[]
-    \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,loc_merge_def] \\ srw_tac[][]
-  \\ Cases_on `word_gc_move c' (Word c,i,pa,old,m,dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Cases_on `word_gc_move_roots c' (FILTER isWord ws,r0,r1,old,r2,dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[LET_DEF] \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[loc_merge_def]);
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ res_tac \\ fs [])
+  \\ fs [word_gc_move_roots_def,loc_merge_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ res_tac \\ fs [] \\ rveq \\ fs [loc_merge_def]);
+
+val word_gen_gc_move_roots_IMP_FILTER = Q.prove(
+  `!ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
+      word_gen_gc_move_roots c (FILTER isWord ws,i,pa,ib,pb,old,m,dm) =
+        (ws2,i2,pa2,ib2,pb2,m2,c2) ==>
+      word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
+                           (loc_merge ws ws2,i2,pa2,ib2,pb2,m2,c2)`,
+  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,loc_merge_def]
+  \\ reverse Cases \\ full_simp_tac(srw_ss())[isWord_def,loc_merge_def,LET_DEF]
+  THEN1
+   (full_simp_tac(srw_ss())[word_gen_gc_move_def] \\ srw_tac[][]
+    \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ res_tac \\ fs [])
+  \\ fs [word_gen_gc_move_roots_def,loc_merge_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ res_tac \\ fs [] \\ rveq \\ fs [loc_merge_def]);
+
+val loc_merge_FILTER_isWord = store_thm("loc_merge_FILTER_isWord",
+  ``!xs. loc_merge xs (FILTER isWord xs) = xs``,
+  Induct \\ fs [loc_merge_def] \\ Cases \\ fs [loc_merge_def,isWord_def]);
 
 val word_gc_fun_loc_merge = Q.prove(
   `word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)`,
-  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac word_gc_move_roots_IMP_FILTER
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]);
+  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
+     word_full_gc_def,word_gen_gc_def]
+  \\ TOP_CASE_TAC \\ fs [loc_merge_FILTER_isWord]
+  THEN1 (rw [] \\ fs [loc_merge_FILTER_isWord])
+  THEN1
+   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac word_gc_move_roots_IMP_FILTER
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+  THEN1
+   (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac word_gen_gc_move_roots_IMP_FILTER
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]));
 
 val word_gc_fun_IMP = Q.prove(
   `word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
     FLOOKUP s1 AllocSize = FLOOKUP s AllocSize /\
     FLOOKUP s1 Handler = FLOOKUP s Handler /\
     Globals IN FDOM s1`,
-  full_simp_tac(srw_ss())[IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][]
-  \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ EVAL_TAC)
+  fs[IMP_EQ_DISJ,word_gc_fun_def] \\ TOP_CASE_TAC \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE]
+  \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE]
+  \\ fs [word_gc_fun_assum_def]);
 
 val word_gc_move_roots_IMP_EVERY2 = Q.prove(
   `!xs ys pa m i c1 m1 pa1 i1 old dm c.
@@ -5182,7 +5251,7 @@ val word_gc_move_roots_IMP_EVERY2 = Q.prove(
                     (is_gc_word_const x ==> x = y)) xs ys`,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ res_tac
   \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][] \\ res_tac
   \\ qpat_x_assum `word_gc_move c (h,i,pa,old,m,dm) = (w1,i1',pa1',m1',c1')` mp_tac
   \\ full_simp_tac(srw_ss())[] \\ Cases_on `h` \\ full_simp_tac(srw_ss())[word_gc_move_def] \\ srw_tac[][]
@@ -5192,16 +5261,41 @@ val word_gc_move_roots_IMP_EVERY2 = Q.prove(
   \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
         word_simpTheory.is_gc_const_def]);
 
+val word_gen_gc_move_roots_IMP_EVERY2 = Q.prove(
+  `!xs ys pa m i ib pb c1 m1 pa1 i1 ib1 pb1 old dm c.
+      word_gen_gc_move_roots c (xs,i,pa,ib,pb,old,m,dm) =
+         (ys,i1,pa1,ib1,pb1,m1,c1) ==>
+      EVERY2 (\x y. (isWord x <=> isWord y) /\
+                    (is_gc_word_const x ==> x = y)) xs ys`,
+  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
+  \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ] \\ srw_tac[][]
+  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ res_tac
+  \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ] \\ srw_tac[][] \\ res_tac
+  \\ qpat_x_assum `word_gen_gc_move c _ = _` mp_tac
+  \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `h` \\ full_simp_tac(srw_ss())[word_gen_gc_move_def] \\ srw_tac[][]
+  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[isWord_def]
+  \\ UNABBREV_ALL_TAC \\ srw_tac[][] \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
+        word_simpTheory.is_gc_const_def]);
+
 val word_gc_IMP_EVERY2 = Q.prove(
   `word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
     EVERY2 (\x y. (isWord x <=> isWord y) /\ (is_gc_word_const x ==> x = y)) xs ys`,
-  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
+  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
+         word_full_gc_def,word_gen_gc_def]
+  \\ TOP_CASE_TAC \\ fs []
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac word_gc_move_roots_IMP_EVERY2);
+  THEN1 (match_mp_tac EVERY2_refl \\ fs [])
+  \\ imp_res_tac word_gc_move_roots_IMP_EVERY2
+  \\ imp_res_tac word_gen_gc_move_roots_IMP_EVERY2
+  \\ Cases_on `roots` \\ fs []);
 
 val gc_fun_const_ok_word_gc_fun = Q.prove(
   `gc_fun_const_ok (word_gc_fun c)`,
@@ -5213,7 +5307,8 @@ val gc_fun_const_ok_word_gc_fun = Q.prove(
 
 val word_gc_fun_LENGTH = Q.store_thm("word_gc_fun_LENGTH",
   `word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs`,
-  srw_tac[][] \\ drule word_gc_IMP_EVERY2 \\ srw_tac[][] \\ imp_res_tac EVERY2_LENGTH);
+  srw_tac[][] \\ drule word_gc_IMP_EVERY2
+  \\ srw_tac[][] \\ imp_res_tac EVERY2_LENGTH);
 
 val gc_fun_ok_word_gc_fun = Q.store_thm("gc_fun_ok_word_gc_fun",
   `gc_fun_ok (word_gc_fun c1)`,
@@ -5222,14 +5317,15 @@ val gc_fun_ok_word_gc_fun = Q.store_thm("gc_fun_ok_word_gc_fun",
   \\ imp_res_tac word_gc_fun_IMP
   \\ fs [FLOOKUP_DEF]
   \\ fs [word_gc_fun_def]
-  \\ pairarg_tac \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ fs []
   \\ fs [DOMSUB_FAPPLY_THM]
   \\ rpt var_eq_tac \\ fs []
   \\ fs [word_gc_fun_assum_def,DOMSUB_FAPPLY_THM]
   \\ fs [fmap_EXT,FUPDATE_LIST,EXTENSION]
-  \\ conj_tac THEN1 metis_tac []
-  \\ fs [FAPPLY_FUPDATE_THM,DOMSUB_FAPPLY_THM]
-  \\ rw [] \\ fs []);
+  \\ fs [FAPPLY_FUPDATE_THM,DOMSUB_FAPPLY_THM] \\ rw [] \\ fs []
+  \\ eq_tac \\ rw[] \\ fs []
+  \\ metis_tac []);
 
 val word_gc_fun_APPEND_IMP = Q.prove(
   `word_gc_fun c (xs ++ ys,m,dm,s) = SOME (zs,m1,s1) ==>
@@ -5450,11 +5546,14 @@ val state_rel_gc = Q.prove(
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
       state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs`,
-  full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
+  full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
+  \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+  \\ rev_full_simp_tac(srw_ss())[lookup_def] \\ srw_tac[][]
   \\ qhdtm_x_assum `word_ml_inv` mp_tac
   \\ Q.PAT_ABBREV_TAC `pat = join_env LN _` \\ srw_tac[][]
   \\ `pat = []` by (UNABBREV_ALL_TAC \\ EVAL_TAC) \\ full_simp_tac(srw_ss())[]
-  \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ pop_assum (K all_tac)
+  \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+  \\ pop_assum (K all_tac)
   \\ first_x_assum (fn th1 => first_x_assum (fn th2 => first_x_assum (fn th3 =>
        mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 (CONJ th2 th3))))))
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
@@ -5466,11 +5565,16 @@ val state_rel_gc = Q.prove(
         t.stack = SOME stack` by metis_tac [dec_stack_loc_merge_enc_stack]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ conj_tac
-  THEN1 (fs [word_gc_fun_def] \\ pairarg_tac \\ fs [] \\ rveq \\ EVAL_TAC)
+  THEN1 (fs [word_gc_fun_def]
+         \\ Cases_on `c.gc_kind` \\ fs []
+         \\ rveq \\ fs []
+         \\ rpt (pairarg_tac \\ fs []) \\ rveq
+         \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
-  \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ disj2_tac
+  \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[] \\ disj2_tac
   \\ pop_assum mp_tac
   \\ match_mp_tac (METIS_PROVE [] ``x=y==>(x==>y)``)
   \\ AP_TERM_TAC
