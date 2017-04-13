@@ -116,7 +116,7 @@ val word_gc_move_roots_bitmaps_code_def = Define `
 
 val word_gc_code_def = Define `
   word_gc_code conf =
-    case conf.gc_kind of
+    dtcase conf.gc_kind of
     | None =>
         (list_Seq
               [Set AllocSize 1;

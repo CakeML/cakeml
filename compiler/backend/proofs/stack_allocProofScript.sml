@@ -5553,9 +5553,11 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
   EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)`,
   fs[compile_def]>>rw[]>>
-  TRY
-    (EVAL_TAC>>fs[reg_name_def,labPropsTheory.good_dimindex_def,asmTheory.offset_ok_def,data_to_wordProofTheory.conf_ok_def,data_to_wordTheory.shift_length_def]>>
-    pairarg_tac>>fs[]>>NO_TAC)
+    TRY (EVAL_TAC>>every_case_tac >> fs [] >> EVAL_TAC >>
+     fs[reg_name_def, labPropsTheory.good_dimindex_def,
+        asmTheory.offset_ok_def, data_to_wordProofTheory.conf_ok_def,
+        data_to_wordTheory.shift_length_def]>>
+     pairarg_tac>>fs[]>>NO_TAC)
   >>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>>
