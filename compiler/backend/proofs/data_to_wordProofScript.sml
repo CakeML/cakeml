@@ -3782,7 +3782,14 @@ val word_gc_fun_def = Define `
                          (NextFree, Word pa1);
                          (TriggerGC, Word pb1);
                          (EndOfHeap, Word pb1);
-                         (Globals, HD roots1)] in
+                         (Globals, HD roots1);
+                         (Temp 0w, Word 0w);
+                         (Temp 1w, Word 0w);
+                         (Temp 2w, Word 0w);
+                         (Temp 3w, Word 0w);
+                         (Temp 4w, Word 0w);
+                         (Temp 5w, Word 0w);
+                         (Temp 6w, Word 0w)] in
            if c1 /\ c2 then SOME (TL roots1,m1,s1) else NONE)`
 
 val word_gc_fun_lemma_Simple = Q.prove(
