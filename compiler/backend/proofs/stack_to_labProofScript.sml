@@ -1984,19 +1984,24 @@ val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
     fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
-    pop_assum mp_tac >> EVAL_TAC) >>
+    pop_assum mp_tac >> EVAL_TAC)
+  >>
     fs[EVERY_MAP,prog_to_section_def,EVERY_MEM,FORALL_PROD]>>
     rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>
     Q.ISPECL_THEN [`p_2`,`p_1`,`next_lab p_2 1`] mp_tac stack_to_lab_lab_pres>>
     impl_tac>-
       (*stack_names*)
-      (fs[stack_namesTheory.compile_def,MEM_MAP]>>Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
-      (*stack_remove*)
-      fs[stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,MEM_MAP]>>
-      EVAL_TAC>>BasicProvers.EVERY_CASE_TAC>>EVAL_TAC>>fs[extract_label_store_list_code]>>Cases_on`y`>>fs[stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres]>>
-      (*stack_alloc*)
+    (fs[stack_namesTheory.compile_def,MEM_MAP]>>
+     Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
+     (*stack_remove*)
+     fs[stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,MEM_MAP]>>
+     EVAL_TAC>>BasicProvers.EVERY_CASE_TAC>>
+     EVAL_TAC>>fs[extract_label_store_list_code]>>
+     Cases_on`y`>>fs[stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres]>>
+     (*stack_alloc*)
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP]>>
-      EVAL_TAC>>Cases_on`y`>>fs[stack_allocTheory.prog_comp_def]>>
+      EVAL_TAC >> TRY TOP_CASE_TAC >>EVAL_TAC >> Cases_on`y`>>
+      fs[stack_allocTheory.prog_comp_def]>>
       Q.SPECL_THEN [`q''`,`next_lab r'' 1`,`r''`] mp_tac stack_alloc_lab_pres>>
       fs [] >>
       impl_tac>-
