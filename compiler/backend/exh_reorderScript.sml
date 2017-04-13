@@ -74,10 +74,7 @@ val compile_def = tDefine "compile" `
         [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
     (compile [Extend_global t n] = [Extend_global t n]) /\
     (compile (x::y::xs) = compile [x] ++ compile (y::xs))`
-    cheat;
-(*(TODO: Update proof to be valid/consistent with the introduced traces 
-*
-  WF_REL_TAC `measure exp6_size`
+ (WF_REL_TAC `measure exp6_size`
   \\ simp []
   \\ conj_tac
   >- (
@@ -86,6 +83,8 @@ val compile_def = tDefine "compile" `
      \\ rw [exp_size_def]
      \\ rw [exp_size_def]
      \\ res_tac \\ rw []
+     \\ qmatch_goalsub_rename_tac `tra_size t2`
+     \\ pop_assum (qspec_then `t2` mp_tac) \\ fs []
   )
   >- (
      rpt strip_tac
@@ -95,8 +94,7 @@ val compile_def = tDefine "compile" `
      \\ rw [exp_size_def]
      \\ rw [exp_size_def]
      \\ res_tac \\ rw []
-  )
-)*)
+  ));
 
 val compile_ind = theorem"compile_ind";
 
