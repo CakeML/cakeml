@@ -1204,7 +1204,7 @@ val optimize_prog_evaluate = Q.store_thm ("optimize_prog_evaluate",
   \\ drule evaluate_optimized_WF
   \\ disch_then drule \\ rfs [Abbr`st1`]
   \\ disch_then drule \\ strip_tac
-  \\ qexists_tac `ck` \\ fs [inc_clock_def]
+  \\ qexists_tac `ck'` \\ fs [inc_clock_def]
   \\ imp_res_tac evaluate_code_const
   \\ fs [state_rel_def, initial_state_def]);
 
