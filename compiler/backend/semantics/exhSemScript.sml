@@ -1,4 +1,5 @@
-open preamble exhLangTheory
+open preamble exhLangTheory backend_commonTheory
+open semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory"exhSem"
 

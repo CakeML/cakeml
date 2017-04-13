@@ -338,7 +338,7 @@ val generalise_list_length = Q.prove(`
   Induct_on`d`>>fs[generalise_def]>>rw[]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  res_tac>>fs[]>>rveq>>fs[])
+  res_tac>>fs[]>>rveq>>fs[]);
 
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `!mn decls tenv ienv d st1 decls' tenv' idecls.
@@ -362,6 +362,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     pop_assum (qspec_then`tvs` assume_tac)>>
     drule (GEN_ALL infer_pe_complete) >>
     rpt (disch_then drule) >>
+    disch_then (qspec_then `SOME locs` mp_tac) >>
     rw [] >>
     qexists_tac `empty_inf_decls` >>
     simp [init_state_def, success_eqns] >>
@@ -399,7 +400,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         (*Recover the check_t property directly from infer_d_check*)
         (imp_res_tac infer_d_check >>
         pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
-        disch_then(qspec_then`Dlet p e` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
+        disch_then(qspec_then`Dlet locs p e` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
         rfs[guard_def]>>
         `MAP FST new_bindings = pat_bindings p []` by
           (imp_res_tac type_p_pat_bindings>>
@@ -638,6 +639,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     disch_then (qspec_then`0` mp_tac)>>
     fs[bind_tvar_def]>>
     rpt (disch_then drule) >>
+    disch_then (qspec_then `SOME locs` mp_tac) >>
     rw [] >>
     qexists_tac `empty_inf_decls` >>
     simp [init_state_def, success_eqns] >>
@@ -677,7 +679,8 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
   >- ( (* Letrec *)
     rw[infer_d_def,success_eqns,init_state_def]>>
     `ienv_ok {} ienv` by fs[env_rel_def]>>
-    drule infer_funs_complete>>
+    drule (GEN_ALL infer_funs_complete)>>
+    disch_then (qspecl_then [`tvs`, `tenv`, `SOME locs`, `funs`, `bindings`] mp_tac) >>
     fs[]>>
     impl_tac>-
       fs[env_rel_def]>>
@@ -724,7 +727,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         (*Recover the check_t property directly from infer_d_check*)
         (imp_res_tac infer_d_check >>
         pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
-        disch_then(qspec_then`Dletrec funs` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
+        disch_then(qspec_then`Dletrec locs funs` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
         rfs[guard_def,LENGTH_COUNT_LIST]>>
         pop_assum match_mp_tac>>
         CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>

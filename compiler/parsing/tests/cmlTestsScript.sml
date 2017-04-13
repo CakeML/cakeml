@@ -115,6 +115,9 @@ val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wx3"
           (SOME ``Tdec (Dlet (Pvar "w") (Lit (Word64 3w)))``)
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "#(read) byte_array"
+          (SOME ``App (FFI "read") [Var (Short "byte_array")]``)
+
 val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0wxf"
           (SOME ``Tdec (Dlet (Pvar "w") (Lit (Word64 15w)))``)
 

@@ -1569,7 +1569,7 @@ val v_size_lemmas = Q.store_thm("v_size_lemmas",
 
 val type_names_def = Define `
   (type_names [] names = names) /\
-  (type_names (Dtype tds :: xs) names =
+  (type_names (Dtype _ tds :: xs) names =
      type_names xs (MAP (FST o SND) tds ++ names)) /\
   (type_names (x :: xs) names = type_names xs names)`;
 
@@ -1578,11 +1578,11 @@ val type_names_eq = Q.prove(
       type_names ds names =
       (FLAT (REVERSE (MAP (\d.
                 case d of
-                  Dlet v6 v7 => []
-                | Dletrec v8 => []
-                | Dtype tds => MAP (\(tvs,tn,ctors). tn) tds
-                | Dtabbrev tvs tn t => []
-                | Dexn v10 v11 => []) ds))) ++ names`,
+                  Dlet _ v6 v7 => []
+                | Dletrec _ v8 => []
+                | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
+                | Dtabbrev _ tvs tn t => []
+                | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
 

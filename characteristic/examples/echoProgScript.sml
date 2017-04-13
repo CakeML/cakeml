@@ -26,7 +26,7 @@ val echo_spec = Q.store_thm("echo_spec",
   `!ls b bv. cl <> [] /\ EVERY validArg cl /\ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ==>
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDOUT output * COMMANDLINE cl)
-   (POSTv uv. &UNIT_TYPE () uv * (STDOUT (output ++ (CONCAT_WITH " " (TL cl)) ++ [CHR 10]) * COMMANDLINE cl))`,
+   (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ (CONCAT_WITH " " (TL cl)) ++ [CHR 10]) * COMMANDLINE cl)`,
     xcf "echo" st
     \\ xlet `POSTv zv. & UNIT_TYPE () zv * STDOUT output * COMMANDLINE cl`
     >-(xcon \\ xsimpl)
@@ -57,6 +57,6 @@ val echo_semantics = save_thm("echo_semantics",
   call_thm_echo
   |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> REWRITE_RULE[APPEND]);
+  |> SIMP_RULE std_ss [APPEND]);
 
 val _ = export_theory();

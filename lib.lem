@@ -181,3 +181,5 @@ type locn = <| row : nat;  col : nat; offset : nat |>
 type locs = (locn * locn)
 declare hol target_rep type locn = `locn`
 declare hol target_rep type locs = `locs`
+val unknown_loc : locs
+declare hol target_rep function unknown_loc = `unknown_loc`

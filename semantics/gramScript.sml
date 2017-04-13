@@ -110,7 +110,7 @@ val cmlG_def = mk_grammar_def ginfo
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" | "=" ;
 
- Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> ;
+ Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"

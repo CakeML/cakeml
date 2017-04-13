@@ -32,7 +32,7 @@ val arm8_names_def = save_thm("arm8_names_def",
   CONV_RULE (RAND_CONV EVAL) arm8_names_def);
 
 (* TODO: this config may need to change *)
-val arm8_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=16; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
+val arm8_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
 val arm8_word_conf = ``<| bitmaps := []:64 word list |>``
 val arm8_stack_conf = ``<|reg_names:=arm8_names;max_heap:=1000000|>``
 val arm8_lab_conf = ``<|labels:=LN;asm_conf:=arm8_config;init_clock:=5|>``
@@ -72,7 +72,7 @@ val arm_names_def = Define `
 val arm_names_def = save_thm("arm_names_def",
   CONV_RULE (RAND_CONV EVAL) arm_names_def);
 
-val arm_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=16; has_div:=F; has_longdiv:=F; gc_kind:=Simple|>``
+val arm_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; gc_kind:=Simple|>``
 val arm_word_conf = ``<| bitmaps := []:32 word list |>``
 val arm_stack_conf = ``<|reg_names:=arm_names;max_heap:=1000000|>``
 val arm_lab_conf = ``<|labels:=LN;asm_conf:=arm6_config;init_clock:=5|>``
@@ -117,7 +117,7 @@ val mips_names_def = Define `
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
-val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=16; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
+val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
 val mips_word_conf = ``<| bitmaps := []:64 word list |>``
 val mips_stack_conf = ``<|reg_names:=mips_names;max_heap:=1000000|>``
 val mips_lab_conf = ``<|labels:=LN;asm_conf:=mips_config;init_clock:=5|>``
@@ -166,7 +166,7 @@ val riscv_names_def = Define `
 val riscv_names_def = save_thm("riscv_names_def",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
-val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=16; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
+val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
 val riscv_word_conf = ``<| bitmaps := []:64 word list |>``
 val riscv_stack_conf = ``<|reg_names:=riscv_names;max_heap:=1000000|>``
 val riscv_lab_conf = ``<|labels:=LN;asm_conf:=riscv_config;init_clock:=5|>``
@@ -214,7 +214,7 @@ val x64_names_def = Define `
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
-val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=16; has_div:=F; has_longdiv:=T; gc_kind:=Simple|>``
+val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps := []:64 word list |>``
 val x64_stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
 val x64_lab_conf = ``<|labels:=LN;asm_conf:=x64_config;init_clock:=5|>``

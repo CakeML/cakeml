@@ -1,5 +1,5 @@
 open preamble conLangTheory
-open backend_commonTheory
+open backend_commonTheory mlintTheory
 
 val _ = new_theory"con_to_dec"
 
@@ -29,7 +29,7 @@ val _ = Define `
   (compile_decs next (d::ds) =
    case d of
    | Dlet n e =>
-     let vars = (GENLIST (λn. STRCAT"x"(num_to_dec_string n)) n) in
+     let vars = (GENLIST (λn. STRCAT"x"(simple_toChars 0 n "")) n) in
        Let NONE (Mat e [(Pcon NONE (MAP Pvar vars), init_globals vars next)])
          (compile_decs (next+n) ds)
    | Dletrec funs =>

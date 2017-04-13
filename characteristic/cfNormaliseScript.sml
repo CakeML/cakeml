@@ -466,10 +466,10 @@ val full_normalise_exp_def = Define `
   full_normalise_exp exp = full_normalise [] exp`
 
 val full_normalise_decl_def = Define `
-  full_normalise_decl (Dlet pat exp) =
-    Dlet pat (full_normalise [] exp) /\
-  full_normalise_decl (Dletrec l) =
-    Dletrec (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
+  full_normalise_decl (Dlet locs pat exp) =
+    Dlet locs pat (full_normalise [] exp) /\
+  full_normalise_decl (Dletrec locs l) =
+    Dletrec locs (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
   full_normalise_decl decl = decl`;
 
 val full_normalise_top_def = Define `

@@ -1867,7 +1867,7 @@ val prompt_mods_ok = Q.prove (
 val no_dup_types_helper = Q.prove (
   `!next mn  env ds next' env' ds_i1.
     compile_decs next mn env ds = (next',env',ds_i1) ⇒
-    FLAT (MAP (\d. case d of Dtype tds => MAP (\(tvs,tn,ctors). tn) tds | _ => []) ds)
+    FLAT (MAP (\d. case d of Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds | _ => []) ds)
     =
     FLAT (MAP (\d. case d of Dtype mn tds => MAP (\(tvs,tn,ctors). tn) tds | _ => []) ds_i1)`,
   induct_on `ds` >>

@@ -8,6 +8,7 @@ val hprop_heap_thms =
   ref [
     emp_precond,
     mlcharioProgTheory.STDOUT_precond,
+    mlcharioProgTheory.STDERR_precond,
     mlcharioProgTheory.STDIN_T_precond,
     mlcharioProgTheory.STDIN_F_precond,
     mlcommandLineProgTheory.COMMANDLINE_precond,
@@ -24,8 +25,12 @@ val basis_ffi_tm =
         (#1(strip_fun(type_of basis_ffi_const)))))
 
 fun add_basis_proj spec =
-  let val spec1 = HO_MATCH_MP append_emp spec handle HOL_ERR _ => spec in
-    spec1 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
+  let val spec0 = HO_MATCH_MP append_emp_err spec handle HOL_ERR _ =>
+                  HO_MATCH_MP append_emp_out spec handle HOL_ERR _ => spec
+      val spec1 = HO_MATCH_MP append_STDERR spec0 handle HOL_ERR _ => spec0
+      val spec2 = HO_MATCH_MP append_SEP_EXISTS spec1 handle HOL_ERR _ => spec1
+  in
+      spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end
 
 fun ERR f s = mk_HOL_ERR"ioProgLib" f s
@@ -122,7 +127,7 @@ fun call_thm st name spec =
         |> SPEC(stringSyntax.fromMLstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
         |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-        |> C MATCH_MP spec
+        |> C HO_MATCH_MP spec
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
     val prog_rewrite = EVAL prog_with_snoc (* TODO: this is too slow for large progs *)
     val th = PURE_REWRITE_RULE[prog_rewrite] th

@@ -1,4 +1,4 @@
-INCLUDES = .. ../../../compiler/eval/targets/ ../../.. ../../../basis
+INCLUDES = .. ../../../compiler/eval/targets ../../.. ../../../basis ../../../compiler/eval
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
 .PHONY: all
@@ -6,10 +6,30 @@ ifndef CC
 CC=gcc
 endif
 cake_grep: grep.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o -o $@
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_echo: echo.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o -o $@
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_hello: hello.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o -o $@
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_helloErr: helloErr.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_cat: cat.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o -o $@
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+
+exec: cake_echo cake_hello cake_helloErr cake_cat cake_grep
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../../compiler/eval/targets/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = ../../../compiler/eval/compilerComputeLib\
+						../../../compiler/eval/targets/x64_compileLib\
+						../../../compiler/eval/targets/x64_exportLib
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

@@ -455,7 +455,6 @@ Tdec
               App Opapp
                 [Var (Short "mk_list");
                  App (Opn Minus) [Var (Short "n"); Lit (IntLit 1)]]]))]);
-
 Tdec
    (Dlet (Pvar "test")
       (App Opapp
@@ -613,20 +612,19 @@ val nqueens =
               Lit (IntLit 0)]; Con (SOME (Short "nil")) []]))]``
 
 val sayhi = ``
-[Tdec (Dlet (Pvar"h") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(104)))]]));
- Tdec (Dlet (Pvar"i") (App (FFI 0) [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(105)))]]))]``
-
-val benchmarks = [sayhi,foldl,reverse,fib,btree,queue,qsort]
-val names = ["sayhi","foldl","reverse","fib","btree","queue","qsort"]
+[Tdec (Dlet (Pvar"h") (App (FFI "a") [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(104)))]]));
+ Tdec (Dlet (Pvar"i") (App (FFI "a") [App Aw8alloc [Lit(IntLit 1); Lit(Word8(n2w(105)))]]))]``
 
 val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
 
 fun save_th conf (str,th)=
   save_thm (conf^"_"^str,th)
 
 fun write_asm sz prefix exporter [] = ()
-  | write_asm sz prefix exporter ((name,(bytes,ffi_count))::xs) =
-    (exporter sz sz (numSyntax.int_of_term ffi_count)
+  | write_asm sz prefix exporter ((name,(bytes,ffi_names))::xs) =
+    (exporter sz sz (extract_ffi_names ffi_names)
        bytes ("cakeml/" ^ prefix ^"_"^ name ^ ".S") ;
     write_asm sz prefix exporter xs)
 
@@ -650,6 +648,9 @@ fun to_bytes_wrap opt eval conf =
     let orig_pad = conf.data_conf.pad_bits in
     let data = <|tag_bits:=0; len_bits:=0; pad_bits:= 1; len_size:=conf.data_conf.len_size; has_div:=T; has_longdiv:=T|> in
     conf with <|clos_conf:=clos;bvl_conf:=bvl;data_conf:=data|>``))
+
+val benchmarks = [sayhi,foldl,reverse,fib,btree,queue,qsort]
+val names = ["sayhi","foldl","reverse","fib","btree","queue","qsort"]
 
 (* x64 all opts and no opts *)
 val x64_benchmarks_compiled_all = map (to_bytes_wrap true x64_compileLib.eval ``x64_compiler_config``) benchmarks;

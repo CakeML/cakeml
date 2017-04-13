@@ -48,6 +48,7 @@ fun itlist3 f L1 L2 L3 base_value =
 
 fun zip3 ([],[],[]) = []
   | zip3 ((h1::t1),(h2::t2),(h3::t3)) = ((h1,h2,h3)::zip3(t1,t2,t3))
+  | zip3 _ = raise mk_HOL_ERR "Lib" "zip3" "lists of different length"
 
 infix 8 $
 fun op $ (f,x) = f x
@@ -133,7 +134,7 @@ in
               val () = Mutex.unlock threads_left_mutex
             in ConditionVar.signal cvar end
         | find_work i (r::rs) (c::cs) =
-            case (Mutex.lock mutex; !r) of
+           (case (Mutex.lock mutex; !r) of
               SOME _ => (Mutex.unlock mutex; find_work (i+1) rs cs)
             | NONE =>
               let
@@ -143,11 +144,13 @@ in
                 val () = r := SOME vs
               in
                 find_work (i+1) rs cs
-              end
+              end)
+       | find_work _ _ _ =
+           raise mk_HOL_ERR "Lib" "parlist" "lists of different length"
 
       fun fork_this () = find_work 0 refs chs
 
-      val true = Mutex.trylock threads_left_mutex
+      val _ = Mutex.trylock threads_left_mutex orelse raise General.Bind
 
       val () = for_se 1 num_threads
         (fn _ => ignore (Thread.fork (fork_this, [Thread.EnableBroadcastInterrupt true])))
@@ -172,8 +175,9 @@ fun map_ths_conv ths =
   let
     val next_thm = ref ths
     fun el_conv _ =
-      case !next_thm of th :: rest =>
-        let val () = next_thm := rest in th end
+      case !next_thm of
+         th :: rest => let val () = next_thm := rest in th end
+       | _ => raise mk_HOL_ERR "preamble" "map_ths_conv" ""
   in
     listLib.MAP_CONV el_conv
   end
@@ -236,7 +240,8 @@ val SWAP_IMP = let
   val Q = mk_var("Q", bool)
   val R = mk_var("R", bool)
 in
-  PROVE[] (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
+  Feedback.trace ("meson", 0) (PROVE[])
+    (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
 end
 
 fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));

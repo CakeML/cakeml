@@ -6,8 +6,8 @@ val _ = new_theory "semantics";
 
 val parse_def = Define`
 parse toks =
-  case some pt. valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
-                ptree_fringe pt = MAP TOK toks
+  case some pt. valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
+                real_fringe pt = MAP (TOK ## I) toks
   of
      NONE => NONE
    | SOME p => ptree_TopLevelDecs p`;
@@ -66,7 +66,7 @@ val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
 val semantics_def = Define`
   semantics state prelude input =
-  case parse (MAP FST (lexer_fun input)) of
+  case parse (lexer_fun input) of
   | NONE => CannotParse
   | SOME prog =>
     if can_type_prog state (prelude ++ prog)

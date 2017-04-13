@@ -9,7 +9,8 @@ val ERR = Feedback.mk_HOL_ERR "mips_targetLib"
 fun mips_type s = Type.mk_thy_type {Thy = "mips", Tyop = s, Args = []}
 
 val mips_tys = List.map mips_type
-  ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
+  ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store",
+   "MultDiv"]
 
 val mips_enc =
   SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM mips_enc_def `x`)

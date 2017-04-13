@@ -1,7 +1,7 @@
 open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     stdinFFITheory stdoutFFITheory mlcommandLineProgTheory
+     stdinFFITheory stdoutFFITheory stderrFFITheory mlcommandLineProgTheory
 
 val _ = new_theory "mlcharioProg";
 
@@ -41,18 +41,25 @@ val e =
 
 val _ = ml_prog_update (add_Dlet_Fun ``"read_failed"`` ``"u"`` e "read_failed_v")
 
-fun e name =
+val e =
   ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
     (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
-                          Var (Short ^name);
+                          Var (Short "write_state");
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar") [Var (Short ^name)]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
+val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
-val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` (e ``"write_state"``) "write_v")
-
-val _ = ml_prog_update (add_Dlet_Fun ``"write_err"`` ``"c"`` (e ``"write_err_state"``) "write_err_v")
+val e =
+  ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
+    (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
+     (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
+                          Var (Short "write_err_state");
+                          Lit (IntLit 0); Var (Short "b")])
+      (Let NONE (App (FFI "putChar_err") [Var (Short "write_err_state")]) (Var (Short "u")))))``
+  |> EVAL |> concl |> rand
+val _ = ml_prog_update (add_Dlet_Fun ``"write_err"`` ``"c"`` e "write_err_v")
 
 val _ = ml_prog_update (close_module NONE);
 
@@ -93,15 +100,15 @@ val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
 
 val STDERR_def = Define `
   STDERR output =
-    IOx stdout_ffi_part output *
+    IOx stderr_ffi_part output *
     SEP_EXISTS w. W8ARRAY write_err_state_loc [w]`;
 
 val STDERR_precond = Q.store_thm("STDERR_precond",
   `(STDERR out)
-    {FFI_part (Str out) (mk_ffi_next (Str,destStr,[("putChar",ffi_putChar)])) ["putChar"] events;
-     Mem 3 (W8array [w])}`,
+    {FFI_part (Str out) (mk_ffi_next
+    (Str,destStr,[("putChar_err",ffi_putChar_err)])) ["putChar_err"] events; Mem 3 (W8array [w])}`,
   rw[STDERR_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-     stdout_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
+     stderr_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
   \\ simp[set_sepTheory.one_STAR,GSYM set_sepTheory.STAR_ASSOC]
   \\ fs[cfHeapsBaseTheory.W8ARRAY_def,
         cfHeapsBaseTheory.cell_def,
@@ -117,7 +124,7 @@ val STDERR_FFI_part_hprop = Q.store_thm("STDERR_FFI_part_hprop",
   `FFI_part_hprop (STDERR x)`,
   rw [STDERR_def,
       cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-      stdoutFFITheory.stdout_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
+      stderrFFITheory.stderr_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
     set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
     EVAL ``write_err_state_loc``,
     cfHeapsBaseTheory.W8ARRAY_def,
@@ -305,7 +312,8 @@ val write_err_spec = Q.store_thm ("write_err_spec",
   \\ xlet `POSTv _. IOxx (output ++ [c]) * W8ARRAY write_err_state_loc [n2w (ORD c)]`
   THEN1
    (xffi
-    \\ fs [EVAL ``write_err_state_loc``, STDOUT_def, Abbr`IOxx`, cfHeapsBaseTheory.IOx_def,stdout_ffi_part_def]
+    \\ fs [EVAL ``write_err_state_loc``, STDOUT_def, Abbr`IOxx`,
+            cfHeapsBaseTheory.IOx_def,stderr_ffi_part_def]
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
     \\ CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ map_every qexists_tac[`ns`,`u`]
     \\ xsimpl

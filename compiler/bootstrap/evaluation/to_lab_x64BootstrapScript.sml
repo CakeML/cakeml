@@ -43,7 +43,7 @@ fun say_str s i n = ()
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
   *)
 
-val bootstrap_conf = ``(x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>)) with data_conf updated_by (λc. c with len_size := 32)``
+val bootstrap_conf = ``(x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))``
 
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
