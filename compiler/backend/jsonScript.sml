@@ -44,6 +44,8 @@ val escape_def = Define`
   /\
   (escape (h::s) = h::escape s)`;
 
+val obj_size_def = fetch "-" "obj_size_def"
+
 val json_to_string_def = tDefine "json_to_string" `
   (json_to_string obj =
     case obj of
@@ -55,6 +57,11 @@ val json_to_string_def = tDefine "json_to_string" `
        | Null => List "null")
   /\
   (mem_to_string (n, ob) = List "\"" ++ List n ++ List "\": " ++ (json_to_string ob))`
-  cheat;
+  (WF_REL_TAC `measure (\x. case x of
+       | INL obj => obj_size obj
+       | INR p => obj2_size p)` \\ rw []
+   THEN1 (Induct_on `obs` \\ fs [] \\ rw [obj_size_def] \\ fs [])
+   THEN1 (Induct_on `mems` \\ fs [] \\ rw [obj_size_def] \\ fs []
+          \\ rw [obj_size_def]));
 
 val _ = export_theory();
