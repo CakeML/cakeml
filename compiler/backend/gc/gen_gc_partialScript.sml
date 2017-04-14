@@ -9,8 +9,7 @@ val _ = Datatype `
     <| limit : num              (* size of heap *)
      ; isRef : 'a -> bool
      ; gen_start : num          (* start of generation *)
-     ; gen_end : num            (* end of generation *)
-     ; refs_start : num         (* start of references, gen_end < refs_start *)
+     ; refs_start : num         (* start of references *)
      |>`;
 
 val gc_move_def = Define `
@@ -202,8 +201,9 @@ val partial_gc_IMP = prove(
 
 (* Pointers between current and old generations are correct *)
 val heap_gen_ok_def = Define `
-  heap_gen_ok heap conf =
+  heap_gen_ok heap conf <=>
     ?old current refs.
+      conf.gen_start <= conf.refs_start /\ conf.refs_start <= conf.limit /\
       EVERY isDataElement old /\
       EVERY isDataElement refs /\
       (SOME (old, current, refs) = heap_segment (conf.gen_start, conf.refs_start) heap) /\
@@ -212,6 +212,8 @@ val heap_gen_ok_def = Define `
         (ptr < conf.gen_start \/ conf.refs_start <= ptr)) /\
       (* old contains no references *)
       (!xs l d. MEM (DataElement xs l d) old ==> ~ (conf.isRef d)) /\
+      (* old contains no references *)
+      (!xs l d. MEM (DataElement xs l d) current ==> ~ (conf.isRef d)) /\
       (* refs only contains references *)
       (!xs l d. MEM (DataElement xs l d) refs ==> conf.isRef d)`;
 
@@ -1993,20 +1995,40 @@ val gc_move_ref_list_similar = prove(
   \\ fs [similar_data_def]
   \\ imp_res_tac gc_move_list_similar \\ fs []);
 
+val IMP_gen_inv = prove(
+  ``heap_ok (heap:('a,'b) heap_element list) conf.limit /\
+    heap_gen_ok heap conf ==>
+    gen_inv conf heap``,
+  fs [gen_inv_def,heap_gen_ok_def] \\ strip_tac \\ fs []
+  \\ qpat_x_assum `SOME _ = _` (assume_tac o GSYM) \\ fs []
+  \\ fs [EVERY_MEM] \\ rpt strip_tac
+  THEN1 (Cases_on `e` \\ fs [heap_element_is_ref_def] \\ res_tac)
+  THEN1 (Cases_on `e` \\ fs [heap_element_is_ref_def] \\ res_tac)
+  THEN1
+   (fs [heap_ok_def,FILTER_EQ_NIL]
+    \\ fs [EVERY_MEM] \\ res_tac \\ fs [isForwardPointer_def])
+  THEN1
+   (fs [heap_ok_def,FILTER_EQ_NIL]
+    \\ fs [EVERY_MEM] \\ res_tac \\ fs [isForwardPointer_def])
+  \\ first_x_assum match_mp_tac
+  \\ asm_exists_tac \\ fs []
+  \\ asm_exists_tac \\ fs []);
+
 val partial_gc_related = store_thm("partial_gc_related",
   ``roots_ok roots heap /\
     heap_ok (heap:('a,'b) heap_element list) conf.limit /\
-    heap_gen_ok heap conf /\
-    gen_inv conf heap
+    heap_gen_ok heap conf
     ==>
     ?state f.
       (partial_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
-      (heap_ok (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1) conf.limit) /\
+      (heap_ok
+        (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1) conf.limit) /\
       gc_related f heap (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1)
   ``,
   rpt strip_tac
+  \\ `gen_inv conf heap` by (match_mp_tac IMP_gen_inv \\ fs [])
   \\ fs [gen_inv_def]
   \\ Cases_on `partial_gc conf (roots,heap)` \\ fs []
   \\ rename1 `_ = (roots1,state1)`

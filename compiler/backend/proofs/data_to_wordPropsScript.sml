@@ -120,6 +120,25 @@ val word_i2w_sub = store_thm("word_i2w_sub",
   fs [integer_wordTheory.word_i2w_add,word_sub_def,integerTheory.int_sub,
       integer_wordTheory.MULT_MINUS_ONE]);
 
+(* --- *)
+
+val heap_split_APPEND_if = Q.store_thm("heap_split_APPEND_if",
+  `!h1 n h2. heap_split n (h1 ++ h2) =
+  if n < heap_length h1 then
+    case heap_split n h1 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1',h2'++h2)
+  else
+    case heap_split (n - heap_length h1) h2 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1++h1',h2')`,
+  Induct >> fs[heap_split_def] >> rpt strip_tac
+  >- (Cases_on `heap_split n h2` >> fs[] >> Cases_on `x` >> fs[])
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> Cases_on `h` >> fs[el_length_def])
+  >> IF_CASES_TAC >- fs[heap_length_def]
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> every_case_tac >> fs[])
+  >> fs[heap_length_def] >> every_case_tac >> fs[]);
+
 (* -- *)
 
 val get_lowerbits_def = Define `
@@ -277,9 +296,11 @@ val isRef_def = Define `
 
 val gen_start_ok_def = Define `
   gen_start_ok heap refs_start gen_start =
-    !n xs l d.
-      heap_lookup n heap = SOME (DataElement xs l d) /\ n < gen_start ==>
-      !p e. MEM (Pointer p e) xs ==> p < gen_start \/ refs_start <= p`
+    ?h1 h2.
+      heap_split gen_start heap = SOME (h1,h2) /\
+      !xs l d p e.
+        MEM (DataElement xs l d) h1 /\ MEM (Pointer p e) xs ==>
+        p < gen_start \/ refs_start <= p`
 
 val gen_state_ok_def = Define `
   gen_state_ok a refs_start heap (GenState _ starts) <=>
@@ -727,26 +748,31 @@ val reset_gens_def = Define `
   reset_gens conf a =
     case conf.gc_kind of
     | Generational sizes => GenState 0 (MAP (K a) sizes)
-    | _ => GenState 0 []`
+    | _ => GenState 0 []`;
+
+val heap_split_0 = store_thm("heap_split_0",
+  ``heap_split 0 h = SOME ([],h)``,
+  Cases_on `h` \\ fs [heap_split_def]);
 
 val gen_state_ok_reset = store_thm("gen_state_ok_reset",
   ``heap_ok (h ++ heap_expand n ++ r) l ==>
     gen_state_ok (heap_length h) (n + heap_length h)
       (h ++ heap_expand n ++ r) (reset_gens conf (heap_length h))``,
   strip_tac
-  \\ fs [reset_gens_def] \\ TOP_CASE_TAC \\ fs [gen_state_ok_def]
+  \\ fs [reset_gens_def] \\ TOP_CASE_TAC \\ fs [gen_state_ok_def,reset_gens_def]
   \\ fs [EVERY_MAP] \\ disj2_tac
   \\ fs [gen_start_ok_def]
-  \\ rw [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ full_simp_tac std_ss [heap_lookup_APPEND]
-  \\ CCONTR_TAC \\ fs []
-  \\ fs [GSYM NOT_LESS]
-  \\ fs [NOT_LESS]
+  \\ rewrite_tac [GSYM APPEND_ASSOC]
+  \\ once_rewrite_tac [heap_split_APPEND_if]
+  \\ fs [heap_split_0]
   \\ fs [heap_ok_def]
-  \\ imp_res_tac heap_lookup_MEM \\ fs []
-  \\ res_tac
+  \\ rw [] \\ res_tac
   \\ rpt (qpat_x_assum `!x._` kall_tac)
-  \\ rfs [heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand]);
+  \\ fs [isSomeDataElement_def]
+  \\ rfs [heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand]
+  \\ every_case_tac
+  \\ imp_res_tac heap_lookup_MEM
+  \\ pop_assum mp_tac \\ fs [heap_expand_def]);
 
 val gen_gc_thm = Q.store_thm("gen_gc_thm",
   `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
@@ -785,10 +811,110 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
     \\ PURE_ONCE_REWRITE_TAC [gen_gc_partialTheory.heap_split_length]
     \\ fs[heap_expand_not_isRef]));
 
+val has_gen_def = Define `
+  has_gen (GenState _ xs) <=> xs <> []`;
+
+val heap_split_heap_split = store_thm("heap_split_heap_split",
+  ``!heap n1 n2 h1 h2 h3 h4.
+      heap_split n2 heap = SOME (h3,h4) /\
+      heap_split n1 heap = SOME (h1,h2) /\ n1 <= n2 ==>
+      ?m.
+        h2 = m ++ h4 /\ h3 = h1 ++ m /\ heap = h1 ++ m ++ h4 /\
+        heap_split (n2 - heap_length h1) h2 = SOME (m,h4)``,
+  Induct \\ fs [heap_split_def]
+  \\ rpt gen_tac
+  \\ Cases_on `n2 = 0` \\ fs []
+  THEN1 (strip_tac \\ rveq \\ fs [] \\ rveq \\ fs [heap_split_0])
+  \\ Cases_on `n2 < el_length h` \\ fs []
+  \\ Cases_on `heap_split (n2 − el_length h) heap` \\ fs []
+  \\ Cases_on `x` \\ fs []
+  \\ Cases_on `n1 = 0` \\ fs []
+  THEN1
+   (strip_tac \\ rveq \\ fs []
+    \\ fs [heap_split_def]
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs [])
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ res_tac \\ rfs [] \\ fs [heap_length_def]);
+
+val heap_split_LESS_EQ = store_thm("heap_split_LESS_EQ",
+  ``!heap n x. heap_split n heap = SOME x ==> n <= heap_length heap``,
+  Induct \\ fs [heap_split_def] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ res_tac \\ fs [heap_length_def]);
+
+val gen_gc_partial_thm = Q.store_thm("gen_gc_partial_thm",
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   has_gen gens /\ conf.gc_kind = Generational xs ==>
+    ?roots2 state2.
+      partial_gc
+        (make_partial_conf (make_gc_conf limit) gens (a + (sp + sp1)))
+        (roots,heap) = (roots2,state2) /\
+      abs_ml_inv conf stack refs
+        (roots2,state2.old ++ state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
+         state2.a,state2.n,0,reset_gens conf state2.a) limit /\ state2.ok`,
+
+  simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
+  \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `partial_gc cc`
+  \\ `heap_ok heap cc.limit` by
+        (fs [Abbr `cc`] \\ Cases_on `gens` \\ fs [make_partial_conf_def])
+  \\ drule (GEN_ALL gen_gc_partialTheory.partial_gc_related
+            |> SIMP_RULE std_ss [Once CONJ_COMM, GSYM CONJ_ASSOC])
+  \\ `heap_gen_ok heap cc` by
+   (fs [gen_gc_partialTheory.heap_gen_ok_def]
+    \\ Cases_on `gens` \\ unabbrev_all_tac \\ fs [make_partial_conf_def]
+    \\ fs [gc_kind_inv_def,gen_state_ok_def,has_gen_def]
+    \\ Cases_on `l` \\ fs []
+    \\ fs [gen_start_ok_def]
+    \\ fs [heap_segment_def]
+    \\ drule heap_split_LESS_EQ \\ strip_tac
+    \\ `limit = heap_length heap` by fs [heap_ok_def]
+    \\ drule (GEN_ALL heap_split_heap_split)
+    \\ qpat_x_assum `heap_split h heap = _` assume_tac
+    \\ disch_then drule \\ fs [] \\ strip_tac \\ fs [] \\ rveq
+    \\ rpt strip_tac
+    THEN1 cheat (* isDataElement -- needed? *)
+    THEN1 cheat (* isDataElement -- needed? *)
+    THEN1
+     (first_x_assum match_mp_tac
+      \\ asm_exists_tac \\ fs []
+      \\ asm_exists_tac \\ fs [])
+    \\ Cases_on `d` \\ fs [] \\ rveq
+    \\ fs [EVERY_MEM] \\ res_tac \\ fs [isRef_def] \\ NO_TAC)
+  \\ fs []
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ `cc.limit = limit` by
+       (unabbrev_all_tac \\ EVAL_TAC \\ Cases_on `gens` \\ EVAL_TAC \\ NO_TAC)
+  \\ fs []
+  \\ `state'.a = heap_length (state'.old ++ state'.h1) /\
+      state'.ok` by cheat
+  \\ fs []
+  \\ reverse (rpt conj_tac) THEN1
+   (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
+    \\ qexists_tac `heap` \\ full_simp_tac std_ss []
+    \\ rw [] \\ fs [] \\ res_tac \\ fs [])
+  THEN1
+   (qpat_abbrev_tac `hh = state'.old ++ state'.h1`
+    \\ fs [unused_space_inv_def] \\ fs [heap_expand_def]
+    \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+    \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def])
+  THEN1 cheat (* should be true *)
+  \\ fs [roots_ok_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac MEM_ADDR_MAP
+  \\ rveq \\ fs []
+  \\ res_tac
+  \\ qmatch_goalsub_abbrev_tac `heap_lookup _ heap2`
+  \\ fs [gc_related_def,isSomeDataElement_def]
+  \\ res_tac \\ fs []);
+
 val gc_combined_thm = Q.store_thm("gc_combined_thm",
-  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+  `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   (pgc ==> has_gen gens) ==>
     ?roots2 heap2 gens2 n2 a2.
-      (gc_combined (make_gc_conf limit) conf.gc_kind (roots,heap,gens) =
+      (gc_combined (make_gc_conf limit) conf.gc_kind (roots,heap,gens,a+sp+sp1,pgc) =
          (roots2,heap2,a2,n2,gens2,T)) /\
       abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit`,
   Cases_on `conf.gc_kind` \\ fs [gc_combined_def]
@@ -799,8 +925,12 @@ val gc_combined_thm = Q.store_thm("gc_combined_thm",
    (pairarg_tac \\ fs [] \\ strip_tac
     \\ drule (GEN_ALL full_gc_thm) \\ fs [make_gc_conf_def]
     \\ strip_tac \\ rveq \\ fs [])
-  \\ pairarg_tac \\ fs [] \\ strip_tac
-  \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def]);
+  \\ reverse IF_CASES_TAC
+  THEN1
+   (pairarg_tac \\ fs [] \\ strip_tac
+    \\ drule (GEN_ALL gen_gc_thm) \\ fs [reset_gens_def])
+  \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+  \\ drule (GEN_ALL gen_gc_partial_thm) \\ fs [reset_gens_def]);
 
 (* Write to unused heap space is fine, e.g. cons *)
 
@@ -1171,23 +1301,6 @@ val heap_store_unused_alt_gen_state_ok = prove(
   \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
   \\ drule (heap_store_unused_alt_heap_lookup |> SPEC_ALL) \\ fs []
   \\ CCONTR_TAC \\ fs [] \\ metis_tac [NOT_LESS]);
-
-val heap_split_APPEND_if = Q.store_thm("heap_split_APPEND_if",
-  `!h1 n h2. heap_split n (h1 ++ h2) =
-  if n < heap_length h1 then
-    case heap_split n h1 of
-        NONE => NONE
-      | SOME(h1',h2') => SOME(h1',h2'++h2)
-  else
-    case heap_split (n - heap_length h1) h2 of
-        NONE => NONE
-      | SOME(h1',h2') => SOME(h1++h1',h2')`,
-  Induct >> fs[heap_split_def] >> rpt strip_tac
-  >- (Cases_on `heap_split n h2` >> fs[] >> Cases_on `x` >> fs[])
-  >> IF_CASES_TAC >- (fs[heap_length_def] >> Cases_on `h` >> fs[el_length_def])
-  >> IF_CASES_TAC >- fs[heap_length_def]
-  >> IF_CASES_TAC >- (fs[heap_length_def] >> every_case_tac >> fs[])
-  >> fs[heap_length_def] >> every_case_tac >> fs[]);
 
 val cons_thm_alt = Q.store_thm("cons_thm_alt",
   `abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
@@ -2807,6 +2920,15 @@ val word_heap_def = Define `
      word_el a x conf *
      word_heap (a + bytes_in_word * n2w (el_length x)) xs conf)`;
 
+val gen_starts_in_store_def = Define `
+  gen_starts_in_store c (GenState _ gen_starts) (SOME (Word w)) =
+    (!gen_sizes.
+       c.gc_kind = Generational gen_sizes ==>
+       LENGTH gen_starts = LENGTH gen_sizes /\
+       !x xs. gen_starts = x::xs ==>
+              w = (bytes_in_word * n2w x)) /\
+  gen_starts_in_store c _ _ = F`
+
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp sp1 gens c s m dm limit <=>
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
@@ -2822,6 +2944,7 @@ val heap_in_memory_store_def = Define `
       (FLOOKUP s TriggerGC = SOME (Word (curr + bytes_in_word * n2w (a+sp)))) /\
       (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a+sp+sp1)))) /\
       (FLOOKUP s HeapLength = SOME (Word (bytes_in_word * n2w limit))) /\
+      gen_starts_in_store c gens (FLOOKUP s GenStart) /\
       (word_heap curr heap c *
        word_heap other (heap_expand limit) c) (fun2set (m,dm))`
 
