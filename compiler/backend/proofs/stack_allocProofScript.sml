@@ -4458,9 +4458,33 @@ val word_gc_code_def = prove(``
                const_inst 8 0w;
                StackLoadAny 9 8;
                word_gen_gc_partial_move_roots_bitmaps_code conf;
+               Get 8 CurrHeap;
+               Get 9 HeapLength;
+               add_inst 9 8;
+               Get 8 EndOfHeap;
                word_gen_gc_partial_move_ref_list_code conf;
-               ARB]
+               Get 8 OtherHeap;
+               word_gen_gc_partial_move_data_code conf;
+               Get 2 OtherHeap;
+               move 0 3;
+               sub_inst 0 2;
+               right_shift_inst 0 (shift (:'a));
+               Set NextFree 3;
+               Get 3 GenStart;
+               Get 1 CurrHeap;
+               add_inst 3 1;
+               memcpy_code;
+               Get 2 TriggerGC;
+               Set EndOfHeap 2;
+               const_inst 1 0w;
+               Set (Temp 0w) 1;
+               Set (Temp 1w) 1;
+               Get 1 AllocSize;
+               sub_inst 2 3;
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip]
 (*
+
+w2n w ≤ w2n (-1w * b1 + endh) then
 word_gc_move_roots_bitmaps_code_thm
 *)
               [Set AllocSize 1;
@@ -4655,24 +4679,19 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck'` mp_tac)
     \\ fs [] \\ rpt strip_tac
-
     \\ abbrev_under_exists ``s5:('a,'b)stackSem$state``
-
      (qexists_tac `ck+ck'` \\ fs []
       \\ unabbrev_all_tac \\ fs [] \\ tac
       \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
       \\ qpat_abbrev_tac `(s5:('a,'b)stackSem$state) = _`)
-
-    \\ drule (GEN_ALL word_gen_gc_partial_move_data_code_thm
+    \\ drule (GEN_ALL word_gen_gc_partial_move_ref_list_code_thm
              |> REWRITE_RULE [GSYM AND_IMP_INTRO])
     \\ fs [AND_IMP_INTRO]
     \\ disch_then (qspecl_then [`s5`] mp_tac)
     \\ impl_tac THEN1
-
       (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
        \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM]
-       \\ fs [data_to_wordPropsTheory.word_or_eq_0]
-       \\ rpt (pop_assum kall_tac) \\ fs [word_sub_0_eq])
+       \\ fs [data_to_wordPropsTheory.word_or_eq_0])
     \\ strip_tac \\ pop_assum mp_tac
     \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck''` mp_tac)
@@ -4680,10 +4699,68 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck''` mp_tac)
     \\ rpt strip_tac \\ fs []
-    \\ qexists_tac `ck+ck'+ck''` \\ fs []
+    \\ abbrev_under_exists ``s6:('a,'b)stackSem$state``
+     (qexists_tac `ck+ck'+ck''` \\ fs []
+      \\ unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
+      \\ qpat_abbrev_tac `(s6:('a,'b)stackSem$state) = _`)
+    \\ drule (GEN_ALL word_gen_gc_partial_move_data_code_thm)
+    \\ disch_then (qspecl_then [`T`,`s6`] mp_tac)
+    \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1
+     (unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def])
+    \\ strip_tac \\ fs []
+    \\ qmatch_asmsub_rename_tac `s6 with clock := ck3 + s6.clock`
+    \\ pop_assum mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck3` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck3` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck3` mp_tac)
+    \\ fs []
+    \\ qmatch_goalsub_rename_tac `ck0 + (ck1 + (ck2 + (ck3 + s3.clock)))`
+    \\ rpt strip_tac
+    \\ abbrev_under_exists ``s7:('a,'b)stackSem$state``
+     (qexists_tac `ck0+ck1+ck2+ck3` \\ fs []
+      \\ unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
+      \\ tac \\ rfs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
+      \\ qpat_abbrev_tac `(s7:('a,'b)stackSem$state) = _`)
+    \\ drule (GEN_ALL memcpy_code_thm)
+    \\ disch_then (qspecl_then [`s7`] mp_tac)
+    \\ fs [AND_IMP_INTRO]
+    \\ impl_tac THEN1
+     (unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def])
+    \\ strip_tac \\ fs []
+    \\ qmatch_asmsub_rename_tac `s7 with clock := s7.clock + ck4`
+    \\ pop_assum mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck4` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck4` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck4` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck4` mp_tac)
+    \\ rpt strip_tac
+    \\ qexists_tac `ck0+ck1+ck2+ck3+ck4` \\ fs []
     \\ unabbrev_all_tac \\ fs [] \\ tac
-    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
+    \\ tac \\ rfs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ fs [labSemTheory.word_cmp_def,set_store_def]
+
+
+
     \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
     \\ fs [empty_env_def,state_component_equality]
