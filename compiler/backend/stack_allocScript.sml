@@ -395,9 +395,21 @@ val word_gen_gc_move_loop_code_def = Define `
                     sub_inst 5 3;
                     or_inst 7 5]))`
 
+val word_gc_partial_or_full_def = Define `
+  word_gc_partial_or_full gen_sizes partial_code full_code =
+    dtcase gen_sizes of
+    | [] => list_Seq ([Get 8 TriggerGC; Get 7 EndOfHeap; sub_inst 7 8] ++ full_code)
+    | _ => list_Seq
+             [Get 8 TriggerGC;
+              Get 7 EndOfHeap;
+              sub_inst 7 8;
+              If NotLower 7 (Reg 1)
+                (list_Seq partial_code)
+                (list_Seq full_code)]`;
+
 val word_gc_code_def = Define `
   word_gc_code conf =
-    case conf.gc_kind of
+    dtcase conf.gc_kind of
     | None =>
         (list_Seq
               [Set AllocSize 1;

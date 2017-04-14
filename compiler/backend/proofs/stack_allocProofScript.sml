@@ -10,6 +10,7 @@ open preamble
      (* TODO: the data_to_word* are possibly only for lemmas that should be moved anyway *)
 
 val _ = new_theory"stack_allocProof";
+val _ = (max_print_depth := 18);
 
 val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
 (* TODO: move *)
@@ -3547,97 +3548,6 @@ val word_gen_gc_partial_move_roots_bitmaps_code_thm =
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []);
 
-val word_gen_gc_partial_move_ref_list_code_thm = Q.prove(
-  `!k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'b)stackSem$state).
-      word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
-        (i2,pa2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
-      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-      conf.len_size + 2 < dimindex (:'a) /\ good_dimindex (:α) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
-      FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
-      s.memory = m1 /\ s.mdomain = dm1 /\
-      FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
-      FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
-      0 IN FDOM s.regs /\
-      1 IN FDOM s.regs /\
-      2 IN FDOM s.regs /\
-      get_var 3 s = SOME (Word pa1) /\
-      get_var 4 s = SOME (Word (i1:'a word)) /\
-      5 IN FDOM s.regs /\
-      6 IN FDOM s.regs /\
-      7 IN FDOM s.regs /\
-      get_var 8 s = SOME (Word r1a1) /\
-      get_var 9 s = SOME (Word r2a1) ==>
-      ?ck r0 r1 r2 r5 r6 r7 r8 r9.
-        evaluate (word_gen_gc_partial_move_ref_list_code conf,s with clock := s.clock + ck) =
-          (NONE,s with <| memory := m2;
-                          regs := s.regs |++ [(0,r0);
-                                              (1,r1);
-                                              (2,r2);
-                                              (3,Word pa2);
-                                              (4,Word i2);
-                                              (5,r5);
-                                              (6,r6);
-                                              (7,r7);
-                                              (8,r8);
-                                              (9,r9)] |>)`,
-  strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
-  \\ qpat_x_assum `word_gen_gc_partial_move_ref_list _ _ _ = _` mp_tac
-  \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
-  \\ IF_CASES_TAC THEN1
-   (fs [] \\ rw [] \\ fs [] \\ rpt var_eq_tac
-    \\ fs [word_gen_gc_partial_move_ref_list_code_def,get_var_def] \\ tac
-    \\ full_simp_tac(srw_ss())[state_component_equality]
-    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
-           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-    \\ once_rewrite_tac [split_num_forall_to_10]
-    \\ full_simp_tac(srw_ss())[nine_less])
-  \\ IF_CASES_TAC \\ fs []
-  \\ `k-1 < k` by decide_tac
-  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
-  \\ rpt var_eq_tac \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
-  \\ asm_simp_tac std_ss[word_gen_gc_partial_move_ref_list_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_ref_list_code_def,STOP_def]
-  \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
-  \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
-  \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
-  \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
-       DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
-  \\ rev_full_simp_tac(srw_ss())
-         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ tac
-  \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ tac \\ rveq \\ tac
-  \\ qabbrev_tac `s5 = s with
-        <|regs :=
-            s.regs |+
-            (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
-            (8,Word (r1a1 + bytes_in_word)) |>`
-  \\ drule word_gen_gc_partial_move_list_code_thm
-  \\ disch_then (qspec_then `s5` mp_tac)
-  \\ fs [AND_IMP_INTRO] \\ impl_tac
-  THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def]
-         \\ fs [get_var_def,FLOOKUP_DEF])
-  \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
-  \\ pop_assum mp_tac
-  \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
-  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
-  \\ fs [] (* \\ qpat_x_assum `_ = _` kall_tac *)
-  \\ first_x_assum drule \\ impl_tac
-  THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
-  \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ drule (evaluate_add_clock |> GEN_ALL)
-  \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
-  \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
-  \\ qunabbrev_tac `s6`
-  \\ fs [theWord_def,FLOOKUP_UPDATE,FUPDATE_LIST]
-  \\ full_simp_tac(srw_ss())[state_component_equality]
-  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
-         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-  \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less]);
-
 val word_gen_gc_move_list_code_thm = Q.store_thm("word_gen_gc_move_list_code_thm",
   `!l a (s:('a,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 ib ib1 pb pb1.
       word_gen_gc_move_list conf (a:'a word,l,i,pa,ib,pb,old,m,dm) =
@@ -3822,6 +3732,97 @@ val word_gen_gc_partial_move_list_code_thm = Q.store_thm("word_gen_gc_partial_mo
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
   \\ fs [STOP_def]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]);
+
+val word_gen_gc_partial_move_ref_list_code_thm = Q.prove(
+  `!k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'b)stackSem$state).
+      word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
+        (i2,pa2,m2,T) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      conf.len_size + 2 < dimindex (:'a) /\ good_dimindex (:α) /\
+      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
+      s.memory = m1 /\ s.mdomain = dm1 /\
+      FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
+      FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
+      0 IN FDOM s.regs /\
+      1 IN FDOM s.regs /\
+      2 IN FDOM s.regs /\
+      get_var 3 s = SOME (Word pa1) /\
+      get_var 4 s = SOME (Word (i1:'a word)) /\
+      5 IN FDOM s.regs /\
+      6 IN FDOM s.regs /\
+      7 IN FDOM s.regs /\
+      get_var 8 s = SOME (Word r1a1) /\
+      get_var 9 s = SOME (Word r2a1) ==>
+      ?ck r0 r1 r2 r5 r6 r7 r8 r9.
+        evaluate (word_gen_gc_partial_move_ref_list_code conf,s with clock := s.clock + ck) =
+          (NONE,s with <| memory := m2;
+                          regs := s.regs |++ [(0,r0);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word pa2);
+                                              (4,Word i2);
+                                              (5,r5);
+                                              (6,r6);
+                                              (7,r7);
+                                              (8,r8);
+                                              (9,r9)] |>)`,
+  strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
+  \\ qpat_x_assum `word_gen_gc_partial_move_ref_list _ _ _ = _` mp_tac
+  \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
+  \\ IF_CASES_TAC THEN1
+   (fs [] \\ rw [] \\ fs [] \\ rpt var_eq_tac
+    \\ fs [word_gen_gc_partial_move_ref_list_code_def,get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ IF_CASES_TAC \\ fs []
+  \\ `k-1 < k` by decide_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ rpt var_eq_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
+  \\ asm_simp_tac std_ss[word_gen_gc_partial_move_ref_list_code_def,evaluate_def]
+  \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_ref_list_code_def,STOP_def]
+  \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
+  \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
+  \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
+       DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
+  \\ rev_full_simp_tac(srw_ss())
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ tac
+  \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ tac \\ rveq \\ tac
+  \\ qabbrev_tac `s5 = s with
+        <|regs :=
+            s.regs |+
+            (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
+            (8,Word (r1a1 + bytes_in_word)) |>`
+  \\ drule word_gen_gc_partial_move_list_code_thm
+  \\ disch_then (qspec_then `s5` mp_tac)
+  \\ fs [AND_IMP_INTRO] \\ impl_tac
+  THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def]
+         \\ fs [get_var_def,FLOOKUP_DEF])
+  \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
+  \\ pop_assum mp_tac
+  \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
+  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
+  \\ fs [] (* \\ qpat_x_assum `_ = _` kall_tac *)
+  \\ first_x_assum drule \\ impl_tac
+  THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
+  \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
+  \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
+  \\ qunabbrev_tac `s6`
+  \\ fs [theWord_def,FLOOKUP_UPDATE,FUPDATE_LIST]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -4370,18 +4371,6 @@ val word_sub_0_eq = prove(
     ((v + -1w * w = 0w) <=> w = v)``,
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
   \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
-
-val word_gc_partial_or_full_def = Define `
-  word_gc_partial_or_full gen_sizes partial_code full_code =
-    case gen_sizes of
-    | [] => list_Seq ([Get 8 TriggerGC; Get 7 EndOfHeap; sub_inst 7 8] ++ full_code)
-    | _ => list_Seq
-             [Get 8 TriggerGC;
-              Get 7 EndOfHeap;
-              sub_inst 7 8;
-              If NotLower 7 (Reg 1)
-                (list_Seq partial_code)
-                (list_Seq full_code)]`
 
 val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generational",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -5747,7 +5736,9 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
   EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)`,
   fs[compile_def]>>rw[]>>
-    TRY (EVAL_TAC>>every_case_tac >> fs [] >> EVAL_TAC >>
+    TRY (EVAL_TAC>>every_case_tac >>
+         EVAL_TAC>>every_case_tac >>
+         fs [] >> EVAL_TAC >>
      fs[reg_name_def, labPropsTheory.good_dimindex_def,
         asmTheory.offset_ok_def, data_to_wordProofTheory.conf_ok_def,
         data_to_wordTheory.shift_length_def]>>
