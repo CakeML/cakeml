@@ -4469,22 +4469,26 @@ val word_gc_code_def = prove(``
                move 0 3;
                sub_inst 0 2;
                right_shift_inst 0 (shift (:'a));
-               Set NextFree 3;
                Get 3 GenStart;
                Get 1 CurrHeap;
                add_inst 3 1;
                memcpy_code;
+               Get 0 NextFree;
+               Set NextFree 3;
+               Get 8 EndOfHeap;
                Get 2 TriggerGC;
-               Set EndOfHeap 2;
+               Set TriggerGC 8;
                const_inst 1 0w;
                Set (Temp 0w) 1;
                Set (Temp 1w) 1;
                Get 1 AllocSize;
-               sub_inst 2 3;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip]
+               sub_inst 8 3;
+               Get 7 CurrHeap;
+               sub_inst 3 7;
+               Set GenStart 3;
+               If Lower 8 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip]
 (*
-
-w2n w ≤ w2n (-1w * b1 + endh) then
+(b1 + -1w * curr)
 word_gc_move_roots_bitmaps_code_thm
 *)
               [Set AllocSize 1;
@@ -4570,7 +4574,6 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
        (r = NONE ==> FLOOKUP l2 0 = SOME ret)`,
-
   qspec_tac (`gen_sizes`,`gen_sizes`)
   \\ Cases_on `?gen_sizes. conf.gc_kind = Generational gen_sizes` \\ fs []
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
@@ -4582,8 +4585,7 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
   \\ fs [FAPPLY_FUPDATE_THM]
   \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ IF_CASES_TAC THEN1
-
-    rpt (pairarg_tac \\ fs [])
+   (rpt (pairarg_tac \\ fs [])
     \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
     \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
     \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
@@ -4758,9 +4760,6 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ tac \\ rfs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ fs [labSemTheory.word_cmp_def,set_store_def]
-
-
-
     \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
     \\ fs [empty_env_def,state_component_equality]
@@ -4771,9 +4770,7 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
     \\ fs [fmap_EXT,EXTENSION]
     \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-    \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
-
-
+    \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs [])
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
