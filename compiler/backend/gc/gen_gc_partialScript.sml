@@ -2737,4 +2737,14 @@ val gc_move_ref_list_heap_length' = store_thm("gc_move_ref_list_heap_length'",
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ res_tac \\ fs [heap_length_def,el_length_def]);
 
+val partial_gc_IMP = store_thm("partial_gc_IMP",
+  ``partial_gc c (roots,heap) = (roots1,state1) /\ state1.ok ==>
+    state1.a = c.gen_start + heap_length state1.h1 /\
+    heap_length (state1.old ++ state1.h1 ++ heap_expand state1.n ++ state1.r1) =
+    heap_length heap /\ LENGTH roots1 = LENGTH roots /\
+    heap_length state1.old = c.gen_start /\
+    heap_length (state1.old ++ state1.h1 ++ heap_expand state1.n) =
+    c.refs_start``,
+  cheat);
+
 val _ = export_theory();
