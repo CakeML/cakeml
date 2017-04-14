@@ -3547,14 +3547,6 @@ val word_gen_gc_partial_move_roots_bitmaps_code_thm =
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []);
 
-val word_gen_gc_partial_move_ref_list_code_def = Define `
-  word_gen_gc_partial_move_ref_list_code conf =
-    While NotEqual 9 (Reg 8)
-     (list_Seq [load_inst 7 8;
-                right_shift_inst 7 (dimindex (:α) - conf.len_size);
-                add_bytes_in_word_inst 8;
-                word_gen_gc_partial_move_list_code conf]):'a stackLang$prog`
-
 val word_gen_gc_partial_move_ref_list_code_thm = Q.prove(
   `!k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'b)stackSem$state).
       word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
@@ -4391,167 +4383,6 @@ val word_gc_partial_or_full_def = Define `
                 (list_Seq partial_code)
                 (list_Seq full_code)]`
 
-(*
-word_gc_fun_def
-*)
-
-val word_gc_code_def = prove(``
-  word_gc_code conf =
-    case conf.gc_kind of
-    | None =>
-        (list_Seq
-              [Set AllocSize 1;
-               Get 2 CurrHeap;
-               Set NextFree 2;
-               Set TriggerGC 2;
-               Set EndOfHeap 2;
-               If Test 1 (Reg 1) Skip (Seq (const_inst 1 1w) (Halt 1))])
-    | Simple =>
-        (list_Seq
-              [Set AllocSize 1;
-               Set NextFree 0;
-               const_inst 1 0w;
-               move 2 1;
-               Get 3 OtherHeap;
-               move 4 1;
-               Get 5 Globals;
-               move 6 1;
-               move 8 1;
-               word_gc_move_code conf;
-               Set Globals 5;
-               const_inst 7 0w;
-               StackLoadAny 9 8;
-               move 8 7;
-               word_gc_move_roots_bitmaps_code conf;
-               Get 8 OtherHeap;
-               word_gc_move_loop_code conf;
-               Get 0 CurrHeap;
-               Get 1 OtherHeap;
-               Get 2 HeapLength;
-               add_inst 2 1;
-               Set CurrHeap 1;
-               Set OtherHeap 0;
-               Get 0 NextFree;
-               Set NextFree 8;
-               Set EndOfHeap 2;
-               Set TriggerGC 2;
-               Get 1 AllocSize;
-               sub_inst 2 8;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
-    | Generational gen_sizes =>
-        (word_gc_partial_or_full gen_sizes
-              [Set AllocSize 1;
-               Set NextFree 0;
-               Get 4 GenStart;
-               Get 5 EndOfHeap;
-               Get 2 CurrHeap;
-               Set (Temp 0w) 4;
-               sub_inst 5 2;
-               Set (Temp 1w) 5;
-               Get 7 HeapLength;
-               Get 5 Globals;
-               Get 3 OtherHeap;
-               right_shift_inst 4 (shift (:'a));
-               move 6 3;
-               word_gen_gc_partial_move_code conf;
-               Set Globals 5;
-               const_inst 8 0w;
-               StackLoadAny 9 8;
-               word_gen_gc_partial_move_roots_bitmaps_code conf;
-               Get 8 CurrHeap;
-               Get 9 HeapLength;
-               add_inst 9 8;
-               Get 8 EndOfHeap;
-               word_gen_gc_partial_move_ref_list_code conf;
-               Get 8 OtherHeap;
-               word_gen_gc_partial_move_data_code conf;
-               Get 2 OtherHeap;
-               move 0 3;
-               sub_inst 0 2;
-               right_shift_inst 0 (shift (:'a));
-               Get 3 GenStart;
-               Get 1 CurrHeap;
-               add_inst 3 1;
-               memcpy_code;
-               Get 0 NextFree;
-               Set NextFree 3;
-               Get 8 EndOfHeap;
-               Get 2 TriggerGC;
-               Set TriggerGC 8;
-               const_inst 1 0w;
-               Set (Temp 0w) 1;
-               Set (Temp 1w) 1;
-               Get 1 AllocSize;
-               sub_inst 8 3;
-               Get 7 CurrHeap;
-               sub_inst 3 7;
-               Set GenStart 3;
-               If Lower 8 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip]
-(*
-(b1 + -1w * curr)
-word_gc_move_roots_bitmaps_code_thm
-*)
-              [Set AllocSize 1;
-               Set NextFree 0;
-               const_inst 1 (0w:'a word);
-               move 2 1;
-               Get 3 OtherHeap;
-               Get 4 HeapLength;
-               add_inst 4 3;
-               Set (Temp 0w) 4;
-               Set (Temp 1w) 4;
-               Set (Temp 2w) 4;
-               Set (Temp 4w) 4;
-               Set (Temp 5w) 4;
-               Set (Temp 6w) 4;
-               Get 4 HeapLength;
-               right_shift_inst 4 (shift (:'a));
-               Set (Temp 3w) 4;
-               move 4 1;
-               Get 5 Globals;
-               move 6 1;
-               move 8 1;
-               word_gen_gc_move_code conf;
-               Set Globals 5;
-               const_inst 7 0w;
-               StackLoadAny 9 8;
-               move 8 7;
-               word_gen_gc_move_roots_bitmaps_code conf;
-               Get 2 (Temp 2w);
-               Get 8 OtherHeap;
-               move 7 3;
-               sub_inst 7 8;
-               Get 1 (Temp 6w);
-               move 6 2;
-               sub_inst 6 1;
-               or_inst 7 6;
-               word_gen_gc_move_loop_code conf;
-               Get 0 CurrHeap;
-               Get 1 OtherHeap;
-               Get 2 (Temp 2w);
-               Set CurrHeap 1;
-               Set OtherHeap 0;
-               Get 0 NextFree;
-               Set NextFree 3;
-               Set EndOfHeap 2;
-               Set TriggerGC 2;
-               move 8 3;
-               sub_inst 8 1;
-               Set GenStart 8;
-               const_inst 1 0w;
-               Set (Temp 0w) 1;
-               Set (Temp 1w) 1;
-               Set (Temp 2w) 1;
-               Set (Temp 3w) 1;
-               Set (Temp 4w) 1;
-               Set (Temp 5w) 1;
-               Set (Temp 6w) 1;
-               Get 1 AllocSize;
-               sub_inst 2 3;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
-                 :'a stackLang$prog``,
-  cheat);
-
 val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generational",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind /\
@@ -4634,7 +4465,9 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
       \\ fs [word_gen_gc_can_do_partial_def] \\ tac
       \\ fs [WORD_NOT_LOWER,FAPPLY_FUPDATE_THM,theWord_def] \\ NO_TAC)
     \\ asm_rewrite_tac [] \\ pop_assum kall_tac
-    \\ `?gs. FLOOKUP s.store GenStart = SOME (Word gs)` by cheat
+    \\ `?gs. FLOOKUP s.store GenStart = SOME (Word gs)` by
+      (fs [FLOOKUP_DEF,word_gc_fun_assum_def,set_store_def,
+           FAPPLY_FUPDATE_THM,isWord_thm] \\ NO_TAC)
     \\ tac \\ fs [set_store_def] \\ tac
     \\ simp [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
     \\ IF_CASES_TAC THEN1
