@@ -1644,6 +1644,52 @@ val word_gc_fun_lemma =
 val word_gc_fun_thm = Q.prove(
   `conf.gc_kind = ^kind ==>
    word_gc_fun conf (roots,m,dm,s) =
+     if ¬word_gc_fun_assum conf s then NONE else
+     if word_gen_gc_can_do_partial gen_sizes s then
+       (λ(roots1,i1,pa1,m1,c2).
+          if c2 then
+            SOME
+              (TL roots1,m1,
+               s |++
+               [(CurrHeap,Word (theWord (s ' CurrHeap)));
+                (OtherHeap,Word (theWord (s ' OtherHeap)));
+                (NextFree,Word pa1);
+                (GenStart,Word (pa1 + -1w * theWord (s ' CurrHeap)));
+                (TriggerGC,s ' EndOfHeap); (Globals,HD roots1);
+                (Temp 0w,Word 0w); (Temp 1w,Word 0w)])
+          else NONE)
+         ((λ(roots,i,pa,m,c1).
+             (λ(b1,m,c2). (roots,i,b1,m,c1 ∧ c2))
+               (memcpy
+                  ((pa + -1w * theWord (s ' OtherHeap)) ⋙ shift (:α))
+                  (theWord (s ' OtherHeap))
+                  (theWord (s ' CurrHeap) + theWord (s ' GenStart)) m
+                  dm))
+            ((λ(roots,i,pa,m,c1).
+                (λ(i,pa,m,c2).
+                   (λ(i,pa,m,c3). (roots,i,pa,m,c2 ∧ c3))
+                     (word_gen_gc_partial_move_data conf (dimword (:α))
+                        (theWord (s ' OtherHeap),i,pa,
+                         theWord (s ' CurrHeap),m,dm,
+                         theWord (s ' GenStart),
+                         -1w * theWord (s ' CurrHeap) +
+                         theWord (s ' EndOfHeap))))
+                  (word_gen_gc_partial_move_ref_list (dimword (:α)) conf
+                     (theWord (s ' EndOfHeap),i,pa,
+                      theWord (s ' CurrHeap),m,dm,c1,
+                      theWord (s ' GenStart),
+                      -1w * theWord (s ' CurrHeap) +
+                      theWord (s ' EndOfHeap),
+                      theWord (s ' CurrHeap) +
+                      theWord (s ' HeapLength))))
+               (word_gen_gc_partial_move_roots conf
+                  (s ' Globals::roots,
+                   theWord (s ' GenStart) ⋙ shift (:α),
+                   theWord (s ' OtherHeap),theWord (s ' CurrHeap),m,dm,
+                   theWord (s ' GenStart),
+                   -1w * theWord (s ' CurrHeap) +
+                   theWord (s ' EndOfHeap)))))
+     else
       (let new_end = theWord (s ' OtherHeap) + theWord (s ' HeapLength) in
        let len = theWord (s ' HeapLength) ⋙ shift (:α) in
        let (w1,i1,pa1,ib',pb',m1,c1) =
@@ -1662,7 +1708,9 @@ val word_gc_fun_thm = Q.prove(
              s |++
              [(CurrHeap,Word (theWord (s ' OtherHeap)));
               (OtherHeap,Word (theWord (s ' CurrHeap)));
-              (NextFree,Word pa3); (TriggerGC,Word pb3);
+              (NextFree,Word pa3);
+              (GenStart,Word (pa3 − theWord (s ' OtherHeap)));
+              (TriggerGC,Word pb3);
               (EndOfHeap,Word pb3); (Globals,w1);
               (Temp 0w,Word 0w);
               (Temp 1w,Word 0w);
@@ -1675,7 +1723,13 @@ val word_gc_fun_thm = Q.prove(
          if word_gc_fun_assum conf s /\ c1 /\ c2 /\ c3
          then SOME (ws2,m3,s1)
          else NONE)`,
-  full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
+  strip_tac
+  \\ drule word_gc_fun_lemma
+  \\ disch_then (fn th => rewrite_tac [th])
+  \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ Cases_on `word_gc_fun_assum conf s` \\ fs []
+  \\ Cases_on `word_gen_gc_can_do_partial gen_sizes s` \\ fs []
+  THEN1 fs [word_gen_gc_partial_full_def,word_gen_gc_partial_def]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
@@ -1709,53 +1763,122 @@ val word_gen_gc_partial_move_roots_bitmaps_def = Define `
           | NONE => (ARB,ARB,ARB,ARB,F)
           | SOME stack => (stack,i2,pa2,m2,c2)`
 
+val word_gen_gc_partial_move_ref_list_ok = prove(
+  ``!k rs re pb pa old m i gs dm conf c i1 pa1 m1.
+      word_gen_gc_partial_move_ref_list k conf
+       (pb,i,pa,old,m,dm,c,gs,rs,re) = (i1,pa1,m1,T) ==> c``,
+  Induct
+  THEN1 (once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
+         \\ fs [] \\ rw [])
+  \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
+  \\ simp_tac std_ss [ADD1]
+  \\ rpt gen_tac \\ IF_CASES_TAC
+  \\ simp_tac std_ss [ADD1,LET_THM]
+  \\ pairarg_tac
+  \\ res_tac
+  \\ asm_rewrite_tac [] \\ simp_tac std_ss []
+  \\ strip_tac \\ res_tac);
+
 val gc_thm = Q.prove(
   `s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind ==>
    gc (s:('a,'b)stackSem$state) =
    if LENGTH s.stack < s.stack_space then NONE else
-     let unused = TAKE s.stack_space s.stack in
-     let stack = DROP s.stack_space s.stack in
-     let new_end = theWord (s.store ' OtherHeap) + theWord (s.store ' HeapLength) in
-     let len = theWord (s.store ' HeapLength) ⋙ shift (:α) in
-     let (w1,i1,pa1,ib',pb',m1,c1) =
-              word_gen_gc_move conf
-                (s.store ' Globals,0w,theWord (s.store ' OtherHeap),
-                 len,new_end,theWord (s.store ' CurrHeap),s.memory,s.mdomain) in
-     let (ws2,i2,pa2,ib2,pb2:'a word,m2,c2) =
-              word_gen_gc_move_roots_bitmaps conf
-                (stack,s.bitmaps,i1,pa1,ib',pb',
-                 theWord (s.store ' CurrHeap),m1,s.mdomain) in
-     let (i3,pa3,ib3,pb3,m3,c3) =
-             word_gen_gc_move_loop conf (w2n len)
-               (theWord (s.store ' OtherHeap),i2,pa2,ib2,pb2,new_end,
-                theWord (s.store ' CurrHeap),m2,s.mdomain) in
-     let s1 =
-             s.store |++
-             [(CurrHeap,Word (theWord (s.store ' OtherHeap)));
-              (OtherHeap,Word (theWord (s.store ' CurrHeap)));
-              (NextFree,Word pa3); (TriggerGC,Word pb3);
-              (EndOfHeap,Word pb3); (Globals,w1);
-              (Temp 0w, Word 0w);
-              (Temp 1w, Word 0w);
-              (Temp 2w, Word 0w);
-              (Temp 3w, Word 0w);
-              (Temp 4w, Word 0w);
-              (Temp 5w, Word 0w);
-              (Temp 6w, Word 0w)]
-     in
-       if word_gc_fun_assum conf s.store /\ c1 /\ c2 /\ c3 then SOME (s with
-            <| stack := unused ++ ws2; store := s1;
-               regs := FEMPTY; memory := m3|>) else NONE`,
+     if ¬word_gc_fun_assum conf s.store then NONE else
+     if word_gen_gc_can_do_partial gen_sizes s.store then
+      (let unused = TAKE s.stack_space s.stack in
+       let stack = DROP s.stack_space s.stack in
+       let gs = theWord (s.store ' GenStart) in
+       let other = theWord (s.store ' OtherHeap) in
+       let curr = theWord (s.store ' CurrHeap) in
+       let endh = theWord (s.store ' EndOfHeap) in
+       let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf
+              (s.store ' Globals,gs ⋙ shift (:α), other,curr,
+               s.memory,s.mdomain,gs, endh - curr) in
+       let (ws2,i1,pa1,m1,c2) = word_gen_gc_partial_move_roots_bitmaps conf
+              (stack,s.bitmaps,i1,pa1,curr,m1,s.mdomain,gs,endh - curr) in
+       let (i1,pa1,m1,c3) =
+              word_gen_gc_partial_move_ref_list (dimword (:α)) conf
+               (endh,i1,pa1,curr,m1,s.mdomain,c1 ∧ c2,gs,
+                endh - curr, curr +theWord (s.store ' HeapLength)) in
+       let (i1,pa1,m1,c4) = word_gen_gc_partial_move_data conf (dimword (:α))
+               (other,i1,pa1,curr,m1,s.mdomain,gs, endh - curr) in
+       let (b1,m1,c5) = memcpy ((pa1 - other) ⋙ shift (:α)) other (curr + gs) m1
+                         s.mdomain in
+       let s1 = s.store |++
+                [(CurrHeap,Word curr);
+                 (OtherHeap,Word other);
+                 (NextFree,Word b1);
+                 (GenStart,Word (b1 - curr));
+                 (TriggerGC,s.store ' EndOfHeap);
+                 (Globals,w1);
+                 (Temp 0w,Word 0w);
+                 (Temp 1w,Word 0w)] in
+         if word_gc_fun_assum conf s.store /\ c3 /\ c4 /\ c5
+         then SOME (s with
+              <| stack := unused ++ ws2; store := s1;
+                 regs := FEMPTY; memory := m1|>) else NONE)
+     else
+      (let unused = TAKE s.stack_space s.stack in
+       let stack = DROP s.stack_space s.stack in
+       let new_end = theWord (s.store ' OtherHeap) + theWord (s.store ' HeapLength) in
+       let len = theWord (s.store ' HeapLength) ⋙ shift (:α) in
+       let (w1,i1,pa1,ib',pb',m1,c1) =
+                word_gen_gc_move conf
+                  (s.store ' Globals,0w,theWord (s.store ' OtherHeap),
+                   len,new_end,theWord (s.store ' CurrHeap),s.memory,s.mdomain) in
+       let (ws2,i2,pa2,ib2,pb2:'a word,m2,c2) =
+                word_gen_gc_move_roots_bitmaps conf
+                  (stack,s.bitmaps,i1,pa1,ib',pb',
+                   theWord (s.store ' CurrHeap),m1,s.mdomain) in
+       let (i3,pa3,ib3,pb3,m3,c3) =
+               word_gen_gc_move_loop conf (w2n len)
+                 (theWord (s.store ' OtherHeap),i2,pa2,ib2,pb2,new_end,
+                  theWord (s.store ' CurrHeap),m2,s.mdomain) in
+       let s1 =
+               s.store |++
+               [(CurrHeap,Word (theWord (s.store ' OtherHeap)));
+                (OtherHeap,Word (theWord (s.store ' CurrHeap)));
+                (NextFree,Word pa3);
+                (GenStart,Word (pa3 + -1w * theWord (s.store ' OtherHeap)));
+                (TriggerGC,Word pb3);
+                (EndOfHeap,Word pb3); (Globals,w1);
+                (Temp 0w, Word 0w);
+                (Temp 1w, Word 0w);
+                (Temp 2w, Word 0w);
+                (Temp 3w, Word 0w);
+                (Temp 4w, Word 0w);
+                (Temp 5w, Word 0w);
+                (Temp 6w, Word 0w)]
+       in
+         if word_gc_fun_assum conf s.store /\ c1 /\ c2 /\ c3 then SOME (s with
+              <| stack := unused ++ ws2; store := s1;
+                 regs := FEMPTY; memory := m3|>) else NONE)`,
   strip_tac \\ drule gc_lemma \\ fs []
   \\ disch_then (fn th => full_simp_tac(srw_ss())[th])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
+  \\ reverse (Cases_on `word_gc_fun_assum conf s.store`) \\ fs []
+  THEN1 (TOP_CASE_TAC \\ fs [] \\ fs [word_gc_fun_def])
+  \\ Cases_on `word_gen_gc_can_do_partial gen_sizes s.store` \\ fs []
+  THEN1
+   (full_simp_tac(srw_ss())[LET_THM,word_gen_gc_partial_move_roots_bitmaps_def]
+    \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
+    THEN1 (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+           \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+           \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ fs [])
+    \\ fs [UNDISCH word_gc_fun_thm,word_gen_gc_partial_move_roots_def]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+    \\ ntac 6 (rpt (CASE_TAC \\ fs []) \\ rveq \\ fs [])
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ fs [])
   \\ full_simp_tac(srw_ss())[LET_THM,word_gen_gc_move_roots_bitmaps_def]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   THEN1 (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[]))
-  \\ fs [word_gc_fun_thm]
+  \\ fs [UNDISCH word_gc_fun_thm]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt (CASE_TAC \\ fs []) \\ rveq \\ fs []
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs [] \\ rveq);
 
 val word_gen_gc_move_bitmaps_def = Define `
   word_gen_gc_move_bitmaps conf (w,stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) =
