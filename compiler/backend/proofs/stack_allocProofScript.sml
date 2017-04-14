@@ -3547,6 +3547,105 @@ val word_gen_gc_partial_move_roots_bitmaps_code_thm =
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []);
 
+val word_gen_gc_partial_move_ref_list_code_def = Define `
+  word_gen_gc_partial_move_ref_list_code conf =
+    While NotEqual 9 (Reg 8)
+     (list_Seq [load_inst 7 8;
+                right_shift_inst 7 (dimindex (:α) - conf.len_size);
+                add_bytes_in_word_inst 8;
+                word_gen_gc_partial_move_list_code conf]):'a stackLang$prog`
+
+val word_gen_gc_partial_move_ref_list_code_thm = Q.prove(
+  `!k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'b)stackSem$state).
+      word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
+        (i2,pa2,m2,T) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      conf.len_size + 2 < dimindex (:'a) /\ good_dimindex (:α) /\
+      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
+      s.memory = m1 /\ s.mdomain = dm1 /\
+      FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
+      FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
+      0 IN FDOM s.regs /\
+      1 IN FDOM s.regs /\
+      2 IN FDOM s.regs /\
+      get_var 3 s = SOME (Word pa1) /\
+      get_var 4 s = SOME (Word (i1:'a word)) /\
+      5 IN FDOM s.regs /\
+      6 IN FDOM s.regs /\
+      7 IN FDOM s.regs /\
+      get_var 8 s = SOME (Word r1a1) /\
+      get_var 9 s = SOME (Word r2a1) ==>
+      ?ck r0 r1 r2 r5 r6 r7 r8 r9.
+        evaluate (word_gen_gc_partial_move_ref_list_code conf,s with clock := s.clock + ck) =
+          (NONE,s with <| memory := m2;
+                          regs := s.regs |++ [(0,r0);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word pa2);
+                                              (4,Word i2);
+                                              (5,r5);
+                                              (6,r6);
+                                              (7,r7);
+                                              (8,r8);
+                                              (9,r9)] |>)`,
+  strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
+  \\ qpat_x_assum `word_gen_gc_partial_move_ref_list _ _ _ = _` mp_tac
+  \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
+  \\ IF_CASES_TAC THEN1
+   (fs [] \\ rw [] \\ fs [] \\ rpt var_eq_tac
+    \\ fs [word_gen_gc_partial_move_ref_list_code_def,get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ IF_CASES_TAC \\ fs []
+  \\ `k-1 < k` by decide_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ rpt var_eq_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
+  \\ asm_simp_tac std_ss[word_gen_gc_partial_move_ref_list_code_def,evaluate_def]
+  \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_ref_list_code_def,STOP_def]
+  \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
+  \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
+  \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
+       DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
+  \\ rev_full_simp_tac(srw_ss())
+         [data_to_wordPropsTheory.decode_length_def,LET_THM] \\ rpt var_eq_tac
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ tac
+  \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ tac \\ rveq \\ tac
+  \\ qabbrev_tac `s5 = s with
+        <|regs :=
+            s.regs |+
+            (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
+            (8,Word (r1a1 + bytes_in_word)) |>`
+  \\ drule word_gen_gc_partial_move_list_code_thm
+  \\ disch_then (qspec_then `s5` mp_tac)
+  \\ fs [AND_IMP_INTRO] \\ impl_tac
+  THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def]
+         \\ fs [get_var_def,FLOOKUP_DEF])
+  \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
+  \\ pop_assum mp_tac
+  \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
+  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
+  \\ fs [] (* \\ qpat_x_assum `_ = _` kall_tac *)
+  \\ first_x_assum drule \\ impl_tac
+  THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
+  \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
+  \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
+  \\ qunabbrev_tac `s6`
+  \\ fs [theWord_def,FLOOKUP_UPDATE,FUPDATE_LIST]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]);
+
 val word_gen_gc_move_list_code_thm = Q.store_thm("word_gen_gc_move_list_code_thm",
   `!l a (s:('a,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 ib ib1 pb pb1.
       word_gen_gc_move_list conf (a:'a word,l,i,pa,ib,pb,old,m,dm) =
@@ -4280,6 +4379,151 @@ val word_sub_0_eq = prove(
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
   \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
 
+val word_gc_partial_or_full_def = Define `
+  word_gc_partial_or_full gen_sizes partial_code full_code =
+    case gen_sizes of
+    | [] => list_Seq ([Get 8 TriggerGC; Get 7 EndOfHeap; sub_inst 7 8] ++ full_code)
+    | _ => list_Seq
+             [Get 8 TriggerGC;
+              Get 7 EndOfHeap;
+              sub_inst 7 8;
+              If NotLower 7 (Reg 1)
+                (list_Seq partial_code)
+                (list_Seq full_code)]`
+
+(*
+word_gc_fun_def
+*)
+
+val word_gc_code_def = prove(``
+  word_gc_code conf =
+    case conf.gc_kind of
+    | None =>
+        (list_Seq
+              [Set AllocSize 1;
+               Get 2 CurrHeap;
+               Set NextFree 2;
+               Set TriggerGC 2;
+               Set EndOfHeap 2;
+               If Test 1 (Reg 1) Skip (Seq (const_inst 1 1w) (Halt 1))])
+    | Simple =>
+        (list_Seq
+              [Set AllocSize 1;
+               Set NextFree 0;
+               const_inst 1 0w;
+               move 2 1;
+               Get 3 OtherHeap;
+               move 4 1;
+               Get 5 Globals;
+               move 6 1;
+               move 8 1;
+               word_gc_move_code conf;
+               Set Globals 5;
+               const_inst 7 0w;
+               StackLoadAny 9 8;
+               move 8 7;
+               word_gc_move_roots_bitmaps_code conf;
+               Get 8 OtherHeap;
+               word_gc_move_loop_code conf;
+               Get 0 CurrHeap;
+               Get 1 OtherHeap;
+               Get 2 HeapLength;
+               add_inst 2 1;
+               Set CurrHeap 1;
+               Set OtherHeap 0;
+               Get 0 NextFree;
+               Set NextFree 8;
+               Set EndOfHeap 2;
+               Set TriggerGC 2;
+               Get 1 AllocSize;
+               sub_inst 2 8;
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
+    | Generational gen_sizes =>
+        (word_gc_partial_or_full gen_sizes
+              [Set AllocSize 1;
+               Set NextFree 0;
+               Get 4 GenStart;
+               Get 5 EndOfHeap;
+               Get 2 CurrHeap;
+               Set (Temp 0w) 4;
+               sub_inst 5 2;
+               Set (Temp 1w) 5;
+               Get 7 HeapLength;
+               Get 5 Globals;
+               Get 3 OtherHeap;
+               right_shift_inst 4 (shift (:'a));
+               move 6 3;
+               word_gen_gc_partial_move_code conf;
+               Set Globals 5;
+               const_inst 8 0w;
+               StackLoadAny 9 8;
+               word_gen_gc_partial_move_roots_bitmaps_code conf;
+               word_gen_gc_partial_move_ref_list_code conf;
+               ARB]
+(*
+word_gc_move_roots_bitmaps_code_thm
+*)
+              [Set AllocSize 1;
+               Set NextFree 0;
+               const_inst 1 (0w:'a word);
+               move 2 1;
+               Get 3 OtherHeap;
+               Get 4 HeapLength;
+               add_inst 4 3;
+               Set (Temp 0w) 4;
+               Set (Temp 1w) 4;
+               Set (Temp 2w) 4;
+               Set (Temp 4w) 4;
+               Set (Temp 5w) 4;
+               Set (Temp 6w) 4;
+               Get 4 HeapLength;
+               right_shift_inst 4 (shift (:'a));
+               Set (Temp 3w) 4;
+               move 4 1;
+               Get 5 Globals;
+               move 6 1;
+               move 8 1;
+               word_gen_gc_move_code conf;
+               Set Globals 5;
+               const_inst 7 0w;
+               StackLoadAny 9 8;
+               move 8 7;
+               word_gen_gc_move_roots_bitmaps_code conf;
+               Get 2 (Temp 2w);
+               Get 8 OtherHeap;
+               move 7 3;
+               sub_inst 7 8;
+               Get 1 (Temp 6w);
+               move 6 2;
+               sub_inst 6 1;
+               or_inst 7 6;
+               word_gen_gc_move_loop_code conf;
+               Get 0 CurrHeap;
+               Get 1 OtherHeap;
+               Get 2 (Temp 2w);
+               Set CurrHeap 1;
+               Set OtherHeap 0;
+               Get 0 NextFree;
+               Set NextFree 3;
+               Set EndOfHeap 2;
+               Set TriggerGC 2;
+               move 8 3;
+               sub_inst 8 1;
+               Set GenStart 8;
+               const_inst 1 0w;
+               Set (Temp 0w) 1;
+               Set (Temp 1w) 1;
+               Set (Temp 2w) 1;
+               Set (Temp 3w) 1;
+               Set (Temp 4w) 1;
+               Set (Temp 5w) 1;
+               Set (Temp 6w) 1;
+               Get 1 AllocSize;
+               sub_inst 2 3;
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
+                 :'a stackLang$prog``,
+  cheat);
+
 val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generational",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind /\
@@ -4302,6 +4546,7 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
        (r = NONE ==> FLOOKUP l2 0 = SOME ret)`,
+
   qspec_tac (`gen_sizes`,`gen_sizes`)
   \\ Cases_on `?gen_sizes. conf.gc_kind = Generational gen_sizes` \\ fs []
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
@@ -4311,16 +4556,160 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
   \\ fs [] \\ disch_then kall_tac
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
+  \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC THEN1
+
+    rpt (pairarg_tac \\ fs [])
+    \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
+    \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
+    \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
+    \\ `{Globals; CurrHeap; OtherHeap; HeapLength;
+         TriggerGC; EndOfHeap} SUBSET FDOM s.store /\
+        isWord (s.store ' OtherHeap) /\
+        isWord (s.store ' CurrHeap) /\
+        isWord (s.store ' HeapLength) /\
+        isWord (s.store ' TriggerGC) /\
+        isWord (s.store ' EndOfHeap) /\
+        good_dimindex (:'a) /\
+        conf.len_size + 2 < dimindex (:'a) /\
+        shift_length conf < dimindex (:'a) /\
+        conf.len_size <> 0` by
+          (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
+    \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
+        !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
+     (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
+      \\ fs [WORD_MUL_LSL] \\ NO_TAC)
+    \\ fs [isWord_thm] \\ fs [theWord_def]
+    \\ rename1 `s.store ' OtherHeap = Word other`
+    \\ rename1 `s.store ' CurrHeap = Word curr`
+    \\ rename1 `s.store ' HeapLength = Word len`
+    \\ rename1 `s.store ' TriggerGC = Word trig`
+    \\ rename1 `s.store ' EndOfHeap = Word endh`
+    \\ fs [word_gc_code_def]
+    \\ `FLOOKUP s.store OtherHeap = SOME (Word other) /\
+        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
+        FLOOKUP s.store HeapLength = SOME (Word len) /\
+        FLOOKUP s.store TriggerGC = SOME (Word trig) /\
+        FLOOKUP s.store EndOfHeap = SOME (Word endh)` by fs [FLOOKUP_DEF]
+    \\ `!ck xs ys. evaluate
+          (word_gc_partial_or_full gen_sizes xs ys,
+           s with
+           <|regs := l; gc_fun := anything; use_stack := T; use_store := T;
+             use_alloc := F; clock := ck + s.clock;
+             code := fromAList (compile c (toAList s.code))|>) =
+             evaluate
+          (list_Seq xs,
+           s with
+           <|regs := l |++ [(8,Word trig);(7,Word (endh - trig))];
+             gc_fun := anything; use_stack := T; use_store := T;
+             use_alloc := F; clock := ck + s.clock;
+             code := fromAList (compile c (toAList s.code))|>)` by
+     (fs [word_gc_partial_or_full_def] \\ Cases_on `gen_sizes` \\ fs []
+      \\ fs [word_gen_gc_can_do_partial_def] \\ tac
+      \\ fs [WORD_NOT_LOWER,FAPPLY_FUPDATE_THM,theWord_def] \\ NO_TAC)
+    \\ asm_rewrite_tac [] \\ pop_assum kall_tac
+    \\ `?gs. FLOOKUP s.store GenStart = SOME (Word gs)` by cheat
+    \\ tac \\ fs [set_store_def] \\ tac
+    \\ simp [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ IF_CASES_TAC THEN1
+     (fs [] \\ rfs [labPropsTheory.good_dimindex_def]
+      \\ rfs [wordLangTheory.shift_def])
+    \\ pop_assum kall_tac \\ fs []
+    \\ drule word_gen_gc_partial_move_ref_list_ok
+    \\ strip_tac \\ rveq \\ fs []
+    \\ abbrev_under_exists ``s3:('a,'b)stackSem$state``
+     (qexists_tac `0` \\ fs []
+      \\ qpat_abbrev_tac `(s3:('a,'b)stackSem$state) = _`)
+    \\ drule (GEN_ALL word_gen_gc_partial_move_code_thm)
+    \\ disch_then (qspec_then `s3` mp_tac)
+    \\ impl_tac THEN1
+     (unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def])
+    \\ strip_tac \\ fs []
+    \\ `s.stack_space < LENGTH s.stack` by
+     (CCONTR_TAC \\ fs [NOT_LESS]
+      \\ imp_res_tac DROP_LENGTH_TOO_LONG
+      \\ fs [word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+    \\ fs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,theWord_def]
+    \\ abbrev_under_exists ``s4:('a,'b)stackSem$state``
+     (qexists_tac `ck` \\ fs []
+      \\ unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
+      \\ qpat_abbrev_tac `(s4:('a,'b)stackSem$state) = _`)
+    \\ qpat_x_assum `word_gen_gc_partial_move_roots_bitmaps _ _ = _` assume_tac
+    \\ `s.stack_space <= LENGTH s.stack` by fs []
+    \\ drule data_to_wordPropsTheory.LESS_EQ_LENGTH
+    \\ strip_tac \\ fs []
+    \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
+         metis_tac [DROP_LENGTH_APPEND] \\ fs []
+    \\ drule (GEN_ALL word_gen_gc_partial_move_roots_bitmaps_code_thm
+             |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+    \\ fs [AND_IMP_INTRO]
+    \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
+    \\ impl_tac THEN1
+      (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
+       \\ fs [FLOOKUP_DEF] \\ fs [EL_APPEND_EQN])
+    \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
+    \\ pop_assum mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck'` mp_tac)
+    \\ fs [] \\ rpt strip_tac
+
+    \\ abbrev_under_exists ``s5:('a,'b)stackSem$state``
+
+     (qexists_tac `ck+ck'` \\ fs []
+      \\ unabbrev_all_tac \\ fs [] \\ tac
+      \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
+      \\ qpat_abbrev_tac `(s5:('a,'b)stackSem$state) = _`)
+
+    \\ drule (GEN_ALL word_gen_gc_partial_move_data_code_thm
+             |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+    \\ fs [AND_IMP_INTRO]
+    \\ disch_then (qspecl_then [`s5`] mp_tac)
+    \\ impl_tac THEN1
+
+      (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
+       \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM]
+       \\ fs [data_to_wordPropsTheory.word_or_eq_0]
+       \\ rpt (pop_assum kall_tac) \\ fs [word_sub_0_eq])
+    \\ strip_tac \\ pop_assum mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck''` mp_tac)
+    \\ qpat_x_assum `evaluate _ = _` kall_tac
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then (qspec_then `ck''` mp_tac)
+    \\ rpt strip_tac \\ fs []
+    \\ qexists_tac `ck+ck'+ck''` \\ fs []
+    \\ unabbrev_all_tac \\ fs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
+    \\ fs [labSemTheory.word_cmp_def,set_store_def]
+    \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
+    \\ fs [empty_env_def,state_component_equality]
+    \\ rpt var_eq_tac \\ fs []
+    \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+    \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
+    \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
+    \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
+    \\ fs [fmap_EXT,EXTENSION]
+    \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
+    \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
+
+
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
   \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
   \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
-  \\ `{Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s.store /\
+  \\ `{Globals; CurrHeap; OtherHeap; HeapLength;
+       TriggerGC; EndOfHeap} SUBSET FDOM s.store /\
       isWord (s.store ' OtherHeap) /\
       isWord (s.store ' CurrHeap) /\
       isWord (s.store ' HeapLength) /\
+      isWord (s.store ' TriggerGC) /\
+      isWord (s.store ' EndOfHeap) /\
       good_dimindex (:'a) /\
       conf.len_size + 2 < dimindex (:'a) /\
       shift_length conf < dimindex (:'a) /\
@@ -4334,10 +4723,32 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
   \\ rename1 `s.store ' OtherHeap = Word other`
   \\ rename1 `s.store ' CurrHeap = Word curr`
   \\ rename1 `s.store ' HeapLength = Word len`
+  \\ rename1 `s.store ' TriggerGC = Word trig`
+  \\ rename1 `s.store ' EndOfHeap = Word endh`
   \\ fs [word_gc_code_def]
   \\ `FLOOKUP s.store OtherHeap = SOME (Word other) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\
-      FLOOKUP s.store HeapLength = SOME (Word len)` by fs [FLOOKUP_DEF]
+      FLOOKUP s.store HeapLength = SOME (Word len) /\
+      FLOOKUP s.store TriggerGC = SOME (Word trig) /\
+      FLOOKUP s.store EndOfHeap = SOME (Word endh)` by fs [FLOOKUP_DEF]
+  \\ `!ck xs ys. evaluate
+        (word_gc_partial_or_full gen_sizes xs ys,
+         s with
+         <|regs := l; gc_fun := anything; use_stack := T; use_store := T;
+           use_alloc := F; clock := ck + s.clock;
+           code := fromAList (compile c (toAList s.code))|>) =
+           evaluate
+        (list_Seq ys,
+         s with
+         <|regs := l |++ [(8,Word trig);(7,Word (endh - trig))];
+           gc_fun := anything; use_stack := T; use_store := T;
+           use_alloc := F; clock := ck + s.clock;
+           code := fromAList (compile c (toAList s.code))|>)` by
+   (fs [word_gc_partial_or_full_def] \\ Cases_on `gen_sizes` \\ fs []
+    \\ tac THEN1 (Cases_on `ys` \\ tac)
+    \\ fs [word_gen_gc_can_do_partial_def]
+    \\ fs [WORD_NOT_LOWER,FAPPLY_FUPDATE_THM,theWord_def] \\ NO_TAC)
+  \\ asm_rewrite_tac [] \\ pop_assum kall_tac
   \\ ntac 15 tac1
   \\ IF_CASES_TAC THEN1
    (fs [] \\ rfs [labPropsTheory.good_dimindex_def]
