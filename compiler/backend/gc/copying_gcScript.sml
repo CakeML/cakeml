@@ -535,4 +535,9 @@ val full_gc_IMP_LENGTH = Q.store_thm("full_gc_IMP_LENGTH",
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
 
+val full_gc_IMP_isDataElement = store_thm("full_gc_IMP_isDataElement",
+  ``(full_gc (roots,heap,limit) = (roots1,heap1,a,T)) ==>
+    EVERY isDataElement heap1``,
+  cheat);
+
 val _ = export_theory();

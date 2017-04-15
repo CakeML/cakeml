@@ -803,7 +803,6 @@ val MAP_to_gen_heap_address_11 = prove(
   Induct \\ Cases_on `y` \\ fs []
   \\ rw [] \\ fs [] \\ metis_tac [to_gen_heap_address_11]);
 
-
 val gc_forward_ptr_data_pres = Q.prove(
    `!x a ptr d ok x' ok'.
    (gc_forward_ptr a x ptr d ok = (x',ok'))
@@ -817,7 +816,6 @@ val gc_forward_ptr_data_pres = Q.prove(
   >> fs[]
   >> qpat_x_assum `_::_ = _` (assume_tac o GSYM)
   >> fs[] >> metis_tac[]);
-
 
 val gc_move_data_pres = Q.prove(
   `(gc_move conf state x = (x1,state1))
@@ -1015,7 +1013,7 @@ val partial_gc_simulation = prove(
       heap_ok heap0 conf.limit /\ new_state.ok ==>
       (new_roots = to_gen_roots conf roots1 ++ refs_to_roots conf state1.r1) /\
       (new_state = to_gen_state conf state1) /\
-      sim_inv conf heap0 state1 /\ (state1.h2 = [])``,
+      sim_inv conf heap0 state1 /\ (state1.h2 = []) /\ state1.ok``,
   rpt gen_tac
   \\ rpt (disch_then assume_tac)
   \\ fs [gen_gc_def]
@@ -1083,7 +1081,9 @@ val partial_gc_simulation = prove(
   THEN1
    (once_rewrite_tac [gc_move_data_def] \\ fs []
     \\ simp [to_gen_state_def]
-    \\ fs [sim_inv_def,has_old_ptr_APPEND])
+    \\ fs [sim_inv_def,has_old_ptr_APPEND]
+    \\ imp_res_tac gc_move_loop_ok
+    \\ fs [to_gen_state_def])
   \\ IF_CASES_TAC THEN1 fs [sim_inv_def]
   \\ qpat_x_assum `(gc_move_loop _ _ _).ok` mp_tac
   \\ simp [Once gc_move_loop_def]
@@ -1115,8 +1115,10 @@ val partial_gc_simulation = prove(
   \\ simp [to_gen_state_def]
   \\ fs [sim_inv_def]
   \\ fs [has_old_ptr_APPEND,gc_move_data_r1]
-  \\ match_mp_tac gc_move_data_h2
-  \\ fs [EVAL ``(to_gen_state c s).ok``]);
+  \\ conj_tac
+  THEN1 (match_mp_tac gc_move_data_h2 \\ fs [EVAL ``(to_gen_state c s).ok``])
+  \\ drule gen_gcTheory.gc_move_loop_ok
+  \\ fs [to_gen_state_def]);
 
 val f_old_ptrs_def = Define `
   f_old_ptrs conf heap =
@@ -2025,7 +2027,8 @@ val partial_gc_related = store_thm("partial_gc_related",
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       (heap_ok
         (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1) conf.limit) /\
-      gc_related f heap (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1)
+      gc_related f heap (state.old ++ state.h1 ++ heap_expand state.n ++ state.r1) /\
+      state.ok
   ``,
   rpt strip_tac
   \\ `gen_inv conf heap` by (match_mp_tac IMP_gen_inv \\ fs [])
@@ -2744,7 +2747,14 @@ val partial_gc_IMP = store_thm("partial_gc_IMP",
      heap_length heap) /\ (LENGTH roots1 = LENGTH roots) /\
     (heap_length state1.old = c.gen_start) /\
     (heap_length (state1.old ++ state1.h1 ++ heap_expand state1.n) =
-     c.refs_start)``,
+     c.refs_start) /\
+    EVERY isDataElement state1.h1 /\
+    ?curr refs. (heap_segment (c.gen_start, c.refs_start) heap =
+                   SOME (state1.old,curr,refs)) /\
+                EVERY2 (similar_data c) refs state1.r1 /\
+                (!xs l d. MEM (DataElement xs l d) state1.h1 /\
+                          c.isRef d ==>
+                          ?xs. MEM (DataElement xs l d) curr)``,
   cheat);
 
 val _ = export_theory();
