@@ -693,6 +693,20 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_allocTheory.word_gc_move_bitmap_code_def
     ,stack_allocTheory.word_gc_move_code_def
     ,stack_allocTheory.word_gc_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_move_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_code_def
+    ,stack_allocTheory.word_gen_gc_move_bitmap_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def
+    ,stack_allocTheory.word_gen_gc_move_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_move_data_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_data_code_def
+    ,stack_allocTheory.word_gen_gc_move_refs_code_def
+    ,stack_allocTheory.word_gen_gc_move_loop_code_def
     ,stack_allocTheory.clear_top_inst_def
       (* ---- stack_remove ---- *)
     ,stack_removeTheory.max_stack_alloc_def
