@@ -6,7 +6,8 @@ val _ = new_theory "stackLang";
 val _ = Datatype `
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
-    CurrHeap | OtherHeap | AllocSize | Globals | Handler | Temp (5 word)`
+    CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    Temp (5 word)`
 
 val _ = Datatype `
   prog = Skip

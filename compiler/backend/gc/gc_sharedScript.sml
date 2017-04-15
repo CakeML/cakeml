@@ -204,14 +204,14 @@ val heap_segment_def = Define `
     case heap_split a heap of
     | NONE => NONE
     | SOME (h1,heap') =>
+      if b < a then NONE else
       case heap_split (b - heap_length h1) heap' of
       | NONE => NONE
       | SOME (h2,h3) => SOME (h1,h2,h3)`;
 
 val heap_segment_IMP = store_thm("heap_segment_IMP",
   ``!heap a b h1 h2 h3.
-    (heap_segment (a,b) heap = SOME (h1,h2,h3)) /\
-    a <= b ==>
+    (heap_segment (a,b) heap = SOME (h1,h2,h3)) ==>
     (h1 ++ h2 ++ h3 = heap) /\
     (heap_length h1 = a) /\
     (heap_length (h1 ++ h2) = b) /\
@@ -531,8 +531,7 @@ val isSome_heap_looukp_IMP_APPEND = Q.store_thm("isSome_heap_looukp_IMP_APPEND",
   \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac LESS_IMP_heap_lookup
   \\ full_simp_tac (srw_ss()) []);
 
-
-(*  *)
+(* --- *)
 
 val gc_related_def = Define `
   gc_related (f:num|->num) heap1 heap2 =

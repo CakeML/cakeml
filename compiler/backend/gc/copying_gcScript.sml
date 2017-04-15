@@ -535,4 +535,49 @@ val full_gc_IMP_LENGTH = Q.store_thm("full_gc_IMP_LENGTH",
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
 
+val gc_move_IMP_isDataElement = Q.store_thm("gc_move_IMP_isDataElement",
+  `!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+      EVERY isDataElement h /\
+      (gc_move (l5,h,a,n,heap,c,k) =
+        (xs,ys,a1,xs1,heap1,c1)) ==>
+      EVERY isDataElement ys`,
+  Cases \\ fs [gc_move_def]
+  \\ rw [] \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [isDataElement_def]);
+
+val gc_move_list_IMP_isDataElement = Q.store_thm("gc_move_list_IMP_isDataElement",
+  `!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+      EVERY isDataElement h /\
+      (gc_move_list (l5,h,a,n,heap,c,k) =
+        (xs,ys,a1,xs1,heap1,c1)) ==>
+      EVERY isDataElement ys`,
+  Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rw []
+  \\ imp_res_tac gc_move_IMP_isDataElement
+  \\ res_tac \\ fs []);
+
+val gc_move_loop_IMP_isDataElement = Q.store_thm("gc_move_loop_IMP_isDataElement",
+  `!h1 h2 a n heap c limit h1' a' n' heap' c'.
+      EVERY isDataElement h1 /\
+      EVERY isDataElement h2 /\
+      (gc_move_loop (h1,h2,a,n,heap,c,limit) = (h1',a',n',heap',T)) ==>
+      EVERY isDataElement h1'`,
+  recInduct (fetch "-" "gc_move_loop_ind") \\ rw []
+  \\ fs [gc_move_loop_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rfs [] \\ fs [isDataElement_def]
+  \\ imp_res_tac gc_move_loop_ok \\ fs []
+  \\ imp_res_tac gc_move_list_IMP_isDataElement \\ fs []
+  \\ Cases_on `h2'` \\ fs [isDataElement_def]);
+
+val full_gc_IMP_isDataElement = store_thm("full_gc_IMP_isDataElement",
+  ``(full_gc (roots,heap,limit) = (roots1,heap1,a,T)) ==>
+    EVERY isDataElement heap1``,
+  fs [full_gc_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
+  \\ imp_res_tac gc_move_list_IMP_isDataElement \\ fs []
+  \\ imp_res_tac gc_move_loop_IMP_isDataElement \\ fs []);
+
 val _ = export_theory();

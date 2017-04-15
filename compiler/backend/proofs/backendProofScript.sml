@@ -522,6 +522,8 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
   fs[stack_allocTheory.compile_def]>>
   EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
   TRY (rename1 `c.data_conf.gc_kind = Generational gen_sizes`) >>
+  TRY TOP_CASE_TAC \\ fs [] >>
+  TRY TOP_CASE_TAC \\ fs [] >> EVAL_TAC >>
   qid_spec_tac`prog1`>>Induct>>
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>

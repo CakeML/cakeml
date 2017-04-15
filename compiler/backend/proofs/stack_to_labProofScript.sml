@@ -2000,7 +2000,9 @@ val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",
      Cases_on`y`>>fs[stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres]>>
      (*stack_alloc*)
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP]>>
-      EVAL_TAC >> TRY TOP_CASE_TAC >>EVAL_TAC >> Cases_on`y`>>
+      EVAL_TAC >> TRY TOP_CASE_TAC >>
+      EVAL_TAC >> TRY TOP_CASE_TAC >>
+      EVAL_TAC >> Cases_on`y`>>
       fs[stack_allocTheory.prog_comp_def]>>
       Q.SPECL_THEN [`q''`,`next_lab r'' 1`,`r''`] mp_tac stack_alloc_lab_pres>>
       fs [] >>
