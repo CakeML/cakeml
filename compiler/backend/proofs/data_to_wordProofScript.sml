@@ -2485,7 +2485,7 @@ val partial_gc_move_list_heap_split = Q.prove(
    /\ conf.gen_start <= conf.refs_start
    ==> s1.heap = h1 ++ heap_take (heap_length h2) (heap_drop (heap_length h1) s1.heap) ++ h3`,
   Induct >> rpt strip_tac >> fs[gen_gc_partialTheory.gc_move_list_def]
-  >> drule heap_segment_IMP >> disch_then drule >> strip_tac
+  >> drule heap_segment_IMP >> strip_tac
   >> rveq >> fs[]
   >> qpat_x_assum `_ = s.heap` (assume_tac o GSYM)
   >> qpat_x_assum `_ = conf.gen_start` (assume_tac o GSYM)
@@ -3543,7 +3543,7 @@ val word_gen_gc_partial_thm = Q.prove(
   \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ fs []
   \\ every_case_tac THEN1 (fs[] \\ rveq \\ fs[])
   \\ ntac 2 (pairarg_tac \\ fs[])
-  \\ drule heap_segment_IMP \\ impl_tac THEN1 fs[]
+  \\ drule heap_segment_IMP
   \\ drule gc_partial_move_data_ok_before \\ disch_then drule \\ strip_tac
   \\ fs[]
   \\ drule gc_partial_move_ref_list_ok_before \\ disch_then drule \\ strip_tac
@@ -3635,7 +3635,7 @@ val word_gen_gc_partial_thm = Q.prove(
   \\ strip_tac
   \\ fs[] \\ rveq \\ fs[]
   \\ qpat_abbrev_tac `a1 = gc_move_data _ _`
-  \\ drule heap_segment_IMP \\ impl_tac THEN1 fs[]
+  \\ drule heap_segment_IMP
   \\ disch_then (assume_tac o GSYM)
   \\ fs[heap_length_APPEND,word_heap_APPEND,word_heap_def,SEP_CLAUSES]
   \\ rfs[heap_length_APPEND,word_heap_APPEND]
@@ -3977,7 +3977,13 @@ val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
     \\ fs [word_heap_APPEND,word_heap_heap_expand,heap_length_APPEND,
            SEP_CLAUSES,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,
            heap_length_heap_expand]
-    \\ fs [MAP_ZIP] \\ qspec_tac (`t'`,`t'`) \\ Induct \\ fs [])
+    \\ qmatch_goalsub_abbrev_tac `nn <= _:num`
+    \\ qsuff_tac `nn = heap_length heap`
+    THEN1 (fs [MAP_ZIP] \\ qspec_tac (`t'`,`t'`) \\ Induct \\ fs [])
+    \\ drule heap_segment_IMP \\ fs []
+    \\ strip_tac \\ rveq \\ fs [heap_length_APPEND,Abbr `nn`]
+    \\ drule LIST_REL_similar_data_IMP
+    \\ strip_tac \\ fs [])
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ fs [] \\ rveq \\ fs [PULL_EXISTS]
   \\ fs [word_gc_fun_def]
@@ -4178,7 +4184,7 @@ val state_rel_init = Q.store_thm("state_rel_init",
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
     \\ fs [heap_expand_def,heap_lookup_def]
     \\ rw [] \\ fs [isForwardPointer_def,bc_ref_inv_def,reachable_refs_def,
-                    gc_kind_inv_def]
+                    gc_kind_inv_def,data_up_to_def]
     \\ CASE_TAC \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac \\ fs [isRef_def])
