@@ -2433,8 +2433,7 @@ val gc_forward_ptr_APPEND = Q.prove(`
 
 val heap_split_APPEND = Q.store_thm("heap_split_APPEND",
   `heap_split (heap_length h1) (h1 ++ h2) = SOME(h1,h2)`,
-  Induct_on `h1` >> fs[heap_split_def,heap_length_def]
-  >- (Cases_on `h2` >> fs[heap_split_def]));
+  Induct_on `h1` >> fs[heap_split_def,heap_length_def]);
 
 val heap_split_APPEND' = Q.store_thm("heap_split_APPEND'",
   `heap_split (SUM (MAP el_length h1)) (h1 ++ h2) = SOME(h1,h2)`,
