@@ -179,8 +179,6 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
           (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).memory
        (full_make_init
           (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).mdomain`,
-  cheat);
-(*
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
   \\ CASE_TAC \\ fs [] THEN1
@@ -196,7 +194,7 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
   \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
        stack_removeProofTheory.word_list_exists_ADD]
   \\ qexists_tac`len`
-  \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]); *)
+  \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]);
 
 val full_init_pre_IMP_init_state_ok = Q.prove(
   `4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
@@ -521,11 +519,11 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
     EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.data_conf prog1)) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND (compile c.data_conf prog1))`,
-  cheat);
-(*
   fs[stack_allocTheory.compile_def]>>
   EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
   TRY (rename1 `c.data_conf.gc_kind = Generational gen_sizes`) >>
+  TRY TOP_CASE_TAC \\ fs [] >>
+  TRY TOP_CASE_TAC \\ fs [] >> EVAL_TAC >>
   qid_spec_tac`prog1`>>Induct>>
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
@@ -543,7 +541,7 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs convs>>
     BasicProvers.EVERY_CASE_TAC)>>
-  rpt(pairarg_tac>>fs convs)); *)
+  rpt(pairarg_tac>>fs convs));
 
 val word_to_stack_compile_imp = Q.store_thm("word_to_stack_compile_imp",
   `word_to_stack$compile c p = (c2,prog1) ==>

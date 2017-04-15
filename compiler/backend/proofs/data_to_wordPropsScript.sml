@@ -2277,6 +2277,10 @@ val gen_state_ok_update_byte = prove(
   \\ rveq \\ fs []
   \\ metis_tac [MEM_APPEND]);
 
+val heap_length_Bytes = save_thm("heap_length_Bytes",
+  EVAL``heap_length [Bytes be fl bs ws]``
+  |> SIMP_RULE std_ss [LENGTH_write_bytes]);
+
 val unused_space_inv_byte_update = prove(
   ``unused_space_inv a (sp + sp1)
         (ha ++ [Bytes be fl xs (REPLICATE ws 0w)] ++ hb) ==>
@@ -5357,10 +5361,6 @@ val get_byte_eq = Q.store_thm("get_byte_eq",
     get_byte a w be = get_byte a' (w:'a word) be`,
   rw [] \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs [get_byte_byte_align]);
-
-val heap_length_Bytes = save_thm("heap_length_Bytes",
-  EVAL``heap_length [Bytes be fl bs ws]``
-  |> SIMP_RULE std_ss [LENGTH_write_bytes]);
 
 val decode_length_make_byte_header = Q.store_thm("decode_length_make_byte_header",
   `good_dimindex(:α) ∧ c.len_size + 7 < dimindex(:α) ∧
