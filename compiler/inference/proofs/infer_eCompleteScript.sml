@@ -781,7 +781,7 @@ val rest_uvar_tac =
   pure_add_constraints_rest_tac [`constraints'`,`s'`]>>
   TRY(metis_tac[check_freevars_empty_convert_unconvert_id]);
 
-val extend_uvar_tac = Q_TAC extend_uvar_tac
+val extend_uvar_tac = Q_TAC extend_uvar_tac;
 
 val constrain_op_complete = Q.prove(
 `
@@ -792,7 +792,8 @@ FDOM st.subst ⊆ count st.next_uvar ∧
 FDOM s = count st.next_uvar ∧
 t_wfs st.subst ∧
 MAP (convert_t o (t_walkstar s)) ts' = ts ∧
-EVERY (check_t n {}) (MAP (t_walkstar s) ts')
+EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
+check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
 constrain_op l op ts' st = (Success t',st') ∧
@@ -954,6 +955,7 @@ t = convert_t (t_walkstar s' t')`,
     (unconversion_tac>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
     pac_tac)
+  >- cheat
   >-
     (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
     fs[pure_add_constraints_combine]>>

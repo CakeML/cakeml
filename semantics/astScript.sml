@@ -93,6 +93,7 @@ val _ = Hol_datatype `
   | Vlength
   (* Array operations *)
   | Aalloc
+  | AallocEmpty
   | Asub
   | Alength
   | Aupdate

@@ -359,6 +359,11 @@ constrain_op l op ts =
        do () <- add_constraint l t1 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [t2] TC_array)
        od
+   | (AallocEmpty, [t1]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [] TC_tup);
+          return (Infer_Tapp [uvar] TC_array)
+       od
    | (Asub, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] TC_array);

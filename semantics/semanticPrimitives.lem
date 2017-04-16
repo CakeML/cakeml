@@ -554,6 +554,9 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
           in
             Just ((s',t), Rval (Loc lnum))
+    | (AallocEmpty, [Conv Nothing []]) ->
+        let (s',lnum) = store_alloc (Varray []) s in
+          Just ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (Varray vs) ->
