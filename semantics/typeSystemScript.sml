@@ -264,6 +264,7 @@ val _ = Define `
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) => t = t1
     | (Vlength, [Tapp [t1] TC_vector]) => (t = Tapp [] TC_int)
     | (Aalloc, [Tapp [] TC_int; t1]) => t = Tapp [t1] TC_array
+    | (AallocEmpty, [Tapp [] TC_tup]) => ? t1. t = Tapp [t1] TC_array
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
     | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
@@ -518,7 +519,8 @@ type_e tenv tenvE (Fun n e) (Tfn t1 t2))
 
 /\ (! tenv tenvE op es ts t.
 (type_es tenv tenvE es ts /\
-type_op op ts t)
+type_op op ts t /\
+check_freevars (num_tvs tenvE) [] t)
 ==>
 type_e tenv tenvE (App op es) t)
 

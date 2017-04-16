@@ -670,7 +670,24 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      (`?c. sub_completion (num_tvs tenvE) st''.next_uvar st''.subst c s`
            by metis_tac [constrain_op_sub_completion] >>
      res_tac >>
-     metis_tac [constrain_op_sound, infer_e_wfs])
+     simp [GSYM PULL_EXISTS, CONJ_ASSOC] >>
+     rw []
+     >- metis_tac [constrain_op_sound, infer_e_wfs] >>
+     irule check_t_to_check_freevars >>
+     irule (CONJUNCT1 check_t_walkstar) >>
+     simp []
+     >- fs [sub_completion_def]
+     >- metis_tac [sub_completion_wfs, infer_e_wfs] >>
+     imp_res_tac constrain_op_check_t >>
+     drule (CONJUNCT1 (CONJUNCT2 infer_e_check_t)) >>
+     simp [] >>
+     fs [ienv_ok_def] >>
+     rw [] >>
+     fs [] >>
+     irule (CONJUNCT1 check_t_more5) >>
+     qexists_tac `count st'.next_uvar` >>
+     fs [sub_completion_def] >>
+     metis_tac [check_t_more2, DECIDE ``!x. x + 0 = x:num``])
  >- ( (* Log *)
    imp_res_tac t_unify_wfs
    >> imp_res_tac infer_e_wfs

@@ -15,7 +15,7 @@ val _ = new_theory"source_to_mod";
  *)
 
 val Bool_def = Define `
- Bool b = (App (Opb (if b then Leq else Lt)) [Lit (IntLit 0); Lit (IntLit 0)])`;
+ Bool b = (modLang$App (Opb (if b then Leq else Lt)) [Lit (IntLit 0); Lit (IntLit 0)])`;
 
 val compile_pat_def = tDefine "compile_pat" `
   (compile_pat (ast$Pvar v) = ast$Pvar v) ∧
@@ -30,6 +30,39 @@ val compile_pat_def = tDefine "compile_pat" `
    >- decide_tac >>
    res_tac >>
    decide_tac);
+
+val astOp_to_modOp_def = Define `
+  astOp_to_modOp (op : ast$op) : modLang$op =
+  case op of
+    Opn opn => modLang$Opn opn
+  | Opb opb => modLang$Opb opb
+  | Opw word_size opw => modLang$Opw word_size opw
+  | Shift word_size shift num => modLang$Shift word_size shift num
+  | Equality => modLang$Equality
+  | Opapp => modLang$Opapp
+  | Opassign => modLang$Opassign
+  | Opref => modLang$Opref
+  | Opderef => modLang$Opderef
+  | Aw8alloc => modLang$Aw8alloc
+  | Aw8sub => modLang$Aw8sub
+  | Aw8length => modLang$Aw8length
+  | Aw8update => modLang$Aw8update
+  | WordFromInt word_size => modLang$WordFromInt word_size
+  | WordToInt word_size => modLang$WordToInt word_size
+  | Ord => modLang$Ord
+  | Chr => modLang$Chr
+  | Chopb opb => modLang$Chopb opb
+  | Implode => modLang$Implode
+  | Strsub => modLang$Strsub
+  | Strlen => modLang$Strlen
+  | VfromList => modLang$VfromList
+  | Vsub => modLang$Vsub
+  | Vlength => modLang$Vlength
+  | Aalloc => modLang$Aalloc
+  | Asub => modLang$Asub
+  | Alength => modLang$Alength
+  | Aupdate => modLang$Aupdate
+  | FFI string => modLang$FFI string`;
 
 val compile_exp_def = tDefine"compile_exp"`
   (compile_exp env (Raise e) =
@@ -50,8 +83,12 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp env (Fun x e) =
     Fun x (compile_exp (nsBind x (Var_local x) env) e))
   ∧
-  (compile_exp env (App op es) =
-    App op (compile_exps env es))
+  (compile_exp env (ast$App op es) =
+    if op = AallocEmpty then
+      FOLDR (Let NONE) (modLang$App Aalloc [Lit (IntLit (&0)); Lit (IntLit (&0))])
+        (REVERSE (compile_exps env es))
+    else
+      modLang$App (astOp_to_modOp op) (compile_exps env es))
   ∧
   (compile_exp env (Log lop e1 e2) =
     case lop of

@@ -781,7 +781,7 @@ val rest_uvar_tac =
   pure_add_constraints_rest_tac [`constraints'`,`s'`]>>
   TRY(metis_tac[check_freevars_empty_convert_unconvert_id]);
 
-val extend_uvar_tac = Q_TAC extend_uvar_tac
+val extend_uvar_tac = Q_TAC extend_uvar_tac;
 
 val constrain_op_complete = Q.prove(
 `
@@ -792,7 +792,8 @@ FDOM st.subst ⊆ count st.next_uvar ∧
 FDOM s = count st.next_uvar ∧
 t_wfs st.subst ∧
 MAP (convert_t o (t_walkstar s)) ts' = ts ∧
-EVERY (check_t n {}) (MAP (t_walkstar s) ts')
+EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
+check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
 constrain_op l op ts' st = (Success t',st') ∧
@@ -954,6 +955,33 @@ t = convert_t (t_walkstar s' t')`,
     (unconversion_tac>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
     pac_tac)
+  >-
+    (extend_uvar_tac`t1`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    `pure_add_constraints s' ls s'` by
+      (match_mp_tac pure_add_constraints_ignore >>
+      fs[Abbr`ls`]>>
+      imp_res_tac t_walkstar_SUBMAP>>
+      ntac 2 (pop_assum kall_tac)>>
+      pop_assum (qspec_then`x0` SUBST1_TAC)>>
+      metis_tac[])>>
+    pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
+    fs[pure_add_constraints_append]>>
+    Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1 |>` >>fs[]>>
+    Q.EXISTS_TAC`si`>>
+    Q.EXISTS_TAC`constraints'`>>
+    Q.SPECL_THEN [`n`,`si`,`s'`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+    rfs[]>>
+    rw[]
+    >-
+      metis_tac[t_compat_trans]
+    >-
+      metis_tac[pure_add_constraints_success]
+    >>
+      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+      fs[t_walkstar_eqn,t_walk_eqn,convert_t_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
   >-
     (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
     fs[pure_add_constraints_combine]>>

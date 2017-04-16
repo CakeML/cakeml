@@ -381,17 +381,19 @@ val do_app = Q.prove (
     do_app s1 op vs = SOME (s2, r) ∧
     LIST_REL (sv_rel genv) (FST s1) (FST s1_i1) ∧
     SND s1 = SND s1_i1 ∧
-    LIST_REL (v_rel genv) vs vs_i1
+    LIST_REL (v_rel genv) vs vs_i1 ∧
+    op ≠ AallocEmpty
     ⇒
      ∃r_i1 s2_i1.
        LIST_REL (sv_rel genv) (FST s2) (FST s2_i1) ∧
        SND s2 = SND s2_i1 ∧
        result_rel v_rel genv r r_i1 ∧
-       do_app s1_i1 op vs_i1 = SOME (s2_i1, r_i1)`,
+       do_app s1_i1 (astOp_to_modOp op) vs_i1 = SOME (s2_i1, r_i1)`,
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i1` >>
-  Cases_on `op`
+  Cases_on `op` >>
+  simp [astOp_to_modOp_def]
   >- ((* Opn *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
@@ -888,6 +890,31 @@ val s = mk_var("s",
   ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
 
+val opt_bind_lem = Q.prove (
+  `opt_bind NONE = \x y.y`,
+  rw [FUN_EQ_THM, libTheory.opt_bind_def]);
+
+val env_updated_lem = Q.prove (
+  `env with v updated_by (λy. y) = (env : modSem$environment)`,
+  rw [environment_component_equality]);
+
+val evaluate_foldr_let_err = Q.prove (
+  `!env s s' exps e x.
+    modSem$evaluate env s exps = (s', Rerr x)
+    ⇒
+    evaluate env s [FOLDR (Let NONE) e exps] = (s', Rerr x)`,
+  Induct_on `exps` >>
+  rw [evaluate_def] >>
+  fs [Once evaluate_cons] >>
+  every_case_tac >>
+  fs [evaluate_def] >>
+  rw [] >>
+  first_x_assum drule >>
+  disch_then (qspec_then `e` mp_tac) >>
+  rw [] >>
+  every_case_tac >>
+  fs [opt_bind_lem, env_updated_lem]);
+
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
      evaluate$evaluate s env es = res ⇒
@@ -1036,12 +1063,51 @@ val compile_exp_correct' = Q.prove (
       fs [])
   (* function application *)
   >- (
-    srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+    srw_tac [boolSimps.DNF_ss] [PULL_EXISTS]
+    >- (
+      (* empty array creation *)
+      every_case_tac >>
+      fs [semanticPrimitivesTheory.do_app_def] >>
+      every_case_tac >>
+      fs [] >>
+      rw [evaluate_def, modSemTheory.do_app_def] >>
+      fs []
+      >- (
+        drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
+        Cases_on `es` >>
+        rw [LENGTH_NIL] >>
+        fs [] >>
+        simp [compile_exp_def, evaluate_def] >>
+        pairarg_tac >>
+        fs [store_alloc_def, compile_exp_def] >>
+        rpt var_eq_tac >>
+        first_x_assum drule >>
+        simp [] >>
+        rw [result_rel_cases, Once v_rel_cases] >>
+        simp [do_app_def] >>
+        pairarg_tac >>
+        fs [store_alloc_def] >>
+        simp [Once v_rel_cases] >>
+        fs [s_rel_cases] >>
+        rw []
+        >- metis_tac [LIST_REL_LENGTH] >>
+        simp [REPLICATE, sv_rel_cases])
+      >- (
+        first_x_assum drule >>
+        rw [] >>
+        qexists_tac `s'_i1` >>
+        qexists_tac `r_i1` >>
+        simp [] >>
+        fs [compile_exps_reverse] >>
+        `?e'. r_i1 = Rerr e'` by fs [result_rel_cases] >>
+        rw [] >>
+        metis_tac [evaluate_foldr_let_err])) >>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >> simp[] >> strip_tac >>
     full_simp_tac(srw_ss())[compile_exps_reverse] >>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+    TRY (simp [evaluate_def] >> NO_TAC) >>
     qpat_x_assum`_ = (_,r)`mp_tac >>
     ntac 2 (BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]) >- (
       BasicProvers.TOP_CASE_TAC >>
@@ -1051,7 +1117,7 @@ val compile_exp_correct' = Q.prove (
       disch_then drule >> strip_tac >>
       IF_CASES_TAC >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >- (
         full_simp_tac(srw_ss())[] >> asm_exists_tac >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[s_rel_cases] ) >>
+        full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] ) >>
       rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac evaluate_globals >>
       pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
@@ -1064,7 +1130,8 @@ val compile_exp_correct' = Q.prove (
       strip_tac >> full_simp_tac(srw_ss())[PULL_EXISTS] >>
       asm_exists_tac >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[s_rel_cases] ) >>
+      full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] >>
+      metis_tac []) >>
     BasicProvers.TOP_CASE_TAC >>
     BasicProvers.TOP_CASE_TAC >>
     strip_tac >> rveq >>
@@ -1080,7 +1147,13 @@ val compile_exp_correct' = Q.prove (
     CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[pair_default_qp])[])) >>
     disch_then drule >> strip_tac >>
     simp[] >>
-    full_simp_tac(srw_ss())[PULL_EXISTS,result_rel_cases])
+    `astOp_to_modOp op ≠ Opapp`
+    by (
+      rw [astOp_to_modOp_def] >>
+      Cases_on `op` >>
+      simp [] >>
+      fs []) >>
+    full_simp_tac(srw_ss())[PULL_EXISTS,result_rel_cases, evaluate_def])
   >- (
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
