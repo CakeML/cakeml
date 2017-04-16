@@ -87,7 +87,7 @@ val _=add_astPP("tdecprint", ``Tdec x``,genPrint tdecPrint);
 (*Top level exception decl*)
 fun dexnPrint modn sys d t pg str brk blk =
   let
-    val (_,[x,y]) = strip_comb t
+    val (_,[l,x,y]) = strip_comb t
     val args = #1(listSyntax.dest_list y)
     fun printTerms [] = str ""
     |   printTerms [x] = sys (pg,pg,pg) (d-1) x
@@ -138,9 +138,7 @@ fun dtypePrint modn sys d t pg str brk blk =
 val _=add_astPP ("dtypeprint", ``Dtype locs x``,genPrint (dtypePrint ""));
 
 fun dtabbrevPrint sys d t pg str brk blk =
-  let val (t,typ) = dest_comb t
-      val (t,name) = dest_comb t
-      val (_,ls) = dest_comb t
+  let val (t,[locs,typ,name,ls]) = strip_comb t
       val typaram = #1(listSyntax.dest_list ls)
   in
     add_newline >> str"type" >> (case typaram of [] => str""
@@ -172,7 +170,8 @@ val _=add_astPP("exntypeprint",``TC_exn``,genPrint (deftypePrint "exn"));
 (*TC_name*)
 fun tcnamelongPrint sys d t pg str brk blk =
   let val (_,t) = dest_comb t
-      val (_,[x,y]) = strip_comb t
+      val (_,[x,sy]) = strip_comb t
+      val (_,y) = dest_comb sy
   in
     str (toString x)>>str".">>str (toString y)
   end;
@@ -295,7 +294,7 @@ val _=add_astPP ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 fun dletfunPrint sys d t pg str brk blk =
   let
     open Portable smpp
-    val (_,[l,r]) = strip_comb t;
+    val (_,[locs,l,r]) = strip_comb t;
     val (_,[name]) = strip_comb l;
     val (_,[arg,expr]) = strip_comb r;
   in
@@ -309,7 +308,7 @@ val _ = add_astPP("dletfunPrint", ``Dlet locs (Pvar x) (Fun y z)``,genPrint dlet
 fun dletvalPrint sys d t pg str brk blk=
   let
     open Portable smpp
-    val (_,[l,r]) = strip_comb t;
+    val (_,[locs,l,r]) = strip_comb t;
   in
     add_newline>>blk CONSISTENT 2 (str "val " >>
     sys (pg,pg,pg) (d-1) l >>
