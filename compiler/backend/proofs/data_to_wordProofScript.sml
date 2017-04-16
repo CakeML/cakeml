@@ -3798,17 +3798,19 @@ val word_gc_fun_def = Define `
           (let gs = theWord (s ' GenStart) in
            let rs = theWord (s ' EndOfHeap) - theWord (s ' CurrHeap) in
            let len = theWord (s ' HeapLength) in
+           let endh = theWord (s ' EndOfHeap) in
            let (roots1,i1,pa1,m1,c2) =
              word_gen_gc_partial_full conf (all_roots,old,new,len,m,dm,gs,rs) in
            let s1 = s |++ [(CurrHeap, Word old);
                            (OtherHeap, Word new);
                            (NextFree, Word pa1);
                            (GenStart, Word (pa1 - old));
-                           (TriggerGC, s ' EndOfHeap);
+                           (TriggerGC, Word endh);
                            (Globals, HD roots1);
                            (Temp 0w, Word 0w);
                            (Temp 1w, Word 0w)] in
-             if c2 then SOME (TL roots1,m1,s1) else NONE)
+           let c3 = (theWord (s ' AllocSize) <=+ endh - pa1) in
+             if c2 /\ c3 then SOME (TL roots1,m1,s1) else NONE)
         else
           (let (roots1,i1,pa1,ib1,pb1,m1,c2) =
              word_gen_gc conf (all_roots,old,new,len,m,dm) in
@@ -3886,6 +3888,82 @@ val do_partial_def = Define `
     case c.gc_kind of
     | Generational l => word_gen_gc_can_do_partial l s
     | _ => F`
+
+val heap_segment_IMP_split = prove(
+  ``heap_segment (m,n) heap = SOME (x1,x2,x3) ==>
+    heap_split m heap = SOME (x1,x2++x3) /\
+    heap_split n heap = SOME (x1++x2,x3)``,
+  strip_tac \\ drule heap_segment_IMP \\ strip_tac \\ rveq
+  \\ rpt strip_tac
+  THEN1
+   (full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ full_simp_tac std_ss [heap_split_APPEND_if] \\ fs []
+    \\ rw [] \\ Cases_on `x2` \\ fs [heap_length_def,el_length_def])
+  \\ full_simp_tac std_ss [heap_split_APPEND_if] \\ fs []);
+
+val heap_split_IMP_heap_length = prove(
+  ``!heap n h1 h2.
+      heap_split n heap = SOME (h1,h2) ==>
+      heap_length h1 = n``,
+  Induct \\ fs [heap_split_def] \\ rw []
+  \\ every_case_tac \\ fs [] \\ rveq  \\ fs []
+  \\ res_tac \\ fs [heap_length_def]);
+
+val heap_split_APPEND_EQ = prove(
+  ``!h1 h2 a.
+      heap_split a (h1 ++ h2) = SOME (h1,h2) <=>
+      a = heap_length h1``,
+  rw [] \\ eq_tac \\ rw []
+  THEN1 (drule heap_split_IMP_heap_length \\ fs [])
+  \\ fs [heap_split_APPEND_if]);
+
+val heap_split_IMP_APPEND = prove(
+  ``!heap n h1 h2. heap_split n heap = SOME (h1,h2) ==> heap = h1 ++ h2``,
+  Induct \\ fs[heap_split_def]
+  \\ rw [] \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac);
+
+val heap_length_nil = store_thm("heap_length_nil",
+  ``heap_length m = 0 <=> m = []``,
+  Cases_on `m` \\ fs [heap_length_def,el_length_def]);
+
+val abs_ml_inv_GenState_IMP_heap_length_FILTER = store_thm("abs_ml_inv_GenState_IMP_heap_length_FILTER",
+  ``abs_ml_inv c stack refs
+        (xs,heap,be,a,sp,sp1,GenState n (t::ts))
+        (heap_length heap) /\
+    c.gc_kind = Generational (y::ys) /\
+    heap_split (a+sp+sp1) heap = SOME (h1,h2) ==>
+    EVERY isDataElement h2 /\
+    heap_length (FILTER isDataElement heap) = a + heap_length h2``,
+  fs [abs_ml_inv_def,unused_space_inv_def,gc_kind_inv_def]
+  \\ strip_tac \\ fs []
+  \\ `EVERY isDataElement h2` by
+       (fs [EVERY_MEM] \\ Cases \\ strip_tac \\ res_tac \\ fs [isRef_def])
+  \\ fs [data_up_to_def]
+  \\ Cases_on `sp + sp1 = 0` \\ fs []
+  THEN1
+   (drule heap_split_IMP_APPEND \\ strip_tac \\ rveq
+    \\ fs [FILTER_APPEND]
+    \\ fs [GSYM FILTER_EQ_ID,heap_length_APPEND]
+    \\ rveq \\ fs [heap_split_APPEND_EQ])
+  \\ drule heap_split_heap_split
+  \\ qpat_x_assum `heap_split a heap = _` assume_tac
+  \\ disch_then drule \\ fs []
+  \\ strip_tac \\ rveq \\ fs []
+  \\ fs [GSYM FILTER_EQ_ID,heap_length_APPEND,FILTER_APPEND]
+  \\ pop_assum kall_tac
+  \\ fs [] \\ drule heap_split_IMP_heap_length
+  \\ pop_assum mp_tac
+  \\ fs [] \\ drule heap_split_IMP_heap_length
+  \\ rpt strip_tac \\ fs []
+  \\ rveq \\ fs []
+  \\ qpat_x_assum `heap_lookup _ _ = _` mp_tac
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ simp_tac std_ss [heap_lookup_APPEND]
+  \\ reverse (rw []) \\ fs [heap_length_nil]
+  \\ Cases_on `m` \\ fs [heap_length_def]
+  \\ fs [heap_lookup_def] \\ rveq \\ fs [isDataElement_def]
+  \\ fs [SUM_APPEND,el_length_def]
+  \\ rfs [] \\ fs [GSYM heap_length_def,heap_length_nil]);
 
 val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
   `abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit /\
@@ -3977,6 +4055,57 @@ val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
     \\ fs [word_heap_APPEND,word_heap_heap_expand,heap_length_APPEND,
            SEP_CLAUSES,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,
            heap_length_heap_expand]
+    \\ conj_tac THEN1
+     (qpat_x_assum `word_gen_gc_can_do_partial _ s` mp_tac
+      \\ simp [word_gen_gc_can_do_partial_def,theWord_def]
+      \\ fs [WORD_LEFT_ADD_DISTRIB] \\ strip_tac
+      \\ match_mp_tac WORD_LOWER_EQ_TRANS \\ asm_exists_tac \\ fs []
+      \\ qmatch_goalsub_rename_tac `s2.old`
+      \\ qsuff_tac
+           `heap_length s2.old + heap_length s2.h1 <= a + sp /\
+            sp1 * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+            ((sp1 + a + sp) - (heap_length s2.h1 + heap_length s2.old))
+              * (dimindex (:'a) DIV 8) < dimword (:'a)`
+      THEN1
+       (strip_tac
+        \\ qsuff_tac
+             `bytes_in_word * n2w sp1 <=+
+              bytes_in_word * (n2w (sp1 + a + sp) -
+                n2w (heap_length s2.h1 + heap_length s2.old)) :'a word`
+        THEN1 (fs [n2w_sub] \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+        \\ fs [addressTheory.word_arith_lemma2,bytes_in_word_def]
+        \\ fs [word_mul_n2w,WORD_LS])
+      \\ `sp1 + a + sp <= heap_length heap` by
+       (qpat_x_assum `abs_ml_inv c _ _ _ _` mp_tac
+        \\ fs [abs_ml_inv_def,unused_space_inv_def] \\ NO_TAC)
+      \\ qsuff_tac `heap_length s2.h1 + heap_length s2.old ≤ a + sp`
+      THEN1 (fs [good_dimindex_def] \\ rfs [] \\ fs [])
+      \\ fs []
+      \\ `FILTER isForwardPointer heap = []` by
+           (fs [abs_ml_inv_def,heap_ok_def] \\ NO_TAC) \\ fs []
+      \\ `EVERY isDataElement s2.old` by
+       (qpat_x_assum `abs_ml_inv c _ _ _ _` mp_tac
+        \\ fs [abs_ml_inv_def,unused_space_inv_def]
+        \\ fs [gc_kind_inv_def,gen_state_ok_def,gen_start_ok_def]
+        \\ strip_tac \\ fs [heap_segment_def]
+        \\ every_case_tac \\ fs [] \\ rveq
+        \\ fs [data_up_to_def]
+        \\ qpat_x_assum `heap_split a heap = _` assume_tac
+        \\ drule heap_split_heap_split
+        \\ qpat_x_assum `heap_split (heap_length s2.old) heap = _` assume_tac
+        \\ disch_then drule \\ fs [] \\ strip_tac \\ rveq \\ fs [] \\ NO_TAC)
+      \\ drule LIST_REL_similar_data_IMP
+      \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ strip_tac \\ fs []
+      \\ drule (GEN_ALL abs_ml_inv_GenState_IMP_heap_length_FILTER) \\ fs []
+      \\ `heap_split (a+sp+sp1) heap = SOME (s2.old++curr',refs')` by
+             (imp_res_tac heap_segment_IMP_split \\ fs [] \\ NO_TAC)
+      \\ fs [] \\ strip_tac
+      \\ `heap_length (FILTER isDataElement heap) =
+          a + heap_length (FILTER isDataElement s2.r1)` by
+             (fs [GSYM FILTER_EQ_ID] \\ NO_TAC)
+      \\ fs [FILTER_APPEND,heap_length_APPEND]
+      \\ fs [GSYM FILTER_EQ_ID])
     \\ qmatch_goalsub_abbrev_tac `nn <= _:num`
     \\ qsuff_tac `nn = heap_length heap`
     THEN1 (fs [MAP_ZIP] \\ qspec_tac (`t'`,`t'`) \\ Induct \\ fs [])
@@ -5326,7 +5455,8 @@ val word_gc_fun_IMP_FILTER = Q.prove(
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_FILTER
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+    \\ rveq \\ fs [])
   THEN1
    (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -5424,7 +5554,8 @@ val word_gc_fun_loc_merge = Q.prove(
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_FILTER
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+    \\ rveq \\ fs [])
   THEN1
    (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]

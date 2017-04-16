@@ -531,6 +531,27 @@ val isSome_heap_looukp_IMP_APPEND = Q.store_thm("isSome_heap_looukp_IMP_APPEND",
   \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac LESS_IMP_heap_lookup
   \\ full_simp_tac (srw_ss()) []);
 
+val heap_split_APPEND_if = Q.store_thm("heap_split_APPEND_if",
+  `!h1 n h2. heap_split n (h1 ++ h2) =
+  if n < heap_length h1 then
+    case heap_split n h1 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1',h2'++h2)
+  else
+    case heap_split (n - heap_length h1) h2 of
+        NONE => NONE
+      | SOME(h1',h2') => SOME(h1++h1',h2')`,
+  Induct >> fs[heap_split_def] >> rpt strip_tac
+  >- (Cases_on `heap_split n h2` >> fs[] >> Cases_on `x` >> fs[])
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> Cases_on `h` >> fs[el_length_def])
+  >> IF_CASES_TAC >- fs[heap_length_def]
+  >> IF_CASES_TAC >- (fs[heap_length_def] >> every_case_tac >> fs[])
+  >> fs[heap_length_def] >> every_case_tac >> fs[]);
+
+val heap_split_0 = store_thm("heap_split_0[simp]",
+  ``heap_split 0 h = SOME ([],h)``,
+  Cases_on `h` \\ fs [heap_split_def]);
+
 (* --- *)
 
 val gc_related_def = Define `
