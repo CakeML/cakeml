@@ -315,7 +315,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30) y =
          (ast$op_CASE op
             (\z. x1 z y)
             (\z. x2 z y)
@@ -325,8 +325,8 @@ val op_apply = Q.prove(
             (\z. x14 z y) (\z. x15 z y)
             (x16 y) (x17 y)
             (\z. x18 z y)
-            (x19 y) (x20 y) (x21 y) (x22 y) (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y)
-            (\z. x29 z y))`,
+            (x19 y) (x20 y) (x21 y) (x22 y) (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y) (x29 y)
+            (\z. x30 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
