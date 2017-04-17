@@ -13785,6 +13785,106 @@ val th = Q.store_thm("assign_SetGlobalsPtr",
   \\ pop_assum mp_tac \\ fs []
   \\ match_mp_tac word_ml_inv_rearrange \\ rw [] \\ fs [])
 
+val IMP = store_thm("IMP",
+  ``b1 \/ b2 <=> ~b1 ==> b2``,
+  Cases_on `b1` \\ Cases_on `b2` \\ fs []);
+
+(*
+  ``assign c n l dest (Cons tag) args names_opt``
+  |> SIMP_CONV (srw_ss()) [assign_def]
+*)
+
+val bytes_in_word_align_def = Define `
+  bytes_in_word_align n =
+    if dimindex (:'a) = 32
+    then Var n else Op Add [Var n; Var n]:'a wordLang$exp`;
+
+val assign_ConsExtend = prove(
+ ``assign c secn l dest (ConsExtend tag) args names =
+   case args of
+   | (old::start::len::tot::rest) =>
+    (case encode_header c (4 * tag) 0 of
+       NONE => (GiveUp,l)
+     | SOME header =>
+        let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+        let h = Shift Lsl (Var tot) (Nat (dimindex (:'a) - c.len_size - 2)) in
+          (list_Seq
+            [BignumHalt (adjust_var tot);
+             Assign 1 (Var (adjust_var tot));
+             AllocVar limit (adjust_set (list_insert args (get_names names)));
+             Assign 1 (Lookup NextFree);
+             Assign 5 (Op Or [h; Const header]);
+             Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
+             Assign 9 (Shift Lsr (Var (adjust_var tot)) (Nat 4));
+             Set NextFree (Op Add [Var 1; Const bytes_in_word;
+               bytes_in_word_align (adjust_var tot)]);
+             Make_ptr_bits_code c 9 7 3;
+             StoreEach 1 (5::MAP adjust_var rest) 0w;
+             Assign 11 (Op Add [real_addr c (adjust_var old);
+               bytes_in_word_align (adjust_var start)]);
+             Assign 13 (Op Add [Var 1;
+               Const (bytes_in_word * n2w (LENGTH rest + 1))]);
+             Assign (adjust_var dest) (Var 3);
+             MustTerminate
+               (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
+                  (SOME MemCopy_location) [11;13;len] NONE)]),l+1)
+   | _ => (Skip,l)``,
+  cheat);
+
+val th = Q.store_thm("assign_ConsExtend",
+  `(?tag. op = ConsExtend tag) ==> ^assign_thm_goal`,
+
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [do_app] \\ every_case_tac \\ fs [] \\ rveq
+  \\ `?startptr len. i = &startptr /\ i' = & len` by
+       (Cases_on `i` \\ Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs []
+  \\ pop_assum mp_tac
+  \\ fs [integerTheory.int_gt,integerTheory.INT_ADD,NOT_LESS]
+  \\ fs [IMP] \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
+  \\ `?a1 a2 a3 a4 arest. args = a1::a2::a3::a4::arest` by
+   (Cases_on `args` \\ fs []
+    \\ rpt (rename1 `LENGTH args = _` \\ Cases_on `args` \\ fs []) \\ NO_TAC)
+  \\ rveq \\ fs []
+  \\ rewrite_tac [assign_ConsExtend] \\ fs []
+  \\ CASE_TAC THEN1 fs [] \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
+  \\ fs [get_vars_SOME_IFF_eq] \\ rveq \\ fs []
+  \\ rpt_drule evaluate_BignumHalt
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ fs [wordSemTheory.get_vars_def]
+  \\ rename1 `get_var (adjust_var a4) t = SOME w4`
+  \\ strip_tac
+  \\ rename1 `LENGTH t7 = LENGTH ys7`
+  \\ `?x4. w4 = Word x4 /\
+           (~(x4 ' 0) ==> x4 = Smallnum (&(len + LENGTH t7)))` by cheat
+  \\ rveq \\ fs []
+  \\ disch_then drule \\ strip_tac
+  \\ Cases_on `x4 ' 0` THEN1 (fs []) \\ fs []
+  \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
+  \\ fs [wordSemTheory.get_var_def]
+  \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
+  \\ qmatch_goalsub_abbrev_tac `wordSem$evaluate (_, t5)`
+  \\ pairarg_tac \\ pop_assum mp_tac
+  \\ `state_rel c l1 l2 x t5 [] locs` by cheat
+  \\ qmatch_goalsub_abbrev_tac `AllocVar lim nms` \\ fs [] \\ strip_tac
+  \\ `dataSem$cut_env nms x.locals = SOME ARB` by cheat
+  \\ `get_var 1 t5 = SOME (Word (n2w (4 * (len + LENGTH t7))))` by cheat
+  \\ rpt_drule AllocVar_thm
+  \\ impl_tac THEN1
+    (unabbrev_all_tac \\ fs [] \\ fs [dimword_def,good_dimindex_def])
+  \\ reverse (Cases_on `res`) THEN1 (fs []) \\ fs []
+  \\ strip_tac
+
+  (* ... *)
+  \\ cheat);
+
 val th = Q.store_thm("assign_Cons",
   `(?tag. op = Cons tag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
