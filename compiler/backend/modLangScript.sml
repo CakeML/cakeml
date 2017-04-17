@@ -1,6 +1,5 @@
 open preamble astTheory;
 open backend_commonTheory;
-open jsonTheory;
 
 val _ = new_theory "modLang";
 
