@@ -218,20 +218,6 @@ val op_rewrite_is_pure = Q.store_thm ("op_rewrite_is_pure",
   cheat (* TODO *)
   );
 
-val evaluate_push_call_LEMMA = Q.prove (
-  `∀e2 iop n nm ticks args hdl env (s: 'ffi bviSem$state) r t.
-   let new_call = Call ticks (SOME n) (e2 :: args) hdl in
-   let old_call = Call ticks (SOME nm) args hdl in
-     evaluate ([e2], env, s) = (r, t) ∧
-     r ≠ Rerr (Rabort Rtype_error) ⇒
-       evaluate ([new_call], env, s) =
-       evaluate ([apply_op (IntOp iop) old_call e2], env, inc_clock ck s)`,
-  cheat (* TODO *)
-  );
-
-val evaluate_push_call_lemma =
-  SIMP_RULE std_ss [LET_THM] evaluate_push_call_LEMMA
-
 val env_rel_def = Define `
   env_rel opt_here acc env1 env2 ⇔
     isPREFIX env1 env2 ∧
@@ -341,8 +327,7 @@ val state_rel_def = Define `
 val code_rel_domain = Q.store_thm ("code_rel_domain",
   `∀c1 c2.
      code_rel c1 c2 ⇒ domain c1 ⊆ domain c2`,
-  simp [code_rel_def]
-  \\ simp [SUBSET_DEF]
+  simp [code_rel_def, SUBSET_DEF]
   \\ CCONTR_TAC
   \\ fs []
   \\ Cases_on `lookup x c1`
@@ -350,8 +335,7 @@ val code_rel_domain = Q.store_thm ("code_rel_domain",
   \\ fs [GSYM lookup_NONE_domain]
   \\ rename1 `SOME exp`
   \\ PairCases_on `exp`
-  \\ first_x_assum drule
-  \\ fs []
+  \\ first_x_assum drule \\ fs []
   \\ Cases_on `optimize_check x exp1` \\ fs []
   \\ simp [optimize_single_def]);
 
@@ -444,13 +428,52 @@ val evaluate_complete_ind = Q.store_thm ("evaluate_complete_ind",
   \\ simp []
   \\ fs [LESS_OR_EQ]);
 
-val ok_tail_type_IMP_int = Q.store_thm ("ok_tail_type_IMP_int",
+val ok_tail_type_IMP_Number = Q.store_thm ("ok_tail_type_IMP_Number",
   `∀name exp env s r t.
      ok_tail_type name exp ∧
      evaluate ([exp], env, s) = (Rval r, t) ⇒
        ∃n. r = [Number n]`,
-  cheat (* TODO *)
-  );
+  gen_tac
+  \\ Induct 
+  \\ fs [ok_tail_type_def]
+  \\ rpt strip_tac
+  \\ pop_assum mp_tac
+  \\ simp [evaluate_def]
+  >-
+    (TOP_CASE_TAC
+    \\ TOP_CASE_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+    >-
+      (strip_tac
+      \\ first_x_assum drule
+      \\ fs [])
+    \\ IF_CASES_TAC \\ fs []
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ fs [])
+  >-
+    (TOP_CASE_TAC
+    \\ TOP_CASE_TAC \\ fs []
+    \\ strip_tac
+    \\ first_x_assum (qspec_then `a++env` drule)
+    \\ fs [])
+  >-
+    (IF_CASES_TAC \\ fs []
+    \\ strip_tac
+    \\ first_x_assum drule
+    \\ fs [])
+  \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rename1 `is_arithmetic op`
+  \\ Cases_on `op` 
+  \\ fs [is_arithmetic_def]
+  \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]
+  >- (CASE_TAC \\ strip_tac \\ rveq \\ fs [])
+  \\ CASE_TAC
+  \\ CASE_TAC
+  \\ strip_tac \\ rveq
+  \\ fs [bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
 
 val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
   `∀xs (s: 'ffi bviSem$state) env1 r opt_here t c acc env2 n nm.
@@ -752,7 +775,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       \\ imp_res_tac evaluate_SING_IMP
       \\ rveq \\ fs [] \\ rveq
       \\ fs [optimize_check_def]
-      \\ imp_res_tac ok_tail_type_IMP_int
+      \\ imp_res_tac ok_tail_type_IMP_Number
       \\ fs [] \\ rveq
       \\ fs [bvl_to_bvi_id]
       \\ fs [state_component_equality])

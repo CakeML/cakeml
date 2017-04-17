@@ -93,7 +93,6 @@ val is_rec_def = Define `
 
 val ok_tail_type_def = Define `
   (ok_tail_type name (Op op _)             ⇔ is_arithmetic op) ∧
-  (ok_tail_type name (Call _ (SOME n) _ _) ⇔ n = name) ∧
   (ok_tail_type name (Let _ x1)            ⇔ ok_tail_type name x1) ∧
   (ok_tail_type name (Tick x1)             ⇔ ok_tail_type name x1) ∧
   (ok_tail_type name (If _ x2 x3)          ⇔
