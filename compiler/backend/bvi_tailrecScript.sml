@@ -172,8 +172,8 @@ val tail_check_def = Define `
     else NONE)`;
 
 val push_call_def = Define `
-  (push_call n op acc exp (SOME (t, d, a, h)) =
-    Call t (SOME n) (apply_op op exp (Var acc) :: a) h) ∧
+  (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
+    Call ticks (SOME n) (apply_op op exp (Var acc) :: args) handler) ∧
   (push_call _ _ _ _ _ = Var 65536) (* dummy *)
   `;
 
