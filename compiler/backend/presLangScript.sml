@@ -389,7 +389,7 @@ val lit_to_structured_def = Define`
     Item NONE "IntLit" [empty_item (int_to_str i)])
   /\
   (lit_to_structured (Char c) =
-    Item NONE "Char" ["#\"" ++ [c] ++ "\""])
+    Item NONE "Char" [empty_item ("#\"" ++ [c] ++ "\"")])
   /\
   (lit_to_structured (StrLit s) =
     Item NONE "StrLit" [string_to_structured s])

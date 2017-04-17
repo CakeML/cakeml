@@ -17,6 +17,7 @@ val basic_prog =
   `
   val x = 3 + 5;
   val y = "He\"llo, World";
+  val z = #"a";
   fun fromList l =
     let val arr = array (List.length l) 0
       fun f l i =
