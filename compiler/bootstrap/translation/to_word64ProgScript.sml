@@ -103,7 +103,21 @@ val res = translate
 val res = translate
   (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val res = translate presLangTheory.pres_to_json_def;
+val res = translate structuredLangTheory.num_to_json_def;
+val res = translate structuredLangTheory.trace_to_json_def;
+val res = translate structuredLangTheory.structured_to_json_def;
+
+val t_to_structured_def = prove(
+  ``!x.
+      t_to_structured x =
+      case x of
+      | (Tvar tvarN) => Item NONE "Tvar" [string_to_structured tvarN]
+      | (Tvar_db n) => Item NONE "Tvar_db" [num_to_structured n]
+      | (Tapp ts tctor) =>
+       Item NONE "Tapp"
+         [List (MAP (λa. t_to_structured a) ts);
+          tctor_to_structured tctor]``,
+  cheat);
 
 val res = translate presLangTheory.mod_to_json_def;
 val res = translate presLangTheory.con_to_json_def;

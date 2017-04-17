@@ -439,7 +439,7 @@ val tctor_to_structured_def = Define`
   /\
   (tctor_to_structured TC_array = empty_item "TC_array")`
 
-val t_to_structured_def = tDefine"t_to_json"`
+val t_to_structured_def = tDefine "t_to_structured"`
   (t_to_structured (Tvar tvarN) = Item NONE "Tvar" [string_to_structured tvarN])
   /\
   (t_to_structured (Tvar_db n) = Item NONE "Tvar_db" [num_to_structured n])
