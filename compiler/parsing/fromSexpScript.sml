@@ -35,6 +35,12 @@ val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   Cases_on`x`\\simp[] \\ rw[EQ_IMP_THM] \\ rw[]
   \\ Cases_on`y`\\fs[]);
 
+val OPTION_APPLY_MAP4 = Q.store_thm("OPTION_APPLY_MAP3",
+  `OPTION_APPLY (OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z ) t= SOME r ⇔
+   ∃a b c d. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ t = SOME d /\ f a b c d= r`,
+  Cases_on`x`\\simp[] \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ Cases_on`y`\\fs[] \\ Cases_on`z`\\fs[]);
+
 val FOLDR_SX_CONS_INJ = Q.store_thm("FOLDR_SX_CONS_INJ",
   `∀l1 l2. FOLDR SX_CONS nil l1 = FOLDR SX_CONS nil l2 ⇔ l1 = l2`,
   Induct \\ simp[]
@@ -518,6 +524,7 @@ val sexpop_def = Define`
   if s = "Vsub" then SOME Vsub else
   if s = "Vlength" then SOME Vlength else
   if s = "Aalloc" then SOME Aalloc else
+  if s = "AallocEmpty" then SOME AallocEmpty else
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else NONE) ∧
@@ -528,9 +535,11 @@ val sexpop_def = Define`
     if s = "Shift8Lsl" then SOME (Shift W8 Lsl n) else
     if s = "Shift8Lsr" then SOME (Shift W8 Lsr n) else
     if s = "Shift8Asr" then SOME (Shift W8 Asr n) else
+    if s = "Shift8Ror" then SOME (Shift W8 Ror n) else
     if s = "Shift64Lsl" then SOME (Shift W64 Lsl n) else
     if s = "Shift64Lsr" then SOME (Shift W64 Lsr n) else
-    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else NONE) ∧
+    if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
+    if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop _ = NONE)`;
 
 val sexplop_def = Define`
@@ -544,7 +553,7 @@ val sexplocn_def = Define`
     do
       ls <- strip_sxcons s;
       guard (LENGTH ls = 6)
-      (lift2 $, 
+      (lift2 $,
             (lift locn (odestSXNUM (EL 0 ls)) <*>
                        (odestSXNUM (EL 1 ls)) <*>
                        (odestSXNUM (EL 2 ls)))
@@ -636,18 +645,25 @@ val sexpdec_def = Define`
   sexpdec s =
     do
       (nm, args) <- dstrip_sexp s;
-      guard (nm = "Dlet" ∧ LENGTH args = 2)
-            (lift2 Dlet (sexppat (EL 0 args)) (sexpexp (EL 1 args))) ++
-      guard (nm = "Dletrec" ∧ LENGTH args = 1)
-            (lift Dletrec (sexplist (sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp)) (HD args))) ++
-      guard (nm = "Dtype" ∧ LENGTH args = 1)
-            (lift Dtype (sexptype_def (HD args))) ++
-      guard (nm = "Dtabbrev" ∧ LENGTH args = 3)
-            (lift Dtabbrev (sexplist odestSEXSTR (EL 0 args)) <*>
-                           (odestSEXSTR (EL 1 args)) <*>
-                           (sexptype (EL 2 args))) ++
-      guard (nm = "Dexn" ∧ LENGTH args = 2)
-            (lift2 Dexn (odestSEXSTR (EL 0 args)) (sexplist sexptype (EL 1 args)))
+      guard (nm = "Dlet" ∧ LENGTH args = 3)
+            (lift Dlet (sexplocn (HD args)) <*> 
+                       (sexppat (EL 1 args)) <*>
+                       (sexpexp (EL 2 args))) ++
+      guard (nm = "Dletrec" ∧ LENGTH args = 2)
+            (lift2 Dletrec (sexplocn (HD args))
+                           (sexplist (sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp)) (EL 1 args))) ++
+      guard (nm = "Dtype" ∧ LENGTH args = 2)
+            (lift2 Dtype (sexplocn (HD args)) (sexptype_def (EL 1 args))) ++
+      guard (nm = "Dtabbrev" ∧ LENGTH args = 4)
+            (lift Dtabbrev (sexplocn (EL 0 args)) <*>
+                           (sexplist odestSEXSTR (EL 1 args)) <*>
+                           (odestSEXSTR (EL 2 args)) <*>
+                           (sexptype (EL 3 args)))
+                            ++
+      guard (nm = "Dexn" ∧ LENGTH args = 3)
+            (lift Dexn (sexplocn (EL 0 args)) <*>
+                       (odestSEXSTR (EL 1 args)) <*>
+                       (sexplist sexptype (EL 2 args)))
     od`;
 
 val sexpspec_def = Define`
@@ -835,9 +851,11 @@ val opsexp_def = Define`
   (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
   (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
   (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
+  (opsexp (Shift W8 Ror n) = SX_CONS (SX_SYM "Shift8Ror") (SX_NUM n)) ∧
   (opsexp (Shift W64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
   (opsexp (Shift W64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
+  (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -864,6 +882,7 @@ val opsexp_def = Define`
   (opsexp Vsub = SX_SYM "Vsub") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
+  (opsexp AallocEmpty = SX_SYM "AallocEmpty") ∧
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
@@ -884,7 +903,7 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
-  locnsexp (locn n1 n2 n3,locn n4 n5 n6) = 
+  locnsexp (locn n1 n2 n3,locn n4 n5 n6) =
     listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",
@@ -955,13 +974,13 @@ val type_defsexp_11 = Q.store_thm("type_defsexp_11[simp]",
   \\ simp[INJ_DEF]);
 
 val decsexp_def = Define`
-  (decsexp (Dlet p e) = listsexp [SX_SYM "Dlet"; patsexp p; expsexp e]) ∧
-  (decsexp (Dletrec funs) =
-     listsexp [SX_SYM "Dletrec";
+  (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locnsexp locs; patsexp p; expsexp e]) ∧
+  (decsexp (Dletrec locs funs) =
+     listsexp [SX_SYM "Dletrec"; locnsexp locs;
                listsexp (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e))) funs)]) ∧
-  (decsexp (Dtype td) = listsexp [SX_SYM "Dtype"; type_defsexp td]) ∧
-  (decsexp (Dtabbrev ns x t) = listsexp [SX_SYM "Dtabbrev"; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
-  (decsexp (Dexn x ts) = listsexp [SX_SYM "Dexn"; SEXSTR x; listsexp (MAP typesexp ts)])`;
+  (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locnsexp locs; type_defsexp td]) ∧
+  (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locnsexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
+  (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locnsexp locs; SEXSTR x; listsexp (MAP typesexp ts)])`;
 
 val decsexp_11 = Q.store_thm("decsexp_11[simp]",
   `∀d1 d2. decsexp d1 = decsexp d2 ⇔ d1 = d2`,
@@ -1506,8 +1525,9 @@ val decsexp_sexpdec = Q.store_thm("decsexp_sexpdec",
   \\ rename1 `guard (nm = _ ∧ _) _`
   \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Dexn"}`
   \\ fs[]
-  \\ fs[decsexp_def, quantHeuristicsTheory.LIST_LENGTH_3, listsexp_def]
-  \\ rveq \\ fs[OPTION_APPLY_MAP3]
+  \\ fs[decsexp_def, quantHeuristicsTheory.LIST_LENGTH_3,
+        quantHeuristicsTheory.LIST_LENGTH_4, listsexp_def]
+  \\ rveq \\ fs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4]
   \\ rveq \\ rw[decsexp_def]
   \\ rveq \\ fs[listsexp_def] \\ fs[GSYM listsexp_def]
   \\ imp_res_tac patsexp_sexppat
@@ -1515,6 +1535,7 @@ val decsexp_sexpdec = Q.store_thm("decsexp_sexpdec",
   \\ imp_res_tac sexplist_SOME
   \\ imp_res_tac type_defsexp_sexptype_def
   \\ imp_res_tac typesexp_sexptype
+  \\ imp_res_tac locnsexp_sexplocn
   \\ rw[]
   \\ fs[LIST_EQ_REWRITE,EL_MAP]
   \\ rw[] \\ rfs[EL_MAP]

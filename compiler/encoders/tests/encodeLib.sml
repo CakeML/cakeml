@@ -246,6 +246,7 @@ val () = Count.apply (encodings [All])
     `Inst (Arith (Binop Xor 6 6 (Imm (-1w))))`,
     `Inst (Arith (Shift Lsr 6 6 1))`,
     `Inst (Arith (Shift Asr 6 6 1))`,
+    `Inst (Arith (Shift Ror 6 6 1))`,
     `Inst (Arith (Div 6 7 8))`,
     `Inst (Arith (LongDiv 0 2 0 2 3))`,
     `Inst (Arith (LongMul 2 0 0 3))`,

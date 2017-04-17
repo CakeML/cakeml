@@ -146,18 +146,25 @@ val peg_longV_def = Define`
 val peg_EbaseParenFn_def = Define`
   peg_EbaseParenFn l =
     case l of
-        [lp; e; rp] =>
-        [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e]; rp]]
-      | [lp; e; Lf (TK CommaT,loc) ; rest; rp] =>
-          [
-            mkNd (mkNT nEbase) [
-              mkNd (mkNT nEtuple)
-                   [lp; mkNd (mkNT nElist2) [e; Lf (TK CommaT,loc); rest]; rp]
-            ]
-          ]
-      | [lp; e; cs; rest; rp] =>
-          [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; cs; rest]; rp]]
-      | _ => []
+      [lp; es; rp] => [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [es]; rp]]
+    | [lp; e; sep; es; rp] =>
+      (case destLf sep of
+         NONE => []
+       | SOME t =>
+         (case destTOK t of
+            NONE => []
+          | SOME t =>
+            if t = CommaT then
+              [
+                mkNd (mkNT nEbase) [
+                  mkNd (mkNT nEtuple) [lp; mkNd (mkNT nElist2) [e; sep; es]; rp]
+                ]
+              ]
+            else
+              [
+                mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; sep; es]; rp]
+              ]))
+    | _ => []
 `
 
 val peg_EbaseParen_def = Define`
@@ -228,7 +235,8 @@ val cmlPEG_def = zDefine`
                choicel [tok isInt (bindNT nEliteral o mktokLf);
                         tok isString (bindNT nEliteral o mktokLf);
                         tok isCharT (bindNT nEliteral o mktokLf);
-                        tok isWordT (bindNT nEliteral o mktokLf)]);
+                        tok isWordT (bindNT nEliteral o mktokLf);
+                        tok (IS_SOME o destFFIT) (bindNT nEliteral o mktokLf)]);
               (mkNT nEbase,
                choicel [pegf (pnt nEliteral) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);

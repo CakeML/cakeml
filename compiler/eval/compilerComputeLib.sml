@@ -64,10 +64,22 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
+      (* basis, TODO: move? *)
+    ,``:mlstring$mlstring``
     ]
-  (* TODO: move (to basicCompute or HOL) *)
   ,computeLib.Defs
-    [ (* ---- source_to_mod ---- *)
+    [
+      (* basis, TODO: move to its own computeLib? *)
+    mlstringTheory.implode_def,
+    mlstringTheory.str_def,
+    mlintTheory.zero_pad_def,
+    mlintTheory.toChar_def,
+    mlintTheory.simple_toChars_def,
+    mlintTheory.maxSmall_DEC_def,
+    mlintTheory.padLen_DEC_eq,
+    mlintTheory.toChars_def,
+    mlintTheory.toString_def,
+      (* ---- source_to_mod ---- *)
      source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
@@ -78,6 +90,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
+    ,source_to_modTheory.astOp_to_modOp_def
       (* ---- conLang ---- *)
     ,backend_commonTheory.bind_tag_def
     ,backend_commonTheory.chr_tag_def
@@ -676,11 +689,27 @@ val add_compiler_compset = computeLib.extend_compset
     ,stack_allocTheory.next_lab_def
     ,stack_allocTheory.stubs_def
     ,stack_allocTheory.word_gc_code_def
+    ,stack_allocTheory.word_gc_partial_or_full_def
     ,stack_allocTheory.word_gc_move_roots_bitmaps_code_def
     ,stack_allocTheory.word_gc_move_bitmaps_code_def
     ,stack_allocTheory.word_gc_move_bitmap_code_def
     ,stack_allocTheory.word_gc_move_code_def
     ,stack_allocTheory.word_gc_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def
+    ,stack_allocTheory.word_gen_gc_partial_move_data_code_def
+    ,stack_allocTheory.word_gen_gc_move_code_def
+    ,stack_allocTheory.word_gen_gc_move_bitmap_code_def
+    ,stack_allocTheory.word_gen_gc_move_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def
+    ,stack_allocTheory.word_gen_gc_move_list_code_def
+    ,stack_allocTheory.word_gen_gc_move_data_code_def
+    ,stack_allocTheory.word_gen_gc_move_refs_code_def
+    ,stack_allocTheory.word_gen_gc_move_loop_code_def
     ,stack_allocTheory.clear_top_inst_def
       (* ---- stack_remove ---- *)
     ,stack_removeTheory.max_stack_alloc_def

@@ -1,4 +1,5 @@
 open preamble modLangTheory;
+open semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory "modSem"
 

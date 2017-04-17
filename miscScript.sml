@@ -1953,12 +1953,6 @@ val PERM_MAP_BIJ = Q.store_thm("PERM_MAP_BIJ",
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP])
 
-val INJ_MAP_EQ_IFF = Q.store_thm("INJ_MAP_EQ_IFF",
-  `∀f l1 l2.
-    INJ f (set l1 ∪ set l2) UNIV ⇒
-    (MAP f l1 = MAP f l2 ⇔ l1 = l2)`,
-  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
-
 val bool_case_eq = Q.store_thm("bool_case_eq",
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
   srw_tac[][] >> metis_tac[]);
@@ -2490,6 +2484,25 @@ val arith_shift_right_rwt = Q.store_thm("arith_shift_right_rwt",
   \\ rw [Once arith_shift_right_def]
   \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
   \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX])
+
+val any_word64_ror_def = Define `
+  any_word64_ror (w:word64) (n:num) =
+    if 64 <= n then any_word64_ror w (n - 64) else
+    if 32 <= n then any_word64_ror (word_ror w 32) (n - 32) else
+    if 16 <= n then any_word64_ror (word_ror w 16) (n - 16) else
+    if 8 <= n then any_word64_ror (word_ror w 8) (n - 8) else
+    if 4 <= n then any_word64_ror (word_ror w 4) (n - 4) else
+    if 2 <= n then any_word64_ror (word_ror w 2) (n - 2) else
+    if 1 <= n then word_ror w 1 else w`
+
+val word_ror_eq_any_word64_ror = Q.store_thm("word_ror_eq_any_word64_ror",
+  `!a n. word_ror a n = any_word64_ror a n`,
+  completeInduct_on `n`
+  \\ rw [Once any_word64_ror_def]
+  \\ qpat_x_assum `!n. P` (assume_tac o GSYM)
+  \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX]
+  THEN1 fs [fcpTheory.CART_EQ,wordsTheory.word_ror_def,arithmeticTheory.SUB_MOD]
+  \\ `n = 1 \/ n = 0` by fs [] \\ fs []);
 
 val TL_DROP_SUC = Q.store_thm("TL_DROP_SUC",
   `∀x ls. x < LENGTH ls ⇒ TL (DROP x ls) = DROP (SUC x) ls`,

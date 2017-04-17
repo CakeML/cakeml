@@ -48,6 +48,11 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 
+# other examples
+characteristic/examples
+characteristic/examples/compilation
+characteristic/examples/compilation/proofs
+
 # explorer
 explorer/pp
 explorer
@@ -55,7 +60,6 @@ explorer
 # tests
 translator/okasaki-examples
 translator/other-examples
-characteristic/examples
 compiler/parsing/tests
 
 # compiler bootstrap

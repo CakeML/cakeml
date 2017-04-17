@@ -500,7 +500,12 @@ val _ = translate (
   |> SIMP_RULE std_ss [word_msb_rw]
   |> CONV_RULE fcpLib.INDEX_CONV |> gconv)
 
-val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
+val _ = translate miscTheory.any_word64_ror_def;
+
+val _ = translate (wordLangTheory.word_sh_def
+  |> INST_TYPE [``:'a``|->``:64``]
+  |> REWRITE_RULE [miscTheory.word_ror_eq_any_word64_ror]
+  |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
 
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
 

@@ -114,6 +114,18 @@ val riscv_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
+val ror = Q.prove(
+  `!w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)`,
+  srw_tac [fcpLib.FCP_ss]
+    [wordsTheory.word_or_def, wordsTheory.word_ror, wordsTheory.word_bits_def,
+     wordsTheory.word_lsl_def, wordsTheory.word_lsr_def,
+     GSYM arithmeticTheory.NOT_LESS]
+  \\ `i - (64 - n) < 64` by decide_tac
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ Cases_on `i + n < 64`
+  \\ simp []
+  )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -216,7 +228,8 @@ in
 end
 
 local
-  val thm = DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``
+  val thm = CONJ (DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``)
+                 (DECIDE ``n <> 0n ==> (64 - n < 64)``)
   val cond_rand_thms =
     utilsLib.mk_cond_rand_thms
        (utilsLib.accessor_fns ``: riscv_state`` @
@@ -258,7 +271,7 @@ in
              srw_tac []
                 [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
                  GSYM wordsTheory.word_mul_def, mul_long, riscv_overflow,
-                 riscv_sub_overflow, thm]
+                 riscv_sub_overflow, ror, thm]
              \\ (if asmLib.isMem asm then
                    full_simp_tac
                       (srw_ss()++wordsLib.WORD_EXTRACT_ss++

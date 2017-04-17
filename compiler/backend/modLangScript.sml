@@ -19,6 +19,50 @@ val _ = set_grammar_ancestry ["ast"];
  * global environment.
  *)
 
+(* Copied from the semantics, but with AallocEmpty missing *)
+val _ = Datatype `
+ op =
+  (* Operations on integers *)
+    Opn opn
+  | Opb opb
+  (* Operations on words *)
+  | Opw word_size opw
+  | Shift word_size shift num
+  | Equality
+  (* Function application *)
+  | Opapp
+  (* Reference operations *)
+  | Opassign
+  | Opref
+  | Opderef
+  (* Word8Array operations *)
+  | Aw8alloc
+  | Aw8sub
+  | Aw8length
+  | Aw8update
+  (* Word/integer conversions *)
+  | WordFromInt word_size
+  | WordToInt word_size
+  (* Char operations *)
+  | Ord
+  | Chr
+  | Chopb opb
+  (* String operations *)
+  | Implode
+  | Strsub
+  | Strlen
+  (* Vector operations *)
+  | VfromList
+  | Vsub
+  | Vlength
+  (* Array operations *)
+  | Aalloc
+  | Asub
+  | Alength
+  | Aupdate
+  (* Call a given foreign function *)
+  | FFI string`;
+
 val _ = Datatype`
  exp =
     Raise exp

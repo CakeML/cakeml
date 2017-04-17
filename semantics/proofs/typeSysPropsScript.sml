@@ -781,6 +781,7 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Vsub) ∧ ts = [Tapp [t3] TC_vector; Tint]) ∨
    ((op = Vlength) ∧ ?t1. ts = [Tapp [t1] TC_vector] ∧ t3 = Tint) ∨
    ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
+   ((op = AallocEmpty) ∧ ?t1. ts = [Tapp [] TC_tup] ∧ t3 = Tapp [t1] TC_array) ∨
    ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
    ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
    ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup) ∨
@@ -1153,11 +1154,15 @@ val type_e_subst = Q.store_thm ("type_e_subst",
      full_simp_tac(srw_ss())[num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def] >>
      pop_assum irule
      >> srw_tac [] [tenv_val_exp_ok_def])
- >- (full_simp_tac(srw_ss())[type_op_cases] >>
+ >- (
+   rw [GSYM PULL_EXISTS, CONJ_ASSOC]
+   >- (
+     full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[Tword_def,Tword8_def,Tword64_def])) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def,Tchar_def,Tword_def] >>
      metis_tac [])
+   >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
      srw_tac[][] >>
@@ -2150,11 +2155,11 @@ val type_ds_no_dup_types_helper = Q.prove (
   decls'.defined_types =
   set (FLAT (MAP (λd.
                 case d of
-                  Dlet v6 v7 => []
-                | Dletrec v8 => []
-                | Dtabbrev x y z => []
-                | Dtype tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
-                | Dexn v10 v11 => []) ds))`,
+                  Dlet _ v6 v7 => []
+                | Dletrec _ v8 => []
+                | Dtabbrev _ x y z => []
+                | Dtype _ tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
+                | Dexn _ v10 v11 => []) ds))`,
  induct_on `ds` >>
  srw_tac[][empty_decls_def] >>
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases,EXISTS_PROD]) >>
@@ -2213,7 +2218,7 @@ val type_ds_no_dup_types = Q.store_thm ("type_ds_no_dup_types",
      srw_tac[][] >>
      FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
      srw_tac[][]
-     >- (qexists_tac `Dtype l` >>
+     >- (qexists_tac `Dtype p l` >>
          srw_tac[][LAMBDA_PROD, combinTheory.o_DEF])
      >- (srw_tac[][combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
          srw_tac[][LAMBDA_PROD] >>

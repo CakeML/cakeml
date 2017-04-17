@@ -312,7 +312,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      rw [Once evaluate_cases]));
 
 val run_eval_dec_def = Define `
-(run_eval_dec mn env ^st (Dlet p e) =
+(run_eval_dec mn env ^st (Dlet _ p e) =
   if ALL_DISTINCT (pat_bindings p []) then
     case run_eval env e st of
        | (st', Rval v) =>
@@ -323,20 +323,20 @@ val run_eval_dec_def = Define `
        | (st', Rerr e) => (st', Rerr e)
   else
     (st, Rerr (Rabort Rtype_error))) ∧
-(run_eval_dec mn env ^st (Dletrec funs) =
+(run_eval_dec mn env ^st (Dletrec _ funs) =
   if ALL_DISTINCT (MAP FST funs) then
     (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
   else
     (st, Rerr (Rabort Rtype_error))) ∧
-(run_eval_dec mn env ^st (Dtype tds) =
+(run_eval_dec mn env ^st (Dtype _ tds) =
   let new_tdecs = set (MAP (\(tvs,tn,ctors). TypeId (mk_id mn tn)) tds) in
     if check_dup_ctors tds ∧ DISJOINT new_tdecs st.defined_types ∧ ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) then
       (st with defined_types := new_tdecs ∪ st.defined_types, Rval <| v := nsEmpty; c := build_tdefs mn tds |>)
     else
       (st, Rerr (Rabort Rtype_error))) ∧
-(run_eval_dec mn env ^st (Dtabbrev tvs tn t) =
+(run_eval_dec mn env ^st (Dtabbrev _ tvs tn t) =
   (st, Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
-(run_eval_dec mn env ^st (Dexn cn ts) =
+(run_eval_dec mn env ^st (Dexn _ cn ts) =
   if TypeExn (mk_id mn cn) ∉ st.defined_types  then
     (st with defined_types := {TypeExn (mk_id mn cn)} ∪ st.defined_types, Rval <| v := nsEmpty; c := nsSing cn (LENGTH ts, TypeExn (mk_id mn cn)) |>)
   else

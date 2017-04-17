@@ -11,6 +11,8 @@ in end;
 
 val _ = new_theory"bvl_to_bviProof";
 
+val _ = Parse.hide"str";
+
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 

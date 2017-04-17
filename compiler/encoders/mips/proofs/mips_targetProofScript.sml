@@ -142,6 +142,18 @@ val mul_long2 = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val ror = Q.prove(
+  `!w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)`,
+  srw_tac [fcpLib.FCP_ss]
+    [wordsTheory.word_or_def, wordsTheory.word_ror, wordsTheory.word_bits_def,
+     wordsTheory.word_lsl_def, wordsTheory.word_lsr_def,
+     GSYM arithmeticTheory.NOT_LESS]
+  \\ `i - (64 - n) < 64` by decide_tac
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ Cases_on `i + n < 64`
+  \\ simp []
+  )
+
 val mips_overflow =
   REWRITE_RULE
     [blastLib.BBLAST_PROVE
@@ -279,7 +291,7 @@ fun state_tac asm =
                [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
-         rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2,
+         rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
              GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
              DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
@@ -287,9 +299,11 @@ fun state_tac asm =
               \\ full_simp_tac
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
-            else
+             else
               NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-              \\ blastLib.FULL_BBLAST_TAC))
+              \\ blastLib.FULL_BBLAST_TAC
+             )
+      )
 
 local
    fun number_of_instructions asl =
@@ -436,6 +450,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
             print_tac "Shift"
             \\ Cases_on `s`
             \\ Cases_on `n1 < 32`
+            THEN_LT LASTGOAL (Cases_on `n1 = 32`)
             \\ next_tac
             )
          >- (

@@ -34,7 +34,7 @@ val _ = Hol_datatype `
  opw = Andw | Orw | Xor | Add | Sub`;
 
 val _ = Hol_datatype `
- shift = Lsl | Lsr | Asr`;
+ shift = Lsl | Lsr | Asr | Ror`;
 
 
 (* Module names *)
@@ -93,6 +93,7 @@ val _ = Hol_datatype `
   | Vlength
   (* Array operations *)
   | Aalloc
+  | AallocEmpty
   | Asub
   | Alength
   | Aupdate
@@ -228,18 +229,18 @@ val _ = Hol_datatype `
  dec =
   (* Top-level bindings
    * The pattern allows several names to be bound at once *)
-    Dlet of pat => exp
+    Dlet of locs => pat => exp
   (* Mutually recursive function definition *)
-  | Dletrec of (varN # varN # exp) list
+  | Dletrec of locs => (varN # varN # exp) list
   (* Type definition
      Defines several data types, each of which has several
      named variants, which can in turn have several arguments.
    *)
-  | Dtype of type_def
+  | Dtype of locs => type_def
   (* Type abbreviations *)
-  | Dtabbrev of tvarN list => typeN => t
+  | Dtabbrev of locs => tvarN list => typeN => t
   (* New exceptions *)
-  | Dexn of conN => t list`;
+  | Dexn of locs => conN => t list`;
 
 
 val _ = type_abbrev( "decs" , ``: dec list``);

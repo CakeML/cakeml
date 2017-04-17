@@ -243,21 +243,39 @@ val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``])
 
 open stack_allocTheory
 
-val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,stackLangTheory.word_shift_def]
+val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
+                    stackLangTheory.word_shift_def, wordLangTheory.shift_def]
 val _ = translate (conv64 clear_top_inst_def)
 val _ = translate (memcpy_code_def |> inline_simp |> conv64)
 val _ = translate (word_gc_move_code_def |> inline_simp |> conv64)
 
-val _ = translate (word_gc_move_bitmap_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_bitmaps_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64)
+val _ = translate (word_gc_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_loop_code_def |> inline_simp |> conv64);
 
-val _ = translate (word_gc_move_list_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_loop_code_def |> inline_simp |> conv64)
+val _ = translate (stack_allocTheory.word_gen_gc_move_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_data_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_refs_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_loop_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
 
-val _ = translate (spec64 stubs_def)
+val _ = translate (spec64 stubs_def);
 
-val _ = translate (spec64 compile_def)
+val _ = translate (spec64 compile_def);
 
 val stack_alloc_comp_side = Q.prove(`
   ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,

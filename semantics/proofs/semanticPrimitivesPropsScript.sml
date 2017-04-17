@@ -68,7 +68,8 @@ val _ = export_rewrites["opw_lookup_def"];
 val shift_lookup_def = Define`
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
-  (shift_lookup Asr = word_asr)`;
+  (shift_lookup Asr = word_asr) ∧
+  (shift_lookup Ror = word_ror)`;
 val _ = export_rewrites["shift_lookup_def"];
 
 val do_word_op_def = Define`
@@ -708,8 +709,8 @@ val ctors_of_tdef_def = Define`
 val _ = export_rewrites["ctors_of_tdef_def"]
 
 val ctors_of_dec_def = Define`
-  ctors_of_dec (Dtype tds) = FLAT (MAP ctors_of_tdef tds) ∧
-  ctors_of_dec (Dexn s _) = [s] ∧
+  ctors_of_dec (Dtype locs tds) = FLAT (MAP ctors_of_tdef tds) ∧
+  ctors_of_dec (Dexn locs s _) = [s] ∧
   ctors_of_dec _ = []`
 val _ = export_rewrites["ctors_of_dec_def"]
 
@@ -729,6 +730,7 @@ val FV_def = tDefine "FV"`
   (FV (Let xo e b) = FV e ∪ (FV b DIFF (case xo of NONE => {} | SOME x => {Short x}))) ∧
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
+  (FV (Lannot e l) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -756,19 +758,19 @@ val FV_defs_MAP = Q.store_thm("FV_defs_MAP",
   Induct_on`ls`>>simp[FORALL_PROD])
 
 val FV_dec_def = Define`
-  (FV_dec (Dlet p e) = FV (Mat e [(p,Lit ARB)])) ∧
-  (FV_dec (Dletrec defs) = FV (Letrec defs (Lit ARB))) ∧
-  (FV_dec (Dtype _) = {}) ∧
-  (FV_dec (Dtabbrev _ _ _) = {}) ∧
-  (FV_dec (Dexn _ _) = {})`
+  (FV_dec (Dlet locs p e) = FV (Mat e [(p,Lit ARB)])) ∧
+  (FV_dec (Dletrec locs defs) = FV (Letrec defs (Lit ARB)))∧
+  (FV_dec (Dtype _ _) = {}) ∧
+  (FV_dec (Dtabbrev _ _ _ _) = {}) ∧
+  (FV_dec (Dexn _ _ _) = {})`
 val _ = export_rewrites["FV_dec_def"]
 
 val new_dec_vs_def = Define`
-  (new_dec_vs (Dtype _) = []) ∧
-  (new_dec_vs (Dtabbrev _ _ _) = []) ∧
-  (new_dec_vs (Dexn _ _) = []) ∧
-  (new_dec_vs (Dlet p e) = pat_bindings p []) ∧
-  (new_dec_vs (Dletrec funs) = MAP FST funs)`
+  (new_dec_vs (Dtype _ _) = []) ∧
+  (new_dec_vs (Dtabbrev _ _ _ _) = []) ∧
+  (new_dec_vs (Dexn _ _ _) = []) ∧
+  (new_dec_vs (Dlet _ p e) = pat_bindings p []) ∧
+  (new_dec_vs (Dletrec _ funs) = MAP FST funs)`
 val _ = export_rewrites["new_dec_vs_def"];
 
 val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
