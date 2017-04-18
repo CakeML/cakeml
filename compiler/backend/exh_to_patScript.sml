@@ -306,7 +306,7 @@ val compile_exp_def = tDefine"compile_exp"`
    compile_exp (SOME x::bvs) e :: compile_funs bvs funs)
   ∧
   (compile_pes tra bvs [(p,e)] =
-   (dtcase compile_row (mk_cons tra 1) bvs p of (bvs,_,f) => f (compile_exp bvs e)))
+   (dtcase compile_row tra bvs p of (bvs,_,f) => f (compile_exp bvs e)))
   ∧
   (compile_pes tra bvs ((p,e)::pes) =
    sIf (mk_cons tra 1) (compile_pat (mk_cons tra 2) p)
