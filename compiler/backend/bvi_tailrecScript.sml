@@ -87,8 +87,8 @@ val is_pure_def = tDefine "is_pure" `
   \\ imp_res_tac MEM_exp_size_imp \\ fs []);
 
 val is_rec_def = Define `
-  (is_rec name (bvi$Call _ d _ _) ⇔ d = SOME name) ∧
-  (is_rec _    _                  ⇔ F)
+  (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
+  (is_rec _    _                     ⇔ F)
   `;
 
 val ok_tail_type_def = Define `
