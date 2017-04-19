@@ -242,7 +242,7 @@ val exh_to_pres_exp_def = tDefine"exh_to_pres_exp"`
   cheat;
 
 (* pat to pres. *)
-val num_to_varn_def = tDefine "num_to_str"`
+val num_to_varn_def = tDefine "num_to_varn"`
   num_to_varn n = if n < 26 then [CHR (97 + n)]
                  else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])`
 cheat;

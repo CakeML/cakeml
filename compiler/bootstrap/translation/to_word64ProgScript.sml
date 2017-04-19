@@ -111,6 +111,7 @@ val res1 = translate presLangTheory.mod_to_json_def;
 val res2 = translate presLangTheory.con_to_json_def;
 val res3 = translate presLangTheory.dec_to_json_def;
 val res4 = translate presLangTheory.exh_to_json_def;
+val res5 = translate presLangTheory.pat_to_json_def;
 
 (* --- *)
 
