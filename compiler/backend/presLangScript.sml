@@ -1,24 +1,29 @@
 open preamble astTheory;
-open conLangTheory modLangTheory exhLangTheory structuredLangTheory;
+open conLangTheory modLangTheory exhLangTheory patLangTheory structuredLangTheory;
 
 val _ = new_theory"presLang";
 
 (*
-* presLang is a presentation language, encompassing many intermediate languages
-* of the compiler, adopting their constructors. The purpose of presLang is to be
-* an intermediate representation between an intermediate language of the
+* presLang is a presentation language, encompassing intermediate languages from
+* modLang to patLang of the compiler, adopting their constructors. However, the
+* constructors for patLang differ a bit since we don't want to present
+* information using de bruijn indices but rather variable names.
+*
+* The purpose of presLang is to be an intermediate representation between an intermediate language of the
 * compiler and the structured language. By translating an intermediate language
 * to presLang, it can be given a structured representation by calling
 * pres_to_strucutred on the presLang representation. presLang has no semantics,
 * as it is never evaluated, and may therefore mix operators, declarations,
 * patterns and expressions.
+*
 *)
 
 (* Special operator wrapper for presLang *)
 val _ = Datatype`
   op =
     | Ast_op ast$op
-    | Conlang_op conLang$op`;
+    | Conlang_op conLang$op
+    | Patlang_op patLang$op`;
 
 (* The format of a constructor, which differs by language. A Nothing constructor
 * indicates a tuple pattern. *)
@@ -69,7 +74,8 @@ val _ = Datatype`
          functions.
          The first varN is the function's name, and the second varN
          is its parameter. *)
-    | Letrec tra ((varN # varN # exp) list) exp`;
+    | Letrec tra ((varN # varN # exp) list) exp
+    | Seq tra exp exp`;
 
 (* Functions for converting intermediate languages to presLang. *)
 
@@ -235,6 +241,58 @@ val exh_to_pres_exp_def = tDefine"exh_to_pres_exp"`
     (exh_to_pres_pat p, exh_to_pres_exp e)::exh_to_pres_pes pes)`
   cheat;
 
+(* pat to pres. *)
+val num_to_varn_def = tDefine "num_to_str"`
+  num_to_varn n = if n < 26 then [CHR (97 + n)]
+                 else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])`
+cheat;
+
+(* The constructors in pat differ a bit because of de bruijn indices. This is
+* solved with the argument h, referring to head of our indexing. Combined with
+* num_to_varn this means we create varNs to match the presLang-constructors
+* where either nums or no name at all were provided. *)
+val pat_to_pres_exp_def = tDefine "pat_to_pres_exp"`
+  (pat_to_pres_exp h (Raise t e) = Raise t (pat_to_pres_exp h e))
+  /\
+  (pat_to_pres_exp h (Handle t e1 e2) =
+    Handle t (pat_to_pres_exp h e1) [(Pvar (num_to_varn h), pat_to_pres_exp (h+1) e2)])
+  /\
+  (pat_to_pres_exp h (Lit t lit) = Lit t lit)
+  /\
+  (pat_to_pres_exp h (Con t num es) =
+    Con t (Exhlang_con num) (MAP (pat_to_pres_exp h) es))
+  /\
+  (pat_to_pres_exp h (Var_local t num) = Var_local t (num_to_varn (h-num-1)))
+  /\
+  (pat_to_pres_exp h (Var_global t num) = Var_global t num)
+  /\
+  (pat_to_pres_exp h (Fun t e) = Fun t (num_to_varn h) (pat_to_pres_exp (h+1) e))
+  /\
+  (pat_to_pres_exp h (App t op es) =
+    App t (Patlang_op op) (MAP (pat_to_pres_exp h) es))
+  /\
+  (pat_to_pres_exp h (If t e1 e2 e3) =
+    If t (pat_to_pres_exp h e1) (pat_to_pres_exp h e2) (pat_to_pres_exp h e3))
+  /\
+  (pat_to_pres_exp h (Let t e1 e2) =
+    Let t (SOME (num_to_varn h)) (pat_to_pres_exp h e1) (pat_to_pres_exp (h+1) e2))
+  /\
+  (pat_to_pres_exp h (Seq t e1 e2) = Seq t (pat_to_pres_exp h e1) (pat_to_pres_exp h e2))
+  /\
+  (pat_to_pres_exp h (Letrec t es e) =
+    let len = LENGTH es in
+      Letrec t (es_to_pres_tups h (len-1) len es) (pat_to_pres_exp (h+len) e))
+  /\
+  (pat_to_pres_exp h (Extend_global t num) = Extend_global t num)
+  /\
+  (* Gives letrec functions names and variable names. *)
+  (es_to_pres_tups _ _ _ [] = [])
+  /\
+  (es_to_pres_tups h i len (e::es) =
+    (num_to_varn (h+i), num_to_varn (h+len), pat_to_pres_exp (h+len+1) e)
+    ::es_to_pres_tups h (i-1) len es)
+`cheat;
+
 (* Helpers for converting pres to structured. *)
 val empty_item_def = Define`
   empty_item name = Item NONE name []`;
@@ -291,7 +349,15 @@ val shift_to_structured_def = Define`
   (shift_to_structured Ror = empty_item "Ror")`;
 
 val op_to_structured_def = Define`
-  (op_to_structured (Conlang_op (Init_global_var num)) = Item NONE "Init_global_var" [num_to_structured num])
+  (op_to_structured (Patlang_op (Tag_eq n1 n2)) =
+    Item NONE "Tag_eq" [(num_to_structured n1);(num_to_structured n2)])
+  /\
+  (op_to_structured (Patlang_op (El num)) = Item NONE "El" [num_to_structured num])
+  /\
+  (op_to_structured (Patlang_op (Op op)) = op_to_structured (Conlang_op op))
+  /\
+  (op_to_structured (Conlang_op (Init_global_var num)) =
+    Item NONE "Init_global_var" [num_to_structured num])
   /\
   (op_to_structured (Conlang_op (Op astop)) = Item NONE "Op" [op_to_structured (Ast_op (astop))])
   /\
@@ -299,15 +365,14 @@ val op_to_structured_def = Define`
   /\
   (op_to_structured (Ast_op (Opb opb)) = Item NONE "Opb" [opb_to_structured opb])
   /\
-  (op_to_structured (Ast_op (Opw word_size opw)) = Item NONE "Opw" [
-    word_size_to_structured word_size;
-    opw_to_structured opw
-  ])
+  (op_to_structured (Ast_op (Opw word_size opw)) =
+    Item NONE "Opw" [ word_size_to_structured word_size; opw_to_structured opw ])
   /\
-  (op_to_structured (Ast_op (Shift word_size shift num)) = Item NONE "Shift" [
-    word_size_to_structured word_size;
-    shift_to_structured shift;
-    num_to_structured num
+  (op_to_structured (Ast_op (Shift word_size shift num)) =
+    Item NONE "Shift" [
+      word_size_to_structured word_size;
+      shift_to_structured shift;
+      num_to_structured num
   ])
   /\
   (op_to_structured (Ast_op Equality) = empty_item "Equality")
@@ -562,6 +627,9 @@ val pres_to_structured_def = tDefine"pres_to_structured"`
       pres_to_structured e
     ]) varexpTup) in
       Item (SOME tra) "Letrec" [varexpTup'; pres_to_structured exp])
+  /\
+  (pres_to_structured (Seq tra e1 e2) =
+    Item (SOME tra) "Seq" [pres_to_structured e1; pres_to_structured e2])
   `cheat;
 
 (* Function to construct general functions from a language to JSON. Call with
@@ -587,5 +655,11 @@ val dec_to_json_def = Define`
 
 val exh_to_json_def = Define`
   exh_to_json = lang_to_json "exhLang" exh_to_pres_exp`;
+
+(* pat_to_pres is initiated with a 0 because of how we want to convert de bruijn
+* indices to variable names and need to keep track of where head is at
+* currently, beginning at 0 *)
+val pat_to_json_def = Define`
+  pat_to_json = lang_to_json "patLang" (pat_to_pres_exp 0)`;
 
 val _ = export_theory();

@@ -386,6 +386,8 @@ val compile_explorer_def = Define`
     let c = c with source_conf updated_by (λc. c with next_global := n) in
     let e = dec_to_exh$compile c.mod_conf.exh_ctors_env e in
     let res = exh_to_json e::res in
+    let e = exh_to_pat$compile e in
+    let res = pat_to_json e::res in
       json_to_string (Array (REVERSE res))`;
 
 val _ = export_theory();
