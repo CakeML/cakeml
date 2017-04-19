@@ -196,7 +196,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ qmatch_abbrev_tac`_ frame _`
   \\ qmatch_goalsub_abbrev_tac`append res`
   \\ xlet`POSTv xv. &MISC_APP_LIST_TYPE STRING_TYPE res xv * frame`
-  >- (xapp \\ instantiate \\ xsimpl)
+  >- (xapp \\ instantiate \\ xsimpl \\ cheat)
   \\ xapp \\ instantiate
   \\ simp[Abbr`frame`]
   \\ map_every qexists_tac[`STDIN "" T * COMMANDLINE cl`,`out`]
