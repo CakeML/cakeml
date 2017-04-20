@@ -83,31 +83,31 @@ val validFD_def = Define`
   validFD fd fs ⇔ fd ∈ FDOM (alist_to_fmap fs.infds)
 `;
 
-(* reads next char *)
-val FDchar_def = Define`
-  FDchar fd fs =
+
+(* TODO: read may not give everything up to the end of the file! *)
+(* read spec: exists 1 <= k <= n such that LENGTH (read n) = k *)
+(* reads n chars *)
+val FDchars_def = Define`
+  FDchars fd fs n =
     do
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
-      if off < LENGTH content then SOME (EL off content)
-      else NONE
+      return(TAKE (MIN (LENGTH content - off) n) content)
     od
 `;
-
-(* increment position in file descriptor *)
+(* increase by n the position in file descriptor *)
 val bumpFD_def = Define`
-  bumpFD fd fs =
-    case FDchar fd fs of
-        NONE => fs
-      | SOME _ =>
-          fs with infds updated_by (ALIST_FUPDKEY fd (I ## SUC))
+  bumpFD fd fs n =
+  case FDchars fd fs n of
+       NONE => fs
+     | SOME l => fs with infds updated_by (ALIST_FUPDKEY fd (I ## ((+) n)))
 `;
 
-(* reads next char and update position *)
+(* reads several chars and update position *)
 (* TODO: do read instead *)
-val fgetc_def = Define`
-  fgetc fd fsys =
-    if validFD fd fsys then SOME (FDchar fd fsys, bumpFD fd fsys)
+val read_def = Define`
+  read fd n fsys =
+    if validFD fd fsys then SOME (FDchars fd fsys n, bumpFD fd fsys n)
     else NONE
 `;
 
@@ -192,22 +192,22 @@ val ffi_open_def = Define`
 
 (* reads the first byte as descriptor index
 *  read the char in the corresponding file
-*  write it in the first byte *)
-(* TODO: ssize_t read(int fd, void *buf, size_t count); 
+*  write it in the first byte 
+*  ssize_t read(int fd, void *buf, size_t count); 
 * swap last two args: 
 * bytes = [fd, count, buf..]
 * *)
-val ffi_fgetc_def = Define`
+val ffi_read_def = Define`
   ffi_fgetc bytes fs =
     do
-      assert(LENGTH bytes = 1);
-      (* larger than count+2 *)
-      (copt, fs') <- fgetc (w2n (HD bytes)) fs;
-      (* (char list, fs) *)
-      case copt of
+      (* TODO option HD ?*)
+      n <- w2n (HD (TL bytes));
+    (* the buffer contains at least the number of requested bytes*)
+      assert(LENGTH bytes >= 2 + n);
+      (lopt, fs') <- read (w2n (HD bytes)) n fs;
+      case lopt of
       | NONE => return ([255w], fs')
-      | SOME c => return ([n2w (ORD c)], fs')
-      (* return (map (n2w o ORD) cl, fs')*)
+      | SOME l => return (map (n2w o ORD) lopt, fs')
     od`;
 
 (* closes a file given its descriptor index *)
@@ -233,61 +233,13 @@ val ffi_isEof_def = Define`
       od ++
       return (LUPDATE 255w 0 bytes, fs)
     od`;
-(* TODO: replace fgetc with read. add write 
-* add ffi for absolute filename from relative?
-* *)
+
 val rofs_ffi_part_def = Define`
   rofs_ffi_part =
     (encode,decode,
       [("open",ffi_open);
-       ("fgetc",ffi_fgetc);
+       ("read",ffi_read);
        ("close",ffi_close);
        ("isEof",ffi_isEof)])`;
-
-
-(* TODO: used? move into proofs? *)
-(* insert null-terminated-string (l1) at specified index (n) in a list (l2) *)
-val insertNTS_atI_def = Define`
-  insertNTS_atI (l1:word8 list) n l2 =
-    TAKE n l2 ++ l1 ++ [0w] ++ DROP (n + LENGTH l1 + 1) l2
-`;
-(* read next line *)
-val FDline_def = Define`
-  FDline fd fs =
-    do
-      (fnm,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.files fnm;
-      assert (off < STRLEN content);
-      let (l,r) = SPLITP ((=)#"\n") (DROP off content) in
-       SOME (l++"\n")
-    od`;
-
-(* move position to next line *)
-val bumpLineFD_def = Define`
-  bumpLineFD fd fs =
-    case FDline fd fs of
-    | NONE => fs
-    | SOME ln => bumpFD fd (fs with infds updated_by
-        ALIST_FUPDKEY fd (I ## ((+) (LENGTH ln -1))))`;
-
-(* move to end of file *)
-val bumpAllFD_def = Define`
-  bumpAllFD fd fs =
-    the fs (do
-      (fnm,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.files fnm;
-      SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (MAX (LENGTH content))))
-    od)`;
-
-(* get list of lines *)
-val linesFD_def = Define`
-  linesFD fd fs = the [] (
-    do
-      (fnm,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.files fnm;
-      assert (off < LENGTH content);
-      SOME (splitlines (DROP off content))
-    od )`;
-
 
 val _ = export_theory();
