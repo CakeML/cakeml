@@ -39,11 +39,8 @@ val compile_pat_def = tDefine "compile_pat" `
    res_tac >>
    decide_tac);
 
-(*
- * EXPLORER: As for `Bool_def`, the `t` parameter is positional information.
- * Currently we only carrying forward the same position information without
- * transforming it in any way.
- *)
+(* The traces are passed along without being split for most expressions, since we
+* expect Lannots to appear around every expression. *)
 val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Raise e) =
     Raise t (compile_exp t env e))
@@ -102,7 +99,8 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Tannot e _) = compile_exp t env e)
   ∧
   (compile_exp t env (Lannot e (st,en)) =
-     compile_exp (mk_cons (mk_cons (mk_cons (mk_cons Empty st.row) st.col) en.row) en.col) env e)
+    let t' = (mk_cons (mk_cons (mk_cons (mk_cons Empty st.row) st.col) en.row) en.col) in
+      compile_exp t' env e)
   ∧
   (compile_exps t env [] = [])
   ∧
