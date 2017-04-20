@@ -19,7 +19,9 @@ val _ = new_theory"source_to_mod";
   * EXPLORER: The `t` parameter is the position information ("t" for "trace").
   *)
 val Bool_def = Define `
- Bool t b = (App t (Opb (if b then Leq else Lt)) [Lit t (IntLit 0); Lit t (IntLit 0)])`;
+ Bool t b =
+  let (t1, t2, t3) = (mk_cons t 1, mk_cons t 2, mk_cons t 3) in
+   (App t1 (Opb (if b then Leq else Lt)) [Lit t2 (IntLit 0); Lit t3 (IntLit 0)])`;
 
 (*
  * EXPLORER: No patterna propagates here. compile_pat just calls itself until
