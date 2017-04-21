@@ -244,8 +244,8 @@ val ffi_write_def = Define`
                          (MAP (CHR o w2n) (TL (TL bytes))) 
                          fs;
       (* return ok code and list of chars *)
-      return (0w :: n2w nw, fs')
-    od` ++ return ([1w], fs');
+      return ([0w,n2w nw], fs')
+    od ++ return ([1w], fs')`;
 (* TODO: error *)
 
 (* closes a file given its descriptor index *)
