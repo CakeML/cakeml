@@ -79,6 +79,7 @@ val add_ast_compset = computeLib.extend_compset
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
+    ,astTheory.TC_word_def
     ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys

@@ -51,11 +51,9 @@ structure inferenceComputeLib = struct
     ,id_to_string_def
     ,list_set_eq_def
     ,list_subset_def
-    ,astTheory.TC_word_def (* TODO: Maybe should be in semantics compset? the inferencer is the only thing that ever uses this though*)
     ],
    computeLib.Tys
     [``:infer_t``
-    ,``:atom``
     ,``:('a,'b)exc``
     ,``:'a infer_st``
     ,``:inferencer_config``
