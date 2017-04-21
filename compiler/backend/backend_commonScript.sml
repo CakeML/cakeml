@@ -56,6 +56,9 @@ val mk_cons_def = Define`
        | None => None
        | _    => Cons tr n`;
 
+val _ = set_fixity "§" (Infixl 480);
+val _ = overload_on ("§", Term `backend_common$mk_cons`);
+
 (* Create new Cons trace, unless any of the original traces are `None`,
 * indicating traces are turned off. *)
 val mk_union_def = Define`
