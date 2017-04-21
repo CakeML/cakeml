@@ -223,9 +223,9 @@ val ffi_read_def = Define`
       | NONE => return ([1w], fs')
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-      | SOME l => return (0w :: n2w (LENGTH lo) ::
-                          MAP (n2w o ORD) lo ++
-                          DROP (LENGTH lo +2) bytes, fs'))
+      | SOME l => return (0w :: n2w (LENGTH l) ::
+                          MAP (n2w o ORD) l ++
+                          DROP (LENGTH l +2) bytes, fs'))
       od`;
 (* TODO: type error? *)
 
