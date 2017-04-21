@@ -225,9 +225,8 @@ val _ = tDefine"compile_pat"`
   (compile_pats t n (p::ps) =
    sIf (mk_cons t 1) (sLet (mk_cons t 2) (Var_local (mk_cons t 3) n)
    (compile_pat (mk_cons t 4) p)) (compile_pats (mk_cons t 5) (n+1) ps) (Bool F))`
-  cheat;
-  (*(WF_REL_TAC `inv_image $< (\x. dtcase x of INL p => pat_size p
-                                         | INR (n,ps) => pat1_size ps)`);*)
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (_,p) => pat_size p
+                                           | INR (_,n,ps) => pat1_size ps)`);
 
 (* given a pattern in a context of bound variables where the most recently
  * bound variable is the value to be matched, return a function that binds new
@@ -253,13 +252,12 @@ val _ = tDefine"compile_row"`
    let (bvs,ms,fs) = compile_cols (mk_cons t 2) bvs ((n+1)+m) (k+1) ps in
    (bvs,(1+m)+ms,
     (λe. sLet (mk_cons t 3) (App (mk_cons t 4) (El k) [Var_local (mk_cons t 5) n]) (f (fs e)))))`
-  cheat;
-  (* (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (bvs,p) => pat_size p
-                                         | INR (bvs,n,k,ps) => pat1_size ps)`); *)
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (_,bvs,p) => pat_size p
+                                           | INR (_,bvs,n,k,ps) => pat1_size ps)`);
 
 (* translate under a context of bound variables *)
 (* compile_pes assumes the value being matched is most recently bound *)
-val compile_exp_def = tDefine"compile_exp"`
+val compile_exp_def = tDefine"compile_exp" `
   (compile_exp bvs (Raise t e) = Raise t (compile_exp bvs e))
   ∧
   (compile_exp bvs (Handle t e1 pes) =
@@ -314,12 +312,11 @@ val compile_exp_def = tDefine"compile_exp"`
      (compile_pes (mk_cons tra 4) bvs pes))
   ∧
   (compile_pes t _ _ = Lit t (IntLit 0))`
-  cheat;
-  (*(WF_REL_TAC `inv_image $< (\x. dtcase x of INL (bvs,e) => exp_size e
+  (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (bvs,e) => exp_size e
                                          | INR (INL (bvs,es)) => exp6_size es
                                          | INR (INR (INL (bvs,funs))) => exp1_size funs
-                                         | INR (INR (INR (bvs,pes))) =>
-                                             exp3_size pes)`);*)
+                                         | INR (INR (INR (_,bvs,pes))) =>
+                                             exp3_size pes)`);
 val _ = export_rewrites["compile_exp_def"];
 
 val compile_def = Define`

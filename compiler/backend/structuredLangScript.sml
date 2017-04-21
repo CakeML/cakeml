@@ -16,6 +16,8 @@ val _ = Datatype`
     | Item (tra option) string (sExp list)
     | List (sExp list)`;
 
+val sExp_size_def = fetch "-" "sExp_size_def";
+
 (* structured_to_json *)
 val num_to_json_def = Define`
   num_to_json n = String (num_to_str n)`;
@@ -33,8 +35,12 @@ val trace_to_json_def = Define`
   * the top level of a trace. *)
   (trace_to_json None = Null)`;
 
+val MEM_sExp_size = store_thm("MEM_sExp_size",
+  ``!es a. MEM a es ==> sExp_size a < sExp1_size es``,
+  Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []);
+
 (* Converts a structured expression to JSON *)
-val structured_to_json_def = tDefine"structured_to_json"`
+val structured_to_json_def = tDefine"structured_to_json" `
   (structured_to_json (Tuple es) =
     let es' = MAP structured_to_json es in
       Object [("isTuple", Bool T); ("elements", Array es')])
@@ -48,6 +54,7 @@ val structured_to_json_def = tDefine"structured_to_json"`
       Object props')
    /\
    (structured_to_json (List es) = Array (MAP structured_to_json es))`
-      cheat;
+  (WF_REL_TAC `measure sExp_size` \\ rw []
+   \\ imp_res_tac MEM_sExp_size \\ fs []);
 
 val _ = export_theory();

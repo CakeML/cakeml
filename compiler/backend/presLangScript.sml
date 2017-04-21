@@ -77,11 +77,17 @@ val _ = Datatype`
     | Letrec tra ((varN # varN # exp) list) exp
     | Seq tra exp exp`;
 
+val exp_size_def = fetch "-" "exp_size_def";
+
 (* Functions for converting intermediate languages to presLang. *)
 
 (* modLang *)
 
-val mod_to_pres_pat_def = tDefine "mod_to_pres_pat"`
+val MEM_pat_size = prove(
+  ``!pats a. MEM a (pats:ast$pat list) ==> pat_size a < pat1_size pats``,
+  Induct \\ rw [] \\ rw [astTheory.pat_size_def] \\ res_tac \\ fs []);
+
+val mod_to_pres_pat_def = tDefine "mod_to_pres_pat" `
   mod_to_pres_pat p =
     case p of
        | ast$Pvar varN => presLang$Pvar varN
@@ -90,9 +96,20 @@ val mod_to_pres_pat_def = tDefine "mod_to_pres_pat"`
        | Pref pat => Pref (mod_to_pres_pat pat)
        (* Won't happen, these are removed in compilation from source to mod. *)
        | Ptannot pat t => Ptannot (mod_to_pres_pat pat) t`
-   cheat;
+  (WF_REL_TAC `measure pat_size` \\ rw []
+   \\ imp_res_tac MEM_pat_size \\ fs [])
 
-val mod_to_pres_exp_def = tDefine"mod_to_pres_exp"`
+val MEM_funs_size = prove(
+  ``!fs v1 v2 e. MEM (v1,v2,e) fs ==> modLang$exp_size e < exp1_size fs``,
+  Induct \\ fs [modLangTheory.exp_size_def] \\ rw []
+  \\ fs [modLangTheory.exp_size_def] \\ res_tac \\ fs []);
+
+val MEM_exps_size = prove(
+  ``!exps e. MEM a exps ==> modLang$exp_size a < exp6_size exps``,
+  Induct \\ fs [modLangTheory.exp_size_def] \\ rw []
+  \\ fs [modLangTheory.exp_size_def] \\ res_tac \\ fs []);
+
+val mod_to_pres_exp_def = tDefine"mod_to_pres_exp" `
   (mod_to_pres_exp (modLang$Raise tra exp) = presLang$Raise tra (mod_to_pres_exp exp))
   /\
   (mod_to_pres_exp (Handle tra exp pes) =
@@ -129,7 +146,11 @@ val mod_to_pres_exp_def = tDefine"mod_to_pres_exp"`
   /\
   (mod_to_pres_pes ((p,e)::pes) =
     (mod_to_pres_pat p, mod_to_pres_exp e)::mod_to_pres_pes pes)`
-  cheat;
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => modLang$exp_size e
+                                         | INR pes => modLang$exp3_size pes)`
+   \\ rw [modLangTheory.exp_size_def]
+   \\ imp_res_tac MEM_funs_size \\ fs []
+   \\ imp_res_tac MEM_exps_size \\ fs []);
 
 val mod_to_pres_dec_def = Define`
   mod_to_pres_dec d =
@@ -147,16 +168,32 @@ val mod_to_pres_def = Define`
   mod_to_pres prompts = Prog (MAP mod_to_pres_prompt prompts)`;
 
 (* con_to_pres *)
-val con_to_pres_pat_def = tDefine"con_to_pres_pat"`
+
+val MEM_pat_size = prove(
+  ``!pats p. MEM p pats ==> conLang$pat_size p < pat1_size pats``,
+  Induct \\ rw [conLangTheory.pat_size_def]  \\ rw [] \\ res_tac \\ fs []);
+
+val con_to_pres_pat_def = tDefine"con_to_pres_pat" `
   con_to_pres_pat p =
     case p of
        | conLang$Pvar varN => presLang$Pvar varN
        | Plit lit => Plit lit
        | Pcon opt ps => Pcon (Conlang_con opt) (MAP con_to_pres_pat ps)
        | Pref pat => Pref (con_to_pres_pat pat)`
-    cheat;
+  (WF_REL_TAC `measure pat_size` \\ rw []
+   \\ imp_res_tac MEM_pat_size \\ fs []);
 
-val con_to_pres_exp_def = tDefine"con_to_pres_exp"`
+val MEM_funs_size = prove(
+  ``!fs v1 v2 e. MEM (v1,v2,e) fs ==> conLang$exp_size e < exp1_size fs``,
+  Induct \\ fs [conLangTheory.exp_size_def] \\ rw []
+  \\ fs [conLangTheory.exp_size_def] \\ res_tac \\ fs []);
+
+val MEM_exps_size = prove(
+  ``!exps e. MEM a exps ==> conLang$exp_size a < exp6_size exps``,
+  Induct \\ fs [conLangTheory.exp_size_def] \\ rw []
+  \\ fs [conLangTheory.exp_size_def] \\ res_tac \\ fs []);
+
+val con_to_pres_exp_def = tDefine"con_to_pres_exp" `
   (con_to_pres_exp (conLang$Raise t e) = Raise t (con_to_pres_exp e))
   /\
   (con_to_pres_exp (Handle t e pes) = Handle t (con_to_pres_exp e) (con_to_pres_pes pes))
@@ -186,7 +223,11 @@ val con_to_pres_exp_def = tDefine"con_to_pres_exp"`
   /\
   (con_to_pres_pes ((p,e)::pes) =
     (con_to_pres_pat p, con_to_pres_exp e)::con_to_pres_pes pes)`
-  cheat;
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => conLang$exp_size e
+                                         | INR pes => conLang$exp3_size pes)`
+   \\ rw [conLangTheory.exp_size_def]
+   \\ imp_res_tac MEM_funs_size \\ fs []
+   \\ imp_res_tac MEM_exps_size \\ fs []);
 
 val con_to_pres_dec_def = Define`
   con_to_pres_dec d =
@@ -201,6 +242,11 @@ val con_to_pres_def = Define`
   con_to_pres prompts = Prog (MAP con_to_pres_prompt prompts)`;
 
 (* exh_to_pres *)
+
+val MEM_pat_size = prove(
+  ``!pats p. MEM p pats ==> exhLang$pat_size p < pat1_size pats``,
+  Induct \\ rw [exhLangTheory.pat_size_def]  \\ rw [] \\ res_tac \\ fs []);
+
 val exh_to_pres_pat_def = tDefine"exh_to_pres_pat"`
   exh_to_pres_pat p =
     case p of
@@ -208,7 +254,18 @@ val exh_to_pres_pat_def = tDefine"exh_to_pres_pat"`
        | Plit lit => Plit lit
        | Pcon num ps => Pcon (Exhlang_con num) (MAP exh_to_pres_pat ps)
        | Pref pat => Pref (exh_to_pres_pat pat)`
-    cheat;
+  (WF_REL_TAC `measure pat_size` \\ rw []
+   \\ imp_res_tac MEM_pat_size \\ fs []);
+
+val MEM_funs_size = prove(
+  ``!fs v1 v2 e. MEM (v1,v2,e) fs ==> exhLang$exp_size e < exp1_size fs``,
+  Induct \\ fs [exhLangTheory.exp_size_def] \\ rw []
+  \\ fs [exhLangTheory.exp_size_def] \\ res_tac \\ fs []);
+
+val MEM_exps_size = prove(
+  ``!exps e. MEM a exps ==> exhLang$exp_size a < exp6_size exps``,
+  Induct \\ fs [exhLangTheory.exp_size_def] \\ rw []
+  \\ fs [exhLangTheory.exp_size_def] \\ res_tac \\ fs []);
 
 val exh_to_pres_exp_def = tDefine"exh_to_pres_exp"`
   (exh_to_pres_exp (exhLang$Raise t e) = Raise t (exh_to_pres_exp e))
@@ -239,19 +296,29 @@ val exh_to_pres_exp_def = tDefine"exh_to_pres_exp"`
   /\
   (exh_to_pres_pes ((p,e)::pes) =
     (exh_to_pres_pat p, exh_to_pres_exp e)::exh_to_pres_pes pes)`
-  cheat;
+  (WF_REL_TAC `inv_image $< (\x. case x of INL e => exhLang$exp_size e
+                                         | INR pes => exhLang$exp3_size pes)`
+   \\ rw [exhLangTheory.exp_size_def]
+   \\ imp_res_tac MEM_funs_size \\ fs []
+   \\ imp_res_tac MEM_exps_size \\ fs []);
 
 (* pat to pres. *)
-val num_to_varn_def = tDefine "num_to_varn"`
+
+val num_to_varn_def = tDefine "num_to_varn" `
   num_to_varn n = if n < 26 then [CHR (97 + n)]
-                 else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])`
-cheat;
+                  else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])`
+  (WF_REL_TAC `measure I` \\ rw [] \\ fs [DIV_LT_X]);
+
+val MEM_exps_size = prove(
+  ``!exps e. MEM a exps ==> patLang$exp_size a < exp1_size exps``,
+  Induct \\ fs [patLangTheory.exp_size_def] \\ rw []
+  \\ fs [patLangTheory.exp_size_def] \\ res_tac \\ fs []);
 
 (* The constructors in pat differ a bit because of de bruijn indices. This is
 * solved with the argument h, referring to head of our indexing. Combined with
 * num_to_varn this means we create varNs to match the presLang-constructors
 * where either nums or no name at all were provided. *)
-val pat_to_pres_exp_def = tDefine "pat_to_pres_exp"`
+val pat_to_pres_exp_def = tDefine "pat_to_pres_exp" `
   (pat_to_pres_exp h (Raise t e) = Raise t (pat_to_pres_exp h e))
   /\
   (pat_to_pres_exp h (Handle t e1 e2) =
@@ -290,8 +357,11 @@ val pat_to_pres_exp_def = tDefine "pat_to_pres_exp"`
   /\
   (es_to_pres_tups h i len (e::es) =
     (num_to_varn (h+i), num_to_varn (h+len), pat_to_pres_exp (h+len+1) e)
-    ::es_to_pres_tups h (i-1) len es)
-`cheat;
+    ::es_to_pres_tups h (i-1) len es)`
+ (WF_REL_TAC `measure (\x. case x of INL (_,e) => exp_size e
+                                   | INR (_,_,_,es) => exp1_size es)`
+  \\ rw [patLangTheory.exp_size_def]
+  \\ imp_res_tac MEM_exps_size \\ fs []);
 
 (* Helpers for converting pres to structured. *)
 val empty_item_def = Define`
@@ -504,13 +574,18 @@ val tctor_to_structured_def = Define`
   /\
   (tctor_to_structured TC_array = empty_item "TC_array")`
 
-val t_to_structured_def = tDefine "t_to_structured"`
+val MEM_t_size = prove(
+  ``!ts t. MEM t ts ==> t_size t < t1_size ts``,
+  Induct \\ fs [t_size_def] \\ rw [] \\ res_tac \\ fs []);
+
+val t_to_structured_def = tDefine "t_to_structured" `
   (t_to_structured (Tvar tvarN) = Item NONE "Tvar" [string_to_structured tvarN])
   /\
   (t_to_structured (Tvar_db n) = Item NONE "Tvar_db" [num_to_structured n])
   /\
   (t_to_structured (Tapp ts tctor) = Item NONE "Tapp" [List (MAP t_to_structured ts); tctor_to_structured tctor])`
-  cheat;
+  (WF_REL_TAC `measure t_size` \\ rw []
+   \\ imp_res_tac MEM_t_size \\ fs []);
 
 val tid_or_exn_to_structured_def = Define`
   tid_or_exn_to_structured te =
@@ -532,7 +607,21 @@ val conf_to_structured_def = Define`
          | Exhlang_con c => Item NONE "SOME" [num_to_structured c]`;
 
 (* Takes a presLang$exp and produces json$obj that mimics its structure. *)
-val pres_to_structured_def = tDefine"pres_to_structured"`
+
+val MEM_exp_size = prove(
+  ``!xs x. MEM x xs ==> exp_size x < exp6_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs []);
+
+val MEM_expTup_size = prove(
+  ``!xs x y. MEM (x,y) xs ==>
+             exp_size x < exp4_size xs /\ exp_size y < exp4_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
+
+val MEM_varexpTup_size = prove(
+  ``!xs x y z. MEM (x,y,z) xs ==> exp_size z < exp1_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
+
+val pres_to_structured_def = tDefine"pres_to_structured" `
   (* Top level *)
   (pres_to_structured (presLang$Prog tops) =
     let tops' = List (MAP pres_to_structured tops) in
@@ -629,8 +718,11 @@ val pres_to_structured_def = tDefine"pres_to_structured"`
       Item (SOME tra) "Letrec" [varexpTup'; pres_to_structured exp])
   /\
   (pres_to_structured (Seq tra e1 e2) =
-    Item (SOME tra) "Seq" [pres_to_structured e1; pres_to_structured e2])
-  `cheat;
+    Item (SOME tra) "Seq" [pres_to_structured e1; pres_to_structured e2])`
+ (WF_REL_TAC `measure exp_size` \\ rw []
+  \\ imp_res_tac MEM_exp_size \\ fs []
+  \\ imp_res_tac MEM_expTup_size \\ fs []
+  \\ imp_res_tac MEM_varexpTup_size \\ fs []);
 
 (* Function to construct general functions from a language to JSON. Call with
 * the name of the language and what fucntion to use to convert it to preslang to
