@@ -169,77 +169,83 @@ val compile_funs_dom = Q.store_thm("compile_funs_dom",
    PairCases_on `h` >>
    rw [compile_exp_def]);
 
-(*
- * EXPLORER: Currently there exists no initial position information for
- * declarations and other non-expression stuff. Therefore, we just feed it with
- * `Empty` position information until further notice.
- *)
+(* We use om_tra as a basis trace for all orphan traces created here. *)
+val om_tra_def = Define`
+  om_tra = Cons orphan_trace 1`;
+
 val alloc_defs_def = Define `
-  (alloc_defs next [] = []) ∧
-  (alloc_defs next (x::xs) =
-    (x, Var_global Empty next) :: alloc_defs (next + 1) xs)`;
+  (alloc_defs n next [] = []) ∧
+  (alloc_defs n next (x::xs) =
+    (x, Var_global (Cons om_tra n) next) :: alloc_defs (n + 1) (next + 1) xs)`;
 
 val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
-  `!next l. MAP FST (alloc_defs next l) = l`,
+  `!n next l. MAP FST (alloc_defs n next l) = l`,
   induct_on `l` >>
   rw [alloc_defs_def]);
 
 val alloc_defs_append = Q.store_thm("alloc_defs_append",
-  `!n l1 l2. alloc_defs n (l1++l2) = alloc_defs n l1 ++ alloc_defs (n + LENGTH l1) l2`,
+  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`,
   induct_on `l1` >>
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
 
-(*
- * EXPLORER: As above, we just feed it `Empty` since we do not have any initial
- * position information yet.
- *)
+val make_varls_def = Define`
+  (make_varls n t [] = [])
+  /\
+  (make_varls n t (x::xs) =
+    let t' = Cons t n in
+      Var_local t' x :: make_varls (n+1) t xs)`;
+
 val compile_dec_def = Define `
- (compile_dec next mn env d =
+ (compile_dec n next mn env d =
   case d of
    | Dlet p e =>
-       let e' = compile_exp Empty env e in
+       let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
+       let e' = compile_exp t1 env e in
        let xs = REVERSE (pat_bindings p []) in
        let l = LENGTH xs in
-         (next + l,
-          alist_to_ns (alloc_defs next xs),
-          Dlet l (Mat Empty e' [(compile_pat p, Con Empty NONE (MAP (Var_local Empty) xs))]))
+       let n'' = n' + l in
+         (n'', next + l,
+          alist_to_ns (alloc_defs n' next xs),
+          Dlet l (Mat t2 e'
+            [(compile_pat p, Con t3 NONE (make_varls 0 t4 xs))]))
    | Dletrec funs =>
        let fun_names = REVERSE (MAP FST funs) in
-       let env' = alist_to_ns (alloc_defs next fun_names) in
-         (next + LENGTH fun_names,
+       let env' = alist_to_ns (alloc_defs n next fun_names) in
+         (n+2, next + LENGTH fun_names,
           env',
-          Dletrec (compile_funs Empty (nsAppend env' env) (REVERSE funs)))
+          Dletrec (compile_funs (Cons om_tra (n+1)) (nsAppend env' env) (REVERSE funs)))
    | Dtype type_def =>
-       (next, nsEmpty, Dtype mn type_def)
+       (n, next, nsEmpty, Dtype mn type_def)
    | Dtabbrev tvs tn t =>
-       (next, nsEmpty, Dtype mn [])
+       (n, next, nsEmpty, Dtype mn [])
    | Dexn cn ts =>
-       (next, nsEmpty, Dexn mn cn ts))`;
+       (n, next, nsEmpty, Dexn mn cn ts))`;
 
 val compile_decs_def = Define`
-  (compile_decs next mn env [] = (next, nsEmpty, [])) ∧
-  (compile_decs next mn env (d::ds) =
-   let (next1, new_env1, d') = compile_dec next mn env d in
-   let (next2, new_env2, ds') =
-     compile_decs next1 mn (nsAppend new_env1 env) ds
+  (compile_decs n next mn env [] = (n, next, nsEmpty, [])) ∧
+  (compile_decs n next mn env (d::ds) =
+   let (n', next1, new_env1, d') = compile_dec n next mn env d in
+   let (n'', next2, new_env2, ds') =
+     compile_decs n' next1 mn (nsAppend new_env1 env) ds
    in
-     (next2, nsAppend new_env2 new_env1, d'::ds'))`;
+     (n'', next2, nsAppend new_env2 new_env1, d'::ds'))`;
 
 val compile_top_def = Define `
-  compile_top next env top =
+  compile_top n next env top =
    case top of
     | Tdec d =>
-      let (next', new_env, d') = (compile_dec next [] env d) in
-        (next', nsAppend new_env env, Prompt NONE [d'])
+      let (n', next', new_env, d') = (compile_dec n next [] env d) in
+        (n', next', nsAppend new_env env, Prompt NONE [d'])
     | Tmod mn specs ds =>
-      let (next', new_env, ds') = (compile_decs next [mn] env ds) in
-        (next', nsAppend (nsLift mn new_env) env, Prompt (SOME mn) ds')`;
+      let (n', next', new_env, ds') = (compile_decs n next [mn] env ds) in
+        (n', next', nsAppend (nsLift mn new_env) env, Prompt (SOME mn) ds')`;
 
 val compile_prog_def = Define `
-  (compile_prog next env [] = (next, env, [])) ∧
-  (compile_prog next env (p::ps) =
-   let (next', env',p') = compile_top next env p in
-   let (next'',env'',ps') = compile_prog next' env' ps in
+  (* n counts the next number to wrap the orphan trace in. *)
+  (compile_prog n next env [] = (next, env, [])) ∧
+  (compile_prog n next env (p::ps) =
+   let (n', next', env',p') = compile_top n next env p in
+   let (next'',env'',ps') = compile_prog n' next' env' ps in
      (next'',env'',(p'::ps')))`;
 
 val _ = Datatype`
@@ -252,7 +258,7 @@ val empty_config_def = Define`
 
 val compile_def = Define`
   compile c p =
-    let (_,e,p') = compile_prog c.next_global c.mod_env p in
+    let (_,e,p') = compile_prog 1 c.next_global c.mod_env p in
     (c with mod_env := e, p')`;
 
 val _ = export_theory();
