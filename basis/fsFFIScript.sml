@@ -59,6 +59,7 @@ val openFile_def = Define`
           return (fd, fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
        od
 `;
+(* TODO need another open with offset at the end of the file *)
 
 (* update filesystem with newly opened file *)
 val openFileFS_def = Define`
@@ -83,10 +84,7 @@ val validFD_def = Define`
   validFD fd fs ⇔ fd ∈ FDOM (alist_to_fmap fs.infds)
 `;
 
-
-(* TODO: read may not give everything up to the end of the file! *)
-(* read spec: exists 1 <= k <= n such that LENGTH (read n) = k *)
-(* reads n chars *)
+(* reads (at most) n chars *)
 val FDchars_def = Define`
   FDchars fd fs n =
     do
@@ -95,6 +93,12 @@ val FDchars_def = Define`
       return(TAKE (MIN (LENGTH content - off) n) content)
     od
 `;
+(* TODO: not accurate.
+* it can be less for various other reasons 
+* "fewer bytes are actually available right now (maybe because we were
+* close to end-of-file, or because we are reading from a pipe, or from a
+* terminal), or because the system call was interrupted by a signal." *)
+
 (* increase by n the position in file descriptor *)
 val bumpFD_def = Define`
   bumpFD fd fs n =
@@ -104,11 +108,23 @@ val bumpFD_def = Define`
 `;
 
 (* reads several chars and update position *)
-(* TODO: do read instead *)
+(* TODO: non-deterministic number of read chars? *)
 val read_def = Define`
   read fd n fsys =
-    if validFD fd fsys then SOME (FDchars fd fsys n, bumpFD fd fsys n)
+    if validFD fd fsys then 
+      SOME (FDchars fd fsys n, bumpFD fd fsys n)
     else NONE
+`;
+
+(* writes several chars at the end of the file *)
+val write_def = Define`
+  write fd n chars fsys =
+  do
+    (fnm, off) <- ALOOKUP fsys.infds fd ;
+    content <- ALOOKUP fsys.files fnm ;
+    return(MIN n (LENGTH chars),
+           fsys with files := (fnm, content ++ TAKE n chars) :: (A_DELKEY fnm fsys.files))
+    od
 `;
 
 (* remove file from file descriptor *)
@@ -189,26 +205,48 @@ val ffi_open_def = Define`
       return (LUPDATE (n2w fd) 0 bytes, fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
+(* TODO: open truncate or append *)
 
-(* reads the first byte as descriptor index
-*  read the char in the corresponding file
-*  write it in the first byte 
-*  ssize_t read(int fd, void *buf, size_t count); 
-* swap last two args: 
-* bytes = [fd, count, buf..]
-* *)
+(* 
+* [descriptor index; number of char to read; buffer]
+*   -> [return code; number of read chars; read chars]
+* corresponding system call:
+*  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
-  ffi_fgetc bytes fs =
+  ffi_read bytes fs =
     do
-      (* TODO option HD ?*)
-      n <- w2n (HD (TL bytes));
-    (* the buffer contains at least the number of requested bytes*)
-      assert(LENGTH bytes >= 2 + n);
-      (lopt, fs') <- read (w2n (HD bytes)) n fs;
-      case lopt of
-      | NONE => return ([255w], fs')
-      | SOME l => return (map (n2w o ORD) lopt, fs')
-    od`;
+    (* the buffer contains at least the number of requested bytes *)
+      assert(LENGTH bytes >= w2n (HD (TL bytes)) + 2);
+      (lo, fs') <- read (w2n (HD bytes)) (w2n (HD (TL bytes))) fs;
+      (case lo of
+      (* return error code *)
+      | NONE => return ([1w], fs')
+      (* return ok code and list of chars
+      *  the end of the array may remain unchanged *)
+      | SOME l => return (0w :: n2w (LENGTH lo) ::
+                          MAP (n2w o ORD) lo ++
+                          DROP (LENGTH lo +2) bytes, fs'))
+      od`;
+(* TODO: type error? *)
+
+(* [descriptor index; number of chars to write; chars to write]
+*    -> [return code; number of written chars]
+* corresponding system call:
+* ssize_t write(int fildes, const void *buf, size_t nbytes) *)
+val ffi_write_def = Define`
+  ffi_write bytes fs =
+    do
+    (* the buffer contains at least the number of requested bytes *)
+      assert(LENGTH bytes >= 2);
+      (* number of bytes written, and updated fs *)
+      (nw, fs') <- write (w2n (HD bytes)) 
+                         (w2n (HD (TL bytes))) 
+                         (MAP (CHR o w2n) (TL (TL bytes))) 
+                         fs;
+      (* return ok code and list of chars *)
+      return (0w :: n2w nw, fs')
+    od` ++ return ([1w], fs');
+(* TODO: error *)
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
