@@ -351,23 +351,23 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c1,aux1) = compile_exps max_app [x] aux in
      let (c2,aux2) = compile_exps max_app (y::xs) aux1 in
        (c1 ++ c2, aux2)) /\
-  (compile_exps max_app [Var v] aux = ([(Var v):bvl$exp], aux)) /\
-  (compile_exps max_app [If x1 x2 x3] aux =
+  (compile_exps max_app [Var t v] aux = ([(Var v):bvl$exp], aux)) /\
+  (compile_exps max_app [If t x1 x2 x3] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app [x2] aux1 in
      let (c3,aux3) = compile_exps max_app [x3] aux2 in
        ([If (HD c1) (HD c2) (HD c3)],aux3)) /\
-  (compile_exps max_app [Let xs x2] aux =
+  (compile_exps max_app [Let t xs x2] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
      let (c2,aux2) = compile_exps max_app [x2] aux1 in
        ([Let c1 (HD c2)], aux2)) /\
-  (compile_exps max_app [Raise x1] aux =
+  (compile_exps max_app [Raise t x1] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
        ([Raise (HD c1)], aux1)) /\
-  (compile_exps max_app [Tick x1] aux =
+  (compile_exps max_app [Tick t x1] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
        ([Tick (HD c1)], aux1)) /\
-  (compile_exps max_app [Op op xs] aux =
+  (compile_exps max_app [Op t op xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
      ([(* if op = Equal then
          TODO: remove everything related to the equality stubs
@@ -376,7 +376,7 @@ val compile_exps_def = tDefine "compile_exps" `
        else *)
          Op (compile_op op) c1]
      ,aux1)) /\
-  (compile_exps max_app [App loc_opt x1 xs2] aux =
+  (compile_exps max_app [App t loc_opt x1 xs2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app xs2 aux1 in
        ([dtcase loc_opt of
@@ -385,7 +385,7 @@ val compile_exps_def = tDefine "compile_exps" `
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ c1))],
         aux2)) /\
-  (compile_exps max_app [Fn loc_opt vs_opt num_args x1] aux =
+  (compile_exps max_app [Fn t loc_opt vs_opt num_args x1] aux =
      let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
      let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile_exps max_app [x1] aux in
@@ -396,7 +396,7 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
-  (compile_exps max_app [Letrec loc_opt vsopt fns x1] aux =
+  (compile_exps max_app [Letrec t loc_opt vsopt fns x1] aux =
      let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
      let vs = dtcase vsopt of NONE => [] | SOME x => x in
      dtcase fns of
@@ -419,11 +419,11 @@ val compile_exps_def = tDefine "compile_exps" `
          let (c3,aux3) = compile_exps max_app [x1] aux2 in
          let c4 = build_recc_lets (MAP FST fns) vs (loc + (num_stubs max_app)) fns_l (HD c3) in
            ([c4],aux3)) /\
-  (compile_exps max_app [Handle x1 x2] aux =
+  (compile_exps max_app [Handle t x1 x2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app [x2] aux1 in
        ([Handle (HD c1) (HD c2)], aux2)) /\
-  (compile_exps max_app [Call ticks dest xs] aux =
+  (compile_exps max_app [Call t ticks dest xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
        ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))`
   (WF_REL_TAC `measure (exp3_size o FST o SND)` >>

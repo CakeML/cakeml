@@ -11,169 +11,177 @@ val vector_tag_def = Define`vector_tag = 0:num`
    in closLang can make more assumptions about the arguments.
 *)
 
-val compile_def = tDefine"compile"`
+val compile_def = tDefine"compile" `
   (compile (Raise tra e) =
-    Raise (compile e)) ∧
+    Raise tra (compile e)) ∧
   (compile (Handle tra e1 e2) =
-    Handle (compile e1) (compile e2)) ∧
+    Handle tra (compile e1) (compile e2)) ∧
   (compile (Lit tra (IntLit i)) =
-    Op (Const i) []) ∧
+    Op tra (Const i) []) ∧
   (compile (Lit tra (Word8 w)) =
-    Op (Const (& (w2n w))) []) ∧
+    Op tra (Const (& (w2n w))) []) ∧
   (compile (Lit tra (Word64 w)) =
-    Op WordFromInt [Op (Const (&(w2n w))) []]) ∧
+    Op (tra§0) WordFromInt [Op (tra§1) (Const (&(w2n w))) []]) ∧
   (compile (Lit tra (Char c)) =
-    Op (Const (& ORD c)) []) ∧
+    Op tra (Const (& ORD c)) []) ∧
   (compile (Lit tra (StrLit s)) =
-    Op (String s) []) ∧
+    Op tra (String s) []) ∧
   (compile (Con tra cn es) =
-    Op (Cons cn) (REVERSE (MAP compile es))) ∧
+    Op tra (Cons cn) (REVERSE (MAP compile es))) ∧
   (compile (Var_local tra n) =
-    Var n) ∧
+    Var tra n) ∧
   (compile (Var_global tra n) =
-    Op (Global n) []) ∧
+    Op tra (Global n) []) ∧
   (compile (Fun tra e) =
-    Fn NONE NONE 1 (compile e)) ∧
+    Fn tra NONE NONE 1 (compile e)) ∧
   (compile (App tra (Op (Op Opapp)) es) =
-    if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
-    App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
+    if LENGTH es ≠ 2 then Op tra Sub (REVERSE (MAP compile es)) else
+    App tra NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
   (compile (App tra (Op (Op (Opn Plus))) es) =
-    Op Add (REVERSE (MAP compile es))) ∧
+    Op tra Add (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opn Minus))) es) =
-    Op Sub (REVERSE (MAP compile es))) ∧
+    Op tra Sub (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opn Times))) es) =
-    Op Mult (REVERSE (MAP compile es))) ∧
+    Op tra Mult (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opn Divide))) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons div_tag) []))
-          (Op Div [Var 0; Var 1]))) ∧
+    Let (tra§1) (REVERSE (MAP compile es))
+      (If (tra§2)
+        (Op (tra§3) Equal [Var (tra§4) 0;
+                           Op (tra§5) (Const 0) []])
+        (Raise (tra§6) (Op (tra§7) (Cons div_tag) []))
+        (Op (tra§8) Div [Var (tra§9) 0; Var (tra§10) 1]))) ∧
   (compile (App tra (Op (Op (Opn Modulo))) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons div_tag) []))
-          (Op Mod [Var 0; Var 1]))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) Equal [Var (tra§3) 0; Op (tra§4) (Const 0) []])
+          (Raise (tra§5) (Op (tra§6) (Cons div_tag) []))
+          (Op (tra§7) Mod [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Op (Opw wz opw))) es) =
-      Op (WordOp wz opw) (REVERSE (MAP compile es))) ∧
+      Op tra (WordOp wz opw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Shift wz sh n))) es) =
-      Op (WordShift wz sh n) (REVERSE (MAP compile es))) ∧
+      Op tra (WordShift wz sh n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opb Lt))) es) =
-    Op Less (REVERSE (MAP compile es))) ∧
-  (compile (App tra (Op (Op (Opb Gt))) es) =
-    Op Greater (REVERSE (MAP compile es))) ∧
+    Op tra Less (REVERSE (MAP compile es))) ∧
+ (compile (App tra (Op (Op (Opb Gt))) es) =
+    Op tra Greater (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opb Leq))) es) =
-    Op LessEq (REVERSE (MAP compile es))) ∧
+    Op tra LessEq (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Opb Geq))) es) =
-    Op GreaterEq (REVERSE (MAP compile es))) ∧
+    Op tra GreaterEq (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Chopb Lt))) es) =
-    Op Less (REVERSE (MAP compile es))) ∧
+    Op tra Less (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Chopb Gt))) es) =
-    Op Greater (REVERSE (MAP compile es))) ∧
+    Op tra Greater (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Chopb Leq))) es) =
-    Op LessEq (REVERSE (MAP compile es))) ∧
+    Op tra LessEq (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (Chopb Geq))) es) =
-    Op GreaterEq (REVERSE (MAP compile es))) ∧
+    Op tra GreaterEq (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Equality)) es) =
-    Op Equal (REVERSE (MAP compile es))) ∧
+    Op tra Equal (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Opassign)) es) =
-    if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
-      Op Update [compile (EL 1 es); Op (Const 0) []; compile (EL 0 es)]) ∧
+    if LENGTH es ≠ 2 then Op tra Sub (REVERSE (MAP compile es)) else
+      Op (tra§0) Update [compile (EL 1 es);
+                         Op (tra§1) (Const 0) [];
+                         compile (EL 0 es)]) ∧
   (compile (App tra (Op (Op Opderef)) es) =
-    Op Deref ((Op (Const 0) [])::(REVERSE (MAP compile es)))) ∧
+    Op (tra§0) Deref ((Op (tra§1) (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op (Op Opref)) es) =
-    Op Ref (REVERSE (MAP compile es))) ∧
+    Op tra Ref (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (WordFromInt W8))) es) =
-      Op Mod ((Op (Const 256) [])::(REVERSE (MAP compile es)))) ∧
+      Op (tra§0) Mod ((Op (tra§1) (Const 256) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op (Op (WordFromInt W64))) es) =
-      Op WordFromInt (REVERSE (MAP compile es))) ∧
+      Op tra WordFromInt (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (WordToInt W8))) es) =
-    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
+    if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es)) else
+                     compile (HD es)) ∧
   (compile (App tra (Op (Op (WordToInt W64))) es) =
-    Op WordToInt (REVERSE (MAP compile es))) ∧
+    Op tra WordToInt (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Ord)) es) =
-    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
+    if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es))
+    else compile (HD es)) ∧
   (compile (App tra (Op (Op Chr)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op Less [Op (Const 0) []; Var 0])
-        (Raise (Op (Cons chr_tag) []))
-        (If (Op Less [Var 0; Op (Const 255) []])
-          (Raise (Op(Cons chr_tag) []))
-          (Var 0)))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; Var (tra§4) 0])
+        (Raise (tra§5) (Op (tra§6) (Cons chr_tag) []))
+        (If (tra§7) (Op (tra§8) Less [Var (tra§9) 0; Op (tra§10) (Const 255) []])
+          (Raise (tra§11) (Op (tra§12) (Cons chr_tag) []))
+          (Var (tra§13) 0)))) ∧
   (compile (App tra (Op (Op Aw8alloc)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons subscript_tag) []))
-          (Op (RefByte F) [Var 0; Var 1]))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; Var (tra§4) 1])
+          (Raise (tra§5) (Op (tra§6) (Cons subscript_tag) []))
+          (Op (tra§7) (RefByte F) [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Op Aw8sub)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 0; Var 1])
-         (Op DerefByte [Var 0; Var 1])
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+         (Op (tra§5) DerefByte [Var (tra§6) 0; Var (tra§7) 1])
+         (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Aw8length)) es) =
-    Op LengthByte (REVERSE (MAP compile es))) ∧
+    Op tra LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Aw8update)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 1; Var 2])
-         (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
-           (Op (Cons tuple_tag) []))
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 1; Var (tra§4) 2])
+         (Let (tra§5) [Op (tra§6) UpdateByte [Var (tra§7) 0;
+                        Var (tra§8) 1; Var (tra§9) 2]]
+           (Op (tra§10) (Cons tuple_tag) []))
+         (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Strsub)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckByte [Var 0; Var 1])
-         (Op DerefByteVec [Var 0; Var 1])
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+         (Op (tra§5) DerefByteVec [Var (tra§6) 0; Var (tra§7) 1])
+         (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Implode)) es) =
-    Op (FromListByte) (REVERSE (MAP compile es))) ∧
+    Op tra (FromListByte) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Strlen)) es) =
-    Op LengthByteVec (REVERSE (MAP compile es))) ∧
+    Op tra LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op VfromList)) es) =
-    Op (FromList vector_tag) (REVERSE (MAP compile es))) ∧
+    Op tra (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Vsub)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckBlock [Var 0; Var 1])
-         (Op El [Var 0; Var 1])
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckBlock [Var (tra§3) 0; Var (tra§4) 1])
+         (Op (tra§5) El [Var (tra§6) 0; Var (tra§7) 1])
+         (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Vlength)) es) =
-    Op LengthBlock (REVERSE (MAP compile es))) ∧
+    Op tra LengthBlock (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Aalloc)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons subscript_tag) []))
-          (Op RefArray [Var 0; Var 1]))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; Var (tra§4) 1])
+          (Raise (tra§5) (Op (tra§6) (Cons subscript_tag) []))
+          (Op (tra§7) RefArray [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Op Asub)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckArray [Var 0; Var 1])
-         (Op Deref [Var 0; Var 1])
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckArray [Var (tra§3) 0; Var (tra§4) 1])
+         (Op (tra§5) Deref [Var (tra§6) 0; Var (tra§7) 1])
+         (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Alength)) es) =
-    Op Length (REVERSE (MAP compile es))) ∧
+    Op tra Length (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Aupdate)) es) =
-    Let (REVERSE (MAP compile es))
-      (If (Op BoundsCheckArray [Var 1; Var 2])
-         (Let [Op Update [Var 0; Var 1; Var 2]]
-            (Op (Cons tuple_tag) []))
-         (Raise (Op (Cons subscript_tag) [])))) ∧
+    Let (tra§0) (REVERSE (MAP compile es))
+      (If (tra§1) (Op (tra§2) BoundsCheckArray [Var (tra§3) 1; Var (tra§4) 2])
+         (Let (tra§5) [Op (tra§6) Update [Var (tra§7) 0;
+                        Var (tra§8) 1; Var (tra§9) 2]]
+            (Op (tra§10) (Cons tuple_tag) []))
+         (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op (FFI n))) es) =
-    Op (FFI n) (REVERSE (MAP compile es))) ∧
+    Op tra (FFI n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Init_global_var n)) es) =
-    Let [Op (SetGlobal n) (REVERSE (MAP compile es))]
-      (Op (Cons tuple_tag) [])) ∧
+    Let (tra§0) [Op (tra§1) (SetGlobal n) (REVERSE (MAP compile es))]
+      (Op (tra§2) (Cons tuple_tag) [])) ∧
   (compile (App tra (Tag_eq n l) es) =
-    Op (TagLenEq n l) (REVERSE (MAP compile es))) ∧
+    Op tra (TagLenEq n l) (REVERSE (MAP compile es))) ∧
   (compile (App tra (El n) es) =
-    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
-      Op El [Op (Const &n) []; compile (HD es)]) ∧
+    if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es)) else
+      Op (tra§0) El [Op (tra§1) (Const &n) []; compile (HD es)]) ∧
   (compile (If tra e1 e2 e3) =
-    If (compile e1) (compile e2) (compile e3)) ∧
+    If tra (compile e1) (compile e2) (compile e3)) ∧
   (compile (Let tra e1 e2) =
-    Let [compile e1] (compile e2)) ∧
+    Let tra [compile e1] (compile e2)) ∧
   (compile (Seq tra e1 e2) =
-    Let [compile e1;compile e2] (Var 1)) ∧
+    Let (tra§0) [compile e1;compile e2] (Var (tra§1) 1)) ∧
   (compile (Letrec tra es e) =
-    Letrec NONE NONE (MAP (λe. (1,compile e)) es) (compile e)) ∧
+    Letrec tra NONE NONE (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global tra n) =
-    Let (REPLICATE n (Op AllocGlobal []))
-      (Op (Cons tuple_tag) []))`
+    Let (tra§0) (REPLICATE n (Op (tra§1) AllocGlobal []))
+      (Op (tra§2) (Cons tuple_tag) []))`
   let
     val exp_size_def = patLangTheory.exp_size_def
   in
