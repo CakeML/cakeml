@@ -114,6 +114,13 @@ val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_LIST_TYPE_CHAR]
 
+val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,
+                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
+                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
+                       EqualityType_LIST_TYPE_CHAR]
+
+
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
 
@@ -213,8 +220,6 @@ val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
 
 val PATLANG_EXP_TYPE_no_closures = Q.prove(
   `∀a b. PATLANG_EXP_TYPE a b ⇒ no_closures b`,
-  cheat);
-(*
   ho_match_mp_tac PATLANG_EXP_TYPE_ind \\
   rw[PATLANG_EXP_TYPE_def] \\ rw[no_closures_def] \\
   TRY (
@@ -229,14 +234,14 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
-            EqualityType_def]); *)
+            EqualityType_def]);
 
 val PATLANG_EXP_TYPE_types_match = Q.prove(
   `∀a b c d. PATLANG_EXP_TYPE a b ∧ PATLANG_EXP_TYPE c d ⇒ types_match b d`,
-  cheat);
-(*
   ho_match_mp_tac PATLANG_EXP_TYPE_ind \\
   rw[PATLANG_EXP_TYPE_def] \\
   Cases_on`c` \\ fs[PATLANG_EXP_TYPE_def,types_match_def,ctor_same_type_def] \\ rw[] \\
@@ -255,13 +260,14 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rw[types_match_def,ctor_same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
-            EqualityType_def]); *)
+            EqualityType_def]);
 
 val PATLANG_EXP_TYPE_11 = Q.prove(
   `∀a b c d. PATLANG_EXP_TYPE a b ∧ PATLANG_EXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  cheat); (*
   ho_match_mp_tac PATLANG_EXP_TYPE_ind \\
   rw[PATLANG_EXP_TYPE_def] \\
   Cases_on`c` \\ fs[PATLANG_EXP_TYPE_def] \\ rw[EQ_IMP_THM] \\
@@ -289,9 +295,11 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
-            EqualityType_def]); *)
+            EqualityType_def]);
 
 val EqualityType_PATLANG_EXP_TYPE = Q.prove(
   `EqualityType PATLANG_EXP_TYPE`,
