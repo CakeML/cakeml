@@ -61,6 +61,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:'a asm_config``
     ,``:'a backend$config``
       (* modLang *)
+    ,``:modLang$op``
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
