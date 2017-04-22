@@ -1,5 +1,6 @@
 open preamble astTheory;
-open conLangTheory modLangTheory exhLangTheory patLangTheory structuredLangTheory;
+open conLangTheory modLangTheory exhLangTheory patLangTheory closLangTheory
+     structuredLangTheory;
 
 val _ = new_theory"presLang";
 
@@ -23,7 +24,8 @@ val _ = Datatype`
   op =
     | Ast_op ast$op
     | Conlang_op conLang$op
-    | Patlang_op patLang$op`;
+    | Patlang_op patLang$op
+    | Closlang_op closLang$op`;
 
 (* The format of a constructor, which differs by language. A Nothing constructor
 * indicates a tuple pattern. *)
@@ -38,6 +40,7 @@ val _ = Datatype`
     (* An entire program. Is divided into any number of top level prompts. *)
     | Prog (exp(*prompt*) list)
     | Prompt (modN option) (exp(*dec*) list)
+    | CodeTable exp ((num # (varN list) # exp) list)
     (* Declarations *)
     | Dlet num exp(*exp*)
     | Dletrec ((varN # varN # exp(*exp*)) list)
@@ -52,6 +55,8 @@ val _ = Datatype`
     (* Expressions *)
     | Raise tra exp
     | Handle tra exp ((exp(*pat*) # exp) list)
+    | Handle' tra exp varN exp
+    | Var tra varN
     | Var_local tra varN
     | Var_global tra num
     | Extend_global tra num (* Introduced in conLang *)
@@ -61,6 +66,9 @@ val _ = Datatype`
        Includes function application. *)
     | App tra op (exp list)
     | Fun tra varN exp
+    | Op tra op (exp list)
+    | App' tra (num option) exp (exp list)
+    | Call tra num num (exp list)
       (* Logical operations (and, or) *)
     | Log tra lop exp exp
     | If tra exp exp exp
@@ -70,12 +78,17 @@ val _ = Datatype`
          A Nothing value for the binding indicates that this is a
          sequencing expression, that is: (e1; e2). *)
     | Let tra (varN option) exp exp
+    | Let' tra ((varN # exp) list) exp
       (* Local definition of (potentially) mutually recursive
          functions.
          The first varN is the function's name, and the second varN
          is its parameter. *)
     | Letrec tra ((varN # varN # exp) list) exp
-    | Seq tra exp exp`;
+    | Letrec' tra (num option) (num list option)
+        ((varN # varN list # exp) list) exp
+    | Fn tra (num option) (num list option) (varN list) exp
+    | Seq tra exp exp
+    | Tick tra exp`;
 
 val exp_size_def = fetch "-" "exp_size_def";
 
@@ -363,6 +376,62 @@ val pat_to_pres_exp_def = tDefine "pat_to_pres_exp" `
   \\ rw [patLangTheory.exp_size_def]
   \\ imp_res_tac MEM_exps_size \\ fs []);
 
+(* clos to pres. *)
+
+val num_to_varn_list_def = Define `
+  num_to_varn_list h n =
+    if n = 0 then [] else
+      num_to_varn (h + n) :: num_to_varn_list h (n-1)`
+
+(* The clos_to_pres function uses the same approach to de bruijn
+* indices as the pat_to_pres function *)
+val clos_to_pres_def = tDefine "clos_to_pres" `
+  (clos_to_pres h (Var t n) = Var t (num_to_varn (h-n-1))) /\
+  (clos_to_pres h (closLang$Let t xs x) =
+     presLang$Let' t
+       (clos_to_pres_tups h (LENGTH xs - 1) xs)
+       (clos_to_pres (h + LENGTH xs) x)) /\
+  (clos_to_pres h (If t x1 x2 x3) =
+     If t (clos_to_pres h x1) (clos_to_pres h x2) (clos_to_pres h x3)) /\
+  (clos_to_pres h (Raise t x) = Raise t (clos_to_pres h x)) /\
+  (clos_to_pres h (Tick t x) = Tick t (clos_to_pres h x)) /\
+  (clos_to_pres h (Handle t x y) =
+     Handle' t (clos_to_pres h x) (num_to_varn h) (clos_to_pres (h+1) y)) /\
+  (clos_to_pres h (Call t n1 n2 xs) = Call t n1 n2 (clos_to_pres_list h xs)) /\
+  (clos_to_pres h (App t n0 x xs) =
+     App' t n0 (clos_to_pres h x) (clos_to_pres_list h xs)) /\
+  (clos_to_pres h (Op t op xs) =
+     Op t (Closlang_op op) (clos_to_pres_list h xs)) /\
+  (clos_to_pres h (Fn t n1 n2 vn x) =
+     Fn t n1 n2 (num_to_varn_list h vn) (clos_to_pres h x)) /\
+  (clos_to_pres h (closLang$Letrec t n1 n2 es e) =
+    let len = LENGTH es in
+      Letrec' t n1 n2 (fun_to_pres_tups h (len-1) len es)
+        (clos_to_pres (h+len) e)) /\
+  (clos_to_pres_list h [] = []) /\
+  (clos_to_pres_list h (x::xs) =
+     clos_to_pres h x :: clos_to_pres_list h xs) /\
+  (clos_to_pres_tups h i [] = []) /\
+  (clos_to_pres_tups h i (x::xs) =
+     (num_to_varn (h+i), clos_to_pres h x) :: clos_to_pres_tups h (i-1) xs) /\
+  (fun_to_pres_tups h i len [] = []:(varN # varN list # exp) list) /\
+  (fun_to_pres_tups h i len ((vn,e)::es) =
+    ((num_to_varn (h+i)):string,
+     num_to_varn_list (h+len-1) vn,
+     (clos_to_pres (h+len+vn) e):exp)
+    :: ((fun_to_pres_tups h (i-1) len es : (varN # varN list # exp) list)))`
+ (WF_REL_TAC `measure (\x. case x of
+    | INL (_,e) => exp_size e
+    | INR (INL (_,es)) => exp3_size es
+    | INR (INR (INL (_,_,es))) => exp3_size es
+    | INR (INR (INR (_,_,_,es))) => exp1_size es)`)
+
+val clos_to_pres_code_def = Define `
+  clos_to_pres_code (e,code_table) =
+    CodeTable (clos_to_pres 0 e)
+      (MAP (\(n,arity,body). (n,num_to_varn_list 0 arity,
+         clos_to_pres arity body)) code_table)`
+
 (* Helpers for converting pres to structured. *)
 val empty_item_def = Define`
   empty_item name = Item NONE name []`;
@@ -535,6 +604,14 @@ val lit_to_structured_def = Define`
   (lit_to_structured (Word64 w) =
     Item NONE "Word64" [empty_item (word_to_hex_string w)])`;
 
+val list_to_structured_def = Define`
+  (list_to_structured f xs = List (MAP f xs))`
+
+val option_to_structured_def = Define`
+  (option_to_structured f opt = case opt of
+                      | NONE => empty_item "NONE"
+                      | SOME opt' => Item NONE "SOME" [f opt'])`
+
 val option_string_to_structured_def = Define`
   (option_string_to_structured opt = case opt of
                       | NONE => empty_item "NONE"
@@ -609,16 +686,28 @@ val conf_to_structured_def = Define`
 (* Takes a presLang$exp and produces json$obj that mimics its structure. *)
 
 val MEM_exp_size = prove(
-  ``!xs x. MEM x xs ==> exp_size x < exp6_size xs``,
-  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs []);
+  ``!xs x. MEM x xs ==> exp_size x < exp12_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
 
 val MEM_expTup_size = prove(
   ``!xs x y. MEM (x,y) xs ==>
-             exp_size x < exp4_size xs /\ exp_size y < exp4_size xs``,
+             exp_size x < exp10_size xs /\ exp_size y < exp10_size xs``,
   Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
 
 val MEM_varexpTup_size = prove(
+  ``!xs x y z. MEM (x,y,z) xs ==> exp_size z < exp4_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
+
+val MEM_varexpTup1_size = prove(
   ``!xs x y z. MEM (x,y,z) xs ==> exp_size z < exp1_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
+
+val MEM_varexpTup3_size = prove(
+  ``!xs x y z. MEM (x,y,z) xs ==> exp_size z < exp3_size xs``,
+  Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
+
+val MEM_varexpTup6_size = prove(
+  ``!xs x z. MEM (x,z) xs ==> exp_size z < exp8_size xs``,
   Induct \\ fs [exp_size_def] \\ rw [] \\ res_tac \\ fs [exp_size_def]);
 
 val pres_to_structured_def = tDefine"pres_to_structured" `
@@ -668,9 +757,20 @@ val pres_to_structured_def = tDefine"pres_to_structured" `
   (pres_to_structured (Raise tra exp) =
       Item (SOME tra) "Raise" [pres_to_structured exp])
   /\
+  (pres_to_structured (Tick tra exp) =
+      Item (SOME tra) "Tick" [pres_to_structured exp])
+  /\
   (pres_to_structured (Handle tra exp expsTup) =
     let expsTup' = List (MAP (\(e1, e2) . Tuple [pres_to_structured e1; pres_to_structured e2]) expsTup) in
       Item (SOME tra) "Handle" [pres_to_structured exp; expsTup'])
+  /\
+  (pres_to_structured (Handle' tra exp varN exp2) =
+    Item (SOME tra) "Handle" [pres_to_structured exp;
+                              string_to_structured varN;
+                              pres_to_structured exp])
+  /\
+  (pres_to_structured (Var tra varN) =
+      Item (SOME tra) "Var" [string_to_structured varN])
   /\
   (pres_to_structured (Var_local tra varN) =
       Item (SOME tra) "Var_local" [string_to_structured varN])
@@ -692,8 +792,19 @@ val pres_to_structured_def = tDefine"pres_to_structured" `
     let exps' = List (MAP pres_to_structured exps) in
       Item (SOME tra) "App" [op_to_structured op; exps'])
   /\
+  (pres_to_structured (Op tra op exps) =
+    let exps' = List (MAP pres_to_structured exps) in
+      Item (SOME tra) "Op" [op_to_structured op; exps'])
+  /\
   (pres_to_structured (Fun tra varN exp) =
       Item (SOME tra) "Fun" [string_to_structured varN; pres_to_structured exp])
+  /\
+  (pres_to_structured (Fn tra n0 n1 varN exp) =
+      Item (SOME tra) "Fn"
+        [option_to_structured num_to_structured n0;
+         option_to_structured (list_to_structured num_to_structured) n1;
+         list_to_structured string_to_structured varN;
+         pres_to_structured exp])
   /\
   (pres_to_structured (Log tra lop exp1 exp2) =
       Item (SOME tra) "Log" [lop_to_structured lop; pres_to_structured exp1; pres_to_structured exp2])
@@ -717,12 +828,55 @@ val pres_to_structured_def = tDefine"pres_to_structured" `
     ]) varexpTup) in
       Item (SOME tra) "Letrec" [varexpTup'; pres_to_structured exp])
   /\
+  (pres_to_structured (Letrec' tra n1 n2 varexpTup exp) =
+    let varexpTup' = List (MAP (\ (v1, args, e) . Tuple [
+      string_to_structured v1;
+      List (MAP string_to_structured args);
+      pres_to_structured e
+    ]) varexpTup) in
+      Item (SOME tra) "Letrec"
+        [option_to_structured num_to_structured n1;
+         option_to_structured (list_to_structured num_to_structured) n2;
+         varexpTup';
+         pres_to_structured exp])
+  /\
+  (pres_to_structured (Let' tra varexpTup exp) =
+    let varexpTup' = List (MAP (\ (v1, e) . Tuple [
+      string_to_structured v1;
+      pres_to_structured e
+    ]) varexpTup) in
+      Item (SOME tra) "Let"
+        [varexpTup';
+         pres_to_structured exp])
+  /\
   (pres_to_structured (Seq tra e1 e2) =
-    Item (SOME tra) "Seq" [pres_to_structured e1; pres_to_structured e2])`
+    Item (SOME tra) "Seq" [pres_to_structured e1; pres_to_structured e2])
+  /\
+  (pres_to_structured (Call tra ticks dest es) =
+    Item (SOME tra) "Call"
+      [num_to_structured ticks;
+       num_to_structured dest;
+       List (MAP (\e. pres_to_structured e) es)])
+  /\
+  (pres_to_structured (App' tra n1 e exps) =
+      Item (SOME tra) "App"
+        [option_to_structured num_to_structured n1;
+         pres_to_structured e;
+         List (MAP (\e. pres_to_structured e) exps)]) /\
+  (pres_to_structured (CodeTable e code_table) =
+    Item NONE "CodeTable"
+      [pres_to_structured e;
+       List (MAP (\(n,args,e).
+         Tuple [num_to_structured n;
+                list_to_structured string_to_structured args;
+                pres_to_structured e]) code_table)])`
  (WF_REL_TAC `measure exp_size` \\ rw []
   \\ imp_res_tac MEM_exp_size \\ fs []
   \\ imp_res_tac MEM_expTup_size \\ fs []
-  \\ imp_res_tac MEM_varexpTup_size \\ fs []);
+  \\ imp_res_tac MEM_varexpTup_size \\ fs []
+  \\ imp_res_tac MEM_varexpTup1_size \\ fs []
+  \\ imp_res_tac MEM_varexpTup3_size \\ fs []
+  \\ imp_res_tac MEM_varexpTup6_size \\ fs []);
 
 (* Function to construct general functions from a language to JSON. Call with
 * the name of the language and what fucntion to use to convert it to preslang to
@@ -753,5 +907,8 @@ val exh_to_json_def = Define`
 * currently, beginning at 0 *)
 val pat_to_json_def = Define`
   pat_to_json = lang_to_json "patLang" (pat_to_pres_exp 0)`;
+
+val clos_to_json_def = Define`
+  clos_to_json = lang_to_json "closLang" (clos_to_pres_code)`;
 
 val _ = export_theory();
