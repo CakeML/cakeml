@@ -90,8 +90,10 @@ add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between "; inf_type_to_string t1;
-                               implode " and "; inf_type_to_string t2]), st)
+          (Failure (l, concat [implode "Type mismatch between ";
+                               inf_type_to_string (t_walkstar st.subst t1);
+                               implode " and ";
+                               inf_type_to_string (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -356,6 +358,11 @@ constrain_op l op ts =
    | (Aalloc, [t1;t2]) =>
        do () <- add_constraint l t1 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [t2] TC_array)
+       od
+   | (AallocEmpty, [t1]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [] TC_tup);
+          return (Infer_Tapp [uvar] TC_array)
        od
    | (Asub, [t1;t2]) =>
        do uvar <- fresh_uvar;

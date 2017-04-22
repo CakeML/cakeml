@@ -41,7 +41,7 @@ val () = computeLib.extend_compset
       [basisProgTheory.basis_def]
     ] cmp
 val inf_eval = computeLib.CBV_CONV cmp
-val basis_config = optionSyntax.dest_some (rconc (inf_eval ``infertype_prog init_config basis``))
+val basis_config = dest_Success (rconc (inf_eval ``infertype_prog init_config basis``))
 
 fun check_inf prog =
   inf_eval ``infertype_prog ^(basis_config) ^(prog)``
@@ -58,7 +58,7 @@ in
     let
       val parsed = optionSyntax.dest_some parsed
     in
-      if optionSyntax.is_some (rconc (check_inf parsed))
+      if is_Success (rconc (check_inf parsed))
       then SOME(rconc (EVAL``basis ++ ^(parsed)``))
       else NONE
     end

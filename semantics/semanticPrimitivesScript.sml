@@ -645,6 +645,9 @@ val _ = Define `
 (store_alloc (Varray (REPLICATE (Num (ABS (I n))) v)) s)
           in
             SOME ((s',t), Rval (Loc lnum))
+    | (AallocEmpty, [Conv NONE []]) =>
+        let (s',lnum) = (store_alloc (Varray []) s) in
+          SOME ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>

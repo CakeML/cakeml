@@ -45,7 +45,14 @@ val init_conf_def = zDefine`
     bvl_conf    := bvl_to_bvi$default_config with <| inline_size_limit := 3; exp_cut := 200 |>
   |>`;
 
-val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, entire_program_def]] cs;
+(*
+val (ls,ty) = entire_program_def |> rconc |> listSyntax.dest_list
+val new_prog = listSyntax.mk_list(List.take(ls,80),ty)
+val entire_program_thm = mk_thm([],mk_eq(lhs(concl(entire_program_def)),new_prog));
+*)
+val entire_program_thm = entire_program_def;
+
+val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, entire_program_thm]] cs;
 
 val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf entire_program``;
 val (c,p) = to_mod_thm0 |> rconc |> dest_pair

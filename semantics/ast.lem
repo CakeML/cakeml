@@ -69,6 +69,7 @@ type op =
   | Vlength
   (* Array operations *)
   | Aalloc
+  | AallocEmpty
   | Asub
   | Alength
   | Aupdate

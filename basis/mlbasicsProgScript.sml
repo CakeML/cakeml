@@ -14,10 +14,15 @@ val mk_unop_def = Define `
   mk_unop name prim = Dlet unknown_loc (Pvar name)
     (Fun "x" (App prim [Var (Short "x")]))`;
 
+(* list, bool, and option come from the primitive types in
+ * semantics/primTypesTheory *)
 val _ = append_prog
   ``[Tdec (Dtabbrev unknown_loc [] "int" (Tapp [] TC_int));
      Tdec (Dtabbrev unknown_loc [] "unit" (Tapp [] TC_tup));
+     Tdec (Dtabbrev unknown_loc [] "string" (Tapp [] TC_string));
      Tdec (Dtabbrev unknown_loc ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
+     Tdec (Dtabbrev unknown_loc ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
+     Tdec (Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
      Tdec (Dtabbrev unknown_loc [] "exn" (Tapp [] TC_exn));
      Tdec (Dtabbrev unknown_loc [] "word" (Tapp [] TC_word8));
      Tdec (Dtabbrev unknown_loc [] "char" (Tapp [] TC_char))]``

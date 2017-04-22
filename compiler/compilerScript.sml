@@ -28,9 +28,9 @@ val locs_to_string_def = Define `
          implode " column ";
          toString &startl.col;
          implode ", ending at row ";
-         toString &startl.row;
+         toString &endl.row;
          implode " column ";
-         toString &startl.col])`;
+         toString &endl.col])`;
 
 val compile_def = Define`
   compile c prelude input =

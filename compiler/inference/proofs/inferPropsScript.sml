@@ -456,7 +456,7 @@ val lookup_st_ex_success = Q.prove (
  >> every_case_tac);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
@@ -480,6 +480,7 @@ val op_case_expand = Q.prove (
      | Vlength => f20
      | Alength => f21
      | Aalloc => f22
+     | AallocEmpty => f30
      | Asub => f23
      | Aupdate => f24
      | FFI n => f25
@@ -515,6 +516,7 @@ val op_case_expand = Q.prove (
    ((op = Vlength) ∧ (f20 st = (Success v, st'))) ∨
    ((op = Alength) ∧ (f21 st = (Success v, st'))) ∨
    ((op = Aalloc) ∧ (f22 st = (Success v, st'))) ∨
+   ((op = AallocEmpty) ∧ (f30 st = (Success v, st'))) ∨
    ((op = Asub) ∧ (f23 st = (Success v, st'))) ∨
    ((op = Aupdate) ∧ (f24 st = (Success v, st'))) ∨
    (?n. (op = FFI n) ∧ (f25 st = (Success v, st'))))`,
@@ -1479,7 +1481,32 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
      >> simp [check_t_def]
      >> metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]));
 
-val constrain_op_check_s = Q.prove (
+val constrain_op_wfs = Q.store_thm ("constrain_op_wfs",
+  `!l tvs op ts t st st'.
+    constrain_op l op ts st = (Success t, st') ∧
+    t_wfs st.subst
+    ⇒
+    t_wfs st'.subst`,
+  rw [constrain_op_def] >>
+  every_case_tac >>
+  fs [success_eqns] >>
+  rw [] >>
+  fs [infer_st_rewrs] >>
+  metis_tac [t_unify_wfs]);
+
+val constrain_op_check_t = Q.store_thm ("constrain_op_check_t",
+  `!l tvs op ts t st st'.
+    constrain_op l op ts st = (Success t, st') ∧
+    EVERY (check_t 0 (count st.next_uvar)) ts
+    ⇒
+    check_t 0 (count st'.next_uvar) t`,
+  rw [constrain_op_def] >>
+  every_case_tac >>
+  fs [success_eqns] >>
+  rw [] >>
+  fs [infer_st_rewrs, check_t_def]);
+
+val constrain_op_check_s = Q.store_thm ("constrain_op_check_s",
 `!l tvs op ts t st st'.
   constrain_op l op ts st = (Success t, st') ∧
   t_wfs st.subst ∧
@@ -1605,6 +1632,13 @@ val constrain_op_check_s = Q.prove (
  >- (`check_s tvs (count st.next_uvar) s`
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (
+   drule t_unify_check_s >>
+   disch_then irule >>
+   simp []
+   >- metis_tac [check_s_more]
+   >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]
+   >- simp [check_t_def])
  >- (match_mp_tac t_unify_check_s >>
      MAP_EVERY qexists_tac [`s`, `h'`, `Infer_Tapp [] TC_int`] >>
      rw []
