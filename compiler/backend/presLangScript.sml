@@ -40,7 +40,7 @@ val _ = Datatype`
     (* An entire program. Is divided into any number of top level prompts. *)
     | Prog (exp(*prompt*) list)
     | Prompt (modN option) (exp(*dec*) list)
-    | CodeTable exp ((num # (varN list) # exp) list)
+    | CodeTable ((num # (varN list) # exp) list)
     (* Declarations *)
     | Dlet num exp(*exp*)
     | Dletrec ((varN # varN # exp(*exp*)) list)
@@ -427,8 +427,8 @@ val clos_to_pres_def = tDefine "clos_to_pres" `
     | INR (INR (INR (_,_,_,es))) => exp1_size es)`)
 
 val clos_to_pres_code_def = Define `
-  clos_to_pres_code (e,code_table) =
-    CodeTable (clos_to_pres 0 e)
+  clos_to_pres_code code_table =
+    CodeTable
       (MAP (\(n,arity,body). (n,num_to_varn_list 0 arity,
          clos_to_pres arity body)) code_table)`
 
@@ -863,10 +863,9 @@ val pres_to_structured_def = tDefine"pres_to_structured" `
         [option_to_structured num_to_structured n1;
          pres_to_structured e;
          List (MAP (\e. pres_to_structured e) exps)]) /\
-  (pres_to_structured (CodeTable e code_table) =
+  (pres_to_structured (CodeTable code_table) =
     Item NONE "CodeTable"
-      [pres_to_structured e;
-       List (MAP (\(n,args,e).
+      [List (MAP (\(n,args,e).
          Tuple [num_to_structured n;
                 list_to_structured string_to_structured args;
                 pres_to_structured e]) code_table)])`
@@ -909,6 +908,10 @@ val pat_to_json_def = Define`
   pat_to_json = lang_to_json "patLang" (pat_to_pres_exp 0)`;
 
 val clos_to_json_def = Define`
-  clos_to_json = lang_to_json "closLang" (clos_to_pres_code)`;
+  clos_to_json suffix = lang_to_json ("closLang" ++ suffix) (clos_to_pres 0)`;
+
+val clos_to_json_table_def = Define`
+  clos_to_json_table suffix =
+    lang_to_json ("closLang" ++ suffix) clos_to_pres_code`;
 
 val _ = export_theory();

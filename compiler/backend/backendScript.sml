@@ -375,6 +375,7 @@ val to_data_change_config = Q.store_thm("to_data_change_config",
 val compile_explorer_def = Define`
   compile_explorer c p =
     let res = [] in
+    (* initial languages *)
     let (c',p) = source_to_mod$compile c.source_conf p in
     let res = mod_to_json p::res in
     let c = c with source_conf := c' in
@@ -388,6 +389,24 @@ val compile_explorer_def = Define`
     let res = exh_to_json e::res in
     let e = exh_to_pat$compile e in
     let res = pat_to_json e::res in
+    let e = pat_to_clos$compile e in
+    let res = clos_to_json "" e::res in
+    (* closLang internal phases *)
+    let es = clos_mti$compile c.clos_conf.do_mti c.clos_conf.max_app [e] in
+    let res = clos_to_json "-multi" (HD es)::res in
+    let (n,es) = renumber_code_locs_list (num_stubs c.clos_conf.max_app + 3) es in
+    let res = clos_to_json "-number" (HD es)::res in
+    let new_c = c.clos_conf with next_loc := n in
+    let e = compile new_c.do_known (HD es) in
+    let res = clos_to_json "-known" e::res in
+    let (e,aux) = compile new_c.do_call e in
+    let prog = (3,0,e)::aux in
+    let res = clos_to_json_table "-call" prog::res in
+    let new_c = new_c with start := num_stubs new_c.max_app + 1 in
+    let prog = clos_remove$compile new_c.do_remove prog in
+    let res = clos_to_json_table "-remove" prog::res in
+    let prog = clos_annotate$compile prog in
+    let res = clos_to_json_table "-annotate" prog::res in
       json_to_string (Array (REVERSE res))`;
 
 val _ = export_theory();
