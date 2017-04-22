@@ -4655,7 +4655,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fs[]>>
     rveq>>fs[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY])>>
   (* remove *)
-  qmatch_asmsub_abbrev_tac`compile c.do_remove ls`>>
+  qmatch_asmsub_abbrev_tac`clos_remove$compile c.do_remove ls`>>
   Q.ISPECL_THEN [`c.max_app`,`c.do_remove`,`ls`] mp_tac (GEN_ALL clos_removeProofTheory.compile_correct)>>
   simp[]>>impl_tac>-
     (* Property of call *)
