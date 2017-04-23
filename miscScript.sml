@@ -939,6 +939,9 @@ val FUNPOW_mono = Q.store_thm("FUNPOW_mono",
   simp[arithmeticTheory.FUNPOW_SUC] >>
   first_x_assum match_mp_tac >> srw_tac[][])
 
+val FUNPOW_SUC_PLUS = Q.store_thm("FUNPOW_SUC_PLUS",
+  `∀n a. FUNPOW SUC n = (+) n`, Induct \\ simp[FUNPOW,FUN_EQ_THM]);
+
 val OPTREL_trans = Q.store_thm("OPTREL_trans",
   `∀R x y z. (∀a b c. (x = SOME a) ∧ (y = SOME b) ∧ (z = SOME c) ∧ R a b ∧ R b c ⇒ R a c)
     ∧ OPTREL R x y ∧ OPTREL R y z ⇒ OPTREL R x z`,
