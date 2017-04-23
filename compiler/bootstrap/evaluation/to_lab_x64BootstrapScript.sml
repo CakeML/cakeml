@@ -7,18 +7,6 @@ open preamble
 
 val _ = new_theory "to_lab_x64Bootstrap";
 
-(* TODO: move? *)
-
-val _ = hide"pos"
-
-val pad_code_MAP = Q.store_thm("pad_code_MAP",
-  `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`,
-  simp[FUN_EQ_THM] \\ Induct
-  \\ simp[lab_to_targetTheory.pad_code_def]
-  \\ Cases \\ simp[lab_to_targetTheory.pad_code_def]);
-
-(* -- *)
-
 val _ = Globals.max_print_depth := 10;
 
 val cs = wordsLib.words_compset()
@@ -606,9 +594,7 @@ val lab_prog_def = mk_abbrev"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
 
 val temp_defs =
   set_diff (List.map #1 (definitions"-"))
-    ["x64_oracle_def","lab_prog_def",
-     (* TODO: only required while these are still defined in this theory *)
-     "Section_num_def","Section_lines_def" ]
+    ["x64_oracle_def","lab_prog_def"]
 
 val () = List.app delete_binding temp_defs
 
