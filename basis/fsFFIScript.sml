@@ -50,8 +50,8 @@ val openFile_def = Define`
 
 (* update filesystem with newly opened file *)
 val openFileFS_def = Define`
-  openFileFS fnm fs =
-    case openFile fnm fs of
+  openFileFS fnm fs off =
+    case openFile fnm fs off of
       NONE => fs
     | SOME (_, fs') => fs'
 `;
@@ -171,7 +171,7 @@ val ffi_open_append_def = Define`
   ffi_open_append bytes fs =
     do
       fname <- getNullTermStr bytes;
-      contents <- ALOOKUP fs.files fname;
+      contents <- ALOOKUP fs.files (implode fname);
       (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
       assert(fd < 255);
       return (LUPDATE (n2w fd) 0 bytes, fs')
