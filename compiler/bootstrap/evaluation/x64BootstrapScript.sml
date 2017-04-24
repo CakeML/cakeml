@@ -639,7 +639,7 @@ val lab_to_target_thm7 =
       RAND_CONV(REWR_CONV enc_secs_again_thm2) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
       REWR_CONV LET_THM THENC
-      RAND_CONV(RATOR_CONV(REWR_CONV pad_code_MAP)))))
+      RAND_CONV(RATOR_CONV(REWR_CONV lab_to_targetTheory.pad_code_MAP)))))
 
 val tm17 =
   lab_to_target_thm7 |> rconc |> funpow 2 rator |> funpow 2 rand
@@ -714,7 +714,7 @@ val tm18 =
 
 val assum_all_enc_ok_light_lab_to_target_thm =
   lab_to_target_thm8 |> DISCH ``all_enc_ok_light x64_config padded_code`` |>
-  CONV_RULE (SIMP_CONV std_ss [pair_case_def,prog_to_bytes_MAP]) |> UNDISCH
+  CONV_RULE (SIMP_CONV std_ss [pair_case_def,lab_to_targetTheory.prog_to_bytes_MAP]) |> UNDISCH
 
 val tm19 =
   assum_all_enc_ok_light_lab_to_target_thm |> rconc |> rand |> rator |> rand |> rand
