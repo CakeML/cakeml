@@ -141,4 +141,4 @@ struct
    val doit = display
 end
 
-val foo = Main.doit 4096;
+val foo = Main.doit 500;

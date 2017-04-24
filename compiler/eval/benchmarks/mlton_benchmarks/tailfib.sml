@@ -24,4 +24,4 @@ structure Main =
         end
    end
 
-val foo = Main.doit 512;
+val foo = Main.doit 50;

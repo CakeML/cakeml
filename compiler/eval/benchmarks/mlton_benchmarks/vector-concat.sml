@@ -19,4 +19,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 32;
+val foo = Main.doit 5;

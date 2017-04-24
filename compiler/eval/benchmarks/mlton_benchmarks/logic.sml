@@ -364,4 +364,4 @@ structure Main =
 
   end; (* Main *)
 
-val foo = Main.doit 256;
+val foo = Main.doit 50;

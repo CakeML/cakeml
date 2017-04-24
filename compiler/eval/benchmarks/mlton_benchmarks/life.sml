@@ -152,4 +152,4 @@ structure Main =
 
   end (* Life *)
 
-val foo = Main.doit 32;
+val foo = Main.doit 2;

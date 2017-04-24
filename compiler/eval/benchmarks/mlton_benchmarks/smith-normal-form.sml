@@ -1,3 +1,6 @@
+(* Written by Henry Cejtin (henry@sourcelight.com). *)
+fun print _ = ();
+
 structure Matrix =
    struct
       type 'entry matrix = int * int * 'entry array
@@ -374,5 +377,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 192;
-
+val foo = Main.doit 2;

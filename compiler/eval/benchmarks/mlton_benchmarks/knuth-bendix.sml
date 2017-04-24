@@ -136,7 +136,7 @@ fun assoc a =
 (* 4- Les sorties *)
 
 (*fun print s = TextIO.output(TextIO.stdOut, s)*)
-(*fun print _ = ()*)
+fun print _ = ()
 val print_string = print
 val print_num = fn x => print (Int.toString x)
 fun print_newline () = print "\n";
@@ -622,4 +622,4 @@ fun group_precedence op1 op2 =
 
   end (* Main *)
 
-val foo = Main.doit 3072;
+val foo = Main.doit 200;

@@ -25,4 +25,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 64
+val foo = Main.doit 5

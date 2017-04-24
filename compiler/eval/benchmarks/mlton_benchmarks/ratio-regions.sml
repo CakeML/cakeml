@@ -13,6 +13,8 @@
  * The max-flow algorithm is preflow-push with periodic relabeling and a
  * wave-based heuristic for scheduling pushes and lifts due to Sebastien Roy.
  *)
+fun print _ = ()
+
 exception Fail of string
 
 
@@ -622,4 +624,4 @@ structure Main =
       val doit = doit
    end
 
-val foo = Main.doit 1536;
+val foo = Main.doit 300;

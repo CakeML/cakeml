@@ -14,4 +14,4 @@ structure Main =
       val doit = f
    end
 
-val foo = Main.doit 5;
+val foo = Main.doit 3;
