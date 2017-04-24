@@ -114,11 +114,10 @@ val compile_to_bytes_def = Define `
     | Failure err => (List[], error_to_str err)
     | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
-(* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
   compiler_x64 cl = compile_to_bytes
     <| inferencer_config := init_config;
-       backend_config := extend_with_args cl x64_compiler_config |>`;
+       backend_config := extend_with_args cl x64_backend_config |>`;
 
 val res = translate
   (compiler_x64_def
