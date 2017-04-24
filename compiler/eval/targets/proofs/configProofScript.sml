@@ -9,53 +9,6 @@ open wordsLib blastLib
 
 val _ = new_theory"configProof";
 
-(* TODO: move *)
-
-val BIJ_support = Q.store_thm("BIJ_support",
-  `∀f s' s. BIJ f s' s' ∧ s' ⊆ s ∧ (∀x. x ∉ s' ⇒ f x = x) ⇒ BIJ f s s`,
-  rw[BIJ_IFF_INV,SUBSET_DEF]
-  >- metis_tac[]
-  \\ qexists_tac`λx. if x ∈ s' then g x else x`
-  \\ rw[] \\ metis_tac[]);
-
-val FINITE_SURJ = Q.store_thm("FINITE_SURJ",
-  `FINITE s ∧ SURJ f s t ⇒ FINITE t`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac FINITE_INJ);
-
-val SURJ_CARD = Q.store_thm("SURJ_CARD",
-  `∀f s t. SURJ f s t ∧ FINITE s ⇒ CARD t ≤ CARD s`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac INJ_CARD);
-
-val FINITE_SURJ_BIJ = Q.store_thm("FINITE_SURJ_BIJ",
-  `FINITE s ∧ SURJ f s t ∧ CARD t = CARD s ⇒ BIJ f s t`,
-  rw[BIJ_DEF,INJ_DEF] >- fs[SURJ_DEF]
-  \\ CCONTR_TAC
-  \\ `SURJ f (s DELETE x) t` by (fs[SURJ_DEF] \\ metis_tac[])
-  \\ `FINITE (s DELETE x)` by metis_tac[FINITE_DELETE]
-  \\ imp_res_tac SURJ_CARD
-  \\ rfs[CARD_DELETE]
-  \\ Cases_on`CARD s` \\ rfs[CARD_EQ_0] \\ fs[]);
-
-val CARD_IMAGE_ID_BIJ = Q.store_thm("CARD_IMAGE_ID_BIJ",
-  `∀s. FINITE s ⇒ (∀x. x ∈ s ⇒ f x ∈ s) ∧ CARD (IMAGE f s) = CARD s ⇒ BIJ f s s`,
-  rw[]
-  \\ `SURJ f s s` suffices_by metis_tac[FINITE_SURJ_BIJ]
-  \\ rw[IMAGE_SURJ]
-  \\ `IMAGE f s ⊆ s` by metis_tac[SUBSET_DEF,IN_IMAGE]
-  \\ metis_tac[SUBSET_EQ_CARD,IMAGE_FINITE]);
-
-val CARD_IMAGE_EQ_BIJ = Q.store_thm("CARD_IMAGE_EQ_BIJ",
-  `∀s. FINITE s ⇒ CARD (IMAGE f s) = CARD s ⇒ BIJ f s (IMAGE f s)`,
-  rw[]
-  \\ `SURJ f s (IMAGE f s)` suffices_by metis_tac[FINITE_SURJ_BIJ]
-  \\ rw[IMAGE_SURJ]);
-
-(* -- *)
-
 val find_name_id = Q.store_thm("find_name_id",
   `x ∉ domain names
    ⇒ find_name names x = x`,
