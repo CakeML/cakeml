@@ -126,6 +126,7 @@ let Texn = Tapp [] TC_exn
 
 (* Patterns *)
 type pat =
+  | Pany
   | Pvar of varN
   | Plit of lit
   (* Constructor applications.
@@ -206,6 +207,9 @@ type prog = list top
 (* Accumulates the bindings of a pattern *)
 val pat_bindings : pat -> list varN -> list varN
 let rec
+pat_bindings Pany already_bound =
+  already_bound
+and
 pat_bindings (Pvar n) already_bound =
   n::already_bound
 and

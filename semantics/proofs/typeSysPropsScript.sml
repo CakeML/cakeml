@@ -844,6 +844,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
  ONCE_REWRITE_TAC [type_p_cases] >>
  simp [deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def, Tword_def, Tword64_def]
  >- metis_tac [check_freevars_lem]
+ >- metis_tac [check_freevars_lem]
  >- (rw [] >>
      srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>

@@ -1276,6 +1276,7 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
  rw [infer_p_def, success_eqns, remove_pair_lem] >>
  rw []
  >- metis_tac [check_s_more]
+ >- metis_tac [check_s_more]
  >- (PairCases_on `v'` >>
      metis_tac [check_s_more2, infer_p_next_uvar_mono])
  >- (rename1 `infer_ps _ _ _ _ = (Success v1, st1)` >>

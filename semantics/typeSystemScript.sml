@@ -384,7 +384,12 @@ val _ = Define `
   )))`;
 
 
-val _ = Hol_reln ` (! tvs tenv n t.
+val _ = Hol_reln ` (! tvs tenv t.
+(check_freevars tvs [] t)
+==>
+type_p tvs tenv Pany t [])
+
+/\ (! tvs tenv n t.
 (check_freevars tvs [] t)
 ==>
 type_p tvs tenv (Pvar n) t [(n,t)])

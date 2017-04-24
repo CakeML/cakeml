@@ -198,6 +198,10 @@ val infer_p_def = tDefine "infer_p" `
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
+(infer_p l ienv Pany =
+  do t <- fresh_uvar;
+     return (t, [])
+  od) ∧
 (infer_p l ienv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p l ienv (Plit (Char s)) =

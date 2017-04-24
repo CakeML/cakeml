@@ -417,6 +417,7 @@ val compile_pat_correct = Q.prove(
   srw_tac[][exhSemTheory.pmatch_def,compile_pat_def] >>
   srw_tac[][patSemTheory.evaluate_def]
   >- srw_tac[][patSemTheory.Boolv_def]
+  >- srw_tac[][patSemTheory.Boolv_def]
   >- (
     (Cases_on`v`>>full_simp_tac(srw_ss())[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> srw_tac[][]) >>
     srw_tac[][compile_state_def,patSemTheory.do_app_def,EXISTS_PROD] >>
@@ -536,6 +537,9 @@ val compile_row_correct = Q.prove(
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
               ffi := s.ffi; globals := genv |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
+  strip_tac >- (
+    srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
+    qexists_tac`[compile_v v]` >> srw_tac[][] ) >>
   strip_tac >- (
     srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
     qexists_tac`[compile_v v]` >> srw_tac[][] ) >>
@@ -1725,6 +1729,10 @@ val compile_row_acc = Q.store_thm("compile_row_acc",
              r2 = ls ++ bvsk ++ (N::bvs2) ∧
              LENGTH ls = n1)`,
   ho_match_mp_tac compile_row_ind >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >> full_simp_tac(srw_ss())[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    srw_tac[][compile_row_def] >> simp[] ) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> full_simp_tac(srw_ss())[] >>
     rpt BasicProvers.VAR_EQ_TAC >>

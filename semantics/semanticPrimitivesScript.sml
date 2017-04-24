@@ -231,6 +231,8 @@ val _ = Define `
 (*val pmatch : env_ctor -> store v -> pat -> v -> alist varN v -> match_result (alist varN v)*)
  val pmatch_defn = Defn.Hol_multi_defns `
 
+(pmatch envC s Pany v' env=  (Match env))
+/\
 (pmatch envC s (Pvar x) v' env=  (Match ((x,v')::env)))
 /\
 (pmatch envC s (Plit l) (Litv l') env=  
