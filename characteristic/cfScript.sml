@@ -442,6 +442,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
     (case insts of
          xv::rest => SOME (xv, rest)
        | _ => NONE) /\
+  v_of_pat envC Pany insts = NONE ∧
   v_of_pat envC (Plit l) insts = SOME (Litv l, insts) /\
   v_of_pat envC (Pcon c args) insts =
     (case v_of_pat_list envC args insts of
@@ -678,6 +679,7 @@ val pat_typechecks_def = Define `
 
 val pat_without_Pref_def = tDefine "pat_without_Pref" `
   pat_without_Pref (Pvar _) = T /\
+  pat_without_Pref Pany = F /\
   pat_without_Pref (Plit _) = T /\
   pat_without_Pref (Pcon _ args) =
     EVERY pat_without_Pref args /\
@@ -768,6 +770,7 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
 
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
+  >- fs [pat_without_Pref_def]
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     qpat_x_assum `_ = _` (fs o sing o GSYM) \\
