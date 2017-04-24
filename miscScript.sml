@@ -584,8 +584,68 @@ val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
   `∀ls. ZIP (MAP FST ls,MAP SND ls) = ls`,
   Induct>>full_simp_tac(srw_ss())[])
 
+val zlookup_def = Define `
+  zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
+
 val tlookup_def = Define `
-  tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
+  tlookup m k = case lookup k m of NONE => k | SOME k => k`;
+
+val tlookup_id = Q.store_thm("tlookup_id",
+  `x ∉ domain names
+   ⇒ tlookup names x = x`,
+  rw[tlookup_def]
+  \\ fs[domain_lookup] \\ CASE_TAC \\ fs[]);
+
+val tlookup_bij_suff = Q.store_thm("tlookup_bij_suff",
+  `set (toList names) = domain names ⇒
+   BIJ (tlookup names) UNIV UNIV`,
+  strip_tac
+  \\ match_mp_tac BIJ_support
+  \\ qexists_tac`domain names`
+  \\ reverse conj_tac
+  >- (
+    simp[]
+    \\ rw[tlookup_def]
+    \\ CASE_TAC \\ fs[domain_lookup])
+  \\ `set (toList names) = IMAGE (tlookup names) (domain names)`
+  by (
+    pop_assum kall_tac
+    \\ simp[EXTENSION,tlookup_def,MEM_toList,domain_lookup]
+    \\ rw[EQ_IMP_THM] \\ fs[]
+    >- (qexists_tac`k` \\ fs[])
+    \\ metis_tac[] )
+  \\ match_mp_tac (MP_CANON CARD_IMAGE_ID_BIJ)
+  \\ fs[] \\ rw[] \\ fs[EXTENSION]
+  \\ metis_tac[]);
+
+val tlookup_bij_iff = Q.store_thm("tlookup_bij_iff",
+  `BIJ (tlookup names) UNIV UNIV ⇔
+   set (toList names) = domain names`,
+  rw[EQ_IMP_THM,tlookup_bij_suff]
+  \\ fs[BIJ_IFF_INV]
+  \\ rw[EXTENSION,domain_lookup,MEM_toList]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    Cases_on`k=x` >- metis_tac[]
+    \\ spose_not_then strip_assume_tac
+    \\ `tlookup names x = x`
+    by (
+      simp[tlookup_def]
+      \\ CASE_TAC \\ fs[] )
+    \\ `tlookup names k = x`
+    by ( simp[tlookup_def] )
+    \\ metis_tac[] )
+  \\ Cases_on`x=v` >- metis_tac[]
+  \\ spose_not_then strip_assume_tac
+  \\ `tlookup names x = v`
+  by ( simp[tlookup_def] )
+  \\ `∀k. tlookup names k ≠ x`
+  by (
+    rw[tlookup_def]
+    \\ CASE_TAC \\ fs[]
+    \\ CCONTR_TAC \\ fs[]
+    \\ metis_tac[])
+  \\ metis_tac[] )
 
 val any_el_def = Define `
   (any_el n [] d = d) /\
@@ -1069,6 +1129,12 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
+  ``(INDEX_FIND n f (x::xs) = SOME y) <=>
+    (f x /\ (y = (n,x))) \/
+    (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
+  fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
 
 val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
   `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,

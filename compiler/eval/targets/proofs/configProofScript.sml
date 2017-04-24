@@ -9,77 +9,14 @@ open wordsLib blastLib
 
 val _ = new_theory"configProof";
 
-val find_name_id = Q.store_thm("find_name_id",
-  `x ∉ domain names
-   ⇒ find_name names x = x`,
-  rw[stack_namesTheory.find_name_def]
-  \\ fs[domain_lookup] \\ CASE_TAC \\ fs[]);
-
-val find_name_bij_suff = Q.store_thm("find_name_bij_suff",
-  `set (toList names) = domain names ⇒
-   BIJ (find_name names) UNIV UNIV`,
-  strip_tac
-  \\ match_mp_tac BIJ_support
-  \\ qexists_tac`domain names`
-  \\ reverse conj_tac
-  >- (
-    simp[]
-    \\ rw[stack_namesTheory.find_name_def]
-    \\ CASE_TAC \\ fs[domain_lookup])
-  \\ `set (toList names) = IMAGE (find_name names) (domain names)`
-  by (
-    pop_assum kall_tac
-    \\ simp[EXTENSION,stack_namesTheory.find_name_def,MEM_toList,domain_lookup]
-    \\ rw[EQ_IMP_THM] \\ fs[]
-    >- (qexists_tac`k` \\ fs[])
-    \\ metis_tac[] )
-  \\ match_mp_tac (MP_CANON CARD_IMAGE_ID_BIJ)
-  \\ fs[] \\ rw[] \\ fs[EXTENSION]
-  \\ metis_tac[]);
-
-val find_name_bij_iff = Q.store_thm("find_name_bij_iff",
-  `BIJ (find_name names) UNIV UNIV ⇔
-   set (toList names) = domain names`,
-  rw[EQ_IMP_THM,find_name_bij_suff]
-  \\ fs[BIJ_IFF_INV]
-  \\ rw[EXTENSION,domain_lookup,MEM_toList]
-  \\ rw[EQ_IMP_THM]
-  >- (
-    Cases_on`k=x` >- metis_tac[]
-    \\ spose_not_then strip_assume_tac
-    \\ `find_name names x = x`
-    by (
-      simp[stack_namesTheory.find_name_def]
-      \\ CASE_TAC \\ fs[] )
-    \\ `find_name names k = x`
-    by ( simp[stack_namesTheory.find_name_def] )
-    \\ metis_tac[] )
-  \\ Cases_on`x=v` >- metis_tac[]
-  \\ spose_not_then strip_assume_tac
-  \\ `find_name names x = v`
-  by ( simp[stack_namesTheory.find_name_def] )
-  \\ `∀k. find_name names k ≠ x`
-  by (
-    rw[stack_namesTheory.find_name_def]
-    \\ CASE_TAC \\ fs[]
-    \\ CCONTR_TAC \\ fs[]
-    \\ metis_tac[])
-  \\ metis_tac[] )
-
 val names_tac =
-  simp[find_name_bij_iff]
+  simp[tlookup_bij_iff]
   \\ EVAL_TAC
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 val x64_machine_config_def = Define`
   x64_machine_config = <|target:= x64_target; len_reg:=6 ; ptr_reg := 7 ; callee_saved_regs := [12;13;14]|>`
-
-val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
-  ``(INDEX_FIND n f (x::xs) = SOME y) <=>
-    (f x /\ (y = (n,x))) \/
-    (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
-  fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
 
 val x64_conf_ok = Q.store_thm("x64_conf_ok",`
   conf_ok x64_compiler_config x64_machine_config`,
