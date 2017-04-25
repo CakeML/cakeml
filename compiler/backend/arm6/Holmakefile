@@ -1,1 +1,1 @@
-INCLUDES = ../../.. ../../../basis/pure .. ../../encoders/arm6
+INCLUDES = ../../.. ../../../basis/pure .. ../.. ../../encoders/arm6
