@@ -33,12 +33,17 @@ val concat_with_def = Define`
   (concat_with [s] c acc = acc ++ s) /\
   (concat_with (s::ss) c acc = concat_with ss c (acc ++ s ++ c))`;
 
+(* To output a string in the JSON such that, if the string would be printed
+* directly, it should look like the corresponding CakeML value. *)
 val escape_def = Define`
   (escape "" = "")
   /\
-  (escape (#"\n"::s) = #"\\":: #"n" ::escape s)
+  (* Output two backslashes in the JSON, followed by an "n", which will be
+  * printed as "\n". *)
+  (escape (#"\n"::s) = #"\\":: #"\\" :: #"n" ::escape s)
   /\
-  (escape (#"\\"::s) = #"\\":: #"\\" ::escape s)
+  (* Output four backslashes in the JSON, which will be printed as "\\". *)
+  (escape (#"\\"::s) = #"\\":: #"\\" :: #"\\":: #"\\" ::escape s)
   /\
   (escape (#"\""::s) = #"\\":: #"\"" ::escape s)
   /\
@@ -49,14 +54,14 @@ val obj_size_def = fetch "-" "obj_size_def"
 val json_to_string_def = tDefine "json_to_string" `
   (json_to_string obj =
     case obj of
-       | Object mems => List "{ " ++ (concat_with (MAP mem_to_string mems) (List ", ") (List "")) ++ List " }"
-       | Array obs => List "[ " ++ (concat_with (MAP json_to_string obs) (List ", ") (List "")) ++ List " ]"
+       | Object mems => List "{" ++ (concat_with (MAP mem_to_string mems) (List ",") (List "")) ++ List "}"
+       | Array obs => List "[" ++ (concat_with (MAP json_to_string obs) (List ",") (List "")) ++ List "]"
        | String s => List "\"" ++ List (escape s) ++ List "\""
        | Int i => List (int_to_str i)
        | Bool b => if b then List "true" else List "false"
        | Null => List "null")
   /\
-  (mem_to_string (n, ob) = List "\"" ++ List n ++ List "\": " ++ (json_to_string ob))`
+  (mem_to_string (n, ob) = List "\"" ++ List n ++ List "\":" ++ (json_to_string ob))`
   (WF_REL_TAC `measure (\x. case x of
        | INL obj => obj_size obj
        | INR p => obj2_size p)` \\ rw []
