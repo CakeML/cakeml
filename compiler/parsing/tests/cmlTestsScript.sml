@@ -134,12 +134,12 @@ val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec`` "val w = 0w3"
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern`` "(x:int) :: _"
           (SOME ``Pcon (SOME (Short "::")) [
                      Ptannot (Pvar "x") (Tapp [] (TC_name (Short "int")));
-                     Pvar "_"]``)
+                     Pany]``)
 
 val _ = parsetest0 ``nPattern`` ``ptree_pattern nPattern``
           "(_, x::y :int list, z)"
           (SOME ``Pcon NONE [
-                     Pvar "_";
+                     Pany;
                      Ptannot (Pcon (SOME (Short "::")) [Pvar "x"; Pvar "y"])
                              (Tapp [Tapp [] (TC_name (Short "int"))]
                                    (TC_name (Short "list")));
@@ -276,7 +276,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE``
           (SOME ``Mat (Var (Short "x"))
                     [(Pcon (SOME (Short "nil")) [],Lit (IntLit 3));
                      (Pcon (SOME (Short "::"))
-                               [Pcon (SOME (Short "nil")) []; Pvar "_"],
+                               [Pcon (SOME (Short "nil")) []; Pany],
                       Lit (IntLit 1));
                      (Pcon (SOME (Short "::"))
                                [Pcon (SOME (Short "::"))
@@ -291,7 +291,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case x of [] => 3 | [e, _] => e"
                       (Pcon (SOME (Short "::"))
                                 [Pvar "e";
                                  Pcon (SOME (Short "::"))
-                                          [Pvar "_";
+                                          [Pany;
                                            Pcon (SOME (Short "nil")) []]],
                        Var (Short "e"))]``)
 
@@ -527,6 +527,6 @@ val _ = parsetest ``nE`` ``ptree_Expr nE`` "#\"a\" + 1"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
                    (SOME ``Mat (Var (Short "c"))
                                [(Plit (Char #"a"), Lit (IntLit 1));
-                                (Pvar "_", Lit (IntLit 2))]``)
+                                (Pany, Lit (IntLit 2))]``)
 
 val _ = export_theory()
