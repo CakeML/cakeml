@@ -1,7 +1,7 @@
 open preamble
      x64ProgTheory
      export_x64Theory
-     configTheory
+     x64_configTheory
      ml_translatorLib cfTacticsLib
      ioProgLib
 
@@ -41,7 +41,7 @@ val res = translate ffi_asm_def;
 val res = translate x64_export_def;
 
 val res = translate
-  (x64_compiler_config_def
+  (x64_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
 val error_to_str_def = Define`
