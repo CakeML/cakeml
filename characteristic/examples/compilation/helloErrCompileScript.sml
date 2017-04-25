@@ -1,57 +1,8 @@
-open HolKernel boolLib bossLib lcsymtacs
-open x64_compileLib x64_exportLib helloErrProgTheory
+open preamble compilationLib helloErrProgTheory
 
 val _ = new_theory "helloErrCompile"
 
-val rconc = rhs o concl
-
-val _ = PolyML.timing true;
-val _ = Globals.max_print_depth := 20;
-val _ = PolyML.print_depth 5;
-
-fun println s = print (strcat s "\n");
-
-
-fun to_bytes alg conf prog =
-  let
-  val _ = println "Compile to livesets"
-  val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
-  val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
-  val _ = println "Repeat compilation with oracle"
-  (*This repeats the "to_livesets" step, but that isn't very costly*)
-  val compile_thm = Count.apply eval``
-    compile (^(conf) with word_to_word_conf := ^(wc)) ^(prog)``
-  (* Alternatively: we can use the theories to manipulate init directly
-  however, running the simplifier on the result takes quite long as well
-  val rw = backendTheory.to_livesets_invariant |> SIMP_RULE std_ss[LET_THM]
-   |> GEN_ALL |> ISPECL [wc,prog,``x64_compiler_config``]
-   |> ONCE_REWRITE_RULE[init] |> SIMP_RULE std_ss []
-  val test2 = Count.apply eval``
-    let (rcm,c,p) = ^(rconc init) in
-    from_livesets (rcm,c with word_to_word_conf:= ^(wc),p)``
-   *)
-  in
-    compile_thm
-  end
-
-val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
-
-fun write_asm [] = ()
-  | write_asm ((name,(bytes,ffi_names))::xs) =
-    (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
-       bytes (name ^ ".S") ;
-    write_asm xs)
-
-val helloErr_prog = helloErr_prog_def |> REWRITE_RULE [listTheory.SNOC_APPEND, listTheory.APPEND] |> concl |> rand
-
-val helloErr_compiled = to_bytes 3 ``x64_compiler_config`` helloErr_prog
-
-val helloErr_bytes = extract_bytes helloErr_compiled
-
-val store2 = save_thm ("helloErr", helloErr_compiled)
-val store1 = write_asm [ ("helloErr", helloErr_bytes) ]
+val helloErr_compiled = save_thm("helloErr_compiled",
+  compile_x64 500 500 "helloErr" helloErr_prog_def);
 
 val _ = export_theory ();
