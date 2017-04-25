@@ -3,14 +3,16 @@ open backend_commonTheory
 
 val _ = new_theory"exh_to_pat"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(*TODO: Verify that Empty is fine for Con here (should be since the con is never
-* used but only there to determine true false, which the trace shouldnt affect *)
+
 val Bool_def = Define `
   Bool b = Con Empty (if b then true_tag else false_tag) []`;
 val Bool_eqns = save_thm("Bool_eqns[simp]",
   [``Bool T``,``Bool F``]
   |> List.map (SIMP_CONV(std_ss)[Bool_def])
   |> LIST_CONJ)
+
+val cons_bool_def = Define `
+  cons_bool t b = Con t (if b then true_tag else false_tag) []`;
 
 val sIf_def = Define `
   sIf tra e1 e2 e3 =
@@ -201,8 +203,8 @@ val _ = Define`
 (* return an expression that evaluates to whether the pattern matches the most
  * recently bound variable *)
 val _ = tDefine"compile_pat"`
-  (compile_pat _ (Pvar _) =
-   Bool T)
+  (compile_pat t (Pvar _) =
+   cons_bool t T)
   ∧
   (compile_pat t (Plit l) =
    App (mk_cons t 1) (Op (Op Equality)) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
@@ -212,7 +214,8 @@ val _ = tDefine"compile_pat"`
   ∧
   (compile_pat t (Pcon tag ps) =
    sIf (mk_cons t 1) (App (mk_cons t 2) (Tag_eq tag (LENGTH ps)) [Var_local (mk_cons t 3) 0])
-     (Let_Els (mk_cons t 4) 0 (LENGTH ps) (compile_pats (mk_cons t 5) 0 ps)) (Bool F))
+     (Let_Els (mk_cons t 4) 0 (LENGTH ps) (compile_pats (mk_cons t 5) 0 ps))
+     (cons_bool (mk_cons t 6) F))
   ∧
   (compile_pat t (Pref p) =
    sLet (mk_cons t 1) (App (mk_cons t 2) (Op (Op Opderef)) [Var_local (mk_cons t 3) 0])
@@ -220,11 +223,11 @@ val _ = tDefine"compile_pat"`
   ∧
 (* return an expression that evaluates to whether all the m patterns match the
  * m most recently bound variables; n counts 0..m *)
-  (compile_pats _ _ [] = Bool T)
+  (compile_pats t _ [] = cons_bool t T)
   ∧
   (compile_pats t n (p::ps) =
    sIf (mk_cons t 1) (sLet (mk_cons t 2) (Var_local (mk_cons t 3) n)
-   (compile_pat (mk_cons t 4) p)) (compile_pats (mk_cons t 5) (n+1) ps) (Bool F))`
+   (compile_pat (mk_cons t 4) p)) (compile_pats (mk_cons t 5) (n+1) ps) (cons_bool (mk_cons t 6) F))`
   (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (_,p) => pat_size p
                                            | INR (_,n,ps) => pat1_size ps)`);
 

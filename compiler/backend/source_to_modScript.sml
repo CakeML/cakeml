@@ -1,5 +1,4 @@
 open preamble astTheory terminationTheory modLangTheory;
-open jsonTheory;
 
 val _ = numLib.prefer_num();
 
@@ -15,12 +14,11 @@ val _ = new_theory"source_to_mod";
  * Closures rather than Recclosures.
  *)
 
- (*
-  * EXPLORER: The `t` parameter is the position information ("t" for "trace").
-  *)
+(* The traces start at 2 because this expression is called only from within
+ * compile_exp, where `mk_cons t 1` has been used. *)
 val Bool_def = Define `
  Bool t b =
-  let (t1, t2, t3) = (mk_cons t 1, mk_cons t 2, mk_cons t 3) in
+  let (t1, t2, t3) = (mk_cons t 2, mk_cons t 3, mk_cons t 4) in
    (App t1 (Opb (if b then Leq else Lt)) [Lit t2 (IntLit 0); Lit t3 (IntLit 0)])`;
 
 (*
@@ -41,6 +39,13 @@ val compile_pat_def = tDefine "compile_pat" `
    res_tac >>
    decide_tac);
 
+val pat_tups_def = Define`
+  (pat_tups t [] = [])
+  /\
+  (pat_tups t (x::xs) =
+    let t' = mk_cons t ((LENGTH xs) + 1) in
+      (x, Var_local t' x)::pat_tups t xs)`;
+
 (* The traces are passed along without being split for most expressions, since we
 * expect Lannots to appear around every expression. *)
 val compile_exp_def = tDefine"compile_exp"`
@@ -60,23 +65,25 @@ val compile_exp_def = tDefine"compile_exp"`
     | SOME x => x)
   ∧
   (compile_exp t env (Fun x e) =
-    Fun t x (compile_exp t (nsBind x (Var_local t x) env) e))
+    let (t1, t2) = (mk_cons t 1, mk_cons t 2) in
+      Fun t1 x (compile_exp t (nsBind x (Var_local t2 x) env) e))
   ∧
   (compile_exp t env (App op es) =
     App t op (compile_exps t env es))
   ∧
   (compile_exp t env (Log lop e1 e2) =
-    case lop of
-    | And =>
-      If t
-         (compile_exp t env e1)
-         (compile_exp t env e2)
-         (Bool t F)
-    | Or =>
-      If t
-         (compile_exp t env e1)
-         (Bool t T)
-         (compile_exp t env e2))
+    let t' = mk_cons t 1 in
+      case lop of
+      | And =>
+        If t'
+           (compile_exp t env e1)
+           (compile_exp t env e2)
+           (Bool t F)
+      | Or =>
+        If t'
+           (compile_exp t env e1)
+           (Bool t T)
+           (compile_exp t env e2))
   ∧
   (compile_exp t env (If e1 e2 e3) =
     If t
@@ -88,7 +95,8 @@ val compile_exp_def = tDefine"compile_exp"`
     Mat t (compile_exp t env e) (compile_pes t env pes))
   ∧
   (compile_exp t env (Let (SOME x) e1 e2) =
-    Let t (SOME x) (compile_exp t env e1) (compile_exp t (nsBind x (Var_local t x) env) e2))
+    let (t1, t2) = (mk_cons t 1, mk_cons t 2) in
+      Let t1 (SOME x) (compile_exp t env e1) (compile_exp t (nsBind x (Var_local t2 x) env) e2))
   ∧
   (compile_exp t env (Let NONE e1 e2) =
     Let t NONE (compile_exp t env e1) (compile_exp t env e2))
@@ -100,6 +108,7 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp t env (Tannot e _) = compile_exp t env e)
   ∧
+  (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (st,en)) =
     let t' = (mk_cons (mk_cons (mk_cons (mk_cons Empty st.row) st.col) en.row) en.col) in
       compile_exp t' env e)
@@ -112,7 +121,9 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_pes t env [] = [])
   ∧
   (compile_pes t env ((p,e)::pes) =
-    (compile_pat p, compile_exp t (nsBindList (MAP (\x. (x, Var_local t x)) (pat_bindings p [])) env) e)
+    let pbs = pat_bindings p [] in
+    let pts = pat_tups t pbs in
+    (compile_pat p, compile_exp t (nsBindList pts env) e)
     :: compile_pes t env pes)
   ∧
   (compile_funs t env [] = [])
