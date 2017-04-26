@@ -1,6 +1,12 @@
+LEM_SOURCES = ../lib.lem ../semantics/ffi/ffi.lem ../semantics/ast.lem ../semantics/semanticPrimitives.lem ../semantics/typeSystem.lem
 
-LEM_SOURCES = ast semanticPrimitives bigStep typeSystem
+reference.pdf: reference.tex lem-generated
+	latexmk -pdf reference.tex
 
-lems:
+lem-generated: $(LEM_SOURCES)
 	-mkdir lem-generated
-	lem -tex -outdir lem-generated $(patsubst %,../semantics/%.lem,$(LEM_SOURCES))
+	lem -tex -outdir lem-generated $(LEM_SOURCES)
+
+clean:
+	rm -rf lem-generated
+	latexmk -C

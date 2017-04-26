@@ -1,4 +1,9 @@
 \documentclass[12pt,a4paper]{book}
+\usepackage[scaled]{berasans}
+\usepackage[scaled]{berasans}
+\usepackage[scaled]{beraserif}
+
+\usepackage{todonotes}
 
 \usepackage{hyperref}
 \usepackage{amssymb}
@@ -22,17 +27,16 @@ University of Kent\\
 
 \begin{document}\sloppy
 \maketitle
+\frenchspacing
 
 \frontmatter
 
 \chapter{Preface}
 
-This manual is intended to describe the CakeML language, and the system that implements it. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, whether its with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html.}}
-or to work with the CakeML code base independently.
+This manual is intended to describe the CakeML language, compiler, and associated proof technologies. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, either with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html}.}
+or to work with CakeML independently.
 
-We have attempted to make this manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
-
-CakeML is a work in progress, and currently lacks many features that a full featured programming language needs. We are working toward remedying this situation, prioritising features based on our need for them in our own research into using CakeML for verified programs.
+We have attempted to make this reference manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
 
 \mainmatter
 \tableofcontents
@@ -42,25 +46,43 @@ CakeML is a work in progress, and currently lacks many features that a full feat
 
 \chapter{An informal description of CakeML}
 
-CakeML is a functional language in the ML family. Its syntax and semantics closely resembles Standard ML, but the concepts will also be very familiar to OCaml programmers.
+CakeML is a functional language in the ML family. Its syntax and semantics
+closely resembles Standard ML, and the concepts will also be familiar to OCaml
+programmers.
 
-\section{Primitive data and operations}
+CakeML's syntax has a two-level structure with declarations and expressions. A
+program is a sequence of top-level declarations that define variables,
+functions, types, and modules. Computations are performed by the expressions in
+function bodies and variable initialisation.
 
-CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+Expression are built up from constants, variables, function applications, and
+various special forms for conditionals, pattern matching, exception handling,
+anonymous functions, and local definitions. Each expression has a type, and
+computes a value of that type, unless it infinite loops or raises an exception.
 
-\paragraph{Booleans} The boolean values are written as \texttt{true} and \texttt{false}. The type of booleans is \texttt{bool}. Left-to-right short-circuit logical operators are written \texttt{andalso} and \texttt{orelse}.
+\section{Primitive values}
 
-\paragraph{Integers} Integers values are written in decimal. \verb|~| acts as the minus sign for writing negative numbers. So write \verb|~1| instead of \verb|-1|. Hexidecimal and other non-decimal notations are not currently supported. The type of integers is \texttt{int}.
+CakeML has special syntax for boolean, integer, string, and character
+constants. Lists, tuples, and functions are also values, as are immutable
+vectors and mutable references and arrays (see \S\ref{ch:stdlib}).
 
-CakeML provides the following infix operators on integers. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0.
-\begin{itemize}
-\item Arithmetic: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}
-\item Comparison: \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}
-\end{itemize}
+\paragraph{Booleans} The boolean constants are written as \texttt{true} and
+\texttt{false}. The type of booleans is \texttt{bool}. The conjunction and
+disjunction logical operators are written as infix \texttt{andalso} and
+\texttt{orelse}. They evaluate the left argument first, and only evaluate the
+right one if necessary (short-circuit evaluation).
 
-\paragraph{Bytes} There is currently no concrete syntax for writing byte values. The type of bytes is \texttt{Word8.word}. There are currently no operations on bytes.
+\paragraph{Integers} Integers values are written in decimal. The
+\texttt{\textasciitilde} character acts as the minus sign for writing negative
+numbers. So write \texttt{\textasciitilde 1} instead of \texttt{-1}. Hexidecimal and other
+non-decimal notations are not currently supported. The type of integers is
+\texttt{int}.
 
-\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}. There are currently no operations on strings.
+CakeML provides the following infix arithmetic operators on integers: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0. \texttt{div} returns the least integer less than the real quotient, so \texttt{\textasciitilde 10 div 3} returns \texttt{\textasciitilde 4}, and not \texttt{\textasciitilde 3}. \texttt{mod} is consistent with this, so that \texttt{\textasciitilde 10 mod 3} returns \texttt{2}, not \texttt{1}.
+
+Integers are compared with \texttt{=}, \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}, each of which returns a \texttt{bool}.
+
+\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}.
 
 The escape character is \verb|\|, and it supports the following:
 \begin{itemize}
@@ -74,9 +96,123 @@ The escape character is \verb|\|, and it supports the following:
 \verb|\t| : a tab character.
 \end{itemize}
 
+\todo{Operations}
+
+\paragraph{Characters} A character constant is just a string constant of length
+1, with a \texttt{\#} prefix, for example \texttt{\#"c"} for the character `c'.
+This means that characters use the same escape sequences as strings. The type
+of characters is \texttt{char}.
+
+\todo{Operations}
+
+\section{Variables and other names}
+
+There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
+with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
+
+Names of modules and constructors (from type definitions) are alphanumeric and
+start with an upper case letter. Names of types are alphanumeric, and start
+with a lower case letter.
+
+No name can be any of the following reserved words:
+\begin{verbatim}
+and  andalso  before  case  datatype  div  else  end  exception
+false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
+ref  sig  struct  structure  then  true  type  val
+:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
+\end{verbatim}
+
+\section{Functions and operators}
+
+
+\begin{figure}
+\centering
+\begin{tabular}{l}
+ \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
+ \texttt{+} \texttt{-}\\
+ \texttt{@} \texttt{::}\\
+ \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
+ \texttt{o} \texttt{:=}\\
+ \texttt{before}\\
+ \texttt{orelse} \texttt{andalso}
+ \end{tabular}
+\caption{Infix operators from tightest (at the top) to loosest binding}
+\label{precedences}
+\end{figure}
+
+CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
+
+\paragraph{Equality}
+
+The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
+
+If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
+
 \paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
 
 \paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
+
+\paragraph{Conditionals}
+%
+\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
+
+A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
+
+\paragraph{Pattern matching}
+
+\paragraph{Exceptions}
+
+\paragraph{Local bindings}
+
+\section{Declarations}
+\label{declarations}
+
+\section{Modules}
+
+\section{Differences from Standard ML}
+
+\subsection{Unsupported features}
+Here we only list missing features of the language, and not the basis library.
+
+The CakeML module system is heavily restricted compared to SML's. Structures cannot be nested, and functors are not supported. Structures cannot be given alternate names, or opened. Signatures cannot be named, and must appear directly on the structure that they seal. Only opaque sealing is supported (\texttt{:>}, but not \texttt{:}). Signatures cannot contain \texttt{include}, \texttt{sharing}, \texttt{structure}, \texttt{eqtype} or datatype replication specifications.
+
+In contrast, CakeML's core language is more fully featured, with only the following omissions. The \texttt{local}, \texttt{abstype}, and datatype replication declarations are not supported. Neither are records, type annotations that contain type variables, and \texttt{while} loops. Furthermore, \texttt{let} expressions are restricted to \texttt{val} and \texttt{fun} declarations; they cannot contain type or exception declarations. The pattern language does not support the \texttt{as} form.
+
+CakeML has a fixed set of infix operators, and does not support user defined parsing precedences (\texttt{infix}, \texttt{infixr}, and \texttt{nonfix}). See Figure~\ref{precedences} for the supported infix operators. The infix status of these operators cannot be suppressed (\texttt{op}).
+
+Floating point numbers are not supported, nor are integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}).
+
+Syntactic sugar for functions with pattern parameters is not provided, instead parameters are variables, and must be matched against with \texttt{case} expressions, if desired.
+
+\subsection{Syntactic and semantic differences}
+
+All names must follow the OCaml convention where structure and constructor names start with a capital letter, and type and variable names must either start with a lower case letter, or be symbolic names.
+
+CakeML does not support the limited overloading found in the SML Basis Library.
+
+CakeML does not support the equality types that SML uses to ensure that the \texttt{=} operation never encounters a function value. Instead, the \texttt{=} raises an exception \texttt{Eq} if it does.
+
+The types of bindings in \texttt{let} expressions cannot be generalised. This restriction does not affect top level, or structure top level declarations.
+
+The built-in CakeML functions prefer the curried style over SML's preferred tupled style. For example, we write \texttt{Vector.sub v 12} to get the 12$^\textrm{th}$ element of vector v, rather than \texttt{Vector.sub (v,12)}.
+
+CakeML guarantees right to left evaluation order.
+
+\section{Differences from OCaml}
+
+Because CakeML has a significantly different syntax, we focus here on the major features and semantic differences rather than attempt to catalogue every piece of OCaml syntax that lacks a CakeML analogue. Briefly, CakeML does not have floating point numbers, records, objects, polymorphic variants, labels, nested/local modules, or functors.
+
+Strings are immutable; however, the Word8Array structure provides byte arrays.
+
+CakeML guarantees right to left evaluation order.
+
+The \texttt{=} operator does not traverse mutable data (arrays and references), instead it compares the pointers, SML style.
+
+\chapter{Standard library}
+\label{ch:stdlib}
+
+CakeML supports data of boolean, integer, character, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+
 
 \paragraph{Options} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options (but see \S\ref{expressions} on pattern matching).
 
@@ -130,102 +266,6 @@ The following are the supported operations on byte arrays. If an index is out of
 \item \texttt{Word8Array.update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
 \end{itemize}
 
-\section{Expressions}
-\label{expressions}
-
-\paragraph{Infix operators}
-
-\begin{figure}
-\centering
-\begin{tabular}{l}
- \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
- \texttt{+} \texttt{-}\\
- \texttt{@} \texttt{::}\\
- \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
- \texttt{o} \texttt{:=}\\
- \texttt{before}\\
- \texttt{orelse} \texttt{andalso}
- \end{tabular}
-\caption{Infix operators from tightest (at the top) to loosest binding}
-\label{precedences}
-\end{figure}
-
-CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
-
-
-\paragraph{Variables}
-
-A variable must begin with a lower case letter, and be alphanumeric (letters, numbers, \texttt{\_}, and \texttt{'}), or it can be symbolic, consisting entirely of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *). It cannot be any of the following reserved words:
-\begin{verbatim}
-and  andalso  before  case  datatype  div  else  end  exception
-false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
-ref  sig  struct  structure  then  true  type  val
-:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
-\end{verbatim}
-
-Variables in expressions can be prefixed with a structure name S with a full stop (\texttt{.}) character in between. For example, \texttt{Vector.length} refers to the binding of length in the structure Vector. Where variables are bound in patterns or as function names or parameters, a structure prefix must not be present.
-
-\paragraph{Equality}
-
-The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
-
-If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
-
-\paragraph{Conditionals}
-%
-\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
-
-A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
-
-\paragraph{Functions}
-
-\paragraph{Pattern matching}
-
-\paragraph{Exceptions}
-
-\paragraph{Local bindings}
-
-\section{Declarations}
-\label{declarations}
-
-\section{Modules}
-
-\section{Differences from Standard ML}
-
-\subsection{Unsupported features}
-Here we only list missing features of the language, and not the basis library.
-
-The CakeML module system is basic compared to SML's. Structures cannot be nested, and functors are not supported. Structures cannot be given alternate names, or opened. Signatures cannot be named, and must appear directly on the structure that they seal. Only opaque sealing is supported (\texttt{:>}, but not \texttt{:}). Signatures cannot contain \texttt{include}, \texttt{sharing}, \texttt{structure}, \texttt{eqtype} or datatype replication specifications.
-
-In contrast, CakeML's core language is much more fully featured, with only the following omissions. The \texttt{local}, \texttt{abstype}, and datatype replication declarations are not supported. Neither are records, type annotations, and \texttt{while} loops. Furthermore, \texttt{let} expressions are restricted to \texttt{val} and \texttt{fun} declarations; they cannot contain type or exception declarations. The pattern language does not support the \texttt{as} form.
-
-CakeML has a fixed set of infix operators, and does not support user defined parsing precedences (\texttt{infix}, \texttt{infixr}, and \texttt{nonfix}). See Figure~\ref{precedences} for the supported infix operators. The infix status of these operators cannot be suppressed (\texttt{op}).
-
-Floating point numbers are not supported, nor are word constants (numbers prefixed with \texttt{0w} or \texttt{0xw}), or integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}), and character constants (\texttt{e.g., \#"a"}) are not supported at all.
-
-Syntactic sugar for functions with pattern parameters is not provided, instead parameters are variables, and must be matched against with \texttt{case} expressions, if desired.
-
-\subsection{Syntactic and semantic differences}
-
-All names must follow the OCaml convention where structure and constructor names start with a capital letter, and type and variable names must either start with a lower case letter, or be symbolic names.
-
-CakeML does not support the limited overloading found in the SML Basis Library.
-
-CakeML does not support the equality types that SML uses to ensure that the \texttt{=} operation never encounters a function value. Instead, the \texttt{=} raises an exception \texttt{Eq} if it does.
-
-The types of bindings in \texttt{let} expressions cannot be generalised. This restriction does not affect top level, or structure top level declarations.
-
-The built-in CakeML functions prefer the curried style over SML's preferred tupled style. For example, we write \texttt{Vector.sub v 12} to get the 12$^\textrm{th}$ element of vector v, rather than \texttt{Vector.sub (v,12)}.
-
-\section{Differences from OCaml}
-
-Because CakeML has a significantly different syntax, we focus here on the major features and semantic differences rather than attempt to catalogue every piece of OCaml syntax that lacks a CakeML analogue. Briefly, CakeML does not have character date, floating point numbers, records, objects,  polymorphic variants, labels, nested/local modules, or functors.
-
-Strings are immutable; however, theWord8Array structure provides byte arrays.
-
-CakeML guarantees left to right evaluation order.
-
-The \texttt{=} operator does not traverse mutable data (arrays and references), instead it compares the pointers, SML style.
 
 \chapter{Formal syntax and semantics}
 
@@ -381,7 +421,7 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTypeModN
 
-\LEMTypeId
+%\LEMTypeId
 
 \LEMTypeVarN
 
@@ -391,13 +431,13 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTypeTvarN
 
-\LEMValspecMkId
+%\LEMValspecMkId
 
-\LEMmkId
+%\LEMmkId
 
-\LEMValspecIdToN
+%\LEMValspecIdToN
 
-\LEMidToN
+%\LEMidToN
 
 \LEMTypeOp
 
@@ -411,9 +451,9 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTstring
 
-\LEMTunit
+%\LEMTunit
 
-\LEMTbool
+%\LEMTbool
 
 \LEMTref
 
