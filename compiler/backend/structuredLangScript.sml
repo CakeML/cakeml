@@ -41,10 +41,6 @@ val MEM_sExp_size = store_thm("MEM_sExp_size",
 
 (* Converts a structured expression to JSON *)
 val structured_to_json_def = tDefine"structured_to_json" `
-  (structured_to_json (Tuple es) =
-    let es' = MAP structured_to_json es in
-      Object [("isTuple", Bool T); ("elements", Array es')])
-  /\
   (structured_to_json (Item tra name es) =
     let es' = MAP structured_to_json es in
     let props = [("name", String name); ("args", Array es')] in
@@ -53,6 +49,10 @@ val structured_to_json_def = tDefine"structured_to_json" `
                    | SOME t => ("trace", trace_to_json t)::props in
       Object props')
    /\
+  (structured_to_json (Tuple es) =
+    let es' = MAP structured_to_json es in
+      Object [("isTuple", Bool T); ("elements", Array es')])
+  /\
    (structured_to_json (List es) = Array (MAP structured_to_json es))`
   (WF_REL_TAC `measure sExp_size` \\ rw []
    \\ imp_res_tac MEM_sExp_size \\ fs []);
