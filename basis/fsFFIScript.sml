@@ -177,7 +177,7 @@ val getNullTermStr_def = Define`
 *  open the file with read access
 *  write its file descriptor index in the first byte *)
 val ffi_open_in_def = Define`
-  ffi_open bytes fs =
+  ffi_open_in bytes fs =
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
@@ -188,7 +188,7 @@ val ffi_open_in_def = Define`
 
 (* open with write access to the end of file *)
 val ffi_open_out_def = Define`
-  ffi_open_append bytes fs =
+  ffi_open_out bytes fs =
     do
       fname <- getNullTermStr bytes;
       contents <- ALOOKUP fs.files (implode fname);
@@ -292,11 +292,11 @@ val decode_def = zDefine`
   (decode _ = fail)
 `;
 
-val rofs_ffi_part_def = Define`
-  rofs_ffi_part =
+val fs_ffi_part_def = Define`
+  fs_ffi_part =
     (encode,decode,
-      [("open",ffi_open);
-       ("open_append",ffi_open_append);
+      [("open_in",ffi_open_in);
+       ("open_out",ffi_open_out);
        ("read",ffi_read);
        ("write",ffi_write);
        ("close",ffi_close);
