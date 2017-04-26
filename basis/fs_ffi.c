@@ -65,3 +65,11 @@ void ffiisEof (char *a) {
   else
     a[0] = 255;
 }
+
+void ffiseek (char *a) {
+  int off = lseek(fileno(infds[a[0]]), a[2], SEEK_SET);
+  if (off = -1)
+    a[0] = 1;
+  else
+    a[0] = 0;
+}

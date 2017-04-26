@@ -96,6 +96,14 @@ val read_def = Define`
       return (TAKE n (DROP off content), bumpFD fd fs k)
     od `;
 
+(* changes the offset of a file *)
+val seek_def = Define`
+  seek fd fs off =
+    do
+      (fnm, _) <- ALOOKUP fs.infds fd ;
+      return(fs with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. off))))
+    od `;
+
 (*
 * "The value returned is the number of bytes read (zero indicates end of file)
 * and the file position is advanced by this number. It is not an error if this
@@ -214,6 +222,7 @@ val ffi_open_out_def = Define`
       return (LUPDATE (n2w fd) 0 bytes, fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
+
 (* 
 * [descriptor index; number of char to read; buffer]
 *   -> [return code; number of read chars; read chars]
@@ -274,6 +283,21 @@ val ffi_isEof_def = Define`
       return (LUPDATE 255w 0 bytes, fs)
     od`;
 
+(* given a file descriptor and an offset, returns 0 and update fs or returns 1
+* if an error is met *)
+val ffi_seek = Define`
+  ffi_seek bytes fs =
+    do
+      assert(LENGTH bytes = 2);
+      do
+        fs' <- seek (w2n (HD bytes)) fs (w2n (HD (TL bytes)));
+        return(LUPDATE 0w 0 bytes, fs')
+      od ++ 
+      return (LUPDATE 1w 0 bytes, fs)
+    od`;
+
+(* -- *)
+
 val encode_files_def = Define`
   encode_files fs = encode_list (encode_pair (Str o explode) Str) fs
 `;
@@ -288,8 +312,6 @@ val encode_def = zDefine`
                          (encode_files fs.files)
                          (encode_fds fs.infds)
 `
-
-
 val decode_files_def = Define`
   decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
 `
@@ -317,6 +339,7 @@ val fs_ffi_part_def = Define`
        ("read",ffi_read);
        ("write",ffi_write);
        ("close",ffi_close);
+       ("seek",ffi_seek);
        ("isEof",ffi_isEof)])`;
 
 val _ = export_theory();
