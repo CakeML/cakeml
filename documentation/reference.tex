@@ -11,10 +11,14 @@
 
 \usepackage{supertabular}
 
+
 \usepackage{xcolor}
 \usepackage{lem}
 
-\newcommand{\TODO}[1]{{\color{red}#1}}
+\usepackage{minted}
+\newminted{sml}{}
+\newmintinline{sml}{}
+\usemintedstyle{bw}
 
 \newcommand{\gramsep}{|}
 
@@ -56,33 +60,38 @@ functions, types, and modules. Computations are performed by the expressions in
 function bodies and variable initialisation.
 
 Expression are built up from constants, variables, function applications, and
-various special forms for conditionals, pattern matching, exception handling,
-anonymous functions, and local definitions. Each expression has a type, and
-computes a value of that type, unless it infinite loops or raises an exception.
+special forms for conditionals, pattern matching, exception handling, anonymous
+functions, and local definitions. Each expression has a type, and computes a
+value of that type, unless it infinite loops or raises an exception.
 
-\section{Primitive values}
+CakeML supports the following types of values:
+\begin{itemize}
+  \item atomic values -- boolean, integer, string, and character constants (\S\ref{sect:val});
+  \item immutable containers -- lists, tuples, user-defined algebraic types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{ch:stdlib});
+  \item mutable containers -- references and arrays (\S\ref{ch:stdlib}); and
+  \item functions (\S\ref{sect:func}).
+\end{itemize}
 
-CakeML has special syntax for boolean, integer, string, and character
-constants. Lists, tuples, and functions are also values, as are immutable
-vectors and mutable references and arrays (see \S\ref{ch:stdlib}).
+\section{Atomic values}
+\label{sect:val}
 
-\paragraph{Booleans} The boolean constants are written as \texttt{true} and
-\texttt{false}. The type of booleans is \texttt{bool}. The conjunction and
-disjunction logical operators are written as infix \texttt{andalso} and
-\texttt{orelse}. They evaluate the left argument first, and only evaluate the
+\paragraph{Booleans} The boolean constants are written as \smlinline{true} and
+\smlinline{false}. The type of booleans is \smlinline{bool}. The conjunction and
+disjunction logical operators are written as infix \smlinline{andalso} and
+\smlinline{orelse}. They evaluate the left argument first, and only evaluate the
 right one if necessary (short-circuit evaluation).
 
 \paragraph{Integers} Integers values are written in decimal. The
 \texttt{\textasciitilde} character acts as the minus sign for writing negative
-numbers. So write \texttt{\textasciitilde 1} instead of \texttt{-1}. Hexidecimal and other
+numbers. So write \smlinline{~1} instead of \texttt{-1}. Hexidecimal and other
 non-decimal notations are not currently supported. The type of integers is
-\texttt{int}.
+\smlinline{int}.
 
-CakeML provides the following infix arithmetic operators on integers: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0. \texttt{div} returns the least integer less than the real quotient, so \texttt{\textasciitilde 10 div 3} returns \texttt{\textasciitilde 4}, and not \texttt{\textasciitilde 3}. \texttt{mod} is consistent with this, so that \texttt{\textasciitilde 10 mod 3} returns \texttt{2}, not \texttt{1}.
+CakeML provides the following infix arithmetic operators on integers: \smlinline{+},\smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
 
-Integers are compared with \texttt{=}, \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}, each of which returns a \texttt{bool}.
+Integers are compared with \smlinline{=}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
 
-\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}.
+\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \smlinline{string}.
 
 The escape character is \verb|\|, and it supports the following:
 \begin{itemize}
@@ -99,9 +108,9 @@ The escape character is \verb|\|, and it supports the following:
 \todo{Operations}
 
 \paragraph{Characters} A character constant is just a string constant of length
-1, with a \texttt{\#} prefix, for example \texttt{\#"c"} for the character `c'.
+1, with a \texttt{\#} prefix, for example \smlinline{#"c"} for the character `c'.
 This means that characters use the same escape sequences as strings. The type
-of characters is \texttt{char}.
+of characters is \smlinline{char}.
 
 \todo{Operations}
 
@@ -111,8 +120,10 @@ There are two kinds of variable names, alphanumeric and symbolic. An alphanumeri
 with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
 
 Names of modules and constructors (from type definitions) are alphanumeric and
-start with an upper case letter. Names of types are alphanumeric, and start
+start with an upper case letter. Names of types are alphanumeric and start
 with a lower case letter.
+%
+Type variables must be alphanumeric and start with \texttt{'}.
 
 No name can be any of the following reserved words:
 \begin{verbatim}
@@ -122,7 +133,101 @@ ref  sig  struct  structure  then  true  type  val
 :=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
 \end{verbatim}
 
+The \smlinline{val} keyword introduces a new variable name with a given value.
+We follow tradition in referring to these as variables, although their values
+cannot be changed once initialised.
+\begin{smlcode}
+val x = 1 + 2
+val my_string = "Happy"
+\end{smlcode}
+
+\section{Compound values and pattern matching}
+\label{sect:compound}
+
+\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \smlinline{(1,2,true)} is a three element tuple. The empty tuple \smlinline{()} is the (only) member of the type \smlinline{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \smlinline{int * int * bool}.
+
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \smlinline{[1,2,3,4]} is a list of integers containing four elements. Its type is \smlinline{int list}. The empty list is written \smlinline{[]}, and has a polymorphic type \smlinline{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \smlinline{::}, so the above list could also have been written as \smlinline{1::2::3::4::[]}.
+
+\paragraph{Algebraic data types}
+
+A new data type is declared using the \smlinline{datatype} keyword, giving the
+type a name, and listing the constructors that form elements of the new type
+separated by \texttt{|} characters. For example, the following introduces a new type \smlinline{colour} and three new values of type \smlinline{colour}: \smlinline{Red}, \smlinline{Green}, and \smlinline{Blue}.
+The type name must begin with a lower case letter, and the constructors with upper case letters.
+\begin{smlcode}
+datatype colour = Red | Green | Blue
+\end{smlcode}
+
+The constructors can contain values of given types specified with the
+\smlinline{of} keyword. Those values can be of the same type as the datatype
+itself, that is, the types constructed by \smlinline{datatype} can be recursive.
+We can model a binary search tree with a terminal leaf, and interior nodes that
+contain left and right child trees, and integer keys and values.
+\begin{smlcode}
+datatype search_tree =
+  Leaf
+| Node of search_tree * int * int * search_tree
+\end{smlcode}
+We can create a \smlinline{search_tree} by applying the constructor to four
+arguments of the given types using a tuple-like syntax. Here are some example
+\smlinline{search_tree}s.
+\begin{smlcode}
+val empty_tree = Leaf
+val two_node = Node (Leaf, 1, 0, Node (Leaf, 2, 100, Leaf))
+\end{smlcode}
+Although the syntax looks like the constructor applied to a tuple expression,
+it is not as flexible as that, and we cannot apply \smlinline{Node} to an
+actual tuple value, as in the following \textbf{non-example}.
+\begin{smlcode}
+val tup = (Leaf, 2, 100, Leaf)
+val error = Node tup
+\end{smlcode}
+
+We can generalise the tree datatype to contain values of any type by
+introducing a type parameter, which is written \emph{before} the type name:
+\begin{smlcode}
+datatype 'a search_tree =
+  Leaf
+| Node of 'a search_tree * int * 'a * 'a search_tree
+\end{smlcode}
+The \smlinline{Leaf} example now has type \smlinline{'a search_tree}, and our
+\smlinline{Node} example has type \smlinline{int search_tree}. We can create a
+\smlinline{char search_tree} or \smlinline{string list search_tree} as follows.\footnote{type application is left associative, so \smlinline{string list search_tree} is the same as \smlinline{(string list) search_tree}.}
+\begin{smlcode}
+val char_tree = Node (Leaf, 1, #"0", Node (Leaf, 2, #"A", Leaf))
+val sl_tree = Node (Leaf, 1, ["44", "name"], Node (Leaf, 2, [""], Leaf))
+\end{smlcode}
+
+
+We can use multiple type parameters by putting them in parentheses and separating them with commas:
+\begin{smlcode}
+datatype ('k, 'a) search_tree =
+  Leaf
+| Node of ('k, 'a) search_tree * 'k * 'a * ('k, 'a) search_tree
+\end{smlcode}
+
+Data types can be mutually recursive with subsequent types being separated by
+the \smlinline{and} keyword.
+\begin{smlcode}
+datatype ('k, 'a) nary_tree =
+  Node of 'k * 'a * ('k, 'a) tree_list
+and ('k, 'a) tree_list =
+  Empty
+| Cons of ('k, 'a) nary_tree * ('k, 'a) tree_list
+\end{smlcode}
+
+Algebraic data types can also be composed. For example, the above
+\smlinline{nary_tree} type could be defined using the built-in list type.
+\begin{smlcode}
+datatype ('k, 'a) nary_tree =
+  Node of 'k * 'a * ('k, 'a) nary_tree list
+\end{smlcode}
+
+\paragraph{Pattern matching}
+Compound values are destructured with pattern matching \smlinline{case} expressions.
+
 \section{Functions and operators}
+\label{sect:func}
 
 \begin{figure}
 \centering
@@ -153,11 +258,6 @@ If the equality function encounters a function value while traversing its argume
 
 A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
 
-\section{Compound data and pattern matching}
-
-\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples.
-
-\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists.
 
 \paragraph{User-defined data}
 
@@ -284,7 +384,7 @@ i &=& \verb|~|^?\mbox{[\texttt{0}-\texttt{9}]}^+&\mbox{integer constant}\\
 \]
 
 
-\TODO{Lexical syntax for str, tn, v, fqv, C, fqC, S}
+\todo{Lexical syntax for str, tn, v, fqv, C, fqC, S}
 
 \[
 \begin{array}{lcll}
@@ -415,7 +515,7 @@ s &::=& \texttt{:>}\ \texttt{sig}\ (\mathit{sp}|\texttt{;})^*\ \texttt{end}&\mbo
 The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\footnote{\url{https://github.com/CakeML/cakeml/blob/master/semantics/ast.lem}}. This file is included here.
 
 {\setlength{\parindent}{0pt}
-\TODO{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
+\todo{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
 \include{lem-generated/Ast-inc}
 
 \LEMTypeLit
