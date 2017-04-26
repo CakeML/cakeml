@@ -10,7 +10,7 @@ int nextFD() {
   return fd;
 }
 
-void ffiopen (char *a) {
+void ffiopen_in (char *a) {
   int fd = nextFD();
   if (fd < 255 && (infds[fd] = fopen(a,"r")))
     a[0] = fd;
@@ -18,9 +18,9 @@ void ffiopen (char *a) {
     a[0] = 255;
 }
 
-void ffiopen_append (char *a) {
+void ffiopen_out (char *a) {
   int fd = nextFD();
-  if (fd < 255 && (infds[fd] = fopen(a,"a")))
+  if (fd < 255 && (infds[fd] = fopen(a,"w")))
     a[0] = fd;
   else
     a[0] = 255;
