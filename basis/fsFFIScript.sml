@@ -1,4 +1,4 @@
-open preamble mlstringTheory cfHeapsBaseTheory llistTheory
+open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory"fsFFI"
 
@@ -47,6 +47,17 @@ val openFile_def = Define`
        od
 `;
 
+(* adds a new file in infds and truncate it *)
+val openFile_truncate_def = Define`
+  openFile_truncate fnm fsys pos =
+    let fd = nextFD fsys in
+      do
+        assert (fd < 255) ;
+        ALOOKUP fsys.files fnm ;
+        return (fd, (fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
+                          with files updated_by (ALIST_FUPDKEY fnm (\x."")))
+      od `;
+
 (* update filesystem with newly opened file *)
 val openFileFS_def = Define`
   openFileFS fnm fs off =
@@ -85,8 +96,6 @@ val read_def = Define`
       return (TAKE n (DROP off content), bumpFD fd fs k)
     od `;
 
-(* TODO: empty list implies eof *)
-(* TODO: read specification from POSIX spec. *)
 (*
 * "The value returned is the number of bytes read (zero indicates end of file)
 * and the file position is advanced by this number. It is not an error if this
@@ -186,13 +195,21 @@ val ffi_open_in_def = Define`
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
-(* open with write access to the end of file *)
+(* open append: 
+      contents <- ALOOKUP fs.files (implode fname);
+      (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
+      *)
+
+(* open for writing
+* position: the beginning of the file. 
+* The file is truncated to zero length if it already exists. 
+* TODO: It is created if it does not already exists.*)
 val ffi_open_out_def = Define`
   ffi_open_out bytes fs =
     do
       fname <- getNullTermStr bytes;
       contents <- ALOOKUP fs.files (implode fname);
-      (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
+      (fd, fs') <- openFile_truncate (implode fname) fs 0;
       assert(fd < 255);
       return (LUPDATE (n2w fd) 0 bytes, fs')
     od ++
@@ -303,3 +320,21 @@ val fs_ffi_part_def = Define`
        ("isEof",ffi_isEof)])`;
 
 val _ = export_theory();
+
+(* TODO: 
+* val flush : out_channel -> unit
+*
+* Flush the buffer associated with the given output channel, performing all
+* pending writes on that channel. Interactive programs must be careful about
+* flushing standard output and standard error at the right time.
+*
+* val seek_out : out_channel -> int -> unit
+*
+* seek_out chan pos sets the current writing position to pos for channel chan.
+* This works only for regular files. On files of other kinds (such as terminals,
+* pipes and sockets), the behavior is unspecified.
+*
+* val pos_out : out_channel -> int
+*
+* Return the current writing position for the given channel. Does not work on
+* channels opened with the Open_append flag (returns unspecified results). *)
