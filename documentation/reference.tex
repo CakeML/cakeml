@@ -124,7 +124,6 @@ ref  sig  struct  structure  then  true  type  val
 
 \section{Functions and operators}
 
-
 \begin{figure}
 \centering
 \begin{tabular}{l}
@@ -148,24 +147,23 @@ The infix equality operator \texttt{=} checks whether two values are equal, retu
 
 If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
 
-\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
-
-\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
-
-\paragraph{Conditionals}
+\section{Conditionals}
 %
 \[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
 
 A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
 
-\paragraph{Pattern matching}
+\section{Compound data and pattern matching}
 
-\paragraph{Exceptions}
+\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples.
 
-\paragraph{Local bindings}
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists.
 
-\section{Declarations}
-\label{declarations}
+\paragraph{User-defined data}
+
+\section{Exceptions}
+
+\section{Local bindings}
 
 \section{Modules}
 
@@ -211,25 +209,10 @@ The \texttt{=} operator does not traverse mutable data (arrays and references), 
 \chapter{Standard library}
 \label{ch:stdlib}
 
-CakeML supports data of boolean, integer, character, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+%CakeML supports data of boolean, integer, character, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
 
 
-\paragraph{Options} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options (but see \S\ref{expressions} on pattern matching).
-
-
-
-\paragraph{Vectors}
-
-Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
-
-The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
-\begin{itemize}
-\item \texttt{Vector.fromList : 'a list -> 'a vector} Convert a list to a vector containing the same elements (in order).
-\item \texttt{Vector.length : 'a vector -> int} Get the vector's length.
-\item \texttt{Vector.sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
-\end{itemize}
-
-\paragraph{References}
+\section{References}
 
 A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \texttt{ref}.
 References have the following operations.
@@ -242,7 +225,8 @@ References have the following operations.
 \texttt{:= : 'a ref -> 'a -> unit} Replace the value in the reference with a new one.
 \end{itemize}
 
-\paragraph{Arrays}
+
+\section{Array}
 
 Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
 
@@ -254,8 +238,28 @@ The following are the supported operations on arrays. If an index is out of boun
 \item \texttt{Array.update : 'a array -> int -> 'a -> unit} Set the i$^\textrm{th}$ element.
 \end{itemize}
 
+\section{Char}
 
-\paragraph{Byte arrays}
+\section{Int}
+
+\section{List}
+
+\section{Option} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options.
+
+\section{Vector}
+
+Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
+
+The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Vector.fromList : 'a list -> 'a vector} Convert a list to a vector containing the same elements (in order).
+\item \texttt{Vector.length : 'a vector -> int} Get the vector's length.
+\item \texttt{Vector.sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
+\end{itemize}
+
+\section{Word8}
+
+\section{Word8Array}
 Byte arrays have a fixed length and support constant-time indexing. Each element of an array must be a byte (\texttt{Word8.word} type). The operations on byte arrays are collected in the \texttt{Word8Array} module. The type of a byte array is \texttt{Word8Array.array}.
 
 The following are the supported operations on byte arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
@@ -265,6 +269,7 @@ The following are the supported operations on byte arrays. If an index is out of
 \item \texttt{Word8Array.sub : Word8Array.array -> int -> Word8.word} Get the i$^\textrm{th}$ element.
 \item \texttt{Word8Array.update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
 \end{itemize}
+
 
 
 \chapter{Formal syntax and semantics}
@@ -495,20 +500,12 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 \chapter{Theorems}
 
 
-\part{The CakeML implementation}
+\part{The CakeML compiler and verification tools}
 
-\chapter{Installing CakeML}
+\chapter{Installing and using the compiler}
 
-\chapter{Extracting CakeML programs from HOL4}
+\chapter{Extracting pure CakeML programs from HOL4}
 
-\chapter{Construction a complete system}
-
-\section{Interactive loop}
-
-\section{Standalone compilation}
-
-\section{Bootstrapping}
-
-\chapter{Unverified utilities}
+\chapter{Verifying effectful CakeML programs with characteristic formulae}
 
 \end{document}
