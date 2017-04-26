@@ -111,14 +111,14 @@ val startup =
        ""])`` |> EVAL |> concl |> rand
 
 val ffi_asm_def = Define `
-  ffi_asm [] = Nil /\
-  ffi_asm (ffi::ffis) =
+  (ffi_asm [] = Nil) /\
+  (ffi_asm (ffi::ffis) =
       SmartAppend (List [
        strlit"cake_ffi"; implode ffi; strlit":\n";
        strlit"     pushq   %rax\n";
        strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
        strlit"     .p2align 3\n";
-       strlit"\n"]) (ffi_asm ffis)`
+       strlit"\n"]) (ffi_asm ffis))`
 
 val ffi_code =
   ``SmartAppend

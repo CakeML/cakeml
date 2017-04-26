@@ -276,7 +276,7 @@ fun write_asm [] = ()
        bytes ("cakeml/" ^ name ^ ".S") ;
     write_asm xs)
 
-val benchmarks_compiled = map (to_bytes 3 ``x64_compiler_config``) benchmarks
+val benchmarks_compiled = map (to_bytes 3 ``x64_backend_config``) benchmarks
 
 val benchmarks_bytes = map extract_bytes benchmarks_compiled
 
@@ -286,35 +286,35 @@ val _ = map save_thm (zip names benchmarks_compiled);
 
 (*
 (*Turning down the register allocator*)
-val benchmarks_compiled2 = map (to_bytes 0 ``x64_compiler_config``) benchmarks
+val benchmarks_compiled2 = map (to_bytes 0 ``x64_backend_config``) benchmarks
 val benchmarks_bytes2 = map extract_bytes benchmarks_compiled2
 val _ = write_asm (zip names benchmarks_bytes2);
 
 (* Turn off clos optimizations*)
-val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
-val benchmarks_compiled3 = map (to_bytes 0 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
+val clos_o0 = ``x64_backend_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val benchmarks_compiled3 = map (to_bytes 0 ``x64_backend_config with clos_conf:=^(clos_o0)``) benchmarks
 val benchmarks_bytes3 = map extract_bytes benchmarks_compiled3
 val _ = write_asm (zip names benchmarks_bytes3);
 
 (* Turn off bvl_to_bvi optimzations ?*)
 val bvl_o0 =  ``<|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|>``
-val benchmarks_compiled4 = map (to_bytes 0 ``x64_compiler_config with <|clos_conf:=^(clos_o0);bvl_conf:=^(bvl_o0)|>``) benchmarks
+val benchmarks_compiled4 = map (to_bytes 0 ``x64_backend_config with <|clos_conf:=^(clos_o0);bvl_conf:=^(bvl_o0)|>``) benchmarks
 val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
 val _ = write_asm (zip names benchmarks_bytes4);
 *)
 
 (*
-val clos_o0 = ``x64_compiler_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
-val clos_o1 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
-val clos_o2 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
-val clos_o3 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
-val clos_o4 = ``x64_compiler_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
+val clos_o0 = ``x64_backend_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val clos_o1 = ``x64_backend_config.clos_conf with <|do_mti:=T;do_known:=F;do_call:=F;do_remove:=F|>``
+val clos_o2 = ``x64_backend_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=F;do_remove:=F|>``
+val clos_o3 = ``x64_backend_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=F|>``
+val clos_o4 = ``x64_backend_config.clos_conf with <|do_mti:=T;do_known:=T;do_call:=T;do_remove:=T|>``
 
-val benchmarks_o0 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o0)``) benchmarks
-val benchmarks_o1 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o1)``) benchmarks
-val benchmarks_o2 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o2)``) benchmarks
-val benchmarks_o3 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o3)``) benchmarks
-val benchmarks_o4 = map (to_bytes 3 ``x64_compiler_config with clos_conf:=^(clos_o4)``) benchmarks
+val benchmarks_o0 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o0)``) benchmarks
+val benchmarks_o1 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o1)``) benchmarks
+val benchmarks_o2 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o2)``) benchmarks
+val benchmarks_o3 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o3)``) benchmarks
+val benchmarks_o4 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o4)``) benchmarks
 
 val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
 val benchmarks_o1_bytes = map extract_bytes benchmarks_o1
