@@ -1,7 +1,7 @@
 open preamble
      x64ProgTheory
      export_x64Theory
-     configTheory
+     x64_configTheory
      ml_translatorLib cfTacticsLib
      ioProgLib
 
@@ -41,7 +41,7 @@ val res = translate ffi_asm_def;
 val res = translate x64_export_def;
 
 val res = translate
-  (x64_compiler_config_def
+  (x64_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
 val error_to_str_def = Define`
@@ -161,11 +161,10 @@ val compile_to_bytes_def = Define `
     | Failure err => (List[], error_to_str err)
     | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
-(* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
   compiler_x64 cl = compile_to_bytes
     <| inferencer_config := init_config;
-       backend_config := extend_with_args cl x64_compiler_config |>`;
+       backend_config := extend_with_args cl x64_backend_config |>`;
 
 val res = translate
   (compiler_x64_def

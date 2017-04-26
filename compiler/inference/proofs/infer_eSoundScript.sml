@@ -101,6 +101,7 @@ fs []
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- metis_tac [APPEND, sub_completion_more_vars]
 >- metis_tac [APPEND, sub_completion_more_vars]
+>- metis_tac [APPEND, sub_completion_more_vars]
 >- (PairCases_on `v'` >>
     fs [] >>
     metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars])
@@ -242,6 +243,11 @@ rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
 fs [] >>
 rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def]
+>- (match_mp_tac check_t_to_check_freevars >>
+    rw [] >>
+    fs [sub_completion_def] >>
+    qpat_x_assum `!uv. uv ∈ FDOM s ⇒ P uv` match_mp_tac >>
+    fs [count_def, SUBSET_DEF])
 >- (match_mp_tac check_t_to_check_freevars >>
     rw [] >>
     fs [sub_completion_def] >>

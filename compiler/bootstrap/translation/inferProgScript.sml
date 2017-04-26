@@ -657,7 +657,7 @@ val AST_PAT_TYPE_no_closures = Q.prove(
     pop_assum mp_tac >>
     pop_assum kall_tac >>
     pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
     rw[] >> METIS_TAC[] ) >>
   METIS_TAC[EqualityType_def,
@@ -674,7 +674,7 @@ val AST_PAT_TYPE_types_match = Q.prove(
   TRY (
     rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     ntac 2 (pop_assum kall_tac) >> pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`v4_2'`,`l`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def] >- (
       Cases >> simp[LIST_TYPE_def,types_match_def,ctor_same_type_def,PULL_EXISTS] ) >>
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[types_match_def,ctor_same_type_def] >>
@@ -691,10 +691,10 @@ val AST_PAT_TYPE_11 = Q.prove(
   ( METIS_TAC[EqualityType_def,EqualityType_AST_T_TYPE] )
   >- (
     rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
-    `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_def, EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
+    `x_4 = o' ⇔ v4_1 = v4_1'` by METIS_TAC[EqualityType_def, EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
     simp[] >>
     ntac 3 (pop_assum kall_tac) >> pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`v4_2'`,`l`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def] >- (
       Cases >> simp[LIST_TYPE_def,PULL_EXISTS] ) >>
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[] >>

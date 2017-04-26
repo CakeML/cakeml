@@ -15,6 +15,7 @@ val () = ml_prog_update (open_module "Array");
 val () = append_decs
    ``[Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
       mk_binop "array" Aalloc;
+      mk_unop "arrayEmpty" AallocEmpty;
       mk_binop "sub" Asub;
       mk_unop "length" Alength;
       Dlet unknown_loc (Pvar "update")
@@ -23,23 +24,28 @@ val () = append_decs
 
 val array_fromList = process_topdecs
   `fun fromList l =
-    let val arr = array (List.length l) 0
-      fun f l i =
+    let fun f arr l i =
        case l of
           [] => arr
-        | (h::t) => (update arr i h; f t (i + 1))
-    in f l 0 end`;
+        | (h::t) => (update arr i h; f arr t (i + 1))
+    in
+      case l of
+        [] => arrayEmpty ()
+      | h::t => f (array (List.length l) h) t 1
+    end`;
 
 val _ = append_prog array_fromList;
 
 val array_tabulate = process_topdecs
   `fun tabulate n f =
-    let val arr = array n 0
-      fun u x =
+    let fun u arr x =
         if x = n then arr
-        else (update arr x (f x); u (x + 1))
+        else (update arr x (f x); u arr (x + 1))
     in
-      u 0
+      if n = 0 then
+        arrayEmpty ()
+      else
+        u (array n (f 0)) 1
     end`;
 
 val _ = append_prog array_tabulate;
@@ -273,11 +279,11 @@ val _ = ml_prog_update (close_module NONE);
 fun prove_array_spec op_name =
   xcf op_name (array_st()) \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-      cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def] \\
+      cf_aalloc_empty_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def] \\
   irule local_elim \\ reduce_tac \\
   fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
       app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def] \\
-  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
+  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def, REPLICATE] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) [])
 
 val array_alloc_spec = Q.store_thm ("array_alloc_spec",
@@ -286,6 +292,13 @@ val array_alloc_spec = Q.store_thm ("array_alloc_spec",
      app (p:'ffi ffi_proj) ^(fetch_v "Array.array" (array_st())) [nv; v]
        emp (POSTv av. ARRAY av (REPLICATE n v))`,
   prove_array_spec "Array.array");
+
+val array_alloc_empty_spec = Q.store_thm ("array_alloc_empty_spec",
+  `!v.
+     UNIT_TYPE () v ⇒
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.arrayEmpty" (array_st())) [v]
+       emp (POSTv av. ARRAY av [])`,
+  prove_array_spec "Array.arrayEmpty");
 
 val array_sub_spec = Q.store_thm ("array_sub_spec",
   `!a av n nv.
@@ -316,16 +329,12 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
     app (p:'ffi ffi_proj) ^(fetch_v "Array.fromList" (array_st())) [lv]
       emp (POSTv av. ARRAY av a)`,
     xcf "Array.fromList" (array_st()) \\
-    xlet `POSTv v. & NUM (LENGTH l) v` >-
-    (xapp \\ metis_tac[]) \\
-    xlet `POSTv ar. ARRAY ar (REPLICATE (LENGTH l) (Litv(IntLit 0)))` >-
-    (xapp \\ xsimpl) \\
     xfun_spec `f`
-      `!ls lsv i iv a l_pre rest.
+      `!ls lsv i iv a l_pre rest ar.
         NUM i iv /\ LENGTH l_pre = i /\
         LIST_TYPE A ls lsv /\ v_to_list lsv = SOME a /\ LENGTH ls = LENGTH rest
       ==>
-      app p f [lsv; iv]
+      app p f [ar; lsv; iv]
       (ARRAY ar (l_pre ++ rest))
       (POSTv ret. & (ret = ar) * ARRAY ar (l_pre ++ a))` >- (
         Induct
@@ -356,12 +365,41 @@ val array_fromList_spec = Q.store_thm("array_fromList_spec",
         once_rewrite_tac[CONS_APPEND] \\
         rewrite_tac[APPEND_ASSOC] \\
         xapp \\ xsimpl ) \\
-      xapp \\
-      instantiate \\
-      simp[LENGTH_NIL_SYM,PULL_EXISTS] \\
-      instantiate \\
-      xsimpl \\
-      simp[LENGTH_REPLICATE]);
+    Cases_on `l` >>
+    fs [LIST_TYPE_def] >>
+    rfs [] >>
+    xmatch
+    >- (
+      fs [terminationTheory.v_to_list_def] >>
+      rw [] >>
+      xlet `POSTv uv. &UNIT_TYPE () uv`
+      >- (
+        xret >>
+        xsimpl) >>
+      xapp >>
+      simp []) >>
+    rw [] >>
+    xlet `POSTv lv. &NUM (LENGTH t + 1) lv`
+    >- (
+      xapp >>
+      xsimpl >>
+      qexists_tac `h::t` >>
+      qexists_tac `A` >>
+      simp [LIST_TYPE_def, ADD1]) >>
+    xlet `POSTv av. ARRAY av (REPLICATE (LENGTH t + 1) v2_1)`
+    >- (
+      xapp >>
+      simp []) >>
+    fs [terminationTheory.v_to_list_def] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    first_x_assum (qspecl_then [`t`, `v2_2`, `Litv (IntLit &1)`, `x`, `[v2_1]`,
+                                `REPLICATE (LENGTH t) v2_1`] mp_tac) >>
+    simp [LENGTH_REPLICATE] >>
+    disch_then xapp_spec >>
+    xsimpl >>
+    rw [REPLICATE, GSYM ADD1]);
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
@@ -376,12 +414,10 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
     app (p:'ffi ffi_proj) ^(fetch_v "Array.tabulate" (array_st())) [nv; fv]
     emp (POSTv av. SEP_EXISTS vs. ARRAY av vs * cond (EVERY2 A (GENLIST f n) vs))`,
     xcf "Array.tabulate" (array_st())
-    \\ xlet `POSTv av. ARRAY av (REPLICATE n (Litv(IntLit 0)))`
-      >- (xapp \\ rw [])
-    \\ xfun_spec `u`
-      `!x xv l_pre rest.
+   \\ xfun_spec `u`
+      `!x xv l_pre rest av.
         NUM x xv /\ LENGTH l_pre = x /\ LENGTH l_pre + LENGTH rest = n ==>
-          app p u [xv]
+          app p u [av; xv]
         (ARRAY av (l_pre ++ rest))
         (POSTv ret. SEP_EXISTS vs. & (ret = av) * ARRAY av (l_pre ++ vs) * cond (EVERY2 A (GENLIST (\i. f (x + i)) (n - x)) vs))`
     >- (Induct_on `n - x`
@@ -407,10 +443,45 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
       \\ xapp \\ xsimpl \\ cases_on `rest`
         >- (`xv = nv` by fs [NUM_def, INT_def])
       \\ qexists_tac `t` \\ qexists_tac `l_pre ++ [val]`
-    \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1])
-   \\ xapp \\ xsimpl \\ qexists_tac `REPLICATE n (Litv (IntLit 0))` \\ qexists_tac `[]`
-   \\ rw [LENGTH, LENGTH_REPLICATE] \\ metis_tac [BETA_THM]
-);
+    \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1]) >>
+  Cases_on `n` >>
+  fs [NUM_def, INT_def] >>
+  rfs []
+  >- (
+    xlet `POSTv bv. &BOOL T bv`
+    >- (
+      xapp_spec eq_num_v_thm >>
+      xsimpl) >>
+    xif >>
+    qexists_tac `T` >>
+    simp [] >>
+    xlet `POSTv uv. &UNIT_TYPE () uv`
+    >- (
+      xret >>
+      xsimpl) >>
+    xapp >>
+    xsimpl) >>
+  xlet `POSTv bv. &BOOL F bv`
+  >- (
+    xapp_spec eq_num_v_thm >>
+    xsimpl) >>
+  xif >>
+  qexists_tac `F` >>
+  simp [] >>
+  xlet `POSTv xv. &A (f 0) xv`
+  >- (
+    xapp >>
+    simp []) >>
+  xlet `POSTv av. ARRAY av (REPLICATE (SUC n') xv)`
+  >- (
+    xapp >>
+    simp [NUM_def]) >>
+  first_x_assum (qspecl_then [`[xv]`, `REPLICATE n' xv`, `av`] mp_tac) >>
+  simp [LENGTH_REPLICATE] >>
+  disch_then xapp_spec >>
+  xsimpl >>
+  rw [REPLICATE, GENLIST_CONS] >>
+  simp [combinTheory.o_DEF, ADD1]);
 
 (*
 val _ = show_types := false

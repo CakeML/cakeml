@@ -442,6 +442,7 @@ val v_of_pat_def = tDefine "v_of_pat" `
     (case insts of
          xv::rest => SOME (xv, rest)
        | _ => NONE) /\
+  v_of_pat envC Pany insts = NONE ∧
   v_of_pat envC (Plit l) insts = SOME (Litv l, insts) /\
   v_of_pat envC (Pcon c args) insts =
     (case v_of_pat_list envC args insts of
@@ -678,6 +679,7 @@ val pat_typechecks_def = Define `
 
 val pat_without_Pref_def = tDefine "pat_without_Pref" `
   pat_without_Pref (Pvar _) = T /\
+  pat_without_Pref Pany = F /\
   pat_without_Pref (Plit _) = T /\
   pat_without_Pref (Pcon _ args) =
     EVERY pat_without_Pref args /\
@@ -768,6 +770,7 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
 
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
+  >- fs [pat_without_Pref_def]
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     qpat_x_assum `_ = _` (fs o sing o GSYM) \\
@@ -1347,6 +1350,11 @@ val cf_aalloc_def = Define `
       exp2v env xv = SOME v /\
       app_aalloc n v H Q)`
 
+val cf_aalloc_empty_def = Define `
+  cf_aalloc_empty xu = \env. local (\H Q.
+    exp2v env xu = SOME (Conv NONE []) /\
+    app_aalloc (&0) (Litv (IntLit &0)) H Q)`;
+
 val cf_asub_def = Define `
   cf_asub xa xi = \env. local (\H Q.
     ?a i.
@@ -1470,7 +1478,7 @@ val cf_handle_def = Define `
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
       (Fe env H Q' /\ Q' ==v> Q) /\
-      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`
+      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
 
 val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
@@ -1522,6 +1530,10 @@ val cf_def = tDefine "cf" `
         | Aalloc =>
           (case args of
             | [n; v] => cf_aalloc n v
+            | _ => cf_bottom)
+        | AallocEmpty =>
+          (case args of
+            | [u] => cf_aalloc_empty u
             | _ => cf_bottom)
         | Asub =>
           (case args of
@@ -1620,6 +1632,7 @@ val cf_defs = [
   cf_opb_def,
   cf_equality_def,
   cf_aalloc_def,
+  cf_aalloc_empty_def,
   cf_asub_def,
   cf_alength_def,
   cf_aupdate_def,
@@ -2387,6 +2400,31 @@ val cf_sound = Q.store_thm ("cf_sound",
       THEN1 (
         rpt strip_tac \\ every_case_tac
         THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
+        instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
+        qexists_tac `{}` \\ SPLIT_TAC
+      )
+    ) \\
+    try_finally (
+      (* Aalloc_empty *)
+      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      fs [do_app_def, store_alloc_def, st2heap_def] \\
+      fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
+      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
+      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
+          [`Mem (LENGTH st.refs) (W8array []) INSERT h_i`])
+        ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
+          [`Mem (LENGTH st.refs) (Varray []) INSERT h_i`]) \\
+      fs [integerTheory.INT_ABS] \\
+      assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      impl_tac >>
+      simp [REPLICATE]
+      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
+      THEN1 (
+        rpt strip_tac \\ every_case_tac \\
         instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
         qexists_tac `{}` \\ SPLIT_TAC
       )

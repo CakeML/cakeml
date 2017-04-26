@@ -2,60 +2,6 @@ open preamble mlstringTheory
 
 val _ = new_theory"mlint";
 
-(* TODO: move *)
-val DIV_EQ_0 = Q.store_thm("DIV_EQ_0",
-  `1 < b ==> ((n DIV b = 0) = (n < b))`,
-  metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
-
-val n2l_DIV_MOD = Q.store_thm("n2l_DIV_MOD",
-  `!b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
-   (n2l b (n MOD (b ** k)) ++ REPLICATE (k - LENGTH (n2l b (n MOD (b ** k)))) 0 ++
-    n2l b (n DIV (b ** k)) = n2l b n)`,
-  ho_match_mp_tac numposrepTheory.n2l_ind
-  \\ rw[]
-  \\ Cases_on`b < 2` \\ fs[]
-  \\ Cases_on`n < b` \\ fs[]
-  >- ( `b <= b ** k` by ( Cases_on`k` \\ fs[EXP] ) \\ fs[] )
-  \\ Cases_on`k` \\ fs[EXP]
-  \\ fs[GSYM DIV_DIV_DIV_MULT]
-  \\ fs[DIV_MOD_MOD_DIV]
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
-  \\ qmatch_assum_rename_tac`b * b ** k <= n`
-  \\ Cases_on`k=0` \\ fs[EXP]
-  >- (
-    rw[Once numposrepTheory.n2l_def,REPLICATE_NIL] \\
-    rw[numposrepTheory.LENGTH_n2l])
-  \\ simp[Once numposrepTheory.n2l_def]
-  \\ simp[MOD_MULT_MOD]
-  \\ fs[numposrepTheory.LENGTH_n2l]
-  \\ first_x_assum(qspec_then`k`mp_tac)
-  \\ impl_tac >- simp[X_LE_DIV]
-  \\ disch_then(assume_tac o SYM) \\ simp[]
-  \\ rfs[DIV_EQ_0]
-  \\ reverse IF_CASES_TAC \\ fs[]
-  >- simp[logrootTheory.LOG_DIV,ADD1]
-  \\ IF_CASES_TAC \\ fs[]
-  >- (
-    `0 < b ** k` by simp[] \\
-    `0 < b * b ** k` by simp[LESS_MULT2] \\
-    fs[MOD_EQ_0_DIVISOR,ZERO_DIV,Once numposrepTheory.n2l_def]
-    \\ Cases_on`k` \\ fs[REPLICATE]
-    \\ metis_tac[MULT_ASSOC] )
-  \\ conj_asm1_tac
-  >- (
-    qspecl_then[`b ** k`,`b`]mp_tac MOD_MULT_MOD
-    \\ simp[]
-    \\ disch_then(qspec_then`n`mp_tac)
-    \\ simp[LESS_MOD])
-  \\ simp[]
-  \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
-  \\ simp[Once numposrepTheory.n2l_def]
-  \\ simp[GSYM REPLICATE,ADD1]
-  \\ `LOG b (n MOD b) = 0`
-  by ( simp[logrootTheory.LOG_EQ_0] )
-  \\ simp[]);
-(* -- *)
-
 val toChar_def = Define`
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
   else CHR (ORD #"A" + digit - 10)`;

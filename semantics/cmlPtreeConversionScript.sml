@@ -541,7 +541,7 @@ val ptree_Pattern_def = Define`
              do s <- destStringT t ; return (Plit (StrLit s)) od ++
              do c <- destCharT t ; return (Plit (Char c)) od)
           od ++
-          do assert(tokcheck vic UnderbarT) ; return (Pvar "_") od
+          do assert(tokcheck vic UnderbarT) ; return Pany od
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
             SOME(Pcon (SOME (Short "nil")) [])

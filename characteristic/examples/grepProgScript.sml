@@ -472,7 +472,6 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ Cases_on`m (implode ln)` \\ fs[]
   \\ xsimpl);
 
-(* TODO: fix concat_2 problem in mlstringProg *)
 val notfound_string_def = Define`
   notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
 
@@ -481,7 +480,7 @@ val r = translate notfound_string_def;
 val print_matching_lines_in_file = process_topdecs`
   fun print_matching_lines_in_file m file =
     let val fd = FileIO.openIn file
-    in (print_matching_lines m (String.concat_2[file,":"]) fd;
+    in (print_matching_lines m (String.concat[file,":"]) fd;
         FileIO.close fd)
     end handle FileIO.BadFileName =>
         print_err (notfound_string file)`;
@@ -614,7 +613,7 @@ val grep = process_topdecs`
   fun grep u =
     case Commandline.arguments ()
     of [] => print_err usage_string
-     | [_] => print_err usage_string
+     | [wildcard] => print_err usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
          NONE => print_err (parse_failure_string regexp)

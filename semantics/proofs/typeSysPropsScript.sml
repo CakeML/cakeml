@@ -844,6 +844,7 @@ val type_p_subst = Q.store_thm ("type_p_subst",
  ONCE_REWRITE_TAC [type_p_cases] >>
  simp [deBruijn_subst_def, OPTION_MAP_DEF, Tchar_def, Tword_def, Tword64_def]
  >- metis_tac [check_freevars_lem]
+ >- metis_tac [check_freevars_lem]
  >- (rw [] >>
      srw_tac[][EVERY_MAP] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
@@ -2369,35 +2370,6 @@ val type_prog_sing = Q.store_thm ("type_prog_sing[simp]",
  rw [] >>
  eq_tac >>
  rw [extend_dec_tenv_def]);
-
-(* TODO: This theorem can't be stated like this after the env-refactoring. It is
- * used in inferencer completeness. *)
-(*
-val type_top_tenv_val_ok = Q.store_thm("type_top_tenv_val_ok",
-  `∀ch decls tenv top decls' env.
-    type_top ch decls tenv top decls' env ⇒
-    ∀tenvT' menv' cenv' tenv'.
-    env = (tenvT',menv',cenv',tenv') ⇒
-      num_tvs tenv.v = 0 ⇒
-      tenv_tabbrev_ok tenv.t ⇒
-      tenv_val_ok (bind_var_list2 tenv' Empty) ∧
-      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'`,
-  ho_match_mp_tac type_top_ind >>
-  srw_tac[][FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
-     typeSoundInvariantsTheory.tenv_val_ok_def] >>
-  imp_res_tac type_d_tenv_val_ok >>
-  TRY(qpat_x_assum`lift_new_dec_tenv A = B` (assume_tac o SYM)>>
-  PairCases_on`new_tenv`)>>
-  full_simp_tac(srw_ss())[check_signature_cases,lift_new_dec_tenv_def,FEVERY_FEMPTY] >>
-  imp_res_tac type_ds_tenv_val_ok >>
-  TRY(qpat_x_assum`mod_lift_new_dec_tenv A B = C` (assume_tac o SYM)>>
-  PairCases_on`new_tenv2`)>>
-  full_simp_tac(srw_ss())[mod_lift_new_dec_tenv_def,bind_var_list2_def,
-     typeSoundInvariantsTheory.tenv_val_ok_def]>>
-  full_simp_tac(srw_ss())[FEVERY_FEMPTY,FEVERY_FUPDATE] >>
-  PairCases_on`new_tenv1`>>full_simp_tac(srw_ss())[weak_new_dec_tenv_def] >>
-  imp_res_tac type_specs_tenv_val_ok >> full_simp_tac(srw_ss())[])
-  *)
 
 val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
 `!uniq tdecs tenv top tdecs' new_tenv.

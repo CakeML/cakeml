@@ -8,7 +8,7 @@ val _ = ParseExtras.temp_loose_equality()
 open x64_targetLib asmLib;
 open x64AssemblerLib;
 open compilerComputeLib;
-open configTheory
+open x64_configTheory
 
 (* open x64_targetTheory *)
 
@@ -20,8 +20,8 @@ val () = computeLib.extend_compset
       ,asmLib.add_asm_compset
       ],
      computeLib.Defs
-      [configTheory.x64_compiler_config_def
-      ,configTheory.x64_names_def]
+      [x64_configTheory.x64_backend_config_def
+      ,x64_configTheory.x64_names_def]
     ] cmp
 
 val eval = computeLib.CBV_CONV cmp

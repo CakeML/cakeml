@@ -176,6 +176,8 @@ let ctor_same_type c1 c2 =
  * when one of these conditions is violated *)
 val pmatch : env_ctor -> store v -> pat -> v -> alist varN v -> match_result (alist varN v)
 let rec
+pmatch envC s Pany v' env = Match env
+and
 pmatch envC s (Pvar x) v' env = Match ((x,v')::env)
 and
 pmatch envC s (Plit l) (Litv l') env =

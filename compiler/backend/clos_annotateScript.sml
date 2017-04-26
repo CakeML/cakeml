@@ -7,7 +7,7 @@ val _ = set_grammar_ancestry ["closLang", "clos_free"]
 
 val get_var_def = Define `
   get_var m l i v =
-    if v < l then v else l + tlookup (v - l) i`;
+    if v < l then v else l + zlookup i (v - l)`;
 
 val shifted_env_def = Define `
   (shifted_env n [] = LN) /\
