@@ -12,8 +12,8 @@ val _ = new_theory"structuredLang";
 *   *)
 val _ = Datatype`
   sExp =
-    | Tuple (sExp list)
     | Item (tra option) string (sExp list)
+    | Tuple (sExp list)
     | List (sExp list)`;
 
 val sExp_size_def = fetch "-" "sExp_size_def";
