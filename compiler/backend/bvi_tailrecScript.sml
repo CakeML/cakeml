@@ -9,6 +9,10 @@ open backend_commonTheory;
    Var 65536                  push_call
    Var 65537                  mk_tailcall
 
+   TODO At some point we can redo the code to
+        place the accumulator argument /last/
+        and get rid of some GENLIST stuff. There
+        is no point in having it first.
 *)
 
 val _ = new_theory "bvi_tailrec";
@@ -218,13 +222,21 @@ val mk_aux_call_def = Define `
     Call 0 (SOME name) (id :: GENLIST (λi. Var (i + 0)) num_args) NONE
   `;
 
+(* Instead of creating a wrapper which calls the transformed function
+   (thus consuming a clock tick) we simply wrap the transformed expression
+   in `let acc = id_from_op op in <transformed_expression>`.
+
+   This way we get rid of clock ticks. Moreover, this type of auxiliary 'copy'
+   can probably be removed somehow later -- or proven equivalent to the old
+   type of auxiliary?  *)
 val optimize_single_def = Define `
   optimize_single n name num_args exp =
     case optimize_check name exp of
     | NONE => NONE
     | SOME op =>
-        let opt = let_wrap num_args (tail_rewrite n op name num_args exp) in
-        let aux = mk_aux_call n num_args (id_from_op op) in
+        let trw = tail_rewrite n op name num_args exp in
+        let opt = let_wrap num_args trw in
+        let aux = Let [id_from_op op] opt in
           SOME (aux, opt)
   `;
 
