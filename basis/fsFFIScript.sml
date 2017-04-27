@@ -12,12 +12,6 @@ val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 (* -- *)
 
-(* infinite "streams" *)
-
-val SHD_def = Define` SHD (f : num -> num) = f 0`
-val STL_def = Define` STL (f : num -> num) = f o SUC`
-
-
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
@@ -25,7 +19,7 @@ val STL_def = Define` STL (f : num -> num) = f o SUC`
 val _ = Datatype`
   RO_fs = <| files : (mlstring # char list) list ;
              infds : (num # (mlstring # num)) list;
-             numchars : num -> num |>`
+             numchars : num llist |>`
 
 val RO_fs_component_equality = theorem"RO_fs_component_equality";
 
@@ -84,7 +78,7 @@ val validFD_def = Define`
 (* increase by n the position in file descriptor and dump numchar's head *)
 val bumpFD_def = Define`
   bumpFD fd fs n = (fs with infds updated_by (ALIST_FUPDKEY fd (I ## ((+) n))))
-                       with numchars := STL fs.numchars`
+                       with numchars := THE(LTL fs.numchars)`
 
 (* reads several chars and update position *)
 val read_def = Define`
@@ -92,7 +86,7 @@ val read_def = Define`
     do
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
-      let k = MIN n (MIN (LENGTH content - off) (SUC (SHD fs.numchars))) in
+      let k = MIN n (MIN (LENGTH content - off) (SUC (THE (LHD fs.numchars)))) in
       return (TAKE n (DROP off content), bumpFD fd fs k)
     od `;
 
@@ -104,44 +98,13 @@ val seek_def = Define`
       return(fs with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. off))))
     od `;
 
-(*
-* "The value returned is the number of bytes read (zero indicates end of file)
-* and the file position is advanced by this number. It is not an error if this
-* number is smaller than the number of bytes requested; this may happen for
-* example because fewer bytes are actually available right now (maybe because we
-* were close to end-of-file, or because we are reading from a pipe, or from a
-* terminal), or because the system call was interrupted by a signal.
-*
-* Alternatively, -1 is returned when an error occurs, in such a case errno is
-* set appropriately and further it is left unspecified whether the file position
-* (if any) changes." *)
 
-val read_eof = Q.store_thm("read_eof",
- `!fd fs n. 0 < n ⇒ (eof fd fs = SOME T) ⇒
-            read fd fs n = SOME ([], fs with numchars := STL fs.numchars)`,
- rw[eof_def,read_def,MIN_DEF]  >>
- qexists_tac `x` >> rw[] >>
- cases_on `x` >> 
- fs[DROP_LENGTH_TOO_LONG] >>
- fs[bumpFD_def] >>
- `ALIST_FUPDKEY fd (I ## $+ (STRLEN contents − r)) infds = infds` by 
-   (`(∀v. ALOOKUP infds fd = SOME v ⇒ (I ## $+ (STRLEN contents − r)) v = v)`
-      by (cases_on`v` >> rw[]) >>
-    imp_res_tac ALIST_FUPDKEY_unchanged) >>
- cheat);
-
-val eof_read = Q.store_thm("eof_read",
- `!fd fs fs' n. 0 < n ⇒ read fd fs n = SOME ([], fs) ⇒ eof fd fs = SOME T`,
- rw[eof_def,read_def] >>
- qexists_tac `x` >> rw[] >>
- cases_on `x` >> 
- fs[DROP_NIL]);
 
 (* replaces the content of the file in fs with filename fnm *)
 val write_file_def = Define`
   write_file fs fnm content = 
     (fs with files := ((fnm, content) :: (A_DELKEY fnm fs.files)))
-        with numchars := STL fs.numchars`
+        with numchars := THE (LTL fs.numchars)`
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
@@ -154,7 +117,7 @@ val write_def = Define`
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
       assert(n <= LENGTH chars);
-      let k = MIN n (SHD fs.numchars) in
+      let k = MIN n (THE (LHD fs.numchars)) in
       return (k, write_file fs fnm (content ++ TAKE k chars))
     od `;
 
@@ -309,12 +272,16 @@ val encode_fds_def = Define`
 
 val encode_def = zDefine`
   encode fs = cfHeapsBase$Cons
-                         (encode_files fs.files)
-                         (encode_fds fs.infds)
+                (cfHeapsBase$Cons
+                  (encode_files fs.files)
+                  (encode_fds fs.infds))
+                (Stream fs.numchars)
 `
+
 val decode_files_def = Define`
   decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
 `
+
 val decode_fds_def = Define`
   decode_fds =
     decode_list (decode_pair destNum
@@ -322,11 +289,11 @@ val decode_fds_def = Define`
 `;
 
 val decode_def = zDefine`
-  (decode (Cons files0 fds0) =
+  (decode (Cons (Cons files0 fds0) (Stream numchars0)) =
      do
         files <- decode_files files0 ;
         fds <- decode_fds fds0 ;
-        return <| files := files ; infds := fds |>
+        return <| files := files ; infds := fds; numchars := numchars0 |>
      od) ∧
   (decode _ = fail)
 `;
@@ -351,13 +318,6 @@ val _ = export_theory();
 * pending writes on that channel. Interactive programs must be careful about
 * flushing standard output and standard error at the right time.
 *
-* val seek_out : out_channel -> int -> unit
-*
-* seek_out chan pos sets the current writing position to pos for channel chan.
-* This works only for regular files. On files of other kinds (such as terminals,
-* pipes and sockets), the behavior is unspecified.
-*
 * val pos_out : out_channel -> int
-*
-* Return the current writing position for the given channel. Does not work on
-* channels opened with the Open_append flag (returns unspecified results). *)
+* given by seek 0, but can be larger than a char
+*)
