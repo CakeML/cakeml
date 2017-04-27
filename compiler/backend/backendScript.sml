@@ -14,7 +14,7 @@ open preamble
      lab_to_targetTheory
 local open primTypesTheory in end
 open word_to_wordTheory
-open jsonTheory presLangTheory
+open jsonLangTheory presLangTheory
 
 val _ = new_theory"backend";
 

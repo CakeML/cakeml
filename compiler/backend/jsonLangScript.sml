@@ -1,6 +1,6 @@
 open preamble
 
-val _ = new_theory"json";
+val _ = new_theory"jsonLang";
 
 (*
 * This module contains a data type for representing JSON objects, and related

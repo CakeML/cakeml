@@ -1,11 +1,11 @@
-open preamble jsonTheory backend_commonTheory;
+open preamble jsonLangTheory backend_commonTheory;
 
-val _ = new_theory"structuredLang";
+val _ = new_theory"displayLang";
 
 
-(* structuredLang is an intermediate language between presLang and json. The
+(* displayLang is an intermediate language between presLang and jsonLang. The
 * purpose of strucutredLang is to force each presLang expression into a unified
-* form, that is easily expressed by uniform json object that are either
+* form, that is easily expressed by uniform jsonLang object that are either
 *   a) Objects representing a tuple (Tuple)
 *   b) Objects representing a constructor with many arguments or (Item)
 *   c) Arrays (List)
@@ -18,7 +18,7 @@ val _ = Datatype`
 
 val sExp_size_def = fetch "-" "sExp_size_def";
 
-(* structured_to_json *)
+(* display_to_json *)
 val num_to_json_def = Define`
   num_to_json n = String (num_to_str n)`;
 
@@ -39,21 +39,21 @@ val MEM_sExp_size = store_thm("MEM_sExp_size",
   ``!es a. MEM a es ==> sExp_size a < sExp1_size es``,
   Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []);
 
-(* Converts a structured expression to JSON *)
-val structured_to_json_def = tDefine"structured_to_json" `
-  (structured_to_json (Item tra name es) =
-    let es' = MAP structured_to_json es in
+(* Converts a display expression to JSON *)
+val display_to_json_def = tDefine"display_to_json" `
+  (display_to_json (Item tra name es) =
+    let es' = MAP display_to_json es in
     let props = [("name", String name); ("args", Array es')] in
     let props' = case tra of
                    | NONE => props
                    | SOME t => ("trace", trace_to_json t)::props in
       Object props')
    /\
-  (structured_to_json (Tuple es) =
-    let es' = MAP structured_to_json es in
+  (display_to_json (Tuple es) =
+    let es' = MAP display_to_json es in
       Object [("isTuple", Bool T); ("elements", Array es')])
   /\
-   (structured_to_json (List es) = Array (MAP structured_to_json es))`
+   (display_to_json (List es) = Array (MAP display_to_json es))`
   (WF_REL_TAC `measure sExp_size` \\ rw []
    \\ imp_res_tac MEM_sExp_size \\ fs []);
 
