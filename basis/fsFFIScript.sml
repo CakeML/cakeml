@@ -179,7 +179,6 @@ val ffi_open_out_def = Define`
   ffi_open_out bytes fs =
     do
       fname <- getNullTermStr bytes;
-      contents <- ALOOKUP fs.files (implode fname);
       (fd, fs') <- openFile_truncate (implode fname) fs 0;
       assert(fd < 255);
       return (LUPDATE (n2w fd) 0 bytes, fs')
@@ -202,7 +201,7 @@ val ffi_read_def = Define`
       return (0w :: n2w (LENGTH l) ::
               MAP (n2w o ORD) l ++
               DROP (LENGTH l +2) bytes, fs')
-      od ++ return ([1w], fs)`;
+      od ++ return (LUPDATE 1w 0 bytes, fs)`;
       (* inaccurate: "when an error occurs, [...] 
       * it is left unspecified whether the file position (if any) changes. *)
 
@@ -218,9 +217,9 @@ val ffi_write_def = Define`
       (nw, fs') <- write (w2n (HD bytes)) (w2n (HD (TL bytes))) 
                          (MAP (CHR o w2n) (TL (TL bytes))) fs;
       (* return ok code and list of chars *)
-      return ([0w; n2w nw], fs')
+      return (LUPDATE (n2w nw) 1 (LUPDATE 0w 0 bytes), fs')
     (* return error code *)
-    od ++ return ([1w], fs)`;
+    od ++ return (LUPDATE 1w 0 bytes, fs)`;
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
