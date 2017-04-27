@@ -2651,7 +2651,8 @@ val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   \\ imp_res_tac SPLITP_IMP
   \\ fs[NULL_EQ]
   \\ fs[SPLITP] \\ rfs[] \\ rw[]
-  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  >- (`FILTER P t = []` by (simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM])
+      \\ simp[])
   \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
   \\ disch_then(qspec_then`t`mp_tac)
   \\ Cases_on`t` \\ rw[FIELDS_def]
