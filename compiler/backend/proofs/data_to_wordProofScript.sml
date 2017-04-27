@@ -13832,7 +13832,9 @@ val assign_ConsExtend = prove(
   cheat);
 
 val th = Q.store_thm("assign_ConsExtend",
-  `(?tag. op = ConsExtend tag) ==> ^assign_thm_goal`,
+  `(?tag.
+
+  op = ConsExtend tag) ==> ^assign_thm_goal`,
 
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -13855,34 +13857,48 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ fs [get_vars_SOME_IFF_eq] \\ rveq \\ fs []
   \\ rpt_drule evaluate_BignumHalt
-  \\ fs [state_rel_thm] \\ eval_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
-  \\ fs [wordSemTheory.get_vars_def]
-  \\ rename1 `get_var (adjust_var a4) t = SOME w4`
-  \\ strip_tac
   \\ rename1 `LENGTH t7 = LENGTH ys7`
-  \\ `?x4. w4 = Word x4 /\
-           (~(x4 ' 0) ==> x4 = Smallnum (&(len + LENGTH t7)))` by cheat
-  \\ rveq \\ fs []
-  \\ disch_then drule \\ strip_tac
-  \\ Cases_on `x4 ' 0` THEN1 (fs []) \\ fs []
+  \\ `?w4. get_var (adjust_var a4) t = SOME (Word w4) /\
+           (~(w4 ' 0) ==> w4 = Smallnum (&(len + LENGTH t7)))` by
+   (fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ fs [wordSemTheory.get_vars_def]
+    \\ rename1 `get_var (adjust_var a4) t = SOME x4`
+    \\ ntac 3 (strip_tac \\ drule memory_rel_tl)
+    \\ strip_tac
+    \\ drule (memory_rel_any_Number_IMP |> ONCE_REWRITE_RULE [CONJ_COMM])
+    \\ fs [] \\ strip_tac \\ rveq \\ fs [] \\ strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP \\ rfs [] \\ NO_TAC)
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ Cases_on `w4 ' 0` THEN1 (fs []) \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.get_var_def]
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ qmatch_goalsub_abbrev_tac `wordSem$evaluate (_, t5)`
   \\ pairarg_tac \\ pop_assum mp_tac
-  \\ `state_rel c l1 l2 x t5 [] locs` by cheat
+  \\ fs[]
+  \\ `state_rel c l1 l2 x t5 [] locs` by
+       (unabbrev_all_tac \\ fs [state_rel_insert_1])
   \\ qmatch_goalsub_abbrev_tac `AllocVar lim nms` \\ fs [] \\ strip_tac
-  \\ `dataSem$cut_env nms x.locals = SOME ARB` by cheat
-  \\ `get_var 1 t5 = SOME (Word (n2w (4 * (len + LENGTH t7))))` by cheat
+  \\ `?xx. dataSem$cut_env nms x.locals = SOME xx` by
+   (fs [dataSemTheory.cut_env_def,bvi_to_dataTheory.op_requires_names_def]
+    \\ cheat)
+  \\ `get_var 1 t5 = SOME (Word (n2w (4 * (len + LENGTH t7))))` by
+   (fs [wordSemTheory.get_var_def,Abbr`t5`,lookup_insert] \\ rveq
+    \\ fs [Smallnum_def] \\ NO_TAC)
   \\ rpt_drule AllocVar_thm
   \\ impl_tac THEN1
-    (unabbrev_all_tac \\ fs [] \\ fs [dimword_def,good_dimindex_def])
+    (unabbrev_all_tac \\ fs []
+     \\ fs [dimword_def,good_dimindex_def,state_rel_thm])
   \\ reverse (Cases_on `res`) THEN1 (fs []) \\ fs []
   \\ strip_tac
 
-  (* ... *)
+(*
+  Make_ptr_bits_thm
+  evaluate_StoreEach
+*)
+
   \\ cheat);
 
 val th = Q.store_thm("assign_Cons",
