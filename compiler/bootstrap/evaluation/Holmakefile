@@ -26,5 +26,5 @@ ifndef CC
 CC=gcc
 endif
 
-cake: cake.S ../../../basis_ffi.o
+cake: cake.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@
