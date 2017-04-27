@@ -60,16 +60,6 @@ val openFileFS_def = Define`
     | SOME (_, fs') => fs'
 `;
 
-(* end of file is reached when the position index is the length of the file *)
-val eof_def = Define`
-  eof fd fsys =
-    do
-      (fnm,pos) <- ALOOKUP fsys.infds fd ;
-      contents <- ALOOKUP fsys.files fnm ;
-      return (LENGTH contents <= pos)
-    od
-`;
-
 (* checks if a descriptor index is in the file descriptor *)
 val validFD_def = Define`
   validFD fd fs ⇔ fd ∈ FDOM (alist_to_fmap fs.infds)
@@ -233,18 +223,6 @@ val ffi_close_def = Define`
       return (LUPDATE 0w 0 bytes, fs)
     od`;
 
-(* given a file descriptor, returns 0, 1 if EOF is met. 255 is an error *)
-val ffi_isEof_def = Define`
-  ffi_isEof bytes fs =
-    do
-      assert(LENGTH bytes = 1);
-      do
-        b <- eof (w2n (HD bytes)) fs ;
-        return (LUPDATE (if b then 1w else 0w) 0 bytes, fs)
-      od ++
-      return (LUPDATE 255w 0 bytes, fs)
-    od`;
-
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
 * if an error is met *)
 val ffi_seek = Define`
@@ -305,8 +283,7 @@ val fs_ffi_part_def = Define`
        ("read",ffi_read);
        ("write",ffi_write);
        ("close",ffi_close);
-       ("seek",ffi_seek);
-       ("isEof",ffi_isEof)])`;
+       ("seek",ffi_seek)])`;
 
 val _ = export_theory();
 
