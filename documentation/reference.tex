@@ -67,9 +67,9 @@ value of that type, unless it infinite loops or raises an exception.
 CakeML supports the following types of values:
 \begin{itemize}
   \item atomic values -- boolean, integer, string, and character constants (\S\ref{sect:val});
-  \item immutable containers -- lists, tuples, user-defined algebraic types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{ch:stdlib});
-  \item mutable containers -- references and arrays (\S\ref{ch:stdlib}); and
-  \item functions (\S\ref{sect:func}).
+  \item functions (\S\ref{sect:func});
+  \item immutable containers -- lists, tuples, user-defined algebraic types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{ch:stdlib}); and
+  \item mutable containers -- references and arrays (\S\ref{ch:stdlib}).
 \end{itemize}
 
 \section{Atomic values}
@@ -116,7 +116,7 @@ of characters is \smlinline{char}.
 
 \section{Variables and other names}
 
-There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
+\paragraph{Variable syntax} There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
 with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
 
 Names of modules and constructors (from type definitions) are alphanumeric and
@@ -133,13 +133,21 @@ ref  sig  struct  structure  then  true  type  val
 :=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
 \end{verbatim}
 
-The \smlinline{val} keyword introduces a new variable name with a given value.
+\paragraph{Declaration of variables} The \smlinline{val} keyword introduces a new variable name with a given value.
 We follow tradition in referring to these as variables, although their values
 cannot be changed once initialised.
 \begin{smlcode}
 val x = 1 + 2
 val my_string = "Happy"
 \end{smlcode}
+
+\section{Functions}
+\label{sect:func}
+
+\paragraph{Declaration of functions}
+A function is declared with the \smlinline{fun} keyword.
+
+
 
 \section{Compound values and pattern matching}
 \label{sect:compound}
@@ -226,31 +234,31 @@ datatype ('k, 'a) nary_tree =
 \paragraph{Pattern matching}
 Compound values are destructured with pattern matching \smlinline{case} expressions.
 
-\section{Functions and operators}
-\label{sect:func}
+\section{Infix operators}
+\label{sect:infix}
+
+CakeML supports the set of infix operators listed in Figure~\ref{precedences}. 
 
 \begin{figure}
 \centering
-\begin{tabular}{l}
- \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
- \texttt{+} \texttt{-}\\
- \texttt{@} \texttt{::}\\
- \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
- \texttt{o} \texttt{:=}\\
- \texttt{before}\\
- \texttt{orelse} \texttt{andalso}
+\begin{tabular}{ll}
+  \smlinline{*} \smlinline{div} \smlinline{mod} \smlinline{/} & (\S\ref{sect:val}, \smlinline{/} unimplemented)\\
+  \smlinline{+} \smlinline{-}  & (\S\ref{sect:val})\\
+  \smlinline{@} \smlinline{::} & (\S\ref{sect:compound})\\
+  \smlinline{<} \smlinline{>} \smlinline{<=} \smlinline{>=} \smlinline{<>} \smlinline{=} & (\S\ref{sect:val}, \S\ref{sect:infix} for \smlinline{=})\\
+  \smlinline{o} \smlinline{:=} & (\S\ref{sect:refs}, \smlinline{o} unimplemented)\\
+  \smlinline{before} & (unimplemented)\\
+  \smlinline{orelse} \smlinline{andalso} & (\S\ref{sect:val})
  \end{tabular}
 \caption{Infix operators from tightest (at the top) to loosest binding}
 \label{precedences}
 \end{figure}
 
-CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
-
 \paragraph{Equality}
 
-The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
-
+The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and algebraic data types), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure. Their elements are not inspected.
 If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
+
 
 \section{Conditionals}
 %
@@ -313,6 +321,7 @@ The \texttt{=} operator does not traverse mutable data (arrays and references), 
 
 
 \section{References}
+\label{sect:refs}
 
 A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \texttt{ref}.
 References have the following operations.
