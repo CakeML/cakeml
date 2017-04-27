@@ -74,6 +74,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.compile_dec_def
     ,source_to_modTheory.compile_exp_def
     ,source_to_modTheory.compile_pat_def
+    ,source_to_modTheory.pat_tups_def
+    ,source_to_modTheory.om_tra_def
+    ,source_to_modTheory.make_varls_def
     ,source_to_modTheory.alloc_defs_def
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
