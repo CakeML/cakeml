@@ -59,11 +59,11 @@ val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 (* TODO: move *)
 
-val _ = translate jsonTheory.num_to_str_def;
+val _ = translate jsonLangTheory.num_to_str_def;
 
 val json_num_to_str_side = prove(
   ``!x. json_num_to_str_side x = T``,
-  recInduct jsonTheory.num_to_str_ind \\ rw []
+  recInduct jsonLangTheory.num_to_str_ind \\ rw []
   \\ simp [Once (fetch "-" "json_num_to_str_side_def")]
   \\ rw [] \\ `n MOD 10 < 10` by fs [] \\ simp [])
  |> update_precondition
@@ -72,7 +72,7 @@ val int_to_str_lemma = prove(
   ``json$int_to_str i =
       if i < 0 then STRCAT "-" (num_to_str (num_of_int i))
       else num_to_str (num_of_int i)``,
-  fs [num_of_int_def,jsonTheory.int_to_str_def]
+  fs [num_of_int_def,jsonLangTheory.int_to_str_def]
   \\ rw [] \\ fs []
   \\ AP_TERM_TAC \\ intLib.COOPER_TAC);
 
@@ -82,10 +82,10 @@ val mem_to_string_lemma = prove(
   ``mem_to_string x =
     Append (Append (Append (List "\"") (List (FST x))) (List "\":"))
        (json_to_string (SND x))``,
-  Cases_on `x` \\ simp [Once jsonTheory.json_to_string_def] \\ fs []);
+  Cases_on `x` \\ simp [Once jsonLangTheory.json_to_string_def] \\ fs []);
 
 val res = translate
-  (jsonTheory.json_to_string_def
+  (jsonLangTheory.json_to_string_def
    |> CONJUNCT1 |> SPEC_ALL
    |> (fn th => LIST_CONJ [th,mem_to_string_lemma]));
 
@@ -103,9 +103,9 @@ val res = translate
 val res = translate
   (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val res = translate structuredLangTheory.num_to_json_def;
-val res = translate structuredLangTheory.trace_to_json_def;
-val res = translate structuredLangTheory.structured_to_json_def;
+val res = translate displayLangTheory.num_to_json_def;
+val res = translate displayLangTheory.trace_to_json_def;
+val res = translate displayLangTheory.display_to_json_def;
 
 val res1 = translate presLangTheory.mod_to_json_def;
 val res2 = translate presLangTheory.con_to_json_def;
