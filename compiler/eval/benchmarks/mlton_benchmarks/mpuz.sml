@@ -62,7 +62,7 @@ structure Mpuz =
             fun printResult() =
                (foreach
                 (letters, fn c =>
-                 print(String.concat_2 [String.str(c), " = ",
+                 print(String.concat [String.str(c), " = ",
                               Int.toString(letterValue(c)), " "]))
                 ; print "\n")
 

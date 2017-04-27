@@ -8,12 +8,12 @@ structure Main =
          let
             val n = Vector.length v
          in
-            Vector.tabulate_1 n (fn i => Vector.sub v (n - 1 - i))
+            Vector.tabulate n (fn i => Vector.sub v (n - 1 - i))
          end
 
       fun doit n =
          let
-            val v = Vector.tabulate_1 200000 (fn i => i)
+            val v = Vector.tabulate 200000 (fn i => i)
             fun loop n =
                if n < 0
                   then ()
@@ -25,4 +25,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 5
+val foo = Main.doit 2

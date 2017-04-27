@@ -624,4 +624,4 @@ structure Main =
       val doit = doit
    end
 
-val foo = Main.doit 300;
+val foo = Main.doit 250;

@@ -1,4 +1,5 @@
 fun mkSome p = SOME p
+fun print _ = ()
 
 structure Stream =
 struct
