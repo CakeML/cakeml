@@ -368,6 +368,12 @@ val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   \\ Cases_on`n = LENGTH xs`
   \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
 
+val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
+  `l1 <> [] /\ l2 <> [] ==>
+    (LIST_REL A l1 l2 <=> LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
+  map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
+  [`l1`,`l2`]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
