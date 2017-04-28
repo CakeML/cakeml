@@ -61,15 +61,15 @@ val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 val _ = translate jsonLangTheory.num_to_str_def;
 
-val json_num_to_str_side = prove(
-  ``!x. json_num_to_str_side x = T``,
+val jsonlang_num_to_str_side = prove(
+  ``!x. jsonlang_num_to_str_side x = T``,
   recInduct jsonLangTheory.num_to_str_ind \\ rw []
-  \\ simp [Once (fetch "-" "json_num_to_str_side_def")]
+  \\ simp [Once (fetch "-" "jsonlang_num_to_str_side_def")]
   \\ rw [] \\ `n MOD 10 < 10` by fs [] \\ simp [])
  |> update_precondition
 
 val int_to_str_lemma = prove(
-  ``json$int_to_str i =
+  ``jsonLang$int_to_str i =
       if i < 0 then STRCAT "-" (num_to_str (num_of_int i))
       else num_to_str (num_of_int i)``,
   fs [num_of_int_def,jsonLangTheory.int_to_str_def]

@@ -64,6 +64,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
+    ,``:backend_common$tra``
     ]
   (* TODO: move (to basicCompute or HOL) *)
   ,computeLib.Defs
@@ -81,6 +82,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
+    ,backend_commonTheory.orphan_trace_def
+    ,backend_commonTheory.mk_cons_def
+    ,backend_commonTheory.mk_union_def
       (* ---- conLang ---- *)
     ,backend_commonTheory.bind_tag_def
     ,backend_commonTheory.chr_tag_def
