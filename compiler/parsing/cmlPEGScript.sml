@@ -377,10 +377,9 @@ val cmlPEG_def = zDefine`
                            seql [tokeq OpT; pnt nOpID] I])
                  (bindNT nPbase));
               (mkNT nPapp,
-               (* could be optimised so that a bare constructor name doesn't
-                  cause a backtrack *)
-               choicel [seql [pnt nConstructorName; pnt nPbase]
-                             (bindNT nPapp);
+               choicel [seql [pnt nConstructorName; try (pnt nPbase)]
+                             (λpts. if LENGTH pts = 2 then bindNT nPapp pts
+                                    else bindNT nPapp (bindNT nPbase pts));
                         pegf (pnt nPbase) (bindNT nPapp)]);
               (mkNT nPcons,
                seql [pnt nPapp;
