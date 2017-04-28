@@ -25,6 +25,7 @@ val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
 val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
+val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
 
 fun strip_Lannot t =
   if is_comb t then
@@ -528,5 +529,11 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
                    (SOME ``Mat (Var (Short "c"))
                                [(Plit (Char #"a"), Lit (IntLit 1));
                                 (Pany, Lit (IntLit 2))]``)
+
+(* val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "let val op+ = 3 in f op+ end"
+                   NONE *)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val op+ = (fn x => fn y => x * y)"
+                   (SOME “Dlet locs (Pvar "+")
+                     (Fun "x" (Fun "y" (vbinop (Short "*") (V "x") (V "y"))))”)
 
 val _ = export_theory()

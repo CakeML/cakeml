@@ -373,7 +373,8 @@ val cmlPEG_def = zDefine`
                            tok isString mktokLf; tok isCharT mktokLf;
                            pnt nPtuple; tokeq UnderbarT;
                            seql [tokeq LbrackT; try (pnt nPatternList);
-                                 tokeq RbrackT] I])
+                                 tokeq RbrackT] I;
+                           seql [tokeq OpT; pnt nOpID] I])
                  (bindNT nPbase));
               (mkNT nPapp,
                (* could be optimised so that a bare constructor name doesn't
