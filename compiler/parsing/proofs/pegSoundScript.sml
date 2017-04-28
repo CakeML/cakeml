@@ -636,8 +636,10 @@ val peg_sound = Q.store_thm(
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
           imp_res_tac
             (MATCH_MP not_peg0_LENGTH_decreases peg0_nConstructorName) >>
-          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[])
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[]) >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+          simp[cmlG_FDOM, cmlG_applied])
+      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+          simp[cmlG_FDOM, cmlG_applied]) >>
       lrresolve X (free_in ``nPbase``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[])
   >- (print_tac "nPbase" >>
