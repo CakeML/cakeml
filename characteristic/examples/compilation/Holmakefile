@@ -1,4 +1,4 @@
-INCLUDES = .. ../../../compiler/backend/x64 ../../.. ../../../basis ../../../compiler
+INCLUDES = .. ../../.. ../../../basis ../../../compiler
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
 .PHONY: all
@@ -24,9 +24,7 @@ PARENT_HOLHEAP = ../../../compiler/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../../../compiler/compilerComputeLib\
-						../../../compiler/backend/x64/x64_compileLib\
-						../../../compiler/backend/x64/x64_exportLib
+BARE_THYS = ../../../compiler/compilationLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
