@@ -537,9 +537,14 @@ val isConstructor_def = Define`
     od
 `;
 
+(* third clause below will lead to a failure when the environment is
+   consulted to reveal that the long-id given does not correspond to a
+   constructor.  We do this rather than fail to make the "totality" theorem
+   work *)
 val EtoPat_def = Define`
   (EtoPat (Con x args) = if NULL args then SOME (Pcon x []) else NONE) ∧
   (EtoPat (Var (Short n)) = SOME (Pvar n)) ∧
+  (EtoPat (Var (Long str n)) = SOME (Pcon (SOME (Long str n)) [])) ∧
   (EtoPat _ = NONE)
 `;
 

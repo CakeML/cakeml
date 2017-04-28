@@ -630,7 +630,7 @@ val firstSet_nPtuple = Q.store_thm(
 val firstSet_nPbase = Q.store_thm(
   "firstSet_nPbase[simp]",
   `firstSet cmlG (NN nPbase :: rest) =
-      {LparT; UnderbarT; LbrackT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
+      {LparT; UnderbarT; LbrackT; OpT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
       {CharT c | T } ∪
       firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]`,
   simp[SimpLHS, firstSetML_eqn] >>
@@ -1493,20 +1493,20 @@ val stoppers_def = Define`
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPcons =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
-                { StringT s | T } ∪ { CharT c | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"; OpT} ∪
+                { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPapp =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; OpT} ∪ { IntT i | T } ∪
                 { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPattern =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT} ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT; OpT} ∪
                 { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
                 { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
-     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT} ∪
+     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT;OpT} ∪
                 { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
                 {IntT i | T} ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
