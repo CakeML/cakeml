@@ -72,6 +72,18 @@ CakeML supports the following types of values:
   \item mutable containers -- references and arrays (\S\ref{ch:stdlib}).
 \end{itemize}
 
+\section{Comments and white space}
+All comments and white space act as delimiters, but are otherwise ignored. Comments are surrounded by \smlinline{(* *)}. They nest properly, so that the following works.\begin{smlcode}
+(*
+  commented out code
+  (* comment inside of commented out code *)
+  commented out code
+*)
+\end{smlcode}
+The first \smlinline{*)} does not end the entire comment, but only the
+corresponding \smlinline{(*}.
+
+
 \section{Atomic values}
 \label{sect:val}
 
@@ -81,15 +93,19 @@ disjunction logical operators are written as infix \smlinline{andalso} and
 \smlinline{orelse}. They evaluate the left argument first, and only evaluate the
 right one if necessary (short-circuit evaluation).
 
-\paragraph{Integers} Integers values are written in decimal. The
+\paragraph{Integers} Integers constants are written in decimal notation. The
 \texttt{\textasciitilde} character acts as the minus sign for writing negative
-numbers. So write \smlinline{~1} instead of \texttt{-1}. Hexidecimal and other
-non-decimal notations are not currently supported. The type of integers is
+numbers. So negative one is \smlinline{~1} instead of \texttt{-1}. The type of integers is
 \smlinline{int}.
 
 CakeML provides the following infix arithmetic operators on integers: \smlinline{+},\smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
 
 Integers are compared with \smlinline{=}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
+
+\paragraph{Words} All CakeML words are 64-bits. Word constants in decimal notation are prefixed with \smlinline{0w} (for example, \smlinline{0w256}). Words constants in hexadecimal notation are prefixed with \smlinline{0wx} (for example, \smlinline{0wx3fA}).
+
+\todo{What is the type? There are Word8 literals in the AST, and the basis says that the "word" type is for word8s, but the parser never makes a word8 literal. Also there are chars, but the operations on word8s and chars are different.}
+\todo{What are the operations?}
 
 \paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \smlinline{string}.
 
@@ -127,10 +143,10 @@ Type variables must be alphanumeric and start with \texttt{'}.
 
 No name can be any of the following reserved words:
 \begin{verbatim}
-and  andalso  before  case  datatype  div  else  end  exception
-false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
-ref  sig  struct  structure  then  true  type  val
-:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
+and  andalso  case  datatype  else  end  exception
+fn  handle  if  in  let  nil  op  of  orelse  raise
+ref  sig  struct  structure  then  type  val
+:>  ::  =>  :  |
 \end{verbatim}
 
 \paragraph{Declaration of variables} The \smlinline{val} keyword introduces a new variable name with a given value.
@@ -237,7 +253,7 @@ Compound values are destructured with pattern matching \smlinline{case} expressi
 \section{Infix operators}
 \label{sect:infix}
 
-CakeML supports the set of infix operators listed in Figure~\ref{precedences}. 
+CakeML supports the set of infix operators listed in Figure~\ref{precedences}.
 
 \begin{figure}
 \centering
@@ -254,24 +270,64 @@ CakeML supports the set of infix operators listed in Figure~\ref{precedences}.
 \label{precedences}
 \end{figure}
 
+The \smlinline{op} keyword
+
 \paragraph{Equality}
 
 The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and algebraic data types), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure. Their elements are not inspected.
 If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
 
-
 \section{Conditionals}
-%
-\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
 
-A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
-
-
-\paragraph{User-defined data}
+Conditional expressions use the \smlinline{if}, \smlinline{then}, and
+\smlinline{else} keywords. For example,
+\begin{smlcode}
+if x < 0 then
+  0 - x
+else
+  x
+\end{smlcode}
+The \smlinline{else} keyword and associated sub-expression cannot by omitted. The test expression (following \smlinline{if}) must be of \smlinline{bool} type, and the result expressions must both have the same types.
 
 \section{Exceptions}
 
+\paragraph{Exception declarations}
+%Python hangs on \mintinline{sml}{exception}
+The \mintinline{ocaml}{exception} keyword declares a new exception. It must
+start with a capital letter, and can have arguments similar to the constructor
+of an algebraic data type.
+\begin{smlcode}
+exception Error
+exception Type_error of int * string
+\end{smlcode}
+
+\paragraph{Raising exceptions}
+The \smlinline{raise} keyword raises an exception. For example,
+\begin{smlcode}
+if x < 0 then
+  raise Error
+else
+  x
+\end{smlcode}
+
+\begin{smlcode}
+if t1 = t2 then
+  t1
+else
+  raise (Type_error (loc, "type mismatch"))
+\end{smlcode}
+
+A \smlinline{raise} expression can have any type, and so can be used anywhere
+an expression is expected, as in \smlinline{4 + (raise Error)}.
+
+\paragraph{Handling exceptions}
+
+
+
+
 \section{Local bindings}
+
+
 
 \section{Modules}
 
