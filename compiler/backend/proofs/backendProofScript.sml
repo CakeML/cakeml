@@ -520,16 +520,21 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND (compile c.data_conf prog1))`,
   fs[stack_allocTheory.compile_def]>>
-  EVAL_TAC>>fs[]>>
+  EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
+  TRY (rename1 `c.data_conf.gc_kind = Generational gen_sizes`) >>
+  TRY TOP_CASE_TAC \\ fs [] >>
+  TRY TOP_CASE_TAC \\ fs [] >> EVAL_TAC >>
   qid_spec_tac`prog1`>>Induct>>
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
-  qpat_abbrev_tac`l = next_lab A 1` >> pop_assum kall_tac>>
+  (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
   qpat_x_assum`good_syntax p_2 1 2 0` mp_tac>>
   qpat_x_assum`good_syntax p_2 sp` mp_tac>>
   qpat_x_assum`10 ≤ sp` mp_tac>>
   rpt (pop_assum kall_tac)>>
-  map_every qid_spec_tac [`p_2`,`l`,`p_1`]>>
+  qid_spec_tac `p_2` >>
+  qid_spec_tac `l` >>
+  qid_spec_tac `p_1` >>
   ho_match_mp_tac stack_allocTheory.comp_ind>>
   Cases_on`p_2`>>rw[]>>
   simp[Once stack_allocTheory.comp_def]>>fs convs>>

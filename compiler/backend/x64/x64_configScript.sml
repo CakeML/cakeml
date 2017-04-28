@@ -38,7 +38,7 @@ val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
 
-val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T|>``
+val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps := []:64 word list |>``
 val x64_stack_conf = ``<|reg_names:=x64_names;max_heap:=1000000|>``
 val x64_lab_conf = ``<|labels:=LN;asm_conf:=x64_config;init_clock:=5|>``

@@ -2143,6 +2143,7 @@ val init_prop_def = Define `
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
+       FLOOKUP s.store TriggerGC = SOME (Word other) /\
        FLOOKUP s.store EndOfHeap = SOME (Word other) /\
        FLOOKUP s.store OtherHeap = SOME (Word other) /\
        FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
@@ -2151,6 +2152,7 @@ val init_prop_def = Define `
        FLOOKUP s.store AllocSize = SOME (Word 0w) /\
        FLOOKUP s.store Globals = SOME (Word 0w) /\
        FLOOKUP s.store Handler = SOME (Word 0w) /\
+       FLOOKUP s.store GenStart = SOME (Word 0w) /\
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
        LENGTH s.bitmaps + 1 < dimword (:'a) /\
