@@ -1,4 +1,9 @@
 \documentclass[12pt,a4paper]{book}
+\usepackage[scaled]{berasans}
+\usepackage[scaled]{berasans}
+\usepackage[scaled]{beraserif}
+
+\usepackage{todonotes}
 
 \usepackage{hyperref}
 \usepackage{amssymb}
@@ -6,10 +11,14 @@
 
 \usepackage{supertabular}
 
+
 \usepackage{xcolor}
 \usepackage{lem}
 
-\newcommand{\TODO}[1]{{\color{red}#1}}
+\usepackage{minted}
+\newminted{sml}{}
+\newmintinline{sml}{}
+\usemintedstyle{bw}
 
 \newcommand{\gramsep}{|}
 
@@ -22,17 +31,16 @@ University of Kent\\
 
 \begin{document}\sloppy
 \maketitle
+\frenchspacing
 
 \frontmatter
 
 \chapter{Preface}
 
-This manual is intended to describe the CakeML language, and the system that implements it. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, whether its with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html.}}
-or to work with the CakeML code base independently.
+This manual is intended to describe the CakeML language, compiler, and associated proof technologies. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, either with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html}.}
+or to work with CakeML independently.
 
-We have attempted to make this manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
-
-CakeML is a work in progress, and currently lacks many features that a full featured programming language needs. We are working toward remedying this situation, prioritising features based on our need for them in our own research into using CakeML for verified programs.
+We have attempted to make this reference manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
 
 \mainmatter
 \tableofcontents
@@ -42,25 +50,64 @@ CakeML is a work in progress, and currently lacks many features that a full feat
 
 \chapter{An informal description of CakeML}
 
-CakeML is a functional language in the ML family. Its syntax and semantics closely resembles Standard ML, but the concepts will also be very familiar to OCaml programmers.
+CakeML is a functional language in the ML family. Its syntax and semantics
+closely resembles Standard ML, and the concepts will also be familiar to OCaml
+programmers.
 
-\section{Primitive data and operations}
+CakeML's syntax has a two-level structure with declarations and expressions. A
+program is a sequence of top-level declarations that define variables,
+functions, types, and modules. Computations are performed by the expressions in
+function bodies and variable initialisation.
 
-CakeML supports data of boolean, integer, byte, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+Expression are built up from constants, variables, function applications, and
+special forms for conditionals, pattern matching, exception handling, anonymous
+functions, and local definitions. Each expression has a type, and computes a
+value of that type, unless it infinite loops or raises an exception.
 
-\paragraph{Booleans} The boolean values are written as \texttt{true} and \texttt{false}. The type of booleans is \texttt{bool}. Left-to-right short-circuit logical operators are written \texttt{andalso} and \texttt{orelse}.
-
-\paragraph{Integers} Integers values are written in decimal. \verb|~| acts as the minus sign for writing negative numbers. So write \verb|~1| instead of \verb|-1|. Hexidecimal and other non-decimal notations are not currently supported. The type of integers is \texttt{int}.
-
-CakeML provides the following infix operators on integers. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \texttt{div} and \texttt{mod} operations will raise the \texttt{Div} exception if given divisor of 0.
+CakeML supports the following types of values:
 \begin{itemize}
-\item Arithmetic: \texttt{+},\texttt{-}, \texttt{*}, \texttt{div}, \texttt{mod}
-\item Comparison: \texttt{<}, \texttt{>}, \texttt{<=}, \texttt{>=}
+  \item atomic values -- boolean, integer, string, and character constants (\S\ref{sect:val});
+  \item functions (\S\ref{sect:func});
+  \item immutable containers -- lists, tuples, user-defined algebraic types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{ch:stdlib}); and
+  \item mutable containers -- references and arrays (\S\ref{ch:stdlib}).
 \end{itemize}
 
-\paragraph{Bytes} There is currently no concrete syntax for writing byte values. The type of bytes is \texttt{Word8.word}. There are currently no operations on bytes.
+\section{Comments and white space}
+All comments and white space act as delimiters, but are otherwise ignored. Comments are surrounded by \smlinline{(* *)}. They nest properly, so that the following works.\begin{smlcode}
+(*
+  commented out code
+  (* comment inside of commented out code *)
+  commented out code
+*)
+\end{smlcode}
+The first \smlinline{*)} does not end the entire comment, but only the
+corresponding \smlinline{(*}.
 
-\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \texttt{string}. There are currently no operations on strings.
+
+\section{Atomic values}
+\label{sect:val}
+
+\paragraph{Booleans} The boolean constants are written as \smlinline{true} and
+\smlinline{false}. The type of booleans is \smlinline{bool}. The conjunction and
+disjunction logical operators are written as infix \smlinline{andalso} and
+\smlinline{orelse}. They evaluate the left argument first, and only evaluate the
+right one if necessary (short-circuit evaluation).
+
+\paragraph{Integers} Integers constants are written in decimal notation. The
+\texttt{\textasciitilde} character acts as the minus sign for writing negative
+numbers. So negative one is \smlinline{~1} instead of \texttt{-1}. The type of integers is
+\smlinline{int}.
+
+CakeML provides the following infix arithmetic operators on integers: \smlinline{+},\smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
+
+Integers are compared with \smlinline{=}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
+
+\paragraph{Words} All CakeML words are 64-bits. Word constants in decimal notation are prefixed with \smlinline{0w} (for example, \smlinline{0w256}). Words constants in hexadecimal notation are prefixed with \smlinline{0wx} (for example, \smlinline{0wx3fA}).
+
+\todo{What is the type? There are Word8 literals in the AST, and the basis says that the "word" type is for word8s, but the parser never makes a word8 literal. Also there are chars, but the operations on word8s and chars are different.}
+\todo{What are the operations?}
+
+\paragraph{Strings} String constants are enclosed in double quotation marks (\texttt{"}). The type of strings is \smlinline{string}.
 
 The escape character is \verb|\|, and it supports the following:
 \begin{itemize}
@@ -74,119 +121,213 @@ The escape character is \verb|\|, and it supports the following:
 \verb|\t| : a tab character.
 \end{itemize}
 
-\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \texttt{(1,2,true)} is a three element tuple. The empty tuple \texttt{()} is the (only) member of the special type \texttt{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \texttt{int * int * bool}. There are no operations on tuples (but see \S\ref{expressions} on pattern matching).
+\todo{Operations}
 
-\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \texttt{[1,2,3,4]} is a list of integers containing four elements. Its type is \texttt{int list}. The empty list is written \texttt{[]}, and has a polymorphic type \texttt{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \texttt{::}, so the above list could also have been written as \texttt{1::2::3::4::[]}. There are no operations for de-structuring lists (but see \S\ref{expressions} on pattern matching).
+\paragraph{Characters} A character constant is just a string constant of length
+1, with a \texttt{\#} prefix, for example \smlinline{#"c"} for the character `c'.
+This means that characters use the same escape sequences as strings. The type
+of characters is \smlinline{char}.
 
-\paragraph{Options} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options (but see \S\ref{expressions} on pattern matching).
+\todo{Operations}
 
+\section{Variables and other names}
 
+\paragraph{Variable syntax} There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
+with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
 
-\paragraph{Vectors}
+Names of modules and constructors (from type definitions) are alphanumeric and
+start with an upper case letter. Names of types are alphanumeric and start
+with a lower case letter.
+%
+Type variables must be alphanumeric and start with \texttt{'}.
 
-Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
+No name can be any of the following reserved words:
+\begin{verbatim}
+and  andalso  case  datatype  else  end  exception
+fn  handle  if  in  let  nil  op  of  orelse  raise
+ref  sig  struct  structure  then  type  val
+:>  ::  =>  :  |
+\end{verbatim}
 
-The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
-\begin{itemize}
-\item \texttt{Vector.fromList : 'a list -> 'a vector} Convert a list to a vector containing the same elements (in order).
-\item \texttt{Vector.length : 'a vector -> int} Get the vector's length.
-\item \texttt{Vector.sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
-\end{itemize}
+\paragraph{Declaration of variables} The \smlinline{val} keyword introduces a new variable name with a given value.
+We follow tradition in referring to these as variables, although their values
+cannot be changed once initialised.
+\begin{smlcode}
+val x = 1 + 2
+val my_string = "Happy"
+\end{smlcode}
 
-\paragraph{References}
+\section{Functions}
+\label{sect:func}
 
-A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \texttt{ref}.
-References have the following operations.
-\begin{itemize}
-\item
-\texttt{ref : 'a -> 'a ref} Create a new reference with an initial value.
-\item
-\texttt{! : 'a ref -> 'a} Get the value from a reference.
-\item
-\texttt{:= : 'a ref -> 'a -> unit} Replace the value in the reference with a new one.
-\end{itemize}
-
-\paragraph{Arrays}
-
-Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
-
-The following are the supported operations on arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
-\begin{itemize}
-\item \texttt{Array.array : int -> 'a -> 'a array} Create a new array of given length and default value.
-\item \texttt{Array.length : 'a array -> int} Get the array's length.
-\item \texttt{Array.sub : 'a array -> int -> 'a} Get the i$^\textrm{th}$ element.
-\item \texttt{Array.update : 'a array -> int -> 'a -> unit} Set the i$^\textrm{th}$ element.
-\end{itemize}
+\paragraph{Declaration of functions}
+A function is declared with the \smlinline{fun} keyword.
 
 
-\paragraph{Byte arrays}
-Byte arrays have a fixed length and support constant-time indexing. Each element of an array must be a byte (\texttt{Word8.word} type). The operations on byte arrays are collected in the \texttt{Word8Array} module. The type of a byte array is \texttt{Word8Array.array}.
 
-The following are the supported operations on byte arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
-\begin{itemize}
-\item \texttt{Word8Array.array : int -> Word8.word -> Word8Array.array} Create a new array of given length and default value.
-\item \texttt{Word8Array.length : Word8Array.array -> int} Get the array's length.
-\item \texttt{Word8Array.sub : Word8Array.array -> int -> Word8.word} Get the i$^\textrm{th}$ element.
-\item \texttt{Word8Array.update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
-\end{itemize}
+\section{Compound values and pattern matching}
+\label{sect:compound}
 
-\section{Expressions}
-\label{expressions}
+\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \smlinline{(1,2,true)} is a three element tuple. The empty tuple \smlinline{()} is the (only) member of the type \smlinline{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \smlinline{int * int * bool}.
 
-\paragraph{Infix operators}
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \smlinline{[1,2,3,4]} is a list of integers containing four elements. Its type is \smlinline{int list}. The empty list is written \smlinline{[]}, and has a polymorphic type \smlinline{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \smlinline{::}, so the above list could also have been written as \smlinline{1::2::3::4::[]}.
+
+\paragraph{Algebraic data types}
+
+A new data type is declared using the \smlinline{datatype} keyword, giving the
+type a name, and listing the constructors that form elements of the new type
+separated by \texttt{|} characters. For example, the following introduces a new type \smlinline{colour} and three new values of type \smlinline{colour}: \smlinline{Red}, \smlinline{Green}, and \smlinline{Blue}.
+The type name must begin with a lower case letter, and the constructors with upper case letters.
+\begin{smlcode}
+datatype colour = Red | Green | Blue
+\end{smlcode}
+
+The constructors can contain values of given types specified with the
+\smlinline{of} keyword. Those values can be of the same type as the datatype
+itself, that is, the types constructed by \smlinline{datatype} can be recursive.
+We can model a binary search tree with a terminal leaf, and interior nodes that
+contain left and right child trees, and integer keys and values.
+\begin{smlcode}
+datatype search_tree =
+  Leaf
+| Node of search_tree * int * int * search_tree
+\end{smlcode}
+We can create a \smlinline{search_tree} by applying the constructor to four
+arguments of the given types using a tuple-like syntax. Here are some example
+\smlinline{search_tree}s.
+\begin{smlcode}
+val empty_tree = Leaf
+val two_node = Node (Leaf, 1, 0, Node (Leaf, 2, 100, Leaf))
+\end{smlcode}
+Although the syntax looks like the constructor applied to a tuple expression,
+it is not as flexible as that, and we cannot apply \smlinline{Node} to an
+actual tuple value, as in the following \textbf{non-example}.
+\begin{smlcode}
+val tup = (Leaf, 2, 100, Leaf)
+val error = Node tup
+\end{smlcode}
+
+We can generalise the tree datatype to contain values of any type by
+introducing a type parameter, which is written \emph{before} the type name:
+\begin{smlcode}
+datatype 'a search_tree =
+  Leaf
+| Node of 'a search_tree * int * 'a * 'a search_tree
+\end{smlcode}
+The \smlinline{Leaf} example now has type \smlinline{'a search_tree}, and our
+\smlinline{Node} example has type \smlinline{int search_tree}. We can create a
+\smlinline{char search_tree} or \smlinline{string list search_tree} as follows.\footnote{type application is left associative, so \smlinline{string list search_tree} is the same as \smlinline{(string list) search_tree}.}
+\begin{smlcode}
+val char_tree = Node (Leaf, 1, #"0", Node (Leaf, 2, #"A", Leaf))
+val sl_tree = Node (Leaf, 1, ["44", "name"], Node (Leaf, 2, [""], Leaf))
+\end{smlcode}
+
+
+We can use multiple type parameters by putting them in parentheses and separating them with commas:
+\begin{smlcode}
+datatype ('k, 'a) search_tree =
+  Leaf
+| Node of ('k, 'a) search_tree * 'k * 'a * ('k, 'a) search_tree
+\end{smlcode}
+
+Data types can be mutually recursive with subsequent types being separated by
+the \smlinline{and} keyword.
+\begin{smlcode}
+datatype ('k, 'a) nary_tree =
+  Node of 'k * 'a * ('k, 'a) tree_list
+and ('k, 'a) tree_list =
+  Empty
+| Cons of ('k, 'a) nary_tree * ('k, 'a) tree_list
+\end{smlcode}
+
+Algebraic data types can also be composed. For example, the above
+\smlinline{nary_tree} type could be defined using the built-in list type.
+\begin{smlcode}
+datatype ('k, 'a) nary_tree =
+  Node of 'k * 'a * ('k, 'a) nary_tree list
+\end{smlcode}
+
+\paragraph{Pattern matching}
+Compound values are destructured with pattern matching \smlinline{case} expressions.
+
+\section{Infix operators}
+\label{sect:infix}
+
+CakeML supports the set of infix operators listed in Figure~\ref{precedences}.
 
 \begin{figure}
 \centering
-\begin{tabular}{l}
- \texttt{*} \texttt{div} \texttt{mod} \texttt{/}\\
- \texttt{+} \texttt{-}\\
- \texttt{@} \texttt{::}\\
- \texttt{<} \texttt{>} \texttt{<=} \texttt{>=} \texttt{<>} \texttt{=}\\
- \texttt{o} \texttt{:=}\\
- \texttt{before}\\
- \texttt{orelse} \texttt{andalso}
+\begin{tabular}{ll}
+  \smlinline{*} \smlinline{div} \smlinline{mod} \smlinline{/} & (\S\ref{sect:val}, \smlinline{/} unimplemented)\\
+  \smlinline{+} \smlinline{-}  & (\S\ref{sect:val})\\
+  \smlinline{@} \smlinline{::} & (\S\ref{sect:compound})\\
+  \smlinline{<} \smlinline{>} \smlinline{<=} \smlinline{>=} \smlinline{<>} \smlinline{=} & (\S\ref{sect:val}, \S\ref{sect:infix} for \smlinline{=})\\
+  \smlinline{o} \smlinline{:=} & (\S\ref{sect:refs}, \smlinline{o} unimplemented)\\
+  \smlinline{before} & (unimplemented)\\
+  \smlinline{orelse} \smlinline{andalso} & (\S\ref{sect:val})
  \end{tabular}
 \caption{Infix operators from tightest (at the top) to loosest binding}
 \label{precedences}
 \end{figure}
 
-CakeML supports the limited set of infix operators listed in Figure~\ref{precedences}.
-
-
-\paragraph{Variables}
-
-A variable must begin with a lower case letter, and be alphanumeric (letters, numbers, \texttt{\_}, and \texttt{'}), or it can be symbolic, consisting entirely of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *). It cannot be any of the following reserved words:
-\begin{verbatim}
-and  andalso  before  case  datatype  div  else  end  exception
-false  fn  handle  if  in  let  mod  nil  o  of  orelse  raise
-ref  sig  struct  structure  then  true  type  val
-:=  :>  ::  @  =>  =  :  |  +  *  -  /  <  >  <=  >=  <>
-\end{verbatim}
-
-Variables in expressions can be prefixed with a structure name S with a full stop (\texttt{.}) character in between. For example, \texttt{Vector.length} refers to the binding of length in the structure Vector. Where variables are bound in patterns or as function names or parameters, a structure prefix must not be present.
+The \smlinline{op} keyword
 
 \paragraph{Equality}
 
-The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and user defined datatypes), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure, their elements are not inspected.
-
+The infix equality operator \texttt{=} checks whether two values are equal, returning a boolean. The values must be of the same type. For atomic data (booleans, integers, bytes, and strings), they are equal exactly when they are the same value. For immutable data (tuples, lists, vectors, and algebraic data types), they are equal if they are made up of equal elements, recursively. For mutable data (references, arrays, and byte arrays), they are equal if they are the same structure. Their elements are not inspected.
 If the equality function encounters a function value while traversing its arguments, it raises the \texttt{Eq} exception.
 
-\paragraph{Conditionals}
-%
-\[\texttt{if}\ e_1\ \texttt{then}\ e_2\ \texttt{else}\ e_3\]
+\section{Conditionals}
 
-A conditional expression (above) evaluates expression $e_1$, and if it is \texttt{true}, then return the value of $e_2$, otherwise return the value of $e_3$. $e_1$ must have type \texttt{bool}, and $e_2$ and $e_3$ must have the same type.
+Conditional expressions use the \smlinline{if}, \smlinline{then}, and
+\smlinline{else} keywords. For example,
+\begin{smlcode}
+if x < 0 then
+  0 - x
+else
+  x
+\end{smlcode}
+The \smlinline{else} keyword and associated sub-expression cannot by omitted. The test expression (following \smlinline{if}) must be of \smlinline{bool} type, and the result expressions must both have the same types.
 
-\paragraph{Functions}
+\section{Exceptions}
 
-\paragraph{Pattern matching}
+\paragraph{Exception declarations}
+%Python hangs on \mintinline{sml}{exception}
+The \mintinline{ocaml}{exception} keyword declares a new exception. It must
+start with a capital letter, and can have arguments similar to the constructor
+of an algebraic data type.
+\begin{smlcode}
+exception Error
+exception Type_error of int * string
+\end{smlcode}
 
-\paragraph{Exceptions}
+\paragraph{Raising exceptions}
+The \smlinline{raise} keyword raises an exception. For example,
+\begin{smlcode}
+if x < 0 then
+  raise Error
+else
+  x
+\end{smlcode}
 
-\paragraph{Local bindings}
+\begin{smlcode}
+if t1 = t2 then
+  t1
+else
+  raise (Type_error (loc, "type mismatch"))
+\end{smlcode}
 
-\section{Declarations}
-\label{declarations}
+A \smlinline{raise} expression can have any type, and so can be used anywhere
+an expression is expected, as in \smlinline{4 + (raise Error)}.
+
+\paragraph{Handling exceptions}
+
+
+
+
+\section{Local bindings}
+
+
 
 \section{Modules}
 
@@ -195,13 +336,13 @@ A conditional expression (above) evaluates expression $e_1$, and if it is \textt
 \subsection{Unsupported features}
 Here we only list missing features of the language, and not the basis library.
 
-The CakeML module system is basic compared to SML's. Structures cannot be nested, and functors are not supported. Structures cannot be given alternate names, or opened. Signatures cannot be named, and must appear directly on the structure that they seal. Only opaque sealing is supported (\texttt{:>}, but not \texttt{:}). Signatures cannot contain \texttt{include}, \texttt{sharing}, \texttt{structure}, \texttt{eqtype} or datatype replication specifications.
+The CakeML module system is heavily restricted compared to SML's. Structures cannot be nested, and functors are not supported. Structures cannot be given alternate names, or opened. Signatures cannot be named, and must appear directly on the structure that they seal. Only opaque sealing is supported (\texttt{:>}, but not \texttt{:}). Signatures cannot contain \texttt{include}, \texttt{sharing}, \texttt{structure}, \texttt{eqtype} or datatype replication specifications.
 
-In contrast, CakeML's core language is much more fully featured, with only the following omissions. The \texttt{local}, \texttt{abstype}, and datatype replication declarations are not supported. Neither are records, type annotations, and \texttt{while} loops. Furthermore, \texttt{let} expressions are restricted to \texttt{val} and \texttt{fun} declarations; they cannot contain type or exception declarations. The pattern language does not support the \texttt{as} form.
+In contrast, CakeML's core language is more fully featured, with only the following omissions. The \texttt{local}, \texttt{abstype}, and datatype replication declarations are not supported. Neither are records, type annotations that contain type variables, and \texttt{while} loops. Furthermore, \texttt{let} expressions are restricted to \texttt{val} and \texttt{fun} declarations; they cannot contain type or exception declarations. The pattern language does not support the \texttt{as} form.
 
 CakeML has a fixed set of infix operators, and does not support user defined parsing precedences (\texttt{infix}, \texttt{infixr}, and \texttt{nonfix}). See Figure~\ref{precedences} for the supported infix operators. The infix status of these operators cannot be suppressed (\texttt{op}).
 
-Floating point numbers are not supported, nor are word constants (numbers prefixed with \texttt{0w} or \texttt{0xw}), or integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}), and character constants (\texttt{e.g., \#"a"}) are not supported at all.
+Floating point numbers are not supported, nor are integer constants written in hexadecimal notation (\texttt{0x}). Lastly, only the most basic escape sequences are supported in strings (just \texttt{\textbackslash n}, \texttt{\textbackslash t}, \texttt{\textbackslash "}, and \texttt{\textbackslash\textbackslash}).
 
 Syntactic sugar for functions with pattern parameters is not provided, instead parameters are variables, and must be matched against with \texttt{case} expressions, if desired.
 
@@ -217,15 +358,84 @@ The types of bindings in \texttt{let} expressions cannot be generalised. This re
 
 The built-in CakeML functions prefer the curried style over SML's preferred tupled style. For example, we write \texttt{Vector.sub v 12} to get the 12$^\textrm{th}$ element of vector v, rather than \texttt{Vector.sub (v,12)}.
 
+CakeML guarantees right to left evaluation order.
+
 \section{Differences from OCaml}
 
-Because CakeML has a significantly different syntax, we focus here on the major features and semantic differences rather than attempt to catalogue every piece of OCaml syntax that lacks a CakeML analogue. Briefly, CakeML does not have character date, floating point numbers, records, objects,  polymorphic variants, labels, nested/local modules, or functors.
+Because CakeML has a significantly different syntax, we focus here on the major features and semantic differences rather than attempt to catalogue every piece of OCaml syntax that lacks a CakeML analogue. Briefly, CakeML does not have floating point numbers, records, objects, polymorphic variants, labels, nested/local modules, or functors.
 
-Strings are immutable; however, theWord8Array structure provides byte arrays.
+Strings are immutable; however, the Word8Array structure provides byte arrays.
 
-CakeML guarantees left to right evaluation order.
+CakeML guarantees right to left evaluation order.
 
 The \texttt{=} operator does not traverse mutable data (arrays and references), instead it compares the pointers, SML style.
+
+\chapter{Standard library}
+\label{ch:stdlib}
+
+%CakeML supports data of boolean, integer, character, and string types. It also supports compound data of tuple, list, option, vector, reference, array, and byte array types. Additionally, users can define new algebraic data types: these are described in  \S\ref{expressions} on pattern matching, and in \S\ref{declarations} on type definitions.
+
+
+\section{References}
+\label{sect:refs}
+
+A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \texttt{ref}.
+References have the following operations.
+\begin{itemize}
+\item
+\texttt{ref : 'a -> 'a ref} Create a new reference with an initial value.
+\item
+\texttt{! : 'a ref -> 'a} Get the value from a reference.
+\item
+\texttt{:= : 'a ref -> 'a -> unit} Replace the value in the reference with a new one.
+\end{itemize}
+
+
+\section{Array}
+
+Arrays have a fixed length and support constant-time indexing. Each element of an array must have the same type. The operations on arrays are collected in the \texttt{Array} module. If the elements of an array are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Array.array}.
+
+The following are the supported operations on arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Array.array : int -> 'a -> 'a array} Create a new array of given length and default value.
+\item \texttt{Array.length : 'a array -> int} Get the array's length.
+\item \texttt{Array.sub : 'a array -> int -> 'a} Get the i$^\textrm{th}$ element.
+\item \texttt{Array.update : 'a array -> int -> 'a -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+\section{Char}
+
+\section{Int}
+
+\section{List}
+
+\section{Option} An optional value is either \texttt{NONE}, indicating that no value is present, or \texttt{SOME}\ $v$ for a value $v$. They type of an optional value that might contain a value of type $\tau$ is $\tau$\ \texttt{option}. There are no operations for de-structuring options.
+
+\section{Vector}
+
+Vectors are immutable array-like structures. They have a fixed length and support constant-time indexing. Each element of a vector must have the same type. The operations on vectors are collected in the \texttt{Vector} module. If the elements of a vector are of some type $\tau$ then the vector's type is $\tau$\ \texttt{Vector.vector}.
+
+The following are the supported operations on vectors. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Vector.fromList : 'a list -> 'a vector} Convert a list to a vector containing the same elements (in order).
+\item \texttt{Vector.length : 'a vector -> int} Get the vector's length.
+\item \texttt{Vector.sub : 'a vector -> int -> 'a} Get the i$^\textrm{th}$ element.
+\end{itemize}
+
+\section{Word8}
+
+\section{Word8Array}
+Byte arrays have a fixed length and support constant-time indexing. Each element of an array must be a byte (\texttt{Word8.word} type). The operations on byte arrays are collected in the \texttt{Word8Array} module. The type of a byte array is \texttt{Word8Array.array}.
+
+The following are the supported operations on byte arrays. If an index is out of bounds (or negative), the \texttt{Subscript} exception is raised.
+\begin{itemize}
+\item \texttt{Word8Array.array : int -> Word8.word -> Word8Array.array} Create a new array of given length and default value.
+\item \texttt{Word8Array.length : Word8Array.array -> int} Get the array's length.
+\item \texttt{Word8Array.sub : Word8Array.array -> int -> Word8.word} Get the i$^\textrm{th}$ element.
+\item \texttt{Word8Array.update : Word8Array.array -> int -> Word8.word -> unit} Set the i$^\textrm{th}$ element.
+\end{itemize}
+
+
 
 \chapter{Formal syntax and semantics}
 
@@ -239,7 +449,7 @@ i &=& \verb|~|^?\mbox{[\texttt{0}-\texttt{9}]}^+&\mbox{integer constant}\\
 \]
 
 
-\TODO{Lexical syntax for str, tn, v, fqv, C, fqC, S}
+\todo{Lexical syntax for str, tn, v, fqv, C, fqC, S}
 
 \[
 \begin{array}{lcll}
@@ -370,7 +580,7 @@ s &::=& \texttt{:>}\ \texttt{sig}\ (\mathit{sp}|\texttt{;})^*\ \texttt{end}&\mbo
 The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\footnote{\url{https://github.com/CakeML/cakeml/blob/master/semantics/ast.lem}}. This file is included here.
 
 {\setlength{\parindent}{0pt}
-\TODO{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
+\todo{Figure out why Lem is omitting leading comments. Possibly change the typesetting}
 \include{lem-generated/Ast-inc}
 
 \LEMTypeLit
@@ -381,7 +591,7 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTypeModN
 
-\LEMTypeId
+%\LEMTypeId
 
 \LEMTypeVarN
 
@@ -391,13 +601,13 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTypeTvarN
 
-\LEMValspecMkId
+%\LEMValspecMkId
 
-\LEMmkId
+%\LEMmkId
 
-\LEMValspecIdToN
+%\LEMValspecIdToN
 
-\LEMidToN
+%\LEMidToN
 
 \LEMTypeOp
 
@@ -411,9 +621,9 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 
 \LEMTstring
 
-\LEMTunit
+%\LEMTunit
 
-\LEMTbool
+%\LEMTbool
 
 \LEMTref
 
@@ -455,20 +665,12 @@ The abstract syntax of CakeML is defined in Lem in \texttt{semantics/ast.lem}\fo
 \chapter{Theorems}
 
 
-\part{The CakeML implementation}
+\part{The CakeML compiler and verification tools}
 
-\chapter{Installing CakeML}
+\chapter{Installing and using the compiler}
 
-\chapter{Extracting CakeML programs from HOL4}
+\chapter{Extracting pure CakeML programs from HOL4}
 
-\chapter{Construction a complete system}
-
-\section{Interactive loop}
-
-\section{Standalone compilation}
-
-\section{Bootstrapping}
-
-\chapter{Unverified utilities}
+\chapter{Verifying effectful CakeML programs with characteristic formulae}
 
 \end{document}

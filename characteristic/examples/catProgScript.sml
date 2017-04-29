@@ -248,7 +248,7 @@ val cat1_spec = Q.store_thm (
 );
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main wildcard = cat (Commandline.arguments())`;
 val _ = append_prog cat_main;
 
 val st = get_ml_prog_state();
@@ -289,7 +289,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
   \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL 
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
             |> SIMP_RULE std_ss [Once STAR_ASSOC] |> add_basis_proj;
 val name = "cat_main"
 val (semantics_thm,prog_tm) = call_thm st name spec

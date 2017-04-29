@@ -29,18 +29,6 @@ val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 (* -- *)
 
-(* TODO: move? *)
-(* replace TOKENS_EMPTY in misc with this *)
-val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
-  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
-  `MEM x (REPLICATE n y) ==> x = y`,
-  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
-(* -- *)
-
 val _ = ml_prog_update (open_module "Commandline")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 

@@ -1,9 +1,9 @@
 exception Fail of string;
 
-fun fib' (n,a,b) = case n of
+fun fib' n a b = case n of
     0 => a
-  | _ => fib'(n-1,a+b,a)
-fun fib n = fib' (n,0,1)
+  | _ => fib' (n-1) (a+b) a
+fun fib n = fib' n 0 1
 
 structure Main =
    struct

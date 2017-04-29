@@ -613,7 +613,7 @@ val grep = process_topdecs`
   fun grep u =
     case Commandline.arguments ()
     of [] => print_err usage_string
-     | [_] => print_err usage_string
+     | [wildcard] => print_err usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
          NONE => print_err (parse_failure_string regexp)

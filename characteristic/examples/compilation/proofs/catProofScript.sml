@@ -1,5 +1,5 @@
 open preamble
-     semanticsPropsTheory backendProofTheory configProofTheory
+     semanticsPropsTheory backendProofTheory x64_configProofTheory
      catProgTheory catCompileTheory
 
 val _ = new_theory"catProof";

@@ -2,13 +2,13 @@ structure Main =
    struct
       fun doit n =
          let
-            val v = Vector.tabulate_1 30000 (fn i => (i, i + 1))
+            val v = Vector.tabulate 30000 (fn i => (i, i + 1))
             fun loop n =
                if 0 = n
                   then ()
                else
                   let
-                     val sum = Vector.foldl_1
+                     val sum = Vector.foldl
                        (fn c => fn (a, b) => a + b + c ) 0 v
                   in
                      loop (n - 1)
@@ -18,4 +18,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 300000;
+val foo = Main.doit 50000;

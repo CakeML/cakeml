@@ -484,7 +484,7 @@ val env_ok_shifted_env = Q.prove(
   \\ MP_TAC lookup_vars_MEM \\ full_simp_tac(srw_ss())[] \\ STRIP_TAC
   \\ `v_rel (EL k env) (EL (get_var m l i k) env2)` by
    (full_simp_tac(srw_ss())[env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[tlookup_def])
+    \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[zlookup_def])
   \\ Q.PAT_X_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[env_ok_def] \\ DISJ2_TAC
   \\ TRY (`k < l + m` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
@@ -568,7 +568,7 @@ val shift_correct = Q.prove(
         v_rel (EL n env) (EL (get_var m l i n) env')` by ALL_TAC)
     THEN1 (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[get_var_def,env_ok_def]
-    \\ Cases_on `n < l` \\ full_simp_tac(srw_ss())[tlookup_def]
+    \\ Cases_on `n < l` \\ full_simp_tac(srw_ss())[zlookup_def]
     \\ `F` by DECIDE_TAC)
   THEN1 (* If *)
    (full_simp_tac(srw_ss())[free_def]
@@ -702,7 +702,7 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[LET_DEF] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ RES_TAC
       \\ SRW_TAC [] []
       \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[get_var_def,zlookup_def]
       \\ DECIDE_TAC)
     \\ reverse IF_CASES_TAC >- (
       imp_res_tac state_rel_max_app \\ fs[])
@@ -760,7 +760,7 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM] \\ RES_TAC
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[get_var_def,zlookup_def]
       \\ DECIDE_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ IMP_RES_TAC free_LENGTH \\ full_simp_tac(srw_ss())[]

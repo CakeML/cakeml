@@ -35,7 +35,7 @@ fun to_bytes alg conf prog =
 val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 val extract_oracle = find_term listSyntax.is_list o lhs o concl
 
-val to_x64_bytes = to_bytes 3 ``x64_compiler_config``
+val to_x64_bytes = to_bytes 3 ``x64_backend_config``
 
 val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
 

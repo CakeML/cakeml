@@ -1,13 +1,13 @@
-fun tak (x,y,z) =
+fun tak x y z =
    if not (y < x)
       then z
-   else tak (tak (x - 1, y, z),
-             tak (y - 1, z, x),
-             tak (z - 1, x, y))
+   else tak (tak (x - 1) y z)
+            (tak (y - 1) z x)
+            (tak (z - 1) x y)
 
 fun f n = case n of
       0 => ()
-    | n => (tak (33,22,11); f (n-1))
+    | n => (tak 33 22 11; f (n-1))
 
 structure Main =
    struct

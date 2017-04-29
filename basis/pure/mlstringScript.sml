@@ -3,16 +3,6 @@ open preamble
 
 val _ = new_theory"mlstring"
 
-(* TODO: move *)
-val irreflexive_inv_image = Q.store_thm("irreflexive_inv_image",
-  `!R f. irreflexive R ==> irreflexive (inv_image R f)`,
-  SIMP_TAC std_ss [irreflexive_def,inv_image_def])
-
-val trichotomous_inv_image = Q.store_thm("trichotomous_inv_image",
-  `!R f. trichotomous R /\ (INJ f UNIV UNIV) ==> trichotomous (inv_image R f)`,
-  SIMP_TAC std_ss [trichotomous,inv_image_def,INJ_DEF,IN_UNIV] THEN
-  METIS_TAC[])
-
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 

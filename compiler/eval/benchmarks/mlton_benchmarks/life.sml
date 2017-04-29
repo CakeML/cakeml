@@ -46,7 +46,7 @@ structure Main =
 
     fun copy n x = repeat (cons x) n []
 
-    fun spaces n = String.concat_2 (copy n " ")
+    fun spaces n = String.concat (copy n " ")
 
     fun lexordset ls = case ls of
       [] => []
@@ -94,7 +94,7 @@ structure Main =
 
     val xstart = 0
     val ystart = 0
-    fun markafter n string = String.concat_2 [string ,spaces n,"0"]
+    fun markafter n string = String.concat [string ,spaces n,"0"]
     fun plotfrom (x,y) (* current position *)
                  str   (* current line being prepared -- a string *)
                  ls = case ls of

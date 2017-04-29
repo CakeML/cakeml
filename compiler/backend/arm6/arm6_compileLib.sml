@@ -1,4 +1,4 @@
-structure arm_compileLib =
+structure arm6_compileLib =
 struct
 
 open HolKernel boolLib bossLib

@@ -200,7 +200,7 @@ structure Matrix =
                                             0,
                                             maxSize (fetchCol (mat,
                                                                col)))
-            val widths = Vector.tabulate_1 width colWidth
+            val widths = Vector.tabulate width colWidth
             fun doRow (row: int, ac: string list) =
                let val from = fetchRow (mat, row)
                   fun loop (col: int, ac: string list) =
@@ -224,7 +224,7 @@ structure Matrix =
             val pieces = naturalFold (height,
                                       [],
                                       doRow)
-         in String.concat_2 pieces
+         in String.concat pieces
          end
       end
 
@@ -246,7 +246,7 @@ fun smithNormalForm (mat: int Matrix.matrix) =
       fun dd pos =
          let val matCol = Matrix.fetchCol (mat, pos)
             val matRow = Matrix.fetchRow (mat, pos)
-            val u1 = print (String.concat_2 ["dd: pos = ",Int.toString pos, "\n"])
+            val u1 = print (String.concat ["dd: pos = ",Int.toString pos, "\n"])
             fun swapRowLoop (best, bestRow, bestCol, row) =
                if row >= height
                   then (Matrix.rowSwap (mat, pos, bestRow);
@@ -363,7 +363,7 @@ structure Main =
          let val dim = 35
             val big = Matrix.map (Matrix.make (dim, dim, f), fn i => i)
             val entry = Matrix.fetch(smithNormalForm big, dim - 1, dim - 1)
-            (*val u = print (String.concat_2 [Int.toString entry, "\n"])*)
+            (*val u = print (String.concat [Int.toString entry, "\n"])*)
          in if entry = ~1027954043102083189860753402541358641712697245
                then ()
             else raise Fail "bug"

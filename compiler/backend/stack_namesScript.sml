@@ -6,11 +6,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Rename the registers to fit with the target architecture *)
 
-val find_name_def = Define `
-  find_name f n =
-    dtcase lookup n f of
-    | NONE => n
-    | SOME k => k`
+val _ = overload_on("find_name",``tlookup``);
 
 val ri_find_name_def = Define `
   (ri_find_name f (Reg r) = Reg (find_name f r)) /\

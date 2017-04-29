@@ -7,12 +7,20 @@ val _ = new_theory "data_to_word";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val _ = Datatype `
+  (* this configuration is used in data_to_wordProof and stack_alloc *)
+  gc_kind =
+    None
+  | Simple
+  | Generational (num list) (* sizes of generations, smallest first *)`
+
+val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
             ; len_size : num (* size of length field in block header *)
             ; has_div : bool (* Div available in target *)
-            ; has_longdiv : bool (* LongDiv available in target *) |>`
+            ; has_longdiv : bool (* LongDiv available in target *)
+            ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
@@ -199,7 +207,7 @@ val AllocVar_def = Define `
               If Lower 1 (Imm (n2w limit))
                 (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
                 (Assign 1 (Const (-1w:'a word)));
-              Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]);
+              Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
               If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
 
 val MakeBytes_def = Define `
@@ -338,9 +346,10 @@ val RefArray_code_def = Define `
           [BignumHalt 2;
            Move 0 [(1,2)];
            AllocVar limit (fromList [();()]);
-           Assign 1 (Op Sub [Lookup EndOfHeap;
-           Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
-                   (Nat (shift (:'a)))]);
+           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
+                      (Nat (shift (:'a))));
+           Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
+           Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
@@ -845,7 +854,9 @@ local val assign_quotation = `
     | Ref => (dtcase encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
-                 [Assign 1 (Op Sub [Lookup EndOfHeap;
+                 [Set TriggerGC (Op Sub [Lookup TriggerGC;
+                     Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                  Assign 1 (Op Sub [Lookup EndOfHeap;
                      Const (bytes_in_word * n2w (LENGTH args + 1))]);
                   Set EndOfHeap (Var 1);
                   Assign 3 (Const header);
@@ -1409,7 +1420,7 @@ val comp_def = Define `
         let k = dimindex (:'a) DIV 8 in
         let w = n2w (n * k) in
         let w = if w2n w = n * k then w else ~0w in
-          (Seq (Assign 1 (Op Sub [Lookup EndOfHeap; Lookup NextFree]))
+          (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
                  (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
                 Skip),l)
