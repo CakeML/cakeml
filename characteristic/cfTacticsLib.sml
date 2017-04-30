@@ -591,12 +591,14 @@ fun clean_cases_conv tm = let
   val cond_conv =
       HO_REWR_CONV exists_v_of_pat_norest_length THENC
       STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      STRIP_QUANT_CONV (RAND_CONV (LAND_CONV (RHS_CONV eval))) THENC
       simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
         (LHS_CONV eval THENC simp_conv [option_CLAUSES])
   val then_conv =
       HO_REWR_CONV forall_v_of_pat_norest_length THENC
       STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      STRIP_QUANT_CONV (RAND_CONV (LAND_CONV (RHS_CONV eval))) THENC
       simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
         (LAND_CONV (LHS_CONV eval) THENC
