@@ -1303,6 +1303,17 @@ val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_l
 
 fun compile_x64 heap_size stack_size name prog_def =
   let
+    val cs = compilation_compset()
+    val conf_def = x64_backend_config_def
+    val data_prog_name = "data_prog_x64"
+    val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
+    val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
+    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
+    val lab_prog_def = definition(mk_abbrev_name"lab_prog")
+    val result = to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
+  in result end
+  (*
+  let
     val result = to_x64_bytes (prog_def |> rconc)
     val oracle = extract_oracle result
     val (bytes,ffis) = extract_bytes_ffis result
@@ -1313,5 +1324,6 @@ fun compile_x64 heap_size stack_size name prog_def =
   in
      result |> ONCE_REWRITE_RULE[SYM oracle_def, SYM bytes_def, SYM ffis_def, SYM prog_def]
   end
+  *)
 
 end
