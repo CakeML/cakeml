@@ -33,41 +33,37 @@ val is_arithmetic_def = Define `
   `;
 
 val _ = Datatype `
-  ok_arith_op = Plus | Times
+  assoc_op = Plus
+           | Times
+           | Noop
   `;
-
-val _ = Datatype `
-  assoc_op = IntOp ok_arith_op
-           | FunOp num num
-  `;
-
-val from_op_def = Define `
-  (from_op Add  = IntOp Plus) ∧
-  (from_op Mult = IntOp Times) ∧
-  (from_op _    = FunOp 0 0)
-  `
 
 val to_op_def = Define `
   (to_op Plus  = Add) ∧
-  (to_op Times = Mult)
+  (to_op Times = Mult) ∧
+  (to_op Noop  = Const 0)
+  `;
+
+val from_op_def = Define `
+  (from_op Add  = Plus) ∧
+  (from_op Mult = Times) ∧
+  (from_op _    = Noop)
   `;
 
 val op_eq_def = Define `
-  (op_eq (IntOp Plus)  (Op Add _)             ⇔ T) ∧
-  (op_eq (IntOp Times) (Op Mult _)            ⇔ T) ∧
-  (op_eq (FunOp n1 _)  (Call _ (SOME n2) _ _) ⇔ n1 = n2) ∧
-  (op_eq _             _                      ⇔ F)
+  (op_eq Plus  (Op Add _)             ⇔ T) ∧
+  (op_eq Times (Op Mult _)            ⇔ T) ∧
+  (op_eq _     _                      ⇔ F)
   `;
 
 val apply_op_def = Define `
-  (apply_op (IntOp op)  e1 e2 = Op (to_op op) [e1; e2]) ∧
-  (apply_op (FunOp t n) e1 e2 = Call t (SOME n) [e1; e2] NONE)
+  apply_op op e1 e2 = Op (to_op op) [e1; e2]
   `;
 
 val id_from_op_def = Define `
-  (id_from_op (IntOp Plus)  = bvi$Op (Const 0) []) ∧
-  (id_from_op (IntOp Times) = bvi$Op (Const 1) []) ∧
-  (id_from_op _             = bvi$Var 65534) (* dummy *)
+  (id_from_op Plus  = bvi$Op (Const 0) []) ∧
+  (id_from_op Times = bvi$Op (Const 1) []) ∧
+  (id_from_op Noop  = bvi$Var 65537)
   `;
 
 val op_binargs_def = Define `
@@ -96,21 +92,22 @@ val is_rec_def = Define `
   `;
 
 val ok_tail_type_def = Define `
-  (ok_tail_type name (Op op _)             ⇔ is_arithmetic op) ∧
-  (ok_tail_type name (Let _ x1)            ⇔ ok_tail_type name x1) ∧
-  (ok_tail_type name (Tick x1)             ⇔ ok_tail_type name x1) ∧
-  (ok_tail_type name (If _ x2 x3)          ⇔
-    ok_tail_type name x2 ∧ ok_tail_type name x3) ∧
-  (ok_tail_type name _                     ⇔ F)
+  (ok_tail_type name (Op op _)    ⇔ is_arithmetic op) ∧
+  (ok_tail_type name (Let _ x1)   ⇔ ok_tail_type name x1) ∧
+  (ok_tail_type name (Tick x1)    ⇔ ok_tail_type name x1) ∧
+  (ok_tail_type name (If _ x2 x3) ⇔
+    ok_tail_type name x2 ∧ 
+    ok_tail_type name x3) ∧
+  (ok_tail_type name _            ⇔ F)
   `;
 
 val binop_has_rec_def = Define `
   binop_has_rec name op exp ⇔
-    (is_rec name exp) ∨ 
-    (op_eq op exp ∧ 
-    (case op_binargs exp of
-    | NONE => F
-    | SOME (x1, x2) => is_rec name x1))
+    is_rec name exp ∨ 
+    op_eq op exp ∧ 
+      (case op_binargs exp of
+      | NONE => F
+      | SOME (x1, x2) => is_rec name x1)
   `;
 
 val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
@@ -118,7 +115,6 @@ val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
      op_binargs x = SOME (x1, x2) ⇒
        exp_size x1 < exp_size x ∧
        exp_size x2 < exp_size x`,
-
   Induct \\ fs [op_binargs_def]
   \\ ntac 3 strip_tac
   \\ Cases_on `l` \\ simp [op_binargs_def]
@@ -126,7 +122,7 @@ val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
   \\ Cases_on `t'` \\ simp [op_binargs_def]
   \\ fs [bviTheory.exp_size_def]);
 
-(* somewhat wrong apparently, call gets nested inside extra op *)
+(* TODO operator equality required *)
 val assoc_swap_def = Define `
   assoc_swap op from into =
     case op_binargs into of
