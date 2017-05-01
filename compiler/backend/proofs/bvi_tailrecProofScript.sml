@@ -4,6 +4,31 @@ open bviPropsTheory
 open bvi_tailrecTheory
 
 (* TODO Might want to get rid of the Commutative/Associative predicates *)
+(* TODO
+
+   - WF theorem: Should try to `place` e2 in such a place that it always
+     evaluates in the `same` state, if possible?
+
+   - WF theorem: When e2 evaluates to a value and the args in
+       Call (SOME nm) args NONE
+     evaluates to an error I get F in the goal. Solving this simplifies the
+     proof of |- ∃n. evaluate ([e2], env, s) = (Rval [Number n], s)
+
+   - WF theorem: The entire expression optimized may still raise an exception
+     which sucks.
+
+   - Remove the name in the ok_tail_type definition.
+
+   - Might have to rewrite the If-case in tail_rewrite: It does not seem
+     possible to deduce what has happened with a sub-expression to If when
+     optimize_check for that expression is NONE.
+
+   - It might be possible to prove that we can replace the simplified
+     optimize_single by the old optimize_single without touching the evaluate-
+     theorem. Benefits:
+       * Less code duplication
+       * Can inline auxiliary calls more easily
+*)
 
 val _ = new_theory "bvi_tailrecProof";
 
@@ -355,12 +380,16 @@ val code_rel_find_code_no_delete = Q.store_thm ("code_rel_find_code_no_delete",
   \\ qhdtm_x_assum `find_code` mp_tac \\ simp [find_code_def]
   \\ fs [code_rel_def]
   \\ TOP_CASE_TAC
+  \\ CASE_TAC
+  \\ IF_CASES_TAC \\ fs []
+  \\ strip_tac \\ rveq
+  \\ TOP_CASE_TAC
   >-
     (CCONTR_TAC \\ fs []
     \\ first_x_assum drule
     \\ Cases_on `optimize_check n exp`  \\ fs []
     \\ fs [optimize_single_def])
-  \\ strip_tac \\ CASE_TAC \\ simp []
+  \\ TOP_CASE_TAC \\ fs []
   \\ first_x_assum drule
   \\ Cases_on `optimize_check n exp`
   \\ fs [optimize_single_def, optimize_check_def]
@@ -508,55 +537,41 @@ val tail_rewrite_rec_or_typed = Q.prove (
      optimize_check name exp = SOME op ∧
      tail_rewrite n op name acc exp = exp2 ⇒
        (∃ticks args. exp2 = Call ticks (SOME n) args NONE) ∨
-       ok_tail_type name exp`,
+       ok_tail_type exp`,
   ho_match_mp_tac tail_rewrite_ind
   \\ rpt strip_tac \\ rveq
   \\ fs [tail_rewrite_def, ok_tail_type_def, optimize_check_def,
          tail_check_def]);
 
 val ok_tail_type_IMP_Number = Q.store_thm ("ok_tail_type_IMP_Number",
-  `∀name exp env (s: 'a bviSem$state) r t.
-     ok_tail_type name exp ∧
+  `∀exp env (s: 'a bviSem$state) r t.
+     ok_tail_type exp ∧
      evaluate ([exp], env, s) = (Rval r, t) ⇒
        ∃n. r = [Number n]`,
-  gen_tac
-  \\ Induct
+  Induct
   \\ fs [ok_tail_type_def]
   \\ rpt strip_tac
-  \\ pop_assum mp_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac
   \\ simp [evaluate_def]
   >-
-    (TOP_CASE_TAC
-    \\ TOP_CASE_TAC \\ fs []
+    (ntac 2 TOP_CASE_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs []
-    >-
-      (strip_tac
-      \\ first_x_assum drule
-      \\ fs [])
+    >- (strip_tac \\ first_x_assum drule \\ fs [])
     \\ IF_CASES_TAC \\ fs []
-    \\ strip_tac
-    \\ first_x_assum drule
-    \\ fs [])
+    \\ strip_tac \\ first_x_assum drule \\ fs [])
   >-
-    (TOP_CASE_TAC
-    \\ TOP_CASE_TAC \\ fs []
-    \\ strip_tac
-    \\ first_x_assum (qspec_then `a++env` drule)
-    \\ fs [])
+    (ntac 2 TOP_CASE_TAC \\ fs []
+    \\ strip_tac \\ first_x_assum (qspec_then `a++env` drule) \\ fs [])
   >-
     (IF_CASES_TAC \\ fs []
-    \\ strip_tac
-    \\ first_x_assum drule
-    \\ fs [])
-  \\ TOP_CASE_TAC
-  \\ TOP_CASE_TAC \\ fs []
+    \\ strip_tac \\ first_x_assum drule \\ fs [])
+  \\ ntac 2 TOP_CASE_TAC \\ fs []
   \\ rename1 `is_arithmetic op`
   \\ Cases_on `op`
   \\ fs [is_arithmetic_def]
   \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]
   >- (CASE_TAC \\ strip_tac \\ rveq \\ fs [])
-  \\ CASE_TAC
-  \\ CASE_TAC
+  \\ ntac 2 CASE_TAC
   \\ strip_tac \\ rveq
   \\ fs [bvlSemTheory.do_app_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
@@ -613,22 +628,6 @@ val optimized_code_def = Define `
         lookup n c    = SOME (arity + 1, exp_opt)
   `;
 
-(* TODO
-
-   - Should try to `place` e2 in such a place that it always evaluates in
-     the `same` state, if possible?
-
-   - When e2 evaluates to a value and the args in Call (SOME nm) args NONE
-     evaluates to an error I get F in the goal. Solving this simplifies the
-     proof of |- ∃n. evaluate ([e2], env, s) = (Rval [Number n], s)
-
-   - The entire expression optimized may still raise an exception as far
-     as we know.
-
-   - Remove the name on ok_tail_type
-*)
-
-(* TODO perhaps shuffle env_rel and optimized code around a bit *)
 val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
   `∀xs s env1 r t opt_here c acc env2 nm.
     evaluate (xs, env1, s) = (r, t) ∧
@@ -744,7 +743,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ simp_tac std_ss [optimized_code_def]
     \\ strip_tac
     \\ simp [GSYM apply_op_def]
-    \\ `ok_tail_type nm (Op (to_op iop) xs)` by fs [optimize_check_def]
+    \\ `ok_tail_type (Op (to_op iop) xs)` by fs [optimize_check_def]
     \\ imp_res_tac ok_tail_type_IMP_Number
     \\ `env_rel F acc env1 env2` by fs [env_rel_def]
     \\ `acc < LENGTH env2` by fs [env_rel_def]
@@ -1031,6 +1030,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       \\ fs [evaluate_def])
     \\ TOP_CASE_TAC >- fs []
     \\ TOP_CASE_TAC
+    \\ `a = q` by (fs [find_code_def] \\ every_case_tac \\ fs []) \\ rveq
     \\ IF_CASES_TAC
     >-
       (strip_tac \\ fs [] \\ rveq
@@ -1043,6 +1043,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       \\ imp_res_tac evaluate_code_const \\ fs []
       \\ TOP_CASE_TAC >- rfs []
       \\ TOP_CASE_TAC)
+    \\ imp_res_tac evaluate_code_const \\ fs []
     \\ qmatch_assum_rename_tac `_ = SOME (args, exp)`
     \\ qmatch_assum_rename_tac `evaluate (_,_,s1) = (_, s2)`
     \\ first_x_assum drule
@@ -1051,9 +1052,12 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ strip_tac
     \\ TOP_CASE_TAC
     \\ strip_tac \\ fs [] \\ rveq
-    \\ imp_res_tac evaluate_code_const \\ fs []
     \\ qhdtm_assum `code_rel` mp_tac
     \\ SIMP_TAC std_ss [code_rel_def] \\ fs []
+    \\ qhdtm_x_assum `find_code` mp_tac
+    \\ simp [find_code_def]
+    \\ ntac 2 TOP_CASE_TAC \\ fs []
+    \\ strip_tac \\ rveq
     \\ disch_then drule
     \\ Cases_on `optimize_check x exp` \\ fs [] \\ strip_tac
     >-
@@ -1065,8 +1069,8 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
         \\ imp_res_tac evaluate_clock \\ fs [])
       \\ fs []
       \\ pop_assum kall_tac
-      \\ `env_rel F acc a a` by fs [env_rel_def]
-      \\ imp_res_tac evaluate_code_const
+      \\ `env_rel F acc args args` by fs [env_rel_def]
+      \\ imp_res_tac evaluate_code_const \\ fs []
       \\ disch_then drule
       \\ disch_then (qspec_then `F` drule)
       \\ disch_then drule
@@ -1088,7 +1092,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       \\ disch_then drule
       \\ disch_then (qspec_then `nm` mp_tac)
       \\ fs [])
-    \\ Cases_on `optimize_single n x (LENGTH a) exp`
+    \\ Cases_on `optimize_single n x (LENGTH args) exp`
     >- rfs [optimize_single_def]
     \\ fs []
     \\ qmatch_assum_rename_tac `_ = SOME exp_`
@@ -1104,7 +1108,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       (fs [dec_clock_def]
       \\ imp_res_tac evaluate_clock \\ fs [])
     \\ simp []
-    \\ `env_rel T (LENGTH a) a (a ++ op_id_val iop::a)` by
+    \\ `env_rel T (LENGTH args) args (args ++ op_id_val iop::args)` by
       (fs [env_rel_def]
       \\ fs [EL_LENGTH_APPEND]
       \\ Cases_on `iop` \\ fs [op_id_val_def])
@@ -1121,7 +1125,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ strip_tac
     \\ pop_assum kall_tac
     \\ simp [apply_op_def, evaluate_def, EL_LENGTH_APPEND]
-    \\ `ok_tail_type x exp` by fs [optimize_check_def]
+    \\ `ok_tail_type exp` by fs [optimize_check_def]
     \\ imp_res_tac ok_tail_type_IMP_Number \\ rfs []
     \\ rename1 `evaluate ([exp], _, _) = (res_exp, st_exp with code := c)`
     \\ reverse (Cases_on `res_exp`) \\ fs []
@@ -1133,12 +1137,10 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
         (imp_res_tac evaluate_clock
         \\ fs [dec_clock_def])
       \\ simp []
+      \\ imp_res_tac evaluate_code_const \\ fs []
       \\ `env_rel F acc (throw::env1) (throw::env2)` by fs [env_rel_def]
       \\ disch_then drule
-      \\ disch_then (qspec_then `F` drule)
-      \\ disch_then drule
-      \\ disch_then (qspec_then `nm` mp_tac)
-      \\ fs [])
+      \\ disch_then (qspec_then `F` drule) \\ fs [])
     \\ first_x_assum drule \\ strip_tac \\ rveq \\ fs []
     \\ Cases_on `iop` \\ fs [to_op_def, op_id_val_def]
     \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
@@ -1685,14 +1687,15 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
        \\ drule (GEN_ALL optimize_prog_code_rel) \\ fs []
        \\ disch_then drule
        \\ strip_tac
-       (* Automatic simplification de-simplified this part *)
        \\ Cases_on `find_code (SOME start) ([]: v list) (fromAList prog)`
        >- rfs [find_code_def]
        \\ rename1 `_ = SOME exps`
        \\ PairCases_on `exps`
        \\ imp_res_tac code_rel_find_code_no_delete
-       \\ first_x_assum (qspec_then `start` mp_tac)
-       \\ CASE_TAC >- (fs [] \\ strip_tac \\ rveq \\ fs [])
+       \\ `exps0 = []` by (fs [find_code_def] \\ every_case_tac \\ fs [])
+       \\ rveq
+       \\ first_x_assum drule \\ strip_tac
+       \\ CASE_TAC >- fs []
        \\ CASE_TAC \\ fs [])
      \\ simp []
      \\ spose_not_then strip_assume_tac

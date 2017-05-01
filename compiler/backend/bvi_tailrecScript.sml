@@ -92,13 +92,11 @@ val is_rec_def = Define `
   `;
 
 val ok_tail_type_def = Define `
-  (ok_tail_type name (Op op _)    ⇔ is_arithmetic op) ∧
-  (ok_tail_type name (Let _ x1)   ⇔ ok_tail_type name x1) ∧
-  (ok_tail_type name (Tick x1)    ⇔ ok_tail_type name x1) ∧
-  (ok_tail_type name (If _ x2 x3) ⇔
-    ok_tail_type name x2 ∧ 
-    ok_tail_type name x3) ∧
-  (ok_tail_type name _            ⇔ F)
+  (ok_tail_type (Op op _)    ⇔ is_arithmetic op) ∧
+  (ok_tail_type (Let _ x1)   ⇔ ok_tail_type x1) ∧
+  (ok_tail_type (Tick x1)    ⇔ ok_tail_type x1) ∧
+  (ok_tail_type (If _ x2 x3) ⇔ ok_tail_type x2 ∧ ok_tail_type x3) ∧
+  (ok_tail_type _            ⇔ F)
   `;
 
 val binop_has_rec_def = Define `
@@ -202,7 +200,7 @@ val tail_rewrite_def = Define `
 
 val optimize_check_def = Define `
   optimize_check name exp =
-    if ¬ok_tail_type name exp then
+    if ¬ok_tail_type exp then
       NONE
     else
       tail_check name exp
