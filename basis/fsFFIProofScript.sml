@@ -1,6 +1,6 @@
 open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
 
-val _ = new_theory"fsFFIProofs"
+val _ = new_theory"fsFFIProof"
 
 (* TODO: put these calls in a re-usable option syntax Lib *)
 val _ = monadsyntax.temp_add_monadsyntax();

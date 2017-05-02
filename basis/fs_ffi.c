@@ -4,17 +4,17 @@
 #include <fcntl.h>
 
 /* 0 indicates null fd */
-int infds[256] = {1 + STDIN_FILENO, 1 + STDOUT_FILENO, 1 + STDERR_FILENO};
+int infds[256] = {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
 int nextFD() {
   int fd = 0;
-  while(fd < 256 && infds[fd] == 0) fd++;
+  while(fd < 256 && infds[fd] != -1) fd++;
   return fd;
 }
 
 void ffiopen_in (char *a) {
   int fd = nextFD();
-  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDONLY|O_CREAT))){
+  if (fd < 255 && (infds[fd] = open(a, O_RDONLY|O_CREAT))){
     a[0] = 0;
     a[1] = fd;
   }
@@ -24,7 +24,7 @@ void ffiopen_in (char *a) {
 
 void ffiopen_out (char *a) {
   int fd = nextFD();
-  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDWR|O_CREAT|O_TRUNC))){
+  if (fd < 255 && (infds[fd] = open(a, O_RDWR|O_CREAT|O_TRUNC))){
     a[0] = 0;
     a[1] = fd;
   }
@@ -33,7 +33,7 @@ void ffiopen_out (char *a) {
 }
 
 void ffiread (char *a) {
-  int nread = read(infds[a[0]] -1, &a[2], a[1]);
+  int nread = read(infds[a[0]], &a[2], a[1]);
   if(nread < 0) a[0] = 0;
   else{
     a[0] = 1; 
@@ -42,7 +42,7 @@ void ffiread (char *a) {
 }
 
 void ffiwrite (char * a){
-  int nw = write(infds[a[0]] - 1, &a[2], a[1]);  
+  int nw = write(infds[a[0]], &a[2], a[1]);  
   if(nw < 0) a[0] = 0;
   else{
     a[0] = 1; 
@@ -51,18 +51,18 @@ void ffiwrite (char * a){
 }
 
 void fficlose (char *a) {
-  if (infds[a[0]] && close(infds[a[0]] -1) == 0) {
-    infds[a[0]] = 0;
+  if (infds[a[0]] && close(infds[a[0]]) == 0) {
+    infds[a[0]] = -1;
     a[0] = 1;
   }
   else
     a[0] = 0;
 }
-
+/*
 void ffiseek (char *a) {
-  int off = lseek(infds[a[0]] -1, a[2], SEEK_SET);
+  int off = lseek(infds[a[0]], a[2], SEEK_SET);
   if (off = -1)
     a[0] = 1;
   else
     a[0] = 0;
-}
+}*/

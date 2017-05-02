@@ -19,7 +19,7 @@ val _ = process_topdecs `
 ` |> append_prog
 
 (* 255 w8 array *)
-val buff255_e = ``(App Aw8alloc [Lit (IntLit 255); Lit (Word8 0w)])``
+val buff255_e = ``(App Aw8alloc [Lit (IntLit 257); Lit (Word8 0w)])``
 val _ = ml_prog_update
           (add_Dlet (derive_eval_thm "buff255_loc" buff255_e) "buff255" [])
 val buff255_loc_def = definition "buff255_loc_def"
@@ -27,7 +27,7 @@ val buff255_loc_def = definition "buff255_loc_def"
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)
 val _ = process_topdecs`
-    fun stdin () = Word8.fromInt 0
+    val stdin () = Word8.fromInt 0;
     fun stdout () = Word8.fromInt 1;
     fun stderr () = Word8.fromInt  2
     ` |> append_prog
@@ -40,7 +40,7 @@ val _ =
   process_topdecs` fun write_char fd c = 
     let val a = Word8Array.update buff255 0 fd
         val a = Word8Array.update buff255 1 (Word8.fromInt 1) 
-        val a = Word8Array.update buff255 2 (word8.fromInt(ord c))
+        val a = Word8Array.update buff255 2 (Word8.fromInt(ord c))
         val a = #(write) buff255
     in 
       if Word8Array.sub buff255 0 = Word8.fromInt 1 
@@ -57,7 +57,7 @@ val _ =
   process_topdecs` fun write_w8array fd w i n =
   if n <= 0 then ()
   else
-    let val m = min n 253
+    let val m = min n 255
         val a = Word8Array.update buff255 0 fd
         val a = Word8Array.update buff255 1 m
         val a = Word8Array.copy_aux w buff255 2 m i
@@ -65,7 +65,10 @@ val _ =
         val a = #(write) buff255
     in
       if Word8Array.sub buff255 0 = Word8.fromInt 0 
-      then write_w8array fd w (i + 253) (n-253)
+      then 
+        let val nw = Word8.toInt(Word8Array.sub buff255 1) in
+          write_w8array fd w (i + nw) (n - nw)
+        end
       else raise InvalidFD
     end` |> append_prog
 
@@ -125,7 +128,7 @@ val _ =
 fun input fd buf pos len =
   let val a = Word8Array.update buff255 0 fd
       fun input_aux pos len count =
-      let val a = Word8Array.update buff255 1 (min len 253)
+      let val a = Word8Array.update buff255 1 (min len 255)
         val a = #(read) buff255
         val res = Word8.toInt (Word8Array.sub buff255 0)
         val nread = Word8.toInt (Word8Array.sub buff255 1)
@@ -154,3 +157,5 @@ let val a = Word8Array.update buff255 0 fd
     else if nread = 0 then raise EndOfFile
     else Word8Array.sub buff255 1
   end` |> append_prog
+
+val _ = export_theory();

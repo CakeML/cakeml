@@ -76,19 +76,18 @@ val read_def = Define`
     do
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
-      let k = MIN n (MIN (LENGTH content - off) (SUC (THE (LHD fs.numchars)))) in
-      return (TAKE n (DROP off content), bumpFD fd fs k)
+      strm <- LHD fs.numchars;
+      let k = MIN n (MIN (LENGTH content - off) (SUC strm)) in
+      return (TAKE k (DROP off content), bumpFD fd fs k)
     od `;
 
-(* changes the offset of a file *)
+(* changes the offset of a file 
 val seek_def = Define`
   seek fd fs off =
     do
       (fnm, _) <- ALOOKUP fs.infds fd ;
       return(fs with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. off))))
-    od `;
-
-
+    od `; *)
 
 (* replaces the content of the file in fs with filename fnm *)
 val write_file_def = Define`
@@ -107,8 +106,12 @@ val write_def = Define`
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
       assert(n <= LENGTH chars);
-      let k = MIN n (THE (LHD fs.numchars)) in
-      return (k, write_file fs fnm (content ++ TAKE k chars))
+      strm <- LHD fs.numchars;
+      let k = MIN n strm in
+        (* an unspecified error occurred *)
+        if strm = 0 
+        then fail
+        else return (k, write_file fs fnm (content ++ TAKE k chars))
     od `;
 
 
@@ -225,8 +228,7 @@ val ffi_close_def = Define`
     od`;
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
-* if an error is met *)
-val ffi_seek = Define`
+* if an error is met val ffi_seek = Define`
   ffi_seek bytes fs =
     do
       assert(LENGTH bytes = 2);
@@ -235,7 +237,7 @@ val ffi_seek = Define`
         return(LUPDATE 0w 0 bytes, fs')
       od ++ 
       return (LUPDATE 1w 0 bytes, fs)
-    od`;
+    od`; *)
 
 (* -- *)
 
@@ -283,8 +285,7 @@ val fs_ffi_part_def = Define`
        ("open_out",ffi_open_out);
        ("read",ffi_read);
        ("write",ffi_write);
-       ("close",ffi_close);
-       ("seek",ffi_seek)])`;
+       ("close",ffi_close)])`;
 
 val _ = export_theory();
 
