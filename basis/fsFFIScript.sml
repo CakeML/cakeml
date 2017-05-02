@@ -145,14 +145,15 @@ val getNullTermStr_def = Define`
 
 (* read file name from the first non null bytes
 *  open the file with read access
-*  write its file descriptor index in the first byte *)
+*  return result code in first byte
+*  write its file descriptor index in the second byte *)
 val ffi_open_in_def = Define`
   ffi_open_in bytes fs =
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
       assert(fd < 255);
-      return (LUPDATE (n2w fd) 0 bytes, fs')
+      return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
@@ -171,7 +172,7 @@ val ffi_open_out_def = Define`
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs 0;
       assert(fd < 255);
-      return (LUPDATE (n2w fd) 0 bytes, fs')
+      return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 

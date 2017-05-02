@@ -14,16 +14,20 @@ int nextFD() {
 
 void ffiopen_in (char *a) {
   int fd = nextFD();
-  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDONLY|O_CREAT)))
-    a[0] = fd;
+  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDONLY|O_CREAT))){
+    a[0] = 0;
+    a[1] = fd;
+  }
   else
     a[0] = 255;
 }
 
 void ffiopen_out (char *a) {
   int fd = nextFD();
-  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDWR|O_CREAT|O_TRUNC)))
-    a[0] = fd;
+  if (fd < 255 && (infds[fd] = 1 + open(a, O_RDWR|O_CREAT|O_TRUNC))){
+    a[0] = 0;
+    a[1] = fd;
+  }
   else
     a[0] = 255;
 }
