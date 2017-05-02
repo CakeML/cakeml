@@ -176,6 +176,8 @@ let ctor_same_type c1 c2 =
  * when one of these conditions is violated *)
 val pmatch : env_ctor -> store v -> pat -> v -> alist varN v -> match_result (alist varN v)
 let rec
+pmatch envC s Pany v' env = Match env
+and
 pmatch envC s (Pvar x) v' env = Match ((x,v')::env)
 and
 pmatch envC s (Plit l) (Litv l') env =
@@ -554,6 +556,9 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
           in
             Just ((s',t), Rval (Loc lnum))
+    | (AallocEmpty, [Conv Nothing []]) ->
+        let (s',lnum) = store_alloc (Varray []) s in
+          Just ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (Varray vs) ->

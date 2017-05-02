@@ -132,18 +132,38 @@ val foldli_thm = Q.store_thm (
   rw [foldli_def, foldli_aux_thm]
 );
 
-val tabulate_def = Define
-  `tabulate n f =
-    let n0 = (n = 0n) in
-    if n0 then [] else
-      let n = PRE n in
+(* these definitions are in A normal form in
+   order to be able to prove CF specs about them
+   (in addition to the translator-generated ones)
+   (the CF specs allow more general arguments f) *)
+
+val tabulate_aux_def = tDefine"tabulate_aux"`
+  tabulate_aux n m f acc =
+    let b = (n >= m) in
+    if b then REVERSE acc
+    else
       let v = f n in
-      let vs = tabulate n f in
-        SNOC v vs`;
+      let n = n+1n in
+      let acc = v::acc in
+      tabulate_aux n m f acc`
+(wf_rel_tac`measure (λ(n,m,_,_). m-n)`);
+
+val tabulate_def = Define
+  `tabulate n f = let l = [] in tabulate_aux 0 n f l`;
+
+val tabulate_aux_GENLIST = Q.store_thm("tabulate_aux_GENLIST",
+  `∀n m f acc. tabulate_aux n m f acc = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m-n)`,
+  recInduct(theorem"tabulate_aux_ind") \\ rw[]
+  \\ rw[Once tabulate_aux_def]
+  >- ( `m - n = 0` by simp[] \\ rw[] )
+  \\ Cases_on`m` \\ fs[]
+  \\ rename1`SUC m - n` \\ `SUC m - n = SUC (m - n)` by simp[]
+  \\ simp[GENLIST_CONS,FUNPOW,o_DEF,FUNPOW_SUC_PLUS]
+  \\ simp[ADD1]);
 
 val tabulate_GENLIST = Q.store_thm("tabulate_GENLIST",
   `!n. tabulate n f = GENLIST f n`,
-  Induct \\ rw[GENLIST] \\ rw[Once tabulate_def]);
+  rw[tabulate_def,tabulate_aux_GENLIST,FUNPOW_SUC_PLUS,o_DEF,ETA_AX]);
 
 val collate_def = Define`
   (collate f [] [] = EQUAL) /\

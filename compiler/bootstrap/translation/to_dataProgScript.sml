@@ -114,6 +114,13 @@ val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_LIST_TYPE_CHAR]
 
+val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,
+                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
+                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
+                       EqualityType_LIST_TYPE_CHAR]
+
+
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
 
@@ -227,6 +234,8 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -251,6 +260,8 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rw[types_match_def,ctor_same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -284,6 +295,8 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -338,7 +351,7 @@ val num_abs_intro = Q.prove(`
 val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
 
 (*
-(* TODO: 
+(* TODO:
    This is uglier than previously, to prevent SIMP_RULE from rewriting guards
    OF PMATCH_ROWs to K T *)
 val lemma = ``(if 0 <= i /\ q

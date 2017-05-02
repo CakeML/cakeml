@@ -231,6 +231,8 @@ val _ = Define `
 (*val pmatch : env_ctor -> store v -> pat -> v -> alist varN v -> match_result (alist varN v)*)
  val pmatch_defn = Defn.Hol_multi_defns `
 
+(pmatch envC s Pany v' env=  (Match env))
+/\
 (pmatch envC s (Pvar x) v' env=  (Match ((x,v')::env)))
 /\
 (pmatch envC s (Plit l) (Litv l') env=  
@@ -645,6 +647,9 @@ val _ = Define `
 (store_alloc (Varray (REPLICATE (Num (ABS (I n))) v)) s)
           in
             SOME ((s',t), Rval (Loc lnum))
+    | (AallocEmpty, [Conv NONE []]) =>
+        let (s',lnum) = (store_alloc (Varray []) s) in
+          SOME ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (Varray vs) =>

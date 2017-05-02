@@ -458,6 +458,8 @@ val sexppat_def = tDefine "sexppat" `
     lift Pvar (odestSEXSTR s) ++
     do
       (nm, args) <- dstrip_sexp s;
+      guard (nm = "Pany" ∧ LENGTH args = 0)
+            (return Pany) ++
       guard (nm = "Plit" ∧ LENGTH args = 1)
             (lift Plit (sexplit (EL 0 args))) ++
       guard (nm = "Pcon" ∧ LENGTH args = 2)
@@ -524,6 +526,7 @@ val sexpop_def = Define`
   if s = "Vsub" then SOME Vsub else
   if s = "Vlength" then SOME Vlength else
   if s = "Aalloc" then SOME Aalloc else
+  if s = "AallocEmpty" then SOME AallocEmpty else
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else NONE) ∧
@@ -794,6 +797,7 @@ val litsexp_11 = Q.store_thm("litsexp_11[simp]",
   \\ intLib.COOPER_TAC);
 
 val patsexp_def = tDefine"patsexp"`
+  (patsexp Pany = listsexp [SX_SYM "Pany"]) ∧
   (patsexp (Pvar s) = SEXSTR s) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
@@ -881,6 +885,7 @@ val opsexp_def = Define`
   (opsexp Vsub = SX_SYM "Vsub") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
+  (opsexp AallocEmpty = SX_SYM "AallocEmpty") ∧
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
@@ -1178,6 +1183,7 @@ val sexppat_patsexp = Q.store_thm("sexppat_patsexp[simp]",
   ho_match_mp_tac pat_ind >>
   conj_tac >- simp[patsexp_def,Once sexppat_def] >>
   conj_tac >- simp[patsexp_def,Once sexppat_def] >>
+  conj_tac >- simp[patsexp_def,Once sexppat_def] >>
   conj_tac >- (
     Induct >- simp[patsexp_def,Once sexppat_def,sexplist_listsexp_matchable] >>
     rw[] >> fs[] >>
@@ -1376,6 +1382,7 @@ val patsexp_sexppat = Q.store_thm("patsexp_sexppat",
   rw[patsexp_def, listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3]
   \\ rw[] \\ fs[]
+  >- metis_tac[litsexp_sexplit]
   >- metis_tac[litsexp_sexplit]
   \\ imp_res_tac typesexp_sexptype
   \\ fs[odestSEXSTR_def] \\ rveq

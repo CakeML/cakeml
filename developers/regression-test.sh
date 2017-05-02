@@ -50,7 +50,7 @@ do
       echo -n "OK: $i"
       if [ -f timing.log ]
       then
-        printf '%0.*s' $((40 - ${#i})) "$pad"
+        printf '%0.*s' $((44 - ${#i})) "$pad"
         eval displayline $(cat timing.log)
       else
           echo

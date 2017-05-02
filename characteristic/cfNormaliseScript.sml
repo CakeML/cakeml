@@ -213,6 +213,7 @@ val strip_annot_pat_def = Define `
   strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
   strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
   strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat Pany = Pany /\
   strip_annot_pat_list [] = [] /\
   strip_annot_pat_list (x::xs) =
     strip_annot_pat x :: strip_annot_pat_list xs`;

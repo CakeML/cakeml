@@ -47,6 +47,7 @@ val substring_side_thm = Q.prove (
 
 val result = translate strcat_def;
 
+val _ = next_ml_names := ["concat"];
 val result = translate concat_def;
 
 val result = translate concatWith_aux_def;
@@ -114,12 +115,14 @@ val isStringThere_aux_side_thm = Q.prove (
 );
 
 
+val _ = next_ml_names := ["isPrefix"];
 val result = translate isPrefix_def;
 val isPrefix_side_def = definition"isprefix_1_side_def";
 val isPrefix_thm = Q.prove (
   `!s1 s2. isprefix_1_side s1 s2`,
   rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["isSuffix"];
 val result = translate isSuffix_def;
 val isSuffix_side_def = definition"issuffix_side_def";
 val isSuffix_thm = Q.prove (
@@ -134,6 +137,7 @@ val isSubstring_aux_side_thm = Q.prove (
   Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
 );
 
+val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_def;
 val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
@@ -169,8 +173,9 @@ val _ = translate mlstring_gt_def;
 
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_1_side_def";
+val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
-val collate_side_def = definition"collate_2_side_def";
+val collate_side_def = definition"collate_1_side_def";
 
 val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
@@ -181,7 +186,7 @@ val collate_aux_side_thm = Q.prove (
 );
 
 val collate_side_thm = Q.prove (
-  `!f s1 s2. collate_2_side f s1 s2`,
+  `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 

@@ -1,7 +1,7 @@
 open preamble
      x64ProgTheory
      export_x64Theory
-     configTheory
+     x64_configTheory
      ml_translatorLib cfTacticsLib
      ioProgLib
 
@@ -41,7 +41,7 @@ val res = translate ffi_asm_def;
 val res = translate x64_export_def;
 
 val res = translate
-  (x64_compiler_config_def
+  (x64_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
 val error_to_str_def = Define`
@@ -73,6 +73,40 @@ val find_parse_def = Define`
 
 val res = translate find_parse_def;
 
+val comma_tokens_def = Define `
+  (comma_tokens acc xs [] = if NULL xs then acc else acc ++ [implode xs]) /\
+  (comma_tokens acc (xs:string) (c::(cs:string)) =
+    if c = #"," then
+      comma_tokens (acc ++ if NULL xs then [] else [implode xs]) [] cs
+    else
+      comma_tokens acc (STRCAT xs [c]) cs)`
+
+val res = translate comma_tokens_def;
+
+val parse_num_list_def = Define`
+  (parse_num_list [] = []) /\
+  (parse_num_list (x::xs) =
+     case parse_num x of
+     | NONE => parse_num_list xs
+     | SOME n => n :: parse_num_list xs)`
+
+val res = translate parse_num_list_def;
+
+val parse_nums_def = Define `
+  parse_nums str =
+    SOME (parse_num_list (comma_tokens [] [] (explode str)))`
+
+val res = translate parse_nums_def;
+
+val find_parse_nums_def = Define`
+  (find_parse_nums flag [] = NONE) ∧
+  (find_parse_nums flag (x::xs) =
+    if isPrefix flag x then
+      parse_nums (substring x (strlen flag) (strlen x))
+    else find_parse_nums flag xs)`
+
+val res = translate find_parse_nums_def;
+
 (* parses a list of strings to configurations and modifies the configuration *)
 val extend_with_args_def = Define`
   extend_with_args ls conf =
@@ -98,6 +132,19 @@ val extend_with_args_def = Define`
         exp_cut:= case expcut of NONE => bvl.exp_cut | SOME v => v;
         split_main_at_seq := splitmain
       |> in
+    let gc_none = (MEMBER (strlit"--gc=none") ls) in
+    let gc_simple = (MEMBER (strlit"--gc=simple") ls) in
+    let gc_gen = (MEMBER (strlit"--gc=gen") ls) in
+    let gc_gen_sizes = find_parse_nums (strlit "--gc=gen") ls in
+    let data = conf.data_conf in
+    let updated_data =
+	data with <| gc_kind :=
+		  case gc_gen_sizes of
+		  | SOME gs => Generational gs
+		  | NONE =>
+   		      if gc_none then None else
+		      if gc_simple then Simple else
+		      if gc_gen then Generational [] else data.gc_kind |> in
     let regalg = find_parse (strlit "--reg_alg=") ls in
     let wtw = conf.word_to_word_conf in
     let updated_wtw =
@@ -114,11 +161,10 @@ val compile_to_bytes_def = Define `
     | Failure err => (List[], error_to_str err)
     | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
-(* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
   compiler_x64 cl = compile_to_bytes
     <| inferencer_config := init_config;
-       backend_config := extend_with_args cl x64_compiler_config |>`;
+       backend_config := extend_with_args cl x64_backend_config |>`;
 
 val res = translate
   (compiler_x64_def
@@ -165,9 +211,9 @@ val main_spec = Q.store_thm("main_spec",
   \\ qmatch_abbrev_tac`_ frame _`
   \\ qmatch_goalsub_abbrev_tac`append (FST res)`
   \\ xlet`POSTv xv. &PAIR_TYPE (MISC_APP_LIST_TYPE STRING_TYPE) STRING_TYPE res xv * frame`
-  >- (xapp \\ instantiate \\ xsimpl)
+  >- (xapp \\ instantiate \\ xsimpl \\ cheat)
   \\ xmatch
-  \\ Cases_on `res` \\ qmatch_goalsub_abbrev_tac`FST (c,e)` 
+  \\ Cases_on `res` \\ qmatch_goalsub_abbrev_tac`FST (c,e)`
   \\ every_case_tac \\ fs [ml_translatorTheory.PAIR_TYPE_def]
   \\ rw[validate_pat_def,pat_typechecks_def,pat_without_Pref_def,
      ALL_DISTINCT,astTheory.pat_bindings_def,terminationTheory.pmatch_def]

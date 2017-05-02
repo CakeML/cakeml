@@ -315,7 +315,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30) y =
          (ast$op_CASE op
             (\z. x1 z y)
             (\z. x2 z y)
@@ -325,8 +325,8 @@ val op_apply = Q.prove(
             (\z. x14 z y) (\z. x15 z y)
             (x16 y) (x17 y)
             (\z. x18 z y)
-            (x19 y) (x20 y) (x21 y) (x22 y) (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y)
-            (\z. x29 z y))`,
+            (x19 y) (x20 y) (x21 y) (x22 y) (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y) (x29 y)
+            (\z. x30 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -459,6 +459,10 @@ val _ = translate (infer_def ``add_constraint``);
 val add_constraint_side_def = definition"add_constraint_side_def"
 
 val _ = translate (infer_def ``add_constraints``);
+
+val add_constraint_side_thm = Q.store_thm("add_constraint_side_thm",
+  `∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z`,
+  rw[add_constraint_side_def]);
 
 val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`,
@@ -653,7 +657,7 @@ val AST_PAT_TYPE_no_closures = Q.prove(
     pop_assum mp_tac >>
     pop_assum kall_tac >>
     pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def,no_closures_def,PULL_EXISTS] >>
     rw[] >> METIS_TAC[] ) >>
   METIS_TAC[EqualityType_def,
@@ -670,7 +674,7 @@ val AST_PAT_TYPE_types_match = Q.prove(
   TRY (
     rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
     ntac 2 (pop_assum kall_tac) >> pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`v4_2'`,`l`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def] >- (
       Cases >> simp[LIST_TYPE_def,types_match_def,ctor_same_type_def,PULL_EXISTS] ) >>
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[types_match_def,ctor_same_type_def] >>
@@ -687,10 +691,10 @@ val AST_PAT_TYPE_11 = Q.prove(
   ( METIS_TAC[EqualityType_def,EqualityType_AST_T_TYPE] )
   >- (
     rpt(qhdtm_x_assum`LIST_TYPE`mp_tac) >>
-    `x_4 = o' ⇔ v3_1 = v3_1'` by METIS_TAC[EqualityType_def, EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
+    `x_4 = o' ⇔ v4_1 = v4_1'` by METIS_TAC[EqualityType_def, EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR] >>
     simp[] >>
     ntac 3 (pop_assum kall_tac) >> pop_assum mp_tac >>
-    map_every qid_spec_tac[`v3_2`,`v3_2'`,`l`,`x_3`] >>
+    map_every qid_spec_tac[`v4_2`,`v4_2'`,`l`,`x_3`] >>
     Induct >> simp[LIST_TYPE_def] >- (
       Cases >> simp[LIST_TYPE_def,PULL_EXISTS] ) >>
     gen_tac >> Cases >> rw[LIST_TYPE_def] >> rw[] >>
@@ -834,23 +838,19 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
    (!l menv funs st. t_wfs st.subst ⇒ infer_funs_side l menv funs st)`,
   ho_match_mp_tac infer_e_ind >>
   rw [] >>
-  rw [Once infer_e_side_def, add_constraint_side_def] >>
+  rw [Once infer_e_side_def] >>
+  TRY (irule add_constraint_side_thm) >>
+  TRY (irule add_constraints_side_thm) >>
   fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
-  rw [constrain_op_side_def, add_constraint_side_def,
-      apply_subst_side_def, apply_subst_list_side_def] >>
+  rw [constrain_op_side_def, apply_subst_side_def, apply_subst_list_side_def] >>
   fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
+  TRY (irule add_constraint_side_thm) >>
+  TRY (irule add_constraints_side_thm) >>
   TRY (imp_res_tac infer_e_wfs >>
        imp_res_tac unifyTheory.t_unify_wfs >>
        rw [] >>
        NO_TAC) >|
-  [match_mp_tac add_constraints_side_thm >>
-       rw [] >>
-       prove_tac [infer_e_wfs],
-   match_mp_tac add_constraints_side_thm >>
-       rw [] >>
-       imp_res_tac infer_e_wfs >>
-       fs [],
-   imp_res_tac infer_e_wfs >>
+  [imp_res_tac infer_e_wfs >>
        imp_res_tac unifyTheory.t_unify_wfs >>
        imp_res_tac pure_add_constraints_wfs >>
        rw [],
@@ -903,7 +903,8 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   `!mn decls env d st. infer_d_side mn decls env d st`,
   rw [infer_d_side_def] >>
   fs [init_state_def, success_eqns] >>
-  rw [add_constraint_side_def, apply_subst_list_side_def] >>
+  rw [apply_subst_list_side_def] >>
+  TRY (irule add_constraint_side_thm) >>
   `t_wfs init_infer_state.subst`
             by rw [init_infer_state_def, unifyTheory.t_wfs_def]
   >-
@@ -945,7 +946,7 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   >- (match_mp_tac build_ctor_tenv_side_thm >>
      last_x_assum mp_tac >> rw[])
   >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[])
-  >> match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]);
+  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]));
 
 val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 

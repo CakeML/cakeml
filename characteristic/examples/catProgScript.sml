@@ -265,6 +265,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
                                     * (ROFS fs * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
+  \\ xmatch
   \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
   \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * ROFS fs * COMMANDLINE cl`
