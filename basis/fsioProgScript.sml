@@ -53,7 +53,7 @@ val _ =
     fun prerr_char c = write_char 2 c
     ` |> append_prog
 
-(* writes a w8array between indices i and j *)
+(* writes n chars of a w8array starting on index i  *)
 val _ = 
   process_topdecs` fun write_w8array fd w i n =
   if n <= 0 then ()
@@ -96,7 +96,56 @@ val _ = process_topdecs` fun write_newline fd =
     fun print_newline () = write_newline 1 
     fun prerr_newline () = write_newline 2 
     ` |> append_prog
-(*
-* Print a newline character on standard output, and flush standard output. This
-* can be used to simulate line buffering of standard output.
-*)
+
+val _ = process_topdecs
+  `fun copyi a i clist =
+      case clist of
+          [] => let val z = Word8.fromInt 0 in Word8Array.update a i z end
+        | c::cs => let
+            val ordc = Char.ord c
+            val cw = Word8.fromInt ordc
+            val unit = Word8Array.update a i cw
+            val suci = i + 1
+          in
+            copyi a suci cs
+          end` | append_prog
+
+val _ = process_topdecs
+  `fun str_to_w8array a s = let
+     val clist = String.explode s
+   in
+      copyi a 0 clist
+   end` | append_prog
+
+val _ = process_topdecs`
+fun open_in fname =
+  let val a = str_to_w8array buff255 fname
+      val a = #(open_in) buff255 in
+        if Word8Array.sub buff255 0 = 0 then ()
+        else raise BadFileName
+  end
+fun open_out fname =
+  let val a = str_to_w8array buff255 fname
+      val a = #(open_out) buff255 in
+        if Word8Array.sub buff255 0 = 0 then ()
+        else raise BadFileName
+  end` | append_prog
+
+(* val input : in_channel -> bytes -> int -> int -> int
+* input ic buf pos len reads up to len characters from the given channel ic,
+* storing them in byte sequence buf, starting at character number pos. *)
+val _ = 
+  process_topdecs`
+fun input fd buf pos len =
+ let val a = Word8Array.update buff255 0 fd
+     val a = Word8Array.update buff255 1 (min len 253)
+     val a = #(read) buff255
+     val res = Word8Array.sub buff255 0 in
+     val nread = Word8Array.sub buff255 1 (* TODO: convert *)
+       if res = 1 then raise InvalidFD
+       else
+         let val a = Word8Array.copy_aux buff255 buf pos nread 2 in
+           if nread < len then input fd buf (pos + nread) (len - nread)
+           else ()
+         end
+ end` | append_prog
