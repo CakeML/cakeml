@@ -123,11 +123,12 @@ val add_compiler_compset = computeLib.extend_compset
     ,mod_to_conTheory.empty_config_def
       (* decLang *)
       (* ---- con_to_dec ---- *)
-    ,con_to_decTheory.compile_prog_def
-    ,con_to_decTheory.compile_prompt_def
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
+    ,con_to_decTheory.oc_tra_def
     ,con_to_decTheory.compile_decs_def
+    ,con_to_decTheory.compile_prompt_def
+    ,con_to_decTheory.compile_prog_def
     ,con_to_decTheory.compile_def
     ]
   ,computeLib.Tys
@@ -138,11 +139,11 @@ val add_compiler_compset = computeLib.extend_compset
   ,computeLib.Defs
     [ (* ---- dec_to_exh ---- *)
      dec_to_exhTheory.is_unconditional_def
-    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.get_tags_def
     ,dec_to_exhTheory.exhaustive_match_def
-    ,dec_to_exhTheory.compile_exp_def
+    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.compile_pat_def
+    ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_def
     ,exh_reorderTheory.is_const_con_def
     ,exh_reorderTheory.isPcon_def
@@ -158,17 +159,18 @@ val add_compiler_compset = computeLib.extend_compset
     ]
       (* ---- exh_to_pat ---- *)
   ,computeLib.Defs
-    [exh_to_patTheory.compile_exp_def
-    ,exh_to_patTheory.compile_row_def
-    ,exh_to_patTheory.compile_pat_def
-    ,exh_to_patTheory.sLet_def
+    [exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.cons_bool_def
     ,exh_to_patTheory.sIf_def
-    ,exh_to_patTheory.ground_def
-    ,exh_to_patTheory.pure_def
-    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
-    ,exh_to_patTheory.pure_op_def
     ,exh_to_patTheory.pure_op_op_eqn
-    ,exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.pure_op_def
+    ,exh_to_patTheory.pure_def
+    ,exh_to_patTheory.ground_def
+    ,exh_to_patTheory.sLet_def
+    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
+    ,exh_to_patTheory.compile_pat_def
+    ,exh_to_patTheory.compile_row_def
+    ,exh_to_patTheory.compile_exp_def
     ,exh_to_patTheory.compile_def
     ]
   ,computeLib.Tys

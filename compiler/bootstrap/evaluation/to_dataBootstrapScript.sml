@@ -25,7 +25,7 @@ val _ = new_theory"to_dataBootstrap";
   strategy for evaluation.
 *)
 
-val _ = Globals.max_print_depth := 20;
+val _ = Globals.max_print_depth := 10;
 
 val cs = wordsLib.words_compset();
 val () = basicComputeLib.add_basic_compset cs;
