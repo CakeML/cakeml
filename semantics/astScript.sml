@@ -180,7 +180,8 @@ val _ = Define `
 (* Patterns *)
 val _ = Hol_datatype `
  pat =
-    Pvar of varN
+    Pany
+  | Pvar of varN
   | Plit of lit
   (* Constructor applications.
      A Nothing constructor indicates a tuple pattern. *)
@@ -270,6 +271,9 @@ val _ = type_abbrev( "prog" , ``: top list``);
 (*val pat_bindings : pat -> list varN -> list varN*)
  val pat_bindings_defn = Defn.Hol_multi_defns `
 
+(pat_bindings Pany already_bound= 
+  already_bound)
+/\
 (pat_bindings (Pvar n) already_bound=  
  (n::already_bound))
 /\

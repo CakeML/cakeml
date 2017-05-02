@@ -14,6 +14,7 @@ val _ = trans "length" `length`
 val _ = trans "sub" `sub`
 
 
+val _ = next_ml_names := ["tabulate"];
 val result = translate tabulate_def;
 
 
@@ -30,19 +31,24 @@ val result = translate toList_def;
 
 
 val result = translate LUPDATE_def;
+val _ = next_ml_names := ["update"];
 val result = translate update_def;
 
 
+val _ = next_ml_names := ["concat"];
 val result = translate concat_def;
 
 
+val _ = next_ml_names := ["map"];
 val result = translate map_def;
+val _ = next_ml_names := ["mapi"];
 val result = translate mapi_def;
 
 
 
 val result = translate foldli_aux_def;
 val foldli_aux_side_def = theorem"foldli_aux_1_side_def"
+val _ = next_ml_names := ["foldli"];
 val result = translate foldli_def;
 val foldli_side_def = definition"foldli_1_side_def";
 
@@ -60,6 +66,7 @@ val foldli_side_thm = Q.prove(
 
 val result = translate foldl_aux_def;
 val foldl_aux_side_def = theorem"foldl_aux_side_def"
+val _ = next_ml_names := ["foldl"];
 val result = translate foldl_def;
 val foldl_side_def = definition"foldl_1_side_def";
 
@@ -76,6 +83,7 @@ val foldl_side_thm = Q.prove(
 
 val result = translate foldri_aux_def;
 val foldri_aux_side_def = theorem"foldri_aux_side_def";
+val _ = next_ml_names := ["foldri"];
 val result = translate foldri_def;
 val foldri_side_def = definition"foldri_1_side_def";
 
@@ -92,6 +100,7 @@ val foldri_side_thm = Q.prove(
 
 val result = translate foldr_aux_def;
 val foldr_aux_side_def = theorem"foldr_aux_side_def";
+val _ = next_ml_names := ["foldr"];
 val result = translate foldr_def;
 val foldr_side_def = definition"foldr_1_side_def";
 
@@ -123,6 +132,7 @@ val findi_side_thm = Q.prove (
 
 val result = translate find_aux_def;
 val find_aux_side_def = theorem"find_aux_side_def"
+val _ = next_ml_names := ["find"];
 val result = translate find_def;
 val find_side_def = definition"find_1_side_def"
 
@@ -139,6 +149,7 @@ val find_side_thm = Q.prove (
 
 val result = translate exists_aux_def;
 val exists_aux_side_def = theorem"exists_aux_side_def";
+val _ = next_ml_names := ["exists"];
 val result = translate exists_def;
 val exists_side_def = definition"exists_1_side_def";
 
@@ -155,6 +166,7 @@ val exists_side_thm = Q.prove (
 
 val result = translate all_aux_def;
 val all_aux_side_def = theorem"all_aux_side_def";
+val _ = next_ml_names := ["all"];
 val result = translate all_def;
 val all_side_def = definition"all_1_side_def";
 
@@ -170,6 +182,7 @@ val all_side_thm = Q.prove (
 
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_side_def";
+val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
 val collate_side_def = definition"collate_1_side_def";
 

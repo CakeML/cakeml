@@ -120,25 +120,6 @@ val word_i2w_sub = store_thm("word_i2w_sub",
   fs [integer_wordTheory.word_i2w_add,word_sub_def,integerTheory.int_sub,
       integer_wordTheory.MULT_MINUS_ONE]);
 
-(* --- *)
-
-val heap_split_APPEND_if = Q.store_thm("heap_split_APPEND_if",
-  `!h1 n h2. heap_split n (h1 ++ h2) =
-  if n < heap_length h1 then
-    case heap_split n h1 of
-        NONE => NONE
-      | SOME(h1',h2') => SOME(h1',h2'++h2)
-  else
-    case heap_split (n - heap_length h1) h2 of
-        NONE => NONE
-      | SOME(h1',h2') => SOME(h1++h1',h2')`,
-  Induct >> fs[heap_split_def] >> rpt strip_tac
-  >- (Cases_on `heap_split n h2` >> fs[] >> Cases_on `x` >> fs[])
-  >> IF_CASES_TAC >- (fs[heap_length_def] >> Cases_on `h` >> fs[el_length_def])
-  >> IF_CASES_TAC >- fs[heap_length_def]
-  >> IF_CASES_TAC >- (fs[heap_length_def] >> every_case_tac >> fs[])
-  >> fs[heap_length_def] >> every_case_tac >> fs[]);
-
 (* -- *)
 
 val get_lowerbits_def = Define `
@@ -293,6 +274,7 @@ val data_up_to_def = Define `
 val unused_space_inv_def = Define `
   unused_space_inv ptr l heap <=>
     (l <> 0 ==> (heap_lookup ptr heap = SOME (Unused (l-1)))) /\
+    ptr + l <= heap_length heap /\
     data_up_to ptr heap`;
 
 val isRef_def = Define `
@@ -635,10 +617,6 @@ val bc_stack_ref_inv_related = Q.prove(
   \\ match_mp_tac bc_ref_inv_related \\ full_simp_tac std_ss []
   \\ metis_tac [reachable_refs_lemma]);
 
-val heap_split_0 = store_thm("heap_split_0[simp]",
-  ``heap_split 0 h = SOME ([],h)``,
-  Cases_on `h` \\ fs [heap_split_def]);
-
 val data_up_to_APPEND = store_thm("data_up_to_APPEND[simp]",
   ``data_up_to (heap_length xs) (xs ++ ys) <=> EVERY isDataElement xs``,
   fs [data_up_to_def,heap_split_APPEND_if,heap_split_0]);
@@ -661,7 +639,8 @@ val full_gc_thm = Q.store_thm("full_gc_thm",
    (full_simp_tac std_ss [unused_space_inv_def] \\ rpt strip_tac
     \\ full_simp_tac std_ss [heap_expand_def]
     \\ imp_res_tac full_gc_IMP_isDataElement
-    \\ rveq \\ fs [heap_lookup_APPEND,heap_lookup_def])
+    \\ rveq \\ fs [heap_lookup_APPEND,heap_lookup_def,heap_length_APPEND]
+    \\ rw [heap_length_def,el_length_def])
   \\ full_simp_tac std_ss [] \\ simp_tac std_ss [CONJ_ASSOC]
   \\ reverse conj_tac THEN1
    (match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
@@ -828,7 +807,8 @@ val gen_gc_thm = Q.store_thm("gen_gc_thm",
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
     \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def]
     \\ drule(GEN_ALL gen_gc_data_refs_split) \\ fs[]
-    \\ fs[] \\ impl_tac THEN1 (unabbrev_all_tac >> fs[]) \\ fs[])
+    \\ fs[] \\ impl_tac THEN1 (unabbrev_all_tac >> fs[]) \\ fs[]
+    \\ fs [heap_length_APPEND] \\ rw [heap_length_def,el_length_def])
   THEN1
    (fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []
     \\ drule(GEN_ALL gen_gc_data_refs_split) \\ fs[]
@@ -946,6 +926,8 @@ val gen_gc_partial_thm = Q.store_thm("gen_gc_partial_thm",
     \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
     \\ fs [heap_lookup_APPEND] \\ fs [heap_lookup_def]
     \\ unabbrev_all_tac \\ fs []
+    \\ conj_tac
+    THEN1 (fs [heap_length_APPEND] \\ rw [heap_length_def,el_length_def])
     \\ drule gen_gc_partialTheory.partial_gc_IMP \\ fs []
     \\ strip_tac
     \\ Cases_on `gens`
@@ -1135,6 +1117,8 @@ val IMP_heap_store_unused = Q.prove(
    (rpt strip_tac \\ full_simp_tac std_ss
       [heap_expand_def,APPEND,GSYM APPEND_ASSOC,heap_lookup_PREFIX])
   \\ strip_tac THEN1
+   (fs [heap_length_APPEND,el_length_def,heap_length_heap_expand])
+  \\ strip_tac THEN1
    (full_simp_tac std_ss [GSYM APPEND_ASSOC,data_up_to_APPEND])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
@@ -1259,7 +1243,9 @@ val IMP_heap_store_unused_alt = Q.prove(
     \\ pop_assum (fn th => fs [th]) \\ fs [heap_lookup_PREFIX]
     \\ qabbrev_tac `hh = ha ++ [x]`
     \\ full_simp_tac std_ss [data_up_to_APPEND,GSYM APPEND_ASSOC]
-    \\ unabbrev_all_tac \\ fs [])
+    \\ unabbrev_all_tac \\ fs []
+    \\ fs [heap_length_APPEND,el_length_def,heap_length_heap_expand]
+    \\ fs [heap_length_def,el_length_def] \\ rw [el_length_def])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ full_simp_tac std_ss [APPEND_ASSOC]
@@ -2290,9 +2276,8 @@ val unused_space_inv_byte_update = prove(
   \\ fs [heap_lookup_APPEND,heap_length_APPEND,heap_length_Bytes]
   THEN1 (every_case_tac \\ fs [heap_lookup_def,Bytes_def])
   THEN1 (every_case_tac \\ fs [heap_lookup_def,Bytes_def])
-  \\ pop_assum mp_tac \\ pop_assum kall_tac
-  \\ qspec_tac (`a`,`a`)
-  \\ Induct_on `ha`
+  \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac)
+  \\ qspec_tac (`a`,`a`) \\ Induct_on `ha`
   \\ fs [data_up_to_alt,el_length_def,Bytes_def]
   \\ rpt gen_tac \\ Cases_on `a = 0` \\ fs []);
 

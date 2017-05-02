@@ -24,6 +24,7 @@ string
 basics
 int
 char
+word64
 word8
 w8array
 array

@@ -1648,7 +1648,7 @@ val word_gc_fun_thm = Q.prove(
      if ¬word_gc_fun_assum conf s then NONE else
      if word_gen_gc_can_do_partial gen_sizes s then
        (λ(roots1,i1,pa1,m1,c2).
-          if c2 then
+          if c2 /\ theWord (s ' AllocSize) ≤₊ -1w * pa1 + theWord (s ' EndOfHeap) then
             SOME
               (TL roots1,m1,
                s |++
@@ -1730,7 +1730,8 @@ val word_gc_fun_thm = Q.prove(
   \\ full_simp_tac(srw_ss())[LET_THM]
   \\ Cases_on `word_gc_fun_assum conf s` \\ fs []
   \\ Cases_on `word_gen_gc_can_do_partial gen_sizes s` \\ fs []
-  THEN1 fs [word_gen_gc_partial_full_def,word_gen_gc_partial_def]
+  THEN1 (fs [word_gen_gc_partial_full_def,word_gen_gc_partial_def]
+         \\ fs [word_gc_fun_assum_def,isWord_thm,theWord_def])
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
@@ -1814,7 +1815,9 @@ val gc_thm = Q.prove(
                  (Globals,w1);
                  (Temp 0w,Word 0w);
                  (Temp 1w,Word 0w)] in
-         if word_gc_fun_assum conf s.store /\ c3 /\ c4 /\ c5
+       let c6 = (theWord (s.store ' AllocSize) ≤₊
+                 theWord (s.store ' EndOfHeap) - b1) in
+         if word_gc_fun_assum conf s.store /\ c3 /\ c4 /\ c5 /\ c6
          then SOME (s with
               <| stack := unused ++ ws2; store := s1;
                  regs := FEMPTY; memory := m1|>) else NONE)
@@ -1872,7 +1875,8 @@ val gc_thm = Q.prove(
     \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ fs [])
+    \\ imp_res_tac word_gen_gc_partial_move_ref_list_ok \\ fs []
+    \\ fs [] \\ rveq \\ fs [])
   \\ full_simp_tac(srw_ss())[LET_THM,word_gen_gc_move_roots_bitmaps_def]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   THEN1 (rpt (pairarg_tac \\ full_simp_tac(srw_ss())[]))
@@ -4582,12 +4586,13 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ tac \\ rfs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ fs [labSemTheory.word_cmp_def,set_store_def]
-    \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
+    \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
+    \\ `w2n w ≤ w2n (-1w * b1 + endh)` by rfs [WORD_LS] \\ fs []
+    \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
     \\ fs [empty_env_def,state_component_equality]
     \\ rpt var_eq_tac \\ fs []
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-    \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
     \\ qpat_x_assum `_ = t.store` (fn th => fs [GSYM th])
     \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
     \\ fs [fmap_EXT,EXTENSION]

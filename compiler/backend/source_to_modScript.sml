@@ -19,6 +19,7 @@ val Bool_def = Define `
 
 val compile_pat_def = tDefine "compile_pat" `
   (compile_pat (ast$Pvar v) = ast$Pvar v) ∧
+  (compile_pat Pany = Pany) ∧
   (compile_pat (Plit l) = Plit l) ∧
   (compile_pat (Pcon id ps) = Pcon id (MAP compile_pat ps)) ∧
   (compile_pat (Pref p) = Pref (compile_pat p)) ∧

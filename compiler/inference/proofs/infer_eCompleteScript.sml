@@ -1143,6 +1143,21 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     >>
       fs[simp_tenv_invC_def]>>
       metis_tac[check_freevars_empty_convert_unconvert_id])
+  >-
+    (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
+      mp_tac (GEN_ALL extend_one_props)>>
+    `t_wfs s` by metis_tac[sub_completion_wfs]>>
+    impl_tac >> fs[LET_THM,sub_completion_def]>>
+    qpat_abbrev_tac `s' = s|++A`>>
+    qpat_abbrev_tac `constraints' = constraints ++ B`>> rw[]>>
+    ntac 2 HINT_EXISTS_TAC>>rw[]
+    >-
+      (fs[SUBSET_DEF,count_def]>>rw[]>>res_tac>>DECIDE_TAC)
+    >-
+      metis_tac[SUBMAP_t_compat]
+    >>
+      fs[simp_tenv_invC_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
   >>TRY(ntac 2 HINT_EXISTS_TAC >>
     imp_res_tac sub_completion_wfs>>
     fs[t_walkstar_eqn,convert_t_def,t_walk_eqn,Tchar_def]>>

@@ -56,7 +56,7 @@ val write_def = Define `
 val lookup_st_ex_def = Define `
   lookup_st_ex l id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure (l,id_to_string id), st)
+    | NONE => (Failure (l, concat [implode "Undefined variable: "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -198,6 +198,10 @@ val infer_p_def = tDefine "infer_p" `
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
+(infer_p l ienv Pany =
+  do t <- fresh_uvar;
+     return (t, [])
+  od) ∧
 (infer_p l ienv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p l ienv (Plit (Char s)) =
@@ -218,6 +222,10 @@ val infer_p_def = tDefine "infer_p" `
         do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
            (ts'',tenv) <- infer_ps l ienv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
+           guard (LENGTH ts'' = LENGTH ts) l
+                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                          toString (&LENGTH ts''); implode " arguments, but expected ";
+                          toString (&LENGTH ts)]);
            () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
            return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
@@ -436,6 +444,10 @@ val infer_e_def = tDefine "infer_e" `
        do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
           ts'' <- infer_es l ienv es;
           ts' <- n_fresh_uvar (LENGTH tvs');
+           guard (LENGTH ts'' = LENGTH ts) l
+                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                          toString (&LENGTH ts''); implode " arguments, but expected ";
+                          toString (&LENGTH ts)]);
           () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
           return (Infer_Tapp ts' (tid_exn_to_tc tn))
        od) ∧

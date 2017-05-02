@@ -324,6 +324,13 @@ let tid_exn_to_tc t =
 indreln [type_p : nat -> type_env -> pat -> t -> list (varN * t) -> bool]
 and [type_ps : nat -> type_env -> list pat -> list t -> list (varN * t) -> bool]
 
+pany : forall tvs tenv t.
+check_freevars tvs [] t
+==>
+type_p tvs tenv Pany t []
+
+and
+
 pvar : forall tvs tenv n t.
 check_freevars tvs [] t
 ==>

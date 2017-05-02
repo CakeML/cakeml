@@ -24,6 +24,8 @@ val _ = Datatype`
 val pmatch_def = tDefine"pmatch"`
   (pmatch s (Pvar x) v' env = (Match ((x,v')::env)))
   ∧
+  (pmatch s Pany v' env = Match env)
+  ∧
   (pmatch s (Plit l) (Litv l') env =
    if l = l' then
      Match env
@@ -407,6 +409,7 @@ val pat_bindings_def = Define`
   (pat_bindings (Pvar n) already_bound =
    n::already_bound)
   ∧
+  (pat_bindings Pany already_bound = already_bound) ∧
   (pat_bindings (Plit l) already_bound =
    already_bound)
   ∧

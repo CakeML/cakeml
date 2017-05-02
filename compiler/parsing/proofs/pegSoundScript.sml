@@ -636,8 +636,10 @@ val peg_sound = Q.store_thm(
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
           imp_res_tac
             (MATCH_MP not_peg0_LENGTH_decreases peg0_nConstructorName) >>
-          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[])
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[]) >>
+          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+          simp[cmlG_FDOM, cmlG_applied])
+      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+          simp[cmlG_FDOM, cmlG_applied]) >>
       lrresolve X (free_in ``nPbase``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[])
   >- (print_tac "nPbase" >>
@@ -661,8 +663,15 @@ val peg_sound = Q.store_thm(
       >- simp[cmlG_FDOM, cmlG_applied]
       >- (simp[cmlG_FDOM, cmlG_applied] >>
           lrresolve KEEP (K true) mp_tac >> kill_asm_guard >>
-          ASM_REWRITE_TAC [] >> strip_tac >> rveq >> dsimp[]) >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+          ASM_REWRITE_TAC [] >> strip_tac >> rveq >> dsimp[])
+      >- dsimp[cmlG_applied, cmlG_FDOM]
+      >- (simp[cmlG_FDOM, cmlG_applied] >>
+          qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> dsimp[] >>
+          csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (fs[] >> qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> rveq >>
+          fs[])
+      >- (fs[] >> qpat_x_assum `OpT = FST _` (ASSUME_TAC o SYM) >> rveq >>
+          fs[]))
   >- (print_tac "nConstructorName" >>
       simp[pairTheory.EXISTS_PROD] >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nConstructorName)`

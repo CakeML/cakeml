@@ -498,8 +498,13 @@ val word_gc_code_def = Define `
                sub_inst 8 3;
                Get 7 CurrHeap;
                sub_inst 3 7;
-               Set GenStart 3;
-               If Lower 8 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip]
+               Set GenStart 3 (* There is no need for a memory check here
+                                 because the partial collector is guaranteed
+                                 to get to a state where there is enough
+                                 memory for the allocation. In contrast,
+                                 the full collector below can hit a state
+                                 where there is not enough memory, and so it
+                                 can Halt execution. *)]
               (* gen_gc_full *)
               [Set AllocSize 1;
                Set NextFree 0;

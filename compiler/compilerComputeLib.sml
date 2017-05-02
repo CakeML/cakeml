@@ -23,7 +23,7 @@ open dataLangTheory bvi_to_dataTheory data_simpTheory data_liveTheory data_space
 open wordLangTheory data_to_wordTheory word_instTheory word_allocTheory word_removeTheory
 open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
-open backendTheory
+open asmTheory backendTheory
 open semanticsComputeLib reg_allocComputeLib
 
 (*Order of thms shown below:
@@ -61,6 +61,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:'a asm_config``
     ,``:'a backend$config``
       (* modLang *)
+    ,``:modLang$op``
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
@@ -352,6 +353,7 @@ val add_compiler_compset = computeLib.extend_compset
      ``:dataLang$prog``
       (* ---- data_to_word ---- *)
     ,``:data_to_word$word_op_type``
+    ,``:data_to_word$gc_kind``
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
@@ -751,7 +753,6 @@ val add_compiler_compset = computeLib.extend_compset
     ,db_varsTheory.db_to_set_def
     ,db_varsTheory.list_mk_Union_def
       (* ---- stack names ---- *)
-    ,stack_namesTheory.find_name_def
     ,stack_namesTheory.ri_find_name_def
     ,stack_namesTheory.inst_find_name_def
     ,stack_namesTheory.dest_find_name_def

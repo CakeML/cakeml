@@ -51,6 +51,7 @@ val add_basic_compset =
    , miscTheory.anub_def
    , miscTheory.safeTL_def
    , miscTheory.oHD_def
+   , miscTheory.zlookup_def
    , miscTheory.tlookup_def
    , miscTheory.any_el_def
    , miscTheory.LLOOKUP_def

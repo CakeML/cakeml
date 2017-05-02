@@ -1,4 +1,4 @@
-structure arm_exportLib =
+structure arm6_exportLib =
 struct
 local open HolKernel boolLib bossLib lcsymtacs in
 
