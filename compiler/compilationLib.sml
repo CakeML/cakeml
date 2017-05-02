@@ -24,6 +24,7 @@ val () =
   bare_compiler_cs
 val bare_compiler_eval = computeLib.CBV_CONV bare_compiler_cs
 
+fun REWR_CONV_BETA th tm = Thm.Beta (REWR_CONV th tm)
 
 val num_threads = ref 8
 val chunk_size = ref 50
@@ -152,7 +153,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV)
       |> timez "to_pat" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
-      |> CONV_RULE(RAND_CONV(REWR_CONV LET_THM THENC BETA_CONV))
+      |> CONV_RULE(RAND_CONV(REWR_CONV_BETA LET_THM))
     val (_,p) = to_pat_thm0 |> rconc |> dest_pair
     val pat_prog_def = zDefine`pat_prog = ^p`;
     val to_pat_thm =
@@ -167,7 +168,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV)
       |> timez "to_clos" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
-      |> CONV_RULE(RAND_CONV(REWR_CONV LET_THM THENC BETA_CONV))
+      |> CONV_RULE(RAND_CONV(REWR_CONV_BETA LET_THM))
     val (_,p) = to_clos_thm0 |> rconc |> dest_pair
     val clos_prog_def = zDefine`clos_prog = ^p`;
     val to_clos_thm =
@@ -237,7 +238,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
       RAND_CONV(REWR_CONV th2) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-      REWR_CONV LET_THM THENC BETA_CONV))
+      REWR_CONV_BETA LET_THM))
 
     val (c,p) = to_bvi_thm1 |> rconc |> dest_pair
     val bvi_conf_def = zDefine`bvi_conf = ^c`;
@@ -254,7 +255,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
           RAND_CONV (REWR_CONV to_bvi_thm) THENC
           REWR_CONV LET_THM THENC
           PAIRED_BETA_CONV THENC
-          REWR_CONV LET_THM THENC BETA_CONV)
+          REWR_CONV_BETA LET_THM)
       |> timez "to_data" (CONV_RULE(RAND_CONV(RAND_CONV eval)))
     val (_,p) = to_data_thm0 |> rconc |> dest_pair
 
@@ -292,7 +293,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
           RAND_CONV (REWR_CONV to_data_thm) THENC
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
-          REWR_CONV LET_THM THENC BETA_CONV THENC
+          REWR_CONV_BETA LET_THM THENC
           REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
           REWR_CONV LET_THM THENC
           PATH_CONV "rlrraraalralrarllr" eval THENC
@@ -467,8 +468,8 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              REWR_CONV word_to_wordTheory.next_n_oracle_def) THENC
            REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
            RAND_CONV eval THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
+           REWR_CONV_BETA LET_THM THENC
+           REWR_CONV_BETA LET_THM THENC
            RAND_CONV(
              RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
              REWR_CONV MAP_GENLIST THENC
@@ -480,10 +481,9 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV(CONJUNCT2 option_case_def) THENC
-                 BETA_CONV))) THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
-           REWR_CONV LET_THM THENC BETA_CONV))
+                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
+           REWR_CONV_BETA LET_THM THENC
+           REWR_CONV_BETA LET_THM))
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand
@@ -567,8 +567,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              REWR_CONV LET_THM THENC
              RAND_CONV(timez "word_to_stack" eval) THENC
              PAIRED_BETA_CONV THENC
-             REWR_CONV LET_THM THENC
-             BETA_CONV))
+             REWR_CONV_BETA LET_THM))
 
       val stack_prog_def = mk_abbrev"stack_prog" (from_word_thm |> rconc |> rand);
       val temp_defs = (mk_abbrev_name"stack_prog") :: temp_defs
@@ -583,12 +582,12 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
         |> timez "expand stack_to_lab_def" (CONV_RULE(RAND_CONV(
              REWR_CONV from_stack_def THENC
              RAND_CONV bare_compiler_eval THENC
-             REWR_CONV LET_THM THENC BETA_CONV THENC
+             REWR_CONV_BETA LET_THM THENC
              RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
              RAND_CONV(funpow 2 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
              RAND_CONV(funpow 3 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
              RAND_CONV(funpow 4 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             REWR_CONV LET_THM THENC BETA_CONV)))
+             REWR_CONV_BETA LET_THM)))
 
       val tm4 = stack_to_lab_thm0 |> rconc |> rand
 
@@ -627,7 +626,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              RAND_CONV (
                REWR_CONV stack_alloc_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
-               REWR_CONV LET_THM THENC BETA_CONV)))
+               REWR_CONV_BETA LET_THM)))
 
       val tm5 = stack_to_lab_thm1 |> rconc |> rand
 
@@ -674,9 +673,9 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              RAND_CONV(
                REWR_CONV stack_remove_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_remove_prog_def)) THENC
-               REWR_CONV LET_THM THENC BETA_CONV THENC
+               REWR_CONV_BETA LET_THM THENC
                RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
-               REWR_CONV LET_THM THENC BETA_CONV THENC
+               REWR_CONV_BETA LET_THM THENC
                RAND_CONV(REWR_CONV stack_namesTheory.compile_def))))
 
       val tm7 = stack_to_lab_thm2 |> rconc |> rand |> rand
@@ -815,7 +814,7 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
          REWR_CONV filter_skip_thm' THENC
          REWR_CONV lab_to_targetTheory.compile_lab_def THENC
          RAND_CONV(REWR_CONV ffi_names_thm) THENC
-         REWR_CONV LET_THM THENC BETA_CONV))
+         REWR_CONV_BETA LET_THM))
 
     val tm10 = lab_to_target_thm1 |> rconc |> rator |> rator |> rand
 
@@ -825,7 +824,7 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
        RAND_CONV(
          REWR_CONV lab_to_targetTheory.enc_sec_list_def THENC
          RAND_CONV eval THENC
-         REWR_CONV LET_THM THENC BETA_CONV THENC
+         REWR_CONV_BETA LET_THM THENC
          PATH_CONV"lrlr"eval) THENC
        PATH_CONV"llr"eval)
 
@@ -1038,7 +1037,7 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
       |> CONV_RULE(RAND_CONV(
            PATH_CONV"llr" (
              RAND_CONV (REWR_CONV compute_labels_thm2') THENC
-             REWR_CONV LET_THM THENC BETA_CONV)))
+             REWR_CONV_BETA LET_THM)))
 
     val tm16 =
       lab_to_target_thm6 |> rconc |> funpow 2 rator |> funpow 2 rand
