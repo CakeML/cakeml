@@ -13,6 +13,17 @@ open backend_commonTheory;
         place the accumulator argument /last/
         and get rid of some GENLIST stuff. There
         is no point in having it first.
+
+   TODO Note to self: there is, however, a point in having it *last*. 
+        It removes some issues with order of evaluation. 
+
+        In `f xs ++ (ys ++ acc)`, ys and acc are evaluated /after/ xs.
+        In `f' (ys ++ acc) xs` they are evaluated /before/ xs. It causes all
+        sorts of issues if, say, xs and acc were to evaluate to different 
+        errors, even if the equality `f xs ++ (ys ++ acc) = f' (ys ++ acc) xs` 
+        holds when all things evaluate to values. If we instead do
+        `f' xs (ys ++ acc)` however, the order of evaluation is preserved
+        between xs and (ys ++ acc), at least (although not the call itself).
 *)
 
 val _ = new_theory "bvi_tailrec";
@@ -75,7 +86,31 @@ val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
   `∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs`,
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []);
 
-val pure_op_def = closLangTheory.pure_op_def;
+(* No stateful operations are allowed. *)
+val pure_op_def = Define `
+  pure_op op ⇔
+    case op of
+      Global _         => F
+    | SetGlobal _      => F
+    | AllocGlobal      => F
+    | GlobalsPtr       => F
+    | SetGlobalsPtr    => F
+    | Length           => F
+    | LengthByte       => F
+    | (RefByte _)      => F
+    | RefArray         => F
+    | DerefByte        => F
+    | UpdateByte       => F
+    | Ref              => F
+    | Deref            => F
+    | Update           => F
+    | (Label _)        => F
+    | (FFI _)          => F
+    | Equal            => F
+    | BoundsCheckArray => F
+    | BoundsCheckByte  => F
+    | _                => T
+  `;
 
 val is_pure_def = tDefine "is_pure" `
   (is_pure (Var _)       ⇔ T) ∧
