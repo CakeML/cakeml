@@ -29,7 +29,7 @@ val dynamic_lcs_row_side_def = Q.prove(
    dynamic_lcs_row_side h l previous_col previous_row diagonal ⇔
    (LENGTH l <= LENGTH previous_row)`,
   Induct_on `l`
-  >> rw[Once(theorem "dynamic_lcs_row_side_def")]
+  >> rw[Once(fetch "-" "dynamic_lcs_row_side_def")]
   >> Cases_on `previous_row`
   >> fs[] >> metis_tac[]) |> update_precondition;
 
@@ -38,7 +38,7 @@ val dynamic_lcs_rows_side_def = Q.prove(
    dynamic_lcs_rows_side l r previous_row ⇔
    (l = [] \/ LENGTH r <= LENGTH previous_row)`,
   Induct_on `l`
-  >> rw[Once(theorem "dynamic_lcs_rows_side_def"),dynamic_lcs_row_side_def,dynamic_lcs_length])
+  >> rw[Once(fetch "-" "dynamic_lcs_rows_side_def"),dynamic_lcs_row_side_def,dynamic_lcs_length])
   |> update_precondition;
 
 val dynamic_lcs_side_def = Q.prove(
@@ -50,7 +50,7 @@ val optimised_lcs_side_def = Q.prove(
   `∀l r. optimised_lcs_side l r ⇔ T`,
   rw[fetch "-" "optimised_lcs_side_def",dynamic_lcs_side_def]) |> update_precondition;
 
-val _ = translate diff_def;
+val _ = translate diff_alg_def;
 
 val diff_with_lcs_side_IMP = Q.prove(
   `!l l' n l'' n'.
@@ -68,9 +68,24 @@ val diff_with_lcs_side_IMP = Q.prove(
   >> rfs[]
   >> metis_tac[list_distinct]);
 
-val diff_side_def = Q.prove(`
-  !l r. diff_side l r`,
-  rw[fetch "-" "diff_side_def"]
-  >> metis_tac[diff_with_lcs_side_IMP,optimised_lcs_correct]);
-    
+val diff_alg_side_def = Q.prove(`
+  !l r. diff_alg_side l r  ⇔ T`,
+  rw[fetch "-" "diff_alg_side_def"]
+  >> metis_tac[diff_with_lcs_side_IMP,optimised_lcs_correct]) |> update_precondition;
+
+val inputLines = process_topdecs`
+  fun inputLines fd =
+    let
+      fun loop() =
+        case inputLine fd of
+             NONE => []
+           | SOME l => l::loop()
+    in
+      loop()
+    end`
+
+val _ = append_prog inputLines;
+
+
+
 val _ = export_theory ();
