@@ -1,7 +1,7 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
-     charsetTheory lcsTheory diffTheory lcsTheory;
+     charsetTheory lcsTheory diffTheory;
 
 val _ = new_theory "diffProg";
 

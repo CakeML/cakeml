@@ -68,6 +68,7 @@ val diff_alg_refl = Q.store_thm("diff_alg_refl",
 (* Patch algorithm definition *)
 
 val num_from_string_def = Define `num_from_string s = num_of_int(fromString(explode s))`
+val string_is_num_def = Define `string_is_num s = EVERY isDigit (explode s)`
 
 val parse_patch_header_def = Define `
     parse_patch_header s =
@@ -75,23 +76,35 @@ val parse_patch_header_def = Define `
       | [l;r] =>
         (case tokens ($= #",") l of
            | [ll;lr] =>
-             (case tokens ($= #",") r of
+             (if string_is_num ll /\ string_is_num lr then
+               case tokens ($= #",") r of
                 | [rl;rr] =>
-                  SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
-                        num_from_string rl,SOME(num_from_string rr))
+                  if string_is_num rl /\ string_is_num rr then
+                    SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
+                          num_from_string rl,SOME(num_from_string rr))
+                  else NONE
                 | [r] =>
-                  SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
-                        num_from_string r,NONE)
-                | _ => NONE)
+                  if string_is_num r then
+                    SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
+                          num_from_string r,NONE)
+                  else NONE
+                | _ => NONE
+              else NONE)
            | [l'] =>
-             (case tokens ($= #",") r of
+             (if string_is_num l' then
+               case tokens ($= #",") r of
                 | [rl;rr] =>
-                  SOME (num_from_string l',NONE,strsub s (strlen l),
-                        num_from_string rl,SOME(num_from_string rr))
+                  if string_is_num rl /\ string_is_num rr then
+                    SOME (num_from_string l',NONE,strsub s (strlen l),
+                          num_from_string rl,SOME(num_from_string rr))
+                  else NONE
                 | [r] =>
-                  SOME (num_from_string l',NONE,strsub s (strlen l),
-                        num_from_string r,NONE)
-                | _ => NONE)
+                  if string_is_num r then
+                    SOME (num_from_string l',NONE,strsub s (strlen l),
+                          num_from_string r,NONE)
+                  else NONE
+                | _ => NONE
+              else NONE)
            | _ => NONE)
       | _ => NONE`;
 
@@ -158,6 +171,7 @@ val patch_aux_def = tDefine "patch_aux" `
                        (case patch_aux (DROP (dest'-dest) relevant_patch) rf (remfl-(orig'-n)) orig' of
                             SOME rf' => SOME(lf++p++rf')
                           | NONE => NONE))
+            | SOME _ => NONE
  )`
   (WF_REL_TAC `inv_image $< (LENGTH o FST)` >> fs[]);
 
@@ -182,12 +196,6 @@ val tokens_append_right = Q.store_thm("tokens_append_right_strlit",
   rpt strip_tac >> drule tokens_append_strlit
   >> disch_then (qspecl_then [`s`,`strlit ""`] assume_tac)
   >> fs[string_concat_empty,tokens_def,tokens_aux_def]);
-
-(*val SPLITP_zero_pad = Q.prove(
-`!n acc. SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc = (acc,[])
-  ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-             (zero_pad n acc) = (zero_pad n acc,[])`,
-  Induct >> fs[zero_pad_def,SPLITP]);*)
 
 val zero_pad_acc = Q.prove(
 `!n acc. STRCAT (zero_pad n "") acc = (zero_pad n acc)`,
@@ -251,7 +259,7 @@ val SPLITP_toChars = Q.prove(
   >> rw[] >> fs[SPLITP_simple_toChars] >> PURE_ONCE_REWRITE_TAC[GSYM simple_toChars_acc]
   >> fs[] >> PURE_ONCE_REWRITE_TAC[GSYM toChars_acc] >> fs[]);
 
-val one_to_ten = Q.prove(
+val one_to_ten = Q.store_thm("one_to_ten",
   `!P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n`, 
   rpt strip_tac >> Cases_on `n` >> fs[]
   >> qmatch_goalsub_rename_tac `SUC n`
@@ -299,12 +307,6 @@ val SPLITP_int_toString = Q.prove(
    SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
    (toString (i:int)) = (toString i,[])`,
   rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]);
-
-(*val TOKENS_last =
-  `!f s c. TOKENS f s = [s] ==> (TOKENS f (STRCAT s (STRING c "")) = if f c then [s] else [STRCAT s (STRING c "")])`
-  recInduct TOKENS_ind >> rpt strip_tac >> fs[TOKENS_def]
-  >> pairarg_tac >> fs[] >> rw[] >> pairarg_tac >> fs[]
-  fs[SPLITP_APPEND,SPLITP]*)
 
 val TOKENS_tostring = Q.prove(
 `TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]`,
@@ -517,6 +519,11 @@ val tokens_comma_lemma = Q.prove(
   >> PURE_REWRITE_TAC [GSYM SPLITP_NIL_SND_EVERY]
   >> fs[TOKENS_def]);
 
+val string_is_num_toString = Q.store_thm("string_is_num_toString",
+  `string_is_num (toString (&n))`,
+  fs[string_is_num_def,toString_isDigit,int_abs_toString_num,
+     toString_thm,num_from_string_toString_cancel,explode_implode]);
+
 val parse_header_cancel = Q.store_thm("parse_header_cancel",
 `l <> [] \/ l' <> [] ==>
  (parse_patch_header(diff_single_header l n l' n') =
@@ -537,10 +544,7 @@ val parse_header_cancel = Q.store_thm("parse_header_cancel",
         tokens_strcat',GSYM strcat_assoc,tokens_toString_comma,tokens_append_strlit]
   >> fs[tokens_append_strlit,tokens_toString,tokens_append_right,tokens_toString_comma,acd_simps,
         acd_more_simps,strcat_assoc, strsub_strcat,strsub_nil,num_from_string_toString_cancel,
-        tokens_comma_lemma]);
-
-(*Define `
-(diff_with_lcs_inv r l n l' n'*)
+        tokens_comma_lemma,string_is_num_toString]);
 
 val patch_aux_cancel_base_case = Q.prove(
   `patch_aux (diff_with_lcs [] r n r' m) r (LENGTH r) n = SOME r'`,
