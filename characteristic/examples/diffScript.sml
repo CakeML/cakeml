@@ -68,6 +68,7 @@ val diff_alg_refl = Q.store_thm("diff_alg_refl",
 (* Patch algorithm definition *)
 
 val num_from_string_def = Define `num_from_string s = num_of_int(fromString(explode s))`
+
 val string_is_num_def = Define `string_is_num s = EVERY isDigit (explode s)`
 
 val parse_patch_header_def = Define `

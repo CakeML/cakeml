@@ -61,8 +61,6 @@ val num_from_dec_string_side = Q.prove(`
 
 val _ = translate parse_patch_header_def;
 
-fetch "-" "fromstring_side_def"
-
 val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s)`,
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
