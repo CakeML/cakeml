@@ -25,15 +25,15 @@ val _ = Define `
    Let (mk_cons tra tidx) NONE (App (mk_cons tra (tidx+1)) (Init_global_var next) [Fun (mk_cons tra (tidx+2)) x e]) (init_global_funs tra (tidx+3) (next+1) funs))`;
 
 (* Special orphan trace for decLang. 3 is because decLang is the third lanugage. *)
-val oc_tra_def = Define`
-  (oc_tra = Cons orphan_trace 3)`;
+val od_tra_def = Define`
+  (od_tra = Cons orphan_trace 3)`;
 
 val _ = Define `
-  (compile_decs c next [] = (c + 1, Con (Cons oc_tra c) NONE []))
+  (compile_decs c next [] = (c + 1, Con (Cons od_tra c) NONE []))
   ∧
   (compile_decs c next (d::ds) =
    (* Up to 3 new expressions are created at this point, so we need 7 new traces. *)
-   let (c, ts) = (c + 3, MAP (Cons oc_tra) (GENLIST (\n. n + c) 3)) in
+   let (c, ts) = (c + 3, MAP (Cons od_tra) (GENLIST (\n. n + c) 3)) in
    case d of
    | Dlet n e =>
      let vars = (GENLIST (λn. STRCAT"x"(num_to_dec_string n)) n) in
@@ -54,7 +54,7 @@ val _ = Define `
       let n = (num_defs ds) in
       let (c, decs) = compile_decs c next ds in
       (* 7 new expressions are created at this point, so we need 7 new traces. *)
-      let (c, ts) = (c + 7, MAP (Cons oc_tra) (GENLIST (\n. n + c) 7)) in
+      let (c, ts) = (c + 7, MAP (Cons od_tra) (GENLIST (\n. n + c) 7)) in
         (c, next+n,
          Let (EL 0 ts) NONE (Extend_global (EL 1 ts) n)
            (Handle (EL 2 ts) (Let (EL 3 ts) NONE decs
@@ -65,14 +65,14 @@ val _ = Define `
 (* c is a trace counter, which holds the value of the next trace number to be
 * used. *)
 val _ = Define`
-  (compile_prog c none_tag some_tag next [] = (c + 1, next, Con (Cons oc_tra c) (SOME none_tag) []))
+  (compile_prog c none_tag some_tag next [] = (c + 1, next, Con (Cons od_tra c) (SOME none_tag) []))
   ∧
   (compile_prog c none_tag some_tag next (p::ps) =
    let (c, next',p') = compile_prompt c none_tag some_tag next p in
    let (c, next'',ps') = compile_prog c none_tag some_tag next' ps in
-     (c + 2, next'',Mat (Cons oc_tra c) p'
+     (c + 2, next'',Mat (Cons od_tra c) p'
                         [(Pcon (SOME none_tag) [], ps'); (Pvar "x", Var_local
-                        (Cons oc_tra (c + 1)) "x")]))`;
+                        (Cons od_tra (c + 1)) "x")]))`;
 
 val _ = Define`
   compile conf p =
