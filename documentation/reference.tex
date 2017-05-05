@@ -37,7 +37,7 @@ University of Kent\\
 
 \chapter{Preface}
 
-This manual is intended to describe the CakeML language, compiler, and associated proof technologies. We hope that it will be useful for anyone who wants to understand  CakeML and its implementation, either with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html}.}
+This manual is intended to describe the CakeML language, compiler, and associated proof technologies. We hope that it will be useful for anyone who wants to understand  CakeML, either with an aim to collaborate with main CakeML team,\footnote{Project ideas are listed at \url{https://cakeml.org/projects.html}.}
 or to work with CakeML independently.
 
 We have attempted to make this reference manual self-contained. However, our aim is not to explain the basics of functional programming, programming language semantics, or interactive theorem proving, and so we expect of the reader at least some familiarity with a functional programming language, and with basic discrete mathematics: logic, inductively defined relations, etc.
@@ -47,17 +47,21 @@ We have attempted to make this reference manual self-contained. However, our aim
 
 
 \part{The CakeML Language}
+\label{part:lang}
 
 \chapter{An informal description of CakeML}
 
 CakeML is a functional language in the ML family. Its syntax and semantics
-closely resembles Standard ML, and the concepts will also be familiar to OCaml
-programmers.
+closely resembles Standard ML, and the concepts will also be largely familiar
+to OCaml and Haskell programmers. This chapter describes the CakeML language.
+Although it uses example programs to illustrate its various features, its focus
+is on what the language is, and not on how to effectively use it. However,
+these pragmatics should be clear to programmers with experience in other
+functional languages.
 
 CakeML's syntax has a two-level structure with declarations and expressions. A
 program is a sequence of top-level declarations that define variables,
-functions, types, and modules. Computations are performed by the expressions in
-function bodies and variable initialisation.
+functions, types, and modules. Computations are performed by expressions that form the bodies of functions and initialise variables.
 
 Expression are built up from constants, variables, function applications, and
 special forms for conditionals, pattern matching, exception handling, anonymous
@@ -68,12 +72,12 @@ CakeML supports the following types of values:
 \begin{itemize}
   \item atomic values -- booleans, integers, words, strings, and characters (\S\ref{sect:val} and \S\ref{ch:stdlib});
   \item functions (\S\ref{sect:func});
-  \item immutable containers -- lists, tuples, user-defined algebraic types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{sect:vector}); and
+  \item immutable containers -- lists, tuples, user-defined algebraic data types (also called variant types) (\S\ref{sect:compound}), and vectors (\S\ref{sect:vector}); and
   \item mutable containers -- references (\S\ref{sect:ref}) and arrays (\S\ref{sect:array}).
 \end{itemize}
 
 \section{Comments and white space}
-All comments and white space act as delimiters, but are otherwise ignored. Comments are surrounded by \smlinline{(* *)}. They nest properly, so that the following works.\begin{smlcode}
+All comments and white space act as delimiters, but are otherwise ignored. Comments are surrounded by \smlinline{(* *)}. They nest properly, so that the following idiom works.\begin{smlcode}
 (*
   commented out code
   (* comment inside of commented out code *)
@@ -99,7 +103,7 @@ negates a boolean value.
 numbers. So negative one is \smlinline{~1} instead of \texttt{-1}. The type of integers is
 \smlinline{int}.
 
-CakeML provides the following infix arithmetic operators on integers: \smlinline{+},\smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
+CakeML provides the following infix arithmetic operators on integers: \smlinline{+}, \smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given a divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
 
 Integers are compared with \smlinline{=}, \smlinline{<>}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
 
@@ -139,10 +143,10 @@ of characters is \smlinline{char}. See \S\ref{sect:char} for the operations on c
 \paragraph{Variable syntax} There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
 with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
 
-Names of modules and constructors (from type definitions) are alphanumeric and
-start with an upper case letter. As an exception, the names \smlinline{true},
+Names of modules (\S\ref{sect:modules}) and constructors (from algebraic data types~\S\ref{sect:compound} and exceptions~\S\ref{sect:exceptions}) are alphanumeric and
+start with an upper case letter. Additionally, the names \smlinline{true},
 \smlinline{false}, \smlinline{ref}, \smlinline{::}, and \smlinline{nil} are
-also constructors.
+constructors, rather than variables.
 
 Names of types are alphanumeric and start
 with a lower case letter.
@@ -157,8 +161,8 @@ ref  sig  struct  structure  then  type  val
 :>  =>  :  |
 \end{verbatim} \todo{Make this list and CakeML's lexer agree.}
 
-\paragraph{Declaration of variables} The \smlinline{val} keyword introduces a new variable name with a given value.
-We follow tradition in referring to these as variables, although their values
+\paragraph{Declaration of variables} A \smlinline{val} declaration introduces a new variable name with a given value.
+We will follow tradition and refer to these as variables, although their values
 cannot be changed once initialised.
 \begin{smlcode}
 val x = 1 + 2
@@ -166,38 +170,36 @@ val my_string = "Happy"
 \end{smlcode}
 Variable declarations may optionally be followed by a semi-colon (\smlinline{;}).
 
-
 \section{Conditionals}
 
-Conditionals are expressions that compute a value. They use the \smlinline{if},
-\smlinline{then}, and \smlinline{else} keywords. For example,
+Conditionals are expressions that compute a value. They use \smlinline{if},
+\smlinline{then}, and \smlinline{else}. For example,
 \begin{smlcode}
 if x < 0 then 0 - x else x
 \end{smlcode}
 This tests if \smlinline{x} is less than \smlinline{0}, and if so, evaluates to \smlinline{0-x}, and if not evaluates to \smlinline{x}.
-The \smlinline{else} keyword and associated sub-expression cannot by omitted. The test expression (following \smlinline{if}) must be of \smlinline{bool} type, and the result expressions must both have the same types.
+The \smlinline{else} and associated sub-expression cannot by omitted. The test expression (following \smlinline{if}) must be of \smlinline{bool} type, and the result expressions must both have the same types.
 
 \section{Functions}
 \label{sect:func}
 
 \paragraph{Declaration of functions}
-A function is declared with the \smlinline{fun} keyword followed by the
-function's name and its parameters, as follows:
+A function is declared with \smlinline{fun}, followed by the
+function's name, its parameters, \smlinline{=}, and finally its body expression, as follows:
 \begin{smlcode}
 fun abs x =
   if x < 0 then 0 - x else x
 \end{smlcode}
-
-A function returns whatever the expression following \smlinline{=} evaluates
-to, here the absolute value of its argument. Functions are called by placing
+A function returns whatever its body expression evaluates
+to, in this example the absolute value of its argument. Functions are called by placing
 their argument expression(s) immediately after the function's name:
 \begin{smlcode}
 val x = abs ~100
 val y = abs (if x mod 2 = 0 then x - 2 else x - 5)
 \end{smlcode}
 
-Functions can be recursive, and take multiple arguments which are all placed in
-order after the function name without any punctuation.
+Functions can be recursive, and can have multiple arguments/parameters which are all placed in
+order after the function name without any punctuation, for both calls and declarations.
 \begin{smlcode}
 fun gcd a b =
   if b = 0 then
@@ -206,7 +208,7 @@ fun gcd a b =
     gcd b (a - b * (a div b));
 \end{smlcode}
 
-Mutually recursive functions are supported with the \smlinline{and} keyword:
+Mutually recursive functions are separated by \smlinline{and} instead of \smlinline{fun}:
 \begin{smlcode}
 fun even x =
   if x = 0 then true
@@ -231,7 +233,7 @@ that has a function value. In the above examples, \smlinline{abs},
 int}, \smlinline{int -> int -> int}, \smlinline{int -> bool}, and
 \smlinline{int -> bool} respectively.
 
-An anonymous function can be created directly inside of an expression with the \smlinline{fn} keyword as follows:
+An anonymous function can be created directly inside of an expression with \smlinline{fn} as follows:
 \begin{smlcode}
 val f =
   if should_inc then (fn a => fn b => a + b + 1)
@@ -241,7 +243,7 @@ val x = f 1 2
 Here \smlinline{f} is a function with type \smlinline{int -> int -> int}.
 
 The type of a function with more than one argument has multiple
-arrows \smlinline{->}, and we used the \smlinline{fn} keyword twice to build a
+arrows \smlinline{->}, and in the above, we used \smlinline{fn} twice to build a
 two argument anonymous function. In CakeML, functions are curried, meaning that
 they all take exactly one argument, and multiple argument functions are
 simulated by passing in the arguments one after the other. This means that we do not have to
@@ -270,25 +272,25 @@ val y = do_add 11
 \section{Compound values and pattern matching}
 \label{sect:compound}
 
-\paragraph{Tuples} A tuple of values is surrounded by parentheses and separated by commas. For example, \smlinline{(1,2,true)} is a three element tuple. The empty tuple \smlinline{()} is the (only) member of the type \smlinline{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so the previous tuple has type \smlinline{int * int * bool}.
+\paragraph{Tuples} A tuple expression is surrounded by parentheses and its constituent expressions are separated by commas. For example, \smlinline{("1", 3+5, true)} is a three element tuple. The empty tuple \smlinline{()} is the (only) member of the type \smlinline{unit}. The type of a tuple is formed from the types of its members, separated by \texttt{*}, so our first tuple example has type \smlinline{string * int * bool}.
 
-\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \smlinline{[1,2,3,4]} is a list of integers containing four elements. Its type is \smlinline{int list}. The empty list is written \smlinline{[]}, and has a polymorphic type \smlinline{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \smlinline{::}, so the above list could also have been written as \smlinline{1::2::3::4::[]}.
+\paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \smlinline{[1, 2+3, 0, 4]} is a list of integers containing four elements. Its type is \smlinline{int list}. The empty list is written \smlinline{[]}, and has a polymorphic type \smlinline{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \smlinline{::}, so the above list could also have been written as \smlinline{1::2+3::0::4::[]}.
 
 The \smlinline{@} operator appends two lists. See \S\ref{sect:list} for more list-related functions.
 
 \paragraph{Algebraic data types}
 
-A new data type is declared using the \smlinline{datatype} keyword, giving the
-type a name, and listing the constructors that form elements of the new type
-separated by \texttt{|} characters. For example, the following introduces a new type \smlinline{colour} and three new values of type \smlinline{colour}: \smlinline{Red}, \smlinline{Green}, and \smlinline{Blue}.
+A new data type is declared with \smlinline{datatype}, giving the
+type a name, and listing the constructors that form elements of the new type,
+separated by \smlinline{|}. For example, the following introduces a new type \smlinline{colour} and three new values of type \smlinline{colour}: \smlinline{Red}, \smlinline{Green}, and \smlinline{Blue}.
 The type name must begin with a lower case letter, and the constructors with upper case letters.
 \begin{smlcode}
 datatype colour = Red | Green | Blue
 \end{smlcode}
 
-The constructors can contain values of given types specified with the
-\smlinline{of} keyword. Those values can be of the same type as the datatype
-itself, that is, the types constructed by \smlinline{datatype} can be recursive.
+The constructors can contain values of given types specified with
+\smlinline{of}. Those values can be of the same type as the datatype
+itself; that is, the types constructed by \smlinline{datatype} can be recursive.
 We can model a binary search tree with a terminal leaf, and interior nodes that
 contain left and right child trees, and integer keys and values.
 \begin{smlcode}
@@ -320,22 +322,24 @@ datatype 'a search_tree =
 \end{smlcode}
 The \smlinline{Leaf} example now has type \smlinline{'a search_tree}, and our
 \smlinline{Node} example has type \smlinline{int search_tree}. We can create a
-\smlinline{char search_tree} or \smlinline{string list search_tree} as follows.\footnote{type application is left associative, so \smlinline{string list search_tree} is the same as \smlinline{(string list) search_tree}.}
+\smlinline{char search_tree} or \smlinline{string list search_tree} as follows.\footnote{Type application is left associative, so \smlinline{string list search_tree} is the same as \smlinline{(string list) search_tree}.}
 \begin{smlcode}
-val char_tree = Node (Leaf, 1, #"0", Node (Leaf, 2, #"A", Leaf))
-val sl_tree = Node (Leaf, 1, ["44", "name"], Node (Leaf, 2, [""], Leaf))
+val char_tree =
+  Node (Leaf, 1, #"0", Node (Leaf, 2, #"A", Leaf))
+val sl_tree =
+  Node (Leaf, 1, ["44", "name"], Node (Leaf, 2, [""], Leaf))
 \end{smlcode}
 
 
-We can use multiple type parameters by putting them in parentheses and separating them with commas:
+Types with multiple parameters put them in parentheses and separate them with commas:
 \begin{smlcode}
 datatype ('k, 'a) search_tree =
   Leaf
 | Node of ('k, 'a) search_tree * 'k * 'a * ('k, 'a) search_tree
 \end{smlcode}
 
-Data types can be mutually recursive with subsequent types being separated by
-the \smlinline{and} keyword.
+Similar to functions, data types can be mutually recursive with subsequent types being separated by
+\smlinline{and}.
 \begin{smlcode}
 datatype ('k, 'a) nary_tree =
   Node of 'k * 'a * ('k, 'a) tree_list
@@ -358,7 +362,7 @@ No \smlinline{datatype} declaration may use the special constructor names
 
 \paragraph{Pattern matching}
 Compound values are de-structured with pattern matching \smlinline{case}
-expressions. A pattern has the same shape as the value that it matches. Patterns are separated by \smlinline{|}, and each pattern is accompanied by a \smlinline{=>} and expression. The \smlinline{case} expression finds the first pattern that matches the value given to it, and evaluates that pattern's expression.
+expressions. A pattern has the same shape as the value that it matches. Patterns are separated by \smlinline{|}, and each pattern is accompanied by a \smlinline{=>} and expression. The \smlinline{case} expression finds the first pattern that matches the value given to it, and evaluates that pattern's expression. The patterns must all match values of the same type, and the expression must all have the same type as each other.
 \begin{smlcode}
 fun is_red c =
   case c of
@@ -367,7 +371,7 @@ fun is_red c =
   | Blue => false
 \end{smlcode}
 
-Variables inside of patterns match anything, and are bound to the corresponding piece of the value in the pattern's expression. Underscore \smlinline{_} patterns match anything, but do no binding. Patterns can also be nested.
+Variables inside of patterns match anything, and are bound to the corresponding piece of the value being matched. Underscore \smlinline{_} matches anything, but binds nothing. Patterns can also be nested.
 \begin{smlcode}
 fun is_red c =
   case c of
@@ -384,7 +388,7 @@ fun first_red p =
   | _ => false
 \end{smlcode}
 
-Numbers, booleans, lists, tuples, and algebraic data types can all appear in
+Numbers, booleans, lists, tuples, and constructors from algebraic data types and exceptions can all appear in
 patterns. As a final example, the following function searches for a given
 element in an \smlinline{nary_tree}, using patterns for data type constructors and lists.
 \begin{smlcode}
@@ -395,8 +399,18 @@ fun nary_mem k tree =
     nary_mem k tree1 orelse nary_mem k (Node (k1, v, trees))
 \end{smlcode}
 
-\paragraph{Patterns and functions}
-\todo{Describe where patters can appear besides case.}
+\paragraph{Other places patterns can appear} Besides \smlinline{case}
+expressions and \smlinline{handle} expressions (\S\ref{sect:exceptions}),
+patterns can also be used in variable declarations (\smlinline{val}), and as
+an anonymous function expression's (\smlinline{fn}) parameter.
+\begin{smlcode}
+val (x, y, z) = if something then (1, 2, 3) else (4, 5, 6)
+val _ = print "message"
+val f = fn (Node (k, v, ts) => v)
+\end{smlcode}
+
+\paragraph{Unmatched patterns}
+If no pattern in a \smlinline{case} expression matches the value, then a \smlinline{Bind} exception is raised. Similarly, if the pattern given in a \smlinline{val} declaration or \smlinline{fn} expression does not match the initialisation value, or function argument, a \smlinline{Bind} exception is raised.
 
 \section{Type annotations}
 
@@ -444,17 +458,17 @@ The \smlinline{<>} operator is the negation of \smlinline{=}.
 \todo{Write about these after implementing them.}
 
 \paragraph{Suppressing infix status}
-The \smlinline{op} keyword turns off the infix status the immediately following
-infix operator.  For example, we can use \smlinline{op +} to get a prefix
+Infix status is suppressed with the \smlinline{op} prefix.
+For example, we can use \smlinline{op+} to get a prefix
 addition function, and then partially apply it to an argument.
 \begin{smlcode}
-val add1 = op + 1
+val add1 = op+ 1
 \end{smlcode}
 
-The \smlinline{op} keyword also works in patterns, which lets us define our own
+The \smlinline{op} prefix also works in patterns, which lets us define our own
 versions of these operators, shadowing their global definitions.
 \begin{smlcode}
-val op < = String.<
+val op< = String.<
 val x = "1" < "2"
 \end{smlcode}
 
@@ -466,18 +480,19 @@ A reference is a mutable structure that contains exactly one value. The type of 
 References have the following operations.
 \begin{itemize}
 \item
-\smlinline{ref : 'a -> 'a ref} Create a new reference with an initial value.
+\smlinline{ref : 'a -> 'a ref}\\ Create a new reference with an initial value.
 \item
-\smlinline{! : 'a ref -> 'a} Get the value from a reference.
+\smlinline{! : 'a ref -> 'a}\\ Get the value from a reference.
 \item
-\smlinline{:= : 'a ref -> 'a -> unit} Replace the value in the reference with a new one.
+\smlinline{:= : 'a ref -> 'a -> unit}\\ Replace the value in the reference with a new one.
 \end{itemize}
 
 \section{Exceptions}
+\label{sect:exceptions}
 
 \paragraph{Exception declarations}
 %Python hangs on \mintinline{sml}{exception}
-The \mintinline{ocaml}{exception} keyword declares a new exception. It must
+The \mintinline{ocaml}{exception} declaration creates a new kind of exception. It must
 start with a capital letter, and can have arguments similar to the constructor
 of an algebraic data type.
 \begin{smlcode}
@@ -486,7 +501,7 @@ exception Type_error of int * string
 \end{smlcode}
 
 \paragraph{Raising exceptions}
-The \smlinline{raise} keyword raises an exception. For example,
+A \smlinline{raise} expression raises its argument as an exception. For example,
 \begin{smlcode}
 if x < 0 then raise Error
 else x
@@ -500,16 +515,47 @@ else raise (Type_error (loc, "type mismatch"))
 A \smlinline{raise} expression can have any type, and so can be used anywhere
 an expression is expected, as in \smlinline{4 + (raise Error)}.
 
-\paragraph{Handling exceptions}
-If an exception is not handled, it will terminate the execution of the program.
+\paragraph{Handling exceptions} If an exception is not handled, it will
+terminate the execution of the program.  A \smlinline{handle} expression allows
+us to handle exceptions raised in the preceding expression. It is followed by a
+pattern match with the same syntax as in \smlinline{case}
+(\S\ref{sect:compound}). Each pattern must match either an exception or be
+\smlinline{_} to handle all exceptions. If no pattern matches the raised
+exception, it is not handled and instead raised out of the \smlinline{handle}
+expression.
 
-
+The first declaration below sets \smlinline{m} to \smlinline{0}, whereas the second prints
+the error message from a \smlinline{Type_error} exception, and a generic
+message for any other exception.
+\begin{smlcode}
+val m =
+  1 div 0 handle Div => 0
+val x =
+  type_check p
+  handle
+    Type_error (i, s) => print (Int.toString i ^ " " ^ s)
+  | _ => print "unknown exception"
+\end{smlcode}
+\todo{Update print function call}
 
 \section{Local bindings}
 
-
+A \smlinline{let} expression lets us declare variables in a local scope.
+\begin{smlcode}
+let
+  val x = 1
+  fun f y = x + y
+in
+  f 10 + x
+end
+\end{smlcode}
+The declarations occur between the \smlinline{let} and \smlinline{in}.
+The expression between \smlinline{in} and \smlinline{end} becomes the value
+for the whole \smlinline{let} expression.
 
 \section{Modules}
+\label{sect:modules}
+\todo{Write this section}
 
 \section{Differences from Standard ML}
 
