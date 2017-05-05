@@ -134,6 +134,7 @@ val ok_tail_type_def = Define `
   (ok_tail_type _            ⇔ F)
   `;
 
+(* TODO is_pure x2? *)
 val binop_has_rec_def = Define `
   binop_has_rec name op exp ⇔
     is_rec name exp ∨ 
@@ -205,7 +206,7 @@ val tail_check_def = Define `
 
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
-    Call ticks (SOME n) (apply_op op exp (Var acc) :: args) handler) ∧
+    Call ticks (SOME n) (args ++ [apply_op op exp (Var acc)]) handler) ∧
   (push_call _ _ _ _ _ = Var 65536) (* dummy *)
   `;
 
@@ -242,8 +243,8 @@ val optimize_check_def = Define `
   `;
 
 val let_wrap_def = Define `
-  let_wrap num_args exp =
-    Let (GENLIST (λi. Var (i + 1)) num_args) exp
+  let_wrap num_args id exp =
+    Let ((GENLIST (λi. Var i) num_args) ++ [id]) exp
   `;
 
 val mk_aux_call_def = Define `
@@ -251,21 +252,13 @@ val mk_aux_call_def = Define `
     Call 0 (SOME name) (id :: GENLIST (λi. Var (i + 0)) num_args) NONE
   `;
 
-(* Instead of creating a wrapper which calls the transformed function
-   (thus consuming a clock tick) we simply wrap the transformed expression
-   in `let acc = id_from_op op in <transformed_expression>`.
-
-   This way we get rid of clock ticks. Moreover, this type of auxiliary 'copy'
-   can probably be removed somehow later -- or proven equivalent to the old
-   type of auxiliary?  *)
 val optimize_single_def = Define `
   optimize_single n name num_args exp =
     case optimize_check name exp of
     | NONE => NONE
     | SOME op =>
-        let trw = tail_rewrite n op name num_args exp in
-        let opt = let_wrap num_args trw in
-        let aux = Let [id_from_op op] opt in
+        let opt = tail_rewrite n op name num_args exp in
+        let aux = let_wrap num_args (id_from_op op) opt in
           SOME (aux, opt)
   `;
 
