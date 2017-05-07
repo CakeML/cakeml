@@ -25,7 +25,7 @@ val _ = new_theory"to_dataBootstrap";
   strategy for evaluation.
 *)
 
-val _ = Globals.max_print_depth := 10;
+val _ = Globals.max_print_depth := 20;
 
 val cs = wordsLib.words_compset();
 val () = basicComputeLib.add_basic_compset cs;
@@ -47,7 +47,12 @@ val init_conf_def = zDefine`
 
 val () = computeLib.extend_compset [computeLib.Defs [init_conf_def, entire_program_def]] cs;
 
-val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf entire_program``;
+(* debug: *)
+val entire_program = ``entire_program``
+(*   EVAL ``parse_prog (lexer_fun "fun f x = 3;")``
+  |> concl |> rand |> rand *)
+
+val to_mod_thm0 = timez "to_mod" eval ``to_mod init_conf ^entire_program``;
 val (c,p) = to_mod_thm0 |> rconc |> dest_pair
 val mod_conf_def = zDefine`mod_conf = ^c`;
 val mod_prog_def = zDefine`mod_prog = ^p`;
@@ -74,7 +79,7 @@ val mod_conf_bvl_conf =
   |> (RAND_CONV(REWR_CONV mod_conf_def) THENC eval)
 
 val to_con_thm0 =
-  ``to_con init_conf entire_program``
+  ``to_con init_conf ^entire_program``
   |> (REWR_CONV to_con_def THENC
       RAND_CONV (REWR_CONV to_mod_thm) THENC
       REWR_CONV LET_THM THENC
@@ -110,7 +115,7 @@ val con_conf_bvl_conf =
       THENC REWR_CONV mod_conf_bvl_conf)
 
 val to_dec_thm0 =
-  ``to_dec init_conf entire_program``
+  ``to_dec init_conf ^entire_program``
   |> (REWR_CONV to_dec_def THENC
       RAND_CONV (REWR_CONV to_con_thm) THENC
       REWR_CONV LET_THM THENC
@@ -142,7 +147,7 @@ val dec_conf_bvl_conf =
       THENC REWR_CONV con_conf_bvl_conf)
 
 val to_exh_thm0 =
-  ``to_exh init_conf entire_program``
+  ``to_exh init_conf ^entire_program``
   |> (REWR_CONV to_exh_def THENC
       RAND_CONV (REWR_CONV to_dec_thm) THENC
       REWR_CONV LET_THM THENC
@@ -157,7 +162,7 @@ val to_exh_thm =
 val () = computeLib.extend_compset [computeLib.Defs [exh_prog_def]] cs;
 
 val to_pat_thm0 =
-  ``to_pat init_conf entire_program``
+  ``to_pat init_conf ^entire_program``
   |> (REWR_CONV to_pat_def THENC
       RAND_CONV (REWR_CONV to_exh_thm) THENC
       REWR_CONV LET_THM THENC
@@ -172,7 +177,7 @@ val to_pat_thm =
 val () = computeLib.extend_compset [computeLib.Defs [pat_prog_def]] cs;
 
 val to_clos_thm0 =
-  ``to_clos init_conf entire_program``
+  ``to_clos init_conf ^entire_program``
   |> (REWR_CONV to_clos_def THENC
       RAND_CONV (REWR_CONV to_pat_thm) THENC
       REWR_CONV LET_THM THENC
@@ -186,14 +191,59 @@ val to_clos_thm =
     RAND_CONV(REWR_CONV(SYM clos_prog_def))));
 val () = computeLib.extend_compset [computeLib.Defs [clos_prog_def]] cs;
 
+(*
+val tms = find_terms (fn tm => is_const tm andalso
+   not (TypeBase.is_constructor tm)) (concl clos_prog_def |> rand)
+  |> curry HOLset.addList empty_tmset
+
+val clock = ref 10000
+val term = ref ``T``
+fun cktest t = (clock := !clock - 1; if !clock <= 0 then (term := t; true) else false);
+
+computeLib.stoppers := SOME cktest
+
+
+open computeLib
+
+val _ = (clock := 50000);
+val _ = Globals.max_print_depth := 25;
+
+dest_thy_const ``remove``
+
+val _ = (clock := 4500);
+val _ = Globals.max_print_depth := 25;
+
+*)
+
 val to_bvl_thm0 =
-  ``to_bvl init_conf entire_program``
+  ``to_bvl init_conf ^entire_program``
   |> (REWR_CONV to_bvl_def THENC
       RAND_CONV (REWR_CONV to_clos_thm) THENC
       REWR_CONV LET_THM THENC
       PAIRED_BETA_CONV THENC
       PATH_CONV"rlr"(REWR_CONV dec_conf_clos_conf))
   |> timez "to_bvl" (CONV_RULE(RAND_CONV eval))
+
+(*
+val res =
+to_bvl_thm0
+ |> concl |> rand |> find_term (can (match_term ``code_split _``))
+
+eval  ``remove
+                                     [Op ((((Empty ▷ 1) ▷ 11) ▷ 1) ▷ 11)
+                                        (Const 3) []]``
+
+val tms = find_terms (fn tm => is_const tm andalso
+   not (TypeBase.is_constructor tm)) res
+  |> curry HOLset.addList empty_tmset
+  |> HOLset.listItems
+
+print_find "GENLIST_Var"
+eval ``mk_Union (Var 3) (Var 4)``
+
+print_find "mk_Union_def"
+*)
+
 val (c,p) = to_bvl_thm0 |> rconc |> dest_pair
 val bvl_conf_def = zDefine`bvl_conf = ^c`;
 val bvl_prog_def = zDefine`bvl_prog = ^p`;
@@ -217,7 +267,7 @@ val bvl_conf_bvl_conf =
       THENC REWR_CONV dec_conf_bvl_conf)
 
 val to_bvi_thm0 =
-  ``to_bvi init_conf entire_program``
+  ``to_bvi init_conf ^entire_program``
   |> (REWR_CONV to_bvi_def THENC
       RAND_CONV (REWR_CONV to_bvl_thm) THENC
       REWR_CONV LET_THM THENC
@@ -268,7 +318,7 @@ val to_bvi_thm =
 val () = computeLib.extend_compset [computeLib.Defs [bvi_prog_def]] cs;
 
 val to_data_thm0 =
-  ``to_data init_conf entire_program``
+  ``to_data init_conf ^entire_program``
   |> (REWR_CONV to_data_def THENC
       RAND_CONV (REWR_CONV to_bvi_thm) THENC
       REWR_CONV LET_THM THENC

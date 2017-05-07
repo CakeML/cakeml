@@ -65,6 +65,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,``:modLang$dec``
     ,``:modLang$prompt``
     ,``:backend_common$tra``
+    ,``:location$locn``
     ]
   (* TODO: move (to basicCompute or HOL) *)
   ,computeLib.Defs
@@ -204,6 +205,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,clos_callTheory.calls_def
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def
