@@ -126,7 +126,7 @@ val add_compiler_compset = computeLib.extend_compset
       (* ---- con_to_dec ---- *)
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
-    ,con_to_decTheory.oc_tra_def
+    ,con_to_decTheory.od_tra_def
     ,con_to_decTheory.compile_decs_def
     ,con_to_decTheory.compile_prompt_def
     ,con_to_decTheory.compile_prog_def
