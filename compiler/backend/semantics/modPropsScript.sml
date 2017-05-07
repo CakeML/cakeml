@@ -378,7 +378,7 @@ val evaluate_vars = Q.store_thm("evaluate_vars",
     DISJOINT (set (MAP FST kvs)) (set (MAP FST env')) ∧
     env.v = env' ++ kvs ∧ ks = MAP FST kvs ∧ vs = MAP SND kvs
     ⇒
-    evaluate env s (MAP Var_local ks) = (s,Rval vs)`,
+    evaluate env s (MAP (Var_local tra) ks) = (s,Rval vs)`,
   induct_on `kvs` >> srw_tac[][evaluate_def] >>
   srw_tac[][Once evaluate_cons,evaluate_def] >>
   PairCases_on`h`>>srw_tac[][]>> full_simp_tac(srw_ss())[] >>
@@ -398,13 +398,13 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
     pmatch env.c s.refs p v env.v = Match env' ∧
     ALL_DISTINCT (pat_bindings p (MAP FST env.v))
     ⇒
-    evaluate (env with v := env') s (MAP Var_local (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
+    evaluate (env with v := env') s (MAP (Var_local tra) (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
    (!cenv refs ps vs evs env env'.
     (cenv,refs,evs) = (env.c,s.refs,env.v) ∧
     pmatch_list env.c s.refs ps vs env.v = Match env' ∧
     ALL_DISTINCT (pats_bindings ps (MAP FST env.v))
     ⇒
-    evaluate (env with v := env') s (MAP Var_local (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
+    evaluate (env with v := env') s (MAP (Var_local tra) (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pat_bindings_def, pmatch_def]
   >- (
@@ -443,7 +443,7 @@ val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
     pmatch env_c s.refs p v [] = Match env ∧
     ALL_DISTINCT (pat_bindings p [])
     ⇒
-    evaluate <| c := env_c; v := env |> s (MAP Var_local (pat_bindings p [])) = (s,Rval (MAP SND env))`,
+    evaluate <| c := env_c; v := env |> s (MAP (Var_local tra) (pat_bindings p [])) = (s,Rval (MAP SND env))`,
   rw [] >>
   `pmatch <|c := env_c; v := []|>.c s.refs p v <|c := env_c; v := []|>.v = Match env` by rw [] >>
   imp_res_tac pmatch_evaluate_vars >>
@@ -462,9 +462,9 @@ val evaluate_append = Q.store_thm("evaluate_append",
 
 val evaluate_vars_reverse = Q.store_thm("evaluate_vars_reverse",
   `!env s es s' vs.
-    evaluate env s (MAP Var_local es) = (s, Rval vs)
+    evaluate env s (MAP (Var_local tra) es) = (s, Rval vs)
     ⇒
-    evaluate env s (MAP Var_local (REVERSE es)) = (s, Rval (REVERSE vs))`,
+    evaluate env s (MAP (Var_local tra) (REVERSE es)) = (s, Rval (REVERSE vs))`,
   induct_on `es` >> srw_tac[][evaluate_def] >> srw_tac[][] >>
   pop_assum mp_tac >>
   srw_tac[][Once evaluate_cons] >>

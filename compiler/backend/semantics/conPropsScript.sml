@@ -416,14 +416,14 @@ val op_gbag_def = Define`
 `;
 
 val set_globals_def = tDefine "set_globals"`
-  (set_globals ((Raise e):conLang$exp) = set_globals e) ∧
-  (set_globals (Handle e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
-  (set_globals (Con _ es) = elist_globals es) ∧
-  (set_globals (Fun _ e) = set_globals e) ∧
-  (set_globals (App op es) = op_gbag op ⊎ elist_globals es) ∧
-  (set_globals (Mat e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
-  (set_globals (Let _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Letrec es e) =
+  (set_globals ((Raise _ e):conLang$exp) = set_globals e) ∧
+  (set_globals (Handle _ e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
+  (set_globals (Con _ _ es) = elist_globals es) ∧
+  (set_globals (Fun _ _ e) = set_globals e) ∧
+  (set_globals (App _ op es) = op_gbag op ⊎ elist_globals es) ∧
+  (set_globals (Mat _ e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
+  (set_globals (Let _ _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Letrec _ es e) =
     set_globals e ⊎ (elist_globals (MAP (SND o SND) es))) ∧
   (set_globals _ = {||}) ∧
   (elist_globals [] = {||}) ∧
@@ -449,14 +449,14 @@ val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
 val esgc_free_def = tDefine "esgc_free" `
-  (esgc_free ((Raise e):conLang$exp) ⇔ esgc_free e) ∧
-  (esgc_free (Handle e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
-  (esgc_free (Con _ es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (Fun _ e) ⇔ set_globals e = {||}) ∧
-  (esgc_free (App op es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (Mat e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
-  (esgc_free (Let _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Letrec es e) ⇔
+  (esgc_free ((Raise _ e):conLang$exp) ⇔ esgc_free e) ∧
+  (esgc_free (Handle _ e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
+  (esgc_free (Con _ _ es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Fun _ _ e) ⇔ set_globals e = {||}) ∧
+  (esgc_free (App _ op es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Mat _ e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
+  (esgc_free (Let _ _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Letrec _ es e) ⇔
     esgc_free e ∧ (elist_globals (MAP (SND o SND) es)) = {||}) ∧
   (esgc_free _ = T)`
   (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
