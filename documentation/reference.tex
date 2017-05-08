@@ -139,6 +139,7 @@ This means that characters use the same escape sequences as strings. The type
 of characters is \smlinline{char}. See \S\ref{sect:char} for the operations on characters.
 
 \section{Variables and other names}
+\label{sect:variables}
 
 \paragraph{Variable syntax} There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
 with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
@@ -217,6 +218,9 @@ and odd x =
   if x = 0 then false
   else even (x - 1)
 \end{smlcode}
+
+Function call expressions evaluate their argument in right-to-left order,
+before calling the function.
 
 Function declarations may optionally be followed by a semi-colon (\smlinline{;}).
 
@@ -422,12 +426,33 @@ val (x : int) = 1
 fun f (x : bool) = if x then 0 else 1
 \end{smlcode}
 
+\section{References}
+\label{sect:ref}
+
+A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \smlinline{ref}.
+References have the following operations, where \smlinline{:=} is written infix.
+\begin{itemize}
+\item
+\smlinline{ref : 'a -> 'a ref}\\ Create a new reference with an initial value.
+\item
+\smlinline{! : 'a ref -> 'a}\\ Get the value from a reference.
+\item
+\smlinline{:= : 'a ref -> 'a -> unit}\\ Replace the value in the reference with a new one.
+\end{itemize}
+
+For example, the following code initialises a reference to \smlinline{0}, then
+increments it to contain \smlinline{1}. Finally, the value of \smlinline{x} is
+also \smlinline{1}.
+\begin{smlcode}
+val r = ref 0
+val _ = r := !r + 1
+val x = !r
+\end{smlcode}
 
 \section{Infix operators}
 \label{sect:infix}
 
 CakeML supports the set of infix operators listed in Figure~\ref{precedences}.
-  \todo{Implement o and before in the basis.}
 Except for \smlinline{=}, \smlinline{<>}, \smlinline{o}, and
 \smlinline{before}, these all operate on primitive values, and they are
 described in the listed sections.
@@ -454,8 +479,28 @@ If the equality function encounters a function value while traversing its argume
 
 The \smlinline{<>} operator is the negation of \smlinline{=}.
 
-\paragraph{\smlinline{before} and \smlinline{o}}
-\todo{Write about these after implementing them.}
+\paragraph{The \smlinline{before} and \smlinline{o} operators}
+
+The \smlinline{before} operator sequences two expressions, and returns the
+value of the first one. The second is evaluate for its side effect. The type of
+\smlinline{before} is \smlinline{'a -> unit -> 'a}. The following function
+increments a reference, and returns the pre-increment value.
+\begin{smlcode}
+fun inc r =
+  !r before r := !r + 1
+\end{smlcode}
+
+The \smlinline{o} operator composes two functions, first applying the one on
+the right, then the one on the left. Its type is \smlinline{('a -> 'b) -> ('c ->
+'a) -> 'c -> 'b}. In the following example, \smlinline{a} is bound to the
+string \smlinline{"2"}.
+\begin{smlcode}
+fun add1 x = x + 1
+val a = (Int.toString o add1) 1
+\end{smlcode}
+
+\todo{Implement o and before in the basis. I suspect this will require making
+before a keyword, due to evaluation order issues.}
 
 \paragraph{Suppressing infix status}
 Infix status is suppressed with the \smlinline{op} prefix.
@@ -472,20 +517,20 @@ val op< = String.<
 val x = "1" < "2"
 \end{smlcode}
 
+Since \smlinline{andalso} and \smlinline{orelse} are reserved words
+(\S\ref{sect:variables}), \smlinline{op} cannot be used on them.
 
-\section{References}
-\label{sect:ref}
+\section{Sequencing}
 
-A reference is a mutable structure that contains exactly one value. The type of a reference containing a value of type $\tau$ is written $\tau$ \smlinline{ref}.
-References have the following operations.
-\begin{itemize}
-\item
-\smlinline{ref : 'a -> 'a ref}\\ Create a new reference with an initial value.
-\item
-\smlinline{! : 'a ref -> 'a}\\ Get the value from a reference.
-\item
-\smlinline{:= : 'a ref -> 'a -> unit}\\ Replace the value in the reference with a new one.
-\end{itemize}
+Expressions are sequenced by enclosing them in parentheses \smlinline{(}
+\smlinline{)}, and separating them with semi-colons \smlinline{;}. The sequence
+is evaluated left-to-right. The value of the last expression is returned; the
+previous expressions are evaluated only for their side-effects.
+The following function increments a reference and returns the post-increment value.
+\begin{smlcode}
+fun inc r =
+  (r := !r + 1; !r)
+\end{smlcode}
 
 \section{Exceptions}
 \label{sect:exceptions}
@@ -584,7 +629,7 @@ The types of bindings in \smlinline{let} expressions cannot be generalised. This
 
 The built-in CakeML functions prefer the curried style over SML's preferred tupled style. For example, we write \smlinline{Vector.sub v 12} to get the 12$^\textrm{th}$ element of vector v, rather than \smlinline{Vector.sub (v,12)}. The infix operators are also curried when used with \smlinline{op}.
 
-CakeML guarantees right to left evaluation order.
+CakeML guarantees right to left evaluation order for function calls.
 
 \section{Differences from OCaml}
 
@@ -592,7 +637,7 @@ Because CakeML has a significantly different syntax, we focus here on the major 
 
 Strings are immutable; however, the Word8Array structure provides byte arrays.
 
-CakeML guarantees right to left evaluation order.
+CakeML guarantees right to left evaluation order for function calls.
 
 The \texttt{=} operator does not traverse mutable data (arrays and references), instead it compares the pointers, SML style.
 
