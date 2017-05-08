@@ -57,57 +57,45 @@ val op_eq_to_op = Q.store_thm ("op_eq_to_op[simp]",
       op = to_op iop ∧ iop ≠ Noop`,
   Cases \\ Cases \\ fs [op_eq_def, to_op_def]);
 
-(* things that hopefully evaluates to values *)
-val expr_ok_def = Define `
-  (expr_ok env (Op (Const i) []) ⇔ small_enough_int i) ∧
-  (expr_ok env (Op Add [x1; x2]) ⇔ expr_ok env x1 ∧ expr_ok env x2) ∧
-  (expr_ok env (Op Sub [x1; x2]) ⇔ expr_ok env x1 ∧ expr_ok env x2) ∧
-  (expr_ok env (Op Mult [x1; x2]) ⇔ expr_ok env x1 ∧ expr_ok env x2) ∧
-  (*(expr_ok env (Op Div [x1; x2]) ⇔ expr_ok env x1 ∧ expr_ok env x2) ∧*)
-  (*(expr_ok env (Op Mod [x1; x2]) ⇔ expr_ok env x1 ∧ expr_ok env x2) ∧*)
-  (expr_ok env (Var n) ⇔ n < LENGTH env ∧ ∃k. EL n env = Number k) ∧
-  (expr_ok _ _ ⇔ F)
-  `;
-
-val EVERY_expr_ok_evaluate = Q.prove (
-  `∀xs env s r t.
-     EVERY (expr_ok env) xs ∧
-     evaluate (xs, env, s) = (r, t) ⇒
-       ∃vs. 
-         r = Rval vs ∧ 
-         s = t ∧ 
-         LENGTH vs = LENGTH xs ∧
-         EVERY (λj. ∃k. j = Number k) vs`,
-  recInduct evaluate_ind
-  \\ simp [expr_ok_def, evaluate_def]
-  \\ rpt strip_tac \\ fs []
-  >- 
-    (every_case_tac \\ fs [] \\ rveq \\ rfs []
-    \\ rveq 
-    \\ Cases_on `a'` \\ fs [])
-  >- (rfs [] \\ rw [])
-  \\ pop_assum mp_tac
-  \\ TOP_CASE_TAC
-  \\ Cases_on `op` \\ Cases_on `xs` \\ fs [expr_ok_def] \\ rveq 
+val ok_tail_type_IMP_Number = Q.store_thm ("ok_tail_type_IMP_Number[simp]",
+  `∀exp env (s:'ffi bviSem$state) r t.
+     ok_tail_type exp ∧
+     evaluate ([exp], env, s) = (Rval r, t) ⇒
+       ∃n. r = [Number n]`,
+  Induct
+  \\ fs [ok_tail_type_def]
+  \\ rpt strip_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac
+  \\ simp [evaluate_def]
   >-
-    (fs [evaluate_def] \\ rveq
-    \\ simp [do_app_def, do_app_aux_def] \\ rw [])
-  \\ Cases_on `t'` \\ fs [expr_ok_def]
-  \\ Cases_on `t''` \\ fs [expr_ok_def]
-  \\ rfs [] \\ rveq
-  \\ Cases_on `vs`  \\ fs []
-  \\ Cases_on `t'` \\ fs [LENGTH_NIL] \\ rveq
-  \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  \\ rw []
-  \\ simp [bvl_to_bvi_id]);
+    (ntac 2 TOP_CASE_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+    >- (strip_tac \\ first_x_assum drule \\ fs [])
+    \\ IF_CASES_TAC \\ fs []
+    \\ strip_tac \\ first_x_assum drule \\ fs [])
+  >-
+    (ntac 2 TOP_CASE_TAC \\ fs []
+    \\ strip_tac \\ first_x_assum (qspec_then `a++env` drule) \\ fs [])
+  >-
+    (IF_CASES_TAC \\ fs []
+    \\ strip_tac \\ first_x_assum drule \\ fs [])
+  \\ ntac 2 TOP_CASE_TAC \\ fs []
+  \\ rename1 `is_arithmetic op`
+  \\ Cases_on `op`
+  \\ fs [is_arithmetic_def]
+  \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]
+  >- (CASE_TAC \\ strip_tac \\ rveq \\ fs [])
+  \\ ntac 2 CASE_TAC
+  \\ strip_tac \\ rveq
+  \\ fs [bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
 
-val expr_ok_evaluate = save_thm ("expr_ok_evaluate",
-  Q.SPEC `[x]` EVERY_expr_ok_evaluate 
-  |> SIMP_RULE (srw_ss()) []
-  |> SPEC_ALL);
+val is_arithmetic_to_op = Q.store_thm ("is_arithmetic_to_op[simp]",
+  `∀iop. is_arithmetic (to_op iop)`,
+  Cases \\ fs [is_arithmetic_def, to_op_def]);
 
 val EVERY_is_pure_correct = Q.store_thm ("EVERY_is_pure_correct",
-  `∀xs env s r t.
+  `∀xs env (s:'ffi bviSem$state) r t.
      EVERY is_pure xs ∧
      evaluate (xs, env, s) = (r, t) ⇒
        case r of
@@ -115,8 +103,7 @@ val EVERY_is_pure_correct = Q.store_thm ("EVERY_is_pure_correct",
        | Rerr (Rabort a) => a = Rtype_error
        | Rval vs =>
            t = s ∧
-           LENGTH vs = LENGTH xs ∧
-           (∀s'. evaluate (xs, env, s') = (Rval vs, s'))`,
+           LENGTH vs = LENGTH xs`,
   recInduct evaluate_ind
   \\ simp [is_pure_def]
   \\ rpt strip_tac
@@ -145,41 +132,303 @@ val EVERY_is_pure_correct = Q.store_thm ("EVERY_is_pure_correct",
     \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
   \\ TOP_CASE_TAC
   \\ strip_tac \\ rveq \\ fs []
-  \\ conj_tac
   \\ Cases_on `op`
   \\ fs [do_app_def, pure_op_def, do_app_aux_def, bvlSemTheory.do_app_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ fs [bvl_to_bvi_id, state_component_equality]);
 
-val is_pure_correct = save_thm ("is_pure_correct",
-  EVERY_is_pure_correct
-  |> Q.SPEC `[x]` |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL);
+val EVERY_is_pure_state = Q.store_thm ("EVERY_is_pure_state",
+  `∀xs env (s:'ffi bviSem$state) r t.
+     EVERY is_pure xs ∧
+     evaluate (xs, env, s) = (r, t) ⇒
+       (∀(s':'ffi bviSem$state). FST (evaluate (xs, env, s')) = r)`,
+  recInduct evaluate_ind
+  \\ simp [is_pure_def]
+  \\ rpt strip_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac \\ simp [evaluate_def]
+  \\ fs [] \\ rfs []
+  >-
+    (TOP_CASE_TAC
+    \\ strip_tac
+    \\ TOP_CASE_TAC
+    \\ `q = q'` by metis_tac [FST] \\ rveq
+    \\ CASE_TAC \\ fs []
+    \\ Cases_on `q` \\ fs []
+    \\ ntac 3 (pop_assum mp_tac)
+    \\ TOP_CASE_TAC \\ fs []
+    \\ rpt strip_tac
+    \\ fs []
+    \\ `q = q'` by metis_tac [FST] \\ rveq
+    \\ every_case_tac \\ fs [])
+  >- metis_tac [FST]
+  >-
+    (TOP_CASE_TAC \\ rfs []
+    \\ strip_tac
+    \\ TOP_CASE_TAC
+    \\ `q = q'` by metis_tac [FST] \\ rveq
+    \\ Cases_on `q` \\ fs []
+    \\ metis_tac [FST])
+  >-
+    (TOP_CASE_TAC \\ rfs []
+    \\ strip_tac
+    \\ TOP_CASE_TAC
+    \\ `q = q'` by metis_tac [FST] \\ rveq
+    \\ CASE_TAC \\ fs [])
+  \\ TOP_CASE_TAC
+  \\ rfs [ETA_THM]
+  \\ strip_tac
+  \\ TOP_CASE_TAC
+  \\ `q = q'` by metis_tac [FST] \\ rveq
+  \\ CASE_TAC \\ fs []
+  \\ imp_res_tac EVERY_is_pure_correct \\ fs []
+  \\ rveq
+  \\ Cases_on `op`
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+         bvl_to_bvi_id, pure_op_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
+
+val is_pure_correct = Q.store_thm ("is_pure_correct",
+  `∀x env (s:'ffi bviSem$state) r t.
+     is_pure x ∧
+     evaluate ([x], env, s) = (r, t) ⇒
+       (∀(s':'ffi bviSem$state).
+         FST (evaluate ([x], env, s')) = r) ∧
+       case r of
+         Rerr (Rraise a) => F
+       | Rerr (Rabort a) => a = Rtype_error
+       | Rval vs => s = t ∧ ∃v. vs = [v]`,
+  rpt gen_tac
+  \\ strip_tac
+  \\ imp_res_tac (Q.SPEC `[x]` EVERY_is_pure_state |> SIMP_RULE (srw_ss()) [])
+  \\ simp []
+  \\ imp_res_tac (Q.SPEC `[x]` EVERY_is_pure_correct |> SIMP_RULE (srw_ss()) [])
+  \\ CASE_TAC \\ fs []
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ metis_tac [LENGTH_NIL, LENGTH_CONS]);
+
+val comm_theorem = Q.store_thm ("comm_theorem",
+  `∀(s:'ffi bviSem$state).
+     op ≠ Noop ∧
+     is_pure x1 ∧
+     evaluate ([apply_op op x1 x2], env, s) = (r, t) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+       evaluate ([apply_op op x2 x1], env, s) = (r, t)`,
+  simp [apply_op_def]
+  \\ rpt strip_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac
+  \\ simp [evaluate_def]
+  \\ ntac 2 CASE_TAC
+  \\ drule is_pure_correct
+  \\ disch_then drule
+  \\ reverse CASE_TAC \\ fs []
+  >- (CASE_TAC \\ fs [])
+  \\ strip_tac
+  \\ rveq
+  \\ strip_tac
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ CASE_TAC
+  \\ `q = Rval [v]` by metis_tac [FST] \\ rveq \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ Cases_on `a` \\ fs [LENGTH_NIL] \\ rveq
+  \\ drule is_pure_correct
+  \\ disch_then drule \\ fs []
+  \\ strip_tac \\ rveq
+  \\ Cases_on `op` \\ fs [to_op_def]
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM]);
+
+val assoc_theorem = Q.store_thm ("assoc_theorem",
+  `∀(s: 'ffi bviSem$state).
+     op ≠ Noop ∧
+     is_pure x2 ∧
+     is_pure x3 ∧
+     evaluate ([apply_op op (apply_op op x1 x2) x3], env, s) = (r, t) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+       evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) = (r, t)`,
+  simp [apply_op_def]
+  \\ rpt strip_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac
+  \\ simp [evaluate_def]
+  \\ ntac 2 CASE_TAC
+  \\ strip_tac
+  \\ CASE_TAC
+  \\ imp_res_tac is_pure_correct \\ fs []
+  \\ rpt (qpat_x_assum `is_pure x1 ⇒ _` kall_tac)
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (CASE_TAC \\ fs []
+    \\ strip_tac \\ rveq
+    \\ reverse TOP_CASE_TAC \\ fs []
+    >-
+      (CASE_TAC \\ fs []
+      \\ strip_tac \\ rveq \\ fs []
+      \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ reverse CASE_TAC \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac do_app_err \\ fs []
+    \\ qmatch_asmsub_abbrev_tac `evaluate ([x3],_,s3) = (v3,_)`
+    \\ `v3 = Rerr (Rabort Rtype_error)` by metis_tac [FST, Abbr`v3`, Abbr`s3`]
+    \\ rw [Abbr`v3`])
+  \\ strip_tac \\ rveq
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (CASE_TAC \\ fs []
+    \\ strip_tac \\ rveq
+    \\ CASE_TAC \\ fs [])
+  \\ strip_tac \\ rveq
+  \\ reverse CASE_TAC \\ fs []
+  >-
+    (CASE_TAC \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac do_app_err \\ fs [] \\ rveq
+    >-
+      (qmatch_asmsub_abbrev_tac `evaluate ([x3],_,s3) = (v3,_)`
+      \\ `v3 = Rval [v]` by metis_tac [FST, Abbr`v3`, Abbr`s3`]
+      \\ rw [Abbr`v3`]
+      \\ fs []
+      \\ Cases_on `op` \\ fs [to_op_def]
+      \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+      \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
+    \\ Cases_on `op` \\ fs [to_op_def]
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
+  \\ ntac 2 (CASE_TAC \\ fs [])
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+  \\ qpat_x_assum `_ = (r, t)` mp_tac
+  \\ reverse CASE_TAC \\ fs []
+  >-
+    (strip_tac \\ rveq
+    \\ imp_res_tac do_app_err \\ fs [])
+  \\ ntac 2 (CASE_TAC \\ fs [])
+  \\ qmatch_asmsub_abbrev_tac `evaluate ([x3],_,s3) = (v3,_)`
+  \\ `v3 = Rval [v]` by metis_tac [FST, Abbr`v3`, Abbr`s3`]
+  \\ fs [Abbr`v3`]
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (strip_tac \\ rveq
+    \\ imp_res_tac do_app_err \\ fs [])
+  \\ CASE_TAC  \\ fs [] \\ rveq
+  \\ strip_tac \\ rveq
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (imp_res_tac do_app_err \\ fs [] \\ rveq
+    \\ Cases_on `op` \\ fs [to_op_def]
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on `op` \\ fs [to_op_def]
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id]
+  \\ rveq
+  \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC]);
+
+val assoc_theorem2 = Q.store_thm ("assoc_theorem2",
+  `∀(s: 'ffi bviSem$state).
+     op ≠ Noop ∧
+     is_pure x2 ∧
+     is_pure x3 ∧
+     evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) = (r, t) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+       evaluate ([apply_op op (apply_op op x1 x2) x3], env, s) = (r, t)`,
+  simp [apply_op_def]
+  \\ rpt strip_tac
+  \\ qhdtm_x_assum `evaluate` mp_tac
+  \\ simp [evaluate_def]
+  \\ ntac 2 CASE_TAC
+  \\ strip_tac
+  \\ imp_res_tac is_pure_correct \\ fs []
+  \\ rpt (qpat_x_assum `is_pure x1 ⇒ _` kall_tac)
+  \\ pop_assum mp_tac
+  \\ reverse CASE_TAC \\ fs []
+  >-
+    (CASE_TAC \\ fs []
+    \\ strip_tac \\ rveq
+    \\ Cases_on `r` \\ fs []
+    \\ CASE_TAC \\ fs []
+    \\ drule (GEN_ALL is_pure_correct)
+    \\ disch_then drule
+    \\ strip_tac
+    \\ pop_assum mp_tac
+    \\ reverse TOP_CASE_TAC \\ fs []
+    >-
+      (CASE_TAC \\ fs []
+      \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+    \\ strip_tac \\ rveq \\ fs []
+    \\ reverse CASE_TAC \\ fs []
+    >- (every_case_tac \\ fs [] \\ rveq \\ fs [])
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+  \\ strip_tac \\ rveq
+  \\ CASE_TAC \\ fs []
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+  \\ reverse CASE_TAC \\ fs []
+  >-
+    (imp_res_tac do_app_err \\ fs [] \\ rveq
+    \\ qpat_x_assum `_ = (r, t)` mp_tac
+    \\ CASE_TAC
+    \\ drule (GEN_ALL is_pure_correct)
+    \\ disch_then drule
+    \\ strip_tac
+    \\ pop_assum mp_tac
+    \\ reverse TOP_CASE_TAC \\ fs []
+    >- (CASE_TAC \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ reverse CASE_TAC \\ fs []
+    >- (imp_res_tac do_app_err \\ fs [])
+    \\ CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC \\ fs []
+    >- (imp_res_tac do_app_err \\ fs [])
+    \\ CASE_TAC \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `op` \\ fs [to_op_def]
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
+  \\ ntac 2 (CASE_TAC \\ fs [])
+  \\ drule (GEN_ALL is_pure_correct)
+  \\ disch_then drule
+  \\ strip_tac
+  \\ pop_assum mp_tac
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (CASE_TAC \\ fs []
+    \\ qpat_x_assum `_ = (r, t)` mp_tac
+    \\ CASE_TAC
+    \\ qmatch_asmsub_abbrev_tac `evaluate ([x3],_,s3) = (v3,_)`
+    \\ `v3 = Rerr (Rabort a)` by metis_tac [FST, Abbr`v3`, Abbr`s3`]
+    \\ fs [Abbr`v3`] \\ rveq
+    \\ strip_tac \\ rveq \\ fs [])
+  \\ strip_tac \\ rveq \\ fs []
+  \\ reverse TOP_CASE_TAC \\ fs []
+  >-
+    (imp_res_tac do_app_err \\ fs [] \\ rveq
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac do_app_err \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ qhdtm_x_assum `do_app` mp_tac
+    \\ Cases_on `op` \\ fs [to_op_def]
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
+  \\ CASE_TAC
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac do_app_err
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+  \\ qhdtm_x_assum `do_app` mp_tac
+  \\ Cases_on `op` \\ fs [to_op_def]
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id]
+  \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC]);
 
 val op_id_val_def = Define `
   (op_id_val Plus  = Number 0) ∧
   (op_id_val Times = Number 1) ∧
   (op_id_val Noop  = Number 6333)
   `;
-
-val Associative_def = Define `
-  Associative (:'ffi) op ⇔
-    ∀x1 x2 x3 env (s: 'ffi bviSem$state).
-      evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) =
-      evaluate ([apply_op op (apply_op op x1 x2) x3], env, s)`;
-
-val Commutative_def = Define `
-  Commutative (:'ffi) op ⇔
-    ∀x1 x2 env (s: 'ffi bviSem$state).
-      (is_pure x1 ∨ is_pure x2) ⇒
-        evaluate ([apply_op op x1 x2], env, s) =
-        evaluate ([apply_op op x2 x1], env, s)`;
-
-val AC_Arith = Q.store_thm ("AC_Arith",
-  `∀a.
-    Associative a Plus  ∧ Commutative a Plus ∧
-    Associative a Times ∧ Commutative a Times`,
-  cheat (* TODO *)
-  );
 
 val op_identity_op_id_val = Q.store_thm ("op_identity_op_id_val",
   `∀iop env s.
@@ -222,89 +471,50 @@ val optimize_check_Arith = Q.store_thm ("optimize_check_Arith",
   rpt strip_tac \\ fs [optimize_check_def]
   \\ drule tail_check_Arith \\ fs []);
 
-val is_pure_state = Q.prove (
-  `∀x env s r t.
-     evaluate ([x], env, s) = (r, t) ∧
-     is_pure x ⇒
-       s = t ∧ ∀err. r = Rerr err ⇒ err = Rabort Rtype_error`,
-  cheat (* TODO *)
-  );
-
 val evaluate_assoc_swap = Q.store_thm ("evaluate_assoc_swap",
-  `is_pure from ∧
-   iop ≠ Noop ⇒
-     evaluate ([apply_op   iop into from], env, s) =
-     evaluate ([assoc_swap iop from into], env, s)`,
-  strip_tac
-  \\ `Associative (:'a) iop ∧ Commutative (:'a) iop` by
-    (assume_tac AC_Arith
-    \\ Cases_on `iop` \\ fs [])
-  \\ fs [Associative_def, Commutative_def]
+  `∀(s:'ffi bviSem$state).
+   is_pure from ∧
+   iop ≠ Noop ∧
+   (case op_binargs into of
+      NONE => T
+    | SOME (e1, e2) => is_pure e2) ∧
+   evaluate ([apply_op iop from into], env, s) = (r, t) ∧
+   r ≠ Rerr (Rabort Rtype_error) ⇒
+     evaluate ([assoc_swap iop from into], env, s) = (r, t)`,
+  rpt strip_tac
   \\ simp [assoc_swap_def]
   \\ TOP_CASE_TAC \\ fs [] \\ rveq
-  \\ `to_op iop = op` by cheat (* TODO fix *)
-  \\ rveq
-  \\ fs [apply_op_def, evaluate_def]);
+  >-
+    (drule (GEN_ALL comm_theorem)
+    \\ ntac 2 (disch_then drule)
+    \\ rw [])
+  \\ cheat (* TODO *)
+  );
 
 val evaluate_op_rewrite = Q.store_thm ("evaluate_op_rewrite",
-  `∀op name exp env s r t p exp2.
+  `∀op name exp env (s:'ffi bviSem$state) r t p exp2.
+     evaluate ([exp], env, s) = (r, t) ∧
+     r ≠ Rerr (Rabort Rtype_error) ∧
      op_rewrite op name exp = (p, exp2) ∧
-     op ≠ Noop ∧
-     evaluate ([exp], env, s) = (r, t) ==>
-       if ¬p then exp2 = exp else
-         evaluate ([exp2], env, s) = (r, t)`,
+     evaluate ([exp], env, s) = (r, t) ⇒ 
+       (case op_binargs exp2 of 
+         NONE => T
+       | SOME (e1, e2) => is_pure e2) ∧
+       evaluate ([exp2], env, s) = (r, t)`,
   ho_match_mp_tac op_rewrite_ind
   \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
   \\ strip_tac
-  \\ qhdtm_x_assum `op_rewrite` mp_tac
-  \\ once_rewrite_tac [op_rewrite_def]
-  \\ `Associative (:'a) op ∧ Commutative (:'a) op` by
-    (assume_tac AC_Arith
-    \\ Cases_on `op` \\ fs [])
+  \\ cheat (* TODO *)
+  );
+
+val op_rewrite_noopt = Q.prove (
+  `op_rewrite op name exp = (F, exp2) ⇒ exp = exp2`,
+  once_rewrite_tac [op_rewrite_def]
   \\ IF_CASES_TAC \\ fs []
-  \\ ntac 2 TOP_CASE_TAC
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rveq
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ reverse (Cases_on `p`) \\ fs []
-  >- (every_case_tac \\ fs [])
-  \\ IF_CASES_TAC \\ fs []
-  >-
-    (ntac 2 (IF_CASES_TAC \\ fs [])
-    \\ strip_tac \\ fs [] \\ rveq
-    \\ rw [op_binargs_def, op_eq_to_op]
-    \\ drule (GEN_ALL evaluate_assoc_swap)
-    \\ fs [apply_op_def]
-    \\ strip_tac
-    \\ pop_assum (fn th => fs [GSYM th])
-    \\ qhdtm_x_assum `evaluate` mp_tac
-    \\ simp [Ntimes evaluate_def 2]
-    \\ ntac 2 CASE_TAC
-    \\ ntac 2 (first_x_assum drule)
-    \\ rpt strip_tac \\ fs [] \\ rveq
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [evaluate_def])
-  \\ ntac 2 (IF_CASES_TAC \\ fs [])
-  \\ strip_tac \\ rveq
-  \\ drule (GEN_ALL evaluate_assoc_swap) \\ strip_tac
-  \\ fs [apply_op_def]
-  \\ pop_assum (fn th => fs [GSYM th])
-  \\ qhdtm_x_assum `evaluate` mp_tac
-  \\ simp [Ntimes evaluate_def 2]
-  \\ ntac 2 CASE_TAC
-  \\ ntac 2 (first_x_assum drule)
-  \\ fs [Commutative_def, apply_op_def]
-  \\ IF_CASES_TAC \\ fs []
-  >-
-    (strip_tac \\ rveq
-    \\ IF_CASES_TAC \\ fs []
-    >- (strip_tac \\ rveq \\ rfs [evaluate_def])
-    \\ strip_tac \\ rveq
-    \\ rename1 `evaluate ([q],_,_) = (_,s2)`
-    \\ rename1 `evaluate ([e1],_,s2) = _`
-    \\ first_x_assum (qspecl_then [`y1`,`e1`,`env`,`s`] assume_tac)
-    \\ rfs [evaluate_def])
-  \\ strip_tac \\ rveq
-  \\ IF_CASES_TAC \\ fs []
-  \\ strip_tac \\ rveq
-  \\ rfs [apply_op_def, evaluate_def]);
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
 
 val optimize_check_IMP_to_op = Q.store_thm ("optimize_check_IMP_to_op",
   `∀op nm xs iop.
@@ -334,21 +544,6 @@ val op_rewrite_binargs = Q.store_thm ("op_rewrite_binargs",
   \\ IF_CASES_TAC \\ fs []
   \\ fs [assoc_swap_def, apply_op_def]
   \\ every_case_tac \\ rw []);
-
-val binop_has_rec_not_pure = Q.prove (
-  `∀exp. binop_has_rec name iop exp ⇒
-     ¬is_pure exp`,
-  Induct
-  \\ rpt gen_tac
-  \\ TRY
-    (simp [binop_has_rec_def, is_pure_def, is_rec_def, op_eq_def]
-    \\ NO_TAC)
-  \\ simp [binop_has_rec_def] \\ rw []
-  >- fs [is_rec_def]
-  \\ pop_assum mp_tac
-  \\ ntac 2 TOP_CASE_TAC
-  \\ strip_tac
-  \\ Cases_on `q` \\ fs [is_rec_def, is_pure_def]);
 
 val op_rewrite_is_rec = Q.store_thm ("op_rewrite_is_rec",
   `∀iop name op xs e1 e2.
@@ -506,7 +701,7 @@ val take_drop_lem = Q.prove (
   srw_tac [ARITH_ss] []);
 
 val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
-  `!skip env n st.
+  `!skip env n (st:'ffi bviSem$state).
     n + skip ≤ LENGTH env ⇒
     evaluate (GENLIST (λarg. Var (arg + skip)) n, env, st)
     =
@@ -532,7 +727,7 @@ val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
   metis_tac [take_drop_lem]);
 
 val evaluate_let_wrap = Q.store_thm ("evaluate_let_wrap",
-  `∀x op vs s r t.
+  `∀x op vs (s:'ffi bviSem$state) r t.
      op ≠ Noop ⇒
      evaluate ([let_wrap (LENGTH vs) (id_from_op op) x], vs, s) =
      evaluate ([x], vs ++ [op_id_val op] ++ vs, s)`,
@@ -600,43 +795,6 @@ val op_rewrite_IMP_op_eq = Q.prove (
   \\ simp [assoc_swap_def, apply_op_def]
   \\ every_case_tac \\ fs []);
 
-val ok_tail_type_IMP_Number = Q.store_thm ("ok_tail_type_IMP_Number",
-  `∀exp env (s: 'a bviSem$state) r t.
-     ok_tail_type exp ∧
-     evaluate ([exp], env, s) = (Rval r, t) ⇒
-       ∃n. r = [Number n]`,
-  Induct
-  \\ fs [ok_tail_type_def]
-  \\ rpt strip_tac
-  \\ qhdtm_x_assum `evaluate` mp_tac
-  \\ simp [evaluate_def]
-  >-
-    (ntac 2 TOP_CASE_TAC \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-    >- (strip_tac \\ first_x_assum drule \\ fs [])
-    \\ IF_CASES_TAC \\ fs []
-    \\ strip_tac \\ first_x_assum drule \\ fs [])
-  >-
-    (ntac 2 TOP_CASE_TAC \\ fs []
-    \\ strip_tac \\ first_x_assum (qspec_then `a++env` drule) \\ fs [])
-  >-
-    (IF_CASES_TAC \\ fs []
-    \\ strip_tac \\ first_x_assum drule \\ fs [])
-  \\ ntac 2 TOP_CASE_TAC \\ fs []
-  \\ rename1 `is_arithmetic op`
-  \\ Cases_on `op`
-  \\ fs [is_arithmetic_def]
-  \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]
-  >- (CASE_TAC \\ strip_tac \\ rveq \\ fs [])
-  \\ ntac 2 CASE_TAC
-  \\ strip_tac \\ rveq
-  \\ fs [bvlSemTheory.do_app_def]
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
-
-val is_arithmetic_to_op = Q.store_thm ("is_arithmetic_to_op[simp]",
-  `∀iop. is_arithmetic (to_op iop)`,
-  Cases \\ fs [is_arithmetic_def, to_op_def]);
-
 val op_rewrite_exp_size = Q.store_thm ("op_rewrite_exp_size",
   `∀op nm exp p exp2.
     op_rewrite op nm exp = (p, exp2) ⇒
@@ -689,7 +847,7 @@ val env_rel_extra = Q.prove (
   \\ rw []);
 
 val evaluate_env_rel_err = Q.prove (
-  `∀xs env1 s vs t acc env2.
+  `∀xs env1 (s:'ffi bviSem$state) vs t acc env2.
      evaluate (xs, env1, s) = (Rval vs, t) ∧
      env_rel F acc env1 env2 ⇒
        evaluate (xs, env2, s) = (Rval vs, t)`,
@@ -698,7 +856,7 @@ val evaluate_env_rel_err = Q.prove (
   \\ imp_res_tac evaluate_env_extra \\ fs []);
 
 val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
-  `∀xs s env1 r t opt_here c acc env2 nm.
+  `∀xs (s:'ffi bviSem$state) env1 r t opt_here c acc env2 nm.
      evaluate (xs, env1, s) = (r, t) ∧
      env_rel opt_here acc env1 env2 ∧
      code_rel s.code c ∧
@@ -747,6 +905,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ ntac 2 (disch_then drule) \\ fs [])
   \\ fs [bviTheory.exp_size_def]
   \\ Cases_on `∃xs op. h = Op op xs` \\ fs [] \\ rveq
+
   >-
     (
     conj_tac
@@ -766,9 +925,9 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
       \\ every_case_tac \\ fs [] \\ rveq \\ fs []
       \\ imp_res_tac code_rel_domain
       \\ imp_res_tac evaluate_code_const \\ fs []
-      \\ imp_res_tac (GEN_ALL do_app_with_code_err)
-      \\ imp_res_tac (GEN_ALL do_app_with_code)
-      \\ imp_res_tac (GEN_ALL do_app_err) \\ fs []
+      \\ imp_res_tac do_app_with_code_err
+      \\ imp_res_tac do_app_with_code
+      \\ imp_res_tac do_app_err \\ fs []
       \\ first_assum drule \\ fs [])
     \\ rpt strip_tac
     \\ imp_res_tac optimize_check_Arith \\ rveq
@@ -781,9 +940,8 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ CASE_TAC
     \\ reverse IF_CASES_TAC \\ fs []
     >-
-      (drule evaluate_op_rewrite \\ simp []
-      \\ disch_then (qspecl_then [`env1`,`s`,`r`,`t`] mp_tac)
-      \\ simp [evaluate_def])
+      (imp_res_tac op_rewrite_noopt \\ rveq
+      \\ simp [])
     \\ drule op_rewrite_binargs
     \\ strip_tac \\ fs [] \\ rveq
     \\ simp [op_binargs_def]
@@ -793,186 +951,86 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ rename1 `Call ticks dest args hdl: bvi$exp`
     \\ Cases_on `hdl` \\ fs [is_rec_def] \\ rveq
     \\ simp [args_from_def, push_call_def]
-    \\ `∃j. ∀s. evaluate ([e2], env1, s) = (Rval [Number j], s)` by
-         cheat (* TODO need static guarantee for this *)
-    \\ `∀s. evaluate ([e2], env2, s) = (Rval [Number j], s)` by
-      (gen_tac
-      \\ first_x_assum (qspec_then `s'` assume_tac)
-      \\ `env_rel F acc env1 env2` by fs [env_rel_def]
-      \\ imp_res_tac evaluate_env_rel_err)
-    \\ `∃k. EL acc env2 = Number k` by fs [env_rel_def]
-    \\ `∃l. ∀s. bviSem$do_app (to_op iop) [Number k; Number j] s =
-                  Rval (Number l, s)` by
-      (Cases_on `iop`
-      \\ simp [to_op_def, do_app_def, do_app_aux_def,
-               bvlSemTheory.do_app_def, bvl_to_bvi_id,
-               small_enough_int_def])
-    \\ `∀s. evaluate ([Op (to_op iop) [e2; Var acc]], env2, s) =
-              (Rval [Number l], s)` by
-      (`acc < LENGTH env2` by fs [env_rel_def]
-      \\ simp [evaluate_def])
-    \\ qmatch_asmsub_abbrev_tac `op_rewrite _ _ _ = (_, op_exp)`
-    \\ `∀st.
-          evaluate ([apply_op iop (Op (to_op iop) xs) (Var acc)],
-            env2, st) =
-          evaluate ([apply_op iop op_exp (Var acc)],
-            env2, st)` by
-      (gen_tac
-      \\ drule evaluate_op_rewrite \\ simp []
-      \\ disch_then (qspecl_then [`env2`,`st`] mp_tac)
-      \\ simp [apply_op_def]
-      \\ Cases_on `evaluate ([Op (to_op iop) xs], env2, st)` \\ fs []
-      \\ strip_tac
-      \\ simp [evaluate_def])
-    \\ pop_assum (fn th => fs [th])
-    \\ fs []
-    \\ unabbrev_all_tac
-    \\ qhdtm_assum `optimized_code` mp_tac
-    \\ simp_tac std_ss [optimized_code_def]
-    \\ strip_tac
-    \\ fs [GSYM apply_op_def]
-    \\ `env_rel F acc env1 env2` by fs [env_rel_def]
-    \\ `acc < LENGTH env2` by fs [env_rel_def]
-    \\ drule evaluate_op_rewrite
-    \\ disch_then (qspecl_then [`env1`,`s`,`r`,`t`] mp_tac) \\ simp []
-    \\ simp [Once evaluate_def]
-    \\ strip_tac
     \\ first_assum (qspecl_then [`xs`,`s`] mp_tac)
     \\ simp [bviTheory.exp_size_def]
-    \\ disch_then drule
-    \\ disch_then (qspec_then `F` drule)
-    \\ disch_then drule \\ simp []
-    \\ impl_tac
-    >- (every_case_tac \\ fs [] \\ rveq \\ fs [])
-    \\ strip_tac
-    \\ Cases_on `evaluate ([Call ticks (SOME nm) args NONE], env1, s)`
-    \\ pop_assum mp_tac
-    \\ simp [Once evaluate_def]
-    \\ CASE_TAC
-    \\ rename1 `_ = (res_args, st_args)`
-    \\ first_assum (qspecl_then [`args`,`s`] mp_tac)
-    \\ `exp2_size args < exp_size (Op (to_op iop) xs)` by
-      (imp_res_tac op_rewrite_exp_size
-      \\ fs [apply_op_def, bviTheory.exp_size_def])
-    \\ simp []
-    \\ pop_assum kall_tac
+    \\ `env_rel F acc env1 env2` by fs [env_rel_def]
     \\ disch_then drule
     \\ disch_then (qspec_then `F` drule)
     \\ disch_then drule \\ fs []
     \\ impl_tac
-    >-
-      (qpat_x_assum `_ = (r, t)` mp_tac
-      \\ fs [apply_op_def]
-      \\ simp [evaluate_def]
-      \\ strip_tac
-      \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+    >- (every_case_tac \\ fs [] \\ rveq \\ fs [])
     \\ strip_tac
-    \\ `Associative (:'a) iop` by
-      (assume_tac AC_Arith
-      \\ Cases_on `iop` \\ fs [])
-    \\ fs [Associative_def]
-    \\ pop_assum (fn th => fs [GSYM th])
-    \\ reverse TOP_CASE_TAC \\ fs []
+    \\ Cases_on `evaluate ([Op (to_op iop) xs], env2, s with code := c)`
+    \\ drule evaluate_op_rewrite
+    \\ qmatch_asmsub_abbrev_tac `op_rewrite _ _ _ = (T, exp2)`
+    \\ disch_then (qspecl_then [`iop`,`nm`,`T`, `exp2`] mp_tac)
+    \\ impl_tac
     >-
-      (strip_tac
-      \\ rveq
-      \\ qpat_x_assum `_ = (r, t)` mp_tac
-      \\ simp [Once apply_op_def, Ntimes evaluate_def 3]
-      \\ strip_tac \\ rveq
+      (unabbrev_all_tac
+      \\ rfs [evaluate_def]
       \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-      \\ imp_res_tac do_app_err
-      \\ simp [evaluate_def, apply_op_def]
-      \\ once_rewrite_tac [evaluate_APPEND]
-      \\ fs [])
-    \\ `st_args.code = s.code` by (imp_res_tac evaluate_code_const \\ fs [])
-    \\ pop_assum (fn th => fs [th])
-    \\ simp [find_code_def]
-    \\ reverse IF_CASES_TAC \\ fs []
-    >-
-      (strip_tac \\ rveq
-      \\ simp [apply_op_def, evaluate_def]
-      \\ once_rewrite_tac [evaluate_APPEND]
-      \\ fs [apply_op_def, find_code_def])
-    \\ IF_CASES_TAC \\ fs []
-    >-
-      (strip_tac
-      \\ fs [apply_op_def]
-      \\ simp [evaluate_def, find_code_def]
-      \\ once_rewrite_tac [evaluate_APPEND]
-      \\ simp [] \\ rveq \\ fs [])
-    \\ CASE_TAC
-    \\ strip_tac
-    \\ rename1 `evaluate ([exp],_,_) = (res_exp, st_exp)`
-    \\ `res_exp ≠ Rerr (Rabort Rtype_error)` by
-      (Cases_on `res_exp` \\ fs []
-      \\ Cases_on `e` \\ fs []
-      \\ rveq
-      \\ qpat_x_assum `_ = (r, t)` mp_tac
-      \\ simp [evaluate_def, apply_op_def, find_code_def]
+      \\ imp_res_tac do_app_err \\ fs []
+      \\ imp_res_tac code_rel_domain
       \\ imp_res_tac evaluate_code_const \\ fs []
-      \\ strip_tac
-      \\ rveq
-      \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
-    \\ imp_res_tac evaluate_code_const \\ fs []
-    \\ fs [apply_op_def]
-    \\ simp [evaluate_def, find_code_def]
-    \\ once_rewrite_tac [evaluate_APPEND]
-    \\ simp []
-    \\ fs [optimize_single_def] \\ rveq
-    \\ simp [let_wrap_def]
-    \\ simp [evaluate_def]
-    \\ once_rewrite_tac [evaluate_APPEND]
-    \\ simp [op_identity_op_id_val]
-    \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ imp_res_tac do_app_with_code \\ fs [])
+    \\ unabbrev_all_tac
+    \\ simp [op_binargs_def]
+    \\ strip_tac
+    \\ `acc < LENGTH env2 ∧ ∃k. EL acc env2 = Number k` by fs [env_rel_def]
+    \\ Cases_on `evaluate ([Op (to_op iop) xs], env1, s)` 
+    \\ drule evaluate_op_rewrite
+    \\ qmatch_asmsub_abbrev_tac `op_rewrite _ _ _ = (T, exp2)`
+    \\ disch_then (qspecl_then [`iop`,`nm`,`T`, `exp2`] mp_tac)
+    \\ impl_tac
+    >-
+      (unabbrev_all_tac
+      \\ rfs [evaluate_def]
+      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac do_app_err \\ fs []
+      \\ imp_res_tac code_rel_domain
+      \\ imp_res_tac evaluate_code_const \\ fs []
+      \\ imp_res_tac do_app_with_code \\ fs [])
+    \\ unabbrev_all_tac
+    \\ simp [op_binargs_def]
+    \\ pop_assum mp_tac
+    \\ simp [Once evaluate_def]
+    \\ strip_tac \\ rveq
+    \\ qmatch_goalsub_rename_tac `_ = (r, t) ⇒ _`
+    \\ strip_tac
+
+    (* may or may not help with pure arguments *)
+    \\ qpat_x_assum `evaluate ([Op _ xs], env2, _) = _` mp_tac
+    \\ simp [Once evaluate_def]
+    \\ strip_tac
+    \\ `EVERY is_pure args` by cheat (* TODO *)
+    \\ qpat_x_assum `_ = (r, t)` mp_tac
+    \\ simp [Ntimes evaluate_def 3]
     \\ CASE_TAC
-    \\ `LENGTH a + 0 ≤ LENGTH a` by fs []
-    \\ drule evaluate_genlist_vars
-    \\ strip_tac \\ fs [] \\ rveq
-    \\ pop_assum kall_tac \\ rw []
-    \\ `env_rel T (LENGTH a) a (a ++ [op_id_val iop] ++ a)` by
-      (simp [env_rel_def, IS_PREFIX_APPEND, EL_APPEND1, EL_LENGTH_APPEND]
-      \\ Cases_on `iop` \\ simp [op_id_val_def])
-    \\ `env_rel T (LENGTH a) a (a ++ [Number l])` by
-      simp [env_rel_def, IS_PREFIX_APPEND, EL_APPEND1, EL_LENGTH_APPEND]
-    \\ first_x_assum
-      (qspecl_then [`[exp]`,`dec_clock (ticks+1) st_args`] mp_tac)
-    \\ `(dec_clock (ticks+1) st_args).clock < s.clock` by
-      (simp [dec_clock_def]
-      \\ imp_res_tac evaluate_clock \\ fs [])
-    \\ simp []
-    \\ pop_assum kall_tac
-    \\ disch_then drule
-    \\ disch_then (qspec_then `T` assume_tac)
-    \\ first_assum drule
-    \\ disch_then drule
-    \\ disch_then (qspec_then `nm` mp_tac)
-    \\ simp []
+    \\ drule EVERY_is_pure_correct 
+    \\ disch_then drule \\ fs []
+    \\ drule EVERY_is_pure_state
+    \\ disch_then drule \\ fs []
     \\ strip_tac
-    \\ first_x_assum
-      (qspecl_then [`c`,`LENGTH a`, `a ++ [op_id_val iop] ++ a`, `nm`] mp_tac)
-    \\ simp []
+    \\ reverse TOP_CASE_TAC \\ fs []
+    >- (CASE_TAC \\ fs [])
     \\ strip_tac
-    \\ pop_assum kall_tac
-    \\ simp [evaluate_def, EL_APPEND1, EL_LENGTH_APPEND]
-    \\ reverse CASE_TAC \\ fs []
-    >- (Cases_on `e` \\ fs [] \\ rveq \\ fs [])
     \\ rveq
-    \\ fs [optimize_check_def]
-    \\ drule ok_tail_type_IMP_Number
-    \\ disch_then drule \\ rw []
-    \\ rename1 `HD [Number m]` \\ fs []
-    \\ rename1 `evaluate ([exp],_,_) = (_, st)`
-    \\ `do_app (to_op iop)
-               [op_id_val iop; Number m]
-               (st with code := c) =
-          Rval (Number m, st with code := c)` by
-      (Cases_on `iop` \\ fs [to_op_def]
-       \\ simp [op_id_val_def, do_app_def,
-                do_app_aux_def, bvlSemTheory.do_app_def,
-                bvl_to_bvi_id, small_enough_int_def])
+    \\ rename1 `evaluate (args,_,s) = _`
+    \\ simp [find_code_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ first_assum (qspecl_then [`args`,`s`] mp_tac)
+    \\ `exp2_size args < exp_size (Op (to_op iop) xs)` by cheat (* TODO *)
     \\ simp []
-    \\ CASE_TAC
-    \\ ntac 2 (TOP_CASE_TAC \\ fs []))
+    \\ disch_then drule
+    \\ disch_then (qspec_then `F` drule)
+    \\ disch_then drule \\ fs []
+    \\ strip_tac
+    \\ drule EVERY_is_pure_state
+    \\ disch_then drule \\ fs []
+    \\ strip_tac
+
+    \\ cheat (* TODO *)
+    )
   \\ Cases_on `∃ticks dest xs hdl. h = Call ticks dest xs hdl` \\ fs [] \\ rveq
   >-
     (simp [optimize_check_def, tail_check_def]
