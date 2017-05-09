@@ -161,7 +161,7 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
   qpat_abbrev_tac`ls = MAP A B`>>
   qpat_abbrev_tac`ls' = MAP A B`>>
   `ls = ls'` by
-    unabbrev_all_tac>>fs[MAP_EQ_f]>>
+    (unabbrev_all_tac>>fs[MAP_EQ_f]) >>
   rw[])
 
 val assign_const_full = Q.store_thm("assign_const_full",
@@ -933,7 +933,7 @@ val word_exp_stack_swap = Q.prove(
     (qpat_abbrev_tac`ls = MAP A B`>>
     qpat_abbrev_tac`ls' = MAP A B`>>
     (`ls = ls'` by
-      unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f])>>
+      (unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f]))>>
     fs[])>>
   every_case_tac>>full_simp_tac(srw_ss())[])
 
