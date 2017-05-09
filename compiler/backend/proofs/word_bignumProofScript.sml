@@ -633,7 +633,7 @@ val compile_thm = store_thm("compile_thm",
     \\ fs [set_var_def]
     \\ once_rewrite_tac [evaluate_SeqTempImmNot]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ pop_assum mp_tac \\ fs []
       \\ Cases_on `n4` \\ fs []
       \\ fs [eval_ri_pre_def,eval_exp_pre_def]
       \\ imp_res_tac state_rel_IN_FDOM \\ fs [])
