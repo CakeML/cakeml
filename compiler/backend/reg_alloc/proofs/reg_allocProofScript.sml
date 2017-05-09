@@ -1655,7 +1655,7 @@ val reg_alloc_total_satisfactory = Q.store_thm ("reg_alloc_total_satisfactory",`
   rev_full_simp_tac(srw_ss())[Abbr`edges'`,domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
   srw_tac[][]>>res_tac>>
   `e ∈ domain G ∧ v ∈ domain col ∧ e ∈ domain col` by
-    full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF]>>
+    (full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF]>> metis_tac[]) >>
   full_simp_tac(srw_ss())[domain_lookup]>>
   first_x_assum(qspec_then`v'''` assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   metis_tac[])
@@ -1899,7 +1899,7 @@ val check_partial_col_success = Q.prove(`
       (*TOO LONG*)
       CCONTR_TAC>>
       `∃s. lookup(col h) flive = SOME s` by
-        Cases_on`lookup (col h) flive`>>fs[]>>
+        (Cases_on`lookup (col h) flive`>>fs[]) >>
       last_x_assum kall_tac>>
       fs[EXTENSION,domain_lookup]>>
       first_x_assum(qspec_then`col h` mp_tac)>>
