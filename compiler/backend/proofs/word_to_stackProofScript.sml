@@ -41,8 +41,8 @@ val splem2 = Q.prove(`
   Cases_on` 2 ≤ c - SUC a`>>fs[]
   >-
     (`(c-1) DIV 2 ≤ c DIV 2` by
-      match_mp_tac DIV_LE_MONOTONE>>
-      simp[])
+       simp[DIV_LE_MONOTONE]>>
+     simp[])
   >>
     `c = a+2` by DECIDE_TAC>>
     simp[ADD_DIV_RWT])
@@ -1735,8 +1735,7 @@ val alloc_IMP_alloc2 = Q.prove(`
     (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
     fs [set_store_def,push_env_def,LET_THM,env_to_list_def]>>
     fs[cut_env_def]>>
-    `domain x = {}` by
-      rveq>>fs[domain_inter]>>
+    `domain x = {}` by (rveq>>fs[domain_inter])>>
     `toAList x = []` by
       (Cases_on`toAList x`>>fs[]>>
       `MEM (FST h) (MAP FST(toAList x))` by fs[]>>
