@@ -553,7 +553,7 @@ val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
   rw [add_constraint_side_def] >>
   TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
   TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
-  every_case_tac >> fs[] >>
+  every_case_tac >> fs[] >> rw[] >>
   metis_tac[infer_p_wfs,PAIR,type_name_subst_side_thm]);
 
 val _ = translate (infer_def ``infer_e``)
