@@ -850,11 +850,15 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
        imp_res_tac unifyTheory.t_unify_wfs >>
        rw [] >>
        NO_TAC) >|
-  [imp_res_tac infer_e_wfs >>
+  [every_case_tac \\ fs[] \\ imp_res_tac infer_e_wfs >>
        imp_res_tac unifyTheory.t_unify_wfs >>
        imp_res_tac pure_add_constraints_wfs >>
        rw [],
-   every_case_tac \\ fs[] \\ metis_tac[infer_e_wfs],
+   first_x_assum match_mp_tac
+   \\ match_mp_tac pure_add_constraints_wfs
+   \\ asm_exists_tac \\ rw[]
+   \\ imp_res_tac infer_e_wfs \\ fs[],
+   every_case_tac \\ fs[] \\ rw[] \\ metis_tac[infer_e_wfs],
    every_case_tac \\ fs[type_name_subst_side_thm],
    prove_tac [infer_p_side_thm],
    every_case_tac >>
