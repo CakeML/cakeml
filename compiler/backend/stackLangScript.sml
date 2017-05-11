@@ -5,8 +5,9 @@ val _ = new_theory "stackLang";
 
 val _ = Datatype `
   store_name =
-    NextFree | EndOfHeap | HeapLength | ProgStart | BitmapBase |
-    CurrHeap | OtherHeap | AllocSize | Globals | Handler | Temp (5 word)`
+    NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
+    CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    Temp (5 word)`
 
 val _ = Datatype `
   prog = Skip
@@ -52,6 +53,8 @@ val _ = map overload_on
    ("sub_1_inst",``\r1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))``),
    ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
    ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
+   ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
+   ("xor_inst",``\r1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))``),
    ("add_1_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))``),
    ("or_inst",``\r1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))``),
    ("add_bytes_in_word_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))``),

@@ -1,7 +1,9 @@
-open preamble closLangTheory conLangTheory fpSemTheory
-val _ = Parse.hide "exp";
+open preamble closLangTheory conLangTheory backend_commonTheory
+open semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
+
+val _ = Parse.hide "exp";
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)

@@ -82,7 +82,7 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
 val evaluate_sing = Q.store_thm("evaluate_sing",
   `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
-  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
+  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD]);
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
@@ -90,7 +90,7 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   full_simp_tac(srw_ss())[do_app_def] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]>-( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   reverse(Cases_on`op`>>full_simp_tac(srw_ss())[]) >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
-  qmatch_goalsub_rename_tac`op:ast$op` >>
+  qmatch_goalsub_rename_tac`op:modLang$op` >>
   Cases_on`op`>>full_simp_tac(srw_ss())[] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,

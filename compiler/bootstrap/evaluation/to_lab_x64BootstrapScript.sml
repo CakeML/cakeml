@@ -1,23 +1,11 @@
 open preamble
      backendTheory
      to_dataBootstrapTheory
-     configTheory
+     x64_configTheory
      x64_targetTheory
      x64_targetLib asmLib
 
 val _ = new_theory "to_lab_x64Bootstrap";
-
-(* TODO: move? *)
-
-val _ = hide"pos"
-
-val pad_code_MAP = Q.store_thm("pad_code_MAP",
-  `pad_code nop = MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`,
-  simp[FUN_EQ_THM] \\ Induct
-  \\ simp[lab_to_targetTheory.pad_code_def]
-  \\ Cases \\ simp[lab_to_targetTheory.pad_code_def]);
-
-(* -- *)
 
 val _ = Globals.max_print_depth := 10;
 
@@ -31,7 +19,7 @@ val () =
       x64_targetLib.add_x64_encode_compset,
       asmLib.add_asm_compset ],
     computeLib.Defs [
-      x64_compiler_config_def,
+      x64_backend_config_def,
       data_prog_x64_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
@@ -43,14 +31,14 @@ fun say_str s i n = ()
   Lib.say(String.concat["eval ",s,": chunk ",Int.toString i,": el ",Int.toString n,": "])
   *)
 
-val bootstrap_conf = ``(x64_compiler_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>)) with data_conf updated_by (λc. c with len_size := 32)``
+val bootstrap_conf = ``(x64_backend_config with bvl_conf updated_by (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))``
 
 val to_data_thm0 =
   MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
   |> Q.GEN`c2` |> ISPEC bootstrap_conf
 
 val same_config = prove(to_data_thm0 |> concl |> rator |> rand,
-  REWRITE_TAC[init_conf_def,x64_compiler_config_def]
+  REWRITE_TAC[init_conf_def,x64_backend_config_def]
   \\ EVAL_TAC
   \\ rw[FLOOKUP_EXT,FUN_EQ_THM,FLOOKUP_UPDATE,FLOOKUP_FUNION]
   \\ EVAL_TAC
@@ -208,7 +196,7 @@ val oracles =
 val x64_oracle_def = mk_abbrev"x64_oracle" oracles;
 
 val wc =
-  ``x64_compiler_config.word_to_word_conf
+  ``x64_backend_config.word_to_word_conf
     with col_oracle := x64_oracle``
 
 (*
@@ -606,9 +594,7 @@ val lab_prog_def = mk_abbrev"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
 
 val temp_defs =
   set_diff (List.map #1 (definitions"-"))
-    ["x64_oracle_def","lab_prog_def",
-     (* TODO: only required while these are still defined in this theory *)
-     "Section_num_def","Section_lines_def" ]
+    ["x64_oracle_def","lab_prog_def"]
 
 val () = List.app delete_binding temp_defs
 

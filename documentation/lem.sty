@@ -53,7 +53,8 @@
 
 
 %formatting for various Lem entities
-\newcommand{\lemkw}[1]{\textsf{#1}}
+\newcommand{\lemkw}[1]{\mbox{\textsf{#1}}}
+\newcommand{\lemkwtt}[1]{\mbox{\texttt{#1}}}
 
 \newcommand{\lemTermConst}[1]{\textrm{#1}}
 \newcommand{\lemTermConstQuote}[1]{\texttt{'#1'}}
@@ -83,7 +84,9 @@
 
 
 %comments and defs
-\newcommand{\lemcomm}[1]{${\tt #1}$\displaystyle}
+%\newcommand{\lemcomm}[1]{${\tt #1}$\displaystyle}
+\newcommand{\lemcomm}[1]{{\tt #1}}
+%\newcommand{\lemcomm}[1]{${\tt #1}$\displaystyle}
 \newcommand{\lemdef}[1]{$\displaystyle #1$}
 
 % inc macros that allow choosing what exactly to print

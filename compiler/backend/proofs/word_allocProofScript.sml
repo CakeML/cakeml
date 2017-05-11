@@ -1651,7 +1651,7 @@ val check_partial_col_INJ = Q.store_thm("check_partial_col_INJ",
     `lookup (f h) flive = NONE` by
       (CCONTR_TAC>>
       `∃s. lookup(f h) flive = SOME s` by
-        Cases_on`lookup (f h) flive`>>fs[]>>
+        (Cases_on`lookup (f h) flive`>>fs[])>>
       fs[EXTENSION,domain_lookup]>>
       first_x_assum(qspec_then`f h` mp_tac)>>
       rw[EQ_IMP_THM]>>
@@ -5420,7 +5420,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     Cases_on`x'''`>>full_simp_tac(srw_ss())[]>>
     Cases_on`FLOOKUP x''.store NextFree`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[] >>
-    Cases_on`FLOOKUP x''.store EndOfHeap`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`FLOOKUP x''.store TriggerGC`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'''`>>full_simp_tac(srw_ss())[] >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
     ntac 2 strip_tac>> rveq >> full_simp_tac(srw_ss())[call_env_def] >-

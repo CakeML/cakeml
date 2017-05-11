@@ -56,7 +56,7 @@ val _ = ml_prog_update
 
 
 val word_eq1_d =
-  ``Dletrec [("word_eq1", "w",
+  ``Dletrec unknown_loc [("word_eq1", "w",
               Mat (Var (Short "w"))
                   [(Plit (Word8 1w), Con (SOME (Short "true")) []);
                    (Pvar "_", Con (SOME (Short "false")) [])])]``
@@ -81,7 +81,7 @@ val word_eq1_spec = Q.store_thm(
       rw[semanticPrimitivesTheory.lit_same_type_def]))
 
 val word_eqneg1_d =
-  ``Dletrec [("word_eqneg1", "w",
+  ``Dletrec unknown_loc [("word_eqneg1", "w",
               Mat (Var (Short "w"))
                   [(Plit (Word8 255w), Con (SOME (Short "true")) []);
                    (Pvar "_", Con (SOME (Short "false")) [])])]``
@@ -311,9 +311,9 @@ val openIn_spec = Q.store_thm(
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                   validFD (nextFD fs) (openFileFS s fs) ∧
-                  inFS_fname s fs) *
+                  inFS_fname fs s) *
                 ROFS (openFileFS s fs))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname s fs) * ROFS fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * ROFS fs))`,
   xcf "openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, ROFS_def, ROFS_fname_def] >> xpull >>
   rename [`W8ARRAY filename_loc fnm0`] >>
@@ -327,7 +327,7 @@ val openIn_spec = Q.store_thm(
       Cases_on`s` \\ fs[]) >>
   qabbrev_tac `fnm = insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 fnm0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _ * _ * _` >>
-  Cases_on `inFS_fname s fs`
+  Cases_on `inFS_fname fs s`
   >- (
     xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < 255 /\
@@ -555,7 +555,7 @@ val inputLine = process_topdecs`
     in
       case fgetc fd of NONE => NONE
       | SOME c => if c = #"\n" then SOME (String.str c)
-                  else SOME (String.implode (rev (loop [c])))
+                  else SOME (String.implode (List.rev (loop [c])))
     end`;
 val _ = append_prog inputLine;
 
@@ -711,7 +711,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
                    ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ xsimpl)
   \\ xlet`POSTv lv. &LIST_TYPE CHAR (c::ls) lv * ROFS (bumpLineFD (w2n fd) fs)`
-  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]std_preludeTheory.reverse_v_thm)
+  >- ( xapp_spec (INST_TYPE[alpha|->``:char``]mllistProgTheory.reverse_v_thm)
        \\ instantiate \\ xsimpl \\ simp[REVERSE_APPEND] )
   \\ xlet`POSTv sv. &STRING_TYPE (implode (c::ls)) sv * ROFS (bumpLineFD (w2n fd) fs)`
   >- (xapp \\ instantiate \\ xsimpl )

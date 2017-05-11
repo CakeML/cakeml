@@ -1,7 +1,9 @@
-open preamble conLangTheory
-val _ = map Parse.hide ["exp","max"];
+open preamble conLangTheory backend_commonTheory
+open semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory"conSem"
+
+val _ = map Parse.hide ["exp","max"];
 
 (* The values of conLang differ in that the closures do not contain a constructor
  * name environment.
@@ -342,6 +344,8 @@ val do_app_def = Define `
 val pmatch_def = tDefine"pmatch"`
   (pmatch exh s (Pvar x) v' env = (Match ((x,v')::env)))
   ∧
+  (pmatch exh s Pany v' env = Match env)
+  ∧
   (pmatch exh s (Plit l) (Litv l') env =
    if l = l' then
      Match env
@@ -412,6 +416,8 @@ val pmatch_def = tDefine"pmatch"`
 val pat_bindings_def = Define`
   (pat_bindings (conLang$Pvar n) already_bound =
    n::already_bound)
+  ∧
+  (pat_bindings Pany already_bound = already_bound)
   ∧
   (pat_bindings (Plit l) already_bound =
    already_bound)

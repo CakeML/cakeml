@@ -326,10 +326,11 @@ val parsing_ind = save_thm(
   "parsing_ind",
   relationTheory.WF_INDUCTION_THM
     |> Q.ISPEC `inv_image
-                  (measure (LENGTH:(token,MMLnonT)grammar$symbol list -> num)
+                  (measure (LENGTH:((token,MMLnonT)grammar$symbol # locs) list
+                                   -> num)
                      LEX
                    measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
-                  (λpt. (ptree_fringe pt, ptree_head pt))`
+                  (λpt. (real_fringe pt, ptree_head pt))`
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]);

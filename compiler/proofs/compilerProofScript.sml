@@ -12,9 +12,6 @@ val config_ok_def = Define`
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config.inf_env ∧
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
-    cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
-    cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
-    0 < cc.backend_config.clos_conf.max_app ∧
     backendProof$conf_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
@@ -23,24 +20,20 @@ val initial_condition_def = Define`
     (?ctMap. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap FEMPTY st.tenv) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
-    cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
-    cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
-    0 < cc.backend_config.clos_conf.max_app ∧
     backendProof$conf_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
-  `parse_prog = parse o MAP FST`,
+  `parse_prog = parse`,
   simp[FUN_EQ_THM] \\ gen_tac
   \\ simp[parse_def,cmlParseTheory.parse_prog_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ simp[]
   \\ conj_tac
   >- (
+    (* some = SOME case *)
     rpt strip_tac
     \\ drule completeness
     \\ simp[MAP_MAP_o]
-    \\ disch_then(qspec_then`x`mp_tac)
-    \\ impl_tac >- simp[]
     \\ strip_tac
     \\ assume_tac cmlPEGTheory.PEG_wellformed
     \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
@@ -49,8 +42,8 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
     \\ strip_tac
     \\ simp[cmlParseTheory.destResult_def,Abbr`r`]
-    \\ simp[ETA_AX,OPTION_BIND_SOME]
-    \\ cheat (* due to locations... *) )
+    \\ simp[ETA_AX,OPTION_BIND_SOME])
+  (* some = NONE case *)
   \\ qmatch_goalsub_abbrev_tac`opt = NONE`
   \\ Cases_on`opt`\\fs[markerTheory.Abbrev_def]
   \\ strip_tac
@@ -83,7 +76,7 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   `env_rel st.tenv c.inf_env
    ∧ st.tdecs = convert_decls c.inf_decls
    ⇒
-   ∃c'. infertype_prog c p = if can_type_prog st p then SOME c' else NONE`,
+   ∃c' x. infertype_prog c p = if can_type_prog st p then Success c' else Failure x`,
   strip_tac
   \\ simp[inferTheory.infertype_prog_def]
   \\ simp[can_type_prog_def]
@@ -97,8 +90,11 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
-    \\ asm_exists_tac \\ fs[] )
+    \\ every_case_tac
+    \\ fs [])
   \\ rw[] \\ CCONTR_TAC \\ fs[]
+  \\ every_case_tac
+  \\ fs []
   \\ drule infer_prog_complete
   \\ disch_then drule
   \\ disch_then(qspec_then`init_infer_state`mp_tac)
@@ -110,7 +106,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     initial_condition st cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
-    | Failure TypeError => semantics st prelude input = IllTyped
+    | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
     | Success (bytes,ffi_limit) =>
       ∃behaviours.
@@ -159,7 +155,7 @@ val compile_correct = Q.store_thm("compile_correct",
     config_ok cc mc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
-    | Failure TypeError => semantics_init ffi prelude input = IllTyped
+    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
     | Success (bytes,ffi_limit) =>
       ∃behaviours.

@@ -90,7 +90,12 @@ val riscv_ast_def = Define`
    (riscv_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
      [ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i))]) /\
    (riscv_ast (Inst (Arith (Shift sh r1 r2 n))) =
-     [Shift (riscv_sh sh (n2w r1, n2w r2, n2w n))]) /\
+     if sh = Ror then
+       [Shift (SRLI (temp_reg, n2w r2, n2w n));
+        Shift (SLLI (n2w r1, n2w r2, n2w (64 - n)));
+        ArithR (OR (n2w r1, n2w r1, temp_reg))]
+     else
+       [Shift (riscv_sh sh (n2w r1, n2w r2, n2w n))]) /\
    (riscv_ast (Inst (Arith (Div r1 r2 r3))) =
      [MulDiv (riscv$DIV (n2w r1, n2w r2, n2w r3))]) /\
    (riscv_ast (Inst (Arith (LongMul r1 r2 r3 r4))) =

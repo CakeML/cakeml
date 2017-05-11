@@ -108,22 +108,27 @@ val BOOL_Boolv = Q.store_thm ("BOOL_Boolv[simp]",
 val exists_v_of_pat_norest_length = Q.store_thm (
   "exists_v_of_pat_norest_length",
   `!envC pat insts v.
-     (?insts. v_of_pat_norest envC pat insts = SOME v) <=>
-     (?insts. LENGTH insts = LENGTH (pat_bindings pat []) /\
-              v_of_pat_norest envC pat insts = SOME v)`,
+     (?insts wildcards. v_of_pat_norest envC pat insts wildcards = SOME v) <=>
+     (?insts wildcards. LENGTH insts = LENGTH (pat_bindings pat []) /\
+                        LENGTH wildcards = pat_wildcards pat /\
+                        v_of_pat_norest envC pat insts wildcards = SOME v)`,
   rpt strip_tac \\ eq_tac \\ fs [] \\ rpt strip_tac \\ instantiate \\
-  progress v_of_pat_norest_insts_length
-)
+  progress v_of_pat_norest_insts_length \\
+  progress v_of_pat_norest_wildcards_count \\ fs []
+);
 
 val forall_v_of_pat_norest_length = Q.store_thm (
   "forall_v_of_pat_norest_length",
   `!envC pat insts v P.
-     (!insts. v_of_pat_norest envC pat insts = SOME v ==> P insts) <=>
-     (!insts. LENGTH insts = LENGTH (pat_bindings pat []) ==>
-              v_of_pat_norest envC pat insts = SOME v ==>
-              P insts)`,
+     (!insts wildcards. v_of_pat_norest envC pat insts wildcards = SOME v ==> P insts) <=>
+     (!insts wildcards. LENGTH insts = LENGTH (pat_bindings pat []) ==>
+                        LENGTH wildcards = pat_wildcards pat ==>
+                        v_of_pat_norest envC pat insts wildcards = SOME v ==>
+                        P insts)`,
   rpt strip_tac \\ eq_tac \\ fs [] \\ rpt strip_tac \\
-  progress v_of_pat_norest_insts_length \\ first_assum progress
-)
+  progress v_of_pat_norest_insts_length \\
+  progress v_of_pat_norest_wildcards_count \\
+  first_assum progress
+);
 
 val _ = export_theory()

@@ -13,7 +13,7 @@ val _ = new_theory "cfMain";
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
-  ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
@@ -125,6 +125,10 @@ val FFI_part_hprop_STAR = Q.store_thm("FFI_part_hprop_STAR",
   rw[FFI_part_hprop_def]
   \\ fs[set_sepTheory.STAR_def,SPLIT_def] \\ rw[]
   \\ metis_tac[]);
+
+val FFI_part_hprop_SEP_EXISTS = Q.store_thm("FFI_part_hprop_SEP_EXISTS",
+  `(∀x. FFI_part_hprop (P x)) ⇒ FFI_part_hprop (SEP_EXISTS x. P x)`,
+  rw[FFI_part_hprop_def,SEP_EXISTS_THM] \\ res_tac);
 
 val call_main_thm2 = Q.store_thm("call_main_thm2",
   `ML_code env1 st1 prog NONE env2 st2 ==>

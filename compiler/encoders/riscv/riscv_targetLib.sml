@@ -29,7 +29,8 @@ in
         riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
         Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
         Utype_def, UJtype_def],
-       computeLib.Tys ([``:('a, 'b) sum``, ``:asm$cmp``] @ riscv_tys),
+       computeLib.Tys
+         ([``:('a, 'b) sum``, ``:asm$cmp``, ``:ast$shift``] @ riscv_tys),
        computeLib.Convs
          [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
        computeLib.Extenders [pairLib.add_pair_compset]])

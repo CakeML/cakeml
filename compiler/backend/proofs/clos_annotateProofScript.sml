@@ -485,7 +485,7 @@ val env_ok_shifted_env = Q.prove(
   \\ MP_TAC lookup_vars_MEM \\ full_simp_tac(srw_ss())[] \\ STRIP_TAC
   \\ `v_rel (EL k env) (EL (get_var m l i k) env2)` by
    (full_simp_tac(srw_ss())[env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[tlookup_def])
+    \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[zlookup_def])
   \\ Q.PAT_X_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[env_ok_def] \\ DISJ2_TAC
   \\ TRY (`k < l + m` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
@@ -536,7 +536,8 @@ val shift_correct = Q.prove(
     \\ `?y1 l1. free [x] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ `?r1 s2. evaluate ([x],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ `?r1 s2. evaluate ([x],env,s1) = (r1,s2)` by METIS_TAC [PAIR]
+    \\ full_simp_tac(srw_ss())[]
     \\ `?y3 y4. y2 = y3::y4` by
      (IMP_RES_TAC free_LENGTH
       \\ Cases_on `y2` \\ full_simp_tac(srw_ss())[has_var_def,fv_def,fv1_thm])
@@ -550,8 +551,10 @@ val shift_correct = Q.prove(
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`])
     \\ `fv_set [x] SUBSET env_ok m l i env env' /\
         fv_set (y::xs) SUBSET env_ok m l i env env'` by
-      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm])
-    \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm]
+       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
+       \\ full_simp_tac(srw_ss())[])
+    \\ fs[] \\ rpt strip_tac
     \\ `?r2 s3. evaluate (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
     \\ imp_res_tac evaluate_const
@@ -565,11 +568,11 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm]
     \\ Cases_on `l + m <= n`
     THEN1 (full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[] \\ `F` by DECIDE_TAC)
-    \\ reverse (`get_var m l i n < LENGTH env' /\
-        v_rel (EL n env) (EL (get_var m l i n) env')` by ALL_TAC)
+    \\ reverse (sg `get_var m l i n < LENGTH env' /\
+        v_rel (EL n env) (EL (get_var m l i n) env')`)
     THEN1 (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[get_var_def,env_ok_def]
-    \\ Cases_on `n < l` \\ full_simp_tac(srw_ss())[tlookup_def]
+    \\ Cases_on `n < l` \\ full_simp_tac(srw_ss())[zlookup_def]
     \\ `F` by DECIDE_TAC)
   THEN1 (* If *)
    (full_simp_tac(srw_ss())[free_def]
@@ -703,7 +706,7 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[LET_DEF] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ RES_TAC
       \\ SRW_TAC [] []
       \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[get_var_def,zlookup_def]
       \\ DECIDE_TAC)
     \\ reverse IF_CASES_TAC >- (
       imp_res_tac state_rel_max_app \\ fs[])
@@ -761,11 +764,11 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM] \\ RES_TAC
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[get_var_def,zlookup_def]
       \\ DECIDE_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ IMP_RES_TAC free_LENGTH \\ full_simp_tac(srw_ss())[]
-    \\ `LENGTH rec_res = LENGTH x` by ALL_TAC THEN1
+    \\ `LENGTH rec_res = LENGTH x` by
       (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
     \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,Abbr`rec_res`])
     \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm]
@@ -893,8 +896,8 @@ val shift_correct = Q.prove(
     \\ Cases_on `dest_closure s1.max_app loc_opt f (v42::v43)` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Partial_app *)
-     (reverse (`?z. (dest_closure s1'.max_app loc_opt f' (y::ys) = SOME (Partial_app z)) /\
-           v_rel v z` by ALL_TAC) THEN1
+     (reverse (sg `?z. (dest_closure s1'.max_app loc_opt f' (y::ys) = SOME (Partial_app z)) /\
+           v_rel v z`) THEN1
        (full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
         \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
         \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []

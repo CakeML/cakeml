@@ -1,8 +1,11 @@
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
-val _ = map Parse.hide ["exp","max","pos"];
+open clos_to_bvlTheory (* for closure_tag et al. *)
+     lab_to_targetTheory (* for is_Label *)
 
 val _ = new_theory"labSem";
+
+val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;

@@ -9,7 +9,7 @@ regression.cgi : regression.sml pp.uo html.uo heap
 	$(POLYC) -o $@ $<
 
 HOLHEAP = heap
-PARENT_HOLHEAP = ../compiler/eval/heap
+PARENT_HOLHEAP = ../compiler/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

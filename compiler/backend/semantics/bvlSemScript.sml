@@ -1,7 +1,10 @@
 open preamble bvlTheory closSemTheory
-val _ = Parse.hide "exp";
+open clos_to_bvlTheory (* for closure_tag et al. *)
 
 val _ = new_theory"bvlSem"
+
+val _ = Parse.hide "exp";
+val _ = Parse.hide "str";
 
 (* --- Semantics of BVL --- *)
 

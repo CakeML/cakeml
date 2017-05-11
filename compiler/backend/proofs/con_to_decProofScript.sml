@@ -175,6 +175,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   simp[decSemTheory.evaluate_def] >>
   simp[pat_bindings_def,pats_bindings_MAP_Pvar,ALL_DISTINCT_REVERSE,ALL_DISTINCT_GENLIST] >>
   simp[pmatch_def,pmatch_list_Pvar] >>
+  simp[mlintTheory.simple_toChars_thm] >>
   simp[libTheory.opt_bind_def] >>
   (fn g =>
     let

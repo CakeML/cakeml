@@ -9,7 +9,7 @@ all: $(TARGETS)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../semantics/heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

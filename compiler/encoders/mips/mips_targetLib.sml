@@ -9,7 +9,8 @@ val ERR = Feedback.mk_HOL_ERR "mips_targetLib"
 fun mips_type s = Type.mk_thy_type {Thy = "mips", Tyop = s, Args = []}
 
 val mips_tys = List.map mips_type
-  ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
+  ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store",
+   "MultDiv"]
 
 val mips_enc =
   SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM mips_enc_def `x`)
@@ -28,7 +29,7 @@ in
             mips_bop_i_def, mips_sh_def, mips_cmp_def, mips_sh32_def,
             mips_memop_def, form1_def, form2_def, form3_def, form4_def,
             form5_def],
-         computeLib.Tys (``:('a, 'b) sum`` :: mips_tys),
+         computeLib.Tys ([``:('a, 'b) sum``, ``:ast$shift``] @ mips_tys),
          computeLib.Extenders [optionLib.OPTION_rws, pairLib.add_pair_compset]])
 end
 

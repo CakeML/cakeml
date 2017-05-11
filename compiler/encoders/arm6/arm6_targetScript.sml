@@ -60,7 +60,8 @@ val arm6_bop_def = Define`
 val arm6_sh_def = Define`
    (arm6_sh Lsl = SRType_LSL) /\
    (arm6_sh Lsr = SRType_LSR) /\
-   (arm6_sh Asr = SRType_ASR)`
+   (arm6_sh Asr = SRType_ASR) /\
+   (arm6_sh Ror = SRType_ROR)`
 
 val arm6_cmp_def = Define`
    (arm6_cmp Less     = (2w, 0b1011w) : word2 # word4) /\

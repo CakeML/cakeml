@@ -356,8 +356,8 @@ t_unify s' h t = SOME s'')`,
 
 val add_constraint_success = Q.prove(
 `
-  !t1 t2 st st' x.
-  add_constraint t1 t2 st = (Success x, st') ⇔
+  !l t1 t2 st st' x.
+  add_constraint l t1 t2 st = (Success x, st') ⇔
   x = () ∧
   pure_add_constraints st.subst [t1,t2] st'.subst ∧
   st'.next_uvar = st.next_uvar`,
@@ -781,7 +781,7 @@ val rest_uvar_tac =
   pure_add_constraints_rest_tac [`constraints'`,`s'`]>>
   TRY(metis_tac[check_freevars_empty_convert_unconvert_id]);
 
-val extend_uvar_tac = Q_TAC extend_uvar_tac
+val extend_uvar_tac = Q_TAC extend_uvar_tac;
 
 val constrain_op_complete = Q.prove(
 `
@@ -792,10 +792,11 @@ FDOM st.subst ⊆ count st.next_uvar ∧
 FDOM s = count st.next_uvar ∧
 t_wfs st.subst ∧
 MAP (convert_t o (t_walkstar s)) ts' = ts ∧
-EVERY (check_t n {}) (MAP (t_walkstar s) ts')
+EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
+check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
-constrain_op op ts' st = (Success t',st') ∧
+constrain_op l op ts' st = (Success t',st') ∧
 sub_completion n st'.next_uvar st'.subst constraints' s' ∧
 t_compat s s' ∧
 FDOM st'.subst ⊆ count st'.next_uvar ∧
@@ -955,6 +956,33 @@ t = convert_t (t_walkstar s' t')`,
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
     pac_tac)
   >-
+    (extend_uvar_tac`t1`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
+    `pure_add_constraints s' ls s'` by
+      (match_mp_tac pure_add_constraints_ignore >>
+      fs[Abbr`ls`]>>
+      imp_res_tac t_walkstar_SUBMAP>>
+      ntac 2 (pop_assum kall_tac)>>
+      pop_assum (qspec_then`x0` SUBST1_TAC)>>
+      metis_tac[])>>
+    pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
+    fs[pure_add_constraints_append]>>
+    Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1 |>` >>fs[]>>
+    Q.EXISTS_TAC`si`>>
+    Q.EXISTS_TAC`constraints'`>>
+    Q.SPECL_THEN [`n`,`si`,`s'`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+    rfs[]>>
+    rw[]
+    >-
+      metis_tac[t_compat_trans]
+    >-
+      metis_tac[pure_add_constraints_success]
+    >>
+      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
+      fs[t_walkstar_eqn,t_walk_eqn,convert_t_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
+  >-
     (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
     fs[pure_add_constraints_combine]>>
     extend_uvar_tac `t`>>
@@ -1059,7 +1087,7 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
   (!tvs tenv p t tenvE.
   type_p tvs tenv p t tenvE
   ⇒
-  !s ienv st constraints.
+  !l s ienv st constraints.
   tenv_ctor_ok tenv.c ∧
   ienv.inf_c = tenv.c ∧
   ienv.inf_t = tenv.t ∧
@@ -1070,7 +1098,7 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
   FDOM s = count st.next_uvar
   ⇒
   ?t' new_bindings st' s' constraints'.
-    infer_p ienv p st  = (Success (t',new_bindings),st') ∧
+    infer_p l ienv p st  = (Success (t',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1080,7 +1108,7 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
   (!tvs tenv ps ts tenvE.
   type_ps tvs tenv ps ts tenvE
   ⇒
-  !s ienv st constraints.
+  !l s ienv st constraints.
   tenv_ctor_ok tenv.c ∧
   ienv.inf_c = tenv.c ∧
   ienv.inf_t = tenv.t ∧
@@ -1091,7 +1119,7 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
   FDOM s = count st.next_uvar
   ⇒
   ?ts' new_bindings st' s' constraints'.
-    infer_ps ienv ps st = (Success (ts',new_bindings),st') ∧
+    infer_ps l ienv ps st = (Success (ts',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1115,12 +1143,27 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     >>
       fs[simp_tenv_invC_def]>>
       metis_tac[check_freevars_empty_convert_unconvert_id])
+  >-
+    (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
+      mp_tac (GEN_ALL extend_one_props)>>
+    `t_wfs s` by metis_tac[sub_completion_wfs]>>
+    impl_tac >> fs[LET_THM,sub_completion_def]>>
+    qpat_abbrev_tac `s' = s|++A`>>
+    qpat_abbrev_tac `constraints' = constraints ++ B`>> rw[]>>
+    ntac 2 HINT_EXISTS_TAC>>rw[]
+    >-
+      (fs[SUBSET_DEF,count_def]>>rw[]>>res_tac>>DECIDE_TAC)
+    >-
+      metis_tac[SUBMAP_t_compat]
+    >>
+      fs[simp_tenv_invC_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
   >>TRY(ntac 2 HINT_EXISTS_TAC >>
     imp_res_tac sub_completion_wfs>>
     fs[t_walkstar_eqn,convert_t_def,t_walk_eqn,Tchar_def]>>
     metis_tac[t_compat_refl,simp_tenv_invC_empty])
   >-
-   (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+   (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     imp_res_tac tenv_ctor_ok_lookup>>
     Q.SPECL_THEN [`st'`,`constraints'`,`s'`,`ts'`,`tvs`] mp_tac extend_multi_props>>
     impl_keep_tac >-
@@ -1243,7 +1286,7 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
         match_mp_tac check_freevars_to_check_t >>
         fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
   >-
-    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     ntac 2 HINT_EXISTS_TAC>>fs[]>>
     imp_res_tac infer_p_wfs>>
@@ -1251,14 +1294,14 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     fs[Once t_walkstar_eqn,Once t_walk_eqn,convert_t_def,MAP_MAP_o]>>
     fs[MAP_EQ_f])
   >-
-    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     ntac 2 HINT_EXISTS_TAC>>fs[]>>
     imp_res_tac infer_p_wfs>>
     imp_res_tac sub_completion_wfs>>
     fs[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS,convert_t_def])
   >-
-    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (first_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     qmatch_goalsub_abbrev_tac`t_unify _ _ A`>>
     qabbrev_tac`ls = [(t',A)]`>>
@@ -1286,9 +1329,9 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     fs[simp_tenv_invC_def]>>
     metis_tac[t_compat_trans,t_unify_wfs,pure_add_constraints_success])
   >-
-    (last_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (last_x_assum(qspecl_then [`l`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
-    first_x_assum(qspecl_then [`s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+    first_x_assum(qspecl_then [`l`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
     impl_tac>>fs[]
     >- metis_tac[infer_p_wfs]
     >>
@@ -1351,14 +1394,14 @@ val infer_pes_complete = Q.prove(`
       ALL_DISTINCT (pat_bindings (FST x) []) ∧
       type_p (num_tvs tenvE) tenv (FST x) t1 bindings ∧
       type_e tenv (bind_var_list 0 bindings tenvE) (SND x) t2 ∧
-      ∀s'' ienv' st'' constraints''.
+      ∀l s'' ienv' st'' constraints''.
         ienv_ok (count st''.next_uvar) ienv' ∧ t_wfs st''.subst ∧
         FDOM st''.subst ⊆ count st''.next_uvar ∧
         sub_completion (num_tvs (bind_var_list 0 bindings tenvE)) st''.next_uvar st''.subst constraints'' s'' ∧
         FDOM s'' = count st''.next_uvar ∧
         env_rel_complete s'' ienv' tenv (bind_var_list 0 bindings tenvE) ⇒
         ∃t'' st''' s''' constraints'''.
-          infer_e ienv' (SND x) st'' = (Success t'',st''') ∧
+          infer_e l ienv' (SND x) st'' = (Success t'',st''') ∧
           sub_completion (num_tvs tenvE) st'''.next_uvar st'''.subst constraints''' s''' ∧
           FDOM st'''.subst ⊆ count st'''.next_uvar ∧
           FDOM s''' = count st'''.next_uvar ∧ t_compat s'' s''' ∧
@@ -1370,7 +1413,7 @@ val infer_pes_complete = Q.prove(`
   unconvert_t t2 = t_walkstar s' t2'
   ⇒
   ?st'' s'' constraints''.
-  infer_pes ienv pes t1' t2' st' = (Success (), st'') ∧
+  infer_pes l ienv pes t1' t2' st' = (Success (), st'') ∧
   sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s'' ∧
   FDOM st''.subst ⊆ count st''.next_uvar ∧
   FDOM s'' = count st''.next_uvar ∧
@@ -1385,7 +1428,7 @@ val infer_pes_complete = Q.prove(`
   Q.SPECL_THEN [`num_tvs tenvE`,`tenv`,`q`,`t1`,`bindings`] assume_tac
     (fst (CONJ_PAIR infer_p_complete))>>rfs[]>>
   fs[ienv_ok_def,env_rel_complete_def]>>
-  pop_assum(qspecl_then [`s'`,`ienv`,`st'`,`constraints'`] assume_tac)>>rfs[]>>
+  pop_assum(qspecl_then [`l`, `s'`,`ienv`,`st'`,`constraints'`] assume_tac)>>rfs[]>>
   imp_res_tac infer_p_bindings>>
   pop_assum(qspec_then `[]` assume_tac)>>fs[]>>
   qpat_abbrev_tac`ls = [(t1',t')]`>>
@@ -1410,7 +1453,7 @@ val infer_pes_complete = Q.prove(`
   Q.ABBREV_TAC `nst = <|next_uvar:=st''.next_uvar;subst:=s2'|>`>>
   qexists_tac `nst`>>fs[]>>
   qpat_abbrev_tac `ntenv = nsAppend A B`>>
-  first_x_assum(qspecl_then [`si`,`ienv with inf_v := ntenv`,`nst`,`constraints''`] mp_tac)>>
+  first_x_assum(qspecl_then [`l`, `si`,`ienv with inf_v := ntenv`,`nst`,`constraints''`] mp_tac)>>
   impl_keep_tac
   >-
     (fs[Abbr`nst`]>>rw[]
@@ -1611,7 +1654,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
  (!tenv tenvE e t.
    type_e tenv tenvE e t
    ⇒
-   !s ienv st constraints.
+   !loc s ienv st constraints.
      (*Invariants on the typing and inferencer envs*)
      (*check_menv ienv.inf_m ∧
      menv_alpha ienv.inf_m tenv.m ∧*)
@@ -1625,7 +1668,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?t' st' s' constraints'.
-       infer_e ienv e st = (Success t', st') ∧
+       infer_e loc ienv e st = (Success t', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆  count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1634,7 +1677,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
  (!tenv tenvE es ts.
    type_es tenv tenvE es ts
    ⇒
-   !s ienv st constraints.
+   !loc s ienv st constraints.
      (*check_menv ienv.inf_m ∧
      menv_alpha ienv.inf_m tenv.m ∧*)
      ienv_ok (count st.next_uvar) ienv ∧
@@ -1645,7 +1688,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?ts' st' s' constraints'.
-       infer_es ienv es st = (Success ts', st') ∧
+       infer_es loc ienv es st = (Success ts', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1654,7 +1697,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
  (!tenv tenvE funs env.
    type_funs tenv tenvE funs env
    ⇒
-   !s ienv st constraints.
+   !loc s ienv st constraints.
      (*check_menv ienv.inf_m ∧
      menv_alpha ienv.inf_m tenv.m ∧*)
      ienv_ok (count st.next_uvar) ienv ∧
@@ -1665,7 +1708,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?env' st' s' constraints'.
-       infer_funs ienv funs st = (Success env', st') ∧
+       infer_funs loc ienv funs st = (Success env', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1699,7 +1742,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     (*Raise*)
     (rfs[ienv_ok_def]>>
     imp_res_tac check_freevars_to_check_t>>
-    first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     `t_wfs st'.subst ∧ t_wfs s'` by
       (CONJ_ASM1_TAC>> metis_tac[infer_e_wfs,sub_completion_wfs])>>
@@ -1731,7 +1774,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     metis_tac[pure_add_constraints_success,t_compat_trans
              ,check_freevars_empty_convert_unconvert_id])
   >- (*Handler*)
-    (last_x_assum (qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+    (last_x_assum (qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     fs[UNCURRY]>>
     imp_res_tac infer_e_wfs>>
     drule (GEN_ALL infer_pes_complete)>>
@@ -1743,7 +1786,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     `check_t (num_tvs tenvE) {} (t_walkstar s' t')` by
       metis_tac[sub_completion_completes]>>
     fs[]>>
-    disch_then (qspecl_then [`st.next_uvar`,`tenvE`,`tenv`,`t'`,`t`,`Infer_Tapp [] TC_exn`,`Tapp [] TC_exn`,`ienv`,`st'`,`constraints'`,`s'`] mp_tac)>>
+    disch_then (qspecl_then [`st.next_uvar`,`tenvE`,`tenv`,`t'`,`t`,`Infer_Tapp [] TC_exn`,`Tapp [] TC_exn`,`loc`,`ienv`,`st'`,`constraints'`,`s'`] mp_tac)>>
     impl_keep_tac >-
       (fs[env_rel_complete_def]>>rw[]
       >-
@@ -1768,7 +1811,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     fs[t_compat_def]>>
     metis_tac[t_walkstar_no_vars])
   >- (* Con *)
-    (first_x_assum(qspecl_then[`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (first_x_assum(qspecl_then[`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[sub_completion_def,ienv_ok_def]>>fs[env_rel_complete_def]>>
     fs[success_eqns]>>
     qspecl_then [`st'`,`constraints'`,`s'`,`ts'`,`num_tvs tenvE`]
@@ -1874,7 +1917,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         fs[]>>
         metis_tac[check_freevars_empty_convert_unconvert_id,EVERY_EL])
   >- (*Con NONE*)
-     (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+     (first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
      rfs[]>>
      ntac 2 HINT_EXISTS_TAC>>
      fs[t_compat_def]>>
@@ -1945,8 +1988,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     qpat_abbrev_tac `constraints' = constraints ++A`>>
     qpat_abbrev_tac `s' = s|++B`>>
     strip_tac>>
-    qmatch_goalsub_abbrev_tac`infer_e A _ B`>>
-    first_x_assum(qspecl_then[`s'`,`A`,`B`,`constraints'`] mp_tac)>>
+    qmatch_goalsub_abbrev_tac`infer_e _ A _ B`>>
+    first_x_assum(qspecl_then[`loc`, `s'`,`A`,`B`,`constraints'`] mp_tac)>>
     impl_tac>>fs[num_tvs_def,Abbr`A`,Abbr`B`]
     >-
       (fs[ienv_ok_def,ienv_val_ok_def]>>rw[]
@@ -1992,7 +2035,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      fs[convert_t_def,Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS]>>
      metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])
   >- (*App*)
-    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[ienv_ok_def]>>
+    (first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[ienv_ok_def]>>
     `MAP (convert_t o (t_walkstar s')) ts' = ts ∧
      EVERY (check_t (num_tvs tenvE) {}) (MAP (t_walkstar s') ts')` by
       (imp_res_tac infer_e_check_t>>
@@ -2004,15 +2047,15 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       rfs[sub_completion_def]>>
       first_x_assum match_mp_tac>>fs[]>>
       metis_tac[infer_e_wfs,pure_add_constraints_wfs])>>
-    Q.SPECL_THEN [`ts'`,`ts`,`t`,`st'`,`s'`,`op`,`constraints'`,`num_tvs tenvE`] mp_tac
+    Q.SPECL_THEN [`ts'`,`ts`,`t`,`st'`,`s'`,`op`,`loc`,`constraints'`,`num_tvs tenvE`] mp_tac
       (GEN_ALL constrain_op_complete)>>
     impl_keep_tac>- (fs[]>>metis_tac[infer_e_wfs])>>
     fs[]>>metis_tac[t_compat_trans])
   >- (*Log*)
     (last_x_assum(qspecl_then
-      [`s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+      [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     first_x_assum(qspecl_then
-      [`s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+      [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
     fs[ienv_ok_def]>>
     impl_keep_tac
     >-
@@ -2065,7 +2108,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      AP_TERM_TAC>>
      fs[Abbr`ls`])
   >- (*If *)
-    (last_x_assum (qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (last_x_assum (qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[ienv_ok_def]>>
     qpat_abbrev_tac `ls = [t',Infer_Tapp [] B]`>>
     pure_add_constraints_ignore_tac `s'`>-
@@ -2086,7 +2129,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
     qabbrev_tac `nst = <|next_uvar:=st'.next_uvar;subst:=s2'|>`>>
     qexists_tac `nst`>>
-    last_x_assum(qspecl_then [`si`,`ienv`,`nst`,`constraints'`]
+    last_x_assum(qspecl_then [`loc`, `si`,`ienv`,`nst`,`constraints'`]
       mp_tac)>>
     impl_keep_tac>>fs[Abbr`nst`]
     >-
@@ -2099,7 +2142,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         metis_tac[pure_add_constraints_success,ienv_val_ok_more])
     >>
     rw[]>>fs[PULL_EXISTS]>>
-    last_x_assum(qspecl_then [`s'''`,`ienv`,`st'''`
+    last_x_assum(qspecl_then [`loc`, `s'''`,`ienv`,`st'''`
                              ,`constraints'''`] mp_tac)>>
     impl_keep_tac
     >-
@@ -2149,7 +2192,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    AP_TERM_TAC>>
    metis_tac[t_walkstar_no_vars,t_compat_def])
   >- (*Mat*)
-    (last_x_assum (qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (last_x_assum (qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     fs[UNCURRY,sub_completion_def]>>
     (*This proof is too complicated, there's probably a simpler way*)
@@ -2161,7 +2204,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       qabbrev_tac `t1 = convert_t(t_walkstar s' t'')`>>
       Q.SPECL_THEN [`num_tvs tenvE`,`tenv`,`q`,`t1`,`bindings`] assume_tac
         (fst (CONJ_PAIR infer_p_complete))>>rfs[]>>
-      pop_assum(qspecl_then [`s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+      pop_assum(qspecl_then [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
       impl_keep_tac
       >-
         (fs[sub_completion_def,env_rel_complete_def,ienv_ok_def]>>
@@ -2171,7 +2214,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       fs[sub_completion_def,env_rel_complete_def,ienv_ok_def]>>
       qabbrev_tac `ntenv = nsAppend (alist_to_ns (MAP (λ(n,t). (n,0,t)) new_bindings)) ienv.inf_v`>>
       first_x_assum(qspecl_then
-        [`s''`,`ienv with inf_v := ntenv`,`st''`,`constraints''`] mp_tac)>>
+        [`loc`, `s''`,`ienv with inf_v := ntenv`,`st''`,`constraints''`] mp_tac)>>
       impl_keep_tac>-
         (fs[Abbr`ntenv`]>>CONJ_TAC
         >-
@@ -2245,7 +2288,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    `sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s''` by fs[sub_completion_def,Abbr`st''`]>>
     assume_tac (GEN_ALL infer_pes_complete)>>
     pop_assum (qspecl_then
-      [`st.next_uvar`,`tenvE`,`tenv`,`Infer_Tuvar st'.next_uvar`,`t'`,`t''`,`convert_t(t_walkstar s' t'')`,`ienv`,`pes`,`st''`,`constraints''`,`s''`] mp_tac)>>
+      [`st.next_uvar`,`tenvE`,`tenv`,`Infer_Tuvar
+      st'.next_uvar`,`t'`,`t''`,`convert_t(t_walkstar s' t'')`,`loc`,`ienv`,`pes`,`st''`,`constraints''`,`s''`] mp_tac)>>
     impl_tac
     >- (fs[Abbr`st''`,sub_completion_def]>>
        imp_res_tac infer_e_next_uvar_mono>>fs[]>>
@@ -2274,11 +2318,11 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         pop_assum(qspec_then `Infer_Tuvar st'.next_uvar` assume_tac)>>rfs[]>>
         metis_tac[t_walkstar_no_vars,check_freevars_empty_convert_unconvert_id,check_freevars_to_check_t]))
   >- (*Let*)
-    (last_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (last_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     Cases_on `n`>>fs[nsOptBind_def]
     >-
-      (first_x_assum(qspecl_then [`s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+      (first_x_assum(qspecl_then [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
       rfs[ienv_ok_def,opt_bind_name_def]>>
       impl_keep_tac>-
         (imp_res_tac infer_e_next_uvar_mono>> reverse(rw[])
@@ -2290,8 +2334,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       rw[]>>
       metis_tac[t_compat_trans])
     >>
-      qmatch_goalsub_abbrev_tac`infer_e A _ _`>>
-      first_x_assum(qspecl_then[`s'`,`A`,`st'`,`constraints'`] mp_tac)>>
+      qmatch_goalsub_abbrev_tac`infer_e _ A _ _`>>
+      first_x_assum(qspecl_then[`loc`, `s'`,`A`,`st'`,`constraints'`] mp_tac)>>
       impl_keep_tac>>fs[opt_bind_name_def,num_tvs_def,Abbr`A`]
       >-
         (imp_res_tac infer_e_check_t>>rfs[ienv_ok_def]>>
@@ -2367,7 +2411,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     >>
     LET_ELIM_TAC>>
     qpat_abbrev_tac `st' = st with next_uvar:=A`>>
-    last_x_assum(qspecl_then [`s'`,`ienv with inf_v :=new_tenv`,`st'`
+    last_x_assum(qspecl_then [`loc`, `s'`,`ienv with inf_v :=new_tenv`,`st'`
                              ,`constraints++new_constraints`] mp_tac)>>
     impl_keep_tac>-
       (fs[Abbr`st'`,num_tvs_bind_var_list]>>
@@ -2495,7 +2539,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     CONV_TAC (RESORT_EXISTS_CONV List.rev)>>
     qabbrev_tac`nst = <|next_uvar:=st''.next_uvar;subst:=s2'''|>`>>
     qexists_tac`nst`>>
-    first_x_assum(qspecl_then [`si`,`ienv with inf_v := new_tenv`
+    first_x_assum(qspecl_then [`loc`, `si`,`ienv with inf_v := new_tenv`
                               ,`nst`,`constraints''`] mp_tac)>>
     impl_tac>-
       (imp_res_tac infer_e_next_uvar_mono>>
@@ -2520,7 +2564,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     fs[Abbr`nst`]>>
     metis_tac[t_compat_trans,SUBMAP_t_compat])
   >- (* Tannot *)
-    (first_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (first_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
     qmatch_goalsub_abbrev_tac`pure_add_constraints _ ls _`>>
     drule (CONJUNCT1 infer_e_wfs) >>
@@ -2547,12 +2591,13 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     disch_then(qspec_then`si'` assume_tac)>>rfs[]>>
     fs[simp_tenv_invC_def,env_rel_complete_def]>>
     metis_tac[t_compat_trans,t_unify_wfs,pure_add_constraints_success])
+  >- metis_tac []
   >-
     (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
   >-
-    (last_x_assum(qspecl_then [`s`,`ienv`,`st`,`constraints`] assume_tac)>>
+    (last_x_assum(qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[ienv_ok_def]>>
-    last_x_assum(qspecl_then [`s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+    last_x_assum(qspecl_then [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
     impl_tac>>fs[]
     >-
       (imp_res_tac infer_e_next_uvar_mono >> reverse (rw[])
@@ -2583,8 +2628,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
     qpat_abbrev_tac `constraints' = constraints ++A`>>
     qpat_abbrev_tac `s' = s|++B`>>
     strip_tac>>
-    qmatch_goalsub_abbrev_tac`infer_e A _ B`>>
-    last_x_assum(qspecl_then[`s'`,`A`,`B`,`constraints'`] mp_tac)>>
+    qmatch_goalsub_abbrev_tac`infer_e _ A _ B`>>
+    last_x_assum(qspecl_then[`loc`, `s'`,`A`,`B`,`constraints'`] mp_tac)>>
     impl_keep_tac>>fs[num_tvs_def,Abbr`A`,Abbr`B`]
     >-
       (rw[]
@@ -2624,7 +2669,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
           first_assum (match_exists_tac o concl)>>fs[])>>
     rw[]>>
     fs[PULL_EXISTS]>>
-    first_x_assum(qspecl_then[`s''`,`ienv with inf_v:= ienv.inf_v`,`st''`,`constraints''`] mp_tac)>>
+    first_x_assum(qspecl_then[`loc`, `s''`,`ienv with inf_v:= ienv.inf_v`,`st''`,`constraints''`] mp_tac)>>
     impl_keep_tac>> fs[]
     >-
       (imp_res_tac infer_e_next_uvar_mono>>fs[]>>
