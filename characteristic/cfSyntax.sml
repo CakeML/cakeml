@@ -37,6 +37,7 @@ local
   val s8 = HolKernel.syntax_fns {n = 8, make = make8, dest = dest8} "cf"
 in
 
+val (cf_let_tm, mk_cf_let, dest_cf_let, is_cf_let) = s6 "cf_let"
 val (cf_lit_tm, mk_cf_lit, dest_cf_lit, is_cf_lit) = s4 "cf_lit"
 val (cf_con_tm, mk_cf_con, dest_cf_con, is_cf_con) = s5 "cf_con"
 val (cf_var_tm, mk_cf_var, dest_cf_var, is_cf_var) = s4 "cf_var"
