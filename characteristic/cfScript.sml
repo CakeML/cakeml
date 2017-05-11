@@ -1909,14 +1909,14 @@ val cf_letrec_sound_aux = Q.prove (
     impl_tac
 
     THEN1 (
-      `MEM (f, params, inner_body) (letrec_pull_params funs)` by all_tac
+      sg `MEM (f, params, inner_body) (letrec_pull_params funs)`
       THEN1 (
         qpat_assum `_ = funs` (assume_tac o GSYM) \\
         fs [letrec_pull_params_append, letrec_pull_params_def] \\
         DISJ1_TAC \\ DISJ2_TAC \\
         Cases_on `Fun_body body` \\ fs []
       ) \\
-      `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by all_tac
+      sg `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)`
       THEN1 (
         fs [semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] \\
         irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [GSYM FST_rw] \\
@@ -1927,7 +1927,7 @@ val cf_letrec_sound_aux = Q.prove (
         irule curried_naryRecclosure \\ fs []
       )
       THEN1 (
-        `sound p inner_body (cf p inner_body)` by all_tac
+        sg `sound p inner_body (cf p inner_body)`
         THEN1 (first_assum progress \\ fs []) \\
         pop_assum (progress o REWRITE_RULE [sound_def]) \\
         irule app_rec_of_htriple_valid \\ fs [] \\
@@ -2116,12 +2116,12 @@ val cf_ffi_sound = Q.prove (
      \\ qexists_tac `new_events` \\ fs []) \\
    match_mp_tac SPLIT3_of_SPLIT_emp3 \\
    qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
-   `f1 = (ffi2heap (p0,p1) st.ffi DELETE
+   sg `f1 = (ffi2heap (p0,p1) st.ffi DELETE
           FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns events1)
-         UNION {FFI_part s' u ns new_events}` by all_tac THEN1
+         UNION {FFI_part s' u ns new_events}` THEN1
      (unabbrev_all_tac \\ fs [ffi2heap_def] \\
       reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ pop_assum mp_tac \\ fs [] \\
+       (sg `F` \\ pop_assum mp_tac \\ fs [] \\
         fs [parts_ok_def] \\ conj_tac THEN1
          (fs [ffi_has_index_in_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
           \\ asm_exists_tac \\ fs [])
