@@ -70,34 +70,186 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 (* w2w has to be translated for every single use *)
-val _ = translate (INST_TYPE[alpha|->``:5``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:16``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:3``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:26``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:6``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:64``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:16``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:5``,beta|->``:8``] w2w_def)
+val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:8``] w2w_def)
 val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:16``] w2w_def)
 val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:32``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:32``,beta|->``:16``] w2w_def)
 
-(* This inlines and simplifies all the form*s, might be a bad idea... *)
-val _ = translate (Encode_def |> SIMP_RULE std_ss [form1_def,form2_def,form3_def,form4_def,form5_def,form6_def] |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> gconv)
+(* TODO: move this stuff to preamble or
+        some other library, for use in other translations *)
 
-val _ = translate (mips_encode_def |> we_simp |> econv)
+(*simple CSE *)
+fun lrthm strip th = th |> SPEC_ALL |> concl |> dest_eq |> (fn (x,y) => (strip x,y))
+
+fun count_terms tlist =
+  foldl (fn (t,d) => case Redblackmap.peek(d,t) of
+      SOME n => Redblackmap.insert (d,t,n+1)
+    |  _ => Redblackmap.insert (d,t,1)) (Redblackmap.mkDict Term.compare) tlist
+
+fun is_subterm x y =
+  patternMatchesSyntax.has_subterm (fn t => t = x) y
+
+fun mostgen x [] acc = (x,acc)
+|   mostgen x (y::ys) acc =
+  if is_subterm x y then mostgen y ys acc
+  else if is_subterm y x then mostgen x ys acc
+  else mostgen x ys (y::acc)
+
+fun filsubs [] = []
+|   filsubs (x::xs) =
+  let val (k,vs) = mostgen x xs [] in
+    k :: filsubs vs
+  end
+
+fun is_fun_type t =
+  (can dom_rng (type_of t))
+
+fun let_abs v t tt =
+  mk_let (mk_abs(v,subst [(t |-> v)] tt),t)
+
+fun cse lim t =
+  let val fvt = free_vars t
+      val foo = count_terms (find_terms (fn tt =>
+        let val fvs = free_vars tt in
+          all (fn v => mem v fvt) fvs andalso
+          fvs <> [] andalso
+          not(is_fun_type tt) andalso
+          not(is_var tt)
+        end) t)
+      val tlist = map fst (filter (fn (k,v) => v > lim) (Redblackmap.listItems foo))
+      val toabs = filsubs tlist
+      val name = "cse" in
+      #2(foldl (fn (t,(i,tt)) => (i+1,let_abs (mk_var (name^Int.toString i,type_of t)) t tt))
+        (0,t) toabs)
+  end
+
+fun csethm lim th =
+  let val (l,r) = lrthm I th
+      val goal = mk_eq(l,cse lim r) in
+      prove(goal, simp[th])
+  end
+
+(* reconstructs a case goal *)
+fun reconstruct_case t strip ths =
+  let val rhs = TypeBase.mk_case (strip t,map (lrthm strip) ths)
+  in
+    prove(mk_forall (strip t,mk_eq (t,rhs)),Cases >> simp ths) |> SPEC_ALL
+  end
+(* -- *)
 
 val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
 
-val _ = translate (mips_ast_def |> CONV_RULE (wordsLib.WORD_CONV) |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> SIMP_RULE std_ss[spec_word_bit,word_mul_def]|> econv)
+val defaults =
+  [mips_ast_def,mips_encode_def,Encode_def,
+   mips_bop_r_def, mips_bop_i_def, mips_memop_def,
+   mips_encode_fail_def,
+   form1_def,form2_def,form3_def,form4_def,form5_def,form6_def]
 
-val mips_ast_side = Q.prove(`
-  ∀x. mips_ast_side x ⇔ T`,
-  simp[fetch "-" "mips_ast_side_def"]>>rw[]>>
-  EVAL_TAC) |> update_precondition
+val mips_enc_thms =
+  mips_enc_def
+  |> SIMP_RULE std_ss [FUN_EQ_THM]
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:64 asm``])[]
+  |> CONJUNCTS
+val mips_enc1 = el 1 mips_enc_thms
+val mips_enc2 = el 2 mips_enc_thms
+val mips_enc3 = el 3 mips_enc_thms
+val mips_enc4 = el 4 mips_enc_thms
+val mips_enc5 = el 5 mips_enc_thms
+val mips_enc6 = el 6 mips_enc_thms
 
-val _ = translate (mips_enc_def |> SIMP_RULE std_ss [o_DEF,FUN_EQ_THM])
+val mips_enc1s =
+  mips_enc1
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 inst``]) defaults
+  |> CONJUNCTS
 
-val _ = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
+val mips_enc1_1 = el 1 mips_enc1s
+val mips_enc1_2 = el 2 mips_enc1s
+  |> SIMP_RULE (srw_ss()++LET_ss) ([Ntimes COND_RAND 5,COND_RATOR,spec_word_bit]@defaults)
+  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+  |> csethm 5
+
+val (binop::shift::rest) = el 3 mips_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+
+val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``]) [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
+
+val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+
+val binopregth = reconstruct_case ``mips_enc (Inst (Arith (Binop b n n0 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
+
+val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
+  |> SIMP_RULE (srw_ss()++LET_ss)
+               (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR :: word_mul_def :: defaults)
+  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+
+val binopimmth = reconstruct_case ``mips_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) binopimm
+
+val binopth = reconstruct_case ``mips_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+
+val shiftths =
+  shift
+  |> SIMP_RULE(srw_ss()++LET_ss++DatatypeSimps.expand_type_quants_ss[``:shift``])
+      (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+       Q.ISPEC`LIST_BIND`COND_RAND ::
+       COND_RATOR ::
+       mips_sh32_def :: mips_sh_def ::
+      defaults)
+  |> CONJUNCTS
+  |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+
+val shiftth = reconstruct_case ``mips_enc(Inst (Arith (Shift s n n0 n1)))``
+  (rand o funpow 3 rator o funpow 3 rand) shiftths
+
+val mips_enc1_3_aux = binopth :: shiftth :: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]) rest
+
+val mips_enc1_3 = reconstruct_case ``mips_enc (Inst (Arith a))`` (rand o rand o rand) mips_enc1_3_aux
+
+val mips_enc1_4_aux = el 4 mips_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
+
+val mips_enc1_4 = reconstruct_case ``mips_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``mips_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) mips_enc1_4_aux]
+
+val mips_simp1 = reconstruct_case ``mips_enc (Inst i)`` (rand o rand) [mips_enc1_1,mips_enc1_2,mips_enc1_3,mips_enc1_4]
+
+val mips_simp2 = mips_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val mips_enc3_aux = mips_enc3
+  |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
+  |> CONJUNCTS
+  |> map (fn th => th
+     |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
+                  (mips_cmp_def::defaults)
+     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+
+val mips_enc3_1 = el 1 mips_enc3_aux
+val mips_enc3_2 = el 2 mips_enc3_aux
+
+val mips_enc3_1_th =
+  mips_enc3_1 |> CONJUNCTS
+  |> reconstruct_case ``mips_enc (JumpCmp c n (Reg n') c0)``
+     (rand o funpow 3 rator o rand)
+
+val mips_enc3_2_th =
+  mips_enc3_2 |> CONJUNCTS
+  |> reconstruct_case ``mips_enc (JumpCmp c n (Imm c') c0)``
+     (rand o funpow 3 rator o rand)
+
+val mips_simp3 =
+  reconstruct_case ``mips_enc (JumpCmp c n r c0)`` (rand o rator o rand)
+    [mips_enc3_1_th,mips_enc3_2_th]
+
+val mips_simp4 = mips_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val mips_simp5 = mips_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val mips_simp6 = mips_enc6
+  |> SIMP_RULE (srw_ss() ++ LET_ss) (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR :: defaults)
+  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val mips_enc_thm = reconstruct_case ``mips_enc i`` rand [mips_simp1,mips_simp2,mips_simp3,mips_simp4,mips_simp5,mips_simp6]
+
+val res = translate mips_enc_thm
+
+val res = translate (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
