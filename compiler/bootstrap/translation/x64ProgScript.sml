@@ -24,7 +24,7 @@ fun def_of_const tm = let
               failwith ("Unable to translate: " ^ term_to_string tm)
   val name = (#Name res)
   fun def_from_thy thy name =
-    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>    
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
     DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
@@ -80,21 +80,136 @@ val _ = translate (INST_TYPE[alpha|->``:2``,beta|->``:8``] w2w_def)
 val _ = translate (INST_TYPE[alpha|->``:3``,beta|->``:4``] w2w_def)
 val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:33``] w2w_def)
 
-val _ = translate (e_imm32_def |> we_simp |> econv)
+(*simple CSE *)
+fun lrthm strip th = th |> SPEC_ALL |> concl |> dest_eq |> (fn (x,y) => (strip x,y))
 
-val _ = translate (e_imm8_def |> we_simp |> econv)
+fun count_terms tlist =
+  foldl (fn (t,d) => case Redblackmap.peek(d,t) of
+      SOME n => Redblackmap.insert (d,t,n+1)
+    |  _ => Redblackmap.insert (d,t,1)) (Redblackmap.mkDict Term.compare) tlist
 
-val _ = translate (e_ModRM_def |> wc_simp |> we_simp |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,SHIFT_ZERO] |> gconv)
+fun is_subterm x y =
+  patternMatchesSyntax.has_subterm (fn t => t = x) y
 
-val _ = translate (rex_prefix_def |> wc_simp |> we_simp |> econv)
+fun mostgen x [] acc = (x,acc)
+|   mostgen x (y::ys) acc =
+  if is_subterm x y then mostgen y ys acc
+  else if is_subterm y x then mostgen x ys acc
+  else mostgen x ys (y::acc)
 
-val _ = translate (e_imm16_def |> we_simp |> econv)
-val _ = translate (e_imm64_def |> we_simp |> econv)
+fun filsubs [] = []
+|   filsubs (x::xs) =
+  let val (k,vs) = mostgen x xs [] in
+    k :: filsubs vs
+  end
 
-val _ = translate (encode_def|>SIMP_RULE std_ss [word_bit_thm] |> wc_simp |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO] |> gconv)
+fun is_fun_type t =
+  (can dom_rng (type_of t))
 
-val _ = translate (x64_ast_def |> we_simp |> gconv)
+fun let_abs v t tt =
+  mk_let (mk_abs(v,subst [(t |-> v)] tt),t)
 
+fun cse lim t =
+  let val fvt = free_vars t
+      val foo = count_terms (find_terms (fn tt =>
+        let val fvs = free_vars tt in
+          all (fn v => mem v fvt) fvs andalso
+          fvs <> [] andalso
+          not(is_fun_type tt) andalso
+          not(is_var tt)
+        end) t)
+      val tlist = map fst (filter (fn (k,v) => v > lim) (Redblackmap.listItems foo))
+      val toabs = filsubs tlist
+      val name = "cse" in
+      #2(foldl (fn (t,(i,tt)) => (i+1,let_abs (mk_var (name^Int.toString i,type_of t)) t tt))
+        (0,t) toabs)
+  end
+
+fun csethm lim th =
+  let val (l,r) = lrthm I th
+      val goal = mk_eq(l,cse lim r) in
+      prove(goal, simp[th])
+  end
+
+(*x64_enc i = case i of ... each of ths is one branch*)
+(* reconstructs a case goal *)
+fun reconstruct_case t strip ths =
+  let val rhs = TypeBase.mk_case (strip t,map (lrthm strip) ths)
+  in
+    prove(mk_forall (strip t,mk_eq (t,rhs)),Cases >> simp ths) |> SPEC_ALL
+  end
+
+val (x64_enc1::x64_enc2::x64_enc3::x64_enc4::x64_enc5::x64_enc6::_) =
+x64_enc_def
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:64 asm``])[]
+  |> CONJUNCTS
+
+val zreg2num_totalnum2zerg = Q.prove(`
+  Zreg2num (total_num2Zreg n) = if n < 16 then n else 0`,
+  EVAL_TAC>>IF_CASES_TAC>>fs[Zreg2num_num2Zreg]);
+
+val Zbinop_name2num_x64_sh = Q.prove(`
+  ∀s.Zbinop_name2num (x64_sh s) =
+  case s of
+    Lsl => 12
+  | Lsr => 13
+  | Asr => 15
+  | Ror => 9`,  Cases>>EVAL_TAC);
+
+val x64_sh_notZtest = Q.prove(`
+  ∀s.(x64_sh s) ≠ Ztest `,Cases>>EVAL_TAC);
+
+val exh_if_collapse = Q.prove(`
+  ((if P then Ztest else Zcmp) = Ztest) ⇔ P `,rw[]);
+
+val defaults = [x64_ast_def,x64_encode_def,encode_def,e_rm_reg_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse]
+
+(*val x64_simp1 = x64_enc1 |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 inst``,``:64 arith``,``:64 addr``,``:memop``,``:binop``,``:64 reg_imm``])[] |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]*)
+
+val x64_enc1s = x64_enc1 |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 inst``]) defaults |> CONJUNCTS
+
+val x64_enc1_1 = el 1 x64_enc1s
+val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 5
+
+val (binop::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+
+val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``]) [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
+
+val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+
+val binopregth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
+
+val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+
+val binopimmth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 3) binopimm)
+
+val binopth = reconstruct_case ``x64_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+
+val x64_enc1_3_aux = binopth :: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 4) rest
+
+val x64_enc1_3 = reconstruct_case ``x64_enc (Inst (Arith a))`` (rand o rand o rand) x64_enc1_3_aux
+
+val x64_enc1_4_aux = el 4 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
+
+val x64_enc1_4 = reconstruct_case ``x64_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``x64_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) (map (csethm 2) x64_enc1_4_aux)]
+
+val x64_simp1 = reconstruct_case ``x64_enc (Inst i)`` (rand o rand) [x64_enc1_1,x64_enc1_2,x64_enc1_3,x64_enc1_4]
+ |> SIMP_RULE std_ss [Q.ISPEC `Zbinop_name2num` COND_RAND,Zbinop_name2num_thm]
+
+val x64_simp2 = x64_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val x64_simp3 = x64_enc3 |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])[FORALL_AND_THM] |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS |> map (csethm 5) |> reconstruct_case ``x64_enc (JumpCmp c n r c0)`` (rand o rator o rand )
+ |> SIMP_RULE std_ss [Q.ISPEC `Zbinop_name2num` COND_RAND,Zbinop_name2num_thm,Q.ISPEC `$* 0xFFFFFFFFFFFFFFFFw` COND_RAND] |> gconv
+
+val x64_simp4 = x64_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+
+val x64_simp5 = x64_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 2
+
+val x64_simp6 = x64_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 2
+
+val x64_enc_thm = reconstruct_case ``x64_enc i`` rand [x64_simp1,x64_simp2,x64_simp3,x64_simp4,x64_simp5,x64_simp6]
+
+val _ = translate total_num2Zreg_def
 val total_num2zreg_side = Q.prove(`
   ∀x. total_num2zreg_side x ⇔ T`,
   simp[fetch "-" "total_num2zreg_side_def"]>>
@@ -104,13 +219,9 @@ val total_num2zreg_side = Q.prove(`
   Cases_on`x`>>FULL_SIMP_TAC std_ss [ADD1]>>
   ntac 7 (Cases_on`n`>>FULL_SIMP_TAC std_ss [ADD1]>>
   Cases_on`n'`>>FULL_SIMP_TAC std_ss [ADD1])>>
-  Cases_on`n`>>fs[])
+  Cases_on`n`>>fs[]) |> update_precondition
 
-val x64_ast_side = Q.prove(`
-  ∀x. x64_ast_side x ⇔ T`,
-  simp[fetch "-" "x64_ast_side_def",total_num2zreg_side]) |> update_precondition
-
-val _ = translate x64_enc_def
+val res = translate (GEN_ALL x64_enc_thm)
 
 val _ = translate (x64_config_def |> gconv)
 
