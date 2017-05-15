@@ -1,6 +1,6 @@
 open  preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory;
-
+    
 val _ = new_theory "queueProg";
 
 val _ = translation_extends"ioProg";
@@ -118,34 +118,114 @@ fun get_heap_pred_ptr p =
 
 (* [dest_postv] *)
 val postv_tm = ``cfHeapsBase$POSTv``;
-fun dest_postv c = dest_binder postv_tm (ERR "dest_heap_condition" "The condition does not begin with a POSTv abstraction") c;
+fun dest_postv c =
+  dest_binder postv_tm (ERR "dest_postv" "Not a POSTv abstraction") c;
 
-(* [dest_hc_postv]
-  Deconstructs the POSTv of a heap condition (if there is) *)
-fun dest_hc_postv varsl c =
-  let val (postv, c1) =
-    let
-      val (postv_, c1_) = dest_postv c
-      val postv_2 = variant varsl postv_
-      val c2_ = Term.subst [postv_ |-> postv_2] c1_
-    in
-      (SOME postv_2, c2_)
-    end
-    handle HOL_ERR _ => (NONE, c)
+(* [is_postv] *)
+fun is_postv c =
+  let val _ = dest_binder postv_tm (ERR "" "") c in true end handle _ => false;
+
+(* [rename_dest_postv]
+   Deconstructs the POSTv of a heap condition and rename the POSTv value
+   so that it is a fresh variable. *)
+fun rename_dest_postv (varsl, c) =
+  let
+      val (v, c1) = dest_postv c
+      val v' = variant varsl v
+      val c2 = Term.subst [v |-> v'] c1
   in
-    (postv, c1)
+      (v', c2)
   end;
-  
-(* [dest_hc_exists]
-  Deconstructs the existential quantifiers of a heap condition *)
-fun dest_hc_exists varsl c =
+
+(* [dest_poste] *)
+val poste_tm = ``cfHeapsBase$POSTe``;
+fun dest_poste c =
+  dest_binder poste_tm (ERR "dest_poste" "Not a POSTe abstraction") c;
+
+(* [is_poste] *)
+fun is_poste c =
+  let val _ = dest_binder poste_tm (ERR "" "") c in true end handle _ => false;
+
+(* [rename_dest_poste]
+   Deconstructs the POSTe of a heap condition and rename the POSTe value
+   so that it is a fresh variable. *)
+fun rename_dest_poste (varsl, c) =
+  let
+      val (v, c1) = dest_poste c
+      val v' = variant varsl v
+      val c2 = Term.subst [v |-> v'] c1
+  in
+      (v', c2)
+  end;
+
+(* [dest_post] *)
+val post_tm = ``cfHeapsBase$POST``;
+fun dest_post c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      if same_const ptm post_tm then
+	  let
+	      val (postv_v, postv_pred) = dest_abs postv_abs
+	      val (poste_v, poste_pred) = dest_abs poste_abs
+	  in
+	      (postv_v, postv_pred, poste_v, poste_pred)
+	  end
+      else
+	  raise (ERR "" "")
+  end
+  handle _ => raise (ERR "dest_post" "Not a POST abstraction");
+
+(* [is_post] *)
+fun is_post c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      if same_const ptm post_tm then true else false
+  end
+  handle _ => false;
+
+(* [rename_dest_post] *)
+fun rename_dest_post (varsl, c) =
+  if is_postv c then
+      let
+	  val (postv_v, postv_pred) = dest_postv c
+	  val postv_v' = variant varsl postv_v
+	  val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
+      in
+	  (SOME postv_v', SOME postv_pred', NONE, NONE) end
+  else if is_poste c then
+      let
+	  val (poste_v, poste_pred) = dest_poste c
+	  val poste_v' = variant varsl poste_v
+	  val poste_pred' = Term.subst [poste_v |-> poste_v']  poste_pred
+      in
+	  (NONE, NONE, SOME poste_v', SOME poste_pred') end
+  else if is_post c then
+      let
+	  val (postv_v, postv_pred, poste_v, poste_pred) = dest_post c
+	  val postv_v' = variant varsl postv_v
+	  val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
+	  val poste_v' = variant (postv_v'::varsl) poste_v
+	  val poste_pred' = Term.subst [poste_v |-> poste_v']  poste_pred
+      in
+	  (SOME postv_v', SOME postv_pred', SOME poste_v', SOME poste_pred') end
+  else
+      raise (ERR "rename_dest_post" "Not a heap post-condition");
+
+(* [rename_dest_exists]
+  Deconstructs the existential quantifiers of a heap condition,
+  and rename the previsouly bound variables to prevent name conflicts. *)
+fun rename_dest_exists (varsl, c) =
   let fun rec_dest varsl lv c =
     if is_sep_exists c then
       let
         val (nv, nc) = dest_sep_exists c
 	val nv' = variant varsl nv
 	val nc' = Term.subst [nv |-> nv'] nc
-	val (nlv, fc) = rec_dest (nv'::varsl)  lv nc'
+	val (nlv, fc) = rec_dest (nv'::varsl) lv nc'
       in
         (nv'::nlv, fc)
       end
@@ -176,11 +256,12 @@ fun sort_heap_pred hp hpl pfl =
   end
   handle HOL_ERR _ => (hp::hpl, pfl);
 
-(* dest_hc_star
+
+(* list_dest_star
    Deconstructs a (star) conjunction of heap conditions.
    Splits the conjuntcs between heap conditions and pure facts.
  *)
-fun dest_hc_star c =
+fun list_dest_star c =
   let fun rec_dest hpl pfl c =
     let
       val (nc1, nc2) = dest_star c
@@ -208,55 +289,81 @@ fun list_heap_ptrs hpl =
       SOME v => v::ptrs
       | NONE => ptrs
     end
-  | [] => ([]:term list);
+   | [] => ([]:term list);
 
 (* [dest_heap_condition]
-  Deconstructs a heap pre/post condition. Needs to be provided a list of terms
+  Deconstructs a heap predicate. Needs to be provided a list of terms
   representing variables to avoid name collision
   Returns:
-  - the POSTv variable
   - the list of existentially quantified variables
   - the list of heap pointers used in the heap predicates
   - the list of heap predicates
   - the list of pure facts *)
-fun dest_heap_condition varsl c =
+fun dest_heap_condition (varsl, c) =
   let
-    val (postv_v, c1)  = dest_hc_postv varsl c
-    val varsl' = case postv_v of SOME v => v::varsl | NONE => varsl
-    val (ex_vl, c2) = dest_hc_exists varsl' c1
-    val (hpl, pfl) = dest_hc_star c2
+    val (ex_vl, c') = rename_dest_exists (varsl, c)
+    val (hpl, pfl) = list_dest_star c'
     val ptrs = list_heap_ptrs hpl
   in
-    (postv_v, ex_vl, ptrs, hpl, pfl)
+    (ex_vl, hpl, pfl)
   end;
 
-(* [mk_postv] *)
-fun mk_postv postv_v c = mk_binder postv_tm "mk_postv" (postv_v, c);
-  
 (* [mk_heap_condition]
-   Creates a heap pre/post condition.
+   Creates a heap condition of the form:
+      (SEP_EXISTS x1...xn. H1 * ... Hk * &P1 * ... * &Pl)
    Parameters:
-   - the (eventual) POSTv variable
    - the list of existentially quantified variables
    - the list of heap predicates
    - the list of pure facts
-*)
-
-fun mk_heap_condition postv_v ex_vl hpl pfl =
+ *)
+fun mk_heap_condition (ex_vl, hpl, pfl) =
   let
     val c1 = list_mk_star hpl ``:hprop``
     val hprop_pfl = List.map (fn x => mk_cond x) pfl
     val c2 = list_mk_star (c1::hprop_pfl) ``:hprop``
     val c3 = list_mk (mk_sep_exists) ex_vl c2
   in
-    case postv_v of
-    SOME v => mk_postv v c3
-    | NONE => c3
+    c3
   end;
+
+(* [mk_postv] *)
+fun mk_postv (postv_v, c) = mk_binder postv_tm "mk_postv" (postv_v, c);
+
+(* [mk_poste] *)
+fun mk_poste (poste_v, c) = mk_binder poste_tm "mk_poste" (poste_v, c);
+
+(* [mk_post] *)
+fun mk_post (postv_v, postv_abs, poste_v, poste_abs) =
+  let
+      val postv_pred = mk_abs (postv_v, postv_abs)
+      val poste_pred = mk_abs (poste_v, poste_abs)
+      val post_cond_pre = mk_comb (post_tm, postv_pred)
+      val post_cond = mk_comb (post_cond_pre, poste_pred)
+  in
+      post_cond
+  end;
+
+(* [mk_heap_post_condition]
+   Creates a heap post condition.
+   Parameters:
+   - the optional postv value
+   - the optional postv predicate
+   - the optional poste value
+   - the optional poste predicate
+*)
+
+fun mk_heap_post_condition (postv_v, postv_pred, poste_v, poste_pred) =
+  case (postv_v, postv_pred, poste_v, poste_pred) of
+      (SOME postv_v, SOME postv_pred, NONE, NONE) => mk_postv (postv_v, postv_pred)
+   |  (NONE, NONE, SOME poste_v, SOME poste_pred) => mk_poste (poste_v, poste_pred)
+   |  (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred) =>
+            mk_post (postv_v, postv_pred, poste_v, poste_pred)
+   | _  => raise (ERR "mk_heap_post_condition" "Not valid parameters");
 
 (******** Get the post-condition given by the app specification ***********)
 (* [find_spec]
-   The code is taken from xspec *)
+   Finds a proper specification for the application in the goal.
+   The code has been taken from xspec (cfTactics) *)
 fun find_spec g =
   let
     val (asl, w) = (xapp_prepare_goal g) |> #1 |> List.hd
@@ -280,11 +387,11 @@ fun find_spec g =
                              fst (dest_const f))
   end;
 
-(* [remove_foralls]
+(* [rename_dest_foralls]
    Removes the forall operators from a term. Renames the  bound
    variables so that they are fresh regarding a given list
    of assumptions *)
-fun remove_foralls asl spec =
+fun rename_dest_foralls (asl, spec) =
   let
     val fvl = free_varsl asl
     fun rec_remove fvl spec =
@@ -317,7 +424,7 @@ fun xlet_find_spec g =
 fun xlet_dest_app_spec asl let_pre specH =
   let
       (* Get the parameters and pre/post-conditions written in the specification *)
-      val (_, noquant_spec_tm) = remove_foralls (let_pre::asl) (concl specH)
+      val (_, noquant_spec_tm) = rename_dest_foralls ((let_pre::asl), (concl specH))
       val impsl_spec = list_dest dest_imp noquant_spec_tm
       val app_asl = List.take (impsl_spec, (List.length impsl_spec)-1)
       val app_spec = List.last impsl_spec
@@ -412,19 +519,17 @@ fun xlet_match_pre_conditions (inst_tac:tactic) asl let_pre app_asl app_pre app_
     (* Decompose the pre/post conditions *)
     val varset1 = HOLset.union (unkwn_varset, kwn_varset)
     val varsl1 = HOLset.listItems varset1
-    val (pre_postv_v, pre_ex_vl, pre_ptrs, pre_hpl, pre_pfl) =
-          dest_heap_condition varsl1 let_pre
-    val varsl2 = List.concat [varsl1, pre_ex_vl,
-          case pre_postv_v of SOME v => [v] | NONE => []]
-    val (app_pre_postv_v, app_pre_ex_vl, app_pre_ptrs, app_pre_hpl, app_pre_pfl) =
-          dest_heap_condition varsl2 app_pre (* Rmk: app_pre_postv_v should be NONE *)
+    val (pre_ex_vl, pre_hpl, pre_pfl) =
+          dest_heap_condition (varsl1, let_pre)
+    val varsl2 = List.concat [varsl1, pre_ex_vl]
+    val (app_pre_ex_vl, app_pre_hpl, app_pre_pfl) =
+          dest_heap_condition (varsl2, app_pre)
 
     (*
      * Match the pre-conditions to instantiate the unknown variables
      *)
     (* Transform the heap predicates to predicates *)
-    val varsl3 = List.concat [varsl2, app_pre_ex_vl,
-			      case app_pre_postv_v of SOME v => [v] | NONE => []]
+    val varsl3 = List.concat [varsl2, app_pre_ex_vl]
     val H_tm = variant varsl3 ``H:heap``
     val transf_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) pre_hpl
     val transf_app_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) app_pre_hpl
@@ -441,7 +546,7 @@ fun xlet_match_pre_conditions (inst_tac:tactic) asl let_pre app_asl app_pre app_
 (* [xlet_find_ptrs_eq_classes]
    Finds the equivalence classes of the ptrs. Is necessary in order not to duplicate
    the heap predicates. *)
-fun xlet_find_ptrs_eq_classes (match_tac : tactic)  asl let_pre_hpl let_pre_pfl =
+fun xlet_find_ptrs_eq_classes (match_tac : tactic) asl let_pre_hpl let_pre_pfl =
   if List.length let_pre_hpl = 0 then []
   else
   let
@@ -487,7 +592,12 @@ fun xlet_find_ptrs_eq_classes (match_tac : tactic)  asl let_pre_hpl let_pre_pfl 
   end;
 
 (* [filter_heap_predicates]
-   Removes the predicates from which pointers are members of a given list *)
+   Removes the predicates from which pointers are members of a given list.
+   Parameters:
+   - a map linking every pointer symbol to its class representative (regarding
+     the = relation)
+   - a list of heap predicates
+   - a list of pointer variables *)
 val emp_tm = ``emp``;
 fun filter_heap_predicates subst_map hpl pl =
   let
@@ -511,21 +621,41 @@ fun filter_heap_predicates subst_map hpl pl =
 fun xlet_mk_post_condition match_tac asl let_pre_ex_vl let_pre_hpl let_pre_pfl app_post =
   let
     val varset1 = FVL (List.concat [asl, let_pre_hpl]) empty_varset
-    (* Analyse the app post-condition *)
-    val cur_free_varset = FVL (List.concat [asl, let_pre_hpl, let_pre_pfl, [app_post]]) empty_varset
+			
+    (* Decompose the app post-condition *)
+    val cur_free_varset =
+	FVL (List.concat [asl, let_pre_hpl, let_pre_pfl, [app_post]]) empty_varset
     val cur_free_varsl = HOLset.listItems cur_free_varset
-    val (post_postv_v, post_ex_vl, post_ptrs, post_hpl, post_pfl) =
-          dest_heap_condition cur_free_varsl app_post
+    val (post_postv_vo, post_postv_po, post_poste_vo, post_poste_po) =
+	rename_dest_post (cur_free_varsl, app_post)
+
+    (* Get the equivalence classes for the ptrs in the let-pre-condition *)
+    val subst_map = xlet_find_ptrs_eq_classes match_tac asl let_pre_hpl let_pre_pfl
 
     (* Filter the heap predicates from the let pre-condition *)
-    val subst_map = xlet_find_ptrs_eq_classes match_tac asl let_pre_hpl let_pre_pfl
-    val filtered_pre_hpl = filter_heap_predicates subst_map let_pre_hpl post_ptrs
-
+    fun mk_post_cond_aux (subst_map, pred_opt) =
+      (case pred_opt of
+	  SOME pred =>
+	  let
+	      val (post_ex_vl, post_hpl, post_pfl) =
+		  dest_heap_condition (cur_free_varsl, pred)
+	      val post_ptrs = list_heap_ptrs post_hpl
+	      val filtered_pre_hpl =
+		  filter_heap_predicates subst_map let_pre_hpl post_ptrs
+	      val let_heap_condition =
+		  mk_heap_condition ((List.concat [let_pre_ex_vl, post_ex_vl]),
+				    (List.concat [post_hpl, filtered_pre_hpl]),
+				    (List.concat [post_pfl, let_pre_pfl]))
+	  in
+	      SOME let_heap_condition
+	  end
+	  | NONE => NONE)
+    val post_postv_po' = mk_post_cond_aux (subst_map, post_postv_po)
+    val post_poste_po' = mk_post_cond_aux (subst_map, post_poste_po)
+				
     (* Construct the post-condition *)
-    val let_heap_condition = mk_heap_condition post_postv_v
-            (List.concat [let_pre_ex_vl, post_ex_vl])
-	    (List.concat [post_hpl, filtered_pre_hpl])
-	    (List.concat [post_pfl, let_pre_pfl])
+    val let_heap_condition =
+	mk_heap_post_condition (post_postv_vo, post_postv_po', post_poste_vo, post_poste_po')
   in
     let_heap_condition
   end;
@@ -676,7 +806,9 @@ val int_num_convert_great = Q.store_thm("int_num_convert_great",
 `!(x:num) (y:num). (&x > &y) = (x > y)`, rw[] >> intLib.ARITH_TAC);
 val int_num_convert_eq = Q.store_thm("int_num_convert_eq",
 `!(x:num) (y:num). (&x = &y) = (x = y)`, rw[] >> intLib.ARITH_TAC);
-
+val int_num_convert_subs = Q.store_thm("int_num_convert_subs",
+`!(x:num) (y:num). (&x - &y = &z) <=> (x - y = z) /\ y <= x`,
+rw[] >> intLib.ARITH_TAC);
 
 val empty_list_thm = Q.store_thm("empty_list_thm",
 `(!l. LENGTH l = 0 <=> l = []) /\ (!l. 0 = LENGTH l <=> l = [])`,
@@ -760,7 +892,7 @@ rw[] >> EQ_TAC
   rw[REPLICATE_APPEND_EXISTS_lem] >>
   instantiate);
 
-val LIST_REL_RIGHT_congr = Q.store_thm("LIST_REL_RIGHT_congr",
+val LIST_REL_RIGHT_congr_recip = Q.prove(
 `!R. LIST_REL R (a ++ b) x ==> ?a' b'. LIST_REL R a a' /\ LIST_REL R b b' /\ x = a' ++ b'`,
 rpt strip_tac >>
 qexists_tac `TAKE (LENGTH a) x` >>
@@ -776,7 +908,15 @@ SIMP_TAC list_ss [] >>
 ) >>
 rw[]));
 
-val LIST_REL_LEFT_congr = Q.store_thm("LIST_REL_LEFT_congr",
+val LIST_REL_RIGHT_congr_imp = Q.prove(`!R. (?a' b'. LIST_REL R a a' /\ LIST_REL R b b' /\ x = a' ++ b') ==> LIST_REL R (a ++ b) x`,
+metis_tac[rich_listTheory.EVERY2_APPEND_suff]);
+
+val LIST_REL_RIGHT_congr = Q.store_thm("LIST_REL_RIGHT_congr",
+`!R. LIST_REL R (a ++ b) x <=> ?a' b'. LIST_REL R a a' /\ LIST_REL R b b' /\ x = a' ++ b'`,
+metis_tac[LIST_REL_RIGHT_congr_recip, LIST_REL_RIGHT_congr_imp]);
+
+
+val LIST_REL_LEFT_congr_recip = Q.prove(
 `!R. LIST_REL R x (a ++ b) ==> ?a' b'. LIST_REL R a' a /\ LIST_REL R b' b /\ x = a' ++ b'`,
 rpt strip_tac >>
 qexists_tac `TAKE (LENGTH a) x` >>
@@ -793,10 +933,27 @@ SIMP_TAC list_ss [] >>
 rw[]
 ));
 
+val LIST_REL_LEFT_congr_imp = Q.prove(
+`!R. (?a' b'. LIST_REL R a' a /\ LIST_REL R b' b /\ x = a' ++ b') ==> LIST_REL R x (a ++ b)`,
+metis_tac[rich_listTheory.EVERY2_APPEND_suff]);
+
+val LIST_REL_LEFT_congr = Q.store_thm("LIST_REL_LEFT_congr",
+`!R. LIST_REL R x (a ++ b) <=> ?a' b'. LIST_REL R a' a /\ LIST_REL R b' b /\ x = a' ++ b'`,
+metis_tac[LIST_REL_LEFT_congr_recip, LIST_REL_LEFT_congr_imp]);
+
 (* Theorems and definitions used by the instantiation and matching tactics *)
 val match_defs = [];
 val refin_inv_defs = [NUM_def, INT_def, BOOL_def, UNIT_TYPE_def];
-val match_thms = [int_num_convert_add, int_num_convert_times, empty_list_thm];
+val match_thms = [integerTheory.INT_ADD,
+		  int_num_convert_times,
+		  int_num_convert_ge,
+		  int_num_convert_great,
+		  int_num_convert_eq,
+		  int_num_convert_less,
+		  int_num_convert_le,
+		  int_num_convert_subs,
+		  LENGTH_NIL,
+		  LENGTH_NIL_SYM];
 val all_match_thms = List.concat [match_defs, match_thms, refin_inv_defs];
 
 (* [auto_cf_tac] *)
@@ -905,9 +1062,35 @@ val msg10 = SIMP_TAC (arith_ss ++ QUANT_INST_ss []) [lem1] msg9
 val msg10 = ([]:term list, ``?mid. LENGTH junk = LENGTH mid /\ mid = REPLICATE (LENGTH mid) xv``);
 instantiate  msg10;
 
-val msg11 = ([]:term list, ``?mid. LENGTH mid = LENGTH junk /\ mid = REPLICATE (LENGTH mid) xv``);
-bossLib.DECIDE ``?(mid:'a list). LENGTH mid = LENGTH (junk:'a list) /\ mid = REPLICATE (LENGTH mid) (xv:'a)``
+val lem1 = Q.prove(`!(x:num) y z. x + y = n ==> x <= n /\ y <= n`, numLib.ARITH_TAC);
 
+(***** Interesting examples for automatic solving *******)
+(* Example 1 *)
+val extm1 = ``?(mid:'a list). LENGTH mid = LENGTH (junk:'a list) /\ mid = REPLICATE (LENGTH mid) (xv:'a)``;
+val exg1 = ([]:term list, extm1);
+(* Failure *)
+bossLib.DECIDE extm1;
+(* Success *)
+SIMP_CONV (list_ss ++ QUANT_INST_ss []) [] extm1;
+
+(* Example 2 *)
+val extm2 =
+``?(mid:'a list) (afr:'a list). LENGTH mid = LENGTH (junk:'a list) /\ LENGTH afr = LENGTH mid + n /\ mid = REPLICATE (LENGTH mid) xv /\ afr = REPLICATE (LENGTH afr) xv``;
+(* Success *)
+SIMP_CONV (list_ss ++ QUANT_INST_ss []) [] extm2;
+
+(* Example 3 *)
+val extm3 =
+``?(mid:'a list) (afr:'a list). LENGTH mid = LENGTH (junk:'a list) /\ LENGTH afr + LENGTH mid = n /\ mid = REPLICATE (LENGTH mid) xv /\ afr = REPLICATE (LENGTH afr) xv``;
+(* Partial success *)
+SIMP_CONV (list_ss ++ QUANT_INST_ss []) [] extm3;
+(* Not better *)
+SIMP_CONV (list_ss ++ EXPAND_QUANT_INST_ss [num_qp]) [] extm3;
+SIMP_CONV (arith_ss ++ EXPAND_QUANT_INST_ss [num_qp]) [lem1] extm3;
+
+SIMP_CONV (list_ss) [LIST_REL_RIGHT_congr] ``?x. LIST_REL R (a ++ b) x``
+
+REPLICATE_APPEND_EXISTS
 
 
 (** Tests SIMP_CONV **)
@@ -954,6 +1137,13 @@ mlbasicsProgTheory.deref_spec;
 val msg1 = generate_msg_auto (top_goal ());
 xlet_auto_inst_tac msg1;
 HINT_EXISTS_TAC msg1;
+
+DB.apropos ``&_ > &_ <=> _ > _``
+concl integerTheory.INT_GT_REDUCE
+
+REPLICATE_APPEND_EXISTS
+SIMP_CONV list_ss [REPLICATE_APPEND_EXISTS] ``?x. a ++ b = REPLICATE n x``
+LIST_REL_APPEND_EXISTS
 
 (* The push spec without automation *)  
 val push_spec = Q.store_thm ("push_spec",
@@ -1181,7 +1371,136 @@ val push_spec = Q.store_thm ("push_spec",
   ) >>
   computeLib.EVAL_TAC
 );
- 
+
+set_trace "assumptions" 1;
+ml_translatorTheory.EqualityType_def
+ml_translatorTheory.no_closures_def
+
+mlbasicsProgTheory.eq_v_thm;
+mlarrayProgTheory.array_sub_spec;
+
+val (g as (asl, w)) = top_goal ();
+val msg1 = generate_msg_auto g;
+val inst_tac =
+    (FIRST[
+	  rw all_match_thms >>
+	  fs all_match_thms >>
+	  FIRST [instantiate >> rw[], all_tac] >>
+	  no_exists_tac >>
+	  rw[]
+    ]);
+
+val msg2 = (rw all_match_thms >>
+	  fs all_match_thms >>
+	  FIRST [instantiate >> rw[], all_tac]) msg1 |> #1 |> List.last;
+
+SIMP_TAC (arith_ss ++ QUANT_INST_ss[]) [] msg2
+
+inst_tac msg1
+`Equ
+
+SIMP_TAC (arith_ss ++ QUANT_INST_ss []) [] msg2
+NUM_def
+INT_def
+
+val EmptyQueue_exn_def = Define`
+  EmptyQueue_exn v = (v = Conv (SOME ("EmptyQueue", TypeExn (Short "EmptyQueue"))) [])`;
+
+val eq_num_v_thm =
+  mlbasicsProgTheory.eq_v_thm
+  |> DISCH_ALL
+  |> C MATCH_MP (EqualityType_NUM_BOOL |> CONJUNCT1);
+
+
+(* Push spec with xlet_auto *)
+val pop_spec = Q.store_thm("pop_spec",
+  `∀qv.
+   app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
+     (QUEUE A vs qv)
+     (POST (λv. &(¬NULL vs ∧ A (LAST vs) v) * QUEUE A (FRONT vs) qv)
+           (λe. &(NULL vs ∧ EmptyQueue_exn e) * QUEUE A vs qv))`,
+  xcf "pop" st >>
+  fs[QUEUE_def, EmptyQueue_exn_def] >>
+  xpull >>
+  xlet_auto >-(fs[NUM_def, INT_def] >> xsimpl) >>
+  xmatch >>
+  rw[]
+  >-(
+      (* Problem with the equality *)
+      xlet `POSTv bv. (qv ~~> Conv NONE [av; Litv (IntLit (&LENGTH vs))] *
+		       ARRAY av (vvs ++ junk) * &BOOL (LENGTH vs = 0) bv)`
+      >-(xapp_spec eq_num_v_thm >> xsimpl) >>
+      (* ------- *)
+      xif
+      >-(
+	  xlet_auto
+	  >-(xcon >> xsimpl) >>
+	  xraise >>
+	  xsimpl >>
+	  fs[NUM_def, BOOL_def, INT_def] >>
+	  (* Treatment of NULL *)
+	  fs[NULL_EQ, LENGTH_NIL]
+	  (* -- *)
+      ) >>
+      xlet_auto
+      >-(xsimpl)>>
+      xlet_auto
+      >-(xsimpl >> fs all_match_thms >> rw[]
+	(* Arithmetic operations with list LENGTHS *)
+        >-(`LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
+	    bossLib.DECIDE_TAC)
+	>-(`LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
+           `LENGTH (vvs:v list) <> (0:num)` by metis_tac[LENGTH_NIL]>>
+           `LENGTH (vvs:v list) > 0` by rw[integerTheory.INT_LT_NZ]>>
+	   rw[])
+	>> `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH]
+        >> `LENGTH (vvs:v list) <> (0:num)` by metis_tac[LENGTH_NIL]
+        >> `LENGTH (vvs:v list) > 0` by rw[integerTheory.INT_LT_NZ]
+        >> bossLib.DECIDE_TAC
+	) >>
+	(* ----------------- *)
+      xlet_auto
+      >-(xsimpl) >>
+      xlet_auto
+      >-(xcon >> xsimpl) >>
+      xlet_auto
+      >-(xsimpl) >>
+      xvar
+      >-(
+	  xsimpl >> fs[NULL_EQ, LENGTH_NIL] >>
+	  fs all_match_thms >>
+	  (* Decomposition of list with FRONT and LAST... *)
+	  qexists_tac `FRONT vvs`
+	  >> qexists_tac `[LAST vvs] ++ junk`
+	  (* ... and proof... *)
+	  >> `vvs <> []` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL]
+	  >> `vvs = FRONT vvs ++ [LAST vvs]` by fs[APPEND_FRONT_LAST]
+	  >> fs[LENGTH_FRONT]
+	  >> fs[LAST_EL]
+	  >> `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL]
+	  >> rw[]
+	  >-(`PRE (LENGTH vvs) = LENGTH vvs -1` by rw[]
+	     >> POP_ASSUM (fn x => rw[x])
+	     >> `LENGTH vvs <> 0` by metis_tac[LENGTH_NIL]
+	     >> `LENGTH vvs - 1 < LENGTH vvs` by bossLib.DECIDE_TAC
+	     >> metis_tac[LIST_REL_EL_EQN, EL_APPEND1])
+	  (* Strange: have to prove that, then call bossLib.DECIDE_TAC *)
+	  >-(`LENGTH vvs <> 0` by metis_tac[LENGTH_NIL]
+			       >> bossLib.DECIDE_TAC)
+	  (* Here: I would like to be able to just have to call
+	     fs[LIST_REL_LEFT_congr] *)
+	  >> `vs = FRONT vs ++ [LAST vs]` by metis_tac[APPEND_FRONT_LAST, LIST_REL_LEFT_congr]
+	  >> metis_tac[LIST_REL_APPEND_SING]
+	  )
+    >> xsimpl
+    >> fs[NULL_EQ, LENGTH_NIL]
+    )
+  >> computeLib.EVAL_TAC
+  );
+
+(* Push spec with xauto_tac *)
+
+
 val _ = export_theory ()
 
 
@@ -1219,39 +1538,37 @@ fun xlet_match_asl_debug (inst_tac:tactic) origin_asl target_asl =
 
 fun xlet_match_pre_conditions_debug (inst_tac:tactic) asl let_pre app_asl app_pre app_post =
   let
-    (* Determine the known variables (given by the assumptions)
+      (* Determine the known variables (given by the assumptions)
     and the unknown ones (given by the app specification - they need
     to be instantiated *)
-    val kwn_varset = FVL (let_pre::asl) empty_varset
-    val app_varset = FVL (app_pre::app_post::app_asl) empty_varset
-    val unkwn_varset = HOLset.difference (app_varset, kwn_varset)
-    val unkwn_varsl = HOLset.listItems unkwn_varset
+      val kwn_varset = FVL (let_pre::asl) empty_varset
+      val app_varset = FVL (app_pre::app_post::app_asl) empty_varset
+      val unkwn_varset = HOLset.difference (app_varset, kwn_varset)
+      val unkwn_varsl = HOLset.listItems unkwn_varset
 
-    (* Decompose the pre/post conditions *)
-    val varset1 = HOLset.union (unkwn_varset, kwn_varset)
-    val varsl1 = HOLset.listItems varset1
-    val (pre_postv_v, pre_ex_vl, pre_ptrs, pre_hpl, pre_pfl) =
-          dest_heap_condition varsl1 let_pre
-    val varsl2 = List.concat [varsl1, pre_ex_vl,
-          case pre_postv_v of SOME v => [v] | NONE => []]
-    val (app_pre_postv_v, app_pre_ex_vl, app_pre_ptrs, app_pre_hpl, app_pre_pfl) =
-          dest_heap_condition varsl2 app_pre (* Rmk: app_pre_postv_v should be NONE *)
+      (* Decompose the pre/post conditions *)
+      val varset1 = HOLset.union (unkwn_varset, kwn_varset)
+      val varsl1 = HOLset.listItems varset1
+      val (pre_ex_vl, pre_hpl, pre_pfl) =
+          dest_heap_condition (varsl1, let_pre)
+      val varsl2 = List.concat [varsl1, pre_ex_vl]
+      val (app_pre_ex_vl, app_pre_hpl, app_pre_pfl) =
+          dest_heap_condition (varsl2, app_pre)
 
-    (*
-     * Match the pre-conditions to instantiate the unknown variables
-     *)
-    (* Transform the heap predicates to predicates *)
-    val varsl3 = List.concat [varsl2, app_pre_ex_vl,
-			      case app_pre_postv_v of SOME v => [v] | NONE => []]
-    val H_tm = variant varsl3 ``H:heap``
-    val transf_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) pre_hpl
-    val transf_app_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) app_pre_hpl
+      (*
+       * Match the pre-conditions to instantiate the unknown variables
+       *)
+      (* Transform the heap predicates to predicates *)
+      val varsl3 = List.concat [varsl2, app_pre_ex_vl]
+      val H_tm = variant varsl3 ``H:heap``
+      val transf_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) pre_hpl
+      val transf_app_pre_hpl = List.map (fn x => mk_comb (x, H_tm)) app_pre_hpl
 
-    (* Perform the matching *)
-    val origin_asl = List.concat [asl, transf_pre_hpl, pre_pfl, [``emp ^H_tm``]]
-    val target_asl = List.concat [app_asl, transf_app_pre_hpl, app_pre_pfl]
+      (* Perform the matching *)
+      val origin_asl = List.concat [asl, transf_pre_hpl, pre_pfl, [``emp ^H_tm``]]
+      val target_asl = List.concat [app_asl, transf_app_pre_hpl, app_pre_pfl]
   in
-    xlet_match_asl_debug inst_tac origin_asl target_asl
+      xlet_match_asl_debug inst_tac origin_asl target_asl
   end;
 
 fun xlet_post_condition_from_app_spec_debug inst_tac match_tac env asl app_info let_pre post app_asl app_concl  =
