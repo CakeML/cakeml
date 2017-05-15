@@ -195,7 +195,8 @@ val firstSet_nRelOps = Q.store_thm(
 
 val firstSet_nAddOps = Q.store_thm(
   "firstSet_nAddOps[simp]",
-  `firstSet cmlG (NT (mkNT nAddOps)::rest) = {SymbolT "+"; SymbolT "-"}`,
+  `firstSet cmlG (NT (mkNT nAddOps)::rest) =
+     {SymbolT "+"; SymbolT "-"; SymbolT "\094"}`,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
        INSERT_UNION_EQ]);
 
@@ -251,7 +252,7 @@ val firstSet_nV = Q.store_thm(
                    s ≠ "nil"} ∪
       { SymbolT s | s ≠ "+" ∧ s ≠ "*" ∧ s ≠ "-" ∧ s ≠ "/" ∧ s ≠ "<" ∧ s ≠ ">" ∧
                     s ≠ "<=" ∧ s ≠ ">=" ∧ s ≠ "<>" ∧ s ≠ ":=" ∧ s ≠ "::" ∧
-                    s ≠ "@"}`,
+                    s ≠ "@" ∧ s ≠ "\094"}`,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 

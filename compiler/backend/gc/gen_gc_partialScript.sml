@@ -1063,8 +1063,7 @@ val partial_gc_simulation = prove(
   \\ asm_rewrite_tac [] \\ qunabbrev_tac `xx`
   \\ qmatch_asmsub_abbrev_tac `gen_gc_partial$gc_move_list _ stateA`
   \\ qmatch_asmsub_abbrev_tac `gen_gc$gc_move_list _ stateB _ = (roots1,state1)`
-  \\ `stateB = to_gen_state conf stateA` by all_tac
-  >- (unabbrev_all_tac
+  \\ `stateB = to_gen_state conf stateA` by (unabbrev_all_tac
      \\ simp [to_gen_state_def,empty_state_def]
      \\ simp [to_gen_conf_def,to_gen_heap_def]
      \\ simp [heap_restrict_def]
@@ -1164,9 +1163,9 @@ val f_old_ptrs_finite = store_thm("f_old_ptrs_finite[simp]",
   \\ rw []
   >- fs [heap_lookup_def,isSomeDataElement_def]
   \\ reverse
-     (`?y. FINITE y /\
+     (sg `?y. FINITE y /\
           ({a | isSomeDataElement (heap_lookup a (SNOC x heap))} =
-           y UNION {a | isSomeDataElement (heap_lookup a heap)})` by all_tac)
+           y UNION {a | isSomeDataElement (heap_lookup a heap)})`)
   >- fs []
   \\ fs [SNOC_APPEND]
   \\ fs [heap_lookup_APPEND]
@@ -1496,8 +1495,7 @@ val heap_lookup_refs_IMP = prove(
   \\ drule gc_move_list_IMP \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac `gc_move_list _ state0 _ = _`
   \\ qpat_x_assum `heap_lookup _ _ = _` mp_tac
-  \\ `heap_length (heap_old ++ heap_current) = conf.refs_start` by all_tac
-  >- simp [heap_length_APPEND]
+  \\ `heap_length (heap_old ++ heap_current) = conf.refs_start` by simp [heap_length_APPEND]
   \\ once_rewrite_tac [heap_lookup_APPEND]
   \\ fs []
   \\ qpat_x_assum `gc_move_ref_list _ _ _ = _` mp_tac
@@ -1688,16 +1686,13 @@ val partial_gc_heap_length_lemma = prove (
   \\ disch_then drule
   \\ strip_tac
   \\ rveq
-  \\ `state'' = to_gen_state conf state1` by all_tac
-  >- fs []
+  \\ `state'' = to_gen_state conf state1` by fs []
   \\ drule heap_segment_IMP \\ fs []
   \\ strip_tac
   \\ fs []
-  \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by all_tac
-  >- (fs [heap_length_APPEND]
+  \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by (fs [heap_length_APPEND]
      \\ fs [heap_length_heap_expand])
-  \\ `heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n) = conf.refs_start - conf.gen_start` by all_tac
-  >- (fs [gc_inv_def]
+  \\ `heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n) = conf.refs_start - conf.gen_start` by (fs [gc_inv_def]
      \\ rewrite_tac [heap_length_APPEND]
      \\ qpat_x_assum `_ = (to_gen_state conf state1).a` mp_tac
      \\ qpat_x_assum `_ = (to_gen_conf conf).limit` kall_tac
@@ -1926,8 +1921,7 @@ val heap_lookup_by_f_isSomeData_lemma = prove(
      \\ simp [FUNION_DEF]
      \\ pop_assum (qspecl_then [`n − conf.gen_start`,`Real a`] assume_tac)
      \\ fs []
-     \\ `n IN IMAGE ($+ conf.gen_start) (FDOM f)` by all_tac
-     >- (fs [] \\ qexists_tac `n - conf.gen_start` \\ fs [])
+     \\ `n IN IMAGE ($+ conf.gen_start) (FDOM f)` by (fs [] \\ qexists_tac `n - conf.gen_start` \\ fs [])
      \\ simp [FUN_FMAP_DEF])
   >- (IF_CASES_TAC \\ fs [ADDR_MAP_def]
      \\ IF_CASES_TAC \\ fs [ADDR_MAP_def])
@@ -2197,16 +2191,13 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ fs [ADDR_MAP_def]
      \\ fs [FUNION_DEF]
      \\ fs [FUN_FMAP_DEF]
-     >- (`n ∈ f_old_ptrs conf heap` by all_tac
-        >- fs [f_old_ptrs_def,roots_ok_def]
+     >- (`n ∈ f_old_ptrs conf heap` by fs [f_old_ptrs_def,roots_ok_def]
         \\ fs []
         \\ metis_tac [to_gen_roots_def])
-     >- (`n ∈ f_old_ptrs conf heap` by all_tac
-        >- fs [f_old_ptrs_def,roots_ok_def]
+     >- (`n ∈ f_old_ptrs conf heap` by fs [f_old_ptrs_def,roots_ok_def]
         \\ fs []
         \\ metis_tac [to_gen_roots_def])
-     \\ `~(n' ∈ f_old_ptrs conf heap)` by all_tac
-     >- fs [f_old_ptrs_def,roots_ok_def]
+     \\ `~(n' ∈ f_old_ptrs conf heap)` by fs [f_old_ptrs_def,roots_ok_def]
      \\ fs []
      \\ rveq
      \\ strip_tac
@@ -2253,8 +2244,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ qexists_tac `Pointer ptr u`
      \\ fs []
      \\ fs [to_gen_heap_address_def])
-  \\ `heap_ok (state1.old ++ state1.h1 ++ heap_expand state1.n ++ state1.r1) conf.limit` by all_tac
-  >- (drule gen_gc_thm
+  \\ `heap_ok (state1.old ++ state1.h1 ++ heap_expand state1.n ++ state1.r1) conf.limit` by (drule gen_gc_thm
      \\ disch_then drule
      \\ fs []
      \\ strip_tac
@@ -2337,8 +2327,7 @@ val partial_gc_related = store_thm("partial_gc_related",
         \\ disch_then drule
         \\ metis_tac [])
      (* MEM state1.h1 *)
-     >- (`MEM (DataElement (MAP (to_gen_heap_address conf) xs) l d) (to_gen_state conf state1).h1` by all_tac
-        >- (ntac 2 (pop_assum mp_tac)
+     >- (`MEM (DataElement (MAP (to_gen_heap_address conf) xs) l d) (to_gen_state conf state1).h1` by (ntac 2 (pop_assum mp_tac)
            \\ simp [to_gen_state_def,to_gen_heap_list_def]
            \\ qspec_tac (`state1.h1`,`h1`)
            \\ Induct \\ fs []
@@ -2393,8 +2382,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ drule refs_root_IMP_isSomeData \\ simp [])
   \\ fs []
   \\ fs [gc_related_def]
-  \\ `∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)` by all_tac
-  >- (rpt strip_tac
+  \\ `∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)` by (rpt strip_tac
      \\ res_tac
      \\ qunabbrev_tac `gen_heap`
      \\ drule heap_segment_IMP
@@ -2426,8 +2414,7 @@ val partial_gc_related = store_thm("partial_gc_related",
            \\ fs [gen_inv_def]
            \\ impl_tac \\ fs []
            \\ metis_tac [])
-        \\ `(to_gen_state conf state1).r1 = []` by all_tac
-        >- EVAL_TAC
+        \\ `(to_gen_state conf state1).r1 = []` by EVAL_TAC
         \\ fs []
         \\ qpat_x_assum `!x'. x' IN FDOM f ==> _` mp_tac
         \\ qpat_x_assum `!x'. x' IN FDOM f ==> _` drule
@@ -2462,8 +2449,7 @@ val partial_gc_related = store_thm("partial_gc_related",
            \\ drule isSomeData_to_gen_heap_IMP
            \\ simp [])
         (* current heap *)
-        \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by all_tac
-        >- (fs [heap_length_APPEND]
+        \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by (fs [heap_length_APPEND]
            \\ fs [heap_expand_def]
            \\ IF_CASES_TAC \\ fs []
            \\ fs [heap_length_def,el_length_def])
@@ -2544,8 +2530,7 @@ val partial_gc_related = store_thm("partial_gc_related",
         \\ ntac 2 (disch_then drule)
         \\ fs []
         \\ strip_tac
-        \\ `x IN FDOM (new_f f conf heap)` by all_tac
-        >- (fs [new_f_FDOM]
+        \\ `x IN FDOM (new_f f conf heap)` by (fs [new_f_FDOM]
            \\ reverse IF_CASES_TAC
            >- (res_tac \\ fs [])
            \\ fs [heap_ok_def]
@@ -2559,8 +2544,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      \\ disch_then drule \\ fs []
      \\ strip_tac
      \\ IF_CASES_TAC
-     >- (`MEM (DataElement xs l d) heap` by all_tac
-        >- (drule heap_segment_IMP \\ fs []
+     >- (`MEM (DataElement xs l d) heap` by (drule heap_segment_IMP \\ fs []
            \\ rveq
            \\ metis_tac [MEM_APPEND])
         \\ fs [heap_ok_def] \\ metis_tac [])
@@ -2573,8 +2557,7 @@ val partial_gc_related = store_thm("partial_gc_related",
      strip_tac
      \\ once_rewrite_tac [heap_lookup_APPEND]
      \\ IF_CASES_TAC \\ fs []
-     \\ `heap_lookup (i - conf.refs_start) heap_refs = SOME (DataElement xs l d)` by all_tac
-     >- (drule heap_segment_IMP
+     \\ `heap_lookup (i - conf.refs_start) heap_refs = SOME (DataElement xs l d)` by (drule heap_segment_IMP
         \\ fs [] \\ strip_tac
         \\ rveq
         \\ qpat_x_assum `heap_lookup i _ = _` mp_tac
@@ -2673,8 +2656,7 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ strip_tac
   \\ rewrite_tac [GSYM APPEND_ASSOC]
   \\ once_rewrite_tac [heap_lookup_APPEND]
-  \\ `heap_length state1.old = conf.gen_start` by all_tac
-  >- (drule partial_gc_IMP
+  \\ `heap_length state1.old = conf.gen_start` by (drule partial_gc_IMP
      \\ disch_then drule
      \\ strip_tac
      \\ rveq
@@ -2683,8 +2665,7 @@ val partial_gc_related = store_thm("partial_gc_related",
   \\ fs []
   \\ fs [to_gen_state_def]
   \\ fs [to_gen_heap_list_def]
-  \\ `(l = l') /\ (d = d') /\ (ys = MAP (to_gen_heap_address conf) xs)` by all_tac
-  >- (rveq
+  \\ `(l = l') /\ (d = d') /\ (ys = MAP (to_gen_heap_address conf) xs)` by (rveq
      \\ qunabbrev_tac `gen_heap`
      \\ drule heap_segment_IMP
      \\ fs [] \\ strip_tac

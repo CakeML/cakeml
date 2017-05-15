@@ -16,6 +16,18 @@ val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
 (* TODO: move *)
 val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
 
+structure Q = struct
+  open Q
+  val lcount = ref 0
+  val prove = fn a => (let val th = prove a
+                       in
+                         print ".";
+                         lcount := !lcount + 1;
+                         if !lcount mod 20 = 0 then print "\n" else ();
+                         th
+                       end)
+end
+
 fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1
 
@@ -990,7 +1002,7 @@ val word_gc_move_loop_thm = Q.prove(
   \\ qpat_x_assum `word_gc_move_loop _ _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gc_move_loop_def]
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,
            WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ pop_assum mp_tac
@@ -1004,8 +1016,8 @@ val word_gc_move_loop_thm = Q.prove(
     \\ qpat_x_assum `heap_length heap * _ < _ ` mp_tac
     \\ qpat_x_assum `good_dimindex (:'a)` mp_tac
     \\ rpt (pop_assum kall_tac) \\ srw_tac[][]
-    \\ `dimindex (:α) DIV 8 + dimindex (:α) DIV 8 * n5 +
-        dimindex (:α) DIV 8 * heap_length h2 < dimword (:α)` by all_tac
+    \\ sg `dimindex (:α) DIV 8 + dimindex (:α) DIV 8 * n5 +
+        dimindex (:α) DIV 8 * heap_length h2 < dimword (:α)`
     \\ full_simp_tac(srw_ss())[]
     \\ rev_full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
     \\ rev_full_simp_tac(srw_ss())[good_dimindex_def,dimword_def] \\ decide_tac)
@@ -2743,10 +2755,11 @@ val gc_partial_move_ok_before = Q.store_thm("gc_partial_move_ok_before",
   >> pairarg_tac >> fs[]
   >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
   >> `((s.ok ∧ n < heap_length s.heap) ∧ n' + 1 ≤ s.n ∧
-        ¬gen_conf.isRef b)` by (match_mp_tac (GEN_ALL gc_forward_ptr_ok))
-  >> qexists_tac `a` >> qexists_tac `s.heap`
-  >> qexists_tac `n` >> qexists_tac `s.a` >> qexists_tac `heap`
-  >> fs[]);
+        ¬gen_conf.isRef b)`
+       by (match_mp_tac (GEN_ALL gc_forward_ptr_ok)
+           >> qexists_tac `a` >> qexists_tac `s.heap`
+           >> qexists_tac `n` >> qexists_tac `s.a` >> qexists_tac `heap`
+           >> fs[]));
 
 val gc_partial_move_list_ok_before = Q.store_thm("gc_partial_move_list_ok_before",
   `!x s x1 s1. gen_gc_partial$gc_move_list gen_conf s x = (x1,s1) /\ s1.ok ==> s.ok`,
@@ -3400,7 +3413,8 @@ val word_gen_gc_partial_move_ref_list_thm = Q.prove(
   \\ fs[theWord_def,el_length_def]
   \\ ntac 2 (pairarg_tac \\ fs[])
   \\ drule(GEN_ALL word_gen_gc_partial_move_list_thm)
-  \\ `state'.ok` by imp_res_tac gc_partial_move_ref_list_ok_before
+  \\ `state'.ok` by (imp_res_tac gc_partial_move_ref_list_ok_before
+                     \\ fs[heap_length_def])
   \\ fs[heap_length_def]
   \\ disch_then drule
   \\ strip_tac \\ SEP_F_TAC \\ rfs[]
@@ -3700,8 +3714,9 @@ val word_gen_gc_partial_full_thm = Q.prove(
       by(REWRITE_TAC [GSYM w2n_11,w2n_lsr] \\ fs[bytes_in_word_def,word_mul_n2w]
          \\ `heap_length s1.h1 * (dimindex (:α) DIV 8) < dimword (:'a)`
              by (fs[good_dimindex_def,dimword_def] \\ rfs[] \\ fs[])
-             \\ fs[] \\ fs[good_dimindex_def,dimword_def,shift_def,
-                           ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+         \\ fs[] \\ fs[good_dimindex_def,dimword_def,shift_def,
+                       ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+        \\ fs[])
   \\ fs[]
   \\ qabbrev_tac `a1 = word_heap new s1.h1 conf`
   \\ fs[AC STAR_ASSOC STAR_COMM]
@@ -4025,7 +4040,7 @@ val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
     \\ Cases_on `s ' GenStart` \\ fs [isWord_def] \\ rveq
     \\ fs [gen_starts_in_store_def] \\ rfs []
     \\ Cases_on `gen_starts` THEN1
-     (`F` by all_tac
+     (sg `F`
       \\ fs [word_gen_gc_can_do_partial_def]
       \\ Cases_on `l` \\ fs [])
     \\ fs [] \\ rveq
@@ -4401,7 +4416,11 @@ val cut_env_IMP_cut_env = Q.prove(
   \\ Cases_on `y'` \\ Cases_on `y''`
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[adjust_var_11] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def] \\ res_tac
-  \\ `IS_SOME (lookup q s.locals)` by full_simp_tac(srw_ss())[] \\ res_tac
+  \\ sg `IS_SOME (lookup q s.locals)` THENL [
+       full_simp_tac(srw_ss())[] \\ res_tac,
+       ALL_TAC
+     ]
+  \\ res_tac
   \\ Cases_on `lookup (adjust_var q) t.locals` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[MEM_toAList,unit_some_eq_IS_SOME] \\ res_tac \\ full_simp_tac(srw_ss())[]);
 
@@ -6545,7 +6564,8 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
       q = NONE)`,
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
   \\ `limit < dimword (:'a)` by
-        (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def])
+        (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def] >>
+         rfs[])
   \\ `?end next.
         FLOOKUP t.store TriggerGC = SOME (Word end) /\
         FLOOKUP t.store NextFree = SOME (Word next)` by
@@ -6581,7 +6601,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
   \\ `1w ≪ shift (:α) + w ⋙ 2 ≪ shift (:α) =
       alloc_size (w2n w DIV 4 + 1)` by
    (fs [alloc_size_def] \\ IF_CASES_TAC THEN1
-     (`w >>> 2 = n2w (w2n w DIV 4)` by all_tac
+     (sg `w >>> 2 = n2w (w2n w DIV 4)`
       \\ fs [shift_lsl,state_rel_def,bytes_in_word_def,word_add_n2w,word_mul_n2w]
       \\ rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [])
     \\ qsuff_tac `(w2n w DIV 4 + 1) * (dimindex (:α) DIV 8) < dimword (:'a)`
@@ -7293,12 +7313,12 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
     \\ fs [bytes_in_word_def,shift_def,labPropsTheory.good_dimindex_def]
     \\ fs [word_add_n2w]
     THEN1
-     (`i + 3 < dimword (:'a)` by all_tac
-      \\ `i + 3 DIV 4 < dimword (:'a)` by all_tac \\ fs []
+     (sg `i + 3 < dimword (:'a)`
+      \\ sg `i + 3 DIV 4 < dimword (:'a)` \\ fs []
       \\ rfs [dimword_def] \\ fs [DIV_LT_X])
     THEN1
-     (`i + 7 < dimword (:'a)` by all_tac
-      \\ `i + 7 DIV 8 < dimword (:'a)` by all_tac \\ fs []
+     (sg `i + 7 < dimword (:'a)`
+      \\ sg `i + 7 DIV 8 < dimword (:'a)` \\ fs []
       \\ rfs [dimword_def] \\ fs [DIV_LT_X]) \\ NO_TAC)
   \\ fs [] \\ rveq
   \\ once_rewrite_tac [list_Seq_def]
@@ -7635,7 +7655,7 @@ val evaluate_Maxout_bits_code = Q.prove(
       wordSemTheory.set_var_def,wordSemTheory.get_var_imm_def,
       asmTheory.word_cmp_def,lookup_insert,WORD_LO,word_exp_rw,
       maxout_bits_def] \\ rw [] \\ fs [insert_shadow]
-  \\ `2 ** rep_len < dimword (:α)` by all_tac \\ fs [] \\ fs [dimword_def]);
+  \\ sg `2 ** rep_len < dimword (:α)` \\ fs [] \\ fs [dimword_def]);
 
 val Make_ptr_bits_thm = Q.store_thm("Make_ptr_bits_thm",
   `tag_reg ≠ dest ∧ tag1 < dimword (:α) ∧ c.tag_bits < dimindex (:α) ∧
@@ -8878,7 +8898,7 @@ val evaluate_AddNumSize = prove(
    (fs [eq_eval,EVAL ``0w ' 0``]
     \\ imp_res_tac memory_rel_Number_const_test
     \\ pop_assum (qspec_then `i` assume_tac) \\ rfs []
-    \\ `i = 0` by all_tac \\ fs [EVAL ``i2mw 0``]
+    \\ sg `i = 0` \\ fs [EVAL ``i2mw 0``]
     \\ fs [Smallnum_def,small_int_def,good_dimindex_def] \\ rfs [dimword_def]
     \\ Cases_on `i` \\ fs [] \\ rfs [dimword_def])
   \\ Cases_on `(w4 && 1w) = 0w` THEN1
@@ -8886,7 +8906,7 @@ val evaluate_AddNumSize = prove(
     \\ imp_res_tac memory_rel_Number_const_test
     \\ pop_assum (qspec_then `i` assume_tac) \\ rfs []
     \\ fs [Smallnum_def]
-    \\ `LENGTH (SND (i2mw i)) = 1` by all_tac \\ fs []
+    \\ sg `LENGTH (SND (i2mw i)) = 1` \\ fs []
     \\ fs [word_index_test]
     \\ fs [multiwordTheory.i2mw_def,Once multiwordTheory.n2mw_def] \\ rfs []
     \\ rveq \\ fs [] \\ fs [small_int_def]
@@ -9238,7 +9258,7 @@ val LongDiv1_thm = prove(
     \\ strip_tac \\ fs []
     \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
   \\ IF_CASES_TAC
-  THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
+  THEN1 (sg `F` \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
   \\ pop_assum kall_tac
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
@@ -9306,7 +9326,7 @@ val evaluate_LongDiv_code = prove(
   THEN1 (* has_longdiv case *)
    (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ pop_assum mp_tac \\ simp []
+     (sg `F` \\ pop_assum mp_tac \\ simp []
       \\ fs [mc_multiwordTheory.single_div_pre_def])
     \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
     \\ fs [fromAList_def,wordSemTheory.state_component_equality]
@@ -9750,7 +9770,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ strip_tac
   \\ `il + (jl + 1) < dimword (:α) DIV 8` by fs []
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ unabbrev_all_tac \\ fs [wordSemTheory.set_store_def]
     \\ rfs []
     \\ fs [DECIDE ``m + 1 = n + (k + 2:num) <=> m = n + k + 1``]
@@ -10245,7 +10265,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
       \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac [])
-    \\ `F` by all_tac \\ fs []
+    \\ sg `F` \\ fs []
     \\ rpt_drule i2mw_small_int_IMP_0)
   \\ qmatch_goalsub_abbrev_tac `evaluate (if_stmt,t8)`
   \\ `?w. evaluate (if_stmt,t8) = (NONE, set_var 5 w t8)` by
@@ -10854,7 +10874,7 @@ val th = Q.store_thm("assign_Div",
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
       \\ reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ rfs [DIV_LT_X]
+       (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
       \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
@@ -10899,7 +10919,7 @@ val th = Q.store_thm("assign_Div",
     \\ strip_tac \\ fs []
     \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ drule env_to_list_lookup_equiv
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval]
@@ -11035,7 +11055,7 @@ val th = Q.store_thm("assign_Mod",
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
       \\ reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ rfs [DIV_LT_X]
+       (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
       \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
@@ -11079,7 +11099,7 @@ val th = Q.store_thm("assign_Mod",
     \\ strip_tac \\ fs []
     \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ drule env_to_list_lookup_equiv
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval,FLOOKUP_UPDATE]
@@ -12222,7 +12242,7 @@ val Equal_code_lemma = prove(
       \\ rw [] \\ fs [lookup_def])
     \\ fs [] \\ imp_res_tac cut_env_IMP_domain \\ fs [eq_eval]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [])
     \\ pop_assum kall_tac \\ fs []
     \\ once_rewrite_tac [list_Seq_def]
@@ -13474,7 +13494,7 @@ val th = Q.store_thm("assign_Label",
   \\ fs [state_rel_thm] \\ eval_tac
   \\ fs [domain_lookup,lookup_map]
   \\ reverse IF_CASES_TAC THEN1
-   (`F` by all_tac \\ fs [code_rel_def]
+   (sg `F` \\ fs [code_rel_def]
     \\ rename1 `lookup _ s2.code = SOME zzz` \\ PairCases_on `zzz` \\ res_tac
     \\ fs []) \\ fs []
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
@@ -14271,7 +14291,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac do_app_io_events_mono \\ rev_full_simp_tac(srw_ss())[]
     \\ `s.ffi = t.ffi` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
-    \\ `x.ffi = s.ffi` by all_tac
+    \\ sg `x.ffi = s.ffi`
     \\ imp_res_tac do_app_io_events_mono \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `names_opt` \\ full_simp_tac(srw_ss())[cut_state_opt_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[cut_state_def,cut_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
@@ -14452,7 +14472,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
       \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
       THEN1
-       (`s1.ffi = r'.ffi` by all_tac \\ full_simp_tac(srw_ss())[]
+       (sg `s1.ffi = r'.ffi` \\ full_simp_tac(srw_ss())[]
         \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
         \\ full_simp_tac(srw_ss())[set_var_def]
         \\ imp_res_tac dataPropsTheory.pop_env_const \\ full_simp_tac(srw_ss())[]
@@ -14462,7 +14482,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
         \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
         \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
-        \\ `LENGTH r'.stack < LENGTH locs` by ALL_TAC
+        \\ sg `LENGTH r'.stack < LENGTH locs`
         \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
         \\ `LENGTH locs = LENGTH s.stack` by
            (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
@@ -14498,8 +14518,8 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ Cases_on `res1 = SOME NotEnoughSpace` \\ full_simp_tac(srw_ss())[]
     THEN1 (full_simp_tac(srw_ss())[]
-      \\ `r'.ffi.io_events ≼ s1.ffi.io_events ∧
-          (IS_SOME t1.ffi.final_event ⇒ r'.ffi = s1.ffi)` by all_tac
+      \\ sg `r'.ffi.io_events ≼ s1.ffi.io_events ∧
+          (IS_SOME t1.ffi.final_event ⇒ r'.ffi = s1.ffi)`
       \\ TRY (imp_res_tac IS_PREFIX_TRANS \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac dataPropsTheory.evaluate_io_events_mono \\ full_simp_tac(srw_ss())[set_var_def]

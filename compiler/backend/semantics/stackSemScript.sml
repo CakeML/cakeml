@@ -566,7 +566,7 @@ val alloc_clock = Q.store_thm("alloc_clock",
   SIMP_TAC std_ss [alloc_def] \\ REPEAT STRIP_TAC
   \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
   \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
-  \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
+  \\ `s3.clock=s1.clock` by (Q.UNABBREV_TAC`s3`>>fs[set_store_def])
   \\ IMP_RES_TAC gc_clock \\ fs []
   \\ UNABBREV_ALL_TAC \\ fs []
   \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
