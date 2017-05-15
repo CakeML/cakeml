@@ -289,13 +289,3 @@ val fs_ffi_part_def = Define`
 
 val _ = export_theory();
 
-(* TODO: 
-* val flush : out_channel -> unit
-*
-* Flush the buffer associated with the given output channel, performing all
-* pending writes on that channel. Interactive programs must be careful about
-* flushing standard output and standard error at the right time.
-*
-* val pos_out : out_channel -> int
-* given by seek 0, but can be larger than a char
-*)
