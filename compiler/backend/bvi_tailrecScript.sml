@@ -12,7 +12,9 @@ open backend_commonTheory;
 
 val _ = new_theory "bvi_tailrec";
 
-(* TODO defined in bviSemTheory, should be moved to bviTheory? *)
+(* TODO defined in bviSemTheory, should be moved to bviTheory? 
+   On the other hand: its use here is temporary.
+*)
 val small_enough_int_def = Define `
   small_enough_int i <=> -268435457 <= i /\ i <= 268435457`;
 
@@ -74,46 +76,12 @@ val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
   `∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs`,
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []);
 
-(* No stateful operations are allowed. *)
-(*val no_err_op_def = Define `*)
-  (*no_err_op op ⇔*)
-    (*case op of*)
-      (*Global _         => F*)
-    (*| SetGlobal _      => F*)
-    (*| AllocGlobal      => F*)
-    (*| GlobalsPtr       => F*)
-    (*| SetGlobalsPtr    => F*)
-    (*| Length           => F*)
-    (*| LengthByte       => F*)
-    (*| (RefByte _)      => F*)
-    (*| RefArray         => F*)
-    (*| DerefByte        => F*)
-    (*| UpdateByte       => F*)
-    (*| Ref              => F*)
-    (*| Deref            => F*)
-    (*| Update           => F*)
-    (*| (Label _)        => F*)
-    (*| (FFI _)          => F*)
-    (*| Equal            => F*)
-    (*| BoundsCheckArray => F*)
-    (*| BoundsCheckByte  => F*)
-    (*| _                => T*)
-  (*`;*)
-
-(*val no_err_def = tDefine "no_err" `*)
-  (*(no_err (Var _)       ⇔ T) ∧*)
-  (*(no_err (If x1 x2 x3) ⇔ no_err x1 ∧ no_err x2 ∧ no_err x3) ∧*)
-  (*(no_err (Op op xs)    ⇔ EVERY no_err xs ∧ no_err_op op) ∧*)
-  (*(no_err (Let xs x1)   ⇔ EVERY no_err xs ∧ no_err x1) ∧*)
-  (*(no_err _             ⇔ F)`*)
-  (*(WF_REL_TAC `measure exp_size` \\ rw []*)
-  (*\\ imp_res_tac MEM_exp_size_imp \\ fs []);*)
-
 (* TODO parametrise on operator *)
 val no_err_def = Define `
-  (no_err (Op (Const i) []) ⇔ small_enough_int i) ∧
-  (no_err (Op (Cons _) []) ⇔ T) ∧
-  (no_err _ ⇔ F)
+  (no_err (Op (Const i) [])  ⇔ small_enough_int i) ∧
+  (no_err (Op Add [x1; x2])  ⇔ no_err x1 ∧ no_err x2) ∧
+  (no_err (Op Mult [x1; x2]) ⇔ no_err x1 ∧ no_err x2) ∧
+  (no_err _                  ⇔ F)
   `;
 
 val is_rec_def = Define `
@@ -265,186 +233,6 @@ val optimize_prog_def = Define `
     | SOME (exp_aux, exp_opt) =>
         (nm, args, exp_aux)::(n, args + 1, exp_opt)::optimize_prog (n + 2) xs)
   `;
-
-(* -- Evaluation tests. ----------------------------------------------------*)
-
-(*
-  length xxs =
-    if xxs = [] then
-      0
-    else
-      let
-        xs = tl xxs
-      in
-        1 + length xs
-
-  should optimize to SOME (...)
-*)
-val length1_fun_def = Define `
-  length1_fun =
-      If (Op Equal [Var 0; Op (Cons nil_tag) []])
-         (Op (Const 0) [])
-         (Let [Call 5 (SOME 1) [Var 0] NONE]
-              (Op Add [Op (Const 1) []; Call 10 (SOME 2) [Var 0] NONE]))
-  `;
-
-(*
-  length acc xxs =
-    if xxs = [] then
-      acc
-    else
-      let
-        xs = tl xxs
-      in
-        length (1 + acc) xs
-
-  should return NONE - there is nothing we can expose
-*)
-val length2_fun_def = Define `
-  length2_fun =
-    If (Op Equal [Var 1; Op (Cons nil_tag) []])
-       (Var 0)
-       (Let [Call 5 (SOME 1) [Var 1] NONE]
-            (Call 10 (SOME 2) [Op Add [Op (Const 1) []; Var 1]; Var 2] NONE))
-  `;
-
-(*
-  length xxs =
-    if xxs = [] then
-      0
-    else
-      let
-        xs = tl xxs
-      in
-        length xs + 1
-
-  should optimize to SOME (...)
-*)
-val length3_fun_def = Define `
-  length3_fun =
-      If (Op Equal [Var 0; Op (Cons nil_tag) []])
-         (Op (Const 0) [])
-         (Let [Call 5 (SOME 1) [Var 0] NONE]
-              (Op Add [Call 10 (SOME 2) [Var 0] NONE; Op (Const 1) []]))
-  `;
-
-(* Arbitrary example with a sub-expression carrying a tail call hidden inside
-   an operation. While bad code, the algorithm could be extended to catch this
-   as well.
-
-   Should evaluate to NONE.
-*)
-val length4_fun_def = Define `
-  length4_fun =
-      If (Op Equal [Var 0; Op (Cons nil_tag) []])
-         (Op (Const 0) [])
-         (Let [Call 5 (SOME 1) [Var 0] NONE]
-              (Op Add [Op (Const 1) [];
-                       If (Var 2)
-                          (Var 0)
-                          (Call 10 (SOME 2) [Var 0] NONE)]))
-  `;
-
-(*
-   foo 0 = 0
-   foo n = (3 + foo n) + (5 + foo (n - 1))
-
-   Optimizes to
-*)
-val foo_fun_def = Define `
-  foo_fun: bvi$exp =
-    If (Op (EqualInt 0) [Var 0])
-       (Op (Const 0) [])
-       (Op Add
-         [Op Add [Op (Const 3) [];
-                  Call 10 (SOME 2) [Var 0] NONE];
-          Op Add [Op (Const 5) [];
-                  Call 10 (SOME 2) [Op Sub [Var 0; Op (Const 1) []]] NONE
-                 ]])`
-
-val testop_def = Define `
-  testop = 
-    Op Add
-      [Op Add [Op (Const 3) [];
-               Call 10 (SOME 2) [Var 0] NONE];
-       Op Add [Op (Const 5) [];
-               Call 10 (SOME 2) [Op Sub [Var 0; Op (Const 1) []]] NONE
-              ]]`;
-
-val testop2_def = Define `
-  testop2 = 
-    Op Add [Op (Const 5) [];
-            Call 10 (SOME 2) [Op Sub [Var 0; Op (Const 1) []]] NONE]`;
-
-val test_expr0_def = Define `test_expr0 = Call 0 (SOME 127) [] NONE`;
-val test_op_rewrite0 = EVAL ``op_rewrite (IntOp Plus) 127 test_expr0``
-val test_binop_has_rec0 = EVAL ``binop_has_rec 127 (IntOp Plus) test_expr0``
-val test_assoc_swap0 = EVAL ``assoc_swap (IntOp Plus) (Var 17) test_expr0``
-val test_push_call0 = EVAL
-  ``case op_binargs (assoc_swap (IntOp Plus) (Var 17) test_expr0) of
-    | NONE => Var 333
-    | SOME (e1, e2) =>
-      push_call 999 (IntOp Plus) 777 e2 (args_from e1)`` 
-
-val test_expr1_def = Define `
-  test_expr1 = Op Add [Var 63; Call 0 (SOME 127) [] NONE]`
-val test_op_rewrite1 = EVAL ``op_rewrite (IntOp Plus) 127 test_expr1``
-val test_binop_has_rec1 = EVAL ``
-  binop_has_rec 127 (IntOp Plus) (SND (op_rewrite (IntOp Plus) 127 test_expr1))``
-
-val fac_tail_def = Define `
-  fac_tail =
-       (Op Mult
-         [Var 0;
-          Call 0 (SOME 1)
-            [Op Sub [Var 0; Op (Const 1) []]]
-            NONE])    
-  `;
-
-val fac_def = Define `
-  fac =
-    If (Op LessEq [Var 0; Op (Const 1) []])
-       (Op (Const 1) [])
-       (Op Mult
-         [Var 0;
-          Call 0 (SOME 1)
-            [Op Sub [Var 0; Op (Const 1) []]]
-            NONE])
-  `;
-
-val fac_tail_rewrite = EVAL ``tail_rewrite 2 (IntOp Times) 1 1 fac``
-val fac_tail_op_rewrite = EVAL ``op_rewrite (IntOp Times) 1 fac_tail``
-val fac_tail_rewrite_def = Define `
-  fac_tail_rewrite =
-    If (Op LessEq [Var 1; Op (Const 1) []])
-       (Op Mult [Op (Const 1) []; Var 0])
-         (Call 0 (SOME 1)
-            [Op Mult [Var 1; Var 0]; 
-             Op Sub [Var 1; Op (Const 1) []]] 
-             NONE)
-  `;
-
-val test1 = EVAL ``optimize_single 9 2 1 length1_fun``;
-val test1_tail_check = EVAL ``tail_check 2 length1_fun``;
-(*val test1_tail_check2 = EVAL ``tail_check2 2 length1_fun``;*)
-val test1_tail_rewrite = EVAL ``tail_rewrite 9 (IntOp Plus) 2 127 length1_fun``
-(*val test1_tail_rewrite = EVAL ``tail_rewrite2 9 (IntOp Plus) 2 127 length1_fun``*)
-
-val test2 = EVAL ``optimize_single 9 2 1 length2_fun``;
-val test2_tail_check = EVAL ``tail_check 2 length2_fun``;
-(*val test2_tail_check2 = EVAL ``tail_check2 2 length2_fun``;*)
-
-val test3 = EVAL ``optimize_single 9 2 1 length3_fun``;
-val test3_tail_check = EVAL ``tail_check 2 length3_fun``;
-(*val test3_tail_check2 = EVAL ``tail_check2 2 length3_fun``;*)
-
-val test4 = EVAL ``optimize_single 9 2 1 length4_fun``;
-val test4_tail_check = EVAL ``tail_check 2 length4_fun``;
-(*val test4_tail_check2 = EVAL ``tail_check2 2 length4_fun``;*)
-
-val test5 = EVAL ``optimize_single 9 2 1 foo_fun``;
-val test5_tail_check = EVAL ``tail_check 2 foo_fun``;
-(*val test5_tail_check = EVAL ``tail_check2 2 foo_fun``;*)
 
 val _ = export_theory();
 

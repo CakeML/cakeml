@@ -3,22 +3,7 @@ open bviPropsTheory bvi_tailrecTheory
 
 (* TODO
 
-   - Need a static guarantee from op_rewrite that all sub-expressions apart
-     from the recursive calls always evaluate to values (numbers, for now).
-     Otherwise neither associativity nor commutativity can be utilized, nor
-     can we prove that the push_call stuff works.
-
-   - The conclusion in the evaluate_WF theorem is not strong enough for the
-     induction hypotheses to support the If-case. In particular,
-
-        evaluate ([tail_rewrite ... (HD xs)], env, s) =
-        evaluate ([apply_op ... (HD xs) (Var acc)], env, s)
-
-     must hold even when
-
-        optimize_check name (HD xs) = NONE.
-
-   - It might be possible to prove that we can replace the simplified
+   - It should be possible to prove that we can replace the simplified
      optimize_single by the old optimize_single without touching the evaluate-
      theorem. Benefits:
        * Less code duplication
@@ -94,14 +79,22 @@ val is_arithmetic_to_op = Q.store_thm ("is_arithmetic_to_op[simp]",
   `∀iop. is_arithmetic (to_op iop)`,
   Cases \\ fs [is_arithmetic_def, to_op_def]);
 
+val all_num_def = Define `
+  all_num xs = EVERY (λv. ∃n. v = Number n) xs
+  `;
+
 val EVERY_no_err_correct = Q.store_thm ("EVERY_no_err_correct",
   `∀xs env (s: 'ffi bviSem$state) r t.
      EVERY no_err xs ∧
      evaluate (xs, env, s) = (r, t) ⇒
-       s = t ∧ ∃vs. r = Rval vs ∧ LENGTH vs = LENGTH xs ∧
+       s = t ∧ 
+       ∃vs. 
+         r = Rval vs ∧ 
+         LENGTH vs = LENGTH xs ∧
+         all_num vs ∧
        (∀(s': 'ffi bviSem$state). evaluate (xs, env, s') = (r, s')) `,
   recInduct evaluate_ind
-  \\ simp [no_err_def]
+  \\ simp [no_err_def, all_num_def]
   \\ rpt strip_tac
   \\ qhdtm_x_assum `evaluate` mp_tac
   \\ TRY (simp [evaluate_def] \\ rw [] \\ NO_TAC)
@@ -110,24 +103,83 @@ val EVERY_no_err_correct = Q.store_thm ("EVERY_no_err_correct",
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     \\ strip_tac \\ rveq \\ rfs []
     \\ NO_TAC)
-  \\ Cases_on `xs` \\ fs [no_err_def]
+  \\ TRY
+    (simp [evaluate_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+    \\ strip_tac \\ rveq 
+    \\ rfs [] \\ rveq
+    \\ first_x_assum (qspec_then `s` assume_tac)
+    \\ imp_res_tac evaluate_SING_IMP \\ fs []
+    \\ NO_TAC)
   \\ Cases_on `op` \\ fs [no_err_def]
-  \\ simp [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
-           bviSemTheory.small_enough_int_def, bvl_to_bvi_id]
-  \\ fs [small_enough_int_def]
-  \\ strip_tac \\ rveq \\ rw []);
+  \\ TRY
+    (Cases_on `xs` \\ fs [no_err_def]
+    \\ fs [evaluate_def, do_app_def, do_app_aux_def,
+           bvlSemTheory.do_app_def, bvl_to_bvi_id, small_enough_int_def,
+           bviSemTheory.small_enough_int_def]
+    \\ rw []
+    \\ NO_TAC)
+  \\ Cases_on `xs` \\ fs [no_err_def]
+  \\ Cases_on `t'` \\ fs [no_err_def]
+  \\ Cases_on `t''` \\ fs [no_err_def]
+  \\ simp [Once evaluate_def]
+  \\ CASE_TAC \\ fs []
+  \\ rveq
+  \\ first_assum (qspec_then `s` assume_tac)
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ Cases_on `vs` \\ fs [LENGTH_NIL]
+  \\ Cases_on `t'` \\ fs [LENGTH_NIL] \\ rveq
+  \\ fs [evaluate_def, do_app_def, do_app_aux_def,
+         bvlSemTheory.do_app_def, bvl_to_bvi_id, small_enough_int_def,
+         bviSemTheory.small_enough_int_def]
+  \\ rw []);
 
 val no_err_correct = save_thm (
   "no_err_correct",
-  Q.SPEC `[x]` EVERY_no_err_correct |> SIMP_RULE (srw_ss()) []);
+  Q.SPEC `[x]` EVERY_no_err_correct |> SIMP_RULE (srw_ss()) []
+  );
+
+val no_err_env = Q.store_thm ("no_err_env",
+  `∀xs env (s: 'ffi bviSem$state) r t env'.
+   EVERY no_err xs ∧
+   evaluate (xs, env, s) = (r, t) ⇒
+     evaluate (xs, env', s) = (r, t)`,
+  recInduct evaluate_ind
+  \\ simp [no_err_def]
+  \\ rpt strip_tac
+  \\ fs [evaluate_def]
+  \\ pop_assum mp_tac
+  >-
+    (TOP_CASE_TAC \\ fs []
+    \\ imp_res_tac no_err_correct
+    \\ last_assum (qspec_then `env` assume_tac)
+    \\ first_x_assum drule
+    \\ strip_tac \\ rveq \\ fs []
+    \\ rveq
+    \\ TOP_CASE_TAC \\ fs [])
+  \\ TOP_CASE_TAC \\ fs []
+  \\ Cases_on `op` \\ fs [no_err_def]
+  \\ Cases_on `xs` \\ fs [no_err_def]
+  \\ Cases_on `t'` \\ fs [no_err_def]
+  \\ Cases_on `t''` \\ fs [no_err_def]);
 
 val no_err_type_correct = Q.store_thm ("no_err_type_correct",
   `∀x.
      no_err x ⇒
        ∃k. ∀env (s:'ffi bviSem$state).
          evaluate ([x], env, s) = (Rval [Number k], s)`,
-  cheat (* TODO *)
-  );
+  rpt strip_tac
+  \\ drule no_err_correct
+  \\ strip_tac
+  \\ Cases_on `evaluate ([x],env,(s:'ffi bviSem$state))`
+  \\ first_x_assum drule \\ rw []
+  \\ imp_res_tac evaluate_SING_IMP
+  \\ fs [all_num_def] \\ rveq
+  \\ qexists_tac `n`
+  \\ rw []
+  \\ first_x_assum (qspec_then `s` assume_tac)
+  \\ imp_res_tac no_err_env
+  \\ rfs [EVERY_DEF]);
 
 val comm_theorem = Q.store_thm ("comm_theorem",
   `∀(s:'ffi bviSem$state).
