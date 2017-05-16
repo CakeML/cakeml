@@ -341,7 +341,7 @@ val pat_to_pres_exp_def = tDefine "pat_to_pres_exp" `
   (pat_to_pres_exp h (Con t num es) =
     Con t (Exhlang_con num) (MAP (pat_to_pres_exp h) es))
   /\
-  (pat_to_pres_exp h (Var_local t num) = Var_local t (num_to_varn (h-num-1)))
+  (pat_to_pres_exp h (Var_local t var_index) = Var_local t (num_to_varn (h-var_index-1)))
   /\
   (pat_to_pres_exp h (Var_global t num) = Var_global t num)
   /\
