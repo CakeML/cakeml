@@ -151,8 +151,6 @@ val arm6_enc_def = Define`
                              immediate_form1 imm12)))) /\
    (arm6_enc (Inst (FP (FPLess n d1 d2))) = arm6_vfp_cmp LT n d1 d2) /\
    (arm6_enc (Inst (FP (FPLessEqual n d1 d2))) = arm6_vfp_cmp LE n d1 d2) /\
-   (arm6_enc (Inst (FP (FPGreater n d1 d2))) = arm6_vfp_cmp GT n d1 d2) /\
-   (arm6_enc (Inst (FP (FPGreaterEqual n d1 d2))) = arm6_vfp_cmp GE n d1 d2) /\
    (arm6_enc (Inst (FP (FPEqual n d1 d2))) = arm6_vfp_cmp EQ n d1 d2) /\
    (arm6_enc (Inst (FP (FPMov d1 d2))) =
       enc (VFP (vmov (F, n2w d1, n2w d2)))) /\

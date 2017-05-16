@@ -1058,8 +1058,6 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
          \\ Cases_on `f`
          >- (print_tac "FPLess"         \\ fp_cmp_tac)
          >- (print_tac "FPLessEqual"    \\ fp_cmp_tac)
-         >- (print_tac "FPGreater"      \\ fp_cmp_tac)
-         >- (print_tac "FPGreaterEqual" \\ fp_cmp_tac)
          >- (print_tac "FPEqual"        \\ fp_cmp_tac)
          >- (print_tac "FPAbs"  \\ next_tac)
          >- (print_tac "FPNeg"  \\ next_tac)

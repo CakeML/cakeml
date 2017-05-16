@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open asmLib mips_stepLib mips_targetTheory;
+open realLib asmLib mips_stepLib mips_targetTheory;
 
 val () = new_theory "mips_targetProof"
 
@@ -14,6 +14,10 @@ val bytes_in_memory_thm = Q.prove(
       (state.exception = NoException) /\
       state.CP0.Config.BE /\
       ~state.CP0.Status.RE /\
+      state.CP0.Status.CU1 /\
+      state.fcsr.ABS2008 /\
+      ~state.fcsr.FS /\
+      (state.fcsr.RM = 0w) /\
       ~state.exceptionSignalled /\
       (state.BranchDelay = NONE) /\
       (state.BranchTo = NONE) /\
@@ -170,6 +174,49 @@ val mips_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
+val fp_to_int_lem = Q.prove(
+  `!i w : word64.
+      (w2i w = i) ==> -0x8000000000000000 <= i /\ i <= 0x7FFFFFFFFFFFFFFF`,
+  ntac 3 strip_tac
+  \\ assume_tac
+       (integer_wordTheory.w2i_le
+        |> Q.ISPEC `w : word64`
+        |> SIMP_RULE (srw_ss()) [])
+  \\ assume_tac
+       (integer_wordTheory.w2i_ge
+        |> Q.ISPEC `w : word64`
+        |> SIMP_RULE (srw_ss()) [])
+  \\ rfs []
+  )
+
+val gt_not_leq =
+   CONJ (intLib.ARITH_PROVE ``(i > j : int) = ~(i <= j)``)
+        (intLib.ARITH_PROVE ``i < j: int ==> ~(j <= i)``)
+
+(*
+val float_greater_less = Q.prove(
+  `(!a b. float_greater_than a b = float_less_than b a) /\
+    !a b. float_greater_equal a b = float_less_equal b a`,
+  rpt strip_tac
+  \\ simp [binary_ieeeTheory.float_less_than_def,
+           binary_ieeeTheory.float_greater_than_def,
+           binary_ieeeTheory.float_less_equal_def,
+           binary_ieeeTheory.float_greater_equal_def,
+           binary_ieeeTheory.float_compare_def]
+  \\ Cases_on `float_value a`
+  \\ Cases_on `float_value b`
+  \\ rw []
+  \\ fs [wordsLib.WORD_DECIDE ``(a <> 1w) = (a = 0w : word1)``]
+  \\ ntac 4 (pop_assum mp_tac)
+  \\ realLib.REAL_ARITH_TAC
+  )
+*)
+
+val fcc_lem =
+  blastLib.BBLAST_PROVE
+    ``!b fcc: word8.
+        word_bit 0 (bit_field_insert 0 0 (v2w [b] : word1) fcc) = b``
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -178,7 +225,8 @@ val encode_rwts =
    in
       [mips_enc_def, mips_ast_def, mips_encode_def, mips_bop_r_def,
        mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
-       Encode_def, form1_def, form2_def, form3_def, form4_def, form5_def]
+       mips_fp_cmp_def, Encode_def, COP1Encode_def, form1_def, form2_def,
+       form3_def, form4_def, form5_def]
    end
 
 val enc_rwts =
@@ -272,10 +320,12 @@ in
 end
 
 fun state_tac asm =
-   NO_STRIP_FULL_SIMP_TAC (srw_ss())
+   TRY (Q.PAT_X_ASSUM `fp64_to_int roundTiesToEven _ = _` mp_tac)
+   \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
       [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
        mips_target_def, mips_config, alignmentTheory.aligned_numeric,
-       set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9]
+       mipsTheory.IntToDWordMIPS_def, set_sepTheory.fun2set_eq, mips_reg_ok,
+       lem8, lem9, fcc_lem]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
          \\ Cases_on `i = n2`
@@ -300,7 +350,8 @@ fun state_tac asm =
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
              else
-              NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
+              NO_STRIP_FULL_SIMP_TAC std_ss
+                 [gt_not_leq, alignmentTheory.aligned_extract]
               \\ blastLib.FULL_BBLAST_TAC
              )
       )
@@ -366,7 +417,7 @@ val mips_encoding = Q.prove (
    `!i. let n = LENGTH (mips_enc i) in (n MOD 4 = 0) /\ n <> 0`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [mips_enc_def, mips_cmp_def, mips_encode_fail_def,
+   \\ simp [mips_enc_def, mips_cmp_def, mips_fp_cmp_def, mips_encode_fail_def,
             length_mips_encode, length_mips_enc, mips_ast_def]
    \\ REPEAT CASE_TAC
    \\ rw [length_mips_encode]
@@ -517,9 +568,33 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
          (*--------------
              FP
            --------------*)
-         \\ print_tac "FP"
          \\ Cases_on `f`
-         \\ next_tac
+         >- (print_tac "FPLess"         \\ next_tac)
+         >- (print_tac "FPLessEqual"    \\ next_tac)
+         >- (print_tac "FPEqual"        \\ next_tac)
+         >- (print_tac "FPAbs"  \\ next_tac)
+         >- (print_tac "FPNeg"  \\ next_tac)
+         >- (print_tac "FPSqrt" \\ next_tac)
+         >- (print_tac "FPAdd"  \\ next_tac)
+         >- (print_tac "FPSub"  \\ next_tac)
+         >- (print_tac "FPMul"  \\ next_tac)
+         >- (print_tac "FPDiv"  \\ next_tac)
+         >- (print_tac "FPMov"  \\ next_tac)
+         >- (print_tac "FPMovToReg"   \\ next_tac)
+         >- (print_tac "FPMovFromReg" \\ next_tac)
+         >- (print_tac "FPToInt"
+             \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
+             >- next_tac
+             \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
+             \\ Cases_on `w2i (i2w i : word64) = i`
+             >- (
+                 imp_res_tac fp_to_int_lem
+                 \\ next_tac
+                )
+             \\ next_tac
+
+            )
+         >- (print_tac "FPFromInt" \\ next_tac)
       ) (* close Inst *)
       (*--------------
           Jump

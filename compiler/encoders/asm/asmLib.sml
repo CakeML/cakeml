@@ -66,8 +66,6 @@ local
      `Inst (Mem Store32 r1 (Addr r2 w)) : 'a asm`,
      `Inst (FP (FPLess r d1 d2)) : 'a asm`,
      `Inst (FP (FPLessEqual r d1 d2)) : 'a asm`,
-     `Inst (FP (FPGreater r d1 d2)) : 'a asm`,
-     `Inst (FP (FPGreaterEqual r d1 d2)) : 'a asm`,
      `Inst (FP (FPEqual r d1 d2)) : 'a asm`,
      `Inst (FP (FPMov d1 d2)) : 'a asm`,
      `Inst (FP (FPMovToReg r1 r2 d)) : 'a asm`,

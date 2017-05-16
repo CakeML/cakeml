@@ -97,14 +97,6 @@ val fp_upd_def = Define `
      upd_reg r (if fp64_lessEqual (read_fp_reg d1 s) (read_fp_reg d2 s)
                   then 1w
                 else 0w) s) /\
-  (fp_upd (FPGreater r d1 d2) s =
-     upd_reg r (if fp64_greaterThan (read_fp_reg d1 s) (read_fp_reg d2 s)
-                  then 1w
-                else 0w) s) /\
-  (fp_upd (FPGreaterEqual r d1 d2) s =
-     upd_reg r (if fp64_greaterEqual (read_fp_reg d1 s) (read_fp_reg d2 s)
-                  then 1w
-                else 0w) s) /\
   (fp_upd (FPEqual r d1 d2) s =
      upd_reg r (if fp64_equal (read_fp_reg d1 s) (read_fp_reg d2 s)
                   then 1w

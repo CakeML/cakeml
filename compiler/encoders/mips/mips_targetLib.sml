@@ -25,10 +25,10 @@ in
       (ERR "mips_encode_conv" "")
       (computeLib.compset_conv (wordsLib.words_compset())
         [computeLib.Defs
-           [mips_enc, mips_ast_def, mips_encode_def, Encode_def, mips_bop_r_def,
-            mips_bop_i_def, mips_sh_def, mips_cmp_def, mips_sh32_def,
-            mips_memop_def, form1_def, form2_def, form3_def, form4_def,
-            form5_def],
+           [mips_enc, mips_ast_def, mips_encode_def, Encode_def, COP1Encode_def,
+            mips_bop_r_def, mips_bop_i_def, mips_sh_def, mips_fp_cmp_def,
+            mips_cmp_def, mips_sh32_def, mips_memop_def, form1_def, form2_def,
+            form3_def, form4_def, form5_def],
          computeLib.Tys ([``:('a, 'b) sum``, ``:ast$shift``] @ mips_tys),
          computeLib.Extenders [optionLib.OPTION_rws, pairLib.add_pair_compset]])
 end

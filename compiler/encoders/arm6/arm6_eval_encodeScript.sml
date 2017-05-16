@@ -13,11 +13,10 @@ local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
-           "fp less", "fp less eq", "fp greater", "fp greater eq", "fp eq",
-           "fp mov", "fp abs", "fp neg", "fp sqrt", "fp add", "fp sub",
-           "fp mul", "fp div", "fp to reg", "fp from reg", "fp to int",
-           "fp from int", "jump", "cjump reg", "cjump imm", "call",
-           "jump reg", "loc"]
+           "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
+           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp to reg",
+           "fp from reg", "fp to int", "fp from int", "jump", "cjump reg",
+           "cjump imm", "call", "jump reg", "loc"]
   val l = Lib.zip n (Drule.CONJUNCTS arm6_enc_def)
   val thm =  Q.SPEC `f` boolTheory.LET_THM
   val bits30 =
@@ -69,8 +68,6 @@ val fp_rwts =
 
 val fp_less_rwt = enc_thm "fp less" fp_rwts
 val fp_less_eq_rwt = enc_thm "fp less eq" fp_rwts
-val fp_greater_rwt = enc_thm "fp greater" fp_rwts
-val fp_greater_eq_rwt = enc_thm "fp greater eq" fp_rwts
 val fp_eq_rwt = enc_thm "fp eq" fp_rwts
 val fp_mov_rwt = enc_thm "fp mov" fp_rwts
 val fp_abs_rwt = enc_thm "fp abs" fp_rwts
@@ -106,10 +103,8 @@ val arm6_encode_rwts = Theory.save_thm("arm6_encode_rwts",
      add_carry_rwt, add_overflow_rwt, sub_overflow_rwt, load_rwt,
      (* load32_rwt, *) load8_rwt, store_rwt, (* store32_rwt, *) store8_rwt,
      jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
-     fp_less_rwt, fp_less_eq_rwt, fp_greater_rwt, fp_greater_eq_rwt, fp_eq_rwt,
-     fp_mov_rwt, fp_abs_rwt, fp_neg_rwt, fp_sqrt_rwt, fp_add_rwt, fp_sub_rwt,
-     fp_mul_rwt, fp_div_rwt, fp_to_reg_rwt, fp_from_reg_rwt, fp_to_int_rwt,
-     fp_from_int_rwt])
-
+     fp_less_rwt, fp_less_eq_rwt, fp_eq_rwt, fp_mov_rwt, fp_abs_rwt,
+     fp_neg_rwt, fp_sqrt_rwt, fp_add_rwt, fp_sub_rwt, fp_mul_rwt, fp_div_rwt,
+     fp_to_reg_rwt, fp_from_reg_rwt, fp_to_int_rwt, fp_from_int_rwt])
 
 val () = export_theory ()

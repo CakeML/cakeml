@@ -96,8 +96,6 @@ val () = Datatype `
   fp = (* orderings *)
        FPLess reg fp_reg fp_reg
      | FPLessEqual reg fp_reg fp_reg
-     | FPGreater reg fp_reg fp_reg
-     | FPGreaterEqual reg fp_reg fp_reg
      | FPEqual reg fp_reg fp_reg
        (* unary ops *)
      | FPAbs fp_reg fp_reg (* IEEE754:2008 *)
@@ -219,10 +217,6 @@ val fp_ok_def = Define `
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPLessEqual r d1 d2) c <=>
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_ok (FPGreater r d1 d2) c <=>
-      reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_ok (FPGreaterEqual r d1 d2) c <=>
-      reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPEqual r d1 d2) c <=>
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPAbs d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
@@ -238,12 +232,12 @@ val fp_ok_def = Define `
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
-      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
-       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
+      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+      fp_reg_ok d c) /\
   (fp_ok (FPToInt r d) c <=> reg_ok r c /\ fp_reg_ok d c) /\
   (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      (((dimindex(:'a) = 64) <=> (r1 = r2)) /\
-       reg_ok r1 c /\ reg_ok r2 c /\ fp_reg_ok d c)) /\
+      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+      fp_reg_ok d c) /\
   (fp_ok (FPFromInt d r) c <=> reg_ok r c /\ fp_reg_ok d c)`
 
 val cmp_ok_def = Define `
