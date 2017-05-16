@@ -8,25 +8,13 @@ open backend_commonTheory;
    Call 35505 NONE [] NONE    setup_call
    Var 65536                  push_call
    Var 65537                  mk_tailcall
-
-   TODO At some point we can redo the code to
-        place the accumulator argument /last/
-        and get rid of some GENLIST stuff. There
-        is no point in having it first.
-
-   TODO Note to self: there is, however, a point in having it *last*. 
-        It removes some issues with order of evaluation. 
-
-        In `f xs ++ (ys ++ acc)`, ys and acc are evaluated /after/ xs.
-        In `f' (ys ++ acc) xs` they are evaluated /before/ xs. It causes all
-        sorts of issues if, say, xs and acc were to evaluate to different 
-        errors, even if the equality `f xs ++ (ys ++ acc) = f' (ys ++ acc) xs` 
-        holds when all things evaluate to values. If we instead do
-        `f' xs (ys ++ acc)` however, the order of evaluation is preserved
-        between xs and (ys ++ acc), at least (although not the call itself).
 *)
 
 val _ = new_theory "bvi_tailrec";
+
+(* TODO defined in bviSemTheory, should be moved to bviTheory? *)
+val small_enough_int_def = Define `
+  small_enough_int i <=> -268435457 <= i /\ i <= 268435457`;
 
 val args_from_def = Define `
   (args_from (bvi$Call t (SOME d) as hdl) = SOME (t, d, as, hdl)) ∧
@@ -87,39 +75,46 @@ val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []);
 
 (* No stateful operations are allowed. *)
-val pure_op_def = Define `
-  pure_op op ⇔
-    case op of
-      Global _         => F
-    | SetGlobal _      => F
-    | AllocGlobal      => F
-    | GlobalsPtr       => F
-    | SetGlobalsPtr    => F
-    | Length           => F
-    | LengthByte       => F
-    | (RefByte _)      => F
-    | RefArray         => F
-    | DerefByte        => F
-    | UpdateByte       => F
-    | Ref              => F
-    | Deref            => F
-    | Update           => F
-    | (Label _)        => F
-    | (FFI _)          => F
-    | Equal            => F
-    | BoundsCheckArray => F
-    | BoundsCheckByte  => F
-    | _                => T
-  `;
+(*val no_err_op_def = Define `*)
+  (*no_err_op op ⇔*)
+    (*case op of*)
+      (*Global _         => F*)
+    (*| SetGlobal _      => F*)
+    (*| AllocGlobal      => F*)
+    (*| GlobalsPtr       => F*)
+    (*| SetGlobalsPtr    => F*)
+    (*| Length           => F*)
+    (*| LengthByte       => F*)
+    (*| (RefByte _)      => F*)
+    (*| RefArray         => F*)
+    (*| DerefByte        => F*)
+    (*| UpdateByte       => F*)
+    (*| Ref              => F*)
+    (*| Deref            => F*)
+    (*| Update           => F*)
+    (*| (Label _)        => F*)
+    (*| (FFI _)          => F*)
+    (*| Equal            => F*)
+    (*| BoundsCheckArray => F*)
+    (*| BoundsCheckByte  => F*)
+    (*| _                => T*)
+  (*`;*)
 
-val is_pure_def = tDefine "is_pure" `
-  (is_pure (Var _)       ⇔ T) ∧
-  (is_pure (If x1 x2 x3) ⇔ is_pure x1 ∧ is_pure x2 ∧ is_pure x3) ∧
-  (is_pure (Op op xs)    ⇔ EVERY is_pure xs ∧ pure_op op) ∧
-  (is_pure (Let xs x1)   ⇔ EVERY is_pure xs ∧ is_pure x1) ∧
-  (is_pure _             ⇔ F)`
-  (WF_REL_TAC `measure exp_size` \\ rw []
-  \\ imp_res_tac MEM_exp_size_imp \\ fs []);
+(*val no_err_def = tDefine "no_err" `*)
+  (*(no_err (Var _)       ⇔ T) ∧*)
+  (*(no_err (If x1 x2 x3) ⇔ no_err x1 ∧ no_err x2 ∧ no_err x3) ∧*)
+  (*(no_err (Op op xs)    ⇔ EVERY no_err xs ∧ no_err_op op) ∧*)
+  (*(no_err (Let xs x1)   ⇔ EVERY no_err xs ∧ no_err x1) ∧*)
+  (*(no_err _             ⇔ F)`*)
+  (*(WF_REL_TAC `measure exp_size` \\ rw []*)
+  (*\\ imp_res_tac MEM_exp_size_imp \\ fs []);*)
+
+(* TODO parametrise on operator *)
+val no_err_def = Define `
+  (no_err (Op (Const i) []) ⇔ small_enough_int i) ∧
+  (no_err (Op (Cons _) []) ⇔ T) ∧
+  (no_err _ ⇔ F)
+  `;
 
 val is_rec_def = Define `
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
@@ -134,14 +129,13 @@ val ok_tail_type_def = Define `
   (ok_tail_type _            ⇔ F)
   `;
 
-(* TODO is_pure x2? *)
 val binop_has_rec_def = Define `
   binop_has_rec name op exp ⇔
     is_rec name exp ∨ 
     op_eq op exp ∧ 
       (case op_binargs exp of
       | NONE => F
-      | SOME (x1, x2) => is_rec name x1)
+      | SOME (x1, x2) => is_rec name x1 ∧ no_err x2)
   `;
 
 val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
@@ -156,12 +150,14 @@ val exp_size_op_binargs = Q.store_thm ("exp_size_op_binargs",
   \\ Cases_on `t'` \\ simp [op_binargs_def]
   \\ fs [bviTheory.exp_size_def]);
 
-(* TODO operator equality required *)
 val assoc_swap_def = Define `
   assoc_swap op from into =
-    case op_binargs into of
-    | NONE => apply_op op into from
-    | SOME (x1, x2) => apply_op op x1 (apply_op op from x2)
+    if ¬op_eq op into then
+      apply_op op into from
+    else
+      case op_binargs into of
+      | NONE => apply_op op into from
+      | SOME (x1, x2) => apply_op op x1 (apply_op op from x2)
   `;
 
 val op_rewrite_def = tDefine "op_rewrite" `
@@ -176,10 +172,9 @@ val op_rewrite_def = tDefine "op_rewrite" `
         let (r2, y2) = op_rewrite op name x2 in
           case (binop_has_rec name op y1, binop_has_rec name op y2) of
           | (F, F) => (F, exp)
-          (*| (T, T) => (T, assoc_swap op y1 y2)*)
           | (T, T) => (F, exp)
-          | (T, F) => if is_pure y2 then (T, assoc_swap op y2 y1) else (F, exp)
-          | (F, T) => if is_pure y1 then (T, assoc_swap op y1 y2) else (F, exp)
+          | (T, F) => if no_err y2 then (T, assoc_swap op y2 y1) else (F, exp)
+          | (F, T) => if no_err y1 then (T, assoc_swap op y1 y2) else (F, exp)
   `
   (WF_REL_TAC `measure (exp_size o SND o SND)`
   \\ rpt strip_tac
