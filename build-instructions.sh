@@ -2,11 +2,13 @@
 ## This file describes how to install Poly/ML, HOL and CakeML.
 
 ## build Poly/ML
+## alternatively on macOS
+# brew install polyml
 cd
-git clone https://github.com/polyml/polyml -b fixes-5.6
+git clone https://github.com/polyml/polyml
 cd polyml
-## optionally use polyml master, but that has some bugs (Aug 2016)
-# git checkout master
+## optionally use a branch other than master
+# git checkout fixes-5.6
 ./configure
 ## optionally pass an installation prefix to configure
 # ./configure --prefix=<dir>
@@ -15,8 +17,6 @@ cd polyml
 make
 make compiler
 make install
-## alternatively on macOS
-# brew install polyml
 
 ## build HOL
 cd
