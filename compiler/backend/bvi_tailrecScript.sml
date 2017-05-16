@@ -197,6 +197,30 @@ val tail_rewrite_def = Define `
   (tail_rewrite n op name acc exp = mk_tailcall n op name acc exp)
   `;
 
+val tail_rewrite_aug_def = Define `
+  (tail_rewrite_aug n op name acc (Let xs x) =
+    let (r, y) = tail_rewrite_aug n op name acc x
+    in (r, Let xs y)) ∧
+  (tail_rewrite_aug n op name acc (Tick x) =
+    let (r, y) = tail_rewrite_aug n op name acc x
+    in (r, Tick y)) ∧
+  (tail_rewrite_aug n op name acc (Raise x) = (F, Raise x)) ∧
+  (tail_rewrite_aug n op name acc (If x1 x2 x3) =
+    let (r2, y2) = tail_rewrite_aug n op name acc x2 in
+    let (r3, y3) = tail_rewrite_aug n op name acc x3 in
+    let z2 = if r2 then y2 else apply_op op x2 (Var acc) in
+    let z3 = if r3 then y3 else apply_op op x3 (Var acc) in
+      (r2 ∨ r3, If x1 z2 z3)) ∧
+  (tail_rewrite_aug n op name acc exp =
+    case op_rewrite op name exp of
+      (F, _) => (F, apply_op op exp (Var acc))
+    | (T, exp') => 
+        (case op_binargs exp' of
+          NONE => (F, apply_op op exp (Var acc))
+        | SOME (call, exp'') =>
+            (T, push_call n op acc exp'' (args_from call))))
+  `;
+
 val optimize_check_def = Define `
   optimize_check name exp =
     if ¬ok_tail_type exp then
@@ -225,10 +249,20 @@ val optimize_single_def = Define `
           SOME (aux, opt)
   `;
 
+val optimize_single_aug_def = Define `
+  optimize_single_aug n name num_args exp =
+    case optimize_check name exp of
+      NONE => NONE
+    | SOME op =>
+      let (_, opt) = tail_rewrite_aug n op name num_args exp in
+      let aux = let_wrap num_args (id_from_op op) opt in
+        SOME (aux, opt)
+  `;
+
 val optimize_prog_def = Define `
   (optimize_prog n [] = []) ∧
   (optimize_prog n ((nm, args, exp)::xs) =
-    case optimize_single n nm args exp of
+    case optimize_single_aug n nm args exp of
     | NONE => (nm, args, exp)::optimize_prog n xs
     | SOME (exp_aux, exp_opt) =>
         (nm, args, exp_aux)::(n, args + 1, exp_opt)::optimize_prog (n + 2) xs)
