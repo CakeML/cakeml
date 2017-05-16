@@ -18,8 +18,7 @@ structure Main =
           fun loop n =
             if n = 0
               then ()
-              else (let val u = doit() in
-                    loop(n-1) end)
+              else (doit();loop(n-1))
         in loop (n * 1000000)
         end
    end

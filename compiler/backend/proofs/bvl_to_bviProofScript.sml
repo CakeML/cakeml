@@ -78,7 +78,7 @@ val state_rel_def = Define `
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
        ?n. let (c1,aux1,n1) = compile_exps n [exp] in
-             (lookup (num_stubs + 2 * name) t.code = SOME (arity,HD c1)) /\
+             (lookup (num_stubs + 2 * name) t.code = SOME (arity,bvi_let$compile_exp (HD c1))) /\
              aux_code_installed (append aux1) t.code /\
              handle_ok [exp])`;
 
@@ -2194,7 +2194,7 @@ val compile_exps_correct = Q.prove(
     \\ `?n7. let (c7,aux7,n8) = compile_exps n7 [body] in
                (find_code (case dest of NONE => NONE | SOME n => SOME (num_stubs + 2 * n))
                  (MAP (adjust_bv b2) a) t2.code =
-                 SOME (MAP (adjust_bv b2) args,HD c7)) /\
+                 SOME (MAP (adjust_bv b2) args,bvi_let$compile_exp (HD c7))) /\
                aux_code_installed (append aux7) t2.code /\
                handle_ok [body]` by
      (reverse (Cases_on `dest`) \\ full_simp_tac(srw_ss())[state_rel_def,find_code_def]
@@ -2251,7 +2251,11 @@ val compile_exps_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def]
     \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]
     \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]));
+    >-
+      (imp_res_tac bvi_letProofTheory.evaluate_compile_exp \\ fs[])
+    >>
+      (imp_res_tac bvi_letProofTheory.evaluate_compile_exp \\ fs[]
+      \\ Cases_on`e` \\ full_simp_tac(srw_ss())[])));
 
 val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
@@ -2430,6 +2434,7 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   `dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1)` by (
     EVAL_TAC >> simp[state_component_equality] ) >>
   simp[] >>
+  imp_res_tac bvi_letProofTheory.evaluate_compile_exp >> rfs[] >>
   Cases_on`res`>>simp[] >- METIS_TAC[] >>
   Cases_on`e`>>simp[] >> METIS_TAC[]);
 
@@ -2603,7 +2608,7 @@ val compile_list_imp = Q.prove(
      ALOOKUP prog name = SOME (arity,exp) ⇒
      ∃n0 c aux n1.
      compile_exps n0 [exp] = ([c],aux,n1) ∧
-     ALOOKUP (append code) (2 * name + num_stubs) = SOME (arity,c) ∧
+     ALOOKUP (append code) (2 * name + num_stubs) = SOME (arity,bvi_let$compile_exp c) ∧
      IS_SUBLIST (append code) (append aux)`,
   Induct_on`prog` >> simp[] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
