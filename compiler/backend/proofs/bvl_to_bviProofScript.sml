@@ -470,6 +470,7 @@ val evaluate_AllocGlobal_code = Q.prove(
   `n = LENGTH ls`by decide_tac >>
   `2 * (LENGTH ls + 1) = LENGTH ls + LENGTH ls + 2` by DECIDE_TAC >>
   simp[Abbr`l1`,DROP_REPLICATE,ADD1]
+  \\ rewrite_tac[GSYM REPLICATE]
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC)
 
@@ -1932,8 +1933,12 @@ val compile_exps_correct = Q.prove(
            simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,EL_REPLICATE] >>
            Cases >> simp[EL_REPLICATE] ) >>
          qexists_tac`z' * 2`>>simp[libTheory.the_def] >>
-         simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,REPLICATE_APPEND] >>
-         Cases >> simp[EL_REPLICATE])
+         qmatch_abbrev_tac`REPLICATE a x ++ [x] ++ REPLICATE b x = _` >>
+         `REPLICATE a x ++ [x] ++ REPLICATE b x = REPLICATE (a + SUC b) x`
+         by simp[GSYM REPLICATE_APPEND] >>
+         `a + SUC b = SUC (a + b)` by simp[] >>
+         rw[] >>
+         simp[LIST_EQ_REWRITE,Abbr`a`,Abbr`b`,LENGTH_REPLICATE,EL_REPLICATE])
     \\ Cases_on`∃str. op = String str` \\ fs[] >- (
       fs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]

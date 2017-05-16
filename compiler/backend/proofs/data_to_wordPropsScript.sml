@@ -4761,19 +4761,19 @@ val memory_rel_RefByte_alt = Q.store_thm("memory_rel_RefByte_alt",
     unabbrev_all_tac \\ fs [map_replicate] \\
     Cases_on`byte_len (:'a) n` \\ fs[]
     >- ( fs[byte_len_def,REPLICATE,LUPDATE_def,write_bytes_def] )
-    \\ rename1`REPLICATE (SUC l)`
+    \\ rename1`REPLICATE l`
+    \\ rewrite_tac[GSYM REPLICATE]
     \\ simp[REPLICATE_SNOC,LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
     \\ IF_CASES_TAC
     >- (
-      simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
-      \\ simp[write_bytes_def,DROP_REPLICATE,byte_len_lemma]
+      simp[write_bytes_def,DROP_REPLICATE,byte_len_lemma]
       \\ once_rewrite_tac[GSYM map_replicate]
       \\ conj_tac >- (
         AP_TERM_TAC
         \\ drule(GSYM write_bytes_REPLICATE)
         \\ disch_then(qspecl_then[`l`,`n`]SUBST_ALL_TAC)
         \\ match_mp_tac write_bytes_change_extra
-        \\ simp[] )
+        \\ simp[])
       \\ fs[labPropsTheory.good_dimindex_def,bytes_to_word_simp,REPLICATE_compute]
       \\ fs[word_of_byte_set_byte_32,word_of_byte_set_byte_64] )
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
