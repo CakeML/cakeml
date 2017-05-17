@@ -459,6 +459,7 @@ val ptree_Op_def = Define`
     else if FST nt = mkNT nAddOps then
       if tokcheckl subs [SymbolT "+"] then SOME (Short "+")
       else if tokcheckl subs [SymbolT "-"] then SOME (Short "-")
+      else if tokcheckl subs [SymbolT "\094"] then SOME (Short "\094")
       else NONE
     else if FST nt = mkNT nListOps then
       if tokcheckl subs [SymbolT "::"] then SOME (Short "::")

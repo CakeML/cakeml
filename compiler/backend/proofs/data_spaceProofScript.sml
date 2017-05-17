@@ -271,7 +271,7 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,
              add_space_def,set_var_def] \\ SRW_TAC [] []
       \\ `cut_env (insert n0 () (delete n y1)) l =
-             SOME (insert n0 x (delete n x'))` by ALL_TAC THEN1
+             SOME (insert n0 x (delete n x'))` by
        (full_simp_tac(srw_ss())[cut_env_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_alt,lookup_delete]
         THEN1 (full_simp_tac(srw_ss())[get_var_def,domain_lookup])
@@ -285,9 +285,8 @@ val evaluate_compile = Q.prove(
       \\ qpat_abbrev_tac `ll = insert n _ _`
       \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) = _`
       \\ `s with <|locals := ll; space := y0|> =
-          s4 with locals := ll` by ALL_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
-      \\ `locals_ok s4.locals ll` by ALL_TAC THEN1
+          s4 with locals := ll` by (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
+      \\ `locals_ok s4.locals ll` by
        (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,locals_ok_def]
         \\ full_simp_tac(srw_ss())[lookup_insert,lookup_delete,cut_env_def]
         \\ Q.PAT_X_ASSUM `xxx = x'` (fn th => full_simp_tac(srw_ss())[GSYM th])
@@ -340,7 +339,7 @@ val evaluate_compile = Q.prove(
     \\ `call_env q (push_env x' (IS_SOME handler)
           (dec_clock (s with locals := l))) =
         call_env q (push_env x' (IS_SOME handler)
-          (dec_clock s))` by ALL_TAC THEN1
+          (dec_clock s))` by
      (Cases_on `handler`
       \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,
              dec_clock_def,call_env_def,push_env_def])

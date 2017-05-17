@@ -724,7 +724,7 @@ val word_gc_move_bitmaps_unroll = Q.prove(
   \\ full_simp_tac(srw_ss())[word_gc_move_bitmap_def,LET_THM] \\ rev_full_simp_tac(srw_ss())[get_bits_intro]
   \\ strip_tac \\ rpt var_eq_tac
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
@@ -1192,7 +1192,7 @@ val word_gc_move_bitmap_code_thm = Q.store_thm("word_gc_move_bitmap_code_thm",
     \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
-    (`F` by all_tac \\ fs []
+    (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
      \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
@@ -2166,7 +2166,7 @@ val word_gen_gc_move_bitmaps_unroll = Q.prove(
   \\ full_simp_tac(srw_ss())[word_gen_gc_move_bitmap_def,LET_THM] \\ rev_full_simp_tac(srw_ss())[get_bits_intro]
   \\ strip_tac \\ rpt var_eq_tac
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
@@ -2244,7 +2244,7 @@ val word_gen_gc_partial_move_bitmaps_unroll = Q.prove(
   \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_bitmap_def,LET_THM] \\ rev_full_simp_tac(srw_ss())[get_bits_intro]
   \\ strip_tac \\ rpt var_eq_tac
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ full_simp_tac(srw_ss())[wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[labPropsTheory.good_dimindex_def]
     \\ full_simp_tac(srw_ss())[word_2comp_def] \\ full_simp_tac(srw_ss())[dimword_def]
@@ -2778,7 +2778,7 @@ val word_gen_gc_move_bitmap_code_thm = Q.store_thm("word_gen_gc_move_bitmap_code
     \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
-    (`F` by all_tac \\ fs []
+    (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
      \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
@@ -2936,7 +2936,7 @@ val word_gen_gc_partial_move_bitmap_code_thm =
     \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
-    (`F` by all_tac \\ fs []
+    (sg `F` \\ fs []
      \\ pop_assum mp_tac \\ fs [] \\ AP_TERM_TAC
      \\ match_mp_tac (bytes_in_word_word_shift_n2w |> GEN_ALL) \\ fs []
      \\ rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
@@ -4349,8 +4349,7 @@ val word_gen_gc_move_loop_code_thm = Q.prove(
   \\ fs [FUPDATE_LIST]
   \\ qmatch_goalsub_abbrev_tac `(While _ _ _ _,s7)`
   \\ qmatch_asmsub_abbrev_tac `(While _ _ _ _,s8)`
-  \\ `s8 = s7` by all_tac
-  THEN1
+  \\ `s8 = s7` by
    (unabbrev_all_tac
     \\ fs [state_component_equality]
     \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,

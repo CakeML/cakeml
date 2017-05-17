@@ -129,7 +129,7 @@ val peg_V_def = Define`
             tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="; "*"; "::"; "@"})
+                                 ":="; "*"; "::"; "@"; "\094"})
                   od = SOME ())
                 (bindNT nV o mktokLf)]
 `
@@ -205,7 +205,8 @@ val cmlPEG_def = zDefine`
                                   [StarT; SymbolT "/"; AlphaT "mod"; AlphaT "div"]))
                     (bindNT nMultOps));
               (mkNT nAddOps,
-               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
+               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-");
+                              tokeq (SymbolT "\094")])
                     (bindNT nAddOps));
               (mkNT nRelOps, pegf (choicel (tok ((=) EqualsT) mktokLf ::
                                             MAP (tokeq o SymbolT)

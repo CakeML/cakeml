@@ -1650,7 +1650,7 @@ val check_partial_col_INJ = Q.store_thm("check_partial_col_INJ",
     `lookup (f h) flive = NONE` by
       (CCONTR_TAC>>
       `∃s. lookup(f h) flive = SOME s` by
-        Cases_on`lookup (f h) flive`>>fs[]>>
+        (Cases_on`lookup (f h) flive`>>fs[])>>
       fs[EXTENSION,domain_lookup]>>
       first_x_assum(qspec_then`f h` mp_tac)>>
       rw[EQ_IMP_THM]>>

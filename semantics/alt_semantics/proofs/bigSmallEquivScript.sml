@@ -352,8 +352,7 @@ srw_tac[][] >|
              by metis_tac [e_step_add_ctxt,APPEND] >>
      `e_step_reln (env',s2,Val v,[(Ccon cn vs' () [],env)])
                   (env,s2,Val v_con,[])`
-             by srw_tac[][return_def, continue_def, e_step_reln_def, e_step_def] >>
-     full_simp_tac(srw_ss())[REVERSE_APPEND] >>
+             by fs[return_def, continue_def, e_step_reln_def, e_step_def, REVERSE_APPEND] >>
      metis_tac [transitive_RTC, transitive_def, RTC_SINGLE, APPEND],
  `LENGTH (v'::vs'') + 1 + LENGTH vs = LENGTH vs'' + 1 + SUC (LENGTH vs)`
               by (full_simp_tac(srw_ss())[] >>
@@ -392,11 +391,11 @@ val small_eval_list_err = Q.prove (
  `e_step_reln^* (env,s1,e',[(Ccon cn vs' () (e::es),env)])
                 (env''',s2,Val v',[(Ccon cn vs' () (e::es),env)])`
               by metis_tac [e_step_add_ctxt, APPEND] >>
+ `LENGTH vs' + 1 + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
+                 by DECIDE_TAC >>
  `e_step_reln (env''',s2,Val v',[(Ccon cn vs' () (e::es),env)])
               (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])`
          by srw_tac[][push_def,continue_def, e_step_reln_def, e_step_def] >>
- `LENGTH vs' + 1 + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
-                 by DECIDE_TAC >>
  full_simp_tac(srw_ss())[]
  >- (`e_step_reln^* (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])
                     (env',s3,Val err_v,[(Craise (), env'');(Ccon cn (v'::vs') () es,env)])`
@@ -428,11 +427,11 @@ srw_tac[][] >>
 `e_step_reln^* (env,s1,e'',[(Ccon cn vs' () (e::es),env)])
                (env'',s2,Val v',[(Ccon cn vs' () (e::es),env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
+`LENGTH vs' + 1 + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
+                by DECIDE_TAC >>
 `e_step_reln (env'',s2,Val v',[(Ccon cn vs' () (e::es),env)])
              (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])`
         by srw_tac[][push_def,continue_def, e_step_reln_def, e_step_def] >>
-`LENGTH vs' + 1 + 1 + LENGTH es = LENGTH vs' + 1 + SUC (LENGTH es)`
-                by DECIDE_TAC >>
 full_simp_tac(srw_ss())[] >|
 [`e_step_reln^* (env,s2,Exp e,[(Ccon cn (v'::vs') () es,env)])
                 (env',s3,e',c'++[(Ccon cn (v'::vs') () es,env)])`

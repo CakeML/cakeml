@@ -716,9 +716,9 @@ fun pure_add_constraints_rest_tac ls =
   | _ => ALL_TAC;
 
 fun pure_add_constraints_ignore_tac s =
-    `pure_add_constraints ^(s) ls ^(s)` by
+     byA(`pure_add_constraints ^(s) ls ^(s)`,
       (match_mp_tac pure_add_constraints_ignore >>
-      fs[Abbr`ls`,t_walkstar_eqn,t_walk_eqn])
+      fs[Abbr`ls`,t_walkstar_eqn,t_walk_eqn]))
 
 (* copied from src/1/Tactical *)
 fun parse_with_goal t (asms, g) =

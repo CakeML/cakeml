@@ -1485,8 +1485,8 @@ val MEM_MAP_ASHADOW = Q.prove(
   \\ Cases_on `xs` \\ fs[] THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
   \\ fs [FORALL_PROD,ASHADOW_def]
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) <= LENGTH t` by ALL_TAC
-  THEN1 fs [rich_listTheory.LENGTH_FILTER_LEQ]
+  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) <= LENGTH t` by
+     fs [rich_listTheory.LENGTH_FILTER_LEQ]
   \\ `LENGTH (FILTER (\y. FST h <> FST y) t) < SUC (LENGTH t)` by DECIDE_TAC
   \\ RES_TAC \\ fs[]
   \\ fs [MEM_MAP,MEM_FILTER] \\ METIS_TAC []);
@@ -1513,7 +1513,7 @@ val ALOOKUP_ASHADOW = Q.prove(
   \\ Cases_on `xs` \\ fs [] THEN1 EVAL_TAC
   \\ Cases_on `h` \\ fs [FORALL_PROD,ASHADOW_def]
   \\ SRW_TAC [] []
-  \\ `LENGTH (FILTER (\y. q <> FST y) t) < SUC (LENGTH t)` by ALL_TAC
+  \\ sg `LENGTH (FILTER (\y. q <> FST y) t) < SUC (LENGTH t)`
   \\ RES_TAC \\ fs [ALOOKUP_FILTER]
   \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
   \\ Q.EXISTS_TAC `LENGTH t`
