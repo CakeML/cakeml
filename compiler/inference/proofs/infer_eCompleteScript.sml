@@ -716,9 +716,9 @@ fun pure_add_constraints_rest_tac ls =
   | _ => ALL_TAC;
 
 fun pure_add_constraints_ignore_tac s =
-    `pure_add_constraints ^(s) ls ^(s)` by
+     byA(`pure_add_constraints ^(s) ls ^(s)`,
       (match_mp_tac pure_add_constraints_ignore >>
-      fs[Abbr`ls`,t_walkstar_eqn,t_walk_eqn])
+      fs[Abbr`ls`,t_walkstar_eqn,t_walk_eqn]))
 
 (* copied from src/1/Tactical *)
 fun parse_with_goal t (asms, g) =
@@ -1128,6 +1128,21 @@ val infer_p_complete = Q.store_thm("infer_p_complete",
     ts = MAP (convert_t o t_walkstar s') ts')`,
   ho_match_mp_tac type_p_strongind>>
   rw[UNCURRY,success_eqns,infer_p_def]
+  >-
+    (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
+      mp_tac (GEN_ALL extend_one_props)>>
+    `t_wfs s` by metis_tac[sub_completion_wfs]>>
+    impl_tac >> fs[LET_THM,sub_completion_def]>>
+    qpat_abbrev_tac `s' = s|++A`>>
+    qpat_abbrev_tac `constraints' = constraints ++ B`>> rw[]>>
+    ntac 2 HINT_EXISTS_TAC>>rw[]
+    >-
+      (fs[SUBSET_DEF,count_def]>>rw[]>>res_tac>>DECIDE_TAC)
+    >-
+      metis_tac[SUBMAP_t_compat]
+    >>
+      fs[simp_tenv_invC_def]>>
+      metis_tac[check_freevars_empty_convert_unconvert_id])
   >-
     (Q.SPECL_THEN [`t`,`st`,`s`,`tvs`,`constraints`]
       mp_tac (GEN_ALL extend_one_props)>>

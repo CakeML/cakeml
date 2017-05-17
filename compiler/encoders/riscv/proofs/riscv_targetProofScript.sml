@@ -180,6 +180,7 @@ local
          let
            val pc = fst (pred_setSyntax.dest_in (hd asl))
          in
+           subgoal
            `(!a. a IN s1.mem_domain ==> ((^etm).MEM8 a = ms.MEM8 a)) /\
             ((^etm).exception = ms.exception) /\
             ((^etm).c_NextFetch (^etm).procID = ms.c_NextFetch ms.procID) /\
@@ -188,8 +189,11 @@ local
             (((^etm).c_MCSR (^etm).procID).mcpuid.ArchBase =
              (ms.c_MCSR ms.procID).mcpuid.ArchBase) /\
             ((^etm).c_PC (^etm).procID = ^pc)`
-            by asm_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss)
-                 [combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ, Abbr `^tm`]
+            >| [
+              asm_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss)
+               [combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ, Abbr `^tm`],
+              all_tac
+            ]
          end (asl, g)
        , etm
        )

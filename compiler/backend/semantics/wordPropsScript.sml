@@ -24,7 +24,7 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
   `(set_store x y (z with clock := k)) = set_store x y z with clock := k`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val push_env_const = Q.store_thm("push_env_const[simp]",
   `(push_env x y z).clock = z.clock ∧
@@ -57,15 +57,15 @@ val pop_env_with_const = Q.store_thm("pop_env_with_const[simp]",
 val call_env_const = Q.store_thm("call_env_const[simp]",
   `(call_env x y).clock = y.clock ∧
    (call_env x y).ffi = y.ffi`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val call_env_with_const = Q.store_thm("call_env_with_const[simp]",
   `call_env x (y with clock := k) = call_env x y with clock := k`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val has_space_with_const = Q.store_thm("has_space_with_const[simp]",
   `has_space x (y with clock := k) = has_space x y`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val gc_const = Q.store_thm("gc_const",
   `gc x = SOME y ⇒
@@ -105,7 +105,7 @@ val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
 
 val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
   `get_var x (y with clock := k) = get_var x y`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
   `get_vars x (y with clock := k) = get_vars x y`,
@@ -115,7 +115,7 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).clock = z.clock ∧
    (set_var x y z).ffi = z.ffi ∧
    (set_var x y z).stack = z.stack`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
   `set_var x y (z with clock := k) = set_var x y z with clock := k`,
@@ -161,8 +161,8 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
   qpat_abbrev_tac`ls = MAP A B`>>
   qpat_abbrev_tac`ls' = MAP A B`>>
   `ls = ls'` by
-    unabbrev_all_tac>>fs[MAP_EQ_f]>>
-  rw[])
+    (unabbrev_all_tac>>fs[MAP_EQ_f]) >>
+  rw[]);
 
 val assign_const_full = Q.store_thm("assign_const_full",
   `assign x y z = SOME a ⇒
@@ -219,7 +219,7 @@ val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 (* Standard add clock lemma for FBS *)
 
@@ -367,7 +367,7 @@ val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
         first_x_assum(qspec_then`r'.clock-rst.clock` mp_tac)>>
         simp[])
       >>
-        tac2)
+        tac2);
 
 (* IO and clock monotonicity *)
 
@@ -400,7 +400,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
 
 val with_clock_ffi = Q.store_thm("with_clock_ffi",
   `(s with clock := y).ffi = s.ffi`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀exps s extra.
@@ -528,19 +528,19 @@ val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   r.clock = x.clock ∧
   r.be = x.be ∧
   r.mdomain = x.mdomain`,
-  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]);
 
 val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
   t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
-  imp_res_tac pop_env_code_gc_fun_clock>>fs[])
+  imp_res_tac pop_env_code_gc_fun_clock>>fs[]);
 
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
   s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def]);
 
 val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
   `!xs s1 vs s2.
@@ -565,7 +565,7 @@ val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
     TRY(pairarg_tac>>fs[state_component_equality])>>
     EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
-    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const])
+    metis_tac[alloc_code_gc_fun_const,inst_code_gc_fun_const]);
 
 val evaluate_code_const = Q.store_thm("evaluate_code_const",
   `!xs s1 vs s2. evaluate (xs,s1) = (vs,s2) ==> s1.code = s2.code`,
@@ -591,7 +591,7 @@ val get_vars_length_lemma = Q.store_thm("get_vars_length_lemma",
   Induct>>full_simp_tac(srw_ss())[get_vars_def]>>
   Cases_on`get_var h s`>>full_simp_tac(srw_ss())[]>>
   Cases_on`get_vars ls s`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[LENGTH])
+  metis_tac[LENGTH]);
 
 (*--Stack Swap Lemma--*)
 
@@ -627,12 +627,12 @@ val s_key_eq_def = Define`
 val s_key_eq_refl = Q.store_thm( "s_key_eq_refl",
   `!ls .s_key_eq ls ls = T`,
    Induct >> srw_tac[][s_key_eq_def]>>
-   Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_key_eq_def])
+   Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_key_eq_def]);
 
 val s_val_eq_refl = Q.store_thm( "s_val_eq_refl",
   `!ls.s_val_eq ls ls = T`,
   Induct >> srw_tac[][s_val_eq_def]>>
-  Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_val_eq_def])
+  Cases_on`h`>> Cases_on`o'`>>srw_tac[][s_frame_val_eq_def]);
 
 (*transitive*)
 val s_frame_key_eq_trans = Q.prove(
@@ -640,59 +640,59 @@ val s_frame_key_eq_trans = Q.prove(
             s_frame_key_eq a c`,
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
-  full_simp_tac(srw_ss())[s_frame_key_eq_def])
+  full_simp_tac(srw_ss())[s_frame_key_eq_def]);
 
 val s_key_eq_trans = Q.store_thm("s_key_eq_trans",
   `!a b c. s_key_eq a b /\ s_key_eq b c ==>
             s_key_eq a c`,
   Induct>>
   Cases_on`b`>>Cases_on`c`>>full_simp_tac(srw_ss())[s_key_eq_def]>>
-  srw_tac[][]>>metis_tac[s_frame_key_eq_trans])
+  srw_tac[][]>>metis_tac[s_frame_key_eq_trans]);
 
 val s_frame_val_eq_trans = Q.prove(
   `!a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
             s_frame_val_eq a c`,
   Cases_on`a`>>Cases_on`b`>>Cases_on`c`>>
   Cases_on`o'`>>Cases_on`o''`>>Cases_on`o'''`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def])
+  full_simp_tac(srw_ss())[s_frame_val_eq_def]);
 
 val s_val_eq_trans = Q.prove(
   `!a b c. s_val_eq a b /\ s_val_eq b c ==>
             s_val_eq a c`,
   Induct>>
   Cases_on`b`>>Cases_on`c`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
-  srw_tac[][]>>metis_tac[s_frame_val_eq_trans])
+  srw_tac[][]>>metis_tac[s_frame_val_eq_trans]);
 
 (*Symmetric*)
 val s_frame_key_eq_sym = Q.prove(
   `!a b. s_frame_key_eq a b <=> s_frame_key_eq b a`,
-  Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_key_eq_def,EQ_SYM_EQ])
+  Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_key_eq_def,EQ_SYM_EQ]);
 
 val s_key_eq_sym = Q.store_thm("s_key_eq_sym",
   `!a b. s_key_eq a b <=> s_key_eq b a`,
   Induct>> Cases_on`b`>>full_simp_tac(srw_ss())[s_key_eq_def]>>
-  strip_tac>>metis_tac[s_frame_key_eq_sym])
+  strip_tac>>metis_tac[s_frame_key_eq_sym]);
 
 val s_frame_val_eq_sym = Q.prove(
    `!a b. s_frame_val_eq a b <=> s_frame_val_eq b a`,
-  Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_val_eq_def,EQ_SYM_EQ])
+  Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>full_simp_tac(srw_ss())[s_frame_val_eq_def,EQ_SYM_EQ]);
 
 val s_val_eq_sym = Q.store_thm("s_val_eq_sym",
   `!a b. s_val_eq a b <=> s_val_eq b a`,
   Induct>> Cases_on`b`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
-  strip_tac>>metis_tac[s_frame_val_eq_sym])
+  strip_tac>>metis_tac[s_frame_val_eq_sym]);
 
 val s_frame_val_and_key_eq = Q.prove(
   `!s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t`,
   Cases>>Cases>>Cases_on`o'`>>Cases_on`o''`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR])
+  full_simp_tac(srw_ss())[s_frame_val_eq_def,s_frame_key_eq_def,LIST_EQ_MAP_PAIR]);
 
 val s_val_and_key_eq = Q.store_thm("s_val_and_key_eq",
   `!s t. s_val_eq s t /\ s_key_eq s t ==> s =t`,
   Induct>-
     (Cases>>full_simp_tac(srw_ss())[s_val_eq_def])>>
   srw_tac[][]>>
-  Cases_on`t`>>full_simp_tac(srw_ss())[s_val_eq_def,s_key_eq_def,s_frame_val_and_key_eq])
+  Cases_on`t`>>full_simp_tac(srw_ss())[s_val_eq_def,s_key_eq_def,s_frame_val_and_key_eq]);
 
 val dec_stack_stack_key_eq = Q.prove(
   `!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'`,
@@ -700,20 +700,20 @@ val dec_stack_stack_key_eq = Q.prove(
   full_simp_tac(srw_ss())[s_key_eq_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[dec_stack_def]>>srw_tac[][]>>
   Cases_on `handler`>>
-  full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS])
+  full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS]);
 
 (*gc preserves the stack_key relation*)
 val gc_s_key_eq = Q.store_thm("gc_s_key_eq",
   `!s x. gc s = SOME x ==> s_key_eq s.stack x.stack`,
   srw_tac[][gc_def] >>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac>>full_simp_tac(srw_ss())[]>>
   IMP_RES_TAC dec_stack_stack_key_eq>>
-  full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[]);
 
 val s_val_eq_enc_stack = Q.prove(
   `!st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'`,
   Induct>>Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`h'`>>Cases_on`o''`>>Cases_on`o'`>>
-  full_simp_tac(srw_ss())[s_frame_val_eq_def,enc_stack_def])
+  full_simp_tac(srw_ss())[s_frame_val_eq_def,enc_stack_def]);
 
 val s_val_eq_dec_stack = Q.prove(
   `!q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
@@ -729,7 +729,7 @@ val s_val_eq_dec_stack = Q.prove(
     (Cases_on `handler` \\ Cases_on `o'` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def]
      \\ metis_tac[LENGTH_MAP]) \\ full_simp_tac(srw_ss())[NOT_LESS]
    \\ Cases_on `handler` \\ Cases_on `o'` \\ full_simp_tac(srw_ss())[s_frame_val_eq_def,s_val_eq_def]
-   \\ full_simp_tac(srw_ss())[MAP_ZIP,LENGTH_TAKE])
+   \\ full_simp_tac(srw_ss())[MAP_ZIP,LENGTH_TAKE]);
 
 (*gc succeeds on all stacks related by stack_val and there are relations
   in the result*)
@@ -747,7 +747,7 @@ val gc_s_val_eq = Q.store_thm("gc_s_val_eq",
   strip_tac>>full_simp_tac(srw_ss())[]>>
   IMP_RES_TAC dec_stack_stack_key_eq>>
   IMP_RES_TAC s_key_eq_sym>>
-  Q.EXISTS_TAC`y'`>>full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
+  Q.EXISTS_TAC`y'`>>full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[]);
 
 (*Slightly more general theorem allows the unused locals to be differnt*)
 val gc_s_val_eq_word_state = Q.store_thm("gc_s_val_eq_word_state",
@@ -769,7 +769,7 @@ val gc_s_val_eq_word_state = Q.store_thm("gc_s_val_eq_word_state",
   IMP_RES_TAC s_key_eq_sym>>
   Q.EXISTS_TAC`tlocs`>>
   Q.EXISTS_TAC`y'`>>
-  full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[]);
 
 (*Most generalised gc_s_val_eq*)
 val gc_s_val_eq_gen = Q.store_thm ("gc_s_val_eq_gen",
@@ -794,7 +794,7 @@ val gc_s_val_eq_gen = Q.store_thm ("gc_s_val_eq_gen",
   IMP_RES_TAC s_val_eq_dec_stack>>full_simp_tac(srw_ss())[]>>
   qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM)>>
   IMP_RES_TAC dec_stack_stack_key_eq>>full_simp_tac(srw_ss())[]>>
-  metis_tac[s_val_eq_sym])
+  metis_tac[s_val_eq_sym]);
 
 (*pushing and popping maintain the stack_key relation*)
 val push_env_pop_env_s_key_eq = Q.store_thm("push_env_pop_env_s_key_eq",
@@ -804,44 +804,44 @@ val push_env_pop_env_s_key_eq = Q.store_thm("push_env_pop_env_s_key_eq",
   srw_tac[][]>>Cases_on`opt`>>TRY(PairCases_on`x'`)>>
   full_simp_tac(srw_ss())[push_env_def]>>full_simp_tac(srw_ss())[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
   full_simp_tac(srw_ss())[s_key_eq_def,pop_env_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[]);
 
 val get_vars_stack_swap = Q.prove(
   `!l s t. s.locals = t.locals ==>
     get_vars l s = get_vars l t`,
   Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_def]>>
   srw_tac[][]>> every_case_tac>>
-  metis_tac[NOT_NONE_SOME,SOME_11])
+  metis_tac[NOT_NONE_SOME,SOME_11]);
 
 val get_vars_stack_swap_simp = Q.prove(
   `!args. get_vars args (s with stack := xs) = get_vars args s`,
   `(s with stack:=xs).locals = s.locals` by full_simp_tac(srw_ss())[]>>
-  metis_tac[get_vars_stack_swap])
+  metis_tac[get_vars_stack_swap]);
 
 val s_val_eq_length = Q.store_thm("s_val_eq_length",
   `!s t. s_val_eq s t ==> LENGTH s = LENGTH t`,
   Induct>>Cases>>full_simp_tac(srw_ss())[s_val_eq_def,LENGTH]>>
-  Cases>>full_simp_tac(srw_ss())[s_val_eq_def])
+  Cases>>full_simp_tac(srw_ss())[s_val_eq_def]);
 
 val s_key_eq_length = Q.store_thm("s_key_eq_length",
   `!s t. s_key_eq s t ==> LENGTH s = LENGTH t`,
   Induct>>Cases>>full_simp_tac(srw_ss())[s_key_eq_def,LENGTH]>>
-  Cases>>full_simp_tac(srw_ss())[s_key_eq_def])
+  Cases>>full_simp_tac(srw_ss())[s_key_eq_def]);
 
 val s_val_eq_APPEND = Q.prove(
   `!s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def])
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]);
 
 val s_val_eq_REVERSE = Q.prove(
   `!s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND])
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND]);
 
 val s_val_eq_TAKE = Q.prove(
   `!s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)`,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>rw[]>>
-  Cases_on`n`>>fs[s_val_eq_def])
+  Cases_on`n`>>fs[s_val_eq_def]);
 
 val s_val_eq_LASTN = Q.prove(
   `!s t n. s_val_eq s t
@@ -852,22 +852,22 @@ val s_val_eq_LASTN = Q.prove(
   `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_val_eq_APPEND,s_val_eq_REVERSE]>>
   IMP_RES_TAC s_val_eq_TAKE>>
-  metis_tac[s_val_eq_REVERSE])
+  metis_tac[s_val_eq_REVERSE]);
 
 val s_key_eq_APPEND = Q.prove(
   `!s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def])
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]);
 
 val s_key_eq_REVERSE = Q.prove(
   `!s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND])
+  srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND]);
 
 val s_key_eq_TAKE = Q.prove(
   `!s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)`,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  rw[]>>Cases_on`n`>>fs[s_key_eq_def])
+  rw[]>>Cases_on`n`>>fs[s_key_eq_def]);
 
 val s_key_eq_LASTN = Q.prove(
   `!s t n. s_key_eq s t
@@ -878,15 +878,15 @@ val s_key_eq_LASTN = Q.prove(
   `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_key_eq_APPEND,s_key_eq_REVERSE]>>
   IMP_RES_TAC s_key_eq_TAKE>>
-  metis_tac[s_key_eq_REVERSE])
+  metis_tac[s_key_eq_REVERSE]);
 
 val s_key_eq_tail = Q.store_thm("s_key_eq_tail",
  `!a b c d. s_key_eq (a::b) (c::d) ==> s_key_eq b d`,
-  full_simp_tac(srw_ss())[s_key_eq_def])
+  full_simp_tac(srw_ss())[s_key_eq_def]);
 
 val s_val_eq_tail = Q.prove(
  `!a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d`,
-  full_simp_tac(srw_ss())[s_val_eq_def])
+  full_simp_tac(srw_ss())[s_val_eq_def]);
 
 val s_key_eq_LASTN_exists = Q.prove(
   `!s t n e y xs. s_key_eq s t /\
@@ -899,7 +899,7 @@ val s_key_eq_LASTN_exists = Q.prove(
    first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
    Cases_on`LASTN n t`>>
    full_simp_tac(srw_ss())[s_key_eq_def]>>
-   Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def])
+   Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def]);
 
 val s_val_eq_LASTN_exists = Q.store_thm("s_val_eq_LASTN_exists",
   `!s t n e y xs. s_val_eq s t /\
@@ -912,14 +912,14 @@ val s_val_eq_LASTN_exists = Q.store_thm("s_val_eq_LASTN_exists",
   first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
   Cases_on`LASTN n t`>>
   full_simp_tac(srw_ss())[s_val_eq_def]>>
-  Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def])
+  Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def]);
 
 val LASTN_LENGTH_cond = Q.store_thm("LASTN_LENGTH_cond",
   `!n xs. n = LENGTH xs ==> LASTN n xs =xs`,
-  metis_tac[LASTN_LENGTH_ID] )
+  metis_tac[LASTN_LENGTH_ID] );
 
 val handler_eq = Q.prove(
-  `x with handler := x.handler = x`, full_simp_tac(srw_ss())[state_component_equality])
+  `x with handler := x.handler = x`, full_simp_tac(srw_ss())[state_component_equality]);
 
 (*Stack is irrelevant to word_exp*)
 val word_exp_stack_swap = Q.prove(
@@ -933,9 +933,9 @@ val word_exp_stack_swap = Q.prove(
     (qpat_abbrev_tac`ls = MAP A B`>>
     qpat_abbrev_tac`ls' = MAP A B`>>
     (`ls = ls'` by
-      unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f])>>
+      (unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f]))>>
     fs[])>>
-  every_case_tac>>full_simp_tac(srw_ss())[])
+  every_case_tac>>full_simp_tac(srw_ss())[]);
 
 (*Stack swap theorem for evaluate*)
 val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
@@ -1521,7 +1521,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
      first_x_assum (qspec_then `frame` assume_tac)>>
      first_x_assum(qspec_then `frame::xs` assume_tac)>>
      rev_full_simp_tac(srw_ss())[call_env_def]>>
-     `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>> full_simp_tac(srw_ss())[]))
+     `LENGTH xs = LENGTH s.stack` by full_simp_tac(srw_ss())[s_val_eq_length]>> full_simp_tac(srw_ss())[]));
 
 (*--Stack Swap Lemma DONE--*)
 
@@ -1529,15 +1529,15 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
 
 val ignore_inc = Q.prove(`
   ∀perm:num->num->num.
-  (λn. perm(n+0)) = perm`,srw_tac[][FUN_EQ_THM])
+  (λn. perm(n+0)) = perm`,srw_tac[][FUN_EQ_THM]);
 
 val ignore_perm = Q.prove(`
   ∀st. st with permute := st.permute = st` ,
-  srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality])
+  srw_tac[][]>>full_simp_tac(srw_ss())[state_component_equality]);
 
 val get_vars_perm = Q.store_thm("get_vars_perm",`
   ∀args.get_vars args (st with permute:=perm) = get_vars args st`,
-  Induct>>srw_tac[][get_vars_def,get_var_def])
+  Induct>>srw_tac[][get_vars_def,get_var_def]);
 
 val pop_env_perm = Q.store_thm("pop_env_perm",`
   pop_env (rst with permute:=perm) =
@@ -1545,43 +1545,43 @@ val pop_env_perm = Q.store_thm("pop_env_perm",`
     NONE => NONE
   | SOME rst' => SOME (rst' with permute:=perm))`,
   full_simp_tac(srw_ss())[pop_env_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality])
+  full_simp_tac(srw_ss())[state_component_equality]);
 
 val gc_perm = Q.prove(`
   gc st = SOME x ⇒
   gc (st with permute:=perm) = SOME (x with permute := perm)`,
   full_simp_tac(srw_ss())[gc_def,LET_THM]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality])
+  full_simp_tac(srw_ss())[state_component_equality]);
 
 val get_var_perm = Q.store_thm("get_var_perm",`
   get_var n (st with permute:=perm) =
-  (get_var n st)`,full_simp_tac(srw_ss())[get_var_def])
+  (get_var n st)`,full_simp_tac(srw_ss())[get_var_def]);
 
 val get_var_imm_perm = Q.store_thm("get_var_imm_perm",`
   get_var_imm n (st with permute:=perm) =
   (get_var_imm n st)`,
   Cases_on`n`>>
-  full_simp_tac(srw_ss())[get_var_imm_def,get_var_perm])
+  full_simp_tac(srw_ss())[get_var_imm_def,get_var_perm]);
 
 val set_var_perm = Q.store_thm("set_var_perm",`
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm`,
-  full_simp_tac(srw_ss())[set_var_def])
+  full_simp_tac(srw_ss())[set_var_def]);
 
 val get_vars_perm = Q.prove(`
   ∀ls. get_vars ls (st with permute:=perm) =
   (get_vars ls st)`,
-  Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm])
+  Induct>>full_simp_tac(srw_ss())[get_vars_def,get_var_perm]);
 
 val set_vars_perm = Q.prove(`
   ∀ls. set_vars ls x (st with permute := perm) =
        (set_vars ls x st) with permute:=perm`,
-  full_simp_tac(srw_ss())[set_vars_def])
+  full_simp_tac(srw_ss())[set_vars_def]);
 
 val word_state_rewrites = Q.prove(`
   (st with clock:=A) with permute:=B =
   (st with <|clock:=A ;permute:=B|>)`,
-  full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[]);
 
 val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           full_simp_tac(srw_ss())[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
@@ -1600,7 +1600,7 @@ val word_exp_perm = Q.store_thm("word_exp_perm",`
     qpat_abbrev_tac`ls = MAP A B`>>
     qpat_abbrev_tac`ls' = MAP A B`>>
     `ls = ls'` by
-      (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[])
+      (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[]);
 
 val mem_store_perm = Q.prove(`
   mem_store a (w:'a word_loc) (s with permute:=perm) =
@@ -1608,7 +1608,7 @@ val mem_store_perm = Q.prove(`
     NONE => NONE
   | SOME x => SOME(x with permute:=perm)`,
   full_simp_tac(srw_ss())[mem_store_def]>>every_case_tac>>
-  full_simp_tac(srw_ss())[state_component_equality])
+  full_simp_tac(srw_ss())[state_component_equality]);
 
 val jump_exc_perm = Q.prove(`
   jump_exc (st with permute:=perm) =
@@ -1789,7 +1789,7 @@ val every_var_inst_mono = Q.store_thm("every_var_inst_mono",`
   ⇒
   every_var_inst Q inst`,
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
-  Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])
+  Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def]);
 
 val every_var_exp_mono = Q.store_thm("every_var_exp_mono",`
   ∀P exp Q.
@@ -1798,14 +1798,14 @@ val every_var_exp_mono = Q.store_thm("every_var_exp_mono",`
   ⇒
   every_var_exp Q exp`,
   ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
-  full_simp_tac(srw_ss())[EVERY_MEM])
+  full_simp_tac(srw_ss())[EVERY_MEM]);
 
 val every_name_mono = Q.store_thm("every_name_mono",`
   ∀P names Q.
   (∀x. P x ⇒ Q x) ∧
   every_name P names ⇒ every_name Q names`,
   srw_tac[][every_name_def]>>
-  metis_tac[EVERY_MONOTONIC])
+  metis_tac[EVERY_MONOTONIC]);
 
 val every_var_mono = Q.store_thm("every_var_mono",`
   ∀P prog Q.
@@ -1817,7 +1817,7 @@ val every_var_mono = Q.store_thm("every_var_mono",`
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`)>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono,every_name_mono])
+  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono,every_name_mono]);
 
 (*Conjunct*)
 val every_var_inst_conj = Q.store_thm("every_var_inst_conj",`
@@ -1826,7 +1826,7 @@ val every_var_inst_conj = Q.store_thm("every_var_inst_conj",`
   every_var_inst (λx. P x ∧ Q x) inst`,
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  metis_tac[])
+  metis_tac[]);
 
 val every_var_exp_conj = Q.store_thm("every_var_exp_conj",`
   ∀P exp Q.
@@ -1834,14 +1834,14 @@ val every_var_exp_conj = Q.store_thm("every_var_exp_conj",`
   every_var_exp (λx. P x ∧ Q x) exp`,
   ho_match_mp_tac every_var_exp_ind>>srw_tac[][every_var_exp_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM]>>
-  metis_tac[])
+  metis_tac[]);
 
 val every_name_conj = Q.store_thm("every_name_conj",`
   ∀P names Q.
   every_name P names ∧ every_name Q names ⇔
   every_name (λx. P x ∧ Q x) names`,
   srw_tac[][every_name_def]>>
-  metis_tac[EVERY_CONJ])
+  metis_tac[EVERY_CONJ]);
 
 val every_var_conj = Q.store_thm("every_var_conj",`
   ∀P prog Q.
@@ -1853,7 +1853,7 @@ val every_var_conj = Q.store_thm("every_var_conj",`
   TRY(Cases_on`x`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj]))
+  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj]));
 
 (*Similar lemmas about every_stack_var*)
 val every_var_imp_every_stack_var = Q.store_thm("every_var_imp_every_stack_var",`
@@ -1864,7 +1864,7 @@ val every_var_imp_every_stack_var = Q.store_thm("every_var_imp_every_stack_var",
   Cases_on`ret`>>
   Cases_on`h`>>full_simp_tac(srw_ss())[]>>
   PairCases_on`x`>>full_simp_tac(srw_ss())[]>>
-  Cases_on`x'`>>Cases_on`r`>>full_simp_tac(srw_ss())[])
+  Cases_on`x'`>>Cases_on`r`>>full_simp_tac(srw_ss())[]);
 
 val every_stack_var_mono = Q.store_thm("every_stack_var_mono",`
   ∀P prog Q.
@@ -1874,7 +1874,7 @@ val every_stack_var_mono = Q.store_thm("every_stack_var_mono",`
   every_stack_var Q prog`,
   ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[]))>>
-  metis_tac[every_name_mono])
+  metis_tac[every_name_mono]);
 
 val every_stack_var_conj = Q.store_thm("every_stack_var_conj",`
   ∀P prog Q.
@@ -1884,7 +1884,7 @@ val every_stack_var_conj = Q.store_thm("every_stack_var_conj",`
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`x`>>Cases_on`r`>>full_simp_tac(srw_ss())[])>>
-  TRY(metis_tac[EVERY_CONJ,every_name_conj]))
+  TRY(metis_tac[EVERY_CONJ,every_name_conj]));
 
 (* Locals extend lemma *)
 val locals_rel_def = Define`
@@ -1896,7 +1896,7 @@ val the_words_EVERY_IS_SOME = Q.store_thm("the_words_EVERY_IS_SOME",
   EVERY IS_SOME ls`,
   Induct>>fs[]>>Cases>>fs[the_words_def]>>
   TOP_CASE_TAC>>fs[]>>
-  TOP_CASE_TAC>>fs[])
+  TOP_CASE_TAC>>fs[]);
 
 val locals_rel_word_exp = Q.store_thm("locals_rel_word_exp",`
   ∀s exp w.
@@ -1924,7 +1924,7 @@ val locals_rel_word_exp = Q.store_thm("locals_rel_word_exp",`
       fs[IS_SOME_EXISTS])>>
     fs[])
   >>
-    every_case_tac>>res_tac>>full_simp_tac(srw_ss())[])
+    every_case_tac>>res_tac>>full_simp_tac(srw_ss())[]);
 
 val locals_rel_get_vars  = Q.store_thm("locals_rel_get_vars",`
   ∀ls vs.
@@ -1936,7 +1936,7 @@ val locals_rel_get_vars  = Q.store_thm("locals_rel_get_vars",`
   qpat_x_assum`A=SOME vs` mp_tac>>ntac 2 full_case_tac>>srw_tac[][]>>
   res_tac>>full_simp_tac(srw_ss())[get_var_def,locals_rel_def]>>
   res_tac>>
-  full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[]);
 
 val locals_rel_alist_insert = Q.store_thm("locals_rel_alist_insert",`
   ∀ls vs s t.
@@ -1945,7 +1945,7 @@ val locals_rel_alist_insert = Q.store_thm("locals_rel_alist_insert",`
   locals_rel temp (alist_insert ls vs s) (alist_insert ls vs t)`,
   ho_match_mp_tac alist_insert_ind>>full_simp_tac(srw_ss())[alist_insert_def,locals_rel_def]>>
   srw_tac[][]>>
-  Cases_on`x'=ls`>>full_simp_tac(srw_ss())[lookup_insert])
+  Cases_on`x'=ls`>>full_simp_tac(srw_ss())[lookup_insert]);
 
 val locals_rel_get_var = Q.store_thm("locals_rel_get_var",`
   r < temp ∧
@@ -1953,7 +1953,7 @@ val locals_rel_get_var = Q.store_thm("locals_rel_get_var",`
   locals_rel temp st.locals loc ⇒
   get_var r (st with locals:=loc) = SOME x`,
   full_simp_tac(srw_ss())[get_var_def,locals_rel_def]>>
-  metis_tac[])
+  metis_tac[]);
 
 val locals_rel_get_var_imm = Q.store_thm("locals_rel_get_var_imm",`
   every_var_imm (λx.x<temp) r ∧
@@ -1961,13 +1961,13 @@ val locals_rel_get_var_imm = Q.store_thm("locals_rel_get_var_imm",`
   locals_rel temp st.locals loc ⇒
   get_var_imm r (st with locals:=loc) = SOME x`,
   Cases_on`r`>>full_simp_tac(srw_ss())[get_var_imm_def,every_var_imm_def]>>
-  metis_tac[locals_rel_get_var])
+  metis_tac[locals_rel_get_var]);
 
 val locals_rel_set_var = Q.prove(`
   ∀n s t.
   locals_rel temp s t ⇒
   locals_rel temp (insert n v s) (insert n v t)`,
-  srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert])
+  srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert]);
 
 val locals_rel_cut_env = Q.prove(`
   locals_rel temp loc loc' ∧
@@ -1980,7 +1980,7 @@ val locals_rel_cut_env = Q.prove(`
   >>
   full_simp_tac(srw_ss())[lookup_inter]>>srw_tac[][]>>every_case_tac>>
   full_simp_tac(srw_ss())[domain_lookup]>>res_tac>>
-  metis_tac[option_CLAUSES])
+  metis_tac[option_CLAUSES]);
 
 (*Extra temporaries not mentioned in program
   do not affect evaluation*)
@@ -2174,7 +2174,7 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-    Cases_on`res`>>full_simp_tac(srw_ss())[]))
+    Cases_on`res`>>full_simp_tac(srw_ss())[]));
 
 val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`,
@@ -2183,7 +2183,7 @@ val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
   srw_tac[][EQ_IMP_THM]>>full_simp_tac(srw_ss())[EL_GENLIST]
   >- metis_tac[]>>
-  qexists_tac `g n`>>full_simp_tac(srw_ss())[])
+  qexists_tac `g n`>>full_simp_tac(srw_ss())[]);
 
 val GENLIST_I =
   GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]

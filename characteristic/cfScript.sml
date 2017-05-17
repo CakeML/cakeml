@@ -414,9 +414,6 @@ val extend_env_rec_build_rec_env = Q.store_thm ("extend_env_rec_build_rec_env",
 (*------------------------------------------------------------------*)
 (** Pattern matching.
 
-    CakeML pattern-matching is translated to pattern-matching in HOL
-    using the src/pattern_matching library, by Tuerk et al.
-
     Restrictions:
     - the CakeML pattern-matching must "typecheck" (does not raise
       Match_type_error)
@@ -427,6 +424,22 @@ val pat_bindings_def = astTheory.pat_bindings_def
 val pmatch_def = terminationTheory.pmatch_def
 val pmatch_ind = terminationTheory.pmatch_ind
 
+(* [pat_wildcards]: computes the number of wildcards a pattern contains. *)
+
+val pat_wildcards_def = tDefine "pat_wildcards" `
+  pat_wildcards Pany = 1n /\
+  pat_wildcards (Pvar _) = 0n /\
+  pat_wildcards (Plit _) = 0n /\
+  pat_wildcards (Pref _) = 0n /\
+  pat_wildcards (Pcon _ args) = pats_wildcards args /\
+  pat_wildcards (Ptannot p _) = pat_wildcards p /\
+
+  pats_wildcards [] = 0n /\
+  pats_wildcards (p::ps) =
+    (pat_wildcards p) + (pats_wildcards ps)`
+
+  (WF_REL_TAC `measure pat_size`)
+
 (* [v_of_pat]: from a pattern and a list of instantiations for the pattern
    variables, produce a semantic value
 *)
@@ -434,42 +447,49 @@ val pmatch_ind = terminationTheory.pmatch_ind
 val v_of_matching_pat_aux_measure_def = Define `
   v_of_matching_pat_aux_measure x =
     sum_CASE x
-      (\(_,p,_). pat_size p)
-      (\(_,ps,_). list_size pat_size ps)`;
+      (\(_,p,_,_). pat_size p)
+      (\(_,ps,_,_). list_size pat_size ps)`;
 
 val v_of_pat_def = tDefine "v_of_pat" `
-  v_of_pat envC (Pvar x) insts =
+  v_of_pat envC (Pvar x) insts wildcards =
     (case insts of
-         xv::rest => SOME (xv, rest)
+         xv::rest => SOME (xv, rest, wildcards)
        | _ => NONE) /\
-  v_of_pat envC (Plit l) insts = SOME (Litv l, insts) /\
-  v_of_pat envC (Pcon c args) insts =
-    (case v_of_pat_list envC args insts of
-         SOME (argsv, insts_rest) =>
+  v_of_pat envC Pany insts wildcards =
+    (case wildcards of
+         xv::rest => SOME (xv, insts, rest)
+       | _ => NONE) /\
+  v_of_pat envC (Plit l) insts wildcards =
+    SOME (Litv l, insts, wildcards) /\
+  v_of_pat envC (Pcon c args) insts wildcards =
+    (case v_of_pat_list envC args insts wildcards of
+         SOME (argsv, insts_rest, wildcards_rest) =>
          (case c of
-              NONE => SOME (Conv NONE argsv, insts_rest)
+              NONE => SOME (Conv NONE argsv, insts_rest, wildcards_rest)
             | SOME id =>
               case nsLookup envC id of
                   NONE => NONE
                 | SOME (len, t) =>
                   if len = LENGTH argsv then
-                    SOME (Conv (SOME (id_to_n id,t)) argsv, insts_rest)
+                    SOME (Conv (SOME (id_to_n id,t)) argsv, insts_rest, wildcards_rest)
                   else NONE)
       | NONE => NONE) /\
-  v_of_pat _ (Pref pat) _ =
+  v_of_pat _ (Pref pat) _ _ =
     NONE (* unsupported *) /\
-  v_of_pat envC (Ptannot p _) insts = v_of_pat envC p insts /\
-  v_of_pat _ _ _ = NONE /\
+  v_of_pat envC (Ptannot p _) insts wildcards =
+    v_of_pat envC p insts wildcards /\
+  v_of_pat _ _ _ _ = NONE /\
 
-  v_of_pat_list _ [] insts = SOME ([], insts) /\
-  v_of_pat_list envC (p::argspat) insts =
-    (case v_of_pat envC p insts of
-         SOME (v, insts_rest) =>
-         (case v_of_pat_list envC argspat insts_rest of
-              SOME (vs, insts_rest') => SOME (v::vs, insts_rest')
+  v_of_pat_list _ [] insts wildcards = SOME ([], insts, wildcards) /\
+  v_of_pat_list envC (p::argspat) insts wildcards =
+    (case v_of_pat envC p insts wildcards of
+         SOME (v, insts_rest, wildcards_rest) =>
+         (case v_of_pat_list envC argspat insts_rest wildcards_rest of
+              SOME (vs, insts_rest', wildcards_rest') =>
+                SOME (v::vs, insts_rest', wildcards_rest')
             | NONE => NONE)
        | NONE => NONE) /\
-  v_of_pat_list _ _ _ = NONE`
+  v_of_pat_list _ _ _ _ = NONE`
 
   (WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
    fs [v_of_matching_pat_aux_measure_def, list_size_def,
@@ -479,19 +499,19 @@ val v_of_pat_def = tDefine "v_of_pat" `
 val v_of_pat_ind = fetch "-" "v_of_pat_ind";
 
 val v_of_pat_list_length = Q.store_thm ("v_of_pat_list_length",
-  `!envC pats insts vs rest.
-      v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+  `!envC pats insts wildcards vs rest.
+      v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wrest) ==>
       LENGTH pats = LENGTH vs`,
   Induct_on `pats` \\ fs [v_of_pat_def] \\ rpt strip_tac \\
   every_case_tac \\ fs [] \\ rw [] \\ first_assum irule \\ instantiate
 );
 
 val v_of_pat_insts_length = Q.store_thm ("v_of_pat_insts_length",
-  `(!envC pat insts v insts_rest.
-       v_of_pat envC pat insts = SOME (v, insts_rest) ==>
+  `(!envC pat insts wildcards v insts_rest wildcards_rest.
+       v_of_pat envC pat insts wildcards = SOME (v, insts_rest, wildcards_rest) ==>
        (LENGTH insts = LENGTH (pat_bindings pat []) + LENGTH insts_rest)) /\
-    (!envC pats insts vs insts_rest.
-       v_of_pat_list envC pats insts = SOME (vs, insts_rest) ==>
+    (!envC pats insts wildcards vs insts_rest wildcards_rest.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, insts_rest, wildcards_rest) ==>
        (LENGTH insts = LENGTH (pats_bindings pats []) + LENGTH insts_rest))`,
 
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
@@ -499,21 +519,41 @@ val v_of_pat_insts_length = Q.store_thm ("v_of_pat_insts_length",
   THEN1 (every_case_tac \\ fs [LENGTH_NIL])
   THEN1 (every_case_tac \\ fs [])
   THEN1 (
+    (* v_of_pat _ (Pcon _ _) _ _ *)
+    every_case_tac \\ fs [] \\ rw [] \\
+    once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs []
+  )
+  THEN1 (
+    (* v_of_pat_list _ (_::_) _ _ *)
     every_case_tac \\ fs [] \\ rw [] \\
     once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs []
   )
 );
 
+val v_of_pat_wildcards_count = Q.store_thm ("v_of_pat_wildcards_count",
+  `(!envC pat insts wildcards v insts_rest wildcards_rest.
+       v_of_pat envC pat insts wildcards = SOME (v, insts_rest, wildcards_rest) ==>
+       (LENGTH wildcards = pat_wildcards pat + LENGTH wildcards_rest)) /\
+    (!envC pats insts wildcards vs insts_rest wildcards_rest.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, insts_rest, wildcards_rest) ==>
+       (LENGTH wildcards = pats_wildcards pats + LENGTH wildcards_rest))`,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def, LENGTH_NIL] \\ rw [] \\
+  every_case_tac \\ fs [] \\ rw []
+);
+
 val v_of_pat_extend_insts = Q.store_thm ("v_of_pat_extend_insts",
-  `(!envC pat insts v rest insts'.
-       v_of_pat envC pat insts = SOME (v, rest) ==>
-       v_of_pat envC pat (insts ++ insts') = SOME (v, rest ++ insts')) /\
-    (!envC pats insts vs rest insts'.
-       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
-       v_of_pat_list envC pats (insts ++ insts') = SOME (vs, rest ++ insts'))`,
+  `(!envC pat insts wildcards v rest wildcards_rest insts'.
+       v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
+       v_of_pat envC pat (insts ++ insts') wildcards = SOME (v, rest ++ insts', wildcards_rest)) /\
+    (!envC pats insts wildcards vs rest wildcards_rest insts'.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
+       v_of_pat_list envC pats (insts ++ insts') wildcards = SOME (vs, rest ++ insts', wildcards_rest))`,
 
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   try_finally (fs [v_of_pat_def])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c`
@@ -527,37 +567,75 @@ val v_of_pat_extend_insts = Q.store_thm ("v_of_pat_extend_insts",
   THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
 );
 
-val v_of_pat_NONE_extend_insts = Q.store_thm ("v_of_pat_NONE_extend_insts",
-  `(!envC pat insts insts'.
-       v_of_pat envC pat insts = NONE ==>
-       LENGTH insts >= LENGTH (pat_bindings pat []) ==>
-       v_of_pat envC pat (insts ++ insts') = NONE) /\
-    (!envC pats insts insts'.
-       v_of_pat_list envC pats insts = NONE ==>
-       LENGTH insts >= LENGTH (pats_bindings pats []) ==>
-       v_of_pat_list envC pats (insts ++ insts') = NONE)`,
+val v_of_pat_extend_wildcards = Q.store_thm ("v_of_pat_extend_wildcards",
+  `(!envC pat insts wildcards v rest wildcards_rest wildcards'.
+       v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
+       v_of_pat envC pat insts (wildcards ++ wildcards') = SOME (v, rest, wildcards_rest ++ wildcards')) /\
+    (!envC pats insts wildcards vs rest wildcards_rest wildcards'.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
+       v_of_pat_list envC pats insts (wildcards ++ wildcards') = SOME (vs, rest, wildcards_rest ++ wildcards'))`,
 
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
-  try_finally (fs [v_of_pat_def, pat_bindings_def])
-  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
+  try_finally (fs [v_of_pat_def])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c`
-    THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
+    THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [])
     THEN1 (
-      fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
+      first_x_assum (assume_tac o (SIMP_RULE std_ss [v_of_pat_def])) \\
+      every_case_tac \\ fs [] \\ rw [] \\ fs [v_of_pat_def]
+    )
+  )
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
+);
+
+val v_of_pat_NONE_extend_insts = Q.store_thm ("v_of_pat_NONE_extend_insts",
+  `(!envC pat insts wildcards insts'.
+       v_of_pat envC pat insts wildcards = NONE ==>
+       LENGTH insts >= LENGTH (pat_bindings pat []) ==>
+       LENGTH wildcards >= pat_wildcards pat ==>
+       v_of_pat envC pat (insts ++ insts') wildcards = NONE) /\
+    (!envC pats insts wildcards insts'.
+       v_of_pat_list envC pats insts wildcards = NONE ==>
+       LENGTH insts >= LENGTH (pats_bindings pats []) ==>
+       LENGTH wildcards >= pats_wildcards pats ==>
+       v_of_pat_list envC pats (insts ++ insts') wildcards = NONE)`,
+
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
+  try_finally (
+    fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
+    every_case_tac \\ fs []
+  )
+  THEN1 (
+    rename1 `Pcon c _` \\ Cases_on `c`
+    THEN1 (
+      fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
+      every_case_tac \\ fs []
+    )
+    THEN1 (
+      fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
+      every_case_tac \\ fs [] \\ rw [] \\
       metis_tac [v_of_pat_list_length]
     )
   )
   THEN1 (
-    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\
+    fs [v_of_pat_def, pat_bindings_def, pat_wildcards_def] \\
+    every_case_tac \\ fs [] \\
     fs [Once (snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum))]
     THEN1 (
-      `LENGTH insts >= LENGTH (pat_bindings pat [])` by (fs []) \\ fs []
+      `LENGTH insts >= LENGTH (pat_bindings pat [])` by (fs []) \\
+      `LENGTH wildcards >= pat_wildcards pat` by (fs []) \\
+      fs []
     )
     THEN1 (
-      rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
+      rw [] \\
+      progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
+      progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\
       rename1 `LENGTH insts = _ + LENGTH rest2` \\
-      `LENGTH rest2 >= LENGTH (pats_bindings pats [])` by (fs []) \\ fs [] \\
+      rename1 `LENGTH wildcards = _ + LENGTH w_rest2` \\
+      `LENGTH rest2 >= LENGTH (pats_bindings pats [])` by (fs []) \\
+      `LENGTH w_rest2 >= pats_wildcards pats` by (fs []) \\ fs [] \\
       progress (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
       pop_assum (qspec_then `insts'` assume_tac) \\ fs [] \\ rw [] \\ fs []
     )
@@ -565,21 +643,22 @@ val v_of_pat_NONE_extend_insts = Q.store_thm ("v_of_pat_NONE_extend_insts",
 );
 
 val v_of_pat_remove_rest_insts = Q.store_thm ("v_of_pat_remove_rest_insts",
-  `(!pat envC insts v rest.
-       v_of_pat envC pat insts = SOME (v, rest) ==>
+  `(!pat envC insts wildcards v rest wildcards_rest.
+       v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pat_bindings pat []) /\
-         v_of_pat envC pat insts' = SOME (v, [])) /\
-    (!pats envC insts vs rest.
-       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
+         v_of_pat envC pat insts' wildcards = SOME (v, [], wildcards_rest)) /\
+    (!pats envC insts wildcards vs rest wildcards_rest.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pats_bindings pats []) /\
-         v_of_pat_list envC pats insts' = SOME (vs, []))`,
+         v_of_pat_list envC pats insts' wildcards = SOME (vs, [], wildcards_rest))`,
 
   HO_MATCH_MP_TAC astTheory.pat_induction \\ rpt strip_tac \\
   try_finally (fs [v_of_pat_def, pat_bindings_def])
+  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
   THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
   THEN1 (
     rename1 `Pcon c _` \\ Cases_on `c` \\
@@ -589,8 +668,8 @@ val v_of_pat_remove_rest_insts = Q.store_thm ("v_of_pat_remove_rest_insts",
   THEN1 (fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL])
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    qpat_assum `v_of_pat _ _ _ = _` (first_assum o progress_with) \\
-    qpat_assum `v_of_pat_list _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\
+    qpat_assum `v_of_pat_list _ _ _ _ = _` (first_assum o progress_with) \\
     rw []
     THEN1 (
       once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
@@ -599,72 +678,89 @@ val v_of_pat_remove_rest_insts = Q.store_thm ("v_of_pat_remove_rest_insts",
     THEN1 (
       rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats [])` \\
       rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat [])` \\
-      rename1 `v_of_pat_list _ _ (_ ++ rest)` \\
+      rename1 `v_of_pat_list _ _ (_ ++ rest) _` \\
       fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
       THEN1 (
         progress_then (qspec_then `rest` assume_tac)
           (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
         `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat [])`
-          by (fs []) \\ fs []
+          by (fs []) \\
+        `LENGTH wildcards >= pat_wildcards pat` by (
+          progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
+        ) \\ fs []
       ) \\
-      rename1 `v_of_pat_list _ _ rest' = _` \\
-      qpat_x_assum `v_of_pat _ _ (_ ++ _) = _` (first_assum o progress_with) \\
-      `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs []
+      rename1 `v_of_pat_list _ _ rest' _ = _` \\
+      qpat_x_assum `v_of_pat _ _ (_ ++ _) _ = _` (first_assum o progress_with) \\
+      `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs [] \\ rw [] \\ fs []
     )
   )
 );
 
 val v_of_pat_insts_unique = Q.store_thm ("v_of_pat_insts_unique",
-  `(!envC pat insts rest v.
-       v_of_pat envC pat insts = SOME (v, rest) ==>
-       (!insts'. v_of_pat envC pat insts' = SOME (v, rest) <=> (insts' = insts))) /\
-    (!envC pats insts rest vs.
-       v_of_pat_list envC pats insts = SOME (vs, rest) ==>
-       (!insts'. v_of_pat_list envC pats insts' = SOME (vs, rest) <=> (insts' = insts)))`,
+  `(!envC pat insts wildcards rest wildcards_rest v.
+       v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
+       (!insts' wildcards'. v_of_pat envC pat insts' wildcards' = SOME (v, rest, wildcards_rest) <=> (insts' = insts /\ wildcards' = wildcards))) /\
+    (!envC pats insts wildcards rest wildcards_rest vs.
+       v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
+       (!insts' wildcards'. v_of_pat_list envC pats insts' wildcards' = SOME (vs, rest, wildcards_rest) <=> (insts' = insts /\ wildcards' = wildcards)))`,
 
   HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac \\
   try_finally (fs [v_of_pat_def] \\ every_case_tac \\ fs [])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ metis_tac [])
+  THEN1 (fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ metis_tac [])
   THEN1 (
-    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    TRY (first_assum (qspec_then `insts'` assume_tac)) \\
-    TRY (strip_tac \\ rw [] \\ fs []) \\
-    TRY (qpat_x_assum `LENGTH _ = LENGTH _` (K all_tac)) (* otherwise fs[] loops? *) \\
-    TRY (eq_tac \\ strip_tac \\ rw [] \\ fs []) \\ rw []
+    reverse eq_tac THEN1 (rw []) \\ fs [v_of_pat_def] \\ strip_tac \\
+    every_case_tac \\ fs [] \\ rw [] \\
+    first_x_assum (qspecl_then [`insts'`, `wildcards'`] assume_tac) \\
+    fs []
   )
   THEN1 (
-    fs [v_of_pat_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    TRY (strip_tac \\ rw [] \\ fs []) \\ rw [] \\ fs [] \\
-    eq_tac \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    reverse eq_tac THEN1 (rw []) \\ strip_tac \\ fs [v_of_pat_def] \\
+    every_case_tac \\ fs [] \\ rw [] \\ fs []
   )
 );
 
 (* [v_of_pat_norest]: Wrapper that checks that there are no remaining
-   instantiations
+   instantiations and wildcards instantiations
 *)
 
 val v_of_pat_norest_def = Define `
-  v_of_pat_norest envC pat insts =
-    case v_of_pat envC pat insts of
-        SOME (v, []) => SOME v
+  v_of_pat_norest envC pat insts wildcards =
+    case v_of_pat envC pat insts wildcards of
+        SOME (v, [], []) => SOME v
       | _ => NONE`;
 
 val v_of_pat_norest_insts_length = Q.store_thm ("v_of_pat_norest_insts_length",
-  `!envC pat insts v.
-      v_of_pat_norest envC pat insts = SOME v ==>
+  `!envC pat insts wildcards v.
+      v_of_pat_norest envC pat insts wildcards = SOME v ==>
       LENGTH insts = LENGTH (pat_bindings pat [])`,
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
   rw [] \\ progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\ fs []
 );
 
+val v_of_pat_norest_wildcards_count = Q.store_thm ("v_of_pat_norest_wildcards_count",
+  `!envC pat insts wildcards v.
+      v_of_pat_norest envC pat insts wildcards = SOME v ==>
+      LENGTH wildcards = pat_wildcards pat`,
+  rpt strip_tac \\ fs [v_of_pat_norest_def] \\ every_case_tac \\ fs [] \\
+  rw [] \\ progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
+);
+
 val v_of_pat_norest_insts_unique = Q.store_thm ("v_of_pat_norest_insts_unique",
-  `!envC pat insts v.
-      v_of_pat_norest envC pat insts = SOME v ==>
-      (!insts'. v_of_pat_norest envC pat insts' = SOME v <=> (insts' = insts))`,
+  `!envC pat insts wildcards v.
+      v_of_pat_norest envC pat insts wildcards = SOME v ==>
+      (!insts' wildcards'. v_of_pat_norest envC pat insts' wildcards' = SOME v <=> (insts' = insts /\ wildcards' = wildcards))`,
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\
   every_case_tac \\ fs [] \\ rw [] \\
-  try_finally (strip_tac \\ rw [] \\ fs []) \\
-  eq_tac \\ rw [] \\ fs [] \\
-  progress (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\ fs []
+  try_finally (
+    CONV_TAC quantHeuristicsTools.OR_NOT_CONV \\
+    strip_tac \\ rw [] \\ fs []
+  ) \\
+  progress_then
+    (qspecl_then [`insts'`, `wildcards'`] assume_tac)
+    (fst (CONJ_PAIR (v_of_pat_insts_unique))) \\
+  fs [] \\
+  eq_tac \\ rw [] \\ fs []
 );
 
 (* Predicates that discriminate the patterns we want to deal
@@ -678,6 +774,7 @@ val pat_typechecks_def = Define `
 
 val pat_without_Pref_def = tDefine "pat_without_Pref" `
   pat_without_Pref (Pvar _) = T /\
+  pat_without_Pref Pany = T /\
   pat_without_Pref (Plit _) = T /\
   pat_without_Pref (Pcon _ args) =
     EVERY pat_without_Pref args /\
@@ -700,24 +797,25 @@ val validate_pat_def = Define `
 *)
 
 val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
-  `(!envC s pat v env_v insts.
-      v_of_pat envC pat insts = SOME (v, []) ==>
+  `(!envC s pat v env_v insts wildcards wildcards_rest.
+      v_of_pat envC pat insts wildcards = SOME (v, [], wildcards_rest) ==>
       pmatch envC s pat v env_v = Match
         (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)) /\
-    (!envC s pats vs env_v insts.
-      v_of_pat_list envC pats insts = SOME (vs, []) ==>
+    (!envC s pats vs env_v insts wildcards wildcards_rest.
+      v_of_pat_list envC pats insts wildcards = SOME (vs, [], wildcards_rest) ==>
       pmatch_list envC s pats vs env_v = Match
         (ZIP (pats_bindings pats [], REVERSE insts) ++ env_v))`,
 
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
-    every_case_tac \\ fs [] \\
-    every_case_tac \\ fs []
+    CHANGED_TAC every_case_tac \\ fs [] \\
+    CHANGED_TAC every_case_tac \\ fs []
   )
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     every_case_tac \\ fs [] \\ rw []
+    THEN1 (progress v_of_pat_list_length \\ first_assum progress)
     THEN1 (progress v_of_pat_list_length \\ fs []) \\
     `!(n:tvarN) t. same_ctor (n, t) (n, t)` by (
       Cases_on `n` \\ Cases_on `t` \\ fs [same_ctor_def]
@@ -726,7 +824,11 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     every_case_tac \\ fs [] \\ rw [] \\
-    progress v_of_pat_list_length \\ fs []
+    progress v_of_pat_list_length \\ first_assum progress \\ fs []
+  )
+  THEN1 (
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
+    every_case_tac \\ fs [] \\ rw [] \\ first_assum progress
   )
   THEN1 (
     fs [pmatch_def, pat_bindings_def, v_of_pat_def] \\
@@ -744,30 +846,35 @@ val v_of_pat_pmatch = Q.store_thm ("v_of_pat_pmatch",
 );
 
 val v_of_pat_norest_pmatch = Q.store_thm ("v_of_pat_norest_pmatch",
-  `!envC s pat v env_v insts.
-     v_of_pat_norest envC pat insts = SOME v ==>
+  `!envC s pat v env_v insts wildcards.
+     v_of_pat_norest envC pat insts wildcards = SOME v ==>
      pmatch envC s pat v env_v = Match
        (ZIP (pat_bindings pat [], REVERSE insts) ++ env_v)`,
   rpt strip_tac \\ fs [v_of_pat_norest_def] \\
-  every_case_tac \\ fs [v_of_pat_pmatch]
+  irule (fst (CONJ_PAIR v_of_pat_pmatch)) \\
+  every_case_tac \\ rw [] \\ instantiate
 );
 
 val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
   `(!envC s pat v env_v env_v'.
       pmatch envC s pat v env_v = Match env_v' ==>
       pat_without_Pref pat ==>
-      ?insts.
+      ?insts wildcards.
         env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
-        v_of_pat envC pat insts = SOME (v, [])) /\
+        v_of_pat envC pat insts wildcards = SOME (v, [], [])) /\
     (!envC s pats vs env_v env_v'.
       pmatch_list envC s pats vs env_v = Match env_v' ==>
       EVERY (\pat. pat_without_Pref pat) pats ==>
-      ?insts.
+      ?insts wildcards.
         env_v' = ZIP (pats_bindings pats [], REVERSE insts) ++ env_v /\
-        v_of_pat_list envC pats insts = SOME (vs, []))`,
+        v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))`,
 
   HO_MATCH_MP_TAC pmatch_ind \\ rpt strip_tac \\ rw [] \\
   try_finally (fs [pmatch_def, v_of_pat_def, pat_bindings_def])
+  THEN1 (
+    qexists_tac `[]` \\ Q.REFINE_EXISTS_TAC `w::ws` \\
+    fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\ rw []
+  )
   THEN1 (
     fs [pmatch_def, v_of_pat_def, pat_bindings_def] \\
     qpat_x_assum `_ = _` (fs o sing o GSYM) \\
@@ -779,7 +886,7 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
   )
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
-    fs [pat_bindings_def] \\ qexists_tac `insts` \\ fs [] \\
+    fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\
     rename1 `same_ctor (id_to_n id1, t1) (n2, t2)` \\
     `t1 = t2 /\ id_to_n id1 = n2` by
       (irule semanticPrimitivesPropsTheory.same_ctor_and_same_tid \\ fs []) \\ rw [] \\
@@ -787,7 +894,7 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
   )
   THEN1 (
     fs [pmatch_def, pat_without_Pref_def] \\ every_case_tac \\ fs [] \\
-    fs [pat_bindings_def] \\ qexists_tac `insts` \\ fs [] \\
+    fs [pat_bindings_def] \\ Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\ fs [] \\
     rewrite_tac [v_of_pat_def] \\ every_case_tac \\ fs []
   )
   THEN1 (fs [pat_without_Pref_def])
@@ -797,14 +904,18 @@ val pmatch_v_of_pat = Q.store_thm ("pmatch_v_of_pat",
     fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     first_assum progress \\ rw [] \\ fs [pat_bindings_def] \\
     once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs [] \\
-    rename1 `ZIP (pat_bindings pat [], REVERSE insts)` \\
-    rename1 `ZIP (pats_bindings pats [], REVERSE insts')` \\
-    qexists_tac `insts ++ insts'` \\
+    rename1 `v_of_pat _ _ insts wildcards = _` \\
+    rename1 `v_of_pat_list _ _ insts' wildcards' = _` \\
+    qexists_tac `insts ++ insts'` \\ qexists_tac `wildcards ++ wildcards'` \\
     progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
     progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\ fs [ZIP_APPEND] \\
     progress_then (qspec_then `insts'` assume_tac)
       (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
+    progress_then (qspec_then `wildcards'` assume_tac)
+      (fst (CONJ_PAIR v_of_pat_extend_wildcards)) \\
     progress_then (qspec_then `insts'` assume_tac)
+      (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
+    progress_then (qspec_then `wildcards'` assume_tac)
       (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
     fs [v_of_pat_def]
   )
@@ -814,11 +925,11 @@ val pmatch_v_of_pat_norest = Q.store_thm ("pmatch_v_of_pat_norest",
   `!envC s pat v env_v env_v'.
       pmatch envC s pat v env_v = Match env_v' ==>
       pat_without_Pref pat ==>
-      ?insts.
+      ?insts wildcards.
         env_v' = ZIP (pat_bindings pat [], REVERSE insts) ++ env_v /\
-        v_of_pat_norest envC pat insts = SOME v`,
+        v_of_pat_norest envC pat insts wildcards = SOME v`,
   rpt strip_tac \\ progress (fst (CONJ_PAIR pmatch_v_of_pat)) \\ fs [] \\
-  qexists_tac `insts` \\ fs [v_of_pat_norest_def]
+  Q.LIST_EXISTS_TAC [`insts`, `wildcards`] \\ fs [v_of_pat_norest_def]
 );
 
 (* The nested ifs corresponding to a list of patterns *)
@@ -828,8 +939,8 @@ val cf_cases_def = Define `
     local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q ==v> POST_F) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
-      ((if (?insts. v_of_pat_norest env.c pat insts = SOME v) then
-          (!insts. v_of_pat_norest env.c pat insts = SOME v ==>
+      ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
+          (!insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v ==>
              row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
         else cf_cases v nomatch_exn rows env H Q) /\
        (!s. validate_pat env.c s pat v env.v))
@@ -1798,14 +1909,14 @@ val cf_letrec_sound_aux = Q.prove (
     impl_tac
 
     THEN1 (
-      `MEM (f, params, inner_body) (letrec_pull_params funs)` by all_tac
+      sg `MEM (f, params, inner_body) (letrec_pull_params funs)`
       THEN1 (
         qpat_assum `_ = funs` (assume_tac o GSYM) \\
         fs [letrec_pull_params_append, letrec_pull_params_def] \\
         DISJ1_TAC \\ DISJ2_TAC \\
         Cases_on `Fun_body body` \\ fs []
       ) \\
-      `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)` by all_tac
+      sg `find_recfun f (letrec_pull_params funs) = SOME (params, inner_body)`
       THEN1 (
         fs [semanticPrimitivesPropsTheory.find_recfun_ALOOKUP] \\
         irule ALOOKUP_ALL_DISTINCT_MEM \\ fs [GSYM FST_rw] \\
@@ -1816,7 +1927,7 @@ val cf_letrec_sound_aux = Q.prove (
         irule curried_naryRecclosure \\ fs []
       )
       THEN1 (
-        `sound p inner_body (cf p inner_body)` by all_tac
+        sg `sound p inner_body (cf p inner_body)`
         THEN1 (first_assum progress \\ fs []) \\
         pop_assum (progress o REWRITE_RULE [sound_def]) \\
         irule app_rec_of_htriple_valid \\ fs [] \\
@@ -1920,7 +2031,7 @@ val cf_cases_evaluate_match = Q.prove (
     ) \\
     first_x_assum progress \\ progress pmatch_v_of_pat_norest \\ rw [] \\
     progress v_of_pat_norest_insts_unique \\
-    pop_assum (qspec_then `insts` assume_tac) \\ rfs [] \\ rw [] \\
+    pop_assum (qspecl_then [`insts`, `wildcards`] assume_tac) \\ rfs [] \\ rw [] \\
     qpat_x_assum `sound _ _ _`
       (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
     pop_assum progress \\
@@ -2005,12 +2116,12 @@ val cf_ffi_sound = Q.prove (
      \\ qexists_tac `new_events` \\ fs []) \\
    match_mp_tac SPLIT3_of_SPLIT_emp3 \\
    qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
-   `f1 = (ffi2heap (p0,p1) st.ffi DELETE
+   sg `f1 = (ffi2heap (p0,p1) st.ffi DELETE
           FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns events1)
-         UNION {FFI_part s' u ns new_events}` by all_tac THEN1
+         UNION {FFI_part s' u ns new_events}` THEN1
      (unabbrev_all_tac \\ fs [ffi2heap_def] \\
       reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ pop_assum mp_tac \\ fs [] \\
+       (sg `F` \\ pop_assum mp_tac \\ fs [] \\
         fs [parts_ok_def] \\ conj_tac THEN1
          (fs [ffi_has_index_in_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
           \\ asm_exists_tac \\ fs [])

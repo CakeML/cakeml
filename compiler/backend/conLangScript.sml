@@ -21,6 +21,7 @@ val _ = Datatype`
 
 val _ = Datatype`
  pat =
+  | Pany
   | Pvar varN
   | Plit lit
   | Pcon ((num # tid_or_exn)option) (pat list)

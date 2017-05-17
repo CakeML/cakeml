@@ -1,4 +1,4 @@
-INCLUDES = ../translation ../../../semantics ../../eval ../../eval/targets ../../encoders/asm ../../encoders/x64 ../../../basis
+INCLUDES = ../translation ../../../semantics ../.. ../../backend/x64 ../../encoders/asm ../../encoders/x64 ../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY
@@ -13,8 +13,8 @@ all: $(TARGETS) $(HOLHEAP)
 
 BARE_THYS = ../translation/compiler_x64ProgTheory\
 						../../../semantics/semanticsComputeLib\
-						../../eval/compilerComputeLib\
-						../../eval/targets/configTheory
+						../../compilerComputeLib\
+						../../backend/x64/x64_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
@@ -26,5 +26,5 @@ ifndef CC
 CC=gcc
 endif
 
-cake: cake.S ../../../basis_ffi.o
+cake: cake.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@

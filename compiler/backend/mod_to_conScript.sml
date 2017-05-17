@@ -25,6 +25,8 @@ val lookup_tag_env_def = Define`
 val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pvar x) = (Pvar x))
   ∧
+  (compile_pat tagenv Pany = Pany)
+  ∧
   (compile_pat tagenv (Plit l) = (Plit l))
   ∧
   (compile_pat tagenv (Pcon con_id ps) =

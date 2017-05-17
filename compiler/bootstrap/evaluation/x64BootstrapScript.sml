@@ -1,22 +1,12 @@
 open preamble
      backendTheory
      to_lab_x64BootstrapTheory
-     configTheory
+     x64_configTheory
      x64_targetTheory
      x64_targetLib
      asmLib
 
 val _ = new_theory "x64Bootstrap";
-
-(* TODO: move *)
-
-val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
-  `∀ls. prog_to_bytes ls = FLAT
-          (MAP (FLAT o MAP line_bytes o Section_lines) ls)`,
-  ho_match_mp_tac lab_to_targetTheory.prog_to_bytes_ind
-  \\ rw[lab_to_targetTheory.prog_to_bytes_def]);
-
-(* -- *)
 
 val () = Globals.max_print_depth := 10;
 val () = ml_translatorLib.reset_translation();
@@ -29,7 +19,7 @@ val () =
       compilerComputeLib.add_compiler_compset,
       asmLib.add_asm_compset,
       x64_targetLib.add_x64_encode_compset],
-    computeLib.Defs [configTheory.x64_names_def, configTheory.x64_compiler_config_def]
+    computeLib.Defs [x64_configTheory.x64_names_def, x64_configTheory.x64_backend_config_def]
   ] cs
 val eval = computeLib.CBV_CONV cs;
 
@@ -649,7 +639,7 @@ val lab_to_target_thm7 =
       RAND_CONV(REWR_CONV enc_secs_again_thm2) THENC
       REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
       REWR_CONV LET_THM THENC
-      RAND_CONV(RATOR_CONV(REWR_CONV pad_code_MAP)))))
+      RAND_CONV(RATOR_CONV(REWR_CONV lab_to_targetTheory.pad_code_MAP)))))
 
 val tm17 =
   lab_to_target_thm7 |> rconc |> funpow 2 rator |> funpow 2 rand
@@ -724,7 +714,7 @@ val tm18 =
 
 val assum_all_enc_ok_light_lab_to_target_thm =
   lab_to_target_thm8 |> DISCH ``all_enc_ok_light x64_config padded_code`` |>
-  CONV_RULE (SIMP_CONV std_ss [pair_case_def,prog_to_bytes_MAP]) |> UNDISCH
+  CONV_RULE (SIMP_CONV std_ss [pair_case_def,lab_to_targetTheory.prog_to_bytes_MAP]) |> UNDISCH
 
 val tm19 =
   assum_all_enc_ok_light_lab_to_target_thm |> rconc |> rand |> rator |> rand |> rand

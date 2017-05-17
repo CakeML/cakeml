@@ -100,7 +100,7 @@ val cmlG_def = mk_grammar_def ginfo
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
-                 "::"; "@"}}``);
+                 "::"; "@"; "\094"}}``);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
@@ -123,7 +123,7 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* expressions - binary operators *)
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
- AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
+ AddOps ::= ^(``{SymbolT "+"; SymbolT "-"; SymbolT "\094" }``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
  CompOps ::= "o" | ":=";
  ListOps ::= "@" | "::";
@@ -153,7 +153,7 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
-        |  "[" "]" | "[" PatternList "]";
+        |  "[" "]" | "[" PatternList "]" | "op" OpID;
  Papp ::= ConstructorName Pbase | Pbase;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;

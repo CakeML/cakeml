@@ -72,7 +72,7 @@ val state_rel_IMP_get_vars = Q.prove(
       (get_vars args t1.locals = SOME xs)`,
   Induct \\ fs [get_vars_def] \\ REPEAT STRIP_TAC
   \\ `state_rel s1 t1 (list_insert args t) /\
-      (get_var h s1.locals = get_var h t1.locals)` by ALL_TAC THEN1
+      (get_var h s1.locals = get_var h t1.locals)` by
    (fs [state_rel_def,list_insert_def,domain_list_insert,get_var_def]
     \\ METIS_TAC []) \\ fs []
   \\ every_case_tac >> fs[]
@@ -142,7 +142,7 @@ val evaluate_compile = Q.prove(
      \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
      \\ fs [cut_state_def,cut_env_def]
      \\ (`domain (inter x (list_insert args (delete dest l2))) SUBSET
-         domain t1.locals` by ALL_TAC THEN1
+         domain t1.locals` by
       (fs [domain_inter,domain_list_insert,SUBSET_DEF,state_rel_def]
        \\ RES_TAC \\ fs [domain_lookup]
        \\ fs [PULL_EXISTS,oneTheory.one] \\ RES_TAC \\ METIS_TAC []))
@@ -246,7 +246,7 @@ val evaluate_compile = Q.prove(
    (`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ fs [] \\ Cases_on `get_vars args s.locals` \\ fs []
-    \\ `get_vars args t1.locals = get_vars args s.locals` by ALL_TAC THEN1
+    \\ `get_vars args t1.locals = get_vars args s.locals` by
      (MATCH_MP_TAC EVERY_get_vars
       \\ fs [EVERY_MEM,state_rel_def,domain_list_to_num_set])
     \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
@@ -347,7 +347,7 @@ val evaluate_compile = Q.prove(
       \\ SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            dec_clock_def,Once jump_exc_def]
       \\ NTAC 2 BasicProvers.CASE_TAC \\ STRIP_TAC
-      \\ `s.handler < LENGTH s.stack` by ALL_TAC THEN1
+      \\ `s.handler < LENGTH s.stack` by
        (Cases_on `s.handler = LENGTH s.stack`
         \\ fs [LASTN_LEMMA] \\ DECIDE_TAC)
       \\ IMP_RES_TAC LASTN_TL \\ fs []
@@ -437,8 +437,7 @@ val evaluate_compile = Q.prove(
        t1.handler::t1.stack) =
       call_env q (push_env (inter t1.locals
                 (inter names (union (delete v l2) (delete var l6)))) T
-             (dec_clock t1))` by ALL_TAC
-  THEN1 (fs [call_env_def,push_env_def,dec_clock_def])
+             (dec_clock t1))` by (fs [call_env_def,push_env_def,dec_clock_def])
   \\ fs [] \\ REPEAT STRIP_TAC \\ POP_ASSUM (K ALL_TAC)
   \\ POP_ASSUM (K ALL_TAC)
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
