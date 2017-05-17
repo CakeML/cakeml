@@ -1285,8 +1285,24 @@ fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
   in to_data_thm end
 
-(*
-val cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
+(* TODO: move? *)
+val compile_oracle_to_lab =
+  let
+    val from_livesets_unpaired =
+    ``from_livesets x``
+    |> (RAND_CONV(ONCE_REWRITE_CONV [GSYM PAIR] THENC
+                  BINOP_CONV(ONCE_REWRITE_CONV[GSYM PAIR])) THENC
+        REWR_CONV from_livesets_def)
+  in
+    compile_oracle |> SYM
+    |> CONV_RULE(RAND_CONV(RATOR_CONV(REWR_CONV(GSYM ETA_AX))))
+    |> CONV_RULE(RAND_CONV(REWR_CONV(GSYM LET_THM)))
+    |> REWRITE_RULE[from_livesets_unpaired,from_word_def,from_stack_def]
+    |> Q.GENL[`p`,`c`]
+  end
+(* -- *)
+
+fun cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
   let
     val cs = compilation_compset()
     val () =
@@ -1325,8 +1341,21 @@ val cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
         |> Thm.Specialize wc
         |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV to_livesets_thm)))
 
-    compile_oracle
-*)
+    val c = to_livesets_thm1 |> concl |> lhs |> rator |> rand
+    val to_lab_thm =
+      compile_oracle_to_lab |> ISPEC c |> Thm.Specialize prog_tm
+      |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV to_livesets_thm1)))
+    val () = computeLib.scrub_const cs (prim_mk_const{Thy="backend",Name="from_lab"})
+
+    val to_lab_thm1 =
+      to_lab_thm |> CONV_RULE(RAND_CONV eval)
+
+    val lab_prog_def = mk_abbrev"lab_prog" (to_lab_thm1 |> rconc |> rand);
+
+    val to_lab_thm2 =
+      to_lab_thm1 |>
+      CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
+  in to_lab_thm2 end
 
 fun to_bytes alg conf prog =
   let
