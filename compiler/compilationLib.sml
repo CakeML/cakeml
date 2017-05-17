@@ -1269,6 +1269,65 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
     thm
   end
 
+fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
+  let
+    val () = computeLib.extend_compset
+       [computeLib.Defs [conf_def, prog_def]] cs
+    val eval = computeLib.CBV_CONV cs;
+    val conf_tm = lhs(concl conf_def)
+    val prog_tm = lhs(concl prog_def)
+    val to_data_thm0 = timez "cbv_compile_to_data" eval ``to_data ^conf_tm ^prog_tm``;
+    val (_,p) = to_data_thm0 |> rconc |> dest_pair
+    val data_prog_def = mk_abbrev data_prog_name p
+    val to_data_thm =
+      to_data_thm0 |> CONV_RULE(RAND_CONV(
+        RAND_CONV(REWR_CONV(SYM data_prog_def))));
+    val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
+  in to_data_thm end
+
+(*
+val cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
+  let
+    val cs = compilation_compset()
+    val () =
+      computeLib.extend_compset [
+        computeLib.Extenders [
+          x64_targetLib.add_x64_encode_compset ],
+        computeLib.Defs [
+          x64_backend_config_def,
+          x64_names_def,
+          data_prog_x64_def ]
+      ] cs
+    val eval = computeLib.CBV_CONV cs;
+
+    val (_,[conf_tm,prog_tm]) =
+      to_data_thm |> concl |> lhs |> strip_comb
+
+    val to_livesets_thm =
+      ``to_livesets ^conf_tm ^prog_tm``
+      |> (REWR_CONV to_livesets_def THENC
+          RAND_CONV (REWR_CONV to_data_thm) THENC
+          REWR_CONV LET_THM THENC PAIRED_BETA_CONV THENC
+          eval)
+
+    val oracles =
+      to_livesets_thm
+      |> rconc |> pairSyntax.dest_pair |> #1
+      |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
+
+    val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
+
+    val to_livesets_thm1 =
+      to_livesets_invariant
+        |> Q.GENL[`wc`,`p`,`c`]
+        |> ISPEC conf_tm
+        |> Thm.Specialize prog_tm
+        |> Thm.Specialize wc
+        |> CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV to_livesets_thm)))
+
+    compile_oracle
+*)
+
 fun to_bytes alg conf prog =
   let
   val _ = println "Compile to livesets"
