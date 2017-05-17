@@ -459,6 +459,7 @@ val ptree_Op_def = Define`
     else if FST nt = mkNT nAddOps then
       if tokcheckl subs [SymbolT "+"] then SOME (Short "+")
       else if tokcheckl subs [SymbolT "-"] then SOME (Short "-")
+      else if tokcheckl subs [SymbolT "\094"] then SOME (Short "\094")
       else NONE
     else if FST nt = mkNT nListOps then
       if tokcheckl subs [SymbolT "::"] then SOME (Short "::")
@@ -521,6 +522,68 @@ val mkPatApp_def = Define`
         | _ => Pcon (SOME cn) [p]
 `;
 
+val isSymbolicConstructor_def = Define`
+  isSymbolicConstructor (structopt : modN option) s =
+    return (s = "::")
+`;
+
+val isConstructor_def = Define`
+  isConstructor structopt s =
+    do
+      ifM (isSymbolicConstructor structopt s)
+        (return T)
+        (return (dtcase misc$oHD s of
+                     NONE => F
+                   | SOME c => isAlpha c ∧ isUpper c))
+    od
+`;
+
+(* third clause below will lead to a failure when the environment is
+   consulted to reveal that the long-id given does not correspond to a
+   constructor.  We do this rather than fail to make the "totality" theorem
+   work *)
+val EtoPat_def = Define`
+  (EtoPat (Con x args) = if NULL args then SOME (Pcon x []) else NONE) ∧
+  (EtoPat (Var (Short n)) = SOME (Pvar n)) ∧
+  (EtoPat (Var (Long str n)) = SOME (Pcon (SOME (Long str n)) [])) ∧
+  (EtoPat _ = NONE)
+`;
+
+val ptree_OpID_def = Define`
+  ptree_OpID (Lf _) = NONE ∧
+  ptree_OpID (Nd nt subs) =
+    if FST nt ≠ mkNT nOpID then NONE
+    else
+      dtcase subs of
+          [Lf (TK tk, _)] =>
+          do
+              s <- destAlphaT tk ;
+              ifM (isConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              s <- destSymbolT tk ;
+              ifM (isSymbolicConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              (str,s) <- destLongidT tk ;
+              ifM (isConstructor (SOME str) s)
+                  (return (Con (SOME (Long str (Short s))) []))
+                  (return (Var (Long str (Short s))))
+          od ++
+          (if tk = StarT then
+             ifM (isSymbolicConstructor NONE "*")
+                 (return (Con (SOME (Short "*")) []))
+                 (return (Var (Short "*")))
+           else if tk = EqualsT then return (Var (Short "="))
+           else
+             NONE)
+        | _ => NONE
+`;
+
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
@@ -545,6 +608,8 @@ val ptree_Pattern_def = Define`
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
             SOME(Pcon (SOME (Short "nil")) [])
+          else if tokcheckl [lb] [OpT] then
+            do e <- ptree_OpID rb ; EtoPat e od
           else NONE
         | [lb; plistpt; rb] =>
           do
@@ -692,56 +757,6 @@ val mkAst_App_def = Define`
          | _ => App Opapp [a1;a2])
 `;
 
-val isSymbolicConstructor_def = Define`
-  isSymbolicConstructor (structopt : modN option) s =
-    return (s = "::")
-`;
-
-val isConstructor_def = Define`
-  isConstructor structopt s =
-    do
-      ifM (isSymbolicConstructor structopt s)
-        (return T)
-        (return (dtcase misc$oHD s of
-                     NONE => F
-                   | SOME c => isAlpha c ∧ isUpper c))
-    od
-`;
-
-val ptree_OpID_def = Define`
-  ptree_OpID (Lf _) = NONE ∧
-  ptree_OpID (Nd nt subs) =
-    if FST nt ≠ mkNT nOpID then NONE
-    else
-      dtcase subs of
-          [Lf (TK tk, _)] =>
-          do
-              s <- destAlphaT tk ;
-              ifM (isConstructor NONE s)
-                  (return (Con (SOME (Short s)) []))
-                  (return (Var (Short s)))
-          od ++
-          do
-              s <- destSymbolT tk ;
-              ifM (isSymbolicConstructor NONE s)
-                  (return (Con (SOME (Short s)) []))
-                  (return (Var (Short s)))
-          od ++
-          do
-              (str,s) <- destLongidT tk ;
-              ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str (Short s))) []))
-                  (return (Var (Long str (Short s))))
-          od ++
-          (if tk = StarT then
-             ifM (isSymbolicConstructor NONE "*")
-                 (return (Con (SOME (Short "*")) []))
-                 (return (Var (Short "*")))
-           else if tk = EqualsT then return (Var (Short "="))
-           else
-             NONE)
-        | _ => NONE
-`;
 
 val dePat_def = Define`
   (dePat (Pvar v) b = (v, b)) ∧

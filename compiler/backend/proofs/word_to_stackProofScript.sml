@@ -41,8 +41,8 @@ val splem2 = Q.prove(`
   Cases_on` 2 ≤ c - SUC a`>>fs[]
   >-
     (`(c-1) DIV 2 ≤ c DIV 2` by
-      match_mp_tac DIV_LE_MONOTONE>>
-      simp[])
+       simp[DIV_LE_MONOTONE]>>
+     simp[])
   >>
     `c = a+2` by DECIDE_TAC>>
     simp[ADD_DIV_RWT])
@@ -1593,8 +1593,7 @@ val alloc_IMP_alloc = Q.prove(
   THEN1 (fsrw_tac[] [set_store_def,push_env_def]) \\ rpt strip_tac
   \\ fsrw_tac[] [] \\ Cases_on `pop_env x` \\ fsrw_tac[] []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
-  \\ `state_rel k f f' s3 t2 lens` by ALL_TAC
-  THEN1
+  \\ `state_rel k f f' s3 t2 lens` by
     (imp_res_tac gc_s_key_eq>>
     fsrw_tac[][set_store_def]>>
     imp_res_tac push_env_pop_env_s_key_eq>>
@@ -1736,8 +1735,7 @@ val alloc_IMP_alloc2 = Q.prove(`
     (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
     fs [set_store_def,push_env_def,LET_THM,env_to_list_def]>>
     fs[cut_env_def]>>
-    `domain x = {}` by
-      rveq>>fs[domain_inter]>>
+    `domain x = {}` by (rveq>>fs[domain_inter])>>
     `toAList x = []` by
       (Cases_on`toAList x`>>fs[]>>
       `MEM (FST h) (MAP FST(toAList x))` by fs[]>>
@@ -4998,7 +4996,7 @@ val comp_correct = Q.store_thm("comp_correct",
       SUC(LENGTH rest) - (h1+1) = SUC(LENGTH rest - (h1+1))` by DECIDE_TAC>>
       fs[]
       \\ rfs[]
-      \\ `h1 <= LENGTH (LASTN (s.handler+1) stack)` by all_tac
+      \\ sg `h1 <= LENGTH (LASTN (s.handler+1) stack)`
       \\ fs [LASTN_CONS]
       \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
       >> simp[LASTN_CONS])
@@ -5054,7 +5052,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs[SUBSET_DEF]
     \\ Cases_on `loc_check t.code (l1,0)` \\ fs []
     \\ fs [wRegWrite1_def]
-    \\ `F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
+    \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
     \\ fs [loc_check_def,IN_DEF])
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]

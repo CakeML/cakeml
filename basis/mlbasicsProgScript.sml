@@ -24,7 +24,7 @@ val _ = append_prog
      Tdec (Dtabbrev unknown_loc ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
      Tdec (Dtabbrev unknown_loc ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
      Tdec (Dtabbrev unknown_loc [] "exn" (Tapp [] TC_exn));
-     Tdec (Dtabbrev unknown_loc [] "word" (Tapp [] TC_word8));
+     Tdec (Dtabbrev unknown_loc [] "word" (Tapp [] TC_word64));
      Tdec (Dtabbrev unknown_loc [] "char" (Tapp [] TC_char))]``
 
 

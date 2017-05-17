@@ -34,7 +34,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F|>``
+val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
 val mips_word_conf = ``<| bitmaps := []:64 word list |>``
 val mips_stack_conf = ``<|reg_names:=mips_names;max_heap:=1000000|>``
 val mips_lab_conf = ``<|labels:=LN;asm_conf:=mips_config;init_clock:=5|>``

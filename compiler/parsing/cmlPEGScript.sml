@@ -129,7 +129,7 @@ val peg_V_def = Define`
             tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="; "*"; "::"; "@"})
+                                 ":="; "*"; "::"; "@"; "\094"})
                   od = SOME ())
                 (bindNT nV o mktokLf)]
 `
@@ -205,7 +205,8 @@ val cmlPEG_def = zDefine`
                                   [StarT; SymbolT "/"; AlphaT "mod"; AlphaT "div"]))
                     (bindNT nMultOps));
               (mkNT nAddOps,
-               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
+               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-");
+                              tokeq (SymbolT "\094")])
                     (bindNT nAddOps));
               (mkNT nRelOps, pegf (choicel (tok ((=) EqualsT) mktokLf ::
                                             MAP (tokeq o SymbolT)
@@ -373,13 +374,13 @@ val cmlPEG_def = zDefine`
                            tok isString mktokLf; tok isCharT mktokLf;
                            pnt nPtuple; tokeq UnderbarT;
                            seql [tokeq LbrackT; try (pnt nPatternList);
-                                 tokeq RbrackT] I])
+                                 tokeq RbrackT] I;
+                           seql [tokeq OpT; pnt nOpID] I])
                  (bindNT nPbase));
               (mkNT nPapp,
-               (* could be optimised so that a bare constructor name doesn't
-                  cause a backtrack *)
-               choicel [seql [pnt nConstructorName; pnt nPbase]
-                             (bindNT nPapp);
+               choicel [seql [pnt nConstructorName; try (pnt nPbase)]
+                             (λpts. if LENGTH pts = 2 then bindNT nPapp pts
+                                    else bindNT nPapp (bindNT nPbase pts));
                         pegf (pnt nPbase) (bindNT nPapp)]);
               (mkNT nPcons,
                seql [pnt nPapp;

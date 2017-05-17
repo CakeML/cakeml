@@ -155,7 +155,7 @@ val OptionalLetLet_IMP = Q.prove(
   rw [OptionalLetLet_def,evaluate_def]
   \\ drule evaluate_LetLet \\ fs []
   \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
-  \\ `db_to_set (vars_flatten lx) = db_to_set lx` by all_tac \\ fs []
+  \\ sg `db_to_set (vars_flatten lx) = db_to_set lx` \\ fs []
   \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
   \\ rw [] \\ once_rewrite_tac [opt_lemma]
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]

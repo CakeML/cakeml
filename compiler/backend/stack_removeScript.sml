@@ -11,8 +11,8 @@ val word_offset_def = Define `
   word_offset n = n2w (dimindex (:'a) DIV 8 * n):'a word`;
 
 val store_list_def = Define `
-  store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap;
-                AllocSize; Handler; Globals; ProgStart; BitmapBase;
+  store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap; TriggerGC;
+                AllocSize; Handler; Globals; ProgStart; BitmapBase; GenStart;
                 Temp 00w; Temp 01w; Temp 02w; Temp 03w; Temp 04w;
                 Temp 05w; Temp 06w; Temp 07w; Temp 08w; Temp 09w;
                 Temp 10w; Temp 11w; Temp 12w; Temp 13w; Temp 14w;
@@ -182,6 +182,7 @@ val store_init_def = Define `
       [(CurrHeap,INR (k+2));
        (NextFree,INR (k+2));
        (EndOfHeap,INR 2);
+       (TriggerGC,INR 2);
        (HeapLength,INR 5);
        (OtherHeap,INR 2);
        (BitmapBase,INR 3)]`

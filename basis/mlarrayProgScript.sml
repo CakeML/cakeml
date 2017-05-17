@@ -475,7 +475,8 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
   xlet `POSTv av. ARRAY av (REPLICATE (SUC n') xv)`
   >- (
     xapp >>
-    simp [NUM_def]) >>
+    simp [NUM_def] >>
+    xsimpl) >>
   first_x_assum (qspecl_then [`[xv]`, `REPLICATE n' xv`, `av`] mp_tac) >>
   simp [LENGTH_REPLICATE] >>
   disch_then xapp_spec >>

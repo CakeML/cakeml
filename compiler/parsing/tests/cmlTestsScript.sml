@@ -25,6 +25,8 @@ val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
 val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
+val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
+val _ = overload_on ("Pc", ``λcnm. Pcon (SOME (Short cnm))``)
 
 fun strip_Lannot t =
   if is_comb t then
@@ -464,11 +466,13 @@ val _ = parsetest ``nDecl`` ``ptree_Decl`` "fun f x = x"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "datatype foo = C | D val x = y"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "3"
-val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C"
+val _ = parsetest0 ``nPattern`` ``ptree_Pattern nPattern`` "C"
+          (SOME “Pc "C" []”)
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "x"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "(3)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C x"
-val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C D"
+val _ = parsetest0 ``nPattern`` ``ptree_Pattern nPattern`` "C D"
+          (SOME “Pc "C" [Pc "D" []]”)
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D)"
 val _ = parsetest ``nPattern`` ``ptree_Pattern nPattern`` "C(x,D(1),true)"
@@ -510,6 +514,8 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
                                           (Lit (IntLit 1))
                                           (Lit (IntLit 2)))
                                   (Lit (IntLit 3))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "s1 ^ s2"
+                   (SOME ``vbinop (Short "\094") (V "s1") (V "s2")``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x = 10 then 3 else 4"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"
@@ -528,5 +534,11 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
                    (SOME ``Mat (Var (Short "c"))
                                [(Plit (Char #"a"), Lit (IntLit 1));
                                 (Pany, Lit (IntLit 2))]``)
+
+(* val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "let val op+ = 3 in f op+ end"
+                   NONE *)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val op+ = (fn x => fn y => x * y)"
+                   (SOME “Dlet locs (Pvar "+")
+                     (Fun "x" (Fun "y" (vbinop (Short "*") (V "x") (V "y"))))”)
 
 val _ = export_theory()

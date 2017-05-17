@@ -177,6 +177,21 @@ val MAP_TK11 = Q.prove(
   Cases_on `l2` >> simp[]);
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
+val OpID_OK = Q.store_thm(
+  "OpID_OK",
+  ‘ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
+    valid_ptree cmlG pt ⇒
+    ∃astv. ptree_OpID pt = SOME astv ∧
+           ((∃cnm. astv = Con cnm []) ∨
+            (∃v. astv = Var v))’,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  dsimp[] >> conj_tac >> simp[Once FORALL_PROD] >> rpt strip_tac >>
+  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND] >>
+  simp[ptree_OpID_def, isConstructor_def, isSymbolicConstructor_def, ifM_def] >>
+  rw[] >> Cases_on `s` >> fs[oHD_def] >> rw[]);
+
 val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
           simp[]
 val Pattern_OK0 = Q.store_thm(
@@ -220,7 +235,9 @@ val Pattern_OK0 = Q.store_thm(
   >- simp[ptree_Pattern_def, ptree_ConstructorName_def,
           ptree_V_def] >>
   simp[ptree_Pattern_def, ptree_ConstructorName_def,
-       ptree_V_def]);
+       ptree_V_def] >>
+  erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >> rename [`Var v`] >>
+  Cases_on `v` >> simp[EtoPat_def]);
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 
@@ -229,19 +246,6 @@ val Eseq_encode_OK = Q.store_thm(
   `∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e`,
   Induct >> simp[] >>
   Cases_on `l` >> simp[Eseq_encode_def]);
-
-val OpID_OK = Q.store_thm(
-  "OpID_OK",
-  `ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
-    valid_ptree cmlG pt ⇒
-    ∃astv. ptree_OpID pt = SOME astv`,
-  map_every qid_spec_tac [`toks`, `pt`] >>
-  ho_match_mp_tac grammarTheory.ptree_ind >>
-  dsimp[] >> conj_tac >> simp[Once FORALL_PROD] >> rpt strip_tac >>
-  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
-  fs[MAP_EQ_CONS, MAP_EQ_APPEND] >>
-  simp[ptree_OpID_def, isConstructor_def, isSymbolicConstructor_def, ifM_def] >>
-  rw[] >> Cases_on `s` >> fs[oHD_def] >> rw[]);
 
 val PbaseList1_OK = Q.store_thm(
   "PbaseList1_OK",

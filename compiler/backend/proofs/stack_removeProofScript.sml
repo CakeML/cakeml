@@ -1240,7 +1240,7 @@ val comp_correct = Q.prove(
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
-      \\ (fn g => subterm (fn tm => (`state_rel off k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      \\ (fn g => subterm (fn tm => (sg `state_rel off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1255,7 +1255,7 @@ val comp_correct = Q.prove(
     >- (
       strip_tac \\ rveq \\ fs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
-      \\ (fn g => subterm (fn tm => (`state_rel off k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      \\ (fn g => subterm (fn tm => (sg `state_rel off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1272,7 +1272,7 @@ val comp_correct = Q.prove(
       \\ strip_tac \\ fs[] \\ rfs[]
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ (dec_clock sss) _`
       \\ qabbrev_tac`ss = dec_clock sss`
-      \\ (fn g => subterm (fn tm => (`state_rel off k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      \\ (fn g => subterm (fn tm => (sg `state_rel off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
         \\ match_mp_tac state_rel_with_clock
@@ -1292,7 +1292,7 @@ val comp_correct = Q.prove(
     >- (
       strip_tac \\ rveq
       \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
-      \\ (fn g => subterm (fn tm => (`state_rel off k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      \\ (fn g => subterm (fn tm => (sg `state_rel off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
         \\ match_mp_tac state_rel_with_clock
@@ -1309,7 +1309,7 @@ val comp_correct = Q.prove(
     \\ strip_tac \\ fs[] \\ rfs[]
     \\ qmatch_asmsub_abbrev_tac`state_rel _ _ (dec_clock sss) _`
     \\ qabbrev_tac`ss = dec_clock sss`
-    \\ (fn g => subterm (fn tm => (`state_rel off k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+    \\ (fn g => subterm (fn tm => (sg `state_rel off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
     >- (
       simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
       \\ match_mp_tac state_rel_with_clock
@@ -1623,7 +1623,7 @@ val comp_correct = Q.prove(
       \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac
       \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.inst_def,
              word_exp_def,LET_THM]
-      \\ `mem_load (c' + store_offset BitmapBase) t1 = SOME (Word ww)` by all_tac
+      \\ sg `mem_load (c' + store_offset BitmapBase) t1 = SOME (Word ww)`
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[store_offset_def,store_pos_def,word_offset_def,
           store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
           word_list_rev_def,bytes_in_word_def] \\ rev_full_simp_tac(srw_ss())[]
@@ -2052,7 +2052,7 @@ val memory_addresses = Q.prove(
   THEN1 metis_tac []
   \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,addressTheory.WORD_EQ_ADD_CANCEL,
        bytes_in_word_def,word_add_n2w,word_mul_n2w]
-  \\ `i * (dimindex (:α) DIV 8) + dimindex (:α) DIV 8 < dimword (:α)` by all_tac
+  \\ sg `i * (dimindex (:α) DIV 8) + dimindex (:α) DIV 8 < dimword (:α)`
   \\ fs[]
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
@@ -2101,14 +2101,14 @@ val word_list_exists_addresses = Q.store_thm("word_list_exists_addresses",
   \\ fs [word_list_exists_thm,emp_def,addresses_def,INSERT_DELETE_EQ_DELETE,
          SEP_EXISTS_THM,MULT_CLAUSES,set_sepTheory.one_fun2set]
   \\ rw [] \\ imp_res_tac (DECIDE ``m+n<k:num ==> m < k``) \\ res_tac
-  \\ `addresses (a + bytes_in_word) n DELETE a =
-      addresses (a + bytes_in_word) n` by all_tac \\ fs []
+  \\ sg `addresses (a + bytes_in_word) n DELETE a =
+      addresses (a + bytes_in_word) n` \\ fs []
   \\ fs [EXTENSION] \\ rw [] \\ eq_tac \\ fs []
   \\ fs [IN_addresses,PULL_EXISTS]
   \\ full_simp_tac std_ss [addressTheory.WORD_EQ_ADD_CANCEL,GSYM WORD_ADD_ASSOC]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w,word_add_n2w]
-  \\ `(i * (dimindex (:'a) DIV 8) + dimindex (:'a) DIV 8)
-      < dimword (:'a)` by all_tac \\ fs []
+  \\ sg `(i * (dimindex (:'a) DIV 8) + dimindex (:'a) DIV 8)
+      < dimword (:'a)` \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ fs []);
 
 val init_reduce_def = Define `
@@ -2143,6 +2143,7 @@ val init_prop_def = Define `
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
+       FLOOKUP s.store TriggerGC = SOME (Word other) /\
        FLOOKUP s.store EndOfHeap = SOME (Word other) /\
        FLOOKUP s.store OtherHeap = SOME (Word other) /\
        FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
@@ -2151,6 +2152,7 @@ val init_prop_def = Define `
        FLOOKUP s.store AllocSize = SOME (Word 0w) /\
        FLOOKUP s.store Globals = SOME (Word 0w) /\
        FLOOKUP s.store Handler = SOME (Word 0w) /\
+       FLOOKUP s.store GenStart = SOME (Word 0w) /\
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
        LENGTH s.bitmaps + 1 < dimword (:'a) /\
