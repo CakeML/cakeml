@@ -5745,7 +5745,7 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
          EVAL_TAC>>every_case_tac >>
          fs [] >> EVAL_TAC >>
      fs[reg_name_def, labPropsTheory.good_dimindex_def,
-        asmTheory.offset_ok_def, data_to_wordProofTheory.conf_ok_def,
+        asmTheory.offset_ok_def, data_to_word_gcProofTheory.conf_ok_def,
         data_to_wordTheory.shift_length_def]>>
      pairarg_tac>>fs[]>>NO_TAC)
   >>
