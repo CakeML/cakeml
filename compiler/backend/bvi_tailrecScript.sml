@@ -199,7 +199,7 @@ val tail_rewrite_def = Define `
 
 val tail_rewrite_aug_def = Define `
   (tail_rewrite_aug n op name acc (Let xs x) =
-    let (r, y) = tail_rewrite_aug n op name acc x
+    let (r, y) = tail_rewrite_aug n op name (acc + LENGTH xs) x
     in (r, Let xs y)) ∧
   (tail_rewrite_aug n op name acc (Tick x) =
     let (r, y) = tail_rewrite_aug n op name acc x
