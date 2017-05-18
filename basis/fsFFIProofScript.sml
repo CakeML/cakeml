@@ -53,10 +53,11 @@ val nextFD_NOT_MEM = Q.store_thm(
 *  and correspond to file names in files *)
 val wfFS_def = Define`
   wfFS fs =
-    ∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
+    ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd < 255 ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
-                   fnm ∈ FDOM (alist_to_fmap fs.files)
+                   fnm ∈ FDOM (alist_to_fmap fs.files))∧
+    (¬LFINITE fs.numchars))
 `;
 
 val wfFS_openFile = Q.store_thm(
