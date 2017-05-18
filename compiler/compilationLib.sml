@@ -1285,7 +1285,7 @@ fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
   in to_data_thm end
 
-(* TODO: move? *)
+(* TODO: move? but may be unnecessary if cbv_compile_to_lab_x64 is unused *)
 val compile_oracle_to_lab =
   let
     val from_livesets_unpaired =
@@ -1428,7 +1428,7 @@ fun compile_x64 heap_size stack_size name prog_def =
     val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
     val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
     val lab_prog_def = definition(mk_abbrev_name"lab_prog")
-    val result = to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
+    val result = cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
   in result end
   (*
   let

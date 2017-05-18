@@ -2,12 +2,12 @@ open preamble compilationLib helloProgTheory
 
 val _ = new_theory "helloCompile"
 
+(*
 val cs = compilation_compset()
 val conf_def = x64_backend_config_def
 val data_prog_name = "data_prog_x64"
 val prog_def = hello_prog_def
 
-(*
 time (compile_to_data cs conf_def prog_def) data_prog_name
 but n.b. these cannot be trusted because of parallelism!
 runtime: 2m35s,    gctime: 12.5s,     systime: 1.4s.
@@ -76,14 +76,12 @@ wall: 2m09s, runtime: 2m23s,    gctime: 11.7s,     systime: 1.5s.
 wall: 2m12s, runtime: 2m26s,    gctime: 14.2s,     systime: 1.6s.
 
 time (cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb) filename
-wall: 17s, runtime: 15.7s,    gctime: 2.9s,     systime: 0.26667s.  (wtf!? - this could be due to encoder memoisation)
+wall: 17s, runtime: 15.7s,    gctime: 2.9s,     systime: 0.26667s.  (hot, after the first run above)
 wall: 17s, runtime: 16.5s,    gctime: 3.6s,     systime: 0.49333s.
 wall: 16s, runtime: 15.8s,    gctime: 2.9s,     systime: 0.24333s.
 
+(times taken on gemma 18 May 17 i7-4790 CPU @ 3.60GHz, 32GB RAM)
 *)
-
-val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
-val data_prog_x64_def = definition"data_prog_x64_def";
 
 val hello_compiled = save_thm("hello_compiled",
   compile_x64 500 500 "hello" hello_prog_def);
