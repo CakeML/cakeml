@@ -1357,6 +1357,37 @@ fun cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
       CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
   in to_lab_thm2 end
 
+fun cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
+  let
+    val cs = compilation_compset()
+    val () =
+      computeLib.extend_compset [
+        computeLib.Extenders [
+          x64_targetLib.add_x64_encode_compset ],
+        computeLib.Defs [
+          x64_backend_config_def,
+          x64_names_def,
+          lab_prog_def]
+      ] cs
+    val eval = computeLib.CBV_CONV cs;
+
+    val bootstrap_thm =
+      stack_to_lab_thm
+      |> CONV_RULE(RAND_CONV(eval))
+
+    val (bytes_tm,ffi_names_tm) =
+      bootstrap_thm |> rconc
+      |> optionSyntax.dest_some
+      |> pairSyntax.dest_pair
+
+    val () = time (
+      x64_exportLib.write_cake_S stack_mb heap_mb
+        (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
+        bytes_tm ) filename
+  in
+    bootstrap_thm
+  end
+
 fun to_bytes alg conf prog =
   let
   val _ = println "Compile to livesets"

@@ -62,6 +62,26 @@ wall: 2m06s, runtime: 2m04s,    gctime: 8.7s,     systime: 0.91333s.
 (times taken on gemma 18 May 17 i7-4790 CPU @ 3.60GHz, 32GB RAM)
 *)
 
+(*
+val stack_to_lab_thm =
+  compile_to_lab_x64 data_prog_shorter_x64_def to_data_shorter_thm;
+val lab_prog_def = definition"lab_prog_def";
+val heap_mb = 500 val stack_mb = 500
+val filename = "hello";
+
+time (to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb) filename
+(these times are for the first 20 declarations above)
+wall: 3m04s, runtime: 3m40s,    gctime: 23.5s,     systime: 2.3s. (this was cold, i.e., no encoder memoisation)
+wall: 2m09s, runtime: 2m23s,    gctime: 11.7s,     systime: 1.5s.
+wall: 2m12s, runtime: 2m26s,    gctime: 14.2s,     systime: 1.6s.
+
+time (cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb) filename
+wall: 17s, runtime: 15.7s,    gctime: 2.9s,     systime: 0.26667s.  (wtf!? - this could be due to encoder memoisation)
+wall: 17s, runtime: 16.5s,    gctime: 3.6s,     systime: 0.49333s.
+wall: 16s, runtime: 15.8s,    gctime: 2.9s,     systime: 0.24333s.
+
+*)
+
 val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
 val data_prog_x64_def = definition"data_prog_x64_def";
 
