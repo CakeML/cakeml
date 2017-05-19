@@ -7,6 +7,11 @@
   This file defines a datatype for binary search trees, some basic operations
   over it, and then splay tree versions of those operations.
   It also proves functional correctness properties for all these operations.
+
+  TODO: maybe this should just be for basic binary trees (no splaying, no
+  balancing, etc.), then one can switch to the balanced_bst example from HOL
+  for balancing, then a separate new copy for splaying which has the new ideas
+  in it like keeping track of the size and how balanced it is?
 *)
 
 (*
@@ -47,6 +52,9 @@ type_of ``Node``;
   which is of type 'a -> 'a -> cpn. The cpn type is an enumeration of three
   constructors: Less, Equal, Greater; it is predefined in totoTheory (included
   within preamble).
+
+  Try, for example
+  TypeBase.constructors_of``:cpn``;
 *)
 
 val singleton_def = Define`
@@ -68,10 +76,6 @@ val lookup_def = Define`
      | Greater => lookup cmp k r
      | Equal => SOME v')`;
 
-(* TODO: should this not be on by default?
-val () = patternMatchesLib.ENABLE_PMATCH_CASES()
-*)
-
 val extract_min_def = Define`
   (extract_min Leaf = NONE) ∧
   (extract_min (Node k v l r) =
@@ -91,11 +95,97 @@ val delete_def = Define`
      | SOME (k'',v'',r'') => Node k'' v'' l r'')`;
 
 (*
-  Now some basic proofs about these operations.
-  We assume good_cmp of about the comparison function cmp.
-  DB.find"good_cmp" reveals that this is defined in comparisonTheory
+  Since we are working with an abstract comparison function, different keys (k,
+  k') may be considered equivalent (cmp k k' = Equal).
+  We will assume good_cmp of about the comparison function cmp.
+  Try:
+  DB.find"good_cmp";
+  which reveals that this is defined in comparisonTheory
+  TODO: something about equivalence classes
 *)
 
+val key_set_def = Define`
+  key_set cmp k = { k' | cmp k k' = Equal } `;
+
+(*
+  Now let us define the (abstract) finite map from key-equivalence-classes to
+  values, obtained by considering every (key,value) pair in a tree. This is the
+  standard against which we can verify correctness of the operations.
+*)
+
+val to_fmap_def = Define`
+  (to_fmap cmp Leaf = FEMPTY) ∧
+  (to_fmap cmp (Node k v l r) =
+   to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v))`;
+
+(*
+  Now some proofs about the basic tree operations.
+*)
+
+
+(*
+  We start by defining what a predicate on trees indicating
+  whether they have the binary search tree property
+*)
+val key_ordered_def = Define`
+  (key_ordered cmp k Leaf res ⇔ T) ∧
+  (key_ordered cmp k (Node k' _ l r) res ⇔
+   (cmp k k' = res) ∧
+   key_ordered cmp k l res ∧
+   key_ordered cmp k r res)`;
+val _ = export_rewrites["key_ordered_def"];
+(* TODO: explain export_rewrites and why we use it here *)
+
+val wf_tree_def = Define`
+  (wf_tree cmp Leaf ⇔ T) ∧
+  (wf_tree cmp (Node k _ l r) ⇔
+   key_ordered cmp k l Greater ∧
+   key_ordered cmp k r Less ∧
+   wf_tree cmp l ∧
+   wf_tree cmp r)`;
+val _ = export_rewrites["wf_tree_def"];
+
+(*
+  We can prove that all the operations preserve wf_tree
+
+  For pedagogy, the aim here is to prove:
+    - wf_tree_singleton
+    - wf_tree_insert
+    - wf_tree_delete
+  Figuring out the lemmas required along the way
+  should probably be part of the exercise
+*)
+
+(* TODO: explain why store_thm takes a string. explain the [simp] annotation *)
+
+val wf_tree_singleton = Q.store_thm("wf_tree_singleton[simp]",
+  `wf_tree cmp (singleton k v)`, EVAL_TAC);
+
+val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
+  `(cmp k k' = res) ⇒
+   key_ordered cmp k (singleton k' v') res`, EVAL_TAC);
+
+val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
+  `∀t.
+   key_ordered cmp k t res ∧ (cmp k k' = res) ⇒
+   key_ordered cmp k (insert cmp k' v' t) res`,
+  Induct \\ rw[insert_def] \\
+  CASE_TAC \\ fs[]);
+
+val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
+  `good_cmp cmp ⇒
+   ∀t k v. wf_tree cmp t ⇒ wf_tree cmp (insert cmp k v t)`,
+  strip_tac \\
+  Induct \\
+  rw[insert_def] \\
+  CASE_TAC \\ fs[] \\
+  match_mp_tac key_ordered_insert \\ rw[] \\
+  metis_tac[comparisonTheory.good_cmp_def]);
+
+(*
+val wf_tree_delete = Q.store_thm("wf_tree_delete",
+);
+*)
 
 (*
   Now the splay-ing auto-balancing version of the operations.
