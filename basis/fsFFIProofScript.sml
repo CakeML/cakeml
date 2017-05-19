@@ -23,6 +23,9 @@ val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 * set appropriately and further it is left unspecified whether the file position
 * (if any) changes." *)
 
+val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
+  `!x y z. x ++ y = SOME z <=> (x = SOME z \/ (x = NONE /\ y = SOME z))`,
+  rw[] \\ cases_on `x` \\ cases_on `y` \\ fs[]);
 
 (* nextFD *)
 val nextFD_ltX = Q.store_thm(
@@ -57,7 +60,7 @@ val wfFS_def = Define`
          fd < 255 ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
                    fnm ∈ FDOM (alist_to_fmap fs.files))∧
-    (¬LFINITE fs.numchars))
+    ¬LFINITE fs.numchars)
 `;
 
 val wfFS_openFile = Q.store_thm(
@@ -100,18 +103,21 @@ val wfFS_DELKEY = Q.store_thm(
        );
 
 val eof_read = Q.store_thm("eof_read",
- `!fd fs n. 0 < n ⇒ (eof fd fs = SOME T) ⇒
-            read fd fs n = SOME ([], fs with numchars := STL fs.numchars)`,
+ `!fd fs n. wfFS fs ⇒
+            0 < n ⇒ (eof fd fs = SOME T) ⇒
+            read fd fs n = SOME ([], fs with numchars := THE(LTL fs.numchars))`,
  rw[eof_def,read_def,MIN_DEF]  >>
  qexists_tac `x` >> rw[] >>
  cases_on `x` >> 
  fs[DROP_LENGTH_TOO_LONG] >>
- fs[bumpFD_def] >>
- `ALIST_FUPDKEY fd (I ## $+ (STRLEN contents − r)) infds = infds` by 
-   (`(∀v. ALOOKUP infds fd = SOME v ⇒ (I ## $+ (STRLEN contents − r)) v = v)`
+ fs[bumpFD_def,wfFS_def] >>
+ `ALIST_FUPDKEY fd (I ## $+ (STRLEN contents − r)) fs.infds = fs.infds` by 
+   (`(∀v. ALOOKUP fs.infds fd = SOME v ⇒ (I ## $+ (STRLEN contents − r)) v = v)`
       by (cases_on`v` >> rw[]) >>
     imp_res_tac ALIST_FUPDKEY_unchanged) >>
- cheat);
+  cases_on`fs.numchars` >> fs[] >>
+  cases_on`fs` >>
+  fs[RO_fs_fn_updates,RO_fs_11]);
 
 val read_eof = Q.store_thm("eof_read",
  `!fd fs n fs'. 0 < n ⇒ read fd fs n = SOME ([], fs') ⇒ eof fd fs = SOME T`,
@@ -123,23 +129,30 @@ val read_eof = Q.store_thm("eof_read",
 val neof_read = Q.store_thm(
   "neof_read",
   `eof fd fs = SOME F ⇒ 0 < n ⇒ 
+     wfFS fs ⇒ 
      ∃l fs'. l <> "" /\ read fd fs n = SOME (l,fs')`,
   mp_tac (Q.SPECL [`fd`, `fs`, `n`] read_def) >>
-  rw[] >> 
+  rw[wfFS_def] >> 
   cases_on `ALOOKUP fs.infds fd` >> fs[eof_def] >>
   cases_on `x` >> fs[] >>
   cases_on `ALOOKUP fs.files q` >> fs[eof_def] >>
-  cheat);
+  cases_on `fs.numchars` >> fs[] >>
+  cases_on `DROP r contents` >> fs[] >>
+  `r ≥ LENGTH contents` by fs[DROP_EMPTY] >>
+  fs[]);
 
 val option_case_eq =
     prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
 
 val wfFS_bumpFD = Q.store_thm(
   "wfFS_bumpFD[simp]",
-  `wfFS (bumpFD fd fs n) ⇔ wfFS fs`,
-  simp[bumpFD_def] >> Cases_on `read fd fs n` >> simp[] >>
+  `wfFS fs ⇒ wfFS (bumpFD fd fs n)`,
+  simp[bumpFD_def] >> 
   dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
-        EXISTS_PROD] >> metis_tac[]);
+        EXISTS_PROD] >> 
+  `¬LFINITE fs.numchars ==>¬ LFINITE (THE (LTL fs.numchars)) `
+    by (cases_on`fs.numchars` >> fs[]) >>
+  metis_tac[]);
 
 val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
   `validFD fd fs ⇒ validFD fd (bumpFD fd fs n)`,
@@ -216,29 +229,32 @@ val encode_11 = Q.store_thm(
   `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
   metis_tac[decode_encode_FS, SOME_11]);
 
-(* open *)
+val option_eq_some = LIST_CONJ [
+    OPTION_IGNORE_BIND_EQUALS_OPTION,
+    OPTION_BIND_EQUALS_OPTION,
+    OPTION_CHOICE_EQUALS_OPTION]
+
+
+(* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
   `ffi_open_in bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
-  rw[ffi_open_in_def]
-  \\ Cases_on`getNullTermStr bytes` \\ fs[] \\ rw[]
-  \\ Cases_on`openFile (implode x) fs 0` \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`fd < 255` \\ fs[] \\ rw[]);
+  rw[ffi_open_in_def] \\ fs[option_eq_some]
+  \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
 
 val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
   `ffi_open_out bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
-  rw[ffi_open_out_def]
-  \\ Cases_on`getNullTermStr bytes` \\ fs[] \\ rw[]
-  \\ Cases_on`openFile_truncate (implode x) fs 0` \\ fs[] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ Cases_on`fd < 255` \\ fs[] \\ rw[]);
+  rw[ffi_open_out_def] \\ fs[option_eq_some]
+  \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
 
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[] >>
-  cheat
-  );
+  rw[ffi_read_def] 
+  \\ every_case_tac
+  \\ fs[option_eq_some]
+  \\ TRY(pairarg_tac) \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
+  \\ cheat
+  ); 
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,

@@ -186,18 +186,21 @@ val ffi_open_out_def = Define`
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
   ffi_read bytes fs =
-    do
     (* the buffer contains at least the number of requested bytes *)
-      assert(LENGTH bytes >= w2n (HD (TL bytes)) + 2);
-      (l, fs') <- read (w2n (HD bytes)) fs (w2n (HD (TL bytes)));
+    case bytes of
+       | fd :: (numb :: tll) =>
+           do
+             assert(LENGTH tll >= w2n numb);
+             (l, fs') <- read (w2n fd) fs (w2n numb);
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-      return (0w :: n2w (LENGTH l) ::
-              MAP (n2w o ORD) l ++
-              DROP (LENGTH l +2) bytes, fs')
-      od ++ return (LUPDATE 1w 0 bytes, fs)`;
+             return (0w :: n2w (LENGTH l) ::
+                    MAP (n2w o ORD) l ++
+                    DROP (LENGTH l) tll, fs')
+           od ++ return (LUPDATE 1w 0 bytes, fs)
       (* inaccurate: "when an error occurs, [...] 
       * it is left unspecified whether the file position (if any) changes. *)
+       | _ => NONE`
 
 (* [descriptor index; number of chars to write; chars to write]
 *    -> [return code; number of written chars]
