@@ -73,20 +73,24 @@ end
 
 (*------------------------------------------------------------------*)
 
-fun normalise_exp tm = let
+fun old_normalise_exp tm = let
     val normalise_tm = mk_full_normalise (listSyntax.mk_nil stringSyntax.string_ty, tm)
     val eval_th = EVAL normalise_tm
 in rhs (concl eval_th) end
 
-fun normalise_dec dec_tm = let
+fun old_normalise_dec dec_tm = let
   val normalise_decl_tm = mk_full_normalise_decl dec_tm
   val eval_th = EVAL normalise_decl_tm
 in rhs (concl eval_th) end
 
-fun normalise_prog prog_tm = let
+fun old_normalise_prog prog_tm = let
     val normalise_prog_tm = mk_full_normalise_prog prog_tm
     val eval_th = EVAL normalise_prog_tm
 in rhs (concl eval_th) end
+
+val normalise_exp = cfNormaliseLib.full_normalise_exp
+val normalise_dec = cfNormaliseLib.full_normalise_decl
+val normalise_prog = cfNormaliseLib.full_normalise_prog
 
 fun process_topdecs q = normalise_prog (parse_topdecs q)
 
