@@ -751,6 +751,9 @@ val [lul1,lul2,lul3,lul4] = CONJUNCTS lab_to_targetTheory.lines_upd_lab_len_def;
 
 val add_pos_conv = PATH_CONV "llr" numLib.REDUCE_CONV
 
+val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+
 fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
   let
     val cs = compilation_compset()
@@ -1217,8 +1220,7 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
 
     val () = time (
       x64_exportLib.write_cake_S stack_mb heap_mb
-        (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
-        bytes_tm ) filename
+        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
 
     val sec_ok_light_tm =
       tm18 |> rator |> rand
@@ -1375,19 +1377,28 @@ fun cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
       stack_to_lab_thm
       |> CONV_RULE(RAND_CONV(eval))
 
-    val (bytes_tm,ffi_names_tm) =
-      bootstrap_thm |> rconc
-      |> optionSyntax.dest_some
-      |> pairSyntax.dest_pair
+    val (bytes_tm,ffi_names_tm) = extract_bytes_ffis bootstrap_thm
 
     val () = time (
       x64_exportLib.write_cake_S stack_mb heap_mb
-        (map stringSyntax.fromHOLstring (#1 (listSyntax.dest_list ffi_names_tm)))
-        bytes_tm ) filename
+        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
   in
     bootstrap_thm
   end
 
+fun compile_x64 heap_size stack_size name prog_def =
+  let
+    val cs = compilation_compset()
+    val conf_def = x64_backend_config_def
+    val data_prog_name = "data_prog_x64"
+    val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
+    val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
+    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
+    val lab_prog_def = definition(mk_abbrev_name"lab_prog")
+    val result = cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
+  in result end
+  (*
+val extract_oracle = find_term listSyntax.is_list o lhs o concl
 fun to_bytes alg conf prog =
   let
   val _ = println "Compile to livesets"
@@ -1411,26 +1422,7 @@ fun to_bytes alg conf prog =
   in
     compile_thm
   end
-
-val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-val extract_oracle = find_term listSyntax.is_list o lhs o concl
-
 val to_x64_bytes = to_bytes 3 ``x64_backend_config``
-
-val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
-
-fun compile_x64 heap_size stack_size name prog_def =
-  let
-    val cs = compilation_compset()
-    val conf_def = x64_backend_config_def
-    val data_prog_name = "data_prog_x64"
-    val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
-    val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
-    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
-    val lab_prog_def = definition(mk_abbrev_name"lab_prog")
-    val result = cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
-  in result end
-  (*
   let
     val result = to_x64_bytes (prog_def |> rconc)
     val oracle = extract_oracle result
