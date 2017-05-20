@@ -152,7 +152,15 @@ val x64_enc6 = el 6 x64_enc_thms
 val x64_enc1s = x64_enc1 |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 inst``]) defaults |> CONJUNCTS
 
 val x64_enc1_1 = el 1 x64_enc1s
-val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE` COND_RAND,COND_RATOR,Zsize_case_def]
+
+val simp_rw = Q.prove(`
+  (if ((1w:word4 && n2w (if n < 16 then n else 0) ⋙ 3) = 1w) then 1w else 0w:word4) =
+  (1w && n2w (if n < 16 then n else 0) ⋙ 3)`,
+  rw[]>>fs[]>>
+  blastLib.FULL_BBLAST_TAC);
+
+val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |> bconv |>
+ SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE` COND_RAND,COND_RATOR,Zsize_case_def] |> fconv |> SIMP_RULE std_ss[Once COND_RAND,simp_rw] |> csethm 2
 
 val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
 
