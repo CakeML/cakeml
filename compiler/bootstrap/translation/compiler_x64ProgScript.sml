@@ -211,7 +211,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ qmatch_abbrev_tac`_ frame _`
   \\ qmatch_goalsub_abbrev_tac`append (FST res)`
   \\ xlet`POSTv xv. &PAIR_TYPE (MISC_APP_LIST_TYPE STRING_TYPE) STRING_TYPE res xv * frame`
-  >- (xapp \\ instantiate \\ xsimpl \\ cheat)
+  >- (xapp \\ instantiate \\ xsimpl)
   \\ xmatch
   \\ Cases_on `res` \\ qmatch_goalsub_abbrev_tac`FST (c,e)`
   \\ every_case_tac \\ fs [ml_translatorTheory.PAIR_TYPE_def]

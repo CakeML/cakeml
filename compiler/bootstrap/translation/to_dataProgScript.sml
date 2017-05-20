@@ -53,6 +53,20 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
+val res = translate (source_to_modTheory.compile_exp_def);
+
+val source_to_mod_compile_exp_side_def = theorem"source_to_mod_compile_exp_side_def"
+val source_to_mod_compile_exp_side = Q.prove(
+  `(∀x y. source_to_mod_compile_exp_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_exps_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_pes_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_funs_side x y ⇔ T)`,
+  ho_match_mp_tac source_to_modTheory.compile_exp_ind \\ rw[]
+  \\ rw[Once source_to_mod_compile_exp_side_def]
+  \\ rw[definition"source_to_mod_astop_to_modop_side_def"])
+  |> CONJUNCTS
+  |> map update_precondition;
+
 val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
