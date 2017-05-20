@@ -4,10 +4,25 @@ open ml_translatorLib ml_translatorTheory;
 open compiler64ProgTheory
 open x64_targetTheory x64Theory;
 open inliningLib;
+open blastLib;
 
 val _ = new_theory "x64Prog"
 
 val _ = translation_extends "compiler64Prog";
+
+(* bit-blasts away trivial if splits *)
+fun bconv_gen print avoidp = fn th => th |> SPEC_ALL |>
+            RIGHT_CONV_RULE (Conv.DEPTH_CONV (
+              (fn t => if type_of t <> ``:bool``orelse avoidp t then NO_CONV t else ALL_CONV t)
+              THENC blastLib.BBLAST_CONV
+              THENC (if print then PRINT_CONV else ALL_CONV)
+              THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+                                ALL_CONV t
+                             else
+                                NO_CONV t))) |>
+            SIMP_RULE (srw_ss()) []
+
+val bconv = bconv_gen false (fn t => false)
 
 val RW = REWRITE_RULE
 
@@ -94,6 +109,33 @@ val is_rax_zr_thm = Q.prove(`
   rpt(Cases_on`n`>>EVAL_TAC>>fs[]>>
   Cases_on`n'`>>EVAL_TAC>>fs[]))
 
+(* commute list case, option case and if *)
+val case_ifs = Q.prove(`
+  ((case
+    if P then
+      l1
+    else l2
+  of
+    [] => A
+  | ls => B ls) = if P then case l1 of [] => A | ls => B ls else case l2 of [] => A | ls => B ls)`,rw[])
+
+val case_ifs2 = Q.prove(`
+  ((case
+    if P then
+      SOME (a,b,c)
+    else NONE
+  of
+    NONE => A
+  | SOME (a,b,c) => B a b c) = if P then B a b c else A)
+  `,
+  rw[])
+
+val if_neq = Q.prove(`
+  (if P then [x] else []) ≠ [] ⇔ P`,
+  rw[])
+
+val fconv = SIMP_RULE (srw_ss()) [SHIFT_ZERO,case_ifs,case_ifs2,if_neq]
+
 val defaults = [x64_ast_def,x64_encode_def,encode_def,e_rm_reg_def,e_gen_rm_reg_def,e_ModRM_def,e_opsize_def,e_imm32_def,rex_prefix_def,x64_dec_fail_def,e_opc_def,e_rax_imm_def,e_rm_imm_def,asmSemTheory.is_test_def,x64_cmp_def,e_opsize_imm_def,e_imm8_def,e_rm_imm8_def,not_byte_def,e_imm16_def,e_imm64_def,Zsize_width_def,x64_bop_def,zreg2num_totalnum2zerg,e_imm_8_32_def,Zbinop_name2num_x64_sh,x64_sh_notZtest,exh_if_collapse,is_rax_zr_thm]
 
 val x64_enc_thms =
@@ -116,11 +158,12 @@ val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimp
 
 val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``]) [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
 
-val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+(* TODO: simplify further? *)
+val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv)
 
 val binopregth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
 
-val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv)
 
 val binopimmth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 3) binopimm)
 
@@ -132,23 +175,25 @@ val shiftths =
       (x64_sh_def ::
       defaults)
   |> CONJUNCTS
-  |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+  |> map (fn th => th |> wc_simp |> we_simp |> gconv
+  |> bconv |> fconv |> csethm 3)
 
 val shiftth = reconstruct_case ``x64_enc(Inst (Arith (Shift s n n0 n1)))``
   (rand o funpow 3 rator o funpow 3 rand) shiftths
 
-val x64_enc1_3_aux = binopth :: shiftth:: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 4) rest
+val x64_enc1_3_aux = binopth :: shiftth:: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> bconv |> fconv |> csethm 3) rest
 
 val x64_enc1_3 = reconstruct_case ``x64_enc (Inst (Arith a))`` (rand o rand o rand) x64_enc1_3_aux
 
 val x64_enc1_4_aux = el 4 x64_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
 
-val x64_enc1_4 = reconstruct_case ``x64_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``x64_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) (map (csethm 2) x64_enc1_4_aux)]
+(*TODO: can commute the NONE and if *)
+val x64_enc1_4 = reconstruct_case ``x64_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``x64_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) (map (csethm 2 o fconv o bconv) x64_enc1_4_aux)]
 
 val x64_simp1 = reconstruct_case ``x64_enc (Inst i)`` (rand o rand) [x64_enc1_1,x64_enc1_2,x64_enc1_3,x64_enc1_4]
  |> SIMP_RULE std_ss [Q.ISPEC `Zbinop_name2num` COND_RAND,Zbinop_name2num_thm]
 
-val x64_simp2 = x64_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val x64_simp2 = x64_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> bconv |> fconv
 
 val x64_enc3_aux = x64_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -156,18 +201,36 @@ val x64_enc3_aux = x64_enc3
   |> map (fn th => th
      |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
                   (Q.ISPEC `LIST_BIND` COND_RAND:: COND_RATOR::word_bit_thm::defaults)
-     |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+     |> wc_simp |> we_simp |> gconv)
 
 val x64_enc3_1 = el 1 x64_enc3_aux
 val x64_enc3_2 = el 2 x64_enc3_aux |> SIMP_RULE (srw_ss()) [word_mul_def, Q.ISPEC `w2n` COND_RAND] |> gconv
 
 val x64_enc3_1_th =
-  x64_enc3_1 |> CONJUNCTS
+  x64_enc3_1 |> CONJUNCTS |> map (fconv o bconv)
   |> reconstruct_case ``x64_enc (JumpCmp c n (Reg n') c0)``
      (rand o funpow 3 rator o rand)
 
+(*bconv takes too long on this one*)
+fun avoidp t =
+if wordsSyntax.is_word_le t then
+  let val (l,r) = wordsSyntax.dest_word_compare t in
+    l = ``0xFFFFFFFF80000000w:word64``
+  end
+else if is_conj t then
+  let val(l,r) = dest_conj t in
+    avoidp l andalso avoidp r
+  end
+else
+  false
+
+val case_append = Q.prove(`
+  (case A ++ [B;C] ++ D of [] => E | ls => ls) = A++[B;C]++D`,
+  EVERY_CASE_TAC>>fs[]);
+
 val x64_enc3_2_th =
   x64_enc3_2 |> CONJUNCTS
+  |> map (csethm 2 o SIMP_RULE (srw_ss()) [case_append] o fconv o bconv_gen false avoidp)
   |> reconstruct_case ``x64_enc (JumpCmp c n (Imm c') c0)``
      (rand o funpow 3 rator o rand)
 
@@ -177,9 +240,13 @@ val x64_simp3 =
 
 val x64_simp4 = x64_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-val x64_simp5 = x64_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 2
+val case_append2 = Q.prove(`
+  (case A ++ [B;C] of [] => E | ls => ls) = A++[B;C]`,
+  EVERY_CASE_TAC>>fs[]);
 
-val x64_simp6 = x64_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> csethm 2
+val x64_simp5 = x64_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> bconv |> fconv |> SIMP_RULE (srw_ss())[case_append2]
+
+val x64_simp6 = x64_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |>bconv |> csethm 2
 
 val x64_enc_thm = reconstruct_case ``x64_enc i`` rand [x64_simp1,x64_simp2,x64_simp3,x64_simp4,x64_simp5,x64_simp6]
 

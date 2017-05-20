@@ -2,6 +2,8 @@
 
 structure inliningLib =
 struct
+  open preamble
+
   (*simple CSE *)
   fun lrthm strip th = th |> SPEC_ALL |> concl |> dest_eq |> (fn (x,y) => (strip x,y))
 
