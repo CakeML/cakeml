@@ -209,8 +209,6 @@ val comm_theorem = Q.store_thm ("comm_theorem",
 val assoc_theorem = Q.store_thm ("assoc_theorem",
   `∀(s: 'ffi bviSem$state).
      op ≠ Noop ∧
-     no_err x2 ∧
-     no_err x3 ∧
      evaluate ([apply_op op (apply_op op x1 x2) x3], env, s) = (r, t) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
        evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) = (r, t)`,
@@ -219,63 +217,36 @@ val assoc_theorem = Q.store_thm ("assoc_theorem",
   \\ qhdtm_x_assum `evaluate` mp_tac
   \\ simp [evaluate_def]
   \\ ntac 2 CASE_TAC
-  \\ imp_res_tac (GEN_ALL no_err_correct)
-  \\ rpt (qpat_x_assum `no_err x1 ⇒ _` kall_tac)
-  \\ rveq \\ rfs []
   \\ strip_tac
   \\ CASE_TAC
-  \\ drule (GEN_ALL no_err_correct)
-  \\ disch_then drule
-  \\ strip_tac \\ rveq \\ fs []
-  \\ rename1 `Rval ws`
-  \\ Cases_on `ws` \\ Cases_on `vs` \\ fs [LENGTH_NIL] \\ rveq
-  \\ reverse CASE_TAC \\ fs []
+  \\ rename1 `evaluate ([x1],_,_) = (res_x1, st_x1)`
+  \\ rename1 `evaluate ([x2],_,_) = (res_x2, st_x2)`
+  \\ rename1 `evaluate ([x3],_,_) = (res_x3, st_x3)`
+  \\ reverse (Cases_on `res_x1`) \\ fs []
+  >- (rveq \\ fs [])
+  \\ reverse (Cases_on `res_x2`) \\ fs []
+  >- (rveq \\ fs [])
+  \\ reverse (Cases_on `res_x3`) \\ fs []
   >-
-    (CASE_TAC \\ fs []
-    \\ strip_tac \\ rveq
-    \\ imp_res_tac do_app_err \\ fs []
-    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    (imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac do_app_err \\ fs []
+    \\ imp_res_tac do_app_err
     \\ Cases_on `op` \\ fs [to_op_def]
-    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
-  \\ ntac 2 CASE_TAC \\ fs []
+    \\ Cases_on `w` \\ Cases_on `w'`
+    \\ fs [do_app_def,
+           do_app_aux_def,
+           bvlSemTheory.do_app_def,
+           bvl_to_bvi_id])
   \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
-  \\ reverse TOP_CASE_TAC \\ fs []
-  \\ qpat_x_assum `_ = (r, t)` mp_tac
-  >-
-    (reverse CASE_TAC \\ fs []
-    >-
-      (strip_tac \\ rveq
-      \\ imp_res_tac do_app_err
-      \\ fs [])
-    \\ CASE_TAC \\ fs []
-    \\ reverse CASE_TAC \\ fs []
-    >-
-      (strip_tac \\ rveq
-      \\ imp_res_tac do_app_err \\ fs [])
-    \\ CASE_TAC
-    \\ strip_tac \\ rveq
-    \\ Cases_on `op` \\ fs [to_op_def]
-    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id])
-  \\ reverse CASE_TAC
-  >-
-    (strip_tac \\ rveq
-    \\ imp_res_tac do_app_err \\ fs [])
-  \\ CASE_TAC \\ fs []
-  \\ reverse CASE_TAC
-  >-
-    (strip_tac \\ rveq
-    \\ imp_res_tac do_app_err \\ fs [])
-  \\ CASE_TAC
-  \\ strip_tac \\ rveq
-  \\ CASE_TAC
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac do_app_err
   \\ Cases_on `op` \\ fs [to_op_def]
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs [bvl_to_bvi_id]
-  \\ rveq
+  \\ Cases_on `w` \\ Cases_on `w'` \\ Cases_on `w''`
+  \\ fs [do_app_def,
+             do_app_aux_def,
+             bvlSemTheory.do_app_def,
+             bvl_to_bvi_id]
+  \\ rveq \\ rfs [] \\ rveq
   \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC]);
 
 val op_id_val_def = Define `
@@ -325,31 +296,113 @@ val optimize_check_Arith = Q.store_thm ("optimize_check_Arith",
   rpt strip_tac \\ fs [optimize_check_def]
   \\ drule tail_check_Arith \\ fs []);
 
+val assoc_swap_lemma = Q.store_thm ("assoc_swap_lemma",
+  `∀(s: 'ffi bviSem$state).
+     op ≠ Noop ∧
+     no_err x3 ∧
+     no_err x1 ∧
+     evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) = (r, t) ∧
+     r ≠ Rerr (Rabort Rtype_error) ⇒
+       evaluate ([apply_op op x2 (apply_op op x1 x3)], env, s) = (r, t)`,
+  rpt strip_tac
+  \\ `evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) =
+      evaluate ([apply_op op (apply_op op x1 x2) x3], env, s)` by
+    (simp [apply_op_def, evaluate_def]
+    \\ CASE_TAC
+    \\ drule (GEN_ALL no_err_correct)
+    \\ disch_then drule
+    \\ strip_tac \\ rveq
+    \\ imp_res_tac evaluate_SING_IMP
+    \\ fs [all_num_def] \\ rveq
+    \\ fs [evaluate_def, apply_op_def]
+    \\ ntac 2 CASE_TAC \\ fs []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ `∃m. w = Number m` by
+      (every_case_tac \\ fs []
+      \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+      \\ imp_res_tac do_app_err
+      \\ Cases_on `op` \\ fs [to_op_def]
+      \\ Cases_on `w` \\ TRY (Cases_on `w'`)
+      \\ fs [do_app_def,
+             do_app_aux_def,
+             bvlSemTheory.do_app_def,
+             bvl_to_bvi_id]
+      \\ rveq \\ fs []
+      \\ imp_res_tac no_err_correct \\ fs [])
+    \\ rveq
+    \\ rename1 `_ = (_, st_x2)`
+    \\ `∃k.
+          do_app (to_op op) [Number m; Number n] st_x2 =
+            Rval (Number k, st_x2)` by
+      (Cases_on `op`
+      \\ simp [to_op_def,
+               do_app_def,
+               do_app_aux_def,
+               bvlSemTheory.do_app_def,
+               bvl_to_bvi_id,
+               bviSemTheory.small_enough_int_def])
+    \\ simp []
+    \\ CASE_TAC
+    \\ imp_res_tac no_err_type_correct
+    \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `op`
+    \\ fs [to_op_def,
+           do_app_def,
+           do_app_aux_def,
+           bvlSemTheory.do_app_def,
+           bvl_to_bvi_id,
+           bviSemTheory.small_enough_int_def]
+    \\ rveq
+    \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC])
+  \\ fs []
+  \\ pop_assum kall_tac
+  \\ `evaluate ([apply_op op (apply_op op x1 x2) x3], env, s) =
+      evaluate ([apply_op op (apply_op op x2 x1) x3], env, s)` by
+    (simp_tac std_ss [Once apply_op_def, evaluate_def]
+    \\ CASE_TAC
+    \\ drule (GEN_ALL comm_theorem)
+    \\ ntac 2 (disch_then drule)
+    \\ simp []
+    \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs []
+    >-
+      (fs [evaluate_def, apply_op_def]
+      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac do_app_err
+      \\ rveq \\ rfs [])
+    \\ fs [apply_op_def, evaluate_def])
+  \\ `evaluate ([apply_op op (apply_op op x2 x1) x3], env, s) =
+      evaluate ([apply_op op x2 (apply_op op x1 x3)], env, s)` by
+    (Cases_on `evaluate ([apply_op op (apply_op op x2 x1) x3], env, s)`
+    \\ drule (GEN_ALL assoc_theorem)
+    \\ disch_then drule
+    \\ impl_tac
+    >- fs [evaluate_def, apply_op_def]
+    \\ fs [])
+  \\ fs []);
+
 val evaluate_assoc_swap = Q.store_thm ("evaluate_assoc_swap",
   `∀(s:'ffi bviSem$state).
    no_err from ∧
    iop ≠ Noop ∧
+   binop_has_rec nm iop into ∧
    evaluate ([apply_op iop from into], env, s) = (r, t) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
      evaluate ([assoc_swap iop from into], env, s) = (r, t)`,
   rpt strip_tac
   \\ simp [assoc_swap_def]
-  \\ TOP_CASE_TAC \\ fs [] \\ rveq
-  >-
-    (drule (GEN_ALL comm_theorem)
-    \\ ntac 2 (disch_then drule)
-    \\ rw [])
+  \\ IF_CASES_TAC \\ fs []
+  >- imp_res_tac comm_theorem
   \\ TOP_CASE_TAC \\ fs []
-  >-
-    (drule (GEN_ALL comm_theorem)
-    \\ ntac 2 (disch_then drule)
-    \\ rw [])
+  >- imp_res_tac comm_theorem
+  \\ fs [op_eq_to_op]
   \\ rveq
-  \\ fs [op_eq_to_op] \\ rveq
   \\ fs [GSYM apply_op_def]
-  \\ cheat (* TODO *)
+  \\ simp [evaluate_def, apply_op_def]
+  \\ cheat (* TODO need no_err e2 *)
   );
 
+(* TODO: This repeats itself a lot except in a few cases. *)
 val evaluate_op_rewrite = Q.store_thm ("evaluate_op_rewrite",
   `∀op name exp env (s:'ffi bviSem$state) r t p exp2.
      evaluate ([exp], env, s) = (r, t) ∧
@@ -380,9 +433,465 @@ val evaluate_op_rewrite = Q.store_thm ("evaluate_op_rewrite",
   >- rw []
   \\ TOP_CASE_TAC \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ strip_tac \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ cheat (* TODO *)
-  );
+  \\ rfs []
+  \\ Cases_on `r1`
+  >-
+    (Cases_on `r2`
+    >-
+      (fs []
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ simp [evaluate_def]
+      \\ CASE_TAC \\ first_x_assum drule \\ strip_tac
+      \\ CASE_TAC \\ first_x_assum drule \\ strip_tac
+      \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+      \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+      \\ Cases_on `res_e1 = Rerr (Rabort Rtype_error)`
+      \\ rfs []
+      \\ reverse (Cases_on `res_e1`) \\ fs []
+      >-
+        (strip_tac \\ rveq
+        \\ IF_CASES_TAC
+        >-
+          (IF_CASES_TAC \\ fs []
+          \\ IF_CASES_TAC \\ fs []
+          \\ strip_tac \\ rveq
+          \\ drule (GEN_ALL evaluate_assoc_swap)
+          \\ ntac 2 (disch_then drule)
+          \\ Cases_on `evaluate ([apply_op op y2 y1], env, s)`
+          \\ disch_then drule
+          \\ impl_tac
+          >-
+            (pop_assum mp_tac
+            \\ simp [evaluate_def, apply_op_def]
+            \\ CASE_TAC
+            \\ drule (GEN_ALL no_err_correct)
+            \\ disch_then drule
+            \\ strip_tac \\ rveq \\ fs []
+            \\ strip_tac \\ rveq \\ fs [])
+          \\ simp []
+          \\ pop_assum mp_tac
+          \\ fs [apply_op_def, evaluate_def]
+          \\ CASE_TAC
+          \\ drule (GEN_ALL no_err_correct)
+          \\ disch_then drule
+          \\ strip_tac \\ rveq \\ fs [])
+        \\ IF_CASES_TAC
+        >-
+          (IF_CASES_TAC \\ fs []
+          \\ strip_tac \\ rveq
+          \\ drule (GEN_ALL evaluate_assoc_swap)
+          \\ ntac 2 (disch_then drule)
+          \\ Cases_on `evaluate ([apply_op op y1 y2], env, s)`
+          \\ disch_then drule
+          \\ impl_tac
+          >-
+            (pop_assum mp_tac
+            \\ simp [evaluate_def, apply_op_def]
+            \\ strip_tac \\ rveq \\ fs [])
+          \\ simp []
+          \\ pop_assum mp_tac
+          \\ fs [apply_op_def, evaluate_def])
+        \\ fs [])
+      \\ reverse CASE_TAC
+      >-
+        (strip_tac \\ rveq \\ fs []
+        \\ IF_CASES_TAC
+        >-
+          (ntac 2 (IF_CASES_TAC \\ fs [])
+          \\ strip_tac \\ rveq
+          \\ drule (GEN_ALL evaluate_assoc_swap)
+          \\ ntac 2 (disch_then drule)
+          \\ Cases_on `evaluate ([apply_op op y2 y1], env, s)`
+          \\ disch_then drule
+          \\ impl_tac
+          >-
+            (pop_assum mp_tac
+            \\ simp [evaluate_def, apply_op_def]
+            \\ CASE_TAC
+            \\ drule (GEN_ALL no_err_correct)
+            \\ disch_then drule
+            \\ strip_tac \\ rveq \\ fs [])
+          \\ rfs []
+          \\ pop_assum mp_tac
+          \\ simp [apply_op_def, evaluate_def]
+          \\ CASE_TAC
+          \\ drule (GEN_ALL no_err_correct)
+          \\ disch_then drule
+          \\ strip_tac \\ rveq \\ fs [])
+        \\ IF_CASES_TAC
+        >-
+          (IF_CASES_TAC \\ fs []
+          \\ strip_tac \\ rveq
+          \\ drule (GEN_ALL evaluate_assoc_swap)
+          \\ ntac 2 (disch_then drule)
+          \\ Cases_on `evaluate ([apply_op op y1 y2], env, s)`
+          \\ disch_then drule
+          \\ impl_tac
+          >-
+            (pop_assum mp_tac
+            \\ simp [apply_op_def, evaluate_def]
+            \\ strip_tac \\ rveq \\ fs [])
+          \\ pop_assum mp_tac
+          \\ simp [apply_op_def, evaluate_def])
+        \\ fs [])
+      \\ fs []
+      \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+      \\ strip_tac
+      \\ `∃m n. w = Number m ∧ w'' = Number n` by
+        (Cases_on `op`
+        \\ Cases_on `w`
+        \\ Cases_on `w''`
+        \\ fs [to_op_def,
+               do_app_def,
+               do_app_aux_def,
+               bvlSemTheory.do_app_def,
+               bvl_to_bvi_id])
+      \\ fs [] \\ rveq
+      \\ IF_CASES_TAC
+      >-
+        (ntac 2 (IF_CASES_TAC \\ fs [])
+        \\ strip_tac \\ rveq
+        \\ drule (GEN_ALL evaluate_assoc_swap)
+        \\ ntac 2 (disch_then drule)
+        \\ Cases_on `evaluate ([apply_op op y2 y1], env, s)`
+        \\ disch_then drule
+        \\ impl_tac
+        >-
+          (pop_assum mp_tac
+          \\ simp [apply_op_def, evaluate_def]
+          \\ CASE_TAC
+          \\ drule (GEN_ALL no_err_correct)
+          \\ disch_then drule
+          \\ strip_tac \\ rveq \\ fs []
+          \\ strip_tac
+          \\ Cases_on `op`
+          \\ fs [to_op_def,
+                 do_app_def,
+                 do_app_aux_def,
+                 bvlSemTheory.do_app_def,
+                 bvl_to_bvi_id]
+          \\ rveq \\ fs [])
+        \\ pop_assum mp_tac
+        \\ simp [apply_op_def, evaluate_def]
+        \\ CASE_TAC
+        \\ drule (GEN_ALL no_err_correct)
+        \\ disch_then drule
+        \\ strip_tac \\ rveq \\ fs []
+        \\ ntac 2 strip_tac
+        \\ Cases_on `op`
+        \\ fs [to_op_def,
+               do_app_def,
+               do_app_aux_def,
+               bvlSemTheory.do_app_def,
+               bvl_to_bvi_id]
+        \\ rveq
+        \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM])
+      \\ ntac 2 (IF_CASES_TAC \\ fs [])
+      \\ strip_tac \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op y1 y2], env, s)`
+      \\ disch_then drule
+      \\ impl_tac
+      >-
+        (pop_assum mp_tac
+        \\ simp [evaluate_def, apply_op_def]
+        \\ strip_tac \\ rveq \\ fs [])
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def])
+    \\ IF_CASES_TAC
+    >-
+      (ntac 2 (IF_CASES_TAC \\ fs [])
+      \\ strip_tac \\ rveq
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ simp [evaluate_def]
+      \\ CASE_TAC \\ first_x_assum drule \\ strip_tac
+      \\ CASE_TAC \\ first_x_assum drule \\ strip_tac
+      \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+      \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+      \\ reverse (Cases_on `res_e1`) \\ fs []
+      >-
+        (strip_tac \\ rveq \\ rfs []
+        \\ drule (GEN_ALL evaluate_assoc_swap)
+        \\ ntac 2 (disch_then drule)
+        \\ Cases_on `evaluate ([apply_op op y2 y1], env, s)`
+        \\ disch_then drule
+        \\ pop_assum mp_tac
+        \\ simp [evaluate_def, apply_op_def]
+        \\ CASE_TAC
+        \\ drule (GEN_ALL no_err_correct)
+        \\ disch_then drule
+        \\ ntac 2 (strip_tac \\ rveq \\ fs []))
+      \\ reverse CASE_TAC
+      >-
+        (strip_tac \\ rveq \\ rfs []
+        \\ fs [] \\ rveq
+        \\ drule (GEN_ALL evaluate_assoc_swap)
+        \\ ntac 2 (disch_then drule)
+        \\ Cases_on `evaluate ([apply_op op e2 y1], env, s)`
+        \\ disch_then drule
+        \\ pop_assum mp_tac
+        \\ simp [evaluate_def, apply_op_def]
+        \\ ntac 2 CASE_TAC
+        \\ drule (GEN_ALL no_err_correct)
+        \\ disch_then drule
+        \\ strip_tac \\ rveq \\ fs [])
+      \\ fs [] \\ rveq \\ rfs []
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op e2 y1], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ CASE_TAC
+      \\ drule (GEN_ALL no_err_correct)
+      \\ disch_then drule
+      \\ strip_tac \\ rveq \\ fs []
+      \\ rveq
+      \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+      \\ rpt strip_tac
+      \\ Cases_on `a'` \\ Cases_on `w`
+      \\ Cases_on `op`
+      \\ fs [LENGTH_NIL,
+             all_num_def,
+             to_op_def,
+             do_app_def,
+             do_app_aux_def,
+             bvlSemTheory.do_app_def,
+             bvl_to_bvi_id]
+      \\ rveq \\ fs [bvl_to_bvi_id]
+      \\ rveq \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM])
+    \\ ntac 2 (IF_CASES_TAC \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ qhdtm_x_assum `evaluate` mp_tac
+    \\ simp [evaluate_def]
+    \\ ntac 2 (CASE_TAC \\ first_x_assum drule \\ strip_tac)
+    \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+    \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+    \\ reverse (Cases_on `res_e1`) \\ fs []
+    >-
+      (strip_tac \\ rveq \\ fs []
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op y1 y2], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ reverse CASE_TAC \\ fs []
+    >-
+      (strip_tac \\ rveq \\ rfs []
+      \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op y1 e2], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ rveq \\ rfs []
+    \\ drule (GEN_ALL evaluate_assoc_swap)
+    \\ ntac 2 (disch_then drule)
+    \\ Cases_on `evaluate ([apply_op op y1 e2], env, s)`
+    \\ disch_then drule
+    \\ pop_assum mp_tac
+    \\ simp [evaluate_def, apply_op_def])
+  \\ Cases_on `r2` \\ fs []
+  >-
+    (IF_CASES_TAC
+    >-
+      (ntac 2 (IF_CASES_TAC \\ fs [])
+      \\ strip_tac \\ rveq
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ simp [evaluate_def]
+      \\ ntac 2 (CASE_TAC \\ first_x_assum drule \\ strip_tac)
+      \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+      \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+      \\ reverse (Cases_on `res_e1`) \\ fs []
+      >-
+        (strip_tac \\ rveq \\ rfs []
+        \\ rveq
+        \\ drule (GEN_ALL evaluate_assoc_swap)
+        \\ ntac 2 (disch_then drule)
+        \\ Cases_on `evaluate ([apply_op op y2 e1], env, s)`
+        \\ disch_then drule
+        \\ pop_assum mp_tac
+        \\ simp [evaluate_def, apply_op_def]
+        \\ CASE_TAC
+        \\ drule (GEN_ALL no_err_correct)
+        \\ disch_then drule
+        \\ ntac 2 (strip_tac \\ rveq \\ fs []))
+      \\ reverse CASE_TAC
+      >-
+        (strip_tac \\ rveq \\ fs []
+        \\ rfs [] \\ rveq
+        \\ drule (GEN_ALL evaluate_assoc_swap)
+        \\ ntac 2 (disch_then drule)
+        \\ Cases_on `evaluate ([apply_op op y2 e1], env, s)`
+        \\ disch_then drule
+        \\ pop_assum mp_tac
+        \\ simp [evaluate_def, apply_op_def]
+        \\ CASE_TAC
+        \\ drule (GEN_ALL no_err_correct)
+        \\ disch_then drule
+        \\ strip_tac \\ rveq \\ fs [])
+      \\ fs [] \\ rfs [] \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op y2 e1], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ CASE_TAC
+      \\ drule (GEN_ALL no_err_correct)
+      \\ disch_then drule
+      \\ strip_tac \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+      \\ rpt strip_tac
+      \\ Cases_on `w` \\ Cases_on `w'`
+      \\ Cases_on `op`
+      \\ fs [to_op_def,
+             all_num_def,
+             LENGTH_NIL,
+             do_app_def,
+             do_app_aux_def,
+             bvlSemTheory.do_app_def,
+             bvl_to_bvi_id]
+      \\ rveq \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM])
+    \\ ntac 2 (IF_CASES_TAC \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ qhdtm_x_assum `evaluate` mp_tac
+    \\ simp [evaluate_def]
+    \\ ntac 2 (CASE_TAC \\ first_x_assum drule \\ strip_tac)
+    \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+    \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+    \\ reverse (Cases_on `res_e1`) \\ fs []
+    >-
+      (strip_tac \\ rveq \\ rfs []
+      \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op e1 y2], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ reverse CASE_TAC
+    >-
+      (strip_tac \\ rveq \\ fs []
+      \\ rfs [] \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op e1 y2], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ fs [] \\ rfs [] \\ rveq
+    \\ drule (GEN_ALL evaluate_assoc_swap)
+    \\ ntac 2 (disch_then drule)
+    \\ Cases_on `evaluate ([apply_op op e1 y2], env, s)`
+    \\ disch_then drule
+    \\ pop_assum mp_tac
+    \\ simp [evaluate_def, apply_op_def])
+  \\ IF_CASES_TAC
+  >-
+    (ntac 2 (IF_CASES_TAC \\ fs [])
+    \\ strip_tac \\ rveq
+    \\ qhdtm_x_assum `evaluate` mp_tac
+    \\ simp [evaluate_def]
+    \\ ntac 2 (CASE_TAC \\ first_x_assum drule \\ strip_tac)
+    \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+    \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+    \\ reverse (Cases_on `res_e1`) \\ fs []
+    >-
+      (strip_tac \\ rveq \\ rfs []
+      \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op y2 e1], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ CASE_TAC
+      \\ drule (GEN_ALL no_err_correct)
+      \\ disch_then drule
+      \\ ntac 2 (strip_tac \\ rveq \\ fs []))
+    \\ reverse CASE_TAC
+    >-
+      (strip_tac \\ rveq \\ rfs []
+      \\ fs [] \\ rveq
+      \\ drule (GEN_ALL evaluate_assoc_swap)
+      \\ ntac 2 (disch_then drule)
+      \\ Cases_on `evaluate ([apply_op op e2 e1], env, s)`
+      \\ disch_then drule
+      \\ pop_assum mp_tac
+      \\ simp [evaluate_def, apply_op_def]
+      \\ CASE_TAC
+      \\ drule (GEN_ALL no_err_correct)
+      \\ disch_then drule
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ fs [] \\ rfs [] \\ rveq
+    \\ drule (GEN_ALL evaluate_assoc_swap)
+    \\ ntac 2 (disch_then drule)
+    \\ Cases_on `evaluate ([apply_op op e2 e1], env, s)`
+    \\ disch_then drule
+    \\ pop_assum mp_tac
+    \\ simp [evaluate_def, apply_op_def]
+    \\ CASE_TAC
+    \\ drule (GEN_ALL no_err_correct)
+    \\ disch_then drule
+    \\ strip_tac \\ rveq \\ fs []
+    \\ rpt strip_tac
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ Cases_on `a'` \\ Cases_on `w`
+    \\ Cases_on `op`
+    \\ fs [to_op_def,
+           all_num_def,
+           LENGTH_NIL,
+           do_app_def,
+           do_app_aux_def,
+           bvlSemTheory.do_app_def,
+           bvl_to_bvi_id]
+    \\ rveq \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM])
+  \\ ntac 2 (IF_CASES_TAC \\ fs [])
+  \\ strip_tac \\ rveq
+  \\ qhdtm_x_assum `evaluate` mp_tac
+  \\ simp [evaluate_def]
+  \\ ntac 2 (CASE_TAC \\ first_x_assum drule \\ strip_tac)
+  \\ rfs []
+  \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+  \\ rename1 `evaluate ([e2],_,_) = (res_e2, st_e2)`
+  \\ reverse (Cases_on `res_e1`) \\ fs []
+  >-
+    (strip_tac \\ rveq \\ rfs []
+    \\ rveq
+    \\ drule (GEN_ALL evaluate_assoc_swap)
+    \\ ntac 2 (disch_then drule)
+    \\ Cases_on `evaluate ([apply_op op e1 y2], env, s)`
+    \\ disch_then drule
+    \\ pop_assum mp_tac
+    \\ simp [evaluate_def, apply_op_def]
+    \\ strip_tac \\ rveq \\ fs [])
+  \\ fs [] \\ rveq
+  \\ reverse CASE_TAC
+  >-
+    (strip_tac \\ rveq \\ rfs []
+    \\ rveq
+    \\ drule (GEN_ALL evaluate_assoc_swap)
+    \\ ntac 2 (disch_then drule)
+    \\ Cases_on `evaluate ([apply_op op e1 e2], env, s)`
+    \\ disch_then drule
+    \\ pop_assum mp_tac
+    \\ simp [evaluate_def, apply_op_def]
+    \\ strip_tac \\ rveq \\ fs [])
+  \\ rfs [] \\ rveq
+  \\ drule (GEN_ALL evaluate_assoc_swap)
+  \\ ntac 2 (disch_then drule)
+  \\ Cases_on `evaluate ([apply_op op e1 e2], env, s)`
+  \\ disch_then drule
+  \\ pop_assum mp_tac
+  \\ simp [evaluate_def, apply_op_def]);
 
 val op_rewrite_no_err = Q.store_thm ("op_rewrite_no_err",
   `∀op name exp env (s:'ffi bviSem$state) r t e1 e2.
