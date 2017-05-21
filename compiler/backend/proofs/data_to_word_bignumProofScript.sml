@@ -252,7 +252,7 @@ val LongDiv1_thm = store_thm("LongDiv1_thm",
     \\ strip_tac \\ fs []
     \\ unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
   \\ IF_CASES_TAC
-  THEN1 (`F` by all_tac \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
+  THEN1 (sg `F` \\ fs [] \\ pop_assum mp_tac \\ rfs [] \\ rfs [] \\ rw [])
   \\ pop_assum kall_tac
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
@@ -334,7 +334,7 @@ val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
    (fs [eq_eval,EVAL ``0w ' 0``]
     \\ imp_res_tac memory_rel_Number_const_test
     \\ pop_assum (qspec_then `i` assume_tac) \\ rfs []
-    \\ `i = 0` by all_tac \\ fs [EVAL ``i2mw 0``]
+    \\ sg `i = 0` \\ fs [EVAL ``i2mw 0``]
     \\ fs [Smallnum_def,small_int_def,good_dimindex_def] \\ rfs [dimword_def]
     \\ Cases_on `i` \\ fs [] \\ rfs [dimword_def])
   \\ Cases_on `(w4 && 1w) = 0w` THEN1
@@ -342,7 +342,7 @@ val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
     \\ imp_res_tac memory_rel_Number_const_test
     \\ pop_assum (qspec_then `i` assume_tac) \\ rfs []
     \\ fs [Smallnum_def]
-    \\ `LENGTH (SND (i2mw i)) = 1` by all_tac \\ fs []
+    \\ sg `LENGTH (SND (i2mw i)) = 1` \\ fs []
     \\ fs [word_index_test]
     \\ fs [multiwordTheory.i2mw_def,Once multiwordTheory.n2mw_def] \\ rfs []
     \\ rveq \\ fs [] \\ fs [small_int_def]
@@ -608,7 +608,7 @@ val evaluate_LongDiv_code = store_thm("evaluate_LongDiv_code",
   THEN1 (* has_longdiv case *)
    (once_rewrite_tac [list_Seq_def] \\ fs [eq_eval,wordSemTheory.inst_def]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ pop_assum mp_tac \\ simp []
+     (sg `F` \\ pop_assum mp_tac \\ simp []
       \\ fs [mc_multiwordTheory.single_div_pre_def])
     \\ fs [list_Seq_def,eq_eval,wordSemTheory.set_store_def,lookup_insert]
     \\ fs [fromAList_def,wordSemTheory.state_component_equality]
@@ -1074,7 +1074,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ strip_tac
   \\ `il + (jl + 1) < dimword (:α) DIV 8` by fs []
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ unabbrev_all_tac \\ fs [wordSemTheory.set_store_def]
     \\ rfs []
     \\ fs [DECIDE ``m + 1 = n + (k + 2:num) <=> m = n + k + 1``]
@@ -1569,7 +1569,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
       \\ simp_tac (srw_ss()) [] \\ strip_tac
       \\ rpt_drule state_rel_Number_small_int
       \\ strip_tac \\ asm_exists_tac \\ asm_rewrite_tac [])
-    \\ `F` by all_tac \\ fs []
+    \\ sg `F` \\ fs []
     \\ rpt_drule i2mw_small_int_IMP_0)
   \\ qmatch_goalsub_abbrev_tac `evaluate (if_stmt,t8)`
   \\ `?w. evaluate (if_stmt,t8) = (NONE, set_var 5 w t8)` by
