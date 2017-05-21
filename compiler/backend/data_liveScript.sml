@@ -18,6 +18,7 @@ val is_pure_def = Define `
   (is_pure FromListByte = F) /\
   (is_pure (String _) = F) /\
   (is_pure (Cons _) = F) /\
+  (is_pure (ConsExtend _) = F) /\
   (is_pure (FFI _) = F) /\
   (is_pure (FromList _) = F) /\
   (is_pure Add = F) /\

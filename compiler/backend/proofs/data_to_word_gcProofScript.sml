@@ -1024,7 +1024,7 @@ val word_gc_move_loop_thm = Q.store_thm("word_gc_move_loop_thm",
   \\ qpat_x_assum `word_gc_move_loop _ _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gc_move_loop_def]
   \\ IF_CASES_TAC THEN1
-   (`F` by all_tac
+   (sg `F`
     \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,
            WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
     \\ pop_assum mp_tac
@@ -1038,8 +1038,8 @@ val word_gc_move_loop_thm = Q.store_thm("word_gc_move_loop_thm",
     \\ qpat_x_assum `heap_length heap * _ < _ ` mp_tac
     \\ qpat_x_assum `good_dimindex (:'a)` mp_tac
     \\ rpt (pop_assum kall_tac) \\ srw_tac[][]
-    \\ `dimindex (:α) DIV 8 + dimindex (:α) DIV 8 * n5 +
-        dimindex (:α) DIV 8 * heap_length h2 < dimword (:α)` by all_tac
+    \\ sg `dimindex (:α) DIV 8 + dimindex (:α) DIV 8 * n5 +
+           dimindex (:α) DIV 8 * heap_length h2 < dimword (:α)`
     \\ full_simp_tac(srw_ss())[]
     \\ rev_full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
     \\ rev_full_simp_tac(srw_ss())[good_dimindex_def,dimword_def] \\ decide_tac)
@@ -2776,8 +2776,9 @@ val gc_partial_move_ok_before = Q.store_thm("gc_partial_move_ok_before",
       >> fs[])
   >> pairarg_tac >> fs[]
   >> qpat_x_assum `_ = s1` (assume_tac o GSYM) >> fs[]
-  >> `((s.ok ∧ n < heap_length s.heap) ∧ n' + 1 ≤ s.n ∧
-        ¬gen_conf.isRef b)` by (match_mp_tac (GEN_ALL gc_forward_ptr_ok))
+  >> sg `((s.ok ∧ n < heap_length s.heap) ∧ n' + 1 ≤ s.n ∧
+        ¬gen_conf.isRef b)` >> fs []
+  >> match_mp_tac (GEN_ALL gc_forward_ptr_ok)
   >> qexists_tac `a` >> qexists_tac `s.heap`
   >> qexists_tac `n` >> qexists_tac `s.a` >> qexists_tac `heap`
   >> fs[]);
@@ -3368,7 +3369,7 @@ val word_gen_gc_partial_move_ref_list_def = Define `
       let len = decode_length conf (theWord w) in
       let pb = pb + bytes_in_word in
       let (pb,i1,pa1,m1,c1) = word_gen_gc_partial_move_list conf (pb,len,i,pa,old,m,dm,gs,rs) in
-        word_gen_gc_partial_move_ref_list (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1,gs,rs,re)`
+        word_gen_gc_partial_move_ref_list (k-1n) conf (pb,i1,pa1,old,m1,dm,c /\ c1,gs,rs,re)`;
 
 val word_gen_gc_partial_move_ref_list_thm = Q.store_thm("word_gen_gc_partial_move_ref_list_thm",
   `!x ck xs x1 s1 s pa1 pa m1 m i1 frame dm curr c1 k old current refs.
@@ -3434,7 +3435,7 @@ val word_gen_gc_partial_move_ref_list_thm = Q.store_thm("word_gen_gc_partial_mov
   \\ fs[theWord_def,el_length_def]
   \\ ntac 2 (pairarg_tac \\ fs[])
   \\ drule(GEN_ALL word_gen_gc_partial_move_list_thm)
-  \\ `state'.ok` by imp_res_tac gc_partial_move_ref_list_ok_before
+  \\ `state'.ok` by (imp_res_tac gc_partial_move_ref_list_ok_before \\ fs [])
   \\ fs[heap_length_def]
   \\ disch_then drule
   \\ strip_tac \\ SEP_F_TAC \\ rfs[]
@@ -3474,14 +3475,14 @@ val word_gen_gc_partial_def = Define `
                                  (curr+rs,i,pa,curr,m,dm,c1,gs,rs,refs_end) in
     let (i,pa,m,c3) = word_gen_gc_partial_move_data conf (dimword (:'a))
                                  (new,i,pa,curr,m,dm,gs,rs) in
-      (roots,i,pa,m,c2 /\ c3)`
+      (roots,i,pa,m,c2 /\ c3)`;
 
 val word_gen_gc_partial_full_def = Define `
   word_gen_gc_partial_full conf (roots,(curr:'a word),new,len,m,dm,gs,rs) =
     let (roots,i,pa,m,c1) = word_gen_gc_partial conf (roots,curr,new,len,m,dm,gs,rs) in
     let cpy_length = (pa - new) >>> shift(:'a) in
     let (b1,m,c2) = memcpy cpy_length new (curr + gs) m dm in
-     (roots,i,b1,m,c1 /\ c2)`
+     (roots,i,b1,m,c1 /\ c2)`;
 
 val gc_move_ref_list_IMP = prove (
   ``!conf state refs state1 refs1.
@@ -3718,7 +3719,8 @@ val word_gen_gc_partial_full_thm = Q.store_thm("word_gen_gc_partial_full_thm",
   \\ rpt(disch_then drule) \\ fs[]
   \\ rpt(disch_then drule)
   \\ `?xsl. (heap_length heap =  (gen_conf.refs_start - gen_conf.gen_start) + xsl)`
-     by (ONCE_REWRITE_TAC [ADD_COMM] \\ match_mp_tac (GSYM LESS_EQ_ADD_EXISTS) \\ fs[])
+     by (ONCE_REWRITE_TAC [ADD_COMM]
+         \\ match_mp_tac (GSYM LESS_EQ_ADD_EXISTS) \\ fs[])
   \\ fs[word_list_exists_ADD]
   \\ strip_tac \\ SEP_F_TAC
   \\ strip_tac \\ fs[]
@@ -3735,7 +3737,7 @@ val word_gen_gc_partial_full_thm = Q.store_thm("word_gen_gc_partial_full_thm",
          \\ `heap_length s1.h1 * (dimindex (:α) DIV 8) < dimword (:'a)`
              by (fs[good_dimindex_def,dimword_def] \\ rfs[] \\ fs[])
              \\ fs[] \\ fs[good_dimindex_def,dimword_def,shift_def,
-                           ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+                           ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV] \\ fs [])
   \\ fs[]
   \\ qabbrev_tac `a1 = word_heap new s1.h1 conf`
   \\ fs[AC STAR_ASSOC STAR_COMM]
@@ -4059,7 +4061,7 @@ val word_gc_fun_lemma = Q.store_thm("word_gc_fun_lemma",
     \\ Cases_on `s ' GenStart` \\ fs [isWord_def] \\ rveq
     \\ fs [gen_starts_in_store_def] \\ rfs []
     \\ Cases_on `gen_starts` THEN1
-     (`F` by all_tac
+     (sg `F`
       \\ fs [word_gen_gc_can_do_partial_def]
       \\ Cases_on `l` \\ fs [])
     \\ fs [] \\ rveq
@@ -4438,7 +4440,7 @@ val cut_env_IMP_cut_env = Q.store_thm("cut_env_IMP_cut_env",
   \\ Cases_on `y'` \\ Cases_on `y''`
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[adjust_var_11] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def] \\ res_tac
-  \\ `IS_SOME (lookup q s.locals)` by full_simp_tac(srw_ss())[] \\ res_tac
+  \\ sg `IS_SOME (lookup q s.locals)` \\ full_simp_tac(srw_ss())[] \\ res_tac
   \\ Cases_on `lookup (adjust_var q) t.locals` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[MEM_toAList,unit_some_eq_IS_SOME] \\ res_tac \\ full_simp_tac(srw_ss())[]);
 
@@ -6259,7 +6261,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
       q = NONE)`,
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
   \\ `limit < dimword (:'a)` by
-        (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def])
+        (rfs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def] \\ rfs [])
   \\ `?end next.
         FLOOKUP t.store TriggerGC = SOME (Word end) /\
         FLOOKUP t.store NextFree = SOME (Word next)` by
@@ -6295,7 +6297,7 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
   \\ `1w ≪ shift (:α) + w ⋙ 2 ≪ shift (:α) =
       alloc_size (w2n w DIV 4 + 1)` by
    (fs [alloc_size_def] \\ IF_CASES_TAC THEN1
-     (`w >>> 2 = n2w (w2n w DIV 4)` by all_tac
+     (sg `w >>> 2 = n2w (w2n w DIV 4)`
       \\ fs [shift_lsl,state_rel_def,bytes_in_word_def,word_add_n2w,word_mul_n2w]
       \\ rewrite_tac [GSYM w2n_11,w2n_lsr] \\ fs [])
     \\ qsuff_tac `(w2n w DIV 4 + 1) * (dimindex (:α) DIV 8) < dimword (:'a)`

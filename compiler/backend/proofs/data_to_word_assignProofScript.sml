@@ -6042,8 +6042,6 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum (qspec_then `(p_1 − 2) DIV 2` mp_tac)
 
-
-
     \\ cheat)
 
   \\ rpt_drule memory_rel_store_list_to_unused \\ strip_tac
