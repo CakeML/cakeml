@@ -943,15 +943,102 @@ val evaluate_op_rewrite = Q.store_thm ("evaluate_op_rewrite",
   \\ pop_assum mp_tac
   \\ simp [evaluate_def, apply_op_def]);
 
+val op_rewrite_preserves_op = Q.store_thm ("op_rewrite_preserves_op",
+  `∀iop name op xs exp2.
+      op_rewrite iop name (Op op xs) = (T, exp2) ⇒
+        ∃e1 e2. exp2 = Op op [e1;e2]`,
+  rpt gen_tac
+  \\ once_rewrite_tac [op_rewrite_def]
+  \\ Cases_on `iop` \\ Cases_on `op` \\ fs [op_eq_def]
+  \\ TOP_CASE_TAC
+  \\ TOP_CASE_TAC
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac \\ fs [assoc_swap_def, apply_op_def, to_op_def]
+  \\ every_case_tac \\ rw []);
+
 val op_rewrite_no_err = Q.store_thm ("op_rewrite_no_err",
+  `∀op name exp env (s:'ffi bviSem$state) r t p exp2 e1 e2.
+      evaluate ([exp], env, s) = (r, t) ∧
+      r ≠ Rerr (Rabort Rtype_error) ∧
+      op_rewrite op name exp = (p, exp2) ⇒
+        if p then
+          (op_binargs exp2 = SOME (e1, e2) ⇒ no_err e2)
+        else
+          exp = exp2`,
+  ho_match_mp_tac op_rewrite_ind
+  \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
+  \\ strip_tac
+  \\ reverse (Cases_on `p`)
+  >-
+    (simp_tac bool_ss []
+    \\ drule (GEN_ALL evaluate_op_rewrite)
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ simp [])
+  \\ simp_tac bool_ss []
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [op_rewrite_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ IF_CASES_TAC
+  >-
+    (ntac 2 (IF_CASES_TAC \\ fs [])
+    \\ simp [assoc_swap_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+      (simp [apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    >-
+      (simp [apply_op_def]
+      \\ strip_tac \\ rveq \\ fs [])
+    \\ simp [apply_op_def]
+    \\ strip_tac \\ rveq \\ fs []
+    \\ rveq
+    \\ Cases_on `op`
+    \\ fs [binop_has_rec_def,
+           no_err_def,
+           to_op_def,
+           is_rec_def,
+           op_binargs_def])
+  \\ ntac 2 (IF_CASES_TAC \\ fs [])
+  \\ simp [assoc_swap_def, apply_op_def]
+  \\ IF_CASES_TAC \\ fs []
+  >-
+    (strip_tac \\ rveq
+    \\ Cases_on `op`
+    \\ fs [binop_has_rec_def,
+           no_err_def,
+           to_op_def,
+           is_rec_def,
+           op_binargs_def])
+  \\ TOP_CASE_TAC \\ fs []
+  >-
+    (strip_tac \\ rveq
+    \\ Cases_on `op`
+    \\ fs [op_eq_def,
+           op_binargs_def])
+  \\ rveq
+  \\ fs [op_eq_to_op]
+  \\ strip_tac \\ rveq
+  \\ Cases_on `op`
+  \\ fs [binop_has_rec_def,
+         no_err_def,
+         to_op_def,
+         is_rec_def,
+         op_binargs_def]);
+
+val op_rewrite_no_err_spec = Q.store_thm ("op_rewrite_no_err_spec",
   `∀op name exp env (s:'ffi bviSem$state) r t e1 e2.
       evaluate ([exp], env, s) = (r, t) ∧
       r ≠ Rerr (Rabort Rtype_error) ∧
       op_rewrite op name exp = (T, exp2) ∧
       op_binargs exp2 = SOME (e1, e2) ⇒
         no_err e2`,
-  cheat (* TODO *)
-  );
+  rpt strip_tac
+  \\ imp_res_tac op_rewrite_no_err \\ fs []);
 
 val op_rewrite_noopt = Q.prove (
   `op_rewrite op name exp = (F, exp2) ⇒ exp = exp2`,
@@ -1020,19 +1107,6 @@ val op_rewrite_is_rec = Q.store_thm ("op_rewrite_is_rec",
   \\ Cases_on `y2` \\ fs [binop_has_rec_def, is_rec_def, op_binargs_def]
   \\ rveq
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [is_rec_def]);
-
-val op_rewrite_preserves_op = Q.store_thm ("op_rewrite_preserves_op",
-  `∀iop name op xs exp2.
-      op_rewrite iop name (Op op xs) = (T, exp2) ⇒
-        ∃e1 e2. exp2 = Op op [e1;e2]`,
-  rpt gen_tac
-  \\ once_rewrite_tac [op_rewrite_def]
-  \\ Cases_on `iop` \\ Cases_on `op` \\ fs [op_eq_def]
-  \\ TOP_CASE_TAC
-  \\ TOP_CASE_TAC
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ every_case_tac \\ fs [assoc_swap_def, apply_op_def, to_op_def]
-  \\ every_case_tac \\ rw []);
 
 (* TODO for append, parametrise on op *)
 val env_rel_def = Define `
@@ -1715,7 +1789,7 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
     \\ impl_tac
     >- (every_case_tac \\ fs [] \\ rveq \\ fs [])
     \\ strip_tac
-    \\ imp_res_tac op_rewrite_no_err
+    \\ imp_res_tac op_rewrite_no_err_spec
     \\ ntac 2 (pop_assum kall_tac)
     \\ fs [op_binargs_def]
     \\ pop_assum mp_tac
@@ -2303,7 +2377,7 @@ val optimize_prog_LENGTH = Q.store_thm ("optimize_prog_LENGTH",
   \\ conj_tac
   >- fs [optimize_prog_def]
   \\ rpt gen_tac \\ strip_tac
-  \\ Cases_on `optimize_single n nm args exp` \\ fs []
+  \\ Cases_on `optimize_single_aug n nm args exp` \\ fs []
   >- fs [optimize_prog_def]
   \\ Cases_on `x` \\ fs []
   \\ fs [optimize_prog_def]);
@@ -2324,16 +2398,18 @@ val is_free_name = Q.prove (
   \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac \\ rw []);
 
 val optimize_next_name = Q.prove (
-  `optimize_single n name args exp = NONE ⇒
-     optimize_single (n + 2) name args exp = NONE`,
-  fs [optimize_single_aug_def] \\ every_case_tac);
+  `optimize_single_aug n name args exp = NONE ⇒
+     optimize_single_aug (n + 2) name args exp = NONE`,
+  fs [optimize_single_aug_def] 
+  \\ every_case_tac
+  \\ pairarg_tac \\ fs []);
 
 val optimize_all_untouched = Q.store_thm ("optimize_all_untouched",
   `∀n prog prog2 name exp args.
      free_names n name ∧
      lookup name (fromAList prog) = SOME (args, exp) ∧
      optimize_check name exp = NONE ∧
-     optimize_single n name args exp = NONE ∧
+     optimize_single_aug n name args exp = NONE ∧
      optimize_prog n prog = prog2 ⇒
        lookup name (fromAList prog2) = SOME (args, exp)`,
   recInduct optimize_prog_ind
@@ -2345,7 +2421,7 @@ val optimize_all_untouched = Q.store_thm ("optimize_all_untouched",
     (Cases_on `lookup name (fromAList xs)`
     \\ fs [optimize_prog_def, fromAList_def])
   \\ fs [lookup_insert]
-  \\ Cases_on `optimize_single n nm args exp` \\ fs []
+  \\ Cases_on `optimize_single_aug n nm args exp` \\ fs []
   >- rfs [optimize_prog_def, fromAList_def, lookup_insert]
   \\ Cases_on `x` \\ rw []
   \\ imp_res_tac more_free_names
@@ -2369,7 +2445,7 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
      optimize_check name exp = SOME op ∧
      optimize_prog n prog = prog2 ⇒
       ∃k. ∀exp_aux exp_opt.
-        optimize_single (n + 2 * k) name args exp = SOME (exp_aux, exp_opt) ⇒
+        optimize_single_aug (n + 2 * k) name args exp = SOME (exp_aux, exp_opt) ⇒
           lookup name (fromAList prog2) = SOME (args, exp_aux) ∧
           lookup (n + 2 * k) (fromAList prog2) = SOME (args + 1, exp_opt)`,
   recInduct optimize_prog_ind
@@ -2380,17 +2456,18 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
   \\ qhdtm_x_assum `optimize_prog` mp_tac \\ simp [optimize_prog_def]
   \\ TOP_CASE_TAC \\ fs []
   >-
-    (qhdtm_x_assum `optimize_single` mp_tac \\ simp [Once optimize_single_aug_def]
+    (qhdtm_x_assum `optimize_single_aug` mp_tac 
+    \\ simp [Once optimize_single_aug_def]
     \\ qpat_x_assum `_ = SOME (_,_)` mp_tac
     \\ simp [lookup_insert, fromAList_def]
     \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ rveq \\ fs []
+    \\ TRY (pairarg_tac \\ fs [] \\ NO_TAC)
     \\ first_x_assum drule
-    \\ disch_then drule
-    \\ rpt strip_tac \\ rveq \\ rfs []
+    \\ disch_then drule \\ fs []
+    \\ rpt strip_tac \\ rveq
     \\ qexists_tac `k`
-    \\ simp [lookup_insert, fromAList_def]
-    \\ fs [free_names_def])
+    \\ fs [lookup_insert, fromAList_def, free_names_def])
   \\ TOP_CASE_TAC
   \\ strip_tac
   \\ qhdtm_x_assum `lookup` mp_tac
@@ -2415,13 +2492,14 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
   \\ qexists_tac `0` \\ fs []);
 
 val optimize_check_no_single = Q.prove (
-  `optimize_check name exp = NONE ⇒ optimize_single n name args exp = NONE`,
+  `optimize_check name exp = NONE ⇒ optimize_single_aug n name args exp = NONE`,
   fs [optimize_single_aug_def]);
 
 val optimize_check_SOME_single = Q.prove (
   `optimize_check name exp = SOME op ⇒
-     ∃q. optimize_single n name args exp = SOME q`,
-  fs [optimize_single_aug_def]);
+     ∃q. optimize_single_aug n name args exp = SOME q`,
+  fs [optimize_single_aug_def]
+  \\ pairarg_tac \\ fs []);
 
 val EVERY_free_names_IMP_free_names = Q.prove (
   `EVERY (free_names n o FST) prog ∧
