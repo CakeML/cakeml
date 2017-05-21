@@ -47,6 +47,7 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | FromListByte => F
     | String _ => F
     | Cons _ => F
+    | ConsExtend _ => F
     | FFI _ => F
     | FromList _ => F
     | Add => F
