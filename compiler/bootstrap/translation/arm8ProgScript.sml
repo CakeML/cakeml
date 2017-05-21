@@ -47,13 +47,6 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-(*
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
-
-val _ = register_type``:64 asm_config``
-*)
-
 val word_bit_thm = Q.prove(
   `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
   simp [GSYM wordsTheory.word_1_lsl]
@@ -72,15 +65,6 @@ val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
-(*
-val spec_word_bit1 = word_bit |> ISPEC``foo:word32`` |> SPEC``11n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
-val spec_word_bit2 = word_bit |> ISPEC``foo:word64`` |> SPEC``31n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
-
-val v2w_rw = Q.prove(`
-  v2w [P] = if P then 1w else 0w`,
-  rw[]>>EVAL_TAC);
-*)
-
 val IS_SOME_rw = Q.prove(`
   (if IS_SOME A then B else C) =
     case A of
@@ -92,7 +76,7 @@ val v2w_rw = Q.prove(`
   v2w [P] = if P then 1w else 0w`,
   rw[]>>EVAL_TAC);
 
-(* TODO? more Manual rewrites to get rid of MachineCode type*)
+(* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
 val exh_machine_code = Q.prove(`
 ∀v f.
@@ -121,7 +105,7 @@ val notw = Q.prove(`
   !a. ~a = (-1w ?? a)`,
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
 
-val defaults = [arm8_ast_def,arm8_encode_def,Encode_def,NoOperation_def,arm8_enc_mov_imm_def,e_data_def,EncodeLogicalOp_def,bop_enc_def,e_sf_def,v2w_rw,arm8_encode_fail_def,e_load_store_def,arm8_load_store_ast_def,e_LoadStoreImmediate_def,e_branch_def,asmSemTheory.is_test_def,cmp_cond_def,dfn'Hint_def]
+val defaults = [arm8_ast_def,arm8_encode_def,Encode_def,NoOperation_def,arm8_enc_mov_imm_def,e_data_def,EncodeLogicalOp_def,bop_enc_def,e_sf_def,v2w_rw,arm8_encode_fail_def,e_load_store_def,arm8_load_store_ast_def,e_LoadStoreImmediate_def,e_branch_def,asmSemTheory.is_test_def,cmp_cond_def,dfn'Hint_def];
 
 val arm8_enc_thms =
   arm8_enc_def
@@ -184,7 +168,7 @@ val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |> SIMP_RULE (srw_s
 val arm8_enc1_3 = reconstruct_case ``arm8_enc (Inst (Arith a))`` (rand o rand o rand) arm8_enc1_3_aux
 
 val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) ((Q.ISPEC`LIST_BIND` COND_RAND)::(Q.ISPEC`(λ(f,n). P f n)` COND_RAND)::COND_RATOR::defaults)
-|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,word_mul_def] |> CONJUNCTS
 
 val arm8_enc1_4 = reconstruct_case ``arm8_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``arm8_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
 
@@ -238,7 +222,7 @@ val ct_curr_def = tDefine "ct_curr" `
   (WF_REL_TAC`measure (w2n o SND)`
   THEN SRW_TAC [] [wordsTheory.LSR_LESS]
   THEN Cases_on `w = 0w`
-  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS])
+  THEN FULL_SIMP_TAC (srw_ss()) [wordsTheory.word_0, wordsTheory.LSR_LESS]);
 
 val CountTrailing_eq = Q.prove(`
   ∀b w. CountTrailing (b,w) = ct_curr b w`,
@@ -256,13 +240,84 @@ val CountTrailing_eq = Q.prove(`
 
 val res = translate ct_curr_def
 
+(* the encoder uses two special functions that need to be hand translated *)
 fun specv64 v = INST_TYPE [v|->``:64``]
 val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |> SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
 
-(*TODO, make this translate:
-specv64 ``:'M`` DecodeBitMasks_def
+val log2_def = Define`
+  log2 n =
+  if n < 2 then 0n
+  else (log2 (n DIV 2)) + 1`
 
-INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv
+val LOG2_log2 = Q.prove(`
+  ∀n. n ≠ 0 ⇒
+  log2 n = LOG2 n`,
+  ho_match_mp_tac (fetch "-" "log2_ind")>>rw[]>>
+  simp[Once log2_def,bitTheory.LOG2_def]>>
+  PURE_REWRITE_TAC [Once numeral_bitTheory.LOG_compute]>>
+  IF_CASES_TAC>>fs[ADD1,GSYM bitTheory.LOG2_def]>>
+  first_assum match_mp_tac>>
+  `2 ≤ n` by fs[]>>
+  drule bitTheory.DIV_GT0>>
+  fs[]);
+
+val hsb_compute = Q.prove(`
+  HighestSetBit (w:word7) =
+  if w = 0w then -1 else w2i(n2w(log2 (w2n w)):word7)`,
+  fs[word_log2_def,HighestSetBit_def]>>IF_CASES_TAC>>fs[]>>
+  `w2n w ≠ 0` by fs[]>>
+  metis_tac[LOG2_log2]);
+
+val v2w_Ones = Q.prove(`
+  (v2w (Ones n)):word6 = n2w (2 ** n -1)`,
+  rw[Ones_def]>>
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss][]>>
+  rewrite_tac [bitstringTheory.word_index_v2w,word_index_n2w] >>
+  simp [bitstringTheory.testbit, listTheory.PAD_LEFT,bitTheory.BIT_EXP_SUB1]>>
+  eq_tac>>
+  fs[EL_GENLIST]);
+
+val _ = translate bitstringTheory.zero_extend_def
+val _ = translate bitstringTheory.fixwidth_def
+val _ = translate bitstringTheory.field_def
+val _ = translate bitstringTheory.v2n_def
+
+(* TODO: already in lexerProg but not stored *)
+val l2n_side = Q.prove(`
+  ∀b a. a ≠ 0 ⇒ l2n_side a b`,
+  Induct>>
+  rw[Once lexerProgTheory.l2n_side_def]) |> update_precondition;
+
+val v2n_side = Q.prove(`
+  v2n_side v ⇔ T`,
+  EVAL_TAC>>
+  fs[l2n_side]) |> update_precondition;
+
+val notw = Q.prove(`
+  !a. ~a = (-1w ?? (a))`,
+  srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
+
+val res = translate (EVAL``w2v (w:word6)`` |> SIMP_RULE (srw_ss()) [word_bit_thm,word_bit_def,word_bit])
+
+val Num_rw = Q.prove(`
+  (if len < 1 then NONE
+  else
+    f (Num len)) =
+  if len < 1 then NONE
+    else f (Num (ABS len))`,
+  rw[]>>
+  `0 ≤ len` by intLib.COOPER_TAC>>
+  fs[GSYM integerTheory.INT_ABS_EQ_ID])
+
+val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE (srw_ss()++ARITH_ss) [hsb_compute,v2w_Ones,Replicate_def,bitstringTheory.length_pad_left,Ones_def,GSYM bitstringTheory.n2w_v2n,Num_rw]
+|> CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w]
+|> SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id,SHIFT_ZERO,notw,word_mul_def] |> gconv)
+
+val decodebitmasks_side = Q.prove(`
+  decodebitmasks_side x ⇔ T`,
+  PairCases_on`x`>>EVAL_TAC>>fs[]) |> update_precondition
+
+val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv)
 
 val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl arm8_enc_thm)))
 
@@ -270,10 +325,12 @@ val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyn
 
 val res = translate arm8_enc_thm
 
+val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
+
 val res = translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-*)
+
 val _ = export_theory();
