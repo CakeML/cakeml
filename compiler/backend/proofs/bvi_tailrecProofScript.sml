@@ -399,8 +399,58 @@ val evaluate_assoc_swap = Q.store_thm ("evaluate_assoc_swap",
   \\ rveq
   \\ fs [GSYM apply_op_def]
   \\ simp [evaluate_def, apply_op_def]
-  \\ cheat (* TODO need no_err e2 *)
-  );
+  \\ `no_err e2` by
+    fs [binop_has_rec_def,
+        apply_op_def,
+        is_rec_def,
+        op_binargs_def]
+  \\ ntac 3 CASE_TAC
+  \\ drule (GEN_ALL no_err_correct)
+  \\ disch_then drule
+  \\ strip_tac \\ rveq \\ fs []
+  \\ `∃k. vs = [Number k]` by
+    (Cases_on `vs`
+    \\ fs [LENGTH_NIL, all_num_def])
+  \\ fs [] \\ rveq
+  \\ rename1 `evaluate ([e1],_,_) = (res_e1, st_e1)`
+  \\ reverse (Cases_on `res_e1`) \\ fs []
+  >-
+    (qpat_x_assum `_ = (r, t)` mp_tac
+    \\ simp [evaluate_def, apply_op_def]
+    \\ CASE_TAC
+    \\ imp_res_tac (GEN_ALL no_err_correct) \\ fs [])
+  \\ fs []
+  \\ imp_res_tac (GEN_ALL no_err_correct) \\ fs [] \\ rveq
+  \\ rpt (qpat_x_assum `no_err _ ⇒ _` kall_tac)
+  \\ fs []
+  \\ `∃n. vs = [Number n]` by
+    (Cases_on `vs`
+    \\ fs [LENGTH_NIL, all_num_def])
+  \\ fs [] \\ rveq
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+  \\ `∃m. w = Number m` by
+    (qpat_x_assum `_ = (r, t)` mp_tac
+    \\ simp [evaluate_def, apply_op_def]
+    \\ Cases_on `iop`
+    \\ Cases_on `w`
+    \\ fs [to_op_def,
+           do_app_def,
+           do_app_aux_def,
+           bvlSemTheory.do_app_def,
+           bvl_to_bvi_id])
+  \\ fs [] \\ rveq
+  \\ Cases_on `iop`
+  \\ fs [evaluate_def,
+         apply_op_def,
+         to_op_def,
+         do_app_def,
+         do_app_aux_def,
+         bvlSemTheory.do_app_def,
+         bvl_to_bvi_id]
+  \\ metis_tac [integerTheory.INT_MUL_ASSOC,
+                integerTheory.INT_ADD_ASSOC,
+                integerTheory.INT_MUL_COMM,
+                integerTheory.INT_ADD_COMM]);
 
 (* TODO: This repeats itself a lot except in a few cases. *)
 val evaluate_op_rewrite = Q.store_thm ("evaluate_op_rewrite",
