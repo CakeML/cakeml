@@ -50,8 +50,6 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 
-val _ = register_type``:64 asm_config``
-
 val word_bit_thm = Q.prove(
   `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
   simp [GSYM wordsTheory.word_1_lsl]
@@ -99,7 +97,7 @@ val riscv_enc1s =
 val riscv_enc1_1 = el 1 riscv_enc1s |> wc_simp |> we_simp |> econv
 val riscv_enc1_2 = el 2 riscv_enc1s
   |> SIMP_RULE (srw_ss()++LET_ss) ([Q.ISPEC `LIST_BIND` COND_RAND,COND_RATOR,LIST_BIND_APPEND,spec_word_bit1,spec_word_bit2]@defaults)
-  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+  |> wc_simp |> we_simp |> gconv  |> SIMP_RULE std_ss [SHIFT_ZERO]
   |> csethm 10
 
 val (binop::shift::rest) = el 3 riscv_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
@@ -147,7 +145,14 @@ val notw2w = Q.prove(`
 
 val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o rand) [riscv_enc1_1,riscv_enc1_2,riscv_enc1_3,riscv_enc1_4] |> SIMP_RULE std_ss[notw2w,word_2comp_def,dimword_32,dimword_20] |> gconv
 
-val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw]
+val if_eq1w = Q.prove(`
+  ((if w2w (c ⋙ m && 1w:word64) = 1w:word20 then 1w:word1 else 0w) && 1w)
+  =
+  w2w (c ⋙ m && 1w)`,
+  rw[]>>fs[]>>
+  blastLib.FULL_BBLAST_TAC)
+
+val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w]
 
 val riscv_enc3_aux = riscv_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -174,7 +179,7 @@ val riscv_simp3 =
   reconstruct_case ``riscv_enc (JumpCmp c n r c0)`` (rand o rator o rand)
     [riscv_enc3_1_th,riscv_enc3_2_th]
 
-val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw]
+val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w]
 
 val riscv_simp5 = riscv_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 

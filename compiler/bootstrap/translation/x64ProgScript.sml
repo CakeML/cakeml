@@ -4,25 +4,10 @@ open ml_translatorLib ml_translatorTheory;
 open compiler64ProgTheory
 open x64_targetTheory x64Theory;
 open inliningLib;
-open blastLib;
 
 val _ = new_theory "x64Prog"
 
 val _ = translation_extends "compiler64Prog";
-
-(* bit-blasts away trivial if splits *)
-fun bconv_gen print avoidp = fn th => th |> SPEC_ALL |>
-            RIGHT_CONV_RULE (Conv.DEPTH_CONV (
-              (fn t => if type_of t <> ``:bool``orelse avoidp t then NO_CONV t else ALL_CONV t)
-              THENC blastLib.BBLAST_CONV
-              THENC (if print then PRINT_CONV else ALL_CONV)
-              THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
-                                ALL_CONV t
-                             else
-                                NO_CONV t))) |>
-            SIMP_RULE (srw_ss()) []
-
-val bconv = bconv_gen false (fn t => false)
 
 val RW = REWRITE_RULE
 

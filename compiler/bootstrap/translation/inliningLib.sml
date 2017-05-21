@@ -2,7 +2,7 @@
 
 structure inliningLib =
 struct
-  open preamble
+  open preamble blastLib;
 
   (*simple CSE *)
   fun lrthm strip th = th |> SPEC_ALL |> concl |> dest_eq |> (fn (x,y) => (strip x,y))
@@ -62,4 +62,19 @@ struct
     in
       prove(mk_forall (strip t,mk_eq (t,rhs)),Cases >> simp ths) |> SPEC_ALL
     end
+
+  (* bit-blasts away trivial if splits *)
+  fun bconv_gen print avoidp = fn th => th |> SPEC_ALL |>
+              RIGHT_CONV_RULE (Conv.DEPTH_CONV (
+                (fn t => if type_of t <> ``:bool``orelse avoidp t then NO_CONV t else ALL_CONV t)
+                THENC blastLib.BBLAST_CONV
+                THENC (if print then PRINT_CONV else ALL_CONV)
+                THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+                                  ALL_CONV t
+                               else
+                                  NO_CONV t))) |>
+              SIMP_RULE (srw_ss()) []
+
+  val bconv = bconv_gen false (fn t => false)
+
 end
