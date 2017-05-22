@@ -1,3 +1,8 @@
+(*
+  Using the CakeML translator to produce a verified deep embedding of the
+  simple BST implementation.
+*)
+
 open preamble
      ml_progLib ml_translatorLib
      simple_bstTheory

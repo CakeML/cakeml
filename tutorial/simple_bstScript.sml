@@ -1,9 +1,6 @@
 (*
   Simple binary search tree.
 
-  Part of an extended worked example on using HOL and CakeML to write verified
-  programs, presented as a tutorial on CakeML at PLDI and ICFP in 2017.
-
   This file defines a datatype for binary search trees, plus insert and lookup
   operations It then proves functional correctness of these operations.
 
