@@ -808,12 +808,12 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
     \\ fs [bytes_in_word_def,shift_def,labPropsTheory.good_dimindex_def]
     \\ fs [word_add_n2w]
     THEN1
-     (`i + 3 < dimword (:'a)` by all_tac
-      \\ `i + 3 DIV 4 < dimword (:'a)` by all_tac \\ fs []
+     (sg `i + 3 < dimword (:'a)`
+      \\ sg `i + 3 DIV 4 < dimword (:'a)` \\ fs []
       \\ rfs [dimword_def] \\ fs [DIV_LT_X])
     THEN1
-     (`i + 7 < dimword (:'a)` by all_tac
-      \\ `i + 7 DIV 8 < dimword (:'a)` by all_tac \\ fs []
+     (sg `i + 7 < dimword (:'a)`
+      \\ sg `i + 7 DIV 8 < dimword (:'a)` \\ fs []
       \\ rfs [dimword_def] \\ fs [DIV_LT_X]) \\ NO_TAC)
   \\ fs [] \\ rveq
   \\ once_rewrite_tac [list_Seq_def]
@@ -1150,7 +1150,7 @@ val evaluate_Maxout_bits_code = Q.store_thm("evaluate_Maxout_bits_code",
       wordSemTheory.set_var_def,wordSemTheory.get_var_imm_def,
       asmTheory.word_cmp_def,lookup_insert,WORD_LO,word_exp_rw,
       maxout_bits_def] \\ rw [] \\ fs [insert_shadow]
-  \\ `2 ** rep_len < dimword (:α)` by all_tac \\ fs [] \\ fs [dimword_def]);
+  \\ sg `2 ** rep_len < dimword (:α)` \\ fs [] \\ fs [dimword_def]);
 
 val Make_ptr_bits_thm = Q.store_thm("Make_ptr_bits_thm",
   `tag_reg ≠ dest ∧ tag1 < dimword (:α) ∧ c.tag_bits < dimindex (:α) ∧
@@ -2579,7 +2579,7 @@ val th = Q.store_thm("assign_Div",
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
       \\ reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ rfs [DIV_LT_X]
+       (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
       \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
@@ -2624,7 +2624,7 @@ val th = Q.store_thm("assign_Div",
     \\ strip_tac \\ fs []
     \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ drule env_to_list_lookup_equiv
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval]
@@ -2760,7 +2760,7 @@ val th = Q.store_thm("assign_Mod",
      (fs [list_Seq_def,eq_eval,wordSemTheory.inst_def,insert_shadow]
       \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
       \\ reverse IF_CASES_TAC THEN1
-       (`F` by all_tac \\ rfs [DIV_LT_X]
+       (sg `F` \\ rfs [DIV_LT_X]
         \\ pop_assum mp_tac
         \\ Cases_on `n2` \\ fs [MULT_CLAUSES])
       \\ fs [state_rel_thm,bviSemTheory.bvl_to_bvi_def,adjust_var_11,
@@ -2804,7 +2804,7 @@ val th = Q.store_thm("assign_Mod",
     \\ strip_tac \\ fs []
     \\ fs [wordSemTheory.pop_env_def,Abbr `t2`]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ drule env_to_list_lookup_equiv
       \\ fs [domain_lookup,EXTENSION,lookup_fromAList])
     \\ fs [list_Seq_def,eq_eval,FLOOKUP_UPDATE]
@@ -3947,7 +3947,7 @@ val Equal_code_lemma = store_thm("Equal_code_lemma",
       \\ rw [] \\ fs [lookup_def])
     \\ fs [] \\ imp_res_tac cut_env_IMP_domain \\ fs [eq_eval]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs []
       \\ fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw [])
     \\ pop_assum kall_tac \\ fs []
     \\ once_rewrite_tac [list_Seq_def]
@@ -5199,7 +5199,7 @@ val th = Q.store_thm("assign_Label",
   \\ fs [state_rel_thm] \\ eval_tac
   \\ fs [domain_lookup,lookup_map]
   \\ reverse IF_CASES_TAC THEN1
-   (`F` by all_tac \\ fs [code_rel_def]
+   (sg `F` \\ fs [code_rel_def]
     \\ rename1 `lookup _ s2.code = SOME zzz` \\ PairCases_on `zzz` \\ res_tac
     \\ fs []) \\ fs []
   \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
@@ -6032,9 +6032,9 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ fs [EXTENSION,domain_lookup] \\ rpt strip_tac
     \\ fs [optionTheory.IS_SOME_EXISTS]
     \\ fs [lookup_adjust_set,domain_lookup] \\ NO_TAC)
-  \\ `join_env x.locals
-        (toAList (inter s1.locals (adjust_set x.locals))) =
-      join_env xx (toAList (inter s1.locals (adjust_set xx)))` by all_tac
+  \\ sg `join_env x.locals
+          (toAList (inter s1.locals (adjust_set x.locals))) =
+        join_env xx (toAList (inter s1.locals (adjust_set xx)))`
   THEN1
    (asm_rewrite_tac [join_env_def,MAP_EQ_f]
     \\ fs [MEM_FILTER,FORALL_PROD,MEM_toAList,lookup_inter_alt] \\ rw []
