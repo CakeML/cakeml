@@ -2372,15 +2372,18 @@ val evaluate_optimized_WF = Q.store_thm ("evaluate_optimized_WF",
   );
 
 val optimize_prog_LENGTH = Q.store_thm ("optimize_prog_LENGTH",
-  `∀n prog. LENGTH (optimize_prog n prog) ≥ LENGTH prog`,
+  `∀n prog. LENGTH (SND (optimize_prog n prog)) ≥ LENGTH prog`,
   recInduct optimize_prog_ind
   \\ conj_tac
   >- fs [optimize_prog_def]
   \\ rpt gen_tac \\ strip_tac
   \\ Cases_on `optimize_single_aug n nm args exp` \\ fs []
-  >- fs [optimize_prog_def]
-  \\ Cases_on `x` \\ fs []
-  \\ fs [optimize_prog_def]);
+  >-
+    (fs [optimize_prog_def]
+    \\ pairarg_tac \\ fs [])
+  \\ PairCases_on `x` \\ fs []
+  \\ fs [optimize_prog_def]
+  \\ pairarg_tac \\ fs []);
 
 val free_names_def = Define `
   free_names n (name: num) ⇔ ∀k. n + 2*k ≠ name
@@ -2400,7 +2403,7 @@ val is_free_name = Q.prove (
 val optimize_next_name = Q.prove (
   `optimize_single_aug n name args exp = NONE ⇒
      optimize_single_aug (n + 2) name args exp = NONE`,
-  fs [optimize_single_aug_def] 
+  fs [optimize_single_aug_def]
   \\ every_case_tac
   \\ pairarg_tac \\ fs []);
 
@@ -2410,7 +2413,7 @@ val optimize_all_untouched = Q.store_thm ("optimize_all_untouched",
      lookup name (fromAList prog) = SOME (args, exp) ∧
      optimize_check name exp = NONE ∧
      optimize_single_aug n name args exp = NONE ∧
-     optimize_prog n prog = prog2 ⇒
+     optimize_prog n prog = (n1, prog2) ⇒
        lookup name (fromAList prog2) = SOME (args, exp)`,
   recInduct optimize_prog_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
@@ -2419,17 +2422,24 @@ val optimize_all_untouched = Q.store_thm ("optimize_all_untouched",
   \\ Cases_on `nm = name` \\ fs [] \\ rveq
   >-
     (Cases_on `lookup name (fromAList xs)`
-    \\ fs [optimize_prog_def, fromAList_def])
+    \\ rfs [optimize_prog_def]
+    \\ pairarg_tac \\ fs [] \\ rveq
+    \\ fs [fromAList_def])
   \\ fs [lookup_insert]
   \\ Cases_on `optimize_single_aug n nm args exp` \\ fs []
-  >- rfs [optimize_prog_def, fromAList_def, lookup_insert]
-  \\ Cases_on `x` \\ rw []
+  >-
+    (rfs [optimize_prog_def]
+    \\ pairarg_tac \\ fs [] \\ rveq
+    \\ fs [fromAList_def, lookup_insert])
+  \\ PairCases_on `x` \\ rw []
   \\ imp_res_tac more_free_names
   \\ imp_res_tac optimize_next_name
   \\ first_x_assum drule
   \\ disch_then drule \\ rfs []
   \\ strip_tac
-  \\ fs [optimize_prog_def, fromAList_def, lookup_insert, is_free_name]);
+  \\ rfs [optimize_prog_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ fs [fromAList_def, lookup_insert, is_free_name]);
 
 val EVERY_free_names_SUCSUC = Q.prove (
   `∀xs. EVERY (free_names n o FST) xs ⇒ EVERY (free_names (n + 2) o FST) xs`,
@@ -2443,7 +2453,7 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
      free_names n name ∧
      lookup name (fromAList prog) = SOME (args, exp) ∧
      optimize_check name exp = SOME op ∧
-     optimize_prog n prog = prog2 ⇒
+     optimize_prog n prog = (n1, prog2) ⇒
       ∃k. ∀exp_aux exp_opt.
         optimize_single_aug (n + 2 * k) name args exp = SOME (exp_aux, exp_opt) ⇒
           lookup name (fromAList prog2) = SOME (args, exp_aux) ∧
@@ -2453,23 +2463,27 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
   >- fs [fromAList_def, lookup_def]
   \\ rpt gen_tac \\ strip_tac
   \\ fs [ALL_DISTINCT_APPEND]
-  \\ qhdtm_x_assum `optimize_prog` mp_tac \\ simp [optimize_prog_def]
+  \\ qhdtm_x_assum `optimize_prog` mp_tac
+  \\ simp [optimize_prog_def]
   \\ TOP_CASE_TAC \\ fs []
   >-
-    (qhdtm_x_assum `optimize_single_aug` mp_tac 
+    (pairarg_tac \\ fs []
+    \\ strip_tac \\ rveq
+    \\ qhdtm_x_assum `optimize_single_aug` mp_tac
     \\ simp [Once optimize_single_aug_def]
     \\ qpat_x_assum `_ = SOME (_,_)` mp_tac
     \\ simp [lookup_insert, fromAList_def]
     \\ IF_CASES_TAC \\ fs []
     \\ strip_tac \\ rveq \\ fs []
-    \\ TRY (pairarg_tac \\ fs [] \\ NO_TAC)
+    \\ rpt (pairarg_tac \\ fs [])
     \\ first_x_assum drule
     \\ disch_then drule \\ fs []
     \\ rpt strip_tac \\ rveq
     \\ qexists_tac `k`
     \\ fs [lookup_insert, fromAList_def, free_names_def])
   \\ TOP_CASE_TAC
-  \\ strip_tac
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ rveq
   \\ qhdtm_x_assum `lookup` mp_tac
   \\ simp [lookup_insert, fromAList_def]
   \\ reverse IF_CASES_TAC
@@ -2478,7 +2492,8 @@ val optimize_all_touched = Q.store_thm ("optimize_all_touched",
     \\ imp_res_tac more_free_names
     \\ rfs [EVERY_free_names_SUCSUC]
     \\ fs [lookup_insert, fromAList_def]
-    \\ IF_CASES_TAC >- fs [free_names_def]
+    \\ IF_CASES_TAC
+    >- fs [free_names_def]
     \\ first_x_assum (qspec_then `name` assume_tac)
     \\ first_x_assum drule
     \\ disch_then drule \\ rw []
@@ -2513,7 +2528,7 @@ val EVERY_free_names_IMP_free_names = Q.prove (
 val optimize_prog_code_rel = Q.store_thm ("optimize_prog_code_rel",
   `ALL_DISTINCT (MAP FST prog) ∧
    EVERY (free_names n o FST) prog ∧
-   optimize_prog n prog = prog2 ⇒
+   optimize_prog n prog = (n1, prog2) ⇒
    code_rel (fromAList prog)
             (fromAList prog2)`,
   simp [GSYM AND_IMP_INTRO]
@@ -2521,19 +2536,19 @@ val optimize_prog_code_rel = Q.store_thm ("optimize_prog_code_rel",
   \\ rpt strip_tac
   \\ imp_res_tac EVERY_free_names_IMP_free_names
   >- (* No optimize_single *)
-    (imp_res_tac optimize_check_no_single
-     \\ drule optimize_check_no_single
+    (drule optimize_check_no_single
      \\ imp_res_tac optimize_all_untouched)
   \\ drule optimize_all_touched
   \\ disch_then drule
   \\ strip_tac \\ rfs []
-  \\ first_x_assum (qspecl_then [`name`,`exp`,`args`] strip_assume_tac)
-  \\ rfs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp []
+  \\ strip_tac
   \\ imp_res_tac (GEN_ALL optimize_check_SOME_single)
   \\ first_x_assum (qspecl_then [`2 * k + n`, `args`] strip_assume_tac)
-  \\ Cases_on `q` \\ fs []
-  \\ qexists_tac `2 * k + n` \\ rw []
-  );
+  \\ PairCases_on `q` \\ fs []
+  \\ qexists_tac `2 * k + n` \\ rw []);
 
 val optimize_prog_evaluate = Q.store_thm ("optimize_prog_evaluate",
   `EVERY (free_names n o FST) prog ∧
@@ -2543,9 +2558,10 @@ val optimize_prog_evaluate = Q.store_thm ("optimize_prog_evaluate",
    0 < k ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃ck s2.
-     evaluate ([Call 0 (SOME start) [] NONE], [],
-               initial_state ffi0 (fromAList (optimize_prog n prog)) (k + ck))
-               = (r, s2) ∧
+     evaluate
+      ([Call 0 (SOME start) [] NONE], [],
+        initial_state ffi0 (fromAList (SND (optimize_prog n prog))) (k + ck))
+      = (r, s2) ∧
      state_rel s s2`,
   simp [GSYM AND_IMP_INTRO]
   \\ rpt strip_tac
@@ -2553,7 +2569,8 @@ val optimize_prog_evaluate = Q.store_thm ("optimize_prog_evaluate",
   \\ `env_rel F 0 env env` by fs [env_rel_def]
   \\ drule (GEN_ALL optimize_prog_code_rel)
   \\ disch_then drule
-  \\ disch_then (qspec_then `optimize_prog n prog` assume_tac) \\ fs []
+  \\ Cases_on `optimize_prog n prog` \\ fs []
+  \\ strip_tac
   \\ qmatch_assum_abbrev_tac `code_rel _ c`
   \\ `fromAList prog = st1.code` by fs [Abbr`st1`]
   \\ pop_assum (fn th => fs [th])
@@ -2569,7 +2586,7 @@ val optimize_prog_evaluate = Q.store_thm ("optimize_prog_evaluate",
 val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
   `EVERY (free_names n o FST) prog ∧
    ALL_DISTINCT (MAP FST prog) ∧
-   optimize_prog n prog = prog2 ∧
+   SND (optimize_prog n prog) = prog2 ∧
    semantics ffi (fromAList prog) start ≠ Fail ⇒
    semantics ffi (fromAList prog) start =
    semantics ffi (fromAList prog2) start`,
@@ -2620,7 +2637,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
            \\ disch_then drule
            \\ impl_tac
            >- (spose_not_then strip_assume_tac \\ fs []
-               \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+               \\ fs [evaluate_def]
+               \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
            \\ strip_tac
            \\ drule evaluate_add_clock
            \\ impl_tac
@@ -2632,8 +2650,7 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
            >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
            \\ disch_then (qspec_then `ck+k` mp_tac) \\ simp [inc_clock_def]
            \\ ntac 2 strip_tac \\ rveq \\ fs []
-           \\ fs [state_component_equality]
-           \\ fs [state_rel_def]
+           \\ fs [state_component_equality, state_rel_def]
            \\ every_case_tac \\ fs [])
          \\ qpat_x_assum `∀extra._` mp_tac
          \\ first_x_assum (qspec_then `k'` assume_tac)
@@ -2644,7 +2661,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
          \\ ntac 2 (disch_then drule)
          \\ impl_tac
          >-
-          (last_x_assum (qspec_then `k + k'` mp_tac) \\ fs [] \\ strip_tac
+          (last_x_assum (qspec_then `k + k'` mp_tac)
+          \\ fs [] \\ strip_tac
           \\ spose_not_then assume_tac \\ fs [] \\ rveq
           \\ qpat_x_assum `_ = (q,_)` mp_tac
           \\ qpat_x_assum `_ = (r,_)` mp_tac
@@ -2671,12 +2689,14 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
        \\ ntac 2 (disch_then drule)
        \\ impl_tac
        >-
-         (last_x_assum (qspec_then `k + SUC k'` mp_tac) \\ fs [] \\ strip_tac
+         (last_x_assum (qspec_then `k + SUC k'` mp_tac)
+         \\ fs [] \\ strip_tac
          \\ spose_not_then assume_tac \\ rveq \\ fs [])
        \\ strip_tac \\ rveq \\ fs []
        \\ reverse (Cases_on `s'.ffi.final_event`) \\ fs [] \\ rfs []
        >-
-         (first_x_assum (qspec_then `ck + SUC k` mp_tac) \\ fs [ADD1]
+         (first_x_assum (qspec_then `ck + SUC k` mp_tac)
+         \\ fs [ADD1]
          \\ strip_tac \\ fs [state_rel_def] \\ rfs [])
        \\ qhdtm_x_assum `evaluate` mp_tac
        \\ imp_res_tac evaluate_add_clock
@@ -2684,7 +2704,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
        \\ pop_assum mp_tac
        \\ impl_tac
        >- (strip_tac \\ fs [])
-       \\ disch_then (qspec_then `ck + SUC k` mp_tac) \\ simp [inc_clock_def]
+       \\ disch_then (qspec_then `ck + SUC k` mp_tac)
+       \\ simp [inc_clock_def]
        \\ fs [ADD1]
        \\ ntac 2 strip_tac \\ rveq
        \\ fs [state_rel_def] \\ rfs [])
@@ -2699,7 +2720,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
      \\ impl_tac
      >-
        (spose_not_then assume_tac
-       \\ last_x_assum (qspec_then `k + 1` mp_tac) \\ fs [])
+       \\ last_x_assum (qspec_then `k + 1` mp_tac)
+       \\ fs [])
      \\ strip_tac
      \\ asm_exists_tac
      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
@@ -2709,7 +2731,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
        \\ pop_assum kall_tac
        \\ pop_assum mp_tac
        \\ impl_tac >- fs []
-       \\ disch_then (qspec_then `1` mp_tac) \\ simp [inc_clock_def])
+       \\ disch_then (qspec_then `1` mp_tac)
+       \\ simp [inc_clock_def])
      \\ rfs [state_rel_def] \\ fs [])
    \\ strip_tac
    \\ simp [semantics_def]
@@ -2725,27 +2748,29 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
      \\ ntac 2 (disch_then drule)
      \\ impl_tac
      >-
-       (reverse conj_tac \\ CCONTR_TAC \\ fs []
+       (reverse conj_tac
+       \\ CCONTR_TAC \\ fs []
        \\ fs [] \\ rveq
        \\ qhdtm_x_assum `evaluate` mp_tac
        \\ simp [evaluate_def]
        \\ every_case_tac \\ fs []
-       \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+       \\ CCONTR_TAC \\ fs []
+       \\ rveq \\ fs []
        \\ qpat_x_assum `FST _ = _` mp_tac
        \\ simp [evaluate_def]
        \\ drule (GEN_ALL optimize_prog_code_rel) \\ fs []
        \\ disch_then drule
+       \\ Cases_on `optimize_prog n prog` \\ fs []
        \\ strip_tac
        \\ Cases_on `find_code (SOME start) ([]: v list) (fromAList prog)`
        >- rfs [find_code_def]
-       \\ rename1 `_ = SOME exps`
-       \\ PairCases_on `exps`
+       \\ fs [] \\ rveq
+       \\ rename1 `_ = SOME (q1, q2)`
        \\ imp_res_tac code_rel_find_code_SOME
-       \\ `exps0 = []` by (fs [find_code_def] \\ every_case_tac \\ fs [])
+       \\ `q1 = []` by (fs [find_code_def] \\ every_case_tac \\ fs [])
        \\ rveq
        \\ first_x_assum drule \\ strip_tac
-       \\ CASE_TAC >- fs []
-       \\ CASE_TAC \\ fs [])
+       \\ every_case_tac \\ fs [])
      \\ simp []
      \\ spose_not_then strip_assume_tac
      \\ qmatch_assum_abbrev_tac `FST q = _`
@@ -2770,8 +2795,9 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
     \\ qmatch_assum_rename_tac `evaluate (_,[],_ (SUC k)) = (_,rr)`
     \\ reverse (Cases_on `rr.ffi.final_event`)
     >-
-      (first_x_assum (qspecl_then
-        [`SUC k`, `FFI_outcome(THE rr.ffi.final_event)`] mp_tac)
+      (first_x_assum
+        (qspecl_then
+          [`SUC k`, `FFI_outcome(THE rr.ffi.final_event)`] mp_tac)
       \\ simp [])
     \\ qpat_x_assum `∀x y. ¬z` mp_tac \\ simp []
     \\ qexists_tac `SUC k` \\ simp []
@@ -2787,9 +2813,11 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
     \\ qhdtm_x_assum `evaluate` mp_tac
     \\ imp_res_tac evaluate_add_clock
     \\ pop_assum mp_tac
-    \\ impl_tac >- (strip_tac \\ fs [])
+    \\ impl_tac
+    >- (strip_tac \\ fs [])
     \\ disch_then (qspec_then `SUC ck` mp_tac)
-    \\ simp [inc_clock_def] \\ fs [ADD1]
+    \\ simp [inc_clock_def]
+    \\ fs [ADD1]
     \\ rpt strip_tac \\ rveq
     \\ qexists_tac `outcome` \\ rw [])
   \\ strip_tac
@@ -2838,7 +2866,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
   \\ impl_tac
   >-
     (spose_not_then assume_tac
-    \\ last_x_assum (qspec_then `k` mp_tac) \\ fs [])
+    \\ last_x_assum (qspec_then `k` mp_tac)
+    \\ fs [])
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac `state_rel (SND p1) (SND p2)`
   \\ Cases_on `p1` \\ Cases_on `p2` \\ fs [markerTheory.Abbrev_def]
@@ -2848,7 +2877,8 @@ val optimize_prog_semantics = Q.store_thm ("optimize_prog_semantics",
   \\ `p1.ffi = p2.ffi` by fs [state_rel_def]
   \\ rveq
   \\ conj_tac \\ rw []
-  >- (qexists_tac `ck + k` \\ fs [])
+  >- (qexists_tac `ck + k`
+     \\ fs [])
   \\ qexists_tac `k` \\ fs []
   \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
   \\ `ffi1.io_events ≼ p2.ffi.io_events` by

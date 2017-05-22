@@ -260,12 +260,15 @@ val optimize_single_aug_def = Define `
   `;
 
 val optimize_prog_def = Define `
-  (optimize_prog n [] = []) ∧
+  (optimize_prog n [] = (n, [])) ∧
   (optimize_prog n ((nm, args, exp)::xs) =
     case optimize_single_aug n nm args exp of
-    | NONE => (nm, args, exp)::optimize_prog n xs
+    | NONE => 
+        let (n1, ys) = optimize_prog n xs in 
+          (n1, (nm, args, exp)::ys)
     | SOME (exp_aux, exp_opt) =>
-        (nm, args, exp_aux)::(n, args + 1, exp_opt)::optimize_prog (n + 2) xs)
+        let (n1, ys) = optimize_prog (n + 2) xs in
+        (n1, (nm, args, exp_aux)::(n, args + 1, exp_opt)::ys))
   `;
 
 val _ = export_theory();
