@@ -1,4 +1,4 @@
-INCLUDES = .. ../../../compiler/eval/targets/ ../../.. ../../../basis
+INCLUDES = .. ../../.. ../../../basis ../../../compiler
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
 .PHONY: all
@@ -18,3 +18,16 @@ cake_cat: cat.S ../../../basis/basis_ffi.o
 
 exec: cake_echo cake_hello cake_helloErr cake_cat cake_grep
 
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../../compiler/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = ../../../compiler/compilationLib
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

@@ -98,6 +98,49 @@ val BIJ_IMP_11 = Q.store_thm("BIJ_IMP_11",
   `BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)`,
   full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF] \\ metis_tac []);
 
+val BIJ_support = Q.store_thm("BIJ_support",
+  `∀f s' s. BIJ f s' s' ∧ s' ⊆ s ∧ (∀x. x ∉ s' ⇒ f x = x) ⇒ BIJ f s s`,
+  rw[BIJ_IFF_INV,SUBSET_DEF]
+  >- metis_tac[]
+  \\ qexists_tac`λx. if x ∈ s' then g x else x`
+  \\ rw[] \\ metis_tac[]);
+
+val FINITE_SURJ = Q.store_thm("FINITE_SURJ",
+  `FINITE s ∧ SURJ f s t ⇒ FINITE t`,
+  rw[]
+  \\ imp_res_tac SURJ_INJ_INV
+  \\ imp_res_tac FINITE_INJ);
+
+val SURJ_CARD = Q.store_thm("SURJ_CARD",
+  `∀f s t. SURJ f s t ∧ FINITE s ⇒ CARD t ≤ CARD s`,
+  rw[]
+  \\ imp_res_tac SURJ_INJ_INV
+  \\ imp_res_tac INJ_CARD);
+
+val FINITE_SURJ_BIJ = Q.store_thm("FINITE_SURJ_BIJ",
+  `FINITE s ∧ SURJ f s t ∧ CARD t = CARD s ⇒ BIJ f s t`,
+  rw[BIJ_DEF,INJ_DEF] >- fs[SURJ_DEF]
+  \\ CCONTR_TAC
+  \\ `SURJ f (s DELETE x) t` by (fs[SURJ_DEF] \\ metis_tac[])
+  \\ `FINITE (s DELETE x)` by metis_tac[FINITE_DELETE]
+  \\ imp_res_tac SURJ_CARD
+  \\ rfs[CARD_DELETE]
+  \\ Cases_on`CARD s` \\ rfs[CARD_EQ_0] \\ fs[]);
+
+val CARD_IMAGE_ID_BIJ = Q.store_thm("CARD_IMAGE_ID_BIJ",
+  `∀s. FINITE s ⇒ (∀x. x ∈ s ⇒ f x ∈ s) ∧ CARD (IMAGE f s) = CARD s ⇒ BIJ f s s`,
+  rw[]
+  \\ `SURJ f s s` suffices_by metis_tac[FINITE_SURJ_BIJ]
+  \\ rw[IMAGE_SURJ]
+  \\ `IMAGE f s ⊆ s` by metis_tac[SUBSET_DEF,IN_IMAGE]
+  \\ metis_tac[SUBSET_EQ_CARD,IMAGE_FINITE]);
+
+val CARD_IMAGE_EQ_BIJ = Q.store_thm("CARD_IMAGE_EQ_BIJ",
+  `∀s. FINITE s ⇒ CARD (IMAGE f s) = CARD s ⇒ BIJ f s (IMAGE f s)`,
+  rw[]
+  \\ `SURJ f s (IMAGE f s)` suffices_by metis_tac[FINITE_SURJ_BIJ]
+  \\ rw[IMAGE_SURJ]);
+
 val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
   `∀f al x.
     ALOOKUP (MAP (λ(x,y). (x,f x y)) al) x =
@@ -304,6 +347,26 @@ val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
   `LIST_REL (\v x. lookup v (fromList args) = SOME x)
      (GENLIST I (LENGTH args)) args`,
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
+
+val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
+  `(LIST_REL R (SNOC x xs) yys ⇔ ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
+   (LIST_REL R xxs (SNOC y ys) ⇔ ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
+  rw[LIST_REL_EL_EQN,EQ_IMP_THM] \\ fs[]
+  >- (
+    Q.ISPEC_THEN`yys`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
+    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
+    \\ first_x_assum(qspec_then`LENGTH xs`mp_tac)\\simp[EL_LENGTH_SNOC] )
+  >- (
+    last_x_assum (assume_tac o SYM)
+    \\ Cases_on`n = LENGTH xs`
+    \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
+  >- (
+    Q.ISPEC_THEN`xxs`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
+    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
+    \\ last_x_assum (assume_tac o SYM)
+    \\ first_x_assum(qspec_then`LENGTH ys`mp_tac)\\simp[EL_LENGTH_SNOC] )
+  \\ Cases_on`n = LENGTH xs`
+  \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
 
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
@@ -521,8 +584,68 @@ val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
   `∀ls. ZIP (MAP FST ls,MAP SND ls) = ls`,
   Induct>>full_simp_tac(srw_ss())[])
 
+val zlookup_def = Define `
+  zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
+
 val tlookup_def = Define `
-  tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
+  tlookup m k = case lookup k m of NONE => k | SOME k => k`;
+
+val tlookup_id = Q.store_thm("tlookup_id",
+  `x ∉ domain names
+   ⇒ tlookup names x = x`,
+  rw[tlookup_def]
+  \\ fs[domain_lookup] \\ CASE_TAC \\ fs[]);
+
+val tlookup_bij_suff = Q.store_thm("tlookup_bij_suff",
+  `set (toList names) = domain names ⇒
+   BIJ (tlookup names) UNIV UNIV`,
+  strip_tac
+  \\ match_mp_tac BIJ_support
+  \\ qexists_tac`domain names`
+  \\ reverse conj_tac
+  >- (
+    simp[]
+    \\ rw[tlookup_def]
+    \\ CASE_TAC \\ fs[domain_lookup])
+  \\ `set (toList names) = IMAGE (tlookup names) (domain names)`
+  by (
+    pop_assum kall_tac
+    \\ simp[EXTENSION,tlookup_def,MEM_toList,domain_lookup]
+    \\ rw[EQ_IMP_THM] \\ fs[]
+    >- (qexists_tac`k` \\ fs[])
+    \\ metis_tac[] )
+  \\ match_mp_tac (MP_CANON CARD_IMAGE_ID_BIJ)
+  \\ fs[] \\ rw[] \\ fs[EXTENSION]
+  \\ metis_tac[]);
+
+val tlookup_bij_iff = Q.store_thm("tlookup_bij_iff",
+  `BIJ (tlookup names) UNIV UNIV ⇔
+   set (toList names) = domain names`,
+  rw[EQ_IMP_THM,tlookup_bij_suff]
+  \\ fs[BIJ_IFF_INV]
+  \\ rw[EXTENSION,domain_lookup,MEM_toList]
+  \\ rw[EQ_IMP_THM]
+  >- (
+    Cases_on`k=x` >- metis_tac[]
+    \\ spose_not_then strip_assume_tac
+    \\ `tlookup names x = x`
+    by (
+      simp[tlookup_def]
+      \\ CASE_TAC \\ fs[] )
+    \\ `tlookup names k = x`
+    by ( simp[tlookup_def] )
+    \\ metis_tac[] )
+  \\ Cases_on`x=v` >- metis_tac[]
+  \\ spose_not_then strip_assume_tac
+  \\ `tlookup names x = v`
+  by ( simp[tlookup_def] )
+  \\ `∀k. tlookup names k ≠ x`
+  by (
+    rw[tlookup_def]
+    \\ CASE_TAC \\ fs[]
+    \\ CCONTR_TAC \\ fs[]
+    \\ metis_tac[])
+  \\ metis_tac[] )
 
 val any_el_def = Define `
   (any_el n [] d = d) /\
@@ -939,6 +1062,9 @@ val FUNPOW_mono = Q.store_thm("FUNPOW_mono",
   simp[arithmeticTheory.FUNPOW_SUC] >>
   first_x_assum match_mp_tac >> srw_tac[][])
 
+val FUNPOW_SUC_PLUS = Q.store_thm("FUNPOW_SUC_PLUS",
+  `∀n a. FUNPOW SUC n = (+) n`, Induct \\ simp[FUNPOW,FUN_EQ_THM]);
+
 val OPTREL_trans = Q.store_thm("OPTREL_trans",
   `∀R x y z. (∀a b c. (x = SOME a) ∧ (y = SOME b) ∧ (z = SOME c) ∧ R a b ∧ R b c ⇒ R a c)
     ∧ OPTREL R x y ∧ OPTREL R y z ⇒ OPTREL R x z`,
@@ -1003,6 +1129,12 @@ val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
 val find_index_def = Define`
   (find_index _ [] _ = NONE) ∧
   (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+
+val INDEX_FIND_CONS_EQ_SOME = store_thm("INDEX_FIND_CONS_EQ_SOME",
+  ``(INDEX_FIND n f (x::xs) = SOME y) <=>
+    (f x /\ (y = (n,x))) \/
+    (~f x /\ (INDEX_FIND (n+1) f xs = SOME y))``,
+  fs [INDEX_FIND_def] \\ rw [] \\ Cases_on `y` \\ fs [ADD1] \\ metis_tac []);
 
 val find_index_INDEX_FIND = Q.store_thm("find_index_INDEX_FIND",
   `∀y xs n. find_index y xs n = OPTION_MAP FST (INDEX_FIND n ($= y) xs)`,
@@ -1953,12 +2085,6 @@ val PERM_MAP_BIJ = Q.store_thm("PERM_MAP_BIJ",
   fs[] >>
   metis_tac[sortingTheory.PERM_MAP])
 
-val INJ_MAP_EQ_IFF = Q.store_thm("INJ_MAP_EQ_IFF",
-  `∀f l1 l2.
-    INJ f (set l1 ∪ set l2) UNIV ⇒
-    (MAP f l1 = MAP f l2 ⇔ l1 = l2)`,
-  rw[] >> EQ_TAC >- metis_tac[INJ_MAP_EQ] >> rw[])
-
 val bool_case_eq = Q.store_thm("bool_case_eq",
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
   srw_tac[][] >> metis_tac[]);
@@ -2187,13 +2313,10 @@ val TOKENS_APPEND = Q.store_thm("TOKENS_APPEND",
   \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
 
 
-val TOKENS_EMPTY = Q.store_thm("TOKENS_EMPTY",
-  `!ls n. (TOKENS f ls = []) ==> (ls = []) \/ (MEM n ls ==> f n)`,
-  gen_tac \\ Induct_on `ls` >-(rw[])
-  \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ Cases_on `f h` \\  Cases_on `l`
-  \\ fs[GSYM LENGTH_NIL] \\ `TL r = ls` by metis_tac[TL]
-  \\ Cases_on`ls` \\ fs[MEM]);
+val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
+  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
+  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
+  \\ every_case_tac \\ fs[] \\ rw[]);
 
 
 val TOKENS_START = Q.store_thm("TOKENS_START",
@@ -2528,7 +2651,8 @@ val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   \\ imp_res_tac SPLITP_IMP
   \\ fs[NULL_EQ]
   \\ fs[SPLITP] \\ rfs[] \\ rw[]
-  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  >- (`FILTER P t = []` by (simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM])
+      \\ simp[])
   \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
   \\ disch_then(qspec_then`t`mp_tac)
   \\ Cases_on`t` \\ rw[FIELDS_def]
@@ -2670,5 +2794,99 @@ val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
   \\ Cases_on`LENGTH "" < LENGTH ls`
   >- ( imp_res_tac FIELDS_next \\ fs[] )
   \\ fs[LENGTH_NIL]);
+
+val DIV_EQ_0 = Q.store_thm("DIV_EQ_0",
+  `1 < b ==> ((n DIV b = 0) = (n < b))`,
+  metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
+
+val n2l_DIV_MOD = Q.store_thm("n2l_DIV_MOD",
+  `!b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
+   (n2l b (n MOD (b ** k)) ++ REPLICATE (k - LENGTH (n2l b (n MOD (b ** k)))) 0 ++
+    n2l b (n DIV (b ** k)) = n2l b n)`,
+  ho_match_mp_tac numposrepTheory.n2l_ind
+  \\ rw[]
+  \\ Cases_on`b < 2` \\ fs[]
+  \\ Cases_on`n < b` \\ fs[]
+  >- ( `b <= b ** k` by ( Cases_on`k` \\ fs[EXP] ) \\ fs[] )
+  \\ Cases_on`k` \\ fs[EXP]
+  \\ fs[GSYM DIV_DIV_DIV_MULT]
+  \\ fs[DIV_MOD_MOD_DIV]
+  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
+  \\ qmatch_assum_rename_tac`b * b ** k <= n`
+  \\ Cases_on`k=0` \\ fs[EXP]
+  >- (
+    rw[Once numposrepTheory.n2l_def,REPLICATE_NIL] \\
+    rw[numposrepTheory.LENGTH_n2l])
+  \\ simp[Once numposrepTheory.n2l_def]
+  \\ simp[MOD_MULT_MOD]
+  \\ fs[numposrepTheory.LENGTH_n2l]
+  \\ first_x_assum(qspec_then`k`mp_tac)
+  \\ impl_tac >- simp[X_LE_DIV]
+  \\ disch_then(assume_tac o SYM) \\ simp[]
+  \\ rfs[DIV_EQ_0]
+  \\ reverse IF_CASES_TAC \\ fs[]
+  >- simp[logrootTheory.LOG_DIV,ADD1]
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    `0 < b ** k` by simp[] \\
+    `0 < b * b ** k` by simp[LESS_MULT2] \\
+    fs[MOD_EQ_0_DIVISOR,ZERO_DIV,Once numposrepTheory.n2l_def]
+    \\ Cases_on`k` \\ fs[REPLICATE]
+    \\ metis_tac[MULT_ASSOC] )
+  \\ conj_asm1_tac
+  >- (
+    qspecl_then[`b ** k`,`b`]mp_tac MOD_MULT_MOD
+    \\ simp[]
+    \\ disch_then(qspec_then`n`mp_tac)
+    \\ simp[LESS_MOD])
+  \\ simp[]
+  \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
+  \\ simp[Once numposrepTheory.n2l_def]
+  \\ rewrite_tac[GSYM REPLICATE,ADD1]
+  \\ `LOG b (n MOD b) = 0`
+  by ( simp[logrootTheory.LOG_EQ_0] )
+  \\ simp[]);
+
+val irreflexive_inv_image = Q.store_thm("irreflexive_inv_image",
+  `!R f. irreflexive R ==> irreflexive (inv_image R f)`,
+  SIMP_TAC std_ss [irreflexive_def,inv_image_def])
+
+val trichotomous_inv_image = Q.store_thm("trichotomous_inv_image",
+  `!R f. trichotomous R /\ (INJ f UNIV UNIV) ==> trichotomous (inv_image R f)`,
+  SIMP_TAC std_ss [trichotomous,inv_image_def,INJ_DEF,IN_UNIV] THEN
+  METIS_TAC[])
+
+val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
+  `MEM x (REPLICATE n y) ==> x = y`,
+  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
+
+val plus_0_I = Q.store_thm("plus_0_I[simp]",
+  `$+ 0n = I`, rw[FUN_EQ_THM]);
+
+val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
+  `OPTION_MAP I x = x`,
+  Cases_on`x` \\ rw[]);
+
+val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
+  `∀j k ls len.
+    len = LENGTH ls ∧ k ≤ j ⇒
+    TAKE (k * len) (FLAT (REPLICATE j ls)) = FLAT (REPLICATE k ls)`,
+  Induct \\ simp[REPLICATE]
+  \\ Cases \\ simp[REPLICATE]
+  \\ simp[TAKE_APPEND2] \\ rw[] \\ fs[]
+  \\ simp[MULT_SUC]);
+
+val MOD_2EXP_0_EVEN = Q.store_thm("MOD_2EXP_0_EVEN",
+  `∀x y. 0 < x ∧ MOD_2EXP x y = 0 ⇒ EVEN y`,
+  rw[EVEN_MOD2,bitTheory.MOD_2EXP_def,MOD_EQ_0_DIVISOR]
+  \\ Cases_on`x` \\ fs[EXP]);
+
+val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
+  `k MOD d = 0 /\ n < d ==> (k + n) MOD d = n`,
+  rw [] \\ `0 < d` by decide_tac
+  \\ fs [MOD_EQ_0_DIVISOR]
+  \\ pop_assum kall_tac
+  \\ drule MOD_MULT
+  \\ fs []);
 
 val _ = export_theory()

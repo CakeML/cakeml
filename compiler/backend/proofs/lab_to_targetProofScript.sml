@@ -9,71 +9,6 @@ val aligned_w2n = stack_removeProofTheory.aligned_w2n;
 
 val _ = new_theory "lab_to_targetProof";
 
-(* TODO: move *)
-
-val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
-  `(LIST_REL R (SNOC x xs) yys ⇔ ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
-   (LIST_REL R xxs (SNOC y ys) ⇔ ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
-  rw[LIST_REL_EL_EQN,EQ_IMP_THM] \\ fs[]
-  >- (
-    Q.ISPEC_THEN`yys`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ first_x_assum(qspec_then`LENGTH xs`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  >- (
-    last_x_assum (assume_tac o SYM)
-    \\ Cases_on`n = LENGTH xs`
-    \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
-  >- (
-    Q.ISPEC_THEN`xxs`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ last_x_assum (assume_tac o SYM)
-    \\ first_x_assum(qspec_then`LENGTH ys`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  \\ Cases_on`n = LENGTH xs`
-  \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
-
-val EVERY2_TRANS = Q.prove(
-  `!xs ys zs. EVERY2 P xs ys /\ EVERY2 P ys zs /\
-               (!x y z. P x y /\ P y z ==> P x z) ==> EVERY2 P xs zs`,
-  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac \\ fs []);
-
-val call_FFI_LENGTH = Q.prove(
-  `(call_FFI st index x = (new_st,new_bytes)) ==>
-    (LENGTH x = LENGTH new_bytes)`,
-  full_simp_tac(srw_ss())[call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[listTheory.LENGTH_MAP]);
-
-val MOD_2EXP_0_EVEN = Q.store_thm("MOD_2EXP_0_EVEN",
-  `∀x y. 0 < x ∧ MOD_2EXP x y = 0 ⇒ EVEN y`,
-  rw[EVEN_MOD2,bitTheory.MOD_2EXP_def,MOD_EQ_0_DIVISOR]
-  \\ Cases_on`x` \\ fs[EXP]);
-
-val EXP_IMP_ZERO_LT = Q.prove(
-  `(2n ** y = x) ⇒ 0 < x`,
-  metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
-
-val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
-  `∀j k ls len.
-    len = LENGTH ls ∧ k ≤ j ⇒
-    TAKE (k * len) (FLAT (REPLICATE j ls)) = FLAT (REPLICATE k ls)`,
-  Induct \\ simp[REPLICATE]
-  \\ Cases \\ simp[REPLICATE]
-  \\ simp[TAKE_APPEND2] \\ rw[] \\ fs[]
-  \\ simp[MULT_SUC]);
-
-val plus_0_I = Q.store_thm("plus_0_I[simp]",
-  `$+ 0n = I`, rw[FUN_EQ_THM]);
-val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
-  `OPTION_MAP I x = x`,
-  Cases_on`x` \\ rw[]);
-
-val ADD_MOD_EQ_LEMMA = Q.prove(
-  `k MOD d = 0 /\ n < d ==> (k + n) MOD d = n`,
-  rw [] \\ `0 < d` by decide_tac
-  \\ fs [MOD_EQ_0_DIVISOR]
-  \\ pop_assum kall_tac
-  \\ drule MOD_MULT
-  \\ fs []);
-
 val evaluate_ignore_clocks = Q.prove(
   `evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
@@ -381,7 +316,7 @@ val code_similar_trans = Q.store_thm("code_similar_trans",
   HO_MATCH_MP_TAC code_similar_ind \\ fs [] \\ rw []
   \\ Cases_on `c3` \\ fs [code_similar_def] \\ rw []
   \\ Cases_on `h` \\ fs [code_similar_def] \\ rw []
-  \\ metis_tac [line_similar_trans,EVERY2_TRANS]);
+  \\ metis_tac [line_similar_trans,LIST_REL_trans]);
 
 val code_similar_nil = Q.store_thm("code_similar_nil",
   `(code_similar [] l ⇔ l = []) ∧
@@ -2101,7 +2036,7 @@ val compile_correct = Q.prove(
         \\ res_tac \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
       \\ `w2n c2 = LENGTH new_bytes` by
        (imp_res_tac read_bytearray_LENGTH
-        \\ imp_res_tac call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
+        \\ imp_res_tac evaluatePropsTheory.call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
       \\ res_tac \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac
       THEN1
        (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO]
@@ -2610,9 +2545,9 @@ val lines_upd_lab_len_similar = Q.store_thm("lines_upd_lab_len_similar",
   \\ TRY (
     match_mp_tac EVERY2_REVERSE
     \\ simp[LIST_REL_EL_EQN,line_similar_refl] )
-  \\ match_mp_tac EVERY2_TRANS
-  \\ asm_exists_tac \\ simp[]
-  \\ (reverse conj_tac >- metis_tac[line_similar_trans])
+  \\ match_mp_tac LIST_REL_trans
+  \\ first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) \\ simp[]
+  \\ (conj_tac >- metis_tac[line_similar_trans])
   \\ once_rewrite_tac[GSYM APPEND_ASSOC]
   \\ match_mp_tac EVERY2_APPEND_suff
   \\ simp[line_similar_def]
@@ -3541,12 +3476,14 @@ val lines_enc_with_nop_add_nop = Q.store_thm("lines_enc_with_nop_add_nop",
     fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
     \\ qmatch_goalsub_rename_tac`REPLICATE z`
     \\ qexists_tac`SUC z`
-    \\ simp[REPLICATE_GENLIST,GENLIST] )
+    \\ rewrite_tac[REPLICATE_GENLIST]
+    \\ simp[GENLIST] )
   \\ Cases_on`a` \\ fs[line_enc_with_nop_def]
   \\ fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
   \\ qmatch_goalsub_rename_tac`REPLICATE z`
   \\ qexists_tac`SUC z`
-  \\ simp[REPLICATE_GENLIST,GENLIST] )
+  \\ rewrite_tac[REPLICATE_GENLIST]
+  \\ simp[GENLIST] )
 
 val lines_enc_with_nop_pad_section1 = Q.store_thm("lines_enc_with_nop_pad_section1",
   `∀nop code aux pos.
@@ -4547,6 +4484,10 @@ val all_enc_ok_pre_upd_lab_len = Q.prove(`
   pairarg_tac \\ fs[] \\
   qspecl_then[`n`,`lines`,`[]`]mp_tac all_enc_ok_pre_lines_upd_lab_len
   \\ rw[])
+
+val EXP_IMP_ZERO_LT = Q.prove(
+  `(2n ** y = x) ⇒ 0 < x`,
+  metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
 
 val line_ok_alignment = Q.store_thm("line_ok_alignment",
   `∀c labs ffis pos line.

@@ -1,4 +1,5 @@
 open preamble conSemTheory
+open evaluatePropsTheory semanticsPropsTheory
 
 val _ = new_theory"conProps"
 
@@ -92,6 +93,7 @@ val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
    (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
   Induct >>
   srw_tac[][]
+  >- srw_tac[][pat_bindings_def]
   >- srw_tac[][pat_bindings_def]
   >- srw_tac[][pat_bindings_def]
   >- metis_tac [APPEND_ASSOC, pat_bindings_def]
@@ -190,7 +192,7 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
 
 val with_clock_ffi = Q.store_thm("with_clock_ffi",
   `(s with clock := k).ffi = s.ffi`,
-  EVAL_TAC)
+  EVAL_TAC);
 
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀env ^s prog extra.
@@ -406,8 +408,6 @@ val evaluate_prog_globals = Q.store_thm("evaluate_prog_globals",
     s'.globals = s.globals ++ g`,
   Induct_on`p`>>srw_tac[][evaluate_prog_def] >> srw_tac[][LENGTH_NIL] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[]);
-
-open bagTheory
 
 (* finding the InitGlobal operations *)
 val op_gbag_def = Define`

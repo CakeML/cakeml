@@ -988,6 +988,34 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
   \\ fs [integer_wordTheory.i2w_def]);
 
+val Eval_w2w = Q.store_thm("Eval_w2w",
+  `dimindex (:'a) <= 64 /\ (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) ==>
+    Eval env x1 (WORD (w:'b word)) ==>
+    Eval env
+      (let w = if dimindex (:'a) <= 8 then W8 else W64 in
+         if dimindex (:'b) <= dimindex (:'a) then
+           App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
+         else
+           App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1])
+      (WORD ((w2w w):'a word))`,
+  Cases_on `dimindex (:'a) ≤ 8` \\ fs []
+  \\ IF_CASES_TAC
+  \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+  \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
+  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ once_rewrite_tac [evaluate_cases] \\ fs []
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+  \\ asm_exists_tac \\ fs []
+  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+  \\ fs [empty_state_def]
+  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
+  \\ rw []
+  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
+  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
+  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]);
+
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
@@ -1485,8 +1513,8 @@ val MEM_MAP_ASHADOW = Q.prove(
   \\ Cases_on `xs` \\ fs[] THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
   \\ fs [FORALL_PROD,ASHADOW_def]
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) <= LENGTH t` by ALL_TAC
-  THEN1 fs [rich_listTheory.LENGTH_FILTER_LEQ]
+  \\ `LENGTH (FILTER (\y. FST h <> FST y) t) <= LENGTH t` by
+     fs [rich_listTheory.LENGTH_FILTER_LEQ]
   \\ `LENGTH (FILTER (\y. FST h <> FST y) t) < SUC (LENGTH t)` by DECIDE_TAC
   \\ RES_TAC \\ fs[]
   \\ fs [MEM_MAP,MEM_FILTER] \\ METIS_TAC []);
@@ -1513,7 +1541,7 @@ val ALOOKUP_ASHADOW = Q.prove(
   \\ Cases_on `xs` \\ fs [] THEN1 EVAL_TAC
   \\ Cases_on `h` \\ fs [FORALL_PROD,ASHADOW_def]
   \\ SRW_TAC [] []
-  \\ `LENGTH (FILTER (\y. q <> FST y) t) < SUC (LENGTH t)` by ALL_TAC
+  \\ sg `LENGTH (FILTER (\y. q <> FST y) t) < SUC (LENGTH t)`
   \\ RES_TAC \\ fs [ALOOKUP_FILTER]
   \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
   \\ Q.EXISTS_TAC `LENGTH t`
@@ -1569,7 +1597,7 @@ val v_size_lemmas = Q.store_thm("v_size_lemmas",
 
 val type_names_def = Define `
   (type_names [] names = names) /\
-  (type_names (Dtype tds :: xs) names =
+  (type_names (Dtype _ tds :: xs) names =
      type_names xs (MAP (FST o SND) tds ++ names)) /\
   (type_names (x :: xs) names = type_names xs names)`;
 
@@ -1578,11 +1606,11 @@ val type_names_eq = Q.prove(
       type_names ds names =
       (FLAT (REVERSE (MAP (\d.
                 case d of
-                  Dlet v6 v7 => []
-                | Dletrec v8 => []
-                | Dtype tds => MAP (\(tvs,tn,ctors). tn) tds
-                | Dtabbrev tvs tn t => []
-                | Dexn v10 v11 => []) ds))) ++ names`,
+                  Dlet _ v6 v7 => []
+                | Dletrec _ v8 => []
+                | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
+                | Dtabbrev _ tvs tn t => []
+                | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
 

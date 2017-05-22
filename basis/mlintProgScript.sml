@@ -8,7 +8,7 @@ val _ = translation_extends "mlbasicsProg";
 
 val _ = ml_prog_update (open_module "Int");
 
-val _ = ml_prog_update (add_dec ``Dtabbrev [] "int" (Tapp [] TC_int)`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "int" (Tapp [] TC_int)`` I);
 val _ = trans "+" `(+):int->int->int`
 val _ = trans "-" `(-):int->int->int`
 val _ = trans "*" `int_mul`

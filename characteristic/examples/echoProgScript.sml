@@ -57,6 +57,6 @@ val echo_semantics = save_thm("echo_semantics",
   call_thm_echo
   |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> REWRITE_RULE[APPEND]);
+  |> SIMP_RULE std_ss [APPEND]);
 
 val _ = export_theory();

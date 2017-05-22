@@ -59,7 +59,7 @@ val get_var_imm_find_name = Q.store_thm("get_var_imm_find_name[simp]",
   dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS] >>
   conj_tac >- metis_tac[INJ_DEF,BIJ_IMP_11,IN_UNIV] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
-  fs[GSYM find_name_def] >>
+  fs[GSYM tlookup_def] >>
   metis_tac[BIJ_DEF,INJ_DEF,IN_UNIV,FLOOKUP_DEF]);
 
 val FLOOKUP_rename_state_find_name = Q.store_thm("FLOOKUP_rename_state_find_name[simp]",
@@ -121,7 +121,7 @@ val inst_rename = Q.store_thm("inst_rename",
       metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV] >>
     simp[FLOOKUP_MAP_KEYS] >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
-    simp[find_name_def] ) >>
+    simp[tlookup_def] ) >>
   CASE_TAC >> fs[assign_def,word_exp_def] >>
   CASE_TAC >> rfs[get_vars_def] >>
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordLangTheory.num_exp_def] >>

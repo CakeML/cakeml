@@ -23,7 +23,16 @@ compiler/backend/reg_alloc
 compiler/backend/gc
 compiler/backend
 compiler/encoders/asm
-compiler/eval/targets
+compiler/encoders/x64
+compiler/encoders/arm6
+compiler/encoders/arm8
+compiler/encoders/mips
+compiler/encoders/riscv
+compiler/backend/x64
+compiler/backend/arm6
+compiler/backend/arm8
+compiler/backend/mips
+compiler/backend/riscv
 
 # compiler verification
 compiler/parsing/proofs
@@ -36,7 +45,11 @@ compiler/encoders/arm6/proofs
 compiler/encoders/arm8/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
-compiler/eval/targets/proofs
+compiler/backend/x64/proofs
+compiler/backend/arm6/proofs
+compiler/backend/arm8/proofs
+compiler/backend/mips/proofs
+compiler/backend/riscv/proofs
 compiler/proofs
 
 # candle
@@ -47,6 +60,9 @@ candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
+
+# benchmarks (should become examples, and move)
+compiler/eval/benchmarks
 
 # other examples
 characteristic/examples

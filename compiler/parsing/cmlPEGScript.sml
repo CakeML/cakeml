@@ -129,7 +129,7 @@ val peg_V_def = Define`
             tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
-                                 ":="; "*"; "::"; "@"})
+                                 ":="; "*"; "::"; "@"; "\094"})
                   od = SOME ())
                 (bindNT nV o mktokLf)]
 `
@@ -146,18 +146,25 @@ val peg_longV_def = Define`
 val peg_EbaseParenFn_def = Define`
   peg_EbaseParenFn l =
     case l of
-        [lp; e; rp] =>
-        [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e]; rp]]
-      | [lp; e; Lf (TK CommaT,loc) ; rest; rp] =>
-          [
-            mkNd (mkNT nEbase) [
-              mkNd (mkNT nEtuple)
-                   [lp; mkNd (mkNT nElist2) [e; Lf (TK CommaT,loc); rest]; rp]
-            ]
-          ]
-      | [lp; e; cs; rest; rp] =>
-          [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; cs; rest]; rp]]
-      | _ => []
+      [lp; es; rp] => [mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [es]; rp]]
+    | [lp; e; sep; es; rp] =>
+      (case destLf sep of
+         NONE => []
+       | SOME t =>
+         (case destTOK t of
+            NONE => []
+          | SOME t =>
+            if t = CommaT then
+              [
+                mkNd (mkNT nEbase) [
+                  mkNd (mkNT nEtuple) [lp; mkNd (mkNT nElist2) [e; sep; es]; rp]
+                ]
+              ]
+            else
+              [
+                mkNd (mkNT nEbase) [lp; mkNd (mkNT nEseq) [e; sep; es]; rp]
+              ]))
+    | _ => []
 `
 
 val peg_EbaseParen_def = Define`
@@ -198,7 +205,8 @@ val cmlPEG_def = zDefine`
                                   [StarT; SymbolT "/"; AlphaT "mod"; AlphaT "div"]))
                     (bindNT nMultOps));
               (mkNT nAddOps,
-               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-")])
+               pegf (choicel [tokeq (SymbolT "+"); tokeq (SymbolT "-");
+                              tokeq (SymbolT "\094")])
                     (bindNT nAddOps));
               (mkNT nRelOps, pegf (choicel (tok ((=) EqualsT) mktokLf ::
                                             MAP (tokeq o SymbolT)
@@ -228,7 +236,8 @@ val cmlPEG_def = zDefine`
                choicel [tok isInt (bindNT nEliteral o mktokLf);
                         tok isString (bindNT nEliteral o mktokLf);
                         tok isCharT (bindNT nEliteral o mktokLf);
-                        tok isWordT (bindNT nEliteral o mktokLf)]);
+                        tok isWordT (bindNT nEliteral o mktokLf);
+                        tok (IS_SOME o destFFIT) (bindNT nEliteral o mktokLf)]);
               (mkNT nEbase,
                choicel [pegf (pnt nEliteral) (bindNT nEbase);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
@@ -365,13 +374,13 @@ val cmlPEG_def = zDefine`
                            tok isString mktokLf; tok isCharT mktokLf;
                            pnt nPtuple; tokeq UnderbarT;
                            seql [tokeq LbrackT; try (pnt nPatternList);
-                                 tokeq RbrackT] I])
+                                 tokeq RbrackT] I;
+                           seql [tokeq OpT; pnt nOpID] I])
                  (bindNT nPbase));
               (mkNT nPapp,
-               (* could be optimised so that a bare constructor name doesn't
-                  cause a backtrack *)
-               choicel [seql [pnt nConstructorName; pnt nPbase]
-                             (bindNT nPapp);
+               choicel [seql [pnt nConstructorName; try (pnt nPbase)]
+                             (λpts. if LENGTH pts = 2 then bindNT nPapp pts
+                                    else bindNT nPapp (bindNT nPbase pts));
                         pegf (pnt nPbase) (bindNT nPapp)]);
               (mkNT nPcons,
                seql [pnt nPapp;
