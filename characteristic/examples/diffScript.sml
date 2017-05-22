@@ -181,7 +181,7 @@ val patch_alg_def = Define `
 
 
 
-(* patch cancels diff *)
+(* Patch cancels diff *)
 
 val string_concat_empty = Q.store_thm("string_concat_empty",
 `!s. s ^ strlit "" = s /\ strlit "" ^ s = s`,fs[strcat_def,implode_explode]);
@@ -722,12 +722,79 @@ val patch_diff_cancel = Q.store_thm("patch_diff_cancel",
   >> fs[patch_aux_diff_cancel]);
 
 (* TODO: 
-   this property is false as stated: diff might construct a
-   patch that is syntactically different, but semantically
-   equivalent, from the one apply.
+   this property is false as stated; prove some appropriate weakening
 val diff_patch_cancel = Q.store_thm("diff_patch_cancel",
   `patch_alg patch l = SOME r ==> diff_alg l r = patch`,
   cheat);
  *)
+
+(* The diff is optimal, in the sense that the number of line changes it
+   reports is precisely the number of deviations from the lcs of the
+   files. *)
+
+val is_patch_line_def = Define `
+  is_patch_line s =
+  if strlen s > 1 then
+    if substring s 0 2 = strlit "> " then
+      T
+    else substring s 0 2 = strlit "< "      
+  else
+      F`
+
+val is_patch_line_simps = Q.prove(
+  `!r. (FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r))
+       /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
+`,
+  Induct_on `r` >> fs[] >> Induct
+  >> fs[is_patch_line_def,strlen_def,strcat_def,implode_def,substring_thm,MIN_DEF]
+  >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
+
+val toString_obtain_digits = Q.prove(
+  `!n. ?f r. toString (&n) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
+  strip_tac >> fs[toString_thm,integerTheory.INT_ABS_NUM,implode_def]
+  >> qspec_then `n` assume_tac toString_isDigit
+  >> qspec_then `n` assume_tac toString_not_empty
+  >> Cases_on `toString n` >> fs[]);
+
+val diff_single_patch_length = Q.prove(
+  `!r n r' m. LENGTH (FILTER is_patch_line (diff_single r n r' m)) = LENGTH r + LENGTH r'`,
+  rpt strip_tac
+  >> fs[diff_single_def,diff_single_header_def,is_patch_line_def,line_numbers_def,
+        diff_add_prefix_def,is_patch_line_simps]
+  >> qspec_then `n` assume_tac toString_obtain_digits
+  >> qspec_then `m` assume_tac toString_obtain_digits
+  >> fs[] >> rw[]
+  >> fs[is_patch_line_simps,substring_thm,strcat_def,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
+  >> fs[is_patch_line_def,substring_thm,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
+  >> fs[]);
+
+val diff_with_lcs_optimal = Q.prove(
+  `!l r r' n m. lcs l r r' ==>
+    LENGTH(FILTER is_patch_line (diff_with_lcs l r n r' m)) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
+  Induct >> fs[diff_with_lcs_def] >> rw[] >> fs[diff_single_patch_length]
+  >> ntac 2 (pairarg_tac >> fs[]) >> rw[]
+  >> fs[SPLITP_NIL_FST,FILTER_APPEND,diff_single_patch_length] >> rveq
+  >- (Cases_on `lr` >> Cases_on `l'r` >> fs[lcs_empty']
+      >> rveq >> fs[cons_lcs_optimal_substructure])
+  >> drule lcs_split_lcs >> strip_tac >> drule lcs_split_lcs2 >> strip_tac
+  >> Cases_on `lr` >> Cases_on `l'r` >> rfs[lcs_empty']
+  >> drule SPLITP_IMP
+  >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
+  >> ntac 3 strip_tac >> fs[] >> rveq
+  >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac >> drule SPLITP_IMP
+  >> drule SPLITP_JOIN >> rpt strip_tac
+  >> fs[cons_lcs_optimal_substructure,MULT_SUC,SUB_LEFT_ADD]
+  >> rw[] >> rpt (qpat_x_assum `lcs (_::_) _ _` kall_tac)
+  >> drule lcs_max_length >> fs[]);
+
+val diff_optimal = Q.store_thm("diff_optimal",
+  `!l r r'. lcs l r r' ==>
+   LENGTH(FILTER is_patch_line (diff_alg r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
+  rpt strip_tac >> fs[diff_alg_def]
+  >> `lcs (optimised_lcs r r') r r'` by(metis_tac[optimised_lcs_correct])
+  >> `LENGTH l = LENGTH (optimised_lcs r r')`
+       by(fs[lcs_def,common_subsequence_def,is_subsequence_def] >> metis_tac[is_subsequence_length,LESS_EQUAL_ANTISYM])
+  >> fs[diff_with_lcs_optimal]);
 
 val _ = export_theory ();

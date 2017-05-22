@@ -383,6 +383,12 @@ val split_lcs_optimal_substructure = Q.store_thm("split_lcs_optimal_substructure
   >> rpt strip_tac
   >> fs[cons_lcs_optimal_substructure]);
 
+val lcs_max_length =  Q.store_thm("lcs_max_length",
+  `!l t t'. lcs l t t' ==> 2 * LENGTH l <= LENGTH t + LENGTH t'`,
+  rpt strip_tac >> fs[lcs_def,common_subsequence_def]
+  >> drule is_subsequence_length >> qpat_x_assum `is_subsequence _ _` kall_tac
+  >> drule is_subsequence_length >> fs[]);
+
 (* A naive, exponential-time LCS algorithm that's easy to verify *)
 
 val longest_def =
