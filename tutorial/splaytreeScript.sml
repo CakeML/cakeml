@@ -23,6 +23,9 @@
 *)
 
 open preamble
+(* TODO: should this not be by default? or done in preamble? *)
+val _ = ParseExtras.temp_tight_equality();
+(* -- *)
 
 (*
   Create the logical theory in which we will work. Its name should match the name
@@ -61,38 +64,38 @@ val singleton_def = Define`
   singleton k v = Node k v Leaf Leaf`;
 
 val insert_def = Define`
-  (insert cmp k v Leaf = singleton k v) ∧
-  (insert cmp k v (Node k' v' l r) =
-     case cmp k k' of
-     | Less => Node k' v' (insert cmp k v l) r
-     | Greater => Node k' v' l (insert cmp k v r)
-     | Equal => Node k' v l r)`;
+  insert cmp k v Leaf = singleton k v ∧
+  insert cmp k v (Node k' v' l r) =
+    case cmp k k' of
+    | Less => Node k' v' (insert cmp k v l) r
+    | Greater => Node k' v' l (insert cmp k v r)
+    | Equal => Node k' v l r`;
 
 val lookup_def = Define`
-  (lookup cmp k Leaf = NONE) ∧
-  (lookup cmp k (Node k' v' l r) =
-     case cmp k k' of
-     | Less => lookup cmp k l
-     | Greater => lookup cmp k r
-     | Equal => SOME v')`;
+  lookup cmp k Leaf = NONE ∧
+  lookup cmp k (Node k' v' l r) =
+    case cmp k k' of
+    | Less => lookup cmp k l
+    | Greater => lookup cmp k r
+    | Equal => SOME v'`;
 
 val extract_min_def = Define`
-  (extract_min Leaf = NONE) ∧
-  (extract_min (Node k v l r) =
-   case extract_min l of
-   | NONE => SOME (k,v,r)
-   | SOME (k',v',r') => SOME (k',v',Node k v l r'))`;
+  extract_min Leaf = NONE ∧
+  extract_min (Node k v l r) =
+    case extract_min l of
+    | NONE => SOME (k,v,r)
+    | SOME (k',v',r') => SOME (k',v',Node k v l r')`;
 
 val delete_def = Define`
-  (delete cmp k Leaf = Leaf) ∧
-  (delete cmp k (Node k' v' l r) =
-   case cmp k k' of
-   | Less => Node k' v' (delete cmp k l) r
-   | Greater => Node k' v' l (delete cmp k r)
-   | Equal =>
-     case extract_min r of
-     | NONE => l
-     | SOME (k'',v'',r'') => Node k'' v'' l r'')`;
+  delete cmp k Leaf = Leaf ∧
+  delete cmp k (Node k' v' l r) =
+    case cmp k k' of
+    | Less => Node k' v' (delete cmp k l) r
+    | Greater => Node k' v' l (delete cmp k r)
+    | Equal =>
+      case extract_min r of
+      | NONE => l
+      | SOME (k'',v'',r'') => Node k'' v'' l r''`;
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -114,9 +117,9 @@ val key_set_def = Define`
 *)
 
 val to_fmap_def = Define`
-  (to_fmap cmp Leaf = FEMPTY) ∧
-  (to_fmap cmp (Node k v l r) =
-   to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v))`;
+  to_fmap cmp Leaf = FEMPTY ∧
+  to_fmap cmp (Node k v l r) =
+  to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v)`;
 
 (*
   Now some proofs about the basic tree operations.
@@ -130,7 +133,7 @@ val to_fmap_def = Define`
 val key_ordered_def = Define`
   (key_ordered cmp k Leaf res ⇔ T) ∧
   (key_ordered cmp k (Node k' _ l r) res ⇔
-   (cmp k k' = res) ∧
+   cmp k k' = res ∧
    key_ordered cmp k l res ∧
    key_ordered cmp k r res)`;
 val _ = export_rewrites["key_ordered_def"];
@@ -162,12 +165,12 @@ val wf_tree_singleton = Q.store_thm("wf_tree_singleton[simp]",
   `wf_tree cmp (singleton k v)`, EVAL_TAC);
 
 val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
-  `(cmp k k' = res) ⇒
+  `cmp k k' = res ⇒
    key_ordered cmp k (singleton k' v') res`, EVAL_TAC);
 
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
   `∀t.
-   key_ordered cmp k t res ∧ (cmp k k' = res) ⇒
+   key_ordered cmp k t res ∧ cmp k k' = res ⇒
    key_ordered cmp k (insert cmp k' v' t) res`,
   Induct \\ rw[insert_def] \\
   CASE_TAC \\ fs[]);
