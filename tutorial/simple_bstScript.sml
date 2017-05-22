@@ -1,17 +1,14 @@
 (*
-  Splay Tree definition, verification, and application.
+  Simple binary search tree.
 
   Part of an extended worked example on using HOL and CakeML to write verified
   programs, presented as a tutorial on CakeML at PLDI and ICFP in 2017.
 
-  This file defines a datatype for binary search trees, some basic operations
-  over it, and then splay tree versions of those operations.
-  It also proves functional correctness properties for all these operations.
+  This file defines a datatype for binary search trees, plus insert and lookup
+  operations It then proves functional correctness of these operations.
 
-  TODO: maybe this should just be for basic binary trees (no splaying, no
-  balancing, etc.), then one can switch to the balanced_bst example from HOL
-  for balancing, then a separate new copy for splaying which has the new ideas
-  in it like keeping track of the size and how balanced it is?
+  It is a simplified version of the balanced binary tree example found in
+  $HOLDIR/examples/balanced_bst
 *)
 
 (*
@@ -33,7 +30,7 @@ val _ = ParseExtras.temp_tight_equality();
   of this file, before the "Script.sml" suffix.
 *)
 
-val _ = new_theory "splaytree";
+val _ = new_theory "simple_bst";
 
 (*
   Define the binary tree type.
@@ -88,7 +85,7 @@ val member_def = Define`
     | Greater => member cmp k r
     | Equal => T)`;
 
-(* TODO: possibly want to leave these definitions out as extension exercises? *)
+(* TODO: possible extension exercise?
 
 val extract_min_def = Define`
   extract_min Leaf = NONE ∧
@@ -108,7 +105,7 @@ val delete_def = Define`
       | NONE => l
       | SOME (k'',v'',r'') => Node k'' v'' l r''`;
 
-(* -- *)
+*)
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -170,7 +167,6 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
   Now some proofs about the basic tree operations.
 *)
 
-
 (*
   We start by defining what a predicate on trees indicating
   whether they have the binary search tree property
@@ -198,7 +194,6 @@ val wf_tree_def = Define`
   For pedagogy, the aim here is to prove:
     - wf_tree_singleton
     - wf_tree_insert
-    - wf_tree_delete
   Figuring out the lemmas required along the way
   should probably be part of the exercise
 *)
@@ -229,6 +224,20 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   match_mp_tac key_ordered_insert \\ rw[] \\
   metis_tac[good_cmp_def]);
 
+(*
+  Correctness of lookup and member
+*)
+
+val key_ordered_to_fmap = Q.store_thm("key_ordered_to_fmap",
+  `good_cmp cmp ⇒
+   ∀t k res. key_ordered cmp k t res ⇔
+       (∀ks k'. ks ∈ FDOM (to_fmap cmp t) ∧ k' ∈ ks ⇒ cmp k k' = res)`,
+  strip_tac \\
+  Induct \\
+  rw[to_fmap_def] \\
+  eq_tac \\ rw[] \\
+  metis_tac[IN_key_set,cmp_thms]);
+
 val wf_tree_Node_imp = Q.store_thm("wf_tree_Node_imp",
   `good_cmp cmp ∧
    wf_tree cmp (Node k v l r) ⇒
@@ -240,16 +249,6 @@ val wf_tree_Node_imp = Q.store_thm("wf_tree_Node_imp",
   imp_res_tac to_fmap_key_set \\
   imp_res_tac key_ordered_to_fmap \\
   metis_tac[cmp_thms,IN_key_set]);
-
-val key_ordered_to_fmap = Q.store_thm("key_ordered_to_fmap",
-  `good_cmp cmp ⇒
-   ∀t k res. key_ordered cmp k t res ⇔
-       (∀ks k'. ks ∈ FDOM (to_fmap cmp t) ∧ k' ∈ ks ⇒ cmp k k' = res)`,
-  strip_tac \\
-  Induct \\
-  rw[to_fmap_def] \\
-  eq_tac \\ rw[] \\
-  metis_tac[IN_key_set,cmp_thms]);
 
 val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
   `good_cmp cmp ⇒
@@ -281,28 +280,5 @@ val member_to_fmap = Q.store_thm("member_to_fmap",
    (member cmp k t ⇔ key_set cmp k ∈ FDOM (to_fmap cmp t))`,
   (* TODO: this would make a good exercise, hint: one line proof *)
   rw[member_lookup,lookup_to_fmap,FLOOKUP_DEF]);
-
-(*
-val key_ordered_extract_min = Q.store_thm("key_ordered_extract_min",
-  `∀t k v t'. extract_min t = SOME (k,v,t')
-
-val wf_tree_extract_min = Q.store_thm("wf_tree_extract_min",
-  `∀t k v t'. wf_tree cmp t ∧ extract_min t = SOME (k,v,t') ⇒
-              key_ordered cmp k t' Less ∧ wf_tree cmp t'`,
-  Induct \\
-  rw[extract_min_def] \\
-  every_case_tac \\ fs[] \\ rw[] \\ rfs[]
-  key_ordered_def
-
-val wf_tree_delete = Q.store_thm("wf_tree_delete",
-);
-*)
-
-(*
-  Now the splay-ing auto-balancing version of the operations.
-  Splay trees are designed as mutable data structures, so the pure functional
-  implementation here may seem a bit strange: for example, lookup needs to
-  return the new modified tree as well as the result.
-*)
 
 val _ = export_theory();
