@@ -252,15 +252,18 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   rw[ffi_read_def] 
   \\ every_case_tac
   \\ fs[option_eq_some]
-  \\ TRY(pairarg_tac) \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
+  \\ TRY(pairarg_tac) 
+  \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
+  \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
   \\ cheat
   ); 
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
-  EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[] >>
-  cheat
-  );
+  EVAL_TAC \\ rw[] 
+  \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
+  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
+  \\ metis_tac[LENGTH_LUPDATE]);
 
 val ffi_close_length = Q.store_thm("ffi_close_length",
   `ffi_close bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
