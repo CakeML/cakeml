@@ -22,7 +22,8 @@
   preamble wrapper includes all of those structures and more.
 *)
 
-open preamble
+open preamble comparisonTheory
+
 (* TODO: should this not be by default? or done in preamble? *)
 val _ = ParseExtras.temp_tight_equality();
 (* -- *)
@@ -79,6 +80,16 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
+val member_def = Define`
+  (member cmp k Leaf ⇔ F) ∧
+  (member cmp k (Node k' _ l r) =
+    case cmp k k' of
+    | Less => member cmp k l
+    | Greater => member cmp k r
+    | Equal => T)`;
+
+(* TODO: possibly want to leave these definitions out as extension exercises? *)
+
 val extract_min_def = Define`
   extract_min Leaf = NONE ∧
   extract_min (Node k v l r) =
@@ -97,6 +108,8 @@ val delete_def = Define`
       | NONE => l
       | SOME (k'',v'',r'') => Node k'' v'' l r''`;
 
+(* -- *)
+
 (*
   Since we are working with an abstract comparison function, different keys (k,
   k') may be considered equivalent (cmp k k' = Equal).
@@ -104,11 +117,36 @@ val delete_def = Define`
   Try:
   DB.find"good_cmp";
   which reveals that this is defined in comparisonTheory
-  TODO: something about equivalence classes
 *)
 
 val key_set_def = Define`
   key_set cmp k = { k' | cmp k k' = Equal } `;
+
+(*
+  TODO: something about equivalence classes
+  TODO: something about these proofs
+*)
+
+val key_set_equiv = Q.store_thm ("key_set_equiv",
+  `∀cmp.
+    good_cmp cmp
+    ⇒
+    (∀k. k ∈ key_set cmp k) ∧
+    (∀k1 k2. k1 ∈ key_set cmp k2 ⇒ k2 ∈ key_set cmp k1) ∧
+    (∀k1 k2 k3. k1 ∈ key_set cmp k2 ∧ k2 ∈ key_set cmp k3 ⇒ k1 ∈ key_set cmp k3)`,
+  rw [key_set_def] >>
+  metis_tac [good_cmp_def]);
+
+val key_set_eq = Q.store_thm ("key_set_eq",
+  `∀cmp k1 k2.
+    good_cmp cmp
+    ⇒
+    (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)`,
+  rw [key_set_def, EXTENSION] >>
+  metis_tac [cmp_thms, key_set_equiv]);
+
+val IN_key_set = save_thm("IN_key_set",
+  ``k' ∈ key_set cmp k`` |> SIMP_CONV (srw_ss()) [key_set_def]);
 
 (*
   Now let us define the (abstract) finite map from key-equivalence-classes to
@@ -120,6 +158,13 @@ val to_fmap_def = Define`
   to_fmap cmp Leaf = FEMPTY ∧
   to_fmap cmp (Node k v l r) =
   to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v)`;
+
+val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
+  `∀ks t.
+    ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`,
+   Induct_on `t` >>
+   rw [to_fmap_def] >>
+   metis_tac []);
 
 (*
   Now some proofs about the basic tree operations.
@@ -146,7 +191,6 @@ val wf_tree_def = Define`
    key_ordered cmp k r Less ∧
    wf_tree cmp l ∧
    wf_tree cmp r)`;
-val _ = export_rewrites["wf_tree_def"];
 
 (*
   We can prove that all the operations preserve wf_tree
@@ -181,11 +225,75 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   strip_tac \\
   Induct \\
   rw[insert_def] \\
-  CASE_TAC \\ fs[] \\
+  CASE_TAC \\ fs[wf_tree_def] \\
   match_mp_tac key_ordered_insert \\ rw[] \\
-  metis_tac[comparisonTheory.good_cmp_def]);
+  metis_tac[good_cmp_def]);
+
+val wf_tree_Node_imp = Q.store_thm("wf_tree_Node_imp",
+  `good_cmp cmp ∧
+   wf_tree cmp (Node k v l r) ⇒
+   DISJOINT (FDOM (to_fmap cmp l)) (FDOM (to_fmap cmp r)) ∧
+   (∀x. key_set cmp x ∈ FDOM (to_fmap cmp l) ⇒ cmp k x = Greater) ∧
+   (∀x. key_set cmp x ∈ FDOM (to_fmap cmp r) ⇒ cmp k x = Less)`,
+  rw[IN_DISJOINT,wf_tree_def] \\
+  spose_not_then strip_assume_tac \\
+  imp_res_tac to_fmap_key_set \\
+  imp_res_tac key_ordered_to_fmap \\
+  metis_tac[cmp_thms,IN_key_set]);
+
+val key_ordered_to_fmap = Q.store_thm("key_ordered_to_fmap",
+  `good_cmp cmp ⇒
+   ∀t k res. key_ordered cmp k t res ⇔
+       (∀ks k'. ks ∈ FDOM (to_fmap cmp t) ∧ k' ∈ ks ⇒ cmp k k' = res)`,
+  strip_tac \\
+  Induct \\
+  rw[to_fmap_def] \\
+  eq_tac \\ rw[] \\
+  metis_tac[IN_key_set,cmp_thms]);
+
+val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
+  `good_cmp cmp ⇒
+   ∀t k. wf_tree cmp t ⇒
+     lookup cmp k t = FLOOKUP (to_fmap cmp t) (key_set cmp k)`,
+  strip_tac \\
+  Induct \\
+  rw[lookup_def,to_fmap_def] \\
+  fs[] \\
+  (*
+    Try, for example,
+    DB.match[] ``FLOOKUP (_ |+ _)``;
+    DB.match[] ``FLOOKUP (_ ⊌ _)``;
+  *)
+  simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] \\
+  imp_res_tac wf_tree_Node_imp \\
+  fs[wf_tree_def,key_set_eq] \\
+  simp[FLOOKUP_DEF] \\
+  every_case_tac \\ fs[] \\
+  metis_tac[cmp_thms] );
+
+val member_lookup = Q.store_thm("member_lookup",
+  `∀t k. member cmp k t ⇔ IS_SOME (lookup cmp k t)`,
+  Induct \\ rw[member_def,lookup_def] \\
+  CASE_TAC \\ rw[]);
+
+val member_to_fmap = Q.store_thm("member_to_fmap",
+  `good_cmp cmp ∧ wf_tree cmp t ⇒
+   (member cmp k t ⇔ key_set cmp k ∈ FDOM (to_fmap cmp t))`,
+  (* TODO: this would make a good exercise, hint: one line proof *)
+  rw[member_lookup,lookup_to_fmap,FLOOKUP_DEF]);
 
 (*
+val key_ordered_extract_min = Q.store_thm("key_ordered_extract_min",
+  `∀t k v t'. extract_min t = SOME (k,v,t')
+
+val wf_tree_extract_min = Q.store_thm("wf_tree_extract_min",
+  `∀t k v t'. wf_tree cmp t ∧ extract_min t = SOME (k,v,t') ⇒
+              key_ordered cmp k t' Less ∧ wf_tree cmp t'`,
+  Induct \\
+  rw[extract_min_def] \\
+  every_case_tac \\ fs[] \\ rw[] \\ rfs[]
+  key_ordered_def
+
 val wf_tree_delete = Q.store_thm("wf_tree_delete",
 );
 *)
