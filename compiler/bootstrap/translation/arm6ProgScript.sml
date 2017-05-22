@@ -144,8 +144,7 @@ fun replace_at i f =
 
 val arm6_enc1 = replace_at 1 (fn th => th |>finish|> SIMP_RULE (srw_ss()) [] )
 
-(* TODO: translate EncodeARMImmediate_aux*)
-val arm6_enc2 = replace_at 2 finish
+val arm6_enc2 = replace_at 2 (fn th => th |> finish |> gconv)
 
 val arm6_enc3 = replace_at 3 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) (LET_THM::arm6_bop_def::defaults) |> finish |> CONJUNCTS
 |> reconstruct_case ``arm6_enc (Inst (Arith (Binop bop r1 r2 (Reg r3))))`` (rand o rator o rator o rator o rand o rand o rand))
@@ -217,7 +216,15 @@ val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (conc
 
 val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
 
-(* Need to translate EncodeARMImmediate, and figure out if it always returns SOME? *)
+val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss()) [Ntimes EncodeARMImmediate_aux_def 16] |> finish |> SIMP_RULE (srw_ss()) [word_2comp_def])
+
+val res = translate arm6_enc_thm
+
+(* THE SIDE CONDITIONS:
+print_find"arm6_enc_side_def"
+val res = translate (arm6_config_def |> SIMP_RULE std_ss[valid_immediate_def])
+*)
+
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
