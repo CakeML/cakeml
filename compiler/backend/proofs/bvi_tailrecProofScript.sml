@@ -14,13 +14,15 @@ val _ = new_theory "bvi_tailrecProof";
 
 val find_code_def = bvlSemTheory.find_code_def;
 
-val case_SOME = Q.store_thm ("case_SOME[simp]",
+val case_SOME = Q.store_thm ("case_SOME",
   `(case x of
     | NONE => NONE
     | SOME y => SOME (f y)) = SOME res
     ⇔
     ∃y. x = SOME y ∧ res = f y`,
   Cases_on `x` \\ fs [EQ_SYM_EQ]);
+
+val _ = bossLib.augment_srw_ss (rewrites [case_SOME]);
 
 val get_bin_args_SOME = Q.store_thm ("get_bin_args_SOME[simp]",
   `∀exp q. get_bin_args exp = SOME q
@@ -68,7 +70,7 @@ val is_ok_type_IMP_Number = Q.store_thm ("is_ok_type_IMP_Number[simp]",
   \\ rename1 `is_arithmetic op`
   \\ Cases_on `op`
   \\ fs [is_arithmetic_def]
-  \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]
+  \\ simp [do_app_def, do_app_aux_def, small_int_def]
   >- (CASE_TAC \\ strip_tac \\ rveq \\ fs [])
   \\ ntac 2 CASE_TAC
   \\ strip_tac \\ rveq
@@ -115,8 +117,8 @@ val EVERY_no_err_correct = Q.store_thm ("EVERY_no_err_correct",
   \\ TRY
     (Cases_on `xs` \\ fs [no_err_def]
     \\ fs [evaluate_def, do_app_def, do_app_aux_def,
-           bvlSemTheory.do_app_def, bvl_to_bvi_id, small_enough_int_def,
-           bviSemTheory.small_enough_int_def]
+           bvlSemTheory.do_app_def, bvl_to_bvi_id, small_int_def,
+           small_enough_int_def]
     \\ rw []
     \\ NO_TAC)
   \\ Cases_on `xs` \\ fs [no_err_def]
@@ -130,8 +132,8 @@ val EVERY_no_err_correct = Q.store_thm ("EVERY_no_err_correct",
   \\ Cases_on `vs` \\ fs [LENGTH_NIL]
   \\ Cases_on `t'` \\ fs [LENGTH_NIL] \\ rveq
   \\ fs [evaluate_def, do_app_def, do_app_aux_def,
-         bvlSemTheory.do_app_def, bvl_to_bvi_id, small_enough_int_def,
-         bviSemTheory.small_enough_int_def]
+         bvlSemTheory.do_app_def, bvl_to_bvi_id, small_int_def,
+         small_enough_int_def]
   \\ rw []);
 
 val no_err_correct = save_thm (
@@ -263,7 +265,7 @@ val op_identity_op_id_val = Q.store_thm ("op_identity_op_id_val",
    Cases
    \\ rpt gen_tac
    \\ simp [id_from_op_def, op_id_val_def, evaluate_def]
-   \\ simp [do_app_def, do_app_aux_def, bviSemTheory.small_enough_int_def]);
+   \\ simp [do_app_def, do_app_aux_def, small_enough_int_def]);
 
 val tail_is_ok_Arith = Q.store_thm ("tail_is_ok_Arith",
   `∀exp name.
@@ -340,7 +342,7 @@ val assoc_swap_lemma = Q.store_thm ("assoc_swap_lemma",
                do_app_aux_def,
                bvlSemTheory.do_app_def,
                bvl_to_bvi_id,
-               bviSemTheory.small_enough_int_def])
+               small_enough_int_def])
     \\ simp []
     \\ CASE_TAC
     \\ imp_res_tac no_err_type_correct
@@ -351,7 +353,7 @@ val assoc_swap_lemma = Q.store_thm ("assoc_swap_lemma",
            do_app_aux_def,
            bvlSemTheory.do_app_def,
            bvl_to_bvi_id,
-           bviSemTheory.small_enough_int_def]
+           small_enough_int_def]
     \\ rveq
     \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC])
   \\ fs []
@@ -1496,6 +1498,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
              ∀op n exp arity.
                lookup nm s.code = SOME (arity, exp) ∧
                optimized_code nm arity exp n c op ∧
+               (* check_exp_ok nm (HD xs) op ⇒  *)
                check_exp nm (HD xs) = SOME op ⇒
                  let (p, x) = rewrite_tail n op nm acc (HD xs) in
                  evaluate ([x], env2, s with code := c) =
@@ -1933,7 +1936,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ Cases_on `iop`
     \\ fs [to_op_def, op_id_val_def]
     \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
-             bvl_to_bvi_id, small_enough_int_def]
+             bvl_to_bvi_id, small_int_def, small_enough_int_def]
     \\ rveq \\ fs [bvl_to_bvi_id]
     \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC])
   \\ Cases_on `∃ticks dest xs hdl. h = Call ticks dest xs hdl` \\ fs [] \\ rveq

@@ -13,8 +13,8 @@ val _ = new_theory "bvi_tailrec";
 (* TODO defined in bviSemTheory, should be moved to bviTheory?
    On the other hand: its use here is temporary.
 *)
-val small_enough_int_def = Define `
-  small_enough_int i <=> -268435457 <= i /\ i <= 268435457`;
+val small_int_def = Define `
+  small_int i <=> -268435457 <= i /\ i <= 268435457`;
 
 val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
   `∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs`,
@@ -88,7 +88,7 @@ val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
 
 (* TODO parametrise on operator *)
 val no_err_def = Define `
-  (no_err (Op (Const i) [])  ⇔ small_enough_int i) ∧
+  (no_err (Op (Const i) [])  ⇔ small_int i) ∧
   (no_err (Op Add [x1; x2])  ⇔ no_err x1 ∧ no_err x2) ∧
   (no_err (Op Mult [x1; x2]) ⇔ no_err x1 ∧ no_err x2) ∧
   (no_err _                  ⇔ F)
