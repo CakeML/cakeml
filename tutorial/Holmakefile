@@ -1,1 +1,1 @@
-INCLUDES = .. ../translator
+INCLUDES = .. ../translator ../basis/pure $(HOLDIR)/examples/balanced_bst
