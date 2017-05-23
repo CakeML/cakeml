@@ -1,11 +1,12 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
-     charsetTheory lcsTheory diffTheory;
+     charsetTheory lcsTheory diffTheory
+     inputLinesProgTheory;
 
 val _ = new_theory "diffProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"inputLinesProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -81,113 +82,7 @@ val r = translate notfound_string_def;
 val usage_string_def = Define`
   usage_string = strlit"Usage: diff <file> <file>\n"`;
 
-val r = translate usage_string_def;    
-
-val _ = (append_prog o process_topdecs) `
-  fun inputLines fd =
-    case FileIO.inputLine fd of
-        NONE => []
-      | SOME l => l::inputLines fd`
-
-val input_lines_spec = Q.store_thm("input_lines_spec",
-  `∀fnm fnv fs.
-   WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
-   app (p:'ffi ffi_proj)
-     ^(fetch_v "inputLines"(get_ml_prog_state())) [fdv]
-     (ROFS fs)
-     (POSTv fcv.
-       &LIST_TYPE STRING_TYPE (MAP (\x. strcat (implode x) (implode "\n")) (linesFD (w2n fd) fs)) fcv *
-       ROFS (bumpAllFD (w2n fd) fs))`,
-  Induct_on`linesFD (w2n fd) fs` \\ rw[]
-  >- (qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
-      \\ xcf"inputLines"(get_ml_prog_state())
-      \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
-                     ROFS (bumpLineFD (w2n fd) fs)`
-      >- (xapp \\ fs[])
-      \\ rfs[GSYM FDline_NONE_linesFD,ml_translatorTheory.OPTION_TYPE_def]
-      \\ xmatch
-      \\ xcon
-      \\ imp_res_tac FDline_NONE_bumpAll_bumpLine
-      \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def])
-  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
-  \\ xcf"inputLines"(get_ml_prog_state())
-  \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
-                   ROFS (bumpLineFD (w2n fd) fs)`
-  >- ( xapp \\ fs[] )
-  \\ Cases_on`FDline (w2n fd) fs` \\ fs[FDline_NONE_linesFD]
-  \\ fs[ml_translatorTheory.OPTION_TYPE_def]
-  \\ xmatch
-  \\ drule linesFD_eq_cons_imp \\ strip_tac \\ fs[] \\ rveq
-  \\ rename1`FDline _ _ = SOME ln`
-  \\ rveq
-  \\ xlet `POSTv fcv.
-     &LIST_TYPE STRING_TYPE
-        (MAP (λx. implode x ^ implode "\n") (linesFD (w2n fd) (bumpLineFD (w2n fd) fs)))
-        fcv * ROFS (bumpAllFD (w2n fd) (bumpLineFD (w2n fd) fs))`  
-  >- (xapp \\ qexists_tac `emp` \\ qexists_tac `bumpLineFD (w2n fd) fs` \\
-      qexists_tac `fd` \\ fs[SEP_CLAUSES,SEP_IMP_REFL] \\ xsimpl)
-  \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  \\ fs[mlstringTheory.implode_def,ml_translatorTheory.STRING_TYPE_def,mlstringTheory.strcat_def]
-  \\ drule linesFD_eq_cons_imp \\ fs[]);
-
-val _ = (append_prog o process_topdecs) `
-  fun inputLinesFrom fname =
-    let
-      val fd = FileIO.openIn fname
-      val lines = inputLines fd
-    in
-      FileIO.close fd; SOME lines
-    end handle FileIO.BadFileName => NONE`
-
-val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
-  `FILENAME f fv /\
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255
-   ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"inputLinesFrom"(get_ml_prog_state()))
-     [fv]
-     (ROFS fs)
-     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs f then
-               SOME(MAP (\x. strcat (implode x) (implode "\n"))
-                        (splitlines (THE (ALOOKUP fs.files f))))
-             else NONE) sv
-                * ROFS fs)`,
-  xcf"inputLinesFrom"(get_ml_prog_state())
-  \\ reverse(xhandle`POST
-       (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-         (if inFS_fname fs f then SOME(MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f)))) else NONE) v * ROFS fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * ROFS fs)`)
-  >- (xcases \\ fs[BadFileName_exn_def]
-      \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-      \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.OPTION_TYPE_def])
-  >- xsimpl  
-  \\ xlet`POST (λv. &(WORD ((n2w (nextFD fs)):word8) v ∧ validFD (nextFD fs) (openFileFS f fs) ∧
-                      inFS_fname fs f) * ROFS (openFileFS f fs))
-               (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * ROFS fs)`
-  >- (xapp \\ fs[])
-  >- xsimpl
-  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f)))) v * ROFS (bumpAllFD (nextFD fs) (openFileFS f fs))`
-  >- (xapp \\ instantiate \\ qexists_tac `emp` \\ qexists_tac `openFileFS f fs`
-      \\ fs[FDOM_alist_to_fmap] \\ drule (GEN_ALL nextFD_ltX) \\ strip_tac
-      \\ fs[] \\ xsimpl
-      \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
-      \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[linesFD_def]
-      \\ Cases_on`0 < LENGTH content` \\ fs[libTheory.the_def,LENGTH_NIL])
-  \\ xlet`POSTv v. &UNIT_TYPE () v * ROFS fs`
-  >- (fs[FDOM_alist_to_fmap] \\ imp_res_tac nextFD_ltX
-      \\ xapp \\ qexists_tac `emp` \\ qexists_tac `bumpAllFD (nextFD fs) (openFileFS f fs)`
-      \\ instantiate \\ xsimpl
-      \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
-      \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[linesFD_def]
-      \\ fs[bumpAllFD_def,libTheory.the_def]
-      \\ fs[openFileFS_def,openFile_def,A_DELKEY_def]
-      \\ rpt (pop_assum kall_tac)
-      \\ `FILTER (λp. FST p ≠ nextFD fs) fs.infds = fs.infds`
-          suffices_by(fs[] \\ Cases_on `fs` \\ fs[RO_fs_fn_updates] \\ xsimpl)
-      \\ assume_tac nextFD_NOT_MEM
-      \\ fs[FILTER_EQ_ID,EVERY_MEM] \\ rpt strip_tac
-      \\ Cases_on `p` \\ Cases_on `r` \\ fs[] \\ rfs[])
-  \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.OPTION_TYPE_def]);
+val r = translate usage_string_def;
   
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
@@ -213,10 +108,9 @@ val diff'_spec = Q.store_thm("diff'_spec",
                 * ROFS fs *
                 STDOUT (out ++
                   if inFS_fname fs f1 /\ inFS_fname fs f2 then
-                    CONCAT
-                      (MAP explode (diff_alg
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f1))))
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f2))))))
+                    CONCAT (MAP explode
+                                (diff_alg (all_lines fs f1)
+                                          (all_lines fs f2)))
                   else "") *
                 STDERR (err ++
                   if inFS_fname fs f1 /\ inFS_fname fs f2 then ""
@@ -225,8 +119,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
   xcf"diff'"(get_ml_prog_state())
   \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (if inFS_fname fs f1 then
-               SOME(MAP (\x. strcat (implode x) (implode "\n"))
-                        (splitlines (THE (ALOOKUP fs.files f1))))
+               SOME(all_lines fs f1)
              else NONE) sv * ROFS fs * STDOUT out * STDERR err`
   >- (xapp \\ instantiate \\ xsimpl)
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
@@ -244,8 +137,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
   >- (EVAL_TAC \\ rw[])
   \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (if inFS_fname fs f2 then
-               SOME(MAP (\x. strcat (implode x) (implode "\n"))
-                        (splitlines (THE (ALOOKUP fs.files f2))))
+               SOME(all_lines fs f2)
              else NONE) sv * ROFS fs * STDOUT out * STDERR err`
   >- (xapp \\ instantiate \\ xsimpl)
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
@@ -262,8 +154,8 @@ val diff'_spec = Q.store_thm("diff'_spec",
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet `POSTv sv. &LIST_TYPE STRING_TYPE (diff_alg
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f1))))
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files f2))))) sv
+                                      (all_lines fs f1)
+                                      (all_lines fs f2)) sv
                 * ROFS fs * STDOUT out * STDERR err`
   >- (xapp \\ instantiate \\ xsimpl)
   \\ qpat_abbrev_tac `a1 = diff_alg _ _`
@@ -282,8 +174,7 @@ val _ = (append_prog o process_topdecs) `
       | _ => print_err usage_string`
 
 val diff_spec = Q.store_thm("diff_spec",
-`(*FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ *)
-   cl <> [] /\ EVERY validArg cl
+`  cl <> [] /\ EVERY validArg cl
    /\ LENGTH (FLAT cl) + LENGTH cl ≤ 256
    /\ CARD (set (MAP FST fs.infds)) < 255
    ⇒
@@ -291,19 +182,19 @@ val diff_spec = Q.store_thm("diff_spec",
      [Conv NONE []]
      (ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv
-                * ROFS fs *
+                *
                 STDOUT (out ++
                   if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then
                     CONCAT
                       (MAP explode (diff_alg
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files (implode (EL 1 cl))))))
-                                      (MAP (\x. strcat (implode x) (implode "\n")) (splitlines (THE (ALOOKUP fs.files (implode (EL 2 cl))))))))
+                                      (all_lines fs (implode (EL 1 cl)))
+                                      (all_lines fs (implode (EL 2 cl)))))
                   else "") *
                 STDERR (err ++
                   if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then ""
                   else if LENGTH cl <> 3 then explode (usage_string)
                   else if inFS_fname fs (implode (EL 1 cl)) then explode (notfound_string (implode (EL 2 cl)))
-                  else explode (notfound_string (implode (EL 1 cl)))) * COMMANDLINE cl)`,
+                  else explode (notfound_string (implode (EL 1 cl)))) * (COMMANDLINE cl * ROFS fs))`,
   strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet `POSTv v. &UNIT_TYPE () v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
@@ -337,5 +228,21 @@ val diff_spec = Q.store_thm("diff_spec",
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
   \\ qpat_abbrev_tac `a1 = STDOUT _` \\ xsimpl);
+
+val st = get_ml_prog_state();
+
+val name = "diff"
+val spec = diff_spec |> UNDISCH |> ioProgLib.add_basis_proj
+val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
+
+val patch_prog_def = Define`diff_prog = ^prog_tm`;
+
+val diff_semantics = save_thm("diff_semantics",
+  sem_thm
+  |> REWRITE_RULE[GSYM patch_prog_def]
+  |> DISCH_ALL
+  |> REWRITE_RULE[AND_IMP_INTRO]
+  |> CONV_RULE(LAND_CONV EVAL)
+  |> SIMP_RULE(srw_ss())[]);
 
 val _ = export_theory ();
