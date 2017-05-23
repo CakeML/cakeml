@@ -7,6 +7,7 @@ local open
   bvl_handleProofTheory
   bvi_letProofTheory
   bvl_inlineProofTheory
+  bvi_tailrecProofTheory
 in end;
 
 val _ = new_theory"bvl_to_bviProof";
@@ -524,6 +525,7 @@ val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
   \\ Cases_on`bs` \\ fs[]
   \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
           bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ rveq \\ fs [] (* fix *)
   \\ reverse CASE_TAC \\ fs[]
   >- ( first_x_assum(qspec_then`n2w h'`mp_tac) \\ fs[] )
   \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
@@ -532,6 +534,7 @@ val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
   \\ qmatch_goalsub_abbrev_tac`inc_clock _ _ with refs := refs`
   \\ qmatch_asmsub_abbrev_tac`ByteArray fl (h1::t1)`
   \\ qmatch_asmsub_abbrev_tac`h2 = w2n w`
+  \\ qmatch_asmsub_abbrev_tac `LENGTH t ≤ LENGTH t1` (* fix *)
   \\ first_x_assum(qspecl_then[`t`,`LUPDATE w (LENGTH t1 - LENGTH t) (h1::t1)`,`s with refs := refs`]mp_tac)
   \\ impl_tac >- simp[Abbr`refs`,FLOOKUP_UPDATE] \\ strip_tac
   \\ qexists_tac`c+1`

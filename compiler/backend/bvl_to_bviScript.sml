@@ -1,6 +1,13 @@
 open preamble bvlTheory bviTheory;
 open backend_commonTheory
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
+local open 
+  bvl_inlineTheory 
+  bvl_constTheory 
+  bvl_handleTheory 
+  bvi_letTheory 
+  bvi_tailrecTheory
+  dataLangTheory 
+in end;
 
 val _ = new_theory "bvl_to_bvi";
 
