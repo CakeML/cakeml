@@ -170,28 +170,15 @@ val mips_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-local
-  fun mk_blast_thm l =
-    let
-      val ty = wordsSyntax.dest_word_type (Term.type_of l)
-      val r = blastLib.BBLAST_CONV ``^l = x``
-              |> concl |> rhs |> strip_conj |> List.map lhs |> List.rev
-              |> (fn l => listSyntax.mk_list (l, Type.bool))
-              |> (fn tm => bitstringSyntax.mk_v2w (tm, ty))
-    in
-      blastLib.BBLAST_PROVE ``^r = ^l`` |> SIMP_RULE bool_ss []
-    end
-in
-  val jump_lem1 = mk_blast_thm ``(31 >< 16) (a - 12w : word64) : word16``
-  val jump_lem2 = mk_blast_thm ``(15 >< 0) (a - 12w : word64) : word16``
-  val jump_lem3 =
-    blastLib.BBLAST_PROVE
-      ``(sw2sw ((((31 >< 16) c : word16) @@ (0w : word16)) : word32) ||
-            w2w ((15 >< 0) c : word16)) =
-         sw2sw ((31 >< 0) (c : word64) : word32) : word64``
-  val call_lem1 = mk_blast_thm ``(31 >< 16) (a - 8w : word64) : word16``
-  val call_lem2 = mk_blast_thm ``(15 >< 0) (a - 8w : word64) : word16``
-end
+val jump_lem1 = asmLib.mk_blast_thm ``(31 >< 16) (a - 12w : word64) : word16``
+val jump_lem2 = asmLib.mk_blast_thm ``(15 >< 0) (a - 12w : word64) : word16``
+val jump_lem3 =
+  blastLib.BBLAST_PROVE
+    ``(sw2sw ((((31 >< 16) c : word16) @@ (0w : word16)) : word32) ||
+          w2w ((15 >< 0) c : word16)) =
+       sw2sw ((31 >< 0) (c : word64) : word32) : word64``
+val call_lem1 = asmLib.mk_blast_thm ``(31 >< 16) (a - 8w : word64) : word16``
+val call_lem2 = asmLib.mk_blast_thm ``(15 >< 0) (a - 8w : word64) : word16``
 
 (* some rewrites ---------------------------------------------------------- *)
 
