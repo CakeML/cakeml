@@ -167,6 +167,11 @@ val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "wordfreq"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
 val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
+
+(* TODO:
+  want a way to print this program out as concrete syntax (to be fed
+  into the bootstrapped compiler for example) *)
+
 val wordfreq_semantics =
   sem_thm
   |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]

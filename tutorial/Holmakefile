@@ -1,1 +1,1 @@
-INCLUDES = $(HOLDIR)/examples/balanced_bst .. ../translator ../basis/pure ../basis ../characteristic
+INCLUDES = $(HOLDIR)/examples/balanced_bst .. ../translator ../basis/pure ../basis ../characteristic ../compiler
