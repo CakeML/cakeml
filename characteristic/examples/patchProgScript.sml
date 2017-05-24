@@ -106,6 +106,13 @@ val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[string_is_num_def])
   >> metis_tac[tokens_two_less]) |> update_precondition;
 
+val r = save_thm("patch_aux_ind",
+  patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
+                                           mllistTheory.drop_def]));
+val _ = add_preferred_thy"-";
+val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
+                                                           mllistTheory.drop_def]));
+
 val _ = translate patch_alg_def;
 
 val notfound_string_def = Define`

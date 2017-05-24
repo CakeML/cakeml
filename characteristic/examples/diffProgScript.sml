@@ -23,7 +23,7 @@ fun def_of_const tm = let
 
 val _ = find_def_for_const := def_of_const;
 
-val _ = translate (optimised_lcs_def);
+val _ = translate (optimised_lcs_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
 
 val dynamic_lcs_row_side_def = Q.prove(
 `∀h l previous_col previous_row diagonal.
