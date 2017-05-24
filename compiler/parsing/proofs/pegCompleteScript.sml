@@ -3083,7 +3083,7 @@ val completeness = Q.store_thm(
   print_tac "nAddOps" >>
   simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM,
-     peg_eval_tok_NONE, mkNd_def] >> pmap_cases)
+     peg_eval_tok_NONE, mkNd_def] >> pmap_cases);
 
 val cmlG_unambiguous = Q.store_thm(
   "cmlG_unambiguous",
@@ -3106,6 +3106,6 @@ val cmlG_unambiguous = Q.store_thm(
     completeness >>
   pop_assum (fn th => MP_TAC (Q.SPEC `pt1` th) THEN
                       MP_TAC (Q.SPEC `pt2` th)) >> simp[] >>
-  metis_tac[PAIR_EQ, peg_deterministic, SOME_11, CONS_11])
+  metis_tac[PAIR_EQ, peg_deterministic, SOME_11, CONS_11]);
 
 val _ = export_theory();
