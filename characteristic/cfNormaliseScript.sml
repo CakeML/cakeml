@@ -290,9 +290,9 @@ val norm_def = tDefine "norm" `
     (case opt of
          SOME x =>
          (let (e1',ns,b1) = norm T F ns e1 in
-          let (e2',ns) = protect F ns e2 in
+          let (e2',ns) = protect F (x::ns) e2 in
           let e' = Lets b1 (Lets [(x, e1')] e2') in
-          wrap_if_needed as_value (x::ns) e' [])
+          wrap_if_needed as_value ns e' [])
        | NONE =>
          (let (e1', ns, b1) = norm F F ns e1 in
           let (e2', ns) = protect F ns e2 in

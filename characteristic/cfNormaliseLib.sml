@@ -110,6 +110,7 @@ fun norm_exp gen e = let
     in
       if optionLib.is_some opt then let
         val x = optionLib.dest_some opt
+        val _ = record_var x
         val (e1', b1) = norm true false e1
         val e2' = protect false e2
         val e' = Lets b1 (Lets [(x, e1')] e2')
