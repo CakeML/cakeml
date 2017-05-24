@@ -272,7 +272,7 @@ val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
     >-(`n = LENGTH s' - 1` by DECIDE_TAC
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
-      \\ `LENGTH r = 1` by EVAL_TAC >-(rw[])
+      \\ `LENGTH r = 1` by rw[]
       \\ Cases_on `TL r` >-(rw[TOKENS_def])
       \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
     >-(fs[ADD1]

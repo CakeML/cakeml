@@ -159,26 +159,23 @@ val gc_move_thm = Q.prove(
   \\ full_simp_tac std_ss [FDOM_FUPDATE]
   \\ strip_tac THEN1
    (`(heap_addresses 0 (h1 ++ h2) UNION {heap_length (h1 ++ h2)}) =
-     (heap_length (h1 ++ h2) INSERT heap_addresses 0 (h1 ++ h2))` by all_tac
-    THEN1 (full_simp_tac (srw_ss()) [EXTENSION] \\ metis_tac [])
+     (heap_length (h1 ++ h2) INSERT heap_addresses 0 (h1 ++ h2))` by (full_simp_tac (srw_ss()) [EXTENSION] \\ metis_tac [])
     \\ `~(heap_length (h1 ++ h2) IN heap_addresses 0 (h1 ++ h2))` by
           full_simp_tac std_ss [NOT_IN_heap_addresses]
     \\ imp_res_tac BIJ_UPDATE
     \\ `(\a'. (ff |+ (heap_length ha,heap_length (h1 ++ h2))) ' a') =
-        ((heap_length ha =+ heap_length (h1 ++ h2)) (\a. ff ' a))` by all_tac THEN1
+        ((heap_length ha =+ heap_length (h1 ++ h2)) (\a. ff ' a))` by
      (full_simp_tac std_ss [FUN_EQ_THM,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM]
       \\ SRW_TAC [] []) \\ full_simp_tac std_ss [])
   \\ ntac 3 strip_tac
   \\ Cases_on `i = heap_length ha` THEN1
-   (`j = heap_length (h1 ++ h2)` by all_tac
-    THEN1 full_simp_tac std_ss [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+   (`j = heap_length (h1 ++ h2)` by full_simp_tac std_ss [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
     \\ full_simp_tac std_ss []
     \\ `heap_lookup (heap_length ha) heap0 = SOME (DataElement ys l d)` by
      (imp_res_tac heap_similar_Data_IMP
       \\ full_simp_tac std_ss [heap_lookup_PREFIX])
     \\ full_simp_tac (srw_ss()) [heap_lookup_PREFIX]
-    \\ `~(heap_length (h1 ++ h2) < heap_length h1)` by all_tac
-    THEN1 (full_simp_tac (srw_ss()) [heap_length_def,SUM_APPEND] \\ decide_tac)
+    \\ `~(heap_length (h1 ++ h2) < heap_length h1)` by (full_simp_tac (srw_ss()) [heap_length_def,SUM_APPEND] \\ decide_tac)
     \\ full_simp_tac std_ss [])
   \\ `FLOOKUP ff i = SOME j` by full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
@@ -261,18 +258,18 @@ val gc_move_loop_thm = Q.prove(
   \\ full_simp_tac std_ss [gc_move_loop_def,SUBMAP_REFL]
   \\ `isDataElement h` by full_simp_tac (srw_ss()) [gc_inv_def]
   \\ full_simp_tac std_ss [isDataElement_def]
-  \\ `~(limit <= heap_length h1)` by all_tac THEN1
+  \\ `~(limit <= heap_length h1)` by
    (full_simp_tac (srw_ss()) [gc_inv_def,heap_length_def,SUM_APPEND]
     \\ full_simp_tac std_ss [el_length_def] \\ decide_tac)
-  \\ `~(limit < heap_length (h1 ++ DataElement ys l d::t))` by all_tac THEN1
+  \\ `~(limit < heap_length (h1 ++ DataElement ys l d::t))` by
    (full_simp_tac (srw_ss()) [gc_inv_def,heap_length_def,SUM_APPEND]
     \\ full_simp_tac std_ss [el_length_def] \\ decide_tac)
   \\ full_simp_tac (srw_ss()) []
   \\ `!ptr u. MEM (Pointer ptr u) (ys:'a heap_address list) ==>
-              isSomeDataOrForward (heap_lookup ptr heap)` by all_tac THEN1
+              isSomeDataOrForward (heap_lookup ptr heap)` by
    (rpt strip_tac \\ qpat_x_assum `!x1 x2 x3. bbb` (K all_tac)
     \\ full_simp_tac std_ss [gc_inv_def]
-    \\ `?i. FLOOKUP (heap_map 0 heap) i = SOME (heap_length h1)` by all_tac THEN1
+    \\ `?i. FLOOKUP (heap_map 0 heap) i = SOME (heap_length h1)` by
      (full_simp_tac std_ss [FLOOKUP_DEF,BIJ_DEF,SURJ_DEF,heap_map1_def]
       \\ qpat_x_assum `!xx.bbb` (K all_tac) \\ qpat_x_assum `!xx.bbb` match_mp_tac
       \\ full_simp_tac (srw_ss()) [heap_addresses_APPEND,heap_addresses_def])
@@ -388,8 +385,7 @@ val full_gc_ok = Q.store_thm("full_gc_ok",
   \\ simp_tac std_ss [roots_ok_def,heap_ok_def]
   \\ rpt strip_tac THEN1
    (imp_res_tac MEM_ADDR_MAP \\ res_tac \\ full_simp_tac std_ss [heap_map1_def]
-    \\ `FLOOKUP (heap_map 0 heap3) y = SOME ptr` by all_tac
-    THEN1 full_simp_tac std_ss [FLOOKUP_DEF]
+    \\ `FLOOKUP (heap_map 0 heap3) y = SOME ptr` by full_simp_tac std_ss [FLOOKUP_DEF]
     \\ res_tac \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]
     \\ imp_res_tac heap_lookup_EXTEND \\ full_simp_tac (srw_ss()) [])
   THEN1
@@ -403,7 +399,7 @@ val full_gc_ok = Q.store_thm("full_gc_ok",
     \\ full_simp_tac (srw_ss()) [heap_expand_def,isForwardPointer_def])
   \\ `?j. heap_lookup j heap2 = SOME (DataElement xs l d)` by
          metis_tac [MEM_IMP_heap_lookup]
-  \\ `?i. (FLOOKUP (heap_map 0 heap3) i = SOME j)` by all_tac THEN1
+  \\ `?i. (FLOOKUP (heap_map 0 heap3) i = SOME j)` by
    (imp_res_tac heap_lookup_IMP_heap_addresses
     \\ full_simp_tac std_ss [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF]
     \\ res_tac \\ full_simp_tac std_ss [])
@@ -412,8 +408,7 @@ val full_gc_ok = Q.store_thm("full_gc_ok",
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ imp_res_tac MEM_ADDR_MAP
   \\ `y IN FDOM (heap_map 0 heap3)` by res_tac
-  \\ `(FLOOKUP (heap_map 0 heap3) y = SOME (heap_map1 heap3 y))` by all_tac
-  THEN1 full_simp_tac std_ss [FLOOKUP_DEF,heap_map1_def]
+  \\ `(FLOOKUP (heap_map 0 heap3) y = SOME (heap_map1 heap3 y))` by full_simp_tac std_ss [FLOOKUP_DEF,heap_map1_def]
   \\ pop_assum mp_tac \\ full_simp_tac std_ss [] \\ strip_tac
   \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
   \\ full_simp_tac std_ss [] \\ strip_tac
@@ -430,21 +425,18 @@ val full_gc_related = Q.store_thm("full_gc_related",
   strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
   \\ rpt strip_tac \\ full_simp_tac std_ss []
   \\ qexists_tac `heap_map 0 heap3`
-  \\ `(FAPPLY (heap_map 0 heap3)) = heap_map1 heap3` by all_tac
-  THEN1 (full_simp_tac std_ss [heap_map1_def,FUN_EQ_THM])
+  \\ `(FAPPLY (heap_map 0 heap3)) = heap_map1 heap3` by (full_simp_tac std_ss [heap_map1_def,FUN_EQ_THM])
   \\ full_simp_tac std_ss [gc_related_def,gc_inv_def,BIJ_DEF]
   \\ strip_tac THEN1 metis_tac []
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [INJ_DEF] \\ rpt strip_tac
-    \\ `(FLOOKUP (heap_map 0 heap3) x = SOME (heap_map1 heap3 x))` by all_tac
-    THEN1 full_simp_tac (srw_ss()) [FLOOKUP_DEF,heap_map1_def]
+    \\ `(FLOOKUP (heap_map 0 heap3) x = SOME (heap_map1 heap3 x))` by full_simp_tac (srw_ss()) [FLOOKUP_DEF,heap_map1_def]
     \\ res_tac \\ full_simp_tac std_ss []
     \\ imp_res_tac heap_lookup_LESS
     \\ imp_res_tac heap_lookup_EXTEND \\ full_simp_tac std_ss []
     \\ full_simp_tac (srw_ss()) [isSomeDataElement_def])
   \\ ntac 3 strip_tac
-  >- (`(FLOOKUP (heap_map 0 heap3) i = SOME (heap_map1 heap3 i))` by all_tac
-      >- fs [FLOOKUP_DEF]
+  >- (`(FLOOKUP (heap_map 0 heap3) i = SOME (heap_map1 heap3 i))` by fs [FLOOKUP_DEF]
       \\ res_tac \\ fs []
       \\ fs [isSomeDataElement_def])
   \\ ntac 3 strip_tac

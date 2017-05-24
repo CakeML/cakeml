@@ -2842,7 +2842,7 @@ val n2l_DIV_MOD = Q.store_thm("n2l_DIV_MOD",
   \\ simp[]
   \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
   \\ simp[Once numposrepTheory.n2l_def]
-  \\ simp[GSYM REPLICATE,ADD1]
+  \\ rewrite_tac[GSYM REPLICATE,ADD1]
   \\ `LOG b (n MOD b) = 0`
   by ( simp[logrootTheory.LOG_EQ_0] )
   \\ simp[]);

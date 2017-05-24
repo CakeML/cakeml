@@ -1,34 +1,11 @@
-open HolKernel boolLib bossLib lcsymtacs;
-open x64_compileLib x64_exportLib;
-open parsingComputeLib basisProgTheory;
-open inferenceComputeLib;
+open preamble
+     parsingComputeLib inferenceComputeLib compilationLib
+     basisProgTheory
 
 (* TODO: Not too sure why parsingComputeLib has to be opened to get EVAL to
    work for parsing *)
+
 val _ = new_theory "benchmark"
-
-val rconc = rhs o concl
-
-val _ = PolyML.timing true;
-val _ = Globals.max_print_depth := 20;
-val _ = PolyML.print_depth 5;
-
-fun println s = print (strcat s "\n");
-
-fun to_bytes alg conf prog =
-  let
-  val _ = println "Compile to livesets"
-  val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
-  val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
-  val _ = println "Repeat compilation with oracle"
-  (*This repeats the "to_livesets" step, but that isn't very costly*)
-  val compile_thm = Count.apply eval``
-    compile (^(conf) with word_to_word_conf := ^(wc)) ^(prog)``
-  in
-    compile_thm
-  end
 
 (* A simple test for the inferencer, precomputes the basis config, but doesn't store it as a constant *)
 val cmp = wordsLib.words_compset ()
@@ -263,43 +240,33 @@ val reverse_str =
 
 val reverse = check_prog reverse_str
 
-val benchmarks = map (fn (SOME x) => x) [nqueens,foldl,reverse,fib,qsort]
+val benchmarks = map Option.valOf [nqueens,foldl,reverse,fib,qsort]
 val names = ["nqueens","foldl","reverse","fib","qsort"]
 
-val extract_bytes = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
-
-val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
-
-fun write_asm [] = ()
-  | write_asm ((name,(bytes,ffi_names))::xs) =
-    (write_cake_S 1000 1000 (extract_ffi_names ffi_names)
-       bytes ("cakeml/" ^ name ^ ".S") ;
-    write_asm xs)
-
-val benchmarks_compiled = map (to_bytes 3 ``x64_backend_config``) benchmarks
-
-val benchmarks_bytes = map extract_bytes benchmarks_compiled
-
-val _ = write_asm (zip names benchmarks_bytes);
+val benchmarks_compiled =
+  map (fn (name,prog) =>
+    compile_x64 1000 1000 (String.concat["cakeml/",name])
+      (mk_abbrev(String.concat[name,"_prog"])prog))
+  (zip names benchmarks)
 
 val _ = map save_thm (zip names benchmarks_compiled);
 
 (*
 (*Turning down the register allocator*)
 val benchmarks_compiled2 = map (to_bytes 0 ``x64_backend_config``) benchmarks
-val benchmarks_bytes2 = map extract_bytes benchmarks_compiled2
+val benchmarks_bytes2 = map extract_bytes_ffis benchmarks_compiled2
 val _ = write_asm (zip names benchmarks_bytes2);
 
 (* Turn off clos optimizations*)
 val clos_o0 = ``x64_backend_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
 val benchmarks_compiled3 = map (to_bytes 0 ``x64_backend_config with clos_conf:=^(clos_o0)``) benchmarks
-val benchmarks_bytes3 = map extract_bytes benchmarks_compiled3
+val benchmarks_bytes3 = map extract_bytes_ffis benchmarks_compiled3
 val _ = write_asm (zip names benchmarks_bytes3);
 
 (* Turn off bvl_to_bvi optimzations ?*)
 val bvl_o0 =  ``<|inline_size_limit := 0 ; exp_cut := 10000 ; split_main_at_seq := F|>``
 val benchmarks_compiled4 = map (to_bytes 0 ``x64_backend_config with <|clos_conf:=^(clos_o0);bvl_conf:=^(bvl_o0)|>``) benchmarks
-val benchmarks_bytes4 = map extract_bytes benchmarks_compiled4
+val benchmarks_bytes4 = map extract_bytes_ffis benchmarks_compiled4
 val _ = write_asm (zip names benchmarks_bytes4);
 *)
 
@@ -316,11 +283,11 @@ val benchmarks_o2 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_
 val benchmarks_o3 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o3)``) benchmarks
 val benchmarks_o4 = map (to_bytes 3 ``x64_backend_config with clos_conf:=^(clos_o4)``) benchmarks
 
-val benchmarks_o0_bytes = map extract_bytes benchmarks_o0
-val benchmarks_o1_bytes = map extract_bytes benchmarks_o1
-val benchmarks_o2_bytes = map extract_bytes benchmarks_o2
-val benchmarks_o3_bytes = map extract_bytes benchmarks_o3
-val benchmarks_o4_bytes = map extract_bytes benchmarks_o4
+val benchmarks_o0_bytes = map extract_bytes_ffis benchmarks_o0
+val benchmarks_o1_bytes = map extract_bytes_ffis benchmarks_o1
+val benchmarks_o2_bytes = map extract_bytes_ffis benchmarks_o2
+val benchmarks_o3_bytes = map extract_bytes_ffis benchmarks_o3
+val benchmarks_o4_bytes = map extract_bytes_ffis benchmarks_o4
 
 val _ = write_asm (zip (map (fn s => "o0_"^s)names) benchmarks_o0_bytes);
 val _ = write_asm (zip (map (fn s => "o1_"^s)names) benchmarks_o1_bytes);

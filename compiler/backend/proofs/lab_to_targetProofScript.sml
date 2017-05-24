@@ -3476,12 +3476,14 @@ val lines_enc_with_nop_add_nop = Q.store_thm("lines_enc_with_nop_add_nop",
     fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
     \\ qmatch_goalsub_rename_tac`REPLICATE z`
     \\ qexists_tac`SUC z`
-    \\ simp[REPLICATE_GENLIST,GENLIST] )
+    \\ rewrite_tac[REPLICATE_GENLIST]
+    \\ simp[GENLIST] )
   \\ Cases_on`a` \\ fs[line_enc_with_nop_def]
   \\ fs[enc_with_nop_thm,LENGTH_EQ_NUM_compute]
   \\ qmatch_goalsub_rename_tac`REPLICATE z`
   \\ qexists_tac`SUC z`
-  \\ simp[REPLICATE_GENLIST,GENLIST] )
+  \\ rewrite_tac[REPLICATE_GENLIST]
+  \\ simp[GENLIST] )
 
 val lines_enc_with_nop_pad_section1 = Q.store_thm("lines_enc_with_nop_pad_section1",
   `∀nop code aux pos.

@@ -1,4 +1,4 @@
-structure compilerComputeLib :> compilerComputeLib =
+structure backendComputeLib :> backendComputeLib =
 struct
 
 local
@@ -46,7 +46,7 @@ open Parse
 
 in
 
-val add_compiler_compset = computeLib.extend_compset
+val add_backend_compset = computeLib.extend_compset
   [computeLib.Tys
     [ (* ---- configurations ---- *)
      ``:source_to_mod$config``
