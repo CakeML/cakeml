@@ -117,7 +117,7 @@ val eof_read = Q.store_thm("eof_read",
     imp_res_tac ALIST_FUPDKEY_unchanged) >>
   cases_on`fs.numchars` >> fs[] >>
   cases_on`fs` >>
-  fs[RO_fs_fn_updates,RO_fs_11]);
+  fs[IO_fs_fn_updates,IO_fs_11]);
 
 val read_eof = Q.store_thm("eof_read",
  `!fd fs n fs'. 0 < n ⇒ read fd fs n = SOME ([], fs') ⇒ eof fd fs = SOME T`,
@@ -222,7 +222,7 @@ val decode_encode_FS = Q.store_thm(
   "decode_encode_FS[simp]",
   `decode (encode fs) = return fs`,
   simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
-  simp[RO_fs_component_equality]);
+  simp[IO_fs_component_equality]);
 
 val encode_11 = Q.store_thm(
   "encode_11[simp]",

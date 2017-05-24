@@ -4,7 +4,7 @@ open preamble
      mlstringTheory mlcharioProgTheory fsFFITheory
 
 
-val _ = new_theory"ioProg";
+val _ = new_theory"fsioProg";
 val _ = translation_extends "mlcharioProg";
 
 fun basis_st () = get_ml_prog_state ();
@@ -18,11 +18,11 @@ val _ = process_topdecs `
   exception EndOfFile
 ` |> append_prog
 
-(* 255 w8 array *)
-val buff255_e = ``(App Aw8alloc [Lit (IntLit 257); Lit (Word8 0w)])``
+(* 257 w8 array *)
+val buff257_e = ``(App Aw8alloc [Lit (IntLit 257); Lit (Word8 0w)])``
 val _ = ml_prog_update
-          (add_Dlet (derive_eval_thm "buff255_loc" buff255_e) "buff255" [])
-val buff255_loc_def = definition "buff255_loc_def"
+          (add_Dlet (derive_eval_thm "buff257_loc" buff257_e) "buff257" [])
+val buff257_loc_def = definition "buff257_loc_def"
 
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)
@@ -38,12 +38,12 @@ val _ = process_topdecs`
 (* Output functions on given file descriptor *)
 val _ = 
   process_topdecs` fun write_char fd c = 
-    let val a = Word8Array.update buff255 0 fd
-        val a = Word8Array.update buff255 1 (Word8.fromInt 1) 
-        val a = Word8Array.update buff255 2 (Word8.fromInt(ord c))
-        val a = #(write) buff255
+    let val a = Word8Array.update buff257 0 fd
+        val a = Word8Array.update buff257 1 (Word8.fromInt 1) 
+        val a = Word8Array.update buff257 2 (Word8.fromInt(ord c))
+        val a = #(write) buff257
     in 
-      if Word8Array.sub buff255 0 = Word8.fromInt 1 
+      if Word8Array.sub buff257 0 = Word8.fromInt 1 
       then raise InvalidFD (* inaccurate *)
       else ()
     end
@@ -58,15 +58,15 @@ val _ =
   if n <= 0 then ()
   else
     let val m = min n 255
-        val a = Word8Array.update buff255 0 fd
-        val a = Word8Array.update buff255 1 m
-        val a = Word8Array.copy_aux w buff255 2 m i
+        val a = Word8Array.update buff257 0 fd
+        val a = Word8Array.update buff257 1 m
+        val a = Word8Array.copy_aux w buff257 2 m i
         (* array_copy_aux_spec should be more complete *)
-        val a = #(write) buff255
+        val a = #(write) buff257
     in
-      if Word8Array.sub buff255 0 = Word8.fromInt 0 
+      if Word8Array.sub buff257 0 = Word8.fromInt 0 
       then 
-        let val nw = Word8.toInt(Word8Array.sub buff255 1) in
+        let val nw = Word8.toInt(Word8Array.sub buff257 1) in
           write_w8array fd w (i + nw) (n - nw)
         end
       else raise InvalidFD
@@ -74,11 +74,11 @@ val _ =
 
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs` fun write_newline fd =
-    let val a = Word8Array.update buff255 0 fd
-        val a = Word8Array.update buff255 1 (Word8.fromInt 1)
-        val a = Word8Array.update buff255 2 (Word8.fromInt(ord #"\n"))
+    let val a = Word8Array.update buff257 0 fd
+        val a = Word8Array.update buff257 1 (Word8.fromInt 1)
+        val a = Word8Array.update buff257 2 (Word8.fromInt(ord #"\n"))
     in
-      #(write) buff255
+      #(write) buff257
     end
     fun print_newline () = write_newline (stdin())
     fun prerr_newline () = write_newline (stdout())
@@ -106,17 +106,17 @@ val _ = process_topdecs
 
 val _ = process_topdecs`
 fun open_in fname =
-  let val a = str_to_w8array buff255 fname
-      val a = #(open_in) buff255 in
-        if Word8Array.sub buff255 0 = Word8.fromInt 0 
-        then Word8Array.sub buff255 1
+  let val a = str_to_w8array buff257 fname
+      val a = #(open_in) buff257 in
+        if Word8Array.sub buff257 0 = Word8.fromInt 0 
+        then Word8Array.sub buff257 1
         else raise BadFileName
   end
 fun open_out fname =
-  let val a = str_to_w8array buff255 fname
-      val a = #(open_out) buff255 in
-        if Word8Array.sub buff255 0 = Word8.fromInt 0 
-        then Word8Array.sub buff255 1
+  let val a = str_to_w8array buff257 fname
+      val a = #(open_out) buff257 in
+        if Word8Array.sub buff257 0 = Word8.fromInt 0 
+        then Word8Array.sub buff257 1
         else raise BadFileName
   end` |> append_prog
 
@@ -126,17 +126,17 @@ fun open_out fname =
 val _ = 
   process_topdecs`
 fun input fd buf pos len =
-  let val a = Word8Array.update buff255 0 fd
+  let val a = Word8Array.update buff257 0 fd
       fun input_aux pos len count =
-      let val a = Word8Array.update buff255 1 (min len 255)
-        val a = #(read) buff255
-        val res = Word8.toInt (Word8Array.sub buff255 0)
-        val nread = Word8.toInt (Word8Array.sub buff255 1)
+      let val a = Word8Array.update buff257 1 (min len 255)
+        val a = #(read) buff257
+        val res = Word8.toInt (Word8Array.sub buff257 0)
+        val nread = Word8.toInt (Word8Array.sub buff257 1)
       in           
         if res = 1 then raise InvalidFD
         else if nread = 0 then count
         else 
-          let val a = Word8Array.copy_aux buff255 buf pos nread 2 in
+          let val a = Word8Array.copy_aux buff257 buf pos nread 2 in
             if nread < len then input_aux (pos + nread) (len - nread) count
             else (count + nread)
           end
@@ -147,15 +147,17 @@ fun input fd buf pos len =
 (* reads 1 char *)
 val _ = process_topdecs`
 fun read_char fd =
-let val a = Word8Array.update buff255 0 fd
-  val a = Word8Array.update buff255 1 1
-  val a = #(read) buff255
-  val res = Word8.toInt (Word8Array.sub buff255 0)
-  val nread = Word8.toInt (Word8Array.sub buff255 1) 
+let val a = Word8Array.update buff257 0 fd
+  val a = Word8Array.update buff257 1 1
+  val a = #(read) buff257
+  val res = Word8.toInt (Word8Array.sub buff257 0)
+  val nread = Word8.toInt (Word8Array.sub buff257 1) 
   in
     if res = 1 then raise InvalidFD
     else if nread = 0 then raise EndOfFile
-    else Word8Array.sub buff255 1
+    else Word8Array.sub buff257 1
   end` |> append_prog
 
+
+val _ = ml_prog_update (close_module NONE);
 val _ = export_theory();

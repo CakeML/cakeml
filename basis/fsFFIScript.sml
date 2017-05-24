@@ -17,11 +17,11 @@ val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 *  numchars: stream of num modeling the nondeterministic output of read and
 *    write *)
 val _ = Datatype`
-  RO_fs = <| files : (mlstring # char list) list ;
+  IO_fs = <| files : (mlstring # char list) list ;
              infds : (num # (mlstring # num)) list;
              numchars : num llist |>`
 
-val RO_fs_component_equality = theorem"RO_fs_component_equality";
+val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
 
 (* find smallest unused descriptor index *)
@@ -39,11 +39,18 @@ val openFile_def = Define`
           ALOOKUP fsys.files fnm ;
           return (fd, fsys with infds := (nextFD fsys, (fnm, pos)) :: fsys.infds)
        od
+
 `;
 
+val openFileFS_def = Define`
+  openFileFS fnm fs pos =
+    case openFile fnm fs pos of
+      NONE => fs
+    | SOME (_, fs') => fs'
+`;
 (* adds a new file in infds and truncate it *)
 val openFile_truncate_def = Define`
-  openFile_truncate fnm fsys pos =
+  openFile_truncate fnm fsys =
     let fd = nextFD fsys in
       do
         assert (fd < 255) ;
@@ -51,14 +58,6 @@ val openFile_truncate_def = Define`
         return (fd, (fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
                           with files updated_by (ALIST_FUPDKEY fnm (\x."")))
       od `;
-
-(* update filesystem with newly opened file *)
-val openFileFS_def = Define`
-  openFileFS fnm fs off =
-    case openFile fnm fs off of
-      NONE => fs
-    | SOME (_, fs') => fs'
-`;
 
 (* checks if a descriptor index is in the file descriptor *)
 val validFD_def = Define`
@@ -173,7 +172,7 @@ val ffi_open_out_def = Define`
   ffi_open_out bytes fs =
     do
       fname <- getNullTermStr bytes;
-      (fd, fs') <- openFile_truncate (implode fname) fs 0;
+      (fd, fs') <- openFile_truncate (implode fname) fs;
       assert(fd < 255);
       return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
     od ++
