@@ -924,13 +924,13 @@ val ptree_loc_left_insert1 = Q.store_thm(
      merge_list_locs_HDLAST] >>
   rename [`MAP ptree_loc t2`] >> Cases_on ‘t2’ >> simp[]);
 
-val _ = overload_on("leftLoc", ``FST : locs -> locn``)
-val _ = overload_on("rightLoc", ``SND : locs -> locn``)
-val _ = overload_on("mkLoc", ``(,) : locn -> locn -> locs``)
+val leftLoc_def = Define`leftLoc (Locs l1 _) = l1`;
+val rightLoc_def = Define`rightLoc (Locs _ l2) = l2`;
+val _ = export_rewrites ["leftLoc_def", "rightLoc_def"]
 
 val merge_locs_LR = Q.store_thm(
   "merge_locs_LR",
-  ‘merge_locs l1 l2 = mkLoc (leftLoc l1) (rightLoc l2)’,
+  ‘merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)’,
   map_every Cases_on [‘l1’, ‘l2’] >> simp[locationTheory.merge_locs_def]);
 
 val leftLoc_merge_locs = Q.store_thm(
