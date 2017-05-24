@@ -267,7 +267,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec sset match_thms =
       val (vars_subst, frame_hpl, []) = match_heap_conditions extract_thms let_pre app_pre
   in
       if HOLset.isSubset (FVL [concl simp_app_spec] empty_varset, FVL (app_info::let_pre::asl) empty_varset)
-      then (MP_ASSUM rw_asl simp_app_spec, frame_hpl)
+      then (DISCH_ALL (MP_ASSUM rw_asl simp_app_spec), frame_hpl)
       else raise (ERR "xlet_simp_spec" "Unable to find a proper instantiation for the app specification")
   end
   handle _ => raise (ERR "xlet_simp_spec" "");
@@ -311,7 +311,7 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
   end;
 	
 (* [xlet_app_auto] *)
-val (app_info, env, let_pre, match_thms) = (let_expr, env, pre, xlet_auto_match_thms);
+(*val (app_info, env, let_pre, match_thms) = (let_expr, env, pre, xlet_auto_match_thms);*)
 fun xlet_app_auto app_info env let_pre (g as (asl, w)) match_thms =
   let
       (* Find the specification *)

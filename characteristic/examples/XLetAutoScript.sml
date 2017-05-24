@@ -252,7 +252,7 @@ cheat);
 
 val extract_th1 = Q.prove(`(?s. (REF r v * H) s) ==> ((REF r v * H) ==>> (REF r v' * H')
 								    <=> (v' = v /\ H ==>> H'))`, cheat);
-val extract_th2 =Q.prove(`(?s. (ARRAY a av * H) s) ==> ((ARRAY a av * H) ==>> (ARRAY a av' * H')
+val extract_th2 = Q.prove(`(?s. (ARRAY a av * H) s) ==> ((ARRAY a av * H) ==>> (ARRAY a av' * H')
 									 <=> (av' = av /\ H ==>> H'))`, cheat);
 
 val refin_invariant_thms = NUM_INT_EQ::(generate_refin_invariant_thms [EqualityType_NUM_BOOL]);

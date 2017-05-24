@@ -7,11 +7,98 @@ using CF.
 
 open  preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory
-	       AssumSimpLib IntroRewriteLib
+	       (* AssumSimpLib IntroRewriteLib *)
 
 val _ = new_theory "queueProg";
 
 val _ = translation_extends"ioProg";
+
+(* INTRO_REWRITE_CONV *)
+fun INTRO_REWRITE_CONV thl asl =
+    let
+	val assumed_asl = map ASSUME asl
+	val disj_thl = List.concat (List.map CONJUNCTS thl) 
+	fun match_on_asl th = mapfilter (MATCH_MP th) assumed_asl
+	fun is_rw_th th = SPEC_ALL th |> concl |> is_eq
+	fun generate_rewrites thl =
+	  let
+	      val (rewrite_thl, thl') = List.partition is_rw_th thl
+	      val thl'' = List.concat (mapfilter match_on_asl thl')
+	  in
+	      case thl'' of
+		  [] => rewrite_thl
+		| _ => List.revAppend (generate_rewrites thl'', rewrite_thl)
+	  end
+	val rw_thms = generate_rewrites disj_thl
+    in
+	SIMP_CONV bool_ss rw_thms
+    end;
+
+(* INTRO_REWRITE_TAC *)
+fun INTRO_REWRITE_TAC rws (g as (asl, w)) = CONV_TAC (INTRO_REWRITE_CONV rws asl) g;
+
+
+(* 
+   MP_ASSUM:
+
+   (!a in T'. T |= a)      T' |= g
+   ===============================
+               T |= g
+  *)
+fun MP_ASSUM thl th =
+  let
+      val conclList = List.map (fn x => (concl x, x)) thl
+      val conclMap = Redblackmap.fromList Term.compare conclList
+      val num_hyps = List.length (hyp th)
+      val th' = DISCH_ALL th
+			  
+      fun rec_mp th n =
+	if n > 0 then
+	    let
+		val h = concl th |> dest_imp |> fst
+		val hyp_th = Redblackmap.find (conclMap, h)
+		val th' = MP th hyp_th 
+	    in
+		rec_mp th' (n-1)
+	    end
+	else th
+  in
+      rec_mp th' num_hyps
+  end;
+(*
+   CONV_ASSUM: use a conversion to rewrite an assumption list so that:
+   (!a' in T'. T |= a') /\ (!a in T. T' |= a)
+   Returns the list of theorems: !a' in T'. T |= a'
+*)
+fun CONV_ASSUM sset rws asl =
+  let
+      val tautl = List.map ASSUME asl |> List.map CONJUNCTS |> List.concat
+			   
+      fun try_conv conv th =
+	let
+	    
+	    val th' = CONV_RULE (CHANGED_CONV conv) th
+	in
+	    (th', true)
+	end
+	handle _ => (th, false)
+
+      fun rec_conv thl =
+	if List.length thl > 0 then
+	    let
+		val convThPairs = List.map (try_conv (SIMP_CONV sset rws)) thl
+		val (changedThPairs, sameThPairs) = List.partition (fn (_, b) => b) convThPairs
+		val sameThl = List.map (fn (x, _) => x) sameThPairs
+		val changedThl = List.map (fn (x, _) => x) changedThPairs
+		val changedThl' = List.map CONJUNCTS changedThl |> List.concat |> rec_conv
+	    in
+		List.revAppend (sameThl, changedThl')
+	    end
+	else
+	    []
+  in
+      rec_conv tautl
+  end;
 
 (**************************** Theorems use for rewrites *********************************************)
 
