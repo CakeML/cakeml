@@ -1,7 +1,7 @@
 open  preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory;
     
-val _ = new_theory "queueProg2";
+val _ = new_theory "xletAuto";
 
 val _ = translation_extends"ioProg";
 
