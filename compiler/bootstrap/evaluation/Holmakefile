@@ -13,7 +13,7 @@ all: $(TARGETS) $(HOLHEAP)
 
 BARE_THYS = ../translation/compiler_x64ProgTheory\
 						../../../semantics/semanticsComputeLib\
-						../../compilerComputeLib\
+						../../compilationLib\
 						../../backend/x64/x64_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)

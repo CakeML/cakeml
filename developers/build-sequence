@@ -61,8 +61,8 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 
-# benchmarks (should become examples, and move)
-compiler/eval/benchmarks
+# benchmarks
+compiler/benchmarks
 
 # other examples
 characteristic/examples
