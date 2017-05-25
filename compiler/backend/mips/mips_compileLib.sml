@@ -6,13 +6,13 @@ open HolKernel boolLib bossLib
 val _ = ParseExtras.temp_loose_equality()
 
 open mips_targetLib asmLib;
-open compilerComputeLib;
+open backendComputeLib;
 open configTheory
 
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
     [computeLib.Extenders
-      [compilerComputeLib.add_compiler_compset
+      [backendComputeLib.add_backend_compset
       ,mips_targetLib.add_mips_encode_compset
       ,asmLib.add_asm_compset
       ],
