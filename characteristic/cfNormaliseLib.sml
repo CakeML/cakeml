@@ -1,7 +1,30 @@
-structure cfNormaliseLib = struct
+structure cfNormaliseLib :> cfNormaliseLib = struct
 
 open preamble
 open astSyntax
+
+(* Normalisation pass.
+
+   [normalise_prog] (and friends) implement a preprocessing pass on the
+   CakeML program to be fed to [cf]. It turns a CakeML program into
+   A-normal form; [cf] then assumes the input program is in A-normal
+   form. [cf] evaluates to [F] for programs not in A-normal form.
+
+   At the moment, this normalisation pass is unverified: formally, the
+   specification proved using CF is a specification for the
+   _normalised_ program, not the original one. Eventually it would be
+   nice to have a proof that normalisation preserves the semantics of
+   its input in some way.
+
+   This normalisation pass is currently implemented directly in ML. It
+   used to be implemented as a HOL function, but for performance
+   reasons, it has been re-implemented to what follows. The remains of
+   the old normalisation function can be found at the end of
+   [cfNormaliseScript.sml].
+
+   The implementation follows the structure of the CFML one, in
+   generator/normalize.ml in the CFML sources.
+*)
 
 fun remove_Lannot e =
   if is_Lannot e then fst (dest_Lannot e)
@@ -260,13 +283,13 @@ in
   protect true e
 end
 
-fun full_normalise_exp e =
+fun normalise_exp e =
   norm_exp (mk_names_generator ()) e
 
-fun full_normalise_decl d =
+fun normalise_decl d =
   if is_Dlet d then let
     val (locs, pat, exp) = dest_Dlet d
-    val exp' = full_normalise_exp exp
+    val exp' = normalise_exp exp
   in mk_Dlet (locs, pat, exp') end
   else if is_Dletrec d then let
     val (locs, l_tm) = dest_Dletrec d
@@ -283,16 +306,16 @@ fun full_normalise_decl d =
   in mk_Dletrec (locs, l'_tm) end
   else d
 
-fun full_normalise_top td =
+fun normalise_top td =
   if is_Tdec td then let
     val d = dest_Tdec td
-    val d' = full_normalise_decl d
+    val d' = normalise_decl d
   in mk_Tdec d' end
   else td
 
-fun full_normalise_prog p_tm = let
+fun normalise_prog p_tm = let
   val (p, p_ty) = listSyntax.dest_list p_tm
-  val p' = List.map full_normalise_top p
+  val p' = List.map normalise_top p
 in listSyntax.mk_list (p', p_ty) end
 
 end

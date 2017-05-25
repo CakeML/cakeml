@@ -138,13 +138,5 @@ sig
   val xapp_prepare_goal : tactic
   val reduce_tac : tactic
 
-  val old_normalise_exp : term -> term
-  val old_normalise_dec : term -> term
-  val old_normalise_prog : term -> term
-
-  val normalise_exp : term -> term
-  val normalise_dec : term -> term
-  val normalise_prog : term -> term
-
   val hide_environments : bool -> unit
 end
