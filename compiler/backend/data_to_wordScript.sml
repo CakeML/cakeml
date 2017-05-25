@@ -851,6 +851,38 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConsExtend tag =>
+        (dtcase args of
+         | (old::start::len::tot::rest) =>
+          (dtcase encode_header c (4 * tag) 0 of
+             NONE => (GiveUp,l)
+           | SOME header =>
+              let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+              let h = Shift Lsl (Var (adjust_var tot))
+                        (Nat (dimindex (:'a) - c.len_size - 2)) in
+                (list_Seq
+                  [BignumHalt (adjust_var tot);
+                   Assign 1 (Var (adjust_var tot));
+                   AllocVar limit (list_insert args (get_names names));
+                   Assign 1 (Lookup NextFree);
+                   Assign 5 (Op Or [h; Const header]);
+                   Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
+                   Assign 9 (Const (n2w tag));
+                   StoreEach 1 (5::MAP adjust_var rest) 0w;
+                   Make_ptr_bits_code c 9 7 3;
+                   Set NextFree (Op Add [Var 1; Const bytes_in_word;
+                     Shift Lsl (Var 7) (Nat (shift (:'a)))]);
+                   Assign 15 (Var (adjust_var len));
+                   Assign 13 (Op Add [Var 1;
+                     Const (bytes_in_word * n2w (LENGTH rest + 1))]);
+                   Assign 11 (Op Add [real_addr c (adjust_var old);
+                     ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
+                   If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
+                     MustTerminate
+                       (Call (SOME (adjust_var dest,adjust_set (get_names names),
+                             Skip,secn,l))
+                          (SOME MemCopy_location) [15;11;13;3] NONE)])]),l+1)
+         | _ => (Skip,l))
     | Ref => (dtcase encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
@@ -1311,6 +1343,14 @@ val assign_pmatch_lemmas = [
    >> fs[]),
   Q.prove(`
    (case args of
+       (old::start::len::tot::rest) => y old start len tot rest
+     | _ => z) = (dtcase args of
+       (old::start::len::tot::rest) => y old start len tot rest
+     | _ => z)`,
+   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+   >> fs[]),
+  Q.prove(`
+   (case args of
       [v1;v2;v3] => y v1 v2 v3
     | _ => z) = (dtcase args of
       [v1;v2;v3] => y v1 v2 v3
@@ -1383,6 +1423,7 @@ val assign_pmatch_lemmas = [
       | NONE => z)`,
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[])]
+
 in
 val assign_def = Define assign_quotation
 
@@ -1441,7 +1482,15 @@ val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
 val MemCopy_code_def = Define `
-  MemCopy_code = Skip:'a wordLang$prog`;
+  MemCopy_code =
+    If Test 2 (Reg 2) (Return 0 8)
+        (list_Seq [Assign 1 (Load (Var 4));
+                   Assign 2 (Op Sub [Var 2; Const 4w]);
+                   Assign 4 (Op Add [Var 4; Const bytes_in_word]);
+                   Store (Var 6) 1;
+                   Assign 6 (Op Add [Var 6; Const bytes_in_word]);
+                   Call NONE (SOME MemCopy_location) [0;2;4;6;8] NONE])
+      :'a wordLang$prog`;
 
 val stubs_def = Define`
   stubs (:α) data_conf = [
@@ -1462,7 +1511,7 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
-    (MemCopy_location,4n,MemCopy_code)
+    (MemCopy_location,5n,MemCopy_code)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

@@ -5645,46 +5645,44 @@ val IMP = store_thm("IMP",
   ``b1 \/ b2 <=> ~b1 ==> b2``,
   Cases_on `b1` \\ Cases_on `b2` \\ fs []);
 
-(*
-  ``assign c n l dest (Cons tag) args names_opt``
-  |> SIMP_CONV (srw_ss()) [assign_def]
-*)
+val memcopy_def = Define `
+  memcopy k a1 a2 m dm =
+    if k = 0n then SOME m else
+      if a1 IN dm /\ a2 IN dm then
+        memcopy (k-1) (a1+bytes_in_word) (a2+bytes_in_word) ((a2 =+ m a1) m) dm
+      else NONE`
 
-val assign_ConsExtend = store_thm("assign_ConsExtend",
- ``assign c secn l dest (ConsExtend tag) args names =
-   case args of
-   | (old::start::len::tot::rest) =>
-    (case encode_header c (4 * tag) 0 of
-       NONE => (GiveUp,l)
-     | SOME header =>
-        let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-        let h = Shift Lsl (Var (adjust_var tot))
-                  (Nat (dimindex (:'a) - c.len_size - 2)) in
-          (list_Seq
-            [BignumHalt (adjust_var tot);
-             Assign 1 (Var (adjust_var tot));
-             AllocVar limit (list_insert args (get_names names));
-             Assign 1 (Lookup NextFree);
-             Assign 5 (Op Or [h; Const header]);
-             Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
-             Assign 9 (Const (n2w tag));
-             StoreEach 1 (5::MAP adjust_var rest) 0w;
-             Make_ptr_bits_code c 9 7 3;
-             Set NextFree (Op Add [Var 1; Const bytes_in_word;
-               Shift Lsl (Var 7) (Nat (shift (:'a)))]);
-             Assign 15 (Var (adjust_var len));
-             Assign 13 (Op Add [Var 1;
-               Const (bytes_in_word * n2w (LENGTH rest + 1))]);
-             Assign 11 (Op Add [real_addr c (adjust_var old);
-               ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
-             Assign (adjust_var dest) (Var 3);
-             If Test 15 (Reg 15) Skip (list_Seq [
-               MustTerminate
-                 (Call (SOME (1,adjust_set (insert dest () (get_names names)),
-                       Skip,secn,l))
-                    (SOME MemCopy_location) [11;13;15] NONE)])]),l+1)
-   | _ => (Skip,l)``,
-  cheat);
+val MemCopy_thm = store_thm("MemCopy_thm",
+  ``!ret_val l1 l2 k a1 a2 (s:('a,'ffi) wordSem$state) m dm m1.
+      memcopy k a1 a2 m dm  = SOME m1 /\
+      s.memory = m /\ s.mdomain = dm /\
+      lookup MemCopy_location s.code = SOME (5,MemCopy_code) /\
+      k <= s.clock /\ 4 * k < dimword (:'a) /\
+      get_var 0 s = SOME (Loc l1 l2) /\
+      get_var 2 s = SOME (Word (n2w (4 * k))) /\
+      get_var 4 s = SOME (Word (a1:'a word)) /\
+      get_var 6 s = SOME (Word a2) /\
+      get_var 8 s = SOME ret_val ==>
+      evaluate (MemCopy_code,s) =
+        (SOME (Result (Loc l1 l2) ret_val),
+         s with <| clock := s.clock - k ;
+                   memory := m1 ; locals := LN |>)``,
+  ntac 3 gen_tac
+  \\ Induct \\ simp [Once memcopy_def]
+  \\ rw [] \\ simp [MemCopy_code_def] \\ fs [eq_eval]
+  THEN1 (fs [wordSemTheory.state_component_equality])
+  \\ ntac 5 (once_rewrite_tac [list_Seq_def])
+  \\ fs [eq_eval,wordSemTheory.mem_store_def]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ fs [MULT_CLAUSES,GSYM word_add_n2w]
+  \\ qmatch_goalsub_abbrev_tac `(MemCopy_code,s5)`
+  \\ first_x_assum (qspecl_then [`a1 + bytes_in_word`,
+      `a2 + bytes_in_word`,`s5`] mp_tac)
+  \\ qunabbrev_tac `s5` \\ fs [lookup_insert,ADD1]);
+
+val assign_ConsExtend = save_thm("assign_ConsExtend",
+  ``assign c n l dest (ConsExtend tag) args names_opt``
+  |> SIMP_CONV (srw_ss()) [assign_def])
 
 val get_vars_IMP_domain = store_thm("get_vars_IMP_domain",
   ``!xs s y.
@@ -5785,6 +5783,26 @@ val get_vars_delete_lemma = store_thm("get_vars_delete_lemma",
                        (insert 1 x1 s1.locals)))) =
       get_vars (MAP adjust_var t7) s1``,
   Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,eq_eval]);
+
+val cut_env_adjust_set_insert_ODD = store_thm("cut_env_adjust_set_insert_ODD",
+  ``ODD n ==> cut_env (adjust_set the_names) (insert n w s) =
+              cut_env (adjust_set the_names) s``,
+  reverse (rw [wordSemTheory.cut_env_def] \\ fs [SUBSET_DEF])
+  \\ res_tac \\ fs []
+  THEN1 (rveq \\ fs [domain_lookup,lookup_adjust_set]
+         \\ every_case_tac \\ fs [])
+  \\ fs [lookup_inter_alt,lookup_insert]
+  \\ rw [] \\ pop_assum mp_tac
+  \\ simp [domain_lookup,lookup_adjust_set]
+  \\ rw [] \\ fs []);
+
+val INTRO_IS_SOME = store_thm("INTRO_IS_SOME",
+  ``(?v. x = SOME v) <=> IS_SOME x``,
+  Cases_on `x` \\ fs []);
+
+val ZERO_IN_adjust_set = store_thm("ZERO_IN_adjust_set",
+  ``0 ∈ domain (adjust_set the_names)``,
+  fs [domain_lookup,lookup_adjust_set]);
 
 val th = Q.store_thm("assign_ConsExtend",
   `(?tag.
@@ -6009,7 +6027,6 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ fs [] \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma]
   \\ fs [Abbr `s3`,eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
-  \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ `(4 * len) < dimword (:α)` by
        (fs [dimword_def,good_dimindex_def,Abbr `tot_len`] \\ rfs [] \\ fs [])
   \\ simp []
@@ -6041,16 +6058,23 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ first_x_assum (qspec_then `p_1` mp_tac)
     \\ IF_CASES_TAC \\ fs []
     \\ first_x_assum (qspec_then `(p_1 − 2) DIV 2` mp_tac)
-
-    \\ cheat)
-
+    \\ fs [cut_env_def] \\ rveq \\ fs []
+    \\ fs [domain_lookup,lookup_adjust_set]
+    \\ rfs [lookup_inter_alt])
   \\ rpt_drule memory_rel_store_list_to_unused \\ strip_tac
-  \\ `encode_header c (4 * tag) tot_len = SOME full_header` by cheat
-
+  \\ `encode_header c (4 * tag) tot_len = SOME full_header` by
+   (fs [encode_header_def,make_header_def,Abbr `full_header`]
+    \\ `n2w (4 * tot_len):'a word = n2w tot_len << 2` by
+          fs [WORD_MUL_LSL,word_mul_n2w]
+    \\ `2 + (dimindex (:α) − (c.len_size + 2)) = dimindex (:α) − c.len_size` by
+         fs [memory_rel_def,heap_in_memory_store_def]
+    \\ fs [] \\ unabbrev_all_tac \\ fs []
+    \\ fs [good_dimindex_def] \\ rfs [dimword_def] \\ fs [])
   \\ rfs [get_vars_delete_lemma] \\ rveq \\ fs []
   \\ Cases_on `len = 0` \\ fs []
   THEN1
-   (fs [state_rel_thm,FAPPLY_FUPDATE_THM,lookup_insert,adjust_var_11]
+   (once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
+    \\ fs [state_rel_thm,FAPPLY_FUPDATE_THM,lookup_insert,adjust_var_11]
     \\ fs [inter_insert_ODD_adjust_set]
     \\ conj_tac THEN1 (rw [] \\ fs [])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -6072,6 +6096,78 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ rewrite_tac [GSYM SEP_IMP_def,GSYM STAR_ASSOC]
     \\ match_mp_tac SEP_IMP_STAR
     \\ fs [SEP_IMP_REFL] \\ fs [SEP_IMP_def,SEP_T_def])
+  \\ fs [list_Seq_def]
+  \\ `?the_names. names_opt = SOME the_names` by
+      (Cases_on `names_opt` \\ fs [EVAL ``op_requires_names (ConsExtend tag)``])
+  \\ rveq \\ fs [get_names_def,cut_state_opt_def]
+  \\ `lookup MemCopy_location s1.code = SOME (5,MemCopy_code)` by
+     (qpat_x_assum `code_rel c _ s1.code` mp_tac
+      \\ simp [code_rel_def,stubs_def])
+  \\ `s1.termdep <> 0` by
+   (imp_res_tac wordSemTheory.evaluate_clock \\ fs []
+    \\ unabbrev_all_tac \\ fs [])
+  \\ fs [eq_eval] \\ pop_assum kall_tac
+  \\ fs [cut_env_adjust_set_insert_ODD]
+  \\ `?the_env. cut_env (adjust_set the_names) s1.locals = SOME the_env` by
+   (simp [wordSemTheory.cut_env_def,domain_lookup,SUBSET_DEF,
+          lookup_adjust_set]
+    \\ rpt strip_tac
+    \\ rename1 `(if (name = _) then _ else _) = _`
+    \\ Cases_on `name = 0` \\ fs []
+    \\ fs [ODD_EVEN]
+    \\ rpt_drule IMP_adjust_var
+    \\ disch_then (fn th => once_rewrite_tac [GSYM th])
+    \\ fs [INTRO_IS_SOME]
+    \\ first_x_assum match_mp_tac
+    \\ fs [cut_env_def,cut_state_def] \\ rveq
+    \\ Cases_on `domain the_names ⊆ domain s.locals` \\ fs [] \\ rveq \\ fs []
+    \\ fs [lookup_inter_alt]
+    \\ fs [SUBSET_DEF,domain_lookup] \\ res_tac \\ fs []
+    \\ qsuff_tac `((name − 2) DIV 2) IN domain nms`
+    THEN1 (fs [domain_lookup] \\ rw [] \\ fs [])
+    \\ fs [domain_list_insert,Abbr `nms`] \\ fs [domain_lookup])
+  \\ fs [] \\ simp [wordSemTheory.push_env_def]
+  \\ Cases_on `env_to_list the_env s1.permute` \\ fs []
+  \\ `n2w (4 * startptr) ≪ (shift (:α) − 2) =
+      n2w startptr * bytes_in_word :'a word` by
+    fs [good_dimindex_def,shift_def,bytes_in_word_def,word_mul_n2w,WORD_MUL_LSL]
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac
+    `insert 8 arg8 (insert 6 (Word arg6)
+                   (insert 4 (Word arg4) (insert 2 _ (insert 0 arg0 _))))`
+  \\ qmatch_goalsub_abbrev_tac `(MemCopy_code,s88)`
+  \\ `?m2. memcopy len arg4 arg6 m1 s1.mdomain = SOME m2` by
+       cheat (* difficult and needs to prove updated memory_rel *)
+  \\ rpt_drule MemCopy_thm
+  \\ disch_then (qspecl_then [`arg8`,`n`,`l`,`s88`] mp_tac)
+  \\ impl_tac THEN1
+   (unabbrev_all_tac \\ fs [wordSemTheory.get_var_def,lookup_insert]
+    \\ match_mp_tac LESS_EQ_TRANS
+    \\ qexists_tac `dimword (:α)`
+    \\ conj_tac THEN1 (fs [dimword_def,good_dimindex_def] \\ rfs [])
+    \\ fs [wordSemTheory.MustTerminate_limit_def])
+  \\ strip_tac \\ fs [] \\ pop_assum kall_tac
+  \\ qunabbrev_tac `s88` \\ fs [wordSemTheory.pop_env_def]
+  \\ `domain (fromAList q) = domain the_env` by
+   (drule env_to_list_lookup_equiv
+    \\ fs [EXTENSION,domain_lookup,lookup_fromAList]) \\ fs []
+  \\ fs [state_rel_thm]
+  \\ conj_tac THEN1
+   (drule env_to_list_lookup_equiv
+    \\ fs [lookup_insert,lookup_fromAList]
+    \\ fs [wordSemTheory.cut_env_def] \\ rveq \\ res_tac
+    \\ fs [cut_state_def,cut_env_def] \\ rveq
+    \\ simp [lookup_inter_alt,ZERO_IN_adjust_set])
+  \\ conj_tac THEN1
+   (drule env_to_list_lookup_equiv
+    \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
+    \\ rw [] \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.cut_env_def] \\ rveq \\ res_tac
+    \\ fs [cut_state_def,cut_env_def] \\ rveq
+    \\ Cases_on `domain the_names ⊆ domain s.locals` \\ fs [] \\ rveq
+    \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
+    \\ rw [] \\ fs [])
+  \\ simp [FAPPLY_FUPDATE_THM]
 
   \\ cheat);
 
