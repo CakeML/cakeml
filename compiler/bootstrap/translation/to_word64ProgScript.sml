@@ -720,6 +720,7 @@ val _ = translate(Sub_code_def|> conv64)
 val _ = translate(Mul_code_def|> conv64)
 val _ = translate(Div_code_def|> conv64)
 val _ = translate(Mod_code_def|> conv64)
+val _ = translate(MemCopy_code_def|> inline_simp |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)
