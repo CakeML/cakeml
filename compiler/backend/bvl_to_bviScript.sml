@@ -303,8 +303,11 @@ val default_config_def = Define`
 
 val compile_def = Define `
   compile start n c prog =
-    compile_prog start n
-      (optimise c.split_main_at_seq c.exp_cut
-         (bvl_inline$compile_prog c.inline_size_limit prog))`;
+    let (loc, code, n1) = 
+      compile_prog start n
+        (optimise c.split_main_at_seq c.exp_cut
+           (bvl_inline$compile_prog c.inline_size_limit prog)) in
+    let (n2, code') = bvi_tailrec$compile_prog n1 code in
+      (loc, code', n2)`;
 
 val _ = export_theory();

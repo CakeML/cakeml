@@ -10,6 +10,18 @@ local open
   bvi_tailrecProofTheory
 in end;
 
+(*
+open preamble
+open bvlSemTheory bvlPropsTheory
+open bvl_to_bviTheory
+open bviSemTheory bviPropsTheory;
+open bvl_constProofTheory
+open bvl_handleProofTheory
+open bvi_letProofTheory
+open bvl_inlineProofTheory
+open bvi_tailrecProofTheory
+*)
+
 val _ = new_theory"bvl_to_bviProof";
 
 val _ = Parse.hide"str";
@@ -2989,6 +3001,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
   srw_tac[][compile_def]
+  \\ fs [LET_THM]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ drule (GEN_ALL compile_prog_semantics)
   \\ fs [MAP_FST_optimise,bvl_inlineProofTheory.MAP_FST_compile_prog]
   \\ disch_then (qspec_then `ffi0` mp_tac)
@@ -3001,7 +3015,19 @@ val compile_semantics = Q.store_thm("compile_semantics",
         `MAP (λx. compile_any limit.split_main_at_seq limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
     \\ fs [handle_ok_def]
     \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
-  \\ metis_tac [optimise_semantics,
+  \\ impl_tac
+  >- metis_tac 
+      [optimise_semantics, 
+       bvl_inlineProofTheory.compile_prog_semantics]
+  \\ strip_tac
+  \\ `ALL_DISTINCT (MAP FST code)` by cheat (* TODO *)
+  \\ `EVERY (free_names n1 o FST) code` by cheat (* TODO *)
+  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_semantics)
+  \\ disch_then drule
+  \\ simp [bvi_tailrecTheory.compile_prog_def]
+  \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
+  \\ metis_tac 
+      [optimise_semantics, 
        bvl_inlineProofTheory.compile_prog_semantics]);
 
 val _ = export_theory();
