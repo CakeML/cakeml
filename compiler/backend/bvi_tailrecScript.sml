@@ -148,21 +148,28 @@ val rewrite_op_def = tDefine "rewrite_op" `
   \\ drule exp_size_get_bin_args
   \\ fs []);
 
+(* The bool in `(bool * assoc_op) option` tells us if the
+   right-side expression `x2` in `If p x1 x2` returned some
+   assoc_op when `tail_is_ok name x2` was called *)
 val tail_is_ok_def = Define `
   (tail_is_ok name (Var _)        = NONE) ∧
   (tail_is_ok name (Let _ x1)     = tail_is_ok name x1) ∧
   (tail_is_ok name (Tick x1)      = tail_is_ok name x1) ∧
   (tail_is_ok name (Raise x1)     = NONE) ∧
   (tail_is_ok name (If _ x2 x3)   =
-    case tail_is_ok name x2 of
-    | SOME op => SOME op
-    | _       => tail_is_ok name x3) ∧
+    let inl = tail_is_ok name x2 in
+    let inr = tail_is_ok name x3 in
+      (case (inl, inr) of
+        (NONE         , NONE)          => NONE
+      | (SOME (_, iop), NONE)          => SOME (F, iop)
+      | (NONE         , SOME (_, iop)) => SOME (T, iop)
+      | (SOME (_, iop), SOME (_, _))   => SOME (T, iop))) ∧
   (tail_is_ok name (Call _ _ _ _) = NONE) ∧
   (tail_is_ok name (Op op xs)     =
     if op = Add ∨ op = Mult then
       let iop = from_op op in
         (case rewrite_op iop name (Op op xs) of
-        | (T, _) => SOME iop
+        | (T, _) => SOME (F, iop)
         | _ => NONE)
     else NONE)`;
 
@@ -228,8 +235,8 @@ val mk_aux_call_def = Define `
 val compile_exp_def = Define `
   compile_exp n name num_args exp =
     case check_exp name exp of
-      NONE => NONE
-    | SOME op =>
+      NONE         => NONE
+    | SOME (_, op) =>
       let (_, opt) = rewrite_tail n op name num_args exp in
       let aux = let_wrap num_args (id_from_op op) opt in
         SOME (aux, opt)
