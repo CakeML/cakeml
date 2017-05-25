@@ -439,6 +439,10 @@ val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv64);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (BignumHalt_def |> inline_simp |> conv64);
+val _ = translate (AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
+val _ = translate (Maxout_bits_code_def |> conv64)
+val _ = translate (Make_ptr_bits_code_def |> inline_simp |> conv64)
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
@@ -701,9 +705,6 @@ val word_to_word_compile_side = Q.prove(`
      word_to_word_full_compile_single_side,
      word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
-val _ = translate(Maxout_bits_code_def |> conv64)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
 val _ = translate(FromList_code_def |> conv64 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv64)
 val _ = translate(MakeBytes_def |> conv64)
