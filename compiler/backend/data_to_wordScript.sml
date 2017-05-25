@@ -876,6 +876,7 @@ local val assign_quotation = `
                    Assign 13 (Op Add [Var 1;
                      Const (bytes_in_word * n2w (LENGTH rest + 1))]);
                    Assign 11 (Op Add [real_addr c (adjust_var old);
+                     Const bytes_in_word;
                      ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
                    If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
                      MustTerminate

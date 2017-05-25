@@ -5804,11 +5804,116 @@ val ZERO_IN_adjust_set = store_thm("ZERO_IN_adjust_set",
   ``0 ∈ domain (adjust_set the_names)``,
   fs [domain_lookup,lookup_adjust_set]);
 
-val th = Q.store_thm("assign_ConsExtend",
-  `(?tag.
-  op = ConsExtend tag) ==>
-  ^assign_thm_goal`,
+val IN_domain_adjust_set_inter = store_thm("IN_domain_adjust_set_inter",
+  ``x ∈ domain (adjust_set (inter s1 s2)) <=>
+    x ∈ domain (adjust_set s1) /\
+    x ∈ domain (adjust_set s2)``,
+  fs [domain_lookup,lookup_adjust_set]
+  \\ rw [] \\ fs [lookup_inter] \\ rfs []
+  \\ every_case_tac \\ fs []);
 
+val STAR_fun2set_IMP_SEP_T = store_thm("STAR_fun2set_IMP_SEP_T",
+  ``(p * q) (fun2set (m, dm)) ==> (p * SEP_T) (fun2set (m, dm))``,
+  qspec_tac (`fun2set (m, dm)`,`s`)
+  \\ fs [GSYM SEP_IMP_def] \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+  \\ match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]
+  \\ EVAL_TAC \\ fs []);
+
+val IMP_memcopy_lemma = store_thm("IMP_memcopy_lemma",
+  ``memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
+      ((Block n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
+    startptr < LENGTH l' /\ LENGTH ys7 = LENGTH ws1 /\ good_dimindex (:α) /\
+    lookup (adjust_var a1) s1.locals = SOME (Word (w_ptr:'a word)) /\
+    word_exp s1 (real_addr c (adjust_var a1)) = SOME (Word wx) ==>
+    memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
+      ((Block n' l',Word w_ptr)::
+       (ZIP (ys7 ++ [EL startptr l'],
+        ws1 ++ [m1 (wx + bytes_in_word + bytes_in_word * n2w startptr)]) ++ vars)) /\
+    (wx + bytes_in_word + bytes_in_word * n2w startptr) IN s1.mdomain``,
+  strip_tac \\ fs [GSYM SNOC_APPEND,ZIP_SNOC] \\ fs [SNOC_APPEND]
+  \\ rpt_drule memory_rel_Block_IMP
+  \\ fs [GSYM LENGTH_NIL] \\ strip_tac
+  \\ `word_exp s1 (real_addr c (adjust_var a1)) = SOME (Word a)` by
+   (match_mp_tac (GEN_ALL get_real_addr_lemma)
+    \\ fs [wordSemTheory.get_var_def]
+    \\ fs [heap_in_memory_store_def,memory_rel_def])
+  \\ fs [] \\ rveq \\ fs []
+  \\ `small_int (:'a) (& startptr)` by
+    (fs [small_int_def,good_dimindex_def,dimword_def] \\ rfs [])
+  \\ rpt_drule (RW1 [CONJ_COMM] (RW [CONJ_ASSOC] IMP_memory_rel_Number))
+  \\ strip_tac
+  \\ imp_res_tac memory_rel_swap
+  \\ drule memory_rel_El
+  \\ `get_real_offset (Smallnum (&startptr)) =
+      SOME (bytes_in_word + n2w startptr * bytes_in_word)` by
+    fs [Smallnum_def,get_real_offset_def,good_dimindex_def,
+        bytes_in_word_def,word_mul_n2w,WORD_MUL_LSL]
+  \\ fs [] \\ rpt strip_tac \\ pop_assum mp_tac
+  \\ match_mp_tac memory_rel_rearrange
+  \\ fs [] \\ rw[] \\ fs[]);
+
+val IMP_memcopy = store_thm("IMP_memcopy",
+  ``!len startptr m1 m2 ws1 ys7 k.
+      memory_rel c s1.be x.refs sp s1.store m1 s1.mdomain
+        ((Block n' l',Word w_ptr)::(ZIP (ys7,ws1) ++ vars)) /\
+      (word_list nfree (Word full_header::ws1) *
+       word_list_exists
+         (nfree + bytes_in_word * n2w (SUC (LENGTH ws1))) k * other)
+           (fun2set (m1,s1.mdomain)) /\ len <= k /\ good_dimindex (:α) /\
+      lookup (adjust_var a1) s1.locals = SOME (Word (w_ptr:'a word)) /\
+      word_exp s1 (real_addr c (adjust_var a1)) = SOME (Word wx) /\
+      FLOOKUP s1.store NextFree = SOME (Word nfree) /\
+      startptr + len <= LENGTH l' /\
+      LENGTH ws1 + len < sp /\
+      LENGTH ys7 = LENGTH ws1 ==>
+      ∃m2 ws2.
+        memcopy len (wx + bytes_in_word + bytes_in_word * n2w startptr)
+          (nfree + bytes_in_word * n2w (LENGTH ws1 + 1)) m1 s1.mdomain =
+          SOME m2 ∧
+        (word_list nfree (Word full_header::(ws1 ++ ws2)) * SEP_T)
+          (fun2set (m2,s1.mdomain)) ∧
+        LENGTH ws2 = len ∧
+        memory_rel c s1.be x.refs sp s1.store m2 s1.mdomain
+          (ZIP (ys7 ++ TAKE len (DROP startptr l'),ws1 ++ ws2) ++ vars)``,
+  Induct \\ simp [Once memcopy_def,LENGTH_NIL] THEN1
+   (rpt strip_tac \\ full_simp_tac std_ss [GSYM STAR_ASSOC]
+    THEN1 imp_res_tac STAR_fun2set_IMP_SEP_T
+    \\ imp_res_tac memory_rel_tl \\ fs [])
+  \\ rpt gen_tac
+  \\ Cases_on `k` \\ fs []
+  \\ fs [word_list_exists_thm,SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+  \\ rpt strip_tac \\ fs [ADD1]
+  \\ SEP_W_TAC \\ SEP_R_TAC
+  \\ qmatch_goalsub_abbrev_tac `memcopy _ _ _ m4`
+  \\ qabbrev_tac `xx = m1 (wx + bytes_in_word + bytes_in_word * n2w startptr)`
+  \\ `startptr < LENGTH l'` by fs []
+  \\ rpt_drule IMP_memcopy_lemma
+  \\ strip_tac
+  \\ `memory_rel c s1.be x.refs sp s1.store m4 s1.mdomain
+         ((Block n' l',Word w_ptr)::
+              (ZIP (ys7 ++ [EL startptr l'],ws1 ++ [xx]) ++ vars))` by
+   (rpt_drule memory_rel_write \\ fs []
+    \\ disch_then (qspecl_then [`xx`,`LENGTH ws1 + 1`] mp_tac) \\ fs [])
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then (qspecl_then [`startptr + 1`,`n`] mp_tac)
+  \\ impl_tac THEN1
+   (fs [word_list_def,word_list_APPEND,SEP_CLAUSES]
+    \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB, AC STAR_COMM STAR_ASSOC])
+  \\ simp [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ strip_tac \\ simp []
+  \\ qexists_tac `[xx] ++ ws2` \\ fs []
+  \\ drule LESS_LENGTH
+  \\ strip_tac \\ fs [] \\ rveq \\ fs []
+  \\ `LENGTH ys1 + 1 = LENGTH (ys1 ++ [y])` by fs []
+  \\ full_simp_tac std_ss [DROP_LENGTH_APPEND]
+  \\ full_simp_tac std_ss [DROP_LENGTH_APPEND,GSYM APPEND_ASSOC]
+  \\ `EL (LENGTH ys1) (ys1 ++ [y] ++ ys2) = y` by
+     full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC,EL_LENGTH_APPEND,NULL,HD]
+  \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ fs [])
+  |> SPEC_ALL |> GEN_ALL;
+
+val th = Q.store_thm("assign_ConsExtend",
+  `(?tag. op = ConsExtend tag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -6136,8 +6241,31 @@ val th = Q.store_thm("assign_ConsExtend",
     `insert 8 arg8 (insert 6 (Word arg6)
                    (insert 4 (Word arg4) (insert 2 _ (insert 0 arg0 _))))`
   \\ qmatch_goalsub_abbrev_tac `(MemCopy_code,s88)`
-  \\ `?m2. memcopy len arg4 arg6 m1 s1.mdomain = SOME m2` by
-       cheat (* difficult and needs to prove updated memory_rel *)
+  \\ sg `?m2 ws2.
+              memcopy len arg4 arg6 m1 s1.mdomain = SOME m2 /\
+              (word_list nfree (Word full_header::(ws1 ++ ws2)) * SEP_T)
+                (fun2set (m2,s1.mdomain)) /\ LENGTH ws2 = len /\
+              memory_rel c s1.be x.refs (len + (LENGTH ys3 + 1)) s1.store m2
+               s1.mdomain
+               ((ZIP (ys7 ++ TAKE len (DROP startptr l'),ws1 ++ ws2) ++
+                   join_env xx
+                     (toAList (inter s1.locals (adjust_set xx))) ++
+                   [(the_global x.global,s1.store ' Globals)] ++
+                   flat x.stack s1.stack))`
+  THEN1
+   (simp [Abbr`arg4`,Abbr`arg6`]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac IMP_memcopy \\ fs []
+    \\ qexists_tac `w_ptr`
+    \\ qexists_tac `other`
+    \\ qexists_tac `n'`
+    \\ qexists_tac `(len + (LENGTH ys3 + 1) − SUC (LENGTH ws1))`
+    \\ qexists_tac `a1`
+    \\ fs [] \\ rfs []
+    \\ qpat_x_assum `_ = SOME (Word wx)` (fn th => fs [GSYM th])
+    \\ rpt (pop_assum kall_tac)
+    \\ fs [real_addr_def] \\ rw []
+    \\ fs [eq_eval,FLOOKUP_UPDATE])
   \\ rpt_drule MemCopy_thm
   \\ disch_then (qspecl_then [`arg8`,`n`,`l`,`s88`] mp_tac)
   \\ impl_tac THEN1
@@ -6168,8 +6296,37 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ fs [] \\ fs [lookup_inter_alt,adjust_var_IN_adjust_set]
     \\ rw [] \\ fs [])
   \\ simp [FAPPLY_FUPDATE_THM]
-
-  \\ cheat);
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ sg `join_env xx (toAList (inter s1.locals (adjust_set xx))) =
+         join_env x.locals (toAList (inter (fromAList q) (adjust_set x.locals)))`
+  THEN1
+   (fs [wordSemTheory.cut_env_def] \\ rveq \\ res_tac
+    \\ fs [cut_state_def,cut_env_def] \\ rveq
+    \\ Cases_on `domain the_names ⊆ domain s.locals` \\ fs [] \\ rveq \\ fs []
+    \\ fs [join_env_def]
+    \\ match_mp_tac (METIS_PROVE [] ``f x = g x /\ x = y ==> f x = g y``)
+    \\ conj_tac THEN1
+     (fs [MAP_EQ_f,FORALL_PROD,MEM_FILTER,MEM_toAList,lookup_inter_alt]
+      \\ rpt strip_tac \\ rw [] \\ sg `F` \\ fs []
+      \\ pop_assum mp_tac \\ fs [Abbr `nms`,domain_list_insert])
+    \\ AP_TERM_TAC \\ AP_TERM_TAC
+    \\ fs [spt_eq_thm,lookup_inter_alt]
+    \\ rw [] \\ fs []
+    \\ drule env_to_list_lookup_equiv
+    \\ fs [lookup_insert,lookup_fromAList,adjust_var_11]
+    \\ rpt strip_tac \\ fs []
+    \\ fs [lookup_inter_alt] \\ rw []
+    \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
+    \\ qpat_x_assum `_ IN _` mp_tac
+    \\ fs [IN_domain_adjust_set_inter])
+  \\ fs [] \\ pop_assum kall_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule memory_rel_Cons_alt
+  \\ disch_then (qspecl_then [`tag`,`full_header`] mp_tac)
+  \\ reverse impl_tac
+  THEN1 fs [shift_lsl,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [Abbr `tot_len`] \\ CCONTR_TAC \\ fs [DROP_NIL]);
 
 val th = Q.store_thm("assign_Cons",
   `(?tag. op = Cons tag) ==> ^assign_thm_goal`,
