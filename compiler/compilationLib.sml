@@ -269,7 +269,7 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ["mod_prog","con_prog","dec_prog","exh_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
-fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
+fun compile_to_lab_x64 data_prog_x64_def to_data_thm lab_prog_name =
   let
     val cs = compilation_compset()
     val () =
@@ -729,7 +729,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              RAND_CONV(REWR_CONV stack_names_prog_def) THENC
              map_ths_conv ths)))
 
-      val lab_prog_def = mk_abbrev"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
+      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rand);
 
       val stack_to_lab_thm =
         stack_to_lab_thm4 |>
@@ -1386,15 +1386,18 @@ fun cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
     bootstrap_thm
   end
 
+val intermediate_prog_prefix = ref ""
+
 fun compile_x64 heap_size stack_size name prog_def =
   let
     val cs = compilation_compset()
     val conf_def = x64_backend_config_def
-    val data_prog_name = "data_prog_x64"
+    val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog_x64"
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
     val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
-    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
-    val lab_prog_def = definition(mk_abbrev_name"lab_prog")
+    val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
+    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm lab_prog_name
+    val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val result = cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
   in result end
   (*
