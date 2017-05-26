@@ -313,6 +313,7 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Tys
     [ (* ---- bvi ---- *)
      ``:bvi$exp``
+    ,``:bvi_tailrec$assoc_op``
     ]
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
