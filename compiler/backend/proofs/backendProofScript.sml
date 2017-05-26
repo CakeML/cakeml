@@ -182,7 +182,8 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
   \\ CASE_TAC \\ fs [] THEN1
-   (fs [init_store_ok_def,FUPDATE_LIST,stack_removeTheory.store_list_def,
+   (fs [data_to_word_gcProofTheory.init_store_ok_def,FUPDATE_LIST,
+        stack_removeTheory.store_list_def,
         FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
     \\ rw [] \\ qexists_tac `0` \\ fs [word_list_exists_def]
     \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
@@ -190,7 +191,8 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
     \\ EVAL_TAC)
   \\ fs [stack_removeProofTheory.make_init_opt_def]
   \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
-  \\ fs [init_store_ok_def,stack_removeProofTheory.init_prop_def]
+  \\ fs [data_to_word_gcProofTheory.init_store_ok_def,
+         stack_removeProofTheory.init_prop_def]
   \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
        stack_removeProofTheory.word_list_exists_ADD]
   \\ qexists_tac`len`
@@ -207,11 +209,12 @@ val full_init_pre_IMP_init_state_ok = Q.prove(
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ CASE_TAC \\ fs [] THEN1
-   (fs [init_state_ok_def,gc_fun_ok_word_gc_fun] \\ strip_tac
+   (fs [init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
+    \\ strip_tac
     \\ fs [FUPDATE_LIST,stack_removeTheory.store_list_def,FLOOKUP_UPDATE]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw []
-  \\ fs [init_state_ok_def,gc_fun_ok_word_gc_fun]
+  \\ fs [init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
   \\ `init_prop max_heap x /\ x.bitmaps = 4w::t` by
         (fs [stack_removeProofTheory.make_init_opt_def]
@@ -428,7 +431,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
        (MAP SND prog1))`,
-  fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
+  fs[data_to_word_gcProofTheory.code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC >-
     (fs[lookup_fromAList]
      \\ simp[ALOOKUP_APPEND]
@@ -951,7 +954,7 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        data_to_wordPropsTheory.aligned_add_pow]);
+        data_to_word_memoryProofTheory.aligned_add_pow]);
 
 val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
   `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
@@ -999,7 +1002,7 @@ val conf_constraint_def = Define`
          can prove that each backend's config is correct without
          requiring to build all the proofs. *)
 val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
-   (data_to_wordProof$conf_ok (:α) c.data_conf /\
+   (data_to_word_gcProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\
