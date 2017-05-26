@@ -17,8 +17,8 @@ val heap_mb = 1000
 val filename = "cake.S"
 
 val bootstrap_thm = save_thm("bootstrap_thm",
-  compilationLib.to_bytes_x64
-    lab_prog_def stack_to_lab_thm
+  compilationLib.cbv_to_bytes_x64
+    stack_to_lab_thm lab_prog_def
     heap_mb stack_mb filename);
 
 val _ = export_theory();

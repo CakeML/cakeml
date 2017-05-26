@@ -12,7 +12,7 @@ fun compilation_compset() =
       [computeLib.Extenders [
         basicComputeLib.add_basic_compset,
         semanticsComputeLib.add_ast_compset,
-        compilerComputeLib.add_compiler_compset,
+        backendComputeLib.add_backend_compset,
         asmLib.add_asm_compset ]
       ] cs
   in cs end;
@@ -20,7 +20,7 @@ fun compilation_compset() =
 val bare_compiler_cs = wordsLib.words_compset()
 val () =
   computeLib.extend_compset[
-    computeLib.Extenders[compilerComputeLib.add_compiler_compset]]
+    computeLib.Extenders[backendComputeLib.add_backend_compset]]
   bare_compiler_cs
 val bare_compiler_eval = computeLib.CBV_CONV bare_compiler_cs
 

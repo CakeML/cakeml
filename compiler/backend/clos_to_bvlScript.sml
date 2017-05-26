@@ -525,7 +525,7 @@ val default_config_def = Define`
     do_known := T;
     do_call := T;
     do_remove := T;
-    max_app := 4 |>`;
+    max_app := 10 |>`;
 
 val code_split_def = Define `
   (code_split [] xs ys = (xs,ys)) /\
