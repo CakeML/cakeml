@@ -1260,7 +1260,7 @@ val comp_correct = Q.prove(
     \\ Cases_on`res = TimeOut` \\ fs[]
     >- (
       strip_tac \\ rveq \\ fs[]
-      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
       \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
@@ -1275,7 +1275,7 @@ val comp_correct = Q.prove(
     \\ Cases_on`∃w. res = Halt w` \\ fs[]
     >- (
       strip_tac \\ rveq \\ fs[]
-      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
       \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
@@ -1312,7 +1312,7 @@ val comp_correct = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       strip_tac \\ rveq
-      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ ss _`
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ _ _ ss _`
       \\ (fn g => subterm (fn tm => (sg `state_rel jump off k ss (^tm with clock := s.clock - 1)`) g) (#2 g))
       >- (
         simp[Abbr`ss`,dec_clock_def]
