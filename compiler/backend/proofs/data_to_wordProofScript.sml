@@ -757,7 +757,7 @@ val extract_labels_MemEqList = store_thm("extract_labels_MemEqList[simp]",
   Induct_on `x`
   \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]);
 
-val data_to_word_lab_pres_lem = Q.prove(`
+val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
   ∀c n l p.
   l ≠ 0 ⇒
   let (cp,l') = comp c n l p in
@@ -795,7 +795,7 @@ val labels_rel_emp = Q.prove(`
   labels_rel [] ls ⇒ ls = [] `,
   fs[word_simpProofTheory.labels_rel_def]);
 
-val stub_labels = Q.prove(`
+val stub_labels = Q.store_thm("stub_labels",`
   EVERY (λ(n,m,p).
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p))
     (stubs (:'a) data_conf)`,
