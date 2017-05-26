@@ -757,6 +757,10 @@ val extract_labels_MemEqList = store_thm("extract_labels_MemEqList[simp]",
   Induct_on `x`
   \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]);
 
+val extract_labels_StoreEach = store_thm("extract_labels_StoreEach",
+  ``!xs a d. extract_labels (StoreEach a xs d) = []``,
+  Induct \\ fs [StoreEach_def,extract_labels_def]);
+
 val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
   ∀c n l p.
   l ≠ 0 ⇒
@@ -773,20 +777,16 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
     res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[])
   >-
-    (fs[assign_def,assign_def_extras]>>
-    Cases_on`o'`>>
-    fs[extract_labels_def,GiveUp_def]>>
-    BasicProvers.EVERY_CASE_TAC>>
-    fs[extract_labels_def,list_Seq_def]>>
-    qpat_abbrev_tac`A = 0w`>>
-    qpat_abbrev_tac`ls = 3n::rest`>>
-    rpt(pop_assum kall_tac)>>
-    qid_spec_tac`A`>>Induct_on`ls`>>
-    fs[StoreEach_def,extract_labels_def])
+    (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
+    Cases_on `opname`>>
+    TRY (fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
+      BasicProvers.EVERY_CASE_TAC>>
+      fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
+         Maxout_bits_code_def] >> NO_TAC))
   >>
-    (rpt (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
-    rw[]>>
-    res_tac>>fs[]>>
+    (rpt (pairarg_tac>>fs[])>>rveq>>
+          fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
+    rw[]>> res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]));
 
 open match_goal
@@ -865,8 +865,10 @@ val assign_no_inst = Q.prove(`
   fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    Maxout_bits_code_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
   every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    Maxout_bits_code_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
 
 val comp_no_inst = Q.prove(`
