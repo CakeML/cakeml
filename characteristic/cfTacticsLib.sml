@@ -5,7 +5,7 @@ open preamble
 open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let

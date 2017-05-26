@@ -26,16 +26,103 @@ open astSyntax
    generator/normalize.ml in the CFML sources.
 *)
 
-fun remove_Lannot e =
-  if is_Lannot e then fst (dest_Lannot e)
-  else e
+(* We first strip line & type annotations *)
+
+fun dest_triple tm = let
+  val (x, yz) = pairLib.dest_pair tm
+  val (y, z) = pairLib.dest_pair yz
+in (x, y, z) end
+
+fun mk_triple (t1, t2, t3) =
+  pairLib.mk_pair (t1, pairLib.mk_pair (t2, t3))
+
+fun strip_annot_pat p =
+  if is_Pvar p
+     orelse is_Plit p
+     orelse p = Pany
+  then
+      p
+  else if is_Pcon p then
+    let val (c, xs) = dest_Pcon p in
+    mk_Pcon (c, strip_annot_pats xs) end
+  else if is_Pref p then
+    let val p' = dest_Pref p in
+    mk_Pref (strip_annot_pats p') end
+  else if is_Ptannot p then
+    let val (p', _) = dest_Ptannot p in
+    strip_annot_pat p' end
+  else raise (ERR "unknown constructor" "strip_annot_pat")
+
+and strip_annot_pats tm = let
+  val (ps, ty) = listSyntax.dest_list tm
+  val ps' = map strip_annot_pat ps
+in listSyntax.mk_list (ps', ty) end
+
+fun strip_annot_exp tm =
+  if is_Raise tm then mk_Raise (strip_annot_exp (dest_Raise tm))
+  else if is_Handle tm then
+    let val (e, pes) = dest_Handle tm in
+    mk_Handle (strip_annot_exp e, strip_annot_pes pes) end
+  else if is_Lit tm orelse is_Var tm then tm
+  else if is_Con tm then
+    let val (cn, es) = dest_Con tm in
+    mk_Con (cn, strip_annot_exps es) end
+  else if is_Fun tm then
+    let val (x, e) = dest_Fun tm in
+    mk_Fun (x, strip_annot_exp e) end
+  else if is_App tm then
+    let val (op_, es) = dest_App tm in
+    mk_App (op_, strip_annot_exps es) end
+  else if is_Log tm then
+    let val (lop, e1, e2) = dest_Log tm in
+    mk_Log (lop, strip_annot_exp e1, strip_annot_exp e2) end
+  else if is_If tm then
+    let val (e1, e2, e3) = dest_If tm in
+    mk_If (strip_annot_exp e1, strip_annot_exp e2, strip_annot_exp e3) end
+  else if is_Mat tm then
+    let val (e, pes) = dest_Mat tm in
+    mk_Mat (strip_annot_exp e, strip_annot_pes pes) end
+  else if is_Let tm then
+    let val (xo, e1, e2) = dest_Let tm in
+    mk_Let (xo, strip_annot_exp e1, strip_annot_exp e2) end
+  else if is_Letrec tm then
+    let val (funs, e) = dest_Letrec tm in
+    mk_Letrec (strip_annot_funs funs, strip_annot_exp e) end
+  else if is_Tannot tm then
+    let val (e, _) = dest_Tannot tm in
+    strip_annot_exp e end
+  else if is_Lannot tm then
+    let val (e, _) = dest_Lannot tm in
+    strip_annot_exp e end
+  else raise (ERR "unknown constructor" "strip_annot_exp")
+
+and strip_annot_exps tm = let
+  val (es, ty) = listSyntax.dest_list tm
+  val es' = map strip_annot_exp es
+in listSyntax.mk_list (es', ty) end
+
+and strip_annot_pes tm = let
+  val (pes, ty) = listSyntax.dest_list tm
+  val pes' = map (fn tm => let
+      val (p, e) = pairLib.dest_pair tm
+      val (p', e') = (strip_annot_pat p, strip_annot_exp e)
+    in pairLib.mk_pair (p', e') end) pes
+in listSyntax.mk_list (pes', ty) end
+
+and strip_annot_funs tm = let
+  val (funs, ty) = listSyntax.dest_list tm
+  val funs' = map (fn tm => let
+      val (f,x,e) = dest_triple tm
+      val e' = strip_annot_exp e
+    in mk_triple (f, x, e') end) funs
+in listSyntax.mk_list (funs', ty) end
+
+(* The normalisation pass itself *)
 
 fun dest_opapp e = let
   val (app_op, args_tm) = dest_App e
   val _ = assert (curry op= Opapp) app_op
   val ([f, x], _) = listSyntax.dest_list args_tm
-  val f = remove_Lannot f
-  val x = remove_Lannot x
 in
   case dest_opapp f of
      SOME (f', args) => SOME (f', args @ [x])
@@ -92,7 +179,7 @@ fun record_pat_names record_var pat =
     record_pat_names record_var (dest_Pref pat)
   else if is_Ptannot pat then
    record_pat_names record_var (fst (dest_Ptannot pat))
-  else fail ()
+  else raise (ERR "unknown constructor" "record_pat_names")
 
 fun Lets [] body = body
   | Lets ((n,x) :: xs) body =
@@ -225,7 +312,7 @@ fun norm_exp gen e = let
     else if is_Lannot e then let
       val (e, _) = dest_Lannot e
     in norm is_named as_value e end
-    else fail ()
+    else raise (ERR "unknown constructor" "norm")
 
   and norm_list is_named as_value l_tm = let
     val (l, ty) = listSyntax.dest_list l_tm
@@ -272,19 +359,18 @@ fun norm_exp gen e = let
   in pairLib.mk_pair (row_pat, row_e') end
 
   and protect_letrec_branch is_named branch = let
-    val (f, p) = pairLib.dest_pair branch
-    val (x, body) = pairLib.dest_pair p
+    val (f, x, body) = dest_triple branch
     val _ = record_var f
     val _ = record_var x
     val body' = protect is_named body
-  in pairLib.mk_pair (f, pairLib.mk_pair (x, body')) end
+  in mk_triple (f, x, body') end
 
 in
   protect true e
 end
 
 fun normalise_exp e =
-  norm_exp (mk_names_generator ()) e
+  norm_exp (mk_names_generator ()) (strip_annot_exp e)
 
 fun normalise_decl d =
   if is_Dlet d then let
@@ -297,11 +383,10 @@ fun normalise_decl d =
     val gen = mk_names_generator ()
     fun record_var v = snd gen (stringLib.fromHOLstring v)
     val l' = List.map (fn fdecl => let
-      val (f, p) = pairLib.dest_pair fdecl
-      val (x, body) = pairLib.dest_pair p
+      val (f, x, body) = dest_triple fdecl
       val _ = (record_var f; record_var x)
-      val body' = norm_exp gen body
-    in pairLib.mk_pair (f, pairLib.mk_pair (x, body')) end) l
+      val body' = norm_exp gen (strip_annot_exp body)
+    in mk_triple (f, x, body') end) l
     val l'_tm = listSyntax.mk_list (l', l_ty)
   in mk_Dletrec (locs, l'_tm) end
   else d
