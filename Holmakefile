@@ -4,7 +4,8 @@ OPTIONS = QUIT_ON_FAILURE
 README_SOURCES = miscScript.sml COPYING developers build-instructions.sh lib.lem libScript.sml
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS = README.md $(patsubst %.sml,%.uo,$(THYFILES))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = README.md $(patsubst %.sml,%.uo,$(TARGETS0))
 all: $(TARGETS)
 .PHONY: all
 

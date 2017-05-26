@@ -1,4 +1,5 @@
 open preamble backend_commonTheory closLangTheory conLangTheory
+     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
 

@@ -182,7 +182,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   | res => res
   )))
 /\
-(evaluate_decs mn st env [Dlet p e]=  
+(evaluate_decs mn st env [Dlet locs p e]=  
  (if ALL_DISTINCT (pat_bindings p []) then
     (case evaluate st env [e] of
       (st', Rval v) =>
@@ -197,14 +197,14 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dletrec funs]= 
+(evaluate_decs mn st env [Dletrec locs funs]= 
   (st,   
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
      Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>
    else
      Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtype tds]=  
+(evaluate_decs mn st env [Dtype locs tds]=  
  (let new_tdecs = (type_defs_to_new_tdecs mn tds) in
     if check_dup_ctors tds /\
        DISJOINT new_tdecs st.defined_types /\
@@ -215,10 +215,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
     else
       (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtabbrev tvs tn t]= 
+(evaluate_decs mn st env [Dtabbrev locs tvs tn t]= 
   (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-(evaluate_decs mn st env [Dexn cn ts]=  
+(evaluate_decs mn st env [Dexn locs cn ts]=  
  (if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, Rerr (Rabort Rtype_error))
   else

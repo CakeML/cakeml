@@ -2766,7 +2766,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ `~(pp IN FDOM f2)` by full_simp_tac(srw_ss())[state_rel_def]
       \\ `~(qq IN FRANGE f2)` by
         (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[state_rel_def,SUBSET_DEF] \\ RES_TAC \\ NO_TAC)
-      \\ `FRANGE (f2 \\ pp) = FRANGE f2` by ALL_TAC THEN1
+      \\ `FRANGE (f2 \\ pp) = FRANGE f2` by
        (full_simp_tac(srw_ss())[FRANGE_DEF,finite_mapTheory.DOMSUB_FAPPLY_THM,EXTENSION]
         \\ METIS_TAC []) \\ full_simp_tac(srw_ss())[]
       \\ fs[list_CASE_same] \\ rveq
@@ -3474,7 +3474,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ IMP_RES_TAC build_aux_MEM \\ full_simp_tac(srw_ss())[]
       \\ rev_full_simp_tac(srw_ss())[LENGTH_MAP2]
       \\ REPEAT STRIP_TAC
-      \\ `i < LENGTH ll + 1` by ALL_TAC THEN1
+      \\ `i < LENGTH ll + 1` by
        (IMP_RES_TAC compile_exps_LENGTH \\ full_simp_tac(srw_ss())[LENGTH_APPEND]
         \\ DECIDE_TAC)
       \\ RES_TAC
@@ -3489,7 +3489,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ FIRST_X_ASSUM (qspecl_then [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
        `MAP2 (\n args. Block closure_tag [CodePtr (x + num_stubs s.max_app + 2*n); Number &(args-1); RefPtr rr])
           (GENLIST I (LENGTH (ll:(num#closLang$exp) list) + 1)) (MAP FST ll ++ [FST (x'':(num#closLang$exp))]) ++ env''`,`f1`] mp_tac)
-    \\ `~(rr IN FDOM t1.refs)` by ALL_TAC THEN1
+    \\ `~(rr IN FDOM t1.refs)` by
      (UNABBREV_ALL_TAC
       \\ SIMP_TAC std_ss [FDIFF_def,SUBMAP_DEF]
       \\ full_simp_tac(srw_ss())[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]

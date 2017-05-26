@@ -1,4 +1,5 @@
 open preamble modLangTheory;
+open semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory "modSem"
 
@@ -393,6 +394,8 @@ val do_if_either_or = Q.store_thm("do_if_is_ether_or",
 
 val pmatch_def = tDefine"pmatch"`
 (pmatch envC s (Pvar x) v' env = (Match ((x,v') :: env)))
+/\
+(pmatch envC s Pany v' env = Match env)
 /\
 (pmatch envC s (Plit l) (Litv l') env =
 (if l = l' then

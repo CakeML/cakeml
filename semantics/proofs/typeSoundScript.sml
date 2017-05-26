@@ -529,6 +529,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
  op ≠ Opapp ∧
  type_s ctMap store tenvS ∧
  type_op op ts t ∧
+ check_freevars 0 [] t ∧
  LIST_REL (type_v 0 ctMap tenvS) vs (REVERSE ts)
  ⇒
  ?tenvS' store' ffi' r.
@@ -736,6 +737,25 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> simp [type_v_exn, prim_exn_def]
    >- metis_tac [store_type_extension_refl]
    >> simp [Once type_v_cases]
+   >> metis_tac [store_type_extension_refl, type_v_freevars])
+ >> TRY ( (* Empty array alloc *)
+   rename1`Tapp [t1] TC_array` >>
+   `type_sv ctMap tenvS (Varray []) (Varray_t t1)`
+     by rw [type_sv_def]
+   >> drule store_alloc_type_sound
+   >> rpt (disch_then drule)
+   >> rw []
+   >> simp [Once type_v_cases]
+   >> fs [check_freevars_def]
+   >> rename1 `type_v _ _ _ v (Tapp [] TC_tup)`
+   >> `v = Conv NONE []`
+     by (
+       qpat_x_assum `type_v _ _ _ _ (Tapp [] TC_tup)` mp_tac >>
+       simp [Once type_v_cases] >>
+       rw [Tchar_def, tid_exn_to_tc_def]
+       >- (Cases_on `tn` >> fs []) >>
+       imp_res_tac type_funs_Tfn >>
+       fs [])
    >> metis_tac [store_type_extension_refl, type_v_freevars])
  >> TRY ( (* Array lookup *)
    qpat_x_assum `type_v _ _ _ (Loc _) _` mp_tac

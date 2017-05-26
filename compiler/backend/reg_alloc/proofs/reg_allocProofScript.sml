@@ -45,14 +45,14 @@ val lookup_dir_g_insert_correct = Q.prove(`
     srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
     Cases_on`x'=x`>>full_simp_tac(srw_ss())[]>>
     full_case_tac>>
-    full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def])
+    full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def]);
 
 val undir_g_insert_domain = Q.store_thm("undir_g_insert_domain",`
   domain (undir_g_insert x y G) =
   {x;y} ∪ domain G`,
   srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
   full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>
-  metis_tac[])
+  metis_tac[]);
 
 val list_g_insert_domain = Q.prove(`
   ∀ls.
@@ -61,7 +61,7 @@ val list_g_insert_domain = Q.prove(`
   Induct>>full_simp_tac(srw_ss())[list_g_insert_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[EXTENSION,undir_g_insert_domain]>>
   every_case_tac>>full_simp_tac(srw_ss())[domain_insert,domain_lookup,lookup_insert]>>
-  metis_tac[])
+  metis_tac[]);
 
 val clique_g_insert_domain = Q.prove(`
   ∀ls.
@@ -69,7 +69,7 @@ val clique_g_insert_domain = Q.prove(`
   domain G ∪ set ls`,
   Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
   full_simp_tac(srw_ss())[list_g_insert_domain]>>
-  srw_tac[][EXTENSION]>>metis_tac[])
+  srw_tac[][EXTENSION]>>metis_tac[]);
 
 val list_g_insert_correct = Q.prove(`
   ∀ls x g.
@@ -83,7 +83,7 @@ val list_g_insert_correct = Q.prove(`
     (full_simp_tac(srw_ss())[lookup_g_def]>>every_case_tac>>full_simp_tac(srw_ss())[lookup_insert]>>
     every_case_tac>>full_simp_tac(srw_ss())[]>>qpat_x_assum`LN = x'` (SUBST_ALL_TAC o SYM)>>
     full_simp_tac(srw_ss())[lookup_def])>>
-  metis_tac[lookup_dir_g_insert_correct])
+  metis_tac[lookup_dir_g_insert_correct]);
 
 val clique_g_insert_correct = Q.prove(`
   !ls x g.
@@ -93,7 +93,7 @@ val clique_g_insert_correct = Q.prove(`
       lookup_g u v g' = ((MEM u ls ∧ MEM v ls ∧ u ≠ v)
                       ∨ lookup_g u v g)`,
   Induct>>srw_tac[][clique_g_insert_def]>>
-  unabbrev_all_tac>>metis_tac[list_g_insert_correct])
+  unabbrev_all_tac>>metis_tac[list_g_insert_correct]);
 
 (*Cliques in sp_g*)
 val sp_g_is_clique_def = Define`
@@ -119,7 +119,7 @@ val clique_g_insert_is_clique = Q.prove(`
   TRY (metis_tac[list_g_insert_correct,list_g_insert_domain])
   >>
     full_simp_tac(srw_ss())[sp_g_is_clique_def]>>
-    metis_tac[list_g_insert_correct])
+    metis_tac[list_g_insert_correct]);
 
 val clique_g_insert_preserves_clique = Q.prove(`
   !ls g ls'.
@@ -129,7 +129,7 @@ val clique_g_insert_preserves_clique = Q.prove(`
   Induct>>
   srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
   fs[clique_g_insert_domain,SUBSET_DEF]>>
-  metis_tac[clique_g_insert_correct])
+  metis_tac[clique_g_insert_correct]);
 
 val clash_sets_clique = Q.store_thm("clash_sets_clique",`
   ∀ls x.
@@ -138,7 +138,7 @@ val clash_sets_clique = Q.store_thm("clash_sets_clique",`
   Induct>>full_simp_tac(srw_ss())[clash_sets_to_sp_g_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   metis_tac[clique_g_insert_is_clique
-           ,clique_g_insert_preserves_clique,ALL_DISTINCT_MAP_FST_toAList])
+           ,clique_g_insert_preserves_clique,ALL_DISTINCT_MAP_FST_toAList]);
 
 val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques",`
   ∀ls g (f:num->num).
@@ -158,7 +158,7 @@ val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques
     res_tac>>full_simp_tac(srw_ss())[LET_THM]>>
     Cases_on`lookup y g`>>full_simp_tac(srw_ss())[])
   >>
-    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[])
+    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]);
 
 (*Final colouring conventions*)
 val colouring_conventional_def = Define`
@@ -202,7 +202,7 @@ val aux_pref_satisfactory = Q.prove(`
   full_simp_tac(srw_ss())[satisfactory_pref_def,aux_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>
   Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[])
+  metis_tac[]);
 
 val first_match_col_mem = Q.prove(`
   ∀ls.
@@ -210,7 +210,7 @@ val first_match_col_mem = Q.prove(`
   ⇒ MEM x cand`,
   Induct>>srw_tac[][first_match_col_def]>>
   Cases_on`h`>>full_simp_tac(srw_ss())[first_match_col_def,LET_THM]>>
-  every_case_tac>>rev_full_simp_tac(srw_ss())[])
+  every_case_tac>>rev_full_simp_tac(srw_ss())[]);
 
 val move_pref_satisfactory = Q.prove(`
   ∀moves.
@@ -218,21 +218,21 @@ val move_pref_satisfactory = Q.prove(`
   full_simp_tac(srw_ss())[satisfactory_pref_def,move_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>Cases_on`ls`>>full_simp_tac(srw_ss())[]>>
   imp_res_tac first_match_col_mem>>
-  full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[]);
 
 val aux_move_pref_satisfactory = Q.prove(`
   ∀prefs moves.
   satisfactory_pref (aux_move_pref prefs moves)`,
   full_simp_tac(srw_ss())[satisfactory_pref_def,aux_move_pref_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>
-  metis_tac[aux_pref_satisfactory,move_pref_satisfactory,satisfactory_pref_def])
+  metis_tac[aux_pref_satisfactory,move_pref_satisfactory,satisfactory_pref_def]);
 
 val id_colour_lemma = Q.prove(`
   ∀ls.
   let t = id_colour ls in
   domain t = set ls ∧
   ∀x. (MEM x ls ⇒ lookup x t = SOME x)`,
-  Induct>>full_simp_tac(srw_ss())[id_colour_def,LET_THM,lookup_insert]>>srw_tac[][])
+  Induct>>full_simp_tac(srw_ss())[id_colour_def,LET_THM,lookup_insert]>>srw_tac[][]);
 
 (*alloc_colouring_aux never overwrites an old colouring*)
 val alloc_colouring_aux_never_overwrites_col = Q.prove(`
@@ -247,7 +247,7 @@ val alloc_colouring_aux_never_overwrites_col = Q.prove(`
     metis_tac[]
   >>
   every_case_tac>>full_simp_tac(srw_ss())[]>>TRY(metis_tac[])>>
-  res_tac>>full_simp_tac(srw_ss())[lookup_insert])
+  res_tac>>full_simp_tac(srw_ss())[lookup_insert]);
 
 val alloc_colouring_aux_never_overwrites_spill = Q.prove(`
   ∀xs spill col spill' col'.
@@ -258,7 +258,7 @@ val alloc_colouring_aux_never_overwrites_spill = Q.prove(`
   Induct>>full_simp_tac(srw_ss())[alloc_colouring_aux_def,assign_colour_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   TRY(`MEM x (h::spill')` by (full_simp_tac(srw_ss())[]>>NO_TAC))>>
-  metis_tac[])
+  metis_tac[]);
 
 (*Coloring satisfactory but restricted to a partial colouring
   i.e. only talk about the subgraph induced by the vertices
@@ -294,7 +294,7 @@ val remove_colours_removes = Q.prove(`
     res_tac>>
     Cases_on`h'=x'`>>full_simp_tac(srw_ss())[]>>
     first_x_assum(qspec_then`y` assume_tac)>>
-    Cases_on`y=h`>>full_simp_tac(srw_ss())[MEM_FILTER]>>metis_tac[])
+    Cases_on`y=h`>>full_simp_tac(srw_ss())[MEM_FILTER]>>metis_tac[]);
 
 val partial_colouring_satisfactory_extend = Q.prove(`
   partial_colouring_satisfactory col G ∧
@@ -335,7 +335,7 @@ val partial_colouring_satisfactory_extend = Q.prove(`
     >>
       full_simp_tac(srw_ss())[]>>
       last_x_assum(qspec_then`v'`mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      pop_assum(qspec_then`v''''`assume_tac)>>rev_full_simp_tac(srw_ss())[])
+      pop_assum(qspec_then`v''''`assume_tac)>>rev_full_simp_tac(srw_ss())[]);
 
 (*Coloring produced after each alloc_colouring_aux_step is
   partial_colouring_satisfactory*)
@@ -371,7 +371,7 @@ val alloc_colouring_aux_satisfactory = Q.prove(`
   `MEM y (MAP FST (toAList x))` by
     full_simp_tac(srw_ss())[MEM_MAP,MEM_toAList,EXISTS_PROD,domain_lookup]>>
   rev_full_simp_tac(srw_ss())[]>>res_tac>>
-  metis_tac[])
+  metis_tac[]);
 
 (*Domains of the colouring and spills are disjoint*)
 val alloc_colouring_aux_domain_1 = Q.prove(`
@@ -403,7 +403,7 @@ val alloc_colouring_aux_domain_1 = Q.prove(`
     >>
       res_tac>>full_simp_tac(srw_ss())[])
   >>
-    metis_tac[domain_lookup])
+    metis_tac[domain_lookup]);
 
 (*Coloring and spills contain everything in the list*)
 val alloc_colouring_aux_domain_2 = Q.prove(`
@@ -419,7 +419,7 @@ val alloc_colouring_aux_domain_2 = Q.prove(`
   imp_res_tac alloc_colouring_aux_never_overwrites_col>>
   imp_res_tac alloc_colouring_aux_never_overwrites_spill>>
   full_simp_tac(srw_ss())[domain_lookup]>>
-  metis_tac[lookup_insert])
+  metis_tac[lookup_insert]);
 
 val assign_colour_props = Q.prove(`
   h ∉ domain col ∧
@@ -449,7 +449,7 @@ val assign_colour_props = Q.prove(`
   every_case_tac>>
   imp_res_tac satisfactory_pref_def>>
   TRY(`h ∉ domain col` by full_simp_tac(srw_ss())[domain_lookup]>>
-  full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>metis_tac[]))
+  full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>metis_tac[]));
 
 (*Conventions over the extension domain*)
 val alloc_colouring_aux_domain_3 = Q.prove(`
@@ -528,14 +528,14 @@ val alloc_colouring_aux_domain_3 = Q.prove(`
         impl_tac>>full_simp_tac(srw_ss())[EXTENSION,INTER_DEF]>>
         srw_tac[][Abbr`coln`]>>Cases_on`x''=h`>>full_simp_tac(srw_ss())[])
     >>
-    res_tac)
+    res_tac);
 
 val list_mem = Q.prove(`
   ∀ls ls'.
     MEM x ls ∧ (h::ls') = ls ∧ x ≠ h
     ⇒
     MEM x ls'`,
-  srw_tac[][]>>full_simp_tac(srw_ss())[])
+  srw_tac[][]>>full_simp_tac(srw_ss())[]);
 
 (*If not the assigned colour then it must have come from before*)
 val assign_colour_reverse = Q.prove(`
@@ -548,7 +548,7 @@ val assign_colour_reverse = Q.prove(`
   srw_tac[][assign_colour_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   qpat_x_assum `A = col'` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[domain_insert]>>metis_tac[list_mem])
+  full_simp_tac(srw_ss())[domain_insert]>>metis_tac[list_mem]);
 
 (*Not in the final state means it must have come from before*)
 val alloc_colouring_aux_domain_4 = Q.prove(`
@@ -560,7 +560,7 @@ val alloc_colouring_aux_domain_4 = Q.prove(`
   (MEM x spill' ⇒ MEM x spill)`,
   Induct_on`ls`>>srw_tac[][alloc_colouring_aux_def,LET_THM]>>
   Cases_on`assign_colour G k prefs h col spill'`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour_reverse])
+  metis_tac[assign_colour_reverse]);
 
 (*Everything appearing in the spills was already in G*)
 val alloc_colouring_aux_domain_5 = Q.prove(`
@@ -577,7 +577,7 @@ val alloc_colouring_aux_domain_5 = Q.prove(`
   every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[domain_lookup])
+  full_simp_tac(srw_ss())[domain_lookup]);
 
 val id_colour_always_sat = Q.prove(`
   undir_graph G ∧
@@ -598,7 +598,7 @@ val id_colour_always_sat = Q.prove(`
     first_x_assum(qspec_then `v` assume_tac)>>
     first_x_assum(qspec_then `v` assume_tac)>>
     full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
-    metis_tac[])
+    metis_tac[]);
 
 (*The first colouring should produce a partial colouring such that:
   Phy vars are mapped to themselves
@@ -709,13 +709,13 @@ val alloc_colouring_success = Q.prove(`
         imp_res_tac alloc_colouring_aux_domain_1>>
         Q.SPECL_THEN [`G`,`colours`,`prefs`,`others`,`col'`,`spills`
           ,`col''`,`spills'`] assume_tac alloc_colouring_aux_domain_3>>
-        full_simp_tac(srw_ss())[]>>metis_tac[])
+        full_simp_tac(srw_ss())[]>>metis_tac[]);
 
 val alloc_colouring_success_2 = Q.prove(`
   let (col,spills) = alloc_colouring G k prefs ls in
   ∀x. MEM x spills ⇒ x ∈ domain G`,
   full_simp_tac(srw_ss())[alloc_colouring_def]>>srw_tac[][]>>
-  imp_res_tac alloc_colouring_aux_domain_5>>full_simp_tac(srw_ss())[])
+  imp_res_tac alloc_colouring_aux_domain_5>>full_simp_tac(srw_ss())[]);
 
 val spill_colouring_never_overwrites = Q.prove(`
   ∀ls col col'.
@@ -729,17 +729,17 @@ val spill_colouring_never_overwrites = Q.prove(`
     metis_tac[]
   >>
   every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[lookup_insert])
+  metis_tac[lookup_insert]);
 
 val spill_colouring_domain_subset = Q.prove(`
   ∀ls col col'.
   domain col ⊆ domain (spill_colouring G k prefs ls col)`,
   srw_tac[][SUBSET_DEF]>>full_simp_tac(srw_ss())[domain_lookup]>>
-  metis_tac[domain_lookup,spill_colouring_never_overwrites])
+  metis_tac[domain_lookup,spill_colouring_never_overwrites]);
 
 val SORTED_TAIL = Q.prove(`
   SORTED R (x::xs) ⇒ SORTED R xs`,
-  Cases_on`xs`>>full_simp_tac(srw_ss())[SORTED_DEF])
+  Cases_on`xs`>>full_simp_tac(srw_ss())[SORTED_DEF]);
 
 val SORTED_HEAD_LT = Q.prove(`
   ∀ls.
@@ -750,7 +750,7 @@ val SORTED_HEAD_LT = Q.prove(`
     DECIDE_TAC
   >>
     last_x_assum mp_tac>>impl_tac>>
-    Cases_on`ls`>>full_simp_tac(srw_ss())[SORTED_DEF]>>DECIDE_TAC)
+    Cases_on`ls`>>full_simp_tac(srw_ss())[SORTED_DEF]>>DECIDE_TAC);
 
 (*prove multiple properties in one go*)
 val unbound_colours_props = Q.prove(`
@@ -771,7 +771,7 @@ val unbound_colours_props = Q.prove(`
   >-
     metis_tac[SORTED_HEAD_LT]
   >>
-    (res_tac>>DECIDE_TAC))
+    (res_tac>>DECIDE_TAC));
 
 val SORTED_TAC =
     `SORTED (λx y. x≤y) lss` by
@@ -788,7 +788,7 @@ val is_phy_var_tac =
 
 val option_filter_eq = Q.prove(`
   ∀ls. option_filter ls = MAP THE (FILTER IS_SOME ls)`,
-  Induct>>srw_tac[][option_filter_def]>>every_case_tac>>full_simp_tac(srw_ss())[])
+  Induct>>srw_tac[][option_filter_def]>>every_case_tac>>full_simp_tac(srw_ss())[]);
 
 val assign_colour2_satisfactory = Q.prove(`
   undir_graph G ∧
@@ -816,7 +816,7 @@ val assign_colour2_satisfactory = Q.prove(`
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[option_filter_eq,MEM_MAP,MEM_FILTER,EXISTS_PROD
     ,PULL_EXISTS,MEM_toAList]>>
-  HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
+  HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]);
 
 val assign_colour2_conventional = Q.prove(`
   v ∈ domain G ∧
@@ -830,7 +830,7 @@ val assign_colour2_conventional = Q.prove(`
   is_phy_var_tac>>
   qpat_abbrev_tac`lss = QSORT (λx:num y:num. x≤y)  B`>>
   SORTED_TAC>>
-  metis_tac[unbound_colours_props])
+  metis_tac[unbound_colours_props]);
 
 (*Coloring produced after each spill_colouring step is
   partial_colouring_satisfactory*)
@@ -843,7 +843,7 @@ val spill_colouring_satisfactory = Q.prove(`
     partial_colouring_satisfactory col' G`,
   Induct_on`ls`>>full_simp_tac(srw_ss())[spill_colouring_def,LET_THM]>>srw_tac[][]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour2_satisfactory])
+  metis_tac[assign_colour2_satisfactory]);
 
 (*Domain is extended*)
 val spill_colouring_domain_1 = Q.prove(`
@@ -870,7 +870,7 @@ val spill_colouring_domain_1 = Q.prove(`
     >>
     metis_tac[spill_colouring_never_overwrites])
   >>
-    metis_tac[])
+    metis_tac[]);
 
 (*Coloring is extended on the list according to conventions*)
 val spill_colouring_domain_2 = Q.prove(`
@@ -890,7 +890,7 @@ val spill_colouring_domain_2 = Q.prove(`
     >>
       full_simp_tac(srw_ss())[assign_colour2_def]>>every_case_tac>>
       full_simp_tac(srw_ss())[LET_THM]>>
-      metis_tac[])
+      metis_tac[]);
 
 val assign_colour2_reverse = Q.prove(`
   ∀G:sp_graph k prefs h col col'.
@@ -899,7 +899,7 @@ val assign_colour2_reverse = Q.prove(`
   ∀x. x ≠ h ⇒
   (x ∈ domain col' ⇒ x ∈ domain col)`,
   srw_tac[][assign_colour2_def]>>every_case_tac>>full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[])
+  metis_tac[]);
 
 val spill_colouring_domain_3 = Q.prove(`
   ∀G k prefs ls col.
@@ -908,7 +908,7 @@ val spill_colouring_domain_3 = Q.prove(`
   (x ∈ domain col' ⇒ x ∈ domain col)`,
   Induct_on`ls`>>srw_tac[][spill_colouring_def,LET_THM]>>
   Cases_on`assign_colour2 G k prefs h col`>>full_simp_tac(srw_ss())[]>>
-  metis_tac[assign_colour2_reverse])
+  metis_tac[assign_colour2_reverse]);
 
 val is_subgraph_edges_def = Define`
   is_subgraph_edges G H ⇔
@@ -937,7 +937,7 @@ val partial_colouring_satisfactory_subgraph_edges = Q.prove(`
   first_x_assum(qspec_then`v` assume_tac)>>full_simp_tac(srw_ss())[LET_THM]>>
   rev_full_simp_tac(srw_ss())[]>>
   pop_assum(qspec_then`v'` assume_tac)>>
-  rev_full_simp_tac(srw_ss())[])
+  rev_full_simp_tac(srw_ss())[]);
 
 val undir_g_preserve = Q.prove(`
   undir_graph G ∧
@@ -961,7 +961,7 @@ val undir_g_preserve = Q.prove(`
     full_simp_tac(srw_ss())[Abbr`tree'`])
   >>
     (first_x_assum(qspec_then`y` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[Abbr`tree`]))
+    full_simp_tac(srw_ss())[Abbr`tree`]));
 
 val finish_tac =
   last_x_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
@@ -997,7 +997,7 @@ val partial_colouring_satisfactory_extend_2 = Q.prove(`
   rveq >>
   full_simp_tac(srw_ss())[lookup_insert]>>rename1`COND (v' = y)`>>
   Cases_on`v'=y`>>full_simp_tac(srw_ss())[lookup_def]>>
-  finish_tac)
+  finish_tac);
 
 val list_g_insert_undir = Q.prove(`
   ∀ls G col.
@@ -1015,7 +1015,7 @@ val list_g_insert_undir = Q.prove(`
     first_x_assum(qspec_then`q` assume_tac)>>
     rev_full_simp_tac(srw_ss())[])
   >>
-    metis_tac[undir_g_preserve])
+    metis_tac[undir_g_preserve]);
 
 val list_g_insert_lemma = Q.prove(`
   ∀ls G col.
@@ -1059,13 +1059,13 @@ val list_g_insert_lemma = Q.prove(`
     metis_tac[undir_g_preserve]
   >>
     match_mp_tac partial_colouring_satisfactory_extend_2>>
-    rev_full_simp_tac(srw_ss())[list_g_insert_domain])
+    rev_full_simp_tac(srw_ss())[list_g_insert_domain]);
 
 val is_subgraph_edges_trans = Q.prove(`
   is_subgraph_edges A B ∧
   is_subgraph_edges B C ⇒
   is_subgraph_edges A C`,
-  full_simp_tac(srw_ss())[is_subgraph_edges_def]>>srw_tac[][SUBSET_DEF])
+  full_simp_tac(srw_ss())[is_subgraph_edges_def]>>srw_tac[][SUBSET_DEF]);
 
 val full_coalesce_aux_extends = Q.prove(`
   ∀(G:sp_graph) (ls:(num,num#num) alist) spills col.
@@ -1112,7 +1112,7 @@ val full_coalesce_aux_extends = Q.prove(`
   impl_tac>-
     (`h1 ∈ domain G` by full_simp_tac(srw_ss())[FORALL_PROD]>>
     full_simp_tac(srw_ss())[EXTENSION,list_g_insert_domain])>>
-  metis_tac[is_subgraph_edges_trans])
+  metis_tac[is_subgraph_edges_trans]);
 
 val full_coalesce_lemma = Q.prove(`
   undir_graph G ∧
@@ -1132,7 +1132,7 @@ val full_coalesce_lemma = Q.prove(`
   pop_assum (Q.ISPEC_THEN `ls` mp_tac)>>impl_tac>>full_simp_tac(srw_ss())[]>>
   strip_tac>>
   pop_assum (Q.ISPEC_THEN `lss` mp_tac)>>
-  full_simp_tac(srw_ss())[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM,QSORT_MEM])
+  full_simp_tac(srw_ss())[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM,QSORT_MEM]);
 
 fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
 
@@ -1145,7 +1145,7 @@ val foreach_graph = Q.prove(`
     Induct>>srw_tac[][]>>fsm[dec_one_def,get_deg_def,set_deg_def]>>
     every_case_tac>>fsm[]>>
     first_x_assum(qspec_then`s with degs := insert h (x-1) s.degs` assume_tac)>>
-    srw_tac[][]>>metis_tac[])
+    srw_tac[][]>>metis_tac[]);
 
 val foreach_graph2 = Q.prove(`
   ∀ls s.
@@ -1163,7 +1163,7 @@ val foreach_graph2 = Q.prove(`
     qpat_abbrev_tac`sfin = s with <|avail_moves_pri:=A;avail_moves:=B;unavail_moves:=C|>`>>
     first_x_assum(qspec_then`sfin` assume_tac)>>
     srw_tac[][]>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[])
+    unabbrev_all_tac>>full_simp_tac(srw_ss())[]);
 
 val rest_tac =
   Q.ISPECL_THEN [`MAP FST (toAList x)`,`sopt`] assume_tac foreach_graph>>
@@ -1200,7 +1200,7 @@ val simplify_graph = Q.prove(`
   fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM]>>
   pop_assum mp_tac>>
   qpat_abbrev_tac`sopt = s with simp_worklist := A`>>
-  rest_tac)
+  rest_tac);
 
 val freeze_graph = Q.prove(`
 ∀s G s' opt.
@@ -1220,7 +1220,7 @@ val freeze_graph = Q.prove(`
   pop_assum mp_tac>>
   TRY(qpat_abbrev_tac`sopt = s with <|simp_worklist:=A;freeze_worklist:=B;move_related:=C;unavail_moves:=D|>`)>>
   TRY(qpat_abbrev_tac`sopt = s with <|freeze_worklist:=A;move_related:=B;unavail_moves:=C|>`)>>
-  rest_tac)
+  rest_tac);
 
 val spill_graph = Q.prove(`
 ∀s G s' opt.
@@ -1239,7 +1239,7 @@ val spill_graph = Q.prove(`
   Cases_on`A`>>full_simp_tac(srw_ss())[]>>
   TRY(full_case_tac)>>full_simp_tac(srw_ss())[]>>
   qpat_abbrev_tac`sopt = s with spill_worklist :=A`>>
-  rest_tac)
+  rest_tac);
 
 val rest_tac2 =
     first_x_assum(qspec_then`sopt`mp_tac)>>
@@ -1286,7 +1286,7 @@ val foreach_graph_extend = Q.prove(`
   >>
     (qpat_abbrev_tac`sopt = s with degs:=insert h (x'-1) s.degs`>>
     first_x_assum(qspec_then`sopt`mp_tac)>>
-    unabbrev_all_tac>>full_simp_tac(srw_ss())[]))
+    unabbrev_all_tac>>full_simp_tac(srw_ss())[]));
 
 val foreach_graph_extend_2 = Q.prove(`
   ∀ls s s'.
@@ -1304,7 +1304,7 @@ val foreach_graph_extend_2 = Q.prove(`
   fsm[force_add_def,inc_one_def,get_deg_def]>>
   every_case_tac>>fsm[set_deg_def,dec_one_def,get_deg_def]>>
   every_case_tac>>full_simp_tac(srw_ss())[]>>
-  res_tac>>full_simp_tac(srw_ss())[])
+  res_tac>>full_simp_tac(srw_ss())[]);
 
 val split_avail_filter = Q.prove(`
   ∀ls acc B C.
@@ -1316,7 +1316,7 @@ val split_avail_filter = Q.prove(`
   >-
   full_simp_tac(srw_ss())[is_valid_move_def,LET_THM]
   >>
-  metis_tac[])
+  metis_tac[]);
 
 val unspill_lem = GEN_ALL (prove(``
   unspill s = (q,r) ⇒
@@ -1324,7 +1324,7 @@ val unspill_lem = GEN_ALL (prove(``
   r.clock = s.clock``,
   fsm[unspill_def,get_spill_worklist_def,get_degs_def,get_colours_def,get_move_rel_def,LET_THM]>>
   qpat_abbrev_tac`sopt = s`>>
-  rest_tac))
+  rest_tac));
 
 val do_coalesce_lem = Q.prove(`
   undir_graph s.graph ∧
@@ -1360,7 +1360,7 @@ val do_coalesce_lem = Q.prove(`
    first_x_assum(qspec_then`q` assume_tac)>>rev_full_simp_tac(srw_ss())[])
   >>
   srw_tac[][]>>fsm[Abbr`sopt`]>>
-  metis_tac[is_subgraph_edges_trans])
+  metis_tac[is_subgraph_edges_trans]);
 
 val do_coalesce_clock_lem=prove(``
   do_coalesce (q,r) s = ((),s') ⇒
@@ -1374,7 +1374,7 @@ val do_coalesce_clock_lem=prove(``
   qpat_abbrev_tac `sopt = (s with coalesced:= A)`>>
   strip_tac>>
   Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`,`s'`] assume_tac (GEN_ALL foreach_graph_extend_2)>>
-  fsm[]>>rev_full_simp_tac(srw_ss())[Abbr`sopt`])
+  fsm[]>>rev_full_simp_tac(srw_ss())[Abbr`sopt`]);
 
 val respill_lem = Q.prove(`
   ∀s v r. respill v s = ((),r) ⇒
@@ -1385,7 +1385,7 @@ val respill_lem = Q.prove(`
   every_case_tac>>full_simp_tac(srw_ss())[]>>
   Cases_on`MEM v s.freeze_worklist`>>full_simp_tac(srw_ss())[]>>
   qpat_x_assum`A=r` (SUBST_ALL_TAC o SYM)>>
-  full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[]);
 
 val coalesce_graph = Q.prove(`
 ∀s G s' opt.
@@ -1420,7 +1420,7 @@ val coalesce_graph = Q.prove(`
   imp_res_tac respill_lem>>
   imp_res_tac unspill_lem>>
   unabbrev_all_tac>>full_simp_tac(srw_ss())[]>>
-  rev_full_simp_tac(srw_ss())[])
+  rev_full_simp_tac(srw_ss())[]);
 
 val coalesce_graph_2 = Q.prove(`
 ∀s G s' opt.
@@ -1447,7 +1447,7 @@ val coalesce_graph_2 = Q.prove(`
   imp_res_tac do_coalesce_clock_lem>>
   imp_res_tac respill_lem>>
   imp_res_tac unspill_lem>>
-  unabbrev_all_tac>>full_simp_tac(srw_ss())[])
+  unabbrev_all_tac>>full_simp_tac(srw_ss())[]);
 
 val do_step_graph_lemma = Q.store_thm("do_step_graph_lemma",`
   ∀s G s'.
@@ -1468,7 +1468,7 @@ val do_step_graph_lemma = Q.store_thm("do_step_graph_lemma",`
     Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     fsm[push_stack_def]>>
     TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
+    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2]);
 
 val do_step_clock_lemma = Q.store_thm("do_step_clock_lemma",`
   ∀s G s'.
@@ -1486,7 +1486,7 @@ val do_step_clock_lemma = Q.store_thm("do_step_clock_lemma",`
     Cases_on`spill r''`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     fsm[push_stack_def]>>
     TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
+    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2]);
 
 val rpt_do_step_graph_lemma = Q.store_thm("rpt_do_step_graph_lemma",`
   ∀s.
@@ -1516,7 +1516,7 @@ val rpt_do_step_graph_lemma = Q.store_thm("rpt_do_step_graph_lemma",`
     (full_simp_tac(srw_ss())[]>>DECIDE_TAC))>>
   srw_tac[][]>>
   pop_assum(qspec_then`r` mp_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[is_subgraph_edges_trans])
+  metis_tac[is_subgraph_edges_trans]);
 
 val do_step2_clock_lemma = Q.store_thm("do_step2_clock_lemma",`
   ∀s G s'.
@@ -1533,7 +1533,7 @@ val do_step2_clock_lemma = Q.store_thm("do_step2_clock_lemma",`
   Q.ISPECL_THEN [`ls`,`sopt`] assume_tac foreach_graph>>full_simp_tac(srw_ss())[LET_THM]>>
   srw_tac[][Abbr`sopt`]>>
   fsm[]>>
-  DECIDE_TAC)
+  DECIDE_TAC);
 
 val do_briggs_step_clock_lemma = Q.store_thm("do_briggs_step_clock_lemma",`
   ∀s G s'.
@@ -1543,7 +1543,7 @@ val do_briggs_step_clock_lemma = Q.store_thm("do_briggs_step_clock_lemma",`
   rw[]>>fsm[do_briggs_step_def,dec_clock_def,UNCURRY]>>
   Cases_on`coalesce (s with clock:=s.clock-1)`>>Cases_on`q`>>full_simp_tac(srw_ss())[push_stack_def]>>
   imp_res_tac coalesce_graph_2>>
-  rpt var_eq_tac>>fs[])
+  rpt var_eq_tac>>fs[]);
 
 (*Note:Briggs clock is not pulled out since it isn't used (yet)*)
 val do_briggs_step_graph_lemma = Q.prove(`
@@ -1563,7 +1563,7 @@ val do_briggs_step_graph_lemma = Q.prove(`
   Cases_on`coalesce sopt`>>Cases_on`q`>>full_simp_tac(srw_ss())[]>>
   fsm[push_stack_def]>>
   TRY(qpat_x_assum`A=s'` (SUBST_ALL_TAC o SYM))>>full_simp_tac(srw_ss())[]>>
-  metis_tac[coalesce_graph,coalesce_graph_2])
+  metis_tac[coalesce_graph,coalesce_graph_2]);
 
 val briggs_coalesce_lemma = Q.prove(`
   ∀s.
@@ -1590,7 +1590,7 @@ val briggs_coalesce_lemma = Q.prove(`
     DECIDE_TAC))>>
   srw_tac[][]>>
   pop_assum(qspec_then`r` mp_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[is_subgraph_edges_trans])
+  metis_tac[is_subgraph_edges_trans]);
 
 val reg_alloc_satisfactory = Q.store_thm ("reg_alloc_satisfactory",`
   ∀G k moves alg.
@@ -1639,7 +1639,7 @@ val reg_alloc_satisfactory = Q.store_thm ("reg_alloc_satisfactory",`
   >>
     match_mp_tac partial_colouring_satisfactory_subgraph_edges>>
     Q.EXISTS_TAC`G'`>>full_simp_tac(srw_ss())[]>>
-    metis_tac[spill_colouring_satisfactory])
+    metis_tac[spill_colouring_satisfactory]);
 
 val reg_alloc_total_satisfactory = Q.store_thm ("reg_alloc_total_satisfactory",`
   ∀alg G k moves.
@@ -1655,10 +1655,10 @@ val reg_alloc_total_satisfactory = Q.store_thm ("reg_alloc_total_satisfactory",`
   rev_full_simp_tac(srw_ss())[Abbr`edges'`,domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>
   srw_tac[][]>>res_tac>>
   `e ∈ domain G ∧ v ∈ domain col ∧ e ∈ domain col` by
-    full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF]>>
+    (full_simp_tac(srw_ss())[domain_lookup,SUBSET_DEF]>> metis_tac[]) >>
   full_simp_tac(srw_ss())[domain_lookup]>>
   first_x_assum(qspec_then`v'''` assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  metis_tac[])
+  metis_tac[]);
 
 val reg_alloc_conventional = Q.store_thm("reg_alloc_conventional" ,`
   ∀alg G k moves.
@@ -1735,7 +1735,7 @@ val reg_alloc_conventional = Q.store_thm("reg_alloc_conventional" ,`
     >>
       Q.ISPECL_THEN [`G'`,`k`,`LN:num num_map`,`ls`,`col'`] assume_tac
         spill_colouring_domain_2>> rev_full_simp_tac(srw_ss())[LET_THM,is_subgraph_edges_def]>>
-      metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES])
+      metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES]);
 
 (*strengthen case of the above*)
 val reg_alloc_conventional_phy_var = Q.store_thm("reg_alloc_conventional_phy_var",`
@@ -1755,7 +1755,7 @@ val reg_alloc_conventional_phy_var = Q.store_thm("reg_alloc_conventional_phy_var
   metis_tac[])
   >>
   (full_simp_tac(srw_ss())[total_colour_def]>>
-  full_case_tac>>full_simp_tac(srw_ss())[domain_lookup]))
+  full_case_tac>>full_simp_tac(srw_ss())[domain_lookup]));
 
 (*Various side theorems necessary to link up proofs:
   - clash_sets_to_sp_g captures everything appearing in the clashsets
@@ -1769,7 +1769,7 @@ val clique_g_insert_undir = Q.prove(`
   ⇒
   undir_graph (clique_g_insert ls G)`,
   Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
-  metis_tac[list_g_insert_undir])
+  metis_tac[list_g_insert_undir]);
 
 val clash_sets_to_sp_g_undir = Q.store_thm("clash_sets_to_sp_g_undir",`
 ∀ls.
@@ -1778,7 +1778,7 @@ val clash_sets_to_sp_g_undir = Q.store_thm("clash_sets_to_sp_g_undir",`
   srw_tac[][clash_sets_to_sp_g_def]>>
   match_mp_tac clique_g_insert_undir>>
   unabbrev_all_tac>>
-  full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList])
+  full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList]);
 
 val clash_sets_to_sp_g_domain = Q.store_thm("clash_sets_to_sp_g_domain",`
 ∀ls x.
@@ -1786,7 +1786,7 @@ val clash_sets_to_sp_g_domain = Q.store_thm("clash_sets_to_sp_g_domain",`
   x ∈ domain (clash_sets_to_sp_g ls)`,
   Induct>>full_simp_tac(srw_ss())[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>srw_tac[][]>>res_tac>>
   full_simp_tac(srw_ss())[clique_g_insert_domain]>>
-  full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
+  full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD]);
 
 (*Less restrictive subgraph definition,
   maybe update is_subgraph_edges to be a restriction of this
@@ -1796,13 +1796,13 @@ val is_subgraph_def = Define`
   domain G ⊆ domain H ∧
   ∀x y. lookup_g x y G ⇒ lookup_g x y H`
 
-val is_subgraph_refl = Q.store_thm("is_subgraph_refl",`is_subgraph G G`, fs[is_subgraph_def])
+val is_subgraph_refl = Q.store_thm("is_subgraph_refl",`is_subgraph G G`, fs[is_subgraph_def]);
 
 val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
   is_subgraph A B ∧ is_subgraph B C ⇒
   is_subgraph A C`,
   fs[is_subgraph_def]>>
-  metis_tac[SUBSET_TRANS])
+  metis_tac[SUBSET_TRANS]);
 
 val undir_g_insert_props = Q.store_thm("undir_g_insert_props",`
   undir_graph G ∧
@@ -1814,7 +1814,7 @@ val undir_g_insert_props = Q.store_thm("undir_g_insert_props",`
   fs[is_subgraph_def,undir_g_insert_domain,lookup_g_def,undir_g_insert_def,undir_g_preserve,dir_g_insert_def]>>rw[]>>
   fs[lookup_insert]>>
   rpt IF_CASES_TAC>>fs[]>>
-  FULL_CASE_TAC>>fs[lookup_insert])
+  FULL_CASE_TAC>>fs[lookup_insert]);
 
 val list_g_insert_props = Q.prove(`
   ∀live h G.
@@ -1829,7 +1829,7 @@ val list_g_insert_props = Q.prove(`
   Q.ISPECL_THEN [`live`,`h`,`G`] assume_tac list_g_insert_correct>>
   Q.ISPECL_THEN [`h`,`live`,`G`] assume_tac (GEN_ALL list_g_insert_undir)>>
   fs[is_subgraph_def,sp_g_is_clique_def,list_g_insert_domain]>>
-  metis_tac[SUBSET_UNION,UNION_COMM,UNION_ASSOC])
+  metis_tac[SUBSET_UNION,UNION_COMM,UNION_ASSOC]);
 
 val clique_g_insert_subgraph = Q.prove(`
   ∀live G.
@@ -1837,7 +1837,7 @@ val clique_g_insert_subgraph = Q.prove(`
   is_subgraph G (clique_g_insert live G)`,
   rw[]>>
   imp_res_tac clique_g_insert_correct>>
-  fs[is_subgraph_def,clique_g_insert_domain])
+  fs[is_subgraph_def,clique_g_insert_domain]);
 
 (* The result is undirected, contains a clique and is a subgraph *)
 val extend_clique_props = Q.prove(`
@@ -1861,7 +1861,7 @@ val extend_clique_props = Q.prove(`
     fs[]>>
     first_x_assum(qspecl_then[`h::live`,`list_g_insert h live G`,`G'`,`live'`] assume_tac)>>
     rfs[is_subgraph_def]>>
-    fs[EXTENSION]>>metis_tac[SUBSET_TRANS]))
+    fs[EXTENSION]>>metis_tac[SUBSET_TRANS]));
 
 val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgraph",`
   is_subgraph G H ∧
@@ -1871,14 +1871,14 @@ val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgra
   fs[domain_lookup,lookup_g_def]>>rw[]>>
   first_x_assum(qspecl_then[`v`,`e`] assume_tac)>>rfs[]>>
   FULL_CASE_TAC>>fs[]>>
-  first_x_assum(qspec_then`v`assume_tac)>>rfs[])
+  first_x_assum(qspec_then`v`assume_tac)>>rfs[]);
 
 (*TODO: this is in word_allocProof*)
 val INJ_less = Q.prove(`
   INJ f s' UNIV ∧ s ⊆ s'
   ⇒
   INJ f s UNIV`,
-  metis_tac[INJ_DEF,SUBSET_DEF])
+  metis_tac[INJ_DEF,SUBSET_DEF]);
 
 (*Form up the entire clique, then check*)
 val check_partial_col_success = Q.prove(`
@@ -1899,7 +1899,7 @@ val check_partial_col_success = Q.prove(`
       (*TOO LONG*)
       CCONTR_TAC>>
       `∃s. lookup(col h) flive = SOME s` by
-        Cases_on`lookup (col h) flive`>>fs[]>>
+        (Cases_on`lookup (col h) flive`>>fs[]) >>
       last_x_assum kall_tac>>
       fs[EXTENSION,domain_lookup]>>
       first_x_assum(qspec_then`col h` mp_tac)>>
@@ -1922,7 +1922,7 @@ val check_partial_col_success = Q.prove(`
     (match_mp_tac (GEN_ALL INJ_less)>>
     HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
   rw[]>>fs[EXTENSION]>>
-  fs[domain_lookup]>>metis_tac[])
+  fs[domain_lookup]>>metis_tac[]);
 
 val ALL_DISTINCT_set_INJ = Q.prove(`
   ∀ls col.
@@ -1930,7 +1930,7 @@ val ALL_DISTINCT_set_INJ = Q.prove(`
   INJ col (set ls) UNIV`,
   Induct>>fs[INJ_DEF]>>rw[]>>
   fs[MEM_MAP]>>
-  metis_tac[])
+  metis_tac[]);
 
 val ALL_DISTINCT_IMP_INJ = Q.prove(`
   ALL_DISTINCT (MAP col live') ∧
@@ -1938,7 +1938,7 @@ val ALL_DISTINCT_IMP_INJ = Q.prove(`
   INJ col (set l ∪ set livelist) UNIV`,
   rw[]>>
   imp_res_tac ALL_DISTINCT_set_INJ>>
-  metis_tac[UNION_COMM])
+  metis_tac[UNION_COMM]);
 
 val sp_g_is_clique_subgraph = Q.prove(`
   ∀ls.
@@ -1947,7 +1947,7 @@ val sp_g_is_clique_subgraph = Q.prove(`
   sp_g_is_clique ls G'`,
   Induct>>fs[sp_g_is_clique_def,SUBSET_DEF]>>
   ntac 5 strip_tac>>fs[is_subgraph_def,SUBSET_DEF]>>
-  metis_tac[])
+  metis_tac[]);
 
 (*More generally, any LIST SUBSET satisfies this*)
 val sp_g_is_clique_FILTER = Q.prove(`
@@ -1958,7 +1958,7 @@ val sp_g_is_clique_FILTER = Q.prove(`
   strip_tac>>
   cases_on`P h`>>
   fs[MEM_FILTER]>>
-  metis_tac[])
+  metis_tac[]);
 
 val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
   ∀l live.
@@ -1966,7 +1966,7 @@ val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
   domain live DIFF set l`,
   Induct>>fs[numset_list_delete_def]>>rw[]>>
   fs[EXTENSION]>>
-  metis_tac[])
+  metis_tac[]);
 
 val clash_tree_to_spg_props = Q.store_thm("clash_tree_to_spg_props",`
   ∀ct live G G' live'.
@@ -2019,14 +2019,14 @@ val clash_tree_to_spg_props = Q.store_thm("clash_tree_to_spg_props",`
     ntac 5 strip_tac>>pairarg_tac>>fs[]>>
     first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
     rfs[]>>
-    metis_tac[is_subgraph_trans])
+    metis_tac[is_subgraph_trans]);
 
 val sp_g_is_clique_swap = Q.prove(`
   ∀ls'.
   sp_g_is_clique ls G ∧
   (∀x. MEM x ls ⇔ MEM x ls') ⇒
   sp_g_is_clique ls' G`,
-  fs[sp_g_is_clique_def,SUBSET_DEF])
+  fs[sp_g_is_clique_def,SUBSET_DEF]);
 
 val colouring_satisfactory_check_clash_tree = Q.store_thm("colouring_satisfactory_check_clash_tree",`
   ∀ct G livelist live flive col G' live'.
@@ -2155,7 +2155,7 @@ val colouring_satisfactory_check_clash_tree = Q.store_thm("colouring_satisfactor
     first_assum match_mp_tac>>fs[]>>
     qexists_tac`G''`>>
     qexists_tac`live''`>>
-    fs[]>>metis_tac[clash_tree_to_spg_props])
+    fs[]>>metis_tac[clash_tree_to_spg_props]);
 
 val in_clash_tree_def = Define`
   (in_clash_tree (Delta w r) x ⇔ MEM x w ∨ MEM x r) ∧
@@ -2227,6 +2227,6 @@ val clash_tree_to_spg_domain = Q.store_thm("clash_tree_to_spg_domain",`
     first_x_assum(qspecl_then[`live''`,`G''`,`G'`,`live'`] assume_tac)>>
     rfs[sp_g_is_clique_def]>>
     fs[is_subgraph_def,SUBSET_DEF]>>
-    metis_tac[])
+    metis_tac[]);
 
 val _ = export_theory()

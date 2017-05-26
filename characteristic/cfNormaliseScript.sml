@@ -213,6 +213,7 @@ val strip_annot_pat_def = Define `
   strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
   strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
   strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat Pany = Pany /\
   strip_annot_pat_list [] = [] /\
   strip_annot_pat_list (x::xs) =
     strip_annot_pat x :: strip_annot_pat_list xs`;
@@ -466,10 +467,10 @@ val full_normalise_exp_def = Define `
   full_normalise_exp exp = full_normalise [] exp`
 
 val full_normalise_decl_def = Define `
-  full_normalise_decl (Dlet pat exp) =
-    Dlet pat (full_normalise [] exp) /\
-  full_normalise_decl (Dletrec l) =
-    Dletrec (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
+  full_normalise_decl (Dlet locs pat exp) =
+    Dlet locs pat (full_normalise [] exp) /\
+  full_normalise_decl (Dletrec locs l) =
+    Dletrec locs (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
   full_normalise_decl decl = decl`;
 
 val full_normalise_top_def = Define `

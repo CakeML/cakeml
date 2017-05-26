@@ -181,13 +181,13 @@ val tail_lemma = Q.prove(
   THEN `xs = flatten q ++ digits d` by METIS_TAC
     [LENGTH_EQ_APPEND_EQ,APPEND_ASSOC,depth_IMP,APPEND_NIL,APPEND_ASSOC]
   THEN FULL_SIMP_TAC (srw_ss()) []
-  THEN `depth n t' ∧ depth n t0` by ALL_TAC THEN1
+  THEN sg `depth n t' ∧ depth n t0` THEN1
    (Cases_on `q` THEN FULL_SIMP_TAC std_ss [head_def]
     THEN Cases_on `d'` THEN TRY (Cases_on `d0`) THEN STRIP_TAC
     THEN FULL_SIMP_TAC std_ss [head_def,is_empty_def,queue_ok_def,
       ddepth_def,only_digits_def,EVERY_DEF,depth_def,two_def])
   THEN FULL_SIMP_TAC std_ss []
-  THEN `?ts. flatten q = exps (head q) ++ ts` by ALL_TAC THEN1
+  THEN sg `?ts. flatten q = exps (head q) ++ ts` THEN1
    (Cases_on `q` THEN FULL_SIMP_TAC std_ss [is_empty_def] THEN1
      (Cases_on `d'` THEN FULL_SIMP_TAC std_ss [is_empty_def]
       THEN FULL_SIMP_TAC std_ss [head_def,is_empty_def,queue_ok_def,digits_def,

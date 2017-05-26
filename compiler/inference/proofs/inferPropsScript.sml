@@ -415,8 +415,8 @@ eq_tac >>
 rw []);
 
 val add_constraint_success = Q.store_thm ("add_constraint_success",
-`!t1 t2 st st' x.
-  (add_constraint t1 t2 st = (Success x, st'))
+`!l t1 t2 st st' x.
+  (add_constraint l t1 t2 st = (Success x, st'))
   =
   ((x = ()) ∧ (?s. (t_unify st.subst t1 t2 = SOME s) ∧ (st' = st with subst := s)))`,
 rw [add_constraint_def] >>
@@ -424,8 +424,8 @@ full_case_tac >>
 metis_tac []);
 
 val add_constraints_success = Q.prove (
-`!ts1 ts2 st st' x.
-  (add_constraints ts1 ts2 st = (Success x, st'))
+`!l ts1 ts2 st st' x.
+  (add_constraints l ts1 ts2 st = (Success x, st'))
   =
   ((LENGTH ts1 = LENGTH ts2) ∧
    ((x = ()) ∧
@@ -444,12 +444,12 @@ cases_on `t_unify st.subst t1 t2` >>
 fs []);
 
 val failwith_success = Q.prove (
-`!m st v st'. (failwith m st = (Success v, st')) = F`,
+`!l m st v st'. (failwith l m st = (Success v, st')) = F`,
 rw [failwith_def]);
 
 val lookup_st_ex_success = Q.prove (
-`!x l st v st'.
-  (lookup_st_ex x l st = (Success v, st'))
+`!loc x l st v st'.
+  (lookup_st_ex loc x l st = (Success v, st'))
   =
   ((nsLookup l x = SOME v) ∧ (st = st'))`,
  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
@@ -474,7 +474,7 @@ val list_case_rator = mk_case_rator list_case_rand
 val op_case_rator = mk_case_rator op_case_rand
 
 val constrain_op_success =
-  ``(constrain_op op ts st = (Success v, st'))``
+  ``(constrain_op l op ts st = (Success v, st'))``
   |> SIMP_CONV (srw_ss()) [
        constrain_op_def,
        st_ex_bind_success,st_ex_return_success,
@@ -497,8 +497,8 @@ val apply_subst_list_success =
   ``(apply_subst_list ts st = (Success v, st'))``
 
 val guard_success = Q.prove (
-`∀P m st v st'.
-  (guard P m st = (Success v, st'))
+`∀P l m st v st'.
+  (guard P l m st = (Success v, st'))
   =
   (P ∧ (v = ()) ∧ (st = st'))`,
 rw [guard_def, st_ex_return_def, failwith_def] >>
@@ -532,8 +532,8 @@ PairCases_on `v` >>
 rw []);
 
 val infer_funs_length = Q.store_thm ("infer_funs_length",
-`!ienv funs ts st1 st2.
-  (infer_funs ienv funs st1 = (Success ts, st2)) ⇒
+`!l ienv funs ts st1 st2.
+  (infer_funs l ienv funs st1 = (Success ts, st2)) ⇒
   (LENGTH funs = LENGTH ts)`,
 induct_on `funs` >>
 rw [infer_e_def, success_eqns] >>
@@ -544,12 +544,12 @@ rw [] >>
 metis_tac []);
 
 val infer_p_bindings = Q.store_thm ("infer_p_bindings",
-`(!cenv p st t env st' x.
-    (infer_p cenv p st = (Success (t,env), st'))
+`(!l cenv p st t env st' x.
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
     (pat_bindings p x = MAP FST env ++ x)) ∧
- (!cenv ps st ts env st' x.
-    (infer_ps cenv ps st = (Success (ts,env), st'))
+ (!l cenv ps st ts env st' x.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
     (pats_bindings ps x = MAP FST env ++ x))`,
 ho_match_mp_tac infer_p_ind >>
@@ -608,12 +608,12 @@ rw [pure_add_constraints_def] >>
 metis_tac []);
 
 val infer_p_constraints = Q.store_thm ("infer_p_constraints",
-`(!cenv p st t env st'.
-    (infer_p cenv p st = (Success (t,env), st'))
+`(!l cenv p st t env st'.
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
- (!cenv ps st ts env st'.
-    (infer_ps cenv ps st = (Success (ts,env), st'))
+ (!l cenv ps st ts env st'.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
     (?ts'. pure_add_constraints st.subst ts' st'.subst))`,
 ho_match_mp_tac infer_p_ind >>
@@ -624,20 +624,20 @@ fs [] >>
 prove_tac [pure_add_constraints_append, pure_add_constraints_def]);
 
 val infer_e_constraints = Q.store_thm ("infer_e_constraints",
-`(!ienv e st st' t.
-    (infer_e ienv e st = (Success t, st'))
+`(!l ienv e st st' t.
+    (infer_e l ienv e st = (Success t, st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
- (!ienv es st st' ts.
-    (infer_es ienv es st = (Success ts, st'))
+ (!l ienv es st st' ts.
+    (infer_es l ienv es st = (Success ts, st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
- (!ienv pes t1 t2 st st'.
-    (infer_pes ienv pes t1 t2 st = (Success (), st'))
+ (!l ienv pes t1 t2 st st'.
+    (infer_pes l ienv pes t1 t2 st = (Success (), st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
- (!ienv funs st st' ts'.
-    (infer_funs ienv funs st = (Success ts', st'))
+ (!l ienv funs st st' ts'.
+    (infer_funs l ienv funs st = (Success ts', st'))
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst))`,
 ho_match_mp_tac infer_e_ind >>
@@ -668,12 +668,12 @@ metis_tac [t_unify_wfs]);
 (* ---------- The next unification variable is monotone non-decreasing ---------- *)
 
 val infer_p_next_uvar_mono = Q.store_thm ("infer_p_next_uvar_mono",
-`(!cenv p st t env st'.
-    (infer_p cenv p st = (Success (t,env), st'))
+`(!l cenv p st t env st'.
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar) ∧
- (!cenv ps st ts env st'.
-    (infer_ps cenv ps st = (Success (ts,env), st'))
+ (!l cenv ps st ts env st'.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar)`,
 ho_match_mp_tac infer_p_ind >>
@@ -685,20 +685,20 @@ metis_tac [DECIDE ``!(x:num) y z. x ≤ y ⇒ x ≤ y + z``,
            arithmeticTheory.LESS_EQ_TRANS]);
 
 val infer_e_next_uvar_mono = Q.store_thm ("infer_e_next_uvar_mono",
-`(!ienv e st st' t.
-    (infer_e ienv e st = (Success t, st'))
+`(!l ienv e st st' t.
+    (infer_e l ienv e st = (Success t, st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar) ∧
- (!ienv es st st' ts.
-    (infer_es ienv es st = (Success ts, st'))
+ (!l ienv es st st' ts.
+    (infer_es l ienv es st = (Success ts, st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar) ∧
- (!ienv pes t1 t2 st st'.
-    (infer_pes ienv pes t1 t2 st = (Success (), st'))
+ (!l ienv pes t1 t2 st st'.
+    (infer_pes l ienv pes t1 t2 st = (Success (), st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar) ∧
- (!ienv funs st st' ts.
-    (infer_funs ienv funs st = (Success ts, st'))
+ (!l ienv funs st st' ts.
+    (infer_funs l ienv funs st = (Success ts, st'))
     ⇒
     st.next_uvar ≤ st'.next_uvar)`,
 ho_match_mp_tac infer_e_ind >>
@@ -717,14 +717,14 @@ metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
 (* ---------- The inferencer builds well-formed substitutions ---------- *)
 
 val infer_p_wfs = Q.store_thm ("infer_p_wfs",
-`(!cenv p st t env st'.
+`(!l cenv p st t env st'.
     t_wfs st.subst ∧
-    (infer_p cenv p st = (Success (t,env), st'))
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
     t_wfs st'.subst) ∧
- (!cenv ps st ts env st'.
+ (!l cenv ps st ts env st'.
     t_wfs st.subst ∧
-    (infer_ps cenv ps st = (Success (ts,env), st'))
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
    t_wfs st'.subst)`,
 ho_match_mp_tac infer_p_ind >>
@@ -736,23 +736,23 @@ fs []
 >- metis_tac [t_unify_wfs])
 
 val infer_e_wfs = Q.store_thm ("infer_e_wfs",
-`(!ienv e st st' t.
-    (infer_e ienv e st = (Success t, st')) ∧
+`(!l ienv e st st' t.
+    infer_e l ienv e st = (Success t, st') ∧
     t_wfs st.subst
     ⇒
     t_wfs st'.subst) ∧
- (!ienv es st st' ts.
-    (infer_es ienv es st = (Success ts, st')) ∧
+ (!l ienv es st st' ts.
+    infer_es l ienv es st = (Success ts, st') ∧
     t_wfs st.subst
     ⇒
     t_wfs st'.subst) ∧
- (!ienv pes t1 t2 st st'.
-    (infer_pes ienv pes t1 t2 st = (Success (), st')) ∧
+ (!l ienv pes t1 t2 st st'.
+    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     t_wfs st.subst
     ⇒
     t_wfs st'.subst) ∧
- (!ienv funs st st' ts'.
-    (infer_funs ienv funs st = (Success ts', st')) ∧
+ (!l ienv funs st st' ts'.
+    infer_funs l ienv funs st = (Success ts', st') ∧
     t_wfs st.subst
     ⇒
     t_wfs st'.subst)`,
@@ -1104,13 +1104,13 @@ fs [pure_add_constraints_def] >>
 metis_tac [t_unify_wfs, t_unify_check_s]);
 
 val infer_p_check_t = Q.store_thm ("infer_p_check_t",
-`(!cenv p st t env st'.
-    (infer_p cenv p st = (Success (t,env), st'))
+`(!l cenv p st t env st'.
+    (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
     EVERY (\(x,t). check_t 0 (count st'.next_uvar) t) env ∧
     check_t 0 (count st'.next_uvar) t) ∧
- (!cenv ps st ts env st'.
-    (infer_ps cenv ps st = (Success (ts,env), st'))
+ (!l cenv ps st ts env st'.
+    (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
     EVERY (\(x,t). check_t 0 (count st'.next_uvar) t) env ∧
     EVERY (check_t 0 (count st'.next_uvar)) ts)`,
@@ -1209,16 +1209,16 @@ EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)`,
                                                    metis_tac[]);
 
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
-  `(!ienv p st t env st' tvs.
-    infer_p ienv p st = (Success (t,env), st') ∧
+  `(!l ienv p st t env st' tvs.
+    infer_p l ienv p st = (Success (t,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok ienv.inf_c ∧
     tenv_abbrev_ok ienv.inf_t ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
-   (!ienv ps st ts env st' tvs.
-    infer_ps ienv ps st = (Success (ts,env), st') ∧
+   (!l ienv ps st ts env st' tvs.
+    infer_ps l ienv ps st = (Success (ts,env), st') ∧
     t_wfs st.subst ∧
     tenv_ctor_ok ienv.inf_c ∧
     tenv_abbrev_ok ienv.inf_t ∧
@@ -1229,9 +1229,10 @@ val infer_p_check_s = Q.store_thm ("infer_p_check_s",
  rw [infer_p_def, success_eqns, remove_pair_lem] >>
  rw []
  >- metis_tac [check_s_more]
+ >- metis_tac [check_s_more]
  >- (PairCases_on `v'` >>
      metis_tac [check_s_more2, infer_p_next_uvar_mono])
- >- (rename1 `infer_ps _ _ _ = (Success v1, st1)` >>
+ >- (rename1 `infer_ps _ _ _ _ = (Success v1, st1)` >>
      PairCases_on `v1` >>
      fs [] >>
      first_x_assum drule >>
@@ -1337,23 +1338,23 @@ rw [check_t_def, infer_deBruijn_subst_def, LENGTH_COUNT_LIST,
 metis_tac []);
 
 val infer_e_check_t = Q.store_thm ("infer_e_check_t",
-  `(!ienv e st st' t.
-    infer_e ienv e st = (Success t, st') ∧
+  `(!l ienv e st st' t.
+    infer_e l ienv e st = (Success t, st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
     ⇒
     check_t 0 (count st'.next_uvar) t) ∧
-   (!ienv es st st' ts.
-    infer_es ienv es st = (Success ts, st') ∧
+   (!l ienv es st st' ts.
+    infer_es l ienv es st = (Success ts, st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
     ⇒
     EVERY (check_t 0 (count st'.next_uvar)) ts) ∧
-   (!ienv pes t1 t2 st st'.
-    infer_pes ienv pes t1 t2 st = (Success (), st') ∧
+   (!l ienv pes t1 t2 st st'.
+    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
     ⇒
     T) ∧
-   (!ienv funs st st' ts'.
-    infer_funs ienv funs st = (Success ts', st') ∧
+   (!l ienv funs st st' ts'.
+    infer_funs l ienv funs st = (Success ts', st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
     ⇒
     EVERY (check_t 0 (count st'.next_uvar)) ts')`,
@@ -1449,33 +1450,58 @@ val check_t_more_0 =
 val check_t_more_1 =
   check_t_more3 |> CONJUNCT1 |> SPEC_ALL |> SIMP_RULE(srw_ss())[PULL_FORALL] |> Q.SPEC`1`
 
-val constrain_op_check_s = Q.prove (
-`!tvs op ts t st st'.
-  constrain_op op ts st = (Success t, st') ∧
-  t_wfs st.subst ∧
-  EVERY (check_t 0 (count st.next_uvar)) ts ∧
-  check_s tvs (count st.next_uvar) st.subst
-  ⇒
-  check_s tvs (count st'.next_uvar) st'.subst`,
- rw [] >>
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
- `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
- fs [constrain_op_success] >> rw [] >>
- fs [infer_st_rewrs]
- \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
- \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
- \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
- \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
- \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
- \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
- \\ TRY (match_mp_tac check_s_more \\ rw[])
- \\ TRY (CHANGED_TAC(rw[check_t_def]))
- \\ TRY (match_mp_tac check_t_more_1 \\ rw[])
- \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC)
+val constrain_op_wfs = Q.store_thm ("constrain_op_wfs",
+  `!l tvs op ts t st st'.
+    constrain_op l op ts st = (Success t, st') ∧
+    t_wfs st.subst
+    ⇒
+    t_wfs st'.subst`,
+  rw [constrain_op_def] >>
+  every_case_tac >>
+  fs [success_eqns] >>
+  rw [] >>
+  fs [infer_st_rewrs] >>
+  metis_tac [t_unify_wfs]);
+
+val constrain_op_check_t = Q.store_thm ("constrain_op_check_t",
+  `!l tvs op ts t st st'.
+    constrain_op l op ts st = (Success t, st') ∧
+    EVERY (check_t 0 (count st.next_uvar)) ts
+    ⇒
+    check_t 0 (count st'.next_uvar) t`,
+  rw [constrain_op_def] >>
+  every_case_tac >>
+  fs [success_eqns] >>
+  rw [] >>
+  fs [infer_st_rewrs, check_t_def]);
+
+val constrain_op_check_s = Q.store_thm ("constrain_op_check_s",
+  `!l tvs op ts t st st'.
+    constrain_op l op ts st = (Success t, st') ∧
+    t_wfs st.subst ∧
+    EVERY (check_t 0 (count st.next_uvar)) ts ∧
+    check_s tvs (count st.next_uvar) st.subst
+    ⇒
+    check_s tvs (count st'.next_uvar) st'.subst`,
+   rw [] >>
+   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
+   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
+   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
+   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
+   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
+   `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
+   fs [constrain_op_success] >> rw [] >>
+   fs [infer_st_rewrs]
+   \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
+   \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+   \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+   \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+   \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+   \\ TRY (match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+   \\ TRY (match_mp_tac check_s_more \\ rw[])
+   \\ TRY (CHANGED_TAC(rw[check_t_def]))
+   \\ TRY (match_mp_tac check_t_more_1 \\ rw[])
+   \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC);
 
 val ienv_ok_def = Define `
   ienv_ok uvars ienv ⇔
@@ -1489,22 +1515,22 @@ val ienv_ok_more = Q.store_thm ("ienv_ok_more",
  >> metis_tac [check_env_more]);
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
-`(!ienv e st st' t tvs.
-    infer_e ienv e st = (Success t, st') ∧
+`(!l ienv e st st' t tvs.
+    infer_e l ienv e st = (Success t, st') ∧
     t_wfs st.subst ∧
     ienv_ok (count st.next_uvar) ienv ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
- (!ienv es st st' ts tvs.
-    infer_es ienv es st = (Success ts, st') ∧
+ (!l ienv es st st' ts tvs.
+    infer_es l ienv es st = (Success ts, st') ∧
     t_wfs st.subst ∧
     ienv_ok (count st.next_uvar) ienv ∧
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
- (!ienv pes t1 t2 st st' tvs.
-    infer_pes ienv pes t1 t2 st = (Success (), st') ∧
+ (!l ienv pes t1 t2 st st' tvs.
+    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     t_wfs st.subst ∧
     ienv_ok (count st.next_uvar) ienv ∧
     check_t 0 (count st.next_uvar) t1 ∧
@@ -1512,8 +1538,8 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     check_s tvs (count st.next_uvar) st.subst
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst) ∧
- (!ienv funs st st' ts' tvs.
-    infer_funs ienv funs st = (Success ts', st') ∧
+ (!l ienv funs st st' ts' tvs.
+    infer_funs l ienv funs st = (Success ts', st') ∧
     t_wfs st.subst ∧
     ienv_ok (count st.next_uvar) ienv ∧
     check_s tvs (count st.next_uvar) st.subst
@@ -1590,7 +1616,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
        >> drule (CONJUNCT1 check_t_more2)
        >> rw []))
    >- (
-     `st''.next_uvar ≤ st'.next_uvar` by decide_tac
+     `st''.next_uvar ≤ st'.next_uvar` by simp []
      >> metis_tac [check_s_more2]))
  >- (
    first_x_assum drule
@@ -1622,7 +1648,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_e_check_t)
    >> drule (CONJUNCT1 infer_e_wfs)
-   >> qpat_x_assum `infer_e _ _ _ = _` mp_tac
+   >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_e_wfs)
    >> drule (CONJUNCT1 infer_e_check_t)
@@ -1651,11 +1677,11 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_e_check_t)
    >> drule (CONJUNCT1 infer_e_wfs)
-   >> qpat_x_assum `infer_e _ _ _ = _` mp_tac
+   >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_e_wfs)
    >> drule (CONJUNCT1 infer_e_check_t)
-   >> qpat_x_assum `infer_e _ _ _ = _` mp_tac
+   >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_e_wfs)
    >> drule (CONJUNCT1 infer_e_check_t)
@@ -1710,7 +1736,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    first_x_assum drule
    >> first_x_assum drule
    >> rw []
-   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
+   >> qmatch_assum_abbrev_tac `infer_e _ (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
    >> `ienv_ok (count (LENGTH funs + st.next_uvar)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
      by (
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
@@ -1783,7 +1809,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
  >- (
    pairarg_tac
    >> fs [success_eqns]
-   >> rename1 `infer_p _ _ _ = (Success (t1',bindings1),st1)`
+   >> rename1 `infer_p _ _ _ _ = (Success (t1',bindings1),st1)`
    >> drule (REWRITE_RULE [Once CONJ_SYM] (CONJUNCT1 infer_p_wfs))
    >> rw []
    >> drule (CONJUNCT1 infer_p_check_t)
@@ -1802,7 +1828,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    >> `check_t tvs (count st1.next_uvar) t1 ∧ check_t tvs (count st1.next_uvar) t1'`
      by metis_tac [check_t_more2, check_t_more4, DECIDE ``!y. y + 0n = y``]
    >> rw []
-   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := nsAppend bindings2 ienv.inf_v) _ _ = (Success t2', st2)`
+   >> qmatch_assum_abbrev_tac `infer_e _ (ienv with inf_v := nsAppend bindings2 ienv.inf_v) _ _ = (Success t2', st2)`
    >> `ienv_val_ok (count st1.next_uvar) (nsAppend bindings2 ienv.inf_v)`
      by (
        fs [ienv_ok_def, ienv_val_ok_def, Abbr `bindings2`]
@@ -1850,7 +1876,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
    first_x_assum drule
    >> first_x_assum drule
    >> rw []
-   >> qmatch_assum_abbrev_tac `infer_e (ienv with inf_v := bindings) _ _ = _`
+   >> qmatch_assum_abbrev_tac `infer_e _ (ienv with inf_v := bindings) _ _ = _`
    >> `ienv_ok (count (st.next_uvar+1)) (ienv with inf_v := bindings)`
      by (
        fs [ienv_ok_def, Abbr `bindings`, ienv_val_ok_def]
@@ -2193,7 +2219,7 @@ val let_tac =
    >> drule (CONJUNCT1 infer_e_next_uvar_mono)
    >> drule (CONJUNCT1 infer_p_next_uvar_mono)
    >> rw []
-   >> rename1 `infer_p _ _ st2 = (Success (t2, env2), st3)`
+   >> rename1 `infer_p _ _ _ st2 = (Success (t2, env2), st3)`
    >> `check_t 0 (count st3.next_uvar) t1` by metis_tac [check_t_more4]
    >> fs []
    >> drule t_unify_wfs
@@ -2243,8 +2269,8 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  >- let_tac
  >- (
    qmatch_assum_abbrev_tac
-     `infer_funs (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
-   >> rename1 `infer_funs _ funs _ = (Success funs_ts, st1)`
+     `infer_funs _ (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
+   >> rename1 `infer_funs _ _ funs _ = (Success funs_ts, st1)`
    >> rename1 `pure_add_constraints _ _ st2.subst`
    >> `ienv_ok (count (LENGTH funs)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
      by (

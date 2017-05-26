@@ -215,6 +215,9 @@ val _ = tDefine"compile_pat"`
   (compile_pat (Pvar _) =
    Bool T)
   ∧
+  (compile_pat Pany =
+   Bool T)
+  ∧
   (compile_pat (Plit l) =
    App (Op (Op Equality)) [Var_local 0; Lit l])
   ∧
@@ -248,6 +251,8 @@ val _ = tDefine"compile_pat"`
  * newly bound variables *)
 val _ = tDefine"compile_row"`
   (compile_row (NONE::bvs) (Pvar x) = ((SOME x::bvs), 0, I))
+  ∧
+  (compile_row bvs Pany = (bvs, 0, I))
   ∧
   (compile_row bvs (Plit _) = (bvs, 0, I))
   ∧

@@ -69,7 +69,7 @@ val pmatch_list_snoc = Q.store_thm("pmatch_list_snoc",
       | Match env' => pmatch s p v env'
       | res => res`,
   Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][] >>
-  BasicProvers.CASE_TAC)
+  BasicProvers.CASE_TAC);
 
 val pmatch_append = Q.store_thm("pmatch_append",
   `(∀s p v env n.
@@ -87,7 +87,7 @@ val pmatch_append = Q.store_thm("pmatch_append",
   strip_tac >> res_tac >>
   qmatch_assum_rename_tac`pmatch s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
-  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND]);
 
 val pmatch_nil = save_thm("pmatch_nil",
   LIST_CONJ [
@@ -100,7 +100,7 @@ val pmatch_nil = save_thm("pmatch_nil",
     |> CONJUNCT2
     |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
     |> SIMP_RULE(srw_ss())[]
-  ])
+  ]);
 
 val evaluate_length = Q.store_thm("evaluate_length",
   `(∀env (s:'ffi exhSem$state) ls s' vs.
@@ -109,7 +109,11 @@ val evaluate_length = Q.store_thm("evaluate_length",
       evaluate_match env s v pes = (s', Rval vs) ⇒ LENGTH vs = 1)`,
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  Cases_on `r` >>
+  fs [evaluateTheory.list_result_def] >>
+  var_eq_tac >>
+  rw []);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -134,7 +138,7 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   full_simp_tac(srw_ss())[do_app_def] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]>-( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   reverse(Cases_on`op`>>full_simp_tac(srw_ss())[]) >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
-  qmatch_goalsub_rename_tac`op:ast$op` >>
+  qmatch_goalsub_rename_tac`op:modLang$op` >>
   Cases_on`op`>>full_simp_tac(srw_ss())[] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,

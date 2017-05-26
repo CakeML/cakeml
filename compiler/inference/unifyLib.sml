@@ -77,6 +77,7 @@ in
 
     val () = computeLib.add_thms funs compset
     val () = List.app (Lib.C computeLib.add_conv compset) (convs (computeLib.CBV_CONV compset))
+    val () = computeLib.extend_compset [computeLib.Tys [``:atom``]] compset
     in
       wfs_thms
     end

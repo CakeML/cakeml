@@ -180,23 +180,23 @@ val closeFD_def = Define`
 `;
 
 val inFS_fname_def = Define `
-  inFS_fname s fs = (s ∈ FDOM (alist_to_fmap fs.files))`
+  inFS_fname fs s = (s ∈ FDOM (alist_to_fmap fs.files))`
 
 val not_inFS_fname_openFile = Q.store_thm(
   "not_inFS_fname_openFile",
-  `~inFS_fname fname fs ⇒ openFile fname fs = NONE`,
+  `~inFS_fname fs fname ⇒ openFile fname fs = NONE`,
   fs [inFS_fname_def, openFile_def, ALOOKUP_NONE]);
 
 val inFS_fname_ALOOKUP_EXISTS = Q.store_thm(
   "inFS_fname_ALOOKUP_EXISTS",
-  `inFS_fname fname fs ⇒ ∃content. ALOOKUP fs.files fname = SOME content`,
+  `inFS_fname fs fname ⇒ ∃content. ALOOKUP fs.files fname = SOME content`,
   fs [inFS_fname_def, MEM_MAP] >> rpt strip_tac >> fs[] >>
   rename1 `fname = FST p` >> Cases_on `p` >>
   fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
 
 val ALOOKUP_SOME_inFS_fname = Q.store_thm(
   "ALOOKUP_SOME_inFS_fname",
-  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fnm fs`,
+  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fs fnm`,
   Induct_on `fs.files` >> rpt strip_tac >>
   qpat_x_assum `_ = fs.files` (assume_tac o GSYM) >> rw[] >>
   fs [inFS_fname_def] >> rename1 `fs.files = p::ps` >>
@@ -205,7 +205,7 @@ val ALOOKUP_SOME_inFS_fname = Q.store_thm(
 );
 
 val ALOOKUP_inFS_fname_openFileFS_nextFD = Q.store_thm("ALOOKUP_inFS_fname_openFileFS_nextFD",
-  `inFS_fname f fs ∧ nextFD fs < 255
+  `inFS_fname fs f ∧ nextFD fs < 255
    ⇒
    ALOOKUP (openFileFS f fs).infds (nextFD fs) = SOME (f,0)`,
   rw[openFileFS_def,openFile_def]

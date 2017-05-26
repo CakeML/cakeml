@@ -441,7 +441,7 @@ val ptree_TypeAbbrevDec_def = Define`
             assert(tokcheck typetok TypeT ∧ tokcheck eqtok EqualsT) ;
             (vars, nm) <- ptree_TypeName tynm;
             typ <- ptree_Type nType typ_pt;
-            SOME(Dtabbrev vars nm typ)
+            SOME(Dtabbrev (SND nt) vars nm typ)
           od
         | _ => NONE
       else NONE
@@ -459,6 +459,7 @@ val ptree_Op_def = Define`
     else if FST nt = mkNT nAddOps then
       if tokcheckl subs [SymbolT "+"] then SOME (Short "+")
       else if tokcheckl subs [SymbolT "-"] then SOME (Short "-")
+      else if tokcheckl subs [SymbolT "\094"] then SOME (Short "\094")
       else NONE
     else if FST nt = mkNT nListOps then
       if tokcheckl subs [SymbolT "::"] then SOME (Short "::")
@@ -521,6 +522,68 @@ val mkPatApp_def = Define`
         | _ => Pcon (SOME cn) [p]
 `;
 
+val isSymbolicConstructor_def = Define`
+  isSymbolicConstructor (structopt : modN option) s =
+    return (s = "::")
+`;
+
+val isConstructor_def = Define`
+  isConstructor structopt s =
+    do
+      ifM (isSymbolicConstructor structopt s)
+        (return T)
+        (return (dtcase misc$oHD s of
+                     NONE => F
+                   | SOME c => isAlpha c ∧ isUpper c))
+    od
+`;
+
+(* third clause below will lead to a failure when the environment is
+   consulted to reveal that the long-id given does not correspond to a
+   constructor.  We do this rather than fail to make the "totality" theorem
+   work *)
+val EtoPat_def = Define`
+  (EtoPat (Con x args) = if NULL args then SOME (Pcon x []) else NONE) ∧
+  (EtoPat (Var (Short n)) = SOME (Pvar n)) ∧
+  (EtoPat (Var (Long str n)) = SOME (Pcon (SOME (Long str n)) [])) ∧
+  (EtoPat _ = NONE)
+`;
+
+val ptree_OpID_def = Define`
+  ptree_OpID (Lf _) = NONE ∧
+  ptree_OpID (Nd nt subs) =
+    if FST nt ≠ mkNT nOpID then NONE
+    else
+      dtcase subs of
+          [Lf (TK tk, _)] =>
+          do
+              s <- destAlphaT tk ;
+              ifM (isConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              s <- destSymbolT tk ;
+              ifM (isSymbolicConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              (str,s) <- destLongidT tk ;
+              ifM (isConstructor (SOME str) s)
+                  (return (Con (SOME (Long str (Short s))) []))
+                  (return (Var (Long str (Short s))))
+          od ++
+          (if tk = StarT then
+             ifM (isSymbolicConstructor NONE "*")
+                 (return (Con (SOME (Short "*")) []))
+                 (return (Var (Short "*")))
+           else if tk = EqualsT then return (Var (Short "="))
+           else
+             NONE)
+        | _ => NONE
+`;
+
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
@@ -541,10 +604,12 @@ val ptree_Pattern_def = Define`
              do s <- destStringT t ; return (Plit (StrLit s)) od ++
              do c <- destCharT t ; return (Plit (Char c)) od)
           od ++
-          do assert(tokcheck vic UnderbarT) ; return (Pvar "_") od
+          do assert(tokcheck vic UnderbarT) ; return Pany od
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
             SOME(Pcon (SOME (Short "nil")) [])
+          else if tokcheckl [lb] [OpT] then
+            do e <- ptree_OpID rb ; EtoPat e od
           else NONE
         | [lb; plistpt; rb] =>
           do
@@ -654,140 +719,44 @@ val dest_Conk_def = Define`
   (dest_Conk _ k v = v)
 `;
 
+val destFFIop_def = Define`
+  (destFFIop (FFI s) = SOME s) ∧
+  (destFFIop _ = NONE)
+`;
+val _ = export_rewrites ["destFFIop_def"]
+
 val strip_loc_expr_def = Define`
- (strip_loc_expr (Lannot e l) = strip_loc_expr e) /\
- (strip_loc_expr e = e)
+ (strip_loc_expr (Lannot e l) =
+    dtcase (strip_loc_expr e) of
+      (e0, _) => (e0, (λe. Lannot e l))) ∧
+ (strip_loc_expr e = (e, (λe. e)))
 `
 
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
-    dest_Conk (strip_loc_expr a1)
-      (λnm_opt args.
-               if ~NULL args then App Opapp [a1;a2]
-               else if nm_opt = SOME (Short "ref") then
-                 App Opapp [Var (Short "ref"); a2]
-               else
-                 dest_Conk (strip_loc_expr a2)
-                           (λnm_opt2 args2.
-                                     if nm_opt2 = NONE ∧ ~ NULL args2 then
-                                       Con nm_opt args2
-                                     else
-                                       Con nm_opt [a2])
-                           (Con nm_opt [a2]))
-      (App Opapp [a1;a2]) 
+    let (a10, addloc) = strip_loc_expr a1
+    in
+      dest_Conk a10
+        (λnm_opt args.
+                 if ~NULL args then App Opapp [a1;a2]
+                 else if nm_opt = SOME (Short "ref") then
+                   App Opapp [addloc (Var (Short "ref")); a2]
+                 else
+                   dest_Conk (FST (strip_loc_expr a2))
+                             (λnm_opt2 args2.
+                                       if nm_opt2 = NONE ∧ ~ NULL args2 then
+                                         Con nm_opt args2
+                                       else
+                                         Con nm_opt [a2])
+                             (Con nm_opt [a2]))
+        (dtcase a10 of
+           App opn args =>
+             (dtcase (destFFIop opn) of
+                NONE => App Opapp [a1;a2]
+              | SOME s => App opn (args ++ [a2]))
+         | _ => App Opapp [a1;a2])
 `;
 
-(* this re-expression of the above blows up disgustingly when the case
-   expressions are expanded but is perhaps easier to understand. *)
-val mkAst_App_thm = Q.store_thm(
-  "mkAst_App_thm",
-  `mkAst_App a1 a2 =
-     dtcase strip_loc_expr a1 of
-         Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
-       | Con s [] =>
-         (dtcase strip_loc_expr a2 of
-              Con NONE [] => Con s [a2]
-                (* applying a constructor to unit has to be viewed as
-                   applying it to one argument (unit), rather than as
-                   applying it to none *)
-            | Con NONE tuple => Con s tuple
-            | _ => Con s [a2])
-       | _ => App Opapp [a1; a2]`,
-  Cases_on `strip_loc_expr a1` >> simp[mkAst_App_def, dest_Conk_def,strip_loc_expr_def] >>
-  rename1 `strip_loc_expr a1 = Con nm_opt args` >> 
-  Cases_on `args` >> simp[] >>
-  Cases_on `nm_opt` >> simp[]
-  >- ( Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >>
-      rename1 `strip_loc_expr a2 = Con opt2 args2` >> 
-      Cases_on `opt2` >> simp[] >> Cases_on `args2` >> simp[]) >>
-  rename1`ident = Short "ref"` >> reverse (Cases_on `ident`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1 `str = "ref"` >> Cases_on `str` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c str'))` >> Cases_on `str'` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> 
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c1 (STRING c2 str')))` >> Cases_on `str'` >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >>
-      rename1`strip_loc_expr a2 = Con opt2 args2` >>
-      map_every Cases_on [`opt2`, `args2`] >> simp[]) >>
-  rename1`SOME(Short (STRING c1 (STRING c2 (STRING c3 str'))))` >>
-  reverse (Cases_on `str'`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c1 = #"r"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c2 = #"e"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]) >>
-  reverse (Cases_on`c3 = #"f"`) >> simp[]
-  >- (Cases_on `strip_loc_expr a2` >> simp[dest_Conk_def] >> rw[] >>
-      rename1`strip_loc_expr a2 = Con _ args2` >> Cases_on `args2` >> fs[] >>
-      rename1`option_CASE opt2` >> Cases_on `opt2` >> fs[] >>
-      rename1`list_CASE args2` >> Cases_on `args2` >> fs[]))
-
-val isSymbolicConstructor_def = Define`
-  isSymbolicConstructor (structopt : modN option) s =
-    return (s = "::")
-`;
-
-val isConstructor_def = Define`
-  isConstructor structopt s =
-    do
-      ifM (isSymbolicConstructor structopt s)
-        (return T)
-        (return (dtcase misc$oHD s of
-                     NONE => F
-                   | SOME c => isAlpha c ∧ isUpper c))
-    od
-`;
-
-val ptree_OpID_def = Define`
-  ptree_OpID (Lf _) = NONE ∧
-  ptree_OpID (Nd nt subs) =
-    if FST nt ≠ mkNT nOpID then NONE
-    else
-      dtcase subs of
-          [Lf (TK tk, _)] =>
-          do
-              s <- destAlphaT tk ;
-              ifM (isConstructor NONE s)
-                  (return (Con (SOME (Short s)) []))
-                  (return (Var (Short s)))
-          od ++
-          do
-              s <- destSymbolT tk ;
-              ifM (isSymbolicConstructor NONE s)
-                  (return (Con (SOME (Short s)) []))
-                  (return (Var (Short s)))
-          od ++
-          do
-              (str,s) <- destLongidT tk ;
-              ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str (Short s))) []))
-                  (return (Var (Long str (Short s))))
-          od ++
-          (if tk = StarT then
-             ifM (isSymbolicConstructor NONE "*")
-                 (return (Con (SOME (Short "*")) []))
-                 (return (Var (Short "*")))
-           else if tk = EqualsT then return (Var (Short "="))
-           else
-             NONE)
-        | _ => NONE
-`;
 
 val dePat_def = Define`
   (dePat (Pvar v) b = (v, b)) ∧
@@ -808,7 +777,8 @@ val ptree_Eliteral_def = Define`
       (do i <- destIntT t ; return (Lit (IntLit i)) od ++
        do c <- destCharT t ; return (Lit (Char c)) od ++
        do s <- destStringT t ; return (Lit (StrLit s)) od ++
-       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od)
+       do n <- destWordT t ; return (Lit (Word64 (n2w n))) od ++
+       do s <- destFFIT t ; return (App (FFI s) []) od)
     od
 `
 
@@ -820,7 +790,7 @@ val bind_loc_def = Define`
 local
   val ptree_Expr_quotation = `
   ptree_Expr ent (Lf _) = NONE ∧
-  ptree_Expr ent (Nd (nt,loc) subs) = 
+  ptree_Expr ent (Nd (nt,loc) subs) =
   do
   e <- (if mkNT ent = nt then
       if nt = mkNT nEbase then
@@ -1226,32 +1196,32 @@ val ptree_Decl_def = Define`
   ptree_Decl pt : dec option =
     dtcase pt of
        Lf _ => NONE
-     | Nd (nt,_) args =>
+     | Nd (nt,locs) args =>
        if nt <> mkNT nDecl then NONE
        else
          dtcase args of
              [dt] =>
              do
                tydec <- ptree_TypeDec dt;
-               SOME (Dtype tydec)
+               SOME (Dtype (locs) tydec)
              od ++ ptree_TypeAbbrevDec dt
            | [funtok; fdecls] =>
              do
                assert(tokcheck funtok FunT);
                fdecs <- ptree_AndFDecls fdecls;
-               SOME (Dletrec fdecs)
+               SOME (Dletrec (locs) fdecs)
              od ++
              do
                assert (tokcheck funtok ExceptionT);
                (enm, etys) <- ptree_Dconstructor fdecls;
-               SOME (Dexn enm etys)
+               SOME (Dexn (locs) enm etys)
              od
            | [valtok; patpt; eqtok; ept] =>
              do
                assert (tokcheckl [valtok; eqtok] [ValT; EqualsT]);
                pat <- ptree_Pattern nPattern patpt;
                e <- ptree_Expr nE ept;
-               SOME (Dlet pat e)
+               SOME (Dlet (locs) pat e)
              od
            | _ => NONE
 `
@@ -1432,7 +1402,7 @@ val ptree_TopLevelDecs_def = Define`
              assert (tokcheck semitok SemicolonT);
              e <- ptree_Expr nE e_pt;
              tds <- ptree_TopLevelDecs tds_pt;
-             return (Tdec (Dlet (Pvar "it") e) :: tds)
+             return (Tdec (Dlet (SND nt) (Pvar "it") e) :: tds)
            od
          | _ => NONE) ∧
   (ptree_NonETopLevelDecs (Lf _) = fail) ∧

@@ -1,7 +1,8 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = parsing inference backend
+INCLUDES = .. ../semantics parsing inference backend\
+					 backend/reg_alloc encoders/asm backend/x64
 
-all: compilerTheory.uo
+all: compilerTheory.uo compilationLib.uo
 .PHONY: all
 
 ifdef POLY

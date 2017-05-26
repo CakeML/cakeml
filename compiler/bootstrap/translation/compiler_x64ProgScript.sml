@@ -1,7 +1,7 @@
 open preamble
      x64ProgTheory
      export_x64Theory
-     configTheory
+     x64_configTheory
      ml_translatorLib cfTacticsLib
      ioProgLib
 
@@ -41,13 +41,13 @@ val res = translate ffi_asm_def;
 val res = translate x64_export_def;
 
 val res = translate
-  (x64_compiler_config_def
+  (x64_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1])
 
 val error_to_str_def = Define`
-  (error_to_str ParseError = "### ERROR: parse error") /\
-  (error_to_str TypeError = "### ERROR: type error") /\
-  (error_to_str CompileError = "### ERROR: compile error")`;
+  (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
+  (error_to_str (TypeError s) = concat [strlit "### ERROR: type error\n"; s; strlit "\n"]) /\
+  (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
 
 val res = translate error_to_str_def;
 
@@ -72,6 +72,40 @@ val find_parse_def = Define`
     else find_parse flag xs)`
 
 val res = translate find_parse_def;
+
+val comma_tokens_def = Define `
+  (comma_tokens acc xs [] = if NULL xs then acc else acc ++ [implode xs]) /\
+  (comma_tokens acc (xs:string) (c::(cs:string)) =
+    if c = #"," then
+      comma_tokens (acc ++ if NULL xs then [] else [implode xs]) [] cs
+    else
+      comma_tokens acc (STRCAT xs [c]) cs)`
+
+val res = translate comma_tokens_def;
+
+val parse_num_list_def = Define`
+  (parse_num_list [] = []) /\
+  (parse_num_list (x::xs) =
+     case parse_num x of
+     | NONE => parse_num_list xs
+     | SOME n => n :: parse_num_list xs)`
+
+val res = translate parse_num_list_def;
+
+val parse_nums_def = Define `
+  parse_nums str =
+    SOME (parse_num_list (comma_tokens [] [] (explode str)))`
+
+val res = translate parse_nums_def;
+
+val find_parse_nums_def = Define`
+  (find_parse_nums flag [] = NONE) ∧
+  (find_parse_nums flag (x::xs) =
+    if isPrefix flag x then
+      parse_nums (substring x (strlen flag) (strlen x))
+    else find_parse_nums flag xs)`
+
+val res = translate find_parse_nums_def;
 
 (* parses a list of strings to configurations and modifies the configuration *)
 val extend_with_args_def = Define`
@@ -98,6 +132,19 @@ val extend_with_args_def = Define`
         exp_cut:= case expcut of NONE => bvl.exp_cut | SOME v => v;
         split_main_at_seq := splitmain
       |> in
+    let gc_none = (MEMBER (strlit"--gc=none") ls) in
+    let gc_simple = (MEMBER (strlit"--gc=simple") ls) in
+    let gc_gen = (MEMBER (strlit"--gc=gen") ls) in
+    let gc_gen_sizes = find_parse_nums (strlit "--gc=gen") ls in
+    let data = conf.data_conf in
+    let updated_data =
+	data with <| gc_kind :=
+		  case gc_gen_sizes of
+		  | SOME gs => Generational gs
+		  | NONE =>
+   		      if gc_none then None else
+		      if gc_simple then Simple else
+		      if gc_gen then Generational [] else data.gc_kind |> in
     let regalg = find_parse (strlit "--reg_alg=") ls in
     let wtw = conf.word_to_word_conf in
     let updated_wtw =
@@ -111,14 +158,13 @@ val _ = translate (extend_with_args_def |> spec64 )
 val compile_to_bytes_def = Define `
   compile_to_bytes c input =
     case compiler$compile c basis input of
-    | Failure err => List[implode(error_to_str err)]
-    | Success (bytes,ffis) => x64_export ffis 400 100 bytes`;
+    | Failure err => (List[], error_to_str err)
+    | Success (bytes,ffis) => (x64_export ffis 400 100 bytes, implode "")`;
 
-(* TODO: x64_compiler_config should be called x64_backend_config *)
 val compiler_x64_def = Define`
   compiler_x64 cl = compile_to_bytes
     <| inferencer_config := init_config;
-       backend_config := extend_with_args cl x64_compiler_config |>`;
+       backend_config := extend_with_args cl x64_backend_config |>`;
 
 val res = translate
   (compiler_x64_def
@@ -129,7 +175,8 @@ val main = process_topdecs`
     let
       val cl = Commandline.arguments ()
     in
-      print_app_list (compiler_x64 cl (read_all []))
+      case compiler_x64 cl (read_all [])  of
+        (c, e) => (print_app_list c; print_err e)
     end`;
 
 val res = ml_prog_update(ml_progLib.add_prog main I)
@@ -138,10 +185,11 @@ val st = get_ml_prog_state()
 val main_spec = Q.store_thm("main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "main" st)
-     [Conv NONE []] (STDOUT out * (STDIN inp F * COMMANDLINE cl))
+     [Conv NONE []] (STDOUT out * STDERR err * (STDIN inp F * COMMANDLINE cl))
      (POSTv uv. &UNIT_TYPE () uv *
-      (STDOUT (out ++ (FLAT (MAP explode (append (compiler_x64 (TL(MAP implode cl)) inp))))) *
-       (STDIN "" T * COMMANDLINE cl)))`,
+      STDOUT (out ++ (FLAT (MAP explode (append (FST(compiler_x64 (TL(MAP implode cl)) inp)))))) *
+      STDERR (err ++ explode (SND(compiler_x64 (TL(MAP implode cl)) inp))) *
+       (STDIN "" T * COMMANDLINE cl))`,
   strip_tac
   \\ xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
@@ -156,18 +204,27 @@ val main_spec = Q.store_thm("main_spec",
   \\ xlet`POSTv nv. &LIST_TYPE CHAR [] nv * frame`
   >- (xcon \\ xsimpl \\ EVAL_TAC)
   \\ qunabbrev_tac`frame`
-  \\ xlet`POSTv cv. &LIST_TYPE CHAR inp cv * STDIN "" T * STDOUT out * COMMANDLINE cl`
-  >- (xapp \\ instantiate \\ xsimpl
-      \\ map_every qexists_tac[`STDOUT out * COMMANDLINE cl`,`F`,`inp`]
-      \\ xsimpl )
+  \\ xlet`POSTv cv. &LIST_TYPE CHAR inp cv * STDIN "" T * STDOUT out * STDERR err * COMMANDLINE cl`
+  >- ( xapp \\ instantiate \\ xsimpl
+      \\ map_every qexists_tac[`STDOUT out * STDERR err * COMMANDLINE cl`,`F`,`inp`]
+      \\ xsimpl)
   \\ qmatch_abbrev_tac`_ frame _`
-  \\ qmatch_goalsub_abbrev_tac`append res`
-  \\ xlet`POSTv xv. &MISC_APP_LIST_TYPE STRING_TYPE res xv * frame`
+  \\ qmatch_goalsub_abbrev_tac`append (FST res)`
+  \\ xlet`POSTv xv. &PAIR_TYPE (MISC_APP_LIST_TYPE STRING_TYPE) STRING_TYPE res xv * frame`
   >- (xapp \\ instantiate \\ xsimpl)
+  \\ xmatch
+  \\ Cases_on `res` \\ qmatch_goalsub_abbrev_tac`FST (c,e)`
+  \\ every_case_tac \\ fs [ml_translatorTheory.PAIR_TYPE_def]
+  \\ rw[validate_pat_def,pat_typechecks_def,pat_without_Pref_def,
+     ALL_DISTINCT,astTheory.pat_bindings_def,terminationTheory.pmatch_def]
+  \\ qunabbrev_tac`frame`
+  \\ qmatch_goalsub_abbrev_tac`STDOUT (out ++ output)`
+  \\ xlet `POSTv xv. &UNIT_TYPE () xv * STDOUT (out ++ output) *
+           STDERR err * (STDIN "" T * COMMANDLINE cl)`
   \\ xapp \\ instantiate
-  \\ simp[Abbr`frame`]
-  \\ map_every qexists_tac[`STDIN "" T * COMMANDLINE cl`,`out`]
-  \\ xsimpl);
+  >- (CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out` \\ xsimpl)
+  \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`err` \\ xsimpl
+  );
 
 val spec = main_spec |> UNDISCH_ALL |> add_basis_proj;
 val name = "main"
@@ -178,9 +235,8 @@ val entire_program_def = Define`entire_program = ^prog_tm`;
 val semantics_entire_program =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM entire_program_def]
-  |> CONV_RULE(PATH_CONV"brrr"(SIMP_CONV std_ss [APPEND])) (* remove STRCAT "" *)
-  (* TODO: change call_main_thm_basis to existentially quantify an io_list instead? *)
-  |> CONV_RULE(RENAME_VARS_CONV["st"])
+  |> CONV_RULE(PATH_CONV"b"(SIMP_CONV std_ss [APPEND])) (* remove STRCAT "" *)
+  |> CONV_RULE(RENAME_VARS_CONV["io_events"])
   |> DISCH_ALL |> GEN_ALL
   |> CONV_RULE(RENAME_VARS_CONV["inp","cls"])
   |> curry save_thm "semantics_entire_program";

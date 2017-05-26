@@ -1,5 +1,8 @@
 open preamble modSemTheory
-local open astTheory semanticPrimitivesPropsTheory terminationTheory in end
+local
+  open astTheory semanticPrimitivesPropsTheory terminationTheory
+       evaluatePropsTheory
+in end
 
 val _ = new_theory"modProps"
 
@@ -390,7 +393,7 @@ val evaluate_vars = Q.store_thm("evaluate_vars",
 
 val with_same_v = Q.store_thm("with_same_v[simp]",
   `env with v := env.v = env`,
-  srw_tac[][environment_component_equality])
+  srw_tac[][environment_component_equality]);
 
 val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
   `(!cenv refs p v evs env env'.
@@ -411,6 +414,9 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
     ONCE_REWRITE_TAC[GSYM MAP] >>
     match_mp_tac evaluate_vars >> srw_tac[][] >>
     qexists_tac`(x,v)::env.v` >> srw_tac[][] )
+  >- (
+    match_mp_tac evaluate_vars >> srw_tac[][] >>
+    first_assum(match_exists_tac o concl) >> simp[] )
   >- (
     match_mp_tac evaluate_vars >> srw_tac[][] >>
     first_assum(match_exists_tac o concl) >> simp[] )

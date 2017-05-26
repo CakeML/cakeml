@@ -301,7 +301,7 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (aux ++ List [(num_stubs + 2 * name,arg_count,HD c)],n1)`
+      (aux ++ List [(num_stubs + 2 * name,arg_count,bvi_let$compile_exp (HD c))],n1)`
 
 val compile_list_def = Define `
   (compile_list n [] = (List [],n)) /\

@@ -195,7 +195,8 @@ fun alloc_aux alg k [] n = (print"\n";[])
       (*TODO: handle forced edges*)
       val moves_poly = dest_moves moves in
       reg_alloc alg clash_tree_poly k moves_poly :: alloc_aux alg k xs (n+1)
-  end;
+  end
+|   alloc_aux _ _ _ _ = raise General.Bind;
 
 (*Main thing to call for external allocator
   Should be passed a term of the form (k,(clashsetlist,moves) list)

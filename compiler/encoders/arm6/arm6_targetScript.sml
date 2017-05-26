@@ -50,7 +50,8 @@ val arm6_bop_def = Define`
 val arm6_sh_def = Define`
    (arm6_sh Lsl = SRType_LSL) /\
    (arm6_sh Lsr = SRType_LSR) /\
-   (arm6_sh Asr = SRType_ASR)`
+   (arm6_sh Asr = SRType_ASR) /\
+   (arm6_sh Ror = SRType_ROR)`
 
 val arm6_cmp_def = Define`
    (arm6_cmp Less     = (2w, 0b1011w) : word2 # word4) /\
@@ -83,9 +84,11 @@ val arm6_enc_def = Define`
       if (bop = Xor) /\ (i = -1w) then
         enc (Data (ShiftImmediate (T, F, n2w r1, n2w r2, SRType_LSL, 0)))
       else
-        enc (Data (ArithLogicImmediate
-                      (arm6_bop bop, F, n2w r1, n2w r2,
-                       THE (EncodeARMImmediate i))))) /\
+        case EncodeARMImmediate i of
+           SOME imm12 =>
+             enc (Data (ArithLogicImmediate
+                           (arm6_bop bop, F, n2w r1, n2w r2, imm12)))
+         | NONE => arm6_encode_fail) /\
    (arm6_enc (Inst (Arith (Shift sh r1 r2 n))) =
       enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm6_sh sh, n)))) /\
    (arm6_enc (Inst (Arith (Div _ _ _))) = arm6_encode_fail) /\
@@ -136,11 +139,13 @@ val arm6_enc_def = Define`
          (c, Branch (BranchTarget (a - 12w)))]) /\
    (arm6_enc (JumpCmp cmp r (Imm i) a) =
       let (opc, c) = arm6_cmp cmp
-      and imm12 = THE (EncodeARMImmediate i)
       in
-        arm6_encode
-          [(AL, Data (TestCompareImmediate (opc, n2w r, imm12)));
-           (c, Branch (BranchTarget (a - 12w)))]) /\
+        case EncodeARMImmediate i of
+           SOME imm12 =>
+              arm6_encode
+                [(AL, Data (TestCompareImmediate (opc, n2w r, imm12)));
+                 (c, Branch (BranchTarget (a - 12w)))]
+         | NONE => arm6_encode_fail) /\
    (arm6_enc (Call a) =
       enc (Branch (BranchLinkExchangeImmediate (InstrSet_ARM, a - 8w)))) /\
    (arm6_enc (JumpReg r) = enc (Branch (BranchExchange (n2w r)))) /\

@@ -29,18 +29,6 @@ val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 (* -- *)
 
-(* TODO: move? *)
-(* replace TOKENS_EMPTY in misc with this *)
-val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
-  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
-  `MEM x (REPLICATE n y) ==> x = y`,
-  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
-(* -- *)
-
 val _ = ml_prog_update (open_module "Commandline")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 
@@ -98,50 +86,10 @@ val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
       set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
   \\ fs[set_sepTheory.one_def]);
 
-val st = get_ml_prog_state()
-
-(* TODO: using p:'b ffi_proj makes xapp fail in hard to trace ways
-      - ultimately it's because app_of_Arrow_rule is not robust when ffi_ty is either 'a or 'b
-*)
-val tabulate_spec = Q.store_thm("tabulate_spec",
-  `!f fv A heap_inv n nv ls.
-    NUM n nv /\ ls = GENLIST f n /\
-    (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
-    ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
-  ntac 4 gen_tac
-  \\ Induct
-  >-(
-    rw[]
-    \\ xcf "List.tabulate" st
-    \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
-      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
-    \\ xif
-    >-(xcon \\ xsimpl \\ EVAL_TAC)
-    \\ fs[NUM_def, INT_def] \\ rw[])
-  \\ rw[]
-  \\ xcf "List.tabulate" st
-  \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
-    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
-  \\ xif
-  >-(fs[NUM_def, INT_def] \\ rw[])
-  \\ xlet `POSTv nv. &NUM n nv * heap_inv`
-  >-( xapp \\  xsimpl \\ instantiate )
-  \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
-  >- ( xapp \\ xsimpl )
-  \\ xlet `POSTv v. &LIST_TYPE A (GENLIST f n) v * heap_inv`
-  >- ( xapp \\ xsimpl )
-  \\ xapp
-  \\ xsimpl
-  \\ instantiate
-  \\ simp[GENLIST]);
-(*
-an alternative to the theorem above would be
-to write/use a custom (non higher-order) version of tabulate for this module instead
-*)
-
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
+
+val st = get_ml_prog_state();
 
 val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
     `!av a.

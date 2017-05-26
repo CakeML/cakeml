@@ -9,7 +9,7 @@ val _ = translation_extends "mlvectorProg";
 val _ = ml_prog_update (open_module "String");
 
 
-val _ = ml_prog_update (add_dec ``Dtabbrev [] "string" (Tapp [] TC_string)`` I);
+val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "strlen" `strlen`
@@ -113,12 +113,14 @@ val isStringThere_aux_side_thm = Q.prove (
 );
 
 
+val _ = next_ml_names := ["isPrefix"];
 val result = translate isPrefix_def;
 val isPrefix_side_def = definition"isprefix_1_side_def";
 val isPrefix_thm = Q.prove (
   `!s1 s2. isprefix_1_side s1 s2`,
   rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["isSuffix"];
 val result = translate isSuffix_def;
 val isSuffix_side_def = definition"issuffix_side_def";
 val isSuffix_thm = Q.prove (
@@ -133,6 +135,7 @@ val isSubstring_aux_side_thm = Q.prove (
   Induct_on `len` \\ rw [Once isSubstring_aux_side_def, isStringThere_aux_side_thm]
 );
 
+val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_def;
 val isSubstring_side_def = definition"issubstring_side_def";
 val isSubstring_side_thm = Q.prove (
@@ -144,7 +147,6 @@ val result = translate compare_aux_def;
 val compare_aux_side_def = theorem"compare_aux_side_def";
 val result = translate compare_def;
 val compare_side_def = definition"compare_side_def";
-
 
 val compare_aux_side_thm = Q.prove (
   `!s1 s2 ord n len. (n + len =
@@ -158,11 +160,20 @@ val compare_side_thm = Q.prove (
   `!s1 s2. compare_side s1 s2`,
   rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
 
+val _ = next_ml_names := ["<"];
+val _ = translate mlstring_lt_def;
+val _ = next_ml_names := ["<="];
+val _ = translate mlstring_le_def;
+val _ = next_ml_names := [">="];
+val _ = translate mlstring_ge_def;
+val _ = next_ml_names := [">"];
+val _ = translate mlstring_gt_def;
 
 val result = translate collate_aux_def;
 val collate_aux_side_def = theorem"collate_aux_1_side_def";
+val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
-val collate_side_def = definition"collate_2_side_def";
+val collate_side_def = definition"collate_1_side_def";
 
 val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
@@ -173,7 +184,7 @@ val collate_aux_side_thm = Q.prove (
 );
 
 val collate_side_thm = Q.prove (
-  `!f s1 s2. collate_2_side f s1 s2`,
+  `!f s1 s2. collate_1_side f s1 s2`,
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 

@@ -41,17 +41,17 @@ val do_onefile_spec = Q.store_thm(
               &(ALOOKUP fs.files fnm = SOME content) *
               ROFS fs * STDOUT (out ++ content))
          (\e. &BadFileName_exn e *
-              &(~inFS_fname fnm fs) *
+              &(~inFS_fname fs fnm) *
               ROFS fs * STDOUT out))`,
   rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   xlet `POST
           (\fdv.
             &(WORD (n2w (nextFD fs) : word8) fdv ∧
               validFD (nextFD fs) (openFileFS fnm fs) ∧
-              inFS_fname fnm fs) *
+              inFS_fname fs fnm) *
             ROFS (openFileFS fnm fs) * STDOUT out)
           (\e.
-            &(BadFileName_exn e ∧ ~inFS_fname fnm fs) *
+            &(BadFileName_exn e ∧ ~inFS_fname fs fnm) *
             ROFS fs * STDOUT out)`
   >- (xapp >> fs[] >> instantiate >> xsimpl)
   >- xsimpl >>
@@ -171,7 +171,7 @@ val catfiles_string_def = Define`
 val cat_spec0 = Q.prove(
   `∀fns fnsv fs out.
      LIST_TYPE FILENAME fns fnsv ∧
-     EVERY (\fnm. inFS_fname fnm fs) fns ∧
+     EVERY (inFS_fname fs) fns ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255
     ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
@@ -214,7 +214,7 @@ val _ = process_topdecs `
 
 val catfile_string_def = Define `
   catfile_string fs fnm =
-    if inFS_fname fnm fs then file_contents fnm fs
+    if inFS_fname fs fnm then file_contents fnm fs
     else []`
 
 val cat1_spec = Q.store_thm (
@@ -233,7 +233,7 @@ val cat1_spec = Q.store_thm (
                &(ALOOKUP fs.files fnm = SOME content) *
                ROFS fs *
                STDOUT (out ++ content))
-             (\e. &BadFileName_exn e * &(~inFS_fname fnm fs) *
+             (\e. &BadFileName_exn e * &(~inFS_fname fs fnm) *
                   ROFS fs * STDOUT out)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
@@ -247,8 +247,6 @@ val cat1_spec = Q.store_thm (
       simp[catfile_string_def, file_contents_def]
 );
 
-val _ = overload_on ("noNullBytes", ``λs. ¬MEM (CHR 0) (explode s)``)
-
 val cat_main = process_topdecs`
   fun cat_main _ = cat (Commandline.arguments())`;
 val _ = append_prog cat_main;
@@ -258,7 +256,7 @@ val st = get_ml_prog_state();
 val cat_main_spec = Q.store_thm("cat_main_spec",
   `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
   (* TODO: package the above assumptions up better? e.g. inside COMMANDLINE *)
-   EVERY (λfnm. noNullBytes fnm ∧ strlen fnm < 256 ∧ inFS_fname fnm fs) (MAP implode (TL cl)) ∧
+   EVERY (inFS_fname fs) (MAP implode (TL cl)) ∧
    CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
@@ -267,6 +265,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
                                     * (ROFS fs * COMMANDLINE cl)))`,
   strip_tac
   \\ xcf "cat_main" st
+  \\ xmatch
   \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
   \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * ROFS fs * COMMANDLINE cl`
@@ -281,14 +280,17 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xapp
   \\ instantiate
   \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-  \\ map_every qexists_tac[`MAP implode (TL cl)`,`out`]
+  \\ map_every qexists_tac[`out`]
   \\ xsimpl
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
   \\ instantiate
-  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]);
+  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS,explode_implode]
+  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
+  \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL 
+            |> SIMP_RULE std_ss [Once STAR_ASSOC] |> add_basis_proj;
 val name = "cat_main"
 val (semantics_thm,prog_tm) = call_thm st name spec
 val cat_prog_def = Define`cat_prog = ^prog_tm`;

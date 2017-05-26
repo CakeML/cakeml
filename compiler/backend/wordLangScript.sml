@@ -182,7 +182,8 @@ val word_sh_def = Define `
       case sh of
       | Lsl => SOME (w << n)
       | Lsr => SOME (w >>> n)
-      | Asr => SOME (w >> n)`;
+      | Asr => SOME (w >> n)
+      | Ror => SOME (word_ror w n)`;
 
 val shift_def = Define `
   shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;

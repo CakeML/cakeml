@@ -439,6 +439,10 @@ val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv64);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (BignumHalt_def |> inline_simp |> conv64);
+val _ = translate (AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
+val _ = translate (Maxout_bits_code_def |> conv64)
+val _ = translate (Make_ptr_bits_code_def |> inline_simp |> conv64)
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
@@ -500,7 +504,12 @@ val _ = translate (
   |> SIMP_RULE std_ss [word_msb_rw]
   |> CONV_RULE fcpLib.INDEX_CONV |> gconv)
 
-val _ = translate (wordLangTheory.word_sh_def |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
+val _ = translate miscTheory.any_word64_ror_def;
+
+val _ = translate (wordLangTheory.word_sh_def
+  |> INST_TYPE [``:'a``|->``:64``]
+  |> REWRITE_RULE [miscTheory.word_ror_eq_any_word64_ror]
+  |> RW[shift_left_rwt,shift_right_rwt,arith_shift_right_rwt] |> conv64)
 
 val _ = translate (wordLangTheory.num_exp_def |> conv64)
 
@@ -696,9 +705,6 @@ val word_to_word_compile_side = Q.prove(`
      word_to_word_full_compile_single_side,
      word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
-val _ = translate(Maxout_bits_code_def |> conv64)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
 val _ = translate(FromList_code_def |> conv64 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv64)
 val _ = translate(MakeBytes_def |> conv64)
@@ -715,6 +721,7 @@ val _ = translate(Sub_code_def|> conv64)
 val _ = translate(Mul_code_def|> conv64)
 val _ = translate(Div_code_def|> conv64)
 val _ = translate(Mod_code_def|> conv64)
+val _ = translate(MemCopy_code_def|> inline_simp |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)

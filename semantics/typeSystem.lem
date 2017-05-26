@@ -225,6 +225,7 @@ let type_op op ts t =
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) -> t = t1
     | (Vlength, [Tapp [t1] TC_vector]) -> (t = Tapp [] TC_int)
     | (Aalloc, [Tapp [] TC_int; t1]) -> t = Tapp [t1] TC_array
+    | (AallocEmpty, [Tapp [] TC_tup]) -> exists t1. t = Tapp [t1] TC_array
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
     | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_tup
@@ -327,6 +328,13 @@ let tid_exn_to_tc t =
 
 indreln [type_p : nat -> type_env -> pat -> t -> list (varN * t) -> bool]
 and [type_ps : nat -> type_env -> list pat -> list t -> list (varN * t) -> bool]
+
+pany : forall tvs tenv t.
+check_freevars tvs [] t
+==>
+type_p tvs tenv Pany t []
+
+and
 
 pvar : forall tvs tenv n t.
 check_freevars tvs [] t
@@ -512,7 +520,8 @@ and
 
 app : forall tenv tenvE op es ts t.
 type_es tenv tenvE es ts &&
-type_op op ts t
+type_op op ts t &&
+check_freevars (num_tvs tenvE) [] t
 ==>
 type_e tenv tenvE (App op es) t
 
@@ -652,7 +661,7 @@ let tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =
 
 indreln [type_d : bool -> list modN -> decls -> type_env -> dec -> decls -> type_env -> bool]
 
-dlet_poly : forall extra_checks tvs mn tenv p e t bindings decls.
+dlet_poly : forall extra_checks tvs mn tenv p e t bindings decls locs.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
 type_p tvs tenv p t bindings &&
@@ -663,12 +672,12 @@ type_e tenv (bind_tvar tvs Empty) e t &&
     type_e tenv (bind_tvar tvs' Empty) e t' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks mn decls tenv (Dlet p e)
+type_d extra_checks mn decls tenv (Dlet locs p e)
   empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dlet_mono : forall extra_checks mn tenv p e t bindings decls.
+dlet_mono : forall extra_checks mn tenv p e t bindings decls locs.
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
@@ -678,53 +687,53 @@ List.allDistinct (pat_bindings p []) &&
 type_p 0 tenv p t bindings &&
 type_e tenv Empty e t
 ==>
-type_d extra_checks mn decls tenv (Dlet p e)
+type_d extra_checks mn decls tenv (Dlet locs p e)
   empty_decls <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dletrec : forall extra_checks mn tenv funs bindings tvs decls.
+dletrec : forall extra_checks mn tenv funs bindings tvs decls locs.
 type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings &&
 (extra_checks -->
   forall tvs' bindings'.
     type_funs tenv (bind_var_list 0 bindings' (bind_tvar tvs' Empty)) funs bindings' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks mn decls tenv (Dletrec funs)
+type_d extra_checks mn decls tenv (Dletrec locs funs)
   empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dtype : forall extra_checks mn tenv tdefs decls defined_types' decls' tenvT.
+dtype : forall extra_checks mn tenv tdefs decls defined_types' decls' tenvT locs.
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs &&
 defined_types' = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
 disjoint defined_types' decls.defined_types &&
 tenvT = alist_to_ns (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
 decls' = <| defined_mods = {}; defined_types = defined_types'; defined_exns = {} |>
 ==>
-type_d extra_checks mn decls tenv (Dtype tdefs)
+type_d extra_checks mn decls tenv (Dtype locs tdefs)
   decls' <| v = nsEmpty; c = build_ctor_tenv mn (nsAppend tenvT tenv.t) tdefs; t = tenvT |>
 
 and
 
-dtabbrev : forall extra_checks mn decls tenv tvs tn t.
+dtabbrev : forall extra_checks mn decls tenv tvs tn t locs.
 check_freevars 0 tvs t &&
 check_type_names tenv.t t &&
 List.allDistinct tvs
 ==>
-type_d extra_checks mn decls tenv (Dtabbrev tvs tn t)
+type_d extra_checks mn decls tenv (Dtabbrev locs tvs tn t)
   empty_decls <| v = nsEmpty; c = nsEmpty;
                  t = nsSing tn (tvs,type_name_subst tenv.t t) |>
 
 and
 
-dexn : forall extra_checks mn tenv cn ts decls decls'.
+dexn : forall extra_checks mn tenv cn ts decls decls' locs.
 check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN decls.defined_exns) &&
 List.all (check_type_names tenv.t) ts &&
 decls' = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>
 ==>
-type_d extra_checks mn decls tenv (Dexn cn ts)
+type_d extra_checks mn decls tenv (Dexn locs cn ts)
   decls' <| v = nsEmpty;
             c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn));
             t = nsEmpty |>

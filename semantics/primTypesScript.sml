@@ -19,13 +19,13 @@ val _ = new_theory "primTypes"
 (*val prim_types_program : prog*)
 val _ = Define `
  (prim_types_program=  
- ([Tdec (Dexn "Bind" []);
-   Tdec (Dexn "Chr" []);
-   Tdec (Dexn "Div" []);
-   Tdec (Dexn "Subscript" []);
-   Tdec (Dtype [([], "bool", [("true", []); ("false", [])])]);
-   Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
-   Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
+ ([Tdec  (Dexn unknown_loc "Bind" []);
+   Tdec  (Dexn unknown_loc "Chr" []);
+   Tdec  (Dexn unknown_loc "Div" []);
+   Tdec  (Dexn unknown_loc "Subscript" []);
+   Tdec  (Dtype unknown_loc [([], "bool", [("true", []); ("false", [])])]);
+   Tdec  (Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
+   Tdec (Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
 
 
 (*val add_to_sem_env :

@@ -3,16 +3,6 @@ open preamble
 
 val _ = new_theory"mlstring"
 
-(* TODO: move *)
-val irreflexive_inv_image = Q.store_thm("irreflexive_inv_image",
-  `!R f. irreflexive R ==> irreflexive (inv_image R f)`,
-  SIMP_TAC std_ss [irreflexive_def,inv_image_def])
-
-val trichotomous_inv_image = Q.store_thm("trichotomous_inv_image",
-  `!R f. trichotomous R /\ (INJ f UNIV UNIV) ==> trichotomous (inv_image R f)`,
-  SIMP_TAC std_ss [trichotomous,inv_image_def,INJ_DEF,IN_UNIV] THEN
-  METIS_TAC[])
-
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
@@ -290,7 +280,7 @@ val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
     >-(`n = LENGTH s' - 1` by DECIDE_TAC
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
-      \\ `LENGTH r = 1` by EVAL_TAC >-(rw[])
+      \\ `LENGTH r = 1` by rw[]
       \\ Cases_on `TL r` >-(rw[TOKENS_def])
       \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
     >-(fs[ADD1]
@@ -428,14 +418,16 @@ val isSubstring_def = Define`
   else F`;
 
 
+(* String orderings *)
 val compare_aux_def = Define`
-  (compare_aux (s1: mlstring) s2 ord n 0 = ord) /\
-  (compare_aux s1 s2 ord n (SUC len) =
-    if strsub s2 n < strsub s1 n
+  compare_aux (s1: mlstring) s2 ord start len =
+    if len = 0n then
+      ord
+    else if strsub s2 start < strsub s1 start
       then GREATER
-    else if strsub s1 n < strsub s2 n
+    else if strsub s1 start < strsub s2 start
       then LESS
-    else compare_aux s1 s2 ord (n + 1) len)`;
+    else compare_aux s1 s2 ord (start + 1) (len - 1)`;
 
 val compare_def = Define`
   compare s1 s2 = if (strlen s1) < (strlen s2)
@@ -444,6 +436,238 @@ val compare_def = Define`
     then compare_aux s1 s2 GREATER 0 (strlen s2)
   else compare_aux s1 s2 EQUAL 0 (strlen s2)`;
 
+val mlstring_lt_def = Define `
+  mlstring_lt s1 s2 ⇔ (compare s1 s2 = LESS)`;
+val _ = Parse.overload_on("<",``λx y. mlstring_lt x y``);
+
+val mlstring_le_def = Define `
+  mlstring_le s1 s2 ⇔ (compare s1 s2 ≠ GREATER)`;
+val _ = Parse.overload_on("<=",``λx y. mlstring_le x y``);
+
+val mlstring_gt_def = Define `
+  mlstring_gt s1 s2 ⇔ (compare s1 s2 = GREATER)`;
+val _ = Parse.overload_on(">",``λx y. mlstring_gt x y``);
+
+val mlstring_ge_def = Define `
+  mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)`;
+val _ = Parse.overload_on(">=",``λx y. mlstring_ge x y``);
+
+(* Properties of string orderings *)
+
+val flip_ord_def = Define `
+  (flip_ord LESS = GREATER) ∧
+  (flip_ord GREATER = LESS) ∧
+  (flip_ord EQUAL = EQUAL)`;
+
+val compare_aux_spec = Q.prove (
+  `!s1 s2 ord_in start len.
+    len + start ≤ strlen s1 ∧ len + start ≤ strlen s2 ⇒
+    (compare_aux s1 s2 ord_in start len =
+      if TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2)) then
+        ord_in
+      else if string_lt (TAKE len (DROP start (explode s1))) (TAKE len (DROP start (explode s2))) then
+        LESS
+      else
+        GREATER)`,
+  Induct_on `len` >>
+  rw [] >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp [] >>
+  Cases_on `s1` >>
+  Cases_on `s2` >>
+  fs [] >>
+  full_simp_tac (srw_ss()) [TAKE_SUM, DECIDE ``!n. SUC n = 1 + n``] >>
+  fs [take1_drop, DROP_DROP_T, char_lt_def] >>
+  fs [string_lt_def] >>
+  simp [] >>
+  rw [] >>
+  fs [char_lt_def, CHAR_EQ_THM]);
+
+val compare_aux_refl = Q.prove (
+  `!s1 s2 start len.
+    start + len ≤ strlen s1 ∧ start + len ≤ strlen s2
+    ⇒
+    ((compare_aux s1 s2 EQUAL start len = EQUAL)
+     ⇔
+     (TAKE len (DROP start (explode s1)) = TAKE len (DROP start (explode s2))))`,
+  rw [compare_aux_spec]);
+
+val compare_aux_equal = Q.prove (
+  `!s1 s2 ord_in start len.
+    (compare_aux s1 s2 ord_in start len = EQUAL) ⇒ (ord_in = EQUAL)`,
+  Induct_on `len` >>
+  rw []
+  >- fs [Once compare_aux_def] >>
+  pop_assum mp_tac >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp_tac (std_ss++ARITH_ss) [] >>
+  rw [] >>
+  metis_tac []);
+
+val compare_aux_sym = Q.prove (
+  `!s1 s2 ord_in start len ord_out.
+    (compare_aux s1 s2 ord_in start len = ord_out)
+    ⇔
+    (compare_aux s2 s1 (flip_ord ord_in) start len = flip_ord ord_out)`,
+  Induct_on `len` >>
+  rw [] >>
+  ONCE_REWRITE_TAC [compare_aux_def] >>
+  simp []
+  >- (
+    Cases_on `ord_in` >>
+    Cases_on `ord_out` >>
+    simp [flip_ord_def]) >>
+  simp [char_lt_def, CHAR_EQ_THM] >>
+  `ORD (strsub s2 start) < ORD (strsub s1 start) ∨
+   ORD (strsub s1 start) < ORD (strsub s2 start) ∨
+   (ORD (strsub s1 start) = ORD (strsub s2 start))`
+  by decide_tac
+  >- (
+    Cases_on `ord_out` >>
+    simp [flip_ord_def])
+  >- (
+    simp [] >>
+    Cases_on `ord_out` >>
+    simp [flip_ord_def]) >>
+  ASM_REWRITE_TAC [] >>
+  simp_tac (std_ss++ARITH_ss) [] >>
+  metis_tac []);
+
+val string_lt_take_mono = Q.prove (
+  `!s1 s2 x.
+    s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def] >>
+  Cases_on `x` >>
+  fs [string_lt_def] >>
+  metis_tac []);
+
+val string_lt_remove_take = Q.prove (
+  `!s1 s2 x. TAKE x s1 < TAKE x s2 ⇒ s1 < s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def] >>
+  Cases_on `x` >>
+  fs [string_lt_def] >>
+  metis_tac []);
+
+val string_prefix_le = Q.prove (
+  `!s1 s2. s1 ≼ s2 ⇒ s1 ≤ s2`,
+  ho_match_mp_tac string_lt_ind >>
+  rw [string_lt_def, string_le_def, isPREFIX_STRCAT] >>
+  Cases_on `s3` >>
+  fs []);
+
+val take_prefix = Q.prove (
+  `!l s. TAKE l s ≼ s`,
+  Induct_on `s` >>
+  rw [] >>
+  Cases_on `l` >>
+  fs []);
+
+val mlstring_lt_inv_image = Q.store_thm("mlstring_lt_inv_image",
+  `mlstring_lt = inv_image string_lt explode`,
+  simp [inv_image_def, FUN_EQ_THM] >>
+  Cases >>
+  Cases >>
+  simp [mlstring_lt_def, compare_def, compare_aux_spec] >>
+  rpt (qpat_abbrev_tac `x = STRLEN _`) >>
+  rw []
+  >- (
+    `TAKE x s' ≤ s'` by metis_tac [take_prefix, string_prefix_le] >>
+    fs [string_le_def] >>
+    `x ≠ x'` by decide_tac >>
+    metis_tac [LENGTH_TAKE, LESS_OR_EQ])
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
+  >- metis_tac [take_prefix, string_prefix_le, LENGTH_TAKE, LESS_OR_EQ, string_lt_antisym, string_le_def]
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]
+  >- metis_tac [take_prefix, string_prefix_le, string_lt_antisym, string_le_def]
+  >- metis_tac [string_lt_remove_take, TAKE_LENGTH_ID]
+  >- metis_tac [string_lt_take_mono, TAKE_LENGTH_ID]);
+
+val TotOrd_compare = Q.store_thm ("TotOrd_compare",
+  `TotOrd compare`,
+  rw [TotOrd]
+  >- (
+    rw [compare_def, compare_aux_refl] >>
+    Cases_on `x` >>
+    Cases_on `y` >>
+    fs [strlen_def]
+    >- metis_tac [compare_aux_equal, cpn_distinct, prim_recTheory.LESS_NOT_EQ]
+    >- metis_tac [compare_aux_equal, cpn_distinct, prim_recTheory.LESS_NOT_EQ]
+    >- (
+      `STRLEN s' = STRLEN s` by decide_tac >>
+      simp []))
+  >- (
+    rw [compare_def] >>
+    fs []
+    >- metis_tac [compare_aux_sym, flip_ord_def]
+    >- metis_tac [compare_aux_sym, flip_ord_def] >>
+    `strlen x = strlen y` by decide_tac >>
+    metis_tac [compare_aux_sym, flip_ord_def])
+  >- (
+    fs [GSYM mlstring_lt_def, mlstring_lt_inv_image] >>
+    metis_tac [string_lt_trans]));
+
+val mlstring_lt_antisym = Q.store_thm ("mlstring_lt_antisym",
+  `∀s t. ¬(s < t ∧ t < s)`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct]);
+
+val mlstring_lt_cases = Q.store_thm ("mlstring_lt_cases",
+  `∀s t. (s = t) ∨ s < t ∨ t < s`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_nchotomy]);
+
+val mlstring_lt_nonrefl = Q.store_thm ("mlstring_lt_nonrefl",
+  `∀s. ¬(s < s)`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct]);
+
+val mlstring_lt_trans = Q.store_thm ("mlstring_lt_trans",
+  `∀s1 s2 s3. s1 < s2 ∧ s2 < s3 ⇒ s1 < s3`,
+  rw [mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
+
+val mlstring_le_thm = Q.store_thm ("mlstring_le_thm",
+  `!s1 s2. s1 ≤ s2 ⇔ (s1 = s2) ∨ s1 < s2`,
+  rw [mlstring_le_def, mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd, cpn_distinct, cpn_nchotomy]);
+
+val mlstring_gt_thm = Q.store_thm ("mlstring_gt_thm",
+  `!s1 s2. s1 > s2 ⇔ s2 < s1`,
+  rw [mlstring_gt_def, mlstring_lt_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
+
+val mlstring_ge_thm = Q.store_thm ("mlstring_ge_thm",
+  `!s1 s2. s1 ≥ s2 ⇔ s2 ≤ s1`,
+  rw [mlstring_ge_def, mlstring_le_def] >>
+  metis_tac [TotOrd_compare, TotOrd]);
+
+val transitive_mlstring_lt = Q.prove(
+  `transitive mlstring_lt`,
+  simp[mlstring_lt_inv_image] >>
+  match_mp_tac transitive_inv_image >>
+  metis_tac[transitive_def,string_lt_trans])
+
+val irreflexive_mlstring_lt = Q.prove(
+  `irreflexive mlstring_lt`,
+  simp[mlstring_lt_inv_image] >>
+  match_mp_tac irreflexive_inv_image >>
+  simp[irreflexive_def,string_lt_nonrefl])
+
+val trichotomous_mlstring_lt = Q.prove(
+  `trichotomous mlstring_lt`,
+  simp[mlstring_lt_inv_image] >>
+  match_mp_tac trichotomous_inv_image >>
+  reverse conj_tac >- metis_tac[explode_BIJ,BIJ_DEF] >>
+  metis_tac[trichotomous,string_lt_cases])
+
+val StrongLinearOrder_mlstring_lt = Q.store_thm("StrongLinearOrder_mlstring_lt",
+  `StrongLinearOrder mlstring_lt`,
+  rw[StrongLinearOrder,trichotomous_mlstring_lt,
+     StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt])
 
 val collate_aux_def = Define`
   (collate_aux f (s1: mlstring) s2 ord n 0 = ord) /\
@@ -493,51 +717,6 @@ val collate_thm = Q.store_thm (
   `!f s1 s2. collate f s1 s2 = mllist$collate f (explode s1) (explode s2)`,
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 );
-
-
-
-
-val mlstring_lt_def = Define`
-  mlstring_lt (strlit s1) (strlit s2) ⇔
-    string_lt s1 s2`
-
-val mlstring_lt_inv_image = Q.store_thm("mlstring_lt_inv_image",
-  `mlstring_lt = inv_image string_lt explode`,
-  simp[inv_image_def,FUN_EQ_THM] >>
-  Cases >> Cases >> simp[mlstring_lt_def])
-
-val transitive_mlstring_lt = Q.prove(
-  `transitive mlstring_lt`,
-  simp[mlstring_lt_inv_image] >>
-  match_mp_tac transitive_inv_image >>
-  metis_tac[transitive_def,string_lt_trans])
-
-val irreflexive_mlstring_lt = Q.prove(
-  `irreflexive mlstring_lt`,
-  simp[mlstring_lt_inv_image] >>
-  match_mp_tac irreflexive_inv_image >>
-  simp[irreflexive_def,string_lt_nonrefl])
-
-val trichotomous_mlstring_lt = Q.prove(
-  `trichotomous mlstring_lt`,
-  simp[mlstring_lt_inv_image] >>
-  match_mp_tac trichotomous_inv_image >>
-  reverse conj_tac >- metis_tac[explode_BIJ,BIJ_DEF] >>
-  metis_tac[trichotomous,string_lt_cases])
-
-val StrongLinearOrder_mlstring_lt = Q.store_thm("StrongLinearOrder_mlstring_lt",
-  `StrongLinearOrder mlstring_lt`,
-  rw[StrongLinearOrder,trichotomous_mlstring_lt,
-     StrongOrder,irreflexive_mlstring_lt,transitive_mlstring_lt])
-
-val mlstring_cmp_def = Define`
-  mlstring_cmp = TO_of_LinearOrder mlstring_lt`
-
-val TotOrd_mlstring_cmp = Q.store_thm("TotOrd_mlstring_cmp",
-  `TotOrd mlstring_cmp`,
-  simp[mlstring_cmp_def] >>
-  match_mp_tac TotOrd_TO_of_Strong >>
-  simp[StrongLinearOrder_mlstring_lt])
 
 val ALL_DISTINCT_MAP_implode = Q.store_thm("ALL_DISTINCT_MAP_implode",
   `ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)`,

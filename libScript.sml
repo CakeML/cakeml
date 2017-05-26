@@ -107,9 +107,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val W8lsl : word8 -> nat -> word8*)
 (*val W8lsr : word8 -> nat -> word8*)
 (*val W8asr : word8 -> nat -> word8*)
+(*val W8ror : word8 -> nat -> word8*)
 (*val W64lsl : word64 -> nat -> word64*)
 (*val W64lsr : word64 -> nat -> word64*)
 (*val W64asr : word64 -> nat -> word64*)
+(*val W64ror : word64 -> nat -> word64*)
 
 (*open import {hol} `alistTheory`*)
 val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
@@ -135,7 +137,6 @@ val _ = Define `
 (*open import {hol} `locationTheory`*)
 (*type locn = <| row : nat;  col : nat; offset : nat |>*)
 (*type locs = (locn * locn)*)
-
-
+(*val unknown_loc : locs*)
 val _ = export_theory()
 

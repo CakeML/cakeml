@@ -7,12 +7,20 @@ val _ = new_theory "data_to_word";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val _ = Datatype `
+  (* this configuration is used in data_to_wordProof and stack_alloc *)
+  gc_kind =
+    None
+  | Simple
+  | Generational (num list) (* sizes of generations, smallest first *)`
+
+val _ = Datatype `
   config = <| tag_bits : num (* in each pointer *)
             ; len_bits : num (* in each pointer *)
             ; pad_bits : num (* in each pointer *)
             ; len_size : num (* size of length field in block header *)
             ; has_div : bool (* Div available in target *)
-            ; has_longdiv : bool (* LongDiv available in target *) |>`
+            ; has_longdiv : bool (* LongDiv available in target *)
+            ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
@@ -149,10 +157,10 @@ val LongDiv1_location_def = Define `
   LongDiv1_location = Equal_location+1`;
 val LongDiv_location_def = Define `
   LongDiv_location = LongDiv1_location+1`;
-val Dummy_location_def = Define `
-  Dummy_location = LongDiv_location+1`;
+val MemCopy_location_def = Define `
+  MemCopy_location = LongDiv_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = Dummy_location+1`;
+  Bignum_location = MemCopy_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -188,8 +196,8 @@ val LongDiv1_location_eq = save_thm("LongDiv1_location_eq",
   ``LongDiv1_location`` |> EVAL);
 val LongDiv_location_eq = save_thm("LongDiv_location_eq",
   ``LongDiv_location`` |> EVAL);
-val Dummy_location_eq = save_thm("Dummy_location_eq",
-  ``Dummy_location`` |> EVAL);
+val MemCopy_location_eq = save_thm("MemCopy_location_eq",
+  ``MemCopy_location`` |> EVAL);
 val Bignum_location_eq = save_thm("Bignum_location_eq",
   ``Bignum_location`` |> EVAL);
 
@@ -199,7 +207,7 @@ val AllocVar_def = Define `
               If Lower 1 (Imm (n2w limit))
                 (Assign 1 (Shift Lsl (Op Add [Var 1; Const 1w]) (Nat (shift (:'a)))))
                 (Assign 1 (Const (-1w:'a word)));
-              Assign 3 (Op Sub [Lookup EndOfHeap; Lookup NextFree]);
+              Assign 3 (Op Sub [Lookup TriggerGC; Lookup NextFree]);
               If Lower 3 (Reg 1) (Alloc 1 (adjust_set names)) Skip]`;
 
 val MakeBytes_def = Define `
@@ -338,9 +346,10 @@ val RefArray_code_def = Define `
           [BignumHalt 2;
            Move 0 [(1,2)];
            AllocVar limit (fromList [();()]);
-           Assign 1 (Op Sub [Lookup EndOfHeap;
-           Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
-                   (Nat (shift (:'a)))]);
+           Assign 1 (Shift Lsl (Op Add [(Shift Lsr (Var 2) (Nat 2)); Const 1w])
+                      (Nat (shift (:'a))));
+           Set TriggerGC (Op Sub [Lookup TriggerGC; Var 1]);
+           Assign 1 (Op Sub [Lookup EndOfHeap; Var 1]);
            Set EndOfHeap (Var 1);
            (* 3 := return value *)
            Assign 3 (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
@@ -409,8 +418,11 @@ val AnyHeader_def = Define `
 
 val ShiftVar_def = Define `
   ShiftVar sh v n =
-    if n = 0 then Var v else
-    if dimindex (:'a) <= n then
+    if sh = Ror then
+      (let m = if n < dimindex (:'a) then n else n MOD (dimindex (:'a)) in
+         if m = 0 then Var v else Shift sh (Var v) (Nat m))
+    else if n = 0 then Var v
+    else if dimindex (:'a) <= n then
       if sh = Asr then Shift sh (Var v) (Nat (dimindex (:'a) - 1)) else Const 0w
     else (Shift sh (Var v) (Nat n)):'a wordLang$exp`
 
@@ -711,9 +723,21 @@ val WordOp64_on_32_def = Define `
                         Inst (Arith (AddCarry 31 11 27 29))]`
 
 val WordShift64_on_32_def = Define `
-  WordShift64_on_32 sh n =
-    list_Seq
-      (* inputs in 11 and 13, writes results in 31 and 33 *)
+  WordShift64_on_32 sh n = list_Seq
+    (* inputs in 11 and 13, writes results in 31 and 33 *)
+    (if sh = Ror then
+      (let n = n MOD 64 in
+        (if n < 32 then
+           [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
+                              ShiftVar Lsr 13 n]);
+            Assign 31 (Op Or [ShiftVar Lsl 13 (32 - n);
+                              ShiftVar Lsr 11 n])]
+         else
+           [Assign 33 (Op Or [ShiftVar Lsl 13 (64 - n);
+                              ShiftVar Lsr 11 (n - 32)]);
+            Assign 31 (Op Or [ShiftVar Lsl 11 (64 - n);
+                              ShiftVar Lsr 13 (n - 32)])]))
+    else
       if n < 32 then
         (case sh of
          | Lsl => [Assign 33 (ShiftVar sh 13 n);
@@ -724,13 +748,15 @@ val WordShift64_on_32_def = Define `
                    Assign 31 (ShiftVar sh 11 n)]
          | Asr => [Assign 33 (Op Or [ShiftVar Lsl 11 (32 - n);
                                      ShiftVar Lsr 13 n]);
-                   Assign 31 (ShiftVar sh 11 n)])
+                   Assign 31 (ShiftVar sh 11 n)]
+         | Ror => [])
       else
         (case sh of
          | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
          | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
          | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
-                   Assign 31 (ShiftVar sh 11 32)])`
+                   Assign 31 (ShiftVar sh 11 32)]
+         | Ror => []))`;
 
 val bignum_words_def = Define `
   bignum_words c i =
@@ -825,10 +851,45 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConsExtend tag =>
+        (dtcase args of
+         | (old::start::len::tot::rest) =>
+          (dtcase encode_header c (4 * tag) 0 of
+             NONE => (GiveUp,l)
+           | SOME header =>
+              let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+              let h = Shift Lsl (Var (adjust_var tot))
+                        (Nat (dimindex (:'a) - c.len_size - 2)) in
+                (list_Seq
+                  [BignumHalt (adjust_var tot);
+                   Assign 1 (Var (adjust_var tot));
+                   AllocVar limit (list_insert args (get_names names));
+                   Assign 1 (Lookup NextFree);
+                   Assign 5 (Op Or [h; Const header]);
+                   Assign 7 (Shift Lsr (Var (adjust_var tot)) (Nat 2));
+                   Assign 9 (Const (n2w tag));
+                   StoreEach 1 (5::MAP adjust_var rest) 0w;
+                   Make_ptr_bits_code c 9 7 3;
+                   Set NextFree (Op Add [Var 1; Const bytes_in_word;
+                     Shift Lsl (Var 7) (Nat (shift (:'a)))]);
+                   Assign 15 (Var (adjust_var len));
+                   Assign 13 (Op Add [Var 1;
+                     Const (bytes_in_word * n2w (LENGTH rest + 1))]);
+                   Assign 11 (Op Add [real_addr c (adjust_var old);
+                     Const bytes_in_word;
+                     ShiftVar Lsl (adjust_var start) (shift (:'a) - 2)]);
+                   If Test 15 (Reg 15) (Assign (adjust_var dest) (Var 3)) (list_Seq [
+                     MustTerminate
+                       (Call (SOME (adjust_var dest,adjust_set (get_names names),
+                             Skip,secn,l))
+                          (SOME MemCopy_location) [15;11;13;3] NONE)])]),l+1)
+         | _ => (Skip,l))
     | Ref => (dtcase encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
-                 [Assign 1 (Op Sub [Lookup EndOfHeap;
+                 [Set TriggerGC (Op Sub [Lookup TriggerGC;
+                     Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                  Assign 1 (Op Sub [Lookup EndOfHeap;
                      Const (bytes_in_word * n2w (LENGTH args + 1))]);
                   Set EndOfHeap (Var 1);
                   Assign 3 (Const header);
@@ -881,9 +942,7 @@ local val assign_quotation = `
                                 let k = dimindex (:'a) - c.len_size - extra in
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
                                   Op Sub [Shift Lsr header (Nat k); Const kk]);
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -895,9 +954,7 @@ local val assign_quotation = `
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
                                   Shift Lsr header (Nat k));
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -911,9 +968,7 @@ local val assign_quotation = `
                                   let header = Load addr in
                                   let k = dimindex (:'a) - c.len_size in
                                     Shift Lsr header (Nat k)));
-                              Assign 3 (Op Or [ShiftVar Lsr (adjust_var v2) 2;
-                                               ShiftVar Lsl (adjust_var v2)
-                                                  (dimindex (:'a) - 2)]);
+                              Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
@@ -1184,8 +1239,13 @@ local val assign_quotation = `
                       (Shift Lsl (Var (adjust_var v1)) (Nat (dimindex(:'a) - 10)))
                       (Nat (MIN n 8)))
                    (Nat (dimindex(:'a) - 8)))
-                (Nat 2))
-        ,l)
+                (Nat 2)
+            | Ror =>
+              (let n = n MOD 8 in
+                 Op Or
+                  [Shift Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) (Nat 2);
+                   Shift Lsr (ShiftVar Lsl (adjust_var v1)
+                     ((dimindex (:'a) - 2) - n)) (Nat (dimindex (:'a) - 10))])),l)
       | _ => (Skip,l))
     | WordShift W64 sh n => (dtcase args of
        | [v1] =>
@@ -1284,6 +1344,14 @@ val assign_pmatch_lemmas = [
    >> fs[]),
   Q.prove(`
    (case args of
+       (old::start::len::tot::rest) => y old start len tot rest
+     | _ => z) = (dtcase args of
+       (old::start::len::tot::rest) => y old start len tot rest
+     | _ => z)`,
+   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+   >> fs[]),
+  Q.prove(`
+   (case args of
       [v1;v2;v3] => y v1 v2 v3
     | _ => z) = (dtcase args of
       [v1;v2;v3] => y v1 v2 v3
@@ -1356,6 +1424,7 @@ val assign_pmatch_lemmas = [
       | NONE => z)`,
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[])]
+
 in
 val assign_def = Define assign_quotation
 
@@ -1393,7 +1462,7 @@ val comp_def = Define `
         let k = dimindex (:'a) DIV 8 in
         let w = n2w (n * k) in
         let w = if w2n w = n * k then w else ~0w in
-          (Seq (Assign 1 (Op Sub [Lookup EndOfHeap; Lookup NextFree]))
+          (Seq (Assign 1 (Op Sub [Lookup TriggerGC; Lookup NextFree]))
                (If Lower 1 (Imm w)
                  (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
                 Skip),l)
@@ -1413,8 +1482,16 @@ val comp_def = Define `
 val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
-val Dummy_code_def = Define `
-  Dummy_code = Skip:'a wordLang$prog`;
+val MemCopy_code_def = Define `
+  MemCopy_code =
+    If Test 2 (Reg 2) (Return 0 8)
+        (list_Seq [Assign 1 (Load (Var 4));
+                   Assign 2 (Op Sub [Var 2; Const 4w]);
+                   Assign 4 (Op Add [Var 4; Const bytes_in_word]);
+                   Store (Var 6) 1;
+                   Assign 6 (Op Add [Var 6; Const bytes_in_word]);
+                   Call NONE (SOME MemCopy_location) [0;2;4;6;8] NONE])
+      :'a wordLang$prog`;
 
 val stubs_def = Define`
   stubs (:α) data_conf = [
@@ -1435,7 +1512,7 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
-    (Dummy_location,0n,Dummy_code)
+    (MemCopy_location,5n,MemCopy_code)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

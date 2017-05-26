@@ -1,4 +1,5 @@
-open preamble semanticPrimitivesPropsTheory backend_commonTheory patLangTheory
+open preamble backend_commonTheory patLangTheory
+     semanticPrimitivesPropsTheory (* for do_shift and others *)
 
 val _ = new_theory"patSem"
 
