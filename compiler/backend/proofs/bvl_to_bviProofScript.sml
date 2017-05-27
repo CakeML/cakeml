@@ -2993,6 +2993,27 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       SND,ADD_SYM]) >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
+val compile_prog_distinct_locs = store_thm("compile_prog_distinct_locs",
+  ``compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
+    ALL_DISTINCT (MAP FST prog1) /\
+    EVERY (between (2 * n + num_stubs) (2 * n1 + num_stubs))
+      (FILTER (λn. ODD (n − num_stubs)) (MAP FST prog1))``,
+  fs [compile_prog_def] \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+  \\ drule (compile_list_distinct_locs |> SIMP_RULE std_ss [])
+  \\ disch_then drule
+  \\ fs [ALL_DISTINCT_APPEND] \\ rw [] THEN1 EVAL_TAC
+  THEN1
+   (pop_assum mp_tac
+    \\ CONV_TAC (RATOR_CONV EVAL)
+    \\ CCONTR_TAC \\ fs []
+    \\ fs [EVERY_MEM] \\ res_tac \\ rveq
+    \\ pop_assum mp_tac \\ EVAL_TAC)
+  \\ fs [FILTER_APPEND] \\ EVAL_TAC);
+
+val ODD_lemma = prove(
+  ``ODD (2 * n + k) = ODD k``,
+  fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]);
+
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start n limit prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -3016,18 +3037,25 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ fs [handle_ok_def]
     \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
   \\ impl_tac
-  >- metis_tac 
-      [optimise_semantics, 
+  >- metis_tac
+      [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]
   \\ strip_tac
-  \\ `ALL_DISTINCT (MAP FST code)` by cheat (* TODO *)
-  \\ `EVERY (free_names n1 o FST) code` by cheat (* TODO *)
+  \\ sg `EVERY (free_names (2 * n1 + num_stubs + 1) o FST) code /\
+         ALL_DISTINCT (MAP FST code)`
+  THEN1
+   (drule compile_prog_distinct_locs
+    \\ fs [bvl_inlineProofTheory.MAP_FST_compile_prog]
+    \\ fs [EVERY_MEM,MEM_FILTER,bvi_tailrecProofTheory.free_names_def,
+           FORALL_PROD,MEM_MAP,PULL_EXISTS,between_def]
+    \\ rpt strip_tac \\ rveq \\ fs []
+    \\ res_tac \\ fs [ODD_lemma])
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_semantics)
   \\ disch_then drule
   \\ simp [bvi_tailrecTheory.compile_prog_def]
   \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
-  \\ metis_tac 
-      [optimise_semantics, 
+  \\ metis_tac
+      [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]);
 
 val _ = export_theory();
