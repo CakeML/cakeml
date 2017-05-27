@@ -119,6 +119,13 @@ val do_app_def = Define `
         Rval (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => Rval (Number i, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
+    | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
+        if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
+           tot = 0 ∨ tot ≠ &LENGTH xs + len then
+          Error
+        else
+          Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
+    | (ConsExtend tag,_) => Error
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (LengthBlock,[Block tag xs]) =>
@@ -489,8 +496,16 @@ val do_app_const = Q.store_thm("do_app_const",
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
     (s2.code = s1.code)`,
-  SIMP_TAC std_ss [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC
+  SIMP_TAC std_ss [do_app_def] >>
+  Cases_on `?tag. op = ConsExtend tag`
+  >- (
+    rw [] >>
+    fs [] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []) >>
+  Cases_on `op` >>
+  fs [] >>
+  BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val evaluate_ind = theorem"evaluate_ind"

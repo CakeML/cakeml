@@ -7,7 +7,7 @@ local open blastLib in end;
 val shift_def = wordLangTheory.shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
-val _ = new_theory "data_to_wordProps";
+val _ = new_theory "data_to_word_memoryProof";
 
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
