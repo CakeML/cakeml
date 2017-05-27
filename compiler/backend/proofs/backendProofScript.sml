@@ -1347,19 +1347,20 @@ val clos_to_data_names = Q.store_thm("clos_to_data_names",
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
   fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
   strip_tac>>
-  pairarg_tac>>fs[]>>rveq>>fs[]>>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
   EVAL_TAC>>
   REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>
-  imp_res_tac compile_list_distinct_locs>>
+  imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
   rfs[bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]>>rw[]
   \\ TRY strip_tac
   \\ res_tac
   \\ pop_assum mp_tac
-  \\ EVAL_TAC \\ rw[]);
+  \\ EVAL_TAC \\ rw[]
+  \\ cheat);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile c prog = SOME (bytes,ffis) ⇒
@@ -1588,7 +1589,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then (SUBST_ALL_TAC o SYM)
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
-    \\ pairarg_tac \\ fs [])
+    \\ rpt (pairarg_tac \\ fs []))
   \\ rename1 `from_data c4 p4 = _`
   \\ `installed (bytes,c4,ffi,ffis,mc,ms)` by
        (fs [installed_def,Abbr`c4`] \\ metis_tac [])
