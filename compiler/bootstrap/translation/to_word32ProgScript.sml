@@ -744,7 +744,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
-print_find"data_to_word_wordshift64_on_32_side"
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
