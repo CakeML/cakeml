@@ -432,6 +432,10 @@ val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
+val data_to_word_wordshift64_on_32_side = Q.prove(`
+  data_to_word_wordshift64_on_32_side x y ⇔ T`,
+  Cases_on`x`>>EVAL_TAC)|>update_precondition ;
+
 val Smallnum_alt = prove(
   ``Smallnum i =
     if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
@@ -445,6 +449,10 @@ val _ = save_thm("n2mw_ind",multiwordTheory.n2mw_ind |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv32);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv32);
 val _ = translate (bignum_words_def |> inline_simp |> conv32);
+val _ = translate (BignumHalt_def |> inline_simp |> conv32);
+val _ = translate(Maxout_bits_code_def |> conv32)
+val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32)
+val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32)
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
@@ -705,9 +713,6 @@ val word_to_word_compile_side = Q.prove(`
      word_to_word_full_compile_single_side,
      word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
-val _ = translate(Maxout_bits_code_def |> conv32)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32)
 val _ = translate(FromList_code_def |> conv32 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv32)
 val _ = translate(MakeBytes_def |> conv32)
@@ -724,6 +729,7 @@ val _ = translate(Sub_code_def|> conv32)
 val _ = translate(Mul_code_def|> conv32)
 val _ = translate(Div_code_def|> conv32)
 val _ = translate(Mod_code_def|> conv32)
+val _ = translate(MemCopy_code_def|> inline_simp |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)
@@ -738,7 +744,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
 val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
-
+print_find"data_to_word_wordshift64_on_32_side"
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
