@@ -1,6 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../semantics parsing inference backend\
-					 backend/reg_alloc encoders/asm backend/x64
+					 backend/reg_alloc encoders/asm backend/x64\
+					 ../basis
 
 all: compilerTheory.uo compilationLib.uo
 .PHONY: all
@@ -11,7 +12,7 @@ PARENT_HOLHEAP = backend/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory
+BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory ../basis/basisProgTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
