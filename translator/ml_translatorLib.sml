@@ -2811,6 +2811,12 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
+  (* Num i *)
+  if intSyntax.is_Num tm then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_Num th1 |> UNDISCH_ALL
+    in check_inv "num" tm result end else
   (* n2w 'a word for known 'a *)
   if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
     val dim = wordsSyntax.dim_of tm
