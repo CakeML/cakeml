@@ -22,14 +22,14 @@ val example_let0_spec = Q.prove (
 )
 
 val example_let1 = process_topdecs
-  `fun example_let1 wildcard = let val a = (); in a end`
+  `fun example_let1 _ = let val a = (); in a end`
 
 val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 
 val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
           emp (POSTv v. & UNIT_TYPE () v)`,
-  xcf "example_let1" st1 \\ xlet `POSTv a. & UNIT_TYPE () a`
+  xcf "example_let1" st1 \\ xmatch \\ xlet `POSTv a. & UNIT_TYPE () a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
 )
@@ -137,7 +137,7 @@ val is_nil_spec = Q.prove (
 )
 
 val is_none = process_topdecs
-  `fun is_none opt = case opt of NONE => true | SOME wildcard => false`
+  `fun is_none opt = case opt of NONE => true | SOME _ => false`
 
 val st = ml_progLib.add_prog is_none pick_name basis_st
 

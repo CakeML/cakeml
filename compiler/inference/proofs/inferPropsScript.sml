@@ -1785,7 +1785,7 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
        >> drule (CONJUNCT1 check_t_more2)
        >> rw []))
    >- (
-     `st''.next_uvar ≤ st'.next_uvar` by decide_tac
+     `st''.next_uvar ≤ st'.next_uvar` by simp []
      >> metis_tac [check_s_more2]))
  >- (
    first_x_assum drule

@@ -13,7 +13,7 @@ all: $(TARGETS) $(HOLHEAP)
 
 BARE_THYS = ../translation/compiler_x64ProgTheory\
 						../../../semantics/semanticsComputeLib\
-						../../compilerComputeLib\
+						../../compilationLib\
 						../../backend/x64/x64_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
@@ -26,5 +26,5 @@ ifndef CC
 CC=gcc
 endif
 
-cake: cake.S ../../../basis_ffi.o
+cake: cake.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o -o $@

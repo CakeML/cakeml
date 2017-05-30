@@ -7,7 +7,7 @@ val _ = ParseExtras.temp_loose_equality()
 
 open x64_targetLib asmLib;
 open x64AssemblerLib;
-open compilerComputeLib;
+open backendComputeLib;
 open x64_configTheory
 
 (* open x64_targetTheory *)
@@ -15,7 +15,7 @@ open x64_configTheory
 val cmp = wordsLib.words_compset ()
 val () = computeLib.extend_compset
     [computeLib.Extenders
-      [compilerComputeLib.add_compiler_compset
+      [backendComputeLib.add_backend_compset
       ,x64_targetLib.add_x64_encode_compset
       ,asmLib.add_asm_compset
       ],

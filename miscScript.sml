@@ -2657,7 +2657,8 @@ val LENGTH_FIELDS = Q.store_thm("LENGTH_FIELDS",
   \\ imp_res_tac SPLITP_IMP
   \\ fs[NULL_EQ]
   \\ fs[SPLITP] \\ rfs[] \\ rw[]
-  >- ( `FILTER P t = []` by simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM] )
+  >- (`FILTER P t = []` by (simp[FILTER_EQ_NIL] \\ fs[EVERY_MEM])
+      \\ simp[])
   \\ first_x_assum(qspec_then`LENGTH t`mp_tac) \\ simp[]
   \\ disch_then(qspec_then`t`mp_tac)
   \\ Cases_on`t` \\ rw[FIELDS_def]
@@ -2847,7 +2848,7 @@ val n2l_DIV_MOD = Q.store_thm("n2l_DIV_MOD",
   \\ simp[]
   \\ `n MOD b DIV b = 0` by simp[DIV_EQ_0]
   \\ simp[Once numposrepTheory.n2l_def]
-  \\ simp[GSYM REPLICATE,ADD1]
+  \\ rewrite_tac[GSYM REPLICATE,ADD1]
   \\ `LOG b (n MOD b) = 0`
   by ( simp[logrootTheory.LOG_EQ_0] )
   \\ simp[]);

@@ -7,7 +7,7 @@ Standard ML.
 The source and proofs for CakeML are developed in the [HOL4 theorem
 prover](http://hol-theorem-prover.org).  We use the latest development
 version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
-build on [PolyML 5.6](http://www.polyml.org).
+build on [PolyML 5.7](http://www.polyml.org).
 Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
@@ -82,6 +82,10 @@ generated HOL is also included. The directory includes definitions of:
 
 [translator](translator):
 A proof-producing translator from HOL functions to CakeML.
+
+[tutorial](tutorial):
+An extended worked example on using HOL and CakeML to write verified programs,
+to be presented as a tutorial on CakeML at PLDI and ICFP in 2017.
 
 [unverified](unverified):
 Various unverified tools, e.g. tools for converting OCaml to CakeML

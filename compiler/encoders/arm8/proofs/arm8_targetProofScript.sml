@@ -726,7 +726,8 @@ fun next_state_tacN (w, x) fltr (asl, g) =
       simp [arm8_ok_def, combinTheory.APPLY_UPDATE_THM,
             alignmentTheory.aligned_numeric]
       \\ imp_res_tac (Q.SPEC w bytes_in_memory_thm2)
-      \\ `!a. a IN s1.mem_domain ==> ((env ^t ^tm).MEM a = ms.MEM a)` by tac
+      \\ sg `!a. a IN s1.mem_domain ==> ((env ^t ^tm).MEM a = ms.MEM a)`
+      >| [tac, all_tac]
       \\ next_state_tac0 false (fn l => List.nth (l, x)) fltr `env ^t ^tm`
    end (asl, g)
 

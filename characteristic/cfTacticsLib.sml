@@ -5,7 +5,7 @@ open preamble
 open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -73,22 +73,7 @@ end
 
 (*------------------------------------------------------------------*)
 
-fun normalise_exp tm = let
-    val normalise_tm = mk_full_normalise (listSyntax.mk_nil stringSyntax.string_ty, tm)
-    val eval_th = EVAL normalise_tm
-in rhs (concl eval_th) end
-
-fun normalise_dec dec_tm = let
-  val normalise_decl_tm = mk_full_normalise_decl dec_tm
-  val eval_th = EVAL normalise_decl_tm
-in rhs (concl eval_th) end
-
-fun normalise_prog prog_tm = let
-    val normalise_prog_tm = mk_full_normalise_prog prog_tm
-    val eval_th = EVAL normalise_prog_tm
-in rhs (concl eval_th) end
-
-fun process_topdecs q = normalise_prog (parse_topdecs q)
+fun process_topdecs q = cfNormaliseLib.normalise_prog (parse_topdecs q)
 
 (*------------------------------------------------------------------*)
 
@@ -591,12 +576,14 @@ fun clean_cases_conv tm = let
   val cond_conv =
       HO_REWR_CONV exists_v_of_pat_norest_length THENC
       STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      STRIP_QUANT_CONV (RAND_CONV (LAND_CONV (RHS_CONV eval))) THENC
       simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
         (LHS_CONV eval THENC simp_conv [option_CLAUSES])
   val then_conv =
       HO_REWR_CONV forall_v_of_pat_norest_length THENC
       STRIP_QUANT_CONV (LAND_CONV (RHS_CONV eval)) THENC
+      STRIP_QUANT_CONV (RAND_CONV (LAND_CONV (RHS_CONV eval))) THENC
       simp_conv [LENGTH_EQ_NUM_compute, PULL_EXISTS] THENC
       STRIP_QUANT_CONV
         (LAND_CONV (LHS_CONV eval) THENC

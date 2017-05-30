@@ -13,7 +13,7 @@ val _ = new_theory "cfNormalise"
     (which is close to ANF). These lemmas exploit the fact that some
     program is in normal form.
 
-    The [full_normalise] function (defined below) puts an arbitrary
+    The [cfNormaliseLib.normalise_prog] function puts an arbitrary
     program in normal form.
 *)
 
@@ -107,24 +107,6 @@ val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
   every_case_tac \\ res_tac \\ fs [] \\ rw []
 );
 
-(*------------------------------------------------------------------*)
-(* [full_normalise]
-
-   [full_normalise] implements a preprocessing pass on the CakeML
-   program to be fed to [cf]. It turns a CakeML program into A-normal
-   form; [cf] then assumes the input program is in A-normal form. [cf]
-   evaluates to [F] for programs not in A-normal form.
-
-   At the moment, nothing particular is proved about [full_normalise]:
-   therefore, formally, the specification proved using CF is a
-   specification for the _normalised_ program, not the original one.
-   Eventually it would be nice to have a proof that [full_normalise]
-   preserves the semantics of its input in some way.
-
-   The implementation follows the structure of the CFML one, in
-   generator/normalize.ml in the CFML sources.
-*)
-
 (* [dest_opapp]: destruct an n-ary application. *)
 val dest_opapp_def = Define `
   dest_opapp (App Opapp l) =
@@ -135,6 +117,14 @@ val dest_opapp_def = Define `
                | NONE => SOME (f, [x]))
           | _ => NONE) /\
   dest_opapp _ = NONE`
+
+(*------------------------------------------------------------------*)
+
+(*
+(* Old implementation of the normalisation pass, as a HOL function.
+   It has been replaced by the ML implementation in
+   [cfNormaliseLib.sml], see this file for more details.
+*)
 
 (* [mk_opapp]: construct an n-ary application. *)
 val mk_opapp_def = tDefine "mk_opapp" `
@@ -213,6 +203,7 @@ val strip_annot_pat_def = Define `
   strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
   strip_annot_pat (Pref a) = Pref (strip_annot_pat a) /\
   strip_annot_pat (Ptannot p _) = strip_annot_pat p /\
+  strip_annot_pat Pany = Pany /\
   strip_annot_pat_list [] = [] /\
   strip_annot_pat_list (x::xs) =
     strip_annot_pat x :: strip_annot_pat_list xs`;
@@ -289,9 +280,9 @@ val norm_def = tDefine "norm" `
     (case opt of
          SOME x =>
          (let (e1',ns,b1) = norm T F ns e1 in
-          let (e2',ns) = protect F ns e2 in
+          let (e2',ns) = protect F (x::ns) e2 in
           let e' = Lets b1 (Lets [(x, e1')] e2') in
-          wrap_if_needed as_value (x::ns) e' [])
+          wrap_if_needed as_value ns e' [])
        | NONE =>
          (let (e1', ns, b1) = norm F F ns e1 in
           let (e2', ns) = protect F ns e2 in
@@ -478,5 +469,7 @@ val full_normalise_top_def = Define `
 
 val full_normalise_prog_def = Define `
   full_normalise_prog prog = MAP full_normalise_top prog`;
+
+*)
 
 val _ = export_theory ()
