@@ -933,7 +933,7 @@ local val assign_quotation = `
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
         | _ => (Skip,l))
-    | BoundsCheckByte F =>
+    | BoundsCheckByte leq =>
      (dtcase args of
       | [v1;v2] => (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
@@ -943,9 +943,10 @@ local val assign_quotation = `
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
                                   Op Sub [Shift Lsr header (Nat k); Const kk]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
-                              If Lower 3 (Reg 1)
-                               (Assign (adjust_var dest) TRUE_CONST)
-                               (Assign (adjust_var dest) FALSE_CONST)],l)
+                              (if leq then If NotLower 1 (Reg 3) else
+                                           If Lower 3 (Reg 1))
+                                 (Assign (adjust_var dest) TRUE_CONST)
+                                 (Assign (adjust_var dest) FALSE_CONST)],l)
       | _ => (Skip,l))
     | BoundsCheckArray =>
       (dtcase args of

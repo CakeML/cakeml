@@ -8185,12 +8185,13 @@ val memory_rel_Number_single_mul = store_thm("memory_rel_Number_single_mul",
 val memory_rel_bounds_check = store_thm("memory_rel_bounds_check",
   ``memory_rel c be refs sp st m dm ((Number i1,Word (w1:'a word))::vars) /\
     small_int (:'a) (& n) /\ good_dimindex (:'a) ==>
-    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n)``,
-  rw [] \\ imp_res_tac memory_rel_any_Number_IMP
+    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n) /\
+    (word_ror w1 2 <=+ n2w n <=> 0 <= i1 /\ i1 <= & n)``,
+  strip_tac \\ imp_res_tac memory_rel_any_Number_IMP
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ `n < dimword (:'a) /\ n < dimword (:'a) DIV 4 /\ n < dimword (:'a) DIV 8` by
       (fs [small_int_def,good_dimindex_def,dimword_def] \\ fs [] \\ NO_TAC)
-  \\ fs [WORD_LO]
+  \\ fs [WORD_LO,WORD_LS]
   \\ reverse (Cases_on `small_int (:α) i1`) \\ fs []
   THEN1
    (qsuff_tac `dimword (:α) DIV 4 <= w2n (w ⇄ 2)`
@@ -8241,7 +8242,7 @@ val memory_rel_bounds_check = store_thm("memory_rel_bounds_check",
   \\ reverse (Cases_on `i1`) \\ fs []
   \\ fs [Smallnum_def,small_int_def]
   \\ fs [word_ror_n2w,bitTheory.BIT_def,bitTheory.BITS_THM2]
-  \\ fs [good_dimindex_def,dimword_def]
+  \\ fs [good_dimindex_def,dimword_def] \\ rfs []
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
   \\ rfs []);
 

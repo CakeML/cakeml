@@ -1571,6 +1571,10 @@ val assign_thm_goal =
 val evaluate_Assign =
   SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
 
+val th = Q.store_thm("assign_CopyByte",
+  `(?n. op = CopyByte n) ==> ^assign_thm_goal`,
+  cheat);
+
 val th = Q.store_thm("assign_WordToInt",
   `op = WordToInt ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -3149,7 +3153,7 @@ val th = Q.store_thm("assign_BoundsCheckArray",
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
 
 val assign_BoundsCheckByte = store_thm("assign_BoundsCheckByte",
-  ``assign c secn l dest BoundsCheckByte args names =
+  ``assign c secn l dest (BoundsCheckByte leq) args names =
       case args of
       | [v1;v2] => (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
@@ -3159,14 +3163,15 @@ val assign_BoundsCheckByte = store_thm("assign_BoundsCheckByte",
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
                                   Op Sub [Shift Lsr header (Nat k); Const kk]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
-                              If Lower 3 (Reg 1)
+                              (if leq then If NotLower 1 (Reg 3) else
+                                           If Lower 3 (Reg 1))
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
       | _ => (Skip:'a wordLang$prog,l)``,
-  fs [assign_def] \\ every_case_tac \\ fs []) ;
+  fs [assign_def] \\ every_case_tac \\ fs []);
 
 val th = Q.store_thm("assign_BoundsCheckByte",
-  `op = BoundsCheckByte ==> ^assign_thm_goal`,
+  `(?leq. op = BoundsCheckByte leq) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -3203,7 +3208,7 @@ val th = Q.store_thm("assign_BoundsCheckByte",
          (fs [memory_rel_def,heap_in_memory_store_def] \\ NO_TAC)
   \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11]
   \\ fs [good_dimindex_def] \\ rfs []
-  \\ fs [decode_length_def]
+  \\ fs [decode_length_def,wordsTheory.WORD_NOT_LOWER]
   \\ drule memory_rel_tl \\ strip_tac
   \\ drule (GEN_ALL memory_rel_bounds_check)
   \\ disch_then (qspec_then `LENGTH l'` mp_tac)
@@ -3211,8 +3216,7 @@ val th = Q.store_thm("assign_BoundsCheckByte",
   \\ TRY (fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [] \\ NO_TAC)
   \\ fs [GSYM word_add_n2w]
   \\ strip_tac \\ fs []
-  \\ qpat_abbrev_tac `bool_res <=> 0 ≤ i ∧ i < &LENGTH _`
-  \\ Cases_on `bool_res`
+  \\ IF_CASES_TAC
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
   \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -6619,8 +6623,8 @@ val assign_thm = Q.store_thm("assign_thm",
   \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
-  \\ Cases_on `op` \\ fs []
-  \\ fs [assign_def] \\ every_case_tac \\ fs []
+  \\ Cases_on `op` \\ fs [assign_def]
+  \\ rpt (PURE_CASE_TAC \\ fs [])
   \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC);
 
 val _ = export_theory();
