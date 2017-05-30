@@ -1343,6 +1343,30 @@ val do_app_thm = Q.prove(
     \\ fs [do_app_def,state_rel_def]
     \\ fs [v_rel_def] \\ rw []
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ Cases_on `?tag. op = ConsExtend tag` \\ fs [] \\ rw [] THEN1
+   (fs [Once do_app_def] \\ every_case_tac \\ rw []
+    \\ fs [do_app_def,state_rel_def]
+    \\ fs [v_rel_def] \\ rw []
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+    >- (
+      irule EVERY_TAKE >>
+      fs [LENGTH_DROP]
+      >- intLib.ARITH_TAC >>
+      irule EVERY_DROP
+      >- intLib.ARITH_TAC >>
+      fs [EVERY_MEM])
+    >- (
+      imp_res_tac LIST_REL_LENGTH >>
+      fs [])
+    >- (
+      imp_res_tac LIST_REL_LENGTH >>
+      fs [])
+    >- (
+      irule EVERY2_APPEND_suff >>
+      simp [] >>
+      irule EVERY2_TAKE >>
+      irule EVERY2_DROP >>
+      fs [LIST_REL_EL_EQN]))
   \\ Cases_on `op = El` \\ fs [] \\ rw [] THEN1
    (fs [do_app_def,state_rel_def] \\ every_case_tac \\ rw [] \\ fs []
     \\ fs [EVERY_EL] \\ res_tac \\ fs []

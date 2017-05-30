@@ -1,6 +1,6 @@
 structure allPP = struct local
 open astPP modPP conPP exhPP patPP
-open preamble compilerComputeLib
+open preamble backendComputeLib
 open inferenceComputeLib parsingComputeLib
 
 val cmp = wordsLib.words_compset ()
@@ -8,7 +8,7 @@ val cmp = wordsLib.words_compset ()
 (*TODO: Some of these should possiblymove into their own compute libs*)
 val () = computeLib.extend_compset
     [computeLib.Extenders
-      [compilerComputeLib.add_compiler_compset,
+      [backendComputeLib.add_backend_compset,
        inferenceComputeLib.add_inference_compset,
        parsingComputeLib.add_parsing_compset
       ]
