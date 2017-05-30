@@ -8,7 +8,6 @@ using CF.
 open  preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory
 	       cfLetAutoLib
-	       (* AssumSimpLib IntroRewriteLib *)
 
 val _ = new_theory "queueProg";
 
@@ -85,8 +84,7 @@ val push_spec = Q.store_thm ("push_spec",
     simp[QUEUE_def] >>
     xpull >>
     xlet_auto >-(xsimpl)>>
-    xmatch >> rw[]
-    >-(
+    xmatch >> reverse(rw[]) >- EVAL_TAC >>
 	xlet_auto >-(xsimpl) >>
 	xlet_auto >-(xsimpl) >>
 	xif
@@ -102,8 +100,7 @@ val push_spec = Q.store_thm ("push_spec",
 	    fs[UNIT_TYPE_def] >>
 	    (* Should be partially automatized *)
 	    qexists_tac `vvs ++ [xv]` >>
-            `LENGTH junk = 0` by rw[]
-	    >-(
+      `LENGTH junk = 0` by (
                 `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	        bossLib.DECIDE_TAC
 	    ) >>
@@ -126,8 +123,7 @@ val push_spec = Q.store_thm ("push_spec",
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
 	POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-    ) >>
-    computeLib.EVAL_TAC);
+);
 
 val push_spec = Q.store_thm ("push_spec",
     `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
@@ -137,17 +133,15 @@ val push_spec = Q.store_thm ("push_spec",
     simp[QUEUE_def] >>
     xpull >>
     xs_auto_tac >>
-    rw[]
-    >-(
+    reverse(rw[]) >- EVAL_TAC >>
 	xs_auto_tac
 	(* 3 subgoals *)
 	>-(fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE])
 	>-(
 	    fs[UNIT_TYPE_def] >>
 	    qexists_tac `vvs ++ [xv]` >>
-            `LENGTH junk = 0` by rw[]
-	    >-(
-                `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
+      `LENGTH junk = 0` by (
+          `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	        bossLib.DECIDE_TAC
 	    ) >>
 	    fs[LENGTH_NIL] >>
@@ -162,8 +156,7 @@ val push_spec = Q.store_thm ("push_spec",
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
 	POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-    ) >>
-    computeLib.EVAL_TAC);
+);
 
 val eq_num_v_thm =
   mlbasicsProgTheory.eq_v_thm

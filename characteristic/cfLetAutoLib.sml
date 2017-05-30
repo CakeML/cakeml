@@ -1106,7 +1106,7 @@ val rewrite_thms = [integerTheory.INT_ADD,
 		    NUM_EQ_SIMP10,
 		    NUM_EQ_SIMP11,
 		    NUM_EQ_SIMP12,
-		    min_def
+		    MIN_DEF
 		   ];
 
 val match_thms = List.concat [rewrite_thms, refin_inv_rewrite_thms];
