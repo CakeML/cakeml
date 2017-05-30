@@ -209,14 +209,19 @@ val openIn_spec = Q.store_thm(
                 IOFS (openFileFS s fs 0))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * IOFS fs)*)
 
+val FILE_CONTENT_def = Define`
+  FILE_CONTENT fs fd c =
+    IOFS fs * &(get_file_content fs fd = SOME c)`
+
 val write_char_spec = Q.store_thm("write_char_spec",
-  `!fd fdv c cv bc. CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
+  `!fd fdv c cv bc content. CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
                     app (p:'ffi ffi_proj) ^(fetch_v "IO.write_char" (basis_st())) [fdv; cv]
-   (IOFS fs)
-   (POST (\uv. &(UNIT_TYPE () uv) ) (\e. &(InvalidFD_exn e) * IOFS fs ))`,
+   (FILE_CONTENT fs (w2n fd) content)
+   (POST (\uv. &(UNIT_TYPE () uv) * FILE_CONTENT fs (w2n fd) (content ++ [c]))
+         (\e. &(InvalidFD_exn e) * IOFS fs ))`,
 
   xcf "IO.write_char" (basis_st()) >> 
-  fs[IOFS_def, IOFS_buff257_def] >> xpull >>
+  fs[IOFS_def, IOFS_buff257_def,FILE_CONTENT_def] >> xpull >>
   rename [`W8ARRAY buff257_loc bdef`] >>
   xlet `POSTv u. &(UNIT_TYPE () u) * 
             W8ARRAY buff257_loc (LUPDATE (n2w fd) 0 bdef)`
