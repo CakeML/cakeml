@@ -1,7 +1,8 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory
+     mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
+     cfLetAutoLib
 
 val _ = new_theory"fsioProof";
 
@@ -56,18 +57,14 @@ val copyi_spec = Q.store_thm(
       metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
   xcf "IO.copyi" (basis_st()) >> xmatch >>
   rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
-  xlet `POSTv oc. &(NUM (ORD chd)) oc * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
-  xlet `POSTv cw. &(WORD (n2w (ORD chd) : word8) cw) * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
+  xlet_auto >- (xsimpl) >>
+  xlet_auto >- (xsimpl) >>
   xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY av (LUPDATE (n2w (ORD chd)) n a)`
   >- (xapp >> simp[]) >>
   qabbrev_tac `a0 = LUPDATE (n2w (ORD chd)) n a` >>
-  xlet `POSTv si. &(NUM (n + 1) si) * W8ARRAY av a0`
-  >- (xapp >> xsimpl >> qexists_tac `&n` >>
-      fs[ml_translatorTheory.NUM_def, integerTheory.INT_ADD]) >>
+  xlet_auto >- (xsimpl) >>
   xapp >> xsimpl >> qexists_tac `n + 1` >>
-  simp[insertNTS_atI_CONS, Abbr`a0`, LUPDATE_insertNTS_commute]);
+  simp[insertNTS_atI_CONS, Abbr`a0`, LUPDATE_insertNTS_commute,NUM_def]);
 
 val str_to_w8array_spec = Q.store_thm(
   "str_to_w8array_spec",
@@ -80,9 +77,7 @@ val str_to_w8array_spec = Q.store_thm(
           cond (UNIT_TYPE () v) *
           W8ARRAY av (insertNTS_atI (MAP (n2w o ORD) (explode s)) 0 a))`,
   rpt strip_tac >> xcf "IO.str_to_w8array" (basis_st()) >>
-  xlet `POSTv csv. &(LIST_TYPE CHAR (explode s) csv) * W8ARRAY av a`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
-  xapp >> simp[])
+  xlet_auto >- xsimpl >> xapp >> simp[])
 
 val openIn_spec = Q.store_thm(
   "openIn_spec",
@@ -178,13 +173,11 @@ val openIn_spec = Q.store_thm(
             W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
     >- ( xapp >> xsimpl >> fs[WORD_def, BOOL_def] >> cheat)>>
     xif >> instantiate >>
-    xlet `POSTv ev.
-            &BadFileName_exn ev *catfs fs *
-            W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
+    xlet_auto
+
     >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
-    xraise >> xsimpl >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]
-  )
-);
+    xraise >> xsimpl >> 
+    simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode,BadFileName_exn_def]));
 
 (*
   process_topdecs` fun write_char fd c = 
