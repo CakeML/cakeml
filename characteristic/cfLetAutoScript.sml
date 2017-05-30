@@ -196,101 +196,91 @@ fs[INT_def, NUM_def] >> metis_tac[]);
 
 (* Some rules used to simplify arithmetic equations (not happy with that: write a conversion instead? *)
 
-val min_def = Define `min (x:num) (y:num) = if x <= y then x else y`;
-val min_lem = Q.prove(`!x y. min x y <= x /\ min x y <= y`, rw[min_def]);
-
 val NUM_EQ_lem = Q.prove(`!(a1:num) (a2:num) (b:num). b <= a1 ==> b <= a2 ==> (a1 = a2 <=> a1 - b = a2 - b)`, rw[]);
 
 val NUM_EQ_SIMP1 = Q.store_thm("NUM_EQ_SIMP1",
 `a1 + (NUMERAL n1)*b = a2 + (NUMERAL n2)*b <=>
-a1 + (NUMERAL n1 - (min (NUMERAL n1) (NUMERAL n2)))*b = a2 + (NUMERAL n2 - (min (NUMERAL n1) (NUMERAL n2)))*b`,
-rw[min_def]
+a1 + (NUMERAL n1 - (MIN (NUMERAL n1) (NUMERAL n2)))*b = a2 + (NUMERAL n2 - (MIN (NUMERAL n1) (NUMERAL n2)))*b`,
+  rw[MIN_DEF]
 >-(
    `b*NUMERAL n1 <= a1 + b*NUMERAL n1` by rw[] >>
-   `b*NUMERAL n1 <= a2 + b*NUMERAL n2` by rw[]
-   >-(
+   `b*NUMERAL n1 <= a2 + b*NUMERAL n2` by (
+      rw[] >>
       `b*NUMERAL n2 <= a2 + b*NUMERAL n2` by rw[] >>
       `b*NUMERAL n1 <= b*NUMERAL n2` by rw[] >>
       bossLib.DECIDE_TAC
    ) >>
-   ASSUME_TAC(SPECL [``a1 + b * NUMERAL n1``, ``a2 + b * NUMERAL n2``, ``b * NUMERAL n1``] NUM_EQ_lem) >>
+   qspecl_then [`a1 + b * NUMERAL n1`, `a2 + b * NUMERAL n2`, `b * NUMERAL n1`] assume_tac NUM_EQ_lem >>
    POP_ASSUM (fn x => rw[x]) >>
    `b * (NUMERAL n2 - NUMERAL n1) = b * NUMERAL n2 - b * NUMERAL n1` by rw[] >>
    POP_ASSUM (fn x => rw[x]) >>
    `b*NUMERAL n1 <= b* NUMERAL n2` by rw[] >>
    bossLib.DECIDE_TAC
 ) >>
-`b*NUMERAL n2 <= a1 + b*NUMERAL n1` by rw[] >>
-`b*NUMERAL n2 <= a2 + b*NUMERAL n2` by rw[]
->-(
-   `b*NUMERAL n1 <= a2 + b*NUMERAL n1` by rw[] >>
-   `b*NUMERAL n2 <= b*NUMERAL n1` by rw[] >>
-   bossLib.DECIDE_TAC
-) >>
-ASSUME_TAC(SPECL [``a1 + b * NUMERAL n1``, ``a2 + b * NUMERAL n2``, ``b * NUMERAL n2``] NUM_EQ_lem) >>
-POP_ASSUM (fn x => rw[x]) >>
-`b * (NUMERAL n1 - NUMERAL n2) = b * NUMERAL n1 - b * NUMERAL n2` by rw[] >>
-POP_ASSUM (fn x => rw[x]) >>
-`b*NUMERAL n2 <= b* NUMERAL n1` by rw[] >>
-bossLib.DECIDE_TAC);
+  `b*NUMERAL n1 <= a2 + b*NUMERAL n1` by rw[] >>
+  `b*NUMERAL n2 <= b*NUMERAL n1` by rw[] >>
+  `b*NUMERAL n2 <= a1 + b*NUMERAL n1` by rw[] >>
+  `b*NUMERAL n2 <= a2 + b*NUMERAL n2` by rw[] >>
+  qspecl_then[`a1 + b * NUMERAL n1`, `a2 + b * NUMERAL n2`, `b * NUMERAL n2`]assume_tac NUM_EQ_lem >>
+  POP_ASSUM (fn x => rw[x]));
 
 val NUM_EQ_SIMP2 = Q.store_thm("NUM_EQ_SIMP2",
 `(NUMERAL n1)*b + a1 = (NUMERAL n2)*b + a2 <=>
-(NUMERAL n1 - (min (NUMERAL n1) (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (min (NUMERAL n1) (NUMERAL n2)))*b + a2`,
+(NUMERAL n1 - (MIN (NUMERAL n1) (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (MIN (NUMERAL n1) (NUMERAL n2)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP1]);
 
 val NUM_EQ_SIMP3 = Q.store_thm("NUM_EQ_SIMP3",
 `a1 + (NUMERAL n1)*b = (NUMERAL n2)*b + a2 <=>
-a1 + (NUMERAL n1 - (min (NUMERAL n1) (NUMERAL n2)))*b = (NUMERAL n2 - (min (NUMERAL n1) (NUMERAL n2)))*b + a2`,
+a1 + (NUMERAL n1 - (MIN (NUMERAL n1) (NUMERAL n2)))*b = (NUMERAL n2 - (MIN (NUMERAL n1) (NUMERAL n2)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP1]);
 
 val NUM_EQ_SIMP4 = Q.store_thm("NUM_EQ_SIMP4",
 `(NUMERAL n1)*b + a1 = a2 + (NUMERAL n2)*b <=>
-(NUMERAL n1 - (min (NUMERAL n1) (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (min (NUMERAL n1) (NUMERAL n2)))*b + a2`,
+(NUMERAL n1 - (MIN (NUMERAL n1) (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (MIN (NUMERAL n1) (NUMERAL n2)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP1]);
 
 val NUM_EQ_SIMP5 = Q.store_thm("NUM_EQ_SIMP5",
 `a1 + b = a2 + (NUMERAL n2)*b <=>
-a1 + (1 - (min 1 (NUMERAL n2)))*b = a2 + (NUMERAL n2 - (min 1 (NUMERAL n2)))*b`,
+a1 + (1 - (MIN 1 (NUMERAL n2)))*b = a2 + (NUMERAL n2 - (MIN 1 (NUMERAL n2)))*b`,
 `a1 + b = a1 + 1*b` by rw[] >>
 POP_ASSUM (fn x => PURE_REWRITE_TAC [x]) >>
 metis_tac[NUM_EQ_SIMP1]);
 
 val NUM_EQ_SIMP6 = Q.store_thm("NUM_EQ_SIMP6",
 `a1 + (NUMERAL n1)*b = a2 + b <=>
-a1 + (NUMERAL n1 - (min 1 (NUMERAL n1)))*b = a2 + (1 - (min 1 (NUMERAL n1)))*b`,
+a1 + (NUMERAL n1 - (MIN 1 (NUMERAL n1)))*b = a2 + (1 - (MIN 1 (NUMERAL n1)))*b`,
 `a2 + b = a2 + 1*b` by rw[] >>
 POP_ASSUM (fn x => PURE_REWRITE_TAC [x]) >>
 metis_tac[NUM_EQ_SIMP1]);
 
 val NUM_EQ_SIMP7 = Q.store_thm("NUM_EQ_SIMP7",
 `b + a1 = (NUMERAL n2)*b + a2 <=>
-(1 - (min 1 (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (min 1 (NUMERAL n2)))*b + a2`,
+(1 - (MIN 1 (NUMERAL n2)))*b + a1 = (NUMERAL n2 - (MIN 1 (NUMERAL n2)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP5]);
 
 val NUM_EQ_SIMP8 = Q.store_thm("NUM_EQ_SIMP8",
 `(NUMERAL n1)*b + a1 = b + a2 <=>
-(NUMERAL n1 - (min 1 (NUMERAL n1)))*b + a1 = (1 - (min 1 (NUMERAL n1)))*b + a2`,
+(NUMERAL n1 - (MIN 1 (NUMERAL n1)))*b + a1 = (1 - (MIN 1 (NUMERAL n1)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP6]);
 
 val NUM_EQ_SIMP9 = Q.store_thm("NUM_EQ_SIMP9",
 `a1 + b = (NUMERAL n2)*b + a2 <=>
-a1 + (1 - (min 1 (NUMERAL n2)))*b = (NUMERAL n2 - (min 1 (NUMERAL n2)))*b + a2`,
+a1 + (1 - (MIN 1 (NUMERAL n2)))*b = (NUMERAL n2 - (MIN 1 (NUMERAL n2)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP5]);
 
 val NUM_EQ_SIMP10 = Q.store_thm("NUM_EQ_SIMP10",
 `b + a1 = a2 + (NUMERAL n2)*b <=>
-(1 - (min 1 (NUMERAL n2)))*b + a1 = a2 + (NUMERAL n2 - (min 1 (NUMERAL n2)))*b`,
+(1 - (MIN 1 (NUMERAL n2)))*b + a1 = a2 + (NUMERAL n2 - (MIN 1 (NUMERAL n2)))*b`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP5]);
 
 val NUM_EQ_SIMP11 = Q.store_thm("NUM_EQ_SIMP11",
 `a1 + (NUMERAL n1)*b = b + a2 <=>
-a1 + (NUMERAL n1 - (min 1 (NUMERAL n1)))*b = (1 - (min 1 (NUMERAL n1)))*b + a2`,
+a1 + (NUMERAL n1 - (MIN 1 (NUMERAL n1)))*b = (1 - (MIN 1 (NUMERAL n1)))*b + a2`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP6]);
 
 val NUM_EQ_SIMP12 = Q.store_thm("NUM_EQ_SIMP12",
 `(NUMERAL n1)*b + a1 = a2 + b <=>
-(NUMERAL n1 - (min 1 (NUMERAL n1)))*b + a1 = a2 + (1 - (min 1 (NUMERAL n1)))*b`,
+(NUMERAL n1 - (MIN 1 (NUMERAL n1)))*b + a1 = a2 + (1 - (MIN 1 (NUMERAL n1)))*b`,
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP6]);
 
 val _ = export_theory();
