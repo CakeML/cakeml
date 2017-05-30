@@ -40,7 +40,7 @@ val _ =
   process_topdecs` fun write_char fd c = 
     let val a = Word8Array.update buff257 0 fd
         val a = Word8Array.update buff257 1 (Word8.fromInt 1) 
-        val a = Word8Array.update buff257 2 (Word8.fromInt(ord c))
+        val a = Word8Array.update buff257 2 (Word8.fromInt(Char.ord c))
         val a = #(write) buff257
     in 
       if Word8Array.sub buff257 0 = Word8.fromInt 1 
