@@ -5,6 +5,8 @@ open preamble
 
 val _ = new_theory"fsioProof";
 
+val _ = translation_extends "fsioProg";
+
 val IOFS_buff257_def = Define`
   IOFS_buff257 =
     SEP_EXISTS v. W8ARRAY buff257_loc v * cond (LENGTH v = 257)
@@ -149,11 +151,7 @@ val openIn_spec = Q.store_thm(
     xif >> instantiate >> xapp >> 
     simp[fsioProgTheory.buff257_loc_def] >> xsimpl >>
     fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insertNTS_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`])
-  xlet `IOFS fs *
-        (POSTv u2. &(UNIT_TYPE () u2) *
-            W8ARRAY buff257_loc (LUPDATE (n2w fd) 0 bdef))`
-  >- (
-    xlet `POSTv u2.
+    >- (xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs *
             W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[buff257_loc_def] >>
