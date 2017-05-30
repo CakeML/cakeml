@@ -23,6 +23,13 @@ val _ = Datatype`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
+val get_file_content_def = Define`
+    get_file_content fs fd = 
+      do
+        (fnm, off) <- ALOOKUP fs.infds fd ;
+        ALOOKUP fs.files fnm
+      od`
+
 
 (* find smallest unused descriptor index *)
 val nextFD_def = Define`
@@ -80,19 +87,13 @@ val read_def = Define`
       return (TAKE k (DROP off content), bumpFD fd fs k)
     od `;
 
-(* changes the offset of a file 
-val seek_def = Define`
-  seek fd fs off =
-    do
-      (fnm, _) <- ALOOKUP fs.infds fd ;
-      return(fs with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. off))))
-    od `; *)
-
-(* replaces the content of the file in fs with filename fnm *)
+(* replaces the content of the file in fs with filename fnm 
+*  and place the offset to the end of the file *)
 val write_file_def = Define`
-  write_file fs fnm content = 
-    (fs with files := ((fnm, content) :: (A_DELKEY fnm fs.files)))
-        with numchars := THE (LTL fs.numchars)`
+  write_file fs fd fnm content = 
+    ((fs with files := ((fnm, content) :: (A_DELKEY fnm fs.files)))
+        with numchars := THE (LTL fs.numchars))
+        with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. LENGTH content)))`
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
@@ -110,7 +111,7 @@ val write_def = Define`
         (* an unspecified error occurred *)
         if strm = 0 
         then fail
-        else return (k, write_file fs fnm (content ++ TAKE k chars))
+        else return (k, write_file fs fd fnm (content ++ TAKE k chars))
     od `;
 
 
