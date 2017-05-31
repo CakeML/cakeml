@@ -187,17 +187,17 @@ val option_eq_some = LIST_CONJ [
 
 
 val FILE_CONTENT_def = Define`
-  FILE_CONTENT fs fd c =
-    IOFS fs * &(get_file_content fs fd = SOME c)`
+  FILE_CONTENT fs fd c pos =
+    IOFS fs * &(get_file_content fs fd = SOME (c, pos))`
 
 val write_char_spec = Q.store_thm("write_char_spec",
-  `!(fd :word8) fdv c cv bc content. CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
+  `!(fd :word8) fdv c cv bc content pos. CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
                     app (p:'ffi ffi_proj) ^(fetch_v "IO.write_char" (basis_st())) [fdv; cv]
-   (FILE_CONTENT fs (w2n fd) content)
-   (POST (\uv. &(UNIT_TYPE () uv) * FILE_CONTENT fs (w2n fd) (content ++ [c]))
+   (FILE_CONTENT fs (w2n fd) content pos)
+   (POST (\uv. &(UNIT_TYPE () uv) * 
+               IOFS (fsupdate fs (w2n fd) (LUPDATE c pos content) (pos + 1)))
          (\e. &(InvalidFD_exn e) * IOFS fs ))`,
   xcf "IO.write_char" (basis_st()) >> 
-
   fs[IOFS_def, IOFS_buff257_def,FILE_CONTENT_def] >> 
   xpull >>
   rename [`W8ARRAY buff257_loc bdef`] >>
@@ -239,7 +239,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
              implode_explode, LENGTH_explode] >>
         fs[write_def, HD_LUPDATE] >>
-        
+        (* TODO: clean this *)
         Cases_on `bdef` >> fs[] >>
         qmatch_goalsub_abbrev_tac`h :: t` >>
         Cases_on `t` >> fs[] >> 
@@ -255,7 +255,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
             W8ARRAY buff257_loc (LUPDATE (n2w (ORD c)) 2 
                                 (LUPDATE 1w 1 
                                 (LUPDATE 1w 0 bdef))))`
-    >- (xapp >> xsimpl)
+    >- (xapp >> xsimpl) >>
     xlet `POSTv g. &WORD (1w :word8) g *
             (IOx fs_ffi_part fs *
             W8ARRAY buff257_loc (LUPDATE (n2w (ORD c)) 2 
@@ -269,25 +269,68 @@ val write_char_spec = Q.store_thm("write_char_spec",
         Cases_on`t'` >> fs[] >>
         rw[EVAL ``LUPDATE rr 2 (zz :: tt)``,
            EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
-        simp[buff257_loc_def,LENGTH_LUPDATE] >> xsimpl)
+        simp[buff257_loc_def,LENGTH_LUPDATE] >> xsimpl) >>
     xlet `POSTv comp. &BOOL TRUE comp * IOx fs_ffi_part fs *
             SEP_EXISTS wl. (W8ARRAY buff257_loc wl * &(LENGTH wl = 257))`
     >- (xapp >> xsimpl >> cheat) >>
-    xif
-    >- (xlet_auto >- (xcon >> xsimpl) >>
-        xraise >> xsimpl >>
-        simp[InvalidFD_exn_def,buff257_loc_def]) >>
+        xif >> fs[TRUE_def] >> xlet_auto >- (xcon >> xsimpl) >>
+        xraise >> xsimpl >> fs[InvalidFD_exn_def,buff257_loc_def,wfFS_write]
+
+        fs[write_def,get_file_content_def] >> fs[] >>
+        pairarg_tac >> 
+        `x = (fnm,off)` by (fs[]) >>
+        fs[] >> fs[] >>
+        >- cheat
+        (* fs.numchars = [||] should not happen *)
+        >- cheat
+
+        >- cheat
+        (* LHD fs.numchars = SOME 0 *)
+        fs[]
+        (* trivial: fnm = fnm' *)
+        
+            fs[option_eq_some] >>
+            
+        >-
+        >-
+
+        
+
+        metis_tac[]
+        prove_tac[]
+
+        rw[fs_ffi_part_def,cfHeapsBaseTheory.IOx_def,cfHeapsBaseTheory.mk_ffi_next_def]
+        rw[cfHeapsBaseTheory.POST_F_def]
+        rw[cfHeapsBaseTheory.IO_def]
+        rw[IOx]
+        fs[write_def,get_file_content_def]
+        pairarg_tac
+        fs[ALOOKUP_NONE]
+        imp_res_tac A_DELKEY_I
+        res_tac
+        fs[wfFS_def,fsupdate_def]
+        imp_res_tac ALOOKUP_SOME_inFS_fname
+        res_tac
+        
+        xif >> 
+
+    >- (
+    xret >> 
+    xsimpl >> 
+    simp[BadFileName_exn_def]) >>
+
+        (* wfFS_write -> wfFS_fsupdate *)
+        ) >>
     xcon >> fs[TRUE_def])
 
     (* success case *)
-    cases_on`x` >>
-    rename [`SOME(newb, fs')`]
-
-    xlet`POSTv u'''. &(UNIT_TYPE () u''') * 
-                     FILE_CONTENT fs' (w2n fd) (content ++ [c]) *
-           W8ARRAY buff257_loc (LUPDATE (n2w (ORD c)) 2 
-                               (LUPDATE 1w 1 
-                               (LUPDATE 0w 0 bdef)))`
+    cases_on`x` >> rename [`SOME(newb, fs')`]
+    xlet`POSTv u'''. 
+        &(UNIT_TYPE () u''') * 
+        FILE_CONTENT fs' (w2n fd) (LUPDATEcontent ++ [c]) *
+        W8ARRAY buff257_loc (LUPDATE (n2w (ORD c)) 2 
+            (LUPDATE 1w 1 (LUPDATE 0w 0 bdef)))`
+    >- (
     xffi >>
     fs[write_def] >>
     pairarg_tac >>
@@ -295,7 +338,6 @@ val write_char_spec = Q.store_thm("write_char_spec",
              cfHeapsBaseTheory.mk_ffi_next_def,FILE_CONTENT_def,
          get_file_content_def,ffi_write_def,MEM_MAP, IOFS_def] >>
     xsimpl >>
-
     Cases_on `bdef` >> fs[] >>
     qmatch_goalsub_abbrev_tac`h :: t` >>
     Cases_on `t` >> fs[] >> 
@@ -305,8 +347,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
        EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
     qmatch_goalsub_abbrev_tac`IO st f ns` >>
     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-    simp[LUPDATE_def,write_def,EVAL ``LUPDATE rr 1 (zz :: tt)``,MIN_DEF, 
-       write_file_def]
+    simp[write_def,MIN_DEF, write_file_def] >>
     qmatch_goalsub_abbrev_tac`wfFS fs'`
     map_every qexists_tac[`ns`,`f`, `encode fs'`, `st`] >> xsimpl >>
     fs[Abbr`f`,Abbr`st`,Abbr`ns`, cfHeapsBaseTheory.mk_ffi_next_def,
@@ -315,18 +356,25 @@ val write_char_spec = Q.store_thm("write_char_spec",
        LENGTH_explode, IOFS_buff257_def, buff257_loc_def] >>
     xsimpl >>
 
-    qexists_tac `(fnm,off)` >>
+
+    qexists_tac `(fnm,off + 1)` >>
     qexists_tac`(0w::1w::n2w (ORD c)::t, fs')` >>
     fs[option_eq_some] >> 
     (* TODO: as lemma *)
     `! fs fd fnm c. wfFS fs ==> wfFS (write_file fs fd fnm c)` by cheat >>
     res_tac >>
     rw[] >>
-    fs[LUPDATE_def,write_def,EVAL ``LUPDATE rr 1 (zz :: tt)``,MIN_DEF, 
-       write_file_def,Abbr`fs'`,get_file_content_def]
-    sg`strm = 1` by (fs[]) >> simp[] >>
-    cheat
+    >- (fs[LUPDATE_def,write_def,EVAL ``LUPDATE rr 1 (zz :: tt)``,MIN_DEF, 
+           write_file_def,Abbr`fs'`,get_file_content_def] >>
+        every_case_tac >> fs[] >>
+        `strm = 1` by (fs[]) >> simp[]) >>
+    >-(fs[Abbr`fs'`,write_file_def,STRLEN_CAT] >> cheat) (* ok *)
+    >-(
+       simp[ALIST_FUPDKEY_ALOOKUP]         
+        
+        
 
+    )
 val _ = export_theory();
 
 

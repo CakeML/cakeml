@@ -27,7 +27,8 @@ val get_file_content_def = Define`
     get_file_content fs fd = 
       do
         (fnm, off) <- ALOOKUP fs.infds fd ;
-        ALOOKUP fs.files fnm
+        c <- ALOOKUP fs.files fnm;
+        return (c, off)
       od`
 
 
@@ -88,12 +89,13 @@ val read_def = Define`
     od `;
 
 (* replaces the content of the file in fs with filename fnm 
-*  and place the offset to the end of the file *)
-val write_file_def = Define`
-  write_file fs fd fnm content = 
+*  and set the position in the file *)
+val fsupdate_def = Define`
+  fsupdate fs fd content pos = 
+    let fnm = FST (THE (ALOOKUP fs.infds fd)) in
     ((fs with files := ((fnm, content) :: (A_DELKEY fnm fs.files)))
         with numchars := THE (LTL fs.numchars))
-        with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. LENGTH content)))`
+        with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. pos)))`
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
@@ -106,12 +108,14 @@ val write_def = Define`
       (fnm, off) <- ALOOKUP fs.infds fd ;
       content <- ALOOKUP fs.files fnm ;
       assert(n <= LENGTH chars);
+      assert(fs.numchars <> [||]);
       strm <- LHD fs.numchars;
+      assert(strm <> 0);
       let k = MIN n strm in
         (* an unspecified error occurred *)
-        if strm = 0 
-        then fail
-        else return (k, write_file fs fd fnm (content ++ TAKE k chars))
+        return (k, fsupdate fs fd (TAKE off content ++ 
+                                   TAKE k chars ++
+                                   DROP (off + k) content) (off + k))
     od `;
 
 
