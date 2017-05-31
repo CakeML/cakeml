@@ -73,13 +73,8 @@ val _ =
     end` |> append_prog
 
 (* val print_newline : unit -> unit *)
-val _ = process_topdecs` fun write_newline fd =
-    let val a = Word8Array.update buff257 0 fd
-        val a = Word8Array.update buff257 1 (Word8.fromInt 1)
-        val a = Word8Array.update buff257 2 (Word8.fromInt(ord #"\n"))
-    in
-      #(write) buff257
-    end
+val _ = process_topdecs`
+    fun write_newline fd = write_char fd #"\n"
     fun print_newline () = write_newline (stdin())
     fun prerr_newline () = write_newline (stdout())
     ` |> append_prog
