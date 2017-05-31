@@ -247,6 +247,15 @@ val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
   rw[ffi_open_out_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
 
+val read_length = Q.store_thm("read_length", 
+    `read fd fs k = SOME (l, fs') ==> LENGTH l <= k`,
+    rw[read_def] >> pairarg_tac >> fs[option_eq_some,LENGTH_TAKE] >>
+    ` l  = TAKE (MIN k (MIN (STRLEN content − off) (SUC strm)))
+        (DROP off content)` by (fs[]) >>
+        (* TODO: simp *)
+    fs[MIN_DEF,LENGTH_DROP]);
+
+
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def] 
@@ -255,8 +264,12 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ TRY(pairarg_tac) 
   \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
   \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
-  \\ cheat
-  ); 
+  \\ imp_res_tac read_length
+  >- (`bytes' = 0w::n2w (STRLEN l)::(MAP (n2w ∘ ORD) l ++ DROP (STRLEN l) t')`
+        by (fs[]) \\ fs[])
+        (* TODO: ! *)
+  >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])
+  >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])); 
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
@@ -343,5 +356,15 @@ val A_DELKEY_bumpAllFD_elim = Q.store_thm("A_DELKEY_bumpAllFD_elim[simp]",
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
+
+val wfFS_write = Q.store_thm("wfFS_write",
+    `! fs fd content pos. wfFS fs ==> MEM fd (MAP FST fs.infds) ==> 
+                          wfFS (fsupdate fs fd content pos)`,
+    rw[wfFS_def,ALIST_FUPDKEY_ALOOKUP,fsupdate_def] >>
+    cases_on `fs.numchars` >> fs[] >>
+    every_case_tac >> fs[ALOOKUP_NONE] >>
+    cases_on`x` >> fs[] >> res_tac >>
+    fs[ALOOKUP_MEM,A_DELKEY_def,MEM_MAP, MEM_FILTER] >>
+    metis_tac[]);
 
 val _ = export_theory();
