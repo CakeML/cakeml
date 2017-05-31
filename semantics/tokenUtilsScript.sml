@@ -1,10 +1,7 @@
-open HolKernel Parse boolLib bossLib
-
-open tokensTheory lcsymtacs
+open preamble tokensTheory
 
 val _ = new_theory "tokenUtils"
 val _ = set_grammar_ancestry ["tokens", "grammar"]
-val _ = ParseExtras.tight_equality()
 
 (* ----------------------------------------------------------------------
     Utility functions over tokens; perhaps should just appear in

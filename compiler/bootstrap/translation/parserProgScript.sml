@@ -198,8 +198,6 @@ val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 
-val _ = ParseExtras.temp_tight_equality()
-
 val parse_prog_side_lemma = Q.store_thm("parse_prog_side_lemma",
   `!x. parse_prog_side x = T`,
   SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",

@@ -1,11 +1,7 @@
-open HolKernel Parse boolLib bossLib lcsymtacs;
-open stringTheory stringLib listTheory tokensTheory lexer_funTheory;
+open preamble tokensTheory lexer_funTheory
 
 val _ = new_theory "lexer_impl";
 val _ = set_grammar_ancestry ["tokens", "lexer_fun", "ASCIInumbers", "location"]
-
-val _ = ParseExtras.tight_equality()
-
 
 val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
