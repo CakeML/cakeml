@@ -5,7 +5,7 @@ using CF.
 
 *)
 
-open  preamble ml_progLib ioProgLib ml_translatorLib
+open preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory
 	       cfLetAutoLib
 
@@ -163,44 +163,63 @@ val eq_num_v_thm =
   |> DISCH_ALL
   |> C MATCH_MP (EqualityType_NUM_BOOL |> CONJUNCT1);
 
-(*val pop_spec = Q.store_thm("pop_spec",
+val pop_spec = Q.store_thm("pop_spec",
   `!qv.
    EqualityType A ==>
    app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
    (QUEUE A vs qv)
    (POST (\v. &(not(NULL vs) /\ A (LAST vs) v) * QUEUE A (FRONT vs) qv)
-	 (\e. &(NULL vs /\ EmptyQueue_exn e) * QUEUE A vs qv))`
+	 (\e. &(NULL vs /\ EmptyQueue_exn e) * QUEUE A vs qv))`,
    xcf "pop" st >>
    simp[QUEUE_def] >>
    xpull >>
-
    xlet_auto >-(xsimpl)>>
    xmatch >>
-   rw[]
+   reverse(rw[]) >- EVAL_TAC >>
+   xlet_auto >-(xsimpl) >>
+   xif
    >-(
-      xlet_auto >-(xsimpl)>>
-      xlet_auto >-(xsimpl) >>
-      xif
-      >-(
-	  xlet_auto >-(xcon >> xsimpl) >>
-	  xraise >>
-	  xsimpl >>
-	  fs[EmptyQueue_exn_def] >>
-	  rw[] >>
-	  irule FALSITY >>
-	  fs[computeLib.EVAL_CONV ``not T``]
-      ) >>
-      xlet_auto >-(xsimpl) >>
-      xlet_auto
-      >-(
-	  xsimpl >>
-          `vvs <> []` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL] >>
-          `LENGTH vs <> 0 /\ LENGTH vvs <> 0` by metis_tac[LENGTH_NIL] >>
-	  `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-	  bossLib.DECIDE_TAC
-      ) >>
-      xlet_auto >-(xsimpl) >>
-      xlet_auto >-(xcon >> xsimpl) >>
-      xlet_auto >-(xsimpl) >> *)
+       xlet_auto >-(xcon >> xsimpl) >>
+       xraise >>
+       xsimpl >>
+       fs[EmptyQueue_exn_def] >>
+       rw[] >>
+       irule FALSITY >>
+       fs[computeLib.EVAL_CONV ``not T``]
+   ) >>
+   xlet_auto >-(xsimpl) >>
+   xlet_auto
+   >-(
+       xsimpl >>
+       `vvs <> []` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL] >>
+       `LENGTH vs <> 0 /\ LENGTH vvs <> 0` by metis_tac[LENGTH_NIL] >>
+       `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
+       bossLib.DECIDE_TAC
+   ) >>
+   xlet_auto >-(xsimpl) >>
+   xlet_auto >-(xcon >> xsimpl) >>
+   xlet_auto >-(xsimpl) >>
+   xvar
+   >-(
+      xsimpl >>
+      qexists_tac `FRONT vvs` >>
+      qexists_tac `[LAST vvs] ++ junk` >>
+      fs[mlbasicsProgTheory.not_def, NULL_EQ] >>
+      `vvs <> [] /\ LENGTH vs <> 0 /\ LENGTH vvs <> 0` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL] >>
+      `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
+      FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
+      `LENGTH vvs - 1 = PRE(LENGTH vvs)` by rw[] >>
+      FIRST_ASSUM (fn x => fs[x]) >>
+      fs[EL_APPEND_EQN, GSYM LAST_EL, LIST_REL_FRONT_LAST] >>
+      fs[APPEND_FRONT_LAST] >>
+      rw[LENGTH_FRONT] >>
+      `PRE(LENGTH vvs) = LENGTH vvs - 1` by rw[] >>
+      POP_ASSUM(fn x => fs[x]) >>
+      fs[NUM_def, int_arithTheory.INT_NUM_SUB] 
+  ) >>
+  xsimpl >>
+  rw[] >>
+  fs[NULL_EQ]
+);
 
 val _ = export_theory ()

@@ -1,10 +1,34 @@
 structure cfLetAutoLib (*:> cfLetAutoLib - TODO*) =
 struct
 
-open  preamble ml_progLib cfTacticsLib ml_translatorTheory eqSolveRewriteLib
+open  preamble ml_progLib cfTacticsLib ml_translatorTheory eqSolveRewriteLib Satisfy
 	       cfLetAutoTheory
-	       (*AssumSimpLib IntroRewriteLib *)
+	       (* Those should be removed once Satisfy.sig is updated *)
+	       HolKernel boolLib Sequence liteLib Unify Trace
 
+(*
+   Taken from Satisfy.sml (Satisfy.sig should be updated so that people can access
+   the satisfy function)
+*)
+
+fun satisfy_in_envs consts tms (tm1,envs) =
+  let fun f env tm2 =
+      let val new_env = simp_unify_terms_in_env consts tm1 tm2 env
+      in restrict_tmenv (not o C mem (free_vars tm2)) new_env
+      end
+  in seq_flat (seq_map (fn env => seq_mapfilter (f env) tms) envs)
+  end;
+
+fun satisfyl_in_envs consts tms1 tms2 envs =
+    seq_iterate (satisfy_in_envs consts (seq_of_list tms2))
+    (seq_of_list tms1,envs);
+
+fun satisfy consts tms1 tms2 =
+    seq_hd (satisfyl_in_envs consts tms1 tms2 (seq_single []))
+    handle HOL_ERR _ => failwith "satisfy: could not satisfy goals";
+	       
+(********************************************************************************************)
+	       
 (******************** Some conversions used to perform the matching *************************)
 (* 
    MP_ASSUM:
@@ -99,19 +123,6 @@ val ERR = mk_HOL_ERR "son_ho";
 
 val (build_conv_tm, mk_build_conv, dest_build_conv, is_build_conv) = HolKernel.syntax_fns3 "semanticPrimitives" "build_conv";
 val (exp2v_tm, mk_exp2v, dest_exp2v, is_exp2v) = HolKernel.syntax_fns2 "cfNormalise" "exp2v";
-
-(* Code taken from cfSyntax.sml *)
-fun make6 tm (a,b,c,d,e,f) =
-  list_mk_icomb (tm, [a, b, c, d, e, f]);
-
-fun dest6 c e tm =
-  case with_exn strip_comb tm e of
-      (t, [t1, t2, t3, t4, t5, t6]) =>
-      if same_const t c then (t1, t2, t3, t4, t5, t6) else raise e
-    | _ => raise e;
-
-val s6 = HolKernel.syntax_fns {n = 6, make = make6, dest = dest6} "cf";
-val (cf_let_tm, mk_cf_let, dest_cf_let, is_cf_let) = s6 "cf_let";
 
 (* Manipulation of expressions *)
 
@@ -547,6 +558,13 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val (params_expr_list, _) = listSyntax.dest_list parameters
       val params_tm_list = List.map (get_value env) params_expr_list
 
+      (* NOT SURE if proper way: rewrite the values to prevent conflicts with the
+         parameters found by xapp_spec *)
+      val asl_thms = List.map ASSUME asl
+      val params_tm_list = List.map (fn x => SIMP_CONV bool_ss asl_thms x
+				|> concl |> dest_eq |> snd handle _ => x) params_tm_list
+      (*************************************************)
+				    
       (* Find the ffi variable *)
       val ffi = dest_comb app_info' |> fst |> dest_comb |> snd
     
@@ -587,7 +605,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
    (?s. (A * H) s) ==> ((A * H ==>> B * H') <=> (C /\ H ==>> H'))
    Returns: (A, B, C)
 *)
-val hprop_extract_pattern = ``UNIQUE_PTRS s ==> (A * H) s /\ (B * H') s ==> EQ``;
+val hprop_extract_pattern = ``VALID_HEAP s ==> (A * H) s /\ (B * H') s ==> EQ``;
 fun convert_extract_thm th =
     let
 	val c = strip_forall (concl th) |> snd
@@ -847,7 +865,24 @@ fun xlet_simp_spec asl app_info let_pre app_spec sset match_thms =
       val simp_app_spec = rec_simplify empty_tmset norm_app_spec'
 				       (* Get rid of T ==> _ and some other expressions *)
 				       |> CONV_RULE (SIMP_CONV bool_ss [])
-				       
+
+      (* If there remain some non-instantiated variables, use heuristics*)
+      fun heuristic_inst asl app_spec =
+	  if HOLset.isSubset (FVL [concl simp_app_spec] empty_varset, FVL (app_info::let_pre::asl)
+									  empty_varset)
+	  then
+	      app_spec
+	  else
+	      let
+		  val _ = print "xlet_auto : using heuristics"
+		  val knwn_vars = HOLset.listItems(FVL asl empty_varset)
+		  val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
+		  val pos_subst = satisfy knwn_vars app_spec_hyps asl
+	      in
+		  Thm.INST pos_subst app_spec
+	      end
+      val simp_app_spec = heuristic_inst rw_asl_concl app_spec
+      
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
 	if (is_imp (concl app_spec)) then
@@ -1072,7 +1107,8 @@ val refin_invariant_invert_defs = (List.map GSYM refin_invariant_defs)
 val refin_inv_rewrite_thms = List.concat [refin_invariant_thms, refin_invariant_invert_defs]
 			     @[LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT];
 
-val rewrite_thms = [integerTheory.INT_ADD,
+val rewrite_thms = [(* Handle the int_of_num operator *)
+                    integerTheory.INT_ADD,
 		    INT_OF_NUM_TIMES,
 		    INT_OF_NUM_LE,
 		    INT_OF_NUM_LESS,
@@ -1080,6 +1116,9 @@ val rewrite_thms = [integerTheory.INT_ADD,
 		    INT_OF_NUM_GREAT,
 		    INT_OF_NUM_EQ,
 		    INT_OF_NUM_SUBS,
+		    INT_OF_NUM_SUBS_2,
+
+		    (* Handle lists *)
 		    LENGTH_NIL,
 		    LENGTH_NIL_SYM,
 		    REPLICATE_APPEND_DECOMPOSE,
@@ -1090,9 +1129,12 @@ val rewrite_thms = [integerTheory.INT_ADD,
 		    TAKE_LENGTH_ID,
 		    DROP_nil,
 		    DROP_LENGTH_TOO_LONG,
+		    NULL_EQ,
 		    (* REPLICATE *)
 		    (* REPLICATE_PLUS_ONE *)
 
+		    mlbasicsProgTheory.not_def,
+		    
 		    (* Arithmetic equations simplification *)
 		    NUM_EQ_SIMP1,
 		    NUM_EQ_SIMP2,
@@ -1110,7 +1152,14 @@ val rewrite_thms = [integerTheory.INT_ADD,
 		   ];
 
 val match_thms = List.concat [rewrite_thms, refin_inv_rewrite_thms];
-val extract_thms = [UNIQUE_REFS, UNIQUE_ARRAYS];
+val extract_thms = [UNIQUE_REFS_EXT,
+		    UNIQUE_ARRAYS_EXT,
+		    UNIQUE_W8ARRAYS_EXT,
+		    UNIQUE_STDIN,
+		    UNIQUE_STDOUT,
+		    UNIQUE_STDERR,
+		    UNIQUE_COMMANDLINE,
+		    UNIQUE_ROFS];
 val ri_expand_thms = refin_invariant_defs;
 val ri_retract_thms = refin_inv_rewrite_thms;
 val rw_thms = rewrite_thms;
@@ -1125,8 +1174,7 @@ val xlet_find_auto = xlet_find_auto_aux xlet_auto_match_thms;
 val (xlet_auto : tactic) = xlet_auto_aux xlet_auto_match_thms;
 
 end
-
-
+    
 (******** DEBUG ********)
 (*
 val (g as (asl, w)) = top_goal();
@@ -1148,3 +1196,4 @@ val app_spec = subst_app_spec;
 xlet_find_auto g;
 xlet_app_auto app_info env let_pre g match_thms;
 *)
+
