@@ -3299,6 +3299,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM] )
     \\ Cases_on`∃fl. op = CopyByte fl` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
+      \\ Cases_on`fl`
       \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM]
       \\ rveq \\ fs[v_rel_SIMP] \\ rw[] \\ fs[FLOOKUP_UPDATE] \\ rw[]
       \\ TRY (drule (GEN_ALL state_rel_refs_lookup) \\ disch_then imp_res_tac \\ fs[FLOOKUP_UPDATE])
@@ -3314,17 +3315,25 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ match_mp_tac (GEN_ALL state_rel_UPDATE_REF)
         \\ simp[] \\ NO_TAC)
       \\ qexists_tac`f2` \\ fs[]
+      \\ TRY (* new dst allocated *) (
+        (conj_tac >- (
+            strip_tac
+            \\ fs[state_rel_def,SUBSET_DEF]
+            \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
+        \\ (reverse conj_tac >- (
+            fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+            \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+            \\ fs[state_rel_def,SUBSET_DEF]
+            \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
+        \\ match_mp_tac state_rel_NEW_REF
+        \\ rw[LEAST_NOTIN_FDOM] )
+      (* existing dst *)
+      \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
       \\ (conj_tac >- (
-          strip_tac
-          \\ fs[state_rel_def,SUBSET_DEF]
-          \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
-      \\ (reverse conj_tac >- (
-          fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
-          \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
-          \\ fs[state_rel_def,SUBSET_DEF]
-          \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
-      \\ match_mp_tac state_rel_NEW_REF
-      \\ rw[LEAST_NOTIN_FDOM] )
+          match_mp_tac (GEN_ALL state_rel_UPDATE_REF) \\ fs[] ))
+      \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+      \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM] \\ rw[]
+      \\ fs[IN_FRANGE_FLOOKUP] )
     \\ imp_res_tac closSemTheory.do_app_const
     \\ first_x_assum(mp_tac o MATCH_MP
          (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
