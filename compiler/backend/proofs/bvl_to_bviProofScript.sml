@@ -2430,6 +2430,7 @@ val compile_exps_correct = Q.prove(
       >- (
         qexists_tac`(pp =+ qq) b2`
         \\ rw[iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
+        \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[adjust_bv_def,APPLY_UPDATE_THM]
         \\ rename1`FLOOKUP s5.refs src = SOME _`
         \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
         by (
@@ -2446,6 +2447,7 @@ val compile_exps_correct = Q.prove(
         \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] )
       \\ qexists_tac`b2`
       \\ rw[iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
+      \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[adjust_bv_def,APPLY_UPDATE_THM]
       \\ rename1`FLOOKUP s5.refs src = SOME _`
       \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
       by (
