@@ -511,17 +511,6 @@ val ptree_FQV_def = Define`
         | _ => NONE
 `
 
-(* in other words constructors never take tuples as arguments, only ever
-   lists of arguments *)
-val mkPatApp_def = Define`
-  mkPatApp cn p =
-    if cn = Short "ref" then Pref p
-    else
-      dtcase p of
-          Pcon NONE pl => Pcon (SOME cn) pl
-        | _ => Pcon (SOME cn) [p]
-`;
-
 val isSymbolicConstructor_def = Define`
   isSymbolicConstructor (structopt : modN option) s =
     return (s = "::")
@@ -584,6 +573,13 @@ val ptree_OpID_def = Define`
         | _ => NONE
 `;
 
+val Papply_def = Define`
+  Papply pat arg =
+    dtcase pat of
+      Pcon cn args => Pcon cn (args ++ [arg])
+    | _ => pat
+`;
+
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
@@ -620,14 +616,28 @@ val ptree_Pattern_def = Define`
                         plist)
           od
         | _ => NONE
+    else if FST nm = mkNT nPConApp then
+      dtcase args of
+        [cn] =>
+        do
+          cname <- ptree_ConstructorName cn ;
+          return (Pcon (SOME cname) [])
+        od
+      | [capp_pt; base_pt] =>
+        do
+          capp <- ptree_Pattern nPConApp capp_pt ;
+          base <- ptree_Pattern nPbase base_pt ;
+          return (Papply capp base)
+        od
+      | _ => fail
     else if FST nm = mkNT nPapp then
       dtcase args of
           [pb] => ptree_Pattern nPbase pb
-        | [cnm; ppt] =>
+        | [capp_pt; ppt] =>
           do
-            cn <- ptree_ConstructorName cnm;
-            p <- ptree_Pattern nPbase ppt;
-            SOME(mkPatApp cn p)
+            capp <- ptree_Pattern nPConApp capp_pt;
+            b <- ptree_Pattern nPbase ppt;
+            return (Papply capp b)
           od
         | _ => NONE
     else if FST nm = mkNT nPcons then
@@ -728,27 +738,28 @@ val _ = export_rewrites ["destFFIop_def"]
 val strip_loc_expr_def = Define`
  (strip_loc_expr (Lannot e l) =
     dtcase (strip_loc_expr e) of
-      (e0, _) => (e0, (λe. Lannot e l))) ∧
- (strip_loc_expr e = (e, (λe. e)))
+      (e0, _) => (e0, SOME l)) ∧
+ (strip_loc_expr e = (e, NONE))
 `
+
+val merge_locsopt_def = Define`
+  merge_locsopt (SOME l1) (SOME l2) = SOME (merge_locs l1 l2) ∧
+  merge_locsopt _ _ = NONE
+`;
+
+val optLannot_def = Define`
+  optLannot NONE e = e ∧
+  optLannot (SOME l) e = Lannot e l
+`;
 
 val mkAst_App_def = Define`
   mkAst_App a1 a2 =
-    let (a10, addloc) = strip_loc_expr a1
+    let (a10, loc1) = strip_loc_expr a1
     in
       dest_Conk a10
         (λnm_opt args.
-                 if ~NULL args then App Opapp [a1;a2]
-                 else if nm_opt = SOME (Short "ref") then
-                   App Opapp [addloc (Var (Short "ref")); a2]
-                 else
-                   dest_Conk (FST (strip_loc_expr a2))
-                             (λnm_opt2 args2.
-                                       if nm_opt2 = NONE ∧ ~ NULL args2 then
-                                         Con nm_opt args2
-                                       else
-                                         Con nm_opt [a2])
-                             (Con nm_opt [a2]))
+          let (a2', loc2) = strip_loc_expr a2
+          in optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
         (dtcase a10 of
            App opn args =>
              (dtcase (destFFIop opn) of
