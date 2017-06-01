@@ -1540,7 +1540,7 @@ val do_app = Q.prove(
 val v_case_eq_thms =
   LIST_CONJ [
     prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
-    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}]
+    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
 
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
@@ -1559,9 +1559,12 @@ val do_app_err = Q.prove(
     Cases_on `a` >>
     rw [closPropsTheory.do_app_cases_timeout] >>
     fs [closPropsTheory.do_app_cases_type_error])
-  \\ Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+  \\ Cases_on`op`
+  \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
-  \\ spose_not_then strip_assume_tac \\ fs[]);
+  \\ spose_not_then strip_assume_tac \\ fs[]
+  \\ rpt (pop_assum mp_tac)
+  \\ rpt (PURE_CASE_TAC \\ fs []) \\ fs []);
 
 (* correctness of implemented primitives *)
 
