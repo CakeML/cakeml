@@ -152,7 +152,7 @@ val if_eq1w = Q.prove(`
   rw[]>>fs[]>>
   blastLib.FULL_BBLAST_TAC)
 
-val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w]
+val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w,word_mul_def] |> gconv
 
 val riscv_enc3_aux = riscv_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -179,7 +179,7 @@ val riscv_simp3 =
   reconstruct_case ``riscv_enc (JumpCmp c n r c0)`` (rand o rator o rand)
     [riscv_enc3_1_th,riscv_enc3_2_th]
 
-val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w]
+val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults)|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w,word_mul_def] |> gconv
 
 val riscv_simp5 = riscv_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
