@@ -85,9 +85,10 @@ val push_spec = Q.store_thm ("push_spec",
     xpull >>
     xlet_auto >-(xsimpl)>>
     xmatch >> reverse(rw[]) >- EVAL_TAC >>
-	xlet_auto >-(xsimpl) >>
-	xlet_auto >-(xsimpl) >>
-	xif
+    xlet_auto >-(xsimpl) >>
+
+    xlet_auto >-(xsimpl) >>
+    xif
 	>-(
 	    xlet_auto >-(xsimpl) >>
 	    xlet_auto >-(xsimpl) >>
@@ -100,13 +101,13 @@ val push_spec = Q.store_thm ("push_spec",
 	    fs[UNIT_TYPE_def] >>
 	    (* Should be partially automatized *)
 	    qexists_tac `vvs ++ [xv]` >>
-      `LENGTH junk = 0` by (
+     `LENGTH junk = 0` by (
                 `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	        bossLib.DECIDE_TAC
 	    ) >>
 	    fs[LENGTH_NIL] >>
 	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs refin_inv_rewrite_thms
+	    fs (get_RI_retract_thms())
 	    (*---------------------------------*)
 	) >>
 	xlet_auto >-(xsimpl) >>
@@ -118,7 +119,7 @@ val push_spec = Q.store_thm ("push_spec",
 	fs[UNIT_TYPE_def] >>
 	qexists_tac `vvs ++ [xv]` >>
 	qexists_tac `TL junk` >>
-	fs refin_inv_rewrite_thms >>
+	fs (get_RI_retract_thms()) >>
         `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
@@ -134,7 +135,7 @@ val push_spec = Q.store_thm ("push_spec",
     xpull >>
     xs_auto_tac >>
     reverse(rw[]) >- EVAL_TAC >>
-	xs_auto_tac
+    xs_auto_tac
 	(* 3 subgoals *)
 	>-(fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE])
 	>-(
@@ -146,12 +147,12 @@ val push_spec = Q.store_thm ("push_spec",
 	    ) >>
 	    fs[LENGTH_NIL] >>
 	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs refin_inv_rewrite_thms
+	    fs (get_RI_retract_thms())
 	) >>
 	fs[UNIT_TYPE_def] >>
 	qexists_tac `vvs ++ [xv]` >>
 	qexists_tac `TL junk` >>
-	fs refin_inv_rewrite_thms >>
+	fs (get_RI_retract_thms()) >>
         `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
