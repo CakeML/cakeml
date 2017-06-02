@@ -351,7 +351,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
                                          Lit (IntLit 4)]``);
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(x,3)"
                    (SOME ``Con (SOME (Short "C"))
-                                   [Var (Short "x"); Lit (IntLit 3)]``)
+                               [Con NONE [Var (Short "x"); Lit (IntLit 3)]]``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f(x,3)"
                    (SOME ``OLDAPP (Var (Short "f"))
                                    (Con NONE

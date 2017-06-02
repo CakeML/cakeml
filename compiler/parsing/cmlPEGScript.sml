@@ -39,8 +39,11 @@ val mktokLf_def = Define`mktokLf t = [Lf (TK (FST t), SND t)]`
 val mkNd_def = Define`
   mkNd ntnm l = Nd (ntnm, ptree_list_loc l) l`
 
-val bindNT_def = Define`
-  bindNT ntnm l = [Nd (mkNT ntnm, ptree_list_loc l) l]`
+val bindNT0_def = Define`
+  bindNT0 ntnm l = Nd (mkNT ntnm, ptree_list_loc l) l
+`;
+
+val bindNT_def = Define`bindNT ntnm l = [bindNT0 ntnm l]`
 
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
@@ -182,6 +185,19 @@ val peg_StructName_def = Define`
              od = SOME ())
         (bindNT nStructName o mktokLf)
 `;
+
+val ptPapply0_def = Define`
+  ptPapply0 c [] = [] (* can't happen *) ∧
+  ptPapply0 c [pb_pt] = bindNT nPapp [c; pb_pt] ∧
+  ptPapply0 c (pb::pbs) = ptPapply0 (bindNT0 nPConApp [c;pb]) pbs
+`;
+
+val ptPapply_def = Define`
+  ptPapply [] = [] (* can't happen *) ∧
+  ptPapply [_] = [] (* can't happen *) ∧
+  ptPapply (c::rest) = ptPapply0 (bindNT0 nPConApp [c]) rest
+`;
+
 
 val cmlPEG_def = zDefine`
   cmlPEG = <|
@@ -378,9 +394,15 @@ val cmlPEG_def = zDefine`
                            seql [tokeq OpT; pnt nOpID] I])
                  (bindNT nPbase));
               (mkNT nPapp,
-               choicel [seql [pnt nConstructorName; try (pnt nPbase)]
-                             (λpts. if LENGTH pts = 2 then bindNT nPapp pts
-                                    else bindNT nPapp (bindNT nPbase pts));
+               choicel [seql [pnt nConstructorName; rpt (pnt nPbase) FLAT]
+                             (λpts. if LENGTH pts = 1 then
+                                       bindNT nPapp (bindNT nPbase pts)
+                                     else
+                                       case pts of
+                                         [] => (* can't happen *) []
+                                       | [c] => (* can't happen *) []
+                                       | _ => ptPapply pts
+                             );
                         pegf (pnt nPbase) (bindNT nPapp)]);
               (mkNT nPcons,
                seql [pnt nPapp;
