@@ -8,7 +8,7 @@ ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
-val _ = ParseExtras.temp_tight_equality()
+val _ = ParseExtras.tight_equality()
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =

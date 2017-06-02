@@ -5,7 +5,6 @@ open preamble
 
 val _ = new_theory"targetProps";
 
-val _ = ParseExtras.temp_tight_equality();
 val _ = set_grammar_ancestry["ffi","asm","targetSem"];
 
 val asserts_restrict = Q.prove(
