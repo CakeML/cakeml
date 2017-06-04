@@ -24,16 +24,21 @@ timing.log
 # Emacs backup files
 *~
 
+# Reference manual
+documentation/*.pdf
+documentation/*.aux
+documentation/*.fdb_latexmk
+documentation/*.fls
+documentation/*.log
+documentation/*.out
+documentation/*.pyg
+documentation/*.toc
+documentation/_minted-reference
+documentation/lem-generated
+
 # Compiler Explorer
 *.exe
 *.cgi
-
-x86-64/wrapper/asm_code.s
-x86-64/wrapper/cake
-x86-64/wrapper/cakeml*zip
-
-# x86-64 tests
-x86-64/wrapper/test*
 
 # Benchmarks
 compiler/eval/benchmarks/exec/*
