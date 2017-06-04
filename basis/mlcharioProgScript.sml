@@ -2,7 +2,7 @@ open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
      stdinFFITheory stdoutFFITheory stderrFFITheory mlcommandLineProgTheory
-     cfLetAutoLib
+     cfLetAutoLib cfLetAutoTheory commandLineFFITheory
 
 val _ = new_theory "mlcharioProg";
 
@@ -322,89 +322,44 @@ val write_err_spec = Q.store_thm ("write_err_spec",
     \\ simp[ORD_BOUND,CHR_ORD])
   \\ xret \\ xsimpl);
 
-(* Theorems used by xlet_auto *)
-(*val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
-`!s. VALID_HEAP s ==>
-!s1 u1 ns1 s2 u2 ns2 H1 H2. (?pn. MEM pn ns1 /\ MEM pn ns2) ==>
-(IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==> s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
-rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
-fs[IO_def]
-
-fun instantiate_valid_ffi_heap_assum th (g as (asl, w)) =
-  let
-      val filter = Term.match_term ``(IO s u ns * H) h``
-      val [(tm_s1, ty_s1), (tm_s2, ty_s2)] = mapfilter filter asl
-      fun inst_type ty_s = List.map (fn {redex = x, residue = y} => (Term.inst ty_s x |-> y))
-      val tm_s1 = inst_type ty_s1 tm_s1
-      val tm_s2 = inst_type ty_s2 tm_s2
-      fun find_inst tm_s =
-	let
-	    val s = Term.subst tm_s ``s:ffi``
-	    val u = Term.subst tm_s ``u:tvarN -> word8 list -> ffi -> (word8 list # ffi) option``
-	    val ns = Term.subst tm_s ``ns:tvarN list``
-	    val H = Term.subst tm_s ``H:hprop``
-	in
-	    (s, u, ns, H)
-	end
-      val (s1, u1, ns1, H1) = find_inst tm_s1
-      val (s2, u2, ns2, H2) = find_inst tm_s2
-  in
-      ASSUME_TAC (SPECL [s1, u1, ns1, s2, u2, ns2, H1, H2] th) g
-  end;
+(*
+ * Theorems used by xlet_auto
+ *)
 
 val UNIQUE_STDOUT = Q.store_thm("UNIQUE_STDOUT",
 `!s. VALID_HEAP s ==> !out1 out2 H1 H2. (STDOUT out1 * H1) s /\ (STDOUT out2 * H2) s ==> out2 = out1`,
-rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
-fs[STDOUT_def, IOx_def, stdout_ffi_part_def] >>
-fs[GSYM STAR_ASSOC] >>
-LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+rw[STDOUT_def, cfHeapsBaseTheory.IOx_def, stdout_ffi_part_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
 
 val UNIQUE_STDERR = Q.store_thm("UNIQUE_STDERR",
 `!s. VALID_HEAP s ==> !err1 err2 H1 H2. (STDERR err1 * H1) s /\ (STDERR err2 * H2) s ==> err2 = err1`,
-rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
-fs[STDERR_def, IOx_def, stderr_ffi_part_def] >>
-fs[GSYM STAR_ASSOC] >>
-LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+rw[STDERR_def, cfHeapsBaseTheory.IOx_def, stderr_ffi_part_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
 
 val UNIQUE_STDIN = Q.store_thm("UNIQUE_STDIN",
 `!s H1 H2 in1 in2 b1 b2.
 VALID_HEAP s ==> (STDIN in1 b1 * H1) s /\ (STDIN in2 b2 * H2) s ==> in2 = in1 /\ b2 = b1`,
-rw[VALID_HEAP_def, VALID_FFI_HEAP_def]
+rw[]
 >-(
-    fs[STDIN_def, IOx_def, stdin_ffi_part_def] >>
-    fs[GSYM STAR_ASSOC] >>
-    LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+    fs[STDIN_def, cfHeapsBaseTheory.IOx_def, stdin_ffi_part_def, GSYM STAR_ASSOC] >>
+    IMP_RES_TAC FRAME_UNIQUE_IO >>
     fs[]
 ) >>
-fs[STDIN_def] >>
-fs[SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[STDIN_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
 `(W8ARRAY read_state_loc [w; if b1 then 1w else 0w] * (IOx stdin_ffi_part in1 * H1)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
 `(W8ARRAY read_state_loc [w'; if b2 then 1w else 0w] * (IOx stdin_ffi_part in2 * H2)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
 IMP_RES_TAC UNIQUE_W8ARRAYS >>
 rw[] >>
 Cases_on `b1` >> (Cases_on `b2` >> fs[]));
 
-val UNIQUE_ROFS = Q.store_thm("UNIQUE_ROFS",
-`!s fs1 fs2 H1 H2. VALID_HEAP s ==> (ROFS fs1 * H1) s /\ (ROFS fs2 * H2) s ==> fs2 = fs1`,
-rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
-fs[ROFS_def, IOx_def, rofs_ffi_part_def] >>
-fs[GSYM STAR_ASSOC] >>
-LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
-POP_ASSUM (fn x => CONV_RULE (SIMP_CONV (list_ss) []) x |> ASSUME_TAC) >>
-`(∃pn. pn = "open" ∨ pn = "fgetc" ∨ pn = "close" ∨ pn = "isEof") = T` by (rw[] >> metis_tac[]) >>
-fs[]);
-
 val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
 `!s cl1 cl2 H1 H2. VALID_HEAP s ==>
 (COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
-rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
-fs[COMMANDLINE_def, IOx_def, commandLine_ffi_part_def, encode_def, encode_list_def] >>
-fs[GSYM STAR_ASSOC] >>
-LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
-fs[] >>
-POP_ASSUM IMP_RES_TAC >>
+rw[COMMANDLINE_def, cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def, encode_def, cfHeapsBaseTheory.encode_list_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
+fs[] >> rw[] >>
 sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
 >-(
     Induct_on `l2` >-(rw[])>>
@@ -414,11 +369,8 @@ sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
 fs[]);
 
 val _ = add_frame_thms [UNIQUE_STDIN,
-		  UNIQUE_STDOUT,
-		  UNIQUE_STDERR,
-		  UNIQUE_COMMANDLINE,
-		  UNIQUE_ROFS]
-*)
-
+			UNIQUE_STDOUT,
+			UNIQUE_STDERR,
+			UNIQUE_COMMANDLINE];
 
 val _ = export_theory()

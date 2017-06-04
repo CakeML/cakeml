@@ -7,7 +7,7 @@ using CF.
 
 open preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory
-	       cfLetAutoLib
+	       cfLetAutoTheory cfLetAutoLib
 
 val _ = new_theory "queueProg";
 

@@ -26,14 +26,14 @@ val INT_OF_NUM_SUBS_2 = Q.store_thm("INT_OF_NUM_SUBS_2",
 `!(x:num) (y:num). y <= x ==> (&x - &y = &(x - y))`,
 rw[] >> fs[int_arithTheory.INT_NUM_SUB]);
 
-(* Predicates stating that a heap is valid *)
+(* Predicate stating that a heap is valid *)
 val VALID_HEAP_def =
     Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s = st2heap f st`;
 
+(* Fundamental property of a valid heap used to handle pointers when extracting a frame from a heap condition - starts by a minor lemma *)
 val PTR_MEM_LEM = Q.prove(`!s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s`,
 rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]);
 
-(* Fundamental property of a valid heap used to handle pointers when extracting a frame from a heap condition *)
 val UNIQUE_PTRS = Q.store_thm("UNIQUE_PTRS",
 `!s. VALID_HEAP s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
 rw[VALID_HEAP_def] >>
@@ -92,6 +92,25 @@ Cases_on `parts_ok st.ffi (proj, parts)`
 ) >>
 fs[]);
 
+(* A minor lemma *)
+val FFI_PORT_IN_HEAP_LEM = Q.prove(
+`! s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h`,
+rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]);
+
+(* Another fundamental theorem *)
+val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
+`!s. VALID_HEAP s ==>
+!s1 u1 ns1 s2 u2 ns2 H1 H2.
+(IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==> 
+(?pn. MEM pn ns1 /\ MEM pn ns2) ==>
+s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
+rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
+fs[IO_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+IMP_RES_TAC FFI_PORT_IN_HEAP_LEM >>
+IMP_RES_TAC NON_OVERLAP_FFI_PART >>
+fs[]);
+
+(* Frame extraction theorems *)
 val HCOND_EXTRACT = Q.store_thm("HCOND_EXTRACT",
 `((&A * H) s <=> A /\ H s) /\ ((H * &A) s <=> H s /\ A) /\ ((H * &A * H') s <=> (H * H') s /\ A)`,
 rw[] >-(fs[STAR_def, STAR_def, cond_def, SPLIT_def])

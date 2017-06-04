@@ -1,5 +1,6 @@
 signature cfLetAutoLib = sig
     include Abbrev
+    type ssfrag = simpLib.ssfrag
 
     val INTRO_REWRITE_CONV : thm list -> term list -> conv
     val INTRO_REWRITE_TAC : thm list -> tactic
@@ -13,7 +14,7 @@ signature cfLetAutoLib = sig
     val get_RI_retract_thms : unit -> thm list
     val get_RI_equality_type_thms : unit -> thm list
 					
-    val add_match_thms : thms list -> unit
+    val add_match_thms : thm list -> unit
     val get_intro_rewrite_thms : unit -> thm list
     val get_rewrite_thms : unit -> thm list
 
