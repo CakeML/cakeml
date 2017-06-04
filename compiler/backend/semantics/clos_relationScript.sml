@@ -11,8 +11,7 @@ val refl_list_rel_refl = Q.store_thm ("refl_list_rel_refl",
 val butlastn_nil = Q.store_thm ("butlastn_nil",
 `!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
  Induct_on `n` >>
- srw_tac[][BUTLASTN]
- >- (Cases_on `l` >> srw_tac[][]) >>
+ srw_tac[][BUTLASTN] >>
  `l = [] ∨ ?x y. l = SNOC x y` by metis_tac [SNOC_CASES] >>
  ASM_REWRITE_TAC [BUTLASTN] >>
  simp [] >>
@@ -616,7 +615,9 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
            by metis_tac [val_rel_mono, val_rel_mono_list] >>
          simp [] >>
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
-         simp [res_rel_rw]))
+         simp [res_rel_rw] >>
+         `LENGTH vs' ≠ 0` by rw [] >>
+         simp []))
  >- ((* Partial, Full *)
      rename1 `dest_closure _ loc v vs = SOME (Partial_app cl)` >>
      rename1 `dest_closure _ loc v' vs' = SOME (Full_app b' env' rest')` >>
@@ -1733,8 +1734,8 @@ val compat_closure_some = Q.prove (
    `LASTN (LENGTH vs') vs = vs` by metis_tac [LASTN_LENGTH_ID] >>
    full_simp_tac(srw_ss())[] >>
    `exec_rel (i'' − (LENGTH vs' − 1)) w
-             (Exp [e] (vs++args++env),s with clock := i'' − (LENGTH vs' − 1))
-             (Exp [e'] (vs'++args'++env'),s' with clock := i'' − (LENGTH vs' − 1))`
+             (Exp [e] (vs++env),s with clock := i'' − (LENGTH vs' − 1))
+             (Exp [e'] (vs'++env'),s' with clock := i'' − (LENGTH vs' − 1))`
    by (
      full_simp_tac(srw_ss())[exp_rel_def] >>
      first_x_assum match_mp_tac >>

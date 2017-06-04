@@ -2,6 +2,8 @@ open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory gen_gcTheo
 
 val _ = new_theory "gen_gc_partial";
 
+val _ = ParseExtras.temp_loose_equality();
+
 val gc_state_component_equality = DB.fetch "gc_shared" "gc_state_component_equality";
 
 val _ = Datatype `

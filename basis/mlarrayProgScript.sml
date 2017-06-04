@@ -413,37 +413,39 @@ val array_tabulate_spec = Q.store_thm ("array_tabulate_spec",
     NUM n nv /\ (NUM --> A) f fv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Array.tabulate" (array_st())) [nv; fv]
     emp (POSTv av. SEP_EXISTS vs. ARRAY av vs * cond (EVERY2 A (GENLIST f n) vs))`,
-    xcf "Array.tabulate" (array_st())
-   \\ xfun_spec `u`
+  xcf "Array.tabulate" (array_st())
+  \\ xfun_spec `u`
       `!x xv l_pre rest av.
         NUM x xv /\ LENGTH l_pre = x /\ LENGTH l_pre + LENGTH rest = n ==>
           app p u [av; xv]
         (ARRAY av (l_pre ++ rest))
         (POSTv ret. SEP_EXISTS vs. & (ret = av) * ARRAY av (l_pre ++ vs) * cond (EVERY2 A (GENLIST (\i. f (x + i)) (n - x)) vs))`
-    >- (Induct_on `n - x`
-      >- (rw []  \\ first_x_assum match_mp_tac
+  >- (Induct_on `n - x`
+    >- (rw []  \\ first_x_assum match_mp_tac
         \\ xlet `POSTv bv. & BOOL (xv=nv) bv * ARRAY av l_pre`
-          >- (xapp_spec eq_num_v_thm \\ rw[BOOL_def] \\ xsimpl \\`LENGTH rest = 0 /\ xv = nv` by fs [NUM_def, INT_def]
-          \\ instantiate \\ fs [LENGTH_NIL])
-        \\ xif
-          >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def] \\ fs[LENGTH_NIL] )
-        \\ fs [NUM_def, INT_def] \\ rfs[])
-      \\ rw[] \\ first_assum match_mp_tac
-      \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
-        >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
-      \\ xif
-        >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def]
-          \\ fs [GENLIST, LENGTH_NIL])
-      \\ xlet `POSTv val. ARRAY av (l_pre ++ rest) * & A (f (LENGTH l_pre)) val`
-        >- (xapp \\ xsimpl \\ instantiate)
-      \\ xlet `POSTv u. ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
-        >- (xapp \\ xsimpl \\ instantiate \\ `LENGTH l_pre + LENGTH rest <> LENGTH l_pre` by metis_tac[num_eq_thm] \\ fs[])
-      \\ xlet `POSTv vp. & NUM ((LENGTH l_pre) + 1) vp * ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
-        >- (xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate  \\ rw[integerTheory.INT_ADD])
-      \\ xapp \\ xsimpl \\ cases_on `rest`
-        >- (`xv = nv` by fs [NUM_def, INT_def])
-      \\ qexists_tac `t` \\ qexists_tac `l_pre ++ [val]`
-    \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1]) >>
+        >- (
+          xapp_spec eq_num_v_thm \\ rw[BOOL_def] \\ xsimpl
+          \\ `LENGTH rest = 0` by decide_tac
+          \\ `xv = nv` by fs [NUM_def, INT_def]
+          \\ instantiate \\ fs [])
+      \\ xif >- (xret \\ xsimpl \\ `LENGTH rest = 0` by decide_tac \\ fs[] )
+      \\ fs [NUM_def, INT_def] \\ rfs[])
+    \\ rw[] \\ first_assum match_mp_tac
+    \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
+      >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
+    \\ xif
+      >- (xret \\ xsimpl \\ `LENGTH rest = 0` by fs [NUM_def, INT_def]
+        \\ fs [GENLIST, LENGTH_NIL])
+    \\ xlet `POSTv val. ARRAY av (l_pre ++ rest) * & A (f (LENGTH l_pre)) val`
+      >- (xapp \\ xsimpl \\ instantiate)
+    \\ xlet `POSTv u. ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
+      >- (xapp \\ xsimpl \\ instantiate \\ `LENGTH l_pre + LENGTH rest <> LENGTH l_pre` by metis_tac[num_eq_thm] \\ fs[])
+    \\ xlet `POSTv vp. & NUM ((LENGTH l_pre) + 1) vp * ARRAY av (LUPDATE val (LENGTH l_pre) (l_pre ++ rest))`
+      >- (xapp \\ xsimpl \\ fs [NUM_def] \\ instantiate  \\ rw[integerTheory.INT_ADD])
+    \\ xapp \\ xsimpl \\ cases_on `rest`
+      >- (`xv = nv` by fs [NUM_def, INT_def])
+    \\ qexists_tac `t` \\ qexists_tac `l_pre ++ [val]`
+  \\ fs [LENGTH, ADD1, GSYM CONS_APPEND, lupdate_append2] \\ rw[GENLIST_CONS, GSYM ADD1, o_DEF] \\ fs [ADD1]) >>
   Cases_on `n` >>
   fs [NUM_def, INT_def] >>
   rfs []

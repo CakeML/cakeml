@@ -38,6 +38,9 @@ val store_offset_def = Define `
 val stack_err_lab_def = Define `
   stack_err_lab = 2n`;
 
+val halt_inst_def = Define `
+  halt_inst w = Seq (const_inst 1 w) (Halt 1)`
+
 (*
     k is stack pointer register
     k+1 is base of store array (and last stack address)
@@ -45,17 +48,22 @@ val stack_err_lab_def = Define `
 *)
 
 val single_stack_alloc_def = Define `
-  single_stack_alloc k n =
-    Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
-        (JumpLower k (k+1) stack_err_lab)`
+  single_stack_alloc jump k n =
+    if jump
+    then
+      Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
+          (JumpLower k (k+1) stack_err_lab)
+    else
+       Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
+          (If Lower k (Reg (k+1)) (halt_inst 2w) Skip)`
 
 val stack_alloc_def = tDefine "stack_alloc" `
-  stack_alloc k n =
+  stack_alloc jump k n =
     if n = 0 then Skip else
-    if n <= max_stack_alloc then single_stack_alloc k n else
-      Seq (single_stack_alloc k max_stack_alloc)
-          (stack_alloc k (n - max_stack_alloc))`
- (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
+    if n <= max_stack_alloc then single_stack_alloc jump k n else
+      Seq (single_stack_alloc jump k max_stack_alloc)
+          (stack_alloc jump k (n - max_stack_alloc))`
+ (WF_REL_TAC `measure (SND o SND)` \\ fs [max_stack_alloc_def] \\ decide_tac)
 
 val single_stack_free_def = Define `
   single_stack_free k n =
@@ -99,7 +107,7 @@ val stack_load_def = Define`
     Seq (upshift r n) (Inst (Mem Load r (Addr r 0w))):'a stackLang$prog`
 
 val comp_def = Define `
-  comp off k (p:'a stackLang$prog) =
+  comp jump off k (p:'a stackLang$prog) =
     case p of
     (* remove store accesses *)
     | Get r name =>
@@ -110,7 +118,7 @@ val comp_def = Define `
         else Inst (Mem Store r (Addr (k+1) (store_offset name)))
     (* remove stack operations *)
     | StackFree n => stack_free k n
-    | StackAlloc n => stack_alloc k n
+    | StackAlloc n => stack_alloc jump k n
     | StackStore r n =>
       let w = word_offset n in
       if offset_ok 0 off w then
@@ -138,25 +146,22 @@ val comp_def = Define `
                   left_shift_inst r (word_shift (:'a));
                   Inst (Mem Load r (Addr r 0w))]
     (* for the rest, just leave it unchanged *)
-    | Seq p1 p2 => Seq (comp off k p1) (comp off k p2)
-    | If c r ri p1 p2 => If c r ri (comp off k p1) (comp off k p2)
-    | While c r ri p1 => While c r ri (comp off k p1)
+    | Seq p1 p2 => Seq (comp jump off k p1) (comp jump off k p2)
+    | If c r ri p1 p2 => If c r ri (comp jump off k p1) (comp jump off k p2)
+    | While c r ri p1 => While c r ri (comp jump off k p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE
-              | SOME (p1,lr,l1,l2) => SOME (comp off k p1,lr,l1,l2))
+              | SOME (p1,lr,l1,l2) => SOME (comp jump off k p1,lr,l1,l2))
           dest (case exc of
                 | NONE => NONE
-                | SOME (p2,l1,l2) => SOME (comp off k p2,l1,l2))
+                | SOME (p2,l1,l2) => SOME (comp jump off k p2,l1,l2))
     | p => p`
 
 val prog_comp_def = Define `
-  prog_comp off k (n,p) = (n,comp off k p)`
+  prog_comp jump off k (n,p) = (n,comp jump off k p)`
 
 (* -- init code -- *)
-
-val halt_inst_def = Define `
-  halt_inst w = Seq (const_inst 1 w) (Halt 1)`
 
 val store_list_code_def = Define `
   (store_list_code a t [] = Skip) /\
@@ -252,7 +257,7 @@ val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
 (* -- full compiler -- *)
 
 val compile_def = Define `
-  compile off max_heap bitmaps k start prog =
-    init_stubs max_heap bitmaps k start ++ MAP (prog_comp off k) prog`;
+  compile jump off max_heap bitmaps k start prog =
+    init_stubs max_heap bitmaps k start ++ MAP (prog_comp jump off k) prog`;
 
 val _ = export_theory();

@@ -1,6 +1,6 @@
 open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holExtension"
 
 val mem = ``mem:'U->'U->bool``

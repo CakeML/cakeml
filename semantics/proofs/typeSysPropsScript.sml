@@ -433,6 +433,7 @@ srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
+rw[] >> fs[] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
 val deBruijn_subst_id = Q.store_thm ("deBruijn_subst_id",

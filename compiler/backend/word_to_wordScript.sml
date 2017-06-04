@@ -3,8 +3,6 @@ local open word_instTheory in (* word-to-word transformations *) end
 
 val _ = new_theory "word_to_word";
 
-val _ = ParseExtras.tight_equality ();
-
 (*
 Order of word->word transforms:
 1) Inst select (with a few optimizations)

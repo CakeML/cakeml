@@ -530,7 +530,8 @@ val code_sort_def = tDefine "code_sort" `
        code_merge (code_sort xs) (code_sort ys))`
  (WF_REL_TAC `measure LENGTH` \\ rw []
   \\ imp_res_tac code_split_LENGTH
-  \\ drule code_split_NULL \\ fs [GSYM LENGTH_NIL]);
+  \\ drule code_split_NULL \\ fs [] \\ full_simp_tac std_ss [GSYM LENGTH_NIL] >>
+  decide_tac);
 
 val compile_def = Define`
   compile c e =

@@ -2,6 +2,8 @@ open preamble gc_sharedTheory wordsTheory wordsLib integer_wordTheory;
 
 val _ = new_theory "copying_gc";
 
+val _ = ParseExtras.temp_loose_equality();
+
 (* The GC is a copying collector which moves elements *)
 
 val gc_move_def = Define `

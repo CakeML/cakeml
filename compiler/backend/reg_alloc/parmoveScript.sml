@@ -2,9 +2,6 @@ open preamble;
 
 val _ = new_theory "parmove";
 
-(* TODO: why isn't this inherited from miscTheory? *)
-val _ = ParseExtras.temp_tight_equality();
-
 (* This is a formalisation of a JAR'08 paper by Rideau, Serpette, Leroy:
      Tilting at windmills with Coq: formal verification of a compilation
      algorithm for parallel moves

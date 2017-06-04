@@ -4,8 +4,6 @@ val _ = new_theory "closLang";
 
 val _ = set_grammar_ancestry ["ast"]
 
-val _ = ParseExtras.tight_equality()
-
 (* compilation from this language removes closures *)
 
 val _ = Datatype `
