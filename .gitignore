@@ -8,6 +8,9 @@
 .HOLMK
 .hollogs
 
+# Generated assembly
+*.S
+
 # README.md generator's executable
 developers/readme_gen
 
