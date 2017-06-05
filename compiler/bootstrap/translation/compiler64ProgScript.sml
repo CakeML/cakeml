@@ -1,5 +1,6 @@
 open preamble
      to_target64ProgTheory compilerTheory
+     exportTheory
      ml_translatorLib ml_translatorTheory
 
 val _ = new_theory"compiler64Prog";
@@ -37,15 +38,57 @@ val res = translate def
 
 val res = translate basisProgTheory.basis_def
 
-(*
+val res = translate inferTheory.init_config_def;
 
-val res = translate compilerTheory.encode_error_def
+(* Helper functions in exportTheory translated here since they should be common
+   for all encoders *)
+val res = translate all_bytes_eq
+val res = translate byte_to_string_eq
 
-val def = spec64 compilerTheory.compile_to_bytes_def
+val export_byte_to_string_side_def = prove(
+  ``!b. export_byte_to_string_side b``,
+  fs [fetch "-" "export_byte_to_string_side_def"]
+  \\ Cases \\ fs [] \\ EVAL_TAC \\ fs [])
+  |> update_precondition;
 
-val res = translate def
+val res = translate byte_strlit_def;
+val res = translate comm_strlit_def;
+val res = translate newl_strlit_def;
+val res = translate comma_cat_def;
+val res = translate num_to_str_def;
 
-*)
+val num_to_str_side_def = prove(
+  ``!n. export_num_to_str_side n``,
+  ho_match_mp_tac num_to_str_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "export_num_to_str_side_def"] \\ fs []
+  \\ `n MOD 10 < 10` by fs [LESS_MOD] \\ decide_tac)
+  |> update_precondition;
+
+val res = translate bytes_row_def;
+val res = translate split16_def;
+
+(* Compiler interface in compilerTheory *)
+val res = translate error_to_str_def;
+
+val res = translate parse_num_def;
+
+val res = translate find_parse_def;
+
+val res = translate comma_tokens_def;
+
+val res = translate parse_num_list_def;
+
+val res = translate parse_nums_def;
+
+val res = translate find_parse_nums_def;
+
+val spec64 = INST_TYPE[alpha|->``:64``];
+
+val _ = translate (extend_with_args_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+
+val _ = translate (parse_heap_stack_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def])
+
+val _ = translate (compile_to_bytes_def |> spec64)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
