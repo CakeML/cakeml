@@ -376,21 +376,18 @@ val length_riscv_encode = Q.prove(
   `!i. LENGTH (riscv_encode i) = 4`,
   rw [riscv_encode_def])
 
-val length_riscv_enc = Q.prove(
-  `!l. LENGTH (LIST_BIND l riscv_encode) = 4 * LENGTH l`,
-  Induct
-  \\ rw [riscv_encode_def]
-  \\ fs [riscv_encode_def]
-  )
+val riscv_encode_not_nil = Q.prove(
+  `!i. riscv_encode i <> []`,
+  simp_tac std_ss [length_riscv_encode, GSYM listTheory.LENGTH_NIL])
 
 val riscv_encoding = Q.prove (
-   `!i. let n = LENGTH (riscv_enc i) in (n MOD 4 = 0) /\ n <> 0`,
+   `!i. let l = riscv_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ rw [riscv_enc_def, riscv_const32_def, riscv_encode_fail_def,
-          length_riscv_encode, riscv_ast_def]
+          length_riscv_encode, riscv_encode_not_nil, riscv_ast_def]
    \\ REPEAT CASE_TAC
-   \\ rw [length_riscv_encode]
+   \\ rw [length_riscv_encode, riscv_encode_not_nil]
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
