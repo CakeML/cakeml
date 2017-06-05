@@ -110,7 +110,7 @@ val enc_with_nop_thm = Q.prove(
   \\ IF_CASES_TAC \\ fs [FLAT_REPLICATE_NIL]
   \\ EQ_TAC \\ rw [] THEN1 metis_tac []
   \\ fs [LENGTH_APPEND,LENGTH_FLAT,map_replicate,SUM_REPLICATE]
-  \\ fs [GSYM LENGTH_NIL] \\ fs [MULT_DIV]);
+  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,MULT_DIV]);
 
 val asm_step_nop_def = Define `
   asm_step_nop bytes c s1 i s2 <=>
