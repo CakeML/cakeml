@@ -161,6 +161,14 @@ val MemCopy_location_def = Define `
   MemCopy_location = LongDiv_location+1`;
 val Bignum_location_def = Define `
   Bignum_location = MemCopy_location+1`;
+val ByteCopy_location_def = Define `
+  ByteCopy_location = Bignum_location+1`;
+val ByteCopyAdd_location_def = Define `
+  ByteCopyAdd_location = ByteCopy_location+1`;
+val ByteCopySub_location_def = Define `
+  ByteCopySub_location = ByteCopyAdd_location+1`;
+val ByteCopyNew_location_def = Define `
+  ByteCopyNew_location = ByteCopySub_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -200,6 +208,14 @@ val MemCopy_location_eq = save_thm("MemCopy_location_eq",
   ``MemCopy_location`` |> EVAL);
 val Bignum_location_eq = save_thm("Bignum_location_eq",
   ``Bignum_location`` |> EVAL);
+val ByteCopy_location_eq = save_thm("ByteCopy_location_eq",
+  ``ByteCopy_location`` |> EVAL);
+val ByteCopyAdd_location_eq = save_thm("ByteCopyAdd_location_eq",
+  ``ByteCopyAdd_location`` |> EVAL);
+val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
+  ``ByteCopySub_location`` |> EVAL);
+val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
+  ``ByteCopyNew_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -1494,6 +1510,18 @@ val MemCopy_code_def = Define `
                    Call NONE (SOME MemCopy_location) [0;2;4;6;8] NONE])
       :'a wordLang$prog`;
 
+val ByteCopy_code_def = Define `
+  ByteCopy_code = Skip :'a wordLang$prog`;
+
+val ByteCopyAdd_code_def = Define `
+  ByteCopyAdd_code = Skip :'a wordLang$prog`;
+
+val ByteCopySub_code_def = Define `
+  ByteCopySub_code = Skip :'a wordLang$prog`;
+
+val ByteCopyNew_code_def = Define `
+  ByteCopyNew_code = Skip :'a wordLang$prog`;
+
 val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
@@ -1513,7 +1541,11 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
-    (MemCopy_location,5n,MemCopy_code)
+    (MemCopy_location,5n,MemCopy_code);
+    (ByteCopy_location,5n,ByteCopy_code);
+    (ByteCopyAdd_location,5n,ByteCopyAdd_code);
+    (ByteCopySub_location,5n,ByteCopySub_code);
+    (ByteCopyNew_location,5n,ByteCopyNew_code)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
