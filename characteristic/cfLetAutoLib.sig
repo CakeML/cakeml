@@ -21,7 +21,9 @@ signature cfLetAutoLib = sig
     val add_simp_frag : ssfrag -> unit
 
     val set_heuristic_solver :
-      (term list -> thm -> (term, term) subst) option -> unit
+      (term list -> thm -> (term, term) subst * (hol_type, hol_type) subst) -> unit
+
+    val use_heuristics : bool -> unit
 
     val match_heap_conditions : term -> term ->
       {redex: term, residue: term} list * term list * term list
