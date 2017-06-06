@@ -1,36 +1,11 @@
 structure cfLetAutoLib :> cfLetAutoLib =
 struct
 
-open  preamble ml_progLib cfTacticsLib ml_translatorTheory eqSolveRewriteLib Satisfy
-	       cfLetAutoTheory
-	       (* Those should be removed once Satisfy.sig is updated *)
-	       (* HolKernel boolLib Sequence liteLib Unify Trace *)
-
-(*
-   Taken from Satisfy.sml (Satisfy.sig should be updated so that people can access
-   the satisfy function)
-*)
-
-(* fun satisfy_in_envs consts tms (tm1,envs) =
-  let fun f env tm2 =
-      let val new_env = simp_unify_terms_in_env consts tm1 tm2 env
-      in restrict_tmenv (not o C mem (free_vars tm2)) new_env
-      end
-  in seq_flat (seq_map (fn env => seq_mapfilter (f env) tms) envs)
-  end;
-
-fun satisfyl_in_envs consts tms1 tms2 envs =
-    seq_iterate (satisfy_in_envs consts (seq_of_list tms2))
-    (seq_of_list tms1,envs);
-
-fun satisfy consts tms1 tms2 =
-    seq_hd (satisfyl_in_envs consts tms1 tms2 (seq_single []))
-    handle HOL_ERR _ => failwith "satisfy: could not satisfy goals"; *)
-	       
+open preamble ml_progLib cfTacticsLib ml_translatorTheory
+     eqSolveRewriteLib Satisfy cfLetAutoTheory
 (********************************************************************************************)
-	       
 (******************** Some conversions used to perform the matching *************************)
-(* 
+(*
    MP_ASSUM:
 
    (!a in T'. T |= a)      T' |= g
@@ -43,17 +18,16 @@ fun MP_ASSUML thl th =
       val conclMap = Redblackmap.fromList Term.compare conclList
       val num_hyps = List.length (hyp th)
       val th' = DISCH_ALL th
-			  
       fun rec_mp th n =
-	if n > 0 then
-	    let
-		val h = concl th |> dest_imp |> fst
-		val hyp_th = Redblackmap.find (conclMap, h)
-		val th' = MP th hyp_th 
-	    in
-		rec_mp th' (n-1)
-	    end
-	else th
+        if n > 0 then
+          let
+            val h = concl th |> dest_imp |> fst
+            val hyp_th = Redblackmap.find (conclMap, h)
+            val th' = MP th hyp_th
+          in
+            rec_mp th' (n-1)
+          end
+        else th
   in
       rec_mp th' num_hyps
   end;
@@ -65,7 +39,7 @@ fun MP_ASSUML thl th =
 (*fun CONV_ASSUM sset rws asl =
   let
       val tautl = List.map ASSUME asl |> List.map CONJUNCTS |> List.concat
-			   
+
       fun try_conv conv th =
 	let
 	    val th' = CONV_RULE (CHANGED_CONV conv) th
@@ -98,13 +72,13 @@ fun CONV_ASSUM sset rws asl =
   in
       List.map try_conv tautl
   end;
-	       
+
 (**** INTRO_REWRITE: use rewrite rules of the form h1 ==> ... ==> hn ==> PAT <=> y = z ********)
 (* INTRO_REWRITE_CONV *)
 fun INTRO_REWRITE_CONV thl asl =
     let
 	val assumed_asl = map ASSUME asl
-	val disj_thl = List.concat (List.map CONJUNCTS thl) 
+	val disj_thl = List.concat (List.map CONJUNCTS thl)
 	fun match_on_asl th = mapfilter (MATCH_MP th) assumed_asl
 	fun is_rw_th th = SPEC_ALL th |> concl |> is_eq
 	fun generate_rewrites thl =
@@ -123,7 +97,7 @@ fun INTRO_REWRITE_CONV thl asl =
 
 (* INTRO_REWRITE_TAC *)
 fun INTRO_REWRITE_TAC rws (g as (asl, w)) = CONV_TAC (INTRO_REWRITE_CONV rws asl) g;
-	       
+
 (************************ Functions ************************************************)
 
 val ERR = mk_HOL_ERR "son_ho";
@@ -531,14 +505,14 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val spec_typevars =
 	  HOLset.foldr (fn (a, ts) => Redblackset.addList(ts, type_vars (type_of a)))
 		       (Redblackset.empty Type.compare) spec_atoms
-      val redundant_typevars = Redblackset.intersection(asl_typevars, spec_typevars) 
+      val redundant_typevars = Redblackset.intersection(asl_typevars, spec_typevars)
 						       |> Redblackset.listItems
       val all_typevars = Redblackset.union(asl_typevars, spec_typevars)
 					 |> Redblackset.listItems
       val all_typevars_names = Redblackset.addList (Redblackset.empty String.compare,
 						   List.map dest_vartype all_typevars)
       val red_typevars_names = List.map dest_vartype redundant_typevars
-					       
+
       (* Substitute the redundant type variables *)
       fun rename_typevar varnames name i =
 	let
@@ -559,7 +533,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val (_, new_type_names) = rename_typevars all_typevars_names red_typevars_names
       val type_subst = List.map (fn (x, y) => (mk_vartype x |-> mk_vartype y)) new_type_names
       val app_spec = Thm.INST_TYPE type_subst app_spec
-		      
+
       (* Find the parameters given to the function *)
       val (app_info', parameters) = dest_comb app_info
       val (params_expr_list, _) = listSyntax.dest_list parameters
@@ -571,10 +545,10 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val params_tm_list = List.map (fn x => SIMP_CONV bool_ss asl_thms x
 				|> concl |> dest_eq |> snd handle _ => x) params_tm_list
       (*************************************************)
-				    
+
       (* Find the ffi variable *)
       val ffi = dest_comb app_info' |> fst |> dest_comb |> snd
-    
+
       (* Get the parameters written in the specification *)
       val inst_app_spec = RENAME_SPEC_ALL fvl app_spec
       val app_spec1 = concl inst_app_spec |> list_dest dest_imp |> List.last
@@ -608,7 +582,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
   end;
 
 (*
-   Analyses a theorem of the form: 
+   Analyses a theorem of the form:
    (?s. (A * H) s) ==> ((A * H ==>> B * H') <=> (C /\ H ==>> H'))
    Returns: (A, B, C)
 *)
@@ -772,7 +746,7 @@ val RW_THMS = ref [(* Handle the int_of_num operator *)
 		    (* REPLICATE_PLUS_ONE *)
 
 		    (*mlbasicsProgTheory.not_def*)
-		    
+
 		    (* Arithmetic equations simplification *)
 		    NUM_EQ_SIMP1,
 		    NUM_EQ_SIMP2,
@@ -799,7 +773,7 @@ fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
 
 fun add_refinement_invariants ri_defs eqTypeThms =
   let
-      val eqTypeThms = List.concat (List.map CONJUNCTS eqTypeThms)	   
+      val eqTypeThms = List.concat (List.map CONJUNCTS eqTypeThms)
       val (expandThms, retractThms) = generate_expand_retract_thms ri_defs
       val unicityThms = generate_RI_unicity_thms eqTypeThms
       val invertDefs = List.map GSYM ri_defs
@@ -848,7 +822,7 @@ fun default_heuristic_solver asl app_spec =
 
 val heuristic_solver = ref (SOME default_heuristic_solver);
 fun set_heuristic_solver solver = heuristic_solver := solver;
-      
+
 (************************************************************************************
  *
  * Matching and simplification functions
@@ -858,7 +832,7 @@ fun set_heuristic_solver solver = heuristic_solver := solver;
 fun match_heap_conditions hcond sub_hcond =
   let
       val extract_thms = !FRAME_THMS
-      
+
       (* Retrieve the extraction triplets *)
       val extr_triplets = mapfilter convert_extract_thm extract_thms
       val extr_pairs = List.map (fn (c, w, r) => (mk_sep_imp (c, w), r)) extr_triplets
@@ -905,7 +879,7 @@ fun match_heap_conditions hcond sub_hcond =
 fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
   let
       val sset = !DEF_SIMPSET
-      
+
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
 			  dest_comb |> fst |> dest_comb |> snd
       val rw_app_pre = (SIMP_CONV sset rewrite_thms app_pre |> concl |> dest_eq |> snd
@@ -938,7 +912,7 @@ val equality_type_tm = ``EqualityType:('a -> v -> bool)->bool``
 fun find_equality_types asl app_spec =
   let
       val eq_type_thms = !EQUALITY_TYPE_THMS
-      
+
       (* Retrieve information from the assumptions list *)
       fun is_eqtype_clause t =
 	let
@@ -947,13 +921,13 @@ fun find_equality_types asl app_spec =
 	    same_const equality_type_tm P
 	end
 	handle _ => false
-      
+
       val eq_types_thmsl = List.concat (List.map (fn th =>
 			List.filter is_eqtype_clause (CONJUNCTS th))
 				eq_type_thms)
       val eq_types_set = HOLset.addList (empty_tmset, List.map
 			(fn x => snd(dest_comb (concl x))) eq_types_thmsl)
-					
+
       (* Find the known and unknown variables *)
       val knwn_vars = FVL asl empty_varset
       val unkwn_vars = HOLset.difference (FVL [concl app_spec] empty_varset, knwn_vars)
@@ -1028,7 +1002,7 @@ fun simplify_spec let_pre asl app_spec =
   let
       val sset = !DEF_SIMPSET
       val asl_thms = List.map ASSUME asl
-      
+
       val knwn_vars = FVL asl empty_varset
       val unkwn_vars = HOLset.difference (FVL [concl app_spec] empty_varset, knwn_vars)
 
@@ -1052,7 +1026,7 @@ fun simplify_spec let_pre asl app_spec =
 	 else if can_be_subst y x then (y |-> x)
 	 else failwith "")
       val instList = mapfilter subst_f equalities
-      val app_spec2 = Thm.INST instList app_spec1	    
+      val app_spec2 = Thm.INST instList app_spec1
   in
       app_spec2
   end;
@@ -1062,7 +1036,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
   let
       val rw_thms = !RW_THMS
       val sset = !DEF_SIMPSET
-      
+
       (* Perform rewrites and simplifications on the assumptions *)
       val rw_asl = CONV_ASSUM list_ss rw_thms asl
       val rw_asl_concl = List.map concl rw_asl
@@ -1070,7 +1044,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 
       (* Add the asl in the assumptions of the app spec *)
       val app_spec1 = List.foldr (fn (x, y) => ADD_ASSUM x y) app_spec asl
-      
+
       (* Replace the ==> by /\ in the app specification, remove the quantifiers *)
       val app_spec2 = PURE_REWRITE_RULE [AND_IMP_INTRO] app_spec1
       val norm_app_spec = SPEC_ALL app_spec2
@@ -1079,7 +1053,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val constElimConv = (SIMP_CONV sset (AND_IMP_INTRO::((!RI_EXPAND_THMSL)@rw_thms)))
 			      THENC (SIMP_CONV sset (AND_IMP_INTRO::((!RI_RETRACT_THMSL)@rw_thms)))
       val norm_app_spec' = CONV_RULE (RATOR_CONV constElimConv) norm_app_spec
-	    
+
       (* Recursive modifications *)
       fun rec_simplify used_subst app_spec =
 	let
@@ -1092,7 +1066,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	    (* Instantiate the polymorphic types and get rid of the constants *)
 	    val app_spec2 = find_equality_types (let_pre::rw_asl_concl) app_spec1
 						 |> CONV_RULE (RATOR_CONV constElimConv)
-					     
+
 	    (* Perform the simplification *)
 	    val app_spec3 = (rec_simplify used_subst'
 			(simplify_spec let_pre rw_asl_concl app_spec2) handle _ => app_spec2)
@@ -1129,7 +1103,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 		      ("Unable to find a proper instantiation: "
 		       ^(term_to_string (concl (GEN_ALL simp_app_spec)))))
 	      else ()
-					  
+
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
 	if (is_imp (concl app_spec)) then
@@ -1169,7 +1143,7 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
 
       (* Retrieve the post_condition *)
       val app_post = concl (UNDISCH_ALL app_spec) |> dest_comb |> snd
-      
+
       (* Decompose the app post-condition *)
       val (post_postv_vo, post_postv_po, post_poste_vo, post_poste_po) =
 	  rename_dest_post (fvl, app_post)
@@ -1191,14 +1165,14 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
 	   | NONE => NONE)
       val post_postv_po' = mk_post_cond_aux post_postv_po
       val post_poste_po' = mk_post_cond_aux post_poste_po
-					    
+
       (* Construct the post-condition *)
       val let_heap_condition =
 	  mk_heap_post_condition (post_postv_vo, post_postv_po', post_poste_vo, post_poste_po')
   in
       let_heap_condition
   end;
-	
+
 (* [xlet_app_auto] *)
 fun xlet_app_auto app_info env let_pre (g as (asl, w)) =
   let
@@ -1207,7 +1181,7 @@ fun xlet_app_auto app_info env let_pre (g as (asl, w)) =
 
       (* Apply the parameters given in the let expression *)
       val subst_app_spec = xlet_subst_parameters env app_info asl let_pre app_spec
-						  
+
       (* Perform the matching *)
       val (final_app_spec, frame_hpl) =
 	  xlet_simp_spec asl app_info let_pre subst_app_spec
@@ -1281,7 +1255,7 @@ fun xlet_auto (g as (asl, w)) =
 	  if is_cf_con_aux let_expr then
 	      let val c = xlet_expr_auto let_expr env pre post g
 	      in xlet `^c` g end
-	  else if is_cf_app_aux let_expr then 
+	  else if is_cf_app_aux let_expr then
 	      let val (H, c) =
 		      xlet_app_auto let_expr env pre g
 	      in (xlet `^c` THENL [xapp_spec H, all_tac]) g end
@@ -1292,7 +1266,7 @@ fun xlet_auto (g as (asl, w)) =
       raise (ERR "xlet_auto" "Not a cf_let expression");
 
 end
-    
+
 (******** DEBUG ********)
 
 (*val (g as (asl, w)) = top_goal();
@@ -1313,5 +1287,3 @@ val app_spec = subst_app_spec;
 
 (* Perform the simplification (xlet_simp) *)
 *)
-
-
