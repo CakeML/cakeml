@@ -3,6 +3,8 @@ struct
 
 open preamble ml_progLib cfTacticsLib ml_translatorTheory
      eqSolveRewriteLib Satisfy cfLetAutoTheory
+
+(* TODO: move these to preamble, or Drule? *)
 (********************************************************************************************)
 (******************** Some conversions used to perform the matching *************************)
 (*
@@ -98,11 +100,26 @@ fun INTRO_REWRITE_CONV thl asl =
 (* INTRO_REWRITE_TAC *)
 fun INTRO_REWRITE_TAC rws (g as (asl, w)) = CONV_TAC (INTRO_REWRITE_CONV rws asl) g;
 
+(* RENAME_SPEC_ALL *)
+fun RENAME_SPEC_ALL varsl th =
+  let
+      val (v, th') = SPEC_VAR th
+      val v' = variant varsl v
+  in
+      if v <> v' then
+	  RENAME_SPEC_ALL (v'::varsl) (Thm.INST [v |-> v'] th')
+      else
+	  RENAME_SPEC_ALL (v::varsl) th'
+  end
+  handle HOL_ERR _ => th;
+
 (************************ Functions ************************************************)
 
-val ERR = mk_HOL_ERR "son_ho";
+val ERR = mk_HOL_ERR "cfLetAutoLib";
 
+(* TODO: move to semanticPrimitivesSyntax *)
 val (build_conv_tm, mk_build_conv, dest_build_conv, is_build_conv) = HolKernel.syntax_fns3 "semanticPrimitives" "build_conv";
+(* TODO: move to cfcNormaliseSyntax? *)
 val (exp2v_tm, mk_exp2v, dest_exp2v, is_exp2v) = HolKernel.syntax_fns2 "cfNormalise" "exp2v";
 
 (* Manipulation of expressions *)
@@ -159,6 +176,7 @@ fun get_heap_pred_ptr p =
     rec_get p get_ptr_fun_list
   end;
 
+(* TODO: move these postv/poste/post functions to cfHeapsBaseSyntax *)
 (* [dest_postv] *)
 val postv_tm = ``cfHeapsBase$POSTv``;
 fun dest_postv c =
@@ -475,19 +493,6 @@ fun xlet_dest_app_spec asl let_pre specH =
       (app_asl, app_spec)
   end;
 
-
-(* RENAME_SPEC_ALL *)
-fun RENAME_SPEC_ALL varsl th =
-  let
-      val (v, th') = SPEC_VAR th
-      val v' = variant varsl v
-  in
-      if v <> v' then
-	  RENAME_SPEC_ALL (v'::varsl) (Thm.INST [v |-> v'] th')
-      else
-	  RENAME_SPEC_ALL (v::varsl) th'
-  end
-  handle _ => th;
 
 (* [xlet_subst_parameters] *)
 fun xlet_subst_parameters env app_info asl let_pre app_spec  =
