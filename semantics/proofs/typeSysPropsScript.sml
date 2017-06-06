@@ -2218,12 +2218,14 @@ val type_ds_no_dup_types = Q.store_thm ("type_ds_no_dup_types",
      every_case_tac >>
      full_simp_tac(srw_ss())[MEM_MAP] >>
      srw_tac[][] >>
+     rename [`MEM (Dtype locs l) ds`] >>
      FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
      srw_tac[][]
-     >- (qexists_tac `Dtype p l` >>
+     >- (qexists_tac `Dtype locs l` >>
          srw_tac[][LAMBDA_PROD, combinTheory.o_DEF])
      >- (srw_tac[][combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
          srw_tac[][LAMBDA_PROD] >>
+         rename [`UNCURRY _ y`] >>
          PairCases_on `y` >>
          full_simp_tac(srw_ss())[] >>
          metis_tac []))
