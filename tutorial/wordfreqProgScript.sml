@@ -4,7 +4,8 @@
 *)
 
 open preamble
-     ml_translatorLib cfTacticsLib basisFunctionsLib ioProgLib basisProgTheory
+     ml_translatorLib cfTacticsLib basisFunctionsLib cfLetAutoLib
+     ioProgLib basisProgTheory
      wordfreqTheory
 
 (* TODO: simplify the required includes (translator, basis, CF) for such examples *)
@@ -13,23 +14,26 @@ val _ = new_theory "wordfreqProg";
 
 val _ = translation_extends"basisProg";
 
+(* avoid printing potentially very long output *)
+val _ = Globals.max_print_depth := 20
+
 (* TODO:
   given that this is also used in grep,
   should we include it in the basis? *)
 
-val res = translate balanced_mapTheory.lookup_def
-val res = translate balanced_mapTheory.singleton_def
-val res = translate balanced_mapTheory.ratio_def
-val res = translate balanced_mapTheory.size_def
-val res = translate balanced_mapTheory.delta_def
-val res = translate balanced_mapTheory.balanceL_def
-val res = translate balanced_mapTheory.balanceR_def
-val res = translate balanced_mapTheory.insert_def
+val res = translate balanced_mapTheory.lookup_def;
+val res = translate balanced_mapTheory.singleton_def;
+val res = translate balanced_mapTheory.ratio_def;
+val res = translate balanced_mapTheory.size_def;
+val res = translate balanced_mapTheory.delta_def;
+val res = translate balanced_mapTheory.balanceL_def;
+val res = translate balanced_mapTheory.balanceR_def;
+val res = translate balanced_mapTheory.insert_def;
 
 val res = translate lookup0_def;
 val res = translate insert_word_def;
 (* TODO: want this in the basis *)
-val res = translate stringTheory.isSpace_def
+val res = translate stringTheory.isSpace_def;
 (* -- *)
 val res = translate insert_line_def;
 
@@ -161,6 +165,18 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
         (COMMANDLINE cl * ROFS fs))`,
   strip_tac \\
   xcf "wordfreq" st \\
+  xlet_auto >- (xcon \\ xsimpl) \\
+  (* xlet_auto should work here? *)
+  xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v *
+                COMMANDLINE cl * ROFS fs * STDOUT out * STDERR err`
+  >- (
+    xapp \\ xsimpl \\
+    fs[LENGTH_FLAT,MAP_MAP_o,o_DEF] \\
+    Q.ISPEC_THEN`STRLEN`(Q.SPEC_THEN`K 1`mp_tac) SUM_MAP_PLUS \\
+    simp[MAP_K_REPLICATE,SUM_REPLICATE] \\
+    disch_then kall_tac \\ instantiate \\ xsimpl \\
+    strip_tac \\ fs[] ) \\
+  (* also here... *)
   cheat);
 
 val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
