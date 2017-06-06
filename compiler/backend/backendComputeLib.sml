@@ -1,4 +1,4 @@
-structure compilerComputeLib :> compilerComputeLib =
+structure backendComputeLib :> backendComputeLib =
 struct
 
 local
@@ -46,7 +46,7 @@ open Parse
 
 in
 
-val add_compiler_compset = computeLib.extend_compset
+val add_backend_compset = computeLib.extend_compset
   [computeLib.Tys
     [ (* ---- configurations ---- *)
      ``:source_to_mod$config``
@@ -439,7 +439,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Equal_location_eq
     ,data_to_wordTheory.LongDiv1_location_eq
     ,data_to_wordTheory.LongDiv_location_eq
-    ,data_to_wordTheory.Dummy_location_eq
+    ,data_to_wordTheory.MemCopy_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
@@ -465,7 +465,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,data_to_wordTheory.Equal_code_def
     ,data_to_wordTheory.LongDiv_code_def
     ,data_to_wordTheory.LongDiv1_code_def
-    ,data_to_wordTheory.Dummy_code_def
+    ,data_to_wordTheory.MemCopy_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def

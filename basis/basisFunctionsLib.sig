@@ -10,7 +10,5 @@ sig
     val append_prog       : term -> unit
     val prove_ref_spec    : string -> goal -> goal list * (thm list -> thm)
     val derive_eval_thm   : string -> term ->  thm
-    val apply_normalise   : term -> term
-    val normalise_topdecs : string quotation -> term
 
 end

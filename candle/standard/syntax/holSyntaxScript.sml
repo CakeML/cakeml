@@ -1,5 +1,5 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory totoTheory
-val _ = temp_tight_equality()
+open preamble holSyntaxLibTheory mlstringTheory totoTheory
+
 val _ = new_theory "holSyntax"
 
 (* HOL types *)

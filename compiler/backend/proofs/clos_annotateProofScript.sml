@@ -404,6 +404,14 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC EVERY2_EL
     \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
+  THEN1 (* ConsExtend *)
+   (
+    fs [do_app_cases_val] >>
+    fs [] >>
+    rw [] >>
+    fs [v_rel_simp] >>
+    rw [PULL_EXISTS] >>
+    metis_tac [EVERY2_APPEND_suff, EVERY2_TAKE, EVERY2_DROP, LIST_REL_LENGTH])
   THEN1 (* Cons *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
     \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[])

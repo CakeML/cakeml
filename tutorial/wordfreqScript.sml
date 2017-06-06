@@ -7,8 +7,6 @@ open preamble
      mlstringTheory
      balanced_mapTheory
 
-val _ = ParseExtras.temp_tight_equality();
-
 val _ = new_theory "wordfreq";
 
 (* TODO: move *)

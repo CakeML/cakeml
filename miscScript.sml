@@ -8,7 +8,7 @@ ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
-val _ = ParseExtras.temp_tight_equality()
+val _ = ParseExtras.tight_equality()
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
@@ -192,9 +192,8 @@ val LLOOKUP_LUPDATE = Q.store_thm("LLOOKUP_LUPDATE",
   `!xs i n x. LLOOKUP (LUPDATE x i xs) n =
                if i <> n then LLOOKUP xs n else
                if i < LENGTH xs then SOME x else NONE`,
-  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
-  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
-  \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
+  Induct \\ fs[LLOOKUP_def,LUPDATE_def]
+  \\ Cases_on `i` \\ rw[LLOOKUP_def,LUPDATE_def] \\ fs[]);
 
 val _ = Datatype `
   app_list = List ('a list) | Append app_list app_list | Nil`
@@ -368,6 +367,12 @@ val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   \\ Cases_on`n = LENGTH xs`
   \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
 
+val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
+  `l1 <> [] /\ l2 <> [] ==>
+    (LIST_REL A l1 l2 <=> LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
+  map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
+  [`l1`,`l2`]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -438,8 +443,7 @@ val lookup_alist_insert = Q.store_thm("lookup_alist_insert",
     case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)`,
     ho_match_mp_tac (fetch "-" "alist_insert_ind")>>
     srw_tac[][]>-
-      (Cases_on`y`>>
-      full_simp_tac(srw_ss())[LENGTH,alist_insert_def]) >>
+      (full_simp_tac(srw_ss())[LENGTH,alist_insert_def]) >>
     Cases_on`z=x`>>
       srw_tac[][lookup_def,alist_insert_def]>>
     full_simp_tac(srw_ss())[lookup_insert])
@@ -2221,7 +2225,7 @@ val any_el_ALT = Q.store_thm(
   "any_el_ALT",
   `∀l n d. any_el n l d = if n < LENGTH l then EL n l else d`,
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
-  fs[]);
+  fs[] \\ rfs[]);
 
 val MOD_MINUS = Q.store_thm("MOD_MINUS",
   `0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k`,

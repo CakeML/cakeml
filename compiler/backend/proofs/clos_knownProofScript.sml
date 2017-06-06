@@ -352,6 +352,15 @@ val do_app_ssgc = Q.store_thm(
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
       metis_tac[])
+  >- (
+    dsimp [] >>
+    rw [] >>
+    irule EVERY_TAKE >>
+    simp []
+    >- intLib.ARITH_TAC >>
+    irule EVERY_DROP >>
+    simp []
+    >- intLib.ARITH_TAC)
   >- (simp[PULL_FORALL] >> metis_tac[EVERY_MEM, MEM_EL])
   >- (simp[ssgc_free_def] >>
       rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
@@ -429,7 +438,7 @@ val lem = Q.prove(
   >- (fs[pair_case_eq, result_case_eq, eqs, bool_case_eq] >> rveq >> fixeqs >>
       fs[] >> metis_tac[SUBSET_TRANS])
   >- (fs[eqs, bool_case_eq, pair_case_eq] >> rveq >> fs[] >>
-      metis_tac[SUBSET_TRANS]))
+      metis_tac[SUBSET_TRANS]));
 
 val mapped_globals_grow = save_thm(
   "mapped_globals_grow",
@@ -1261,6 +1270,18 @@ val kvrel_op_correct_Rval = Q.store_thm(
       fs[LIST_REL_EL_EQN] >> rfs[] >> res_tac >> fs[OPTREL_def] >> fs[] >>
       simp[EL_LUPDATE, bool_case_eq] >> metis_tac[])
   >- (rw[] >> fs[] >> fs[ksrel_def, OPTREL_def])
+  >- (
+    rw [] >>
+    fs [] >>
+    rw [] >>
+    imp_res_tac LIST_REL_LENGTH
+    >- intLib.ARITH_TAC
+    >- intLib.ARITH_TAC >>
+    irule EVERY2_APPEND_suff >>
+    simp [] >>
+    irule EVERY2_TAKE >>
+    irule EVERY2_DROP >>
+    simp [])
   >- (rw[] >> fs[] >> fs[ksrel_def, fmap_rel_OPTREL_FLOOKUP] >>
       rename1 `FLOOKUP _ PTR` >>
       rpt (first_x_assum (qspec_then `PTR` mp_tac)) >>

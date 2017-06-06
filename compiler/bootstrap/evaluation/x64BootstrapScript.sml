@@ -14,7 +14,7 @@ val () = ml_translatorLib.reset_translation();
 
 val stack_mb = 1000
 val heap_mb = 1000
-val filename = "cake"
+val filename = "cake.S"
 
 val bootstrap_thm = save_thm("bootstrap_thm",
   compilationLib.cbv_to_bytes_x64

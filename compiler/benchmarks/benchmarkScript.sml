@@ -245,11 +245,11 @@ val names = ["nqueens","foldl","reverse","fib","qsort"]
 
 val benchmarks_compiled =
   map (fn (name,prog) =>
-    compile_x64 1000 1000 (String.concat["cakeml/",name])
-      (mk_abbrev(String.concat[name,"_prog"])prog))
+    (intermediate_prog_prefix := (name^"_");
+     save_thm(name,
+       compile_x64 1000 1000 (String.concat["cakeml/",name])
+         (mk_abbrev(String.concat[name,"_prog"])prog))))
   (zip names benchmarks)
-
-val _ = map save_thm (zip names benchmarks_compiled);
 
 (*
 (*Turning down the register allocator*)

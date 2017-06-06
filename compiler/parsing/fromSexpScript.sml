@@ -555,7 +555,7 @@ val sexplocn_def = Define`
     do
       ls <- strip_sxcons s;
       guard (LENGTH ls = 6)
-      (lift2 $,
+      (lift2 Locs
             (lift locn (odestSXNUM (EL 0 ls)) <*>
                        (odestSXNUM (EL 1 ls)) <*>
                        (odestSXNUM (EL 2 ls)))
@@ -648,7 +648,7 @@ val sexpdec_def = Define`
     do
       (nm, args) <- dstrip_sexp s;
       guard (nm = "Dlet" ∧ LENGTH args = 3)
-            (lift Dlet (sexplocn (HD args)) <*> 
+            (lift Dlet (sexplocn (HD args)) <*>
                        (sexppat (EL 1 args)) <*>
                        (sexpexp (EL 2 args))) ++
       guard (nm = "Dletrec" ∧ LENGTH args = 2)
@@ -906,13 +906,13 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
-  locnsexp (locn n1 n2 n3,locn n4 n5 n6) =
+  locnsexp (Locs (locn n1 n2 n3) (locn n4 n5 n6)) =
     listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",
   `∀l1 l2. locnsexp l1 = locnsexp l2 ⇔ l1 = l2`,
-  Cases \\ Cases \\ Cases_on `q` >> Cases_on `q'` >>
-  Cases_on `r` >> Cases_on `r'` >> rw[locnsexp_def]);
+  Cases \\ Cases \\ rename [`locnsexp (Locs l1 l2) = locnsexp (Locs l3 l4)`] >>
+  map_every Cases_on [`l1`, `l2`, `l3`, `l4`] >> rw[locnsexp_def]);
 
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
@@ -1207,7 +1207,8 @@ val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
 
 val sexplocn_locnsexp = Q.store_thm("sexplocn_locnsexp[simp]",
   `sexplocn (locnsexp l) = SOME l`,
-  Cases_on `l` \\ Cases_on`q` \\ Cases_on`r` \\ rw[locnsexp_def,sexplocn_def]);
+  Cases_on `l` >> rename [`Locs l1 l2`] >>
+  Cases_on`l1` \\ Cases_on`l2` \\ rw[locnsexp_def,sexplocn_def]);
 
 val sexpexp_expsexp = Q.store_thm("sexpexp_expsexp[simp]",
   `sexpexp (expsexp e) = SOME e`,
@@ -1416,17 +1417,15 @@ val lopsexp_sexplop = Q.store_thm("lopsexp_sexplop",
 
 val locnsexp_sexplocn = Q.store_thm("locnsexp_sexplocn",
   `sexplocn s = SOME z ⇒ locnsexp z = s`,
-  Cases_on`z` \\ Cases_on`q` \\ Cases_on `r`
+  Cases_on`z` \\ rename [`Locs l1 l2`] >>
+  Cases_on`l1` \\ Cases_on `l2`
   \\ rw[sexplocn_def,locnsexp_def]
   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[Once strip_sxcons_def]
   \\ simp[listsexp_def]
-  \\ Cases_on`h` \\ fs[odestSXNUM_def]
-  \\ Cases_on`h'`  \\ fs[odestSXNUM_def]
-  \\ Cases_on`h''`  \\ fs[odestSXNUM_def]
-  \\ Cases_on`h'''` \\ fs[odestSXNUM_def]
-  \\ Cases_on`h''''`  \\ fs[odestSXNUM_def]
-  \\ Cases_on`h'''''`  \\ fs[odestSXNUM_def]);
+  \\ rename [`⦇h1; h2; h3; h4; h5; h6⦈`]
+  \\ map_every (fn q => Cases_on q >> fs[odestSXNUM_def])
+       [`h1`, `h2`, `h3`, `h4`, `h5`, `h6`]);
 
 val expsexp_sexpexp = Q.store_thm("expsexp_sexpexp",
   `∀s e. sexpexp s = SOME e ⇒ expsexp e = s`,
@@ -1671,7 +1670,7 @@ val lopsexp_valid = Q.store_thm("lopsexp_valid[simp]",
 
 val locnsexp_valid = Q.store_thm("locnsexp_valid[simp]",
   `∀l. valid_sexp (locnsexp l)`,
-  Cases \\ Cases_on `q` \\ Cases_on `r` \\ EVAL_TAC);
+  Cases \\ rename [`Locs l1 l2`] >> Cases_on `l1` \\ Cases_on `l2` \\ EVAL_TAC);
 
 val expsexp_valid = Q.store_thm("expsexp_valid[simp]",
   `∀e. valid_sexp (expsexp e)`,

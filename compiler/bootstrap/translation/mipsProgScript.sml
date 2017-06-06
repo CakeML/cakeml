@@ -3,6 +3,7 @@ open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open compiler64ProgTheory
 open mips_targetTheory mipsTheory;
+open inliningLib;
 
 val _ = new_theory "mipsProg"
 
@@ -49,8 +50,6 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 
-val _ = register_type``:64 asm_config``
-
 val word_bit_thm = Q.prove(
   `!n w. word_bit n w = ((w && n2w (2 ** n)) <> 0w)`,
   simp [GSYM wordsTheory.word_1_lsl]
@@ -68,75 +67,6 @@ val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
 val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-(* w2w has to be translated for every single use *)
-val _ = translate (INST_TYPE[alpha|->``:16``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:5``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:8``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:16``] w2w_def)
-val _ = translate (INST_TYPE[alpha|->``:64``,beta|->``:32``] w2w_def)
-
-(* TODO: move this stuff to preamble or
-        some other library, for use in other translations *)
-
-(*simple CSE *)
-fun lrthm strip th = th |> SPEC_ALL |> concl |> dest_eq |> (fn (x,y) => (strip x,y))
-
-fun count_terms tlist =
-  foldl (fn (t,d) => case Redblackmap.peek(d,t) of
-      SOME n => Redblackmap.insert (d,t,n+1)
-    |  _ => Redblackmap.insert (d,t,1)) (Redblackmap.mkDict Term.compare) tlist
-
-fun is_subterm x y =
-  patternMatchesSyntax.has_subterm (fn t => t = x) y
-
-fun mostgen x [] acc = (x,acc)
-|   mostgen x (y::ys) acc =
-  if is_subterm x y then mostgen y ys acc
-  else if is_subterm y x then mostgen x ys acc
-  else mostgen x ys (y::acc)
-
-fun filsubs [] = []
-|   filsubs (x::xs) =
-  let val (k,vs) = mostgen x xs [] in
-    k :: filsubs vs
-  end
-
-fun is_fun_type t =
-  (can dom_rng (type_of t))
-
-fun let_abs v t tt =
-  mk_let (mk_abs(v,subst [(t |-> v)] tt),t)
-
-fun cse lim t =
-  let val fvt = free_vars t
-      val foo = count_terms (find_terms (fn tt =>
-        let val fvs = free_vars tt in
-          all (fn v => mem v fvt) fvs andalso
-          fvs <> [] andalso
-          not(is_fun_type tt) andalso
-          not(is_var tt)
-        end) t)
-      val tlist = map fst (filter (fn (k,v) => v > lim) (Redblackmap.listItems foo))
-      val toabs = filsubs tlist
-      val name = "cse" in
-      #2(foldl (fn (t,(i,tt)) => (i+1,let_abs (mk_var (name^Int.toString i,type_of t)) t tt))
-        (0,t) toabs)
-  end
-
-fun csethm lim th =
-  let val (l,r) = lrthm I th
-      val goal = mk_eq(l,cse lim r) in
-      prove(goal, simp[th])
-  end
-
-(* reconstructs a case goal *)
-fun reconstruct_case t strip ths =
-  let val rhs = TypeBase.mk_case (strip t,map (lrthm strip) ths)
-  in
-    prove(mk_forall (strip t,mk_eq (t,rhs)),Cases >> simp ths) |> SPEC_ALL
-  end
-(* -- *)
 
 val spec_word_bit = word_bit |> ISPEC``foo:word16`` |> SPEC``15n``|> SIMP_RULE std_ss [word_bit_thm] |> CONV_RULE (wordsLib.WORD_CONV)
 
@@ -210,7 +140,7 @@ val mips_enc1_4 = reconstruct_case ``mips_enc (Inst (Mem m n a))`` (rand o rand 
 
 val mips_simp1 = reconstruct_case ``mips_enc (Inst i)`` (rand o rand) [mips_enc1_1,mips_enc1_2,mips_enc1_3,mips_enc1_4]
 
-val mips_simp2 = mips_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val mips_simp2 = mips_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
 val mips_enc3_aux = mips_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -237,7 +167,7 @@ val mips_simp3 =
   reconstruct_case ``mips_enc (JumpCmp c n r c0)`` (rand o rator o rand)
     [mips_enc3_1_th,mips_enc3_2_th]
 
-val mips_simp4 = mips_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val mips_simp4 = mips_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
 val mips_simp5 = mips_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
