@@ -146,8 +146,7 @@ val filter_bitmap_map_bitmap = Q.store_thm("filter_bitmap_map_bitmap",
       map_bitmap x q t = SOME (ys,z,ys1) ==>
       z = [] /\ ys1 = xs1`,
   Induct
-  THEN1 (Cases_on `q` \\ Cases_on `t`
-         \\ full_simp_tac(srw_ss())[filter_bitmap_def,map_bitmap_def])
+  THEN1 ( fs[filter_bitmap_def,map_bitmap_def] )
   \\ Cases_on `t` \\ Cases_on `q` \\ Cases
   \\ rewrite_tac [filter_bitmap_def] \\ simp_tac std_ss [map_bitmap_def]
   THEN1
