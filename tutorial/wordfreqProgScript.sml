@@ -166,17 +166,17 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   strip_tac \\
   xcf "wordfreq" st \\
   xlet_auto >- (xcon \\ xsimpl) \\
-  (* xlet_auto should work here? *)
-  xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v *
-                COMMANDLINE cl * ROFS fs * STDOUT out * STDERR err`
+  xlet_auto
   >- (
-    xapp \\ xsimpl \\
+    xsimpl \\
     fs[LENGTH_FLAT,MAP_MAP_o,o_DEF] \\
     Q.ISPEC_THEN`STRLEN`(Q.SPEC_THEN`K 1`mp_tac) SUM_MAP_PLUS \\
     simp[MAP_K_REPLICATE,SUM_REPLICATE] \\
-    disch_then kall_tac \\ instantiate \\ xsimpl \\
-    strip_tac \\ fs[] ) \\
-  (* also here... *)
+    rpt strip_tac \\ fs[] ) \\
+  (*
+  `TL (MAP implode cl) <> []` by (strip_tac \\ Cases_on`cl` \\ fs[]) \\
+  xlet_auto
+  *)
   cheat);
 
 val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;

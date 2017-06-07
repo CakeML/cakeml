@@ -522,8 +522,8 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       (* NOT SURE if proper way: rewrite the values to prevent conflicts with the
          parameters found by xapp_spec *)
       val asl_thms = List.map ASSUME asl
-      val params_tm_list = List.map (fn x => SIMP_CONV bool_ss asl_thms x
-				|> concl |> dest_eq |> snd handle HOL_ERR _ => x) params_tm_list
+      val params_tm_list = List.map (fn x => QCONV (SIMP_CONV bool_ss asl_thms) x
+				|> concl |> dest_eq |> snd) params_tm_list
       (*************************************************)
 
       (* Find the ffi variable *)
@@ -769,7 +769,7 @@ fun add_refinement_invariants ri_defs eqTypeThms =
   end;
 
 val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, UNIT_TYPE_def, STRING_TYPE_def] [EqualityType_NUM_BOOL]
-				  
+
 fun add_match_thms thms =
   let
       (* Partition the theorems between the rewrite theorems and the intro rewrite ones *)
@@ -808,7 +808,7 @@ fun default_heuristic_solver asl app_spec =
   let
       (* Retrieve the list of hypothesis to satisfy *)
       val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
-      
+
       (* Retrieve the known variables from the assumptions *)
       val knwn_vars = FVL asl empty_varset
 
@@ -820,10 +820,10 @@ fun default_heuristic_solver asl app_spec =
       val knwn_typevars = Redblackset.listItems knwn_typevarset
 
       (* Match every hypothesis of the app_spec against every assumption *)
-      val asl_net = List.foldr (fn (x, net) => Net.insert (x, x) net) Net.empty asl
+      (*val asl_net = List.foldr (fn (x, net) => Net.insert (x, x) net) Net.empty asl*)
       fun find_insts hyp =
 	let
-	    val pos_matches = Net.match hyp asl_net
+	    val pos_matches = (*Net.match hyp asl_net*) asl
 	    val pos_insts = mapfilter
 		(match_terml knwn_typevars knwn_vars hyp) pos_matches
 	in
@@ -887,7 +887,7 @@ fun default_heuristic_solver asl app_spec =
   in
       (tm_subst, ty_subst)
   end;
-      
+
 val heuristic_solver = ref default_heuristic_solver;
 fun set_heuristic_solver solver = heuristic_solver := solver;
 
@@ -923,11 +923,12 @@ fun match_heap_conditions hcond sub_hcond =
 	end
 
       (* Interior loop *)
-      fun match_loop_int h1 (h2::hl2) =
+      fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
+        | match_loop_int h1 (h2::hl2) =
 	let
-	    val result = mapfilter (try_match (mk_sep_imp (h1, h2))) extr_pairs
+	    val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
 	in
-	    (List.hd result, hl2)
+	    (result, hl2)
 	end
 	handle HOL_ERR _ => let val (results, hl2') = match_loop_int h1 hl2 in (results, h2::hl2') end
 
@@ -953,10 +954,8 @@ fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
 
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
 			  dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (SIMP_CONV sset rewrite_thms app_pre |> concl |> dest_eq |> snd
-			handle HOL_ERR _ => app_pre )
-      val rw_let_pre = (SIMP_CONV sset rewrite_thms let_pre |> concl |> dest_eq |> snd
-			handle HOL_ERR _ => let_pre)
+      val rw_app_pre = (QCONV (SIMP_CONV sset rewrite_thms) app_pre |> concl |> dest_eq |> snd)
+      val rw_let_pre = (QCONV (SIMP_CONV sset rewrite_thms) let_pre |> concl |> dest_eq |> snd)
       val (substsl, _, _) = match_heap_conditions let_pre app_pre
       val filt_subst =
 	  List.filter (fn {redex = x, residue = y} => not (HOLset.member (avoid_tms, x))) substsl
@@ -1115,8 +1114,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val rw_asl_concl = List.map concl rw_asl
       val all_rw_thms = List.revAppend (AND_IMP_INTRO::rw_asl, rw_thms)
 
-      (* Add the asl in the assumptions of the app spec *)
-      val app_spec1 = List.foldr (fn (x, y) => ADD_ASSUM x y) app_spec asl
+      (* Add the rewritten asl in the assumptions of the app spec *)
+      val app_spec1 = List.foldr (fn (x, y) => ADD_ASSUM x y) app_spec rw_asl_concl
 
       (* Replace the ==> by /\ in the app specification, remove the quantifiers *)
       val app_spec2 = PURE_REWRITE_RULE [AND_IMP_INTRO] app_spec1
@@ -1169,9 +1168,9 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	     in
 		 used_heuristics := true;
 		 subst_app_spec
-	     end
+	     end handle HOL_ERR _ => app_spec
 	else app_spec (* instantiation is re-tested below *)
-		 
+
       val hsimp_app_spec = heuristic_inst rw_asl_concl simp_app_spec
 
        (* Modify the post-condition inside the app_spec *)
@@ -1187,10 +1186,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       (* Compute the frame *)
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
 				dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (SIMP_CONV list_ss all_rw_thms app_pre |> concl |> dest_eq |> snd
-			handle HOL_ERR _ => app_pre)
-      val rw_let_pre = (SIMP_CONV list_ss all_rw_thms let_pre |> concl |> dest_eq |> snd
-			handle HOL_ERR _ => app_pre)
+      val rw_app_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) app_pre |> concl |> dest_eq |> snd)
+      val rw_let_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) let_pre |> concl |> dest_eq |> snd)
       val (vars_subst, frame_hpl, []) = match_heap_conditions let_pre app_pre
 
       (* Change the assumptions in the spec *)
@@ -1370,7 +1367,8 @@ end
 
 (******** DEBUG ********)
 
-(*val (g as (asl, w)) = top_goal();
+(*
+val (g as (asl, w)) = top_goal();
 val (goal_op, goal_args) = strip_comb w;
 val let_expr = List.nth (goal_args, 1);
 val env = List.nth (goal_args, 3);
