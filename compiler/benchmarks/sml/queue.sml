@@ -23,5 +23,5 @@ fun main ()=
     then q
     else (use_queue (n - 1) (tail (snoc (snoc q (n - 1)) (n - 1))));
   fun run_queue n = head (use_queue n empty);
-  val test = run_queue 20000000;
+  val test = run_queue 5000000;
 in () end;

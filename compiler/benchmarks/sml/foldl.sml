@@ -1,4 +1,4 @@
-fun main() =
+fun main ()=
   let
   fun foldl f e xs =
     case xs of [] => e
@@ -10,5 +10,5 @@ fun main() =
     else (x::(repeat x (n - 1)));
 
   val test = foldl (fn x => fn y => x + (foldl (fn x => fn y => x+y) 0 y)) 0
-             (repeat (repeat 1 15000) 15000);
+             (repeat (repeat 1 40000) 40000);
 in () end;

@@ -28,5 +28,5 @@ fun main ()=
     then []
     else (n::(mk_list (n - 1)));
   fun use_tree n = tree_sort (append (mk_list n) (mk_list n));
-  val test = use_tree 10000;
+  val test = use_tree 20000;
 in () end;
