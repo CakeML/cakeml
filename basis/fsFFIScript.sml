@@ -1,16 +1,6 @@
-open preamble mlstringTheory cfHeapsBaseTheory
+open preamble mlstringTheory cfHeapsBaseTheory optionMonadTheory
 
 val _ = new_theory"fsFFI"
-
-(* TODO: put these calls in a re-usable option syntax Lib *)
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-(* -- *)
 
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
@@ -22,6 +12,8 @@ val _ = Datatype`
              numchars : num llist |>`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
+
+val _ = monadsyntax.add_monadsyntax();
 
 val get_file_content_def = Define`
     get_file_content fs fd = 

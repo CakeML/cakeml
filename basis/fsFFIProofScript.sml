@@ -1,15 +1,7 @@
-open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
+open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory optionMonadTheory
 
 val _ = new_theory"fsFFIProof"
 
-(* TODO: put these calls in a re-usable option syntax Lib *)
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 (* -- read -- *)
 (*
 * "The value returned is the number of bytes read (zero indicates end of file)
@@ -23,9 +15,7 @@ val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 * set appropriately and further it is left unspecified whether the file position
 * (if any) changes." *)
 
-val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
-  `!x y z. x ++ y = SOME z <=> (x = SOME z \/ (x = NONE /\ y = SOME z))`,
-  rw[] \\ cases_on `x` \\ cases_on `y` \\ fs[]);
+val _ = monadsyntax.add_monadsyntax();
 
 (* nextFD *)
 val nextFD_ltX = Q.store_thm(
@@ -99,8 +89,7 @@ val wfFS_DELKEY = Q.store_thm(
   `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
   simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
        ALOOKUP_ADELKEY] >> 
-       metis_tac[]
-       );
+       metis_tac[]);
 
 val eof_read = Q.store_thm("eof_read",
  `!fd fs n. wfFS fs ⇒
@@ -229,12 +218,6 @@ val encode_11 = Q.store_thm(
   `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
   metis_tac[decode_encode_FS, SOME_11]);
 
-val option_eq_some = LIST_CONJ [
-    OPTION_IGNORE_BIND_EQUALS_OPTION,
-    OPTION_BIND_EQUALS_OPTION,
-    OPTION_CHOICE_EQUALS_OPTION]
-
-
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
@@ -252,7 +235,6 @@ val read_length = Q.store_thm("read_length",
     rw[read_def] >> pairarg_tac >> fs[option_eq_some,LENGTH_TAKE] >>
     ` l  = TAKE (MIN k (MIN (STRLEN content − off) (SUC strm)))
         (DROP off content)` by (fs[]) >>
-        (* TODO: simp *)
     fs[MIN_DEF,LENGTH_DROP]);
 
 
@@ -267,7 +249,6 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ imp_res_tac read_length
   >- (`bytes' = 0w::n2w (STRLEN l)::(MAP (n2w ∘ ORD) l ++ DROP (STRLEN l) t')`
         by (fs[]) \\ fs[])
-        (* TODO: ! *)
   >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])
   >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])); 
 

@@ -2,12 +2,12 @@ open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
-     cfLetAutoLib
+     cfLetAutoLib optionMonadTheory
 
 val _ = new_theory"fsioProof";
 
 val _ = translation_extends "fsioProg";
-
+val _ = monadsyntax.add_monadsyntax();
 val IOFS_buff257_def = Define`
   IOFS_buff257 =
     SEP_EXISTS v. W8ARRAY buff257_loc v * cond (LENGTH v = 257)
@@ -146,7 +146,7 @@ val openIn_spec = Q.store_thm(
     xlet `POSTv eqn1v. &BOOL T eqn1v *
                 W8ARRAY buff257_loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
                 catfs fs'`
-    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[FALSE_def])
+    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[FALSE_def]) >>
     xif >> instantiate >> xapp >> 
     simp[fsioProgTheory.buff257_loc_def] >> xsimpl >>
     fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insertNTS_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`])
@@ -175,18 +175,12 @@ val openIn_spec = Q.store_thm(
         csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode]) >>       
     xlet `POSTv eqn1v.  &BOOL F eqn1v *catfs fs *
             W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
-    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[TRUE_def])
+    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[TRUE_def]) >>
     xif >> instantiate >> xlet_auto
     >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
     xraise >> xsimpl >> 
     simp[Abbr`fnm`, LENGTH_insertNTS_atI, LENGTH_explode,BadFileName_exn_def]));
 
-val option_eq_some = LIST_CONJ [
-    OPTION_IGNORE_BIND_EQUALS_OPTION,
-    OPTION_BIND_EQUALS_OPTION,
-    OPTION_CHOICE_EQUALS_OPTION]
-
-    
 val write_char_spec = Q.store_thm("write_char_spec",
   `!(fd :word8) fdv c cv bc content pos. 
     CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
@@ -245,7 +239,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
       xlet `POSTv comp. &BOOL TRUE comp * IOx fs_ffi_part fs *
               W8ARRAY buff257_loc buffc`
       >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> 
-          fs[BOOL_def,TRUE_def])
+          fs[BOOL_def,TRUE_def]) >>
       xif >> fs[TRUE_def] >> xlet_auto >- (xcon >> xsimpl) >>
       xraise >> xsimpl >> simp[InvalidFD_exn_def]) >>
     (* success case *)
@@ -280,7 +274,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
     >- (xapp >> simp[buff257_loc_def] >> xsimpl >> simp[HD_LUPDATE]) >>
     xlet `POSTv comp. &BOOL FALSE comp * IOFS fs' *
             W8ARRAY (Loc 4) (0w::1w::n2w (ORD c)::t)`
-    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[FALSE_def])
+    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[FALSE_def]) >>
     xif >> fs[FALSE_def,IOFS_def] >> 
     xpull >> xcon >> xsimpl >> rw[] >> xsimpl);
 
