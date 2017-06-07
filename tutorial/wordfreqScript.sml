@@ -43,6 +43,7 @@ val key_set_compare_unique = Q.store_thm("key_set_compare_unique[simp]",
 
 (* A high-level specification of words and frequencies *)
 
+(* TODO: if you use tokens on mlstrings here, avoid explodes/implodes later *)
 val all_words_def = Define`
   all_words s = TOKENS isSpace s`;
 (*

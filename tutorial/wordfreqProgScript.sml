@@ -116,6 +116,10 @@ val () = append_prog wordfreq;
 
 val st = get_ml_prog_state();
 
+(* TODO: this is wrong (because all_words gives duplicates)
+   Magnus suggests: avoid PERM, just say every element is there iff it's in the file
+   use SORTED $< to imply ALL_DISTINCT (or add ALL_DISTINCT explicitly, possibly replacing SORTED)
+*)
 val valid_wordfreq_output_def = Define`
   valid_wordfreq_output file_contents output =
     ∃ls. PERM ls (all_words file_contents) ∧ SORTED $<= ls ∧
@@ -164,12 +168,15 @@ val () = add_intro_rw_thms [FILENAME_UNICITY_R,FILENAME_UNICITY_L];
 (* -- *)
 
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
-  `EVERY validArg cl ∧
+  `(* TODO: make these part of COMMANDLINE assertion *)
+   EVERY validArg cl ∧
    1 < LENGTH cl ∧ SUM (MAP LENGTH cl) + LENGTH cl < 257 ∧
+   (* TODO: make cl a two-element list explicitly... *)
    fname = implode (EL 1 cl) ∧
    inFS_fname fs fname ∧
-   wfFS fs ∧ CARD (set (MAP FST fs.infds)) < 255
+   wfFS fs ∧ CARD (set (MAP FST fs.infds)) < 255 (* TODO: this should be part of wfFS *)
    ⇒ app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" st) [Conv NONE []]
+       (* TODO: Magnus suggests wfFS should be part of ROFS *)
        (COMMANDLINE cl * ROFS fs * STDOUT out * STDERR err)
        (POSTv uv.
         &UNIT_TYPE () uv *
