@@ -33,6 +33,8 @@ fun MP_ASSUML thl th =
   in
       rec_mp th' num_hyps
   end;
+
+
 (*
    CONV_ASSUM: use a conversion to rewrite an assumption list so that:
    (!a' in T'. T |= a') /\ (!a in T. T' |= a)
@@ -465,7 +467,9 @@ fun xlet_dest_app_spec asl let_pre specH =
   end;
 
 
-(* [xlet_subst_parameters] *)
+(* [xlet_subst_parameters]
+   The app specification is supposed to be quantified over all the "unknwn" variables.
+*)
 fun xlet_subst_parameters env app_info asl let_pre app_spec  =
   let
       (* Retrieve the list of free variables *)
@@ -1092,6 +1096,8 @@ fun simplify_spec let_pre asl app_spec =
       app_spec2
   end;
 
+exception XLET_ERR of thm;
+
 (* [xlet_simp_spec] *)
 fun xlet_simp_spec asl app_info let_pre app_spec =
   let
@@ -1162,14 +1168,6 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 		 
       val hsimp_app_spec = heuristic_inst rw_asl_concl simp_app_spec
 
-      (* Test barrier: have all the variables been instantiated? *)
-      val _ = if (not o HOLset.isSubset) (FVL [concl simp_app_spec] empty_varset,
-					  FVL (app_info::let_pre::asl) empty_varset)
-	      then raise (ERR "xlet_simp_spec"
-		      ("Unable to find a proper instantiation: "
-		       ^(term_to_string (concl (GEN_ALL simp_app_spec)))))
-	      else ()
-
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
 	if (is_imp (concl app_spec)) then
@@ -1194,12 +1192,17 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 
       (* Used heuristics? *)
       val _ = if !used_heuristics then print "xlet_auto : using heuristics\n" else ()
+
+      (* Have all the variables been instantiated? *)
+      val _ = if (not o HOLset.isSubset) (FVL [concl simp_app_spec] empty_varset,
+					  FVL (app_info::let_pre::asl) empty_varset)
+	      then raise (XLET_ERR (GEN_ALL simp_app_spec))
+	      else ()
   in
       (final_spec, frame_hpl)
   end
   handle HOL_ERR{message = msg, origin_function = fname,
-		 origin_structure  = sname} => raise (ERR "xlet_simp_spec" msg)
-       | _ => raise (ERR "xlet_simp_spec" "");
+		 origin_structure  = sname} => raise (ERR "xlet_simp_spec" msg);
 
 (* [xlet_mk_post_conditions] *)
 fun xlet_mk_post_condition asl frame_hpl app_spec =
@@ -1240,17 +1243,25 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
   end;
 
 (* [xlet_app_auto] *)
-fun xlet_app_auto app_info env let_pre (g as (asl, w)) =
+fun xlet_app_auto app_info env let_pre opt_app_spec (g as (asl, w)) =
   let
-      (* Find the specification *)
-      val app_spec = xlet_find_spec g |> DISCH_ALL |> GEN_ALL
-
-      (* Apply the parameters given in the let expression *)
-      val subst_app_spec = xlet_subst_parameters env app_info asl let_pre app_spec
+      (* Find the specification  *)
+      val app_spec =
+	  case opt_app_spec of
+	      SOME spec => spec
+	    | NONE =>
+	      let
+		  val app_spec = xlet_find_spec g |> DISCH_ALL |> GEN_ALL
+		  (* Apply the parameters given in the let expression *)
+		  val subst_app_spec =
+		      xlet_subst_parameters env app_info asl let_pre app_spec
+	      in
+		  subst_app_spec
+	      end
 
       (* Perform the matching *)
       val (final_app_spec, frame_hpl) =
-	  xlet_simp_spec asl app_info let_pre subst_app_spec
+	  xlet_simp_spec asl app_info let_pre app_spec
 
       (* Compute the let post-condition *)
       val let_post_condition =
@@ -1300,17 +1311,24 @@ fun xlet_find_auto (g as (asl, w)) =
 	      xlet_expr_auto let_expr env pre post g
           else if is_cf_app_aux let_expr then
 	      let val (_, c) =
-		      xlet_app_auto let_expr env pre g
+		      xlet_app_auto let_expr env pre NONE g
 	      in c end
+	      handle XLET_ERR app_spec =>
+		     (print "xlet_find_auto: unable to instantiate the specification, adding it to the assumptions";
+		      concl app_spec)
 	  else
-	      raise (ERR "xlet_auto" "Not handled yet")
+	      raise (ERR "xlet_find_auto" "Not handled yet")
       end
   else
-      raise (ERR "xlet_auto" "Not a cf_let expression");
+      raise (ERR "xlet_find_auto" "Not a cf_let expression");
 
-(* [xlet_auto] *)
-fun xlet_auto (g as (asl, w)) =
-  if is_cf_let w then
+(* [xlet_auto_spec]
+   The parameters given to the function in the "let" expression must have been
+   substituted in the app specification. The app specification should typically be
+   the spec returned by a previous, failed call to xlet_auto.
+*)
+fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
+   if is_cf_let w then
       let
 	  val (goal_op, goal_args) = strip_comb w
 	  val let_expr = List.nth (goal_args, 1)
@@ -1323,13 +1341,24 @@ fun xlet_auto (g as (asl, w)) =
 	      in xlet `^c` g end
 	  else if is_cf_app_aux let_expr then
 	      let val (H, c) =
-		      xlet_app_auto let_expr env pre g
+		      xlet_app_auto let_expr env pre opt_spec g
 	      in (xlet `^c` THENL [xapp_spec H, all_tac]) g end
+	      handle XLET_ERR app_spec =>
+		     (print ("xlet_auto_spec: unable to instantiate the specification"
+		            ^"adding it to the assumptions");
+		      ASSUME_TAC app_spec g)
 	  else
-	      raise (ERR "xlet_auto" "Not handled yet")
+	      raise (ERR "xlet_auto_spec" "Not handled yet")
       end
   else
-      raise (ERR "xlet_auto" "Not a cf_let expression");
+      raise (ERR "xlet_auto_spec" "Not a cf_let expression");
+
+(* [xlet_auto] *)
+fun xlet_auto (g as (asl, w)) =
+  xlet_auto_spec NONE g
+  handle HOL_ERR {origin_structure = _, origin_function = fname, message = msg}
+	 => raise (ERR "xlet_auto" msg);
+
 
 end
 

@@ -28,6 +28,7 @@ signature cfLetAutoLib = sig
     val match_heap_conditions : term -> term ->
       {redex: term, residue: term} list * term list * term list
 
+    val xlet_auto_spec : thm option -> tactic
     val xlet_find_auto : term list * term -> term
     val xlet_auto : tactic
 end
