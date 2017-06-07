@@ -146,12 +146,29 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   cheat);
 *)
 
+(* TODO: make these automatic rewrites *)
+val _ = export_rewrites["mlstring.explode_implode"];
+val strlen_implode = Q.store_thm("strlen_implode[simp]",
+  `strlen (implode s) = LENGTH s`, EVAL_TAC);
+(* -- *)
+(* TODO: move *)
+val FILENAME_UNICITY_R = Q.store_thm("FILENAME_UNICITY_R",
+  `FILENAME s v ⇒ (FILENAME s v' ⇔ v = v')`,
+  rw[mlfileioProgTheory.FILENAME_def] \\
+  metis_tac[EQTYPE_UNICITY_R, EqualityType_NUM_BOOL]);
+val FILENAME_UNICITY_L = Q.store_thm("FILENAME_UNICITY_L",
+  `FILENAME s v ⇒ (FILENAME s' v ⇔ s = s')`,
+  rw[mlfileioProgTheory.FILENAME_def] \\
+  metis_tac[EQTYPE_UNICITY_L, EqualityType_NUM_BOOL]);
+val () = add_intro_rw_thms [FILENAME_UNICITY_R,FILENAME_UNICITY_L];
+(* -- *)
+
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
   `EVERY validArg cl ∧
-   LENGTH cl > 1 ∧ SUM (MAP LENGTH cl) + LENGTH cl < 257 ∧
+   1 < LENGTH cl ∧ SUM (MAP LENGTH cl) + LENGTH cl < 257 ∧
    fname = implode (EL 1 cl) ∧
    inFS_fname fs fname ∧
-   wfFS fs
+   wfFS fs ∧ CARD (set (MAP FST fs.infds)) < 255
    ⇒ app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" st) [Conv NONE []]
        (COMMANDLINE cl * ROFS fs * STDOUT out * STDERR err)
        (POSTv uv.
@@ -173,10 +190,19 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
     Q.ISPEC_THEN`STRLEN`(Q.SPEC_THEN`K 1`mp_tac) SUM_MAP_PLUS \\
     simp[MAP_K_REPLICATE,SUM_REPLICATE] \\
     rpt strip_tac \\ fs[] ) \\
-  (*
+  (* try xlet_auto to see what is needed *)
   `TL (MAP implode cl) <> []` by (strip_tac \\ Cases_on`cl` \\ fs[]) \\
+  xlet_auto >- xsimpl \\
+  (* try xlet_auto to see what is needed *)
+  Cases_on`cl` \\ fs[] \\
+  rename1`EVERY validArg cl` \\
+  Cases_on`cl` \\ fs[] \\
+  rename1`STRING_TYPE (implode fnm) fv` \\
+  `FILENAME (implode fnm) fv`
+    by fs[mlfileioProgTheory.FILENAME_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
   xlet_auto
-  *)
+  >- xsimpl
+  >- (xsimpl \\ rw[]) \\
   cheat);
 
 val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
