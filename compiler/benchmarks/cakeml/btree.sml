@@ -26,4 +26,20 @@ fun mk_list n =
   then []
   else (n::(mk_list (n - 1)));
 fun use_tree n = tree_sort (append (mk_list n) (mk_list n));
-val test = use_tree 10000;
+val test = use_tree 20000;
+
+(* I/O only
+fun writeD d = CharIO.write (Char.chr (d+48));
+fun digitInt n = if n >= 10 then (n mod 10) :: digitInt (n div 10) else [n];
+fun map f l =
+  case l
+  of [] => []
+  |  x::xs => let val v = (f x) in v::map f xs end;
+fun reverse l acc =
+  case l
+  of [] => acc
+  |  x::xs => reverse xs (x::acc);
+fun writeInt n = map writeD (reverse (digitInt n) []);
+val foo = map writeInt test;
+val u = CharIO.write #"\n";
+*)

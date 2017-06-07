@@ -271,7 +271,8 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
     rw [] >>
     rw [] >>
     Cases_on `0 < STRLEN content` >>
-    simp [libTheory.the_def, GSYM LENGTH_NIL]) >>
+    simp [libTheory.the_def] >>
+    Cases_on`content` \\ fs[]) >>
   simp []);
 
 val validArg_filename = Q.store_thm ("validArg_filename",

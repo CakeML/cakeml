@@ -2,6 +2,7 @@ open preamble mlstringTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory 
 
 val _ = new_theory "holKernelProof";
 
+val _ = ParseExtras.temp_loose_equality();
 val _ = temp_overload_on ("monad_bind", ``ex_bind``);
 val _ = temp_overload_on ("return", ``ex_return``);
 val _ = hide"str";

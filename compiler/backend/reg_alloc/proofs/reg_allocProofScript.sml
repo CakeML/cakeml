@@ -1,9 +1,6 @@
 open preamble
 open state_transformerTheory
 open reg_allocTheory
-open BasicProvers
-
-val _ = ParseExtras.temp_tight_equality ();
 
 val _ = new_theory "reg_allocProof";
 val _ = monadsyntax.temp_add_monadsyntax()

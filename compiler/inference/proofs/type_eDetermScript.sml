@@ -10,8 +10,6 @@ open namespaceTheory
 
 val _ = new_theory "type_eDeterm";
 
-val _ = temp_tight_equality ();
-
 val sub_completion_empty = Q.prove (
 `!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
  rw [sub_completion_def, pure_add_constraints_def] >>

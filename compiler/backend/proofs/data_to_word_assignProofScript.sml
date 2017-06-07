@@ -5832,7 +5832,7 @@ val IMP_memcopy_lemma = store_thm("IMP_memcopy_lemma",
     (wx + bytes_in_word + bytes_in_word * n2w startptr) IN s1.mdomain``,
   strip_tac \\ fs [GSYM SNOC_APPEND,ZIP_SNOC] \\ fs [SNOC_APPEND]
   \\ rpt_drule memory_rel_Block_IMP
-  \\ fs [GSYM LENGTH_NIL] \\ strip_tac
+  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL] \\ strip_tac
   \\ `word_exp s1 (real_addr c (adjust_var a1)) = SOME (Word a)` by
    (match_mp_tac (GEN_ALL get_real_addr_lemma)
     \\ fs [wordSemTheory.get_var_def]
@@ -6188,7 +6188,7 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ strip_tac \\ rpt_drule memory_rel_Cons_alt
     \\ fs [Abbr`tot_len`] \\ imp_res_tac get_vars_IMP_LENGTH_word \\ fs []
-    \\ fs [GSYM LENGTH_NIL,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
     \\ fs [GSYM bytes_in_word_mul_eq_shift,AND_IMP_INTRO]
     \\ disch_then match_mp_tac
     \\ rfs []
@@ -6365,8 +6365,7 @@ val th = Q.store_thm("assign_Cons",
   \\ disch_then drule \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
   \\ strip_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ `vals <> [] /\ (LENGTH vals = LENGTH ws)` by
-         (fs [GSYM LENGTH_NIL] \\ NO_TAC)
+  \\ `vals <> [] /\ (LENGTH vals = LENGTH ws)` by fs []
   \\ rpt_drule memory_rel_Cons1 \\ strip_tac
   \\ fs [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.set_store_def]
@@ -6549,6 +6548,7 @@ val th = Q.store_thm("assign_FFI",
     by (
       Cases_on`ls'` \\ fs[Abbr`i`]
       \\ simp[LIST_EQ_REWRITE,ADD1,EL_DROP,EL_CONS,PRE_SUB1]
+      >- rfs[]
       \\ Induct \\ rw[ADD1]
       \\ simp[EL_DROP]
       \\ `x'' + LENGTH ls - n = SUC(x'' + LENGTH ls - (n+1))` by decide_tac

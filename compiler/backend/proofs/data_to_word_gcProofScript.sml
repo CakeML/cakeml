@@ -1797,7 +1797,7 @@ val word_heap_eq_word_list_strong = store_thm("word_heap_eq_word_list_strong",
             !curr1 frame1 m1. (word_list curr1 xs * frame1) (fun2set (m1,dm))
               ==> (word_heap curr1 hs conf * frame1) (fun2set (m1,dm))``,
   Induct
-  THEN1 (rw [] \\ qexists_tac `[]` \\ fs [word_list_def,word_heap_def])
+  >- rw[word_list_def,word_heap_def]
   \\ rw [] \\ fs [word_heap_def] \\ fs [GSYM STAR_ASSOC]
   \\ drule word_el_eq_word_list
   \\ strip_tac \\ pop_assum mp_tac \\ SEP_F_TAC \\ rpt strip_tac
@@ -5754,7 +5754,7 @@ val IMP_loc_merge_APPEND = Q.store_thm("IMP_loc_merge_APPEND",
   `!ts qs xs ys.
       LENGTH (FILTER isWord ts) = LENGTH qs ==>
       loc_merge (ts ++ xs) (qs ++ ys) = loc_merge ts qs ++ loc_merge xs ys`,
-  Induct \\ full_simp_tac(srw_ss())[] THEN1 (Cases_on `qs` \\ full_simp_tac(srw_ss())[LENGTH,loc_merge_def])
+  Induct \\ full_simp_tac(srw_ss())[] THEN1 (full_simp_tac(srw_ss())[LENGTH,loc_merge_def])
   \\ Cases \\ full_simp_tac(srw_ss())[isWord_def,loc_merge_def]
   \\ Cases \\ full_simp_tac(srw_ss())[loc_merge_def]) |> SPEC_ALL
   |> curry save_thm "IMP_loc_merge_APPEND";

@@ -62,8 +62,6 @@ val evaluate_def = Define `
               then (Halt (FFI_outcome (THE new_ffi.final_event)),ms,new_ffi)
               else evaluate mc new_ffi (k - 1:num) ms1`
 
-val _ = ParseExtras.temp_tight_equality()
-
 val machine_sem_def = Define `
   (machine_sem mc st ms (Terminate t io_list) <=>
      ?k ms' st'.

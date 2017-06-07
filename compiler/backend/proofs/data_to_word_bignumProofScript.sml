@@ -364,7 +364,7 @@ val evaluate_AddNumSize = store_thm("evaluate_AddNumSize",
   \\ fs [num_exp_def,word_sh_def,decode_length_def]
   \\ IF_CASES_TAC THEN1
    (rfs [memory_rel_def,heap_in_memory_store_def]
-    \\ fs [good_dimindex_def]  \\ rfs [])
+    \\ fs [good_dimindex_def]  \\ rfs [] \\ fs[])
   \\ pop_assum kall_tac \\ fs []
   \\ IF_CASES_TAC THEN1
    (fs [good_dimindex_def] \\ rfs [])
@@ -1389,7 +1389,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ Cases_on `v` \\ fs [mc_multiwordTheory.mc_header_def]
     \\ fs [X_LT_DIV,word_add_n2w]
     \\ once_rewrite_tac [multiwordTheory.n2mw_def]
-    \\ rw [] \\ simp [GSYM LENGTH_NIL] \\ intLib.COOPER_TAC)
+    \\ rw [] \\ simp_tac std_ss [GSYM LENGTH_NIL] \\ intLib.COOPER_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `t2.be = s1.be` by
    (imp_res_tac evaluate_be_const

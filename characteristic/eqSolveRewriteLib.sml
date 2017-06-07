@@ -45,7 +45,7 @@ fun reconstruct_conj unkwn_vars tm eq clauses =
 
       (* Prove that this new term is egal to the original one *)
       val conv_th = AC_CONV (CONJ_ASSOC, CONJ_SYM) (mk_eq (tm, recon_tm)) |> EQT_ELIM
-			    
+
       (* If necessary, invert the equality *)
       val must_inverse = let val (x, y) = dest_eq eq in
 			     (is_knwn unkwn_vars x, is_knwn unkwn_vars y) = (true, false) end

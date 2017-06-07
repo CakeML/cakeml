@@ -1,4 +1,4 @@
-fun main() =
+fun main ()=
   let
   fun fib n =
     if (n < 2)
@@ -6,5 +6,5 @@ fun main() =
     else ((fib (n - 1)) + (fib (n - 2)));
   fun use_fib n =
     (((((fib n) + (fib n)) + (fib n)) + (fib n)) + (fib n)) + (fib n);
-  val test = use_fib 36;
+  val test = use_fib 40;
 in () end;

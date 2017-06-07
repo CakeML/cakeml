@@ -84,9 +84,19 @@ val mips_cmp_def = Define`
    (mips_cmp NotLower = (SOME (SLTU, SLTIU), BEQ)) /\
    (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))`
 
-val () = Parse.temp_overload_on ("temp_reg", ``1w : word5``)
+val eval = rhs o concl o EVAL
+val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
+val max16 = eval ``sw2sw (INT_MAXw: word16) : word64``
+val min18 = eval ``sw2sw (INT_MINw: 18 word) : word64``
+val max18 = eval ``sw2sw (INT_MAXw: 18 word) : word64``
+val min32 = eval ``sw2sw (INT_MINw: 32 word) : word64``
+val max32 = eval ``sw2sw (INT_MAXw: 32 word) : word64``
+val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 
-val mips_enc_def = Define`
+val () = Parse.temp_overload_on ("temp_reg", ``1w : word5``)
+val () = Parse.temp_overload_on ("temp_reg2", ``30w : word5``)
+
+val mips_ast_def = Define`
    (mips_ast (Inst Skip) = [^nop]) /\
    (mips_ast (Inst (Const r (i: word64))) =
       let top    = (63 >< 32) i : word32
@@ -167,7 +177,16 @@ val mips_enc_def = Define`
           INL f => [Load (f (n2w r2, n2w r1, w2w a))]
         | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
    (mips_ast (Jump a) =
-       [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]) /\
+       if ^min18 + 4w <= a /\ a <= ^max18 + 4w then
+         [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]
+       else let b = a - 12w in
+         [ArithI (ORI (31w, temp_reg2, 0w));              (* tmp2 := LR    *)
+          Branch (BLTZAL (0w, 0w));                       (* LR := pc + 12 *)
+          ArithI (LUI (temp_reg, (31 >< 16) b));
+          ArithI (ORI (temp_reg, temp_reg, (15 >< 0) b)); (* tmp := a - 12 *)
+          ArithR (DADDU (31w, temp_reg, temp_reg));       (* tmp := pc + a *)
+          Branch (JR temp_reg);                           (* pc := tmp     *)
+          ArithI (ORI (temp_reg2, 31w, 0w))]) /\          (* LR := tmp2    *)
    (mips_ast (JumpCmp c r1 (Reg r2) a) =
        let b = w2w (a >>> 2) - 2w in
          case mips_cmp c of
@@ -188,36 +207,50 @@ val mips_enc_def = Define`
                 Branch (f (n2w r, temp_reg, b));
                 ^nop]) /\
    (mips_ast (Call a) =
-       [Branch (BGEZAL (0w, w2w (a >>> 2) - 1w)); ^nop]) /\
+       if ^min18 + 4w <= a /\ a <= ^max18 + 4w then
+         [Branch (BGEZAL (0w, w2w (a >>> 2) - 1w)); ^nop]
+       else let b = a - 8w in
+         [Branch (BLTZAL (0w, 0w));                       (* LR := pc + 8  *)
+          ArithI (LUI (temp_reg, (31 >< 16) b));
+          ArithI (ORI (temp_reg, temp_reg, (15 >< 0) b)); (* tmp := a - 8  *)
+          ArithR (DADDU (31w, temp_reg, temp_reg));       (* tmp := pc + a *)
+          Branch (JALR (temp_reg, 31w));                  (* pc := tmp     *)
+          ^nop]) /\                                       (* LR := pc      *)
    (mips_ast (JumpReg r) = [Branch (JR (n2w r)); ^nop]) /\
    (mips_ast (Loc r i) =
        if r = 31 then
-          [Branch (BLTZAL (0w, 0w));                    (* LR := pc + 8     *)
-           ArithI (DADDIU (31w, n2w r, w2w (i - 8w)))]  (* r := LR - 8 + i  *)
-       else
-          [ArithI (ORI (31w, temp_reg, 0w));            (* temp := LR       *)
+          if ^min16 + 8w <= i /\ i <= ^max16 + 8w then
+            [Branch (BLTZAL (0w, 0w));                    (* LR := pc + 8    *)
+             ArithI (DADDIU (31w, n2w r, w2w (i - 8w)))]  (* r := LR - 8 + i *)
+          else let b = i - 8w in
+            [Branch (BLTZAL (0w, 0w));                       (* LR := pc + 8  *)
+             ArithI (LUI (temp_reg, (31 >< 16) b));
+             ArithI (ORI (temp_reg, temp_reg, (15 >< 0) b)); (* tmp := i - 8  *)
+             ArithR (DADDU (temp_reg, 31w, n2w r))]          (* r := tmp + LR *)
+       else if ^min16 + 12w <= i /\ i <= ^max16 + 12w then
+          [ArithI (ORI (31w, temp_reg, 0w));            (* tmp := LR        *)
            Branch (BLTZAL (0w, 0w));                    (* LR := pc + 12    *)
            ArithI (DADDIU (31w, n2w r, w2w (i - 12w))); (* r := LR - 12 + i *)
-           ArithI (ORI (temp_reg, 31w, 0w))])`          (* LR := temp       *)
+           ArithI (ORI (temp_reg, 31w, 0w))]            (* LR := tmp        *)
+       else let b = i - 12w in
+          [ArithI (ORI (31w, temp_reg, 0w));          (* tmp := LR    *)
+           Branch (BLTZAL (0w, 0w));                  (* LR := pc + 12 *)
+           ArithI (LUI (n2w r, (31 >< 16) b));
+           ArithI (ORI (n2w r, n2w r, (15 >< 0) b));  (* r := i - 12  *)
+           ArithR (DADDU (n2w r, 31w, n2w r));        (* r := pc + i  *)
+           ArithI (ORI (temp_reg, 31w, 0w))])`        (* LR := tmp    *)
 
 val mips_enc_def = zDefine`
   mips_enc = combin$C LIST_BIND mips_encode o mips_ast`
 
 (* --- Configuration for MIPS --- *)
 
-val eval = rhs o concl o EVAL
-val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
-val max16 = eval ``sw2sw (INT_MAXw: word16) : word64``
-val min18 = eval ``sw2sw (INT_MINw: 18 word) : word64``
-val max18 = eval ``sw2sw (INT_MAXw: 18 word) : word64``
-val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
-
 val mips_config_def = Define`
    mips_config =
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
-    ; avoid_regs := [0; 1; 25; 26; 27; 28; 29]
+    ; avoid_regs := [0; 1; 25; 26; 27; 28; 29; 30]
     ; link_reg := SOME 31
     ; two_reg_arith := F
     ; big_endian := T
@@ -228,9 +261,9 @@ val mips_config_def = Define`
                    i <= ^max16)
     ; addr_offset := (^min16, ^max16)
     ; byte_offset := (^min16, ^max16)
-    ; jump_offset := (^min18 + 4w, ^max18 + 4w)
+    ; jump_offset := (^min32 + 12w, ^max32 + 8w)
     ; cjump_offset := (^min18 + 8w, ^max18 + 4w)
-    ; loc_offset := (^min16 + 12w, ^max16 + 8w)
+    ; loc_offset := (^min32 + 12w, ^max32 + 8w)
     ; code_alignment := 2
     |>`
 

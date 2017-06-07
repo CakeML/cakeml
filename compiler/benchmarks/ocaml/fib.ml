@@ -4,4 +4,4 @@ let rec fib n =
   else ((fib (n - 1)) + (fib (n - 2)));;
 let rec use_fib n =
   (((((fib n) + (fib n)) + (fib n)) + (fib n)) + (fib n)) + (fib n);;
-let test = use_fib 36;;
+let test = use_fib 40;;

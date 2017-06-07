@@ -2,6 +2,8 @@ open preamble wordsTheory wordsLib integer_wordTheory;
 
 val _ = new_theory "gc_shared";
 
+val _ = ParseExtras.temp_loose_equality();
+
 (* TODO: move *)
 
 val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",

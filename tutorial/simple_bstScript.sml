@@ -18,10 +18,6 @@
 
 open preamble comparisonTheory
 
-(* TODO: should this not be by default? or done in preamble? *)
-val _ = ParseExtras.temp_tight_equality();
-(* -- *)
-
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
