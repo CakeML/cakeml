@@ -3428,7 +3428,7 @@ val (fname,ml_fname,def,th,v) = hd thms
         \\ REPEAT STRIP_TAC
         \\ FIRST (map MATCH_MP_TAC (map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
-        \\ fs[miscTheory.NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
+        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
         \\ METIS_TAC[])
       handle HOL_ERR _ =>
       auto_prove "ind" (goal,

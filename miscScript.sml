@@ -2893,8 +2893,4 @@ val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
   \\ drule MOD_MULT
   \\ fs []);
 
-val NOT_NIL_EQ_LENGTH_NOT_0 = Q.store_thm("NOT_NIL_EQ_LENGTH_NOT_0",
-  `!xs. xs <> [] <=> LENGTH xs <> 0`,
-  Cases \\ fs [LENGTH]);
-
 val _ = export_theory()
