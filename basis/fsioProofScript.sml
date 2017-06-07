@@ -56,15 +56,11 @@ val copyi_spec = Q.store_thm(
       xapp >> xsimpl >> simp[insertNTS_atI_NIL] >> xsimpl >>
       metis_tac[DECIDE ``(x:num) + 1 < y ⇒ x < y``]) >>
   xcf "IO.copyi" (basis_st()) >> xmatch >>
-  rename [`LIST_TYPE CHAR ctail ctailv`, `CHAR chd chdv`] >>
-  xlet_auto >- (xsimpl) >>
-  xlet_auto >- (xsimpl) >>
-  xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY av (LUPDATE (n2w (ORD chd)) n a)`
-  >- (xapp >> simp[]) >>
-  qabbrev_tac `a0 = LUPDATE (n2w (ORD chd)) n a` >>
-  xlet_auto >- (xsimpl) >>
+  rpt(xlet_auto >- (xsimpl)) >>
   xapp >> xsimpl >> qexists_tac `n + 1` >>
-  simp[insertNTS_atI_CONS, Abbr`a0`, LUPDATE_insertNTS_commute,NUM_def]);
+  simp[insertNTS_atI_CONS, LUPDATE_insertNTS_commute,NUM_def]);
+
+
 
 val str_to_w8array_spec = Q.store_thm(
   "str_to_w8array_spec",
@@ -185,11 +181,6 @@ val option_eq_some = LIST_CONJ [
     OPTION_BIND_EQUALS_OPTION,
     OPTION_CHOICE_EQUALS_OPTION]
 
-(*
-val FILE_CONTENT_def = Define`
-  FILE_CONTENT fs fd c pos =
-    IOFS fs * &(get_file_content fs fd = SOME (c, pos))`
-    *)
     
 val write_char_spec = Q.store_thm("write_char_spec",
   `!(fd :word8) fdv c cv bc content pos. CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒
@@ -213,10 +204,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
   xlet `POSTv u'. &(UNIT_TYPE () u') * IOx fs_ffi_part fs *
             W8ARRAY buff257_loc (LUPDATE (1w :word8) 1 (LUPDATE fd 0 bdef))`
   >- (xapp >> simp[buff257_loc] >> xsimpl >> metis_tac[]) >>
-  xlet`POSTv d. &NUM (ORD c) d * IOx fs_ffi_part fs *
-            W8ARRAY buff257_loc (LUPDATE 1w 1 (LUPDATE fd 0 bdef))`
-  >- (xapp >> xsimpl >> metis_tac[]) >>
-  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >> xlet_auto >- xsimpl >>
   xlet `POSTv u'. &(UNIT_TYPE () u') * IOx fs_ffi_part fs *
             W8ARRAY buff257_loc (LUPDATE (n2w (ORD c)) 2
                                 (LUPDATE (1w :word8) 1 
@@ -305,9 +293,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
             W8ARRAY (Loc 4) (0w::1w::n2w (ORD c)::t)`
     >- (xapp >> xsimpl >> cheat) >>
     xif >> fs[FALSE_def,IOFS_def] >> 
-    xpull >> xcon >> xsimpl >>
-    rw[] >> xsimpl >>
-		fs[InvalidFD_exn_def]);
+    xpull >> xcon >> xsimpl >> rw[] >> xsimpl);
 
 val _ = export_theory();
 
