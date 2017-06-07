@@ -357,7 +357,7 @@ val A_DELKEY_bumpAllFD_elim = Q.store_thm("A_DELKEY_bumpAllFD_elim[simp]",
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
 
-val wfFS_write = Q.store_thm("wfFS_write",
+val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
     `! fs fd content pos. wfFS fs ==> MEM fd (MAP FST fs.infds) ==> 
                           wfFS (fsupdate fs fd content pos)`,
     rw[wfFS_def,ALIST_FUPDKEY_ALOOKUP,fsupdate_def] >>
