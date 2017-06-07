@@ -836,28 +836,19 @@ fun default_heuristic_solver asl app_spec =
          - not efficient *)
 
       (* Add a substitution to a map of substitutions *)
-      fun add_tms ({redex = x, residue = y}, tm_map) =
+      fun add_tms ({redex = (x:term), residue = y}, tm_map) =
 	case Redblackmap.peek (tm_map, x) of
-	    SOME y' => if y = y' then tm_map else failwith ""
+	    SOME y' => (case Term.compare (y,y') of EQUAL => tm_map | _ => failwith "")
 	  | NONE => Redblackmap.insert (tm_map, x, y)
 
-      fun add_tmsl tmsl tm_map =
-	List.foldr add_tms (Redblackmap.mkDict Term.compare) tmsl
+      fun add_tmsl tmsl tm_map = List.foldr add_tms tm_map tmsl
 
       fun add_tys ({redex = x, residue = y}, ty_map) =
-	case Redblackmap.peek (ty_map, dest_vartype x) of
-	    SOME y' => if y = y' then ty_map else failwith ""
-	  | NONE => Redblackmap.insert (ty_map, dest_vartype x, y)
+	case Redblackmap.peek (ty_map, x) of
+	    SOME y' => (case Type.compare (y,y') of EQUAL => ty_map | _ => failwith "")
+	  | NONE => Redblackmap.insert (ty_map, x, y)
 
-      fun add_tysl tysl ty_map =
-	List.foldr add_tys (Redblackmap.mkDict String.compare) tysl
-
-      (* Create maps from sybstitutions lists *)
-      fun map_from_tms tms =
-	add_tmsl tms (Redblackmap.mkDict Term.compare)
-
-      fun map_from_tys tys =
-	add_tysl tys (Redblackmap.mkDict String.compare)
+      fun add_tysl tysl ty_map = List.foldr add_tys ty_map tysl
 
       (* Recursive (and exhaustive) search *)
       fun rec_search (tm_map, ty_map) (insts::pos_insts) =
@@ -877,13 +868,13 @@ fun default_heuristic_solver asl app_spec =
 	| rec_search (tm_map, ty_map) [] = (tm_map, ty_map)
 
       val (tm_inst, ty_inst) = rec_search (Redblackmap.mkDict Term.compare,
-					Redblackmap.mkDict String.compare)
+					Redblackmap.mkDict Type.compare)
 				       pos_insts
 
       (* Convert the maps to proper substitutions *)
-      val tm_subst = List.map (fn (x, y) => (x |-> y)) (Redblackmap.listItems tm_inst)
-      val ty_subst = List.map (fn (x, y) => (mk_vartype x |-> y))
-			      (Redblackmap.listItems ty_inst)
+      val tm_subst = List.map (op |->) (Redblackmap.listItems tm_inst)
+      val ty_subst = List.map (op |->) (Redblackmap.listItems ty_inst)
+
   in
       (tm_subst, ty_subst)
   end;
@@ -1188,7 +1179,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 				dest_comb |> fst |> dest_comb |> snd
       val rw_app_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) app_pre |> concl |> dest_eq |> snd)
       val rw_let_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) let_pre |> concl |> dest_eq |> snd)
-      val (vars_subst, frame_hpl, []) = match_heap_conditions let_pre app_pre
+      val (vars_subst, frame_hpl, rest) = match_heap_conditions let_pre app_pre
+      val () = if List.null rest then () else raise ERR "xlet_simp_spec" "cannot extract frame"
 
       (* Change the assumptions in the spec *)
       val final_spec = MP_ASSUML rw_asl simp_app_spec
@@ -1317,8 +1309,8 @@ fun xlet_find_auto (g as (asl, w)) =
 		      xlet_app_auto let_expr env pre NONE g
 	      in c end
 	      handle XLET_ERR app_spec =>
-		     (print "xlet_find_auto: unable to instantiate the specification, adding it to the assumptions";
-		      concl app_spec)
+		     (print_term (concl app_spec);
+          raise ERR "xlet_find_auto" "unable to instantiate the specification")
 	  else
 	      raise (ERR "xlet_find_auto" "Not handled yet")
       end
@@ -1345,11 +1337,10 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
 	  else if is_cf_app_aux let_expr then
 	      let val (H, c) =
 		      xlet_app_auto let_expr env pre opt_spec g
-	      in (xlet `^c` THENL [xapp_spec H, all_tac]) g end
+	      in (xlet `^c` THEN_LT (NTH_GOAL (xapp_spec H) 1)) g end
 	      handle XLET_ERR app_spec =>
-		     (print ("xlet_auto_spec: unable to instantiate the specification"
-		            ^"adding it to the assumptions");
-		      ASSUME_TAC app_spec g)
+		     (print_term (concl app_spec);
+          raise ERR "xlet_auto_spec" "unable to instantiate the specification")
 	  else
 	      raise (ERR "xlet_auto_spec" "Not handled yet")
       end
