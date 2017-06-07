@@ -326,19 +326,19 @@ val write_err_spec = Q.store_thm ("write_err_spec",
  * Theorems used by xlet_auto
  *)
 
-val UNIQUE_STDOUT = Q.store_thm("UNIQUE_STDOUT",
+val UNIQUE_STDOUT = Q.store_thm("UNIQUE_STDOUT[hprop_inj]",
 `!s. VALID_HEAP s ==> !out1 out2 H1 H2. (STDOUT out1 * H1) s /\ (STDOUT out2 * H2) s ==> out2 = out1`,
 rw[STDOUT_def, cfHeapsBaseTheory.IOx_def, stdout_ffi_part_def, GSYM STAR_ASSOC] >>
 IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
 
-val UNIQUE_STDERR = Q.store_thm("UNIQUE_STDERR",
+val UNIQUE_STDERR = Q.store_thm("UNIQUE_STDERR[hprop_inj]",
 `!s. VALID_HEAP s ==> !err1 err2 H1 H2. (STDERR err1 * H1) s /\ (STDERR err2 * H2) s ==> err2 = err1`,
 rw[STDERR_def, cfHeapsBaseTheory.IOx_def, stderr_ffi_part_def, GSYM STAR_ASSOC] >>
 IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
 
-val UNIQUE_STDIN = Q.store_thm("UNIQUE_STDIN",
+val UNIQUE_STDIN = Q.store_thm("UNIQUE_STDIN[hprop_inj]",
 `!s H1 H2 in1 in2 b1 b2.
 VALID_HEAP s ==> (STDIN in1 b1 * H1) s /\ (STDIN in2 b2 * H2) s ==> in2 = in1 /\ b2 = b1`,
 rw[]
@@ -354,7 +354,7 @@ IMP_RES_TAC UNIQUE_W8ARRAYS >>
 rw[] >>
 Cases_on `b1` >> (Cases_on `b2` >> fs[]));
 
-val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
+val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE[hprop_inj]",
 `!s cl1 cl2 H1 H2. VALID_HEAP s ==>
 (COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
 rw[COMMANDLINE_def, cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def, encode_def, cfHeapsBaseTheory.encode_list_def, GSYM STAR_ASSOC] >>
@@ -367,10 +367,5 @@ sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
     Cases_on `l1` >-(fs[])>>  fs[]
 ) >>
 fs[]);
-
-val _ = add_frame_thms [UNIQUE_STDIN,
-			UNIQUE_STDOUT,
-			UNIQUE_STDERR,
-			UNIQUE_COMMANDLINE];
 
 val _ = export_theory()

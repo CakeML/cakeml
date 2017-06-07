@@ -5,8 +5,8 @@ signature cfLetAutoLib = sig
     val INTRO_REWRITE_CONV : thm list -> term list -> conv
     val INTRO_REWRITE_TAC : thm list -> tactic
 
-    val add_frame_thms : thm list -> unit
     val get_frame_thms : unit -> thm list
+    val export_frame_thms : string list -> unit
 
     val add_refinement_invariants : thm list -> thm list -> unit
     val get_RI_desl : unit -> thm list

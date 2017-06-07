@@ -3,7 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory mlcharioProgTheory rofsFFITheory
      cfLetAutoTheory cfLetAutoLib
-     
+
 val _ = new_theory"mlfileioProg";
 val _ = translation_extends "mlcharioProg";
 
@@ -721,12 +721,10 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
 val _ = ml_prog_update (close_module NONE);
 
 (* xlet_auto *)
-val UNIQUE_ROFS = Q.store_thm("UNIQUE_ROFS",
+val UNIQUE_ROFS = Q.store_thm("UNIQUE_ROFS[hprop_inj]",
 `!s fs1 fs2 H1 H2. VALID_HEAP s ==> (ROFS fs1 * H1) s /\ (ROFS fs2 * H2) s ==> fs2 = fs1`,
 rw[ROFS_def, cfHeapsBaseTheory.IOx_def, rofs_ffi_part_def, GSYM STAR_ASSOC] >>
 IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
-
-val _ = add_frame_thms [UNIQUE_ROFS];
 
 val _ = export_theory();

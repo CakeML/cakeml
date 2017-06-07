@@ -602,8 +602,14 @@ val FRAME_THMS = ref [UNIQUE_REFS,
 		      UNIQUE_W8ARRAYS
 		     ];
 
-fun add_frame_thms ths = FRAME_THMS := (ths @ !FRAME_THMS);
-fun get_frame_thms uv = !FRAME_THMS;
+fun add_frame_thms thyname named_thms = FRAME_THMS := ((List.map snd named_thms) @ !FRAME_THMS);
+fun get_frame_thms () = !FRAME_THMS;
+
+val {mk,dest,export} =
+  ThmSetData.new_exporter "hprop_inj"
+    add_frame_thms
+
+fun export_frame_thms slist = List.app export slist
 
 (* Refinement invariants: definitions *)
 val RI_DEFSL = ref ([] : thm list);
