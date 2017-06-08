@@ -17,6 +17,9 @@ val _ = trans ">" `string$char_gt`
 val _ = trans "<=" `string$char_le`
 val _ = trans ">=" `string$char_ge`
 
+val _ = next_ml_names := ["isSpace"];
+val res = translate stringTheory.isSpace_def;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory()

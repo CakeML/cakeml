@@ -20,12 +20,6 @@ val insert_line_def = Define`
   insert_line t s =
      FOLDL insert_word t (tokens isSpace s)`;
 
-(* TODO: this should go back to mlstringTheory? *)
-val good_cmp_compare = Q.store_thm("good_cmp_compare",
-  `good_cmp compare`,
-  match_mp_tac comparisonTheory.TotOrder_imp_good_cmp \\
-  MATCH_ACCEPT_TAC TotOrd_compare);
-(* -- *)
 
 val key_set_compare_unique = Q.store_thm("key_set_compare_unique[simp]",
   `key_set compare k = {k}`,

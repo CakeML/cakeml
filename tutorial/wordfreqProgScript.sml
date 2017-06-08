@@ -32,9 +32,6 @@ val res = translate balanced_mapTheory.insert_def;
 
 val res = translate lookup0_def;
 val res = translate insert_word_def;
-(* TODO: want this in the basis *)
-val res = translate stringTheory.isSpace_def;
-(* -- *)
 val res = translate insert_line_def;
 
 (* TODO: possible extension: pad the word so the colons will line up *)
@@ -150,11 +147,6 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   cheat);
 *)
 
-(* TODO: make these automatic rewrites *)
-val _ = export_rewrites["mlstring.explode_implode"];
-val strlen_implode = Q.store_thm("strlen_implode[simp]",
-  `strlen (implode s) = LENGTH s`, EVAL_TAC);
-(* -- *)
 (* TODO: move *)
 val FILENAME_UNICITY_R = Q.store_thm("FILENAME_UNICITY_R",
   `FILENAME s v ⇒ (FILENAME s v' ⇔ v = v')`,
