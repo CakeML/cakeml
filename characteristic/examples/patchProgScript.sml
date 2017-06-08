@@ -2,11 +2,10 @@ open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
      charsetTheory diffTheory mlstringTheory
-     inputLinesProgTheory;
 
 val _ = new_theory "patchProg";
 
-val _ = translation_extends"inputLinesProg";
+val _ = translation_extends"ioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -22,6 +21,8 @@ fun def_of_const tm = let
   in def end
 
 val _ = find_def_for_const := def_of_const;
+
+(* TODO: a better version of num_from_dec_string should be in the basis library, Int.fromString *)
 
 (* Circumvents a problem where the translator generates unprovable side conditions
    for higher-order functions *)
@@ -51,7 +52,7 @@ val unhex_side = Q.prove(`!c. unhex_side c <=> isHexDigit c`,
 val unhex_all_side = Q.prove(`!s. unhex_all_side s <=> EVERY isHexDigit s`,
   Induct >> PURE_ONCE_REWRITE_TAC[fetch "-" "unhex_all_side_def"]>> fs[unhex_side])
   |> update_precondition;
-                        
+
 val s2n_unhex_side_IMP = Q.prove(`∀n s. n <> 0 ==> s2n_unhex_side n s = EVERY isHexDigit s`,
   rpt strip_tac
   >> rw[Once(fetch "-" "s2n_unhex_side_def"),l2n_side_IMP,unhex_all_side,EVERY_REVERSE]);
@@ -81,7 +82,8 @@ val tokens_sum_less_eq = Q.prove(`!s f. SUM(MAP strlen (tokens f s)) <= strlen s
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> fs[] >> Cases_on `l` >> rw[] >> rfs[]
   >> fs[SPLITP_NIL_FST] >> fs[SPLITP] >> every_case_tac
-  >> PURE_ONCE_REWRITE_TAC[SPLITP_LENGTH] >> fs[strlen_def,implode_def]);
+  >> fs[] >> rveq
+  >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[SPLITP_LENGTH])) >> fs[]);
 
 val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
@@ -89,7 +91,7 @@ val tokens_not_nil = Q.prove(`!s f. EVERY (\x. x <> strlit "") (tokens f s)`,
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
   >> fs[implode_def]);
-  
+
 val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s`,
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq
   >> qspecl_then [`s`,`f`] assume_tac tokens_not_nil
@@ -132,10 +134,10 @@ val r = translate rejected_patch_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
-    case inputLinesFrom fname1 of
+    case FileIO.inputLinesFrom fname1 of
         NONE => print_err (notfound_string fname1)
       | SOME lines1 =>
-        case inputLinesFrom fname2 of
+        case FileIO.inputLinesFrom fname2 of
             NONE => print_err (notfound_string fname2)
           | SOME lines2 =>
             case patch_alg lines2 lines1 of
@@ -231,9 +233,7 @@ val _ = (append_prog o process_topdecs) `
       | _ => print_err usage_string`
 
 val patch_spec = Q.store_thm("patch_spec",
-`  cl <> [] /\ EVERY validArg cl
-   /\ LENGTH (FLAT cl) + LENGTH cl ≤ 256
-   /\ CARD (set (MAP FST fs.infds)) < 255
+  `CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch"(get_ml_prog_state()))
      [Conv NONE []]
@@ -259,12 +259,10 @@ val patch_spec = Q.store_thm("patch_spec",
   strip_tac \\ xcf "patch" (get_ml_prog_state())
   \\ xlet `POSTv v. &UNIT_TYPE () v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xapp \\ instantiate \\ xsimpl
-      \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF] (* TODO: this is duplicated in catProg and bootstrap and grepProg and diffProg and now also here *)
-      \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
-      \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
-      \\ simp[MAP_K_REPLICATE,SUM_REPLICATE,GSYM LENGTH_FLAT])
+  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
   \\ Cases_on `cl` \\ fs[]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
@@ -288,8 +286,7 @@ val patch_spec = Q.store_thm("patch_spec",
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
   \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
-  \\ qpat_abbrev_tac `a1 = STDOUT _` \\ xsimpl);
+  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
 
 val st = get_ml_prog_state();
 
@@ -298,13 +295,13 @@ val spec = patch_spec |> UNDISCH |> ioProgLib.add_basis_proj
 val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
 
 val patch_prog_def = Define`patch_prog = ^prog_tm`;
-                                           
+
 val patch_semantics = save_thm("patch_semantics",
   sem_thm
   |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
-  |> REWRITE_RULE[AND_IMP_INTRO]
+  |> ONCE_REWRITE_RULE[AND_IMP_INTRO]
   |> CONV_RULE(LAND_CONV EVAL)
   |> SIMP_RULE(srw_ss())[]);
-                                           
+
 val _ = export_theory ();

@@ -1,7 +1,8 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib
-     mlstringTheory rofsFFITheory mlfileioProgTheory
+     mlstringTheory rofsFFITheory
+     mlfileioProgTheory mlcommandLineProgTheory
      ioProgTheory basisFunctionsLib ioProgLib
 
 val _ = new_theory "catProg"
@@ -254,9 +255,7 @@ val _ = append_prog cat_main;
 val st = get_ml_prog_state();
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
-  `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
-  (* TODO: package the above assumptions up better? e.g. inside COMMANDLINE *)
-   EVERY (inFS_fname fs) (MAP implode (TL cl)) ∧
+  `EVERY (inFS_fname fs) (MAP implode (TL cl)) ∧
    CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
@@ -268,15 +267,15 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xmatch
   \\ xlet`POSTv uv. &UNIT_TYPE () uv * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
+  \\ fs[wfcl_def]
   \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDOUT out * ROFS fs * COMMANDLINE cl`
   >- (
     xapp (* TODO: this fails in obscure ways if 'ffi is replaced by 'a in the goal. this is too fragile *)
-    \\ instantiate
     \\ xsimpl
-    \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF]
-    \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
-    \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
-    \\ simp[MAP_K_REPLICATE,SUM_REPLICATE,GSYM LENGTH_FLAT])
+    \\ simp[MAP_TL]
+    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl`
+    \\ xsimpl )
   \\ xapp
   \\ instantiate
   \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
@@ -289,7 +288,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
   \\ Cases_on`cl` \\ fs[]);
 
-val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL 
+val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
             |> SIMP_RULE std_ss [Once STAR_ASSOC] |> add_basis_proj;
 val name = "cat_main"
 val (semantics_thm,prog_tm) = call_thm st name spec
@@ -299,7 +298,7 @@ val cat_semantics_thm =
   semantics_thm
   |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def]
+  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,wfcl_def]
   |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();
