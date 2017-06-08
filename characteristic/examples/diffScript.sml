@@ -555,9 +555,10 @@ val patch_aux_cancel_base_case = Q.prove(
          diff_add_prefix_def,depatch_lines_strcat_cancel,
          GSYM MAP_TAKE,GSYM MAP_DROP,DROP_APPEND,TAKE_APPEND]
   >> rw[]
-  >> fs[DROP_LENGTH_TOO_LONG,TAKE_LENGTH_TOO_LONG,patch_aux_def,quantHeuristicsTheory.LIST_LENGTH_0,
+  >> fs[DROP_LENGTH_TOO_LONG,TAKE_LENGTH_TOO_LONG,patch_aux_def,
+        quantHeuristicsTheory.LIST_LENGTH_0,
         DROP_APPEND,depatch_lines_strcat_cancel]
-  >> `LENGTH r = 1` by (Cases_on `r` >> fs[])
+  >> `LENGTH r = 1` by (Cases_on `LENGTH r` >> fs[])
   >> fs[depatch_lines_strcat_cancel]);
 
 val SPLITP_NIL_FST = Q.store_thm("SPLITP_NIL_FST",
@@ -638,7 +639,7 @@ val list_nil_sub_length = Q.prove(`l ≠ [] ==> (1 - LENGTH l = 0)`,
   Cases_on `l` >> fs[])
 
 val list_length_1_lemma = Q.prove(`l ≠ [] /\ LENGTH l <= 1 ==> LENGTH l = 1`,
-  Cases_on `l` >> fs[])
+  Cases_on `LENGTH l` >> fs[])
 
 val minus_add_too_large = Q.prove(`a - ((a:num) + n) = 0`,intLib.COOPER_TAC);
 

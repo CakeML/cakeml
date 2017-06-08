@@ -2,6 +2,7 @@ open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
      stdinFFITheory stdoutFFITheory stderrFFITheory mlcommandLineProgTheory
+     cfLetAutoLib cfLetAutoTheory commandLineFFITheory
 
 val _ = new_theory "mlcharioProg";
 
@@ -320,5 +321,56 @@ val write_err_spec = Q.store_thm ("write_err_spec",
     \\ unabbrev_all_tac \\ EVAL_TAC
     \\ simp[ORD_BOUND,CHR_ORD])
   \\ xret \\ xsimpl);
+
+(*
+ * Theorems used by xlet_auto
+ *)
+
+val UNIQUE_STDOUT = Q.store_thm("UNIQUE_STDOUT",
+`!s. VALID_HEAP s ==> !out1 out2 H1 H2. (STDOUT out1 * H1) s /\ (STDOUT out2 * H2) s ==> out2 = out1`,
+rw[STDOUT_def, cfHeapsBaseTheory.IOx_def, stdout_ffi_part_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
+fs[]);
+
+val UNIQUE_STDERR = Q.store_thm("UNIQUE_STDERR",
+`!s. VALID_HEAP s ==> !err1 err2 H1 H2. (STDERR err1 * H1) s /\ (STDERR err2 * H2) s ==> err2 = err1`,
+rw[STDERR_def, cfHeapsBaseTheory.IOx_def, stderr_ffi_part_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
+fs[]);
+
+val UNIQUE_STDIN = Q.store_thm("UNIQUE_STDIN",
+`!s H1 H2 in1 in2 b1 b2.
+VALID_HEAP s ==> (STDIN in1 b1 * H1) s /\ (STDIN in2 b2 * H2) s ==> in2 = in1 /\ b2 = b1`,
+rw[]
+>-(
+    fs[STDIN_def, cfHeapsBaseTheory.IOx_def, stdin_ffi_part_def, GSYM STAR_ASSOC] >>
+    IMP_RES_TAC FRAME_UNIQUE_IO >>
+    fs[]
+) >>
+fs[STDIN_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+`(W8ARRAY read_state_loc [w; if b1 then 1w else 0w] * (IOx stdin_ffi_part in1 * H1)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
+`(W8ARRAY read_state_loc [w'; if b2 then 1w else 0w] * (IOx stdin_ffi_part in2 * H2)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
+IMP_RES_TAC UNIQUE_W8ARRAYS >>
+rw[] >>
+Cases_on `b1` >> (Cases_on `b2` >> fs[]));
+
+val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
+`!s cl1 cl2 H1 H2. VALID_HEAP s ==>
+(COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
+rw[COMMANDLINE_def, cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def, encode_def, cfHeapsBaseTheory.encode_list_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
+fs[] >> rw[] >>
+sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
+>-(
+    Induct_on `l2` >-(rw[])>>
+    rw[] >> fs[] >>
+    Cases_on `l1` >-(fs[])>>  fs[]
+) >>
+fs[]);
+
+val _ = add_frame_thms [UNIQUE_STDIN,
+			UNIQUE_STDOUT,
+			UNIQUE_STDERR,
+			UNIQUE_COMMANDLINE];
 
 val _ = export_theory()

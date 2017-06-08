@@ -776,14 +776,19 @@ val length_arm6_encode = Q.prove(
   \\ fs [arm6_encode_def]
   )
 
+val arm6_encode_not_nil = Q.prove(
+  `(!c i. arm6_encode1 c i <> []) /\ (!l. (arm6_encode l <> []) = (l <> []))`,
+  simp_tac std_ss
+    [GSYM listTheory.LENGTH_NIL, length_arm6_encode1, length_arm6_encode])
+
 val arm6_encoding = Q.prove (
-   `!i. let n = LENGTH (arm6_enc i) in (n MOD 4 = 0) /\ n <> 0`,
+   `!i. let l = arm6_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ simp [arm6_enc_def, arm6_cmp_def, arm6_encode_fail_def,
             length_arm6_encode1, length_arm6_encode]
    \\ REPEAT CASE_TAC
-   \\ rw [length_arm6_encode, length_arm6_encode1]
+   \\ rw [length_arm6_encode, length_arm6_encode1, arm6_encode_not_nil]
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 

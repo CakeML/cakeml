@@ -1,6 +1,5 @@
 open preamble wordLangTheory stackLangTheory sortingTheory;
 
-val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};

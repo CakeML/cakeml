@@ -286,7 +286,7 @@ val TAKE_DROP_EQ = Q.prove(
 
 val DROP_TAKE_NIL = Q.prove(
   `DROP n (TAKE n xs) = []`,
-  fs [GSYM LENGTH_NIL,LENGTH_TAKE_EQ] >> simp[]);
+  rw[DROP_NIL,LENGTH_TAKE_EQ]);
 
 val TAKE_LUPDATE = Q.store_thm("TAKE_LUPDATE[simp]",
   `!xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)`,
@@ -5388,6 +5388,7 @@ val comp_correct = Q.store_thm("comp_correct",
          (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
           (fs[convs_def]>>
           qpat_x_assum`args = A` SUBST_ALL_TAC>>
+          `LENGTH args <> 0` by (strip_tac \\ fs[]) >>
           drule LAST_GENLIST_evens>>
           LET_ELIM_TAC>>simp[]>>
           Cases_on`reg`>>fs[]>>
@@ -5677,6 +5678,7 @@ val comp_correct = Q.store_thm("comp_correct",
           fsrw_tac[][]>>simp[]>>
           fsrw_tac[][state_rel_def]>>
           `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
+          full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
           simp[EL_TAKE])>>
         imp_res_tac stackPropsTheory.evaluate_add_clock>>
         ntac 3 (pop_assum kall_tac)>>
@@ -5824,6 +5826,7 @@ val comp_correct = Q.store_thm("comp_correct",
          (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
           (fsrw_tac[][convs_def]>>
           qpat_x_assum`args = A` SUBST_ALL_TAC>>
+          full_simp_tac std_ss [GSYM LENGTH_NIL] >>
           drule LAST_GENLIST_evens>>
           LET_ELIM_TAC>>simp[]>>
           Cases_on`reg`>>fsrw_tac[][]>>
@@ -6150,7 +6153,17 @@ val comp_correct = Q.store_thm("comp_correct",
           (ntac 30 (pop_assum mp_tac)>>
           rpt (pop_assum kall_tac)>>
           simp[])>>
-        simp[])>>
+        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+        rename1`ls = []` >>
+        qpat_x_assum`LENGTH ls = _`mp_tac >>
+        Cases_on`ls` >> simp_tac(srw_ss())[] >>
+        `SUC n' + 1 + k - (n DIV 2 + 1) = SUC (k + SUC n' - (n DIV 2 + 1))`
+        by (
+          ntac 30 (pop_assum mp_tac) >>
+          rpt(pop_assum kall_tac) >>
+          rw[]) >>
+        pop_assum SUBST1_TAC >>
+        simp_tac(srw_ss())[])>>
         imp_res_tac stackPropsTheory.evaluate_add_clock>>
         ntac 4 (pop_assum kall_tac)>>
         rveq>>fsrw_tac[][]>>
@@ -6282,6 +6295,8 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[LENGTH_TAKE,EL_TAKE]>>
         Cases_on`LENGTH x`>>fs[]>>
         simp[]>>
+        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+        rename1`ls = []` >> Cases_on`ls` \\ fs[] >>
         `k + (SUC n'+1) - SUC(n DIV 2) = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
         simp[EL_TAKE])>>
       imp_res_tac stackPropsTheory.evaluate_add_clock>>

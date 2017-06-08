@@ -274,7 +274,7 @@ val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
       \\ `LENGTH r = 1` by rw[]
       \\ Cases_on `TL r` >-(rw[TOKENS_def])
-      \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
+      \\ rw[] \\ fs[])
     >-(fs[ADD1]
       \\ `x0 = implode [EL n s']` by fs[implode_explode] \\ rw[explode_implode]
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]

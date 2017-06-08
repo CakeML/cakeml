@@ -433,6 +433,7 @@ srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
+rw[] >> fs[] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
 val deBruijn_subst_id = Q.store_thm ("deBruijn_subst_id",
@@ -2217,12 +2218,14 @@ val type_ds_no_dup_types = Q.store_thm ("type_ds_no_dup_types",
      every_case_tac >>
      full_simp_tac(srw_ss())[MEM_MAP] >>
      srw_tac[][] >>
+     rename [`MEM (Dtype locs l) ds`] >>
      FIRST_X_ASSUM (qspecl_then [`MAP (mk_id mn o FST o SND) l`] mp_tac) >>
      srw_tac[][]
-     >- (qexists_tac `Dtype p l` >>
+     >- (qexists_tac `Dtype locs l` >>
          srw_tac[][LAMBDA_PROD, combinTheory.o_DEF])
      >- (srw_tac[][combinTheory.o_DEF, MEM_MAP, EXISTS_PROD] >>
          srw_tac[][LAMBDA_PROD] >>
+         rename [`UNCURRY _ y`] >>
          PairCases_on `y` >>
          full_simp_tac(srw_ss())[] >>
          metis_tac []))

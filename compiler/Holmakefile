@@ -1,6 +1,9 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../semantics parsing inference backend\
-					 backend/reg_alloc encoders/asm backend/x64
+					 backend/reg_alloc encoders/asm\
+					 backend/arm6 backend/arm8\
+					 backend/mips backend/riscv\
+					 backend/x64
 
 all: compilerTheory.uo compilationLib.uo
 .PHONY: all

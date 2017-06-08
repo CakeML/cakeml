@@ -7,4 +7,4 @@ let rec repeat x n =
   then []
   else (x::(repeat x (n - 1)));;
 
-let test = foldl (fun x -> fun y -> x + (foldl (fun x -> fun y -> x+y) 0 y)) 0 (repeat (repeat 1 15000) 15000);;
+let test = foldl (fun x -> fun y -> x + (foldl (fun x -> fun y -> x+y) 0 y)) 0 (repeat (repeat 1 40000) 40000);;

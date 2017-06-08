@@ -7,7 +7,7 @@ val _ = new_theory "ioProg"
 
 val _ = translation_extends "mlfileioProg";
 
-val write_list = normalise_topdecs
+val write_list = process_topdecs
   `fun write_list xs =
      case xs of
          [] => ()
@@ -15,7 +15,7 @@ val write_list = normalise_topdecs
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
-val write_err_list = normalise_topdecs
+val write_err_list = process_topdecs
   `fun write_err_list xs =
      case xs of
          [] => ()
@@ -73,7 +73,7 @@ val write_err_list_spec = Q.store_thm ("write_err_list_spec",
   \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ xsimpl);
 
-val read_all = normalise_topdecs
+val read_all = process_topdecs
   `fun read_all cs =
     let
       val u = ()

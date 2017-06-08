@@ -134,8 +134,6 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
     Induct_on `LENGTH elem_vs2` >>
     rw []
     >- ( (* Base case: we've come to the end of the array *)
-      Cases_on `elem_vs2` >>
-      fs [GSYM LENGTH_NIL] >>
       xapp >>
       xlet `POSTv len_v.
             ARRAY arr_v (elem_vs1) *
@@ -150,18 +148,17 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
       >- (
         xapp >>
         xsimpl >>
-        fs [INT_def, NUM_def, GSYM LENGTH_NIL, arith]) >>
+        fs [INT_def, NUM_def, arith]) >>
       xlet `POSTv b_v. ARRAY arr_v elem_vs1 * &BOOL F b_v`
       >- (
         xapp >>
         xsimpl >>
-        fs [INT_def, NUM_def, BOOL_def, GSYM LENGTH_NIL]) >>
+        fs [INT_def, NUM_def, BOOL_def]) >>
       xif >>
       qexists_tac `F` >>
       rw [] >>
       xret >>
       xsimpl >>
-      Cases_on `elems2` >>
       fs [] >>
       qexists_tac `elems1` >>
       rw [] >>
@@ -181,12 +178,13 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def, NUM_def, GSYM LENGTH_NIL, arith]) >>
+      fs [INT_def, NUM_def, arith]) >>
     xlet `POSTv b_v. ARRAY arr_v (elem_vs1 ++ elem_vs2) * &BOOL T b_v`
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def, NUM_def, BOOL_def, GSYM LENGTH_NIL]) >>
+      fs [INT_def, NUM_def, BOOL_def] >>
+      Cases_on`LENGTH elem_vs1` \\ fs[]) >>
     xif >>
     qexists_tac `T` >>
     rw [] >>
@@ -197,7 +195,7 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def, GSYM LENGTH_NIL, arith]) >>
+      fs [INT_def, arith]) >>
     xlet `POSTv cc_v. ARRAY arr_v (elem_vs1 ++ elem_vs2) * &(cc_v = HD elem_vs2)`
     >- (
       xapp >>
@@ -228,11 +226,8 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
       gen_tac >>
       Induct_on `LENGTH sorted_vs1` >>
       rw [] >>
-      fs [GSYM LENGTH_NIL] >>
       last_x_assum xapp_spec
       >- ( (* Base case, we've run off the array  *)
-        `sorted_vs1 = []` by metis_tac [LENGTH_NIL] >>
-        fs [] >>
         xlet `POSTv b_v2. ARRAY arr_v (junk :: sorted_vs2 ++ TL elem_vs2) * &BOOL F b_v2`
         >- (
           xapp >>
@@ -276,8 +271,11 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
         xsimpl >>
         qexists_tac `&(LENGTH sorted_vs1 - 1)` >>
         simp [] >>
-        fs [NUM_def, INT_def, EL_APPEND1, LAST_EL, PRE_SUB1, GSYM LENGTH_NIL,
-            arith]) >>
+        qpat_x_assum`_ = LENGTH sorted_vs1`(assume_tac o SYM) \\ fs[] >>
+        fs[EL_APPEND1, NUM_def, INT_def, ADD1, arith, LAST_EL, PRE_SUB1] >>
+        conj_tac >- intLib.COOPER_TAC >>
+        Q.ISPEC_THEN`sorted_vs1`mp_tac LAST_EL >> simp[PRE_SUB1] >>
+        impl_tac >- (strip_tac \\ fs[]) \\ simp[]) >>
       xlet `POSTv b_v3. ARRAY arr_v (sorted_vs1 ++ [junk] ++ sorted_vs2 ++ TL elem_vs2) *
               &BOOL (cmp (HD elems2) (LAST sorted1)) b_v3`
       >- (
@@ -327,8 +325,7 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
           `sorted1 ≠ []` by metis_tac [LENGTH_NIL, LIST_REL_LENGTH] >>
           fs [list_rel_front, LENGTH_NIL] >>
           fs [INT_def, LENGTH_FRONT, PRE_SUB1] >>
-          rw [] >>
-          fs [GSYM LENGTH_NIL, arith]
+          rw [] >> fs [ arith]
           >- intLib.ARITH_TAC >>
           metis_tac [LENGTH_NIL, APPEND_FRONT_LAST, APPEND, APPEND_ASSOC]) >>
         disch_then xapp_spec >>
@@ -396,7 +393,7 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
       xapp >>
       xsimpl >>
       MAP_EVERY qexists_tac [`[]`, `elem_vs1`, `[]`, `elems1`, `HD elem_vs2`] >>
-      fs [INT_def, GSYM LENGTH_NIL] >>
+      fs [INT_def] >>
       simp [arith] >>
       Cases_on `elem_vs2` >>
       fs []) >>
@@ -405,7 +402,7 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def, GSYM LENGTH_NIL] >>
+      fs [INT_def] >>
       simp [arith]) >>
     (* Call the outer loop recursively *)
     xapp >>

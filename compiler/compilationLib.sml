@@ -1,6 +1,10 @@
 structure compilationLib = struct
 
 open preamble backendTheory
+     arm6_compileLib arm6_exportLib
+     arm8_compileLib arm8_exportLib
+     mips_compileLib mips_exportLib
+     riscv_compileLib riscv_exportLib
      x64_compileLib x64_exportLib
 
 val _ = Globals.max_print_depth := 20;
@@ -269,17 +273,24 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
       ["mod_prog","con_prog","dec_prog","exh_prog","pat_prog","clos_prog","bvl_prog","bvi_prog"]
   in to_data_thm end
 
-fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
+fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
   let
     val cs = compilation_compset()
     val () =
       computeLib.extend_compset [
         computeLib.Extenders [
-          x64_targetLib.add_x64_encode_compset ],
+          arm6_targetLib.add_arm6_encode_compset,
+          arm8_targetLib.add_arm8_encode_compset,
+          mips_targetLib.add_mips_encode_compset,
+          riscv_targetLib.add_riscv_encode_compset,
+          x64_targetLib.add_x64_encode_compset],
         computeLib.Defs [
-          x64_backend_config_def,
-          x64_names_def,
-          data_prog_x64_def ]
+          arm6_backend_config_def, arm6_names_def,
+          arm8_backend_config_def, arm8_names_def,
+          mips_backend_config_def, mips_names_def,
+          riscv_backend_config_def, riscv_names_def,
+          x64_backend_config_def, x64_names_def,
+          data_prog_def ]
       ] cs
     val eval = computeLib.CBV_CONV cs;
     fun parl f = parlist (!num_threads) (!chunk_size) f
@@ -299,7 +310,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
           PATH_CONV "rlrraraalralrarllr" eval THENC
           PATH_CONV"rlrraraalralralralralrar"
             (RATOR_CONV(RATOR_CONV(RAND_CONV eval)) THENC
-             REWR_CONV(CONJUNCT1 bool_case_thm)))
+             (FIRST_CONV (map REWR_CONV (CONJUNCTS bool_case_thm)))))
     val tm0 = to_livesets_thm0 |> rconc |> rand |> rand
     val thm0 = timez "data_to_word" eval tm0;
 
@@ -382,11 +393,11 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
       |> rconc |> pairSyntax.dest_pair |> #1
       |> time_with_size term_size "external oracle" (reg_allocComputeLib.get_oracle 3)
 
-    val x64_oracle_def = mk_abbrev"x64_oracle" oracles;
+    val oracle_def = mk_abbrev"oracle" oracles;
 
     val wc =
       ``^conf_tm.word_to_word_conf
-        with col_oracle := x64_oracle``
+        with col_oracle := oracle``
       |> eval |> rconc
 
     val args = to_livesets_thm |> concl |> lhs |> strip_comb |> #2
@@ -426,34 +437,34 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
       |> CONJUNCT1
       |> C TRANS LENGTH_word_prog1
       |> MATCH_MP ZIP_GENLIST1
-      |> ISPEC (lhs(concl(x64_oracle_def)))
+      |> ISPEC (lhs(concl(oracle_def)))
 
-    val x64_oracle_list_def = mk_abbrev"x64_oracle_list" (x64_oracle_def |> rconc |> rand);
-    val temp_defs = (mk_abbrev_name"x64_oracle_list") :: temp_defs
+    val oracle_list_def = mk_abbrev"oracle_list" (oracle_def |> rconc |> rand);
+    val temp_defs = (mk_abbrev_name"oracle_list") :: temp_defs
 
-    val x64_oracle_thm = Q.prove(
-      `n < LENGTH x64_oracle_list ⇒
-       (x64_oracle n = SOME (EL n x64_oracle_list))`,
+    val oracle_thm = Q.prove(
+      `n < LENGTH oracle_list ⇒
+       (oracle n = SOME (EL n oracle_list))`,
       strip_tac
       \\ CONV_TAC(LAND_CONV(
-           RATOR_CONV(REWR_CONV x64_oracle_def THENC
+           RATOR_CONV(REWR_CONV oracle_def THENC
                       REWR_CONV LET_THM THENC
-                      (RAND_CONV(REWR_CONV(SYM x64_oracle_list_def))) THENC
+                      (RAND_CONV(REWR_CONV(SYM oracle_list_def))) THENC
                       BETA_CONV)
            THENC BETA_CONV))
       \\ rw[]);
 
-    val LENGTH_x64_oracle_list =
-      listSyntax.mk_length(lhs(concl(x64_oracle_list_def)))
-      |> (RAND_CONV(REWR_CONV x64_oracle_list_def) THENC
+    val LENGTH_oracle_list =
+      listSyntax.mk_length(lhs(concl(oracle_list_def)))
+      |> (RAND_CONV(REWR_CONV oracle_list_def) THENC
           listLib.LENGTH_CONV)
 
     val GENLIST_EL_ZIP_lemma = Q.prove(
-      `(LENGTH l1 = n) ∧ (LENGTH l2 = n) ∧ (LENGTH x64_oracle_list = n) ⇒
-       (GENLIST (λx. f (x64_oracle x, EL x (ZIP (l1,l2)))) n =
-        MAP3 (λa (b1,b2,b3) (c1,c2,c3). f (SOME a, ((b1,b2,b3), (c1,c2,c3)))) x64_oracle_list l1 l2)`,
-      rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,x64_oracle_thm,UNCURRY])
-      |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_x64_oracle_list))
+      `(LENGTH l1 = n) ∧ (LENGTH l2 = n) ∧ (LENGTH oracle_list = n) ⇒
+       (GENLIST (λx. f (oracle x, EL x (ZIP (l1,l2)))) n =
+        MAP3 (λa (b1,b2,b3) (c1,c2,c3). f (SOME a, ((b1,b2,b3), (c1,c2,c3)))) oracle_list l1 l2)`,
+      rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
+      |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
 
     val compile_thm0 =
       compile_oracle |> SYM
@@ -494,15 +505,15 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
       let val tm = list_mk_comb(check_fn,[a,b,c])
       in eval tm end
 
-    val x64_oracle_list_els =
-      x64_oracle_list_def |> rconc |> listSyntax.dest_list |> #1
+    val oracle_list_els =
+      oracle_list_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog1_els =
        word_prog1_def |> rconc |> listSyntax.dest_list |> #1
     val word_prog0_els =
        word_prog0_def |> rconc |> listSyntax.dest_list |> #1
 
     val lss = zip3
-      (x64_oracle_list_els, word_prog1_els, word_prog0_els)
+      (oracle_list_els, word_prog1_els, word_prog0_els)
 
     val map3els = time_with_size thms_size "apply colour (par)"
                     (parl eval_fn) lss
@@ -548,7 +559,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
                RATOR_CONV(RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV(SYM check_fn_def))))) THENC
                RAND_CONV(REWR_CONV word_prog0_def) THENC
                RATOR_CONV(RAND_CONV(REWR_CONV word_prog1_thm)) THENC
-               RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV x64_oracle_list_def))) THENC
+               RATOR_CONV(RATOR_CONV(RAND_CONV(REWR_CONV oracle_list_def))) THENC
                timez "check colour" map3_conv)))
 
       val word_prog2_def = mk_abbrev"word_prog2" (compile_thm1 |> rconc |> rand);
@@ -729,7 +740,7 @@ fun compile_to_lab_x64 data_prog_x64_def to_data_thm =
              RAND_CONV(REWR_CONV stack_names_prog_def) THENC
              map_ths_conv ths)))
 
-      val lab_prog_def = mk_abbrev"lab_prog" (stack_to_lab_thm4 |> rconc |> rand);
+      val lab_prog_def = mk_abbrev lab_prog_name (stack_to_lab_thm4 |> rconc |> rand);
 
       val stack_to_lab_thm =
         stack_to_lab_thm4 |>
@@ -1359,17 +1370,15 @@ fun cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
       CONV_RULE(RAND_CONV(RAND_CONV(REWR_CONV(SYM lab_prog_def))))
   in to_lab_thm2 end
 
-fun cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
+fun cbv_to_bytes
+      add_encode_compset backend_config_def names_def write_cake_S
+      stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
   let
     val cs = compilation_compset()
     val () =
       computeLib.extend_compset [
-        computeLib.Extenders [
-          x64_targetLib.add_x64_encode_compset ],
-        computeLib.Defs [
-          x64_backend_config_def,
-          x64_names_def,
-          lab_prog_def]
+        computeLib.Extenders [ add_encode_compset ],
+        computeLib.Defs [ backend_config_def, names_def, lab_prog_def]
       ] cs
     val eval = computeLib.CBV_CONV cs;
 
@@ -1380,23 +1389,58 @@ fun cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
     val (bytes_tm,ffi_names_tm) = extract_bytes_ffis bootstrap_thm
 
     val () = time (
-      x64_exportLib.write_cake_S stack_mb heap_mb
+      write_cake_S stack_mb heap_mb
         (extract_ffi_names ffi_names_tm) bytes_tm ) filename
   in
     bootstrap_thm
   end
 
-fun compile_x64 heap_size stack_size name prog_def =
+val cbv_to_bytes_arm8 =
+  cbv_to_bytes
+    arm8_targetLib.add_arm8_encode_compset
+    arm8_backend_config_def arm8_names_def
+    arm8_exportLib.write_cake_S
+
+val cbv_to_bytes_arm6 =
+  cbv_to_bytes
+    arm6_targetLib.add_arm6_encode_compset
+    arm6_backend_config_def arm6_names_def
+    arm6_exportLib.write_cake_S
+
+val cbv_to_bytes_mips =
+  cbv_to_bytes
+    mips_targetLib.add_mips_encode_compset
+    mips_backend_config_def mips_names_def
+    mips_exportLib.write_cake_S
+
+val cbv_to_bytes_riscv =
+  cbv_to_bytes
+    riscv_targetLib.add_riscv_encode_compset
+    riscv_backend_config_def riscv_names_def
+    riscv_exportLib.write_cake_S
+
+val cbv_to_bytes_x64 =
+  cbv_to_bytes
+    x64_targetLib.add_x64_encode_compset
+    x64_backend_config_def x64_names_def
+    x64_exportLib.write_cake_S
+
+val intermediate_prog_prefix = ref ""
+
+fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
   let
     val cs = compilation_compset()
-    val conf_def = x64_backend_config_def
-    val data_prog_name = "data_prog_x64"
+    val conf_def = backend_config_def
+    val data_prog_name = (!intermediate_prog_prefix) ^ "data_prog"
     val to_data_thm = compile_to_data cs conf_def prog_def data_prog_name
-    val data_prog_x64_def = definition(mk_abbrev_name data_prog_name)
-    val stack_to_lab_thm = compile_to_lab_x64 data_prog_x64_def to_data_thm
-    val lab_prog_def = definition(mk_abbrev_name"lab_prog")
-    val result = cbv_to_bytes_x64 stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
-  in result end
+    val data_prog_def = definition(mk_abbrev_name data_prog_name)
+    val lab_prog_name = (!intermediate_prog_prefix) ^ "lab_prog"
+    val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name
+    val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
+    val result = cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
+    val bytes_name = (!intermediate_prog_prefix) ^ "bytes"
+    val bytes_def = mk_abbrev bytes_name (result |> extract_bytes_ffis |> #1)
+  in result |> PURE_REWRITE_RULE[GSYM bytes_def] end
   (*
 val extract_oracle = find_term listSyntax.is_list o lhs o concl
 fun to_bytes alg conf prog =
@@ -1435,5 +1479,11 @@ val to_x64_bytes = to_bytes 3 ``x64_backend_config``
      result |> ONCE_REWRITE_RULE[SYM oracle_def, SYM bytes_def, SYM ffis_def, SYM prog_def]
   end
   *)
+
+val compile_arm6 = compile arm6_backend_config_def cbv_to_bytes_arm6
+val compile_arm8 = compile arm8_backend_config_def cbv_to_bytes_arm8
+val compile_mips = compile mips_backend_config_def cbv_to_bytes_mips
+val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv
+val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 
 end

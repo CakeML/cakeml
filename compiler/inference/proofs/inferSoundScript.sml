@@ -345,6 +345,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
    `t_wfs st''''.subst` by
      (imp_res_tac infer_e_wfs>>fs[])>>
    (*MAP2 looks nasty to work with...*)
+   rename [`ALL_DISTINCT (MAP FST l)`] >>
    qabbrev_tac `bindings = ZIP (MAP FST l,(MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH l))))`>>
    qmatch_asmsub_abbrev_tac`nsAppend (alist_to_ns mapp)`>>
    fs[]>>

@@ -1,6 +1,6 @@
 open preamble totoTheory comparisonTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holSyntaxExtra"
 
 val type_ind = save_thm("type_ind",

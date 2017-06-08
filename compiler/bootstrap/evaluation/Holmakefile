@@ -8,7 +8,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP)
+all: $(TARGETS) $(HOLHEAP) cake
 .PHONY: all
 
 BARE_THYS = ../translation/compiler_x64ProgTheory\
@@ -26,5 +26,11 @@ ifndef CC
 CC=gcc
 endif
 
-cake: cake.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o -o $@
+basis_ffi.c: ../../../basis/basis_ffi.c
+	$(CP) $< $@
+
+cake: cake.S basis_ffi.c x64BootstrapTheory.uo
+	$(CC) $< basis_ffi.c -o $@
+
+cake.tar.gz: cake.S basis_ffi.c Makefile
+	tar -czf $@ cake.S basis_ffi.c Makefile

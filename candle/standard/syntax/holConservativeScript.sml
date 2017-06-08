@@ -1,10 +1,4 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory pairTheory;
-open optionTheory alistTheory finite_mapTheory;
-open holSyntaxLibTheory;
-open holSyntaxTheory holSyntaxExtraTheory;
-
-val _ = temp_tight_equality();
-val every_case_tac = BasicProvers.EVERY_CASE_TAC;
+open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holConservative";
 

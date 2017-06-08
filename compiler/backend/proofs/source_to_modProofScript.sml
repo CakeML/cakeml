@@ -171,9 +171,7 @@ val env_rel_el = Q.prove (
     env_rel genv (alist_to_ns env) env_i1 ⇔
     LENGTH env = LENGTH env_i1 ∧ !n. n < LENGTH env ⇒ (FST (EL n env) = FST (EL n env_i1)) ∧ v_rel genv (SND (EL n env)) (SND (EL n env_i1))`,
   induct_on `env` >>
-  srw_tac[][v_rel_eqns]
-  >- (cases_on `env_i1` >>
-      full_simp_tac(srw_ss())[]) >>
+  srw_tac[][v_rel_eqns] >>
   PairCases_on `h` >>
   srw_tac[][v_rel_eqns] >>
   eq_tac >>

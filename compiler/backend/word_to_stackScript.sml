@@ -5,8 +5,6 @@ val _ = new_theory "word_to_stack";
 
 val _ = Datatype `config = <| bitmaps : 'a word list |>`;
 
-val _ = ParseExtras.tight_equality ();
-
 (* -- *)
 
 (* Here k = number of regsiters
