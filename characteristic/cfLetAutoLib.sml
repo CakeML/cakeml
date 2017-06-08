@@ -1162,7 +1162,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	     end handle HOL_ERR _ => app_spec
 	else app_spec (* instantiation is re-tested below *)
 
-      val hsimp_app_spec = heuristic_inst rw_asl_concl simp_app_spec
+      val hsimp_app_spec = heuristic_inst (rw_asl_concl@asl) simp_app_spec
 
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
