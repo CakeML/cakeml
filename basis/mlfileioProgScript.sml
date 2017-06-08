@@ -855,7 +855,7 @@ val FILENAME_STRING_UNICITY_L = Q.store_thm("FILENAME_STRING_UNICITY_L[xlet_auto
 `!f f' fv. FILENAME f fv ==> STRING_TYPE f fv ==> (STRING_TYPE f' fv <=> f' = f)`,
 filename_tac);
 
-val STRING_FILENAME_UNICITY_R = Q.store_thm("STRING_FILENAME_UNICITY_R",
+val STRING_FILENAME_UNICITY_R = Q.store_thm("STRING_FILENAME_UNICITY_R[xlet_auto_match]",
 `!f fv fv'. STRING_TYPE f fv ==> FILENAME f fv ==> (FILENAME f fv' <=> fv' = fv)`,
 filename_tac);
 
