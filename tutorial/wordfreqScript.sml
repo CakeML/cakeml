@@ -9,15 +9,6 @@ open preamble
 
 val _ = new_theory "wordfreq";
 
-(* TODO: move *)
-val lookup_insert = Q.store_thm("lookup_insert",
-  `good_cmp cmp ∧ invariant cmp t ⇒
-   lookup cmp k (insert cmp k' v t) =
-   if cmp k k' = Equal then SOME v else lookup cmp k t`,
-  rw[] \\ rw[lookup_thm,insert_thm,FLOOKUP_UPDATE] \\
-  metis_tac[key_set_eq,comparisonTheory.cmp_thms]);
-(* -- *)
-
 val lookup0_def = Define`
   lookup0 w t = case lookup compare w t of NONE => 0n | SOME n => n`;
 
