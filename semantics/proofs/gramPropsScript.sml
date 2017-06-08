@@ -239,7 +239,7 @@ end
 val nullacc =
     foldl fold_nullprove []
           [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
-           “nPtuple”, “nPbase”, “nLetDec”,
+           “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
            “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
            “nElist1”, “nCompOps”, “nListOps”,
            “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
