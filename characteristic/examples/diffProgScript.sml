@@ -61,9 +61,9 @@ val diff_with_lcs_side_IMP = Q.prove(
   >> PURE_ONCE_REWRITE_TAC [fetch "-" "diff_with_lcs_side_def"]
   >> rpt strip_tac
   >> drule lcs_split
-  >> drule lcs_split2  
+  >> drule lcs_split2
   >> drule split_lcs_optimal_substructure
-  >> rpt strip_tac  
+  >> rpt strip_tac
   >> fs[]
   >> rpt(CHANGED_TAC(TRY(qpat_x_assum `a::b = x` (assume_tac o GSYM))))
   >> rfs[]
@@ -83,7 +83,7 @@ val usage_string_def = Define`
   usage_string = strlit"Usage: diff <file> <file>\n"`;
 
 val r = translate usage_string_def;
-  
+
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
     case inputLinesFrom fname1 of
@@ -174,9 +174,7 @@ val _ = (append_prog o process_topdecs) `
       | _ => print_err usage_string`
 
 val diff_spec = Q.store_thm("diff_spec",
-`  cl <> [] /\ EVERY validArg cl
-   /\ LENGTH (FLAT cl) + LENGTH cl ≤ 256
-   /\ CARD (set (MAP FST fs.infds)) < 255
+`CARD (set (MAP FST fs.infds)) < 255
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff"(get_ml_prog_state()))
      [Conv NONE []]
@@ -198,13 +196,10 @@ val diff_spec = Q.store_thm("diff_spec",
   strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet `POSTv v. &UNIT_TYPE () v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
   >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
   \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xapp \\ instantiate \\ xsimpl
-      \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF] (* TODO: this is duplicated in catProg and bootstrap and grepProg and now also here *)
-      \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
-      \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
-      \\ simp[MAP_K_REPLICATE,SUM_REPLICATE,GSYM LENGTH_FLAT])
-  \\ Cases_on `cl` \\ fs[]
+  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
+  \\ Cases_on `cl` \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
@@ -226,8 +221,7 @@ val diff_spec = Q.store_thm("diff_spec",
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
   \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
-  \\ qpat_abbrev_tac `a1 = STDOUT _` \\ xsimpl);
+  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
 
 val st = get_ml_prog_state();
 
@@ -235,11 +229,11 @@ val name = "diff"
 val spec = diff_spec |> UNDISCH |> ioProgLib.add_basis_proj
 val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
 
-val patch_prog_def = Define`diff_prog = ^prog_tm`;
+val diff_prog_def = Define`diff_prog = ^prog_tm`;
 
 val diff_semantics = save_thm("diff_semantics",
   sem_thm
-  |> REWRITE_RULE[GSYM patch_prog_def]
+  |> REWRITE_RULE[GSYM diff_prog_def]
   |> DISCH_ALL
   |> REWRITE_RULE[AND_IMP_INTRO]
   |> CONV_RULE(LAND_CONV EVAL)
