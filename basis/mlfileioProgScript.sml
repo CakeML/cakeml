@@ -727,4 +727,31 @@ rw[ROFS_def, cfHeapsBaseTheory.IOx_def, rofs_ffi_part_def, GSYM STAR_ASSOC] >>
 IMP_RES_TAC FRAME_UNIQUE_IO >>
 fs[]);
 
+(* TODO: make the rewriting/equality type instantiation/... more flexible so that we only need to add a theorem of the form: `FILENAME f fv ==> STRING_TYPE f fv` *)
+val filename_tac = metis_tac[FILENAME_def, EqualityType_NUM_BOOL, EqualityType_def];
+
+val FILENAME_UNICITY_R = Q.store_thm("FILENAME_UNICITY_R[xlet_auto_match]",
+`!f fv fv'. FILENAME f fv ==> (FILENAME f fv' <=> fv' = fv)`,
+filename_tac);
+
+val FILENAME_UNICITY_L = Q.store_thm("FILENAME_UNICITY_L[xlet_auto_match]",
+`!f f' fv. FILENAME f fv ==> (FILENAME f' fv <=> f' = f)`,
+filename_tac);
+
+val FILENAME_STRING_UNICITY_R = Q.store_thm("FILENAME_STRING_UNICITY_R[xlet_auto_match]",
+`!f fv fv'. FILENAME f fv ==> STRING_TYPE f fv ==> (STRING_TYPE f fv' <=> fv' = fv)`,
+filename_tac);
+
+val FILENAME_STRING_UNICITY_L = Q.store_thm("FILENAME_STRING_UNICITY_L[xlet_auto_match]",
+`!f f' fv. FILENAME f fv ==> STRING_TYPE f fv ==> (STRING_TYPE f' fv <=> f' = f)`,
+filename_tac);
+
+val STRING_FILENAME_UNICITY_R = Q.store_thm("STRING_FILENAME_UNICITY_R",
+`!f fv fv'. STRING_TYPE f fv ==> FILENAME f fv ==> (FILENAME f fv' <=> fv' = fv)`,
+filename_tac);
+
+val STRING_FILENAME_UNICITY_L = Q.store_thm("STRING_FILENAME_UNICITY_L[xlet_auto_match]",
+`!f f' fv. STRING_TYPE f fv ==> FILENAME f fv ==> (FILENAME f' fv <=> f' = f)`,
+filename_tac);
+
 val _ = export_theory();

@@ -566,17 +566,24 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
    (?s. (A * H) s) ==> ((A * H ==>> B * H') <=> (C /\ H ==>> H'))
    Returns: (A, B, C)
 *)
-val hprop_extract_pattern = ``VALID_HEAP s ==> (A * H) s /\ (B * H') s ==> EQ``;
+val hprop_valid_heap_const = ``VALID_HEAP``;
+val hprop_extract_pattern = ``(A * H) s /\ (B * H') s ==> EQ``;
 fun convert_extract_thm th =
     let
 	val c = strip_forall (concl th) |> snd
-	val (tsubst, _) = match_term hprop_extract_pattern c
+	val (hyp, c') = dest_imp c
+	val _ = if same_const (dest_comb hyp |> fst) hprop_valid_heap_const then ()
+		else failwith ""
+	val body = strip_forall c' |> snd
+	val (tsubst, _) = match_term hprop_extract_pattern body
 	val cond = Term.subst tsubst ``A:hprop``
 	val eq = Term.subst tsubst ``B:hprop``
 	val res = Term.subst tsubst ``EQ:bool``
     in
 	(cond, eq, res)
-    end;
+    end
+    handle HOL_ERR _ => raise (ERR "hprop_extract_pattern"
+		("not a valid heap extraction theorem: " ^(thm_to_string th)))
 
 (* Some auxiliary definitions for the match_heap_conditions function *)
 val sep_imp_tm = ``$==>> : hprop -> hprop -> bool``;
@@ -596,26 +603,31 @@ fun convert_eqs_to_subs eqs =
  * Theorems, conversions, solvers used by the xlet_auto tactic
  *
  *********************************************************************************)
+
+(* Auxiliary function for the exporters *)
+fun mk_export_f f (thy_name : string) (named_thms : (string * thm) list) =
+  f (List.map snd named_thms);
+
 (* Theorems used to compute the frame *)
 val FRAME_THMS = ref [UNIQUE_REFS,
 		      UNIQUE_ARRAYS,
 		      UNIQUE_W8ARRAYS
 		     ];
 
-fun add_frame_thms thyname named_thms = FRAME_THMS := ((List.map snd named_thms) @ !FRAME_THMS);
+fun add_frame_thms thms = FRAME_THMS := (thms  @ !FRAME_THMS);
 fun get_frame_thms () = !FRAME_THMS;
 
-val {mk,dest,export} =
-  ThmSetData.new_exporter "hprop_inj"
-    add_frame_thms
+val {mk,dest,export} = ThmSetData.new_exporter "hprop_inj"
+					       (mk_export_f add_frame_thms);
 
-fun export_frame_thms slist = List.app export slist
+fun export_frame_thms slist = List.app export slist;
 
 (* Refinement invariants: definitions *)
 val RI_DEFSL = ref ([] : thm list);
 fun add_RI_defs defs = (RI_DEFSL := defs @ !RI_DEFSL);
-fun get_RI_desl uv = !RI_DEFSL;
+fun get_RI_defs uv = !RI_DEFSL;
 
+(* Theorem generation *)
 fun generate_expand_retract_thms ri_defs =
   let
       val ri_l = List.map (fn x => SPEC_ALL x |> concl |> dest_eq |> fst) ri_defs
@@ -639,22 +651,28 @@ fun generate_expand_retract_thms ri_defs =
 (* Theorems to expand or retract the definitions of refinement invariants*)
 val RI_EXPAND_THMSL = ref ([] : thm list);
 val RI_RETRACT_THMSL = ref ([] : thm list);
-fun add_RI_expand_retract_thms expandThms retractThms =
+fun add_expand_retract_thms expandThms retractThms =
   (RI_EXPAND_THMSL := expandThms @ !RI_EXPAND_THMSL;
    RI_RETRACT_THMSL := retractThms @ !RI_RETRACT_THMSL);
 
-fun get_RI_expand_thms uv = !RI_EXPAND_THMSL;
-fun get_RI_retract_thms uv = !RI_RETRACT_THMSL;
+fun get_expand_thms () = !RI_EXPAND_THMSL;
+fun get_retract_thms () = !RI_RETRACT_THMSL;
 
 (* List of equality types *)
-val EQUALITY_TYPE_THMS = ref ([] : thm list); (* CONJUNCTS EqualityType_NUM_BOOL) *)
+val EQUALITY_TYPE_THMS = ref ([] : thm list);
 
-fun add_RI_equality_type_thms thms = (EQUALITY_TYPE_THMS := thms @ !EQUALITY_TYPE_THMS);
-fun get_RI_equality_type_thms uv = !EQUALITY_TYPE_THMS;
+fun add_equality_type_thms thms =
+  (EQUALITY_TYPE_THMS := (List.concat (List.map CONJUNCTS thms))
+			 @ !EQUALITY_TYPE_THMS);
+fun get_equality_type_thms () = !EQUALITY_TYPE_THMS;
 
-(* Unicity theorems for the refinement invariants *)
+(* Unicity theorems *)
 val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT]);
 
+fun add_intro_rewrite_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
+fun get_intro_rewrite_thms () = !INTRO_RW_THMS;
+
+(* Automatic generation of theorems *)
 fun generate_RI_unicity_thms eq_type_thms =
   let
       fun get_ref_inv th = concl th |> dest_comb |> snd
@@ -698,8 +716,20 @@ fun generate_RI_unicity_thms eq_type_thms =
       List.concat [left_rules, right_rules]
   end;
 
-fun add_intro_rw_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
-fun get_intro_rewrite_thms uv = !INTRO_RW_THMS;
+fun export_equality_type_thms_aux thms =
+  let
+      val unicity_thms = generate_RI_unicity_thms thms
+  in
+      add_equality_type_thms thms;
+      add_intro_rewrite_thms unicity_thms
+  end;
+
+val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
+			(mk_export_f export_equality_type_thms_aux);
+      
+fun export_equality_type_thms slist = List.app export slist;
+
+val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL];
 
 (* Basic rewrite theorems *)
 val RW_THMS = ref [(* Handle the int_of_num operator *)
@@ -746,29 +776,31 @@ val RW_THMS = ref [(* Handle the int_of_num operator *)
 		    MIN_DEF
 		   ];
 fun add_rewrite_thms thms = (RW_THMS := thms @ !RW_THMS);
-fun get_rewrite_thms uv = !RW_THMS;
+fun get_rewrite_thms () = !RW_THMS;
 
 (* Default simpset *)
 val DEF_SIMPSET = ref pure_ss;
 val _ = (DEF_SIMPSET := srw_ss());
 
+(* TODO: Find a way to export that - like with ThmSetData.new_exporter *)
 fun add_simp_frag sf = (DEF_SIMPSET := ((!DEF_SIMPSET) ++ sf));
+fun get_default_simpset () = !DEF_SIMPSET;
 
-fun add_refinement_invariants ri_defs eqTypeThms =
+fun add_refinement_invariants ri_defs =
   let
-      val eqTypeThms = List.concat (List.map CONJUNCTS eqTypeThms)
       val (expandThms, retractThms) = generate_expand_retract_thms ri_defs
-      val unicityThms = generate_RI_unicity_thms eqTypeThms
       val invertDefs = List.map GSYM ri_defs
   in
       add_RI_defs ri_defs;
-      add_RI_equality_type_thms (List.concat (List.map CONJUNCTS eqTypeThms));
-      add_RI_expand_retract_thms (expandThms @ ri_defs) (invertDefs @ retractThms);
-      add_intro_rw_thms unicityThms;
-      add_rewrite_thms eqTypeThms
+      add_expand_retract_thms (expandThms @ ri_defs) (invertDefs @ retractThms)
   end;
 
-val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, UNIT_TYPE_def, STRING_TYPE_def] [EqualityType_NUM_BOOL]
+val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
+				(mk_export_f add_refinement_invariants);
+      
+fun export_refinement_invariants slist = List.app export slist;
+
+val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, UNIT_TYPE_def, STRING_TYPE_def];
 
 fun add_match_thms thms =
   let
@@ -789,22 +821,21 @@ fun add_match_thms thms =
 
       val (intro_rws, rws) = List.partition is_intro_rw thms
   in
-      add_intro_rw_thms intro_rws;
+      add_intro_rewrite_thms intro_rws;
       add_rewrite_thms rws
   end;
 
+val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
+					       (mk_export_f add_match_thms);
+
+fun export_match_thms slist = List.app export slist;
+
 (* Heuristics *)
-(* fun default_heuristic_solver asl app_spec =
-  let
-      val knwn_vars = HOLset.listItems(FVL asl empty_varset)
-      val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
-      val pos_subst = satisfy knwn_vars asl app_spec_hyps
-  in
-      pos_subst
-  end *)
 
-
-fun default_heuristic_solver asl app_spec =
+(* For each hypothesis of the app spec the list of possible substitutions
+   which make it match with one of the assumptions
+*)
+fun find_possible_instantiations asl app_spec =
   let
       (* Retrieve the list of hypothesis to satisfy *)
       val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
@@ -831,25 +862,32 @@ fun default_heuristic_solver asl app_spec =
 	end
 
       val pos_insts = List.map find_insts app_spec_hyps
+  in
+      pos_insts
+  end;
 
-      (* Find an instantiation such that all the hypothesis are satisfied
-         - not efficient *)
+(* Add a substitution to a map of substitutions *)
+(* TODO: would be more efficient to compute the compatibility between all
+   possible substs, then find a subset of substs satisfying a given criteria,
+   and finally compute the union of those substs *)
+fun add_tms ({redex = (x:term), residue = y}, tm_map) =
+  case Redblackmap.peek (tm_map, x) of
+      SOME y' => (case Term.compare (y,y') of EQUAL => tm_map | _ => failwith "")
+    | NONE => Redblackmap.insert (tm_map, x, y)
 
-      (* Add a substitution to a map of substitutions *)
-      fun add_tms ({redex = (x:term), residue = y}, tm_map) =
-	case Redblackmap.peek (tm_map, x) of
-	    SOME y' => (case Term.compare (y,y') of EQUAL => tm_map | _ => failwith "")
-	  | NONE => Redblackmap.insert (tm_map, x, y)
+fun add_tmsl tmsl tm_map = List.foldr add_tms tm_map tmsl
 
-      fun add_tmsl tmsl tm_map = List.foldr add_tms tm_map tmsl
+fun add_tys ({redex = x, residue = y}, ty_map) =
+  case Redblackmap.peek (ty_map, x) of
+      SOME y' => (case Type.compare (y,y') of EQUAL => ty_map | _ => failwith "")
+    | NONE => Redblackmap.insert (ty_map, x, y)
 
-      fun add_tys ({redex = x, residue = y}, ty_map) =
-	case Redblackmap.peek (ty_map, x) of
-	    SOME y' => (case Type.compare (y,y') of EQUAL => ty_map | _ => failwith "")
-	  | NONE => Redblackmap.insert (ty_map, x, y)
+fun add_tysl tysl ty_map = List.foldr add_tys ty_map tysl
 
-      fun add_tysl tysl ty_map = List.foldr add_tys ty_map tysl
-
+(* Find an instantiation such that all the hypothesis are satisfied
+   - not efficient *)
+fun instantiations_union pos_insts =
+  let
       (* Recursive (and exhaustive) search *)
       fun rec_search (tm_map, ty_map) (insts::pos_insts) =
 	let
@@ -879,11 +917,80 @@ fun default_heuristic_solver asl app_spec =
       (tm_subst, ty_subst)
   end;
 
-val heuristic_solver = ref default_heuristic_solver;
-fun set_heuristic_solver solver = heuristic_solver := solver;
+(* A heuristic solver based on unification - succeeds only if it can find a
+   substitution such that all the hypothesis are satisfied *)
+fun unification_solver asl app_spec =
+  let
+      val pos_insts = find_possible_instantiations asl app_spec
+      val (tm_subst, ty_subst) = instantiations_union pos_insts
+  in
+      (tm_subst, ty_subst)
+  end;
 
+(* Find an instantiation by giving priority to the substitutions instantiating
+   the highest number of variables, and by possibly ignoring some hypothesis *)
+fun max_instantiations_union pos_insts =
+  let
+      val filt_pos_insts = List.filter (not o List.null) pos_insts
+      fun compare_f insts1 insts2 =
+	(List.length (List.hd insts1 |> fst)) >
+	(List.length (List.hd insts2 |> fst))
+      val sorted_pos_insts = sort compare_f filt_pos_insts
+
+      (* Recursive (and exhaustive) search *)
+      fun rec_search (tm_map, ty_map) (insts::pos_insts) =
+	let
+	    fun rec_search_i (inst::insts) pos_insts =
+	      let
+		  val tm_map' = add_tmsl (fst inst) tm_map
+		  val ty_map' = add_tysl (snd inst) ty_map
+	      in
+		  rec_search (tm_map', ty_map') pos_insts
+	      end
+	      | rec_search_i [] pos_insts = rec_search (tm_map, ty_map) pos_insts
+	in
+	    rec_search_i insts pos_insts
+	end
+	| rec_search (tm_map, ty_map) [] = (tm_map, ty_map)
+
+      val (tm_inst, ty_inst) = rec_search (Redblackmap.mkDict Term.compare,
+					Redblackmap.mkDict Type.compare)
+				          sorted_pos_insts
+					  
+      (* Convert the maps to proper substitutions *)
+      val tm_subst = List.map (op |->) (Redblackmap.listItems tm_inst)
+      val ty_subst = List.map (op |->) (Redblackmap.listItems ty_inst)
+  in
+      (tm_subst, ty_subst)
+  end;
+
+(* A solver which performs unification on as much hypothesis as possible -
+   succeeds if it can find a substitution such that all variables and types are
+   instantiated *)      
+fun unif_heuristic_solver asl app_spec =
+  let
+      val pos_insts = find_possible_instantiations asl app_spec
+      val (tms, tys) = max_instantiations_union pos_insts
+
+      (* Check that all unknown variables are instantiated *)
+      val knwn_vars = FVL asl empty_varset
+      val unkwn_vars = HOLset.difference (
+			FVL [concl app_spec |> dest_imp |> fst] empty_varset,
+			knwn_vars)
+  in
+      if HOLset.numItems unkwn_vars = List.length tms then (tms, tys)
+      else raise (ERR "default_heuristic_solver"
+		      "unable to find an instantiation of all the variables")
+  end;
+
+      
+val heuristic_solver = ref unif_heuristic_solver;
+fun set_heuristic_solver solver = heuristic_solver := solver;
+fun get_heuristic_solver () = !heuristic_solver;
+			     
 val USE_HEURISTICS = ref true;
 fun use_heuristics b = USE_HEURISTICS := true;
+fun using_heuristics () = !USE_HEURISTICS;
 
 (************************************************************************************
  *
@@ -893,7 +1000,7 @@ fun use_heuristics b = USE_HEURISTICS := true;
 (* [match_heap_conditions] *)
 fun match_heap_conditions hcond sub_hcond =
   let
-      val extract_thms = !FRAME_THMS
+      val extract_thms = get_frame_thms ()
 
       (* Retrieve the extraction triplets *)
       val extr_triplets = mapfilter convert_extract_thm extract_thms
@@ -941,7 +1048,7 @@ fun match_heap_conditions hcond sub_hcond =
 (* [match_hconds] : match two pre-conditions in order to extract a frame *)
 fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
   let
-      val sset = !DEF_SIMPSET
+      val sset = get_default_simpset ()
 
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
 			  dest_comb |> fst |> dest_comb |> snd
@@ -972,7 +1079,7 @@ val equality_type_pattern = ``EqualityType (A:'a -> v -> bool)``
 val equality_type_tm = ``EqualityType:('a -> v -> bool)->bool``
 fun find_equality_types asl app_spec =
   let
-      val eq_type_thms = !EQUALITY_TYPE_THMS
+      val eq_type_thms = get_equality_type_thms ()
 
       (* Retrieve information from the assumptions list *)
       fun is_eqtype_clause t =
@@ -1061,14 +1168,14 @@ fun find_equality_types asl app_spec =
    in a safe manner *)
 fun simplify_spec let_pre asl app_spec =
   let
-      val sset = !DEF_SIMPSET
+      val sset = get_default_simpset()
       val asl_thms = List.map ASSUME asl
 
       val knwn_vars = FVL asl empty_varset
       val unkwn_vars = HOLset.difference (FVL [concl app_spec] empty_varset, knwn_vars)
 
       (* Perform the simplification *)
-      val compos_conv = (INTRO_REWRITE_CONV (!INTRO_RW_THMS) asl)
+      val compos_conv = (INTRO_REWRITE_CONV (get_intro_rewrite_thms()) asl)
 			 THENC (SIMP_CONV sset (AND_IMP_INTRO::asl_thms))
 			 THENC (SIMP_CONV (list_ss ++ SQI_ss) [])
 			 THENC (ELIM_UNKWN_CONV unkwn_vars)
@@ -1097,8 +1204,8 @@ exception XLET_ERR of thm;
 (* [xlet_simp_spec] *)
 fun xlet_simp_spec asl app_info let_pre app_spec =
   let
-      val rw_thms = !RW_THMS
-      val sset = !DEF_SIMPSET
+      val rw_thms = get_rewrite_thms ()
+      val sset = get_default_simpset ()
 
       (* Perform rewrites and simplifications on the assumptions *)
       val rw_asl = CONV_ASSUM list_ss rw_thms asl
@@ -1113,8 +1220,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val norm_app_spec = SPEC_ALL app_spec2
 
       (* Get rid of the constants *)
-      val constElimConv = (SIMP_CONV sset (AND_IMP_INTRO::((!RI_EXPAND_THMSL)@rw_thms)))
-			      THENC (SIMP_CONV sset (AND_IMP_INTRO::((!RI_RETRACT_THMSL)@rw_thms)))
+      val constElimConv = (SIMP_CONV sset (AND_IMP_INTRO::((get_expand_thms())@rw_thms)))
+			      THENC (SIMP_CONV sset (AND_IMP_INTRO::((get_retract_thms())@rw_thms)))
       val norm_app_spec' = CONV_RULE (RATOR_CONV constElimConv) norm_app_spec
 
       (* Recursive modifications *)
@@ -1146,10 +1253,10 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       fun heuristic_inst asl app_spec =
 	if (not o HOLset.isSubset) (FVL [concl simp_app_spec] empty_varset,
 				    FVL (app_info::let_pre::asl) empty_varset)
-	   andalso !USE_HEURISTICS
+	   andalso using_heuristics()
 	then
 	    let
-		 val solver = !heuristic_solver
+		 val solver = get_heuristic_solver()
 		 val (tm_subst, ty_subst) = solver asl app_spec
 		 val ty_app_spec = Thm.INST_TYPE ty_subst app_spec
 		 val tm_subst' =
@@ -1353,7 +1460,6 @@ fun xlet_auto (g as (asl, w)) =
   handle HOL_ERR {origin_structure = _, origin_function = fname, message = msg}
 	 => raise (ERR "xlet_auto" msg);
 
-
 end
 
 (******** DEBUG ********)
@@ -1372,8 +1478,46 @@ val app_spec = xlet_find_spec g |> DISCH_ALL |> GEN_ALL;
 
 (* Apply the parameters given in the let expression *)
 val subst_app_spec = xlet_subst_parameters env app_info asl let_pre app_spec;
-
 val app_spec = subst_app_spec;
 
 (* Perform the simplification (xlet_simp) *)
+xlet_simp_spec asl app_info let_pre app_spec
+
+get_frame_thms ()
+get_intro_rewrite_thms ()
+
+set_trace "simplifier" 1;
+val rw_th = Q.prove(`(A ==> !x. P x) <=> !x. A ==> P x`,
+EQ_TAC >-(rw[]) >> rw[]);
+
+(PURE_REWRITE_CONV [rw_th]) (concl app_spec |> strip_forall |> snd)
+val t = (concl app_spec |> strip_forall |> snd);
+dest_comb t;
+RIGHT_IMP_FORALL_CONV t
+
+fun normalize_spec = PURE_REWRITE_TAC 
+
+fun remove_
+fun dest_name_index s =
+  let
+      val dest_s = String.explode s
+      fun dest
+	      
+open Char
+fun index_variant varsl v =
+  (case is_var tm of
+      true =>
+      let
+	  val varnames = List.map (fst o dest_var) varsl
+	  val filt_varnames = List.filter (String.isPrefix v)
+      in
+	  ()
+      end
+    | false => raise (ERR "index_variant" "not a variable"))
+  handle (HOL_ERR err) => raise (ERR "index_variant" (err.message))
+		     
+end
 *)
+    
+
+			 
