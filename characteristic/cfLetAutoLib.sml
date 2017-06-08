@@ -643,14 +643,14 @@ fun add_RI_expand_retract_thms expandThms retractThms =
   (RI_EXPAND_THMSL := expandThms @ !RI_EXPAND_THMSL;
    RI_RETRACT_THMSL := retractThms @ !RI_RETRACT_THMSL);
 
-fun get_RI_expand_thms uv = !RI_EXPAND_THMSL;
-fun get_RI_retract_thms uv = !RI_RETRACT_THMSL;
+fun get_RI_expand_thms () = !RI_EXPAND_THMSL;
+fun get_RI_retract_thms () = !RI_RETRACT_THMSL;
 
 (* List of equality types *)
 val EQUALITY_TYPE_THMS = ref ([] : thm list); (* CONJUNCTS EqualityType_NUM_BOOL) *)
 
 fun add_RI_equality_type_thms thms = (EQUALITY_TYPE_THMS := thms @ !EQUALITY_TYPE_THMS);
-fun get_RI_equality_type_thms uv = !EQUALITY_TYPE_THMS;
+fun get_RI_equality_type_thms () = !EQUALITY_TYPE_THMS;
 
 (* Unicity theorems for the refinement invariants *)
 val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT]);
@@ -699,7 +699,7 @@ fun generate_RI_unicity_thms eq_type_thms =
   end;
 
 fun add_intro_rw_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
-fun get_intro_rewrite_thms uv = !INTRO_RW_THMS;
+fun get_intro_rewrite_thms () = !INTRO_RW_THMS;
 
 (* Basic rewrite theorems *)
 val RW_THMS = ref [(* Handle the int_of_num operator *)
@@ -746,7 +746,7 @@ val RW_THMS = ref [(* Handle the int_of_num operator *)
 		    MIN_DEF
 		   ];
 fun add_rewrite_thms thms = (RW_THMS := thms @ !RW_THMS);
-fun get_rewrite_thms uv = !RW_THMS;
+fun get_rewrite_thms () = !RW_THMS;
 
 (* Default simpset *)
 val DEF_SIMPSET = ref pure_ss;
@@ -893,7 +893,7 @@ fun use_heuristics b = USE_HEURISTICS := true;
 (* [match_heap_conditions] *)
 fun match_heap_conditions hcond sub_hcond =
   let
-      val extract_thms = !FRAME_THMS
+      val extract_thms = get_frame_thms()
 
       (* Retrieve the extraction triplets *)
       val extr_triplets = mapfilter convert_extract_thm extract_thms
@@ -972,7 +972,7 @@ val equality_type_pattern = ``EqualityType (A:'a -> v -> bool)``
 val equality_type_tm = ``EqualityType:('a -> v -> bool)->bool``
 fun find_equality_types asl app_spec =
   let
-      val eq_type_thms = !EQUALITY_TYPE_THMS
+      val eq_type_thms = get_RI_equality_type_thms()
 
       (* Retrieve information from the assumptions list *)
       fun is_eqtype_clause t =
@@ -1068,7 +1068,7 @@ fun simplify_spec let_pre asl app_spec =
       val unkwn_vars = HOLset.difference (FVL [concl app_spec] empty_varset, knwn_vars)
 
       (* Perform the simplification *)
-      val compos_conv = (INTRO_REWRITE_CONV (!INTRO_RW_THMS) asl)
+      val compos_conv = (INTRO_REWRITE_CONV (get_intro_rewrite_thms()) asl)
 			 THENC (SIMP_CONV sset (AND_IMP_INTRO::asl_thms))
 			 THENC (SIMP_CONV (list_ss ++ SQI_ss) [])
 			 THENC (ELIM_UNKWN_CONV unkwn_vars)
@@ -1097,7 +1097,7 @@ exception XLET_ERR of thm;
 (* [xlet_simp_spec] *)
 fun xlet_simp_spec asl app_info let_pre app_spec =
   let
-      val rw_thms = !RW_THMS
+      val rw_thms = get_rewrite_thms()
       val sset = !DEF_SIMPSET
 
       (* Perform rewrites and simplifications on the assumptions *)
@@ -1113,8 +1113,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val norm_app_spec = SPEC_ALL app_spec2
 
       (* Get rid of the constants *)
-      val constElimConv = (SIMP_CONV sset (AND_IMP_INTRO::((!RI_EXPAND_THMSL)@rw_thms)))
-			      THENC (SIMP_CONV sset (AND_IMP_INTRO::((!RI_RETRACT_THMSL)@rw_thms)))
+      val constElimConv = (SIMP_CONV sset (AND_IMP_INTRO::((get_RI_expand_thms())@rw_thms)))
+			      THENC (SIMP_CONV sset (AND_IMP_INTRO::((get_RI_retract_thms())@rw_thms)))
       val norm_app_spec' = CONV_RULE (RATOR_CONV constElimConv) norm_app_spec
 
       (* Recursive modifications *)
