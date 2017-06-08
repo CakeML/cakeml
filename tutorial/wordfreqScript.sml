@@ -20,28 +20,26 @@ val insert_line_def = Define`
   insert_line t s =
      FOLDL insert_word t (tokens isSpace s)`;
 
+(* A high-level specification of words and frequencies *)
+
+val all_words_def = Define`
+  all_words s = tokens isSpace s`;
+(*
+EVAL ``all_words (strlit"hello there hello how are you one two one two three")``
+*)
+val frequency_def = Define`
+  frequency s w = LENGTH (FILTER ($= w) (all_words s))`;
+(*
+EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"hello")``
+EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"one")``
+EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"three")``
+EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"four")``
+*)
 
 val key_set_compare_unique = Q.store_thm("key_set_compare_unique[simp]",
   `key_set compare k = {k}`,
   rw[key_set_def,EXTENSION] \\
   metis_tac[TotOrd_compare,totoTheory.TotOrd]);
-
-(* A high-level specification of words and frequencies *)
-
-(* TODO: if you use tokens on mlstrings here, avoid explodes/implodes later *)
-val all_words_def = Define`
-  all_words s = TOKENS isSpace s`;
-(*
-EVAL ``all_words "hello there hello how are you one two one two three"``
-*)
-val frequency_def = Define`
-  frequency s w = LENGTH (FILTER ($= w) (all_words s))`;
-(*
-EVAL``frequency "hello there hello how are you one two one two three" "hello"``
-EVAL``frequency "hello there hello how are you one two one two three" "one"``
-EVAL``frequency "hello there hello how are you one two one two three" "three"``
-EVAL``frequency "hello there hello how are you one two one two three" "four"``
-*)
 
 val lookup0_insert = Q.store_thm("lookup0_insert",
   `invariant compare t ⇒
@@ -56,15 +54,14 @@ val insert_line_thm = Q.store_thm("insert_line_thm",
    ⇒
    invariant compare t' ∧
    (∀w. lookup0 w t' =
-        lookup0 w t + frequency (explode s) (explode w))`,
+        lookup0 w t + frequency s w)`,
   strip_tac \\ rveq \\
-  simp[insert_line_def,TOKENS_eq_tokens_sym,all_words_def,frequency_def] \\
-  Q.SPEC_TAC(`TOKENS isSpace (explode s)`,`ls`) \\
+  simp[insert_line_def,all_words_def,frequency_def] \\
+  Q.SPEC_TAC(`tokens isSpace s`,`ls`) \\
   ho_match_mp_tac SNOC_INDUCT \\ simp[] \\
   ntac 3 strip_tac \\
   simp[MAP_SNOC,FOLDL_SNOC,insert_word_def] \\
   conj_asm1_tac >- metis_tac[good_cmp_compare,insert_thm] \\
-  rw[FILTER_SNOC] \\ rw[mlstringTheory.implode_explode] \\
-  rw[lookup0_insert] \\ fs[mlstringTheory.explode_implode]);
+  rw[FILTER_SNOC,lookup0_insert]);
 
 val _ = export_theory();
