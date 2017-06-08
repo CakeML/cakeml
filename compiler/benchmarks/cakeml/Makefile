@@ -1,4 +1,5 @@
-CC = gcc
+CP ?= cp
+CC ?= gcc
 CAKECC = cakemlc
 
 FLAGS = -g -o
@@ -14,7 +15,13 @@ ASM_PROGS = $(patsubst %.sml,%.S,$(BMS))
 
 all: compiler benchmarks
 
-compiler : cake.S
+basis_ffi.c : ../../../basis/basis_ffi.c
+	$(CP) $< $@
+
+cake.S : ../../bootstrap/evaluation/cake.S
+	$(CP) $< $@
+
+compiler : cake.S basis_ffi.c
 	$(CC) $< basis_ffi.c $(FLAGS) $(CAKECC)
 
 benchmarks : $(BM_PROGS_O4)
