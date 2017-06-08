@@ -363,9 +363,9 @@ val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
    and this in turn requires inductions *)
 val ptPapply_lemma = Q.store_thm(
   "ptPapply_lemma",
-  ‘∀ilimit: (token # locs) list.
+  ‘∀limit.
      (∀i0 i pts.
-       LENGTH i0 < LENGTH ilimit ⇒
+       LENGTH i0 < limit ⇒
        peg_eval cmlPEG (i0, nt (mkNT nPbase) I) (SOME (i, pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NN nPbase ∧ valid_lptree cmlG pt ∧
             MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i) ⇒
@@ -373,7 +373,7 @@ val ptPapply_lemma = Q.store_thm(
        peg_eval_list cmlPEG (i0, nt (mkNT nPbase) I) (i, ptlist) ∧
        ptree_head pt0 = NN nPbase ∧ valid_lptree cmlG pt0 ∧
        ptree_head acc = NN nPConApp ∧ valid_lptree cmlG acc ∧
-       LENGTH i0 < LENGTH ilimit ⇒
+       LENGTH i0 < limit ⇒
        ∃pt. ptPapply0 acc (pt0 :: FLAT ptlist) = [pt] ∧
             ptree_head pt = NN nPapp ∧ valid_lptree cmlG pt ∧
             real_fringe acc ++ real_fringe pt0 ++ MAP (TK ## I) i0 =
@@ -677,7 +677,7 @@ val peg_sound = Q.store_thm(
       simp[ptPapply_def] >>
       first_x_assum
         (qspec_then ‘mkNT nPbase’
-                    (fn ih => qspec_then ‘i0’
+                    (fn ih => qspec_then ‘LENGTH i0’
                                          (fn th => mp_tac (MATCH_MP th ih))
                                          ptPapply_lemma)) >>
       rename [‘peg_eval_list cmlPEG (i2, nt (mkNT nPbase) I) (i, result)’,
