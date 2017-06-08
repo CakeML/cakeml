@@ -114,16 +114,20 @@ val () = append_prog wordfreq;
 val st = get_ml_prog_state();
 
 (* TODO: this is wrong (because all_words gives duplicates)
-   Magnus suggests: avoid PERM, just say every element is there iff it's in the file
-   use SORTED $< to imply ALL_DISTINCT (or add ALL_DISTINCT explicitly, possibly replacing SORTED)
-*)
+   leave it as an exercises to see why this spec is wrong?
 val valid_wordfreq_output_def = Define`
   valid_wordfreq_output file_contents output =
     ∃ls. PERM ls (all_words file_contents) ∧ SORTED $<= ls ∧
-         output = FLAT (MAP (λw. explode (format_output (implode w, frequency file_contents w))) ls)`;
+         output = FLAT (MAP (λw. explode (format_output (w, frequency file_contents w))) ls)`;
+*)
+
+val valid_wordfreq_output_def = Define`
+  valid_wordfreq_output file_contents output =
+    ∃ws. set ws = set (all_words file_contents) ∧ SORTED $< ws ∧
+         output = FLAT (MAP (λw. explode (format_output (w, frequency file_contents w))) ws)`;
 
 (* TODO: explain p:'ffi ffi_proj, or make it simpler *)
-(* TODO: explain ^ *)
+(* TODO: explain antiquotation (^) *)
 
 (* TODO:
    this is the spec I originally devised, but it doesn't work with ioProgLib.call_thm
@@ -151,21 +155,16 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 val FILENAME_UNICITY_R = Q.store_thm("FILENAME_UNICITY_R",
   `FILENAME s v ⇒ (FILENAME s v' ⇔ v = v')`,
   rw[mlfileioProgTheory.FILENAME_def] \\
-  metis_tac[EQTYPE_UNICITY_R, EqualityType_NUM_BOOL]);
+  metis_tac[cfLetAutoTheory.EQTYPE_UNICITY_R, ml_translatorTheory.EqualityType_NUM_BOOL]);
 val FILENAME_UNICITY_L = Q.store_thm("FILENAME_UNICITY_L",
   `FILENAME s v ⇒ (FILENAME s' v ⇔ s = s')`,
   rw[mlfileioProgTheory.FILENAME_def] \\
-  metis_tac[EQTYPE_UNICITY_L, EqualityType_NUM_BOOL]);
-val () = add_intro_rw_thms [FILENAME_UNICITY_R,FILENAME_UNICITY_L];
+  metis_tac[cfLetAutoTheory.EQTYPE_UNICITY_L, ml_translatorTheory.EqualityType_NUM_BOOL]);
+val () = cfLetAutoLib.add_intro_rw_thms [FILENAME_UNICITY_R,FILENAME_UNICITY_L];
 (* -- *)
 
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
-  `(* TODO: make these part of COMMANDLINE assertion *)
-   EVERY validArg cl ∧
-   1 < LENGTH cl ∧ SUM (MAP LENGTH cl) + LENGTH cl < 257 ∧
-   (* TODO: make cl a two-element list explicitly... *)
-   fname = implode (EL 1 cl) ∧
-   inFS_fname fs fname ∧
+  `inFS_fname fs fname ∧ cl = MAP explode [pname; fname] ∧
    wfFS fs ∧ CARD (set (MAP FST fs.infds)) < 255 (* TODO: this should be part of wfFS *)
    ⇒ app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" st) [Conv NONE []]
        (* TODO: Magnus suggests wfFS should be part of ROFS *)
@@ -175,30 +174,26 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
         (SEP_EXISTS out' err'.
            &(∃ls.
                out' = out ++ ls ∧
-               valid_wordfreq_output (THE (ALOOKUP fs.files fname)) ls ∧
+               valid_wordfreq_output
+                 (implode (THE (ALOOKUP fs.files fname))) ls ∧
                err' = err) *
            STDOUT out' * STDERR err') *
         (COMMANDLINE cl * ROFS fs))`,
   strip_tac \\
   xcf "wordfreq" st \\
   xlet_auto >- (xcon \\ xsimpl) \\
-  xlet_auto
-  >- (
-    xsimpl \\
-    fs[LENGTH_FLAT,MAP_MAP_o,o_DEF] \\
-    Q.ISPEC_THEN`STRLEN`(Q.SPEC_THEN`K 1`mp_tac) SUM_MAP_PLUS \\
-    simp[MAP_K_REPLICATE,SUM_REPLICATE] \\
-    rpt strip_tac \\ fs[] ) \\
-  (* try xlet_auto to see what is needed *)
-  `TL (MAP implode cl) <> []` by (strip_tac \\ Cases_on`cl` \\ fs[]) \\
   xlet_auto >- xsimpl \\
   (* try xlet_auto to see what is needed *)
-  Cases_on`cl` \\ fs[] \\
-  rename1`EVERY validArg cl` \\
-  Cases_on`cl` \\ fs[] \\
-  rename1`STRING_TYPE (implode fnm) fv` \\
-  `FILENAME (implode fnm) fv`
-    by fs[mlfileioProgTheory.FILENAME_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
+  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
+  `[fname] <> []` by (rfs[]) \\
+  xlet_auto >- xsimpl \\
+  (* try xlet_auto to see what is needed *)
+  rename1`STRING_TYPE fname fv` \\
+  `FILENAME fname fv`
+    by rfs[mlfileioProgTheory.FILENAME_def,
+           mlcommandLineProgTheory.wfcl_def,
+           mlstringTheory.LENGTH_explode,
+           commandLineFFITheory.validArg_def,EVERY_MEM] \\
   xlet_auto
   >- xsimpl
   >- (xsimpl \\ rw[]) \\
@@ -218,6 +213,8 @@ val wordfreq_semantics =
   |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[rofsFFITheory.wfFS_def,rofsFFITheory.inFS_fname_def,PULL_EXISTS]
+  |> Q.GEN`cls`
+  |> SIMP_RULE(srw_ss())[mlcommandLineProgTheory.wfcl_def,AND_IMP_INTRO,GSYM CONJ_ASSOC,mlstringTheory.LENGTH_explode]
   |> curry save_thm "wordfreq_semantics";
 
 val _ = export_theory();
