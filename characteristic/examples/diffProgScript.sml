@@ -2,11 +2,10 @@ open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
      charsetTheory lcsTheory diffTheory
-     inputLinesProgTheory;
 
 val _ = new_theory "diffProg";
 
-val _ = translation_extends"inputLinesProg";
+val _ = translation_extends"ioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -86,10 +85,10 @@ val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
-    case inputLinesFrom fname1 of
+    case FileIO.inputLinesFrom fname1 of
         NONE => print_err (notfound_string fname1)
       | SOME lines1 =>
-        case inputLinesFrom fname2 of
+        case FileIO.inputLinesFrom fname2 of
             NONE => print_err (notfound_string fname2)
           | SOME lines2 => List.app print (diff_alg lines1 lines2)`
 

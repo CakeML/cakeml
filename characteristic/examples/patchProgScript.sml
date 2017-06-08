@@ -2,11 +2,10 @@ open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
      charsetTheory diffTheory mlstringTheory
-     inputLinesProgTheory;
 
 val _ = new_theory "patchProg";
 
-val _ = translation_extends"inputLinesProg";
+val _ = translation_extends"ioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -135,10 +134,10 @@ val r = translate rejected_patch_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
-    case inputLinesFrom fname1 of
+    case FileIO.inputLinesFrom fname1 of
         NONE => print_err (notfound_string fname1)
       | SOME lines1 =>
-        case inputLinesFrom fname2 of
+        case FileIO.inputLinesFrom fname2 of
             NONE => print_err (notfound_string fname2)
           | SOME lines2 =>
             case patch_alg lines2 lines1 of
