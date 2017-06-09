@@ -6,23 +6,13 @@
 open preamble
      ml_translatorLib cfTacticsLib basisFunctionsLib cfLetAutoLib
      ioProgLib basisProgTheory
-     wordfreqTheory
+     balanced_mapTheory wordfreqTheory
 
 (* TODO: simplify the required includes (translator, basis, CF) for such examples *)
 
 val _ = new_theory "wordfreqProg";
 
 val _ = translation_extends"basisProg";
-
-(* TODO: move *)
-val ALL_DISTINCT_SORTED_WEAKEN = Q.store_thm("ALL_DISTINCT_SORTED_WEAKEN",
-  `∀R R' ls. (∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒ (R x y ⇔ R' x y)) ∧
-        ALL_DISTINCT ls ∧ SORTED R ls ⇒ SORTED R' ls`,
-  gen_tac \\ ho_match_mp_tac SORTED_IND \\ rw[]
-  \\ pop_assum mp_tac
-  \\ simp_tac(srw_ss())[SORTED_DEF]
-  \\ metis_tac[]);
-(* -- *)
 
 (* avoid printing potentially very long output *)
 val _ = Globals.max_print_depth := 20
@@ -31,18 +21,19 @@ val _ = Globals.max_print_depth := 20
   given that this is also used in grep,
   should we include it in the basis? *)
 
-val res = translate balanced_mapTheory.lookup_def;
-val res = translate balanced_mapTheory.singleton_def;
-val res = translate balanced_mapTheory.ratio_def;
-val res = translate balanced_mapTheory.size_def;
-val res = translate balanced_mapTheory.delta_def;
-val res = translate balanced_mapTheory.balanceL_def;
-val res = translate balanced_mapTheory.balanceR_def;
-val res = translate balanced_mapTheory.insert_def;
-val res = translate balanced_mapTheory.empty_def;
-val res = translate balanced_mapTheory.foldrWithKey_def;
-val _ = next_ml_names := ["toAscList"];
-val res = translate balanced_mapTheory.toAscList_def;
+val res = translate lookup_def;
+val res = translate singleton_def;
+val res = translate ratio_def;
+val res = translate size_def;
+val res = translate delta_def;
+val _ = next_ml_names := ["balanceL","balanceR"];
+val res = translate balanceL_def;
+val res = translate balanceR_def;
+val res = translate insert_def;
+val res = translate empty_def;
+val _ = next_ml_names := ["foldrWithKey","toAscList"];
+val res = translate foldrWithKey_def;
+val res = translate toAscList_def;
 
 val res = translate lookup0_def;
 val res = translate insert_word_def;
@@ -228,15 +219,45 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   instantiate \\
   CONV_TAC SWAP_EXISTS_CONV \\
   qmatch_assum_abbrev_tac`LIST_TYPE _ ls _` \\
-  (*
-  qexists_tac`λn. STDOUT (out ++ FLAT (TAKE n (MAP (explode o format_output) ls)))` \\
+  qexists_tac`λn. STDOUT (out ++ FLAT (MAP (explode o format_output) (TAKE n ls)))` \\
   xsimpl \\
-  conj_tac >- (
-    rw[] \\
-    Q.ISPEC_THEN`ls`FULL_STRUCT_CASES_TAC SNOC_CASES \\
-    fs[TAKE_SNOC,GSYM MAP_TAKE] \\
-  *)
-  cheat);
+  conj_tac >- simp[TAKE_EL_SNOC,SNOC_APPEND] \\
+  qmatch_goalsub_abbrev_tac`out ++ res` \\
+  qmatch_goalsub_abbrev_tac`wordfreq_output_spec file_chars` \\
+  `valid_wordfreq_output (implode file_chars) res` suffices_by (
+    strip_tac \\
+    `res = wordfreq_output_spec file_chars` by
+      metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique] \\
+    xsimpl ) \\
+  rw[Abbr`res`, valid_wordfreq_output_def] \\
+  qexists_tac`MAP FST ls` \\
+  qmatch_assum_abbrev_tac`Abbrev(ls = toAscList t)` \\
+  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
+  simp[empty_thm] \\
+  impl_tac >- (
+    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,mlstringTheory.implode_def,mlstringTheory.strcat_def] \\
+    simp[EVERY_MEM] \\ metis_tac[mlstringTheory.explode_implode] ) \\
+  strip_tac \\
+  assume_tac mlstringTheory.good_cmp_compare \\ simp[Abbr`ls`] \\
+  simp[MAP_FST_toAscList,mlstringTheory.mlstring_lt_def] \\
+  simp[MAP_MAP_o,o_DEF] \\
+  imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
+  qmatch_goalsub_abbrev_tac`set (all_words w1) = set (all_words w2)` \\
+  `all_words w1 = all_words w2` by (
+    strip_assume_tac mlfileioProgTheory.concat_all_lines
+    \\ simp[Abbr`w1`,Abbr`w2`]
+    \\ `isSpace #"\n"` by EVAL_TAC
+    \\ simp[all_words_concat_space] ) \\
+  simp[] \\
+  AP_TERM_TAC \\
+  simp[MAP_EQ_f] \\
+  simp[FORALL_PROD] \\ rw[] \\
+  imp_res_tac MEM_toAscList \\
+  rfs[GSYM lookup_thm] \\
+  rename1`lookup compare w` \\
+  first_x_assum(qspec_then`w`mp_tac) \\
+  rw[Once lookup0_def] \\
+  rw[frequency_def]);
 
 (* partial old version without help from inputLinesFrom
 
