@@ -109,7 +109,7 @@ fun dest_suffix s =
       fun rec_dest s1 (c::s2) =
 	if is_suffix_char c then rec_dest (c::s1) s2
 	else (List.rev (c::s2), s1)
-	| rec_dest s [] = failwith "dest_suffix" 
+	| rec_dest s [] = failwith "dest_suffix"
   in
       rec_dest [] (List.rev s)
   end;
@@ -168,7 +168,7 @@ fun rename_dest_poste (varsl, c) =
 
 (* [dest_post_condition] *)
 fun dest_post_condition c =
-  if is_postv c then
+  if cfHeapsBaseSyntax.is_postv c then
       let
 	  val (postv_v, postv_pred) = cfHeapsBaseSyntax.dest_postv c
       in
@@ -618,7 +618,7 @@ fun rename_post_variables ri_thms asl post_condition =
 		      in
 			  (SOME n_var, SOME n_pred)
 		      end)
-		  
+
 	    | _ => (v_o, vpred_o)
   in
       mk_post_condition (v_o', vpred_o', e_o', epred_o')
@@ -1030,6 +1030,8 @@ fun default_heuristic_solver asl app_spec =
   let val inst = unification_solver asl app_spec in inst end
   handle HOL_ERR _ => unif_heuristic_solver asl app_spec;
 
+val heuristic_solver = ref default_heuristic_solver;
+
 fun set_heuristic_solver solver = heuristic_solver := solver;
 fun get_heuristic_solver () = !heuristic_solver;
 
@@ -1347,9 +1349,9 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 				THENC (PURE_REWRITE_CONV (get_retract_thms()))))
 	    in CONV_RULE conv_f app_spec end
 	else app_spec
-		 
+
       val hsimp_app_spec' = (simplify_app_hypothesis o simplify_app_post) hsimp_app_spec
-						      
+
       (* Compute the frame *)
       val app_pre = concl (UNDISCH_ALL hsimp_app_spec') |> list_dest dest_imp |> List.last |>
 			  dest_comb |> fst |> dest_comb |> snd
@@ -1444,7 +1446,7 @@ fun xlet_app_auto app_info env let_pre opt_app_spec (g as (asl, w)) =
       (* Substitute the paramaters *)
       val subst_app_spec =
 	  xlet_subst_parameters env app_info asl let_pre app_spec
-		  
+
       (* Perform the matching *)
       val (final_app_spec, frame_hpl) =
 	  xlet_simp_spec asl app_info let_pre subst_app_spec
@@ -1601,7 +1603,7 @@ fun xlet_auto (g as (asl, w)) =
 	 => raise (ERR "xlet_auto" msg);
 
 end
-    
+
 (******** DEBUG ********)
 
 (*
