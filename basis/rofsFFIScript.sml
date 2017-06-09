@@ -1,4 +1,4 @@
-open preamble mlstringTheory cfHeapsBaseTheory
+open preamble mlstringTheory cfHeapsBaseTheory cfLetAutoTheory cfLetAutoLib
 
 val _ = new_theory"rofsFFI"
 

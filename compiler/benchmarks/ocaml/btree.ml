@@ -26,4 +26,4 @@ let rec mk_list n =
   then []
   else (n::(mk_list (n - 1)));;
 let rec use_tree n = tree_sort (append (mk_list n) (mk_list n));;
-let test = use_tree 10000;;
+let test = use_tree 20000;;

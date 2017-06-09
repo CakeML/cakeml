@@ -1,4 +1,4 @@
-fun main () =
+fun main ()=
   let
   fun part p l (l1,l2) =
     case l

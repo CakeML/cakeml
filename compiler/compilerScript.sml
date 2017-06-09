@@ -18,8 +18,8 @@ val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError`
 
 val locs_to_string_def = Define `
   (locs_to_string NONE = implode "unknown location") ∧
-  (locs_to_string (SOME (startl, endl)) =
-    if (startl, endl) = unknown_loc then
+  (locs_to_string (SOME (Locs startl endl)) =
+    if Locs startl endl = unknown_loc then
       implode "unknown location"
     else
       concat

@@ -1,4 +1,4 @@
-fun main () =
+fun main ()=
   let
   fun reverse xs =
     let
@@ -15,5 +15,5 @@ fun main () =
     if (n = 0)
     then []
     else (n::(mk_list (n - 1)));
-  val test = reverse (mk_list 20000);
+  val test = reverse (mk_list 50000);
 in () end;

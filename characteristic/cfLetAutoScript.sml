@@ -1,4 +1,6 @@
-open preamble ml_translatorTheory cfTacticsLib set_sepTheory cfHeapsBaseTheory
+open preamble ml_translatorTheory cfTacticsLib set_sepTheory cfHeapsBaseTheory cfStoreTheory Satisfy
+     (*mlcharioProgTheory mlfileioProgTheory mlcommandLineProgTheory stdoutFFITheory stderrFFITheory
+     stdinFFITheory rofsFFITheory commandLineFFITheory*)
 
 val _ = new_theory "cfLetAuto";
 
@@ -18,30 +20,211 @@ val INT_OF_NUM_GREAT = Q.store_thm("INT_OF_NUM_GREAT",
 val INT_OF_NUM_EQ = Q.store_thm("INT_OF_NUM_EQ",
 `!(x:num) (y:num). (&x = &y) = (x = y)`, rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_SUBS = Q.store_thm("INT_OF_NUM_SUBS",
-`!(x:num) (y:num). (&x - &y = &z) <=> (x - y = z) /\ y <= x`,
+`!(x:num) (y:num) (z:num). (&x - &y = &z) <=> (x - y = z) /\ y <= x`,
 rw[] >> intLib.ARITH_TAC);
+val INT_OF_NUM_SUBS_2 = Q.store_thm("INT_OF_NUM_SUBS_2",
+`!(x:num) (y:num). y <= x ==> (&x - &y = &(x - y))`,
+rw[] >> fs[int_arithTheory.INT_NUM_SUB]);
 
-(* Unicity results for the value pointed to by a heap pointer *)
-val UNIQUE_PTRS_def =
-    Define `UNIQUE_PTRS s = !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`;
+(* Predicate stating that a heap is valid *)
+val VALID_HEAP_def =
+    Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s = st2heap f st`;
 
+(* Fundamental property of a valid heap used to handle pointers when extracting a frame from a heap condition - starts by a minor lemma *)
+val PTR_MEM_LEM = Q.prove(`!s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s`,
+rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]);
+
+val UNIQUE_PTRS = Q.store_thm("UNIQUE_PTRS",
+`!s. VALID_HEAP s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
+rw[VALID_HEAP_def] >>
+fs[st2heap_def] >>
+IMP_RES_TAC PTR_MEM_LEM >>
+fs[UNION_DEF]
+>-(IMP_RES_TAC store2heap_IN_unique_key)>>
+IMP_RES_TAC Mem_NOT_IN_ffi2heap);
+
+(* Fundamental property of a valid heap used to handle ffi components when extracting a frame from a heap condition *)
+val NON_OVERLAP_FFI_PART = Q.store_thm("NON_OVERLAP_FFI_PART",
+`!s. VALID_HEAP s ==>
+!s1 u1 ns1 ts1 s2 u2 ns2 ts2. FFI_part s1 u1 ns1 ts1 IN s /\ FFI_part s2 u2 ns2 ts2 IN s /\ (?p. MEM p ns1 /\ MEM p ns2) ==>
+s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1`,
+rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
+fs[VALID_HEAP_def, st2heap_def, UNION_DEF] >>
+`FFI_part s1 u1 ns1 ts1 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
+`FFI_part s2 u2 ns2 ts2 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
+Cases_on `f` >>
+Q.RENAME_TAC [`(q, r)`, `(proj, parts)`] >>
+fs[ffi2heap_def] >>
+Cases_on `parts_ok st.ffi (proj, parts)`
+>-(
+    fs[] >>
+    fs[parts_ok_def] >>
+    sg `ns2 = ns1`
+    >-(
+       `MEM ns1 (MAP FST parts)` by
+       (
+	   `?n. n < LENGTH parts /\ (ns1, u1) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
+	   `FST (EL n parts) = ns1` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
+	   `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
+	   `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
+	   metis_tac[GSYM MEM_EL]
+       ) >>
+       `MEM ns2 (MAP FST parts)` by
+       (
+	   `?n. n < LENGTH parts /\ (ns2, u2) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
+	   `FST (EL n parts) = ns2` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
+	   `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
+	   `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
+	   metis_tac[GSYM MEM_EL]
+       ) >>
+       metis_tac[cfTheory.ALL_DISTINCT_FLAT_MEM_IMP]
+    ) >>
+    (* Simplify the goal *)
+    fs[] >>
+
+    (* s2 = s1 *)
+    `FLOOKUP (proj st.ffi.ffi_state) p = SOME s1` by metis_tac[] >>
+    `FLOOKUP (proj st.ffi.ffi_state) p = SOME s2` by metis_tac[] >>
+    fs[] >>
+
+    (* u2 = u1 *)
+    IMP_RES_TAC ALL_DISTINCT_FLAT_FST_IMP
+) >>
+fs[]);
+
+(* A minor lemma *)
+val FFI_PORT_IN_HEAP_LEM = Q.prove(
+`! s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h`,
+rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]);
+
+(* Another fundamental theorem *)
+val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
+`!s. VALID_HEAP s ==>
+!s1 u1 ns1 s2 u2 ns2 H1 H2.
+(IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==> 
+(?pn. MEM pn ns1 /\ MEM pn ns2) ==>
+s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
+rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
+fs[IO_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+IMP_RES_TAC FFI_PORT_IN_HEAP_LEM >>
+IMP_RES_TAC NON_OVERLAP_FFI_PART >>
+fs[]);
+
+(* Frame extraction theorems *)
 val HCOND_EXTRACT = Q.store_thm("HCOND_EXTRACT",
 `((&A * H) s <=> A /\ H s) /\ ((H * &A) s <=> H s /\ A) /\ ((H * &A * H') s <=> (H * H') s /\ A)`,
 rw[] >-(fs[STAR_def, STAR_def, cond_def, SPLIT_def])
 >-(fs[STAR_def, STAR_def, cond_def, SPLIT_def]) >>
 fs[STAR_def, STAR_def, cond_def, SPLIT_def] >> EQ_TAC >-(rw [] >-(instantiate) >> rw[]) >> rw[]);
 
+(* Unicity results for pointers *)
+val solve_unique_refs = (rw[] >> qspec_then `s:heap` ASSUME_TAC UNIQUE_PTRS >>
+    fs[REF_def, ARRAY_def, W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+    `!A H1 H2. (&A * H1 * H2) s <=> A /\ (H1 * H2) s` by metis_tac[HCOND_EXTRACT, STAR_COMM] >>
+    POP_ASSUM (fn x => fs[x]) >> rw[] >> POP_ASSUM IMP_RES_TAC >> fs[]);
+
 val UNIQUE_REFS = Q.store_thm("UNIQUE_REFS",
-`!s r xv xv' H H'. UNIQUE_PTRS s ==> (r ~~> xv * H) s /\ (r ~~> xv' * H') s ==> xv' = xv`,
-rw[UNIQUE_PTRS_def] >> fs[REF_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
-`!A H1 H2. (&A * H1 * H2) s <=> A /\ (H1 * H2) s` by metis_tac[HCOND_EXTRACT, STAR_COMM] >>
-POP_ASSUM (fn x => fs[x]) >> rw[] >> LAST_X_ASSUM (fn x => IMP_RES_TAC x) >> fs[]);
+`!s r xv xv' H H'. VALID_HEAP s ==> (r ~~> xv * H) s /\ (r ~~> xv' * H') s ==> xv' = xv`,
+solve_unique_refs);
 
 val UNIQUE_ARRAYS = Q.store_thm("UNIQUE_ARRAYS",
-`!s a av av' H H'. UNIQUE_PTRS s ==> (ARRAY a av * H) s /\ (ARRAY a av' * H') s ==> av' = av`,
-rw[UNIQUE_PTRS_def] >> fs[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
-`!A H1 H2. (&A * H1 * H2) s <=> A /\ (H1 * H2) s` by metis_tac[HCOND_EXTRACT, STAR_COMM] >>
-POP_ASSUM (fn x => fs[x]) >> rw[] >> LAST_X_ASSUM (fn x => IMP_RES_TAC x) >> fs[]);
+`!s a av av' H H'. VALID_HEAP s ==> (ARRAY a av * H) s /\ (ARRAY a av' * H') s ==> av' = av`,
+solve_unique_refs);
+
+val UNIQUE_W8ARRAYS = Q.store_thm("UNIQUE_W8ARRAYS",
+`!s a av av' H H'. VALID_HEAP s ==> (W8ARRAY a av * H) s /\ (W8ARRAY a av' * H') s ==> av' = av`,
+solve_unique_refs);
+
+(* Unicity results for ffi parts*)
+(*val VALID_FFI_HEAP_def =
+    Define `VALID_FFI_HEAP s =
+	     !s1 u1 ns1 s2 u2 ns2 H1 H2.
+		(?pn. MEM pn ns1 /\ MEM pn ns2) ==>
+		   (IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==>
+			s2 = s1 /\ u2 = u1 /\ ns2 = ns1`;
+
+fun instantiate_valid_ffi_heap_assum th (g as (asl, w)) =
+  let
+      val filter = Term.match_term ``(IO s u ns * H) h``
+      val [(tm_s1, ty_s1), (tm_s2, ty_s2)] = mapfilter filter asl
+      fun inst_type ty_s = List.map (fn {redex = x, residue = y} => (Term.inst ty_s x |-> y))
+      val tm_s1 = inst_type ty_s1 tm_s1
+      val tm_s2 = inst_type ty_s2 tm_s2
+      fun find_inst tm_s =
+	let
+	    val s = Term.subst tm_s ``s:ffi``
+	    val u = Term.subst tm_s ``u:tvarN -> word8 list -> ffi -> (word8 list # ffi) option``
+	    val ns = Term.subst tm_s ``ns:tvarN list``
+	    val H = Term.subst tm_s ``H:hprop``
+	in
+	    (s, u, ns, H)
+	end
+      val (s1, u1, ns1, H1) = find_inst tm_s1
+      val (s2, u2, ns2, H2) = find_inst tm_s2
+  in
+      ASSUME_TAC (SPECL [s1, u1, ns1, s2, u2, ns2, H1, H2] th) g
+  end;
+
+val UNIQUE_STDOUT = Q.store_thm("UNIQUE_STDOUT",
+`!s. VALID_HEAP s ==> !out1 out2 H1 H2. (STDOUT out1 * H1) s /\ (STDOUT out2 * H2) s ==> out2 = out1`,
+rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
+fs[STDOUT_def, IOx_def, stdout_ffi_part_def] >>
+fs[GSYM STAR_ASSOC] >>
+LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+fs[]);
+
+val UNIQUE_STDERR = Q.store_thm("UNIQUE_STDERR",
+`!s. VALID_HEAP s ==> !err1 err2 H1 H2. (STDERR err1 * H1) s /\ (STDERR err2 * H2) s ==> err2 = err1`,
+rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
+fs[STDERR_def, IOx_def, stderr_ffi_part_def] >>
+fs[GSYM STAR_ASSOC] >>
+LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+fs[]);
+
+val UNIQUE_STDIN = Q.store_thm("UNIQUE_STDIN",
+`!s H1 H2 in1 in2 b1 b2.
+VALID_HEAP s ==> (STDIN in1 b1 * H1) s /\ (STDIN in2 b2 * H2) s ==> in2 = in1 /\ b2 = b1`,
+rw[VALID_HEAP_def, VALID_FFI_HEAP_def]
+>-(
+    fs[STDIN_def, IOx_def, stdin_ffi_part_def] >>
+    fs[GSYM STAR_ASSOC] >>
+    LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+    fs[]
+) >>
+fs[STDIN_def] >>
+fs[SEP_CLAUSES, SEP_EXISTS_THM] >>
+`(W8ARRAY read_state_loc [w; if b1 then 1w else 0w] * (IOx stdin_ffi_part in1 * H1)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
+`(W8ARRAY read_state_loc [w'; if b2 then 1w else 0w] * (IOx stdin_ffi_part in2 * H2)) s` by metis_tac[STAR_ASSOC, STAR_COMM] >>
+IMP_RES_TAC UNIQUE_W8ARRAYS >>
+rw[] >>
+Cases_on `b1` >> (Cases_on `b2` >> fs[]));
+
+val UNIQUE_ROFS = Q.store_thm("UNIQUE_ROFS",
+`!s fs1 fs2 H1 H2. VALID_HEAP s ==> (ROFS fs1 * H1) s /\ (ROFS fs2 * H2) s ==> fs2 = fs1`,
+rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
+fs[ROFS_def, IOx_def, rofs_ffi_part_def] >>
+fs[GSYM STAR_ASSOC] >>
+LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+POP_ASSUM (fn x => CONV_RULE (SIMP_CONV (list_ss) []) x |> ASSUME_TAC) >>
+`(∃pn. pn = "open" ∨ pn = "fgetc" ∨ pn = "close" ∨ pn = "isEof") = T` by (rw[] >> metis_tac[]) >>
+fs[]);
+
+val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
+`!s cl1 cl2 H1 H2. VALID_HEAP s ==>
+(COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
+rw[VALID_HEAP_def, VALID_FFI_HEAP_def] >>
+fs[COMMANDLINE_def, IOx_def, commandLine_ffi_part_def, encode_def, encode_list_def] >>
+fs[GSYM STAR_ASSOC] >>
+LAST_X_ASSUM instantiate_valid_ffi_heap_assum >>
+fs[] >>
+POP_ASSUM IMP_RES_TAC >>
+sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
+>-(
+    Induct_on `l2` >-(rw[])>>
+    rw[] >> fs[] >>
+    Cases_on `l1` >-(fs[])>>  fs[]
+) >>
+fs[]);*)
 
 (* Theorems and rewrites for REPLICATE and LIST_REL *)
 val APPEND_LENGTH_INEQ = Q.store_thm("APPEND_LENGTH_INEQ",
