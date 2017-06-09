@@ -1368,10 +1368,26 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val _ = if !used_heuristics then print "xlet_auto : using heuristics\n" else ()
 
       (* Have all the variables been instantiated? *)
+      val final_spec_fvs = FVL [concl final_spec] empty_varset
+      val original_fvs = FVL (app_info::let_pre::asl) empty_varset
+      val remaining_fvs = HOLset.difference(final_spec_fvs,original_fvs)
+      val final_spec =
+        if HOLset.isEmpty remaining_fvs then final_spec else
+        let
+          val final_spec' =
+            GENL(HOLset.listItems remaining_fvs) final_spec
+            |> SIMP_RULE bool_ss [] |> SPEC_ALL
+          val final_spec_fvs' = FVL [concl final_spec'] empty_varset
+        in if HOLset.isSubset (final_spec_fvs', original_fvs)
+           then final_spec'
+           else raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre app_spec)
+        end
+      (*
       val _ = if (not o HOLset.isSubset) (FVL [concl final_spec] empty_varset,
 					  FVL (app_info::let_pre::asl) empty_varset)
 	      then raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre app_spec)
 	      else ()
+      *)
   in
       (final_spec, frame_hpl)
   end
