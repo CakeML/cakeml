@@ -2,7 +2,7 @@ structure ioProgLib =
 struct
 
 open preamble
-open ml_progLib ioProgTheory semanticsLib
+open ml_progLib ioProgTheory semanticsLib helperLib
 
 val hprop_heap_thms =
   ref [
@@ -24,11 +24,74 @@ val basis_ffi_tm =
       (zip ["inp","cls","files"]
         (#1(strip_fun(type_of basis_ffi_const)))))
 
+(* TODO: move *)
+val STDOUT_tm = prim_mk_const{Thy="mlcharioProg",Name="STDOUT"}
+fun mk_STDOUT x = mk_comb (STDOUT_tm,x)
+fun dest_STDOUT x = snd (assert (same_const STDOUT_tm o fst) (dest_comb x))
+val is_STDOUT = can dest_STDOUT
+val STDERR_tm = prim_mk_const{Thy="mlcharioProg",Name="STDERR"}
+fun mk_STDERR x = mk_comb (STDERR_tm,x)
+fun dest_STDERR x = snd (assert (same_const STDERR_tm o fst) (dest_comb x))
+val is_STDERR = can dest_STDERR
+val (UNIT_TYPE_tm,mk_UNIT_TYPE,dest_UNIT_TYPE,is_UNIT_TYPE) = syntax_fns2 "ml_translator" "UNIT_TYPE"
+val cond_tm = set_sepTheory.cond_def |> SPEC_ALL |> concl |> lhs |> rator
+fun dest_cond x = snd (assert (same_const cond_tm o fst) (dest_comb x))
+(* -- *)
+
+(*  Given a spec, normalise it if possible into the form required for
+    call_main_thm_basis, namely:
+    app (basis_proj1,basis_proj2) fv [Conv NONE []] P
+      (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q)
+    TODO: could be more robust
+examples:
+  val spec = mk_thm([],
+    ``app p fv [uv] (STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs)
+       (POSTv v.  &UNIT_TYPE () v * STDOUT (out ++ foo cl fs)
+                   * STDERR (out ++ bar cl fs)
+                   * (COMMANDLINE cl * ROFS fs))``)
+    |> add_basis_proj
+  val spec = mk_thm([],
+    ``app p fv [Conv NONE []] (ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err)
+      (POSTv uv. &UNIT_TYPE () uv *
+          (SEP_EXISTS out' error.
+            &(∃output err_msg. out' = out ++ output ∧ error = err ++ err_msg ∧
+              foo output fs cl err_msg) * STDOUT out' * STDERR error) *
+          (ROFS fs * COMMANDLINE cl))``)
+    |> add_basis_proj
+  val spec =
+    mk_thm([],``app p fv [Conv NONE []] (STDOUT output) (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ bar))``)
+    |> add_basis_proj
+  val spec =
+    mk_thm([],``app p fv [Conv NONE []] (STDOUT s * STDERR []) (POSTv uv. &UNIT_TYPE () uv * STDOUT s * STDERR bar)``)
+    |> add_basis_proj
+*)
 fun add_basis_proj spec =
-  let val spec0 = HO_MATCH_MP append_emp_err spec handle HOL_ERR _ =>
-                  HO_MATCH_MP append_emp_out spec handle HOL_ERR _ => spec
-      val spec1 = HO_MATCH_MP append_STDERR spec0 handle HOL_ERR _ => spec0
-      val spec2 = HO_MATCH_MP append_SEP_EXISTS spec1 handle HOL_ERR _ => spec1
+  let
+    val (proj,fv,args,precond,postcond) = spec |> concl |> cfAppSyntax.dest_app
+    val (v,hprop) = cfHeapsBaseSyntax.dest_postv postcond
+    val hprops = list_dest dest_star hprop
+    val (stdouts,hprops) = partition is_STDOUT hprops
+    val (stderrs,hprops) = partition is_STDERR hprops
+    fun is_cond_UNIT_TYPE x = aconv v (snd (dest_UNIT_TYPE (dest_cond x))) handle HOL_ERR _ => false
+    val (unitvs,hprops) = partition is_cond_UNIT_TYPE hprops
+    val hprops =
+      if List.null stdouts andalso List.null stderrs then
+        let
+          val (sepexists, hprops) = List.partition (can dest_sep_exists) hprops
+        in sepexists @ hprops end
+      else hprops
+    val star_type = type_of precond
+    val rest_hprop = list_mk_star hprops star_type
+    val post = list_mk_star (unitvs@stdouts@stderrs@[rest_hprop]) star_type
+    val goal =
+      cfAppSyntax.mk_app(proj,fv,args,precond,cfHeapsBaseSyntax.mk_postv(v,post))
+    val lemma = prove(goal,
+      mp_tac spec
+      \\ simp_tac(bool_ss)[set_sepTheory.SEP_CLAUSES]
+      \\ simp_tac (std_ss++star_ss) [])
+    val spec1 = if List.null stderrs andalso not (List.null stdouts) then
+                HO_MATCH_MP append_STDERR lemma else lemma
+    val spec2 = HO_MATCH_MP append_SEP_EXISTS spec1 handle HOL_ERR _ => spec1
   in
       spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end
