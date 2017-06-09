@@ -2694,7 +2694,8 @@ val FIELDS_next = Q.store_thm("FIELDS_next",
   `∀ls l1 l2.
    FIELDS P ls = l1::l2 ⇒
    LENGTH l1 < LENGTH ls ⇒
-   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2 ∧
+   (∃c. l1 ++ [c] ≼ ls ∧ P c)`,
   gen_tac
   \\ completeInduct_on`LENGTH ls`
   \\ ntac 4 strip_tac
@@ -2763,7 +2764,8 @@ val splitlines_def = Define`
 
 val splitlines_next = Q.store_thm("splitlines_next",
   `splitlines ls = ln::lns ⇒
-   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns ∧
+   ln ≼ ls ∧ (LENGTH ln < LENGTH ls ⇒ ln ++ "\n" ≼ ls)`,
   simp[splitlines_def]
   \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
   \\ Cases_on`LENGTH h < LENGTH ls`
@@ -2778,7 +2780,8 @@ val splitlines_next = Q.store_thm("splitlines_next",
     \\ fs[LAST_DEF,NULL_EQ]
     \\ Cases_on`t = []` \\ fs[]
     \\ fs[FRONT_DEF]
-    \\ IF_CASES_TAC \\ fs[] )
+    \\ IF_CASES_TAC \\ fs[]
+    \\ fs[IS_PREFIX_APPEND])
   \\ fs[NOT_LESS]
   \\ imp_res_tac FIELDS_full \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
