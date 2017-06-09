@@ -149,97 +149,49 @@ fun get_heap_pred_ptr p =
     rec_get p get_ptr_fun_list
   end;
 
-(* TODO: move these postv/poste/post functions to cfHeapsBaseSyntax *)
-(* [dest_postv] *)
-val postv_tm = ``cfHeapsBase$POSTv``;
-fun dest_postv c =
-  dest_binder postv_tm (ERR "dest_postv" "Not a POSTv abstraction") c;
-
-(* [is_postv] *)
-fun is_postv c =
-  let val _ = dest_binder postv_tm (ERR "" "") c in true end handle HOL_ERR _ => false;
-
 (* [rename_dest_postv]
    Deconstructs the POSTv of a heap condition and rename the POSTv value
    so that it is a fresh variable. *)
 fun rename_dest_postv (varsl, c) =
   let
-      val (v, c1) = dest_postv c
+      val (v, c1) = cfHeapsBaseSyntax.dest_postv c
       val v' = variant varsl v
       val c2 = Term.subst [v |-> v'] c1
   in
       (v', c2)
   end;
-
-(* [dest_poste] *)
-val poste_tm = ``cfHeapsBase$POSTe``;
-fun dest_poste c =
-  dest_binder poste_tm (ERR "dest_poste" "Not a POSTe abstraction") c;
-
-(* [is_poste] *)
-fun is_poste c =
-  let val _ = dest_binder poste_tm (ERR "" "") c in true end handle HOL_ERR _ => false;
 
 (* [rename_dest_poste]
    Deconstructs the POSTe of a heap condition and rename the POSTe value
    so that it is a fresh variable. *)
 fun rename_dest_poste (varsl, c) =
   let
-      val (v, c1) = dest_poste c
+      val (v, c1) = cfHeapsBaseSyntax.dest_poste c
       val v' = variant varsl v
       val c2 = Term.subst [v |-> v'] c1
   in
       (v', c2)
   end;
 
-(* [dest_post] *)
-val post_tm = ``cfHeapsBase$POST``;
-fun dest_post c =
-  let
-      val (c', poste_abs) = dest_comb c
-      val (ptm, postv_abs) = dest_comb c'
-  in
-      if same_const ptm post_tm then
-	  let
-	      val (postv_v, postv_pred) = dest_abs postv_abs
-	      val (poste_v, poste_pred) = dest_abs poste_abs
-	  in
-	      (postv_v, postv_pred, poste_v, poste_pred)
-	  end
-      else
-	  raise (ERR "" "")
-  end
-  handle HOL_ERR _ => raise (ERR "dest_post" "Not a POST abstraction");
-
-(* [is_post] *)
-fun is_post c =
-  let
-      val (c', poste_abs) = dest_comb c
-      val (ptm, postv_abs) = dest_comb c'
-  in
-      if same_const ptm post_tm then true else false
-  end
-  handle HOL_ERR _ => false;
-
 (* [rename_dest_post] *)
 fun rename_dest_post (varsl, c) =
-  if is_postv c then
+  if cfHeapsBaseSyntax.is_postv c then
       let
-	  val (postv_v, postv_pred) = dest_postv c
+	  val (postv_v, postv_pred) = cfHeapsBaseSyntax.dest_postv c
 	  val postv_v' = variant varsl postv_v
 	  val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
       in
 	  (SOME postv_v', SOME postv_pred', NONE, NONE) end
-  else if is_poste c then
+  else if cfHeapsBaseSyntax.is_poste c then
       let
-	  val (poste_v, poste_pred) = dest_poste c
+	  val (poste_v, poste_pred) = cfHeapsBaseSyntax.dest_poste c
 	  val poste_v' = variant varsl poste_v
 	  val poste_pred' = Term.subst [poste_v |-> poste_v']  poste_pred
       in
 	  (NONE, NONE, SOME poste_v', SOME poste_pred') end
-  else if is_post c then
+  else if cfHeapsBaseSyntax.is_post c then
       let
-	  val (postv_v, postv_pred, poste_v, poste_pred) = dest_post c
+	  val (postv_v, postv_pred, poste_v, poste_pred) = cfHeapsBaseSyntax.dest_post c
 	  val postv_v' = variant varsl postv_v
 	  val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
 	  val poste_v' = variant (postv_v'::varsl) poste_v
@@ -360,23 +312,6 @@ fun mk_heap_condition (ex_vl, hpl, pfl) =
     c3
   end;
 
-(* [mk_postv] *)
-fun mk_postv (postv_v, c) = mk_binder postv_tm "mk_postv" (postv_v, c);
-
-(* [mk_poste] *)
-fun mk_poste (poste_v, c) = mk_binder poste_tm "mk_poste" (poste_v, c);
-
-(* [mk_post] *)
-fun mk_post (postv_v, postv_abs, poste_v, poste_abs) =
-  let
-      val postv_pred = mk_abs (postv_v, postv_abs)
-      val poste_pred = mk_abs (poste_v, poste_abs)
-      val post_cond_pre = mk_comb (post_tm, postv_pred)
-      val post_cond = mk_comb (post_cond_pre, poste_pred)
-  in
-      post_cond
-  end;
-
 (* [mk_heap_post_condition]
    Creates a heap post condition.
    Parameters:
@@ -388,10 +323,10 @@ fun mk_post (postv_v, postv_abs, poste_v, poste_abs) =
 
 fun mk_heap_post_condition (postv_v, postv_pred, poste_v, poste_pred) =
   case (postv_v, postv_pred, poste_v, poste_pred) of
-      (SOME postv_v, SOME postv_pred, NONE, NONE) => mk_postv (postv_v, postv_pred)
-   |  (NONE, NONE, SOME poste_v, SOME poste_pred) => mk_poste (poste_v, poste_pred)
+      (SOME postv_v, SOME postv_pred, NONE, NONE) => cfHeapsBaseSyntax.mk_postv (postv_v, postv_pred)
+   |  (NONE, NONE, SOME poste_v, SOME poste_pred) => cfHeapsBaseSyntax.mk_poste (poste_v, poste_pred)
    |  (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred) =>
-            mk_post (postv_v, postv_pred, poste_v, poste_pred)
+            cfHeapsBaseSyntax.mk_post (postv_v, postv_pred, poste_v, poste_pred)
    | _  => raise (ERR "mk_heap_post_condition" "Not valid parameters");
 
 (******** Get the post-condition given by the app specification ***********)
@@ -726,7 +661,7 @@ fun export_equality_type_thms_aux thms =
 
 val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
 			(mk_export_f export_equality_type_thms_aux);
-      
+
 fun export_equality_type_thms slist = List.app export slist;
 
 val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL];
@@ -797,7 +732,7 @@ fun add_refinement_invariants ri_defs =
 
 val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
 				(mk_export_f add_refinement_invariants);
-      
+
 fun export_refinement_invariants slist = List.app export slist;
 
 val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, UNIT_TYPE_def, STRING_TYPE_def];
@@ -956,7 +891,7 @@ fun max_instantiations_union pos_insts =
       val (tm_inst, ty_inst) = rec_search (Redblackmap.mkDict Term.compare,
 					Redblackmap.mkDict Type.compare)
 				          sorted_pos_insts
-					  
+
       (* Convert the maps to proper substitutions *)
       val tm_subst = List.map (op |->) (Redblackmap.listItems tm_inst)
       val ty_subst = List.map (op |->) (Redblackmap.listItems ty_inst)
@@ -966,7 +901,7 @@ fun max_instantiations_union pos_insts =
 
 (* A solver which performs unification on as much hypothesis as possible -
    succeeds if it can find a substitution such that all variables and types are
-   instantiated *)      
+   instantiated *)
 fun unif_heuristic_solver asl app_spec =
   let
       val pos_insts = find_possible_instantiations asl app_spec
@@ -983,11 +918,11 @@ fun unif_heuristic_solver asl app_spec =
 		      "unable to find an instantiation of all the variables")
   end;
 
-      
+
 val heuristic_solver = ref unif_heuristic_solver;
 fun set_heuristic_solver solver = heuristic_solver := solver;
 fun get_heuristic_solver () = !heuristic_solver;
-			     
+
 val USE_HEURISTICS = ref true;
 fun use_heuristics b = USE_HEURISTICS := true;
 fun using_heuristics () = !USE_HEURISTICS;
@@ -1495,14 +1430,14 @@ val t = (concl app_spec |> strip_forall |> snd);
 dest_comb t;
 RIGHT_IMP_FORALL_CONV t
 
-fun normalize_spec = PURE_REWRITE_TAC 
+fun normalize_spec = PURE_REWRITE_TAC
 
 fun remove_
 fun dest_name_index s =
   let
       val dest_s = String.explode s
       fun dest
-	      
+
 open Char
 fun index_variant varsl v =
   (case is_var tm of
@@ -1515,9 +1450,6 @@ fun index_variant varsl v =
       end
     | false => raise (ERR "index_variant" "not a variable"))
   handle (HOL_ERR err) => raise (ERR "index_variant" (err.message))
-		     
+
 end
 *)
-    
-
-			 
