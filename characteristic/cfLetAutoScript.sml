@@ -273,9 +273,15 @@ val LIST_REL_UNICITY_LEFT = Q.store_thm("LIST_REL_UNICITY_LEFT",
 metis_tac[EQTYPE_INJECTIVEREL, LIST_REL_INJECTIVE_EQTYPE, InjectiveRel_def]);
 
 (* Some theorems for rewrite rules with the refinement invariants *)
-val RECONSTRUCT_INT = Q.store_thm("RECONSTRUCT_INT", `v = (Litv (IntLit i)) <=> INT i v`, rw[INT_def]);
-val RECONSTRUCT_NUM = Q.store_thm("RECONSTRUCT_NUM", `v = (Litv (IntLit (&n))) <=> NUM n v`, rw[NUM_def, INT_def]);
-val RECONSTRUCT_BOOL = Q.store_thm("RECONSTRUCT_BOOL", `v = Boolv b <=> BOOL b v`, rw[BOOL_def]);
+
+(* Need to write the expand and retract theorems for UNIT_TYPE by hand - otherwise the retract theorem might introduce a variable, for example *)
+val UNIT_TYPE_RETRACT = Q.store_thm("UNIT_TYPE_RETRACT",
+`!v. v = Conv NONE [] <=> UNIT_TYPE () v`,
+rw[UNIT_TYPE_def]);
+
+val UNIT_TYPE_EXPAND = Q.store_thm("UNIT_TYPE_EXPAND",
+`!u v. UNIT_TYPE u v <=> u = () /\ v = Conv NONE []`,
+rw[UNIT_TYPE_def]);
 
 val NUM_INT_EQ = Q.store_thm("NUM_INT_EQ",
 `(!x y v. INT x v ==> (NUM y v <=> x = &y)) /\
