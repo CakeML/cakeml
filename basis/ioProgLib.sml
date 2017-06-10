@@ -38,6 +38,8 @@ val cond_tm = set_sepTheory.cond_def |> SPEC_ALL |> concl |> lhs |> rator
 fun dest_cond x = snd (assert (same_const cond_tm o fst) (dest_comb x))
 (* -- *)
 
+fun ERR f s = mk_HOL_ERR"ioProgLib" f s
+
 (*  Given a spec, normalise it if possible into the form required for
     call_main_thm_basis, namely:
     app (basis_proj1,basis_proj2) fv [Conv NONE []] P
@@ -78,10 +80,17 @@ fun add_basis_proj spec =
     val star_type = type_of precond
     val rest_hprop = list_mk_star hprops star_type
     val post = list_mk_star (unitvs@stdouts@stderrs@sepexists@[rest_hprop]) star_type
+    val (argv,argty) = listSyntax.dest_list args
+    val (arg_vars,args_goal) =
+      if List.null argv orelse
+         not (List.null (List.tl argv))
+      then raise ERR "add_basis_proj" "must have exactly one argument"
+      else if List.all is_var argv then (argv, ``[Conv NONE []]``)
+      else ([],args)
     val goal =
-      cfAppSyntax.mk_app(proj,fv,args,precond,cfHeapsBaseSyntax.mk_postv(v,post))
+      cfAppSyntax.mk_app(proj,fv,args_goal,precond,cfHeapsBaseSyntax.mk_postv(v,post))
     val lemma = prove(goal,
-      mp_tac spec
+      mp_tac (GENL arg_vars spec)
       \\ simp_tac(bool_ss)[set_sepTheory.SEP_CLAUSES]
       \\ simp_tac (std_ss++star_ss) [])
     val spec1 = if List.null stderrs andalso not (List.null stdouts) then
@@ -90,8 +99,6 @@ fun add_basis_proj spec =
   in
       spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end
-
-fun ERR f s = mk_HOL_ERR"ioProgLib" f s
 
 (*This function proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
 fun parts_ok_basis_st st =
