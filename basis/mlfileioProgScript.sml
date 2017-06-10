@@ -301,11 +301,12 @@ val FILENAME_def = Define `
      strlen s < 256)
 `;
 
+val _ = overload_on("hasFreeFD",``λfs. CARD (set (MAP FST fs.infds)) < 255``);
+
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
-     FILENAME s sv ∧
-     CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
+     FILENAME s sv ∧ hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) ^(fetch_v "openIn" (basis_st()))
        [sv]
        (ROFS fs)
@@ -805,8 +806,7 @@ val concat_all_lines = Q.store_thm("concat_all_lines",
     qpat_x_assum`concat [] = _`mp_tac \\ EVAL_TAC ));
 
 val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
-  `FILENAME f fv /\
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255
+  `FILENAME f fv /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"inputLinesFrom"(get_ml_prog_state()))
      [fv]

@@ -255,8 +255,7 @@ val _ = append_prog cat_main;
 val st = get_ml_prog_state();
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
-  `EVERY (inFS_fname fs) (MAP implode (TL cl)) ∧
-   CARD (set (MAP FST fs.infds)) < 255
+  `EVERY (inFS_fname fs) (MAP implode (TL cl)) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
      (STDOUT out * ROFS fs * COMMANDLINE cl)

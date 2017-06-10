@@ -150,8 +150,7 @@ val take_add_one_lemma = Q.prove(
   Induct >> Cases >> fs[TAKE] >> fs[ADD1]);
 
 val patch'_spec = Q.store_thm("patch'_spec",
-  `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255
+  `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch'"(get_ml_prog_state()))
      [fv1; fv2]

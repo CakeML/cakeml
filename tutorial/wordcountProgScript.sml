@@ -86,10 +86,7 @@ val wordcount = process_topdecs`
 val _ = append_prog wordcount;
 
 val wordcount_spec = Q.store_thm("wordcount_spec",
-  `wfFS fs ∧ (* TODO: encapsulate these *)
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
-
-   inFS_fname fs fname ∧
+  `hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [explode pname; explode fname] ∧
    contents = THE (ALOOKUP fs.files fname)
    ⇒

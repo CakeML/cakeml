@@ -129,7 +129,6 @@ val _ = append_prog get_file_contents;
 val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   `!fs fd fd_v acc_v acc.
     WORD (n2w fd : word8) fd_v ∧
-    wfFS fs ∧
     validFD fd fs ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -146,6 +145,7 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   completeInduct_on `LENGTH (linesFD fd fs)` >>
   rw [] >>
   xcf "get_file_contents" (get_ml_prog_state ()) >>
+  reverse(Cases_on`wfFS fs`) >- (fs[ROFS_def] \\ xpull) \\
   xlet
     `POSTv line_v.
       ROFS (bumpLineFD fd fs) *
@@ -193,13 +193,11 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
       fs [GSYM FDline_NONE_linesFD]) >>
     drule linesFD_eq_cons_imp >>
     rw []
-    >- metis_tac [wfFS_bumpLineFD]
-    >- metis_tac [APPEND, APPEND_ASSOC]));
+    \\ metis_tac [APPEND, APPEND_ASSOC]));
 
 val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   `!fnames_v fnames acc_v acc fs.
-    wfFS fs ∧
-    CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+    hasFreeFD fs ∧
     LIST_TYPE FILENAME fnames fnames_v ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -300,8 +298,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
 val sort_spec = Q.store_thm ("sort_spec",
   `!cl fs out err.
     (* TODO: until we get STDIN unified with the file system *) LENGTH cl > 1 ∧
-    wfFS fs ∧
-    CARD (FDOM (alist_to_fmap fs.infds)) < 255
+    hasFreeFD fs
     ⇒
     app (p : 'ffi ffi_proj)
       ^(fetch_v "sort" (get_ml_prog_state ()))

@@ -170,8 +170,7 @@ val wordfreq_output_spec_def =
 (* TODO: explain antiquotation (^) *)
 
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
-  `wfFS fs ∧ CARD (set (MAP FST fs.infds)) < 255 (* TODO: this should be part of wfFS, and possibly both part of ROFS *)
-   ∧ inFS_fname fs fname ∧ cl = [explode pname; explode fname]
+  `hasFreeFD fs ∧ inFS_fname fs fname ∧ cl = [explode pname; explode fname]
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" st) [Conv NONE []]
      (COMMANDLINE cl * ROFS fs * STDOUT out)

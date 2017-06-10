@@ -487,8 +487,7 @@ val print_matching_lines_in_file = process_topdecs`
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
-  `FILENAME f fv ∧
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+  `FILENAME f fv ∧ hasFreeFD fs ∧
    (STRING_TYPE --> BOOL) m mv
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
@@ -742,7 +741,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ rename1`parse_regexp regexp = SOME r`
   \\ xfun_spec`appthis`
      `∀f fv outp erro.
-      FILENAME f fv ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
+      FILENAME f fv ∧ hasFreeFD fs ⇒
       app p appthis [fv] (STDOUT outp * STDERR erro * COMMANDLINE cl * ROFS fs)
         (POSTv v. &UNIT_TYPE () v
                   * STDOUT (outp ++ FST(grep_sem_file (regexp_lang r) fs f))

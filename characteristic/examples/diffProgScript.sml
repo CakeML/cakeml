@@ -98,7 +98,7 @@ val take_add_one_lemma = Q.prove(
 
 val diff'_spec = Q.store_thm("diff'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255
+   hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff'"(get_ml_prog_state()))
      [fv1; fv2]
