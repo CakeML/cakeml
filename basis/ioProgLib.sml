@@ -74,15 +74,10 @@ fun add_basis_proj spec =
     val (stderrs,hprops) = partition is_STDERR hprops
     fun is_cond_UNIT_TYPE x = aconv v (snd (dest_UNIT_TYPE (dest_cond x))) handle HOL_ERR _ => false
     val (unitvs,hprops) = partition is_cond_UNIT_TYPE hprops
-    val hprops =
-      if List.null stdouts andalso List.null stderrs then
-        let
-          val (sepexists, hprops) = List.partition (can dest_sep_exists) hprops
-        in sepexists @ hprops end
-      else hprops
+    val (sepexists, hprops) = partition (can dest_sep_exists) hprops
     val star_type = type_of precond
     val rest_hprop = list_mk_star hprops star_type
-    val post = list_mk_star (unitvs@stdouts@stderrs@[rest_hprop]) star_type
+    val post = list_mk_star (unitvs@stdouts@stderrs@sepexists@[rest_hprop]) star_type
     val goal =
       cfAppSyntax.mk_app(proj,fv,args,precond,cfHeapsBaseSyntax.mk_postv(v,post))
     val lemma = prove(goal,
