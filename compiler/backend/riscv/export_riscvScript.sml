@@ -1,6 +1,6 @@
 open preamble exportTheory
 
-val () = new_theory "export_x64";
+val () = new_theory "export_riscv";
 
 val preamble =
   ``(MAP (\n. strlit(n ++ "\n"))
@@ -50,18 +50,17 @@ val startup =
        "     .globl  cdecl(main)";
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
+       "";
        "cdecl(main):";
-       "     leaq    cdecl(argc)(%rip), %rbx";
-       "     leaq    cdecl(argv)(%rip), %rdx";
-       "     movq    %rdi, 0(%rbx)  # %rdi stores argc";
-       "     movq    %rsi, 0(%rdx)  # %rsi stores argv";
-       "     pushq   %rbp        # push base pointer";
-       "     movq    %rsp, %rbp  # save stack pointer";
-       "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
-       "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap";
-       "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack";
-       "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack";
-       "     jmp     cake_main";
+       "     la      t3,cdecl(argc)";
+       "     la      x4,cdecl(argv)";
+       "     sd      a0, 0(t3)      # a0 stores argc";
+       "     sd      a1, 0(x4)      # a1 stores argv";
+       "     la      a0,cake_main   # arg1: entry address";
+       "     la      a1,cake_heap   # arg2: first address of heap";
+       "     la      t3,cake_stack  # arg3: first address of stack";
+       "     la      x4,cake_end    # arg4: first address past the stack";
+       "     j       cake_main";
        ""])`` |> EVAL |> concl |> rand
 
 val ffi_asm_def = Define `
@@ -69,8 +68,7 @@ val ffi_asm_def = Define `
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
        strlit"cake_ffi"; implode ffi; strlit":\n";
-       strlit"     pushq   %rax\n";
-       strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"     j     cdecl(ffi"; implode ffi; strlit")\n";
        strlit"     .p2align 3\n";
        strlit"\n"]) (ffi_asm ffis))`
 
@@ -85,11 +83,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   cdecl(exit)";
+       "     j   cdecl(exit)";
        "     .p2align 3";
        "";
        "cake_exit:";
-       "     callq   cdecl(exit)";
+       "     j   cdecl(exit)";
        "     .p2align 3";
        "";
        "cake_main:";
@@ -97,8 +95,8 @@ val ffi_code =
        "#### Generated machine code follows";
        ""])))`` |> EVAL |> concl |> rand
 
-val x64_export_def = Define `
-  x64_export ffi_names heap_space stack_space bytes =
+val riscv_export_def = Define `
+  riscv_export ffi_names heap_space stack_space bytes =
     SmartAppend
       (SmartAppend (List ^preamble)
       (SmartAppend (List ^heap_stack_space)
@@ -106,7 +104,7 @@ val x64_export_def = Define `
       (split16 bytes)`;
 
 (*
-  EVAL ``append (x64_export ["getArgs";"putChar";"getChar"] 400 300 [3w;4w;5w])``
+  EVAL ``append (riscv_export ["getArgs";"putChar";"getChar"] 400 300 [3w;4w;5w])``
   |> concl |> rand |> listSyntax.dest_list |> fst |> map rand
   |> map stringSyntax.fromHOLstring |> concat |> print
 *)
