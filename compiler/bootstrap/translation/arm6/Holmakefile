@@ -1,10 +1,10 @@
-INCLUDES = ../../.. ../../../translator ../../../characteristic ../../inference ../../inference/proofs ../../parsing ../../backend ../.. \
-					 ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis ../../../explorer/pp/astPP
+INCLUDES = ../../../../translator ../../../../characteristic .. ../../..  \
+           ../../../encoders/arm6 ../../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -12,9 +12,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../translator/ml_translatorLib \
-						../../inference/inferTheory \
-						../../inference/proofs/inferPropsTheory
+BARE_THYS = ../../../../translator/ml_translatorLib
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
