@@ -3,16 +3,36 @@ signature cfLetAutoLib = sig
     type ssfrag = simpLib.ssfrag
     type simpset = simpLib.simpset
 
-    (* REMARK: some get functions are present in this signature only for development purposes and should be eventually removed - example: get_heuristic_solver *)
+    (* REMARK: some get functions are present in this signature only for development purposes and should eventually be removed - example: get_heuristic_solver *)
 
+    (* INTRO_REWRITE uses rewrite rules of the form:
+       h1 => ... => hn => t1 = t2
+       where the variables free in t2 are not necessarily present in t1.
+
+       Is mainly supposed to be used with rules of the form:
+       TYPE x xv1 => (TYPE x xv2 <=> xv2 = xv1)
+       *)
     val INTRO_REWRITE_CONV : thm list -> term list -> conv
     val INTRO_REWRITE_TAC : thm list -> tactic
 
+    (* The frame theorems are theorems used to compare two heap conditions.
+       They should be of the following form:
+       VALID_HEAP s ==> (PRED x1 ... xn * H1) s /\ (PRED y1 ... yn * H2) s ==> CONCL
+       For example:
+       VALID_HEAP s ==> (REF r xv1 * H1) s /\ (REF r xv2 * H2) s ==> xv2 = xv1
+       *)
     val export_frame_thms : string list -> unit
     val get_frame_thms : unit -> thm list
 
     val export_equality_type_thms : string list -> unit
     val get_equality_type_thms : unit -> thm list
+
+    (* A function to extract the frame from a heap condition,
+       by matching it against a second heap predicate.
+       Uses the theorems provided by export_frame_thms
+       *)
+    val match_heap_conditions : term -> term ->
+      {redex: term, residue: term} list * term list * term list
 
     (*
        export_equality_type_thms should be called with the appropriate theorems as
@@ -25,6 +45,12 @@ signature cfLetAutoLib = sig
     val get_RI_defs : unit -> thm list
     val get_expand_thms : unit -> thm list
     val get_retract_thms : unit -> thm list
+
+    (* Apply the expand and retract rewrite rules to the goal -
+       useful when dealing with refinement invariants *)
+    val EXPAND_TAC : tactic
+    val RETRACT_TAC : tactic
+    val REWRITE_RI_TAC : tactic
 
     val export_match_thms : string list -> unit
     val get_intro_rewrite_thms : unit -> thm list
@@ -50,13 +76,16 @@ signature cfLetAutoLib = sig
     val use_heuristics : bool -> unit
     val using_heuristics : unit -> bool
 
-    (* A function to extract the frame from a heap condition,
-       by matching it against a second heap predicate *)
-    val match_heap_conditions : term -> term ->
-      {redex: term, residue: term} list * term list * term list
+    (*
+     * The xlet_auto function and its derivatives
+     *)
 
-    (* The xlet_auto function and its derivatives *)
+    (* xlet_auto_spec takes an optional app specification as argument *)
     val xlet_auto_spec : thm option -> tactic
+
+    (* xlet_find_auto returns the appropriate post-condition *)
     val xlet_find_auto : term list * term -> term
+
+    (* xlet_auto is the default function to use *)
     val xlet_auto : tactic
 end

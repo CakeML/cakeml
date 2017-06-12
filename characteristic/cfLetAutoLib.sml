@@ -457,19 +457,29 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
 				|> concl |> dest_eq |> snd) params_tm_list
       (*************************************************)
 
+      (* Find the app variable *)
+      val (app_info'', app_var) = dest_comb app_info'
+
       (* Find the ffi variable *)
-      val ffi = dest_comb app_info' |> fst |> dest_comb |> snd
+      val ffi = dest_comb app_info'' |> snd
 
       (* Get the parameters written in the specification *)
       val inst_app_spec = RENAME_SPEC_ALL fvl app_spec
       val app_spec1 = concl inst_app_spec |> list_dest dest_imp |> List.last
       val app_spec2 = dest_comb app_spec1 |> fst
       val app_spec3 = dest_comb app_spec2 |> fst
-      val spec_parameters = dest_comb app_spec3 |> snd
+      val (app_spec4, spec_parameters) = dest_comb app_spec3
       val (spec_params_tm_list, _) = listSyntax.dest_list spec_parameters
 
-      (* And the ffi variable *)
-      val spec_ffi = dest_comb app_spec3 |> fst |> dest_comb |> fst |> dest_comb |> snd
+      (* Get the app variable written in the specification *)
+      val (app_spec5, spec_app_var) = dest_comb app_spec4
+      val (spec_params_tm_list, params_tm_list) =
+	  if is_var spec_app_var then
+	      (spec_app_var::spec_params_tm_list, app_var::params_tm_list)
+	  else (spec_params_tm_list, params_tm_list)
+							  
+      (* And the ffi variable written in the specification *)
+      val spec_ffi = dest_comb app_spec5 |> snd
 
       (* Match the parameters *)
       fun create_subst l1 l2 =
@@ -685,6 +695,10 @@ fun add_expand_retract_thms expandThms retractThms =
 fun get_expand_thms () = !RI_EXPAND_THMSL;
 fun get_retract_thms () = !RI_RETRACT_THMSL;
 
+val EXPAND_TAC = FULL_SIMP_TAC (srw_ss()) (get_expand_thms());
+val RETRACT_TAC = FULL_SIMP_TAC (srw_ss()) (get_retract_thms());
+val REWRITE_RI_TAC = EXPAND_TAC THEN RETRACT_TAC;
+
 (* List of equality types *)
 val EQUALITY_TYPE_THMS = ref ([] : thm list);
 
@@ -694,7 +708,7 @@ fun add_equality_type_thms thms =
 fun get_equality_type_thms () = !EQUALITY_TYPE_THMS;
 
 (* Unicity theorems *)
-val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT]);
+val INTRO_RW_THMS = ref ([NUM_INT_EQ, LIST_REL_UNICITY_RIGHT, LIST_REL_UNICITY_LEFT, EQTYPE_UNICITY_R, EQTYPE_UNICITY_L]);
 
 fun add_intro_rewrite_thms thms = (INTRO_RW_THMS := thms @ !INTRO_RW_THMS);
 fun get_intro_rewrite_thms () = !INTRO_RW_THMS;
@@ -745,10 +759,11 @@ fun generate_RI_unicity_thms eq_type_thms =
 
 fun export_equality_type_thms_aux thms =
   let
-      val unicity_thms = generate_RI_unicity_thms thms
+      val thms = List.map (CONV_RULE (PURE_REWRITE_CONV [satTheory.AND_IMP])) thms
+      (* val unicity_thms = generate_RI_unicity_thms thms *)
   in
-      add_equality_type_thms thms;
-      add_intro_rewrite_thms unicity_thms
+      add_equality_type_thms thms
+      (* ; add_intro_rewrite_thms unicity_thms *)
   end;
 
 val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
@@ -756,7 +771,9 @@ val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
 
 fun export_equality_type_thms slist = List.app export slist;
 
-val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL];
+val _ = export_equality_type_thms_aux [EqualityType_NUM_BOOL,
+				       EqualityType_LIST_TYPE,
+				       EqualityType_PAIR_TYPE];
 
 (* Basic rewrite theorems *)
 val RW_THMS = ref [(* Handle the int_of_num operator *)
@@ -1120,14 +1137,91 @@ fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
       (app_spec4, used_subst)
   end;
 
-(* [find_equality_types] : find instantiations for the polymorphic types (ie: the quantified
-	 refinement invariants) *)
+(* [find_equality_types]
+   Search through the assumptions list for possible equality types, prove that those are indeed equality types if possible *)
+fun find_equality_types asl eqTypeThms =
+  let
+      (* Get the potential equalityTypes *)
+      fun get_pot_EqualityType t =
+	let
+	    val (t', xv) = dest_comb t
+	    val eqType = dest_comb t' |> fst
+	in
+	    if type_of xv = ``:v`` then eqType else failwith ""
+	end
+      val pot_eqTypes = mapfilter get_pot_EqualityType asl
+
+      (* Get the assumptions of the form `EqualityType A` *)
+      val EqualityType_tm = ``EqualityType : ('a -> v -> bool) -> bool``
+      fun isEqTypeHyp a =
+	(same_const ((fst o dest_comb) a) EqualityType_tm handle HOL_ERR _ => false)
+      val eqType_asl = List.filter isEqTypeHyp asl
+      val eqType_asl_thms = List.map ASSUME eqType_asl
+
+      (* thmsNet : links every theorem conclusion to the theorem itself *)
+      val eqTypeThms = List.map SPEC_ALL eqTypeThms
+      fun get_last_concl th = concl th |> list_dest dest_imp |> List.last |> dest_comb |> snd
+      val thmsNet = List.foldr (fn (th, n) =>
+				   let val th_concl = get_last_concl th in
+				       Net.insert (th_concl, (th_concl, th)) n end) Net.empty (eqType_asl_thms @ eqTypeThms)
+				 
+      (* For each potential equality type P present in the asl, try to prove that P is an EqualityType *)
+      val thmsNet = ref thmsNet
+      fun prove_EqualityType t =
+	let
+	    (* Match t with the theorems net *)
+	    val concl_matches = Net.match t (!thmsNet)
+
+	    (* Finish the matching and perform the instantiations *)
+	    fun match_th_concl (cth, th) =
+	      let
+		  (* Perform the matching *)
+		  val (tms, tys) = Term.match_term cth t
+		  val (tms, tys) = Term.norm_subst ((tms, empty_tmset), (tys, []))
+		  val th' = Thm.INST tms (Thm.INST_TYPE tys th)
+	      in
+		  th'
+	      end
+	    val matched_thms = mapfilter match_th_concl concl_matches
+
+	    (* Transform each theorem into a list of subgoals *)
+	    fun get_subgoal_list th =
+	      let
+		  val imps = (list_dest dest_imp (concl th))
+		  val subgoals = List.take (imps, List.length imps - 1)
+		  val intermEqTypes = List.map (snd o dest_comb) subgoals
+	      in
+		  (intermEqTypes, th)
+	      end
+	    val sg_thms = mapfilter get_subgoal_list matched_thms
+
+	    (* For each theorem, try to prove the subgoals *)
+	    fun prove_subgoals (intermEqTypes, th) =
+	      let
+		  val proved_subgoals = List.map prove_EqualityType intermEqTypes
+		  val proved_thm = List.foldl (fn (hyp, th) => MP th hyp) th proved_subgoals
+	      in
+		  proved_thm
+	      end
+	    val proved_thm = tryfind prove_subgoals sg_thms
+	in
+	    thmsNet := Net.insert (concl proved_thm, (concl proved_thm, proved_thm)) (!thmsNet);
+	    proved_thm
+	end
+      val final_thms = mapfilter prove_EqualityType pot_eqTypes
+
+      (* Remove redundancy in the theorems *)
+      val final_thms_map = List.foldr (fn (th, m) => Redblackmap.insert (m, concl th, th)) (Redblackmap.mkDict Term.compare) final_thms
+  in
+      List.map snd (Redblackmap.listItems final_thms_map)
+  end;
+
+
+(* [inst_refinement_invariants] : find instantiations for the quantified refinement invariants *)
 val equality_type_pattern = ``EqualityType (A:'a -> v -> bool)``
 val equality_type_tm = ``EqualityType:('a -> v -> bool)->bool``
-fun find_equality_types asl app_spec =
+fun inst_refinement_invariants eq_type_thms asl app_spec =
   let
-      val eq_type_thms = get_equality_type_thms ()
-
       (* Retrieve information from the assumptions list *)
       fun is_eqtype_clause t =
 	let
@@ -1223,7 +1317,7 @@ fun simplify_spec let_pre asl app_spec =
 
       (* Perform the simplification *)
       val compos_conv = (INTRO_REWRITE_CONV (get_intro_rewrite_thms()) asl)
-			 THENC (SIMP_CONV sset (AND_IMP_INTRO::asl_thms))
+			 THENC (SIMP_CONV sset asl_thms)
 			 THENC (SIMP_CONV (list_ss ++ SQI_ss) [])
 			 THENC (ELIM_UNKWN_CONV unkwn_vars)
       val app_spec1 =
@@ -1270,9 +1364,13 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val sset = get_default_simpset ()
 
       (* Perform rewrites and simplifications on the assumptions *)
-      val rw_asl = CONV_ASSUM list_ss (markerTheory.Abbrev_def::rw_thms) asl
+      val rw_asl = CONV_ASSUM list_ss (markerTheory.Abbrev_def::((get_retract_thms()) @ rw_thms)) asl
       val rw_asl_concl = List.map concl rw_asl
-      val all_rw_thms = List.revAppend (AND_IMP_INTRO::rw_asl, rw_thms)
+      (* Find the refinement invariants used in the assumptions *)
+      val local_equality_types_thms = find_equality_types rw_asl_concl (get_equality_type_thms())
+      val rw_asl = local_equality_types_thms @ rw_asl
+      val rw_asl_concl = (List.map concl local_equality_types_thms) @ rw_asl_concl
+      val all_rw_thms = List.revAppend (rw_asl, rw_thms)
 
       (* Add the rewritten asl in the assumptions of the app spec *)
       val app_spec1 = List.foldr (fn (x, y) => ADD_ASSUM x y) app_spec rw_asl_concl
@@ -1295,8 +1393,8 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	    (* Update the used substitutions (prevents loopings) *)
 	    val used_subst' = HOLset.addList (used_subst, new_subst)
 
-	    (* Instantiate the polymorphic types and get rid of the constants *)
-	    val app_spec2 = find_equality_types (let_pre::rw_asl_concl) app_spec1
+	    (* Instantiate the refinement invariants and get rid of the constants *)
+	    val app_spec2 = inst_refinement_invariants local_equality_types_thms (let_pre::rw_asl_concl) app_spec1
 						 |> CONV_RULE (RATOR_CONV constElimConv)
 
 	    (* Perform the simplification *)
@@ -1310,25 +1408,33 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 				       (* Get rid of T ==> _ and some other expressions *)
 		|> PURE_REWRITE_RULE [ConseqConvTheory.IMP_CLAUSES_TX]
 
+      (* Check that all variables have been instantiated *)
+      fun all_instantiated asl let_pre app_info app_spec =
+	let
+	    val app_spec_fvs = FVL [concl app_spec] empty_varset
+	    val original_fvs = FVL (app_info::let_pre::asl) empty_varset
+	in
+	    HOLset.isSubset (app_spec_fvs, original_fvs)
+	end
+	
       (* Use heuristics if necessary *)
-      val used_heuristics = ref false
       fun heuristic_inst asl app_spec =
-	if (not o HOLset.isSubset) (FVL [concl app_spec] empty_varset,
-				    FVL (app_info::let_pre::asl) empty_varset)
+	if not(all_instantiated asl let_pre app_info app_spec)
 	   andalso using_heuristics()
 	then
 	    let
-		 val solver = get_heuristic_solver()
-		 val (tm_subst, ty_subst) = solver asl app_spec
-		 val ty_app_spec = Thm.INST_TYPE ty_subst app_spec
-		 val tm_subst' =
-		     List.map (fn {redex = x, residue = y} =>
-				  (Term.inst ty_subst x |-> y)) tm_subst
-		 val subst_app_spec = Thm.INST tm_subst' ty_app_spec
-	     in
-		 used_heuristics := true;
-		 subst_app_spec
-	     end handle HOL_ERR _ => app_spec
+		val _ = print "xlet_auto : using heuristics\n"
+
+		val solver = get_heuristic_solver()
+		val (tm_subst, ty_subst) = solver asl app_spec
+		val ty_app_spec = Thm.INST_TYPE ty_subst app_spec
+		val tm_subst' =
+		    List.map (fn {redex = x, residue = y} =>
+				 (Term.inst ty_subst x |-> y)) tm_subst
+		val subst_app_spec = Thm.INST tm_subst' ty_app_spec
+	    in
+		subst_app_spec
+	    end handle HOL_ERR _ => app_spec
 	else app_spec (* instantiation is re-tested below *)
 
       (* To perform the matching, we give both the rewritten asl and the original asl       to match against- in some situations, it might be too expensive *)
@@ -1336,18 +1442,30 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
-	if (is_imp (concl app_spec)) then
-	    let val conv_f = RAND_CONV (RAND_CONV (SIMP_CONV sset all_rw_thms))
-	    in CONV_RULE conv_f app_spec end
-	else let val conv_f = (RAND_CONV (SIMP_CONV sset all_rw_thms))
-	     in CONV_RULE conv_f app_spec end
+	let
+	    val b_conv =
+		(* Start by simplifying what can be *)
+		(SIMP_CONV sset all_rw_thms)
+		(* Expand and retract the refinement invariants *)
+		THENC (SIMP_CONV bool_ss (get_expand_thms()))
+		THENC (SIMP_CONV bool_ss (get_retract_thms()))
+
+	    val f_conv = if is_imp (concl app_spec) then RAND_CONV (RAND_CONV b_conv)
+			 else RAND_CONV b_conv
+	in
+	    CONV_RULE f_conv app_spec
+	end
 
       (* Modify the hypothesis inside the app_spec *)
       fun simplify_app_hypothesis app_spec =
 	if (is_imp (concl app_spec)) then
-	    let val conv_f = RATOR_CONV (RAND_CONV ((SIMP_CONV sset all_rw_thms)
-				THENC (PURE_REWRITE_CONV (get_retract_thms()))))
-	    in CONV_RULE conv_f app_spec end
+	    let
+		val b_conv = (SIMP_CONV sset all_rw_thms)
+				 THENC (PURE_REWRITE_CONV (get_retract_thms()))
+		val f_conv = RATOR_CONV (RAND_CONV b_conv)
+	    in
+		CONV_RULE f_conv app_spec
+	    end
 	else app_spec
 
       val hsimp_app_spec' = (simplify_app_hypothesis o simplify_app_post) hsimp_app_spec
@@ -1359,33 +1477,19 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       val rw_let_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) let_pre |> concl |> dest_eq |> snd)
       val (vars_subst, frame_hpl, rest) = match_heap_conditions let_pre app_pre
       val () = if List.null rest then () else
-	       raise (generate_XLET_ERR "xlet_simp_spec" "cannot extract the frame" asl let_pre app_spec)
+	       raise (generate_XLET_ERR "xlet_simp_spec" "cannot extract the frame" asl let_pre hsimp_app_spec')
 
-      (* Change the assumptions in the spec *)
+      (* Replace the assumptions in the spec by the original asl *)
       val final_spec = MP_ASSUML rw_asl hsimp_app_spec'
 
-      (* Used heuristics? *)
-      val _ = if !used_heuristics then print "xlet_auto : using heuristics\n" else ()
-
       (* Have all the variables been instantiated? *)
-      val final_spec_fvs = FVL [concl final_spec] empty_varset
-      val original_fvs = FVL (app_info::let_pre::asl) empty_varset
-      val remaining_fvs = HOLset.difference(final_spec_fvs,original_fvs)
-      val final_spec =
-        if HOLset.isEmpty remaining_fvs then final_spec else
-        let
-          val final_spec' =
-            GENL(HOLset.listItems remaining_fvs) final_spec
-            |> SIMP_RULE bool_ss [] |> SPEC_ALL
-          val final_spec_fvs' = FVL [concl final_spec'] empty_varset
-        in if HOLset.isSubset (final_spec_fvs', original_fvs)
-           then final_spec'
-           else raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre app_spec)
-        end
+      val _ = if all_instantiated asl let_pre app_info final_spec then final_spec
+	      else raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre final_spec)
+
       (*
       val _ = if (not o HOLset.isSubset) (FVL [concl final_spec] empty_varset,
 					  FVL (app_info::let_pre::asl) empty_varset)
-	      then raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre app_spec)
+	      then raise (generate_XLET_ERR "xlet_simp_spec" "cannot instantiate the variables" asl let_pre final_spec)
 	      else ()
       *)
   in

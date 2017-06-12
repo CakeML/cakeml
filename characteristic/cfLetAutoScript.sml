@@ -272,6 +272,66 @@ val LIST_REL_UNICITY_LEFT = Q.store_thm("LIST_REL_UNICITY_LEFT",
 `EqualityType A ==> LIST_REL A a b ==> (LIST_REL A a' b <=> a' = a)`,
 metis_tac[EQTYPE_INJECTIVEREL, LIST_REL_INJECTIVE_EQTYPE, InjectiveRel_def]);
 
+(* EqualityType proofs *)
+val EqualityType_PAIR_TYPE = Q.store_thm("EqualityType_PAIR_TYPE",
+`EqualityType A ==> EqualityType B ==> EqualityType (PAIR_TYPE A B)`,
+rw[EqualityType_def]
+>-(
+    Cases_on `x1` >>
+    fs[PAIR_TYPE_def, no_closures_def] >>
+    metis_tac[]
+) >>
+Cases_on `x1` >>
+Cases_on `x2` >>
+fs[PAIR_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def] >>
+metis_tac[]);
+
+val LIST_TYPE_no_closure = Q.prove(
+`!A x xv. EqualityType A ==> LIST_TYPE A x xv ==> no_closures xv`,
+Induct_on `x`
+>-(fs[LIST_TYPE_def, no_closures_def]) >>
+rw[LIST_TYPE_def] >>
+rw[no_closures_def]
+>-(metis_tac[EqualityType_def]) >>
+last_assum IMP_RES_TAC);
+
+val LIST_TYPE_inj = Q.prove(
+`!A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
+(v1 = v2 <=> x1 = x2)`,
+Induct_on `x1`
+>-(
+    Cases_on `x2` >>
+    rw[LIST_TYPE_def, EqualityType_def]
+) >>
+Cases_on `x2` >-(rw[LIST_TYPE_def]) >>
+rw[LIST_TYPE_def] >>
+last_x_assum IMP_RES_TAC >>
+rw[] >>
+fs[EqualityType_def] >>
+metis_tac[]);
+
+val types_match_tac = rpt (CHANGED_TAC (rw[LIST_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def]));
+val LIST_TYPE_types_match = Q.prove(
+`!A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
+types_match v1 v2`,
+Induct_on `x1`
+>-(
+    Cases_on `x2` >>
+    types_match_tac
+) >>
+Cases_on `x2`
+>-(types_match_tac)>>
+types_match_tac
+>-(metis_tac[EqualityType_def])>>
+last_assum IMP_RES_TAC);
+
+val EqualityType_LIST_TYPE = Q.store_thm("EqualityType_LIST_TYPE",
+`EqualityType A ==> EqualityType (LIST_TYPE A)`,
+DISCH_TAC >> rw[EqualityType_def]
+>-(IMP_RES_TAC LIST_TYPE_no_closure)
+>-(IMP_RES_TAC LIST_TYPE_inj) >>
+IMP_RES_TAC LIST_TYPE_types_match);
+
 (* Some theorems for rewrite rules with the refinement invariants *)
 
 (* Need to write the expand and retract theorems for UNIT_TYPE by hand - otherwise the retract theorem might introduce a variable, for example *)
