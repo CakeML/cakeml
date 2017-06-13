@@ -80,4 +80,8 @@ compiler/parsing/tests
 
 # compiler bootstrap
 compiler/bootstrap/translation
-compiler/bootstrap/evaluation
+compiler/bootstrap/translation/x64
+compiler/bootstrap/evaluation/x64
+compiler/bootstrap/translation/riscv
+compiler/bootstrap/evaluation/riscv
+
