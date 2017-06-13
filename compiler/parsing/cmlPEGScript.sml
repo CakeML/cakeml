@@ -325,12 +325,21 @@ val cmlPEG_def = zDefine`
                  tok isTyvarT (bindNT nTbase o mktokLf);
                  pegf (pnt nTyOp) (bindNT nTbase)
                ]);
+              (mkNT nPTbase,
+               choicel [
+                 seql [tokeq LparT; pnt nType; tokeq RparT] (bindNT nPTbase);
+                 tok isTyvarT (bindNT nPTbase o mktokLf);
+                 pegf (pnt nTyOp) (bindNT nPTbase)
+               ]);
               (mkNT nTypeList2,
                seql [pnt nType; tokeq CommaT; pnt nTypeList1]
                     (bindNT nTypeList2));
               (mkNT nTypeList1,
                seql [pnt nType; try (seql [tokeq CommaT; pnt nTypeList1] I)]
                     (bindNT nTypeList1));
+              (mkNT nTbaseList,
+               pegf (try (seql [pnt nPTbase; pnt nTbaseList] I))
+                    (bindNT nTbaseList));
               (mkNT nTyOp,
                pegf (choicel [pnt nUQTyOp; tok isLongidT mktokLf])
                     (bindNT nTyOp));
@@ -355,7 +364,8 @@ val cmlPEG_def = zDefine`
                     (bindNT nDtypeDecl));
               (mkNT nDconstructor,
                seql [pnt nUQConstructorName;
-                     try (seql [tokeq OfT; pnt nType] I)]
+                     choicel [seql [tokeq OfT; pnt nType] I;
+                              pnt nTbaseList]]
                     (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,
@@ -628,23 +638,24 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [``nTypeDec``, ``nTypeAbbrevDec``, ``nOpID``,
-                ``nDecl``, ``nV``, ``nUQTyOp``,
-                ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
-                ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
-                ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
-                ``nTypeList1``, ``nTypeList2``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``,
-                ``nPcons``, ``nPattern``,
-                ``nPatternList``, ``nPbaseList1``,
-                ``nLetDec``, ``nMultOps``, ``nListOps``,
-                ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEliteral``,
-                ``nEbase``, ``nEapp``,
-                ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
-                ``nEbefore``,
-                ``nEtyped``, ``nElogicAND``, ``nElogicOR``, ``nEhandle``,
-                ``nE``, ``nE'``, ``nElist1``,
-                ``nSpecLine``, ``nStructure``, ``nTopLevelDec``]
+               [“nTypeDec”, “nTypeAbbrevDec”, “nOpID”,
+                “nDecl”, “nV”, “nUQTyOp”,
+                “nUQConstructorName”, “nStructName”, “nConstructorName”,
+                “nTypeName”,
+                “nDtypeDecl”, “nDconstructor”, “nFDecl”, “nTyvarN”,
+                “nTyOp”, “nTbase”, “nPTbase”, “nDType”, “nPType”, “nType”,
+                “nTypeList1”, “nTypeList2”,
+                “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
+                “nPcons”, “nPattern”,
+                “nPatternList”, “nPbaseList1”,
+                “nLetDec”, “nMultOps”, “nListOps”,
+                “nFQV”, “nAddOps”, “nCompOps”, “nEliteral”,
+                “nEbase”, “nEapp”,
+                “nEmult”, “nEadd”, “nElistop”, “nErel”, “nEcomp”,
+                “nEbefore”,
+                “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
+                “nE”, “nE'”, “nElist1”,
+                “nSpecLine”, “nStructure”, “nTopLevelDec”]
 
 fun wfnt(t,acc) = let
   val th =
@@ -661,27 +672,27 @@ in
   th::acc
 end;
 
-val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``,
-                ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
-                ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
-                ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
-                ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``,
-                ``nPcons``, ``nPattern``,
-                ``nPatternList``, ``nPbaseList1``, ``nPE``,
-                ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
-                ``nFQV``,
-                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
-                ``nEliteral``, ``nEbase``, ``nEapp``,
-                ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
-                ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
-                ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
-                ``nType``, ``nTypeList1``, ``nTypeList2``,
-                ``nEseq``, ``nElist1``, ``nDtypeDecl``,
-                ``nOptTypEqn``,
-                ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
-                ``nSpecLineList``, ``nSignatureValue``,
-                ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, ``nTopLevelDecs``, ``nNonETopLevelDecs``]
+val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, “nDecl”,
+                “nUQTyOp”, “nUQConstructorName”, “nStructName”,
+                “nConstructorName”, “nTyVarList”, “nTypeName”, “nTyOp”,
+                “nTbase”, “nPTbase”, “nTbaseList”, “nDType”, “nPType”,
+                “nListOps”, “nRelOps”, “nPtuple”, “nPbase”, “nPapp”,
+                “nPcons”, “nPattern”,
+                “nPatternList”, “nPbaseList1”, “nPE”,
+                “nPE'”, “nPEs”, “nMultOps”, “nLetDec”, “nLetDecs”,
+                “nFQV”,
+                “nFDecl”, “nAddOps”, “nCompOps”, “nOpID”,
+                “nEliteral”, “nEbase”, “nEapp”,
+                “nEmult”, “nEadd”, “nElistop”, “nErel”,
+                “nEcomp”, “nEbefore”, “nEtyped”, “nElogicAND”,
+                “nElogicOR”, “nEhandle”, “nE”, “nE'”,
+                “nType”, “nTypeList1”, “nTypeList2”,
+                “nEseq”, “nElist1”, “nDtypeDecl”,
+                “nOptTypEqn”,
+                “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
+                “nSpecLineList”, “nSignatureValue”,
+                “nOptionalSignatureAscription”, “nStructure”,
+                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

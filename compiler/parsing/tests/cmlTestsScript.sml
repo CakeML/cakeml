@@ -28,6 +28,11 @@ val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]
 val _ = overload_on ("V", ``λvnm. Var (Short vnm)``)
 val _ = overload_on ("Pc", ``λcnm. Pcon (SOME (Short cnm))``)
 
+val _ = temp_add_user_printer
+          ("locsprinter", ``Locs x y``,
+           (fn gs => fn be => fn sysp => fn {add_string,...} =>
+            fn gravs => fn depth => fn t => add_string "L"))
+
 fun strip_Lannot t =
   if is_comb t then
 	let val (tl, tr) = dest_comb t in
@@ -68,7 +73,7 @@ fun parsetest0 nt sem s opt = let
   in
     print (PP.pp_to_string 79 pp (s,t) ^ "\n")
   end
-  fun die (s,t) = (diag (s,t); raise Fail "Failed")
+  fun die (s,t) = (diag (s,t); raise Fail ("Failed "^s))
 
 in
   if same_const (rator r) result_t then
@@ -437,6 +442,22 @@ val _ = parsetest ``nDecls`` elab_decls
                   "datatype 'a list = Nil | Cons of 'a * 'a list \
                   \fun map f l = case l of Nil => Nil \
                   \                      | Cons(h,t) => Cons(f h, map f t)"
+val _ = parsetest0 “nDecl” “ptree_Decl”
+          "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
+          (SOME “Dtype _ [(["'a"], "Tree",
+                           [("Lf1", []);
+                            ("Nd", [Tapp [Tvar "'a"] (SOME (Short "Tree"));
+                                    Tvar "'a";
+                                    Tapp [Tvar "'a"] (SOME (Short "Tree"))]);
+                            ("Lf2", [Tapp [] (SOME (Short "int"))])])]”)
+val _ = parsetest0 “nDecl” “ptree_Decl”
+          "datatype 'a Tree = Lf1 | Nd of ('a Tree * 'a * 'a Tree) | Lf2 of int"
+          (SOME “Dtype _ [(["'a"], "Tree",
+                           [("Lf1", []);
+                            ("Nd", [Tapp [Tvar "'a"] (SOME (Short "Tree"));
+                                    Tvar "'a";
+                                    Tapp [Tvar "'a"] (SOME (Short "Tree"))]);
+                            ("Lf2", [Tapp [] (SOME (Short "int"))])])]”)
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"
 val _ = parsetest ``nDecls`` elab_decls "val x = ref false;"

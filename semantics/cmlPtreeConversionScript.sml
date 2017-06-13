@@ -375,6 +375,42 @@ val detuplify_pmatch = Q.store_thm("detuplify_pmatch",`!ty.
   ho_match_mp_tac (theorem "detuplify_ind")
   >> fs[detuplify_def]);
 
+val ptree_PTbase_def = Define‘
+  ptree_PTbase ast =
+    dtcase ast of
+        Lf _ => fail
+      | Nd nt args =>
+        if FST nt = mkNT nPTbase then
+          dtcase args of
+              [pt] =>
+                OPTION_MAP Tvar (destTyvarPT pt) ++
+                OPTION_MAP (Tapp [] o TC_name) (ptree_Tyop pt)
+            | [lpart; t; rpart] =>
+              do
+                assert(tokcheck lpart LparT ∧ tokcheck rpart RparT);
+                ptree_Type nType t
+              od
+            | _ => fail
+        else fail
+’;
+
+val ptree_TbaseList_def = Define‘
+  ptree_TbaseList ast =
+    dtcase ast of
+        Lf _ => fail
+      | Nd nt args =>
+        if FST nt = mkNT nTbaseList then
+          dtcase args of
+              [] => return []
+            | [ptb_pt;rest_pt] => do
+                b <- ptree_PTbase ptb_pt ;
+                rest <- ptree_TbaseList rest_pt ;
+                return (b::rest)
+              od
+            | _ => fail
+        else fail
+’;
+
 val ptree_Dconstructor_def = Define`
   ptree_Dconstructor ast =
     dtcase ast of
@@ -387,7 +423,11 @@ val ptree_Dconstructor_def = Define`
               do
                  cname <- ptree_UQConstructorName t;
                  types <- dtcase ts of
-                               [] => SOME []
+                               [blist] =>
+                               do
+                                 args <- ptree_TbaseList blist ;
+                                 return args
+                               od
                              | [oft; ty_pt] =>
                                if tokcheck oft OfT then
                                  OPTION_MAP detuplify (ptree_Type nType ty_pt)
