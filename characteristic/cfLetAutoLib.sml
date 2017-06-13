@@ -477,7 +477,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
 	  if is_var spec_app_var then
 	      (spec_app_var::spec_params_tm_list, app_var::params_tm_list)
 	  else (spec_params_tm_list, params_tm_list)
-							  
+
       (* And the ffi variable written in the specification *)
       val spec_ffi = dest_comb app_spec5 |> snd
 
@@ -1164,7 +1164,7 @@ fun find_equality_types asl eqTypeThms =
       val thmsNet = List.foldr (fn (th, n) =>
 				   let val th_concl = get_last_concl th in
 				       Net.insert (th_concl, (th_concl, th)) n end) Net.empty (eqType_asl_thms @ eqTypeThms)
-				 
+
       (* For each potential equality type P present in the asl, try to prove that P is an EqualityType *)
       val thmsNet = ref thmsNet
       fun prove_EqualityType t =
@@ -1312,23 +1312,23 @@ fun simplify_spec let_pre asl app_spec =
       val sset = get_default_simpset()
       val asl_thms = List.map ASSUME asl
 
-      val knwn_vars = FVL asl empty_varset
-      val unkwn_vars = HOLset.difference (FVL [concl app_spec] empty_varset, knwn_vars)
+      val knwn_vars = FVL (let_pre::asl) empty_varset
 
       (* Perform the simplification *)
       val compos_conv = (INTRO_REWRITE_CONV (get_intro_rewrite_thms()) asl)
 			 THENC (SIMP_CONV sset asl_thms)
 			 THENC (SIMP_CONV (list_ss ++ SQI_ss) [])
-			 THENC (ELIM_UNKWN_CONV unkwn_vars)
-      val app_spec1 =
-	  CONV_RULE (CHANGED_CONV (RATOR_CONV (RAND_CONV compos_conv))) app_spec
+			 THENC (ELIM_UNKWN_CONV knwn_vars)
+      val (app_spec1, changed) =
+	  (CONV_RULE (CHANGED_CONV (RATOR_CONV (RAND_CONV compos_conv))) app_spec, true)
+    handle HOL_ERR _ => (app_spec, false)
 
       (* Perform substitutions *)
       val conjuncts = (concl app_spec1 |> dest_imp |> fst |> list_dest dest_conj
 		       handle HOL_ERR _ => [])
       val equalities = mapfilter (fn x => dest_eq x) conjuncts
       fun can_be_subst x y =
-	is_var x andalso HOLset.member(unkwn_vars, x)
+	is_var x andalso not(HOLset.member(knwn_vars, x))
 	andalso not (List.exists (fn z => z = x) (free_vars y))
       fun subst_f (x, y) =
 	(if can_be_subst x y then (x |-> y)
@@ -1337,7 +1337,9 @@ fun simplify_spec let_pre asl app_spec =
       val instList = mapfilter subst_f equalities
       val app_spec2 = Thm.INST instList app_spec1
   in
-      app_spec2
+      if changed orelse not (List.null instList)
+      then app_spec2
+      else raise (ERR "simplify_spec" "unchanged")
   end;
 
 exception XLET_ERR of string * string * thm;
@@ -1416,7 +1418,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	in
 	    HOLset.isSubset (app_spec_fvs, original_fvs)
 	end
-	
+
       (* Use heuristics if necessary *)
       fun heuristic_inst asl app_spec =
 	if not(all_instantiated asl let_pre app_info app_spec)
