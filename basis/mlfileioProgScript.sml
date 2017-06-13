@@ -875,19 +875,19 @@ val FILENAME_UNICITY_L = Q.store_thm("FILENAME_UNICITY_L[xlet_auto_match]",
 filename_tac);
 
 val FILENAME_STRING_UNICITY_R = Q.store_thm("FILENAME_STRING_UNICITY_R[xlet_auto_match]",
-`!f fv fv'. FILENAME f fv ==> STRING_TYPE f fv ==> (STRING_TYPE f fv' <=> fv' = fv)`,
+`!f fv fv'. FILENAME f fv ==> (STRING_TYPE f fv' <=> fv' = fv)`,
 filename_tac);
 
 val FILENAME_STRING_UNICITY_L = Q.store_thm("FILENAME_STRING_UNICITY_L[xlet_auto_match]",
-`!f f' fv. FILENAME f fv ==> STRING_TYPE f fv ==> (STRING_TYPE f' fv <=> f' = f)`,
+`!f f' fv. FILENAME f fv ==> (STRING_TYPE f' fv <=> f' = f)`,
 filename_tac);
 
 val STRING_FILENAME_UNICITY_R = Q.store_thm("STRING_FILENAME_UNICITY_R[xlet_auto_match]",
-`!f fv fv'. STRING_TYPE f fv ==> FILENAME f fv ==> (FILENAME f fv' <=> fv' = fv)`,
+`!f fv fv'. STRING_TYPE f fv ==> (FILENAME f fv' <=> fv' = fv /\ ¬MEM #"\^@" (explode f) ∧ strlen f < 256)`,
 filename_tac);
 
 val STRING_FILENAME_UNICITY_L = Q.store_thm("STRING_FILENAME_UNICITY_L[xlet_auto_match]",
-`!f f' fv. STRING_TYPE f fv ==> FILENAME f fv ==> (FILENAME f' fv <=> f' = f)`,
+`!f f' fv. STRING_TYPE f fv ==> (FILENAME f' fv <=> f' = f /\ ¬MEM #"\^@" (explode f) ∧ strlen f < 256)`,
 filename_tac);
 
 val _ = export_theory();
