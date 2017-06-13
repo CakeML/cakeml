@@ -2,8 +2,9 @@ open preamble labLangTheory lab_filterTheory;
 
 val _ = new_theory"lab_to_target";
 
+(* Number of bytes per FFI *)
 val ffi_offset_def = Define `
-  ffi_offset = 8:num`;
+  ffi_offset = 16:num`;
 
 (* basic assemble function *)
 

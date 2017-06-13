@@ -71,13 +71,13 @@ val ffi_asm_def = Define `
        strlit"cake_ffi"; implode ffi; strlit":\n";
        strlit"     pushq   %rax\n";
        strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
-       strlit"     .p2align 3\n";
+       strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))`
 
 val ffi_code =
   ``SmartAppend
     (List (MAP (\n. strlit(n ++ "\n"))
-     ["#### CakeML FFI interface (each block is 8 bytes long)";
+     ["#### CakeML FFI interface (each block is 16 bytes long)";
        "";
        "     .p2align 3";
        ""]))(
@@ -86,11 +86,11 @@ val ffi_code =
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
        "     callq   cdecl(exit)";
-       "     .p2align 3";
+       "     .p2align 4";
        "";
        "cake_exit:";
        "     callq   cdecl(exit)";
-       "     .p2align 3";
+       "     .p2align 4";
        "";
        "cake_main:";
        "";

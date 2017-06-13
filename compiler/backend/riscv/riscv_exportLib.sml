@@ -10,8 +10,9 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
   fun ffi_asm [] = []
     | ffi_asm (ffi::ffis) =
        ("cake_ffi" ^ ffi ^ ":") ::
-       "     j     cdecl(ffi" ^ ffi ^ ")"::
-       "     .p2align 3"::
+       "     la      t6,cdecl(ffi" ^ ffi ^ ")"::
+       "     jr      t6"::
+       "     .p2align 4"::
        "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
@@ -59,18 +60,20 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     la      x4,cake_end    # arg4: first address past the stack",
    "     j     cake_main",
    "",
-   "#### CakeML FFI interface (each block is 8 bytes long)",
+   "#### CakeML FFI interface (each block is 16 bytes long)",
    "",
    "     .p2align 3",
    ""] @
    ffi_asm ffi_names @
   ["cake_clear:",
-   "     j   cdecl(exit)",
-   "     .p2align 3",
+   "     la   t6,cdecl(exit)",
+   "     jr   t6",
+   "     .p2align 4",
    "",
    "cake_exit:",
-   "     j   cdecl(exit)",
-   "     .p2align 3",
+   "     la   t6,cdecl(exit)",
+   "     jr   t6",
+   "     .p2align 4",
    "",
    "cake_main:",
    "",
