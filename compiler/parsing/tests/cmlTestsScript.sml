@@ -356,7 +356,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "(x,y,4)"
                                          Lit (IntLit 4)]``);
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(x,3)"
                    (SOME ``Con (SOME (Short "C"))
-                                   [Var (Short "x"); Lit (IntLit 3)]``)
+                               [Con NONE [Var (Short "x"); Lit (IntLit 3)]]``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f(x,3)"
                    (SOME ``OLDAPP (Var (Short "f"))
                                    (Con NONE
@@ -561,5 +561,15 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val op+ = (fn x => fn y => x * y)"
                    (SOME “Dlet locs (Pvar "+")
                      (Fun "x" (Fun "y" (vbinop (Short "*") (V "x") (V "y"))))”)
+
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val C(x,y) = f a"
+    (SOME “Dlet locs
+                (Pcon (SOME (Short "C")) [Pcon NONE [Pvar "x"; Pvar "y"]])
+                (App Opapp [V "f"; V "a"])”)
+
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val C x y = f a"
+    (SOME “Dlet locs
+                (Pcon (SOME (Short "C")) [Pvar "x"; Pvar "y"])
+                (App Opapp [V "f"; V "a"])”)
 
 val _ = export_theory()

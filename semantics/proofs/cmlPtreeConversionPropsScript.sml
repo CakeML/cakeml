@@ -197,7 +197,7 @@ val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
 val Pattern_OK0 = Q.store_thm(
   "Pattern_OK0",
   `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
-    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons} ∧
+    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons; nPConApp} ∧
     ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
@@ -217,7 +217,6 @@ val Pattern_OK0 = Q.store_thm(
   >- (asm_match `pl <> []` >> Cases_on `pl` >> fs[] >>
       asm_match `ptree_Plist pt = SOME (ph::ptl)` >>
       Cases_on `ptl` >> simp[])
-  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nV` >>
       `ptree_Pattern nPtuple pt' = NONE ∧ ptree_ConstructorName pt' = NONE`
         by (Cases_on `pt'` >> fs[] >| [
@@ -232,12 +231,13 @@ val Pattern_OK0 = Q.store_thm(
             >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
             rename[`Nd p _`] >> Cases_on `p` >> fs[ptree_Pattern_def])>>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
-  >- simp[ptree_Pattern_def, ptree_ConstructorName_def,
-          ptree_V_def] >>
-  simp[ptree_Pattern_def, ptree_ConstructorName_def,
-       ptree_V_def] >>
-  erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >> rename [`Var v`] >>
-  Cases_on `v` >> simp[EtoPat_def]);
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- (erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >>
+      rename [`Var v`] >> Cases_on `v` >> simp[EtoPat_def])
+  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[]));
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 

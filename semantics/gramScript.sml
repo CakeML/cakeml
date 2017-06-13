@@ -157,7 +157,8 @@ val cmlG_def = mk_grammar_def ginfo
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]" | "op" OpID;
- Papp ::= ConstructorName Pbase | Pbase;
+ PConApp ::= ConstructorName | PConApp Pbase ;
+ Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;
  Ptuple ::= "(" ")" | "(" PatternList ")";

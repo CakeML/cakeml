@@ -355,6 +355,41 @@ val PAIR_MAP_I = Q.prove(
   simp[PAIR_MAP]);
 val _ = augment_srw_ss [rewrites [PAIR_MAP_I]]
 
+
+val bindNT0_lemma = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
+val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
+
+(* left recursive rules in the grammar turn into calls to rpt in the PEG,
+   and this in turn requires inductions *)
+val ptPapply_lemma = Q.store_thm(
+  "ptPapply_lemma",
+  ‘∀limit.
+     (∀i0 i pts.
+       LENGTH i0 < limit ⇒
+       peg_eval cmlPEG (i0, nt (mkNT nPbase) I) (SOME (i, pts)) ⇒
+       ∃pt. pts = [pt] ∧ ptree_head pt = NN nPbase ∧ valid_lptree cmlG pt ∧
+            MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i) ⇒
+     ∀ptlist pt0 acc i0.
+       peg_eval_list cmlPEG (i0, nt (mkNT nPbase) I) (i, ptlist) ∧
+       ptree_head pt0 = NN nPbase ∧ valid_lptree cmlG pt0 ∧
+       ptree_head acc = NN nPConApp ∧ valid_lptree cmlG acc ∧
+       LENGTH i0 < limit ⇒
+       ∃pt. ptPapply0 acc (pt0 :: FLAT ptlist) = [pt] ∧
+            ptree_head pt = NN nPapp ∧ valid_lptree cmlG pt ∧
+            real_fringe acc ++ real_fringe pt0 ++ MAP (TK ## I) i0 =
+            real_fringe pt ++ MAP (TK ## I) i’,
+  gen_tac >> strip_tac >> Induct
+  >- (simp[Once peg_eval_list] >> simp[ptPapply0_def] >>
+      dsimp[cmlG_FDOM, cmlG_applied]) >>
+  dsimp[Once peg_eval_list] >> rpt strip_tac >>
+  first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[ptPapply0_def] >>
+  imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPbase) >>
+  rename [‘peg_eval _ (i0, _) (SOME (i1, [pt1]))’,
+          ‘peg_eval_list _ (i1, _) (i, ptlist)’] >>
+  first_x_assum (qspecl_then [‘pt1’, ‘mkNd (mkNT nPConApp) [acc; pt0]’, ‘i1’]
+                             mp_tac) >> simp[] >>
+  disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM])
+
 val peg_sound = Q.store_thm(
   "peg_sound",
   `∀N i0 i pts.
@@ -632,16 +667,27 @@ val peg_sound = Q.store_thm(
       `NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPapp) ∧
        NT_rank (mkNT nPbase) < NT_rank (mkNT nPapp)`
         by simp[NT_rank_def] >>
-      strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[] >>
-          imp_res_tac
-            (MATCH_MP not_peg0_LENGTH_decreases peg0_nConstructorName) >>
-          first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
-          simp[cmlG_FDOM, cmlG_applied])
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
-          simp[cmlG_FDOM, cmlG_applied]) >>
-      lrresolve X (free_in ``nPbase``) mp_tac >> simp[] >>
-      strip_tac >> rveq >> dsimp[])
+      reverse strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied] >>
+      first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+      imp_res_tac
+        (MATCH_MP not_peg0_LENGTH_decreases peg0_nConstructorName) >>
+      fs[peg_eval_rpt, Once peg_eval_list]
+      >- simp[cmlG_FDOM, cmlG_applied] >>
+      first_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+      simp[ptPapply_def] >>
+      first_x_assum
+        (qspec_then ‘mkNT nPbase’
+                    (fn ih => qspec_then ‘LENGTH i0’
+                                         (fn th => mp_tac (MATCH_MP th ih))
+                                         ptPapply_lemma)) >>
+      rename [‘peg_eval_list cmlPEG (i2, nt (mkNT nPbase) I) (i, result)’,
+              ‘peg_eval _ (i0, _) (SOME (i1, [pt1]))’,
+              ‘peg_eval _ (i1, _) (SOME (i2, [pt2]))’] >>
+      disch_then (qspecl_then [‘result’, ‘pt2’, ‘mkNd (mkNT nPConApp) [pt1]’,
+                               ‘i2’] mp_tac) >>
+      simp[cmlG_applied, cmlG_FDOM] >> disch_then irule >>
+      imp_res_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPbase) >>
+      simp[])
   >- (print_tac "nPbase" >>
       `NT_rank (mkNT nV) < NT_rank (mkNT nPbase) ∧
        NT_rank (mkNT nConstructorName) < NT_rank (mkNT nPbase) ∧
