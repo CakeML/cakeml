@@ -100,31 +100,33 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
+  (* we will need to know wfcl cl to prove that fname is a valid filename.
+     this comes from the COMMANDLINE precondition.
+     `wfcl cl` by ... wouldn't work because the current goal is needed to do the xpull on *)
   reverse(Cases_on`wfcl cl`) >- (rfs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull) \\
-  `FILENAME fname fnamev` by ( (* TODO: nicer? *)
-    rfs[mlfileioProgTheory.FILENAME_def,
-        mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,
+  xlet_auto >- (
+    xsimpl \\
+    rfs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,
         EVERY_MEM,mlstringTheory.LENGTH_explode] ) \\
-  xlet_auto >- (xsimpl \\ fs[]) \\
   xmatch \\ fs[ml_translatorTheory.OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  xlet_auto >- ( (* TODO: nicer? *)
+  xlet_auto >- ( (* TODO: xapp could be smarter and instantiate this *)
     xsimpl \\
     CONV_TAC SWAP_EXISTS_CONV \\
     qexists_tac`out` \\ xsimpl ) \\
-  xlet_auto >- ( (* TODO: nicer? *)
+  xlet_auto >- ( (* same xapp issue *)
     xsimpl \\
     CONV_TAC SWAP_EXISTS_CONV \\
     qexists_tac`out` \\ xsimpl ) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  xlet_auto >- ( (* TODO: nicer? *)
+  xlet_auto >- ( (* same xapp issue *)
     xsimpl \\
     CONV_TAC SWAP_EXISTS_CONV \\
     qexists_tac`out` \\ xsimpl ) \\
-  xapp \\ xsimpl \\ (* TODO: same issue with xapp as above? *)
+  xapp \\ xsimpl \\ (* same xapp issue *)
   qmatch_goalsub_abbrev_tac`STDOUT output` \\
   CONV_TAC SWAP_EXISTS_CONV \\
   qexists_tac`output` \\ xsimpl \\
