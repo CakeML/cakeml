@@ -356,6 +356,32 @@ val AndFDecls_OK = save_thm(
   "AndFDecls_OK",
   okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0)
 
+val PTbase_OK = Q.store_thm(
+  "PTbase_OK",
+  ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧
+   MAP TK toks = ptree_fringe pt ⇒
+   ∃ty. ptree_PTbase pt = SOME ty’,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
+  simp[ptree_PTbase_def, tokcheck_def]
+  >- (erule strip_assume_tac (n TyOp_OK) >> simp[] >>
+      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Tvar (destTyvarPT pt)’ >>
+      simp[]) >>
+  metis_tac[Type_OK]);
+
+val TbaseList_OK = Q.store_thm(
+  "TbaseList_OK",
+  ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nTbaseList ∧
+   MAP TK toks = ptree_fringe pt ⇒
+   ∃tys. ptree_TbaseList pt = SOME tys’,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  conj_tac >> simp[Once FORALL_PROD] >> gen_tac >> strip_tac >>
+  simp[cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  fs[MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
+  simp[Once ptree_TbaseList_def] >> dsimp[] >>
+  fs[FORALL_AND_THM, DISJ_IMP_THM, MAP_EQ_APPEND] >>
+  metis_tac[PTbase_OK]);
+
 val Dconstructor_OK = Q.store_thm(
   "Dconstructor_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
@@ -366,7 +392,8 @@ val Dconstructor_OK = Q.store_thm(
   >- (map_every (erule strip_assume_tac o n)
                 [UQConstructorName_OK, Type_OK] >>
       simp[]) >>
-  erule strip_assume_tac (n UQConstructorName_OK) >> simp[])
+  map_every (erule strip_assume_tac o n) [UQConstructorName_OK, TbaseList_OK] >>
+  simp[])
 
 val DtypeCons_OK = Q.store_thm(
   "DtypeCons_OK",

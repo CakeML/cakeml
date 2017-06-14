@@ -77,7 +77,7 @@ val cmlG_def = mk_grammar_def ginfo
  DType ::= DType TyOp | Tbase;
  PType ::= DType "*" PType | DType;
  Type ::= PType | PType "->" Type;
- TbaseList ::=  | PTbase TbaseList1 ;
+ TbaseList ::=  | PTbase TbaseList ;
  PTbase ::= <TyvarT> | TyOp | "(" Type ")" ;
 
  (* type declarations *)

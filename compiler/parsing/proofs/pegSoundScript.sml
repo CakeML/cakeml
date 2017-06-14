@@ -1,6 +1,8 @@
 open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
      grammarTheory
 
+open mp_then
+
 val _ = new_theory "pegSound";
 val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
 
@@ -735,14 +737,20 @@ val peg_sound = Q.store_thm(
         by simp[NT_rank_def] >>
       strip_tac >>
       rveq >> simp[cmlG_FDOM, cmlG_applied, listTheory.APPEND_EQ_CONS,
-                   MAP_EQ_SING] >>
-      first_x_assum (erule strip_assume_tac) >> simp[] >> rveq >> dsimp[] >>
-      csimp[] >>
-      first_x_assum
-        (fn patth => first_assum
-             (fn th => mp_tac (PART_MATCH (lhand o rand) patth (concl th)))) >>
+                   MAP_EQ_SING] >> (* three subgoals, all with UQCons first *)
+      first_x_assum (qpat_x_assum ‘NT_rank _ < NT_rank _’ o
+                     mp_then (Pos hd) mp_tac) >>
+      disch_then (first_assum o
+                  mp_then (Pos hd) strip_assume_tac) >>
+      simp[] >> rveq >> dsimp[] >> csimp[] (* still three *)
+      >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nType) I) _’ o
+                         mp_then Any mp_tac) >>
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nUQConstructorName,
+                    LENGTH, DECIDE``SUC x < y ⇒ x < y``, MAP]) >>
+      first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nTbaseList) I) _’o
+                     mp_then Any mp_tac) >>
       metis_tac[not_peg0_LENGTH_decreases, peg0_nUQConstructorName,
-                listTheory.LENGTH, DECIDE``SUC x < y ⇒ x < y``])
+                LENGTH, DECIDE``SUC x < y ⇒ x < y``, MAP])
   >- (print_tac "nDtypeDecl" >>
       `NT_rank (mkNT nTypeName) < NT_rank (mkNT nDtypeDecl)`
         by simp[NT_rank_def] >>
@@ -821,6 +829,14 @@ val peg_sound = Q.store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
           simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
       asm_match `isLongidT (FST h)` >> Cases_on `FST h` >> fs[])
+  >- (print_tac "nTbaseList" >> strip_tac >> rveq >>
+      dsimp[cmlG_FDOM, cmlG_applied] >>
+      ‘NT_rank (mkNT nPTbase) < NT_rank (mkNT nTbaseList)’
+        by simp[NT_rank_def] >>
+      first_x_assum (pop_assum o mp_then (Pos hd) mp_tac) >>
+      disch_then (first_assum o mp_then (Pos hd) strip_assume_tac) >> rveq >>
+      simp[] >> dsimp[] >> csimp[] >>
+      metis_tac[not_peg0_LENGTH_decreases, peg0_nPTbase])
   >- (print_tac "nTypeList1" >>
       CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
       strip_tac >> rveq >>
@@ -849,6 +865,18 @@ val peg_sound = Q.store_thm(
             (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
                                |> GEN_ALL) >> fs[] >> simp[] >>
       strip_tac >> rveq >> simp[])
+  >- (print_tac "nPTbase" >>
+      CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
+      strip_tac >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, peg_eval_nTyOp_wrongtok] >>
+      rveq >> fs[]
+      >- (first_x_assum (first_assum o mp_then Any mp_tac) >> simp[] >>
+          strip_tac >> rveq >> dsimp[])
+      >- (rename [‘isTyvarT tk’] >> Cases_on ‘tk’ >> fs[])
+      >- (‘NT_rank (mkNT nTyOp) < NT_rank (mkNT nPTbase)’ by simp[NT_rank_def]>>
+          first_x_assum (pop_assum o mp_then Any mp_tac) >>
+          disch_then (first_assum o mp_then (Pos hd) strip_assume_tac) >>
+          rveq >> simp[]))
   >- (print_tac "nTbase" >>
       CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss() ++ DNF_ss) [EXISTS_PROD])) >>
       strip_tac >> rveq >>
@@ -1183,7 +1211,7 @@ val peg_sound = Q.store_thm(
       rpt (qpat_x_assum `peg_eval G X NONE` (K ALL_TAC))
       >- (`NT_rank (mkNT nEliteral) < NT_rank (mkNT nEbase)`
             by simp[NT_rank_def] >>
-          first_x_assum (pop_assum o mp_then.mp_then mp_then.Any mp_tac) >>
+          first_x_assum (pop_assum o mp_then Any mp_tac) >>
           disch_then (IMP_RES_THEN strip_assume_tac) >> rveq >> simp[])
       >- (* () *) dsimp[]
       >- ((* peg_EbaseParen 1 *)

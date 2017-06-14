@@ -129,6 +129,20 @@ val firstSet_nTyOp = Q.store_thm(
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
+val firstSet_nPTbase = Q.store_thm(
+  "firstSet_nPTbase[simp]",
+  ‘firstSet cmlG (NN nPTbase :: rest) =
+     firstSet cmlG [NN nTyOp] ∪ {LparT} ∪ {TyvarT s | T}’,
+  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, SimpLHS] >>
+  simp[nullable_PTbase] >> dsimp[Once EXTENSION] >> metis_tac[]);
+
+val firstSet_nTbaseList = Q.store_thm(
+  "firstSet_nTbaseList[simp]",
+  ‘firstSet cmlG (NN nTbaseList :: rest) =
+     firstSet cmlG [NN nPTbase] ∪ firstSet cmlG rest’,
+  simp[Once firstSet_NT, SimpLHS, cmlG_FDOM, cmlG_applied,
+       nullable_TbaseList] >> simp[]);
+
 val firstSet_nTyVarList = Q.store_thm(
   "firstSet_nTyVarList[simp]",
   `firstSet cmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }`,
@@ -1440,19 +1454,24 @@ val _ = export_rewrites ["nestoppers_def"]
 val stoppers_def = Define`
   (stoppers nAndFDecls = nestoppers DELETE AndT) ∧
   (stoppers nDconstructor =
-     UNIV DIFF ({StarT; OfT; ArrowT} ∪ firstSet cmlG [NN nTyOp])) ∧
-  (stoppers nDecl = nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
+     UNIV DIFF ({StarT; OfT; ArrowT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
+                {TyvarT s | T})) ∧
+  (stoppers nDecl =
+     nestoppers DIFF ({BarT; StarT; AndT; OfT} ∪ {TyvarT s | T})) ∧
   (stoppers nDecls =
      nestoppers DIFF
-     {BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
-      TypeT}) ∧
+     ({BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
+       TypeT} ∪ {TyvarT s | T})) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
-     UNIV DIFF ({ArrowT; BarT; StarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
+                {TyvarT s | T})) ∧
   (stoppers nDtypeDecl =
-     UNIV DIFF ({ArrowT; BarT; StarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
+                {TyvarT s | T})) ∧
   (stoppers nDtypeDecls =
-     UNIV DIFF ({AndT; ArrowT; BarT; StarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({AndT; ArrowT; BarT; StarT; OfT; LparT} ∪ {TyvarT s | T} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nE = nestoppers) ∧
   (stoppers nE' = BarT INSERT nestoppers) ∧
   (stoppers nEadd =
@@ -1550,20 +1569,23 @@ val stoppers_def = Define`
   (stoppers nPEs = nestoppers) ∧
   (stoppers nPType = UNIV DIFF ({StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nSpecLine =
-     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
-                firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({ArrowT; AndT; BarT; StarT; OfT; EqualsT; LparT} ∪
+                firstSet cmlG [NN nTyOp] ∪ {TyvarT s | T})) ∧
   (stoppers nSpecLineList =
      UNIV DIFF ({ValT; DatatypeT; TypeT; ExceptionT; SemicolonT;
-                 ArrowT; AndT; BarT; StarT; OfT; EqualsT} ∪
-                firstSet cmlG [NN nTyOp])) ∧
+                 ArrowT; AndT; BarT; StarT; OfT; EqualsT; LparT} ∪
+                firstSet cmlG [NN nTyOp] ∪ {TyvarT s | T})) ∧
+  (stoppers nTbaseList =
+     UNIV DIFF ({LparT} ∪ firstSet cmlG [NN nTyOp] ∪ {TyvarT s | T})) ∧
   (stoppers nTopLevelDec =
-     nestoppers DIFF {BarT; StarT; AndT; OfT}) ∧
+     nestoppers DIFF ({LparT; BarT; StarT; AndT; OfT} ∪ {TyvarT s | T})) ∧
   (stoppers nTopLevelDecs = ∅) ∧
   (stoppers nType = UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeAbbrevDec =
      UNIV DIFF ({ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeDec =
-     UNIV DIFF ({AndT; ArrowT; StarT; BarT; OfT} ∪ firstSet cmlG [NN nTyOp])) ∧
+     UNIV DIFF ({AndT; ArrowT; StarT; BarT; OfT; LparT} ∪ {TyvarT s | T} ∪
+                firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeList1 =
      UNIV DIFF ({CommaT; ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTypeList2 =
@@ -2824,6 +2846,42 @@ val completeness = Q.store_thm(
       simp[PEG_exprs] >> strip_tac >> rw[] >>
       `StructureT ∈ firstSet cmlG [NN nDecl]`
         by metis_tac [rfirstSet_nonempty_fringe] >> fs[])
+  >- (print_tac "nTbaseList" >> stdstart >> pmap_cases
+      >- (rename [‘sfx = []’] >> Cases_on ‘sfx’ >> fs[]
+          >- simp[not_peg0_peg_eval_NIL_NONE, peg0_nPTbase] >>
+          rename [‘FST tkl = LparT’] >> Cases_on ‘tkl’ >>
+          fs[peg_respects_firstSets, peg0_nPTbase]) >>
+      rename [‘ptree_head bpt = NN nPTbase’, ‘real_fringe bpt = MAP _ bf’,
+              ‘ptree_head blpt = NN nTbaseList’, ‘real_fringe blpt = MAP _ blf’
+      ] >>
+      Cases_on ‘blf = []’
+      >- (fs[] >>
+          ‘NT_rank (mkNT nPTbase) < NT_rank (mkNT nTbaseList)’
+            by simp[NT_rank_def] >>
+          first_x_assum (pop_assum o mp_then Any mp_tac) >>
+          disch_then (first_assum o mp_then (Pos hd) mp_tac) >> simp[] >>
+          rename [‘peg_eval _ (bf ++ sfx, _)’] >>
+          disch_then (qspec_then ‘sfx’ assume_tac) >>
+          pop_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
+          simp[] >>
+          first_x_assum (qpat_assum ‘ptree_head _ = NN nTbaseList’ o
+                         mp_then Any mp_tac) >> simp[] >>
+          disch_then irule >> simp[] >>
+          metis_tac[not_peg0_LENGTH_decreases, LENGTH_APPEND,
+                    DECIDE “y < x + y:num ⇒ 0 < x”, peg0_nPTbase]) >>
+      ‘0 < LENGTH blf’ by (Cases_on ‘blf’ >> fs[]) >>
+      ‘LENGTH bf < LENGTH (bf ++ blf)’ by simp[] >>
+      first_assum (pop_assum o mp_then (Pos hd) mp_tac) >>
+      disch_then (qpat_assum ‘ptree_head _ = NN nPTbase’ o
+                  mp_then Any mp_tac) >>
+      rename [‘FST (HD sfx) ≠ LparT’] >>
+      disch_then (qspec_then ‘blf ++ sfx’ mp_tac) >>
+      impl_tac >- simp[] >>
+      disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic) o
+                  SIMP_RULE (srw_ss()) []) >> simp[] >>
+      first_x_assum irule >> simp[] >>
+      ‘LENGTH (blf ++ sfx) < LENGTH (bf ++ blf ++ sfx)’ suffices_by simp[] >>
+      metis_tac[not_peg0_LENGTH_decreases, peg0_nPTbase])
   >- (print_tac "nTbase" >> stdstart >> pmap_cases >>
       simp[mkNd_def, peg_eval_tok_NONE]
       >- (rename [`real_fringe topt = MAP _ opf`,
@@ -3138,6 +3196,32 @@ val completeness = Q.store_thm(
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
       first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
       Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+  >- (print_tac "nPTbase" >> stdstart >> pmap_cases >>
+      simp[peg_eval_tok_NONE]
+      >- (rename [‘ptree_head pt = NN nTyOp’] >>
+          ‘NT_rank (mkNT nTyOp) < NT_rank (mkNT nPTbase)’ by simp[NT_rank_def]>>
+          first_x_assum (pop_assum o mp_then Any mp_tac) >> simp[] >>
+          disch_then (qpat_assum ‘ptree_head _ = NN nTyOp’ o
+                      mp_then Any mp_tac) >> simp[] >> strip_tac >>
+          ‘∀sfx. ∃e t. pfx ++ sfx = e::t ∧ FST e ≠ LparT ∧ ¬isTyvarT (FST e)’
+             suffices_by metis_tac[] >>
+          qx_gen_tac ‘sfx’ >> Cases_on ‘pfx’
+          >- (pop_assum (qspec_then ‘sfx’ assume_tac) >>
+              imp_res_tac
+                (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases) peg0_nTyOp) >>
+              fs[]) >>
+          simp[] >> rename [‘FST tkl = LparT’] >> Cases_on ‘tkl’ >>
+          simp[] >> pop_assum (qspec_then ‘sfx’ assume_tac) >> rpt strip_tac >>
+          (* 2 goals *)
+          fs[] >> (* 1 goal *)
+          first_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >>
+          simp[] >> rename [‘isTyvarT tk’] >> Cases_on ‘tk’ >> fs[]) >>
+      first_x_assum (qpat_assum ‘ptree_head _ = NN nType’ o
+                     mp_then Any mp_tac o has_const “LENGTH”) >> simp[] >>
+      rename [‘_ ++ [(RparT, rl)] ++ sfx’] >>
+      disch_then (qspec_then ‘(RparT, rl) :: sfx’ mp_tac) >> simp[] >>
+      disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
+      REWRITE_TAC [GSYM APPEND_ASSOC, APPEND] >> simp[])
   >- (print_tac "nPEs" >>
       simp[MAP_EQ_CONS] >> strip_tac >> rw[] >> fs[] >> rw[]
       >- ((* single nPE *)
@@ -3732,7 +3816,7 @@ val completeness = Q.store_thm(
   >- (print_tac "nDtypeDecl" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
-      pmap_cases >> simp[mkNd_def] >>
+      pmap_cases >>
       Q.REFINE_EXISTS_TAC `[pt]` >> simp[] >> normlist >>
       first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
       rename1 `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
@@ -3791,10 +3875,44 @@ val completeness = Q.store_thm(
           rename [`FST tl = TypeT`] >> Cases_on `tl` >> fs[] >>
           simp[peg_respects_firstSets] >> rw[] >>
           first_x_assum match_mp_tac >> simp[NT_rank_def]))
-  >- (print_tac "nDconstructor" >> stdstart >> simp[mkNd_def] >> pmap_cases
+  >- (print_tac "nDconstructor" >> stdstart >> pmap_cases
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
-      first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
-      Cases_on `sfx` >> fs[peg_eval_tok_NONE])
+      rename [‘ptree_head upt = NN nUQConstructorName’,
+              ‘real_fringe upt = MAP _ upf’,
+              ‘ptree_head blpt = NN nTbaseList’,
+              ‘real_fringe blpt = MAP _ blf’] >>
+      Cases_on ‘blf = []’
+      >- (rveq >> fs[] >>
+          ‘NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nDconstructor)’
+             by simp[NT_rank_def] >>
+          first_x_assum (pop_assum o mp_then Any mp_tac) >> simp[] >>
+          disch_then (first_assum o mp_then (Pos hd) mp_tac) >> simp[] >>
+          rename [‘sfx ≠ []’] >> disch_then (qspec_then ‘sfx’ mp_tac) >>
+          disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
+          simp[] >> dsimp[] >> csimp[] >>
+          ‘peg_eval cmlPEG ([] ++ sfx, nt (mkNT nTbaseList) I)
+                    (SOME(sfx,[blpt]))’
+            by (first_x_assum irule >> simp[] >>
+                imp_res_tac
+                  (MATCH_MP rfringe_length_not_nullable
+                            nullable_UQConstructorName) >> rfs[]) >>
+          fs[] >> Cases_on ‘sfx’ >> fs[peg_eval_tok_NONE]) >>
+      ‘0 < LENGTH blf’ by (Cases_on ‘blf’ >> fs[]) >>
+      ‘0 < LENGTH upf’
+        by (imp_res_tac
+                  (MATCH_MP rfringe_length_not_nullable
+                            nullable_UQConstructorName) >> rfs[]) >>
+      ‘peg_eval cmlPEG (blf ++ sfx, nt (mkNT nTbaseList) I)
+                (SOME(sfx, [blpt])) ∧
+       peg_eval cmlPEG (upf ++ (blf ++ sfx), nt (mkNT nUQConstructorName) I)
+                (SOME (blf++sfx, [upt]))’ by simp[] >>
+      pop_assum (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
+      fs[] >>
+      ‘peg_eval cmlPEG (blf ++ sfx, tok ((=) OfT) mktokLf) NONE’
+        suffices_by simp[] >>
+      Cases_on ‘blf’ >> fs[peg_eval_tok_NONE] >>
+      rename [‘FST tkl = OfT’] >> Cases_on ‘tkl’ >>
+      simp[] >> fs[] >> imp_res_tac rfirstSet_nonempty_fringe >> rfs[])
   >- (print_tac "nDType" >> disch_then assume_tac >>
       match_mp_tac (dtype_complete
                       |> Q.INST [`master` |-> `pfx`]

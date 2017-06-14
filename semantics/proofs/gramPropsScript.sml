@@ -70,6 +70,8 @@ val NT_rank_def = Define`
         else if n = nType              then  6
         else if n = nPType             then  5
         else if n = nDType             then  4
+        else if n = nTbaseList         then  4
+        else if n = nPTbase            then  3
         else if n = nTbase             then  3
         else if n = nTyOp              then  2
         else if n = nTypeName          then  2
@@ -238,7 +240,7 @@ end
 
 val nullacc =
     foldl fold_nullprove []
-          [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
+          [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
            “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
            “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
            “nElist1”, “nCompOps”, “nListOps”,
