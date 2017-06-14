@@ -1,3 +1,4 @@
+#!/bin/sh
 cd ocaml
 make
 cd ..
