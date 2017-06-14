@@ -16,8 +16,11 @@ val _ = translation_extends "ml_monadProg";
 
 val _ = (use_full_type_names := false);
 
-fun dest_monad_type ty = type_subst (match_type ``:'a M`` ty) ``:'a``;
+fun dest_monad_type ty =
+  let val s = (match_type ``:('a, 'b) M`` ty) in
+      (type_subst s ``:'a``, type_subst s ``:'b``) end;
 
+(* Should be moved somewhere else *)
 fun list_dest f tm =
   let val (x,y) = f tm in list_dest f x @ list_dest f y end
   handle HOL_ERR _ => [tm];
@@ -35,9 +38,8 @@ fun D th = let
 val env_tm = mk_var("env",semanticPrimitivesSyntax.mk_environment semanticPrimitivesSyntax.v_ty)
 
 (* ---- *)
-
 fun get_m_type_inv ty =
-  ``HOL_MONAD ^(get_type_inv (dest_monad_type ty))`` handle HOL_ERR _ =>
+  ``HOL_MONAD ^(get_type_inv (dest_monad_type ty |> fst))`` handle HOL_ERR _ =>
   failwith "unknown type";
 
 fun get_arrow_type_inv ty =
