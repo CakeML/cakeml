@@ -35,17 +35,29 @@ val _ = process_topdecs`
     process_topdecs` val stdtest = Word8.fromInt 0 ` |> append_dec
 *)
 
+(* higher-lever write function which calls #write until something is written or
+* an filesystem error is raised and outputs the number of bytes written.
+* It assumes that buff257 is initialised *)
+
+val _ =
+  process_topdecs`fun write fd n =
+    let val a = Word8Array.update buff257 0 fd
+        val a = Word8Array.update buff257 1 n
+        val a = #(write) buff257 in
+        if Word8Array.sub buff257 0 = Word8.fromInt 1 
+        then raise InvalidFD
+        else 
+          let val n = Word8.toInt(Word8Array.sub buff257 1) in
+            if n = 0 then write fd n
+            else n
+          end
+    end` |> append_prog
+
 (* Output functions on given file descriptor *)
 val _ = 
   process_topdecs` fun write_char fd c = 
-    let val a = Word8Array.update buff257 0 fd
-        val a = Word8Array.update buff257 1 (Word8.fromInt 1) 
-        val a = Word8Array.update buff257 2 (Word8.fromInt(Char.ord c))
-        val a = #(write) buff257
-    in 
-      if Word8Array.sub buff257 0 = Word8.fromInt 1 
-      then raise InvalidFD (* inaccurate *)
-      else ()
+    let val a = Word8Array.update buff257 2 (Word8.fromInt(Char.ord c))
+    in write fd (Word8.fromInt 1)
     end
 
     fun print_char c = write_char (stdout()) c
@@ -57,19 +69,11 @@ val _ =
   process_topdecs` fun write_w8array fd w i n =
   if n <= 0 then ()
   else
-    let val m = min n 255
-        val a = Word8Array.update buff257 0 fd
-        val a = Word8Array.update buff257 1 m
+    let val m = Word8.fromInt(min n 255)
         val a = Word8Array.copy_aux w buff257 2 m i
-        (* array_copy_aux_spec should be more complete *)
-        val a = #(write) buff257
+        val nw = write fd m
     in
-      if Word8Array.sub buff257 0 = Word8.fromInt 0 
-      then 
-        let val nw = Word8.toInt(Word8Array.sub buff257 1) in
           write_w8array fd w (i + nw) (n - nw)
-        end
-      else raise InvalidFD
     end` |> append_prog
 
 (* val print_newline : unit -> unit *)

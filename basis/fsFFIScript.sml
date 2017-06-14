@@ -80,14 +80,14 @@ val read_def = Define`
       return (TAKE k (DROP off content), bumpFD fd fs k)
     od `;
 
-(* replaces the content of the file in fs with filename fnm 
-*  and set the position in the file *)
+(* replaces the content of the file in fs with filename fnm,
+* set the position in the file and skip k fsnumchars elements*)
 val fsupdate_def = Define`
-  fsupdate fs fd content pos = 
+  fsupdate fs fd k pos content = 
     let fnm = FST (THE (ALOOKUP fs.infds fd)) in
-    ((fs with files := ((fnm, content) :: (A_DELKEY fnm fs.files)))
-        with numchars := THE (LTL fs.numchars))
-        with infds updated_by (ALIST_FUPDKEY fd (I ## (\_. pos)))`
+    ((fs with files := ALIST_FUPDKEY fnm (\_. content) fs.files)
+        with numchars := THE (LDROP k fs.numchars))
+        with infds := (ALIST_FUPDKEY fd (I ## (\_. pos))) fs.infds`
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
@@ -102,12 +102,12 @@ val write_def = Define`
       assert(n <= LENGTH chars);
       assert(fs.numchars <> [||]);
       strm <- LHD fs.numchars;
-      assert(strm <> 0);
       let k = MIN n strm in
         (* an unspecified error occurred *)
-        return (k, fsupdate fs fd (TAKE off content ++ 
-                                   TAKE k chars ++
-                                   DROP (off + k) content) (off + k))
+        return (k, fsupdate fs fd 1 (off + k)
+                            (TAKE off content ++ 
+                             TAKE k chars ++
+                             DROP (off + k) content))
     od `;
 
 

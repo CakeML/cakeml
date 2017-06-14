@@ -339,13 +339,15 @@ val A_DELKEY_bumpAllFD_elim = Q.store_thm("A_DELKEY_bumpAllFD_elim[simp]",
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]);
 
 val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
-    `! fs fd content pos. wfFS fs ==> MEM fd (MAP FST fs.infds) ==> 
-                          wfFS (fsupdate fs fd content pos)`,
-    rw[wfFS_def,ALIST_FUPDKEY_ALOOKUP,fsupdate_def] >>
-    cases_on `fs.numchars` >> fs[] >>
-    every_case_tac >> fs[ALOOKUP_NONE] >>
-    cases_on`x` >> fs[] >> res_tac >>
-    fs[ALOOKUP_MEM,A_DELKEY_def,MEM_MAP, MEM_FILTER] >>
-    metis_tac[]);
+    `! fs fd content pos k. wfFS fs ==> MEM fd (MAP FST fs.infds) ==> 
+                            wfFS (fsupdate fs fd k pos content)`,
+    rw[wfFS_def,ALIST_FUPDKEY_ALOOKUP,fsupdate_def,
+       NOT_LFINITE_DROP_LFINITE]
+    >-(every_case_tac >> fs[ALOOKUP_NONE] >>
+       cases_on`x` >> fs[] >> res_tac >>
+       fs[ALOOKUP_MEM,A_DELKEY_def,MEM_MAP, MEM_FILTER] >>
+       metis_tac[])
+    >-(`∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
+    fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
 
 val _ = export_theory();
