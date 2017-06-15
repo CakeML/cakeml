@@ -46,12 +46,12 @@ val all_words_nil = Q.store_thm("all_words_nil[simp]",
 val all_words_concat = Q.store_thm("all_words_concat",
   `isSpace sp ⇒
    all_words (s1 ^ str sp ^ s2) = all_words s1 ++ all_words s2`,
-  rw[all_words_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]);
+  rw[all_words_def,tokens_append,strcat_assoc]);
 
 val all_words_concat_space = Q.store_thm("all_words_concat_space",
   `isSpace sp ⇒ all_words (s1 ^ str sp) = all_words s1`,
   rw[] \\ qspec_then`implode ""`mp_tac(Q.GEN`s2`all_words_concat) \\
-  fs[mlstringTheory.strcat_def]);
+  fs[strcat_def]);
 
 val frequency_nil = Q.store_thm("frequency_nil[simp]",
   `frequency (implode "") w = 0`, EVAL_TAC);
@@ -110,7 +110,7 @@ val FOLDL_insert_line = Q.store_thm("FOLDL_insert_line",
     invariant compare t' ∧
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
     FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ IMAGE (key_set compare) (set (all_words s))`,
-  Induct \\ simp[mlstringTheory.concat_def] \\ ntac 3 strip_tac \\
+  Induct \\ simp[concat_def] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
   `strlit "\n" = str #"\n"` by EVAL_TAC \\
@@ -129,7 +129,7 @@ val FOLDL_insert_line = Q.store_thm("FOLDL_insert_line",
     invariant compare t' ∧
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
     FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ IMAGE (key_set compare) (set (all_words s))`,
-  Induct \\ simp[mlstringTheory.concat_def] \\ ntac 3 strip_tac \\
+  Induct \\ simp[concat_def] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
   `strlit "\n" = str #"\n"` by EVAL_TAC \\
