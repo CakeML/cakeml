@@ -252,36 +252,24 @@ val Lnext_def = tDefine "Lnext" `
   Lnext P ll = if eventually P ll then
                         if P ll then 0
                         else SUC(Lnext P (THE (LTL ll)))
-                     else ARB` cheat;
-(*
-val Lnext_def = Hol_defn "Lnext" `
-  Lnext P ll = if eventually P ll then
-                 if P ll then 0
-                 else SUC (Lnext P (THE (LTL ll)))
-               else ARB`
-(* TODO *)
-Defn.tgoal Lnext_def;
-qexists_tac`\(P',ll') (P,ll). P = P' /\ eventually P ll /\
-                              ?k. LDROP k ll = SOME ll' /\ 0 < k /\
-                                  !j. j < k ==> ¬ P (THE (LDROP j ll))` >>
-reverse(rw[WF_DEF])
->-(qexists_tac`1` >> cases_on`ll` >> rfs[LDROP_1] >> fs[]) >>
-cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
-reverse(cases_on`eventually P ll`)
->-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
-rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >> 
-HO_MATCH_MP_TAC eventually_ind >> rw[]
->-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
-
-(*HERE *)
-cases_on`!k. B(P, THE(LDROP k ll)) ==> ?j. j <= k /\ P(THE (LDROP j ll))`
-;
-*)
+                     else ARB` 
+ (qexists_tac`(\(P,ll') (P',ll). 
+    P = P' /\ eventually P ll /\ eventually P ll' /\
+    LTL ll = SOME ll' /\ ¬ P ll)` >>reverse(rw[WF_DEF,eventually_thm])
+  >-(cases_on`ll` >> fs[])
+  >-(cases_on`ll` >> fs[]) >>
+  cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
+  reverse(cases_on`eventually P ll`)
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >> 
+  HO_MATCH_MP_TAC eventually_ind >> rw[]
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  cases_on`B(P,ll)` >-(metis_tac[]) >>
+  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
 
 val validFD_ALOOKUP = Q.store_thm("validFD_ALOOKUP",
   `validFD fd fs ==> ?v. ALOOKUP fs.infds fd = SOME v`,
   rw[validFD_def] >> cases_on`ALOOKUP fs.infds fd` >> fs[ALOOKUP_NONE]);
-
 
 val Lnext_pos_def = Define`
   Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
@@ -467,7 +455,7 @@ val write_spec = Q.store_thm("write_spec",
   FIRST_X_ASSUM (MP_TAC o Q.SPECL [`fs'`, `0w`,`0w`]) >>
   rw[] >>
   rename[`cf_app p _ _ _ Precond Postcond`] >>
-  fs[]
+  fs[] >> 
   (* should work here *)
   TRY(LAST_X_ASSUM xapp_spec) >>
   cheat
