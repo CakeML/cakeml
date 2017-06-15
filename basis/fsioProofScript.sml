@@ -282,31 +282,32 @@ val fsupdate_LTL = Q.store_thm("fsupdate_LTL",
 
 
 val write_spec = Q.store_thm("write_spec",
- `!ll.
-    always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0)) ll ⇒
-    !fs h1 h2. ll = fs.numchars ⇒
-    wfFS fs ⇒ validFD (w2n fd) fs ⇒ liveFS fs ⇒ 
-    0 < w2n n ⇒ w2n n <= 255 ⇒ w2n fd < 255 ⇒ LENGTH rest = 255 ⇒
-    get_file_content fs (w2n fd) = SOME(content, pos) ⇒
-    WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
-    app (p:'ffi ffi_proj) ^(fetch_v "IO.write" (basis_st())) [fdv;nv]
-    (IOFS fs * W8ARRAY buff257_loc (h1 :: h2 :: rest)) 
+ `liveFS fs ⇒ wfFS fs ⇒ validFD (w2n fd) fs ⇒
+  0 < w2n n ⇒ w2n n <= 255 ⇒ w2n fd < 255 ⇒ LENGTH rest = 255 ⇒
+  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+  WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
+  app (p:'ffi ffi_proj) ^(fetch_v "IO.write" (basis_st())) [fdv;nv]
 
-    (POST (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * cond(nw > 0) * 
-                 W8ARRAY buff257_loc (0w :: n2w nw :: rest) *
-                   IOFS(fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + nw)
-                          (TAKE pos content ++ 
-                           TAKE nw (MAP (CHR o w2n) rest) ++ 
-                           DROP (pos + nw) content)))
-        (\e. &(InvalidFD_exn e) * W8ARRAY buff257_loc (1w::n::rest) *
-             &(F) *
-             IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
+  (IOFS fs * W8ARRAY buff257_loc (h1 :: h2 :: rest)) 
+
+  (POST (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * cond(nw > 0) * 
+               W8ARRAY buff257_loc (0w :: n2w nw :: rest) *
+                 IOFS(fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + nw)
+                        (TAKE pos content ++ 
+                         TAKE nw (MAP (CHR o w2n) rest) ++ 
+                         DROP (pos + nw) content)))
+      (\e. &(InvalidFD_exn e) * W8ARRAY buff257_loc (1w::n::rest) *
+           &(F) *
+           IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
+  strip_tac >> fs[liveFS_def] >> `?ll. fs.numchars = ll` by simp[]  >> fs[] >>
+  `liveFS fs` by fs[liveFS_def] >> FIRST_X_ASSUM MP_TAC >> FIRST_X_ASSUM MP_TAC >> 
+  qid_spec_tac `h2` >> qid_spec_tac `h1` >> qid_spec_tac `fs` >>
+  FIRST_X_ASSUM MP_TAC >> qid_spec_tac `ll` >> 
   HO_MATCH_MP_TAC always_eventually_ind >>
-  xcf "IO.write" (basis_st()) >>
-  fs[buff257_loc_def] 
+  xcf "IO.write" (basis_st()) >> fs[buff257_loc_def]>>
+  `ll = fs.numchars` by simp[] >> fs[]
 (* next el is <> 0 *)
-  >-(
-     sg`Lnext_pos fs.numchars = 0`   
+  >-(sg`Lnext_pos fs.numchars = 0`   
      >-(fs[Lnext_pos_def,Once Lnext_def,liveFS_def,always_thm] >>
         cases_on`fs.numchars` >> fs[]) >>
      (* TODO: xlet_auto issue: h1 h2 can't be called h h'
@@ -424,8 +425,9 @@ val write_spec = Q.store_thm("write_spec",
         IOFS fs' * W8ARRAY buff257_loc (0w::(n2w 0)::rest)`     
   >- (xapp_spec eq_num_v_thm >> xsimpl >> instantiate >> fs[TRUE_def]) >>
   xif >> fs[TRUE_def] >> fs[buff257_loc_def] >>
-  (* HERE *)
   sg`t = fs'.numchars` >-(fs[Abbr`fs'`,fsupdate_def,LDROP_1]) >>
+  `wfFS fs'` by (fs[Abbr`fs'`,wfFS_fsupdate,validFD_def]) >>
+
   sg`fs' = fs with numchars := t`
   >-( imp_res_tac validFD_ALOOKUP >> fs[wfFS_def,Abbr`fs'`,fsupdate_def] >>
      fs[IO_fs_component_equality] >> fs[wfFS_def,get_file_content_def] >>
@@ -440,10 +442,7 @@ val write_spec = Q.store_thm("write_spec",
      fs[Lnext_pos_def,Once Lnext_def] >>
      cases_on`fs.numchars` >>
      fs[liveFS_def,always_thm,LDROP_1,ADD]) >>
-  fs[] >>
   fs[buff257_loc_def] >>
-  sg`wfFS fs'`
-  >-(fs[Abbr`fs'`,wfFS_fsupdate,validFD_def]) >>
   sg`get_file_content fs' (w2n fd) = SOME(content,pos)`
   >-(fs[get_file_content_def]) >>
   `liveFS fs'` by (fs[liveFS_def] >> fs[]) >>
