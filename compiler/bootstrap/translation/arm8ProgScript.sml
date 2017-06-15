@@ -315,7 +315,8 @@ val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE (srw_ss()++
 
 val decodebitmasks_side = Q.prove(`
   decodebitmasks_side x ⇔ T`,
-  PairCases_on`x`>>EVAL_TAC>>fs[]) |> update_precondition
+  PairCases_on`x`>>EVAL_TAC>>fs[] >>
+  simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition
 
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv)
 
