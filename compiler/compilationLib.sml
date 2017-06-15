@@ -1438,7 +1438,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val stack_to_lab_thm = compile_to_lab data_prog_def to_data_thm lab_prog_name
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val result = cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
-    val bytes_name = name ^ "_bytes"
+    val bytes_name = (!intermediate_prog_prefix) ^ "bytes"
     val bytes_def = mk_abbrev bytes_name (result |> extract_bytes_ffis |> #1)
   in result |> PURE_REWRITE_RULE[GSYM bytes_def] end
   (*
