@@ -504,19 +504,14 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
 
 (*
    Analyses a theorem of the form:
-   (?s. (A * H) s) ==> ((A * H ==>> B * H') <=> (C /\ H ==>> H'))
-   Returns: (A, B, C)
+   HPROP_INJ A B EQ
+   Returns: (A, B, EQ)
 *)
-val hprop_valid_heap_const = ``VALID_HEAP``;
-val hprop_extract_pattern = ``(A * H) s /\ (B * H') s ==> EQ``;
+val hprop_extract_pattern = ``HPROP_INJ A B EQ``;
 fun convert_extract_thm th =
     let
 	val c = strip_forall (concl th) |> snd
-	val (hyp, c') = dest_imp c
-	val _ = if same_const (dest_comb hyp |> fst) hprop_valid_heap_const then ()
-		else failwith ""
-	val body = strip_forall c' |> snd
-	val (tsubst, _) = match_term hprop_extract_pattern body
+	val (tsubst, _) = match_term hprop_extract_pattern c
 	val cond = Term.subst tsubst ``A:hprop``
 	val eq = Term.subst tsubst ``B:hprop``
 	val res = Term.subst tsubst ``EQ:bool``
@@ -646,9 +641,9 @@ fun mk_export_f f (thy_name : string) (named_thms : (string * thm) list) =
   f (List.map snd named_thms);
 
 (* Theorems used to compute the frame *)
-val FRAME_THMS = ref [UNIQUE_REFS,
-		      UNIQUE_ARRAYS,
-		      UNIQUE_W8ARRAYS
+val FRAME_THMS = ref [REF_HPROP_INJ,
+		      ARRAY_HPROP_INJ,
+		      W8ARRAY_HPROP_INJ
 		     ];
 
 fun add_frame_thms thms = FRAME_THMS := (thms  @ !FRAME_THMS);
