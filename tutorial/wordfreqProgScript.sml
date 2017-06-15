@@ -107,9 +107,10 @@ val wordfreq = process_topdecs`
   fun wordfreq u =
     case FileIO.inputLinesFrom (List.hd (Commandline.arguments()))
     of SOME lines =>
-      (* TODO: add o to mlbasicsProg? *)
-      List.app (fn x => print (format_output x))
-        (toAscList (List.foldl insert_line empty lines))`;
+      print_list
+        (List.map format_output
+          (toAscList
+            (List.foldl insert_line empty lines)))`;
 
 val () = append_prog wordfreq;
 
@@ -169,6 +170,12 @@ val wordfreq_output_spec_def =
 (* TODO: explain p:'ffi ffi_proj, or make it simpler *)
 (* TODO: explain antiquotation (^) *)
 
+(* These will be needed for xlet_auto to handle our use of List.foldl *)
+val insert_line_v_thm = theorem"insert_line_v_thm";
+val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`NUM`,`STRING_TYPE`];
+(* and this for our use of List.map *)
+val format_output_v_thm = theorem"format_output_v_thm";
+
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
   `hasFreeFD fs ∧ inFS_fname fs fname ∧ cl = [explode pname; explode fname]
    ⇒
@@ -182,45 +189,28 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  (* TODO: xlet_auto should work here, leaving the FILENAME condition to be proved *)
   reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
-  rfs[mlcommandLineProgTheory.wfcl_def] \\
-  rename1`STRING_TYPE fname fv` \\
-  `FILENAME fname fv` by
-    fs[mlfileioProgTheory.FILENAME_def,
-      commandLineFFITheory.validArg_def,
-      mlstringTheory.LENGTH_explode,EVERY_MEM] \\
-  xlet_auto >- xsimpl \\
+  xlet_auto >- (
+    xsimpl \\
+    rfs[mlfileioProgTheory.FILENAME_def,
+        mlcommandLineProgTheory.wfcl_def,
+        commandLineFFITheory.validArg_def,
+        mlstringTheory.LENGTH_explode,EVERY_MEM] ) \\
   xmatch \\
   fs[ml_translatorTheory.OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ simp[]) \\
   (* try xlet_auto to see that these specs are needed *)
-  assume_tac (theorem"insert_line_v_thm") \\
-  assume_tac (theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`NUM`,`STRING_TYPE`]) \\
+  assume_tac insert_line_v_thm \\
+  assume_tac empty_v_thm \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  (* TODO: it would be nice for xlet_auto to tell you when a spec is not found
-           (but xapp needs to do this too) *)
-  (* TODO: this is terrible.. *)
-  xfun_spec`pf`
-    `∀pr pv out.
-     PAIR_TYPE STRING_TYPE NUM pr pv ⇒
-     app p pf [pv] (STDOUT out) (POSTv uv. &UNIT_TYPE () uv * STDOUT (out ++ explode (format_output pr)))`
-  >- (
-    rw[] \\
-    first_x_assum match_mp_tac \\
-    xlet_auto >- xsimpl \\
-    xapp \\ xsimpl ) \\
-  xapp_spec
-  (mllistProgTheory.app_spec
-   |> CONV_RULE(RESORT_FORALL_CONV List.rev)
-   |> Q.ISPEC`PAIR_TYPE STRING_TYPE NUM`) \\
-  instantiate \\
-  CONV_TAC SWAP_EXISTS_CONV \\
-  qmatch_assum_abbrev_tac`LIST_TYPE _ ls _` \\
-  qexists_tac`λn. STDOUT (out ++ FLAT (MAP (explode o format_output) (TAKE n ls)))` \\
+  (* try xlet_auto to see that these specs are needed *)
+  assume_tac format_output_v_thm \\
+  xlet_auto >- xsimpl \\
+  xapp \\ xsimpl \\ instantiate \\
+  CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`out` \\
   xsimpl \\
-  conj_tac >- simp[TAKE_EL_SNOC,SNOC_APPEND] \\
+  (* from here on there is no more CF proof *)
   qmatch_goalsub_abbrev_tac`out ++ res` \\
   qmatch_goalsub_abbrev_tac`wordfreq_output_spec file_chars` \\
   `valid_wordfreq_output (implode file_chars) res` suffices_by (
@@ -229,8 +219,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
       metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique] \\
     xsimpl ) \\
   rw[Abbr`res`, valid_wordfreq_output_def] \\
+  qmatch_asmsub_abbrev_tac`toAscList t` \\
+  qmatch_asmsub_abbrev_tac`MAP format_output ls` \\
   qexists_tac`MAP FST ls` \\
-  qmatch_assum_abbrev_tac`Abbrev(ls = toAscList t)` \\
   qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
   simp[empty_thm] \\
   impl_tac >- (
