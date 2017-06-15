@@ -3,7 +3,7 @@ struct
 
 open preamble ml_progLib cfTacticsLib ml_translatorTheory
      eqSolveRewriteLib Satisfy cfLetAutoTheory
-
+     
 (* TODO: move these to preamble, or Drule? *)
 (********************************************************************************************)
 (******************** Some conversions used to perform the matching *************************)
@@ -382,7 +382,7 @@ fun xlet_find_spec g =
     val dummy_spec = `POSTv (v:v). &T`
     val g' = xlet dummy_spec g |> #1 |> List.hd
   in
-    find_spec g'
+    SPEC_ALL(find_spec g')
   end;
 
 (* [xlet_dest_app_spec] *)
@@ -404,7 +404,7 @@ fun xlet_dest_app_spec asl let_pre specH =
 fun xlet_subst_parameters env app_info asl let_pre app_spec  =
   let
       (* Retrieve the list of free variables *)
-      val fvset = FVL (app_info::let_pre::asl) empty_varset
+      val fvset = FVL ((concl app_spec)::app_info::let_pre::asl) empty_varset
       val fvl = HOLset.listItems fvset
 
       (* Retrieve the type variables *)
