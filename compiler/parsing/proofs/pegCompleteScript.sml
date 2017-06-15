@@ -264,7 +264,7 @@ val firstSet_nV = Q.store_thm(
   "firstSet_nV",
   `firstSet cmlG (NN nV:: rest) =
       { AlphaT s | s ≠ "" ∧ ¬isUpper (HD s) ∧ s ≠ "before" ∧ s ≠ "div" ∧
-                   s ≠ "mod" ∧ s ≠ "o" ∧ s ≠ "true" ∧ s ≠ "false" ∧ s ≠ "ref" ∧
+                   s ≠ "mod" ∧ s ≠ "o" ∧ s ≠ "true" ∧ s ≠ "false" ∧
                    s ≠ "nil"} ∪
       { SymbolT s | s ≠ "+" ∧ s ≠ "*" ∧ s ≠ "-" ∧ s ≠ "/" ∧ s ≠ "<" ∧ s ≠ ">" ∧
                     s ≠ "<=" ∧ s ≠ ">=" ∧ s ≠ "<>" ∧ s ≠ ":=" ∧ s ≠ "::" ∧
@@ -277,7 +277,7 @@ val firstSet_nFQV = Q.store_thm(
   `firstSet cmlG [NT (mkNT nFQV)] =
       firstSet cmlG [NT (mkNT nV)] ∪
       { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i)) ∧
-                              i ∉ {"true"; "false"; "ref"; "nil"}}`,
+                              i ∉ {"true"; "false"; "nil"}}`,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]);
 
@@ -285,7 +285,7 @@ val firstSet_nUQConstructorName = Q.store_thm(
   "firstSet_nUQConstructorName",
   ‘firstSet cmlG (NN nUQConstructorName :: rest) =
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
-      { AlphaT s | s ∈ {"true"; "false"; "ref"; "nil"}}’,
+      { AlphaT s | s ∈ {"true"; "false"; "nil"}}’,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
@@ -293,9 +293,9 @@ val firstSet_nConstructorName = Q.store_thm(
   "firstSet_nConstructorName",
   `firstSet cmlG (NN nConstructorName :: rest) =
       { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
-                                  s ∈ {"true"; "false"; "ref"; "nil"}} ∪
+                                  s ∈ {"true"; "false"; "nil"}} ∪
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
-      { AlphaT s | s ∈ {"true"; "false"; "ref"; "nil"}}`,
+      { AlphaT s | s ∈ {"true"; "false"; "nil"}}`,
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
@@ -348,7 +348,7 @@ val firstSetML_nEliteral = Q.store_thm(
 val firstSet_nEbase = Q.store_thm(
   "firstSet_nEbase[simp]",
   `firstSet cmlG [NT (mkNT nEbase)] =
-      {LetT; LparT; LbrackT; OpT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
+      {LetT; LparT; LbrackT; OpT; RefT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
       firstSet cmlG [NT (mkNT nEliteral)] ∪
       firstSet cmlG [NT (mkNT nConstructorName)]`,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
@@ -672,7 +672,8 @@ val firstSetML_nPbase = Q.store_thm(
 
 val firstSet_nPConApp = Q.store_thm(
   "firstSet_nPConApp[simp]",
-  ‘firstSet cmlG (NN nPConApp :: rest) = firstSet cmlG [NN nConstructorName]’,
+  ‘firstSet cmlG (NN nPConApp :: rest) =
+     firstSet cmlG [NN nConstructorName] ∪ {RefT}’,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def]);
@@ -682,13 +683,14 @@ val firstSetML_nPConApp = Q.store_thm(
   ‘mkNT nConstructorName ∉ sn ∧ mkNT nPConApp ∉ sn ∧
    mkNT nUQConstructorName ∉ sn ⇒
      firstSetML cmlG sn (NN nPConApp :: rest) =
-     firstSet cmlG [NN nConstructorName]’,
+     firstSet cmlG [NN nConstructorName] ∪ {RefT}’,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSetML_def]);
 
 val firstSet_nPapp = Q.store_thm(
   "firstSet_nPapp[simp]",
-  `firstSet cmlG (NN nPapp :: rest) = firstSet cmlG [NN nPbase]`,
+  `firstSet cmlG (NN nPapp :: rest) =
+     {RefT} ∪ firstSet cmlG [NN nPbase]`,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
@@ -698,13 +700,15 @@ val firstSetML_nPapp = Q.store_thm(
   `mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
    mkNT nPConApp ∉ sn ⇒
-    firstSetML cmlG sn (NN nPapp :: rest) = firstSet cmlG [NN nPbase]`,
+    firstSetML cmlG sn (NN nPapp :: rest) =
+      firstSet cmlG [NN nPbase] ∪ {RefT}`,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
 val firstSet_nPcons = Q.store_thm(
   "firstSet_nPcons[simp]",
-  `firstSet cmlG (NN nPcons :: rest) = firstSet cmlG [NN nPbase]`,
+  `firstSet cmlG (NN nPcons :: rest) =
+    firstSet cmlG [NN nPbase] ∪ {RefT}`,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
 
@@ -713,12 +717,14 @@ val firstSetML_nPcons = Q.store_thm(
   `mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
    mkNT nPcons ∉ sn ∧ mkNT nPConApp ∉ sn ⇒
-    firstSetML cmlG sn (NN nPcons :: rest) = firstSet cmlG [NN nPbase]`,
+    firstSetML cmlG sn (NN nPcons :: rest) =
+      firstSet cmlG [NN nPbase] ∪ {RefT}`,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
 
 val firstSet_nPattern = Q.store_thm(
   "firstSet_nPattern[simp]",
-  `firstSet cmlG (NN nPattern :: rest) = firstSet cmlG [NN nPbase]`,
+  `firstSet cmlG (NN nPattern :: rest) =
+     firstSet cmlG [NN nPbase] ∪ {RefT}`,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
@@ -835,6 +841,7 @@ val NOTIN_firstSet_nConstructorName = Q.store_thm(
     StringT s ∉ firstSet cmlG [NN nConstructorName] ∧
     StructureT ∉ firstSet cmlG [NN nConstructorName] ∧
     SymbolT "::" ∉ firstSet cmlG [NN nConstructorName] ∧
+    SymbolT "ref" ∉ firstSet cmlG [NN nConstructorName] ∧
     ThenT ∉ firstSet cmlG [NN nConstructorName] ∧
     TypeT ∉ firstSet cmlG [NN nConstructorName] ∧
     UnderbarT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -1721,6 +1728,22 @@ val nConstructorName_input_monotone = Q.store_thm(
   rename [‘FST tkl = LongidT str s’] >> Cases_on `tkl` >> fs[] >> rveq >>
   simp[peg_respects_firstSets, firstSet_nUQConstructorName]);
 
+val peg_eval_NT_NONE = save_thm(
+  "peg_eval_NT_NONE",
+  ``peg_eval cmlPEG (i0, nt (mkNT n) I) NONE``
+     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases])
+
+val nConstructorName_NONE_input_monotone = Q.store_thm(
+  "nConstructorName_NONE_input_monotone",
+  ‘peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
+   peg_eval cmlPEG ((tk,l) :: (i ++ sfx), nt (mkNT nConstructorName) I) NONE’,
+  simp[peg_eval_NT_NONE] >>
+  simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
+       peg_eval_tok_NONE] >>
+  simp[peg_eval_NT_NONE] >>
+  simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
+       peg_eval_tok_NONE, peg_UQConstructorName_def])
+
 val nV_input_monotone = Q.store_thm(
   "nV_input_monotone",
   ‘peg_eval cmlPEG (i0, nt (mkNT nV) I) (SOME (i,r)) ⇒
@@ -1741,11 +1764,6 @@ val nUQTyOp_input_monotone = Q.store_thm(
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQTyOp) I) (SOME(i++sfx,r))’,
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
   strip_tac >> rveq >> simp[peg_eval_tok_NONE]);
-
-val peg_eval_NT_NONE = save_thm(
-  "peg_eval_NT_NONE",
-  ``peg_eval cmlPEG (i0, nt (mkNT n) I) NONE``
-     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases])
 
 val nTyOp_input_monotone = Q.store_thm(
   "nTyOp_input_monotone",
@@ -1973,7 +1991,7 @@ val Type_input_monotone = Q.store_thm(
             (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >>
           qpat_x_assum ‘peg_eval _ (_, nt (mkNT nTypeList2) I) _’ mp_tac >>
           simp[SimpL “$==>”, peg_eval_NT_SOME] >>
-          simp[cmlpeg_rules_applied, peg_eval_tok_NONE])))
+          simp[cmlpeg_rules_applied, peg_eval_tok_NONE])));
 
 val Pattern_input_monotone0 = Q.prove(
   ‘∀N i0 rlist b i r sfx.
@@ -2142,22 +2160,45 @@ val Pattern_input_monotone0 = Q.prove(
                                 peg0_nConstructorName) >> simp[] >>
           disch_then (assume_tac o MATCH_MP (CONJUNCT2 peg_deterministic)) >>
           simp[])
+      >- (rename [‘peg_eval _ ((RefT, _)::i0, nt (mkNT nConstructorName) I)
+                     NONE’] >>
+          simp[peg_respects_firstSets, firstSet_nConstructorName,
+               peg0_nConstructorName, stringTheory.isUpper_def,
+               peg_eval_tok_NONE] >>
+          disj2_tac >> disj1_tac >> dsimp[] >> fs[peg_eval_rpt] >>
+          dsimp[] >>
+          first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPbase) I) _’ o
+                         mp_then (Pos last) mp_tac) >> simp[] >>
+          rename [‘i0 ++ sfx’] >>
+          disch_then (qspec_then ‘sfx’
+                                 (assume_tac o
+                                  MATCH_MP (CONJUNCT1 peg_deterministic))) >>
+          simp[] >>
+          first_x_assum (qpat_assum ‘peg_eval_list _ _ _’ o
+                         mp_then (Pos last) mp_tac) >> simp[] >>
+          disch_then (qspec_then ‘sfx’ mp_tac) >> simp[] >> impl_tac
+          >- (imp_res_tac
+                (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases) peg0_nPbase) >>
+              simp[]) >>
+          metis_tac[])
       >- (first_x_assum
             (qpat_assum ‘peg_eval _ _ (SOME _)’ o
              mp_then (Pos last) (qspec_then `sfx` mp_tac) o
-             has_const ``NT_rank``) >> simp[NT_rank_def] >> strip_tac >>
+             has_const ``NT_rank``) >>
+          impl_tac >- simp[NT_rank_def] >>
+          simp[peg_eval_tok_NONE] >> strip_tac >>
           disj2_tac >>
           Cases_on `i0`
           >- (imp_res_tac (MATCH_MP (GEN_ALL not_peg0_LENGTH_decreases)
                                     peg0_nPbase) >> fs[]) >>
           rename [`peg_eval _ (tkl :: _, _) _`] >> Cases_on `tkl` >> fs[] >>
-          qpat_x_assum `peg_eval _ (_, nt (mkNT nConstructorName) _) _` mp_tac>>
-          simp[peg_eval_NT_NONE] >>
-          simp[cmlpeg_rules_applied, peg_eval_seq_NONE, peg_eval_tok_NONE] >>
-          simp[FORALL_PROD] >>
-          simp[peg_eval_NT_NONE] >>
-          simp[cmlpeg_rules_applied, peg_eval_seq_NONE, peg_eval_tok_NONE,
-               peg_UQConstructorName_def]))
+          rename [‘peg_eval _ ((tk,l)::_, nt (mkNT nConstructorName) I)’] >>
+          imp_res_tac nConstructorName_NONE_input_monotone >> simp[] >>
+          fs[peg_eval_tok_NONE])
+      >- (first_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >>
+          simp[peg0_nPbase, firstSet_nConstructorName, first_assum]
+
+)
   >- (rename [
        ‘peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nPatternList) I)
           (SOME (i ++ sfx, r))’

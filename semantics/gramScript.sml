@@ -48,7 +48,6 @@ val tokmap0 =
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
-                ("ref", ``AlphaT "ref"``),
                 ("sig", ``SigT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
@@ -93,12 +92,12 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                    | "true" | "false" | "ref" | "nil";
+                    | "true" | "false" | "nil";
  ConstructorName ::=
      UQConstructorName
   | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
-                                 s ∈ {"true"; "false"; "ref"; "nil"}}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref";
+                                 s ∈ {"true"; "false"; "nil"}}``);
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false";
                             "nil" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
@@ -107,7 +106,7 @@ val cmlG_def = mk_grammar_def ginfo
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-              s ∉ {"true"; "false"; "ref"; "nil"}}``) ;
+              s ∉ {"true"; "false"; "nil"}}``) ;
  OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
@@ -117,7 +116,7 @@ val cmlG_def = mk_grammar_def ginfo
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
-        | "[" Elist1 "]" | "op" OpID ;
+        | "[" Elist1 "]" | "op" OpID | <RefT> ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -157,7 +156,7 @@ val cmlG_def = mk_grammar_def ginfo
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]" | "op" OpID;
- PConApp ::= ConstructorName | PConApp Pbase ;
+ PConApp ::= ConstructorName | <RefT> | PConApp Pbase ;
  Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;

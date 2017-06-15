@@ -620,6 +620,11 @@ val Papply_def = Define`
     | _ => pat
 `;
 
+val maybe_handleRef_def = Define‘
+  maybe_handleRef (Pcon (SOME (Short "ref")) [pat]) = Pref pat ∧
+  maybe_handleRef p = p
+’;
+
 val ptree_Pattern_def = Define`
   (ptree_Pattern nt (Lf _) = NONE) ∧
   (ptree_Pattern nt (Nd nm args) =
@@ -662,6 +667,10 @@ val ptree_Pattern_def = Define`
         do
           cname <- ptree_ConstructorName cn ;
           return (Pcon (SOME cname) [])
+        od ++
+        do
+          assert (tokcheck cn RefT) ;
+          return (Pcon (SOME (Short "ref")) [])
         od
       | [capp_pt; base_pt] =>
         do
@@ -677,7 +686,7 @@ val ptree_Pattern_def = Define`
           do
             capp <- ptree_Pattern nPConApp capp_pt;
             b <- ptree_Pattern nPbase ppt;
-            return (Papply capp b)
+            return (maybe_handleRef (Papply capp b))
           od
         | _ => NONE
     else if FST nm = mkNT nPcons then
@@ -805,6 +814,7 @@ val mkAst_App_def = Define`
              (dtcase (destFFIop opn) of
                 NONE => App Opapp [a1;a2]
               | SOME s => App opn (args ++ [a2]))
+         | Var (Short "ref") => App Opref [a2]
          | _ => App Opapp [a1;a2])
 `;
 
@@ -868,7 +878,8 @@ local
               do cname <- ptree_ConstructorName single;
                  SOME (Con (SOME cname) [])
               od ++
-              ptree_Expr nEtuple single
+              ptree_Expr nEtuple single ++
+              do assert (tokcheck single RefT) ; return (Var (Short "ref")) od
           | [lp;rp] => if tokcheckl [lp;rp][LparT;RparT] then
                          SOME (Con NONE [])
                        else if tokcheckl [lp;rp] [LbrackT; RbrackT] then

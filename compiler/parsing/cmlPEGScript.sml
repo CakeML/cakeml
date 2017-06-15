@@ -106,7 +106,7 @@ val peg_UQConstructorName_def = Define`
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
                 assert (s ≠ "" ∧ isUpper (HD s) ∨
-                        s ∈ {"true"; "false"; "ref"; "nil"})
+                        s ∈ {"true"; "false"; "nil"})
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
 `;
@@ -125,7 +125,7 @@ val peg_V_def = Define`
    choicel [tok (λt.
                   do s <- destAlphaT t;
                      assert(s ∉ {"before"; "div"; "mod"; "o";
-                                 "true"; "false";"ref";"nil"} ∧
+                                 "true"; "false";"nil"} ∧
                             s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
                 (bindNT nV o mktokLf);
@@ -141,7 +141,7 @@ val peg_longV_def = Define`
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
                         assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-                               s ∉ {"ref"; "true"; "false"; "nil"})
+                               s ∉ {"true"; "false"; "nil"})
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
 `
@@ -264,7 +264,8 @@ val cmlPEG_def = zDefine`
                               tokeq EndT] (bindNT nEbase);
                         pegf (pnt nFQV) (bindNT nEbase);
                         pegf (pnt nConstructorName) (bindNT nEbase);
-                        seql [tokeq OpT; pnt nOpID] (bindNT nEbase)]);
+                        seql [tokeq OpT; pnt nOpID] (bindNT nEbase);
+                        pegf (tokeq RefT) (bindNT nEbase)]);
               (mkNT nEseq,
                seql [pnt nE; try (seql [tokeq SemicolonT; pnt nEseq] I)]
                     (bindNT nEseq));
@@ -391,7 +392,7 @@ val cmlPEG_def = zDefine`
                             (str,s) <- destLongidT t;
                             assert(s <> "" ∧ isAlpha (HD s) ∧
                                    isUpper (HD s) ∨
-                                   s ∈ {"ref"; "true"; "false"; "nil"})
+                                   s ∈ {"true"; "false"; "nil"})
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,
@@ -405,15 +406,18 @@ val cmlPEG_def = zDefine`
                  (bindNT nPbase));
               (mkNT nPapp,
                choicel [seql [pnt nConstructorName; rpt (pnt nPbase) FLAT]
-                             (λpts. if LENGTH pts = 1 then
-                                       bindNT nPapp (bindNT nPbase pts)
-                                     else
-                                       case pts of
-                                         [] => (* can't happen *) []
-                                       | [c] => (* can't happen *) []
-                                       | _ => ptPapply pts
-                             );
-                        pegf (pnt nPbase) (bindNT nPapp)]);
+                         (λpts. if LENGTH pts = 1 then
+                                   bindNT nPapp (bindNT nPbase pts)
+                                 else
+                                   case pts of
+                                       [] => (* can't happen *) []
+                                     | [c] => (* can't happen *) []
+                                     | _ => ptPapply pts
+                         );
+                        seql [tokeq RefT; pnt nPbase; rpt (pnt nPbase) FLAT]
+                             ptPapply;
+                        pegf (pnt nPbase) (bindNT nPapp)
+              ]);
               (mkNT nPcons,
                seql [pnt nPapp;
                      try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]

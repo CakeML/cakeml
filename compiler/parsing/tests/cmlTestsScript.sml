@@ -114,7 +114,7 @@ in
         end
         else die ("Fringe not preserved!", ttoks)
       end
-      else die ("REMANING INPUT:", pair)
+      else die ("REMAINING INPUT:", pair)
     end
     else die ("FAILED:", r)
   else die ("NO RESULT:", r)
@@ -460,8 +460,12 @@ val _ = parsetest0 “nDecl” “ptree_Decl”
                             ("Lf2", [Tapp [] (SOME (Short "int"))])])]”)
 val _ = parsetest ``nDecls`` elab_decls "val x = f()"
 val _ = parsetest ``nDecls`` elab_decls "val () = f x"
-val _ = parsetest ``nDecls`` elab_decls "val x = ref false;"
-val _ = parsetest ``nDecls`` elab_decls "val ref y = f z"
+val _ = parsetest0 ``nDecls`` “ptree_Decls” "val x = ref false;"
+                   (SOME “[Dlet someloc (Pvar "x")
+                                (App Opref [Con (SOME (Short "false")) []])]”)
+val _ = parsetest0 ``nDecls`` “ptree_Decls” "val ref y = f z"
+                   (SOME “[Dlet someloc (Pref (Pvar "y"))
+                                (App Opapp [V "f"; V "z"])]”)
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
@@ -480,7 +484,9 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                   "let val x = 3; val y = 4; in x + y end"
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "val x = 3"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3;"
-val _ = parsetest ``nDecl`` ``ptree_Decl`` "val C x = 3"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "val C x = 3"
+                   (SOME “Dlet someloc (Pcon (SOME (Short "C")) [Pvar "x"])
+                               (Lit (IntLit 3))”)
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "val x = 3; val C y = f z"
 val _ = parsetest ``nDecls`` ``ptree_Decls`` "val C(x,y) = foo"
 val _ = parsetest ``nDecl`` ``ptree_Decl`` "fun f x = x"
