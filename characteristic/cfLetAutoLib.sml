@@ -1069,7 +1069,7 @@ fun match_heap_conditions hcond sub_hcond =
       val hc_hpl = list_dest dest_star hcond |> List.filter (fn x => not (same_const ``emp:hprop`` x))
       val shc_hpl = list_dest dest_star sub_hcond |>
 			      List.filter (fn x => (not (same_const ``emp:hprop`` x)))
-
+			      
       (* Perfom the matching *)
       fun try_match obj pat_pair =
 	let
@@ -1082,12 +1082,15 @@ fun match_heap_conditions hcond sub_hcond =
       (* Interior loop *)
       fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
         | match_loop_int h1 (h2::hl2) =
-	let
-	    val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
-	in
-	    (result, hl2)
-	end
-	handle HOL_ERR _ => let val (results, hl2') = match_loop_int h1 hl2 in (results, h2::hl2') end
+	  if h1 = h2 then ([], hl2)
+	  else	      
+	      (let
+		  val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
+	      in
+		  (result, hl2)
+	      end
+	       handle HOL_ERR _ =>
+		      let val (results, hl2') = match_loop_int h1 hl2 in (results, h2::hl2') end)
 
       (* Exterior loop *)
       fun match_loop_ext (h1::hl1) hl2 =

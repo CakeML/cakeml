@@ -24,30 +24,124 @@ val INT_OF_NUM_SUBS_2 = Q.store_thm("INT_OF_NUM_SUBS_2",
 `!(x:num) (y:num). y <= x ==> (&x - &y = &(x - y))`,
 rw[] >> fs[int_arithTheory.INT_NUM_SUB]);
 
-(* Predicate stating that a heap is valid *)
-val VALID_HEAP_def =
-    Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s = st2heap f st`;
+(* TODO: move that *)
+val SPLIT_SUBSET = Q.store_thm("SPLIT_SUBSET",
+`SPLIT s (u, v) ==> u SUBSET s /\ v SUBSET s`,
+rw[SPLIT_def] >> fs[SUBSET_UNION]);
 
-(* Fundamental property of a valid heap used to handle pointers when extracting a frame from a heap condition - starts by a minor lemma *)
+(* Predicate stating that a heap is valid *)
+val HEAP_FROM_STATE_def =
+    Define `HEAP_FROM_STATE s = ?(f : ffi ffi_proj) st. s = (st2heap f st)`;
+
+val VALID_HEAP_def =
+    Define `VALID_HEAP s = ?(f : ffi ffi_proj) st. s SUBSET (st2heap f st)`;
+
+val VALID_HEAP_SUBSET = Q.store_thm("VALID_HEAP_SUBSET",
+`VALID_HEAP s1 ==> s2 SUBSET s1 ==> VALID_HEAP s2`,
+rw[VALID_HEAP_def] >> metis_tac[SUBSET_TRANS]);
+
+(* A theorem to remove the pure facts from the heap predicates *)
+val HCOND_EXTRACT = Q.store_thm("HCOND_EXTRACT",
+`((&A * H) s <=> A /\ H s) /\ ((H * &A) s <=> H s /\ A) /\ ((H * &A * H') s <=> (H * H') s /\ A)`,
+rw[] >-(fs[STAR_def, STAR_def, cond_def, SPLIT_def])
+>-(fs[STAR_def, STAR_def, cond_def, SPLIT_def]) >>
+fs[STAR_def, STAR_def, cond_def, SPLIT_def] >> EQ_TAC >-(rw [] >-(instantiate) >> rw[]) >> rw[]);
+
+(* Definitions and theorems used to compare two heap conditions *)
+val HPROP_INJ_def = Define `HPROP_INJ H1 H2 PF <=>
+!s. VALID_HEAP s ==> !G1 G2. (H1 * G1) s ==> ((H2 * G2) s <=> (&PF * H1 * G2) s)`;
+
+(* TODO: use that *)
+(* val HPROP_FRAME_IMP_def = Define `HPROP_FRAME_IMP H1 H2 Frame <=>
+?s. VALID_HEAP s /\ H1 s /\ (H2 * Frame) s`;
+
+val HPROP_FRAME_HCOND = Q.store_thm("HPROP_FRAME_HCOND",
+`HPROP_FRAME_IMP H1 (&PF * H2) Frame <=> PF /\ HPROP_FRAME_IMP H1 H2 Frame`,
+rw[HPROP_FRAME_IMP_def, GSYM STAR_ASSOC, HCOND_EXTRACT, GSYM RIGHT_EXISTS_AND_THM] >>
+metis_tac[]); *)
+
+(* The following lemmas aim to prove that a valid heap can not have one pointer pointing to two different values *)
 val PTR_MEM_LEM = Q.prove(`!s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s`,
 rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]);
 
-val UNIQUE_PTRS = Q.store_thm("UNIQUE_PTRS",
-`!s. VALID_HEAP s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
-rw[VALID_HEAP_def] >>
+(* Intermediate lemma to reason on subsets of heaps *)
+val HEAP_SUBSET_GC = Q.prove(`!s s' H. s SUBSET s' ==> H s ==> (H * GC) s'`,
+rw[STAR_def] >>
+instantiate >>
+fs[SPLIT_EQ, GC_def, SEP_EXISTS] >>
+qexists_tac `\x. T` >>
+rw[]);
+
+(* UNIQUE_PTRS property for a heap converted from a state *)
+val UNIQUE_PTRS_HFS = Q.prove(
+`!s. HEAP_FROM_STATE s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
+rw[HEAP_FROM_STATE_def] >>
 fs[st2heap_def] >>
 IMP_RES_TAC PTR_MEM_LEM >>
 fs[UNION_DEF]
 >-(IMP_RES_TAC store2heap_IN_unique_key)>>
 IMP_RES_TAC Mem_NOT_IN_ffi2heap);
 
-(* Fundamental property of a valid heap used to handle ffi components when extracting a frame from a heap condition *)
-val NON_OVERLAP_FFI_PART = Q.store_thm("NON_OVERLAP_FFI_PART",
-`!s. VALID_HEAP s ==>
+val UNIQUE_PTRS = Q.store_thm("UNIQUE_PTRS",
+`!s. VALID_HEAP s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv`,
+rw[VALID_HEAP_def] >>
+IMP_RES_TAC HEAP_SUBSET_GC >>
+fs[GSYM STAR_ASSOC] >>
+metis_tac[HEAP_FROM_STATE_def, UNIQUE_PTRS_HFS]);
+
+val PTR_IN_HEAP = Q.store_thm("PTR_IN_HEAP",
+`!l xv H s. (REF (Loc l) xv * H) s ==> Mem l (Refv xv) IN s`,
+fs[STAR_def, SPLIT_def] >>
+fs[REF_def, SEP_EXISTS] >>
+fs[HCOND_EXTRACT] >>
+fs[cell_def, one_def] >>
+rw[] >>
+last_x_assum (fn x => rw[GSYM x]));
+
+fun prove_hprop_inj_tac thm = rw[HPROP_INJ_def, SEP_CLAUSES, GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+				metis_tac[thm];
+
+val PTR_HPROP_INJ = Q.store_thm("PTR_HPROP_INJ",
+`!l xv xv'. HPROP_INJ (l ~~>> xv) (l ~~>> xv') (xv' = xv)`,
+prove_hprop_inj_tac UNIQUE_PTRS);
+
+(* Unicity results for pointers *)
+val solve_unique_refs = (rw[] >> qspec_then `s:heap` ASSUME_TAC UNIQUE_PTRS >>
+    fs[REF_def, ARRAY_def, W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+    `!A H1 H2. (&A * H1 * H2) s <=> A /\ (H1 * H2) s` by metis_tac[HCOND_EXTRACT, STAR_COMM] >>
+    POP_ASSUM (fn x => fs[x]) >> rw[] >> POP_ASSUM IMP_RES_TAC >> fs[]);
+
+val UNIQUE_REFS = Q.store_thm("UNIQUE_REFS",
+`!s r xv xv' H H'. VALID_HEAP s ==> (r ~~> xv * H) s /\ (r ~~> xv' * H') s ==> xv' = xv`,
+solve_unique_refs);
+
+val UNIQUE_ARRAYS = Q.store_thm("UNIQUE_ARRAYS",
+`!s a av av' H H'. VALID_HEAP s ==> (ARRAY a av * H) s /\ (ARRAY a av' * H') s ==> av' = av`,
+solve_unique_refs);
+
+val UNIQUE_W8ARRAYS = Q.store_thm("UNIQUE_W8ARRAYS",
+`!s a av av' H H'. VALID_HEAP s ==> (W8ARRAY a av * H) s /\ (W8ARRAY a av' * H') s ==> av' = av`,
+solve_unique_refs);
+
+val REF_HPROP_INJ  = Q.store_thm("REF_HPROP_INJ",
+`!r xv xv'. HPROP_INJ (REF r xv) (REF r xv') (xv' = xv)`,
+prove_hprop_inj_tac UNIQUE_REFS);
+
+val ARRAY_HPROP_INJ  = Q.store_thm("ARRAY_HPROP_INJ",
+`!a av av'. HPROP_INJ (ARRAY a av) (ARRAY a av') (av' = av)`,
+prove_hprop_inj_tac UNIQUE_ARRAYS);
+
+val W8ARRAY_HPROP_INJ  = Q.store_thm("W8ARRAY_HPROP_INJ",
+`!a av av'. HPROP_INJ (W8ARRAY a av) (W8ARRAY a av') (av' = av)`,
+prove_hprop_inj_tac UNIQUE_W8ARRAYS);
+
+(* A valid heap must have proper ffi partitions *)
+val NON_OVERLAP_FFI_PART_HFS = Q.prove(
+`!s. HEAP_FROM_STATE s ==>
 !s1 u1 ns1 ts1 s2 u2 ns2 ts2. FFI_part s1 u1 ns1 ts1 IN s /\ FFI_part s2 u2 ns2 ts2 IN s /\ (?p. MEM p ns1 /\ MEM p ns2) ==>
 s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1`,
 rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
-fs[VALID_HEAP_def, st2heap_def, UNION_DEF] >>
+fs[HEAP_FROM_STATE_def, st2heap_def, UNION_DEF] >>
 `FFI_part s1 u1 ns1 ts1 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
 `FFI_part s2 u2 ns2 ts2 ∈ ffi2heap f st.ffi` by (rw[] >> fs[FFI_part_NOT_IN_store2heap]) >>
 Cases_on `f` >>
@@ -90,12 +184,23 @@ Cases_on `parts_ok st.ffi (proj, parts)`
 ) >>
 fs[]);
 
+val NON_OVERLAP_FFI_PART = Q.store_thm("NON_OVERLAP_FFI_PART",
+`!s. VALID_HEAP s ==>
+!s1 u1 ns1 ts1 s2 u2 ns2 ts2. FFI_part s1 u1 ns1 ts1 IN s /\ FFI_part s2 u2 ns2 ts2 IN s /\ (?p. MEM p ns1 /\ MEM p ns2) ==>
+s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1`,
+rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
+fs[VALID_HEAP_def] >>
+`HEAP_FROM_STATE (st2heap f st)` by metis_tac[GSYM HEAP_FROM_STATE_def] >>
+IMP_RES_TAC SUBSET_DEF >>
+IMP_RES_TAC NON_OVERLAP_FFI_PART_HFS >>
+rw[]);
+
 (* A minor lemma *)
 val FFI_PORT_IN_HEAP_LEM = Q.prove(
-`! s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h`,
+`!s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h`,
 rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]);
 
-(* Another fundamental theorem *)
+(* Another important theorem *)
 val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
 `!s. VALID_HEAP s ==>
 !s1 u1 ns1 s2 u2 ns2 H1 H2.
@@ -108,30 +213,12 @@ IMP_RES_TAC FFI_PORT_IN_HEAP_LEM >>
 IMP_RES_TAC NON_OVERLAP_FFI_PART >>
 fs[]);
 
-(* Frame extraction theorems *)
-val HCOND_EXTRACT = Q.store_thm("HCOND_EXTRACT",
-`((&A * H) s <=> A /\ H s) /\ ((H * &A) s <=> H s /\ A) /\ ((H * &A * H') s <=> (H * H') s /\ A)`,
-rw[] >-(fs[STAR_def, STAR_def, cond_def, SPLIT_def])
->-(fs[STAR_def, STAR_def, cond_def, SPLIT_def]) >>
-fs[STAR_def, STAR_def, cond_def, SPLIT_def] >> EQ_TAC >-(rw [] >-(instantiate) >> rw[]) >> rw[]);
-
-(* Unicity results for pointers *)
-val solve_unique_refs = (rw[] >> qspec_then `s:heap` ASSUME_TAC UNIQUE_PTRS >>
-    fs[REF_def, ARRAY_def, W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
-    `!A H1 H2. (&A * H1 * H2) s <=> A /\ (H1 * H2) s` by metis_tac[HCOND_EXTRACT, STAR_COMM] >>
-    POP_ASSUM (fn x => fs[x]) >> rw[] >> POP_ASSUM IMP_RES_TAC >> fs[]);
-
-val UNIQUE_REFS = Q.store_thm("UNIQUE_REFS",
-`!s r xv xv' H H'. VALID_HEAP s ==> (r ~~> xv * H) s /\ (r ~~> xv' * H') s ==> xv' = xv`,
-solve_unique_refs);
-
-val UNIQUE_ARRAYS = Q.store_thm("UNIQUE_ARRAYS",
-`!s a av av' H H'. VALID_HEAP s ==> (ARRAY a av * H) s /\ (ARRAY a av' * H') s ==> av' = av`,
-solve_unique_refs);
-
-val UNIQUE_W8ARRAYS = Q.store_thm("UNIQUE_W8ARRAYS",
-`!s a av av' H H'. VALID_HEAP s ==> (W8ARRAY a av * H) s /\ (W8ARRAY a av' * H') s ==> av' = av`,
-solve_unique_refs);
+val IO_HPROP_INJ = Q.store_thm("IO_HPROP_INJ",
+`!s1 u1 ns1 s2 u2 ns2 H1 H2. (?pn. MEM pn ns1 /\ MEM pn ns2) ==>
+HPROP_INJ (IO s1 u1 ns1) (IO s2 u2 ns2) (s2 = s1 /\ u2 = u1 /\ ns2 = ns1)`,
+rw[HPROP_INJ_def] >>
+fs[IO_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT] >>
+metis_tac[FFI_PORT_IN_HEAP_LEM, NON_OVERLAP_FFI_PART]);
 
 (* Theorems and rewrites for REPLICATE and LIST_REL *)
 val APPEND_LENGTH_INEQ = Q.store_thm("APPEND_LENGTH_INEQ",
