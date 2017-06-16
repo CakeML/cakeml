@@ -189,15 +189,14 @@ val main_spec = Q.store_thm("main_spec",
       STDOUT (out ++ (FLAT (MAP explode (append (FST(compiler_x64 (TL(MAP implode cl)) inp)))))) *
       STDERR (err ++ explode (SND(compiler_x64 (TL(MAP implode cl)) inp))) *
        (STDIN "" T * COMMANDLINE cl))`,
-  strip_tac
-  \\ xcf "main" st
+  xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
   \\ xlet`POSTv uv. &UNIT_TYPE () uv * frame`
   >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandLineProgTheory.COMMANDLINE_def,Abbr`frame`] \\ xpull)
   \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) av * frame`
-  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
+  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ qunabbrev_tac`frame` \\ xsimpl)
   \\ xlet`POSTv nv. &LIST_TYPE CHAR [] nv * frame`
   >- (xcon \\ xsimpl \\ EVAL_TAC)
   \\ qunabbrev_tac`frame`
