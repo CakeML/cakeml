@@ -57,20 +57,49 @@ val _ =
 val _ = 
   process_topdecs` fun write_char fd c = 
     let val a = Word8Array.update buff257 2 (Word8.fromInt(Char.ord c))
-    in write fd (Word8.fromInt 1)
-    end
+        val i = Word8.fromInt 1
+        val r = write fd i
+    in () end
 
     fun print_char c = write_char (stdout()) c
     fun prerr_char c = write_char (stderr()) c
     ` |> append_prog
 
+(* copies the content of a list after position i of an array a *)
+val _ = process_topdecs
+  `fun copyi a i clist =
+      case clist of
+          [] => ()
+        | c::cs => let
+            val ordc = Char.ord c
+            val cw = Word8.fromInt ordc
+            val unit = Word8Array.update a i cw
+            val suci = i + 1
+          in
+            copyi a suci cs
+          end` |> append_prog
+
+(* copies the content of a list after position i of an array a 
+* and terminates it with null byte *)
+val _ = process_topdecs
+  `fun copyi_nts a i clist =
+      case clist of
+          [] => Word8Array.update a i (Word8.fromInt 0)
+        | c::cs => let
+            val ordc = Char.ord c
+            val cw = Word8.fromInt ordc
+            val unit = Word8Array.update a i cw
+            val suci = i + 1
+          in
+            copyi_nts a suci cs
+          end` |> append_prog
 (* writes n chars of a w8array starting on index i  *)
 val _ = 
   process_topdecs` fun write_w8array fd w i n =
   if n <= 0 then ()
   else
     let val m = Word8.fromInt(min n 255)
-        val a = Word8Array.copy_aux w buff257 2 m i
+        val a = copyi buff257 2 (TODO) 
         val nw = write fd m
     in
           write_w8array fd w (i + nw) (n - nw)
@@ -83,24 +112,12 @@ val _ = process_topdecs`
     fun prerr_newline () = write_newline (stdout())
     ` |> append_prog
 
-val _ = process_topdecs
-  `fun copyi a i clist =
-      case clist of
-          [] => let val z = Word8.fromInt 0 in Word8Array.update a i z end
-        | c::cs => let
-            val ordc = Char.ord c
-            val cw = Word8.fromInt ordc
-            val unit = Word8Array.update a i cw
-            val suci = i + 1
-          in
-            copyi a suci cs
-          end` |> append_prog
 
 val _ = process_topdecs
   `fun str_to_w8array a s = let
      val clist = String.explode s
    in
-      copyi a 0 clist
+      copyi_nts a 0 clist
    end` |> append_prog
 
 val _ = process_topdecs`

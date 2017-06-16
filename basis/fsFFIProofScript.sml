@@ -265,49 +265,31 @@ val ffi_close_length = Q.store_thm("ffi_close_length",
   \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ rw[]);
 
-(* insert null-terminated-string (l1) at specified index (n) in a list (l2) *)
-val insertNTS_atI_def = Define`
-  insertNTS_atI (l1:word8 list) n l2 =
-    TAKE n l2 ++ l1 ++ [0w] ++ DROP (n + LENGTH l1 + 1) l2
+(* insert a string (l1) at specified index (n) in a list (l2) *)
+val insert_atI_def = Define`
+  insert_atI (l1:word8 list) n l2 =
+    TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
 `;
 
-val insertNTS_atI_NIL = Q.store_thm(
-  "insertNTS_atI_NIL",
-  `∀n l. n < LENGTH l ==> insertNTS_atI [] n l = LUPDATE 0w n l`,
-  simp[insertNTS_atI_def] >> Induct_on `n`
-  >- (Cases_on `l` >> simp[LUPDATE_def]) >>
-  Cases_on `l` >> simp[LUPDATE_def, ADD1]);
+val insert_atI_NIL = Q.store_thm(
+  "insert_atI_NIL",
+  `∀n l. n <= LENGTH l ==> insert_atI [] n l = l`,
+  simp[insert_atI_def]);
 
-val insertNTS_atI_CONS = Q.store_thm(
-  "insertNTS_atI_CONS",
+val insert_atI_CONS = Q.store_thm(
+  "insert_atI_CONS",
   `∀n l h t.
-     n + LENGTH t + 1 < LENGTH l ==>
-     insertNTS_atI (h::t) n l = LUPDATE h n (insertNTS_atI t (n + 1) l)`,
-  simp[insertNTS_atI_def] >> Induct_on `n`
+     n + LENGTH t < LENGTH l ==>
+     insert_atI (h::t) n l = LUPDATE h n (insert_atI t (n + 1) l)`,
+  simp[insert_atI_def] >> Induct_on `n`
   >- (Cases_on `l` >> simp[ADD1, LUPDATE_def]) >>
   Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
   simp[GSYM ADD1, LUPDATE_def]);
 
-val LUPDATE_insertNTS_commute = Q.store_thm(
-  "LUPDATE_insertNTS_commute",
-  `∀ws pos1 pos2 a w.
-     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a
-       ⇒
-     insertNTS_atI ws pos1 (LUPDATE w pos2 a) =
-       LUPDATE w pos2 (insertNTS_atI ws pos1 a)`,
-  Induct >> simp[insertNTS_atI_NIL, insertNTS_atI_CONS, LUPDATE_commutes]);
-
-val getNullTermStr_insertNTS_atI = Q.store_thm(
-  "getNullTermStr_insertNTS_atI",
-  `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
-          getNullTermStr (insertNTS_atI cs 0 l) = SOME (MAP (CHR o w2n) cs)`,
-  simp[getNullTermStr_def, insertNTS_atI_def, findi_APPEND, NOT_MEM_findi,
-       findi_def, TAKE_APPEND])
-
-val LENGTH_insertNTS_atI = Q.store_thm(
-  "LENGTH_insertNTS_atI",
-  `p + LENGTH l1 < LENGTH l2 ⇒ LENGTH (insertNTS_atI l1 p l2) = LENGTH l2`,
-  simp[insertNTS_atI_def]);
+val LENGTH_insert_atI = Q.store_thm(
+  "LENGTH_insert_atI",
+  `p + LENGTH l1 <= LENGTH l2 ⇒ LENGTH (insert_atI l1 p l2) = LENGTH l2`,
+  simp[insert_atI_def]);
 
 val bumpAllFD_def = Define`
   bumpAllFD fd fs =
@@ -316,6 +298,26 @@ val bumpAllFD_def = Define`
       content <- ALOOKUP fs.files fnm;
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (MAX (LENGTH content))))
     od)`;
+val insert_atI_app = Q.store_thm("insert_atI_app",
+  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
+     insert_atI (c1 ++ c2) n l = 
+     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
+  induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
+
+val LUPDATE_insert_commute = Q.store_thm(
+  "LUPDATE_insert_commute",
+  `∀ws pos1 pos2 a w.
+     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a ⇒
+     insert_atI ws pos1 (LUPDATE w pos2 a) =
+       LUPDATE w pos2 (insert_atI ws pos1 a)`,
+  Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
+
+val getNullTermStr_insert_atI = Q.store_thm(
+  "getNullTermStr_insert_atI",
+  `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
+          getNullTermStr (insert_atI (cs++[0w]) 0 l) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def, insert_atI_def, findi_APPEND, NOT_MEM_findi,
+       findi_def, TAKE_APPEND])
 
 val validFD_bumpAllFD = Q.store_thm("validFD_bumpAllFD[simp]",
   `validFD fd (bumpAllFD fd fs) = validFD fd fs`,
