@@ -8,7 +8,7 @@ val cat_io_events_def = new_specification("cat_io_events_def",["cat_io_events"],
   cat_semantics_thm |> Q.GENL(List.rev[`inp`,`cls`,`files`])
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
-val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR
 val (cat_not_fail,cat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
