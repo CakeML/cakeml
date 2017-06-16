@@ -3,10 +3,6 @@ open astTheory libTheory bigStepTheory semanticPrimitivesTheory holKernelTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib AC_Sort
-		   
-(* Provisional : To access the functions manipulating the heap while they are there... *)
-(* open cfLetAutoLib *)
-(***************************************************************************************)
 
 (*********** Comes from cfLetAutoLib.sml ***********************************************)	 
 (* [dest_pure_fact]
@@ -448,7 +444,7 @@ val HOL_MONAD_def = Define `
 (* return *)
 
 val EvalM_return = Q.store_thm("EvalM_return",
-  `Eval env exp (a x) ==>
+  `!H. Eval env exp (a x) ==>
     EvalM env exp (HOL_MONAD a (ex_return x)) H`,
   rw[Eval_def,EvalM_def,ex_return_def,HOL_MONAD_def] \\
   first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac)
@@ -461,7 +457,7 @@ val EvalM_return = Q.store_thm("EvalM_return",
 (* bind *)
 
 val EvalM_bind = Q.store_thm("EvalM_bind",
-  `EvalM env e1 (HOL_MONAD b (x:('b, hol_refs) M)) H /\
+  `!H. EvalM env e1 (HOL_MONAD b (x:('b, hol_refs) M)) H /\
     (!x v. b x v ==> EvalM (write name v env) e2 (HOL_MONAD a ((f x):('a, hol_refs) M)) H) ==>
     EvalM env (Let (SOME name) e1 e2) (HOL_MONAD a (ex_bind x f)) H`,
   rw[EvalM_def,HOL_MONAD_def,ex_return_def,PULL_EXISTS] \\
@@ -492,7 +488,7 @@ val PURE_def = Define `
     ?v:v junk. (res = Rval v) /\ (refs1 = refs2) /\ (s2 = s1 with refs := s1.refs ++ junk) /\ a x v`;
 
 val Eval_IMP_PURE = Q.store_thm("Eval_IMP_PURE",
-  `Eval env exp (P x) ==> EvalM env exp (PURE P x) H`,
+  `!H env exp P x. Eval env exp (P x) ==> EvalM env exp (PURE P x) H`,
   rw[Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
   \\ first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac)
   \\ IMP_RES_TAC (evaluate_empty_state_IMP
@@ -570,7 +566,7 @@ val evaluate_add_refs = Q.store_thm("evaluate_add_refs",
 *)
 
 val EvalM_ArrowM = Q.store_thm("EvalM_ArrowM",
-  `EvalM env x1 ((ArrowM H a b) f) H ==>
+  `!H. EvalM env x1 ((ArrowM H a b) f) H ==>
     EvalM env x2 (a x) H ==>
     EvalM env (App Opapp [x1;x2]) (b (f x)) H`,
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
@@ -672,12 +668,12 @@ val EvalM_Var_SIMP = Q.store_thm("EvalM_Var_SIMP",
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,write_def]);
 
 val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
-  `(!v. a n v ==>
+  `!H. (!v. a n v ==>
          EvalM (write name v (write_rec [(fname,name,body)] env2 env2))
                body (b (f n)) H) ==>
     LOOKUP_VAR fname env (Recclosure env2 [(fname,name,body)] fname) ==>
     EvalM env (Var (Short fname)) ((ArrowM H (PURE (Eq a n)) b) f) H`,
-  NTAC 2 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
+  GEN_TAC \\ NTAC 2 STRIP_TAC \\ IMP_RES_TAC LOOKUP_VAR_THM
   \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM MP_TAC
   \\ rw[Eval_def,Arrow_def,EvalM_def,ArrowM_def,PURE_def,ArrowP_def,PULL_EXISTS]
   \\ ntac 2 (pop_assum mp_tac)
@@ -699,14 +695,14 @@ val IND_HELP = Q.store_thm("IND_HELP",
   \\ rfs[write_def,state_component_equality,lookup_var_def]
   \\ METIS_TAC[]);
 
-(* val write_rec_one = Q.store_thm("write_rec_one",
+val write_rec_one = Q.store_thm("write_rec_one",
   `write_rec [(x,y,z)] env env = write x (Recclosure env [(x,y,z)] x) env`,
-  SIMP_TAC std_ss [write_rec_def,write_def,build_rec_env_def,FOLDR]); *)
+  SIMP_TAC std_ss [write_rec_def,write_def,build_rec_env_def,FOLDR]);
 
 (* Eq simps *)
 
 val EvalM_FUN_FORALL = Q.store_thm("EvalM_FUN_FORALL",
-  `(!x. EvalM env exp (PURE (p x) f) H) ==>
+  `!H. (!x. EvalM env exp (PURE (p x) f) H) ==>
     EvalM env exp (PURE (FUN_FORALL x. p x) f) H`,
   rw[EvalM_def,PURE_def]
   \\ first_x_assum drule
@@ -719,7 +715,7 @@ val EvalM_FUN_FORALL = Q.store_thm("EvalM_FUN_FORALL",
   \\ imp_res_tac determTheory.big_exp_determ \\ fs[]);
 
 val EvalM_FUN_FORALL_EQ = Q.store_thm("EvalM_FUN_FORALL_EQ",
-  `(!x. EvalM env exp (PURE (p x) f) H) =
+  `!H. (!x. EvalM env exp (PURE (p x) f) H) =
     EvalM env exp (PURE (FUN_FORALL x. p x) f) H`,
   REPEAT STRIP_TAC \\ EQ_TAC \\ FULL_SIMP_TAC std_ss [EvalM_FUN_FORALL]
   \\ fs [EvalM_def,PURE_def,PULL_EXISTS,FUN_FORALL] \\ METIS_TAC []);
@@ -754,7 +750,7 @@ val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
 (* failwith *)
 
 val EvalM_failwith = Q.store_thm("EvalM_failwith",
-  `!x a.
+  `!H x a.
       (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" (Short "Fail")))) ==>
       Eval env exp1 (STRING_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Fail")) [exp1]))
@@ -777,7 +773,7 @@ val EvalM_failwith = Q.store_thm("EvalM_failwith",
 (* clash *)
 
 val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
-  `!x a.
+  `!H x a.
       (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
       Eval env exp1 (TERM_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
@@ -800,7 +796,7 @@ val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
 (* otherwise *)
 
 val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
-  `!n. EvalM env exp1 (HOL_MONAD a x1) H ==>
+  `!H n. EvalM env exp1 (HOL_MONAD a x1) H ==>
         (!i. EvalM (write n i env) exp2 (HOL_MONAD a x2) H) ==>
         EvalM env (Handle exp1 [(Pvar n,exp2)]) (HOL_MONAD a (x1 otherwise x2)) H`,
   SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
@@ -833,7 +829,7 @@ val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
 (* handle_clash *)
 
 val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
-  `!n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
+  `!H n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
         EvalM env exp1 (HOL_MONAD a x1) H ==>
         (!t v.
           TERM_TYPE t v ==>
@@ -876,7 +872,7 @@ val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
 (* if *)
 
 val EvalM_If = Q.store_thm("EvalM_If",
-  `(a1 ==> Eval env x1 (BOOL b1)) /\
+  `!H. (a1 ==> Eval env x1 (BOOL b1)) /\
     (a2 ==> EvalM env x2 (a b2) H) /\
     (a3 ==> EvalM env x3 (a b3) H) ==>
     (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
@@ -906,7 +902,7 @@ val Eval_Var_SIMP2 = Q.store_thm("Eval_Var_SIMP2",
   \\ simp[state_component_equality]);
 
 val EvalM_Let = Q.store_thm("EvalM_Let",
-  `Eval env exp (a res) /\
+  `!H. Eval env exp (a res) /\
     (!v. a res v ==> EvalM (write name v env) body (b (f res)) H) ==>
     EvalM env (Let (SOME name) exp body) (b (LET f res)) H`,
   rw[]
@@ -924,14 +920,14 @@ val EvalM_Let = Q.store_thm("EvalM_Let",
 (* PMATCH *)
 
 val EvalM_PMATCH_NIL = Q.store_thm("EvalM_PMATCH_NIL",
-  `!b x xv a.
+  `!H b x xv a.
       Eval env x (a xv) ==>
       CONTAINER F ==>
       EvalM env (Mat x []) (b (PMATCH xv [])) H`,
   rw[addressTheory.CONTAINER_def]);
 
 val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
-  `!b a x xv.
+  `!H b a x xv.
       ALL_DISTINCT (pat_bindings p []) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
@@ -1292,7 +1288,8 @@ val set_heap_constant_thm = Q.store_thm("set_heap_constant_thm",
   ((HOL_MONAD UNIT_TYPE) (λrefs. (HolRes (), set_var refs x)))
   (λrefs. (SEP_EXISTS xv. (Loc loc) ~~> xv * &(TYPE (get_var refs) xv)) * H refs)`,
   rw[]
-  \\ imp_res_tac (Eval_IMP_PURE)
+  \\ ASSUME_TAC (Thm.INST_TYPE [``:'a`` |-> ``:'b``, ``:'b`` |-> ``:'a``] Eval_IMP_PURE)
+  \\ POP_ASSUM IMP_RES_TAC
   \\ fs[EvalM_def] \\ rw[]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
   \\ ntac 3 (rw[Once(CONJUNCT2 evaluate_cases)])
@@ -1422,8 +1419,6 @@ val set_the_context_thm = Q.store_thm("set_the_context_thm",
   write_tac "context"
   ``\refs. refs.the_context``
   ``\refs x. refs with the_context := x``);
-
-
 
 val _ = (print_asts := true);
 
