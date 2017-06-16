@@ -125,6 +125,57 @@ val wordfreq_output_spec_def =
 
 (* Now we state and prove a correctness theorem for the wordfreq program *)
 
+(* The following lemmas establish a connection between the expected output of
+   the wordfreq program and our desired semantics, wordfreq_output_spec. (The
+   statement of this lemma was obtained by trying to do the wordfreq_spec proof
+   below and seeing where it ended up. You can skip forward to do that first if
+   you like.)
+*)
+
+val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
+  `valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
+      (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
+  rw[valid_wordfreq_output_def] \\
+  qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
+  (* TODO: what is the list of words to use here? *)
+  (* hint: toAscList returns a list of pairs, and you can use
+           MAP FST ls and MAP SND ls to obtain lists of the first/second items
+           of these pairs *)
+  qexists_tac `<put your answer here>` \\
+  (* Now we use the theorem about insert_line proved earlier *)
+  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
+  simp[empty_thm] \\
+  impl_tac >- (
+    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,mlstringTheory.implode_def,mlstringTheory.strcat_def] \\
+    simp[EVERY_MEM] \\ metis_tac[mlstringTheory.explode_implode] ) \\
+  strip_tac \\
+  assume_tac mlstringTheory.good_cmp_compare \\ simp[Abbr`ls`] \\
+  (* simplify the remaining goal using properties of toAscList etc. *)
+  simp[MAP_FST_toAscList,mlstringTheory.mlstring_lt_def] \\
+  simp[MAP_MAP_o,o_DEF] \\
+  imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
+  qmatch_goalsub_abbrev_tac`set (all_words w1) = set (all_words w2)` \\
+  `all_words w1 = all_words w2` by (
+    strip_assume_tac mlfileioProgTheory.concat_all_lines
+    \\ simp[Abbr`w1`,Abbr`w2`]
+    \\ `isSpace #"\n"` by EVAL_TAC
+    \\ simp[all_words_concat_space] ) \\
+  simp[] \\
+  AP_TERM_TAC \\
+  simp[MAP_EQ_f] \\
+  simp[FORALL_PROD] \\ rw[] \\
+  (* TODO: finish the proof *)
+  (* hint: try DB.match [] ``MEM _ (toAscList _)`` *)
+  (* hint: also consider using lookup_thm *)
+  );
+
+val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
+  `valid_wordfreq_output (implode file_chars) output ⇒
+   wordfreq_output_spec file_chars = output`,
+   (* TODO: prove this *)
+   (* hint: it's a one-liner *)
+   );
+
 val st = get_ml_prog_state();
 
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
@@ -150,7 +201,8 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
   (* Before you step through the call to FileIO.inputLinesFrom, the following
-     may be useful first to establish `wfcl cl`:
+     may be useful first to establish `wfcl cl`, which constrains fname to be
+     a valid filename:
   *)
   reverse(Cases_on`wfcl cl`)
   >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
@@ -158,57 +210,31 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* To get through the pattern match, try this: *)
   xmatch \\
   fs[ml_translatorTheory.OPTION_TYPE_def] \\
+  (* this part solves the validate_pat conjunct *)
   reverse conj_tac >- (EVAL_TAC \\ simp[]) \\
 
   (* try xlet_auto and see that some of the specs for helper functions declared
      above might be helpful. You can add them to the assumptions like this: *)
   assume_tac insert_line_v_thm \\
 
-  (* Second, after the CF part of the proof is finished, you should have a goal
-     roughly of the form:
-       STDOUT xxxx ==> STDOUT yyyy * GC
-     the aim now is simply to show that xxxx = yyyy
-     after which xsimpl will solve the goal
-  *)
+  (* TODO: finish the rest of the CF part of the proof *)
 
-  (* TODO: extract some lemmas from the following? and turn it into holes and hints *)
-  qmatch_goalsub_abbrev_tac`out ++ res` \\
-  qmatch_goalsub_abbrev_tac`wordfreq_output_spec file_chars` \\
-  `valid_wordfreq_output (implode file_chars) res` suffices_by (
-    strip_tac \\
-    `res = wordfreq_output_spec file_chars` by
-      metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique] \\
-    xsimpl ) \\
-  rw[Abbr`res`, valid_wordfreq_output_def] \\
-  qmatch_asmsub_abbrev_tac`toAscList t` \\
-  qmatch_asmsub_abbrev_tac`MAP format_output ls` \\
-  qexists_tac`MAP FST ls` \\
-  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
-  simp[empty_thm] \\
-  impl_tac >- (
-    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,mlstringTheory.implode_def,mlstringTheory.strcat_def] \\
-    simp[EVERY_MEM] \\ metis_tac[mlstringTheory.explode_implode] ) \\
-  strip_tac \\
-  assume_tac mlstringTheory.good_cmp_compare \\ simp[Abbr`ls`] \\
-  simp[MAP_FST_toAscList,mlstringTheory.mlstring_lt_def] \\
-  simp[MAP_MAP_o,o_DEF] \\
-  imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
-  qmatch_goalsub_abbrev_tac`set (all_words w1) = set (all_words w2)` \\
-  `all_words w1 = all_words w2` by (
-    strip_assume_tac mlfileioProgTheory.concat_all_lines
-    \\ simp[Abbr`w1`,Abbr`w2`]
-    \\ `isSpace #"\n"` by EVAL_TAC
-    \\ simp[all_words_concat_space] ) \\
-  simp[] \\
-  AP_TERM_TAC \\
-  simp[MAP_EQ_f] \\
-  simp[FORALL_PROD] \\ rw[] \\
-  imp_res_tac MEM_toAscList \\
-  rfs[GSYM lookup_thm] \\
-  rename1`lookup compare w` \\
-  first_x_assum(qspec_then`w`mp_tac) \\
-  rw[Once lookup0_def] \\
-  rw[frequency_def]);
+  (* hint: when xlet_auto is no longer applicable, you can use other CF tactics like xapp *)
+
+  (* After the CF part of the proof is finished, you should have a goal
+     roughly of the form:
+       STDOUT xxxx ==>> STDOUT yyyy * GC
+     the aim now is simply to show that xxxx = yyyy
+     after which xsimpl will solve the goal.
+     We can make this aim explicit as follows:
+  *)
+  qmatch_abbrev_tac`STDOUT xxxx ==>> STDOUT yyyy * GC` \\
+  `xxxx = yyyy` suffices_by xsimpl \\
+  (* now let us unabbreviate xxxx and yyyy *)
+  map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
+
+  (* TODO: use the lemmas above to finish the proof *)
+  );
 
 (* Finally, we package the verified program up with the following boilerplate*)
 

@@ -170,6 +170,11 @@ val wordfreq_output_spec_def =
 (* TODO: explain p:'ffi ffi_proj, or make it simpler *)
 (* TODO: explain antiquotation (^) *)
 
+val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
+  `valid_wordfreq_output (implode file_chars) output ⇒
+   output = wordfreq_output_spec file_chars`,
+   metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique]);
+
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
 val insert_line_v_thm = theorem"insert_line_v_thm";
 val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`NUM`,`STRING_TYPE`];
@@ -210,44 +215,13 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xapp \\ xsimpl \\ instantiate \\
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`out` \\
   xsimpl \\
-  (* from here on there is no more CF proof *)
-  qmatch_goalsub_abbrev_tac`out ++ res` \\
-  qmatch_goalsub_abbrev_tac`wordfreq_output_spec file_chars` \\
-  `valid_wordfreq_output (implode file_chars) res` suffices_by (
-    strip_tac \\
-    `res = wordfreq_output_spec file_chars` by
-      metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique] \\
-    xsimpl ) \\
-  rw[Abbr`res`, valid_wordfreq_output_def] \\
-  qmatch_asmsub_abbrev_tac`toAscList t` \\
-  qmatch_asmsub_abbrev_tac`MAP format_output ls` \\
-  qexists_tac`MAP FST ls` \\
-  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
-  simp[empty_thm] \\
-  impl_tac >- (
-    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,mlstringTheory.implode_def,mlstringTheory.strcat_def] \\
-    simp[EVERY_MEM] \\ metis_tac[mlstringTheory.explode_implode] ) \\
-  strip_tac \\
-  assume_tac mlstringTheory.good_cmp_compare \\ simp[Abbr`ls`] \\
-  simp[MAP_FST_toAscList,mlstringTheory.mlstring_lt_def] \\
-  simp[MAP_MAP_o,o_DEF] \\
-  imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
-  qmatch_goalsub_abbrev_tac`set (all_words w1) = set (all_words w2)` \\
-  `all_words w1 = all_words w2` by (
-    strip_assume_tac mlfileioProgTheory.concat_all_lines
-    \\ simp[Abbr`w1`,Abbr`w2`]
-    \\ `isSpace #"\n"` by EVAL_TAC
-    \\ simp[all_words_concat_space] ) \\
-  simp[] \\
-  AP_TERM_TAC \\
-  simp[MAP_EQ_f] \\
-  simp[FORALL_PROD] \\ rw[] \\
-  imp_res_tac MEM_toAscList \\
-  rfs[GSYM lookup_thm] \\
-  rename1`lookup compare w` \\
-  first_x_assum(qspec_then`w`mp_tac) \\
-  rw[Once lookup0_def] \\
-  rw[frequency_def]);
+
+  qmatch_abbrev_tac`STDOUT xxxx ==>> STDOUT yyyy * GC` \\
+  `xxxx = yyyy` suffices_by xsimpl \\
+  map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
+
+  match_mp_tac wordfreq_output_spec_unique \\
+  metis_tac[wordfreq_output_valid]);
 
 (* partial old version without help from inputLinesFrom
 
