@@ -175,6 +175,40 @@ val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
    output = wordfreq_output_spec file_chars`,
    metis_tac[wordfreq_output_spec_def,valid_wordfreq_output_unique]);
 
+val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
+  `valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
+      (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
+  rw[valid_wordfreq_output_def] \\
+  qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
+  qexists_tac `MAP FST ls` \\
+  (* Now we use the theorem about insert_line proved earlier *)
+  qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
+  simp[empty_thm] \\
+  impl_tac >- (
+    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,mlstringTheory.implode_def,mlstringTheory.strcat_def] \\
+    simp[EVERY_MEM] \\ metis_tac[mlstringTheory.explode_implode] ) \\
+  strip_tac \\
+  assume_tac mlstringTheory.good_cmp_compare \\ simp[Abbr`ls`] \\
+  (* simplify the remaining goal using properties of toAscList etc. *)
+  simp[MAP_FST_toAscList,mlstringTheory.mlstring_lt_def] \\
+  simp[MAP_MAP_o,o_DEF] \\
+  imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
+  qmatch_goalsub_abbrev_tac`set (all_words w1) = set (all_words w2)` \\
+  `all_words w1 = all_words w2` by (
+    strip_assume_tac mlfileioProgTheory.concat_all_lines
+    \\ simp[Abbr`w1`,Abbr`w2`]
+    \\ `isSpace #"\n"` by EVAL_TAC
+    \\ simp[all_words_concat_space] ) \\
+  simp[] \\
+  AP_TERM_TAC \\
+  simp[MAP_EQ_f] \\
+  simp[FORALL_PROD] \\ rw[] \\
+  imp_res_tac MEM_toAscList \\
+  rfs[GSYM lookup_thm] \\
+  rename1`lookup _ k _` \\
+  first_x_assum(qspec_then`k`mp_tac) \\
+  rw[lookup0_def,frequency_def]);
+
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
 val insert_line_v_thm = theorem"insert_line_v_thm";
 val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`NUM`,`STRING_TYPE`];
