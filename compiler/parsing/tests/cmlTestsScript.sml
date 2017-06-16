@@ -466,6 +466,11 @@ val _ = parsetest0 ``nDecls`` “ptree_Decls” "val x = ref false;"
 val _ = parsetest0 ``nDecls`` “ptree_Decls” "val ref y = f z"
                    (SOME “[Dlet someloc (Pref (Pvar "y"))
                                 (App Opapp [V "f"; V "z"])]”)
+val _ = parsetest0 “nDecl” “ptree_Decl” "val x = (y : int ref)"
+                   (SOME “Dlet someloc (Pvar "x")
+                           (Tannot (V "y")
+                             (Tapp [Tapp [] (TC_name (Short "int"))]
+                                   (TC_name (Short "ref"))))”)
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"

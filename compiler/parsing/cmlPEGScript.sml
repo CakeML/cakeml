@@ -360,7 +360,9 @@ val cmlPEG_def = zDefine`
               (mkNT nTyOp,
                pegf (choicel [pnt nUQTyOp; tok isLongidT mktokLf])
                     (bindNT nTyOp));
-              (mkNT nUQTyOp, tok isAlphaSym (bindNT nUQTyOp o mktokLf));
+              (mkNT nUQTyOp,
+               pegf (choicel [tok isAlphaSym mktokLf; tokeq RefT])
+                    (bindNT nUQTyOp));
               (mkNT nPType,
                seql [pnt nDType; try (seql [tokeq StarT; pnt nPType] I)]
                     (bindNT nPType));

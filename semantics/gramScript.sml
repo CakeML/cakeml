@@ -67,7 +67,7 @@ val ginfo = { tokmap = tokmap,
 
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
- UQTyOp ::= <AlphaT> | <SymbolT>;
+ UQTyOp ::= <AlphaT> | <SymbolT> | <RefT> ;
  TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;

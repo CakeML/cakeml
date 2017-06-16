@@ -118,14 +118,15 @@ val _ = export_rewrites ["ptree_head_eq_tok"]
 open NTpropertiesTheory
 val firstSet_nUQTyOp = Q.store_thm(
   "firstSet_nUQTyOp[simp]",
-  `firstSet cmlG (NN nUQTyOp::rest) = {AlphaT s | T} ∪ {SymbolT s | T}`,
+  `firstSet cmlG (NN nUQTyOp::rest) =
+     {AlphaT s | T} ∪ {SymbolT s | T} ∪ {RefT}`,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
 val firstSet_nTyOp = Q.store_thm(
   "firstSet_nTyOp[simp]",
   `firstSet cmlG (NN nTyOp :: rest) =
-      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T}`,
+      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T} ∪ {RefT}`,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
@@ -227,13 +228,6 @@ val firstSet_nListOps = Q.store_thm(
   `firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT "::"; SymbolT "@"}`,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM])
-
-val firstSet_nUQTyOp = Q.store_thm(
-  "firstSet_nUQTyOp",
-  `firstSet cmlG [NT (mkNT nUQTyOp)] = { AlphaT l | T } ∪ { SymbolT l | T }`,
-  dsimp[EXTENSION, EQ_IMP_THM, firstSet_def] >> rpt conj_tac >>
-  simp[Once relationTheory.RTC_CASES1, cmlG_applied, cmlG_FDOM] >>
-  dsimp[]);
 
 val firstSet_nStructure = Q.store_thm(
   "firstSet_nStructure[simp]",
@@ -1549,24 +1543,25 @@ val stoppers_def = Define`
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPcons =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"; OpT} ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"; OpT; RefT} ∪
                 { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPConApp =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; OpT} ∪ { IntT i | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; OpT; RefT} ∪ { IntT i | T } ∪
                 { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPapp =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; OpT} ∪ { IntT i | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; OpT; RefT} ∪ { IntT i | T } ∪
                 { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPattern =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT; OpT} ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT; OpT; RefT} ∪
                 { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
                 { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
-     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT;OpT} ∪
+     UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; ColonT; ArrowT; StarT; OpT;
+                 RefT} ∪
                 { AlphaT s | T } ∪ { SymbolT s | T } ∪ { LongidT s1 s2 | T } ∪
                 {IntT i | T} ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
@@ -1772,7 +1767,8 @@ val nTyOp_input_monotone = Q.store_thm(
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
   strip_tac >> rveq >> simp[peg_eval_tok_NONE, nUQTyOp_input_monotone] >>
   rename [‘isLongidT (FST tkl)’] >> Cases_on `tkl` >> fs[] >>
-  simp[peg_eval_NT_NONE] >> simp[cmlpeg_rules_applied, peg_eval_tok_NONE] >>
+  simp[peg_eval_NT_NONE] >>
+  simp[cmlpeg_rules_applied, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
   rename [‘isLongidT tk’] >> Cases_on `tk` >> fs[]);
 
 val nTyOplist_input_monotone = Q.store_thm(
@@ -2132,7 +2128,7 @@ val Pattern_input_monotone0 = Q.prove(
           disch_then
             (qspec_then ‘sfx’
                  (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic))) >>
-          simp[Type_input_monotone])
+            simp[Type_input_monotone])
       >- (first_x_assum
              (qpat_assum ‘peg_eval _ (_, nt (mkNT nPcons) _) _’ o
               mp_then (Pos last) (qspec_then `sfx` mp_tac) o
@@ -2738,7 +2734,7 @@ val completeness = Q.store_thm(
           fs [MAP_EQ_APPEND, MAP_EQ_SING, MAP_EQ_CONS] >> rveq >>
           rename [`real_fringe tyop_pt = MAP (TK ## I) opf`] >>
           pmap_cases >> conj_tac
-          >- simp[Once peg_eval_cases, FDOM_cmlPEG,
+          >- simp[Once peg_eval_cases, FDOM_cmlPEG, peg_eval_seq_NONE,
                   cmlpeg_rules_applied, peg_eval_tok_NONE] >>
           dsimp[] >>
           simp[mkNd_def, Once EXISTS_PROD, ptree_list_loc_def] >>
@@ -2747,7 +2743,7 @@ val completeness = Q.store_thm(
       DISJ2_TAC >> fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_CONS] >> rveq >>
       simp[peg_eval_seq_NONE, peg_eval_tok_NONE] >> pmap_cases >>
       simp[Once peg_eval_cases, FDOM_cmlPEG, cmlpeg_rules_applied,
-           peg_eval_tok_NONE, mkNd_def])
+           peg_eval_tok_NONE, mkNd_def, peg_eval_seq_NONE])
   >- (print_tac "nTypeList2" >> dsimp[MAP_EQ_CONS] >>
       map_every qx_gen_tac [`typt`, `loc`, `tylpt`] >> rw[] >>
       fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> rw[] >> pmap_cases >>
@@ -3659,7 +3655,7 @@ val completeness = Q.store_thm(
   >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart >>
       simp[mkNd_def] >> pmap_cases >> TRY (simp[peg_eval_tok_NONE] >> NO_TAC)
       (* 11 subgoals *)
-      >- (note_tac "Ebase:Eseq (not ()) (1/10)" >>
+      >- (note_tac "Ebase:Eseq (not ()) (1/11)" >>
           simp[peg_eval_tok_NONE, peg_eval_seq_NONE, peg_respects_firstSets] >>
           disj2_tac >>
           conj_tac
@@ -3716,7 +3712,7 @@ val completeness = Q.store_thm(
           goal_assum
             (first_assum o mp_then (Pos hd) mp_tac) >>
           simp[peg_EbaseParenFn_def, ptree_list_loc_def, mkNd_def])
-      >- (note_tac "Ebase:Etuple (2/10)" >> disj2_tac >>
+      >- (note_tac "Ebase:Etuple (2/11)" >> disj2_tac >>
           simp[peg_eval_tok_NONE, peg_eval_seq_NONE] >>
           asm_match `ptree_head qpt = NN nEtuple` >>
           `∃subs sloc. qpt = Nd (mkNT nEtuple, sloc) subs`

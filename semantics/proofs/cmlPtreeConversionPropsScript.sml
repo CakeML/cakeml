@@ -28,7 +28,7 @@ val UQTyOp_OK = Q.store_thm(
   `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃utyop. ptree_UQTyop pt = SOME utyop`,
-  start >> simp[ptree_UQTyop_def]);
+  start >> simp[ptree_UQTyop_def, tokcheck_def]);
 
 val TyOp_OK = Q.store_thm(
   "TyOp_OK",

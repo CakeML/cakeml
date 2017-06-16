@@ -123,6 +123,11 @@ val mk_binop_def = Define`
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 `
 
+val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
+val tokcheck_def = Define`
+  tokcheck pt tok <=> destTOK ' (destLf pt) = SOME tok
+`;
+
 val ptree_UQTyop_def = Define`
   ptree_UQTyop (Lf _) = NONE ∧
   ptree_UQTyop (Nd nt args) =
@@ -134,6 +139,10 @@ val ptree_UQTyop_def = Define`
             lf <- destLf pt;
             tk <- destTOK lf;
             destSymbolT tk ++ destAlphaT tk
+          od ++
+          do
+            assert (tokcheck pt RefT) ;
+            return "ref"
           od
         | _ => NONE
 `;
@@ -148,7 +157,6 @@ val ptree_TyvarN_def = Define`
         | _ => NONE
 `;
 
-val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
 
 val ptree_Tyop_def = Define`
   ptree_Tyop (Lf _) = NONE ∧
@@ -166,10 +174,6 @@ val ptree_Tyop_def = Define`
             SOME(Short nm)
           od
         | _ => NONE
-`;
-
-val tokcheck_def = Define`
-  tokcheck pt tok <=> destTOK ' (destLf pt) = SOME tok
 `;
 
 val tokcheckl_def = Define`

@@ -844,8 +844,8 @@ val peg_sound = Q.store_thm(
       dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
       >- (first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
-      asm_match `isLongidT (FST h)` >> Cases_on `FST h` >> fs[])
+          simp[NT_rank_def] >> strip_tac >> rveq >> simp[])
+      >- (asm_match `isLongidT (FST h)` >> Cases_on `FST h` >> fs[]))
   >- (print_tac "nTbaseList" >> strip_tac >> rveq >>
       dsimp[cmlG_FDOM, cmlG_applied] >>
       ‘NT_rank (mkNT nPTbase) < NT_rank (mkNT nTbaseList)’
