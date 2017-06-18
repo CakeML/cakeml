@@ -5,9 +5,10 @@ open preamble
 val _ = new_theory"wordcountProof";
 
 val wordcount_io_events_def = new_specification("wordcount_io_events_def",["wordcount_io_events"],
-  wordcount_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`]) |> SIMP_RULE bool_ss [SKOLEM_THM]);
+  wordcount_semantics |> Q.GENL(List.rev[`inp`,`files`,`pname`,`fname`])
+  |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
-val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> CONJ_PAIR
+val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordcount_sem |> CONJ_PAIR
 
 val compile_correct_applied =
@@ -19,6 +20,7 @@ val compile_correct_applied =
 
 val wordcount_compiled_thm =
   CONJ compile_correct_applied wordcount_output
+  |> DISCH_ALL
   |> curry save_thm "wordcount_compiled_thm";
 
 val _ = export_theory();
