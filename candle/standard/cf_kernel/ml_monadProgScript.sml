@@ -777,7 +777,7 @@ val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
       (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
       Eval env exp1 (TERM_TYPE x) ==>
       EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
-        (HOL_MONAD a (raise_clash x)) M`,
+        (HOL_MONAD a (raise_clash x)) H`,
   rw[Eval_def,EvalM_def,HOL_MONAD_def,raise_clash_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
