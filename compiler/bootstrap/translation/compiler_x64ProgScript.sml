@@ -183,24 +183,20 @@ val res = ml_prog_update(ml_progLib.add_prog main I)
 val st = get_ml_prog_state()
 
 val main_spec = Q.store_thm("main_spec",
-  `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "main" st)
+  `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDOUT out * STDERR err * (STDIN inp F * COMMANDLINE cl))
      (POSTv uv. &UNIT_TYPE () uv *
       STDOUT (out ++ (FLAT (MAP explode (append (FST(compiler_x64 (TL(MAP implode cl)) inp)))))) *
       STDERR (err ++ explode (SND(compiler_x64 (TL(MAP implode cl)) inp))) *
        (STDIN "" T * COMMANDLINE cl))`,
-  strip_tac
-  \\ xcf "main" st
+  xcf "main" st
   \\ qmatch_abbrev_tac`_ frame _`
   \\ xlet`POSTv uv. &UNIT_TYPE () uv * frame`
   >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandLineProgTheory.COMMANDLINE_def,Abbr`frame`] \\ xpull)
+  \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) av * frame`
-  >- (xapp \\ instantiate \\ simp[Abbr`frame`] \\ xsimpl
-      \\ simp[LENGTH_FLAT,MAP_MAP_o,o_DEF]
-      \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
-      \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
-      \\ simp[GSYM LENGTH_FLAT,MAP_K_REPLICATE,SUM_REPLICATE])
+  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ qunabbrev_tac`frame` \\ xsimpl)
   \\ xlet`POSTv nv. &LIST_TYPE CHAR [] nv * frame`
   >- (xcon \\ xsimpl \\ EVAL_TAC)
   \\ qunabbrev_tac`frame`

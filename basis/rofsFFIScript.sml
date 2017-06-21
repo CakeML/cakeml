@@ -20,12 +20,22 @@ val _ = Datatype`
 val RO_fs_component_equality = theorem"RO_fs_component_equality";
 
 val wfFS_def = Define`
-  wfFS fs =
+  wfFS fs ⇔
     ∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd < 255 ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
                    fnm ∈ FDOM (alist_to_fmap fs.files)
 `;
+
+val wfFS_CARD_LEQ = Q.store_thm("wfFS_CARD_LEQ",
+  `wfFS fs ⇒ CARD (set (MAP FST fs.infds)) ≤ 255`,
+  rw[wfFS_def] \\
+  spose_not_then strip_assume_tac \\
+  `CARD (count 255) < CARD (set (MAP FST fs.infds))` by simp[] \\
+  imp_res_tac PHP \\ fs[] \\
+  pop_assum mp_tac \\ simp[] \\
+  qexists_tac`I` \\
+  simp[INJ_DEF]);
 
 val wfFS_DELKEY = Q.store_thm(
   "wfFS_DELKEY[simp]",

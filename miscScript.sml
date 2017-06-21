@@ -2694,7 +2694,8 @@ val FIELDS_next = Q.store_thm("FIELDS_next",
   `∀ls l1 l2.
    FIELDS P ls = l1::l2 ⇒
    LENGTH l1 < LENGTH ls ⇒
-   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2 ∧
+   (∃c. l1 ++ [c] ≼ ls ∧ P c)`,
   gen_tac
   \\ completeInduct_on`LENGTH ls`
   \\ ntac 4 strip_tac
@@ -2751,6 +2752,21 @@ val FIELDS_full = Q.store_thm("FIELDS_full",
   \\ `LENGTH r = 0` by decide_tac
   \\ fs[LENGTH_NIL]);
 
+val FLAT_MAP_TOKENS_FIELDS = Q.store_thm("FLAT_MAP_TOKENS_FIELDS",
+  `∀P' ls P.
+    (∀x. P' x ⇒ P x) ⇒
+     FLAT (MAP (TOKENS P) (FIELDS P' ls)) =
+     TOKENS P ls`,
+  Induct_on`FIELDS P' ls` \\ rw[] \\
+  qpat_x_assum`_ = FIELDS _ _`(assume_tac o SYM) \\
+  imp_res_tac FIELDS_next \\
+  Cases_on`LENGTH ls ≤ LENGTH h` >- (
+    imp_res_tac FIELDS_full \\ fs[] ) \\
+  fs[] \\ rw[] \\
+  fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] \\
+  `h ++ [c] ++ l  = h ++ (c::l)` by simp[] \\ pop_assum SUBST_ALL_TAC \\
+  asm_simp_tac std_ss [TOKENS_APPEND]);
+
 val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
   `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
   Cases_on`x` \\ EVAL_TAC);
@@ -2763,7 +2779,8 @@ val splitlines_def = Define`
 
 val splitlines_next = Q.store_thm("splitlines_next",
   `splitlines ls = ln::lns ⇒
-   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns ∧
+   ln ≼ ls ∧ (LENGTH ln < LENGTH ls ⇒ ln ++ "\n" ≼ ls)`,
   simp[splitlines_def]
   \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
   \\ Cases_on`LENGTH h < LENGTH ls`
@@ -2778,7 +2795,8 @@ val splitlines_next = Q.store_thm("splitlines_next",
     \\ fs[LAST_DEF,NULL_EQ]
     \\ Cases_on`t = []` \\ fs[]
     \\ fs[FRONT_DEF]
-    \\ IF_CASES_TAC \\ fs[] )
+    \\ IF_CASES_TAC \\ fs[]
+    \\ fs[IS_PREFIX_APPEND])
   \\ fs[NOT_LESS]
   \\ imp_res_tac FIELDS_full \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
