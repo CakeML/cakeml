@@ -472,6 +472,7 @@ val _ = parsetest0 “nDecl” “ptree_Decl” "val x = (y : int ref)"
                              (Tapp [Tapp [] (TC_name (Short "int"))]
                                    (TC_name (Short "ref"))))”)
 val _ = parsetest0 “nE” “ptree_Expr nE” "op ref" (SOME “V "ref"”);
+val _ = parsetest0 “nE” “ptree_Expr nE” "ref" (SOME “V "ref"”);
 val _ = parsetest ``nDecls`` elab_decls "val x = (y := 3);"
 val _ = parsetest ``nDecls`` elab_decls "val _ = (y := 3);"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "(f x; 3)"
