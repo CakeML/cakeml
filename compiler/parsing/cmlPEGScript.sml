@@ -247,7 +247,9 @@ val cmlPEG_def = zDefine`
                                    assert (s ≠ "")
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
-                        pegf (tokeq EqualsT) (bindNT nOpID)]);
+                        pegf (tokeq EqualsT) (bindNT nOpID);
+                        pegf (tokeq RefT) (bindNT nOpID)
+              ]);
               (mkNT nEliteral,
                choicel [tok isInt (bindNT nEliteral o mktokLf);
                         tok isString (bindNT nEliteral o mktokLf);

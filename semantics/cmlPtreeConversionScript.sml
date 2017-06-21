@@ -612,8 +612,8 @@ val ptree_OpID_def = Define`
                  (return (Con (SOME (Short "*")) []))
                  (return (Var (Short "*")))
            else if tk = EqualsT then return (Var (Short "="))
-           else
-             NONE)
+           else if tk = RefT then return (Var (Short "ref"))
+           else NONE)
         | _ => NONE
 `;
 

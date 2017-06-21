@@ -48,6 +48,7 @@ val tokmap0 =
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
+                ("ref", ``RefT``),
                 ("sig", ``SigT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
@@ -67,7 +68,7 @@ val ginfo = { tokmap = tokmap,
 
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
- UQTyOp ::= <AlphaT> | <SymbolT> | <RefT> ;
+ UQTyOp ::= <AlphaT> | <SymbolT> | "ref" ;
  TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;
@@ -110,13 +111,13 @@ val cmlG_def = mk_grammar_def ginfo
  OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
-       |  "*" | "=" ;
+       |  "*" | "=" | "ref" ;
 
  Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
-        | "[" Elist1 "]" | "op" OpID | <RefT> ;
+        | "[" Elist1 "]" | "op" OpID | "ref" ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -156,7 +157,7 @@ val cmlG_def = mk_grammar_def ginfo
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]" | "op" OpID;
- PConApp ::= ConstructorName | <RefT> | PConApp Pbase ;
+ PConApp ::= ConstructorName | "ref" | PConApp Pbase ;
  Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;
