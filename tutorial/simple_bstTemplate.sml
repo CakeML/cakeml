@@ -69,8 +69,6 @@ val lookup_def = Define`
 
 val insert_def = (* TODO: fill in your definition here *)
 
-val member_def = (* TODO: fill in your definition here *)
-
 (*
   Since we are working with an abstract comparison function, different keys (k,
   k') may be considered equivalent (cmp k k' = Equal).
@@ -202,10 +200,11 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   (* TODO: fill in the rest of the proof *)
   (* hint: you might want to prove the key_ordered_insert lemma above at this point
      then you can continue with:
-    match_mp_tac key_ordered_insert *)
+    match_mp_tac key_ordered_insert
+    ( or: match_mp_tac (MP_CANON key_ordered_insert) )*)
 
 (*
-  Correctness of lookup and member
+  Correctness of lookup
 *)
 
 val key_ordered_to_fmap = Q.store_thm("key_ordered_to_fmap",
@@ -244,16 +243,5 @@ val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
   (* TODO: fill in the rest of this proof *)
-
-val member_lookup = Q.store_thm("member_lookup",
-  `∀t k. member cmp k t ⇔ IS_SOME (lookup cmp k t)`,
-  Induct \\ rw[member_def,lookup_def] \\
-  CASE_TAC \\ rw[]);
-
-val member_to_fmap = Q.store_thm("member_to_fmap",
-  `good_cmp cmp ∧ wf_tree cmp t ⇒
-   (member cmp k t ⇔ key_set cmp k ∈ FDOM (to_fmap cmp t))`,
-  (* TODO: fill in this proof *)
-  (* hint, there is a one line solution *));
 
 val _ = export_theory();

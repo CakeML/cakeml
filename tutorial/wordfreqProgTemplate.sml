@@ -8,6 +8,9 @@ open preamble
      ioProgLib basisProgTheory
      mlstringTheory balanced_mapTheory splitwordsTheory
 
+(* note: opening all these theories/libraries can take a while
+   and it will print many warning messages which can be ignored *)
+
 (*
   IMPORTANT: The first thing you should do is rename this file to
     wordfreqProgScript.sml
@@ -238,6 +241,8 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* TODO: finish the proof *)
   (* hint: try DB.match [] ``MEM _ (toAscList _)`` *)
   (* hint: also consider using lookup_thm *)
+  (* hint: the following idiom is useful for specialising an assumption:
+     first_x_assum (qspec_then `<insert specialisation here>` mp_tac) *)
   );
 
 val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
@@ -257,6 +262,7 @@ val format_output_v_thm = theorem"format_output_v_thm";
 
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* TODO: write the specification for the wordfreq program *)
+  (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
 
 (* The following proof sketch should work when you have roughly the right
