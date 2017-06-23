@@ -1,7 +1,16 @@
-open preamble mlstringTheory holSyntaxExtraTheory
+open preamble mlstringTheory holSyntaxExtraTheory ml_monadBaseTheory ml_monadBaseLib
 
 val _ = new_theory "holKernel";
 val _ = ParseExtras.temp_loose_equality();
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = monadsyntax.temp_add_monadsyntax()
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
+
+(*val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -43,36 +52,7 @@ val otherwise_def = Define `
 
 val _ = Define `
   can f x = (do f x ; return T od
-             otherwise return F)`;
-
-(* TODO: Move that inside the proper lib *)
-fun define_raise_handle raise_name handle_name excn =
-  let
-      val _ = if is_const excn then () else (failwith "define_raise_handle")
-      val [exc_cons_type, exc_type] = type_of excn |> dest_type |> snd
-
-      val raise_def = case raise_name of
-	SOME raise_name => let
-        val raise_type = ``:'d -> ('a, 'b, 'c) M``
-	val raise_type = Type.type_subst [``:'c`` |-> exc_type, ``:'d`` |-> exc_cons_type] raise_type
-	val raise_var = mk_var(raise_name, raise_type) in
-        SOME (Define `^raise_var t = \state. (Failure (^excn t), state)`) end
-        | NONE => NONE
-
-      val handle_def = case handle_name of
-      SOME handle_name => let      
-      val handle_type = ``:('a, 'b, 'c) M -> ('d -> ('a, 'b, 'c) M) -> ('a, 'b, 'c) M``
-      val handle_type = Type.type_subst [``:'c`` |-> exc_type, ``:'d`` |-> exc_cons_type] handle_type
-      val handle_var = mk_var(handle_name, handle_type) in
-      SOME (Define
-        `^handle_var x f = \state. dtcase (x state) of
-          | (Failure (^excn t), state) => f t state
-          | other => other`) end
-      | NONE => NONE 
-  in
-      (raise_def, handle_def)
-  end
-  handle HOL_ERR _ => failwith "define_raise_handle";
+             otherwise return F)`; *)
 
 (*
   type hol_type = Tyvar of string
@@ -133,7 +113,21 @@ val _ = temp_overload_on ("HolErr", ``Failure``);
 
 (* deref/ref functions *)
 
-val get_the_type_constants_def = Define `
+val _ = define_monad_access_funs ("the_type_constants",
+                                  ``\state. state.the_type_constants``,
+				  ``\x state. state with the_type_constants := x``);
+val _ = define_monad_access_funs ("the_term_constants",
+                                  ``\state. state.the_term_constants``,
+				  ``\x state. state with the_term_constants := x``);
+val _ = define_monad_access_funs ("the_axioms",
+                                  ``\state. state.the_axioms``,
+				  ``\x state. state with the_axioms := x``);
+val _ = define_monad_access_funs ("the_context",
+                                  ``\state. state.the_context``,
+				  ``\x state. state with the_context := x``);
+
+
+(* val get_the_type_constants_def = Define `
   get_the_type_constants = (\state. (HolRes (state.the_type_constants),state))`;
 
 val get_the_term_constants_def = Define `
@@ -146,8 +140,8 @@ val get_the_context_def = Define `
   get_the_context = (\state. (HolRes (state.the_context),state))`;
 
 val set_the_type_constants_def = Define `
-  set_the_type_constants x =
-    (\state. (HolRes (), (state with the_type_constants := x))):unit M`;
+  set_the_type_constants =
+    (\x. (\state. (HolRes (), (state with the_type_constants := x))):unit M)`;
 
 val set_the_term_constants_def = Define `
   set_the_term_constants x =
@@ -159,7 +153,7 @@ val set_the_axioms_def = Define `
 
 val set_the_context_def = Define `
   set_the_context x =
-    (\state. (HolRes (), (state with the_context := x))):unit M`;
+    (\state. (HolRes (), (state with the_context := x))):unit M`; *)
 
 (* failwith and otherwise *)
 

@@ -1,4 +1,4 @@
-open preamble mlstringTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holKernelProof";
 
@@ -240,41 +240,7 @@ val can_thm = Q.prove(
                               (_,s) => (HolRes F,s)`,
   SIMP_TAC std_ss [can_def,st_ex_bind_def,otherwise_def]
   \\ Cases_on `f x s` \\ Cases_on `q`
-  \\ fs[st_ex_return_def]
-  \\ SELECT_ELIM_TAC \\ rw[] \\ qexists_tac`(T, r)` \\ rw[]
-  (* SIMP_TAC std_ss [can_def,st_ex_bind_def,otherwise_def]
-  \\ Cases_on `f x s` \\ Cases_on `q`
-  \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def] *));
-
-val SND_EQ_EQUIV = Q.store_thm("SND_EQ_EQUIV",
-`(SND x = z) <=> ?y. x = (y, z)`,
-EQ_TAC >> rw[] >-(qexists_tac`FST x` >> rw[]) >> rw[FST]);
-
-val FST_EQ_T_EQUIV = Q.store_thm("FST_EQ_T_EQUIV",
-`FST x <=> ?y. x = (T, y)`,
-EQ_TAC >> rw[]
->-(
-   qexists_tac`SND x` >>
-   `T = FST x` by rw[] >>
-   POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-   rw[]
-) >>
-rw[]);
-   
-val SND_EQ_T_EQUIV = Q.store_thm("SND_EQ_T_EQUIV",
-`SND x <=> ?y. x = (y, T)`,
-EQ_TAC >> rw[]
->-(
-   qexists_tac`FST x` >>
-   `T = SND x` by rw[] >>
-   POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-   rw[]
-) >>
-rw[]);
-
-val PAIR_EQS = [FST_EQ_EQUIV, SND_EQ_EQUIV, FST_EQ_T_EQUIV, SND_EQ_T_EQUIV];
-
-val solve_pair_eqs_tac = rw PAIR_EQS \\ fs PAIR_EQS \\ METIS_TAC[];
+  \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]);
 
 val assoc_thm = Q.prove(
   `!xs y z s s'.

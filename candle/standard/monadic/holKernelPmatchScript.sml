@@ -1,6 +1,6 @@
 open preamble
 open patternMatchesLib patternMatchesSyntax patternMatchesTheory
-open holKernelTheory
+open ml_monadBaseTheory holKernelTheory
 
 val _ = new_theory"holKernelPmatch"
 val _ = monadsyntax.temp_add_monadsyntax()
