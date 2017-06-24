@@ -847,6 +847,48 @@ val bvi_let_compile_side = Q.prove(`
 
 val _ = translate(bvi_letTheory.compile_exp_def);
 
+val tail_is_ok_alt_def = Define `
+  tail_is_ok_alt name x =
+     case x of
+       Var n => NONE
+     | If v15 v16 v17 =>
+         (let inl = tail_is_ok_alt name v16 in
+          let inr = tail_is_ok_alt name v17
+          in
+            case inl of
+              NONE =>
+                (case inr of
+                   NONE => NONE
+                 | SOME (v4,iop') => SOME (T,iop'))
+            | SOME (v6,iop) =>
+                case inr of
+                  NONE => SOME (F,iop)
+                | SOME v8 => SOME (T,iop))
+     | Let v18 v19 => tail_is_ok_alt name v19
+     | Raise v20 => NONE
+     | Tick v21 => tail_is_ok_alt name v21
+     | Call v22 v23 v24 v25 => NONE
+     | Op v26 v27 =>
+         if v26 = Add ∨ v26 = Mult then
+           (let iop = from_op v26
+            in
+              case rewrite_op iop name (Op v26 v27) of
+                (T,v3) => SOME (F,iop)
+              | (F,v3) => NONE)
+         else NONE`;
+
+val _ = translate tail_is_ok_alt_def
+
+val tail_is_ok_lemma = prove(
+  ``!name x. tail_is_ok name x = tail_is_ok_alt name x``,
+  ho_match_mp_tac (fetch "-" "tail_is_ok_alt_ind") \\ rw []
+  \\ once_rewrite_tac [tail_is_ok_alt_def]
+  \\ CASE_TAC \\ fs [bvi_tailrecTheory.tail_is_ok_def]);
+
+val _ = translate tail_is_ok_lemma
+
+val _ = translate(bvi_tailrecTheory.compile_prog_def);
+
 val _ = translate(bvl_to_bviTheory.compile_aux_def);
 
 val _ = translate(bvl_to_bviTheory.compile_exps_def);
