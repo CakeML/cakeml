@@ -1343,26 +1343,19 @@ val from_data_ignore = Q.store_thm("from_data_ignore",
   fs [from_data_def,from_word_def,from_stack_def,from_lab_def]
   \\ rpt (pairarg_tac \\ fs []));
 
-val compile_prog_MEM = Q.store_thm("compile_prog_MEM",
-  `compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
-   MEM e (MAP FST xs) \/ n <= e`,
-  cheat);
-
-val compile_prog_ALL_DISTINCT = Q.store_thm("compile_prog_ALL_DISTINCT",
-  `compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
-   EVERY (free_names n o FST) xs ==>
-   ALL_DISTINCT (MAP FST ys)`,
-  cheat);
-
 val clos_to_data_names = Q.store_thm("clos_to_data_names",
   `clos_to_bvl$compile c e4 = (c2,p2) /\
     bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
     EVERY (λn. data_num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))`,
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
-  fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
+  fs[bvl_to_bviTheory.compile_def]>>
   strip_tac>>
   rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs) >>
+  fs [bvl_to_bviTheory.compile_prog_def] >>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  strip_tac>>
   EVAL_TAC>>
   REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
@@ -1376,24 +1369,22 @@ val clos_to_data_names = Q.store_thm("clos_to_data_names",
   \\ pop_assum mp_tac
   \\ EVAL_TAC \\ rw[]
   \\ fs [EVAL ``data_num_stubs``]
-  \\ imp_res_tac compile_prog_MEM \\ fs []
+  \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_MEM \\ fs []
   \\ res_tac \\ fs [bvl_to_bviTheory.stubs_def]
   \\ EVAL_TAC
-  \\ match_mp_tac (GEN_ALL compile_prog_ALL_DISTINCT)
+  \\ match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
   \\ asm_exists_tac \\ fs []
   \\ EVAL_TAC \\ fs [GSYM append_def]
   \\ CCONTR_TAC \\ fs []
   \\ res_tac \\ fs [EXISTS_MEM]
-  \\ pop_assum mp_tac \\ fs []
-  \\ cheat);
-(*
-   (drule compile_prog_distinct_locs
-    \\ fs [bvl_inlineProofTheory.MAP_FST_compile_prog]
-    \\ fs [EVERY_MEM,MEM_FILTER,bvi_tailrecProofTheory.free_names_def,
-           FORALL_PROD,MEM_MAP,PULL_EXISTS,between_def]
-    \\ rpt strip_tac \\ rveq \\ fs []
-    \\ res_tac \\ fs [ODD_lemma])
-*)
+  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+  \\ EVAL_TAC
+  \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
+  \\ PairCases_on `e` \\ fs [GSYM append_def]
+  \\ qexists_tac `e0` \\ fs []
+  \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
+  \\ metis_tac [EVEN_DOUBLE,EVEN_ODD]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile c prog = SOME (bytes,ffis) ⇒

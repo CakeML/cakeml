@@ -3054,5 +3054,15 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
   \\ fs [IS_PREFIX_APPEND]
   \\ simp [EL_APPEND1]);
 
-val _ = export_theory();
+val compile_prog_MEM = Q.store_thm("compile_prog_MEM",
+  `compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+   MEM e (MAP FST xs) \/ n <= e`,
+  cheat);
 
+val compile_prog_ALL_DISTINCT = Q.store_thm("compile_prog_ALL_DISTINCT",
+  `compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
+   EVERY (free_names n o FST) xs ==>
+   ALL_DISTINCT (MAP FST ys)`,
+  cheat);
+
+val _ = export_theory();
