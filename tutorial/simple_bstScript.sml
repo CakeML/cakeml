@@ -40,7 +40,7 @@ type_of ``Node``;
 *)
 
 (*
-  Now we define basic binary search tree operations (without splaying).
+  Now we define some basic binary search tree operations.
 
   The operations are parameterised by a comparison function on the tree data,
   which is of type 'a -> 'a -> cpn. The cpn type is an enumeration of three
@@ -103,7 +103,7 @@ val delete_def = Define`
 (*
   Since we are working with an abstract comparison function, different keys (k,
   k') may be considered equivalent (cmp k k' = Equal).
-  We will assume good_cmp of about the comparison function cmp.
+  We will assume good_cmp of the comparison function cmp.
   Try:
   DB.find"good_cmp";
   which reveals that this is defined in comparisonTheory

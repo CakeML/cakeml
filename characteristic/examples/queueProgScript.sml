@@ -4,7 +4,6 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-
 open preamble ml_progLib ioProgLib ml_translatorLib
 	       cfTacticsLib basisFunctionsLib ml_translatorTheory
 	       cfLetAutoTheory cfLetAutoLib
@@ -107,7 +106,7 @@ val push_spec = Q.store_thm ("push_spec",
 	    ) >>
 	    fs[LENGTH_NIL] >>
 	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs (get_RI_retract_thms())
+	    fs (get_retract_thms())
 	    (*---------------------------------*)
 	) >>
 	xlet_auto >-(xsimpl) >>
@@ -119,7 +118,7 @@ val push_spec = Q.store_thm ("push_spec",
 	fs[UNIT_TYPE_def] >>
 	qexists_tac `vvs ++ [xv]` >>
 	qexists_tac `TL junk` >>
-	fs (get_RI_retract_thms()) >>
+	fs (get_retract_thms()) >>
         `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
@@ -147,12 +146,12 @@ val push_spec = Q.store_thm ("push_spec",
 	    ) >>
 	    fs[LENGTH_NIL] >>
 	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs (get_RI_retract_thms())
+	    fs (get_retract_thms())
 	) >>
 	fs[UNIT_TYPE_def] >>
 	qexists_tac `vvs ++ [xv]` >>
 	qexists_tac `TL junk` >>
-	fs (get_RI_retract_thms()) >>
+	fs (get_retract_thms()) >>
         `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
 	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>

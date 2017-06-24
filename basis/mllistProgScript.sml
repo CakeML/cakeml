@@ -56,6 +56,7 @@ val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
 
+val result = next_ml_names := ["map","mapi_aux","mapi","mapPartial"];
 val result = translate MAP;
 val result = translate mapi_def;
 val result = translate MAPI_thm;
