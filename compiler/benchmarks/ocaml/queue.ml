@@ -21,6 +21,6 @@ let rec use_queue n q =
   then q
   else (use_queue (n - 1) (tail (snoc (snoc q (n - 1)) (n - 1))));;
 let rec run_queue n = head (use_queue n empty);;
-let test = run_queue 20000000;;
+let test = run_queue 5000000;;
 
 

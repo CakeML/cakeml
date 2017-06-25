@@ -1,6 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../semantics parsing inference backend\
 					 backend/reg_alloc encoders/asm\
+					 ../basis\
 					 backend/arm6 backend/arm8\
 					 backend/mips backend/riscv\
 					 backend/x64
@@ -14,7 +15,7 @@ PARENT_HOLHEAP = backend/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory
+BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory ../basis/basisProgTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

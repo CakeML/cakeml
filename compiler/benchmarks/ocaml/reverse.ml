@@ -10,6 +10,6 @@ let rec mk_list n =
   if (n = 0)
   then []
   else (n::(mk_list (n - 1)));;
-let test = reverse (mk_list 20000);;
+let test = reverse (mk_list 50000);;
 
 
