@@ -3,6 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
      cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
+     mlw8arrayProgTheory
     
 val _ = new_theory"fsioProof";
 
@@ -16,7 +17,9 @@ val IOFS_buff257_def = Define`
 val IOFS_def = Define `
   IOFS fs = IOx fs_ffi_part fs * &(wfFS fs)`
 
-val buff257_loc = EVAL``buff257_loc``
+val buff257_loc = EVAL``buff257_loc`` |> curry save_thm "buff257_loc"
+
+val _ = export_rewrites["buff257_loc"]
 
 val IOFS_buff257_HPROP_INJ = Q.store_thm("IOFS_buff257_HPROP_INJ[hprop_inj]",
 `!fs1 fs2. HPROP_INJ (IOFS fs1) (IOFS fs2) (fs2 = fs1)`,
@@ -152,6 +155,10 @@ val eq_num_v_thm =
                  |> CONJUNCTS |> el 1)
                  |> Q.INST_TYPE [`:α` |->`:8`];
 
+
+val WORD_UNICITY_R = Q.store_thm("WORD_UNICITY_R[xlet_auto_match]",
+`!f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)`, fs[WORD_def]);
+
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
@@ -169,14 +176,9 @@ val openIn_spec = Q.store_thm(
   xcf "IO.open_in" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_buff257_def] >> 
   xpull >>
-  rename [`W8ARRAY buff257_loc fnm0`] >>
+  rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
-  xlet `POSTv u. &(UNIT_TYPE () u) * W8ARRAY buff257_loc
-          (insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 fnm0) *
-                 catfs fs`
-  >- (xapp >> xsimpl >> instantiate >>
-      simp[fsioProgTheory.buff257_loc_def] >> xsimpl >>
-      Cases_on`s` \\ fs[]) >>
+  xlet_auto >- (xsimpl >> fs[LENGTH_explode]) >>
   qabbrev_tac `fnm = insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 fnm0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
   Cases_on `inFS_fname fs s`
@@ -202,21 +204,14 @@ val openIn_spec = Q.store_thm(
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
         csimp[nextFD_ltX, openFileFS_def, openFile_def, validFD_def]) >>
-    xlet `POSTv fdv. &WORD (0w : word8) fdv *
-                     W8ARRAY buff257_loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
-                     catfs fs'`
-    >- (xapp >> xsimpl >> simp[fsioProgTheory.buff257_loc_def] >> xsimpl >>
-        csimp[HD_LUPDATE] >>
-        simp[Abbr`fnm`, LENGTH_insert_atI, LENGTH_explode]) >>
+    xlet_auto >- xsimpl >>
+    (* TODO: xlet_auto -> not_found *)
     xlet `POSTv eqn1v. &WORD (0w :word8) eqn1v *
                        W8ARRAY buff257_loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
                        catfs fs'`
     >- (xapp >> simp[fsioProgTheory.buff257_loc_def]>>  xsimpl >> 
         rw[Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,buff257_loc,HD_LUPDATE]) >>
-    xlet `POSTv eqn1v. &BOOL T eqn1v *
-                W8ARRAY buff257_loc (LUPDATE 0w 0 (LUPDATE (n2w (nextFD fs)) 1 fnm)) *
-                catfs fs'`
-    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[FALSE_def]) >>
+    xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R) >>
     xif >> instantiate >> xapp >> 
     simp[fsioProgTheory.buff257_loc_def] >> xsimpl >>
     fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`])
@@ -235,17 +230,13 @@ val openIn_spec = Q.store_thm(
              implode_explode, LENGTH_explode] >>
         simp[not_inFS_fname_openFile]
         ) >>
-    xlet `POSTv fdv. &WORD (0w: word8) fdv * catfs fs *
-                     W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
-    >- (xapp >> xsimpl >> simp[buff257_loc_def] >> xsimpl >>
-        csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insert_atI, LENGTH_explode]) >>
+    xlet_auto >- xsimpl >>
+    (* TODO: xlet_auto -> not_found *)
     xlet `POSTv fdv. &WORD (255w: word8) fdv * catfs fs *
                      W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
     >- (xapp >> xsimpl >> simp[buff257_loc_def] >> xsimpl >>
         csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insert_atI, LENGTH_explode]) >>       
-    xlet `POSTv eqn1v.  &BOOL F eqn1v *catfs fs *
-            W8ARRAY buff257_loc (LUPDATE 255w 0 fnm)`
-    >- (xapp_spec eq_word8_v_thm >> instantiate >> xsimpl >> fs[TRUE_def]) >>
+    xlet_auto >- xsimpl >>
     xif >> instantiate >> xlet_auto
     >- (xret >> xsimpl >> simp[BadFileName_exn_def]) >>
     xraise >> xsimpl >> 
@@ -349,8 +340,9 @@ val write_spec = Q.store_thm("write_spec",
   0 < w2n n ⇒ w2n n <= 255 ⇒ w2n fd < 255 ⇒ LENGTH rest = 255 ⇒
   get_file_content fs (w2n fd) = SOME(content, pos) ⇒
   WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
+  bc = h1 :: h2 :: rest ⇒ 
   app (p:'ffi ffi_proj) ^(fetch_v "IO.write" (basis_st())) [fdv;nv]
-  (IOFS fs * W8ARRAY buff257_loc (h1 :: h2 :: rest)) 
+  (IOFS fs * W8ARRAY buff257_loc bc) 
   (POST
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= w2n n) *
            W8ARRAY buff257_loc (0w :: n2w nw :: rest) *
@@ -363,8 +355,8 @@ val write_spec = Q.store_thm("write_spec",
          IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
   strip_tac >> fs[liveFS_def] >> `?ll. fs.numchars = ll` by simp[]  >> fs[] >>
   `liveFS fs` by fs[liveFS_def] >> FIRST_X_ASSUM MP_TAC >> FIRST_X_ASSUM MP_TAC >> 
-  qid_spec_tac `h2` >> qid_spec_tac `h1` >> qid_spec_tac `fs` >>
-  FIRST_X_ASSUM MP_TAC >> qid_spec_tac `ll` >> 
+  qid_spec_tac `bc`>> qid_spec_tac `h2` >> qid_spec_tac `h1` >> 
+  qid_spec_tac `fs` >> FIRST_X_ASSUM MP_TAC >> qid_spec_tac `ll` >> 
   HO_MATCH_MP_TAC always_eventually_ind >>
   xcf "IO.write" (basis_st()) >> fs[buff257_loc_def]>>
   `ll = fs.numchars` by simp[] >> fs[]
@@ -473,34 +465,41 @@ val write_spec = Q.store_thm("write_spec",
   rw[] >> instantiate >>
   `Lnext_pos (0:::t) = SUC(Lnext_pos t)` by 
     (fs[Lnext_pos_def,Once Lnext_def,liveFS_def]) >>
-  fs[ADD] >> xsimpl
-);
+  fs[ADD] >> xsimpl);
 
 val write_char_spec = Q.store_thm("write_char_spec",
   `!(fd :word8) fdv c cv bc content pos.
-    w2n fd < 255 ⇒  wfFS fs ⇒
-    CHAR c cv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ liveFS fs ⇒
+    liveFS fs ⇒ wfFS fs ⇒
+    validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
+    get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+    CHAR c cv ⇒ WORD fd fdv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.write_char" (basis_st())) [fdv; cv]
-    (IOFS fs * &(get_file_content fs (w2n fd) = SOME(content, pos)) * IOFS_buff257) 
+    (IOFS fs * IOFS_buff257) 
     (POST (\uv. &UNIT_TYPE () uv * IOFS_buff257 *
-                IOFS (fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + 1)
-                     (TAKE pos content ++ [c] ++ DROP (pos + 1) content)))
+                IOFS (fsupdate fs (w2n fd) (Lnext_pos fs.numchars + 1 ) (pos + 1)
+                     (insert_atI [c] pos content)))
           (\e. &(InvalidFD_exn e) * &F * IOFS_buff257 * 
                IOFS(fs with numchars :=
                       THE (LDROP (Lnext_pos fs.numchars + 1) fs.numchars))))`,
   xcf "IO.write_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
   xpull >> rename [`W8ARRAY buff257_loc bdef`] >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
+  fs[buff257_loc_def] >>
+  NTAC 4 (xlet_auto >- xsimpl) >>
+(*
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
   Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
-  fs[buff257_loc_def] >>
-  xlet_auto >- xsimpl >>
   simp[EVAL ``LUPDATE rr 2 (zz :: tt)``,
        EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
+*)
+  sg`LENGTH (n2w (ORD c) :: rest) = 255` >- fs[] >>
+  fs[buff257_loc_def]
+  xlet_auto 
+  >- xsimpl >>
+
+(*   *)
   (* xletauto *)
-  xlet `POSTv w. &WORD (1w :word8) w * IOFS fs * W8ARRAY (Loc 4) (h1::h2::n2w (ORD c)::rest)`
+  xlet `POSTv w. &WORD (1w :word8) w * IOFS fs * W8ARRAY (Loc 1) (h1::h2::n2w (ORD c)::rest)`
   >- (xapp >> xsimpl) >>
   (* xlet_auto *)
   `0 < w2n (1w:word8)` by fs[] >>
