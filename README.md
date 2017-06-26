@@ -83,6 +83,10 @@ generated HOL is also included. The directory includes definitions of:
 [translator](translator):
 A proof-producing translator from HOL functions to CakeML.
 
+[tutorial](tutorial):
+An extended worked example on using HOL and CakeML to write verified programs,
+to be presented as a tutorial on CakeML at PLDI and ICFP in 2017.
+
 [unverified](unverified):
 Various unverified tools, e.g. tools for converting OCaml to CakeML
 and an SML version of the CakeML register allocator.

@@ -18,7 +18,9 @@ val JumpList_def = tDefine "JumpList" `
    \\ Q.ISPEC_THEN`xs`STRIP_ASSUME_TAC SPLIT_LIST \\ FULL_SIMP_TAC std_ss []
    \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.TAKE_LENGTH_APPEND,
         rich_listTheory.DROP_LENGTH_APPEND]
-   \\ rfs [DIV_EQ_X] \\ DECIDE_TAC);
+   \\ rfs [DIV_EQ_X]  >>
+   full_simp_tac std_ss [GSYM LENGTH_NIL] >>
+   decide_tac);
 
 val Jump_def = Define `
   Jump x xs = Let [x] (JumpList 0 xs)`;

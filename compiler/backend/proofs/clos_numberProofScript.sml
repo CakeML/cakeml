@@ -379,6 +379,33 @@ val do_app = Q.prove(
              ∃v2 w2. do_app op x2 s2 = Rval(v2,w2) ∧
                      v_rel s1.max_app v1 v2 ∧ state_rel w1 w2)`,
   strip_tac >>
+  Cases_on `?tag. op = ConsExtend tag`
+  >- (
+    rw [do_app_cases_val]
+    >- (
+      Cases_on `err` >>
+      fs [do_app_cases_err] >>
+      fs [] >>
+      Cases_on `a` >>
+      fs [do_app_cases_timeout] >>
+      fs [] >>
+      pop_assum mp_tac >>
+      simp [Once do_app_cases_type_error] >>
+      rw [] >>
+      rw [do_app_def] >>
+      fs [v_rel_cases] >>
+      rw [] >>
+      fs [] >>
+      rw [] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      intLib.ARITH_TAC)
+    >- (
+      fs [] >>
+      rw [] >>
+      fs [v_rel_cases] >>
+      rw [PULL_EXISTS] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      metis_tac [EVERY2_APPEND_suff, EVERY2_TAKE, EVERY2_DROP])) >>
   simp[do_app_def] >>
   Cases_on`op`>>simp[v_rel_simp]>>
   Cases_on`x1`>>full_simp_tac(srw_ss())[v_rel_simp] >>
@@ -832,7 +859,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
    (full_simp_tac(srw_ss())[evaluate_def] >>
-    Cases_on `dest_closure s.max_app NONE f (v42::v43)` >>
+    rename1 `dest_closure s.max_app NONE f (z::zs)` >>
+    Cases_on `dest_closure s.max_app NONE f (z::zs)` >>
     imp_res_tac state_rel_max_app >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][]
@@ -950,6 +978,6 @@ val renumber_code_locs_esgc_free = Q.store_thm(
       qspecl_then [`locn1`, `MAP SND functions`] mp_tac
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
-      simp[]))
+      simp[]));
 
-val _ = export_theory()
+val _ = export_theory();

@@ -69,7 +69,7 @@ val from_word = let
 
 val full_make_init_ffi = Q.prove(
   `(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,off,regs,
+         (bitmaps,c1,code,f,jump,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).ffi = ffi`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
@@ -152,17 +152,17 @@ val data_to_word_precond_def = fetch "-" "data_to_word_precond_def" |> SPEC_ALL
 
 val full_make_init_gc_fun = Q.store_thm("full_make_init_gc_fun",
   `(full_make_init
-         (bitmaps,c1,code,f,k,max_heap,off,regs, xx,
+         (bitmaps,c1,code,f,jump,k,max_heap,off,regs, xx,
           save_regs)).gc_fun = word_gc_fun c1`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
 
 val full_make_init_bitmaps = Q.prove(
   `full_init_pre
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
+         (bitmaps,c1,SND (compile asm_conf code3),f,jump,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs) ==>
     (full_make_init
-         (bitmaps,c1,SND (compile asm_conf code3),f,k,max_heap,off,regs,
+         (bitmaps,c1,SND (compile asm_conf code3),f,jump,k,max_heap,off,regs,
           make_init mc_conf ffi save_regs io_regs t m dm ms code2,
           save_regs)).bitmaps = bitmaps`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
@@ -173,16 +173,17 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
   `max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
     init_store_ok c1
       ((full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
+          (bitmaps,c1,code3,f,jump,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
              save_regs)).store \\ Handler)
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).memory
+          (bitmaps,c1,code3,f,jump,k,max_heap,off,regs,s,save_regs)).memory
        (full_make_init
-          (bitmaps,c1,code3,f,k,max_heap,off,regs,s,save_regs)).mdomain`,
+          (bitmaps,c1,code3,f,jump,k,max_heap,off,regs,s,save_regs)).mdomain`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
   \\ CASE_TAC \\ fs [] THEN1
-   (fs [init_store_ok_def,FUPDATE_LIST,stack_removeTheory.store_list_def,
+   (fs [data_to_word_gcProofTheory.init_store_ok_def,FUPDATE_LIST,
+        stack_removeTheory.store_list_def,
         FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
     \\ rw [] \\ qexists_tac `0` \\ fs [word_list_exists_def]
     \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
@@ -190,7 +191,8 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
     \\ EVAL_TAC)
   \\ fs [stack_removeProofTheory.make_init_opt_def]
   \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
-  \\ fs [init_store_ok_def,stack_removeProofTheory.init_prop_def]
+  \\ fs [data_to_word_gcProofTheory.init_store_ok_def,
+         stack_removeProofTheory.init_prop_def]
   \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
        stack_removeProofTheory.word_list_exists_ADD]
   \\ qexists_tac`len`
@@ -203,15 +205,16 @@ val full_init_pre_IMP_init_state_ok = Q.prove(
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
       (full_make_init
-        (bitmaps:'a word list,c1,code3,f,k,max_heap,off,regs,s,save_regs))`,
+        (bitmaps:'a word list,c1,code3,f,jump,k,max_heap,off,regs,s,save_regs))`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def] \\ strip_tac
   \\ CASE_TAC \\ fs [] THEN1
-   (fs [init_state_ok_def,gc_fun_ok_word_gc_fun] \\ strip_tac
+   (fs [init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
+    \\ strip_tac
     \\ fs [FUPDATE_LIST,stack_removeTheory.store_list_def,FLOOKUP_UPDATE]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def])
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw []
-  \\ fs [init_state_ok_def,gc_fun_ok_word_gc_fun]
+  \\ fs [init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
   \\ `init_prop max_heap x /\ x.bitmaps = 4w::t` by
         (fs [stack_removeProofTheory.make_init_opt_def]
@@ -428,7 +431,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
        (MAP SND prog1))`,
-  fs[code_rel_def,code_rel_ext_def]>>strip_tac>>
+  fs[data_to_word_gcProofTheory.code_rel_def,code_rel_ext_def]>>strip_tac>>
   CONJ_TAC >-
     (fs[lookup_fromAList]
      \\ simp[ALOOKUP_APPEND]
@@ -830,7 +833,7 @@ val upshift_downshift_syntax = Q.store_thm("upshift_downshift_syntax",`
   first_assum match_mp_tac>>EVAL_TAC>>fs[])
 
 val stack_remove_syntax_pres = Q.store_thm("stack_remove_syntax_pres",
-  `Abbrev (prog3 = compile off n bitmaps k pos prog2) /\
+  `Abbrev (prog3 = compile jump off n bitmaps k pos prog2) /\
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog2) ==>
     EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)`,
   rw[]>>
@@ -843,7 +846,7 @@ val stack_remove_syntax_pres = Q.store_thm("stack_remove_syntax_pres",
     (Induct_on`bitmaps`>>fs[stack_removeTheory.store_list_code_def]>>
     EVAL_TAC>>fs[]))>>
   (rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
-  map_every qid_spec_tac[`p_2`,`k`,`off`]>>
+  map_every qid_spec_tac[`p_2`,`k`,`off`,`jump`]>>
   ho_match_mp_tac stack_removeTheory.comp_ind>>
   Cases_on`p_2`>>rw[]>>
   ONCE_REWRITE_TAC [stack_removeTheory.comp_def]>>
@@ -853,7 +856,7 @@ val stack_remove_syntax_pres = Q.store_thm("stack_remove_syntax_pres",
     (BasicProvers.EVERY_CASE_TAC>>fs[])
   >>
   TRY (* stack_alloc and stack_free *)
-    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def]>>
+    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def,stack_removeTheory.halt_inst_def]>>
     rpt (IF_CASES_TAC>>fs convs)>>
     first_assum match_mp_tac>>
     EVAL_TAC>>fs[]>>NO_TAC)
@@ -951,7 +954,7 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        data_to_wordPropsTheory.aligned_add_pow]);
+        data_to_word_memoryProofTheory.aligned_add_pow]);
 
 val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
   `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
@@ -999,7 +1002,7 @@ val conf_constraint_def = Define`
          can prove that each backend's config is correct without
          requiring to build all the proofs. *)
 val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
-   (data_to_wordProof$conf_ok (:α) c.data_conf /\
+   (data_to_word_gcProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\
@@ -1103,7 +1106,7 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
   \\ rename1 `_ = (c2,prog1)`
   \\ qabbrev_tac `prog2 = compile c.data_conf prog1`
   \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ qpat_abbrev_tac `prog3 = compile _ _ c2.bitmaps _ _ prog2`
+  \\ qpat_abbrev_tac `prog3 = compile _ _ _ c2.bitmaps _ _ prog2`
   \\ qabbrev_tac `prog4 = compile c.stack_conf.reg_names prog3`
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ ConseqConv.CONSEQ_CONV_TAC (ConseqConv.CONSEQ_REWRITE_CONV
@@ -1154,6 +1157,7 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
   \\ qexists_tac`ffis`
+  \\ qexists_tac`c.stack_conf.jump`
   \\ qexists_tac`FST mc_conf.target.config.addr_offset`
   \\ qexists_tac`SND mc_conf.target.config.addr_offset`
   \\ fs[]

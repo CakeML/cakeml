@@ -7,6 +7,7 @@ val _ = new_theory "sortProg";
 
 val _ = translation_extends"quicksortProg";
 
+(* TODO: move *)
 val perm_zip = Q.store_thm ("perm_zip",
   `!l1 l2 l3 l4.
     LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧ PERM (ZIP (l1,l2)) (ZIP (l3,l4))
@@ -53,6 +54,38 @@ val strict_weak_order_string_cmp = Q.store_thm ("strict_weak_order_string_cmp",
   rw [strict_weak_order_alt, transitive_def] >>
   metis_tac [string_lt_antisym, string_lt_trans, string_lt_total]);
 
+val wfFS_bumpLineFD = Q.store_thm ("wfFS_bumpLineFD",
+  `!fs fd.
+    wfFS fs
+    ⇒
+    wfFS (bumpLineFD fd fs)`,
+  rw [bumpLineFD_def] >>
+  every_case_tac >>
+  fs [wfFS_def] >>
+  rw [] >>
+  first_x_assum drule >>
+  rw [] >>
+  rw [ALIST_FUPDKEY_ALOOKUP]);
+
+val validArg_filename = Q.store_thm ("validArg_filename",
+  `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
+  rw [commandLineFFITheory.validArg_def, FILENAME_def, EVERY_MEM,
+      mlstringTheory.LENGTH_explode]);
+
+val validArg_filename_list = Q.store_thm ("validArg_filename_list",
+  `!x v. EVERY validArg (MAP explode x) ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
+  Induct_on `x` >>
+  rw [LIST_TYPE_def, validArg_filename]);
+
+val files_contents_def = Define `
+  files_contents fs fnames =
+    MAP (\str. str ++ "\n")
+      (FLAT (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames))`;
+
+val v_to_string_def = Define `
+  v_to_string (Litv (StrLit s)) = s`;
+(* -- *)
+
 val usage_string_def = Define`
   usage_string = strlit"Usage: sort <file> <file>...\n"`;
 
@@ -92,23 +125,10 @@ val get_file_contents = process_topdecs `
 
 val _ = append_prog get_file_contents;
 
-val wfFS_bumpLineFD = Q.store_thm ("wfFS_bumpLineFD",
-  `!fs fd.
-    wfFS fs
-    ⇒
-    wfFS (bumpLineFD fd fs)`,
-  rw [bumpLineFD_def] >>
-  every_case_tac >>
-  fs [wfFS_def] >>
-  rw [] >>
-  first_x_assum drule >>
-  rw [] >>
-  rw [ALIST_FUPDKEY_ALOOKUP]);
-
+(* TODO: these functions are generic, and should probably be moved *)
 val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   `!fs fd fd_v acc_v acc.
     WORD (n2w fd : word8) fd_v ∧
-    wfFS fs ∧
     validFD fd fs ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -125,6 +145,7 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
   completeInduct_on `LENGTH (linesFD fd fs)` >>
   rw [] >>
   xcf "get_file_contents" (get_ml_prog_state ()) >>
+  reverse(Cases_on`wfFS fs`) >- (fs[ROFS_def] \\ xpull) \\
   xlet
     `POSTv line_v.
       ROFS (bumpLineFD fd fs) *
@@ -172,13 +193,11 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
       fs [GSYM FDline_NONE_linesFD]) >>
     drule linesFD_eq_cons_imp >>
     rw []
-    >- metis_tac [wfFS_bumpLineFD]
-    >- metis_tac [APPEND, APPEND_ASSOC]));
+    \\ metis_tac [APPEND, APPEND_ASSOC]));
 
 val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   `!fnames_v fnames acc_v acc fs.
-    wfFS fs ∧
-    CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+    hasFreeFD fs ∧
     LIST_TYPE FILENAME fnames fnames_v ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -271,36 +290,15 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
     rw [] >>
     rw [] >>
     Cases_on `0 < STRLEN content` >>
-    simp [libTheory.the_def, GSYM LENGTH_NIL]) >>
+    simp [libTheory.the_def] >>
+    Cases_on`content` \\ fs[]) >>
   simp []);
-
-val validArg_filename = Q.store_thm ("validArg_filename",
-  `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
-  rw [commandLineFFITheory.validArg_def, FILENAME_def, EVERY_MEM,
-      mlstringTheory.LENGTH_explode]);
-
-val validArg_filename_list = Q.store_thm ("validArg_filename_list",
-  `!x v. EVERY validArg (MAP explode x) ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
-  Induct_on `x` >>
-  rw [LIST_TYPE_def, validArg_filename]);
-
-val files_contents_def = Define `
-  files_contents fs fnames =
-    MAP (\str. str ++ "\n")
-      (FLAT (MAP (\fname. splitlines (THE (ALOOKUP fs.files fname))) fnames))`;
-
-val v_to_string_def = Define `
-  v_to_string (Litv (StrLit s)) = s`;
+(* -- *)
 
 val sort_spec = Q.store_thm ("sort_spec",
   `!cl fs out err.
-    (* The below seems needed, but misplaced. The person calling sort shouldn't
-     * ensure this stuff, but rather the system *)
-    cl ≠ [] ∧ EVERY validArg cl ∧ STRLEN (CONCAT (MAP (λs. STRCAT s "\^@") cl)) < 257 ∧
-    (* Until we get STDIN unified with the file system *)
-    LENGTH cl > 1 ∧
-    wfFS fs ∧
-    CARD (FDOM (alist_to_fmap fs.infds)) < 255
+    (* TODO: until we get STDIN unified with the file system *) LENGTH cl > 1 ∧
+    hasFreeFD fs
     ⇒
     app (p : 'ffi ffi_proj)
       ^(fetch_v "sort" (get_ml_prog_state ()))
@@ -323,6 +321,8 @@ val sort_spec = Q.store_thm ("sort_spec",
   xmatch >>
   rw [] >>
   qabbrev_tac `fnames = TL (MAP implode cl)` >>
+  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull) >>
+  fs[mlcommandLineProgTheory.wfcl_def] >>
   xhandle
     `POST
       (\unit_v2. SEP_EXISTS output.
@@ -504,11 +504,18 @@ val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
 val name = "sort"
 val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
 val sort_prog_def = Define `sort_prog = ^prog_tm`;
+
+val length_gt_1_not_null =
+  Q.prove(`LENGTH cls > 1 ⇒ ¬ NULL cls`, rw[NULL_EQ] \\ strip_tac \\ fs[]);
+
 val sort_semantics =
   sem_thm
   |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,PULL_EXISTS]
+  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,PULL_EXISTS,
+                         mlcommandLineProgTheory.wfcl_def,
+                         length_gt_1_not_null]
+  |> SIMP_RULE std_ss [AND_IMP_INTRO]
   |> curry save_thm "sort_semantics";
 
 val _ = export_theory ();

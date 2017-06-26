@@ -11,6 +11,15 @@ val valid_immediate = Q.prove(
   `!i. IS_SOME (EncodeARMImmediate i) = valid_immediate i`,
   simp [valid_immediate_def])
 
+val valid_immediate2 =
+   valid_immediate
+   |> Drule.SPEC_ALL
+   |> Thm.SYM
+   |> REWRITE_RULE [GSYM quantHeuristicsTheory.SOME_THE_EQ_SYM]
+   |> Thm.EQ_IMP_RULE
+   |> fst
+   |> Drule.GEN_ALL
+
 val arm6_config =
   REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_config
 
@@ -575,7 +584,7 @@ val encode_rwts =
 val enc_rwts =
    [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
     decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
-    alignmentTheory.aligned_numeric, arm6_asm_ok] @
+    alignmentTheory.aligned_numeric, arm6_asm_ok, Once valid_immediate2] @
    encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
@@ -792,11 +801,18 @@ local
    fun get_asm tm = dest_arm6_enc (HolKernel.find_term is_arm6_enc tm)
 in
    fun next_tac gs =
-      (
-       NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-       \\ next_tac' (get_asm (snd gs))
+     let
+       val asm = get_asm (snd gs)
+     in
+       Q.PAT_ABBREV_TAC `instr = arm6_enc _`
+       \\ pop_assum mp_tac
+       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+       \\ strip_tac
+       \\ qunabbrev_tac `instr`
+       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+       \\ next_tac' asm
        \\ state_tac
-      ) gs
+     end gs
    val cnext_tac =
       next_tac
       \\ srw_tac [wordsLib.WORD_EXTRACT_ss] []
@@ -893,14 +909,19 @@ val length_arm6_encode = Q.prove(
   \\ fs [arm6_encode_def]
   )
 
+val arm6_encode_not_nil = Q.prove(
+  `(!c i. arm6_encode1 c i <> []) /\ (!l. (arm6_encode l <> []) = (l <> []))`,
+  simp_tac std_ss
+    [GSYM listTheory.LENGTH_NIL, length_arm6_encode1, length_arm6_encode])
+
 val arm6_encoding = Q.prove (
-   `!i. let n = LENGTH (arm6_enc i) in (n MOD 4 = 0) /\ n <> 0`,
+   `!i. let l = arm6_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
    \\ simp [arm6_enc_def, arm6_cmp_def, arm6_vfp_cmp_def, arm6_encode_fail_def,
             length_arm6_encode1, length_arm6_encode]
    \\ REPEAT CASE_TAC
-   \\ rw [length_arm6_encode, length_arm6_encode1]
+   \\ rw [length_arm6_encode, length_arm6_encode1, arm6_encode_not_nil]
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
@@ -912,7 +933,7 @@ val arm6_target_ok = Q.prove (
    \\ rfs [reg_mode_eq]
    >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
    \\ lfs enc_rwts
-   \\ rw [] \\ rw []
+   \\ NTAC 3 (rw [Once valid_immediate2])
    \\ blastLib.FULL_BBLAST_TAC
    )
 

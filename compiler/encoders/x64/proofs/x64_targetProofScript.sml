@@ -720,7 +720,7 @@ end
    ------------------------------------------------------------------------- *)
 
 val x64_encoding = Q.prove (
-   `!i. LENGTH (x64_enc i) <> 0`,
+   `!i. x64_enc i <> []`,
    strip_tac
    \\ Cases_on `LIST_BIND (x64_ast i) x64_encode`
    \\ simp [x64_enc_def, x64_dec_fail_def]

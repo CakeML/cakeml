@@ -487,8 +487,7 @@ val print_matching_lines_in_file = process_topdecs`
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
-  `FILENAME f fv ∧
-   CARD (FDOM (alist_to_fmap fs.infds)) < 255 ∧
+  `FILENAME f fv ∧ hasFreeFD fs ∧
    (STRING_TYPE --> BOOL) m mv
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
@@ -658,8 +657,7 @@ val grep_termination_assum_def = Define`
   (grep_termination_assum _ ⇔ T)`;
 
 val grep_spec = Q.store_thm("grep_spec",
-  `cl ≠ [] ∧ EVERY validArg cl ∧ LENGTH (FLAT cl) + LENGTH cl ≤ 256 ∧
-   CARD (set (MAP FST fs.infds)) < 255 ∧
+  `CARD (set (MAP FST fs.infds)) < 255 ∧
    grep_termination_assum cl
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
@@ -673,13 +671,10 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
   >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
   \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * STDOUT out * STDERR err * COMMANDLINE cl * ROFS fs`
-  >- (xapp \\ instantiate \\ xsimpl
-      \\ simp[MAP_TL,NULL_EQ,LENGTH_FLAT,MAP_MAP_o,o_DEF] (* TODO: this is duplicated in catProg and bootstrap *)
-      \\ Q.ISPECL_THEN[`STRLEN`]mp_tac SUM_MAP_PLUS
-      \\ disch_then(qspecl_then[`K 1`,`cl`]mp_tac)
-      \\ simp[MAP_K_REPLICATE,SUM_REPLICATE,GSYM LENGTH_FLAT])
-  \\ Cases_on`cl` \\ fs[]
+  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
+  \\ Cases_on`cl` \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (
     xmatch
@@ -746,7 +741,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ rename1`parse_regexp regexp = SOME r`
   \\ xfun_spec`appthis`
      `∀f fv outp erro.
-      FILENAME f fv ∧ CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
+      FILENAME f fv ∧ hasFreeFD fs ⇒
       app p appthis [fv] (STDOUT outp * STDERR erro * COMMANDLINE cl * ROFS fs)
         (POSTv v. &UNIT_TYPE () v
                   * STDOUT (outp ++ FST(grep_sem_file (regexp_lang r) fs f))

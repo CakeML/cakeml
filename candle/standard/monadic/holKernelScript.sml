@@ -1,6 +1,7 @@
 open preamble mlstringTheory holSyntaxExtraTheory
-val _ = new_theory "holKernel";
 
+val _ = new_theory "holKernel";
+val _ = ParseExtras.temp_loose_equality();
 
 (*
   type hol_type = Tyvar of string

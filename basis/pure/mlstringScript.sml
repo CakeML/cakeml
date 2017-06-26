@@ -42,11 +42,11 @@ val explode_thm = Q.store_thm("explode_thm[simp]",
   `explode (strlit ls) = ls`,
   rw[explode_def,SIMP_RULE std_ss [] explode_aux_thm]);
 
-val explode_implode = Q.store_thm("explode_implode",
+val explode_implode = Q.store_thm("explode_implode[simp]",
   `∀x. explode (implode x) = x`,
   rw[implode_def])
 
-val implode_explode = Q.store_thm("implode_explode",
+val implode_explode = Q.store_thm("implode_explode[simp]",
   `∀x. implode (explode x) = x`,
   Cases >> rw[implode_def])
 
@@ -71,6 +71,9 @@ val explode_BIJ = Q.store_thm("explode_BIJ",
 val LENGTH_explode = Q.store_thm("LENGTH_explode",
   `LENGTH (explode s) = strlen s`,
   Cases_on`s` \\ simp[]);
+
+val strlen_implode = Q.store_thm("strlen_implode[simp]",
+  `strlen (implode s) = LENGTH s`, EVAL_TAC);
 
 val extract_aux_def = Define`
   (extract_aux s n 0 = []) /\
@@ -274,7 +277,7 @@ val TOKENS_eq_tokens_aux = Q.store_thm("TOKENS_eq_tokens_aux",
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]
       \\ `LENGTH r = 1` by rw[]
       \\ Cases_on `TL r` >-(rw[TOKENS_def])
-      \\ `LENGTH (TL r) = 0` by fs[LENGTH_TL] \\ rfs[])
+      \\ rw[] \\ fs[])
     >-(fs[ADD1]
       \\ `x0 = implode [EL n s']` by fs[implode_explode] \\ rw[explode_implode]
       \\ rw[DROP_EL_CONS, DROP_LENGTH_TOO_LONG, TOKENS_def]
@@ -601,6 +604,11 @@ val TotOrd_compare = Q.store_thm ("TotOrd_compare",
   >- (
     fs [GSYM mlstring_lt_def, mlstring_lt_inv_image] >>
     metis_tac [string_lt_trans]));
+
+val good_cmp_compare = Q.store_thm("good_cmp_compare",
+  `good_cmp compare`,
+  match_mp_tac comparisonTheory.TotOrder_imp_good_cmp \\
+  MATCH_ACCEPT_TAC TotOrd_compare);
 
 val mlstring_lt_antisym = Q.store_thm ("mlstring_lt_antisym",
   `∀s t. ¬(s < t ∧ t < s)`,

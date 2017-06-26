@@ -62,6 +62,13 @@ val riscv_const32_def = Define`
     [ArithI (LUI (r, (31 >< 12) i));
      ArithI (ADDI (r, r, (11 >< 0) i))]`
 
+val eval = rhs o concl o EVAL
+val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
+val max12 = eval ``sw2sw (INT_MAXw: word12) : word64``
+val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
+val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
+val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
+
 val () = Parse.temp_overload_on ("temp_reg", ``31w : word5``)
 
 val riscv_ast_def = Define`
@@ -128,7 +135,12 @@ val riscv_ast_def = Define`
          INL f => [Load (f (n2w r1, n2w r2, w2w a))]
        | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
    (riscv_ast (Inst (FP _)) = riscv_encode_fail) /\
-   (riscv_ast (Jump a) = [Branch (JAL (0w, w2w (a >>> 1)))]) /\
+   (riscv_ast (Jump a) =
+      if ^min21 <= a /\ a <= ^max21 then
+         [Branch (JAL (0w, w2w (a >>> 1)))]
+      else let imm12 = (11 >< 0) a in
+         [ArithI (AUIPC (temp_reg, (31 >< 12) (a - sw2sw imm12)));
+          Branch (JALR (0w, temp_reg, (11 >< 0) a))]) /\
    (riscv_ast (JumpCmp c r1 (Reg r2) a) =
       if -0xFFCw <= a /\ a <= 0xFFFw then
         let off12 = w2w (a >>> 1) in
@@ -211,7 +223,12 @@ val riscv_ast_def = Define`
          | NotTest  => [ArithI (ANDI (temp_reg, n2w r, w2w i));
                         Branch (BEQ (temp_reg, 0w, 4w));
                         Branch (JAL (0w, off20))]) /\
-   (riscv_ast (Call a) = [Branch (JAL (1w, w2w (a >>> 1)))]) /\
+   (riscv_ast (Call a) =
+      if ^min21 <= a /\ a <= ^max21 then
+         [Branch (JAL (1w, w2w (a >>> 1)))]
+      else let imm12 = (11 >< 0) a in
+         [ArithI (AUIPC (1w, (31 >< 12) (a - sw2sw imm12)));
+          Branch (JALR (1w, 1w, (11 >< 0) a))]) /\
    (riscv_ast (JumpReg r) = [Branch (JALR (0w, n2w r, 0w))]) /\
    (riscv_ast (Loc r i) =
       let imm12 = (11 >< 0) i in
@@ -222,13 +239,6 @@ val riscv_enc_def = zDefine`
   riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast`
 
 (* --- Configuration for RISC-V --- *)
-
-val eval = rhs o concl o EVAL
-val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
-val max12 = eval ``sw2sw (INT_MAXw: word12) : word64``
-val min21 = eval ``sw2sw (INT_MINw: 21 word) : word64``
-val max21 = eval ``sw2sw (INT_MAXw: 21 word) : word64``
-val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 
 val riscv_config_def = Define`
    riscv_config =
@@ -250,7 +260,7 @@ val riscv_config_def = Define`
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
-    ; jump_offset := (^min21, ^max21)
+    ; jump_offset := (^min32, 0x7FFFF7FFw)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
     ; loc_offset := (^min32, 0x7FFFF7FFw)
     ; code_alignment := 2

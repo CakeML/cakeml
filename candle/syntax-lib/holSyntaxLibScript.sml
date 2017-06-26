@@ -1,7 +1,6 @@
 open preamble mlstringTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holSyntaxLib"
-infix \\ val op \\ = op THEN;
 
 val ALPHAVARS_def = Define`
   (ALPHAVARS [] tmp ⇔ (FST tmp = SND tmp)) ∧

@@ -8,7 +8,7 @@ cd
 git clone https://github.com/polyml/polyml
 cd polyml
 ## optionally use a branch other than master
-# git checkout fixes-5.6
+# git checkout fixes-5.7
 ./configure
 ## optionally pass an installation prefix to configure
 # ./configure --prefix=<dir>

@@ -163,6 +163,16 @@ val do_app_ok_lemma = Q.prove(
   THEN1
    (SRW_TAC [] [bv_ok_def] \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
     \\ MATCH_MP_TAC IMP_EVERY_LUPDATE \\ full_simp_tac(srw_ss())[])
+  >- (
+    rw [bv_ok_def]
+    >- fs [EVERY_MEM] >>
+    irule EVERY_TAKE >>
+    simp []
+    >- intLib.ARITH_TAC >>
+    irule EVERY_DROP
+    >- intLib.ARITH_TAC >>
+    rw [] >>
+    fs [bv_ok_def])
   THEN1
    (srw_tac[][bv_ok_def] \\ full_simp_tac(srw_ss())[state_ok_def] >>
     srw_tac[][FLOOKUP_UPDATE] >> full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >>
@@ -471,6 +481,7 @@ val evaluate_AllocGlobal_code = Q.prove(
   `n = LENGTH ls`by decide_tac >>
   `2 * (LENGTH ls + 1) = LENGTH ls + LENGTH ls + 2` by DECIDE_TAC >>
   simp[Abbr`l1`,DROP_REPLICATE,ADD1]
+  \\ rewrite_tac[GSYM REPLICATE]
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC)
 
@@ -963,7 +974,17 @@ val do_app_adjust = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[] >>srw_tac[][] >>
     srw_tac[][adjust_bv_def,bvl_to_bvi_id] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    last_x_assum(qspec_then`n`mp_tac) >> simp[])
+    last_x_assum(qspec_then`n`mp_tac) >> simp[]) >>
+  Cases_on `?tag. op = ConsExtend tag`
+  >- (
+    rw [] >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    fs [adjust_bv_def, bvlSemTheory.do_app_def] >>
+    rw [MAP_TAKE, MAP_DROP] >>
+    metis_tac [bvl_to_bvi_id])
   \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
   \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
           \\ every_case_tac \\ fs [adjust_bv_def]
@@ -1933,8 +1954,12 @@ val compile_exps_correct = Q.prove(
            simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,EL_REPLICATE] >>
            Cases >> simp[EL_REPLICATE] ) >>
          qexists_tac`z' * 2`>>simp[libTheory.the_def] >>
-         simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,REPLICATE_APPEND] >>
-         Cases >> simp[EL_REPLICATE])
+         qmatch_abbrev_tac`REPLICATE a x ++ [x] ++ REPLICATE b x = _` >>
+         `REPLICATE a x ++ [x] ++ REPLICATE b x = REPLICATE (a + SUC b) x`
+         by simp[GSYM REPLICATE_APPEND] >>
+         `a + SUC b = SUC (a + b)` by simp[] >>
+         rw[] >>
+         simp[LIST_EQ_REWRITE,Abbr`a`,Abbr`b`,LENGTH_REPLICATE,EL_REPLICATE])
     \\ Cases_on`∃str. op = String str` \\ fs[] >- (
       fs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]

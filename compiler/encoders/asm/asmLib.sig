@@ -28,6 +28,7 @@ sig
    val isShift: Term.term -> bool
    val isSkip: Term.term -> bool
    val isSubOverflow: Term.term -> bool
+   val mk_blast_thm: Term.term -> Thm.thm
    val mk_bytes_in_memory:
       Term.term * Term.term * Term.term * Term.term -> Term.term
    val print_tac : string -> string -> Tactic.tactic

@@ -1,7 +1,7 @@
 open preamble
      setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holAxiomsTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holConsistency"
 
 val mem = ``mem:'U->'U->bool``

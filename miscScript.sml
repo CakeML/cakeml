@@ -8,7 +8,7 @@ ASCIInumbersLib
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
-val _ = ParseExtras.temp_tight_equality()
+val _ = ParseExtras.tight_equality()
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
@@ -192,9 +192,8 @@ val LLOOKUP_LUPDATE = Q.store_thm("LLOOKUP_LUPDATE",
   `!xs i n x. LLOOKUP (LUPDATE x i xs) n =
                if i <> n then LLOOKUP xs n else
                if i < LENGTH xs then SOME x else NONE`,
-  Induct \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
-  \\ Cases_on `i` \\ full_simp_tac(srw_ss())[LLOOKUP_def,LUPDATE_def]
-  \\ rpt strip_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
+  Induct \\ fs[LLOOKUP_def,LUPDATE_def]
+  \\ Cases_on `i` \\ rw[LLOOKUP_def,LUPDATE_def] \\ fs[]);
 
 val _ = Datatype `
   app_list = List ('a list) | Append app_list app_list | Nil`
@@ -368,6 +367,12 @@ val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   \\ Cases_on`n = LENGTH xs`
   \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
 
+val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
+  `l1 <> [] /\ l2 <> [] ==>
+    (LIST_REL A l1 l2 <=> LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
+  map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
+  [`l1`,`l2`]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -438,8 +443,7 @@ val lookup_alist_insert = Q.store_thm("lookup_alist_insert",
     case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)`,
     ho_match_mp_tac (fetch "-" "alist_insert_ind")>>
     srw_tac[][]>-
-      (Cases_on`y`>>
-      full_simp_tac(srw_ss())[LENGTH,alist_insert_def]) >>
+      (full_simp_tac(srw_ss())[LENGTH,alist_insert_def]) >>
     Cases_on`z=x`>>
       srw_tac[][lookup_def,alist_insert_def]>>
     full_simp_tac(srw_ss())[lookup_insert])
@@ -2221,7 +2225,7 @@ val any_el_ALT = Q.store_thm(
   "any_el_ALT",
   `∀l n d. any_el n l d = if n < LENGTH l then EL n l else d`,
   Induct_on `l` >> simp[any_el_def] >> Cases_on `n` >> simp[] >> rw[] >>
-  fs[]);
+  fs[] \\ rfs[]);
 
 val MOD_MINUS = Q.store_thm("MOD_MINUS",
   `0 < p /\ 0 < k ==> (p * k - n MOD (p * k)) MOD k = (k - n MOD k) MOD k`,
@@ -2690,7 +2694,8 @@ val FIELDS_next = Q.store_thm("FIELDS_next",
   `∀ls l1 l2.
    FIELDS P ls = l1::l2 ⇒
    LENGTH l1 < LENGTH ls ⇒
-   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2`,
+   FIELDS P (DROP (SUC (LENGTH l1)) ls) = l2 ∧
+   (∃c. l1 ++ [c] ≼ ls ∧ P c)`,
   gen_tac
   \\ completeInduct_on`LENGTH ls`
   \\ ntac 4 strip_tac
@@ -2747,6 +2752,21 @@ val FIELDS_full = Q.store_thm("FIELDS_full",
   \\ `LENGTH r = 0` by decide_tac
   \\ fs[LENGTH_NIL]);
 
+val FLAT_MAP_TOKENS_FIELDS = Q.store_thm("FLAT_MAP_TOKENS_FIELDS",
+  `∀P' ls P.
+    (∀x. P' x ⇒ P x) ⇒
+     FLAT (MAP (TOKENS P) (FIELDS P' ls)) =
+     TOKENS P ls`,
+  Induct_on`FIELDS P' ls` \\ rw[] \\
+  qpat_x_assum`_ = FIELDS _ _`(assume_tac o SYM) \\
+  imp_res_tac FIELDS_next \\
+  Cases_on`LENGTH ls ≤ LENGTH h` >- (
+    imp_res_tac FIELDS_full \\ fs[] ) \\
+  fs[] \\ rw[] \\
+  fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] \\
+  `h ++ [c] ++ l  = h ++ (c::l)` by simp[] \\ pop_assum SUBST_ALL_TAC \\
+  asm_simp_tac std_ss [TOKENS_APPEND]);
+
 val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
   `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
   Cases_on`x` \\ EVAL_TAC);
@@ -2759,7 +2779,8 @@ val splitlines_def = Define`
 
 val splitlines_next = Q.store_thm("splitlines_next",
   `splitlines ls = ln::lns ⇒
-   splitlines (DROP (SUC (LENGTH ln)) ls) = lns`,
+   splitlines (DROP (SUC (LENGTH ln)) ls) = lns ∧
+   ln ≼ ls ∧ (LENGTH ln < LENGTH ls ⇒ ln ++ "\n" ≼ ls)`,
   simp[splitlines_def]
   \\ Cases_on`FIELDS ($= #"\n") ls` \\ fs[]
   \\ Cases_on`LENGTH h < LENGTH ls`
@@ -2774,7 +2795,8 @@ val splitlines_next = Q.store_thm("splitlines_next",
     \\ fs[LAST_DEF,NULL_EQ]
     \\ Cases_on`t = []` \\ fs[]
     \\ fs[FRONT_DEF]
-    \\ IF_CASES_TAC \\ fs[] )
+    \\ IF_CASES_TAC \\ fs[]
+    \\ fs[IS_PREFIX_APPEND])
   \\ fs[NOT_LESS]
   \\ imp_res_tac FIELDS_full \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
