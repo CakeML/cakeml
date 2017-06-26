@@ -12,9 +12,6 @@ val _ = temp_overload_on ("ex_return", ``st_ex_return``);
 
 val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 
-val _ = temp_overload_on ("HolRes", ``Success``);
-val _ = temp_overload_on ("HolErr", ``Failure``);
-
 val rev_assocd_thm = Q.prove(
   `rev_assocd = REV_ASSOCD`,
   SIMP_TAC std_ss [FUN_EQ_THM] \\ Induct_on `x'`
@@ -236,8 +233,8 @@ val THM_term_ok_bool = Q.prove(
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
 val can_thm = Q.prove(
-  `can f x s = case f x s of (HolRes _,s) => (HolRes T,s) |
-                              (_,s) => (HolRes F,s)`,
+  `can f x s = case f x s of (Success _,s) => (Success T,s) |
+                              (_,s) => (Success F,s)`,
   SIMP_TAC std_ss [can_def,st_ex_bind_def,otherwise_def]
   \\ Cases_on `f x s` \\ Cases_on `q`
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]);
@@ -245,8 +242,8 @@ val can_thm = Q.prove(
 val assoc_thm = Q.prove(
   `!xs y z s s'.
       (assoc y xs s = (z, s')) ==>
-      (s' = s) /\ (!i. (z = HolRes i) ==> MEM (y,i) xs) /\
-                  (!e. (z = HolErr e) ==> !i. ~MEM (y,i) xs)`,
+      (s' = s) /\ (!i. (z = Success i) ==> MEM (y,i) xs) /\
+                  (!e. (z = Failure e) ==> !i. ~MEM (y,i) xs)`,
   Induct \\ SIMP_TAC (srw_ss()) [Once assoc_def,failwith_def]
   \\ Cases \\ SIMP_TAC (srw_ss()) [] \\ STRIP_TAC
   \\ Cases_on `y = q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
@@ -255,8 +252,8 @@ val assoc_thm = Q.prove(
 val get_type_arity_thm = Q.prove(
   `!name s z s'.
       (get_type_arity name s = (z,s')) ==> (s' = s) /\
-      (!i. (z = HolRes i) ==> MEM (name,i) s.the_type_constants) /\
-      (!e. (z = HolErr e) ==> !i. ~MEM (name,i) s.the_type_constants)`,
+      (!i. (z = Success i) ==> MEM (name,i) s.the_type_constants) /\
+      (!e. (z = Failure e) ==> !i. ~MEM (name,i) s.the_type_constants)`,
   SIMP_TAC (srw_ss()) [get_type_arity_def,st_ex_bind_def,
     get_the_type_constants_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC assoc_thm);
@@ -271,8 +268,8 @@ val mk_type_thm = Q.store_thm("mk_type_thm",
   `!tyop args s z s'.
       STATE defs s /\ EVERY (TYPE defs) args /\
       (mk_type (tyop,args) s = (z,s')) ==> (s' = s) /\
-      ((tyop = (strlit "fun")) /\ (LENGTH args = 2) ==> ?i. z = HolRes i) /\
-      !i. (z = HolRes i) ==> TYPE defs i /\ (i = Tyapp tyop args)`,
+      ((tyop = (strlit "fun")) /\ (LENGTH args = 2) ==> ?i. z = Success i) /\
+      !i. (z = Success i) ==> TYPE defs i /\ (i = Tyapp tyop args)`,
   SIMP_TAC std_ss [mk_type_def,try_def,st_ex_bind_def,otherwise_def]
   \\ NTAC 3 STRIP_TAC \\ Cases_on `get_type_arity tyop s`
   \\ IMP_RES_TAC get_type_arity_thm
@@ -285,7 +282,7 @@ val dest_type_thm = Q.store_thm("dest_type_thm",
   `!ty s z s'.
       STATE defs s /\
       (dest_type ty s = (z,s')) /\ TYPE defs ty ==> (s' = s) /\
-      !i. (z = HolRes i) ==> ?n tys. (ty = Tyapp n tys) /\ (i = (n,tys)) /\
+      !i. (z = Success i) ==> ?n tys. (ty = Tyapp n tys) /\ (i = (n,tys)) /\
                                      EVERY (TYPE defs) tys`,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [dest_type_def,failwith_def,st_ex_return_def]
   \\ FULL_SIMP_TAC std_ss [TYPE_def,EVERY_MEM] \\ SRW_TAC [] []
@@ -294,7 +291,7 @@ val dest_type_thm = Q.store_thm("dest_type_thm",
 val dest_vartype_thm = Q.store_thm("dest_vartype_thm",
   `!ty s z s'.
       (dest_vartype ty s = (z,s')) ==> (s' = s) /\
-      !i. (z = HolRes i) ==> (ty = Tyvar i)`,
+      !i. (z = Success i) ==> (ty = Tyvar i)`,
   Cases \\ FULL_SIMP_TAC (srw_ss())
     [dest_vartype_def,failwith_def,st_ex_return_def]);
 
@@ -340,7 +337,7 @@ val mk_fun_ty_thm = Q.store_thm("mk_fun_ty_thm",
   `!ty1 ty2 s z s'.
       STATE defs s /\ EVERY (TYPE defs) [ty1;ty2] /\
       (mk_fun_ty ty1 ty2 s = (z,s')) ==> (s' = s) /\
-      ?i. (z = HolRes i) /\ (i = Tyapp (strlit "fun") [ty1;ty2]) /\ TYPE defs i`,
+      ?i. (z = Success i) /\ (i = Tyapp (strlit "fun") [ty1;ty2]) /\ TYPE defs i`,
   SIMP_TAC std_ss [mk_fun_ty_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC mk_type_thm \\ FULL_SIMP_TAC (srw_ss()) []);
 
@@ -353,8 +350,8 @@ val _ = temp_overload_on("aty",``(Tyvar (strlit "A")):type``);
 val get_const_type_thm = Q.prove(
   `!name s z s'.
       (get_const_type name s = (z,s')) ==> (s' = s) /\
-      (!i. (z = HolRes i) ==> MEM (name,i) s.the_term_constants) /\
-      (!e. (z = HolErr e) ==> !i. ~(MEM (name,i) s.the_term_constants))`,
+      (!i. (z = Success i) ==> MEM (name,i) s.the_term_constants) /\
+      (!e. (z = Failure e) ==> !i. ~(MEM (name,i) s.the_term_constants))`,
   SIMP_TAC (srw_ss()) [get_const_type_def,st_ex_bind_def,
     get_the_term_constants_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC assoc_thm);
@@ -386,7 +383,7 @@ val term_type = Q.prove(
 
 val type_of_thm = Q.prove(
   `!tm. TERM defs tm /\ STATE defs s ==>
-         (type_of tm s = (HolRes (term_type tm),s))`,
+         (type_of tm s = (Success (term_type tm),s))`,
   HO_MATCH_MP_TAC type_of_ind \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ `CONTEXT defs` by fs[STATE_def]
@@ -480,7 +477,7 @@ val mk_var_thm = Q.store_thm("mk_var_thm",
 val mk_abs_thm = Q.store_thm("mk_abs_thm",
   `!res.
       TERM defs bvar /\ TERM defs bod /\ (mk_abs(bvar,bod) s = (res,s1)) ==>
-      (s1 = s) /\ !t. (res = HolRes t) ==> TERM defs t /\ (t = Abs bvar bod)`,
+      (s1 = s) /\ !t. (res = Success t) ==> TERM defs t /\ (t = Abs bvar bod)`,
   FULL_SIMP_TAC std_ss [mk_abs_def] \\ Cases_on `bvar`
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def,failwith_def,IMP_TERM_Abs]);
 
@@ -488,8 +485,8 @@ val mk_comb_thm = Q.prove(
   `TERM defs f /\ TERM defs a /\ STATE defs s /\
     (mk_comb(f,a)s = (res,s1)) ==>
     (s1 = s) /\
-    (!t. (res = HolErr t) ==> !ty. term_type f <> Fun (term_type a) ty) /\
-    !t. (res = HolRes t) ==> TERM defs t /\ (t = Comb f a)`,
+    (!t. (res = Failure t) ==> !ty. term_type f <> Fun (term_type a) ty) /\
+    !t. (res = Success t) ==> TERM defs t /\ (t = Comb f a)`,
   SIMP_TAC std_ss [mk_comb_def,st_ex_bind_def] \\ STRIP_TAC
   \\ MP_TAC (type_of_thm |> SIMP_RULE std_ss [] |> Q.SPEC `f`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
@@ -510,7 +507,7 @@ val mk_comb_thm = Q.prove(
 val dest_var_thm = Q.store_thm("dest_var_thm",
   `TERM defs v /\ STATE defs s ==>
     (dest_var v s = (res,s')) ==>
-    (s' = s) /\ !n ty. (res = HolRes (n,ty)) ==> TYPE defs ty`,
+    (s' = s) /\ !n ty. (res = Success (n,ty)) ==> TYPE defs ty`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [holKernelTheory.dest_var_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
@@ -518,7 +515,7 @@ val dest_var_thm = Q.store_thm("dest_var_thm",
 val dest_const_thm = Q.store_thm("dest_const_thm",
   `TERM defs v /\ STATE defs s ==>
     (dest_const v s = (res,s')) ==>
-    (s' = s) /\ !n ty. (res = HolRes (n,ty)) ==> TYPE defs ty`,
+    (s' = s) /\ !n ty. (res = Success (n,ty)) ==> TYPE defs ty`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [dest_const_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
@@ -526,7 +523,7 @@ val dest_const_thm = Q.store_thm("dest_const_thm",
 val dest_comb_thm = Q.store_thm("dest_comb_thm",
   `TERM defs v /\ STATE defs s ==>
     (dest_comb v s = (res,s')) ==>
-    (s' = s) /\ !x y. (res = HolRes (x,y)) ==> TERM defs x /\ TERM defs y`,
+    (s' = s) /\ !x y. (res = Success (x,y)) ==> TERM defs x /\ TERM defs y`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [dest_comb_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
@@ -534,7 +531,7 @@ val dest_comb_thm = Q.store_thm("dest_comb_thm",
 val dest_abs_thm = Q.store_thm("dest_abs_thm",
   `TERM defs v /\ STATE defs s ==>
     (dest_abs v s = (res,s')) ==>
-    (s' = s) /\ !x y. (res = HolRes (x,y)) ==> TERM defs x /\ TERM defs y`,
+    (s' = s) /\ !x y. (res = Success (x,y)) ==> TERM defs x /\ TERM defs y`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [dest_abs_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
@@ -544,7 +541,7 @@ val dest_abs_thm = Q.store_thm("dest_abs_thm",
 val rator_thm = Q.store_thm("rator_thm",
   `TERM defs v /\ STATE defs s ==>
     (rator v s = (res,s')) ==>
-    (s' = s) /\ !x. (res = HolRes x) ==> TERM defs x`,
+    (s' = s) /\ !x. (res = Success x) ==> TERM defs x`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [rator_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
@@ -552,7 +549,7 @@ val rator_thm = Q.store_thm("rator_thm",
 val rand_thm = Q.store_thm("rand_thm",
   `TERM defs v /\ STATE defs s ==>
     (rand v s = (res,s')) ==>
-    (s' = s) /\ !x. (res = HolRes x) ==> TERM defs x`,
+    (s' = s) /\ !x. (res = Success x) ==> TERM defs x`,
   Cases_on `v`
   \\ SIMP_TAC (srw_ss()) [rand_def,st_ex_return_def,Once EQ_SYM_EQ,failwith_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM);
@@ -601,7 +598,7 @@ val mk_const_thm = Q.store_thm("mk_const_thm",
   `!name theta s z s'.
       STATE defs s /\ EVERY (\(x,y). TYPE defs x /\ TYPE defs y) theta /\
       (mk_const (name,theta) s = (z,s')) ==> (s' = s) /\
-      !i. (z = HolRes i) ==> TERM defs i`,
+      !i. (z = Success i) ==> TERM defs i`,
   SIMP_TAC std_ss [mk_const_def,try_def,st_ex_bind_def,otherwise_def]
   \\ NTAC 3 STRIP_TAC \\ Cases_on `get_const_type name s`
   \\ IMP_RES_TAC get_const_type_thm
@@ -613,7 +610,7 @@ val mk_const_thm = Q.store_thm("mk_const_thm",
 
 val get_const_type_Equal = Q.prove(
   `STATE defs s ==>
-    (get_const_type (strlit "=") s = (HolRes (Fun aty (Fun aty Bool)),s))`,
+    (get_const_type (strlit "=") s = (Success (Fun aty (Fun aty Bool)),s))`,
   SIMP_TAC std_ss [STATE_def]
   \\ Cases_on `get_const_type (strlit "=") s`
   \\ IMP_RES_TAC get_const_type_thm \\ REPEAT STRIP_TAC >>
@@ -630,7 +627,7 @@ val get_const_type_Equal = Q.prove(
 val mk_const_eq = Q.prove(
   `STATE defs s ==>
     (mk_const ((strlit "="),[]) s =
-     (HolRes (Const (strlit "=") (Fun aty (Fun aty Bool))),s))`,
+     (Success (Const (strlit "=") (Fun aty (Fun aty Bool))),s))`,
   SIMP_TAC std_ss [mk_const_def,st_ex_bind_def,try_def,otherwise_def]
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_const_type_Equal
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
@@ -649,8 +646,8 @@ val mk_eq_thm = Q.store_thm("mk_eq_thm",
   `TERM defs x /\ TERM defs y /\ STATE defs s ==>
     (mk_eq(x,y)s = (res,s')) ==>
     (s' = s) /\
-    (!t. (res = HolErr t) ==> ((term_type x) <> (term_type y))) /\
-    !t. (res = HolRes t) ==>
+    (!t. (res = Failure t) ==> ((term_type x) <> (term_type y))) /\
+    !t. (res = Success t) ==>
     (t = Comb (Comb (Const (strlit "=") (Fun (term_type x)
                                (Fun (term_type x) Bool))) x) y) /\
     TERM defs t`,
@@ -679,7 +676,7 @@ val mk_eq_thm = Q.store_thm("mk_eq_thm",
   \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [failwith_def] THEN1
    (Q.UNABBREV_TAC `eq` \\ FULL_SIMP_TAC std_ss [mk_comb_def,st_ex_bind_def]
     \\ IMP_RES_TAC (Q.SPEC `y` type_of_thm)
-    \\ Q.PAT_X_ASSUM `type_of x s = (HolRes (term_type x),s)` ASSUME_TAC
+    \\ Q.PAT_X_ASSUM `type_of x s = (Success (term_type x),s)` ASSUME_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const (strlit "=") ty)``,st_ex_return_def])
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `mk_comb (Comb eq x,y) s`
@@ -690,7 +687,7 @@ val mk_eq_thm = Q.store_thm("mk_eq_thm",
   \\ FULL_SIMP_TAC std_ss []
   \\ Q.UNABBREV_TAC `eq` \\ FULL_SIMP_TAC std_ss [mk_comb_def,st_ex_bind_def]
   \\ IMP_RES_TAC (Q.SPEC `y` type_of_thm)
-  \\ Q.PAT_X_ASSUM `type_of x s = (HolRes (term_type x),s)` ASSUME_TAC
+  \\ Q.PAT_X_ASSUM `type_of x s = (Success (term_type x),s)` ASSUME_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``term_type (Const (strlit "=") ty)``,st_ex_return_def,
          ``term_type (Comb x y)`` |> SIMP_CONV (srw_ss()) [Once term_type_def],
          ``type_of (Comb x y)`` |> SIMP_CONV (srw_ss()) [Once type_of_def],
@@ -736,7 +733,7 @@ val Equal_type_IMP = Q.prove(
 
 val dest_eq_thm = Q.store_thm("dest_eq_thm",
   `TERM defs tm /\ STATE defs s /\ (dest_eq tm s = (res, s')) ==>
-    (s' = s) /\ !t1 t2. (res = HolRes (t1,t2)) ==> TERM defs t1 /\ TERM defs t2 /\
+    (s' = s) /\ !t1 t2. (res = Success (t1,t2)) ==> TERM defs t1 /\ TERM defs t2 /\
     (tm = Comb (Comb (Equal (typeof t1)) t1) t2)`,
   ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ SIMP_TAC std_ss [dest_eq_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -959,7 +956,7 @@ val vsubst_aux_thm = Q.prove(
 val forall_thm = Q.prove(
   `!f s (xs:(term # term) list). (forall f xs s = (res,s')) ==>
     (!x. ?r. f x s = (r,s)) ==>
-    (s' = s) /\ ((res = HolRes T) ==> EVERY (\x. FST (f x s) = HolRes T) xs)`,
+    (s' = s) /\ ((res = Success T) ==> EVERY (\x. FST (f x s) = Success T) xs)`,
   STRIP_TAC \\ STRIP_TAC
   \\ Induct \\ ASM_SIMP_TAC (srw_ss()) [Once forall_def,st_ex_return_def,st_ex_bind_def]
   \\ STRIP_TAC \\ Cases_on `f h s` \\ SIMP_TAC std_ss [Once EQ_SYM_EQ]
@@ -999,7 +996,7 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
   `EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (vsubst theta tm s = (res, s')) ==>
-    (s' = s) /\ !t. (res = HolRes t) ==> TERM defs t /\
+    (s' = s) /\ !t. (res = Success t) ==> TERM defs t /\
     (t = VSUBST  theta tm) /\
     (EVERY (\(p_1,p_2). ?x ty. (p_2 = Var x ty) /\
                                (p_1) has_type ty) theta)`,
@@ -1008,11 +1005,11 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
   \\ FULL_SIMP_TAC (srw_ss()) [MAP,VSUBST_EMPTY,st_ex_return_def,st_ex_bind_def]
   \\ Q.PAT_ABBREV_TAC `test = (\(t,x) state.
         case type_of t state of
-          (HolRes ty,state) =>
+          (Success ty,state) =>
             (case dest_var x state of
-               (HolRes vty,state) => (HolRes (ty = SND vty),state)
-             | (HolErr e,state) => (HolErr e,state))
-        | (HolErr e,state) => (HolErr e,state))`
+               (Success vty,state) => (Success (ty = SND vty),state)
+             | (Failure e,state) => (Failure e,state))
+        | (Failure e,state) => (Failure e,state))`
   \\ Cases_on `forall test theta s`
   \\ MP_TAC (forall_thm |> ISPECL [``test : term # term -> bool M``,``s : hol_refs``,``theta : (term, term) alist``] |> Q.GENL [`res`,`s'`])
   \\ FULL_SIMP_TAC std_ss []
@@ -1052,7 +1049,7 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
 
 val inst_aux_Var = Q.prove(
   `inst_aux [] theta (Var v ty) state =
-      (HolRes (Var v (type_subst theta ty)),state)`,
+      (Success (Var v (type_subst theta ty)),state)`,
   SIMP_TAC (srw_ss()) [Once inst_aux_def,rev_assocd_thm,REV_ASSOCD,
        LET_DEF,st_ex_return_def] \\ METIS_TAC []);
 
@@ -1075,9 +1072,9 @@ val inst_aux_thm = Q.prove(
       (inst_aux env theta tm s = (res, s')) ==>
       STATE defs s' /\
       case res of
-      | HolRes t => (INST_CORE env theta tm = Result t)
-      | HolErr (Fail _) => T
-      | HolErr (Clash v) => (INST_CORE env theta tm = Clash v)`,
+      | Success t => (INST_CORE env theta tm = Result t)
+      | Failure (Fail _) => T
+      | Failure (Clash v) => (INST_CORE env theta tm = Clash v)`,
   HO_MATCH_MP_TAC inst_aux_ind \\ NTAC 4 STRIP_TAC \\ Cases_on `tm`
   \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1097,7 +1094,7 @@ val inst_aux_thm = Q.prove(
   THEN1
    (ONCE_REWRITE_TAC [inst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def]
     \\ NTAC 4 STRIP_TAC
-    \\ sg `(res = HolRes (Const m (type_subst theta t))) /\ (s = s')`
+    \\ sg `(res = Success (Const m (type_subst theta t))) /\ (s = s')`
     THEN1 (Cases_on `type_subst theta t = t` \\ FULL_SIMP_TAC std_ss [])
     \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SIMP_TAC std_ss [INST_CORE_def,type_subst_thm])
@@ -1106,7 +1103,7 @@ val inst_aux_thm = Q.prove(
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def]
     \\ NTAC 4 STRIP_TAC \\ Cases_on `inst_aux env theta t s`
     \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Q.PAT_X_ASSUM `HolErr xx = res` (ASSUME_TAC o GSYM)
+     (Q.PAT_X_ASSUM `Failure xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ ONCE_REWRITE_TAC [INST_CORE_def] \\ IMP_RES_TAC TERM
       \\ FULL_SIMP_TAC std_ss []
@@ -1115,7 +1112,7 @@ val inst_aux_thm = Q.prove(
       \\ BasicProvers.CASE_TAC \\ simp[])
     \\ Cases_on `inst_aux env theta t0 r`
     \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Q.PAT_X_ASSUM `HolErr xx = res` (ASSUME_TAC o GSYM)
+     (Q.PAT_X_ASSUM `Failure xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ ONCE_REWRITE_TAC [INST_CORE_def] \\ IMP_RES_TAC TERM
       \\ FULL_SIMP_TAC std_ss []
@@ -1125,7 +1122,7 @@ val inst_aux_thm = Q.prove(
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def,LET_THM]
       \\ BasicProvers.CASE_TAC >> simp[])
     THEN1
-     (Q.PAT_X_ASSUM `HolRes xx = res` (ASSUME_TAC o GSYM)
+     (Q.PAT_X_ASSUM `Success xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ ONCE_REWRITE_TAC [INST_CORE_def] \\ IMP_RES_TAC TERM
       \\ FULL_SIMP_TAC std_ss []
@@ -1183,7 +1180,7 @@ val inst_aux_thm = Q.prove(
     \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss [result_distinct]
     \\ rw[] >> rw[] >> BasicProvers.CASE_TAC >> fs[])
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `inst_aux [] theta h0 r = (HolRes a,r1)`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `inst_aux [] theta h0 r = (Success a,r1)`
   \\ sg `(variant (frees a) (Var v (type_subst theta ty))) =
       Var fresh_name (type_subst theta ty)` THEN1
    (FULL_SIMP_TAC std_ss [GSYM type_subst_thm,RESULT_def]
@@ -1243,7 +1240,7 @@ val inst_lemma = Q.prove(
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ !t. (res = HolRes t) ==>
+    STATE defs s' /\ !t. (res = Success t) ==>
     (t = INST theta (tm))`,
   SIMP_TAC std_ss [INST_def,inst_def] \\ Cases_on `theta = []`
   \\ ASM_SIMP_TAC std_ss [MAP,EVERY_DEF,st_ex_return_def] THEN1
@@ -1272,7 +1269,7 @@ val inst_thm = Q.store_thm("inst_thm",
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
-    STATE defs s' /\ !t. (res = HolRes t) ==> TERM defs t /\
+    STATE defs s' /\ !t. (res = Success t) ==> TERM defs t /\
     (t = INST theta (tm))`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC inst_lemma
   \\ FULL_SIMP_TAC std_ss [TERM_def] >> imp_res_tac term_ok_welltyped
@@ -1382,7 +1379,7 @@ val concl_thm = Q.store_thm("concl_thm",
 
 val REFL_thm = Q.store_thm("REFL_thm",
   `TERM defs tm /\ STATE defs s /\ (REFL tm s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   SIMP_TAC std_ss [REFL_def,st_ex_bind_def] \\ Cases_on `mk_eq(tm,tm) s`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC mk_eq_thm
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
@@ -1398,7 +1395,7 @@ val REFL_thm = Q.store_thm("REFL_thm",
 val TRANS_thm = Q.store_thm("TRANS_thm",
   `THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (TRANS th1 th2 s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [TRANS_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -1431,7 +1428,7 @@ val TRANS_thm = Q.store_thm("TRANS_thm",
 val SYM_thm = Q.store_thm("SYM_thm",
   `THM defs th /\ STATE defs s /\
     (SYM th s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on`th`>>rw[EQ_SYM_EQ]>>fs[SYM_def]>>
   every_case_tac >> fs[failwith_def,st_ex_return_def] >>
   fs[THM_def] >> rw[] >>
@@ -1446,7 +1443,7 @@ val SYM_thm = Q.store_thm("SYM_thm",
 val PROVE_HYP_thm = Q.store_thm("PROVE_HYP_thm",
   `THM defs th1 ∧ THM defs th2 ∧ STATE defs s ∧
    (PROVE_HYP th1 th2 s = (res, s')) ⇒
-   (s' = s) ∧ ∀th. (res = HolRes th) ⇒ THM defs th`,
+   (s' = s) ∧ ∀th. (res = Success th) ⇒ THM defs th`,
   Cases_on`th1`>>Cases_on`th2`>>rw[EQ_SYM_EQ]>>
   fs[PROVE_HYP_def,st_ex_return_def,THM_def]>>
   match_mp_tac proveHyp >> rw[]);
@@ -1454,7 +1451,7 @@ val PROVE_HYP_thm = Q.store_thm("PROVE_HYP_thm",
 val map_type_of = Q.prove(
   `∀ls s r s'.
       EVERY (TERM defs) ls ∧ STATE defs s ∧
-      (map type_of ls s = (HolRes r,s')) ⇒
+      (map type_of ls s = (Success r,s')) ⇒
       (s' = s) ∧
       (r = MAP term_type ls)`,
   Induct >> simp[Once map_def] >- (
@@ -1487,7 +1484,7 @@ val MEM_list_to_hypset_imp = Q.store_thm("MEM_list_to_hypset_imp",
 val ALPHA_THM_thm = Q.store_thm("ALPHA_THM_thm",
   `THM defs th ∧ EVERY (TERM defs) h ∧ TERM defs c ∧ STATE defs s ∧
    (ALPHA_THM th (h,c) s = (res,s')) ⇒
-   (s' = s) ∧ ∀th. (res = HolRes th) ⇒ THM defs th`,
+   (s' = s) ∧ ∀th. (res = Success th) ⇒ THM defs th`,
   Cases_on`th`>>simp[ALPHA_THM_def]>>
   IF_CASES_TAC>>strip_tac>>fs[failwith_def]>>
   rpt var_eq_tac >> simp[] >>
@@ -1530,7 +1527,7 @@ val ALPHA_THM_thm = Q.store_thm("ALPHA_THM_thm",
 val MK_COMB_thm = Q.store_thm("MK_COMB_thm",
   `THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (MK_COMB (th1,th2) s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [MK_COMB_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -1574,7 +1571,7 @@ val MK_COMB_thm = Q.store_thm("MK_COMB_thm",
 val ABS_thm = Q.store_thm("ABS_thm",
   `TERM defs tm /\ THM defs th1 /\ STATE defs s /\
     (ABS tm th1 s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ SIMP_TAC std_ss [ABS_def] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ Cases_on `t'` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
@@ -1629,7 +1626,7 @@ val ABS_thm = Q.store_thm("ABS_thm",
 val BETA_thm = Q.store_thm("BETA_thm",
   `TERM defs tm /\ STATE defs s /\
     (BETA tm s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   SIMP_TAC std_ss [BETA_def] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ Cases_on `tm` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) [failwith_def]
@@ -1659,7 +1656,7 @@ val BETA_thm = Q.store_thm("BETA_thm",
 val ASSUME_thm = Q.store_thm("ASSUME_thm",
   `TERM defs tm /\ STATE defs s /\
     (ASSUME tm s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   SIMP_TAC std_ss [ASSUME_def] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ STRIP_TAC \\ MP_TAC (type_of_thm |> Q.SPEC `tm`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
@@ -1684,7 +1681,7 @@ val ASSUME_thm = Q.store_thm("ASSUME_thm",
 val EQ_MP_thm = Q.store_thm("EQ_MP_thm",
   `THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (EQ_MP th1 th2 s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [EQ_MP_def]
   \\ BasicProvers.EVERY_CASE_TAC
@@ -1709,7 +1706,7 @@ val EQ_MP_thm = Q.store_thm("EQ_MP_thm",
 val DEDUCT_ANTISYM_RULE_thm = Q.store_thm("DEDUCT_ANTISYM_RULE_thm",
   `THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (DEDUCT_ANTISYM_RULE th1 th2 s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [DEDUCT_ANTISYM_RULE_def,LET_DEF,st_ex_bind_def]
   \\ Cases_on `mk_eq (t,t') s` \\ STRIP_TAC
@@ -1737,8 +1734,8 @@ val image_lemma = Q.prove(
       (image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ∃r s'. ((f x s = (r,s'))) ∧ STATE defs s' ∧
-                            (∀t. (r = HolRes t) ⇒ (t = g x))) l ⇒
-      STATE defs s' ∧ ∀ts. (res = HolRes ts) ⇒ (ts = term_image g l)`,
+                            (∀t. (r = Success t) ⇒ (t = g x))) l ⇒
+      STATE defs s' ∧ ∀ts. (res = Success ts) ⇒ (ts = term_image g l)`,
   gen_tac >> Induct >> simp[Once image_def] >- (
     simp[st_ex_return_def,Once term_image_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
@@ -1757,7 +1754,7 @@ val INST_TYPE_thm = Q.store_thm("INST_TYPE_thm",
   `EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     THM defs th1 /\ STATE defs s /\
     (INST_TYPE theta th1 s = (res, s')) ==>
-    STATE defs s' /\ !th. (res = HolRes th) ==> THM defs th`,
+    STATE defs s' /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [INST_TYPE_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
@@ -1788,8 +1785,8 @@ val image_lemma = Q.prove(
       (image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ∃r s'. ((f x s = (r,s))) ∧
-                            (∀t. (r = HolRes t) ⇒ (t = g x))) l ⇒
-      (s' = s) ∧ ∀ts. (res = HolRes ts) ⇒ (ts = term_image g l)`,
+                            (∀t. (r = Success t) ⇒ (t = g x))) l ⇒
+      (s' = s) ∧ ∀ts. (res = Success ts) ⇒ (ts = term_image g l)`,
   gen_tac >> Induct >> simp[Once image_def] >- (
     simp[st_ex_return_def,Once term_image_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
@@ -1808,7 +1805,7 @@ val INST_thm = Q.store_thm("INST_thm",
   `EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2) theta /\
     THM defs th1 /\ STATE defs s /\
     (INST theta th1 s = (res, s')) ==>
-    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th`,
+    (s' = s) /\ !th. (res = Success th) ==> THM defs th`,
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [holKernelTheory.INST_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
@@ -1877,10 +1874,10 @@ val first_dup_SOME = Q.prove(
 
 val add_constants_thm = Q.prove(
   `∀ls s res s'. (add_constants ls s = (res,s')) ⇒
-      (∀u. (res = HolRes u) ∧ ALL_DISTINCT (MAP FST s.the_term_constants) ⇒
+      (∀u. (res = Success u) ∧ ALL_DISTINCT (MAP FST s.the_term_constants) ⇒
            ALL_DISTINCT (MAP FST ls ++ MAP FST s.the_term_constants) ∧
            (s' = s with the_term_constants := ls++s.the_term_constants)) ∧
-      (∀msg. (res = HolErr msg) ⇒ (s' = s) ∧ (¬ALL_DISTINCT (MAP FST ls ++ MAP FST s.the_term_constants)))`,
+      (∀msg. (res = Failure msg) ⇒ (s' = s) ∧ (¬ALL_DISTINCT (MAP FST ls ++ MAP FST s.the_term_constants)))`,
   simp_tac std_ss [add_constants_def,GSYM STRCAT_SHADOW_def] >>
   simp[st_ex_bind_def,get_the_term_constants_def] >>
   rpt gen_tac >>
@@ -1897,8 +1894,8 @@ val add_constants_thm = Q.prove(
 val new_specification_thm = Q.store_thm("new_specification_thm",
   `THM defs th /\ STATE defs s ==>
     case new_specification th s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes th, s') => (?d. THM (d::defs) th /\
+    | (Failure exn, s') => (s' = s)
+    | (Success th, s') => (?d. THM (d::defs) th /\
                               STATE (d::defs) s')`,
   Cases_on`th` >>
   simp_tac std_ss [new_specification_def,GSYM STRCAT_SHADOW_def] >>
@@ -1909,7 +1906,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     match_mp_tac THM_term_ok_bool >> fs[STATE_def]) >>
   `∀l defs s s'.
     STATE defs s ∧ EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) l
-    ⇒ (∀res. (map f l s = (HolRes res,s')) ⇒
+    ⇒ (∀res. (map f l s = (Success res,s')) ⇒
      (s' = s) ∧
      LIST_REL
        (λe ((s,ty),t).
@@ -1917,7 +1914,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
          CLOSED t ∧ (∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t))) ∧
          term_ok (sigof (defs)) t ∧ type_ok (tysof (defs)) ty)
        l res) ∧
-     (∀msg. (map f l s = (HolErr msg,s')) ⇒ (s' = s))` by (
+     (∀msg. (map f l s = (Failure msg,s')) ⇒ (s' = s))` by (
     pop_assum kall_tac >> pop_assum mp_tac >> ntac 2 (pop_assum kall_tac) >> strip_tac >>
     Induct >- simp[map_def,st_ex_return_def] >>
     simp[Once map_def,st_ex_bind_def] >>
@@ -1931,15 +1928,15 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
       Cases_on`dest_eq tm s`>>simp[]>>
       `TERM defs tm` by simp[TERM_def] >>
       Cases_on`q'`>>simp[]>>
-      qmatch_assum_rename_tac`dest_eq tm s = (HolRes q',_)` >>
+      qmatch_assum_rename_tac`dest_eq tm s = (Success q',_)` >>
       Cases_on`q'`>>simp[] >> strip_tac >>
       BasicProvers.VAR_EQ_TAC >>
       BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)` >>
+      qmatch_assum_rename_tac`dest_eq tm s = (Success(v,t),s)` >>
       MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
       Cases_on`dest_var v s`>>simp[]>>
       Cases_on`q'`>>simp[]>>
-      qmatch_assum_rename_tac`dest_var v s = (HolRes q',_)`>>
+      qmatch_assum_rename_tac`dest_var v s = (Success q',_)`>>
       Cases_on`q'`>>simp[] >> strip_tac >>
       BasicProvers.CASE_TAC >>
       BasicProvers.CASE_TAC >>
@@ -1965,14 +1962,14 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     Cases_on`dest_eq tm s`>>simp[]>>
     Cases_on`q`>>rfs[]>>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`dest_eq tm s = (HolRes q,_)` >>
+    qmatch_assum_rename_tac`dest_eq tm s = (Success q,_)` >>
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
-    qmatch_assum_rename_tac`dest_eq _ s = (HolRes(v,t),s)` >>
+    qmatch_assum_rename_tac`dest_eq _ s = (Success(v,t),s)` >>
     MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
     Cases_on`dest_var v s`>>simp[]>>
     Cases_on`q`>>simp[]>>
-    qmatch_assum_rename_tac`dest_var v s = (HolRes q,_)`>>
+    qmatch_assum_rename_tac`dest_var v s = (Success q,_)`>>
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     BasicProvers.CASE_TAC>>
@@ -2131,8 +2128,8 @@ val _ = delete_const"STRCAT_SHADOW"
 val new_basic_definition_thm = Q.store_thm("new_basic_definition_thm",
   `TERM defs tm /\ STATE defs s ==>
     case new_basic_definition tm s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes th, s') => (?d. THM (d::defs) th /\
+    | (Failure exn, s') => (s' = s)
+    | (Success th, s') => (?d. THM (d::defs) th /\
                               STATE (d::defs) s')`,
   rw[] >>
   simp[new_basic_definition_def,st_ex_bind_def] >>
@@ -2144,8 +2141,8 @@ val new_basic_definition_thm = Q.store_thm("new_basic_definition_thm",
 val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   `THM defs th /\ STATE defs s ==>
     case new_basic_type_definition tyname absname repname th s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes (th1,th2), s') =>
+    | (Failure exn, s') => (s' = s)
+    | (Success (th1,th2), s') =>
       (?ds. THM (ds++defs) th1 /\ THM (ds++defs) th2 /\
             STATE (ds++defs) s')`,
   Cases_on `th` \\ SIMP_TAC (srw_ss())
@@ -2179,12 +2176,12 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   simp[Once st_ex_bind_def,set_the_type_constants_def] >>
   Q.PAT_ABBREV_TAC `s1 = (s with
       <|the_type_constants := Y::s.the_type_constants|>)` >>
-  `get_type_arity tyname s1 = (HolRes (LENGTH vs), s1)` by (
+  `get_type_arity tyname s1 = (Success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
     EVAL_TAC ) >>
   simp[mk_type_def,try_def,otherwise_def,failwith_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[mk_fun_ty_def] >>
-  `get_type_arity (strlit "fun") s1 = (HolRes 2, s1)` by (
+  `get_type_arity (strlit "fun") s1 = (Success 2, s1)` by (
     qspecl_then[`(strlit "fun")`,`s1`]mp_tac get_type_arity_thm >>
     Cases_on`get_type_arity (strlit "fun") s1`>>simp[] >>strip_tac >>
     qunabbrev_tac`s1` >> fs[STATE_def] >>
@@ -2233,14 +2230,14 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
         ,MAP_MAP_o,combinTheory.o_DEF,ETA_AX] >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
-  `mk_const (repname,[]) s2 = (HolRes (Const repname repty), s2)` by (
+  `mk_const (repname,[]) s2 = (Success (Const repname repty), s2)` by (
     simp[Abbr`s2`,Abbr`s1`,Abbr`l1`] >>
     simp[mk_const_def,st_ex_bind_def,try_def,get_const_type_def
         ,get_the_term_constants_def,failwith_def,otherwise_def] >>
     simp[Once assoc_def,st_ex_return_def] >>
     simp[Once assoc_def,st_ex_return_def] >>
     simp[type_subst_EMPTY] ) >>
-  `mk_const (absname,[]) s2 = (HolRes (Const absname absty), s2)` by (
+  `mk_const (absname,[]) s2 = (Success (Const absname absty), s2)` by (
     simp[Abbr`s2`,Abbr`s1`,Abbr`l1`] >>
     simp[mk_const_def,st_ex_bind_def,try_def,get_const_type_def
         ,get_the_term_constants_def,failwith_def,otherwise_def] >>
@@ -2321,7 +2318,7 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
     simp[MEM_MAP,EXISTS_PROD] >>
     simp[FAPPLY_FUPDATE_THM] >>
     rw[] >> METIS_TAC[]) >>
-  `mk_comb (P,Var (strlit "r") (term_type x)) s2 = (HolRes (Comb P (Var (strlit "r") (term_type x))), s2)` by (
+  `mk_comb (P,Var (strlit "r") (term_type x)) s2 = (Success (Comb P (Var (strlit "r") (term_type x))), s2)` by (
     Cases_on`mk_comb (P,Var (strlit "r") (term_type x)) s2` >>
     MP_TAC (mk_comb_thm |> Q.INST [`f`|->`P`,`a`|->`Var (strlit "r") (term_type x)`,`res`|->`q`,`s1`|->`r`,`s`|->`s2`,`defs`|->`s2.the_context`]) >>
     impl_tac >- (
@@ -2414,8 +2411,8 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
 val new_type_thm = Q.store_thm("new_type_thm",
   `STATE defs s ⇒
     case new_type (name,arity) s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes (), s') => (?d. STATE (d::defs) s')`,
+    | (Failure exn, s') => (s' = s)
+    | (Success (), s') => (?d. STATE (d::defs) s')`,
   rw[new_type_def,st_ex_bind_def,add_type_def,can_def,get_type_arity_def,get_the_type_constants_def
     ,otherwise_def,st_ex_return_def,failwith_def] >>
   BasicProvers.CASE_TAC >>
@@ -2433,8 +2430,8 @@ val new_type_thm = Q.store_thm("new_type_thm",
 val new_constant_thm = Q.store_thm("new_constant_thm",
   `STATE defs s ∧ TYPE defs ty ⇒
     case new_constant (name,ty) s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes (), s') => (?d. STATE (d::defs) s')`,
+    | (Failure exn, s') => (s' = s)
+    | (Success (), s') => (?d. STATE (d::defs) s')`,
   rw[new_constant_def,st_ex_bind_def] >>
   qspecl_then[`[(name,ty)]`,`s`]mp_tac add_constants_thm >>
   Cases_on`add_constants [(name,ty)] s`>>simp[] >>
@@ -2452,8 +2449,8 @@ val new_constant_thm = Q.store_thm("new_constant_thm",
 val new_axiom_thm = Q.store_thm("new_axiom_thm",
   `STATE defs s ∧ TERM defs p ⇒
     case new_axiom p s of
-    | (HolErr exn, s') => (s' = s)
-    | (HolRes th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s')`,
+    | (Failure exn, s') => (s' = s)
+    | (Success th, s') => (?d. THM (d::defs) th ∧ STATE (d::defs) s')`,
   rw[new_axiom_def,st_ex_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
   qspecl_then[`(strlit "bool")`,`[]`,`s`]mp_tac mk_type_thm >>

@@ -10,62 +10,6 @@ val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
-(*val _ = ParseExtras.temp_loose_equality();
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-val _ = monadsyntax.temp_add_monadsyntax()
-
-(* COPY/PASTE from inferScript.sml *)
-(*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
-
-(* 'a is the type of the state, 'b is the type of successful computations, and
- * 'c is the type of exceptions *)
-
-val _ = Datatype `
-  exc = Success 'a | Failure 'b`;
-
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
-
-val st_ex_bind_def = Define `
-(st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
-  λs.
-    dtcase x s of
-      (Success y,s) => f y s
-    | (Failure x,s) => (Failure x,s)`;
-
-val st_ex_return_def = Define `
-(st_ex_return (*: α -> (β, α, γ) M*)) x =
-  λs. (Success x, s)`;
-
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-(* End of COPY/PASTE from inferScript.sml *)
-
-val _ = add_infix("otherwise",400,HOLgrammars.RIGHT)
-
-val otherwise_def = Define `
-  x otherwise y = \state.
-     dtcase ((x : ('a, 'b, 'c) M) state) of
-      (Success y, state) => (Success y, state)
-    | (Failure e, state) => (y : ('a, 'b, 'c) M) state`;
-
-val _ = Define `
-  can f x = (do f x ; return T od
-             otherwise return F)`; *)
-
-(*
-  type hol_type = Tyvar of string
-                | Tyapp of string * hol_type list
-*)
-
-(*
-  type term = Var of string * hol_type
-            | Const of string * hol_type
-            | Comb of term * term
-            | Abs of term * term
-*)
-
 (* we reuse the datatypes of types and terms from the inference system *)
 
 val type_size_def = holSyntaxTheory.type_size_def
@@ -108,9 +52,6 @@ val _ = Hol_datatype`
 
 val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
 
-val _ = temp_overload_on ("HolRes", ``Success``);
-val _ = temp_overload_on ("HolErr", ``Failure``);
-
 (* deref/ref functions *)
 
 val _ = define_monad_access_funs ("the_type_constants",
@@ -125,40 +66,10 @@ val _ = define_monad_access_funs ("the_axioms",
 val _ = define_monad_access_funs ("the_context",
                                   ``\state. state.the_context``,
 				  ``\x state. state with the_context := x``);
-
-
-(* val get_the_type_constants_def = Define `
-  get_the_type_constants = (\state. (HolRes (state.the_type_constants),state))`;
-
-val get_the_term_constants_def = Define `
-  get_the_term_constants = (\state. (HolRes (state.the_term_constants),state))`;
-
-val get_the_axioms_def = Define `
-  get_the_axioms = (\state. (HolRes (state.the_axioms),state))`;
-
-val get_the_context_def = Define `
-  get_the_context = (\state. (HolRes (state.the_context),state))`;
-
-val set_the_type_constants_def = Define `
-  set_the_type_constants =
-    (\x. (\state. (HolRes (), (state with the_type_constants := x))):unit M)`;
-
-val set_the_term_constants_def = Define `
-  set_the_term_constants x =
-    (\state. (HolRes (), (state with the_term_constants := x))):unit M`;
-
-val set_the_axioms_def = Define `
-  set_the_axioms x =
-    (\state. (HolRes (), (state with the_axioms := x))):unit M`;
-
-val set_the_context_def = Define `
-  set_the_context x =
-    (\state. (HolRes (), (state with the_context := x))):unit M`; *)
-
 (* failwith and otherwise *)
 
 val failwith_def = Define `
-  ((failwith msg) : 'a M) = \state. (HolErr (Fail msg), state)`;
+  ((failwith msg) : 'a M) = \state. (Failure (Fail msg), state)`;
 
 (* others *)
 
@@ -166,12 +77,12 @@ val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
 
 val raise_clash_def = Define `
-  ((raise_clash c) :'a M) = \state. (HolErr (Clash c), state)`
+  ((raise_clash c) :'a M) = \state. (Failure (Clash c), state)`
 
 val handle_clash_def = Define `
   handle_clash x f = \state.
     dtcase ((x : 'a M) state) of
-    | (HolErr (Clash t), state) => f t state
+    | (Failure (Clash t), state) => f t state
     | other => other`;
 
 (* define failing lookup function *)

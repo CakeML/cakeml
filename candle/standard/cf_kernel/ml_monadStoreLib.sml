@@ -60,6 +60,13 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
 (***********************************************************************************************)
 (******* End of COPY/PASTE from ml_monadProgScipt.sml *****************************************)
 
+(* Normalize the heap predicate before using the get_heap_constant_thm theorem  *)
+val SEP_EXISTS_SEPARATE_lemma = List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
+val SEP_EXISTS_INWARD_lemma = List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
+
+val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD_lemma])
+				 THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE_lemma]))
+
 (* Create the store *)
 fun create_store refs_init_list store_hprop_name =
   let
@@ -120,6 +127,7 @@ fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
       (* Create the heap predicate for the store *)
       val refs_var = mk_var("refs", refs_type)
       val create_ref_hprop_params = zip trans_results (List.map (fn (_, _, _, x, _, _) => x) refs_init_list)
+      (* val ((ref_v, ref_loc), get_f) = List.hd create_ref_hprop_params *)
       fun create_ref_hprop ((ref_v, ref_loc), get_f) =
 	let
 	    val (refinement_invariant, deep_const) = concl ref_v |> dest_comb
@@ -131,13 +139,14 @@ fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
 	    val const_loc = concl ref_loc |> dest_eq |> fst
 	    val ref_hprop = ``REF ^(concl ref_loc |> dest_eq |> fst) ^deep_var``
 
-	    val hprop = mk_sep_exists(deep_var, mk_star(ref_hprop, ri_hprop))
+	    val hprop = (deep_var, mk_star(ref_hprop, ri_hprop))
 	in
 	    hprop
 	end
-      val hprops = List.map create_ref_hprop create_ref_hprop_params
+      val (vars, hprops) = unzip(List.map create_ref_hprop create_ref_hprop_params)
       val store_hprop = list_mk mk_star hprops ``emp``
           |> SIMP_CONV bool_ss [STAR_ASSOC] |> concl |> dest_eq |> snd
+      val store_hprop = List.foldr mk_sep_exists store_hprop vars
       val store_hprop = mk_abs(refs_var, store_hprop)
       val store_hprop_var = mk_var(store_hprop_name, mk_type("fun", [refs_type, ``:hprop``]))
       val store_hprop_def = Define `^store_hprop_var = ^store_hprop`
@@ -149,7 +158,7 @@ fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
 
 (* Prove that the current store satisfies the built heap predicate *)
 local
-    fun instantiate_ref_svalues trans_results (g as (asl, w)) =
+     fun instantiate_ref_svalues trans_results (g as (asl, w)) =
       let
 	  val (ref_vars, prop) = strip_exists w
 	  val hprops = rator prop |> list_dest dest_star
@@ -223,14 +232,27 @@ local
     val store2heap_REF_SAT = Q.prove(`((Loc l) ~~> v) (store2heap_aux l [Refv v])`,
         fs[store2heap_aux_def] >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def])
 in
-    fun prove_valid_store_X_hprop trans_results refs_type store_X_hprop_def =
+    fun prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def =
       let
 	  val store_hprop_const = concl store_X_hprop_def |> dest_eq |> fst
 	  val current_state = get_state(get_ml_prog_state())
 	  val current_store = ``^current_state.refs``
 	  val store_eval_thm = EVAL current_store
 
-	  val goal = ``?refs. REFS_PRED ^store_hprop_const refs ^current_state``
+	  val get_funs = List.map (fn (_, _, _, x, _, _) => x) refs_init_list
+          val init_values = List.map (fn (x, _) => concl x |> rator |> rand) trans_results
+
+	  val refs_var = mk_var("refs", refs_type)
+          fun mk_get_eq (f, v) = let
+	      val c = mk_comb(f, refs_var)
+	      val c = (BETA_CONV c |> concl |> rhs handle HOL_ERR _ => c)
+	      val eq = mk_eq(c, v)
+	  in eq end
+	  val hyps = List.map mk_get_eq (zip get_funs init_values)
+	  val hyps = list_mk_conj hyps
+
+	  val goal = ``!(^refs_var). ^hyps ==> REFS_PRED ^store_hprop_const refs ^current_state``
+          (* set_goal ([], goal) *)
 
 	  val solve_first_subheap_tac =
 	    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
@@ -253,9 +275,12 @@ in
 	    FIRST[solve_first_subheap_tac >> rec_solve_subheaps_tac, ALL_TAC] g
 
 	  val solve_tac =
-	    FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def, store_eval_thm]
-	    \\ srw_tac[QI_ss][]
-	    \\ instantiate_ref_svalues trans_results
+	    ntac 2 STRIP_TAC 
+            \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def, store_eval_thm]
+            (* \\ CONV_TAC (STRIP_QUANT_CONV SEPARATE_SEP_EXISTS_CONV)
+	    \\ srw_tac[QI_ss][] *)
+            \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
+	    (* \\ instantiate_ref_svalues trans_results *)
 	    \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
 	    \\ (CONV_TAC o STRIP_QUANT_CONV) EXTRACT_PURE_FACTS_CONV
 	    \\ instantiate_ref_values trans_results
@@ -290,12 +315,24 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
       val current_state = get_state(get_ml_prog_state())
       val ty_subst = Type.match_type (type_of current_state) ``:unit state``
       val current_state = Term.inst ty_subst current_state
+
+      val (refs_var, hyps) = concl valid_store_X_hprop_thm |> dest_forall
+      val hyps = dest_imp hyps |> fst
+      val interm_goal = ``?(^refs_var). ^hyps``
+      val interm_solve_tac =  srw_tac[QI_ss][]
+      val interm_th = prove(interm_goal, interm_solve_tac)
+      (* set_goal([], interm_goal) *)
+
       val goal = ``VALID_REFS_PRED ^store_hprop_const``
 
+      (* set_goal([], goal) *)
       val solve_tac = 
           PURE_REWRITE_TAC[VALID_REFS_PRED_def]
           \\ EXISTS_TAC current_state
-          \\ SIMP_TAC std_ss [valid_store_X_hprop_thm]
+	  \\ STRIP_ASSUME_TAC interm_th
+	  \\ EXISTS_TAC refs_var
+	  \\ irule valid_store_X_hprop_thm
+	  \\ fs[]
 
       val thm_name = store_hprop_name ^"_EXISTS"
       val exists_store_X_hprop_thm = store_thm(thm_name, goal, solve_tac)
@@ -309,13 +346,6 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
 (* Prove the specifications for the get/set functions *)
 
 local
-    (* Normalize the heap predicate before using the get_heap_constant_thm theorem  *)
-    val SEP_EXISTS_SEPARATE_lemma = List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
-    val SEP_EXISTS_INWARD_lemma = List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
-
-    val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD_lemma])
-				    THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE_lemma]))
-
     fun pick_sep_exists_order varname (t1, t2) = let
 	val get_var_name = fst o dest_const o rand o rator o fst o dest_star
             o snd o dest_sep_exists in
@@ -402,6 +432,7 @@ fun prove_store_access_specs refs_init_list trans_results store_X_hprop_def refs
        (* set_goal([], goal) *)
        val read_tac =
 	 PURE_REWRITE_TAC[store_X_hprop_def]
+	 \\ CONV_TAC ((RAND_CONV o RAND_CONV o ABS_CONV) SEPARATE_SEP_EXISTS_CONV)
 	 \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
 	 \\ PICK_SEP_EXISTS_TAC (dest_const loc_const |> fst)
 	 \\ PURE_REWRITE_TAC[loc_def, monad_get_fun_def]
@@ -445,6 +476,7 @@ fun prove_store_access_specs refs_init_list trans_results store_X_hprop_def refs
        (* set_goal([], goal) *)
        val write_tac =
 	 PURE_REWRITE_TAC[store_X_hprop_def]
+         \\ CONV_TAC ((RAND_CONV o RAND_CONV o RAND_CONV o ABS_CONV) SEPARATE_SEP_EXISTS_CONV)
 	 \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
 	 \\ PICK_SEP_EXISTS_TAC (dest_const loc_const |> fst)
 	 \\ PURE_REWRITE_TAC[loc_def, monad_set_fun_def]
@@ -492,9 +524,9 @@ fun translate_store refs_init_list store_hprop_name exc_ri = let
     val refs_init_list = find_refs_access_functions refs_init_list
 
     val store_X_hprop_def = create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
-    val valid_store_X_hprop_thm = prove_valid_store_X_hprop trans_results refs_type store_X_hprop_def
+    val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def
     val exists_store_X_hprop_thm = prove_exists_store_X_hprop refs_type store_hprop_name
-                                   valid_store_X_hprop_thm
+				   valid_store_X_hprop_thm
     val (get_specs, set_specs) = prove_store_access_specs refs_init_list trans_results
                            store_X_hprop_def refs_type exc_ri
 
