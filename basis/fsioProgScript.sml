@@ -1,11 +1,11 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcharioProgTheory fsFFITheory
+     mlstringTheory mlcommandLineProgTheory fsFFITheory
 
 
 val _ = new_theory"fsioProg";
-val _ = translation_extends "mlcharioProg";
+val _ = translation_extends "mlcommandLineProg";
 
 fun basis_st () = get_ml_prog_state ();
 
@@ -47,9 +47,9 @@ val _ =
         if Word8Array.sub buff257 0 = Word8.fromInt 1 
         then raise InvalidFD
         else 
-          let val n = Word8.toInt(Word8Array.sub buff257 1) in
-            if n = 0 then write fd n
-            else n
+          let val nw = Word8.toInt(Word8Array.sub buff257 1) in
+            if nw = 0 then write fd n
+            else nw
           end
     end` |> append_prog
 

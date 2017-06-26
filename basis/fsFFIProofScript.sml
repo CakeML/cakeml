@@ -267,7 +267,7 @@ val ffi_close_length = Q.store_thm("ffi_close_length",
 
 (* insert a string (l1) at specified index (n) in a list (l2) *)
 val insert_atI_def = Define`
-  insert_atI (l1:word8 list) n l2 =
+  insert_atI l1 n l2 =
     TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
 `;
 
