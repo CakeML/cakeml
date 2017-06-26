@@ -476,41 +476,33 @@ val write_char_spec = Q.store_thm("write_char_spec",
     app (p:'ffi ffi_proj) ^(fetch_v "IO.write_char" (basis_st())) [fdv; cv]
     (IOFS fs * IOFS_buff257) 
     (POST (\uv. &UNIT_TYPE () uv * IOFS_buff257 *
-                IOFS (fsupdate fs (w2n fd) (Lnext_pos fs.numchars + 1 ) (pos + 1)
+                IOFS (fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + 1)
                      (insert_atI [c] pos content)))
-          (\e. &(InvalidFD_exn e) * &F * IOFS_buff257 * 
+          (\e. &(InvalidFD_exn e) * &F * 
+               SEP_EXISTS rest. WORD8_ARRAY buff257_loc ((1w: word8)::1w::rest) * 
                IOFS(fs with numchars :=
-                      THE (LDROP (Lnext_pos fs.numchars + 1) fs.numchars))))`,
+                      THE (LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
   xcf "IO.write_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
-  xpull >> rename [`W8ARRAY buff257_loc bdef`] >>
-  fs[buff257_loc_def] >>
+  xpull >> rename [`W8ARRAY _ bdef`] >>
   NTAC 4 (xlet_auto >- xsimpl) >>
-(*
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
   Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
+
   simp[EVAL ``LUPDATE rr 2 (zz :: tt)``,
        EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
-*)
-  sg`LENGTH (n2w (ORD c) :: rest) = 255` >- fs[] >>
-  fs[buff257_loc_def]
-  xlet_auto 
-  >- xsimpl >>
-
-(*   *)
-  (* xletauto *)
-  xlet `POSTv w. &WORD (1w :word8) w * IOFS fs * W8ARRAY (Loc 1) (h1::h2::n2w (ORD c)::rest)`
-  >- (xapp >> xsimpl) >>
-  (* xlet_auto *)
+  (* TODO xlet_auto -> xlet_simp_spec: cannot extract the frame *)
   `0 < w2n (1w:word8)` by fs[] >>
   `w2n (1w:word8) <= 255` by fs[] >>
   `LENGTH (n2w (ORD c) :: rest) = 255` by fs[]>>
   `[c] = TAKE 1 (MAP (CHR o w2n) (n2w (ORD c) :: rest))` 
     by (fs[CHR_ORD,LESS_MOD,ORD_BOUND]) >>
   imp_res_tac write_spec >> fs[buff257_loc_def] >>
-  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`p`, `h2`,`h1`]) >>
+  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`h2`,`h1`,`p`]) >> 
   qmatch_goalsub_abbrev_tac`app p _ _ _ Postcond` >> rw[] >>
-  xlet `Postcond` >> fs[Abbr`Postcond`] >- xapp >-xsimpl >>
+  xlet `Postcond` >> fs[Abbr`Postcond`] 
+  >- (xapp >> xsimpl)
+  >- xsimpl >>
   xpull >> xcon	>> fs[CHR_ORD,LESS_MOD,ORD_BOUND] >>
   `nw = 1` by fs[] >> xsimpl);
 
