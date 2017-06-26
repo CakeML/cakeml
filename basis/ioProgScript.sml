@@ -179,6 +179,12 @@ val print_err_spec = Q.store_thm("print_err_spec",
     \\ xapp \\ rw[]
 );
 
+(* Easier to verify alternative to List.app print *)
+val print_list = process_topdecs`
+  fun print_list ls =
+    case ls of [] => () | (x::xs) => (print x; print_list xs)`;
+val res = ml_prog_update(ml_progLib.add_prog print_list pick_name);
+
 val res = register_type``:'a app_list``;
 
 val print_app_list = process_topdecs
@@ -190,6 +196,17 @@ val print_app_list = process_topdecs
 val res = ml_prog_update(ml_progLib.add_prog print_app_list pick_name);
 
 val st = get_ml_prog_state();
+
+val print_list_spec = Q.store_thm("print_list_spec",
+  `∀ls lv out. LIST_TYPE STRING_TYPE ls lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_list" st) [lv]
+     (STDOUT out) (POSTv v. &UNIT_TYPE () v * STDOUT (out ++ FLAT (MAP explode ls)))`,
+  Induct \\ rw[LIST_TYPE_def]
+  >- ( xcf "print_list" st \\ xmatch \\ xcon \\ xsimpl )
+  \\ xcf "print_list" st \\ xmatch
+  \\ rename1`STRING_TYPE s sv`
+  \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT (out ++ explode s)`
+  \\ xapp \\ xsimpl);
 
 val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";
 

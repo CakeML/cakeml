@@ -900,7 +900,8 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def] \\ SRW_TAC [] [])
   THEN1 (* evaluate_app CONS *)
    (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `dest_closure s1.max_app loc_opt f (v42::v43)` \\ full_simp_tac(srw_ss())[]
+    \\ rename1 `dest_closure s1.max_app loc_opt f (l::ls)`
+    \\ Cases_on `dest_closure s1.max_app loc_opt f (l::ls)` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Partial_app *)
      (reverse (sg `?z. (dest_closure s1'.max_app loc_opt f' (y::ys) = SOME (Partial_app z)) /\

@@ -9,24 +9,24 @@ fun xor x y = (x orelse y) andalso (not (x andalso y));
 (* [is_known]
    Return true if the given term contains an unknown variable, false otherwise.
  *)
-fun is_knwn unkwn_vars tm =
+fun is_knwn knwn_vars tm =
   case (dest_term tm) of
-      VAR _ => not (HOLset.member (unkwn_vars, tm))
+      VAR _ => HOLset.member (knwn_vars, tm)
     | CONST _ => true
-    | COMB (tm1, tm2) => is_knwn unkwn_vars tm1 andalso is_knwn unkwn_vars tm2
-    | LAMB (v, tm') => is_knwn (HOLset.delete (unkwn_vars, v)) tm';
+    | COMB (tm1, tm2) => is_knwn knwn_vars tm1 andalso is_knwn knwn_vars tm2
+    | LAMB (v, tm') => is_knwn (HOLset.add (knwn_vars, v)) tm';
 
 (* [find_possible_rws]
    Return the list of equalities between known and unknown terms.
 *)
-fun find_possible_rws unkwn_vars tm =
+fun find_possible_rws knwn_vars tm =
   let
       val clauses = list_dest dest_conj tm
       fun unkwn_def_eq e =
 	if is_eq e then
 	    let
 		val (t1, t2) = dest_eq e
-		val (b1, b2) = (is_knwn unkwn_vars t1, is_knwn unkwn_vars t2)
+		val (b1, b2) = (is_knwn knwn_vars t1, is_knwn knwn_vars t2)
 	    in
 		xor b1 b2
 	    end
@@ -39,7 +39,7 @@ fun find_possible_rws unkwn_vars tm =
 (* [reconstruct_conj]
    Reconstruct a conjunction so that the selected clause is moved to the first position.
 *)
-fun reconstruct_conj unkwn_vars tm eq clauses =
+fun reconstruct_conj knwn_vars tm eq clauses =
   let
       val recon_tm = mk_conj (eq, list_mk mk_conj clauses ``T``)
 
@@ -48,7 +48,7 @@ fun reconstruct_conj unkwn_vars tm eq clauses =
 
       (* If necessary, invert the equality *)
       val must_inverse = let val (x, y) = dest_eq eq in
-			     (is_knwn unkwn_vars x, is_knwn unkwn_vars y) = (true, false) end
+			     (is_knwn knwn_vars x, is_knwn knwn_vars y) = (true, false) end
       val final_th = if must_inverse then CONV_RULE (PATH_CONV "rlr" SYM_CONV) conv_th else conv_th
   in
       final_th
@@ -79,12 +79,12 @@ fun rewrite_with_first t =
   end;
 
 (* [ELIM_UNKWN_ONCE] *)
-fun ELIM_UNKWN_ONCE unkwn_vars t =
+fun ELIM_UNKWN_ONCE knwn_vars t =
   let
-      val (eq_clauses, other_clauses) = find_possible_rws unkwn_vars t
+      val (eq_clauses, other_clauses) = find_possible_rws knwn_vars t
       fun try_elim eq clauses =
 	let
-	    val conv1 = reconstruct_conj unkwn_vars t eq clauses
+	    val conv1 = reconstruct_conj knwn_vars t eq clauses
 	    val t' = concl conv1 |> dest_eq |> snd
 	    val conv2 = rewrite_with_first t'
 	    val conv3 = Thm.TRANS conv1 conv2
@@ -103,12 +103,12 @@ fun ELIM_UNKWN_ONCE unkwn_vars t =
   handle _ => failwith "ELIM_UNKWN_ONCE"
 
 (* [ELIM_UNKWN_CONV] *)
-fun ELIM_UNKWN_CONV unkwn_vars t =
+fun ELIM_UNKWN_CONV knwn_vars t =
   let
-      val conv_t = ELIM_UNKWN_ONCE unkwn_vars t
+      val conv_t = ELIM_UNKWN_ONCE knwn_vars t
   in
       let
-	  val conv_t' = ELIM_UNKWN_CONV unkwn_vars (concl conv_t |> dest_eq |> snd)
+	  val conv_t' = ELIM_UNKWN_CONV knwn_vars (concl conv_t |> dest_eq |> snd)
 	  val conv_t'' = Thm.TRANS conv_t conv_t'
       in
 	  conv_t''

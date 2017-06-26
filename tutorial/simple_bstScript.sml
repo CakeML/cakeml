@@ -40,7 +40,7 @@ type_of ``Node``;
 *)
 
 (*
-  Now we define basic binary search tree operations (without splaying).
+  Now we define some basic binary search tree operations.
 
   The operations are parameterised by a comparison function on the tree data,
   which is of type 'a -> 'a -> cpn. The cpn type is an enumeration of three
@@ -54,14 +54,6 @@ type_of ``Node``;
 val singleton_def = Define`
   singleton k v = Node k v Leaf Leaf`;
 
-val insert_def = Define`
-  insert cmp k v Leaf = singleton k v ∧
-  insert cmp k v (Node k' v' l r) =
-    case cmp k k' of
-    | Less => Node k' v' (insert cmp k v l) r
-    | Greater => Node k' v' l (insert cmp k v r)
-    | Equal => Node k' v l r`;
-
 val lookup_def = Define`
   lookup cmp k Leaf = NONE ∧
   lookup cmp k (Node k' v' l r) =
@@ -70,40 +62,12 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
-val member_def = Define`
-  (member cmp k Leaf ⇔ F) ∧
-  (member cmp k (Node k' _ l r) =
-    case cmp k k' of
-    | Less => member cmp k l
-    | Greater => member cmp k r
-    | Equal => T)`;
-
-(* TODO: possible extension exercise?
-
-val extract_min_def = Define`
-  extract_min Leaf = NONE ∧
-  extract_min (Node k v l r) =
-    case extract_min l of
-    | NONE => SOME (k,v,r)
-    | SOME (k',v',r') => SOME (k',v',Node k v l r')`;
-
-val delete_def = Define`
-  delete cmp k Leaf = Leaf ∧
-  delete cmp k (Node k' v' l r) =
-    case cmp k k' of
-    | Less => Node k' v' (delete cmp k l) r
-    | Greater => Node k' v' l (delete cmp k r)
-    | Equal =>
-      case extract_min r of
-      | NONE => l
-      | SOME (k'',v'',r'') => Node k'' v'' l r''`;
-
-*)
+val insert_def = (* TODO: fill in your definition here *)
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
   k') may be considered equivalent (cmp k k' = Equal).
-  We will assume good_cmp of about the comparison function cmp.
+  We will assume good_cmp of the comparison function cmp.
   Try:
   DB.find"good_cmp";
   which reveals that this is defined in comparisonTheory
@@ -113,8 +77,10 @@ val key_set_def = Define`
   key_set cmp k = { k' | cmp k k' = Equal } `;
 
 (*
-  TODO: something about equivalence classes
-  TODO: something about these proofs
+  For a good comparison function cmp, the key_set cmp relation should be an
+  equivalence relation (reflexive, symmetric, and transitive): this is because
+  key_set cmp k is supposed to be the set of keys equivalent to k under cmp.
+  Let's prove this.
 *)
 
 val key_set_equiv = Q.store_thm ("key_set_equiv",
@@ -127,14 +93,22 @@ val key_set_equiv = Q.store_thm ("key_set_equiv",
   rw [key_set_def] >>
   metis_tac [good_cmp_def]);
 
+(* A corollary of this: if two keys have the same key_set, they must be
+   equivalent *)
+
 val key_set_eq = Q.store_thm ("key_set_eq",
   `∀cmp k1 k2.
     good_cmp cmp
     ⇒
     (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)`,
-  rw [key_set_def, EXTENSION] >>
-  metis_tac [cmp_thms, key_set_equiv]);
+  (* TODO: prove this *)
+  (* hint: consider the tactics used above *)
+  (* hint: remember DB.match and DB.find to find useful theorems *)
+  (* hint: set extensionality theorem is called EXTENSION *)
+);
 
+(* A helper theorem, expanding out the definition of key_set, for use with
+   metis_tac later. *)
 val IN_key_set = save_thm("IN_key_set",
   ``k' ∈ key_set cmp k`` |> SIMP_CONV (srw_ss()) [key_set_def]);
 
@@ -153,8 +127,8 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
   `∀ks t.
     ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`,
    Induct_on `t` >>
-   rw [to_fmap_def] >>
-   metis_tac []);
+   (* TODO: finish this proof *)
+   (* hint: the same tactic probably works for both subgoals *)
 
 (*
   Now some proofs about the basic tree operations.
@@ -170,8 +144,10 @@ val key_ordered_def = Define`
    cmp k k' = res ∧
    key_ordered cmp k l res ∧
    key_ordered cmp k r res)`;
+
+(* We make this definition an automatic rewrite, so it is expanded
+   automatically by simplification tactics (such as rw, fs, and simp) *)
 val _ = export_rewrites["key_ordered_def"];
-(* TODO: explain export_rewrites and why we use it here *)
 
 val wf_tree_def = Define`
   (wf_tree cmp Leaf ⇔ T) ∧
@@ -184,28 +160,30 @@ val wf_tree_def = Define`
 (*
   We can prove that all the operations preserve wf_tree
 
-  For pedagogy, the aim here is to prove:
+  The aim here is to prove:
     - wf_tree_singleton
     - wf_tree_insert
   Figuring out the lemmas required along the way
   should probably be part of the exercise
 *)
 
-(* TODO: explain why store_thm takes a string. explain the [simp] annotation *)
 
 val wf_tree_singleton = Q.store_thm("wf_tree_singleton[simp]",
   `wf_tree cmp (singleton k v)`, EVAL_TAC);
 
+(* The [simp] annotation above is equivalent to calling
+   export_rewrites["wf_tree_singleton"] after storing this theorem. *)
+
 val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
-  `cmp k k' = res ⇒
-   key_ordered cmp k (singleton k' v') res`, EVAL_TAC);
+  (* TODO: you might want to prove a lemma about key_ordered and singleton *)
+  (* skip ahead to wf_tree_insert first *)
 
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
-  `∀t.
-   key_ordered cmp k t res ∧ cmp k k' = res ⇒
-   key_ordered cmp k (insert cmp k' v' t) res`,
-  Induct \\ rw[insert_def] \\
-  CASE_TAC \\ fs[]);
+  `∀t. ????? ⇒
+         key_ordered cmp k (insert cmp k' v' t) res`,
+  (* TODO: you might want to prove a lemma about key_ordered and insert *)
+  (* skip ahead to wf_tree_insert first *)
+  (* hint: this lemma might need induction *)
 
 val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   `good_cmp cmp ⇒
@@ -214,11 +192,14 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   Induct \\
   rw[insert_def] \\
   CASE_TAC \\ fs[wf_tree_def] \\
-  match_mp_tac key_ordered_insert \\ rw[] \\
-  metis_tac[good_cmp_def]);
+  (* TODO: fill in the rest of the proof *)
+  (* hint: you might want to prove the key_ordered_insert lemma above at this point
+     then you can continue with:
+    match_mp_tac key_ordered_insert
+    ( or: match_mp_tac (MP_CANON key_ordered_insert) )*)
 
 (*
-  Correctness of lookup and member
+  Correctness of lookup
 *)
 
 val key_ordered_to_fmap = Q.store_thm("key_ordered_to_fmap",
@@ -256,22 +237,6 @@ val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
     DB.match[] ``FLOOKUP (_ |+ _)``;
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
-  simp[FLOOKUP_UPDATE,FLOOKUP_FUNION] \\
-  imp_res_tac wf_tree_Node_imp \\
-  fs[wf_tree_def,key_set_eq] \\
-  simp[FLOOKUP_DEF] \\
-  every_case_tac \\ fs[] \\
-  metis_tac[cmp_thms] );
-
-val member_lookup = Q.store_thm("member_lookup",
-  `∀t k. member cmp k t ⇔ IS_SOME (lookup cmp k t)`,
-  Induct \\ rw[member_def,lookup_def] \\
-  CASE_TAC \\ rw[]);
-
-val member_to_fmap = Q.store_thm("member_to_fmap",
-  `good_cmp cmp ∧ wf_tree cmp t ⇒
-   (member cmp k t ⇔ key_set cmp k ∈ FDOM (to_fmap cmp t))`,
-  (* TODO: this would make a good exercise, hint: one line proof *)
-  rw[member_lookup,lookup_to_fmap,FLOOKUP_DEF]);
+  (* TODO: fill in the rest of this proof *)
 
 val _ = export_theory();

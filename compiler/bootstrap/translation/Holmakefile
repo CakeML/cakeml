@@ -1,9 +1,4 @@
 INCLUDES = ../../.. ../../../translator ../../../characteristic ../../inference ../../inference/proofs ../../parsing ../../backend ../.. \
-           ../../encoders/x64 ../../backend/x64 $(HOLDIR)/examples/l3-machine-code/x64/model \
-					 ../../encoders/mips ../../backend/mips $(HOLDIR)/examples/l3-machine-code/mips/model \
-					 ../../encoders/riscv ../../backend/riscv $(HOLDIR)/examples/l3-machine-code/riscv/model \
-					 ../../encoders/arm8 ../../backend/arm8 $(HOLDIR)/examples/l3-machine-code/arm8/model \
-					 ../../encoders/arm6 ../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model \
 					 ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis ../../../explorer/pp/astPP
 OPTIONS = QUIT_ON_FAILURE
 
@@ -18,7 +13,6 @@ all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
 BARE_THYS = ../../../translator/ml_translatorLib \
-						../../../basis/ioProgTheory \
 						../../inference/inferTheory \
 						../../inference/proofs/inferPropsTheory
 
