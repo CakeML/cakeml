@@ -24,12 +24,13 @@ fun MP_ASSUML thl th =
         if n > 0 then
           let
             val h = concl th |> dest_imp |> fst
-            val hyp_th = Redblackmap.find (conclMap, h)
+            val hyp_th = (Redblackmap.find (conclMap, h) handle NotFound =>
+                raise (ERR "MP_ASSUML" ("Could not find the hypothesis: " ^(term_to_string h))))
             val th' = MP th hyp_th
           in
             rec_mp th' (n-1)
           end
-        else th
+        else th 
   in
       rec_mp th' num_hyps
   end;
@@ -187,6 +188,7 @@ fun dest_post_condition c =
       raise (ERR "rename_dest_post" "Not a heap post-condition");
 
 (* [rename_dest_post] *)
+val (varsl, c) = (fvl, app_post)
 fun rename_dest_post (varsl, c) =
   if cfHeapsBaseSyntax.is_postv c then
       let
@@ -208,7 +210,7 @@ fun rename_dest_post (varsl, c) =
 	  val postv_v' = variant varsl postv_v
 	  val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
 	  val poste_v' = variant (postv_v'::varsl) poste_v
-	  val poste_pred' = Term.subst [poste_v |-> poste_v']  poste_pred
+	  val poste_pred' = Term.subst [poste_v |-> poste_v'] poste_pred
       in
 	  (SOME postv_v', SOME postv_pred', SOME poste_v', SOME poste_pred') end
   else
@@ -298,12 +300,15 @@ fun dest_heap_condition (varsl, c) =
    - the list of heap predicates
    - the list of pure facts
  *)
+val (ex_vl, hpl, pfl) = ((List.concat [post_ex_vl]),
+					(List.concat [post_hpl, frame_hpl]),
+					(List.concat [post_pfl]))
 fun mk_heap_condition (ex_vl, hpl, pfl) =
   let
     val c1 = list_mk_star hpl ``:hprop``
     val hprop_pfl = List.map (fn x => mk_comb (set_sep_cond_tm, x)) pfl
     val c2 = list_mk_star (c1::hprop_pfl) ``:hprop``
-    val c3 = list_mk (mk_sep_exists) ex_vl c2
+    val c3 = List.foldr mk_sep_exists c2 ex_vl
   in
     c3
   end;
@@ -316,7 +321,6 @@ fun mk_heap_condition (ex_vl, hpl, pfl) =
    - the optional poste value
    - the optional poste predicate
 *)
-
 fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred) =
   case (postv_v, postv_pred, poste_v, poste_pred) of
       (SOME postv_v, SOME postv_pred, NONE, NONE) => cfHeapsBaseSyntax.mk_postv (postv_v, postv_pred)
@@ -1437,7 +1441,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	    end handle HOL_ERR _ => app_spec
 	else app_spec (* instantiation is re-tested below *)
 
-      (* To perform the matching, we give both the rewritten asl and the original asl       to match against- in some situations, it might be too expensive *)
+      (* To perform the matching, we give both the rewritten asl and the original asl to match against- in some situations, it might be too expensive *)
       val hsimp_app_spec = heuristic_inst (rw_asl_concl@asl) simp_app_spec
 
        (* Modify the post-condition inside the app_spec *)
@@ -1480,7 +1484,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	       raise (generate_XLET_ERR "xlet_simp_spec" "cannot extract the frame" asl let_pre hsimp_app_spec')
 
       (* Replace the assumptions in the spec by the original asl *)
-      val final_spec = MP_ASSUML rw_asl hsimp_app_spec'
+      val final_spec = MP_ASSUML ((List.map ASSUME asl)@rw_asl) hsimp_app_spec'
 
       (* Have all the variables been instantiated? *)
       val _ = if all_instantiated asl let_pre app_info final_spec then final_spec
@@ -1740,11 +1744,19 @@ val app_spec = xlet_find_spec g |> DISCH_ALL |> GEN_ALL;
 
 (* Apply the parameters given in the let expression *)
 val subst_app_spec = xlet_subst_parameters env app_info asl let_pre app_spec;
-val app_spec = subst_app_spec;
+val app_spec = subst_app_spec
 
 (* Perform the simplification (xlet_simp) *)
 xlet_simp_spec asl app_info let_pre app_spec
 
+val (final_app_spec, frame_hpl) =
+	  xlet_simp_spec asl app_info let_pre subst_app_spec
+
 xlet_app_auto app_info env let_pre NONE g
 xlet_auto g
+
+
+val (postv_v, postv_pred, poste_v, poste_pred) = (post_postv_vo, post_postv_po', post_poste_vo, post_poste_po');
+val (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred) = (postv_v, postv_pred, poste_v, poste_pred);
+val (postv_v, postv_abs, poste_v, poste_abs) = (postv_v, postv_pred, poste_v, poste_pred);
 *)
