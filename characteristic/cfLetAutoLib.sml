@@ -188,7 +188,6 @@ fun dest_post_condition c =
       raise (ERR "rename_dest_post" "Not a heap post-condition");
 
 (* [rename_dest_post] *)
-val (varsl, c) = (fvl, app_post)
 fun rename_dest_post (varsl, c) =
   if cfHeapsBaseSyntax.is_postv c then
       let
@@ -300,9 +299,7 @@ fun dest_heap_condition (varsl, c) =
    - the list of heap predicates
    - the list of pure facts
  *)
-val (ex_vl, hpl, pfl) = ((List.concat [post_ex_vl]),
-					(List.concat [post_hpl, frame_hpl]),
-					(List.concat [post_pfl]))
+
 fun mk_heap_condition (ex_vl, hpl, pfl) =
   let
     val c1 = list_mk_star hpl ``:hprop``
