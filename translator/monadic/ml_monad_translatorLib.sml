@@ -3,7 +3,7 @@ structure ml_monad_translatorLib = struct
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
      ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib
-     ml_pmatchTheory holKernelTheory ml_monadBaseTheory ml_monadProgTheory ml_translatorTheory
+     ml_pmatchTheory holKernelTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
 open terminationTheory
 open ml_monadStoreLib
 

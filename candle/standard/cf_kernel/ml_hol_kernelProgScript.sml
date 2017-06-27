@@ -3,7 +3,7 @@ open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monadProgTheory ml_monadStoreLib ml_monad_translatorLib holKernelTheory
+open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib holKernelTheory
 
 val _ = new_theory "ml_hol_kernelProg";
 			

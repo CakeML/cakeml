@@ -6,7 +6,7 @@ open cfHeapsBaseTheory basisFunctionsLib AC_Sort
 
 open ml_monadBaseTheory
 
-val _ = new_theory "ml_monadProg";
+val _ = new_theory "ml_monad_translator";
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);

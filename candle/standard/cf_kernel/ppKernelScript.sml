@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib
-open ml_translatorLib ml_monadProgTheory ml_hol_kernelProgTheory astPP
+open ml_translatorLib ml_monad_translatorTheory ml_hol_kernelProgTheory astPP
 
 val _ = new_theory"ppKernel"
 

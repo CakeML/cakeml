@@ -1,8 +1,71 @@
-structure ml_monadProgLib (* TODO: :> ml_monadProgLib *) = struct 
+structure ml_monadStoreLib :> ml_monadStoreLib = struct 
 
-open ml_monadProgTheory Redblackmap
+open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
+open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open terminationTheory ml_progLib ml_progTheory
+open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
+open cfHeapsBaseTheory basisFunctionsLib
+open ml_monadBaseTheory ml_monad_translatorTheory Redblackmap AC_Sort
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadProgLib" fname msg;
+
+val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT
+
+(******* COPY/PASTE from ml_monadProgScript.sml *****************************************)
+(*********** Comes from cfLetAutoLib.sml ***********************************************)	 
+(* [dest_pure_fact]
+   Deconstruct a pure fact (a heap predicate of the form &P) *)
+val set_sep_cond_tm = ``set_sep$cond : bool -> hprop``;
+fun dest_pure_fact p =
+  case (dest_term p) of
+  COMB dp =>
+    (if same_const set_sep_cond_tm (#1 dp) then (#2 dp)
+    else raise (ERR "dest_pure_fact" "Not a pure fact"))
+  | _ => raise (ERR "dest_pure_fact" "Not a pure fact");
+(***************************************************************************************)
+
+fun PURE_FACTS_FIRST_CONV H =
+  let
+      val preds = list_dest dest_star H
+      val (pfl, hpl) = List.partition (can dest_pure_fact) preds
+      val ordered_preds = pfl @ hpl
+  in
+      if List.null ordered_preds then REFL H
+      else
+	  let val H' = List.foldl (fn (x, y) => mk_star(y, x)) (List.hd ordered_preds)
+				  (List.tl ordered_preds)
+          (* For some strange reason, AC_CONV doesn't work *)
+          val H_to_norm = STAR_AC_CONV H
+	  val norm_to_H' = (SYM(STAR_AC_CONV H') handle UNCHANGED => REFL H')
+	  in TRANS H_to_norm norm_to_H'
+	  end
+  end;
+
+val EXTRACT_PURE_FACTS_CONV =
+  (RATOR_CONV PURE_FACTS_FIRST_CONV)
+  THENC (SIMP_CONV pure_ss [GSYM STAR_ASSOC])
+  THENC (SIMP_CONV pure_ss [HCOND_EXTRACT])
+  THENC (SIMP_CONV pure_ss [STAR_ASSOC]);
+
+(* TODO: use EXTRACT_PURE_FACT_CONV to rewrite EXTRACT_PURE_FACTS_TAC *)
+fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
+  let
+      fun is_hprop a = ((dest_comb a |> fst |> type_of) = ``:hprop`` handle HOL_ERR _ => false)
+      val hpreds = List.filter is_hprop asl
+      val hpreds' = List.map (fst o dest_comb) hpreds
+      val hpreds_eqs = List.map (PURE_FACTS_FIRST_CONV) hpreds'
+  in
+      ((fs hpreds_eqs) >> fs[GSYM STAR_ASSOC] >> fs[HCOND_EXTRACT] >> fs[STAR_ASSOC]) g
+  end;
+(***********************************************************************************************)
+(******* End of COPY/PASTE from ml_monadProgScipt.sml *****************************************)
+
+(* Normalize the heap predicate before using the get_heap_constant_thm theorem  *)
+val SEP_EXISTS_SEPARATE_lemma = List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
+val SEP_EXISTS_INWARD_lemma = List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
+
+val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD_lemma])
+				 THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE_lemma]))
 
 (* Create the store *)
 fun create_store refs_init_list store_hprop_name =
@@ -31,14 +94,40 @@ fun create_store refs_init_list store_hprop_name =
 
 (*
 val trans_results = create_store refs_init_list store_hprop_name;
+val (name, def, get_fun, set_fun) = List.hd refs_init_list;
 val refs_type = List.hd refs_init_list |> #3 |> dest_abs |> fst |> type_of;
+*)
+
+fun find_refs_access_functions refs_init_list = let
+    fun find_refs_read (name, def, get_fun, set_fun) = let
+	val (state, pair) = concl get_fun |> dest_eq |> snd |> dest_abs
+	val body = dest_pair pair |> fst |> rand
+	val refs_read = mk_abs(state, body)
+    in refs_read end
+
+    fun find_refs_write (name, def, get_fun, set_fun) = let
+	val (x, body) = concl set_fun |> dest_forall
+	val (state, pair) = dest_eq body |> snd |> dest_abs
+	val body = dest_pair pair |> snd
+	val refs_write = mk_abs(x, mk_abs(state, body))
+    in refs_write end
+
+    fun find_read_write (name, def, get_fun, set_fun) = let
+	val refs_read = find_refs_read(name, def, get_fun, set_fun)
+	val refs_write = find_refs_write(name, def, get_fun, set_fun)
+    in (name, def, get_fun, refs_read, set_fun, refs_write) end
+in List.map find_read_write refs_init_list end;
+
+(*
+val refs_init_list = find_refs_access_functions refs_init_list;
 *)
 
 fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name =
   let
       (* Create the heap predicate for the store *)
       val refs_var = mk_var("refs", refs_type)
-      val create_ref_hprop_params = zip trans_results (List.map (fn (_, _, x, _) => x) refs_init_list)
+      val create_ref_hprop_params = zip trans_results (List.map (fn (_, _, _, x, _, _) => x) refs_init_list)
+      (* val ((ref_v, ref_loc), get_f) = List.hd create_ref_hprop_params *)
       fun create_ref_hprop ((ref_v, ref_loc), get_f) =
 	let
 	    val (refinement_invariant, deep_const) = concl ref_v |> dest_comb
@@ -50,13 +139,14 @@ fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
 	    val const_loc = concl ref_loc |> dest_eq |> fst
 	    val ref_hprop = ``REF ^(concl ref_loc |> dest_eq |> fst) ^deep_var``
 
-	    val hprop = mk_sep_exists(deep_var, mk_star(ref_hprop, ri_hprop))
+	    val hprop = (deep_var, mk_star(ref_hprop, ri_hprop))
 	in
 	    hprop
 	end
-      val hprops = List.map create_ref_hprop create_ref_hprop_params
+      val (vars, hprops) = unzip(List.map create_ref_hprop create_ref_hprop_params)
       val store_hprop = list_mk mk_star hprops ``emp``
           |> SIMP_CONV bool_ss [STAR_ASSOC] |> concl |> dest_eq |> snd
+      val store_hprop = List.foldr mk_sep_exists store_hprop vars
       val store_hprop = mk_abs(refs_var, store_hprop)
       val store_hprop_var = mk_var(store_hprop_name, mk_type("fun", [refs_type, ``:hprop``]))
       val store_hprop_def = Define `^store_hprop_var = ^store_hprop`
@@ -64,11 +154,11 @@ fun create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
       store_hprop_def
   end;
 
-(* val store_X_hprop_def = create_store_X_hprop trans_results refs_type store_hprop_name; *)
+(* val store_X_hprop_def = create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name; *)
 
 (* Prove that the current store satisfies the built heap predicate *)
 local
-    fun instantiate_ref_svalues trans_results (g as (asl, w)) =
+     fun instantiate_ref_svalues trans_results (g as (asl, w)) =
       let
 	  val (ref_vars, prop) = strip_exists w
 	  val hprops = rator prop |> list_dest dest_star
@@ -142,14 +232,27 @@ local
     val store2heap_REF_SAT = Q.prove(`((Loc l) ~~> v) (store2heap_aux l [Refv v])`,
         fs[store2heap_aux_def] >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def])
 in
-    fun prove_valid_store_X_hprop trans_results refs_type store_X_hprop_def =
+    fun prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def =
       let
 	  val store_hprop_const = concl store_X_hprop_def |> dest_eq |> fst
 	  val current_state = get_state(get_ml_prog_state())
 	  val current_store = ``^current_state.refs``
 	  val store_eval_thm = EVAL current_store
 
-	  val goal = ``?refs. REFS_PRED ^store_hprop_const refs ^current_state``
+	  val get_funs = List.map (fn (_, _, _, x, _, _) => x) refs_init_list
+          val init_values = List.map (fn (x, _) => concl x |> rator |> rand) trans_results
+
+	  val refs_var = mk_var("refs", refs_type)
+          fun mk_get_eq (f, v) = let
+	      val c = mk_comb(f, refs_var)
+	      val c = (BETA_CONV c |> concl |> rhs handle HOL_ERR _ => c)
+	      val eq = mk_eq(c, v)
+	  in eq end
+	  val hyps = List.map mk_get_eq (zip get_funs init_values)
+	  val hyps = list_mk_conj hyps
+
+	  val goal = ``!(^refs_var). ^hyps ==> REFS_PRED ^store_hprop_const refs ^current_state``
+          (* set_goal ([], goal) *)
 
 	  val solve_first_subheap_tac =
 	    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
@@ -172,9 +275,12 @@ in
 	    FIRST[solve_first_subheap_tac >> rec_solve_subheaps_tac, ALL_TAC] g
 
 	  val solve_tac =
-	    FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def, store_eval_thm]
-	    \\ srw_tac[QI_ss][]
-	    \\ instantiate_ref_svalues trans_results
+	    ntac 2 STRIP_TAC 
+            \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def, store_eval_thm]
+            (* \\ CONV_TAC (STRIP_QUANT_CONV SEPARATE_SEP_EXISTS_CONV)
+	    \\ srw_tac[QI_ss][] *)
+            \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
+	    (* \\ instantiate_ref_svalues trans_results *)
 	    \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
 	    \\ (CONV_TAC o STRIP_QUANT_CONV) EXTRACT_PURE_FACTS_CONV
 	    \\ instantiate_ref_values trans_results
@@ -192,7 +298,9 @@ in
 	    \\ PURE_REWRITE_TAC (List.map snd trans_results)
 	    \\ rw[store2heap_REF_SAT]
 
-	  val store_X_hprop_thm = prove(goal, solve_tac)
+	  val thm_name = "INIT_" ^(dest_const store_hprop_const |> fst) 
+	  val store_X_hprop_thm = store_thm(thm_name, goal, solve_tac)
+	  val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
       in
 	  store_X_hprop_thm
       end
@@ -207,14 +315,28 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
       val current_state = get_state(get_ml_prog_state())
       val ty_subst = Type.match_type (type_of current_state) ``:unit state``
       val current_state = Term.inst ty_subst current_state
+
+      val (refs_var, hyps) = concl valid_store_X_hprop_thm |> dest_forall
+      val hyps = dest_imp hyps |> fst
+      val interm_goal = ``?(^refs_var). ^hyps``
+      val interm_solve_tac =  srw_tac[QI_ss][]
+      val interm_th = prove(interm_goal, interm_solve_tac)
+      (* set_goal([], interm_goal) *)
+
       val goal = ``VALID_REFS_PRED ^store_hprop_const``
 
+      (* set_goal([], goal) *)
       val solve_tac = 
           PURE_REWRITE_TAC[VALID_REFS_PRED_def]
           \\ EXISTS_TAC current_state
-          \\ SIMP_TAC std_ss [valid_store_X_hprop_thm]
+	  \\ STRIP_ASSUME_TAC interm_th
+	  \\ EXISTS_TAC refs_var
+	  \\ irule valid_store_X_hprop_thm
+	  \\ fs[]
 
-      val exists_store_X_hprop_thm = prove(goal, solve_tac)
+      val thm_name = store_hprop_name ^"_EXISTS"
+      val exists_store_X_hprop_thm = store_thm(thm_name, goal, solve_tac)
+      val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
   in
       exists_store_X_hprop_thm
   end;
@@ -224,13 +346,6 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
 (* Prove the specifications for the get/set functions *)
 
 local
-    (* Normalize the heap predicate before using the get_heap_constant_thm theorem  *)
-    val SEP_EXISTS_SEPARATE_lemma = List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
-    val SEP_EXISTS_INWARD_lemma = List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
-
-    val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD_lemma])
-				    THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE_lemma]))
-
     fun pick_sep_exists_order varname (t1, t2) = let
 	val get_var_name = fst o dest_const o rand o rator o fst o dest_star
             o snd o dest_sep_exists in
@@ -238,7 +353,7 @@ local
 	else if is_sep_exists t2 andalso get_var_name t2 = varname then GREATER
 	else Term.compare(t1, t2) end
 
-    fun PICK_SEP_EXISTS_CONV varname = sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_sep_exists_order varname, combine = ALL_CONV, preprocess = ALL_CONV}
+    fun PICK_SEP_EXISTS_CONV varname = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_sep_exists_order varname, combine = ALL_CONV, preprocess = ALL_CONV}
 
     fun PICK_SEP_EXISTS_TAC varname =
       CONV_TAC(ONCE_DEPTH_CONV(ABS_CONV (SEPARATE_SEP_EXISTS_CONV THENC (PICK_SEP_EXISTS_CONV varname))))
@@ -285,95 +400,97 @@ in
 
 fun prove_store_access_specs refs_init_list trans_results store_X_hprop_def refs_type exc_ri = let
     val store_pred = concl store_X_hprop_def |> dest_eq |> fst
-    (* val exc_ri = concl exc_ri_def |> strip_forall |> snd |> list_dest dest_conj |> List.hd
-		 |> strip_forall |> snd |> dest_eq |> fst |> rator |> rator *)
     val exc_type = type_of exc_ri |> dest_type |> snd |> List.hd
     val exc_type_aq = ty_antiq exc_type
     val refs_type_aq = ty_antiq refs_type
 
-    fun define_monad_get_fun (name, get_fun) = let
-	val return_type_aq = type_of get_fun |> dest_type |> snd |> List.tl |> List.hd |> ty_antiq
-	val monad_get_fun = ``(\state. (Success (^get_fun state), state)) :
-                              (^refs_type_aq, ^return_type_aq, ^exc_type_aq) M``
-	val monad_get_fun = (DEPTH_CONV BETA_CONV) monad_get_fun |> concl |> dest_eq |> snd
-			    handle UNCHANGED => monad_get_fun
-	val monad_get_fun_name = "get_" ^ name
-	val monad_get_fun_var = mk_var(monad_get_fun_name, type_of monad_get_fun)
-	val monad_get_fun_def = Define `^monad_get_fun_var = ^monad_get_fun`
-    in monad_get_fun_def end
-
-    fun prove_get_spec ((name, init_def, get_fun, set_fun), (value_def, loc_def)) = let
+    (* val (name, init_def, get_fun_def, read_fun, set_fun_def, write_fun) = List.hd refs_init_list
+       val (value_def, loc_def) = List.hd trans_results
+     *)
+    fun prove_get_spec ((name, init_def, get_fun_def, read_fun, set_fun_def, write_fun),
+			(value_def, loc_def)) = let
 	val name_tm = stringLib.fromMLstring name
 	val loc_const = concl loc_def |> dest_eq |> fst
 	val ri_pred = concl value_def |> rator |> rator
+	val result_type = type_of ri_pred |> dest_type |> snd |> List.hd
+	val monad_type = ``:(^refs_type, ^result_type, ^exc_type) M``
 
-	val monad_get_fun_def = define_monad_get_fun (name, get_fun)
+	val monad_get_fun_def = get_fun_def
 	val monad_get_fun = concl monad_get_fun_def |> dest_eq |> fst
+
+	val MONAD_RI = ``MONAD ^ri_pred ^exc_ri``
+        val tys = Type.match_type (type_of MONAD_RI |> dest_type |> snd |> List.hd) monad_type
+	val MONAD_RI = Term.inst tys MONAD_RI
+
+	val tys = Type.match_type (type_of monad_get_fun) monad_type
+	val monad_get_fun = Term.inst tys monad_get_fun
 	val goal = 
           ``nsLookup env.v (Short ^name_tm) = SOME ^loc_const ==>
             EvalM env (App Opderef [Var (Short ^name_tm)])
-            (HOL_MONAD ^ri_pred ^exc_ri ^monad_get_fun) ^store_pred``
+            (^MONAD_RI ^monad_get_fun) ^store_pred``
 
+       (* set_goal([], goal) *)
        val read_tac =
 	 PURE_REWRITE_TAC[store_X_hprop_def]
+	 \\ CONV_TAC ((RAND_CONV o RAND_CONV o ABS_CONV) SEPARATE_SEP_EXISTS_CONV)
 	 \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
 	 \\ PICK_SEP_EXISTS_TAC (dest_const loc_const |> fst)
 	 \\ PURE_REWRITE_TAC[loc_def, monad_get_fun_def]
-	 \\ CONV_TAC (ABSTRACT_HEAP_READ_ACCESS_CONV get_fun)
+	 \\ CONV_TAC (ABSTRACT_HEAP_READ_ACCESS_CONV read_fun)
 	 \\ ABSTRACT_HEAP_PRED_TAC
-	 \\ PURE_REWRITE_TAC[get_heap_constant_thm]
+	 \\ PURE_REWRITE_TAC[EvalM_read_heap]
 
 	val thm_name = "get_" ^name ^"_thm"
 	val get_spec = store_thm(thm_name, goal, read_tac)
+	val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in get_spec end
 
     val get_specsl = List.map prove_get_spec (zip refs_init_list trans_results)
 
-    fun define_monad_set_fun (name, set_fun) = let
-	val param_type_aq = dest_abs set_fun |> fst |> type_of |> ty_antiq
-	val monad_set_fun = ``(\x state. (Success (), ^set_fun x state)) :
-                              ^param_type_aq ->  (^refs_type_aq, unit, ^exc_type_aq) M``
-	val monad_set_fun = (DEPTH_CONV BETA_CONV) monad_set_fun |> concl |> dest_eq |> snd
-			    handle UNCHANGED => monad_set_fun
-	val monad_set_fun_name = "set_" ^ name
-	val monad_set_fun_var = mk_var(monad_set_fun_name, type_of monad_set_fun)
-	val monad_set_fun_def = Define `^monad_set_fun_var = ^monad_set_fun`
-    in monad_set_fun_def end
-
-    (* val (name, init_def, get_fun, set_fun) = List.hd refs_init_list
+    (* val (name, init_def, get_fun_def, read_fun, set_fun_def, write_fun) = List.hd refs_init_list
        val (value_def, loc_def) = List.hd trans_results
      *)
-    fun prove_set_spec  ((name, init_def, get_fun, set_fun), (value_def, loc_def)) = let
+    fun prove_set_spec  ((name, init_def, get_fun_def, read_fun, set_fun_def, write_fun),
+			(value_def, loc_def)) = let
 	val name_tm = stringLib.fromMLstring name
 	val loc_const = concl loc_def |> dest_eq |> fst
 	val ri_pred = concl value_def |> rator |> rator
+	val monad_type = ``:(^refs_type, unit, ^exc_type) M``
 
-	val monad_set_fun_def = define_monad_set_fun (name, set_fun)
-	val monad_set_fun = concl monad_set_fun_def |> dest_eq |> fst
+	val monad_set_fun_def = set_fun_def
+	val monad_set_fun = concl monad_set_fun_def |> dest_forall |> snd |> dest_eq |> fst |> rator
+
+	val MONAD_RI = ``MONAD UNIT_TYPE ^exc_ri``
+	val tys = Type.match_type (type_of MONAD_RI |> dest_type |> snd |> List.hd) monad_type
+	val MONAD_RI = Term.inst tys MONAD_RI
+
+	val tys = Type.match_type (type_of monad_set_fun |> dest_type |> snd |> List.last) monad_type
+	val monad_set_fun = Term.inst tys monad_set_fun
+
 	val goal = 
           ``nsLookup env.v (Short ^name_tm) = SOME ^loc_const ==>
             Eval env exp (^ri_pred x) ==>
             EvalM env (App Opassign [Var (Short ^name_tm); exp])
-            (HOL_MONAD UNIT_TYPE ^exc_ri (^monad_set_fun x)) ^store_pred``
+            (MONAD UNIT_TYPE ^exc_ri (^monad_set_fun x)) ^store_pred``
 
+       (* set_goal([], goal) *)
        val write_tac =
 	 PURE_REWRITE_TAC[store_X_hprop_def]
+         \\ CONV_TAC ((RAND_CONV o RAND_CONV o RAND_CONV o ABS_CONV) SEPARATE_SEP_EXISTS_CONV)
 	 \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
 	 \\ PICK_SEP_EXISTS_TAC (dest_const loc_const |> fst)
 	 \\ PURE_REWRITE_TAC[loc_def, monad_set_fun_def]
-	 \\ CONV_TAC ((RAND_CONV o RAND_CONV o RATOR_CONV o RAND_CONV o RAND_CONV) BETA_CONV)
-	 \\ CONV_TAC ((RAND_CONV o RAND_CONV) (ABSTRACT_HEAP_READ_ACCESS_CONV get_fun))
+	 \\ CONV_TAC ((RAND_CONV o RAND_CONV) (ABSTRACT_HEAP_READ_ACCESS_CONV read_fun))
 	 \\ ABSTRACT_HEAP_WRITE_ACCESS
 	 \\ ABSTRACT_HEAP_PRED_TAC
-	 \\ prove_heap_access_thms get_fun set_fun
+	 \\ prove_heap_access_thms read_fun write_fun
 	 \\ rpt DISCH_TAC
-	 \\ IMP_RES_TAC(Thm.INST_TYPE [``:'b`` |-> exc_type] set_heap_constant_thm)
+	 \\ IMP_RES_TAC(Thm.INST_TYPE [``:'b`` |-> exc_type] EvalM_write_heap)
 	 \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
-	 
-       (* set_goal([], goal) *)
 	 
        val thm_name = "set_" ^name ^"_thm"
        val set_spec = store_thm(thm_name, goal, write_tac)
+       val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in set_spec end
 
     val set_specsl = List.map prove_set_spec (zip refs_init_list trans_results)
@@ -383,37 +500,37 @@ end
 
 end
 
-type store_translation_thms =
+type store_translation_result =
     {init_values_thms : thm list,
      locations_thms  : thm list,
      store_pred_def : thm,
      store_pred_validity : thm,
-     store_pred_exist_thm : thm,
+     store_pred_exists_thm : thm,
      get_specs : thm list,
      set_specs : thm list};
 
-fun mk_store_translation_thms values locs pred pred_valid pred_exists gets sets =
+fun mk_store_translation_result values locs pred pred_valid pred_exists gets sets =
    ({init_values_thms = values,
      locations_thms  = locs,
      store_pred_def = pred,
      store_pred_validity = pred_valid,
-     store_pred_exist_thm = pred_exists,
+     store_pred_exists_thm = pred_exists,
      get_specs = gets,
-     set_specs = sets} : store_translation_thms);
+     set_specs = sets} : store_translation_result);
 
 fun translate_store refs_init_list store_hprop_name exc_ri = let
     val trans_results = create_store refs_init_list store_hprop_name
-
-    val refs_type = List.hd refs_init_list |> #3 |> dest_abs |> fst |> type_of
+    val refs_type = List.hd refs_init_list |> #3 |> concl |> rand |> dest_abs |> fst |> type_of
+    val refs_init_list = find_refs_access_functions refs_init_list
 
     val store_X_hprop_def = create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
-    val valid_store_X_hprop_thm = prove_valid_store_X_hprop trans_results refs_type store_X_hprop_def
+    val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def
     val exists_store_X_hprop_thm = prove_exists_store_X_hprop refs_type store_hprop_name
-                                   valid_store_X_hprop_thm
+				   valid_store_X_hprop_thm
     val (get_specs, set_specs) = prove_store_access_specs refs_init_list trans_results
                            store_X_hprop_def refs_type exc_ri
 
     val (values, locs) = unzip trans_results
-in mk_store_translation_thms values locs store_X_hprop_def valid_store_X_hprop_thm exists_store_X_hprop_thm get_specs set_specs end;
+in mk_store_translation_result values locs store_X_hprop_def valid_store_X_hprop_thm exists_store_X_hprop_thm get_specs set_specs end;
 
 end
