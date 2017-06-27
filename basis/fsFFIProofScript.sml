@@ -307,7 +307,7 @@ val insert_atI_app = Q.store_thm("insert_atI_app",
 val LUPDATE_insert_commute = Q.store_thm(
   "LUPDATE_insert_commute",
   `∀ws pos1 pos2 a w.
-     pos2 < pos1 ∧ pos1 + LENGTH ws < LENGTH a ⇒
+     pos2 < pos1 ∧ pos1 + LENGTH ws <= LENGTH a ⇒
      insert_atI ws pos1 (LUPDATE w pos2 a) =
        LUPDATE w pos2 (insert_atI ws pos1 a)`,
   Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);

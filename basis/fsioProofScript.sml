@@ -94,7 +94,7 @@ val basis_st = get_ml_prog_state;
 val copyi_spec = Q.store_thm(
   "copyi_spec",
   `∀n nv cs csv a av.
-     NUM n nv /\ n + LENGTH cs < LENGTH a /\ LIST_TYPE CHAR cs csv ==>
+     NUM n nv /\ n + LENGTH cs <= LENGTH a /\ LIST_TYPE CHAR cs csv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "IO.copyi" (basis_st()))
        [av; nv; csv]
        (W8ARRAY av a)
