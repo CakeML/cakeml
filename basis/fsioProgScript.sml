@@ -93,17 +93,21 @@ val _ = process_topdecs
           in
             copyi_nts a suci cs
           end` |> append_prog
-(* writes n chars of a w8array starting on index i  *)
-val _ = 
-  process_topdecs` fun write_w8array fd w i n =
-  if n <= 0 then ()
-  else
-    let val m = Word8.fromInt(min n 255)
-        val a = copyi buff257 2 (TODO) 
-        val nw = write fd m
-    in
-          write_w8array fd w (i + nw) (n - nw)
-    end` |> append_prog
+
+(* writes a string into a file *)
+val tmp = 
+  process_topdecs` fun write_string fd s =
+  let val s1 = String.substring s 0 254
+    val l1 = Word8.fromInt(String.strlen s1)
+    val ss1 = String.explode s1
+    val a = copyi buff257 2 ss1
+    val nw = write fd l1 in
+      if l1 = 255w then 
+        let val s2 = String.extract s 255 NONE in 
+          write_string fd s2
+        end
+      else ()
+  end` |> append_prog
 
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`

@@ -3,7 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
      cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
-     mlw8arrayProgTheory
+     mlw8arrayProgTheory mlstringProgTheory
     
 val _ = new_theory"fsioProof";
 
@@ -499,31 +499,34 @@ val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
     fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
 
-val write_w8array_spec = Q.store_thm("write_w8array_spec",
+val write_string_spec = Q.store_thm("write_string_spec",
   `!(fd :word8) fdv a av bc content pos. 
-    NUM i iv ⇒ NUM n nv ⇒ WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ 
+    WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ 
+    STRING_TYPE s sv ⇒
     liveFS fs ⇒ w2n fd < 255 ⇒  wfFS fs ⇒
     (get_file_content fs (w2n fd) = SOME(content, pos)) ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "IO.write_w8array" (basis_st())) [fdv; av; iv; nv]
-
-    (IOFS fs *IOFS_buff257 * W8ARRAY av a)  
-
-    (POSTv uv. &(UNIT_TYPE () uv) * IOFS_buff257 * W8ARRAY av a * SEP_EXISTS fs0. 
-       SEP_EXISTS k. IOFS (fsupdate fs (w2n fd) k (pos + n)
-                       (TAKE pos content ++ 
-                        MAP (CHR o w2n) (TAKE n (DROP i a)) ++ 
-                        DROP (pos + n) content)))`
-  xcf "IO.write_w8array" (basis_st()) >> 
-  fs[IOFS_buff257_def] >> xpull >>
-  rename [`W8ARRAY buff257_loc bdef`] >>
-  Induct_on`n` >> rw[] >> (xlet_auto >- xsimpl) >> xif >> instantiate
-  >-(xcon >> xsimpl >> qexists_tac`0` >> fs[fsupdate_unchanged] >> xsimpl) >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
-  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: rest` >>
-  xlet_auto
+    app (p:'ffi ffi_proj) ^(fetch_v "write_string" (basis_st())) [fdv; sv]
+    (IOFS fs * IOFS_buff257)  
+    (POSTv uv. &(UNIT_TYPE () uv) * IOFS_buff257 * 
+       SEP_EXISTS k. IOFS (fsupdate fs (w2n fd) k (pos + (strlen s))
+                                    (insert_atI cs pos content)))`                
+  xcf "write_string" (basis_st()) >> fs[IOFS_buff257_def] >>
+  xpull >> 
+  rename [`W8ARRAY _ buff`] >>
+  NTAC 4 (xlet_auto >- xsimpl) >>
+  (*
+  xlet`POSTv v''. &UNIT_TYPE () v'' * W8ARRAY (Loc 1)
+        (insert_atI (MAP (n2w ∘ ORD) (explode (substring s 0 254))) 2 buff)`
+  >-( 
+  sg`2 + STRLEN (explode(substring s 0 254)) <= LENGTH buff` >- cheat >>
+  imp_res_tac copyi_spec
+  FIRST_X_ASSUM (MP_TAC o Q.SPEC `Litv (IntLit 2)`) >> 
+  rw[]
+  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`p`, `buff257_loc`]) >> 
+  rw[buff257_loc_def] *)
 );
+
+
 val _ = export_theory();
 
 
