@@ -149,7 +149,7 @@ val strip_bytes_in_memory =
 
 local
    val bytes_in_memory_concat =
-      Q.GENL [`l2`, `l1`]
+      Q.GENL [`l1`, `l2`]
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
    val pc = Term.mk_var ("pc", ``:'a word``)
