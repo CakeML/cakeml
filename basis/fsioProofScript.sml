@@ -396,28 +396,15 @@ val write_spec = Q.store_thm("write_spec",
      qmatch_goalsub_abbrev_tac` _ * IOFS fs'` >>
      qmatch_goalsub_abbrev_tac`W8ARRAY _ (_::m::rest)` >>
      fs[buff257_loc_def] >>
-     xlet_auto >- xsimpl >>
-     (* TODO: xlet_auto -> NotFoundException *)
-     xlet`POSTv g. &WORD (0w :word8) g * 
-            W8ARRAY buff257_loc (0w::m::rest) * IOFS fs'` 
-     >-(xapp >> simp[buff257_loc_def] >> xsimpl) >>
-     fs[buff257_loc_def] >>
-     xlet_auto >- xsimpl >>
+     NTAC 3 (xlet_auto >- xsimpl) >>
      xif >> fs[FALSE_def] >> instantiate >>
-     (* TODO: xlet_auto -> NotFoundException *)
-     xlet`POSTv g. &WORD (m :word8) g * 
-            W8ARRAY buff257_loc (0w::m::rest) * IOFS fs'` 
-     >-(xapp >> simp[buff257_loc_def] >> xsimpl) >>
-     fs[buff257_loc_def] >>
-     NTAC 2 (xlet_auto >- xsimpl) >>
+     NTAC 3 (xlet_auto >- xsimpl) >>
      `w2n n <> 0` by (cases_on`w2n n` >> fs[]) >>
      xif >> fs[FALSE_def] >> instantiate >> xvar >> xsimpl >>
      instantiate >> fs[Abbr`fs'`,MIN_DEF,insert_atI_def] >> xsimpl) >>
  (* next element is 0 *)
   cases_on`fs.numchars` >- fs[liveFS_def] >> fs[] >>
-  simp[buff257_loc_def] >> 
-  xlet_auto >- xsimpl >>
-  xlet_auto >- (xsimpl >> EVAL_TAC >> fs[]) >>
+  NTAC 2 (xlet_auto >- xsimpl) >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) * W8ARRAY buff257_loc (0w:: 0w ::rest) *
         IOFS (fsupdate fs (w2n fd) 1 pos
                           (TAKE pos content ++ 
@@ -444,7 +431,6 @@ val write_spec = Q.store_thm("write_spec",
     qexists_tac`(0, fs')` >> fs[Abbr`fs'`,fsupdate_def] >>
     qexists_tac`(fnm, off)` >> fs[] >> rfs[] >>
     cases_on`fs.numchars` >> fs[liveFS_def]) >>
-  simp[buff257_loc_def] >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   xif >> fs[FALSE_def] >> instantiate >>
   NTAC 3 (xlet_auto >- xsimpl) >>
@@ -500,7 +486,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
   imp_res_tac write_spec >> fs[buff257_loc_def] >>
   FIRST_X_ASSUM (MP_TAC o Q.SPECL [`h2`,`h1`,`p`]) >> 
   qmatch_goalsub_abbrev_tac`app p _ _ _ Postcond` >> rw[] >>
-  xlet `Postcond` >> fs[Abbr`Postcond`] 
+  xlet`Postcond` >> fs[Abbr`Postcond`] 
   >- (xapp >> xsimpl)
   >- xsimpl >>
   xpull >> xcon	>> fs[CHR_ORD,LESS_MOD,ORD_BOUND] >>
