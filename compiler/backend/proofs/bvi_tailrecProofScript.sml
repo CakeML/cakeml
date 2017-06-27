@@ -3057,12 +3057,97 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
 val compile_prog_MEM = Q.store_thm("compile_prog_MEM",
   `compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
    MEM e (MAP FST xs) \/ n <= e`,
-  cheat);
+  qspec_tac (`e`,`e`)
+  \\ qspec_tac (`n1`,`n1`)
+  \\ qspec_tac (`ys`,`ys`)
+  \\ qspec_tac (`n`,`n`)
+  \\ qspec_tac (`xs`,`xs`)
+  \\ Induct
+  >- fs [compile_prog_def]
+  \\ gen_tac
+  \\ PairCases_on `h`
+  \\ rename1 `(name, arity, exp)`
+  \\ simp [compile_prog_def]
+  \\ rpt gen_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ PURE_CASE_TAC \\ fs []
+  \\ TRY (PURE_CASE_TAC \\ fs [])
+  \\ fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rpt strip_tac \\ rveq \\ fs []
+  \\ TRY (metis_tac [])
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac
+  >- metis_tac []
+  \\ fs []);
+
+val compile_prog_intro = Q.prove (
+  `∀xs n ys n1 name.
+    ¬MEM name (MAP FST xs) ∧
+    free_names n name ∧
+    compile_prog n xs = (n1, ys) ⇒
+      ¬MEM name (MAP FST ys)`,
+  Induct
+  >- fs [compile_prog_def]
+  \\ gen_tac
+  \\ PairCases_on `h`
+  \\ rpt gen_tac
+  \\ simp [compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  >-
+    (rpt strip_tac \\ rveq \\ fs []
+    \\ metis_tac [])
+  \\ PURE_CASE_TAC \\ fs []
+  \\ rpt strip_tac \\ rveq \\ fs []
+  \\ TRY (metis_tac [is_free_name])
+  \\ metis_tac [more_free_names]);
 
 val compile_prog_ALL_DISTINCT = Q.store_thm("compile_prog_ALL_DISTINCT",
   `compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
    EVERY (free_names n o FST) xs ==>
    ALL_DISTINCT (MAP FST ys)`,
-  cheat);
+  qspec_tac (`n1`,`n1`)
+  \\ qspec_tac (`ys`,`ys`)
+  \\ qspec_tac (`n`,`n`)
+  \\ qspec_tac (`xs`,`xs`)
+  \\ Induct
+  >- fs [compile_prog_def]
+  \\ gen_tac
+  \\ PairCases_on `h`
+  \\ rename1 `(name, arity, exp)`
+  \\ simp [compile_prog_def]
+  \\ rpt gen_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ PURE_CASE_TAC \\ fs []
+  >-
+    (rpt strip_tac \\ fs [] \\ rveq
+    \\ qpat_x_assum `_ = (_, ys'')` kall_tac
+    \\ res_tac
+    \\ simp [MAP]
+    \\ metis_tac [more_free_names, compile_prog_intro])
+  \\ PURE_CASE_TAC \\ fs []
+  \\ rpt strip_tac
+  \\ rveq
+  \\ fs [is_free_name]
+  \\ imp_res_tac EVERY_free_names_SUCSUC
+  \\ res_tac
+  \\ simp []
+  \\ reverse conj_tac
+  >-
+    (CCONTR_TAC \\ fs []
+    \\ drule (GEN_ALL compile_prog_MEM)
+    \\ disch_then drule
+    \\ simp [MEM_MAP]
+    \\ fs [EVERY_MEM]
+    \\ gen_tac
+    \\ Cases_on `MEM y xs` \\ fs []
+    \\ res_tac
+    \\ fs [is_free_name])
+  \\ CCONTR_TAC \\ fs []
+  \\ drule (GEN_ALL compile_prog_MEM)
+  \\ disch_then drule
+  \\ simp [MEM_MAP]
+  \\ metis_tac [compile_prog_intro, more_free_names]);
 
 val _ = export_theory();
