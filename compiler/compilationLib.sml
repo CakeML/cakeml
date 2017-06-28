@@ -223,20 +223,20 @@ fun compile_to_data cs conf_def prog_def data_prog_name =
     val th1 =
       to_bvi_thm0 |> rconc |> rand |>
       (REWR_CONV bvl_to_bviTheory.compile_def THENC
-       RAND_CONV(
+       RAND_CONV(RAND_CONV(
          RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
          RATOR_CONV(RAND_CONV eval) THENC
          REWR_CONV bvl_to_bviTheory.optimise_def THENC
-         RAND_CONV (timez "bvl inline" eval)))
+         RAND_CONV (timez "bvl inline" eval))))
 
-    val mapfn = th1 |> rconc |> rand |> rator |> rand
+    val mapfn = th1 |> rconc |> rand |> rand |> rator |> rand
     fun eval_fn i n t = eval(mk_comb(mapfn,t)) (* before Lib.say(String.concat[Int.toString i,".",Int.toString n,"\n"]) *)
-    val els = th1 |> rconc |> rand |> rand |> listSyntax.dest_list |> #1
+    val els = th1 |> rconc |> rand |> rand |> rand |> listSyntax.dest_list |> #1
 
     val mapths = time_with_size thms_size "bvl optimise (par)" (parlist (!num_threads) (!chunk_size) eval_fn) els;
 
     val th2 = th1 |> CONV_RULE(RAND_CONV(
-      RAND_CONV(map_ths_conv mapths) THENC
+      RAND_CONV(RAND_CONV(map_ths_conv mapths)) THENC
       timez "bvl compile" eval))
 
     val to_bvi_thm1 = to_bvi_thm0 |> CONV_RULE(RAND_CONV(
