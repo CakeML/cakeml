@@ -53,7 +53,7 @@ val QUEUE_def  = Define `
 
 (* Some simple auto tactics *)
 val xsimpl_tac = rpt(FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp]);
-val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xlet_auto]);
+val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xlet_auto, xref]);
 
 val st = get_ml_prog_state ();
 
@@ -66,8 +66,7 @@ val empty_queue_spec = Q.store_thm ("empty_queue_spec",
     xlet `POSTv pv. SEP_EXISTS av iv.
       &(pv = Conv NONE [av; iv]) * ARRAY av [] * &NUM 0 iv`
     THEN1(xcon \\ xsimpl) \\
-    xapp \\ xsimpl \\ simp[QUEUE_def] \\ xsimpl
-);
+    xref >> simp[QUEUE_def] >> xsimpl);
 
 val empty_queue_spec = Q.store_thm ("empty_queue_spec",
     `!uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [uv]
@@ -92,7 +91,7 @@ val push_spec = Q.store_thm ("push_spec",
 	    xlet_auto >-(xsimpl) >>
 	    xlet_auto >-(xsimpl) >>
 	    xlet_auto >-(xsimpl) >>
-	    xlet_auto >-(xsimpl >> fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE]) >>	    
+	    xlet_auto >-(xsimpl >> fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE]) >>
 	    xlet_auto >-(xsimpl) >>
 	    xlet_auto >-(xcon >> xsimpl) >>
 	    xapp >>
@@ -215,7 +214,7 @@ val pop_spec = Q.store_thm("pop_spec",
       rw[LENGTH_FRONT] >>
       `PRE(LENGTH vvs) = LENGTH vvs - 1` by rw[] >>
       POP_ASSUM(fn x => fs[x]) >>
-      fs[NUM_def, int_arithTheory.INT_NUM_SUB] 
+      fs[NUM_def, int_arithTheory.INT_NUM_SUB]
   ) >>
   xsimpl >>
   rw[] >>

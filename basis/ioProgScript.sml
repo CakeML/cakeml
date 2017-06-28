@@ -192,7 +192,7 @@ val print_app_list = process_topdecs
    (case ls of
       Nil => ()
     | List ls => List.app print ls
-    | Append(l1,l2)=> (print_app_list l1; print_app_list l2))`;
+    | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
 val res = ml_prog_update(ml_progLib.add_prog print_app_list pick_name);
 
 val st = get_ml_prog_state();

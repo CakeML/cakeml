@@ -108,6 +108,12 @@ sig
      [cf_ffi ...].
 
   *)
+
+  val xref : tactic
+  (* [xref] applies to characteristic formulae for applications of the "ref"
+     primitive, where goals are of the form [cf_ref ....]
+  *)
+
   val xffi : tactic
 
   (* [xraise] applies on characteristic formulae for raise, of the form
