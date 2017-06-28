@@ -505,15 +505,16 @@ val write_string_spec = Q.store_thm("write_string_spec",
     STRING_TYPE s sv ⇒
     liveFS fs ⇒ w2n fd < 255 ⇒  wfFS fs ⇒
     (get_file_content fs (w2n fd) = SOME(content, pos)) ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "write_string" (basis_st())) [fdv; sv]
+    app (p:'ffi ffi_proj) ^(fetch_v "IO.write_string" (basis_st())) [fdv; sv]
     (IOFS fs * IOFS_buff257)  
     (POSTv uv. &(UNIT_TYPE () uv) * IOFS_buff257 * 
        SEP_EXISTS k. IOFS (fsupdate fs (w2n fd) k (pos + (strlen s))
-                                    (insert_atI cs pos content)))`                
-  xcf "write_string" (basis_st()) >> fs[IOFS_buff257_def] >>
+                                    (insert_atI cs pos content)))`,               
+  xcf "IO.write_string" (basis_st()) >> fs[IOFS_buff257_def] >>
   xpull >> 
   rename [`W8ARRAY _ buff`] >>
   NTAC 4 (xlet_auto >- xsimpl) >>
+  cheat
   (*
   xlet`POSTv v''. &UNIT_TYPE () v'' * W8ARRAY (Loc 1)
         (insert_atI (MAP (n2w ∘ ORD) (explode (substring s 0 254))) 2 buff)`
@@ -527,6 +528,61 @@ val write_string_spec = Q.store_thm("write_string_spec",
 );
 
 
+val read_char_spec = Q.store_thm("read_char_spec",
+  `!(fd :word8) fdv c cv bc content pos.
+    WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
+    wfFS fs ⇒  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "read_char" (basis_st())) [fdv]
+    (IOFS fs * IOFS_buff257) 
+    (POST (\cv. SEP_EXISTS c. &(WORD c cv /\ EL pos content = CHR(w2n c)) *
+                IOFS_buff257 *  
+                IOFS (bumpFD (w2n fd) fs 1))
+          (\e. &(EndOfFile_exn e /\ eof (w2n fd) fs = SOME TRUE) *
+               IOFS_buff257 *
+               IOFS(fs with numchars:= THE (LDROP 1 fs.numchars))))`,
+  xcf "read_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
+  xpull >> rename [`W8ARRAY _ bdef`] >>
+  NTAC 3 (xlet_auto >- xsimpl) >>
+  Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
+  Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
+  simp[EVAL ``LUPDATE rr 2 (zz :: tt)``,
+       EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
+  cases_on`pos < LENGTH content`
+  >-(
+     qmatch_goalsub_abbrev_tac` _ * _ * IOFS fs'` >>
+     xlet`POSTv uv. &(UNIT_TYPE () uv) * IOFS fs' *
+                    W8ARRAY buff257_loc (0w :: 1w :: n2w (ORD (EL pos content)) :: rest)`
+     >-(`wfFS fs'`
+            by (fs[Abbr`fs'`,wfFS_def] >> cases_on`fs.numchars` >> fs[]) >>
+(*        sg`eof (w2n fd) fs = SOME F`
+        >-(fs[eof_def,get_file_content_def] >> pairarg_tac >> fs[]) >>
+        imp_res_tac neof_read >> *)
+
+        xffi >> xsimpl >>
+        fs[buff257_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+        qmatch_goalsub_abbrev_tac`IO st f ns` >>
+        CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+        map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >>
+        xsimpl >>
+        fs[Abbr`f`,Abbr`fs'`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
+           ffi_read_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+           dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
+           HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
+           get_file_content_def] >>
+        pairarg_tac >> xsimpl >> fs[] >>
+        qmatch_goalsub_abbrev_tac`_ = SOME(res, _)` >>
+        qexists_tac`(res, bumpFD (FST y) fs 1)` >> fs[] >>
+        cases_on`fs.numchars` >> fs[wfFS_def] >>
+        `MIN 1 (MIN (STRLEN content − pos) (SUC h''')) = 1` by cheat >>
+        fs[Abbr`res`,take1_drop]) >>
+     rpt(xlet_auto >- xsimpl) >>
+     xif >> instantiate >>
+     xlet_auto >> xsimpl  >>
+     xif >> instantiate >>
+     xapp >> xsimpl >>
+
+        );
 val _ = export_theory();
 
 

@@ -165,17 +165,18 @@ fun input fd buf pos len =
   end` |> append_prog
 
 (* reads 1 char *)
-val _ = process_topdecs`
+val tmp = process_topdecs`
 fun read_char fd =
-let val a = Word8Array.update buff257 0 fd
-  val a = Word8Array.update buff257 1 1
-  val a = #(read) buff257
-  val res = Word8.toInt (Word8Array.sub buff257 0)
-  val nread = Word8.toInt (Word8Array.sub buff257 1) 
+  let val a = Word8Array.update buff257 0 fd
+      val one = Word8.fromInt 1
+      val a = Word8Array.update buff257 1 one
+      val a = #(read) buff257
+      val res = Word8.toInt (Word8Array.sub buff257 0)
+      val nread = Word8.toInt (Word8Array.sub buff257 1) 
   in
     if res = 1 then raise InvalidFD
     else if nread = 0 then raise EndOfFile
-    else Word8Array.sub buff257 1
+    else Word8Array.sub buff257 2
   end` |> append_prog
 
 
