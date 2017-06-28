@@ -3,7 +3,7 @@ structure ml_monad_translatorLib = struct
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
      ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib
-     ml_pmatchTheory holKernelTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
+     ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
 open terminationTheory
 open ml_monadStoreLib
 
@@ -224,7 +224,7 @@ fun type_mem f = let
 val (mem_derive_case_of, mem_derive_case_ref) = type_mem derive_case_of;
 
 (* Initialize the translation by giving the appropriate values to the above references *)
-fun init_translation (store_trans_res : store_translation_result) exn_thms add_type_theories =
+fun init_translation (store_trans_res : store_translation_result) exn_thms EXN_TYPE_cst add_type_theories =
   let
       val {init_values_thms = init_values_thms,
 	   locations_thms  = locations_thms,
@@ -235,7 +235,7 @@ fun init_translation (store_trans_res : store_translation_result) exn_thms add_t
 	   set_specs = set_specs} = store_trans_res
       val _ = H := (concl store_pred_def |> dest_eq |> fst)
       val _ = refs_type := (type_of (!H) |> dest_type |> snd |> List.hd)
-      val _ = EXN_TYPE := (List.hd get_specs |> concl |> dest_imp |> snd |> rator |> rand |> rator |> rand)
+      val _ = EXN_TYPE := EXN_TYPE_cst
       val _ = exn_type := (type_of (!EXN_TYPE) |> dest_type |> snd |> List.hd)
       val _ = aM := (ty_antiq (M_type ``:'a``))
       val _ = bM := (ty_antiq (M_type ``:'b``))
@@ -646,13 +646,6 @@ fun m2deep tm =
     val lemma = Q.SPEC `"v"` (ISPEC_EvalM_MONAD EvalM_otherwise)
     val result = MATCH_MP (MATCH_MP lemma th1) th2
     in check_inv "otherwise" tm result end else
-  (* try *)
-  if can (match_term ``try (f:'a-> ^(!bM)) x msg``) tm then let
-    (* val _ = print_tm_msg "try\n" tm DEBUG *)
-    val lemma = tm |> SIMP_CONV (srw_ss()) [try_def]
-    val th = m2deep (lemma |> concl |> rand)
-    val result = th |> RW [GSYM lemma]
-    in check_inv "try" tm result end else
   (* IGNORE_BIND *)
   if can (match_term ``IGNORE_BIND (f:'a -> 'b # 'a) (g:'a -> 'c # 'a)``) tm then let
     (* val _ = print_tm_msg "IGNORE_BIND\n" tm DEBUG *)

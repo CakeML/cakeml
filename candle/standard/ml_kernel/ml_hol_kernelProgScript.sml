@@ -241,7 +241,7 @@ val exc_ri = ``HOL_EXN_TYPE``;
 val translated_store_thms = translate_store refs_init_list store_hprop_name exc_ri;
 
 (* Initialize the monadic translation *)
-val _ = init_translation translated_store_thms exn_thms []
+val _ = init_translation translated_store_thms exn_thms exc_ri []
 
 val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
@@ -437,6 +437,7 @@ val res = translate holSyntaxTheory.orda_def;
 val res = translate holSyntaxTheory.term_remove_def;
 val res = translate holSyntaxTheory.term_union_def;
 
+val def = try_def |> m_translate
 val def = assoc_def   (* rec *) |> m_translate
 val def = map_def    (* rec *) |> m_translate
 val def = forall_def (* rec *) |> m_translate
