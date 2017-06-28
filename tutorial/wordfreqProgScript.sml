@@ -251,7 +251,7 @@ val st = get_ml_prog_state();
 
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
 val insert_line_v_thm = theorem"insert_line_v_thm";
-val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`NUM`,`STRING_TYPE`];
+val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TYPE`,`NUM`];
 (* and this for our use of List.map *)
 val format_output_v_thm = theorem"format_output_v_thm";
 

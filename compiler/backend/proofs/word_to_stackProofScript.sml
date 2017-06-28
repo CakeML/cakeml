@@ -2767,7 +2767,7 @@ val TIMES2_DIV2_lemma = Q.prove(
   \\ simp[GSYM MAP_MAP_o]
   \\ simp[MAP_OPTION_MAP_FILTER_IS_SOME]
   \\ ntac 2 AP_TERM_TAC
-  \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`f`,`ls`]parmove_MAP_INJ)
+  \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`ls`,`f`]parmove_MAP_INJ)
   \\ impl_tac
   >- (
     simp[]
@@ -2827,7 +2827,7 @@ val parsem_parmove_DIV2_lemma = Q.prove(
     \\ simp[GSYM MAP_MAP_o]
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
-  \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`r`,`f`]parsem_MAP_INJ)
+  \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`f`,`r`]parsem_MAP_INJ)
   \\ impl_tac
   >- (
     simp[INJ_DEF]
@@ -5284,7 +5284,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`ret`,`args'`]call_dest_lemma)) \\ strip_tac \\rfs[]
+    \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`args'`,`ret`]call_dest_lemma)) \\ strip_tac \\rfs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
     imp_res_tac evaluate_call_dest_clock>>
     pop_assum(qspec_then`t` assume_tac)>>

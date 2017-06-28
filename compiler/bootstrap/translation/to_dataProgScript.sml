@@ -938,7 +938,7 @@ val EqualityType_OPTION_TYPE_SPTREE_SPT_TYPE_UNIT_TYPE = find_equality_type_thm`
   |> SIMP_RULE std_ss [EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE];
 
 val EqualityType_PAIR_TYPE_NUM_SPTREE_SPT_TYPE_UNIT_TYPE = find_equality_type_thm``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`SPTREE_SPT_TYPE UNIT_TYPE`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE];
 

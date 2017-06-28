@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"wordfreqProof";
 
 val wordfreq_io_events_def = new_specification("wordfreq_io_events_def",["wordfreq_io_events"],
-  wordfreq_semantics |> Q.GENL(List.rev[`inp`,`files`,`pname`,`fname`])
+  wordfreq_semantics |> Q.GENL[`inp`,`files`,`pname`,`fname`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (wordfreq_sem,wordfreq_output) = wordfreq_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

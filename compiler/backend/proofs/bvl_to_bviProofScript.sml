@@ -618,7 +618,7 @@ val compile_string_thm = Q.prove(
   \\ simp[EL_TAKE,EL_APPEND2,o_DEF])
   |> Q.SPECL[`str`,`s`,`ls`,`[]`]
   |> SIMP_RULE(srw_ss())[]
-  |> Q.GENL[`env`,`s`,`ptr`,`ls`,`str`]
+  |> Q.GENL[`str`,`ls`,`ptr`,`s`,`env`]
   |> INST_TYPE[alpha|->``:'ffi``];
 
 val iEval_bVarBound = Q.prove(
@@ -1419,7 +1419,7 @@ val compile_exps_correct = Q.prove(
           evaluate ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by
        ((iEval_bVarBound |> SPEC_ALL |> Q.INST [`xs`|->`[e]`,
            `vs`|->`MAP (adjust_bv b2) vs`]
-           |> Q.GENL [`env`,`s`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
+           |> Q.GENL [`s`,`env`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
       \\ Q.PAT_X_ASSUM `!nn mm nn1. bbb` (MP_TAC o Q.SPEC `n2'`)
@@ -1477,7 +1477,7 @@ val compile_exps_correct = Q.prove(
           evaluate ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by
        ((iEval_bVarBound |> SPEC_ALL |> Q.INST [`xs`|->`[e]`,
            `vs`|->`MAP (adjust_bv b2) vs`]
-           |> Q.GENL [`env`,`s`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
+           |> Q.GENL [`s`,`env`] |> MP_TAC) \\ full_simp_tac(srw_ss())[bEvery_def]
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ full_simp_tac(srw_ss())[]
@@ -2061,7 +2061,7 @@ val compile_exps_correct = Q.prove(
       \\ drule evaluate_ListLength_code
       \\ disch_then drule
       \\ disch_then(qspec_then`0`(qx_choose_then`cl`strip_assume_tac))
-      \\ drule (Q.GENL[`fl`,`p`]evaluate_FromListByte_code)
+      \\ drule (Q.GENL[`p`,`fl`]evaluate_FromListByte_code)
       \\ qabbrev_tac`bs = REPLICATE (LENGTH x) (0w:word8)`
       \\ disch_then(qspecl_then[`p`,`T`,`0`,`bs`,`t2 with refs := t2.refs |+ (p,ByteArray T bs)`]mp_tac)
       \\ simp[LENGTH_REPLICATE,Abbr`bs`,FLOOKUP_UPDATE]

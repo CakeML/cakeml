@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"helloProof";
 
 val hello_io_events_def = new_specification("hello_io_events_def",["hello_io_events"],
-  hello_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`]) |> SIMP_RULE bool_ss [SKOLEM_THM]);
+  hello_semantics |> Q.GENL[`inp`,`cls`,`files`] |> SIMP_RULE bool_ss [SKOLEM_THM]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> CONJ_PAIR
 val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR

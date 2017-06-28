@@ -155,7 +155,7 @@ val TERM_Abs = Q.prove(
 
 val INST_CORE_LEMMA =
   INST_CORE_HAS_TYPE |> Q.SPECL [`holSyntax$sizeof tm`,`tm`,`[]`,`tyin`]
-  |> SIMP_RULE std_ss [MEM,REV_ASSOCD] |> Q.GENL [`tm`,`tyin`]
+  |> SIMP_RULE std_ss [MEM,REV_ASSOCD] |> Q.GENL [`tyin`,`tm`]
 
 val INST_CORE_EMPTY = Q.prove(
   `!tm env.
@@ -1007,7 +1007,7 @@ val vsubst_thm = Q.store_thm("vsubst_thm",
              | (HolErr e,state) => (HolErr e,state))
         | (HolErr e,state) => (HolErr e,state))`
   \\ Cases_on `forall test theta s`
-  \\ MP_TAC (forall_thm |> Q.SPECL [`test`,`s`,`theta`] |> Q.GENL [`res`,`s'`])
+  \\ MP_TAC (forall_thm |> Q.SPECL [`test`,`s`,`theta`] |> Q.GENL [`s'`,`res`])
   \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `TERM defs tm /\ STATE defs s` \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -1920,7 +1920,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     `s = r` by (
       pop_assum mp_tac >>
       simp[Abbr`f`] >>
-      mp_tac(Q.GENL[`res`,`s'`]dest_eq_thm) >>
+      mp_tac(Q.GENL[`s'`,`res`]dest_eq_thm) >>
       Cases_on`dest_eq tm s`>>simp[]>>
       `TERM defs tm` by simp[TERM_def] >>
       Cases_on`q'`>>simp[]>>
@@ -1929,7 +1929,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
       BasicProvers.VAR_EQ_TAC >>
       BasicProvers.VAR_EQ_TAC >>
       qmatch_assum_rename_tac`dest_eq tm s = (HolRes(v,t),s)` >>
-      MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
+      MP_TAC(Q.GENL[`s'`,`res`]dest_var_thm) >>
       Cases_on`dest_var v s`>>simp[]>>
       Cases_on`q'`>>simp[]>>
       qmatch_assum_rename_tac`dest_var v s = (HolRes q',_)`>>
@@ -1953,7 +1953,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     qmatch_assum_rename_tac`f tm s = _` >>
     qpat_x_assum`f tm s = X`mp_tac >>
     simp[Abbr`f`] >>
-    mp_tac(Q.GENL[`res`,`s'`]dest_eq_thm) >>
+    mp_tac(Q.GENL[`s'`,`res`]dest_eq_thm) >>
     `TERM defs tm` by simp[TERM_def] >>
     Cases_on`dest_eq tm s`>>simp[]>>
     Cases_on`q`>>rfs[]>>
@@ -1962,7 +1962,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     Cases_on`q`>>simp[] >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >>
     qmatch_assum_rename_tac`dest_eq _ s = (HolRes(v,t),s)` >>
-    MP_TAC(Q.GENL[`res`,`s'`]dest_var_thm) >>
+    MP_TAC(Q.GENL[`s'`,`res`]dest_var_thm) >>
     Cases_on`dest_var v s`>>simp[]>>
     Cases_on`q`>>simp[]>>
     qmatch_assum_rename_tac`dest_var v s = (HolRes q,_)`>>
@@ -2086,7 +2086,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     METIS_TAC[term_ok_welltyped,WELLTYPED_LEMMA] ) >>
   simp[THM_def] >>
   qspecl_then[`s'`,`d::defs`,`theta`,`t`]mp_tac
-    (Q.GENL[`defs`,`s`](CONV_RULE (RESORT_FORALL_CONV List.rev) vsubst_aux_thm)) >>
+    (Q.GENL[`s`,`defs`](CONV_RULE (RESORT_FORALL_CONV List.rev) vsubst_aux_thm)) >>
   simp[] >>
   match_mp_tac IMP_IMP >>
   conj_asm1_tac >- (

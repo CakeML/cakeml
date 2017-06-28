@@ -1793,7 +1793,7 @@ val evaluate_mc_iop = save_thm("evaluate_mc_iop",
   |> Q.INST [`cs1`|->`cs`]
   |> Q.INST [`cs2`|->`cs`]
   |> SIMP_RULE std_ss [code_subset_refl]
-  |> Q.GENL (rev [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
-                  `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]));
+  |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
+             `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]);
 
 val _ = export_theory();

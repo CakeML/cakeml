@@ -87,7 +87,7 @@ val functional_evaluate_prog = Q.store_thm("functional_evaluate_prog",
 
 val functional_evaluate = Q.store_thm("functional_evaluate",
   `evaluate T env s e (s',r) ⇔ evaluate s env [e] = (s',list_result r)`,
-  functional_evaluate_list |> Q.GENL[`r`,`es`] |> qspec_then`[e]`mp_tac \\
+  functional_evaluate_list |> Q.GENL[`es`,`r`] |> qspec_then`[e]`mp_tac \\
   ntac 6 (simp[Once (CONJUNCT2 bigStepTheory.evaluate_cases)]) \\
   Cases_on`r` \\ fs[]);
 
