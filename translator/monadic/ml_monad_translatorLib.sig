@@ -8,6 +8,9 @@ sig
     val mem_derive_case_of : hol_type -> thm
 
     val init_translation :
-        store_translation_result -> (thm list) -> term -> string list -> unit
+        store_translation_result -> term -> string list -> unit
+
+    val add_raise_handle_functions : thm list -> thm list -> thm -> (thm list * thm list)
+
     val m_translate : thm -> thm
 end

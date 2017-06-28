@@ -80,7 +80,6 @@ fun inst_monad_type tm =
   end;
 (* ---- *)
 
-(* ---- *)
 fun get_m_type_inv ty =
   let
       val result_type = dest_monad_type ty |> #2
@@ -124,6 +123,153 @@ fun get_Eval_exp e = if same_const (strip_comb e |> fst) Eval_tm then e |> rator
 fun remove_Eval_storePred e = if same_const (strip_comb e |> fst) Eval_tm then e
 		     else e |> rator;
 (* ---- *)
+
+(* Prove the specifications for the exception handling *)
+fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, deep_type) = let
+    val fun_tm = concl raise_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
+    val refin_inv = smart_get_type_inv exn_type
+
+    val solve_tac =
+      rw[Eval_def,EvalM_def,MONAD_def,raise_fun_def] >>
+      rw[Once evaluate_cases] >>
+      rw[Once evaluate_cases] >>
+      srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+      rw[Once evaluate_cases,PULL_EXISTS] >>
+      rw[Once(CONJUNCT2 evaluate_cases)] >>
+      first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
+      IMP_RES_TAC (evaluate_empty_state_IMP
+		   |> INST_TYPE [``:'ffi``|->``:unit``]) >>
+      rw[do_con_check_def,build_conv_def] >>
+      fs [lookup_cons_def] >>
+      fs[exn_ri_def,namespaceTheory.id_to_n_def] >>
+      asm_exists_tac \\ fs[] >>
+      PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ fs[REFS_PRED_append]
+
+    val goal =
+    ``!H x a.
+      (lookup_cons ^cons_name env = SOME (1,^deep_type)) ==>
+      Eval env exp1 (^refin_inv x) ==>
+      EvalM env (Raise (Con (SOME (Short ^cons_name)) [exp1]))
+        (MONAD a ^EXN_RI_tm (^fun_tm x)) H``
+    (* set_goal ([], goal) *)
+
+   val thm_name = "EvalM_" ^(dest_const fun_tm |> fst)
+   val raise_spec = store_thm(thm_name, goal, solve_tac)
+   val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
+in raise_spec end;
+
+fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons_name, exn_type, deep_type) = let
+    val fun_tm = concl handle_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
+    val refin_inv = smart_get_type_inv exn_type
+
+    val goal =
+    ``!H n. (lookup_cons ^cons_name env = SOME (1,^deep_type)) ==>
+        EvalM env exp1 (MONAD a ^EXN_RI_tm x1) H ==>
+        (!t v.
+          ^refin_inv t v ==>
+          EvalM (write n v env) exp2 (MONAD a ^EXN_RI_tm (x2 t)) H) ==>
+        EvalM env (Handle exp1 [(Pcon (SOME (Short "Clash")) [Pvar n],exp2)])
+          (MONAD a ^EXN_RI_tm (^fun_tm x1 x2)) H``
+
+    val solve_tac =
+      SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
+      \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
+      \\ Q.PAT_X_ASSUM `!s refs. REFS_PRED H refs s ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+      \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+      \\ first_x_assum(qspec_then`junk`strip_assume_tac)
+      \\ Cases_on `res` THEN1
+       (srw_tac[DNF_ss][] >> disj1_tac \\
+	asm_exists_tac \\ fs[MONAD_def,handle_fun_def] \\
+	CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
+      \\ Q.PAT_X_ASSUM `MONAD xx yy zz t1 t2` MP_TAC
+      \\ SIMP_TAC std_ss [Once MONAD_def] \\ STRIP_TAC
+      \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_fun_def]
+      \\ Cases_on `e` \\ FULL_SIMP_TAC (srw_ss()) [handle_fun_def]
+      \\ srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac
+      \\ asm_exists_tac \\ fs[]
+      \\ simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def]
+      \\ Cases_on `b` >> fs[exn_ri_def] >>
+      simp[pmatch_def] >> fs[lookup_cons_def] >>
+      fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def] >- (
+	simp[Once evaluate_cases,MONAD_def,exn_ri_def] ) >>
+      first_x_assum drule >>
+      disch_then drule >>
+      simp[GSYM write_def] >>
+      disch_then(qspec_then`[]`strip_assume_tac) >>
+      fs[with_same_refs] >>
+      asm_exists_tac >>
+      fs[MONAD_def] >>
+      TOP_CASE_TAC \\ fs[] \\
+      TOP_CASE_TAC \\ fs[] \\
+      TOP_CASE_TAC \\ fs[] \\
+      TOP_CASE_TAC \\ fs[]
+
+    val thm_name = "EvalM_" ^(dest_const fun_tm |> fst)
+    val handle_spec = store_thm(thm_name, goal, solve_tac)
+    val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
+in handle_spec end;
+
+val failure_pat_tm = ``\v. (Failure(C v), state_var)``;
+fun add_raise_handle_functions raise_functions handle_functions exn_ri_def = let
+    (* Extract information from the exception refinement invariant *)
+    val exn_ri_cases = CONJUNCTS exn_ri_def
+    val EXN_RI_tm = List.hd exn_ri_cases |> concl |> strip_forall |> snd |> lhs |> rator |> rator
+    val exn_ri_cons = List.map (rator o rand o rator o lhs o snd o strip_forall o concl) exn_ri_cases
+    val exn_ri_types = List.map (type_of o rand o rand o rator o lhs o snd
+				 o strip_forall o concl) exn_ri_cases
+    val _ = List.map register_type exn_ri_types
+    val exn_ri_deep_cons = List.map (rand o rator o rhs o fst o dest_conj o snd
+				     o strip_exists o rhs o snd o strip_forall o concl) exn_ri_cases
+    val (exn_ri_cons_names, exn_ri_deep_types) = unzip(List.map (dest_pair o rand) exn_ri_deep_cons)
+    fun zip4 (x1::l1) (x2::l2) (x3::l3) (x4::l4) = (x1, x2, x3, x4)::(zip4 l1 l2 l3 l4)
+      | zip4 [] [] [] [] = []
+    val exn_info = zip4 exn_ri_cons  exn_ri_cons_names exn_ri_types exn_ri_deep_types
+						      
+    (* Link the raise definitions with the appropriate information *)
+    val raise_funct_pairs = List.map (fn x => (x, concl x |> strip_forall |> snd |> rhs
+		|> dest_abs |> snd |> dest_pair |> fst |> rand |> rator)) raise_functions
+    val raise_info = List.map (fn(d, tm) => tryfind (fn (x1, x2, x3, x4) => if x1 = tm
+			then (d, x2, x3, x4) else failwith "") exn_info) raise_funct_pairs
+
+    (* Prove the raise specifications *)
+    val raise_specs = List.map (prove_raise_spec exn_ri_def EXN_RI_tm) raise_info
+
+    (* Link the handle definitions with the appropriate information *)
+    fun get_handle_cons handle_fun_def = let
+	val exn_cases = concl handle_fun_def |> strip_forall |> snd |> rhs |> dest_abs |> snd |>
+                    rand |> strip_abs |> snd |> rand |> dest_abs |> snd
+	val (case_tm, cases_list) = strip_comb exn_cases
+	val cases_list = List.tl cases_list
+        val {Name = case_name, Thy = thy_name, Ty = _} = dest_thy_const case_tm
+        val case_name_ex = explode case_name
+        val case_name = List.take(case_name_ex, List.length case_name_ex - 4) |> implode
+	val case_name = case_name ^"case_def"
+	val case_def = fetch thy_name case_name
+	val cases_cons = List.map (rator o rand o rator o rator o lhs o snd o strip_forall o concl)
+                         (CONJUNCTS case_def)
+	val cases_pairs = zip cases_cons cases_list
+
+	val (SOME handled_cons) = List.find (fn (x, y) => not(can (Term.match_term failure_pat_tm) y))
+                           cases_pairs
+    in fst handled_cons end handle Bind => failwith "get_handled_cons"
+
+    val handle_funct_pairs = List.map (fn x => (x, get_handle_cons x)) handle_functions
+    val handle_info = List.map (fn(d, tm) => tryfind (fn (x1, x2, x3, x4) => if x1 = tm
+			then (d, x2, x3, x4) else failwith "") exn_info) handle_funct_pairs
+				      
+    (* Prove the handle specifications *)
+    val handle_specs = List.map (prove_handle_spec exn_ri_def EXN_RI_tm) handle_info
+
+    (* Store the proved theorems *)
+    fun extract_pattern th = let
+	  val pat = concl th |> strip_forall |> snd |> strip_imp |> snd |> rator |> rand |> rand
+      in (pat, th) end
+    val _ = exn_raises := ((List.map extract_pattern raise_specs) @ (!exn_raises))
+    val _ = exn_handles := ((List.map extract_pattern handle_specs) @ (!exn_handles))
+in (raise_specs, handle_specs) end;
+
+(*-----*)
 
 (* support for datatypes... *)
 
@@ -224,7 +370,7 @@ fun type_mem f = let
 val (mem_derive_case_of, mem_derive_case_ref) = type_mem derive_case_of;
 
 (* Initialize the translation by giving the appropriate values to the above references *)
-fun init_translation (store_trans_res : store_translation_result) exn_thms EXN_TYPE_cst add_type_theories =
+fun init_translation (store_trans_res : store_translation_result) EXN_TYPE_cst add_type_theories =
   let
       val {init_values_thms = init_values_thms,
 	   locations_thms  = locations_thms,
@@ -243,14 +389,16 @@ fun init_translation (store_trans_res : store_translation_result) exn_thms EXN_T
       val _ = type_theories := (current_theory()::(add_type_theories@["ml_translator"]))
 
       (* Exceptions *)
-      fun is_exc_raise_thm th =
+      (* fun is_exc_raise_thm th =
           (List.length (concl th |> strip_forall |> snd |> strip_imp |> fst) = 2)
       val (raise_thms, handle_thms) = List.partition is_exc_raise_thm exn_thms
       fun extract_pattern th = let
 	  val pat = concl th |> strip_forall |> snd |> strip_imp |> snd |> rator |> rand |> rand
       in (pat, th) end
       val _ = exn_raises := (List.map extract_pattern raise_thms)
-      val _ = exn_handles := (List.map extract_pattern handle_thms)
+      val _ = exn_handles := (List.map extract_pattern handle_thms) *)
+      val _ = exn_raises := []
+      val _ = exn_handles := []
 
       (* Access functions *)
       fun get_read_info (location_thm, get_spec) = let
