@@ -1833,7 +1833,8 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
 
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi)
-     (fromAList (stack_names$compile f (compile jump off max_heap bitmaps k l code)))`,
+     (fromAList (stack_names$compile f
+       (compile jump off gen max_heap bitmaps k l code)))`,
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
          stackSemTheory.find_code_def]
@@ -1847,7 +1848,7 @@ val halt_assum_lemma = Q.prove(
          get_var_def,FLOOKUP_UPDATE]);
 
 val MAP_FST_compile_compile = Q.prove(
-  `MAP FST (compile jump off max_heap bitmaps k InitGlobals_location
+  `MAP FST (compile jump off gen max_heap bitmaps k InitGlobals_location
               (stack_alloc$compile c code)) =
     0::1::2::gc_stub_location::MAP FST code`,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
@@ -1858,10 +1859,11 @@ val MAP_FST_compile_compile = Q.prove(
          stack_allocTheory.prog_comp_def]);
 
 val full_make_init_semantics = save_thm("full_make_init_semantics",let
+  val gen_gc = mk_var("gen_gc",``:bool``)
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
@@ -1878,10 +1880,11 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
   in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
 
 val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
+  val gen_gc = mk_var("gen_gc",``:bool``)
   val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]

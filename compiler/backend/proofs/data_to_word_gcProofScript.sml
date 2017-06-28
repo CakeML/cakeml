@@ -4414,7 +4414,9 @@ val init_store_ok_def = Define `
       FLOOKUP store EndOfHeap =
         SOME (Word (curr + bytes_in_word * n2w limit)) ∧
       FLOOKUP store TriggerGC =
-        SOME (Word (curr + bytes_in_word * n2w limit)) ∧
+        SOME (Word (case c.gc_kind of
+                    | Generational _ => curr
+                    | _ => curr + bytes_in_word * n2w limit)) ∧
       FLOOKUP store HeapLength =
         SOME (Word (bytes_in_word * n2w limit)) ∧
       (word_list_exists curr (limit + limit)) (fun2set (m,dm)) ∧
@@ -4451,8 +4453,8 @@ val state_rel_init = Q.store_thm("state_rel_init",
   \\ fs [word_ml_inv_def]
   \\ qexists_tac `heap_expand limit`
   \\ qexists_tac `0`
-  \\ qexists_tac `limit`
-  \\ qexists_tac `0`
+  \\ qexists_tac `case c.gc_kind of Generational l => 0 | _ => limit`
+  \\ qexists_tac `case c.gc_kind of Generational l => limit | _ => 0`
   \\ qexists_tac `GenState 0 (case c.gc_kind of
                               | Generational l => MAP (K 0) l
                               | _ => [])`
@@ -4464,7 +4466,9 @@ val state_rel_init = Q.store_thm("state_rel_init",
                     gc_kind_inv_def,data_up_to_def]
     \\ CASE_TAC \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
-    \\ fs [heap_split_def,el_length_def] \\ every_case_tac \\ fs [isRef_def])
+    \\ fs [heap_split_def,el_length_def] \\ every_case_tac
+    \\ fs [isRef_def,heap_lookup_def])
+  \\ CASE_TAC \\ fs []
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
   \\ fs [FLOOKUP_DEF]
   \\ fs [byte_aligned_def,bytes_in_word_def,labPropsTheory.good_dimindex_def,
@@ -4473,7 +4477,8 @@ val state_rel_init = Q.store_thm("state_rel_init",
   \\ once_rewrite_tac [MULT_COMM]
   \\ simp_tac bool_ss [aligned_add_pow] \\ rfs []
   \\ fs [gen_starts_in_store_def]
-  \\ Cases \\ fs [] \\ rw[] \\ EVAL_TAC);
+  \\ Cases \\ fs [] \\ rw[] \\ EVAL_TAC
+  \\ Cases_on `l` \\ fs []);
 
 (* -------------------------------------------------------
     compiler proof
