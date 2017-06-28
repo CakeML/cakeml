@@ -97,7 +97,7 @@ val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
 val EqualityType_LIST_TYPE_NUM = find_equality_type_thm ``LIST_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM];
 val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM];
 val EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``LIST_TYPE _``

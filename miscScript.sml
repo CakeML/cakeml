@@ -2752,6 +2752,21 @@ val FIELDS_full = Q.store_thm("FIELDS_full",
   \\ `LENGTH r = 0` by decide_tac
   \\ fs[LENGTH_NIL]);
 
+val FLAT_MAP_TOKENS_FIELDS = Q.store_thm("FLAT_MAP_TOKENS_FIELDS",
+  `∀P' ls P.
+    (∀x. P' x ⇒ P x) ⇒
+     FLAT (MAP (TOKENS P) (FIELDS P' ls)) =
+     TOKENS P ls`,
+  Induct_on`FIELDS P' ls` \\ rw[] \\
+  qpat_x_assum`_ = FIELDS _ _`(assume_tac o SYM) \\
+  imp_res_tac FIELDS_next \\
+  Cases_on`LENGTH ls ≤ LENGTH h` >- (
+    imp_res_tac FIELDS_full \\ fs[] ) \\
+  fs[] \\ rw[] \\
+  fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] \\
+  `h ++ [c] ++ l  = h ++ (c::l)` by simp[] \\ pop_assum SUBST_ALL_TAC \\
+  asm_simp_tac std_ss [TOKENS_APPEND]);
+
 val the_nil_eq_cons = Q.store_thm("the_nil_eq_cons",
   `(the [] x = y::z) ⇔ x = SOME (y ::z)`,
   Cases_on`x` \\ EVAL_TAC);

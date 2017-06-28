@@ -164,7 +164,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,mkAst_App_def
       ,Eseq_encode_def
       ,ptree_Pattern_def
-      ,mkPatApp_def
+      ,Papply_def
       ,ptree_FQV_def
       ,ptree_V_def
       ,ptree_Op_def

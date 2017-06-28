@@ -413,7 +413,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
     val to_livesets_oracle_thm =
       to_livesets_invariant
       |> Q.GEN`wc` |> SPEC wc
-      |> Q.GENL[`p`,`c`] |> ISPECL args
+      |> Q.GENL[`c`,`p`] |> ISPECL args
       |> CONV_RULE(RAND_CONV(
            REWR_CONV LET_THM THENC
            RAND_CONV(REWR_CONV to_livesets_thm') THENC
@@ -468,7 +468,7 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
     val compile_thm0 =
       compile_oracle |> SYM
-      |> Q.GENL[`p`,`c`] |> ISPECL args
+      |> Q.GENL[`c`,`p`] |> ISPECL args
       |> CONV_RULE(RAND_CONV(
            RAND_CONV(REWR_CONV to_livesets_oracle_thm) THENC
            REWR_CONV from_livesets_def THENC
@@ -1311,7 +1311,7 @@ val compile_oracle_to_lab =
     |> CONV_RULE(RAND_CONV(RATOR_CONV(REWR_CONV(GSYM ETA_AX))))
     |> CONV_RULE(RAND_CONV(REWR_CONV(GSYM LET_THM)))
     |> REWRITE_RULE[from_livesets_unpaired,from_word_def,from_stack_def]
-    |> Q.GENL[`p`,`c`]
+    |> Q.GENL[`c`,`p`]
   end
 (* -- *)
 
@@ -1348,7 +1348,7 @@ fun cbv_compile_to_lab_x64 data_prog_x64_def to_data_thm =
 
     val to_livesets_thm1 =
       to_livesets_invariant
-        |> Q.GENL[`wc`,`p`,`c`]
+        |> Q.GENL[`c`,`p`,`wc`]
         |> ISPEC conf_tm
         |> Thm.Specialize prog_tm
         |> Thm.Specialize wc

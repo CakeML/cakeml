@@ -6,7 +6,7 @@ val _ = new_theory"sortProof";
 
 val sort_io_events_def = new_specification("sort_io_events_def",
   ["sort_io_events","sort_error","sort_output"],
-  sort_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`])
+  sort_semantics |> Q.GENL[`inp`,`cls`,`files`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (sort_pred,th) = sort_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

@@ -2569,8 +2569,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])
     \\ IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ ONCE_REWRITE_TAC [bEval_CONS]
-    \\ qmatch_assum_rename_tac`evaluate ([x],_) = (v3,_)`
-    \\ reverse (Cases_on `v3`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ qmatch_assum_rename_tac`evaluate ([x],_) = (vv,_)`
+    \\ reverse (Cases_on `vv`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     >- (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ qexists_tac`ck` >> simp[] >>
         first_assum(match_exists_tac o concl) >> simp[])
     \\ FIRST_X_ASSUM (qspecl_then[`aux1'`,`t2`]mp_tac) >> simp[]
@@ -3677,6 +3677,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
     \\ qpat_abbrev_tac `args = _::_`
+    \\ rename1 `args = z::zs`
     \\ DISCH_TAC
     \\ qabbrev_tac `args' = args''`
     \\ `LENGTH args' ≠ 0` by metis_tac [LIST_REL_LENGTH, LENGTH, DECIDE ``SUC x ≠ 0``]
@@ -3713,7 +3714,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                by (full_simp_tac(srw_ss())[state_rel_def] >>
                    decide_tac) >>
         simp [find_code_def] >>
-        `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
+        `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
         full_simp_tac(srw_ss())[] >>
         srw_tac[][]
         >- (`s1.clock < LENGTH args'` by decide_tac >>
@@ -3781,7 +3782,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                 >- simp [] >>
                 metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND, LENGTH_NIL])))
     >- ((* Enough arguments to do something *)
-         `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
+         `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
          `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
            qhdtm_x_assum`dest_closure`mp_tac >>
            simp[dest_closure_def] >>

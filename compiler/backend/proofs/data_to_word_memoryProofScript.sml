@@ -7618,7 +7618,7 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
   >- (
     rfs[] \\
     Cases_on`LENGTH ws = 0` \\ fs[] \\
-    qspecl_then[`LENGTH bs2`,`bw`,`1`]mp_tac(Q.GENL[`q`,`n`,`m`]DIV_SUB) \\
+    qspecl_then[`LENGTH bs2`,`bw`,`1`]mp_tac(Q.GENL[`m`,`n`,`q`]DIV_SUB) \\
     impl_tac >- (
       fs[X_LE_DIV]
       \\ Cases_on`LENGTH ws` \\ fs[MULT_CLAUSES] )
@@ -7629,8 +7629,8 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
        qpat_assum`bytes_to_word _ _ _ _ _ = _`(strip_assume_tac o
          Q.AP_TERM`get_byte (n2w ^(numSyntax.term_of_int i))`))
       (List.tabulate(8,I ))
-  \\ qspec_then`2`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
-  \\ qspec_then`3`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
+  \\ qspec_then`2`mp_tac(Q.GENL[`k`,`i`]get_byte_bytes_to_word)
+  \\ qspec_then`3`mp_tac(Q.GENL[`k`,`i`]get_byte_bytes_to_word)
   \\ simp[Abbr`bw`]
   \\ ntac 2 strip_tac
   \\ qhdtm_x_assum`good_dimindex`mp_tac

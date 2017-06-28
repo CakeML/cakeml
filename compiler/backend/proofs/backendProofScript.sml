@@ -1302,7 +1302,7 @@ val clean_data_to_target_thm = let
   val th =
     IMP_TRANS imp_data_to_word_precond machine_sem_implements_data_sem
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
-    |> Q.GENL [`t`,`m`,`dm`,`io_regs`]
+    |> Q.GENL [`io_regs`,`dm`,`m`,`t`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
     |> SIMP_RULE std_ss [CONJ_ASSOC,GSYM PULL_EXISTS]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
@@ -1512,7 +1512,7 @@ val compile_correct = Q.store_thm("compile_correct",
   qunabbrev_tac`c''`>>fs[] >>
   qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
   (dec_to_exhProofTheory.compile_semantics
-    |> Q.GENL[`sth`,`envh`,`e`,`st`,`env`]
+    |> Q.GENL[`env`,`st`,`e`,`envh`,`sth`]
     |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
   simp[Abbr`env3`] >>
   simp[Once dec_to_exhProofTheory.v_rel_cases] >>
@@ -1527,7 +1527,7 @@ val compile_correct = Q.store_thm("compile_correct",
   fs[exh_to_patTheory.compile_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { exhSem$semantics env3 st3 es3 }` >>
   (exh_to_patProofTheory.compile_exp_semantics
-   |> Q.GENL[`es`,`st`,`env`]
+   |> Q.GENL[`env`,`st`,`es`]
    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
   simp[Abbr`es3`,Abbr`env3`] >>
   fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
@@ -1537,7 +1537,7 @@ val compile_correct = Q.store_thm("compile_correct",
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
   (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`max_app`,`es`,`st`,`env`]
+   |> Q.GENL[`env`,`st`,`es`,`max_app`]
    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
   simp[Abbr`env3`,Abbr`es3`] >>
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
