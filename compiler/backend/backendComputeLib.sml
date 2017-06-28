@@ -762,6 +762,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.compile_def
     (* ---- stack_to_lab ---- *)
+    ,stack_to_labTheory.is_gen_gc_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
     ,stack_to_labTheory.flatten_def
