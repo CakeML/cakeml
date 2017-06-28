@@ -3805,13 +3805,6 @@ val word_gen_gc_can_do_partial_def = Define `
          still exists. *)
       allo <=+ endh - trig`;
 
-val get_gen_size_def = Define `
-  (get_gen_size [] = bytes_in_word * (-1w):'a word) /\
-  (get_gen_size (x::xs) =
-     if w2n (bytes_in_word:'a word) * x < dimword (:'a)
-     then bytes_in_word * n2w x
-     else bytes_in_word * (-1w))`;
-
 val new_trig_def = Define `
   new_trig (heap_space:'a word) (alloc_pref:'a word) gs =
     let a = w2n alloc_pref in

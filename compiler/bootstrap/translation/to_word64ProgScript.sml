@@ -443,6 +443,7 @@ val _ = translate (BignumHalt_def |> inline_simp |> conv64);
 val _ = translate (AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
 val _ = translate (Maxout_bits_code_def |> conv64)
 val _ = translate (Make_ptr_bits_code_def |> inline_simp |> conv64)
+val _ = translate (get_gen_size_def |> inline_simp |> conv64)
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
