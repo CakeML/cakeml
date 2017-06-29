@@ -413,7 +413,7 @@ fun prove_store_access_specs refs_init_list trans_results store_X_hprop_def refs
 	val loc_const = concl loc_def |> dest_eq |> fst
 	val ri_pred = concl value_def |> rator |> rator
 	val result_type = type_of ri_pred |> dest_type |> snd |> List.hd
-	val monad_type = ``:(^refs_type, ^result_type, ^exc_type) M``
+	val monad_type = ``:^refs_type -> (^result_type, ^exc_type) exc # (^refs_type)``
 
 	val monad_get_fun_def = get_fun_def
 	val monad_get_fun = concl monad_get_fun_def |> dest_eq |> fst
@@ -455,7 +455,7 @@ fun prove_store_access_specs refs_init_list trans_results store_X_hprop_def refs
 	val name_tm = stringLib.fromMLstring name
 	val loc_const = concl loc_def |> dest_eq |> fst
 	val ri_pred = concl value_def |> rator |> rator
-	val monad_type = ``:(^refs_type, unit, ^exc_type) M``
+	val monad_type = ``:^refs_type -> (unit, ^exc_type) exc # (^refs_type)``
 
 	val monad_set_fun_def = set_fun_def
 	val monad_set_fun = concl monad_set_fun_def |> dest_forall |> snd |> dest_eq |> fst |> rator
