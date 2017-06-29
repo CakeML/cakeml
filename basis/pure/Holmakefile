@@ -1,2 +1,2 @@
-INCLUDES = ../.. $(HOLDIR)/examples/fun-op-sem/lprefix_lub $(HOLDIR)/examples/formal-languages/regular
+INCLUDES = ../../misc $(HOLDIR)/examples/formal-languages/regular
 OPTIONS = QUIT_ON_FAILURE

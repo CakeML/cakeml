@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../semantics parsing inference backend\
+INCLUDES = ../misc ../semantics parsing inference backend\
 					 backend/reg_alloc encoders/asm\
 					 ../basis\
 					 backend/arm6 backend/arm8\

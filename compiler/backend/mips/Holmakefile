@@ -1,1 +1,1 @@
-INCLUDES = ../../.. ../../../basis/pure .. ../../encoders/mips
+INCLUDES = ../../../misc ../../../basis/pure .. ../../encoders/mips

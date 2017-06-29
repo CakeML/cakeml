@@ -1,4 +1,4 @@
-INCLUDES = ../.. $(HOLDIR)/examples/set-theory/hol_sets
+INCLUDES = ../../misc $(HOLDIR)/examples/set-theory/hol_sets
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../miscTheory
+BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../misc/miscTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

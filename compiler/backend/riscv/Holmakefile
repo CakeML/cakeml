@@ -1,1 +1,1 @@
-INCLUDES = ../../.. ../../../basis/pure .. ../../encoders/riscv
+INCLUDES = ../../../misc ../../../basis/pure .. ../../encoders/riscv
