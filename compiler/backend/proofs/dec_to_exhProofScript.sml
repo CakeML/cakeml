@@ -653,7 +653,7 @@ val compile_exp_evaluate = Q.store_thm ("compile_exp_evaluate",
   (* cons *)
   strip_tac >- (
     srw_tac[][compile_exps_map] >>
-    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`s`,`es`,`e`]decPropsTheory.evaluate_cons) >> full_simp_tac(srw_ss())[] >>
+    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`e`,`es`,`s`]decPropsTheory.evaluate_cons) >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`_ = (_,r)` >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>

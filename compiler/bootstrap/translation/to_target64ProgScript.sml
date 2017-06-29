@@ -86,12 +86,12 @@ val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
   |> SIMP_RULE std_ss [EqualityType_NUM];
 
 val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM];
 
 val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
 

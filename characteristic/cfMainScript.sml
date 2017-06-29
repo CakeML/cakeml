@@ -69,7 +69,7 @@ val evaluate_prog_RTC_call_FFI_rel = Q.store_thm("evaluate_prog_RTC_call_FFI_rel
   rw[bigClockTheory.prog_clocked_unclocked_equiv]
   \\ (funBigStepEquivTheory.functional_evaluate_tops
       |> CONV_RULE(LAND_CONV SYM_CONV) |> LET_INTRO
-      |> Q.GENL[`tops`,`s`,`env`]
+      |> Q.GENL[`env`,`s`,`tops`]
       |> qspecl_then[`env`,`st with clock := c`,`prog`]mp_tac)
   \\ rw[] \\ pairarg_tac \\ fs[]
   \\ drule evaluatePropsTheory.evaluate_tops_call_FFI_rel_imp

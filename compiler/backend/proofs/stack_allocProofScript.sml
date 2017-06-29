@@ -4943,7 +4943,7 @@ val alloc_correct = Q.prove(
       SOME (Seq (word_gc_code c) (Return 0 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
   \\ tac \\ fs [] \\ strip_tac
-  \\ mp_tac (Q.GENL [`ret`,`l`,`conf`] alloc_correct_lemma) \\ fs []
+  \\ mp_tac (Q.GENL [`conf`,`l`,`ret`] alloc_correct_lemma) \\ fs []
   \\ disch_then (qspecl_then [`c`,`l |+ (0,Loc n' m)`] mp_tac)
   \\ fs [FLOOKUP_UPDATE] \\ strip_tac
   \\ qexists_tac `ck+1` \\ fs []

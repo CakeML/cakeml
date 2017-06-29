@@ -1180,7 +1180,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     `t1.clock = s.clock` by metis_tac[state_rel_def] >>
     Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`t1 with <| regs := regs; pc := t1.pc+1; clock := ck + (ck1+t1.clock)|>`
-        (mp_tac o Q.GENL[`ck1`,`ck`])) >> simp[] >>
+        (mp_tac o Q.GENL[`ck`,`ck1`])) >> simp[] >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
         ntac 2 (last_x_assum(qspec_then`ARB`kall_tac))>>

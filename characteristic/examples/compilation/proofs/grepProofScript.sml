@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"grepProof";
 
 val grep_io_events_def = new_specification("grep_io_events_def",["grep_io_events"],
-  grep_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`])
+  grep_semantics |> Q.GENL[`inp`,`cls`,`files`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (grep_sem,grep_output) = grep_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

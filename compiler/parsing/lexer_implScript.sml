@@ -108,6 +108,7 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
                  else
                    if s = "raise" then RaiseT else
                    if s = "rec" then RecT else
+                   if s = "ref" then RefT else
                    AlphaT s
                else
                  if c = #"s" then
