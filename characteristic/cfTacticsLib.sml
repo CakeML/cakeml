@@ -696,4 +696,7 @@ val xopn =
   simp[app_opn_def, semanticPrimitivesTheory.opn_lookup_def] \\
   cleanup_exn_side_cond
 
+val xref = xpull_check_not_needed \\ head_unfold cf_ref_def \\
+           irule local_elim \\ hnf \\ simp[app_ref_def] \\ reduce_tac
+
 end

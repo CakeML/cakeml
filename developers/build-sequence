@@ -17,6 +17,9 @@ characteristic
 # basis library
 basis
 
+# monadic translator
+translator/monadic
+
 # compiler
 compiler/inference
 compiler/backend/reg_alloc

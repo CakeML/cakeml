@@ -1302,7 +1302,7 @@ val clean_data_to_target_thm = let
   val th =
     IMP_TRANS imp_data_to_word_precond machine_sem_implements_data_sem
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC]
-    |> Q.GENL [`t`,`m`,`dm`,`io_regs`]
+    |> Q.GENL [`io_regs`,`dm`,`m`,`t`]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
     |> SIMP_RULE std_ss [CONJ_ASSOC,GSYM PULL_EXISTS]
     |> SIMP_RULE std_ss [GSYM CONJ_ASSOC,GSYM PULL_EXISTS]
@@ -1349,21 +1349,42 @@ val clos_to_data_names = Q.store_thm("clos_to_data_names",
     EVERY (λn. data_num_stubs ≤ n) (MAP FST (bvi_to_data$compile_prog p3)) /\
     ALL_DISTINCT (MAP FST (bvi_to_data$compile_prog p3))`,
   fs[Once (GSYM bvi_to_dataProofTheory.MAP_FST_compile_prog)]>>
-  fs[bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]>>
+  fs[bvl_to_bviTheory.compile_def]>>
   strip_tac>>
-  pairarg_tac>>fs[]>>rveq>>fs[]>>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs) >>
+  fs [bvl_to_bviTheory.compile_prog_def] >>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  strip_tac>>
   EVAL_TAC>>
   REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
   imp_res_tac compile_all_distinct_locs>>
   fs[]>>
-  imp_res_tac compile_list_distinct_locs>>
+  imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
   rfs[bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]>>rw[]
   \\ TRY strip_tac
   \\ res_tac
   \\ pop_assum mp_tac
-  \\ EVAL_TAC \\ rw[]);
+  \\ EVAL_TAC \\ rw[]
+  \\ fs [EVAL ``data_num_stubs``]
+  \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_MEM \\ fs []
+  \\ res_tac \\ fs [bvl_to_bviTheory.stubs_def]
+  \\ EVAL_TAC
+  \\ match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
+  \\ asm_exists_tac \\ fs []
+  \\ EVAL_TAC \\ fs [GSYM append_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ res_tac \\ fs [EXISTS_MEM]
+  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+  \\ EVAL_TAC
+  \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
+  \\ PairCases_on `e` \\ fs [GSYM append_def]
+  \\ qexists_tac `e0` \\ fs []
+  \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
+  \\ metis_tac [EVEN_DOUBLE,EVEN_ODD]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile c prog = SOME (bytes,ffis) ⇒
@@ -1512,7 +1533,7 @@ val compile_correct = Q.store_thm("compile_correct",
   qunabbrev_tac`c''`>>fs[] >>
   qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
   (dec_to_exhProofTheory.compile_semantics
-    |> Q.GENL[`sth`,`envh`,`e`,`st`,`env`]
+    |> Q.GENL[`env`,`st`,`e`,`envh`,`sth`]
     |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
   simp[Abbr`env3`] >>
   simp[Once dec_to_exhProofTheory.v_rel_cases] >>
@@ -1527,7 +1548,7 @@ val compile_correct = Q.store_thm("compile_correct",
   fs[exh_to_patTheory.compile_def] >>
   qmatch_abbrev_tac`_ ⊆ _ { exhSem$semantics env3 st3 es3 }` >>
   (exh_to_patProofTheory.compile_exp_semantics
-   |> Q.GENL[`es`,`st`,`env`]
+   |> Q.GENL[`env`,`st`,`es`]
    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
   simp[Abbr`es3`,Abbr`env3`] >>
   fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
@@ -1537,7 +1558,7 @@ val compile_correct = Q.store_thm("compile_correct",
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
   (pat_to_closProofTheory.compile_semantics
-   |> Q.GENL[`max_app`,`es`,`st`,`env`]
+   |> Q.GENL[`env`,`st`,`es`,`max_app`]
    |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
   simp[Abbr`env3`,Abbr`es3`] >>
   first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
@@ -1592,7 +1613,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then (SUBST_ALL_TAC o SYM)
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
-    \\ pairarg_tac \\ fs [])
+    \\ rpt (pairarg_tac \\ fs []))
   \\ rename1 `from_data c4 p4 = _`
   \\ `installed (bytes,c4,ffi,ffis,mc,ms)` by
        (fs [installed_def,Abbr`c4`] \\ metis_tac [])

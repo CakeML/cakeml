@@ -998,7 +998,7 @@ val state_rel_refl = Q.store_thm("state_rel_refl[simp]",
 
 val result_rel_v_v_rel_trans =
   result_rel_trans
-  |> Q.GENL[`R2`,`R1`]
+  |> Q.GENL[`R1`,`R2`]
   |> Q.ISPECL[`v_rel`,`v_rel`]
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[v_rel_trans])
@@ -1012,7 +1012,7 @@ val LIST_REL_v_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val LIST_REL_OPTREL_v_rel_trans =
   LIST_REL_trans
@@ -1023,7 +1023,7 @@ val LIST_REL_OPTREL_v_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[OPTREL_trans,v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val LIST_REL_sv_rel_trans =
   LIST_REL_trans
@@ -1034,11 +1034,11 @@ val LIST_REL_sv_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[sv_rel_trans,v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val result_rel_LIST_v_v_rel_trans =
   result_rel_trans
-  |> Q.GENL[`R2`,`R1`]
+  |> Q.GENL[`R1`,`R2`]
   |> Q.ISPECL[`LIST_REL v_rel`,`v_rel`]
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[LIST_REL_v_rel_trans,v_rel_trans])
@@ -2071,7 +2071,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
   strip_tac >- (
     rpt gen_tac >> simp[PULL_EXISTS] >>
     strip_tac >>
-    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`s`,`es`,`e`]evaluate_exh_cons) >> full_simp_tac(srw_ss())[] >>
+    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`e`,`es`,`s`]evaluate_exh_cons) >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>

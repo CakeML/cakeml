@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"catProof";
 
 val cat_io_events_def = new_specification("cat_io_events_def",["cat_io_events"],
-  cat_semantics_thm |> Q.GENL(List.rev[`inp`,`cls`,`files`])
+  cat_semantics_thm |> Q.GENL[`inp`,`cls`,`files`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR

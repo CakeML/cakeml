@@ -2103,7 +2103,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ every_case_tac \\ fs [])
     \\ rename1 `do_app op (REVERSE a) r = Rval z`
     \\ PairCases_on `z` \\ fs [] \\ rveq
-    \\ mp_tac (Q.GENL [`v`,`t`] do_app_thm) \\ fs [] \\ rpt strip_tac
+    \\ mp_tac (Q.GENL [`t`,`v`] do_app_thm) \\ fs [] \\ rpt strip_tac
     \\ first_assum (qspecl_then [`env2`,`t0`] mp_tac)
     \\ impl_tac THEN1
      (fs [env_rel_def] \\ IF_CASES_TAC \\ fs []

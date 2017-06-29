@@ -3368,7 +3368,7 @@ fun use_ALOOKUP_ALL_DISTINCT_MEM (g as (asl,w)) =
       ALOOKUP_ALL_DISTINCT_MEM)))))) w
     val (_,[al,k]) = strip_comb tm
   in
-    mp_tac(ISPECL [al,k] (Q.GENL[`v`,`k`,`al`] ALOOKUP_ALL_DISTINCT_MEM))
+    mp_tac(ISPECL [al,k] (Q.GENL[`al`,`k`,`v`] ALOOKUP_ALL_DISTINCT_MEM))
   end g;
 
 val list_next_var_rename_move_preserve = Q.prove(`
