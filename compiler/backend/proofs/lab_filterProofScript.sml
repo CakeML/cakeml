@@ -528,17 +528,33 @@ val filter_correct = Q.store_thm("filter_correct",
         (full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def]>>
         srw_tac[][]>>res_tac>>
         ntac 2 (pop_assum kall_tac)>>inc_pc_tac)
-      >>
-      Cases_on`a`>>full_simp_tac(srw_ss())[arith_upd_def]>>
+      >-
+        (Cases_on`a`>>full_simp_tac(srw_ss())[arith_upd_def]>>
         TRY(Cases_on`r`>>Cases_on`b`)>>full_simp_tac(srw_ss())[]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def,LET_THM]>>
-        TRY(Cases_on`m`>>full_simp_tac(srw_ss())[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def])>>EVERY_CASE_TAC>>
+        EVERY_CASE_TAC>>
         full_simp_tac(srw_ss())[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>srw_tac[][]>>res_tac>>
         TRY(first_x_assum(qspec_then`0` mp_tac)>>
         srw_tac[][]>>
         qexists_tac`k`>>qexists_tac`t1 with pc:=k+t1.pc`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-        TRY (ntac 2 (pop_assum kall_tac)>>
-          inc_pc_tac)>>
+        ntac 3 (pop_assum kall_tac)>>
+        inc_pc_tac)
+      >-
+        (Cases_on`a`>>
+        Cases_on`m`>>full_simp_tac(srw_ss())[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>EVERY_CASE_TAC>>
+        full_simp_tac(srw_ss())[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>srw_tac[][]>>res_tac>>
+        TRY(first_x_assum(qspec_then`0` mp_tac)>>
+        srw_tac[][]>>
+        qexists_tac`k`>>qexists_tac`t1 with pc:=k+t1.pc`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
+        ntac 3 (pop_assum kall_tac)>>
+        inc_pc_tac)
+      >>
+        Cases_on`f`>>fs[fp_upd_def]>>EVERY_CASE_TAC>>
+        fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def,read_fp_reg_def,upd_fp_reg_def]>>rw[]>>res_tac>>
+        TRY(first_x_assum(qspec_then`0` mp_tac)>>
+        srw_tac[][]>>
+        qexists_tac`k`>>qexists_tac`t1 with pc:=k+t1.pc`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
+        ntac 3 (pop_assum kall_tac)>>
         inc_pc_tac)
     >>
       FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>-same_inst_tac>>

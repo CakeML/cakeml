@@ -24,15 +24,21 @@ val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
 
 val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
   `asm_inst i (s with clock := z) = asm_inst i s with clock := z`,
-  Cases_on`i`>>EVAL_TAC >- (
-    Cases_on`a`>>EVAL_TAC >>
+  Cases_on`i`>>EVAL_TAC
+  >-
+    (Cases_on`a`>>EVAL_TAC >>
     every_case_tac >> fs[] >>
     Cases_on`b`>>EVAL_TAC>>
     fs[state_component_equality] >>
-    Cases_on`r`>>fs[reg_imm_def]) >>
-  Cases_on`m`>>EVAL_TAC>>
-  Cases_on`a`>>EVAL_TAC>>
-  every_case_tac >> fs[]);
+    Cases_on`r`>>fs[reg_imm_def])
+  >-
+    (Cases_on`m`>>EVAL_TAC>>
+    Cases_on`a`>>EVAL_TAC>>
+    every_case_tac >> fs[])
+  >>
+    Cases_on`f`>>EVAL_TAC>>
+    every_case_tac>>fs[]>>
+    EVAL_TAC>>fs[]);
 
 val read_reg_inc_pc = Q.store_thm("read_reg_inc_pc[simp]",
   `read_reg r (inc_pc s) = read_reg r s`,
@@ -68,6 +74,7 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$upd_pc x s).be = s.be) ∧
     ((labSem$upd_pc x s).mem = s.mem) ∧
     ((labSem$upd_pc x s).regs = s.regs) ∧
+    ((labSem$upd_pc x s).fp_regs = s.fp_regs) ∧
     ((labSem$upd_pc x s).ffi = s.ffi) ∧
     ((labSem$inc_pc s).ptr_reg = s.ptr_reg) ∧
     ((labSem$inc_pc s).len_reg = s.len_reg) ∧
@@ -78,6 +85,8 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
     ((labSem$inc_pc s).mem = s.mem) ∧
+    ((labSem$inc_pc s).regs = s.regs) ∧
+    ((labSem$inc_pc s).fp_regs = s.fp_regs) ∧
     ((labSem$inc_pc s).pc = s.pc + 1) ∧
     ((labSem$inc_pc s).ffi = s.ffi)`,
   EVAL_TAC);
@@ -107,6 +116,20 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    (labSem$arith_upd a x).pc = x.pc ∧
    (labSem$arith_upd a x).ffi = x.ffi`,
   Cases_on`a` >> EVAL_TAC >>
+  every_case_tac >> EVAL_TAC >> rw[]);
+
+val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
+  `(labSem$fp_upd f x).mem_domain = x.mem_domain ∧
+   (labSem$fp_upd f x).ptr_reg = x.ptr_reg ∧
+   (labSem$fp_upd f x).len_reg = x.len_reg ∧
+   (labSem$fp_upd f x).link_reg = x.link_reg ∧
+   (labSem$fp_upd f x).code = x.code ∧
+   (labSem$fp_upd f x).be = x.be ∧
+   (labSem$fp_upd f x).mem = x.mem ∧
+   (labSem$fp_upd f x).io_regs = x.io_regs ∧
+   (labSem$fp_upd f x).pc = x.pc ∧
+   (labSem$fp_upd f x).ffi = x.ffi`,
+  Cases_on`f` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
 
 val line_length_def = Define `
@@ -373,6 +396,11 @@ val arith_upd_align_dm = Q.store_thm("arith_upd_align_dm[simp]",
   `arith_upd x (align_dm s) = align_dm (arith_upd x s)`,
   Cases_on`x` \\ rw[arith_upd_def]
   \\ every_case_tac \\ fs[]);
+
+val fp_upd_align_dm = Q.store_thm("fp_upd_align_dm[simp]",
+  `fp_upd f (align_dm s) = align_dm (fp_upd f s)`,
+  Cases_on`f` \\ EVAL_TAC
+  \\ every_case_tac \\ fs[] \\ EVAL_TAC \\fs[]);
 
 val addr_align_dm = Q.store_thm("addr_align_dm[simp]",
   `addr a (align_dm s) = addr a s`,
