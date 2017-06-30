@@ -52,8 +52,8 @@ val compile_explorer_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | NONE => Failure TypeError
-       | SOME ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
+       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
