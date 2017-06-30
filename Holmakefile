@@ -1,4 +1,4 @@
-INCLUDES = developers compiler/bootstrap/evaluation/x64
+INCLUDES = developers compiler/bootstrap/evaluation/x64/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 README_SOURCES = COPYING developers build-instructions.sh
