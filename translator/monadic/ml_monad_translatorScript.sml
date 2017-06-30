@@ -87,13 +87,13 @@ val with_same_ffi = Q.store_thm("with_same_ffi",
   simp[state_component_equality]);
 
 (* REFS_PRED *)
-val REFS_PRED_def = Define `REFS_PRED H refs s = (H refs * GC) (store2heap s.refs)`;
-val VALID_REFS_PRED_def = Define `VALID_REFS_PRED H = ?(s : unit state) refs. REFS_PRED H refs s`;
+val REFS_PRED_def = Define `REFS_PRED H refs p s = (H refs * GC) (st2heap p s)`;
+val VALID_REFS_PRED_def = Define `VALID_REFS_PRED H = ?(s : unit state) p refs. REFS_PRED H refs p s`;
 
 (* Frame rule for EvalM *)
 val REFS_PRED_FRAME_def = Define
-`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) =
-!F. (H refs1 * F) (store2heap s1.refs) ==> (H refs2 * F * GC) (store2heap s2.refs)`;
+`REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) =
+!F. (H refs1 * F) (st2heap p s1) ==> (H refs2 * F * GC) (st2heap p s2)`;
 
 val EMP_STAR_H = Q.store_thm("EMP_STAR_GC",
 `!H. emp * H = H`,
@@ -104,13 +104,16 @@ val SAT_GC = Q.store_thm("SAT_GC",
 fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
 
 val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
-`REFS_PRED H refs1 s1 ==> REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
-rw[REFS_PRED_def, REFS_PRED_FRAME_def] >> metis_tac[GC_STAR_GC, STAR_ASSOC]);
+`REFS_PRED H refs1 p s1 ==> REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 p s2`,
+rw[REFS_PRED_def, REFS_PRED_FRAME_def]
+\\ Cases_on `p`
+\\ fs[st2heap_def]
+\\ metis_tac[GC_STAR_GC, STAR_ASSOC]);
 
 val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_TRANS",
-`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==>
-REFS_PRED_FRAME H (refs2, s2) (refs3, s3) ==>
-REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`,
+`REFS_PRED_FRAME H p (refs1, s1) (refs2, s2) ==>
+REFS_PRED_FRAME H p (refs2, s2) (refs3, s3) ==>
+REFS_PRED_FRAME H p (refs1, s1) (refs3, s3)`,
 rw[REFS_PRED_FRAME_def] >>
 PURE_REWRITE_TAC[Once (GSYM GC_STAR_GC), STAR_ASSOC] >>
 `H refs3 * F' * GC * GC = H refs3 * (F' * GC) * GC` by fs[STAR_ASSOC] >>
@@ -161,6 +164,10 @@ rpt strip_tac \\ fs[ADD_CLAUSES, GSYM store2heap_aux_suc] \\
 metis_tac[]
 );
 
+val NEG_DISJ_TO_IMP = Q.prove(
+`!A B. ~A \/ ~B <=> A /\ B ==> F`,
+rw[]);
+
 val store2heap_aux_DISJOINT = Q.store_thm("store2heap_aux_DISJOINT",
 `!n s1 s2. DISJOINT (store2heap_aux n s1) (store2heap_aux (n + LENGTH s1) s2)`,
 rw[DISJOINT_DEF, INTER_DEF, EMPTY_DEF] >>
@@ -168,8 +175,7 @@ fs[GSPECIFICATION_applied] >>
 sg `!x. {x | x ∈ store2heap_aux n s1 ∧ x ∈ store2heap_aux (n + LENGTH s1) s2} x = (\x. F) x`
 >-(
     rw[] >>
-    `!A B. ~A \/ ~B <=> A /\ B ==> F` by (metis_tac[]) >>
-    POP_ASSUM (fn x => PURE_REWRITE_TAC [x]) >>
+    PURE_REWRITE_TAC[NEG_DISJ_TO_IMP] >>
     DISCH_TAC >> rw[] >>
     IMP_RES_TAC store2heap_aux_Mem >>
     rw[] >>
@@ -218,33 +224,80 @@ qexists_tac `store2heap_aux (LENGTH s) junk` >>
 `!H. GC H` by (rw[cfHeapsBaseTheory.GC_def, SEP_EXISTS] >> qexists_tac `\x. T` >> fs[]) >>
 POP_ASSUM (fn x => fs[x]));
 
+val st2heap_SPLIT_FFI = Q.store_thm("st2heap_SPLIT_FFI",
+`!f st. SPLIT ((store2heap st.refs) UNION (ffi2heap f st.ffi)) (store2heap st.refs, ffi2heap f st.ffi)`,
+rw[SPLIT_def]
+\\ fs[IN_DISJOINT]
+\\ STRIP_TAC
+\\ PURE_REWRITE_TAC[NEG_DISJ_TO_IMP]
+\\ STRIP_TAC
+\\ rw[]
+\\ fs[store2heap_def]
+\\ Cases_on `x`
+\\ fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux]);
+
+val SPLIT2_SPLIT3 = Q.store_thm("SPLIT2_SPLIT3",
+`SPLIT s1 (s2, t3) /\ SPLIT s2 (t1, t2) ==> SPLIT3 s1 (t1, t2, t3)`,
+rw[SPLIT_def] \\ fs[SPLIT3_def]);
+
+val SPLIT_SYM = Q.store_thm("SPLIT_SYM",
+`SPLIT s (s1, s2) = SPLIT s (s2, s1)`,
+fs[SPLIT_def, DISJOINT_SYM, UNION_COMM]);
+
+val STATE_APPEND_JUNK = Q.store_thm("STATE_APPEND_JUNK",
+`!H p s junk. H (st2heap p s) ==> (H * GC) (st2heap p (s with refs := s.refs ++ junk))`,
+rw[]
+\\ Cases_on `p`
+\\ fs[st2heap_def]
+\\ Q.PAT_ABBREV_TAC `h = A UNION B`
+\\ sg `SPLIT3 h (store2heap s.refs, store2heap_aux (LENGTH s.refs) junk, ffi2heap (q,r) s.ffi)`
+>-(
+   fs[markerTheory.Abbrev_def] \\ rw[]
+   \\ irule SPLIT2_SPLIT3
+   \\ qexists_tac `store2heap (s.refs ++ junk)`
+   \\ fs[store2heap_SPLIT, SPLIT_def, IN_DISJOINT, store2heap_def]
+   \\ PURE_REWRITE_TAC[NEG_DISJ_TO_IMP]
+   \\ rpt STRIP_TAC
+   \\ Cases_on `x`
+   \\ fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
+\\ fs[markerTheory.Abbrev_def] \\ rw[]
+\\ POP_ASSUM(fn x => MATCH_MP SPLIT_of_SPLIT3_1u3 x |> ASSUME_TAC)
+\\ fs[Once SPLIT_SYM]
+\\ rw[STAR_def]
+\\ metis_tac[SAT_GC]);
+
 val REFS_PRED_append = Q.store_thm("REFS_PRED_append",
-`!H refs s. REFS_PRED H refs s ==> REFS_PRED H refs (s with refs := s.refs ++ junk)`,
+`!H refs s. REFS_PRED H refs p s ==> REFS_PRED H refs p (s with refs := s.refs ++ junk)`,
 rw[REFS_PRED_def] >> PURE_ONCE_REWRITE_TAC [GSYM GC_STAR_GC] >>
-fs [STAR_ASSOC, STORE_APPEND_JUNK]);
+fs [STAR_ASSOC, STATE_APPEND_JUNK]);
 
 val REFS_PRED_FRAME_append = Q.store_thm("REFS_PRED_FRAME_append",
-`!H refs s. REFS_PRED_FRAME H (refs, s) (refs, s with refs := s.refs ++ junk)`,
-rw[REFS_PRED_FRAME_def, STORE_APPEND_JUNK]);
+`!H refs s. REFS_PRED_FRAME H p (refs, s) (refs, s with refs := s.refs ++ junk)`,
+rw[REFS_PRED_FRAME_def]
+\\ fs[STATE_APPEND_JUNK]);
 
 (*
  * Proof of STORE_EXTRACT_FROM_HPROP:
  * `!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s) /\ LENGTH ps = l`
  *)
 
+val HEAP_LOC_MEM = Q.store_thm("HEAP_LOC_MEM",
+`(Loc l ~~> xv * H) h ==> Mem l (Refv xv) IN h`,
+rw[STAR_def, REF_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]);
+
+val st2heap_LOC_MEM = Q.store_thm("st2heap_LOC_MEM",
+`(Loc l ~~> xv * H) (st2heap p s) ==> Mem l (Refv xv) IN (store2heap s.refs)`,
+Cases_on `p` \\ rw[st2heap_def] \\ IMP_RES_TAC HEAP_LOC_MEM
+\\ fs[IN_UNION]
+\\ fs[Mem_NOT_IN_ffi2heap]);
+
 val store2heap_aux_LOC_MEM = Q.store_thm("store2heap_aux_LOC_MEM",
 `!l xv H n s. (REF (Loc l) xv * H) (store2heap_aux n s) ==> Mem l (Refv xv) IN (store2heap_aux n s)`,
-rw[store2heap_aux_def] >>
-fs[STAR_def, SPLIT_def] >>
-fs[REF_def, SEP_EXISTS] >>
-fs[HCOND_EXTRACT] >>
-fs[cell_def, one_def] >>
-rw[] >>
-last_x_assum (fn x => rw[GSYM x]));
+rw[] \\ IMP_RES_TAC HEAP_LOC_MEM);
 
 val store2heap_LOC_MEM = Q.store_thm("store2heap_LOC_MEM",
 `!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> Mem l (Refv xv) IN (store2heap s)`,
-rw[store2heap_def, store2heap_aux_LOC_MEM] >> IMP_RES_TAC store2heap_aux_LOC_MEM);
+rw[] \\ IMP_RES_TAC HEAP_LOC_MEM);
 
 val isPREFIX_TAKE = Q.store_thm("isPREFIX_TAKE",
 `!l s. isPREFIX (TAKE l s) s`,
@@ -279,11 +332,43 @@ irule FALSITY >>
 IMP_RES_TAC store2heap_IN_LENGTH >>
 fs[]);
 
+val STATE_DECOMPOS_FROM_HPROP = Q.store_thm("STATE_DECOMPOS_FROM_HPROP",
+`!l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s.refs) /\ LENGTH ps = l`,
+rw[] >>
+IMP_RES_TAC st2heap_LOC_MEM >>
+IMP_RES_TAC store2heap_IN_EL >>
+qexists_tac `TAKE l s.refs` >>
+Cases_on `l + 1 <= LENGTH s.refs`
+>-(
+    fs[LENGTH_TAKE] >>
+    SUFF_TAC ``isPREFIX [Refv (xv : v)] (DROP l s.refs)``
+    >- metis_tac[LENGTH_TAKE, LENGTH_DROP, GSYM isPREFIX_APPEND_EQ, TAKE_DROP] >>
+    FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
+    SUFF_TAC ``Refv (xv:v) = HD(DROP l s.refs)``
+    >-( fs[] >> Cases_on `DROP l s.refs` >- fs[DROP_NIL] >> fs[]) >>
+    fs[hd_drop]
+) >>
+irule FALSITY >>
+IMP_RES_TAC store2heap_IN_LENGTH >>
+fs[]);
+
 val STORE_EXTRACT_FROM_HPROP = Q.store_thm("STORE_EXTRACT_FROM_HPROP",
 `!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==>
 !junk. EL l (s ++ junk) = Refv xv`,
 rw[] >>
 IMP_RES_TAC STORE_DECOMPOS_FROM_HPROP >>
+fs[IS_PREFIX_APPEND] >>
+first_x_assum(fn x => CONV_RULE (CHANGED_CONV (SIMP_CONV pure_ss [GSYM APPEND_ASSOC])) x |> ASSUME_TAC) >>
+`~NULL ([Refv xv] ++ (l' ++ junk))` by fs[NULL_EQ] >>
+IMP_RES_TAC EL_LENGTH_APPEND >>
+fs[HD] >>
+metis_tac[]);
+
+val STATE_EXTRACT_FROM_HPROP = Q.store_thm("STATE_EXTRACT_FROM_HPROP",
+`!l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==>
+!junk. EL l (s.refs ++ junk) = Refv xv`,
+rw[] >>
+IMP_RES_TAC STATE_DECOMPOS_FROM_HPROP >>
 fs[IS_PREFIX_APPEND] >>
 first_x_assum(fn x => CONV_RULE (CHANGED_CONV (SIMP_CONV pure_ss [GSYM APPEND_ASSOC])) x |> ASSUME_TAC) >>
 `~NULL ([Refv xv] ++ (l' ++ junk))` by fs[NULL_EQ] >>
@@ -344,6 +429,46 @@ rw[STAR_def] >>
 instantiate >>
 rw[REF_HPROP_SAT_EQ]);
 
+val DIFF_UNION_COMM = Q.store_thm("DIFF_UNION_COMM",
+`DISJOINT s2 s3 ==>
+(s1 UNION s2) DIFF s3 = (s1 DIFF s3) UNION s2`,
+rw[SET_EQ_SUBSET]
+\\ fs[SUBSET_DEF, IN_DISJOINT] \\rw[]
+\\ last_x_assum (fn x => PURE_ONCE_REWRITE_RULE [NEG_DISJ_TO_IMP] x |> IMP_RES_TAC)
+\\ fs[]);
+
+val STATE_SAT_LOC_STAR_H_EQ = Q.store_thm("STATE_SAT_LOC_STAR_H_EQ",
+`!p s s0 xv s1 H. (Loc (LENGTH s0) ~~> xv * H) (st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)) <=>
+H ((store2heap s0) UNION (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))`,
+rw[] >>
+Cases_on `p` >>
+fs[st2heap_def] >>
+qspecl_then [`p`, `s with refs := s0 ++ [Refv xv] ++ s1`] ASSUME_TAC st2heap_SPLIT_FFI >>
+fs[] >>
+qspecl_then [`s0`, `Refv xv`, `s1`] ASSUME_TAC SEPARATE_STORE_ELEM_IN_HEAP >>
+IMP_RES_TAC SPLIT_of_SPLIT3_1u3 >>
+EQ_TAC
+>-(
+    rw[STAR_def, REF_HPROP_SAT_EQ] >>
+    fs[SPLIT_EQ] >>
+    rw[] >>
+    fs[st2heap_def] >>
+    `DISJOINT (ffi2heap (q, r) s.ffi) {Mem (LENGTH s0) (Refv xv)}` by fs[DISJOINT_DEF, Mem_NOT_IN_ffi2heap] >>
+    fs[Once DIFF_UNION_COMM]
+) >>
+DISCH_TAC >>
+rw[STAR_def] >>
+instantiate >>
+qexists_tac `{Mem (LENGTH s0) (Refv xv)}` >>
+fs[REF_HPROP_SAT_EQ] >>
+fs[SPLIT_def, SPLIT3_def] >>
+rw[]
+>-(
+    rw[store2heap_append_many, store2heap_aux_append_many]
+    >> metis_tac[store2heap_aux_def, UNION_COMM, UNION_ASSOC])
+\\ fs[Mem_NOT_IN_ffi2heap]
+);
+
 val STORE_UPDATE_HPROP = Q.store_thm("STORE_UPDATE_HPROP",
 `(Loc l ~~> xv * H) (store2heap s) ==> (Loc l ~~> xv' * H) (store2heap (LUPDATE (Refv xv') l s))`,
 DISCH_TAC >>
@@ -355,6 +480,25 @@ sg `?s0 s1. s = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
 ) >>
 rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
 metis_tac[STORE_SAT_LOC_STAR_H_EQ, REF_HPROP_SAT_EQ, STAR_def]);
+
+val STATE_UPDATE_HPROP = Q.store_thm("STATE_UPDATE_HPROP",
+`(Loc l ~~> xv * H) (st2heap p s) ==> (Loc l ~~> xv' * H) (st2heap p (s with refs := (LUPDATE (Refv xv') l s.refs)))`,
+DISCH_TAC >>
+sg `?s0 s1. s.refs = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
+>-(
+    IMP_RES_TAC STATE_DECOMPOS_FROM_HPROP >>
+    IMP_RES_TAC rich_listTheory.IS_PREFIX_APPEND >>
+    SATISFY_TAC
+) >>
+rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
+fs[STATE_SAT_LOC_STAR_H_EQ] >>
+sg `(st2heap p s) = st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)` 
+>-(
+   `s = (s with refs := s0 ++ [Refv xv] ++ s1)` by POP_ASSUM (fn x => rw[GSYM x, with_same_refs])
+   >> POP_ASSUM(fn x => rw[GSYM x])
+) >>
+POP_ASSUM(fn x => fs[x]) >>
+fs[STATE_SAT_LOC_STAR_H_EQ]);
 
 (* Objectives:
 EvalM env exp (ArrowM H (Pure A) (MONAD B C) f) fv ==>
@@ -374,19 +518,19 @@ REFS_PRED_FRAME H (refs1, s1) (refs2, s2) = !F. (H refs1 * F) s1 ==> (H refs2 * 
 
 val EvalM_def = Define `
   EvalM env exp P H <=>
-    !(s:unit state) refs. REFS_PRED H refs s  ==>
+    !(s:unit state) p refs. REFS_PRED H refs p s  ==>
     !junk.
     ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
-    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H (refs, s) (refs2, s2)`;
+    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H p (refs, s) (refs2, s2)`;
 
 *)
 
 val EvalM_def = Define `
   EvalM env exp P H <=>
-    !(s:unit state) refs. REFS_PRED H refs s  ==>
+    !(s:unit state) p refs. REFS_PRED H refs p s  ==>
     !junk.
     ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
-    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H (refs, s) (refs2, s2)`;
+    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H p (refs, s) (refs2, s2)`;
 
 (*
  * Definition of EvalM
@@ -407,7 +551,6 @@ val MONAD_def = Define `
     | _ => F`
 
 (* return *)
-
 val EvalM_return = Q.store_thm("EvalM_return",
   `!H b. Eval env exp (a x) ==>
     EvalM env exp (MONAD a b (ex_return x)) H`,
@@ -462,21 +605,21 @@ val Eval_IMP_PURE = Q.store_thm("Eval_IMP_PURE",
   \\ IMP_RES_TAC (evaluate_empty_state_IMP
                   |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ fs[]
-  \\ metis_tac[REFS_PRED_append ,APPEND_ASSOC, REFS_PRED_FRAME_append]);
+  \\ metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append]);
 
 (* function abstraction and application *)
 
 val ArrowP_def = Define `
   (ArrowP : ('refs -> hprop) -> ('a, 'refs) H -> ('b, 'refs) H -> ('a -> 'b) -> v -> bool) H a b f c =
-     !x refs1 s1 refs2 s2 (res:(v,v) result).
-       a x (refs1,s1) (refs2,s2,res) /\ REFS_PRED H refs1 s1 ==>
+     !x p refs1 s1 refs2 s2 (res:(v,v) result).
+       a x (refs1,s1) (refs2,s2,res) /\ REFS_PRED H refs1 p s1 ==>
        ?junk v env exp.
        (refs2 = refs1) /\ (s2 = s1 with refs := s1.refs ++ junk) /\
        (res = Rval v) /\ do_opapp [c;v] = SOME (env,exp) /\
        !junk. ?refs3 s3 res3.
          evaluate F env (s2 with refs := s2.refs ++ junk) exp (s3,res3) /\
          b (f x) (refs1,s1) (refs3,s3,res3) /\
-         REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`;
+         REFS_PRED_FRAME H p (refs1, s1) (refs3, s3)`;
 
 val ArrowM_def = Define `
 (ArrowM : ('refs -> hprop) -> ('a, 'refs) H -> ('b, 'refs) H -> ('a -> 'b, 'refs) H) H a b =
@@ -506,6 +649,7 @@ val EvalM_ArrowM = Q.store_thm("EvalM_ArrowM",
   \\ first_x_assum(qspec_then`[]`strip_assume_tac)
   \\ fs[with_same_refs]
   \\ first_x_assum drule \\ rw[]
+  \\ POP_ASSUM(qspec_then `p` IMP_RES_TAC)
   \\ first_x_assum(qspec_then`junk'`strip_assume_tac) \\ fs[]
   \\ asm_exists_tac \\ rw[] \\ fs[]
   \\ asm_exists_tac \\ rw[]
@@ -645,6 +789,7 @@ val M_FUN_FORALL_PUSH1 = Q.prove(
   rw[FUN_EQ_THM,FUN_FORALL,ArrowP_def,PURE_def,PULL_EXISTS]
   \\ reverse EQ_TAC >- METIS_TAC[] \\ rw[]
   \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum IMP_RES_TAC
   \\ first_assum(qspec_then`ARB`strip_assume_tac) \\ fs[]
   \\ fs[state_component_equality]
   \\ qx_gen_tac`junk2`
@@ -675,7 +820,7 @@ val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
         EvalM env (Handle exp1 [(Pvar n,exp2)]) (MONAD a b (x1 otherwise x2)) H`,
   SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ Q.PAT_X_ASSUM `!s refs. bb ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+  \\ Q.PAT_X_ASSUM `!s p refs. bb ==> bbb` (MP_TAC o Q.SPECL [`s`, `p`,`refs`])
   \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ first_x_assum(qspec_then`junk`strip_assume_tac)
   \\ Cases_on `res` THEN1
@@ -847,18 +992,24 @@ val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
       \\ fs[MONAD_def, REFS_PRED_FRAME_def]
       \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
       \\ rpt STRIP_TAC
-      \\ qexists_tac `xv'`
-      \\ ASSUME_TAC(Q.SPECL [`s.refs`, `junk`] store2heap_SPLIT |> Thm.INST_TYPE [``:'a`` |-> ``:unit``])
-      \\ fs[STAR_ASSOC]
-      \\ CONV_TAC(ONCE_DEPTH_CONV (PURE_ONCE_REWRITE_CONV [STAR_def]))
-      \\ fs[]
-      \\ instantiate
-      \\ fs[SAT_GC]
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qexists_tac `refs`
+      \\ qexists_tac `Rval xv`
+      \\ rw[]
+      
+      >-(
+         qexists_tac `s.refs ++ junk`
+         \\ qexists_tac `s.ffi`
+         \\ fs[with_same_refs, with_same_ffi]
+         \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP
+         \\ fs[]
+      ) >>
+      qexists_tac `xv'`
+      \\ fs[STATE_APPEND_JUNK]
   ) >>
   fs[MONAD_def]
-  \\ IMP_RES_TAC store2heap_LOC_MEM
+  \\ IMP_RES_TAC st2heap_LOC_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH
-  \\ `LENGTH init_type_constants_refs >= LENGTH s.refs` by fs[]
   \\ fs[]);
 
 val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
@@ -889,13 +1040,13 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ qexists_tac `s.ffi`
   \\ IMP_RES_TAC (Thm.INST_TYPE [``:'b`` |-> ``:unit``, ``:'c`` |-> ``:unit``] REFS_PRED_FRAME_imp)
   \\ fs[REFS_PRED_def]
-  \\ qpat_x_assum `P (store2heap s.refs)` (fn x => ALL_TAC)
+  \\ qpat_x_assum `P (st2heap p s)` (fn x => ALL_TAC)
   \\ fs[store_assign_def,EL_APPEND1,EL_APPEND2,store_v_same_type_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
-  \\ fs[GSYM STAR_ASSOC] \\ IMP_RES_TAC store2heap_LOC_MEM
+  \\ fs[GSYM STAR_ASSOC] \\ IMP_RES_TAC st2heap_LOC_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH
-  \\ IMP_RES_TAC STORE_EXTRACT_FROM_HPROP
+  \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP
   \\ POP_ASSUM (qspec_then `[]` ASSUME_TAC)
   \\ fs[] \\ POP_ASSUM(fn x => ALL_TAC)
   \\ fs[MONAD_def]
@@ -908,9 +1059,9 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ CONV_TAC (STRIP_QUANT_CONV (RATOR_CONV PURE_FACTS_FIRST_CONV))
   \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
   \\ fs[LUPDATE_APPEND1,LUPDATE_APPEND2,LUPDATE_def]
-  \\ IMP_RES_TAC STORE_UPDATE_HPROP
+  \\ IMP_RES_TAC STATE_UPDATE_HPROP
   \\ last_x_assum(qspec_then `v` ASSUME_TAC)
-  \\ fs[]);
+  \\ fs[with_same_ffi]);
 
 (* Theorems to convert monadic specifications to cf specifications *)
 
