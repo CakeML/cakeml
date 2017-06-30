@@ -1,6 +1,6 @@
 open preamble astTheory;
 open conLangTheory modLangTheory exhLangTheory patLangTheory closLangTheory
-     displayLangTheory;
+     displayLangTheory source_to_modTheory;
 
 val _ = new_theory"presLang";
 
@@ -22,6 +22,7 @@ val _ = new_theory"presLang";
 val _ = Datatype`
   op =
     | Ast_op ast$op
+    | Modlang_op modLang$op
     | Conlang_op conLang$op
     | Patlang_op patLang$op
     | Closlang_op closLang$op`;
@@ -137,7 +138,7 @@ val mod_to_pres_exp_def = tDefine"mod_to_pres_exp" `
   /\
   (mod_to_pres_exp (Fun tra varN exp) = Fun tra varN (mod_to_pres_exp exp))
   /\
-  (mod_to_pres_exp (App tra op exps) = App tra (Ast_op op) (MAP mod_to_pres_exp exps))
+  (mod_to_pres_exp (App tra op exps) = App tra (Modlang_op op) (MAP mod_to_pres_exp exps))
   /\
   (mod_to_pres_exp (If tra exp1 exp2 exp3) =
     If tra (mod_to_pres_exp exp1) (mod_to_pres_exp exp2) (mod_to_pres_exp exp3))
@@ -486,7 +487,7 @@ val shift_to_display_def = Define`
   /\
   (shift_to_display Ror = empty_item "Ror")`;
 
-val op_to_display_def = Define`
+val op_to_display_def = tDefine "op_to_display"`
   (op_to_display (Patlang_op (Tag_eq n1 n2)) =
     Item NONE "Tag_eq" [(num_to_display n1);(num_to_display n2)])
   /\
@@ -497,75 +498,81 @@ val op_to_display_def = Define`
   (op_to_display (Conlang_op (Init_global_var num)) =
     Item NONE "Init_global_var" [num_to_display num])
   /\
-  (op_to_display (Conlang_op (Op astop)) = Item NONE "Op" [op_to_display (Ast_op (astop))])
+  (op_to_display (Conlang_op (Op astop)) = Item NONE "Op" [op_to_display (Modlang_op (astop))])
   /\
-  (op_to_display (Ast_op (Opn opn)) = Item NONE "Opn" [opn_to_display opn])
+  (op_to_display (Ast_op AallocEmpty) = empty_item "AallocEmpty")
   /\
-  (op_to_display (Ast_op (Opb opb)) = Item NONE "Opb" [opb_to_display opb])
+  (op_to_display (Ast_op astop) = op_to_display (Modlang_op (astOp_to_modOp astop)))
   /\
-  (op_to_display (Ast_op (Opw word_size opw)) =
+  (op_to_display (Modlang_op (Opn opn)) = Item NONE "Opn" [opn_to_display opn])
+  /\
+  (op_to_display (Modlang_op (Opb opb)) = Item NONE "Opb" [opb_to_display opb])
+  /\
+  (op_to_display (Modlang_op (Opw word_size opw)) =
     Item NONE "Opw" [ word_size_to_display word_size; opw_to_display opw ])
   /\
-  (op_to_display (Ast_op (Shift word_size shift num)) =
+  (op_to_display (Modlang_op (Shift word_size shift num)) =
     Item NONE "Shift" [
       word_size_to_display word_size;
       shift_to_display shift;
       num_to_display num
   ])
   /\
-  (op_to_display (Ast_op Equality) = empty_item "Equality")
+  (op_to_display (Modlang_op Equality) = empty_item "Equality")
   /\
-  (op_to_display (Ast_op Opapp) = empty_item "Opapp")
+  (op_to_display (Modlang_op Opapp) = empty_item "Opapp")
   /\
-  (op_to_display (Ast_op Opassign) = empty_item "Opassign")
+  (op_to_display (Modlang_op Opassign) = empty_item "Opassign")
   /\
-  (op_to_display (Ast_op Oprep) = empty_item "Oprep")
+  (op_to_display (Modlang_op Opref) = empty_item "Opref")
   /\
-  (op_to_display (Ast_op Opderep) = empty_item "Opderep")
+  (op_to_display (Modlang_op Opderef) = empty_item "Opderef")
   /\
-  (op_to_display (Ast_op Aw8alloc) = empty_item "Aw8alloc")
+  (op_to_display (Modlang_op Aw8alloc) = empty_item "Aw8alloc")
   /\
-  (op_to_display (Ast_op Aw8sub) = empty_item "Aw8sub")
+  (op_to_display (Modlang_op Aw8sub) = empty_item "Aw8sub")
   /\
-  (op_to_display (Ast_op Aw8length) = empty_item "Aw8length")
+  (op_to_display (Modlang_op Aw8length) = empty_item "Aw8length")
   /\
-  (op_to_display (Ast_op Aw8update) = empty_item "Aw8update")
+  (op_to_display (Modlang_op Aw8update) = empty_item "Aw8update")
   /\
-  (op_to_display (Ast_op (WordFromInt word_size)) =
+  (op_to_display (Modlang_op (WordFromInt word_size)) =
     Item NONE "WordFromInt" [word_size_to_display word_size])
   /\
-  (op_to_display (Ast_op (WordToInt word_size)) =
+  (op_to_display (Modlang_op (WordToInt word_size)) =
     Item NONE "WordToInt" [word_size_to_display word_size])
   /\
-  (op_to_display (Ast_op Ord) = empty_item "Ord")
+  (op_to_display (Modlang_op Ord) = empty_item "Ord")
   /\
-  (op_to_display (Ast_op Chr) = empty_item "Chr")
+  (op_to_display (Modlang_op Chr) = empty_item "Chr")
   /\
-  (op_to_display (Ast_op (Chopb opb)) =
+  (op_to_display (Modlang_op (Chopb opb)) =
     Item NONE "Chopb" [opb_to_display opb])
   /\
-  (op_to_display (Ast_op Implode) = empty_item "Implode")
+  (op_to_display (Modlang_op Implode) = empty_item "Implode")
   /\
-  (op_to_display (Ast_op Strsub) = empty_item "Strsub")
+  (op_to_display (Modlang_op Strsub) = empty_item "Strsub")
   /\
-  (op_to_display (Ast_op Strlen) = empty_item "Strlen")
+  (op_to_display (Modlang_op Strlen) = empty_item "Strlen")
   /\
-  (op_to_display (Ast_op VfromList) = empty_item "VfromList")
+  (op_to_display (Modlang_op VfromList) = empty_item "VfromList")
   /\
-  (op_to_display (Ast_op Vsub) = empty_item "Vsub")
+  (op_to_display (Modlang_op Vsub) = empty_item "Vsub")
   /\
-  (op_to_display (Ast_op Vlength) = empty_item "Vlength")
+  (op_to_display (Modlang_op Vlength) = empty_item "Vlength")
   /\
-  (op_to_display (Ast_op Aalloc) = empty_item "Aalloc")
+  (op_to_display (Modlang_op Aalloc) = empty_item "Aalloc")
   /\
-  (op_to_display (Ast_op Asub) = empty_item "Asub")
+  (op_to_display (Modlang_op Asub) = empty_item "Asub")
   /\
-  (op_to_display (Ast_op Alength) = empty_item "Alength")
+  (op_to_display (Modlang_op Alength) = empty_item "Alength")
   /\
-  (op_to_display (Ast_op Aupdate) = empty_item "Aupdate")
+  (op_to_display (Modlang_op Aupdate) = empty_item "Aupdate")
   /\
-  (op_to_display (Ast_op (FFI str)) =
-    Item NONE "FFI" [string_to_display str])`;
+  (op_to_display (Modlang_op (FFI str)) =
+    Item NONE "FFI" [string_to_display str])`
+( wf_rel_tac`inv_image ($< LEX $<)
+    (λx. case x of (Ast_op op) => (1,op_size op) | x => (0n,op_size x))` )
 
 val lop_to_display_def = Define`
   (lop_to_display ast$And = empty_item "And")

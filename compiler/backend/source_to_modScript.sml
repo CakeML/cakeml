@@ -105,10 +105,10 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp t env (ast$App op es) =
     if op = AallocEmpty then
-      FOLDR (Let t NONE) (modLang$App t Aalloc [Lit (IntLit (&0)); Lit (IntLit (&0))])
+      FOLDR (Let t NONE) (modLang$App t Aalloc [Lit t (IntLit (&0)); Lit t (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
-      modLang$App t (astOp_to_modOp op) (compile_exps env es))
+      modLang$App t (astOp_to_modOp op) (compile_exps t env es))
   ∧
   (compile_exp t env (Log lop e1 e2) =
     let t' = mk_cons t 1 in
@@ -148,7 +148,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Tannot e _) = compile_exp t env e)
   ∧
   (* When encountering a Lannot, we update the trace we are passing *)
-  (compile_exp t env (Lannot e (st,en)) =
+  (compile_exp t env (Lannot e (Locs st en)) =
     let t' = if t = None then t else (Cons (Cons (Cons (Cons Empty st.row) st.col) en.row) en.col) in
       compile_exp t' env e)
   ∧
