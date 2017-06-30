@@ -273,7 +273,7 @@ val insert_atI_def = Define`
 
 val insert_atI_NIL = Q.store_thm(
   "insert_atI_NIL",
-  `∀n l. n <= LENGTH l ==> insert_atI [] n l = l`,
+  `∀n l.insert_atI [] n l = l`,
   simp[insert_atI_def]);
 
 val insert_atI_CONS = Q.store_thm(

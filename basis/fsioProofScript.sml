@@ -520,8 +520,12 @@ val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
     fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
 
+val LENGTH_extract_aux = Q.store_thm("LENGTH_extract_aux",
+`!s x y. LENGTH (extract_aux s x y) = y`,
+     Induct_on`y` >> fs[extract_aux_def,MIN_DEF]);
+
 val write_string_spec = Q.store_thm("write_string_spec",
-  `!(fd :word8) fdv a av bc content pos. 
+  `!s (fd :word8) fdv sv fs content pos. 
     WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ 
     STRING_TYPE s sv ⇒
     liveFS fs ⇒ w2n fd < 255 ⇒  wfFS fs ⇒
@@ -530,80 +534,138 @@ val write_string_spec = Q.store_thm("write_string_spec",
     (IOFS fs * IOFS_buff257)  
     (POSTv uv. &(UNIT_TYPE () uv) * IOFS_buff257 * 
        SEP_EXISTS k. IOFS (fsupdate fs (w2n fd) k (pos + (strlen s))
-                                    (insert_atI cs pos content)))`,               
+                                    (insert_atI (explode s) pos content)))`,
+  strip_tac >>
+  `?n. strlen s <= n` by (qexists_tac`strlen s` >> fs[]) >>
+  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >>
+  Induct_on`n` >>
   xcf "IO.write_string" (basis_st()) >> fs[IOFS_buff257_def] >>
-  xpull >> 
-  rename [`W8ARRAY _ buff`] >>
-  NTAC 4 (xlet_auto >- xsimpl) >>
-  cheat
-  (*
-  xlet`POSTv v''. &UNIT_TYPE () v'' * W8ARRAY (Loc 1)
-        (insert_atI (MAP (n2w ∘ ORD) (explode (substring s 0 254))) 2 buff)`
-  >-( 
-  sg`2 + STRLEN (explode(substring s 0 254)) <= LENGTH buff` >- cheat >>
-  imp_res_tac copyi_spec
-  FIRST_X_ASSUM (MP_TAC o Q.SPEC `Litv (IntLit 2)`) >> 
-  rw[]
-  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`p`, `buff257_loc`]) >> 
-  rw[buff257_loc_def] *)
+  xpull >> rename [`W8ARRAY _ buff`] >>
+  Cases_on `buff` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: rest` >>
+  (xlet_auto >- xsimpl) >>
+  (xif >-(xcon >> xsimpl >> qexists_tac`0` >>
+         fs[fsupdate_unchanged,insert_atI_NIL] >> xsimpl))
+  >-(cases_on`s` >> fs[strlen_def]) >>
+  fs[insert_atI_def] >>
+  sg`STRLEN (explode (substring s 0 254)) + 2 ≤ 257`
+  >- (fs[LENGTH_explode,substring_def] >> CASE_TAC >>
+      fs[substring_def,LENGTH_extract_aux,MIN_DEF]) >>
+  NTAC 5 (xlet_auto >- xsimpl) >>
+  fs[insert_atI_def] >> PURE_REWRITE_TAC[GSYM buff257_loc_def] >>
+  xlet_auto >> xsimpl
+  >-(PURE_REWRITE_TAC[GSYM buff257_loc_def] >> xsimpl >>
+     rw[] >> cases_on`s` >> cases_on`s'` >>
+     fs[substring_def,LENGTH_extract_aux,implode_def,strlen_def,MIN_DEF] >>
+     instantiate >> xsimpl) >>
+  xlet_auto >-(xcon >> xsimpl) >>
+  sg`OPTION_TYPE NUM NONE (Conv (SOME ("NONE",TypeId (Short "option"))) [])`
+  >- fs[OPTION_TYPE_def] >>
+  xlet_auto >- xsimpl >>
+  sg`strlen (extract s nw NONE) <= n`
+  >-(fs[extract_def] >> CASE_TAC >> fs[LENGTH_extract_aux]) >>
+  qmatch_goalsub_abbrev_tac`fsupdate fs _ _ pos' content'` >>
+  qmatch_goalsub_abbrev_tac`IOFS fs'` >>
+  xapp >> xsimpl >>
+  CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+  map_every qexists_tac [`content'`,`fd`,`fs'`,`pos'`,`extract s nw NONE`] >>
+  xsimpl >> 
+  `strlen s <> 0` by (cases_on`s` >> cases_on`s'` >> fs[])>>
+  fs[get_file_content_def] >> pairarg_tac >> rw[] >>
+  fs[Abbr`fs'`,Abbr`pos'`,Abbr`content'`,liveFS_def,
+     fsupdate_def,LDROP_1, wfFS_fsupdate,validFD_def,always_DROP,extract_def,
+     LENGTH_extract_aux,ALIST_FUPDKEY_ALOOKUP] >>
+  qexists_tac`x' + (Lnext_pos fs.numchars +1)` >> fs[insert_atI_def] >>
+  qmatch_abbrev_tac`IOFS fs1 ==>> IOFS fs2 * GC` >>
+  `fs1 = fs2` suffices_by xsimpl >> 
+  fs[Abbr`fs1`,Abbr`fs2`] >>
+  `nw <= strlen s` by fs[substring_def, LENGTH_extract_aux] >>
+  rw[] >> fs[ALIST_FUPDKEY_o,LENGTH_extract_aux,MAP_MAP_o,CHR_w2n_n2w_ORD,
+             LENGTH_explode] >> 
+  TRY(MATCH_MP_TAC ALIST_FUPDKEY_eq >> fs[LENGTH_TAKE])
+  >-(`nw = strlen s` by fs[] >>
+     sg`nw <= STRLEN (explode (substring s 0 254))` 
+     >- fs[LENGTH_explode,LENGTH_extract_aux,substring_def] >>
+     sg`strlen s <= 255`
+     >- fs[LENGTH_explode,LENGTH_extract_aux,substring_def] >>
+     fs[TAKE_APPEND1,TAKE_LENGTH_TOO_LONG]>>
+     fs[LENGTH_explode,LENGTH_extract_aux,substring_def,MIN_DEF] >>
+     CASE_TAC
+     >- ( (* |s| < 254 *)
+    fs[TAKE_LENGTH_ID_rwt,LENGTH_extract_aux] >>
+    (* TODO lemma *)
+     cheat)
+  >- (`nw < strlen s` by fs[] >> cheat)
+  >- (
+      sg`!k. ?v. LDROP k fs.numchars = SOME v`
+      >-(imp_res_tac always_NOT_LFINITE >>
+         fs[LFINITE_DROP,NOT_LFINITE_DROP,always_NOT_LFINITE]) >>
+  >> cheat))
 );
+
+val read_spec = Q.store_thm("read_spec",
+  `validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
+   WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
+   LENGTH rest = 255 ⇒  w2n n <= 255 ⇒ 
+   wfFS fs ⇒  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "IO.read" (basis_st())) [fdv;nv]
+   (W8ARRAY buff257_loc (h1 :: h2 :: rest) * IOFS fs)
+   (POSTv uv. 
+      &(UNIT_TYPE () uv) * 
+      SEP_EXISTS nr. &(nr <= MIN (w2n n) (LENGTH content - pos) /\
+                      (nr = 0 ⇔ eof (w2n fd) fs = SOME T ∨ w2n n = 0)) * 
+      IOFS (bumpFD (w2n fd) fs nr) *
+      W8ARRAY buff257_loc (0w :: n2w nr :: 
+        MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))`,
+   xcf "IO.read" (basis_st()) >> 
+   NTAC 2 (xlet_auto >- (fs[LUPDATE_def] >> xsimpl)) >>
+   simp[LUPDATE_def,EVAL ``LUPDATE rr 1 (zz :: tt)``] >>
+   xffi >> xsimpl >>
+   fs[buff257_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+   qmatch_goalsub_abbrev_tac`IO st f ns` >>
+   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+   map_every qexists_tac[`ns`,`f`] >>
+   xsimpl >>
+   fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
+      ffi_read_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+      dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
+      HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
+      get_file_content_def] >>
+   pairarg_tac >> xsimpl >> fs[] >>
+   cases_on`fs.numchars` >> fs[wfFS_def] >>
+   qmatch_goalsub_abbrev_tac`k = _ MOD 256` >> qexists_tac`k` >>
+   fs[MIN_LE,eof_def,Abbr`k`] >> rfs[] >> metis_tac[]);
+
 
 
 val read_char_spec = Q.store_thm("read_char_spec",
-  `!(fd :word8) fdv c cv bc content pos.
+  `!(fd :word8) fdv content pos.
     WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
     wfFS fs ⇒  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "read_char" (basis_st())) [fdv]
+    app (p:'ffi ffi_proj) ^(fetch_v "IO.read_char" (basis_st())) [fdv]
     (IOFS fs * IOFS_buff257) 
-    (POST (\cv. SEP_EXISTS c. &(WORD c cv /\ EL pos content = CHR(w2n c)) *
-                IOFS_buff257 *  
-                IOFS (bumpFD (w2n fd) fs 1))
-          (\e. &(EndOfFile_exn e /\ eof (w2n fd) fs = SOME TRUE) *
-               IOFS_buff257 *
-               IOFS(fs with numchars:= THE (LDROP 1 fs.numchars))))`,
-  xcf "read_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
+    (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
+                eof (w2n fd) fs = SOME F) *
+                IOFS_buff257 * IOFS (bumpFD (w2n fd) fs 1))
+          (\e.  &(EndOfFile_exn e /\ eof (w2n fd) fs = SOME T) *
+                IOFS_buff257 * IOFS(bumpFD (w2n fd) fs 0)))`,
+  xcf "IO.read_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
   xpull >> rename [`W8ARRAY _ bdef`] >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
   Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
-  simp[EVAL ``LUPDATE rr 2 (zz :: tt)``,
-       EVAL ``LUPDATE rr 1 (zz :: tt)``, LUPDATE_def] >>
-  cases_on`pos < LENGTH content`
-  >-(
-     qmatch_goalsub_abbrev_tac` _ * _ * IOFS fs'` >>
-     xlet`POSTv uv. &(UNIT_TYPE () uv) * IOFS fs' *
-                    W8ARRAY buff257_loc (0w :: 1w :: n2w (ORD (EL pos content)) :: rest)`
-     >-(`wfFS fs'`
-            by (fs[Abbr`fs'`,wfFS_def] >> cases_on`fs.numchars` >> fs[]) >>
-(*        sg`eof (w2n fd) fs = SOME F`
-        >-(fs[eof_def,get_file_content_def] >> pairarg_tac >> fs[]) >>
-        imp_res_tac neof_read >> *)
-
-        xffi >> xsimpl >>
-        fs[buff257_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
-        qmatch_goalsub_abbrev_tac`IO st f ns` >>
-        CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >>
-        xsimpl >>
-        fs[Abbr`f`,Abbr`fs'`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
-           ffi_read_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
-           dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
-           HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
-           get_file_content_def] >>
-        pairarg_tac >> xsimpl >> fs[] >>
-        qmatch_goalsub_abbrev_tac`_ = SOME(res, _)` >>
-        qexists_tac`(res, bumpFD (FST y) fs 1)` >> fs[] >>
-        cases_on`fs.numchars` >> fs[wfFS_def] >>
-        `MIN 1 (MIN (STRLEN content − pos) (SUC h''')) = 1` by cheat >>
-        fs[Abbr`res`,take1_drop]) >>
-     rpt(xlet_auto >- xsimpl) >>
-     xif >> instantiate >>
-     xlet_auto >> xsimpl  >>
-     xif >> instantiate >>
-     xapp >> xsimpl >>
-
-        );
+  xlet_auto >- xsimpl >>
+  PURE_REWRITE_TAC[GSYM buff257_loc_def] >>
+  xlet_auto >-(fs[buff257_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl)>>
+  NTAC 3 (xlet_auto >- xsimpl) >>
+  xif >> instantiate >>
+  NTAC 3 (xlet_auto >- xsimpl) >>
+  xif >-(xlet_auto >- (xcon >> xsimpl) >> xraise >> 
+         fs[EndOfFile_exn_def,eof_def,get_file_content_def] >> xsimpl) >>
+  xapp >> xsimpl >>
+  `nr = 1` by fs[] >> fs[] >> xsimpl >> 
+  fs[take1_drop,eof_def,get_file_content_def] >> pairarg_tac >> fs[]);
+ 
 val _ = export_theory();
 
 

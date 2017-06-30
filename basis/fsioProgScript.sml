@@ -95,18 +95,13 @@ val _ = process_topdecs
           end` |> append_prog
 
 (* writes a string into a file *)
-val tmp = 
+val _ = 
   process_topdecs` fun write_string fd s =
+  if s = "" then () else
   let val s1 = String.substring s 0 254
-    val l1 = Word8.fromInt(String.strlen s1)
-    val ss1 = String.explode s1
-    val a = copyi buff257 2 ss1
-    val nw = write fd l1 in
-      if l1 = 255w then 
-        let val s2 = String.extract s 255 NONE in 
-          write_string fd s2
-        end
-      else ()
+      val fl = copyi buff257 2 (String.explode s1)
+      val nw = write fd (Word8.fromInt(String.strlen s1)) in
+         write_string fd (String.extract s nw NONE)
   end` |> append_prog
 
 (* val print_newline : unit -> unit *)
@@ -164,18 +159,20 @@ fun input fd buf pos len =
         in input_aux pos len count
   end` |> append_prog
 
+(* wrapper for ffi call *)
+val _ = process_topdecs`
+  fun read fd n =     
+    let val a = Word8Array.update buff257 0 fd
+        val a = Word8Array.update buff257 1 n in
+          #(read) buff257
+    end` |> append_prog
+
 (* reads 1 char *)
-val tmp = process_topdecs`
+val _ = process_topdecs`
 fun read_char fd =
-  let val a = Word8Array.update buff257 0 fd
-      val one = Word8.fromInt 1
-      val a = Word8Array.update buff257 1 one
-      val a = #(read) buff257
-      val res = Word8.toInt (Word8Array.sub buff257 0)
-      val nread = Word8.toInt (Word8Array.sub buff257 1) 
-  in
-    if res = 1 then raise InvalidFD
-    else if nread = 0 then raise EndOfFile
+  let val a = read fd (Word8.fromInt 1) in
+    if Word8.toInt (Word8Array.sub buff257 0) = 1 then raise InvalidFD
+    else if Word8.toInt (Word8Array.sub buff257 1) = 0 then raise EndOfFile
     else Word8Array.sub buff257 2
   end` |> append_prog
 
