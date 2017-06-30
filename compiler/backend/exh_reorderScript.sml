@@ -8,6 +8,7 @@ val is_const_con_def = Define`
 
 val isPvar_def = Define`
   (isPvar (Pvar _) = T) /\
+  (isPvar Pany = T) /\
   isPvar _ = F`
 
 val isPcon_def = Define`

@@ -206,6 +206,9 @@ val _ = tDefine"compile_pat"`
   (compile_pat t (Pvar _) =
    cons_bool t T)
   ∧
+  (compile_pat t Pany =
+   Bool T)
+  ∧
   (compile_pat t (Plit l) =
    App (mk_cons t 1) (Op (Op Equality)) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
   ∧
@@ -238,6 +241,8 @@ val _ = tDefine"compile_pat"`
  * newly bound variables *)
 val _ = tDefine"compile_row"`
   (compile_row _ (NONE::bvs) (Pvar x) = ((SOME x::bvs), 0, I))
+  ∧
+  (compile_row _ bvs Pany = (bvs, 0, I))
   ∧
   (compile_row _ bvs (Plit _) = (bvs, 0, I))
   ∧

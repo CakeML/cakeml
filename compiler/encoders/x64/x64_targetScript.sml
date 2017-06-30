@@ -50,7 +50,7 @@ val x64_cmp_def = Define`
    (x64_cmp NotTest  = Z_NE)`
 
 val x64_ast_def = Define`
-   (x64_ast (Inst Skip) = [Znop]) /\
+   (x64_ast (Inst Skip) = [Znop(1)]) /\
    (x64_ast (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
       in

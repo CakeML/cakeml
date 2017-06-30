@@ -1,10 +1,7 @@
-open HolKernel Parse boolLib bossLib
-
-open tokensTheory lcsymtacs
+open preamble tokensTheory
 
 val _ = new_theory "tokenUtils"
 val _ = set_grammar_ancestry ["tokens", "grammar"]
-val _ = ParseExtras.tight_equality()
 
 (* ----------------------------------------------------------------------
     Utility functions over tokens; perhaps should just appear in
@@ -132,5 +129,11 @@ val destWordT_def = Define`
   (destWordT _ = NONE)
 `;
 val _ = export_rewrites ["destWordT_def"]
+
+val destFFIT_def = Define`
+  (destFFIT (FFIT s) = SOME s) ∧
+  (destFFIT _ = NONE)
+`;
+val _ = export_rewrites ["destFFIT_def"]
 
 val _ = export_theory()

@@ -70,6 +70,8 @@ val NT_rank_def = Define`
         else if n = nType              then  6
         else if n = nPType             then  5
         else if n = nDType             then  4
+        else if n = nTbaseList         then  4
+        else if n = nPTbase            then  3
         else if n = nTbase             then  3
         else if n = nTyOp              then  2
         else if n = nTypeName          then  2
@@ -238,8 +240,8 @@ end
 
 val nullacc =
     foldl fold_nullprove []
-          [“nE”, “nType”, “nTyvarN”, “nSpecLine”,
-           “nPtuple”, “nPbase”, “nLetDec”,
+          [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
+           “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
            “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
            “nElist1”, “nCompOps”, “nListOps”,
            “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
@@ -326,10 +328,11 @@ val parsing_ind = save_thm(
   "parsing_ind",
   relationTheory.WF_INDUCTION_THM
     |> Q.ISPEC `inv_image
-                  (measure (LENGTH:(token,MMLnonT)grammar$symbol list -> num)
+                  (measure (LENGTH:((token,MMLnonT)grammar$symbol # locs) list
+                                   -> num)
                      LEX
                    measure (λn. case n of TOK _ => 0 | NT n => NT_rank n))
-                  (λpt. (ptree_fringe pt, ptree_head pt))`
+                  (λpt. (real_fringe pt, ptree_head pt))`
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]);

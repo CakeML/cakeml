@@ -417,6 +417,7 @@ val compile_pat_correct = Q.prove(
   srw_tac[][exhSemTheory.pmatch_def,compile_pat_def] >>
   srw_tac[][patSemTheory.evaluate_def]
   >- srw_tac[][patSemTheory.Boolv_def]
+  >- srw_tac[][patSemTheory.Boolv_def]
   >- (
     (Cases_on`v`>>full_simp_tac(srw_ss())[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> srw_tac[][]) >>
     srw_tac[][compile_state_def,patSemTheory.do_app_def,EXISTS_PROD] >>
@@ -536,6 +537,9 @@ val compile_row_correct = Q.prove(
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
               ffi := s.ffi; globals := genv |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
+  strip_tac >- (
+    srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
+    qexists_tac`[compile_v v]` >> srw_tac[][] ) >>
   strip_tac >- (
     srw_tac[][pmatch_exh_def,compile_row_def] >> srw_tac[][] >>
     qexists_tac`[compile_v v]` >> srw_tac[][] ) >>
@@ -994,7 +998,7 @@ val state_rel_refl = Q.store_thm("state_rel_refl[simp]",
 
 val result_rel_v_v_rel_trans =
   result_rel_trans
-  |> Q.GENL[`R2`,`R1`]
+  |> Q.GENL[`R1`,`R2`]
   |> Q.ISPECL[`v_rel`,`v_rel`]
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[v_rel_trans])
@@ -1008,7 +1012,7 @@ val LIST_REL_v_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val LIST_REL_OPTREL_v_rel_trans =
   LIST_REL_trans
@@ -1019,7 +1023,7 @@ val LIST_REL_OPTREL_v_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[OPTREL_trans,v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val LIST_REL_sv_rel_trans =
   LIST_REL_trans
@@ -1030,11 +1034,11 @@ val LIST_REL_sv_rel_trans =
   |> UNDISCH
   |> prove_hyps_by(metis_tac[sv_rel_trans,v_rel_trans])
   |> SIMP_RULE std_ss [AND_IMP_INTRO]
-  |> Q.GENL[`l3`,`l2`,`l1`]
+  |> Q.GENL[`l1`,`l2`,`l3`]
 
 val result_rel_LIST_v_v_rel_trans =
   result_rel_trans
-  |> Q.GENL[`R2`,`R1`]
+  |> Q.GENL[`R1`,`R2`]
   |> Q.ISPECL[`LIST_REL v_rel`,`v_rel`]
   |> UNDISCH_ALL
   |> prove_hyps_by(metis_tac[LIST_REL_v_rel_trans,v_rel_trans])
@@ -1734,6 +1738,10 @@ val compile_row_acc = Q.store_thm("compile_row_acc",
     rpt BasicProvers.VAR_EQ_TAC >>
     srw_tac[][compile_row_def] >> simp[] ) >>
   strip_tac >- (
+    rpt gen_tac >> strip_tac >> full_simp_tac(srw_ss())[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    srw_tac[][compile_row_def] >> simp[] ) >>
+  strip_tac >- (
     rpt gen_tac >> simp[LENGTH_NIL] >>
     strip_tac >> rpt gen_tac >> strip_tac >>
     rpt BasicProvers.VAR_EQ_TAC >> full_simp_tac(srw_ss())[] >>
@@ -2063,7 +2071,7 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
   strip_tac >- (
     rpt gen_tac >> simp[PULL_EXISTS] >>
     strip_tac >>
-    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`s`,`es`,`e`]evaluate_exh_cons) >> full_simp_tac(srw_ss())[] >>
+    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`e`,`es`,`s`]evaluate_exh_cons) >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>

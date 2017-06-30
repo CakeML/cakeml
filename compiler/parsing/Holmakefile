@@ -1,5 +1,5 @@
 SEMANTICS = ../../semantics
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free ../.. $(SEMANTICS)
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free ../../misc $(SEMANTICS)
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

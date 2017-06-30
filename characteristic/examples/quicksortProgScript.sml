@@ -7,7 +7,7 @@ open mlarrayProgTheory;
 
 val _ = new_theory "quicksortProg";
 
-val _ = translation_extends"mlarrayProg";
+val _ = translation_extends"basisProg";
 
 val list_rel_perm_help = Q.prove (
   `!l1 l2.
@@ -191,7 +191,7 @@ in
   part_loop (lower - 1) (upper + 1)
 end;
 `;
-val partition_st = ml_progLib.add_prog partition pick_name (basis_st ());
+val _ = append_prog partition;
 
 val partition_pred_def = Define `
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
@@ -232,7 +232,7 @@ val partition_spec = Q.store_thm ("partition_spec",
      * shallowly embedded version of the pivot at the same time. *)
     MEM (pivot,pivot_v) (FRONT (ZIP (elems2,elem_vs2)))
     ⇒
-    app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" partition_st)
+    app (ffi_p:'ffi ffi_proj) ^(fetch_v "partition" (basis_st()))
       (* The arguments *)
       [cmp_v; arr_v; pivot_v; lower_v; upper_v]
       (* The array argument is in the heap with contents of the 3 parts *)
@@ -242,7 +242,7 @@ val partition_spec = Q.store_thm ("partition_spec",
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
         &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
-  xcf "partition" partition_st >>
+  xcf "partition" (basis_st()) >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
   `a pivot pivot_v`
@@ -845,7 +845,7 @@ val partition_spec = Q.store_thm ("partition_spec",
         Cases_on `upper_part ≠ []` >>
         simp [] >>
         fs []
-        >- fs [GSYM LENGTH_NIL] >>
+        >- full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL] >>
         fs [] >>
         `new_lower + 1 ≠ LENGTH middle_vs` suffices_by intLib.ARITH_TAC >>
         `?n. n < LENGTH elems2' - 1 ∧ ~cmp (EL n elems2') pivot`
@@ -981,7 +981,7 @@ in
   end
 end;
 `;
-val quicksort_st = ml_progLib.add_prog quicksort pick_name partition_st;
+val _ = append_prog quicksort;
 
 val eq_int_v_thm =
   MATCH_MP
@@ -995,7 +995,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     (* The elements of the array are all of "semantic type" a *)
     LIST_REL a elems elem_vs
     ⇒
-    app (ffi_p:'ffi ffi_proj) ^(fetch_v "quicksort" quicksort_st)
+    app (ffi_p:'ffi ffi_proj) ^(fetch_v "quicksort" (basis_st()))
       [cmp_v; arr_v]
       (* The array argument is in the heap with contents elem_vs *)
       (ARRAY arr_v elem_vs)
@@ -1008,10 +1008,11 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
            * get the corresponding permutation on the shallowly embedded side
            * too. That's what the ZIP is for, to uniquely determine elems'. *)
           &(?elems'.
+              LIST_REL a elems' elem_vs' ∧
               PERM (ZIP (elems',elem_vs')) (ZIP (elems,elem_vs)) ∧
               (* We use "not greater than" as equivalent to "less or equal" *)
               SORTED (\x y. ¬(cmp y x)) elems'))`,
-  xcf "quicksort" quicksort_st >>
+  xcf "quicksort" (basis_st()) >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)
   xfun_spec `quicksort_help`
@@ -1042,11 +1043,11 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     completeInduct_on `LENGTH elem_vs2` >>
     rw [] >>
     `LENGTH elem_vs2 = 1 ∨ LENGTH elem_vs2 > 1`
-    by fs [GSYM LENGTH_NIL]
+    by full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL]
     >- (
       (* A single element segment array *)
       `LENGTH elems2 = 1` by metis_tac [LIST_REL_LENGTH] >>
-      fs [GSYM LENGTH_NIL] >>
+      full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL] >>
       xapp >>
       rw [] >>
       xlet `POSTv b_v. &(BOOL T b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
@@ -1113,7 +1114,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       >- (
         `LENGTH elem_vs2 = LENGTH (part1 ++ part2)`
         by metis_tac [LENGTH_ZIP, PERM_LENGTH, LENGTH_APPEND, LIST_REL_LENGTH] >>
-        fs [GSYM LENGTH_NIL]) >>
+        full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,LENGTH_APPEND]) >>
       disch_then (qspec_then `part1` mp_tac) >>
       simp [] >>
       disch_then xapp_spec >>
@@ -1131,7 +1132,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     >- (
       xapp >>
       xsimpl >>
-      fs [INT_def, int_arithTheory.INT_NUM_SUB, GSYM LENGTH_NIL]) >>
+      fs [INT_def, int_arithTheory.INT_NUM_SUB]) >>
     (* The second recursive call sorts the upper partition, and that should
      * leave the whole list between lower and upper sorted. *)
     first_x_assum (qspec_then `LENGTH part2` mp_tac) >>
@@ -1139,7 +1140,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     >- (
       `LENGTH elem_vs2 = LENGTH (part1 ++ part2)`
       by metis_tac [LENGTH_ZIP, PERM_LENGTH, LENGTH_APPEND, LIST_REL_LENGTH] >>
-      fs [GSYM LENGTH_NIL]) >>
+      full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,LENGTH_APPEND]) >>
     disch_then (qspecl_then [`part2`] mp_tac) >>
     simp [] >>
     disch_then xapp_spec >>
@@ -1186,9 +1187,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
   >- (
     xret >>
     xsimpl >>
-    fs [LENGTH_NIL] >>
-    qexists_tac `[]` >>
-    simp []) >>
+    fs [LENGTH_NIL]) >>
   xlet `POSTv len_v1. ARRAY arr_v elem_vs * &INT (&(LENGTH elem_vs - 1)) len_v1`
   >- (
     xapp >>
@@ -1196,8 +1195,12 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     fs [INT_def, int_arithTheory.INT_NUM_SUB]) >>
   first_x_assum xapp_spec >>
   xsimpl >>
-  MAP_EVERY qexists_tac [`elems`, `[]`, `elem_vs`, `[]`] >>
-  rw [GSYM LENGTH_NIL] >>
-  metis_tac []);
+  MAP_EVERY qexists_tac [`elems`, `[]`, `elem_vs`] >>
+  rw [] >>
+  qexists_tac `x` >>
+  rw [] >>
+  irule list_rel_perm >>
+  rw [] >>
+  metis_tac [PERM_SYM]);
 
 val _ = export_theory ();

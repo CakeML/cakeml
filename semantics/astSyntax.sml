@@ -24,6 +24,10 @@ structure astSyntax = struct
   val TC_exn = prim_mk_const{Thy="ast",Name="TC_exn"};
   val TC_vector = prim_mk_const{Thy="ast",Name="TC_vector"};
   val TC_array = prim_mk_const{Thy="ast",Name="TC_array"};
+  val Opapp = prim_mk_const{Thy="ast",Name="Opapp"};
+  val And = prim_mk_const{Thy="ast",Name="And"};
+  val Or = prim_mk_const{Thy="ast",Name="Or"};
+  val Pany = prim_mk_const{Thy="ast",Name="Pany"};
   local
     val s1 = HolKernel.syntax_fns1 "namespace"
     val s2 = HolKernel.syntax_fns2 "namespace" in
@@ -32,29 +36,41 @@ structure astSyntax = struct
     val (Long_tm,mk_Long,dest_Long,is_Long) = s2 "Long"
   end
   local val s = HolKernel.syntax_fns1 "ast" in
-  val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
-  val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
   val (Tvar_tm,mk_Tvar,dest_Tvar,is_Tvar) = s "Tvar"
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
   val (Plit_tm,mk_Plit,dest_Plit,is_Plit) = s "Plit"
+  val (Pref_tm,mk_Pref,dest_Pref,is_Pref) = s "Pref"
   val (Raise_tm,mk_Raise,dest_Raise,is_Raise) = s "Raise"
   val (TC_name_tm,mk_TC_name,dest_TC_name,is_TC_name) = s "TC_name"
   val (Tdec_tm,mk_Tdec,dest_Tdec,is_Tdec) = s "Tdec"
   val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
-  val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
-  val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
+  val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
+  val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"
   val (Tapp_tm,mk_Tapp,dest_Tapp,is_Tapp) = s "Tapp"
   val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat"
   val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con"
   val (Fun_tm,mk_Fun,dest_Fun,is_Fun) = s "Fun"
+  val (App_tm,mk_App,dest_App,is_App) = s "App"
+  val (Handle_tm,mk_Handle,dest_Handle,is_Handle) = s "Handle"
+  val (Letrec_tm,mk_Letrec,dest_Letrec,is_Letrec) = s "Letrec"
+  val (Tannot_tm,mk_Tannot,dest_Tannot,is_Tannot) = s "Tannot"
+  val (Lannot_tm,mk_Lannot,dest_Lannot,is_Lannot) = s "Lannot"
+  val (Ptannot_tm,mk_Ptannot,dest_Ptannot,is_Ptannot) = s "Ptannot"
   end
   local val s = HolKernel.syntax_fns3 "ast" in
-  val (Dtabbrev_tm,mk_Dtabbrev,dest_Dtabbrev,is_Dtabbrev) = s "Dtabbrev"
+  val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
+  val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
   val (Tmod_tm,mk_Tmod,dest_Tmod,is_Tmod) = s "Tmod"
+  val (Let_tm,mk_Let,dest_Let,is_Let) = s "Let"
+  val (Log_tm,mk_Log,dest_Log,is_Log) = s "Log"
+  val (If_tm,mk_If,dest_If,is_If) = s "If"
+  end
+  local val s = HolKernel.syntax_fns4 "ast" in
+  val (Dtabbrev_tm,mk_Dtabbrev,dest_Dtabbrev,is_Dtabbrev) = s "Dtabbrev"
   end
   end
 end

@@ -28,6 +28,7 @@ val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env refs (p1::p2::ps) (v1::v2::vs) =
      case Pmatch env refs [p1] [v1] of | NONE => NONE
      | SOME env' => Pmatch env' refs (p2::ps) (v2::vs)) ∧
+  (Pmatch env refs [Pany] [v] = SOME env) ∧
   (Pmatch env refs [Pvar x] [v] = SOME (write x v env)) ∧
   (Pmatch env refs [Plit l] [Litv l'] =
      if l = l' then SOME env else NONE) ∧

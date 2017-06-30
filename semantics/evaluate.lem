@@ -162,7 +162,7 @@ evaluate_decs mn st env (d1::d2::ds) =
   | res -> res
   end
 and
-evaluate_decs mn st env [Dlet p e] =
+evaluate_decs mn st env [Dlet locs p e] =
   if allDistinct (pat_bindings p []) then
     match evaluate st env [e] with
     | (st', Rval v) ->
@@ -177,14 +177,14 @@ evaluate_decs mn st env [Dlet p e] =
   else
     (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dletrec funs] =
+evaluate_decs mn st env [Dletrec locs funs] =
   (st,
    if allDistinct (map (fun (x,y,z) -> x) funs) then
      Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtype tds] =
+evaluate_decs mn st env [Dtype locs tds] =
   let new_tdecs = type_defs_to_new_tdecs mn tds in
     if check_dup_ctors tds &&
        disjoint new_tdecs st.defined_types &&
@@ -195,10 +195,10 @@ evaluate_decs mn st env [Dtype tds] =
     else
       (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtabbrev tvs tn t] =
+evaluate_decs mn st env [Dtabbrev locs tvs tn t] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
-evaluate_decs mn st env [Dexn cn ts] =
+evaluate_decs mn st env [Dexn locs cn ts] =
   if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, Rerr (Rabort Rtype_error))
   else

@@ -1,11 +1,7 @@
-open HolKernel Parse boolLib bossLib lcsymtacs;
-open stringTheory stringLib listTheory tokensTheory lexer_funTheory;
+open preamble tokensTheory lexer_funTheory
 
 val _ = new_theory "lexer_impl";
-val _ = set_grammar_ancestry ["tokens", "lexer_fun", "ASCIInumbers", "location"]
-
-val _ = ParseExtras.tight_equality()
-
+val _ = set_grammar_ancestry ["misc", "tokens", "lexer_fun", "ASCIInumbers", "location"]
 
 val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
@@ -112,6 +108,7 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
                  else
                    if s = "raise" then RaiseT else
                    if s = "rec" then RecT else
+                   if s = "ref" then RefT else
                    AlphaT s
                else
                  if c = #"s" then
@@ -170,48 +167,57 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
        next_sym_alt str (loc with col := loc.col + 1)
      else if isDigit c then (* read number *)
        if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
-         if TL str = "" then SOME (ErrorS, (loc, loc), "")
+         if TL str = "" then SOME (ErrorS, Locs loc loc, "")
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) [] in
-             SOME (WordS (num_from_dec_string_alt n), 
-                   (loc, loc with col := loc.col + LENGTH n + 1), 
+             SOME (WordS (num_from_dec_string_alt n),
+                   Locs loc (loc with col := loc.col + LENGTH n + 1),
                    rest)
          else if HD(TL str) = #"x" then
            let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
              SOME (WordS (num_from_hex_string_alt n),
-                   (loc, loc with col := loc.col + LENGTH n + 2),
+                   Locs loc (loc with col := loc.col + LENGTH n + 2),
                    rest)
-         else SOME (ErrorS, (loc, loc), TL str)
+         else SOME (ErrorS, Locs loc loc, TL str)
        else
          let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string_alt (c::n))), 
-                 (loc, loc with col := loc.col + LENGTH n),
+           SOME (NumberS (&(num_from_dec_string_alt (c::n))),
+                 Locs loc (loc with col := loc.col + LENGTH n),
                  rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (0- &(num_from_dec_string_alt n)), 
-               (loc, loc with col := loc.col + LENGTH n),
+         SOME (NumberS (0- &(num_from_dec_string_alt n)),
+               Locs loc (loc with col := loc.col + LENGTH n),
                rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
-         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
+         SOME (OtherS n,
+               Locs loc (loc with col := loc.col + LENGTH n - 1),
+               rest)
      else if c = #"\"" then (* read string *)
        let (t, loc', rest) = read_string str "" (loc with col := loc.col + 1) in
-         SOME (t, (loc, loc'), rest)
+         SOME (t, Locs loc loc', rest)
      else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, (loc, loc with col := loc.col +2), TL str)
+       SOME (ErrorS, Locs loc (loc with col := loc.col +2), TL str)
      else if isPREFIX "#\"" (c::str) then
        let (t, loc', rest) = read_string (TL str) "" (loc with col := loc.col + 2) in
-         SOME (mkCharS t, (loc, loc'), rest)
+         SOME (mkCharS t, Locs loc loc', rest)
+     else if isPREFIX "#(" (c::str) then
+       let (t, loc', rest) =
+             read_FFIcall (TL str) "" (loc with col := loc.col + 2)
+       in
+         SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
-       | NONE => SOME (ErrorS, (loc, loc with col := loc.col + 2), "")
+       | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], (loc, loc), str)
+       SOME (OtherS [c], Locs loc loc, str)
      else if isSymbol c then
        let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
+         SOME (OtherS n,
+               Locs loc (loc with col := loc.col + LENGTH n - 1),
+               rest)
      else if isAlpha c then (* read identifier *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
@@ -220,25 +226,31 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
                       c'::rest' =>
                         if isAlpha c' then
                           let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), 
-                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'),
+                            SOME (LongS (n ++ "." ++ n'),
+                                  Locs loc
+                                       (loc with
+                                        col := loc.col + LENGTH n + LENGTH n'),
                                   rest'')
                         else if isSymbol c' then
                           let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), 
-                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'), 
+                            SOME (LongS (n ++ "." ++ n'),
+                                  Locs loc
+                                       (loc with
+                                        col := loc.col + LENGTH n + LENGTH n'),
                                   rest'')
                         else
-                          SOME (ErrorS, 
-                                (loc, loc with col := loc.col + LENGTH n), 
+                          SOME (ErrorS,
+                                Locs loc (loc with col := loc.col + LENGTH n),
                                 rest')
-                    | "" => SOME (ErrorS, 
-                                  (loc, loc with col := loc.col + LENGTH n),
+                    | "" => SOME (ErrorS,
+                                  Locs loc (loc with col := loc.col + LENGTH n),
                                   []))
-            | _ => SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
-     else if c = #"_" then SOME (OtherS "_", (loc, loc), str)
+            | _ => SOME (OtherS n,
+                         Locs loc (loc with col := loc.col + LENGTH n - 1),
+                         rest)
+     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
      else (* input not recognised *)
-       SOME (ErrorS, (loc, loc), str))`
+       SOME (ErrorS, Locs loc loc, str))`
  ( WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
@@ -299,7 +311,7 @@ val next_sym_eq = Q.store_thm("next_sym_eq",
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
   TRY(pairarg_tac) >>fs[]>>
-  TRY(qmatch_goalsub_abbrev_tac`num_from_hex_string _ = _` >> 
+  TRY(qmatch_goalsub_abbrev_tac`num_from_hex_string _ = _` >>
       match_mp_tac num_from_hex_string_rw)>>
   TRY(qmatch_goalsub_abbrev_tac`toNum _ = _` >>match_mp_tac toNum_rw)>>
   TRY(fs[]>>
@@ -315,19 +327,19 @@ val lex_aux_def = tDefine "lex_aux" `
     | (* case: end of input *)
       NONE => NONE
     | (* case: token found *)
-      SOME (token, (loc', loc''), rest) =>
-        let new_acc = ((token, (loc', loc''))::acc) in
+      SOME (token, Locs loc' loc'', rest) =>
+        let new_acc = ((token, Locs loc' loc'')::acc) in
         let newloc = loc'' with col := loc''.col + 1 in
           if token = SemicolonT /\ (d = 0) then SOME (REVERSE new_acc, newloc, rest)
           else
-            if token = LetT then lex_aux new_acc (d + 1) rest newloc 
+            if token = LetT then lex_aux new_acc (d + 1) rest newloc
             else if token = StructT then lex_aux new_acc (d + 1) rest newloc
             else if token = SigT then lex_aux new_acc (d + 1) rest newloc
             else if token = LparT then lex_aux new_acc (d + 1) rest newloc
             else if token = EndT then lex_aux new_acc (d - 1) rest newloc
             else if token = RparT then lex_aux new_acc (d - 1) rest newloc
             else lex_aux new_acc d rest newloc`
-  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >> 
+  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
    imp_res_tac next_token_LESS);
 
 val lex_until_toplevel_semicolon_def = Define `
@@ -347,7 +359,7 @@ val lex_aux_LESS = Q.prove(
   THEN SRW_TAC [] [] THEN IMP_RES_TAC next_token_LESS
   THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN IMP_RES_TAC arithmeticTheory.LESS_TRANS
-  THEN TRY (Cases_on `h`) 
+  THEN TRY (Cases_on `h`)
   THEN FULL_SIMP_TAC (srw_ss()) []
   THEN RES_TAC THEN IMP_RES_TAC arithmeticTheory.LESS_EQ_LESS_TRANS
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
@@ -371,8 +383,8 @@ val lex_aux_alt_def = tDefine "lex_aux_alt" `
     | (* case: end of input *)
       NONE => NONE
     | (* case: token found *)
-      SOME (token, (loc', loc''), rest) =>
-        let new_acc = ((token, (loc', loc''))::acc) in
+      SOME (token, Locs loc' loc'', rest) =>
+        let new_acc = ((token, Locs loc' loc'')::acc) in
         let newloc = loc'' with col := loc''.col + 1 in
           if (token = OtherS ";") /\ (d = 0) then SOME (REVERSE new_acc, newloc, rest)
           else if MEM token [OtherS "let"; OtherS "struct";
@@ -381,7 +393,7 @@ val lex_aux_alt_def = tDefine "lex_aux_alt" `
           else if MEM token [OtherS ")"; OtherS "end"] then
             lex_aux_alt new_acc (d - 1) rest newloc
           else lex_aux_alt new_acc d rest newloc`
-  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >> 
+  (WF_REL_TAC `measure (LENGTH o FST o SND o SND)` >> rw[] >>
    imp_res_tac next_sym_LESS);
 
 val lex_until_top_semicolon_alt_def = Define `
@@ -524,7 +536,7 @@ val lex_aux_tokens_thm = Q.prove(
       (lex_aux_tokens acc d (lexer_fun_aux input l) = res1) /\
       (lex_aux acc d input l = res2) ==>
       (case res2 of NONE => (res1 = NONE)
-          | SOME (ts, l', rest) => 
+          | SOME (ts, l', rest) =>
               (res1 = SOME (ts, lexer_fun_aux rest l')))`,
   HO_MATCH_MP_TAC lexer_fun_aux_ind >> SIMP_TAC std_ss []
   >> REPEAT STRIP_TAC >> SIMP_TAC std_ss [Once lex_aux_def]

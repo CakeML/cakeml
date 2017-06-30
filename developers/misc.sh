@@ -1,6 +1,6 @@
 ## Functions for displaying time and memory usage.
 
-pad=$(printf '%0.1s' "."{1..40})
+pad=$(printf '%0.1s' "."{1..48})
 
 function displaytime() {
   local T=${1%.*}

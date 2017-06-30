@@ -10,6 +10,7 @@ val _ = new_theory "exhLang"
 
 val _ = Datatype`
   pat =
+   | Pany
    | Pvar varN
    | Plit lit
    | Pcon num (pat list)

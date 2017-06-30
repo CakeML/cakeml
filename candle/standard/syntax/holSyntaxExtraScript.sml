@@ -1,6 +1,6 @@
 open preamble totoTheory comparisonTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holSyntaxExtra"
 
 val type_ind = save_thm("type_ind",
@@ -466,23 +466,35 @@ val irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 val type_cmp_thm = Q.store_thm("type_cmp_thm",
   `∀t1 t2.  type_cmp t1 t2 =
     case (t1,t2) of
-    | (Tyvar x1, Tyvar x2) => mlstring_cmp x1 x2
+    | (Tyvar x1, Tyvar x2) => mlstring$compare x1 x2
     | (Tyvar _, _) => LESS
     | (_, Tyvar _) => GREATER
-    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring_cmp (list_cmp type_cmp) (x1,a1) (x2,a2)`,
+    | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring$compare (list_cmp type_cmp) (x1,a1) (x2,a2)`,
   ho_match_mp_tac type_ind >>
   conj_tac >- (
     gen_tac >> Cases >>
-    simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm,mlstring_cmp_def] ) >>
+    simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm, mlstring_lt_def] >>
+    every_case_tac >>
+    assume_tac TotOrd_compare >>
+    fs [TotOrd] >>
+    metis_tac [cpn_distinct, cpn_nchotomy]) >>
   ntac 3 strip_tac >>
   Induct >> simp[] >>
   simp[Once type_cmp_def,TO_of_LinearOrder,type_lt_thm] >>
   simp[MATCH_MP pair_cmp_lexTO
-       (CONJ TotOrd_mlstring_cmp (MATCH_MP TotOrd_list_cmp TotOrd_type_cmp))] >>
-  simp[mlstring_cmp_def,type_cmp_def,
+       (CONJ TotOrd_compare (MATCH_MP TotOrd_list_cmp TotOrd_type_cmp))] >>
+  simp[type_cmp_def,
        SYM(MATCH_MP TO_of_LinearOrder_LLEX irreflexive_type_lt),
        SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_LLEX_type_lt))] >>
-  simp[TO_of_LinearOrder])
+  simp[TO_of_LinearOrder] >>
+  every_case_tac >>
+  fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+  rw [] >>
+  rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+  rfs [] >>
+  fs [] >>
+  every_case_tac >>
+  fs []);
 
 val type_cmp_ind = Q.store_thm("type_cmp_ind",
   `∀P.
@@ -505,10 +517,10 @@ val type_cmp_ind = Q.store_thm("type_cmp_ind",
 val term_cmp_thm = Q.store_thm("term_cmp_thm",
   `∀t1 t2. term_cmp t1 t2 =
     case (t1,t2) of
-    | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Var x1 ty1, Var x2 ty2) => pair_cmp mlstring$compare type_cmp (x1,ty1) (x2,ty2)
     | (Var _ _, _) => LESS
     | (_, Var _ _) => GREATER
-    | (Const x1 ty1, Const x2 ty2) => pair_cmp mlstring_cmp type_cmp (x1,ty1) (x2,ty2)
+    | (Const x1 ty1, Const x2 ty2) => pair_cmp mlstring$compare type_cmp (x1,ty1) (x2,ty2)
     | (Const _ _, _) => LESS
     | (_, Const _ _) => GREATER
     | (Comb s1 t1, Comb s2 t2) => pair_cmp term_cmp term_cmp (s1,t1) (s2,t2)
@@ -521,15 +533,28 @@ val term_cmp_thm = Q.store_thm("term_cmp_thm",
   conj_tac >- (
     ntac 2 gen_tac >> Cases >>
     simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
-         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
-    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
-         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_compare TotOrd_type_cmp)] >>
+    simp[type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt
+         irreflexive_type_lt))] >>
+    every_case_tac >>
+    fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+    rw [] >>
+    rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+    every_case_tac >>
+    fs []) >>
   conj_tac >- (
     ntac 2 gen_tac >> Cases >>
     simp[term_cmp_def,TO_of_LinearOrder,term_lt_thm,
-         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_mlstring_cmp TotOrd_type_cmp)] >>
-    simp[mlstring_cmp_def,type_cmp_def,TO_of_LinearOrder,
-         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] ) >>
+         MATCH_MP pair_cmp_lexTO (CONJ TotOrd_compare TotOrd_type_cmp)] >>
+    simp[type_cmp_def,TO_of_LinearOrder,
+         SYM(MATCH_MP TO_of_LinearOrder_LEX (CONJ irreflexive_mlstring_lt irreflexive_type_lt))] >>
+    every_case_tac >>
+    fs [mlstring_lt_def, TO_of_LinearOrder, lexTO, LEX_DEF] >>
+    rw [] >>
+    rfs [StrongLinearOrder_of_TO, TO_of_LinearOrder] >>
+    every_case_tac >>
+    fs []) >>
   conj_tac >- (
     ntac 2 gen_tac >> strip_tac >>
     Cases >> fs[term_cmp_def,TO_of_LinearOrder,term_lt_thm]>>
@@ -2509,8 +2534,8 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
   \\ REPEAT STRIP_TAC
-  \\ `!m. m < n ==>
-         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x` by ALL_TAC
+  \\ sg `!m. m < n ==>
+         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x`
   THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [rich_listTheory.REPLICATE_GENLIST]
          \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_def,mlstringTheory.explode_implode])
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
@@ -2580,8 +2605,8 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
   \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
-  \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
-      VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
+  \\ sg `EXISTS (vfree_in (Var name ty1)) (frees a) =
+      VFREE_IN (Var name ty1) a` THEN1
    (Q.PAT_X_ASSUM `welltyped a` MP_TAC
     \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]

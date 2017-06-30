@@ -170,6 +170,16 @@ val mips_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
+val jump_lem1 = asmLib.mk_blast_thm ``(31 >< 16) (a - 12w : word64) : word16``
+val jump_lem2 = asmLib.mk_blast_thm ``(15 >< 0) (a - 12w : word64) : word16``
+val jump_lem3 =
+  blastLib.BBLAST_PROVE
+    ``(sw2sw ((((31 >< 16) c : word16) @@ (0w : word16)) : word32) ||
+          w2w ((15 >< 0) c : word16)) =
+       sw2sw ((31 >< 0) (c : word64) : word32) : word64``
+val call_lem1 = asmLib.mk_blast_thm ``(31 >< 16) (a - 8w : word64) : word16``
+val call_lem2 = asmLib.mk_blast_thm ``(15 >< 0) (a - 8w : word64) : word16``
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -264,8 +274,9 @@ in
          \\ SUBST1_TAC (Thm.SPEC the_state mips_next_def)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
-               [lem1, lem4, lem12, combinTheory.UPDATE_APPLY,
-                combinTheory.UPDATE_EQ]
+               [lem1, lem4, lem12,
+                jump_lem1, jump_lem2, jump_lem3, call_lem1, call_lem2,
+                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ TRY (Q.PAT_X_ASSUM `NextStateMIPS qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
@@ -299,25 +310,31 @@ fun state_tac asm =
               \\ full_simp_tac
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
-            else
-              NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
-              \\ blastLib.FULL_BBLAST_TAC))
+             else
+              NO_STRIP_FULL_SIMP_TAC std_ss
+                [alignmentTheory.aligned_extract, EVAL ``mips_reg_ok 30``]
+              \\ blastLib.FULL_BBLAST_TAC
+             )
+      )
 
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun has_branch tm =
-      case Lib.total (fst o boolSyntax.dest_strip_comb) tm of
-         SOME s => Lib.mem s ["asm$Jump", "asm$JumpCmp", "asm$JumpReg",
-                              "asm$Call", "asm$Loc"]
-       | NONE => false
+   fun adjust_for_branches i asm =
+     case Lib.total (fst o boolSyntax.dest_strip_comb) asm of
+        SOME "asm$Jump" => if i = 1 then 0 else i - 2
+      | SOME "asm$Call" => if i = 1 then 0 else i - 2
+      | SOME s =>
+          if Lib.mem s ["asm$JumpCmp", "asm$JumpReg", "asm$Loc"] then i - 1
+          else i
+      | NONE => i
    fun next_tac' asm gs =
       let
          val j = number_of_instructions (fst gs)
          val i = j - 1
-         val n = numLib.term_of_int (if has_branch asm then i - 1 else i)
+         val n = numLib.term_of_int (adjust_for_branches i asm)
       in
          exists_tac n
          \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
@@ -376,9 +393,22 @@ val mips_target_ok = Q.prove (
    rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         mips_proj_def, mips_target_def, mips_config, mips_ok_def,
         set_sepTheory.fun2set_eq, mips_encoding] @ enc_ok_rwts)
-   >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, Cases_on `r = 31`]
+   >| [Cases_on `0xFFFFFFFFFFFE0004w <= w1 /\ w1 <= 0x20003w`
+       \\ Cases_on `0xFFFFFFFFFFFE0004w <= w2 /\ w2 <= 0x20003w`,
+       Cases_on `ri`
+       \\ Cases_on `cmp`,
+       Cases_on `0xFFFFFFFFFFFE0004w <= w1 /\ w1 <= 0x20003w`
+       \\ Cases_on `0xFFFFFFFFFFFE0004w <= w2 /\ w2 <= 0x20003w`,
+       Cases_on `r = 31`
+       >| [Cases_on `0xFFFFFFFFFFFF8008w <= w1 /\ w1 <= 32775w`
+           \\ Cases_on `0xFFFFFFFFFFFF8008w <= w2 /\ w2 <= 32775w`,
+           Cases_on `0xFFFFFFFFFFFF800Cw <= w1 /\ w1 <= 32779w`
+           \\ Cases_on `0xFFFFFFFFFFFF800Cw <= w2 /\ w2 <= 32779w`
+          ]
+      ]
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
         (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   \\ blastLib.FULL_BBLAST_TAC
    )
 
 (* -------------------------------------------------------------------------
@@ -516,6 +546,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
         --------------*)
    >- (
       print_tac "Jump"
+      \\ Cases_on `0xFFFFFFFFFFFE0004w <= c /\ c <= 0x20003w`
       \\ next_tac
       )
    >- (
@@ -550,6 +581,7 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
         --------------*)
    >- (
       print_tac "Call"
+      \\ Cases_on `0xFFFFFFFFFFFE0004w <= c /\ c <= 0x20003w`
       \\ next_tac
       )
    >- (
@@ -565,6 +597,9 @@ val mips_backend_correct = Q.store_thm ("mips_backend_correct",
         --------------*)
       print_tac "Loc"
       \\ Cases_on `n = 31`
+      >| [Cases_on `0xFFFFFFFFFFFF8008w <= c /\ c <= 32775w`,
+          Cases_on `0xFFFFFFFFFFFF800Cw <= c /\ c <= 32779w`
+         ]
       \\ next_tac
       )
    )

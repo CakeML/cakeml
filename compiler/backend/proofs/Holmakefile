@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../../.. ../../../semantics ../../../semantics/proofs ../../encoders ../reg_alloc/proofs ../gc $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = .. ../semantics ../../../misc ../../../semantics ../../../semantics/proofs ../../encoders ../reg_alloc/proofs ../gc $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/machine-code/multiword
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -9,7 +9,7 @@ all: $(TARGETS)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../semantics/heap
+PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

@@ -1,5 +1,5 @@
-open HolKernel SatisfySimps boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
-val _ = temp_tight_equality()
+open preamble cardinalTheory
+
 val _ = new_theory"setSpec"
 
 val _ = Parse.remove_type_abbrev "reln";

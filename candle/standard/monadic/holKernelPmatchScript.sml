@@ -1,6 +1,6 @@
 open preamble
 open patternMatchesLib patternMatchesSyntax patternMatchesTheory
-open holKernelTheory
+open ml_monadBaseTheory holKernelTheory
 
 val _ = new_theory"holKernelPmatch"
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -8,11 +8,13 @@ val _ = monadsyntax.temp_add_monadsyntax()
 (* This file proves alternative definitions of those HOL kernel functions that
 have complex pattern matching. The new definitions use PMATCH-based case
 expressions instead of HOL's standard per-datatype case constants *)
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
+val _ = temp_overload_on ("ex_return", ``st_ex_return``);
 
-val _ = temp_overload_on ("monad_bind", ``ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``ex_return``);
+val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
 val PAIR_EQ_COLLAPSE = Q.prove (
@@ -59,7 +61,7 @@ fun fix def name rwth =
       |> curry save_thm name
 
 val monadtac =
-  simp[FUN_EQ_THM,ex_bind_def] >> gen_tac
+  simp[FUN_EQ_THM,st_ex_bind_def] >> gen_tac
 
 val tac =
   BasicProvers.PURE_CASE_TAC >>

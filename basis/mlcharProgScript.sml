@@ -9,13 +9,16 @@ val _ = translation_extends "mlintProg";
 
 val _ = ml_prog_update (open_module "Char");
 
-val _ = append_dec ``Dtabbrev [] "char" (Tapp [] TC_char)``;
+val _ = append_dec ``Dtabbrev unknown_loc [] "char" (Tapp [] TC_char)``;
 val _ = trans "ord" `ORD`
 val _ = trans "chr" `CHR`
 val _ = trans "<" `string$char_lt`
 val _ = trans ">" `string$char_gt`
 val _ = trans "<=" `string$char_le`
 val _ = trans ">=" `string$char_ge`
+
+val _ = next_ml_names := ["isSpace"];
+val res = translate stringTheory.isSpace_def;
 
 val _ = ml_prog_update (close_module NONE);
 

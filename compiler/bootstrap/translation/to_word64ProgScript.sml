@@ -123,12 +123,27 @@ val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
 
 val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
 
+val _ = translate stack_to_labTheory.is_gen_gc_def
+
 val _ = translate adjust_set_def
 
 val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv64_RHS)
 
 val _ = translate (shift_left_def |> conv64)
 val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
+
+val i2w_eq_n2w_lemma = prove(
+  ``i2w (& (k * n)) = n2w (k * n)``,
+  fs [integer_wordTheory.i2w_def]);
+
+val lemma2 = prove(
+  ``8 * x < 18446744073709551616 <=>
+    x < 18446744073709551616 DIV 8``,
+  fs []) |> SIMP_RULE std_ss []
+
+val _ = translate (get_gen_size_def |> spec64
+    |> SIMP_RULE (srw_ss()) [dimword_def,bytes_in_word_def,word_mul_n2w]
+    |> REWRITE_RULE [GSYM i2w_eq_n2w_lemma,lemma2]);
 
 val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv64)
 
@@ -161,7 +176,7 @@ val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
 val EqualityType_LIST_TYPE_NUM = find_equality_type_thm ``LIST_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM];
 val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM];
 val EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``LIST_TYPE _``
@@ -503,6 +518,10 @@ val _ = translate (multiwordTheory.n2mw_def |> inline_simp |> conv64);
 val _ = translate (multiwordTheory.i2mw_def |> inline_simp |> conv64);
 val _ = translate (bignum_words_def |> inline_simp |> conv64);
 val _ = translate (ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (BignumHalt_def |> inline_simp |> conv64);
+val _ = translate (AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
+val _ = translate (Maxout_bits_code_def |> conv64)
+val _ = translate (Make_ptr_bits_code_def |> inline_simp |> conv64)
 
 (*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv64 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
 
@@ -765,9 +784,6 @@ val word_to_word_compile_side = Q.prove(`
      word_to_word_full_compile_single_side,
      word_to_wordTheory.next_n_oracle_def]) |> update_precondition
 
-val _ = translate(Maxout_bits_code_def |> conv64)
-val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv64)
-val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv64)
 val _ = translate(FromList_code_def |> conv64 |> econv)
 val _ = translate(FromList1_code_def |> inline_simp |> conv64)
 val _ = translate(MakeBytes_def |> conv64)
@@ -784,6 +800,7 @@ val _ = translate(Sub_code_def|> conv64)
 val _ = translate(Mul_code_def|> conv64)
 val _ = translate(Div_code_def|> conv64)
 val _ = translate(Mod_code_def|> conv64)
+val _ = translate(MemCopy_code_def|> inline_simp |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)

@@ -41,8 +41,8 @@ val splem2 = Q.prove(`
   Cases_on` 2 ≤ c - SUC a`>>fs[]
   >-
     (`(c-1) DIV 2 ≤ c DIV 2` by
-      match_mp_tac DIV_LE_MONOTONE>>
-      simp[])
+       simp[DIV_LE_MONOTONE]>>
+     simp[])
   >>
     `c = a+2` by DECIDE_TAC>>
     simp[ADD_DIV_RWT])
@@ -286,7 +286,7 @@ val TAKE_DROP_EQ = Q.prove(
 
 val DROP_TAKE_NIL = Q.prove(
   `DROP n (TAKE n xs) = []`,
-  fs [GSYM LENGTH_NIL,LENGTH_TAKE_EQ] >> simp[]);
+  rw[DROP_NIL,LENGTH_TAKE_EQ]);
 
 val TAKE_LUPDATE = Q.store_thm("TAKE_LUPDATE[simp]",
   `!xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)`,
@@ -1593,8 +1593,7 @@ val alloc_IMP_alloc = Q.prove(
   THEN1 (fsrw_tac[] [set_store_def,push_env_def]) \\ rpt strip_tac
   \\ fsrw_tac[] [] \\ Cases_on `pop_env x` \\ fsrw_tac[] []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
-  \\ `state_rel k f f' s3 t2 lens` by ALL_TAC
-  THEN1
+  \\ `state_rel k f f' s3 t2 lens` by
     (imp_res_tac gc_s_key_eq>>
     fsrw_tac[][set_store_def]>>
     imp_res_tac push_env_pop_env_s_key_eq>>
@@ -1736,8 +1735,7 @@ val alloc_IMP_alloc2 = Q.prove(`
     (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
     fs [set_store_def,push_env_def,LET_THM,env_to_list_def]>>
     fs[cut_env_def]>>
-    `domain x = {}` by
-      rveq>>fs[domain_inter]>>
+    `domain x = {}` by (rveq>>fs[domain_inter])>>
     `toAList x = []` by
       (Cases_on`toAList x`>>fs[]>>
       `MEM (FST h) (MAP FST(toAList x))` by fs[]>>
@@ -2769,7 +2767,7 @@ val TIMES2_DIV2_lemma = Q.prove(
   \\ simp[GSYM MAP_MAP_o]
   \\ simp[MAP_OPTION_MAP_FILTER_IS_SOME]
   \\ ntac 2 AP_TERM_TAC
-  \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`f`,`ls`]parmove_MAP_INJ)
+  \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`ls`,`f`]parmove_MAP_INJ)
   \\ impl_tac
   >- (
     simp[]
@@ -2829,7 +2827,7 @@ val parsem_parmove_DIV2_lemma = Q.prove(
     \\ simp[GSYM MAP_MAP_o]
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
-  \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`r`,`f`]parsem_MAP_INJ)
+  \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`f`,`r`]parsem_MAP_INJ)
   \\ impl_tac
   >- (
     simp[INJ_DEF]
@@ -4998,7 +4996,7 @@ val comp_correct = Q.store_thm("comp_correct",
       SUC(LENGTH rest) - (h1+1) = SUC(LENGTH rest - (h1+1))` by DECIDE_TAC>>
       fs[]
       \\ rfs[]
-      \\ `h1 <= LENGTH (LASTN (s.handler+1) stack)` by all_tac
+      \\ sg `h1 <= LENGTH (LASTN (s.handler+1) stack)`
       \\ fs [LASTN_CONS]
       \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
       >> simp[LASTN_CONS])
@@ -5054,7 +5052,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs[SUBSET_DEF]
     \\ Cases_on `loc_check t.code (l1,0)` \\ fs []
     \\ fs [wRegWrite1_def]
-    \\ `F` by all_tac \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
+    \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
     \\ fs [loc_check_def,IN_DEF])
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
@@ -5286,7 +5284,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`ret`,`args'`]call_dest_lemma)) \\ strip_tac \\rfs[]
+    \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`args'`,`ret`]call_dest_lemma)) \\ strip_tac \\rfs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
     imp_res_tac evaluate_call_dest_clock>>
     pop_assum(qspec_then`t` assume_tac)>>
@@ -5390,6 +5388,7 @@ val comp_correct = Q.store_thm("comp_correct",
          (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
           (fs[convs_def]>>
           qpat_x_assum`args = A` SUBST_ALL_TAC>>
+          `LENGTH args <> 0` by (strip_tac \\ fs[]) >>
           drule LAST_GENLIST_evens>>
           LET_ELIM_TAC>>simp[]>>
           Cases_on`reg`>>fs[]>>
@@ -5679,6 +5678,7 @@ val comp_correct = Q.store_thm("comp_correct",
           fsrw_tac[][]>>simp[]>>
           fsrw_tac[][state_rel_def]>>
           `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
+          full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
           simp[EL_TAKE])>>
         imp_res_tac stackPropsTheory.evaluate_add_clock>>
         ntac 3 (pop_assum kall_tac)>>
@@ -5826,6 +5826,7 @@ val comp_correct = Q.store_thm("comp_correct",
          (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
           (fsrw_tac[][convs_def]>>
           qpat_x_assum`args = A` SUBST_ALL_TAC>>
+          full_simp_tac std_ss [GSYM LENGTH_NIL] >>
           drule LAST_GENLIST_evens>>
           LET_ELIM_TAC>>simp[]>>
           Cases_on`reg`>>fsrw_tac[][]>>
@@ -6152,7 +6153,17 @@ val comp_correct = Q.store_thm("comp_correct",
           (ntac 30 (pop_assum mp_tac)>>
           rpt (pop_assum kall_tac)>>
           simp[])>>
-        simp[])>>
+        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+        rename1`ls = []` >>
+        qpat_x_assum`LENGTH ls = _`mp_tac >>
+        Cases_on`ls` >> simp_tac(srw_ss())[] >>
+        `SUC n' + 1 + k - (n DIV 2 + 1) = SUC (k + SUC n' - (n DIV 2 + 1))`
+        by (
+          ntac 30 (pop_assum mp_tac) >>
+          rpt(pop_assum kall_tac) >>
+          rw[]) >>
+        pop_assum SUBST1_TAC >>
+        simp_tac(srw_ss())[])>>
         imp_res_tac stackPropsTheory.evaluate_add_clock>>
         ntac 4 (pop_assum kall_tac)>>
         rveq>>fsrw_tac[][]>>
@@ -6284,6 +6295,8 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[LENGTH_TAKE,EL_TAKE]>>
         Cases_on`LENGTH x`>>fs[]>>
         simp[]>>
+        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+        rename1`ls = []` >> Cases_on`ls` \\ fs[] >>
         `k + (SUC n'+1) - SUC(n DIV 2) = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
         simp[EL_TAKE])>>
       imp_res_tac stackPropsTheory.evaluate_add_clock>>

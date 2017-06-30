@@ -18,6 +18,7 @@ val _ = Datatype `symbol = StringS string
                          | NumberS int
                          | WordS num
                          | LongS string (* identifiers with a . in them *)
+                         | FFIS string
                          | OtherS string
                          | ErrorS `;
 
@@ -51,7 +52,7 @@ val read_string_def = tDefine "read_string" `
     if str = "" then (ErrorS, loc, "") else
     if HD str = #"\"" then (StringS s, loc with col := loc.col, TL str) else
     if HD str = #"\n" then (ErrorS, loc with <|row := loc.row + 1; col := 0|>, TL str) else
-    if HD str <> #"\\" then 
+    if HD str <> #"\\" then
       read_string (TL str) (s ++ [HD str]) (loc with col := loc.col + 1)
     else
       case TL str of
@@ -90,12 +91,12 @@ val skip_comment_def = Define `
   (skip_comment "" d _ = NONE) /\
   (skip_comment [x] d _ = NONE) /\
   (skip_comment (x::y::xs) d loc =
-    if [x;y] = "(*" then 
+    if [x;y] = "(*" then
       skip_comment xs (d+1) (loc with col := loc.col + 2)
-    else if [x;y] = "*)" then 
-      (if d = 0 then SOME (xs, loc with col := loc.col + 2) 
+    else if [x;y] = "*)" then
+      (if d = 0 then SOME (xs, loc with col := loc.col + 2)
        else skip_comment xs (d-1) (loc with col := loc.col +2))
-    else if ORD x = 10 then 
+    else if ORD x = 10 then
       skip_comment (y::xs) d (loc_row (loc.row+1))
     else skip_comment (y::xs) d (loc with col := loc.col + 1))`
 
@@ -107,6 +108,25 @@ val skip_comment_thm = Q.store_thm("skip_comment_thm",
   THEN SRW_TAC [] [] THEN RES_TAC THEN TRY DECIDE_TAC
   THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC
   THEN DECIDE_TAC);
+
+val read_FFIcall_def = Define‘
+  (read_FFIcall "" acc loc = (ErrorS, loc, "")) ∧
+  (read_FFIcall (c::s0) acc loc =
+      if c = #")" then
+        (FFIS (REVERSE acc), loc with col updated_by (+) 2, s0)
+      else if c = #"\n" then (ErrorS, loc, s0)
+      else if isSpace c then
+        read_FFIcall s0 acc (loc with col updated_by (+) 1)
+      else
+        read_FFIcall s0 (c::acc) (loc with col updated_by (+) 1))
+’
+
+val read_FFIcall_reduces_input = Q.store_thm(
+  "read_FFIcall_reduces_input",
+  ‘∀s0 a l0 t l s.
+     read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1’,
+  Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
+  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]);
 
 val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
@@ -123,48 +143,54 @@ val next_sym_def = tDefine "next_sym" `
        next_sym str (loc with col := loc.col + 1)
      else if isDigit c then (* read number *)
        if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
-         if TL str = "" then SOME (ErrorS, (loc, loc), "")
+         if TL str = "" then SOME (ErrorS, Locs loc loc, "")
          else if isDigit (HD (TL str)) then
            let (n,rest) = read_while isDigit (TL str) [] in
-             SOME (WordS (num_from_dec_string n), 
-                   (loc, loc with col := loc.col + LENGTH n + 1), 
+             SOME (WordS (num_from_dec_string n),
+                   Locs loc (loc with col := loc.col + LENGTH n + 1),
                    rest)
          else if HD(TL str) = #"x" then
            let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
              SOME (WordS (num_from_hex_string n),
-                   (loc, loc with col := loc.col + LENGTH n + 2),
+                   Locs loc (loc with col := loc.col + LENGTH n + 2),
                    rest)
-         else SOME (ErrorS, (loc, loc), TL str)
+         else SOME (ErrorS, Locs loc loc, TL str)
        else
          let (n,rest) = read_while isDigit str [] in
-           SOME (NumberS (&(num_from_dec_string (c::n))), 
-                 (loc, loc with col := loc.col + LENGTH n),
+           SOME (NumberS (&(num_from_dec_string (c::n))),
+                 Locs loc (loc with col := loc.col + LENGTH n),
                  rest)
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
-         SOME (NumberS (0- &(num_from_dec_string n)), 
-               (loc, loc with col := loc.col + LENGTH n),
+         SOME (NumberS (0- &(num_from_dec_string n)),
+               Locs loc (loc with col := loc.col + LENGTH n),
                rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
-         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
+         SOME (OtherS n, Locs loc (loc with col := loc.col + LENGTH n - 1),
+               rest)
      else if c = #"\"" then (* read string *)
        let (t, loc', rest) = read_string str "" (loc with col := loc.col + 1) in
-         SOME (t, (loc, loc'), rest)
+         SOME (t, Locs loc loc', rest)
      else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, (loc, loc with col := loc.col +2), TL str)
+       SOME (ErrorS, Locs loc (loc with col := loc.col +2), TL str)
      else if isPREFIX "#\"" (c::str) then
        let (t, loc', rest) = read_string (TL str) "" (loc with col := loc.col + 2) in
-         SOME (mkCharS t, (loc, loc'), rest)
+         SOME (mkCharS t, Locs loc loc', rest)
+     else if isPREFIX "#(" (c::str) then
+       let (t, loc', rest) = read_FFIcall (TL str) "" (loc with col := loc.col + 2) in
+
+         SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
-       | NONE => SOME (ErrorS, (loc, loc with col := loc.col + 2), "")
+       | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")
        | SOME (rest, loc') => next_sym rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], (loc, loc), str)
+       SOME (OtherS [c], Locs loc loc, str)
      else if isSymbol c then
        let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
+         SOME (OtherS n, Locs loc (loc with col := loc.col + LENGTH n - 1),
+               rest)
      else if isAlpha c then (* read identifier *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
          case rest of
@@ -173,25 +199,31 @@ val next_sym_def = tDefine "next_sym" `
                       c'::rest' =>
                         if isAlpha c' then
                           let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), 
-                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'),
+                            SOME (LongS (n ++ "." ++ n'),
+                                  Locs loc
+                                       (loc with
+                                         col := loc.col + LENGTH n + LENGTH n'),
                                   rest'')
                         else if isSymbol c' then
                           let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'), 
-                                  (loc, loc with col := loc.col + LENGTH n + LENGTH n'), 
+                            SOME (LongS (n ++ "." ++ n'),
+                                  Locs loc
+                                       (loc with
+                                         col := loc.col + LENGTH n + LENGTH n'),
                                   rest'')
                         else
-                          SOME (ErrorS, 
-                                (loc, loc with col := loc.col + LENGTH n), 
+                          SOME (ErrorS,
+                                Locs loc (loc with col := loc.col + LENGTH n),
                                 rest')
-                    | "" => SOME (ErrorS, 
-                                  (loc, loc with col := loc.col + LENGTH n),
+                    | "" => SOME (ErrorS,
+                                  Locs loc (loc with col := loc.col + LENGTH n),
                                   []))
-            | _ => SOME (OtherS n, (loc, loc with col := loc.col + LENGTH n - 1), rest)
-     else if c = #"_" then SOME (OtherS "_", (loc, loc), str)
+            | _ => SOME (OtherS n,
+                         Locs loc (loc with col := loc.col + LENGTH n - 1),
+                         rest)
+     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
      else (* input not recognised *)
-       SOME (ErrorS, (loc, loc), str))`
+       SOME (ErrorS, Locs loc loc, str))`
  ( WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
@@ -227,7 +259,7 @@ val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
 
 
 val next_sym_LESS = Q.store_thm("next_sym_LESS",
-  `!input l. (next_sym input l = SOME (s, l', rest)) 
+  `!input l. (next_sym input l = SOME (s, l', rest))
     ==> LENGTH rest < LENGTH input`,
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
@@ -239,7 +271,9 @@ val next_sym_LESS = Q.store_thm("next_sym_LESS",
        res_tac >> imp_res_tac skip_comment_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `UNCURRY` >>
        rpt (pairarg_tac>> fs[]) >> rveq >>
-       imp_res_tac read_while_thm >> simp[] >> NO_TAC)
+       imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
+  TRY (rename1 `read_FFIcall` >>
+       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC)
   (* TODO simpler? *)
   >> `STRLEN rest < STRLEN input` by fs[]
   >> fs[]);
@@ -309,6 +343,7 @@ val get_token_def = zDefine `
     if s = "orelse" then OrelseT else
     if s = "raise" then RaiseT else
     if s = "rec" then RecT else
+    if s = "ref" then RefT else
     if s = "sharing" then SharingT else
     if s = "sig" then SigT else
     if s = "signature" then SignatureT else
@@ -333,13 +368,14 @@ val token_of_sym_def = Define `
     | WordS n => WordT n
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
+    | FFIS s => FFIT s
     | OtherS s  => get_token s `;
 
 val next_token_def = Define `
   next_token input loc =
     case next_sym input loc of
     | NONE => NONE
-    | SOME (sym, locs, rest_of_input) => 
+    | SOME (sym, locs, rest_of_input) =>
         SOME (token_of_sym sym, locs, rest_of_input)`;
 
 val next_token_LESS = Q.store_thm("next_token_LESS",
@@ -347,7 +383,7 @@ val next_token_LESS = Q.store_thm("next_token_LESS",
                    LENGTH rest < LENGTH input`,
   NTAC 5 STRIP_TAC THEN Cases_on `next_sym input l`
   THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
-  THEN every_case_tac 
+  THEN every_case_tac
   THEN ASM_SIMP_TAC (srw_ss()) []
   THEN IMP_RES_TAC next_sym_LESS THEN REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC std_ss []);
@@ -358,8 +394,8 @@ val lexer_fun_aux_def = tDefine "lexer_fun_aux" `
   lexer_fun_aux input loc =
     case next_token input loc of
     | NONE => []
-    | SOME (token, (loc', loc''), rest_of_input) => 
-        (token, (loc', loc'')) :: 
+    | SOME (token, Locs loc' loc'', rest_of_input) =>
+        (token, Locs loc' loc'') ::
             lexer_fun_aux rest_of_input (loc'' with col := loc''.col +1)`
     (WF_REL_TAC `measure (LENGTH o FST)` >> rw[] >> imp_res_tac next_token_LESS);
 

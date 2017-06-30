@@ -14,6 +14,7 @@ val _ = tDefine"is_unconditional"`
   is_unconditional p ⇔
   case p of
   | conLang$Pvar _ => T
+  | conLang$Pany => T
   | Pcon NONE ps => EVERY is_unconditional ps
   | Pref p => is_unconditional p
   | _ => F`
@@ -57,10 +58,12 @@ val add_default_def = Define `
    else if is_handle then
      pes ++ [(Pvar "x", Raise (mk_cons tra 1) (Var_local (mk_cons tra 2) "x"))]
    else
-     pes ++ [(Pvar "x", Raise (mk_cons tra 1) (Con (mk_cons tra 2) (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
+     pes ++ [(Pany, Raise (mk_cons tra 1) (Con (mk_cons tra 2) (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
 
 val _ = tDefine"compile_pat"`
   (compile_pat (Pvar x) = Pvar x)
+  ∧
+  (compile_pat Pany = Pany)
   ∧
   (compile_pat (Plit l) = Plit l)
   ∧
