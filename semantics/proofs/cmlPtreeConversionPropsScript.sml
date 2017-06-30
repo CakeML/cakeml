@@ -28,7 +28,7 @@ val UQTyOp_OK = Q.store_thm(
   `valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nUQTyOp) ∧
     MAP TK toks = ptree_fringe pt ⇒
     ∃utyop. ptree_UQTyop pt = SOME utyop`,
-  start >> simp[ptree_UQTyop_def]);
+  start >> simp[ptree_UQTyop_def, tokcheck_def]);
 
 val TyOp_OK = Q.store_thm(
   "TyOp_OK",
@@ -197,7 +197,7 @@ val std = rpt (first_x_assum (erule strip_assume_tac o n)) >>
 val Pattern_OK0 = Q.store_thm(
   "Pattern_OK0",
   `valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
-    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons} ∧
+    (N ∈ {nPattern; nPtuple; nPapp; nPbase; nPcons; nPConApp} ∧
     ptree_head pt = NT (mkNT N) ⇒
      ∃p. ptree_Pattern N pt = SOME p) ∧
     (ptree_head pt = NN nPatternList ⇒
@@ -217,7 +217,6 @@ val Pattern_OK0 = Q.store_thm(
   >- (asm_match `pl <> []` >> Cases_on `pl` >> fs[] >>
       asm_match `ptree_Plist pt = SOME (ph::ptl)` >>
       Cases_on `ptl` >> simp[])
-  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nV` >>
       `ptree_Pattern nPtuple pt' = NONE ∧ ptree_ConstructorName pt' = NONE`
         by (Cases_on `pt'` >> fs[] >| [
@@ -232,12 +231,14 @@ val Pattern_OK0 = Q.store_thm(
             >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
             rename[`Nd p _`] >> Cases_on `p` >> fs[ptree_Pattern_def])>>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
-  >- simp[ptree_Pattern_def, ptree_ConstructorName_def,
-          ptree_V_def] >>
-  simp[ptree_Pattern_def, ptree_ConstructorName_def,
-       ptree_V_def] >>
-  erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >> rename [`Var v`] >>
-  Cases_on `v` >> simp[EtoPat_def]);
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
+  >- (erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >>
+      rename [`Var v`] >> Cases_on `v` >> simp[EtoPat_def])
+  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[])
+  >- simp[ptree_ConstructorName_def]);
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 
@@ -343,6 +344,8 @@ val E_OK0 = Q.store_thm(
   >- (erule strip_assume_tac (n Eliteral_OK) >> simp[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
   >- (erule strip_assume_tac (n OpID_OK) >> simp[])
+  >- (simp[ptree_Eliteral_def, ptree_FQV_def, ptree_ConstructorName_def,
+           ptree_Expr_def])
   >- (rw[])
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
@@ -356,6 +359,32 @@ val AndFDecls_OK = save_thm(
   "AndFDecls_OK",
   okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0)
 
+val PTbase_OK = Q.store_thm(
+  "PTbase_OK",
+  ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧
+   MAP TK toks = ptree_fringe pt ⇒
+   ∃ty. ptree_PTbase pt = SOME ty’,
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
+  simp[ptree_PTbase_def, tokcheck_def]
+  >- (erule strip_assume_tac (n TyOp_OK) >> simp[] >>
+      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Tvar (destTyvarPT pt)’ >>
+      simp[]) >>
+  metis_tac[Type_OK]);
+
+val TbaseList_OK = Q.store_thm(
+  "TbaseList_OK",
+  ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nTbaseList ∧
+   MAP TK toks = ptree_fringe pt ⇒
+   ∃tys. ptree_TbaseList pt = SOME tys’,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  conj_tac >> simp[Once FORALL_PROD] >> gen_tac >> strip_tac >>
+  simp[cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  fs[MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
+  simp[Once ptree_TbaseList_def] >> dsimp[] >>
+  fs[FORALL_AND_THM, DISJ_IMP_THM, MAP_EQ_APPEND] >>
+  metis_tac[PTbase_OK]);
+
 val Dconstructor_OK = Q.store_thm(
   "Dconstructor_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
@@ -366,7 +395,8 @@ val Dconstructor_OK = Q.store_thm(
   >- (map_every (erule strip_assume_tac o n)
                 [UQConstructorName_OK, Type_OK] >>
       simp[]) >>
-  erule strip_assume_tac (n UQConstructorName_OK) >> simp[])
+  map_every (erule strip_assume_tac o n) [UQConstructorName_OK, TbaseList_OK] >>
+  simp[])
 
 val DtypeCons_OK = Q.store_thm(
   "DtypeCons_OK",

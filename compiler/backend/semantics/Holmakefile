@@ -1,4 +1,4 @@
-INCLUDES = .. ../../.. ../../../semantics ../../../semantics/proofs ../../encoders/asm
+INCLUDES = .. ../../../misc ../../../semantics ../../../semantics/proofs ../../encoders/asm
 
 OPTIONS = QUIT_ON_FAILURE
 

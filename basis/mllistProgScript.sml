@@ -99,7 +99,7 @@ val app_spec = Q.prove(
   \\ strip_tac \\ xapp)
 |> CONV_RULE SWAP_FORALL_CONV
 |> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]
-|> Q.GENL[`fv`,`eff`]
+|> Q.GENL[`eff`,`fv`]
 |> curry save_thm "app_spec";
 
 val result = translate FIND_thm;

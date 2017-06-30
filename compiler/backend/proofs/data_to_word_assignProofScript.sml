@@ -550,7 +550,7 @@ val evaluate_WriteLastBytes = Q.store_thm("evaluate_WriteLastBytes",
   \\ map_every (let
       val th = CONV_RULE(RESORT_FORALL_CONV(sort_vars["p","b"])) align_add_aligned
       val th = Q.SPEC`LOG2 (dimindex(:'a) DIV 8)`th
-      val th2 = set_byte_change_a |> Q.GEN`b` |> Q.SPEC`w2w b` |> Q.GENL[`w`,`a'`,`a`,`be`]
+      val th2 = set_byte_change_a |> Q.GEN`b` |> Q.SPEC`w2w b` |> Q.GENL[`be`,`a`,`a'`,`w`]
       in (fn n =>
        let val nw = Int.toString n ^ "w" in
          qspecl_then([[QUOTE nw],`a`])mp_tac th \\
@@ -6107,7 +6107,7 @@ val th = Q.store_thm("assign_ConsExtend",
                `dest`|->`3`,
                `t`|->`s2`,
                `tag1`|->`tag`,
-               `len1`|->`tot_len`] |> Q.GENL [`f`,`d`])
+               `len1`|->`tot_len`] |> Q.GENL [`d`,`f`])
   \\ simp [Abbr`s2`,FLOOKUP_UPDATE]
   \\ impl_tac THEN1
    (fs [eq_eval]

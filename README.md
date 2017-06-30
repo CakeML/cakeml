@@ -58,16 +58,13 @@ intermediate results. An instance is available on the CakeML website.
 [flame](flame):
 The start of a set theory formalisation that has net yet been used.
 
-[lem_lib_stub](lem_lib_stub):
-Empty versions of the Lem libraries (which we don't use, but building
-with Lem requires)
+[misc](misc):
+Auxiliary files providing glue between a standard HOL installation
+and what we want to use for CakeML development.
 
-[lib.lem](lib.lem):
-Extensions to Lem's built-in library to target things we need in HOL.
-
-[miscScript.sml](miscScript.sml):
-Miscellaneous definitions and minor lemmas used throughout the
-development.
+[readmePrefix](readmePrefix):
+The CakeML project: https://cakeml.org
+======================================
 
 [semantics](semantics):
 The definition of the CakeML language. The definition is (mostly)

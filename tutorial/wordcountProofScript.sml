@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"wordcountProof";
 
 val wordcount_io_events_def = new_specification("wordcount_io_events_def",["wordcount_io_events"],
-  wordcount_semantics |> Q.GENL(List.rev[`inp`,`files`,`pname`,`fname`])
+  wordcount_semantics |> Q.GENL[`inp`,`files`,`pname`,`fname`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

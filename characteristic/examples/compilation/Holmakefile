@@ -1,22 +1,29 @@
-INCLUDES = .. ../../.. ../../../basis ../../../compiler
+INCLUDES = .. ../../../misc ../../../basis ../../../compiler
+CLINE_OPTIONS = -j1 --qof
 TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 all: $(TARGETS)
 .PHONY: all
 ifndef CC
 CC=gcc
 endif
+cake_cat: cat.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_grep: grep.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-cake_echo: echo.S ../../../basis/basis_ffi.o
+cake_patch: patch.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_diff: diff.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_hello: hello.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_sort: sort.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_echo: echo.S ../../../basis/basis_ffi.o
+	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_helloErr: helloErr.S ../../../basis/basis_ffi.o
 	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-cake_cat: cat.S ../../../basis/basis_ffi.o
-	$(CC) $< ../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 
-exec: cake_echo cake_hello cake_helloErr cake_cat cake_grep
+exec: cake_cat cake_grep cake_patch cake_diff cake_hello cake_sort cake_echo cake_helloErr
 
 ifdef POLY
 HOLHEAP = heap

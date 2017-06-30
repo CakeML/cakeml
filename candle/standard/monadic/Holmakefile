@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../syntax-lib ../syntax
+INCLUDES = ../../../misc ../../syntax-lib ../syntax ../../../translator/monadic/
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../preamble ../../syntax-lib/holSyntaxLibTheory ../syntax/holAxiomsSyntaxTheory
+BARE_THYS = ../../../misc/preamble ../../syntax-lib/holSyntaxLibTheory ../syntax/holAxiomsSyntaxTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

@@ -44,5 +44,14 @@ documentation/lem-generated
 *.cgi
 
 # Benchmarks
-compiler/eval/benchmarks/exec/*
-!compiler/eval/benchmarks/exec/runall.sh
+compiler/benchmarks/ocaml/*.cmi
+compiler/benchmarks/ocaml/*.cmo
+compiler/benchmarks/ocaml/*.cmx
+compiler/benchmarks/ocaml/ocamlc_*
+compiler/benchmarks/ocaml/ocamlopt_*
+compiler/benchmarks/cakeml/basis_ffi.c
+compiler/benchmarks/cakeml/cakemlc
+compiler/benchmarks/cakeml/cake_O4_*
+compiler/benchmarks/sml/mlton_*
+compiler/benchmarks/sml/polyc_*
+compiler/benchmarks/sml/sml_*

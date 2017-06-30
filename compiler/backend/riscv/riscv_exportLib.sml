@@ -3,15 +3,16 @@ struct
 local open HolKernel boolLib bossLib lcsymtacs in
 
 fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
-  val heap_line  = "    .space  " ^ (Int.toString heap_mb) ^
+  val heap_line  = "     .space  " ^ (Int.toString heap_mb) ^
                    " * 1024 * 1024   # heap size in bytes"
-  val stack_line = "    .space  " ^ Int.toString stack_mb ^
+  val stack_line = "     .space  " ^ Int.toString stack_mb ^
                    " * 1024 * 1024   # stack size in bytes"
   fun ffi_asm [] = []
     | ffi_asm (ffi::ffis) =
        ("cake_ffi" ^ ffi ^ ":") ::
-       "     j     cdecl(ffi" ^ ffi ^ ")"::
-       "     .p2align 3"::
+       "     la      t6,cdecl(ffi" ^ ffi ^ ")"::
+       "     jr      t6"::
+       "     .p2align 4"::
        "":: ffi_asm ffis
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
@@ -36,29 +37,43 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     .p2align 3",
    "cake_end:",
    "",
+   "     .data",
+   "     .p2align 3",
+   "cdecl(argc): .quad 0",
+   "cdecl(argv): .quad 0",
+   "",
    "#### Start up code",
    "",
    "     .text",
+   "     .p2align 3",
    "     .globl  cdecl(main)",
+   "     .globl  cdecl(argc)",
+   "     .globl  cdecl(argv)",
    "cdecl(main):",
+   "     la      t3,cdecl(argc)",
+   "     la      x4,cdecl(argv)",
+   "     sd      a0, 0(t3)      # a0 stores argc",
+   "     sd      a1, 0(x4)      # a1 stores argv",
    "     la      a0,cake_main   # arg1: entry address",
    "     la      a1,cake_heap   # arg2: first address of heap",
    "     la      t3,cake_stack  # arg3: first address of stack",
    "     la      x4,cake_end    # arg4: first address past the stack",
    "     j     cake_main",
    "",
-   "#### CakeML FFI interface (each block is 8 bytes long)",
+   "#### CakeML FFI interface (each block is 16 bytes long)",
    "",
    "     .p2align 3",
    ""] @
    ffi_asm ffi_names @
   ["cake_clear:",
-   "     j   cdecl(exit)",
-   "     .p2align 3",
+   "     la   t6,cdecl(exit)",
+   "     jr   t6",
+   "     .p2align 4",
    "",
    "cake_exit:",
-   "     j   cdecl(exit)",
-   "     .p2align 3",
+   "     la   t6,cdecl(exit)",
+   "     jr   t6",
+   "     .p2align 4",
    "",
    "cake_main:",
    "",
