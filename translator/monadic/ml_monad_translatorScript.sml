@@ -90,6 +90,56 @@ val with_same_ffi = Q.store_thm("with_same_ffi",
 val REFS_PRED_def = Define `REFS_PRED H refs s = (H refs * GC) (store2heap s.refs)`;
 val VALID_REFS_PRED_def = Define `VALID_REFS_PRED H = ?(s : unit state) refs. REFS_PRED H refs s`;
 
+(* Frame rule for EvalM *)
+val REFS_PRED_FRAME_def = Define
+`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) =
+!F. (H refs1 * F) (store2heap s1.refs) ==> (H refs2 * F * GC) (store2heap s2.refs)`;
+
+val EMP_STAR_H = Q.store_thm("EMP_STAR_GC",
+`!H. emp * H = H`,
+fs[STAR_def, emp_def, SPLIT_def, ETA_THM]);
+
+val SAT_GC = Q.store_thm("SAT_GC",
+`!h. GC h`,
+fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
+
+val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
+`REFS_PRED H refs1 s1 ==> REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
+rw[REFS_PRED_def, REFS_PRED_FRAME_def] >> metis_tac[GC_STAR_GC, STAR_ASSOC]);
+
+val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_TRANS",
+`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==>
+REFS_PRED_FRAME H (refs2, s2) (refs3, s3) ==>
+REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`,
+rw[REFS_PRED_FRAME_def] >>
+PURE_REWRITE_TAC[Once (GSYM GC_STAR_GC), STAR_ASSOC] >>
+`H refs3 * F' * GC * GC = H refs3 * (F' * GC) * GC` by fs[STAR_ASSOC] >>
+POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
+first_x_assum irule >>
+fs[STAR_ASSOC]);
+
+(* val REFS_PRED_FRAME_def = Define
+`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) =
+!F. (H refs1 * F) (store2heap s1.refs) ==> (H refs2 * F) (store2heap s2.refs)`;
+
+val EMP_STAR_H = Q.store_thm("EMP_STAR_GC",
+`!H. emp * H = H`,
+fs[STAR_def, emp_def, SPLIT_def, ETA_THM]);
+
+val SAT_GC = Q.store_thm("SAT_GC",
+`!h. GC h`,
+fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
+
+val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
+`REFS_PRED H refs1 s1 ==> REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
+rw[REFS_PRED_def, REFS_PRED_FRAME_def]);
+
+val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_TRANS",
+`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==>
+REFS_PRED_FRAME H (refs2, s2) (refs3, s3) ==>
+REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`,
+rw[REFS_PRED_FRAME_def]); *)
+
 (*
  * Proof of REFS_PRED_APPEND:
  * `REFS_PRED H refs s ==> REFS_PRED H refs (s with refs := s.refs ++ junk)`
@@ -159,20 +209,23 @@ val SPLIT_DECOMPOSWAP = Q.store_thm("SPLIT_DECOMPOSWAP",
 fs[SPLIT_def, UNION_ASSOC, DISJOINT_SYM] >> rw[] >> fs[DISJOINT_SYM, DISJOINT_UNION_BOTH]);
 
 val STORE_APPEND_JUNK = Q.store_thm("STORE_APPEND_JUNK",
-`!H s junk. (H * GC) (store2heap s) ==> (H * GC) (store2heap (s ++ junk))`,
+`!H s junk. H (store2heap s) ==> (H * GC) (store2heap (s ++ junk))`,
 rw[] >>
 qspecl_then [`s`, `junk`] ASSUME_TAC store2heap_SPLIT >>
 fs[STAR_def] >>
-qexists_tac `u` >>
-qexists_tac `v UNION (store2heap_aux (LENGTH s) junk)` >>
+qexists_tac `store2heap s` >>
+qexists_tac `store2heap_aux (LENGTH s) junk` >>
 `!H. GC H` by (rw[cfHeapsBaseTheory.GC_def, SEP_EXISTS] >> qexists_tac `\x. T` >> fs[]) >>
-POP_ASSUM (fn x => fs[x]) >>
-irule SPLIT_DECOMPOSWAP >>
-instantiate >> fs[store2heap_def]);
+POP_ASSUM (fn x => fs[x]));
 
 val REFS_PRED_append = Q.store_thm("REFS_PRED_append",
 `!H refs s. REFS_PRED H refs s ==> REFS_PRED H refs (s with refs := s.refs ++ junk)`,
-rw[REFS_PRED_def, STORE_APPEND_JUNK]);
+rw[REFS_PRED_def] >> PURE_ONCE_REWRITE_TAC [GSYM GC_STAR_GC] >>
+fs [STAR_ASSOC, STORE_APPEND_JUNK]);
+
+val REFS_PRED_FRAME_append = Q.store_thm("REFS_PRED_FRAME_append",
+`!H refs s. REFS_PRED_FRAME H (refs, s) (refs, s with refs := s.refs ++ junk)`,
+rw[REFS_PRED_FRAME_def, STORE_APPEND_JUNK]);
 
 (*
  * Proof of STORE_EXTRACT_FROM_HPROP:
@@ -303,16 +356,41 @@ sg `?s0 s1. s = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
 rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
 metis_tac[STORE_SAT_LOC_STAR_H_EQ, REF_HPROP_SAT_EQ, STAR_def]);
 
-(*
- * Definition of EvalM
- *)
+(* Objectives:
+EvalM env exp (ArrowM H (Pure A) (MONAD B C) f) fv ==>
+!refs x xv. A x xv ==>
+app_basic env fv xv (H refs) (POSTv rv. SEP_EXISTS refs' res. H refs' * &(f x = (res, refs')) *
+                              &(case res of Success r => B r rv | Failure e => C e rv))
+
+EvalM env exp (ArrowM H (Pure A) (Pure B) f) fv ==>
+!refs x xv. A x xv ==>
+app_basic env fv xv (H refs) (POSTv rv. SEP_EXISTS r. H refs * &(B r rv) * &(f x = (Success r, refs))
+
+And same things for:
+ArrowP H (Pure A) (MONAD B C) f fv
+ArrowP H (Pure A) (PURE B) f fv
+
+REFS_PRED_FRAME H (refs1, s1) (refs2, s2) = !F. (H refs1 * F) s1 ==> (H refs2 * F * GC) s2
 
 val EvalM_def = Define `
   EvalM env exp P H <=>
     !(s:unit state) refs. REFS_PRED H refs s  ==>
     !junk.
     ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
-    P (refs, s) (refs2, s2, res) /\ REFS_PRED H refs2 s2`;
+    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H (refs, s) (refs2, s2)`;
+
+*)
+
+val EvalM_def = Define `
+  EvalM env exp P H <=>
+    !(s:unit state) refs. REFS_PRED H refs s  ==>
+    !junk.
+    ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
+    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H (refs, s) (refs2, s2)`;
+
+(*
+ * Definition of EvalM
+ *)
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
@@ -338,7 +416,7 @@ val EvalM_return = Q.store_thm("EvalM_return",
   \\ IMP_RES_TAC (evaluate_empty_state_IMP
                   |> INST_TYPE [``:'ffi``|->``:unit``]) \\
   asm_exists_tac \\ simp[] \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\
-  MATCH_MP_TAC REFS_PRED_append \\ simp[]
+  fs[REFS_PRED_FRAME_append]
   );
 
 (* bind *)
@@ -355,10 +433,13 @@ val EvalM_bind = Q.store_thm("EvalM_bind",
     rw[Once evaluate_cases] \\
     srw_tac[DNF_ss][] \\ disj1_tac \\
     asm_exists_tac \\ rw[] \\
+    IMP_RES_TAC REFS_PRED_FRAME_imp \\
     first_x_assum drule \\ disch_then drule \\
     disch_then(qspec_then`[]`strip_assume_tac) \\
     fs[GSYM write_def,namespaceTheory.nsOptBind_def,st_ex_bind_def,with_same_refs] \\
-    asm_exists_tac \\ fs[] \\ metis_tac[] )
+    asm_exists_tac \\ fs[] \\ 
+    instantiate \\
+    IMP_RES_TAC REFS_PRED_FRAME_trans)
   \\ Cases_on`e` \\ fs[] \\
   rw[Once evaluate_cases] \\
   srw_tac[DNF_ss][] \\ disj2_tac \\
@@ -381,7 +462,7 @@ val Eval_IMP_PURE = Q.store_thm("Eval_IMP_PURE",
   \\ IMP_RES_TAC (evaluate_empty_state_IMP
                   |> INST_TYPE [``:'ffi``|->``:unit``])
   \\ fs[]
-  \\ metis_tac[REFS_PRED_append ,APPEND_ASSOC]);
+  \\ metis_tac[REFS_PRED_append ,APPEND_ASSOC, REFS_PRED_FRAME_append]);
 
 (* function abstraction and application *)
 
@@ -395,7 +476,7 @@ val ArrowP_def = Define `
        !junk. ?refs3 s3 res3.
          evaluate F env (s2 with refs := s2.refs ++ junk) exp (s3,res3) /\
          b (f x) (refs1,s1) (refs3,s3,res3) /\
-         REFS_PRED H refs3 s3`;
+         REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`;
 
 val ArrowM_def = Define `
 (ArrowM : ('refs -> hprop) -> ('a, 'refs) H -> ('b, 'refs) H -> ('a -> 'b, 'refs) H) H a b =
@@ -420,6 +501,7 @@ val EvalM_ArrowM = Q.store_thm("EvalM_ArrowM",
   \\ first_x_assum drule \\ rw[]
   \\ srw_tac[DNF_ss][] \\ disj1_tac
   \\ first_x_assum(qspec_then`junk`strip_assume_tac)
+  \\ IMP_RES_TAC REFS_PRED_FRAME_imp
   \\ first_x_assum drule \\ rw[]
   \\ first_x_assum(qspec_then`[]`strip_assume_tac)
   \\ fs[with_same_refs]
@@ -435,7 +517,7 @@ val EvalM_Fun = Q.store_thm("EvalM_Fun",
     EvalM env (Fun name body) ((ArrowM H (PURE a) b) f) H`,
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once state_component_equality, REFS_PRED_append]
+  \\ reverse(rw[Once state_component_equality, REFS_PRED_append]) >-(fs[REFS_PRED_FRAME_append])
   \\ rw[Once state_component_equality]
   \\ rw[do_opapp_def,GSYM write_def]
   \\ last_x_assum drule \\ rw[]
@@ -449,7 +531,7 @@ val EvalM_Fun_Eq = Q.store_thm("EvalM_Fun_Eq",
     EvalM env (Fun name body) ((ArrowM H (PURE (Eq a x)) b) f) H`,
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def]
   \\ rw[Once evaluate_cases,PULL_EXISTS]
-  \\ rw[Once state_component_equality,REFS_PRED_append]
+  \\ reverse(rw[Once state_component_equality,REFS_PRED_append]) >-(fs[REFS_PRED_FRAME_append])
   \\ rw[Once state_component_equality]
   \\ rw[do_opapp_def,GSYM write_def]
   \\ PURE_REWRITE_TAC [GSYM APPEND_ASSOC]
@@ -518,7 +600,7 @@ val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   \\ rw[Once evaluate_cases]
   \\ rw[Once evaluate_cases]
   \\ fs[state_component_equality]
-  \\ rw[Eq_def,do_opapp_def,Once find_recfun_def,REFS_PRED_append]
+  \\ reverse(rw[Eq_def,do_opapp_def,Once find_recfun_def,REFS_PRED_append])  >-(fs[REFS_PRED_FRAME_append])
   \\ fs[build_rec_env_def,write_rec_def,FOLDR,write_def]
   \\ METIS_TAC[APPEND_ASSOC]);
 
@@ -608,11 +690,14 @@ val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
   \\ srw_tac[DNF_ss][] \\ disj2_tac \\ disj1_tac
   \\ asm_exists_tac \\ fs[]
   \\ simp[Once evaluate_cases,pat_bindings_def,pmatch_def,GSYM write_def]
+  \\ IMP_RES_TAC REFS_PRED_FRAME_imp
   \\ first_x_assum drule
   \\ qmatch_goalsub_rename_tac`write n v`
   \\ disch_then(qspecl_then[`v`,`[]`]strip_assume_tac)
   \\ fs[with_same_refs]
+  \\ IMP_RES_TAC REFS_PRED_FRAME_imp
   \\ asm_exists_tac \\ fs[]
+  \\ IMP_RES_TAC REFS_PRED_FRAME_trans
   \\ fs[MONAD_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
@@ -759,11 +844,18 @@ val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
       qexists_tac `s with refs := s.refs ++ junk`
       \\ IMP_RES_TAC STORE_EXTRACT_FROM_HPROP \\ POP_ASSUM (fn x => fs[x])
       \\ fs[with_same_refs, with_same_ffi]
-      \\ fs[MONAD_def]
+      \\ fs[MONAD_def, REFS_PRED_FRAME_def]
+      \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
+      \\ rpt STRIP_TAC
+      \\ qexists_tac `xv'`
+      \\ ASSUME_TAC(Q.SPECL [`s.refs`, `junk`] store2heap_SPLIT |> Thm.INST_TYPE [``:'a`` |-> ``:unit``])
+      \\ fs[STAR_ASSOC]
+      \\ CONV_TAC(ONCE_DEPTH_CONV (PURE_ONCE_REWRITE_CONV [STAR_def]))
+      \\ fs[]
       \\ instantiate
-      \\ fs[STAR_ASSOC, STORE_APPEND_JUNK]
+      \\ fs[SAT_GC]
   ) >>
-  fs[MONAD_def] (* , get_the_type_constants_def] *)
+  fs[MONAD_def]
   \\ IMP_RES_TAC store2heap_LOC_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH
   \\ `LENGTH init_type_constants_refs >= LENGTH s.refs` by fs[]
@@ -787,7 +879,6 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ rw[CONJUNCT1 evaluate_cases |> Q.SPECL[`F`,`env`,`s`,`Var _`]]
   \\ srw_tac[DNF_ss][] \\ disj1_tac
   \\ Q.PAT_X_ASSUM `!H. P` IMP_RES_TAC
-  \\ fs[REFS_PRED_def]
   \\ first_x_assum(qspec_then `junk` strip_assume_tac)
   \\ fs[PURE_def] \\ rw[]
   \\ asm_exists_tac \\ fs[]
@@ -796,6 +887,8 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ qexists_tac `set_var x refs`
   \\ qexists_tac `LUPDATE (Refv v) loc (s.refs ++ junk')`
   \\ qexists_tac `s.ffi`
+  \\ IMP_RES_TAC (Thm.INST_TYPE [``:'b`` |-> ``:unit``, ``:'c`` |-> ``:unit``] REFS_PRED_FRAME_imp)
+  \\ fs[REFS_PRED_def]
   \\ qpat_x_assum `P (store2heap s.refs)` (fn x => ALL_TAC)
   \\ fs[store_assign_def,EL_APPEND1,EL_APPEND2,store_v_same_type_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
@@ -806,13 +899,69 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ POP_ASSUM (qspec_then `[]` ASSUME_TAC)
   \\ fs[] \\ POP_ASSUM(fn x => ALL_TAC)
   \\ fs[MONAD_def]
-  \\ instantiate
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
+  \\ rpt STRIP_TAC
+  \\ qexists_tac `v`
+  \\ qpat_x_assum `!F. P` IMP_RES_TAC
+  \\ POP_ASSUM (fn x => ASSUME_TAC (CONV_RULE (RATOR_CONV PURE_FACTS_FIRST_CONV) x))
   \\ CONV_TAC (STRIP_QUANT_CONV (RATOR_CONV PURE_FACTS_FIRST_CONV))
-  \\ fs[GSYM STAR_ASSOC] \\ fs[HCOND_EXTRACT]
+  \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
   \\ fs[LUPDATE_APPEND1,LUPDATE_APPEND2,LUPDATE_def]
   \\ IMP_RES_TAC STORE_UPDATE_HPROP
-  \\ first_x_assum(qspec_then `v` ASSUME_TAC)
+  \\ last_x_assum(qspec_then `v` ASSUME_TAC)
   \\ fs[]);
+
+(* Theorems to convert monadic specifications to cf specifications *)
+
+(*
+val _ = Globals.max_print_depth := 40;
+
+REFS_PRED H refs1 s1 ==>
+
+``
+ArrowP H (PURE A) (MONAD B C) f fv ==>
+!refs x xv. A x xv ==>
+app_basic (p : unit ffi_proj) fv xv (H refs) (POSTv rv. SEP_EXISTS refs' res. H refs' * GC * &(f x refs = (res, refs')) *
+                              &(case res of Success r => B r rv | Failure e => C e rv))
+``
+
+val REFS_PRED_lemma = Q.prove(
+`SPLIT (st2heap (p : unit ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED H refs st`,
+cheat);
+
+val state_with_refs_eq = Q.prove(
+`st with refs := r = st with refs := r' <=> r = r'`,
+cheat);
+
+Q.store_thm("",
+`
+ArrowP H (PURE A) (MONAD B C) f fv ==>
+!refs x xv. A x xv ==>
+app_basic (p : unit ffi_proj) fv xv (H refs) (POSTv rv. SEP_EXISTS refs' res. H refs' * GC * &(f x refs = (res, refs')) * &(case res of Success r => B r rv | Failure e => C e rv))
+`,
+rw[]
+\\ rw[app_basic_def]
+\\ fs[ArrowP_def]
+\\ fs[PURE_def]
+\\ last_x_assum (qspec_then `x` ASSUME_TAC)
+\\ POP_ASSUM IMP_RES_TAC
+\\ fs[]
+\\ IMP_RES_TAC REFS_PRED_lemma (* cheat *)
+\\ qpat_x_assum `!s1. P` IMP_RES_TAC
+\\ fs[state_with_refs_eq]
+\\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
+\\ fs[]
+\\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
+
+\\ fs[MONAD_def]
+\\ Cases_on `res3` \\ Cases_on `f x refs` \\ fs[] \\ Cases_on `q` \\ fs[]
+>-(
+    qexists_tac `Val a`
+    >> fs[]
+    >> fs[REFS_PRED_FRAME_def]
+    >> fs[evaluate_ck_def]
+    >>  *)
 
 val _ = (print_asts := true);
 
