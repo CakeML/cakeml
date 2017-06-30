@@ -75,8 +75,7 @@ val i2w_eq_n2w_lemma = prove(
   fs [integer_wordTheory.i2w_def]);
 
 val lemma2 = prove(
-  ``4 * x < 4294967296 <=>
-    x < 4294967296 DIV 4``,
+  ``4 * x < (2**32) <=> x < (2**32) DIV 4``,
   fs []) |> SIMP_RULE std_ss []
 
 val _ = translate (get_gen_size_def |> spec32
