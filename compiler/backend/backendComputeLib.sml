@@ -467,6 +467,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
     ,data_to_wordTheory.Bignum_location_eq
+    ,data_to_wordTheory.get_gen_size_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
     ,data_to_wordTheory.WriteLastByte_aux_def
@@ -716,6 +717,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_allocTheory.comp_def
     ,stack_allocTheory.next_lab_def
     ,stack_allocTheory.stubs_def
+    ,stack_allocTheory.SetNewTrigger_def
     ,stack_allocTheory.word_gc_code_def
     ,stack_allocTheory.word_gc_partial_or_full_def
     ,stack_allocTheory.word_gc_move_roots_bitmaps_code_def
@@ -786,6 +788,7 @@ val add_backend_compset = computeLib.extend_compset
     ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.compile_def
     (* ---- stack_to_lab ---- *)
+    ,stack_to_labTheory.is_gen_gc_def
     ,stack_to_labTheory.compile_jump_def
     ,stack_to_labTheory.negate_def
     ,stack_to_labTheory.flatten_def
