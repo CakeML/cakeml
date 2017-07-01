@@ -18,7 +18,7 @@ all: compiler benchmarks
 basis_ffi.c : ../../../basis/basis_ffi.c
 	$(CP) $< $@
 
-cake.S : ../../bootstrap/evaluation/cake.S
+cake.S : ../../bootstrap/evaluation/x64/cake.S
 	$(CP) $< $@
 
 compiler : cake.S basis_ffi.c
