@@ -21,8 +21,9 @@ val _ = Datatype `
        | Sub num num num ('a reg_imm) ('a reg_imm)
        | Mul num num num num
        | Div num num num num num
-       | Loop (num list) mini
+       | Loop bool (num list) mini
        | Continue
+       | Rec (num list)
        (* the following is only used by the semantics *)
        | LoopBody mini `
 
@@ -35,14 +36,15 @@ val Continue_tm = ``Continue:'a word_bignum$mini``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
   val (Delete_tm,mk_Delete,dest_Delete,is_Delete) = s "Delete"
+  val (Rec_tm,mk_Rec,dest_Rec,is_Rec) = s "Rec"
 end
 local val s = HolKernel.syntax_fns2 "word_bignum" in
   val (Assign_tm,mk_Assign,dest_Assign,is_Assign) = s "Assign"
-  val (Loop_tm,mk_Loop,dest_Loop,is_Loop) = s "Loop"
   val (Seq_tm,mk_Seq,dest_Seq,is_Seq) = s "Seq"
   val (Store_tm,mk_Store,dest_Store,is_Store) = s "Store"
 end
 local val s = HolKernel.syntax_fns3 "word_bignum" in
+  val (Loop_tm,mk_Loop,dest_Loop,is_Loop) = s "Loop"
   val (Load_tm,mk_Load,dest_Load,is_Load) = s "Load"
 end
 
@@ -346,7 +348,7 @@ fun to_deep def = let
       (to_deep (find (str ^ "_def") |> hd |> snd |> fst);
        loop ())
   val (dels,deep) = loop ()
-  val deep = if is_rec then mk_Loop (dels,deep) else deep
+  val deep = if is_rec then mk_Loop (F,dels,deep) else deep
   (* store deep embedding *)
   val name = mk_var((f |> dest_const |> fst) ^ "_code", type_of deep)
   val code_def = Define `^name = ^deep`
@@ -429,7 +431,9 @@ val DivCode_def = Define `
 val compile_def = Define `
   (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
   (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
-  (compile n l i cs (Loop vs body) =
+  (compile n l i cs (Rec names) =
+     (Call (SOME (1,LS (),Skip,n,l)) (SOME n) [] NONE,l+1,i,cs)) /\
+  (compile n l i cs (Loop rec_calls vs body) =
      case has_compiled body cs of
      | INL existing_index =>
          (Call (SOME (i,LS (),Skip,n,l)) (SOME existing_index) [] NONE,l+1,i+1,cs)
@@ -495,6 +499,5 @@ val generated_bignum_stubs_def = Define `
 
 val generated_bignum_stubs_eq = save_thm("generated_bignum_stubs_eq",
   EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]);
-
 
 val _ = export_theory();

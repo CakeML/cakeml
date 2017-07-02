@@ -60,82 +60,88 @@ val clock_write_def = Define `
   clock_write l s = s with clock := l`;
 
 val (eval_rules,eval_ind,raw_eval_cases) = Hol_reln `
-  (!s. Eval s Skip (INR (s:'a state))) /\
-  (!s. Eval s Continue (INL s)) /\
-  (!vs s. Eval s (Delete vs) (INR (delete_vars vs (s:'a state)))) /\
-  (!s x n.
+  (!r s. Eval r s Skip (INR (s:'a state))) /\
+  (!r s. Eval r s Continue (INL s)) /\
+  (!r vs s. Eval r s (Delete vs) (INR (delete_vars vs (s:'a state)))) /\
+  (!r s x n.
      eval_exp_pre s x ==>
-     Eval s (Assign n x) (INR (reg_write n (SOME (eval_exp s x)) s))) /\
-  (!s1 s2 s3 p1 p2.
-     Eval s1 p1 (INR s2) /\ Eval s2 p2 s3 ==>
-     Eval s1 (Seq p1 p2) s3) /\
-  (!s1 c r ri p1 p2 s2.
+     Eval r s (Assign n x) (INR (reg_write n (SOME (eval_exp s x)) s))) /\
+  (!r s1 s2 s3 p1 p2.
+     Eval r s1 p1 (INR s2) /\ Eval r s2 p2 s3 ==>
+     Eval r s1 (Seq p1 p2) s3) /\
+  (!rec s1 c r ri p1 p2 s2.
      r IN FDOM s1.regs /\ eval_ri_pre s1 ri /\
-     Eval s1 (if word_cmp c (eval_exp s1 (Var r)) (eval_ri s1 ri)
+     Eval rec s1 (if word_cmp c (eval_exp s1 (Var r)) (eval_ri s1 ri)
               then p1 else p2) s2 ==>
-     Eval s1 (If c r ri p1 p2) s2) /\
-  (!s r i a w.
+     Eval rec s1 (If c r ri p1 p2) s2) /\
+  (!rec s r i a w.
      (FLOOKUP s.regs i = SOME w) /\
      w2n w < LENGTH (s.arrays a) ==>
-     Eval s (Load r i a) (INR (reg_write r (SOME (EL (w2n w) (s.arrays a))) s))) /\
-  (!s r i w wr.
+     Eval rec s (Load r i a) (INR (reg_write r (SOME (EL (w2n w) (s.arrays a))) s))) /\
+  (!rec s r i w wr.
      (FLOOKUP s.regs i = SOME w) /\ (FLOOKUP s.regs r = SOME wr) /\
      w2n w < LENGTH (s.arrays Out) ==>
-     Eval s (Store r i) (INR (array_write Out (LUPDATE wr (w2n w) (s.arrays Out)) s))) /\
-  (!s.
-     Eval s Swap (INR (array_write In1 (s.arrays In2)
+     Eval rec s (Store r i) (INR (array_write Out (LUPDATE wr (w2n w) (s.arrays Out)) s))) /\
+  (!r s.
+     Eval r s Swap (INR (array_write In1 (s.arrays In2)
                       (array_write In2 (s.arrays In1) s)))) /\
-  (!s r1 r2.
+  (!r s r1 r2.
      n3 IN FDOM s.regs /\ eval_ri_pre s n4 /\ eval_ri_pre s n5 /\
      (eval_ri s n5 <> 0w ==> eval_ri s n5 = 1w) /\ n1 <> n2 /\
      (single_add_word (s.regs ' n3) (eval_ri s n4) (eval_ri s n5) = (r1,r2)) ==>
-     Eval s (Add n1 n2 n3 n4 n5)
+     Eval r s (Add n1 n2 n3 n4 n5)
       (INR (reg_write n1 (SOME r1) (reg_write n2 (SOME r2) s)))) /\
-  (!s n1 n2 n3 n4 n5 r1 r2.
+  (!r s n1 n2 n3 n4 n5 r1 r2.
      n3 IN FDOM s.regs /\ eval_ri_pre s n4 /\ eval_ri_pre s n5 /\
      (eval_ri s n5 <> 0w ==> eval_ri s n5 = 1w) /\ n1 <> n2 /\
      (single_sub_word (s.regs ' n3) (eval_ri s n4) (eval_ri s n5) = (r1,r2)) ==>
-     Eval s (Sub n1 n2 n3 n4 n5)
+     Eval r s (Sub n1 n2 n3 n4 n5)
       (INR (reg_write n1 (SOME r1) (reg_write n2 (SOME r2) s)))) /\
-  (!s n1 n2 n3 n4.
+  (!r s n1 n2 n3 n4.
      n3 IN FDOM s.regs /\ n4 IN FDOM s.regs /\ n1 <> n2 ==>
-     Eval s (Mul n1 n2 n3 n4)
+     Eval r s (Mul n1 n2 n3 n4)
       (INR (reg_write n1 (SOME (FST (single_mul (s.regs ' n3) (s.regs ' n4) 0w)))
            (reg_write n2 (SOME (SND (single_mul (s.regs ' n3) (s.regs ' n4) 0w))) s)))) /\
-  (!s n1 n2 n3 n4 n5.
+  (!r s n1 n2 n3 n4 n5.
      n3 IN FDOM s.regs /\ n4 IN FDOM s.regs /\ n5 IN FDOM s.regs /\ n1 <> n2 /\
      single_div_pre (s.regs ' n3) (s.regs ' n4) (s.regs ' n5) ==>
-     Eval s (Div n1 n2 n3 n4 n5)
+     Eval r s (Div n1 n2 n3 n4 n5)
       (INR (reg_write n1 (SOME (FST (single_div (s.regs ' n3) (s.regs ' n4) (s.regs ' n5))))
            (reg_write n2 (SOME (SND (single_div (s.regs ' n3) (s.regs ' n4) (s.regs ' n5)))) s)))) /\
-  (!s1 p vs s2.
-     Eval (delete_vars vs (dec_clock s1)) (LoopBody p) (INR s2) /\ s1.clock <> 0 ==>
-     Eval s1 (Loop vs p) (INR s2)) /\
-  (!s1 p s2.
-     Eval s1 p (INR s2) ==>
-     Eval s1 (LoopBody p) (INR s2)) /\
-  (!s1 s2 s3 p.
-     Eval s1 p (INL s2) /\ s2.clock <> 0 /\
-     Eval (dec_clock s2) (LoopBody p) (INR s3) ==>
-     Eval s1 (LoopBody p) (INR s3))`
+  (!r s1 p vs s2 rec.
+     Eval (if rec then SOME p else NONE) (delete_vars vs (dec_clock s1))
+       (LoopBody p) (INR s2) /\ s1.clock <> 0 ==>
+     Eval r s1 (Loop rec vs p) (INR s2)) /\
+  (!s1 vs p s2.
+     Eval (SOME p) (delete_vars vs (dec_clock s1)) (LoopBody p) (INR s2) /\
+     s1.clock <> 0 ==>
+     Eval (SOME p) s1 (Rec vs) (INR s2)) /\
+  (!r s1 p s2.
+     Eval r s1 p (INR s2) ==>
+     Eval r s1 (LoopBody p) (INR s2)) /\
+  (!r s1 s2 s3 p.
+     Eval r s1 p (INL s2) /\ s2.clock <> 0 /\
+     Eval r (dec_clock s2) (LoopBody p) (INR s3) ==>
+     Eval r s1 (LoopBody p) (INR s3))`
 
 val eval_cases =
   map (SIMP_CONV (srw_ss()) [Once raw_eval_cases])
-    [``Eval s1 Skip s2``,
-     ``Eval s1 Continue s2``,
-     ``Eval s1 (Delete vs) s2``,
-     ``Eval s1 (Seq p1 p2) s2``,
-     ``Eval s1 (Assign n x) s2``,
-     ``Eval s1 (If c r ri p1 p2) s2``,
-     ``Eval s1 (Load r i a) s2``,
-     ``Eval s1 (Store r i) s2``,
-     ``Eval s1 Swap s2``,
-     ``Eval s1 (Add r1 r2 r3 r4 r5) s2``,
-     ``Eval s1 (Sub r1 r2 r3 r4 r5) s2``,
-     ``Eval s1 (Mul r1 r2 r3 r4) s2``,
-     ``Eval s1 (Div r1 r2 r3 r4 r5) s2``,
-     ``Eval s1 (Loop vs p) s2``,
-     ``Eval s1 (LoopBody p) s2``] |> LIST_CONJ;
+    [``Eval rec s1 Skip s2``,
+     ``Eval rec s1 Continue s2``,
+     ``Eval rec s1 (Delete vs) s2``,
+     ``Eval rec s1 (Seq p1 p2) s2``,
+     ``Eval rec s1 (Assign n x) s2``,
+     ``Eval rec s1 (If c r ri p1 p2) s2``,
+     ``Eval rec s1 (Load r i a) s2``,
+     ``Eval rec s1 (Store r i) s2``,
+     ``Eval rec s1 Swap s2``,
+     ``Eval rec s1 (Add r1 r2 r3 r4 r5) s2``,
+     ``Eval rec s1 (Sub r1 r2 r3 r4 r5) s2``,
+     ``Eval rec s1 (Mul r1 r2 r3 r4) s2``,
+     ``Eval rec s1 (Div r1 r2 r3 r4 r5) s2``,
+     ``Eval rec s1 (Rec vs) s2``,
+     ``Eval rec s1 (Loop r vs p) s2``,
+     ``Eval rec s1 (LoopBody p) s2``] |> LIST_CONJ;
 
 
 (* verification of compiler to wordLang *)
@@ -238,7 +244,7 @@ val exp_ok_def = Define `
   (exp_ok _ <=> F)`;
 
 val syntax_ok_aux_def = Define `
-  syntax_ok_aux (Loop vs body) = syntax_ok_aux body /\
+  syntax_ok_aux (Loop r vs body) = syntax_ok_aux body /\
   syntax_ok_aux (LoopBody body) = F /\
   (syntax_ok_aux (Seq p1 p2) <=> syntax_ok_aux p1 /\ syntax_ok_aux p2) /\
   (syntax_ok_aux (Assign t1 e) <=> t1 < max_var_name /\ exp_ok e) /\
@@ -420,12 +426,17 @@ val b2n_if = prove(
   Cases_on `b` \\ EVAL_TAC);
 
 val compile_thm = store_thm("compile_thm",
-  ``!s1 prog s2.
-      Eval s1 prog s2 ==>
+  ``!rec s1 prog s2.
+      Eval rec s1 prog s2 ==>
       !n l i cs p1 l1 i1 cs1 cs2 t1 (ret_val:'a word_loc) p9.
         compile n l i cs prog = (p1,l1,i1,cs1) /\
         state_rel s1 t1 cs2 t0 frame /\ 0 < i /\
         syntax_ok prog /\ code_subset cs1 cs2 /\
+        (!body. rec = SOME body ==>
+                ?l i cs p1 l1 i1 cs1.
+                  compile n l i cs body = (p1,l1,i1,cs1) /\
+                  0 < i ∧ syntax_ok_aux body ∧ code_subset cs1 cs2 /\
+                  lookup n t1.code = SOME (1,Seq p1 (Return 0 0))) /\
         (!body. prog = LoopBody body ==>
                 p9 = Return 0 0 /\
                 lookup n t1.code = SOME (1,Seq p1 (Return 0 0))) /\
@@ -437,12 +448,12 @@ val compile_thm = store_thm("compile_thm",
                      0 < i1 /\
                      t2.stack = t1.stack /\
                      get_var 0 t2 = SOME ret_val /\
-                     state_rel s t2 cs2 t0 frame
+                     state_rel s t2 cs2 t0 frame /\ t2.code = t1.code
           | INL s => res = evaluate (Call NONE (SOME n) [0] NONE,t2) /\
                      0 < i1 /\
                      t2.stack = t1.stack /\
                      get_var 0 t2 = SOME ret_val /\
-                     state_rel s t2 cs2 t0 frame``,
+                     state_rel s t2 cs2 t0 frame /\ t2.code = t1.code``,
   ho_match_mp_tac eval_ind \\ rpt strip_tac
   THEN1 (* Skip *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
@@ -471,6 +482,7 @@ val compile_thm = store_thm("compile_thm",
     (fs [compile_def]
      \\ rpt (pairarg_tac \\ fs []) \\ rveq
      \\ qpat_x_assum `!x. _` mp_tac
+     \\ qpat_x_assum `!x. _` mp_tac
      \\ first_x_assum drule
      \\ `code_subset cs' cs2` by metis_tac [code_subset_trans,compile_IMP_code_subset]
      \\ disch_then drule \\ fs []
@@ -480,6 +492,9 @@ val compile_thm = store_thm("compile_thm",
           (Cases_on `prog'` \\ fs [syntax_ok_def,syntax_ok_aux_def] \\ NO_TAC)
      \\ fs []
      \\ disch_then (qspec_then `Seq p2 p9` mp_tac)
+     \\ match_mp_tac (METIS_PROVE [] ``(b3 ==> b1 ==> b2 ==> b4) ==>
+                                       (b1 ==> b2 ==> b3 ==> b4)``)
+     \\ strip_tac \\ disch_then drule
      \\ strip_tac \\ fs [evaluate_Seq_Seq]
      \\ disch_then drule \\ fs []
      \\ disch_then drule \\ fs [])
@@ -507,6 +522,7 @@ val compile_thm = store_thm("compile_thm",
      \\ imp_res_tac code_subset_trans
      \\ `lookup 0 t5.locals = SOME ret_val` by
           (unabbrev_all_tac \\ fs [lookup_insert] \\ NO_TAC)
+     \\ `t5.code = t1.code` by fs [Abbr `t5`]
      \\ fs []
      \\ disch_then (qspec_then `p9` mp_tac)
      \\ strip_tac \\ fs []
@@ -740,6 +756,8 @@ val compile_thm = store_thm("compile_thm",
        (unabbrev_all_tac
         \\ fs [call_env_def,push_env_def,env_to_list_insert_0_LN,
                wordSemTheory.dec_clock_def]
+        \\ reverse conj_tac
+        THEN1 (rw[] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
         \\ match_mp_tac state_rel_delete_vars
         \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
         \\ fs [state_rel_def] \\ fs [])
@@ -778,6 +796,8 @@ val compile_thm = store_thm("compile_thm",
      (unabbrev_all_tac
       \\ fs [call_env_def,push_env_def,env_to_list_insert_0_LN,
              wordSemTheory.dec_clock_def]
+      \\ reverse conj_tac
+      THEN1 (rw [] \\ fs [] \\ metis_tac [EVAL ``0<1n``])
       \\ match_mp_tac state_rel_delete_vars
       \\ fs [dec_clock_def,wordSemTheory.dec_clock_def]
       \\ fs [state_rel_def] \\ fs [])
@@ -787,6 +807,41 @@ val compile_thm = store_thm("compile_thm",
     \\ fs [pop_env_def,call_env_def,push_env_def]
     \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
     \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
+    \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
+    \\ qexists_tac `t8` \\ fs []
+    \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
+    \\ fs [state_rel_def] \\ fs [])
+  THEN1 (* Rec *)
+   (fs [compile_def] \\ rveq
+    \\ fs [compile_def,syntax_ok_def] \\ rfs []
+    \\ simp [Once evaluate_def]
+    \\ simp [Once evaluate_def,find_code_def,bad_dest_args_def,add_ret_loc_def,
+         get_vars_def]
+    \\ `wordSem$cut_env (LS ()) t1.locals = SOME (insert 0 ret_val LN)` by
+       (fs [wordSemTheory.cut_env_def,domain_lookup,get_var_def]
+        \\ fs [spt_eq_thm,wf_insert,wf_def,lookup_insert,
+               lookup_def,lookup_inter_alt] \\ NO_TAC) \\ fs []
+    \\ `t1.clock <> 0` by fs [state_rel_def] \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then (qspecl_then [`cs2`,`t6`,`Loc n l`] mp_tac)
+    \\ impl_tac THEN1
+     (`t6.code = t1.code` by (fs [Abbr `t6`] \\ EVAL_TAC \\ fs []) \\ fs []
+      \\ conj_tac THEN1
+       (match_mp_tac state_rel_delete_vars
+        \\ fs [state_rel_def,dec_clock_def,wordSemTheory.dec_clock_def,Abbr`t6`,
+               call_env_def,push_env_def]
+        \\ pairarg_tac \\ fs [])
+      \\ fs [PULL_EXISTS]
+      \\ asm_exists_tac \\ fs []
+      \\ unabbrev_all_tac \\ EVAL_TAC)
+    \\ strip_tac \\ fs []
+    \\ simp [Once evaluate_def]
+    \\ fs [pop_env_def,call_env_def,push_env_def]
+    \\ fs [env_to_list_insert_0_LN,EVAL ``domain (fromAList [(0,ret_val)])``]
+    \\ qunabbrev_tac `t6` \\ fs []
+    \\ fs [set_var_def,fromAList_def,wordSemTheory.dec_clock_def]
+    \\ simp [Once evaluate_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
     \\ unabbrev_all_tac \\ fs [get_var_def,lookup_insert]
@@ -815,7 +870,8 @@ val compile_thm = store_thm("compile_thm",
     \\ `get_var 0 (call_env [ret_val] (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
     \\ fs []
-    \\ impl_tac THEN1 fs [call_env_def,dec_clock_def,state_rel_def]
+    \\ impl_tac
+    THEN1 fs [call_env_def,dec_clock_def,state_rel_def]
     \\ strip_tac \\ fs []
     \\ simp [Once evaluate_def,get_vars_def]
     \\ `t2.clock <> 0` by fs [state_rel_def] \\ fs []
@@ -908,7 +964,7 @@ val all_corrs = ref (tl [TRUTH]);
 
 val Corr_def = Define `
   Corr prog (s:'a state) s1 p <=>
-    (p ==> Eval s prog s1)`;
+    (p ==> Eval NONE s prog s1)`;
 
 val Corr_Skip = prove(
   ``Corr Skip s (INR s) T``,
@@ -919,7 +975,8 @@ val Corr_Seq = prove(
     Corr p1 s (INR s1) q1 ==>
     Corr (Seq p1 p2) s s2 (q1 /\ q2)``,
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+  \\ imp_res_tac Eval_INR_loop \\ fs []);
 
 val Corr_Seq_alt = prove(
   ``(b ==> Corr p2 s1 s2 q2) ==>
@@ -1042,8 +1099,8 @@ val tick_before_def = Define `
 
 val Corr_Loop_lemma = prove(
   ``(!s. Corr (LoopBody p) s (INR (f s)) (q s)) ==>
-    Corr (Loop vs p) s (INR (f (delete_vars vs (dec_clock s))))
-                       (q (delete_vars vs (dec_clock s)) /\ s.clock <> 0)``,
+    Corr (Loop F vs p) s (INR (f (delete_vars vs (dec_clock s))))
+      (q (delete_vars vs (dec_clock s)) /\ s.clock <> 0)``,
   fs [Corr_def] \\ rw []
   \\ once_rewrite_tac [eval_cases] \\ fs []
   \\ qpat_x_assum `!x. _` imp_res_tac \\ rfs []);
