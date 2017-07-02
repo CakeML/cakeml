@@ -65,6 +65,7 @@ val read_bitmap_def = Define `
 val _ = Datatype `
   state =
     <| regs    : num |-> 'a word_loc
+     ; fp_regs : num |-> word64
      ; store   : store_name |-> 'a word_loc
      ; stack   : ('a word_loc) list
      ; stack_space : num
@@ -136,9 +137,16 @@ val get_vars_def = Define `
                   | NONE => NONE
                   | SOME xs => SOME (x::xs)))`;
 
+val get_fp_var_def = Define`
+  get_fp_var v (s:('a,'ffi) stackSem$state) = FLOOKUP s.fp_regs v`
+
 val set_var_def = Define `
   set_var v x (s:('a,'ffi) stackSem$state) =
     (s with regs := (s.regs |+ (v,x)))`;
+
+val set_fp_var_def = Define `
+  set_fp_var v x (s:('a,'ffi) stackSem$state) =
+    (s with fp_regs := (s.fp_regs |+ (v,x)))`;
 
 val set_store_def = Define `
   set_store v x (s:('a,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
@@ -330,6 +338,119 @@ val inst_def = Define `
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | FP (FPLess r d1 d2) =>
+      (case (get_fp_var d1 s,get_fp_var d2 s) of
+      | (SOME f1 ,SOME f2) =>
+        SOME (set_var r
+          (Word (if fp64_lessThan f1 f2
+                 then 1w
+                 else 0w)) s)
+      | _ => NONE)
+    | FP (FPLessEqual r d1 d2) =>
+      (case (get_fp_var d1 s,get_fp_var d2 s) of
+      | (SOME f1, SOME f2) =>
+        SOME (set_var r
+          (Word (if fp64_lessEqual f1 f2
+                 then 1w
+                 else 0w)) s)
+      | _ => NONE)
+    | FP (FPEqual r d1 d2) =>
+      (case (get_fp_var d1 s,get_fp_var d2 s) of
+      | (SOME f1, SOME f2) =>
+        SOME (set_var r
+          (Word (if fp64_equal f1 f2
+                 then 1w
+                 else 0w)) s)
+      | _ => NONE)
+    | FP (FPMov d1 d2) =>
+      (case get_fp_var d2 s of
+      | SOME f =>
+        SOME (set_fp_var d1 f s)
+      | _ => NONE)
+    | FP (FPAbs d1 d2) =>
+      (case get_fp_var d2 s of
+      | SOME f =>
+        SOME (set_fp_var d1 (fp64_abs f) s)
+      | _ => NONE)
+    | FP (FPNeg d1 d2) =>
+      (case get_fp_var d2 s of
+      | SOME f =>
+        SOME (set_fp_var d1 (fp64_negate f) s)
+      | _ => NONE)
+    | FP (FPSqrt d1 d2) =>
+      (case get_fp_var d2 s of
+      | SOME f =>
+        SOME (set_fp_var d1 (fp64_sqrt roundTiesToEven f) s)
+      | _ => NONE)
+    | FP (FPAdd d1 d2 d3) =>
+      (case (get_fp_var d2 s,get_fp_var d3 s) of
+      | (SOME f1,SOME f2) =>
+        SOME (set_fp_var d1 (fp64_add roundTiesToEven f1 f2) s)
+      | _ => NONE)
+    | FP (FPSub d1 d2 d3) =>
+      (case (get_fp_var d2 s,get_fp_var d3 s) of
+      | (SOME f1,SOME f2) =>
+        SOME (set_fp_var d1 (fp64_sub roundTiesToEven f1 f2) s)
+      | _ => NONE)
+    | FP (FPMul d1 d2 d3) =>
+      (case (get_fp_var d2 s,get_fp_var d3 s) of
+      | (SOME f1,SOME f2) =>
+        SOME (set_fp_var d1 (fp64_mul roundTiesToEven f1 f2) s)
+      | _ => NONE)
+    | FP (FPDiv d1 d2 d3) =>
+      (case (get_fp_var d2 s,get_fp_var d3 s) of
+      | (SOME f1,SOME f2) =>
+        SOME (set_fp_var d1 (fp64_div roundTiesToEven f1 f2) s)
+      | _ => NONE)
+    | FP (FPMovToReg r1 r2 d) =>
+      (case get_fp_var d s of
+      | SOME v =>
+        if dimindex(:'a) = 64 then
+          SOME (set_var r1 (Word (w2w v)) s)
+        else
+          SOME (set_var r2 (Word ((63 >< 32) v)) (set_var r1 (Word ((31 >< 0) v)) s))
+      | _ => NONE)
+    | FP (FPMovFromReg d r1 r2) =>
+      (if dimindex(:'a) = 64 then
+        case get_var r1 s of
+          SOME (Word w1) => SOME (set_fp_var d (w2w w1) s)
+        | _ => NONE
+      else
+        case (get_var r1 s,get_var r2 s) of
+          (SOME (Word w1),SOME (Word w2)) => SOME (set_fp_var d (w2 @@ w1) s)
+        | _ => NONE)
+    | FP (FPToInt d1 d2) =>
+      (case get_fp_var d2 s of
+        NONE => NONE
+      | SOME f =>
+      case fp64_to_int roundTiesToEven f of
+        NONE => NONE
+      | SOME i =>
+        let w = i2w i : 'a word in
+        if w2i w = i then
+          (if dimindex(:'a) = 64 then
+             SOME (set_fp_var d1 (w2w w) s)
+           else
+           case get_fp_var (d1 DIV 2) s of
+             NONE => NONE
+           | SOME f =>
+             let (h, l) = if ODD d1 then (63, 32) else (31, 0) in
+                  SOME (set_fp_var (d1 DIV 2) (bit_field_insert h l w f) s))
+        else
+          NONE)
+    | FP (FPFromInt d1 d2) =>
+      if dimindex(:'a) = 64 then
+        case get_fp_var d2 s of
+        | SOME f =>
+          let i =  w2i f in
+            SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
+        | NONE => NONE
+      else
+        case get_fp_var (d2 DIV 2) s of
+        | SOME v =>
+          let i =  w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word) in
+            SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
+        | NONE => NONE
     | _ => NONE`
 
 val get_var_imm_def = Define`
@@ -576,7 +697,8 @@ val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock`,
   Cases_on `i` \\ fs [inst_def,assign_def] \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
-  \\ fs [mem_store_def] \\ SRW_TAC [] []);
+  \\ fs [mem_store_def] \\ SRW_TAC [] []\\
+  EVAL_TAC \\ fs[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
