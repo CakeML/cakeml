@@ -111,14 +111,28 @@ val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
   `get_vars x (y with clock := k) = get_vars x y`,
   Induct_on`x`>>srw_tac[][get_vars_def]);
 
+val get_fp_var_with_const = Q.store_thm("get_fp_var_with_const[simp]",
+  `get_fp_var x (y with clock := k) = get_fp_var x y`,
+  EVAL_TAC);
+
 val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).clock = z.clock ∧
    (set_var x y z).ffi = z.ffi ∧
    (set_var x y z).stack = z.stack`,
   EVAL_TAC);
 
+val set_fp_var_const = Q.store_thm("set_fp_var_const[simp]",
+  `(set_fp_var x y z).clock = z.clock ∧
+   (set_fp_var x y z).ffi = z.ffi ∧
+   (set_fp_var x y z).stack = z.stack`,
+  EVAL_TAC);
+
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
   `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  EVAL_TAC);
+
+val set_fp_var_with_const = Q.store_thm("set_fp_var_with_const[simp]",
+  `set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k`,
   EVAL_TAC);
 
 val set_vars_const = Q.store_thm("set_vars_const[simp]",
@@ -192,7 +206,7 @@ val inst_const_full = Q.store_thm("inst_const_full",
    s'.ffi = s.ffi ∧
    s'.handler = s.handler ∧
    s'.stack = s.stack`,
-  rw[inst_def, set_var_def] >>
+  rw[inst_def, set_var_def,set_fp_var_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
@@ -540,7 +554,7 @@ val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
   s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def]);
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
 
 val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
   `!xs s1 vs s2.
@@ -1029,15 +1043,16 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Inst*)
     (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,LET_THM]>>
-    every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,set_fp_var_def]>>
     fs[get_vars_stack_swap_simp]>>
     srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,mem_store_def]>>
-    srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,get_var_def,mem_load_def]>>
+    srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,get_var_def,mem_load_def,get_fp_var_def]>>
     rfs[]>>
-    HINT_EXISTS_TAC>>
-    full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
+    TRY(HINT_EXISTS_TAC>>
+    full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])>>
+    rw[]>>fs[])
   >- (*Assign*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     rpt strip_tac>>
@@ -1557,6 +1572,10 @@ val get_var_perm = Q.store_thm("get_var_perm",`
   get_var n (st with permute:=perm) =
   (get_var n st)`,full_simp_tac(srw_ss())[get_var_def]);
 
+val get_fp_var_perm = Q.store_thm("get_fp_var_perm",`
+  get_fp_var n (st with permute:=perm) =
+  (get_fp_var n st)`,full_simp_tac(srw_ss())[get_fp_var_def]);
+
 val get_var_imm_perm = Q.store_thm("get_var_imm_perm",`
   get_var_imm n (st with permute:=perm) =
   (get_var_imm n st)`,
@@ -1567,6 +1586,11 @@ val set_var_perm = Q.store_thm("set_var_perm",`
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm`,
   full_simp_tac(srw_ss())[set_var_def]);
+
+val set_fp_var_perm = Q.store_thm("set_fp_var_perm",`
+  set_fp_var v x (s with permute:=perm) =
+  (set_fp_var v x s) with permute:=perm`,
+  full_simp_tac(srw_ss())[set_fp_var_def]);
 
 val get_vars_perm = Q.prove(`
   ∀ls. get_vars ls (st with permute:=perm) =
@@ -1653,7 +1677,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   >-
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[inst_def,assign_def,LET_THM]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm]>>
+    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm,get_fp_var_perm,set_fp_var_perm]>>
     rfs[]>>fs[]>>rveq>>
     fs[state_component_equality])
   >-
@@ -2039,8 +2063,8 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
       TRY(Cases_on`r`)>>rev_full_simp_tac(srw_ss())[every_var_exp_def,every_var_imm_def]>>
       full_simp_tac(srw_ss())[set_var_def]>>
       metis_tac[locals_rel_set_var])
-    >>
-      Cases_on`a`>>Cases_on`m`>>full_simp_tac(srw_ss())[assign_def]>>
+    >-
+      (Cases_on`a`>>Cases_on`m`>>full_simp_tac(srw_ss())[assign_def]>>
       qpat_x_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`A = word_exp B C`>>
       Cases_on`A`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
@@ -2055,6 +2079,12 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
       full_simp_tac(srw_ss())[state_component_equality]>>
       EVERY_CASE_TAC>>fs[state_component_equality]>>
       metis_tac[locals_rel_set_var])
+    >-
+      (Cases_on`f`>>fs[get_fp_var_def]>>every_case_tac>>
+      fs[set_var_def,set_fp_var_def,every_var_inst_def]>>
+      imp_res_tac locals_rel_get_var>>
+      rw[]>>fs[]>>
+      metis_tac[locals_rel_set_var]))
   >-
     (every_case_tac>>imp_res_tac locals_rel_word_exp>>full_simp_tac(srw_ss())[every_var_def]>>
     rev_full_simp_tac(srw_ss())[state_component_equality,set_var_def]>>

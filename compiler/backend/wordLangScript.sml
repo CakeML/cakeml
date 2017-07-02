@@ -92,7 +92,14 @@ val every_var_inst_def = Define`
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (FP (FPLess r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPLessEqual r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPEqual r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPMovToReg r1 r2 d)) = (P r1 ∧ P r2)) ∧
+  (every_var_inst P (FP (FPMovFromReg d r1 r2)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P inst = T)` (*catchall*)
+
+(* TODO: every FP reg *)
 
 val every_name_def = Define`
   every_name P t ⇔

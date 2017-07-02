@@ -460,7 +460,7 @@ val inst_def = Define `
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
-        | FP (FPLess r d1 d2) =>
+    | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>
         SOME (set_var r
