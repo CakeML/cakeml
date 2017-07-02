@@ -23,7 +23,7 @@ val _ = Datatype `
        | Div num num num num num
        | Loop bool (num list) mini
        | Continue
-       | Rec (num list)
+       | Rec (num list) (num list)
        (* the following is only used by the semantics *)
        | LoopBody mini `
 
@@ -36,10 +36,10 @@ val Continue_tm = ``Continue:'a word_bignum$mini``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
   val (Delete_tm,mk_Delete,dest_Delete,is_Delete) = s "Delete"
-  val (Rec_tm,mk_Rec,dest_Rec,is_Rec) = s "Rec"
 end
 local val s = HolKernel.syntax_fns2 "word_bignum" in
   val (Assign_tm,mk_Assign,dest_Assign,is_Assign) = s "Assign"
+  val (Rec_tm,mk_Rec,dest_Rec,is_Rec) = s "Rec"
   val (Seq_tm,mk_Seq,dest_Seq,is_Seq) = s "Seq"
   val (Store_tm,mk_Store,dest_Store,is_Store) = s "Store"
 end
@@ -428,11 +428,21 @@ val DivCode_def = Define `
       (Seq (Call (SOME (n1,LS (),Skip,l1,l2)) (SOME div_location) [n3;n4;n5] NONE)
            (Assign n2 (Lookup (Temp 28w))))`
 
+val LoadRegs_def = Define `
+  (LoadRegs [] p = p:'a wordLang$prog) /\
+  (LoadRegs (n::ns) p = Seq (Get (n+2) (Temp (n2w n))) (LoadRegs ns p))`
+
+val SaveRegs_def = Define `
+  (SaveRegs [] = Skip:'a wordLang$prog) /\
+  (SaveRegs (n::ns) = Seq (Set (Temp (n2w n)) (Var (n+2))) (SaveRegs ns))`;
+
 val compile_def = Define `
   (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
   (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
-  (compile n l i cs (Rec names) =
-     (Call (SOME (1,LS (),Skip,n,l)) (SOME n) [] NONE,l+1,i,cs)) /\
+  (compile n l i cs (Rec save_regs names) =
+     (LoadRegs save_regs
+       (Call (SOME (1,list_insert (0::MAP (\n.n+2) save_regs) LN,
+          SaveRegs save_regs,n,l)) (SOME n) [] NONE),l+1,i,cs)) /\
   (compile n l i cs (Loop rec_calls vs body) =
      case has_compiled body cs of
      | INL existing_index =>
