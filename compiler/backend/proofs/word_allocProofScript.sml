@@ -1,7 +1,7 @@
 open preamble
      reg_allocTheory reg_allocProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory
-val _ = map Parse.hide ["exp","max","pos"];
+val _ = map Parse.hide ["exp","max","pos","lim"];
 
 val _ = new_theory "word_allocProof";
 
@@ -3589,7 +3589,6 @@ val is_stack_var_add= Q.prove(`
     pop_assum (qspecl_then [`na`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]));
 
-
 val _ = diminish_srw_ss ["MOD_ss"]
 
 val is_alloc_var_flip = Q.prove(`
@@ -5606,12 +5605,6 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       full_simp_tac(srw_ss())[LET_THM]>>
       srw_tac[][]>>
       Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality,word_state_eq_rel_def]);
-
-val get_vars_eq = Q.prove(
-  `(set ls) SUBSET domain st.locals ==> ?y. get_vars ls st = SOME y /\
-                                             y = MAP (\x. THE (lookup x st.locals)) ls`,
-  Induct_on`ls`>>full_simp_tac(srw_ss())[get_vars_def,get_var_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[domain_lookup]);
 
 (*For starting up*)
 val setup_ssa_props = Q.prove(`
