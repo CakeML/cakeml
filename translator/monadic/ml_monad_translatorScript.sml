@@ -125,28 +125,6 @@ POP_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
 first_x_assum irule >>
 fs[STAR_ASSOC]);
 
-(* val REFS_PRED_FRAME_def = Define
-`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) =
-!F. (H refs1 * F) (store2heap s1.refs) ==> (H refs2 * F) (store2heap s2.refs)`;
-
-val EMP_STAR_H = Q.store_thm("EMP_STAR_GC",
-`!H. emp * H = H`,
-fs[STAR_def, emp_def, SPLIT_def, ETA_THM]);
-
-val SAT_GC = Q.store_thm("SAT_GC",
-`!h. GC h`,
-fs[GC_def, SEP_EXISTS_THM] \\ STRIP_TAC \\ qexists_tac `\s. T` \\ fs[]);
-
-val REFS_PRED_FRAME_imp = Q.store_thm("REFS_PRED_FRAME_imp",
-`REFS_PRED H refs1 s1 ==> REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==> REFS_PRED H refs2 s2`,
-rw[REFS_PRED_def, REFS_PRED_FRAME_def]);
-
-val REFS_PRED_FRAME_trans = Q.store_thm("REFS_PRED_FRAME_TRANS",
-`REFS_PRED_FRAME H (refs1, s1) (refs2, s2) ==>
-REFS_PRED_FRAME H (refs2, s2) (refs3, s3) ==>
-REFS_PRED_FRAME H (refs1, s1) (refs3, s3)`,
-rw[REFS_PRED_FRAME_def]); *)
-
 (*
  * Proof of REFS_PRED_APPEND:
  * `REFS_PRED H refs s ==> REFS_PRED H refs (s with refs := s.refs ++ junk)`
@@ -294,22 +272,58 @@ rw[REFS_PRED_FRAME_def]
  *)
 
 val HEAP_LOC_MEM = Q.store_thm("HEAP_LOC_MEM",
+`(l ~~>> rv * H) h ==> Mem l rv IN h`,
+rw[STAR_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]);
+
+(* val HEAP_REF_MEM = Q.store_thm("HEAP_REF_MEM",
 `(Loc l ~~> xv * H) h ==> Mem l (Refv xv) IN h`,
-rw[STAR_def, REF_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]);
+rw[STAR_def, REF_def, ARRAY_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]); 
+
+val HEAP_ARRAY_MEM = Q.store_thm("HEAP_ARRAY_MEM",
+`(ARRAY (Loc l) av * H) h ==> Mem l (Varray av) IN h`,
+rw[STAR_def, REF_def, ARRAY_def, SEP_EXISTS_THM, cond_def, cell_def, one_def, SPLIT_def] \\ rw[IN_UNION]); *)
 
 val st2heap_LOC_MEM = Q.store_thm("st2heap_LOC_MEM",
-`(Loc l ~~> xv * H) (st2heap p s) ==> Mem l (Refv xv) IN (store2heap s.refs)`,
+`(l ~~>> rv * H) (st2heap p s) ==> Mem l rv IN (store2heap s.refs)`,
 Cases_on `p` \\ rw[st2heap_def] \\ IMP_RES_TAC HEAP_LOC_MEM
 \\ fs[IN_UNION]
 \\ fs[Mem_NOT_IN_ffi2heap]);
 
+val st2heap_REF_MEM = Q.store_thm("st2heap_REF_MEM",
+`(Loc l ~~> xv * H) (st2heap p s) ==> Mem l (Refv xv) IN (store2heap s.refs)`,
+rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+metis_tac[st2heap_LOC_MEM]);
+
+val st2heap_ARRAY_MEM = Q.store_thm("st2heap_ARRAY_MEM",
+`(ARRAY (Loc l) av * H) (st2heap p s) ==> Mem l (Varray av) IN (store2heap s.refs)`,
+rw[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+metis_tac[st2heap_LOC_MEM]);
+
 val store2heap_aux_LOC_MEM = Q.store_thm("store2heap_aux_LOC_MEM",
-`!l xv H n s. (REF (Loc l) xv * H) (store2heap_aux n s) ==> Mem l (Refv xv) IN (store2heap_aux n s)`,
+`!l rv H n s. (l ~~>> rv * H) (store2heap_aux n s) ==> Mem l rv IN (store2heap_aux n s)`,
 rw[] \\ IMP_RES_TAC HEAP_LOC_MEM);
 
+(* val store2heap_aux_REF_MEM = Q.store_thm("store2heap_aux_REF_MEM",
+`!l xv H n s. (REF (Loc l) xv * H) (store2heap_aux n s) ==> Mem l (Refv xv) IN (store2heap_aux n s)`,
+rw[] \\ IMP_RES_TAC HEAP_REF_MEM);
+
+val store2heap_aux_ARRAY_MEM = Q.store_thm("store2heap_aux_ARRAY_MEM",
+`!l av H n s. (ARRAY (Loc l) av * H) (store2heap_aux n s) ==> Mem l (Varray av) IN (store2heap_aux n s)`,
+rw[] \\ IMP_RES_TAC HEAP_ARRAY_MEM); *)
+
 val store2heap_LOC_MEM = Q.store_thm("store2heap_LOC_MEM",
-`!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> Mem l (Refv xv) IN (store2heap s)`,
+`!l rv H s. (l ~~>> rv * H) (store2heap s) ==> Mem l rv IN (store2heap s)`,
 rw[] \\ IMP_RES_TAC HEAP_LOC_MEM);
+
+(* val store2heap_REF_MEM = Q.store_thm("store2heap_REF_MEM",
+`!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> Mem l (Refv xv) IN (store2heap s)`,
+rw[] \\ IMP_RES_TAC HEAP_REF_MEM);
+
+val store2heap_ARRAY_MEM = Q.store_thm("store2heap_REF_MEM",
+`!l av H s. (ARRAY (Loc l) av * H) (store2heap s) ==> Mem l (Varray av) IN (store2heap s)`,
+rw[] \\ IMP_RES_TAC HEAP_ARRAY_MEM); *)
 
 val isPREFIX_TAKE = Q.store_thm("isPREFIX_TAKE",
 `!l s. isPREFIX (TAKE l s) s`,
@@ -324,28 +338,8 @@ rw[] >>
 Cases_on `a2` >- fs[] >>
 fs[] >> metis_tac[]);
 
-val STORE_DECOMPOS_FROM_HPROP = Q.store_thm("STORE_DECOMPOS_FROM_HPROP",
-`!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s) /\ LENGTH ps = l`,
-rw[] >>
-IMP_RES_TAC store2heap_LOC_MEM >>
-IMP_RES_TAC store2heap_IN_EL >>
-qexists_tac `TAKE l s` >>
-Cases_on `l + 1 <= LENGTH s`
->-(
-    fs[LENGTH_TAKE] >>
-    SUFF_TAC ``isPREFIX [Refv (xv : v)] (DROP l s)``
-    >- metis_tac[LENGTH_TAKE, LENGTH_DROP, GSYM isPREFIX_APPEND_EQ, TAKE_DROP] >>
-    FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-    SUFF_TAC ``Refv (xv:v) = HD(DROP l s)``
-    >-( fs[] >> Cases_on `DROP l s` >- fs[DROP_NIL] >> fs[]) >>
-    fs[hd_drop]
-) >>
-irule FALSITY >>
-IMP_RES_TAC store2heap_IN_LENGTH >>
-fs[]);
-
 val STATE_DECOMPOS_FROM_HPROP = Q.store_thm("STATE_DECOMPOS_FROM_HPROP",
-`!l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s.refs) /\ LENGTH ps = l`,
+`!l rv H p s. (l ~~>> rv * H) (st2heap p s) ==> ?ps. ((ps ++ [rv]) ≼ s.refs) /\ LENGTH ps = l`,
 rw[] >>
 IMP_RES_TAC st2heap_LOC_MEM >>
 IMP_RES_TAC store2heap_IN_EL >>
@@ -353,10 +347,10 @@ qexists_tac `TAKE l s.refs` >>
 Cases_on `l + 1 <= LENGTH s.refs`
 >-(
     fs[LENGTH_TAKE] >>
-    SUFF_TAC ``isPREFIX [Refv (xv : v)] (DROP l s.refs)``
+    SUFF_TAC ``isPREFIX [rv : v store_v] (DROP l s.refs)``
     >- metis_tac[LENGTH_TAKE, LENGTH_DROP, GSYM isPREFIX_APPEND_EQ, TAKE_DROP] >>
     FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-    SUFF_TAC ``Refv (xv:v) = HD(DROP l s.refs)``
+    SUFF_TAC ``(rv : v store_v) = HD(DROP l s.refs)``
     >-( fs[] >> Cases_on `DROP l s.refs` >- fs[DROP_NIL] >> fs[]) >>
     fs[hd_drop]
 ) >>
@@ -364,29 +358,59 @@ irule FALSITY >>
 IMP_RES_TAC store2heap_IN_LENGTH >>
 fs[]);
 
-val STORE_EXTRACT_FROM_HPROP = Q.store_thm("STORE_EXTRACT_FROM_HPROP",
+val STATE_DECOMPOS_FROM_HPROP_REF = Q.store_thm("STATE_DECOMPOS_FROM_HPROP_REF",
+`!l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s.refs) /\ LENGTH ps = l`,
+rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_DECOMPOS_FROM_HPROP >>
+instantiate);
+
+val STATE_DECOMPOS_FROM_HPROP_ARRAY = Q.store_thm("STATE_DECOMPOS_FROM_HPROP_ARRAY",
+`!l av H p s. (ARRAY (Loc l) av * H) (st2heap p s) ==> ?ps. ((ps ++ [Varray av]) ≼ s.refs) /\ LENGTH ps = l`,
+rw[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_DECOMPOS_FROM_HPROP >>
+instantiate);
+
+(* val STORE_EXTRACT_FROM_HPROP_REF = Q.store_thm("STORE_EXTRACT_REF_FROM_HPROP",
 `!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==>
 !junk. EL l (s ++ junk) = Refv xv`,
 rw[] >>
-IMP_RES_TAC STORE_DECOMPOS_FROM_HPROP >>
+IMP_RES_TAC STORE_DECOMPOS_REF_FROM_HPROP >>
 fs[IS_PREFIX_APPEND] >>
 first_x_assum(fn x => CONV_RULE (CHANGED_CONV (SIMP_CONV pure_ss [GSYM APPEND_ASSOC])) x |> ASSUME_TAC) >>
 `~NULL ([Refv xv] ++ (l' ++ junk))` by fs[NULL_EQ] >>
 IMP_RES_TAC EL_LENGTH_APPEND >>
 fs[HD] >>
-metis_tac[]);
+metis_tac[]); *)
 
 val STATE_EXTRACT_FROM_HPROP = Q.store_thm("STATE_EXTRACT_FROM_HPROP",
-`!l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==>
-!junk. EL l (s.refs ++ junk) = Refv xv`,
+`!l rv H p s. (l ~~>> rv * H) (st2heap p s) ==>
+!junk. EL l (s.refs ++ junk) = rv`,
 rw[] >>
 IMP_RES_TAC STATE_DECOMPOS_FROM_HPROP >>
 fs[IS_PREFIX_APPEND] >>
 first_x_assum(fn x => CONV_RULE (CHANGED_CONV (SIMP_CONV pure_ss [GSYM APPEND_ASSOC])) x |> ASSUME_TAC) >>
-`~NULL ([Refv xv] ++ (l' ++ junk))` by fs[NULL_EQ] >>
+`~NULL ([rv] ++ (l' ++ junk))` by fs[NULL_EQ] >>
 IMP_RES_TAC EL_LENGTH_APPEND >>
 fs[HD] >>
 metis_tac[]);
+
+val STATE_EXTRACT_FROM_HPROP_REF = Q.store_thm("STATE_EXTRACT_FROM_HPROP_REF",
+`!l xv H p s. ((Loc l) ~~> xv * H) (st2heap p s) ==>
+!junk. EL l (s.refs ++ junk) = Refv xv`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_EXTRACT_FROM_HPROP >>
+instantiate);
+
+val STATE_EXTRACT_FROM_HPROP_ARRAY = Q.store_thm("STATE_EXTRACT_FROM_HPROP_ARRAY",
+`!l av H p s. (ARRAY (Loc l) av * H) (st2heap p s) ==>
+!junk. EL l (s.refs ++ junk) = Varray av`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_EXTRACT_FROM_HPROP >>
+instantiate);
 
 val SEPARATE_STORE_ELEM_IN_HEAP = Q.store_thm("SEPARATE_STORE_ELEM_IN_HEAP",
 `!s0 x s1. SPLIT3 (store2heap (s0 ++ [x] ++ s1)) (store2heap s0, {Mem (LENGTH s0) x}, store2heap_aux (LENGTH s0 + 1) s1)`,
@@ -407,15 +431,23 @@ rw[]
 >-(DISCH_TAC >> IMP_RES_TAC store2heap_IN_LENGTH >> fs[]) >>
 metis_tac[DISJOINT_UNION_BOTH, EQ_REFL]);
 
+val CELL_HPROP_SAT_EQ = Q.store_thm("CELL_HPROP_SAT_EQ",
+`!l xv s. (l ~~>> xv) s <=> s = {Mem l xv}`,
+fs[REF_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def]);
+
 val REF_HPROP_SAT_EQ = Q.store_thm("REF_HPROP_SAT_EQ",
 `!l xv s. REF (Loc l) xv s <=> s = {Mem l (Refv xv)}`,
 fs[REF_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def]);
+
+val ARRAY_HPROP_SAT_EQ = Q.store_thm("ARRAY_HPROP_SAT_EQ",
+`!l av s. ARRAY (Loc l) av s <=> s = {Mem l (Varray av)}`,
+fs[ARRAY_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def]);
 
 val SPLIT_UNICITY_R = Q.store_thm("SPLIT_UNICITY_R",
 `SPLIT s (u, v) ==> (SPLIT s (u, v') <=> v' = v)`,
 fs[SPLIT_EQ]);
 
-val STORE_SAT_LOC_STAR_H_EQ = Q.store_thm("STORE_SAT_LOC_STAR_H_EQ",
+(* val STORE_SAT_LOC_STAR_H_EQ = Q.store_thm("STORE_SAT_LOC_STAR_H_EQ",
 `!s0 xv s1 H. (Loc (LENGTH s0) ~~> xv * H) (store2heap (s0 ++ [Refv xv] ++ s1)) <=>
 H ((store2heap s0) UNION (store2heap_aux (LENGTH s0 + 1) s1))`,
 rw[] >>
@@ -431,7 +463,7 @@ EQ_TAC
 DISCH_TAC >>
 rw[STAR_def] >>
 instantiate >>
-rw[REF_HPROP_SAT_EQ]);
+rw[REF_HPROP_SAT_EQ]); *)
 
 val DIFF_UNION_COMM = Q.store_thm("DIFF_UNION_COMM",
 `DISJOINT s2 s3 ==>
@@ -441,30 +473,30 @@ rw[SET_EQ_SUBSET]
 \\ last_x_assum (fn x => PURE_ONCE_REWRITE_RULE [NEG_DISJ_TO_IMP] x |> IMP_RES_TAC)
 \\ fs[]);
 
-val STATE_SAT_LOC_STAR_H_EQ = Q.store_thm("STATE_SAT_LOC_STAR_H_EQ",
-`!p s s0 xv s1 H. (Loc (LENGTH s0) ~~> xv * H) (st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)) <=>
+val STATE_SAT_CELL_STAR_H_EQ = Q.store_thm("STATE_SAT_CELL_STAR_H_EQ",
+`!p s s0 rv s1 H. ((LENGTH s0) ~~>> rv * H) (st2heap p (s with refs := s0 ++ [rv] ++ s1)) <=>
 H ((store2heap s0) UNION (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))`,
 rw[] >>
 Cases_on `p` >>
 fs[st2heap_def] >>
-qspecl_then [`p`, `s with refs := s0 ++ [Refv xv] ++ s1`] ASSUME_TAC st2heap_SPLIT_FFI >>
+qspecl_then [`p`, `s with refs := s0 ++ [rv] ++ s1`] ASSUME_TAC st2heap_SPLIT_FFI >>
 fs[] >>
-qspecl_then [`s0`, `Refv xv`, `s1`] ASSUME_TAC SEPARATE_STORE_ELEM_IN_HEAP >>
+qspecl_then [`s0`, `rv`, `s1`] ASSUME_TAC SEPARATE_STORE_ELEM_IN_HEAP >>
 IMP_RES_TAC SPLIT_of_SPLIT3_1u3 >>
 EQ_TAC
 >-(
-    rw[STAR_def, REF_HPROP_SAT_EQ] >>
+    rw[STAR_def, CELL_HPROP_SAT_EQ] >>
     fs[SPLIT_EQ] >>
     rw[] >>
     fs[st2heap_def] >>
-    `DISJOINT (ffi2heap (q, r) s.ffi) {Mem (LENGTH s0) (Refv xv)}` by fs[DISJOINT_DEF, Mem_NOT_IN_ffi2heap] >>
+    `DISJOINT (ffi2heap (q, r) s.ffi) {Mem (LENGTH s0) rv}` by fs[DISJOINT_DEF, Mem_NOT_IN_ffi2heap] >>
     fs[Once DIFF_UNION_COMM]
 ) >>
 DISCH_TAC >>
 rw[STAR_def] >>
 instantiate >>
-qexists_tac `{Mem (LENGTH s0) (Refv xv)}` >>
-fs[REF_HPROP_SAT_EQ] >>
+qexists_tac `{Mem (LENGTH s0) rv}` >>
+fs[CELL_HPROP_SAT_EQ] >>
 fs[SPLIT_def, SPLIT3_def] >>
 rw[]
 >-(
@@ -473,7 +505,21 @@ rw[]
 \\ fs[Mem_NOT_IN_ffi2heap]
 );
 
-val STORE_UPDATE_HPROP = Q.store_thm("STORE_UPDATE_HPROP",
+val STATE_SAT_REF_STAR_H_EQ = Q.store_thm("STATE_SAT_REF_STAR_H_EQ",
+`!p s s0 xv s1 H. (Loc (LENGTH s0) ~~> xv * H) (st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)) <=>
+H ((store2heap s0) UNION (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+fs[STATE_SAT_CELL_STAR_H_EQ]);
+
+val STATE_SAT_ARRAY_STAR_H_EQ = Q.store_thm("STATE_SAT_REF_STAR_H_EQ",
+`!p s s0 av s1 H. (ARRAY (Loc (LENGTH s0)) av * H) (st2heap p (s with refs := s0 ++ [Varray av] ++ s1)) <=>
+H ((store2heap s0) UNION (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+fs[STATE_SAT_CELL_STAR_H_EQ]);
+
+(* val STORE_UPDATE_HPROP = Q.store_thm("STORE_UPDATE_HPROP",
 `(Loc l ~~> xv * H) (store2heap s) ==> (Loc l ~~> xv' * H) (store2heap (LUPDATE (Refv xv') l s))`,
 DISCH_TAC >>
 sg `?s0 s1. s = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
@@ -483,62 +529,53 @@ sg `?s0 s1. s = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
     SATISFY_TAC
 ) >>
 rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
-metis_tac[STORE_SAT_LOC_STAR_H_EQ, REF_HPROP_SAT_EQ, STAR_def]);
+metis_tac[STORE_SAT_LOC_STAR_H_EQ, REF_HPROP_SAT_EQ, STAR_def]); *)
 
-val STATE_UPDATE_HPROP = Q.store_thm("STATE_UPDATE_HPROP",
-`(Loc l ~~> xv * H) (st2heap p s) ==> (Loc l ~~> xv' * H) (st2heap p (s with refs := (LUPDATE (Refv xv') l s.refs)))`,
+val STATE_UPDATE_HPROP_CELL = Q.store_thm("STATE_UPDATE_HPROP_CELL",
+`(l ~~>> rv * H) (st2heap p s) ==> (l ~~>> rv' * H) (st2heap p (s with refs := (LUPDATE rv' l s.refs)))`,
 DISCH_TAC >>
-sg `?s0 s1. s.refs = s0 ++ [Refv xv] ++ s1 /\ LENGTH s0 = l`
+sg `?s0 s1. s.refs = s0 ++ [rv] ++ s1 /\ LENGTH s0 = l`
 >-(
     IMP_RES_TAC STATE_DECOMPOS_FROM_HPROP >>
     IMP_RES_TAC rich_listTheory.IS_PREFIX_APPEND >>
     SATISFY_TAC
 ) >>
 rw[LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_def] >>
-fs[STATE_SAT_LOC_STAR_H_EQ] >>
-sg `(st2heap p s) = st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)` 
+fs[STATE_SAT_CELL_STAR_H_EQ] >>
+sg `(st2heap p s) = st2heap p (s with refs := s0 ++ [rv] ++ s1)` 
 >-(
-   `s = (s with refs := s0 ++ [Refv xv] ++ s1)` by POP_ASSUM (fn x => rw[GSYM x, with_same_refs])
+   `s = (s with refs := s0 ++ [rv] ++ s1)` by POP_ASSUM (fn x => rw[GSYM x, with_same_refs])
    >> POP_ASSUM(fn x => rw[GSYM x])
 ) >>
 POP_ASSUM(fn x => fs[x]) >>
-fs[STATE_SAT_LOC_STAR_H_EQ]);
+fs[STATE_SAT_CELL_STAR_H_EQ]);
 
-(* Objectives:
-EvalM env exp (ArrowM H (Pure A) (MONAD B C) f) fv ==>
-!refs x xv. A x xv ==>
-app_basic env fv xv (H refs) (POSTv rv. SEP_EXISTS refs' res. H refs' * &(f x = (res, refs')) *
-                              &(case res of Success r => B r rv | Failure e => C e rv))
+val STATE_UPDATE_HPROP_REF = Q.store_thm("STATE_UPDATE_HPROP_REF",
+`(Loc l ~~> xv * H) (st2heap p s) ==> (Loc l ~~> xv' * H) (st2heap p (s with refs := (LUPDATE (Refv xv') l s.refs)))`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_UPDATE_HPROP_CELL >>
+instantiate
+);
 
-EvalM env exp (ArrowM H (Pure A) (Pure B) f) fv ==>
-!refs x xv. A x xv ==>
-app_basic env fv xv (H refs) (POSTv rv. SEP_EXISTS r. H refs * &(B r rv) * &(f x = (Success r, refs))
-
-And same things for:
-ArrowP H (Pure A) (MONAD B C) f fv
-ArrowP H (Pure A) (PURE B) f fv
-
-REFS_PRED_FRAME H (refs1, s1) (refs2, s2) = !F. (H refs1 * F) s1 ==> (H refs2 * F * GC) s2
-
-val EvalM_def = Define `
-  EvalM env exp P H <=>
-    !(s:unit state) p refs. REFS_PRED H refs p s  ==>
-    !junk.
-    ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
-    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H p (refs, s) (refs2, s2)`;
-
-*)
-
-val EvalM_def = Define `
-  EvalM env exp P H <=>
-    !(s:unit state) p refs. REFS_PRED H refs p s  ==>
-    !junk.
-    ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
-    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H p (refs, s) (refs2, s2)`;
+val STATE_UPDATE_HPROP_ARRAY = Q.store_thm("STATE_UPDATE_HPROP_ARRAY",
+`(ARRAY (Loc l) av * H) (st2heap p s) ==> (ARRAY (Loc l) av' * H) (st2heap p (s with refs := (LUPDATE (Varray av') l s.refs)))`,
+rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+irule STATE_UPDATE_HPROP_CELL >>
+instantiate
+);
 
 (*
  * Definition of EvalM
  *)
+
+val EvalM_def = Define `
+  EvalM env exp P H <=>
+    !(s:unit state) p refs. REFS_PRED H refs p s  ==>
+    !junk.
+    ?s2 res refs2. evaluate F env (s with refs := s.refs ++ junk) exp (s2,res) /\
+    P (refs, s) (refs2, s2, res) /\ REFS_PRED_FRAME H p (refs, s) (refs2, s2)`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
@@ -973,7 +1010,6 @@ val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
   asm_exists_tac \\ fs[]);
 
 (* read and update refs *)
-
 val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
 `!vname loc x TYPE EXC_TYPE H get_var.
   nsLookup env.v (Short vname) = SOME (Loc loc) ==>
@@ -988,31 +1024,16 @@ val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
   \\ EXTRACT_PURE_FACTS_TAC
   \\ fs[GSYM STAR_ASSOC]
   \\ rw[do_app_def]
+  \\ fs[MONAD_def]
   \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2]
   >-(
       qexists_tac `s with refs := s.refs ++ junk`
-      \\ IMP_RES_TAC STORE_EXTRACT_FROM_HPROP \\ POP_ASSUM (fn x => fs[x])
+      \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP_REF
+      \\ POP_ASSUM (fn x => fs[x])
       \\ fs[with_same_refs, with_same_ffi]
-      \\ fs[MONAD_def, REFS_PRED_FRAME_def]
-      \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
-      \\ rpt STRIP_TAC
-      \\ CONV_TAC SWAP_EXISTS_CONV
-      \\ qexists_tac `refs`
-      \\ qexists_tac `Rval xv`
-      \\ rw[]
-      
-      >-(
-         qexists_tac `s.refs ++ junk`
-         \\ qexists_tac `s.ffi`
-         \\ fs[with_same_refs, with_same_ffi]
-         \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP
-         \\ fs[]
-      ) >>
-      qexists_tac `xv'`
-      \\ fs[STATE_APPEND_JUNK]
+      \\ fs[REFS_PRED_FRAME_append]
   ) >>
-  fs[MONAD_def]
-  \\ IMP_RES_TAC st2heap_LOC_MEM
+  IMP_RES_TAC st2heap_REF_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH
   \\ fs[]);
 
@@ -1048,9 +1069,9 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ fs[store_assign_def,EL_APPEND1,EL_APPEND2,store_v_same_type_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
-  \\ fs[GSYM STAR_ASSOC] \\ IMP_RES_TAC st2heap_LOC_MEM
+  \\ fs[GSYM STAR_ASSOC] \\ IMP_RES_TAC st2heap_REF_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH
-  \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP
+  \\ IMP_RES_TAC STATE_EXTRACT_FROM_HPROP_REF
   \\ POP_ASSUM (qspec_then `[]` ASSUME_TAC)
   \\ fs[] \\ POP_ASSUM(fn x => ALL_TAC)
   \\ fs[MONAD_def]
@@ -1063,7 +1084,7 @@ val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
   \\ CONV_TAC (STRIP_QUANT_CONV (RATOR_CONV PURE_FACTS_FIRST_CONV))
   \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
   \\ fs[LUPDATE_APPEND1,LUPDATE_APPEND2,LUPDATE_def]
-  \\ IMP_RES_TAC STATE_UPDATE_HPROP
+  \\ IMP_RES_TAC STATE_UPDATE_HPROP_REF
   \\ last_x_assum(qspec_then `v` ASSUME_TAC)
   \\ fs[with_same_ffi]);
 
@@ -1204,6 +1225,7 @@ rw[]
 \\ fs[st2heap_clock_inv]
 \\ fs[SEP_EXISTS_THM]
 \\ fs[SEP_CLAUSES]);
+
 
 val _ = (print_asts := true);
 
