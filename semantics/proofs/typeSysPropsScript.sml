@@ -786,7 +786,7 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
    ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
    ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup) ∨
-   ((?n. op = FFI n) ∧ ts = [Tword8array] ∧ t3 = Tapp [] TC_tup))`,
+   ((?n. op = FFI n) ∧ ts = [Tstring; Tword8array] ∧ t3 = Tapp [] TC_tup))`,
  srw_tac[][type_op_def] >>
  every_case_tac >>
  full_simp_tac(srw_ss())[Tchar_def,Tword_def,Tword8_def,Tword64_def,TC_word_def] >>

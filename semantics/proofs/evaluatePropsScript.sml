@@ -7,12 +7,12 @@ open semanticPrimitivesPropsTheory;
 val _ = new_theory"evaluateProps"
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI st index x = (new_st,new_bytes)) ==>
+  `(call_FFI st index conf x = (new_st,new_bytes)) ==>
     (LENGTH x = LENGTH new_bytes)`,
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]);
 
 val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n bytes t. call_FFI s1 n bytes = (s2,t)`;
+  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = (s2,t)`;
 
 val io_events_mono_def = Define`
   io_events_mono s1 s2 ⇔
