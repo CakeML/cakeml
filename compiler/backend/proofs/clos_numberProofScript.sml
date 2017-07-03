@@ -678,6 +678,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
+    rename1`evaluate(xs,env,s)` \\
     `?r1 s1. evaluate (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
