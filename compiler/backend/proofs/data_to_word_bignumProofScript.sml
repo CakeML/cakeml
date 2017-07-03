@@ -1427,9 +1427,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ rewrite_tac [word_bignumProofTheory.state_rel_def]
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE,TempOut_def]
     \\ qunabbrev_tac `s0` \\ full_simp_tac (srw_ss()) []
-    \\ rpt strip_tac THEN1
-     (qpat_x_assum `code_rel c s.code t.code` mp_tac
-      \\ asm_rewrite_tac [])
+    \\ rpt strip_tac
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0
