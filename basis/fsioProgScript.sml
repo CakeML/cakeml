@@ -40,18 +40,24 @@ val _ = process_topdecs`
 * It assumes that buff257 is initialised *)
 
 val _ =
-  process_topdecs`fun write fd n =
+  process_topdecs`fun writei fd n i =
     let val a = Word8Array.update buff257 0 fd
         val a = Word8Array.update buff257 1 n
+        val a = Word8Array.update buff257 2 i
         val a = #(write) buff257 in
         if Word8Array.sub buff257 0 = Word8.fromInt 1 
         then raise InvalidFD
         else 
           let val nw = Word8.toInt(Word8Array.sub buff257 1) in
-            if nw = 0 then write fd n
+            if nw = 0 then writei fd n i
             else nw
           end
-    end` |> append_prog
+    end
+    fun write fd n i = 
+    let val nw = writei fd n i in
+      if nw < n then write fd (n-nw) (i+nw) else () end` |> append_prog
+
+
 
 (* Output functions on given file descriptor *)
 val _ = 

@@ -206,10 +206,10 @@ val ffi_write_def = Define`
   ffi_write bytes fs =
     do
     (* the buffer contains at least the number of requested bytes *)
-      assert(LENGTH bytes >= 2);
+      assert(LENGTH bytes >= 3);
       (nw, fs') <- write (w2n (HD bytes)) (w2n (HD (TL bytes))) 
-                         (MAP (CHR o w2n) (TL (TL bytes))) fs;
-      (* return ok code and list of chars *)
+                         (MAP (CHR o w2n) (DROP (3+HD(TL(TL bytes))) bytes) fs;
+      (* return ok code and number of bytes written *)
       return (LUPDATE (n2w nw) 1 (LUPDATE 0w 0 bytes), fs')
     (* return error code *)
     od ++ return (LUPDATE 1w 0 bytes, fs)`;

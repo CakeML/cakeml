@@ -42,7 +42,7 @@ void ffiread (char *a) {
 }
 
 void ffiwrite (char * a){
-  int nw = write(infds[a[0]], &a[2], a[1]);  
+  int nw = write(infds[a[0]], &a[3+a[2]], a[1]);
   if(nw < 0) a[0] = 0;
   else{
     a[0] = 1; 

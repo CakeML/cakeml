@@ -352,19 +352,19 @@ val fsupdate_LTL = Q.store_thm("fsupdate_LTL",
    fsupdate (fs with numchars := t) fd k p c`,
    rw[] >> fs[fsupdate_def,LDROP]);
 
-val write_spec = Q.store_thm("write_spec",
- `liveFS fs ⇒ wfFS fs ⇒ validFD (w2n fd) fs ⇒
-  0 < w2n n ⇒ w2n n <= 255 ⇒ w2n fd < 255 ⇒ LENGTH rest = 255 ⇒
+val writei_spec = Q.store_thm("write_spec",
+ `liveFS fs ⇒ wfFS fs ⇒ validFD (w2n fd) fs ⇒ 0 < w2n n ⇒
+  w2n fd < 255 ⇒ LENGTH rest = 255 ⇒ w2n i + w2n n <= 255
   get_file_content fs (w2n fd) = SOME(content, pos) ⇒
-  WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
-  bc = h1 :: h2 :: rest ⇒ 
-  app (p:'ffi ffi_proj) ^(fetch_v "IO.write" (basis_st())) [fdv;nv]
+  WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ WORD (i:word8) iv ⇒
+  bc = h1 :: h2 :: h3 :: rest ⇒ 
+  app (p:'ffi ffi_proj) ^(fetch_v "IO.writei" (basis_st())) [fdv;nv;iv]
   (IOFS fs * W8ARRAY buff257_loc bc) 
   (POST
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= w2n n) *
-           W8ARRAY buff257_loc (0w :: n2w nw :: rest) *
+           W8ARRAY buff257_loc (0w :: n2w nw :: n2w i :: rest) *
            IOFS(fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + nw)
-                         (insert_atI (TAKE nw (MAP (CHR o w2n) rest)) pos
+                         (insert_atI (TAKE nw (MAP (CHR o w2n) (DROP (w2n i) rest)) pos
                                     content))
                                     
                                     )
@@ -375,7 +375,7 @@ val write_spec = Q.store_thm("write_spec",
   qid_spec_tac `bc`>> qid_spec_tac `h2` >> qid_spec_tac `h1` >> 
   qid_spec_tac `fs` >> FIRST_X_ASSUM MP_TAC >> qid_spec_tac `ll` >> 
   HO_MATCH_MP_TAC always_eventually_ind >>
-  xcf "IO.write" (basis_st()) >> fs[buff257_loc_def]>>
+  xcf "IO.writei" (basis_st()) >> fs[buff257_loc_def]>>
   `ll = fs.numchars` by simp[] >> fs[]
 (* next el is <> 0 *)
   >-(sg`Lnext_pos fs.numchars = 0`   
@@ -487,7 +487,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
                 IOFS (fsupdate fs (w2n fd) (1 + Lnext_pos fs.numchars) (pos + 1)
                      (insert_atI [c] pos content)))
           (\e. &(InvalidFD_exn e) * &F * 
-               SEP_EXISTS rest. WORD8_ARRAY buff257_loc ((1w: word8)::1w::rest) * 
+               SEP_EXISTS rest. WORD8_ARRAY buff257_loc ((1w: word8)::1w:: 0w ::: rest) * 
                IOFS(fs with numchars :=
                       THE (LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
   xcf "IO.write_char" (basis_st()) >> fs[IOFS_buff257_def] >> 
@@ -590,17 +590,15 @@ val write_string_spec = Q.store_thm("write_string_spec",
      >- fs[LENGTH_explode,LENGTH_extract_aux,substring_def] >>
      fs[TAKE_APPEND1,TAKE_LENGTH_TOO_LONG]>>
      fs[LENGTH_explode,LENGTH_extract_aux,substring_def,MIN_DEF] >>
-     CASE_TAC
-     >- ( (* |s| < 254 *)
-    fs[TAKE_LENGTH_ID_rwt,LENGTH_extract_aux] >>
+     CASE_TAC >>
     (* TODO lemma *)
      cheat)
-  >- (`nw < strlen s` by fs[] >> cheat)
-  >- (
+  >-(`nw < strlen s` by fs[] >> cheat)
+  >-(
       sg`!k. ?v. LDROP k fs.numchars = SOME v`
       >-(imp_res_tac always_NOT_LFINITE >>
          fs[LFINITE_DROP,NOT_LFINITE_DROP,always_NOT_LFINITE]) >>
-  >> cheat))
+  cheat)
 );
 
 val read_spec = Q.store_thm("read_spec",
