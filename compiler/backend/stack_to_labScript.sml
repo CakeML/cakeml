@@ -89,22 +89,28 @@ val flatten_pmatch = Q.store_thm("flatten_pmatch",`∀p n m.` @
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
-end 
+end
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
     let (lines,_,m) = (flatten p n (next_lab p 1)) in
       Section n (append (Append lines (List [Label n m 0])))`
 
+val is_gen_gc_def = Define `
+  (is_gen_gc (Generational l) = T) /\
+  (is_gen_gc _ = F)`
+
 val _ = Datatype`config =
   <| reg_names : num num_map
    ; max_heap : num
+   ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
    |>`;
 
 val compile_def = Define `
   compile c c2 c3 sp offset prog =
     let prog = stack_alloc$compile c2 prog in
-    let prog = stack_remove$compile offset c.max_heap c3.bitmaps sp InitGlobals_location prog in
+    let prog = stack_remove$compile c.jump offset (is_gen_gc c2.gc_kind)
+                 c.max_heap c3.bitmaps sp InitGlobals_location prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
 

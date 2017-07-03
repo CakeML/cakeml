@@ -5,7 +5,7 @@ open preamble
 open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
-open cfAppLib cfSyntax semanticPrimitivesSyntax cfNormaliseSyntax
+open cfAppLib cfSyntax semanticPrimitivesSyntax
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -73,22 +73,7 @@ end
 
 (*------------------------------------------------------------------*)
 
-fun normalise_exp tm = let
-    val normalise_tm = mk_full_normalise (listSyntax.mk_nil stringSyntax.string_ty, tm)
-    val eval_th = EVAL normalise_tm
-in rhs (concl eval_th) end
-
-fun normalise_dec dec_tm = let
-  val normalise_decl_tm = mk_full_normalise_decl dec_tm
-  val eval_th = EVAL normalise_decl_tm
-in rhs (concl eval_th) end
-
-fun normalise_prog prog_tm = let
-    val normalise_prog_tm = mk_full_normalise_prog prog_tm
-    val eval_th = EVAL normalise_prog_tm
-in rhs (concl eval_th) end
-
-fun process_topdecs q = normalise_prog (parse_topdecs q)
+fun process_topdecs q = cfNormaliseLib.normalise_prog (parse_topdecs q)
 
 (*------------------------------------------------------------------*)
 
@@ -710,5 +695,8 @@ val xopn =
   irule local_elim \\ hnf \\
   simp[app_opn_def, semanticPrimitivesTheory.opn_lookup_def] \\
   cleanup_exn_side_cond
+
+val xref = xpull_check_not_needed \\ head_unfold cf_ref_def \\
+           irule local_elim \\ hnf \\ simp[app_ref_def] \\ reduce_tac
 
 end

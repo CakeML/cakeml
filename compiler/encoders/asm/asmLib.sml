@@ -149,7 +149,7 @@ val strip_bytes_in_memory =
 
 local
    val bytes_in_memory_concat =
-      Q.GENL [`l2`, `l1`]
+      Q.GENL [`l1`, `l2`]
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
    val pc = Term.mk_var ("pc", ``:'a word``)
@@ -249,6 +249,26 @@ in
                if boolSyntax.is_imp_only tm orelse boolSyntax.is_forall tm
                   then conv tm
                else ALL_CONV tm))
+end
+
+local
+  fun get tm =
+    Option.getOpt
+      (Lib.total lhs tm,
+       if boolSyntax.is_neg tm then boolSyntax.F else boolSyntax.T)
+in
+  fun mk_blast_thm l =
+    let
+      val lty = Term.type_of l
+      val ty = wordsSyntax.dest_word_type lty
+      val r =
+        blastLib.BBLAST_CONV (boolSyntax.mk_eq (l, Term.mk_var ("_", lty)))
+        |> concl |> rhs |> strip_conj |> List.map get |> List.rev
+        |> (fn l => listSyntax.mk_list (l, Type.bool))
+        |> (fn tm => bitstringSyntax.mk_v2w (tm, ty))
+    in
+      blastLib.BBLAST_PROVE (boolSyntax.mk_eq (r, l)) |> SIMP_RULE bool_ss []
+    end
 end
 
 local

@@ -4513,10 +4513,7 @@ val write_bytes_inj_lemma = Q.store_thm("write_bytes_inj_lemma",
    (* ∧ LENGTH (w1:α word list) ≤ LENGTH bs DIV (dimindex(:α) DIV 8) +1 *)
    ⇒
    write_bytes bs' w1 be = write_bytes bs' w2 be`,
-  strip_tac \\ Induct \\ rw[write_bytes_def]
-  >- (
-    `w2 = []` by metis_tac[LENGTH_NIL_SYM]
-    \\ rw[write_bytes_def] )
+  strip_tac \\ Induct >- rw[] \\ rw[Once write_bytes_def]
   \\ Cases_on`w2` \\ fs[write_bytes_def] \\ rw[]
   >- (match_mp_tac bytes_to_word_eq_lemma \\ fs [])
   \\ first_x_assum match_mp_tac
@@ -4917,7 +4914,7 @@ val memory_rel_Block_IMP = Q.store_thm("memory_rel_Block_IMP",
   \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0]
   \\ fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
   \\ fs [labPropsTheory.good_dimindex_def]
-  \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index]);
 
 val IMP_memory_rel_Number = Q.store_thm("IMP_memory_rel_Number",
   `good_dimindex (:'a) /\ small_int (:'a) i /\
@@ -4929,7 +4926,7 @@ val IMP_memory_rel_Number = Q.store_thm("IMP_memory_rel_Number",
   \\ rpt_drule abs_ml_inv_Num
   \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [Smallnum_def] \\ Cases_on `i`
-  \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
+  \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma]);
 
 val copy_list_def = Define `
   copy_list c' st k (a,x,b:'a word,m:'a word -> 'a word_loc,dm) =
@@ -4942,7 +4939,7 @@ val copy_list_def = Define `
           let c = (c /\ a + 2w * bytes_in_word IN dm /\ a + bytes_in_word IN dm) in
           let x = m (a + bytes_in_word) in
           let a = m (a + 2w * bytes_in_word) in
-            if c then copy_list c' st (k-1) (a,x,b,m,dm) else NONE`
+            if c then copy_list c' st (k-1) (a,x,b,m,dm) else NONE`;
 
 val copy_list_thm = Q.store_thm("copy_list_thm",
   `!v k vs b m vars a x frame.
@@ -4966,7 +4963,6 @@ val copy_list_thm = Q.store_thm("copy_list_thm",
     \\ imp_res_tac memory_rel_tail
     \\ rpt_drule memory_rel_write \\ fs []
     \\ disch_then drule \\ strip_tac \\ fs []
-    \\ qexists_tac `[]` \\ fs []
     \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
     \\ fs [word_list_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ SEP_W_TAC)
@@ -6731,7 +6727,8 @@ val memory_rel_Number_cmp = Q.store_thm("memory_rel_Number_cmp",
   \\ fs [EVAL ``n2mw 0``,Num_ABS_lemmas]
   \\ Cases_on `n = n'` \\ fs []
   \\ Cases_on `n <= n'` \\ Cases_on `n' <= n`
-  \\ imp_res_tac LENGTH_n2mw_LESS_LENGTH_n2mw \\ fs []);
+  \\ imp_res_tac LENGTH_n2mw_LESS_LENGTH_n2mw \\ fs []
+  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL]);
 
 val word_cmp_loop_refl = Q.prove(
   `∀l a b dm m x. a = b ∧ word_cmp_loop l a a dm m = SOME x ⇒ x = 1w`,
@@ -7621,7 +7618,7 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
   >- (
     rfs[] \\
     Cases_on`LENGTH ws = 0` \\ fs[] \\
-    qspecl_then[`LENGTH bs2`,`bw`,`1`]mp_tac(Q.GENL[`q`,`n`,`m`]DIV_SUB) \\
+    qspecl_then[`LENGTH bs2`,`bw`,`1`]mp_tac(Q.GENL[`m`,`n`,`q`]DIV_SUB) \\
     impl_tac >- (
       fs[X_LE_DIV]
       \\ Cases_on`LENGTH ws` \\ fs[MULT_CLAUSES] )
@@ -7632,8 +7629,8 @@ val write_bytes_inj = Q.store_thm("write_bytes_inj",
        qpat_assum`bytes_to_word _ _ _ _ _ = _`(strip_assume_tac o
          Q.AP_TERM`get_byte (n2w ^(numSyntax.term_of_int i))`))
       (List.tabulate(8,I ))
-  \\ qspec_then`2`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
-  \\ qspec_then`3`mp_tac(Q.GENL[`i`,`k`]get_byte_bytes_to_word)
+  \\ qspec_then`2`mp_tac(Q.GENL[`k`,`i`]get_byte_bytes_to_word)
+  \\ qspec_then`3`mp_tac(Q.GENL[`k`,`i`]get_byte_bytes_to_word)
   \\ simp[Abbr`bw`]
   \\ ntac 2 strip_tac
   \\ qhdtm_x_assum`good_dimindex`mp_tac

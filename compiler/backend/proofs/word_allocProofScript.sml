@@ -3367,7 +3367,7 @@ fun use_ALOOKUP_ALL_DISTINCT_MEM (g as (asl,w)) =
       ALOOKUP_ALL_DISTINCT_MEM)))))) w
     val (_,[al,k]) = strip_comb tm
   in
-    mp_tac(ISPECL [al,k] (Q.GENL[`v`,`k`,`al`] ALOOKUP_ALL_DISTINCT_MEM))
+    mp_tac(ISPECL [al,k] (Q.GENL[`al`,`k`,`v`] ALOOKUP_ALL_DISTINCT_MEM))
   end g;
 
 val list_next_var_rename_move_preserve = Q.prove(`
@@ -3492,8 +3492,7 @@ val get_vars_list_insert_eq_gen= Q.prove(
                   LENGTH a = LENGTH b /\ !e. MEM e ls ==> ~MEM e a)
   ==> get_vars ls (st with locals := alist_insert (a++ls) (b++x) locs) = SOME x`,
   ho_match_mp_tac alist_insert_ind>>
-  srw_tac[][]>-
-    (Cases_on`x`>>full_simp_tac(srw_ss())[get_vars_def])>>
+  srw_tac[][]>- (full_simp_tac(srw_ss())[get_vars_def])>>
   full_simp_tac(srw_ss())[get_vars_def,get_var_def,lookup_alist_insert]>>
   `LENGTH (ls::ls') = LENGTH (x::x')` by full_simp_tac(srw_ss())[]>>
   IMP_RES_TAC rich_listTheory.ZIP_APPEND>>

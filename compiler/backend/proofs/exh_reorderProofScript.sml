@@ -453,7 +453,7 @@ val find_match_imp_compile = Q.store_thm("find_match_imp_compile",
        (MAP (\(p,e). (p,HD(compile[e]))) pes) =
            Match (compile_env env', HD(compile[e]))`,
   strip_tac \\
-  (Q.GENL[`pes`,`v`,`refs`,`f`]find_match_compile
+  (Q.GENL[`f`,`refs`,`v`,`pes`]find_match_compile
    |> Q.ISPECL_THEN[`\e. HD(compile[e])`,`s.refs`,`v`,`pes`]mp_tac) \\
   simp[] \\
   disch_then(SUBST1_TAC o SYM) \\

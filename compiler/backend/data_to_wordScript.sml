@@ -794,6 +794,13 @@ val MemEqList_def = Define `
      Seq (Assign 5 (Load (Op Add [Var 3; Const a])))
          (If Equal 5 (Imm w) (MemEqList (a + bytes_in_word) ws) Skip))`;
 
+val get_gen_size_def = Define `
+  (get_gen_size [] = bytes_in_word * (-1w):'a word) /\
+  (get_gen_size (x::xs) =
+     if w2n (bytes_in_word:'a word) * x < dimword (:'a)
+     then bytes_in_word * n2w x
+     else bytes_in_word * (-1w))`;
+
 local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =

@@ -800,14 +800,19 @@ val length_arm8_enc = Q.prove(
   Induct \\ rw [length_arm8_encode]
   )
 
+val arm8_encode_not_nil = Q.prove(
+  `!i. arm8_encode i <> []`,
+  simp_tac std_ss [GSYM listTheory.LENGTH_NIL, length_arm8_encode]
+  )
+
 val arm8_encoding = Q.prove (
-  `!i. let n = LENGTH (arm8_enc i) in (n MOD 4 = 0) /\ n <> 0`,
+  `!i. let l = arm8_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
   strip_tac
   \\ asmLib.asm_cases_tac `i`
   \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
            arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def]
   \\ REPEAT CASE_TAC
-  \\ rw [length_arm8_encode]
+  \\ rw [length_arm8_encode, arm8_encode_not_nil]
   )
   |> SIMP_RULE (srw_ss()++boolSimps.LET_ss)
        [arm8_enc_def, listTheory.LIST_BIND_def]

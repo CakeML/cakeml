@@ -1,1 +1,1 @@
-INCLUDES = ../../../.. .. ../../../encoders/arm8/proofs ../../semantics ../../proofs
+INCLUDES = ../../../../misc .. ../../../encoders/arm8/proofs ../../semantics ../../proofs

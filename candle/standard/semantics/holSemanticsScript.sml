@@ -1,5 +1,5 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory holSyntaxExtraTheory setSpecTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holSemantics"
 
 val mem = ``mem:'U->'U->bool``

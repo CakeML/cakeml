@@ -5,7 +5,7 @@ open preamble
 val _ = new_theory"diffProof";
 
 val diff_io_events_def = new_specification("diff_io_events_def",["diff_io_events"],
-  diff_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`])
+  diff_semantics |> Q.GENL[`inp`,`cls`,`files`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (diff_sem,diff_output) = diff_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

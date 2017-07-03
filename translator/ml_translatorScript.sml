@@ -569,6 +569,12 @@ in
   val Eval_INT_GREATER_EQ = f "INT_GREATER_EQ" `Geq`
 end;
 
+val Eval_Num = Q.store_thm("Eval_Num",
+  `Eval env x1 (INT i) ==> PRECONDITION (0 <= i) ==>
+   Eval env x1 (NUM (Num i))`,
+  SIMP_TAC std_ss [NUM_def,PRECONDITION_def] \\ rw []
+  \\ `&Num i = i` by intLib.COOPER_TAC \\ fs []);
+
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT

@@ -176,13 +176,12 @@ val _ = register "deBruijn_inc" deBruijn_inc_def deBruijn_inc_ind;
 val (is_value_def,is_value_ind) =
   tprove_no_defn ((is_value_def,is_value_ind),
 wf_rel_tac `measure (exp_size)` >>
-srw_tac [] []
->-
-  (induct_on `es` >>
-  srw_tac [] [exp_size_def] >>
-  res_tac >>
-  decide_tac)
->> decide_tac);
+simp[] >>
+srw_tac [][] >>
+induct_on `es` >>
+srw_tac [] [exp_size_def] >>
+res_tac >>
+decide_tac);
 val _ = register "is_value" is_value_def is_value_ind;
 
 val (do_eq_def,do_eq_ind) =

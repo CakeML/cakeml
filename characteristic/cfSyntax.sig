@@ -1,6 +1,12 @@
 signature cfSyntax = sig
   include Abbrev
 
+  (* cf_let let var expr env H Q *)
+  val cf_let_tm   : term
+  val mk_cf_let   : term * term * term * term * term * term -> term
+  val dest_cf_let : term -> term * term * term * term * term * term
+  val is_cf_let   : term -> bool
+	      
   (* cf_lit lit env H Q *)
   val cf_lit_tm   : term
   val mk_cf_lit   : term * term * term * term -> term

@@ -171,9 +171,7 @@ val env_rel_el = Q.prove (
     env_rel genv (alist_to_ns env) env_i1 ⇔
     LENGTH env = LENGTH env_i1 ∧ !n. n < LENGTH env ⇒ (FST (EL n env) = FST (EL n env_i1)) ∧ v_rel genv (SND (EL n env)) (SND (EL n env_i1))`,
   induct_on `env` >>
-  srw_tac[][v_rel_eqns]
-  >- (cases_on `env_i1` >>
-      full_simp_tac(srw_ss())[]) >>
+  srw_tac[][v_rel_eqns] >>
   PairCases_on `h` >>
   srw_tac[][v_rel_eqns] >>
   eq_tac >>
@@ -1041,10 +1039,11 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [do_con_check, EVERY2_REVERSE, compile_exps_reverse]
     >- metis_tac [do_con_check, EVERY2_REVERSE, compile_exps_reverse] >>
     `env_i1.c = env.c` by full_simp_tac(srw_ss())[env_all_rel_cases] >>
-    `v3 = Rerr (Rabort Rtype_error) ∨
-     (?err. v3 = Rerr err ∧ err ≠ Rabort Rtype_error) ∨
-     (?v. v3 = Rval v)`
-       by (Cases_on `v3` >> full_simp_tac(srw_ss())[]) >>
+    rename1` _ = (st',vv)`>>
+    `vv = Rerr (Rabort Rtype_error) ∨
+     (?err. vv = Rerr err ∧ err ≠ Rabort Rtype_error) ∨
+     (?v. vv = Rval v)`
+       by (Cases_on `vv` >> full_simp_tac(srw_ss())[]) >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][result_rel_cases] >>
     first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>

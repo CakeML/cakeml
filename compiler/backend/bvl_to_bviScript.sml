@@ -1,6 +1,13 @@
 open preamble bvlTheory bviTheory;
 open backend_commonTheory
-local open bvl_inlineTheory bvl_constTheory bvl_handleTheory bvi_letTheory dataLangTheory in end;
+local open
+  bvl_inlineTheory
+  bvl_constTheory
+  bvl_handleTheory
+  bvi_letTheory
+  bvi_tailrecTheory
+  dataLangTheory
+in end;
 
 val _ = new_theory "bvl_to_bvi";
 
@@ -336,8 +343,11 @@ val default_config_def = Define`
 
 val compile_def = Define `
   compile start n c prog =
-    compile_prog start n
-      (optimise c.split_main_at_seq c.exp_cut
-         (bvl_inline$compile_prog c.inline_size_limit prog))`;
+    let (loc, code, n1) =
+      compile_prog start n
+        (optimise c.split_main_at_seq c.exp_cut
+           (bvl_inline$compile_prog c.inline_size_limit prog)) in
+    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2 * n1 + 1) code in
+      (loc, code', n2)`;
 
 val _ = export_theory();

@@ -1,0 +1,15 @@
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free
+
+LEMSRC = lib
+LEMS = $(patsubst %,%.lem,$(LEMSRC))
+GENS = $(patsubst %,%Script.sml,$(LEMSRC))
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(GENS) $(TARGETS0)
+all: $(TARGETS)
+.PHONY: all
+
+$(GENS): $(LEMS)
+	if type lem;\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
+	else touch $(GENS); fi

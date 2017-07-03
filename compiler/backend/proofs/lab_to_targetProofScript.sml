@@ -110,7 +110,7 @@ val enc_with_nop_thm = Q.prove(
   \\ IF_CASES_TAC \\ fs [FLAT_REPLICATE_NIL]
   \\ EQ_TAC \\ rw [] THEN1 metis_tac []
   \\ fs [LENGTH_APPEND,LENGTH_FLAT,map_replicate,SUM_REPLICATE]
-  \\ fs [GSYM LENGTH_NIL] \\ fs [MULT_DIV]);
+  \\ full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL,MULT_DIV]);
 
 val asm_step_nop_def = Define `
   asm_step_nop bytes c s1 i s2 <=>
@@ -639,7 +639,7 @@ val IMP_bytes_in_memory_JumpReg = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm] \\ srw_tac[][] \\ fs[]
@@ -662,7 +662,7 @@ val IMP_bytes_in_memory_Jump = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
@@ -686,7 +686,7 @@ val IMP_bytes_in_memory_JumpCmp = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
@@ -711,7 +711,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
@@ -752,7 +752,7 @@ val IMP_bytes_in_memory_LocValue = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
@@ -779,7 +779,7 @@ val IMP_bytes_in_memory_Inst = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
@@ -804,7 +804,7 @@ val IMP_bytes_in_memory_CallFFI = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
@@ -827,7 +827,7 @@ val IMP_bytes_in_memory_Halt = Q.prove(
   fs[asm_fetch_def,LET_DEF]
   \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
-  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs[]
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
@@ -1857,7 +1857,7 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Call (Lab l1 l2)) l bytes len)`
     \\ (Q.SPECL_THEN [`Lab l1 l2`,`len`]mp_tac
-            (Q.GENL[`n`,`ww`]IMP_bytes_in_memory_Call))
+            (Q.GENL[`ww`,`n`]IMP_bytes_in_memory_Call))
     \\ match_mp_tac IMP_IMP \\ strip_tac \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
   THEN1 (* LocValue *)

@@ -665,7 +665,6 @@ val v_of_pat_remove_rest_insts = Q.store_thm ("v_of_pat_remove_rest_insts",
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     first_assum progress \\ rw []
   )
-  THEN1 (fs [v_of_pat_def, pat_bindings_def, LENGTH_NIL])
   THEN1 (
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
     qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\

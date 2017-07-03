@@ -556,11 +556,12 @@ val evaluate_generic_app_partial = Q.prove (
       srw_tac [ARITH_ss] [] >>
       rev_full_simp_tac(srw_ss())[] >>
       `&Num total_args' = total_args'` by intLib.COOPER_TAC >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][])
+      `LENGTH args <> 0` by simp[] >>
+      full_simp_tac(std_ss++ARITH_ss)[])
   >- (qspecl_then [`LENGTH args - 1`, `args`, `st`, `Num rem_args`, `prev_args`] mp_tac evaluate_generic_app2 >>
       full_simp_tac (srw_ss()++ARITH_ss) [] >>
       srw_tac [ARITH_ss] [] >>
+      `LENGTH args <> 0` by simp [] \\ full_simp_tac (std_ss++ARITH_ss)[] >>
       Cases_on `prev_args` >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][] >>
@@ -568,7 +569,7 @@ val evaluate_generic_app_partial = Q.prove (
       `&Num rem_args = rem_args` by intLib.ARITH_TAC >>
       full_simp_tac(srw_ss())[] >>
       srw_tac[][int_arithTheory.INT_NUM_SUB] >>
-      intLib.ARITH_TAC));
+      `LENGTH args <> 0` by simp [] \\ full_simp_tac (std_ss++ARITH_ss)[]));
 
 val evaluate_generic_app_full = Q.prove (
   `!n args st rem_args vs l tag exp clo.
@@ -718,7 +719,9 @@ val evaluate_mk_cl_call = Q.prove (
   simp [] >>
   imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
   rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  `LENGTH args <> 0` by simp[] >>
   `LENGTH args' - 1 + 1 = LENGTH args'` by decide_tac >>
+  TRY(fs[] \\ NO_TAC) \\
   `lookup p (dec_clock 1 s).code = SOME (n+2,exp)` by srw_tac[][] >>
   imp_res_tac evaluate_generic_app_full >>
   srw_tac[][] >>
@@ -743,15 +746,21 @@ val evaluate_partial_app_fn = Q.prove (
               DROP (LENGTH args' + LENGTH prev_args − num_args) args'++prev_args++[Block tag' (CodePtr l::num_args'::fvs)],
               dec_clock 1 (st with code := code))`,
   srw_tac[][evaluate_def, generate_partial_app_closure_fn_def, mk_const_def, do_app_def] >>
+  `LENGTH prev_args <> 0` by simp[] >>
   full_simp_tac (srw_ss()++ARITH_ss) [el_append2, evaluate_APPEND] >>
+  `LENGTH prev_args <> 0` by simp[] >>
+  full_simp_tac (std_ss++ARITH_ss) [ADD1] >>
   srw_tac[][evaluate_def] >>
   qabbrev_tac `cl = Block tag (l'::num::Block tag' (CodePtr l::num_args'::fvs):: prev_args)` >>
   qspecl_then [`1`, `Block tag' (CodePtr l::num_args'::fvs)::(args' ++ [cl])`,
                        `LENGTH (args')`, `st with code := code`] assume_tac evaluate_genlist_vars >>
   full_simp_tac (srw_ss()++ARITH_ss) [ADD1] >>
+  `LENGTH prev_args <> 0` by simp[] >>
+  full_simp_tac (std_ss++ARITH_ss) [ADD1,EL_LENGTH_APPEND] >>
   srw_tac[][evaluate_genlist_prev_args1_no_rev, Abbr `cl`, evaluate_def, do_app_def, find_code_def] >>
-  full_simp_tac (srw_ss()++ARITH_ss) [ADD1] >>
-  srw_tac[][FRONT_APPEND, TAKE_LENGTH_APPEND, bvlSemTheory.state_component_equality]);
+  full_simp_tac (srw_ss()++ARITH_ss) [ADD1,EL_LENGTH_APPEND] >>
+  srw_tac[][evaluate_genlist_prev_args1_no_rev, evaluate_def, do_app_def, find_code_def] >>
+  srw_tac[][FRONT_APPEND, TAKE_LENGTH_APPEND, bvlSemTheory.state_component_equality] >> fs[]);
 
 (* -- *)
 
@@ -1940,8 +1949,7 @@ val arith_helper_lem3 = Q.prove (
    total_args − (LENGTH args' + LENGTH prev_args − 1) = total_args + 1 − (LENGTH args' + LENGTH prev_args) ∧
    LENGTH args' + LENGTH prev_args < total_args + 1 ∧
    num_args = total_args+1`,
-  srw_tac[][int_arithTheory.INT_NUM_SUB] >>
-  ARITH_TAC);
+  simp_tac(std_ss++ARITH_ss)[int_arithTheory.INT_NUM_SUB]);
 
 val closure_tag_neq_1 = EVAL``closure_tag = 1``|>EQF_ELIM
 
@@ -1995,7 +2003,9 @@ val evaluate_mk_cl_call_spec = Q.prove (
                metis_tac [APPEND_ASSOC, TAKE_LENGTH_APPEND]) >>
   strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] evaluate_mk_cl_call) >>
   rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
-  rev_full_simp_tac(srw_ss())[]);
+  rev_full_simp_tac(srw_ss())[] >>
+  first_x_assum match_mp_tac >>
+  Cases_on`LENGTH args` \\ fs[GENLIST_CONS]);
 
 val cl_rel_get_loc = Q.prove (
   `cl_rel max_app f1 refs code (env,fvs) func (Block tag (CodePtr p::n::ys))
@@ -2546,8 +2556,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[])
     \\ IMP_RES_TAC compile_exps_SING \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ ONCE_REWRITE_TAC [bEval_CONS]
-    \\ qmatch_assum_rename_tac`evaluate ([x],_) = (v3,_)`
-    \\ reverse (Cases_on `v3`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ qmatch_assum_rename_tac`evaluate ([x],_) = (vv,_)`
+    \\ reverse (Cases_on `vv`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     >- (full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ qexists_tac`ck` >> simp[] >>
         first_assum(match_exists_tac o concl) >> simp[])
     \\ FIRST_X_ASSUM (qspecl_then[`aux1'`,`t2`]mp_tac) >> simp[]
@@ -3471,7 +3481,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
            DECIDE ``m < 1 + (m + n):num``]
     \\ `0 < LENGTH exps + LENGTH ys` by DECIDE_TAC
     \\ ASM_SIMP_TAC (srw_ss()) [FLOOKUP_DEF, DECIDE ``n < 1 + (n + m):num``]
-    \\ `exps <> []` by (full_simp_tac(srw_ss())[GSYM LENGTH_NIL] \\ DECIDE_TAC)
+    \\ `exps <> []` by (full_simp_tac(std_ss)[GSYM LENGTH_NIL] \\ DECIDE_TAC)
     \\ `?ll x. exps = SNOC x ll` by METIS_TAC [SNOC_CASES] \\ full_simp_tac(srw_ss())[]
     \\ simp [REVERSE_APPEND, MAP_REVERSE, LENGTH_MAP]
     \\ `LENGTH ll = LENGTH ((MAP (K (Number 0)) (MAP FST ll)) : bvlSem$v list)`
@@ -3746,6 +3756,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
     \\ qpat_abbrev_tac `args = _::_`
+    \\ rename1 `args = z::zs`
     \\ DISCH_TAC
     \\ qabbrev_tac `args' = args''`
     \\ `LENGTH args' ≠ 0` by metis_tac [LIST_REL_LENGTH, LENGTH, DECIDE ``SUC x ≠ 0``]
@@ -3756,7 +3767,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][]
     >- ((* Partial application *)
-        `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by metis_tac [LIST_REL_LENGTH] >>
+        `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by (imp_res_tac LIST_REL_LENGTH \\ fs[Abbr`args`]) >>
         imp_res_tac dest_closure_part_app >>
         srw_tac[][PULL_EXISTS] >>
         imp_res_tac v_rel_num_rem_args >>
@@ -3782,7 +3793,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                by (full_simp_tac(srw_ss())[state_rel_def] >>
                    decide_tac) >>
         simp [find_code_def] >>
-        `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
+        `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
         full_simp_tac(srw_ss())[] >>
         srw_tac[][]
         >- (`s1.clock < LENGTH args'` by decide_tac >>
@@ -3827,7 +3838,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
             qexists_tac `f1` >>
             reverse (srw_tac[][])
             >- (srw_tac[][bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
-                metis_tac [arith_helper_lem])
+                metis_tac [arith_helper_lem,LENGTH_NIL])
             >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
                 full_simp_tac(srw_ss())[state_rel_def]) >>
             `args ≠ []` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
@@ -3848,9 +3859,9 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                 imp_res_tac EVERY2_LENGTH >>
                 srw_tac[][partial_app_tag_neq_closure_tag]
                 >- simp [] >>
-                metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND])))
+                metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND, LENGTH_NIL])))
     >- ((* Enough arguments to do something *)
-         `SUC (LENGTH v43) = LENGTH args` by metis_tac [LENGTH] >>
+         `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
          `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
            qhdtm_x_assum`dest_closure`mp_tac >>
            simp[dest_closure_def] >>
@@ -3999,7 +4010,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                      pop_assum SUBST_ALL_TAC >>
                      `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by srw_tac[][] >>
                      `LENGTH args'' − rem_args ≤ LENGTH args''` by (rpt var_eq_tac >> ARITH_TAC) >>
-                     first_x_assum (fn th => strip_assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] mk_call_simp2) th)) >>
+                     first_x_assum (fn th => strip_assume_tac (MATCH_MP (SIMP_RULE (std_ss) [GSYM AND_IMP_INTRO] mk_call_simp2) th)) >>
                      pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
                      pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
                      rpt var_eq_tac >>
@@ -4071,7 +4082,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                          imp_res_tac cl_rel_get_loc >>
                          full_simp_tac(srw_ss())[] >>
                          srw_tac [ARITH_ss] [] >>
-                         metis_tac [no_partial_args]) >>
+                         metis_tac [no_partial_args,LENGTH_NIL]) >>
              srw_tac[][] >>
              imp_res_tac EVERY2_LENGTH >>
              full_simp_tac(srw_ss())[] >>
@@ -4083,7 +4094,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
              `?res' s2. evaluate ([e],l,dec_clock (LENGTH args') s1) = (res',s2)`
                           by metis_tac [pair_CASES]  >>
              full_simp_tac(srw_ss())[] >>
-             `l0 = []` by (Cases_on `l0` >> full_simp_tac(srw_ss())[]) >>
              srw_tac[][] >>
              `res' = res ∧ s2' = s2`
                      by (Cases_on `res'` >>
@@ -4761,7 +4771,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fs[]>>
     rveq>>fs[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY])>>
   (* remove *)
-  qmatch_asmsub_abbrev_tac`compile c.do_remove ls`>>
+  qmatch_asmsub_abbrev_tac`clos_remove$compile c.do_remove ls`>>
   Q.ISPECL_THEN [`c.max_app`,`c.do_remove`,`ls`] mp_tac (GEN_ALL clos_removeProofTheory.compile_correct)>>
   simp[]>>impl_tac>-
     (* Property of call *)

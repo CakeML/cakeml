@@ -7,7 +7,7 @@ val _ = new_theory "ioProg"
 
 val _ = translation_extends "mlfileioProg";
 
-val write_list = normalise_topdecs
+val write_list = process_topdecs
   `fun write_list xs =
      case xs of
          [] => ()
@@ -15,7 +15,7 @@ val write_list = normalise_topdecs
 
 val _ = ml_prog_update (ml_progLib.add_prog write_list pick_name);
 
-val write_err_list = normalise_topdecs
+val write_err_list = process_topdecs
   `fun write_err_list xs =
      case xs of
          [] => ()
@@ -73,7 +73,7 @@ val write_err_list_spec = Q.store_thm ("write_err_list_spec",
   \\ xsimpl \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ xsimpl);
 
-val read_all = normalise_topdecs
+val read_all = process_topdecs
   `fun read_all cs =
     let
       val u = ()
@@ -179,6 +179,12 @@ val print_err_spec = Q.store_thm("print_err_spec",
     \\ xapp \\ rw[]
 );
 
+(* Easier to verify alternative to List.app print *)
+val print_list = process_topdecs`
+  fun print_list ls =
+    case ls of [] => () | (x::xs) => (print x; print_list xs)`;
+val res = ml_prog_update(ml_progLib.add_prog print_list pick_name);
+
 val res = register_type``:'a app_list``;
 
 val print_app_list = process_topdecs
@@ -186,10 +192,21 @@ val print_app_list = process_topdecs
    (case ls of
       Nil => ()
     | List ls => List.app print ls
-    | Append(l1,l2)=> (print_app_list l1; print_app_list l2))`;
+    | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
 val res = ml_prog_update(ml_progLib.add_prog print_app_list pick_name);
 
 val st = get_ml_prog_state();
+
+val print_list_spec = Q.store_thm("print_list_spec",
+  `∀ls lv out. LIST_TYPE STRING_TYPE ls lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "print_list" st) [lv]
+     (STDOUT out) (POSTv v. &UNIT_TYPE () v * STDOUT (out ++ FLAT (MAP explode ls)))`,
+  Induct \\ rw[LIST_TYPE_def]
+  >- ( xcf "print_list" st \\ xmatch \\ xcon \\ xsimpl )
+  \\ xcf "print_list" st \\ xmatch
+  \\ rename1`STRING_TYPE s sv`
+  \\ xlet`POSTv v. &UNIT_TYPE () v * STDOUT (out ++ explode s)`
+  \\ xapp \\ xsimpl);
 
 val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";
 

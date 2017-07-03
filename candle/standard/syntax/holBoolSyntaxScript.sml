@@ -1,5 +1,5 @@
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holBoolSyntax"
 
 val _ = Parse.overload_on("True",``Const (strlit "T") Bool``)

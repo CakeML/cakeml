@@ -894,7 +894,8 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
    (full_simp_tac(srw_ss())[evaluate_def] >>
-    Cases_on `dest_closure s.max_app NONE f (v42::v43)` >>
+    rename1 `dest_closure s.max_app NONE f (z::zs)` >>
+    Cases_on `dest_closure s.max_app NONE f (z::zs)` >>
     imp_res_tac state_rel_max_app >>
     full_simp_tac(srw_ss())[] >>
     srw_tac[][]
