@@ -2376,7 +2376,7 @@ val calls_correct = Q.store_thm("calls_correct",
         match_mp_tac calls_wfg
         \\ Cases_on`b`\\fs[]
         \\ asm_exists_tac \\ fs[] )
-      \\ CASE_TAC \\ fs[] \\ rveq
+      \\ CASE_TAC \\ fs[PULL_EXISTS] \\ rveq
       \\ TRY(qexists_tac`tr` >> qexists_tac`1` >> conj_tac >- metis_tac[])
       \\ (conj_tac >- metis_tac[subg_trans])
       \\ qpat_x_assum`_ ∪ _ DIFF _ ⊆ _`assume_tac
@@ -3530,15 +3530,18 @@ val compile_correct = Q.store_thm("compile_correct",
   every_Fn_SOME xs ∧ every_Fn_vs_NONE xs
 *)
 val every_Fn_GENLIST_Var = Q.store_thm("every_Fn_GENLIST_Var",
-  `∀n. every_Fn_SOME (GENLIST Var n) ∧
-       every_Fn_vs_NONE (GENLIST Var n)`,
-  Induct \\ simp[GENLIST,Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC]\\ simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY]);
+  `∀n i t. every_Fn_SOME (GENLIST_Var t i n) ∧
+       every_Fn_vs_NONE (GENLIST_Var t i n)`,
+  Induct \\ rw[] \\ rw[Once GENLIST_Var_def] \\
+  simp[Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC]
+  \\ simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY]);
 
 val every_Fn_calls_list = Q.store_thm("every_Fn_calls_list",
-  `∀ls n. every_Fn_SOME (MAP SND (calls_list n ls)) ∧
-         every_Fn_vs_NONE (MAP SND (calls_list n ls))`,
+  `∀ls n i t. every_Fn_SOME (MAP SND (calls_list t i n ls)) ∧
+         every_Fn_vs_NONE (MAP SND (calls_list t i n ls))`,
   Induct>>fs[calls_list_def,FORALL_PROD]>>
-  simp[Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC,every_Fn_GENLIST_Var]\\simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY])
+  simp[Once every_Fn_vs_NONE_EVERY,Once every_Fn_SOME_EVERY,EVERY_SNOC,every_Fn_GENLIST_Var] \\
+  simp[GSYM every_Fn_vs_NONE_EVERY,GSYM every_Fn_SOME_EVERY])
 
 val every_Fn_code_list = Q.store_thm("every_Fn_code_list",
   `∀ls n rest.
