@@ -1,4 +1,5 @@
 #!/bin/sh
+pushd $(dirname $0)
 cd ocaml
 make
 cd ..
@@ -8,3 +9,5 @@ cd ..
 cd sml
 make
 cd ..
+python benchmark.py
+popd

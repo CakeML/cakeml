@@ -31,7 +31,7 @@ basis_ffi.c: ../../../../basis/basis_ffi.c
 
 cake.S: x64BootstrapTheory.uo
 
-cake: cake.S basis_ffi.c
+cake: cake.S basis_ffi.c x64BootstrapTheory.uo
 	$(CC) $< basis_ffi.c -o $@
 
 cake.tar.gz: cake.S basis_ffi.c Makefile

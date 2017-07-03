@@ -77,8 +77,7 @@ val i2w_eq_n2w_lemma = prove(
   fs [integer_wordTheory.i2w_def]);
 
 val lemma2 = prove(
-  ``8 * x < 18446744073709551616 <=>
-    x < 18446744073709551616 DIV 8``,
+  ``8 * x < (2**64) <=> x < (2**64) DIV 8``,
   fs []) |> SIMP_RULE std_ss []
 
 val _ = translate (get_gen_size_def |> spec64
