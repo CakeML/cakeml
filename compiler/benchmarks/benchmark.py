@@ -80,3 +80,5 @@ p2.close()
 
 system('gnuplot plot_benchmarks.gplot')
 system('gnuplot plot_benchmarks2.gplot')
+
+print('Graph plotted at compiler/benchmarks/benchmarks2.eps')
