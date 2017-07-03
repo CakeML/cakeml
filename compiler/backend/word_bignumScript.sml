@@ -239,6 +239,9 @@ fun get_let tm =
   let
     val ((v,x),rest) = my_dest_let tm
     val _ = pairSyntax.is_pair x orelse fail()
+    val xs = find_terms is_const x
+             |> filter (fn x => #Thy (dest_thy_const x) <> "pair")
+    val _ = length xs = 0 orelse fail()
   in (``Swap``,rest) end handle HOL_ERR _ =>
   (* Add *)
   let
@@ -267,12 +270,31 @@ val def = mc_mul_zero_def
 val tm = def |> concl |> rand
 val inp = def |> concl |> rator |> rand |> rand
 
+fun dest_tuple tm = let
+  val (x,y) = dest_pair tm
+  in dest_tuple x @ dest_tuple y end
+  handle HOL_ERR _ => [tm];
+
 fun get_full_prog inp tm = let
   val immediate_deps = ref ([]:term list);
   val ret_tm = ref Skip_tm;
   val cont_tm = ref Continue_tm;
   val ret_vars = ref ([]:term list);
   val cont_vars = ref ([]:term list);
+  (* helpers *)
+  fun dest_num_let tm =
+    if (dest_let tm |> snd |> type_of) = ``:num`` then
+      dest_let tm |> fst |> dest_abs |> snd else fail ()
+  fun dest_num_if tm = let
+    val (x,y,z) = dest_cond tm
+    val (l,r) = dest_eq x
+    in if type_of l = ``:num`` then z else fail () end
+  fun dest_num_let_or_if tm =
+    dest_num_if tm handle HOL_ERR _ => dest_num_let tm
+  fun dest_rec_let tm = let
+    val ((_,y),rest) = my_dest_let tm
+    val (saves,call) = dest_pair y
+    in (saves,call,rest) end
   (* main function *)
   fun get_prog tm =
     (* return *)
@@ -288,13 +310,21 @@ fun get_full_prog inp tm = let
     val (_,code) = first (fn (x,y) => same_const x f) (!prev_trans)
     val _ = (immediate_deps := code :: (!immediate_deps))
     in mk_Seq(code,get_prog rest) end handle HOL_ERR _ =>
+    (* recursive let *) let
+    val (saves,call,rest) = dest_rec_let tm
+    val saves = saves |> dest_tuple |> map dest_reg
+    val saves = listSyntax.mk_list(saves,``:num``)
+    val dels = listSyntax.mk_list([],``:num``)
+    val _ = (cont_vars := free_vars call)
+    in mk_Seq(mk_Rec(saves,dels),get_prog rest) end handle HOL_ERR _ =>
     (* If *) let
     val (b,t1,t2) = dest_cond tm
     val (x1,x2,x3) = get_guard b
     in mk_If(x1,x2,x3,get_prog t1,get_prog t2) end handle HOL_ERR _ =>
     if is_const (rator tm) andalso (is_var (rand tm) orelse is_pair (rand tm))
-    then (cont_vars := free_vars tm; !cont_tm)
-    else let
+    then (cont_vars := free_vars tm; !cont_tm) else
+    if can dest_num_let_or_if tm then get_prog (dest_num_let_or_if tm) else
+    let
       val ((v,x),rest) = my_dest_let tm
       val str = repeat rator x |> dest_const |> fst
       in raise UnableToTranslate str end
@@ -348,7 +378,8 @@ fun to_deep def = let
       (to_deep (find (str ^ "_def") |> hd |> snd |> fst);
        loop ())
   val (dels,deep) = loop ()
-  val deep = if is_rec then mk_Loop (F,dels,deep) else deep
+  val rec_flag = if can (find_term is_Rec) deep then T else F
+  val deep = if is_rec then mk_Loop (rec_flag,dels,deep) else deep
   (* store deep embedding *)
   val name = mk_var((f |> dest_const |> fst) ^ "_code", type_of deep)
   val code_def = Define `^name = ^deep`
@@ -374,6 +405,12 @@ val def = mc_iop_def |> to_deep
 
 val all_code_defs = save_thm("all_code_defs", REWRITE_RULE [] (!code_defs));
 
+(* an example that produces Rec *)
+
+val def = mc_fac_init_def |> to_deep
+val def = mc_fac_final_def |> to_deep
+val def = mc_fac_def |> to_deep
+val def = mc_use_fac_def |> to_deep
 
 (* compiler into wordLang *)
 
