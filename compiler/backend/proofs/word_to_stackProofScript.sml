@@ -4209,71 +4209,11 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
           >-
             (first_x_assum drule>>rw[])
           >-
-            (fs[DROP_LUPDATE,LLOOKUP_LUPDATE]>>
-            first_x_assum drule>>rw[]>>
-            rw[]>>
-            (*f'+k-m = f'+k-nDIV2 impossible sinec m!= nDIV2..*)
-            cheat)
-          >-
-            metis_tac[])
-          (fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>
-          imp_res_tac state_rel_get_fp_var>>fs[TWOxDIV2]>>
-          simp[state_rel_set_var]>>
-          fs[state_rel_def]>>
-          `∀v tt. get_var k (set_var m' v (tt:('a,'b)stackSem$state)) =  get_var k tt` by
-            (EVAL_TAC>>fs[lookup_insert])>>
-          simp[set_var_def,stackSemTheory.set_var_def,wf_insert]>>
-          CONJ_TAC>-
-            metis_tac[]>>
-          CONJ_TAC>-
-            rfs[DROP_LUPDATE]>>
-          rw[lookup_insert]>>fs[EVEN_DOUBLE,TWOxDIV2,FLOOKUP_UPDATE]
-          >-
-            fs[DROP_LUPDATE,LLOOKUP_LUPDATE]
-          >-
             (first_x_assum drule>>rw[]>>
-            (*2*(n DIV2) = n*)
-            cheat)
-          >-
-            (fs[DROP_LUPDATE,LLOOKUP_LUPDATE]>>
-            first_x_assum drule>>rw[]>>
-            rw[]>>
             (*f'+k-m = f'+k-nDIV2 impossible sinec m!= nDIV2..*)
             cheat)
           >-
-            metis_tac[]))
-        
-            first_x_assum drule>>rw[]>>
-            
-            
-            res_tac>>fs[]>>
-            IF_CASES_TAC>-
-              cheat>>
-            rw[]>>res_tac>>
-            fs[TWOxDIV2,EVEN_EXISTS]>>rfs[]
-            metis_tac[]
-            stack_re
-            stack_rel
-          rw[]>>
-          TRY(M
-          >-
-            
-          rw[]
-          >-
-            
-          rw[]>>
-          fs[]
-            rw[]>>fs[]
-          stackSemTheory.set_var_def,set_var_def]
-          
-          fs[]
-          
-          )
-          fs[
-
-        imp_res_tac state_rel_get_fp_var>>
-        fs[]>>cheat)
-      >> cheat)
+            metis_tac[])))
     >-
       (IF_CASES_TAC
       >-
