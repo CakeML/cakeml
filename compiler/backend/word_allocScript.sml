@@ -796,11 +796,11 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
     | prog => acc`,
   rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac      
+  >> rpt strip_tac
   >> every_case_tac
   >> fs [get_prefs_def]
   >- (rpt(POP_ASSUM MP_TAC)
-  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)  
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)
   >> ho_match_mp_tac (theorem "get_prefs_ind")
   >> rpt strip_tac >> fs[Once get_prefs_def]
   >> every_case_tac >> metis_tac[pair_CASES]));
@@ -993,6 +993,11 @@ val max_var_inst_def = Define`
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (FP (FPLess r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPLessEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPMovToReg r1 r2 d)) = MAX r1 r2) ∧
+  (max_var_inst (FP (FPMovFromReg d r1 r2)) = MAX r1 r2) ∧
   (max_var_inst _ = 0)`
 
 val max_var_def = Define `
