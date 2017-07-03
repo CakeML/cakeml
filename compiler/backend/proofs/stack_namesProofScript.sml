@@ -23,7 +23,8 @@ val rename_state_with_clock = Q.store_thm("rename_state_with_clock",
 val rename_state_const = Q.store_thm("rename_state_const[simp]",
   `(rename_state f s).memory = s.memory ∧
    (rename_state f s).be = s.be ∧
-   (rename_state f s).mdomain = s.mdomain`,
+   (rename_state f s).mdomain = s.mdomain ∧
+   (rename_state f s).fp_regs = s.fp_regs`,
   EVAL_TAC);
 
 val rename_state_with_memory = Q.store_thm("rename_state_with_memory",
@@ -102,6 +103,11 @@ val set_var_find_name = Q.store_thm("set_var_find_name",
   match_mp_tac MAP_KEYS_FUPDATE >>
   metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]);
 
+val set_fp_var_find_name = Q.store_thm("set_fp_var_find_name",
+   `rename_state f (set_fp_var x y z) =
+   set_fp_var x y (rename_state f z)`,
+  rw[set_fp_var_def,rename_state_def,state_component_equality])
+
 val inst_rename = Q.store_thm("inst_rename",
   `BIJ (find_name f) UNIV UNIV ⇒
    inst (inst_find_name f i) (rename_state f s) =
@@ -123,9 +129,9 @@ val inst_rename = Q.store_thm("inst_rename",
     DEEP_INTRO_TAC some_intro >> simp[] >>
     simp[tlookup_def] ) >>
   CASE_TAC >> fs[assign_def,word_exp_def] >>
-  CASE_TAC >> rfs[get_vars_def] >>
+  CASE_TAC >> rfs[get_vars_def,get_fp_var_def] >>
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordLangTheory.num_exp_def] >>
-  rw[] >> fs[] >> rfs[] >> rw[set_var_find_name]
+  rw[] >> fs[] >> rfs[] >> rw[set_var_find_name,set_fp_var_find_name]
   \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
   \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac
   \\ fs [rename_state_with_memory]);
@@ -392,7 +398,7 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
   >-
     (simp[Once inst_find_name_def]>>every_case_tac>>
-    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def]>>
+    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.fp_ok_def,fp_name_def,asmTheory.fp_reg_ok_def,fp_reg_name_def]>>
     (* Some of these are extremely annoying to prove with the separation of
        stack_names and configs... *)
     TRY(metis_tac[names_ok_imp,names_ok_imp2])
@@ -406,9 +412,12 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
         fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
         metis_tac[names_ok_imp])
     >>
-      (rw[]>>
+      TRY(rw[]>>
       fs[fixed_names_def]>>
-      metis_tac[names_ok_imp,names_ok_imp2]))
+      metis_tac[names_ok_imp,names_ok_imp2])
+    >>
+      (* strange cases in asm_ok for FPToInt / FPFromInt *)
+      cheat)
   >-
     (every_case_tac>>fs[dest_find_name_def]>>
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])

@@ -4935,6 +4935,63 @@ val loc_check_compile = Q.store_thm("loc_check_compile",
   \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
   \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]);
 
+val SUBMAP_DOMSUB_both = Q.prove(`
+  A SUBMAP B ⇒
+  A \\ c SUBMAP B \\ c`,
+  rw[GSYM SUBMAP_DOMSUB_gen]>>
+  metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]);
+
+val SUBMAP_FUPDATE_both = Q.prove(`
+  A SUBMAP B ⇒
+  A |+ (n,v) SUBMAP B |+ (n,v)`,
+  rw[]>>match_mp_tac SUBMAP_mono_FUPDATE >>
+  fs[SUBMAP_DOMSUB_both]);
+
+val inst_correct = Q.prove(`
+  inst (i:'a inst) (s:('a,'b) stackSem$state) = SOME t ∧
+  LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
+  s.regs SUBMAP regs ⇒
+  ∃regs1.
+  inst i (s with <|regs := regs; gc_fun := anything; use_stack := T;
+          use_store := T; use_alloc := F; clock := ck + s.clock;
+          code := fromAList (compile c (toAList s.code))|>) =
+    SOME (t with <|regs := regs1; gc_fun := anything; use_stack := T;
+          use_store := T; use_alloc := F; clock := ck + s.clock;
+          code := fromAList (compile c (toAList s.code))|>) ∧
+    t.regs SUBMAP regs1 ∧
+    LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α)`,
+  Cases_on`i`>>fs[inst_def]
+  >-
+    (rw[]>>rfs[state_component_equality])
+  >-
+    (rw[assign_def,word_exp_def,set_var_def]>>rfs[state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (* Can be sped up by avoiding ect *)
+    (TOP_CASE_TAC>>rw[]>>
+    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def]>>
+    every_case_tac>>fs[IS_SOME_EXISTS,word_exp_def]>>
+    every_case_tac>>fs[]>>
+    imp_res_tac FLOOKUP_SUBMAP>>
+    fs[set_var_def,state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (TOP_CASE_TAC>>rw[]>>
+    TOP_CASE_TAC>>rw[]>>
+    fs[]>>qpat_x_assum`A=SOME t` mp_tac>>
+    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
+    every_case_tac>>
+    imp_res_tac FLOOKUP_SUBMAP>>fs[set_var_def,state_component_equality]>>
+    rw[]>>fs[]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (TOP_CASE_TAC>>rw[]>>
+    fs[get_fp_var_def,set_fp_var_def,get_var_def]>>
+    every_case_tac>>
+    imp_res_tac FLOOKUP_SUBMAP>>fs[]>>
+    fs[set_var_def,state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both]));
+
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
@@ -4977,68 +5034,17 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ metis_tac[alloc_length_stack])
   \\ conj_tac (* Inst *) >- (
     rpt strip_tac
-    \\ fs[Once comp_def] \\ fs[evaluate_def,inst_def]
-    \\ CASE_TAC \\ fs[] \\ rw[]
-    \\ fs[assign_def,word_exp_def,set_var_def,mem_load_def,get_var_def,mem_store_def]
-    \\ rw[] \\ fs[] \\ fs[state_component_equality]
-    \\ TRY (
-      match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
-    >- (
-      every_case_tac \\ fs[] \\ rw[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ rw[] \\ fs[word_exp_def,get_vars_def,get_var_def]
-      \\ every_case_tac \\ fs[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ fs[state_component_equality]
-      \\ match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB,SUBMAP_mono_FUPDATE,SUBMAP_DOMSUB_gen] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ fs[Once comp_def,evaluate_def]
+    \\ qpat_x_assum `_ = (r,t)` mp_tac
+    \\ TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ drule inst_correct
     \\ rw[]
-    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-    \\ rw[] \\ fs[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-    \\ rw[] \\ fs[]
-    \\ rfs[]
-    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
-    \\ rfs[]
-    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-    \\ res_tac \\ fs[] \\ rw[] \\ fs[]
-    \\ fs[state_component_equality]
-    \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-    \\ TRY (
-      qpat_x_assum`¬_`mp_tac \\ simp[]
-      \\ match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
-    \\ TRY (
-      rfs[]
-      \\ BasicProvers.CASE_TAC
-      \\ BasicProvers.CASE_TAC
-      \\ spose_not_then strip_assume_tac \\ rw[]
-      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-      \\ res_tac \\ fs[] \\ rw[]
-      \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-      \\ res_tac \\ fs[] \\ rw[] \\ fs[]
-      \\ spose_not_then strip_assume_tac \\ fs[]
-      \\ rw[] \\ fs[] \\ rfs[])
-    \\ strip_tac \\ rw[] \\ fs[]
-    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-    \\ res_tac \\ fs[] \\ rw[] \\ fs[] )
+    \\ qexists_tac `0`
+    \\ qmatch_goalsub_abbrev_tac`inst i st`
+    \\ qmatch_asmsub_abbrev_tac`inst i st' = _`
+    \\ `st = st'` by
+        (unabbrev_all_tac>>fs[state_component_equality])
+    \\ HINT_EXISTS_TAC \\ simp[])
   \\ conj_tac (* Get *) >- (
     fs[Once comp_def,evaluate_def,get_var_def]
     \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
