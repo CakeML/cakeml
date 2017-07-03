@@ -94,7 +94,7 @@ val calls_def = tDefine "calls" `
           the calls function can sometimes remove free variables. *)
        if closed (Fn t loc_opt ws num_args (HD e1)) then
          ([Fn (t§0) loc_opt ws num_args
-             (Call (t§1) 0 (loc+1) (GENLIST_Var t 2 num_args))],new_g)
+             (Call (t§0§0) 0 (loc+1) (GENLIST_Var (t§0) 1 num_args))],new_g)
        else
          let (e1,g) = calls [x1] g in
            ([Fn t loc_opt ws num_args (HD e1)],g)) /\
