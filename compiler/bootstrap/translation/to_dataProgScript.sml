@@ -201,12 +201,6 @@ val EXHLANG_PAT_TYPE_types_match = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
-val EqualityType_EXHLANG_PAT_TYPE = Q.store_thm("EqualityType_EXHLANG_PAT_TYPE",
-  `EqualityType EXHLANG_PAT_TYPE`,
-  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,
-    EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
-  |> store_eq_thm
-
 val EXHLANG_PAT_TYPE_11 = Q.prove(
   `∀a b c d. EXHLANG_PAT_TYPE a b ∧ EXHLANG_PAT_TYPE c d ⇒ (a = c ⇔ b = d)`,
   ho_match_mp_tac EXHLANG_PAT_TYPE_ind \\
@@ -239,6 +233,12 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
             EqualityType_AST_LIT_TYPE,
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
+
+val EqualityType_EXHLANG_PAT_TYPE = Q.store_thm("EqualityType_EXHLANG_PAT_TYPE",
+  `EqualityType EXHLANG_PAT_TYPE`,
+  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,
+    EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
+  |> store_eq_thm
 
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
 val PATLANG_EXP_TYPE_ind = theorem"PATLANG_EXP_TYPE_ind";
