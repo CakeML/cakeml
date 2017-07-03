@@ -70,6 +70,18 @@ val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv32_R
 val _ = translate (shift_left_def |> conv32)
 val _ = translate (shift_right_def |> spec32 |> CONV_RULE fcpLib.INDEX_CONV)
 
+val i2w_eq_n2w_lemma = prove(
+  ``i2w (& (k * n)) = n2w (k * n)``,
+  fs [integer_wordTheory.i2w_def]);
+
+val lemma2 = prove(
+  ``4 * x < (2**32) <=> x < (2**32) DIV 4``,
+  fs []) |> SIMP_RULE std_ss []
+
+val _ = translate (get_gen_size_def |> spec32
+    |> SIMP_RULE (srw_ss()) [dimword_def,bytes_in_word_def,word_mul_n2w]
+    |> REWRITE_RULE [GSYM i2w_eq_n2w_lemma,lemma2]);
+
 val _ = translate (tag_mask_def |> conv32_RHS |> we_simp |> conv32_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv32)
 
 val _ = translate (encode_header_def |> conv32_RHS)
