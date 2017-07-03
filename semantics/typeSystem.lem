@@ -220,6 +220,7 @@ let type_op op ts t =
     | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) -> t = t1
     | (Vlength, [Tapp [t1] TC_vector]) -> (t = Tapp [] TC_int)
     | (Aalloc, [Tapp [] TC_int; t1]) -> t = Tapp [t1] TC_array
+    | (AallocEmpty, [Tapp [] TC_tup]) -> exists t1. t = Tapp [t1] TC_array
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
     | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_tup
@@ -322,6 +323,13 @@ let tid_exn_to_tc t =
 
 indreln [type_p : nat -> type_env -> pat -> t -> list (varN * t) -> bool]
 and [type_ps : nat -> type_env -> list pat -> list t -> list (varN * t) -> bool]
+
+pany : forall tvs tenv t.
+check_freevars tvs [] t
+==>
+type_p tvs tenv Pany t []
+
+and
 
 pvar : forall tvs tenv n t.
 check_freevars tvs [] t
@@ -507,7 +515,8 @@ and
 
 app : forall tenv tenvE op es ts t.
 type_es tenv tenvE es ts &&
-type_op op ts t
+type_op op ts t &&
+check_freevars (num_tvs tenvE) [] t
 ==>
 type_e tenv tenvE (App op es) t
 

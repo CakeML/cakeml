@@ -633,7 +633,7 @@ val compile_thm = store_thm("compile_thm",
     \\ fs [set_var_def]
     \\ once_rewrite_tac [evaluate_SeqTempImmNot]
     \\ reverse IF_CASES_TAC THEN1
-     (`F` by all_tac \\ pop_assum mp_tac \\ fs []
+     (sg `F` \\ pop_assum mp_tac \\ fs []
       \\ Cases_on `n4` \\ fs []
       \\ fs [eval_ri_pre_def,eval_exp_pre_def]
       \\ imp_res_tac state_rel_IN_FDOM \\ fs [])
@@ -1793,7 +1793,7 @@ val evaluate_mc_iop = save_thm("evaluate_mc_iop",
   |> Q.INST [`cs1`|->`cs`]
   |> Q.INST [`cs2`|->`cs`]
   |> SIMP_RULE std_ss [code_subset_refl]
-  |> Q.GENL (rev [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
-                  `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]));
+  |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
+             `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]);
 
 val _ = export_theory();

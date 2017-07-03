@@ -1,5 +1,5 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory listTheory alistTheory holSyntaxLibTheory mlstringTheory totoTheory
-val _ = temp_tight_equality()
+open preamble holSyntaxLibTheory mlstringTheory totoTheory
+
 val _ = new_theory "holSyntax"
 
 (* HOL types *)
@@ -243,7 +243,7 @@ val VARIANT_PRIMES_def = new_specification
   ,["VARIANT_PRIMES"]
   ,(PRIMED_NAME_EXISTS
    |> HO_MATCH_MP LEAST_EXISTS
-   |> Q.GENL[`ty`,`x`,`t`]
+   |> Q.GENL[`t`,`x`,`ty`]
    |> SIMP_RULE std_ss [SKOLEM_THM]))
 
 val VARIANT_def = Define`

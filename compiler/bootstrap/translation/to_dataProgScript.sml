@@ -53,6 +53,20 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
+val res = translate (source_to_modTheory.compile_exp_def);
+
+val source_to_mod_compile_exp_side_def = theorem"source_to_mod_compile_exp_side_def"
+val source_to_mod_compile_exp_side = Q.prove(
+  `(∀x y. source_to_mod_compile_exp_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_exps_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_pes_side x y ⇔ T) ∧
+   (∀x y. source_to_mod_compile_funs_side x y ⇔ T)`,
+  ho_match_mp_tac source_to_modTheory.compile_exp_ind \\ rw[]
+  \\ rw[Once source_to_mod_compile_exp_side_def]
+  \\ rw[definition"source_to_mod_astop_to_modop_side_def"])
+  |> CONJUNCTS
+  |> map update_precondition;
+
 val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
@@ -113,6 +127,13 @@ val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
                        EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_LIST_TYPE_CHAR]
+
+val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM,
+                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
+                       EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
+                       EqualityType_LIST_TYPE_CHAR]
+
 
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
@@ -227,6 +248,8 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -251,6 +274,8 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rw[types_match_def,ctor_same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -284,6 +309,8 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_MODLANG_OP_TYPE,
+            EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
             EqualityType_AST_LIT_TYPE,
             EqualityType_def]);
@@ -338,7 +365,7 @@ val num_abs_intro = Q.prove(`
 val _ = translate (clos_knownTheory.known_op_def |> ONCE_REWRITE_RULE [num_abs_intro] |> SIMP_RULE std_ss []);
 
 (*
-(* TODO: 
+(* TODO:
    This is uglier than previously, to prevent SIMP_RULE from rewriting guards
    OF PMATCH_ROWs to K T *)
 val lemma = ``(if 0 <= i /\ q
@@ -820,6 +847,48 @@ val bvi_let_compile_side = Q.prove(`
 
 val _ = translate(bvi_letTheory.compile_exp_def);
 
+val tail_is_ok_alt_def = Define `
+  tail_is_ok_alt name x =
+     case x of
+       Var n => NONE
+     | If v15 v16 v17 =>
+         (let inl = tail_is_ok_alt name v16 in
+          let inr = tail_is_ok_alt name v17
+          in
+            case inl of
+              NONE =>
+                (case inr of
+                   NONE => NONE
+                 | SOME (v4,iop') => SOME (T,iop'))
+            | SOME (v6,iop) =>
+                case inr of
+                  NONE => SOME (F,iop)
+                | SOME v8 => SOME (T,iop))
+     | Let v18 v19 => tail_is_ok_alt name v19
+     | Raise v20 => NONE
+     | Tick v21 => tail_is_ok_alt name v21
+     | Call v22 v23 v24 v25 => NONE
+     | Op v26 v27 =>
+         if v26 = Add ∨ v26 = Mult then
+           (let iop = from_op v26
+            in
+              case rewrite_op iop name (Op v26 v27) of
+                (T,v3) => SOME (F,iop)
+              | (F,v3) => NONE)
+         else NONE`;
+
+val _ = translate tail_is_ok_alt_def
+
+val tail_is_ok_lemma = prove(
+  ``!name x. tail_is_ok name x = tail_is_ok_alt name x``,
+  ho_match_mp_tac (fetch "-" "tail_is_ok_alt_ind") \\ rw []
+  \\ once_rewrite_tac [tail_is_ok_alt_def]
+  \\ CASE_TAC \\ fs [bvi_tailrecTheory.tail_is_ok_def]);
+
+val _ = translate tail_is_ok_lemma
+
+val _ = translate(bvi_tailrecTheory.compile_prog_def);
+
 val _ = translate(bvl_to_bviTheory.compile_aux_def);
 
 val _ = translate(bvl_to_bviTheory.compile_exps_def);
@@ -911,7 +980,7 @@ val EqualityType_OPTION_TYPE_SPTREE_SPT_TYPE_UNIT_TYPE = find_equality_type_thm`
   |> SIMP_RULE std_ss [EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE];
 
 val EqualityType_PAIR_TYPE_NUM_SPTREE_SPT_TYPE_UNIT_TYPE = find_equality_type_thm``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`SPTREE_SPT_TYPE UNIT_TYPE`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE];
 

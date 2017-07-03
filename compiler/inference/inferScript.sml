@@ -56,7 +56,7 @@ val write_def = Define `
 val lookup_st_ex_def = Define `
   lookup_st_ex l id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure (l,id_to_string id), st)
+    | NONE => (Failure (l, concat [implode "Undefined variable: "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -90,8 +90,10 @@ add_constraint (l : locs option) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between "; inf_type_to_string t1;
-                               implode " and "; inf_type_to_string t2]), st)
+          (Failure (l, concat [implode "Type mismatch between ";
+                               inf_type_to_string (t_walkstar st.subst t1);
+                               implode " and ";
+                               inf_type_to_string (t_walkstar st.subst t2)]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -196,6 +198,10 @@ val infer_p_def = tDefine "infer_p" `
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
+(infer_p l ienv Pany =
+  do t <- fresh_uvar;
+     return (t, [])
+  od) ∧
 (infer_p l ienv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p l ienv (Plit (Char s)) =
@@ -216,6 +222,10 @@ val infer_p_def = tDefine "infer_p" `
         do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
            (ts'',tenv) <- infer_ps l ienv ps;
            ts' <- n_fresh_uvar (LENGTH tvs');
+           guard (LENGTH ts'' = LENGTH ts) l
+                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                          toString (&LENGTH ts''); implode " arguments, but expected ";
+                          toString (&LENGTH ts)]);
            () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
            return (Infer_Tapp ts' (tid_exn_to_tc tn), tenv)
         od) ∧
@@ -357,6 +367,11 @@ constrain_op l op ts =
        do () <- add_constraint l t1 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [t2] TC_array)
        od
+   | (AallocEmpty, [t1]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [] TC_tup);
+          return (Infer_Tapp [uvar] TC_array)
+       od
    | (Asub, [t1;t2]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t1 (Infer_Tapp [uvar] TC_array);
@@ -429,6 +444,10 @@ val infer_e_def = tDefine "infer_e" `
        do (tvs',ts,tn) <- lookup_st_ex l cn ienv.inf_c;
           ts'' <- infer_es l ienv es;
           ts' <- n_fresh_uvar (LENGTH tvs');
+           guard (LENGTH ts'' = LENGTH ts) l
+                 (concat [implode "Constructor "; id_to_string cn; implode " given ";
+                          toString (&LENGTH ts''); implode " arguments, but expected ";
+                          toString (&LENGTH ts)]);
           () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
           return (Infer_Tapp ts' (tid_exn_to_tc tn))
        od) ∧

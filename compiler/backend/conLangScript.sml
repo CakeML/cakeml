@@ -1,9 +1,10 @@
 open preamble
+open modLangTheory;
 
 val _ = numLib.prefer_num();
 
 val _ = new_theory "conLang"
-val _ = set_grammar_ancestry ["ast", "finite_map", "sptree"]
+val _ = set_grammar_ancestry ["modLang", "ast", "finite_map", "sptree"]
 
 (* Removes named datatype constructors. Follows modLang.
  *
@@ -15,11 +16,12 @@ val _ = set_grammar_ancestry ["ast", "finite_map", "sptree"]
 
 val _ = Datatype`
  op =
-  | Op (ast$op)
+  | Op (modLang$op)
   | Init_global_var num`;
 
 val _ = Datatype`
  pat =
+  | Pany
   | Pvar varN
   | Plit lit
   | Pcon ((num # tid_or_exn)option) (pat list)

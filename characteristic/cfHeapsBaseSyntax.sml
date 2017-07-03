@@ -4,6 +4,8 @@ open preamble
 open set_sepTheory helperLib
 open cfHeapsBaseTheory
 
+val ERR = mk_HOL_ERR"cfHeapsBaseSyntax";
+
 val ffi_proj_format = packLib.unpack_type ffi_proj_pack
 val ffi_varty = mk_vartype "'ffi"
 
@@ -77,5 +79,51 @@ fun mk_cond t =
 val emp_tm =
   inst [alpha |-> heap_part_ty]
     (emp_def |> concl |> lhs)
+
+val postv_tm = prim_mk_const{Name="POSTv",Thy="cfHeapsBase"};
+val dest_postv = dest_binder postv_tm (ERR "dest_postv" "Not a POSTv abstraction");
+val is_postv = can dest_postv;
+fun mk_postv (postv_v, c) = mk_binder postv_tm "mk_postv" (postv_v, c);
+
+val poste_tm = prim_mk_const{Name="POSTe",Thy="cfHeapsBase"};
+val dest_poste = dest_binder poste_tm (ERR "dest_poste" "Not a POSTe abstraction");
+val is_poste = can dest_poste;
+fun mk_poste (poste_v, c) = mk_binder poste_tm "mk_poste" (poste_v, c);
+
+val post_tm = prim_mk_const{Name="POST",Thy="cfHeapsBase"};
+fun dest_post c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      if same_const ptm post_tm then
+	  let
+	      val (postv_v, postv_pred) = dest_abs postv_abs
+	      val (poste_v, poste_pred) = dest_abs poste_abs
+	  in
+	      (postv_v, postv_pred, poste_v, poste_pred)
+	  end
+      else
+	  raise (ERR "" "")
+  end
+  handle HOL_ERR _ => raise (ERR "dest_post" "Not a POST abstraction");
+fun is_post c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      same_const ptm post_tm
+  end
+  handle HOL_ERR _ => false;
+fun mk_post (postv_v, postv_abs, poste_v, poste_abs) =
+  let
+      val postv_pred = mk_abs (postv_v, postv_abs)
+      val poste_pred = mk_abs (poste_v, poste_abs)
+      val post_cond_pre = mk_comb (post_tm, postv_pred)
+      val post_cond = mk_comb (post_cond_pre, poste_pred)
+  in
+      post_cond
+  end;
+
 
 end

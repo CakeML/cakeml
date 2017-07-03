@@ -10,7 +10,7 @@ fun riscv_type s = Type.mk_thy_type {Thy = "riscv", Tyop = s, Args = []}
 
 val riscv_tys =
   List.map riscv_type
-     ["instruction", "Shift", "ArithI", "ArithR", "Branch", "Load", "Store"]
+     ["instruction", "Shift", "ArithI", "ArithR", "MulDiv", "Branch", "Load", "Store"]
 
 val riscv_enc =
   SIMP_RULE (srw_ss()) [listTheory.LIST_BIND_def] (Q.AP_THM riscv_enc_def `x`)

@@ -79,6 +79,7 @@ val add_ast_compset = computeLib.extend_compset
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
+    ,astTheory.TC_word_def
     ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys
@@ -163,7 +164,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,mkAst_App_def
       ,Eseq_encode_def
       ,ptree_Pattern_def
-      ,mkPatApp_def
+      ,Papply_def
       ,ptree_FQV_def
       ,ptree_V_def
       ,ptree_Op_def

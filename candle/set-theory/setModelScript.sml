@@ -1,5 +1,5 @@
 open preamble bitTheory setSpecTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"setModel"
 
 val is_set_theory_pred_def = Define`

@@ -1,4 +1,4 @@
-INCLUDES = ./astPP ../../compiler/eval ../../compiler/parsing ../../compiler/inference
+INCLUDES = ./astPP ../../compiler ../../compiler/backend ../../compiler/parsing ../../compiler/inference
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -9,7 +9,7 @@ all: $(TARGETS)
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../compiler/eval/heap
+PARENT_HOLHEAP = ../../compiler/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 

@@ -5,7 +5,6 @@ open preamble
 
 val _ = new_theory"targetProps";
 
-val _ = ParseExtras.temp_tight_equality();
 val _ = set_grammar_ancestry["ffi","asm","targetSem"];
 
 val asserts_restrict = Q.prove(
@@ -90,7 +89,7 @@ val asserts_WEAKEN = Q.prove(
       asserts n next s P Q ==>
       asserts n next' s P' Q`,
   Induct \\ full_simp_tac(srw_ss())[asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ `!k. k <= n ==> (next k = next' k)` by ALL_TAC \\ RES_TAC
+  \\ sg `!k. k <= n ==> (next k = next' k)` \\ RES_TAC
   \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC \\ decide_tac);
 
 val bytes_in_memory_IMP_SUBSET = Q.prove(

@@ -111,6 +111,7 @@ val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
  srw_tac[][]
  >- srw_tac[][pat_bindings_def]
  >- srw_tac[][pat_bindings_def]
+ >- srw_tac[][pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]
  >- metis_tac [APPEND_ASSOC, pat_bindings_def]

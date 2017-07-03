@@ -1,11 +1,11 @@
 open preamble
-     semanticsPropsTheory backendProofTheory configProofTheory
+     semanticsPropsTheory backendProofTheory x64_configProofTheory
      echoProgTheory echoCompileTheory
 
 val _ = new_theory"echoProof";
 
 val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events"],
-  echo_semantics |> Q.GENL(List.rev[`inp`,`cls`,`files`])
+  echo_semantics |> Q.GENL[`inp`,`cls`,`files`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (echo_sem,echo_output) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

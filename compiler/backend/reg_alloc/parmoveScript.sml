@@ -2,9 +2,6 @@ open preamble;
 
 val _ = new_theory "parmove";
 
-(* TODO: why isn't this inherited from miscTheory? *)
-val _ = ParseExtras.temp_tight_equality();
-
 (* This is a formalisation of a JAR'08 paper by Rideau, Serpette, Leroy:
      Tilting at windmills with Coq: formal verification of a compilation
      algorithm for parallel moves
@@ -954,7 +951,7 @@ val parmove_preserves_moves = Q.store_thm("parmove_preserves_moves",
   `windmill moves ∧ MEM (x,y) moves ∧ x ≠ y ⇒ MEM (SOME x) (MAP FST (parmove moves))`,
   rw[parmove_def,MAP_REVERSE]
   \\ qmatch_goalsub_abbrev_tac`pmov p`
-  \\ qspec_then`p`(mp_tac o Q.GENL[`y`,`x`]) pmov_preserves_moves
+  \\ qspec_then`p`(mp_tac o Q.GENL[`x`,`y`]) pmov_preserves_moves
   \\ qspec_then`p`strip_assume_tac pmov_final
   \\ simp[state_to_list_def,Abbr`p`]
   \\ disch_then(qspecl_then[`SOME x`,`SOME y`]mp_tac)

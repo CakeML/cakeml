@@ -242,7 +242,7 @@ val type_e_weakening_lem = Q.prove (
    first_x_assum match_mp_tac >>
    rw [] >>
    metis_tac [weak_tenvE_bind, weak_tenvE_freevars])
- >- metis_tac []
+ >- metis_tac [weak_tenvE_freevars]
  >- (fs [RES_FORALL] >>
      qexists_tac `t` >>
      rw [] >>

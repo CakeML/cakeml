@@ -1,6 +1,6 @@
 open preamble totoTheory comparisonTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
-val _ = temp_tight_equality()
+
 val _ = new_theory"holSyntaxExtra"
 
 val type_ind = save_thm("type_ind",
@@ -2534,8 +2534,8 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]
   \\ REPEAT STRIP_TAC
-  \\ `!m. m < n ==>
-         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x` by ALL_TAC
+  \\ sg `!m. m < n ==>
+         VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x`
   THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [rich_listTheory.REPLICATE_GENLIST]
          \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_def,mlstringTheory.explode_implode])
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
@@ -2605,8 +2605,8 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   REWRITE_TAC [VARIANT_def] \\ HO_MATCH_MP_TAC variant_ind
   \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
   \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
-  \\ `EXISTS (vfree_in (Var name ty1)) (frees a) =
-      VFREE_IN (Var name ty1) a` by ALL_TAC THEN1
+  \\ sg `EXISTS (vfree_in (Var name ty1)) (frees a) =
+      VFREE_IN (Var name ty1) a` THEN1
    (Q.PAT_X_ASSUM `welltyped a` MP_TAC
     \\ REPEAT (POP_ASSUM (K ALL_TAC))
     \\ Induct_on `a` \\ SIMP_TAC (srw_ss()) [Once frees_def,Once vfree_in_def]

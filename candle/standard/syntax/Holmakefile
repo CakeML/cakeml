@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../syntax-lib
+INCLUDES = ../../../misc ../../syntax-lib
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../preamble ../../syntax-lib/holSyntaxLibTheory
+BARE_THYS = ../../../misc/preamble ../../syntax-lib/holSyntaxLibTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

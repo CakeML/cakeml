@@ -48,7 +48,7 @@ val tokmap0 =
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
-                ("ref", ``AlphaT "ref"``),
+                ("ref", ``RefT``),
                 ("sig", ``SigT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
@@ -68,7 +68,7 @@ val ginfo = { tokmap = tokmap,
 
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
- UQTyOp ::= <AlphaT> | <SymbolT>;
+ UQTyOp ::= <AlphaT> | <SymbolT> | "ref" ;
  TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;
@@ -77,11 +77,14 @@ val cmlG_def = mk_grammar_def ginfo
  DType ::= DType TyOp | Tbase;
  PType ::= DType "*" PType | DType;
  Type ::= PType | PType "->" Type;
+ TbaseList ::=  | PTbase TbaseList ;
+ PTbase ::= <TyvarT> | TyOp | "(" Type ")" ;
 
  (* type declarations *)
  TypeName ::= UQTyOp | "(" TyVarList ")" UQTyOp | <TyvarT> UQTyOp ;
  TyVarList ::= TyvarN | TyVarList "," TyvarN;
- Dconstructor ::= UQConstructorName "of" Type | UQConstructorName;
+ Dconstructor ::= UQConstructorName "of" Type
+               |  UQConstructorName TbaseList;
  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;
@@ -90,31 +93,31 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* expressions - base cases and function applications *)
  UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                    | "true" | "false" | "ref" | "nil";
+                    | "true" | "false" | "nil";
  ConstructorName ::=
      UQConstructorName
   | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
-                                 s ∈ {"true"; "false"; "ref"; "nil"}}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false"; "ref";
+                                 s ∈ {"true"; "false"; "nil"}}``);
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false";
                             "nil" } ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
-                 "::"; "@"}}``);
+                 "::"; "@"; "\094"}}``);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-              s ∉ {"true"; "false"; "ref"; "nil"}}``) ;
+              s ∉ {"true"; "false"; "nil"}}``) ;
  OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
-       |  "*" | "=" ;
+       |  "*" | "=" | "ref" ;
 
  Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
-        | "[" Elist1 "]" | "op" OpID ;
+        | "[" Elist1 "]" | "op" OpID | "ref" ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -123,7 +126,7 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* expressions - binary operators *)
  MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT; SymbolT "/"}``);
- AddOps ::= ^(``{SymbolT "+"; SymbolT "-"}``);
+ AddOps ::= ^(``{SymbolT "+"; SymbolT "-"; SymbolT "\094" }``);
  RelOps ::= ^(``{SymbolT s | s ∈ {"<"; ">"; "<="; ">="; "<>"}}``) | "=";
  CompOps ::= "o" | ":=";
  ListOps ::= "@" | "::";
@@ -153,8 +156,9 @@ val cmlG_def = mk_grammar_def ginfo
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
-        |  "[" "]" | "[" PatternList "]";
- Papp ::= ConstructorName Pbase | Pbase;
+        |  "[" "]" | "[" PatternList "]" | "op" OpID;
+ PConApp ::= ConstructorName | "ref" | PConApp Pbase ;
+ Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
@@ -185,7 +189,7 @@ val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
 
 val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
 val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
-val _ = type_abbrev("mlptree", ``:(token, MMLnonT) parsetree``)
+val _ = type_abbrev("mlptree", ``:(token, MMLnonT, locs) parsetree``)
 
 val nt_distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

@@ -29,7 +29,7 @@ val st1 = ml_progLib.add_prog example_let1 pick_name basis_st
 val example_let1_spec = Q.prove (
   `!uv. app (p:'ffi ffi_proj) ^(fetch_v "example_let1" st1) [uv]
           emp (POSTv v. & UNIT_TYPE () v)`,
-  xcf "example_let1" st1 \\ xlet `POSTv a. & UNIT_TYPE () a`
+  xcf "example_let1" st1 \\ xmatch \\ xlet `POSTv a. & UNIT_TYPE () a`
   THEN1 (xret \\ xsimpl) \\
   xret \\ xsimpl
 )
@@ -80,8 +80,8 @@ val alloc_ref2_spec = Q.prove (
                  & PAIR_TYPE (=) (=) (r1, r2) p *
                  REF r1 av * REF r2 bv)`,
   xcf "alloc_ref2" st \\
-  xlet `POSTv r2. REF r2 bv` THEN1 xapp \\
-  xlet `POSTv r1. REF r1 av * REF r2 bv` THEN1 (xapp \\ xsimpl) \\
+  xlet `POSTv r2. REF r2 bv` THEN1 (xref >> xsimpl) \\
+  xlet `POSTv r1. REF r1 av * REF r2 bv` THEN1 (xref \\ xsimpl) \\
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 )
 

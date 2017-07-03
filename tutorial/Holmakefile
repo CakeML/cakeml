@@ -1,0 +1,2 @@
+INCLUDES = $(HOLDIR)/examples/balanced_bst ../misc ../translator ../basis/pure ../basis ../characteristic ../compiler\
+					 ../semantics/proofs ../compiler/backend/proofs ../compiler/backend/x64/proofs

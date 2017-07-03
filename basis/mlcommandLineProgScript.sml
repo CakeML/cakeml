@@ -29,18 +29,6 @@ val LetApps_def = Define `
   LetApps n f args = Let (SOME n) (Apps (Var f::args))`;
 (* -- *)
 
-(* TODO: move? *)
-(* replace TOKENS_EMPTY in misc with this *)
-val TOKENS_NIL = Q.store_thm("TOKENS_NIL",
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`,
-  Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-val MEM_REPLICATE_IMP = Q.store_thm("MEM_REPLICATE_IMP",
-  `MEM x (REPLICATE n y) ==> x = y`,
-  Induct_on`n` \\ rw[REPLICATE] \\ fs[]);
-(* -- *)
-
 val _ = ml_prog_update (open_module "Commandline")
 val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 
@@ -74,74 +62,39 @@ val _ = ml_prog_update(ml_progLib.add_prog arguments pick_name)
 
 val _ = ml_prog_update (close_module NONE);
 
+val wfcl_def = Define`
+  wfcl cl ⇔ EVERY validArg cl ∧ ¬NULL cl ∧ SUM (MAP LENGTH cl) + LENGTH cl <= 256`;
 
 val COMMANDLINE_def = Define `
-  COMMANDLINE = IOx commandLine_ffi_part`
+  COMMANDLINE cl =
+    IOx commandLine_ffi_part cl * &wfcl cl`
 
 val set_thm =
   COMMANDLINE_def
   |> SIMP_RULE(srw_ss())[
-       cfHeapsBaseTheory.IOx_def,commandLine_ffi_part_def,Once FUN_EQ_THM,
+       cfHeapsBaseTheory.IOx_def,commandLine_ffi_part_def,
        cfHeapsBaseTheory.IO_def, set_sepTheory.one_def ]
-  |> SIMP_RULE(srw_ss())[Once FUN_EQ_THM,set_sepTheory.SEP_EXISTS_THM]
+  |> SIMP_RULE(srw_ss())[Once FUN_EQ_THM,set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,PULL_EXISTS]
   |> Q.SPEC`cl`
 val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
-val COMMANDLINE_precond = Q.store_thm("COMMANDLINE_precond",
-  `(COMMANDLINE cl) ^set_tm`,
-  rw[set_thm]);
+val COMMANDLINE_precond = Q.prove(
+  `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
+  rw[set_thm]) |> UNDISCH
+  |> curry save_thm "COMMANDLINE_precond";
 
 val COMMANDLINE_FFI_part_hprop = Q.store_thm("COMMANDLINE_FFI_part_hprop",
   `FFI_part_hprop (COMMANDLINE x)`,
   rw [COMMANDLINE_def,cfHeapsBaseTheory.IO_def,cfMainTheory.FFI_part_hprop_def,
       cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def,
-      set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM]
+      set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
+      set_sepTheory.cond_STAR ]
   \\ fs[set_sepTheory.one_def]);
-
-val st = get_ml_prog_state()
-
-(* TODO: using p:'b ffi_proj makes xapp fail in hard to trace ways
-      - ultimately it's because app_of_Arrow_rule is not robust when ffi_ty is either 'a or 'b
-*)
-val tabulate_spec = Q.store_thm("tabulate_spec",
-  `!f fv A heap_inv n nv ls.
-    NUM n nv /\ ls = GENLIST f n /\
-    (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
-    ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "List.tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
-  ntac 4 gen_tac
-  \\ Induct
-  >-(
-    rw[]
-    \\ xcf "List.tabulate" st
-    \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
-      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
-    \\ xif
-    >-(xcon \\ xsimpl \\ EVAL_TAC)
-    \\ fs[NUM_def, INT_def] \\ rw[])
-  \\ rw[]
-  \\ xcf "List.tabulate" st
-  \\ xlet `POSTv boolv. SEP_EXISTS ov. & BOOL (nv = ov) boolv * & (NUM 0 ov) * heap_inv`
-    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def])
-  \\ xif
-  >-(fs[NUM_def, INT_def] \\ rw[])
-  \\ xlet `POSTv nv. &NUM n nv * heap_inv`
-  >-( xapp \\  xsimpl \\ instantiate )
-  \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
-  >- ( xapp \\ xsimpl )
-  \\ xlet `POSTv v. &LIST_TYPE A (GENLIST f n) v * heap_inv`
-  >- ( xapp \\ xsimpl )
-  \\ xapp
-  \\ xsimpl
-  \\ instantiate
-  \\ simp[GENLIST]);
-(*
-an alternative to the theorem above would be
-to write/use a custom (non higher-order) version of tabulate for this module instead
-*)
 
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
+
+val st = get_ml_prog_state();
 
 val w8arrayToStrings_spec = Q.store_thm ("w8arrayToStrings_spec",
     `!av a.
@@ -230,8 +183,7 @@ val TOKENS_FRONT_MAP_inv = Q.store_thm ("TOKENS_MAP_inv",
 );
 
 val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
-  `UNIT_TYPE u uv /\ cl <> [] /\ EVERY validArg cl /\ l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. s ++ [CHR 0]) cl))
-    /\ LENGTH l < 257 ==>
+  `UNIT_TYPE u uv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Commandline.cline" st) [uv]
     (COMMANDLINE cl)
     (POSTv clinev. & LIST_TYPE STRING_TYPE (MAP implode  cl) clinev * COMMANDLINE cl)`,
@@ -239,6 +191,13 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
     \\ xlet `POSTv cs. W8ARRAY cs (REPLICATE 256 (n2w 0)) * COMMANDLINE cl`
       >-(xapp \\ xsimpl)
     \\ fs [COMMANDLINE_def]
+    \\ xpull
+    \\ qabbrev_tac`l = MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. s ++ [CHR 0]) cl))`
+    \\ `LENGTH l < 257`
+    by (
+      fs[Abbr`l`,wfcl_def,LENGTH_FLAT,MAP_MAP_o,o_DEF] \\
+      Q.ISPEC_THEN`STRLEN`mp_tac SUM_MAP_PLUS \\
+      disch_then(qspec_then`K 1`mp_tac) \\ simp[MAP_K_REPLICATE,SUM_REPLICATE] )
     \\ xlet `POSTv zv. W8ARRAY cs (l ++ DROP (LENGTH l) (REPLICATE 256 (n2w 0))) * & (UNIT_TYPE () zv) * COMMANDLINE cl`
     >-(xffi \\ fs [COMMANDLINE_def,cfHeapsBaseTheory.IOx_def,commandLine_ffi_part_def]
        \\ qmatch_goalsub_abbrev_tac`IO s u ns`
@@ -246,13 +205,14 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
                                 `s`, `s`, `u`, `ns`]
       \\ xsimpl
       \\ fs[Abbr`u`,Abbr`ns`,cfHeapsBaseTheory.mk_ffi_next_def,ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]
-      \\ simp[EVERY_MAP, LENGTH_REPLICATE]
+      \\ simp[EVERY_MAP, LENGTH_REPLICATE, Abbr`l`]
       \\ rw[Abbr`s`,encode_def] \\ fs[EVERY_REPLICATE])
     \\ xapp \\ xsimpl \\ gen_tac \\ strip_tac
     \\  reverse (conj_tac)  >-(fs[COMMANDLINE_def] \\ xsimpl)
     \\ pop_assum mp_tac
-    \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD]
+    \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD,Abbr`l`]
     \\ simp[GSYM MAP_MAP_o]
+    \\ `cl <> []` by fs[wfcl_def,NULL_EQ]
     \\ drule map_app_last_Str
     \\ disch_then SUBST_ALL_TAC
     \\ simp[mlstringTheory.implode_STRCAT, GSYM mlstringTheory.str_def, mlstringTheory.strcat_assoc, mlstringTheory.tokens_append]
@@ -270,6 +230,7 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
     \\ simp[Abbr`l1`,Abbr`P`]
     \\ match_mp_tac TOKENS_FRONT_MAP_inv
     \\ simp[]
+    \\ fs[wfcl_def]
 );
 
 
@@ -277,8 +238,7 @@ val hd_v_thm = fetch "mllistProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val Commandline_name_spec = Q.store_thm("Commandline_name_spec",
-  `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
-    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) cl))) < 257 ==>
+  `UNIT_TYPE u uv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Commandline.name" st) [uv]
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (implode (HD cl)) namev * COMMANDLINE cl)`,
@@ -287,15 +247,16 @@ val Commandline_name_spec = Q.store_thm("Commandline_name_spec",
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl`
     >-(xapp \\ rw[])
-    \\ xapp_spec mlstring_hd_v_thm \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]
+    \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
+    \\ xapp_spec mlstring_hd_v_thm
+    \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]
 );
 
 val tl_v_thm = fetch "mllistProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
-  `UNIT_TYPE u uv /\ (cl <> []) /\ (EVERY validArg cl) /\
-    LENGTH (MAP ((n2w:num -> word8) o ORD) (FLAT (MAP (\s. (s) ++ [CHR 0]) (cl)))) < 257 ==>
+  `UNIT_TYPE u uv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "Commandline.arguments" st) [uv]
     (COMMANDLINE cl)
     (POSTv argv. & LIST_TYPE STRING_TYPE (TL (MAP implode cl)) argv * COMMANDLINE cl)`,
@@ -304,6 +265,7 @@ val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
     >-(xcon \\ xsimpl)
     \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE (MAP implode cl) cs * COMMANDLINE cl`
     >-(xapp \\ rw[])
+    \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
     \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]
 );
 

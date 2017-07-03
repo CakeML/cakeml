@@ -555,9 +555,7 @@ val env_rel_el = Q.prove (
     env_rel gtagenv env env_i2 ⇔
     LENGTH env = LENGTH env_i2 ∧ !n. n < LENGTH env ⇒ (FST (EL n env) = FST (EL n env_i2)) ∧ v_rel gtagenv (SND (EL n env)) (SND (EL n env_i2))`,
   induct_on `env` >>
-  srw_tac[][v_rel_eqns]
-  >- (cases_on `env_i2` >>
-      full_simp_tac(srw_ss())[]) >>
+  srw_tac[][v_rel_eqns] >>
   PairCases_on `h` >>
   srw_tac[][v_rel_eqns] >>
   eq_tac >>

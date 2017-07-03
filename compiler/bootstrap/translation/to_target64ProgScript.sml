@@ -86,12 +86,12 @@ val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
   |> SIMP_RULE std_ss [EqualityType_NUM];
 
 val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM];
 
 val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`c`,`b`]
+  |> Q.GENL[`b`,`c`]
   |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
 
@@ -231,10 +231,6 @@ val _ = translate (spec64 word_to_stackTheory.wMove_def)
 
 val _ = translate (spec64 call_dest_def)
 
-val word_to_stack_call_dest_side = Q.prove(`
-  ∀a b c. word_to_stack_call_dest_side a b c ⇔ T`,
-  EVAL_TAC>>Cases_on`b`>>fs[]) |> update_precondition
-
 val _ = translate (spec64 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:64``])
@@ -243,21 +239,41 @@ val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``])
 
 open stack_allocTheory
 
-val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,stackLangTheory.word_shift_def]
+val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
+                    stackLangTheory.word_shift_def, wordLangTheory.shift_def]
+val _ = translate (SetNewTrigger_def |> inline_simp |> conv64)
 val _ = translate (conv64 clear_top_inst_def)
 val _ = translate (memcpy_code_def |> inline_simp |> conv64)
 val _ = translate (word_gc_move_code_def |> inline_simp |> conv64)
 
-val _ = translate (word_gc_move_bitmap_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_bitmaps_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64)
+val _ = translate (word_gc_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (word_gc_move_loop_code_def |> inline_simp |> conv64);
 
-val _ = translate (word_gc_move_list_code_def |> inline_simp |> conv64)
-val _ = translate (word_gc_move_loop_code_def |> inline_simp |> conv64)
+val _ = translate (stack_allocTheory.word_gen_gc_move_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_data_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_refs_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_move_loop_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv64);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv64);
+val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
+val r = translate (stack_allocTheory.SetNewTrigger_def |> conv64);
+val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
 
-val _ = translate (spec64 stubs_def)
+val _ = translate (spec64 stubs_def);
 
-val _ = translate (spec64 compile_def)
+val _ = translate (spec64 compile_def);
 
 val stack_alloc_comp_side = Q.prove(`
   ∀n m prog. stack_alloc_comp_side n m prog ⇔ T`,
