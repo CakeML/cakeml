@@ -234,10 +234,10 @@ val fp_ok_def = Define `
   (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
       reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
       fp_reg_ok d c) /\
-  (fp_ok (FPToInt r d) c <=> reg_ok r c /\ fp_reg_ok d c) /\
   (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      fp_reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ fp_reg_ok r2 c) /\
+      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
       fp_reg_ok d c) /\
+  (fp_ok (FPToInt r d) c <=> fp_reg_ok r c /\ fp_reg_ok d c) /\
   (fp_ok (FPFromInt d r) c <=> fp_reg_ok r c /\ fp_reg_ok d c)`
 
 val cmp_ok_def = Define `
