@@ -39,9 +39,9 @@ val lem3 = asmLib.v2w_BIT_n2w 5
 val lem3b =
   lem3
   |> Q.SPEC `n DIV 2`
-  |> Q.DISCH `n < 16`
+  |> Q.DISCH `n < 32`
   |> SIMP_RULE (srw_ss())
-       [bitTheory.BIT_DIV2, DECIDE ``n < 16 ==> n < 32``,
+       [bitTheory.BIT_DIV2,
         bitTheory.NOT_BIT_GT_TWOEXP
         |> Q.SPEC `5`
         |> SIMP_RULE (srw_ss()) []]
@@ -563,7 +563,7 @@ val fp_to_int_lem = Q.prove(
   )
 
 val fp_to_int_lem2 = Q.prove(
-  `!n. n < 16 ==> n DIV 2 < 32n`,
+  `!n. n < 32 ==> n DIV 2 < 32n`,
   simp [arithmeticTheory.DIV_LT_X]
   )
 
