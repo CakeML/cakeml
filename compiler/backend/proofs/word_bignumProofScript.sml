@@ -152,6 +152,16 @@ val eval_cases =
      ``Eval rec s1 (Loop r vs p) s2``,
      ``Eval rec s1 (LoopBody p) s2``] |> LIST_CONJ;
 
+val Eval_NONE_IMP = store_thm("Eval_NONE_IMP",
+  ``!s1 c s2 p. Eval NONE s1 c s2 ==> Eval (SOME p) s1 c s2``,
+  qsuff_tac
+    `!r s1 c s2. Eval r s1 c s2 ==>
+                 Eval r s1 c s2 /\
+                !p. r = NONE ==> Eval (SOME p) s1 c s2`
+  THEN1 metis_tac []
+  \\ ho_match_mp_tac eval_ind \\ rw []
+  \\ once_rewrite_tac [eval_cases] \\ fs [] \\ metis_tac []);
+
 
 (* verification of compiler to wordLang *)
 
@@ -1990,6 +2000,30 @@ val const_def = time (first (not o time (can derive_corr_thm)))
                 handle HOL_ERR _ => TRUTH;
 
 val _ = (concl const_def = T) orelse failwith "derive_corr_thm failed";
+
+(*
+
+val mc_fac_init_corr = snd (derive_corr_thm mc_fac_init_code_def);
+val mc_fac_final_corr = snd (derive_corr_thm mc_fac_final_code_def);
+
+val mc_fac_corr = store_thm("mc_fac_corr",
+  ``Corr mc_fac_code s
+     (INR
+        (let (l,r1) = mc_fac (s.clock-1,s.regs ' 1) in
+           delete_vars [3;0;2] (clock_write l (reg_write 1 (SOME r1) s))))
+     (1 ∈ FDOM s.regs ∧ mc_fac_pre (s.clock-1,s.regs ' 1) ∧ s.clock <> 0)``,
+  cheat);
+
+val th = let
+  val raw_th = mc_fac_corr |> SIMP_RULE std_ss [LET_THM]
+  val th = raw_th |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV THENC
+                                sort_writes_conv)
+  val _ = (all_corrs := th::(!all_corrs))
+  in th end
+
+val mc_use_fac_corr = snd (derive_corr_thm mc_use_fac_code_def);
+
+*)
 
 (* connecting all the theormes *)
 
