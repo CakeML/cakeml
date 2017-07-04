@@ -182,7 +182,7 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> REFL_TAC)
 
-val _ = Define `
+val sLet_def = Define `
   sLet t e1 e2 =
   dtcase e2 of
      | Var_local _ 0 => e1
@@ -191,6 +191,19 @@ val _ = Define `
            if pure e1 then e2
            else Seq t e1 e2
          else Let t e1 e2`;
+
+val sLet_pmatch = Q.store_thm("sLet_pmatch",
+  `sLet t e1 e2 =
+   case e2 of
+     | Var_local _ 0 => e1
+     | _ =>
+         if ground 0 e2 then
+           if pure e1 then e2
+           else Seq t e1 e2
+         else Let t e1 e2`,
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+  CASE_TAC \\ rw[sLet_def]);
+
 (* bind elements 0..k of the variable n in reverse order above e (first element
  * becomes most recently bound) *)
 val _ = Define`
