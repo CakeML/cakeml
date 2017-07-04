@@ -566,10 +566,9 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val prog_comp_tm =
         stack_allocTheory.prog_comp_def
         |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
-        |> inst[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 
       fun eval_fn i n p =
-        let val tm = mk_comb(prog_comp_tm,p)
+        let val tm = mk_icomb(prog_comp_tm,p)
         in eval tm end
 
       val stack_prog_els =
