@@ -5,18 +5,26 @@ val _ = new_theory"exh_to_pat"
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `
-  Bool b = Con Empty (if b then true_tag else false_tag) []`;
+  Bool t b = Con t (if b then true_tag else false_tag) []`;
 val Bool_eqns = save_thm("Bool_eqns[simp]",
-  [``Bool T``,``Bool F``]
+  [``Bool t T``,``Bool t F``]
   |> List.map (SIMP_CONV(std_ss)[Bool_def])
   |> LIST_CONJ)
 
-val cons_bool_def = Define `
-  cons_bool t b = Con t (if b then true_tag else false_tag) []`;
+val isBool_def = Define`
+  isBool b e =
+  dtcase e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`;
+val _ = export_rewrites["isBool_def"];
+
+val isBool_pmatch = Q.store_thm("isBool_pmatch",
+  `isBool b e =
+   case e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`,
+  CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+  CASE_TAC \\ simp[]);
 
 val sIf_def = Define `
   sIf tra e1 e2 e3 =
-  if e2 = Bool T ∧ e3 = Bool F
+  if isBool T e2 ∧ isBool F e3
     then e1
   else
     (dtcase e1 of
@@ -25,7 +33,7 @@ val sIf_def = Define `
 
 val sIf_pmatch = Q.store_thm("sIf_pmatch",`!e1 e2 e3.
   sIf t e1 e2 e3 =
-  if e2 = Bool T ∧ e3 = Bool F
+  if isBool T e2 ∧ isBool F e3
     then e1
   else
     (case e1 of
@@ -217,10 +225,10 @@ val _ = Define`
  * recently bound variable *)
 val _ = tDefine"compile_pat"`
   (compile_pat t (Pvar _) =
-   cons_bool t T)
+   Bool t T)
   ∧
   (compile_pat t Pany =
-   Bool T)
+   Bool t T)
   ∧
   (compile_pat t (Plit l) =
    App (mk_cons t 1) (Op (Op Equality)) [Var_local (mk_cons t 2) 0; Lit (mk_cons t 3) l])
@@ -231,7 +239,7 @@ val _ = tDefine"compile_pat"`
   (compile_pat t (Pcon tag ps) =
    sIf (mk_cons t 1) (App (mk_cons t 2) (Tag_eq tag (LENGTH ps)) [Var_local (mk_cons t 3) 0])
      (Let_Els (mk_cons t 4) 0 (LENGTH ps) (compile_pats (mk_cons t 5) 0 ps))
-     (cons_bool (mk_cons t 6) F))
+     (Bool (mk_cons t 6) F))
   ∧
   (compile_pat t (Pref p) =
    sLet (mk_cons t 1) (App (mk_cons t 2) (Op (Op Opderef)) [Var_local (mk_cons t 3) 0])
@@ -239,11 +247,11 @@ val _ = tDefine"compile_pat"`
   ∧
 (* return an expression that evaluates to whether all the m patterns match the
  * m most recently bound variables; n counts 0..m *)
-  (compile_pats t _ [] = cons_bool t T)
+  (compile_pats t _ [] = Bool t T)
   ∧
   (compile_pats t n (p::ps) =
    sIf (mk_cons t 1) (sLet (mk_cons t 2) (Var_local (mk_cons t 3) n)
-   (compile_pat (mk_cons t 4) p)) (compile_pats (mk_cons t 5) (n+1) ps) (cons_bool (mk_cons t 6) F))`
+   (compile_pat (mk_cons t 4) p)) (compile_pats (mk_cons t 5) (n+1) ps) (Bool (mk_cons t 6) F))`
   (WF_REL_TAC `inv_image $< (\x. dtcase x of INL (_,p) => pat_size p
                                            | INR (_,n,ps) => pat1_size ps)`);
 

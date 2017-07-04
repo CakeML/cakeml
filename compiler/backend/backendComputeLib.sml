@@ -175,7 +175,7 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- exh_to_pat ---- *)
   ,computeLib.Defs
     [exh_to_patTheory.Bool_def
-    ,exh_to_patTheory.cons_bool_def
+    ,exh_to_patTheory.isBool_def
     ,exh_to_patTheory.sIf_def
     ,exh_to_patTheory.pure_op_op_eqn
     ,exh_to_patTheory.pure_op_def
