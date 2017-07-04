@@ -214,16 +214,18 @@ val do_app = Q.prove(
 
 val sIf_correct = Q.store_thm("sIf_correct",
   `∀env s e1 e2 e3 res.
-    evaluate env s [If e1 e2 e3] = res ∧
+    evaluate env s [If t e1 e2 e3] = res ∧
     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-    evaluate env s [sIf e1 e2 e3] = res`,
+    evaluate env s [sIf t e1 e2 e3] = res`,
   rpt gen_tac >>
-  Cases_on`e2=(Bool T) ∧ e3=(Bool F)` >- (
+  Cases_on`isBool T e2 ∧ isBool F e3` >- (
     simp[sIf_def] >>
     simp[patSemTheory.evaluate_def,patSemTheory.do_if_def] >>
-    every_case_tac >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[Bool_def,patSemTheory.Boolv_def,evaluate_Con_nil] >>
-    imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[]) >>
+    fs[isBool_def] >>
+    every_case_tac >> fs[] >> rw[] >>
+    full_simp_tac(srw_ss())[evaluate_Con_nil] >>
+    imp_res_tac evaluate_sing >> fs[] >>
+    EVAL_TAC) >>
   simp[sIf_def] >>
   Cases_on`e1`>>simp[]>>
   Cases_on`l`>>simp[]>>
@@ -232,9 +234,9 @@ val sIf_correct = Q.store_thm("sIf_correct",
   full_simp_tac(srw_ss())[patSemTheory.Boolv_def,backend_commonTheory.true_tag_def,backend_commonTheory.false_tag_def])
 
 val sIf_intro = Q.store_thm("sIf_intro",
-  `P (evaluate env s [If e1 e2 e3]) ∧
-   SND (evaluate env s [If e1 e2 e3]) ≠ Rerr (Rabort Rtype_error) ⇒
-   P (evaluate env s [sIf e1 e2 e3])`,
+  `P (evaluate env s [If t e1 e2 e3]) ∧
+   SND (evaluate env s [If t e1 e2 e3]) ≠ Rerr (Rabort Rtype_error) ⇒
+   P (evaluate env s [sIf t e1 e2 e3])`,
   metis_tac[sIf_correct])
 
 val v_to_list_no_closures = Q.prove (
@@ -332,16 +334,19 @@ val ground_correct = Q.store_thm("ground_correct",
 
 val sLet_correct = Q.store_thm("sLet_correct",
   `∀env ^s e1 e2 res.
-    evaluate env s [Let e1 e2] = res ∧
+    evaluate env s [Let t e1 e2] = res ∧
     SND res ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate env s [sLet e1 e2] = res`,
-  srw_tac[][sLet_def] >- (
-    last_x_assum mp_tac >>
-    simp[patSemTheory.evaluate_def] >>
-    BasicProvers.CASE_TAC >> srw_tac[][] >>
-    BasicProvers.CASE_TAC >> srw_tac[][] >>
-    imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[])
-  >- (
+    evaluate env s [sLet t e1 e2] = res`,
+  rw[] \\
+  Cases_on`∃tr. e2 = Var_local tr 0` >- (
+    fs[sLet_def,patSemTheory.evaluate_def] \\
+    CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
+    imp_res_tac evaluate_sing \\ fs[] ) \\
+  `sLet t e1 e2 = if ground 0 e2 then if pure e1 then e2 else Seq t e1 e2 else Let t e1 e2`
+  by (
+    fs[sLet_def] \\ Cases_on`e2` \\ fs[] \\
+    CASE_TAC \\ fs[] ) \\ fs[] \\
+  rw[] >- (
     imp_res_tac pure_correct >>
     first_x_assum(qspecl_then[`s`,`env`]strip_assume_tac) >>
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def] >>
@@ -353,17 +358,17 @@ val sLet_correct = Q.store_thm("sLet_correct",
   qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_correct) >> srw_tac[][]);
 
 val sLet_intro = Q.store_thm("sLet_intro",
-  `P (evaluate env s [Let e1 e2]) ∧
-   SND (evaluate env s [Let e1 e2]) ≠ Rerr (Rabort Rtype_error)
-   ⇒ P (evaluate env s [sLet e1 e2])`,
+  `P (evaluate env s [Let t e1 e2]) ∧
+   SND (evaluate env s [Let t e1 e2]) ≠ Rerr (Rabort Rtype_error)
+   ⇒ P (evaluate env s [sLet t e1 e2])`,
   metis_tac[sLet_correct])
 
 val Let_Els_correct = Q.prove(
-  `∀n k e tag vs env ^s res us.
+  `∀t n k e tag vs env ^s res us.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
     evaluate (TAKE k vs ++ us ++ (Conv tag vs::env)) s [e] = res ∧
     SND res ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate (us ++ (Conv tag vs::env)) s [Let_Els n k e] = res`,
+    evaluate (us ++ (Conv tag vs::env)) s [Let_Els t n k e] = res`,
   ho_match_mp_tac Let_Els_ind >> srw_tac[][Let_Els_def] >>
   match_mp_tac sLet_correct >>
   srw_tac[][patSemTheory.evaluate_def] >>
@@ -382,12 +387,12 @@ val Let_Els_correct = Q.prove(
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[] >>
   metis_tac[SNOC_APPEND,SNOC_EL_TAKE])
 val Let_Els_correct = Q.prove(
-  `∀n k e tag vs env ^s res us enve.
+  `∀t n k e tag vs env ^s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
     evaluate (TAKE k vs ++ us ++ (Conv tag vs::env)) s [e] = res ∧
     (enve = us ++ (Conv tag vs::env)) ∧ SND res ≠ Rerr (Rabort Rtype_error)
     ⇒
-    evaluate enve s [Let_Els n k e] = res`,
+    evaluate enve s [Let_Els t n k e] = res`,
   metis_tac[Let_Els_correct]);
 
 val s = mk_var("s",
@@ -395,22 +400,22 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_pat_correct = Q.prove(
-  `(∀p v ^s env res env4.
+  `(∀t p v ^s env res env4.
        pmatch s.refs p v env = res ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
          (compile_state s)
-         [compile_pat p] =
+         [compile_pat t p] =
          (compile_state s
          ,Rval [Boolv (∃env'. res = Match env')])) ∧
-    (∀n ps qs vs ^s env env' res env4.
+    (∀t n ps qs vs ^s env env' res env4.
        pmatch_list s.refs qs (TAKE n vs) env = Match env' ∧
        pmatch_list s.refs ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
        evaluate
          (compile_vs vs ++ env4)
          (compile_state s)
-         [compile_pats n ps] =
+         [compile_pats t n ps] =
          (compile_state s
          ,Rval [Boolv (∃env'. res = Match env')]))`,
   ho_match_mp_tac compile_pat_ind >>
@@ -454,10 +459,10 @@ val compile_pat_correct = Q.prove(
     Cases_on`DROP (LENGTH qs) vs`>>full_simp_tac(srw_ss())[exhSemTheory.pmatch_def]) >>
   match_mp_tac sIf_correct >> simp[] >>
   srw_tac[][patSemTheory.evaluate_def] >>
-  qpat_abbrev_tac`xx = evaluate _ _ [sLet _ _]` >>
+  qpat_abbrev_tac`xx = evaluate _ _ [sLet _ _ _]` >>
   qho_match_abbrev_tac`P xx` >> qunabbrev_tac`xx` >>
-  qmatch_abbrev_tac`P (evaluate B C [sLet D E])` >>
-  qsuff_tac`P (evaluate B C [Let D E])` >- (
+  qmatch_abbrev_tac`P (evaluate B C [sLet tt D E])` >>
+  qsuff_tac`P (evaluate B C [Let tt D E])` >- (
     simp[Abbr`P`] >>
     ntac 2 BasicProvers.CASE_TAC >>
     imp_res_tac sLet_correct >> full_simp_tac(srw_ss())[]) >>
@@ -496,10 +501,10 @@ val compile_pat_correct = Q.prove(
            ,match_result_distinct])
 
 val compile_row_correct = Q.prove(
-  `(∀Nbvs0 p bvs0 ^s v menv bvs1 n f.
+  `(∀t Nbvs0 p bvs0 ^s v menv bvs1 n f.
       (Nbvs0 = NONE::bvs0) ∧
       (pmatch s.refs p v [] = Match menv) ∧
-      (compile_row Nbvs0 p = (bvs1,n,f))
+      (compile_row t Nbvs0 p = (bvs1,n,f))
     ⇒ ∃menv4 bvs.
        (bvs1 = bvs ++ bvs0) ∧
        (LENGTH bvs = SUC n) ∧
@@ -514,10 +519,10 @@ val compile_row_correct = Q.prove(
          evaluate (compile_v v::env)
            <| clock := count; refs := MAP (map_sv compile_v) s.refs;
               ffi := s.ffi; globals := genv |> [f e] = res) ∧
-   (∀bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+   (∀t bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
      (pmatch_list s.refs qs (TAKE k vs) [] = Match menvk) ∧
      (pmatch_list s.refs ps (DROP k vs) [] = Match menv) ∧
-     (compile_cols bvsk0 nk k ps = (bvs1,n1,f)) ∧
+     (compile_cols t bvsk0 nk k ps = (bvs1,n1,f)) ∧
      (bvsk0 = bvsk ++ NONE::bvs0) ∧
      (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
      (LENGTH menv4k = LENGTH bvsk) ∧
@@ -571,9 +576,9 @@ val compile_row_correct = Q.prove(
     srw_tac[][] >> full_simp_tac(srw_ss())[UNCURRY,LET_THM] >> srw_tac[][] >>
     qmatch_assum_rename_tac`pmatch s.refs p v [] = Match menv` >>
     first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
-    Q.PAT_ABBREV_TAC`t = compile_row X Y` >>
-    `∃bvs1 n f. t = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
-    qunabbrev_tac`t` >> simp[] >> srw_tac[][] >> simp[] >>
+    Q.PAT_ABBREV_TAC`tt = compile_row _ X Y` >>
+    `∃bvs1 n f. tt = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
+    qunabbrev_tac`tt` >> simp[] >> srw_tac[][] >> simp[] >>
     Q.PAT_ABBREV_TAC`w = Loc X` >>
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
@@ -594,9 +599,9 @@ val compile_row_correct = Q.prove(
     imp_res_tac EVERY2_LENGTH >>
     full_simp_tac(srw_ss())[LENGTH_NIL,pmatch_exh_def] ) >>
   srw_tac[][compile_row_def] >>
-  `∃bvsk1 nk1 f1. compile_row (NONE::(bvsk++[NONE]++bvs0)) p = (bvsk1,nk1,f1)` by
+  `∃bvsk1 nk1 f1. compile_row (t § 1) (NONE::(bvsk++[NONE]++bvs0)) p = (bvsk1,nk1,f1)` by
     simp[GSYM EXISTS_PROD] >> full_simp_tac(srw_ss())[LET_THM] >>
-  `∃bvs n fs. compile_cols bvsk1 (LENGTH bvsk + 1 + nk1) (LENGTH qs + 1) ps = (bvs,n,fs)` by
+  `∃bvs n fs. compile_cols (t § 2) bvsk1 (LENGTH bvsk + 1 + nk1) (LENGTH qs + 1) ps = (bvs,n,fs)` by
     simp[GSYM EXISTS_PROD] >> full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
   Cases_on`DROP (LENGTH qs) vs`>>full_simp_tac(srw_ss())[pmatch_exh_def] >>
@@ -679,29 +684,29 @@ val bindn_thm = Q.store_thm("bindn_thm",
 
 val (exp_rel_rules,exp_rel_ind,exp_rel_cases) = Hol_reln`
   (exp_rel z1 z2 V e1 e2
-   ⇒ exp_rel z1 z2 V (Raise e1) (Raise e2)) ∧
+   ⇒ exp_rel z1 z2 V (Raise t e1) (Raise t e2)) ∧
   (exp_rel z1 z2 V e11 e21 ∧ exp_rel (z1+1) (z2+1) (bind V) e12 e22
-   ⇒ exp_rel z1 z2 V (Handle e11 e12) (Handle e21 e22)) ∧
-  (exp_rel z1 z2 V (Lit l) (Lit l)) ∧
+   ⇒ exp_rel z1 z2 V (Handle t e11 e12) (Handle t e21 e22)) ∧
+  (exp_rel z1 z2 V (Lit t l) (Lit t l)) ∧
   (LIST_REL (exp_rel z1 z2 V) es1 es2
-   ⇒ exp_rel z1 z2 V (Con tag es1) (Con tag es2)) ∧
+   ⇒ exp_rel z1 z2 V (Con t tag es1) (Con t tag es2)) ∧
   ((k1 < z1 ∧ k2 < z2 ∧ V k1 k2) ∨ (z1 ≤ k1 ∧ z2 ≤ k2 ∧ (k1 = k2))
-   ⇒ exp_rel z1 z2 V (Var_local k1) (Var_local k2)) ∧
-  (exp_rel z1 z2 V (Var_global k) (Var_global k)) ∧
+   ⇒ exp_rel z1 z2 V (Var_local t k1) (Var_local t k2)) ∧
+  (exp_rel z1 z2 V (Var_global t k) (Var_global t k)) ∧
   (exp_rel (z1+1) (z2+1) (bind V) e1 e2
-   ⇒ exp_rel z1 z2 V (Fun e1) (Fun e2)) ∧
+   ⇒ exp_rel z1 z2 V (Fun t e1) (Fun t e2)) ∧
   (LIST_REL (exp_rel z1 z2 V) es1 es2
-   ⇒ exp_rel z1 z2 V (App op es1) (App op es2)) ∧
+   ⇒ exp_rel z1 z2 V (App t op es1) (App t op es2)) ∧
   (exp_rel z1 z2 V e11 e21 ∧ exp_rel z1 z2 V e12 e22 ∧ exp_rel z1 z2 V e13 e23
-   ⇒ exp_rel z1 z2 V (If e11 e12 e13) (If e21 e22 e23)) ∧
+   ⇒ exp_rel z1 z2 V (If t e11 e12 e13) (If t e21 e22 e23)) ∧
   (exp_rel z1 z2 V e11 e21 ∧ exp_rel (z1+1) (z2+1) (bind V) e12 e22
-   ⇒ exp_rel z1 z2 V (Let e11 e12) (Let e21 e22)) ∧
+   ⇒ exp_rel z1 z2 V (Let t e11 e12) (Let t e21 e22)) ∧
   (exp_rel z1 z2 V e11 e21 ∧ exp_rel z1 z2 V e12 e22
-   ⇒ exp_rel z1 z2 V (Seq e11 e12) (Seq e21 e22)) ∧
+   ⇒ exp_rel z1 z2 V (Seq t e11 e12) (Seq t e21 e22)) ∧
   (LIST_REL (exp_rel (z1+(SUC(LENGTH es1))) (z2+(SUC(LENGTH es2))) (bindn (SUC (LENGTH es1)) V)) es1 es2 ∧
    exp_rel (z1+(LENGTH es1)) (z2+(LENGTH es2)) (bindn (LENGTH es1) V) e1 e2
-   ⇒ exp_rel z1 z2 V (Letrec es1 e1) (Letrec es2 e2)) ∧
-  (exp_rel z1 z2 V (Extend_global n) (Extend_global n))`;
+   ⇒ exp_rel z1 z2 V (Letrec t es1 e1) (Letrec t es2 e2)) ∧
+  (exp_rel z1 z2 V (Extend_global t n) (Extend_global t n))`;
 
 val exp_rel_refl = Q.store_thm("exp_rel_refl",
   `(∀e z V. (∀k. k < z ⇒ V k k) ⇒ exp_rel z z V e e) ∧
@@ -766,10 +771,10 @@ val exp_rel_mono = Q.store_thm("exp_rel_mono",
 val _ = export_mono"exp_rel_mono";
 
 val exp_rel_lit = Q.store_thm("exp_rel_lit",
-  `(exp_rel z1 z2 V (Lit l) e2 ⇔ (e2 = Lit l)) ∧
-    (exp_rel z1 z2 V e1 (Lit l) ⇔ (e1 = Lit l)) ∧
-    (exp_rel z1 z2 V (Bool b) e2 ⇔ (e2 = Bool b)) ∧
-    (exp_rel z1 z2 V e1 (Bool b) ⇔ (e1 = Bool b))`,
+  `(exp_rel z1 z2 V (Lit t l) e2 ⇔ (e2 = Lit t l)) ∧
+    (exp_rel z1 z2 V e1 (Lit t l) ⇔ (e1 = Lit t l)) ∧
+    (exp_rel z1 z2 V (Bool t b) e2 ⇔ (e2 = Bool t b)) ∧
+    (exp_rel z1 z2 V e1 (Bool t b) ⇔ (e1 = Bool t b))`,
   srw_tac[][Once exp_rel_cases] >>
   srw_tac[][Once exp_rel_cases,Bool_def] )
 val _ = export_rewrites["exp_rel_lit"];
@@ -1522,7 +1527,12 @@ val bindn_bvs_V = Q.store_thm("bindn_bvs_V",
   metis_tac[bind_bvs_V,bindn_def])
 
 val exp_rel_Con =
-  SIMP_RULE(srw_ss())[](Q.SPECL[`z1`,`z2`,`V`,`Con X Y`]exp_rel_cases)
+  SIMP_RULE(srw_ss())[](Q.SPECL[`z1`,`z2`,`V`,`Con _ X Y`]exp_rel_cases)
+
+val exp_rel_isBool = Q.store_thm("exp_rel_isBool",
+  `exp_rel z1 z2 V e e' ⇒ (isBool b e ⇔ isBool b e')`,
+  rw[Once exp_rel_cases] \\ fs[] \\
+  CASE_TAC \\ fs[] \\ fs[]);
 
 val exp_rel_sIf = Q.store_thm("exp_rel_sIf",
   `exp_rel z1 z2 V (If e1 e2 e3) (If f1 f2 f3) ⇒
