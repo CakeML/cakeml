@@ -136,13 +136,13 @@ val wInst_def = Define `
     wRegWrite1 (\r. Inst (FP (FPEqual r f1 f2))) r kf) /\
   (wInst (FP (FPMovToReg r1 r2 d)) kf =
     if dimindex(:'a) = 64 then
-      wRegWrite1 (λr1. Inst (FP (FPMovToReg r1 r2 d))) r1 kf
+      wRegWrite1 (λr1. Inst (FP (FPMovToReg r1 0 d))) r1 kf
     else
       wRegWrite2 (λr2. wRegWrite1 (λr1. Inst(FP (FPMovToReg r1 r2 d))) r1 kf) r2 kf) /\
   (wInst (FP (FPMovFromReg d r1 r2)) kf =
     let (l,n1) = wReg1 r1 kf in
     let (l',n2) =
-      if dimindex(:'a) = 64 then ([],r2)
+      if dimindex(:'a) = 64 then ([],0)
       else wReg2 r2 kf in
     wStackLoad (l++l')
       (Inst (FP (FPMovFromReg d n1 n2)))) /\
