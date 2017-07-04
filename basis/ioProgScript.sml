@@ -141,13 +141,13 @@ val read_all_spec = Q.store_thm ("read_all_spec",
 
 
 (*TODO: update this to include Char.fromByte and move to a more appropriate location*)
-val print = process_topdecs
+val print_dec = process_topdecs
   `fun print s =
     let
       val l = String.explode s
     in write_list l end`
 
-val res = ml_prog_update(ml_progLib.add_prog print pick_name)
+val res = ml_prog_update(ml_progLib.add_prog print_dec pick_name)
 
 val print_spec = Q.store_thm("print_spec",
   `!s sv. STRING_TYPE s sv ==>
@@ -254,37 +254,37 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
 
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
-    \name (inp,out,err,cls,fs) bytes.
+    \name (inp,out,err,cls,fs) conf bytes.
      if name = "putChar" then
-       case ffi_putChar bytes out of
+       case ffi_putChar conf bytes out of
        | SOME (bytes,out) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "putChar_err" then
-       case ffi_putChar_err bytes err of
+       case ffi_putChar_err conf bytes err of
        | SOME (bytes,err) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getChar" then
-       case ffi_getChar bytes inp of
+       case ffi_getChar conf bytes inp of
        | SOME (bytes,inp) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getArgs" then
-       case ffi_getArgs bytes cls of
+       case ffi_getArgs conf bytes cls of
        | SOME (bytes,cls) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "open" then
-       case ffi_open bytes fs of
+       case ffi_open conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "fgetc" then
-       case ffi_fgetc bytes fs of
+       case ffi_fgetc conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "close" then
-       case ffi_close bytes fs of
+       case ffi_close conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      if name = "isEof" then
-       case ffi_isEof bytes fs of
+       case ffi_isEof conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (inp,out,err,cls,fs) bytes
        | _ => Oracle_fail else
      Oracle_fail`
@@ -324,7 +324,7 @@ val basis_proj1_putChar_err = Q.store_thm("basis_proj1_putChar_err",
 
 val extract_output_def = Define `
   (extract_output [] = SOME "") /\
-  (extract_output ((IO_event name bytes)::xs) =
+  (extract_output ((IO_event name conf bytes)::xs) =
      case extract_output xs of
      | NONE => NONE
      | SOME rest =>
@@ -334,7 +334,7 @@ val extract_output_def = Define `
 
 val extract_err_def = Define `
   (extract_err [] = SOME "") /\
-  (extract_err ((IO_event name bytes)::xs) =
+  (extract_err ((IO_event name conf bytes)::xs) =
      case extract_err xs of
      | NONE => NONE
      | SOME rest =>
@@ -571,8 +571,8 @@ val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
-    ==> (?y. st.ffi.oracle m x bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
+    ==> (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
@@ -587,7 +587,7 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ CCONTR_TAC \\ fs[] \\ rfs[]
 );
 
-(*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
+(*This is an example of how to show parts_ok for a given state -- could be automated and put in ioProgLib.sml *)
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   `parts_ok (auto_state_1 (basis_ffi inp cls fs)).ffi (basis_proj1, basis_proj2)` ,
   qmatch_goalsub_abbrev_tac`st.ffi`
@@ -609,14 +609,14 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
 
 (* TODO: Move these to somewhere relevant *)
 val extract_output_not_putChar = Q.prove(
-    `!xs name bytes. name <> "putChar" ==>
-      extract_output (xs ++ [IO_event name bytes]) = extract_output xs`,
+    `!xs name conf bytes. name <> "putChar" ==>
+      extract_output (xs ++ [IO_event name conf bytes]) = extract_output xs`,
       rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
 );
 
 val extract_err_not_putChar_err = Q.prove(
-    `!xs name bytes. name <> "putChar_err" ==>
-      extract_err (xs ++ [IO_event name bytes]) = extract_err xs`,
+    `!xs name conf bytes. name <> "putChar_err" ==>
+      extract_err (xs ++ [IO_event name conf bytes]) = extract_err xs`,
       rw[extract_err_APPEND, extract_err_def] \\ Cases_on `extract_err xs` \\ rw[]
 );
 

@@ -27,7 +27,7 @@ val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_st
 val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_err_state_loc" e) "write_err_state" [])
 
 val e =
-  ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
+  ``Let NONE (App (FFI "getChar") [Lit(StrLit ""); Var (Short "read_state")])
      (LetApps "b" (Long "Word8Array" (Short "sub")) [Var (Short "read_state");  Lit (IntLit 0)]
        (LetApps "i" (Long "Word8" (Short "toInt")) [Var (Short "b")]
          (Apps [Var (Long "Char" (Short "chr")); Var (Short "i")])))``
@@ -48,7 +48,7 @@ val e =
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_state");
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar") [Lit(StrLit ""); Var (Short "write_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
@@ -58,7 +58,7 @@ val e =
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_err_state");
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar_err") [Var (Short "write_err_state")]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar_err") [Lit(StrLit ""); Var (Short "write_err_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write_err"`` ``"c"`` e "write_err_v")
 
@@ -204,7 +204,8 @@ val read_spec = Q.store_thm ("read_spec",
       \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ map_every qexists_tac[`ns`,`u`] \\ rpt(qexists_tac`s`)
       \\ simp[cfHeapsBaseTheory.mk_ffi_next_def,Abbr`u`,Abbr`s`]
-      \\ xsimpl \\ fs[ ffi_getChar_def,Abbr`ns`] )
+      \\ xsimpl \\ fs[ ffi_getChar_def,Abbr`ns`]
+       )
     \\ fs[STDIN_def] \\ xpull
     \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
     >- (
