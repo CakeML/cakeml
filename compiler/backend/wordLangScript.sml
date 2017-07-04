@@ -99,8 +99,6 @@ val every_var_inst_def = Define`
   (every_var_inst P (FP (FPMovFromReg d r1 r2)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P inst = T)` (*catchall*)
 
-(* TODO: every FP reg *)
-
 val every_name_def = Define`
   every_name P t ⇔
   EVERY P (MAP FST (toAList t))`

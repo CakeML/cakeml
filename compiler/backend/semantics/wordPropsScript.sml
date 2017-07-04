@@ -2245,19 +2245,17 @@ val gc_fun_ok_def = Define `
 (* No expressions occur except in Set, where it must be a Var expr *)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
-  (flat_exp_conventions (Assign v exp) = F) ∧
-  (flat_exp_conventions (Store exp num) = F) ∧
+  (flat_exp_conventions (Assign v exp) ⇔ F) ∧
+  (flat_exp_conventions (Store exp num) ⇔ F) ∧
   (*The only place where top level (expression) vars are allowed*)
-  (flat_exp_conventions (Set store_name (Var r)) = T) ∧
-  (flat_exp_conventions (Set store_name _) = F) ∧
-  (flat_exp_conventions (Seq p1 p2) =
-    (flat_exp_conventions p1 ∧ flat_exp_conventions p2)) ∧
-  (flat_exp_conventions (If cmp r1 ri e2 e3) =
-    (flat_exp_conventions e2 ∧
-    flat_exp_conventions e3)) ∧
-  (flat_exp_conventions (MustTerminate p) =
-    flat_exp_conventions p) ∧
-  (flat_exp_conventions (Call ret dest args h) =
+  (flat_exp_conventions (Set store_name (Var r)) ⇔ T) ∧
+  (flat_exp_conventions (Set store_name _) ⇔ F) ∧
+  (flat_exp_conventions (Seq p1 p2) ⇔
+    flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
+  (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
+    flat_exp_conventions e2 ∧ flat_exp_conventions e3) ∧
+  (flat_exp_conventions (MustTerminate p) ⇔ flat_exp_conventions p) ∧
+  (flat_exp_conventions (Call ret dest args h) ⇔
     ((case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
@@ -2265,31 +2263,50 @@ val flat_exp_conventions_def = Define`
     (case h of
       NONE => T
     | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
-  (flat_exp_conventions _ = T)`
+  (flat_exp_conventions _ ⇔ T)`
 
-(* Well-formed instructions *)
+(* Well-formed instructions
+  This also includes the FP conditions since we do not allocate them
+*)
 val inst_ok_less_def = Define`
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
+  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
     c.valid_imm (INL b) w) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Div r1 r2 r3)) =
+  (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
-  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
     ((c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
-  (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
+  (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔
     (c.ISA = x86_64)) ∧
-  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
-  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) ⇔
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3  ∧ r1 ≠ r4)) ∧
+  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Mem m r (Addr r' w)) =
+  (inst_ok_less c (Mem m r (Addr r' w)) ⇔
     if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
+  (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
+  (inst_ok_less c (FP (FPAbs d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPNeg d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPSqrt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPAdd d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPSub d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPMul d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
+      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+  (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
+      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+  (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less _ _ = T)`
 
 (* Instructions have distinct targets and read vars -- set by SSA form *)

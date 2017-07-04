@@ -14,6 +14,7 @@ val _ = set_grammar_ancestry [
 ]
 
 val _ = Parse.hide "B"
+val _ = Parse.hide "exp"
 
 val TWOxDIV2 = Q.store_thm("TWOxDIV2",
   `2 * x DIV 2 = x`,
@@ -4131,6 +4132,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       >>
       fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>
       strip_tac>>
+      (* This case is a little bit harder than the rest because it is the only one
+         involving a double write
+      *)
       rw[wRegWrite2_def]
       >-
         (rw[wRegWrite1_def]
@@ -4155,14 +4159,11 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
             fs[DROP_LUPDATE,LLOOKUP_LUPDATE]
           >-
             (first_x_assum drule>>rw[]>>
-            (*2*(n DIV2) = n*)
-            cheat)
+            fs[EVEN_EXISTS]>>rw[]>>fs[TWOxDIV2])
           >-
             (fs[DROP_LUPDATE,LLOOKUP_LUPDATE]>>
             first_x_assum drule>>rw[]>>
-            rw[]>>
-            (*f'+k-m = f'+k-nDIV2 impossible sinec m!= nDIV2..*)
-            cheat)
+            fs[EVEN_EXISTS]>>rw[]>>fs[TWOxDIV2])
           >-
             metis_tac[]))
       >>
@@ -4182,14 +4183,11 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
             fs[DROP_LUPDATE,LLOOKUP_LUPDATE]
           >-
             (first_x_assum drule>>rw[]>>
-            (*2*(n DIV2) = n*)
-            cheat)
+            fs[EVEN_EXISTS]>>rw[]>>fs[TWOxDIV2])
           >-
             (fs[DROP_LUPDATE,LLOOKUP_LUPDATE]>>
             first_x_assum drule>>rw[]>>
-            rw[]>>
-            (*f'+k-m = f'+k-nDIV2 impossible sinec m!= nDIV2..*)
-            cheat)
+            fs[EVEN_EXISTS]>>rw[]>>fs[TWOxDIV2])
           >-
             metis_tac[])
         >>
@@ -4210,8 +4208,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
             (first_x_assum drule>>rw[])
           >-
             (first_x_assum drule>>rw[]>>
-            (*f'+k-m = f'+k-nDIV2 impossible sinec m!= nDIV2..*)
-            cheat)
+            fs[EVEN_EXISTS]>>rw[]>>fs[TWOxDIV2])
           >-
             metis_tac[])))
     >-
@@ -4282,7 +4279,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     >>
       every_case_tac>>fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>
       imp_res_tac state_rel_get_fp_var>>
-      rw[]>>fs[state_rel_set_fp_var]))
+      rw[]>>fs[state_rel_set_fp_var]));
 
 val set_store_set_var = Q.store_thm("set_store_set_var",
   `stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)`,
@@ -6877,6 +6874,7 @@ val init_state_ok_def = Define `
 val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
     <| locals  := insert 0 (Loc 1 0) LN
+     ; fp_regs := t.fp_regs
      ; store   := t.store \\ Handler
      ; stack   := []
      ; memory  := t.memory
@@ -6976,6 +6974,7 @@ val word_to_stack_lab_pres = Q.store_thm("word_to_stack_lab_pres",`
     Cases_on`ls`>>rw[]>>EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
+    TRY(Cases_on`f`)>>
     TRY(Cases_on`b`>>Cases_on`r`)>>EVAL_TAC>>
     EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
@@ -7099,9 +7098,10 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`b`>>Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
     PairCases_on`kf`>>
     fs wconvs>>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def]>>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>fs[]>>
@@ -7201,6 +7201,7 @@ val word_to_stack_stack_asm_remove_lem = Q.prove(`
     EVAL_TAC>>fs[])
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
+    TRY(Cases_on`f`)>>
     TRY(Cases_on`b`>>Cases_on`r`)>>
     PairCases_on`kf`>>
     rpt(EVAL_TAC>>rw[]))
