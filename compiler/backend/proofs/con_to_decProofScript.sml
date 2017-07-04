@@ -89,11 +89,11 @@ val compile_exp_correct = Q.prove (
   fsrw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][compile_state_def]);
 
 val init_globals_thm = Q.prove (
-  `∀vs env s n genv gs s' extra.
+  `∀vs env s n genv gs s' extra tr i.
    ALL_DISTINCT vs ∧ (MAP (ALOOKUP env.v) vs = MAP SOME gs) ∧
    s.globals = genv ++ GENLIST (K NONE) (LENGTH gs) ++ extra ∧ n = LENGTH genv ∧
    s' = s with globals := genv ++ MAP SOME gs ++ extra
-   ⇒ evaluate env s [init_globals vs n] =
+   ⇒ evaluate env s [init_globals tr i vs n] =
      (s',Rval [Conv NONE []])`,
   Induct >>
   rw[init_globals_def,decSemTheory.evaluate_def] >- rw[state_component_equality] >>
@@ -110,9 +110,9 @@ val init_globals_thm = Q.prove (
   fs[LIST_EQ_REWRITE,EL_MAP,libTheory.opt_bind_def]);
 
 val init_global_funs_thm = Q.prove (
-  `!l genv n.  LENGTH l ≤ n ⇒
+  `!l genv n tr i.  LENGTH l ≤ n ⇒
     evaluate <|v := []; exh := exh|>
-      (compile_state s with globals := genv ++ GENLIST (K NONE) n) [init_global_funs (LENGTH genv) l]
+      (compile_state s with globals := genv ++ GENLIST (K NONE) n) [init_global_funs tr i (LENGTH genv) l]
     = (compile_state s with globals := genv ++ MAP SOME (MAP (λ(f,x,e). Closure [] x e) l) ++ GENLIST (K NONE) (n - LENGTH l),
        Rval [Conv NONE []])`,
   Induct >> simp[init_global_funs_def] >- (rw[decSemTheory.evaluate_def]) >>
@@ -128,7 +128,7 @@ val init_global_funs_thm = Q.prove (
 val klem = EQT_ELIM(SIMP_CONV(srw_ss())[K_DEF]``(λx:num. NONE) = K NONE``)
 
 val compile_decs_correct = Q.store_thm("compile_decs_correct",
-  `!env s ds s' new_env r.
+  `!env s ds s' new_env r t.
     evaluate_decs env s ds = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error)
     ⇒
@@ -136,7 +136,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
       result_rel r r_i3 ∧
       evaluate <| v := []; exh := env.exh |>
         (compile_state s with globals := s.globals ++ GENLIST (K NONE) (num_defs ds))
-        [compile_decs (LENGTH s.globals) ds]
+        [SND (compile_decs t (LENGTH s.globals) ds)]
         =
         (compile_state s' with globals := s'.globals ++ GENLIST (K NONE) (num_defs ds - LENGTH new_env),
          r_i3)`,
@@ -150,8 +150,10 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   fs[conSemTheory.evaluate_dec_def] >- (
     every_case_tac >> fs[] >> rw[] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(qspec_then`t+3`mp_tac) \\
     rw[] >>
     fs[conLangTheory.num_defs_def] >>
+    pairarg_tac \\ fs[] \\
     rw[decSemTheory.evaluate_def] >>
     simp[init_global_funs_thm] >>
     simp[libTheory.opt_bind_def] ) >>
@@ -160,11 +162,14 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     qexists_tac`Rerr err` >>
     rw[result_rel_cases]
     >-(Cases_on`err`>>fs[]) >>
+    pairarg_tac \\ fs[] \\
     imp_res_tac compile_exp_correct >> rfs[compile_env_def] >>
     imp_res_tac evaluate_genv_weakening >>
     fs[klem] >>
     rw[decSemTheory.evaluate_def] >> rfs[] ) >>
+  pairarg_tac \\ fs[] \\
   first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  disch_then(qspec_then`t+3`mp_tac) \\
   rw[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   imp_res_tac compile_exp_correct >> fs[] >>
@@ -203,13 +208,14 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   simp[conLangTheory.num_defs_def] >>
   ONCE_REWRITE_TAC[ADD_COMM] >>
   simp[GENLIST_APPEND] >>
-  fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM,klem]);
+  fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM,klem] \\
+  rfs[]);
 
 val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
-  `!env s p new_env s' r next' e.
+  `!env s p new_env s' r t next' e t'.
     evaluate_prompt env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p)
+    ((t', next',e) = compile_prompt t (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p)
     ⇒
     ?r_i3.
       dec_result_rel r r_i3 ∧
@@ -219,13 +225,14 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
         (compile_state s' with globals := s.globals ++ new_env,r_i3)`,
   Cases_on`p`>>
   rw [evaluate_prompt_def, compile_prompt_def] >>
+  pairarg_tac \\ fs[] \\
   fs [LET_THM, decSemTheory.evaluate_def] >>
   rw[libTheory.opt_bind_def] >>
   rw[pat_bindings_def,pmatch_def] >>
   first_assum(split_pair_case0_tac o lhs o concl) >> fs[] >>
   imp_res_tac compile_decs_correct >> pop_assum kall_tac >>
-  pop_assum mp_tac >> impl_tac >- (strip_tac >> fs[]) >> strip_tac >>
-  simp[] >>
+  pop_assum mp_tac >> impl_tac >- (strip_tac >> fs[]) >>
+  disch_then(qspec_then`t`strip_assume_tac) >>
   fs[result_rel_cases,dec_result_rel_cases] >> fs[] >>
   imp_res_tac eval_decs_num_defs >>
   imp_res_tac eval_decs_num_defs_err >> fs[] >>
@@ -234,11 +241,11 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   imp_res_tac evaluate_decs_globals >> rfs[]);
 
 val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
-  `!env s p new_env s' r next' e.
+  `!env s p new_env s' r t next' e t'.
     evaluate_prog env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
     FLOOKUP env.exh (Short "option") = SOME (insert 0 1 (insert 1 1 LN)) ∧
-    (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p = (next',e))
+    (compile_prog t (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p = (t',next',e))
     ⇒
     ?r_i3.
       dec_result_rel r r_i3 ∧
@@ -255,12 +262,15 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   rw [pat_bindings_def,pmatch_def] >>
   first_assum(split_pair_case0_tac o lhs o concl) >> fs [] >>
   first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prompt_correct)) >>
-  simp[] >>
-  impl_tac >- (strip_tac >> fs[]) >> strip_tac >> simp[] >>
+  simp[RIGHT_FORALL_IMP_THM] >>
+  impl_tac >- (strip_tac >> fs[]) >>
+  disch_then(qspec_then`t`mp_tac) \\ simp[] \\
+  strip_tac >> simp[] >>
   fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 1``] >> fs[] >>
   rpt var_eq_tac >> simp[] >- (
     first_assum(split_pair_case0_tac o lhs o concl) >> fs [] >> rw[] >>
-    first_x_assum drule >> simp[]) >>
+    first_x_assum drule >> simp[] >>
+    disch_then drule \\ simp[]) >>
   EVAL_TAC);
 
 val compile_semantics = Q.store_thm("compile_semantics",
@@ -284,10 +294,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
       spose_not_then strip_assume_tac >> fs[] >>
       drule compile_prog_evaluate >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      disch_then(qspec_then`1`mp_tac) \\
       simp[] >> spose_not_then strip_assume_tac >>
       fs[compile_def] >>
       fs[dec_result_rel_cases] >> rfs[] >>
-      rveq >> fs[]) >>
+      pairarg_tac \\ fs[]  \\ rveq \\ fs[]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       rw[] >>
@@ -303,8 +314,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
         Cases_on`s''.ffi.final_event`>>fs[]>-(
           unabbrev_all_tac >>
           drule compile_prog_evaluate >>
-          (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
-          simp[] >>
+          disch_then(qspec_then`1`mp_tac) \\ fs[] >>
+          pairarg_tac \\ fs[] \\
           strip_tac >>
           drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
           simp[RIGHT_FORALL_IMP_THM] >>
@@ -325,7 +336,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
           last_x_assum(qspec_then`k+k'`mp_tac)>>
           fsrw_tac[ARITH_ss][]) >>
         impl_tac >- fs[] >>
-        (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+        disch_then(qspec_then`1`mp_tac) \\
+        pairarg_tac  \\ asm_simp_tac pure_ss [] \\
         strip_tac >> fs[] >>
         qhdtm_x_assum`conSem$evaluate_prog`mp_tac >>
         drule (GEN_ALL conPropsTheory.evaluate_prog_add_to_clock) >>
@@ -340,12 +352,13 @@ val compile_semantics = Q.store_thm("compile_semantics",
       qmatch_assum_rename_tac`_ = (_,pp)` >> Cases_on`pp` >>
       unabbrev_all_tac >>
       drule compile_prog_evaluate >>
+      disch_then(qspec_then`1`mp_tac) >>
       CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
       impl_tac >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>
         fsrw_tac[ARITH_ss][]) >>
       impl_tac >- fs[] >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      pairarg_tac \\ fs[] >>
       strip_tac >> fs[] >> rveq >>
       reverse(Cases_on`s''.ffi.final_event`)>>fs[]>>rfs[]>- (
         fsrw_tac[ARITH_ss][] >> rfs[compile_state_def,dec_result_rel_cases] >> fs[] >> rfs[]) >>
@@ -360,7 +373,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
     drule compile_prog_evaluate >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     last_x_assum(qspec_then`k`strip_assume_tac) >> rfs[] >>
+    disch_then(qspec_then`1`mp_tac) \\
     (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    simp[] \\
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    simp[] \\
     strip_tac >> fs[] >>
     simp[compile_def] >>
     asm_exists_tac >> simp[] >>
@@ -378,8 +395,10 @@ val compile_semantics = Q.store_thm("compile_semantics",
     pop_assum(assume_tac o SYM) >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
     simp[] >>
+    qexists_tac`1` \\
     simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
     fs[compile_def] >>
+    pairarg_tac \\ fs[] \\
     rw[dec_result_rel_cases]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
@@ -391,7 +410,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
     spose_not_then strip_assume_tac >> fs[] >>
     last_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     drule compile_prog_evaluate >>
-    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    disch_then(qspec_then`1`mp_tac) \\ simp[] \\
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >> simp[] \\
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >> simp[] \\
     strip_tac >> rfs[] >> rveq >>
     fs[compile_def] >> rveq >> fs[compile_state_def] >>
     CASE_TAC >> fs[] >>
@@ -404,6 +425,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   specl_args_of_then``evaluate_prog``compile_prog_evaluate mp_tac >>
   simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
   simp[] >>
+  disch_then(qspec_then`1`mp_tac) \\
   strip_tac >>
   first_x_assum(qspec_then`k`strip_assume_tac) >>
   fs[compile_def] >>
@@ -412,6 +434,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   fs[markerTheory.Abbrev_def] >>
   ntac 2 (qpat_x_assum`(_,_) = _`(assume_tac o SYM)) >> fs[] >>
   rpt var_eq_tac >>
+  pairarg_tac \\ fs[] \\
   fs[dec_result_rel_cases,compile_state_def]);
 
 val set_globals_esgc = Q.prove(`
@@ -420,44 +443,58 @@ val set_globals_esgc = Q.prove(`
   ho_match_mp_tac set_globals_ind>>rw[])
 
 val no_set_globals_imp_esgc_free = Q.store_thm("no_set_globals_imp_esgc_free",
- `∀prog a b c.
+ `∀prog t a b c.
   EVERY (λp. decs_set_globals p = {||}) prog ⇒
-  esgc_free (SND (con_to_dec$compile_prog a b c prog))`,
+  esgc_free (SND (SND (con_to_dec$compile_prog t a b c prog)))`,
   Induct>>
   fs[compile_prog_def,compile_prompt_def]>>
   Cases>>rw[]>>
   pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
   reverse CONJ_TAC
   >-
-    (first_x_assum(qspecl_then[`a`,`b`,`c+num_defs l`] assume_tac)>>
-    rfs[])
+    (rename1`con_to_dec$compile_prog z a b` \\
+     first_x_assum(qspecl_then[`z`,`a`,`b`,`c+num_defs l`] assume_tac)>>
+     pairarg_tac \\ fs[] \\ rfs[])
   >>
+    pairarg_tac \\ fs[] \\ rw[] \\
+    pop_assum mp_tac>>
     ntac 2 (pop_assum kall_tac)>>
     pop_assum mp_tac>>
-    qid_spec_tac`c`>>
-    qid_spec_tac`l`>>
+    pop_assum kall_tac >>
+    rename1`compile_decs t c l = (t',decs)` >>
+    map_every qid_spec_tac[`decs`,`t`,`t'`,`c`,`l`] \\
     Induct>>fs[compile_decs_def]>>
     Cases>>fs[dec_set_globals_def]
-    >-
-      (fs[set_globals_esgc]>>
+    >- (
+      rw[] \\
+      pairarg_tac \\ fs[] \\ rveq \\ simp[] \\
+      simp[set_globals_esgc] \\
+      reverse conj_tac >- (
+        first_x_assum match_mp_tac \\
+        metis_tac[] ) \\
       qpat_abbrev_tac`ls = GENLIST f n`>>rw[]>>
+      qmatch_goalsub_rename_tac`init_globals tt nn ls c` >>
       rpt(pop_assum kall_tac)>>
-      qid_spec_tac`c`>>
+      qid_spec_tac`c`>> qid_spec_tac`tt`>> qid_spec_tac`nn` \\
       Induct_on`ls`>>fs[init_globals_def])
     >>
       rw[]>>
+      pairarg_tac \\ fs[] \\ rveq \\  simp[] \\
+      reverse conj_tac >- metis_tac[] \\
       qpat_x_assum`elist_globals (MAP (SND o SND) l') = {||}` mp_tac>>
       rpt(pop_assum kall_tac)>>
-      qid_spec_tac`c`>>
-      Induct_on`l'`>>
+      qmatch_goalsub_rename_tac`init_global_funs tt nn c ls` >>
+      map_every qid_spec_tac[`c`,`tt`,`nn`]>>
+      Induct_on`ls`>>
       fs[init_global_funs_def]>>
       rw[]>>PairCases_on`h`>>
       fs[init_global_funs_def,esgc_free_def])
 
 val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
- `∀prog c.
+ `∀prog t c.
   EVERY (λp. decs_set_globals p = {||}) prog ⇒
-  let (n,p) =(con_to_dec$compile_prog a b c prog) in
+  let (t',n,p) =(con_to_dec$compile_prog t a b c prog) in
   let bag = set_globals p in
   c ≤ n ∧
   BAG_ALL_DISTINCT bag ∧
@@ -466,52 +503,64 @@ val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
   fs[compile_prompt_def]>>
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
-  qpat_x_assum`A=p` sym_sub_tac>>fs[]>>
-  first_x_assum(qspecl_then [`c+num_defs l`] assume_tac)>>rfs[]>>
+  pairarg_tac>>fs[]>>
+  rveq >> fs[] >>
+  pairarg_tac>>fs[]>>
+  rveq >> fs[] >>
+  qmatch_assum_rename_tac`compile_prog tr a b _ prog = _` >>
+  first_x_assum(qspecl_then [`tr`,`c+num_defs l`] assume_tac)>>rfs[]>>
   fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION]>>
-  `let bag = (set_globals (compile_decs c l)) in
+  `let bag = (set_globals (SND (compile_decs t c l))) in
    BAG_ALL_DISTINCT bag ∧
    ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + num_defs l` by
      (last_x_assum mp_tac>>
      rpt (pop_assum kall_tac)>>
      qid_spec_tac`c`>>
+     qid_spec_tac`t`>>
      Induct_on`l`>>fs[compile_decs_def]>>
-     Cases>>fs[dec_set_globals_def]>> strip_tac>>
-     fs[conLangTheory.num_defs_def,bagTheory.BAG_ALL_DISTINCT_BAG_UNION]
+     Cases>>fs[dec_set_globals_def]>> ntac 3 strip_tac>>
+     fs[conLangTheory.num_defs_def,bagTheory.BAG_ALL_DISTINCT_BAG_UNION] >>
+     pairarg_tac \\ fs []
      >-
        (qpat_abbrev_tac`ls = GENLIST f n`>>
-       `let bag = (set_globals (init_globals ls c)) in
+        qmatch_goalsub_rename_tac`init_globals tt nn ls c` >>
+       `let bag = (set_globals (init_globals tt nn ls c)) in
        BAG_ALL_DISTINCT bag ∧
        ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + LENGTH ls` by
          (rpt (pop_assum kall_tac)>>
-         qid_spec_tac`c`>>Induct_on`ls`>>
+         map_every qid_spec_tac[`c`,`tt`,`nn`]>>
+         Induct_on`ls`>>
          fs[init_globals_def]>>
-         strip_tac>> first_x_assum(qspec_then`c+1` assume_tac)>>
+         ntac 3 strip_tac>> first_x_assum(qspecl_then[`nn+3`,`tt`,`c+1`]assume_tac)>>
          fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION,op_gbag_def]>>
          CONJ_TAC>-
            (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
            CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
          rw[]>>res_tac>>fs[])>>
-      strip_tac>>fs[markerTheory.Abbrev_def]>>
-      rfs[]>>
-      last_x_assum(qspec_then`c+n` assume_tac)>>
+      fs[markerTheory.Abbrev_def]>>
+      rfs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION]>>
+      last_x_assum(qspecl_then[`nn+t`,`c+n`] assume_tac)>>
       CONJ_TAC>-
-        (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
+        (fs[bagTheory.BAG_DISJOINT_BAG_IN]>> rfs[] >>
         strip_tac>>
         match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
         rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
-      rw[]>>res_tac>>fs[])
+      rw[]>>rfs[]>>res_tac>>fs[])
     >-
-      (strip_tac>>
-      `let bag = (set_globals (init_global_funs c l')) in
+      (
+       fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION] >>
+       first_x_assum(qspecl_then[`t+3`,`c + LENGTH l'`]mp_tac) \\ simp[] \\
+       strip_tac \\
+       qmatch_goalsub_rename_tac`init_global_funs tt nn c l'` \\
+      `let bag = (set_globals (init_global_funs tt nn c l')) in
       BAG_ALL_DISTINCT bag ∧
       ∀x. x ⋲ bag ⇒ c ≤ x ∧ x < c + LENGTH l'` by
-         (pop_assum kall_tac>> pop_assum mp_tac>> pop_assum kall_tac>>
-         qid_spec_tac`c`>>Induct_on`l'`>>
+         (last_x_assum mp_tac >> rpt(pop_assum kall_tac) >>
+         qid_spec_tac`c`>>qid_spec_tac`nn`>>Induct_on`l'`>>
          fs[init_global_funs_def]>>
-         ntac 2 strip_tac>>PairCases_on`h`>>
+         ntac 3 strip_tac>>PairCases_on`h`>>
          fs[init_global_funs_def]>>
-         first_x_assum(qspec_then`c+1` assume_tac)>>
+         first_x_assum(qspecl_then[`nn+3`,`c+1`] assume_tac)>>
          strip_tac>>
          fs[bagTheory.BAG_ALL_DISTINCT_BAG_UNION,op_gbag_def]>>
          CONJ_TAC>-
@@ -519,14 +568,13 @@ val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
            CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
          rw[]>>res_tac>>fs[])>>
       fs[]>>rfs[] >>
-      last_x_assum(qspec_then`c+LENGTH l'` assume_tac)>>
       CONJ_TAC>-
         (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
         strip_tac>>
         match_mp_tac (METIS_PROVE[] ``∀P Q. (P ⇒ Q)  ⇒ (¬P ∨ Q)``)>>
         rw[]>>CCONTR_TAC>>fs[]>>res_tac>>fs[])>>
       rw[]>>res_tac>>fs[]))>>
-  fs[]>>
+  fs[]>> rfs[] >>
   CONJ_TAC>-
     (fs[bagTheory.BAG_DISJOINT_BAG_IN]>>
     strip_tac>>
@@ -537,9 +585,9 @@ val no_set_globals_imp_bag_all_distinct_lem = Q.prove(
 val no_set_globals_imp_bag_all_distinct = Q.store_thm("no_set_globals_imp_bag_all_distinct",
  `∀prog c.
   EVERY (λp. decs_set_globals p = {||}) prog ⇒
-  BAG_ALL_DISTINCT (set_globals (SND (con_to_dec$compile_prog a b c prog)))`,
+  BAG_ALL_DISTINCT (set_globals (SND (SND (con_to_dec$compile_prog t a b c prog))))`,
   rw[]>>imp_res_tac no_set_globals_imp_bag_all_distinct_lem>>
-  first_x_assum(qspecl_then[`c`,`b`,`a`] assume_tac)>>fs[]>>pairarg_tac>>
+  first_x_assum(qspecl_then[`t`,`c`,`b`,`a`] assume_tac)>>fs[]>>pairarg_tac>>
   fs[]);
 
 val _ = export_theory ();
