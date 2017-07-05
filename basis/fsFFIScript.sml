@@ -218,7 +218,7 @@ val ffi_write_def = Define`
 val ffi_close_def = Define`
   ffi_close bytes fs =
     do
-      assert(LENGTH bytes = 1);
+      assert(LENGTH bytes >= 1);
       do
         (_, fs') <- closeFD (w2n (HD bytes)) fs;
         return (LUPDATE 1w 0 bytes, fs')

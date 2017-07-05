@@ -118,6 +118,51 @@ val substring_thm = Q.store_thm (
   rw [substring_def] \\ AP_TERM_TAC \\ rw [MIN_DEF, extract_aux_thm]
 );
 
+val LENGTH_extract_aux = Q.store_thm("LENGTH_extract_aux",
+`!s x y. LENGTH (extract_aux s x y) = y`,
+     Induct_on`y` >> fs[extract_aux_def,MIN_DEF]);
+
+val strlen_extract_le = Q.store_thm("strlen_extract_le",
+`!s x y. strlen (extract s x y) <= strlen s - x`,
+  rw[extract_def] >> CASE_TAC >> fs[LENGTH_extract_aux]);
+
+val extract_aux_DROP = Q.store_thm("extract_aux_DROP",
+  `!s k. extract_aux (strlit s) k (LENGTH s - k) = DROP k s`,
+  rw[] >> `?n. STRLEN s - k = n` by fs[] >>
+  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >> qid_spec_tac`k` >>
+  induct_on`n` >> fs[extract_aux_def,STRLEN_DEF,DROP_EL_CONS] >>
+  rw[] >> fs[extract_aux_def,DROP_LENGTH_TOO_LONG] >>
+  (* simplify *)
+  FIRST_X_ASSUM MP_TAC >> PURE_REWRITE_TAC [Once (GSYM SUB_EQ_0)] >>
+  strip_tac >> FIRST_X_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
+  fs[extract_aux_def])
+
+val extract_aux_eq = Q.store_thm("extract_aux_eq",
+  `!n s. n = LENGTH s ==>
+   extract_aux (strlit s) 0 n = s`,
+  rw[] >> ASSUME_TAC(Q.SPECL[`s`,`0`] extract_aux_DROP) >> fs[]);
+
+val extract_aux_add_r = Q.store_thm("extract_aux_add_r",
+  `!n1 n2 s i. extract_aux s i (n1 + n2) = 
+                extract_aux s i n1 ++ extract_aux s (i+n1) n2`,
+  induct_on`n1` >- fs[extract_aux_def] >>
+  rw[] >> fs[GSYM ADD_SUC,extract_aux_def] >> fs[ADD1]);
+
+val extract_aux_eq = Q.store_thm("extract_aux_eq",
+  `!s n. n = LENGTH s ==>
+   extract_aux (strlit s) 0 n =s`,
+  rw[] >> ASSUME_TAC(Q.SPECL[`s`,`0`] extract_aux_DROP) >> fs[]);
+
+val extract_aux_TAKE = Q.store_thm("extract_aux_TAKE",
+  `!s. n <= LENGTH s ==>
+     extract_aux (strlit s) 0 n = TAKE n s`,
+  rw[] >>
+  sg`extract_aux (strlit s) 0 n ++ extract_aux (strlit s) n (LENGTH s - n)  = 
+     TAKE n s ++ DROP n s`
+  >-(fs[TAKE_DROP, GSYM extract_aux_add_r] >>
+     ASSUME_TAC(Q.SPECL[`n`,`STRLEN s - n`,`strlit s`,`0`]extract_aux_add_r) >>
+     rfs[] >> fs[extract_aux_eq]) >>
+  FIRST_X_ASSUM MP_TAC >> PURE_REWRITE_TAC[extract_aux_DROP] >> rw[]);
 
 
 (* TODO: don't explode/implode once CakeML supports string append *)

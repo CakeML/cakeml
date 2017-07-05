@@ -26,7 +26,7 @@ val iobuff_loc_def = definition "iobuff_loc_def"
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)
 val _ = process_topdecs`
-    val stdin () = Word8.fromInt 0;
+    fun stdin () = Word8.fromInt 0;
     fun stdout () = Word8.fromInt 1;
     fun stderr () = Word8.fromInt  2
     ` |> append_prog
@@ -98,14 +98,15 @@ val _ = process_topdecs
 
 (* writes a string into a file *)
 val _ = 
-  process_topdecs` fun write_string fd s =
+  process_topdecs` fun output fd s =
   if s = "" then () else
   let val s1 = String.substring s 0 255
       val fl = copyi iobuff 3 (String.explode s1)
       val n = String.strlen s1
       val a = write fd n 0 in
-         write_string fd (String.extract s n NONE)
-  end` |> append_prog
+         output fd (String.extract s n NONE)
+  end;
+  fun print s = output (stdout()) s` |> append_prog
 
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`
@@ -123,19 +124,27 @@ val _ = process_topdecs
    end` |> append_prog
 
 val _ = process_topdecs`
-fun open_in fname =
+fun openIn fname =
   let val a = str_to_w8array iobuff fname
       val a = #(open_in) iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0 
         then Word8Array.sub iobuff 1
         else raise BadFileName
   end
-fun open_out fname =
+fun openOut fname =
   let val a = str_to_w8array iobuff fname
       val a = #(open_out) iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0 
         then Word8Array.sub iobuff 1
         else raise BadFileName
+  end` |> append_prog
+val _ = process_topdecs`
+
+fun close fd =
+  let val a = Word8Array.update iobuff 0 fd
+      val a = #(close) iobuff in
+        if Word8Array.sub iobuff 0 = Word8.fromInt 1 
+        then () else raise InvalidFD
   end` |> append_prog
 
 (* val input : in_channel -> bytes -> int -> int -> int

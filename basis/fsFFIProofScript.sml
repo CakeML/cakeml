@@ -352,4 +352,113 @@ val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
     >-(`∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
     fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
 
+val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
+ `get_file_content fs fd = SOME(content, pos) ==> validFD fd fs ==>
+    fsupdate fs fd 0 pos content = fs`,
+    fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
+    rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
+
+val fsupdate_LTL = Q.store_thm("fsupdate_LTL",
+  `fs.numchars = h:::t ==>
+   fsupdate fs fd (SUC k) p c =
+   fsupdate (fs with numchars := t) fd k p c`,
+   rw[] >> fs[fsupdate_def,LDROP]);
+
+(* temporal logic properties for numchars *)
+
+val (eventually_rules,eventually_ind,eventually_cases) = Hol_reln`
+  (!ll. P ll ==> eventually P ll) /\
+  (!h t. ¬P (h:::t) /\ eventually P t ==> eventually P (h:::t)) `;
+
+val eventually_thm = store_thm(
+  "eventually_thm",
+  ``(eventually P [||] = P [||]) /\
+    (eventually P (h:::t) = (P (h:::t) \/(¬ P (h:::t) /\ eventually P t)))``,
+  CONJ_TAC THEN
+  CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [eventually_cases])) THEN
+  SRW_TAC [][]);
+
+val _ = export_rewrites ["eventually_thm"]
+
+val (always_rules,always_ind,always_cases) = Hol_reln`
+  (!h t. (P (h ::: t) /\ always P t) ==> always P (h ::: t)) `;
+
+val always_thm = store_thm(
+  "always_thm",
+  ``!h t. always P (h ::: t) = (P (h ::: t) /\ always P t) /\
+    ¬ always P [||]``,
+  rw[Once always_cases] >> rw[Once always_cases]);
+val _ = export_rewrites ["always_thm"]
+
+val always_eventually = Q.store_thm("always_eventually", 
+  `!ll. always (eventually P) ll ==> 
+    ?k. (P (THE (LDROP k ll)) /\ always(eventually P) (THE(LDROP k ll)))`,
+    HO_MATCH_MP_TAC always_ind >> 
+    rw[always_thm,eventually_thm] >>
+    qexists_tac`SUC k` >> fs[LDROP]);
+
+val always_eventually_ind = Q.store_thm("always_eventually_ind",
+  `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
+   !ll. always(eventually P) ll ==> Q ll`,
+   strip_tac >> HO_MATCH_MP_TAC always_ind >> rw[] >> fs[] >>
+   cases_on`P (h:::t)` >> fs[]);
+
+val always_DROP = Q.store_thm("always_DROP",
+  `!ll. always P ll ==> always P (THE(LDROP k ll))`,
+  Induct_on`k` >> cases_on`ll` >> fs[always_thm,LDROP]);
+  
+(* the filesystem will always eventually allow to write something *)
+val liveFS_def = Define`
+    liveFS fs = 
+        always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars`
+
+val always_NOT_LFINITE = Q.store_thm("always_NOT_LFINITE",
+    `!ll. always P ll ==> ¬ LFINITE ll`,
+    HO_MATCH_MP_TAC always_ind >> rw[]);
+
+val LDROP_1 = Q.store_thm("LDROP_1",
+  `LDROP (1: num) (h:::t) = SOME t`,
+  `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>
+  metis_tac[ONE]);
+
+val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
+ `wfFS fs ==> LDROP k fs.numchars = SOME numchars' ==>
+    wfFS (fs with numchars := numchars')`,
+ rw[wfFS_def] >> metis_tac[NOT_LFINITE_DROP_LFINITE]);
+
+val Lnext_def = tDefine "Lnext" `
+  Lnext P ll = if eventually P ll then
+                        if P ll then 0
+                        else SUC(Lnext P (THE (LTL ll)))
+                     else ARB` 
+ (qexists_tac`(\(P,ll') (P',ll). 
+    P = P' /\ eventually P ll /\ eventually P ll' /\
+    LTL ll = SOME ll' /\ ¬ P ll)` >>reverse(rw[WF_DEF,eventually_thm])
+  >-(cases_on`ll` >> fs[])
+  >-(cases_on`ll` >> fs[]) >>
+  cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
+  reverse(cases_on`eventually P ll`)
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >> 
+  HO_MATCH_MP_TAC eventually_ind >> rw[]
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  cases_on`B(P,ll)` >-(metis_tac[]) >>
+  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
+
+val Lnext_pos_def = Define`
+  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
+
+val fsupdate_o = Q.store_thm("fsupdate_o",
+ `validFD fd fs ==> liveFS fs ==>
+  fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2 = 
+  fsupdate fs fd (k1+k2) pos2 c2`,
+  rw[fsupdate_def,validFD_def]
+  >-(fs[ALIST_FUPDKEY_ALOOKUP] >>
+     CASE_TAC >> fs[ALOOKUP_NONE,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq])
+  >-(fs[ALIST_FUPDKEY_o] >> HO_MATCH_MP_TAC ALIST_FUPDKEY_eq >>
+	 rw[] >> cases_on`v` >> fs[]) >>
+  fs[LDROP_ADD,liveFS_def] >>
+  imp_res_tac always_NOT_LFINITE >> imp_res_tac NOT_LFINITE_DROP >>
+  FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]);
 val _ = export_theory();
+
