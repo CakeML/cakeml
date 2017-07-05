@@ -4953,10 +4953,10 @@ val inst_correct = Q.prove(`
   s.regs SUBMAP regs ⇒
   ∃regs1.
   inst i (s with <|regs := regs; gc_fun := anything; use_stack := T;
-          use_store := T; use_alloc := F; clock := ck + s.clock;
+          use_store := T; use_alloc := F;
           code := fromAList (compile c (toAList s.code))|>) =
     SOME (t with <|regs := regs1; gc_fun := anything; use_stack := T;
-          use_store := T; use_alloc := F; clock := ck + s.clock;
+          use_store := T; use_alloc := F;
           code := fromAList (compile c (toAList s.code))|>) ∧
     t.regs SUBMAP regs1 ∧
     LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α)`,
@@ -5037,14 +5037,15 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs[Once comp_def,evaluate_def]
     \\ qpat_x_assum `_ = (r,t)` mp_tac
     \\ TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ qexists_tac `0` \\ simp[]
     \\ drule inst_correct
     \\ rw[]
-    \\ qexists_tac `0`
     \\ qmatch_goalsub_abbrev_tac`inst i st`
     \\ qmatch_asmsub_abbrev_tac`inst i st' = _`
     \\ `st = st'` by
         (unabbrev_all_tac>>fs[state_component_equality])
-    \\ HINT_EXISTS_TAC \\ simp[])
+    \\ HINT_EXISTS_TAC
+    \\ simp[])
   \\ conj_tac (* Get *) >- (
     fs[Once comp_def,evaluate_def,get_var_def]
     \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
@@ -5372,7 +5373,7 @@ val comp_correct = Q.store_thm("comp_correct",
   \\ rw[state_component_equality]
   \\ match_mp_tac SUBMAP_mono_FUPDATE
   \\ rw[GSYM SUBMAP_DOMSUB_gen]
-  \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB])
+  \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]);
 
 val comp_correct_thm =
   comp_correct |> SPEC_ALL
