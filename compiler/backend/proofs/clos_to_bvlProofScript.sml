@@ -28,6 +28,7 @@ val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
 
 val _ = temp_overload_on ("state_rel", ``clos_relation$state_rel``)
 
+val _ = Parse.hide "exp";
 (* TODO: move? *)
 
 val ARITH_TAC = intLib.ARITH_TAC;
@@ -442,7 +443,7 @@ val evaluate_generic_app1 = Q.prove (
   srw_tac[][generate_generic_app_def] >>
   srw_tac[][evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
-  `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
+  `((&total_args):int − &(n+1) >= 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
   TRY (rfs [] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick, evaluate_def, do_app_def] >>
@@ -455,7 +456,8 @@ val evaluate_generic_app1 = Q.prove (
   simp [triangle_table_size, partial_app_fn_location_def, triangle_el_no_suff,
         triangle_div_lemma] >>
   srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2, TAKE_LENGTH_APPEND] >>
-  decide_tac);
+  CCONTR_TAC >>
+  intLib.ARITH_TAC);
 
 val evaluate_generic_app2 = Q.prove (
   `!n args st rem_args prev_args l clo cl.
@@ -480,7 +482,7 @@ val evaluate_generic_app2 = Q.prove (
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
-  `~(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
+  `~(&rem_args − &(n+1):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][el_append2] >>
   TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick] >>
@@ -495,7 +497,7 @@ val evaluate_generic_app2 = Q.prove (
   simp [evaluate_def, do_app_def] >>
   srw_tac [ARITH_ss] [EL_CONS, PRE_SUB1, el_append2] >>
   simp [dec_clock_def] >>
-  `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)) = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
+  `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)):int = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
   fs [partial_app_fn_location_code_def, global_table_def] >>
   simp [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, evaluate_def, do_app_def, mk_label_def] >>
   simp [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV, integerTheory.INT_SUB] >>
@@ -598,7 +600,7 @@ val evaluate_generic_app_full = Q.prove (
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def, el_append2] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
-  `(&rem_args − &(LENGTH args) < 0)` by intLib.ARITH_TAC >>
+  `(&rem_args − &(LENGTH args):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
   `evaluate ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
           Number (&rem_args − &LENGTH args):: (args ++ [Block tag (CodePtr l::Number (&rem_args)::vs)]),
@@ -627,7 +629,7 @@ val evaluate_generic_app_full = Q.prove (
   `LENGTH args > rem_args` by decide_tac >>
   srw_tac[][take_drop_lemma] >>
   qabbrev_tac `res1 =
-    evaluate
+    bvlSem$evaluate
       ([exp],
        DROP (LENGTH args − (rem_args + 1)) args ++ [Block tag (CodePtr l::Number (&rem_args)::vs)],
        dec_clock (rem_args + 1) st)` >>
@@ -2375,7 +2377,7 @@ val v_rel_run = Q.prove (
   rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
   MAP_EVERY qexists_tac [`new_env'`, `aux2`, `aux1`, `body'`] >>
   srw_tac[][] >>
-  `?total_args. &num_args' = &total_args - 1`
+  `?total_args. (&num_args'):int = &total_args - 1`
         by (qexists_tac `&num_args' + 1` >>
             srw_tac[][] >>
             ARITH_TAC) >>
@@ -3695,7 +3697,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         srw_tac[][mk_cl_call_def, bEval_def, bEval_APPEND, bEvalOp_def] >>
         srw_tac [ARITH_ss] [el_append3] >>
         `&n' ≠ &(LENGTH args')` by srw_tac [ARITH_ss] [] >>
-        `&n' - 1 ≠ &(LENGTH args' - 1)`
+        `(&n'):int - 1 ≠ &(LENGTH args' - 1)`
                    by (full_simp_tac(srw_ss())[int_arithTheory.INT_NUM_SUB] >>
                        CCONTR_TAC >>
                        full_simp_tac(srw_ss())[] >>
@@ -3810,7 +3812,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                              metis_tac []) >>
              `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
              full_simp_tac(srw_ss())[] >>
-             `&rem_args - 1 = &n ∧ rem_args + 1 = n + 2`
+             `(&rem_args):int - 1 = &n ∧ rem_args + 1 = n + 2`
                   by (srw_tac [ARITH_ss] [Abbr `n`,int_arithTheory.INT_NUM_SUB]) >>
              `LENGTH args' − (LENGTH args' − rem_args) = rem_args` by decide_tac >>
              full_simp_tac(srw_ss())[] >>
@@ -3990,7 +3992,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
              `rem_args = LENGTH args` by ARITH_TAC >>
              full_simp_tac(srw_ss())[] >>
              srw_tac[][find_code_def] >>
-             `&LENGTH args - 1 = &(LENGTH args - 1)` by srw_tac[][int_arithTheory.INT_NUM_SUB] >>
+             `&LENGTH args - 1:int = &(LENGTH args - 1)` by srw_tac[][int_arithTheory.INT_NUM_SUB] >>
              full_simp_tac(srw_ss())[] >>
              `t1.code = (t1 with clock := s1.clock - LENGTH args').code` by srw_tac[][] >>
              full_simp_tac std_ss [] >>
@@ -4870,7 +4872,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fs[]>>imp_res_tac domain_init_code_lt_num_stubs>>
     fs[])>>
   fs[LUPDATE_def,partial_app_label_table_loc_def,global_table_def]);
-  
+
 val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
   `r ≠ Rerr(Rabort Rtype_error) ⇒ full_result_rel c (r,x) (Rerr (Rabort a),y) ⇒
    r = Rerr (Rabort a)`,

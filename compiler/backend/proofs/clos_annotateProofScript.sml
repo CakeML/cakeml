@@ -223,6 +223,15 @@ val do_app_thm = Q.prove(
    (fs [do_app_cases_val] \\ rveq \\ fs [PULL_EXISTS]
     \\ rveq \\ fs [v_rel_simp] \\ SRW_TAC [] []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  THEN1 (* FP_bop *)
+   (fs [do_app_cases_val] \\ rveq \\ fs [PULL_EXISTS]
+    \\ rveq \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* FP_uop *)
+   (fs [do_app_cases_val] \\ rveq \\ fs [PULL_EXISTS]
+    \\ rveq \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+  THEN1 (* FP_cmp *)
+   (fs [do_app_cases_val] \\ rveq \\ fs [PULL_EXISTS]
+    \\ rveq \\ fs [v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* WordToInt *)
    (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])

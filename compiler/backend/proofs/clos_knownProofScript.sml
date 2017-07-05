@@ -45,19 +45,19 @@ infix >~
 fun (f >~ g) th = f th >> g
 
 (* unused *)
-val evaluate_list_members_individually = Q.store_thm(
-  "evaluate_list_members_individually",
-  `∀es env (s0:'a closSem$state) vs s.
-     closSem$evaluate (es, env, s0) = (Rval vs, s) ⇒
-     ∀n. n < LENGTH es ⇒
-         ∃(s0':'a closSem$state) s'.
-           evaluate([EL n es], env, s0') = (Rval [EL n vs], s')`,
-  Induct >> simp[] >> Cases_on `es` >> fs[]
-  >- (rpt strip_tac >> rename1 `evaluate ([exp], env, _)` >>
-      `∃v. vs = [v]` by metis_tac[evaluate_SING] >> rw[] >> metis_tac[]) >>
-  dsimp[evaluate_def, pair_case_eq, result_case_eq] >>
-  rpt strip_tac >> reverse (Cases_on `n` >> fs[]) >- metis_tac[] >>
-  imp_res_tac evaluate_SING >> rw[] >> metis_tac[]);
+(* val evaluate_list_members_individually = Q.store_thm( *)
+(*   "evaluate_list_members_individually", *)
+(*   `∀es env (s0:'a closSem$state) vs s. *)
+(*      closSem$evaluate (es, env, s0) = (Rval vs, s) ⇒ *)
+(*      ∀n. n < LENGTH es ⇒ *)
+(*          ∃(s0':'a closSem$state) s'. *)
+(*            evaluate([EL n es], env, s0') = (Rval [EL n vs], s')`, *)
+(*   Induct >> simp[] >> Cases_on `es` >> fs[] *)
+(*   >- (rpt strip_tac >> rename1 `evaluate ([exp], env, _)` >> *)
+(*       `∃v. vs = [v]` by metis_tac[evaluate_SING] >> rw[] >> metis_tac[]) >> *)
+(*   dsimp[evaluate_def, pair_case_eq, result_case_eq] >> *)
+(*   rpt strip_tac >> reverse (Cases_on `n` >> fs[]) >- metis_tac[] >> *)
+(*   imp_res_tac evaluate_SING >> rw[] >> metis_tac[]); *)
 
 (* MOVE-HOL candidate; unused here *)
 val union_idem = Q.store_thm(
