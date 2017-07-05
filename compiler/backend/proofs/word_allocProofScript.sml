@@ -4334,6 +4334,21 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
     >- (* FP *)
       (Cases_on`f`>>
       fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]>>
+      TRY(rename1 `FPMovFromReg n n0 n1`>>
+      reverse (IF_CASES_TAC)>>fs[]>-
+      (* Nasty special case for 32-bit FPMovFromReg because it can't use the default option_lookup *)
+        (Cases_on`get_var n0 st`>>fs[]>>
+        Cases_on`x`>>fs[]>>
+        Cases_on`get_var n1 st`>>fs[]>>
+        Cases_on`x`>>fs[]>>
+        fs[option_lookup_def,ssa_locals_rel_def,get_var_def]>>
+        last_x_assum kall_tac>>
+        res_tac>>
+        fs[domain_lookup]>>
+        qpat_x_assum`_ _ ssa =SOME_` SUBST_ALL_TAC>>
+        qpat_x_assum`_ _ ssa =SOME_` SUBST_ALL_TAC>>
+        fs[]>>
+        metis_tac[]))>>
       every_case_tac>>
       fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,word_exp_perm,evaluate_def,get_fp_var_def,set_var_def,every_var_def,every_var_inst_def,set_fp_var_def,get_var_perm]>>
       imp_res_tac ssa_locals_rel_get_var>>
@@ -6333,7 +6348,6 @@ val full_ssa_cc_trans_flat_exp_conventions = Q.store_thm("full_ssa_cc_trans_flat
   LET_ELIM_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[flat_exp_conventions_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_flat_exp_conventions,FST]);
 
-(* -- Broken below this line -- *)
 val ssa_cc_trans_full_inst_ok_less = Q.prove(`
   ∀prog ssa na c.
   every_var (λx. x < na) prog ∧
@@ -6353,8 +6367,18 @@ val ssa_cc_trans_full_inst_ok_less = Q.prove(`
     rw[]>>
     fs[option_lookup_def]>>every_case_tac>>rw[]>>
     pop_assum (assume_tac o SYM)>>res_tac>>
-    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)>>
-  >>TRY
+    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)>>
+    (* Nasty special case again *)
+    full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def]>>
+    every_case_tac>>rw[]>>
+    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
+    rw[]>>
+    fs[option_lookup_def]>>every_case_tac>>rw[]>>
+    pop_assum (assume_tac o SYM)>>res_tac>>
+    fs[is_phy_var_def,is_alloc_var_def]>>CCONTR_TAC>>fs[]>>NO_TAC)
+  >>
+  (* Some trivial cases *)
+  TRY
     (rw[]>>first_x_assum match_mp_tac>>fs[every_var_def]>>
     imp_res_tac ssa_cc_trans_props>>
     fs[]>>
@@ -6511,6 +6535,7 @@ val call_arg_convention_preservation = Q.prove(`
   full_simp_tac(srw_ss())[call_arg_convention_def]
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
+    TRY(Cases_on`f'`>>every_case_tac)>>
     fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def])
   >>
   `is_phy_var 2` by is_phy_var_tac>>full_simp_tac(srw_ss())[]>>
@@ -6604,7 +6629,8 @@ val every_var_in_get_clash_tree = Q.prove(`
   fs[every_var_def,in_clash_tree_def,EVERY_MEM,in_clash_tree_def,every_name_def,toAList_domain]>>
   TRY(exp_tac)
   >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>fs[every_var_imm_def,get_delta_inst_def,every_var_inst_def,in_clash_tree_def])
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f`)>>
+    fs[every_var_imm_def,get_delta_inst_def,every_var_inst_def,in_clash_tree_def])
   >-
     metis_tac[every_var_mono,in_clash_tree_def]
   >-
@@ -6674,7 +6700,7 @@ val pre_post_conventions_word_alloc = Q.store_thm("pre_post_conventions_word_all
   imp_res_tac reg_alloc_conventional>>
   pop_assum kall_tac>>
   pop_assum(qspecl_then[`get_prefs prog []`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  assume_tac (Q.ISPEC`prog:'b wordLang$prog`every_var_in_get_clash_tree)>>
+  assume_tac (Q.ISPEC`prog:'a wordLang$prog`every_var_in_get_clash_tree)>>
   `every_var (λx. x ∈ domain ext_graph) prog` by
     (match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>srw_tac[][]>>
@@ -6708,7 +6734,7 @@ val word_alloc_two_reg_inst_lem = Q.prove(`
   every_inst two_reg_inst (apply_colour f prog)`,
   ho_match_mp_tac apply_colour_ind>>full_simp_tac(srw_ss())[every_inst_def]>>srw_tac[][]
   >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f'`)>>
     full_simp_tac(srw_ss())[apply_colour_inst_def,two_reg_inst_def])
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def]);
@@ -6761,6 +6787,7 @@ val word_alloc_full_inst_ok_less_lem = Q.prove(`
   fs[full_inst_ok_less_def,get_forced_def]>>rw[]>>
   TRY
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f'`)>>
     fs[inst_ok_less_def,full_inst_ok_less_def]>>
     rw[]>>fs[]>>rfs[])
   >>
@@ -6850,8 +6877,9 @@ val full_ssa_cc_trans_lab_pres = Q.store_thm ("full_ssa_cc_trans_lab_pres",`
   rpt(pairarg_tac>>fs[]>>rveq>>fs[extract_labels_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    TRY(Cases_on`f`)>>
     fs[ssa_cc_trans_inst_def,next_var_rename_def]>>
-    qpat_x_assum`A=i'` sym_sub_tac>>
+    every_case_tac>>rw[]>>
     fs[extract_labels_def])
   >>
   imp_res_tac fake_moves_no_labs>>
@@ -6913,6 +6941,7 @@ val max_var_IMP = Q.store_thm("max_var_IMP",`
   TRY (match_mp_tac list_max_IMP>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    TRY(Cases_on`f`)>>
     full_simp_tac(srw_ss())[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def])
   >-

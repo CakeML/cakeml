@@ -4212,7 +4212,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
           >-
             metis_tac[])))
     >-
-      (IF_CASES_TAC
+      (* FPMovFromReg *)
+      (IF_CASES_TAC >> fs[]
       >-
         (every_case_tac>>fs[]>>strip_tac>>
         fs[wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]>>

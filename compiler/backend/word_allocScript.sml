@@ -196,7 +196,7 @@ val ssa_cc_trans_inst_def = Define`
         (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
   (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
     let r1' = option_lookup ssa r1 in
-    let r2' = (case lookup r2 ssa of NONE => 4 | SOME v => v) in
+    let r2' = (dtcase lookup r2 ssa of NONE => 4 | SOME v => v) in
       (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
   (*Catchall -- for future instructions to be added, and all other FP *)
   (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))`
@@ -898,13 +898,11 @@ val get_forced_def = Define`
        else
          acc
     | FP (FPMovToReg r1 r2 d) =>
-        if dimindex(:'a) = 32 then
-          if (r1 = r2) then [] else [(r1,r2)] ++ acc
-        else acc
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | FP (FPMovFromReg d r1 r2) =>
-        if dimindex(:'a) = 32 then
-          if (r1=r2) then [] else [(r1,r2)] ++ acc
-        else acc
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | _ => acc) ∧
   (get_forced c (MustTerminate s1) acc =
     get_forced c s1 acc) ∧
@@ -947,13 +945,11 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
        else
          acc
     | Inst (FP (FPMovToReg r1 r2 d)) =>
-        if dimindex(:'a) = 32 then
-          if (r1 = r2) then [] else [(r1,r2)] ++ acc
-        else acc
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | Inst (FP (FPMovFromReg d r1 r2)) =>
-        if dimindex(:'a) = 32 then
-          if (r1=r2) then [] else [(r1,r2)] ++ acc
-        else acc
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | MustTerminate s1 => get_forced c s1 acc
     | Seq s1 s2 => get_forced c s1 (get_forced c s2 acc)
     | If cmp num rimm e2 e3 =>
