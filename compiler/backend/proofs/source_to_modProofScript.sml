@@ -3,13 +3,12 @@ open namespacePropsTheory semanticPrimitivesTheory semanticPrimitivesPropsTheory
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
-(* val _ = set_grammar_ancestry ["source_to_mod"] *)
 
 (* value relation *)
 
 val bind_locals_def = Define `
-  bind_locals locals var_map =
-    nsBindList (MAP (\x. (x, modLang$Var_local x)) locals) var_map`;
+  bind_locals ts locals var_map =
+    nsBindList (MAP2 (\t x. (x, modLang$Var_local t x)) ts locals) var_map`;
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!genv lit.
@@ -18,24 +17,24 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Conv cn vs) (Conv cn vs')) ∧
-  (!genv var_map env_c env_v_top env_v_local x e env_v_local'.
+  (!genv var_map env_c env_v_top env_v_local x e env_v_local' t t'.
     env_rel genv env_v_local env_v_local' ∧
     global_env_inv genv var_map (set (MAP FST env_v_local')) env_v_top
     ⇒
     v_rel genv (Closure <| c := env_c; v := nsAppend env_v_local env_v_top |> x e)
                (Closure (env_c, env_v_local') x
-                 (compile_exp (bind_locals (x::MAP FST env_v_local') var_map) e))) ∧
+                 (compile_exp t (bind_locals t' (x::MAP FST env_v_local') var_map) e))) ∧
   (* For expression level let recs *)
-  (!genv var_map env_c env_v_top env_v_local funs x env_v_local'.
+  (!genv var_map env_c env_v_top env_v_local funs x env_v_local' t.
     env_rel genv env_v_local env_v_local' ∧
     global_env_inv genv var_map (set (MAP FST env_v_local')) env_v_top
     ⇒
     v_rel genv (Recclosure <| c := env_c; v := nsAppend env_v_local env_v_top |> funs x)
                (Recclosure (env_c, env_v_local')
-                 (compile_funs (bind_locals (MAP FST funs++MAP FST env_v_local') var_map) funs)
+                 (compile_funs t (bind_locals (REPLICATE (LENGTH funs + LENGTH env_v_local') t) (MAP FST funs++MAP FST env_v_local') var_map) funs)
                  x)) ∧
   (* For top-level let recs *)
-  (!genv var_map env funs x y e new_vars.
+  (!genv var_map env funs x y e new_vars t1 t2.
     MAP FST new_vars = MAP FST (REVERSE funs) ∧
     global_env_inv genv var_map {} env.v ∧
     find_recfun x funs = SOME (y, e) ∧
@@ -43,16 +42,16 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      * than saying that they build v_rel related environments, which looks to
      * require step-indexing *)
     (!x. x ∈ set (MAP FST funs) ⇒
-         ?n y e.
-           ALOOKUP new_vars x = SOME (Var_global n) ∧
+         ?n y e t1 t2 t3.
+           ALOOKUP new_vars x = SOME (Var_global t1 n) ∧
            n < LENGTH genv ∧
            find_recfun x funs = SOME (y,e) ∧
-           EL n genv = SOME (Closure (env.c,[]) y (compile_exp (nsBindList ((y, Var_local y)::new_vars) var_map) e)))
+           EL n genv = SOME (Closure (env.c,[]) y (compile_exp t2 (nsBindList ((y, Var_local t3 y)::new_vars) var_map) e)))
     ⇒
     v_rel genv (Recclosure env funs x)
                (Closure (env.c, [])
                         y
-                        (compile_exp (nsBindList ((y, Var_local y)::new_vars) var_map) e))) ∧
+                        (compile_exp t1 (nsBindList ((y, Var_local t2 y)::new_vars) var_map) e))) ∧
   (!genv loc.
     v_rel genv (Loc loc) (Loc loc)) ∧
   (!genv vs vs'.
@@ -71,8 +70,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
        x ∉ IMAGE Short shadowers ∧
        nsLookup env x = SOME v
        ⇒
-       ?n v'.
-         nsLookup var_map x = SOME (Var_global n) ∧
+       ?n v' t.
+         nsLookup var_map x = SOME (Var_global t n) ∧
          n < LENGTH genv ∧
          EL n genv = SOME v' ∧
          v_rel genv v v')
@@ -105,8 +104,8 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
        x ∉ IMAGE Short shadowers ∧
        nsLookup env x = SOME v
        ⇒
-       ?n v'.
-         nsLookup var_map x = SOME (Var_global n) ∧
+       ?n v' t.
+         nsLookup var_map x = SOME (Var_global t n) ∧
          n < LENGTH genv ∧
          EL n genv = SOME v' ∧
          v_rel genv v v'))`,
@@ -208,18 +207,19 @@ val v_rel_weakening = Q.prove (
   srw_tac[][v_rel_eqns]
   >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`] >>
+      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`, `t`, `t'`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`] >>
+      MAP_EVERY qexists_tac [`var_map`, `env`, `env'`, `t`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
   >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`var_map`, `new_vars`] >>
+      MAP_EVERY qexists_tac [`var_map`, `new_vars`, `t1`, `t2`] >>
       full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns, EL_APPEND1] >>
       srw_tac[][] >>
       res_tac >>
       qexists_tac `n` >>
       srw_tac[][EL_APPEND1] >>
+      map_every qexists_tac [`t2`,`t3`] >>
       decide_tac)
   >- fs [LIST_REL_EL_EQN]
   >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]);
@@ -332,11 +332,11 @@ val do_eq = Q.prove (
     metis_tac []));
 
  val do_con_check = Q.prove (
-  `!genv var_map env cn es env_i1 locals.
+  `!genv var_map env cn es env_i1 locals t1 t2.
     do_con_check env.c cn (LENGTH es) ∧
     env_all_rel genv var_map env env_i1 locals
     ⇒
-    do_con_check env_i1.c cn (LENGTH (compile_exps (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) es))`,
+    do_con_check env_i1.c cn (LENGTH (compile_exps t1 (nsBindList (MAP (\x. (x, Var_local t2 x)) locals) var_map) es))`,
   srw_tac[][do_con_check_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[env_all_rel_cases] >>
@@ -600,11 +600,11 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[]));
 
 val find_recfun = Q.prove (
-  `!x funs e var_map y.
+  `!x funs e var_map y t.
     find_recfun x funs = SOME (y,e)
     ⇒
-    find_recfun x (compile_funs var_map funs) =
-      SOME (y, compile_exp (nsBind y (Var_local y) var_map) e)`,
+    find_recfun x (compile_funs t var_map funs) =
+      SOME (y, compile_exp t (nsBind y (Var_local t y) var_map) e)`,
    induct_on `funs` >>
    srw_tac[][Once find_recfun_def, compile_exp_def] >>
    PairCases_on `h` >>
@@ -613,7 +613,7 @@ val find_recfun = Q.prove (
    full_simp_tac(srw_ss())[Once find_recfun_def, compile_exp_def]);
 
 val do_app_rec_help = Q.prove (
-  `!genv var_map env_v_local env_v_local' env_v_top funs.
+  `!genv var_map env_v_local env_v_local' env_v_top funs t.
     env_rel genv env_v_local env_v_local' ∧
     global_env_inv genv var_map (set (MAP FST env_v_local')) env_v_top
     ⇒
@@ -629,15 +629,15 @@ val do_app_rec_help = Q.prove (
          (λ(fn,n,e).
             (fn,
              Recclosure (env_c,env_v_local')
-               (compile_funs
+               (compile_funs t
                   (FOLDR (λ(x,v) e. nsBind x v e) var_map
-                     (MAP (λx. (x,Var_local x)) (MAP FST funs') ++
-                      MAP (λx. (x,Var_local x)) (MAP FST env_v_local')))
+                     (MAP (λx. (x,Var_local t x)) (MAP FST funs') ++
+                      MAP (λx. (x,Var_local t x)) (MAP FST env_v_local')))
                   funs') fn))
-         (compile_funs
+         (compile_funs t
             (FOLDR (λ(x,v) e. nsBind x v e) var_map
-               (MAP (λx. (x,Var_local x)) (MAP FST funs') ++
-                MAP (λx. (x,Var_local x)) (MAP FST env_v_local'))) funs))`,
+               (MAP (λx. (x,Var_local t x)) (MAP FST funs') ++
+                MAP (λx. (x,Var_local t x)) (MAP FST env_v_local'))) funs))`,
   induct_on `funs`
   >- srw_tac[][v_rel_eqns, compile_exp_def] >>
   rw [] >>
@@ -645,7 +645,7 @@ val do_app_rec_help = Q.prove (
   PairCases_on `h` >>
   rw [v_rel_eqns, compile_exp_def] >>
   simp [Once v_rel_cases] >>
-  MAP_EVERY qexists_tac [`var_map`, `env_v_top`, `env_v_local`] >>
+  MAP_EVERY qexists_tac [`var_map`, `env_v_top`, `env_v_local`, `t`] >>
   srw_tac[][compile_exp_def, bind_locals_def] >>
   simp_tac (std_ss) [GSYM APPEND, namespaceTheory.nsBindList_def] >>
   simp [FOLDR]);
@@ -677,6 +677,7 @@ val global_env_inv_extend2 = Q.prove (
   rw []
   >- (
     `Short n' ∉ nsDom env'` by metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
+    qexists_tac`t` >>
     disj2_tac >>
     rw [ALOOKUP_NONE] >>
     qpat_x_assum `_ = nsDom _` (assume_tac o GSYM) >>
@@ -705,16 +706,16 @@ val do_opapp = Q.prove (
     do_opapp vs = SOME (env, e) ∧
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
-     ∃var_map env_i1 locals.
+     ∃var_map env_i1 locals t1 t2.
        env_all_rel genv var_map env env_i1 locals ∧
-       do_opapp vs_i1 = SOME (env_i1, compile_exp (nsBindList (MAP (\x. (x, Var_local x)) locals) var_map) e)`,
+       do_opapp vs_i1 = SOME (env_i1, compile_exp t1 (bind_locals t2 locals var_map) e)`,
    srw_tac[][do_opapp_cases, modSemTheory.do_opapp_def] >>
    full_simp_tac(srw_ss())[LIST_REL_CONS1] >>
    srw_tac[][]
    >- (qpat_x_assum `v_rel genv (Closure _ _ _) _` mp_tac >>
        srw_tac[][Once v_rel_cases] >>
        srw_tac[][] >>
-       MAP_EVERY qexists_tac [`var_map`, `n :: MAP FST env_v_local'`] >>
+       MAP_EVERY qexists_tac [`var_map`, `n :: MAP FST env_v_local'`, `t`, `t'`] >>
        srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def, FOLDR_MAP] >>
        MAP_EVERY qexists_tac [`nsBind n v2 env_v_local`, `env_v_top`] >>
        srw_tac[][v_rel_eqns]
@@ -730,7 +731,8 @@ val do_opapp = Q.prove (
        srw_tac[][] >>
        imp_res_tac find_recfun >>
        srw_tac[][]
-       >- (MAP_EVERY qexists_tac [`var_map`, `n'' :: MAP FST funs ++ MAP FST env_v_local'`] >>
+       >- (qmatch_goalsub_abbrev_tac`REPLICATE ll t` \\
+           MAP_EVERY qexists_tac [`var_map`, `n'' :: MAP FST funs ++ MAP FST env_v_local'`,`t`,`REPLICATE (SUC ll) t`] >>
            srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def] >>
            srw_tac[][]
            >- (MAP_EVERY qexists_tac [`nsBind n'' v2 (build_rec_env funs <|v := nsAppend env_v_local env_v_top; c := env_c|> env_v_local)`, `env_v_top`] >>
@@ -751,12 +753,14 @@ val do_opapp = Q.prove (
                  simp [v_rel_eqns, build_rec_env_merge] >>
                  match_mp_tac env_rel_append >>
                  simp [] >>
-                 metis_tac [do_app_rec_help]))
+                 simp[Abbr`ll`,GSYM REPLICATE_APPEND,MAP2_MAP,GSYM ZIP_APPEND,LENGTH_REPLICATE] >>
+                 cheat
+                 (* metis_tac [do_app_rec_help] *)))
            >- (
             simp[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
             full_simp_tac(srw_ss())[FST_triple]))
-       >- (MAP_EVERY qexists_tac [`nsBindList new_vars var_map`, `[n'']`] >>
-           srw_tac[][env_all_rel_cases, namespaceTheory.nsBindList_def] >>
+       >- (MAP_EVERY qexists_tac [`nsBindList new_vars var_map`, `[n'']`, `t1`, `[t2]`] >>
+           srw_tac[][env_all_rel_cases, namespaceTheory.nsBindList_def,bind_locals_def] >>
            rw [GSYM namespaceTheory.nsBindList_def] >>
            MAP_EVERY qexists_tac [`nsSing n'' v2`, `build_rec_env funs env'' env''.v`] >>
            srw_tac[][semanticPrimitivesTheory.sem_env_component_equality, semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
@@ -787,7 +791,7 @@ val do_opapp = Q.prove (
                srw_tac[][] >>
                drule lookup_build_rec_env_lem >>
                srw_tac[][Once v_rel_cases] >>
-               MAP_EVERY qexists_tac [`var_map`, `new_vars`] >>
+               MAP_EVERY qexists_tac [`var_map`, `new_vars`, `t2`, `t3`] >>
                srw_tac[][find_recfun_ALOOKUP]))
            >- (
              simp [Once v_rel_cases] >>
@@ -900,7 +904,7 @@ val evaluate_foldr_let_err = Q.prove (
   `!env s s' exps e x.
     modSem$evaluate env s exps = (s', Rerr x)
     ⇒
-    evaluate env s [FOLDR (Let NONE) e exps] = (s', Rerr x)`,
+    evaluate env s [FOLDR (Let t NONE) e exps] = (s', Rerr x)`,
   Induct_on `exps` >>
   rw [evaluate_def] >>
   fs [Once evaluate_cons] >>
