@@ -4,6 +4,9 @@ open preamble
 
 val _ = new_theory "word_instProof";
 
+val _ = Parse.hide "B";
+val _ = Parse.hide "exp";
+
 (* TODO: Move, but some of these are specific instantiations *)
 val PERM_SWAP_SIMP = Q.prove(`
   PERM (A ++ (B::C)) (B::(A++C))`,
@@ -58,15 +61,15 @@ val word_exp_op_permute_lem = Q.prove(`
   ho_match_mp_tac PERM_STRONG_IND>>srw_tac[][]>>
   full_simp_tac(srw_ss())[word_exp_def,LET_THM,the_words_def]>>
   qpat_abbrev_tac`A = MAP f ls`>>
-  qpat_abbrev_tac`B = MAP f ls'`>>
-  `PERM A B` by metis_tac[PERM_MAP]>>
+  qpat_abbrev_tac`Z = MAP f ls'`>>
+  `PERM A Z` by metis_tac[PERM_MAP]>>
   TRY(Cases_on`word_exp s y`>>fs[])>>
   Cases_on`word_exp s x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
   TRY(Cases_on`x''`>>fs[])>>
   rpt(qpat_x_assum`C=D:'a word_loc option` mp_tac)>>
   Cases_on`the_words A`>>
-  Cases_on`the_words B`>>
+  Cases_on`the_words Z`>>
   fs[word_op_def]>>
   Cases_on`op`>>fs[]);
 
@@ -218,8 +221,8 @@ val optimize_consts_ok = Q.prove(`
     pop_assum kall_tac>>imp_res_tac word_exp_op_permute_lem>>
     pop_assum match_mp_tac>>
     qpat_abbrev_tac`A = h'::t'`>>
-    qpat_abbrev_tac`B = h::t`>>
-    `h:: (t ++A) = B ++A` by full_simp_tac(srw_ss())[]>>pop_assum SUBST_ALL_TAC>>
+    qpat_abbrev_tac`Z = h::t`>>
+    `h:: (t ++A) = Z ++A` by full_simp_tac(srw_ss())[]>>pop_assum SUBST_ALL_TAC>>
     metis_tac[PERM_APPEND]);
 
 val pull_exp_ok = Q.prove(`

@@ -398,7 +398,7 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
   simp[Once comp_def]>>fs[stack_asm_ok_def,stack_asm_name_def]
   >-
     (simp[Once inst_find_name_def]>>every_case_tac>>
-    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.fp_ok_def,fp_name_def,asmTheory.fp_reg_ok_def,fp_reg_name_def]>>
+    fs[asmTheory.inst_ok_def,inst_name_def,arith_name_def,asmTheory.arith_ok_def,addr_name_def,asmTheory.fp_ok_def,fp_name_def,asmTheory.fp_reg_ok_def,asmTheory.fp_reg_ok_def]>>
     (* Some of these are extremely annoying to prove with the separation of
        stack_names and configs... *)
     TRY(metis_tac[names_ok_imp,names_ok_imp2])
@@ -412,12 +412,9 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
         fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
         metis_tac[names_ok_imp])
     >>
-      TRY(rw[]>>
+      rw[]>>
       fs[fixed_names_def]>>
       metis_tac[names_ok_imp,names_ok_imp2])
-    >>
-      (* strange cases in asm_ok for FPToInt / FPFromInt *)
-      cheat)
   >-
     (every_case_tac>>fs[dest_find_name_def]>>
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
