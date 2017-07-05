@@ -55,7 +55,7 @@ val evaluate_def = Define `
                       then SOME (mc.target.get_byte ms a) else NONE) of
           | NONE => (Error,ms,ffi)
           | SOME bytes =>
-            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index mc.ffi_names) bytes in
+            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index mc.ffi_names) bytes(*TODO:wrong*) bytes in
             let (ms1,new_oracle) = apply_oracle mc.ffi_interfer (ffi_index,new_bytes,ms) in
             let mc = mc with ffi_interfer := new_oracle in
               if new_ffi.final_event <> NONE

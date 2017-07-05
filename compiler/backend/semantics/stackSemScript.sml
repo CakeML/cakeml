@@ -476,7 +476,7 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (Word w),SOME (Word w2) =>
          (case read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be) of
           | SOME bytes =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes(*TODO:wrong*) bytes in
               let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
                 (NONE, s with <| memory := new_m ;
                                  regs := DRESTRICT s.regs s.ffi_save_regs;

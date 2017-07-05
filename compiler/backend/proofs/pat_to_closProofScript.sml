@@ -596,21 +596,22 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,backend_commonTheory.tuple_tag_def,true_neq_false])
     >- ( (* FFI *)
-      fs[MAP_REVERSE] >>
+      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
       fs[store_lookup_def] >>
-      IF_CASES_TAC >> fs[] >>
+      IF_CASES_TAC >> fs[] >> rveq >>
       ntac 2 (pop_assum mp_tac) >>
       BasicProvers.CASE_TAC >> fs[] >>
       BasicProvers.CASE_TAC >> fs[] >>
       fs[store_assign_def] >> rfs[] >>
-      fs[store_v_same_type_def] >>
-      BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
+      fs[store_v_same_type_def] >> rpt strip_tac >>
+      fs[] >> BasicProvers.CASE_TAC >> fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[Unit_def] >>
       simp[fmap_eq_flookup,ALOOKUP_GENLIST,FLOOKUP_UPDATE,EL_LUPDATE] >>
-      rw[] >> fs[])) >>
+      rw[] >> fs[o_DEF]      
+  )) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     every_case_tac >> fs[] >>

@@ -1267,16 +1267,22 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
           srw_tac[][] >>
           res_tac >>
           pop_assum mp_tac >>
-          ASM_REWRITE_TAC [sv_rel_def]) ) >>
+          ASM_REWRITE_TAC [sv_rel_def])
+      >- (Cases_on `h'` >> fs[] >> Cases_on `y` >> fs[] >> rw[] >> Cases_on `l` >>
+          fs[] >> rw[] >> fs[] >> every_case_tac >>
+          fs[store_lookup_def] >> fs[LIST_REL_EL_EQN] >>
+          rpt(first_x_assum drule >> strip_tac) >> rfs[] >> rveq
+          >> fs[store_assign_def,store_v_same_type_def] >> rfs[]) ) >>
     srw_tac[][] >>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>Cases_on`l`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>fs[]>>
-    Cases_on`y`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]>>
+    Cases_on`h'`>>full_simp_tac(srw_ss())[]>>Cases_on`l`>>full_simp_tac(srw_ss())[]>>
+    srw_tac[][]>>fs[]>>Cases_on`y`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
+    full_simp_tac(srw_ss())[]>>    
     BasicProvers.EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM,state_rel_def]>>srw_tac[][] >>
     full_simp_tac(srw_ss())[store_lookup_def,store_assign_def,
        store_v_same_type_def,LIST_REL_EL_EQN] >>
     srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
     BasicProvers.EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    metis_tac[sv_rel_def] ) >>
+    metis_tac[sv_rel_def] ) >> (*here*)
   imp_res_tac patSemTheory.do_app_cases >>
   fs[patSemTheory.do_app_def,state_rel_def] >>
   srw_tac[][]>>full_simp_tac(srw_ss())[UNCURRY]>>srw_tac[][] >>

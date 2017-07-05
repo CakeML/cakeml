@@ -557,7 +557,7 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE] >>
     srw_tac[][] >> match_mp_tac EVERY2_LUPDATE_same >>
     full_simp_tac(srw_ss())[] >> last_x_assum(qspec_then`k`mp_tac) >> simp[] )
-  >- (
+  >- ((*here*)
     Cases_on`y`\\fs[v_rel_simp]
     \\ Cases_on`t`\\fs[v_rel_simp]
     \\ Cases_on`h`\\fs[v_rel_simp]
@@ -567,7 +567,9 @@ val do_app = Q.prove(
     \\ first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]
     \\ every_case_tac \\ fs[OPTREL_def]
     \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
-    \\ rw[] \\ rfs[])
+    \\ rw[] \\ rfs[] \\ fs[v_rel_simp] \\ rename [`FLOOKUP _ k = _`]
+    \\ rpt(first_x_assum(qspec_then `k` assume_tac))
+    \\ rfs[] >> fs[] )
   >- (
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]>>

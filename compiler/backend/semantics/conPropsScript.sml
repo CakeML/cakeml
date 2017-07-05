@@ -36,7 +36,7 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃lnum i. op = (Op Asub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = (Op Alength) ∧ vs = [Loc n]) ∨
     (∃lnum i v. op = (Op Aupdate) ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
-    (∃lnum n. op = (Op (FFI n)) ∧ vs = [Loc lnum])`,
+    (∃conf lnum n. op = (Op (FFI n)) ∧ vs = [Litv(StrLit conf); Loc lnum])`,
   Cases_on`s`>>srw_tac[][conSemTheory.do_app_def] >>
   pop_assum mp_tac >>
   Cases_on`op` >- (

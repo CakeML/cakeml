@@ -1165,7 +1165,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     \\ rw[s_key_eq_refl,state_component_equality] )
   >-(*FFI*)
     (full_simp_tac(srw_ss())[evaluate_def]>>
-    every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'`>>full_simp_tac(srw_ss())[LET_THM]>>
+    every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'(*TODO:wrong*) x'`>>full_simp_tac(srw_ss())[LET_THM]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[get_var_def]>>
     metis_tac[s_key_eq_refl])
   >-(*Call*)
@@ -1713,7 +1713,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   >- (*FFI*)
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
-    every_case_tac>>Cases_on`call_FFI st.ffi ffi_index x'`>>
+    every_case_tac>>Cases_on`call_FFI st.ffi ffi_index x'(*TODO:wrong*) x'`>>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
   >- (*Call*)
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
