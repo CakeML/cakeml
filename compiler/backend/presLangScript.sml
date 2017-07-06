@@ -1,4 +1,4 @@
-open preamble astTheory;
+open preamble astTheory mlintTheory
 open conLangTheory modLangTheory exhLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_modTheory;
 
@@ -440,7 +440,7 @@ val string_to_display_def = Define`
   string_to_display s = empty_item ("\"" ++ s ++ "\"")`;
 
 val num_to_display_def = Define`
-  num_to_display n = empty_item (num_to_str n)`;
+  num_to_display n = empty_item (toString (&n))`;
 
 val word_size_to_display_def = Define`
   (word_size_to_display W8 = empty_item "W8")
@@ -596,7 +596,7 @@ val word_to_hex_string_def = Define `
 
 val lit_to_display_def = Define`
   (lit_to_display (IntLit i) =
-    Item NONE "IntLit" [empty_item (int_to_str i)])
+    Item NONE "IntLit" [empty_item (toString i)])
   /\
   (lit_to_display (Char c) =
     Item NONE "Char" [empty_item ("#\"" ++ [c] ++ "\"")])

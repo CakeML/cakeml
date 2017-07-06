@@ -1,4 +1,4 @@
-open preamble
+open preamble mlintTheory
 
 val _ = new_theory"jsonLang";
 
@@ -16,15 +16,6 @@ val _ = Datatype`
    | Int int
    | Bool bool
    | Null`;
-
-val num_to_str_def = Define `
-  num_to_str n = if n < 10 then [CHR (48 + n)]
-                 else (num_to_str (n DIV 10)) ++ ([CHR (48 + (n MOD 10))])`;
-
-val int_to_str_def = Define `
-  int_to_str i = if i < 0
-                then "-" ++ (num_to_str (Num (-i)))
-                else num_to_str (Num i)`;
 
 val _ = temp_overload_on("++",``Append``)
 
@@ -57,7 +48,7 @@ val json_to_string_def = tDefine "json_to_string" `
        | Object mems => List "{" ++ (concat_with (MAP mem_to_string mems) (List ",") (List "")) ++ List "}"
        | Array obs => List "[" ++ (concat_with (MAP json_to_string obs) (List ",") (List "")) ++ List "]"
        | String s => List "\"" ++ List (escape s) ++ List "\""
-       | Int i => List (int_to_str i)
+       | Int i => List (toString i)
        | Bool b => if b then List "true" else List "false"
        | Null => List "null")
   /\
