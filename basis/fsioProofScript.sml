@@ -3,7 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
      cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
-     mlw8arrayProgTheory mlstringProgTheory
+     mlw8arrayProgTheory mlstringProgTheory cfMainTheory
     
 val _ = new_theory"fsioProof";
 
@@ -717,6 +717,16 @@ val get_file_content_fsupdate = Q.store_thm("get_file_content_fsupdate",
   rw[get_file_content_def, fsupdate_def] >>
   pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
 
+val get_file_content_fsupdate_unchanged = Q.store_thm(
+  "get_file_content_fsupdate_unchanged",
+  `get_file_content fs fd = SOME u ⇒ 
+   ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒ 
+   ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
+  get_file_content (fsupdate fs fd' x i c) fd = SOME u`,
+  rw[get_file_content_def, fsupdate_def] >>
+  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
+  rpt(CASE_TAC >> fs[]));
+
 val insert_atI_end = Q.store_thm("insert_atI_end",
   `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
   simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
@@ -733,6 +743,435 @@ val print_spec = Q.store_thm("print_spec",
   fs[get_file_content_validFD,IOFS_def] >> xsimpl >> rw[] >> instantiate >>
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode] >> xsimpl);
+
+open mlcommandLineProgTheory
+(*---------------------------------------------------------------------------*)
+(* GENERALISED FFI *)
+
+val basis_ffi_oracle_def = Define `
+  basis_ffi_oracle =
+    \name (cls,fs) bytes.
+     if name = "write" then
+       case ffi_write bytes fs of
+       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "read" then
+       case ffi_read bytes fs of
+       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "getArgs" then
+       case ffi_getArgs bytes cls of
+       | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "open_in" then
+       case ffi_open_in bytes fs of
+       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "open_out" then
+       case ffi_open_out bytes fs of
+       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     if name = "close" then
+       case ffi_close bytes fs of
+       | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
+       | _ => Oracle_fail else
+     Oracle_fail`
+
+(* standard streams are initialized *)
+val basis_ffi_def = Define `
+  basis_ffi (inp: string) (cls: string list) files numchars =
+    <| oracle := basis_ffi_oracle
+     ; ffi_state := (cls,
+        (<| files := ((strlit "stdin",inp)::(strlit "stdout","")::(strlit "stderr","")::files);
+            infds := [(0,strlit "stdin",0);(1,strlit "stdout",0);(2,strlit "stderr",0)];
+            numchars := numchars |> : IO_fs))
+     ; final_event := NONE
+     ; io_events := [] |>`;
+
+val basis_proj1_def = Define `
+  basis_proj1 = (\(cls, fs).
+    FEMPTY |++ ((mk_proj1 commandLine_ffi_part cls) ++ (mk_proj1 fs_ffi_part fs)))`;
+
+val basis_proj2_def = Define `
+  basis_proj2 =
+    [mk_proj2 commandLine_ffi_part;
+     mk_proj2 fs_ffi_part]`;
+
+(* TODO useful? *)
+val basis_proj1_read = Q.store_thm("basis_proj1_read",
+  `basis_proj1 ffi ' "read" = encode (SND ffi)`,
+  PairCases_on`ffi` \\ EVAL_TAC);
+
+val basis_proj1_write = Q.store_thm("basis_proj1_write",
+  `basis_proj1 ffi ' "write" = encode(SND ffi)`,
+  PairCases_on`ffi` \\ EVAL_TAC);
+
+(* extracts the list of file descriptors linked to a given file name *)
+val extract_fds_def = Define`
+ (extract_fds fname [] = if fname = "stdin" then [0w] else
+                         if fname = "stdout" then [1w] else
+                         if fname = "stderr" then [2w] else []) ∧
+ (extract_fds fname ((IO_event name bytes)::xs) =
+ if name = "open" ∧  getNullTermStr (MAP FST bytes) = SOME fname
+ then SND(HD(TL bytes)) :: extract_fds fname xs else
+ if name = "close" then FILTER (\fd. fd <> FST(HD bytes)) (extract_fds fname xs)
+ else extract_fds fname xs)`;
+
+ (* TODO: ghere  *)
+
+val extract_file_def = Define `
+  (extract_file fname [] = SOME "") ∧ 
+  (extract_file fname ((IO_event name bytes)::xs) =
+     case extract_file fname xs of
+     | NONE => NONE
+     | SOME rest => 
+         if name ≠ "write" ∨ ¬ MEM (FST(HD bytes)) (extract_fds fname xs)
+         then SOME rest else
+         if LENGTH bytes <> 258 then NONE else
+         if SND(HD bytes) = 0w then SOME rest else
+           let nw = w2n(SND(HD(TL bytes))) in
+           let i = w2n(FST(HD(TL(TL bytes)))) in
+           SOME(MAP (CHR o w2n o SND) (TAKE nw (DROP (3 + i) bytes)) ++ rest))`
+
+val extract_file_APPEND = Q.store_thm("extract_output_APPEND",
+  `!xs ys.
+      extract_file fname (xs ++ ys) =
+      case extract_file fname ys of
+      | NONE => NONE
+      | SOME rest => case extract_file fname xs of
+                     | NONE => NONE
+                     | SOME front => SOME (front ++ rest)`,
+  Induct \\ fs [APPEND,extract_file_def] \\ rw []
+  THEN1 (every_case_tac \\ fs [])
+  \\ Cases_on `h` \\ fs [extract_file_def,MEM_APPEND]
+  cheat
+  \\ rpt (CASE_TAC \\ fs []));
+
+val extract_err_APPEND = Q.store_thm("extract_err_APPEND",
+  `!xs ys.
+      extract_err (xs ++ ys) =
+      case extract_err ys of
+      | NONE => NONE
+      | SOME rest => case extract_err xs of
+                     | NONE => NONE
+                     | SOME front => SOME (front ++ rest)`,
+  Induct \\ fs [APPEND,extract_err_def] \\ rw []
+  THEN1 (every_case_tac \\ fs [])
+  \\ Cases_on `h` \\ fs [extract_err_def]
+  \\ rpt (CASE_TAC \\ fs []));
+(*-------------------------------------------------------------------------------------------------*)
+
+(*The following thms are used to automate the proof of the SPLIT of the heap in ioProgLib*)
+val append_hprop = Q.store_thm ("append_hprop",
+  `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`,
+  rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
+);
+
+val SPLIT_exists = Q.store_thm ("SPLIT_exists",
+  `(A * B) s /\ s ⊆ C
+    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
+  rw[]
+  \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
+  \\ SPLIT_TAC
+);
+
+val append_emp_err = Q.store_thm("append_emp_err",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y)
+    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
+  rw[set_sepTheory.SEP_CLAUSES]);
+
+val append_emp_out = Q.store_thm("append_emp_out",
+   `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x)
+    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * emp)`,
+  rw[set_sepTheory.SEP_CLAUSES]);
+
+val append_STDERR = Q.store_thm("append_STDERR",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * P')
+  ==> app p fv xs (P * STDERR y) (POSTv uv. (A uv) * STDOUT x * STDERR y * P')`,
+  rw[]
+  \\ qmatch_abbrev_tac `app p fv xs H Q`
+  \\ `H ==>> P * STDERR y` by (rw[] \\ fs[SEP_IMP_REFL])
+  \\ imp_res_tac app_wgframe
+  \\ `(POSTv uv. A uv * STDOUT x * P') *+ STDERR y ==+> Q *+ GC`
+       suffices_by (fs[])
+  \\ rw[Abbr `Q`]
+  \\ rw[cfHeapsBaseTheory.GC_def,cfHeapsBaseTheory.STARPOST_def,
+       cfHeapsBaseTheory.SEP_IMPPOST_def,set_sepTheory.SEP_CLAUSES]
+  \\ rw[SEP_IMP_def,SEP_EXISTS,set_sepTheory.SEP_CLAUSES]
+  \\ qexists_tac`emp`
+  \\ rw[set_sepTheory.SEP_CLAUSES]
+  \\ fs[cfHeapsBaseTheory.POSTv_def]
+  \\ every_case_tac \\ fs[set_sepTheory.SEP_CLAUSES]
+  \\ metis_tac[STAR_COMM,STAR_ASSOC]
+  );
+
+val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT a * STDERR b * Q) ==>
+   app p fv xs P (POSTv uv. (A uv) * (SEP_EXISTS x y. &(x = a /\ y = b) * STDOUT x * STDERR y) * Q)`,
+  qmatch_abbrev_tac`_ (_ X) ==> _ (_ Y)`
+  \\ `X = Y` suffices_by rw[]
+  \\ unabbrev_all_tac
+  \\ simp[FUN_EQ_THM,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ CONV_TAC(PATH_CONV"bbrbbllr"(REWR_CONV STAR_COMM))
+  \\ simp[cond_STAR,GSYM STAR_ASSOC]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
+
+val emp_precond = Q.store_thm("emp_precond",
+  `emp {}`, EVAL_TAC);
+
+(*-------------------------------------------------------------------------------------------------*)
+(*These theorems are need to be remade to use cfMain for projs, oracle or ffi that aren't basis_ffi*)
+
+val file_content_of_ffi_def = Define`
+  file_content_of_ffi fd ffi = SOME(FST(THE(get_file_content (THE (fsFFI$decode ffi)) fd)))`
+
+(*RTC_call_FFI_rel_IMP_basis_events show that extracting output from two ffi_states will use the
+  same function if the two states are related by a series of FFI_calls. If this is the case for
+  your oracle (and projs), then this proof should be relatively similar. Note
+  that to make the subsequent proofs similar one should show an equivalence between
+  extract_output and proj1  *)
+val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
+  `!st st'. call_FFI_rel^* st st' ==>
+  st.oracle = basis_ffi_oracle ==>
+  (extract_output st.io_events = file_content_of_ffi 1 (basis_proj1 st.ffi_state ' "write") ==>
+   extract_output st'.io_events = file_content_of_ffi 1 (basis_proj1 st'.ffi_state ' "write")) ∧ 
+  (extract_err st.io_events = file_content_of_ffi 2 (basis_proj1 st.ffi_state ' "write") ==>
+   extract_err st'.io_events = file_content_of_ffi 2 (basis_proj1 st'.ffi_state ' "write"))`, 
+   cheat);
+  HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs [file_content_of_ffi_def]
+  \\ fs [evaluatePropsTheory.call_FFI_rel_def]
+  \\ fs [ffiTheory.call_FFI_def]
+  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ Cases_on `f` \\ fs []
+  \\ fs [extract_output_APPEND,extract_output_def,basis_proj1_write,
+         extract_err_APPEND,extract_err_def] \\ rfs []
+  \\ first_x_assum match_mp_tac
+  \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
+  \\ simp[basis_ffi_oracle_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rw[]
+  \\ fs[fsFFITheory.ffi_write_def,OPTION_CHOICE_EQUALS_OPTION,write_def,option_eq_some]
+     \\  rpt(full_case_tac \\ fs[option_eq_some] \\ rw[])
+  \\ rpt(pairarg_tac \\ fs[])
+  rfs[get_file_content_fsupdate,get_file_content_fsupdate_unchanged]
+  find"fsupdate"
+  find"Oracle_return";
+  \\
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
+);
+(*extract_output_basis_ffi shows that the first condition for the previous theorem holds for the
+  init_state ffi  *)
+val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
+  `extract_output (init_state (basis_ffi inp cls fs ll)).ffi.io_events = 
+   file_content_of_ffi 1 
+     (basis_proj1 (init_state (basis_ffi inp cls fs ll)).ffi.ffi_state ' "write")
+  `,
+  rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def,
+     basis_proj1_write, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM,
+     FAPPLY_FUPDATE_THM,file_content_of_ffi_def,get_file_content_def]);
+
+val extract_err_basis_ffi = Q.store_thm ("extract_err_basis_ffi",
+  `extract_err (init_state (basis_ffi inp cls fs ll)).ffi.io_events = 
+   file_content_of_ffi 2 
+     (basis_proj1 (init_state (basis_ffi inp cls fs ll)).ffi.ffi_state ' "write")`,
+  rw[ml_progTheory.init_state_def, extract_err_def, basis_ffi_def,
+     basis_proj1_write, cfHeapsBaseTheory.destStr_def,get_file_content_def,
+     FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM,file_content_of_ffi_def]);
+
+(*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
+  theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
+  showing that post-condition which gives effects your programs output is an FFI_part and
+  assuming that parts_ok is satisfied, an assumption about proj1 and the ffi_state should be
+  derived which should fit the function on some st.ffi_state which returns extract_output on
+  st.io_events  *)
+
+fun mk_main_call s =
+(* TODO: don't use the parser so much here? *)
+  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+val fname = mk_var("fname",``:string``);
+val main_call = mk_main_call fname;
+
+
+val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
+`!fname fv.
+ ML_code env1 (init_state (basis_ffi inp cls fs ll)) prog NONE env2 st2 ==>
+   lookup_var fname env2 = SOME fv ==>
+  app (basis_proj1, basis_proj2) fv [Conv NONE []] P
+    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q) ==>
+  no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_mods /\
+  no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_types ==>
+  (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
+  ==>
+    ∃io_events x y. R x y /\
+    semantics_prog (init_state (basis_ffi inp cls fs ll)) env1
+      (SNOC ^main_call prog) (Terminate Success io_events) /\
+    extract_output io_events = SOME x /\
+    extract_err    io_events = SOME y`,
+    rw[]
+    \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
+          &UNIT_TYPE () uv * ((SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q))` by (fs[STAR_ASSOC])
+    \\ drule (GEN_ALL call_main_thm2)
+    \\ rpt(disch_then drule)
+    \\ qmatch_goalsub_abbrev_tac`FFI_part_hprop X`
+    \\ `FFI_part_hprop X`
+    by(simp[Abbr`X`]
+       \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
+       \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
+       \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
+       \\ metis_tac[STDOUT_FFI_part_hprop, FFI_part_hprop_STAR])
+    \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[Abbr`X`]
+    \\ fs[SEP_EXISTS_THM,SEP_CLAUSES]
+    \\ `R x y` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
+    \\ map_every qexists_tac [`st3.ffi.io_events`,`x`,`y`]
+    \\ `file_content_of_ffi 1 (basis_proj1 st3.ffi.ffi_state ' "write") = SOME x /\
+        file_content_of_ffi 2 (basis_proj1 st3.ffi.ffi_state ' "write") = SOME y`
+        suffices_by
+      (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
+       \\ fs[extract_output_basis_ffi, extract_err_basis_ffi,
+            ml_progTheory.init_state_def, basis_ffi_def])
+    \\ fs[basis_proj1_write, STDOUT_def,STDERR_def, cfHeapsBaseTheory.IO_def,
+          cfHeapsBaseTheory.IOx_def, set_sepTheory.SEP_CLAUSES,
+          set_sepTheory.SEP_EXISTS_THM, fsFFITheory.fs_ffi_part_def,IOFS_def]
+    \\ fs[GSYM set_sepTheory.STAR_ASSOC] \\ fs[Once STAR_def]
+    \\ fs[set_sepTheory.one_STAR]
+    \\ qmatch_assum_abbrev_tac`ffip ∈ v`
+    \\ fs[Once set_sepTheory.STAR_ASSOC]
+    \\ NTAC 3 (fs[Once set_sepTheory.STAR_def])
+    \\ fs [set_sepTheory.one_STAR]
+    \\ qmatch_assum_abbrev_tac`ffip2 ∈ v''''`
+    \\ `ffip ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+    \\ `ffip2 ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
+    \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+           Abbr`ffip`, Abbr`ffip2`]
+    \\ fs [cfStoreTheory.ffi2heap_def,file_content_of_ffi_def]
+    \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
+    \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
+
+    \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+    \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+    \\ fs[basis_proj1_write,STAR_def,cond_def]
+);
+
+val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
+[stdinFFITheory.ffi_getChar_length,
+ stdoutFFITheory.ffi_putChar_length,
+ stderrFFITheory.ffi_putChar_err_length,
+ commandLineFFITheory.ffi_getArgs_length,
+ rofsFFITheory.ffi_open_length,
+ rofsFFITheory.ffi_fgetc_length,
+ rofsFFITheory.ffi_close_length,
+ rofsFFITheory.ffi_isEof_length]);
+
+val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
+[stdinFFITheory.stdin_ffi_part_def,
+ stdoutFFITheory.stdout_ffi_part_def,
+ stderrFFITheory.stderr_ffi_part_def,
+ commandLineFFITheory.commandLine_ffi_part_def,
+ rofsFFITheory.rofs_ffi_part_def]);
+
+(* This is used to show to show one of the parts of parts_ok for the state after a spec *)
+val oracle_parts = Q.store_thm("oracle_parts",
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
+    ==> (?y. st.ffi.oracle m x bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
+  simp[basis_proj2_def,basis_proj1_def]
+  \\ pairarg_tac \\ fs[]
+  \\ rw[cfHeapsBaseTheory.mk_proj1_def,
+        cfHeapsBaseTheory.mk_proj2_def,
+        basis_ffi_oracle_def,basis_ffi_part_defs]
+  \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
+  \\ TRY (
+     CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
+  \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
+  \\ rw[] )
+  \\ disj2_tac
+  \\ CCONTR_TAC \\ fs[] \\ rfs[]
+);
+
+(*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
+val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
+  `parts_ok (auto_state_1 (basis_ffi inp cls fs)).ffi (basis_proj1, basis_proj2)` ,
+  qmatch_goalsub_abbrev_tac`st.ffi`
+  \\ `st.ffi.oracle = basis_ffi_oracle`
+  by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
+  \\ rw[cfStoreTheory.parts_ok_def]
+  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
+  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+  \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+  \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+  \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+  \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+  \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
+  \\ srw_tac[DNF_ss][]
+);
+
+(* TODO: Move these to somewhere relevant *)
+val extract_output_not_putChar = Q.prove(
+    `!xs name bytes. name <> "putChar" ==>
+      extract_output (xs ++ [IO_event name bytes]) = extract_output xs`,
+      rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
+);
+
+val extract_err_not_putChar_err = Q.prove(
+    `!xs name bytes. name <> "putChar_err" ==>
+      extract_err (xs ++ [IO_event name bytes]) = extract_err xs`,
+      rw[extract_err_APPEND, extract_err_def] \\ Cases_on `extract_err xs` \\ rw[]
+);
+
+val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
+  `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
+  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND]
+  \\ fs[] \\ rw[extract_output_def] \\ full_case_tac
+  \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
+);
+
+val extract_err_FILTER = Q.store_thm("extract_err_FILTER",
+  `!st. extract_err st.ffi.io_events = extract_err (FILTER (ffi_has_index_in ["putChar_err"]) st.ffi.io_events)`,
+  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND]
+  \\ fs[] \\ rw[extract_err_def] \\ full_case_tac
+  \\ Cases_on `extract_err (FILTER (ffi_has_index_in ["putChar_err"]) l')` \\ fs[]
+  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND] \\ fs[]
+  \\ Cases_on `h` \\ Cases_on `s = "putChar_err"` \\
+  fs[cfStoreTheory.ffi_has_index_in_def, extract_err_def]
+);
+
+val UNION_DIFF_3 = Q.store_thm("UNION_DIFF_3",
+  `!a b c. (DISJOINT a b /\ DISJOINT a c /\ DISJOINT b c) \/
+    (DISJOINT b a /\ DISJOINT c a /\ DISJOINT c b) ==>
+    (a ∪ b ∪ c DIFF b DIFF c) = a`,
+    SPLIT_TAC
+);
+
+
+val star_delete_heap_imp = Q.store_thm("star_delete_heap_imp",
+  `((A * B * C):hprop) h /\ A s1 /\ B s2 /\ C s3
+    /\ (!a b. C a /\ C b ==> a = b)
+    /\ (!a b. B a /\ B b ==> a = b)
+    /\ (!a b. A a /\ A b ==> a = b)
+    ==>
+    (A * B) (h DIFF s3) /\ (A * C) (h DIFF s2) /\
+    (B * C) (h DIFF s1) /\ A (h DIFF s2 DIFF s3) /\
+    B (h DIFF s1 DIFF s3) /\ C (h DIFF s1 DIFF s2)`,
+    rw[set_sepTheory.STAR_def]
+    \\ `v = s3` by fs[] \\ rw[]
+    \\ `v' = s2` by fs[] \\ rw[]
+    \\ `u' = s1` by fs[] \\ rw[]
+    \\ TRY (instantiate \\ SPLIT_TAC \\ NO_TAC)
+    \\ fs[SPLIT_def]  \\ rw[] \\ fs[]
+    \\ imp_res_tac UNION_DIFF_3 \\ rw[] \\ fs[DISJOINT_SYM] \\ rfs[]
+    \\ metis_tac[UNION_COMM, UNION_ASSOC]
+);
+
 
 val _ = export_theory();
 
