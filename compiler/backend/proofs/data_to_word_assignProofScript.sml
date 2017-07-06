@@ -297,8 +297,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
         ?rv. q = SOME (Result (Loc l1 l2) rv) /\
              state_rel c r1 r2 (s2 with <| locals := LN; clock := new_c |>)
                 r [(v,rv)] locs`,
-  cheat);
-  (*fs [RefArray_code_def]
+  fs [RefArray_code_def]
   \\ fs [do_app_def,do_space_def,EVAL ``op_space_reset RefArray``,
          bviSemTheory.do_app_def,bvlSemTheory.do_app_def,
          bviSemTheory.do_app_aux_def]
@@ -455,8 +454,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
     \\ `1 < dimindex (:α) − (c.len_size + 2)` by
      (qpat_assum `c.len_size + _ < dimindex (:α)` mp_tac
       \\ rpt (pop_assum kall_tac) \\ decide_tac)
-    \\ Cases_on `dimindex (:α) − (c.len_size + 2)` \\ fs[]
-    \\ Cases_on `n` \\ fs [EXP] \\ Cases_on `2 ** n'` \\ fs [])
+    \\ fs [good_dimindex_def,dimword_def])
   \\ rpt (disch_then drule)
   \\ impl_tac THEN1 (fs [ONCE_REWRITE_RULE[MULT_COMM]MULT_DIV])
   \\ strip_tac
@@ -499,7 +497,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
   \\ fs [make_ptr_def]
   \\ qunabbrev_tac `ww`
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ fs []
-  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]*);
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
 val word_exp_SmallLsr = Q.store_thm("word_exp_SmallLsr",
   `word_exp s (SmallLsr e n) =
