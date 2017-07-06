@@ -5187,6 +5187,18 @@ val th = Q.store_thm("assign_WordShiftW64",
   \\ fs [consume_space_def]
   \\ rveq \\ fs [] \\ rw [] \\ fs []);
 
+val th = Q.store_thm("assign_FP_cmp",
+  `(?fp_cmp. op = FP_cmp fp_cmp) ==> ^assign_thm_goal`,
+  cheat);
+
+val th = Q.store_thm("assign_FP_uop",
+  `(?fp_uop. op = FP_uop fp_uop) ==> ^assign_thm_goal`,
+  cheat);
+
+val th = Q.store_thm("assign_FP_bop",
+  `(?fp_bop. op = FP_bop fp_bop) ==> ^assign_thm_goal`,
+  cheat);
+
 val th = Q.store_thm("assign_Label",
   `(?lab. op = Label lab) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
