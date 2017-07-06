@@ -570,14 +570,9 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[])
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[Once evaluate_def,SimpRHS]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-  \\ pairarg_tac \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[align_dm_def]);
+  \\ rpt(BasicProvers.TOP_CASE_TAC \\ simp[])
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[]);
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒

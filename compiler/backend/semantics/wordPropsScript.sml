@@ -1164,8 +1164,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     fs[evaluate_def,set_var_def,state_component_equality,s_key_eq_refl]
     \\ rw[s_key_eq_refl,state_component_equality] )
   >-(*FFI*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>
-    every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'(*TODO:wrong*) x'`>>full_simp_tac(srw_ss())[LET_THM]>>
+   (full_simp_tac(srw_ss())[evaluate_def]>>
+    every_case_tac>>rename[`call_FFI s.ffi ffi_index conf bytes`]>>
+    Cases_on`call_FFI s.ffi ffi_index conf bytes`>>full_simp_tac(srw_ss())[LET_THM]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[get_var_def]>>
     metis_tac[s_key_eq_refl])
   >-(*Call*)
@@ -1713,7 +1714,9 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   >- (*FFI*)
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
-    every_case_tac>>Cases_on`call_FFI st.ffi ffi_index x'(*TODO:wrong*) x'`>>
+    every_case_tac>>
+    TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
+        Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
   >- (*Call*)
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
@@ -2174,7 +2177,12 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-    Cases_on`res`>>full_simp_tac(srw_ss())[]));
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[]));
 
 val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`,
@@ -2338,7 +2346,7 @@ val wf_cutsets_def = Define`
         NONE => T
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x y z args) = wf args) ∧
+  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
@@ -2362,7 +2370,8 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (FFI x ptr len args) = (ptr = 2 ∧ len = 4)) ∧
+  (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
+                                                         ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of

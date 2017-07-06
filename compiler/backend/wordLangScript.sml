@@ -50,7 +50,7 @@ val _ = Datatype `
        | Return num num
        | Tick
        | LocValue num num        (* assign v1 := Loc v2 0 *)
-       | FFI string num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
+       | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 1`;
@@ -106,8 +106,8 @@ val every_var_def = Define `
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (LocValue r _) = P r) ∧
-  (every_var P (FFI ffi_index ptr len names) =
-    (P ptr ∧ P len ∧ every_name P names)) ∧
+  (every_var P (FFI ffi_index cptr clen ptr len names) =
+    (P cptr ∧ P clen ∧ P ptr ∧ P len ∧ every_name P names)) ∧
   (every_var P (MustTerminate s1) = every_var P s1) ∧
   (every_var P (Call ret dest args h) =
     ((EVERY P args) ∧
@@ -134,7 +134,7 @@ val every_var_def = Define `
 
 (*Recursor for stack variables*)
 val every_stack_var_def = Define `
-  (every_stack_var P (FFI ffi_index ptr len names) =
+  (every_stack_var P (FFI ffi_index cptr clen ptr len names) =
     every_name P names) ∧
   (every_stack_var P (Call ret dest args h) =
     (case ret of

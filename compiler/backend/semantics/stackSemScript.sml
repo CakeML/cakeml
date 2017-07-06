@@ -471,12 +471,13 @@ val evaluate_def = tDefine "evaluate" `
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
               | res => res))) /\
-  (evaluate (FFI ffi_index ptr len ret,s) =
-    case (get_var len s, get_var ptr s) of
-    | SOME (Word w),SOME (Word w2) =>
-         (case read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be) of
-          | SOME bytes =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes(*TODO:wrong*) bytes in
+  (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
+    case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+         (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
+                read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be)) of
+          | SOME bytes,SOME bytes2 =>
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
               let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
                 (NONE, s with <| memory := new_m ;
                                  regs := DRESTRICT s.regs s.ffi_save_regs;

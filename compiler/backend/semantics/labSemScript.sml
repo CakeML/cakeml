@@ -22,6 +22,8 @@ val _ = Datatype `
      ; failed     : bool
      ; ptr_reg    : num
      ; len_reg    : num
+     ; ptr2_reg    : num
+     ; len2_reg    : num                      
      ; link_reg   : num
      |>`
 
@@ -237,6 +239,8 @@ val asm_inst_consts = Q.store_thm("asm_inst_consts",
     ((asm_inst i s).ffi = s.ffi) ∧
     ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
     ((asm_inst i s).len_reg = s.len_reg) ∧
+    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
+    ((asm_inst i s).len2_reg = s.len2_reg) ∧    
     ((asm_inst i s).link_reg = s.link_reg)`,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
@@ -326,12 +330,14 @@ val evaluate_def = tDefine "evaluate" `
              let s1 = upd_reg s.link_reg k s in
                evaluate (upd_pc p (dec_clock s1))))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
-       (case (s.regs s.len_reg,s.regs s.ptr_reg,s.regs s.link_reg) of
-        | (Word w, Word w2, Loc n1 n2) =>
+       (case (s.regs s.len_reg,s.regs s.ptr_reg,
+              s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of
+        | (Word w, Word w2, Word w3, Word w4, Loc n1 n2) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
+                read_bytearray w4 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
-          | (SOME bytes, SOME new_pc) =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes(*TODO:wrong*) bytes in
+          | (SOME bytes, SOME bytes2, SOME new_pc) =>
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
               let new_io_regs = shift_seq 1 s.io_regs in
               let new_m = write_bytearray w2 new_bytes s.mem s.mem_domain s.be in
                 evaluate (s with <|
