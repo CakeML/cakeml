@@ -5,7 +5,7 @@ open to_dataProgTheory;
 
 val _ = new_theory "to_word32Prog"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "explorerProg";
 
 val RW = REWRITE_RULE
 

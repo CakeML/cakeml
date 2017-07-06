@@ -5,7 +5,7 @@ open to_dataProgTheory;
 
 val _ = new_theory "to_word64Prog"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "explorerProg";
 
 val RW = REWRITE_RULE
 
@@ -56,66 +56,6 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-(* TODO: move *)
-
-val _ = translate jsonLangTheory.num_to_str_def;
-
-val jsonlang_num_to_str_side = prove(
-  ``!x. jsonlang_num_to_str_side x = T``,
-  recInduct jsonLangTheory.num_to_str_ind \\ rw []
-  \\ simp [Once (fetch "-" "jsonlang_num_to_str_side_def")]
-  \\ rw [] \\ `n MOD 10 < 10` by fs [] \\ simp [])
- |> update_precondition
-
-val int_to_str_lemma = prove(
-  ``jsonLang$int_to_str i =
-      if i < 0 then STRCAT "-" (num_to_str (num_of_int i))
-      else num_to_str (num_of_int i)``,
-  fs [num_of_int_def,jsonLangTheory.int_to_str_def]
-  \\ rw [] \\ fs []
-  \\ AP_TERM_TAC \\ intLib.COOPER_TAC);
-
-val _ = translate int_to_str_lemma;
-
-val mem_to_string_lemma = prove(
-  ``mem_to_string x =
-    Append (Append (Append (List "\"") (List (FST x))) (List "\":"))
-       (json_to_string (SND x))``,
-  Cases_on `x` \\ simp [Once jsonLangTheory.json_to_string_def] \\ fs []);
-
-val res = translate
-  (jsonLangTheory.json_to_string_def
-   |> CONJUNCT1 |> SPEC_ALL
-   |> (fn th => LIST_CONJ [th,mem_to_string_lemma]));
-
-val res = translate presLangTheory.num_to_hex_digit_def;
-
-val num_to_hex_digit_side = prove(
-  ``preslang_num_to_hex_digit_side n = T``,
-  EVAL_TAC \\ fs [])
-  |> update_precondition;
-
-val res = translate presLangTheory.num_to_hex_def;
-
-val res = translate
-  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
-val res = translate
-  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
-
-val res = translate displayLangTheory.num_to_json_def;
-val res = translate displayLangTheory.trace_to_json_def;
-val res = translate displayLangTheory.display_to_json_def;
-
-val res1 = translate presLangTheory.mod_to_json_def;
-val res2 = translate presLangTheory.con_to_json_def;
-val res3 = translate presLangTheory.dec_to_json_def;
-val res4 = translate presLangTheory.exh_to_json_def;
-val res5 = translate presLangTheory.pat_to_json_def;
-val res6 = translate presLangTheory.clos_to_json_def;
-val res7 = translate presLangTheory.clos_to_json_table_def;
-
-(* --- *)
 
 open data_to_wordTheory
 
