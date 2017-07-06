@@ -389,8 +389,6 @@ val lemma = ``(if 0 <= i /\ q
 val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 *)
 
-val _ = translate (clos_knownTheory.known_def)
-
 val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
 
 val clos_known_merge_side = Q.prove(`
@@ -398,14 +396,16 @@ val clos_known_merge_side = Q.prove(`
   EVAL_TAC \\
   recInduct clos_knownTheory.merge_tup_ind \\
   rw[] \\
-  rw[Once clos_known_merge_tup_side_def]);
+  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
 
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
   fs[clos_known_merge_side]>>rw[]>>
-  intLib.COOPER_TAC)
+  intLib.COOPER_TAC) |> update_precondition;
+
+val r = translate (clos_knownTheory.known_def)
 
 (*
 val clos_known_known_op_side = Q.prove(`
@@ -427,12 +427,11 @@ val clos_known_known_side = Q.prove(`
     imp_res_tac clos_knownTheory.known_sing_EQ_E>>
     fs[])>>
   rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
-  fs[clos_known_merge_side] >>
-  metis_tac[FST,PAIR,clos_known_known_op_side]) |> update_precondition
+  metis_tac[FST,PAIR]) |> update_precondition
 
 (* call *)
 
-val _ = translate (clos_callTheory.calls_def)
+val r = translate (clos_callTheory.calls_def)
 
 val clos_free_free_side = Q.prove(`
   ∀a. clos_free_free_side a ⇔ T`,
@@ -463,7 +462,7 @@ val clos_call_calls_side = Q.prove(`
 (* remove *)
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 
-val _ = translate (clos_removeTheory.remove_alt)
+val r = translate (clos_removeTheory.remove_alt)
 
 val clos_remove_remove_side = Q.prove(`
   ∀x. clos_remove_remove_side x ⇔ T`,
