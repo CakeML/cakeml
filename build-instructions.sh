@@ -23,7 +23,9 @@ cd
 git clone https://github.com/HOL-Theorem-Prover/HOL
 cd HOL
 ## optionally switch to a released version, e.g., kananaskis-11
-# git checkout k11-release-prep # kananaskis-11 when released
+# git checkout kananaskis-11
+## note: currently, we only aim to ensure that
+##       CakeML branch master builds on HOL branch master
 poly < tools/smart-configure.sml
 bin/build
 ## optionally set HOLDIR to point to the HOL installation
@@ -35,8 +37,8 @@ bin/build
 cd
 git clone https://github.com/CakeML/cakeml
 cd cakeml
-## optionally switch to a released version, e.g., version1
-# git checkout version1
+## optionally switch to a released version, e.g., version2
+# git checkout version2
 $HOME/HOL/bin/Holmake
 ## or just Holmake if you set up your PATH as above
 # Holmake
