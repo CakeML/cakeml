@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../semantics ../../../semantics/alt_semantics ../../../translator ../monadic ../../../explorer/pp/astPP ../../../characteristic ../../../basis ../../../translator/monadic
+INCLUDES = ../../../misc ../../../semantics ../../../semantics/alt_semantics ../../../translator ../monadic ../../../explorer/pp/astPP ../../../characteristic ../../../basis ../../../translator/monadic
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../preamble ../monadic/holKernelTheory
+BARE_THYS = ../../../misc/preamble ../monadic/holKernelTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

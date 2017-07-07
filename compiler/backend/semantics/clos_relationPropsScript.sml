@@ -318,33 +318,37 @@ val rev_drop_rev_all = Q.prove (
  full_simp_tac(srw_ss())[DROP_REVERSE, BUTLASTN_LENGTH_NIL]);
 
 val add_opt = Q.store_thm ("add_opt",
-`!n1 n2. exp_rel (:'ffi) w [Op Add [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 + n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) w [Op t1 Add [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                           [Op t4 (Const (n2 + n1)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val sub_opt = Q.store_thm ("sub_opt",
-`!n1 n2. exp_rel (:'ffi) w [Op Sub [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 - n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) w [Op t1 Sub [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                           [Op t4 (Const (n2 - n1)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val mult_opt = Q.store_thm ("mult_opt",
-`!n1 n2. exp_rel (:'ffi) w [Op Mult [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 * n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) w [Op t1 Mult [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                           [Op t4 (Const (n2 * n1)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val div_opt = Q.store_thm ("div_opt",
-`!n1 n2. exp_rel (:'ffi) w [Op Div [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 / n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) w [Op t1 Div [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                           [Op t4 (Const (n2 / n1)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  srw_tac[][res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val mod_opt = Q.store_thm ("mod_opt",
-`!n1 n2. exp_rel (:'ffi) w [Op Mod [Op (Const n1) []; Op (Const n2) []]]
-                 [Op (Const (n2 % n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) w [Op t1 Mod [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                           [Op t4 (Const (n2 % n1)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw] >>
  srw_tac[][res_rel_rw, val_rel_rw] >>
@@ -352,32 +356,32 @@ val mod_opt = Q.store_thm ("mod_opt",
 
 val less_opt = Q.store_thm ("less_opt",
 `!n1 n2.
-  exp_rel (:'ffi) w [Op Less [Op (Const n1) []; Op (Const n2) []]]
-          [Op (Cons (if n2 < n1 then true_tag else false_tag)) []]`,
+  exp_rel (:'ffi) w [Op t1 Less [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                    [Op t4 (Cons (if n2 < n1 then true_tag else false_tag)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, Boolv_def, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val leq_opt = Q.store_thm ("leq_opt",
 `!n1 n2.
-  exp_rel (:'ffi) w [Op LessEq [Op (Const n1) []; Op (Const n2) []]]
-          [Op (Cons (if n2 ≤ n1 then true_tag else false_tag)) []]`,
+  exp_rel (:'ffi) w [Op t1 LessEq [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                    [Op t4 (Cons (if n2 ≤ n1 then true_tag else false_tag)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
 val greater_opt = Q.store_thm ("greater_opt",
 `!n1 n2.
-  exp_rel (:'ffi) w [Op Greater [Op (Const n1) []; Op (Const n2) []]]
-          [Op (Cons (if n2 > n1 then true_tag else false_tag)) []]`,
+  exp_rel (:'ffi) w [Op t1 Greater [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                    [Op t4 (Cons (if n2 > n1 then true_tag else false_tag)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
 val geq_opt = Q.store_thm ("geq_opt",
 `!n1 n2.
-  exp_rel (:'ffi) w [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]]
-          [Op (Cons (if n2 ≥ n1 then true_tag else false_tag)) []]`,
+  exp_rel (:'ffi) w [Op t1 GreaterEq [Op t2 (Const n1) []; Op t3 (Const n2) []]]
+                    [Op t4 (Cons (if n2 ≥ n1 then true_tag else false_tag)) []]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
@@ -390,7 +394,8 @@ val app_combine = Q.store_thm ("app_combine",
   exp_rel (:'ffi) w [f] [f'] ∧
   exp_rel (:'ffi) w es1 es1' ∧
   exp_rel (:'ffi) w es2 es2' ⇒
-  exp_rel (:'ffi) w [App NONE (App NONE f es1) es2] [App NONE f' (es2'++es1')]`,
+  exp_rel (:'ffi) w [App t1 NONE (App t2 NONE f es1) es2]
+                    [App t3 NONE f' (es2'++es1')]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  simp [evaluate_append] >>
  Cases_on `LENGTH es2 > 0` >>
@@ -524,7 +529,7 @@ val fn_add_arg_lem = Q.prove (
   i' ≤ i ∧
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  val_rel (:'ffi) i' w (Closure NONE args env num_args (Fn NONE NONE num_args' e))
+  val_rel (:'ffi) i' w (Closure NONE args env num_args (Fn t NONE NONE num_args' e))
                        (Closure NONE args' env' (num_args + num_args') e')`,
  completeInduct_on `i'` >>
  srw_tac[][val_rel_rw, is_closure_def] >>
@@ -701,8 +706,8 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
 `!num_args num_args' e e'.
   num_args + num_args' ≤ w ∧
   exp_rel (:'ffi) w [e] [e'] ⇒
-  exp_rel (:'ffi) w [Fn NONE NONE num_args (Fn NONE NONE num_args' e)]
-          [Fn NONE NONE (num_args + num_args') e']`,
+  exp_rel (:'ffi) w [Fn t1 NONE NONE num_args (Fn t2 NONE NONE num_args' e)]
+                    [Fn t3 NONE NONE (num_args + num_args') e']`,
  srw_tac[][] >>
  simp [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  srw_tac[][res_rel_rw] >>

@@ -48,7 +48,7 @@ val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
 
 val evaluate_extend_genv = Q.store_thm ("evaluate_extend_genv",
   `!env s n s' v.
-    evaluate env s [Extend_global n] = (s',r)
+    evaluate env s [Extend_global tra n] = (s',r)
     ⇔
     r = Rval [Conv NONE []] ∧
     s' = (s with globals := s.globals ++ GENLIST (\x. NONE) n)`,
@@ -159,6 +159,5 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   full_simp_tac(srw_ss())[do_app_add_to_clock,UNCURRY] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   TRY(last_x_assum(qspec_then`extra`mp_tac)>>simp[]>>NO_TAC) >>
   metis_tac[FST,IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi,do_app_io_events_mono]);
-
 
 val _ = export_theory()

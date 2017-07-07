@@ -407,6 +407,22 @@ val word_gc_partial_or_full_def = Define `
                 (list_Seq partial_code)
                 (list_Seq full_code)]`;
 
+val SetNewTrigger_def = Define `
+  SetNewTrigger (endh:num) (ib:num) gs =
+    list_Seq [const_inst 1 ((get_gen_size gs):'a word);
+              Get 7 AllocSize;
+              move 4 endh;
+              sub_inst 4 ib;
+              If Lower 1 (Reg 7)
+                (If Lower 4 (Reg 7)
+                   (Set TriggerGC endh)
+                   (If Test 7 (Imm (if dimindex (:'a) = 32 then 3w else 7w))
+                     (Seq (add_inst 7 ib) (Set TriggerGC 7))
+                     (Set TriggerGC endh)))
+                (If Lower 4 (Reg 1)
+                   (Set TriggerGC endh)
+                   (Seq (add_inst 1 ib) (Set TriggerGC 1)))]`
+
 val word_gc_code_def = Define `
   word_gc_code conf =
     dtcase conf.gc_kind of
@@ -490,7 +506,7 @@ val word_gc_code_def = Define `
                Set NextFree 3;
                Get 8 EndOfHeap;
                Get 2 TriggerGC;
-               Set TriggerGC 8;
+               SetNewTrigger 8 3 gen_sizes;
                const_inst 1 0w;
                Set (Temp 0w) 1;
                Set (Temp 1w) 1;
@@ -549,10 +565,10 @@ val word_gc_code_def = Define `
                Get 0 NextFree;
                Set NextFree 3;
                Set EndOfHeap 2;
-               Set TriggerGC 2;
                move 8 3;
                sub_inst 8 1;
                Set GenStart 8;
+               SetNewTrigger 2 3 gen_sizes;
                const_inst 1 0w;
                Set (Temp 0w) 1;
                Set (Temp 1w) 1;
@@ -562,6 +578,7 @@ val word_gc_code_def = Define `
                Set (Temp 5w) 1;
                Set (Temp 6w) 1;
                Get 1 AllocSize;
+               Get 2 TriggerGC;
                sub_inst 2 3;
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
                  :'a stackLang$prog`

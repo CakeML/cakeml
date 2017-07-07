@@ -57,10 +57,10 @@ val res = translate (source_to_modTheory.compile_exp_def);
 
 val source_to_mod_compile_exp_side_def = theorem"source_to_mod_compile_exp_side_def"
 val source_to_mod_compile_exp_side = Q.prove(
-  `(∀x y. source_to_mod_compile_exp_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_exps_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_pes_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_funs_side x y ⇔ T)`,
+  `(∀x y z. source_to_mod_compile_exp_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_exps_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_pes_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_funs_side x y z ⇔ T)`,
   ho_match_mp_tac source_to_modTheory.compile_exp_ind \\ rw[]
   \\ rw[Once source_to_mod_compile_exp_side_def]
   \\ rw[definition"source_to_mod_astop_to_modop_side_def"])
@@ -71,9 +71,16 @@ val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
 
-val _ = translate (con_to_decTheory.compile_def);
+val r = translate con_to_decTheory.compile_decs_def;
+val con_to_dec_compile_decs_side_def = theorem"con_to_dec_compile_decs_side_def";
+val con_to_dec_compile_decs_side = Q.prove(
+  `∀x y z. con_to_dec_compile_decs_side x y z ⇔ T`,
+  Induct_on`z` \\ rw[Once con_to_dec_compile_decs_side_def])
+  |> update_precondition;
 
-val _ = translate (exh_reorderTheory.compile_def);
+val r = translate (con_to_decTheory.compile_def);
+
+val r = translate (exh_reorderTheory.compile_def);
 
 val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
 val exh_reorder_compile_side = Q.prove(`
@@ -85,7 +92,7 @@ val exh_reorder_compile_side = Q.prove(`
   TRY(asm_exists_tac \\ rw[]) \\
   fs[Once exh_reorderTheory.compile_cons])|>update_precondition;
 
-val _ = translate (dec_to_exhTheory.compile_def);
+val r = translate (dec_to_exhTheory.compile_def);
 
 val dec_to_exh_compile_side_def = definition"dec_to_exh_compile_side_def";
 val dec_to_exh_compile_side = Q.prove(
@@ -93,8 +100,8 @@ val dec_to_exh_compile_side = Q.prove(
   rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
   |> update_precondition;
 
-val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
-val _ = translate (exh_to_patTheory.compile_def);
+val r = translate (exh_to_patTheory.pure_op_op_pmatch);
+val r = translate (exh_to_patTheory.compile_def);
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -140,6 +147,9 @@ val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
 
 val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_CONLANG_OP_TYPE]
+
+val EqualityType_BACKEND_COMMON_TRA_TYPE = find_equality_type_thm``BACKEND_COMMON_TRA_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM]
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
 
@@ -224,9 +234,10 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
-val EqualityType_EXHLANG_PAT_TYPE = Q.prove(
+val EqualityType_EXHLANG_PAT_TYPE = Q.store_thm("EqualityType_EXHLANG_PAT_TYPE",
   `EqualityType EXHLANG_PAT_TYPE`,
-  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
+  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,
+    EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
   |> store_eq_thm
 
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
@@ -248,6 +259,7 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -274,6 +286,7 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rw[types_match_def,ctor_same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -309,6 +322,7 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -320,7 +334,7 @@ val EqualityType_PATLANG_EXP_TYPE = Q.prove(
   metis_tac[EqualityType_def,PATLANG_EXP_TYPE_no_closures,PATLANG_EXP_TYPE_types_match,PATLANG_EXP_TYPE_11])
   |> store_eq_thm
 
-val _ = translate (pat_to_closTheory.compile_def);
+val r = translate (pat_to_closTheory.compile_def);
 
 val pat_to_clos_compile_side = Q.prove(`
   ∀x. pat_to_clos_compile_side x ⇔ T`,
@@ -375,8 +389,6 @@ val lemma = ``(if 0 <= i /\ q
 val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 *)
 
-val _ = translate (clos_knownTheory.known_def)
-
 val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
 
 val clos_known_merge_side = Q.prove(`
@@ -384,14 +396,16 @@ val clos_known_merge_side = Q.prove(`
   EVAL_TAC \\
   recInduct clos_knownTheory.merge_tup_ind \\
   rw[] \\
-  rw[Once clos_known_merge_tup_side_def]);
+  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
 
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
   fs[clos_known_merge_side]>>rw[]>>
-  intLib.COOPER_TAC)
+  intLib.COOPER_TAC) |> update_precondition;
+
+val r = translate (clos_knownTheory.known_def)
 
 (*
 val clos_known_known_op_side = Q.prove(`
@@ -413,12 +427,11 @@ val clos_known_known_side = Q.prove(`
     imp_res_tac clos_knownTheory.known_sing_EQ_E>>
     fs[])>>
   rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
-  fs[clos_known_merge_side] >>
-  metis_tac[FST,PAIR,clos_known_known_op_side]) |> update_precondition
+  metis_tac[FST,PAIR]) |> update_precondition
 
 (* call *)
 
-val _ = translate (clos_callTheory.calls_def)
+val r = translate (clos_callTheory.calls_def)
 
 val clos_free_free_side = Q.prove(`
   ∀a. clos_free_free_side a ⇔ T`,
@@ -449,7 +462,7 @@ val clos_call_calls_side = Q.prove(`
 (* remove *)
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 
-val _ = translate (clos_removeTheory.remove_alt)
+val r = translate (clos_removeTheory.remove_alt)
 
 val clos_remove_remove_side = Q.prove(`
   ∀x. clos_remove_remove_side x ⇔ T`,

@@ -4,6 +4,10 @@ open closSemTheory
 
 val _ = new_theory "clos_mtiProof";
 
+fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
+
+val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
+
 (* TODO: move (also move the same in clos_removeProof if necessary) *)
 val option_CASE_NONE_T = Q.store_thm(
   "option_CASE_NONE_T",
@@ -30,11 +34,11 @@ val EVERY_HD = Q.prove(
 (* -- *)
 
 val collect_args_correct = Q.prove (
-`!max_app num_args e num_args' e' e''.
+`!max_app num_args e num_args' e' e'' t t'.
   collect_args max_app num_args e = (num_args', e') ∧
   exp_rel (:'ffi) max_app [e'] [e'']
   ⇒
-  exp_rel (:'ffi) max_app [Fn NONE NONE num_args e] [Fn NONE NONE num_args' e'']`,
+  exp_rel (:'ffi) max_app [Fn t NONE NONE num_args e] [Fn t' NONE NONE num_args' e'']`,
  ho_match_mp_tac collect_args_ind >>
  srw_tac[][collect_args_def]
  >- metis_tac [fn_add_arg, exp_rel_trans, exp_rel_refl] >>
@@ -46,11 +50,11 @@ val collect_apps_correct = Q.prove (
   exp_rel (:'ffi) max_app [e'] [e''] ∧
   exp_rel (:'ffi) max_app args' args''
   ⇒
-  exp_rel (:'ffi) max_app [App NONE e args] [App NONE e'' args'']`,
+  exp_rel (:'ffi) max_app [App t NONE e args] [App t' NONE e'' args'']`,
  ho_match_mp_tac collect_apps_ind >>
  srw_tac[][collect_apps_def]
  >- (
-   `exp_rel (:'ffi) max_app [App NONE (App NONE e es) args] [App NONE e (args++es)]`
+   `exp_rel (:'ffi) max_app [App t NONE (App tra NONE e es) args] [App t NONE e (args++es)]`
    by (
      match_mp_tac app_combine >>
      simp [exp_rel_refl]) >>
@@ -61,7 +65,7 @@ val collect_args_max_app = Q.store_thm(
   "collect_args_max_app",
   `∀e e' n n'. n ≤ max_app ∧ collect_args max_app n e = (n', e') ⇒ n' ≤ max_app`,
   Induct >> simp[collect_args_def] >> rpt gen_tac >>
-  rename1 `Fn opt1 opt2 nn body` >>
+  rename1 `Fn t opt1 opt2 nn body` >>
   Cases_on `opt1` >> Cases_on `opt2` >>
   simp[collect_args_def] >> rw[] >> metis_tac[]);
 
@@ -69,7 +73,7 @@ val collect_args_never_decreases = Q.store_thm(
   "collect_args_never_decreases",
   `∀e e' n n'. collect_args max_app n e = (n', e') ⇒ n ≤ n'`,
   Induct >> simp[collect_args_def] >> rpt gen_tac >>
-  rename1 `Fn opt1 opt2 nn body` >>
+  rename1 `Fn t opt1 opt2 nn body` >>
   Cases_on `opt1` >> Cases_on `opt2` >>
   simp[collect_args_def] >> rw[] >> res_tac >> simp[]);
 
@@ -144,7 +148,7 @@ val result =
         of different lengths
 *)
 val dest_addarg_Fn_def = Define`
-  (dest_addarg_Fn max_app n (Fn NONE NONE m body) =
+  (dest_addarg_Fn max_app n (Fn _ NONE NONE m body) =
      if n + m ≤ max_app (* ∧ 0 < m *) then SOME (m, body) else NONE) ∧
   (dest_addarg_Fn _ _ _ = NONE)
 `;
@@ -153,8 +157,8 @@ val _ = augment_srw_ss [rewrites [dest_addarg_Fn_def]]
 val dest_addarg_Fn_EQ_SOME = Q.store_thm(
   "dest_addarg_Fn_EQ_SOME",
   `dest_addarg_Fn max_app n e = SOME (m, body) ⇔
-    e = Fn NONE NONE m body ∧ n + m ≤ max_app (* ∧ 0 < m *)`,
-  Cases_on `e` >> simp[] >> rename1 `Fn opt1 opt2` >>
+    ∃t. e = Fn t NONE NONE m body ∧ n + m ≤ max_app (* ∧ 0 < m *)`,
+  Cases_on `e` >> simp[] >> rename1 `Fn t opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> simp[] >> metis_tac[ADD_COMM]);
 
 val app_rw_closure = save_thm(
@@ -209,8 +213,8 @@ val recClosure_add_arg0 = Q.prove(
      LIST_REL (val_rel (:'ffi) j max_app)
         (GENLIST (Recclosure NONE AE1 CE1 fns1) (LENGTH fns1))
         (GENLIST (Recclosure NONE AE2 CE2 fns2) (LENGTH fns1)) ∧
-     (∀pfx1 sfx1 vs2 fidx m fina1 fib01 fina2 fib2.
-        fidx < LENGTH fns1 ∧ EL fidx fns1 = (fina1, Fn NONE NONE m fib01) ∧
+     (∀pfx1 sfx1 vs2 fidx m fina1 fib01 fina2 fib2 t.
+        fidx < LENGTH fns1 ∧ EL fidx fns1 = (fina1, Fn t NONE NONE m fib01) ∧
         fina1 + m ≤ max_app ∧ LENGTH pfx1 < m ∧
         EL fidx fns2 = (fina2, fib2) ∧
         LENGTH sfx1 + LENGTH AE1 = fina1 ∧
@@ -352,7 +356,7 @@ val recClosure_add_arg0 = Q.prove(
       pop_assum mp_tac >> simp[Abbr`Rf`, option_case_NONE_F] >>
       simp[dest_addarg_Fn_EQ_SOME, FORALL_PROD, PULL_EXISTS] >>
       rpt strip_tac >> rename1 `fina2 = fina1 + m` >>
-      rename1 `fib1 = Fn NONE NONE m fib01` >>
+      rename1 `fib1 = Fn t NONE NONE m fib01` >>
       simp[evaluate_def, evaluate_app_rw, TAKE_EQ_NIL, dest_closure_def,
            check_loc_second_NONE, revtakerev, revdroprev] >>
       Cases_on `kk + (LENGTH AE1 + 1) < fina1 + m` >> simp[]
@@ -465,7 +469,7 @@ val recClosure_add_arg = Q.store_thm(
           | SOME (m,e0) => exp_rel (:'ffi) max_app [e0] [e'] ∧ n' = n + m) fns1
        fns2 ∧
    exp_rel (:'ffi) max_app [body1] [body2] ⇒
-   exp_rel (:'ffi) max_app [Letrec NONE NONE fns1 body1] [Letrec NONE NONE fns2 body2]`,
+   exp_rel (:'ffi) max_app [Letrec t NONE NONE fns1 body1] [Letrec t' NONE NONE fns2 body2]`,
   strip_tac >> simp[exp_rel_thm, evaluate_def] >> rpt strip_tac >>
   reverse (Cases_on `EVERY (λ(n,e). n ≤ s.max_app ∧ n ≠ 0) fns1`) >> simp[] >>
   imp_res_tac state_rel_max_app >>
@@ -488,9 +492,9 @@ val recClosure_add_arg = Q.store_thm(
   simp[] >> irule recClosure_add_arg_lem >> simp[] >> qexists_tac `i` >> simp[])
 
 val mti_letrec1_def = Define`
-  (mti_letrec1 max_app (m, Fn NONE NONE n b) =
+  (mti_letrec1 max_app (m, Fn t NONE NONE n b) =
      if m + n ≤ max_app then (m + n, b)
-     else (m, Fn NONE NONE n b)) ∧
+     else (m, Fn t NONE NONE n b)) ∧
   (mti_letrec1 _ me = me)
 `;
 val _ = export_rewrites ["mti_letrec1_def"]
@@ -500,20 +504,20 @@ val mti_letrec1_size_decrease = Q.store_thm(
   `∀m b n b'.
      mti_letrec1 max_app (m, b) = (n,b') ∧ (m ≠ n ∨ b' ≠ b) ⇒ exp_size b' < exp_size b`,
   Cases_on `b` >> simp[Cong DISJ_CONG] >>
-  rename1 `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
+  rename1 `Fn t opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
   dsimp[bool_case_eq]);
 
 val mti_letrec1_size_LEQ = Q.store_thm(
   "mti_letrec1_size_LEQ",
   `exp_size (SND (mti_letrec1 max_app (n,b))) ≤ exp_size b`,
-  Cases_on `b` >> simp[] >> rename1 `Fn opt1 opt2` >>
+  Cases_on `b` >> simp[] >> rename1 `Fn t opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> simp[] >> rw[] >>
   simp[closLangTheory.exp_size_def]);
 
 val mti_letrec1_unchangedE_unchangedN = Q.store_thm(
   "mti_letrec1_unchangedE_unchangedN",
   `mti_letrec1 max_app (n,b) = (m,b) ⇒ n = m`,
-  Cases_on `b` >> simp[] >> rename1 `Fn opt1 opt2` >>
+  Cases_on `b` >> simp[] >> rename1 `Fn t opt1 opt2` >>
   map_every Cases_on [`opt1`, `opt2`] >> simp[] >> rw[] >>
   pop_assum (mp_tac o AP_TERM ``closLang$exp_size``) >>
   simp[closLangTheory.exp_size_def]);
@@ -539,12 +543,12 @@ val collect_args_mti_letrec = Q.store_thm(
 val mti_letrec1_correct = Q.store_thm(
   "mti_letrec1_correct",
   `exp_rel (:'ffi) max_app
-    [Letrec NONE NONE fns b]
-    [Letrec NONE NONE (MAP (mti_letrec1 max_app) fns) b]`,
+    [Letrec t NONE NONE fns b]
+    [Letrec t' NONE NONE (MAP (mti_letrec1 max_app) fns) b]`,
   irule recClosure_add_arg >> simp[exp_rel_refl] >>
   simp[LIST_REL_EL_EQN, EL_MAP] >> qx_gen_tac `n` >> strip_tac >>
   Cases_on `EL n fns` >> simp[] >> rename1 `mti_letrec1 max_app (m, e)` >>
-  Cases_on `e` >> simp[exp_rel_refl] >> rename1 `Fn opt1 opt2` >>
+  Cases_on `e` >> simp[exp_rel_refl] >> rename1 `Fn t opt1 opt2` >>
   Cases_on `opt1` >> Cases_on `opt2` >> rw[exp_rel_refl])
 
 val exp_size_MAP_mti_letrec1 = Q.store_thm(
@@ -601,8 +605,8 @@ val mti_letrec_row_correct = Q.store_thm(
   "mti_letrec_row_correct",
   `∀max_app funs.
     exp_rel (:'ffi) max_app
-      [Letrec NONE NONE funs e]
-      [Letrec NONE NONE (mti_letrec_row max_app funs) e]`,
+      [Letrec t NONE NONE funs e]
+      [Letrec t' NONE NONE (mti_letrec_row max_app funs) e]`,
   ho_match_mp_tac (theorem "mti_letrec_row_ind") >> simp[] >> rpt strip_tac >>
   simp[Once mti_letrec_row_def] >> rw[exp_rel_refl] >> fs[] >>
   metis_tac[mti_letrec1_correct, exp_rel_trans]);
@@ -642,7 +646,7 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  (* Letrec with loc = NONE *)
  >- (simp[intro_multi_alternative_rhs] >>
      irule exp_rel_trans >>
-     qexists_tac `[Letrec NONE NONE (mti_letrec_row max_app funs) e]` >>
+     qexists_tac `[Letrec t NONE NONE (mti_letrec_row max_app funs) e]` >>
      reverse conj_tac
      >- (reverse (irule compat_letrec)
          >- metis_tac[HD, intro_multi_sing] >>

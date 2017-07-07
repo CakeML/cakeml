@@ -46,6 +46,15 @@ val compile_def = Define`
           | NONE => Failure CompileError
           | SOME (bytes,limit) => Success (bytes,limit)`;
 
+val compile_explorer_def = Define`
+  compile_explorer c prelude input =
+    case parse_prog (lexer_fun input) of
+    | NONE => Failure ParseError
+    | SOME prog =>
+       case infertype_prog c.inferencer_config (prelude ++ prog) of
+       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
+
 (* The top-level compiler *)
 val error_to_str_def = Define`
   (error_to_str ParseError = strlit "### ERROR: parse error\n") /\

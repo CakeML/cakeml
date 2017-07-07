@@ -1648,7 +1648,10 @@ val word_gc_fun_thm = Q.prove(
      if ¬word_gc_fun_assum conf s then NONE else
      if word_gen_gc_can_do_partial gen_sizes s then
        (λ(roots1,i1,pa1,m1,c2).
-          if c2 /\ theWord (s ' AllocSize) ≤₊ -1w * pa1 + theWord (s ' EndOfHeap) then
+          if c2 /\ theWord (s ' AllocSize) ≤₊ -1w * pa1 + theWord (s ' EndOfHeap)
+                /\ theWord (s ' AllocSize) ≤₊ new_trig
+                     (theWord (s ' EndOfHeap) - pa1)
+                     (theWord (s ' AllocSize)) gen_sizes then
             SOME
               (TL roots1,m1,
                s |++
@@ -1656,7 +1659,9 @@ val word_gc_fun_thm = Q.prove(
                 (OtherHeap,Word (theWord (s ' OtherHeap)));
                 (NextFree,Word pa1);
                 (GenStart,Word (pa1 + -1w * theWord (s ' CurrHeap)));
-                (TriggerGC,s ' EndOfHeap); (Globals,HD roots1);
+                (TriggerGC,Word (pa1 + new_trig (theWord (s ' EndOfHeap) - pa1)
+                                         (theWord (s ' AllocSize)) gen_sizes));
+                (Globals,HD roots1);
                 (Temp 0w,Word 0w); (Temp 1w,Word 0w)])
           else NONE)
          ((λ(roots,i,pa,m,c1).
@@ -1705,13 +1710,14 @@ val word_gc_fun_thm = Q.prove(
              word_gen_gc_move_loop conf (w2n len)
                (theWord (s ' OtherHeap),i2,pa2,ib2,pb2,new_end,
                 theWord (s ' CurrHeap),m2,dm) in
+       let a = theWord (s ' AllocSize) in
        let s1 =
              s |++
              [(CurrHeap,Word (theWord (s ' OtherHeap)));
               (OtherHeap,Word (theWord (s ' CurrHeap)));
               (NextFree,Word pa3);
               (GenStart,Word (pa3 − theWord (s ' OtherHeap)));
-              (TriggerGC,Word pb3);
+              (TriggerGC,Word (pa3 + new_trig (pb3 - pa3) a gen_sizes));
               (EndOfHeap,Word pb3); (Globals,w1);
               (Temp 0w,Word 0w);
               (Temp 1w,Word 0w);
@@ -1811,12 +1817,17 @@ val gc_thm = Q.prove(
                  (OtherHeap,Word other);
                  (NextFree,Word b1);
                  (GenStart,Word (b1 - curr));
-                 (TriggerGC,s.store ' EndOfHeap);
+                 (TriggerGC,Word (b1 + new_trig
+                    (theWord (s.store ' EndOfHeap) - b1)
+                    (theWord (s.store ' AllocSize)) gen_sizes));
                  (Globals,w1);
                  (Temp 0w,Word 0w);
                  (Temp 1w,Word 0w)] in
-       let c6 = (theWord (s.store ' AllocSize) ≤₊
-                 theWord (s.store ' EndOfHeap) - b1) in
+       let c6 = ((theWord (s.store ' AllocSize) ≤₊
+                  theWord (s.store ' EndOfHeap) - b1) /\
+                 (theWord (s.store ' AllocSize) ≤₊ new_trig
+                    (theWord (s.store ' EndOfHeap) - b1)
+                    (theWord (s.store ' AllocSize)) gen_sizes)) in
          if word_gc_fun_assum conf s.store /\ c3 /\ c4 /\ c5 /\ c6
          then SOME (s with
               <| stack := unused ++ ws2; store := s1;
@@ -1844,8 +1855,10 @@ val gc_thm = Q.prove(
                 (OtherHeap,Word (theWord (s.store ' CurrHeap)));
                 (NextFree,Word pa3);
                 (GenStart,Word (pa3 + -1w * theWord (s.store ' OtherHeap)));
-                (TriggerGC,Word pb3);
-                (EndOfHeap,Word pb3); (Globals,w1);
+                (TriggerGC,Word (pa3 + new_trig
+                   (pb3 - pa3) (theWord (s.store ' AllocSize)) gen_sizes));
+                (EndOfHeap,Word pb3);
+                (Globals,w1);
                 (Temp 0w, Word 0w);
                 (Temp 1w, Word 0w);
                 (Temp 2w, Word 0w);
@@ -4375,6 +4388,50 @@ val word_sub_0_eq = prove(
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
   \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
 
+val good_dimindex_byte_aligned_eq = store_thm("good_dimindex_byte_aligned_eq",
+  ``good_dimindex (:'a) ==>
+    (byte_aligned (w:'a word) <=>
+     ((w && (if dimindex (:'a) = 32 then 3w else 7w)) = 0w))``,
+  rw [labPropsTheory.good_dimindex_def]
+  \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]);
+
+val evaluate_SetNewTrigger = prove(
+  ``evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
+    !ib endh w.
+      good_dimindex (:'a) /\ s5.use_store /\
+      ALL_DISTINCT [1; 4; 7; ib_reg; endh_reg] /\
+      FLOOKUP s5.regs ib_reg = SOME (Word ib) /\
+      FLOOKUP s5.regs endh_reg = SOME (Word endh) /\
+      FLOOKUP s5.store AllocSize = SOME (Word (w:'a word)) ==>
+      ?r7 r1 r4.
+        res = NONE /\
+        new_s = s5 with <| regs := s5.regs |+ (1,r1) |+ (7,r7) |+ (4,r4);
+                           store := s5.store |+ (TriggerGC,
+                             Word ((ib + new_trig (endh - ib) w gen_sizes))) |>``,
+  rw [] \\ qpat_x_assum `evaluate _ = _` mp_tac
+  \\ rw [new_trig_def]
+  \\ pop_assum mp_tac
+  \\ fs [SetNewTrigger_def,list_Seq_def]
+  THEN1
+   (tac \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,WORD_LO,GSYM NOT_LESS,
+               set_store_def,MIN_DEF]
+    \\ rw [] \\ fs [state_component_equality]
+    \\ fs [fmap_EXT,EXTENSION]
+    \\ fs [GSYM PULL_EXISTS]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac [])
+  \\ tac \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,WORD_LO,GSYM NOT_LESS,
+                set_store_def,MIN_DEF]
+  THEN1
+   (strip_tac \\ rveq \\ fs []
+    \\ rw [] \\ fs [state_component_equality] \\ metis_tac [])
+  \\ rfs [good_dimindex_byte_aligned_eq]
+  \\ tac \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,WORD_LO,GSYM NOT_LESS,
+                set_store_def,MIN_DEF]
+  \\ rw [] \\ fs [state_component_equality]
+  \\ fs [fmap_EXT,EXTENSION]
+  \\ fs [GSYM PULL_EXISTS]
+  \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []);
+
 val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generational",
   `alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind /\
@@ -4584,9 +4641,19 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ tac \\ rfs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
+    \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger _ _ _,s5)`
+    \\ Cases_on `evaluate (SetNewTrigger 8 3 gen_sizes,s5)`
+    \\ drule (GEN_ALL evaluate_SetNewTrigger)
+    \\ qunabbrev_tac `s5` \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ strip_tac \\ rveq
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
+    \\ tac \\ rfs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ fs [labSemTheory.word_cmp_def,set_store_def]
     \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
     \\ `w2n w ≤ w2n (-1w * b1 + endh)` by rfs [WORD_LS] \\ fs []
+    \\ `¬(w2n (new_trig (-1w * b1 + endh) w gen_sizes) < w2n w)` by
+          rfs [WORD_LS] \\ fs []
     \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
     \\ fs [empty_env_def,state_component_equality]
@@ -4717,6 +4784,12 @@ val alloc_correct_lemma_Generational = Q.store_thm("alloc_correct_lemma_Generati
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+ck''` \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
+  \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
+  \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger 2 3 _,s5)`
+  \\ Cases_on `evaluate (SetNewTrigger 2 3 gen_sizes,s5)`
+  \\ drule evaluate_SetNewTrigger
+  \\ qunabbrev_tac `s5` \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ strip_tac \\ rveq
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
   \\ fs [labSemTheory.word_cmp_def,set_store_def]
   \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
@@ -5378,7 +5451,7 @@ val comp_correct = Q.store_thm("comp_correct",
 val comp_correct_thm =
   comp_correct |> SPEC_ALL
   |> Q.INST [`regs`|->`s.regs`]
-  |> REWRITE_RULE [SUBMAP_REFL]
+  |> REWRITE_RULE [SUBMAP_REFL];
 
 val with_same_regs_lemma = Q.prove(
   `s with <| regs := s.regs; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
@@ -5662,7 +5735,7 @@ val extract_labels_next_lab = Q.store_thm("extract_labels_next_lab",`
   ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [next_lab_thm]>>fs[extract_labels_def]>>
   fs[extract_labels_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs []>>fs[MAX_DEF])
+  BasicProvers.EVERY_CASE_TAC>>fs []>>fs[MAX_DEF]);
 
 val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   ∀n nl p aux.
@@ -5730,7 +5803,7 @@ val sa_comp_stack_asm_name = Q.prove(`
     fs[stack_asm_name_def,stack_asm_remove_def])
   >>
     rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[stack_asm_name_def,stack_asm_remove_def])
+    fs[stack_asm_name_def,stack_asm_remove_def]);
 
 val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
@@ -5759,6 +5832,6 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   rw[]>>res_tac>>
   drule sa_comp_stack_asm_name>>fs[]>>
   disch_then(qspecl_then[`p_1`,`next_lab p_2 1`] assume_tac)>>
-  pairarg_tac>>fs[])
+  pairarg_tac>>fs[]);
 
 val _ = export_theory();

@@ -19,38 +19,38 @@ val shift_def = tDefine "shift" `
      let c1 = shift [x] m l i in
      let c2 = shift (y::xs) m l i in
        (c1 ++ c2:closLang$exp list)) /\
-  (shift [Var v] m l i =
-     [Var (get_var m l i v)]) /\
-  (shift [If x1 x2 x3] m l i =
+  (shift [Var t v] m l i =
+     [Var t (get_var m l i v)]) /\
+  (shift [If t x1 x2 x3] m l i =
      let c1 = shift [x1] m l i in
      let c2 = shift [x2] m l i in
      let c3 = shift [x3] m l i in
-       ([If (HD c1) (HD c2) (HD c3)])) /\
-  (shift [Let xs x2] m l i =
+       ([If t (HD c1) (HD c2) (HD c3)])) /\
+  (shift [Let t xs x2] m l i =
      let c1 = shift xs m l i in
      let c2 = shift [x2] m (l + LENGTH xs) i in
-       ([Let c1 (HD c2)])) /\
-  (shift [Raise x1] m l i =
+       ([Let t c1 (HD c2)])) /\
+  (shift [Raise t x1] m l i =
      let (c1) = shift [x1] m l i in
-       ([Raise (HD c1)])) /\
-  (shift [Tick x1] m l i =
+       ([Raise t (HD c1)])) /\
+  (shift [Tick t x1] m l i =
      let c1 = shift [x1] m l i in
-       ([Tick (HD c1)])) /\
-  (shift [Op op xs] m l i =
+       ([Tick t (HD c1)])) /\
+  (shift [Op t op xs] m l i =
      let c1 = shift xs m l i in
-       ([Op op c1])) /\
-  (shift [App loc_opt x1 xs2] m l i =
+       ([Op t op c1])) /\
+  (shift [App t loc_opt x1 xs2] m l i =
      let c1 = shift [x1] m l i in
      let c2 = shift xs2 m l i in
-       ([App loc_opt (HD c1) c2])) /\
-  (shift [Fn loc vs_opt num_args x1] m l i =
+       ([App t loc_opt (HD c1) c2])) /\
+  (shift [Fn t loc vs_opt num_args x1] m l i =
      let k = m + l in
      let vs = case vs_opt of NONE => [] | SOME vs => vs in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
      let c1 = shift [x1] k num_args (shifted_env 0 live) in
-       ([Fn loc (SOME vars) num_args (HD c1)])) /\
-  (shift [Letrec loc vsopt fns x1] m l i =
+       ([Fn t loc (SOME vars) num_args (HD c1)])) /\
+  (shift [Letrec t loc vsopt fns x1] m l i =
      let vs = case vsopt of NONE => [] | SOME x => x in
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
@@ -60,14 +60,14 @@ val shift_def = tDefine "shift" `
      let cs = MAP (\(n,x). let c = shift [x] k (n + fns_len) new_i in
                              (n,HD c)) fns in
      let c1 = shift [x1] m (l + LENGTH fns) i in
-       ([Letrec loc (SOME vars) cs (HD c1)])) /\
-  (shift [Handle x1 x2] m l i =
+       ([Letrec t loc (SOME vars) cs (HD c1)])) /\
+  (shift [Handle t x1 x2] m l i =
      let c1 = shift [x1] m l i in
      let c2 = shift [x2] m (l+1) i in
-       ([Handle (HD c1) (HD c2)])) /\
-  (shift [Call ticks dest xs] m l i =
+       ([Handle t (HD c1) (HD c2)])) /\
+  (shift [Call t ticks dest xs] m l i =
      let c1 = shift xs m l i in
-       ([Call ticks dest c1]))`
+       ([Call t ticks dest c1]))`
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);

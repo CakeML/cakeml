@@ -1,4 +1,5 @@
 open preamble db_varsTheory closLangTheory;
+open backend_commonTheory
 
 open indexedListsTheory
 
@@ -9,7 +10,7 @@ open indexedListsTheory
    dataLang's dead-code elimination pass. *)
 
 val _ = new_theory"clos_remove";
-val _ = set_grammar_ancestry ["indexedLists", "closLang", "db_vars"]
+val _ = set_grammar_ancestry ["indexedLists", "closLang", "db_vars", "backend_common"]
 
 val no_overlap_def = Define `
   (no_overlap 0 l <=> T) /\
@@ -17,7 +18,7 @@ val no_overlap_def = Define `
      if has_var n l then F else no_overlap n l)`
 
 val const_0_def = Define `
-  const_0 = Op (Const 0) []`;
+  const_0 t = Op t (Const 0) []`;
 
 val remove_def = tDefine "remove" `
   (remove [] = ([],Empty)) /\
@@ -25,59 +26,59 @@ val remove_def = tDefine "remove" `
      let (c1,l1) = remove [x] in
      let (c2,l2) = remove (y::xs) in
        (c1 ++ c2,mk_Union l1 l2)) /\
-  (remove [Var v] = ([Var v], Var v)) /\
-  (remove [If x1 x2 x3] =
+  (remove [Var t v] = ([Var t v], Var v)) /\
+  (remove [If t x1 x2 x3] =
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove [x2] in
      let (c3,l3) = remove [x3] in
-       ([If (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
-  (remove [Let xs x2] =
+       ([If t (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
+  (remove [Let (t:tra) xs x2] =
      let (c2,l2) = remove [x2] in
      let xls =
        MAPi (λi e. if has_var i l2 ∨ ¬pure e then
                      let (c,l) = remove [e] in
                        (HD c, l)
-                   else (const_0, Empty)) xs in
+                   else (const_0 (t§1), Empty)) xs in
      let (xs', frees) = FOLDR (λ(x,l) (ts,frees). x::ts, mk_Union l frees)
                               ([], Shift (LENGTH xs) l2)
                               xls
      in
-       ([Let xs' (HD c2)], frees)) /\
-  (remove [Raise x1] =
+       ([Let (t§0) xs' (HD c2)], frees)) /\
+  (remove [Raise t x1] =
      let (c1,l1) = remove [x1] in
-       ([Raise (HD c1)],l1)) /\
-  (remove [Tick x1] =
+       ([Raise t (HD c1)],l1)) /\
+  (remove [Tick t x1] =
      let (c1,l1) = remove [x1] in
-       ([Tick (HD c1)],l1)) /\
-  (remove [Op op xs] =
+       ([Tick t (HD c1)],l1)) /\
+  (remove [Op t op xs] =
      let (c1,l1) = remove xs in
-       ([Op op c1],l1)) /\
-  (remove [App loc_opt x1 xs2] =
+       ([Op t op c1],l1)) /\
+  (remove [App t loc_opt x1 xs2] =
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove xs2 in
-       ([App loc_opt (HD c1) c2],mk_Union l1 l2)) /\
-  (remove [Fn loc vs_opt num_args x1] =
+       ([App t loc_opt (HD c1) c2],mk_Union l1 l2)) /\
+  (remove [Fn t loc vs_opt num_args x1] =
      let (c1,l1) = remove [x1] in
-       ([Fn loc vs_opt num_args (HD c1)],Shift num_args l1)) /\
-  (remove [Letrec loc vs_opt fns x1] =
+       ([Fn t loc vs_opt num_args (HD c1)],Shift num_args l1)) /\
+  (remove [Letrec (t:tra) loc vs_opt fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = remove [x1] in
        if no_overlap m l2 then
-         ([Let (REPLICATE m const_0) (HD c2)], Shift m l2)
+         ([Let (t§0) (REPLICATE m (const_0 (t§1))) (HD c2)], Shift m l2)
        else
          let res = MAP (λ(n,x). let (c,l) = remove [x] in
                                   ((n,HD c),Shift (n + m) l)) fns in
          let c1 = MAP FST res in
          let l1 = list_mk_Union (MAP SND res) in
-           ([Letrec loc vs_opt c1 (HD c2)],
+           ([Letrec t loc vs_opt c1 (HD c2)],
             mk_Union l1 (Shift (LENGTH fns) l2))) /\
-  (remove [Handle x1 x2] =
+  (remove [Handle t x1 x2] =
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove [x2] in
-       ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (remove [Call ticks dest xs] =
+       ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
+  (remove [Call t ticks dest xs] =
      let (c1,l1) = remove xs in
-       ([Call ticks dest c1],l1))`
+       ([Call t ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
   rename1 `MEM ee xx` >>
@@ -128,31 +129,32 @@ val remove_alt_ind = Q.store_thm("remove_alt_ind",`
      P [] ∧
      (∀x y xs.
         (∀c1 l1. (c1,l1) = remove [x] ⇒ P (y::xs)) ∧ P [x] ⇒
-        P (x::y::xs)) ∧ (∀v. P [Var v]) ∧
-     (∀x1 x2 x3.
+        P (x::y::xs)) ∧ (∀t v. P [Var t v]) ∧
+     (∀t x1 x2 x3.
         (∀c1 l1 c2 l2.
            (c1,l1) = remove [x1] ∧ (c2,l2) = remove [x2] ⇒ P [x3]) ∧
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
-        P [If x1 x2 x3]) ∧
-     (∀xs x2.
+        P [If t x1 x2 x3]) ∧
+     (∀t xs x2.
         (∀c2 l2 e i.
            (c2,l2) = remove [x2] ∧ MEM (i,e) (enumerate 0 xs) ∧ (has_var i l2 ∨ ¬pure e) ⇒
            P [e]) ∧ P [x2] ⇒
-        P [Let xs x2]) ∧ (∀x1. P [x1] ⇒ P [Raise x1]) ∧
-     (∀x1. P [x1] ⇒ P [Tick x1]) ∧ (∀op xs. P xs ⇒ P [Op op xs]) ∧
-     (∀loc_opt x1 xs2.
+        P [Let t xs x2]) ∧ (∀t x1. P [x1] ⇒ P [Raise t x1]) ∧
+     (∀t x1. P [x1] ⇒ P [Tick t x1]) ∧ (∀t op xs. P xs ⇒ P [Op t op xs]) ∧
+     (∀t loc_opt x1 xs2.
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P xs2) ∧ P [x1] ⇒
-        P [App loc_opt x1 xs2]) ∧
-     (∀loc vs_opt num_args x1. P [x1] ⇒ P [Fn loc vs_opt num_args x1]) ∧
-     (∀loc vs_opt fns x1.
+        P [App t loc_opt x1 xs2]) ∧
+     (∀t loc vs_opt num_args x1. P [x1] ⇒ P [Fn t loc vs_opt num_args x1]) ∧
+     (∀t loc vs_opt fns x1.
         (∀m c2 l2 n x.
            m = LENGTH fns ∧ (c2,l2) = remove [x1] ∧ ¬no_overlap m l2 ∧
            MEM (n,x) fns ⇒
            P [x]) ∧ (∀m. m = LENGTH fns ⇒ P [x1]) ⇒
-        P [Letrec loc vs_opt fns x1]) ∧
-     (∀x1 x2.
+        P [Letrec t loc vs_opt fns x1]) ∧
+     (∀t x1 x2.
         (∀c1 l1. (c1,l1) = remove [x1] ⇒ P [x2]) ∧ P [x1] ⇒
-        P [Handle x1 x2]) ∧ (∀ticks dest xs. P xs ⇒ P [Call ticks dest xs]) ⇒
+        P [Handle t x1 x2]) ∧
+     (∀t ticks dest xs. P xs ⇒ P [Call t ticks dest xs]) ⇒
      ∀v. P v`,
   ntac 2 strip_tac>>
   ho_match_mp_tac remove_ind>>

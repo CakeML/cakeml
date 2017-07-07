@@ -1,4 +1,4 @@
-INCLUDES = .. ../../basis ../../translator  ../.. $(HOLDIR)/examples/formal-languages/regular ../../semantics
+INCLUDES = .. ../../basis ../../translator  ../../misc $(HOLDIR)/examples/formal-languages/regular ../../semantics
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

@@ -64,6 +64,8 @@ val _ = inst_tyargs := [alpha]
 
 open word_to_stackTheory
 
+(*
+
 val _ = translate (conv64 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
@@ -241,6 +243,7 @@ open stack_allocTheory
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
                     stackLangTheory.word_shift_def, wordLangTheory.shift_def]
+val _ = translate (SetNewTrigger_def |> inline_simp |> conv64)
 val _ = translate (conv64 clear_top_inst_def)
 val _ = translate (memcpy_code_def |> inline_simp |> conv64)
 val _ = translate (word_gc_move_code_def |> inline_simp |> conv64)
@@ -266,8 +269,9 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp |> conv64);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv64);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv64);
-val _ = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
-val _ = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
+val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv64);
+val r = translate (stack_allocTheory.SetNewTrigger_def |> conv64);
+val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv64);
 
 val _ = translate (spec64 stubs_def);
 
@@ -316,7 +320,15 @@ val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
+*)
+
 open stack_to_labTheory
+
+val _ = prove(
+  ``stack_to_lab$compile c c2 c3 sp offset prog = []``,
+  cheat) |> spec64 |> translate; (* TODO: remove this *)
+
+(*
 
 val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
 
@@ -346,6 +358,8 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
 val _ = translate (spec64 compile_def)
+
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

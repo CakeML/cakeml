@@ -1363,19 +1363,19 @@ val compat_cons = Q.store_thm ("compat_cons",
  metis_tac [val_rel_mono]);
 
 val compat_var = Q.store_thm ("compat_var",
-`!n. exp_rel (:'ffi) w [Var n] [Var n]`,
+`!n t t'. exp_rel (:'ffi) w [Var t n] [Var t' n]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  srw_tac[][res_rel_rw] >>
  full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
  metis_tac [MEM_EL, val_rel_mono]);
 
 val compat_if = Q.store_thm ("compat_if",
-`!e1 e2 e3 e1' e2' e3'.
+`!e1 e2 e3 e1' e2' e3' t t'.
   exp_rel (:'ffi) w [e1] [e1'] ∧
   exp_rel (:'ffi) w [e2] [e2'] ∧
   exp_rel (:'ffi) w [e3] [e3']
   ⇒
-  exp_rel (:'ffi) w [If e1 e2 e3] [If e1' e2' e3']`,
+  exp_rel (:'ffi) w [If t1 e1 e2 e3] [If t1' e1' e2' e3']`,
  srw_tac[][Boolv_def, exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  full_simp_tac(srw_ss())[PULL_FORALL] >>
  imp_res_tac val_rel_mono >>
@@ -1406,11 +1406,11 @@ val compat_if = Q.store_thm ("compat_if",
      full_simp_tac(srw_ss())[]));
 
 val compat_let = Q.store_thm ("compat_let",
-`!e es e' es'.
+`!e es e' es' t t'.
   exp_rel (:'ffi) w es es' ∧
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Let es e] [Let es' e']`,
+  exp_rel (:'ffi) w [Let t es e] [Let t' es' e']`,
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  srw_tac[][] >>
@@ -1438,10 +1438,10 @@ val compat_let = Q.store_thm ("compat_let",
  metis_tac [clock_lemmas, LESS_EQ_REFL]);
 
 val compat_raise = Q.store_thm ("compat_raise",
-`!e e'.
+`!e e' t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Raise e] [Raise e']`,
+  exp_rel (:'ffi) w [Raise t e] [Raise t' e']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
  srw_tac[][evaluate_def] >>
@@ -1461,11 +1461,11 @@ val compat_raise = Q.store_thm ("compat_raise",
  full_simp_tac(srw_ss())[]);
 
 val compat_handle = Q.store_thm ("compat_handle",
-`!e1 e2 e1' e2'.
+`!e1 e2 e1' e2' t t'.
   exp_rel (:'ffi) w [e1] [e1'] ∧
   exp_rel (:'ffi) w [e2] [e2']
   ⇒
-  exp_rel (:'ffi) w [Handle e1 e2] [Handle e1' e2']`,
+  exp_rel (:'ffi) w [Handle t e1 e2] [Handle t' e1' e2']`,
  srw_tac[][exp_rel_def] >>
  srw_tac[][evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  `exec_rel i' w (Exp [e1] env,s with clock := i') (Exp [e1'] env',s' with clock := i')`
@@ -1500,10 +1500,10 @@ val compat_handle = Q.store_thm ("compat_handle",
  full_simp_tac(srw_ss())[res_rel_rw]);
 
 val compat_tick = Q.store_thm ("compat_tick",
-`!e e'.
+`!e e' t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Tick e] [Tick e']`,
+  exp_rel (:'ffi) w [Tick t e] [Tick t' e']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
  srw_tac[][evaluate_def, res_rel_rw]
@@ -1519,10 +1519,10 @@ val compat_tick = Q.store_thm ("compat_tick",
  srw_tac[][]);
 
 val compat_call = Q.store_thm ("compat_call",
-`!ticks n es es'.
+`!ticks n es es' t t'.
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [Call ticks n es] [Call ticks n es']`,
+  exp_rel (:'ffi) w [Call t ticks n es] [Call t' ticks n es']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  srw_tac[][] >>
@@ -1557,11 +1557,11 @@ val compat_call = Q.store_thm ("compat_call",
  metis_tac []);
 
 val compat_app = Q.store_thm ("compat_app",
-`!loc e es e' es'.
+`!loc e es e' es' t t'.
   exp_rel (:'ffi) w [e] [e'] ∧
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [App loc e es] [App loc e' es']`,
+  exp_rel (:'ffi) w [App t loc e es] [App t' loc e' es']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
@@ -1831,10 +1831,10 @@ val compat_closure = Q.store_thm ("compat_closure",
  metis_tac [compat_closure_some, compat_closure_none]);
 
 val compat_fn = Q.store_thm ("compat_fn",
-`!vars num_args e e' loc.
+`!vars num_args e e' loc t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Fn loc vars num_args e] [Fn loc vars num_args e']`,
+  exp_rel (:'ffi) w [Fn t loc vars num_args e] [Fn t' loc vars num_args e']`,
  rpt strip_tac >>
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
@@ -1969,11 +1969,11 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
   irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `j` >> simp[])
 
 val compat_letrec = Q.store_thm ("compat_letrec",
-`!loc vars funs e funs' e'.
+`!loc vars funs e funs' e' t t'.
   LIST_REL (\(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) w [e] [e']) funs funs' ∧
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Letrec loc vars funs e] [Letrec loc vars funs' e']`,
+  exp_rel (:'ffi) w [Letrec t loc vars funs e] [Letrec t' loc vars funs' e']`,
  rpt strip_tac >>
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
@@ -2034,7 +2034,7 @@ val compat_op = Q.store_thm ("compat_op",
 `!op es es'.
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [Op op es] [Op op es']`,
+  exp_rel (:'ffi) w [Op t op es] [Op t' op es']`,
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def] >>
  srw_tac[][] >>

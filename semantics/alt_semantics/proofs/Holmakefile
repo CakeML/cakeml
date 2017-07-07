@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../.. ../../proofs ../../.. ../../ffi ../../../lem_lib_stub
+INCLUDES = .. ../.. ../../proofs ../../../misc ../../ffi ../../../misc/lem_lib_stub
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -13,9 +13,9 @@ LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 LEM_OPT = -wl_unused_vars ign
 
-$(GENS) : ../../../lib.lem $(LEMI) $(LEMS) ../../ffi/ffi.lem
+$(GENS) : ../../../misc/lem_lib_stub/lib.lem $(LEMI) $(LEMS) ../../ffi/ffi.lem
 	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../ffi/ffi.lem -i ../../../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../ffi/ffi.lem -i ../../../misc/lem_lib_stub/lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
 	else touch $(GENS); fi
 
 ifdef POLY

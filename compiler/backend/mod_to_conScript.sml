@@ -44,39 +44,39 @@ val compile_pat_def = tDefine"compile_pat"`
    decide_tac);
 
 val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp tagenv (Raise e) = Raise (compile_exp tagenv e))
+  (compile_exp tagenv (Raise t e) = Raise t (compile_exp tagenv e))
   ∧
-  (compile_exp tagenv (Handle e pes) =
-   Handle (compile_exp tagenv e) (compile_pes tagenv pes))
+  (compile_exp tagenv (Handle t e pes) =
+   Handle t (compile_exp tagenv e) (compile_pes tagenv pes))
   ∧
-  (compile_exp tagenv ((Lit l):modLang$exp) = (Lit l:conLang$exp))
+  (compile_exp tagenv ((Lit t l):modLang$exp) = (Lit t l:conLang$exp))
   ∧
-  (compile_exp tagenv (Con cn es) =
-   Con (lookup_tag_env cn tagenv) (compile_exps tagenv es))
+  (compile_exp tagenv (Con t cn es) =
+   Con t (lookup_tag_env cn tagenv) (compile_exps tagenv es))
   ∧
-  (compile_exp tagenv (Var_local x) = Var_local x)
+  (compile_exp tagenv (Var_local t x) = Var_local t x)
   ∧
-  (compile_exp tagenv (Var_global n) = Var_global n)
+  (compile_exp tagenv (Var_global t n) = Var_global t n)
   ∧
-  (compile_exp tagenv (Fun x e) =
-   Fun x (compile_exp tagenv e))
+  (compile_exp tagenv (Fun t x e) =
+   Fun t x (compile_exp tagenv e))
   ∧
-  (compile_exp tagenv (App op es) =
-   App (Op op) (compile_exps tagenv es))
+  (compile_exp tagenv (App t op es) =
+   App t (Op op) (compile_exps tagenv es))
   ∧
-  (compile_exp tagenv (If e1 e2 e3) =
-   Mat (compile_exp tagenv e1)
+  (compile_exp tagenv (If t e1 e2 e3) =
+   Mat t (compile_exp tagenv e1)
      [(Pcon(SOME(true_tag,TypeId(Short"bool")))[],compile_exp tagenv e2);
       (Pcon(SOME(false_tag,TypeId(Short"bool")))[],compile_exp tagenv e3)])
   ∧
-  (compile_exp tagenv (Mat e pes) =
-   Mat (compile_exp tagenv e) (compile_pes tagenv pes))
+  (compile_exp tagenv (Mat t e pes) =
+   Mat t (compile_exp tagenv e) (compile_pes tagenv pes))
   ∧
-  (compile_exp tagenv (Let a e1 e2) =
-   Let a (compile_exp tagenv e1) (compile_exp tagenv e2))
+  (compile_exp tagenv (Let t a e1 e2) =
+   Let t a (compile_exp tagenv e1) (compile_exp tagenv e2))
   ∧
-  (compile_exp tagenv (Letrec funs e) =
-   Letrec (compile_funs tagenv funs) (compile_exp tagenv e))
+  (compile_exp tagenv (Letrec t funs e) =
+   Letrec t (compile_funs tagenv funs) (compile_exp tagenv e))
   ∧
   (compile_exps tagenv [] = [])
   ∧

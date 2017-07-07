@@ -396,29 +396,29 @@ val evaluate_def = tDefine "evaluate"`
          | (s, Rval vs) => (s, Rval (HD v::vs))
          | res => res)
     | res => res) ∧
-  (evaluate env s [(Lit l)] = (s, Rval [Litv l])) ∧
-  (evaluate env s [Raise e] =
+  (evaluate env s [Lit _ l] = (s, Rval [Litv l])) ∧
+  (evaluate env s [Raise _ e] =
    case evaluate env s [e] of
    | (s, Rval v) => (s, Rerr (Rraise (HD v)))
    | res => res) ∧
-  (evaluate env s [Handle e1 e2] =
+  (evaluate env s [Handle _ e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rerr (Rraise v)) => evaluate (v::env) s [e2]
    | res => res) ∧
-  (evaluate env s [Con tag es] =
+  (evaluate env s [Con _ tag es] =
    case evaluate env s (REVERSE es) of
    | (s, Rval vs) => (s, Rval [Conv tag (REVERSE vs)])
    |  res => res) ∧
-  (evaluate env s [Var_local n] = (s,
+  (evaluate env s [Var_local _ n] = (s,
       if n < LENGTH env
       then Rval [EL n env]
       else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Var_global n] = (s,
+  (evaluate env s [Var_global _ n] = (s,
       if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
       then Rval [THE (EL n s.globals)]
       else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Fun e] = (s, Rval [Closure env e])) ∧
-  (evaluate env s [App op es] =
+  (evaluate env s [Fun _ e] = (s, Rval [Closure env e])) ∧
+  (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
        if op = Op (Op Opapp) then
@@ -434,24 +434,24 @@ val evaluate_def = tDefine "evaluate"`
         | NONE => (s, Rerr (Rabort Rtype_error))
         | SOME (s,r) => (s, list_result r))
    | res => res) ∧
-  (evaluate env s [If e1 e2 e3] =
+  (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) =>
        (case do_if (HD vs) e2 e3 of
         | SOME e => evaluate env s [e]
         | NONE => (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
-  (evaluate env s [Let e1 e2] =
+  (evaluate env s [Let _ e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) => evaluate (HD vs::env) s [e2]
    | res => res) ∧
-  (evaluate env s [Seq e1 e2] =
+  (evaluate env s [Seq _ e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) => evaluate env s [e2]
    | res => res) ∧
-  (evaluate env s [Letrec funs e] =
+  (evaluate env s [Letrec _ funs e] =
    evaluate ((build_rec_env funs env)++env) s [e]) ∧
-  (evaluate env s [Extend_global n] =
+  (evaluate env s [Extend_global _ n] =
    (s with globals := s.globals++GENLIST(K NONE) n, Rval [Conv tuple_tag []]))`
   (wf_rel_tac`inv_image ($< LEX $<)
   (λx. case x of (_,s,es) => (s.clock,exp1_size es))`
