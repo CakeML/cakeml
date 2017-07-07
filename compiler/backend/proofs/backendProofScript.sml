@@ -1587,6 +1587,7 @@ val compile_correct = Q.store_thm("compile_correct",
   impl_tac >- (
     `esgc_free e3 ∧ BAG_ALL_DISTINCT (set_globals e3)` by
       (unabbrev_all_tac>>
+      fs[con_to_decTheory.compile_def]>> pairarg_tac>>fs[]>>
       metis_tac[SND,
       mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_esgc_free,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_esgc_free,exh_to_patProofTheory.compile_esgc_free,pat_to_closProofTheory.compile_esgc_free,
       mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_bag_all_distinct,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_distinct_setglobals,exh_to_patProofTheory.compile_distinct_setglobals,pat_to_closProofTheory.compile_distinct_setglobals])>>
