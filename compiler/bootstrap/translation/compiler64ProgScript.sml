@@ -30,8 +30,11 @@ val def = spec64 backendTheory.compile_explorer_def
 
 val res = translate def
 
-val def = spec64 backendTheory.compile_def
-  |> REWRITE_RULE[max_heap_limit_64_thm]
+val backend_compile_explorer_side = Q.prove(`
+  ∀x y. backend_compile_explorer_side x y = T`,
+  rw[definition"backend_compile_explorer_side_def"] \\
+  cheat (* TODO: these are all here because to_dataProg does not save the precondition proofs for closLang passes *))
+  |> update_precondition
 
 val def = spec64 backendTheory.compile_def
   |> REWRITE_RULE[max_heap_limit_64_thm]
