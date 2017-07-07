@@ -47,6 +47,7 @@ val _ = Datatype`
     | Dtype (modN list)
     | Dexn (modN list) conN (t list)
     (* Patterns *)
+    | Pany
     | Pvar varN
     | Plit lit
     | Pcon conF (exp(*pat*) list)
@@ -104,6 +105,7 @@ val mod_to_pres_pat_def = tDefine "mod_to_pres_pat" `
   mod_to_pres_pat p =
     case p of
        | ast$Pvar varN => presLang$Pvar varN
+       | Pany => presLang$Pany
        | Plit lit => Plit lit
        | Pcon id pats => Pcon (Modlang_con id) (MAP mod_to_pres_pat pats)
        | Pref pat => Pref (mod_to_pres_pat pat)
@@ -190,6 +192,7 @@ val con_to_pres_pat_def = tDefine"con_to_pres_pat" `
   con_to_pres_pat p =
     case p of
        | conLang$Pvar varN => presLang$Pvar varN
+       | Pany => Pany
        | Plit lit => Plit lit
        | Pcon opt ps => Pcon (Conlang_con opt) (MAP con_to_pres_pat ps)
        | Pref pat => Pref (con_to_pres_pat pat)`
@@ -264,6 +267,7 @@ val exh_to_pres_pat_def = tDefine"exh_to_pres_pat"`
   exh_to_pres_pat p =
     case p of
        | exhLang$Pvar varN => presLang$Pvar varN
+       | Pany => Pany
        | Plit lit => Plit lit
        | Pcon num ps => Pcon (Exhlang_con num) (MAP exh_to_pres_pat ps)
        | Pref pat => Pref (exh_to_pres_pat pat)`
@@ -743,6 +747,8 @@ val pres_to_display_def = tDefine"pres_to_display" `
     let modNs' = List (MAP string_to_display modNs) in
     let ts' = List (MAP t_to_display ts) in
       Item NONE "Dexn" [modNs'; string_to_display conN; ts'])
+  /\
+  (pres_to_display Pany = empty_item "Pany")
   /\
   (pres_to_display (Pvar varN) =
       Item NONE "Pvar" [string_to_display varN])
