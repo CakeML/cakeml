@@ -1,7 +1,7 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_dataProgTheory;
+open explorerProgTheory;
 
 val _ = new_theory "to_word32Prog"
 
