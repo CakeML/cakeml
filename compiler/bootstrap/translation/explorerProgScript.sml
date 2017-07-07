@@ -6,6 +6,24 @@ val _ = new_theory "explorerProg"
 
 val _ = translation_extends "to_dataProg";
 
+(* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
+fun def_of_const tm = let
+  val res = dest_thy_const tm handle HOL_ERR _ =>
+              failwith ("Unable to translate: " ^ term_to_string tm)
+  val name = (#Name res)
+  fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
+    DB.fetch thy name
+  val def = def_from_thy "termination" name handle HOL_ERR _ =>
+            def_from_thy (#Thy res) name handle HOL_ERR _ =>
+            failwith ("Unable to find definition of " ^ name)
+  val def = def |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  in def end
+
+val _ = (find_def_for_const := def_of_const);
+
 val mem_to_string_lemma = prove(
   ``mem_to_string x =
     Append (Append (Append (List "\"") (List (FST x))) (List "\":"))
@@ -20,7 +38,7 @@ val res = translate
 val res = translate presLangTheory.num_to_hex_digit_def;
 
 val num_to_hex_digit_side = prove(
-  ``preslang_num_to_hex_digit_side n = T``,
+  ``num_to_hex_digit_side n = T``,
   EVAL_TAC \\ fs [])
   |> update_precondition;
 
@@ -35,10 +53,29 @@ val res = translate displayLangTheory.num_to_json_def;
 val res = translate displayLangTheory.trace_to_json_def;
 val res = translate displayLangTheory.display_to_json_def;
 
+val res = translate presLangTheory.op_to_display_def;
+
+val op_to_display_side = Q.prove(
+  `∀x. op_to_display_side x = T`,
+  recInduct presLangTheory.op_to_display_ind \\ rw[] \\
+  rw[Once (theorem"op_to_display_side_def"),source_to_mod_astop_to_modop_side_def])
+  |> update_precondition;
+
+val res = translate presLangTheory.pres_to_display_def;
+val res = translate presLangTheory.lang_to_json_def;
+
 val res1 = translate presLangTheory.mod_to_json_def;
 val res2 = translate presLangTheory.con_to_json_def;
 val res3 = translate presLangTheory.dec_to_json_def;
 val res4 = translate presLangTheory.exh_to_json_def;
+
+val res = translate presLangTheory.num_to_varn_def;
+val num_to_varn_side = Q.prove(`
+  ∀n. num_to_varn_side n ⇔ T`,
+  recInduct presLangTheory.num_to_varn_ind \\ rw[] \\
+  rw[Once (theorem"num_to_varn_side_def")] \\
+  `n MOD 26 < 26` by simp[] \\ decide_tac) |> update_precondition;
+
 val res5 = translate presLangTheory.pat_to_json_def;
 val res6 = translate presLangTheory.clos_to_json_def;
 val res7 = translate presLangTheory.clos_to_json_table_def;
