@@ -20,7 +20,7 @@ val sExp_size_def = fetch "-" "sExp_size_def";
 
 (* display_to_json *)
 val num_to_json_def = Define`
-  num_to_json n = String (toString (&n))`;
+  num_to_json n = String (explode (toString (&n)))`;
 
 val trace_to_json_def = Define`
   (trace_to_json (backend_common$Cons tra num) =

@@ -48,7 +48,7 @@ val json_to_string_def = tDefine "json_to_string" `
        | Object mems => List "{" ++ (concat_with (MAP mem_to_string mems) (List ",") (List "")) ++ List "}"
        | Array obs => List "[" ++ (concat_with (MAP json_to_string obs) (List ",") (List "")) ++ List "]"
        | String s => List "\"" ++ List (escape s) ++ List "\""
-       | Int i => List (toString i)
+       | Int i => List (explode (toString i))
        | Bool b => if b then List "true" else List "false"
        | Null => List "null")
   /\
