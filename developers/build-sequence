@@ -71,10 +71,6 @@ characteristic/examples
 characteristic/examples/compilation
 characteristic/examples/compilation/proofs
 
-# explorer
-explorer/pp
-explorer
-
 # tests
 translator/okasaki-examples
 translator/other-examples
