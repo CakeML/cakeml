@@ -215,7 +215,8 @@ val do_app_ok_lemma = Q.prove(
     imp_res_tac v_to_list_ok >>
     full_simp_tac(srw_ss())[EVERY_MEM])
   THEN1 (
-    rename1`_ () = String _`
+    (* TODO: HOL Issue 430 *)
+    rename1`_ () = closLang$String _`
     \\ fs[state_ok_def,bv_ok_def,EVERY_MEM,FLOOKUP_UPDATE]
     \\ rw[]
     \\ CASE_TAC \\ fs[]

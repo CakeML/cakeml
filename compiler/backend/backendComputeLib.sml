@@ -67,6 +67,8 @@ val add_backend_compset = computeLib.extend_compset
     ,``:modLang$prompt``
       (* basis, TODO: move? *)
     ,``:mlstring$mlstring``
+    ,``:location$locn``
+    ,``:backend_common$tra``
     ]
   ,computeLib.Defs
     [
@@ -87,12 +89,18 @@ val add_backend_compset = computeLib.extend_compset
     ,source_to_modTheory.compile_dec_def
     ,source_to_modTheory.compile_exp_def
     ,source_to_modTheory.compile_pat_def
+    ,source_to_modTheory.pat_tups_def
+    ,source_to_modTheory.om_tra_def
+    ,source_to_modTheory.make_varls_def
     ,source_to_modTheory.alloc_defs_def
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
     ,source_to_modTheory.astOp_to_modOp_def
       (* ---- conLang ---- *)
+    ,backend_commonTheory.orphan_trace_def
+    ,backend_commonTheory.mk_cons_def
+    ,backend_commonTheory.mk_union_def
     ,backend_commonTheory.bind_tag_def
     ,backend_commonTheory.chr_tag_def
     ,backend_commonTheory.div_tag_def
@@ -130,11 +138,12 @@ val add_backend_compset = computeLib.extend_compset
     ,mod_to_conTheory.empty_config_def
       (* decLang *)
       (* ---- con_to_dec ---- *)
-    ,con_to_decTheory.compile_prog_def
-    ,con_to_decTheory.compile_prompt_def
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
+    ,con_to_decTheory.od_tra_def
     ,con_to_decTheory.compile_decs_def
+    ,con_to_decTheory.compile_prompt_def
+    ,con_to_decTheory.compile_prog_def
     ,con_to_decTheory.compile_def
     ]
   ,computeLib.Tys
@@ -145,11 +154,11 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs
     [ (* ---- dec_to_exh ---- *)
      dec_to_exhTheory.is_unconditional_def
-    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.get_tags_def
     ,dec_to_exhTheory.exhaustive_match_def
-    ,dec_to_exhTheory.compile_exp_def
+    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.compile_pat_def
+    ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_def
     ,exh_reorderTheory.is_const_con_def
     ,exh_reorderTheory.isPcon_def
@@ -165,17 +174,18 @@ val add_backend_compset = computeLib.extend_compset
     ]
       (* ---- exh_to_pat ---- *)
   ,computeLib.Defs
-    [exh_to_patTheory.compile_exp_def
-    ,exh_to_patTheory.compile_row_def
-    ,exh_to_patTheory.compile_pat_def
-    ,exh_to_patTheory.sLet_def
+    [exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.isBool_def
     ,exh_to_patTheory.sIf_def
-    ,exh_to_patTheory.ground_def
-    ,exh_to_patTheory.pure_def
-    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
-    ,exh_to_patTheory.pure_op_def
     ,exh_to_patTheory.pure_op_op_eqn
-    ,exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.pure_op_def
+    ,exh_to_patTheory.pure_def
+    ,exh_to_patTheory.ground_def
+    ,exh_to_patTheory.sLet_def
+    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
+    ,exh_to_patTheory.compile_pat_def
+    ,exh_to_patTheory.compile_row_def
+    ,exh_to_patTheory.compile_exp_def
     ,exh_to_patTheory.compile_def
     ]
   ,computeLib.Tys
@@ -209,6 +219,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.calls_def
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def

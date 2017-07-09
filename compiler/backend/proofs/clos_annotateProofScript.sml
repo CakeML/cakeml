@@ -608,6 +608,7 @@ val shift_correct = Q.prove(
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
     \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ rename1`Let tra xs x2` \\ rename1`evaluate(xs,env,s1)`
     \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env'` by
       (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm])

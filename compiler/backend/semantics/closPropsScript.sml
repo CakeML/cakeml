@@ -31,40 +31,40 @@ val code_locs_def = tDefine "code_locs" `
      let c1 = code_locs [x] in
      let c2 = code_locs (y::xs) in
        c1 ++ c2) /\
-  (code_locs [Var v] = []) /\
-  (code_locs [If x1 x2 x3] =
+  (code_locs [Var _ v] = []) /\
+  (code_locs [If _ x1 x2 x3] =
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
      let c3 = code_locs [x3] in
        c1 ++ c2 ++ c3) /\
-  (code_locs [Let xs x2] =
+  (code_locs [Let _ xs x2] =
      let c1 = code_locs xs in
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
-  (code_locs [Raise x1] =
+  (code_locs [Raise _ x1] =
      code_locs [x1]) /\
-  (code_locs [Tick x1] =
+  (code_locs [Tick _ x1] =
      code_locs [x1]) /\
-  (code_locs [Op op xs] =
+  (code_locs [Op _ op xs] =
      code_locs xs) /\
-  (code_locs [App loc_opt x1 xs] =
+  (code_locs [App _ loc_opt x1 xs] =
      let c1 = code_locs [x1] in
      let c2 = code_locs xs in
          c1++c2) /\
-  (code_locs [Fn loc_opt vs num_args x1] =
+  (code_locs [Fn _ loc_opt vs num_args x1] =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs [x1] in
        c1 ++ [loc]) /\
-  (code_locs [Letrec loc_opt vs fns x1] =
+  (code_locs [Letrec _ loc_opt vs fns x1] =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs (MAP SND fns) in
      let c2 = code_locs [x1] in
      c1 ++ GENLIST (λn. loc + 2*n) (LENGTH fns) ++ c2) /\
-  (code_locs [Handle x1 x2] =
+  (code_locs [Handle _ x1 x2] =
      let c1 = code_locs [x1] in
      let c2 = code_locs [x2] in
        c1 ++ c2) /\
-  (code_locs [Call ticks dest xs] =
+  (code_locs [Call _ ticks dest xs] =
      code_locs xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -94,33 +94,33 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME max_app (x::y::xs) ⇔
      contains_App_SOME max_app [x] ∨
      contains_App_SOME max_app (y::xs)) /\
-  (contains_App_SOME max_app [Var v] ⇔ F) /\
-  (contains_App_SOME max_app [If x1 x2 x3] ⇔
+  (contains_App_SOME max_app [Var _ v] ⇔ F) /\
+  (contains_App_SOME max_app [If _ x1 x2 x3] ⇔
      contains_App_SOME max_app [x1] ∨
      contains_App_SOME max_app [x2] ∨
      contains_App_SOME max_app [x3]) /\
-  (contains_App_SOME max_app [Let xs x2] ⇔
+  (contains_App_SOME max_app [Let _ xs x2] ⇔
      contains_App_SOME max_app [x2] ∨
      contains_App_SOME max_app xs) /\
-  (contains_App_SOME max_app [Raise x1] ⇔
+  (contains_App_SOME max_app [Raise _ x1] ⇔
      contains_App_SOME max_app [x1]) /\
-  (contains_App_SOME max_app [Tick x1] ⇔
+  (contains_App_SOME max_app [Tick _ x1] ⇔
      contains_App_SOME max_app [x1]) /\
-  (contains_App_SOME max_app [Op op xs] ⇔
+  (contains_App_SOME max_app [Op _ op xs] ⇔
      contains_App_SOME max_app xs) /\
-  (contains_App_SOME max_app [App loc_opt x1 x2] ⇔
+  (contains_App_SOME max_app [App _ loc_opt x1 x2] ⇔
      IS_SOME loc_opt ∨ max_app < LENGTH x2 ∨
      contains_App_SOME max_app [x1] ∨
      contains_App_SOME max_app x2) /\
-  (contains_App_SOME max_app [Fn loc vs num_args x1] ⇔
+  (contains_App_SOME max_app [Fn _ loc vs num_args x1] ⇔
      contains_App_SOME max_app [x1]) /\
-  (contains_App_SOME max_app [Letrec loc vs fns x1] ⇔
+  (contains_App_SOME max_app [Letrec _ loc vs fns x1] ⇔
      contains_App_SOME max_app (MAP SND fns) ∨
      contains_App_SOME max_app [x1]) /\
-  (contains_App_SOME max_app [Handle x1 x2] ⇔
+  (contains_App_SOME max_app [Handle _ x1 x2] ⇔
      contains_App_SOME max_app [x1] ∨
      contains_App_SOME max_app [x2]) /\
-  (contains_App_SOME max_app [Call ticks dest xs] ⇔
+  (contains_App_SOME max_app [Call _ ticks dest xs] ⇔
      contains_App_SOME max_app xs)`
   (WF_REL_TAC `measure (exp3_size o SND)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -140,34 +140,34 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
   (every_Fn_SOME (x::y::xs) ⇔
      every_Fn_SOME [x] ∧
      every_Fn_SOME (y::xs)) ∧
-  (every_Fn_SOME [Var v] ⇔ T) ∧
-  (every_Fn_SOME [If x1 x2 x3] ⇔
+  (every_Fn_SOME [Var _ v] ⇔ T) ∧
+  (every_Fn_SOME [If _ x1 x2 x3] ⇔
      every_Fn_SOME [x1] ∧
      every_Fn_SOME [x2] ∧
      every_Fn_SOME [x3]) ∧
-  (every_Fn_SOME [Let xs x2] ⇔
+  (every_Fn_SOME [Let _ xs x2] ⇔
      every_Fn_SOME [x2] ∧
      every_Fn_SOME xs) ∧
-  (every_Fn_SOME [Raise x1] ⇔
+  (every_Fn_SOME [Raise _ x1] ⇔
      every_Fn_SOME [x1]) ∧
-  (every_Fn_SOME [Tick x1] ⇔
+  (every_Fn_SOME [Tick _ x1] ⇔
      every_Fn_SOME [x1]) ∧
-  (every_Fn_SOME [Op op xs] ⇔
+  (every_Fn_SOME [Op _ op xs] ⇔
      every_Fn_SOME xs) ∧
-  (every_Fn_SOME [App loc_opt x1 x2] ⇔
+  (every_Fn_SOME [App _ loc_opt x1 x2] ⇔
      every_Fn_SOME [x1] ∧
      every_Fn_SOME x2) ∧
-  (every_Fn_SOME [Fn loc_opt vs num_args x1] ⇔
+  (every_Fn_SOME [Fn _ loc_opt vs num_args x1] ⇔
      IS_SOME loc_opt ∧
      every_Fn_SOME [x1]) ∧
-  (every_Fn_SOME [Letrec loc_opt vs fns x1] ⇔
+  (every_Fn_SOME [Letrec _ loc_opt vs fns x1] ⇔
      IS_SOME loc_opt ∧
      every_Fn_SOME (MAP SND fns) ∧
      every_Fn_SOME [x1]) ∧
-  (every_Fn_SOME [Handle x1 x2] ⇔
+  (every_Fn_SOME [Handle _ x1 x2] ⇔
      every_Fn_SOME [x1] ∧
      every_Fn_SOME [x2]) ∧
-  (every_Fn_SOME [Call ticks dest xs] ⇔
+  (every_Fn_SOME [Call _ ticks dest xs] ⇔
      every_Fn_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -188,34 +188,34 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE (x::y::xs) ⇔
      every_Fn_vs_NONE [x] ∧
      every_Fn_vs_NONE (y::xs)) ∧
-  (every_Fn_vs_NONE [Var v] ⇔ T) ∧
-  (every_Fn_vs_NONE [If x1 x2 x3] ⇔
+  (every_Fn_vs_NONE [Var _ v] ⇔ T) ∧
+  (every_Fn_vs_NONE [If _ x1 x2 x3] ⇔
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE [x2] ∧
      every_Fn_vs_NONE [x3]) ∧
-  (every_Fn_vs_NONE [Let xs x2] ⇔
+  (every_Fn_vs_NONE [Let _ xs x2] ⇔
      every_Fn_vs_NONE [x2] ∧
      every_Fn_vs_NONE xs) ∧
-  (every_Fn_vs_NONE [Raise x1] ⇔
+  (every_Fn_vs_NONE [Raise _ x1] ⇔
      every_Fn_vs_NONE [x1]) ∧
-  (every_Fn_vs_NONE [Tick x1] ⇔
+  (every_Fn_vs_NONE [Tick _ x1] ⇔
      every_Fn_vs_NONE [x1]) ∧
-  (every_Fn_vs_NONE [Op op xs] ⇔
+  (every_Fn_vs_NONE [Op _ op xs] ⇔
      every_Fn_vs_NONE xs) ∧
-  (every_Fn_vs_NONE [App loc_opt x1 x2] ⇔
+  (every_Fn_vs_NONE [App _ loc_opt x1 x2] ⇔
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE x2) ∧
-  (every_Fn_vs_NONE [Fn loc vs_opt num_args x1] ⇔
+  (every_Fn_vs_NONE [Fn _ loc vs_opt num_args x1] ⇔
      IS_NONE vs_opt ∧
      every_Fn_vs_NONE [x1]) ∧
-  (every_Fn_vs_NONE [Letrec loc vs_opt fns x1] ⇔
+  (every_Fn_vs_NONE [Letrec _ loc vs_opt fns x1] ⇔
      IS_NONE vs_opt ∧
      every_Fn_vs_NONE (MAP SND fns) ∧
      every_Fn_vs_NONE [x1]) ∧
-  (every_Fn_vs_NONE [Handle x1 x2] ⇔
+  (every_Fn_vs_NONE [Handle _ x1 x2] ⇔
      every_Fn_vs_NONE [x1] ∧
      every_Fn_vs_NONE [x2]) ∧
-  (every_Fn_vs_NONE [Call ticks dest xs] ⇔
+  (every_Fn_vs_NONE [Call _ ticks dest xs] ⇔
      every_Fn_vs_NONE xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -236,34 +236,34 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME (x::y::xs) ⇔
      every_Fn_vs_SOME [x] ∧
      every_Fn_vs_SOME (y::xs)) ∧
-  (every_Fn_vs_SOME [Var v] ⇔ T) ∧
-  (every_Fn_vs_SOME [If x1 x2 x3] ⇔
+  (every_Fn_vs_SOME [Var _ v] ⇔ T) ∧
+  (every_Fn_vs_SOME [If _ x1 x2 x3] ⇔
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME [x2] ∧
      every_Fn_vs_SOME [x3]) ∧
-  (every_Fn_vs_SOME [Let xs x2] ⇔
+  (every_Fn_vs_SOME [Let _ xs x2] ⇔
      every_Fn_vs_SOME [x2] ∧
      every_Fn_vs_SOME xs) ∧
-  (every_Fn_vs_SOME [Raise x1] ⇔
+  (every_Fn_vs_SOME [Raise _ x1] ⇔
      every_Fn_vs_SOME [x1]) ∧
-  (every_Fn_vs_SOME [Tick x1] ⇔
+  (every_Fn_vs_SOME [Tick _ x1] ⇔
      every_Fn_vs_SOME [x1]) ∧
-  (every_Fn_vs_SOME [Op op xs] ⇔
+  (every_Fn_vs_SOME [Op _ op xs] ⇔
      every_Fn_vs_SOME xs) ∧
-  (every_Fn_vs_SOME [App loc_opt x1 x2] ⇔
+  (every_Fn_vs_SOME [App _ loc_opt x1 x2] ⇔
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME x2) ∧
-  (every_Fn_vs_SOME [Fn loc vs_opt num_args x1] ⇔
+  (every_Fn_vs_SOME [Fn _ loc vs_opt num_args x1] ⇔
      IS_SOME vs_opt ∧
      every_Fn_vs_SOME [x1]) ∧
-  (every_Fn_vs_SOME [Letrec loc vs_opt fns x1] ⇔
+  (every_Fn_vs_SOME [Letrec _ loc vs_opt fns x1] ⇔
      IS_SOME vs_opt ∧
      every_Fn_vs_SOME (MAP SND fns) ∧
      every_Fn_vs_SOME [x1]) ∧
-  (every_Fn_vs_SOME [Handle x1 x2] ⇔
+  (every_Fn_vs_SOME [Handle _ x1 x2] ⇔
      every_Fn_vs_SOME [x1] ∧
      every_Fn_vs_SOME [x2]) ∧
-  (every_Fn_vs_SOME [Call ticks dest xs] ⇔
+  (every_Fn_vs_SOME [Call _ ticks dest xs] ⇔
      every_Fn_vs_SOME xs)`
   (WF_REL_TAC `measure (exp3_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
@@ -283,23 +283,23 @@ val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
   (fv n ((x:closLang$exp)::y::xs) <=>
      fv n [x] \/ fv n (y::xs)) /\
-  (fv n [Var v] <=> (n = v)) /\
-  (fv n [If x1 x2 x3] <=>
+  (fv n [Var _ v] <=> (n = v)) /\
+  (fv n [If _ x1 x2 x3] <=>
      fv n [x1] \/ fv n [x2] \/ fv n [x3]) /\
-  (fv n [Let xs x2] <=>
+  (fv n [Let _ xs x2] <=>
      fv n xs \/ fv (n + LENGTH xs) [x2]) /\
-  (fv n [Raise x1] <=> fv n [x1]) /\
-  (fv n [Tick x1] <=> fv n [x1]) /\
-  (fv n [Op op xs] <=> fv n xs) /\
-  (fv n [App loc_opt x1 x2] <=>
+  (fv n [Raise _ x1] <=> fv n [x1]) /\
+  (fv n [Tick _ x1] <=> fv n [x1]) /\
+  (fv n [Op _ op xs] <=> fv n xs) /\
+  (fv n [App _ loc_opt x1 x2] <=>
      fv n [x1] \/ fv n x2) /\
-  (fv n [Fn loc vs num_args x1] <=>
+  (fv n [Fn _ loc vs num_args x1] <=>
      fv (n + num_args) [x1]) /\
-  (fv n [Letrec loc vs fns x1] <=>
+  (fv n [Letrec _ loc vs fns x1] <=>
      EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
-  (fv n [Handle x1 x2] <=>
+  (fv n [Handle _ x1 x2] <=>
      fv n [x1] \/ fv (n+1) [x2]) /\
-  (fv n [Call ticks dest xs] <=> fv n xs)`
+  (fv n [Call _ ticks dest xs] <=> fv n xs)`
  (WF_REL_TAC `measure (exp3_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
   Induct_on `fns` >>
@@ -341,7 +341,7 @@ val fv_MAPi = Q.store_thm(
   Induct >> simp[fv_def] >> simp[] >> dsimp[indexedListsTheory.LT_SUC]);
 
 val fv_GENLIST_Var = Q.store_thm("fv_GENLIST_Var",
-  `∀n. fv v (GENLIST Var n) ⇔ v < n`,
+  `∀n. fv v (GENLIST (Var tra) n) ⇔ v < n`,
   Induct \\ simp[fv_def,GENLIST,SNOC_APPEND]
   \\ rw[fv_def]);
 
@@ -494,7 +494,7 @@ val evaluate_app_const = Q.store_thm("evaluate_app_const",
 
 val evaluate_MAP_Op_Const = Q.store_thm("evaluate_MAP_Op_Const",
   `∀f env s ls.
-      evaluate (MAP (λx. Op (Const (f x)) []) ls,env,s) =
+      evaluate (MAP (λx. Op tra (Const (f x)) []) ls,env,s) =
       (Rval (MAP (Number o f) ls),s)`,
   ntac 3 gen_tac >> Induct >>
   simp[evaluate_def] >>
@@ -502,7 +502,7 @@ val evaluate_MAP_Op_Const = Q.store_thm("evaluate_MAP_Op_Const",
   simp[evaluate_def,do_app_def])
 
 val evaluate_REPLICATE_Op_AllocGlobal = Q.store_thm("evaluate_REPLICATE_Op_AllocGlobal",
-  `∀n env s. evaluate (REPLICATE n (Op AllocGlobal []),env,s) =
+  `∀n env s. evaluate (REPLICATE n (Op tra AllocGlobal []),env,s) =
               (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)`,
   Induct >> simp[evaluate_def,REPLICATE] >- (
     simp[state_component_equality] ) >>
@@ -858,7 +858,7 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
 
 val evaluate_GENLIST_Var = Q.store_thm("evaluate_GENLIST_Var",
   `∀n env s.
-   evaluate (GENLIST Var n, env, s) =
+   evaluate (GENLIST (Var tra) n, env, s) =
    if n ≤ LENGTH env then
      (Rval (TAKE n env),s)
    else
@@ -1308,19 +1308,19 @@ val exp1_size_rw = Q.store_thm(
   Induct_on `fbinds` >> simp[]);
 
 val set_globals_def = tDefine "set_globals" `
-  (set_globals (Var _) = {||}) ∧
-  (set_globals (If e1 e2 e3) =
+  (set_globals (Var _ _) = {||}) ∧
+  (set_globals (If _ e1 e2 e3) =
     set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
-  (set_globals (Let binds e) = set_globals e ⊎ elist_globals binds) ∧
-  (set_globals (Raise e) = set_globals e) ∧
-  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Tick e) = set_globals e) ∧
-  (set_globals (Call _ _ args) = elist_globals args) ∧
-  (set_globals (App _ f args) = set_globals f ⊎ elist_globals args) ∧
-  (set_globals (Fn _ _ _ bod) = set_globals bod) ∧
-  (set_globals (Letrec _ _ fbinds bod) =
+  (set_globals (Let _ binds e) = set_globals e ⊎ elist_globals binds) ∧
+  (set_globals (Raise _ e) = set_globals e) ∧
+  (set_globals (Handle _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Tick _ e) = set_globals e) ∧
+  (set_globals (Call _ _ _ args) = elist_globals args) ∧
+  (set_globals (App _ _ f args) = set_globals f ⊎ elist_globals args) ∧
+  (set_globals (Fn _ _ _ _ bod) = set_globals bod) ∧
+  (set_globals (Letrec _ _ _ fbinds bod) =
     set_globals bod ⊎ elist_globals (MAP SND fbinds)) ∧
-  (set_globals (Op opn args) = op_gbag opn ⊎ elist_globals args) ∧
+  (set_globals (Op _ opn args) = op_gbag opn ⊎ elist_globals args) ∧
   (elist_globals [] = {||}) ∧
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 `
@@ -1394,18 +1394,18 @@ val ssgc_free_dec_clock = Q.store_thm(
   simp[dec_clock_def])
 
 val esgc_free_def = tDefine "esgc_free" `
-  (esgc_free (Var _) ⇔ T) ∧
-  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
-  (esgc_free (Let binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
-  (esgc_free (Raise e) ⇔ esgc_free e) ∧
-  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Tick e) ⇔ esgc_free e) ∧
-  (esgc_free (Call _ _ args) ⇔ EVERY esgc_free args) ∧
-  (esgc_free (App _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
-  (esgc_free (Fn _ _ _ b) ⇔ set_globals b = {||}) ∧
-  (esgc_free (Letrec _ _ binds bod) ⇔
+  (esgc_free (Var _ _) ⇔ T) ∧
+  (esgc_free (If _ e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
+  (esgc_free (Let _ binds e) ⇔ EVERY esgc_free binds ∧ esgc_free e) ∧
+  (esgc_free (Raise _ e) ⇔ esgc_free e) ∧
+  (esgc_free (Handle _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Tick _ e) ⇔ esgc_free e) ∧
+  (esgc_free (Call _ _ _ args) ⇔ EVERY esgc_free args) ∧
+  (esgc_free (App _ _ e args) ⇔ esgc_free e ∧ EVERY esgc_free args) ∧
+  (esgc_free (Fn _ _ _ _ b) ⇔ set_globals b = {||}) ∧
+  (esgc_free (Letrec _ _ _ binds bod) ⇔
     elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
-  (esgc_free (Op _ args) ⇔ EVERY esgc_free args)
+  (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[])
 val esgc_free_def = save_thm("esgc_free_def[simp]",

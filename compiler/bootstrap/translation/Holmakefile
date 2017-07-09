@@ -1,5 +1,5 @@
 INCLUDES = ../../../misc ../../../translator ../../../characteristic ../../inference ../../inference/proofs ../../parsing ../../backend ../.. \
-					 ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis ../../../explorer/pp/astPP
+					 ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

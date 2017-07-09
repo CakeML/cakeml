@@ -11,43 +11,43 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
      let (n,x) = renumber_code_locs n x in
      let (n,xs) = renumber_code_locs_list n xs in
      (n, x::xs)) /\
-  (renumber_code_locs n (Var v) = (n,(Var v))) /\
-  (renumber_code_locs n (If x1 x2 x3) =
+  (renumber_code_locs n (Var t v) = (n,(Var t v))) /\
+  (renumber_code_locs n (If t x1 x2 x3) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
      let (n,x3) = renumber_code_locs n x3 in
-       (n,If x1 x2 x3)) /\
-  (renumber_code_locs n (Let xs x2) =
+       (n,If t x1 x2 x3)) /\
+  (renumber_code_locs n (Let t xs x2) =
      let (n,xs) = renumber_code_locs_list n xs in
      let (n,x2) = renumber_code_locs n x2 in
-       (n,Let xs x2)) /\
-  (renumber_code_locs n (Raise x1) =
+       (n,Let t xs x2)) /\
+  (renumber_code_locs n (Raise t x1) =
      let (n,x1) = renumber_code_locs n x1 in
-       (n,Raise x1)) /\
-  (renumber_code_locs n (Tick x1) =
+       (n,Raise t x1)) /\
+  (renumber_code_locs n (Tick t x1) =
      let (n,x1) = renumber_code_locs n x1 in
-       (n,Tick x1)) /\
-  (renumber_code_locs n (Op op xs) =
+       (n,Tick t x1)) /\
+  (renumber_code_locs n (Op t op xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-       (n,Op op xs)) /\
-  (renumber_code_locs n (App loc_opt x1 x2) =
+       (n,Op t op xs)) /\
+  (renumber_code_locs n (App t loc_opt x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs_list n x2 in
-       (n,App loc_opt x1 x2)) /\
-  (renumber_code_locs n (Fn loc vs num_args x1) =
+       (n,App t loc_opt x1 x2)) /\
+  (renumber_code_locs n (Fn t loc vs num_args x1) =
      let (n,x1) = renumber_code_locs n x1 in
-       (n+2,Fn (SOME n) vs num_args x1)) /\
-  (renumber_code_locs n (Letrec loc vs fns x1) =
+       (n+2,Fn t (SOME n) vs num_args x1)) /\
+  (renumber_code_locs n (Letrec t loc vs fns x1) =
      let (m,fns') = renumber_code_locs_list n (MAP SND fns) in
      let (n,x1) = renumber_code_locs (m+2*LENGTH fns') x1 in
-     (n,Letrec (SOME m) vs (ZIP (MAP FST fns, fns')) x1)) /\
-  (renumber_code_locs n (Handle x1 x2) =
+     (n,Letrec t (SOME m) vs (ZIP (MAP FST fns, fns')) x1)) /\
+  (renumber_code_locs n (Handle t x1 x2) =
      let (n,x1) = renumber_code_locs n x1 in
      let (n,x2) = renumber_code_locs n x2 in
-     (n,Handle x1 x2)) /\
-  (renumber_code_locs n (Call ticks dest xs) =
+     (n,Handle t x1 x2)) /\
+  (renumber_code_locs n (Call t ticks dest xs) =
      let (n,xs) = renumber_code_locs_list n xs in
-     (n,Call ticks dest xs))`
+     (n,Call t ticks dest xs))`
  (WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
