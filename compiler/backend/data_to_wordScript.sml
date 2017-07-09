@@ -931,6 +931,21 @@ local val assign_quotation = `
                 (SOME RefByte_location)
                    [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
        | _ => (Skip,l))
+    | CopyByte alloc_new =>
+      (dtcase args of
+       | [v1;v2;v3;v4;v5] (* alloc_new is F *) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME ByteCopy_location)
+                   [adjust_var v1; adjust_var v2; adjust_var v3;
+                    adjust_var v4; adjust_var v5] NONE) :'a wordLang$prog,l+1)
+       | [v1;v2;v3] (* alloc_new is T *) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME ByteCopyNew_location)
+                   [adjust_var v1; adjust_var v2;
+                    adjust_var v3] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
     | RefArray =>
       (dtcase args of
        | [v1;v2] =>
@@ -1383,6 +1398,16 @@ val assign_pmatch_lemmas = [
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[]),
   Q.prove(`
+   (case args of
+    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
+    | [v1;v2;v3] => y2 v1 v2 v3
+    | _ => z) = (dtcase args of
+    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
+    | [v1;v2;v3] => y2 v1 v2 v3
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
    (case opt of
       NONE => y
     | SOME x => z x) = (dtcase opt of
@@ -1518,7 +1543,20 @@ val MemCopy_code_def = Define `
       :'a wordLang$prog`;
 
 val ByteCopy_code_def = Define `
-  ByteCopy_code = Skip :'a wordLang$prog`;
+  ByteCopy_code c = list_Seq
+     [Assign 4 (ShiftVar Lsr 4 2);
+      Assign 6 (ShiftVar Lsr 6 2);
+      Assign 10 (ShiftVar Lsr 10 2);
+      Assign 1 Unit;
+      Assign 2 (Op Add [real_addr c 2; Const bytes_in_word; Var 4]);
+      Assign 8 (Op Add [real_addr c 8; Const bytes_in_word; Var 10]);
+      If Lower 4 (Reg 10)
+        (list_Seq [Assign 3 (Op Sub [Var 6; Const 1w]);
+                   Assign 2 (Op Add [Var 2; Var 3]);
+                   Assign 8 (Op Add [Var 8; Var 3]);
+                   Call NONE (SOME ByteCopySub_location) [0;6;2;8;1] NONE])
+        (Call NONE (SOME ByteCopyAdd_location) [0;6;2;8;1] NONE)]
+     :'a wordLang$prog`;
 
 val ByteCopyAdd_code_def = Define `
   ByteCopyAdd_code = Skip :'a wordLang$prog`;
@@ -1527,7 +1565,7 @@ val ByteCopySub_code_def = Define `
   ByteCopySub_code = Skip :'a wordLang$prog`;
 
 val ByteCopyNew_code_def = Define `
-  ByteCopyNew_code = Skip :'a wordLang$prog`;
+  ByteCopyNew_code c = Skip :'a wordLang$prog`;
 
 val stubs_def = Define`
   stubs (:α) data_conf = [
@@ -1549,10 +1587,10 @@ val stubs_def = Define`
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
-    (ByteCopy_location,5n,ByteCopy_code);
+    (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
-    (ByteCopyNew_location,5n,ByteCopyNew_code)
+    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
