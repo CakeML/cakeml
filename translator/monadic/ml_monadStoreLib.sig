@@ -15,6 +15,6 @@ sig
    val mk_store_translation_result :
        thm list -> thm list -> thm -> thm -> thm -> thm list -> thm list -> store_translation_result
 
-   val translate_store :
+   val translate_fixed_store :
        (string * thm * thm * thm) list -> string -> term -> store_translation_result
 end

@@ -5,7 +5,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory
      ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
 open terminationTheory
-open ml_monadStoreLib
+open ml_monadStoreLib cfTacticsLib
 
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
@@ -143,7 +143,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, d
       fs [lookup_cons_def] >>
       fs[exn_ri_def,namespaceTheory.id_to_n_def] >>
       asm_exists_tac \\ fs[] >>
-      PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ fs[REFS_PRED_append]
+      PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ fs[REFS_PRED_FRAME_append]
 
     val goal =
     ``!H x a.
@@ -174,7 +174,7 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons_name, exn_type,
     val solve_tac =
       SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
       \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-      \\ Q.PAT_X_ASSUM `!s refs. REFS_PRED H refs s ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
+      \\ Q.PAT_X_ASSUM `!s p refs. REFS_PRED H refs p s ==> bbb` (MP_TAC o Q.SPECL [`s`, `p`, `refs`])
       \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
       \\ first_x_assum(qspec_then`junk`strip_assume_tac)
       \\ Cases_on `res` THEN1
@@ -194,16 +194,15 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons_name, exn_type,
       fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def] >- (
 	simp[Once evaluate_cases,MONAD_def,exn_ri_def] ) >>
       first_x_assum drule >>
+      IMP_RES_TAC REFS_PRED_FRAME_imp >>
       disch_then drule >>
       simp[GSYM write_def] >>
       disch_then(qspec_then`[]`strip_assume_tac) >>
       fs[with_same_refs] >>
-      asm_exists_tac >>
       fs[MONAD_def] >>
-      TOP_CASE_TAC \\ fs[] \\
-      TOP_CASE_TAC \\ fs[] \\
-      TOP_CASE_TAC \\ fs[] \\
-      TOP_CASE_TAC \\ fs[]
+      asm_exists_tac >>
+      instantiate >>
+      IMP_RES_TAC REFS_PRED_FRAME_trans
 
     val thm_name = "EvalM_" ^(dest_const fun_tm |> fst)
     val handle_spec = store_thm(thm_name, goal, solve_tac)

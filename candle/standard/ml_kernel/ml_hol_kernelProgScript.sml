@@ -117,96 +117,6 @@ val _ = register_exn_type ``:hol_exn``;
 
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
-(* handle_clash *)
-
-(* val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
-  `!H n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
-        EvalM env exp1 (MONAD a HOL_EXN_TYPE x1) H ==>
-        (!t v.
-          TERM_TYPE t v ==>
-          EvalM (write n v env) exp2 (MONAD a HOL_EXN_TYPE (x2 t)) H) ==>
-        EvalM env (Handle exp1 [(Pcon (SOME (Short "Clash")) [Pvar n],exp2)])
-          (MONAD a HOL_EXN_TYPE (handle_clash x1 x2)) H`,
-  SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ Q.PAT_X_ASSUM `!s refs. REFS_PRED H refs s ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ first_x_assum(qspec_then`junk`strip_assume_tac)
-  \\ Cases_on `res` THEN1
-   (srw_tac[DNF_ss][] >> disj1_tac \\
-    asm_exists_tac \\ fs[MONAD_def,handle_clash_def] \\
-    CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
-  \\ Q.PAT_X_ASSUM `MONAD xx yy zz t1 t2` MP_TAC
-  \\ SIMP_TAC std_ss [Once MONAD_def] \\ STRIP_TAC
-  \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
-  \\ Cases_on `e` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
-  \\ srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac
-  \\ asm_exists_tac \\ fs[]
-  \\ simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def]
-  \\ Cases_on `b` >> fs[HOL_EXN_TYPE_def] >>
-  simp[pmatch_def] >> fs[lookup_cons_def] >>
-  fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def] >- (
-    simp[Once evaluate_cases,MONAD_def,HOL_EXN_TYPE_def] ) >>
-  first_x_assum drule >>
-  disch_then drule >>
-  simp[GSYM write_def] >>
-  disch_then(qspec_then`[]`strip_assume_tac) >>
-  fs[with_same_refs] >>
-  asm_exists_tac >>
-  fs[MONAD_def] >>
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[]);
-
-(* failwith *)
-val EvalM_failwith = Q.store_thm("EvalM_failwith",
-  `!H x a.
-      (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" (Short "Fail")))) ==>
-      Eval env exp1 (STRING_TYPE x) ==>
-      EvalM env (Raise (Con (SOME (Short "Fail")) [exp1]))
-        (MONAD a HOL_EXN_TYPE (failwith x)) H`,
-  rw[Eval_def,EvalM_def,MONAD_def,failwith_def] >>
-  rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases] >>
-  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once(CONJUNCT2 evaluate_cases)] >>
-  first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
-  IMP_RES_TAC (evaluate_empty_state_IMP
-               |> INST_TYPE [``:'ffi``|->``:unit``]) >>
-  rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
-  asm_exists_tac \\ fs[] >>
-  PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ METIS_TAC[REFS_PRED_append]);
-
-(* clash *)
-
-val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
-  `!H x a.
-      (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
-      Eval env exp1 (TERM_TYPE x) ==>
-      EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
-        (MONAD a HOL_EXN_TYPE (raise_clash x)) H`,
-  rw[Eval_def,EvalM_def,MONAD_def,raise_clash_def] >>
-  rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases] >>
-  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once(CONJUNCT2 evaluate_cases)] >>
-  rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
-  first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
-  IMP_RES_TAC (evaluate_empty_state_IMP
-               |> INST_TYPE [``:'ffi``|->``:unit``]) >>
-  fs[] >> asm_exists_tac \\ fs[] >>
-  PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ METIS_TAC[REFS_PRED_append]);
-
-val exn_thms = [EvalM_failwith, EvalM_raise_clash, EvalM_handle_clash]; *)
-
 (* Define and translate the store *)
 val init_type_constants_def = Define `
 init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
@@ -237,7 +147,7 @@ val refs_init_list = [
 (* Create the store *)
 val store_hprop_name = "HOL_STORE";
 val exc_ri = ``HOL_EXN_TYPE``;
-val translated_store_thms = translate_store refs_init_list store_hprop_name exc_ri;
+val translated_store_thms = translate_fixed_store refs_init_list store_hprop_name exc_ri;
 
 (* Initialize the monadic translation *)
 val _ = init_translation translated_store_thms exc_ri []

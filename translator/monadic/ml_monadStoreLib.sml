@@ -74,6 +74,9 @@ fun create_store refs_init_list store_hprop_name =
 	      then raise (ERR "create_store" "need a non empty list of reference init values")
 	      else ()
 
+      val initial_state = get_state(get_ml_prog_state())
+      val initial_store = EVAL ``^initial_state.refs`` |> concl |> rhs
+
       (* Translate the definitions *)
       fun create_ref (name, def) =
 	let
@@ -89,9 +92,9 @@ fun create_store refs_init_list store_hprop_name =
       val name_def_pairs = List.map (fn (n, d, _, _) => (n, d)) refs_init_list
       val trans_results = List.map create_ref name_def_pairs
   in
-      trans_results
+      (initial_store, trans_results)
   end;
-
+          
 (*
 val trans_results = create_store refs_init_list store_hprop_name;
 val (name, def, get_fun, set_fun) = List.hd refs_init_list;
@@ -203,6 +206,9 @@ local
 	ASSUME_TAC (Thm.INST [``C : hprop`` |-> ``emp : hprop``] GC_DUPLICATE_1)
         \\ FULL_SIMP_TAC std_ss [GSYM STAR_ASSOC, SEP_CLAUSES])
 
+    val GC_DUPLICATE_3 = Q.prove(`A * GC * B = GC * (A * GC * B)`,
+	SIMP_TAC std_ss [GSYM STAR_ASSOC, GC_INWARDS, GC_STAR_GC])
+
     val store2heap_aux_decompose_store1 = Q.prove(
       `H (store2heap_aux n (a ++ (b ++ c))) =
       (DISJOINT (store2heap_aux n (a ++ b)) (store2heap_aux (n + LENGTH (a ++b)) c) ==>
@@ -227,12 +233,41 @@ local
          |> GEN_ALL)
       \\ fs[UNION_COMM])
 
-    val SAT_GC = Q.prove(`!h. GC h`, rw[GC_def, SEP_EXISTS] \\ qexists_tac `\x. T` \\ rw[])
-
     val store2heap_REF_SAT = Q.prove(`((Loc l) ~~> v) (store2heap_aux l [Refv v])`,
         fs[store2heap_aux_def] >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def])
+
+    val store2heap_eliminate_ffi_thm = Q.prove(
+      `H (store2heap s.refs) ==> (GC * H) (st2heap p s)`,
+      rw[] 
+      \\ Cases_on `p`
+      \\ fs[st2heap_def, STAR_def]
+      \\ instantiate
+      \\ qexists_tac `ffi2heap (q, r) s.ffi`
+      \\ fs[SAT_GC]
+      \\ PURE_ONCE_REWRITE_TAC[SPLIT_SYM]
+      \\ fs[st2heap_SPLIT_FFI]);
+
+     val eliminate_inherited_references_thm = Q.prove(
+       `!a b. H (store2heap_aux (LENGTH a) b) ==> (GC * H) (store2heap_aux 0 (a++b))`,
+       rw[]
+       \\ fs[STAR_def]
+       \\ instantiate
+       \\ qexists_tac `store2heap_aux 0 a`
+       \\ fs[SPEC_ALL store2heap_aux_SPLIT |> Thm.INST [``n:num`` |-> ``0:num``]
+		      |> SIMP_RULE arith_ss [], SAT_GC]);
+
+     fun eliminate_inherited_references initial_store =
+       if same_const initial_store ``[] : 'a list`` then ALL_TAC
+       else let
+	   val elim_thm = Thm.SPEC initial_store eliminate_inherited_references_thm
+	   val elim_thm = PURE_REWRITE_RULE [GSYM APPEND_ASSOC] elim_thm
+	   val tac = PURE_ONCE_REWRITE_TAC [GC_DUPLICATE_3]
+                     \\ PURE_REWRITE_TAC [GSYM APPEND_ASSOC]
+		     \\ irule elim_thm
+                     \\ PURE_REWRITE_TAC [APPEND_ASSOC]
+       in tac end
 in
-    fun prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def =
+    fun prove_valid_store_X_hprop refs_init_list initial_store trans_results refs_type store_X_hprop_def =
       let
 	  val store_hprop_const = concl store_X_hprop_def |> dest_eq |> fst
 	  val current_state = get_state(get_ml_prog_state())
@@ -251,7 +286,9 @@ in
 	  val hyps = List.map mk_get_eq (zip get_funs init_values)
 	  val hyps = list_mk_conj hyps
 
-	  val goal = ``!(^refs_var). ^hyps ==> REFS_PRED ^store_hprop_const refs ^current_state``
+          val tys = match_type (type_of current_state) ``:unit state``
+          val current_state = Term.inst tys current_state
+	  val goal = ``!(^refs_var) p. ^hyps ==> REFS_PRED ^store_hprop_const refs p ^current_state``
           (* set_goal ([], goal) *)
 
 	  val solve_first_subheap_tac =
@@ -275,20 +312,19 @@ in
 	    FIRST[solve_first_subheap_tac >> rec_solve_subheaps_tac, ALL_TAC] g
 
 	  val solve_tac =
-	    ntac 2 STRIP_TAC 
-            \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def, store_eval_thm]
-            (* \\ CONV_TAC (STRIP_QUANT_CONV SEPARATE_SEP_EXISTS_CONV)
-	    \\ srw_tac[QI_ss][] *)
+	    ntac 3 STRIP_TAC 
+            \\ FULL_SIMP_TAC (srw_ss()) [REFS_PRED_def, store_X_hprop_def]
             \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
-	    (* \\ instantiate_ref_svalues trans_results *)
-	    \\ SIMP_TAC bool_ss [SEP_CLAUSES, SEP_EXISTS_THM]
 	    \\ (CONV_TAC o STRIP_QUANT_CONV) EXTRACT_PURE_FACTS_CONV
 	    \\ instantiate_ref_values trans_results
 	    \\ SIMP_TAC (bool_ss) (List.map fst trans_results)
 	    \\ SIMP_TAC pure_ss [GSYM STAR_ASSOC]
-	    \\ PURE_REWRITE_TAC [Once GC_DUPLICATE_2]
+	    \\ PURE_ONCE_REWRITE_TAC [GC_DUPLICATE_2]
 	    \\ ntac (List.length trans_results - 2) (ONCE_REWRITE_TAC [GC_DUPLICATE_1])
-	    \\ PURE_REWRITE_TAC [store2heap_def]
+            \\ PURE_ONCE_REWRITE_TAC [GC_DUPLICATE_3]
+            \\ irule store2heap_eliminate_ffi_thm
+	    \\ PURE_REWRITE_TAC [store2heap_def, store_eval_thm]
+            \\ eliminate_inherited_references initial_store
 	    \\ rec_solve_subheaps_tac
 	    \\ PURE_REWRITE_TAC [Once store2heap_aux_decompose_store2]
 	    \\ DISCH_TAC \\ PURE_REWRITE_TAC[Once STAR_def] \\ BETA_TAC
@@ -316,9 +352,9 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
       val ty_subst = Type.match_type (type_of current_state) ``:unit state``
       val current_state = Term.inst ty_subst current_state
 
-      val (refs_var, hyps) = concl valid_store_X_hprop_thm |> dest_forall
+      val ([refs_var, ffi_var], hyps) = concl valid_store_X_hprop_thm |> strip_forall
       val hyps = dest_imp hyps |> fst
-      val interm_goal = ``?(^refs_var). ^hyps``
+      val interm_goal = ``?(^refs_var) (^ffi_var). ^hyps``
       val interm_solve_tac =  srw_tac[QI_ss][]
       val interm_th = prove(interm_goal, interm_solve_tac)
       (* set_goal([], interm_goal) *)
@@ -328,11 +364,9 @@ fun prove_exists_store_X_hprop refs_type store_hprop_name valid_store_X_hprop_th
       (* set_goal([], goal) *)
       val solve_tac = 
           PURE_REWRITE_TAC[VALID_REFS_PRED_def]
-          \\ EXISTS_TAC current_state
-	  \\ STRIP_ASSUME_TAC interm_th
-	  \\ EXISTS_TAC refs_var
-	  \\ irule valid_store_X_hprop_thm
-	  \\ fs[]
+          \\ STRIP_ASSUME_TAC interm_th
+          \\ IMP_RES_TAC valid_store_X_hprop_thm
+          \\ metis_tac[]
 
       val thm_name = store_hprop_name ^"_EXISTS"
       val exists_store_X_hprop_thm = store_thm(thm_name, goal, solve_tac)
@@ -518,13 +552,13 @@ fun mk_store_translation_result values locs pred pred_valid pred_exists gets set
      get_specs = gets,
      set_specs = sets} : store_translation_result);
 
-fun translate_store refs_init_list store_hprop_name exc_ri = let
-    val trans_results = create_store refs_init_list store_hprop_name
+fun translate_fixed_store refs_init_list store_hprop_name exc_ri = let
+    val (initial_store, trans_results) = create_store refs_init_list store_hprop_name
     val refs_type = List.hd refs_init_list |> #3 |> concl |> rand |> dest_abs |> fst |> type_of
     val refs_init_list = find_refs_access_functions refs_init_list
 
     val store_X_hprop_def = create_store_X_hprop refs_init_list trans_results refs_type store_hprop_name
-    val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list trans_results refs_type store_X_hprop_def
+    val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list initial_store trans_results refs_type store_X_hprop_def
     val exists_store_X_hprop_thm = prove_exists_store_X_hprop refs_type store_hprop_name
 				   valid_store_X_hprop_thm
     val (get_specs, set_specs) = prove_store_access_specs refs_init_list trans_results

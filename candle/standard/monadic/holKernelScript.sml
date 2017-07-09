@@ -10,6 +10,8 @@ val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
+val _ = hide "state";
+
 (* we reuse the datatypes of types and terms from the inference system *)
 
 val type_size_def = holSyntaxTheory.type_size_def

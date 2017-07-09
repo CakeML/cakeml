@@ -10,6 +10,8 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = temp_overload_on ("ex_return", ``st_ex_return``);
 
+val _ = hide "state";
+
 val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 
 val rev_assocd_thm = Q.prove(
@@ -2189,7 +2191,7 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
     METIS_TAC[exc_distinct,exc_11,exc_nchotomy] ) >>
   SIMP_TAC (srw_ss()) [mk_type_def,try_def,otherwise_def] >>
   ntac 4(simp[Once st_ex_bind_def,st_ex_return_def]) >>
-  Q.PAT_ABBREV_TAC`l1 = [(absname,Fun X Y);Z]` >>
+  Q.PAT_ABBREV_TAC`l1 = [(absname,Fun (X:type) Y);Z]` >>
   qspecl_then[`l1`,`s1`]mp_tac add_constants_thm >>
   Cases_on`add_constants l1 s1` >>
   simp[Once st_ex_bind_def] >> strip_tac >>
@@ -2403,6 +2405,7 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   simp[Abbr`s2`,conexts_of_upd_def] >>
   imp_res_tac QSORT_type_vars_in_term >>
   simp[equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
