@@ -32,9 +32,16 @@ val res = translate def
 
 val backend_compile_explorer_side = Q.prove(`
   ∀x y. backend_compile_explorer_side x y = T`,
-  rw[definition"backend_compile_explorer_side_def"] \\
-  cheat (* TODO: these are all here because to_dataProg does not save the precondition proofs for closLang passes *))
-  |> update_precondition
+  simp[definition"backend_compile_explorer_side_def",PULL_FORALL] \\
+  rpt gen_tac \\ ntac 3 strip_tac \\
+  qmatch_goalsub_abbrev_tac`compile c.do_mti c.max_app [z]` \\
+  `∃a. compile c.do_mti c.max_app [z] = [a]` by
+    (Cases_on`c.do_mti`>>fs[clos_mtiTheory.compile_def]>>
+    metis_tac[clos_mtiTheory.intro_multi_sing])>>
+  specl_args_of_then ``renumber_code_locs_list``
+    (clos_numberTheory.renumber_code_locs_length|>CONJUNCT1) assume_tac>>
+  rfs[LENGTH_EQ_NUM_compute] \\
+  strip_tac \\ fs[]) |> update_precondition;
 
 val def = spec64 backendTheory.compile_def
   |> REWRITE_RULE[max_heap_limit_64_thm]

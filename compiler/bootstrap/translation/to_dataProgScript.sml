@@ -372,6 +372,15 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
 
 val _ = translate clos_knownTheory.merge_alt
 
+val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
+
+val clos_known_merge_side = Q.prove(`
+  ∀a b. clos_known_merge_side a b ⇔ T`,
+  EVAL_TAC \\
+  recInduct clos_knownTheory.merge_tup_ind \\
+  rw[] \\
+  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
+
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
   rw[]>>intLib.COOPER_TAC);
@@ -389,23 +398,12 @@ val lemma = ``(if 0 <= i /\ q
 val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 *)
 
-val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
-
-val clos_known_merge_side = Q.prove(`
-  ∀a b. clos_known_merge_side a b ⇔ T`,
-  EVAL_TAC \\
-  recInduct clos_knownTheory.merge_tup_ind \\
-  rw[] \\
-  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
-
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
   fs[clos_known_merge_side]>>rw[]>>
   intLib.COOPER_TAC) |> update_precondition;
-
-val r = translate (clos_knownTheory.known_def)
 
 (*
 val clos_known_known_op_side = Q.prove(`
@@ -419,6 +417,8 @@ val clos_known_known_op_side = Q.prove(`
   intLib.COOPER_TAC))
 *)
 
+val r = translate (clos_knownTheory.known_def)
+
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
   ho_match_mp_tac clos_knownTheory.known_ind>>
@@ -428,6 +428,14 @@ val clos_known_known_side = Q.prove(`
     fs[])>>
   rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
   metis_tac[FST,PAIR]) |> update_precondition
+
+val r = translate clos_knownTheory.compile_def
+
+val clos_known_compile_side = Q.prove(
+  `∀x y. clos_known_compile_side x y ⇔ T`,
+  EVAL_TAC \\ rw[] \\ strip_tac \\
+  imp_res_tac clos_knownTheory.known_sing_EQ_E \\
+  fs[]) |> update_precondition;
 
 (* call *)
 
@@ -459,6 +467,14 @@ val clos_call_calls_side = Q.prove(`
     >- (imp_res_tac clos_callTheory.calls_length>>fs[])
     >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
 
+val r = translate clos_callTheory.compile_def
+
+val clos_call_compile_side = Q.prove(
+  `∀x y. clos_call_compile_side x y = T`,
+  EVAL_TAC \\ rw[] \\ strip_tac \\
+  imp_res_tac clos_callTheory.calls_sing \\
+  fs[]) |> update_precondition;
+
 (* remove *)
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 
@@ -475,6 +491,17 @@ val clos_remove_remove_side = Q.prove(`
   CCONTR_TAC>>fs[]>>
   imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
 
+val r = translate clos_removeTheory.compile_def
+
+val clos_remove_compile_side = Q.prove(
+  `∀x y. clos_remove_compile_side x y = T`,
+  EVAL_TAC \\ rw[] \\
+  qmatch_goalsub_abbrev_tac`FST p` \\
+  Cases_on`p` \\ fs[markerTheory.Abbrev_def] \\
+  pop_assum(assume_tac o SYM) \\
+  imp_res_tac clos_removeTheory.remove_LENGTH \\fs[])
+  |> update_precondition;
+
 (* shift *)
 val _ = translate (clos_annotateTheory.shift_def)
 
@@ -489,7 +516,15 @@ val clos_annotate_shift_side = Q.prove(`
   simp[Once (fetch "-" "clos_annotate_shift_side_def")]>>
   rw[]>> metis_tac[]) |> update_precondition
 
-val _ = translate clos_to_bvlTheory.compile_def
+val r = translate clos_annotateTheory.compile_def
+
+val clos_annotate_compile_side = Q.prove(
+  `∀x. clos_annotate_compile_side x = T`,
+  EVAL_TAC \\ rw[] \\
+  METIS_TAC[clos_annotateTheory.shift_SING,clos_freeTheory.free_SING,
+            FST,PAIR,list_distinct]) |> update_precondition;
+
+val r = translate clos_to_bvlTheory.compile_def
 
 val BVL_EXP_TYPE_def = theorem"BVL_EXP_TYPE_def";
 val BVL_EXP_TYPE_ind = theorem"BVL_EXP_TYPE_ind";
@@ -610,7 +645,7 @@ val bvl_jump_jumplist_side = Q.prove(`
   >>
     `SUC x1 DIV 2 < SUC x1` by
       fs[]>>
-    simp[]);
+    simp[]) |> update_precondition;
 
 val clos_to_bvl_recc_lets_side = Q.prove(`
   ∀a b c d.
@@ -619,7 +654,7 @@ val clos_to_bvl_recc_lets_side = Q.prove(`
   ho_match_mp_tac clos_to_bvlTheory.recc_Lets_ind>>
   rw[]>>
   simp[Once (fetch"-" "clos_to_bvl_recc_lets_side_def")]>>
-  Cases_on`b`>>fs[])
+  Cases_on`b`>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_exps_side = Q.prove(`
   ∀max_app a b. clos_to_bvl_compile_exps_side max_app a b`,
@@ -638,12 +673,13 @@ val clos_to_bvl_compile_exps_side = Q.prove(`
     simp[LENGTH_TL])
   >>
   first_x_assum(qspecl_then[`max_app`,`x1`,`x43`,`x41`] assume_tac)>>
-  CCONTR_TAC>>fs[])
+  CCONTR_TAC>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_prog_side = Q.prove(`
   ∀max_app x. clos_to_bvl_compile_prog_side max_app x ⇔ T`,
   ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
   simp[Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),clos_to_bvl_compile_exps_side])
+  |> update_precondition;
 
 val clos_to_bvl_compile_side = Q.prove(`
   ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
@@ -653,30 +689,11 @@ val clos_to_bvl_compile_side = Q.prove(`
   Once (fetch "-" "clos_remove_compile_side_def"),
   Once (fetch "-" "clos_known_compile_side_def")]
   >-
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_callTheory.calls_sing>>
-    fs[])
-  >-
     (EVAL_TAC>>simp[bvl_jump_jumplist_side])
   >-
     simp[clos_to_bvl_compile_exps_side]
   >-
     simp[clos_to_bvl_compile_prog_side]
-  >-
-    (EVAL_TAC>>
-    CCONTR_TAC >> fs[]>>
-    Cases_on`free [v1]`>>
-    imp_res_tac clos_freeTheory.free_SING>>fs[]>>
-    imp_res_tac clos_annotateTheory.shift_SING>>fs[])
-  >-
-    (qpat_abbrev_tac`ls = v6'::A`>>
-    Cases_on`remove ls`>>fs[Abbr`ls`]>>
-    imp_res_tac clos_removeTheory.remove_LENGTH>>
-    simp[])
-  >-
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
-    fs[])
   >>
     `∃z. compile x.do_mti x.max_app [y] = [z]` by
       (Cases_on`x.do_mti`>>fs[clos_mtiTheory.compile_def]>>
