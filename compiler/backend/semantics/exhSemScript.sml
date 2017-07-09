@@ -430,17 +430,25 @@ val do_app_def = Define `
 
 val op_thms = { nchotomy = conLangTheory.op_nchotomy, case_def = conLangTheory.op_case_def}
 val astop_thms = {nchotomy = astTheory.op_nchotomy, case_def = astTheory.op_case_def}
+val modop_thms = {nchotomy = modLangTheory.op_nchotomy, case_def = modLangTheory.op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
 val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
 
 val do_app_cases = save_thm("do_app_cases",
   ``exhSem$do_app s op vs = SOME x`` |>
   SIMP_CONV(srw_ss()++COND_elim_ss++LET_ss)[PULL_EXISTS, do_app_def, eqs, pair_case_eq]);
+
+val eq_result_CASE_tm = prim_mk_const{Name="eq_result_CASE",Thy="semanticPrimitives"};
+val check =
+  do_app_cases |> concl |> find_terms TypeBase.is_case
+  |> List.map (#1 o strip_comb)
+  |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
+val () = if check then () else raise(ERR"exhSem""do_app_cases failed")
 
 val do_app_cases_none = save_thm("do_app_cases_none",
   ``exhSem$do_app s op vs = NONE`` |>
