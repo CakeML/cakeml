@@ -1558,11 +1558,101 @@ val ByteCopy_code_def = Define `
         (Call NONE (SOME ByteCopyAdd_location) [0;6;2;8;1] NONE)]
      :'a wordLang$prog`;
 
-val ByteCopyAdd_code_def = Define `
-  ByteCopyAdd_code = Skip :'a wordLang$prog`;
+val ByteCopyAdd_code_def = Define`
+  ByteCopyAdd_code =
+  If Lower 2 (Imm 4w) (* n <+ 4w *)
+    (
+      If Lower 2 (Imm 2w) (* n <+ 2w *)
+      (
+        If Equal 2 (Imm 0w) (Return 0 8) (* n = 0w *)
+        (
+          list_Seq[
+            Inst (Mem Load8 1 (Addr 4 0w));
+            Inst (Mem Store8 1(Addr 6 0w));
+            Return 0 8
+          ]
+        )
+      )
+      (list_Seq [
+        Inst (Mem Load8 1 (Addr 4 0w));
+        Inst (Mem Load8 3 (Addr 4 1w));
+        If Equal 2 (Imm 2w)
+          (list_Seq [
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 1w));
+            Return 0 8
+          ])
+          (list_Seq [
+            Inst (Mem Load8 5 (Addr 4 2w));
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 1w));
+            Inst (Mem Store8 5 (Addr 6 2w));
+            Return 0 8
+          ])
+      ])
+    )
+    (list_Seq [
+     Inst (Mem Load8 1 (Addr 4 0w));
+     Inst (Mem Load8 3 (Addr 4 1w));
+     Inst (Mem Load8 5 (Addr 4 2w));
+     Inst (Mem Load8 7 (Addr 4 3w));
+     Inst (Mem Store8 1 (Addr 6 0w));
+     Inst (Mem Store8 3 (Addr 6 1w));
+     Inst (Mem Store8 5 (Addr 6 2w));
+     Inst (Mem Store8 7 (Addr 6 3w));
+     Assign 9 (Op Sub [Var 2; Const 4w]);
+     Assign 11 (Op Add [Var 4; Const 4w]);
+     Assign 13 (Op Add [Var 6; Const 4w]);
+     Call NONE (SOME ByteCopyAdd_location) [0;9;11;13;8] NONE
+    ])`
 
-val ByteCopySub_code_def = Define `
-  ByteCopySub_code = Skip :'a wordLang$prog`;
+val ByteCopySub_code_def = Define`
+  ByteCopySub_code =
+  If Lower 2 (Imm 4w) (* n <+ 4w *)
+    (
+      If Lower 2 (Imm 2w) (* n <+ 2w *)
+      (
+        If Equal 2 (Imm 0w) (Return 0 8) (* n = 0w *)
+        (
+          list_Seq[
+            Inst (Mem Load8 1 (Addr 4 0w));
+            Inst (Mem Store8 1(Addr 6 0w));
+            Return 0 8
+          ]
+        )
+      )
+      (list_Seq [
+        Inst (Mem Load8 1 (Addr 4 0w));
+        Inst (Mem Load8 3 (Addr 4 (-1w)));
+        If Equal 2 (Imm 2w)
+          (list_Seq [
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 (-1w)));
+            Return 0 8
+          ])
+          (list_Seq [
+            Inst (Mem Load8 5 (Addr 4 (-2w)));
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 (-1w)));
+            Inst (Mem Store8 5 (Addr 6 (-2w)));
+            Return 0 8
+          ])
+      ])
+    )
+    (list_Seq [
+     Inst (Mem Load8 1 (Addr 4 0w));
+     Inst (Mem Load8 3 (Addr 4 (-1w)));
+     Inst (Mem Load8 5 (Addr 4 (-2w)));
+     Inst (Mem Load8 7 (Addr 4 (-3w)));
+     Inst (Mem Store8 1 (Addr 6 0w));
+     Inst (Mem Store8 3 (Addr 6 (-1w)));
+     Inst (Mem Store8 5 (Addr 6 (-2w)));
+     Inst (Mem Store8 7 (Addr 6 (-3w)));
+     Assign 9 (Op Sub [Var 2; Const 4w]);
+     Assign 11 (Op Sub [Var 4; Const 4w]);
+     Assign 13 (Op Sub [Var 6; Const 4w]);
+     Call NONE (SOME ByteCopySub_location) [0;9;11;13;8] NONE
+    ])`
 
 val ByteCopyNew_code_def = Define `
   ByteCopyNew_code c = Skip :'a wordLang$prog`;

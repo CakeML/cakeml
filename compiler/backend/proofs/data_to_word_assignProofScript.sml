@@ -1607,10 +1607,51 @@ val IN_domain_adjust_set_inter = store_thm("IN_domain_adjust_set_inter",
   \\ rw [] \\ fs [lookup_inter] \\ rfs []
   \\ every_case_tac \\ fs []);
 
-val CopyByteAdd_thm = store_thm("CopyByteAdd_thm",
-  ``!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
+val get_var_to_word_exp = Q.store_thm("get_var_to_word_exp",
+  `get_var r s = SOME (Word w) ⇒
+  word_exp s (Op Add [Var r;Const 0w] ) = SOME (Word (w+0w)) ∧
+  word_exp s (Op Add [Var r;Const 1w] ) = SOME (Word (w+1w)) ∧
+  word_exp s (Op Add [Var r;Const 2w] ) = SOME (Word (w+2w)) ∧
+  word_exp s (Op Add [Var r;Const 3w] ) = SOME (Word (w+3w)) `,
+  EVAL_TAC>>rw[]);
+
+val word_exp_set = Q.prove(`
+  (word_exp s (Op Add [Var n; Const c]) =
+  case get_var n s of
+    SOME (Word w) => SOME (Word (w+c))
+  | _ => NONE) ∧
+  (word_exp s (Op Sub [Var n; Const c]) =
+  case get_var n s of
+    SOME (Word w) => SOME (Word (w-c))
+  | _ => NONE)`,
+  EVAL_TAC>>rw[]>>
+  every_case_tac>>rw[]>>
+  fs[]);
+
+val good_dimindex_w2w_byte = Q.prove(`
+  good_dimindex (:'a) ⇒
+  w2w (w2w (w:word8):'a word) = w`,
+  rw[good_dimindex_def]>>
+  simp[w2w_w2w]>>
+  match_mp_tac WORD_ALL_BITS>>fs[]);
+
+val set_var_consts = Q.prove(`
+  (set_var r v s).memory = s.memory ∧
+  (set_var r v s).mdomain = s.mdomain ∧
+  (set_var r v s).be = s.be ∧
+  (set_var r v s).code = s.code`,
+  fs[wordSemTheory.set_var_def]);
+
+val get_var_consts = Q.prove(`
+  get_var r (s with memory:=m) = get_var r s`,
+  EVAL_TAC>>rw[]);
+
+val CopyByteAdd_thm = Q.store_thm("CopyByteAdd_thm",
+  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
       word_copy_fwd be n a1 a2 m dm = SOME m1 /\
       s.memory = m /\ s.mdomain = dm /\
+      s.be = be ∧
+      good_dimindex(:'a) ∧
       lookup ByteCopyAdd_location s.code = SOME (5,ByteCopyAdd_code) /\
       w2n n DIV 4 <= s.clock /\
       get_var 0 s = SOME (Loc l1 l2) /\
@@ -1621,15 +1662,99 @@ val CopyByteAdd_thm = store_thm("CopyByteAdd_thm",
       evaluate (ByteCopyAdd_code,s) =
         (SOME (Result (Loc l1 l2) ret_val),
          s with <| clock := s.clock - w2n n DIV 4 ;
-                   memory := m1 ; locals := LN |>)``,
-  ho_match_mp_tac word_copy_fwd_ind
-  \\ cheat (* the code for ByteCopyAdd_code is to be written;
-              the proof could take inspiration from MemCopy_thm below *));
+                   memory := m1 ; locals := LN |>)`,
+  ho_match_mp_tac word_copy_fwd_ind >>
+  rw[]>>
+  qpat_x_assum`A=SOME m1` mp_tac>>
+  simp[Once word_copy_fwd_def]>>
+  rpt (IF_CASES_TAC)>>rw[]
+  >-
+    (fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]>>
+    EVAL_TAC>>fs[wordSemTheory.state_component_equality])
+  >-
+    (imp_res_tac get_var_to_word_exp>>
+    fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts]>>
+    EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+    fs[WORD_LO]>>
+    `w2n n DIV 4 = 0` by
+      (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+    fs[])
+  >-
+    (FULL_CASE_TAC>>fs[]
+    >-
+      (imp_res_tac get_var_to_word_exp>>
+      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+      fs[WORD_LO]>>
+      `w2n n DIV 4 = 0` by
+        (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+      fs[])
+    >>
+      (imp_res_tac get_var_to_word_exp>>
+      fs[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+      fs[WORD_LO]>>
+      `w2n n DIV 4 = 0` by
+        (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+      fs[]))
+  >>
+    (imp_res_tac get_var_to_word_exp>>
+    simp[ByteCopyAdd_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts,wordSemTheory.get_vars_def]>>
+    simp[wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]>>
+    `w2n n DIV 4 = (w2n (n+ -4w) DIV 4) +1` by
+      (fs[WORD_NOT_LOWER]>>
+      FULL_SIMP_TAC (std_ss) [WORD_SUB_INTRO,word_sub_w2n]>>
+      simp[DIV_SUB]>>
+      fs[WORD_LS]>>
+      `0 < 4 ∧ 4 * 1 ≤ w2n n` by fs[]>>
+      imp_res_tac DIV_SUB>>
+      fs[]>>
+      `0 < w2n n DIV 4` by
+        (match_mp_tac bitTheory.DIV_GT0>>
+        fs[])>>
+      fs[])>>
+    simp[]>>
+    qmatch_goalsub_abbrev_tac`evaluate (_,s')`>>
+    first_x_assum drule >>
+    simp[]>>
+    disch_then (qspecl_then [`ret_val`,`l1`,`l2`,`s'`] mp_tac)>>
+    impl_tac>-
+      (unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
+      simp[wordSemTheory.get_var_def,lookup_fromList2,lookup_fromList,set_var_consts])>>
+    rw[]>>
+    unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
+    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def]));
 
-val CopyByteSub_thm = store_thm("CopyByteSub_thm",
-  ``!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
+val CopyByteSub_thm = Q.store_thm("CopyByteSub_thm",
+  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
       word_copy_bwd be n a1 a2 m dm = SOME m1 /\
-      s.memory = m /\ s.mdomain = dm /\ s.be = be /\
+      s.memory = m /\ s.mdomain = dm /\
+      s.be = be ∧
+      good_dimindex(:'a) ∧
       lookup ByteCopySub_location s.code = SOME (5,ByteCopySub_code) /\
       w2n n DIV 4 <= s.clock /\
       get_var 0 s = SOME (Loc l1 l2) /\
@@ -1640,10 +1765,92 @@ val CopyByteSub_thm = store_thm("CopyByteSub_thm",
       evaluate (ByteCopySub_code,s) =
         (SOME (Result (Loc l1 l2) ret_val),
          s with <| clock := s.clock - w2n n DIV 4 ;
-                   memory := m1 ; locals := LN |>)``,
-  ho_match_mp_tac word_copy_bwd_ind
-  \\ cheat (* should be practically identical to the code and
-              proof for CopyByteAdd *));
+                   memory := m1 ; locals := LN |>)`,
+  ho_match_mp_tac word_copy_bwd_ind >>
+  rw[]>>
+  qpat_x_assum`A=SOME m1` mp_tac>>
+  simp[Once word_copy_bwd_def]>>
+  rpt (IF_CASES_TAC)>>rw[]
+  >-
+    (fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]>>
+    EVAL_TAC>>fs[wordSemTheory.state_component_equality])
+  >-
+    (imp_res_tac get_var_to_word_exp>>
+    fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts]>>
+    EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+    fs[WORD_LO]>>
+    `w2n n DIV 4 = 0` by
+      (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+    fs[])
+  >-
+    (FULL_CASE_TAC>>fs[]
+    >-
+      (imp_res_tac get_var_to_word_exp>>
+      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+      fs[WORD_LO]>>
+      `w2n n DIV 4 = 0` by
+        (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+      fs[])
+    >>
+      (imp_res_tac get_var_to_word_exp>>
+      fs[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+      simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      simp[good_dimindex_w2w_byte]>>
+      simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+      EVAL_TAC>>fs[wordSemTheory.state_component_equality]>>
+      fs[WORD_LO]>>
+      `w2n n DIV 4 = 0` by
+        (match_mp_tac LESS_DIV_EQ_ZERO>>fs[])>>
+      fs[]))
+  >>
+    (imp_res_tac get_var_to_word_exp>>
+    simp[ByteCopySub_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,list_Seq_def,wordSemTheory.inst_def]>>
+    simp[word_exp_set,get_var_set_var_thm,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts]>>
+    simp[good_dimindex_w2w_byte]>>
+    simp[get_var_set_var_thm,get_var_consts,set_var_consts,wordSemTheory.get_vars_def]>>
+    simp[wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def]>>
+    `w2n n DIV 4 = (w2n (n+ -4w) DIV 4) +1` by
+      (fs[WORD_NOT_LOWER]>>
+      FULL_SIMP_TAC (std_ss) [WORD_SUB_INTRO,word_sub_w2n]>>
+      simp[DIV_SUB]>>
+      fs[WORD_LS]>>
+      `0 < 4 ∧ 4 * 1 ≤ w2n n` by fs[]>>
+      imp_res_tac DIV_SUB>>
+      fs[]>>
+      `0 < w2n n DIV 4` by
+        (match_mp_tac bitTheory.DIV_GT0>>
+        fs[])>>
+      fs[])>>
+    simp[]>>
+    qmatch_goalsub_abbrev_tac`evaluate (_,s')`>>
+    first_x_assum drule >>
+    simp[]>>
+    disch_then (qspecl_then [`ret_val`,`l1`,`l2`,`s'`] mp_tac)>>
+    impl_tac>-
+      (unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
+      simp[wordSemTheory.get_var_def,lookup_fromList2,lookup_fromList,set_var_consts])>>
+    rw[]>>
+    unabbrev_all_tac>>simp[wordSemTheory.call_env_def,wordSemTheory.dec_clock_def]>>
+    simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def]));
 
 val push_env_store = store_thm("push_env_store",
   ``(push_env x y s).store = s.store /\

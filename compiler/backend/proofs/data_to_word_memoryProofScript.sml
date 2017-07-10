@@ -8293,7 +8293,7 @@ val word_copy_fwd_def = tDefine "word_copy_fwd" `
 
 val list_copy_fwd_def = Define `
   list_copy_fwd n xp xs yp ys =
-    if xp + n < LENGTH xs /\ yp + n < LENGTH ys then
+    if xp + n <= LENGTH xs /\ yp + n <= LENGTH ys then
       if n = 0 then SOME ys else
       if n = 1 then SOME (LUPDATE (EL xp xs) yp ys) else
       if n = 2 then SOME ((LUPDATE (EL (xp+1) xs) (yp+1) o
@@ -8310,7 +8310,7 @@ val list_copy_fwd_def = Define `
 
 val list_copy_fwd_alias_def = Define `
   list_copy_fwd_alias n xp yp ys =
-    if xp + n < LENGTH ys /\ yp + n < LENGTH ys then
+    if xp + n <= LENGTH ys /\ yp + n <= LENGTH ys then
       if n = 0 then SOME ys else
       if n = 1 then SOME (LUPDATE (EL xp ys) yp ys) else
       if n = 2 then SOME ((LUPDATE (EL (xp+1) ys) (yp+1) o
@@ -8531,7 +8531,7 @@ val minus_def = Define `minus m n = m - n:num`;
 
 val list_copy_bwd_def = Define `
   list_copy_bwd n xp xs yp ys =
-    if n <= xp /\ xp < LENGTH xs /\ n <= yp /\ yp < LENGTH ys then
+    if n <= xp +1 /\ xp < LENGTH xs /\ n <= yp+1 /\ yp < LENGTH ys then
       if n = 0 then SOME ys else
       if n = 1 then SOME (LUPDATE (EL xp xs) yp ys) else
       if n = 2 then SOME ((LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
@@ -8548,7 +8548,7 @@ val list_copy_bwd_def = Define `
 
 val list_copy_bwd_alias_def = Define `
   list_copy_bwd_alias n xp yp ys =
-    if n <= xp /\ xp < LENGTH ys /\ n <= yp /\ yp < LENGTH ys then
+    if n <= xp +1 /\ xp < LENGTH ys /\ n <= yp+1 /\ yp < LENGTH ys then
       if n = 0 then SOME ys else
       if n = 1 then SOME (LUPDATE (EL xp ys) yp ys) else
       if n = 2 then SOME ((LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
@@ -8656,7 +8656,18 @@ val word_copy_bwd_thm = store_thm("word_copy_bwd_thm",
   \\ strip_tac \\ rfs []
   \\ drule memory_rel_swap \\ strip_tac
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs [] \\ first_x_assum match_mp_tac
+  \\ fs []
+  \\ IF_CASES_TAC
+  >-
+    (`n-4 = 0` by fs[]>>
+    fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    rw[])
+  \\ IF_CASES_TAC
+  >-
+    (`n-4 = 0` by fs[]>>
+    fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    rw[])
+  \\ first_x_assum match_mp_tac
   \\ fs [] \\ asm_exists_tac \\ fs []);
 
 val word_copy_bwd_alias_thm = store_thm("word_copy_bwd_alias_thm",
@@ -8734,38 +8745,204 @@ val word_copy_bwd_alias_thm = store_thm("word_copy_bwd_alias_thm",
   \\ disch_then (qspecl_then [`yp-3`,`EL (xp-3) ys`] mp_tac)
   \\ strip_tac \\ rfs []
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs [] \\ first_x_assum match_mp_tac
+  \\ Cases_on`xp < 4`
+  >-
+    (`n-4 = 0` by fs[]>>
+    simp[]>>
+    simp[Once word_copy_bwd_def,WORD_LO]>>
+    fs[Once list_copy_bwd_alias_def]>>rw[])
+  \\ Cases_on`yp < 4`
+  >-
+    (`n-4 = 0` by fs[]>>
+    simp[]>>
+    simp[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    fs[Once list_copy_bwd_alias_def]>>rw[])
+  \\ simp[]
+  \\ first_x_assum match_mp_tac
   \\ fs [] \\ asm_exists_tac \\ fs []);
 
 (* copy array *)
 
 val list_copy_def = Define `
   list_copy n xp xs yp ys =
-    if yp <= xp then list_copy_fwd n xp xs yp ys
-                else list_copy_bwd n (xp+n-1) xs (yp+n-1) ys`
+    if yp <= xp ∨ n+xp = 0
+    then list_copy_fwd n xp xs yp ys
+    else list_copy_bwd n (xp+n-1) xs (yp+n-1) ys`
 
 val list_copy_alias_def = Define `
   list_copy_alias n xp yp ys =
-    if yp <= xp then list_copy_fwd_alias n xp yp ys
-                else list_copy_bwd_alias n (xp+n-1) (yp+n-1) ys`
+    if yp <= xp ∨ n+xp = 0
+    then list_copy_fwd_alias n xp yp ys
+    else list_copy_bwd_alias n (xp+n-1) (yp+n-1) ys`
+
+val list_copy_fwd_eq = Q.prove(`
+  ∀n xp xs yp ys.
+  xp + n <= LENGTH xs ∧
+  yp + n <= LENGTH ys ⇒
+  list_copy_fwd n xp xs yp ys =
+    SOME
+      (TAKE yp ys ++
+      TAKE n (DROP xp xs) ++
+      DROP (n+yp) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_fwd_ind")>>rw[]>>
+  simp[Once list_copy_fwd_def]>>
+  rpt(IF_CASES_TAC)>>fs[]>>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP])>>
+  simp[EL_LUPDATE]>>
+  rw[]>>
+  Cases_on`x=yp`>>fs[]);
+
+val list_copy_bwd_eq = Q.prove(`
+  ∀n xp xs yp ys.
+  n ≤ xp+1 ∧ xp < LENGTH xs ∧
+  n ≤ yp+1 ∧ yp < LENGTH ys ⇒
+  list_copy_bwd n xp xs yp ys =
+    SOME
+      (TAKE (yp+1-n) ys ++
+      TAKE n (DROP (xp+1-n) xs) ++
+      DROP (yp+1) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_bwd_ind")>>rw[]>>
+  simp[Once list_copy_bwd_def]>>
+  fs[minus_def]>>
+  reverse(rpt(IF_CASES_TAC))>>fs[]
+  >-
+    (last_x_assum kall_tac>>
+    Cases_on`yp = 3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    Cases_on`xp=3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    simp[]>>
+    rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+    rpt(IF_CASES_TAC>>
+    simp[EL_TAKE,EL_DROP])>>
+    simp[EL_LUPDATE]>>
+    rpt(IF_CASES_TAC)>>
+    simp[]>>
+    Cases_on`x=yp`>>fs[])
+  >>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP]));
 
 val list_copy_thm = store_thm("list_copy_thm",
   ``!xs ys xp yp n ys1.
       copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 ==>
       list_copy n xp xs yp ys = SOME ys1``,
-  cheat); (* see more interesting theorem below *)
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]
+  >-
+    (match_mp_tac list_copy_fwd_eq>>
+    simp[])
+  >-
+    simp[Once list_copy_fwd_def]
+  >>
+    Q.ISPECL_THEN [`n`,`n+xp-1`,`xs`,`n+yp-1`,`ys`] mp_tac list_copy_bwd_eq>>
+    impl_tac >-
+      simp[]>>
+    rw[]>>
+    simp[]);
+
+(* see more interesting theorem below *)
+
+val list_copy_fwd_alias_eq = Q.prove(`
+  ∀n xp yp ys.
+  yp ≤ xp ∧
+  xp + n <= LENGTH ys ∧
+  yp + n <= LENGTH ys ⇒
+  list_copy_fwd_alias n xp yp ys =
+    SOME
+      (TAKE yp ys ++
+      TAKE n (DROP xp ys) ++
+      DROP (n+yp) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_fwd_alias_ind")>>rw[]>>
+  simp[Once list_copy_fwd_alias_def]>>
+  rpt(IF_CASES_TAC)>>fs[]>>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP])>>
+  simp[EL_LUPDATE]>>
+  rw[]>>
+  Cases_on`x=yp`>>fs[]);
+
+val list_copy_bwd_alias_eq = Q.prove(`
+  ∀n xp yp ys.
+  xp <= yp ∧
+  n ≤ xp +1 ∧ xp < LENGTH ys ∧
+  n ≤ yp +1 ∧ yp < LENGTH ys ⇒
+  list_copy_bwd_alias n xp yp ys =
+    SOME
+      (TAKE (yp+1-n) ys ++
+      TAKE n (DROP (xp+1-n) ys) ++
+      DROP (yp+1) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_bwd_alias_ind")>>rw[]>>
+  simp[Once list_copy_bwd_alias_def]>>
+  fs[minus_def]>>
+  reverse(rpt(IF_CASES_TAC))>>fs[]
+  >-
+    (last_x_assum kall_tac>>
+    Cases_on`yp = 3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    Cases_on`xp=3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    simp[]>>
+    rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+    rpt(IF_CASES_TAC>>
+    simp[EL_TAKE,EL_DROP])>>
+    simp[EL_LUPDATE]>>
+    rpt(IF_CASES_TAC)>>
+    simp[]>>
+    Cases_on`x=yp`>>fs[])
+  >>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP]));
 
 val list_copy_alias_thm = store_thm("list_copy_alias_thm",
   ``!ys xp yp n ys1.
       copy_array (ys, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 ==>
       list_copy_alias n xp yp ys = SOME ys1``,
-  cheat); (* ought to be true based on testing below *)
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_alias_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]
+  >-
+    (match_mp_tac list_copy_fwd_alias_eq>>simp[])
+  >-
+    simp[Once list_copy_fwd_alias_def]
+  >>
+    (Q.ISPECL_THEN [`n`,`n+xp-1`,`n+yp-1`,`ys`] mp_tac list_copy_bwd_alias_eq>>
+    impl_tac >-
+      simp[]>>
+    rw[]));
 
 val copy_array_NONE_IMP = store_thm("copy_array_NONE_IMP",
   ``!xs ys xp n.
       copy_array (xs, &xp) (& n) NONE = SOME ys ==>
       list_copy_fwd n xp xs 0 (REPLICATE n 0w) = SOME ys``,
-  cheat);
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_alias_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]>>
+  Q.ISPECL_THEN [`n`,`xp`,`xs`,`0`,`REPLICATE n 0w`] mp_tac list_copy_fwd_eq>>
+  simp[DROP_LENGTH_NIL_rwt]);
 
 (*
 
@@ -8817,7 +8994,7 @@ val word_copy_array_thm = store_thm("word_copy_array_thm",
         memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
           sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)``,
   rw [] \\ drule list_copy_thm
-  \\ fs [list_copy_def] \\ IF_CASES_TAC \\ fs [] \\ rw []
+  \\ fs [list_copy_def]
   \\ `n + xp <= LENGTH xs /\ n + yp <= LENGTH ys` by
      (fs [semanticPrimitivesTheory.copy_array_def,NOT_LESS]
       \\ intLib.COOPER_TAC)
@@ -8831,19 +9008,23 @@ val word_copy_array_thm = store_thm("word_copy_array_thm",
    (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
     \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
-  THEN1
-   (rpt_drule word_copy_fwd_thm
-    \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs [])
-  \\ rpt_drule word_copy_bwd_thm
+  \\ IF_CASES_TAC
+  >-
+    (fs [] >> rw[]>>
+    rpt_drule word_copy_fwd_thm>> rw[]>>
+    fs [word_copy_array_def,WORD_LS] \\ rfs []>>
+    IF_CASES_TAC>> fs[]>>
+    fs[word_copy_bwd_0,Once list_copy_fwd_def])
+  \\ rw[] \\ fs[]
+  \\ (rpt_drule word_copy_bwd_thm
   \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
-  \\ Cases_on `n = 0` THEN1 (fs [] \\ rfs [word_copy_bwd_0])
   \\ rewrite_tac [GSYM WORD_ADD_ASSOC]
   \\ qsuff_tac `(n2w n + (n2w xp + -1w)) = n2w (n + xp − 1) :'a word /\
                 (n2w n + (n2w yp + -1w)) = n2w (n + yp − 1) :'a word`
   THEN1 (strip_tac \\ asm_rewrite_tac [] \\ fs [])
   \\ fs [WORD_ADD_ASSOC,word_add_n2w]
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs []);
+  \\ fs []));
 
 val word_copy_array_alias_thm = store_thm("word_copy_array_alias_thm",
   ``!n xp yp ys ys1 m.
@@ -8859,7 +9040,7 @@ val word_copy_array_alias_thm = store_thm("word_copy_array_alias_thm",
         memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
           sp st m1 dm ((RefPtr p2,v2)::vars)``,
   rw [] \\ drule list_copy_alias_thm
-  \\ fs [list_copy_alias_def] \\ IF_CASES_TAC \\ fs [] \\ rw []
+  \\ fs [list_copy_alias_def]
   \\ `n + xp <= LENGTH ys /\ n + yp <= LENGTH ys` by
      (fs [semanticPrimitivesTheory.copy_array_def,NOT_LESS]
       \\ intLib.COOPER_TAC)
@@ -8871,19 +9052,23 @@ val word_copy_array_alias_thm = store_thm("word_copy_array_alias_thm",
    (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
     \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
-  THEN1
-   (rpt_drule word_copy_fwd_alias_thm
-    \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs [])
-  \\ rpt_drule word_copy_bwd_alias_thm
+  \\ IF_CASES_TAC
+  >-
+    (fs [] >> rw[]>>
+    rpt_drule word_copy_fwd_alias_thm>> rw[]>>
+    fs [word_copy_array_def,WORD_LS] \\ rfs []>>
+    IF_CASES_TAC>> fs[]>>
+    fs[word_copy_bwd_0,Once list_copy_fwd_alias_def])
+  \\ rw[] \\ fs[]
+  \\ (rpt_drule word_copy_bwd_alias_thm
   \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
-  \\ Cases_on `n = 0` THEN1 (fs [] \\ rfs [word_copy_bwd_0])
   \\ rewrite_tac [GSYM WORD_ADD_ASSOC]
   \\ qsuff_tac `(n2w n + (n2w xp + -1w)) = n2w (n + xp − 1) :'a word /\
                 (n2w n + (n2w yp + -1w)) = n2w (n + yp − 1) :'a word`
   THEN1 (strip_tac \\ asm_rewrite_tac [] \\ fs [])
   \\ fs [WORD_ADD_ASSOC,word_add_n2w]
   \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs []);
+  \\ fs []));
 
 val word_of_byte_0 = store_thm("word_of_byte_0",
   ``word_of_byte 0w = 0w``,
