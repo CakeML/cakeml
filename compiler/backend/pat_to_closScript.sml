@@ -132,21 +132,21 @@ val compile_def = tDefine"compile" `
           (Op (tra§7) (RefByte F) [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Op Aw8sub)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) DerefByte [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Aw8length)) es) =
     Op tra LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Aw8update)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 1; Var (tra§4) 2])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 1; Var (tra§4) 2])
          (Let (tra§5) [Op (tra§6) UpdateByte [Var (tra§7) 0;
                         Var (tra§8) 1; Var (tra§9) 2]]
            (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Strsub)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) DerefByteVec [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Implode)) es) =
