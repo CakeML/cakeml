@@ -455,7 +455,7 @@ val do_app_cases_none = save_thm("do_app_cases_none",
   SIMP_CONV(srw_ss()++COND_elim_ss++LET_ss)[PULL_EXISTS, do_app_def, eqs, pair_case_eq]);
 
 val pat_bindings_def = Define`
-  (pat_bindings (Pvar n) already_bound =
+  (pat_bindings ((Pvar n):exhLang$pat) already_bound =
    n::already_bound)
   ∧
   (pat_bindings Pany already_bound = already_bound) ∧
@@ -493,29 +493,29 @@ val evaluate_def = tDefine"evaluate"`
          | (s, Rval vs) => (s, Rval (HD v::vs))
          | res => res)
     | res => res) ∧
-  (evaluate env s [(Lit l)] = (s, Rval [Litv l])) ∧
-  (evaluate env s [Raise e] =
+  (evaluate env s [Lit _ l] = (s, Rval [Litv l])) ∧
+  (evaluate env s [Raise _ e] =
    case evaluate env s [e] of
    | (s, Rval v) => (s, Rerr (Rraise (HD v)))
    | res => res) ∧
-  (evaluate env s [Handle e pes] =
+  (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rerr (Rraise v)) => evaluate_match env s v pes
    | res => res) ∧
-  (evaluate env s [Con tag es] =
+  (evaluate env s [Con _ tag es] =
    case evaluate env s (REVERSE es) of
    | (s, Rval vs) => (s, Rval [Conv tag (REVERSE vs)])
    | res => res) ∧
-  (evaluate env s [Var_local n] = (s,
+  (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env n of
    | SOME v => Rval [v]
    | NONE => Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Var_global n] = (s,
+  (evaluate env s [Var_global _ n] = (s,
    if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
    then Rval [THE (EL n s.globals)]
    else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Fun n e] = (s, Rval [Closure env n e])) ∧
-  (evaluate env s [App op es] =
+  (evaluate env s [Fun _ n e] = (s, Rval [Closure env n e])) ∧
+  (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
        if op = Op Opapp then
@@ -531,19 +531,19 @@ val evaluate_def = tDefine"evaluate"`
         | NONE => (s, Rerr (Rabort Rtype_error))
         | SOME (s,r) => (s, list_result r))
    | res => res) ∧
-  (evaluate env s [Mat e pes] =
+  (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) => evaluate_match env s (HD v) pes
    | res => res) ∧
-  (evaluate env s [Let n e1 e2] =
+  (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) => evaluate (opt_bind n (HD vs) env) s [e2]
    | res => res) ∧
-  (evaluate env s [Letrec funs e] =
+  (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (build_rec_env funs env env) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Extend_global n] =
+  (evaluate env s [Extend_global _ n] =
    (s with globals := s.globals++GENLIST(K NONE) n, Rval [Conv tuple_tag []])) ∧
   (evaluate_match env s v [] = (s, Rerr(Rabort Rtype_error))) ∧
   (evaluate_match env s v ((p,e)::pes) =

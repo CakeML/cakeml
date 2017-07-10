@@ -20,20 +20,21 @@ val _ = Datatype`
 
 val _ = Datatype`
   exp =
-   | Raise exp
-   | Handle exp exp
-   | Lit lit
-   | Con num (exp list)
-   | Var_local num
-   | Var_global num
-   | Fun exp
-   | App op (exp list)
-   | If exp exp exp
-   | Let exp exp
-   | Seq exp exp
-   | Letrec (exp list) exp
-   | Extend_global num`;
+   | Raise tra exp
+   | Handle tra exp exp
+   | Lit tra lit
+   | Con tra num (exp list)
+   | Var_local tra num
+   | Var_global tra num
+   | Fun tra exp
+   | App tra op (exp list)
+   | If tra exp exp exp
+   | Let tra exp exp
+   | Seq tra exp exp
+   | Letrec tra (exp list) exp
+   | Extend_global tra num`;
 
+(*TODO: Verify that the introduction of traces wont mess exp_sizes *)
 val exp_size_def = definition"exp_size_def";
 
 val exp1_size_APPEND = Q.store_thm("exp1_size_APPEND[simp]",

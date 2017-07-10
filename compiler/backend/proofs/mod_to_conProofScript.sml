@@ -2436,7 +2436,8 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
                     result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
   srw_tac[][compile_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  rename1`Prompt mn ds` >>
+  (* TODO: HOL issue #430 *)
+  rename1`modLang$Prompt mn ds` >>
   first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[modSemTheory.evaluate_prompt_def, conSemTheory.evaluate_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>

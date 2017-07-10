@@ -596,15 +596,15 @@ val compile_exp_evaluate = Q.store_thm ("compile_exp_evaluate",
    (!env ^s v pes err_v r.
     evaluate_match env s v pes err_v = r
     ⇒
-    !pes' is_handle env_exh s_exh v_exh exh'.
+    !pes' is_handle env_exh s_exh v_exh exh' t.
       env_rel env.exh env.v env_exh ∧
       state_rel env.exh s s_exh ∧
       v_rel env.exh v v_exh ∧
       (is_handle ⇒ err_v = v) ∧
       (¬is_handle ⇒ err_v = Conv (SOME (bind_tag, (TypeExn(Short "Bind")))) []) ∧
-      (pes' = add_default is_handle F pes ∨
+      (pes' = add_default t is_handle F pes ∨
        exists_match env.exh s.refs (MAP FST pes) v ∧
-       pes' = add_default is_handle T pes) ∧
+       pes' = add_default t is_handle T pes) ∧
       exh' ⊑ env.exh ∧
       SND r ≠ Rerr (Rabort Rtype_error)
        ⇒

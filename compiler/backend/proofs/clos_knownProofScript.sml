@@ -27,7 +27,7 @@ val error_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of error_ty,
                       nchotomy = error_CASES}
 
-(* MOVE candidates *)
+(* TODO: MOVE candidates *)
 fun sel_ihpc f = first_x_assum (first_assum o mp_then (Pos f) mp_tac)
 fun resolve_selected f th = first_assum (mp_then (Pos f) mp_tac th)
 
@@ -59,7 +59,7 @@ val evaluate_list_members_individually = Q.store_thm(
   rpt strip_tac >> reverse (Cases_on `n` >> fs[]) >- metis_tac[] >>
   imp_res_tac evaluate_SING >> rw[] >> metis_tac[]);
 
-(* MOVE-HOL candidate; unused here *)
+(* TODO: MOVE-HOL candidate; unused here *)
 val union_idem = Q.store_thm(
   "union_idem[simp]",
   `∀spt. union spt spt = spt`,
@@ -1746,13 +1746,14 @@ val known_correct0 = Q.prove(
                      `kvrel g1 v (Block tg [])`] >>
               `lookup n g1 = SOME (Tuple tg [])` by metis_tac[domain_lookup] >>
               res_tac >> fs[] >> rveq >> fs[val_approx_val_def]) >>
-          rename[`lookup n g0 = SOME (Int i)`, `kvrel g1 v (Number i)`] >>
+          (* TODO: clos_known$ is only necessary because of HOL issue #430 *)
+          rename[`lookup n g0 = SOME (clos_known$Int i)`, `kvrel g1 v (Number i)`] >>
           `lookup n g1 = SOME (Int i)` by metis_tac[domain_lookup] >>
           metis_tac[val_rel_def, val_approx_val_def, SOME_11]) >>
-      rename[`closLang$Op opn (MAP FST es)`,
+      rename[`closLang$Op tr opn (MAP FST es)`,
              `closSem$evaluate(MAP FST ealist,_,_)`] >>
       rpt strip_tac >>
-      `ealist = [(Op opn (MAP FST es), apx)]`
+      `ealist = [(Op tr opn (MAP FST es), apx)]`
          by (Cases_on `isGlobal opn` >> fs[] >>
              Cases_on `apx` >> fs[gO_destApx_def] >> every_case_tac >> fs[]) >>
       pop_assum SUBST_ALL_TAC >> rveq >>

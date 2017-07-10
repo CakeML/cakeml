@@ -52,13 +52,13 @@ val _ = Define `
     | _ => F))`;
 
 val add_default_def = Define `
-  (add_default is_handle is_exh (pes:(conLang$pat#conLang$exp)list) =
+  (add_default tra is_handle is_exh (pes:(conLang$pat#conLang$exp)list) =
    if is_exh then
      pes
    else if is_handle then
-     pes ++ [(Pvar "x", Raise (Var_local "x"))]
+     pes ++ [(Pvar "x", Raise (mk_cons tra 1) (Var_local (mk_cons tra 2) "x"))]
    else
-     pes ++ [(Pany, Raise (Con (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
+     pes ++ [(Pany, Raise (mk_cons tra 1) (Con (mk_cons tra 2) (SOME (bind_tag, (TypeId (Short "option")))) []))])`;
 
 val _ = tDefine"compile_pat"`
   (compile_pat (Pvar x) = Pvar x)
@@ -84,14 +84,14 @@ val _ = tDefine"compile_pat"`
    decide_tac);
 
 val e2sz_def = Lib.with_flag (computeLib.auto_import_definitions, false) (tDefine"e2sz"`
-  (e2sz (conLang$Raise e) = e2sz e + 1) ∧
-  (e2sz (Letrec funs e) = e2sz e + f2sz funs + 1) ∧
-  (e2sz (Mat e pes) = e2sz e + p2sz pes + 4) ∧
-  (e2sz (Handle e pes) = e2sz e + p2sz pes + 4) ∧
-  (e2sz (App op es) = l2sz es + 1) ∧
-  (e2sz (Let x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
-  (e2sz (Fun x e) = e2sz e + 1) ∧
-  (e2sz (Con t es) = l2sz es + 1) ∧
+  (e2sz (conLang$Raise _ e) = e2sz e + 1) ∧
+  (e2sz (Letrec _ funs e) = e2sz e + f2sz funs + 1) ∧
+  (e2sz (Mat _ e pes) = e2sz e + p2sz pes + 4) ∧
+  (e2sz (Handle _ e pes) = e2sz e + p2sz pes + 4) ∧
+  (e2sz (App _ op es) = l2sz es + 1) ∧
+  (e2sz (Let _ x e1 e2) = e2sz e1 + e2sz e2 + 1) ∧
+  (e2sz (Fun _ x e) = e2sz e + 1) ∧
+  (e2sz (Con _ t es) = l2sz es + 1) ∧
   (e2sz _ = (0:num)) ∧
   (l2sz [] = 0) ∧
   (l2sz (e::es) = e2sz e + l2sz es + 1) ∧
@@ -111,47 +111,47 @@ val p2sz_append = Q.prove(
   Cases >> simp[e2sz_def])
 
 val compile_exp_def = tDefine"compile_exp"`
-  (compile_exp exh (Raise e) =
-   Raise (compile_exp exh e))
+  (compile_exp exh (Raise t e) =
+   Raise t (compile_exp exh e))
   ∧
-  (compile_exp exh (Handle e pes) =
-   Handle (compile_exp exh e)
-     (compile_pes exh (add_default T (exhaustive_match exh (MAP FST pes)) pes)))
+  (compile_exp exh (Handle t e pes) =
+   Handle t (compile_exp exh e)
+     (compile_pes exh (add_default t T (exhaustive_match exh (MAP FST pes)) pes)))
   ∧
-  (compile_exp exh (Lit l) =
-   Lit l)
+  (compile_exp exh (Lit t l) =
+   Lit t l)
   ∧
-  (compile_exp exh (Con NONE es) =
-   Con tuple_tag (compile_exps exh es))
+  (compile_exp exh (Con t NONE es) =
+   Con t tuple_tag (compile_exps exh es))
   ∧
-  (compile_exp exh (Con (SOME (tag,_)) es) =
-   Con tag (compile_exps exh es))
+  (compile_exp exh (Con t (SOME (tag,_)) es) =
+   Con t tag (compile_exps exh es))
   ∧
-  (compile_exp exh (Var_local x) =
-   Var_local x)
+  (compile_exp exh (Var_local t x) =
+   Var_local t x)
   ∧
-  (compile_exp exh (Var_global x) =
-   Var_global x)
+  (compile_exp exh (Var_global t x) =
+   Var_global t x)
   ∧
-  (compile_exp exh (Fun x e) =
-   Fun x (compile_exp exh e))
+  (compile_exp exh (Fun t x e) =
+   Fun t x (compile_exp exh e))
   ∧
-  (compile_exp exh (App op es) =
-   App op (compile_exps exh es))
+  (compile_exp exh (App t op es) =
+   App t op (compile_exps exh es))
   ∧
-  (compile_exp exh (Mat e pes) =
-   Mat (compile_exp exh e)
-     (compile_pes exh (add_default F (exhaustive_match exh (MAP FST pes)) pes)))
+  (compile_exp exh (Mat t e pes) =
+   Mat t (compile_exp exh e)
+     (compile_pes exh (add_default t F (exhaustive_match exh (MAP FST pes)) pes)))
   ∧
-  (compile_exp exh (Let x e1 e2) =
-   Let x (compile_exp exh e1) (compile_exp exh e2))
+  (compile_exp exh (Let t x e1 e2) =
+   Let t x (compile_exp exh e1) (compile_exp exh e2))
   ∧
-  (compile_exp exh (Letrec funs e) =
-   Letrec (compile_funs exh funs)
+  (compile_exp exh (Letrec t funs e) =
+   Letrec t (compile_funs exh funs)
      (compile_exp exh e))
   ∧
-  (compile_exp exh (Extend_global n) =
-   Extend_global n)
+  (compile_exp exh (Extend_global t n) =
+   Extend_global t n)
   ∧
   (compile_exps exh [] = [])
   ∧

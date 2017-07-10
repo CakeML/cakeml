@@ -3,14 +3,14 @@ open preamble patSemTheory
 val _ = new_theory"patProps"
 
 val evaluate_lit = save_thm("evaluate_lit[simp]",
-      EVAL``patSem$evaluate env s [Lit l]``)
+      EVAL``patSem$evaluate env s [Lit tra l]``)
 
 val Boolv_11 = Q.store_thm("Boolv_11[simp]",`patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
 val evaluate_Con_nil =
-  ``evaluate env s [Con x []]``
+  ``evaluate env s [Con tra x []]``
   |> EVAL
   |> curry save_thm"evaluate_Con_nil";
 
@@ -30,7 +30,7 @@ val no_closures_Boolv = Q.store_thm("no_closures_Boolv[simp]",
   EVAL_TAC);
 
 val evaluate_raise_rval = Q.store_thm("evaluate_raise_rval",
-  `∀env s e s' v. patSem$evaluate env s [Raise e] ≠ (s', Rval v)`,
+  `∀env s e s' v. patSem$evaluate env s [Raise tra e] ≠ (s', Rval v)`,
   EVAL_TAC >> srw_tac[][] >> every_case_tac >> simp[])
 val _ = export_rewrites["evaluate_raise_rval"]
 
@@ -256,15 +256,15 @@ val op_gbag_def = Define`
 
 (* Same naming scheme as clos *)
 val set_globals_def = tDefine "set_globals"`
-  (set_globals (Raise e) = set_globals e) ∧
-  (set_globals (Handle e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Con _ es) = elist_globals es) ∧
-  (set_globals (Fun e) = set_globals e) ∧
-  (set_globals (App op es) = op_gbag op ⊎ elist_globals es) ∧
-  (set_globals (If e1 e2 e3) = set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
-  (set_globals (Let e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Seq e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Letrec es e) =
+  (set_globals (Raise _ e) = set_globals e) ∧
+  (set_globals (Handle _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Con _ _ es) = elist_globals es) ∧
+  (set_globals (Fun _ e) = set_globals e) ∧
+  (set_globals (App _ op es) = op_gbag op ⊎ elist_globals es) ∧
+  (set_globals (If _ e1 e2 e3) = set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
+  (set_globals (Let _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Seq _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Letrec _ es e) =
     set_globals e ⊎ elist_globals es) ∧
   (set_globals _ = {||}) ∧
   (elist_globals [] = {||}) ∧
@@ -290,15 +290,15 @@ val exp_size_MEM = Q.store_thm(
   res_tac>>fs[])
 
 val esgc_free_def = tDefine "esgc_free" `
-  (esgc_free (Raise e) ⇔ esgc_free e) ∧
-  (esgc_free (Handle e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Con _ es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (Fun e) ⇔ set_globals e = {||}) ∧
-  (esgc_free (App op es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (If e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
-  (esgc_free (Let e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Seq e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Letrec es e) ⇔
+  (esgc_free (Raise _ e) ⇔ esgc_free e) ∧
+  (esgc_free (Handle _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Con _ _ es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Fun _ e) ⇔ set_globals e = {||}) ∧
+  (esgc_free (App _ op es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (If _ e1 e2 e3) ⇔ esgc_free e1 ∧ esgc_free e2 ∧ esgc_free e3) ∧
+  (esgc_free (Let _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Seq _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Letrec _ es e) ⇔
     elist_globals es = {||} ∧ esgc_free e) ∧
   (esgc_free _ = T)`
   (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>

@@ -75,7 +75,7 @@ val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
     case tup of
       (Impossible,y) => y
     | (x,Impossible) => x
-    | (Tuple tg1 xs,Tuple tg2 ys) => 
+    | (Tuple tg1 xs,Tuple tg2 ys) =>
       if LENGTH xs = LENGTH ys ∧ tg1 = tg2 then Tuple tg1 (MAP merge_tup (ZIP(xs,ys)))
       else Other
     | (Clos m1 n1,Clos m2 n2) => if m1 = m2 ∧ n1 = n2 then Clos m1 n1
@@ -151,7 +151,7 @@ known_op op as g =
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[known_op_def])
-                               
+
 val EL_MEM_LEMMA = Q.prove(
   `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
@@ -193,51 +193,51 @@ val known_def = tDefine "known" `
      let (e1,g) = known [x] vs g in
      let (e2,g) = known (y::xs) vs g in
        (e1 ++ e2,g)) /\
-  (known [Var v] vs g =
-     ([(Var v,any_el v vs Other)],g)) /\
-  (known [If x1 x2 x3] vs g =
+  (known [Var t v] vs g =
+     ([(Var t v,any_el v vs Other)],g)) /\
+  (known [If t x1 x2 x3] vs g =
      let (e1,g) = known [x1] vs g in
      let (e2,g) = known [x2] vs g in
      let (e3,g) = known [x3] vs g in
      let (e1,a1) = HD e1 in
      let (e2,a2) = HD e2 in
      let (e3,a3) = HD e3 in
-       ([(If e1 e2 e3), merge a2 a3],g)) /\
-  (known [Let xs x2] vs g =
+       ([(If t e1 e2 e3), merge a2 a3],g)) /\
+  (known [Let t xs x2] vs g =
      let (e1,g) = known xs vs g in
      let (e2,g) = known [x2] (MAP SND e1 ++ vs) g in
      let (e2,a2) = HD e2 in
-       ([(Let (MAP FST e1) e2, a2)],g)) /\
-  (known [Raise x1] vs g =
+       ([(Let t (MAP FST e1) e2, a2)],g)) /\
+  (known [Raise t x1] vs g =
      let (e1,g) = known [x1] vs g in
      let (e1,a1) = HD e1 in
-       ([(Raise e1,Impossible)],g)) /\
-  (known [Tick x1] vs g =
+       ([(Raise t e1,Impossible)],g)) /\
+  (known [Tick t x1] vs g =
      let (e1,g) = known [x1] vs g in
      let (e1,a1) = HD e1 in
-       ([(Tick e1,a1)],g)) /\
-  (known [Handle x1 x2] vs g =
+       ([(Tick t e1,a1)],g)) /\
+  (known [Handle t x1 x2] vs g =
      let (e1,g) = known [x1] vs g in
      let (e2,g) = known [x2] (Other::vs) g in
      let (e1,a1) = HD e1 in
      let (e2,a2) = HD e2 in
-       ([(Handle e1 e2,merge a1 a2)],g)) /\
-  (known [Call ticks dest xs] vs g =
+       ([(Handle t e1 e2,merge a1 a2)],g)) /\
+  (known [Call t ticks dest xs] vs g =
      let (e1,g) = known xs vs g in
-       ([(Call ticks dest (MAP FST e1),Other)],g)) /\
-  (known [Op op xs] vs g =
+       ([(Call t ticks dest (MAP FST e1),Other)],g)) /\
+  (known [Op t op xs] vs g =
      let (e1,g) = known xs vs g in
      let (a,g) = known_op op (REVERSE (MAP SND e1)) g in
      let e =
          if isGlobal op then
            dtcase gO_destApx a of
-               gO_None => Op op (MAP FST e1)
-             | gO_Int i => Op (Const i) []
-             | gO_NullTuple tag => Op (Cons tag) []
-         else Op op (MAP FST e1)
+               gO_None => Op t op (MAP FST e1)
+             | gO_Int i => Op t (Const i) []
+             | gO_NullTuple tag => Op t (Cons tag) []
+         else Op t op (MAP FST e1)
      in
        ([(e,a)],g)) /\
-  (known [App loc_opt x xs] vs g =
+  (known [App t loc_opt x xs] vs g =
      let (e2,g) = known xs vs g in
      let (e1,g) = known [x] vs g in
      let (e1,a1) = HD e1 in
@@ -249,15 +249,15 @@ val known_def = tDefine "known" `
                     | SOME (loc,arity) => if arity = LENGTH xs
                                           then SOME loc else NONE
      in
-       ([(App new_loc_opt e1 (MAP FST e2),Other)],g)) /\
-  (known [Fn loc_opt ws_opt num_args x1] vs g =
+       ([(App t new_loc_opt e1 (MAP FST e2),Other)],g)) /\
+  (known [Fn t loc_opt ws_opt num_args x1] vs g =
      let (e1,g) = known [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
-       ([(Fn loc_opt NONE num_args body,
+       ([(Fn t loc_opt NONE num_args body,
           dtcase loc_opt of
           | SOME loc => Clos loc num_args
           | NONE => Other)],g)) /\
-  (known [Letrec loc_opt _ fns x1] vs g =
+  (known [Letrec t loc_opt _ fns x1] vs g =
      let clos = dtcase loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
                 |  SOME n => clos_gen n 0 fns in
@@ -269,7 +269,7 @@ val known_def = tDefine "known" `
                       (num_args,FST (HD (FST res)))) fns in
      let (e1,g) = known [x1] (clos ++ vs) g in
      let (e1,a1) = HD e1 in
-       ([(Letrec loc_opt NONE new_fns e1,a1)],g))`
+       ([(Letrec t loc_opt NONE new_fns e1,a1)],g))`
  (WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
   \\ fs [GSYM NOT_LESS]
