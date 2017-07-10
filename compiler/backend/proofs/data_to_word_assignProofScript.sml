@@ -1662,11 +1662,11 @@ val not_less_zero_int_eq = prove(
   Cases_on `i` \\ fs []);
 
 val th = Q.store_thm("assign_CopyByte",
-  `(?new_flag. op = CopyByte new_flag) ==> ^assign_thm_goal`,
+  `(?new_flag. op = CopyByte new_flag /\ ¬ new_flag) ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
-  \\ Cases_on `new_flag` THEN1 cheat (* case for CopyByte T *)
+  (* \\ Cases_on `new_flag` THEN1 cheat (* case for CopyByte T *) *)
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app]
   \\ `?src srcoff le dst dstoff. vals =
@@ -7111,6 +7111,9 @@ val assign_thm = Q.store_thm("assign_thm",
              \\ match_mp_tac th \\ fs [])))
       (DB.match ["-"] ``_ ==> ^assign_thm_goal`` |> map (#1 o #2))
   \\ fs [] \\ strip_tac
+  \\ Cases_on`op = CopyByte T` >- (
+    fs[do_app_def,do_space_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
+    \\ every_case_tac \\ fs[] )
   \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ qsuff_tac `assign c n l dest op args names_opt = (GiveUp,l)` \\ fs []
   \\ `?f. f () = op` by (qexists_tac `K op` \\ fs []) (* here for debugging only *)
