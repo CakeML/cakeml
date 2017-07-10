@@ -153,11 +153,11 @@ val build_rec_env_pat_def = patSemTheory.build_rec_env_def
 val do_opapp_pat_def = patSemTheory.do_opapp_def
 val do_app_pat_def = patSemTheory.do_app_def
 val evaluate_def = closSemTheory.evaluate_def
-val evaluate_pat_def = patSemTheory.evaluate_def
+val evaluate_pat_def = patSemTheory.evaluate_def;
 
 val s = mk_var("s",
   ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
-  |> type_subst[alpha |-> ``:'ffi``])
+  |> type_subst[alpha |-> ``:'ffi``]);
 
 val LENGTH_eq = Q.prove(
   `(LENGTH ls = 1 ⇔ ∃y. ls = [y]) ∧
@@ -166,7 +166,7 @@ val LENGTH_eq = Q.prove(
    (0 = LENGTH ls ⇔ LENGTH ls = 0) ∧
    (1 = LENGTH ls ⇔ LENGTH ls = 1) ∧
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
-  Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL])
+  Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `0 < max_app ⇒
@@ -312,8 +312,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ IF_CASES_TAC \\ fs[INT_NOT_LT]
       \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
       \\ fs[FLOOKUP_compile_state_refs,store_lookup_def]
-      \\ rename1`off + len ≤ &LENGTH str`
-      \\ `off + len ≤ &LENGTH str ⇔ ¬(LENGTH str < Num (off + len))` by COOPER_TAC
+      \\ rename1`off + len ≤ &LENGTH st`
+      \\ `off + len ≤ &LENGTH st ⇔ ¬(LENGTH st < Num (off + len))` by COOPER_TAC
       \\ simp[]
       \\ IF_CASES_TAC \\ simp[]
       \\ simp[MAP_TAKE,MAP_DROP,ws_to_chars_def,MAP_MAP_o,o_DEF,ORD_CHR,w2n_lt_256]
@@ -326,8 +326,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ TRY IF_CASES_TAC \\ fs[INT_NOT_LT]
       \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
       \\ fs[FLOOKUP_compile_state_refs,store_lookup_def]
-      \\ rename1`off + len ≤ &LENGTH str`
-      \\ `off + len ≤ &LENGTH str ⇔ ¬(LENGTH str < Num (off + len))` by COOPER_TAC
+      \\ rename1`off + len ≤ &LENGTH st`
+      \\ `off + len ≤ &LENGTH st ⇔ ¬(LENGTH st < Num (off + len))` by COOPER_TAC
       \\ simp[]
       \\ fs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd]
       \\ fs[ws_to_chars_def]
