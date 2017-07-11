@@ -78,19 +78,110 @@ val _ = Hol_datatype `
 store_ref = StoreRef of num`;
 
 (* A "funtional" length *)
-val Mlength_def = Define `
-Mlength l = case l of [] => (0 : num) | x::l' => 1+Mlength l'`;
+val length_def = Define `
+length l = case l of [] => (0 : num) | x::l' => 1+length l'`;
 
-val Mlength_eq = Q.store_thm("Mlength_eq",
-`Mlength = LENGTH`,
+val length_eq = Q.store_thm("length_eq",
+`length = LENGTH`,
 irule EQ_EXT
 \\ Induct
-\\ rw[Once Mlength_def]
+\\ rw[Once length_def]
 \\ fs[Once ADD_COMM, SUC_ONE_ADD]);
 
-(* Functions whose name starts with a M are monadic, the others are "regular" functions *)
+(* Arrays *)
+
+(* Msub *)
+val Msub_def = Define `
+Msub e (n : num) l = case l of [] => Failure e
+| x::l' => if n = 0 then Success x else Msub e (n-1) l'`;
+
+val Msub_eq = Q.store_thm("Msub_eq",
+`!l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))`,
+Induct
+\\ rw[]
+\\ rw[Once Msub_def]
+\\ Cases_on `n`
+\\ fs[]);
+
+val Msub_exn_eq = Q.store_thm("Msub_exn_eq",
+`!l n e. n >= LENGTH l ==> (Msub e n l = Failure e)`,
+Induct
+\\ rw[]
+\\ rw[Once Msub_def]
+\\ Cases_on `n`
+\\ fs[]);
+
+(* Mupdate *)
+val Mupdate_def = Define `
+Mupdate e x (n : num) l = case l of [] => Failure e
+| x'::l' => if n = 0 then Success (x::l')
+	    else (case Mupdate e x (n-1) l' of Success l'' => Success (x'::l'')
+					  | other => other)`;
+
+val Mupdate_eq = Q.store_thm("Mupdate_eq",
+`!l n x e. n < LENGTH l ==> (Mupdate e x n l = Success(LUPDATE x n l))`,
+Induct
+\\ rw[Once Mupdate_def, LUPDATE_def]
+\\ Cases_on `n`
+\\ fs[LUPDATE_def]);
+
+val Mupdate_exn_eq = Q.store_thm("Mupdate_exn_eq",
+`!l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)`,
+Induct
+\\ rw[Once Mupdate_def, LUPDATE_def]
+\\ Cases_on `n`
+\\ fs[LUPDATE_def]);
+
+(* Array allocation *)
+val replicate_def = Define `
+replicate (n : num) x = if n = 0 then [] else x::(replicate (n-1) x)`;
+
+val replicate_eq = Q.store_thm("replicate_eq",
+`replicate = REPLICATE`,
+irule EQ_EXT
+\\ Induct
+\\ irule EQ_EXT
+\\ rw[Once replicate_def]);
+
+(* Array resize *)
+val array_resize_def = Define `
+array_resize (n : num) x a =
+if n = 0 then []
+else case a of [] => x::(array_resize (n-1) x a)
+	     | x'::a' => x'::(array_resize (n-1) x a')`;
+
+val array_resize_eq = Q.store_thm("array_resize_eq",
+`!a n x. array_resize n x a = (TAKE n a) ++ (REPLICATE (n - LENGTH a) x)`,
+Induct
+>-(Induct >> rw[Once array_resize_def])
+\\ STRIP_TAC
+\\ Induct
+\\ rw[Once array_resize_def]);
+
+(* User functions *)
+val Marray_length_def = Define `
+Marray_length get_arr = \state. (Success(length (get_arr state)), state)`;
+
+val Marray_sub_def = Define `
+Marray_sub get_arr e n = \state. (Msub e n (get_arr state), state)`;
+
+val Marray_update_def = Define `
+Marray_update get_arr set_arr e n x =
+\state. case Mupdate e x n (get_arr state) of
+Success a => (Success(), set_arr a state)
+| Failure e => (Failure e, state)`;
+
+val Marray_alloc_def = Define `
+Marray_alloc set_arr n x =
+\state. (Success(), set_arr (replicate n x) state)`;
+
+val Marray_resize_def = Define `
+Marray_resize get_arr set_arr n x =
+\state. (Success(), set_arr (array_resize n x (get_arr state)) state)`;
+
+(* Dynamic allocated references *)
 val Mref_def = Define `
-Mref cons x = \state. (Success (StoreRef(Mlength state)), (cons x)::state)`;
+Mref cons x = \state. (Success (StoreRef(length state)), (cons x)::state)`;
 
 val dref_def = Define `
 dref n = \state. EL (LENGTH state - n - 1) state`;
@@ -102,7 +193,7 @@ case state of
 | x::state' => if n = 0 then Success x else Mdref_aux e (n-1) state'`;
 
 val Mdref_def = Define `
-Mdref e (StoreRef n) = \state. (Mdref_aux e (Mlength state - n - 1) state, state)`;
+Mdref e (StoreRef n) = \state. (Mdref_aux e (length state - n - 1) state, state)`;
 
 val Mpop_ref_def = Define `
 Mpop_ref e = \(r, state). case state of
@@ -119,7 +210,7 @@ x'::state => if n = 0 then Success (x::state)
 
 val Mref_assign_def = Define `
 Mref_assign e (StoreRef n) x =
-\state. case Mref_assign_aux e (Mlength state - n - 1) x state of
+\state. case Mref_assign_aux e (length state - n - 1) x state of
 Success state => (Success(), state)
 | Failure e => (Failure e, state)`;
 
@@ -146,28 +237,28 @@ Induct
 >-(rw[Once Mdref_def, Once Mdref_aux_def])
 \\ rw[Once Mdref_def, Once Mdref_aux_def]
 >-(rw[Once dref_def]
-   \\ fs[Mlength_eq]
+   \\ fs[length_eq]
    \\ `n = LENGTH state` by fs[SUC_ONE_ADD]
    \\ rw[SUC_ONE_ADD])
-\\ fs[Mlength_eq, SUC_ONE_ADD]
+\\ fs[length_eq, SUC_ONE_ADD]
 \\ `Mdref_aux e (LENGTH state - (n + 1)) state = FST(Mdref e (StoreRef n) state)`
-   by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def, Mlength_eq])
+   by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def, length_eq])
 \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
 \\ rw[]
 \\ rw[dref_const_state_eq]);
 
 val Mref_assign_aux_eq = Q.store_thm("Mref_assign_aux_eq",
 `!state e n x. n < LENGTH state ==>
-(Mref_assign_aux e (Mlength state - n - 1) x state = Success (ref_assign n x state))`,
+(Mref_assign_aux e (length state - n - 1) x state = Success (ref_assign n x state))`,
 Induct
 >-(rw[Once Mref_assign_aux_def, Once ref_assign_def])
 \\ rw[Once Mref_assign_aux_def, Once ref_assign_def]
->-(rw[Mlength_eq, SUC_ONE_ADD]
+>-(rw[length_eq, SUC_ONE_ADD]
    >> Cases_on `LENGTH state - n` >-(rw[LUPDATE_def])
    >> rw[LUPDATE_def]
    >> irule FALSITY
-   >> fs[Mlength_eq])
-\\ fs[Mlength_eq, SUC_ONE_ADD]
+   >> fs[length_eq])
+\\ fs[length_eq, SUC_ONE_ADD]
 \\ Cases_on `LENGTH state - n` >-(fs[])
 \\ rw[Once ref_assign_def]
 \\ rw[LUPDATE_def]
@@ -193,18 +284,5 @@ Mget_ref get_var = \state. (Success (get_var state), state)`;
 
 val Mset_ref_def = Define `
 Mset_ref set_var x = \state. (Success (), set_var x state)`;
-
-val Marray_length_def = Define `
-Marray_length get_arr = \state. (Success (LENGTH (get_arr state)), state)`;
-
-val Marray_sub_def = Define `
-Marray_sub get_arr exc n = \state.
-if n < LENGTH (get_arr state) then (Success (EL n (get_arr state)), state)
-else (Failure (exc (prim_exn "Subscript")), state)`;
-
-val Marray_update_def = Define `
-Marray_update get_arr set_arr exc n x = \state.
-if n < LENGTH (get_arr state) then (Success (), set_arr (LUPDATE x n (get_arr state)) state)
-else (Failure (exc (prim_exn "Subscript")), state)`
 
 val _ = export_theory ();

@@ -168,7 +168,7 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, cons_name, exn_type,
         (!t v.
           ^refin_inv t v ==>
           EvalM (write n v env) exp2 (MONAD a ^EXN_RI_tm (x2 t)) H) ==>
-        EvalM env (Handle exp1 [(Pcon (SOME (Short "Clash")) [Pvar n],exp2)])
+        EvalM env (Handle exp1 [(Pcon (SOME (Short ^cons_name)) [Pvar n],exp2)])
           (MONAD a ^EXN_RI_tm (^fun_tm x1 x2)) H``
 
     val solve_tac =
