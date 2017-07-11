@@ -367,6 +367,10 @@ val pmatch_row_lemmas =
        `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''') x. h t t' t'' t''' x)) ::r') x
           = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t'''). h t t' t'' t''' x))::r)
        ⇔ (∃v. f v = t ∧ g v)
+          ∨ (PMATCH t r' x = PMATCH t r)`,
+       `PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''',t'''') x. h t t' t'' t''' t'''' x)) ::r') x
+          = PMATCH t ((PMATCH_ROW f g (λ(t,t',t'',t''',t''''). h t t' t'' t''' t'''' x))::r)
+       ⇔ (∃v. f v = t ∧ g v)
           ∨ (PMATCH t r' x = PMATCH t r)`
       ]
 
@@ -475,8 +479,13 @@ val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ metis_tac[unifyTheory.t_unify_wfs]);
 
-val _ = translate (infer_def ``constrain_op``
-                   |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
+val def = infer_def ``constrain_op``
+(*
+  val tm = def |> SPEC_ALL |> concl |> rand
+*)
+
+val r = translate
+  (def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
 val _ = translate (infer_def ``t_to_freevars``);
 
