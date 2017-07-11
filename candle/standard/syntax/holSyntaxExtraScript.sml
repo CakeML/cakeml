@@ -2498,7 +2498,7 @@ val variant_def = tDefine "variant" `
   (WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
-   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_def,implode_def] >>
+   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm,implode_def] >>
    qsuff_tac`STRLEN s' < n` >- simp[] >>
    simp[Abbr`n`] >> fs[GSYM vfree_in_thm,EXISTS_MEM] >>
    match_mp_tac SUM_SET_IN_LT >>
@@ -2537,10 +2537,10 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ sg `!m. m < n ==>
          VFREE_IN (Var (name ^ (implode (REPLICATE (SUC m) #"'"))) ty) x`
   THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [rich_listTheory.REPLICATE_GENLIST]
-         \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_def,mlstringTheory.explode_implode])
+         \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_thm,mlstringTheory.explode_implode])
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
   \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode (name ^ strlit "'")`,`ty`])
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,explode_implode,explode_thm]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_thm,explode_implode,explode_thm]
   \\ Cases_on `VARIANT_PRIMES x (STRCAT (explode name) "'") (ty) = n`
   \\ FULL_SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC
@@ -2635,7 +2635,7 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
   \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (ASSUME_TAC o Q.GEN `m` o SIMP_RULE std_ss [] o Q.SPEC `SUC m`)
   \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`STRCAT (explode name) "'"`,`ty1`])
-  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_def,mlstringTheory.explode_implode,explode_thm]
+  \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_thm,mlstringTheory.explode_implode,explode_thm]
   \\ Q.ABBREV_TAC `k = VARIANT_PRIMES a (STRCAT (explode name) "'") ty1`
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
   \\ Cases_on `k = n` \\ FULL_SIMP_TAC std_ss []
