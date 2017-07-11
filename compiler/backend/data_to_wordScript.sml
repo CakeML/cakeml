@@ -159,16 +159,16 @@ val LongDiv_location_def = Define `
   LongDiv_location = LongDiv1_location+1`;
 val MemCopy_location_def = Define `
   MemCopy_location = LongDiv_location+1`;
-val Bignum_location_def = Define `
-  Bignum_location = MemCopy_location+1`;
 val ByteCopy_location_def = Define `
-  ByteCopy_location = Bignum_location+1`;
+  ByteCopy_location = MemCopy_location+1`;
 val ByteCopyAdd_location_def = Define `
   ByteCopyAdd_location = ByteCopy_location+1`;
 val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val Bignum_location_def = Define `
+  Bignum_location = ByteCopyNew_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
