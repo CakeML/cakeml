@@ -823,7 +823,7 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
     BasicProvers.EVERY_CASE_TAC>>
-    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def,extract_labels_WordOp32_on64])
+    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
           fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
