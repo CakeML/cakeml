@@ -567,6 +567,8 @@ val op_to_display_def = tDefine "op_to_display"`
   /\
   (op_to_display (Modlang_op Strlen) = empty_item "Strlen")
   /\
+  (op_to_display (Modlang_op Strcat) = empty_item "Strcat")
+  /\
   (op_to_display (Modlang_op VfromList) = empty_item "VfromList")
   /\
   (op_to_display (Modlang_op Vsub) = empty_item "Vsub")
