@@ -320,7 +320,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   simp[] >> fs[call_FFI_def]);
 
 val align_dm_def = Define `
-  align_dm (s:('a,'ffi) labSem$state) =
+  align_dm (s:('a,'c,'ffi) labSem$state) =
     (s with mem_domain := s.mem_domain INTER byte_aligned)`
 
 val align_dm_const = Q.store_thm("align_dm_const[simp]",
@@ -333,6 +333,9 @@ val align_dm_const = Q.store_thm("align_dm_const[simp]",
    (align_dm s).link_reg = s.link_reg ∧
    (align_dm s).ptr_reg = s.ptr_reg ∧
    (align_dm s).io_regs = s.io_regs ∧
+   (align_dm s).code_buffer = s.code_buffer ∧
+   (align_dm s).compile = s.compile ∧
+   (align_dm s).compiler_config = s.compiler_config ∧
    (align_dm s).ffi = s.ffi ∧
    (align_dm s).failed = s.failed`,
   EVAL_TAC);
@@ -551,7 +554,7 @@ val write_bytearray_align_dm = Q.store_thm("write_bytearray_align_dm[simp]",
 
 val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   `good_dimindex(:α) ⇒
-   ∀(s:(α,'ffi) labSem$state).
+   ∀(s:(α,'c,'ffi) labSem$state).
       evaluate (align_dm s) =
       let (r,s') = evaluate s in (r, align_dm s')`,
   strip_tac
@@ -576,12 +579,16 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ pairarg_tac \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ pairarg_tac \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY pairarg_tac \\ fs[]
   \\ fs[align_dm_def]);
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒
-   implements {semantics (s:(α,'ffi) labSem$state)} {semantics (align_dm s)}`,
+   implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}`,
   strip_tac
   \\ irule implements_intro
   \\ qexists_tac`T` \\ simp[]

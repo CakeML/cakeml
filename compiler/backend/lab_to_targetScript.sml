@@ -14,7 +14,7 @@ val lab_inst_def = Define `
   (lab_inst w (Call _) = Call w) /\
   (lab_inst w (LocValue r _) = Loc r (w:'a word)) /\
   (lab_inst w (Halt) = Jump w) /\
-  (lab_inst w (ClearCache) = Jump w) /\
+  (lab_inst w (Install) = Jump w) /\
   (lab_inst w (CallFFI n) = Jump w)`;
 
 val enc_line_def = Define `
@@ -81,7 +81,7 @@ val get_ffi_index_def = Define `
 val get_jump_offset_def = Define `
   (get_jump_offset (CallFFI s) ffis labs pos =
      0w - n2w (pos + (3 + get_ffi_index ffis s) * ffi_offset)) /\
-  (get_jump_offset ClearCache ffis labs pos =
+  (get_jump_offset Install ffis labs pos =
      0w - n2w (pos + 2 * ffi_offset)) /\
   (get_jump_offset Halt ffis labs pos =
      0w - n2w (pos + ffi_offset)) /\
@@ -137,7 +137,7 @@ val line_ok_light_def = Define `
   (line_ok_light c (Asm b bytes l) <=> T) /\
   (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
-  (line_ok_light c (LabAsm ClearCache w bytes l) <=>
+  (line_ok_light c (LabAsm Install w bytes l) <=>
      asm_ok (Jump w) c) /\
   (line_ok_light c (LabAsm (CallFFI index) w bytes l) <=>
      asm_ok (Jump w) c) /\

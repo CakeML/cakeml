@@ -20,7 +20,7 @@ val () = Datatype `
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
                | CallFFI string
-               | ClearCache
+               | Install
                | Halt`;
 
 val () = Datatype `
