@@ -688,15 +688,9 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
 
 fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   fun is_pair_ty ty = fst (dest_type ty) = "prod"
-  fun is_list_ty ty = fst (dest_type ty) = "list"
-  fun is_option_ty ty = fst (dest_type ty) = "option"
   fun all_distinct [] = []
     | all_distinct (x::xs) = if mem x xs then all_distinct xs else x :: all_distinct xs
-  val xs = snd (TypeBase.size_of ty) |> CONJUNCTS
-           |> map (type_of o rand o fst o dest_eq o  concl o SPEC_ALL)
-           |> filter (not o is_pair_ty) |> filter (not o is_list_ty)
-           |> filter (not o is_option_ty)
-           |> all_distinct
+  val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
 (*
@@ -707,6 +701,8 @@ val const_name = (repeat rator x |> dest_const |> fst)
 *)
 
 fun tag_name type_name const_name =
+  if (type_name = "SUM_TYPE") andalso (const_name = "INL") then "Inl" else
+  if (type_name = "SUM_TYPE") andalso (const_name = "INR") then "Inr" else
   if (type_name = "OPTION_TYPE") andalso (const_name = "NONE") then "NONE" else
   if (type_name = "OPTION_TYPE") andalso (const_name = "SOME") then "SOME" else
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
@@ -825,7 +821,7 @@ fun list_dest f tm =
   handle HOL_ERR _ => [tm];
 
 (*
-  val ty = ``:'a # 'b``
+  val ty = ``:'a + 'b``
   val tys = find_mutrec_types ty
   val is_exn_type = false
 *)
@@ -836,6 +832,8 @@ fun tys_is_list_type tys =
   (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
 fun tys_is_option_type tys =
   (case tys of [ty] => optionSyntax.is_option ty | _ => false)
+fun tys_is_sum_type tys =
+  (case tys of [ty] => (#1 o dest_type) ty = "sum" | _ => false)
 fun tys_is_unit_type tys =
   (case tys of [ty] => ty = oneSyntax.one_ty | _ => false)
 fun tys_is_order_type tys =
@@ -847,6 +845,7 @@ fun define_ref_inv is_exn_type tys = let
   val is_pair_type = tys_is_pair_type tys
   val is_list_type = tys_is_list_type tys
   val is_option_type = tys_is_option_type tys
+  val is_sum_type = tys_is_sum_type tys
   val is_unit_type = tys_is_unit_type tys
   val is_order_type = tys_is_order_type tys
   fun smart_full_name_of_type ty =
@@ -877,7 +876,7 @@ fun define_ref_inv is_exn_type tys = let
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
   val _ = map reg_type ys
-  val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP]
+  val rw_lemmas = LIST_CONJ [LIST_TYPE_SIMP,PAIR_TYPE_SIMP,OPTION_TYPE_SIMP,SUM_TYPE_SIMP]
   val def_tm = let
 
     fun mk_lines ml_ty_name lhs ty [] input = []
@@ -962,6 +961,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                 if is_pair_type then PAIR_TYPE_def else
                 if is_unit_type then UNIT_TYPE_def else
                 if is_option_type then OPTION_TYPE_def else
+                if is_sum_type then SUM_TYPE_def else
                   tDefine name [ANTIQUOTE def_tm] tac
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
                   if not (is_abs tm) then NO_CONV tm else
@@ -1801,14 +1801,14 @@ fun prove_EvalPatBind goal hol2deep = let
     REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ REWRITE_TAC [GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP,GSYM SUM_TYPE_SIMP]
     \\ Ho_Rewrite.REWRITE_TAC [GSYM LIST_TYPE_SIMP']
-    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP]
+    \\ REWRITE_TAC ([GSYM PAIR_TYPE_SIMP, GSYM OPTION_TYPE_SIMP, GSYM LIST_TYPE_SIMP,GSYM SUM_TYPE_SIMP]
                       |> map (REWRITE_RULE [CONTAINER_def]))
     \\ Ho_Rewrite.REWRITE_TAC ([GSYM LIST_TYPE_SIMP'] |> map (REWRITE_RULE [CONTAINER_def]))
-    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,SUM_TYPE_def]@thms)
     \\ TRY STRIP_TAC \\ fsrw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def]@thms)
+    \\ fsrw_tac[]([Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,SUM_TYPE_def]@thms)
   end (asms,goal)
   fun find_equality_type_thm tm =
     first (can (C match_term tm) o rand o snd o strip_imp o concl) (eq_lemmas())
