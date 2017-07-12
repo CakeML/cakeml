@@ -60,28 +60,32 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
+val unknown_loc = prim_mk_const {Name = "unknown_loc" , Thy = "location"}
 val word8 = wordsSyntax.mk_int_word_type 8
 val word = wordsSyntax.mk_word_type alpha
 val venvironment = mk_environment v_ty
 val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
 val Dtype_x = astSyntax.mk_Dtype
-                (``unknown_loc``,
+                (unknown_loc,
                  mk_var("x",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm))))));
 val Dletrec_funs = astSyntax.mk_Dletrec
-                    (``unknown_loc``,
+                    (unknown_loc,
                      mk_var("funs",#1(dom_rng(#2(dom_rng(type_of astSyntax.Dletrec_tm))))));
 val Dexn_n_l =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm))) in
-    astSyntax.mk_Dexn (``unknown_loc``,mk_var("n",el 1 args), mk_var("l",el 2 args))
+    astSyntax.mk_Dexn (unknown_loc,mk_var("n",el 1 args), mk_var("l",el 2 args))
   end
 val Dlet_v_x =
   let val args = tl(#1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm))) in
-    astSyntax.mk_Dlet (``unknown_loc``,mk_var("v",el 1 args), mk_var("x",el 2 args))
+    astSyntax.mk_Dlet (unknown_loc,mk_var("v",el 1 args), mk_var("x",el 2 args))
   end
 fun Dtype ls = astSyntax.mk_Dtype
-                (``unknown_loc``,
+                (unknown_loc,
                 listSyntax.mk_list(ls,listSyntax.dest_list_type
                                         (#1(dom_rng(#2(dom_rng(type_of astSyntax.Dtype_tm)))))))
+fun Dtabbrev name ty = astSyntax.mk_Dtabbrev
+                (unknown_loc,listSyntax.mk_nil string_ty, name, ty)
+
 fun Tapp ls x = astSyntax.mk_Tapp(listSyntax.mk_list(ls,astSyntax.t_ty),x)
 fun mk_store_v ty = mk_thy_type{Thy="semanticPrimitives",Tyop="store_v",Args=[ty]}
 val v_store_v = mk_store_v v_ty
@@ -412,7 +416,6 @@ in
       val (t1,t2) = dest_fun_type ty
       in mk_Arrow(get_type_inv t1,get_type_inv t2)
       end else
-    if ty = oneSyntax.one_ty then UNIT_TYPE else
     if ty = bool then BOOL else
     if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
       let val dim = wordsSyntax.dest_word_type ty in
@@ -1107,18 +1110,19 @@ fun avoid_v_subst ty = let
 fun derive_thms_for_type is_exn_type ty = let
   val tsubst = avoid_v_subst ty;
   val ty = type_subst tsubst ty;
+  val is_word_type = wordsSyntax.is_word_type ty
   val (_,tyargs) = dest_type ty
   val (ty_pre,ret_ty_pre) = dest_fun_type (type_subst tsubst (type_of_cases_const ty))
   val (_,gen_tyargs) = dest_type ty_pre
-  fun inst_fcp_types (x::xs) (y::ys) ty =
-    if is_vartype y andalso fcpSyntax.is_numeric_type x
+  fun inst_fcp_types_rec (x::xs) (y::ys) ty =
+    if is_vartype y
     then
-      type_subst [y|->x] (inst_fcp_types xs ys ty)
+      type_subst [y|->x] (inst_fcp_types_rec xs ys ty)
     else
-      inst_fcp_types xs ys ty
-  |   inst_fcp_types _ _ ty = ty
+      inst_fcp_types_rec xs ys ty
+  |   inst_fcp_types_rec _ _ ty = ty
   (* Do not generalize fcp types *)
-  val inst_fcp_types = inst_fcp_types tyargs gen_tyargs
+  fun inst_fcp_types t = if is_word_type then inst_fcp_types_rec tyargs gen_tyargs t else t
   val ty = inst_fcp_types ty_pre
   val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
@@ -1139,6 +1143,7 @@ fun derive_thms_for_type is_exn_type ty = let
     | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
   (* define a CakeML datatype declaration *)
   val (dtype,dtype_list) =
+    if name = "UNIT_TYPE" then (Dtabbrev (stringSyntax.fromMLstring "unit") (Tapp [] TC_tup),listSyntax.mk_nil(alpha)) else
     if name = "PAIR_TYPE" then (Dtype [],listSyntax.mk_nil(alpha)) else let
     fun extract_dtype_part th = let
       val xs = CONJUNCTS th |> map (dest_eq o concl o SPEC_ALL)
@@ -1170,12 +1175,12 @@ fun derive_thms_for_type is_exn_type ty = let
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-    in (astSyntax.mk_Dtype (``unknown_loc``,dtype_list),dtype_list) end
+    in (astSyntax.mk_Dtype (unknown_loc,dtype_list),dtype_list) end
   val dexn_list = if not is_exn_type then [] else let
     val xs = dtype |> rand |> rator |> rand |> rand |> rand
                    |> listSyntax.dest_list |> fst
                    |> map pairSyntax.dest_pair
-    in map (fn (x,y) => astSyntax.mk_Dexn (``unknown_loc``,x,y)) xs end
+    in map (fn (x,y) => astSyntax.mk_Dexn (unknown_loc,x,y)) xs end
   (* cons assumption *)
   fun smart_full_id tyname =
     if is_list_type orelse is_option_type orelse is_pair_type
@@ -1255,6 +1260,8 @@ fun derive_thms_for_type is_exn_type ty = let
       val vars = map (fn (x,n,v) => astSyntax.mk_Pvar n) xs
       val vars = listSyntax.mk_list(vars,astSyntax.pat_ty)
       val tag_tm = if name = "PAIR_TYPE"
+                   then optionSyntax.mk_none(astSyntax.str_id_ty)
+                   else if name = "UNIT_TYPE"
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
                 (* else optionSyntax.mk_some(full_id str) *)
@@ -1349,6 +1356,7 @@ fun derive_thms_for_type is_exn_type ty = let
           \\ ASM_REWRITE_TAC[]
       end
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
+
 (*
 val n = 1
 val n = 2
@@ -1371,7 +1379,10 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val str = stringLib.fromMLstring tag
     val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
-    val the_tag_name = if name = "PAIR_TYPE"
+    val the_tag_name =
+                   if name = "PAIR_TYPE"
+                   then optionSyntax.mk_none(astSyntax.str_id_ty)
+                   else if name = "UNIT_TYPE"
                    then optionSyntax.mk_none(astSyntax.str_id_ty)
                    else optionSyntax.mk_some(astSyntax.mk_Short str)
                 (* else optionSyntax.mk_some(full_id str) *)
