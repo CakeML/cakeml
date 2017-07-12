@@ -231,106 +231,6 @@ val decode_imm8_thm3 = Q.prove(
    \\ blastLib.FULL_BBLAST_TAC
    )
 
-val decode_imm8_thm4 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         8w <= c /\ c <= 0x10007w /\ ~(c + 0xFFFFFFF8w <+ 256w) ==>
-  (c + p =
-   w2w
-      (v2w
-         [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-          c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0] : word8) +
-    p +
-    w2w
-      (v2w
-         [c ' 15 <=>
-          c ' 14 \/ c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/
-          c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 14 <=>
-          c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/
-          c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 13 <=>
-          c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/
-          c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 12 <=>
-          c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/
-          c ' 4 \/ c ' 3;
-          c ' 11 <=>
-          c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/
-          c ' 3;
-          c ' 10 <=>
-          c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 9 <=> c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 8 <=> c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3] : word8) #>> 24 +
-    8w)``
-
-val decode_imm8_thm5 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ -1w * c + 8w <+ 256w ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p + 8w)``
-
-val decode_imm8_thm6 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ ~(-1w * c + 8w <+ 256w) ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p +
-   -1w *
-   w2w
-     (v2w
-        [c ' 15 <=>
-         ~c ' 14 /\ ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 14 <=>
-         ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 13 <=>
-         ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 12 <=>
-         ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 11 <=>
-         ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\
-         ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 10 <=>
-         ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 9 <=>
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 8 <=>
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
-
 val word_lo_not_carry = Q.prove(
    `!a b. (a <+ b) = ~CARRY_OUT a (~b) T`,
    simp [wordsTheory.ADD_WITH_CARRY_SUB, wordsTheory.WORD_NOT_LOWER_EQUAL]
@@ -646,7 +546,7 @@ in
       \\ srw_tac []
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5]
+             decode_some_encode_immediate, decode_imm8_thm2]
       \\ fs [adc_lem1, adc_lem3]
 end
 
@@ -982,15 +882,26 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
         --------------*)
       print_tac "Loc"
       \\ Cases_on `8w <= c`
-      >| [
-          Cases_on `c + 0xFFFFFFF8w <+ 256w`,
-          Cases_on `-1w * c + 0x8w <+ 256w`
+      >| [Cases_on `(31 >< 24) (c + 0xFFFFFFF8w) <> 0w : word8`
+          >| [all_tac,
+              Cases_on `(23 >< 16) (c + 0xFFFFFFF8w) <> 0w : word8`
+              >| [all_tac,
+                  Cases_on `(15 >< 8) (c + 0xFFFFFFF8w) <> 0w : word8`
+              ]
+          ],
+          Cases_on `(31 >< 24) (-1w * c + 8w) <> 0w : word8`
+          >| [all_tac,
+              Cases_on `(23 >< 16) (-1w * c + 8w) <> 0w : word8`
+              >| [all_tac,
+                  Cases_on `(15 >< 8) (-1w * c + 8w) <> 0w : word8`
+              ]
+          ]
       ]
       \\ next_tac
-      \\ rfs [alignmentTheory.align_aligned, alignmentTheory.aligned_numeric,
-              GSYM decode_imm8_thm4, GSYM decode_imm8_thm6]
+      \\ rfs [alignmentTheory.align_aligned, alignmentTheory.aligned_numeric]
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+      \\ blastLib.FULL_BBLAST_TAC
       )
    )
 

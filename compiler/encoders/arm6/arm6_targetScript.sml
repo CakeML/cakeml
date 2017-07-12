@@ -151,23 +151,33 @@ val arm6_enc_def = Define`
    (arm6_enc (JumpReg r) = enc (Branch (BranchExchange (n2w r)))) /\
    (arm6_enc (Loc r i) =
       let (opc, imm32) = if 8w <= i then (4w, i - 8w) else (2w, 8w - i) in
-      if imm32 <+ 256w then
-        enc (Data (ArithLogicImmediate (opc, F, n2w r, 15w, (7 >< 0) imm32)))
-      else
-        let imm12t = (12w:word4) @@ (15 >< 8) imm32
-        and imm12b = (7 >< 0) imm32
-        in
-          arm6_encode
-            [(AL, Data (ArithLogicImmediate (opc, F, n2w r, 15w, imm12t)));
-             (AL, Data (ArithLogicImmediate (opc, F, n2w r, n2w r, imm12b)))])`
+      let imm32b3 = (31 >< 24) imm32 : word8
+      and imm32b2 = (23 >< 16) imm32 : word8
+      and imm32b1 = (15 >< 8) imm32 : word8
+      and imm32b0 = (7 >< 0) imm32 : word8
+      in
+        combin$C LIST_BIND
+         (\(n, w). enc (Data (ArithLogicImmediate (opc, F, n2w r, n, w))))
+         (if imm32b3 <> 0w then
+            [(15w, (4w : word4) @@ imm32b3);
+             (n2w r, (8w : word4) @@ imm32b2);
+             (n2w r, (12w : word4) @@ imm32b1);
+             (n2w r, w2w imm32b0)]
+          else if imm32b2 <> 0w then
+            [(15w, (8w : word4) @@ imm32b2);
+             (n2w r, (12w : word4) @@ imm32b1);
+             (n2w r, w2w imm32b0)]
+          else if imm32b1 <> 0w then
+            [(15w, (12w : word4) @@ imm32b1);
+             (n2w r, w2w imm32b0)]
+          else
+            [(15w, w2w imm32b0)]))`
 
 (* --- Configuration for ARMv6 --- *)
 
 val eval = rhs o concl o EVAL
 val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
 val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
-val min16 = eval ``-(w2w (UINT_MAXw: word16)) + 8w : word32``
-val max16 = eval ``w2w (UINT_MAXw: word16) + 8w : word32``
 val min26 = eval ``sw2sw (INT_MINw: 26 word) : word32``
 val max26 = eval ``sw2sw (INT_MAXw: 26 word) : word32``
 
@@ -189,7 +199,7 @@ val arm6_config_def = Define`
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min26 + 8w, ^max26 + 8w)
     ; cjump_offset := (^min26 + 12w, ^max26 + 12w)
-    ; loc_offset := (^min16, ^max16)
+    ; loc_offset := (INT_MINw, INT_MAXw)
     |>`
 
 val arm6_proj_def = Define`
