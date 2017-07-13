@@ -13,7 +13,7 @@ val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_s
 val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
 val _ = trans "strlen" `strlen`
-val _ = trans "concat" `concat`
+val _ = trans "concat" `mlstring$concat`
 
 val result = translate explode_aux_def;
 val result = translate explode_def;
