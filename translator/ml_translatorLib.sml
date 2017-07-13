@@ -1525,16 +1525,20 @@ fun register_term_types register_type tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
     if not (can dest_type ty) then true else
-    if can (dest_fun_type) ty then true else
-    if fcpSyntax.is_numeric_type ty then true else false
+    if can (dest_fun_type) ty then true else false
+    (*if fcpSyntax.is_numeric_type ty then true else false*)
   fun typeops ty = let
     val (tname,targs) = dest_type ty
-    in ty :: flatten (map typeops targs) end
+    val is_word_type = wordsSyntax.is_word_type ty
+    in
+      if is_word_type then [ty]
+      else
+        ty :: flatten (map typeops targs) end
     handle HOL_ERR _ => []
   fun register_term_type tm = let
     val tys = typeops (type_of tm) |> filter (not o ignore_type)
