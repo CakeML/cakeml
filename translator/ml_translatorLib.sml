@@ -34,6 +34,11 @@ let
 in r end
 *)
 
+fun all_distinct [] = []
+  | all_distinct (x::xs) = let
+      val ys = all_distinct xs
+      in if mem x ys then ys else x::ys end
+
 exception UnableToTranslate of term;
 exception UnsupportedType of hol_type;
 exception NotFoundVThm of term;
@@ -691,8 +696,6 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
 
 fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   fun is_pair_ty ty = fst (dest_type ty) = "prod"
-  fun all_distinct [] = []
-    | all_distinct (x::xs) = if mem x xs then all_distinct xs else x :: all_distinct xs
   val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
@@ -997,42 +1000,49 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = map reg_type ys2
   (* equality type -- TODO: make this work for mutrec *)
   val eq_lemmas = let
-    val tm = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
-                     |> concl |> dest_eq |> fst |> rator |> rator
-    val xs =
-      inv_def |> RW [GSYM CONJ_ASSOC] |> SPEC_ALL |> CONJUNCTS
+    val tms = inv_defs |> map (#1 o strip_comb o lhs o concl o SPEC_ALL o hd o CONJUNCTS o #2 )
+
+    val xss = inv_def |> RW [GSYM CONJ_ASSOC] |> SPEC_ALL |> CONJUNCTS
               |> map (snd o dest_eq o concl o SPEC_ALL)
               |> map (last o list_dest dest_exists)
               |> map (tl o list_dest dest_conj) |> Lib.flatten
-              |> map (rator o rator) |> filter (fn t => t <> tm)
-    val ys = map mk_EqualityType xs
-   (* val ys = map (fst o dest_imp o concl o D o SIMP_EqualityType_ASSUMS o ASSUME) ys *)
-    val tm1 = mk_EqualityType tm
-    val ys = filter (fn y => not (mem y [tm1,T])) ys
-    val tm2 = if ys = [] then T else list_mk_conj ys
-    val goal = mk_imp(tm2,tm1)
-    val pat1 = get_term "auto eq proof 1"
-    val pat2 = get_term "auto eq proof 2"
-    val x2 = mk_var("x2",tm1 |> rand |> type_of |> dest_type |> snd |> hd)
+              |> map (rator o rator) |> filter (fn t => not (mem t tms)) |> all_distinct
+    val yss = map mk_EqualityType xss
+    val tm1s = (map mk_EqualityType tms)
+    val yss = filter (fn y => not (mem y (T::tm1s))) yss
+    val tm2s = if yss = [] then T else list_mk_conj yss
+    val goal = mk_imp(tm2s,list_mk_conj tm1s)
+    val reps = length tm1s
+    fun N_conj_conv p N =
+      markerLib.move_conj_right p
+      THENC
+      quantHeuristicsLibBase.BOUNDED_REPEATC (N-1)
+      (markerLib.move_conj_right p
+      THENC
+      (REWR_CONV (GSYM CONJ_ASSOC)))
+    val no_closure_pat = ``∀x v. p x v  ⇒ no_closures v``
+    val types_match_pat = ``∀x1 v1 x2 v2. p x1 v1 ∧ p x2 v2 ⇒ types_match v1 v2``
+    val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
+    val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
+    val x2 = mk_var("x2",alpha)
     val eq_lemma = auto_prove "EqualityType" (goal,
-      REPEAT STRIP_TAC
-      \\ FULL_SIMP_TAC std_ss [EqualityType_def]
-      \\ STRIP_TAC THEN1
-       (REPEAT (PAT_X_ASSUM pat1 (K ALL_TAC))
-        \\ (Induct ORELSE Cases)
-        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
-        \\ REPEAT STRIP_TAC \\ RES_TAC)
-      \\ STRIP_TAC
+      strip_tac>> fs[EqualityType_def] \\
+      CONV_TAC pull_no_closures \\
+      reverse CONJ_TAC
       THEN1
-       (REPEAT (PAT_X_ASSUM pat2 (K ALL_TAC))
-        \\ (Induct ORELSE Cases)
+        ((Induct ORELSE Cases)
+        \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
+        \\ REPEAT STRIP_TAC \\ RES_TAC)\\
+      CONV_TAC pull_types_match \\
+      CONJ_TAC
+      THEN1
+        (Induct ORELSE Cases
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ primCases_on x2
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ REPEAT STRIP_TAC \\ METIS_TAC [])
       THEN1
-       (REPEAT (PAT_X_ASSUM pat2 (K ALL_TAC))
-        \\ (Induct ORELSE Cases)
+        ((Induct ORELSE Cases)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS]
         \\ TRY (primCases_on x2)
         \\ SIMP_TAC (srw_ss()) [inv_def,no_closures_def,PULL_EXISTS, types_match_def]
@@ -1045,7 +1055,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
     (* check that the result does not mention itself *)
     val (tm1,tm2) = dest_imp goal
     val _ = not (can (find_term (fn t => t = rand tm2)) tm1) orelse fail()
-    in [eq_lemma] end handle HOL_ERR _ => map (K TRUTH) tys
+    val eq_lemmas = eq_lemma |> SIMP_RULE std_ss [IMP_CONJ_THM] |> CONJUNCTS
+    in eq_lemmas end handle HOL_ERR _ => map (K TRUTH) tys
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
@@ -2171,11 +2182,6 @@ fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
       mk_fun_type ty1 (list_mk_fun_type tys)
   | list_mk_fun_type _ = fail()
-
-fun all_distinct [] = []
-  | all_distinct (x::xs) = let
-      val ys = all_distinct xs
-      in if mem x ys then ys else x::ys end
 
 fun get_induction_for_def def = let
   val names = def |> SPEC_ALL |> CONJUNCTS |> map (fn x => x |>SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator |> dest_thy_const) |> all_distinct
