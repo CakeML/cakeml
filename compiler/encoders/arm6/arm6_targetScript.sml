@@ -154,24 +154,24 @@ val arm6_enc_def = Define`
       let imm32b3 = (31 >< 24) imm32 : word8
       and imm32b2 = (23 >< 16) imm32 : word8
       and imm32b1 = (15 >< 8) imm32 : word8
-      and imm32b0 = (7 >< 0) imm32 : word8
+      and imm32b0 = (7 >< 0) imm32 : word12
       in
         combin$C LIST_BIND
-         (\(n, w). enc (Data (ArithLogicImmediate (opc, F, n2w r, n, w))))
+         (\x. enc (Data (ArithLogicImmediate (opc, F, n2w r, x))))
          (if imm32b3 <> 0w then
             [(15w, (4w : word4) @@ imm32b3);
              (n2w r, (8w : word4) @@ imm32b2);
              (n2w r, (12w : word4) @@ imm32b1);
-             (n2w r, w2w imm32b0)]
+             (n2w r, imm32b0)]
           else if imm32b2 <> 0w then
             [(15w, (8w : word4) @@ imm32b2);
              (n2w r, (12w : word4) @@ imm32b1);
-             (n2w r, w2w imm32b0)]
+             (n2w r, imm32b0)]
           else if imm32b1 <> 0w then
             [(15w, (12w : word4) @@ imm32b1);
-             (n2w r, w2w imm32b0)]
+             (n2w r, imm32b0)]
           else
-            [(15w, w2w imm32b0)]))`
+            [(15w, imm32b0)]))`
 
 (* --- Configuration for ARMv6 --- *)
 

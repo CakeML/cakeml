@@ -213,15 +213,6 @@ val decode_imm8_thm1 = Q.prove(
    \\ blastLib.FULL_BBLAST_TAC
    )
 
-val decode_imm8_thm2 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32.
-         8w <= c /\ c + 0xFFFFFFF8w <+ 256w ==>
-         (w2w (v2w [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-                    c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-                    c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
-         c - 8w)``
-
 val decode_imm8_thm3 = Q.prove(
    `!c: word32.
        ~(8w <= c) /\ 0xFFFFFF09w <= c ==>
@@ -230,6 +221,17 @@ val decode_imm8_thm3 = Q.prove(
        Once armTheory.EncodeARMImmediate_aux_def]
    \\ blastLib.FULL_BBLAST_TAC
    )
+
+val loc_lem =
+  utilsLib.map_conv asmLib.mk_blast_thm
+    [``(31 >< 24) (a - 8w : word32) : word8``,
+     ``(23 >< 16) (a - 8w : word32) : word8``,
+     ``(15 >< 8) (a - 8w : word32) : word8``,
+     ``(7 >< 0) (a - 8w : word32) : word8``,
+     ``(31 >< 24) (-1w * a + 8w : word32) : word8``,
+     ``(23 >< 16) (-1w * a + 8w : word32) : word8``,
+     ``(15 >< 8) (-1w * a + 8w : word32) : word8``,
+     ``(7 >< 0) (-1w * a + 8w : word32) : word8``]
 
 val word_lo_not_carry = Q.prove(
    `!a b. (a <+ b) = ~CARRY_OUT a (~b) T`,
@@ -474,7 +476,7 @@ local
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
                [alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
-                Once boolTheory.LET_THM]
+                Once boolTheory.LET_THM, loc_lem]
          \\ TRY (Q.PAT_X_ASSUM `NextStateARM qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
@@ -546,7 +548,7 @@ in
       \\ srw_tac []
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2]
+             decode_some_encode_immediate]
       \\ fs [adc_lem1, adc_lem3]
 end
 
