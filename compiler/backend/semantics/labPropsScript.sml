@@ -336,6 +336,7 @@ val align_dm_const = Q.store_thm("align_dm_const[simp]",
    (align_dm s).code_buffer = s.code_buffer ∧
    (align_dm s).compile = s.compile ∧
    (align_dm s).compiler_config = s.compiler_config ∧
+   (align_dm s).compile_oracle = s.compile_oracle ∧
    (align_dm s).ffi = s.ffi ∧
    (align_dm s).failed = s.failed`,
   EVAL_TAC);
@@ -579,6 +580,7 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ pairarg_tac \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]

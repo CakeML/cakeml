@@ -34,6 +34,7 @@ val _ = Datatype `
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # num # 'c) option
      ; compiler_config : 'c
+     ; compile_oracle : num -> 'a labLang$prog
      ; code_buffer : 'a code_buffer
      ; clock      : num
      ; failed     : bool
@@ -347,18 +348,23 @@ val evaluate_def = tDefine "evaluate" `
         | (Word w1, Word w2, Loc n1 n2) =>
            (case (code_buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
             | (SOME (bytes, cb), SOME new_pc) =>
-                (case some (prog,k,cfg). s.compile s.compiler_config prog = SOME (bytes,k,cfg) of
-                 | SOME (prog,k,cfg) =>
-                   evaluate
-                     (s with <| compiler_config := cfg
+              let prog = s.compile_oracle 0 in (* the next oracle program *)
+                (case s.compile s.compiler_config prog of
+                 | SOME (bytes',k,cfg) =>
+                   if bytes = bytes' then (* the oracle was correct *)
+                     evaluate
+                       (s with <| compiler_config := cfg
                               ; pc := new_pc
                               ; code_buffer := cb
                               ; code := s.code ++ prog
                               ; regs := (s.ptr_reg =+ Loc k 0) s.regs
+                              ; compile_oracle := shift_seq 1 s.compile_oracle
                               ; clock := s.clock - 1
                               |>)
+                   else
+                     (Error,s)
                  | _ => (Error, s))
-            | _ => (Error, s))
+                 | _ => (Error, s))
         | _ => (Error, s))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
        (case (s.regs s.len_reg,s.regs s.ptr_reg,s.regs s.link_reg) of
