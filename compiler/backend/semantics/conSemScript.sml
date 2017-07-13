@@ -162,6 +162,14 @@ val _ = Define `
   ∧
   (v_to_char_list _ = NONE)`;
 
+val vs_to_string_def = Define`
+  (vs_to_string [] = SOME "") ∧
+  (vs_to_string (Litv(StrLit s1)::vs) =
+   case vs_to_string vs of
+   | SOME s2 => SOME (s1++s2)
+   | _ => NONE) ∧
+  (vs_to_string _ = NONE)`;
+
 val _ = Define `
   Boolv b = (Conv (SOME ((if b then true_tag else false_tag), TypeId(Short"bool"))) [])`;
 
@@ -246,6 +254,41 @@ val do_app_def = Define `
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME ((s,t), Rval (Litv (IntLit i))))
+  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME ((s,t),
+      (case copy_array (str,off) len NONE of
+        NONE => Rerr (Rraise (prim_exn "Subscript"))
+      | SOME cs => Rval (Litv(StrLit(cs)))))
+  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s of
+        SOME (W8array ws) =>
+          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          | SOME cs =>
+            (case store_assign dst (W8array (chars_to_ws cs)) s of
+              SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
+      | _ => NONE)
+  | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s of
+      SOME (W8array ws) =>
+      SOME ((s,t),
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise (prim_exn "Subscript"))
+        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+    | _ => NONE)
+  | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s, store_lookup dst s) of
+      (SOME (W8array ws), SOME (W8array ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        | SOME ws =>
+            (case store_assign dst (W8array ws) s of
+              SOME s' => SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
+    | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -272,6 +315,14 @@ val do_app_def = Define `
           SOME ((s,t), Rval (Litv(Char(EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+  | (Strcat, [v]) =>
+      (case v_to_list v of
+        SOME vs =>
+          (case vs_to_string vs of
+            SOME str =>
+              SOME ((s,t), Rval (Litv(StrLit str)))
+          | _ => NONE)
+      | _ => NONE)
   | (VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>

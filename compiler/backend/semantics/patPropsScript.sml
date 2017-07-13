@@ -40,7 +40,7 @@ val evaluate_length = Q.store_thm("evaluate_length",
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[do_app_cases] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
@@ -134,11 +134,15 @@ val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
     OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
-  full_simp_tac(srw_ss())[do_app_def] >> every_case_tac >>
-  full_simp_tac(srw_ss())[LET_THM,
-     semanticPrimitivesTheory.store_alloc_def,
+  Cases_on`do_app s op vs`
+  \\ ((pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases_none)))
+     ORELSE(pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases))))
+  \\ rw[do_app_def] >>
+  fs[semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][]);
+     semanticPrimitivesTheory.store_assign_def]
+  >> srw_tac[][]
+  >> every_case_tac \\ fs[] \\ rw[]);
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `∀env s es s' r.
@@ -155,7 +159,7 @@ val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  srw_tac[][] >> imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,

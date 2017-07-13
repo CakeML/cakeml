@@ -742,6 +742,10 @@ val _ = translate(Mul_code_def|> conv32)
 val _ = translate(Div_code_def|> conv32)
 val _ = translate(Mod_code_def|> conv32)
 val _ = translate(MemCopy_code_def|> inline_simp |> conv32)
+val r = translate(ByteCopy_code_def |> inline_simp |> conv32)
+val r = translate(ByteCopyAdd_code_def |> conv32)
+val r = translate(ByteCopySub_code_def |> conv32 |> econv)
+val r = translate(ByteCopyNew_code_def |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)
@@ -755,7 +759,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
-val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
+val r = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

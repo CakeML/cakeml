@@ -8182,12 +8182,13 @@ val memory_rel_Number_single_mul = store_thm("memory_rel_Number_single_mul",
 val memory_rel_bounds_check = store_thm("memory_rel_bounds_check",
   ``memory_rel c be refs sp st m dm ((Number i1,Word (w1:'a word))::vars) /\
     small_int (:'a) (& n) /\ good_dimindex (:'a) ==>
-    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n)``,
-  rw [] \\ imp_res_tac memory_rel_any_Number_IMP
+    (word_ror w1 2 <+ n2w n <=> 0 <= i1 /\ i1 < & n) /\
+    (word_ror w1 2 <=+ n2w n <=> 0 <= i1 /\ i1 <= & n)``,
+  strip_tac \\ imp_res_tac memory_rel_any_Number_IMP
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ `n < dimword (:'a) /\ n < dimword (:'a) DIV 4 /\ n < dimword (:'a) DIV 8` by
       (fs [small_int_def,good_dimindex_def,dimword_def] \\ fs [] \\ NO_TAC)
-  \\ fs [WORD_LO]
+  \\ fs [WORD_LO,WORD_LS]
   \\ reverse (Cases_on `small_int (:α) i1`) \\ fs []
   THEN1
    (qsuff_tac `dimword (:α) DIV 4 <= w2n (w ⇄ 2)`
@@ -8238,8 +8239,897 @@ val memory_rel_bounds_check = store_thm("memory_rel_bounds_check",
   \\ reverse (Cases_on `i1`) \\ fs []
   \\ fs [Smallnum_def,small_int_def]
   \\ fs [word_ror_n2w,bitTheory.BIT_def,bitTheory.BITS_THM2]
-  \\ fs [good_dimindex_def,dimword_def]
+  \\ fs [good_dimindex_def,dimword_def] \\ rfs []
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
   \\ rfs []);
+
+val memory_rel_ByteArray_IMP_store = store_thm("memory_rel_ByteArray_IMP_store",
+  ``memory_rel c be refs sp st m dm ((RefPtr p,Word (w:'a word))::vars) ∧
+    FLOOKUP refs p = SOME (ByteArray fl vals) ∧ good_dimindex (:α) /\
+    get_real_addr c st w = SOME a /\ i < LENGTH vals ==>
+    ?m1. mem_store_byte_aux m dm be (a + bytes_in_word + n2w i) b = SOME m1 /\
+         memory_rel c be (refs |+ (p,ByteArray fl (LUPDATE b i vals))) sp st m1 dm
+           ((RefPtr p,Word (w:'a word))::vars)``,
+  rw [] \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ fs [mem_load_byte_aux_def,mem_store_byte_aux_def]
+  \\ rw [] \\ ntac 2 (first_x_assum drule)
+  \\ TOP_CASE_TAC \\ fs [theWord_def]);
+
+(* copy forward *)
+
+val word_copy_fwd_def = tDefine "word_copy_fwd" `
+  word_copy_fwd be (n:'a word) a b (m:'a word -> 'a word_loc) dm =
+    if dimword (:'a) <= 4 then NONE else
+    if n <+ 4w then
+      if n <+ 2w then
+        if n = 0w then SOME m else
+          OPTION_BIND (mem_load_byte_aux m dm be a)
+                      (\w. mem_store_byte_aux m dm be b w)
+      else
+        OPTION_BIND (mem_load_byte_aux m dm be a) (\w1.
+        OPTION_BIND (mem_load_byte_aux m dm be (a+1w)) (\w2.
+          if n = 2w then
+            OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b+1w) w2) (\m. SOME m))
+          else
+            OPTION_BIND (mem_load_byte_aux m dm be (a+2w)) (\w3.
+            OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b+1w) w2) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b+2w) w3) (\m. SOME m))))))
+    else
+      OPTION_BIND (mem_load_byte_aux m dm be a) (\w1.
+      OPTION_BIND (mem_load_byte_aux m dm be (a+1w)) (\w2.
+      OPTION_BIND (mem_load_byte_aux m dm be (a+2w)) (\w3.
+      OPTION_BIND (mem_load_byte_aux m dm be (a+3w)) (\w4.
+      OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b+1w) w2) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b+2w) w3) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b+3w) w4) (\m.
+        word_copy_fwd be (n-4w) (a+4w) (b+4w) m dm))))))))`
+ (WF_REL_TAC `measure (w2n o FST o SND)`
+  \\ Cases_on `n` \\ fs [] \\ rw []
+  \\ fs [WORD_LO] \\ rfs [NOT_LESS]
+  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs [])
+
+val list_copy_fwd_def = Define `
+  list_copy_fwd n xp xs yp ys =
+    if xp + n <= LENGTH xs /\ yp + n <= LENGTH ys then
+      if n = 0 then SOME ys else
+      if n = 1 then SOME (LUPDATE (EL xp xs) yp ys) else
+      if n = 2 then SOME ((LUPDATE (EL (xp+1) xs) (yp+1) o
+                           LUPDATE (EL (xp+0) xs) (yp+0)) ys) else
+      if n = 3 then SOME ((LUPDATE (EL (xp+2) xs) (yp+2) o
+                           LUPDATE (EL (xp+1) xs) (yp+1) o
+                           LUPDATE (EL (xp+0) xs) (yp+0)) ys) else
+        list_copy_fwd (n-4) (xp+4) xs (yp+4)
+                         ((LUPDATE (EL (xp+3) xs) (yp+3) o
+                           LUPDATE (EL (xp+2) xs) (yp+2) o
+                           LUPDATE (EL (xp+1) xs) (yp+1) o
+                           LUPDATE (EL (xp+0) xs) (yp+0)) ys)
+    else NONE`
+
+val list_copy_fwd_alias_def = Define `
+  list_copy_fwd_alias n xp yp ys =
+    if xp + n <= LENGTH ys /\ yp + n <= LENGTH ys then
+      if n = 0 then SOME ys else
+      if n = 1 then SOME (LUPDATE (EL xp ys) yp ys) else
+      if n = 2 then SOME ((LUPDATE (EL (xp+1) ys) (yp+1) o
+                           LUPDATE (EL (xp+0) ys) (yp+0)) ys) else
+      if n = 3 then SOME ((LUPDATE (EL (xp+2) ys) (yp+2) o
+                           LUPDATE (EL (xp+1) ys) (yp+1) o
+                           LUPDATE (EL (xp+0) ys) (yp+0)) ys) else
+        list_copy_fwd_alias (n-4) (xp+4) (yp+4)
+                         ((LUPDATE (EL (xp+3) ys) (yp+3) o
+                           LUPDATE (EL (xp+2) ys) (yp+2) o
+                           LUPDATE (EL (xp+1) ys) (yp+1) o
+                           LUPDATE (EL (xp+0) ys) (yp+0)) ys)
+    else NONE`
+
+val word_copy_fwd_thm = store_thm("word_copy_fwd_thm",
+  ``!n xp yp ys ys1 m.
+      memory_rel c be (refs |+ (p2,ByteArray fl_ys ys))
+        sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+      list_copy_fwd n xp xs yp ys = SOME ys1 /\
+      good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
+      ?w1 (w2:'a word) a1 a2 m1.
+        v1 = Word w1 /\ v2 = Word w2 /\
+        get_real_addr c st w1 = SOME a1 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_fwd be (n2w n) (a1 + bytes_in_word + n2w xp)
+          (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)``,
+  completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ once_rewrite_tac [list_copy_fwd_def]
+  \\ rpt strip_tac
+  \\ `4 < dimword (:'a)` by fs [good_dimindex_def,dimword_def]
+  \\ Cases_on `n=0` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=1` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac) \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ Cases_on `n=2` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ Cases_on `n=3` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw []
+  \\ fs [WORD_LO,PULL_EXISTS]
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ drule memory_rel_swap \\ strip_tac
+  \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+3`,`EL (xp+3) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ drule memory_rel_swap \\ strip_tac
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ first_x_assum match_mp_tac
+  \\ fs [] \\ asm_exists_tac \\ fs []);
+
+val word_copy_fwd_alias_thm = store_thm("word_copy_fwd_alias_thm",
+  ``!n xp yp ys ys1 m.
+      memory_rel c be (refs |+ (p2,ByteArray fl_ys ys))
+        sp st m dm ((RefPtr p2,v2)::vars) /\
+      list_copy_fwd_alias n xp yp ys = SOME ys1 /\
+      good_dimindex (:'a) /\ n < dimword (:'a) ==>
+      ?(w2:'a word) a2 m1.
+        v2 = Word w2 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_fwd be (n2w n) (a2 + bytes_in_word + n2w xp)
+          (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p2,v2)::vars)``,
+  completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ once_rewrite_tac [list_copy_fwd_alias_def]
+  \\ rpt strip_tac
+  \\ `4 < dimword (:'a)` by fs [good_dimindex_def,dimword_def]
+  \\ Cases_on `n=0` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=1` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=2` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
+    \\ strip_tac \\ rfs [])
+  \\ Cases_on `n=3` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) ys`] mp_tac)
+    \\ strip_tac \\ rfs [])
+  \\ once_rewrite_tac [word_copy_fwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+1`,`EL (xp+1) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+2`,`EL (xp+2) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp+3`,`EL (xp+3) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ first_x_assum match_mp_tac
+  \\ fs [] \\ asm_exists_tac \\ fs []);
+
+(* copy backward *)
+
+val word_copy_bwd_def = tDefine "word_copy_bwd" `
+  word_copy_bwd be (n:'a word) a b (m:'a word -> 'a word_loc) dm =
+    if dimword (:'a) <= 4 then NONE else
+    if n <+ 4w then
+      if n <+ 2w then
+        if n = 0w then SOME m else
+          OPTION_BIND (mem_load_byte_aux m dm be a)
+                      (\w. mem_store_byte_aux m dm be b w)
+      else
+        OPTION_BIND (mem_load_byte_aux m dm be a) (\w1.
+        OPTION_BIND (mem_load_byte_aux m dm be (a-1w)) (\w2.
+          if n = 2w then
+            OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b-1w) w2) (\m. SOME m))
+          else
+            OPTION_BIND (mem_load_byte_aux m dm be (a-2w)) (\w3.
+            OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b-1w) w2) (\m.
+            OPTION_BIND (mem_store_byte_aux m dm be (b-2w) w3) (\m. SOME m))))))
+    else
+      OPTION_BIND (mem_load_byte_aux m dm be a) (\w1.
+      OPTION_BIND (mem_load_byte_aux m dm be (a-1w)) (\w2.
+      OPTION_BIND (mem_load_byte_aux m dm be (a-2w)) (\w3.
+      OPTION_BIND (mem_load_byte_aux m dm be (a-3w)) (\w4.
+      OPTION_BIND (mem_store_byte_aux m dm be b w1) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b-1w) w2) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b-2w) w3) (\m.
+      OPTION_BIND (mem_store_byte_aux m dm be (b-3w) w4) (\m.
+        word_copy_bwd be (n-4w) (a-4w) (b-4w) m dm))))))))`
+ (WF_REL_TAC `measure (w2n o FST o SND)`
+  \\ Cases_on `n` \\ fs [] \\ rw []
+  \\ fs [WORD_LO] \\ rfs [NOT_LESS]
+  \\ rewrite_tac [addressTheory.word_arith_lemma2,GSYM word_sub_def] \\ fs [])
+
+val minus_def = Define `minus m n = m - n:num`;
+
+val list_copy_bwd_def = Define `
+  list_copy_bwd n xp xs yp ys =
+    if n <= xp +1 /\ xp < LENGTH xs /\ n <= yp+1 /\ yp < LENGTH ys then
+      if n = 0 then SOME ys else
+      if n = 1 then SOME (LUPDATE (EL xp xs) yp ys) else
+      if n = 2 then SOME ((LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys) else
+      if n = 3 then SOME ((LUPDATE (EL (minus xp 2) xs) (minus yp 2) o
+                           LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys) else
+        list_copy_bwd (n-4) (minus xp 4) xs (minus yp 4)
+                         ((LUPDATE (EL (minus xp 3) xs) (minus yp 3) o
+                           LUPDATE (EL (minus xp 2) xs) (minus yp 2) o
+                           LUPDATE (EL (minus xp 1) xs) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) xs) (minus yp 0)) ys)
+    else NONE` |> REWRITE_RULE [minus_def]
+
+val list_copy_bwd_alias_def = Define `
+  list_copy_bwd_alias n xp yp ys =
+    if n <= xp +1 /\ xp < LENGTH ys /\ n <= yp+1 /\ yp < LENGTH ys then
+      if n = 0 then SOME ys else
+      if n = 1 then SOME (LUPDATE (EL xp ys) yp ys) else
+      if n = 2 then SOME ((LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) ys) (minus yp 0)) ys) else
+      if n = 3 then SOME ((LUPDATE (EL (minus xp 2) ys) (minus yp 2) o
+                           LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) ys) (minus yp 0)) ys) else
+        list_copy_bwd_alias (n-4) (minus xp 4) (minus yp 4)
+                         ((LUPDATE (EL (minus xp 3) ys) (minus yp 3) o
+                           LUPDATE (EL (minus xp 2) ys) (minus yp 2) o
+                           LUPDATE (EL (minus xp 1) ys) (minus yp 1) o
+                           LUPDATE (EL (minus xp 0) ys) (minus yp 0)) ys)
+    else NONE` |> REWRITE_RULE [minus_def];
+
+val word_copy_bwd_thm = store_thm("word_copy_bwd_thm",
+  ``!n xp yp ys ys1 m.
+      memory_rel c be (refs |+ (p2,ByteArray fl_ys ys))
+        sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+      list_copy_bwd n xp xs yp ys = SOME ys1 /\
+      good_dimindex (:'a) /\ n < dimword (:'a) /\ p1 <> p2 ==>
+      ?w1 (w2:'a word) a1 a2 m1.
+        v1 = Word w1 /\ v2 = Word w2 /\
+        get_real_addr c st w1 = SOME a1 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_bwd be (n2w n) (a1 + bytes_in_word + n2w xp)
+          (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)``,
+  completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ once_rewrite_tac [list_copy_bwd_def]
+  \\ rpt strip_tac
+  \\ `4 < dimword (:'a)` by fs [good_dimindex_def,dimword_def]
+  \\ Cases_on `n=0` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=1` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE]
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac) \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ Cases_on `n=2` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+    \\ fs []
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ Cases_on `n=3` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+    \\ fs []
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) xs`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ drule memory_rel_swap \\ strip_tac)
+  \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+  \\ fs []
+  \\ drule memory_rel_swap \\ strip_tac
+  \\ rpt_drule memory_rel_RefPtr_IMP \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp`,`EL xp xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-3`,`EL (xp-3) xs`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ drule memory_rel_swap \\ strip_tac
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs []
+  \\ IF_CASES_TAC
+  >-
+    (`n-4 = 0` by fs[]>>
+    fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    rw[])
+  \\ IF_CASES_TAC
+  >-
+    (`n-4 = 0` by fs[]>>
+    fs[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    rw[])
+  \\ first_x_assum match_mp_tac
+  \\ fs [] \\ asm_exists_tac \\ fs []);
+
+val word_copy_bwd_alias_thm = store_thm("word_copy_bwd_alias_thm",
+  ``!n xp yp ys ys1 m.
+      memory_rel c be (refs |+ (p2,ByteArray fl_ys ys))
+        sp st m dm ((RefPtr p2,v2)::vars) /\
+      list_copy_bwd_alias n xp yp ys = SOME ys1 /\
+      good_dimindex (:'a) /\ n < dimword (:'a) ==>
+      ?(w2:'a word) a2 m1.
+        v2 = Word w2 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_bwd be (n2w n) (a2 + bytes_in_word + n2w xp)
+          (a2 + bytes_in_word + n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p2,v2)::vars)``,
+  completeInduct_on `n` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ once_rewrite_tac [list_copy_bwd_alias_def]
+  \\ rpt strip_tac
+  \\ `4 < dimword (:'a)` by fs [good_dimindex_def,dimword_def]
+  \\ Cases_on `n=0` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=1` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE])
+  \\ Cases_on `n=2` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+    \\ fs [] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
+    \\ strip_tac \\ rfs [])
+  \\ Cases_on `n=3` \\ fs []
+  THEN1
+   (once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+    \\ rpt_drule memory_rel_ByteArray_IMP
+    \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+    \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+    \\ fs [] \\ rveq \\ fs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
+    \\ strip_tac \\ rfs []
+    \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+    \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) ys`] mp_tac)
+    \\ strip_tac \\ rfs [])
+  \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [] \\ rw [] \\ fs [WORD_LO]
+  \\ rpt_drule memory_rel_ByteArray_IMP
+  \\ strip_tac \\ rfs [FLOOKUP_UPDATE,addressTheory.word_arith_lemma1]
+  \\ rewrite_tac [addressTheory.word_arith_lemma4,GSYM word_sub_def]
+  \\ fs [] \\ rveq \\ fs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp`,`EL xp ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-1`,`EL (xp-1) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-2`,`EL (xp-2) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rpt_drule memory_rel_ByteArray_IMP_store \\ fs [FLOOKUP_UPDATE]
+  \\ disch_then (qspecl_then [`yp-3`,`EL (xp-3) ys`] mp_tac)
+  \\ strip_tac \\ rfs []
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ Cases_on`xp < 4`
+  >-
+    (`n-4 = 0` by fs[]>>
+    simp[]>>
+    simp[Once word_copy_bwd_def,WORD_LO]>>
+    fs[Once list_copy_bwd_alias_def]>>rw[])
+  \\ Cases_on`yp < 4`
+  >-
+    (`n-4 = 0` by fs[]>>
+    simp[]>>
+    simp[Once word_copy_bwd_def,WORD_LO,Once list_copy_bwd_def]>>
+    fs[Once list_copy_bwd_alias_def]>>rw[])
+  \\ simp[]
+  \\ first_x_assum match_mp_tac
+  \\ fs [] \\ asm_exists_tac \\ fs []);
+
+(* copy array *)
+
+val list_copy_def = Define `
+  list_copy n xp xs yp ys =
+    if yp <= xp ∨ n+xp = 0
+    then list_copy_fwd n xp xs yp ys
+    else list_copy_bwd n (xp+n-1) xs (yp+n-1) ys`
+
+val list_copy_alias_def = Define `
+  list_copy_alias n xp yp ys =
+    if yp <= xp ∨ n+xp = 0
+    then list_copy_fwd_alias n xp yp ys
+    else list_copy_bwd_alias n (xp+n-1) (yp+n-1) ys`
+
+val list_copy_fwd_eq = Q.prove(`
+  ∀n xp xs yp ys.
+  xp + n <= LENGTH xs ∧
+  yp + n <= LENGTH ys ⇒
+  list_copy_fwd n xp xs yp ys =
+    SOME
+      (TAKE yp ys ++
+      TAKE n (DROP xp xs) ++
+      DROP (n+yp) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_fwd_ind")>>rw[]>>
+  simp[Once list_copy_fwd_def]>>
+  rpt(IF_CASES_TAC)>>fs[]>>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP])>>
+  simp[EL_LUPDATE]>>
+  rw[]>>
+  Cases_on`x=yp`>>fs[]);
+
+val list_copy_bwd_eq = Q.prove(`
+  ∀n xp xs yp ys.
+  n ≤ xp+1 ∧ xp < LENGTH xs ∧
+  n ≤ yp+1 ∧ yp < LENGTH ys ⇒
+  list_copy_bwd n xp xs yp ys =
+    SOME
+      (TAKE (yp+1-n) ys ++
+      TAKE n (DROP (xp+1-n) xs) ++
+      DROP (yp+1) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_bwd_ind")>>rw[]>>
+  simp[Once list_copy_bwd_def]>>
+  fs[minus_def]>>
+  reverse(rpt(IF_CASES_TAC))>>fs[]
+  >-
+    (last_x_assum kall_tac>>
+    Cases_on`yp = 3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    Cases_on`xp=3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    simp[]>>
+    rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+    rpt(IF_CASES_TAC>>
+    simp[EL_TAKE,EL_DROP])>>
+    simp[EL_LUPDATE]>>
+    rpt(IF_CASES_TAC)>>
+    simp[]>>
+    Cases_on`x=yp`>>fs[])
+  >>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP]));
+
+val list_copy_thm = store_thm("list_copy_thm",
+  ``!xs ys xp yp n ys1.
+      copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 ==>
+      list_copy n xp xs yp ys = SOME ys1``,
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]
+  >-
+    (match_mp_tac list_copy_fwd_eq>>
+    simp[])
+  >-
+    simp[Once list_copy_fwd_def]
+  >>
+    Q.ISPECL_THEN [`n`,`n+xp-1`,`xs`,`n+yp-1`,`ys`] mp_tac list_copy_bwd_eq>>
+    impl_tac >-
+      simp[]>>
+    rw[]>>
+    simp[]);
+
+(* see more interesting theorem below *)
+
+val list_copy_fwd_alias_eq = Q.prove(`
+  ∀n xp yp ys.
+  yp ≤ xp ∧
+  xp + n <= LENGTH ys ∧
+  yp + n <= LENGTH ys ⇒
+  list_copy_fwd_alias n xp yp ys =
+    SOME
+      (TAKE yp ys ++
+      TAKE n (DROP xp ys) ++
+      DROP (n+yp) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_fwd_alias_ind")>>rw[]>>
+  simp[Once list_copy_fwd_alias_def]>>
+  rpt(IF_CASES_TAC)>>fs[]>>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP])>>
+  simp[EL_LUPDATE]>>
+  rw[]>>
+  Cases_on`x=yp`>>fs[]);
+
+val list_copy_bwd_alias_eq = Q.prove(`
+  ∀n xp yp ys.
+  xp <= yp ∧
+  n ≤ xp +1 ∧ xp < LENGTH ys ∧
+  n ≤ yp +1 ∧ yp < LENGTH ys ⇒
+  list_copy_bwd_alias n xp yp ys =
+    SOME
+      (TAKE (yp+1-n) ys ++
+      TAKE n (DROP (xp+1-n) ys) ++
+      DROP (yp+1) ys)`,
+  ho_match_mp_tac (fetch "-""list_copy_bwd_alias_ind")>>rw[]>>
+  simp[Once list_copy_bwd_alias_def]>>
+  fs[minus_def]>>
+  reverse(rpt(IF_CASES_TAC))>>fs[]
+  >-
+    (last_x_assum kall_tac>>
+    Cases_on`yp = 3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    Cases_on`xp=3`
+    >-
+      (`n=4` by fs[]>>
+      simp[]>>
+      rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+      rpt(IF_CASES_TAC>>
+      simp[EL_TAKE,EL_DROP]))>>
+    simp[]>>
+    rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+    rpt(IF_CASES_TAC>>
+    simp[EL_TAKE,EL_DROP])>>
+    simp[EL_LUPDATE]>>
+    rpt(IF_CASES_TAC)>>
+    simp[]>>
+    Cases_on`x=yp`>>fs[])
+  >>
+  rw[LIST_EQ_REWRITE,EL_LUPDATE,EL_APPEND_EQN]>>
+  rpt(IF_CASES_TAC>>
+  simp[EL_TAKE,EL_DROP]));
+
+val list_copy_alias_thm = store_thm("list_copy_alias_thm",
+  ``!ys xp yp n ys1.
+      copy_array (ys, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 ==>
+      list_copy_alias n xp yp ys = SOME ys1``,
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_alias_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]
+  >-
+    (match_mp_tac list_copy_fwd_alias_eq>>simp[])
+  >-
+    simp[Once list_copy_fwd_alias_def]
+  >>
+    (Q.ISPECL_THEN [`n`,`n+xp-1`,`n+yp-1`,`ys`] mp_tac list_copy_bwd_alias_eq>>
+    impl_tac >-
+      simp[]>>
+    rw[]));
+
+val copy_array_NONE_IMP = store_thm("copy_array_NONE_IMP",
+  ``!xs ys xp n.
+      copy_array (xs, &xp) (& n) NONE = SOME ys ==>
+      list_copy_fwd n xp xs 0 (REPLICATE n 0w) = SOME ys``,
+  rw[semanticPrimitivesTheory.copy_array_def,list_copy_alias_def]>>
+  fs[integerTheory.INT_ADD,integerTheory.INT_ABS_NUM]>>
+  Q.ISPECL_THEN [`n`,`xp`,`xs`,`0`,`REPLICATE n 0w`] mp_tac list_copy_fwd_eq>>
+  simp[DROP_LENGTH_NIL_rwt]);
+
+(*
+
+val xs = EVAL ``GENLIST I 20`` |> concl |> rand
+
+fun cross [] xs = []
+  | cross (y::ys) xs = map (fn x => (y,x)) xs @ cross ys xs
+
+val nums = xs |> listSyntax.dest_list |> fst
+
+val inputs = cross nums (cross nums nums)
+
+fun test (n1,(n2,n3)) =
+  (ISPEC xs list_copy_alias_thm
+   |> Q.SPECL [`1`,`4`,`18`] |> SPEC_ALL
+   |> CONV_RULE (RATOR_CONV EVAL THENC RAND_CONV EVAL)
+   |> GEN_ALL |> SIMP_RULE std_ss [] |> concl) = T
+
+val (n1,(n2,n3)) = first (not o test) inputs
+
+*)
+
+val word_copy_array_def = Define `
+  word_copy_array be n a a1 b b1 (m:'a word -> 'a word_loc) dm =
+    if b1 <=+ a1 then
+      word_copy_fwd be n (a+a1) (b+b1) m dm
+    else
+      word_copy_bwd be n (a+a1+n-1w) (b+b1+n-1w) m dm`
+
+val word_copy_bwd_0 = prove(
+  ``good_dimindex (:'a) ==>
+    word_copy_bwd be (0w:'a word) a1 a2 m dm = SOME m``,
+  rw [good_dimindex_def]
+  \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [dimword_def,WORD_LO]);
+
+val word_copy_array_thm = store_thm("word_copy_array_thm",
+  ``!n xp yp xs ys ys1 m.
+      memory_rel c be refs sp st m dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars) /\
+      FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+      FLOOKUP refs p2 = SOME (ByteArray fl_ys ys) /\
+      copy_array (xs, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
+      good_dimindex (:'a) /\ p1 <> p2 ==>
+      ?w1 (w2:'a word) a1 a2 m1.
+        v1 = Word w1 /\ v2 = Word w2 /\
+        get_real_addr c st w1 = SOME a1 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_array be (n2w n) (a1 + bytes_in_word) (n2w xp)
+          (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)``,
+  rw [] \\ drule list_copy_thm
+  \\ fs [list_copy_def]
+  \\ `n + xp <= LENGTH xs /\ n + yp <= LENGTH ys` by
+     (fs [semanticPrimitivesTheory.copy_array_def,NOT_LESS]
+      \\ intLib.COOPER_TAC)
+  \\ `LENGTH xs < dimword (:'a) /\ LENGTH ys < dimword (:'a)` by
+   (rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
+    \\ drule memory_rel_swap \\ strip_tac
+    \\ rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+  \\ `memory_rel c be (refs |+ (p2,ByteArray fl_ys ys)) sp st m dm
+        ((RefPtr p1,v1)::(RefPtr p2,v2)::vars)` by
+   (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
+    \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC
+  >-
+    (fs [] >> rw[]>>
+    rpt_drule word_copy_fwd_thm>> rw[]>>
+    fs [word_copy_array_def,WORD_LS] \\ rfs []>>
+    IF_CASES_TAC>> fs[]>>
+    fs[word_copy_bwd_0,Once list_copy_fwd_def])
+  \\ rw[] \\ fs[]
+  \\ (rpt_drule word_copy_bwd_thm
+  \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
+  \\ rewrite_tac [GSYM WORD_ADD_ASSOC]
+  \\ qsuff_tac `(n2w n + (n2w xp + -1w)) = n2w (n + xp − 1) :'a word /\
+                (n2w n + (n2w yp + -1w)) = n2w (n + yp − 1) :'a word`
+  THEN1 (strip_tac \\ asm_rewrite_tac [] \\ fs [])
+  \\ fs [WORD_ADD_ASSOC,word_add_n2w]
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs []));
+
+val word_copy_array_alias_thm = store_thm("word_copy_array_alias_thm",
+  ``!n xp yp ys ys1 m.
+      memory_rel c be refs sp st m dm ((RefPtr p2,v2)::vars) /\
+      FLOOKUP refs p2 = SOME (ByteArray fl_ys ys) /\
+      copy_array (ys, &xp) (& n) (SOME (ys, &yp)) = SOME ys1 /\
+      good_dimindex (:'a) ==>
+      ?(w2:'a word) a2 m1.
+        v2 = Word w2 /\
+        get_real_addr c st w2 = SOME a2 /\
+        word_copy_array be (n2w n) (a2 + bytes_in_word) (n2w xp)
+          (a2 + bytes_in_word) (n2w yp) m dm = SOME m1 /\
+        memory_rel c be  (refs |+ (p2,ByteArray fl_ys ys1))
+          sp st m1 dm ((RefPtr p2,v2)::vars)``,
+  rw [] \\ drule list_copy_alias_thm
+  \\ fs [list_copy_alias_def]
+  \\ `n + xp <= LENGTH ys /\ n + yp <= LENGTH ys` by
+     (fs [semanticPrimitivesTheory.copy_array_def,NOT_LESS]
+      \\ intLib.COOPER_TAC)
+  \\ `LENGTH ys < dimword (:'a)` by
+   (rpt_drule memory_rel_ByteArray_IMP \\ strip_tac
+    \\ fs [good_dimindex_def,dimword_def] \\ rfs [])
+  \\ `memory_rel c be (refs |+ (p2,ByteArray fl_ys ys)) sp st m dm
+        ((RefPtr p2,v2)::vars)` by
+   (qsuff_tac `refs |+ (p2,ByteArray fl_ys ys) = refs` \\ fs []
+    \\ fs [fmap_EXT,EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+    \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [])
+  \\ IF_CASES_TAC
+  >-
+    (fs [] >> rw[]>>
+    rpt_drule word_copy_fwd_alias_thm>> rw[]>>
+    fs [word_copy_array_def,WORD_LS] \\ rfs []>>
+    IF_CASES_TAC>> fs[]>>
+    fs[word_copy_bwd_0,Once list_copy_fwd_alias_def])
+  \\ rw[] \\ fs[]
+  \\ (rpt_drule word_copy_bwd_alias_thm
+  \\ strip_tac \\ fs [word_copy_array_def,WORD_LS] \\ rfs []
+  \\ rewrite_tac [GSYM WORD_ADD_ASSOC]
+  \\ qsuff_tac `(n2w n + (n2w xp + -1w)) = n2w (n + xp − 1) :'a word /\
+                (n2w n + (n2w yp + -1w)) = n2w (n + yp − 1) :'a word`
+  THEN1 (strip_tac \\ asm_rewrite_tac [] \\ fs [])
+  \\ fs [WORD_ADD_ASSOC,word_add_n2w]
+  \\ rewrite_tac [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs []));
+
+val word_of_byte_0 = store_thm("word_of_byte_0",
+  ``word_of_byte 0w = 0w``,
+  rw [word_of_byte_def]);
+
+val last_bytes_0 = store_thm("last_bytes_0",
+  ``!nb a. last_bytes nb 0w a 0w be = 0w``,
+  Induct_on `nb`
+  \\ once_rewrite_tac [last_bytes_def] \\ fs [] \\ rw []
+  \\ fs [set_byte_def]
+  \\ fs [word_slice_alt_def]
+  \\ fs [word_0,word_or_def,fcpTheory.FCP_BETA,fcpTheory.CART_EQ]);
+
+val LUPDATE_REPLICATE = store_thm("LUPDATE_REPLICATE[simp]",
+  ``!n a. LUPDATE x a (REPLICATE n x) = REPLICATE n x``,
+  Induct \\ rewrite_tac [REPLICATE,LUPDATE_def]
+  \\ Cases \\ asm_rewrite_tac [REPLICATE,LUPDATE_def]);
+
+val memory_rel_copy_array_NONE_lemma =
+  memory_rel_RefByte_alt
+  |> Q.INST [`w`|->`0w`]
+  |> SIMP_RULE (srw_ss()) [w2w_def,w2n_n2w,word_of_byte_0,last_bytes_0,
+       LET_THM,LUPDATE_REPLICATE]
+
+val memory_rel_copy_array_NONE = store_thm("memory_rel_copy_array_NONE",
+  ``memory_rel c be refs sp st m dm ((RefPtr p1,v1:'a word_loc)::vars) ∧
+    new ∉ FDOM refs ∧
+    FLOOKUP refs p1 = SOME (ByteArray fl_xs xs) /\
+    copy_array (xs, &xp) (& n) NONE = SOME ys /\
+    byte_len (:α) n < sp ∧ byte_len (:α) n < 2 ** (dimindex (:α) − 4) ∧
+    byte_len (:α) n < 2 ** c.len_size ∧ good_dimindex (:α) ⇒
+    ∃free curr a1 a2 m1 m2 w1 w2.
+      v1 = Word w1 /\
+      get_real_addr c st w1 = SOME a1 /\
+      make_ptr c (free - curr) 0w (byte_len (:α) n) = Word w2 /\
+      get_real_addr c st w2 = SOME a2 /\
+      FLOOKUP st NextFree = SOME (Word free) ∧
+      FLOOKUP st CurrHeap = SOME (Word curr) ∧
+      store_list free
+        (Word (make_byte_header c fl n)::
+             REPLICATE (byte_len (:α) n) (Word 0w)) m dm = SOME m1 /\
+      word_copy_fwd be (n2w n) (a1 + bytes_in_word + n2w xp)
+        (a2 + bytes_in_word) m1 dm = SOME m2 /\
+      memory_rel c be (refs |+ (new,ByteArray fl ys))
+       (sp − (byte_len (:α) n + 1))
+       (st |+ (NextFree,
+               Word (free + bytes_in_word * n2w (byte_len (:α) n + 1)))) m2 dm
+       ((RefPtr new,Word w2)::vars)``,
+  rw [] \\ rpt_drule memory_rel_copy_array_NONE_lemma
+  \\ disch_then (qspec_then `fl` mp_tac) \\ strip_tac
+  \\ fs []
+  \\ drule memory_rel_swap \\ strip_tac
+  \\ drule copy_array_NONE_IMP \\ strip_tac
+  \\ rpt_drule word_copy_fwd_thm
+  \\ impl_tac THEN1
+   (rfs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X]
+    \\ fs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X]
+    \\ CCONTR_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ fs [get_real_addr_def,FLOOKUP_UPDATE] \\ rfs []
+  \\ pop_assum mp_tac
+  \\ match_mp_tac memory_rel_rearrange \\ fs []);
 
 val _ = export_theory();

@@ -92,6 +92,14 @@ val v = mk_var("v",v_ty)
 val env_tm = mk_var("env",venvironment)
 val cl_env_tm = mk_var("cl_env",venvironment)
 val state_refs_tm = prim_mk_const{Name="state_refs",Thy="semanticPrimitives"}
+fun mk_tid name =
+  optionSyntax.mk_some
+    (astSyntax.mk_Short
+      (stringSyntax.fromMLstring name))
+val true_tid = mk_tid "true"
+val false_tid = mk_tid "false"
+val true_exp_tm = (Eval_Val_BOOL_TRUE |> concl |> rator |> rand)
+val false_exp_tm = (Eval_Val_BOOL_FALSE |> concl |> rator |> rand)
 
 fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
@@ -1864,6 +1872,16 @@ fun to_pattern tm =
       astSyntax.mk_Pcon(name, args)
     end
   else if is_Lit tm then mk_Plit (rand tm)
+  (* can use this for translating pmatch pattern matches of Booleans
+     but it requires assuming "true" and "false" are bound correctly
+     in the constructor environment. this assumption probably needs to be added
+     manually as necessary to asms in prove_EvalPatRel.
+     (alternatively, hol2deep could translate T and F directly under that assumption?)
+  else if aconv tm true_exp_tm then
+    astSyntax.mk_Pcon(true_tid,listSyntax.mk_nil pat_ty)
+  else if aconv tm false_exp_tm then
+    astSyntax.mk_Pcon(false_tid,listSyntax.mk_nil pat_ty)
+  *)
   else tm
 
 val pmatch_hol2deep_fail = ref T;
@@ -2321,6 +2339,7 @@ val builtin_binops =
 val builtin_monops =
   [Eval_implode,
    Eval_strlen,
+   Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
    Eval_length,

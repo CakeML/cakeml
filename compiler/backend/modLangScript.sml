@@ -44,6 +44,11 @@ val _ = Datatype `
   (* Word/integer conversions *)
   | WordFromInt word_size
   | WordToInt word_size
+  (* string/bytearray conversions *)
+  | CopyStrStr
+  | CopyStrAw8
+  | CopyAw8Str
+  | CopyAw8Aw8
   (* Char operations *)
   | Ord
   | Chr
@@ -52,6 +57,7 @@ val _ = Datatype `
   | Implode
   | Strsub
   | Strlen
+  | Strcat
   (* Vector operations *)
   | VfromList
   | Vsub
