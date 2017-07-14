@@ -2283,14 +2283,6 @@ val _ = export_rewrites["line_len_def"];
 
 (* annotated section length *)
 
-val sec_length_def = Define `
-  (sec_length [] k = k) /\
-  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
-
-val sec_length_ind = theorem"sec_length_ind";
-
 val sec_length_add = Q.store_thm("sec_length_add",
   `∀ls n m. sec_length ls (n+m) = sec_length ls n + m`,
   ho_match_mp_tac sec_length_ind >>

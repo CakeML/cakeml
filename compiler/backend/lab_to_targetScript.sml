@@ -192,22 +192,28 @@ val pad_code_MAP = Q.store_thm("pad_code_MAP",
   simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
   \\ Cases \\ simp[pad_code_def]);
 
+val sec_length_def = Define `
+  (sec_length [] k = k) /\
+  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
+  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
+  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
+
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c ffis sec_list =
+  remove_labels_loop clock c pos init_labs ffis sec_list =
     (* compute labels *)
-    let labs = compute_labels_alt 0 sec_list LN in
+    let labs = compute_labels_alt pos sec_list init_labs in
     (* update encodings and lengths (but not label lengths) *)
-    let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
+    let (sec_list,done) = enc_secs_again pos labs ffis c.encode sec_list in
       (* done ==> labs are still fine *)
       if done then
         (* adjust label lengths *)
-        let sec_list = upd_lab_len 0 sec_list in
+        let sec_list = upd_lab_len pos sec_list in
         (* compute labels again *)
-        let labs = compute_labels_alt 0 sec_list LN in
+        let labs = compute_labels_alt pos sec_list init_labs in
         (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs ffis c.encode sec_list in
+        let (sec_list,done) = enc_secs_again pos labs ffis c.encode sec_list in
         (* move label padding into instructions *)
         let sec_list = pad_code (c.encode (Inst Skip)) sec_list in
         (* it ought to be impossible for done to be false here *)
@@ -217,17 +223,17 @@ val remove_labels_loop_def = Define `
       else
         (* repeat *)
         if clock = 0:num then NONE else
-          remove_labels_loop (clock-1) c ffis sec_list`
+          remove_labels_loop (clock-1) c pos init_labs ffis sec_list`
 
 val remove_labels_def = Define `
-  remove_labels init_clock c ffis sec_list =
+  remove_labels init_clock c pos labs ffis sec_list =
     (* Here init_clock puts an upper limit on the number of times the
        lengths can be adjusted. In many cases, clock = 0 should be
        enough. If this were to hit the clock limit for large values of
        init_clock, then something is badly wrong. Worth testing with
        the clock limit set to low values to see how many iterations
        are used. *)
-    remove_labels_loop init_clock c ffis (enc_sec_list c.encode sec_list)`;
+    remove_labels_loop init_clock c pos labs ffis (enc_sec_list c.encode sec_list)`;
 
 (* code extraction *)
 
@@ -253,8 +259,10 @@ val prog_to_bytes_MAP = Q.store_thm("prog_to_bytes_MAP",
 
 val _ = Datatype`
   config = <| labels : num num_map num_map
+            ; pos : num
             ; asm_conf : 'a asm_config
             ; init_clock : num
+            ; ffi_names : string list option
             |>`;
 
 val list_add_if_fresh_def = Define `
@@ -273,10 +281,20 @@ val find_ffi_names_def = Define `
 
 val compile_lab_def = Define `
   compile_lab c sec_list =
-    let ffis = find_ffi_names sec_list in
-      case remove_labels c.init_clock c.asm_conf ffis sec_list of
-      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,ffis)
-      | NONE => NONE`;
+    let current_ffis = find_ffi_names sec_list in
+    let (ffis,ffis_ok) =
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
+    in
+    if ffis_ok then
+      case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
+      | SOME (sec_list,l1) =>
+          SOME (prog_to_bytes sec_list,ffis,
+                c with <| labels := l1;
+                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
+                          ffi_names := SOME ffis
+                        |>)
+      | NONE => NONE
+    else NONE`;
 
 (* compile labLang *)
 
