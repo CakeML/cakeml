@@ -490,8 +490,7 @@ val state_rel_def = Define `
     (!l1 l2 x.
        (lab_lookup l1 l2 labs = SOME x) ==> (1w && (p + n2w x)) = 0w) /\
 
-    (mc_conf.ffi_names = find_ffi_names s1.code) /\
-    (*Correct version: (list_subset (find_ffi_names s1.code) mc_conf.ffi_names) /\*)
+    (list_subset (find_ffi_names s1.code) mc_conf.ffi_names) /\
     (!name.
        has_io_name name s1.code ==>
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) IN mc_conf.prog_addresses) /\
@@ -837,6 +836,29 @@ val IMP_bytes_in_memory_Halt = Q.prove(
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
+  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND]);
+
+val IMP_bytes_in_memory_Install = Q.prove(
+  `code_similar ^s1.code code2 /\
+    all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm Install c l n)) ==>
+    ?tt enc.
+      (tt = 0w - n2w (pos_val s1.pc 0 code2 + 2 * ffi_offset)) /\
+      (enc = mc_conf.target.config.encode (Jump tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).target.config`,
+  fs[asm_fetch_def]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
+  \\ fs[line_ok_def,enc_with_nop_thm] \\ srw_tac[][]
+  \\ fs[lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
@@ -1327,9 +1349,6 @@ val Inst_lemma = Q.prove(
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
     >- metis_tac[]
-    >- metis_tac[]
-    >- metis_tac[]
-    >- metis_tac[]
     >-
       (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
       fs[asmSemTheory.read_mem_def]>>
@@ -1361,12 +1380,6 @@ val Inst_lemma = Q.prove(
          (simp[APPLY_UPDATE_THM]>>
          res_tac>>fs[]>>
          rpt(IF_CASES_TAC>>fs[]))
-       >-
-         metis_tac[]
-       >-
-         metis_tac[]
-       >-
-         metis_tac[]
        >-
          metis_tac[]
        >-
@@ -1409,12 +1422,6 @@ val Inst_lemma = Q.prove(
        >-
          metis_tac[]
        >-
-         metis_tac[]
-       >-
-         metis_tac[]
-       >-
-         metis_tac[]
-       >-
          (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
          IF_CASES_TAC>>fs[]
          >-
@@ -1446,9 +1453,6 @@ val Inst_lemma = Q.prove(
     >-
       (fs[APPLY_UPDATE_THM]>>
       IF_CASES_TAC>>fs[])
-    >- metis_tac[]
-    >- metis_tac[]
-    >- metis_tac[]
     >- metis_tac[]
     >-
       (simp[APPLY_UPDATE_THM]>>
@@ -2077,8 +2081,54 @@ val compile_correct = Q.prove(
     (qpat_x_assum`_ =(res,s2)` mp_tac >>
     ntac 10 (TOP_CASE_TAC >> fs[])>>
     strip_tac >> fs[]>>
+    mp_tac IMP_bytes_in_memory_Install>>
+    fs[]>>impl_tac>-
+      fs[state_rel_def]>>
+    strip_tac>>
+    pop_assum mp_tac >>
+    qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac>>
+    (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
+         asm_step_IMP_evaluate_step) \\ full_simp_tac(srw_ss())[]>>
+    impl_tac>-
+      (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF]
+      \\ full_simp_tac(srw_ss())[asm_step_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+            asmSemTheory.upd_pc_def]
+      \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+            asmSemTheory.upd_pc_def,asm_def])>>
+    strip_tac
+    \\ `mc_conf.target.get_pc ms2 = mc_conf.ccache_pc` by
+     (
+      fs[Abbr`jj`,asm_def]>>
+      fs[backend_correct_def,target_ok_def,target_state_rel_def]>>
+      fs[jump_to_offset_def,state_rel_def]>>
+      metis_tac[GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+           WORD_ADD_SUB])
+    \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by
+      (fs[state_rel_def]>>rfs[])
+    \\ `(t1.regs mc_conf.ptr_reg = c') /\
+        (t1.regs mc_conf.len_reg = c'')` by
+      (fs[state_rel_def]>>
+      Q.PAT_X_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
+           (fn th =>
+          MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+      \\ Q.PAT_X_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+      \\ full_simp_tac(srw_ss())[word_loc_val_def])
+    (* NOTE: This is the wrong choice, but just made to see what happens *)
+    \\ first_x_assum (qspec_then`s1.clock` assume_tac)
+    \\ qexists_tac `l'` >>simp[] >>
+    fs[]>>
+    simp[shift_interfer_def]>>
     simp[Once evaluate_def]>>
-    (* Need to show a version of IMP_bytes_in_memory_Halt *)
+    IF_CASES_TAC>-
+      fs[state_rel_def]>>
+    IF_CASES_TAC>-
+      cheat >> (* maybe need this assumption? halt_pc ≠ cache_pc *)
+    simp[apply_oracle_def]>>
     cheat)
   THEN1 (* Halt *)
    (srw_tac[][]
