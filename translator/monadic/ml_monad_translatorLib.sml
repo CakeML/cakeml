@@ -887,7 +887,7 @@ fun m2deep tm =
       fun subst_expr (eval_th, th) = let
 	  val (param, trans_param) = retrieve_params_exps_pair eval_th
 	  val expr_var = Redblackmap.find (params_exps_map, param)
-      in Thm.INST [expr_var |-> trans_param] th end
+      in Thm.INST [expr_var |-> trans_param] th end handle NotFound => th
       val th = List.foldr subst_expr th eval_concls
 
       (* Remove the Eval assumptions *)
