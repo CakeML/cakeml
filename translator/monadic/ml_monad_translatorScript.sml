@@ -83,6 +83,9 @@ val with_same_clock = Q.store_thm("with_same_clock",
   `(s with clock := s.clock) = s`,
   simp[state_component_equality]);
 
+(* REF_REL *)
+val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
+
 (* REFS_PRED *)
 val REFS_PRED_def = Define `REFS_PRED H refs p s = (H refs * GC) (st2heap p s)`;
 val VALID_REFS_PRED_def = Define `VALID_REFS_PRED H = ?(s : unit state) p refs. REFS_PRED H refs p s`;
@@ -593,6 +596,11 @@ rw[] >>
 IMP_RES_TAC st2heap_CELL_MEM >>
 IMP_RES_TAC store2heap_IN_unique_key);
 
+val evaluate_unique_result = Q.store_thm("evaluate_unique_result",
+`!expr env s s1 s2 res1 res2. evaluate F env s expr (s1, res1) ==>
+(evaluate F env s expr (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
+rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
+
 (*
  * Definition of EvalM
  *)
@@ -1036,14 +1044,156 @@ val EvalM_PMATCH = Q.store_thm("EvalM_PMATCH",
   fs[PMATCH_def,PMATCH_ROW_def] \\
   asm_exists_tac \\ fs[]);
 
+(* Exception handling *)
+val EvalM_handle_MODULE = Q.store_thm("EvalM_handle_MODULE",
+ `!cons_name module_name ECons TYPE EXN_TYPE handle_fun H n x1 exp1 x2 exp2 env a.
+  (!s e s1. x1 s = (Failure (ECons e), s1) ==> handle_fun x1 x2 s = x2 e s1) ==>
+  (!s. (!e s1. x1 s <> (Failure (ECons e), s1)) ==> handle_fun x1 x2 s = x1 s) ==>
+  (!e ev. EXN_TYPE (ECons e) ev ==>
+   ?ev'.
+   ev = Conv (SOME (cons_name,TypeExn (Long module_name (Short cons_name)))) [ev'] /\ 
+   TYPE e ev') ==>
+  (!e ev. EXN_TYPE e ev ==>
+   (!e'. e <> ECons e') ==>
+   ?ev' cons_name_1.
+   ev = Conv (SOME (cons_name_1,TypeExn (Long module_name (Short cons_name_1)))) [ev'] /\
+   cons_name_1 <> cons_name) ==>
+  lookup_cons cons_name env = SOME (1,TypeExn (Long module_name (Short cons_name))) ==>
+  EvalM env exp1 (MONAD a EXN_TYPE x1) H ==>
+  (∀t v.
+     TYPE t v ==>
+     EvalM (write n v env) exp2 (MONAD a EXN_TYPE (x2 t)) H) ==>
+  EvalM env (Handle exp1 [(Pcon (SOME (Short cons_name)) [Pvar n],exp2)])
+    (MONAD a EXN_TYPE (handle_fun x1 x2)) H`,
+  rw[EvalM_def]
+  \\ rw[Once evaluate_cases]
+  \\ qpat_x_assum `!s p refs. REFS_PRED H refs p s ==> P` IMP_RES_TAC
+  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
+  \\ rw[]
+  \\ rw[MONAD_def]
+  \\ Cases_on `res` >> fs[MONAD_def]
+  >> Cases_on `x1 refs` >> fs[]
+  >> Cases_on `q` >> fs[]
+  >> Cases_on `e` >> fs[]
+  \\ rw[]
+  \\ Cases_on `?e. b = ECons e`
+  >-(
+      rw[]
+      \\ last_x_assum(qspecl_then[`refs`, `e`, `r`] IMP_RES_TAC)
+      \\ last_x_assum(fn x => ALL_TAC)
+      \\ rw[]
+      \\ rw[Once evaluate_cases]
+      \\ last_x_assum IMP_RES_TAC
+      \\ last_x_assum(fn x => ALL_TAC)
+      \\ rw[]
+      \\ fs[pat_bindings_def, pmatch_def]
+      \\ fs[lookup_cons_def, same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
+      \\ IMP_RES_TAC REFS_PRED_FRAME_imp
+      \\ qpat_x_assum `!t v. TYPE t v ==> P` IMP_RES_TAC
+      \\ first_x_assum(fn x => ALL_TAC)
+      \\ first_x_assum(qspec_then `[]` STRIP_ASSUME_TAC)
+      \\ fs[with_same_refs]
+      \\ fs[write_def]
+      \\ first_x_assum(fn x => simp[MATCH_MP evaluate_unique_result x]) (**)
+      \\ Cases_on `x2 e r` >> fs[]
+      \\ Cases_on `q` >> fs[]
+      \\ Cases_on `res` >> fs[]
+      >> IMP_RES_TAC REFS_PRED_FRAME_trans
+      >> Cases_on `e'` >> fs[])
+  \\ rw[]
+  \\ last_x_assum(fn x => ALL_TAC)
+  \\ last_x_assum(qspec_then `refs` ASSUME_TAC)
+  \\ `!e s1. x1 refs <> (Failure (ECons e), s1)` by (rw[] \\ DISJ1_TAC \\ fs[])
+  \\ qpat_x_assum `P ==> Q` IMP_RES_TAC
+  \\ fs[]
+  \\ rw[Once evaluate_cases]
+  \\ last_x_assum(fn x => ALL_TAC)
+  \\ last_x_assum IMP_RES_TAC
+  \\ rw[]
+  \\ fs[pat_bindings_def, pmatch_def]
+  \\ fs[lookup_cons_def, same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[Once evaluate_cases]);
+
+val EvalM_handle_SIMPLE = Q.store_thm("EvalM_handle_SIMPLE",
+ `!cons_name ECons TYPE EXN_TYPE handle_fun H n x1 exp1 x2 exp2 env a.
+  (!s e s1. x1 s = (Failure (ECons e), s1) ==> handle_fun x1 x2 s = x2 e s1) ==>
+  (!s. (!e s1. x1 s <> (Failure (ECons e), s1)) ==> handle_fun x1 x2 s = x1 s) ==>
+  (!e ev. EXN_TYPE (ECons e) ev ==>
+   ?ev'.
+   ev = Conv (SOME (cons_name,TypeExn (Short cons_name))) [ev'] /\ 
+   TYPE e ev') ==>
+  (!e ev. EXN_TYPE e ev ==>
+   (!e'. e <> ECons e') ==>
+   ?ev' cons_name_1.
+   ev = Conv (SOME (cons_name_1,TypeExn (Short cons_name_1))) [ev'] /\
+   cons_name_1 <> cons_name) ==>
+  lookup_cons cons_name env = SOME (1,TypeExn (Short cons_name)) ==>
+  EvalM env exp1 (MONAD a EXN_TYPE x1) H ==>
+  (∀t v.
+     TYPE t v ==>
+     EvalM (write n v env) exp2 (MONAD a EXN_TYPE (x2 t)) H) ==>
+  EvalM env (Handle exp1 [(Pcon (SOME (Short cons_name)) [Pvar n],exp2)])
+    (MONAD a EXN_TYPE (handle_fun x1 x2)) H`,
+  rw[EvalM_def]
+  \\ rw[Once evaluate_cases]
+  \\ qpat_x_assum `!s p refs. REFS_PRED H refs p s ==> P` IMP_RES_TAC
+  \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_unique_result x |> ASSUME_TAC)
+  \\ rw[]
+  \\ rw[MONAD_def]
+  \\ Cases_on `res` >> fs[MONAD_def]
+  >> Cases_on `x1 refs` >> fs[]
+  >> Cases_on `q` >> fs[]
+  >> Cases_on `e` >> fs[]
+  \\ rw[]
+  \\ Cases_on `?e. b = ECons e`
+  >-(
+      rw[]
+      \\ last_x_assum(qspecl_then[`refs`, `e`, `r`] IMP_RES_TAC)
+      \\ last_x_assum(fn x => ALL_TAC)
+      \\ rw[]
+      \\ rw[Once evaluate_cases]
+      \\ last_x_assum IMP_RES_TAC
+      \\ last_x_assum(fn x => ALL_TAC)
+      \\ rw[]
+      \\ fs[pat_bindings_def, pmatch_def]
+      \\ fs[lookup_cons_def, same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
+      \\ IMP_RES_TAC REFS_PRED_FRAME_imp
+      \\ qpat_x_assum `!t v. TYPE t v ==> P` IMP_RES_TAC
+      \\ first_x_assum(fn x => ALL_TAC)
+      \\ first_x_assum(qspec_then `[]` STRIP_ASSUME_TAC)
+      \\ fs[with_same_refs]
+      \\ fs[write_def]
+      \\ first_x_assum(fn x => simp[MATCH_MP evaluate_unique_result x]) (**)
+      \\ Cases_on `x2 e r` >> fs[]
+      \\ Cases_on `q` >> fs[]
+      \\ Cases_on `res` >> fs[]
+      >> IMP_RES_TAC REFS_PRED_FRAME_trans
+      >> Cases_on `e'` >> fs[])
+  \\ rw[]
+  \\ last_x_assum(fn x => ALL_TAC)
+  \\ last_x_assum(qspec_then `refs` ASSUME_TAC)
+  \\ `!e s1. x1 refs <> (Failure (ECons e), s1)` by (rw[] \\ DISJ1_TAC \\ fs[])
+  \\ qpat_x_assum `P ==> Q` IMP_RES_TAC
+  \\ fs[]
+  \\ rw[Once evaluate_cases]
+  \\ last_x_assum(fn x => ALL_TAC)
+  \\ last_x_assum IMP_RES_TAC
+  \\ rw[]
+  \\ fs[pat_bindings_def, pmatch_def]
+  \\ fs[lookup_cons_def, same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[Once evaluate_cases]);
+
+
 (* read and update refs *)
 val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
-`!vname loc x TYPE EXC_TYPE H get_var.
-  nsLookup env.v (Short vname) = SOME (Loc loc) ==>
+`!vname loc TYPE EXC_TYPE H get_var.
+  (nsLookup env.v (Short vname) = SOME (Loc loc)) ==>
   EvalM env (App Opderef [Var (Short vname)])
   (MONAD TYPE EXC_TYPE (λrefs. (Success (get_var refs), refs)))
-  (λrefs. (SEP_EXISTS xv. (Loc loc) ~~> xv * &(TYPE (get_var refs) xv)) * H refs)`,
-  rw[EvalM_def]
+  (λrefs. REF_REL TYPE (Loc loc) (get_var refs)  * H refs)`,
+  rw[EvalM_def, REF_REL_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
   \\ ntac 6 (rw[Once evaluate_cases])
   \\ fs[REFS_PRED_def]
@@ -1065,15 +1215,15 @@ val EvalM_read_heap = Q.store_thm("EvalM_read_heap",
   \\ fs[]);
 
 val EvalM_write_heap = Q.store_thm("EvalM_write_heap",
-  `!vname loc x TYPE EXC_TYPE H get_var set_var env exp.
+  `!vname loc TYPE EXC_TYPE H get_var set_var x exp env.
   (!refs x. get_var (set_var x refs) = x) ==>
   (!refs x. H (set_var x refs) = H refs) ==>
   nsLookup env.v (Short vname) = SOME (Loc loc) ==>
   Eval env exp (TYPE x) ==>
   EvalM env (App Opassign [Var (Short vname); exp])
   ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (Success (), set_var x refs)))
-  (λrefs. (SEP_EXISTS xv. (Loc loc) ~~> xv * &(TYPE (get_var refs) xv)) * H refs)`,
-  rw[]
+  (λrefs. REF_REL TYPE (Loc loc) (get_var refs) * H refs)`,
+  rw[REF_REL_def]
   \\ ASSUME_TAC (Thm.INST_TYPE [``:'a`` |-> ``:'c``, ``:'b`` |-> ``:'a``] Eval_IMP_PURE)
   \\ POP_ASSUM IMP_RES_TAC
   \\ fs[EvalM_def] \\ rw[]
@@ -1125,10 +1275,6 @@ STATE_REFS A [] [] = emp /\
 STATE_REFS A (r::refs) (x::state) = STATE_REF A r x * STATE_REFS A refs state /\
 STATE_REFS A [] (x::state) = &F /\
 STATE_REFS A (r::refs) [] = &F`;
-
-val evaluate_unique_result = Q.prove(`!expr env s s1 s2 res1 res2. evaluate F env s expr (s1, res1) ==>
-(evaluate F env s expr (s2, res2) <=> (s2 = s1 /\ res2 = res1))`,
-rw[] \\ EQ_TAC >-(rw[] \\ IMP_RES_TAC big_exp_determ \\ rw[]) \\ rw[]);
 
 val RES_MONAD = Define `RES_MONAD A = MONAD A (\x v. F)`;
 
@@ -1600,10 +1746,13 @@ rw[]
 
 (* Resizable arrays *)
 val ABS_NUM_EQ = Q.prove(`Num(ABS(&n))=n`,
-rw[fetch "integer" "Num", integerTheory.INT_ABS]);
+rw[DB.fetch "integer" "Num", integerTheory.INT_ABS]);
 
 val RARRAY_def = Define `
-RARRAY TYPE rv l = SEP_EXISTS arv av. REF rv arv * ARRAY arv av * &LIST_REL TYPE l av`;
+RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av`;
+
+val RARRAY_REL_def = Define `
+RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av`;
 
 val evaluate_Opdref_REF = Q.prove(
 `nsLookup env.v (Short vname) = SOME (Loc loc) ==>
@@ -1631,14 +1780,14 @@ rw[do_app_def]
 \\ fs[]);
 
 val EvalM_Marray_length = Q.store_thm("EvalM_Marray_length",
-  `!vname loc TYPE EXC_TYPE H get_arr env exp.
+  `!vname loc TYPE EXC_TYPE H get_arr env.
     nsLookup env.v (Short vname) = SOME (Loc loc) ==>
     EvalM env (App Alength [App Opderef [Var (Short vname)]])
     ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
-    (λrefs. RARRAY TYPE (Loc loc) (get_arr refs) * H refs)`,
+    (λrefs. RARRAY_REL TYPE (Loc loc) (get_arr refs) * H refs)`,
   rw[EvalM_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
-  \\ fs[REFS_PRED_def, RARRAY_def]
+  \\ fs[REFS_PRED_def, RARRAY_REL_def, RARRAY_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
   \\ fs[GSYM STAR_ASSOC]
@@ -1677,7 +1826,7 @@ rw[do_app_def]
 \\ fs[ABS_NUM_EQ]);
 
 val EvalM_Marray_sub = Q.store_thm("EvalM_Marray_sub",
-  `!vname loc n TYPE EXC_TYPE H get_arr e env nexp rexp exp.
+  `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
    nsLookup env.v (Short vname) = SOME (Loc loc) ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
    Eval env nexp (NUM n) ==>
@@ -1685,11 +1834,11 @@ val EvalM_Marray_sub = Q.store_thm("EvalM_Marray_sub",
    EvalM env (Handle (App Asub [App Opderef [Var (Short vname)]; nexp])
               [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
-   (λrefs. RARRAY TYPE (Loc loc) (get_arr refs) * H refs)`,
+   (λrefs. RARRAY_REL TYPE (Loc loc) (get_arr refs) * H refs)`,
   rw[EvalM_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def] x |> ASSUME_TAC)
+  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ rw[Once evaluate_cases,evaluate_list_cases]
   \\ last_assum(qspec_then `s.refs ++ junk` STRIP_ASSUME_TAC)
@@ -1754,7 +1903,7 @@ val EvalM_Marray_sub = Q.store_thm("EvalM_Marray_sub",
   \\ rw[REFS_PRED_FRAME_append]);
   
 val EvalM_Marray_update = Q.store_thm("EvalM_Marray_update",
-  `!vname loc n x TYPE EXC_TYPE H get_arr set_arr e env nexp rexp xexp exp.
+  `!vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME (Loc loc) ==>
    lookup_cons "Subscript" env = SOME (0,TypeExn (Short "Subscript")) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
@@ -1765,13 +1914,13 @@ val EvalM_Marray_update = Q.store_thm("EvalM_Marray_update",
    EvalM env (Handle (App Aupdate [App Opderef [Var (Short vname)]; nexp; xexp])
               [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
-   (λrefs. RARRAY TYPE (Loc loc) (get_arr refs) * H refs)`,
+   (λrefs. RARRAY_REL TYPE (Loc loc) (get_arr refs) * H refs)`,
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
   \\ rw[Once evaluate_cases]
   \\ rw[Once evaluate_cases]
-  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def] x |> ASSUME_TAC)
+  \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ first_x_assum(qspec_then `s.refs ++ junk` STRIP_ASSUME_TAC)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
@@ -1825,10 +1974,10 @@ val EvalM_Marray_update = Q.store_thm("EvalM_Marray_update",
       >> POP_ASSUM(qspec_then`junk++refs'++refs''` ASSUME_TAC)
       >> fs[GSYM STAR_ASSOC]
       >> fs[Once STAR_COMM]
-      >> fs[RARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
-      >> fs[STAR_ASSOC]
-      >> qexists_tac `arv`
+      >> fs[RARRAY_def, RARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
+      >> fs[STAR_ASSOC, PULL_EXISTS]
       >> qexists_tac `LUPDATE res n av`
+      >> qexists_tac `arv`
       >> EXTRACT_PURE_FACTS_TAC
       >> fs[EVERY2_LUPDATE_same]
       >> fs[GSYM STAR_ASSOC]
@@ -1892,7 +2041,7 @@ rw[STAR_def]
 \\ fs[SAT_GC]);
  
 val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
-  `!vname loc n x TYPE EXC_TYPE H get_arr set_arr e env nexp xexp exp.
+  `!vname loc TYPE EXC_TYPE H get_arr set_arr n x env nexp xexp.
    nsLookup env.v (Short vname) = SOME (Loc loc) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
    (!refs x. H (set_arr x refs) = H refs) ==>
@@ -1900,7 +2049,7 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
    Eval env xexp (TYPE x) ==>
    EvalM env (App Opassign [Var (Short vname); App Aalloc [nexp; xexp]])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_alloc set_arr n x))
-   (λrefs. RARRAY TYPE (Loc loc) (get_arr refs) * H refs)`,
+   (λrefs. RARRAY_REL TYPE (Loc loc) (get_arr refs) * H refs)`,
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
@@ -1919,7 +2068,7 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
   \\ rw[store_alloc_def]
   \\ rw[with_same_ffi]
   \\ rw[Once evaluate_cases]
-  \\ qpat_x_assum `REFS_PRED H1 refs p s` (fn x => PURE_REWRITE_RULE[REFS_PRED_def, RARRAY_def] x |> ASSUME_TAC)
+  \\ qpat_x_assum `REFS_PRED H1 refs p s` (fn x => PURE_REWRITE_RULE[REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ fs[Once (GSYM with_same_refs)]
   \\ fs[GSYM STAR_ASSOC]
@@ -1933,9 +2082,9 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
   \\ fs[state_component_equality]
   \\ fs[MONAD_def, Marray_alloc_def]
   \\ rw[REFS_PRED_FRAME_def]
-  \\ fs[RARRAY_def, SEP_EXISTS_THM, SEP_CLAUSES]
-  \\ qexists_tac `Loc loc'`
+  \\ fs[RARRAY_def, RARRAY_REL_def, SEP_EXISTS_THM, SEP_CLAUSES]
   \\ qexists_tac `REPLICATE (Num (ABS (&n))) res`
+  \\ qexists_tac `Loc loc'`
   \\ qpat_x_assum `Abbrev X` (fn x => fs[PURE_REWRITE_RULE[markerTheory.Abbrev_def] x])
   \\ IMP_RES_TAC st2heap_REF_MEM
   \\ IMP_RES_TAC store2heap_IN_LENGTH

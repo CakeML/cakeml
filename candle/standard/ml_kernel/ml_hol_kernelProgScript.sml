@@ -144,26 +144,30 @@ val refs_init_list = [
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
+val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+
 (* Create the store *)
 val store_hprop_name = "HOL_STORE";
+val state_type = ``:hol_refs``
 val exc_ri = ``HOL_EXN_TYPE``;
-val translated_store_thms = translate_fixed_store refs_init_list store_hprop_name exc_ri;
+val exc_ri_def = HOL_EXN_TYPE_def
+val translated_store_thms = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exc_ri_def;
 
 (* Initialize the monadic translation *)
 val _ = init_translation translated_store_thms exc_ri []
 
-(* Prove the theorems mecessary to handle the exceptions *)
+(* Prove the theorems necessary to handle the exceptions *)
 val raise_functions = [failwith_def, raise_clash_def];
 val handle_functions = [handle_clash_def];
 val exn_thms = add_raise_handle_functions raise_functions handle_functions HOL_EXN_TYPE_def
 
-val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
+(* val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
 val ty = ``:'a option``; val _ = mem_derive_case_of ty;
 val ty = ``:type``; val _ = mem_derive_case_of ty;
 val ty = ``:term``; val _ = mem_derive_case_of ty;
 val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:update``; val _ = mem_derive_case_of ty;
+val ty = ``:update``; val _ = mem_derive_case_of ty; *)
 
 (**************************************************************************************************)
 (**************************************************************************************************)

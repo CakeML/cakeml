@@ -56,7 +56,7 @@ val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
 
 (* deref/ref functions *)
 
-val _ = define_monad_access_funs ("the_type_constants",
+(* val _ = define_monad_access_funs ("the_type_constants",
                                   ``\state. state.the_type_constants``,
 				  ``\x state. state with the_type_constants := x``);
 val _ = define_monad_access_funs ("the_term_constants",
@@ -67,7 +67,11 @@ val _ = define_monad_access_funs ("the_axioms",
 				  ``\x state. state with the_axioms := x``);
 val _ = define_monad_access_funs ("the_context",
                                   ``\state. state.the_context``,
-				  ``\x state. state with the_context := x``);
+				  ``\x state. state with the_context := x``); *)
+
+val _ = define_monad_access_funs ``:hol_refs``;
+
+
 (* failwith and otherwise *)
 
 val failwith_def = Define `
