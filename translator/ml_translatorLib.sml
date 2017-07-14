@@ -1000,7 +1000,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = map reg_type ys2
   (* equality type -- TODO: make this work for mutrec *)
   val eq_lemmas = let
-    val tms = inv_defs |> map (#1 o strip_comb o lhs o concl o SPEC_ALL o hd o CONJUNCTS o #2 )
+    val tms = inv_defs |> map (rator o rator o lhs o concl o SPEC_ALL o hd o CONJUNCTS o #2 )
 
     val xss = inv_def |> RW [GSYM CONJ_ASSOC] |> SPEC_ALL |> CONJUNCTS
               |> map (snd o dest_eq o concl o SPEC_ALL)
