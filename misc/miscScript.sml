@@ -2911,4 +2911,10 @@ val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
   \\ drule MOD_MULT
   \\ fs []);
 
+val list_subset_def = Define `
+list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
+
+val list_set_eq = Define `
+list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+
 val _ = export_theory()
