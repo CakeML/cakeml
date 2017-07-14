@@ -1126,14 +1126,14 @@ fun derive_thms_for_type is_exn_type ty = let
   val (ty_pre,ret_ty_pre) = dest_fun_type (type_subst tsubst (type_of_cases_const ty))
   val (_,gen_tyargs) = dest_type ty_pre
   fun inst_fcp_types_rec (x::xs) (y::ys) ty =
-    if is_vartype y
+    if is_vartype y andalso fcpSyntax.is_numeric_type x andalso fcpSyntax.dest_int_numeric_type x > 1
     then
       type_subst [y|->x] (inst_fcp_types_rec xs ys ty)
     else
       inst_fcp_types_rec xs ys ty
   |   inst_fcp_types_rec _ _ ty = ty
   (* Do not generalize fcp types *)
-  fun inst_fcp_types t = if is_word_type then inst_fcp_types_rec tyargs gen_tyargs t else t
+  val inst_fcp_types = inst_fcp_types_rec tyargs gen_tyargs
   val ty = inst_fcp_types ty_pre
   val ret_ty = inst_fcp_types ret_ty_pre
   val is_record = 0 < length(TypeBase.fields_of ty)
@@ -1541,15 +1541,11 @@ fun register_term_types register_type tm = let
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
     if not (can dest_type ty) then true else
-    if can (dest_fun_type) ty then true else false
-    (*if fcpSyntax.is_numeric_type ty then true else false*)
+    if can (dest_fun_type) ty then true else
+    if fcpSyntax.is_numeric_type ty andalso fcpSyntax.dest_int_numeric_type ty > 1 then true else false
   fun typeops ty = let
     val (tname,targs) = dest_type ty
-    val is_word_type = wordsSyntax.is_word_type ty
-    in
-      if is_word_type then [ty]
-      else
-        ty :: flatten (map typeops targs) end
+    in ty :: flatten (map typeops targs) end
     handle HOL_ERR _ => []
   fun register_term_type tm = let
     val tys = typeops (type_of tm) |> filter (not o ignore_type)
@@ -2398,7 +2394,7 @@ fun preprocess_def def = let
   val is_rec = is_rec_def def
   val (defs,ind) = mutual_to_single_line_def def
   fun rephrase_def def = let
-    val def = RW1 [GSYM TRUE_def, GSYM FALSE_def] def
+    val def = PURE_ONCE_REWRITE_RULE [GSYM TRUE_def, GSYM FALSE_def] def
     val def = remove_pair_abs def |> SPEC_ALL
     val def = rename_bound_vars_rule " variable " (GEN_ALL def) |> SPEC_ALL
     val def = CONV_RULE (DEPTH_CONV split_let_and_conv) def
