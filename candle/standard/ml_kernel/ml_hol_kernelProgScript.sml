@@ -13,6 +13,7 @@ val _ = register_type ``:cpn``
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``
 val _ = register_type ``:'a option``
+val _ = register_type ``:unit``
 
 val _ = ml_prog_update (open_module "Kernel");
 
