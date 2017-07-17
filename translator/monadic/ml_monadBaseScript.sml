@@ -77,17 +77,6 @@ val _ = Define `
 val _ = Hol_datatype `
 store_ref = StoreRef of num`;
 
-(* A "funtional" length *)
-val length_def = Define `
-length l = case l of [] => (0 : num) | x::l' => 1+length l'`;
-
-val length_eq = Q.store_thm("length_eq",
-`length = LENGTH`,
-irule EQ_EXT
-\\ Induct
-\\ rw[Once length_def]
-\\ fs[Once ADD_COMM, SUC_ONE_ADD]);
-
 (* Arrays *)
 
 (* Msub *)
@@ -160,7 +149,7 @@ Induct
 
 (* User functions *)
 val Marray_length_def = Define `
-Marray_length get_arr () = \state. (Success(length (get_arr state)), state)`;
+Marray_length get_arr () = \state. (Success(LENGTH (get_arr state)), state)`;
 
 val Marray_sub_def = Define `
 Marray_sub get_arr e n = \state. (Msub e n (get_arr state), state)`;
@@ -181,7 +170,7 @@ Marray_resize get_arr set_arr n x =
 
 (* Dynamic allocated references *)
 val Mref_def = Define `
-Mref cons x = \state. (Success (StoreRef(length state)), (cons x)::state)`;
+Mref cons x = \state. (Success (StoreRef(LENGTH state)), (cons x)::state)`;
 
 val dref_def = Define `
 dref n = \state. EL (LENGTH state - n - 1) state`;
@@ -193,7 +182,7 @@ case state of
 | x::state' => if n = 0 then Success x else Mdref_aux e (n-1) state'`;
 
 val Mdref_def = Define `
-Mdref e (StoreRef n) = \state. (Mdref_aux e (length state - n - 1) state, state)`;
+Mdref e (StoreRef n) = \state. (Mdref_aux e (LENGTH state - n - 1) state, state)`;
 
 val Mpop_ref_def = Define `
 Mpop_ref e = \(r, state). case state of
@@ -210,7 +199,7 @@ x'::state => if n = 0 then Success (x::state)
 
 val Mref_assign_def = Define `
 Mref_assign e (StoreRef n) x =
-\state. case Mref_assign_aux e (length state - n - 1) x state of
+\state. case Mref_assign_aux e (LENGTH state - n - 1) x state of
 Success state => (Success(), state)
 | Failure e => (Failure e, state)`;
 
@@ -237,28 +226,28 @@ Induct
 >-(rw[Once Mdref_def, Once Mdref_aux_def])
 \\ rw[Once Mdref_def, Once Mdref_aux_def]
 >-(rw[Once dref_def]
-   \\ fs[length_eq]
+   \\ fs[]
    \\ `n = LENGTH state` by fs[SUC_ONE_ADD]
    \\ rw[SUC_ONE_ADD])
-\\ fs[length_eq, SUC_ONE_ADD]
+\\ fs[SUC_ONE_ADD]
 \\ `Mdref_aux e (LENGTH state - (n + 1)) state = FST(Mdref e (StoreRef n) state)`
-   by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def, length_eq])
+   by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def])
 \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
 \\ rw[]
 \\ rw[dref_const_state_eq]);
 
 val Mref_assign_aux_eq = Q.store_thm("Mref_assign_aux_eq",
 `!state e n x. n < LENGTH state ==>
-(Mref_assign_aux e (length state - n - 1) x state = Success (ref_assign n x state))`,
+(Mref_assign_aux e (LENGTH state - n - 1) x state = Success (ref_assign n x state))`,
 Induct
 >-(rw[Once Mref_assign_aux_def, Once ref_assign_def])
 \\ rw[Once Mref_assign_aux_def, Once ref_assign_def]
->-(rw[length_eq, SUC_ONE_ADD]
+>-(rw[SUC_ONE_ADD]
    >> Cases_on `LENGTH state - n` >-(rw[LUPDATE_def])
    >> rw[LUPDATE_def]
    >> irule FALSITY
-   >> fs[length_eq])
-\\ fs[length_eq, SUC_ONE_ADD]
+   >> fs[])
+\\ fs[SUC_ONE_ADD]
 \\ Cases_on `LENGTH state - n` >-(fs[])
 \\ rw[Once ref_assign_def]
 \\ rw[LUPDATE_def]
@@ -278,7 +267,7 @@ case create s of
 (Success x, s) => pop(f x s)
 | (Failure x, s) => (Failure x, s)`;
 
-(* *)
+(* TODO: use that *)
 val Mget_ref_def = Define `
 Mget_ref get_var = \state. (Success (get_var state), state)`;
 

@@ -1402,8 +1402,7 @@ rw[]
 >-(fs[MONAD_def]
    >> fs[ref_bind_def]
    >> fs[Mref_def]
-   >> fs[Mpop_ref_def]
-   >> fs[length_eq]
+   >> fs[Mpop_ref_def] (**)
    >> Cases_on `f (StoreRef (LENGTH refs)) (cons x::refs)` 
    >> fs[]
    >> Cases_on `q`
@@ -1520,6 +1519,7 @@ Induct
 \\ fs[STAR_ASSOC]
 \\ first_x_assum (fn x => PURE_ONCE_REWRITE_RULE[GSYM STAR_ASSOC] x |> ASSUME_TAC)
 \\ rw[Once (GSYM STAR_ASSOC)]);
+
 
 val STATE_REFS_DECOMPOSE = Q.store_thm("STATE_REFS_DECOMPOSE",
 `!ptrs1 r ptrs2 refs TYPE H p s. ((STATE_REFS TYPE (ptrs1 ++ [r] ++ ptrs2) refs) * H) (st2heap p s) <=>
@@ -1744,6 +1744,29 @@ rw[]
 \\ IMP_RES_TAC STATE_REFS_LENGTH
 \\ fs[Mref_assign_eq]);
 
+(* Allocation of the initial store for dynamic references *)
+val STATE_REFS_EXTEND = Q.store_thm(
+"STATE_REFS_EXTEND",
+`!H s refs. (STATE_REFS A ptrs refs * H) (st2heap p s) ==>
+!x xv. A x xv ==>
+(STATE_REFS A (Loc (LENGTH s.refs)::ptrs) (x::refs) * H)(st2heap p (s with refs := s.refs ++ [Refv xv]))`,
+rw[]
+\\ rw[STATE_REFS_def]
+\\ rw[GSYM STAR_ASSOC]
+\\ rw[Once STAR_def]
+\\ qexists_tac `store2heap_aux (LENGTH s.refs) [Refv xv]`
+\\ qexists_tac `st2heap p s`
+\\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+\\ `st2heap p s = st2heap p (s with refs := s.refs)` by fs[with_same_refs]
+\\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
+\\ fs[STATE_SPLIT_REFS]
+\\ fs[with_same_refs]
+\\ simp[STATE_REF_def, store2heap_aux_def]
+\\ simp[SEP_EXISTS_THM]
+\\ qexists_tac `xv`
+\\ EXTRACT_PURE_FACTS_TAC
+\\ simp[REF_def, cell_def, one_def, SEP_EXISTS_THM, HCOND_EXTRACT]);
+
 (* Resizable arrays *)
 val ABS_NUM_EQ = Q.prove(`Num(ABS(&n))=n`,
 rw[DB.fetch "integer" "Num", integerTheory.INT_ABS]);
@@ -1810,7 +1833,6 @@ val EvalM_Marray_length = Q.store_thm("EvalM_Marray_length",
   \\ qexists_tac `Rval (Litv (IntLit (&LENGTH av)))`
   \\ fs[]
   \\ IMP_RES_TAC LIST_REL_LENGTH
-  \\ fs[length_eq]
   \\ fs[REFS_PRED_FRAME_append]);
 
 val do_app_Asub_ARRAY = Q.prove(
