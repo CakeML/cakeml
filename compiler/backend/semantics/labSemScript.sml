@@ -30,11 +30,11 @@ val _ = Datatype `
      ; pc         : num
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
-     ; io_regs    : num -> num -> 'a word option  (* oracle *)
+     ; io_regs    : num -> num -> 'a word option  (* oracle: sequence of havoc on registers at each FFI call *)
+     ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
-     ; compile    : 'c -> 'a labLang$prog -> (word8 list # num # 'c) option
-     ; compiler_config : 'c
-     ; compile_oracle : num -> 'a labLang$prog
+     ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # 'a labLang$prog
      ; code_buffer : 'a code_buffer
      ; clock      : num
      ; failed     : bool
@@ -348,17 +348,21 @@ val evaluate_def = tDefine "evaluate" `
         | (Word w1, Word w2, Loc n1 n2) =>
            (case (code_buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
             | (SOME (bytes, cb), SOME new_pc) =>
-              let prog = s.compile_oracle 0 in (* the next oracle program *)
-                (case s.compile s.compiler_config prog of
-                 | SOME (bytes',k,cfg) =>
-                   if bytes = bytes' then (* the oracle was correct *)
+              let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
+              let new_oracle = shift_seq 1 s.compile_oracle in
+                (case (s.compile cfg prog, prog) of
+                 | (SOME (bytes',cfg'), Section k _ :: _) =>
+                   if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then (* the oracle was correct *)
                      evaluate
-                       (s with <| compiler_config := cfg
-                              ; pc := new_pc
+                       (s with <|
+                                pc := new_pc
                               ; code_buffer := cb
                               ; code := s.code ++ prog
-                              ; regs := (s.ptr_reg =+ Loc k 0) s.regs
-                              ; compile_oracle := shift_seq 1 s.compile_oracle
+                              ; cc_regs := shift_seq 1 s.cc_regs
+                              ; regs := (s.ptr_reg =+ Loc k 0)
+                                          (λa. get_reg_value  (s.cc_regs 0 a)
+                                                   (s.regs a) Word)
+                              ; compile_oracle := new_oracle
                               ; clock := s.clock - 1
                               |>)
                    else
