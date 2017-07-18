@@ -3,6 +3,9 @@ open preamble
 
 val _ = new_theory"mlstring"
 
+val cpn_distinct = TypeBase.distinct_of ``:ordering``
+val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
+
 (* Defines strings as a separate type from char list. This theory should be
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
@@ -457,10 +460,8 @@ val _ = Parse.overload_on(">=",``λx y. mlstring_ge x y``);
 
 (* Properties of string orderings *)
 
-val flip_ord_def = Define `
-  (flip_ord LESS = GREATER) ∧
-  (flip_ord GREATER = LESS) ∧
-  (flip_ord EQUAL = EQUAL)`;
+val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
+val _ = overload_on ("flip_ord", ``invert_comparison``);
 
 val compare_aux_spec = Q.prove (
   `!s1 s2 ord_in start len.
