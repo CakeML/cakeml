@@ -1803,10 +1803,10 @@ rw[do_app_def]
 \\ fs[]);
 
 val EvalM_Marray_length = Q.store_thm("EvalM_Marray_length",
-  `!vname loc TYPE EXC_TYPE H get_arr x env.
+  `!vname loc TYPE EXC_TYPE H get_arr env.
     nsLookup env.v (Short vname) = SOME (Loc loc) ==>
     EvalM env (App Alength [App Opderef [Var (Short vname)]])
-    ((MONAD NUM EXC_TYPE) (Marray_length get_arr x))
+    ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
     (λrefs. RARRAY_REL TYPE (Loc loc) (get_arr refs) * H refs)`,
   rw[EvalM_def]
   \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]

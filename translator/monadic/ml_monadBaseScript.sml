@@ -149,7 +149,7 @@ Induct
 
 (* User functions *)
 val Marray_length_def = Define `
-Marray_length get_arr () = \state. (Success(LENGTH (get_arr state)), state)`;
+Marray_length get_arr = \state. (Success(LENGTH (get_arr state)), state)`;
 
 val Marray_sub_def = Define `
 Marray_sub get_arr e n = \state. (Msub e n (get_arr state), state)`;
