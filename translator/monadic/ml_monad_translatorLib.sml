@@ -65,9 +65,9 @@ val exn_raises = ref ([] : (term * thm) list);
 (* The access patterns to use references and arrays *)
 val access_patterns = ref([] : (term * thm) list);
 
-fun ISPEC_EvalM th = ISPEC (!H) th handle HOL_ERR _ => SPEC (!H) th;
-fun ISPEC_EvalM_EXN_TYPE th = ISPEC (!EXN_TYPE) th handle HOL_ERR _ =>  SPEC (!EXN_TYPE) th;
-fun ISPEC_EvalM_MONAD th = ISPEC_EvalM th |> ISPEC_EvalM_EXN_TYPE;
+fun ISPEC_EvalM th = ISPEC (!H) th; (* ISPEC (!H) th handle HOL_ERR _ => SPEC (!H) th; *)
+fun ISPEC_EvalM_EXN_TYPE th = ISPEC (!EXN_TYPE) th; (* ISPEC (!EXN_TYPE) th handle HOL_ERR _ =>  SPEC (!EXN_TYPE) th; *)
+fun ISPEC_EvalM_MONAD th = ISPECL[!H, !EXN_TYPE] th; (* ISPEC_EvalM th |> ISPEC_EvalM_EXN_TYPE; *)
 
 fun inst_monad_type tm =
   let
