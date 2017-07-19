@@ -424,10 +424,13 @@ val line_ok_def = Define `
   (line_ok c labs ffis pos (LabAsm (Call v24) w bytes l) <=>
      F (* Call not yet supported *)) /\
   (line_ok c labs ffis pos (LabAsm a w bytes l) <=>
-     let target = find_pos (get_label a) labs in
-     let w1 = n2w target - n2w pos in
+     case get_label a of Lab l1 l2 =>
+     (case lab_lookup l1 l2 labs of
+       NONE => F
+     | SOME t =>
+     let w1 = n2w t- n2w pos in
        enc_with_nop c.encode (lab_inst w1 a) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c)`
+       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c))`
 
 val line_ok_ind = theorem"line_ok_ind";
 
@@ -573,7 +576,7 @@ val state_rel_def = Define `
     (* this is possibly already implied *)
     EVEN (LENGTH (prog_to_bytes code2)) ∧
     (!name.
-       has_io_name name s1.code ==>
+        MEM name mc_conf.ffi_names ==>
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) IN mc_conf.prog_addresses) /\
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.halt_pc) /\
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.ccache_pc) /\
@@ -731,6 +734,14 @@ val IMP_bytes_in_memory_JumpReg = Q.prove(
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val lab_thms = get_thms ``:lab``
+val option_thms = get_thms ``:'a option``
+val case_eq_thms0 = map prove_case_eq_thm [lab_thms, option_thms]
+val case_eq_thms = map (fn th =>
+  let val v = th |> concl |> lhs |> rhs
+  in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0
+
 val IMP_bytes_in_memory_Jump = Q.prove(
   `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
@@ -748,8 +759,10 @@ val IMP_bytes_in_memory_Jump = Q.prove(
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
-  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ Cases_on `j` \\ fs[line_similar_def]
+  \\ rveq
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF,get_label_def]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
@@ -772,8 +785,10 @@ val IMP_bytes_in_memory_JumpCmp = Q.prove(
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
-  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF] \\ srw_tac[][]
+  \\ Cases_on `j` \\ fs[line_similar_def]
+  \\ rveq
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF,get_label_def]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
@@ -797,14 +812,14 @@ val IMP_bytes_in_memory_JumpCmp_1 = Q.prove(
   \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`m`,`dm`,`i`,`dm1`]) \\ fs[]
   \\ strip_tac \\ res_tac
-  \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
-  \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
+  \\ Cases_on `j` \\ fs[line_similar_def]
+  \\ rveq
+  \\ fs[line_ok_def,enc_with_nop_thm,LET_DEF,get_label_def]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP
   \\ Q.EXISTS_TAC `l'` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n'` \\ fs[]
-  \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
-  \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
-  \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][]);
+  \\ imp_res_tac bytes_in_mem_IMP \\ fs[line_bytes_def]
+  \\ rveq \\ fs[lab_inst_def]
+  \\ metis_tac[]);
 
 val IMP_bytes_in_memory_Call = Q.prove(
   `code_similar ^s1.code code2 /\
@@ -840,12 +855,12 @@ val IMP_bytes_in_memory_LocValue = Q.prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs[line_similar_def] \\ srw_tac[][]
   \\ fs[line_ok_def,LET_DEF] \\ srw_tac[][]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP
   \\ Q.EXISTS_TAC `l'` \\ fs[enc_with_nop_thm,PULL_EXISTS,line_length_def]
-  \\ qexists_tac `n'` \\ fs[]
   \\ fs[LET_DEF,lab_inst_def,get_label_def] \\ srw_tac[][]
   \\ imp_res_tac bytes_in_mem_IMP \\ fs[]
   \\ fs[asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ srw_tac[][]);
+         bytes_in_memory_APPEND] \\ srw_tac[][] \\ metis_tac[]);
 
 val IMP_bytes_in_memory_Inst = Q.prove(
   `code_similar ^s1.code code2 /\
@@ -1578,10 +1593,6 @@ val Inst_lemma = Q.prove(
 
 (* compile correct *)
 
-val ADD_MODULUS_LEMMA = Q.prove(
-  `!k m n. 0 < n ==> (m + k * n) MOD n = m MOD n`,
-  Induct \\ full_simp_tac(srw_ss())[MULT_CLAUSES,ADD_ASSOC,ADD_MODULUS]);
-
 val line_length_MOD_0 = Q.prove(
   `backend_correct mc_conf.target /\
     (~EVEN p ==> (mc_conf.target.config.code_alignment = 0)) /\
@@ -1590,10 +1601,10 @@ val line_length_MOD_0 = Q.prove(
   Cases_on `h` \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[line_ok_def,line_length_def]
   \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[backend_correct_def,target_ok_def,enc_ok_def]
+  \\ fs(case_eq_thms)
   \\ full_simp_tac(srw_ss())[LET_DEF,enc_with_nop_thm] \\ srw_tac[][LENGTH_FLAT,LENGTH_REPLICATE]
   \\ qpat_x_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[ADD_MODULUS_LEMMA]);
+  \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE]);
 
 val pos_val_MOD_0_lemma = Q.prove(
   `(0 MOD 2 ** mc_conf.target.config.code_alignment = 0)`,
@@ -1680,6 +1691,12 @@ val list_add_if_fresh_simp = Q.prove(`
      >> fs [list_add_if_fresh_def, find_index_def]
      >> every_case_tac
      >> fs [list_add_if_fresh_def, find_index_def]))
+
+val list_add_if_fresh_thm = Q.store_thm("list_add_if_fresh_thm",
+  `list_add_if_fresh s l =
+    if MEM s l then l else l ++ [s]`,
+   fs[list_add_if_fresh_simp |> Q.SPEC`0`]>>rw[]>>
+   metis_tac[find_index_NOT_MEM]);
 
 val list_add_if_fresh_simp = Q.SPECL [`n`,`s`] list_add_if_fresh_simp
 
@@ -2889,6 +2906,8 @@ val line_ok_line_enc_with_nop = Q.store_thm("line_ok_line_enc_with_nop",
     line_ok c labs ffis pos line ⇒
     line_enc_with_nop c.encode labs ffis pos line`,
   recInduct line_ok_ind
+  \\ rw[line_ok_def,line_enc_with_nop_def,get_label_def,lab_inst_def]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP
   \\ rw[line_ok_def,line_enc_with_nop_def,get_label_def,lab_inst_def]);
 
 val lines_ok_lines_enc_with_nop = Q.store_thm("lines_ok_lines_enc_with_nop",
@@ -3443,6 +3462,7 @@ val lines_ok_section_lab_lookup_even = Q.store_thm("lines_ok_section_lab_lookup_
         \\ last_x_assum match_mp_tac \\ asm_exists_tac \\ fs[] \\ NO_TAC)
   \\ rename1`LabAsm xxx`
   \\ Cases_on`xxx` \\ fs[line_ok_def] \\ rw[]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]
   \\ last_x_assum match_mp_tac \\ fs[]
   \\ asm_exists_tac \\ fs[])
 
@@ -3452,7 +3472,10 @@ val all_enc_ok_split = Q.prove(`
   all_enc_ok c labs ffis pos [Section k lines] ∧
   all_enc_ok c labs ffis (pos + sec_length lines 0) xs`,
   Induct_on`lines`>>rw[all_enc_ok_def,sec_length_def,all_enc_ok_def]>>
-  Cases_on`h`>>TRY(Cases_on`a`)>>fs[sec_length_def,sec_length_add,line_length_def,line_ok_def]>>rveq>>rfs[]>>
+  Cases_on`h`>>TRY(Cases_on`a`)>>
+  fs[sec_length_def,sec_length_add,line_length_def,line_ok_def]>>rveq>>
+  fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[] >>
+  rfs[]>>
   metis_tac[ADD_ASSOC])
 
 val all_enc_ok_even = Q.prove(`
@@ -3465,7 +3488,8 @@ val all_enc_ok_even = Q.prove(`
   rfs[]>>
   `n + sec_length lines pos = sec_length lines (n + pos)` by
     metis_tac[sec_length_add,ADD_COMM]>>
-  fs[])
+  fs[]>>
+  fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]);
 
 val all_enc_ok_lab_lookup_even = Q.prove(
   `∀c labs ffis pos sec_list l1 l2 acc x.
@@ -3503,7 +3527,9 @@ val line_ok_pre_light_imp_line_ok = Q.store_thm("line_ok_pre_light_imp_line_ok",
      line_ok_light c line ∧ (is_Label line ⇒ EVEN pos) ⇒
      line_ok c labs ffis pos line`,
   ho_match_mp_tac line_ok_ind
-  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,line_ok_pre_def,line_offset_ok_def,get_jump_offset_def] \\ fs[]);
+  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,line_ok_pre_def,line_offset_ok_def,get_jump_offset_def] \\ fs[]
+  \\ cheat (* need to assume that the labs exist *)
+  );
 
 val all_enc_ok_pre_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_pre_light_imp_all_enc_ok",
   `∀c labs ffis pos code.
@@ -3968,6 +3994,7 @@ val line_ok_alignment = Q.store_thm("line_ok_alignment",
   ho_match_mp_tac line_ok_ind
   \\ srw_tac[][line_ok_def,line_length_def,LET_THM]
   \\ full_simp_tac(srw_ss())[enc_ok_def]
+  \\ fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]
   \\ rename1 `asm_ok b c`
   \\ qpat_x_assum `!w. xxx /\ yyy` (qspec_then `b` mp_tac)
   \\ full_simp_tac(srw_ss())[enc_with_nop_thm]
@@ -4167,7 +4194,7 @@ val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
      loc_to_pc l1 l2 (enc_sec_list e code) = loc_to_pc l1 l2 code`,
   simp[enc_sec_list_def]
-  >> ho_match_mp_tac loc_to_pc_ind
+  >> (ho_match_mp_tac loc_to_pc_ind
   >> srw_tac[][]
   >> srw_tac[][Once loc_to_pc_def,enc_sec_def]
   >> srw_tac[][Once loc_to_pc_def,SimpRHS]
@@ -4186,7 +4213,7 @@ val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   >> IF_CASES_TAC
   >- ( Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def,LET_THM] )
   >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[enc_sec_def]
-  >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]);
+  >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]));
 
 val all_enc_ok_pre_enc_sec_list = Q.prove(`
   ∀code enc c.
@@ -4256,6 +4283,7 @@ val LENGTH_prog_to_bytes = Q.store_thm("LENGTH_prog_to_bytes",
   Cases_on`y`>>simp[sec_length_def,line_bytes_def]>>
   TRY(Cases_on`a`)>>
   fs[line_ok_def,line_length_def]>>
+  fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[] >>
   metis_tac[ADD_ASSOC]);
 
 val LENGTH_prog_to_bytes2 = Q.store_thm("LENGTH_prog_to_bytes2",
@@ -4271,7 +4299,8 @@ val LENGTH_prog_to_bytes2 = Q.store_thm("LENGTH_prog_to_bytes2",
   Cases_on`y`>>simp[sec_length_def,line_bytes_def]>>
   TRY(Cases_on`a`)>>
   fs[line_ok_def,line_length_def]>>
-  metis_tac[ADD_ASSOC])
+  fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]>>
+  metis_tac[ADD_ASSOC]);
 
 val prog_to_bytes_APPEND = Q.store_thm("prog_to_bytes_APPEND",`
   prog_to_bytes (c1++c2) = prog_to_bytes c1 ++ prog_to_bytes c2`,
@@ -4366,7 +4395,13 @@ val all_enc_ok_labs_mono = Q.store_thm("all_enc_ok_labs_mono",`
     lab_lookup l1 l2 labs = SOME x ⇒
     lab_lookup l1 l2 labs2 = SOME x) ∧
   all_enc_ok conf labs ffi n c ==>
-  all_enc_ok conf labs2 ffi n c`,cheat)
+  all_enc_ok conf labs2 ffi n c`,
+  ho_match_mp_tac all_enc_ok_ind>>rw[]>>
+  fs[all_enc_ok_def]>>
+  Cases_on`y`>>fs[line_ok_def]>>
+  Cases_on`a`>>fs[line_ok_def]>>
+  fs(case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]>>
+  metis_tac[]);
 
 val pos_val_append = Q.store_thm("pos_val_append",`
   ∀c1 i pos c2.
@@ -4441,6 +4476,19 @@ val loc_to_pc_bound = Q.store_thm("loc_to_pc_bound",`
   >>
     rw[]>>
     res_tac>>fs[]);
+
+val find_ffi_names_append = Q.prove(`
+  ∀l1 l2.
+  find_ffi_names (l1++l2) =
+  (find_ffi_names l2) ++
+  FILTER (λn. ¬ MEM n (find_ffi_names l2)) (find_ffi_names l1) `,
+  ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
+  fs[FILTER_EQ_ID]>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  fs[list_add_if_fresh_thm]>>rw[]>>
+  fs[MEM_FILTER,FILTER_APPEND]>>
+  fs[]);
 
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -4781,14 +4829,17 @@ val compile_correct = Q.prove(
            GSYM word_add_n2w,WORD_ADD_SUB]) \\ full_simp_tac(srw_ss())[]
     \\ `has_io_name s s1.code` by
           (imp_res_tac IMP_has_io_name \\ NO_TAC)
+    \\ `MEM s mc_conf.ffi_names` by (
+      imp_res_tac has_io_name_find_index>>
+      imp_res_tac find_index_is_MEM>>
+      fs[list_subset_def,state_rel_def,EVERY_MEM])
     \\ `~(mc_conf.target.get_pc ms2 IN mc_conf.prog_addresses) /\
         ~(mc_conf.target.get_pc ms2 = mc_conf.halt_pc) /\
         ~(mc_conf.target.get_pc ms2 = mc_conf.ccache_pc) /\
         (find_index (mc_conf.target.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
-           SOME (get_ffi_index mc_conf.ffi_names s))` by
-      (full_simp_tac(srw_ss())[state_rel_def]
-       \\ Q.PAT_X_ASSUM `!kk. has_io_name kk s1.code ==> bbb` imp_res_tac
-       \\ rev_full_simp_tac(srw_ss())[] \\ NO_TAC)
+           SOME (get_ffi_index mc_conf.ffi_names s))` by (
+       full_simp_tac(srw_ss())[state_rel_def]>>
+       metis_tac[])
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
         !a. a IN mc_conf.prog_addresses ==>
@@ -5025,13 +5076,12 @@ val compile_correct = Q.prove(
         simp[GSYM prog_to_bytes_MAP]>>
         metis_tac[LENGTH_prog_to_bytes,ADD_COMM])
       \\ conj_tac >- (rw[]>>metis_tac[])
-      \\ conj_tac >-
-        cheat
+      \\ conj_tac >-(
+        fs[find_ffi_names_append,list_subset_def]>>
+        fs[EVERY_FILTER,EVERY_MEM])
       \\ conj_tac >- (
         fs[prog_to_bytes_APPEND,EVEN_ADD]>>
         metis_tac[all_enc_ok_prog_to_bytes_EVEN])
-      \\ conj_tac >-
-        cheat
       \\ conj_tac >- ( fs[interference_ok_def,shift_seq_def] )
       \\ conj_asm2_tac >- (
         `EVERY sec_labels_ok (s1.code++new_code)` by
