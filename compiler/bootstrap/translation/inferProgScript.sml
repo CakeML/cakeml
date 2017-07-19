@@ -2,6 +2,7 @@ open preamble
      parserProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
+open ml_monadBaseTheory
 
 val _ = new_theory "inferProg"
 
@@ -252,7 +253,7 @@ val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
-   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
+   st_ex_return_def, failwith_def, guard_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
 val _ = translate (def_of_const ``lookup_st_ex``)

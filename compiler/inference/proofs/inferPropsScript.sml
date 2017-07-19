@@ -1,6 +1,14 @@
 open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
+open ml_monadBaseTheory;
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
+
+val _ = hide "state";
 
 val every_zip_split = Q.prove (
   `!l1 l2 P Q.
@@ -364,6 +372,7 @@ rw [] >>
 cases_on `st` >>
 rw [infer_st_component_equality]);
 
+(* TODO : move that *)
 val st_ex_return_success = Q.prove (
 `!v st v' st'.
   (st_ex_return v st = (Success v', st')) =
@@ -379,13 +388,18 @@ cases_on `f st` >>
 rw [] >>
 cases_on `q` >>
 rw []);
+(***********************)
+
+val monad_operators_defs = [get_next_uvar_def, set_next_uvar_def, get_subst_def, set_subst_def, st_ex_bind_def, st_ex_return_def, failwith_def];
+val rw_monads_defs = rw monad_operators_defs;
 
 val fresh_uvar_success = Q.prove (
 `!st t st'.
   (fresh_uvar st = (Success t, st')) =
   ((t = Infer_Tuvar st.next_uvar) ∧
    (st' = st with next_uvar := st.next_uvar + 1))`,
-rw [fresh_uvar_def] >>
+rw [fresh_uvar_def, get_next_uvar_def, set_next_uvar_def] >>
+rw_monads_defs >>
 metis_tac []);
 
 val n_fresh_uvar_success = Q.prove (
@@ -410,7 +424,8 @@ val apply_subst_success = Q.prove (
   =
   ((st2 = st1) ∧
    (t2 = t_walkstar st1.subst t1))`,
-rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def, read_def] >>
+rw [st_ex_return_def, st_ex_bind_def, LET_THM, apply_subst_def] >>
+rw_monads_defs >>
 eq_tac >>
 rw []);
 
@@ -420,6 +435,7 @@ val add_constraint_success = Q.store_thm ("add_constraint_success",
   =
   ((x = ()) ∧ (?s. (t_unify st.subst t1 t2 = SOME s) ∧ (st' = st with subst := s)))`,
 rw [add_constraint_def] >>
+rw_monads_defs >>
 full_case_tac >>
 metis_tac []);
 
@@ -432,6 +448,7 @@ val add_constraints_success = Q.prove (
    (st.next_uvar = st'.next_uvar) ∧
    pure_add_constraints st.subst (ZIP (ts1,ts2)) st'.subst))`,
 ho_match_mp_tac add_constraints_ind >>
+rw_monads_defs >>
 rw [add_constraints_def, pure_add_constraints_def, st_ex_return_success,
     failwith_def, st_ex_bind_success, add_constraint_success] >>
 TRY (cases_on `x`) >>
@@ -444,7 +461,7 @@ cases_on `t_unify st.subst t1 t2` >>
 fs []);
 
 val failwith_success = Q.prove (
-`!l m st v st'. (failwith l m st = (Success v, st')) = F`,
+`!l m st v st'. (failwith (l, m) st = (Success v, st')) = F`,
 rw [failwith_def]);
 
 val lookup_st_ex_success = Q.prove (
@@ -453,6 +470,7 @@ val lookup_st_ex_success = Q.prove (
   =
   ((nsLookup l x = SOME v) ∧ (st = st'))`,
  rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
+ >> rw_monads_defs
  >> every_case_tac);
 
 val op_case_expand = Q.prove (
@@ -565,7 +583,7 @@ val success_eqns =
              n_fresh_uvar_success, failwith_success, add_constraints_success,
              oneTheory.one,
              get_next_uvar_success, apply_subst_list_success, guard_success,
-             read_def, option_case_eq];
+             option_case_eq];
 
 val _ = save_thm ("success_eqns", success_eqns);
 
@@ -1516,6 +1534,7 @@ val constrain_op_check_s = Q.store_thm ("constrain_op_check_s",
   ⇒
   check_s tvs (count st'.next_uvar) st'.subst`,
  rw [constrain_op_def] >>
+ rw_monads_defs >>
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
  `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
@@ -2430,10 +2449,17 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  >> rpt gen_tac
  >> strip_tac
  >> fs [infer_d_def, success_eqns]
+ (* >> fs monad_operators_defs *)
  >> rpt (pairarg_tac >> fs [success_eqns])
+ >> fs[get_subst_def, set_subst_def, get_next_uvar_def, set_next_uvar_def, failwith_def]
  >> fs [init_state_def]
  >> rw []
  >> strip_assume_tac init_infer_state_wfs
+ (****)
+ >> fs monad_operators_defs >> rw[] >> fs[GSYM init_infer_state_def]
+ (****)
+ (* >-(fs monad_operators_defs >> rw[] >> fs[GSYM init_infer_state_def] >> let_tac)
+ >-(fs monad_operators_defs >> rw[] >> fs[GSYM init_infer_state_def] >> let_tac) *)
  >- let_tac
  >- let_tac
  >- (
@@ -2460,6 +2486,8 @@ val infer_d_check = Q.store_thm ("infer_d_check",
    >> fs [ienv_ok_def]
    >> drule (List.nth (CONJUNCTS infer_e_check_s, 3))
    >> simp [ienv_ok_def]
+   >> `t_wfs FEMPTY` by rw[t_wfs_def] >> POP_ASSUM(fn x => simp[x]) (***)
+   >> `FEMPTY = init_infer_state.subst` by EVAL_TAC >> POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
    >> disch_then drule
    >> rw []
    >> drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
