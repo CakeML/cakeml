@@ -53,7 +53,7 @@ val aM = ref (ty_antiq (M_type ``:'a``));
 val bM = ref (ty_antiq (M_type ``:'b``));
 
 (* The theorem stating that there exists a store stasfying the store predicate *)
-val VALID_STORE_THM = ref (prove(``T``, fs[]));
+val VALID_STORE_THM = ref (NONE : thm option);
 
 (* Additional theories where to look for refinement invariants *)
 val type_theories = ref ([current_theory(), "ml_translator"] : string list);
@@ -392,17 +392,11 @@ fun mem_derive_case_of ty =
   in th end);
 
 (* Initialize the translation by giving the appropriate values to the above references *)
-fun init_translation (store_trans_res : store_translation_result) EXN_RI add_type_theories =
+fun init_translation (translation_parameters : monadic_translation_parameters) store_pred_exists_thm EXN_RI add_type_theories =
   let
-      val {refs_init_values = refs_values,
-	   refs_locations  = refs_locs,
-	   arrays_init_values = arrays_values,
-	   arrays_locations = arrays_locs,
-	   store_pred_def = store_pred_def,
-	   store_pred_validity = store_pred_validity,
-	   store_pred_exists_thm = store_pred_exists_thm,
-	   refs_specs = refs_specs,
-	   arrays_specs = arrays_specs} = store_trans_res
+      val {store_pred_def = store_pred_def,
+           refs_specs  = refs_specs,
+           arrays_specs = arrays_specs} = translation_parameters
 
       val _ = default_H := (concl store_pred_def |> dest_eq |> fst)
       val _ = H := (!default_H)
@@ -1061,12 +1055,12 @@ fun m_translate def = let
                   |> clean_assumptions |> DISCH_ALL
                   |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
       val th = th |> DISCH (first (can (match_term ``LOOKUP_VAR _ _ _``)) (hyp th))
-      val th = MATCH_MP (MP (ISPEC_EvalM LOOKUP_VAR_EvalM_IMP) (!VALID_STORE_THM)) (Q.GEN `env` th)
+      val th = MATCH_MP (ISPEC_EvalM LOOKUP_VAR_EvalM_IMP |> UNDISCH) (Q.GEN `env` th)
       in th end
     else let
       val th = th |> Q.INST [`env`|->`^(get_env (get_curr_prog_state ()))`]
                   |> D |> clean_assumptions |> UNDISCH_ALL
-      val th = th |> MATCH_MP (MP (ISPEC_EvalM EvalM_Fun_PURE_IMP) (!VALID_STORE_THM))
+      val th = th |> MATCH_MP (ISPEC_EvalM EvalM_Fun_PURE_IMP |> UNDISCH)
       val v = th |> concl |> rand |> rator |> rand
       val e = th |> concl |> rand |> rand
       val v_name = find_const_name (fname ^ "_v")
@@ -1076,6 +1070,10 @@ fun m_translate def = let
       val th = th |> REWRITE_RULE [GSYM v_def]
       in th end
   val th = RW [GSYM ArrowM_def] th
+  (* remove the VALID_REFS_PRED predicate if possible *)
+  val th = case !VALID_STORE_THM of
+	       SOME vth => (MP (DISCH (concl vth) th) vth handle HOL_ERR _ => th)
+	    | NONE => th
   (* store certificate for later use *)
   val pre = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
   val _ = add_v_thms (fname,fname,th,pre)

@@ -3,7 +3,8 @@ open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib holKernelTheory
+open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
+open holKernelTheory
 
 val _ = new_theory "ml_hol_kernelProg";
 			
@@ -151,15 +152,16 @@ val store_hprop_name = "HOL_STORE";
 val state_type = ``:hol_refs``
 val exc_ri = ``HOL_EXN_TYPE``;
 val exc_ri_def = HOL_EXN_TYPE_def
-val translated_store_thms = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exc_ri_def;
+val (translation_parameters, store_trans_result) = translate_static_init_fixed_store  refs_init_list arrays_init_list store_hprop_name state_type exc_ri_def;
 
 (* Initialize the monadic translation *)
-val _ = init_translation translated_store_thms exc_ri []
+val store_pred_exists_th = #store_pred_exists_thm store_trans_result;
+val _ = init_translation translation_parameters (SOME store_pred_exists_th) exc_ri [];
 
 (* Prove the theorems necessary to handle the exceptions *)
 val raise_functions = [failwith_def, raise_clash_def];
 val handle_functions = [handle_clash_def];
-val exn_thms = add_raise_handle_functions raise_functions handle_functions HOL_EXN_TYPE_def
+val exn_thms = add_raise_handle_functions raise_functions handle_functions HOL_EXN_TYPE_def;
 
 (* val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
 val ty = ``:'a list``; val _ = mem_derive_case_of ty;
