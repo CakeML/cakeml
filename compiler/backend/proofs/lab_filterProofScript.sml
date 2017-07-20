@@ -18,10 +18,10 @@ val adjust_pc_def = Define `
 (*All skips for the next k*)
 val all_skips_def = Define`
   all_skips pc code k ⇔
-  (∀x y. asm_fetch_aux (pc+k) code ≠ SOME(Asm (Inst Skip) x y)) ∧
+  (∀x y. asm_fetch_aux (pc+k) code ≠ SOME(Asm (A(Inst Skip)) x y)) ∧
   ∀i. i < k ⇒
     ∃x y.
-    asm_fetch_aux (pc+i) code = SOME(Asm (Inst Skip) x y)`
+    asm_fetch_aux (pc+i) code = SOME(Asm (A(Inst Skip)) x y)`
 
 val is_Label_not_skip = Q.prove(`
   is_Label y ⇒ not_skip y`,
@@ -67,7 +67,7 @@ val asm_fetch_aux_eq = Q.prove(`
     >>
       full_simp_tac(srw_ss())[all_skips_def]>>full_simp_tac(srw_ss())[Once asm_fetch_aux_def]>>
       first_x_assum(qspec_then`pc` assume_tac)>>full_simp_tac(srw_ss())[]>>
-      metis_tac[DECIDE``A +B = B+A:num``,asm_fetch_aux_def])
+      metis_tac[ADD_COMM,asm_fetch_aux_def])
   >>
   Cases_on`pc=0`
   >-
@@ -97,7 +97,7 @@ val asm_fetch_aux_eq = Q.prove(`
   simp[Once adjust_pc_def]>>
   full_simp_tac(srw_ss())[asm_fetch_aux_def,is_Label_def,filter_skip_def,not_skip_def,all_skips_def]
   >-
-    metis_tac[DECIDE``A+B = B+A:num``]
+    metis_tac[ADD_COMM]
   >>
     (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once asm_fetch_aux_def,SimpRHS,is_Label_def]>>
@@ -110,7 +110,7 @@ val asm_fetch_aux_eq = Q.prove(`
 This is probably the wrong direction*)
 val asm_fetch_not_skip_adjust_pc = Q.prove(
   `∀pc code inst.
-  (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (Inst Skip) x y)) ⇒
+  (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (A(Inst Skip)) x y)) ⇒
   asm_fetch_aux pc code = asm_fetch_aux (adjust_pc pc code) (filter_skip code)`,
   ho_match_mp_tac asm_fetch_aux_ind>>srw_tac[][]
   >-
@@ -140,7 +140,7 @@ val asm_fetch_not_skip_adjust_pc = Q.prove(
     full_simp_tac(srw_ss())[Once asm_fetch_aux_def]>>
     simp[Once adjust_pc_def,SimpRHS]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[filter_skip_def]>>
-    simp[asm_fetch_aux_def])
+    simp[asm_fetch_aux_def]);
 
 val state_rw = Q.prove(`
   s with clock := s.clock = s ∧
@@ -181,7 +181,7 @@ val state_rel_def = Define `
     (∃s1compile.
      s1 = t1 with <| code := filter_skip t1.code ;
                      pc := adjust_pc t1.pc t1.code ;
-                     compile_oracle := filter_skip o t1.compile_oracle;
+                     compile_oracle := λn. (λ(a,b).(a,filter_skip b)) (t1.compile_oracle n);
                      compile := s1compile
                      |> ∧
     t1.compile = λc p. s1compile c (filter_skip p)  ) ∧
@@ -224,14 +224,14 @@ val adjust_pc_all_skips = Q.prove(`
     `!i. i+(pc-1) = i+pc -1` by DECIDE_TAC>>
     full_simp_tac(srw_ss())[]>>
     first_assum match_mp_tac>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[])
+    full_simp_tac(srw_ss())[]);
 
 val asm_fetch_aux_eq2 = Q.prove(
 `asm_fetch_aux (adjust_pc pc code) (filter_skip code) = x ⇒
   ∃k.
   asm_fetch_aux (pc+k) code = x ∧
   all_skips pc code k`,
-  metis_tac[asm_fetch_aux_eq])
+  metis_tac[asm_fetch_aux_eq]);
 
 val all_skips_evaluate_0 = all_skips_evaluate |>SIMP_RULE std_ss [PULL_FORALL]|>(Q.SPECL[`k`,`s`,`0`])|>GEN_ALL|>SIMP_RULE std_ss[]
 
@@ -269,13 +269,13 @@ val all_skips_initial_adjust = Q.prove(`
     >-
       (qexists_tac`k'`>>full_simp_tac(srw_ss())[])
     >-
-      (Cases_on`a=Inst Skip`>>full_simp_tac(srw_ss())[]
+      (Cases_on`a=A(Inst Skip)`>>full_simp_tac(srw_ss())[]
       >-
         (qexists_tac`k'+1`>>srw_tac[][]>>
         `i-1 < k'` by DECIDE_TAC>>
         metis_tac[])
       >> (qexists_tac`0`>>full_simp_tac(srw_ss())[]))
-    >> (qexists_tac`0`>>full_simp_tac(srw_ss())[]))
+    >> (qexists_tac`0`>>full_simp_tac(srw_ss())[]));
 
 (*May need strengthening*)
 val loc_to_pc_eq_NONE = Q.prove(`
@@ -289,7 +289,7 @@ val loc_to_pc_eq_NONE = Q.prove(`
   IF_CASES_TAC>>
   full_simp_tac(srw_ss())[]>>
   TRY
-    (qpat_x_assum`A=NONE` mp_tac>>
+    (qpat_x_assum`_=NONE` mp_tac>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once loc_to_pc_def]>>
@@ -321,12 +321,12 @@ val loc_to_pc_eq_SOME = Q.prove(`
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]
     >-
       (full_simp_tac(srw_ss())[not_skip_def]>>
-      qpat_x_assum`A=pc` sym_sub_tac>>
+      qpat_x_assum`_=pc` sym_sub_tac>>
       full_simp_tac(srw_ss())[Once adjust_pc_def])
     >>
       (IF_CASES_TAC>>full_simp_tac(srw_ss())[]
       >-
-        (Cases_on`not_skip h`>>qpat_x_assum`A=SOME pc` mp_tac>>
+        (Cases_on`not_skip h`>>qpat_x_assum`_=SOME pc` mp_tac>>
         TRY(`not_skip h` by (full_simp_tac(srw_ss())[]>>NO_TAC)>>
           simp[Once loc_to_pc_def,SimpLHS])>>
         srw_tac[][]>>
@@ -339,7 +339,7 @@ val loc_to_pc_eq_SOME = Q.prove(`
         simp[Once adjust_pc_def]>>IF_CASES_TAC>>
         full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[Once adjust_pc_def]))
       >>
-      Cases_on`not_skip h`>>qpat_x_assum`A=SOME pc` mp_tac
+      Cases_on`not_skip h`>>qpat_x_assum`_=SOME pc` mp_tac
       >-
         (simp[]>>simp[Once loc_to_pc_def,SimpLHS]>>
         srw_tac[][]>>
@@ -350,7 +350,7 @@ val loc_to_pc_eq_SOME = Q.prove(`
         srw_tac[][]>>
         simp[Once loc_to_pc_def]>>
         `pc ≠ 0` by
-          (qpat_x_assum`A=SOME pc` mp_tac>>
+          (qpat_x_assum`_=SOME pc` mp_tac>>
           EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
           srw_tac[][]>>
           DECIDE_TAC)>>
@@ -363,7 +363,7 @@ val loc_to_pc_eq_SOME = Q.prove(`
           DECIDE_TAC)>>
         srw_tac[][]>>
         simp[Once loc_to_pc_def]>>
-        simp[Once adjust_pc_def])))
+        simp[Once adjust_pc_def])));
 
 val next_label_filter_skip = Q.prove(`
   ∀code.
@@ -392,8 +392,10 @@ val all_skips_get_lab_after = Q.prove(`
   >-
     (`not_skip h` by
       (full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[not_skip_def]>>
-      Cases_on`a`>>full_simp_tac(srw_ss())[]>>Cases_on`i`>>full_simp_tac(srw_ss())[])>>
+      Cases_on`h`>>fs[not_skip_def]>>
+      Cases_on`a`>>fs[]>>
+      Cases_on`a'`>>fs[]>>
+      Cases_on`i`>>fs[])>>
     full_simp_tac(srw_ss())[get_lab_after_def]>>
     mp_tac next_label_filter_skip>>
     disch_then(qspec_then`Section n l::code` assume_tac)>>
@@ -409,7 +411,7 @@ val all_skips_get_lab_after = Q.prove(`
     full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]>>srw_tac[][]>>
     `i+1 < k` by DECIDE_TAC>>
     res_tac>>
-    full_simp_tac(srw_ss())[])
+    full_simp_tac(srw_ss())[]);
 
 val get_lab_after_adjust = Q.prove(`
   ∀pc code k.
@@ -461,7 +463,7 @@ val get_lab_after_adjust = Q.prove(`
       full_simp_tac(srw_ss())[]>>
       first_assum match_mp_tac>>
       `∀x. pc + x -1 = pc -1 +x` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def])
+      full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]);
 
 val loc_to_pc_adjust_pc_append = Q.prove(`
   ∀n1 n2 code pc ls.
@@ -501,16 +503,16 @@ val same_inst_tac =
   imp_res_tac asm_fetch_aux_eq2>>
   imp_res_tac all_skips_evaluate_0>>
   srw_tac[][]>>qexists_tac`k`>>full_simp_tac(srw_ss())[]>>
-  rev_full_simp_tac(srw_ss())[DECIDE``A+B = B+A:num``]>>
+  rev_full_simp_tac(srw_ss())[ADD_COMM]>>
   simp[Once evaluate_def,asm_fetch_def];
 
 val upd_pc_tac =
   first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
-  qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
-  first_x_assum(qspec_then`B` mp_tac)>>
+  qmatch_assum_abbrev_tac`evaluate aa = evaluate bb`>>
+  first_x_assum(qspec_then`bb` mp_tac)>>
   impl_tac>-
-  (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality])>>
-  srw_tac[][Abbr`B`]>>
+  (simp[inc_pc_def,dec_clock_def,Abbr`bb`,state_component_equality])>>
+  srw_tac[][Abbr`bb`]>>
   qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
   first_x_assum(qspec_then`k'` assume_tac)>>
   `k'+t1.clock-1 = k'+(t1.clock -1)` by DECIDE_TAC>>
@@ -524,7 +526,7 @@ val filter_correct = Q.store_thm("filter_correct",
         (evaluate (t1 with clock := s1.clock + k) = (res,t2)) /\
         (s2.ffi = t2.ffi)`,
   ho_match_mp_tac evaluate_ind>>srw_tac[][]>>
-  qpat_x_assum`evaluate s1 = A` mp_tac>>
+  qpat_x_assum`evaluate s1 = _` mp_tac>>
   simp[Once evaluate_def]>>
   IF_CASES_TAC>-
     (simp[Once evaluate_def]>>
@@ -535,12 +537,12 @@ val filter_correct = Q.store_thm("filter_correct",
   Cases_on`asm_fetch s1`>>full_simp_tac(srw_ss())[]>- same_inst_tac>>
   Cases_on`x`>>full_simp_tac(srw_ss())[] >- same_inst_tac
   >-
-    (Cases_on`a`>>full_simp_tac(srw_ss())[]>>TRY(same_inst_tac>>NO_TAC)>>
+    (Cases_on`a`>>TRY(Cases_on`a'`)>>full_simp_tac(srw_ss())[]>>TRY(same_inst_tac>>NO_TAC)>>
     full_simp_tac(srw_ss())[asm_fetch_def,state_rel_def]>>rev_full_simp_tac(srw_ss())[]>>
     imp_res_tac asm_fetch_aux_eq2>>
     imp_res_tac all_skips_evaluate>>
     pop_assum mp_tac>>simp[Once evaluate_def,SimpRHS,asm_fetch_def]>>
-    full_simp_tac(srw_ss())[DECIDE``A+B=B+A:num``]
+    fs[ADD_COMM]
     >-
       (Cases_on`i`>>full_simp_tac(srw_ss())[asm_inst_def,upd_reg_def,arith_upd_def,mem_op_def]
       >-
@@ -609,8 +611,8 @@ val filter_correct = Q.store_thm("filter_correct",
         `ss = tt` by (unabbrev_all_tac>>fs[state_component_equality])>>
         unabbrev_all_tac>>fs[]>>
         metis_tac[ADD_ASSOC])))
-    >>
-      FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>-same_inst_tac>>
+    >- (*JumpReg*)
+      (FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>-same_inst_tac>>
       Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
       >-
         (imp_res_tac loc_to_pc_eq_NONE>>same_inst_tac)
@@ -618,13 +620,33 @@ val filter_correct = Q.store_thm("filter_correct",
         imp_res_tac loc_to_pc_eq_SOME>>
         full_simp_tac(srw_ss())[get_pc_value_def,upd_pc_def,dec_clock_def]>>srw_tac[][]>>
         upd_pc_tac)
+    >- (*CBW*)
+      (reverse(simp[case_eq_thms]>>rw[]>>fs[inc_pc_def,dec_clock_def])
+      >> TRY (
+        rename1`code_buffer_write _ _ _ = SOME _`>>
+        qmatch_asmsub_abbrev_tac`evaluate tt = (res,s2)`>>
+        first_x_assum(qspec_then `tt with <|pc:= t1.pc+k+1; code:=t1.code; compile:= t1.compile; compile_oracle := t1.compile_oracle|>` mp_tac)>>
+        simp[Abbr`tt`,state_component_equality]>>
+        impl_tac>-
+          metis_tac[adjust_pc_all_skips,ADD_COMM,ADD_ASSOC]>>
+        strip_tac>>
+        first_x_assum(qspec_then`k'` assume_tac)>>
+        qmatch_asmsub_abbrev_tac`evaluate tt = (res,t2)`>>
+        qmatch_asmsub_abbrev_tac`evaluate ss = evaluate _`>>
+        `ss = tt` by (
+          unabbrev_all_tac>>fs[state_component_equality])>>
+        unabbrev_all_tac>>fs[]>>
+        metis_tac[ADD_ASSOC])
+      >>
+        (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
+        fs[]>>qexists_tac`k`>>fs[])))
   >>
     Cases_on`a`>>
     full_simp_tac(srw_ss())[asm_fetch_def,state_rel_def]>>rev_full_simp_tac(srw_ss())[]>>
     imp_res_tac asm_fetch_aux_eq2>>
     imp_res_tac all_skips_evaluate>>
     pop_assum mp_tac>>simp[Once evaluate_def,SimpRHS,asm_fetch_def]>>
-    full_simp_tac(srw_ss())[DECIDE``A+B=B+A:num``]
+    fs[ADD_COMM]
     >-
       (full_simp_tac(srw_ss())[get_pc_value_def]>>Cases_on`l'`>>full_simp_tac(srw_ss())[]>>
       Cases_on`loc_to_pc n' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
@@ -676,13 +698,13 @@ val filter_correct = Q.store_thm("filter_correct",
       >>
         imp_res_tac loc_to_pc_eq_SOME>>
         full_simp_tac(srw_ss())[get_ret_Loc_def]>>
-        qpat_abbrev_tac`A = get_lab_after B C`>>
-        qpat_abbrev_tac`A' = get_lab_after B C`>>
-        `A = A'` by
+        qpat_abbrev_tac`aa = get_lab_after _ _`>>
+        qpat_abbrev_tac`aaa = get_lab_after _ _`>>
+        `aa = aaa` by
           (imp_res_tac (INST_TYPE[beta|->alpha]get_lab_after_adjust)>>
           rev_full_simp_tac(srw_ss())[]>>
           metis_tac[arithmeticTheory.ADD_COMM])>>
-        Cases_on`A'`>>full_simp_tac(srw_ss())[]
+        Cases_on`aaa`>>full_simp_tac(srw_ss())[]
         >-
           (same_inst_tac>>
           full_simp_tac(srw_ss())[get_pc_value_def,get_ret_Loc_def])
@@ -710,13 +732,13 @@ val filter_correct = Q.store_thm("filter_correct",
       imp_res_tac loc_to_pc_eq_SOME>>
       fs[]>>rw[]>>
       first_assum(qspec_then`0` assume_tac)>>full_simp_tac(srw_ss())[]>>
-      qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
-      first_x_assum(qspec_then`B` mp_tac)>>
+      qmatch_assum_abbrev_tac`evaluate aa = evaluate bb`>>
+      first_x_assum(qspec_then`bb` mp_tac)>>
       impl_tac>-
-        (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality]>>
+        (simp[inc_pc_def,dec_clock_def,Abbr`bb`,state_component_equality]>>
         `k + (t1.pc +1) = (t1.pc + k + 1)` by DECIDE_TAC>>full_simp_tac(srw_ss())[]>>
         metis_tac[adjust_pc_all_skips])>>
-      srw_tac[][Abbr`B`]>>
+      srw_tac[][Abbr`bb`]>>
       qexists_tac`k+k'`>>qexists_tac`t2`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum`Z=(res,t2)` sym_sub_tac>>
       first_x_assum(qspec_then`k'` assume_tac)>>
@@ -747,29 +769,46 @@ val filter_correct = Q.store_thm("filter_correct",
         \\ first_x_assum(qspec_then`0`mp_tac) \\ rw[]
         \\ qexists_tac`k` \\ simp[] ) \\
       split_pair_case_tac \\ fs[] \\
+      pairarg_tac>>fs[] \\
       imp_res_tac loc_to_pc_eq_SOME \\ fs[] \\
       TOP_CASE_TAC >- (
-        fs[]>>
+        rw[]>>pairarg_tac>>fs[]>>
+        Cases_on`b`>>fs[filter_skip_MAP]>>
+        same_inst_tac)>>
+      TOP_CASE_TAC>-(
+        rw[]>>pairarg_tac>>fs[]>>
+        Cases_on`b`>>Cases_on`h`>>fs[filter_skip_MAP]>>
         same_inst_tac)>>
       split_pair_case_tac \\ fs[] \\
-      reverse IF_CASES_TAC >-
-        (fs[]>>
-        same_inst_tac)>>
-      strip_tac>>fs[]>>rfs[]>>
-      first_x_assum(qspec_then `t1 with <|regs := (t1.ptr_reg =+ Loc k' 0) t1.regs; pc := pc';
-              code := t1.code ++ t1.compile_oracle 0;
-              compiler_config := cfg;
-              compile_oracle := shift_seq 1 t1.compile_oracle;
-              code_buffer := cb; clock:=t1.clock-1|>` mp_tac)>>
+      TOP_CASE_TAC >> fs[] >>
+      reverse IF_CASES_TAC >- (
+        rw[]>>pairarg_tac>>fs[]>>
+        Cases_on`b`>>fs[filter_skip_MAP]>>
+        Cases_on`h`>>same_inst_tac>>
+        fs[shift_seq_def]>>
+        pairarg_tac>>fs[])>>
+      strip_tac>>
+      pairarg_tac>>fs[shift_seq_def]>>
+      pairarg_tac>>fs[]>>
+      fs[]>>rfs[]>>
+      rw[]>>
+      first_x_assum(qspec_then `t1 with <|
+        regs := (t1.ptr_reg =+ Loc n'' 0) (λa. get_reg_value (t1.cc_regs 0 a) (read_reg a t1) Word);
+        pc := pc';
+        code := t1.code ++ SND(t1.compile_oracle 0);
+        compile_oracle := shift_seq 1 t1.compile_oracle;
+        code_buffer := cb; clock:=t1.clock-1 ; cc_regs:= shift_seq 1 t1.cc_regs|>` mp_tac)>>
       simp[state_component_equality]>>
-      impl_tac>-
-        (rw[filter_skip_MAP,shift_seq_def]
+      impl_tac>- (
+        rw[filter_skip_MAP,shift_seq_def]
         >-
           metis_tac[loc_to_pc_adjust_pc_append]
         >>
-          rw[FUN_EQ_THM,filter_skip_MAP])>>
+          metis_tac[FUN_EQ_THM,filter_skip_MAP])>>
       rw[]>>
       first_x_assum(qspec_then`k''` assume_tac)>>rfs[]>>
+      Cases_on`b`>>fs[filter_skip_MAP]>>
+      Cases_on`h`>>fs[shift_seq_def]>>
       metis_tac[ADD_ASSOC])
     >>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
@@ -888,7 +927,7 @@ val state_rel_IMP_sem_EQ_sem = Q.prove(
       qexists_tac`k+k'`>>simp[EL_APPEND1] ) >>
     metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
 
-(* This theorem is probably no longer useful
+(* This theorem is probably no longer useful ∃
 val filter_skip_semantics = Q.store_thm("filter_skip_semantics",
   `!s t. (s.pc = 0) ∧ ¬s.failed /\ (t = s with code := filter_skip s.code) ==>
           semantics t = semantics s`,
