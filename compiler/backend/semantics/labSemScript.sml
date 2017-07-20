@@ -19,6 +19,12 @@ val code_buffer_flush_def = Define`
             cb with <| position := w2 ; buffer := [] |>)
     else NONE`;
 
+val code_buffer_write_def = Define`
+  code_buffer_write cb w b =
+    if cb.position + n2w(LENGTH cb.buffer) = w ∧ 0 < cb.space_left then
+      SOME (cb with <| buffer := cb.buffer++[b] ; space_left := cb.space_left-1|>)
+    else NONE`;
+
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 
@@ -298,7 +304,7 @@ val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
-    | SOME (Asm a _ _) =>
+    | SOME (Asm (A a) _ _) =>
         (case a of
          | Inst i =>
             (let s1 = asm_inst i s in
@@ -313,6 +319,14 @@ val evaluate_def = tDefine "evaluate" `
                       evaluate (upd_pc p (dec_clock s)))
              | _ => (Error,s))
          | _ => (Error,s))
+    | SOME (Asm (Cbw r1 r2) _ _) =>
+      (case (read_reg r1 s,read_reg r2 s) of
+      | (Word w1, Word w2) =>
+        (case code_buffer_write s.code_buffer w1 (w2w w2) of
+        | SOME new_cb =>
+          evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
+        | _ => (Error,s))
+      | _ => (Error,s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
         | Word 0w => (Halt Success,s)

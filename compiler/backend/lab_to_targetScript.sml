@@ -17,10 +17,18 @@ val lab_inst_def = Define `
   (lab_inst w (Install) = Jump w) /\
   (lab_inst w (CallFFI n) = Jump w)`;
 
+val cbw_to_asm_def = Define`
+  cbw_to_asm a =
+  case a of
+    A a => a
+  | Cbw r1 r2 => Inst (Mem Store8 r2 (Addr r1 0w))`
+
+val _ = export_rewrites ["cbw_to_asm_def"]
+
 val enc_line_def = Define `
   (enc_line enc skip_len (Label n1 n2 n3) = Label n1 n2 skip_len) /\
   (enc_line enc skip_len (Asm a _ _) =
-     let bs = enc a in Asm a bs (LENGTH bs)) /\
+     let bs = enc (cbw_to_asm a) in Asm a bs (LENGTH bs)) /\
   (enc_line enc skip_len (LabAsm l _ _ _) =
      let bs = enc (lab_inst 0w l) in
        LabAsm l 0w bs (LENGTH bs))`
