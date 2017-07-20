@@ -24,7 +24,7 @@ val () = Datatype `
                | Halt`;
 
 val _ = Datatype`
-  asm_or_cbw = A ('a asm) | Cbw reg reg`; (* Either an asm inst or code-buffer-write *)
+  asm_or_cbw = Asmi ('a asm) | Cbw reg reg`; (* Either an asm inst/jumpreg or code-buffer-write *)
 
 val () = Datatype `
   line = Label num num num (* section number, label number, length *)

@@ -754,7 +754,7 @@ val IMP_bytes_in_memory_JumpReg = Q.prove(
   `code_similar s1.code code2 /\
     all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
-    (asm_fetch s1 = SOME (Asm (A (JumpReg r1)) l n)) ==>
+    (asm_fetch s1 = SOME (Asm (Asmi (JumpReg r1)) l n)) ==>
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       (mc_conf.target.config.encode (JumpReg r1)) t1.mem t1.mem_domain /\
     asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).target.config`,
@@ -901,7 +901,7 @@ val IMP_bytes_in_memory_Inst = Q.prove(
   `code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
-    (asm_fetch s1 = SOME (Asm (A(Inst i)) bytes len)) ==>
+    (asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)) ==>
     ?bytes.
       enc_with_nop mc_conf.target.config.encode (Inst i) bytes /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
@@ -4601,7 +4601,7 @@ val compile_correct = Q.prove(
   THEN1 (
     fs[case_eq_thms]>>rw[]
     THEN1 (* Asm Inst *) (
-       qmatch_assum_rename_tac `asm_fetch s1 = SOME (Asm (A(Inst i)) bytes len)`
+       qmatch_assum_rename_tac `asm_fetch s1 = SOME (Asm (Asmi(Inst i)) bytes len)`
        \\ mp_tac IMP_bytes_in_memory_Inst \\ full_simp_tac(srw_ss())[]
        \\ match_mp_tac IMP_IMP \\ strip_tac
        THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
@@ -5469,7 +5469,7 @@ val init_ok_def = Define `
   init_ok (mc_conf, p) s ms <=>
     s.ffi.final_event = NONE /\
     ?code2 labs t1.
-      state_rel (mc_conf,code2,labs,p,T) s t1 ms`
+      state_rel (mc_conf,code2,labs,p) s t1 ms`
 
 val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   `!mc_conf p (ms:'state) ^s1.
@@ -5627,7 +5627,7 @@ val make_word_def = Define `
                             m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
 
 val make_init_def = Define `
-  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t m dm (ms:'state) code =
+  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t m dm (ms:'state) code cb =
     <| regs       := \k. Word ((t.regs k):'a word)
      ; mem        := m
      ; mem_domain := dm
@@ -5641,6 +5641,8 @@ val make_init_def = Define `
      ; ptr_reg    := mc_conf.ptr_reg
      ; len_reg    := mc_conf.len_reg
      ; link_reg   := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
+     ; compile    := compile_lab
+     ; code_buffer:= cb
      |>`;
 
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
@@ -5713,7 +5715,6 @@ val aligned_1_intro = Q.prove(
   `((1w && w) = 0w) <=> aligned 1 w`,
   fs [alignmentTheory.aligned_bitwise_and]);
 
-(* TODO: Update when actual state_rel becomes clear
 val IMP_state_rel_make_init = Q.prove(
   `EVERY sec_ends_with_label code /\
    EVERY sec_labels_ok code /\
@@ -5730,9 +5731,9 @@ val IMP_state_rel_make_init = Q.prove(
     good_init_state mc_conf t m ms ffi (find_ffi_names code)
       (prog_to_bytes code2) io_regs save_regs dm ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
-        mc_conf.target.get_pc ms,T)
+        mc_conf.target.get_pc ms)
       (make_init mc_conf (ffi:'ffi ffi_state)
-         save_regs io_regs t m dm ms code) t ms`,
+         save_regs io_regs t m dm ms code cb) t ms`,
   srw_tac[][] \\ drule remove_labels_thm
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,word_loc_val_def,PULL_EXISTS]

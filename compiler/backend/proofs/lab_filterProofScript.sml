@@ -18,10 +18,10 @@ val adjust_pc_def = Define `
 (*All skips for the next k*)
 val all_skips_def = Define`
   all_skips pc code k ⇔
-  (∀x y. asm_fetch_aux (pc+k) code ≠ SOME(Asm (A(Inst Skip)) x y)) ∧
+  (∀x y. asm_fetch_aux (pc+k) code ≠ SOME(Asm (Asmi(Inst Skip)) x y)) ∧
   ∀i. i < k ⇒
     ∃x y.
-    asm_fetch_aux (pc+i) code = SOME(Asm (A(Inst Skip)) x y)`
+    asm_fetch_aux (pc+i) code = SOME(Asm (Asmi(Inst Skip)) x y)`
 
 val is_Label_not_skip = Q.prove(`
   is_Label y ⇒ not_skip y`,
@@ -110,7 +110,7 @@ val asm_fetch_aux_eq = Q.prove(`
 This is probably the wrong direction*)
 val asm_fetch_not_skip_adjust_pc = Q.prove(
   `∀pc code inst.
-  (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (A(Inst Skip)) x y)) ⇒
+  (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (Asmi(Inst Skip)) x y)) ⇒
   asm_fetch_aux pc code = asm_fetch_aux (adjust_pc pc code) (filter_skip code)`,
   ho_match_mp_tac asm_fetch_aux_ind>>srw_tac[][]
   >-
@@ -269,7 +269,7 @@ val all_skips_initial_adjust = Q.prove(`
     >-
       (qexists_tac`k'`>>full_simp_tac(srw_ss())[])
     >-
-      (Cases_on`a=A(Inst Skip)`>>full_simp_tac(srw_ss())[]
+      (Cases_on`a=Asmi(Inst Skip)`>>full_simp_tac(srw_ss())[]
       >-
         (qexists_tac`k'+1`>>srw_tac[][]>>
         `i-1 < k'` by DECIDE_TAC>>

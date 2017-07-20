@@ -20,7 +20,7 @@ val lab_inst_def = Define `
 val cbw_to_asm_def = Define`
   cbw_to_asm a =
   case a of
-    A a => a
+    Asmi a => a
   | Cbw r1 r2 => Inst (Mem Store8 r2 (Addr r1 0w))`
 
 val _ = export_rewrites ["cbw_to_asm_def"]

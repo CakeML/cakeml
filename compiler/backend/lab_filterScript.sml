@@ -5,7 +5,7 @@ val _ = new_theory "lab_filter";
 (* This pass removes all Skip instructions (generated from Tick in stackLang) *)
 
 val not_skip_def = Define `
-  not_skip l = case l of Asm (A (Inst Skip)) _ _ => F | _ => T`;
+  not_skip l = case l of Asm (Asmi (Inst Skip)) _ _ => F | _ => T`;
 
 val filter_skip_def = Define `
   (filter_skip [] = []) /\

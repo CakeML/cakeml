@@ -606,7 +606,7 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ TRY pairarg_tac \\ fs[]
   \\ fs[align_dm_def]
   \\ every_case_tac \\ fs[]);
-  
+
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒
    implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}`,

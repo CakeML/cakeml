@@ -6,7 +6,7 @@ val _ = new_theory "stack_to_lab";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = temp_overload_on ("Asm",``λa. Asm (A a)``);
+val _ = temp_overload_on ("Asm",``λa. Asm (Asmi a)``);
 
 val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
