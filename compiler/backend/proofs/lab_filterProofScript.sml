@@ -927,13 +927,18 @@ val state_rel_IMP_sem_EQ_sem = Q.prove(
       qexists_tac`k+k'`>>simp[EL_APPEND1] ) >>
     metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
 
-(* This theorem is probably no longer useful ∃
 val filter_skip_semantics = Q.store_thm("filter_skip_semantics",
-  `!s t. (s.pc = 0) ∧ ¬s.failed /\ (t = s with code := filter_skip s.code) ==>
-          semantics t = semantics s`,
+  `!s t. (t.pc = 0) ∧ ¬t.failed /\
+   (∃scompile.
+     s = t with <| code := filter_skip t.code ;
+                   compile_oracle := (λ(a,b).(a,filter_skip b)) o t.compile_oracle;
+                   compile := scompile
+                 |> ∧
+    t.compile = λc p. scompile c (filter_skip p)) ∧
+    ¬t.failed  ==>
+  semantics s = semantics t`,
   srw_tac[][] \\ match_mp_tac state_rel_IMP_sem_EQ_sem
-  \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def]);
-*)
+  \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def,o_DEF]);
 
 val sec_ends_with_label_filter_skip = Q.store_thm("sec_ends_with_label_filter_skip",
   `∀code.
