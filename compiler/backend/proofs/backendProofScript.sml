@@ -28,17 +28,380 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
   `pair_CASE p f = a ⇔ ∃x y. p = (x,y) ∧ f x y = a`,
   Cases_on`p`>>rw[]);
 
-(* -- *)
+val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
+  `BIJ bij UNIV UNIV ==>
+    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
+  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
+  \\ match_mp_tac (METIS_PROVE []
+      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
+  \\ fs [] \\ rw []
+  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
+  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
+  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
+  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
+val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
+  `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
+  strip_tac \\ `0 < m` by decide_tac
+  \\ drule DIVISION
+  \\ disch_then (qspec_then `d` assume_tac)
+  \\ decide_tac);
 
-(* --- composing data-to-target --- *)
+val WORD_LS_IMP = Q.store_thm("WORD_LS_IMP",
+  `a <=+ b ==>
+    ?k. Abbrev (b = a + n2w k) /\
+        w2n (b - a) = k /\
+        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`,
+  Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
+  \\ fs [markerTheory.Abbrev_def]
+  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ rw [] THEN1
+   (rewrite_tac [GSYM word_sub_def]
+    \\ once_rewrite_tac [WORD_ADD_COMM]
+    \\ rewrite_tac [WORD_ADD_SUB])
+  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
 
-(* TODO: this section is full of stuff that needs to be moved *)
+val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
+  `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
+  strip_tac
+  \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
+  \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
+  \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
+
+val MOD_SUB_LEMMA = Q.store_thm("MOD_SUB_LEMMA",
+  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`,
+  Cases_on `m <= n` \\ fs []
+  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
+  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
+  \\ drule MOD_PLUS
+  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
+
+val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
+  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`,
+  Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
+  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
+  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
+  \\ fs []);
 
 val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
   `nsLookup (Bind v []) k = SOME x ⇔
    ∃y. k = Short y ∧ ALOOKUP v y = SOME x`,
   Cases_on`k` \\ EVAL_TAC \\ simp[]);
+
+(* -- *)
+
+(* TODO: should be defined in targetSem *)
+(* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
+   are installed into the machine, mc_conf + ms
+   r1 and r2 are the names of registers containing
+   the first address of the CakeML heap and the first address past the CakeML stack
+   i.e., the range of the data memory
+*)
+val installed_def = Define`
+  installed bytes cbspace ffi (r1,r2) mc_conf ms ⇔
+    ∃t m io_regs cc_regs.
+      good_init_state mc_conf ms ffi bytes cbspace t m
+      { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } io_regs cc_regs ∧
+      byte_aligned (t.regs r1) ∧
+      byte_aligned (t.regs r2) ∧
+      t.regs r1 <=+ t.regs r2`;
+
+(* this should let us remove a conjunct from good_init_state *)
+val byte_aligned_lemma = Q.store_thm("byte_aligned_lemma",
+  `byte_aligned a1 ∧ byte_aligned a2 ⇒
+   (!w. a1 <=+ byte_align w ∧ byte_align w <+ a2 ⇒ a1 <=+ w ∧ w <+ a2)`,
+   cheat);
+(* -- *)
+
+val prim_config = prim_config_eq |> concl |> lhs
+
+val compiler_config_ok_def = Define`
+  compiler_config_ok (c:'a config) ⇔
+    c.source_conf = ^prim_config.source_conf ∧
+    c.mod_conf = ^prim_config.mod_conf ∧
+    0 < c.clos_conf.max_app ∧
+    conf_ok (:'a) c.data_conf`;
+
+val compile_correct = Q.store_thm("compile_correct",
+  `compile (c:'a config) prog = SOME (bytes,c') ⇒
+   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   ¬semantics_prog s env prog Fail ∧
+   compiler_config_ok c ∧
+   installed bytes cbspace ffi
+     (find_name c.stack_conf.reg_names 2,
+      find_name c.stack_conf.reg_names 4) mc ms ⇒
+     machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
+       extend_with_resource_limit (semantics_prog s env prog)`,
+  srw_tac[][compile_eq_from_source,from_source_def,conf_ok_def,compiler_config_ok_def] >>
+  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
+  fs[primSemEnvTheory.prim_sem_env_eq] >>
+  qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
+  qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
+  `∃s2 env2 gtagenv.
+     precondition s env c.source_conf s2 env2 ∧
+     nsDomMod env2.c = {[]} ∧
+     s2.globals = [] ∧
+     s2.ffi = ffi ∧
+     s2.refs = [] ∧
+     s2.defined_types = s.defined_types ∧
+     (* s2.defined_mods = s.defined_mods ∧ *)
+     envC_tagged env2.c (prim_config:'a backend$config).mod_conf.tag_env gtagenv ∧
+     exhaustive_env_correct (prim_config:'a backend$config).mod_conf.exh_ctors_env gtagenv ∧
+     gtagenv_wf gtagenv ∧
+     next_inv s.defined_types
+       (prim_config:'a backend$config).mod_conf.next_exception gtagenv` by (
+    simp[source_to_modProofTheory.precondition_def] >>
+    simp[Abbr`env`,Abbr`s`] >>
+    srw_tac[QUANT_INST_ss[pair_default_qp,record_default_qp]][] >>
+    rw[source_to_modProofTheory.invariant_def] >>
+    rw[source_to_modProofTheory.s_rel_cases] >>
+    (* TODO: Not sure why these got broken *)
+    rw[Once source_to_modProofTheory.v_rel_cases] >>
+    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
+      (rw[]>>Cases_on`x`>>fs[namespaceTheory.nsLookup_def])>>
+    rw[Once prim_config_eq] >>
+    simp[Once (GSYM PULL_EXISTS)]>> CONJ_TAC >-
+      (rw[namespaceTheory.nsDomMod_def,EXTENSION,GSPECIFICATION,PULL_EXISTS]>>
+      simp[EXISTS_PROD]>>Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])>>
+    rw[envC_tagged_def, mod_to_conTheory.lookup_tag_env_def,PULL_EXISTS] >>
+    CONV_TAC(PATH_CONV"blrbbblr"EVAL) >>
+    rw[prim_config_eq,option_fold_def] >>
+    CONV_TAC(PATH_CONV"blrbbbrbblr"EVAL) >>
+    (fn g as (asl,w) =>
+      let
+        val tms = w |> dest_exists |> #2
+                    |> dest_conj |> #1
+                    |> strip_forall |> #2
+                    |> dest_imp |> #2
+                    |> strip_exists |> #2
+                    |> funpow 2 (rand o rator)
+                    |> lhs |> funpow 2 (rand o rator)
+        val (ls,ty) = listSyntax.dest_list tms
+        val (ty1,ty2) = pairSyntax.dest_prod ty
+        val (ty2,ty3) = pairSyntax.dest_prod ty2
+        val (ty3,ty4) = pairSyntax.dest_prod ty3
+        val ty1 = pairSyntax.mk_prod(ty1,ty4)
+        val ty2 = pairSyntax.mk_prod (ty3,ty2)
+        fun fix_pair tm =
+          let val ls = pairSyntax.strip_pair tm
+          in pairSyntax.mk_pair(pairSyntax.mk_pair(el 1 ls, el 4 ls),
+                                pairSyntax.mk_pair(el 3 ls, el 2 ls))
+          end
+        val ls = map fix_pair ls
+        val fm = finite_mapSyntax.list_mk_fupdate
+                  (finite_mapSyntax.mk_fempty (ty1,ty2), ls)
+      in exists_tac fm end g) >>
+    conj_tac
+    >- (
+      Cases \\ simp[nsLookup_Bind_v_some,FLOOKUP_UPDATE,namespaceTheory.id_to_n_def] >>
+      rpt ( IF_CASES_TAC \\ fs[] \\ rveq \\ fs[] )) >>
+    conj_tac >- (
+      simp[exhaustive_env_correct_def,IN_FRANGE,FLOOKUP_UPDATE,PULL_EXISTS] >>
+      srw_tac[DNF_ss][] >>
+      EVAL_TAC >>
+      pop_assum mp_tac >> rw[] >>
+      EVAL_TAC >>
+      simp[PULL_EXISTS]) >>
+    conj_tac >- (
+      EVAL_TAC >> rw[] >> fs[semanticPrimitivesTheory.same_tid_def,namespaceTheory.id_to_n_def] ) >>
+    simp[next_inv_def,PULL_EXISTS] >>
+    simp[FLOOKUP_UPDATE] >>
+    rw[] >> EVAL_TAC >>
+    srw_tac[QUANT_INST_ss[std_qp]][]) >>
+  disch_then drule >> strip_tac >>
+  pairarg_tac \\ fs[] >>
+  qhdtm_x_assum`from_mod`mp_tac >>
+  srw_tac[][from_mod_def,mod_to_conTheory.compile_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
+  `sem2 ≠ Fail` by metis_tac[] >>
+  `semantics_prog s env prog = { sem2 }` by (
+    simp[EXTENSION,IN_DEF] >>
+    metis_tac[semantics_prog_deterministic] ) >>
+  qunabbrev_tac`sem2` >>
+  drule (GEN_ALL mod_to_conProofTheory.compile_prog_semantics) >>
+  fs[] >> rveq >>
+  simp[AND_IMP_INTRO] >> simp[Once CONJ_COMM] >>
+  disch_then drule >>
+  simp[mod_to_conProofTheory.invariant_def,
+       mod_to_conTheory.get_exh_def,
+       mod_to_conTheory.get_tagenv_def] >>
+  simp[mod_to_conProofTheory.s_rel_cases] >>
+  CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
+  simp[mod_to_conProofTheory.cenv_inv_def] >>
+  disch_then(qspec_then`gtagenv`mp_tac)>>
+  impl_tac >- ( fs[] >> rw[Abbr`s`,prim_config_eq] ) >>
+  strip_tac >>
+  pop_assum(assume_tac o SYM) >> simp[] >>
+  qmatch_assum_rename_tac`from_con ccon _ = _` \\
+  qunabbrev_tac`ccon`>>
+  qhdtm_x_assum`from_con`mp_tac >>
+  srw_tac[][from_con_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  rfs[] >> fs[] >>
+  qpat_x_assum`Fail ≠ _`(assume_tac o GSYM) >>
+  drule(GEN_ALL(MATCH_MP SWAP_IMP (REWRITE_RULE[GSYM AND_IMP_INTRO]con_to_decProofTheory.compile_semantics))) >>
+  simp[] >>
+  impl_tac >- (
+    qhdtm_x_assum`mod_to_con$compile_prog`mp_tac >>
+    simp[prim_config_eq] >> EVAL_TAC >>
+    `semantics env2 s2 p ≠ Fail` by simp[] >>
+    pop_assum mp_tac >>
+    simp_tac(srw_ss())[modSemTheory.semantics_def] >>
+    IF_CASES_TAC >> simp[] >> disch_then kall_tac >>
+    pop_assum mp_tac >>
+    simp[modSemTheory.evaluate_prog_def] >>
+    BasicProvers.TOP_CASE_TAC >> simp[] >> strip_tac >> fs[] >>
+    `¬MEM "option" (prog_to_top_types p)` by (
+      fs[modSemTheory.no_dup_top_types_def,IN_DISJOINT,MEM_MAP] >>
+      fs[Abbr`s`] >> metis_tac[] ) >>
+    strip_tac >>
+    match_mp_tac compile_prog_exh_unchanged >>
+    asm_exists_tac >> simp[] >>
+    qmatch_assum_abbrev_tac`compile_prog st p = _` >>
+    qexists_tac`st`>>simp[Abbr`st`,mod_to_conTheory.get_exh_def] >>
+    simp[FLOOKUP_UPDATE]) >>
+  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  qhdtm_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qhdtm_x_assum`con_to_dec$compile`mp_tac >>
+  qmatch_assum_rename_tac`compile _ _ = (cc,_)` >>
+  `cc.next_global = 0` by (
+    fs[source_to_modTheory.compile_def,LET_THM] >>
+    pairarg_tac >> fs[] >>
+    rveq >> simp[prim_config_eq] ) >> fs[] >>
+  strip_tac >> fs[] >>
+  qmatch_assum_rename_tac`from_exh c3 _ = _` >>
+  qunabbrev_tac`c3`>>fs[] >>
+  qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 [e3] }` >>
+  (dec_to_exhProofTheory.compile_semantics
+    |> Q.GENL[`env`,`st`,`e`,`envh`,`sth`]
+    |> qispl_then[`env3`,`st3`,`e3`]mp_tac) >>
+  simp[Abbr`env3`] >>
+  simp[Once dec_to_exhProofTheory.v_rel_cases] >>
+  simp[dec_to_exhProofTheory.state_rel_def] >>
+  fs[Abbr`st3`,con_to_decProofTheory.compile_state_def] >>
+  CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[record_default_qp,pair_default_qp])[])) >>
+  simp[Abbr`e3`] >>
+  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  qhdtm_x_assum`from_exh`mp_tac >>
+  srw_tac[][from_exh_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  fs[exh_to_patTheory.compile_def] >>
+  qmatch_abbrev_tac`_ ⊆ _ { exhSem$semantics env3 st3 es3 }` >>
+  (exh_to_patProofTheory.compile_exp_semantics
+   |> Q.GENL[`env`,`st`,`es`]
+   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
+  simp[Abbr`es3`,Abbr`env3`] >>
+  fs[exh_to_patProofTheory.compile_state_def,Abbr`st3`] >>
+  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  qhdtm_x_assum`from_pat`mp_tac >>
+  srw_tac[][from_pat_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qmatch_abbrev_tac`_ ⊆ _ { patSem$semantics env3 st3 es3 }` >>
+  (pat_to_closProofTheory.compile_semantics
+   |> Q.GENL[`env`,`st`,`es`,`max_app`]
+   |> qispl_then[`env3`,`st3`,`es3`]mp_tac) >>
+  simp[Abbr`env3`,Abbr`es3`] >>
+  first_assum(fn th => disch_then(mp_tac o C MATCH_MP th)) >>
+  fs[pat_to_closProofTheory.compile_state_def,Abbr`st3`] >>
+  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  qhdtm_x_assum`from_clos`mp_tac >>
+  srw_tac[][from_clos_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
+  (clos_to_bvlProofTheory.compile_semantics
+   |> GEN_ALL
+   |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","e","c"]))
+   |> qispl_then[`st3`,`e3`,`c.clos_conf`]mp_tac) >>
+  simp[] >>
+  impl_tac >- (
+    `esgc_free e3 ∧ BAG_ALL_DISTINCT (set_globals e3)` by
+      (unabbrev_all_tac>>
+      fs[con_to_decTheory.compile_def]>> pairarg_tac>>fs[]>>
+      metis_tac[SND,
+      mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_esgc_free,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_esgc_free,exh_to_patProofTheory.compile_esgc_free,pat_to_closProofTheory.compile_esgc_free,
+      mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_bag_all_distinct,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_distinct_setglobals,exh_to_patProofTheory.compile_distinct_setglobals,pat_to_closProofTheory.compile_distinct_setglobals])>>
+    EVAL_TAC>>simp[Abbr`st3`]>>
+    unabbrev_all_tac >>
+    simp[pat_to_closProofTheory.compile_contains_App_SOME] >>
+    simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE] >>
+    simp[EVEN_ADD,EVEN_EXP_IFF])>>
+  simp[Abbr`e3`] >>
+  fs[Abbr`st3`] >>
+  disch_then(strip_assume_tac o SYM) >> fs[] >>
+  qhdtm_x_assum`from_bvl`mp_tac >>
+  srw_tac[][from_bvl_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
+  qunabbrev_tac`c'''`>>fs[] >>
+  impl_tac >- (
+    match_mp_tac (GEN_ALL clos_to_bvlProofTheory.compile_all_distinct_locs)>>
+    qexists_tac`e''''`>>
+    qexists_tac`c''`>>
+    qexists_tac`c.clos_conf`>>
+    simp[]>>
+    EVAL_TAC >>
+    simp[EVEN_ADD,EVEN_EXP_IFF])>>
+  disch_then(SUBST_ALL_TAC o SYM) >>
+  qhdtm_x_assum`from_bvi`mp_tac >>
+  srw_tac[][from_bvi_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }` >>
+  (bvi_to_dataProofTheory.compile_prog_semantics
+   |> GEN_ALL
+   |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
+   |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
+  impl_tac >- simp[] >>
+  disch_then (SUBST_ALL_TAC o SYM)
+  \\ `s3 = InitGlobals_location` by
+   (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
+    \\ rpt (pairarg_tac \\ fs []))
+  \\ rename1 `from_data c4 p4 = _`
+  \\ qhdtm_x_assum`from_data`mp_tac
+  \\ simp[from_data_def]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ rename1`compile _ _ _ p4 = (col,p5)`
+  \\ fs[data_to_wordTheory.compile_def]
+  \\ `code_rel c4.data_conf (fromAList p4) p5`
+  \\ qmatch_assum_abbrev_tac`compile _ _ t_code = (_,p5)`
+
+  \\ `∃code. code_rel_ext p4 code`
+  (data_to_wordProofTheory.compile_semantics
+   |> CONV_RULE(LAND_CONV(move_conj_left(can dest_neg) THENC
+                (LAND_CONV(RAND_CONV SYM_CONV))))
+   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> DISCH_ALL)
+
+   |> Q.GEN`t`
+   |> Q.SPEC`<|
+        ffi := ffi;
+        termdep := 0;
+        gc_fun := word_gc_fun c4.data_conf;
+        stack := [];
+        handler := 0;
+        code := 
+   |> drule)
+  code_rel_ext_def
+  data_to_word_gcProofTheory.code_rel_def
+  print_find"code_rel_def"
+
+
+  \\ drule (GEN_ALL clean_data_to_target_thm)
+  \\ disch_then drule
+  \\ `lower_conf_ok c4 mc` by (unabbrev_all_tac \\ fs [lower_conf_ok_def] \\ metis_tac [])
+  \\ simp[implements_def,AND_IMP_INTRO]
+  \\ disch_then match_mp_tac \\ fs []
+  \\ qunabbrev_tac `p4` \\ fs []
+  \\ imp_res_tac clos_to_data_names
+  \\ fs[AND_IMP_INTRO]);
+
+(* --- composing data-to-target --- *)
+
+(* TODO: this section is full of stuff that needs to be moved *)
 
 val from_stack = let
   val lemma1 = lab_to_targetProofTheory.semantics_compile |> UNDISCH_ALL
@@ -53,9 +416,8 @@ val from_stack_fail = let
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics_fail |> UNDISCH
     |> Q.INST [`code`|->`code1`]
-  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code2).ffi``
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
-     |> REWRITE_RULE [th]
+     |> REWRITE_RULE [make_init_simp]
      |> INST_TYPE [``:'state``|->``:'b``] end;
 
 val from_word = let
@@ -72,7 +434,7 @@ val _ = hide "gen_gc";
 val full_make_init_ffi = Q.prove(
   `(full_make_init
          (bitmaps,c1,code,f,gen_gc,jump,k,max_heap,off,regs,
-          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
+          make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code2 compiler cbpos cbspace coracle,
           save_regs)).ffi = ffi`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
@@ -134,7 +496,7 @@ val machine_sem_implements_data_sem = save_thm("machine_sem_implements_data_sem"
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
            |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
-           |> DISCH ``from_data (c:'a backend$config) prog = SOME (bytes,ffis)``
+           |> DISCH ``from_data (c:'a backend$config) prog = SOME (bytes,c')``
            |> DISCH_ALL
            |> INST_TYPE [``:'state``|->``:'a``]
            |> MATCH_MP lemma2
@@ -161,11 +523,11 @@ val full_make_init_gc_fun = Q.store_thm("full_make_init_gc_fun",
 val full_make_init_bitmaps = Q.prove(
   `full_init_pre
          (bitmaps,c1,SND (compile asm_conf code3),f,gen_gc,jump,k,max_heap,off,regs,
-          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
+          make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code2 compiler cbpos cbspace coracle,
           save_regs) ==>
     (full_make_init
          (bitmaps,c1,SND (compile asm_conf code3),f,gen_gc,jump,k,max_heap,off,regs,
-          make_init mc_conf ffi save_regs io_regs t m dm ms code2,
+          make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code2 compiler cbpos cbspace coracle,
           save_regs)).bitmaps = bitmaps`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_bitmaps]
@@ -178,7 +540,7 @@ val full_init_pre_IMP_init_store_ok = Q.prove(
     init_store_ok c1
       ((full_make_init
           (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
-           jump,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
+           jump,k,max_heap,off,regs,(s:('a,'c,'ffi)labSem$state),
              save_regs)).store \\ Handler)
        (full_make_init
           (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
@@ -896,18 +1258,6 @@ val compile_eq_imp = Q.prove(
     lab_to_target$compile x y = lab_to_target$compile x' y'`,
   fs []);
 
-val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
-  `BIJ bij UNIV UNIV ==>
-    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
-  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
-  \\ match_mp_tac (METIS_PROVE []
-      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
-  \\ fs [] \\ rw []
-  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
-  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
-  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
-  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
-
 val word_list_exists_imp = Q.store_thm("word_list_exists_imp",
   `dm = addresses a n /\
     dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
@@ -926,29 +1276,6 @@ val addresses_thm = Q.store_thm("addresses_thm",
   \\ asm_exists_tac \\ fs []
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
-val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
-  `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
-  strip_tac \\ `0 < m` by decide_tac
-  \\ drule DIVISION
-  \\ disch_then (qspec_then `d` assume_tac)
-  \\ decide_tac);
-
-val WORD_LS_IMP = Q.store_thm("WORD_LS_IMP",
-  `a <=+ b ==>
-    ?k. Abbrev (b = a + n2w k) /\
-        w2n (b - a) = k /\
-        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`,
-  Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
-  \\ fs [markerTheory.Abbrev_def]
-  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs [] \\ rw [] THEN1
-   (rewrite_tac [GSYM word_sub_def]
-    \\ once_rewrite_tac [WORD_ADD_COMM]
-    \\ rewrite_tac [WORD_ADD_SUB])
-  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
-
 val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   `good_dimindex (:'a) ==>
     byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)`,
@@ -957,28 +1284,6 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
         data_to_word_memoryProofTheory.aligned_add_pow]);
-
-val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
-  `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
-  strip_tac
-  \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
-  \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
-  \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
-
-val MOD_SUB_LEMMA = Q.store_thm("MOD_SUB_LEMMA",
-  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`,
-  Cases_on `m <= n` \\ fs []
-  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
-  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
-
-val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
-  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`,
-  Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
-  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
-  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
-  \\ fs []);
 
 (* asm config's syntactic constraints needed for asm_ok to hold *)
 val conf_constraint_def = Define`
@@ -1003,6 +1308,8 @@ val conf_constraint_def = Define`
 val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
    (data_to_word_gcProof$conf_ok (:α) c.data_conf /\
     c.lab_conf.asm_conf = mc_conf.target.config /\
+    c.lab_conf.labels = LN ∧
+    c.lab_conf.pos = 0 ∧
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\
     (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) ∉
@@ -1013,6 +1320,7 @@ val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
        case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) /\
     (* Syntactic constraints on asm_config*)
     conf_constraint mc_conf.target.config ∧
+    enc_ok mc_conf.target.config ∧
     (* Extra correctness constraints for div *)
     (c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
     (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
@@ -1044,7 +1352,7 @@ val conf_ok_with_word_to_word_conf = Q.store_thm("conf_ok_with_word_to_word_conf
   `conf_ok (cc with word_to_word_conf := wc) mc ⇔ conf_ok cc mc`, rw[conf_ok_def,lower_conf_ok_def]);
 
 val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
-  `(from_data c prog = SOME (bytes,ffis) /\
+  `(from_data c prog = SOME (bytes,c') /\
      EVERY (\n. data_num_stubs ≤ n) (MAP FST prog) /\ ALL_DISTINCT (MAP FST prog) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 2)) /\
      byte_aligned (t.regs (find_name c.stack_conf.reg_names 4)) /\
@@ -1053,9 +1361,10 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
      Abbrev (dm = { w | t.regs (find_name c.stack_conf.reg_names 2) <=+ w /\
                         w <+ t.regs (find_name c.stack_conf.reg_names 4) }) /\
      good_init_state mc_conf (t:'a asm_state)
-       m ms ffi ffis bytes io_regs (set mc_conf.callee_saved_regs) dm) /\
+       m ms ffi bytes io_regs cc_regs (set mc_conf.callee_saved_regs) dm
+       c'.labels cbspace coracle) /\
     lower_conf_ok c mc_conf ==>
-    data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffis,mc_conf,ms,prog)`,
+    data_to_word_precond (bytes,c,c',ffi:'ffi ffi_state,mc_conf,ms,prog)`,
   strip_tac \\ fs [data_to_word_precond_def,lower_conf_ok_def]
   \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
@@ -1156,7 +1465,6 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
     \\ qabbrev_tac `n1 = l DIV k`
     \\ qabbrev_tac `n2 = n' DIV k` \\ fs []
     \\ strip_tac \\ match_mp_tac LESS_MULT_LEMMA \\ fs [] \\ NO_TAC) \\ fs []
-  \\ qexists_tac`ffis`
   \\ qexists_tac`c.stack_conf.jump`
   \\ qexists_tac`FST mc_conf.target.config.addr_offset`
   \\ qexists_tac`SND mc_conf.target.config.addr_offset`
@@ -1167,8 +1475,10 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
     InitGlobals_location
     (make_init c.stack_conf.reg_names (fromAList prog3)
        (make_init (fromAList prog4) regs save_regs
-          (make_init mc_conf ffi save_regs io_regs t m
-             (dm ∩ byte_aligned) ms (MAP prog_to_section prog4))))` by
+          (make_init mc_conf ffi save_regs io_regs cc_regs t m
+             (dm ∩ byte_aligned) ms (MAP prog_to_section prog4)
+             compile (n2w (LENGTH bytes) + mc_conf.target.get_pc ms)
+             cbspace coracle)))` by
    (fs [stack_removeProofTheory.init_pre_def,
         stack_namesProofTheory.make_init_def,GSYM PULL_EXISTS]
     \\ conj_tac THEN1
@@ -1230,9 +1540,7 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
   \\ qexists_tac `regs` \\ fs [] \\ rfs []
   \\ pop_assum kall_tac
   \\ fs [IS_SOME_EQ_CASE] \\ CASE_TAC \\ fs []
-  \\ SIMP_TAC (std_ss++CONJ_ss)
-       [EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code).code``,
-        EVAL ``(make_init mc_conf ffi save_regs io_regs t m dm ms code).pc``]
+  \\ SIMP_TAC (std_ss++CONJ_ss) []
   \\ imp_res_tac make_init_opt_imp_bitmaps_limit \\ fs []
   \\ `loc_to_pc 0 0 (MAP prog_to_section prog4) = SOME 0` by
    (qunabbrev_tac `prog4`
