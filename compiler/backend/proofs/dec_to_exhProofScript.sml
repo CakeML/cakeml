@@ -321,6 +321,17 @@ val v_to_char_list = Q.prove (
   every_case_tac >>
   full_simp_tac(srw_ss())[v_rel_eqn, exhSemTheory.v_to_char_list_def]);
 
+val vs_to_string = Q.prove(
+  `∀v1 v2 s.
+    LIST_REL (v_rel genv) v1 v2 ⇒
+    vs_to_string v1 = SOME s ⇒
+    vs_to_string v2 = SOME s`,
+  ho_match_mp_tac conSemTheory.vs_to_string_ind
+  \\ rw[conSemTheory.vs_to_string_def,exhSemTheory.vs_to_string_def]
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[exhSemTheory.vs_to_string_def]);
+
 val tac =
   srw_tac[][exhSemTheory.do_app_def, result_rel_cases, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def,
       exhSemTheory.prim_exn_def, v_rel_eqn, conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
@@ -349,85 +360,40 @@ val do_app_lem = Q.prove (
      ∃s2_exh res_exh.
        result_rel v_rel exh (s1 with <| refs := r'; ffi := ffi'|>,res) (s2_exh,res_exh) ∧
        do_app s1_exh op vs_exh = SOME (s2_exh, res_exh)`,
-  srw_tac[][] >>
-  imp_res_tac conPropsTheory.do_app_cases >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[conSemTheory.do_app_def]
-  >- tac
-  >- tac
-  >- tac
-  >- tac
-  >- (every_case_tac >>
-      imp_res_tac do_eq >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][exhSemTheory.do_app_def, result_rel_cases, conSemTheory.exn_tag_def,
-          conSemTheory.prim_exn_def, exhSemTheory.prim_exn_def, v_rel_eqn,
-          conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
-      full_simp_tac(srw_ss())[state_rel_def])
-  >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
-  >- tac
-  >- (tac >>
+  rw[conPropsTheory.do_app_cases] >>
+  fs[conSemTheory.do_app_def,exhSemTheory.do_app_def] \\ rw[]
+  \\ TRY (
+    rename1`exhSem$do_eq` >>
+    every_case_tac >>
+    imp_res_tac do_eq >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][exhSemTheory.do_app_def, result_rel_cases, conSemTheory.exn_tag_def,
+        conSemTheory.prim_exn_def, exhSemTheory.prim_exn_def, v_rel_eqn,
+        conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] >> NO_TAC)
+  \\ TRY (
+    rename1`exhSem$v_to_list`
+    \\ rename1`exhSem$vs_to_string`
+    \\ imp_res_tac v_to_list \\ fs[state_rel_def]
+    \\ imp_res_tac vs_to_string \\ fs[] >> NO_TAC)
+  \\ TRY (
+    rename1`exhSem$v_to_list`
+    \\ imp_res_tac v_to_list \\ fs[state_rel_def]
+    \\ tac >> NO_TAC)
+  \\ TRY (
+    rename1`exhSem$v_to_char_list`
+    \\ imp_res_tac v_to_char_list \\ fs[]
+    \\ tac \\ NO_TAC )
+  \\ TRY (
+    rename1`store_alloc` >>
+    tac >>
     Cases_on`n < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
-    strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[])
-  >- ( tac >>
-    Cases_on`n' < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
-    strip_tac >> `n' = LENGTH s1_exh.refs` by simp[] >> simp[])
-  >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
-  >- tac
-  >- (tac >>
-      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def])
-  >- tac
-  >- tac
-  >- tac
-  >- tac
-  >- tac
-  >- ( imp_res_tac v_to_char_list >> tac)
-  >- tac
-  >- tac
-  >- (imp_res_tac v_to_list >>
-      srw_tac[][exhSemTheory.do_app_def, result_rel_cases, v_rel_eqn] >>
-      full_simp_tac(srw_ss())[vs_rel_LIST_REL,state_rel_def])
-  >- (tac >>
-      full_simp_tac (srw_ss()++ARITH_ss) [])
-  >- tac
-  >- (tac >>
-      srw_tac[][LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] >>
-    Cases_on`n' < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
-    `n' = LENGTH s1_exh.refs` by simp[] >> simp[] >>
-      srw_tac[][LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] )
-  >- (tac >>
-      srw_tac[][]
-      >- (CCONTR_TAC >>
-          full_simp_tac(srw_ss())[] >>
-          imp_res_tac LIST_REL_LENGTH >>
-          full_simp_tac (srw_ss()++ARITH_ss) [])
-      >- (CCONTR_TAC >>
-          full_simp_tac(srw_ss())[] >>
-          imp_res_tac LIST_REL_LENGTH >>
-          full_simp_tac (srw_ss()++ARITH_ss) [])
-      >- (full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-          `Num (ABS i) < LENGTH l'` by decide_tac >>
-          res_tac))
-  >- (tac >>
-      metis_tac [LIST_REL_LENGTH])
-  >- (tac >> srw_tac[][]
-      >- (CCONTR_TAC >>
-          full_simp_tac(srw_ss())[] >>
-          imp_res_tac LIST_REL_LENGTH >>
-          full_simp_tac (srw_ss()++ARITH_ss) [])
-      >- (CCONTR_TAC >>
-          full_simp_tac(srw_ss())[] >>
-          imp_res_tac LIST_REL_LENGTH >>
-          full_simp_tac (srw_ss()++ARITH_ss) [])
-      >- (ASM_REWRITE_TAC [semanticPrimitivesPropsTheory.sv_rel_def, vs_rel_LIST_REL] >>
-          match_mp_tac EVERY2_LUPDATE_same >>
-          full_simp_tac(srw_ss())[] ))
-   >- (tac >>
-       `l = l'` by metis_tac[semanticPrimitivesPropsTheory.sv_rel_def] >>
-       full_simp_tac(srw_ss())[])) |> INST_TYPE[alpha|->``:'ffi``];
+    strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[] >>
+    simp[LIST_REL_EL_EQN,LENGTH_REPLICATE,EL_REPLICATE] >>
+    NO_TAC)
+  \\ (tac >> fsrw_tac[ARITH_ss][LIST_REL_EL_EQN,EL_LUPDATE] >>
+      metis_tac [v_rel_eqn, store_v_distinct, semanticPrimitivesPropsTheory.sv_rel_def,
+                 NOT_SOME_NONE, SOME_11, GREATER_EQ, NOT_LESS, LIST_REL_EL_EQN, PAIR_EQ]));
 
 val do_app = Q.prove(
   `∀s1 op vs s2 res exh s1_exh vs_exh.

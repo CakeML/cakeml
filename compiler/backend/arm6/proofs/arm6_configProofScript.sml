@@ -1,5 +1,6 @@
-open preamble targetSemTheory backendProofTheory
+open preamble backendProofTheory
      arm6_configTheory arm6_targetProofTheory
+open blastLib;
 
 val _ = new_theory"arm6_configProof";
 
@@ -12,7 +13,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 val arm6_conf_ok = Q.store_thm("arm6_conf_ok",`
-  conf_ok arm_compiler_config arm6_machine_config`,
+  conf_ok arm6_backend_config arm6_machine_config`,
   simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm6_machine_config_def,arm6_backend_correct]
   >- names_tac
@@ -21,6 +22,8 @@ val arm6_conf_ok = Q.store_thm("arm6_conf_ok",`
     TRY(EVAL_TAC>>fs[]>>
     fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]>> NO_TAC)>>
     fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+       (EVAL_TAC>>FULL_BBLAST_TAC)
     >- (simp [arm6_machine_config_def, arm6_targetTheory.arm6_target_def,
               arm6_targetTheory.arm6_config_def,
               arm6_targetTheory.valid_immediate_def,

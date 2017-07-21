@@ -761,6 +761,40 @@ val extract_labels_StoreEach = store_thm("extract_labels_StoreEach",
   ``!xs a d. extract_labels (StoreEach a xs d) = []``,
   Induct \\ fs [StoreEach_def,extract_labels_def]);
 
+(* TODO: goes away on inlineenc branch *)
+val extract_labels_WordOp64_on_32 = Q.prove(`
+  extract_labels (WordOp64_on_32 f) = []`,
+  simp[WordOp64_on_32_def]>>Cases_on`f`>>simp[]>>
+  EVAL_TAC);
+
+val extract_labels_WordShift64_on_32 = Q.prove(`
+  extract_labels (WordShift64_on_32 f g) = []`,
+  simp[WordShift64_on_32_def]>>
+  Cases_on`f`>>simp[]>>
+  IF_CASES_TAC>>EVAL_TAC);
+
+val extract_labels_assignWordOp = Q.prove(`
+  assign a b c d (WordOp e f) g h = (i,j) ⇒
+  extract_labels i = [] ∧ c ≤ j`,
+  simp[assign_def]>>
+  Cases_on`dimindex(:'a) = 64`>> simp[]
+  >- (every_case_tac>>rw[]>> EVAL_TAC)
+  >>
+    every_case_tac>>rw[]>>
+    simp[extract_labels_def,list_Seq_def,extract_labels_WordOp64_on_32]>>
+    EVAL_TAC);
+
+val extract_labels_assignWordShift = Q.prove(`
+  assign a b c d (WordShift e f k) g h = (i,j) ⇒
+  extract_labels i = [] ∧ c ≤ j`,
+  simp[assign_def]>>
+  Cases_on`dimindex(:'a) >= 64`>> simp[]
+  >- (every_case_tac>>rw[]>> EVAL_TAC)
+  >>
+    every_case_tac>>rw[]>>
+    simp[extract_labels_def,list_Seq_def,extract_labels_WordShift64_on_32]>>
+    EVAL_TAC);
+
 val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
   ∀c n l p.
   l ≠ 0 ⇒
@@ -779,10 +813,17 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
   >-
     (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
     Cases_on `opname`>>
-    TRY (fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
-      BasicProvers.EVERY_CASE_TAC>>
-      fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
-         Maxout_bits_code_def] >> NO_TAC))
+    TRY(
+      rename1`WordOp _ _`>>
+      pairarg_tac>>drule extract_labels_assignWordOp>>
+      simp[])>>
+    TRY(
+      rename1`WordShift _ _ _`>>
+      pairarg_tac>>drule extract_labels_assignWordShift>>
+      simp[])>>
+    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,Maxout_bits_code_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
           fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND]>>
@@ -862,12 +903,14 @@ val assign_no_inst = Q.prove(`
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
-  fs[assign_def]>>Cases_on`e`>>fs[every_inst_def]>>
+  fs[assign_def]>>
+  Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
-  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+  every_case_tac>>
+  fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
-  every_case_tac>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+  IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
 
@@ -884,6 +927,29 @@ val comp_no_inst = Q.prove(`
   fs[assign_no_inst]>>
   EVAL_TAC>>fs[]);
 
+val bounds_lem = Q.prove(`
+  (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
+  (w:'a word = -3w ∨
+  w = -2w ∨
+  w = -1w ∨
+  w = 0w ∨
+  w = 1w ∨
+  w = 2w ∨
+  w = 3w ∨
+  w = 4w ∨
+  w = 5w ∨
+  w = 6w ∨
+  w = 7w)
+  ⇒
+  -8w ≤ w ∧ w ≤ 8w`,
+  rw[]>>
+  EVAL_TAC>>
+  simp[dimword_def]>>
+  EVAL_TAC>>
+  simp[dimword_def]>>
+  EVAL_TAC>>
+  simp[numeral_bitTheory.iSUC,numeralTheory.numeral_evenodd,ODD]);
+
 val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_conventions",`
   good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
@@ -893,15 +959,10 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
     addr_offset_ok ac 0w /\
-    byte_offset_ok ac 0w /\
-    byte_offset_ok ac 1w /\
-    byte_offset_ok ac 2w /\
-    byte_offset_ok ac 3w /\
-    (dimindex(:'a) <> 32 ==>
-      byte_offset_ok ac 4w /\
-      byte_offset_ok ac 5w /\
-      byte_offset_ok ac 6w /\
-      byte_offset_ok ac 7w )
+    (* NOTE: this condition is
+       stricter than necessary, but we have much more byte_offset space
+       anyway on all the targets *)
+    (∀w. -8w <= w ∧ w <= 8w ==> byte_offset_ok ac w)
     ⇒ full_inst_ok_less ac prog) ∧
     (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p`,
  fs[data_to_wordTheory.compile_def]>>
@@ -916,17 +977,29 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
    (pop_assum mp_tac>>
    qpat_x_assum`data_conf.has_longdiv ⇒ P` mp_tac>>
    qpat_x_assum`data_conf.has_div⇒ P` mp_tac>>
-   rpt(qpat_x_assum`byte_offset_ok _ _` mp_tac)>>
-   qpat_x_assum`_ ==> byte_offset_ok _ _ /\ _` mp_tac>>
+   qpat_x_assum`∀w. _ ==> byte_offset_ok _ _ ` mp_tac>>
+   qpat_x_assum`addr_offset_ok _ _` mp_tac>>
    qpat_x_assum`good_dimindex _` mp_tac>>
    rpt(pop_assum kall_tac)>>
    fs[stubs_def,generated_bignum_stubs_eq]>>rw[]>>
-   EVAL_TAC>>rw[]>> TRY(pairarg_tac \\ fs[]) >> EVAL_TAC >> fs[] >>
+   TRY(rename1`ByteCopySub_code`>>
+   fs[good_dimindex_def,ByteCopySub_code_def,every_inst_def,list_Seq_def,inst_ok_less_def]>>rw[]>>
+   fs[]>>
+   first_assum match_mp_tac>>
+   metis_tac[bounds_lem])>>
+   EVAL_TAC>>rw[]>>
    fs[good_dimindex_def] \\ fs[] \\ EVAL_TAC \\ fs[dimword_def] >>
-   rpt(qhdtm_x_assum`offset_ok`mp_tac) >> EVAL_TAC \\ simp[] >>
-   rpt(pairarg_tac \\ fs[]))
+   rw[] >> EVAL_TAC >> simp[]>>
+   pairarg_tac \\ fs[]>>
+   qmatch_goalsub_abbrev_tac `min ≤ ww ∧ ww ≤ max`>>
+   first_x_assum(qspecl_then[`ww`] mp_tac)>>simp[Abbr`ww`]>>
+   impl_tac>>simp[asmTheory.offset_ok_def]>>
+   metis_tac[bounds_lem])
  >>
    fs[MEM_MAP]>>PairCases_on`y`>>fs[compile_part_def]>>
-   match_mp_tac comp_no_inst>>fs[])
+   match_mp_tac comp_no_inst>>fs[]>>
+   first_x_assum match_mp_tac>>
+   fs[good_dimindex_def]>>
+   metis_tac[bounds_lem]);
 
 val _ = export_theory();

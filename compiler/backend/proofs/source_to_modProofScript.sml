@@ -392,6 +392,18 @@ val v_to_list = Q.prove (
   srw_tac[][] >>
   metis_tac [NOT_SOME_NONE, SOME_11]);
 
+val vs_to_string = Q.prove(
+  `∀v1 v2 s.
+    LIST_REL (v_rel genv) v1 v2 ⇒
+    vs_to_string v1 = SOME s ⇒
+    vs_to_string v2 = SOME s`,
+  ho_match_mp_tac terminationTheory.vs_to_string_ind
+  \\ rw[terminationTheory.vs_to_string_def,vs_to_string_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[vs_to_string_def]);
+
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -506,6 +518,40 @@ val do_app = Q.prove (
   >- ((* WordToInt *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
+  >- ((* CopyStrStr *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
+    \\ simp[semanticPrimitivesTheory.prim_exn_def,modSemTheory.prim_exn_def,v_rel_eqns])
+  >- ((* CopyStrAw8 *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
+          store_lookup_def,EXISTS_PROD,store_assign_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    \\ TRY (asm_exists_tac \\ simp[])
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs[sv_rel_cases,semanticPrimitivesTheory.prim_exn_def,modSemTheory.prim_exn_def,v_rel_eqns]
+    \\ simp[store_v_same_type_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp[sv_rel_cases])
+  >- ((* CopyAw8Str *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
+          store_lookup_def,EXISTS_PROD,store_assign_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    \\ TRY (asm_exists_tac \\ simp[])
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs[sv_rel_cases,semanticPrimitivesTheory.prim_exn_def,modSemTheory.prim_exn_def,v_rel_eqns])
+  >- ((* CopyAw8Aw8 *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def]
+    \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases,PULL_EXISTS,
+          store_lookup_def,EXISTS_PROD,store_assign_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
+    \\ TRY (asm_exists_tac \\ simp[])
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs[sv_rel_cases,semanticPrimitivesTheory.prim_exn_def,modSemTheory.prim_exn_def,v_rel_eqns]
+    \\ simp[store_v_same_type_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp[sv_rel_cases])
   >- ((* Ord *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
@@ -529,6 +575,11 @@ val do_app = Q.prove (
   >- ((* Strlen *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])
+  >- ((* Strcat *)
+    rw[semanticPrimitivesPropsTheory.do_app_cases,modSemTheory.do_app_def]
+    \\ fs[LIST_REL_def]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
   >- ((* VfromList *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
