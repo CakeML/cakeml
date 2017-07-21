@@ -5654,7 +5654,7 @@ val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
 val good_init_state_def = Define `
   good_init_state (mc_conf: ('a,'state,'b) machine_config) t m ms
-        ffi ffis bytes io_regs cc_regs save_regs dm
+        ffi bytes io_regs cc_regs save_regs dm
         labs cbspace coracle
     <=>
     ffi.final_event = NONE /\
@@ -5674,7 +5674,7 @@ val good_init_state_def = Define `
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config /\
     (!index.
-       index < LENGTH ffis ==>
+       index < LENGTH mc_conf.ffi_names ==>
        mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset) NOTIN
        mc_conf.prog_addresses /\
        mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset) <>
@@ -5684,7 +5684,6 @@ val good_init_state_def = Define `
        find_index
          (mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset))
          mc_conf.ffi_entry_pcs 0 = SOME index) /\
-    mc_conf.ffi_names = ffis /\
     mc_conf.target.get_pc ms - n2w ffi_offset = mc_conf.halt_pc /\
     mc_conf.target.get_pc ms - n2w (2*ffi_offset) = mc_conf.ccache_pc /\
     interference_ok mc_conf.next_interfer (mc_conf.target.proj t.mem_domain) /\
@@ -5738,13 +5737,12 @@ val good_init_state_def = Define `
         mc_conf.target.config.big_endian = SOME (t.mem a))  /\
     (* Assumptions about initial compile oracle and code buffer *)
     (∀k:num. let (cfg,code) = coracle k in
-            good_code mc_conf.target.config cfg.labels code ∧
-            (k = 0 ⇒
-            cfg.labels = labs ∧
-            cfg.pos = LENGTH bytes ∧
-            cfg.asm_conf = mc_conf.target.config ∧
-            cfg.ffi_names = SOME(ffis)
-            )) ∧
+            good_code mc_conf.target.config cfg.labels code) ∧
+    (let (cfg,code) = coracle 0 in
+        cfg.labels = labs ∧
+        cfg.pos = LENGTH bytes ∧
+        cfg.asm_conf = mc_conf.target.config ∧
+        cfg.ffi_names = SOME(mc_conf.ffi_names)) ∧
     (∀n. n < cbspace ⇒
       n2w (n + LENGTH bytes) + mc_conf.target.get_pc ms ∈ t.mem_domain  ∧
       n2w (n + LENGTH bytes) + mc_conf.target.get_pc ms NOTIN dm) ∧
@@ -5758,10 +5756,11 @@ val IMP_state_rel_make_init = Q.prove(
    EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
     enc_ok mc_conf.target.config /\
     all_enc_ok_pre mc_conf.target.config code /\
+    list_subset (find_ffi_names code) mc_conf.ffi_names ∧
     remove_labels clock mc_conf.target.config 0 LN mc_conf.ffi_names code =
       SOME (code2,labs) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
-    good_init_state mc_conf t m ms ffi (find_ffi_names code)
+    good_init_state mc_conf t m ms ffi
       (prog_to_bytes code2) io_regs cc_regs save_regs dm
       labs cbspace coracle ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
@@ -5775,12 +5774,16 @@ val IMP_state_rel_make_init = Q.prove(
     TOP_CASE_TAC>>fs[lookup_def])
   \\ rw[]
   \\ fs[state_rel_def,word_loc_val_def,make_init_def,good_init_state_def]
-  \\ conj_tac >- metis_tac[]
-  \\ conj_tac >- simp[list_subset_def,EVERY_MEM]
+  \\ conj_tac >-
+    (strip_tac >>
+    pairarg_tac >> fs[]>>
+    qpat_x_assum`!k. _ (coracle k)`(qspec_then`k` assume_tac)>>rfs[]>>
+    strip_tac>>fs[])
+  \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >- metis_tac[EVEN,all_enc_ok_prog_to_bytes_EVEN]
   \\ conj_tac >-
     (ntac 2 strip_tac>>
-    `get_ffi_index (find_ffi_names code) name < LENGTH (find_ffi_names code)` by
+    `get_ffi_index mc_conf.ffi_names name < LENGTH mc_conf.ffi_names` by
       (simp[get_ffi_index_def]>>
       drule find_index_MEM>>
       disch_then (qspec_then`0` strip_assume_tac)>>
@@ -5822,7 +5825,8 @@ val make_init_filter_skip = Q.store_thm("make_init_filter_skip",
       (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)`,
   match_mp_tac (filter_skip_semantics)>>
   rw[]>>
-  simp[make_init_def]);
+  simp[make_init_def]>>
+  qexists_tac`compile_lab`>>fs[]);
 
 val find_ffi_names_filter_skip = Q.store_thm("find_ffi_names_filter_skip",
   `!code. find_ffi_names (filter_skip code) = find_ffi_names code`,
@@ -5858,31 +5862,55 @@ val filter_skip_extract_labels = Q.store_thm("filter_skip_extract_labels[simp]",
   Cases \\ fs[lab_filterTheory.not_skip_def] \\
   every_case_tac \\ fs[]);
 
-val semantics_compile_lemma = Q.store_thm("semantics_compile_lemma",
+val find_ffi_names_ALL_DISTINCT = Q.store_thm("find_ffi_names_ALL_DISTINCT",`
+  ∀code. ALL_DISTINCT (find_ffi_names code)`,
+  ho_match_mp_tac find_ffi_names_ind>>rw[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  TOP_CASE_TAC>>fs[find_ffi_names_def]>>
+  fs[list_add_if_fresh_thm]>>
+  IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]);
+
+(* TODO: Move to MISC? *)
+val list_subset_LENGTH = Q.store_thm("list_subset_LENGTH",`
+  !l1 l2.ALL_DISTINCT l1 ∧
+  list_subset l1 l2 ⇒
+  LENGTH l1 ≤ LENGTH l2`,
+  fs[list_subset_def,EVERY_MEM]>>
+  Induct>>rw[]>>
+  first_x_assum(qspec_then`FILTER ($~ o $= h) l2` assume_tac)>>
+  rfs[MEM_FILTER]>>
+  `LENGTH (FILTER ($~ o $= h) l2) < LENGTH l2` by
+    (match_mp_tac LENGTH_FILTER_LESS>>
+    fs[EXISTS_MEM])>>
+  fs[]);
+
+val semantics_compile_lemma = Q.prove(
   `(ffi:'ffi ffi_state).final_event = NONE /\
     backend_correct mc_conf.target /\
+    (* Assumptions on input code *)
     EVERY sec_ends_with_label code /\
     EVERY sec_labels_ok code /\
     ALL_DISTINCT (MAP Section_num code) /\
     EVERY (ALL_DISTINCT o extract_labels o Section_lines) code /\
     all_enc_ok_pre c.asm_conf code /\
+    (* Config state *)
     c.asm_conf = mc_conf.target.config /\
-    c.labels = LN ∧
-    c.pos = 0 ∧
-    c.ffi_names = NONE ∧ (* ??? FFI*)
+    c.labels = LN ∧ c.pos = 0 ∧
     enc_ok mc_conf.target.config /\
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
+    (* FFI is either given or computed *)
+    (case c.ffi_names of NONE => mc_conf.ffi_names = find_ffi_names code | SOME f => mc_conf.ffi_names = f) /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
-    good_init_state mc_conf t m ms ffi (THE c'.ffi_names) bytes io_regs cc_regs save_regs dm c'.labels cbspace
-      (( λ(a,b). (a,filter_skip b)) o coracle) /\
+    good_init_state mc_conf t m ms ffi bytes io_regs cc_regs save_regs dm
+      c'.labels cbspace coracle /\
     semantics (make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
-      (coracle)
+      coracle
     ) <> Fail ==>
     machine_sem mc_conf ffi ms =
     {semantics (make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
-      (coracle)
+      coracle
     )}`,
   fs[compile_def,compile_lab_def]>>
   CASE_TAC>>fs[]>>
@@ -5896,25 +5924,45 @@ val semantics_compile_lemma = Q.store_thm("semantics_compile_lemma",
   match_mp_tac (GEN_ALL semantics_make_init)>>
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
   fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
-  CONJ_TAC >-
-    fs[GSYM ALL_EL_MAP]>>
+  (CONJ_TAC >-
+    fs[GSYM ALL_EL_MAP])>>
+  simp[list_subset_def,EVERY_MEM]>>
   qexists_tac`r`>>fs[good_init_state_def]>>
-  metis_tac[])
+  (
+  CONJ_TAC>- metis_tac[]>>
+  CONJ_TAC>-
+   (TRY
+    (`LENGTH (find_ffi_names code) <= LENGTH ffis` by
+      (match_mp_tac list_subset_LENGTH>>
+      fs[find_ffi_names_ALL_DISTINCT]))>>
+    metis_tac[LESS_LESS_EQ_TRANS])>>
+  CONJ_TAC>-
+    (strip_tac>>
+    pairarg_tac>> fs[]>>
+    pairarg_tac>> fs[]>>
+    first_x_assum(qspec_then`k` kall_tac)>>
+    first_x_assum(qspec_then`k` assume_tac)>>rfs[]>>
+    rw[]>>
+    fs[good_code_def]>>
+    fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
+    fs[GSYM ALL_EL_MAP])>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]))
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
 val good_init_state_good_dimindex = Q.store_thm("good_init_state_good_dimindex",
-  `good_init_state (mc_conf:(α,β,γ)machine_config) (t:α asm_state) m (ms:β) (ffi:'ffi ffi_state) ffi_limit bytes io_regs cc_regs save_regs dm labs cbspace coracle ⇒
+  `good_init_state (mc_conf:(α,β,γ)machine_config) (t:α asm_state) m (ms:β) (ffi:'ffi ffi_state) bytes io_regs cc_regs save_regs dm labs cbspace coracle ⇒
    good_dimindex (:α)`,
   rw[good_init_state_def]);
 
 val semantics_compile = save_thm("semantics_compile",let
-  val th0 = MATCH_MP implements_align_dm (UNDISCH good_init_state_good_dimindex)
+  val th0 = MATCH_MP
+    (implements_align_dm |> INST_TYPE [gamma |-> ``:'a lab_to_target$config``])
+    (UNDISCH good_init_state_good_dimindex)
   val th1 = MATCH_MP semanticsPropsTheory.implements_trans th0
-  val th2 = MATCH_MP th1 (semantics_compile_lemma |> UNDISCH
-                          |> INST_TYPE[beta|->alpha,delta|->gamma,gamma|->beta])
-                     |> DISCH_ALL
+  val th2 = MATCH_MP th1 (semantics_compile_lemma |> UNDISCH) |> DISCH_ALL
   val th3 = th2 |> SIMP_RULE (srw_ss()) [align_dm_def,make_init_def]
                 |> REWRITE_RULE [GSYM make_init_def]
                 |> REWRITE_RULE [AND_IMP_INTRO]
