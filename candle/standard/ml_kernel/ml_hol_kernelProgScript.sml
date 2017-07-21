@@ -6,10 +6,10 @@ open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib holKernelTheory
 
 val _ = new_theory "ml_hol_kernelProg";
-			
+
 val _ = (use_full_type_names := false);
 
-val _ = register_type ``:cpn``
+val _ = register_type ``:ordering``
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``
 val _ = register_type ``:'a option``
@@ -307,7 +307,7 @@ val compare_side_thm = Q.prove (
 (* end copy and paste *)
 
 val res = translate comparisonTheory.pair_cmp_def
-val res = translate comparisonTheory.list_cmp_def
+val res = translate ternaryComparisonsTheory.list_compare_def
 (* -- *)
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (holSyntaxExtraTheory.subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -376,7 +376,7 @@ val type_cmp_thm = Q.prove(
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.type_cmp_thm]
   \\ ONCE_REWRITE_TAC [type_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def,comparisonTheory.list_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def,ternaryComparisonsTheory.list_compare_def])
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";

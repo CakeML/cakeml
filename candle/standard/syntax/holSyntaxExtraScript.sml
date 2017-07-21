@@ -1,7 +1,10 @@
-open preamble totoTheory comparisonTheory mlstringTheory
+open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
 
 val _ = new_theory"holSyntaxExtra"
+
+val cpn_distinct = TypeBase.distinct_of ``:ordering``
+val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:holSyntax$type``
@@ -654,13 +657,13 @@ val ordav_FILTER = Q.store_thm("ordav_FILTER",
   fs[TotOrd] >> rw[])
 
 val ordav_sym = Q.store_thm("ordav_sym",
-  `∀env v1 v2. invert (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1`,
+  `∀env v1 v2. flip_ord (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1`,
   ho_match_mp_tac ordav_ind >> simp[ordav_def] >>
-  conj_tac >- metis_tac[invert_def,TotOrd_term_cmp,TotOrd,cpn_nchotomy,cpn_distinct] >>
+  conj_tac >- metis_tac[invert_comparison_def,TotOrd_term_cmp,TotOrd,cpn_nchotomy,cpn_distinct] >>
   rw[])
 
 val orda_sym = Q.store_thm("orda_sym",
-  `∀env t1 t2. invert (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1`,
+  `∀env t1 t2. flip_ord (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1`,
   ho_match_mp_tac orda_ind >>
   rpt gen_tac >> rpt strip_tac >>
   ONCE_REWRITE_TAC[orda_def] >>
@@ -670,7 +673,7 @@ val orda_sym = Q.store_thm("orda_sym",
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >> simp[ordav_sym] >>
   rw[] >> fs[] >>
-  metis_tac[invert_def,TotOrd_type_cmp,TotOrd_term_cmp,
+  metis_tac[invert_comparison_def,TotOrd_type_cmp,TotOrd_term_cmp,
             TotOrd,cpn_nchotomy,cpn_distinct] )
 
 val antisymmetric_alpha_lt = Q.store_thm("antisymmetric_alpha_lt",
