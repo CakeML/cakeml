@@ -156,7 +156,7 @@ val generalise_def = Define `
 
 (*** TESTS ****)
 
-
+translate generalise_def;
 (**************)
 
 val infer_type_subst_def = tDefine "infer_type_subst" `

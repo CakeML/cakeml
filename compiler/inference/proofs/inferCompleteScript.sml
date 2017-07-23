@@ -1440,7 +1440,7 @@ val infer_prog_complete = Q.store_thm ("infer_prog_complete",
     ?idecls' ienv' st2.
       decls' = convert_decls idecls' ∧
       env_rel tenv' ienv' ∧
-      infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2)`,
+      infer_prog idecls ienv prog st1x = (Success (idecls',ienv'), st2)`,
   ho_match_mp_tac type_prog_ind >>
   rw [infer_prog_def, success_eqns]
   >- rw [convert_decls_def, empty_decls_def, empty_inf_decls_def] >>
