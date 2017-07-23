@@ -225,6 +225,14 @@ rw [SUBSET_DEF, infer_subst_def, t_vars_eqn] >|
  metis_tac [],
  metis_tac []]);
 
+val generalise_list_length = Q.store_thm("generalise_list_length",`
+  ∀a b c d e f g.
+  generalise_list a b c d = (e,f,g) ⇒ LENGTH g = LENGTH d`,
+  Induct_on`d`>>fs[generalise_def]>>rw[]>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  res_tac>>fs[]>>rveq>>fs[]);
+
 val generalise_subst = Q.store_thm ("generalise_subst",
 `(!t m n s tvs s' t'.
   (generalise m n s t = (tvs, s', t'))

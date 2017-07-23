@@ -1702,15 +1702,6 @@ val ienv_val_ok_more = Q.prove(`
   res_tac>>fs[]>>
   metis_tac[check_t_more4,check_t_more5])
 
-(* TODO: move to typeSysProps*)
-val type_funs_MAP_FST = Q.store_thm("type_funs_MAP_FST",
-`!funs tenv tenvE env.
-  type_funs tenv tenvE funs env ⇒
-  MAP FST funs = MAP FST env`,
-  Induct>>srw_tac[][]>>
-  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-  full_simp_tac(srw_ss())[]>>metis_tac[])
-
 val infer_e_complete = Q.store_thm ("infer_e_complete",
 `
  (!tenv tenvE e t.

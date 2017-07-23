@@ -882,6 +882,14 @@ srw_tac[][Once type_e_cases] >>
 srw_tac[][] >>
 metis_tac []);
 
+val type_funs_MAP_FST = Q.store_thm("type_funs_MAP_FST",
+`!funs tenv tenvE env.
+  type_funs tenv tenvE funs env ⇒
+  MAP FST funs = MAP FST env`,
+  Induct>>srw_tac[][]>>
+  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
+  full_simp_tac(srw_ss())[]>>metis_tac[])
+
 val tenv_val_exp_ok_bvl_tvs = Q.store_thm ("tenv_val_exp_ok_bvl_tvs",
   `!funs tenv env tvs bindings tenvE.
     type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env ∧
