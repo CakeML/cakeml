@@ -380,6 +380,16 @@ val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
   map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
   [`l1`,`l2`]);
 
+val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
+  ``!xs1 zs.
+      EVERY2 P zs (xs1 ++ xs2) ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ EVERY2 P ys1 xs1 /\
+                  EVERY2 P ys2 xs2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -2902,6 +2912,12 @@ val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
   `OPTION_MAP I x = x`,
   Cases_on`x` \\ rw[]);
 
+val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
+  `(∀x y. f x = f y ⇒ x = y)
+   ⇒ ∀o1 o2.
+     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
+  strip_tac \\ Cases \\ Cases \\ simp[]);
+
 val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   `∀j k ls len.
     len = LENGTH ls ∧ k ≤ j ⇒
@@ -2923,5 +2939,17 @@ val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
   \\ pop_assum kall_tac
   \\ drule MOD_MULT
   \\ fs []);
+
+val BIJ_UPDATE = store_thm("BIJ_UPDATE",
+  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
+
+val INJ_UPDATE = store_thm("INJ_UPDATE",
+  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
 
 val _ = export_theory()
