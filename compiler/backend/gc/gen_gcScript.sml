@@ -312,7 +312,7 @@ val heaps_similar_lemma = prove(
       heaps_similar heap0 (ha ++ [ForwardPointer ptr a l] ++ hb)``,
   full_simp_tac std_ss [heaps_similar_def,APPEND,GSYM APPEND_ASSOC]
   \\ rpt strip_tac
-  \\ imp_res_tac EVERY2_SPLIT \\ fs[]
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[]
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
   \\ match_mp_tac EVERY2_APPEND_suff
   \\ fs[isForwardPointer_def,el_length_def]
