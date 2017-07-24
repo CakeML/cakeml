@@ -380,15 +380,32 @@ val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
   map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
   [`l1`,`l2`]);
 
-val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
+val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
   ``!xs1 zs.
-      EVERY2 P zs (xs1 ++ xs2) ==>
-      ?ys1 ys2. (zs = ys1 ++ ys2) /\ EVERY2 P ys1 xs1 /\
-                  EVERY2 P ys2 xs2``,
+      LIST_REL P (xs1 ++ xs2) zs ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
+                  LIST_REL P xs2 ys2``,
   Induct \\ full_simp_tac std_ss [APPEND]
   \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
   \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
+  ``!xs1 zs.
+      LIST_REL P zs (xs1 ++ xs2) ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
+                  LIST_REL P ys2 xs2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
+  `LENGTH x1 = LENGTH x2 ⇒ (LIST_REL R (x1 ++ y1) (x2 ++ y2) = (LIST_REL R x1 x2 /\ LIST_REL R y1 y2))`,
+  rw[EQ_IMP_THM]
+  \\ imp_res_tac LIST_REL_APPEND_IMP
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ rw[]);
 
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,

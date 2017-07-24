@@ -375,7 +375,7 @@ val heap_similar_Data_IMP = Q.store_thm("heap_similar_Data_IMP",
     ?ha0 hb0. (heap0 = ha0 ++ DataElement ys l d::hb0) /\
               (heap_length ha = heap_length ha0)`,
   rpt strip_tac \\ full_simp_tac std_ss [heaps_similar_def]
-  \\ imp_res_tac EVERY2_SPLIT \\ fs[isForwardPointer_def]
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[isForwardPointer_def]
   \\ Q.LIST_EXISTS_TAC [`ys1`,`xs`] \\ full_simp_tac std_ss []
   \\ `heaps_similar ys1 ha` by full_simp_tac std_ss [heaps_similar_def]
   \\ full_simp_tac std_ss [heaps_similar_IMP_heap_length]);
@@ -385,7 +385,7 @@ val heaps_similar_lemma = Q.store_thm("heaps_similar_lemma",
       heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
       heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) u l] ++ hb)`,
   full_simp_tac std_ss [heaps_similar_def] \\ rpt strip_tac
-  \\ imp_res_tac EVERY2_SPLIT \\ fs[]
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[]
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
   \\ match_mp_tac EVERY2_APPEND_suff
   \\ fs[isForwardPointer_def,el_length_def]

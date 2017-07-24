@@ -359,14 +359,6 @@ val EVERY2_IMP_EVERY2 = Q.store_thm("EVERY2_IMP_EVERY2",
   Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac \\ metis_tac []);
 
-val EVERY2_APPEND_IMP = Q.store_thm("EVERY2_APPEND_IMP",
-  `!xs1 xs2 ys.
-      EVERY2 P (xs1 ++ xs2) ys ==>
-      ?ys1 ys2. (ys = ys1 ++ ys2) /\ EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2`,
-  Induct \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) [] \\ rpt strip_tac
-  \\ res_tac \\ metis_tac [LIST_REL_def,APPEND]);
-
 val MEM_EVERY2_IMP = Q.store_thm("MEM_EVERY2_IMP",
   `!l x zs P. MEM x l /\ EVERY2 P zs l ==> ?z. MEM z zs /\ P z x`,
   Induct \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) [] \\ metis_tac []);
@@ -409,6 +401,21 @@ val EVERY2_IMP_EL = METIS_PROVE[EVERY2_EQ_EL]
 val EVERY2_MAP_FST_SND = Q.prove(
   `!xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs`,
   Induct \\ srw_tac [] [LIST_REL_def] \\ Cases_on `h` \\ srw_tac [] []);
+
+val LESS_EQ_LENGTH = Q.store_thm("LESS_EQ_LENGTH",
+  `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
+
+val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
+  `!xs k. k < LENGTH xs ==>
+           ?ys1 y ys2. (xs = ys1 ++ y::ys2) /\ (LENGTH ys1 = k)`,
+  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
+  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
+  \\ srw_tac [] [ADD1]);
 
 val fapply_fupdate_update = Q.store_thm("fapply_fupdate_update",
   `$' (f |+ p) = (FST p =+ SND p) ($' f)`,
@@ -494,8 +501,8 @@ val v_inv_related = Q.prove(
       \\ imp_res_tac MEM_IMP_v_size
       \\ `v_size a < 1 + (n + v1_size l)` by DECIDE_TAC
       \\ `?l1 l2. l = l1 ++ a::l2` by metis_tac [MEM_SPLIT]
-      \\ full_simp_tac std_ss [] \\ imp_res_tac EVERY2_SPLIT_ALT
-      \\ full_simp_tac std_ss [MEM_APPEND,MEM]
+      \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
+      \\ fs[] \\ rw[] \\ fs[]
       \\ res_tac \\ metis_tac [])
     \\ full_simp_tac std_ss [EVERY2_EVERY,LENGTH_ADDR_MAP,EVERY_MEM,FORALL_PROD]
     \\ qpat_x_assum `LENGTH l = LENGTH xs` ASSUME_TAC
@@ -585,8 +592,9 @@ val reachable_refs_lemma = Q.prove(
     (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)`,
   NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
   \\ `?xs1 xs2. stack = xs1 ++ x::xs2` by metis_tac [MEM_SPLIT]
-  \\ full_simp_tac std_ss [] \\ imp_res_tac EVERY2_SPLIT_ALT
-  \\ full_simp_tac std_ss [MEM,MEM_APPEND]
+  \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
+  \\ full_simp_tac std_ss [LIST_REL_CONS1] \\ rveq
+  \\ full_simp_tac std_ss [MEM,MEM_APPEND,LIST_REL_CONS1]
   \\ `EVERY (\n. f ' n IN FDOM g) (get_refs x)` by metis_tac [v_inv_related]
   \\ full_simp_tac std_ss [EVERY_MEM] \\ res_tac \\ full_simp_tac std_ss []
   \\ `n IN FDOM f` by (CCONTR_TAC
@@ -976,10 +984,10 @@ val gen_gc_partial_thm = Q.store_thm("gen_gc_partial_thm",
     \\ qpat_x_assum `MEM e _` (assume_tac o REWRITE_RULE [MEM_SPLIT])
     \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-    \\ drule EVERY2_SPLIT
-    \\ strip_tac \\ fs []
-    \\ `isRef y` by metis_tac []
-    \\ Cases_on `y` \\ fs [isRef_def]
+    \\ drule LIST_REL_SPLIT2
+    \\ strip_tac \\ fs [] \\ rveq \\ fs[]
+    \\ `isRef x` by metis_tac []
+    \\ Cases_on `x` \\ fs [isRef_def]
     \\ Cases_on `b` \\ fs [isRef_def]
     \\ Cases_on `e` \\ fs [gen_gc_partialTheory.similar_data_def,isRef_def])
   \\ fs [roots_ok_def]
@@ -1438,7 +1446,7 @@ val cons_thm_alt = Q.store_thm("cons_thm_alt",
          sp-el_length (BlockRep tag rs),sp1,gens) limit`,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
-  \\ imp_res_tac EVERY2_APPEND_IMP \\ full_simp_tac std_ss []
+  \\ imp_res_tac LIST_REL_SPLIT1 \\ full_simp_tac std_ss []
   \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ full_simp_tac std_ss []
   \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac std_ss []
   \\ qpat_x_assum `unused_space_inv a (sp+sp1) heap` (fn th =>
@@ -2790,8 +2798,10 @@ val pop_thm = Q.store_thm("pop_thm",
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
   THEN1 (rw [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ imp_res_tac EVERY2_APPEND \\ full_simp_tac std_ss []
-  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_SPLIT2
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ fs[APPEND_EQ_APPEND]
+  \\ rveq \\ fs[] \\ rveq \\ rfs[] \\ rveq \\ fs[]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
 
 (* equality *)
@@ -2855,7 +2865,7 @@ val abs_ml_inv_stack_permute = Q.store_thm("abs_ml_inv_stack_permute",
   \\ full_simp_tac std_ss [roots_ok_def]
   THEN1 (full_simp_tac std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ metis_tac [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ full_simp_tac std_ss [EVERY2_APPEND,LENGTH_MAP]
+  \\ full_simp_tac std_ss [LIST_REL_APPEND_EQ,LENGTH_MAP]
   \\ full_simp_tac std_ss [EVERY2_MAP_FST_SND]
   \\ full_simp_tac std_ss [EVERY_MEM,SUBSET_DEF]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND,MEM_MAP]
@@ -2870,7 +2880,7 @@ val duplicate_thm = Q.store_thm("duplicate_thm",
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ imp_res_tac EVERY2_APPEND \\ full_simp_tac std_ss []
+  \\ imp_res_tac LIST_REL_APPEND_EQ \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [APPEND_ASSOC]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
 
@@ -2879,11 +2889,6 @@ val duplicate1_thm = save_thm("duplicate1_thm",
                 |> SIMP_RULE std_ss [LENGTH,APPEND]);
 
 (* move *)
-
-val EVERY2_APPEND_IMP = Q.prove(
-  `EVERY2 P (xs1 ++ xs2) (ys1 ++ ys2) ==>
-    (LENGTH xs1 = LENGTH ys1) ==> EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2`,
-  rpt strip_tac \\ imp_res_tac EVERY2_LENGTH \\ imp_res_tac EVERY2_APPEND);
 
 val move_thm = Q.store_thm("move_thm",
   `!xs1 rs1 xs2 rs2 xs3 rs3.
@@ -2898,39 +2903,23 @@ val move_thm = Q.store_thm("move_thm",
   \\ full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ strip_tac THEN1
-   (NTAC 5 (imp_res_tac EVERY2_APPEND_IMP \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ full_simp_tac std_ss [LENGTH_APPEND,AC ADD_COMM ADD_ASSOC]
-    \\ rpt strip_tac)
-    \\ NTAC 5 (match_mp_tac IMP_EVERY2_APPEND \\ full_simp_tac std_ss []))
+  \\ strip_tac THEN1 fs[LIST_REL_APPEND_EQ]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
 
 (* splits *)
-
-val EVERY2_APPEND1 = Q.prove(
-  `!xs1 xs2 ys.
-      EVERY2 P (xs1 ++ xs2) ys ==>
-      ?ys1 ys2. (ys = ys1 ++ ys2) /\
-                (LENGTH xs1 = LENGTH ys1) /\ EVERY2 P xs2 ys2`,
-  Induct THEN1
-   (full_simp_tac (srw_ss()) [] \\ rpt strip_tac
-    \\ qexists_tac `[]` \\ full_simp_tac (srw_ss()) [])
-  \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) [] \\ rpt strip_tac
-  \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
 
 val split1_thm = Q.store_thm("split1_thm",
   `abs_ml_inv conf (xs1 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
     ?rs1 roots1. (roots = rs1 ++ roots1) /\ (LENGTH rs1 = LENGTH xs1)`,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
-  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac EVERY2_APPEND1) \\ metis_tac []);
+  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac LIST_REL_SPLIT1 \\ imp_res_tac LIST_REL_LENGTH) \\ metis_tac []);
 
 val split2_thm = Q.store_thm("split2_thm",
   `abs_ml_inv conf (xs1 ++ xs2 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
     ?rs1 rs2 roots1. (roots = rs1 ++ rs2 ++ roots1) /\
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2)`,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
-  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac EVERY2_APPEND1) \\ metis_tac []);
+  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac LIST_REL_SPLIT1 \\ imp_res_tac LIST_REL_LENGTH) \\ metis_tac []);
 
 val split3_thm = Q.store_thm("split3_thm",
   `abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
@@ -2938,22 +2927,7 @@ val split3_thm = Q.store_thm("split3_thm",
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2) /\
       (LENGTH rs3 = LENGTH xs3)`,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
-  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac EVERY2_APPEND1) \\ metis_tac []);
-
-val LESS_EQ_LENGTH = Q.store_thm("LESS_EQ_LENGTH",
-  `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`,
-  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
-  \\ srw_tac [] [ADD1]);
-
-val LESS_LENGTH = Q.store_thm("LESS_LENGTH",
-  `!xs k. k < LENGTH xs ==>
-           ?ys1 y ys2. (xs = ys1 ++ y::ys2) /\ (LENGTH ys1 = k)`,
-  Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
-  \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
-  \\ srw_tac [] [ADD1]);
+  \\ rpt strip_tac \\ NTAC 5 (imp_res_tac LIST_REL_SPLIT1 \\ imp_res_tac LIST_REL_LENGTH) \\ metis_tac []);
 
 val abs_ml_inv_Num = Q.store_thm("abs_ml_inv_Num",
   `abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\ small_int (:α) i ==>
@@ -4054,7 +4028,7 @@ val memory_rel_Cons1 = Q.store_thm("memory_rel_Cons1",
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
-  \\ fs [EVERY2_APPEND,minus_lemma]
+  \\ fs [LIST_REL_APPEND_EQ,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
   \\ `LENGTH ws + 1 <= sp' + sp1` by decide_tac
@@ -4146,7 +4120,7 @@ val memory_rel_Ref = Q.store_thm("memory_rel_Ref",
   \\ pop_assum mp_tac \\ simp_tac std_ss [LESS_EQ_EXISTS]
   \\ strip_tac \\ clean_tac \\ fs []
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ fs [EVERY2_APPEND]
+  \\ fs [LIST_REL_APPEND_EQ]
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_ptr_def,get_lowerbits_def]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift,GSYM word_add_n2w]
@@ -4283,7 +4257,7 @@ val memory_rel_Cons_alt = Q.store_thm("memory_rel_Cons_alt",
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_alt_IMP_length \\ fs []
-  \\ fs [EVERY2_APPEND,minus_lemma]
+  \\ fs [LIST_REL_APPEND_EQ,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
   \\ conj_tac THEN1 (fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
