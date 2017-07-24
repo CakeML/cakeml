@@ -7059,4 +7059,151 @@ val word_to_stack_stack_asm_convs = Q.store_thm("word_to_stack_stack_asm_convs",
     >>
       metis_tac[])
 
+val stack_move_alloc_arg = Q.store_thm("stack_move_alloc_arg",`
+  ∀n st off i p.
+  alloc_arg p ⇒
+  alloc_arg (stack_move n st off i p)`,
+  Induct>>rw[stack_move_def,alloc_arg_def]);
+
+val word_to_stack_alloc_arg = Q.store_thm("word_to_stack_alloc_arg",`
+  ∀p n args.
+  alloc_arg (FST(word_to_stack$comp p n args))`,
+  recInduct comp_ind >>
+  fs[comp_def,alloc_arg_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>
+  rw[]>>fs[alloc_arg_def]
+  >-
+    (fs[wMove_def]>>qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,alloc_arg_def]>>
+    Cases_on`ls`>>fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs [alloc_arg_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,alloc_arg_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs[alloc_arg_def])
+  >- (rpt (pairarg_tac>>fs[alloc_arg_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,alloc_arg_def])
+  >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs [alloc_arg_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,alloc_arg_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs [alloc_arg_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,alloc_arg_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [alloc_arg_def]>>
+    match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def]))
+  >>
+    rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]);
+
+val stack_move_reg_bound = Q.store_thm("stack_move_reg_bound",`
+  ∀n st off i p k.
+  i < k ∧
+  reg_bound p k ⇒
+  reg_bound (stack_move n st off i p) k`,
+  Induct>>rw[stack_move_def,reg_bound_def]);
+
+val word_to_stack_reg_bound = Q.store_thm("word_to_stack_reg_bound",`
+  ∀p n args.
+  post_alloc_conventions (FST args) p ∧
+  4 ≤ FST args ⇒
+  reg_bound (FST(word_to_stack$comp p n args)) (FST args+2)`,
+  recInduct comp_ind >>fs[comp_def,reg_bound_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>
+  fs[reg_bound_def,convs_def]
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = parmove A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,reg_bound_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    Cases_on`p_1''`>>Cases_on`p_2'`>>fs[format_var_def]>>
+    BasicProvers.EVERY_CASE_TAC>>fs [reg_bound_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,reg_bound_def]>>fs [reg_bound_def,convs_def,inst_arg_convention_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[reg_bound_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs [reg_bound_def])
+  >- (rpt (pairarg_tac>>fs [reg_bound_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,reg_bound_def])
+  >-
+    (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[reg_bound_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [reg_bound_def])>>
+    fs[wStackLoad_def,reg_bound_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [reg_bound_def])>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs [reg_bound_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,reg_bound_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [reg_bound_def]>>
+    match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
+  >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]));
+
+val stack_move_call_args = Q.store_thm("stack_move_call_args",`
+  ∀n st off i p.
+  call_args p 1 2 0 ⇒
+  call_args (stack_move n st off i p) 1 2 0`,
+  Induct>>rw[stack_move_def,call_args_def]);
+
+val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
+  ∀p n args.
+  post_alloc_conventions (FST args) p ⇒
+  call_args (FST(word_to_stack$comp p n args)) 1 2 0`,
+  ho_match_mp_tac comp_ind >>
+  fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
+  fs[call_args_def]
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,call_args_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[call_args_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,convs_def]>>fs [call_args_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs [call_args_def,convs_def])
+  >- (rpt (pairarg_tac>>fs [call_args_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,call_args_def])
+  >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [call_args_def])>>
+    fs[wStackLoad_def,call_args_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [call_args_def])>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs [call_args_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,call_args_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [call_args_def]>>
+    match_mp_tac stack_move_call_args>>fs [call_args_def]))
+  >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]));
+
 val _ = export_theory();
