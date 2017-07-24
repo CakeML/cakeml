@@ -5628,7 +5628,7 @@ val make_word_def = Define `
                             m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
 
 val make_init_def = Define `
-  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs cc_regs t m dm (ms:'state) code
+  make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm (ms:'state) code
     comp cbpos cbspace coracle =
     <| regs           := \k. Word ((t.regs k):'a word)
      ; mem            := m
@@ -5636,8 +5636,8 @@ val make_init_def = Define `
      ; pc             := 0
      ; be             := mc_conf.target.config.big_endian
      ; ffi            := ffi
-     ; io_regs        := \n k. if k IN save_regs then NONE else (io_regs n k)
-     ; cc_regs        := \n k. if k IN save_regs then NONE else (cc_regs n k)
+     ; io_regs        := \n k. if MEM k mc_conf.callee_saved_regs then NONE else (io_regs n k)
+     ; cc_regs        := \n k. if MEM k mc_conf.callee_saved_regs then NONE else (cc_regs n k)
      ; code           := code
      ; clock          := 0
      ; failed         := F
@@ -5790,6 +5790,7 @@ val compiler_oracle_ok_def = Define`
 val mc_conf_ok_def = Define`
   mc_conf_ok (mc_conf:('a,'b,'c) machine_config) ⇔
     good_dimindex(:'a) ∧
+    backend_correct mc_conf.target ∧
     reg_ok mc_conf.ptr_reg mc_conf.target.config /\
     reg_ok mc_conf.len_reg mc_conf.target.config /\
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
@@ -5809,8 +5810,7 @@ val IMP_state_rel_make_init = Q.prove(
       ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms)
-      (make_init mc_conf (ffi:'ffi ffi_state)
-         (set mc_conf.callee_saved_regs) io_regs cc_regs t m dm ms code
+      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm ms code
            compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms`,
   rw[] \\ drule remove_labels_thm
   \\ impl_tac >- (
@@ -5853,9 +5853,9 @@ val IMP_state_rel_make_init = Q.prove(
   \\ metis_tac[code_similar_sec_labels_ok]);
 
 val make_init_simp = Q.store_thm("make_init_simp[simp]",`
-  (make_init a b c d e f g h i j k l m n).ffi = b ∧
-  (make_init a b c d e f g h i j k l m n).pc = 0 ∧
-  (make_init a b c d e f g h i j k l m n).code = j`,
+  (make_init a b d e f g h i j k l m n).ffi = b ∧
+  (make_init a b d e f g h i j k l m n).pc = 0 ∧
+  (make_init a b d e f g h i j k l m n).code = j`,
   EVAL_TAC);
 
 val semantics_make_init = save_thm("semantics_make_init",
@@ -5866,7 +5866,7 @@ val semantics_make_init = save_thm("semantics_make_init",
   |> Q.GEN `t1` |> Q.SPEC `t`
   |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
   |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
-       ffi (set mc_conf.callee_saved_regs) io_regs cc_regs t m dm (ms:'state) code
+       ffi io_regs cc_regs t m dm (ms:'state) code
        compile_lab (mc_conf.target.get_pc ms + (n2w (LENGTH (prog_to_bytes (code2:'a labLang$prog)))))
        cbspace coracle`
   |> SIMP_RULE std_ss [make_init_simp]
@@ -5876,10 +5876,10 @@ val semantics_make_init = save_thm("semantics_make_init",
 
 val make_init_filter_skip = Q.store_thm("make_init_filter_skip",
   `semantics
-    (make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms (filter_skip code)
+    (make_init mc_conf ffi io_regs cc_regs t m dm ms (filter_skip code)
        compile_lab cbpos cbspace((λ(a,b). (a,filter_skip b)) o coracle)) =
    semantics
-    (make_init mc_conf ffi save_regs io_regs cc_regs t m dm ms code
+    (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       (λc p. compile_lab c (filter_skip p)) cbpos cbspace coracle)`,
   match_mp_tac (filter_skip_semantics)>>
   rw[]>>
@@ -5944,8 +5944,7 @@ val list_subset_LENGTH = Q.store_thm("list_subset_LENGTH",`
 (* -- *)
 
 val semantics_compile_lemma = Q.prove(
-  `backend_correct mc_conf.target /\
-    mc_conf_ok mc_conf ∧
+  ` mc_conf_ok mc_conf ∧
     compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
     (* Assumptions on input code *)
     good_code mc_conf.target.config LN code ∧
@@ -5956,12 +5955,12 @@ val semantics_compile_lemma = Q.prove(
     (* FFI is either given or computed *)
     (case c.ffi_names of NONE => mc_conf.ffi_names = find_ffi_names code | SOME f => mc_conf.ffi_names = f) /\
     good_init_state mc_conf ms ffi bytes cbspace t m dm io_regs cc_regs /\
-    semantics (make_init mc_conf ffi (set mc_conf.callee_saved_regs) io_regs cc_regs t m dm ms code
+    semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
     ) <> Fail ==>
     machine_sem mc_conf ffi ms =
-    {semantics (make_init mc_conf ffi (set mc_conf.callee_saved_regs) io_regs cc_regs t m dm ms code
+    {semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
     )}`,
@@ -5979,6 +5978,7 @@ val semantics_compile_lemma = Q.prove(
   fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
   fs[find_ffi_names_filter_skip,GSYM PULL_EXISTS]>>
   conj_tac >- fs[good_init_state_def] >>
+  conj_tac >- fs[mc_conf_ok_def] >>
   conj_tac >- (
     fs[good_code_def] >>
     fs[sec_ends_with_label_filter_skip,all_enc_ok_pre_filter_skip]>>
@@ -6007,7 +6007,6 @@ val semantics_compile_lemma = Q.prove(
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
 
 val semantics_compile = Q.store_thm("semantics_compile",`
-   backend_correct mc_conf.target ∧
    mc_conf_ok mc_conf ∧
    compiler_oracle_ok coracle c'.labels (LENGTH bytes) c.asm_conf mc_conf.ffi_names ∧
    good_code c.asm_conf c.labels code ∧
@@ -6020,7 +6019,7 @@ val semantics_compile = Q.store_thm("semantics_compile",`
    good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
    implements (machine_sem mc_conf ffi ms)
      {semantics
-        (make_init mc_conf ffi (set mc_conf.callee_saved_regs) io_regs cc_regs t m (dm ∩ byte_aligned) ms code
+        (make_init mc_conf ffi io_regs cc_regs t m (dm ∩ byte_aligned) ms code
            compile (mc_conf.target.get_pc ms + n2w (LENGTH bytes))
            cbspace coracle)}`,
   rw[]>>

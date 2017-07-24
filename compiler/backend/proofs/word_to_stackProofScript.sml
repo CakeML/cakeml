@@ -2217,6 +2217,13 @@ val compile_word_to_stack_isPREFIX = Q.store_thm("compile_word_to_stack_isPREFIX
   \\ imp_res_tac compile_prog_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
+val compile_word_to_stack_bitmaps = Q.store_thm("compile_word_to_stack_bitmaps",
+  `word_to_stack$compile c p = (c2,prog1) ==>
+    (case c2.bitmaps of [] => F | h::v1 => 4w = h)`,
+  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  \\ Cases_on `bitmaps` \\ fs []);
+
 val EVEN_DIV2_INJ = Q.store_thm("EVEN_DIV2_INJ",
   `EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y`,
   srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]

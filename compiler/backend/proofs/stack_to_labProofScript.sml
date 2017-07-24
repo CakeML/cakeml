@@ -1865,6 +1865,8 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
   val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
   in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
 
+val full_make_init_def = definition"full_make_init_def";
+
 val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
   val gen_gc = mk_var("gen_gc",``:bool``)
   val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
@@ -2075,5 +2077,39 @@ val stack_to_lab_compile_all_enc_ok = Q.store_thm("stack_to_lab_compile_all_enc_
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
   match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
   match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]);
+
+val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
+  `max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
+    init_store_ok c1
+      ((full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,(s:('a,'c,'ffi)labSem$state),
+             save_regs)).store \\ Handler)
+       (full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,s,save_regs)).memory
+       (full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,s,save_regs)).mdomain`,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_def]
+  \\ CASE_TAC \\ fs [] THEN1
+   (fs [data_to_word_gcProofTheory.init_store_ok_def,FUPDATE_LIST,
+        stack_removeTheory.store_list_def,
+        FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
+    \\ rw [] \\ qexists_tac `0` \\ fs [word_list_exists_def]
+    \\ conj_tac THEN1 (CASE_TAC \\ fs [])
+    \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
+    \\ fs [word_list_def,set_sepTheory.emp_def,set_sepTheory.fun2set_def]
+    \\ EVAL_TAC)
+  \\ fs [stack_removeProofTheory.make_init_opt_def]
+  \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
+  \\ fs [data_to_word_gcProofTheory.init_store_ok_def,
+         stack_removeProofTheory.init_prop_def]
+  \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
+       stack_removeProofTheory.word_list_exists_ADD]
+  \\ qexists_tac`len`
+  \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
+  \\ Cases_on `c1.gc_kind` \\ fs [is_gen_gc_def]);
 
 val _ = export_theory();
