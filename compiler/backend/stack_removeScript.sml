@@ -182,12 +182,12 @@ val init_memory_def = Define `
               store_list_code (k+1) 0 xs]`;
 
 val store_init_def = Define `
-  store_init (k:num) =
+  store_init gen_gc (k:num) =
     (K (INL 0w)) =++
       [(CurrHeap,INR (k+2));
        (NextFree,INR (k+2));
+       (TriggerGC,INR (if gen_gc then k+2 else 2));
        (EndOfHeap,INR 2);
-       (TriggerGC,INR 2);
        (HeapLength,INR 5);
        (OtherHeap,INR 2);
        (BitmapBase,INR 3)]`
@@ -199,7 +199,7 @@ val store_init_def = Define `
     reg 4: one past last address of stack *)
 
 val init_code_def = Define `
-  init_code max_heap bitmaps k =
+  init_code gen_gc max_heap bitmaps k =
     let min_stack = LENGTH bitmaps + LENGTH store_list + 1 in
       if dimword (:'a) <= (dimindex (:'a) DIV 8) * min_stack \/
          dimword (:'a) <= (dimindex (:'a) DIV 8) * max_heap then
@@ -241,23 +241,25 @@ val init_code_def = Define `
                 move (k+1) 3;
                 right_shift_inst 3 (word_shift (:'a));
                 init_memory k (MAP INL bitmaps ++
-                  MAP (store_init k) (REVERSE store_list));
+                  MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]`
 
 val init_stubs_def = Define `
-  init_stubs max_heap bitmaps k start =
-    [(0n,Seq (init_code max_heap bitmaps k) (Call NONE (INL start) NONE));
+  init_stubs gen_gc max_heap bitmaps k start =
+    [(0n,Seq (init_code gen_gc max_heap bitmaps k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
 val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
-  `LENGTH (init_stubs max_heap bitmaps k start) + 1 (* gc *) = stack_num_stubs`,
+  `LENGTH (init_stubs gen_gc max_heap bitmaps k start) + 1 (* gc *) =
+   stack_num_stubs`,
   EVAL_TAC);
 
 (* -- full compiler -- *)
 
 val compile_def = Define `
-  compile jump off max_heap bitmaps k start prog =
-    init_stubs max_heap bitmaps k start ++ MAP (prog_comp jump off k) prog`;
+  compile jump off gen_gc max_heap bitmaps k start prog =
+    init_stubs gen_gc max_heap bitmaps k start ++
+    MAP (prog_comp jump off k) prog`;
 
 val _ = export_theory();

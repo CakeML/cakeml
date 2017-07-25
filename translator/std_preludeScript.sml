@@ -8,7 +8,7 @@ val translate = abs_translate;
 
 (* type registration *)
 
-val _ = register_type ``:cpn``;
+val _ = register_type ``:ordering``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a # 'b``;

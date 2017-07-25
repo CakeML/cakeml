@@ -312,13 +312,11 @@ val heaps_similar_lemma = prove(
       heaps_similar heap0 (ha ++ [ForwardPointer ptr a l] ++ hb)``,
   full_simp_tac std_ss [heaps_similar_def,APPEND,GSYM APPEND_ASSOC]
   \\ rpt strip_tac
-  \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss []
-  \\ imp_res_tac LIST_REL_LENGTH
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[]
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ full_simp_tac std_ss [EVERY2_APPEND,LIST_REL_def]
-  \\ EVAL_TAC \\ full_simp_tac std_ss [isForwardPointer_def]
-  \\ qpat_assum `DataElement ys l d = y` (assume_tac o GSYM)
-\\ full_simp_tac (srw_ss()) [el_length_def]);
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ fs[isForwardPointer_def,el_length_def]
+  \\ rw[el_length_def,isDataElement_def]);
 
 val gc_move_thm = store_thm("gc_move_thm",
   ``!x state.

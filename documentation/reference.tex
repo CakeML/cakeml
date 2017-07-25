@@ -52,7 +52,7 @@ We have attempted to make this reference manual self-contained. However, our aim
 \chapter{An informal description of CakeML}
 
 CakeML is a functional language in the ML family. Its syntax and semantics
-closely resembles Standard ML, and the concepts will also be largely familiar
+resembles Standard ML, and the concepts will also be largely familiar
 to OCaml and Haskell programmers. This chapter describes the CakeML language.
 Although it uses example programs to illustrate its various features, its focus
 is on what the language is, and not on how to effectively use it. However,
@@ -105,7 +105,7 @@ numbers. So negative one is \smlinline{~1} instead of \texttt{-1}. The type of i
 
 CakeML provides the following infix arithmetic operators on integers: \smlinline{+}, \smlinline{-}, \smlinline{*}, \smlinline{div}, \smlinline{mod}. Integers are represented internally as arbitrary precision numbers (\emph{bignums}) so they can never overflow, and there is no maximum or minimum representable integer. The \smlinline{div} and \smlinline{mod} operations will raise the \smlinline{Div} exception if given a divisor of 0. \smlinline{div} returns the least integer less than the real quotient, so \smlinline{~10 div 3} returns \smlinline{~4}, and not \smlinline{~3}. \smlinline{mod} is consistent with this, so that \smlinline{~10 mod 3} returns \smlinline{2}, not \smlinline{1}.
 
-Integers are compared with \smlinline{=}, \smlinline{<>}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
+Integers are compared with the infix operators \smlinline{=}, \smlinline{<>}, \smlinline{<}, \smlinline{>}, \smlinline{<=}, \smlinline{>=}, each of which returns a \smlinline{bool}.
 
 \paragraph{Words} CakeML supports both 64-bit and 8-bit words. All word
 constants are 64-bit, but 8-bit words can be created using functions in the
@@ -130,7 +130,7 @@ The escape character is \verb|\|, and it supports the following:
 \verb|\t| : a tab character.
 \end{itemize}
 
-The \smlinline{^} operator concatenates strings. See \S\ref{sect:string} for
+The \smlinline{^} infix operator concatenates strings. See \S\ref{sect:string} for
 other operations on strings.
 
 \paragraph{Characters} A character constant is just a string constant of length
@@ -141,12 +141,12 @@ of characters is \smlinline{char}. See \S\ref{sect:char} for the operations on c
 \section{Variables and other names}
 \label{sect:variables}
 
-\paragraph{Variable syntax} There are two kinds of variable names, alphanumeric and symbolic. An alphanumeric variable must start
+\paragraph{Variable syntax} There are two kinds of variable names: alphanumeric and symbolic. An alphanumeric variable must start
 with a lower case letter and be a sequence of letters, digits and the \texttt{\_} and \texttt{'} characters. A symbolic variable is a sequence of the following characters: \verb)! % & $ # + - / : < = > ? @ \ ~ ^ | ` *).
 
 Names of modules (\S\ref{sect:modules}) and constructors (from algebraic data types~\S\ref{sect:compound} and exceptions~\S\ref{sect:exceptions}) are alphanumeric and
 start with an upper case letter. Additionally, the names \smlinline{true},
-\smlinline{false}, \smlinline{ref}, \smlinline{::}, and \smlinline{nil} are
+\smlinline{false}, \smlinline{ref}, and \smlinline{nil} are
 constructors, rather than variables.
 
 Names of types are alphanumeric and start
@@ -280,7 +280,7 @@ val y = do_add 11
 
 \paragraph{Lists} A list of values is surrounded by square brackets and separated by commas. Each element of the list must have the same type. For example, the expression \smlinline{[1, 2+3, 0, 4]} is a list of integers containing four elements. Its type is \smlinline{int list}. The empty list is written \smlinline{[]}, and has a polymorphic type \smlinline{'a list}, indicating that it can be used as an empty list of any type of contents. The cons operator (constructing a list with one more element) is written as \smlinline{::}, so the above list could also have been written as \smlinline{1::2+3::0::4::[]}.
 
-The \smlinline{@} operator appends two lists. See \S\ref{sect:list} for more list-related functions.
+The \smlinline{@} infix operator appends two lists. See \S\ref{sect:list} for more list-related functions.
 
 \paragraph{Algebraic data types}
 

@@ -1,22 +1,16 @@
-INCLUDES = developers $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple
+INCLUDES = developers compiler/bootstrap/evaluation/x64/proofs compiler/benchmarks
 OPTIONS = QUIT_ON_FAILURE
 
-README_SOURCES = miscScript.sml COPYING developers build-instructions.sh lib.lem libScript.sml
+README_SOURCES = COPYING developers build-instructions.sh
 
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = README.md $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS)
-.PHONY: all
+all: README.md cake
+.PHONY: all benchmarks
 
-LEMSRC = lib
-LEMS = $(patsubst %,%.lem,$(LEMSRC))
-GENS = $(patsubst %,%Script.sml,$(LEMSRC))
-
-README.md: $(README_SOURCES) readmePrefix
+README.md: $(README_SOURCES) readmePrefix developers/readme_gen
 	developers/readme_gen $(README_SOURCES)
 
-$(GENS): $(LEMS)
-	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
-	else touch $(GENS); fi
+cake: compiler/bootstrap/evaluation/x64/cake
+	$(CP) $< $@
+
+benchmarks: compiler/benchmarks/benchmarkTheory.uo
+	compiler/benchmarks/run_all.sh

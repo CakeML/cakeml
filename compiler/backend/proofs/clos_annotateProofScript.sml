@@ -342,6 +342,30 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ IMP_RES_TAC v_to_list \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [])
+  THEN1 (* CopyByte *)
+    (fs[do_app_def,case_eq_thms,bool_case_eq]
+     \\ rw[] \\ fs[v_rel_simp,PULL_EXISTS]
+     \\ fs[state_rel_def]
+     \\ res_tac \\ fs[v_rel_simp]
+     \\ fs[FLOOKUP_UPDATE]
+     \\ rw[] \\ rw[v_rel_simp] )
+  THEN1 (* ConcatByteVec *)
+   (fs[do_app_def] \\
+    TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] \\ rveq \\ fs[] \\
+    imp_res_tac v_to_list \\ fs[] \\ rw[v_rel_simp] \\
+    qpat_x_assum`_ = Rval _ `mp_tac \\
+    DEEP_INTRO_TAC some_intro \\ fs[] \\
+    ntac 3 strip_tac \\ rveq \\ fs[] \\
+    fs[EVERY2_MAP,v_rel_simp] \\
+    DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\
+    rename1`LIST_REL _ l1 l2` \\
+    map_every qexists_tac[`l1`] \\
+    reverse conj_asm2_tac >- (
+      fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN,state_rel_def] ) \\
+    simp[] \\ fs[state_rel_def,FLOOKUP_UPDATE] \\ rw[] \\
+    rw[] \\ fs[] \\
+    imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF])
   THEN1 (* UpdateByte *)
    (rpt strip_tac >>IMP_RES_TAC do_app_IMP_case
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
@@ -608,6 +632,7 @@ val shift_correct = Q.prove(
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
     \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ rename1`Let tra xs x2` \\ rename1`evaluate(xs,env,s1)`
     \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env'` by
       (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def,fv1_thm])

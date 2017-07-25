@@ -1,1 +1,1 @@
-INCLUDES = ../../../.. .. ../../../encoders/riscv/proofs ../../semantics ../../proofs
+INCLUDES = ../../../../misc .. ../../../encoders/riscv/proofs ../../semantics ../../proofs

@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_dataProgTheory;
+open explorerProgTheory;
 
 val _ = new_theory "to_word64Prog"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "explorerProg";
 
 val RW = REWRITE_RULE
 
@@ -63,12 +63,26 @@ val we_simp = SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id]
 
 val wcomp_simp = SIMP_RULE std_ss [word_2comp_def]
 
+val _ = translate stack_to_labTheory.is_gen_gc_def
+
 val _ = translate adjust_set_def
 
 val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv64_RHS)
 
 val _ = translate (shift_left_def |> conv64)
 val _ = translate (shift_right_def |> spec64 |> CONV_RULE fcpLib.INDEX_CONV)
+
+val i2w_eq_n2w_lemma = prove(
+  ``i2w (& (k * n)) = n2w (k * n)``,
+  fs [integer_wordTheory.i2w_def]);
+
+val lemma2 = prove(
+  ``8 * x < (2**64) <=> x < (2**64) DIV 8``,
+  fs []) |> SIMP_RULE std_ss []
+
+val _ = translate (get_gen_size_def |> spec64
+    |> SIMP_RULE (srw_ss()) [dimword_def,bytes_in_word_def,word_mul_n2w]
+    |> REWRITE_RULE [GSYM i2w_eq_n2w_lemma,lemma2]);
 
 val _ = translate (tag_mask_def |> conv64_RHS |> we_simp |> conv64_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv64)
 
@@ -722,6 +736,10 @@ val _ = translate(Mul_code_def|> conv64)
 val _ = translate(Div_code_def|> conv64)
 val _ = translate(Mod_code_def|> conv64)
 val _ = translate(MemCopy_code_def|> inline_simp |> conv64)
+val r = translate(ByteCopy_code_def |> inline_simp |> conv64)
+val r = translate(ByteCopyAdd_code_def |> conv64)
+val r = translate(ByteCopySub_code_def |> conv64 |> econv)
+val r = translate(ByteCopyNew_code_def |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)
@@ -735,7 +753,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv64)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv64)
 
-val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
+val r = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

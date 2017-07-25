@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_dataProgTheory;
+open explorerProgTheory;
 
 val _ = new_theory "to_word32Prog"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "explorerProg";
 
 val RW = REWRITE_RULE
 
@@ -69,6 +69,18 @@ val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv32_R
 
 val _ = translate (shift_left_def |> conv32)
 val _ = translate (shift_right_def |> spec32 |> CONV_RULE fcpLib.INDEX_CONV)
+
+val i2w_eq_n2w_lemma = prove(
+  ``i2w (& (k * n)) = n2w (k * n)``,
+  fs [integer_wordTheory.i2w_def]);
+
+val lemma2 = prove(
+  ``4 * x < (2**32) <=> x < (2**32) DIV 4``,
+  fs []) |> SIMP_RULE std_ss []
+
+val _ = translate (get_gen_size_def |> spec32
+    |> SIMP_RULE (srw_ss()) [dimword_def,bytes_in_word_def,word_mul_n2w]
+    |> REWRITE_RULE [GSYM i2w_eq_n2w_lemma,lemma2]);
 
 val _ = translate (tag_mask_def |> conv32_RHS |> we_simp |> conv32_RHS |> SIMP_RULE std_ss [shift_left_rwt] |> SIMP_RULE std_ss [Once (GSYM shift_left_rwt),word_2comp_def] |> conv32)
 
@@ -730,6 +742,10 @@ val _ = translate(Mul_code_def|> conv32)
 val _ = translate(Div_code_def|> conv32)
 val _ = translate(Mod_code_def|> conv32)
 val _ = translate(MemCopy_code_def|> inline_simp |> conv32)
+val r = translate(ByteCopy_code_def |> inline_simp |> conv32)
+val r = translate(ByteCopyAdd_code_def |> conv32)
+val r = translate(ByteCopySub_code_def |> conv32 |> econv)
+val r = translate(ByteCopyNew_code_def |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)
@@ -743,7 +759,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv32)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv32)
 
-val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
+val r = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

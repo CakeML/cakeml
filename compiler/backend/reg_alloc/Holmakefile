@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../../unverified/reg_alloc $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = ../../../misc ../../../unverified/reg_alloc
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../preamble
+BARE_THYS = ../../../misc/preamble
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)

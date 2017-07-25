@@ -1,5 +1,6 @@
-open preamble targetSemTheory backendProofTheory
+open preamble backendProofTheory
      mips_configTheory mips_targetProofTheory
+open blastLib;
 
 val _ = new_theory"mips_configProof";
 
@@ -12,7 +13,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 val mips_conf_ok = Q.store_thm("mips_conf_ok",`
-  conf_ok mips_compiler_config mips_machine_config`,
+  conf_ok mips_backend_config mips_machine_config`,
   simp[conf_ok_def,lower_conf_ok_def]>>rw[]>> TRY(EVAL_TAC>>NO_TAC)
   >- fs[mips_machine_config_def,mips_backend_correct]
   >- names_tac
@@ -20,6 +21,8 @@ val mips_conf_ok = Q.store_thm("mips_conf_ok",`
     (rw[conf_constraint_def]>>
     TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
     fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (EVAL_TAC>>FULL_BBLAST_TAC)
     >-
       (simp[GSYM word_mul_n2w]>>
       srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>

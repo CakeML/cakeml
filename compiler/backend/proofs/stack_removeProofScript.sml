@@ -2133,7 +2133,7 @@ val word_list_exists_addresses = Q.store_thm("word_list_exists_addresses",
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ fs []);
 
 val init_reduce_def = Define `
-  init_reduce k code bitmaps (s:('a,'ffi)stackSem$state) =
+  init_reduce gen_gc k code bitmaps (s:('a,'ffi)stackSem$state) =
     let heap_ptr = theWord (s.regs ' (k + 2)) in
     let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
     let stack_ptr = theWord (s.regs ' k) in
@@ -2149,22 +2149,22 @@ val init_reduce_def = Define `
          code := code;
          stack_space := stack_sp;
          stack := read_mem base_ptr s.memory (stack_sp + 1);
-         store := FEMPTY |++ (MAP (\n. case store_init k n of
+         store := FEMPTY |++ (MAP (\n. case store_init gen_gc k n of
                                        | INL w => (n,Word w)
                                        | INR i => (n,s.regs ' i))
                                (CurrHeap::store_list)) |>`
 
 val init_reduce_stack_space = Q.prove(
-  `(init_reduce k code bitmaps s8).stack_space <=
-    LENGTH (init_reduce k code bitmap s8).stack`,
+  `(init_reduce gen_gc k code bitmaps s8).stack_space <=
+    LENGTH (init_reduce gen_gc k code bitmap s8).stack`,
   fs [init_reduce_def,LENGTH_read_mem]);
 
 val init_prop_def = Define `
-  init_prop max_heap (s:('a,'ffi)stackSem$state) =
+  init_prop gen_gc max_heap (s:('a,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
-       FLOOKUP s.store TriggerGC = SOME (Word other) /\
+       FLOOKUP s.store TriggerGC = SOME (Word (if gen_gc then curr else other)) /\
        FLOOKUP s.store EndOfHeap = SOME (Word other) /\
        FLOOKUP s.store OtherHeap = SOME (Word other) /\
        FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
@@ -2211,12 +2211,13 @@ val byte_aligned_bytes_in_word_MULT = Q.prove(
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k s /\ code_rel jump off k code s.code /\
     lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
-    case evaluate (init_code max_heap bitmaps k,s) of
+    case evaluate (init_code gen_gc max_heap bitmaps k,s) of
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) =>
-         state_rel jump off k (init_reduce k code bitmaps t) t /\ t.ffi = s.ffi /\
-         init_prop max_heap (init_reduce k code bitmaps t)`,
+         state_rel jump off k (init_reduce gen_gc k code bitmaps t) t /\
+         t.ffi = s.ffi /\
+         init_prop gen_gc max_heap (init_reduce gen_gc k code bitmaps t)`,
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
@@ -2334,7 +2335,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
    (unabbrev_all_tac \\ fs [get_var_def] \\ tac
     \\ fs [EVERY_MAP]
     \\ fs [store_list_def] \\ EVAL_TAC
-    \\ fs [FLOOKUP_DEF])
+    \\ fs [FLOOKUP_DEF] \\ IF_CASES_TAC \\ fs [])
   \\ strip_tac \\ fs []
   \\ reverse IF_CASES_TAC \\ fs[]
   >- ( fs[Abbr`s7`,loc_check_def] )
@@ -2411,11 +2412,12 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ conj_tac THEN1
    (qpat_x_assum `_ = LENGTH bitst` (assume_tac o GSYM)
     \\ fs [bytes_in_word_def,word_mul_n2w])
+  \\ Cases_on `gen_gc` \\ fs []
   \\ full_simp_tac std_ss [STAR_ASSOC]
   \\ drule word_list_IMP_read_mem
   \\ fs [LENGTH,LENGTH_APPEND,ADD1]
   \\ disch_then kall_tac
-  \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ rfs [] \\ fs []
   \\ qexists_tac `hi`
   \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ `n2w d = bytes_in_word` by fs [bytes_in_word_def]
@@ -2426,36 +2428,38 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
     \\ rfs [dimword_def] \\ fs [])
   \\ rewrite_tac [CONJ_ASSOC]
-  \\ reverse conj_tac THEN1
+  \\ conj_tac
+  \\ TRY
    (fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
     \\ match_mp_tac LESS_EQ_LESS_TRANS
-    \\ qexists_tac `d * max_heap` \\ fs [])
+    \\ qexists_tac `d * max_heap` \\ fs [] \\ NO_TAC)
   \\ `LENGTH rest1 + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
   \\ `LENGTH bitmaps + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
   \\ fs [byte_aligned_bytes_in_word_MULT]);
 
 val make_init_opt_def = Define `
-  make_init_opt max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
-    case evaluate (init_code max_heap bitmaps k,s) of
+  make_init_opt gen_gc max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
+    case evaluate (init_code gen_gc max_heap bitmaps k,s) of
     | (SOME _,t) => NONE
-    | (NONE,t) => if init_prop max_heap (init_reduce k code bitmaps t)
-                  then SOME (init_reduce k code bitmaps t) else NONE`
+    | (NONE,t) => if init_prop gen_gc max_heap (init_reduce gen_gc k code bitmaps t)
+                  then SOME (init_reduce gen_gc k code bitmaps t) else NONE`
 
 val init_pre_def = Define `
-  init_pre max_heap bitmaps k start s <=>
-    lookup 0 s.code = SOME (Seq (init_code max_heap bitmaps k)
+  init_pre gen_gc max_heap bitmaps k start s <=>
+    lookup 0 s.code = SOME (Seq (init_code gen_gc max_heap bitmaps k)
                                 (Call NONE (INL start) NONE)) /\
     (* TODO: remove: *) s.ffi.final_event = NONE /\
     init_code_pre k s`
 
 val evaluate_init_code = Q.store_thm("evaluate_init_code",
-  `init_pre max_heap bitmaps k start s /\
+  `init_pre gen_gc max_heap bitmaps k start s /\
     lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel jump off k code s.code ==>
-    case evaluate (init_code max_heap bitmaps k,s) of
+    case evaluate (init_code gen_gc max_heap bitmaps k,s) of
     | (SOME (Halt (Word w)),t) =>
-        w <> 0w /\ t.ffi = s.ffi /\ make_init_opt max_heap bitmaps k code s = NONE
-    | (NONE,t) => ?r. make_init_opt max_heap bitmaps k code s = SOME r /\
+        w <> 0w /\ t.ffi = s.ffi /\
+        make_init_opt gen_gc max_heap bitmaps k code s = NONE
+    | (NONE,t) => ?r. make_init_opt gen_gc max_heap bitmaps k code s = SOME r /\
                       state_rel jump off k r t /\ t.ffi = s.ffi
     | _ => F`,
   strip_tac \\ fs [init_pre_def]
@@ -2470,8 +2474,8 @@ val clock_neutral_store_list_code = Q.store_thm("clock_neutral_store_list_code",
   \\ Cases \\ fs [clock_neutral_def,store_list_code_def,list_Seq_def]);
 
 val evaluate_init_code_clock = Q.prove(
-  `evaluate (init_code max_heap bitmaps k,s) = (res,t) ==>
-    evaluate (init_code max_heap bitmaps k,s with clock := c) =
+  `evaluate (init_code gen_gc max_heap bitmaps k,s) = (res,t) ==>
+    evaluate (init_code gen_gc max_heap bitmaps k,s with clock := c) =
       (res,t with clock := c)`,
   srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
@@ -2479,8 +2483,8 @@ val evaluate_init_code_clock = Q.prove(
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
 val evaluate_init_code_ffi = Q.prove(
-  `evaluate (init_code max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
-    evaluate (init_code max_heap bitmaps k,s with ffi := c) =
+  `evaluate (init_code gen_gc max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
+    evaluate (init_code gen_gc max_heap bitmaps k,s with ffi := c) =
       (res,(t with ffi := c):('a,'ffi) stackSem$state)`,
   srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
@@ -2490,14 +2494,14 @@ val evaluate_init_code_ffi = Q.prove(
 val init_semantics = Q.store_thm("init_semantics",
   `lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel jump off k code s.code /\
-    init_pre max_heap bitmaps k start s ==>
-    case evaluate (init_code max_heap bitmaps k,s) of
+    init_pre gen_gc max_heap bitmaps k start s ==>
+    case evaluate (init_code gen_gc max_heap bitmaps k,s) of
     | (SOME (Halt _),t) =>
         (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events) /\
-        make_init_opt max_heap bitmaps k code s = NONE
+        make_init_opt gen_gc max_heap bitmaps k code s = NONE
     | (NONE,t) =>
         (semantics 0 s = semantics start t) /\
-        ?r. make_init_opt max_heap bitmaps k code s = SOME r /\ state_rel jump off k r t
+        ?r. make_init_opt gen_gc max_heap bitmaps k code s = SOME r /\ state_rel jump off k r t
     | _ => F`,
   srw_tac[][]
   \\ pop_assum (fn th => assume_tac th \\ mp_tac th)
@@ -2561,9 +2565,10 @@ val init_semantics = Q.store_thm("init_semantics",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val make_init_opt_SOME_semantics = Q.store_thm("make_init_opt_SOME_semantics",
-  `init_pre max_heap bitmaps k start s2 /\ code_rel jump off k code s2.code /\
+  `init_pre gen_gc max_heap bitmaps k start s2 /\
+    code_rel jump off k code s2.code /\
     lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
-    make_init_opt max_heap bitmaps k code s2 = SOME s1 /\
+    make_init_opt gen_gc max_heap bitmaps k code s2 = SOME s1 /\
     semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
   srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
@@ -2572,9 +2577,9 @@ val make_init_opt_SOME_semantics = Q.store_thm("make_init_opt_SOME_semantics",
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac []);
 
 val make_init_opt_NONE_semantics = Q.store_thm("make_init_opt_NONE_semantics",
-  `init_pre max_heap bitmaps k start s2 /\ code_rel jump off k code s2.code /\
+  `init_pre gen_gc max_heap bitmaps k start s2 /\ code_rel jump off k code s2.code /\
     lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
-    make_init_opt max_heap bitmaps k code s2 = NONE ==>
+    make_init_opt gen_gc max_heap bitmaps k code s2 = NONE ==>
     semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -2586,7 +2591,7 @@ val prog_comp_eta = Q.store_thm("prog_comp_eta",
 
 val IMP_code_rel = Q.prove(
   `EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code1 /\
-   code2 = fromAList (compile jump off max_heap bitmaps k start code1) ==>
+   code2 = fromAList (compile jump off gen_gc max_heap bitmaps k start code1) ==>
    code_rel jump off k (fromAList code1) code2`,
   full_simp_tac(srw_ss())[code_rel_def,lookup_fromAList]
   \\ strip_tac \\ rpt var_eq_tac
@@ -2597,8 +2602,8 @@ val IMP_code_rel = Q.prove(
   \\ pop_assum mp_tac \\ EVAL_TAC);
 
 val make_init_any_def = Define `
-  make_init_any max_heap bitmaps k code s =
-    case make_init_opt max_heap bitmaps k code s of
+  make_init_any gen_gc max_heap bitmaps k code s =
+    case make_init_opt gen_gc max_heap bitmaps k code s of
     | SOME t => t
     | NONE => s with <| regs := FEMPTY |+ (0,Loc 1 0)
                       ; mdomain := EMPTY
@@ -2613,15 +2618,15 @@ val make_init_any_def = Define `
                                    (CurrHeap::store_list)) |>`
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `init_pre max_heap bitmaps k start s2 /\
+  `init_pre gen_gc max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
-    s2.code = fromAList (compile jump off max_heap bitmaps k start code) /\
-    IS_SOME (make_init_opt max_heap bitmaps k (fromAList code) s2) /\
-    make_init_any max_heap bitmaps k (fromAList code) s2 = s1 /\
+    s2.code = fromAList (compile jump off gen_gc max_heap bitmaps k start code) /\
+    IS_SOME (make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2) /\
+    make_init_any gen_gc max_heap bitmaps k (fromAList code) s2 = s1 /\
     semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
   fs [make_init_any_def]
-  \\ Cases_on `make_init_opt max_heap bitmaps k (fromAList code) s2` \\ fs []
+  \\ Cases_on `make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2` \\ fs []
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac IMP_code_rel
   \\ drule (make_init_opt_SOME_semantics |> GEN_ALL)
@@ -2633,10 +2638,10 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
 val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
-  `init_pre max_heap bitmaps k start s2 /\
+  `init_pre gen_gc max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ num_stubs ≤ n+1) code /\
-    s2.code = fromAList (compile jump off max_heap bitmaps k start code) /\
-    make_init_opt max_heap bitmaps k (fromAList code) s2 = NONE ==>
+    s2.code = fromAList (compile jump off gen_gc max_heap bitmaps k start code) /\
+    make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2 = NONE ==>
     semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   rw [] \\ drule (GEN_ALL make_init_opt_NONE_semantics)
   \\ disch_then match_mp_tac \\ fs []
@@ -2647,7 +2652,7 @@ val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
   \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
 val make_init_any_ffi = Q.store_thm("make_init_any_ffi",
-  `(make_init_any max_heap bitmaps k code s).ffi =
+  `(make_init_any gen_gc max_heap bitmaps k code s).ffi =
     (s:('a,'ffi) stackSem$state).ffi`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []
@@ -2657,34 +2662,34 @@ val make_init_any_ffi = Q.store_thm("make_init_any_ffi",
   \\ fs [] \\ fs [state_component_equality]);
 
 val make_init_any_bitmaps = Q.store_thm("make_init_any_bitmaps",
-  `(make_init_any max_heap bitmaps k code s).bitmaps =
-       if IS_SOME (make_init_opt max_heap bitmaps k code s)
+  `(make_init_any gen_gc max_heap bitmaps k code s).bitmaps =
+       if IS_SOME (make_init_opt gen_gc max_heap bitmaps k code s)
        then bitmaps else [4w]`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 
 val make_init_any_use_stack = Q.store_thm("make_init_any_use_stack",
-  `(make_init_any max_heap bitmaps k code s).use_stack`,
+  `(make_init_any gen_gc max_heap bitmaps k code s).use_stack`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 
 val make_init_any_use_store = Q.store_thm("make_init_any_use_store",
-  `(make_init_any max_heap bitmaps k code s).use_store`,
+  `(make_init_any gen_gc max_heap bitmaps k code s).use_store`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 
 val make_init_any_use_alloc = Q.store_thm("make_init_any_use_alloc",
-  `~(make_init_any max_heap bitmaps k code s).use_alloc`,
+  `~(make_init_any gen_gc max_heap bitmaps k code s).use_alloc`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 
 val make_init_any_code = Q.store_thm("make_init_any_code",
-  `(make_init_any max_heap bitmaps k code s).code = code`,
+  `(make_init_any gen_gc max_heap bitmaps k code s).code = code`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []);
 
 val make_init_any_stack_limit = Q.store_thm("make_init_any_stack_limit",
-  `LENGTH ((make_init_any max_heap (bitmaps:'a word list) k code s).stack) *
+  `LENGTH ((make_init_any gen_gc max_heap (bitmaps:'a word list) k code s).stack) *
       (dimindex (:'a) DIV 8) < dimword (:'a)`,
   fs [make_init_any_def]
   \\ reverse (every_case_tac \\ fs [LENGTH_read_mem])
@@ -2805,7 +2810,7 @@ val sr_compile_stack_asm_name = Q.store_thm("sr_compile_stack_asm_name",`
   reg_name (k+1) c ∧
   reg_name k c ⇒
   EVERY (λ(n,p). stack_asm_name c p)
-  (compile jump c.addr_offset max_heap bitmaps k start prog)`,
+  (compile jump c.addr_offset gen_gc max_heap bitmaps k start prog)`,
   rw[compile_def]
   >-
     (fs[labPropsTheory.good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
