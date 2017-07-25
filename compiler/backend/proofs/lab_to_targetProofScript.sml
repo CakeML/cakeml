@@ -5953,7 +5953,7 @@ val semantics_compile_lemma = Q.prove(
     c.labels = LN ∧ c.pos = 0 ∧
     lab_to_target$compile (c:'a lab_to_target$config) code = SOME (bytes,c') /\
     (* FFI is either given or computed *)
-    (case c.ffi_names of NONE => mc_conf.ffi_names = find_ffi_names code | SOME f => mc_conf.ffi_names = f) /\
+    c'.ffi_names = SOME mc_conf.ffi_names /\
     good_init_state mc_conf ms ffi bytes cbspace t m dm io_regs cc_regs /\
     semantics (make_init mc_conf ffi io_regs cc_regs t m dm ms code
       lab_to_target$compile (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
@@ -6013,9 +6013,7 @@ val semantics_compile = Q.store_thm("semantics_compile",`
    c.asm_conf = mc_conf.target.config ∧
    c.labels = LN ∧ c.pos = 0 ∧
    compile c code = SOME (bytes,c') ∧
-   (case c.ffi_names of
-      NONE => mc_conf.ffi_names = find_ffi_names code
-    | SOME f => mc_conf.ffi_names = f) ∧
+   c'.ffi_names = SOME (mc_conf.ffi_names) /\
    good_init_state mc_conf ms (ffi:'ffi ffi_state) bytes cbspace t m dm io_regs cc_regs ⇒
    implements (machine_sem mc_conf ffi ms)
      {semantics

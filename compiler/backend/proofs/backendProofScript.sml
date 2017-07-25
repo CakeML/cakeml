@@ -132,7 +132,26 @@ val full_make_init_ffi = Q.prove(
 val full_make_init_code =
   ``(^(full_make_init_def |> SPEC_ALL |> concl |> dest_eq |> fst)).code``
   |> SIMP_CONV (srw_ss()) [full_make_init_def,stack_allocProofTheory.make_init_def];
+
+val full_make_init_bitmaps = Q.prove(
+  `full_init_pre args ==>
+    (full_make_init args).bitmaps = FST args`,
+  PairCases_on`args` \\
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_bitmaps]
+  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
+
 (* -- *)
+
+(* TODO: Move into stack_to_lab *)
+val full_init_shared_def =
+  let
+    val (l,r) = full_init_pre_fail_def |> SPEC_ALL |> concl |> dest_eq
+    val (_,a) = dest_comb l
+    val t = r |> move_conj_right (optionSyntax.is_none o rhs) |> rconc |> dest_conj |> #1
+  in
+    new_definition("full_init_shared_def",``full_init_shared ^a = ^t``)
+  end
 
 (* TODO: should be defined in targetSem *)
 (* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
@@ -175,7 +194,7 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s env prog Fail ∧
    compiler_config_ok c ∧ mc_conf_ok mc ∧
    c.lab_conf.asm_conf = mc.target.config ∧
-   c.lab_conf.ffi_names = SOME mc.ffi_names ∧ (* TODO: this assumption needs thought *)
+   c'.ffi_names = SOME mc.ffi_names ∧ (* TODO: compile should return new config *)
    installed bytes cbspace ffi
      (find_name c.stack_conf.reg_names 2,
       find_name c.stack_conf.reg_names 4) mc ms ⇒
@@ -451,12 +470,15 @@ val compile_correct = Q.store_thm("compile_correct",
   fs[installed_def] \\
   qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
-  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m dm ms p7 lab_to_target$compile
-       (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) cbspace coracle` \\
+  qabbrev_tac`coracle =λn:num.
+      (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, ([]:'a labLang$prog))` \\
+  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
+       (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace coracle` \\
   qabbrev_tac`stack_st =
     full_make_init (c6.bitmaps,c.data_conf,p6,c.stack_conf.reg_names,is_gen_gc c.data_conf.gc_kind,
                     stjump,stk,2 * max_heap_limit (:'a) c.data_conf - 1,
-                    stoff,stregs,lab_st,set mc_conf.callee_saved_regs)` \\
+                    stoff,stregs,lab_st,set mc.callee_saved_regs)` \\
+  qmatch_asmsub_abbrev_tac`full_make_init stack_args`>>
   qabbrev_tac`word_st = make_init stack_st (fromAList p5)` \\
   (data_to_wordProofTheory.compile_semantics
    |> DISCH_ALL
@@ -468,25 +490,68 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`] \\
     fs[mc_conf_ok_def] \\
     conj_tac >- (
-      simp[Abbr`stack_st`] \\
+      simp[Abbr`stack_st`,Abbr`stack_args`] \\
       simp[full_make_init_def,stack_allocProofTheory.make_init_def] ) \\
-    simp[Abbr`stack_st`] \\
+    simp[Abbr`stack_st`,Abbr`stack_args`] \\
     match_mp_tac IMP_init_store_ok \\ simp[] ) \\
+  `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
-    fs[Abbr`stack_st`,Abbr`lab_st`,full_make_init_ffi] ) \\
+    fs[Abbr`stack_st`,Abbr`stack_args`,Abbr`lab_st`,full_make_init_ffi] ) \\
   impl_tac >- fs[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
   strip_tac \\
+  `full_init_shared stack_args` by (
+    simp[full_init_shared_def,Abbr`stack_args`] \\
+    cheat ) \\
+  qmatch_abbrev_tac`x ⊆ extend_with_resource_limit y` \\
+  `Fail ∉ y` by fs[Abbr`y`] \\
+  pop_assum mp_tac \\ simp[GSYM implements_def] \\
+  simp[Abbr`y`] \\
+  drule (GEN_ALL semantics_compile) \\
+  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
+  simp[Abbr`c4`] \\
+  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
+  disch_then(qspec_then`coracle`mp_tac) \\
+  impl_tac >- (
+    conj_tac >- simp[compiler_oracle_ok_def,good_code_def,Abbr`coracle`] \\
+    fs[good_code_def] \\
+    cheat ) \\
+  strip_tac \\
+  Cases_on`full_init_pre_fail stack_args` >- (
+    qunabbrev_tac`stack_args` \\
+    drule full_make_init_semantics_fail \\
+    strip_tac \\ rfs[] \\
+    match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+    simp[Once CONJ_COMM] \\
+    asm_exists_tac \\ simp[] \\
+    match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+    simp[Once CONJ_COMM] \\
+    asm_exists_tac \\ simp[] \\
+    metis_tac[dataPropsTheory.Resource_limit_hit_implements_semantics] ) \\
+  `full_init_pre stack_args` by (
+    fs[full_init_pre_def,full_init_shared_def,Abbr`stack_args`] \\
+    IF_CASES_TAC \\ fs[] >- (
+      cheat ) \\
+    qhdtm_x_assum`(~)`mp_tac \\
+    simp[full_init_pre_fail_def] ) \\
+  fs[Abbr`word_st`] \\ rfs[] \\
+  match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
+  qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
+  qexists_tac`{z InitGlobals_location}` \\
+  conj_tac >- (
+    match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
+    simp[] ) \\
+  simp[Abbr`z`] \\
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
-   |> Q.ISPECL_THEN[`stack_st`,`p5`,`c4.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
+   |> Q.ISPECL_THEN[`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
   impl_tac >- (
     fs[] \\
-    conj_tac >- simp[Abbr`stack_st`,full_make_init_code] \\
+    conj_tac >- simp[Abbr`stack_st`,full_make_init_code,Abbr`stack_args`] \\
     conj_tac >- (
-      simp[Abbr`stack_st`] \\
+      simp[Abbr`stack_st`,Abbr`stack_args`] \\
       match_mp_tac IMP_init_state_ok \\
-      fs[mc_conf_ok_def,compiler_config_ok_def,Abbr`c4`] \\
+      fs[mc_conf_ok_def,compiler_config_ok_def] \\
       metis_tac[compile_word_to_stack_bitmaps] ) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
@@ -497,25 +562,14 @@ val compile_correct = Q.store_thm("compile_correct",
       res_tac \\ pop_assum mp_tac >> EVAL_TAC) \\
     conj_tac >- (
       simp[Abbr`stack_st`] \\
-      cheat ) \\
+      drule full_make_init_bitmaps \\
+      simp[Abbr`stack_args`] ) \\
     conj_tac >- (
       fs[EVERY_MEM,FORALL_PROD] \\
       metis_tac[] ) \\
     strip_tac \\ fs[] \\
     fs[extend_with_resource_limit_def] ) \\
   strip_tac \\
-  fs[Abbr`word_st`] \\ rfs[] \\
-  qmatch_abbrev_tac`x ⊆ extend_with_resource_limit y` \\
-  `Fail ∉ y` by fs[Abbr`y`] \\
-  pop_assum mp_tac \\ simp[GSYM implements_def] \\
-  simp[Abbr`y`] \\
-  match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
-  qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
-  qexists_tac`{z InitGlobals_location}` \\
-  conj_tac >- (
-    match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
-    simp[] ) \\
-  simp[Abbr`z`] \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   qmatch_assum_abbrev_tac`z ∈ _ {_}` \\
   qexists_tac`{z}` \\
@@ -525,27 +579,12 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`z`] \\
   simp[Abbr`stack_st`] \\
   simp[Abbr`x`] \\
-  drule (GEN_ALL semantics_compile) \\
-  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
-  simp[Abbr`c4`] \\
-  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspec_then`λn.
-    (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, [])` mp_tac) \\
-  impl_tac >- (
-    conj_tac >- simp[compiler_oracle_ok_def,good_code_def] \\
-    fs[good_code_def] \\
-    cheat ) \\
-  strip_tac \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   ONCE_REWRITE_TAC[CONJ_COMM] \\
   asm_exists_tac \\ simp[] \\
+  simp[Abbr`stack_args`] \\
   match_mp_tac stack_to_labProofTheory.full_make_init_semantics \\
-  (* TODO: prove full_init_pre earlier *)
-  fs[full_init_pre_def,Abbr`lab_st`] \\
-  conj_tac >- (
-    fs[stack_removeProofTheory.init_pre_def] \\
-    cheat ) \\
-  cheat);
+  simp[]);
 
 (* --- composing data-to-target --- *)
 
@@ -655,19 +694,6 @@ val full_make_init_gc_fun = Q.store_thm("full_make_init_gc_fun",
          (bitmaps,c1,code,f,gen_gc,jump,k,max_heap,off,regs, xx,
           save_regs)).gc_fun = word_gc_fun c1`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]);
-
-val full_make_init_bitmaps = Q.prove(
-  `full_init_pre
-         (bitmaps,c1,SND (compile asm_conf code3),f,ggc,jump,k,max_heap,off,regs,
-          xxx,
-          save_regs) ==>
-    (full_make_init
-         (bitmaps,c1,SND (compile asm_conf code3),f,ggc,jump,k,max_heap,off,regs,
-          xxx,
-          save_regs)).bitmaps = bitmaps`,
-  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_bitmaps]
-  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
 
 val is_gen_gc_def = stack_to_labTheory.is_gen_gc_def;
 

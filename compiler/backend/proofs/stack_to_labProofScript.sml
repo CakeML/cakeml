@@ -1722,7 +1722,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[EL_APPEND1]);
 
 val make_init_def = Define `
-  make_init code regs save_regs s =
+  make_init code regs save_regs (s:('a,'c,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
      ; memory  := s.mem
      ; mdomain := s.mem_domain
@@ -1735,8 +1735,8 @@ val make_init_def = Define `
      ; ffi_save_regs := save_regs
      ; be      := s.be |> :(α,'ffi)stackSem$state`;
 
-val make_init_semantis = flatten_semantics
-  |> Q.INST [`s1`|->`make_init code regs save_regs s`,`s2`|->`s`]
+val make_init_semantics = flatten_semantics
+  |> Q.INST [`s1`|->`make_init code regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``];
 
 val from_names = let
@@ -1745,7 +1745,7 @@ val from_names = let
     |> MATCH_MP implements_trivial_intro |> UNDISCH_ALL
     |> Q.INST [`code`|->`code1`]
   val lemma2 =
-    make_init_semantis |> REWRITE_RULE [CONJ_ASSOC]
+    make_init_semantics |> REWRITE_RULE [CONJ_ASSOC]
     |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
   in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end;
