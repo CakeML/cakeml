@@ -845,7 +845,7 @@ val compile_correct = Q.store_thm("compile_correct",
   (* stack_remove *)
   qpat_x_assum`Abbrev (sl2 = _)` mp_tac>> simp[Once markerTheory.Abbrev_def]>>
   disch_then (assume_tac o SYM)>>
-  drule (stack_remove_call_args)>>
+  drule (stack_removeProofTheory.stack_remove_call_args)>>
   simp[]>> strip_tac>>
   (* stack_names *)
   qpat_x_assum`Abbrev (sl3 = _)` mp_tac>> simp[Once markerTheory.Abbrev_def]>>
