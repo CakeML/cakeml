@@ -7213,4 +7213,75 @@ val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
     match_mp_tac stack_move_call_args>>fs [call_args_def]))
   >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]));
 
+
+val reg_bound_ind = stackPropsTheory.reg_bound_ind
+val reg_bound_def = stackPropsTheory.reg_bound_def
+val reg_bound_inst_def = stackPropsTheory.reg_bound_inst_def
+
+val reg_bound_mono = Q.store_thm("reg_bound_mono",`
+  ∀p k k'.
+  reg_bound p k ∧
+  k ≤ k' ⇒
+  reg_bound p k'`,
+  ho_match_mp_tac reg_bound_ind>>rw[reg_bound_def]>>
+  rpt(TOP_CASE_TAC>>fs[])>>
+  Cases_on`i`>>
+  TRY(Cases_on`a`)>>
+  TRY(Cases_on`m`)>>
+  fs[reg_bound_inst_def]>>
+  rpt(TOP_CASE_TAC>>fs[]));
+
+(* Gluing all the conventions together *)
+val word_to_stack_stack_convs = Q.store_thm("word_to_stack_stack_convs",`
+  word_to_stack$compile ac p = (c',p') ∧
+  EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
+  k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
+  4 ≤ k
+  ⇒
+  EVERY alloc_arg (MAP SND p') ∧
+  EVERY (λp. reg_bound p (k+2)) (MAP SND p') ∧
+  EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
+  fs[EVERY_MEM,GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM]>>
+  ntac 3 strip_tac>>
+  fs[compile_def]>>
+  pairarg_tac>>fs[]>>rveq>>fs[]
+  >-
+    (rw[]>>
+    EVAL_TAC>>fs[])
+  >>
+    qabbrev_tac`k=ac.reg_count-(LENGTH ac.avoid_regs+5)`>>
+    `ac.reg_count-(LENGTH ac.avoid_regs+3) = k+2` by fs[Abbr`k`]>>
+    pop_assum SUBST_ALL_TAC>>
+    pop_assum kall_tac>>
+    rpt (pop_assum mp_tac)>>
+    qspec_tac(`[4w]`,`bm`)>>
+    map_every qid_spec_tac [`p''`,`progs`,`bitmaps`,`p`]>>
+    Induct>>fs[compile_word_to_stack_def,FORALL_PROD]>>
+    ntac 11 strip_tac>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    rveq>>fs[]
+    >-
+      (qpat_x_assum`_ = (prog,bitmaps')` mp_tac>>
+      SIMP_TAC (std_ss++LET_ss) [Once compile_prog_def]>>
+      qpat_abbrev_tac`mm = if _ then _ else _`>>
+      pop_assum kall_tac>>
+      pairarg_tac >> fs[]>> strip_tac>> rveq>>fs[]>>
+      EVAL_TAC>>
+      first_x_assum(qspec_then`p_2` assume_tac)>>
+      rw[]
+      >-
+        metis_tac[word_to_stack_alloc_arg,FST]
+      >>
+        qmatch_asmsub_abbrev_tac`word_to_stack$comp _ _ xxx `>>
+        `k = FST xxx` by fs[Abbr`xxx`]>>
+        pop_assum SUBST_ALL_TAC>>
+        imp_res_tac word_to_stack_reg_bound >>
+        imp_res_tac word_to_stack_call_args >>
+        metis_tac[FST])
+    >>
+    fs[AND_IMP_INTRO]>>
+    first_x_assum match_mp_tac>>
+    metis_tac[]);
+
 val _ = export_theory();

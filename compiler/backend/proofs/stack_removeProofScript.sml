@@ -2879,7 +2879,7 @@ val upshift_downshift_call_args = Q.store_thm("upshift_downshift_call_args",`
   fs[call_args_def]>>
   first_assum match_mp_tac>>EVAL_TAC>>fs[]);
 
-val stack_remove_call_args = Q.store_thm("stack_remove_all_args",
+val stack_remove_call_args = Q.store_thm("stack_remove_call_args",
   `compile jump off gen_gc n bitmaps k pos p = p' /\
     EVERY (λp. call_args p 1 2 0) (MAP SND p) ==>
     EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
