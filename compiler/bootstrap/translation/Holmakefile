@@ -1,5 +1,7 @@
-INCLUDES = ../../../misc ../../../translator ../../../characteristic ../../inference ../../inference/proofs ../../parsing ../../backend ../.. \
-					 ../../backend/reg_alloc ../../backend/reg_alloc/proofs ../../../basis
+INCLUDES = ../../../misc ../../../translator ../../../characteristic \
+           ../../inference ../../inference/proofs ../../parsing ../../backend \
+           ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
+           ../../../basis
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -14,8 +16,8 @@ all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
 BARE_THYS = ../../../translator/ml_translatorLib \
-						../../inference/inferTheory \
-						../../inference/proofs/inferPropsTheory
+            ../../inference/inferTheory \
+            ../../inference/proofs/inferPropsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
