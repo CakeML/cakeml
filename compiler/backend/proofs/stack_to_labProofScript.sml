@@ -1129,7 +1129,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     full_simp_tac(srw_ss())[code_installed_def] >>
     strip_tac >>
     qpat_x_assum`code_installed t.pc _ _`mp_tac >>
-    qpat_abbrev_tac`prefix = List _` >>
+    qpat_abbrev_tac`prefix = misc$List _` >>
     strip_tac >>
     `code_installed t1.pc (append prefix) t1.code`
     by (
@@ -1276,7 +1276,62 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum(qspec_then`ck1+ck'`mp_tac) >>
       simp[]) >>
     qmatch_asmsub_rename_tac`halt_view (SOME z)` \\ Cases_on`z` \\ fs[] >>
-    rveq >> fs[] >>
+    rveq >> fs[]
+    >- (
+      rename1`result_view (Result w)` \\ Cases_on`w` \\ rfs[] >>
+      qpat_x_assum`_ = (SOME _ ,_)`mp_tac >>
+      IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >> rveq >> rfs[] >>
+      first_x_assum drule >> simp[] >>
+      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
+      qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+      impl_tac >- (
+        Cases_on`handler` >> fs[] >>
+        every_case_tac >> fs[code_installed_def] >>
+        pairarg_tac >> fs[code_installed_def] >>
+        imp_res_tac code_installed_append_imp >> fs[] ) >>
+      strip_tac >>
+      finish_tac )
+    >- (
+      rename1`SOME (Exception w)` >> Cases_on`w` \\ fs[] >>
+      qpat_x_assum`_ = (SOME _ ,_)`mp_tac >>
+      TOP_CASE_TAC >>
+      ((strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[] >>
+        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+        rev_full_simp_tac(srw_ss())[] >>
+        qexists_tac`ck+1`>>simp[] >>
+        qexists_tac`t2`>>simp[] >>
+        gen_tac >>
+        qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
+        first_x_assum(qspec_then`ss`mp_tac) >>
+        impl_tac >- (
+          simp[Abbr`ss`] >>
+          srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+          full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+          full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+          full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+          every_case_tac >> full_simp_tac(srw_ss())[]) >>
+        simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
+        first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
+        first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
+        NO_TAC) ORELSE
+       (ntac 2 TOP_CASE_TAC >>
+        IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq)) >>
+      pairarg_tac >> full_simp_tac(srw_ss())[] >>
+      fs[code_installed_def] >>
+      imp_res_tac code_installed_append_imp >>
+      pop_assum mp_tac >>
+      simp_tac(srw_ss()++ARITH_ss)[code_installed_def] >>
+      strip_tac >>
+      qpat_x_assum`∀x. (loc_to_pc _ _ _ = _) ⇒ _`mp_tac >>
+      simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
+      first_x_assum drule >>
+      disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
+      impl_tac >- (
+        qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >>
+        imp_res_tac code_installed_append_imp >>
+        full_simp_tac(srw_ss())[code_installed_def] ) >>
+      strip_tac >>
+      finish_tac) >>
     TRY (
       simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def,
            inc_pc_def,dec_clock_def,lab_to_loc_def,upd_reg_def] >>
@@ -1310,61 +1365,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         every_case_tac >> full_simp_tac(srw_ss())[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      NO_TAC)
-    >- (
-      rename1`result_view (Result w)` \\ Cases_on`w` \\ rfs[] >>
-      qpat_x_assum`_ = (SOME _ ,_)`mp_tac >>
-      IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >> rveq >> rfs[] >>
-      first_x_assum drule >> simp[] >>
-      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-      qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-      impl_tac >- (
-        Cases_on`handler` >> fs[] >>
-        every_case_tac >> fs[code_installed_def] >>
-        pairarg_tac >> fs[code_installed_def] >>
-        imp_res_tac code_installed_append_imp >> fs[] ) >>
-      strip_tac >>
-      finish_tac ) >>
-    rename1`SOME (Exception w)` >> Cases_on`w` \\ fs[] >>
-    qpat_x_assum`_ = (SOME _ ,_)`mp_tac >>
-    TOP_CASE_TAC >>
-    ((strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[] >>
-      every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-      rev_full_simp_tac(srw_ss())[] >>
-      qexists_tac`ck+1`>>simp[] >>
-      qexists_tac`t2`>>simp[] >>
-      gen_tac >>
-      qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
-      first_x_assum(qspec_then`ss`mp_tac) >>
-      impl_tac >- (
-        simp[Abbr`ss`] >>
-        srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
-        full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
-        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> full_simp_tac(srw_ss())[]) >>
-      simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
-      first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      NO_TAC) ORELSE
-     (ntac 2 TOP_CASE_TAC >>
-      IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq)) >>
-    pairarg_tac >> full_simp_tac(srw_ss())[] >>
-    fs[code_installed_def] >>
-    imp_res_tac code_installed_append_imp >>
-    pop_assum mp_tac >>
-    simp_tac(srw_ss()++ARITH_ss)[code_installed_def] >>
-    strip_tac >>
-    qpat_x_assum`∀x. (loc_to_pc _ _ _ = _) ⇒ _`mp_tac >>
-    simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
-    first_x_assum drule >>
-    disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-    impl_tac >- (
-      qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >>
-      imp_res_tac code_installed_append_imp >>
-      full_simp_tac(srw_ss())[code_installed_def] ) >>
-    strip_tac >>
-    finish_tac) >>
+      NO_TAC)) >>
   (* FFI *)
   conj_tac >- (
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>

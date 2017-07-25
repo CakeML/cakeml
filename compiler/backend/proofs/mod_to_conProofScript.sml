@@ -1,6 +1,6 @@
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory namespacePropsTheory
-     mod_to_conTheory conPropsTheory;
+     modSemTheory mod_to_conTheory conPropsTheory;
 
 val _ = new_theory "mod_to_conProof";
 
@@ -888,6 +888,18 @@ val v_to_char_list = Q.prove (
   res_tac >>
   full_simp_tac(srw_ss())[gtagenv_wf_def, has_lists_def])
 
+val vs_to_string = Q.prove(
+  `∀v1 v2 s.
+    LIST_REL (v_rel genv) v1 v2 ⇒
+    vs_to_string v1 = SOME s ⇒
+    vs_to_string v2 = SOME s`,
+  ho_match_mp_tac modSemTheory.vs_to_string_ind
+  \\ rw[modSemTheory.vs_to_string_def,conSemTheory.vs_to_string_def]
+  \\ fs[v_rel_eqns]
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ strip_tac \\ rveq \\ fs[]
+  \\ rw[conSemTheory.vs_to_string_def]);
+
 val Boolv = Q.prove(
   `gtagenv_wf gtagenv ⇒
    v_rel gtagenv (Boolv b) (Boolv b) ∧
@@ -976,6 +988,10 @@ val do_app = Q.prove (
   >- tac
   >- tac
   >- tac
+  >- tac
+  >- tac
+  >- tac
+  >- tac
   >- (
     full_simp_tac(srw_ss())[modSemTheory.do_app_def]>>
     Cases_on`vs`>>full_simp_tac(srw_ss())[]>>
@@ -988,6 +1004,13 @@ val do_app = Q.prove (
     every_case_tac >> full_simp_tac(srw_ss())[])
   >- tac
   >- tac
+  >- (
+    fs[modSemTheory.do_app_def,conSemTheory.do_app_def]
+    \\ every_case_tac \\ fs[vs_rel_list_rel]
+    \\ imp_res_tac v_to_list \\ fs[]
+    \\ imp_res_tac vs_to_string \\ fs[]
+    \\ rw[] \\ fs[vs_rel_list_rel]
+    \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
   >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
@@ -2411,7 +2434,8 @@ val compile_prompt_correct = Q.store_thm("compile_prompt_correct",
                     result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
   srw_tac[][compile_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  rename1`Prompt mn ds` >>
+  (* TODO: HOL issue #430 *)
+  rename1`modLang$Prompt mn ds` >>
   first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[modSemTheory.evaluate_prompt_def, conSemTheory.evaluate_prompt_def, LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>

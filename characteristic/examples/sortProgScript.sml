@@ -1,5 +1,5 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib;
-open cfTacticsLib basisFunctionsLib;
+open cfTacticsLib basisFunctionsLib cfLetAutoLib;
 open rofsFFITheory mlfileioProgTheory ioProgTheory;
 open quicksortProgTheory ioProgLib;
 
@@ -172,14 +172,10 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
     fs [FDline_NONE_linesFD] >>
     xsimpl)
   >- (
-    xlet
-      `POSTv new_acc_v.
-        ROFS (bumpLineFD fd fs) *
-        &LIST_TYPE STRING_TYPE (MAP implode (x::acc)) new_acc_v`
+    xlet_auto
     >- (
       xret >>
-      xsimpl >>
-      simp [LIST_TYPE_def]) >>
+      xsimpl) >>
     xapp >>
     xsimpl >>
     qexists_tac `emp` >>
@@ -192,8 +188,8 @@ val get_file_contents_spec = Q.store_thm ("get_file_contents_spec",
       Cases_on `linesFD fd fs` >>
       fs [GSYM FDline_NONE_linesFD]) >>
     drule linesFD_eq_cons_imp >>
-    rw []
-    \\ metis_tac [APPEND, APPEND_ASSOC]));
+    rw [LIST_TYPE_def] >>
+    metis_tac [APPEND, APPEND_ASSOC]));
 
 val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   `!fnames_v fnames acc_v acc fs.
@@ -230,16 +226,8 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
     xvar >>
     xsimpl) >>
   qmatch_assum_rename_tac `FILENAME fname fname_v` >>
-  xlet
-    `(POST
-       (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
-               validFD (nextFD fs) (openFileFS fname fs) ∧
-               inFS_fname fs fname) *
-             ROFS (openFileFS fname fs))
-       (\e. &(BadFileName_exn e ∧ ~inFS_fname fs fname) * ROFS fs))`
-  >- (
-    xapp >>
-    xsimpl)
+  xlet_auto
+  >- xsimpl
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
   xlet
@@ -335,23 +323,9 @@ val sort_spec = Q.store_thm ("sort_spec",
              EXISTS (\fname. ~inFS_fname fs fname) fnames))` >>
   xsimpl
   >- (
-    xlet
-      `POSTv a_v.
-         ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
-         &UNIT_TYPE () a_v`
-    >- (
-      xret >>
-      xsimpl) >>
-    xlet
-      `POSTv args_v.
-        ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
-        &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) args_v`
-    >- (
-      xapp >>
-      xsimpl >>
-      qexists_tac `ROFS fs * STDOUT out * STDERR err` >>
-      qexists_tac `cl` >>
-      xsimpl) >>
+    xlet_auto
+    >- (xret >> xsimpl) >>
+    xlet_auto >- xsimpl >>
     xlet
       `POST
          (\strings_v.
@@ -378,12 +352,10 @@ val sort_spec = Q.store_thm ("sort_spec",
         metis_tac []) >>
       fs [LIST_TYPE_def, Abbr `fnames`] >>
       xmatch >>
-      xlet `POSTv nil_v. ROFS fs * COMMANDLINE cl * STDOUT out * STDERR err *
-             &LIST_TYPE STRING_TYPE [] nil_v`
+      xlet_auto
       >- (
         xret >>
-        xsimpl >>
-        simp [LIST_TYPE_def]) >>
+        xsimpl) >>
       xapp >>
       xsimpl >>
       qexists_tac `COMMANDLINE cl * STDOUT out * STDERR err` >>

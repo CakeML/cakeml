@@ -28,6 +28,13 @@ val SUBSET_IMP = Q.store_thm("SUBSET_IMP",
 
 val fmap_eq_flookup = save_thm("fmap_eq_flookup",FLOOKUP_EXT |> REWRITE_RULE[FUN_EQ_THM]);
 
+val fmap_rel_FLOOKUP_imp = Q.store_thm("fmap_rel_FLOOKUP_imp",
+  `fmap_rel R f1 f2 ⇒
+   (FLOOKUP f1 k = NONE ⇒ FLOOKUP f2 k = NONE) ∧
+   (FLOOKUP f1 k = SOME v1 ⇒ ∃v2. FLOOKUP f2 k = SOME v2 ∧ R v1 v2)`,
+  rw[fmap_rel_OPTREL_FLOOKUP,OPTREL_def]
+  \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]);
+
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val oHD_thm = Q.store_thm("oHD_thm[simp]",
   `oHD [] = NONE ∧ oHD (h::t) = SOME h`,
@@ -373,6 +380,33 @@ val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
   map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
   [`l1`,`l2`]);
 
+val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
+  ``!xs1 zs.
+      LIST_REL P (xs1 ++ xs2) zs ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
+                  LIST_REL P xs2 ys2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
+  ``!xs1 zs.
+      LIST_REL P zs (xs1 ++ xs2) ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
+                  LIST_REL P ys2 xs2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
+  `LENGTH x1 = LENGTH x2 ⇒ (LIST_REL R (x1 ++ y1) (x2 ++ y2) = (LIST_REL R x1 x2 /\ LIST_REL R y1 y2))`,
+  rw[EQ_IMP_THM]
+  \\ imp_res_tac LIST_REL_APPEND_IMP
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ rw[]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -514,6 +548,12 @@ val LEAST_NOTIN_FDOM = Q.store_thm("LEAST_NOTIN_FDOM",
   `(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs`,
   ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ full_simp_tac(srw_ss())[]);
+
+val LEAST_LESS_EQ = Q.store_thm("LEAST_LESS_EQ",
+  `(LEAST x. y ≤ x) = y`,
+  numLib.LEAST_ELIM_TAC \\ rw[]
+  >- (qexists_tac`y` \\ simp[])
+  \\ fs[LESS_OR_EQ] \\ res_tac \\ fs[]);
 
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
@@ -2889,6 +2929,12 @@ val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
   `OPTION_MAP I x = x`,
   Cases_on`x` \\ rw[]);
 
+val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
+  `(∀x y. f x = f y ⇒ x = y)
+   ⇒ ∀o1 o2.
+     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
+  strip_tac \\ Cases \\ Cases \\ simp[]);
+
 val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   `∀j k ls len.
     len = LENGTH ls ∧ k ≤ j ⇒
@@ -2910,5 +2956,17 @@ val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
   \\ pop_assum kall_tac
   \\ drule MOD_MULT
   \\ fs []);
+
+val BIJ_UPDATE = store_thm("BIJ_UPDATE",
+  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
+
+val INJ_UPDATE = store_thm("INJ_UPDATE",
+  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
 
 val _ = export_theory()

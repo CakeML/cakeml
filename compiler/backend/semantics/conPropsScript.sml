@@ -7,48 +7,33 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
   `((env:conSem$environment) with v := env.v) = env`,
   srw_tac[][conSemTheory.environment_component_equality])
 
-val do_app_cases = Q.store_thm("do_app_cases",
-  `conSem$do_app s op vs = SOME x ⇒
-    (∃z n1 n2. op = (Op (Opn z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃z n1 n2. op = (Op (Opb z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃wz z w1 w2. op = (Op (Opw wz z)) ∧ vs = [Litv w1; Litv w2]) ∨
-    (∃wz z n w. op = (Op (Shift wz z n)) ∧ vs = [Litv w]) ∨
-    (∃v1 v2. op = (Op Equality) ∧ vs = [v1; v2]) ∨
-    (∃lnum v. op = (Op Opassign) ∧ vs = [Loc lnum; v]) ∨
-    (∃n. op = (Op Opderef) ∧ vs = [Loc n]) ∨
-    (∃v. op = (Op Opref) ∧ vs = [v]) ∨
-    (∃n w. op = (Op Aw8alloc) ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
-    (∃lnum i. op = (Op Aw8sub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op Aw8length) ∧ vs = [Loc n]) ∨
-    (∃lnum i w. op = (Op Aw8update) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃wz w. op = (Op (WordToInt wz)) ∧ vs = [Litv w]) ∨
-    (∃wz n. op = (Op (WordFromInt wz)) ∧ vs = [Litv (IntLit n)]) ∨
-    (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
-    (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
-    (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃v ls. op = (Op Implode) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
-    (∃s i. op = (Op Strsub) ∧ vs = [Litv (StrLit s); Litv (IntLit i)]) ∨
-    (∃s. op = (Op Strlen) ∧ vs = [Litv (StrLit s)]) ∨
-    (∃v vs'. op = (Op VfromList) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
-    (∃vs' i. op = (Op Vsub) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨
-    (∃vs'. op = (Op Vlength) ∧ vs = [Vectorv vs']) ∨
-    (∃v n. op = (Op Aalloc) ∧ vs = [Litv (IntLit n); v]) ∨
-    (∃lnum i. op = (Op Asub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op Alength) ∧ vs = [Loc n]) ∨
-    (∃lnum i v. op = (Op Aupdate) ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
-    (∃lnum n. op = (Op (FFI n)) ∧ vs = [Loc lnum])`,
-  Cases_on`s`>>srw_tac[][conSemTheory.do_app_def] >>
-  pop_assum mp_tac >>
-  Cases_on`op` >- (
-    simp[] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] ) >>
-  BasicProvers.CASE_TAC);
+val op_thms = { nchotomy = conLangTheory.op_nchotomy, case_def = conLangTheory.op_case_def}
+val astop_thms = {nchotomy = astTheory.op_nchotomy, case_def = astTheory.op_case_def}
+val modop_thms = {nchotomy = modLangTheory.op_nchotomy, case_def = modLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
+val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
+val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
+val eqs = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+
+val do_app_cases = save_thm("do_app_cases",
+  ``conSem$do_app (s,t) op vs = SOME x`` |>
+  SIMP_CONV(srw_ss()++COND_elim_ss++LET_ss)[PULL_EXISTS, do_app_def, eqs, pair_case_eq]);
+
+val eq_result_CASE_tm = prim_mk_const{Name="eq_result_CASE",Thy="semanticPrimitives"};
+val check =
+  do_app_cases |> concl |> find_terms TypeBase.is_case
+  |> List.map (#1 o strip_comb)
+  |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
+val () = if check then () else raise(ERR"conProps""do_app_cases failed")
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app (f,s) op vs = SOME((f',s'),r) ⇒
    s.io_events ≼ s'.io_events ∧
    (IS_SOME s.final_event ⇒ s' = s)`,
-  srw_tac[][] >> imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >>
+  simp[do_app_cases] >> strip_tac \\ fs[] \\
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
@@ -416,14 +401,14 @@ val op_gbag_def = Define`
 `;
 
 val set_globals_def = tDefine "set_globals"`
-  (set_globals ((Raise e):conLang$exp) = set_globals e) ∧
-  (set_globals (Handle e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
-  (set_globals (Con _ es) = elist_globals es) ∧
-  (set_globals (Fun _ e) = set_globals e) ∧
-  (set_globals (App op es) = op_gbag op ⊎ elist_globals es) ∧
-  (set_globals (Mat e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
-  (set_globals (Let _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
-  (set_globals (Letrec es e) =
+  (set_globals ((Raise _ e):conLang$exp) = set_globals e) ∧
+  (set_globals (Handle _ e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
+  (set_globals (Con _ _ es) = elist_globals es) ∧
+  (set_globals (Fun _ _ e) = set_globals e) ∧
+  (set_globals (App _ op es) = op_gbag op ⊎ elist_globals es) ∧
+  (set_globals (Mat _ e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) ∧
+  (set_globals (Let _ _ e1 e2) = set_globals e1 ⊎ set_globals e2) ∧
+  (set_globals (Letrec _ es e) =
     set_globals e ⊎ (elist_globals (MAP (SND o SND) es))) ∧
   (set_globals _ = {||}) ∧
   (elist_globals [] = {||}) ∧
@@ -449,14 +434,14 @@ val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
 val esgc_free_def = tDefine "esgc_free" `
-  (esgc_free ((Raise e):conLang$exp) ⇔ esgc_free e) ∧
-  (esgc_free (Handle e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
-  (esgc_free (Con _ es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (Fun _ e) ⇔ set_globals e = {||}) ∧
-  (esgc_free (App op es) ⇔ EVERY esgc_free es) ∧
-  (esgc_free (Mat e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
-  (esgc_free (Let _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
-  (esgc_free (Letrec es e) ⇔
+  (esgc_free ((Raise _ e):conLang$exp) ⇔ esgc_free e) ∧
+  (esgc_free (Handle _ e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
+  (esgc_free (Con _ _ es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Fun _ _ e) ⇔ set_globals e = {||}) ∧
+  (esgc_free (App _ op es) ⇔ EVERY esgc_free es) ∧
+  (esgc_free (Mat _ e pes) ⇔ esgc_free e ∧ EVERY esgc_free (MAP SND pes)) ∧
+  (esgc_free (Let _ _ e1 e2) ⇔ esgc_free e1 ∧ esgc_free e2) ∧
+  (esgc_free (Letrec _ es e) ⇔
     esgc_free e ∧ (elist_globals (MAP (SND o SND) es)) = {||}) ∧
   (esgc_free _ = T)`
   (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>

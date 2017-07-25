@@ -424,15 +424,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
        ((c.data_conf.has_longdiv ⇒ (mc_conf.target.config.ISA = x86_64)) ∧
        (c.data_conf.has_div ⇒ (mc_conf.target.config.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
        addr_offset_ok mc_conf.target.config 0w /\
-       byte_offset_ok mc_conf.target.config 0w /\
-       byte_offset_ok mc_conf.target.config 1w /\
-       byte_offset_ok mc_conf.target.config 2w /\
-       byte_offset_ok mc_conf.target.config 3w /\
-       (dimindex(:'a) <> 32 ==>
-       byte_offset_ok mc_conf.target.config 4w /\
-       byte_offset_ok mc_conf.target.config 5w /\
-       byte_offset_ok mc_conf.target.config 6w /\
-       byte_offset_ok mc_conf.target.config 7w )
+       (∀w. -8w <= w ∧ w ≤ 8w ⇒ byte_offset_ok mc_conf.target.config w)
        ⇒
         full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
@@ -992,9 +984,7 @@ val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
 val conf_constraint_def = Define`
   conf_constraint (conf:'a asm_config) ⇔
   addr_offset_ok conf 0w ∧
-  byte_offset_ok conf 0w ∧ byte_offset_ok conf 1w ∧ byte_offset_ok conf 2w ∧ byte_offset_ok conf 3w ∧
-  (dimindex(:'a) <> 32 ==>
-   byte_offset_ok conf 4w ∧ byte_offset_ok conf 5w ∧ byte_offset_ok conf 6w ∧ byte_offset_ok conf 7w) ∧
+  (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok conf w) ∧
   (∀n.
      n ≤ max_stack_alloc ⇒
      conf.valid_imm (INL Sub)
@@ -1374,28 +1364,31 @@ val clos_to_data_names = Q.store_thm("clos_to_data_names",
   fs[]>>
   imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
   rfs[bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
-  fs[EVERY_MEM]>>rw[]
-  \\ TRY strip_tac
+  fs[EVERY_MEM]
+  \\ simp[PULL_FORALL] \\ strip_tac
+  \\ reverse conj_tac >- (
+    match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
+    \\ asm_exists_tac \\ simp[]
+    \\ EVAL_TAC \\ fs [GSYM append_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ res_tac \\ fs [EXISTS_MEM]
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ EVAL_TAC
+    \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
+    \\ PairCases_on `e` \\ fs [GSYM append_def]
+    \\ qexists_tac `e0` \\ fs []
+    \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
+    \\ metis_tac [EVEN_DOUBLE,EVEN_ODD])
+  \\ strip_tac
+  \\ drule bvi_tailrecProofTheory.compile_prog_MEM
+  \\ simp[]
+  \\ EVAL_TAC
+  \\ rw[] \\ simp[]
+  \\ fs[GSYM append_def]
   \\ res_tac
   \\ pop_assum mp_tac
-  \\ EVAL_TAC \\ rw[]
-  \\ fs [EVAL ``data_num_stubs``]
-  \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_MEM \\ fs []
-  \\ res_tac \\ fs [bvl_to_bviTheory.stubs_def]
-  \\ EVAL_TAC
-  \\ match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
-  \\ asm_exists_tac \\ fs []
-  \\ EVAL_TAC \\ fs [GSYM append_def]
-  \\ CCONTR_TAC \\ fs []
-  \\ res_tac \\ fs [EXISTS_MEM]
-  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
-  \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
-  \\ EVAL_TAC
-  \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
-  \\ PairCases_on `e` \\ fs [GSYM append_def]
-  \\ qexists_tac `e0` \\ fs []
-  \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
-  \\ metis_tac [EVEN_DOUBLE,EVEN_ODD]);
+  \\ EVAL_TAC \\ rw[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile c prog = SOME (bytes,ffis) ⇒
@@ -1587,6 +1580,7 @@ val compile_correct = Q.store_thm("compile_correct",
   impl_tac >- (
     `esgc_free e3 ∧ BAG_ALL_DISTINCT (set_globals e3)` by
       (unabbrev_all_tac>>
+      fs[con_to_decTheory.compile_def]>> pairarg_tac>>fs[]>>
       metis_tac[SND,
       mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_esgc_free,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_esgc_free,exh_to_patProofTheory.compile_esgc_free,pat_to_closProofTheory.compile_esgc_free,
       mod_to_conProofTheory.compile_no_set_globals,con_to_decProofTheory.no_set_globals_imp_bag_all_distinct,con_to_decTheory.compile_def,dec_to_exhProofTheory.compile_distinct_setglobals,exh_to_patProofTheory.compile_distinct_setglobals,pat_to_closProofTheory.compile_distinct_setglobals])>>

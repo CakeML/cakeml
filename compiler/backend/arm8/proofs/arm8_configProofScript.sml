@@ -1,5 +1,6 @@
-open preamble targetSemTheory backendProofTheory
+open preamble backendProofTheory
      arm8_configTheory arm8_targetProofTheory
+open blastLib;
 
 val _ = new_theory"arm8_configProof";
 
@@ -12,7 +13,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 val arm8_conf_ok = Q.store_thm("arm8_conf_ok",`
-  conf_ok arm8_compiler_config arm8_machine_config`,
+  conf_ok arm8_backend_config arm8_machine_config`,
   simp[conf_ok_def,lower_conf_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_machine_config_def,arm8_backend_correct]
   >- names_tac
@@ -20,6 +21,8 @@ val arm8_conf_ok = Q.store_thm("arm8_conf_ok",`
     (rw[conf_constraint_def]>>
     TRY(EVAL_TAC>>fs[]>> NO_TAC)>>
     fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (EVAL_TAC>>FULL_BBLAST_TAC)
     >-
       (simp[GSYM word_mul_n2w]>>
       srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>

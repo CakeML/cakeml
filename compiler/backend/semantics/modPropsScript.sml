@@ -375,14 +375,20 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
   srw_tac[][evaluate_prog_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   metis_tac[evaluate_prompts_add_to_clock_io_events_mono,FST]);
 
+val bind_locals_list_def = Define`
+  bind_locals_list ts ks = list$MAP2 (λt x. (modLang$Var_local t x)) ts ks`
+
 val evaluate_vars = Q.store_thm("evaluate_vars",
-  `!env s kvs env' ks vs.
+  `!env s kvs env' ks vs ts.
     ALL_DISTINCT (MAP FST kvs) ∧
     DISJOINT (set (MAP FST kvs)) (set (MAP FST env')) ∧
-    env.v = env' ++ kvs ∧ ks = MAP FST kvs ∧ vs = MAP SND kvs
+    env.v = env' ++ kvs ∧ ks = MAP FST kvs ∧ vs = MAP SND kvs ∧
+    LENGTH ts = LENGTH ks
     ⇒
-    evaluate env s (MAP Var_local ks) = (s,Rval vs)`,
-  induct_on `kvs` >> srw_tac[][evaluate_def] >>
+    evaluate env s (bind_locals_list ts ks) = (s,Rval vs)`,
+  induct_on `kvs` >> fs[bind_locals_list_def]>>
+  srw_tac[][evaluate_def] >>
+  Cases_on`ts`>>fs[]>>
   srw_tac[][Once evaluate_cons,evaluate_def] >>
   PairCases_on`h`>>srw_tac[][]>> full_simp_tac(srw_ss())[] >>
   srw_tac[][ALOOKUP_APPEND] >>
@@ -396,22 +402,23 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
   srw_tac[][environment_component_equality]);
 
 val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
-  `(!cenv refs p v evs env env'.
+  `(!cenv refs p v evs env env' ts.
     (cenv,refs,evs) = (env.c,s.refs,env.v) ∧
     pmatch env.c s.refs p v env.v = Match env' ∧
-    ALL_DISTINCT (pat_bindings p (MAP FST env.v))
+    ALL_DISTINCT (pat_bindings p (MAP FST env.v)) ∧
+    LENGTH ts = LENGTH (pat_bindings p (MAP FST evs))
     ⇒
-    evaluate (env with v := env') s (MAP Var_local (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
-   (!cenv refs ps vs evs env env'.
+    evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
+   (!cenv refs ps vs evs env env' ts.
     (cenv,refs,evs) = (env.c,s.refs,env.v) ∧
     pmatch_list env.c s.refs ps vs env.v = Match env' ∧
-    ALL_DISTINCT (pats_bindings ps (MAP FST env.v))
+    ALL_DISTINCT (pats_bindings ps (MAP FST env.v)) ∧
+    LENGTH ts = LENGTH (pats_bindings ps (MAP FST evs))
     ⇒
-    evaluate (env with v := env') s (MAP Var_local (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
+    evaluate (env with v := env') s (bind_locals_list ts (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pat_bindings_def, pmatch_def]
   >- (
-    ONCE_REWRITE_TAC[GSYM MAP] >>
     match_mp_tac evaluate_vars >> srw_tac[][] >>
     qexists_tac`(x,v)::env.v` >> srw_tac[][] )
   >- (
@@ -445,16 +452,16 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
       srw_tac[][environment_component_equality]) >> metis_tac[]));
 
 val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
-  `∀p v env env_c s.
+  `∀p v env env_c s ts.
     pmatch env_c s.refs p v [] = Match env ∧
-    ALL_DISTINCT (pat_bindings p [])
+    ALL_DISTINCT (pat_bindings p []) ∧
+    LENGTH ts = LENGTH (pat_bindings p [])
     ⇒
-    evaluate <| c := env_c; v := env |> s (MAP Var_local (pat_bindings p [])) = (s,Rval (MAP SND env))`,
+    evaluate <| c := env_c; v := env |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND env))`,
   rw [] >>
   `pmatch <|c := env_c; v := []|>.c s.refs p v <|c := env_c; v := []|>.v = Match env` by rw [] >>
   imp_res_tac pmatch_evaluate_vars >>
-  fs [] >>
-  rfs []);
+  fs []);
 
 val evaluate_append = Q.store_thm("evaluate_append",
   `∀env s s1 s2 e1 e2 v1 v2.
@@ -468,9 +475,9 @@ val evaluate_append = Q.store_thm("evaluate_append",
 
 val evaluate_vars_reverse = Q.store_thm("evaluate_vars_reverse",
   `!env s es s' vs.
-    evaluate env s (MAP Var_local es) = (s, Rval vs)
+    evaluate env s (MAP (Var_local tra) es) = (s, Rval vs)
     ⇒
-    evaluate env s (MAP Var_local (REVERSE es)) = (s, Rval (REVERSE vs))`,
+    evaluate env s (MAP (Var_local tra) (REVERSE es)) = (s, Rval (REVERSE vs))`,
   induct_on `es` >> srw_tac[][evaluate_def] >> srw_tac[][] >>
   pop_assum mp_tac >>
   srw_tac[][Once evaluate_cons] >>

@@ -1,51 +1,11 @@
+(*
+  Types, functions and lemmas that are shared between GC definitions
+*)
 open preamble wordsTheory wordsLib integer_wordTheory;
 
 val _ = new_theory "gc_shared";
 
 val _ = ParseExtras.temp_loose_equality();
-
-(* TODO: move *)
-
-val EVERY2_SPLIT = store_thm("EVERY2_SPLIT",
-  ``!xs1 zs.
-      EVERY2 P zs (xs1 ++ x::xs2) ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P ys1 xs1 /\
-                  EVERY2 P ys2 xs2 /\ P y x``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val EVERY2_SPLIT_ALT = store_thm("EVERY2_SPLIT_ALT",
-  ``!xs1 zs.
-      EVERY2 P (xs1 ++ x::xs2) zs ==>
-      ?ys1 y ys2. (zs = ys1 ++ y::ys2) /\ EVERY2 P xs1 ys1 /\
-                  EVERY2 P xs2 ys2 /\ P x y``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`y`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val EVERY2_APPEND = store_thm("EVERY2_APPEND",
-  ``!xs ts.
-      (LENGTH xs = LENGTH ts) ==>
-      (EVERY2 P (xs ++ ys) (ts ++ us) = EVERY2 P xs ts /\ EVERY2 P ys us)``,
-  Induct \\ Cases_on `ts` \\ full_simp_tac (srw_ss()) [LENGTH,CONJ_ASSOC]);
-
-val BIJ_UPDATE = store_thm("BIJ_UPDATE",
-  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ metis_tac []);
-
-val INJ_UPDATE = store_thm("INJ_UPDATE",
-  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
-  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
-  \\ metis_tac []);
-
-(* Types, functions and lemmas that are shared between GC definitions
-*)
 
 (* The ML heap is represented as a list of heap_elements. *)
 
@@ -415,9 +375,8 @@ val heap_similar_Data_IMP = Q.store_thm("heap_similar_Data_IMP",
     ?ha0 hb0. (heap0 = ha0 ++ DataElement ys l d::hb0) /\
               (heap_length ha = heap_length ha0)`,
   rpt strip_tac \\ full_simp_tac std_ss [heaps_similar_def]
-  \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss [isForwardPointer_def]
-  \\ pop_assum (ASSUME_TAC o GSYM) \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ full_simp_tac std_ss []
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[isForwardPointer_def]
+  \\ Q.LIST_EXISTS_TAC [`ys1`,`xs`] \\ full_simp_tac std_ss []
   \\ `heaps_similar ys1 ha` by full_simp_tac std_ss [heaps_similar_def]
   \\ full_simp_tac std_ss [heaps_similar_IMP_heap_length]);
 
@@ -426,13 +385,11 @@ val heaps_similar_lemma = Q.store_thm("heaps_similar_lemma",
       heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
       heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) u l] ++ hb)`,
   full_simp_tac std_ss [heaps_similar_def] \\ rpt strip_tac
-  \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss []
-  \\ imp_res_tac LIST_REL_LENGTH
+  \\ imp_res_tac LIST_REL_SPLIT2 \\ fs[]
   \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ full_simp_tac std_ss [EVERY2_APPEND,LIST_REL_def]
-  \\ EVAL_TAC \\ full_simp_tac std_ss [isForwardPointer_def]
-  \\ qpat_x_assum `DataElement ys l d = y` (mp_tac o GSYM)
-  \\ full_simp_tac (srw_ss()) [el_length_def]);
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ fs[isForwardPointer_def,el_length_def]
+  \\ rw[el_length_def,isDataElement_def]);
 
 val heap_lookup_PREFIX = Q.store_thm("heap_lookup_PREFIX",
   `!xs. (heap_lookup (heap_length xs) (xs ++ x::ys) = SOME x)`,

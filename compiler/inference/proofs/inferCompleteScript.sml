@@ -10,6 +10,7 @@ open type_eDetermTheory envRelTheory namespacePropsTheory;
 
 val _ = new_theory "inferComplete";
 
+(* TODO move. n.b. something like this is defined elsewhere (Abbrev_intro) *)
 fun Abbrev_wrap eqth =
     EQ_MP (SYM (Thm.SPEC (concl eqth) markerTheory.Abbrev_def)) eqth
 
@@ -330,15 +331,6 @@ val env_rel_complete_bind = Q.prove(`
   fs[env_rel_complete_def,bind_tvar_def,lookup_var_def,lookup_varE_def,tveLookup_def]>>rw[]>>every_case_tac>>fs[]>>
   res_tac>>fs[]>> TRY(metis_tac[])>>
   match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
-
-(* TODO: This seems like it must have been proven elsewhere *)
-val generalise_list_length = Q.prove(`
-  ∀a b c d e f g.
-  generalise_list a b c d = (e,f,g) ⇒ LENGTH g = LENGTH d`,
-  Induct_on`d`>>fs[generalise_def]>>rw[]>>
-  pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>
-  res_tac>>fs[]>>rveq>>fs[]);
 
 val infer_d_complete = Q.store_thm ("infer_d_complete",
   `!mn decls tenv ienv d st1 decls' tenv' idecls.
@@ -1270,7 +1262,6 @@ val infer_deBruijn_subst_check_t = Q.prove(`
   fs[EVERY_MEM,MEM_EL]>>
   metis_tac[]);
 
-(* TODO: I hope this is true *)
 val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
   `!tvs_spec t_spec tvs_impl t_impl id.
     check_t tvs_impl {} t_impl ∧
