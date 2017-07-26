@@ -448,18 +448,18 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
                      srw_tac[][] >>
                      metis_tac [pat_bindings_accum]) >>
     fsrw_tac[QUANT_INST_ss[record_default_qp]][] >> rev_full_simp_tac(srw_ss())[] >>
-    `env with v := env' = <| c := env.c; v := env' |>` by (
+    `env with v := env' = <| c := env.c; v := env' ; exh_pat := env.exh_pat |>` by (
       srw_tac[][environment_component_equality]) >> metis_tac[]));
 
 val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
-  `∀p v env env_c s ts.
+  `∀p v env env_c s ts b.
     pmatch env_c s.refs p v [] = Match env ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     LENGTH ts = LENGTH (pat_bindings p [])
     ⇒
-    evaluate <| c := env_c; v := env |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND env))`,
+    evaluate <| c := env_c; v := env; exh_pat := b |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND env))`,
   rw [] >>
-  `pmatch <|c := env_c; v := []|>.c s.refs p v <|c := env_c; v := []|>.v = Match env` by rw [] >>
+  `pmatch <|c := env_c; v := []; exh_pat := b|>.c s.refs p v <|c := env_c; v := []; exh_pat := b|>.v = Match env` by rw [] >>
   imp_res_tac pmatch_evaluate_vars >>
   fs []);
 

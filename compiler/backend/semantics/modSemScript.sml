@@ -41,7 +41,9 @@ val _ = Datatype`
 val _ = Datatype`
   environment = <|
     c : env_ctor;
-    v : (varN, modSem$v) alist
+    v : (varN, modSem$v) alist;
+    (* T if all patterns are required to be exhaustive *)
+    exh_pat : bool
   |>`;
 
 val _ = Define`
@@ -501,7 +503,7 @@ val evaluate_def = tDefine"evaluate"`
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate env' (dec_clock s) [e]
+              evaluate (env' with exh_pat := env.exh_pat) (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app (s.refs,s.ffi) op (REVERSE vs)) of
@@ -529,7 +531,11 @@ val evaluate_def = tDefine"evaluate"`
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs (env.c,env.v) env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match env s v [] err_v = (s, Rerr(Rraise err_v))) ∧
+  (evaluate_match env s v [] err_v =
+    if env.exh_pat then
+      (s, Rerr(Rabort Rtype_error))
+    else
+      (s, Rerr(Rraise err_v))) ∧
   (evaluate_match env s v ((p,e)::pes) err_v =
    if ALL_DISTINCT (pat_bindings p []) then
      case pmatch env.c s.refs p v [] of

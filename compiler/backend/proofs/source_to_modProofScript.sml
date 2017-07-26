@@ -305,7 +305,7 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
     ⇒
     env_all_rel genv var_map
       <| c := env_c; v := nsAppend env_v_local env_v_top |>
-      <| c := env_c; v := env' |>
+      <| c := env_c; v := env'; exh_pat := F |>
       locals)`;
 
 val match_result_rel_def = Define
@@ -775,7 +775,7 @@ val do_opapp = Q.prove (
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
      ∃var_map env_i1 locals t1 ts.
-       env_all_rel genv var_map env env_i1 locals ∧
+       env_all_rel genv var_map env (env_i1 with exh_pat := F) locals ∧
        LENGTH ts = LENGTH locals ∧
        do_opapp vs_i1 = SOME (env_i1, compile_exp t1 (bind_locals ts locals var_map) e)`,
    srw_tac[][do_opapp_cases, modSemTheory.do_opapp_def] >>
@@ -1219,7 +1219,8 @@ val compile_exp_correct' = Q.prove (
       asm_exists_tac >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] >>
-      metis_tac []) >>
+      `env_i1.exh_pat = F` by fs [env_all_rel_cases] >>
+      rw []) >>
     BasicProvers.TOP_CASE_TAC >>
     BasicProvers.TOP_CASE_TAC >>
     strip_tac >> rveq >>
@@ -1431,6 +1432,7 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [LENGTH_MAP])
   >-
     (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
+  >- fs [env_all_rel_cases]
   >- (
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
@@ -1503,11 +1505,11 @@ val compile_exp_correct = Q.prove (
      ∃s'_i1 r_i1.
        result_rel (LIST_REL ∘ v_rel) s_i1.globals r r_i1 ∧
        s_rel s' s'_i1 ∧
-       evaluate <| c := env.c; v := [] |> s_i1 (compile_exps t var_map es) = (s'_i1,r_i1)`,
+       evaluate <| c := env.c; v := []; exh_pat := F |> s_i1 (compile_exps t var_map es) = (s'_i1,r_i1)`,
   rw [] >>
   drule (CONJUNCT1 compile_exp_correct') >>
   rfs [env_all_rel_cases] >>
-  disch_then (qspecl_then [`var_map`, `<| c := env.c; v := [] |>`, `s_i1`, `[]`,`t`,`[]`] mp_tac) >>
+  disch_then (qspecl_then [`var_map`, `<| c := env.c; v := []; exh_pat := F |>`, `s_i1`, `[]`,`t`,`[]`] mp_tac) >>
   simp [PULL_EXISTS, sem_env_component_equality] >>
   impl_tac
   >- simp [v_rel_eqns] >>
@@ -1731,7 +1733,7 @@ val compile_decs_correct = Q.prove (
     source_to_mod$compile_decs t (LENGTH s_i1.globals) mn var_map ds = (t',next', var_map', ds_i1)
     ⇒
     ?(s'_i1:'a modSem$state) cenv' env'_i1 r_i1.
-      modSem$evaluate_decs <| c := env.c; v := [] |> s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
+      modSem$evaluate_decs <| c := env.c; v := []; exh_pat := F |> s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
       (!env'.
         r = Rval env'
         ⇒
@@ -2194,7 +2196,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     source_to_mod$compile_prog t (LENGTH s_i1.globals) var_map prog = (next',var_map',prog_i1)
     ⇒
     ∃(s'_i1:'a modSem$state) new_genv cenv' r_i1.
-     modSem$evaluate_prompts <|c := env.c; v := []|> s_i1 prog_i1 =
+     modSem$evaluate_prompts <|c := env.c; v := []; exh_pat := F |> s_i1 prog_i1 =
        (s'_i1,cenv',new_genv,r_i1) ∧
      (!new_env.
        r = Rval new_env
@@ -2414,7 +2416,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
     ∃(s'_i1:'a modSem$state) r_i1.
-     evaluate_prog <| c := env.c; v := [] |> s_i1 prog_i1 = (s'_i1,r_i1) ∧
+     evaluate_prog <| c := env.c; v := []; exh_pat := F |> s_i1 prog_i1 = (s'_i1,r_i1) ∧
      s_rel s' s'_i1 ∧
      (∀v. r = Rval v ⇒ r_i1 = NONE) ∧
      (∀err. r = Rerr err ⇒ ∃err_i1. r_i1 = SOME err_i1 ∧
@@ -2444,6 +2446,7 @@ val precondition_def = Define`
     invariant conf.mod_env env1.v s1 s2 ∧
     env2.c = env1.c ∧
     env2.v = [] ∧
+    env2.exh_pat = F ∧
     conf.next_global = LENGTH s2.globals`;
 
 val SND_eq = Q.prove(
