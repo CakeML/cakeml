@@ -718,6 +718,8 @@ val call_args_def = Define `
       | SOME (y,r,_,_) => call_args y ptr len ret /\ r = ret
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => call_args y ptr len ret | NONE => T)) /\
+  (call_args (InstallAndRun ptr' len' ret') ptr len ret <=>
+     ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ret <=> T)`
 
 val _ = export_theory();

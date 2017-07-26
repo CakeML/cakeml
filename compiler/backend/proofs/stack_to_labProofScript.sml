@@ -3,11 +3,11 @@ open preamble
      stack_to_labTheory
      stack_allocTheory
      labSemTheory labPropsTheory
-     stack_removeProofTheory
-     stack_allocProofTheory
-     stack_namesProofTheory
      semanticsPropsTheory
-local open stack_removeProofTheory in end
+     stackPropsTheory
+(*   stack_removeProofTheory
+     stack_allocProofTheory
+     stack_namesProofTheory *)
 
 val _ = new_theory"stack_to_labProof";
 
@@ -88,7 +88,7 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
   res_tac >> fsrw_tac[ARITH_ss][ADD1]);
 
 val state_rel_def = Define`
-  state_rel (s:('a,'ffi)stackSem$state) (t:('a,'c,'ffi)labSem$state) ⇔
+  state_rel (s:('a,'c,'ffi)stackSem$state) (t:('a,'c,'ffi)labSem$state) ⇔
     (∀n v. FLOOKUP s.regs n = SOME v ⇒ t.regs n = v) ∧
     t.mem = s.memory ∧
     t.mem_domain = s.mdomain ∧
@@ -105,6 +105,7 @@ val state_rel_def = Define`
     ~(t.link_reg ∈ s.ffi_save_regs) /\
     (!k n. k ∈ s.ffi_save_regs ==> t.io_regs n k = NONE) /\
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
+    s.code_buffer = t.code_buffer ∧
     ¬s.use_stack ∧
     ¬s.use_store ∧
     ¬s.use_alloc`;
@@ -1351,6 +1352,35 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
       NO_TAC)) >>
+  (* InstallAndRun *)
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def]>>
+    fs[case_eq_thms]>>
+    pairarg_tac>>fs[]>>
+    fs[case_eq_thms]
+    >-
+      (* Timeout *)
+      (qexists_tac`0`>>
+      qexists_tac`t1`>>
+      fs[state_rel_def])>>
+    rw[]>>
+    rfs[]>>
+    qpat_x_assum`(r,s2) = _` (assume_tac o SYM)>>fs[]>>
+    rfs[]>>
+    cheat)>>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def]>>
+    fs[case_eq_thms]>>
+    rw[]>>
+    qexists_tac`1`>>qexists_tac`t1 with <|code_buffer := new_cb;pc:=t1.pc+1|>`>>
+    fs[code_installed_def,call_args_def] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    fs[get_var_def]>>
+    imp_res_tac state_rel_read_reg_FLOOKUP_regs>>
+    ntac 2 (pop_assum (mp_tac o SYM))>>
+    ntac 2 strip_tac>>simp[]>>
+    fs[state_rel_def,dec_clock_def,inc_pc_def]>>
+    metis_tac[])>>
   (* FFI *)
   conj_tac >- (
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
