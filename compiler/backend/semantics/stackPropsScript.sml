@@ -2,6 +2,16 @@ open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
+(* TODO: not sure if useful *)
+val subspt_union = Q.store_thm("subspt_union",`
+  subspt s (union s t)`,
+  fs[subspt_lookup,lookup_union]);
+
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
+  [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``
+  ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).ffi = z.ffi ∧
    (set_store x y z).clock = z.clock ∧
@@ -147,11 +157,9 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
       s1.use_stack = s.use_stack /\
-      s1.code = s.code /\
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
-      s1.mdomain = s.mdomain /\
-      s1.bitmaps = s.bitmaps`,
+      s1.mdomain = s.mdomain`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
@@ -162,6 +170,34 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[])));
+
+(* The code and bitmaps are no longer monotonic, but they are still prefixes *)
+val alloc_mono = Q.store_thm("alloc_mono",`
+  alloc w s = (r,s1) ==>
+  isPREFIX s.bitmaps s1.bitmaps ∧
+  subspt s.code s1.code`,
+  fs[alloc_def,case_eq_thms,gc_def]>>
+  rw[]>>fs[]);
+
+val inst_mono = Q.store_thm("inst_mono",`
+  inst i s = SOME s1 ⇒
+  isPREFIX s.bitmaps s1.bitmaps ∧
+  subspt s.code s1.code`,
+  fs[inst_def,case_eq_thms,gc_def,assign_def,mem_store_def]>>
+  rw[]>>fs[]);
+
+val evaluate_mono = Q.store_thm("evalute_mono",`
+  ∀c s r s1.
+  evaluate (c,s) = (r,s1) ⇒
+  isPREFIX s.bitmaps s1.bitmaps ∧
+  subspt s.code s1.code`,
+  recInduct evaluate_ind>>
+  rw[evaluate_def]>>
+  fs[case_eq_thms,empty_env_def]>>rw[]>>
+  TRY(pairarg_tac>>fs[])>>rw[]>>every_case_tac>>rw[]>>
+  fs[]>>
+  rpt( first_x_assum drule)>>
+  metis_tac[alloc_mono,inst_mono,IS_PREFIX_TRANS,subspt_trans,IS_PREFIX_APPEND1,subspt_union]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
@@ -299,6 +335,18 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
     rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
+  TRY(
+    rename1`shift_seq _ s.compile_oracle _`>>
+    every_case_tac >> fs[get_var_def]>>
+    pairarg_tac>>fs[]>>
+    every_case_tac >> fs[]>>
+    fs[dec_clock_def]>>
+    rfs[]>>
+    simp[]>>
+    qmatch_goalsub_abbrev_tac`(r'',s'')`>>
+    `isPREFIX s.ffi.io_events s''.ffi.io_events ∧ s''.ffi = s.ffi` by
+      (unabbrev_all_tac>>fs[])>>
+    metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR])>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
 
 val clock_neutral_def = Define `
@@ -442,6 +490,7 @@ val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
 
+(* TODO: NOT UPDATED FOR INSTALL AND CBW *)
 (* asm_ok out of stack_names *)
 val stack_asm_ok_def = Define`
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧

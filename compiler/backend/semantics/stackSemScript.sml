@@ -373,7 +373,7 @@ val loc_check_def = Define `
     (l2 = 0 /\ l1 ∈ domain code) \/
     ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
-val evaluate_def = xDefine "evaluate" `
+val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
@@ -484,19 +484,28 @@ val evaluate_def = xDefine "evaluate" `
         (case s.compile cfg (progs,bm), progs of
           | SOME (bytes',cfg'), (k,prog)::_ =>
             if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then
-              evaluate (prog,
+            let s' =
                 s with <|
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
-                ; code := union (fromAList progs) s.code
+                ; code := union s.code (fromAList progs) (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; regs := DRESTRICT s.regs s.ffi_save_regs (* TODO: this might need to be a new field, cc_save_regs *)
                 ; compile_oracle := new_oracle
-                ; clock := s.clock -1
-                |>)
+                |> in
+            if s'.clock = 0 then (SOME TimeOut,empty_env s)
+            else evaluate (prog,dec_clock s')
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
       | _ => (SOME Error,s)) /\
+  (evaluate (CodeBufferWrite r1 r2,s) =
+    (case (get_var r1 s,get_var r2 s) of
+        | (SOME (Word w1), SOME (Word w2)) =>
+          (case code_buffer_write s.code_buffer w1 (w2w w2) of
+          | SOME new_cb =>
+            (NONE,s with code_buffer:=new_cb)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len ret,s) =
     case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>
