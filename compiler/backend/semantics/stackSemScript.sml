@@ -71,6 +71,9 @@ val _ = Datatype `
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; bitmaps : 'a word list
+     ; compile : 'c -> (num # 'a stackLang$prog) list # 'a word list -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
+     ; code_buffer : 'a code_buffer
      ; gc_fun  : 'a gc_fun_type
      ; use_stack : bool
      ; use_store : bool
@@ -82,19 +85,19 @@ val _ = Datatype `
      ; be      : bool (* is big-endian *) |> `
 
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) stackSem$state) =
+  mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
 
 val mem_load_def = Define `
-  mem_load (addr:'a word) (s:('a,'ffi) stackSem$state) =
+  mem_load (addr:'a word) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
 
 val dec_clock_def = Define `
-  dec_clock (s:('a,'ffi) stackSem$state) = s with clock := s.clock - 1`;
+  dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1`;
 
 val word_exp_def = tDefine "word_exp" `
   (word_exp s (Const w) = SOME w) /\
@@ -125,7 +128,7 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:('a,'ffi) stackSem$state) = FLOOKUP s.regs v`;
+  get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -137,14 +140,14 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x (s:('a,'ffi) stackSem$state) =
+  set_var v x (s:('a,'c,'ffi) stackSem$state) =
     (s with regs := (s.regs |+ (v,x)))`;
 
 val set_store_def = Define `
-  set_store v x (s:('a,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
+  set_store v x (s:('a,'c,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
 
 val empty_env_def = Define `
-  empty_env (s:('a,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
+  empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
 val full_read_bitmap_def = Define `
   (full_read_bitmap bitmaps (Word w) =
@@ -213,7 +216,7 @@ val has_space_def = Define `
     | _ => NONE`
 
 val alloc_def = Define `
-  alloc (w:'a word) (s:('a,'ffi) stackSem$state) =
+  alloc (w:'a word) (s:('a,'c,'ffi) stackSem$state) =
     (* perform garbage collection *)
       case gc (set_store AllocSize (Word w) s) of
       | NONE => (SOME Error,s)
@@ -237,7 +240,7 @@ val assign_def = Define `
      | SOME w => SOME (set_var reg (Word w) s)`;
 
 val inst_def = Define `
-  inst i (s:('a,'ffi) stackSem$state) =
+  inst i (s:('a,'c,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
     | Const reg w => assign reg (Const w) s
@@ -370,8 +373,8 @@ val loc_check_def = Define `
     (l2 = 0 /\ l1 ∈ domain code) \/
     ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
-val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
+val evaluate_def = xDefine "evaluate" `
+  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
      | SOME w => (SOME (Halt w), empty_env s)
@@ -471,6 +474,29 @@ val evaluate_def = tDefine "evaluate" `
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
               | res => res))) /\
+  (evaluate (InstallAndRun ptr len ret,s) =
+    case (get_var ptr s, get_var len s) of
+    | SOME (Word w1), SOME (Word w2) =>
+       (case code_buffer_flush s.code_buffer w1 w2 of
+         SOME (bytes, cb) =>
+        let (cfg,progs,bm) = s.compile_oracle 0 in
+        let new_oracle = shift_seq 1 s.compile_oracle in
+        (case s.compile cfg (progs,bm), progs of
+          | SOME (bytes',cfg'), (k,prog)::_ =>
+            if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then
+              evaluate (prog,
+                s with <|
+                  bitmaps := s.bitmaps ++ bm
+                ; code_buffer := cb
+                ; code := union (fromAList progs) s.code
+                ; regs := DRESTRICT s.regs s.ffi_save_regs (* TODO: this might need to be a new field, cc_save_regs *)
+                ; compile_oracle := new_oracle
+                ; clock := s.clock -1
+                |>)
+            else (SOME Error,s)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))
+      | _ => (SOME Error,s)) /\
   (evaluate (FFI ffi_index ptr len ret,s) =
     case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>
@@ -545,7 +571,7 @@ val evaluate_def = tDefine "evaluate" `
          else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
      | _ => (SOME Error,s))`
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-                             (\(xs,(s:('a,'ffi) stackSem$state)). (s.clock,xs)))`
+                             (\(xs,(s:('a,'c,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
    \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]
    \\ imp_res_tac fix_clock_IMP \\ fs []

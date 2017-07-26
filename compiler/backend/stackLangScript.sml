@@ -29,6 +29,8 @@ val _ = Datatype `
        | FFI string num num num (* FFI index, array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
+       | InstallAndRun num num num    (* code buffer start, length of new code, ret_addr *)
+       | CodeBufferWrite num num (* code buffer address, byte to write *)
        (* new in stackLang, compared to wordLang, below *)
        | StackAlloc num         (* allocate n slots on the stack *)
        | StackFree num          (* free n slots on the stack *)
