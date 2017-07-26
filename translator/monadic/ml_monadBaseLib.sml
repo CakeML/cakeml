@@ -27,11 +27,11 @@ fun define_monad_exception_functions exn_type state_type = let
 	val ty = type_of ctor |> dest_type |> snd |> List.hd
 	val ret_type = ``:('a, ^exn_type) exc``
 	val ret_type_aq = ty_antiq ret_type
-	val monad_ret_type = mk_type("prod", [ret_type, state_type])
+	val monad_ret_type = mk_type("fun", [state_type, mk_type("prod", [ret_type, state_type])])
 
 	val var = mk_var("e", ty)
 	val f_var = mk_var("f", mk_type("fun", [ty, monad_ret_type]))
-	val success_fun_body = ``\^var. ^f_var ^var``
+	val success_fun_body = ``\^var. ^f_var ^var ^state_var``
 	val failure_fun_body = ``\^var. ((Failure(^ctor ^var)) : ^ret_type_aq, ^state_var)``
     in (success_fun_body, failure_fun_body) end
     val cases_funs = List.map mk_failure_success_fun exn_cons
@@ -73,7 +73,7 @@ fun define_monad_exception_functions exn_type state_type = let
 
 	val ctor_name = dest_const ctor |> fst
 	val fun_var_name = "handle_" ^ctor_name
-	val fun_type = ``:(^state_type, 'a, ^exn_type) M -> (^ret_type -> ('a, ^exn_type) exc # ^state_type) -> (^state_type, 'a, ^exn_type) M``
+	val fun_type = ``:(^state_type, 'a, ^exn_type) M -> (^ret_type -> (^state_type, 'a, ^exn_type) M) -> (^state_type, 'a, ^exn_type) M``
 	val fun_var = mk_var(fun_var_name, fun_type)
 
 	val fun_def = Define `^fun_var ^monad_x_var f = ^fun_body`

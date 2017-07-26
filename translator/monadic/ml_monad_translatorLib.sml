@@ -127,6 +127,7 @@ fun remove_Eval_storePred e = if same_const (strip_comb e |> fst) Eval_tm then e
 (* ---- *)
 
 (* Prove the specifications for the exception handling *)
+(* val (raise_fun_def, cons_name, exn_type, deep_type) = List.hd raise_info *)
 fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, deep_type) = let
     val fun_tm = concl raise_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
     val refin_inv = smart_get_type_inv exn_type
@@ -161,6 +162,7 @@ fun prove_raise_spec exn_ri_def EXN_RI_tm (raise_fun_def, cons_name, exn_type, d
 in raise_spec end;
 
 val namespaceLong_tm = ``namespace$Long``;
+(* val (handle_fun_def, ECons, exn_type, deep_type) = List.hd handle_info *)
 fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, ECons, exn_type, deep_type) = let
     val fun_tm = concl handle_fun_def |> strip_forall |> snd |> lhs |> strip_comb |> fst
     val TYPE = smart_get_type_inv exn_type
@@ -187,11 +189,12 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, ECons, exn_type, dee
     in Cases_on `^t` g end
 
     val tactics = [rw[handle_fun_def],
-		   rw[handle_fun_def] \\ Cases_on `x1 s` \\ rw[] \\
+		   rw[handle_fun_def] \\ Cases_on `x1 s` \\ fs[] \\
                    case_tac \\ rw[] \\ case_tac \\ rw[],
 		   rw[exn_ri_def],
 		   rw[exn_ri_def] \\ Cases_on `e` \\ fs[exn_ri_def]]
     val proofs = List.map(fn(g, t) => prove(g, t)) (zip assumptions tactics)
+    (* set_goal([], List.nth(assumptions, 1)) *)
 
     (* Remove the assumptions from the theorem *)
     val handle_thm = List.foldl (fn (p, th) => MP th p) handle_thm proofs
@@ -781,7 +784,7 @@ fun m2deep tm =
     in check_inv "return" tm result end
   (* bind *)
   else if can (match_term ``(st_ex_bind (x:^(!bM)) f): ^(!aM)``) tm then let
-    (* val _ = print_tm_msg "bind\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "monad_bind\n" tm DEBUG *) 
     val x1 = tm |> rator |> rand
     val (v,x2) = tm |> rand |> dest_abs
     val th1 = m2deep x1
@@ -811,7 +814,7 @@ fun m2deep tm =
     in check_inv "otherwise" tm result end else
   (* IGNORE_BIND *)
   if can (match_term ``IGNORE_BIND (f:'a -> 'b # 'a) (g:'a -> 'c # 'a)``) tm then let
-    (* val _ = print_tm_msg "IGNORE_BIND\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "IGNORE_BIND\n" tm DEBUG *)
     val lemma = tm |> SIMP_CONV std_ss [state_transformerTheory.IGNORE_BIND_DEF]
     val th = m2deep (lemma |> concl |> rand)
     val result = th |> RW [GSYM lemma]
