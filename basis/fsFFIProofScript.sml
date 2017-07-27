@@ -1,19 +1,7 @@
 open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory optionMonadTheory
+     ltemporalTheory
 
 val _ = new_theory"fsFFIProof"
-
-(* -- read -- *)
-(*
-* "The value returned is the number of bytes read (zero indicates end of file)
-* and the file position is advanced by this number. It is not an error if this
-* number is smaller than the number of bytes requested; this may happen for
-* example because fewer bytes are actually available right now (maybe because we
-* were close to end-of-file, or because we are reading from a pipe, or from a
-* terminal), or because the system call was interrupted by a signal.
-*
-* Alternatively, -1 is returned when an error occurs, in such a case errno is
-* set appropriately and further it is left unspecified whether the file position
-* (if any) changes." *)
 
 val _ = monadsyntax.add_monadsyntax();
 
@@ -146,6 +134,10 @@ val wfFS_bumpFD = Q.store_thm(
 val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
   `validFD fd fs ⇒ validFD fd (bumpFD fd fs n)`,
   rw[bumpFD_def,validFD_def]);
+
+val validFD_ALOOKUP = Q.store_thm("validFD_ALOOKUP",
+  `validFD fd fs ==> ?v. ALOOKUP fs.infds fd = SOME v`,
+  rw[validFD_def] >> cases_on`ALOOKUP fs.infds fd` >> fs[ALOOKUP_NONE]);
 
 val inFS_fname_def = Define `
   inFS_fname fs s = (s ∈ FDOM (alist_to_fmap fs.files))`
@@ -291,6 +283,17 @@ val LENGTH_insert_atI = Q.store_thm(
   `p + LENGTH l1 <= LENGTH l2 ⇒ LENGTH (insert_atI l1 p l2) = LENGTH l2`,
   simp[insert_atI_def]);
 
+val insert_atI_app = Q.store_thm("insert_atI_app",
+  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
+     insert_atI (c1 ++ c2) n l = 
+     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
+  induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
+
+val insert_atI_end = Q.store_thm("insert_atI_end",
+  `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
+  simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
+
+(* TODO: used? *)
 val bumpAllFD_def = Define`
   bumpAllFD fd fs =
     the fs (do
@@ -298,11 +301,6 @@ val bumpAllFD_def = Define`
       content <- ALOOKUP fs.files fnm;
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## (MAX (LENGTH content))))
     od)`;
-val insert_atI_app = Q.store_thm("insert_atI_app",
-  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
-     insert_atI (c1 ++ c2) n l = 
-     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
-  induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
 
 val LUPDATE_insert_commute = Q.store_thm(
   "LUPDATE_insert_commute",
@@ -364,86 +362,53 @@ val fsupdate_LTL = Q.store_thm("fsupdate_LTL",
    fsupdate (fs with numchars := t) fd k p c`,
    rw[] >> fs[fsupdate_def,LDROP]);
 
-(* temporal logic properties for numchars *)
+val get_file_content_validFD = Q.store_thm("get_file_content_validFD",
+  `get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs`,
+  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
+  imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >> 
+  qexists_tac`(fd,x)` >> fs[]);
 
-val (eventually_rules,eventually_ind,eventually_cases) = Hol_reln`
-  (!ll. P ll ==> eventually P ll) /\
-  (!h t. ¬P (h:::t) /\ eventually P t ==> eventually P (h:::t)) `;
+val get_file_content_fsupdate = Q.store_thm("get_file_content_fsupdate",
+  `get_file_content fs fd = SOME u ⇒
+  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)`,
+  rw[get_file_content_def, fsupdate_def] >>
+  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
 
-val eventually_thm = store_thm(
-  "eventually_thm",
-  ``(eventually P [||] = P [||]) /\
-    (eventually P (h:::t) = (P (h:::t) \/(¬ P (h:::t) /\ eventually P t)))``,
-  CONJ_TAC THEN
-  CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [eventually_cases])) THEN
-  SRW_TAC [][]);
+val get_file_content_fsupdate_unchanged = Q.store_thm(
+  "get_file_content_fsupdate_unchanged",
+  `get_file_content fs fd = SOME u ⇒ 
+   ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒ 
+   ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
+  get_file_content (fsupdate fs fd' x i c) fd = SOME u`,
+  rw[get_file_content_def, fsupdate_def] >>
+  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
+  rpt(CASE_TAC >> fs[]));
 
-val _ = export_rewrites ["eventually_thm"]
-
-val (always_rules,always_ind,always_cases) = Hol_reln`
-  (!h t. (P (h ::: t) /\ always P t) ==> always P (h ::: t)) `;
-
-val always_thm = store_thm(
-  "always_thm",
-  ``!h t. always P (h ::: t) = (P (h ::: t) /\ always P t) /\
-    ¬ always P [||]``,
-  rw[Once always_cases] >> rw[Once always_cases]);
-val _ = export_rewrites ["always_thm"]
-
-val always_eventually = Q.store_thm("always_eventually", 
-  `!ll. always (eventually P) ll ==> 
-    ?k. (P (THE (LDROP k ll)) /\ always(eventually P) (THE(LDROP k ll)))`,
-    HO_MATCH_MP_TAC always_ind >> 
-    rw[always_thm,eventually_thm] >>
-    qexists_tac`SUC k` >> fs[LDROP]);
-
-val always_eventually_ind = Q.store_thm("always_eventually_ind",
-  `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
-   !ll. always(eventually P) ll ==> Q ll`,
-   strip_tac >> HO_MATCH_MP_TAC always_ind >> rw[] >> fs[] >>
-   cases_on`P (h:::t)` >> fs[]);
-
-val always_DROP = Q.store_thm("always_DROP",
-  `!ll. always P ll ==> always P (THE(LDROP k ll))`,
-  Induct_on`k` >> cases_on`ll` >> fs[always_thm,LDROP]);
-  
 (* the filesystem will always eventually allow to write something *)
 val liveFS_def = Define`
     liveFS fs = 
         always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars`
 
-val always_NOT_LFINITE = Q.store_thm("always_NOT_LFINITE",
-    `!ll. always P ll ==> ¬ LFINITE ll`,
-    HO_MATCH_MP_TAC always_ind >> rw[]);
+val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
+ `liveFS fs ⇒ liveFS (openFileFS s fs n)`,
+  rw[liveFS_def,openFileFS_def, openFile_def] >>
+  CASE_TAC >> fs[] >> CASE_TAC >> fs[] >>
+  `r.numchars = fs.numchars` by
+    (cases_on`fs` >> cases_on`r` >> fs[IO_fs_infds_fupd]) >>
+  fs[]);
 
-val LDROP_1 = Q.store_thm("LDROP_1",
-  `LDROP (1: num) (h:::t) = SOME t`,
-  `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>
-  metis_tac[ONE]);
+val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
+ `liveFS fs ⇒ liveFS (fsupdate fs fd n k c)`,
+ rw[liveFS_def,fsupdate_def,always_DROP]);
+
+val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
+ `liveFS fs ⇒ liveFS (bumpFD fd fs k)`,
+  rw[liveFS_def,bumpFD_def] >> cases_on`fs.numchars` >> fs[]);
 
 val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
  `wfFS fs ==> LDROP k fs.numchars = SOME numchars' ==>
     wfFS (fs with numchars := numchars')`,
  rw[wfFS_def] >> metis_tac[NOT_LFINITE_DROP_LFINITE]);
-
-val Lnext_def = tDefine "Lnext" `
-  Lnext P ll = if eventually P ll then
-                        if P ll then 0
-                        else SUC(Lnext P (THE (LTL ll)))
-                     else ARB` 
- (qexists_tac`(\(P,ll') (P',ll). 
-    P = P' /\ eventually P ll /\ eventually P ll' /\
-    LTL ll = SOME ll' /\ ¬ P ll)` >>reverse(rw[WF_DEF,eventually_thm])
-  >-(cases_on`ll` >> fs[])
-  >-(cases_on`ll` >> fs[]) >>
-  cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
-  reverse(cases_on`eventually P ll`)
-  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
-  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >> 
-  HO_MATCH_MP_TAC eventually_ind >> rw[]
-  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
-  cases_on`B(P,ll)` >-(metis_tac[]) >>
-  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
 
 val Lnext_pos_def = Define`
   Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
@@ -460,5 +425,6 @@ val fsupdate_o = Q.store_thm("fsupdate_o",
   fs[LDROP_ADD,liveFS_def] >>
   imp_res_tac always_NOT_LFINITE >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]);
+
 val _ = export_theory();
 

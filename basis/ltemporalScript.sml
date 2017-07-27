@@ -48,6 +48,7 @@ val always_NOT_LFINITE = Q.store_thm("always_NOT_LFINITE",
     `!ll. always P ll ==> ¬ LFINITE ll`,
     HO_MATCH_MP_TAC always_ind >> rw[]);
 
+(* TODO: move *)
 val LDROP_1 = Q.store_thm("LDROP_1",
   `LDROP (1: num) (h:::t) = SOME t`,
   `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>

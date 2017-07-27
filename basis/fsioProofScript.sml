@@ -3,7 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIProofTheory fsioProgTheory 
      cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
-     mlw8arrayProgTheory mlstringProgTheory cfMainTheory
+     mlw8arrayProgTheory mlstringProgTheory cfMainTheory ltemporalTheory
     
 val _ = new_theory"fsioProof";
 
@@ -18,10 +18,10 @@ val IOFS_iobuff_def = Define`
     SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v = 258) `;
 
 val IOFS_def = Define `
-  IOFS fs = IOx fs_ffi_part fs * &(wfFS fs)`
+  IOFS fs = IOx fs_ffi_part fs * &(wfFS fs ∧ liveFS fs)`
 
 val IOFS_precond = Q.store_thm("IOFS_precond",
-  `wfFS fs ⇒
+  `wfFS fs ⇒ liveFS fs ⇒ 
    IOFS fs
     {FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}`,
   rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def]
@@ -153,8 +153,7 @@ val openIn_spec = Q.store_thm(
   `∀s sv fs.
      FILENAME s sv ∧
      CARD (FDOM (alist_to_fmap fs.infds)) < 255 ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "IO.openIn" (basis_st()))
-       [sv]
+     app (p:'ffi ffi_proj) ^(fetch_v "IO.openIn" (basis_st())) [sv]
        (IOFS fs * IOFS_iobuff)
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
@@ -198,7 +197,8 @@ val openIn_spec = Q.store_thm(
     >- (xsimpl >> rw[Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,iobuff_loc,HD_LUPDATE]) >>
     xlet_auto >- (xsimpl) >> xif
     >-(xapp >> simp[fsioProgTheory.iobuff_loc_def] >> xsimpl >>
-    fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`]) >>
+    fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`,
+       liveFS_openFileFS]) >>
     xlet_auto >- (xcon >> xsimpl)
     >- (xraise >> xsimpl >>
         sg `0 < LENGTH (LUPDATE (n2w (nextFD fs)) 1 fnm)`
@@ -236,10 +236,6 @@ val openIn_spec = Q.store_thm(
 
 (* openOut, openAppend here *)
 
-val validFD_ALOOKUP = Q.store_thm("validFD_ALOOKUP",
-  `validFD fd fs ==> ?v. ALOOKUP fs.infds fd = SOME v`,
-  rw[validFD_def] >> cases_on`ALOOKUP fs.infds fd` >> fs[ALOOKUP_NONE]);
-
 val close_spec = Q.store_thm(
   "close_spec",
   `∀(fdw:word8) fdv fs.
@@ -249,7 +245,7 @@ val close_spec = Q.store_thm(
        (POST (\u. &(UNIT_TYPE () u /\ validFD (w2n fdw) fs) *
                  IOFS (fs with infds updated_by A_DELKEY (w2n fdw)))
              (\e. &(InvalidFD_exn e /\ ¬ validFD (w2n fdw) fs) * IOFS fs))`,
-  xcf "IO.close" (basis_st()) >> simp[IOFS_def, IOFS_iobuff_def] >> xpull >>
+  xcf "IO.close" (basis_st()) >> fs[IOFS_def, IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[] >>
   xlet_auto >- xsimpl >> fs[LUPDATE_def] >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
@@ -267,6 +263,7 @@ val close_spec = Q.store_thm(
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] 
       >-(imp_res_tac validFD_ALOOKUP >> cases_on`fs` >> fs[IO_fs_infds_fupd])
+      >-(fs[liveFS_def,IO_fs_infds_fupd])
       >-(fs[validFD_def] >> imp_res_tac ALOOKUP_NONE >> fs[])) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
@@ -275,7 +272,7 @@ val close_spec = Q.store_thm(
   xraise >> fs[InvalidFD_exn_def,IOFS_def] >> xsimpl);
       
 val writei_spec = Q.store_thm("writei_spec",
- `liveFS fs ⇒ wfFS fs ⇒ validFD (w2n fd) fs ⇒ 0 < n ⇒
+ `validFD (w2n fd) fs ⇒ 0 < n ⇒
   w2n fd < 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
   get_file_content fs (w2n fd) = SOME(content, pos) ⇒
   WORD (fd:word8) fdv ⇒ WORD (n2w n:word8) nv ⇒ WORD (n2w i:word8) iv ⇒
@@ -291,31 +288,29 @@ val writei_spec = Q.store_thm("writei_spec",
     (\e. &(InvalidFD_exn e) * W8ARRAY iobuff_loc (1w:: n2w n::rest) * &(F) *
          IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`,
   strip_tac >> fs[liveFS_def] >> `?ll. fs.numchars = ll` by simp[]  >> fs[] >>
-  `liveFS fs` by fs[liveFS_def] >> FIRST_X_ASSUM MP_TAC >> FIRST_X_ASSUM MP_TAC >> 
+  reverse(cases_on`liveFS fs`) >- (rw[IOFS_def] >> xpull) >> fs[liveFS_def] >>
+  rfs[] >> LAST_X_ASSUM MP_TAC >> LAST_X_ASSUM MP_TAC >> 
   qid_spec_tac `bc`>> qid_spec_tac `h3` >>  qid_spec_tac `h2` >> qid_spec_tac `h1` >> 
   qid_spec_tac `fs` >> FIRST_X_ASSUM MP_TAC >> qid_spec_tac `ll` >> 
-  HO_MATCH_MP_TAC always_eventually_ind >>
-  xcf "IO.writei" (basis_st()) >> fs[iobuff_loc_def]>>
-  `ll = fs.numchars` by simp[] >> fs[]
+  HO_MATCH_MP_TAC always_eventually_ind >> rw[IOFS_def] >> xpull >>
+  xcf "IO.writei" (basis_st()) >> fs[iobuff_loc_def]
 (* next el is <> 0 *)
   >-(sg`Lnext_pos fs.numchars = 0`   
      >-(fs[Lnext_pos_def,Once Lnext_def,liveFS_def,always_thm] >>
         cases_on`fs.numchars` >> fs[]) >>
-     NTAC 3 (xlet_auto >-(simp[LUPDATE_def] >> xsimpl)) >>
+     NTAC 3 (xlet_auto >-(simp[LUPDATE_def] >> xsimpl>> metis_tac[])) >>
      xlet`POSTv uv. &(UNIT_TYPE () uv) *
             W8ARRAY iobuff_loc (0w:: n2w (MIN n k) :: n2w i :: rest) *
             IOFS (fsupdate fs (w2n fd) 1 (MIN n k + pos)
                           (TAKE pos content ++ 
                            TAKE (MIN n k) (MAP (CHR o w2n) (DROP i rest)) ++ 
                            DROP (MIN n k + pos) content))`
-     >-(qmatch_goalsub_abbrev_tac` _ * _ * IOFS fs'` >>
-        xffi >> xsimpl >>
+     >-(qmatch_goalsub_abbrev_tac` _ * _ * IOFS fs'` >> xffi >> xsimpl >>
         fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def,
                mk_ffi_next_def] >>
         qmatch_goalsub_abbrev_tac`IO st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >>
-        xsimpl >>
+        map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >> xsimpl >>
         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
            ffi_write_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
            dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
@@ -323,7 +318,7 @@ val writei_spec = Q.store_thm("writei_spec",
            get_file_content_def] >>
         pairarg_tac >> xsimpl >>
         `MEM (w2n fd) (MAP FST fs.infds)` by (metis_tac[MEM_MAP]) >>
-        rw[] >> TRY(metis_tac[wfFS_fsupdate]) >>
+        rw[] >> TRY(metis_tac[wfFS_fsupdate,liveFS_fsupdate]) >>
         EVAL_TAC >>
         qmatch_goalsub_abbrev_tac`_ /\ _ = SOME(xx, _ yy)` >>
         qexists_tac`(xx,yy)` >> xsimpl >> fs[Abbr`xx`,Abbr`yy`] >>
@@ -333,14 +328,18 @@ val writei_spec = Q.store_thm("writei_spec",
      qmatch_goalsub_abbrev_tac` _ * IOFS fs'` >>
      qmatch_goalsub_abbrev_tac`W8ARRAY _ (_::m:: n2w i :: rest)` >>
      fs[iobuff_loc_def] >>
-     NTAC 3 (xlet_auto >- xsimpl) >>
-     xif >> fs[FALSE_def] >> instantiate >>
+     NTAC 3 (xlet_auto >- xsimpl) >> xif >> fs[FALSE_def] >> instantiate >>
      NTAC 3 (xlet_auto >- xsimpl) >>
      xif >> fs[FALSE_def] >> instantiate >> xvar >> xsimpl >>
-     instantiate >> fs[Abbr`fs'`,MIN_DEF,insert_atI_def] >> xsimpl) >>
+     fs[IOFS_def,wfFS_fsupdate,liveFS_fsupdate] >>
+     instantiate >> fs[Abbr`fs'`,MIN_DEF,insert_atI_def] >> xsimpl >>
+     fs[get_file_content_def] >> pairarg_tac >> fs[] >>
+     imp_res_tac ALOOKUP_MEM >>
+     `MEM (w2n fd) (MAP FST fs.infds)` by (fs[MEM_MAP] >> instantiate) >>
+     fs[wfFS_fsupdate]) >>
  (* next element is 0 *)
   cases_on`fs.numchars` >- fs[liveFS_def] >> fs[] >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
+  NTAC 3 (xlet_auto >- (xsimpl >> EVAL_TAC >> fs[LUPDATE_def])) >>
   xlet`POSTv uv. &(UNIT_TYPE () uv) * W8ARRAY iobuff_loc (0w:: 0w :: n2w i :: rest) *
         IOFS (fsupdate fs (w2n fd) 1 pos
                           (TAKE pos content ++ 
@@ -361,7 +360,7 @@ val writei_spec = Q.store_thm("writei_spec",
        get_file_content_def] >>
     pairarg_tac >> xsimpl >>
     `MEM (w2n fd) (MAP FST fs.infds)` by (metis_tac[MEM_MAP]) >>
-    rw[] >> TRY(metis_tac[wfFS_fsupdate]) >>
+    rw[] >> TRY(metis_tac[wfFS_fsupdate,liveFS_fsupdate,Abbr`fs'`]) >>
     EVAL_TAC >>
     qexists_tac`(0w::0w::n2w i::rest,fs')` >> fs[] >>
     qexists_tac`(0, fs')` >> fs[Abbr`fs'`,fsupdate_def] >>
@@ -381,12 +380,11 @@ val writei_spec = Q.store_thm("writei_spec",
      fs[IO_fs_component_equality] >> fs[wfFS_def,get_file_content_def] >>
      pairarg_tac >> fs[ALIST_FUPDKEY_unchanged,LDROP_1]) >>
   fs[Abbr`fs'`,get_file_content_def,liveFS_def,fsupdate_def,LDROP_1,
-     wfFS_fsupdate,validFD_def] >>
+     wfFS_fsupdate,validFD_def,liveFS_fsupdate,IOFS_def] >>
   pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >>
-  rw[] >> instantiate >>
   `Lnext_pos (0:::t) = SUC(Lnext_pos t)` by 
     (fs[Lnext_pos_def,Once Lnext_def,liveFS_def]) >>
-  fs[ADD] >> xsimpl);
+  fs[ADD] >> xsimpl >> rw[] >> instantiate >> xsimpl);
 
 val insert_atI_insert_atI = Q.store_thm("insert_atI_insert_atI",
   `pos2 = pos1 + LENGTH c1 ==>
@@ -398,7 +396,7 @@ val insert_atI_insert_atI = Q.store_thm("insert_atI_insert_atI",
 
 val write_spec = Q.store_thm("write_spec",
  `!n fs i pos h1 h2 h3 rest bc fdv nv iv fd content.
-  liveFS fs ⇒ wfFS fs ⇒ validFD (w2n fd) fs ⇒
+  validFD (w2n fd) fs ⇒
   w2n fd < 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
   get_file_content fs (w2n fd) = SOME(content, pos) ⇒
   WORD (fd:word8) fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
@@ -418,8 +416,10 @@ val write_spec = Q.store_thm("write_spec",
 	 >-(TRY instantiate >> xcon >>
 		simp[IOFS_iobuff_def] >> xsimpl >> qexists_tac`0` >>
 	    fs[fsupdate_unchanged,insert_atI_def] >> xsimpl)) >>
+  reverse(cases_on`liveFS fs`) >- (simp[IOFS_def] >> xpull) >>
   NTAC 2 (xlet_auto >- xsimpl) >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
+  PURE_REWRITE_TAC[GSYM IOFS_def] >>
   xlet_auto >> xsimpl
   >-(simp[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl) >> 
   xlet_auto >- xsimpl >> reverse xif
@@ -432,7 +432,7 @@ val write_spec = Q.store_thm("write_spec",
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPECL[`fs'`,`nw + i`,`pos+nw`]) >>
   FIRST_X_ASSUM xapp_spec >> xsimpl >> instantiate >>
   qexists_tac`insert_atI (TAKE nw (MAP (CHR ∘ w2n) (DROP i rest))) pos content` >>
-  NTAC 4 (strip_tac >-(
+  NTAC 2 (strip_tac >-(
 		  fs[Abbr`fs'`,liveFS_def,LDROP_1, wfFS_fsupdate,validFD_def,
 			 always_DROP,ALIST_FUPDKEY_ALOOKUP,get_file_content_def,wfFS_fsupdate] >>
 		  pairarg_tac >> fs[fsupdate_def,always_DROP,ALIST_FUPDKEY_ALOOKUP])) >>
@@ -445,7 +445,6 @@ val write_spec = Q.store_thm("write_spec",
 
 val write_char_spec = Q.store_thm("write_char_spec",
   `!(fd :word8) fdv c cv bc content pos.
-    liveFS fs ⇒ wfFS fs ⇒
     validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
     get_file_content fs (w2n fd) = SOME(content, pos) ⇒
     CHAR c cv ⇒ WORD fd fdv ⇒
@@ -471,11 +470,15 @@ val write_char_spec = Q.store_thm("write_char_spec",
   xcon >> fs[IOFS_iobuff_def] >> xsimpl >> rw[] >>
   fs[CHR_ORD,LESS_MOD,ORD_BOUND] >> qexists_tac`k` >> xsimpl);
 
+(* TODO: move *)
+val LDROP_NONE_LFINITE = Q.store_thm("LDROP_NONE_LFINITE", 
+  `LDROP k l = NONE ⇒ LFINITE l`,
+  cases_on`LFINITE l` >> fs[NOT_LFINITE_DROP,NOT_SOME_NONE] >>
+  `∃ v. LDROP k l = SOME v` by fs[NOT_LFINITE_DROP] >> fs[]);
+
 val output_spec = Q.store_thm("output_spec",
   `!s (fd :word8) fdv sv fs content pos. 
-    WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ 
-    STRING_TYPE s sv ⇒
-    liveFS fs ⇒ w2n fd < 255 ⇒  wfFS fs ⇒
+    WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ STRING_TYPE s sv ⇒w2n fd < 255 ⇒ 
     (get_file_content fs (w2n fd) = SOME(content, pos)) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.output" (basis_st())) [fdv; sv]
     (IOFS fs * IOFS_iobuff)  
@@ -495,6 +498,7 @@ val output_spec = Q.store_thm("output_spec",
   (xif >-(xcon >> xsimpl >> qexists_tac`0` >>
          fs[fsupdate_unchanged,insert_atI_NIL] >> xsimpl))
   >-(cases_on`s` >> fs[strlen_def]) >>
+  reverse(cases_on`liveFS fs`) >-(simp[IOFS_def] >> xpull) >>
   fs[insert_atI_def] >>
   sg`STRLEN (explode (substring s 0 255)) + 3 ≤ 258`
   >- (fs[LENGTH_explode,substring_def] >> CASE_TAC >>
@@ -536,17 +540,15 @@ val output_spec = Q.store_thm("output_spec",
   >-(`255 <= STRLEN s'` by fs[] >> fs[extract_aux_TAKE] >>
      fs[DROP_LENGTH_TOO_LONG,LENGTH_TAKE_EQ,LENGTH_extract_aux,LENGTH_APPEND] >>
      CASE_TAC >> fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DROP_DROP_T,LENGTH_TAKE_EQ])
-  >-(fs[LDROP_ADD] >> CASE_TAC >> fs[] >>
-     sg`?v. LDROP k fs.numchars = SOME v`
-     >-(imp_res_tac always_NOT_LFINITE >>
-        fs[LFINITE_DROP,NOT_LFINITE_DROP,always_NOT_LFINITE]) >>
-     fs[]));
+  >-(fs[LDROP_ADD] >> CASE_TAC >> fs[] >> 
+     imp_res_tac LDROP_NONE_LFINITE >> imp_res_tac always_NOT_LFINITE));
+
 
 val read_spec = Q.store_thm("read_spec",
   `validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
    WORD (fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
    LENGTH rest = 256 ⇒  w2n n <= 255 ⇒ 
-   wfFS fs ⇒  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+   get_file_content fs (w2n fd) = SOME(content, pos) ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "IO.read" (basis_st())) [fdv;nv]
    (W8ARRAY iobuff_loc (h1 :: h2 :: rest) * IOFS fs)
    (POSTv uv. 
@@ -556,7 +558,7 @@ val read_spec = Q.store_thm("read_spec",
       IOFS (bumpFD (w2n fd) fs nr) *
       W8ARRAY iobuff_loc (0w :: n2w nr :: 
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))`,
-   xcf "IO.read" (basis_st()) >> 
+   xcf "IO.read" (basis_st()) >> fs[IOFS_def] >> xpull >>
    NTAC 2 (xlet_auto >- (fs[LUPDATE_def] >> xsimpl)) >>
    simp[LUPDATE_def,EVAL ``LUPDATE rr 1 (zz :: tt)``] >>
    xffi >> xsimpl >>
@@ -573,14 +575,13 @@ val read_spec = Q.store_thm("read_spec",
    pairarg_tac >> xsimpl >> fs[] >>
    cases_on`fs.numchars` >> fs[wfFS_def] >>
    qmatch_goalsub_abbrev_tac`k = _ MOD 256` >> qexists_tac`k` >>
-   fs[MIN_LE,eof_def,Abbr`k`] >> rfs[] >> metis_tac[]);
-
+   fs[MIN_LE,eof_def,Abbr`k`] >> rfs[liveFS_bumpFD] >> metis_tac[]);
 
 
 val read_char_spec = Q.store_thm("read_char_spec",
   `!(fd :word8) fdv content pos.
     WORD fd fdv ⇒ validFD (w2n fd) fs ⇒ w2n fd < 255 ⇒
-    wfFS fs ⇒  get_file_content fs (w2n fd) = SOME(content, pos) ⇒
+    get_file_content fs (w2n fd) = SOME(content, pos) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.read_char" (basis_st())) [fdv]
     (IOFS fs * IOFS_iobuff) 
     (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
@@ -622,6 +623,8 @@ val STDERR_def = Define`
     STDERR output = IOFS_iobuff * SEP_EXISTS fs. IOFS fs * &liveFS fs *
       &(get_file_content fs 2 = SOME(output,LENGTH output))` 
 
+(* TODO: split here? *)
+
 val encode_fds_11 = Q.store_thm("encode_fds_11",
   `encode_fds l1 = encode_fds l2 ⇒ l1 = l2`,
   rw[] >> `decode_fds (encode_fds l1) = decode_fds(encode_fds l2)` by fs[] >>
@@ -641,9 +644,9 @@ val UNIQUE_IOFS = Q.store_thm("UNIQUE_IOFS",
   IMP_RES_TAC FRAME_UNIQUE_IO >> 
   fs[encode_files_11,encode_fds_11,IO_fs_component_equality]);
 
-val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
-  `FFI_part_hprop (STDIN x)`,
-  rw [STDIN_def,IOFS_def,
+val IOFS_FFI_part_hprop = Q.store_thm("IOFS_FFSI_part_hprop",
+  `FFI_part_hprop (IOFS fs)`,
+  rw [IOFS_def,
       cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
       fs_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
     set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
@@ -652,33 +655,6 @@ val STDIN_FFI_part_hprop = Q.store_thm("STDIN_FFI_part_hprop",
   \\ fs[set_sepTheory.one_STAR,STAR_def]
   \\ imp_res_tac SPLIT_SUBSET >> fs[SUBSET_DEF]
   \\ metis_tac[]);
-
-val STDOUT_FFI_part_hprop = Q.store_thm("STDOUT_FFI_part_hprop",
-  `FFI_part_hprop (STDOUT x)`,
-  rw [STDOUT_def,IOFS_def,
-      cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-      fs_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
-    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
-    cfHeapsBaseTheory.W8ARRAY_def,IOFS_iobuff_def,
-    cfHeapsBaseTheory.cell_def]
-  \\ fs[set_sepTheory.one_STAR,STAR_def]
-  \\ imp_res_tac SPLIT_SUBSET >> fs[SUBSET_DEF]
-  \\ metis_tac[]);
-  
-val STDERR_FFI_part_hprop = Q.store_thm("STDERR_FFI_part_hprop",
-  `FFI_part_hprop (STDERR x)`,
-  rw [STDERR_def,IOFS_def,
-      cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
-      fs_ffi_part_def, cfMainTheory.FFI_part_hprop_def,
-    set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
-    cfHeapsBaseTheory.W8ARRAY_def,IOFS_iobuff_def,
-    cfHeapsBaseTheory.cell_def]
-  \\ fs[set_sepTheory.one_STAR,STAR_def]
-  \\ imp_res_tac SPLIT_SUBSET >> fs[SUBSET_DEF]
-  \\ metis_tac[]);
-open mllistProgTheory
-
-(* `(UNIT_TYPE --> WORD) (\u. 0w) (^(fetch_v "IO.stdin" (basis_st())))` *)
 
 val stdin_spec = Q.store_thm("stdin_spec",
   `UNIT_TYPE () uv ⇒
@@ -701,36 +677,6 @@ val stderr_spec = Q.store_thm("stderr_spec",
   xcf "IO.stderr" (basis_st()) >> xmatch >> fs[UNIT_TYPE_def] >>
   rw[] >-(xapp >> xsimpl) >> EVAL_TAC);
 
-(* use earlier *)
-val get_file_content_validFD = Q.store_thm("get_file_content_validFD",
-  `get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs`,
-  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
-  imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >> instantiate);
-
-val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
-  `liveFS fs ⇒ liveFS (fsupdate fs fd k i c)`,
-  fs[liveFS_def,fsupdate_def,always_DROP]);
-
-val get_file_content_fsupdate = Q.store_thm("get_file_content_fsupdate",
-  `get_file_content fs fd = SOME u ⇒
-  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)`,
-  rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
-
-val get_file_content_fsupdate_unchanged = Q.store_thm(
-  "get_file_content_fsupdate_unchanged",
-  `get_file_content fs fd = SOME u ⇒ 
-   ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒ 
-   ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
-  get_file_content (fsupdate fs fd' x i c) fd = SOME u`,
-  rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
-  rpt(CASE_TAC >> fs[]));
-
-val insert_atI_end = Q.store_thm("insert_atI_end",
-  `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
-  simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
-
 val print_spec = Q.store_thm("print_spec",
   `!s sv fs output. 
     STRING_TYPE s sv ⇒
@@ -743,6 +689,8 @@ val print_spec = Q.store_thm("print_spec",
   fs[get_file_content_validFD,IOFS_def] >> xsimpl >> rw[] >> instantiate >>
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode] >> xsimpl);
+
+(* TODO split here *)
 
 open mlcommandLineProgTheory
 (*---------------------------------------------------------------------------*)
@@ -777,14 +725,17 @@ val basis_ffi_oracle_def = Define `
        | _ => Oracle_fail else
      Oracle_fail`
 
+val basis_fs_def = Define`
+  basis_fs inp files numchars = 
+    <| files := ((strlit "stdin",inp)::(strlit "stdout","")::(strlit "stderr","")::files);
+       infds := [(0,strlit "stdin",0);(1,strlit "stdout",0);(2,strlit "stderr",0)];
+       numchars := numchars |> : IO_fs`
+
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
   basis_ffi (inp: string) (cls: string list) files numchars =
     <| oracle := basis_ffi_oracle
-     ; ffi_state := (cls,
-        (<| files := ((strlit "stdin",inp)::(strlit "stdout","")::(strlit "stderr","")::files);
-            infds := [(0,strlit "stdin",0);(1,strlit "stdout",0);(2,strlit "stderr",0)];
-            numchars := numchars |> : IO_fs))
+     ; ffi_state := (cls, basis_fs inp files numchars)
      ; final_event := NONE
      ; io_events := [] |>`;
 
@@ -797,133 +748,46 @@ val basis_proj2_def = Define `
     [mk_proj2 commandLine_ffi_part;
      mk_proj2 fs_ffi_part]`;
 
-(* TODO useful? *)
-val basis_proj1_read = Q.store_thm("basis_proj1_read",
-  `basis_proj1 ffi ' "read" = encode (SND ffi)`,
-  PairCases_on`ffi` \\ EVAL_TAC);
-
 val basis_proj1_write = Q.store_thm("basis_proj1_write",
   `basis_proj1 ffi ' "write" = encode(SND ffi)`,
   PairCases_on`ffi` \\ EVAL_TAC);
 
-(* extracts the list of file descriptors linked to a given file name *)
-val extract_fds_def = Define`
- (extract_fds fname [] = if fname = "stdin" then [0w] else
-                         if fname = "stdout" then [1w] else
-                         if fname = "stderr" then [2w] else []) ∧
- (extract_fds fname ((IO_event name bytes)::xs) =
- if name = "open" ∧  getNullTermStr (MAP FST bytes) = SOME fname
- then SND(HD(TL bytes)) :: extract_fds fname xs else
- if name = "close" then FILTER (\fd. fd <> FST(HD bytes)) (extract_fds fname xs)
- else extract_fds fname xs)`;
+(* builds the file system from a list of events *)
+val extract_fs_def = Define `
+  (extract_fs init_fs [] = SOME init_fs) ∧ 
+  (extract_fs init_fs ((IO_event name bytes)::xs) =
+     do
+       ffi_fun <- ALOOKUP [("open_in",ffi_open_in); ("write",ffi_write);
+                           ("open_out",ffi_open_out); ("read",ffi_read);
+                           ("close",ffi_close);
+                           ("getArgs", λ b fs. SOME (b,fs))]
+                          name;
+       (bytes',fs') <- ffi_fun (MAP FST bytes) init_fs;
+       extract_fs fs' xs
+     od)`
 
- (* TODO: ghere  *)
-
-val extract_file_def = Define `
-  (extract_file fname [] = SOME "") ∧ 
-  (extract_file fname ((IO_event name bytes)::xs) =
-     case extract_file fname xs of
-     | NONE => NONE
-     | SOME rest => 
-         if name ≠ "write" ∨ ¬ MEM (FST(HD bytes)) (extract_fds fname xs)
-         then SOME rest else
-         if LENGTH bytes <> 258 then NONE else
-         if SND(HD bytes) = 0w then SOME rest else
-           let nw = w2n(SND(HD(TL bytes))) in
-           let i = w2n(FST(HD(TL(TL bytes)))) in
-           SOME(MAP (CHR o w2n o SND) (TAKE nw (DROP (3 + i) bytes)) ++ rest))`
-
-val extract_file_APPEND = Q.store_thm("extract_output_APPEND",
-  `!xs ys.
-      extract_file fname (xs ++ ys) =
-      case extract_file fname ys of
+val extract_fs_APPEND = Q.store_thm("extract_fs_APPEND",
+ `!xs ys init_fs. extract_fs init_fs (xs ++ ys) = 
+   case extract_fs init_fs xs of
       | NONE => NONE
-      | SOME rest => case extract_file fname xs of
-                     | NONE => NONE
-                     | SOME front => SOME (front ++ rest)`,
-  Induct \\ fs [APPEND,extract_file_def] \\ rw []
-  THEN1 (every_case_tac \\ fs [])
-  \\ Cases_on `h` \\ fs [extract_file_def,MEM_APPEND]
-  cheat
-  \\ rpt (CASE_TAC \\ fs []));
+      | SOME fs => extract_fs fs ys`,
+  induct_on`xs` >> rw[extract_fs_def] >> CASE_TAC >>
+  cases_on`h` >> fs[extract_fs_def] >>
+  pairarg_tac >> fs[]);
 
-val extract_err_APPEND = Q.store_thm("extract_err_APPEND",
-  `!xs ys.
-      extract_err (xs ++ ys) =
-      case extract_err ys of
-      | NONE => NONE
-      | SOME rest => case extract_err xs of
-                     | NONE => NONE
-                     | SOME front => SOME (front ++ rest)`,
-  Induct \\ fs [APPEND,extract_err_def] \\ rw []
-  THEN1 (every_case_tac \\ fs [])
-  \\ Cases_on `h` \\ fs [extract_err_def]
-  \\ rpt (CASE_TAC \\ fs []));
 (*-------------------------------------------------------------------------------------------------*)
 
-(*The following thms are used to automate the proof of the SPLIT of the heap in ioProgLib*)
-val append_hprop = Q.store_thm ("append_hprop",
-  `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`,
-  rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
-);
-
-val SPLIT_exists = Q.store_thm ("SPLIT_exists",
-  `(A * B) s /\ s ⊆ C
-    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
-  rw[]
-  \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
-  \\ SPLIT_TAC
-);
-
-val append_emp_err = Q.store_thm("append_emp_err",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y)
-    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * STDERR y * emp)`,
-  rw[set_sepTheory.SEP_CLAUSES]);
-
-val append_emp_out = Q.store_thm("append_emp_out",
-   `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x)
-    ==> app p fv xs P (POSTv uv. (A uv) * STDOUT x * emp)`,
-  rw[set_sepTheory.SEP_CLAUSES]);
-
-val append_STDERR = Q.store_thm("append_STDERR",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT x * P')
-  ==> app p fv xs (P * STDERR y) (POSTv uv. (A uv) * STDOUT x * STDERR y * P')`,
-  rw[]
-  \\ qmatch_abbrev_tac `app p fv xs H Q`
-  \\ `H ==>> P * STDERR y` by (rw[] \\ fs[SEP_IMP_REFL])
-  \\ imp_res_tac app_wgframe
-  \\ `(POSTv uv. A uv * STDOUT x * P') *+ STDERR y ==+> Q *+ GC`
-       suffices_by (fs[])
-  \\ rw[Abbr `Q`]
-  \\ rw[cfHeapsBaseTheory.GC_def,cfHeapsBaseTheory.STARPOST_def,
-       cfHeapsBaseTheory.SEP_IMPPOST_def,set_sepTheory.SEP_CLAUSES]
-  \\ rw[SEP_IMP_def,SEP_EXISTS,set_sepTheory.SEP_CLAUSES]
-  \\ qexists_tac`emp`
-  \\ rw[set_sepTheory.SEP_CLAUSES]
-  \\ fs[cfHeapsBaseTheory.POSTv_def]
-  \\ every_case_tac \\ fs[set_sepTheory.SEP_CLAUSES]
-  \\ metis_tac[STAR_COMM,STAR_ASSOC]
-  );
-
-val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT a * STDERR b * Q) ==>
-   app p fv xs P (POSTv uv. (A uv) * (SEP_EXISTS x y. &(x = a /\ y = b) * STDOUT x * STDERR y) * Q)`,
-  qmatch_abbrev_tac`_ (_ X) ==> _ (_ Y)`
-  \\ `X = Y` suffices_by rw[]
-  \\ unabbrev_all_tac
-  \\ simp[FUN_EQ_THM,SEP_CLAUSES,SEP_EXISTS_THM]
-  \\ CONV_TAC(PATH_CONV"bbrbbllr"(REWR_CONV STAR_COMM))
-  \\ simp[cond_STAR,GSYM STAR_ASSOC]
-  \\ simp[AC STAR_ASSOC STAR_COMM]);
-
-val emp_precond = Q.store_thm("emp_precond",
-  `emp {}`, EVAL_TAC);
-
-(*-------------------------------------------------------------------------------------------------*)
 (*These theorems are need to be remade to use cfMain for projs, oracle or ffi that aren't basis_ffi*)
 
-val file_content_of_ffi_def = Define`
-  file_content_of_ffi fd ffi = SOME(FST(THE(get_file_content (THE (fsFFI$decode ffi)) fd)))`
+(* TODO: move *)
+
+(* the failure of an fs ffi call doesn't depend on the filesystem *)
+val fs_ffi_NONE_irrel = Q.store_thm("fs_ffi_NONE_irrel",
+ `!f. f ∈ {ffi_read; ffi_write; ffi_open_in; ffi_open_out; ffi_close} ∧
+      f bytes fs = NONE ⇒ f bytes fs' = NONE`,
+  rw[] >>
+  fs[ffi_read_def,ffi_write_def,ffi_open_in_def,ffi_open_out_def,ffi_close_def] >>
+  every_case_tac >> fs[OPTION_CHOICE_EQ_NONE]);
 
 (*RTC_call_FFI_rel_IMP_basis_events show that extracting output from two ffi_states will use the
   same function if the two states are related by a series of FFI_calls. If this is the case for
@@ -931,56 +795,33 @@ val file_content_of_ffi_def = Define`
   that to make the subsequent proofs similar one should show an equivalence between
   extract_output and proj1  *)
 val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
-  `!st st'. call_FFI_rel^* st st' ==>
-  st.oracle = basis_ffi_oracle ==>
-  (extract_output st.io_events = file_content_of_ffi 1 (basis_proj1 st.ffi_state ' "write") ==>
-   extract_output st'.io_events = file_content_of_ffi 1 (basis_proj1 st'.ffi_state ' "write")) ∧ 
-  (extract_err st.io_events = file_content_of_ffi 2 (basis_proj1 st.ffi_state ' "write") ==>
-   extract_err st'.io_events = file_content_of_ffi 2 (basis_proj1 st'.ffi_state ' "write"))`, 
-   cheat);
-  HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs [file_content_of_ffi_def]
+  `!inp fs ll st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==>
+  (extract_fs (basis_fs inp fs ll) st.io_events  
+     = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
+   extract_fs (basis_fs inp fs ll) st'.io_events 
+     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))`, 
+     NTAC 3 strip_tac
+  \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs [fsFFITheory.decode_def]
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
   \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
-  \\ fs [extract_output_APPEND,extract_output_def,basis_proj1_write,
-         extract_err_APPEND,extract_err_def] \\ rfs []
+  \\ fs [extract_fs_APPEND,extract_fs_def,basis_proj1_write] \\ rfs []
   \\ first_x_assum match_mp_tac
   \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
   \\ simp[basis_ffi_oracle_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[]
-  \\ fs[fsFFITheory.ffi_write_def,OPTION_CHOICE_EQUALS_OPTION,write_def,option_eq_some]
-     \\  rpt(full_case_tac \\ fs[option_eq_some] \\ rw[])
-  \\ rpt(pairarg_tac \\ fs[])
-  rfs[get_file_content_fsupdate,get_file_content_fsupdate_unchanged]
-  find"fsupdate"
-  find"Oracle_return";
-  \\
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ simp[n2w_ORD_CHR_w2n |> SIMP_RULE(srw_ss())[o_THM,FUN_EQ_THM]]
-);
-(*extract_output_basis_ffi shows that the first condition for the previous theorem holds for the
-  init_state ffi  *)
-val extract_output_basis_ffi = Q.store_thm ("extract_output_basis_ffi",
-  `extract_output (init_state (basis_ffi inp cls fs ll)).ffi.io_events = 
-   file_content_of_ffi 1 
-     (basis_proj1 (init_state (basis_ffi inp cls fs ll)).ffi.ffi_state ' "write")
-  `,
-  rw[ml_progTheory.init_state_def, extract_output_def, basis_ffi_def,
-     basis_proj1_write, cfHeapsBaseTheory.destStr_def, FUPDATE_LIST_THM,
-     FAPPLY_FUPDATE_THM,file_content_of_ffi_def,get_file_content_def]);
+  \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
+  \\ rpt(full_case_tac \\ fs[option_eq_some,MAP_ZIP] \\ rw[]));
 
-val extract_err_basis_ffi = Q.store_thm ("extract_err_basis_ffi",
-  `extract_err (init_state (basis_ffi inp cls fs ll)).ffi.io_events = 
-   file_content_of_ffi 2 
-     (basis_proj1 (init_state (basis_ffi inp cls fs ll)).ffi.ffi_state ' "write")`,
-  rw[ml_progTheory.init_state_def, extract_err_def, basis_ffi_def,
-     basis_proj1_write, cfHeapsBaseTheory.destStr_def,get_file_content_def,
-     FUPDATE_LIST_THM, FAPPLY_FUPDATE_THM,file_content_of_ffi_def]);
+(* the first condition for the previous theorem holds for the
+  init_state ffi  *)
+val extract_fs_basis_ffi = Q.store_thm ("extract_fs_basis_ffi",
+  `extract_fs (basis_fs inp fs ll) (basis_ffi inp cls fs ll).io_events =
+   decode (basis_proj1 (basis_ffi inp cls fs ll).ffi_state ' "write")`,
+  rw[ml_progTheory.init_state_def,extract_fs_def,basis_ffi_def,basis_proj1_write]);
+
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
@@ -1001,19 +842,18 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
  ML_code env1 (init_state (basis_ffi inp cls fs ll)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (basis_proj1, basis_proj2) fv [Conv NONE []] P
-    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q) ==>
+    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS fs. &R fs * IOFS fs) * Q) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
-    ∃io_events x y. R x y /\
+    ∃io_events fs'. R fs' /\
     semantics_prog (init_state (basis_ffi inp cls fs ll)) env1
       (SNOC ^main_call prog) (Terminate Success io_events) /\
-    extract_output io_events = SOME x /\
-    extract_err    io_events = SOME y`,
+    extract_fs (basis_fs inp fs ll) io_events = SOME fs'`,
     rw[]
     \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
-          &UNIT_TYPE () uv * ((SEP_EXISTS x y. &R x y * STDOUT x * STDERR y) * Q))` by (fs[STAR_ASSOC])
+          &UNIT_TYPE () uv * ((SEP_EXISTS fs. &R fs * IOFS fs) * Q))` by (fs[STAR_ASSOC])
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
     \\ qmatch_goalsub_abbrev_tac`FFI_part_hprop X`
@@ -1021,57 +861,42 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     by(simp[Abbr`X`]
        \\ match_mp_tac FFI_part_hprop_STAR \\ disj1_tac
        \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
-       \\ ho_match_mp_tac FFI_part_hprop_SEP_EXISTS \\ rw[]
-       \\ metis_tac[STDOUT_FFI_part_hprop, FFI_part_hprop_STAR])
+       \\ metis_tac[IOFS_FFI_part_hprop, FFI_part_hprop_STAR])
     \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[Abbr`X`]
     \\ fs[SEP_EXISTS_THM,SEP_CLAUSES]
-    \\ `R x y` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
-    \\ map_every qexists_tac [`st3.ffi.io_events`,`x`,`y`]
-    \\ `file_content_of_ffi 1 (basis_proj1 st3.ffi.ffi_state ' "write") = SOME x /\
-        file_content_of_ffi 2 (basis_proj1 st3.ffi.ffi_state ' "write") = SOME y`
+    \\ `R fs'` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
+    \\ map_every qexists_tac [`st3.ffi.io_events`,`fs'`]
+    \\ fs[]
+    \\ `decode (basis_proj1 st3.ffi.ffi_state ' "write") = SOME fs'`
         suffices_by
       (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
-       \\ fs[extract_output_basis_ffi, extract_err_basis_ffi,
-            ml_progTheory.init_state_def, basis_ffi_def])
-    \\ fs[basis_proj1_write, STDOUT_def,STDERR_def, cfHeapsBaseTheory.IO_def,
+       \\ rfs[GSYM extract_fs_basis_ffi,ml_progTheory.init_state_def,basis_ffi_def]
+       \\ ASSUME_TAC extract_fs_basis_ffi \\ fs[basis_ffi_def])
+    \\ fs[FFI_part_hprop_def]
+    \\ fs[basis_proj1_write, IOFS_def,cfHeapsBaseTheory.IO_def,
           cfHeapsBaseTheory.IOx_def, set_sepTheory.SEP_CLAUSES,
-          set_sepTheory.SEP_EXISTS_THM, fsFFITheory.fs_ffi_part_def,IOFS_def]
-    \\ fs[GSYM set_sepTheory.STAR_ASSOC] \\ fs[Once STAR_def]
+          set_sepTheory.SEP_EXISTS_THM, fsFFITheory.fs_ffi_part_def]
+    \\ fs[GSYM set_sepTheory.STAR_ASSOC] 
+    \\ fs[Once STAR_def]
     \\ fs[set_sepTheory.one_STAR]
-    \\ qmatch_assum_abbrev_tac`ffip ∈ v`
+    \\ qmatch_assum_abbrev_tac`one ffip u`
     \\ fs[Once set_sepTheory.STAR_ASSOC]
     \\ NTAC 3 (fs[Once set_sepTheory.STAR_def])
-    \\ fs [set_sepTheory.one_STAR]
-    \\ qmatch_assum_abbrev_tac`ffip2 ∈ v''''`
+    \\ fs [set_sepTheory.one_STAR,one_def]
     \\ `ffip ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
-    \\ `ffip2 ∈ (st2heap (basis_proj1,basis_proj2) st3)` by cfHeapsBaseLib.SPLIT_TAC
     \\ fs [cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
-           Abbr`ffip`, Abbr`ffip2`]
-    \\ fs [cfStoreTheory.ffi2heap_def,file_content_of_ffi_def]
+           Abbr`ffip`,cfStoreTheory.ffi2heap_def]
     \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
     \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-
     \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
-    \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
-    \\ fs[basis_proj1_write,STAR_def,cond_def]
-);
+    \\ fs[basis_proj1_write,STAR_def,cond_def]);
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
-[stdinFFITheory.ffi_getChar_length,
- stdoutFFITheory.ffi_putChar_length,
- stderrFFITheory.ffi_putChar_err_length,
- commandLineFFITheory.ffi_getArgs_length,
- rofsFFITheory.ffi_open_length,
- rofsFFITheory.ffi_fgetc_length,
- rofsFFITheory.ffi_close_length,
- rofsFFITheory.ffi_isEof_length]);
+[ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
+ ffi_close_length, commandLineFFITheory.ffi_getArgs_length ]);
 
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
-[stdinFFITheory.stdin_ffi_part_def,
- stdoutFFITheory.stdout_ffi_part_def,
- stderrFFITheory.stderr_ffi_part_def,
- commandLineFFITheory.commandLine_ffi_part_def,
- rofsFFITheory.rofs_ffi_part_def]);
+[fs_ffi_part_def,commandLineFFITheory.commandLine_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
@@ -1093,7 +918,7 @@ val oracle_parts = Q.store_thm("oracle_parts",
 
 (*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
-  `parts_ok (auto_state_1 (basis_ffi inp cls fs)).ffi (basis_proj1, basis_proj2)` ,
+  `parts_ok (auto_state_1 (basis_ffi inp cls fs ll)).ffi (basis_proj1, basis_proj2)` ,
   qmatch_goalsub_abbrev_tac`st.ffi`
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
@@ -1109,40 +934,6 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   \\ TRY pairarg_tac \\ fs[]
   \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
   \\ srw_tac[DNF_ss][]
-);
-
-(* TODO: Move these to somewhere relevant *)
-val extract_output_not_putChar = Q.prove(
-    `!xs name bytes. name <> "putChar" ==>
-      extract_output (xs ++ [IO_event name bytes]) = extract_output xs`,
-      rw[extract_output_APPEND, extract_output_def] \\ Cases_on `extract_output xs` \\ rw[]
-);
-
-val extract_err_not_putChar_err = Q.prove(
-    `!xs name bytes. name <> "putChar_err" ==>
-      extract_err (xs ++ [IO_event name bytes]) = extract_err xs`,
-      rw[extract_err_APPEND, extract_err_def] \\ Cases_on `extract_err xs` \\ rw[]
-);
-
-val extract_output_FILTER = Q.store_thm("extract_output_FILTER",
-  `!st. extract_output st.ffi.io_events = extract_output (FILTER (ffi_has_index_in ["putChar"]) st.ffi.io_events)`,
-  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND]
-  \\ fs[] \\ rw[extract_output_def] \\ full_case_tac
-  \\ Cases_on `extract_output (FILTER (ffi_has_index_in ["putChar"]) l')` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_output_APPEND] \\ fs[]
-  \\ Cases_on `h` \\ Cases_on `s = "putChar"` \\ fs[cfStoreTheory.ffi_has_index_in_def, extract_output_def]
-);
-
-val extract_err_FILTER = Q.store_thm("extract_err_FILTER",
-  `!st. extract_err st.ffi.io_events = extract_err (FILTER (ffi_has_index_in ["putChar_err"]) st.ffi.io_events)`,
-  Cases_on `st` \\ Cases_on `f` \\ Induct_on `l'` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND]
-  \\ fs[] \\ rw[extract_err_def] \\ full_case_tac
-  \\ Cases_on `extract_err (FILTER (ffi_has_index_in ["putChar_err"]) l')` \\ fs[]
-  \\ simp_tac std_ss [Once CONS_APPEND, extract_err_APPEND] \\ fs[]
-  \\ Cases_on `h` \\ Cases_on `s = "putChar_err"` \\
-  fs[cfStoreTheory.ffi_has_index_in_def, extract_err_def]
 );
 
 val UNION_DIFF_3 = Q.store_thm("UNION_DIFF_3",
