@@ -178,7 +178,7 @@ val the_SOME_Word_def = Define `
   (the_SOME_Word (SOME (Word w)) = w)`;
 
 val state_rel_def = Define `
-  state_rel jump off k (s1:('a,'ffi) stackSem$state) s2 <=>
+  state_rel jump off k (s1:('a,'c,'ffi) stackSem$state) s2 <=>
     s1.use_stack /\ s1.use_store /\
     ~s2.use_stack /\ ~s2.use_store /\
     ~s2.use_alloc /\ ~s1.use_alloc /\
@@ -930,12 +930,12 @@ val name_cases = prove(
 (* Significantly faster than SEP_R_TAC *)
 val mem_load_lemma = Q.prove(`
   MEM name store_list ∧
-  FLOOKUP (s:('a,'b)state).store name = SOME x ∧
+  FLOOKUP (s:('a,'c,'b)state).store name = SOME x ∧
   (memory s.memory s.mdomain *
         word_list
           (the_SOME_Word (FLOOKUP s.store BitmapBase) ≪ word_shift (:α))
           (MAP Word s.bitmaps) * word_store c s.store *
-        word_list c s.stack) (fun2set (t1.memory,(t1:('a,'b) state).mdomain)) ⇒
+        word_list c s.stack) (fun2set (t1.memory,(t1:('a,'c,'b) state).mdomain)) ⇒
   mem_load (c+store_offset name) t1 = SOME x`,
   strip_tac >>
   drule fun2set_STAR_IMP>>
@@ -969,7 +969,7 @@ val mem_load_lemma2 = Q.prove(`
         word_list
           (the_SOME_Word (FLOOKUP s.store BitmapBase) ≪ word_shift (:α))
           (MAP Word s.bitmaps) * word_store c s.store *
-        word_list c s.stack) (fun2set (t1.memory,(t1:('a,'b) state).mdomain)) ⇒
+        word_list c s.stack) (fun2set (t1.memory,(t1:('a,'c,'b) state).mdomain)) ⇒
   c+store_offset name ∈ t1.mdomain`,
   strip_tac >>
   drule fun2set_STAR_IMP>>
@@ -2179,7 +2179,7 @@ val word_list_exists_addresses = Q.store_thm("word_list_exists_addresses",
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ fs []);
 
 val init_reduce_def = Define `
-  init_reduce gen_gc k code bitmaps (s:('a,'ffi)stackSem$state) =
+  init_reduce gen_gc k code bitmaps (s:('a,'c,'ffi)stackSem$state) =
     let heap_ptr = theWord (s.regs ' (k + 2)) in
     let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
     let stack_ptr = theWord (s.regs ' k) in
@@ -2206,7 +2206,7 @@ val init_reduce_stack_space = Q.prove(
   fs [init_reduce_def,LENGTH_read_mem]);
 
 val init_prop_def = Define `
-  init_prop gen_gc max_heap (s:('a,'ffi)stackSem$state) =
+  init_prop gen_gc max_heap (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
@@ -2484,7 +2484,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ fs [byte_aligned_bytes_in_word_MULT]);
 
 val make_init_opt_def = Define `
-  make_init_opt gen_gc max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
+  make_init_opt gen_gc max_heap bitmaps k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap bitmaps k,s) of
     | (SOME _,t) => NONE
     | (NONE,t) => if init_prop gen_gc max_heap (init_reduce gen_gc k code bitmaps t)
@@ -2529,9 +2529,9 @@ val evaluate_init_code_clock = Q.prove(
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
 val evaluate_init_code_ffi = Q.prove(
-  `evaluate (init_code gen_gc max_heap bitmaps k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
+  `evaluate (init_code gen_gc max_heap bitmaps k,(s:('a,'c,'ffi) stackSem$state)) = (res,t) ==>
     evaluate (init_code gen_gc max_heap bitmaps k,s with ffi := c) =
-      (res,(t with ffi := c):('a,'ffi) stackSem$state)`,
+      (res,(t with ffi := c):('a,'c,'ffi) stackSem$state)`,
   srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
@@ -2699,7 +2699,7 @@ val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
 
 val make_init_any_ffi = Q.store_thm("make_init_any_ffi",
   `(make_init_any gen_gc max_heap bitmaps k code s).ffi =
-    (s:('a,'ffi) stackSem$state).ffi`,
+    (s:('a,'c,'ffi) stackSem$state).ffi`,
   fs [make_init_any_def,make_init_opt_def,init_reduce_def]
   \\ every_case_tac \\ fs []
   \\ imp_res_tac evaluate_init_code_ffi

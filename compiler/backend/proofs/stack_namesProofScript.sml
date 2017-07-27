@@ -341,7 +341,7 @@ val compile_semantics_alt = Q.prove(
   fs [compile_semantics]);
 
 val make_init_def = Define `
-  make_init f code (s:('a,'ffi) stackSem$state) =
+  make_init f code (s:('a,'c,'ffi) stackSem$state) =
     s with
      <| code := code;
         regs := MAP_KEYS (LINV (find_name f) UNIV) s.regs;
