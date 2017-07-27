@@ -784,6 +784,23 @@ val get_gen_size_def = Define `
      if w2n (bytes_in_word:'a word) * x < dimword (:'a)
      then bytes_in_word * n2w x
      else bytes_in_word * (-1w))`;
+val fp_cmp_inst_def = Define `
+  fp_cmp_inst FP_Less = FPLess 3 0 1 /\
+  fp_cmp_inst FP_LessEqual = FPLessEqual 3 0 1 /\
+  fp_cmp_inst FP_Greater = FPLess 3 1 0 /\
+  fp_cmp_inst FP_GreaterEqual = FPLessEqual 3 1 0 /\
+  fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
+
+val fp_bop_inst_def = Define `
+  fp_bop_inst FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst FP_Div = FPDiv 0 0 1`
+
+val fp_uop_inst_def = Define `
+  fp_uop_inst FP_Neg = FPNeg 0 0 /\
+  fp_uop_inst FP_Abs = FPAbs 0 0 /\
+  fp_uop_inst FP_Sqrt = FPSqrt 0 0`
 
 local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -1337,6 +1354,92 @@ local val assign_quotation = `
                            Assign 3 (real_addr c (adjust_var v));
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
+       | _ => (Skip,l))
+    | FP_cmp fpc => (dtcase args of
+       | [v1;v2] =>
+       (if dimindex(:'a) = 64 then
+           ((list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (fp_cmp_inst fpc));
+               Assign 3 (Op Sub [Const 1w; Var 3]); (* TODO: remove this line once T and F are represented correctly, issue 298 *)
+               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l))
+        else
+           ((list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (fp_cmp_inst fpc));
+               Assign 3 (Op Sub [Const 1w; Var 3]); (* TODO: remove this line once T and F are represented correctly, issue 298 *)
+               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
+       | _ => (Skip,l))
+    | FP_bop fpb => (dtcase args of
+       | [v1;v2] =>
+       (if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (fp_bop_inst fpb));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (fp_bop_inst fpb));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
+       | _ => (Skip,l))
+    | FP_uop fpu => (dtcase args of
+       | [v1] =>
+       (if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (fp_uop_inst fpu));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (fp_uop_inst fpu));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 

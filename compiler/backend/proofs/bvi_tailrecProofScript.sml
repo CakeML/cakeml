@@ -1,6 +1,7 @@
 open preamble bviSemTheory
 open bviPropsTheory bvi_tailrecTheory
 
+val _ = Parse.hide "exp";
 (* TODO
 
    - It should be possible to prove that we can replace the simplified
@@ -1045,7 +1046,7 @@ val rewrite_op_no_err_spec = Q.store_thm ("rewrite_op_no_err_spec",
       get_bin_args exp2 = SOME (e1, e2) ⇒
         no_err e2`,
   rpt strip_tac
-  \\ imp_res_tac rewrite_op_no_err \\ fs []);
+  \\ imp_res_tac rewrite_op_no_err \\ fs [])
 
 val rewrite_op_noopt = Q.prove (
   `rewrite_op op name exp = (F, exp2) ⇒ exp = exp2`,
