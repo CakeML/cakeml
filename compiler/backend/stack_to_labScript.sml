@@ -80,7 +80,10 @@ local val flatten_quotation = `
                                      Label n m 0],F,m+1)
     | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
     | InstallAndRun ptr len ret =>
-      (List [LabAsm Install 0w [] 0; Asm (JumpReg ptr) [] 0],F,m)
+      (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;
+             LabAsm Install 0w [] 0;
+             Label n m 0;
+             Asm (JumpReg ptr) [] 0],F,m+1)
     | CodeBufferWrite r1 r2 =>
       (List [Asm (Cbw r1 r2) [] 0],F,m)
     | _  => (List [],F,m)`

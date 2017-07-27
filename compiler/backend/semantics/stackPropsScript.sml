@@ -343,7 +343,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     fs[dec_clock_def]>>
     rfs[]>>
     simp[]>>
-    qmatch_goalsub_abbrev_tac`(r'',s'')`>>
+    qmatch_asmsub_abbrev_tac`evaluate (r'',s'') = _`>>
     `isPREFIX s.ffi.io_events s''.ffi.io_events ∧ s''.ffi = s.ffi` by
       (unabbrev_all_tac>>fs[])>>
     metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR])>>
@@ -689,6 +689,10 @@ val reg_bound_def = Define `
       | SOME (y,r,_,_) => reg_bound y k /\ r < k
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+  (reg_bound (InstallAndRun ptr len ret) k ⇔
+    ptr < k ∧ len < k ∧ ret < k) ∧
+  (reg_bound (CodeBufferWrite r1 r2) k ⇔
+    r1 < k ∧ r2 < k) ∧
   (reg_bound (BitmapLoad r v) k <=> r < k /\ v < k) /\
   (reg_bound (Inst i) k <=> reg_bound_inst i k) /\
   (reg_bound (StackStore r _) k <=> r < k) /\
@@ -700,7 +704,7 @@ val reg_bound_def = Define `
   (reg_bound (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
   (reg_bound _ k <=> T)`
 
-(* Finally, stack_to_lab requires correct arguments for Call/FFI calls *)
+(* Finally, stack_to_lab requires correct arguments for Call/FFI/InstallAndRun calls *)
 val call_args_def = Define `
   (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
      call_args p1 ptr len ret /\

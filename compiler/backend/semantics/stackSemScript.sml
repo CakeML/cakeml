@@ -489,11 +489,15 @@ val evaluate_def = tDefine "evaluate" `
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
                 ; code := union s.code (fromAList progs) (* This order is convenient because it means all of s.code's entries are preserved *)
-                ; regs := DRESTRICT s.regs s.ffi_save_regs (* TODO: this might need to be a new field, cc_save_regs *)
+                (* TODO: this might need to be a new field, cc_save_regs *)
+                ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)
                 ; compile_oracle := new_oracle
                 |> in
             if s'.clock = 0 then (SOME TimeOut,empty_env s)
-            else evaluate (prog,dec_clock s')
+            else
+              (case evaluate (prog,dec_clock s') of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s))
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
