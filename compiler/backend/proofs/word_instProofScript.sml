@@ -134,12 +134,12 @@ val word_exp_op_op = Q.prove(`
   word_exp s (Op op ((Op op l) :: ls'))`,
   srw_tac[][word_exp_def,LET_THM]>>
   fs[the_words_append]>>
-  qpat_abbrev_tac`C = MAP f l`>>
-  Cases_on`the_words C'`>>fs[the_words_def]>>
-  rpt(qpat_x_assum`A=B` mp_tac)>>
+  qpat_abbrev_tac`xx = MAP f l`>>
+  Cases_on`the_words xx`>>fs[the_words_def]>>
+  rpt(qpat_x_assum`_=_` mp_tac)>>
   ntac 2 (TOP_CASE_TAC)>>fs[]>>
   Cases_on`op`>> fs[word_op_def,FOLDR_APPEND]>>
-  rw[Abbr`C'`]>>
+  rw[Abbr`xx`]>>
   rpt(pop_assum kall_tac)>>
   Induct_on`x`>>fs[]);
 

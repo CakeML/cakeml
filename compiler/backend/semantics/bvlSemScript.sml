@@ -87,7 +87,7 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'f
 
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
-    - FromListByte and String produces ByteArrays rather than ByteVectors
+    - FromListByte, String, ConcatByteVec, and CopyByte work on ByteArrays rather than ByteVectors
     - Label is added *)
 
 val do_app_def = Define `
@@ -155,6 +155,16 @@ val do_app_def = Define `
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (ConcatByteVec,[lv]) =>
+         (case
+            (some wss. ∃ps.
+              v_to_list lv = SOME (MAP RefPtr ps) ∧
+              MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss)
+          of SOME wss =>
+            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+              Rval (RefPtr ptr, s with refs := s.refs |+
+                       (ptr,ByteArray T (FLAT wss)))
+          | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
@@ -169,6 +179,23 @@ val do_app_def = Define `
                          Rval (RefPtr ptr, s with refs := s.refs |+
                            (ptr,ByteArray T (MAP n2w ns)))
           | NONE => Error)
+    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
+            | NONE => Error)
+         | _ => Error)
+    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+       (case (FLOOKUP s.refs src) of
+        | SOME (ByteArray _ ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds =>
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+              Rval (RefPtr ptr, s with
+                    refs := s.refs |+ (ptr, ByteArray T ds))
+            | _ => Error)
+        | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
@@ -258,12 +285,12 @@ val do_app_def = Define `
          | [Block tag ys; Number i] =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
          | _ => Error)
-    | (BoundsCheckByte,xs) =>
+    | (BoundsCheckByte loose,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
           (case FLOOKUP s.refs ptr of
            | SOME (ByteArray _ ws) =>
-               Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+               Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
     | (BoundsCheckArray,xs) =>
@@ -381,12 +408,21 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
+val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
+val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
+val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
+val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
+  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms]))
+  |> curry save_thm"case_eq_thms";
+
 val do_app_const = Q.store_thm("do_app_const",
   `(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\ (s2.code = s1.code)`,
-  SIMP_TAC std_ss [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
+  rw[do_app_def,case_eq_thms,PULL_EXISTS] \\ rw[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `!xs env s1 vs s2.

@@ -12,8 +12,8 @@ Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
 The [master](../../tree/master) branch contains the latest development
-version of CakeML.  See the [version1](../../tree/version1) branch for
-the previous version.
+version of CakeML. See the [version2](../../tree/version2) or
+[version1](../../tree/version1) branch for previous versions.
 
 Directory structure
 -------------------

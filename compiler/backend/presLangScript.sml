@@ -546,6 +546,14 @@ val op_to_display_def = tDefine "op_to_display"`
   (op_to_display (Modlang_op (WordToInt word_size)) =
     Item NONE "WordToInt" [word_size_to_display word_size])
   /\
+  (op_to_display (Modlang_op CopyStrStr) = empty_item "CopyStrStr")
+  /\
+  (op_to_display (Modlang_op CopyStrAw8) = empty_item "CopyStrAw8")
+  /\
+  (op_to_display (Modlang_op CopyAw8Str) = empty_item "CopyAw8Str")
+  /\
+  (op_to_display (Modlang_op CopyAw8Aw8) = empty_item "CopyAw8Aw8")
+  /\
   (op_to_display (Modlang_op Ord) = empty_item "Ord")
   /\
   (op_to_display (Modlang_op Chr) = empty_item "Chr")
@@ -558,6 +566,8 @@ val op_to_display_def = tDefine "op_to_display"`
   (op_to_display (Modlang_op Strsub) = empty_item "Strsub")
   /\
   (op_to_display (Modlang_op Strlen) = empty_item "Strlen")
+  /\
+  (op_to_display (Modlang_op Strcat) = empty_item "Strcat")
   /\
   (op_to_display (Modlang_op VfromList) = empty_item "VfromList")
   /\

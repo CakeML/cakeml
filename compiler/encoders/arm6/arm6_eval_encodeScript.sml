@@ -93,9 +93,10 @@ val call_rwt = enc_thm "call" [e_branch_def]
 val jump_reg_rwt = enc_thm "jump reg" [e_branch_def]
 
 val loc_rwt = enc_thm "loc"
-  [e_data_def,
-   mk_let_thm `(15 >< 8) (imm32 : word32) || 3072w : word12`,
-   mk_let_thm `(7 >< 0) (imm32 : word32) : word12`]
+  [e_data_def, listTheory.LIST_BIND_def,
+   Q.ISPEC `MAP f` boolTheory.COND_RAND,
+   Q.ISPEC `FLAT` boolTheory.COND_RAND,
+   mk_let_thm `(h >< l) (imm32 : word32) : word8`]
 
 val arm6_encode_rwts = Theory.save_thm("arm6_encode_rwts",
   Drule.LIST_CONJ

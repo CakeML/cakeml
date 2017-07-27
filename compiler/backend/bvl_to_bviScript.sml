@@ -82,6 +82,10 @@ val ListLength_location_def = Define`
   ListLength_location = InitGlobals_location+1`;
 val FromListByte_location_def = Define`
   FromListByte_location = ListLength_location+1`;
+val SumListLength_location_def = Define`
+  SumListLength_location = FromListByte_location+1`;
+val ConcatByte_location_def = Define`
+  ConcatByte_location = SumListLength_location+1`;
 
 val AllocGlobal_location_eq = save_thm("AllocGlobal_location_eq",
   ``AllocGlobal_location`` |> EVAL);
@@ -93,6 +97,10 @@ val ListLength_location_eq = save_thm("ListLength_location_eq",
   ``ListLength_location`` |> EVAL);
 val FromListByte_location_eq = save_thm("FromListByte_location_eq",
   ``FromListByte_location`` |> EVAL);
+val SumListLength_location_eq = save_thm("SumListLength_location_eq",
+  ``SumListLength_location`` |> EVAL);
+val ConcatByte_location_eq = save_thm("ConcatByte_location_eq",
+  ``ConcatByte_location`` |> EVAL);
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -138,12 +146,35 @@ val FromListByte_code_def = Define`
            Op Add [Var 2; Op (Const 1) []];
            Var 3] NONE)))`;
 
+val SumListLength_code_def = Define`
+  SumListLength_code = (2n, (* ptr to list, accumulated length *)
+    If (Op (TagLenEq nil_tag 0) [Var 0])
+      (Var 1)
+      (Call 0 (SOME SumListLength_location)
+         [Op El [Op (Const 1) []; Var 0];
+          Op Add [Var 1; Op LengthByte
+                           [Op El [Op (Const 0) []; Var 0]]]] NONE))`
+
+val ConcatByte_code_def = Define`
+  ConcatByte_code = (3n, (* list, current index, destination *)
+    If (Op (TagLenEq nil_tag 0) [Var 0]) (Var 2)
+      (Let [Op El [Op (Const 0) []; Var 0]]
+        (Let [Op LengthByte [Var 0]]
+          (Let [Op (CopyByte F)
+                  [Var 3; Var 4; Var 0; Op (Const 0) []; Var 1]]
+            (Call 0 (SOME ConcatByte_location)
+              [Op El [Op (Const 1) []; Var 3];
+               Op Add [Var 4; Var 1];
+               Var 5] NONE)))))`;
+
 val stubs_def = Define `
   stubs start n = [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
                    (ListLength_location, ListLength_code);
-                   (FromListByte_location, FromListByte_code)]`;
+                   (FromListByte_location, FromListByte_code);
+                   (SumListLength_location, SumListLength_code);
+                   (ConcatByte_location, ConcatByte_code)]`;
 
 val _ = temp_overload_on ("num_stubs", ``backend_common$bvl_num_stubs``)
 
@@ -175,6 +206,20 @@ local val compile_op_quotation = `
                  Call 0 (SOME ListLength_location)
                    [Var 0; Op (Const 0) []] NONE]]
              NONE)
+    | ConcatByteVec =>
+        Let (if NULL c1 then [Op (Const 0) []] else c1)
+          (Call 0 (SOME ConcatByte_location)
+            [Var 0;
+             Op (Const 0) [];
+             Op (RefByte T)
+               [Op (Const 0) [];
+                Call 0 (SOME SumListLength_location)
+                  [Var 0; Op (Const 0) []] NONE]] NONE)
+    | CopyByte T => (* TODO: this should eventually be implemented in data_to_word instead for efficiency *)
+      Let (if LENGTH c1 < 3 then (c1 ++ REPLICATE 3 (Op (Const 0) [])) else c1)
+        (Let [Op (RefByte T) [Op (Const 0) []; Var 0]]
+           (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
+             (Var 1)))
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation

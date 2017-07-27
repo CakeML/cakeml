@@ -200,6 +200,8 @@ val add_backend_compset = computeLib.extend_compset
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
+    ,pat_to_closTheory.CopyByteStr_def
+    ,pat_to_closTheory.CopyByteAw8_def
     ,pat_to_closTheory.vector_tag_def
     ,pat_to_closTheory.compile_def
       (*,pat_to_closTheory.pat_tag_shift_def*)
@@ -342,12 +344,16 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
     ,bvl_to_bviTheory.FromListByte_code_def
+    ,bvl_to_bviTheory.SumListLength_code_def
+    ,bvl_to_bviTheory.ConcatByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
     ,bvl_to_bviTheory.AllocGlobal_location_eq
     ,bvl_to_bviTheory.InitGlobals_max_def
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.FromListByte_location_eq
+    ,bvl_to_bviTheory.SumListLength_location_eq
+    ,bvl_to_bviTheory.ConcatByte_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
@@ -478,6 +484,11 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
     ,data_to_wordTheory.Bignum_location_eq
+    ,data_to_wordTheory.ByteCopy_location_eq
+    ,data_to_wordTheory.ByteCopyAdd_location_eq
+    ,data_to_wordTheory.ByteCopySub_location_eq
+    ,data_to_wordTheory.ByteCopyNew_location_eq
+    ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.get_gen_size_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
@@ -504,6 +515,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv_code_def
     ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.MemCopy_code_def
+    ,data_to_wordTheory.ByteCopy_code_def
+    ,data_to_wordTheory.ByteCopyAdd_code_def
+    ,data_to_wordTheory.ByteCopySub_code_def
+    ,data_to_wordTheory.ByteCopyNew_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def

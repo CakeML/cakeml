@@ -8,8 +8,9 @@ open preamble integerTheory
      semanticPrimitivesPropsTheory bigStepPropsTheory
      bigClockTheory determTheory
      mlvectorTheory mlstringTheory ml_progTheory packLib;
+open integer_wordSyntax
 open terminationTheory
-local open funBigStepEquivTheory evaluatePropsTheory in end
+local open funBigStepEquivTheory evaluatePropsTheory integer_wordSyntax in end
 
 val _ = new_theory "ml_translator";
 
@@ -1219,6 +1220,26 @@ val OPTION_TYPE_SIMP = Q.prove(
   |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
   |> curry save_thm "OPTION_TYPE_SIMP";
 
+val SUM_TYPE_def = Define `
+  (∀a b x_2 v.
+      SUM_TYPE a b (INR x_2) v ⇔
+      ∃v2_1.
+        v = Conv (SOME ("Inr",TypeId (Short "sum"))) [v2_1] ∧
+        b x_2 v2_1) ∧
+   ∀a b x_1 v.
+     SUM_TYPE a b (INL x_1) v ⇔
+     ∃v1_1.
+       v = Conv (SOME ("Inl",TypeId (Short "sum"))) [v1_1] ∧ a x_1 v1_1`
+
+val SUM_TYPE_SIMP = Q.prove(`
+  !x. CONTAINER SUM_TYPE
+    (\y v. if x = INL y then a y v else ARB)
+    (\y v. if x = INR y then b y v else ARB) x =
+    SUM_TYPE (a:'a ->v -> bool) (b:'b ->v -> bool) x`,
+  Cases>>rw[CONTAINER_def,FUN_EQ_THM,SUM_TYPE_def])
+  |> Q.SPECL [`x`] |> SIMP_RULE std_ss [] |> GSYM
+  |> curry save_thm "SUM_TYPE_SIMP";
+
 (* characters *)
 
 val Eval_Ord = Q.store_thm("Eval_Ord",
@@ -1345,6 +1366,29 @@ val Eval_strsub = Q.store_thm("Eval_strsub",
   \\ Cases_on`s` >> fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
   \\ fs[INT_ABS_NUM,strlen_def,GREATER_EQ,GSYM NOT_LESS]
   \\ metis_tac[strsub_def,mlstringTheory.implode_def,APPEND_ASSOC]);
+
+val Eval_concat = Q.store_thm("Eval_concat",
+  `∀env x ls.
+     Eval env x (LIST_TYPE STRING_TYPE ls) ==>
+     Eval env (App Strcat [x]) (STRING_TYPE (concat ls))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS]
+  \\ rw[Once (CONJUNCT2 evaluate_cases)]
+  \\ rw[do_app_cases,PULL_EXISTS,empty_state_with_ffi_elim]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ qhdtm_x_assum`evaluate`kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`res`
+  \\ Induct_on`ls`
+  \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
+  \\ rw[v_to_list_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ rename1`concat (s::ls)`
+  \\ Cases_on`s` \\ fs[STRING_TYPE_def]
+  \\ rw[vs_to_string_def]
+  \\ fs[concat_def,STRING_TYPE_def]);
 
 (* vectors *)
 

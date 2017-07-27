@@ -1014,6 +1014,15 @@ val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
    (!f s t. state_rel f (s with clock := x) t = state_rel f s t)`,
   srw_tac[][state_rel_def]);
 
+val state_rel_refs_lookup = Q.store_thm("state_rel_refs_lookup",
+  `state_rel f s1 s2 ∧
+   FLOOKUP s1.refs p = SOME x ∧
+   FLOOKUP f p = SOME p' ⇒
+   ∃x'. FLOOKUP s2.refs p' = SOME x' ∧
+     ref_rel (v_rel s1.max_app f s2.refs s2.code) x x'`,
+  rw[state_rel_def]
+  \\ res_tac \\ fs[] \\ rw[]);
+
 val cl_rel_SUBMAP = Q.prove (
   `cl_rel max_app f1 refs1 code (env,ys) x y ∧
    f1 ⊆ f2 /\ FDIFF refs1 f1 SUBMAP FDIFF refs2 f2 ==>
@@ -1173,6 +1182,84 @@ val OPTREL_v_rel_NEW_F = Q.prove(
   Cases_on `x` \\ Cases_on `y` \\ full_simp_tac(srw_ss())[OPTREL_def]
   \\ METIS_TAC [v_rel_NEW_F]) |> MP_CANON;
 
+val state_rel_UPDATE_REF = Q.store_thm("state_rel_UPDATE_REF",
+  `state_rel f2 p1 t2 ∧
+   FLOOKUP f2 dst = SOME r2 ∧
+   FLOOKUP p1.refs dst = SOME v0 ∧
+   ref_rel (v_rel p1.max_app f2 t2.refs t2.code) v v' ∧
+   (∀bs. v' ≠ ByteArray T bs)
+  ⇒
+   state_rel f2 (p1 with refs := p1.refs |+ (dst,v))
+     (t2 with refs := t2.refs |+ (r2,v'))`,
+  rw[state_rel_def,FLOOKUP_UPDATE]
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac OPTREL_v_rel_UPDATE_REF >>
+    fs[IN_FRANGE_FLOOKUP]
+    \\ asm_exists_tac \\ fs[] )
+  >- (
+    rw[] \\ spose_not_then strip_assume_tac
+    \\ res_tac )
+  >- (
+    simp[EXTENSION]
+    \\ fs[FLOOKUP_DEF]
+    \\ metis_tac[] )
+  >- ( fs[SUBSET_DEF] )
+  >- (
+    pop_assum mp_tac \\ rw[] \\ rw[]
+    >- (
+      Cases_on`v` \\ fs[ref_rel_def] \\
+      match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      rpt strip_tac >>
+      match_mp_tac v_rel_UPDATE_REF >>
+      fs[IN_FRANGE_FLOOKUP]
+      \\ asm_exists_tac \\ fs[] )
+    \\ res_tac \\ fs[]
+    \\ rw[] \\ fs[]
+    >- (
+      fs[INJ_DEF,FLOOKUP_DEF]
+      \\ metis_tac[] )
+    \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[] \\
+    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac v_rel_UPDATE_REF >>
+    fs[IN_FRANGE_FLOOKUP]
+    \\ asm_exists_tac \\ fs[] ));
+
+val state_rel_NEW_REF = Q.store_thm("state_rel_NEW_REF",
+  `state_rel f2 p1 t2 ∧ p ∉ FDOM t2.refs ⇒
+   state_rel f2 p1 (t2 with refs := t2.refs |+ (p,v))`,
+  rw[state_rel_def,FLOOKUP_UPDATE]
+  >- (
+    match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    rpt strip_tac >>
+    match_mp_tac OPTREL_v_rel_NEW_REF >>
+    fs[IN_FRANGE_FLOOKUP])
+  >- (
+    rw[] \\ spose_not_then strip_assume_tac
+    \\ res_tac
+    \\ fs[SUBSET_DEF,IN_FRANGE_FLOOKUP,PULL_EXISTS]
+    \\ metis_tac[])
+  >- ( fs[SUBSET_DEF] )
+  \\ res_tac \\ rw[]
+  >- fs[FLOOKUP_DEF]
+  \\ Cases_on`x` \\ fs[ref_rel_def] \\ rw[] \\
+  match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) \\
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rpt strip_tac >>
+  match_mp_tac v_rel_NEW_REF >>
+  fs[IN_FRANGE_FLOOKUP]);
+
 (* semantic functions respect relation *)
 
 val v_to_list = Q.prove(
@@ -1258,7 +1345,8 @@ val do_app = Q.prove(
    (* store updates need special treatment *)
    (op <> Ref) /\ (op <> Update) ∧
    (op ≠ RefArray) ∧ (∀f. op ≠ RefByte f) ∧ (op ≠ UpdateByte) ∧
-   (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧
+   (∀s. op ≠ String s) ∧ (op ≠ FromListByte) ∧ op ≠ ConcatByteVec ∧
+   (∀b. op ≠ CopyByte b) ∧
    (∀n. op ≠ (FFI n)) ==>
    ?w t2.
      (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
@@ -1272,7 +1360,7 @@ val do_app = Q.prove(
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `op = BoundsCheckByte` THEN1
+  \\ Cases_on `∃b. op = BoundsCheckByte b` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]
      \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
@@ -1460,6 +1548,11 @@ val do_app = Q.prove(
   \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][v_rel_SIMP]
   \\ CCONTR_TAC \\ fs []);
 
+val v_case_eq_thms =
+  LIST_CONJ [
+    prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
+    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
+
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
@@ -1477,118 +1570,12 @@ val do_app_err = Q.prove(
     Cases_on `a` >>
     rw [closPropsTheory.do_app_cases_timeout] >>
     fs [closPropsTheory.do_app_cases_type_error])
-  \\ Cases_on`op`>>srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-  >- (
-    imp_res_tac state_rel_globals >>
-    every_case_tac >> full_simp_tac(srw_ss())[get_global_def,LIST_REL_EL_EQN] >>
-    rev_full_simp_tac(srw_ss())[OPTREL_def] >> res_tac >> full_simp_tac(srw_ss())[])
-  >- (
-    imp_res_tac state_rel_globals >>
-    every_case_tac >> full_simp_tac(srw_ss())[get_global_def,LIST_REL_EL_EQN] >>
-    rev_full_simp_tac(srw_ss())[OPTREL_def] >> res_tac >> full_simp_tac(srw_ss())[])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- (
-    spose_not_then strip_assume_tac
-    \\ every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- (
-    spose_not_then strip_assume_tac
-    \\ every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- (
-    Cases_on`xs`\\fs[]
-    \\ Cases_on`t`\\fs[]
-    \\ Cases_on`h`\\fs[]
-    \\ Cases_on`t'`\\fs[]
-    \\ Cases_on`h'`\\fs[]
-    \\ rw[]
-    \\ every_case_tac \\ fs[])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>srw_tac[][]>-
-    (Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>srw_tac[][])>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>srw_tac[][]>>
-    Cases_on`h'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> fsrw_tac[][LET_THM])
-  >- (
-    Cases_on`xs`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
-    every_case_tac >> fsrw_tac[][LET_THM])
-  >- (
-    Cases_on`xs`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h'`>>fsrw_tac[][]>>srw_tac[][]>>
-    every_case_tac >> fsrw_tac[][LET_THM])
-  >- (
-    Cases_on`xs`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h'`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    every_case_tac >> fsrw_tac[][LET_THM])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[LET_THM] )
-  >- (
-    Cases_on`xs`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
-    Cases_on`h'`>>fsrw_tac[][]>>srw_tac[][]>>
-    every_case_tac >> fsrw_tac[][LET_THM])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[])
-  >- ( every_case_tac \\ fs[] )
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[state_rel_def] >> res_tac >>
-    full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
-  >> (
-    TRY(Cases_on`w`\\fs[])>>
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-    TRY(Cases_on`h`>>full_simp_tac(srw_ss())[])>>
-    TRY(Cases_on`t'`>>full_simp_tac(srw_ss())[])>>
-    every_case_tac >> full_simp_tac(srw_ss())[] ));
+  \\ Cases_on`op`
+  \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+  \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
+  \\ spose_not_then strip_assume_tac \\ fs[]
+  \\ rpt (pop_assum mp_tac)
+  \\ rpt (PURE_CASE_TAC \\ fs []) \\ fs []);
 
 (* correctness of implemented primitives *)
 
@@ -3267,6 +3254,98 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ simp[Abbr`ptr`,LEAST_NOTIN_FDOM] )
       \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
       \\ rw[] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
+    \\ Cases_on`op = ConcatByteVec` \\ fs[] >- (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
+      \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[]
+      \\ fs[case_eq_thms] \\ rw[]
+      \\ qpat_x_assum`$some _ = _`mp_tac
+      \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac
+      \\ imp_res_tac v_to_list \\ fs[v_rel_SIMP,FLOOKUP_UPDATE]
+      \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] \\ rw[]
+      \\ qmatch_assum_rename_tac`LIST_REL _ (MAP ByteVector _) ls`
+      \\ `∃ps. ls = MAP RefPtr ps`
+      by (
+        simp[LIST_EQ_REWRITE]
+        \\ fs[LIST_REL_EL_EQN,v_rel_SIMP,EL_MAP]
+        \\ fs[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM]
+        \\ qexists_tac`GENLIST f (LENGTH ls)`
+        \\ simp[EL_MAP] )
+      \\ map_every qexists_tac[`wss`,`ps`]
+      \\ simp[]
+      \\ `∀x. MAP RefPtr ps = MAP RefPtr x ⇔ x = ps`
+      by ( rw[EQ_IMP_THM] \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] ) \\ simp[]
+      \\ reverse conj_asm2_tac
+      >- ( fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_SIMP] )
+      \\ simp[]
+      \\ `∀x. MAP (SOME o ByteArray T) wss : v ref option list = MAP (SOME o ByteArray T) x ⇔ x = wss`
+      by ( rw[EQ_IMP_THM] \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] ) \\ simp[]
+      \\ qexists_tac`f2` \\ fs[]
+      \\ fs[state_rel_def]
+      \\ qmatch_goalsub_abbrev_tac`ptr ∉ FRANGE f2`
+      \\ `ptr ∉ FRANGE f2` by METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM]
+      \\ simp[FLOOKUP_UPDATE]
+      \\ reverse conj_tac
+      >- (
+        fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+        \\ rw[] \\ METIS_TAC[LEAST_NOTIN_FDOM] )
+      \\ conj_tac
+      >- (
+        match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+        ONCE_REWRITE_TAC[CONJ_COMM] >>
+        asm_exists_tac \\ fs[] \\ rw[] \\
+        match_mp_tac OPTREL_v_rel_NEW_REF \\
+        simp[Abbr`ptr`,LEAST_NOTIN_FDOM])
+      \\ conj_tac
+      >- (
+        fs[IN_FRANGE_FLOOKUP]
+        \\ rw[] \\ rfs[]
+        \\ res_tac \\ simp[] )
+      \\ rw[]
+      \\ res_tac \\ simp[]
+      \\ rw[] \\ fs[] \\ rfs[IN_FRANGE_FLOOKUP] \\ rw[]
+      \\ Cases_on`x` \\ fs[]
+      \\ match_mp_tac (MP_CANON(GEN_ALL LIST_REL_mono))
+      \\ ONCE_REWRITE_TAC[CONJ_COMM] >>
+      asm_exists_tac \\ fs[] \\ rw[] \\
+      match_mp_tac v_rel_NEW_REF
+      \\ fs[Abbr`ptr`,LEAST_NOTIN_FDOM] )
+    \\ Cases_on`∃fl. op = CopyByte fl` \\ fs[] >- (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
+      \\ Cases_on`fl`
+      \\ fs[case_eq_thms,v_case_eq_thms,PULL_EXISTS,SWAP_REVERSE_SYM]
+      \\ rveq \\ fs[v_rel_SIMP] \\ rw[] \\ fs[FLOOKUP_UPDATE] \\ rw[]
+      \\ TRY (drule (GEN_ALL state_rel_refs_lookup) \\ disch_then imp_res_tac \\ fs[FLOOKUP_UPDATE])
+      \\ TRY (
+        rename1`FLOOKUP _ _ = SOME (ByteArray F _)`
+        \\ qexists_tac`f2` \\ fs[]
+        \\ reverse conj_tac
+        >- (
+          fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+          \\ rw[] \\ fs[IN_FRANGE_FLOOKUP] )
+        \\ rw[]
+        \\ match_mp_tac (GEN_ALL state_rel_UPDATE_REF)
+        \\ simp[] \\ NO_TAC)
+      \\ qexists_tac`f2` \\ fs[]
+      \\ TRY (* new dst allocated *) (
+        (conj_tac >- (
+            strip_tac
+            \\ fs[state_rel_def,SUBSET_DEF]
+            \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
+        \\ (reverse conj_tac >- (
+            fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+            \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM]
+            \\ fs[state_rel_def,SUBSET_DEF]
+            \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
+        \\ match_mp_tac state_rel_NEW_REF
+        \\ rw[LEAST_NOTIN_FDOM] )
+      (* existing dst *)
+      \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+      \\ (conj_tac >- (
+          match_mp_tac (GEN_ALL state_rel_UPDATE_REF) \\ fs[] ))
+      \\ fs[FDIFF_def,DRESTRICT_DEF,SUBMAP_DEF,FAPPLY_FUPDATE_THM]
+      \\ rw[DRESTRICT_DEF,FAPPLY_FUPDATE_THM] \\ rw[]
+      \\ fs[IN_FRANGE_FLOOKUP] )
     \\ imp_res_tac closSemTheory.do_app_const
     \\ first_x_assum(mp_tac o MATCH_MP
          (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))

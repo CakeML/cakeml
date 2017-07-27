@@ -26,6 +26,8 @@ val _ = Datatype `
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
+     | ConcatByteVec (* concatenate list of byte vectors *)
+     | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromList num  (* convert list to packed Block *)
      | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
@@ -59,7 +61,7 @@ val _ = Datatype `
      | FP_bop fp_bop
      | BoundsCheckBlock
      | BoundsCheckArray
-     | BoundsCheckByte
+     | BoundsCheckByte bool (* T = loose (<=) bound *)
      | LessConstSmall num`
 
 val _ = Datatype `
@@ -91,6 +93,7 @@ val pure_op_def = Define `
     | (RefByte _) => F
     | RefArray => F
     | UpdateByte => F
+    | CopyByte F => F
     | Ref => F
     | Update => F
     | _ => T

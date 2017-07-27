@@ -348,6 +348,16 @@ val decode_imm8_thm6 =
          c ' 8 <=>
          ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
          (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
+val loc_lem =
+  utilsLib.map_conv asmLib.mk_blast_thm
+    [``(31 >< 24) (a - 8w : word32) : word8``,
+     ``(23 >< 16) (a - 8w : word32) : word8``,
+     ``(15 >< 8) (a - 8w : word32) : word8``,
+     ``(7 >< 0) (a - 8w : word32) : word8``,
+     ``(31 >< 24) (-1w * a + 8w : word32) : word8``,
+     ``(23 >< 16) (-1w * a + 8w : word32) : word8``,
+     ``(15 >< 8) (-1w * a + 8w : word32) : word8``,
+     ``(7 >< 0) (-1w * a + 8w : word32) : word8``]
 
 val word_lo_not_carry = Q.prove(
    `!a b. (a <+ b) = ~CARRY_OUT a (~b) T`,
@@ -706,7 +716,7 @@ local
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
                [alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
-                Once boolTheory.LET_THM]
+                Once boolTheory.LET_THM, loc_lem]
          \\ TRY (Q.PAT_X_ASSUM `NextStateARM qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
@@ -716,6 +726,30 @@ in
      ORELSE next_state_tac0 [true, false]
      ORELSE next_state_tac0 [false, true]
 end
+
+val adc_lem1 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
+      4294967296 <= w2n r2 + (w2n r3 + 1)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem2 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
+      n2w (w2n r2 + (w2n r3 + 1))`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem3 = Q.prove(
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem4 = Q.prove(
+  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
+  rw [wordsTheory.add_with_carry_def]
+)
 
 local
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
@@ -1156,15 +1190,26 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
         --------------*)
       print_tac "Loc"
       \\ Cases_on `8w <= c`
-      >| [
-          Cases_on `c + 0xFFFFFFF8w <+ 256w`,
-          Cases_on `-1w * c + 0x8w <+ 256w`
+      >| [Cases_on `(31 >< 24) (c + 0xFFFFFFF8w) <> 0w : word8`
+          >| [all_tac,
+              Cases_on `(23 >< 16) (c + 0xFFFFFFF8w) <> 0w : word8`
+              >| [all_tac,
+                  Cases_on `(15 >< 8) (c + 0xFFFFFFF8w) <> 0w : word8`
+              ]
+          ],
+          Cases_on `(31 >< 24) (-1w * c + 8w) <> 0w : word8`
+          >| [all_tac,
+              Cases_on `(23 >< 16) (-1w * c + 8w) <> 0w : word8`
+              >| [all_tac,
+                  Cases_on `(15 >< 8) (-1w * c + 8w) <> 0w : word8`
+              ]
+          ]
       ]
       \\ next_tac
-      \\ rfs [alignmentTheory.align_aligned, alignmentTheory.aligned_numeric,
-              GSYM decode_imm8_thm4, GSYM decode_imm8_thm6]
+      \\ rfs [alignmentTheory.align_aligned, alignmentTheory.aligned_numeric]
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+      \\ blastLib.FULL_BBLAST_TAC
       )
    )
 

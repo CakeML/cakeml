@@ -4,27 +4,24 @@ val _ = new_theory"mips_config";
 
 val mips_names_def = Define `
   mips_names =
-    (* source can use 25 regs (r2-r24,r30-r31),
+    (* source can use 24 regs (r2-r24,r31),
        target's r0 must be avoided (hardcoded to 0),
        target's r1 must be avoided (used by encoder in asm),
        target's r25 and r28 are used to set up PIC
        target's r29 must be avoided (stack pointer),
        target's r26-r27 avoided (reserved for OS kernel),
+       target's r30 must be avoided (used by encoder in asm),
        source 0 must represent r31 (link register),
        source 1 2 must be r4, r5 (1st 2 args),
-       top 3 (22-24) must be callee-saved (in 16-23, 28, 30) *)
+       top 3 (21-23) must be callee-saved (in 16-23, 28, 30) *)
     (insert 0 31 o
      insert 1 4 o
      insert 2 5 o
-     insert 22 21 o
-     insert 23 22 o
-     insert 24 23 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 4 2 o
-     insert 21 24 o
-     insert 5 30 o
-     insert 31 0 o
-     insert 30 1) LN:num num_map`
+     insert 5 24 o
+     insert 24 0 o
+     insert 31 1) LN:num num_map`
 
 val mips_names_def = save_thm("mips_names_def",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);

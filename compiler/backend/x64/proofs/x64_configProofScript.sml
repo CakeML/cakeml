@@ -1,5 +1,6 @@
-open preamble targetSemTheory backendProofTheory
-     x64_configTheory x64_targetProofTheory
+open preamble backendProofTheory
+open x64_configTheory x64_targetProofTheory
+open blastLib;
 
 val _ = new_theory"x64_configProof";
 
@@ -20,6 +21,9 @@ val x64_conf_ok = Q.store_thm("x64_conf_ok",`
     (rw[conf_constraint_def]>>
     TRY(EVAL_TAC>>fs[]>>NO_TAC)>>
     fs[stack_removeTheory.max_stack_alloc_def]
+    >-
+      (EVAL_TAC>>
+      blastLib.FULL_BBLAST_TAC)
     >-
       (EVAL_TAC>>fs[]>>
       match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP>>

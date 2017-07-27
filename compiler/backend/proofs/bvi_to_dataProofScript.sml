@@ -482,6 +482,56 @@ val compile_correct = Q.prove(
          \\ IMP_RES_TAC jump_exc_IMP
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
          \\ full_simp_tac(srw_ss())[jump_exc_def])))
+    \\ Cases_on`∃b. op = CopyByte b` >- (
+      fs[op_requires_names_def]
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ simp[bviSemTheory.do_app_def,do_app_aux_def,closSemTheory.case_eq_thms]
+      \\ strip_tac \\ rveq \\ fs[pair_case_eq] \\ rw[]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[dataSemTheory.do_app_def,do_space_def,op_space_reset_def,
+            data_spaceTheory.op_space_req_def,data_to_bvi_ignore]
+      \\ fs[set_var_def,bvi_to_data_def,lookup_insert,var_corr_def,get_var_def]
+      \\ fs[jump_exc_NONE]
+      \\ fs[state_rel_def,code_rel_def]
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ simp[bviSemTheory.do_app_def,do_app_aux_def,
+              bvlSemTheory.do_app_def,
+              closSemTheory.case_eq_thms,pair_case_eq,SWAP_REVERSE_SYM]
+      \\ strip_tac \\ rveq \\ fs[]
+      >- (
+        pop_assum mp_tac \\ TOP_CASE_TAC \\ fs[]
+        \\ TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[] )
+      \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ strip_tac \\ rveq \\ fs[]
+      \\ rveq \\ fs[]
+      \\ simp[bvi_to_bvl_def,bvl_to_bvi_def]
+      \\ conj_tac >- ( rw[Abbr`env1`,lookup_inter_EQ] )
+      \\ conj_tac >- (
+        fs[LIST_REL_EL_EQN]
+        \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        >- ( res_tac \\ fs[] )
+        \\ METIS_TAC[MEM_EL] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ res_tac \\ fs[] )
+      \\ conj_tac >- (
+        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+        \\ METIS_TAC[] )
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[])
     \\ fs []
     \\ Cases_on `op_requires_names op`
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,

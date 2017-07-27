@@ -561,27 +561,6 @@ val evaluate_app_rw = Q.store_thm ("evaluate_app_rw",
  Cases_on `args` >>
  full_simp_tac(srw_ss())[evaluate_def]);
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
-                          case_def = TypeBase.case_def_of ``:'a error_result`` }
-val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
-                       case_def = TypeBase.case_def_of ``:eq_result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
-                     case_def = TypeBase.case_def_of ``:word_size`` }
-val eqs = LIST_CONJ (map prove_case_eq_thm [
-  op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms,
-  eq_result_thms, error_result_thms, appkind_thms, word_size_thms])
-
-val _ = save_thm ("eqs", eqs);
-
 val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
   `(∀t es E (s:'ffi closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
                case evaluate(es, E, s) of
@@ -601,7 +580,7 @@ val EVERY_pure_correct = Q.store_thm("EVERY_pure_correct",
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
       rename1 `closLang$pure_op opn` >> Cases_on `opn` >>
-      full_simp_tac(srw_ss())[pure_op_def, do_app_def, eqs, bool_case_eq] >>
+      full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] >>
       srw_tac[][] >>
       rev_full_simp_tac(srw_ss() ++ ETA_ss) [] >>
       every_case_tac \\ fs[] >>
@@ -628,29 +607,29 @@ val do_app_split_list = prove(
 val do_app_cases_val = save_thm ("do_app_cases_val",
   ``do_app op vs s = Rval (v,s')`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
 val do_app_cases_err = save_thm ("do_app_cases_err",
 ``do_app op vs s = Rerr (Rraise v)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
 val do_app_cases_timeout = save_thm ("do_app_cases_timeout",
 ``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
 val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
 ``do_app op vs s = Rerr (Rabort Rtype_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, eqs] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
 val dest_closure_none_loc = Q.store_thm ("dest_closure_none_loc",
@@ -774,7 +753,7 @@ val dest_closure_partial_is_closure = Q.store_thm(
   "dest_closure_partial_is_closure",
   `dest_closure max_app l v vs = SOME (Partial_app v') ⇒
    is_closure v'`,
-  dsimp[dest_closure_def, eqs, bool_case_eq, is_closure_def, UNCURRY]);
+  dsimp[dest_closure_def, case_eq_thms, bool_case_eq, is_closure_def, UNCURRY]);
 
 val is_closure_add_partial_args_nil = Q.store_thm(
   "is_closure_add_partial_args_nil",
@@ -803,7 +782,7 @@ val evaluate_app_clock_drop = Q.store_thm(
   gen_tac >> completeInduct_on `LENGTH args` >>
   full_simp_tac (srw_ss() ++ DNF_ss) [] >> qx_gen_tac `args` >>
   `args = [] ∨ ∃a1 as. args = a1::as` by (Cases_on `args` >> simp[]) >>
-  dsimp[evaluate_def, eqs, bool_case_eq, pair_case_eq, dec_clock_def] >>
+  dsimp[evaluate_def, case_eq_thms, bool_case_eq, pair_case_eq, dec_clock_def] >>
   rpt strip_tac >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   rename1 `evaluate_app lopt r1 args' s1` >>
   Cases_on `args' = []`
@@ -826,7 +805,7 @@ val stage_partial_app = Q.store_thm(
      SOME (Partial_app (clo_add_partial_args rest c)) ⇒
    dest_closure max_app NONE c rest =
      SOME (Partial_app (clo_add_partial_args rest c))`,
-  Cases_on `v` >> simp[dest_closure_def, eqs, bool_case_eq, UNCURRY] >>
+  Cases_on `v` >> simp[dest_closure_def, case_eq_thms, bool_case_eq, UNCURRY] >>
   Cases_on `c` >>
   simp[clo_add_partial_args_def, is_closure_def, check_loc_def]);
 
@@ -1261,7 +1240,7 @@ val do_app_never_timesout = Q.store_thm(
   "do_app_never_timesout[simp]",
   `do_app op args s ≠ Rerr (Rabort Rtimeout_error)`,
   Cases_on `op` >> Cases_on `args` >>
-  simp[do_app_def, eqs, bool_case_eq, pair_case_eq]);
+  simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq]);
 
 val evaluate_timeout_clocks0 = Q.store_thm(
   "evaluate_timeout_clocks0",
@@ -1271,7 +1250,7 @@ val evaluate_timeout_clocks0 = Q.store_thm(
        evaluate_app locopt v env s = (Rerr (Rabort Rtimeout_error), s') ⇒
        s'.clock = 0)`,
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
-  dsimp[evaluate_def, eqs, pair_case_eq, bool_case_eq])
+  dsimp[evaluate_def, case_eq_thms, pair_case_eq, bool_case_eq])
 
 val _ = export_rewrites ["closLang.exp_size_def"]
 

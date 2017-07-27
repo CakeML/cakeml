@@ -79,6 +79,11 @@ val _ = Hol_datatype `
   (* Word/integer conversions *)
   | WordFromInt of word_size
   | WordToInt of word_size
+  (* string/bytearray conversions *)
+  | CopyStrStr
+  | CopyStrAw8
+  | CopyAw8Str
+  | CopyAw8Aw8
   (* Char operations *)
   | Ord
   | Chr
@@ -87,6 +92,7 @@ val _ = Hol_datatype `
   | Implode
   | Strsub
   | Strlen
+  | Strcat
   (* Vector operations *)
   | VfromList
   | Vsub

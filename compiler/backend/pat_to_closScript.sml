@@ -11,6 +11,26 @@ val vector_tag_def = Define`vector_tag = 0:num`
    in closLang can make more assumptions about the arguments.
 *)
 
+fun var_fun m n = ``closLang$Var (tra § ^(numSyntax.term_of_int(36+n))) ^(numSyntax.term_of_int(m-n))``;
+
+fun check1 tm var =
+``(If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; ^(var 2)]) (Raise (tra§4) (Op (tra§5) (Cons subscript_tag) []))
+  (If (tra§6) (Op (tra§7) Less [Op (tra§8) (Const 0) []; ^(var 1)]) (Raise (tra§9) (Op (tra§10) (Cons subscript_tag) []))
+  (If (tra§11) (Op (tra§12) (BoundsCheckByte T) [Op (tra§13) Add [^(var 2); ^(var 1)]; ^(var 0)]) ^tm
+  (Raise (tra§14) (Op (tra§15) (Cons subscript_tag) [])))))``;
+
+val checkT = check1
+  ``(closLang$Op (tra§16) (CopyByte T) [Var (tra§17) 0; Var (tra§18) 1; Var (tra§19) 2])`` (var_fun 2);
+
+val checkF = check1
+``(If (tra§16) (Op (tra§17) Less [Op (tra§18) (Const 0) []; Var (tra§19) 0]) (Raise (tra§20) (Op (tra§21) (Cons subscript_tag) []))
+  (If (tra§22) (Op (tra§23) (BoundsCheckByte T) [Op (tra§24) Add [Var (tra§25) 2; Var (tra§26) 0]; Var (tra§27) 1])
+     (Op (tra§28) (CopyByte F) [Var (tra§29) 0; Var (tra§30) 1; Var (tra§31) 2; Var (tra§32) 3; Var (tra§33) 4])
+     (Raise (tra§34) (Op (tra§35) (Cons subscript_tag) []))))`` (var_fun 4);
+
+val CopyByteStr_def = Define`CopyByteStr tra = ^checkT`;
+val CopyByteAw8_def = Define`CopyByteAw8 tra = ^checkF`;
+
 val compile_def = tDefine"compile" `
   (compile (Raise tra e) =
     Raise tra (compile e)) ∧
@@ -112,27 +132,37 @@ val compile_def = tDefine"compile" `
           (Op (tra§7) (RefByte F) [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Op Aw8sub)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) DerefByte [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Aw8length)) es) =
     Op tra LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Aw8update)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 1; Var (tra§4) 2])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 1; Var (tra§4) 2])
          (Let (tra§5) [Op (tra§6) UpdateByte [Var (tra§7) 0;
                         Var (tra§8) 1; Var (tra§9) 2]]
            (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Strsub)) es) =
     Let (tra§0) (REVERSE (MAP compile es))
-      (If (tra§1) (Op (tra§2) BoundsCheckByte [Var (tra§3) 0; Var (tra§4) 1])
+      (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
          (Op (tra§5) DerefByteVec [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (Op Implode)) es) =
     Op tra (FromListByte) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Strlen)) es) =
     Op tra LengthByteVec (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op (Op Strcat)) es) =
+    Op tra ConcatByteVec (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op (Op CopyStrStr)) es) =
+    Let (tra§0) (REVERSE (MAP compile es)) (CopyByteStr tra)) ∧
+  (compile (App tra (Op (Op CopyStrAw8)) es) =
+    Let (tra§0) (REVERSE (MAP compile es)) (CopyByteAw8 tra)) ∧
+  (compile (App tra (Op (Op CopyAw8Str)) es) =
+    Let (tra§0) (REVERSE (MAP compile es)) (CopyByteStr tra)) ∧
+  (compile (App tra (Op (Op CopyAw8Aw8)) es) =
+    Let (tra§0) (REVERSE (MAP compile es)) (CopyByteAw8 tra)) ∧
   (compile (App tra (Op (Op VfromList)) es) =
     Op tra (FromList vector_tag) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op Vsub)) es) =

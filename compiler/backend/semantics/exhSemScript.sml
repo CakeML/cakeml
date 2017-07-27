@@ -162,6 +162,25 @@ val _ = Define `
   ∧
   (v_to_char_list _ = NONE)`;
 
+val vs_to_w8s_def = Define`
+  (vs_to_w8s s [] = SOME []) ∧
+  (vs_to_w8s s (Loc l::vs) =
+   case store_lookup l s of
+   | SOME (W8array ws1) =>
+     (case vs_to_w8s s vs of
+      | SOME ws2 => SOME (ws1++ws2)
+      | _ => NONE)
+   | _ => NONE) ∧
+  (vs_to_w8s _ _ = NONE)`;
+
+val vs_to_string_def = Define`
+  (vs_to_string [] = SOME "") ∧
+  (vs_to_string (Litv(StrLit s1)::vs) =
+   case vs_to_string vs of
+   | SOME s2 => SOME (s1++s2)
+   | _ => NONE) ∧
+  (vs_to_string _ = NONE)`;
+
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
@@ -275,6 +294,41 @@ val do_app_def = Define `
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME (s, Rval (Litv (IntLit i))))
+  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME (s,
+      (case copy_array (str,off) len NONE of
+        NONE => Rerr (Rraise (prim_exn subscript_tag))
+      | SOME cs => Rval (Litv(StrLit(cs)))))
+  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s.refs of
+        SOME (W8array ws) =>
+          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            NONE => SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+          | SOME cs =>
+            (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
+              SOME s' =>  SOME (s with refs := s', Rval (Conv tuple_tag []))
+            | _ => NONE))
+      | _ => NONE)
+  | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s.refs of
+      SOME (W8array ws) =>
+      SOME (s,
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise (prim_exn subscript_tag))
+        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+    | _ => NONE)
+  | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s.refs, store_lookup dst s.refs) of
+      (SOME (W8array ws), SOME (W8array ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
+        | SOME ws =>
+            (case store_assign dst (W8array ws) s.refs of
+              SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag []))
+            | _ => NONE))
+    | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -301,6 +355,14 @@ val do_app_def = Define `
           SOME (s, Rval (Litv (Char (EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+  | (Strcat, [v]) =>
+      (case v_to_list v of
+        SOME vs =>
+          (case vs_to_string vs of
+            SOME str =>
+              SOME (s, Rval (Litv(StrLit str)))
+          | _ => NONE)
+      | _ => NONE)
   | (VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>
@@ -368,44 +430,31 @@ val do_app_def = Define `
   | _ => NONE
   )`;
 
-val do_app_cases = Q.store_thm("do_app_cases",
-  `exhSem$do_app s op vs = SOME x ⇒
-    (∃z n1 n2. op = (Op (Opn z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃z n1 n2. op = (Op (Opb z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃z wz w1 w2. op = (Op (Opw wz z)) ∧ vs = [Litv w1; Litv w2]) ∨
-    (∃sh z wz w. op = (Op (Shift wz sh z)) ∧ vs = [Litv w]) ∨
-    (∃v1 v2. op = (Op Equality) ∧ vs = [v1; v2]) ∨
-    (∃lnum v. op = (Op Opassign) ∧ vs = [Loc lnum; v]) ∨
-    (∃n. op = (Op Opderef) ∧ vs = [Loc n]) ∨
-    (∃v. op = (Op Opref) ∧ vs = [v]) ∨
-    (∃idx v. op = (Init_global_var idx) ∧ vs = [v]) ∨
-    (∃n w. op = (Op Aw8alloc) ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
-    (∃lnum i. op = (Op Aw8sub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op Aw8length) ∧ vs = [Loc n]) ∨
-    (∃lnum i w. op = (Op Aw8update) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃wz w. op = (Op (WordToInt wz)) ∧ vs = [Litv w]) ∨
-    (∃wz n. op = (Op (WordFromInt wz)) ∧ vs = [Litv (IntLit n)]) ∨
-    (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
-    (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
-    (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃v ls. op = (Op Implode) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
-    (∃s i. op = (Op Strsub) ∧ vs = [Litv (StrLit s); Litv (IntLit i)]) ∨
-    (∃s. op = (Op Strlen) ∧ vs = [Litv (StrLit s)]) ∨
-    (∃v vs'. op = (Op VfromList) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
-    (∃vs' i. op = (Op Vsub) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨
-    (∃vs'. op = (Op Vlength) ∧ vs = [Vectorv vs']) ∨
-    (∃v n. op = (Op Aalloc) ∧ vs = [Litv (IntLit n); v]) ∨
-    (∃lnum i. op = (Op Asub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op Alength) ∧ vs = [Loc n]) ∨
-    (∃lnum i v. op = (Op Aupdate) ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
-    (∃lnum n. op = (Op (FFI n)) ∧ vs = [Loc lnum])`,
-  rw[do_app_def] >>
-  pop_assum mp_tac >>
-  Cases_on`op` >- (
-    simp[] >>
-    every_case_tac >> fs[] ) >>
-  BasicProvers.CASE_TAC >>
-  every_case_tac);
+val op_thms = { nchotomy = conLangTheory.op_nchotomy, case_def = conLangTheory.op_case_def}
+val astop_thms = {nchotomy = astTheory.op_nchotomy, case_def = astTheory.op_case_def}
+val modop_thms = {nchotomy = modLangTheory.op_nchotomy, case_def = modLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
+val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
+val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
+val eqs = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+
+val do_app_cases = save_thm("do_app_cases",
+  ``exhSem$do_app s op vs = SOME x`` |>
+  SIMP_CONV(srw_ss()++COND_elim_ss++LET_ss)[PULL_EXISTS, do_app_def, eqs, pair_case_eq]);
+
+val eq_result_CASE_tm = prim_mk_const{Name="eq_result_CASE",Thy="semanticPrimitives"};
+val check =
+  do_app_cases |> concl |> find_terms TypeBase.is_case
+  |> List.map (#1 o strip_comb)
+  |> List.all (fn tm => List.exists (same_const tm) [optionSyntax.option_case_tm, eq_result_CASE_tm])
+val () = if check then () else raise(ERR"exhSem""do_app_cases failed")
+
+val do_app_cases_none = save_thm("do_app_cases_none",
+  ``exhSem$do_app s op vs = NONE`` |>
+  SIMP_CONV(srw_ss()++COND_elim_ss++LET_ss)[PULL_EXISTS, do_app_def, eqs, pair_case_eq]);
 
 val pat_bindings_def = Define`
   (pat_bindings ((Pvar n):exhLang$pat) already_bound =
@@ -518,9 +567,8 @@ val evaluate_ind = theorem"evaluate_ind"
 
 val do_app_clock = Q.store_thm("do_app_clock",
   `exhSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`,
-  rpt strip_tac
-  THEN imp_res_tac do_app_cases
-  THEN (fs [do_app_def] >> every_case_tac >> fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >> rw[]))
+  rpt strip_tac THEN fs[do_app_cases] >> every_case_tac >>
+  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >> rw[])
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
