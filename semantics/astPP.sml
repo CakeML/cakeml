@@ -138,7 +138,7 @@ fun dtypePrint modn sys d t pg str brk blk =
 val _=add_astPP ("dtypeprint", ``Dtype locs x``,genPrint (dtypePrint ""));
 
 fun dtabbrevPrint sys d t pg str brk blk =
-  let val (t,[locs,typ,name,ls]) = strip_comb t
+  let val (t,[locs,ls,name,typ]) = strip_comb t
       val typaram = #1(listSyntax.dest_list ls)
   in
     add_newline >> str"type" >> (case typaram of [] => str""
@@ -148,7 +148,8 @@ fun dtabbrevPrint sys d t pg str brk blk =
              >> str" ">>blk CONSISTENT 0 (str "= " >> sys (pg,pg,pg) d typ>>str ";")
   end;
 
-val _ = add_astPP ("dtabbrevprint",``Dtabbrev locs x y z``,genPrint (dtabbrevPrint ));
+val _ = add_astPP("dtabbrevprint",``Dtabbrev locs x y z``,genPrint (dtabbrevPrint));
+
 (*tvar name*)
 fun tvarPrint sys d t pg str brk blk =
   str (toString (strip t));
@@ -196,6 +197,7 @@ fun tappPrint sys d t pg str brk blk =
      >> sys (pg,pg,pg) d r
   end;
 
+val _=add_astPP("tappnone",``Tapp [] TC_tup``,genPrint (deftypePrint "unit"));
 val _=add_astPP("tappprint", ``Tapp x y``,genPrint tappPrint);
 
 (*Tfn*)
