@@ -25,6 +25,8 @@ val op_space_req_pmatch = Q.store_thm("op_space_req_pmatch",`!op l.
     | WordShift W64 _ _ => 3
     | WordFromInt => 3
     | WordToInt => 3
+    | FP_uop _ => 3
+    | FP_bop _ => 3
     | _ => 0`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

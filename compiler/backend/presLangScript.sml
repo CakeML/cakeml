@@ -4,6 +4,7 @@ open conLangTheory modLangTheory exhLangTheory patLangTheory closLangTheory
 
 val _ = new_theory"presLang";
 
+val _ = Parse.hide"exp";
 (*
 * presLang is a presentation language, encompassing intermediate languages from
 * modLang to patLang of the compiler, adopting their constructors. However, the
