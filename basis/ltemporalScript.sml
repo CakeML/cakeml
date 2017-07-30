@@ -34,7 +34,7 @@ val always_conj_l = Q.store_thm("always_conj_l",
   
 val always_eventually_ind = Q.store_thm("always_eventually_ind",
   `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
-   !ll. ll <> [||] /\ always(eventually P) ll ==> Q ll`,
+   !ll. ll <> [||] ⇒  always(eventually P) ll ==> Q ll`,
    `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
      (!ll. eventually P ll ==> (Q ll))` by
      (strip_tac >> ho_match_mp_tac eventually_ind >> rw[]) >>

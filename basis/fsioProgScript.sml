@@ -106,7 +106,10 @@ val _ =
       val a = write fd n 0 in
          output fd (String.extract s n NONE)
   end;
-  fun print s = output (stdout()) s` |> append_prog
+  fun print_string s = output (stdout()) s;
+  fun prerr_string s = output (stderr()) s;
+    
+    ` |> append_prog
 
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`

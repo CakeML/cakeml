@@ -193,11 +193,22 @@ val decode_encode_files = Q.store_thm(
   rw[implode_explode,MAP_MAP_o,ORD_CHR,MAP_EQ_ID] >>
   Q.ISPEC_THEN`x`mp_tac w2n_lt \\ rw[]);
 
+val encode_files_11 = Q.store_thm("encode_files_11",
+  `encode_files l1 = encode_files l2 ⇒ l1 = l2`,
+  rw[] >> 
+  `decode_files (encode_files l1) = decode_files(encode_files l2)` by fs[] >>
+  fs[decode_encode_files]);
+
 val decode_encode_fds = Q.store_thm(
   "decode_encode_fds",
   `decode_fds (encode_fds fds) = return fds`,
   simp[decode_fds_def, encode_fds_def] >>
   simp[decode_encode_list, decode_encode_pair, implode_explode]);
+
+val encode_fds_11 = Q.store_thm("encode_fds_11",
+  `encode_fds l1 = encode_fds l2 ⇒ l1 = l2`,
+  rw[] >> `decode_fds (encode_fds l1) = decode_fds(encode_fds l2)` by fs[] >>
+  fs[decode_encode_fds]);
 
 val decode_encode_FS = Q.store_thm(
   "decode_encode_FS[simp]",
@@ -386,8 +397,8 @@ val get_file_content_fsupdate_unchanged = Q.store_thm(
 
 (* the filesystem will always eventually allow to write something *)
 val liveFS_def = Define`
-    liveFS fs = 
-        always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars`
+    liveFS fs = (¬ LFINITE fs.numchars ∧
+        always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars)`
 
 val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
  `liveFS fs ⇒ liveFS (openFileFS s fs n)`,
@@ -399,11 +410,13 @@ val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
 
 val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
  `liveFS fs ⇒ liveFS (fsupdate fs fd n k c)`,
- rw[liveFS_def,fsupdate_def,always_DROP]);
+ rw[liveFS_def,fsupdate_def,always_DROP] >>
+ metis_tac[NOT_LFINITE_DROP,NOT_LFINITE_DROP_LFINITE,THE_DEF]);
 
 val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
  `liveFS fs ⇒ liveFS (bumpFD fd fs k)`,
-  rw[liveFS_def,bumpFD_def] >> cases_on`fs.numchars` >> fs[]);
+  rw[liveFS_def,bumpFD_def] >> cases_on`fs.numchars` >> fs[] >>
+  imp_res_tac always_thm);
 
 val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
  `wfFS fs ==> LDROP k fs.numchars = SOME numchars' ==>
@@ -422,8 +435,7 @@ val fsupdate_o = Q.store_thm("fsupdate_o",
      CASE_TAC >> fs[ALOOKUP_NONE,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq])
   >-(fs[ALIST_FUPDKEY_o] >> HO_MATCH_MP_TAC ALIST_FUPDKEY_eq >>
 	 rw[] >> cases_on`v` >> fs[]) >>
-  fs[LDROP_ADD,liveFS_def] >>
-  imp_res_tac always_NOT_LFINITE >> imp_res_tac NOT_LFINITE_DROP >>
+  fs[LDROP_ADD,liveFS_def] >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]);
 
 val _ = export_theory();
