@@ -5,8 +5,6 @@ open preamble match_goal dep_rewrite
 
 val _ = new_theory"clos_callProof";
 
-val _ = Parse.hide "exp";
-
 (* TODO: move *)
 
 val MEM_REPLICATE_EQ = Q.store_thm("MEM_REPLICATE_EQ",

@@ -5,8 +5,6 @@ open clos_to_bvlTheory (* for closure_tag et al. *)
 
 val _ = new_theory"labSem";
 
-val _ = map Parse.hide ["exp","max","pos"];
-
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 

@@ -2,8 +2,6 @@ open preamble
      reg_allocTheory reg_allocProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory
 
-val _ = map Parse.hide ["exp","max","pos","lim"];
-
 val _ = new_theory "word_allocProof";
 
 val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};

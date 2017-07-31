@@ -14,7 +14,6 @@ val _ = set_grammar_ancestry [
 ]
 
 val _ = Parse.hide "B"
-val _ = Parse.hide "exp"
 
 val TWOxDIV2 = Q.store_thm("TWOxDIV2",
   `2 * x DIV 2 = x`,

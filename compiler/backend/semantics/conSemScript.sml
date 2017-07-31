@@ -3,8 +3,6 @@ open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory"conSem"
 
-val _ = map Parse.hide ["exp","max"];
-
 (* The values of conLang differ in that the closures do not contain a constructor
  * name environment.
  *

@@ -1,7 +1,6 @@
 open preamble bviSemTheory
 open bviPropsTheory bvi_tailrecTheory
 
-val _ = Parse.hide "exp";
 (* TODO
 
    - It should be possible to prove that we can replace the simplified

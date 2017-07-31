@@ -4,7 +4,6 @@ val _ = new_theory "word_inst";
 
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-val _ = map Parse.hide ["exp"];
 
 (*Scheme:
 1) Pull all nested ops and consts as far up as possible and convert

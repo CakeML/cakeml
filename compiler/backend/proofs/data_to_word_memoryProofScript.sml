@@ -3,7 +3,6 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
      gc_sharedTheory gc_combinedTheory;
 local open blastLib in end;
-val _ = map Parse.hide ["exp","max","pos"];
 
 val shift_def = wordLangTheory.shift_def;
 val good_dimindex_def = labPropsTheory.good_dimindex_def;

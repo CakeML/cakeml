@@ -28,7 +28,6 @@ val _ = temp_overload_on ("krrel", ``clos_knownProof$res_rel``)
 
 val _ = temp_overload_on ("state_rel", ``clos_relation$state_rel``)
 
-val _ = Parse.hide "exp";
 (* TODO: move? *)
 
 val ARITH_TAC = intLib.ARITH_TAC;

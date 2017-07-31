@@ -3,8 +3,6 @@ open preamble backend_commonTheory closLangTheory conLangTheory
 
 val _ = new_theory"closSem"
 
-val _ = Parse.hide "exp";
-
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
 val _ = Datatype `

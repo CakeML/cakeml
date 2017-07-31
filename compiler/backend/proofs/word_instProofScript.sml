@@ -5,8 +5,6 @@ open preamble
 val _ = new_theory "word_instProof";
 
 val _ = Parse.hide "B";
-val _ = Parse.hide "exp";
-
 (* TODO: Move, but some of these are specific instantiations *)
 val PERM_SWAP_SIMP = Q.prove(`
   PERM (A ++ (B::C)) (B::(A++C))`,

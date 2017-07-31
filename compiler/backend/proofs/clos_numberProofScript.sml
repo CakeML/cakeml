@@ -1,5 +1,4 @@
 open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
-val _ = map Parse.hide ["exp","max","pos"];
 
 val _ = new_theory"clos_numberProof";
 

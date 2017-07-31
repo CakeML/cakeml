@@ -3,8 +3,6 @@ open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory"patSem"
 
-val _ = Parse.hide "exp";
-
 (*
  * The values and semantics of patLang are the same as exhLang, modulo the
  * changes to expressions.

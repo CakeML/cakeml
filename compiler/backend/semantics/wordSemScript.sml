@@ -8,7 +8,6 @@ val _ = set_grammar_ancestry [
   "lprefix_lub", (* for build_lprefix_lub *)
   "machine_ieee" (* for FP*)
 ]
-val _ = Parse.hide "exp"
 
 val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;

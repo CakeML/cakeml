@@ -5,8 +5,6 @@ open preamble
 
 val _ = new_theory"clos_removeProof";
 
-val _ = Parse.hide "pos";
-
 fun closLangFront s =
   Parse.bring_to_front_overload s {Name = s, Thy = "closLang"}
 val _ = List.app closLangFront ["Let", "exp_size", "exp3_size"]

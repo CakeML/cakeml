@@ -9,7 +9,6 @@ local open
   bvl_inlineProofTheory
   bvi_tailrecProofTheory
 in end;
-val _ = Parse.hide "exp";
 
 (*
 open preamble

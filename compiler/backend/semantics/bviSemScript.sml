@@ -1,6 +1,5 @@
 open preamble bviTheory;
 local open backend_commonTheory bvlSemTheory in end;
-val _ = map Parse.hide ["exp","max"];
 
 val _ = new_theory"bviSem";
 

@@ -3,8 +3,6 @@ open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory"exhSem"
 
-val _ = Parse.hide "exp";
-
 (*
  * The values of exhLang differ from decLang in the same way as the
  * expressions.

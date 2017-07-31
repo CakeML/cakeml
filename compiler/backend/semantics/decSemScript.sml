@@ -1,5 +1,4 @@
 open preamble conSemTheory
-val _ = Parse.hide "exp";
 
 val _ = new_theory"decSem"
 
