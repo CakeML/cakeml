@@ -1,5 +1,5 @@
-open preamble exhLangTheory backend_commonTheory
-open semanticPrimitivesPropsTheory (* for do_shift and others *)
+open preamble exhLangTheory backend_commonTheory;
+open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory"exhSem"
 
@@ -230,6 +230,12 @@ val do_app_def = Define `
      (case do_word_op op wz w1 w2 of
           | NONE => NONE
           | SOME w => SOME (s, Rval (Litv w)))
+  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
+  | (FP_uop uop, [Litv (Word64 w)]) =>
+      SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
+  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
   | (Shift wz sh n, [Litv w]) =>
       (case do_shift sh n wz w of
          | NONE => NONE
