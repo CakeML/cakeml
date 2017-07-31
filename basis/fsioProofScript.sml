@@ -1,10 +1,7 @@
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib
-     cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory fsFFIProofTheory 
-     cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
-     mlw8arrayProgTheory mlstringProgTheory cfMainTheory ltemporalTheory
-     mlcommandLineProgTheory fsFFITheory fsioSpecTheory
+open preamble ml_translatorTheory ml_translatorLib ml_progLib
+     basisFunctionsLib fsFFIProofTheory optionMonadTheory cfHeapsBaseTheory
+     ltemporalTheory mlcommandLineProgTheory fsFFITheory set_sepTheory
+     cfMainTheory fsioSpecTheory
 
 val _ = new_theory"fsioProof";
 
