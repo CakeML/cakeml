@@ -2123,7 +2123,7 @@ val EvalM_Marray_alloc = Q.store_thm("EvalM_Marray_alloc",
   \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
   \\ fs[STATE_SPLIT_REFS]
   \\ simp[ARRAY_def, store2heap_aux_def, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT, cell_def, one_def]
-  \\ simp[LIST_REL_REPLICATE_same, ABS_NUM_EQ, replicate_eq]
+  \\ simp[LIST_REL_REPLICATE_same, ABS_NUM_EQ]
   \\ rw[STAR_ASSOC, Once STAR_COMM]
   \\ EXTRACT_PURE_FACTS_TAC
   \\ sg `(Loc loc ~~> arv' * H refs * F' * GC) (st2heap p s)`
