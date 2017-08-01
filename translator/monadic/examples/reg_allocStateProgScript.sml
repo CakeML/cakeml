@@ -8,7 +8,7 @@ open ml_monadBaseLib ml_monadBaseTheory
 open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
 
 val _ = new_theory "reg_allocStateProg"
-val _ = ParseExtras.temp_loose_equality();
+val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
@@ -239,6 +239,310 @@ val do_reg_alloc_def = Define`
     () <- assign_Atemps k;
     () <- assign_Stemps k
   od`
+
+(* Edge from node x to node y, in terms of an adjacency list *)
+val has_edge_def = Define`
+  has_edge adjls x y ⇔
+  MEM y (EL x adjls)`
+
+val undirected_def = Define`
+  undirected adjls ⇔
+  ∀x y.
+    x < LENGTH adjls ∧
+    y < LENGTH adjls ∧
+    has_edge adjls x y ⇒
+    has_edge adjls y x`
+
+(* --- some side properties on the state --- *)
+val good_ra_state_def = Define`
+  good_ra_state s ⇔
+  LENGTH s.adj_ls = s.dim ∧
+  LENGTH s.node_tag = s.dim ∧
+  LENGTH s.degrees = s.dim ∧
+  EVERY (λls. EVERY (λv. v < s.dim) ls) s.adj_ls ∧
+  undirected s.adj_ls`
+
+(* --- invariant: no two adjacent nodes have the same colour --- *)
+val no_clash_def = Define`
+  no_clash adj_ls node_tag ⇔
+  ∀x y.
+    x < LENGTH adj_ls ∧
+    y < LENGTH adj_ls /\
+    has_edge adj_ls x y ⇒
+    case (EL x node_tag,EL y node_tag) of
+      (Fixed n,Fixed m) =>
+        n = m ⇒ x = y
+    | _ => T`
+
+(* Success conditions *)
+
+val msimps = [st_ex_bind_def,st_ex_return_def];
+
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = pair_case_eq::map (prove_case_eq_thm o get_thms)
+  [``:('a,'b) exc``,``:tag``,``:'a list``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
+val tag_case_st = Q.store_thm("tag_case_st",`
+  !t.
+  (tag_CASE t a b c) f = (tag_CASE t (λn. a n f) (b f) (c f))`,
+  Cases>>fs[]);
+
+val list_case_st = Q.store_thm("list_case_st",`
+  !t.
+  (list_CASE t a b) f = (list_CASE t (a f) (λx y.b x y f))`,
+  Cases>>fs[]);
+
+val node_tag_sub_def = fetch "-" "node_tag_sub_def"
+val adj_ls_sub_def = fetch "-" "adj_ls_sub_def"
+
+(* TODO: These equational lemmas one ought to be automatic *)
+val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
+  ∀e n ls v.
+  Msub e n ls =
+  if n < LENGTH ls then Success (EL n ls)
+                   else Failure e`,
+  ho_match_mp_tac Msub_ind>>rw[]>>
+  simp[Once Msub_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[]>>
+  Cases_on`n`>>fs[]);
+
+val node_tag_sub_eqn= Q.store_thm("node_tag_sub_eqn[simp]",`
+  node_tag_sub n s =
+  if n < LENGTH s.node_tag then
+    (Success (EL n s.node_tag),s)
+  else
+    (Failure (ReadError ()),s)`,
+  rw[node_tag_sub_def]>>
+  fs[Marray_sub_def]);
+
+val adj_ls_sub_eqn= Q.store_thm("adj_ls_sub_eqn[simp]",`
+  adj_ls_sub n s =
+  if n < LENGTH s.adj_ls then
+    (Success (EL n s.adj_ls),s)
+  else
+    (Failure (ReadError ()),s)`,
+  rw[adj_ls_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_node_tag_def = fetch "-" "update_node_tag_def"
+
+val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
+  ∀e x n ls.
+  Mupdate e x n ls =
+  if n < LENGTH ls then
+    Success (LUPDATE x n ls)
+  else
+    Failure e`,
+  ho_match_mp_tac Mupdate_ind>>rw[]>>
+  simp[Once Mupdate_def]>>
+  Cases_on`ls`>>fs[]>>
+  IF_CASES_TAC>>fs[LUPDATE_def]>>
+  Cases_on`n`>>fs[LUPDATE_def]);
+
+val update_node_tag_eqn = Q.store_thm("update_node_tag_eqn[simp]",`
+  update_node_tag n t s =
+  if n < LENGTH s.node_tag then
+     (Success (),s with node_tag := LUPDATE t n s.node_tag)
+  else
+     (Failure (WriteError ()),s)`,
+  rw[update_node_tag_def]>>
+  fs[Marray_update_def]);
+
+val remove_colours_ind = theorem "remove_colours_ind";
+
+val remove_colours_frame = Q.store_thm("remove_colours_frame",`
+  ∀adjs ks s res s'.
+  remove_colours adjs ks s = (res,s') ⇒
+  s = s'`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  fs msimps>>
+  pop_assum mp_tac >> IF_CASES_TAC>> simp[]>>
+  rw[]>>fs [case_eq_thms,tag_case_st]>>
+  rw[]>>fs[]>>
+  metis_tac[]);
+
+val remove_colours_success = Q.store_thm("remove_colorus_success",`
+  ∀adjs ks s ls s'.
+  remove_colours adjs ks s = (Success ls,s') ⇒
+  Abbrev(set ls ⊆ set ks ∧
+  ∀n. MEM n adjs ∧ n < LENGTH s'.node_tag ⇒
+    case EL n s.node_tag of
+      Fixed c => ¬MEM c ls
+    | _ => T)`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  fs msimps
+  >-
+    (rw[markerTheory.Abbrev_def]>>TOP_CASE_TAC>>fs[])
+  >-
+    rw[markerTheory.Abbrev_def,SUBSET_DEF]
+  >>
+  pop_assum mp_tac>>IF_CASES_TAC>>fs[]>>
+  strip_tac>>
+  fs[case_eq_thms,tag_case_st]>>rw[]>>
+  first_x_assum drule>>
+  strip_tac>>
+  fs[markerTheory.Abbrev_def]>>
+  rw[]>>fs[]
+  >-
+    (fs[SUBSET_DEF]>>
+    rw[]>>first_x_assum drule>>
+    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER])
+  >>
+    CCONTR_TAC>>
+    fs[SUBSET_DEF]>>
+    first_x_assum drule>>
+    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER]);
+
+val no_clash_LUPDATE_Stemp = Q.prove(`
+  no_clash adjls tags ⇒
+  no_clash adjls (LUPDATE Stemp n tags)`,
+  rw[no_clash_def]>>
+  fs[EL_LUPDATE]>>
+  rw[]>>every_case_tac>>rw[]>>fs[]>>
+  first_x_assum drule>>
+  disch_then drule>>fs[]>>
+  fs[]);
+
+val no_clash_LUPDATE_Fixed = Q.prove(`
+  undirected adjls ∧
+  EVERY (λls. EVERY (λv. v < LENGTH tags) ls) adjls ∧
+  n < LENGTH adjls ∧
+  (∀m. MEM m (EL n adjls) ∧ m < LENGTH tags ⇒
+    EL m tags ≠ Fixed x) ∧
+  no_clash adjls tags ⇒
+  no_clash adjls (LUPDATE (Fixed x) n tags)`,
+  rw[no_clash_def]>>
+  fs[EL_LUPDATE]>>
+  rw[]
+  >-
+    (fs[has_edge_def]>>
+    last_x_assum drule>>
+    impl_tac>-
+      (fs[EVERY_MEM,MEM_EL]>>
+      metis_tac[])>>
+    rw[]>>
+    TOP_CASE_TAC>>simp[]>>
+    CCONTR_TAC>>fs[])
+  >>
+    `has_edge adjls n x'` by
+      metis_tac[undirected_def]>>
+    fs[has_edge_def]>>
+    qpat_x_assum`MEM n _` kall_tac>>
+    last_x_assum drule>>
+    impl_tac>-
+      (fs[EVERY_MEM,MEM_EL]>>
+      metis_tac[])>>
+    rw[]>>
+    TOP_CASE_TAC>>simp[]>>
+    CCONTR_TAC>>fs[]);
+
+val remove_colours_succeeds = Q.prove(`
+  ∀adj ks s s.
+  EVERY (\v. v < LENGTH s.node_tag) adj ⇒
+  ∃ls. remove_colours adj ks s = (Success ls,s)`,
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  simp msimps>>
+  Cases_on`EL x s.node_tag`>>fs[]>>
+  rpt (first_x_assum drule)>>rw[]>>fs[]>>
+  first_x_assum(qspec_then`n` assume_tac)>>fs[]>>
+  rfs[]);
+
+val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  n < s.dim ⇒
+  ∃s'.
+  assign_Atemp_tag ks n s = (Success (),s') ∧
+  (∀m.
+    if n = m
+      then EL n s'.node_tag ≠ Atemp
+      else EL m s'.node_tag = EL m s.node_tag) ∧
+  no_clash s'.adj_ls s'.node_tag ∧
+  good_ra_state s' ∧
+  s.dim = s'.dim`,
+  rw[assign_Atemp_tag_def]>>
+  pop_assum mp_tac>>
+  simp msimps>>
+  fs[good_ra_state_def]>>
+  strip_tac>>
+  simp[Once markerTheory.Abbrev_def]>>
+  TOP_CASE_TAC>> simp[]>>
+  `EVERY (\v. v < LENGTH s.node_tag) (EL n s.adj_ls)` by
+    fs[EVERY_MEM,MEM_EL,PULL_EXISTS]>>
+  drule remove_colours_succeeds>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  TOP_CASE_TAC>> simp[EL_LUPDATE]
+  >-
+    simp[no_clash_LUPDATE_Stemp]
+  >>
+  imp_res_tac remove_colours_success>>
+  match_mp_tac no_clash_LUPDATE_Fixed>>
+  fs[markerTheory.Abbrev_def]>>
+  rw[]>>first_x_assum drule>>
+  fs[]>>
+  TOP_CASE_TAC>>fs[]);
+
+val assign_Atemps_FOREACH_lem = Q.prove(`
+  ∀ls s ks.
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ∧
+  EVERY (\v. v < s.dim) ls ⇒
+  ∃s'.
+    st_ex_FOREACH ls (assign_Atemp_tag ks) s = (Success (),s') ∧
+    no_clash s'.adj_ls s'.node_tag ∧
+    good_ra_state s' ∧
+    (∀m.
+      if MEM m ls
+        then EL m s'.node_tag ≠ Atemp
+        else EL m s'.node_tag = EL m s.node_tag) ∧
+    s.dim = s'.dim`,
+  Induct>>rw[st_ex_FOREACH_def]>>
+  fs msimps>>
+  drule (GEN_ALL assign_Atemp_tag_correct)>>
+  disch_then drule>>
+  disch_then drule>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  first_x_assum drule>>
+  fs[]>>simp[]>>
+  disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  rw[]
+  >-
+    (rpt(first_x_assum (qspec_then`h` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[])
+  >-
+    metis_tac[]
+  >>
+    fs[]>>
+    (rpt(first_x_assum (qspec_then`m` mp_tac))>>
+    simp[]>>
+    strip_tac>>IF_CASES_TAC>>fs[]));
+
+val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
+  ∀k s.
+  good_ra_state s ∧
+  no_clash s.adj_ls s.node_tag ==>
+  ∃s'.
+  assign_Atemps k s = (Success (),s') ∧
+  no_clash s'.adj_ls s'.node_tag ∧
+  good_ra_state s' ∧
+  EVERY (λn. n ≠ Atemp) s'.node_tag`,
+  rw[assign_Atemps_def,get_dim_def]>>
+  simp msimps>>
+  qpat_abbrev_tac`ks = (GENLIST _ k)`>>
+  drule assign_Atemps_FOREACH_lem>>
+  disch_then drule>>
+  disch_then(qspecl_then[`GENLIST (λx.x) s.dim`,`ks`] assume_tac)>>
+  fs[EVERY_GENLIST]>>
+  fs[EVERY_MEM,MEM_GENLIST,good_ra_state_def]>>
+  CCONTR_TAC>>
+  fs[MEM_EL]>>
+  first_x_assum(qspec_then`n` assume_tac)>>
+  rfs[]>>fs[]>>
+  metis_tac[]);
+
+(* --- --- *)
 
 
 (* --- Translation --- *)
