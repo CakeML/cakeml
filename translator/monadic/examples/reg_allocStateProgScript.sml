@@ -194,6 +194,11 @@ val remove_colours_def = Define`
       return r
     od)`
 
+(*
+val res = translate FILTER;
+val res = m_translate remove_colours_def;
+*)
+
 (* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
 (* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
 val assign_tag_def = Define`

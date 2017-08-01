@@ -478,9 +478,69 @@ fun inst_case_thm_for tm = let
 val tm = (!last_fail)
 val tm = rhs
 
-val tm = dest_conj hyps |> snd
+val tm = dest_conj hyps |> fst |> dest_conj |> fst |> dest_conj |> snd
 sat_hyps tm
+is_conj tm
+
+val tm = z;
 *)
+fun inst_case_thm tm m2deep = let
+  val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
+  val th = inst_case_thm_for tm
+  val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
+  val (hyps,rest) = dest_imp (concl th)
+  fun list_dest_forall tm = let
+    val (v,tm) = dest_forall tm
+    val (vs,tm) = list_dest_forall tm
+    in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
+  fun take n xs = List.take(xs, n)
+  fun sat_hyp tm = let
+    val (vs,x) = list_dest_forall tm
+    val (x,y) = dest_imp x
+    val z = get_Eval_arg y
+    val lemma = if can dest_monad_type (type_of z)
+                then m2deep z
+                else hol2deep z
+    val lemma = D lemma
+    val new_env = get_Eval_env y
+    val env = env_tm
+    val lemma = INST [env|->new_env] lemma
+    (* Undischarge the lookup assumptions which are not satisfied yet *)
+    val lemma = 
+    (* *)
+    val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
+    val (z1,z2) = dest_imp (concl lemma)
+    val thz =
+      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
+             DEPTH_CONV stringLib.string_EQ_CONV THENC
+             SIMP_CONV std_ss []) z1 |> DISCH x1
+
+    val thz = 
+    val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
+    val bs = take (length vs div 2) vs
+    fun LIST_UNBETA_CONV [] = ALL_CONV
+      | LIST_UNBETA_CONV (x::xs) =
+          UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
+    val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
+                  (LIST_UNBETA_CONV (rev bs))) lemma
+    val lemma = GENL vs lemma
+    val _ = can (match_term tm) (concl lemma) orelse failwith("sat_hyp failed")
+    
+    
+
+    in lemma end handle HOL_ERR _ => (print ((term_to_string tm) ^ "\n\n"); last_fail := tm; fail())
+  fun sat_hyps tm = if is_conj tm then let
+    val (x,y) = dest_conj tm
+    in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
+  val lemma = sat_hyps hyps
+  val th = MATCH_MP th lemma
+  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
+                                  REWRITE_CONV [])) th
+  in th end handle Empty => failwith "empty";
+
 fun inst_case_thm tm m2deep = let
   val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
   val th = inst_case_thm_for tm
@@ -529,6 +589,57 @@ fun inst_case_thm tm m2deep = let
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
                                   REWRITE_CONV [])) th
   in th end handle Empty => failwith "empty";
+
+(*
+fun inst_case_thm tm m2deep = let
+  val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
+  val th = inst_case_thm_for tm
+  val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
+  val (hyps,rest) = dest_imp (concl th)
+  fun list_dest_forall tm = let
+    val (v,tm) = dest_forall tm
+    val (vs,tm) = list_dest_forall tm
+    in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
+  fun take n xs = List.take(xs, n)
+  fun sat_hyp tm = let
+    val (vs,x) = list_dest_forall tm
+    val (x,y) = dest_imp x
+    val z = get_Eval_arg y
+    val lemma = if can dest_monad_type (type_of z)
+                then m2deep z
+                else hol2deep z
+    val lemma = D lemma
+    val new_env = get_Eval_env y
+    val env = env_tm
+    val lemma = INST [env|->new_env] lemma
+    val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
+    val (z1,z2) = dest_imp (concl lemma)
+    val thz =
+      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
+             DEPTH_CONV stringLib.string_EQ_CONV THENC
+             SIMP_CONV std_ss []) z1 |> DISCH x1
+    val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
+    val bs = take (length vs div 2) vs
+    fun LIST_UNBETA_CONV [] = ALL_CONV
+      | LIST_UNBETA_CONV (x::xs) =
+          UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
+    val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
+                  (LIST_UNBETA_CONV (rev bs))) lemma
+    val lemma = GENL vs lemma
+    val _ = can (match_term tm) (concl lemma) orelse failwith("sat_hyp failed")
+    in lemma end handle HOL_ERR _ => (print ((term_to_string tm) ^ "\n\n"); last_fail := tm; fail())
+  fun sat_hyps tm = if is_conj tm then let
+    val (x,y) = dest_conj tm
+    in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
+  val lemma = sat_hyps hyps
+  val th = MATCH_MP th lemma
+  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
+                                  REWRITE_CONV [])) th
+  in th end handle Empty => failwith "empty";
+*)
 
 (* PMATCH *)
 
@@ -792,6 +903,7 @@ fun m2deep tm =
     val th2 = inst_EvalM_env v th2
     val vs = th2 |> concl |> dest_imp |> fst
     val th2 = th2 |> GEN (rand vs) |> FORCE_GEN (rand (rator vs))
+    val th1 = UNDISCH_ALL th1
     val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_bind) (CONJ th1 th2)
     in check_inv "bind" tm result end else
   (* otherwise *)
