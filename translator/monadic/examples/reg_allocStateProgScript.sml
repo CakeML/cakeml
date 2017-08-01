@@ -86,6 +86,158 @@ val adj_ls_manip = el 1 arr_manip;
 val node_tag_manip = el 2 arr_manip;
 val degrees_manip = el 3 arr_manip;
 
+(* Defining the allocator *)
+
+(* Monadic for and monadic map *)
+val st_ex_FOREACH_def = Define `
+  (st_ex_FOREACH [] a = return ()) ∧
+  (st_ex_FOREACH (x::xs) a =
+  do
+    () <- a x;
+    st_ex_FOREACH xs a
+  od)`
+
+val st_ex_MAP_def = Define `
+  (st_ex_MAP f [] = return []) ∧
+  (st_ex_MAP f (x::xs) =
+  do
+    fx <- f x;
+    fxs <- st_ex_MAP f xs;
+    return (fx::fxs)
+  od)`
+
+(* Filter one of the state arrays, returns indices satisfying P in reversed order *)
+val ifilter_aux_def = Define`
+  (ifilter_aux P sub 0 = return []) ∧
+  (ifilter_aux P sub (SUC i) =
+  do
+    v <- sub i;
+    rec <- ifilter_aux P sub i;
+    if P v
+    then return (i::rec)
+    else return rec
+  od)`
+
+(* ifilter specialised for node_tag, TODO: doesn't do a reverse, but maybe not necessary *)
+val ifilter_node_tag_def = Define`
+  ifilter_node_tag P =
+  do
+    d <- get_dim;
+    ls <- ifilter_aux P (\x. node_tag_sub x) d;
+    return ls
+  od`
+
+(*
+TODO: allocation heuristic
+*)
+
+(* Removing adjacent colours from ks *)
+val remove_colours_def = Define`
+  (*No more available colours*)
+  (remove_colours (ls:num list) [] = return []) ∧
+  (*Some available colour after checking*)
+  (remove_colours [] (ks:num list) = return ks) ∧
+  (*Do the check for vertex x*)
+  (remove_colours (x::xs) ks =
+    do
+      cx <- node_tag_sub x;
+      r <-
+      (case cx of
+        Fixed c =>
+          remove_colours xs (FILTER (λx.x ≠ c) ks)
+      | _ =>
+          remove_colours xs ks);
+      return r
+    od)`
+
+(* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
+(* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
+val assign_Atemp_tag_def = Define`
+  assign_Atemp_tag ks n =
+  do
+    ntag <- node_tag_sub n;
+    case ntag of
+      Atemp =>
+      do
+        adjs <- adj_ls_sub n;
+        ks <- remove_colours adjs ks;
+        case ks of
+          [] => update_node_tag n Stemp
+        | (x::_) => update_node_tag n (Fixed x)
+      od
+    | _ => return ()
+  od`
+
+(* The first allocation step *)
+(* TODO: add a heuristic stack argument*)
+val assign_Atemps_def = Define`
+  assign_Atemps k =
+  do
+    d <- get_dim;
+    ks <- return (GENLIST (\x.x) k);
+    cs <- return (GENLIST (\x.x) d);
+    (* actually, assign_Atemp_tag already filters for Atemps, so just pass it all the nodes *)
+    st_ex_FOREACH cs (assign_Atemp_tag ks)
+  od`
+
+(* Default makes it easier to translate, doesn't matter for our purposes what
+   the default is *)
+val tag_col_def = Define`
+  (tag_col (Fixed n) = n) ∧
+  (tag_col _ = 0n)`
+
+(* Find the first available in k,k+1,...
+   assuming input is sorted
+*)
+val unbound_colour_def = Define `
+  (unbound_colour col [] = col) ∧
+  (unbound_colour col ((x:num)::xs) =
+    if col < x then
+      col
+    else if x = col then
+      unbound_colour (col+1) xs
+    else
+      unbound_colour col xs)`
+
+(* Second colouring -- turns all Stemps into Fixed ≥ k *)
+val assign_Stemp_tag_def = Define`
+  assign_Stemp_tag k n =
+  do
+    ntag <- node_tag_sub n;
+    case ntag of
+      Stemp =>
+      do
+        adjs <- adj_ls_sub n;
+        tags <- st_ex_MAP (λi. node_tag_sub i) adjs;
+        col <- return (unbound_colour k (QSORT (λx y. x≤y) (MAP tag_col tags)));
+        update_node_tag n (Fixed col)
+      od
+    | _ => return ()
+  od`
+
+(* The second allocation step *)
+val assign_Stemps_def = Define`
+  assign_Stemps k =
+  do
+    d <- get_dim;
+    cs <- return (GENLIST (\x.x) d);
+    st_ex_FOREACH cs (assign_Stemp_tag k)
+  od`
+
+(* Putting everything together in one call, assuming the state is set up
+   properly already
+   Final state should have be all Fixed registers
+*)
+val do_reg_alloc_def = Define`
+  do_reg_alloc k =
+  do
+    () <- assign_Atemps k;
+    () <- assign_Stemps k
+  od`
+
+
+(* --- Translation --- *)
+
 (* Register the types used for the translation *)
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
@@ -143,90 +295,30 @@ val (raise_functions, handle_functions) = unzip exn_functions;
 val exn_ri_def = STATE_EXN_TYPE_def;
 val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_ri_def;
 
-(* Filter one of the state arrays, returns indices satisfying P in reversed order
-*)
-val ifilter_aux_def = Define`
-  (ifilter_aux P sub 0 = return []) ∧
-  (ifilter_aux P sub (SUC i) =
-  do
-    v <- sub i;
-    rec <- ifilter_aux P sub i;
-    if P v
-    then return (i::rec)
-    else return rec
-  od)`
-
-(* Specialised for node_tag,
-  TODO: doesn't do a reverse, but maybe not necessary *)
-val ifilter_node_tag_def = Define`
-  ifilter_node_tag P =
-  do
-    d <- get_dim;
-    ls <- ifilter_aux P (\x. node_tag_sub x) d;
-    return ls
-  od`
-
-(* Translation works:
+(* Rest of the translation *)
+val res = m_translate st_ex_FOREACH_def;
+val res = m_translate st_ex_MAP_def;
 val res = m_translate ifilter_aux_def;
 val res = m_translate ifilter_node_tag_def;
-*)
+val res = translate FILTER;
 
-(*
-TODO: allocation heuristic
-*)
+(* Doesn't work:
+val res = m_translate remove_colours_def;
+val res = m_translate assign_Atemp_tag_def;
+val res = m_translate assign_Atemps_def; *)
 
-(* Removing adjacent colours from ks *)
-val remove_colours_def = Define`
-  (*No more available colours*)
-  (remove_colours (ls:num list) [] = return []) ∧
-  (*Some available colour after checking*)
-  (remove_colours [] (ks:num list) = return ks) ∧
-  (*Do the check for vertex x*)
-  (remove_colours (x::xs) ks =
-    do
-      cx <- node_tag_sub x;
-      r <-
-      (case cx of
-        Fixed c =>
-          remove_colours xs (FILTER (λx.x ≠ c) ks)
-      | _ =>
-          remove_colours xs ks);
-      return r
-    od)`
-
-(* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
-(* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
-val assign_tag_def = Define`
-  assign_tag ks n =
-  do
-    ntag <- node_tag_sub n;
-    case ntag of
-      Atemp =>
-      do
-        adjs <- adj_ls_sub n;
-        ks <- remove_colours adjs ks;
-        case ks of
-          [] => update_node_tag n Stemp
-        | (x::_) => update_node_tag n (Fixed x)
-      od
-    | _ => return ()
-  od`
-
-val st_ex_FOREACH_def = Define `
-  (st_ex_FOREACH [] a = return ()) ∧
-  (st_ex_FOREACH (x::xs) a =
-  do
-    () <- a x;
-    st_ex_FOREACH xs a
-  od)`
-
-(* TODO: add a heuristic stack argument*)
-val assign_Atemp_def = Define`
-  assign_Atemp ks =
-  do
-    d <- get_dim;
-    cs <- return (GENLIST I d); (* actually, assign_tag already filters for Atemps, so just pass it all the nodes *)
-    st_ex_FOREACH cs (assign_tag ks)
-  od`
+val res = translate tag_col_def;
+val res = translate unbound_colour_def;
+(* TODO: automate *)
+val res = translate APPEND
+val res = translate PART_DEF
+val res = translate PARTITION_DEF
+val res = translate QSORT_DEF
+val res = translate MAP
+val res = translate SNOC
+val res = translate GENLIST
+val res = translate mk_comb_PMATCHI
+val res = m_translate assign_Stemp_tag_def;
+val res = m_translate assign_Stemps_def;
 
 val _ = export_theory ();
