@@ -38,6 +38,7 @@ fun D th = let
 val env_tm = mk_var("env",semanticPrimitivesSyntax.mk_environment semanticPrimitivesSyntax.v_ty)
 
 (* The store predicate *)
+val H_def = ref UNIT_TYPE_def; (* need a theorem, here... *)
 val default_H = ref ``\refs. emp``;
 val H = ref ``\refs. emp``;
 val dynamic_init_H = ref false; (* Has the store predicate free variables? *)
@@ -46,6 +47,7 @@ val dynamic_init_H = ref false; (* Has the store predicate free variables? *)
 val refs_type = ref ``:unit``;
 
 (* The exception refinement invariant and type *)
+val EXN_TYPE_def_ref = ref UNIT_TYPE_def;
 val EXN_TYPE = ref ``UNIT_TYPE``;
 val exn_type = ref ``:unit``;
 
@@ -444,17 +446,19 @@ fun compute_dynamic_env_ext all_access_specs = let
 in dynamic_store end;
 
 (* Initialize the translation by giving the appropriate values to the above references *)
-fun init_translation (translation_parameters : monadic_translation_parameters) store_pred_exists_thm EXN_RI add_type_theories =
+fun init_translation (translation_parameters : monadic_translation_parameters) store_pred_exists_thm EXN_TYPE_def add_type_theories =
   let
       val {store_pred_def = store_pred_def,
            refs_specs  = refs_specs,
            arrays_specs = arrays_specs} = translation_parameters
 
+      val _ = H_def := store_pred_def
       val _ = default_H := (concl store_pred_def |> strip_forall |> snd |> dest_eq |> fst)
       val _ = H := (!default_H)
       val _ = dynamic_init_H := (not (List.null (free_vars (!H))))
       val _ = refs_type := (type_of (!H) |> dest_type |> snd |> List.hd)
-      val _ = EXN_TYPE := EXN_RI
+      val _ = EXN_TYPE_def_ref := EXN_TYPE_def
+      val _ = EXN_TYPE := (EXN_TYPE_def |> CONJUNCTS |> List.hd |> concl |> strip_forall |> snd |> dest_eq |> fst |> strip_comb |> fst)
       val _ = exn_type := (type_of (!EXN_TYPE) |> dest_type |> snd |> List.hd)
       val _ = aM := (ty_antiq (M_type ``:'a``))
       val _ = bM := (ty_antiq (M_type ``:'b``))
@@ -1109,7 +1113,7 @@ fun m_translate def = let
     val th = RW [PreImp_def] th |> UNDISCH_ALL
     in th end
   (* remove Eq *)
-  val th = RW [ArrowM_def] th
+  val th = RW [ArrowM_def] th |> UNDISCH_ALL
   fun update_params_type th params = let
       val fvs = free_vars (concl th)
       val tmap = List.foldl (fn(x, m) => Redblackmap.insert(m, dest_var x |> fst, x))
