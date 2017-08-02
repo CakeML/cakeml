@@ -157,8 +157,9 @@ val res = m_translate remove_colours_def;
 
 (* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
 (* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
+
 val assign_Atemp_tag_def = Define`
-  assign_Atemp_tag ks n =
+  assign_Atemp_tag ks prefs n =
   do
     ntag <- node_tag_sub n;
     case ntag of
@@ -168,21 +169,32 @@ val assign_Atemp_tag_def = Define`
         ks <- remove_colours adjs ks;
         case ks of
           [] => update_node_tag n Stemp
-        | (x::_) => update_node_tag n (Fixed x)
+        | (x::_) =>
+          do
+            c <- prefs n ks; (* Apply monadic preference oracle *)
+            case c of
+              NONE =>
+              update_node_tag n (Fixed x)
+            | SOME y =>
+              update_node_tag n (Fixed y)
+          od
       od
     | _ => return ()
   od`
 
 (* The first allocation step *)
-(* TODO: add a heuristic stack argument*)
+(* k = num registers, ls = heuristic list, prefs = coloring preference *)
 val assign_Atemps_def = Define`
-  assign_Atemps k =
+  assign_Atemps k ls prefs =
   do
     d <- get_dim;
+    ls <- return (FILTER (λn. n < d) ls);
     ks <- return (GENLIST (\x.x) k);
-    cs <- return (GENLIST (\x.x) d);
+    cs <- return (GENLIST (\x.x) d); (* actually, only need to do those not already in ls *)
+    (* Assign all the ones that the ls tells us to *)
+    st_ex_FOREACH ls (assign_Atemp_tag ks prefs);
     (* actually, assign_Atemp_tag already filters for Atemps, so just pass it all the nodes *)
-    st_ex_FOREACH cs (assign_Atemp_tag ks)
+    st_ex_FOREACH cs (assign_Atemp_tag ks prefs)
   od`
 
 (* Default makes it easier to translate, doesn't matter for our purposes what
@@ -229,14 +241,36 @@ val assign_Stemps_def = Define`
     st_ex_FOREACH cs (assign_Stemp_tag k)
   od`
 
+(* Monadic biased selection oracle, finds the first matching color *)
+val first_match_col_def = Define`
+  (first_match_col ks [] = return NONE) ∧
+  (first_match_col ks (x::xs) =
+    do
+      c <- node_tag_sub x;
+      case c of
+        Fixed m =>
+          if MEM m ks then return (SOME m) else first_match_col ks xs
+      | _ => first_match_col ks xs
+    od)`
+
+(* mtable is an sptree lookup for the moves *)
+val biased_pref_def = Define`
+  biased_pref mtable n ks =
+  do
+    case lookup n mtable of
+      NONE => return NONE
+    | SOME vs =>
+      handle_ReadError (first_match_col ks vs) (λ_. return NONE)
+  od`
+
 (* Putting everything together in one call, assuming the state is set up
    properly already
    Final state should have be all Fixed registers
 *)
 val do_reg_alloc_def = Define`
-  do_reg_alloc k =
+  do_reg_alloc k mtable =
   do
-    () <- assign_Atemps k;
+    () <- assign_Atemps k [] (biased_pref mtable);
     () <- assign_Stemps k
   od`
 
@@ -273,6 +307,40 @@ val no_clash_def = Define`
       (Fixed n,Fixed m) =>
         n = m ⇒ x = y
     | _ => T`
+
+(* Good preference oracle may only inspect, but not touch the state
+   Moreover, it must always select a member of the input list
+*)
+val good_pref_def = Define`
+  good_pref pref ⇔
+  ∀n ks s. ?res.
+    pref n ks s = (Success res,s) ∧
+    case res of
+      NONE => T
+    | SOME k => MEM k ks`
+
+val first_match_col_correct = Q.prove(`
+  ∀x ks s.
+  ∃res. first_match_col ks x s = (res,s) ∧
+  case res of
+    Failure v => v = ReadError ()
+  | Success (SOME k) => MEM k ks
+  | _ => T`,
+  Induct>>fs[first_match_col_def]>>fs msimps>>
+  rw[]>>
+  TOP_CASE_TAC>>fs[]>>
+  IF_CASES_TAC>>fs[]);
+
+val handle_ReadError_def = definition"handle_ReadError_def";
+
+(* Checking that biased_pref satisfies *)
+val good_pref_biased_pref = Q.store_thm("good_pref_biased_pref",`
+  ∀t. good_pref (biased_pref t)`,
+  rw[good_pref_def,biased_pref_def]>>
+  TOP_CASE_TAC>>simp msimps>>
+  (first_match_col_correct |> SPEC_ALL |> assume_tac)>>
+  fs[]>>
+  EVERY_CASE_TAC>>fs[handle_ReadError_def]);
 
 (* Success conditions *)
 
@@ -451,9 +519,10 @@ val remove_colours_succeeds = Q.prove(`
 val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
+  good_pref pref ∧
   n < s.dim ⇒
   ∃s'.
-  assign_Atemp_tag ks n s = (Success (),s') ∧
+  assign_Atemp_tag ks pref n s = (Success (),s') ∧
   (∀m.
     if n = m
       then EL n s'.node_tag ≠ Atemp
@@ -476,20 +545,27 @@ val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
   >-
     simp[no_clash_LUPDATE_Stemp]
   >>
+  qpat_abbrev_tac`ls = h::t`>>
+  fs[good_pref_def]>>
+  first_x_assum(qspecl_then [`n`,`ls`,`s`] assume_tac)>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  simp[EL_LUPDATE,Abbr`ls`]>>
   imp_res_tac remove_colours_success>>
   match_mp_tac no_clash_LUPDATE_Fixed>>
   fs[markerTheory.Abbrev_def]>>
   rw[]>>first_x_assum drule>>
   fs[]>>
-  TOP_CASE_TAC>>fs[]);
+  TOP_CASE_TAC>>fs[]>>
+  metis_tac[]);
 
 val assign_Atemps_FOREACH_lem = Q.prove(`
-  ∀ls s ks.
+  ∀ls s ks prefs.
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
-  EVERY (\v. v < s.dim) ls ⇒
+  good_pref prefs ∧
+  EVERY (\v. v < s.dim) ls ==>
   ∃s'.
-    st_ex_FOREACH ls (assign_Atemp_tag ks) s = (Success (),s') ∧
+    st_ex_FOREACH ls (assign_Atemp_tag ks prefs) s = (Success (),s') ∧
     no_clash s'.adj_ls s'.node_tag ∧
     good_ra_state s' ∧
     (∀m.
@@ -500,10 +576,10 @@ val assign_Atemps_FOREACH_lem = Q.prove(`
   Induct>>rw[st_ex_FOREACH_def]>>
   fs msimps>>
   drule (GEN_ALL assign_Atemp_tag_correct)>>
-  disch_then drule>>
-  disch_then drule>>
+  rpt(disch_then drule)>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
   first_x_assum drule>>
+  rpt (disch_then drule)>>
   fs[]>>simp[]>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
   rw[]
@@ -522,19 +598,28 @@ val assign_Atemps_FOREACH_lem = Q.prove(`
 val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
   ∀k s.
   good_ra_state s ∧
+  good_pref prefs ∧
   no_clash s.adj_ls s.node_tag ==>
   ∃s'.
-  assign_Atemps k s = (Success (),s') ∧
+  assign_Atemps k ls prefs s = (Success (),s') ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
   EVERY (λn. n ≠ Atemp) s'.node_tag`,
   rw[assign_Atemps_def,get_dim_def]>>
   simp msimps>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsf`>>
   qpat_abbrev_tac`ks = (GENLIST _ k)`>>
+  (* The heuristic step *)
   drule assign_Atemps_FOREACH_lem>>
-  disch_then drule>>
-  disch_then(qspecl_then[`GENLIST (λx.x) s.dim`,`ks`] assume_tac)>>
-  fs[EVERY_GENLIST]>>
+  rpt(disch_then drule)>>
+  disch_then(qspecl_then[`lsf`,`ks`] assume_tac)>>
+  fs[EVERY_FILTER,Abbr`lsf`]>>
+  (* The "real" step *)
+  drule assign_Atemps_FOREACH_lem>>
+  rpt(disch_then drule)>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsg`>>
+  disch_then(qspecl_then[`lsg`,`ks`] assume_tac)>>
+  fs[EVERY_GENLIST,Abbr`lsg`]>>
   fs[EVERY_MEM,MEM_GENLIST,good_ra_state_def]>>
   CCONTR_TAC>>
   fs[MEM_EL]>>
