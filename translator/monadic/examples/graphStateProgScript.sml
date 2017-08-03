@@ -84,10 +84,12 @@ val init_adj_mat_def = Define`
 
 val arrays_init_list = [mk_arr_init adj_mat_manip init_adj_mat_def]
 
-val init_store = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def
+val (init_trans, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def
 
 (* Initialize the translation *)
-val _ = init_translation init_store EXN_RI []
+val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
+val exn_ri_def = STATE_EXN_TYPE_def;
+val _ = init_translation init_trans store_exists_thm exn_ri_def []
 
 (* Prove the theorems necessary to handle the exceptions *)
 val (raise_functions, handle_functions) = unzip exn_functions;

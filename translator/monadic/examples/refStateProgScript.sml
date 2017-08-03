@@ -40,6 +40,7 @@ val _ = (use_full_type_names := false);
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+val _ = register_type ``:unit``;
 
 (* Create the data type to handle the references.
    In this example, the data type has only one field, which means that
@@ -105,12 +106,12 @@ val state_type = ``:state_refs``;
 val exn_ri_def = UNIT_TYPE_def;
 
 (* Create the store *)
-val trans_store_result = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
+val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
 
 (* Begin the translation *)
-val exn_ri = ``UNIT_TYPE``;
+val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
 val type_theories = [] : string list; (* additional type theory names where to look for types *)
-val _ = init_translation trans_store_result exn_ri type_theories
+val _ = init_translation monad_parameters store_exists_thm exn_ri_def type_theories;
 
 (* Notice that the polymorphism of simple_fun is taken into account *)
 val simple_fun_v_thm = simple_fun_def |> m_translate;

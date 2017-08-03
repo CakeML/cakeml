@@ -8,6 +8,7 @@ open envRelTheory;
 open type_eDetermTheory;
 open infer_eCompleteTheory;
 open namespacePropsTheory;
+open ml_monadBaseTheory;
 
 val _ = new_theory "inferSound";
 
@@ -100,11 +101,14 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
   fs []
   >- ((*Dlet*)
     fs [init_state_def] >>
+    last_x_assum(fn x => SIMP_RULE (srw_ss()) [st_ex_bind_def, st_ex_return_def, set_next_uvar_def, set_subst_def] x |> ASSUME_TAC) >>
     rw [] >>
+    fs[GSYM init_infer_state_def] >>
     rename1 `infer_e loc _ _ _ = (Success t1, st1)` >>
     rename1 `infer_p _ _ p _ = (Success v, st1')` >>
     `?t bindings. v = (t,bindings)` by metis_tac [pair_CASES] >>
     fs [success_eqns] >>
+    fs[get_subst_def] >>
     rw [] >>
     pairarg_tac >>
     fs [] >>
@@ -112,6 +116,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     `init_infer_state.next_uvar = 0` by (fs [init_infer_state_def] >> rw []) >>
     drule (CONJUNCT1 infer_e_wfs) >>
     rw [] >>
+    `t_wfs FEMPTY` by rw[t_wfs_def] >> POP_ASSUM(fn x => fs[x]) >> rw[] >>
     drule (CONJUNCT1 infer_p_wfs) >>
     disch_then drule >>
     rw [] >>
@@ -126,6 +131,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     simp [] >>
     rename1 `generalise_list _ _ _ _ = (tvs, s2, ts)` >>
     disch_then (qspec_then `0` mp_tac) >>
+    `t_wfs FEMPTY` by rw[t_wfs_def, check_s_def] >> POP_ASSUM(fn x => fs[x]) >>
     impl_tac
     >- simp [check_s_def, init_infer_state_def] >>
     rw [] >>
@@ -143,7 +149,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     impl_tac
     >- metis_tac [infer_p_next_uvar_mono, check_t_more4] >>
     rw [] >>
-    `?ec1 last_sub.
+   `?ec1 last_sub.
           ts = MAP (t_walkstar last_sub) (MAP SND bindings) ∧
           t_wfs last_sub ∧
           sub_completion tvs st1'.next_uvar s ec1 last_sub`
@@ -169,6 +175,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     simp [] >>
     disch_then drule >>
     simp [num_tvs_def] >>
+    `t_wfs FEMPTY` by rw[t_wfs_def, check_s_def] >> POP_ASSUM(fn x => fs[x]) >>
     disch_then drule >>
     drule (CONJUNCT1 infer_p_sound) >>
     simp [] >>
@@ -182,7 +189,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
         imp_res_tac infer_e_wfs >>
         imp_res_tac infer_p_wfs >>
         imp_res_tac t_unify_wfs >>
-        metis_tac [sub_completion_apply, t_unify_apply]) >>
+        metis_tac [sub_completion_apply, t_unify_apply]) >> (***)
     Cases_on `is_value e` >>
     fs [success_eqns, empty_decls_def, empty_inf_decls_def] >>
     rw [convert_decls_def, ienv_to_tenv_def]
@@ -339,6 +346,8 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
  >-
    (rename1 `infer_funs loc _ _ _ = _` >>
    fs[init_state_def]>>
+   fs[st_ex_bind_def, set_next_uvar_def, set_subst_def, st_ex_return_def, get_subst_def] >>
+   fs[GSYM init_infer_state_def] >>
    pairarg_tac>>fs[success_eqns]>>rw[]>>
    `t_wfs init_infer_state.subst` by rw [init_infer_state_def, t_wfs_def] >>
    `init_infer_state.next_uvar = 0` by (fs [init_infer_state_def] >> rw []) >>
@@ -658,6 +667,7 @@ val check_tscheme_inst_sound = Q.store_thm ("check_tscheme_inst_sound",
   fs [success_eqns] >>
   rw [] >>
   fs [init_state_def, init_infer_state_def] >>
+  fs[set_subst_def, set_next_uvar_def, st_ex_bind_def, st_ex_return_def] >>
   var_eq_tac >>
   fs [] >>
   `t_wfs FEMPTY` by rw [t_wfs_def] >>

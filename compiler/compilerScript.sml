@@ -33,15 +33,16 @@ val locs_to_string_def = Define `
          implode " column ";
          toString &endl.col])`;
 
+(* TODO : find a way to mix standard and monadic translations *)
 val compile_def = Define`
   compile c prelude input =
     case parse_prog (lexer_fun input) of
     | NONE => Failure ParseError
     | SOME prog =>
-       case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (locs, msg) =>
+       case infertype_prog c.inferencer_config (prelude ++ prog) init_infer_state of
+       | (Failure (Exc (locs, msg)), st) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
-       | Success ic =>
+       | (Success ic, st) =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
           | SOME (bytes,limit) => Success (bytes,limit)`;

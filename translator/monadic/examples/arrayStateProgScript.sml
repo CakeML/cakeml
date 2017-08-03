@@ -23,6 +23,7 @@ val _ = (use_full_type_names := false);
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+val _ = register_type ``:unit``;
 
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
@@ -64,12 +65,14 @@ val arrays_init_list = List.map (fn ((x1, x2, x3, x4, x5, x6, x7), x) => (x1, x,
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
 val EXN_RI = ``STATE_EXN_TYPE``;
+val exn_ri_def = STATE_EXN_TYPE_def;
 
 (* Initialize the store *)
-val trans_store_result = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def;
+val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
 
 (* Initialize the translation *)
-val _ = init_translation trans_store_result EXN_RI []
+val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
+val _ = init_translation monad_parameters store_exists_thm exn_ri_def []
 
 (* Prove the theorems necessary to handle the exceptions *)
 val (raise_functions, handle_functions) = unzip exn_functions;
@@ -92,5 +95,7 @@ val def = test2_def |> m_translate;
 
 val test4_def = Define `test4 n x = alloc_the_num_array n x`;
 val def = test3_def |> m_translate;
+
+(* ... *)
 
 val _ = export_theory ();

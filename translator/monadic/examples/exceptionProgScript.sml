@@ -28,6 +28,7 @@ val _ = (use_full_type_names := false);
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+val _ = register_type ``:unit``;
 
 (* No references/arays, so use unit for the state type *)
 val state_type = ``:unit``;
@@ -62,7 +63,7 @@ val handle_fail_def = Define `handle_fail x f = \(state : state_refs). dtcase x 
 
 val assert_def = Define `assert b = if b then failwith "assert" else return ()`
 val decrease_def = Define `decrease n = monad_ignore_bind (assert (n > 0)) (return (n-1))`;
-val handle_decrease = Define `handle_decrease n = handle_fail (decrease n) (\e. return 0)`;
+val handle_decrease_def = Define `handle_decrease n = handle_fail (decrease n) (\e. return 0)`;
 
 (* ... *)
 
@@ -80,12 +81,12 @@ val store_hprop_name = "STATE_STORE";
 val exn_ri_def = STATE_EXN_TYPE_def;
 
 (* Create the store *)
-val trans_store_result = translate_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
+val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
 
 (* Begin the translation *)
-val exn_ri = ``STATE_EXN_TYPE``
+val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
 val type_theories = [] : string list;
-val _ = init_translation trans_store_result exn_ri type_theories;
+val _ = init_translation monad_parameters store_exists_thm exn_ri_def type_theories;
 
 (* Give the exceptions manipulating functions to the monadic translator *)
 val (raise_functions, handle_functions) = unzip exn_functions;
@@ -94,6 +95,8 @@ val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_r
 (* Translate *)
 val assert_v_thm = assert_def |> m_translate;
 val decrease_v_thm = decrease_def |> m_translate;
-val handle_decrease = assert_def |> m_translate;
+val handle_decrease = handle_decrease_def |> m_translate;
 
 (* ... *)
+
+val _ = export_theory();
