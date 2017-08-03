@@ -3,9 +3,9 @@ structure ml_monadStoreLib :> ml_monadStoreLib = struct
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
+open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory Redblackmap AC_Sort
+open ml_monadBaseTheory ml_monad_translatorTheory Redblackmap AC_Sort Satisfy
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadProgLib" fname msg;
 
@@ -617,9 +617,9 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
 	    val th = CONV_RULE (DEPTH_CONV BETA_CONV) th
 	    val th = PURE_REWRITE_RULE[H_STAR_empty, GSYM H_eq] th
-	    val th = PURE_REWRITE_RULE[GSYM loc_def, GSYM get_fun_def, GSYM set_fun_def] th
+	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
 	    val th = PURE_REWRITE_RULE[GSYM H_eq] th
-	    val th = PURE_REWRITE_RULE[GSYM loc_def, GSYM get_fun_def, GSYM set_fun_def] th
+	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
 	in th end
 
 	(* read *)

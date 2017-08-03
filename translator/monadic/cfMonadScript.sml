@@ -111,7 +111,7 @@ rw[]
 val st2heap_clock_inv = Q.prove(`st2heap p (st with clock := c) = st2heap p st`,
 Cases_on `p` \\ fs[st2heap_def]);
 
-val ArrowP_to_app_basic_thm =  Q.store_thm("ArrowP_to_app_basic_thm",
+val ArrowP_MONAD_to_app_basic_thm =  Q.store_thm("ArrowP_MONAD_to_app_basic_thm",
 `ArrowP H (PURE A) (MONAD B C) f fv ==>
 !refs x xv. A x xv ==>
 app_basic (p : unit ffi_proj) fv xv (H refs)
@@ -144,7 +144,7 @@ THENL[qexists_tac `Val a` \\ IMP_RES_TAC evaluate_Rval_bigStep_to_evaluate,
       Cases_on `e` \\ fs[] \\ qexists_tac `Exn a` \\ IMP_RES_TAC evaluate_Rerr_bigStep_to_evaluate]
 \\ qexists_tac `h1`
 \\ qexists_tac `h3`
-\\ qexists_tac `s3 with clock := 0`
+\\ qexists_tac `st with <|clock := 0; refs := refs'|>`
 \\ qexists_tac `c`
 \\ fs[st2heap_clock_inv]
 \\ fs[SEP_EXISTS_THM]
@@ -152,7 +152,7 @@ THENL[qexists_tac `Val a` \\ IMP_RES_TAC evaluate_Rval_bigStep_to_evaluate,
 \\ CONV_TAC ((STRIP_QUANT_CONV o RATOR_CONV) PURE_FACTS_FIRST_CONV)
 \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]);
 
-val Arrow_PURE_to_app_basic_thm =  Q.store_thm("ArrowP_PURE_to_app_basic_thm",
+val ArrowP_PURE_to_app_basic_thm =  Q.store_thm("ArrowP_PURE_to_app_basic_thm",
 `ArrowP H (PURE A) (PURE B) f fv ==>
 !refs x xv. A x xv ==>
 app_basic (p : unit ffi_proj) fv xv (H refs)
@@ -186,6 +186,58 @@ rw[]
 \\ qexists_tac `c`
 \\ fs[st2heap_clock_inv]
 \\ fs[SEP_EXISTS_THM]
-\\ fs[SEP_CLAUSES]);
+\\ fs[SEP_CLAUSES]
+\\ metis_tac[]);
+
+val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
+`!A B C f fv H x xv refs p.
+A x xv ==>
+ArrowP H (PURE A) (MONAD B C) f fv ==>
+app (p : unit ffi_proj) fv [xv] (H refs)
+(POST
+     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
+     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+rw[app_def]
+\\ metis_tac[ArrowP_MONAD_to_app_basic_thm]);
+
+val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
+`!A B f fv x1 xv1 xv2 xvl H Q p.
+A x1 xv1 ==>
+(!state gv. B (f x1) gv ==>
+app (p : unit ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
+(!state. ArrowP H (PURE A) (PURE B) f fv ==>
+app p fv (xv1::xv2::xvl) (H state) (Q state))`,
+rw[app_def]
+\\ rw[app_basic_def]
+\\ fs[ArrowP_def]
+\\ fs[PURE_def]
+\\ last_x_assum (qspec_then `x1` ASSUME_TAC)
+\\ POP_ASSUM IMP_RES_TAC
+\\ first_x_assum(qspecl_then[`st`, `st`, `[]`] ASSUME_TAC)
+\\ fs[state_component_equality]
+\\ IMP_RES_TAC REFS_PRED_lemma
+\\ qpat_x_assum `!s1. P` IMP_RES_TAC
+\\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
+\\ fs[REFS_PRED_FRAME_def]
+\\ fs[evaluate_ck_def]
+\\ rw[]
+\\ `(H refs3 * (\s. s = h_k)) (st2heap p st)` by (rw[STAR_def] \\ SATISFY_TAC)
+\\ qpat_assum `!F. P` IMP_RES_TAC
+\\ IMP_RES_TAC HPROP_SPLIT3
+\\ fs[with_same_refs] \\ rw[]
+\\ IMP_RES_TAC evaluate_Rval_bigStep_to_evaluate
+\\ qexists_tac `Val v`
+\\ qexists_tac `h1`
+\\ qexists_tac `h3`
+\\ qexists_tac `st with <| clock := 0; refs := st.refs ++ junk |>`
+\\ qexists_tac `c`
+\\ fs[st2heap_def, state_component_equality, with_same_clock]
+\\ rw[SEP_EXISTS_THM]
+\\ qexists_tac `H refs3`
+\\ rw[STAR_def]
+\\ qexists_tac `h1`
+\\ qexists_tac `{}`
+\\ fs[SPLIT_def, cond_def]
+\\ metis_tac[]);
 
 val _ = export_theory();

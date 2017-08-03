@@ -1,12 +1,13 @@
-structure ml_monad_translatorLib = struct
+structure ml_monad_translatorLib :> ml_monad_translatorLib = struct
 
 open preamble
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory
-     ml_translatorTheory ml_translatorLib ml_progTheory ml_progLib
+     ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
 open terminationTheory
 open ml_monadStoreLib cfTacticsLib
 open Net
+open ml_translatorLib
 
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
