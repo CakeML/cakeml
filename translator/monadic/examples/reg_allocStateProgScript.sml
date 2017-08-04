@@ -20,76 +20,7 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Clash tree representation of a program -- this is designed as an interface:
-  wordLang program -> clash tree -> reg alloc
-
-  It only represents wordLang programs, which do not have back-edges
-  The allocator itself is more general, and supports arbitrary graphs
-  It serves two purposes:
-  1) slightly more efficient checking of coloring oracles
-  2) it gets compiled in to the clash graphs for the allocator
-
-  TODO: probably want to move the clash tree representation up and separate it
-  from the allocator
-*)
-
-val _ = Datatype`
-  clash_tree = Delta (num list) (num list) (* (Writes list, Reads list) *)
-             | Set num_set (* Fixed set *)
-             | Branch (num_set option) clash_tree clash_tree
-             | Seq clash_tree clash_tree`
-             (* Binary branch, with an optional liveset at the head*)
-
-(* --- clash_tree oracle checks --- *)
-val numset_list_delete_def = Define`
-  (numset_list_delete [] (t:'a num_map) = t) ∧
-  (numset_list_delete (x::xs) t = numset_list_delete xs (delete x t))`
-
-(*Check that a numset is injective over the clash sets in an interpreted tree*)
-val check_col_def = Define`
-  check_col f t =
-    let names = MAP (f o FST) (toAList t) in
-    if ALL_DISTINCT names then
-      SOME (t,fromAList (MAP (λx. (x,())) names))
-    else NONE`
-
-val check_partial_col_def = Define`
-  (check_partial_col f [] t ft = SOME (t,ft)) ∧
-  (check_partial_col f (x::xs) t ft =
-    case lookup x t of
-      SOME () => check_partial_col f xs t ft
-    | NONE =>
-    case lookup (f x) ft of
-      NONE => check_partial_col f xs (insert x () t) (insert (f x) () ft)
-    | SOME () => NONE)`
-
-(* live = the liveset, flive = the liveset with f applied over it*)
-val check_clash_tree_def = Define`
-  (check_clash_tree f (Delta w r) live flive =
-    case check_partial_col f w live flive of
-      NONE => NONE
-    | SOME _ =>
-    let del_w = (numset_list_delete w live) in
-    let fdel_w = (numset_list_delete (MAP f w) flive) in
-    check_partial_col f r del_w fdel_w) ∧
-  (check_clash_tree f (Set t) live flive = check_col f t) ∧
-  (check_clash_tree f (Branch topt t1 t2) live flive =
-    case check_clash_tree f t1 live flive of
-      NONE => NONE
-    | SOME (t1_out,ft1_out) =>
-    case check_clash_tree f t2 live flive of
-      NONE => NONE
-    | SOME (t2_out,ft2_out) =>
-    case topt of
-      NONE =>
-        (* This check can be done in either direction *)
-        check_partial_col f (MAP FST (toAList (difference t2_out t1_out))) t1_out ft1_out
-    | SOME t => check_col f t) ∧
-  (check_clash_tree f (Seq t1 t2) live flive =
-    case check_clash_tree f t2 live flive of
-      NONE => NONE
-    | SOME (t2_out,ft2_out) =>
-      check_clash_tree f t1 t2_out ft2_out)`
+(* The graph-coloring register allocator *)
 
 (* Datatype representing the state of nodes
   Fixed n : means it is fixed to color n
@@ -221,11 +152,6 @@ val remove_colours_def = Define`
       return r
     od)`
 
-(*
-val res = translate FILTER;
-val res = m_translate remove_colours_def;
-*)
-
 (* First colouring -- turns all Atemps into Fixeds or Stemps drawing from colors in ks *)
 (* Assign a tag to an Atemp node, skipping if it is not actually an Atemp *)
 
@@ -345,10 +271,83 @@ val do_reg_alloc_def = Define`
     assign_Stemps k
   od`
 
+(* Clash tree representation of a program -- this is designed as an interface:
+  wordLang program -> clash tree -> reg alloc
+
+  It only represents wordLang programs, which do not have back-edges
+  The allocator itself is more general, and supports arbitrary graphs
+  It serves two purposes:
+  1) slightly more efficient checking of coloring oracles
+  2) it gets compiled in to the clash graphs for the allocator
+
+  TODO: probably want to move the clash tree representation up and separate it
+  from the allocator
+*)
+
+val _ = Datatype`
+  clash_tree = Delta (num list) (num list) (* (Writes list, Reads list) *)
+             | Set num_set (* Fixed set *)
+             | Branch (num_set option) clash_tree clash_tree
+             | Seq clash_tree clash_tree`
+             (* Binary branch, with an optional liveset at the head*)
+
+(* --- clash_tree oracle checks --- *)
+val numset_list_delete_def = Define`
+  (numset_list_delete [] (t:'a num_map) = t) ∧
+  (numset_list_delete (x::xs) t = numset_list_delete xs (delete x t))`
+
+(*Check that a numset is injective over the clash sets in an interpreted tree*)
+val check_col_def = Define`
+  check_col f t =
+    let names = MAP (f o FST) (toAList t) in
+    if ALL_DISTINCT names then
+      SOME (t,fromAList (MAP (λx. (x,())) names))
+    else NONE`
+
+val check_partial_col_def = Define`
+  (check_partial_col f [] t ft = SOME (t,ft)) ∧
+  (check_partial_col f (x::xs) t ft =
+    case lookup x t of
+      SOME () => check_partial_col f xs t ft
+    | NONE =>
+    case lookup (f x) ft of
+      NONE => check_partial_col f xs (insert x () t) (insert (f x) () ft)
+    | SOME () => NONE)`
+
+(* The checking function, used by oracle, and also used as part of the correctness proof *)
+(* live = the liveset, flive = the liveset with f applied over it*)
+val check_clash_tree_def = Define`
+  (check_clash_tree f (Delta w r) live flive =
+    case check_partial_col f w live flive of
+      NONE => NONE
+    | SOME _ =>
+    let del_w = (numset_list_delete w live) in
+    let fdel_w = (numset_list_delete (MAP f w) flive) in
+    check_partial_col f r del_w fdel_w) ∧
+  (check_clash_tree f (Set t) live flive = check_col f t) ∧
+  (check_clash_tree f (Branch topt t1 t2) live flive =
+    case check_clash_tree f t1 live flive of
+      NONE => NONE
+    | SOME (t1_out,ft1_out) =>
+    case check_clash_tree f t2 live flive of
+      NONE => NONE
+    | SOME (t2_out,ft2_out) =>
+    case topt of
+      NONE =>
+        (* This check can be done in either direction *)
+        check_partial_col f (MAP FST (toAList (difference t2_out t1_out))) t1_out ft1_out
+    | SOME t => check_col f t) ∧
+  (check_clash_tree f (Seq t1 t2) live flive =
+    case check_clash_tree f t2 live flive of
+      NONE => NONE
+    | SOME (t2_out,ft2_out) =>
+      check_clash_tree f t1 t2_out ft2_out)`
+
 (* --
 compile clash_trees into a register allocator state
 This produces two sptrees that re-map clash_tree variables
 into the register allocator state, and vice versa
+The second remap is probably not necessary?
 -- *)
 
 (* Map clash tree variables into allocator nodes, also computes the
@@ -557,18 +556,20 @@ val reg_alloc_def = Define`
     return (ta,spcol) (* return the map from wordLang into spcol, and the allocation *)
   od`
 
+(* proofs *)
+
 open sortingTheory
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 val has_edge_def = Define`
   has_edge adjls x y ⇔
+  x < LENGTH adjls ∧
+  y < LENGTH adjls ∧
   MEM y (EL x adjls)`
 
 val undirected_def = Define`
   undirected adjls ⇔
   ∀x y.
-    x < LENGTH adjls ∧
-    y < LENGTH adjls ∧
     has_edge adjls x y ⇒
     has_edge adjls y x`
 
@@ -585,8 +586,6 @@ val good_ra_state_def = Define`
 val no_clash_def = Define`
   no_clash adj_ls node_tag ⇔
   ∀x y.
-    x < LENGTH adj_ls ∧
-    y < LENGTH adj_ls /\
     has_edge adj_ls x y ⇒
     case (EL x node_tag,EL y node_tag) of
       (Fixed n,Fixed m) =>
@@ -608,9 +607,10 @@ val msimps = [st_ex_bind_def,st_ex_return_def];
 
 (* Success conditions *)
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val case_eq_thms = pair_case_eq::map (prove_case_eq_thm o get_thms)
-  [``:('a,'b) exc``,``:tag``,``:'a list``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
+val case_eq_thms = pair_case_eq::
+  List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``]
+  |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
 val tag_case_st = Q.store_thm("tag_case_st",`
   !t.
@@ -1245,7 +1245,24 @@ val mk_bij_bij = Q.prove(`
 
 val ra_state_component_equality = theorem"ra_state_component_equality"
 
-(* All of these probably need stronger concls *)
+(* Properties of the graph manipulating functions
+   All of these simultaneously prove success
+   together with the correctness properties.
+
+   One could also imagine proving the success separately from
+   the correctness
+*)
+(* the list represents a clique *)
+val is_clique_def = Define`
+  is_clique ls adjls ⇔
+  ∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
+    has_edge adjls x y`
+
+val is_subgraph_def = Define`
+  is_subgraph g h ⇔
+  ∀x y.
+    has_edge g x y ⇒ has_edge h x y`
+
 val insert_edge_succeeds = Q.store_thm("insert_edge_succeeds",`
   good_ra_state s ∧
   y < s.dim ∧
@@ -1253,7 +1270,7 @@ val insert_edge_succeeds = Q.store_thm("insert_edge_succeeds",`
   ∃s'. insert_edge x y s = (Success (),s') ∧
   good_ra_state s' ∧
   s' = s with adj_ls := s'.adj_ls ∧
-  ∀a b. a < s.dim ∧ b < s.dim ⇒
+  ∀a b.
   (has_edge s'.adj_ls a b ⇔
     (a = x ∧ b = y) ∨ (a = y ∧ b = x) ∨ (has_edge s.adj_ls a b))`,
   rw[good_ra_state_def,insert_edge_def]>>fs msimps>>
@@ -1281,43 +1298,678 @@ val list_insert_edge_succeeds = Q.store_thm("list_insert_edge_succeeds",`
   EVERY ( λy. y < s.dim) ys ⇒
   ∃s'. list_insert_edge x ys s = (Success (),s') ∧
   good_ra_state s' ∧
-  s' = s with adj_ls := s'.adj_ls
-  (* ∧ ... *)
-  `,
+  s' = s with adj_ls := s'.adj_ls ∧
+  ∀a b.
+  (has_edge s'.adj_ls a b ⇔
+    (a = x ∧ MEM b ys) ∨
+    (b = x ∧ MEM a ys) ∨
+    (has_edge s.adj_ls a b))`,
   Induct>>rw[list_insert_edge_def]>>fs msimps
   >-
     fs[ra_state_component_equality]>>
   drule (GEN_ALL insert_edge_succeeds)>>
   disch_then (qspecl_then [`h`,`x`] assume_tac)>>rfs[]>>
   last_x_assum drule>>
-  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]);
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+  disch_then (qspec_then`x` strip_assume_tac)>>rfs[]>>
+  rw[]>>metis_tac[]);
 
+val is_subgraph_trans = Q.store_thm("is_subgraph_trans",`
+  is_subgraph s s' ∧
+  is_subgraph s' s'' ==>
+  is_subgraph s s''`,
+  rw[is_subgraph_def]);
+
+(* From here onwards we stop characterizing s'.adj_ls exactly
+   although it could be done
+ *)
 val clique_insert_edge_succeeds = Q.store_thm("clique_insert_edge_succeeds",`
   ∀ls s.
   good_ra_state s ∧
-  EVERY ( λy. y < s.dim) ls ⇒
+  EVERY ( λy. y < s.dim) ls ==>
   ∃s'. clique_insert_edge ls s = (Success (),s') ∧
   good_ra_state s' ∧
-  s' = s with adj_ls := s'.adj_ls
-  (* ∧ ... *)
-  `,
+  s' = s with adj_ls := s'.adj_ls ∧
+  is_clique ls s'.adj_ls ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
   Induct>>rw[clique_insert_edge_def]>>fs msimps
   >-
-    fs[ra_state_component_equality]>>
+    fs[ra_state_component_equality,is_subgraph_def,is_clique_def]>>
   drule list_insert_edge_succeeds>>
   rpt (disch_then drule)>>
   strip_tac>>simp[]>>
   last_x_assum drule>>
-  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]);
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+  strip_tac>>fs[]>>
+  CONJ_TAC>-
+    (fs[is_clique_def,is_subgraph_def]>>
+    reverse (rw[]) >- metis_tac[] >>
+    fs[EVERY_MEM])
+  >>
+  match_mp_tac (GEN_ALL is_subgraph_trans)>>
+  qexists_tac`s'.adj_ls`>>fs[is_subgraph_def]);
 
-(* TODO more properties, e.g. that the graph actually does what
-   we want it to do *)
+val extend_clique_succeeds = Q.store_thm("extend_clique_succeeds",`
+  ∀ls cli s.
+  good_ra_state s ∧
+  is_clique cli s.adj_ls ∧
+  EVERY ( λy. y < s.dim) ls ∧
+  ALL_DISTINCT cli ∧
+  EVERY ( λy. y < s.dim) cli ⇒
+  ∃cli' s'. extend_clique ls cli s = (Success cli', s') ∧
+  good_ra_state s' ∧
+  ALL_DISTINCT cli' ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  set cli' = set (cli++ls) ∧
+  is_clique cli' s'.adj_ls ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
+  Induct>>rw[extend_clique_def]>>fs msimps
+  >-
+    simp[ra_state_component_equality,is_subgraph_def]
+  >-
+    (first_x_assum drule>> disch_then drule>> simp[]>> strip_tac>>
+    fs[EXTENSION]>>
+    metis_tac[])
+  >>
+    drule list_insert_edge_succeeds>>
+    disch_then drule>> disch_then drule>> strip_tac>> fs[]>>
+    first_x_assum(qspecl_then [`h::cli`,`s'`] mp_tac)>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>
+    impl_tac>-
+      (fs[is_clique_def]>>
+      metis_tac[])>>
+    fs[]>> strip_tac>>
+    fs[]>>
+    CONJ_TAC>-
+      (simp[EXTENSION]>>metis_tac[])>>
+    fs[is_subgraph_def]);
+
+(* The col needed to get colouring satisfactory can be generated
+   from the node tags
+   The correctness should be a consequence of no_clash *)
+val colouring_satisfactory_def = Define `
+  colouring_satisfactory col adjls =
+  ∀x. x < LENGTH adjls ⇒
+   (∀y. y < LENGTH adjls ∧ MEM y (EL x adjls) ⇒
+   col x = col y ==> x = y)`
+
+(*TODO: this is in word_allocProof*)
+val INJ_less = Q.prove(`
+  ∀f s' t s.
+  INJ f s' t ∧ s ⊆ s'
+  ⇒
+  INJ f s t`,
+  metis_tac[INJ_DEF,SUBSET_DEF]);
+
+val check_partial_col_success = Q.prove(`
+  ∀ls live flive col.
+  domain flive = IMAGE col (domain live) ∧
+  INJ col (set ls ∪ domain live) UNIV
+  ⇒
+  ∃livein flivein.
+  check_partial_col col ls live flive = SOME (livein,flivein) ∧
+  domain livein = set ls ∪ domain live ∧
+  domain flivein = IMAGE col (domain livein)`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    (`h ∉ domain live` by fs[domain_lookup]>>
+    `lookup (col h) flive = NONE` by
+      (
+      (*TOO LONG*)
+      CCONTR_TAC>>
+      `∃s. lookup(col h) flive = SOME s` by
+        (Cases_on`lookup (col h) flive`>>fs[]) >>
+      last_x_assum kall_tac>>
+      fs[EXTENSION,domain_lookup]>>
+      first_x_assum(qspec_then`col h` mp_tac)>>
+      rw[EQ_IMP_THM]>>
+      Cases_on`h=x'`>>fs[]>>
+      Cases_on`lookup x' live = SOME ()`>>fs[]>>
+      FULL_SIMP_TAC bool_ss[INJ_DEF]>>
+      first_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>
+      fs[domain_lookup]>>
+      metis_tac[])>>
+    fs[]>>
+    first_x_assum(qspecl_then[`insert h () live`,`insert (col h) () flive`,`col`] mp_tac)>>
+    impl_tac>-
+      (fs[]>>match_mp_tac INJ_less>>
+      HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
+    rw[]>>fs[EXTENSION]>>
+    metis_tac[])>>
+  res_tac>>pop_assum mp_tac>>
+  impl_tac>-
+    (match_mp_tac INJ_less>>
+    HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
+  rw[]>>fs[EXTENSION]>>
+  fs[domain_lookup]>>metis_tac[]);
+
+val INJ_COMPOSE_IMAGE = Q.store_thm("INJ_COMPOSE_IMAGE",`
+  ∀a b u.
+  INJ f a b ∧
+  INJ g (IMAGE f a) u ⇒
+  INJ (g o f) a u`,
+  rw[]>>
+  match_mp_tac INJ_COMPOSE>>
+  metis_tac[INJ_IMAGE]);
+
+val colouring_satisfactory_cliques = Q.store_thm("colouring_satisfactory_cliques",`
+  ∀ls g (f:num->num).
+  ALL_DISTINCT ls ∧
+  EVERY (λx. x < LENGTH g) ls ∧
+  colouring_satisfactory f g ∧ is_clique ls g
+  ⇒
+  ALL_DISTINCT (MAP f ls)`,
+  Induct>>fs[is_clique_def,colouring_satisfactory_def]>>
+  rw[]
+  >-
+    (fs[MEM_MAP]>>rw[]>>
+    first_x_assum(qspecl_then [`h`,`y`] assume_tac)>>rfs[]>>
+    Cases_on`MEM y ls`>>Cases_on`h=y`>>fs[]>>
+    fs[has_edge_def]>>
+    metis_tac[])
+  >>
+    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]);
+
+val domain_eq_IMAGE = Q.prove(`
+  domain s = IMAGE FST (set(toAList s))`,
+  fs[EXTENSION,EXISTS_PROD]>>
+  fs[MEM_toAList,domain_lookup]);
+
+val is_clique_FILTER = Q.prove(`
+  ∀ls.
+  is_clique ls G ⇒
+  is_clique (FILTER P ls) G`,
+  Induct>>fs[is_clique_def]>>
+  strip_tac>>
+  cases_on`P h`>>
+  fs[MEM_FILTER]>>
+  metis_tac[]);
+
+val is_clique_subgraph = Q.prove(`
+  is_clique ls s ∧
+  is_subgraph s s' ⇒
+  is_clique ls s'`,
+  fs[is_clique_def,is_subgraph_def]);
+
+val domain_numset_list_delete = Q.store_thm("domain_numset_list_delete",`
+  ∀l live.
+  domain (numset_list_delete l live) =
+  domain live DIFF set l`,
+  Induct>>fs[numset_list_delete_def]>>rw[]>>
+  fs[EXTENSION]>>
+  metis_tac[]);
+
+(* The success theorem is separated here *)
 val mk_graph_succeeds = Q.store_thm("mk_graph_succeeds",`
-  ∀ct ta liveout s n.
-  INJ ta {x | in_clash_tree ct x} (count (LENGTH s.adj_ls)) ==>
-  ∃livein s'.
-    mk_graph ta ct liveout s = (Success livein,s') ∧
-    undirected s'.adj_ls`, cheat);
+  ∀ct ta liveout s.
+  good_ra_state s ∧
+  (∀x. in_clash_tree ct x ⇒ ta x < s.dim) ∧
+  INJ ta ({x | in_clash_tree ct x}) (count (LENGTH s.adj_ls)) ∧
+  (is_clique liveout s.adj_ls) ∧
+  ALL_DISTINCT liveout ∧
+  (EVERY (λy.y < s.dim) liveout) ⇒
+  ∃livein s'. mk_graph ta ct liveout s = (Success livein, s') ∧
+  good_ra_state s' ∧
+  is_clique livein s'.adj_ls ∧
+  s' = s with adj_ls := s'.adj_ls ∧
+  (EVERY (λy.y < s.dim) livein) ∧
+  ALL_DISTINCT livein ∧
+  set livein SUBSET set liveout ∪ IMAGE ta {x | in_clash_tree ct x} ∧
+  is_subgraph s.adj_ls s'.adj_ls`,
+  Induct>>
+  rw[in_clash_tree_def,mk_graph_def]>>fs msimps
+  >-
+    (drule extend_clique_succeeds>>
+    disch_then drule>>simp[]>>
+    disch_then(qspec_then`MAP ta l` mp_tac)>>
+    impl_tac>-
+      simp[EVERY_MAP,EVERY_MEM]>>
+    rw[]>>
+    simp[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[EVERY_MEM,MEM_MAP]>>
+    qmatch_goalsub_abbrev_tac`extend_clique x xs _`>>
+    drule extend_clique_succeeds>>
+    disch_then (qspecl_then [`x`,`xs`] mp_tac)>>
+    impl_keep_tac>-
+      (unabbrev_all_tac>>simp[is_clique_FILTER]>>
+      simp[EVERY_MAP,EVERY_MEM,FILTER_ALL_DISTINCT,MEM_FILTER]>>
+      fs[MEM_MAP]>>
+      metis_tac[])>>
+    rw[]>>
+    simp[]>>
+    unabbrev_all_tac>>
+    fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
+    metis_tac[is_subgraph_trans])
+  >-
+    (drule clique_insert_edge_succeeds>>
+    qmatch_goalsub_abbrev_tac`_ ls  s'`>>
+    disch_then (qspec_then`ls` mp_tac)>>
+    impl_keep_tac>-
+      (simp[Abbr`ls`,EVERY_MEM,Once MEM_MAP,toAList_domain]>>
+      metis_tac[])>>
+    strip_tac>>simp[Abbr`ls`]>>
+    CONJ_TAC>-(
+      match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF])>>
+    fs[Once LIST_TO_SET_MAP,SUBSET_DEF,toAList_domain])
+  >-
+    (last_x_assum drule>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>simp[]>>
+    impl_tac>-
+      (match_mp_tac INJ_less>> asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>simp[]>>
+    last_x_assum drule>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>simp[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+    impl_tac>- (
+      reverse(rw[])>- metis_tac[is_clique_subgraph]>>
+      fs[good_ra_state_def]>>rfs[]>>
+      match_mp_tac INJ_less>> asm_exists_tac>>
+      fs[SUBSET_DEF])>>
+    strip_tac>>simp[]>>
+    qpat_x_assum`s'' = _` SUBST_ALL_TAC>>
+    Cases_on`o'`>>simp[]
+    >-
+      (drule extend_clique_succeeds>>
+      disch_then(qspecl_then[`livein`,`livein'`] mp_tac)>>simp[]>>
+      simp[]>>strip_tac>>
+      simp[]>>
+      fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
+      metis_tac[is_subgraph_trans])
+    >>
+      drule clique_insert_edge_succeeds>>
+      qmatch_goalsub_abbrev_tac`clique_insert_edge ls _`>>
+      disch_then(qspec_then`ls` mp_tac)>>
+      impl_keep_tac>-
+        (fs[Abbr`ls`,EVERY_MEM,Once MEM_MAP,toAList_domain]>>
+        metis_tac[])>>
+      strip_tac>>fs[Abbr`ls`]>>
+      rw[]
+      >-
+        (match_mp_tac ALL_DISTINCT_MAP_INJ>>fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF]>>
+        rw[])
+      >-
+        (fs[Once LIST_TO_SET_MAP,SUBSET_DEF,toAList_domain]>>
+        metis_tac[])
+      >>
+      metis_tac[is_subgraph_trans])
+  >>
+    first_x_assum drule>>
+    simp[Once CONJ_COMM,GSYM CONJ_ASSOC]>>
+    disch_then(qspecl_then[`ta`,`liveout`] mp_tac)>>
+    simp[]>>
+    impl_tac>-
+      (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    rw[]>>simp[]>>
+    first_x_assum drule>>
+    simp[Once CONJ_COMM,GSYM CONJ_ASSOC]>>
+    disch_then(qspecl_then[`ta`,`livein`] mp_tac)>>
+    simp[]>>
+    impl_tac>-
+      (qpat_x_assum`s'=_` SUBST_ALL_TAC>>
+      fs[good_ra_state_def]>>rfs[]>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>
+    qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
+    CONJ_TAC>-
+      (fs[SUBSET_DEF]>>metis_tac[])>>
+    metis_tac[is_subgraph_trans]);
+
+val colouring_satisfactory_subgraph = Q.store_thm("colouring_satisfactory_subgraph",`
+  colouring_satisfactory f h ∧
+  is_subgraph g h ⇒
+  colouring_satisfactory f g`,
+  fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
+  fs[has_edge_def]>>
+  metis_tac[]);
+
+val ALL_DISTINCT_set_INJ = Q.prove(`
+  ∀ls col.
+  ALL_DISTINCT (MAP col ls) ⇒
+  INJ col (set ls) UNIV`,
+  Induct>>fs[INJ_DEF]>>rw[]>>
+  fs[MEM_MAP]>>
+  metis_tac[]);
+
+val IMAGE_DIFF = Q.prove(`
+  INJ f (s ∪ t) UNIV ⇒
+  IMAGE f (s DIFF t) =
+  (IMAGE f s DIFF IMAGE f t)`,
+  rw[EXTENSION,INJ_DEF]>>
+  metis_tac[]);
+
+val set_FILTER = Q.prove(`
+  set (FILTER P live) =
+  set live DIFF (λx. ¬P x)`,
+  rw[EXTENSION,MEM_FILTER]>>
+  metis_tac[]);
+
+val MEM_MAP_IMAGE = Q.prove(`
+   (λx. MEM x (MAP f l)) = IMAGE f (set l)`,
+   rw[EXTENSION,MEM_MAP]);
+
+(* the correctness theorem for mk_graph *)
+val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
+  ∀ct ta livelist s livelist' s' col live flive.
+  mk_graph ta ct livelist s = (Success livelist',s') ∧
+  colouring_satisfactory col s'.adj_ls ∧
+  INJ ta ({x | in_clash_tree ct x} ∪ domain live) (count (LENGTH s.adj_ls)) ∧
+  IMAGE ta (domain live) = set livelist ∧
+  ALL_DISTINCT livelist ∧
+  EVERY (λy.y < s.dim) livelist ∧
+  is_clique livelist s.adj_ls ∧
+  good_ra_state s ∧
+  domain flive = IMAGE (col o ta) (domain live) ==>
+  ∃livein flivein.
+  check_clash_tree (col o ta) ct live flive = SOME (livein,flivein) ∧
+  IMAGE ta (domain livein) = set livelist' ∧
+  domain livein ⊆ domain live ∪ {x | in_clash_tree ct x} ∧
+  domain flivein = IMAGE (col o ta) (domain livein)`,
+  Induct>>rw[mk_graph_def,check_clash_tree_def]>>fs msimps>>
+  fs[case_eq_thms,in_clash_tree_def]>>rw[]
+  >- (
+    drule extend_clique_succeeds>> disch_then drule>>
+    disch_then(qspec_then`MAP ta l` mp_tac)>>
+    simp[AND_IMP_INTRO]>>
+    impl_tac>- (
+      fs[EVERY_MEM,MEM_MAP,good_ra_state_def]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT,EXTENSION,IN_IMAGE]>>
+      rw[]>>
+      last_x_assum match_mp_tac>>simp[])>>
+    rw[]>>
+    drule extend_clique_succeeds>>
+    qmatch_asmsub_abbrev_tac`extend_clique ls cli _`>>
+    disch_then (qspecl_then[`ls`,`cli`] mp_tac)>>
+    impl_tac>-(
+      unabbrev_all_tac>>fs[good_ra_state_def]>>rw[]
+      >-
+        metis_tac[is_clique_FILTER]
+      >-
+        (fs[INJ_DEF,EVERY_MEM]>>
+        fs[ra_state_component_equality]>>
+        metis_tac[MEM_MAP])
+      >-
+        fs[FILTER_ALL_DISTINCT]
+      >>
+        fs[EVERY_MEM,EXTENSION,MEM_FILTER,MEM_MAP]>>
+        fs[ra_state_component_equality]>>
+        metis_tac[])>>
+    rw[]>>fs[]>>
+    drule check_partial_col_success>>
+    disch_then(qspec_then `l` mp_tac)>>
+    impl_keep_tac>-(
+      match_mp_tac INJ_COMPOSE_IMAGE>>
+      qexists_tac`count (LENGTH s.adj_ls)`>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+      fs[IMAGE_UNION,LIST_TO_SET_MAP]>>
+      simp[Once UNION_COMM]>>
+      qpat_assum`set live' = _`(SUBST1_TAC o SYM)>>
+      match_mp_tac ALL_DISTINCT_set_INJ>>
+      match_mp_tac colouring_satisfactory_cliques>>
+      fs[]>>
+      HINT_EXISTS_TAC>>fs[good_ra_state_def]>>rfs[]>>
+      fs[EXTENSION,EVERY_MEM]>>
+      CONJ_TAC>-
+        (fs[ra_state_component_equality]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF]>>
+        rw[]>-metis_tac[IN_UNION,EXTENSION]>>
+        fs[IN_COUNT])>>
+      metis_tac[is_clique_subgraph])>>
+    rw[]>>simp[]>>
+    qmatch_goalsub_abbrev_tac`_ _ a b c`>>
+    qspecl_then [`a`,`b`,`c`,`col o ta`] mp_tac check_partial_col_success>>
+    unabbrev_all_tac>>
+    fs[domain_numset_list_delete]>>
+    impl_keep_tac >-
+      (rw[LIST_TO_SET_MAP] >-(
+        match_mp_tac (GSYM IMAGE_DIFF)>>
+        metis_tac[UNION_COMM])>>
+      match_mp_tac INJ_COMPOSE_IMAGE>>
+      qexists_tac`count (LENGTH s.adj_ls)`>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+      fs[set_FILTER,MEM_MAP_IMAGE]>>
+      qmatch_goalsub_abbrev_tac`_ _ ss _`>>
+      `ss = set livelist'` by
+        (unabbrev_all_tac>>fs[]>>
+        qpat_x_assum`_ = set livelist` sym_sub_tac>>
+        fs[LIST_TO_SET_MAP]>>
+        simp[DIFF_SAME_UNION,UNION_COMM]>>
+        AP_TERM_TAC>>
+        match_mp_tac IMAGE_DIFF>>
+        match_mp_tac INJ_SUBSET >> asm_exists_tac>> simp[SUBSET_DEF])>>
+      pop_assum SUBST1_TAC>>
+      match_mp_tac ALL_DISTINCT_set_INJ>>
+      match_mp_tac colouring_satisfactory_cliques>>fs[]>>
+      HINT_EXISTS_TAC>>fs[good_ra_state_def]>>rfs[]>>
+      fs[EXTENSION,EVERY_MEM,IN_COUNT]>>
+      fs[ra_state_component_equality,MEM_MAP]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT]>>
+      strip_tac>> strip_tac
+      >- metis_tac[]
+      >- metis_tac[] >>
+      simp[])>>
+    rw[]>>
+    simp[set_FILTER]>>
+    simp[MEM_MAP_IMAGE,LIST_TO_SET_MAP,DIFF_SAME_UNION,UNION_COMM]>>
+    CONJ_TAC>-
+      (AP_TERM_TAC>>
+      qpat_x_assum`_ = set livelist` sym_sub_tac>>
+      match_mp_tac IMAGE_DIFF>>
+      match_mp_tac INJ_SUBSET>>
+      asm_exists_tac>>fs[SUBSET_DEF])>>
+    simp[EXTENSION,SUBSET_DEF])
+  >- (
+    fs[check_col_def]>>
+    fs[LIST_TO_SET_MAP]>>
+    CONJ_TAC>-
+      (simp[GSYM MAP_MAP_o]>>
+      qpat_abbrev_tac`tas = MAP ta _`>>
+      match_mp_tac colouring_satisfactory_cliques>>
+      qexists_tac`s''.adj_ls`>>fs[]>>
+      drule clique_insert_edge_succeeds>>
+      disch_then (qspec_then`tas` mp_tac)>>
+      impl_keep_tac>- (
+        unabbrev_all_tac>>
+        rw[EVERY_MEM]>>
+        fs[Once MEM_MAP,toAList_domain]>>
+        FULL_SIMP_TAC std_ss [good_ra_state_def]>>
+        FULL_SIMP_TAC std_ss [MEM_MAP,INJ_DEF,AND_IMP_INTRO,IN_COUNT]>>
+        first_x_assum match_mp_tac>>
+        metis_tac[IN_UNION])>>
+      strip_tac>>rfs[]>>
+      rw[]>>
+      fs[good_ra_state_def]>>
+      qpat_x_assum`s'' = _` SUBST_ALL_TAC>>
+      fs[Abbr`tas`]>>
+      match_mp_tac ALL_DISTINCT_MAP_INJ>>
+      fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+      rw[]>>
+      FULL_SIMP_TAC std_ss [INJ_DEF]>>
+      first_x_assum(qspecl_then[`x`,`y`] mp_tac)>>
+      simp[])>>
+    simp[GSYM domain_eq_IMAGE]>>
+    simp[domain_fromAList,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+    simp[PULL_EXISTS,domain_lookup]>>
+    match_mp_tac INJ_less >> asm_exists_tac>>fs[SUBSET_DEF])
+  >- (
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      simp[]>>
+      ntac 2 (last_x_assum kall_tac)>>
+      CONJ_TAC>-
+        fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+      match_mp_tac INJ_less>> asm_exists_tac>> simp[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct'`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>>fs[good_ra_state_def]>>
+      qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+      CONJ_TAC>- fs[INJ_DEF,EVERY_MEM,EXTENSION]>>
+      CONJ_TAC>-
+        (match_mp_tac INJ_less >> asm_exists_tac>>fs[SUBSET_DEF])>>
+      metis_tac[is_clique_subgraph])>>
+    strip_tac>>fs[]>>rw[]>>
+    Cases_on`o'`>>fs[]
+    >-(
+      drule extend_clique_succeeds>>
+      disch_then(qspecl_then[`livein`,`livein'`] mp_tac)>>fs[AND_IMP_INTRO]>>
+      impl_tac>-
+        (fs[ra_state_component_equality]>>rfs[])>>
+      strip_tac>>
+      fs[]>>rw[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >-
+          metis_tac[colouring_satisfactory_subgraph]
+        >>
+          match_mp_tac INJ_less>>
+          asm_exists_tac>>fs[SUBSET_DEF])>>
+      strip_tac>>fs[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >- metis_tac[colouring_satisfactory_subgraph]
+        >-
+          (match_mp_tac INJ_less>>
+          fs[good_ra_state_def]>>
+          qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+          asm_exists_tac>>fs[SUBSET_DEF])
+        >-
+          fs[ra_state_component_equality]>>
+        metis_tac[is_clique_subgraph])>>
+      strip_tac>>simp[]>>
+      qmatch_goalsub_abbrev_tac`_ _ a b c`>>
+      qspecl_then [`a`,`b`,`c`,`col o ta`] mp_tac check_partial_col_success>>
+      impl_tac>-
+        (unabbrev_all_tac>>
+        fs[]>>match_mp_tac INJ_COMPOSE_IMAGE>>
+        simp[LIST_TO_SET_MAP]>>
+        simp[GSYM domain_eq_IMAGE]>>
+        cheat)>>
+      strip_tac>>
+      unabbrev_all_tac>>simp[]>>
+      cheat) (*bug?*)
+    >>
+      drule clique_insert_edge_succeeds>>
+      disch_then(qspec_then`MAP ta (MAP FST (toAList x))` mp_tac)>>
+      impl_tac>-
+        (simp[Once EVERY_MAP,EVERY_MEM,toAList_domain]>>
+        fs[ra_state_component_equality]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT,good_ra_state_def]>>
+        ntac 2 strip_tac>>last_x_assum match_mp_tac>>
+        simp[])>>
+      strip_tac>>fs[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >-
+          metis_tac[colouring_satisfactory_subgraph]
+        >>
+          match_mp_tac INJ_less>>
+          asm_exists_tac>>fs[SUBSET_DEF])>>
+      strip_tac>>fs[]>>
+      last_x_assum drule>>simp[]>>
+      disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+      impl_keep_tac>-(
+        rw[]
+        >- metis_tac[colouring_satisfactory_subgraph]
+        >-
+          (match_mp_tac INJ_less>>
+          fs[good_ra_state_def]>>
+          qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+          asm_exists_tac>>fs[SUBSET_DEF])
+        >-
+          fs[ra_state_component_equality]>>
+        metis_tac[is_clique_subgraph])>>
+      strip_tac>>simp[]>>
+      simp[check_col_def]>>
+      fs[LIST_TO_SET_MAP]>>
+      CONJ_TAC>-
+        (simp[GSYM MAP_MAP_o]>>
+        match_mp_tac colouring_satisfactory_cliques>>
+        rw[]>>
+        qexists_tac`s'.adj_ls`>>fs[]>>
+        CONJ_TAC>-
+          (fs[good_ra_state_def]>>
+          match_mp_tac ALL_DISTINCT_MAP_INJ>>
+          fs[ALL_DISTINCT_MAP_FST_toAList,toAList_domain]>>
+          rw[]>>
+          ntac 3 (pop_assum mp_tac)>>
+          ntac 30 (pop_assum kall_tac)>>
+          FULL_SIMP_TAC std_ss [INJ_DEF,AND_IMP_INTRO]>>
+          strip_tac>>
+          first_x_assum(qspecl_then[`x'`,`y`] match_mp_tac)>>
+          simp[])>>
+        fs[Once EVERY_MAP,EVERY_MEM,toAList_domain,ra_state_component_equality,good_ra_state_def]>>
+        rw[]>>
+        FULL_SIMP_TAC std_ss [INJ_DEF,IN_COUNT]>>
+        last_x_assum match_mp_tac>>
+        simp[])>>
+      rw[]
+      >-
+        (simp[Once LIST_TO_SET_MAP]>>AP_TERM_TAC>>
+        metis_tac[EXTENSION,toAList_domain])
+      >-
+        simp[SUBSET_DEF]
+      >>
+        simp[EXTENSION,domain_fromAList,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+        simp[domain_lookup])
+  >>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct'`,`ta`,`livelist`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>> simp[]>>
+      CONJ_TAC>-
+        fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    drule mk_graph_succeeds>>
+    disch_then(qspecl_then[`ct`,`ta`,`live'`] mp_tac)>>
+    impl_tac>- (
+      ntac 2 (last_x_assum kall_tac)>>
+      fs[good_ra_state_def]>>
+      qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+      CONJ_TAC>-
+        (fs[INJ_DEF,EVERY_MEM,EXTENSION,good_ra_state_def]>>
+        metis_tac[is_clique_subgraph])>>
+      match_mp_tac INJ_less>>asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>rw[]>>
+    first_x_assum drule>>
+    disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
+    impl_keep_tac>-(
+      rw[]
+      >-
+        metis_tac[colouring_satisfactory_subgraph]
+      >>
+        match_mp_tac INJ_less>>
+        asm_exists_tac>>fs[SUBSET_DEF])>>
+    strip_tac>>fs[]>>
+    last_x_assum drule>>simp[]>>
+    disch_then(qspecl_then[`col`,`livein'`,`flivein`] mp_tac)>>
+    impl_keep_tac>-(
+      simp[]>>
+      rw[]
+      >-
+        (fs[good_ra_state_def]>>rfs[]>>
+        match_mp_tac INJ_less>>
+        qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[]>>
+        last_assum (match_exists_tac o concl)>> fs[SUBSET_DEF]>>
+        metis_tac[])
+      >>
+        fs[EVERY_MEM,SUBSET_DEF,good_ra_state_def]>>
+        qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[])>>
+    strip_tac>>fs[SUBSET_DEF]>>
+    metis_tac[]);
 
 (* --- --- *)
 
