@@ -109,10 +109,8 @@ val r = translate (format_compiler_result_def |> Q.GEN`bytes` |> Q.ISPEC`bytes:w
 
 val r = translate (compile_to_bytes_def |> spec64)
 
-(*
 (* sexp compiler translation -
    TODO: finish, and move parts of this to separate translation file?
-   current problem: sexpPEG is not translatable because it uses too much ARB
 *)
 
 (* TODO: this is duplicated in parserProgTheory *)
@@ -126,8 +124,24 @@ val OPTION_BIND_THM = Q.store_thm("OPTION_BIND_THM",
 
 val r = translate simpleSexpPEGTheory.pnt_def
 val r = translate pegTheory.ignoreR_def
-val r = translate pegTheory.choicel_def
+val r = translate pegTheory.ignoreL_def
+val r = translate simpleSexpTheory.arb_sexp_def
+val r = translate simpleSexpPEGTheory.choicel_def
+val r = translate simpleSexpPEGTheory.tokeq_def
+val r = translate simpleSexpPEGTheory.pegf_def
+val r = translate simpleSexpPEGTheory.grabWS_def
+val r = translate simpleSexpPEGTheory.replace_nil_def
+val r = translate simpleSexpTheory.destSXNUM_def
+val r = translate simpleSexpTheory.destSXCONS_def
+val r = translate simpleSexpTheory.destSXSYM_def
+val r = translate stringTheory.isPrint_def
+val r = translate stringTheory.isGraph_def
+val r = translate (simpleSexpTheory.valid_first_symchar_def
+                  |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+val r = translate (simpleSexpTheory.valid_symchar_def
+                  |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 val r = translate simpleSexpPEGTheory.sexpPEG_def
+val r = translate pegexecTheory.destResult_def
 
 val r =
   simpleSexpParseTheory.parse_sexp_def
@@ -135,6 +149,153 @@ val r =
                   pegexecTheory.pegparse_def,
                   simpleSexpPEGTheory.wfG_sexpPEG,UNCURRY,GSYM NULL_EQ]
   |> translate;
+
+val parse_sexp_side = Q.prove(
+  `∀x. simplesexpparse_parse_sexp_side x = T`,
+  simp[definition"simplesexpparse_parse_sexp_side_def",
+     parserProgTheory.peg_exec_side_def,
+     parserProgTheory.coreloop_side_def] \\
+  qx_gen_tac`i` \\
+  (MATCH_MP pegexecTheory.peg_exec_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
+  \\ fs[definition"pegexec_destresult_side_def"] \\
+  (MATCH_MP pegexecTheory.coreloop_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
+  \\ fs[pegexecTheory.coreloop_def]
+  \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
+  \\ qmatch_assum_abbrev_tac`OWHILE a b' c = _`
+  \\ `b = b'`
+  by (
+    simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
+    \\ Cases \\ simp[]
+    \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ TOP_CASE_TAC \\ simp[]
+    \\ TOP_CASE_TAC \\ simp[] ) \\
+  fs[]) |> update_precondition;
+
+val r = fromSexpTheory.sexplist_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM]
+        |> translate;
+
+val r = translate simpleSexpTheory.strip_sxcons_def
+val r = translate simpleSexpTheory.dstrip_sexp_def
+
+
+(* TODO: move (used?) *)
+val isHexDigit_cases = Q.store_thm("isHexDigit_cases",
+  `isHexDigit c ⇔
+   isDigit c ∨
+   c ∈ {#"a";#"b";#"c";#"d";#"e";#"f"} ∨
+   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}`,
+  rw[isHexDigit_def,isDigit_def]
+  \\ EQ_TAC \\ strip_tac \\ simp[]
+  >- (
+    `ORD c = 97 ∨
+     ORD c = 98 ∨
+     ORD c = 99 ∨
+     ORD c = 100 ∨
+     ORD c = 101 ∨
+     ORD c = 102` by decide_tac \\
+    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] )
+  >- (
+    `ORD c = 65 ∨
+     ORD c = 66 ∨
+     ORD c = 67 ∨
+     ORD c = 68 ∨
+     ORD c = 69 ∨
+     ORD c = 70` by decide_tac \\
+    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] ));
+
+val isHexDigit_UNHEX_LESS = Q.store_thm("isHexDigit_UNHEX_LESS",
+  `isHexDigit c ⇒ UNHEX c < 16`,
+  rw[isHexDigit_cases] \\ EVAL_TAC \\
+  rw[GSYM simpleSexpParseTheory.isDigit_UNHEX_alt] \\
+  fs[isDigit_def]);
+
+val num_from_hex_string_alt_length_2 = Q.store_thm("num_from_hex_string_alt_length_2",
+  `num_from_hex_string_alt [d1;d2] < 256`,
+  rw[lexer_implTheory.num_from_hex_string_alt_def,
+     ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def]
+  \\ qspecl_then[`unhex_alt d1`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ qspecl_then[`unhex_alt d2`,`16`]mp_tac MOD_LESS
+  \\ impl_tac >- rw[]
+  \\ decide_tac);
+(* -- *)
+
+val num_from_hex_string_alt_intro = Q.store_thm("num_from_hex_string_alt_intro",
+  `EVERY isHexDigit ls ⇒
+   num_from_hex_string ls =
+   num_from_hex_string_alt ls`,
+  rw[ASCIInumbersTheory.num_from_hex_string_def,
+     lexer_implTheory.num_from_hex_string_alt_def,
+     ASCIInumbersTheory.s2n_def,
+     numposrepTheory.l2n_def] \\
+  AP_TERM_TAC \\
+  simp[MAP_EQ_f] \\
+  fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]);
+
+val lemma = Q.prove(`
+  isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string[x;y])) ⇔
+  isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string_alt[x;y]))`,
+  rw[EQ_IMP_THM,num_from_hex_string_alt_intro]
+  \\ rfs[num_from_hex_string_alt_intro]);
+
+val lemma2 = Q.prove(`
+  isHexDigit x ∧ isHexDigit y ⇒
+  num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]`,
+  rw[num_from_hex_string_alt_intro]);
+
+val r = fromSexpTheory.decode_control_def
+        |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
+        |> translate;
+
+val fromsexp_decode_control_side = Q.prove(
+  `∀x. fromsexp_decode_control_side x = T`,
+  ho_match_mp_tac fromSexpTheory.decode_control_ind \\
+  rw[Once(theorem"fromsexp_decode_control_side_def")] \\
+  rw[Once(theorem"fromsexp_decode_control_side_def")] \\ rfs[] \\
+  rw[num_from_hex_string_alt_length_2] \\
+  Cases_on`x1` \\ fs[] \\
+  rw[Once(theorem"fromsexp_decode_control_side_def")] \\
+  rw[Once(theorem"fromsexp_decode_control_side_def")])
+  |> update_precondition;
+
+val r = translate fromSexpTheory.odestSEXSTR_def;
+val r = translate fromSexpTheory.odestSXSYM_def;
+val r = translate fromSexpTheory.odestSXNUM_def;
+
+val r = fromSexpTheory.sexpid_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val fromsexp_sexpid_side = Q.prove(
+  `∀x y. fromsexp_sexpid_side x y = T`,
+  ho_match_mp_tac fromSexpTheory.sexpid_ind \\ rw[] \\
+  rw[Once(theorem"fromsexp_sexpid_side_def")])
+|> update_precondition;
+
+val r = fromSexpTheory.sexptctor_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+(*
+val r = fromSexpTheory.sexptype_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexpspec_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexpopt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexptop_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
 
 val r = translate (sexp_compile_to_bytes_def |> spec64)
 *)
