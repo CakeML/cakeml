@@ -105,7 +105,39 @@ val _ = translate (extend_with_args_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBE
 
 val _ = translate (parse_heap_stack_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def])
 
-val _ = translate (compile_to_bytes_def |> spec64)
+val r = translate (format_compiler_result_def |> Q.GEN`bytes` |> Q.ISPEC`bytes:word8 list`)
+
+val r = translate (compile_to_bytes_def |> spec64)
+
+(*
+(* sexp compiler translation -
+   TODO: finish, and move parts of this to separate translation file?
+   current problem: sexpPEG is not translatable because it uses too much ARB
+*)
+
+(* TODO: this is duplicated in parserProgTheory *)
+val monad_unitbind_assert = Q.prove(
+  `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+val OPTION_BIND_THM = Q.store_thm("OPTION_BIND_THM",
+  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`,
+  Cases THEN SRW_TAC [] []);
+(* -- *)
+
+val r = translate simpleSexpPEGTheory.pnt_def
+val r = translate pegTheory.ignoreR_def
+val r = translate pegTheory.choicel_def
+val r = translate simpleSexpPEGTheory.sexpPEG_def
+
+val r =
+  simpleSexpParseTheory.parse_sexp_def
+  |> SIMP_RULE std_ss[monad_unitbind_assert,OPTION_BIND_THM,
+                  pegexecTheory.pegparse_def,
+                  simpleSexpPEGTheory.wfG_sexpPEG,UNCURRY,GSYM NULL_EQ]
+  |> translate;
+
+val r = translate (sexp_compile_to_bytes_def |> spec64)
+*)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
