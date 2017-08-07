@@ -77,10 +77,6 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$inc_pc s).failed = s.failed) ∧
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
-    ((labSem$inc_pc s).cc_regs = s.cc_regs) ∧
-    ((labSem$inc_pc s).compile = s.compile) ∧
-    ((labSem$inc_pc s).compile_oracle = s.compile_oracle) ∧
-    ((labSem$inc_pc s).code_buffer = s.code_buffer) ∧
     ((labSem$inc_pc s).mem = s.mem) ∧
     ((labSem$inc_pc s).pc = s.pc + 1) ∧
     ((labSem$inc_pc s).ffi = s.ffi)`,
@@ -95,10 +91,6 @@ val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
    (labSem$binop_upd a b c d x).be = x.be ∧
    (labSem$binop_upd a b c d x).mem = x.mem ∧
    (labSem$binop_upd a b c d x).io_regs = x.io_regs ∧
-   (labSem$binop_upd a b c d x).cc_regs = x.cc_regs ∧
-   (labSem$binop_upd a b c d x).compile = x.compile ∧
-   (labSem$binop_upd a b c d x).compile_oracle = x.compile_oracle ∧
-   (labSem$binop_upd a b c d x).code_buffer = x.code_buffer ∧
    (labSem$binop_upd a b c d x).pc = x.pc ∧
    (labSem$binop_upd a b c d x).ffi = x.ffi`,
   Cases_on`b`>>EVAL_TAC);
@@ -112,10 +104,6 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    (labSem$arith_upd a x).be = x.be ∧
    (labSem$arith_upd a x).mem = x.mem ∧
    (labSem$arith_upd a x).io_regs = x.io_regs ∧
-   (labSem$arith_upd a x).cc_regs = x.cc_regs ∧
-   (labSem$arith_upd a x).compile = x.compile ∧
-   (labSem$arith_upd a x).compile_oracle = x.compile_oracle ∧
-   (labSem$arith_upd a x).code_buffer = x.code_buffer ∧
    (labSem$arith_upd a x).pc = x.pc ∧
    (labSem$arith_upd a x).ffi = x.ffi`,
   Cases_on`a` >> EVAL_TAC >>
@@ -337,7 +325,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   simp[] >> fs[call_FFI_def]);
 
 val align_dm_def = Define `
-  align_dm (s:('a,'c,'ffi) labSem$state) =
+  align_dm (s:('a,'ffi) labSem$state) =
     (s with mem_domain := s.mem_domain INTER byte_aligned)`
 
 val align_dm_const = Q.store_thm("align_dm_const[simp]",
@@ -350,9 +338,6 @@ val align_dm_const = Q.store_thm("align_dm_const[simp]",
    (align_dm s).link_reg = s.link_reg ∧
    (align_dm s).ptr_reg = s.ptr_reg ∧
    (align_dm s).io_regs = s.io_regs ∧
-   (align_dm s).code_buffer = s.code_buffer ∧
-   (align_dm s).compile = s.compile ∧
-   (align_dm s).compile_oracle = s.compile_oracle ∧
    (align_dm s).ffi = s.ffi ∧
    (align_dm s).failed = s.failed`,
   EVAL_TAC);
@@ -571,7 +556,7 @@ val write_bytearray_align_dm = Q.store_thm("write_bytearray_align_dm[simp]",
 
 val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   `good_dimindex(:α) ⇒
-   ∀(s:(α,'c,'ffi) labSem$state).
+   ∀(s:(α,'ffi) labSem$state).
       evaluate (align_dm s) =
       let (r,s') = evaluate s in (r, align_dm s')`,
   strip_tac
@@ -583,9 +568,9 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
   >- (
     BasicProvers.TOP_CASE_TAC
-    \\BasicProvers.TOP_CASE_TAC
-    \\ simp[asm_inst_align_dm]
     \\ simp[Once evaluate_def,SimpRHS]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_dm]
     \\ rw[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -609,7 +594,7 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒
-   implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}`,
+   implements {semantics (s:(α,'ffi) labSem$state)} {semantics (align_dm s)}`,
   strip_tac
   \\ irule implements_intro
   \\ qexists_tac`T` \\ simp[]
