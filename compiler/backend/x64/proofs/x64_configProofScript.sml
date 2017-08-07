@@ -17,8 +17,8 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 val x64_backend_config_ok = Q.store_thm("x64_backend_config_ok",`
-  compiler_config_ok x64_backend_config`,
-  simp[compiler_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+  backend_config_ok x64_backend_config`,
+  simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
@@ -59,7 +59,7 @@ val x64_compile_correct =
   |> Q.ISPECL[`x64_backend_config`, `^(rand is_x64_machine_config_mc)`]
   |> ADD_ASSUM is_x64_machine_config_mc
   |> SIMP_RULE (srw_ss()) [x64_backend_config_ok,UNDISCH x64_machine_config_ok,UNDISCH x64_init_ok]
-  |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``find_name``o fst o strip_comb))))
+  |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
   |> curry save_thm"x64_compile_correct";
 

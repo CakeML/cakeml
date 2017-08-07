@@ -12,7 +12,7 @@ val config_ok_def = Define`
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config.inf_env ∧
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
-    backendProof$conf_ok cc.backend_config mc`;
+    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
@@ -20,7 +20,7 @@ val initial_condition_def = Define`
     (?ctMap. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap FEMPTY st.tenv) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
-    backendProof$conf_ok cc.backend_config mc`;
+    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
   `parse_prog = parse`,
@@ -108,11 +108,13 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,ffi_limit) =>
+    | Success (bytes,c) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed (bytes,cc.backend_config,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
+          installed bytes c.ffi_names st.sem_st.ffi
+            (heap_regs cc.backend_config.stack_conf.reg_names)
+            mc ms ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
@@ -137,7 +139,6 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
       |> GEN_ALL
       |> drule)
   \\ simp[]
-  \\ disch_then drule
   \\ disch_then(qspec_then`st.sem_st.ffi`mp_tac o CONV_RULE (RESORT_FORALL_CONV (sort_vars["ffi"])))
   \\ qpat_x_assum`_ = THE _`(assume_tac o SYM)
   \\ simp[]
@@ -146,10 +147,6 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ fs[can_type_prog_def] >>
   metis_tac [semantics_type_sound]);
 
-val code_installed_def = Define `
-  code_installed (bytes,cc,ffi,ffi_limit,mc,ms) =
-    installed (bytes,cc.backend_config,ffi,ffi_limit,mc,ms)`
-
 val compile_correct = Q.store_thm("compile_correct",
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc.
     config_ok cc mc ⇒
@@ -157,15 +154,15 @@ val compile_correct = Q.store_thm("compile_correct",
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,ffi_limit) =>
+    | Success (bytes,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          code_installed (bytes,cc,ffi,ffi_limit,mc,ms) ⇒
+          installed bytes c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
-  rw[primSemEnvTheory.semantics_init_def,code_installed_def]
+  rw[primSemEnvTheory.semantics_init_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[primSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen

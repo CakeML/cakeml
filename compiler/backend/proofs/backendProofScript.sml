@@ -436,13 +436,14 @@ val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes ffi (r1,r2) mc_conf ms ⇔
+  installed bytes ffi_names ffi (r1,r2) mc_conf ms ⇔
     ∃t m io_regs.
       good_init_state mc_conf ms ffi bytes t m
       { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } io_regs ∧
       byte_aligned (t.regs r1) ∧
       byte_aligned (t.regs r2) ∧
-      t.regs r1 <=+ t.regs r2`;
+      t.regs r1 <=+ t.regs r2 ∧
+      ffi_names = SOME mc_conf.ffi_names`;
 
 (* this should let us remove a conjunct from good_init_state *)
 val byte_aligned_lemma = Q.store_thm("byte_aligned_lemma",
@@ -461,8 +462,8 @@ val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
 
 val prim_config = prim_config_eq |> concl |> lhs
 
-val compiler_config_ok_def = Define`
-  compiler_config_ok (c:'a config) ⇔
+val backend_config_ok_def = Define`
+  backend_config_ok (c:'a config) ⇔
     c.source_conf = ^prim_config.source_conf ∧
     c.mod_conf = ^prim_config.mod_conf ∧
     0 < c.clos_conf.max_app ∧
@@ -503,20 +504,21 @@ val mc_init_ok_def = Define`
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
    c.lab_conf.asm_conf = mc.target.config`
 
+val heap_regs_def = Define`
+  heap_regs reg_names =
+    (find_name reg_names 2, find_name reg_names 4)`;
+
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
-   compiler_config_ok c ∧ mc_conf_ok mc ∧
-   mc_init_ok c mc ∧
-   c'.ffi_names = SOME mc.ffi_names ∧ (* TODO: compile should return new config *)
-   installed bytes ffi
-     (find_name c.stack_conf.reg_names 2,
-      find_name c.stack_conf.reg_names 4) mc ms ⇒
+   backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+   installed bytes c'.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
-  srw_tac[][compile_eq_from_source,from_source_def,compiler_config_ok_def] >>
+  srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
+  `c'.ffi_names = SOME mc.ffi_names` by fs[installed_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
@@ -774,7 +776,7 @@ val compile_correct = Q.store_thm("compile_correct",
   drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
   impl_tac>-
-    (fs[compiler_config_ok_def,Abbr`c4`]>>
+    (fs[backend_config_ok_def,Abbr`c4`]>>
     fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
     fs[PULL_EXISTS]>>
     metis_tac[])>>
@@ -837,7 +839,7 @@ val compile_correct = Q.store_thm("compile_correct",
     SIMP_RULE std_ss [Once CONJ_COMM])>>
   disch_then(qspec_then `c4`mp_tac)>>
   impl_tac>-
-    fs[Abbr`stk`,compiler_config_ok_def,Abbr`c4`]>>
+    fs[Abbr`stk`,backend_config_ok_def,Abbr`c4`]>>
   strip_tac>>
   rfs[]>>
   (* stack_remove *)
@@ -1091,7 +1093,7 @@ val compile_correct = Q.store_thm("compile_correct",
     conj_tac >- (
       simp[Abbr`stack_st`,Abbr`stack_args`] \\
       match_mp_tac IMP_init_state_ok \\
-      fs[mc_conf_ok_def,compiler_config_ok_def] \\
+      fs[mc_conf_ok_def,backend_config_ok_def] \\
       metis_tac[compile_word_to_stack_bitmaps] ) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
