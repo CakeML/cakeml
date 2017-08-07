@@ -500,7 +500,8 @@ val mc_init_ok_def = Define`
   (* the next two are implied by injectivity of find_name *)
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr_reg ∧
-  ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs`
+  ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
+   c.lab_conf.asm_conf = mc.target.config`
 
 val compile_correct = Q.store_thm("compile_correct",
   `compile (c:'a config) prog = SOME (bytes,c') ⇒
@@ -508,7 +509,6 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s env prog Fail ∧
    compiler_config_ok c ∧ mc_conf_ok mc ∧
    mc_init_ok c mc ∧
-   c.lab_conf.asm_conf = mc.target.config ∧
    c'.ffi_names = SOME mc.ffi_names ∧ (* TODO: compile should return new config *)
    installed bytes ffi
      (find_name c.stack_conf.reg_names 2,
@@ -516,6 +516,7 @@ val compile_correct = Q.store_thm("compile_correct",
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def,compiler_config_ok_def] >>
+  `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
