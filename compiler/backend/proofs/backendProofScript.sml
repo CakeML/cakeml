@@ -151,7 +151,7 @@ val IMP_init_state_ok = Q.store_thm("IMP_init_state_ok",
 val full_make_init_ffi = Q.prove(
   `(full_make_init
          (bitmaps,c1,code,f,ggg,jump,k,max_heap,off,regs,
-          make_init mc_conf ffi io_regs cc_regs t m dm ms code2 compiler cbpos cbspace coracle,
+          make_init mc_conf ffi io_regs t m dm ms code2,
           save_regs)).ffi = ffi`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
@@ -436,10 +436,10 @@ val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes cbspace ffi (r1,r2) mc_conf ms ⇔
-    ∃t m io_regs cc_regs.
-      good_init_state mc_conf ms ffi bytes cbspace t m
-      { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } io_regs cc_regs ∧
+  installed bytes ffi (r1,r2) mc_conf ms ⇔
+    ∃t m io_regs.
+      good_init_state mc_conf ms ffi bytes t m
+      { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } io_regs ∧
       byte_aligned (t.regs r1) ∧
       byte_aligned (t.regs r2) ∧
       t.regs r1 <=+ t.regs r2`;
@@ -510,7 +510,7 @@ val compile_correct = Q.store_thm("compile_correct",
    mc_init_ok c mc ∧
    c.lab_conf.asm_conf = mc.target.config ∧
    c'.ffi_names = SOME mc.ffi_names ∧ (* TODO: compile should return new config *)
-   installed bytes cbspace ffi
+   installed bytes ffi
      (find_name c.stack_conf.reg_names 2,
       find_name c.stack_conf.reg_names 4) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
@@ -804,12 +804,9 @@ val compile_correct = Q.store_thm("compile_correct",
     metis_tac[ALOOKUP_MEM] ) \\
   `code_rel_ext (fromAList t_code, fromAList p5)` by metis_tac[code_rel_ext_word_to_word] \\
   fs[installed_def] \\
-  qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
+  qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes tar_st m dm io_regs` \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
-  qabbrev_tac`coracle =λn:num.
-      (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, ([]:'a labLang$prog))` \\
-  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
-       (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace coracle` \\
+  qabbrev_tac`lab_st:('a,'ffi) labSem$state = make_init mc ffi io_regs tar_st m (dm ∩ byte_aligned) ms p7` \\
   (* syntactic properties from stack_to_lab *)
   `labels_ok p7` by
     (fs[Abbr`p7`]>>
@@ -1015,9 +1012,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspec_then`coracle`mp_tac) \\
   impl_tac >- (
-    conj_tac >- simp[compiler_oracle_ok_def,good_code_def,Abbr`coracle`] \\
     fs[good_code_def,labels_ok_def] \\
     rfs[]>>rw[]
     >-

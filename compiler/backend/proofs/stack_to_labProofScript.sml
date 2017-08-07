@@ -88,7 +88,7 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
   res_tac >> fsrw_tac[ARITH_ss][ADD1]);
 
 val state_rel_def = Define`
-  state_rel (s:('a,'ffi)stackSem$state) (t:('a,'c,'ffi)labSem$state) ⇔
+  state_rel (s:('a,'b)stackSem$state) (t:('a,'b)labSem$state) ⇔
     (∀n v. FLOOKUP s.regs n = SOME v ⇒ t.regs n = v) ∧
     t.mem = s.memory ∧
     t.mem_domain = s.mdomain ∧
@@ -274,7 +274,7 @@ val no_ret_correct = Q.store_thm("no_ret_correct",
   every_case_tac >> fs[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES]);
 
-val s = ``s:('a,'c,'ffi) labSem$state``;
+val s = ``s:('a,'ffi) labSem$state``;
 
 val compile_jump_correct = Q.store_thm("compile_jump_correct",
   `asm_fetch_aux pc code = SOME (compile_jump dest) ∧
@@ -349,7 +349,7 @@ val finish_tac =
   TRY (
     map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
     gen_tac >>
-    qpat_abbrev_tac`ss:('a,'c,'ffi)labSem$state = _ _` >>
+    qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
     first_x_assum(qspec_then`ss`mp_tac) >>
     impl_tac >- (
       simp[Abbr`ss`] >>
@@ -366,7 +366,7 @@ val finish_tac =
   simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def,
        inc_pc_def,dec_clock_def,upd_reg_def,lab_to_loc_def] >>
   map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
-  qpat_abbrev_tac`ss:('a,'c,'ffi)labSem$state = _ _` >>
+  qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
   first_x_assum(qspec_then`ss`mp_tac) >>
   impl_tac >- (
     simp[Abbr`ss`] >>
@@ -381,7 +381,7 @@ val finish_tac =
 val call_args_def = stackPropsTheory.call_args_def
 
 val flatten_correct = Q.store_thm("flatten_correct",
-  `∀prog s1 r s2 n l (t1:('a,'c,'ffi)labSem$state).
+  `∀prog s1 r s2 n l (t1:('a,'ffi)labSem$state).
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
      call_args prog t1.ptr_reg t1.len_reg t1.link_reg ∧
@@ -1286,7 +1286,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qexists_tac`ck+1`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         gen_tac >>
-        qpat_abbrev_tac`ss:('a,'c,'ffi)labSem$state = _ _` >>
+        qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
         first_x_assum(qspec_then`ss`mp_tac) >>
         impl_tac >- (
           simp[Abbr`ss`] >>
@@ -1412,7 +1412,7 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
                t.ffi = s.ffi ∧ t.clock = s.clock - 1)))
    ⇒
    ∃ck r2 t2.
-     evaluate ((t1:('a,'c,'ffi)labSem$state)with clock := t1.clock - 1 + ck) = (r2,t2) ∧
+     evaluate ((t1:('a,'ffi)labSem$state)with clock := t1.clock - 1 + ck) = (r2,t2) ∧
      (∀w. res = SOME (Halt w) ⇒ r2 =
       (case w of | Word 0w => Halt Success
                  | Word _ => Halt Resource_limit_hit
@@ -1482,7 +1482,7 @@ val halt_assum_def = Define `
 
 val flatten_semantics = Q.store_thm("flatten_semantics",
   `halt_assum (:'ffi) (s1:(α,'ffi)stackSem$state).code /\
-   state_rel s1 (s2:('a,'c,'ffi)labSem$state) /\
+   state_rel s1 (s2:('a,'ffi)labSem$state) /\
    loc_to_pc start 0 s2.code = SOME s2.pc /\
    semantics start s1 <> Fail ==>
    semantics s2 = semantics start s1`,
@@ -1679,7 +1679,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     simp[prefix_chain_def,PULL_EXISTS] >>
     qx_genl_tac[`k1`,`k2`] >>
     qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-    let val s = ``s:('a,'c,'ffi) labSem$state``
+    let val s = ``s:('a,'ffi) labSem$state``
         val t = ``s:('a,'ffi) stackSem$state``
     in
     metis_tac[
@@ -1722,7 +1722,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[EL_APPEND1]);
 
 val make_init_def = Define `
-  make_init code regs save_regs (s:('a,'c,'ffi) labSem$state) =
+  make_init code regs save_regs (s:('a,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
      ; memory  := s.mem
      ; mdomain := s.mem_domain
@@ -1736,7 +1736,7 @@ val make_init_def = Define `
      ; be      := s.be |> :(α,'ffi)stackSem$state`;
 
 val make_init_semantics = flatten_semantics
-  |> Q.INST [`s1`|->`make_init code regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
+  |> Q.INST [`s1`|->`make_init code regs save_regs (s:('a,'ffi)labSem$state)`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``];
 
 val from_names = let
@@ -1803,7 +1803,7 @@ val FLOOKUP_regs = Q.prove(
   \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs []);
 
 val state_rel_make_init = Q.store_thm("state_rel_make_init",
-  `state_rel (make_init code regs save_regs s) (s:('a,'c,'ffi) labSem$state) <=>
+  `state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
      call_args prog s.ptr_reg s.len_reg s.link_reg ∧
@@ -2083,7 +2083,7 @@ val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
     init_store_ok c1
       ((full_make_init
           (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
-           jump,k,max_heap,off,regs,(s:('a,'c,'ffi)labSem$state),
+           jump,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
              save_regs)).store \\ Handler)
        (full_make_init
           (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
