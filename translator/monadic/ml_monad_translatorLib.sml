@@ -1367,15 +1367,15 @@ fun apply_Eval_Fun (x, th) = let
     val th = MATCH_MP Eval_Fun th
 in th end
 
-fun translate_run def = let
+fun m_translate_run def = let
     (* Decompose the definition *)
     val (def_lhs, def_rhs) = concl def |> strip_forall |> snd |> dest_eq
 
     val fname = repeat rator def_lhs |> dest_const |> fst |> get_unique_name
-    val _ = print ("Translating monadic " ^ fname ^ "for run\n")
+    val _ = print ("Translating monadic run: " ^ fname ^ "\n")
     val fname_str = stringLib.fromMLstring fname
 
-    val Mvar = mk_var("M", ``:('a, 'b, 'c) M``)
+    val Mvar = mk_var("M", ``: 'a -> ('b, 'c) exc # 'a``)
     val Svar = mk_var("S", ``:'a``)
     val (tms, tys) = match_term ``run ^Mvar ^Svar`` def_rhs
     val monad_tm = Term.subst tms (Term.inst tys Mvar)
