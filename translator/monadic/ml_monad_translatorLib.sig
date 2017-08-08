@@ -12,4 +12,6 @@ sig
     val add_raise_handle_functions : thm list -> thm list -> thm -> (thm list * thm list)
 
     val m_translate : thm -> thm
+
+    val m_translate_run : thm -> thm
 end
