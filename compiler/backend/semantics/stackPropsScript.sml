@@ -22,7 +22,8 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
    (set_store x y z).mdomain = z.mdomain ∧
-   (set_store x y z).bitmaps = z.bitmaps`,
+   (set_store x y z).bitmaps = z.bitmaps ∧
+   (set_store x y z).compile = z.compile`,
   EVAL_TAC);
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
@@ -40,6 +41,7 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
    (set_var x y z).gc_fun = z.gc_fun ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
+   (set_var x y z).compile = z.compile ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space`,
   EVAL_TAC);
@@ -63,7 +65,8 @@ val empty_env_const = Q.store_thm("empty_env_const[simp]",
    (empty_env z).be = z.be ∧
    (empty_env z).gc_fun = z.gc_fun ∧
    (empty_env z).mdomain = z.mdomain ∧
-   (empty_env z).bitmaps = z.bitmaps`,
+   (empty_env z).bitmaps = z.bitmaps ∧
+   (empty_env z).compile = z.compile`,
   EVAL_TAC)
 
 val empty_env_with_const = Q.store_thm("empty_env_with_const[simp]",
@@ -80,7 +83,8 @@ val alloc_const = Q.store_thm("alloc_const",
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
-    t.bitmaps = s.bitmaps`,
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile`,
   srw_tac[][alloc_def,gc_def,LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -126,7 +130,8 @@ val inst_const = Q.store_thm("inst_const",
     t.be = s.be ∧
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
-    t.bitmaps = s.bitmaps`,
+    t.bitmaps = s.bitmaps ∧
+    t.compile = s.compile`,
   Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
@@ -148,7 +153,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
    (dec_clock z).mdomain = z.mdomain ∧
-   (dec_clock z).bitmaps = z.bitmaps`,
+   (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).compile = z.compile`,
   EVAL_TAC);
 
 val evaluate_consts = Q.store_thm("evaluate_consts",
@@ -159,7 +165,8 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
       s1.use_stack = s.use_stack /\
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
-      s1.mdomain = s.mdomain`,
+      s1.mdomain = s.mdomain /\
+      s1.compile = s.compile`,
   recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
