@@ -762,7 +762,10 @@ val [lul1,lul2,lul3,lul4] = CONJUNCTS lab_to_targetTheory.lines_upd_lab_len_def;
 
 val add_pos_conv = PATH_CONV "llr" numLib.REDUCE_CONV
 
-val extract_ffi_names = map stringSyntax.fromHOLstring o fst o listSyntax.dest_list
+val extract_ffi_names =
+  map stringSyntax.fromHOLstring o fst o listSyntax.dest_list o
+  optionSyntax.dest_some o assoc "ffi_names" o  #2 o TypeBase.dest_record
+
 val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
 
 fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
