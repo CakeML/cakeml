@@ -44,7 +44,7 @@ val compile_def = Define`
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
-          | SOME (bytes,limit) => Success (bytes,limit)`;
+          | SOME (bytes,c) => Success (bytes,the [] c.ffi_names)`;
 
 val compile_explorer_def = Define`
   compile_explorer c prelude input =
