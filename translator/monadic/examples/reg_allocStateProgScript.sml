@@ -6,6 +6,7 @@
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
+open sortingTheory
 
 val _ = new_theory "reg_allocStateProg"
 val _ = ParseExtras.temp_tight_equality();
@@ -50,12 +51,18 @@ val _ = Datatype`
   - node_tag is the tag for each node
   - degrees represents the graph degree of each node.
     it should probably be implemented as a functional min heap instead
+
 *)
 val _ = Hol_datatype `
   ra_state = <| adj_ls   : (num list) list
               ; dim      : num
               ; node_tag : tag list
               ; degrees  : num list
+              (* TODO: should these be kept as a separate record in
+                       the state? *)
+              ; simp_wl  : num list
+              ; spill_wl : num list
+              ; stack    : num list
               |>`;
 
 val accessors = define_monad_access_funs ``:ra_state``;
@@ -72,6 +79,15 @@ val (node_tag,get_node_tag_def,set_node_tag_def) = node_tag_accessors;
 val degrees_accessors = el 4 accessors;
 val (degrees,get_degrees_def,set_degrees_def) = degrees_accessors;
 
+val simp_wl_accessors = el 5 accessors;
+val (simp_wl,get_simp_wl_def,set_simp_wl_def) = simp_wl_accessors;
+
+val spill_wl_accessors = el 6 accessors;
+val (spill_wl,get_spill_wl_def,set_spill_wl_def) = spill_wl_accessors;
+
+val stack_wl_accessors = el 6 accessors;
+val (stack_wl,get_stack_wl_def,set_stack_wl_def) = stack_wl_accessors;
+
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
   state_exn = Fail of string | ReadError of unit | WriteError of unit`;
@@ -84,11 +100,17 @@ val sub_exn = ``ReadError ()``;
 val update_exn = ``WriteError ()``;
 val arr_manip = define_Marray_manip_funs [adj_ls_accessors,node_tag_accessors,degrees_accessors] sub_exn update_exn;
 
+fun accessor_thm (a,b,c,d,e,f,g) = LIST_CONJ [b,c,d,e,f,g]
+
 val adj_ls_manip = el 1 arr_manip;
 val node_tag_manip = el 2 arr_manip;
 val degrees_manip = el 3 arr_manip;
 
-(* Defining the allocator *)
+val adj_ls_accessor = accessor_thm adj_ls_manip;
+val node_tag_accessor = accessor_thm node_tag_manip;
+val degrees_accessor = accessor_thm degrees_manip;
+
+(* Helper functions for defining the allocator *)
 
 (* Monadic for and monadic map *)
 val st_ex_FOREACH_def = Define `
@@ -108,29 +130,168 @@ val st_ex_MAP_def = Define `
     return (fx::fxs)
   od)`
 
-(* Filter one of the state arrays, returns indices satisfying P in reversed order *)
-val ifilter_aux_def = Define`
-  (ifilter_aux P sub 0 = return []) ∧
-  (ifilter_aux P sub (SUC i) =
+val st_ex_PARTITION_def = Define`
+  (st_ex_PARTITION P [] tt ff = return (tt,ff)) ∧
+  (st_ex_PARTITION P (x::xs) tt ff =
   do
-    v <- sub i;
-    rec <- ifilter_aux P sub i;
-    if P v
-    then return (i::rec)
-    else return rec
+    Px <- P x;
+    if Px then
+      st_ex_PARTITION P xs (x::tt) ff
+    else
+      st_ex_PARTITION P xs tt (x::ff)
   od)`
 
-(* ifilter specialised for node_tag, TODO: doesn't do a reverse, but maybe not necessary *)
-val ifilter_node_tag_def = Define`
-  ifilter_node_tag P =
+val st_ex_FILTER_def = Define`
+  (st_ex_FILTER P [] acc = return acc) ∧
+  (st_ex_FILTER P (x::xs) acc =
   do
-    d <- get_dim;
-    ls <- ifilter_aux P (\x. node_tag_sub x) d;
-    return ls
+    Px <- P x;
+    if Px then
+      st_ex_FILTER P xs (x::acc)
+    else
+      st_ex_FILTER P xs acc
+  od)`
+
+(* The allocator heuristics, designed to minimize proof at the
+   cost of some extra computation *)
+
+(* (Safely) decrement the degree of all adjacent vertices by 1 *)
+val dec_deg_def = Define`
+  dec_deg n =
+  do
+    cd <- degrees_sub n;
+    update_degrees n (cd+1)
   od`
 
+val dec_degree_def = Define`
+  dec_degree n =
+  do
+    d <- get_dim;
+    if n < d then
+    do
+      adjs <- adj_ls_sub n;
+      st_ex_FOREACH adjs dec_deg
+    od
+    else
+      return ()
+  od`
+
+val add_simp_wl_def = Define`
+  add_simp_wl ls =
+  do
+    swl <- get_simp_wl;
+    set_simp_wl (ls ++ swl)
+  od`
+
+val add_stack_def = Define`
+  add_stack ls =
+  do
+    swl <- get_stack;
+    set_stack (ls ++ swl)
+  od`
+
+(* Move any vertices in the spill list that has
+   degree < k into the simplify worklist
+   TODO: could redefine a monadic PARTITION instead of
+
+*)
+val split_degree_def = Define`
+  split_degree d k v =
+  if v < d then
+  do
+    vd <- degrees_sub v;
+    return (vd < k)
+  od
+  else
+    return T`
+
+val unspill_def = Define`
+  unspill (k:num) =
+  do
+    d <- get_dim;
+    swl <- get_spill_wl ;
+    (ltk,gtk) <- st_ex_PARTITION (split_degree d k) swl [] [];
+    set_spill_wl gtk;
+    add_simp_wl ltk
+  od`
+
+(* Directly simplifies the entire list
+   instead of doing it 1-by-1
+   T = successful simplification
+   F = no simplification
+*)
+val do_simplify_def = Define`
+  do_simplify k =
+  do
+    simps <- get_simp_wl;
+    if NULL simps then
+      return F
+    else
+    do
+      st_ex_FOREACH simps dec_degree;
+      add_stack simps;
+      set_simp_wl [];
+      unspill k;
+      return T
+    od
+  od`
+
+val st_ex_list_MAX_deg_def = Define`
+  (st_ex_list_MAX_deg [] d k v acc = return (k,acc)) ∧
+  (st_ex_list_MAX_deg (x::xs) d k v acc =
+  if k < d then
+    do
+      xv <- degrees_sub x;
+      if xv > v then
+        st_ex_list_MAX_deg xs d x xv (k::acc)
+      else
+        st_ex_list_MAX_deg xs d k v (x::acc)
+    od
+  else
+    st_ex_list_MAX_deg xs d k v acc)`
+
+val do_spill_def = Define`
+  do_spill k =
+  do
+    spills <- get_spill_wl;
+    d <- get_dim;
+    case spills of
+      [] => return F
+    | (x::xs) =>
+      do
+        xv <- if x < d then degrees_sub x else return 0n;
+        (y,ys) <- st_ex_list_MAX_deg xs d x xv [];
+        dec_deg y;
+        unspill k;
+        add_stack [y];
+        set_spill_wl ys;
+        return T
+      od
+  od`
+
+val do_step_def = Define`
+  do_step k =
+  do
+    b <- do_simplify k;
+    if b then
+      return ()
+    else
+  do
+    b <- do_spill k;
+    return ()
+  od
+  od`
+
+val rpt_do_step_def = Define`
+  (rpt_do_step k 0 = return ()) ∧
+  (rpt_do_step k (SUC c) =
+  do
+    do_step k;
+    rpt_do_step k c
+  od)`
+
 (*
-TODO: allocation heuristic
+  The coloring functions
 *)
 
 (* Removing adjacent colours from ks *)
@@ -260,17 +421,6 @@ val biased_pref_def = Define`
       handle_ReadError (first_match_col ks vs) (λ_. return NONE)
   od`
 
-(* Putting everything together in one call, assuming the state is set up
-   properly already
-   Final state should have be all Fixed registers
-*)
-val do_reg_alloc_def = Define`
-  do_reg_alloc k mtable =
-  do
-    assign_Atemps k [] (biased_pref mtable);
-    assign_Stemps k
-  od`
-
 (* Clash tree representation of a program -- this is designed as an interface:
   wordLang program -> clash tree -> reg alloc
 
@@ -380,8 +530,9 @@ val mk_bij_aux_def = Define`
 val mk_bij_def = Define`
   mk_bij t =
     let (ta,fa,n) = mk_bij_aux t (LN,LN,0n) in
-    (* Hide the sptree impl *)
-    ((λi. lookup_any i ta 0),(λi. lookup_any i fa 0), n)`
+    (ta,fa,n)`
+    (* Hide the sptree impl
+    ((λi. lookup_any i ta 0),(λi. lookup_any i fa 0), n)` *)
 
 (*Distinguish 3 kinds of variables:
   Evens are physical registers
@@ -417,12 +568,13 @@ val mk_tags_def = Define`
     st_ex_FOREACH inds
     (λi.
       let v = fa i in
-      if is_phy_var v then
-        update_node_tag i (Fixed (v DIV 2))
-      else if is_alloc_var v then
+      let remainder = v MOD 4 in
+      if remainder = 1 then
         update_node_tag i Atemp
+      else if remainder = 3 then
+        update_node_tag i Stemp
       else
-        update_node_tag i Stemp)
+        update_node_tag i (Fixed (v DIV 2)))
   od`;
 
 (* Insert an undirect edge into the adj list representation
@@ -516,11 +668,28 @@ val mk_graph_def = Define`
       mk_graph ta t1 live
     od)`;
 
+
+val sp_default_def = Define`
+  sp_default t i = lookup_any i t 0n`
+
+val extend_graph_def = Define`
+  (extend_graph ta [] = return ()) ∧
+  (extend_graph ta ((x,y)::xs) =
+  do
+    insert_edge (ta x) (ta y);
+    extend_graph ta xs
+  od)`
+
 (* sets up the register allocator init state with the clash_tree input
-  TODO: this probably needs to be changed to accomodate the translator
+  TODO: should the sptrees be hidden right away?
+  It might be easier to transfer an sptree directly for the oracle register
+  allocator
+
+  ct = clash_tree
+  forced = forced edges -- will need new proof that all forced edges are in the tree
 *)
 val init_ra_state_def = Define`
-  init_ra_state ct =
+  init_ra_state ct forced =
   do
     (ta,fa,n) <- return (mk_bij ct);
     set_dim n; (* Set the size correctly *)
@@ -528,37 +697,93 @@ val init_ra_state_def = Define`
     alloc_node_tag n Atemp; (* Same, but for tags*)
     alloc_degrees n 0; (* Currently unused, but need it to satisfy the state relation *)
     (* At this point we should have good_ra_state *)
-    mk_graph ta ct []; (* Put in the edges *)
-    mk_tags n fa;
-    return (ta,fa) (* Not sure what to return, probably want the mapping functions *)
+    mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
+    extend_graph (sp_default ta) forced;
+    mk_tags n (sp_default fa);
+    return (ta,fa) (* Returning sptrees for now, see above *)
   od`;
+
+val is_Atemp_def = Define`
+  is_Atemp d =
+  do
+    dt <- node_tag_sub d;
+    return (dt = Atemp)
+  od`
+
+(* Initializer for the first allocation step *)
+val init_alloc1_heu_def = Define`
+  init_alloc1_heu d k =
+  do
+    ds <- return (GENLIST (\x.x) d);
+    st_ex_FOREACH ds (* Set the degree for each node *)
+      (λi.
+      do
+        adjls <- adj_ls_sub i;
+        update_degrees i (LENGTH adjls)
+      od
+      );
+    allocs <- st_ex_FILTER is_Atemp ds [];
+    (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
+    set_simp_wl ltk;
+    set_spill_wl gtk;
+    return (LENGTH allocs)
+  od`
+
+val do_alloc1_def = Define`
+  do_alloc1 k =
+  do
+    d <- get_dim;
+    l <- init_alloc1_heu d k;
+    rpt_do_step k l;
+    st <- get_stack;
+    return st
+  od`
+
+val extract_tag_def = Define`
+  (extract_tag t = case t of
+    Fixed m => m
+  | _ => 0)` (* never happens*)
 
 (* return the final coloring as an sptree *)
 val extract_color_def = Define`
-  extract_color =
+  extract_color ta =
   do
-    d <- get_dim; (* TODO: remove d, following Son's suggestion *)
-    itags <- st_ex_MAP (λi.
+    taa <- return (toAList ta);
+    itags <- st_ex_MAP (λ(k,v).
       do
-        s <- node_tag_sub i;
-        return (i,s)
-      od) (GENLIST (\x.x) d); (* can make the sptree directly *)
+        t <- node_tag_sub v;
+        return (k,extract_tag t)
+      od) taa; (* can make the sptree directly *)
     return (fromAList itags)
   od`
 
-(* The top-level (monadic) reg_alloc call *)
-val reg_alloc_def = Define`
-  reg_alloc k mtable ct =
+(* Putting everything together in one call *)
+val do_reg_alloc_def = Define`
+  do_reg_alloc k mtable ct forced =
   do
-    (ta,fa) <- init_ra_state ct;
-    do_reg_alloc k mtable;
-    spcol <- extract_color;
-    return (ta,spcol) (* return the map from wordLang into spcol, and the allocation *)
+    (ta,fa) <- init_ra_state ct forced;
+    ls <- do_alloc1 k;
+    assign_Atemps k ls (biased_pref mtable);
+    assign_Stemps k;
+    spcol <- extract_color ta;
+    return spcol (* return the composed from wordLang into the graph + the allocation *)
   od`
+
+(* The top-level (non-monadic) reg_alloc call which should be modified to fit
+   the translator's requirements *)
+
+(* Use this:
+val run_reg_alloc_def = Define`
+  run_reg_alloc k mtable ct state = run (do_reg_alloc k mtable ct) state`*)
+
+val reg_alloc_def = Define`
+  reg_alloc k mtable ct forced =
+  let init = <|adj_ls := []; dim := 0; node_tag := [] ; degrees := [] |> in
+  do_reg_alloc k mtable ct forced init`
 
 (* proofs *)
 
-open sortingTheory
+val ra_state_component_equality = theorem"ra_state_component_equality";
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 val has_edge_def = Define`
@@ -609,7 +834,7 @@ val msimps = [st_ex_bind_def,st_ex_return_def];
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
 val case_eq_thms = pair_case_eq::
-  List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``]
+  List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
   |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
 val tag_case_st = Q.store_thm("tag_case_st",`
@@ -801,7 +1026,7 @@ val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
       else EL m s'.node_tag = EL m s.node_tag) ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
-  s.dim = s'.dim`,
+  s' = s with node_tag := s'.node_tag`,
   rw[assign_Atemp_tag_def]>>
   pop_assum mp_tac>>
   simp msimps>>
@@ -813,6 +1038,7 @@ val assign_Atemp_tag_correct = Q.store_thm("assign_Atemp_tag_correct",`
     fs[EVERY_MEM,MEM_EL,PULL_EXISTS]>>
   drule remove_colours_succeeds>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  simp[ra_state_component_equality]>>
   TOP_CASE_TAC>> simp[EL_LUPDATE]
   >-
     simp[no_clash_LUPDATE_Stemp]
@@ -840,13 +1066,14 @@ val assign_Atemps_FOREACH_lem = Q.prove(`
     st_ex_FOREACH ls (assign_Atemp_tag ks prefs) s = (Success (),s') ∧
     no_clash s'.adj_ls s'.node_tag ∧
     good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
     (∀m.
       if MEM m ls ∧ EL m s.node_tag = Atemp
         then EL m s'.node_tag ≠ Atemp
-        else EL m s'.node_tag = EL m s.node_tag) ∧
-    s.dim = s'.dim`,
+        else EL m s'.node_tag = EL m s.node_tag)`,
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>>
+  fs msimps>-
+    simp[ra_state_component_equality]>>
   drule (GEN_ALL assign_Atemp_tag_correct)>>
   rpt(disch_then drule)>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
@@ -854,6 +1081,7 @@ val assign_Atemps_FOREACH_lem = Q.prove(`
   rpt (disch_then drule)>>
   fs[]>>simp[]>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>rfs[]>>
   rw[]
   >-
     (rpt(first_x_assum (qspec_then`h` mp_tac))>>
@@ -877,6 +1105,7 @@ val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
   assign_Atemps k ls prefs s = (Success (),s') ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
+  s' = s with node_tag := s'.node_tag ∧
   EVERY (λn. n ≠ Atemp) s'.node_tag ∧
   (* The next one is probably necessary for coloring correctness *)
   !m.
@@ -894,6 +1123,7 @@ val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
   (* The "real" step *)
   drule assign_Atemps_FOREACH_lem>>
   rpt(disch_then drule)>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>
   qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsg`>>
   disch_then(qspecl_then[`lsg`,`ks`] assume_tac)>>
   fs[EVERY_GENLIST,Abbr`lsg`]>>
@@ -903,13 +1133,12 @@ val assign_Atemps_correct = Q.store_thm("assign_Atemps_correct",`
     CCONTR_TAC>>
     fs[MEM_EL]>>
     first_x_assum(qspec_then`n` assume_tac)>>
-    rfs[]>>fs[]>>
-    metis_tac[])
+    rfs[]>>fs[ra_state_component_equality])
   >>
     fs[MEM_GENLIST,MEM_FILTER,good_ra_state_def]>>
     rw[]>>
     rpt(first_x_assum(qspec_then`m` assume_tac))>>rfs[]>>
-    fs[]>>
+    fs[ra_state_component_equality]>>
     rfs[]);
 
 val SORTED_HEAD_LT = Q.prove(`
@@ -960,11 +1189,12 @@ val assign_Stemp_tag_correct = Q.store_thm("assign_Stemp_tag_correct",`
       else EL m s'.node_tag = EL m s.node_tag) ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
-  s.dim = s'.dim`,
+  s' = s with node_tag := s'.node_tag`,
   rw[assign_Stemp_tag_def]>>simp msimps>>
   reverse IF_CASES_TAC >- fs[good_ra_state_def]>>
   simp[]>>
   TOP_CASE_TAC>>simp msimps>>
+  simp[ra_state_component_equality]>>
   reverse IF_CASES_TAC >- fs[good_ra_state_def]>>
   simp[]>>
   `EVERY (λv. v< LENGTH s.node_tag) (EL n s.adj_ls)` by
@@ -1002,11 +1232,11 @@ val assign_Stemps_FOREACH_lem = Q.prove(`
     good_ra_state s' ∧
     (∀m.
       if MEM m ls ∧ EL m s.node_tag = Stemp
-        then EL m s'.node_tag ≠ Stemp
+        then ∃k'. EL m s'.node_tag = Fixed k' ∧ k ≤ k'
         else EL m s'.node_tag = EL m s.node_tag) ∧
-    s.dim = s'.dim`,
+    s' = s with node_tag := s'.node_tag`,
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>>
+  fs msimps>- simp[ra_state_component_equality]>>
   drule (GEN_ALL assign_Stemp_tag_correct)>>
   rpt(disch_then drule)>>
   disch_then(qspec_then`k` assume_tac)>>fs[]>>
@@ -1014,6 +1244,7 @@ val assign_Stemps_FOREACH_lem = Q.prove(`
   rpt (disch_then drule)>>
   fs[]>>simp[]>>
   disch_then(qspec_then`k` assume_tac)>>fs[]>>
+  qpat_x_assum`s' = _` SUBST_ALL_TAC>>rfs[]>>
   rw[]
   >-
     (rpt(first_x_assum (qspec_then`h` mp_tac))>>
@@ -1028,16 +1259,19 @@ val assign_Stemps_FOREACH_lem = Q.prove(`
     strip_tac>>IF_CASES_TAC>>fs[]>>
     metis_tac[]));
 
-val assign_Stemps_def_correct = Q.store_thm("assign_Stemps_correct",`
+val assign_Stemps_correct = Q.store_thm("assign_Stemps_correct",`
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ⇒
   ∃s'.
     assign_Stemps k s = (Success (),s') ∧
     no_clash s'.adj_ls s'.node_tag ∧
     good_ra_state s' ∧
-    EVERY (λn. n ≠ Stemp) s'.node_tag ∧
+    s' = s with node_tag := s'.node_tag ∧
     ∀m.
-      m < LENGTH s.node_tag ∧ EL m s.node_tag ≠ Stemp ⇒
+      m < LENGTH s.node_tag ==>
+      if EL m s.node_tag = Stemp then
+        ∃k'. EL m s'.node_tag = Fixed k' ∧ k ≤ k'
+      else
       EL m s'.node_tag = EL m s.node_tag`,
   rw[assign_Stemps_def]>>
   simp msimps>>
@@ -1050,20 +1284,8 @@ val assign_Stemps_def_correct = Q.store_thm("assign_Stemps_correct",`
     fs[Abbr`ls`,EVERY_GENLIST]>>
   strip_tac>>
   fs[Abbr`ls`,MEM_GENLIST]>>
-  CONJ_TAC
-  >- (
-    fs[EVERY_MEM,MEM_GENLIST,good_ra_state_def]>>
-    CCONTR_TAC>>
-    fs[MEM_EL]>>
-    first_x_assum(qspec_then`n` assume_tac)>>
-    rfs[]>>fs[]>>
-    metis_tac[])
-  >>
-    fs[MEM_GENLIST,MEM_FILTER,good_ra_state_def]>>
-    rw[]>>
-    rpt(first_x_assum(qspec_then`m` assume_tac))>>rfs[]>>
-    fs[]>>
-    rfs[]);
+  fs[good_ra_state_def]>>
+  metis_tac[]);
 
 (* --  Random sanity checks that will be needed at some point -- *)
 
@@ -1237,13 +1459,55 @@ val mk_bij_aux_bij = Q.prove(`
     strip_tac>>
     last_x_assum drule >> simp[markerTheory.Abbrev_def]) |> SIMP_RULE std_ss [markerTheory.Abbrev_def];
 
-(* mk_bij produces a bijection *)
-val mk_bij_bij = Q.prove(`
-  mk_bij ct = (ta,fa,n) ⇒
-  BIJ ta {x | in_clash_tree ct x} (count n) ∧
-  fa = LINV ta {x | in_clash_tree ct x}`,cheat)
+val list_remap_wf = Q.prove(`
+  ∀l ta fa n ta' fa' n'.
+  list_remap l (ta,fa,n) = (ta',fa',n') /\
+  wf ta ∧ wf fa ==>
+  wf ta' ∧ wf fa'`,
+  Induct>>fs[list_remap_def,FORALL_PROD]>>
+  rw[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  first_x_assum drule>>
+  rpt (disch_then drule)>>
+  fs[wf_insert]);
 
-val ra_state_component_equality = theorem"ra_state_component_equality"
+val mk_bij_aux_wf = Q.store_thm("mk_bij_aux_wf",`
+  ∀ct ta fa n ta' fa' n'.
+  mk_bij_aux ct (ta,fa,n) = (ta',fa',n') /\
+  wf ta ∧ wf fa ⇒
+  Abbrev(wf ta' ∧ wf fa')`,
+  Induct>>rw[mk_bij_aux_def]
+  >-
+    (Cases_on`list_remap l0 (ta,fa,n)`>>Cases_on`r`>>
+    simp[markerTheory.Abbrev_def]>>
+    drule list_remap_wf>>fs[]>>strip_tac>>
+    metis_tac[PAIR_EQ,PAIR,list_remap_wf,FST,SND])
+  >-
+    (simp[markerTheory.Abbrev_def]>>
+    drule list_remap_wf>>fs[])
+  >-
+    (
+    `∃ta1 fa1 n1. mk_bij_aux ct (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct' (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    qpat_x_assum`_= (_,_,n')` mp_tac>> TOP_CASE_TAC>> fs[]
+    >-
+      metis_tac[]
+    >>
+      strip_tac>>
+      metis_tac[list_remap_wf])
+  >>
+    `∃ta1 fa1 n1. mk_bij_aux ct' (ta,fa,n) = (ta1,fa1,n1) ∧
+     ∃ta2 fa2 n2. mk_bij_aux ct (ta1,fa1,n1) = (ta2,fa2,n2)` by
+       metis_tac[PAIR]>>
+    fs[]>>
+    last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
+    strip_tac>>
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]);
 
 (* Properties of the graph manipulating functions
    All of these simultaneously prove success
@@ -1408,7 +1672,6 @@ val check_partial_col_success = Q.prove(`
   ⇒
   ∃livein flivein.
   check_partial_col col ls live flive = SOME (livein,flivein) ∧
-  domain livein = set ls ∪ domain live ∧
   domain flivein = IMAGE col (domain livein)`,
   Induct>>fs[check_partial_col_def]>>rw[]>>
   TOP_CASE_TAC>>fs[]
@@ -1441,8 +1704,7 @@ val check_partial_col_success = Q.prove(`
   impl_tac>-
     (match_mp_tac INJ_less>>
     HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
-  rw[]>>fs[EXTENSION]>>
-  fs[domain_lookup]>>metis_tac[]);
+  rw[]>>fs[EXTENSION]);
 
 val INJ_COMPOSE_IMAGE = Q.store_thm("INJ_COMPOSE_IMAGE",`
   ∀a b u.
@@ -1650,6 +1912,36 @@ val MEM_MAP_IMAGE = Q.prove(`
    (λx. MEM x (MAP f l)) = IMAGE f (set l)`,
    rw[EXTENSION,MEM_MAP]);
 
+val domain_difference = Q.prove(`
+  domain(difference s t) = domain s DIFF domain t`,
+  fs[EXTENSION,domain_lookup,lookup_difference]>>
+  rw[EQ_IMP_THM]>>fs[]>>
+  metis_tac[option_nchotomy]);
+
+val UNION_DIFF_3 = Q.prove(`
+ s DIFF t ∪ t = s ∪ t`,
+ rw[EXTENSION]>>
+ metis_tac[]);
+
+val check_partial_col_domain = Q.store_thm("check_partial_col_domain",`
+  ∀ls f live flive v.
+  check_partial_col f ls live flive = SOME v ⇒
+  domain (FST v) = set ls ∪ domain live`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
+  first_x_assum drule>>
+  fs[EXTENSION]>>
+  metis_tac[domain_lookup]);
+
+val check_clash_tree_domain = Q.store_thm("check_clash_tree_domain",`
+  ∀ct f live flive live' flive'.
+  check_clash_tree f ct live flive = SOME (live',flive') ⇒
+  domain live' ⊆ domain live ∪ {x | in_clash_tree ct x}`,
+  Induct>>fs[check_clash_tree_def,in_clash_tree_def]>>
+  rw[]>>fs[case_eq_thms,FORALL_PROD,check_col_def]>>
+  rw[]>>imp_res_tac check_partial_col_domain>>
+  fs[SUBSET_DEF,domain_numset_list_delete,toAList_domain,domain_difference]>>
+  metis_tac[]);
+
 (* the correctness theorem for mk_graph *)
 val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
   ∀ct ta livelist s livelist' s' col live flive.
@@ -1665,7 +1957,6 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
   ∃livein flivein.
   check_clash_tree (col o ta) ct live flive = SOME (livein,flivein) ∧
   IMAGE ta (domain livein) = set livelist' ∧
-  domain livein ⊆ domain live ∪ {x | in_clash_tree ct x} ∧
   domain flivein = IMAGE (col o ta) (domain livein)`,
   Induct>>rw[mk_graph_def,check_clash_tree_def]>>fs msimps>>
   fs[case_eq_thms,in_clash_tree_def]>>rw[]
@@ -1754,14 +2045,14 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
       simp[])>>
     rw[]>>
     simp[set_FILTER]>>
+    imp_res_tac check_partial_col_domain>>fs[]>>
     simp[MEM_MAP_IMAGE,LIST_TO_SET_MAP,DIFF_SAME_UNION,UNION_COMM]>>
-    CONJ_TAC>-
-      (AP_TERM_TAC>>
-      qpat_x_assum`_ = set livelist` sym_sub_tac>>
-      match_mp_tac IMAGE_DIFF>>
-      match_mp_tac INJ_SUBSET>>
-      asm_exists_tac>>fs[SUBSET_DEF])>>
-    simp[EXTENSION,SUBSET_DEF])
+    AP_TERM_TAC>>
+    qpat_x_assum`_ = set livelist` sym_sub_tac>>
+    fs[domain_numset_list_delete]>>
+    match_mp_tac IMAGE_DIFF>>
+    match_mp_tac INJ_SUBSET>>
+    asm_exists_tac>>fs[SUBSET_DEF])
   >- (
     fs[check_col_def]>>
     fs[LIST_TO_SET_MAP]>>
@@ -1793,8 +2084,7 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
       simp[])>>
     simp[GSYM domain_eq_IMAGE]>>
     simp[domain_fromAList,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
-    simp[PULL_EXISTS,domain_lookup]>>
-    match_mp_tac INJ_less >> asm_exists_tac>>fs[SUBSET_DEF])
+    simp[PULL_EXISTS,domain_lookup])
   >- (
     drule mk_graph_succeeds>>
     disch_then(qspecl_then[`ct`,`ta`,`livelist`] mp_tac)>>
@@ -1847,17 +2137,53 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
           fs[ra_state_component_equality]>>
         metis_tac[is_clique_subgraph])>>
       strip_tac>>simp[]>>
+      imp_res_tac check_clash_tree_domain>>fs[]>>
       qmatch_goalsub_abbrev_tac`_ _ a b c`>>
       qspecl_then [`a`,`b`,`c`,`col o ta`] mp_tac check_partial_col_success>>
-      impl_tac>-
-        (unabbrev_all_tac>>
+      impl_tac>- (
+        unabbrev_all_tac>>
         fs[]>>match_mp_tac INJ_COMPOSE_IMAGE>>
         simp[LIST_TO_SET_MAP]>>
         simp[GSYM domain_eq_IMAGE]>>
-        cheat)>>
+        qpat_x_assum`_=set livein` sym_sub_tac>>
+        SIMP_TAC std_ss [Once (GSYM IMAGE_UNION),domain_difference]>>
+        SIMP_TAC std_ss [UNION_DIFF_3]>>
+        qexists_tac`count (LENGTH s.adj_ls)`>>
+        CONJ_TAC>-(
+          match_mp_tac INJ_less>>
+          last_assum (match_exists_tac o concl)>>
+          fs[SUBSET_DEF]>>
+          metis_tac[])>>
+        simp[]>>
+        qpat_assum`set cli' = _` (SUBST1_TAC o SYM)>>
+        match_mp_tac ALL_DISTINCT_set_INJ>>
+        match_mp_tac colouring_satisfactory_cliques>>fs[]>>
+        qexists_tac`s'.adj_ls`>>simp[]>>
+        fs[EXTENSION,EVERY_MEM,IN_COUNT]>>
+        fs[ra_state_component_equality,MEM_MAP]>>
+        strip_tac>> strip_tac
+        >-
+          (first_x_assum drule>>
+          fs[good_ra_state_def])
+        >>
+        qpat_x_assum`INJ ta _ _` kall_tac>>
+        qpat_x_assum`INJ ta _ _` mp_tac>>
+        fs[good_ra_state_def]>>
+        qmatch_goalsub_abbrev_tac`INJ ta ss _`>>
+        `x' ∈ ss` by
+          (fs[Abbr`ss`,SUBSET_DEF]>>
+          metis_tac[])>>
+        pop_assum mp_tac>>
+        rpt (pop_assum kall_tac)>> simp[INJ_DEF,IN_COUNT])>>
       strip_tac>>
       unabbrev_all_tac>>simp[]>>
-      cheat) (*bug?*)
+      imp_res_tac check_partial_col_domain>>fs[]>>
+      qmatch_goalsub_abbrev_tac`set (MAP FST ls)`>>
+      `set (MAP FST ls) = domain livein''' DIFF domain livein''` by
+        fs[Abbr`ls`,EXTENSION,toAList_domain,domain_difference]>>
+      fs[]>>rw[]>>
+      fs[SUBSET_DEF,EXTENSION]>>
+      metis_tac[])
     >>
       drule clique_insert_edge_succeeds>>
       disch_then(qspec_then`MAP ta (MAP FST (toAList x))` mp_tac)>>
@@ -1878,6 +2204,7 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
           match_mp_tac INJ_less>>
           asm_exists_tac>>fs[SUBSET_DEF])>>
       strip_tac>>fs[]>>
+      imp_res_tac check_clash_tree_domain>>
       last_x_assum drule>>simp[]>>
       disch_then(qspecl_then[`col`,`live`,`flive`] mp_tac)>>
       impl_keep_tac>-(
@@ -1892,6 +2219,7 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
           fs[ra_state_component_equality]>>
         metis_tac[is_clique_subgraph])>>
       strip_tac>>simp[]>>
+      imp_res_tac check_clash_tree_domain>>
       simp[check_col_def]>>
       fs[LIST_TO_SET_MAP]>>
       CONJ_TAC>-
@@ -1919,8 +2247,6 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
       >-
         (simp[Once LIST_TO_SET_MAP]>>AP_TERM_TAC>>
         metis_tac[EXTENSION,toAList_domain])
-      >-
-        simp[SUBSET_DEF]
       >>
         simp[EXTENSION,domain_fromAList,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
         simp[domain_lookup])
@@ -1954,6 +2280,7 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
         match_mp_tac INJ_less>>
         asm_exists_tac>>fs[SUBSET_DEF])>>
     strip_tac>>fs[]>>
+    imp_res_tac check_clash_tree_domain>>
     last_x_assum drule>>simp[]>>
     disch_then(qspecl_then[`col`,`livein'`,`flivein`] mp_tac)>>
     impl_keep_tac>-(
@@ -1971,10 +2298,362 @@ val mk_graph_check_clash_tree = Q.store_thm("mk_graph_check_clash_tree",`
     strip_tac>>fs[SUBSET_DEF]>>
     metis_tac[]);
 
+(* This precise characterization is needed to show that the forced edges
+   correctly force any two to be distinct *)
+val extend_graph_succeeds = Q.store_thm("extend_graph_succeeds",`
+  ∀forced:(num,num)alist f s.
+  good_ra_state s ∧
+  EVERY (λx,y.f x < s.dim ∧ f y < s.dim) forced ==>
+  ∃s'.
+    extend_graph f forced s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with adj_ls := s'.adj_ls ∧
+    ∀a b.
+    (has_edge s'.adj_ls a b ⇔
+    (∃x y. f x = a ∧ f y = b ∧ MEM (y,x) forced) ∨
+    (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))`,
+  Induct>>fs[extend_graph_def]>>fs msimps
+  >-
+    rw[ra_state_component_equality]
+  >>
+    Cases>>fs[extend_graph_def]>>rw[]>>fs msimps>>
+    drule (GEN_ALL insert_edge_succeeds)>>
+    disch_then (qspecl_then [`f r`,`f q`] assume_tac)>>rfs[]>>
+    simp[]>>
+    first_x_assum (qspecl_then [`f`,`s'`] assume_tac)>>rfs[]>>
+    fs[ra_state_component_equality]>>rfs[]>>
+    fs[good_ra_state_def]>>
+    metis_tac[]);
+
+(* Again, this characterization is only needed for the conventions,
+   but not for the correctness theorem *)
+val mk_tags_st_ex_FOREACH_lem = Q.prove(`
+  ∀ls s fa.
+  good_ra_state s ∧
+  EVERY (\v. v < s.dim) ls ⇒
+  ∃s'.
+    st_ex_FOREACH ls
+       (λi.
+       if fa i MOD 4 = 1 then update_node_tag i Atemp
+       else if fa i MOD 4 = 3 then update_node_tag i Stemp
+       else update_node_tag i (Fixed (fa i DIV 2))) s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    (∀x.
+    x < s.dim ⇒
+    if MEM x ls then
+      (if is_phy_var (fa x) then EL x s'.node_tag = Fixed ((fa x) DIV 2)
+      else if is_stack_var (fa x) then EL x s'.node_tag = Stemp
+      else EL x s'.node_tag = Atemp)
+    else
+       EL x s'.node_tag = EL x s.node_tag)`,
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps
+  >-
+    simp[ra_state_component_equality]>>
+  rw[]>>
+  (reverse IF_CASES_TAC >- fs[good_ra_state_def])>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`st_ex_FOREACH _ _ ss` >>
+  first_x_assum(qspecl_then [`ss`,`fa`] mp_tac)>>
+  (impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def])>>
+  rw[]>> fs[Abbr`ss`]>>
+  ntac 2 strip_tac>>
+  first_x_assum drule>>
+  IF_CASES_TAC>> simp[]>>
+  fs[EL_LUPDATE]
+  >-
+    (`is_alloc_var (fa h)` by fs[is_alloc_var_def]>>
+    rw[]>>fs[Once convention_partitions])
+  >-
+    (`is_stack_var (fa h)` by fs[is_stack_var_def]>>
+    rw[]>>fs[Once convention_partitions])
+  >-
+    (`¬is_alloc_var (fa h) ∧ ¬ is_stack_var (fa h)` by fs[is_stack_var_def,is_alloc_var_def]>>
+    metis_tac[convention_partitions]));
+
+val mk_tags_succeeds = Q.store_thm("mk_tags_succeeds",`
+  good_ra_state s ∧
+  n = s.dim ⇒
+  ∃s'.
+    mk_tags n fa s = (Success (),s') ∧
+    good_ra_state s' ∧
+    s' = s with node_tag := s'.node_tag ∧
+    ∀x y.
+    x < n ∧ y = fa x ⇒
+    if is_phy_var y then EL x s'.node_tag = Fixed (y DIV 2)
+    else if is_stack_var y then EL x s'.node_tag = Stemp
+    else EL x s'.node_tag = Atemp`,
+  rw[mk_tags_def]>>fs msimps>>
+  drule mk_tags_st_ex_FOREACH_lem>>
+  qpat_abbrev_tac`ls = GENLIST _ _`>>
+  disch_then(qspecl_then[`ls`,`fa`] mp_tac)>>impl_tac>>
+  unabbrev_all_tac>>fs[EVERY_GENLIST]>>rw[]>>simp[]>>
+  fs[MEM_GENLIST]);
+
+(* copied from word-to-stack proof*)
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
+val extract_color_st_ex_MAP_lem = Q.prove(`
+  ∀ls s.
+  EVERY (λ(k,v). v < LENGTH s.node_tag) ls ⇒
+  st_ex_MAP (λ(k,v). do t <- node_tag_sub v; return (k,extract_tag t) od) ls s =
+  (Success(MAP (λ(k,v). (k,extract_tag (EL v s.node_tag))) ls),s)`,
+  Induct>>fs[st_ex_MAP_def]>>fs msimps>>rw[]>>
+  Cases_on`h`>>fs[]);
+
+val extract_color_succeeds = Q.store_thm("extract_color_succeeds",`
+  good_ra_state s ∧
+  (∀x y. lookup x ta = SOME y ==> y < s.dim) /\
+  wf ta ==>
+  extract_color ta s =
+  (Success (map (λv. extract_tag (EL v s.node_tag)) ta ),s)`,
+  rw[extract_color_def]>>
+  simp[Once st_ex_bind_def,Once st_ex_return_def]>>
+  simp[Once st_ex_bind_def]>>
+  Q.ISPECL_THEN [`toAList ta`,`s`] mp_tac extract_color_st_ex_MAP_lem>>
+  impl_tac>-
+    (fs[EVERY_MEM,MEM_toAList,FORALL_PROD,good_ra_state_def]>>
+    metis_tac[])>>
+  rw[]>>simp msimps>>
+  simp[GSYM map_fromAList]>>
+  drule fromAList_toAList>>
+  simp[]);
+
+(* Minimal proofs about the heuristic steps *)
+
+(* TODO *)
+
+val do_alloc1_success = Q.prove(`
+  good_ra_state s ⇒
+  ∃ls s'.
+  do_alloc1 k s = (Success ls,s') ∧
+  good_ra_state s' ∧
+  is_subgraph s.adj_ls s'.adj_ls ∧
+  s'.dim = s.dim ∧
+  s'.node_tag = s.node_tag`,cheat);
+
+val no_clash_colouring_satisfactory = Q.store_thm("no_clash_colouring_satisfactory",`
+  no_clash adjls node_tag ∧
+  LENGTH adjls = LENGTH node_tag ∧
+  EVERY (λn. n ≠ Stemp ∧ n ≠ Atemp) node_tag
+  ⇒
+  colouring_satisfactory
+    (λf. if f < LENGTH node_tag
+    then extract_tag (EL f node_tag)
+    else 0) adjls`,
+  rw[no_clash_def,colouring_satisfactory_def]>>
+  fs[has_edge_def]>>
+  first_x_assum (qspecl_then[`f`,`f'`] mp_tac)>>simp[]>>
+  fs[EVERY_EL]>>
+  TOP_CASE_TAC>>rfs[]>>
+  TOP_CASE_TAC>>rfs[]>>
+  fs[extract_tag_def]);
+
+val check_partial_col_same_dom = Q.store_thm("check_partial_col_same_dom",`
+  ∀ls f g t ft.
+  (∀x. MEM x ls ⇒ f x = g x) ⇒
+  check_partial_col f ls t ft = check_partial_col g ls t ft`,
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  metis_tac[]);
+
+val check_clash_tree_same_dom = Q.store_thm("check_clash_tree_same_dom",`
+  ∀ct f g live flive.
+  (∀x. in_clash_tree ct x ∨ x ∈ domain live ⇒ f x = g x) ⇒
+  check_clash_tree f ct live flive =
+  check_clash_tree g ct live flive`,
+  Induct>>fs[in_clash_tree_def,check_clash_tree_def]>>rw[]
+  >-
+    metis_tac[check_partial_col_same_dom,MAP_EQ_f]
+  >-
+    (fs[check_col_def]>>
+    qpat_abbrev_tac`lsf= MAP _ (toAList s)`>>
+    qpat_abbrev_tac`lsg= MAP _ (toAList s)`>>
+    `lsf = lsg` by
+      (unabbrev_all_tac>>fs[MAP_EQ_f,FORALL_PROD,MEM_toAList,domain_lookup])>>
+    metis_tac[])
+  >-
+    (fs[DISJ_IMP_THM,FORALL_AND_THM]>>
+    rpt (first_x_assum drule)>>
+    rw[]>>EVERY_CASE_TAC>>fs[check_col_def]
+    >-
+      (imp_res_tac check_clash_tree_domain>>
+      match_mp_tac check_partial_col_same_dom>>
+      simp[toAList_domain,domain_difference]>>
+      fs[SUBSET_DEF]>>
+      metis_tac[SUBSET_DEF,IN_UNION])
+    >>
+      qpat_abbrev_tac`lsf= MAP _ (toAList s)`>>
+      qpat_abbrev_tac`lsg= MAP _ (toAList s)`>>
+      `lsf = lsg` by
+        (unabbrev_all_tac>>fs[MAP_EQ_f,FORALL_PROD,MEM_toAList,domain_lookup])>>
+      metis_tac[])
+  >>
+    fs[DISJ_IMP_THM,FORALL_AND_THM]>>
+    rpt (first_x_assum drule)>> rw[]>>
+    EVERY_CASE_TAC>>fs[]>>
+    first_x_assum match_mp_tac>>
+    drule check_clash_tree_domain>>
+    fs[SUBSET_DEF]>>
+    metis_tac[]);
+
+(* The top-most correctness theorem --
+*)
+val do_reg_alloc_correct = Q.store_thm("do_reg_alloc_correct",`
+  ∀k mtable ct forced st.
+  (* Needs to be proved in wordLang *)
+  EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
+  ∃spcol st' livein flivein.
+    do_reg_alloc k mtable ct forced st = (Success spcol,st') ∧
+    check_clash_tree (sp_default spcol) ct LN LN = SOME(livein,flivein) ∧
+    ∀x. in_clash_tree ct x ⇒
+    if is_phy_var x then
+      sp_default spcol x = x DIV 2
+    else if is_stack_var x then
+      k ≤ (sp_default spcol x)
+    else
+      T`,
+  rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
+  pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>rw[]>>
+  drule mk_bij_aux_domain>>rw[]>>
+  drule mk_bij_aux_bij>> impl_tac>-
+    simp[sp_inverts_def,lookup_def]>>
+  strip_tac>>
+  fs[set_dim_def,adj_ls_accessor,Marray_alloc_def,node_tag_accessor,degrees_accessor]>>
+  qmatch_goalsub_abbrev_tac`mk_graph _ _ _ stt` >>
+  `good_ra_state stt` by
+    (fs[good_ra_state_def,Abbr`stt`,EVERY_REPLICATE,undirected_def,has_edge_def]>>
+    rw[]>>
+    `EL x (REPLICATE n []) = []:num list` by fs[EL_REPLICATE]>>fs[])>>
+  drule mk_graph_succeeds>>
+  disch_then(qspecl_then [`ct`,`sp_default ta`,`[]`] mp_tac)>>simp[is_clique_def]>>
+  impl_keep_tac>-(
+    fs[Abbr`stt`]>>
+    CONJ_ASM1_TAC>-
+      (rw[]>>fs[sp_inverts_def,EXTENSION,domain_lookup,sp_default_def,lookup_any_def]>>
+      TOP_CASE_TAC>>fs[]>>
+      metis_tac[option_nchotomy])>>
+    rw[INJ_DEF] >>
+    fs[sp_default_def,lookup_any_def]>>
+    pop_assum mp_tac>>
+    fs[domain_lookup,EXTENSION]>>
+    TOP_CASE_TAC>>fs[]>- metis_tac[option_CLAUSES]>>
+    TOP_CASE_TAC>>fs[]>- metis_tac[option_CLAUSES]>>
+    fs[sp_inverts_def]>>
+    metis_tac[SOME_11])>>
+  strip_tac>>fs[]>>
+  drule extend_graph_succeeds>>
+  disch_then(qspecl_then[`forced`,`sp_default ta`] mp_tac)>>
+  impl_tac>- (
+    fs[EVERY_MEM,sp_inverts_def,FORALL_PROD]>>ntac 3 strip_tac>>
+    first_x_assum drule>>fs[EXTENSION,domain_lookup,sp_default_def,lookup_any_def]>>
+    strip_tac>>
+    last_assum(qspec_then `p_1` assume_tac)>>
+    last_x_assum(qspec_then `p_2` assume_tac)>>
+    rfs[]>>
+    fs[good_ra_state_def,Abbr`stt`,ra_state_component_equality]>>
+    metis_tac[])>>
+  rw[]>>simp[]>>
+  `is_subgraph s'.adj_ls s''.adj_ls` by
+    fs[is_subgraph_def]>>
+  qpat_x_assum`!a b. _` kall_tac>>
+  drule (GEN_ALL mk_tags_succeeds)>>
+  disch_then(qspecl_then[`n`,`sp_default fa`] mp_tac)>>
+  impl_tac>-
+    fs[Abbr`stt`,ra_state_component_equality]>>
+  rw[]>>simp[]>>
+  drule do_alloc1_success>>rw[]>>simp[]>>
+  `no_clash s''''.adj_ls s''''.node_tag` by
+    (fs[no_clash_def,has_edge_def]>>rw[]>>
+    rfs[good_ra_state_def,Abbr`stt`,ra_state_component_equality]>>
+    res_tac>>
+    qpat_x_assum(`!x. _`) kall_tac>>
+    ntac 2 (pop_assum mp_tac)>>
+    reverse (rpt (IF_CASES_TAC >> simp[]))>>
+    rw[]>>
+    fs[sp_default_def,lookup_any_def,sp_inverts_def,domain_lookup,EXTENSION]>>
+    pop_assum mp_tac>>
+    TOP_CASE_TAC>- metis_tac[option_CLAUSES]>>
+    TOP_CASE_TAC>- metis_tac[option_CLAUSES]>>
+    fs[is_phy_var_def]>>
+    rw[]>>
+    `x' = x''` by
+      (fs[GSYM EVEN_MOD2,EVEN_EXISTS]>>rw[]>>
+      fs[TWOxDIV2])>>
+    metis_tac[option_CLAUSES])>>
+  drule assign_Atemps_correct>>simp[]>>
+  disch_then (qspecl_then[`k`,`ls`,`biased_pref mtable`] assume_tac)>>
+  fs[good_pref_biased_pref]>>
+  drule assign_Stemps_correct>>rw[]>>simp[]>>
+  drule (GEN_ALL extract_color_succeeds)>>
+  disch_then(qspec_then`ta` mp_tac)>>
+  impl_tac>-
+    (rw[]
+    >-
+      (fs[Abbr`stt`,ra_state_component_equality]>>
+      fs[sp_inverts_def,EXTENSION,domain_lookup]>>
+      metis_tac[])
+    >>
+      drule mk_bij_aux_wf>>fs[wf_def,markerTheory.Abbrev_def])>>
+  rw[]>>simp[]>>
+  drule no_clash_colouring_satisfactory >>
+  impl_tac>- (
+    fs[good_ra_state_def,EVERY_EL,ra_state_component_equality,Abbr`stt`]>>
+    rfs[]>>
+    ntac 2 strip_tac>>
+    first_x_assum drule>> IF_CASES_TAC>> fs[]>> strip_tac>>
+    rfs[])>>
+  qmatch_goalsub_abbrev_tac`colouring_satisfactory col _`>>
+  rw[]>>
+  drule mk_graph_check_clash_tree>>
+  disch_then(qspecl_then[`col`,`LN`,`LN`] mp_tac)>>
+  impl_tac>-
+    (fs[is_clique_def]>>
+    fs[ra_state_component_equality]>>
+    metis_tac[colouring_satisfactory_subgraph,is_subgraph_trans])>>
+  strip_tac>>fs[]>>
+  qexists_tac`livein'`>>
+  qexists_tac`flivein`>>
+  qpat_x_assum`_ = SOME _` sym_sub_tac>>
+  CONJ_TAC>-
+    (match_mp_tac check_clash_tree_same_dom>>rw[]>>
+    simp[sp_default_def,lookup_any_def,lookup_map,Abbr`col`]>>
+    fs[EXTENSION,domain_lookup]>>
+    last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
+    fs[sp_inverts_def,ra_state_component_equality,good_ra_state_def,Abbr`stt`]>>
+    rfs[]>>
+    metis_tac[])>>
+  ntac 2 strip_tac>>
+  fs[domain_lookup,EXTENSION]>>
+  last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
+  fs[sp_inverts_def]>> first_x_assum drule>>
+  simp[sp_default_def,lookup_any_def,lookup_map]>>
+  rfs[Abbr`stt`,ra_state_component_equality,good_ra_state_def]>>
+  fs[good_ra_state_def]>>
+  strip_tac>>
+  (qpat_x_assum`!x. x < n ⇒ if is_phy_var _ then _ else _` (qspec_then`v` assume_tac))>>rfs[]>>
+  `sp_default fa v = x` by
+    (fs[sp_default_def,lookup_any_def]>>
+    res_tac>>fs[])>>
+  fs[]>>
+  IF_CASES_TAC>>fs[]
+  >-
+    (`EL v s'''.node_tag ≠ Atemp ∧ EL v s'''.node_tag ≠ Stemp` by fs[]>>
+    res_tac>>fs[]>>
+    rfs[extract_tag_def])
+  >>
+    strip_tac>>fs[]>>
+    (`EL v s'''.node_tag ≠ Atemp` by fs[]>>
+    res_tac>>fs[]>>
+    rfs[extract_tag_def]));
 (* --- --- *)
 
 
-(* --- Translation --- *)
+(* --- Translation ---
 
 (* Register the types used for the translation *)
 val _ = register_type ``:'a # 'b``;
@@ -2060,5 +2739,6 @@ val res = translate GENLIST
 val res = translate mk_comb_PMATCHI
 val res = m_translate assign_Stemp_tag_def;
 val res = m_translate assign_Stemps_def;
+ *)
 
 val _ = export_theory ();
