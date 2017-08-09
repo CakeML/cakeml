@@ -3,15 +3,18 @@
  * using references (no arrays, no exceptions).
  *)
 
+(* Load the CakeML basic stuff *)
+open preamble
+
 (* The ml_monadBaseLib is necessary to define the references and arrays manipulating functions
  * automatically.
  *)
-open ml_monadBaseLib ml_monadBaseTheory
+open ml_monadBaseLib
 
-(* The ml_monadStoreLib is necessray to initialize the store.
- * The m_translator function is defined in ml_monad_translatorLib
+(* 
+ * Those libraries are used in the translation
  *)
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
+open ml_monad_translatorTheory ml_monad_translatorLib
 
 val _ = new_theory "refStateProg"
 
@@ -103,15 +106,21 @@ val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
 
 (* No exceptions *)
-val exn_ri_def = UNIT_TYPE_def;
+val exn_ri_def = ml_translatorTheory.UNIT_TYPE_def;
+val exn_functions = [] : (thm * thm) list;
 
-(* Create the store *)
-val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
+(* No additional type theory names where to look for types *)
+val type_theories = [] : string list;
 
-(* Begin the translation *)
-val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
-val type_theories = [] : string list; (* additional type theory names where to look for types *)
-val _ = init_translation monad_parameters store_exists_thm exn_ri_def type_theories;
+(* Initialize the translation *)
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      arrays_init_list
+					      store_hprop_name
+					      state_type
+					      exn_ri_def
+					      exn_functions
+					      type_theories;
 
 (* Notice that the polymorphism of simple_fun is taken into account *)
 val simple_fun_v_thm = simple_fun_def |> m_translate;

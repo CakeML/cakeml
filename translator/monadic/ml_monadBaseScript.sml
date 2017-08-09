@@ -380,6 +380,10 @@ rw[Marray_alloc_def]
 
 val monad_eqs = LIST_CONJ[st_ex_return_success, st_ex_bind_success, otherwise_eq, can_success, Marray_length_success, Marray_sub_eq, Marray_update_eq, Marray_alloc_success];
 
+(* Run *)
+val run_def = Define `
+run (x : ('a, 'b, 'c) M) state = FST(x state)`;
+
 val _ = save_thm("monad_eqs", monad_eqs);
 
 val _ = export_theory ();

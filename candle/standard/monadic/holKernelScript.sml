@@ -74,22 +74,27 @@ val _ = define_monad_access_funs ``:hol_refs``;
 
 (* failwith and otherwise *)
 
-val failwith_def = Define `
-  ((failwith msg) : 'a M) = \state. (Failure (Fail msg), state)`;
+(* val failwith_def = Define `
+  ((failwith msg) : 'a M) = \state. (Failure (Fail msg), state)`; *)
+
+val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
+val _ = temp_overload_on ("failwith", ``raise_Fail``);
+val _ = temp_overload_on ("raise_clash", ``raise_Clash``);
+val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
 
 (* others *)
 
 val _ = Define `
   try f x msg = (f x otherwise failwith msg)`;
 
-val raise_clash_def = Define `
+(* val raise_clash_def = Define `
   ((raise_clash c) :'a M) = \state. (Failure (Clash c), state)`
 
 val handle_clash_def = Define `
   handle_clash x f = \state.
     dtcase ((x : 'a M) state) of
     | (Failure (Clash t), state) => f t state
-    | other => other`;
+    | other => other`; *)
 
 (* define failing lookup function *)
 

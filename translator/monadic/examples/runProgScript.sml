@@ -1,5 +1,5 @@
-open ml_monadBaseLib ml_monadBaseTheory
-open ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
+open preamble ml_monadBaseLib ml_monadBaseTheory
+open ml_monad_translatorTheory ml_monad_translatorLib
 
 val _ = new_theory "arrayStateProg"
 val _ = ParseExtras.temp_loose_equality();
@@ -39,7 +39,7 @@ val _ = register_type ``:state_refs``;
 val STATE_REFS_TYPE_def = theorem"STATE_REFS_TYPE_def";
 
 (* Monadic functions to handle the exceptions *)
-val exceptions_funs = define_monad_exception_functions ``:state_exn`` ``:state_refs``;
+val exn_functions = define_monad_exception_functions ``:state_exn`` ``:state_refs``;
 val _ = temp_overload_on ("failwith", ``raise_Fail``);
 
 (* Define the functions used to access the elements of the state_refs data_type *)
@@ -78,19 +78,15 @@ val refs_manip_list = List.map (fn (x, _, y, z) => (x, y, z)) refs_init_list;
 (* val arrays_manip_list = List.map (fn (x1, _, x2, x3, x4, x5, x6, x7) => (x1, x2, x3, x4, x5, x6, x7)) arrays_init_list; *)
 val arrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 
-val translation_parameters = translate_dynamic_init_fixed_store refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def;
-
-(* Initialize the store *)
-(* val (translation_parameters, store_trans_result) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def; *)
-
 (* Initialize the translation *)
-(* val store_pred_exists = SOME(#store_pred_exists_thm store_trans_result); *)
-val store_pred_exists = NONE : thm option;
-val _ = init_translation translation_parameters store_pred_exists exn_ri_def [];
-
-(* Prove the theorems necessary to handle the exceptions *)
-val (raise_functions, handle_functions) = unzip exceptions_funs;
-val exn_thms = add_raise_handle_functions raise_functions handle_functions STATE_EXN_TYPE_def
+val (translation_parameters, exn_specs) =
+    start_dynamic_init_fixed_store_translation refs_manip_list
+					       arrays_manip_list
+					       store_hprop_name
+					       state_type
+					       exn_ri_def
+					       exn_functions
+                                               [];
 
 (* Monadic translations *)
 (* val test2_def = Define `test2 n = the_num_array_sub n`;

@@ -2,6 +2,8 @@ structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
 open preamble ml_monadBaseTheory TypeBase
 
+fun mk_Mtype a b c = ``:^a -> (^b, ^c) exc # ^a``;
+
 (* Creation of the raise/handle functions *)
 fun define_monad_exception_functions exn_type state_type = let
     val exn_cons = TypeBase.constructors_of exn_type
@@ -54,7 +56,7 @@ fun define_monad_exception_functions exn_type state_type = let
     val res_case_tm = mk_comb(res_case_const, r_var)
     val res_case_tm = mk_comb(res_case_tm, ``\x. ((Success x) : ('a, ^(ty_antiq exn_type)) exc, ^state_var)``)
 
-    val monad_x_var = mk_var("x", ``:(^state_type, 'a, ^exn_type) M``)
+    val monad_x_var = mk_var("x", mk_Mtype state_type ``:'a`` exn_type)
     val compos_param = mk_comb(monad_x_var, state_var)
     fun mk_handle_fun (ctor, funs) = let
 	val ret_type = type_of ctor |> dest_type |> snd |> List.hd
@@ -73,7 +75,8 @@ fun define_monad_exception_functions exn_type state_type = let
 
 	val ctor_name = dest_const ctor |> fst
 	val fun_var_name = "handle_" ^ctor_name
-	val fun_type = ``:(^state_type, 'a, ^exn_type) M -> (^ret_type -> (^state_type, 'a, ^exn_type) M) -> (^state_type, 'a, ^exn_type) M``
+	val Mtype = mk_Mtype state_type ``:'a`` exn_type
+	val fun_type = ``:^Mtype -> (^ret_type -> ^Mtype) -> ^Mtype``
 	val fun_var = mk_var(fun_var_name, fun_type)
 
 	val fun_def = Define `^fun_var ^monad_x_var f = ^fun_body`

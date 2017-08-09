@@ -3,8 +3,8 @@
  * using exceptions (no references, no arrays).
  *)
 
-open ml_monadBaseLib ml_monadBaseTheory
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
+open preamble ml_monadBaseLib
+open ml_monad_translatorTheory ml_monad_translatorLib
 
 val _ = new_theory "exceptionProg"
 
@@ -80,17 +80,18 @@ val store_hprop_name = "STATE_STORE";
 (* The parameter for the exceptions *)
 val exn_ri_def = STATE_EXN_TYPE_def;
 
-(* Create the store *)
-val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
-
-(* Begin the translation *)
-val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
+(* No additional type theories *)
 val type_theories = [] : string list;
-val _ = init_translation monad_parameters store_exists_thm exn_ri_def type_theories;
 
-(* Give the exceptions manipulating functions to the monadic translator *)
-val (raise_functions, handle_functions) = unzip exn_functions;
-val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_ri_def;
+(* Initialize the translation *)
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      arrays_init_list
+					      store_hprop_name
+					      state_type
+					      exn_ri_def
+					      exn_functions
+					      type_theories;
 
 (* Translate *)
 val assert_v_thm = assert_def |> m_translate;

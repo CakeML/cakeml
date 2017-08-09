@@ -119,7 +119,7 @@ val _ = register_exn_type ``:hol_exn``;
 
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
-(* Define and translate the store *)
+(* Initialize the translation *)
 val init_type_constants_def = Define `
 init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
 
@@ -148,28 +148,22 @@ val refs_init_list = [
 
 val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 
-(* Create the store *)
+val raise_functions = [raise_Fail_def, raise_Clash_def];
+val handle_functions = [handle_Fail_def, handle_Clash_def];
+val exn_functions = zip raise_functions handle_functions;
+
 val store_hprop_name = "HOL_STORE";
 val state_type = ``:hol_refs``
 val exn_ri_def = HOL_EXN_TYPE_def
-val (translation_parameters, store_trans_result) = translate_static_init_fixed_store  refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
 
-(* Initialize the monadic translation *)
-val store_pred_exists_th = #store_pred_exists_thm store_trans_result;
-val _ = init_translation translation_parameters (SOME store_pred_exists_th) exn_ri_def [];
-
-(* Prove the theorems necessary to handle the exceptions *)
-val raise_functions = [failwith_def, raise_clash_def];
-val handle_functions = [handle_clash_def];
-val exn_thms = add_raise_handle_functions raise_functions handle_functions HOL_EXN_TYPE_def;
-
-(* val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
-val ty = ``:'a list``; val _ = mem_derive_case_of ty;
-val ty = ``:'a option``; val _ = mem_derive_case_of ty;
-val ty = ``:type``; val _ = mem_derive_case_of ty;
-val ty = ``:term``; val _ = mem_derive_case_of ty;
-val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:update``; val _ = mem_derive_case_of ty; *)
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      arrays_init_list
+					      store_hprop_name
+					      state_type
+					      exn_ri_def
+					      exn_functions
+					      [];
 
 (**************************************************************************************************)
 (**************************************************************************************************)
@@ -357,29 +351,29 @@ val res = translate holSyntaxTheory.orda_def;
 val res = translate holSyntaxTheory.term_remove_def;
 val res = translate holSyntaxTheory.term_union_def;
 
-val def = try_def |> m_translate
-val def = assoc_def   (* rec *) |> m_translate
-val def = map_def    (* rec *) |> m_translate
-val def = forall_def (* rec *) |> m_translate
-val def = dest_type_def |> m_translate
-val def = dest_vartype_def |> m_translate
-val def = holKernelPmatchTheory.dest_var_def |> m_translate
-val def = holKernelPmatchTheory.dest_const_def |> m_translate
-val def = holKernelPmatchTheory.dest_comb_def |> m_translate
-val def = holKernelPmatchTheory.dest_abs_def |> m_translate
-val def = holKernelPmatchTheory.rator_def |> m_translate
-val def = holKernelPmatchTheory.rand_def |> m_translate
-val def = holKernelPmatchTheory.dest_eq_def |> m_translate
-val def = holKernelPmatchTheory.mk_abs_def |> m_translate
-val def = get_type_arity_def |> m_translate
-val def = mk_type_def |> m_translate
-val def = mk_fun_ty_def |> m_translate
-val def = holKernelPmatchTheory.type_of_def |> m_translate
-val def = get_const_type_def |> m_translate
-val def = holKernelPmatchTheory.mk_comb_def |> m_translate
-val def = can_def |> m_translate
-val def = mk_const_def |> m_translate
-val def = image_def |> m_translate
+val def = try_def |> m_translate;
+val def = assoc_def   (* rec *) |> m_translate;
+val def = map_def    (* rec *) |> m_translate;
+val def = forall_def (* rec *) |> m_translate;
+val def = dest_type_def |> m_translate;
+val def = dest_vartype_def |> m_translate;
+val def = holKernelPmatchTheory.dest_var_def |> m_translate;
+val def = holKernelPmatchTheory.dest_const_def |> m_translate;
+val def = holKernelPmatchTheory.dest_comb_def |> m_translate;
+val def = holKernelPmatchTheory.dest_abs_def |> m_translate;
+val def = holKernelPmatchTheory.rator_def |> m_translate;
+val def = holKernelPmatchTheory.rand_def |> m_translate;
+val def = holKernelPmatchTheory.dest_eq_def |> m_translate;
+val def = holKernelPmatchTheory.mk_abs_def |> m_translate;
+val def = get_type_arity_def |> m_translate;
+val def = mk_type_def |> m_translate;
+val def = mk_fun_ty_def |> m_translate;
+val def = holKernelPmatchTheory.type_of_def |> m_translate;
+val def = get_const_type_def |> m_translate;
+val def = holKernelPmatchTheory.mk_comb_def |> m_translate;
+val def = can_def |> m_translate;
+val def = mk_const_def |> m_translate;
+val def = image_def |> m_translate;
 
 val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
 val fdM_intro = SYM fdM_def
@@ -425,7 +419,7 @@ fun define_abbrev_conv name tm = let
   in GSYM def |> SPEC_ALL end
 
 val candle_prog_thm =
-  get_thm (get_curr_prog_state ())
+  get_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
   |> REWRITE_RULE [ML_code_def]
   |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (EVAL THENC define_abbrev_conv "candle_code"))

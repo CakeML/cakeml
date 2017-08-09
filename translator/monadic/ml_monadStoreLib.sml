@@ -691,7 +691,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 			    EvalM_Marray_sub |> SPEC_ALL
 	val sub_thm = rewrite_thm sub_thm |> UNDISCH |> UNDISCH |> UNDISCH
 
-	(* Remove the Eval assumption about the correct evaluation of the xception expression *)
+	(* Remove the Eval assumption about the correct evaluation of the exception expression *)
 	val sub_assum = concl sub_thm |> dest_imp |> fst
 	val env = rator sub_assum |> rator |> rand
 	val exn_name_v = rator sub_assum |> rand |> rator |> rand |> rand |> rand

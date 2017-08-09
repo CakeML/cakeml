@@ -237,7 +237,9 @@ fun prove_handle_spec exn_ri_def EXN_RI_tm (handle_fun_def, ECons, exn_type, dee
 in handle_spec end;
 
 val failure_pat_tm = ``\v. (Failure(C v), state_var)``;
-fun add_raise_handle_functions raise_functions handle_functions exn_ri_def = let
+fun add_raise_handle_functions exceptions_functions exn_ri_def = let
+    val (raise_functions, handle_functions) = unzip exceptions_functions
+
     (* Extract information from the exception refinement invariant *)
     val exn_ri_cases = CONJUNCTS exn_ri_def
     val EXN_RI_tm = List.hd exn_ri_cases |> concl |> strip_forall |> snd |> lhs |> rator |> rator
@@ -287,7 +289,7 @@ fun add_raise_handle_functions raise_functions handle_functions exn_ri_def = let
       in (pat, th) end
     val _ = exn_raises := ((List.map extract_pattern raise_specs) @ (!exn_raises))
     val _ = exn_handles := ((List.map extract_pattern handle_specs) @ (!exn_handles))
-in (raise_specs, handle_specs) end;
+in zip raise_specs handle_specs end;
 
 (*-----*)
 
@@ -494,6 +496,25 @@ fun init_translation (translation_parameters : monadic_translation_parameters) s
       val _ = dynamic_init_env := (if (!dynamic_init_H) then
 				      SOME (compute_dynamic_env_ext all_access_specs) else NONE)
   in () end;
+
+(* user-initialisation functions *)
+fun start_static_init_fixed_store_translation refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories = let
+    val (monad_translation_params, store_trans_result) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def
+    val store_pred_exists_thm = SOME(#store_pred_exists_thm store_trans_result)
+    val _ = init_translation monad_translation_params store_pred_exists_thm exn_ri_def add_type_theories
+    val exn_specs = if List.length exn_functions > 0 then
+			add_raise_handle_functions exn_functions exn_ri_def
+		    else []
+in (monad_translation_params, store_trans_result, exn_specs) end
+
+fun start_dynamic_init_fixed_store_translation refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories = let
+    val monad_translation_params = translate_dynamic_init_fixed_store refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def
+    val store_pred_exists_thm = NONE
+    val _ = init_translation monad_translation_params store_pred_exists_thm exn_ri_def add_type_theories
+    val exn_specs = if List.length exn_functions > 0 then
+			add_raise_handle_functions exn_functions exn_ri_def
+		    else []
+in (monad_translation_params, exn_specs) end
 
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
@@ -1048,7 +1069,7 @@ fun get_current_env () =
                             ``:v sem_env``)
    in ``merge_env ^env_var (merge_env ^env ^local_environment_var_0)`` end
       | NONE => get_env (get_curr_prog_state ());
-		 
+
 fun m_translate def = let
   val original_def = def
   val _ = H := (!default_H)
@@ -1087,8 +1108,8 @@ fun m_translate def = let
   val th = th |> REWRITE_RULE [lookup_cons_write]
   (* collect precondition *)
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-                      (SIMP_CONV std_ss [EVAL ``CONTAINER TRUE``,
-                                         EVAL ``CONTAINER FALSE``])) th
+                      (SIMP_CONV std_ss [EVAL ``address$CONTAINER TRUE``,
+                                         EVAL ``address$CONTAINER FALSE``])) th
   val th = clean_assumptions th
   val (th,pre) = if no_params then (th,NONE) else
                   (th |> REWRITE_RULE [PreImp_def,PRECONDITION_def],NONE)
@@ -1425,10 +1446,10 @@ fun m_translate_run def = let
     val th = case exn_module_name of
 		 SOME module_name =>
 		 ISPECL [cons_names, module_name, vname, TYPE, EXN_TYPE, x, exp,
-			 !H, state_var, env] EvalM_run_MODULE
+			 !H, state_var, env] EvalM_to_EvalSt_MODULE
 	       | NONE =>
 		 ISPECL [cons_names, vname, TYPE, EXN_TYPE, x, exp,
-			 !H, state_var, env] EvalM_run_SIMPLE
+			 !H, state_var, env] EvalM_to_EvalSt_SIMPLE
     (* Prove the assumptions *)
     val [EXN_assum, distinct_assum, vname_assum1, vname_assum2] = List.take(
 	    concl th |> strip_imp |> fst, 4)

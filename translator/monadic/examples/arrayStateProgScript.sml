@@ -2,8 +2,8 @@
  * An example showing how to use the monadic translator with references, arrays and exceptions.
  *)
 
-open ml_monadBaseLib ml_monadBaseTheory
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
+open preamble ml_monadBaseLib
+open ml_monad_translatorTheory ml_monad_translatorLib
 
 val _ = new_theory "arrayStateProg"
 val _ = ParseExtras.temp_loose_equality();
@@ -66,17 +66,15 @@ val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
 val exn_ri_def = STATE_EXN_TYPE_def;
 
-(* Initialize the store *)
-val (monad_parameters, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def;
-
 (* Initialize the translation *)
-val store_exists_thm = SOME(#store_pred_exists_thm store_translation);
-val _ = init_translation monad_parameters store_exists_thm exn_ri_def []
-
-(* Prove the theorems necessary to handle the exceptions *)
-val (raise_functions, handle_functions) = unzip exn_functions;
-val exn_ri_def = STATE_EXN_TYPE_def;
-val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_ri_def;
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      arrays_init_list
+					      store_hprop_name
+					      state_type
+					      exn_ri_def
+					      exn_functions
+					      [];
 
 (* Monadic translations *)
 val test1_def = Define `test1 n =

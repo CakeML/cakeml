@@ -92,9 +92,8 @@ val exn_ri_def = STATE_EXN_TYPE_def;
 val _ = init_translation init_trans store_exists_thm exn_ri_def []
 
 (* Prove the theorems necessary to handle the exceptions *)
-val (raise_functions, handle_functions) = unzip exn_functions;
 val exn_ri_def = STATE_EXN_TYPE_def;
-val exn_thms = add_raise_handle_functions raise_functions handle_functions exn_ri_def;
+val exn_thms = add_raise_handle_functions exn_functions exn_ri_def;
 
 (* Interacting with the graph component of the state monad *)
 
@@ -233,7 +232,7 @@ val mk_graph_SUCCESS = Q.store_thm("mk_graph_SUCCESS",`
     d*d ≤ LENGTH res.adj_mat`,
   fs[mk_graph_def]>>
   fs(msimps)>>
-  fs [alloc_adj_mat_def,set_dim_def,Marray_alloc_def,LENGTH_REPLICATE,replicate_eq]);
+  fs [alloc_adj_mat_def,set_dim_def,Marray_alloc_def,LENGTH_REPLICATE]);
 
 (* Prove that the algorithm is always successful (?) *)
 val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`

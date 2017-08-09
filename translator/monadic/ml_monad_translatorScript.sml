@@ -2287,9 +2287,6 @@ handle_mult varname (cname::cons_names) exp1 exp2 =
 handle_one varname cname (handle_mult varname cons_names exp1 exp2) exp2 /\
 handle_mult varname [] exp1 exp2 = exp1`;
 
-val run_def = Define `
-run (x : ('a, 'b, 'c) M) state = FST(x state)`;
-
 val handle_mult_append = Q.prove(
 `!cons_names1 cons_names2 vname exp1 exp2.
 handle_mult vname (cons_names1 ++ cons_names2) exp1 exp2 =
@@ -2545,7 +2542,7 @@ val EXC_TYPE_aux_def = Define `
        v = Conv (SOME ("Success",TypeId (Short "exc"))) [v1_1] ∧
 		a x_1 v1_1)`;
 
-fun prove_EvalM_run handle_mult_CASE =
+fun prove_EvalM_to_EvalSt handle_mult_CASE =
 rw[EvalM_def, EvalSt_def]
 \\ qpat_x_assum `!s p refs. P` IMP_RES_TAC
 \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
@@ -2607,7 +2604,7 @@ rw[EvalM_def, EvalSt_def]
 \\ fs[run_def, EXC_TYPE_aux_def]
 \\ metis_tac[];
 
-val EvalM_run_MODULE = Q.store_thm("EvalM_run_MODULE",
+val EvalM_to_EvalSt_MODULE = Q.store_thm("EvalM_to_EvalSt_MODULE",
 `!cons_names module_name vname TYPE EXN_TYPE x exp H init_state env.
 (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
 MEM cname cons_names /\
@@ -2621,9 +2618,9 @@ lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
 lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
 EvalSt env (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
 (EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) init_state H`,
-prove_EvalM_run evaluate_handle_mult_CASE_MODULE);
+prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_MODULE);
 
-val EvalM_run_SIMPLE = Q.store_thm("EvalM_run_SIMPLE",
+val EvalM_to_EvalSt_SIMPLE = Q.store_thm("EvalM_to_EvalSt_SIMPLE",
 `!cons_names vname TYPE EXN_TYPE x exp H init_state env.
 (!e ev. EXN_TYPE e ev ==> ?ev' e' cname.
 MEM cname cons_names /\
@@ -2637,7 +2634,7 @@ lookup_cons "Success" env = SOME (1,TypeId (Short "exc")) ==>
 lookup_cons "Failure" env = SOME (1,TypeId (Short "exc")) ==>
 EvalSt env (handle_mult vname cons_names (Con (SOME (Short "Success")) [exp]) (Con (SOME (Short "Failure")) [Var (Short vname)]))
 (EXC_TYPE_aux TYPE EXN_TYPE (run x init_state)) init_state H`,
-prove_EvalM_run evaluate_handle_mult_CASE_SIMPLE);
+prove_EvalM_to_EvalSt evaluate_handle_mult_CASE_SIMPLE);
 
 val evaluate_let_opref = Q.store_thm("evaluate_let_opref",
 `Eval env exp1 P ==>
