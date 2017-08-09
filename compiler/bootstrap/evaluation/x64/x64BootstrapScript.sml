@@ -16,10 +16,21 @@ val stack_mb = 1000
 val heap_mb = 1000
 val filename = "cake.S"
 
-val bootstrap_thm = save_thm("bootstrap_thm",
+val bootstrap_thm =
   compilationLib.cbv_to_bytes_x64
     stack_to_lab_thm lab_prog_def
-    heap_mb stack_mb filename);
+    heap_mb stack_mb filename;
+
+val (cake_bytes,cake_config) = bootstrap_thm |> extract_bytes_ffis;
+val cake_bytes_def = mk_abbrev "cake_bytes" cake_bytes;
+val cake_config_def = mk_abbrev "cake_config" cake_config;
+
+val cake_compiled = save_thm("cake_compiled",
+  bootstrap_thm |> PURE_REWRITE_RULE[GSYM cake_bytes_def,GSYM cake_config_def]);
+
+(* avoid saving the long list of bytes in the Theory.sml file
+   they can only be found in the exported cake.S file *)
+val _ = Theory.delete_binding "cake_bytes_def";
 
 val _ = export_theory();
 

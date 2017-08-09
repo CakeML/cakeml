@@ -13,10 +13,6 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
-(* TODO: this might be better done in x64BootstrapTheory *)
-val cake_bytes_def = mk_abbrev "cake_bytes" (bootstrap_thm |> compilationLib.extract_bytes_ffis |> #1)
-val cake_compiled = bootstrap_thm |> PURE_REWRITE_RULE[GSYM cake_bytes_def]
-
 (* TODO: move *)
 val conf_ok_with_bvl_conf_updated = Q.store_thm("conf_ok_with_bvl_conf_updated[simp]",
   `conf_ok (cc with bvl_conf updated_by f) mc ⇔ conf_ok cc mc`,
