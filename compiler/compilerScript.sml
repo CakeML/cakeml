@@ -171,6 +171,12 @@ val parse_heap_stack_def = Define`
       | SOME v => v in
     (heap,stack)`
 
+val format_compiler_result_def = Define`
+  format_compiler_result bytes_export heap stack (Failure err) =
+    (List[]:mlstring app_list, error_to_str err) ∧
+  format_compiler_result bytes_export heap stack (Success (bytes,ffis)) =
+    (bytes_export ffis heap stack bytes, implode "")`;
+
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
 
 val compile_to_bytes_def = Define `
@@ -180,8 +186,29 @@ val compile_to_bytes_def = Define `
     let compiler_conf =
       <| inferencer_config := init_config;
          backend_config := ext_conf |> in
-    case compiler$compile compiler_conf basis input of
-    | Failure err => (List[]:mlstring app_list, error_to_str err)
-    | Success (bytes,ffis) => (bytes_export ffis heap stack bytes, implode "")`;
+    format_compiler_result bytes_export heap stack
+      (compiler$compile compiler_conf basis input)`;
+
+(* top-level compiler for input as s-expressions, bypassing the inferencer *)
+
+open fromSexpTheory simpleSexpParseTheory
+
+(* this is a rather annoying feature of peg_exec requiring locs... *)
+val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+
+val sexp_compile_to_bytes_def = Define`
+  sexp_compile_to_bytes backend_config bytes_export cl input =
+    let ext_conf = extend_with_args cl backend_config in
+    let (heap,stack) = parse_heap_stack cl in
+    format_compiler_result bytes_export heap stack (
+      case parse_sexp (add_locs input) of
+      | NONE => Failure ParseError
+      | SOME progsexp =>
+      case sexplist sexptop progsexp of
+      | NONE => Failure ParseError
+      | SOME prog =>
+        case backend$compile ext_conf (basis ++ prog) of
+        | NONE => Failure CompileError
+        | SOME (bytes,ffis) => Success (bytes,ffis) )`;
 
 val _ = export_theory();
