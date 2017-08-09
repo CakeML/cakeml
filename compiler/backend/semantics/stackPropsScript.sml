@@ -2,10 +2,17 @@ open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
 
+(* TODO: move *)
+
 (* TODO: not sure if useful *)
 val subspt_union = Q.store_thm("subspt_union",`
   subspt s (union s t)`,
   fs[subspt_lookup,lookup_union]);
+
+val subspt_FOLDL_union = Q.store_thm("subspt_FOLDL_union",
+  `∀ls t. subspt t (FOLDL union t ls)`,
+  Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
+(* -- *)
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
@@ -23,7 +30,8 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
    (set_store x y z).gc_fun = z.gc_fun ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
-   (set_store x y z).compile = z.compile`,
+   (set_store x y z).compile = z.compile ∧
+   (set_store x y z).compile_oracle = z.compile_oracle`,
   EVAL_TAC);
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
@@ -42,6 +50,7 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
+   (set_var x y z).compile_oracle = z.compile_oracle ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space`,
   EVAL_TAC);
@@ -66,7 +75,8 @@ val empty_env_const = Q.store_thm("empty_env_const[simp]",
    (empty_env z).gc_fun = z.gc_fun ∧
    (empty_env z).mdomain = z.mdomain ∧
    (empty_env z).bitmaps = z.bitmaps ∧
-   (empty_env z).compile = z.compile`,
+   (empty_env z).compile = z.compile ∧
+   (empty_env z).compile_oracle = z.compile_oracle`,
   EVAL_TAC)
 
 val empty_env_with_const = Q.store_thm("empty_env_with_const[simp]",
@@ -84,7 +94,8 @@ val alloc_const = Q.store_thm("alloc_const",
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps ∧
-    t.compile = s.compile`,
+    t.compile = s.compile ∧
+    t.compile_oracle = s.compile_oracle`,
   srw_tac[][alloc_def,gc_def,LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -131,7 +142,8 @@ val inst_const = Q.store_thm("inst_const",
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps ∧
-    t.compile = s.compile`,
+    t.compile = s.compile ∧
+    t.compile_oracle = s.compile_oracle`,
   Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
@@ -154,7 +166,8 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
    (dec_clock z).gc_fun = z.gc_fun ∧
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
-   (dec_clock z).compile = z.compile`,
+   (dec_clock z).compile = z.compile ∧
+   (dec_clock z).compile_oracle = z.compile_oracle`,
   EVAL_TAC);
 
 val evaluate_consts = Q.store_thm("evaluate_consts",
@@ -178,33 +191,104 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[])));
 
-(* The code and bitmaps are no longer monotonic, but they are still prefixes *)
-val alloc_mono = Q.store_thm("alloc_mono",`
-  alloc w s = (r,s1) ==>
-  isPREFIX s.bitmaps s1.bitmaps ∧
-  subspt s.code s1.code`,
-  fs[alloc_def,case_eq_thms,gc_def]>>
-  rw[]>>fs[]);
-
-val inst_mono = Q.store_thm("inst_mono",`
-  inst i s = SOME s1 ⇒
-  isPREFIX s.bitmaps s1.bitmaps ∧
-  subspt s.code s1.code`,
-  fs[inst_def,case_eq_thms,gc_def,assign_def,mem_store_def]>>
-  rw[]>>fs[]);
+val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
+  `∀c s r s1.
+   evaluate (c,s) = (r,s1) ⇒
+   ∃n.
+    s1.compile_oracle = shift_seq n s.compile_oracle ∧
+    s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
+    s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >>
+  TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+  TRY(
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    imp_res_tac alloc_const \\ imp_res_tac inst_const \\
+    qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)
+  (* Seq *)
+  >- (
+    pairarg_tac \\ fs[] \\
+    every_case_tac \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* If *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    fs[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    metis_tac[] )
+  (* While *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    pairarg_tac \\ fs[] \\
+    fs[case_eq_thms] \\ fs[]
+    >- metis_tac[]
+    >- metis_tac[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* Call *)
+  >- (
+    fs[case_eq_thms] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    rfs[] \\
+    qpat_x_assum`_ = evaluate _`(assume_tac o SYM) \\ fs[] \\
+    fs[shift_seq_def] \\
+    qmatch_goalsub_abbrev_tac`_ + w` \\
+    qexists_tac`w` \\ simp[] \\
+    simp[Abbr`w`] \\
+    once_rewrite_tac[ADD_COMM] \\
+    simp[GENLIST_APPEND] \\
+    simp[FOLDL_APPEND] \\
+    rw[] \\
+    rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
+    simp[FUN_EQ_THM] )
+  (* Install *)
+  >- (
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    pairarg_tac \\ fs[] \\
+    fs[case_eq_thms,empty_env_def]>>rw[]>>
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    rfs[] \\
+    qexists_tac`n+1` \\
+    fs[shift_seq_def] \\
+    simp[GSYM ADD1] \\
+    simp[GENLIST_CONS,o_DEF] )
+  (* FFI *)
+  >- (
+    fs[case_eq_thms] >> rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
+    pairarg_tac \\ fs[] \\ rw[] \\
+    TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)));
 
 val evaluate_mono = Q.store_thm("evalute_mono",`
   ∀c s r s1.
   evaluate (c,s) = (r,s1) ⇒
   isPREFIX s.bitmaps s1.bitmaps ∧
   subspt s.code s1.code`,
-  recInduct evaluate_ind>>
-  rw[evaluate_def]>>
-  fs[case_eq_thms,empty_env_def]>>rw[]>>
-  TRY(pairarg_tac>>fs[])>>rw[]>>every_case_tac>>rw[]>>
-  fs[]>>
-  rpt( first_x_assum drule)>>
-  metis_tac[alloc_mono,inst_mono,IS_PREFIX_TRANS,subspt_trans,IS_PREFIX_APPEND1,subspt_union]);
+  rw[] \\
+  imp_res_tac evaluate_code_bitmaps \\
+  rw[] \\
+  metis_tac[subspt_FOLDL_union]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
