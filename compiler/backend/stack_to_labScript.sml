@@ -112,7 +112,7 @@ val compile_def = Define `
   compile c c2 c3 sp offset prog =
     let prog = stack_alloc$compile c2 prog in
     let prog = stack_remove$compile c.jump offset (is_gen_gc c2.gc_kind)
-                 c.max_heap c3.bitmaps sp InitGlobals_location prog in
+                 c.max_heap sp InitGlobals_location prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
 

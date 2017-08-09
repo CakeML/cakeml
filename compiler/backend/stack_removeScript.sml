@@ -199,8 +199,8 @@ val store_init_def = Define `
     reg 4: one past last address of stack *)
 
 val init_code_def = Define `
-  init_code gen_gc max_heap bitmaps k =
-    let min_stack = LENGTH bitmaps + LENGTH store_list + 1 in
+  init_code gen_gc max_heap k =
+    let min_stack = LENGTH store_list + 1 in
       if dimword (:'a) <= (dimindex (:'a) DIV 8) * min_stack \/
          dimword (:'a) <= (dimindex (:'a) DIV 8) * max_heap then
         halt_inst (10w:'a word)
@@ -234,32 +234,31 @@ val init_code_def = Define `
                 or_inst 0 4;
                 or_inst 0 5;
                 If Test 0 (Imm 7w) Skip (halt_inst 5w);
-                (* setup bitmaps, store, stack *)
+                (* setup store, stack *)
                 move (k+2) 2;
                 add_inst 2 5;
                 move k 4;
                 move (k+1) 3;
-                right_shift_inst 3 (word_shift (:'a));
-                init_memory k (MAP INL bitmaps ++
-                  MAP (store_init gen_gc k) (REVERSE store_list));
+                load_inst 3 (k+2);
+                init_memory k (MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]`
 
 val init_stubs_def = Define `
-  init_stubs gen_gc max_heap bitmaps k start =
-    [(0n,Seq (init_code gen_gc max_heap bitmaps k) (Call NONE (INL start) NONE));
+  init_stubs gen_gc max_heap k start =
+    [(0n,Seq (init_code gen_gc max_heap k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
 val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
-  `LENGTH (init_stubs gen_gc max_heap bitmaps k start) + 1 (* gc *) =
+  `LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
    stack_num_stubs`,
   EVAL_TAC);
 
 (* -- full compiler -- *)
 
 val compile_def = Define `
-  compile jump off gen_gc max_heap bitmaps k start prog =
-    init_stubs gen_gc max_heap bitmaps k start ++
+  compile jump off gen_gc max_heap k start prog =
+    init_stubs gen_gc max_heap k start ++
     MAP (prog_comp jump off k) prog`;
 
 val _ = export_theory();

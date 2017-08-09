@@ -868,6 +868,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)
+    ,backendTheory.attach_bitmaps_def
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def
     ,backendTheory.from_source_def
