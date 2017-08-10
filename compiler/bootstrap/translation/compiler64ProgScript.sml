@@ -107,7 +107,7 @@ val _ = translate (parse_heap_stack_def |> SIMP_RULE (srw_ss()) [default_heap_sz
 
 val r = translate (format_compiler_result_def |> Q.GEN`bytes` |> Q.ISPEC`bytes:word8 list`)
 
-val r = translate (compile_to_bytes_def |> spec64)
+val r = translate (compile_to_bytes_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
