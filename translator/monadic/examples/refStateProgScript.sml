@@ -38,13 +38,6 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Register the types used for the translation *)
-(* In the future: will be performed automatically *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-
 (* Create the data type to handle the references.
    In this example, the data type has only one field, which means that
    the translation will only generate one reference. It is of course possible to use as

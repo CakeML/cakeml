@@ -770,6 +770,18 @@ val EvalM_Fun = Q.store_thm("EvalM_Fun",
   \\ rw[]
   \\ SATISFY_TAC);
 
+val EvalM_Fun_Var_intro = Q.store_thm("EvalM_Fun_Var_intro",
+  `!H. EvalM cl_env (Fun n exp) (PURE P f) H ==>
+   ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
+   EvalM env (Var (Short name)) (PURE P f) H`,
+  rw[EvalM_def, PURE_def, LOOKUP_VAR_def]
+  \\ rw[Once evaluate_cases]
+  \\ fs[lookup_var_def]
+  \\ last_x_assum IMP_RES_TAC
+  \\ first_x_assum(qspec_then`[]` STRIP_ASSUME_TAC)
+  \\ fs[Once evaluate_cases]
+  \\ metis_tac[REFS_PRED_FRAME_append]);
+
 val EvalM_Fun_Eq = Q.store_thm("EvalM_Fun_Eq",
   `!H. (!v. a x v ==> EvalM (write name v env) body (b (f x)) H) ==>
     EvalM env (Fun name body) ((ArrowM H (PURE (Eq a x)) b) f) H`,
@@ -831,6 +843,52 @@ val EvalM_Var_SIMP = Q.store_thm("EvalM_Var_SIMP",
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,write_def]);
 
+val EvalM_Var_SIMP_PURE = Q.store_thm("EvalM_Var_SIMP_PURE",
+  `!H. VALID_REFS_PRED H ==>
+   EvalM (write nv v env) (Var (Short n)) (PURE P x) H =
+    if nv = n then P x v else EvalM env (Var (Short n)) (PURE P x) H`,
+  SIMP_TAC std_ss [EvalM_def, PURE_def, VALID_REFS_PRED_def]
+  \\ SRW_TAC [] []
+  >-(
+      ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+      \\ ASM_SIMP_TAC (srw_ss()) [write_def]
+      \\ EQ_TAC
+      >-(metis_tac[])
+      \\ metis_tac[REFS_PRED_FRAME_append])
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ ASM_SIMP_TAC (srw_ss()) [write_def]);
+
+val EvalM_Recclosure_ALT = Q.store_thm("EvalM_Recclosure_ALT",
+`!H funs fname name body.
+     ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ==>
+     (∀v.
+        a n v ==>
+        EvalM (write name v (write_rec funs env2 env2)) body (b (f n)) H) ==>
+     LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
+     find_recfun fname funs = SOME (name,body) ==>
+     EvalM env (Var (Short fname)) ((ArrowM H (PURE (Eq a n)) b) f) H`,
+  rw[write_rec_thm,write_def]
+  \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def] \\ REPEAT STRIP_TAC
+  \\ first_x_assum(qspec_then`s.refs ++ junk` STRIP_ASSUME_TAC)
+  \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ fs[state_component_equality]
+  \\ rw[]
+  >-(
+      `s2 = s1 with refs := s1.refs ++ junk'` by rw[state_component_equality]
+      \\ rw[do_opapp_def]
+      \\ fs[state_component_equality] \\ rw[]
+      \\ fs[Eq_def]
+      \\ qpat_x_assum `!v. P` IMP_RES_TAC
+      \\ first_x_assum(fn x => ALL_TAC)
+      \\ first_x_assum(qspec_then `junk' ++ junk''` STRIP_ASSUME_TAC)
+      \\ fs[]
+      \\ evaluate_unique_result_tac
+      \\ metis_tac[])
+  \\ metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append]);
+
 val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   `!H. (!v. a n v ==>
          EvalM (write name v (write_rec [(fname,name,body)] env2 env2))
@@ -848,6 +906,21 @@ val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   \\ fs[build_rec_env_def,write_rec_def,FOLDR,write_def]
   \\ METIS_TAC[APPEND_ASSOC]);
 
+val EvalM_Eq_Recclosure = Q.store_thm("EvalM_Eq_Recclosure",
+  `!H. VALID_REFS_PRED H ==>
+    LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
+    (P f (Recclosure x1 x2 x3) =
+     EvalM env (Var (Short name)) (PURE P f) H)`,
+  rw[EvalM_Var_SIMP, EvalM_def, LOOKUP_VAR_def, lookup_var_def, PURE_def]
+  \\ EQ_TAC
+  >-(
+      rw[]
+      \\ rw[Once evaluate_cases]
+      \\ fs[state_component_equality]
+      \\ fs[REFS_PRED_FRAME_append])
+  \\ fs [AND_IMP_INTRO, Once evaluate_cases,PULL_EXISTS,PULL_FORALL, VALID_REFS_PRED_def]
+  \\ metis_tac[]);
+
 val IND_HELP = Q.store_thm("IND_HELP",
   `!env cl.
       LOOKUP_VAR x env cl /\
@@ -862,6 +935,22 @@ val IND_HELP = Q.store_thm("IND_HELP",
 val write_rec_one = Q.store_thm("write_rec_one",
   `write_rec [(x,y,z)] env env = write x (Recclosure env [(x,y,z)] x) env`,
   SIMP_TAC std_ss [write_rec_def,write_def,build_rec_env_def,FOLDR]);
+
+val evaluate_Var = Q.prove(
+  `evaluate F env s (Var (Short n)) (s',Rval r) <=>
+    ?v. lookup_var n env = SOME r ∧ s' = s`,
+  fs [Once evaluate_cases] \\ EVAL_TAC \\ fs[EQ_IMP_THM]);
+
+val EvalM_Var = Q.store_thm("EvalM_Var",
+  `!H. VALID_REFS_PRED H ==>
+   (EvalM env (Var (Short n)) (PURE P x) H <=>
+   ?v. lookup_var n env = SOME v /\ P x v)`,
+  rw[EvalM_def, PURE_def, VALID_REFS_PRED_def, EQ_IMP_THM]
+  >-(
+      first_x_assum IMP_RES_TAC
+      \\ first_x_assum(qspec_then `[]` STRIP_ASSUME_TAC)
+      \\ fs[with_same_refs, evaluate_Var])
+  \\ metis_tac[evaluate_Var, REFS_PRED_FRAME_append]);
 
 (* Eq simps *)
 

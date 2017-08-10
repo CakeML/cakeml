@@ -15,13 +15,6 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Register the types used for the translation *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:('a, 'b) exc``;
-val _ = register_type ``:unit``;
-
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
@@ -32,6 +25,8 @@ val _ = Hol_datatype `
 val _ = Hol_datatype`
   state_exn = Fail of string | ReadError of unit | WriteError of unit`;
 
+val _ = register_type ``:unit``;
+val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
 
@@ -121,6 +116,8 @@ val test8_def = Define `
 test8 l = test7 l`;
 val test8_v_th = m_translate test8_def; *)
 
+val _ = temp_tight_equality ();
+
 val test1_def = Define `test1 x = do y <- get_the_num; return (x + y) od`;
 val test1_v_th = m_translate test1_def;
 
@@ -135,6 +132,23 @@ test3 n m z =
        return x
    od`;
 val test3_v_th = m_translate test3_def;
+
+(* Mutual recursion *)
+val _ = Hol_datatype `
+data = C1 of num | C2 of data list`;
+
+val data_length_def = Define `data_length1 (C1 x) = return x /\
+        data_length1 (C2 x) = data_length2 x /\
+data_length2 (x::xl) = do y1 <- data_length1 x; y2 <- data_length2 xl; return (y1 + y2) od /\
+        data_length2 [] = return 0`;
+val def = data_length_def;
+val data_length_v_th = m_translate def;
+
+(* Recursion *)
+val test4_def = Define `
+test4 (x::l) = do y <- test4 l; return (x + y) od /\
+test4 [] = return (0 : num)`;
+val test4_v_th = m_translate test4_def;
 
 (* Run *)
 val run_test_def = Define `run_test n m z refs = run (test3 n m z) refs`;

@@ -10,12 +10,6 @@ val _ = new_theory "ml_hol_kernelProg";
 
 val _ = (use_full_type_names := false);
 
-val _ = register_type ``:ordering``
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``
-val _ = register_type ``:'a option``
-val _ = register_type ``:unit``
-
 val _ = ml_prog_update (open_module "Kernel");
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
@@ -113,10 +107,7 @@ val EqualityType_TYPE = Q.prove(
   |> store_eq_thm;
 
 val _ = register_type ``:term``;
-val _ = register_type ``:thm``;
-val _ = register_type ``:update``;
 val _ = register_exn_type ``:hol_exn``;
-
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
 (* Initialize the translation *)

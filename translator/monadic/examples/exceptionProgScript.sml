@@ -23,21 +23,16 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Register the types used for the translation *)
-(* In the future: will be performed automatically *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-
 (* No references/arays, so use unit for the state type *)
 val state_type = ``:unit``;
+val _ = register_type ``:unit``;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
   state_exn = Fail1 of string | Fail2 of int`;
 
 (* It is necessary to register that type for the CakeML program to be able to use it*)
+val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
 

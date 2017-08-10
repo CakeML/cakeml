@@ -19,12 +19,6 @@ val _ = hide "state";
 
 val _ = (use_full_type_names := false);
 
-(* Register the types used for the translation *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
@@ -35,6 +29,8 @@ val _ = Hol_datatype `
 val _ = Hol_datatype`
   state_exn = Fail of string | ReadError of unit | WriteError of unit`;
 
+val _ = register_type ``:unit``;
+val _ = register_type ``:tvarN``;
 val _ = register_exn_type ``:state_exn``;
 val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
 
