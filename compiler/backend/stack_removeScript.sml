@@ -240,6 +240,7 @@ val init_code_def = Define `
                 move k 4;
                 move (k+1) 3;
                 load_inst 3 (k+2);
+                right_shift_inst 3 (word_shift (:'a));
                 init_memory k (MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]`
 
