@@ -44,7 +44,7 @@ val compile_def = Define`
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
-          | SOME (bytes,c) => Success (bytes,the [] c.ffi_names)`;
+          | SOME (bytes,c) => Success (bytes,c)`;
 
 val compile_explorer_def = Define`
   compile_explorer c prelude input =
@@ -174,8 +174,8 @@ val parse_heap_stack_def = Define`
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export heap stack (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
-  format_compiler_result bytes_export heap stack (Success (bytes,ffis)) =
-    (bytes_export ffis heap stack bytes, implode "")`;
+  format_compiler_result bytes_export heap stack (Success (bytes,c)) =
+    (bytes_export (the [] c.ffi_names) heap stack bytes, implode "")`;
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
 
