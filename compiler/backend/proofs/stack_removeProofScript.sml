@@ -2222,7 +2222,7 @@ val init_prop_def = Define `
        FLOOKUP s.store GenStart = SOME (Word 0w) /\
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
-       LENGTH s.bitmaps + 1 < dimword (:'a) /\
+       (* LENGTH s.bitmaps + 1 < dimword (:'a) /\ ??? *)
        LENGTH s.stack < dimword (:'a) /\
        (other = curr + bytes_in_word * n2w len) /\
        byte_aligned curr /\
@@ -2271,7 +2271,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
-  \\ qabbrev_tac `min_stack = LENGTH bitmaps + LENGTH store_list + 1`
+  \\ qabbrev_tac `min_stack = LENGTH store_list + 1`
   \\ IF_CASES_TAC THEN1
    (tac \\ fs [labPropsTheory.good_dimindex_def]
     \\ rw [] \\ fs [dimword_def])
@@ -2458,7 +2458,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   by (
     simp[Abbr`lh`,GSYM LEFT_ADD_DISTRIB]
     \\ once_rewrite_tac[MULT_COMM]
-    \\ simp[MULT_DIV] ) \\
+    \\ simp[MULT_DIV] )
   \\ qunabbrev_tac`lh` \\ pop_assum SUBST_ALL_TAC
   \\ drule memory_addresses \\ fs []
   \\ disch_then kall_tac
@@ -2486,10 +2486,9 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ rewrite_tac[GSYM word_list_EQ_rev]
   \\ pop_assum (SUBST_ALL_TAC o GSYM)
   \\ fs[AC STAR_ASSOC STAR_COMM,bytes_in_word_def,word_mul_n2w]
-  \\ cheat
-  (*
-  \\ qexists_tac `hi`
+
   \\ Cases_on `gen_gc` \\ fs []
+  \\ qexists_tac `hi`
   \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ `n2w d = bytes_in_word` by fs [bytes_in_word_def]
   \\ fs [GSYM word_mul_n2w,GSYM word_list_exists_ADD]
@@ -2498,15 +2497,11 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ unabbrev_all_tac
     \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
     \\ rfs [dimword_def] \\ fs [])
-  \\ rewrite_tac [CONJ_ASSOC]
-  \\ conj_tac
-  \\ TRY
-   (fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
-    \\ match_mp_tac LESS_EQ_LESS_TRANS
-    \\ qexists_tac `d * max_heap` \\ fs [] \\ NO_TAC)
-  \\ `LENGTH rest1 + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
-  \\ `LENGTH bitmaps + 1 < dimword (:'a)` by (Cases_on `d` \\ fs [MULT_CLAUSES])
-  \\ fs [byte_aligned_bytes_in_word_MULT] *));
+  \\ fs[]
+  \\ Cases_on`d`>>fs[Abbr`b`,ADD1]
+  \\ fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
+  \\ match_mp_tac LESS_EQ_LESS_TRANS
+  \\ qexists_tac `d * max_heap` \\ fs []);
 
 val make_init_opt_def = Define `
   make_init_opt gen_gc max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
