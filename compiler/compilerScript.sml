@@ -1,11 +1,10 @@
 open preamble
-     lexer_funTheory
+     lexer_funTheory lexer_implTheory
      cmlParseTheory
      inferTheory
      backendTheory
-     mlintTheory
-     mlstringTheory;
-open lexer_implTheory basisProgTheory;
+     mlintTheory mlstringTheory basisProgTheory
+     fromSexpTheory simpleSexpParseTheory
 
 val _ = new_theory"compiler";
 
@@ -13,6 +12,7 @@ val _ = Datatype`
   config =
     <| inferencer_config : inferencer_config
      ; backend_config : α backend$config
+     ; input_is_sexp : bool
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError`;
@@ -33,9 +33,16 @@ val locs_to_string_def = Define `
          implode " column ";
          toString &endl.col])`;
 
+(* this is a rather annoying feature of peg_exec requiring locs... *)
+val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+
 val compile_def = Define`
   compile c prelude input =
-    case parse_prog (lexer_fun input) of
+    case
+      if c.input_is_sexp
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      else parse_prog (lexer_fun input)
+    of
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
@@ -48,7 +55,11 @@ val compile_def = Define`
 
 val compile_explorer_def = Define`
   compile_explorer c prelude input =
-    case parse_prog (lexer_fun input) of
+    case
+      if c.input_is_sexp
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      else parse_prog (lexer_fun input)
+    of
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
@@ -185,30 +196,9 @@ val compile_to_bytes_def = Define `
     let (heap,stack) = parse_heap_stack cl in
     let compiler_conf =
       <| inferencer_config := init_config;
-         backend_config := ext_conf |> in
+         backend_config := ext_conf;
+         input_is_sexp := MEM (strlit"--sexp") cl |> in
     format_compiler_result bytes_export heap stack
       (compiler$compile compiler_conf basis input)`;
-
-(* top-level compiler for input as s-expressions, bypassing the inferencer *)
-
-open fromSexpTheory simpleSexpParseTheory
-
-(* this is a rather annoying feature of peg_exec requiring locs... *)
-val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
-
-val sexp_compile_to_bytes_def = Define`
-  sexp_compile_to_bytes backend_config bytes_export cl input =
-    let ext_conf = extend_with_args cl backend_config in
-    let (heap,stack) = parse_heap_stack cl in
-    format_compiler_result bytes_export heap stack (
-      case parse_sexp (add_locs input) of
-      | NONE => Failure ParseError
-      | SOME progsexp =>
-      case sexplist sexptop progsexp of
-      | NONE => Failure ParseError
-      | SOME prog =>
-        case backend$compile ext_conf (basis ++ prog) of
-        | NONE => Failure CompileError
-        | SOME (bytes,ffis) => Success (bytes,ffis) )`;
 
 val _ = export_theory();
