@@ -2242,9 +2242,7 @@ val init_code_pre_def = Define `
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
       FLOOKUP s.regs 3 = SOME (Word ptr3) /\
       FLOOKUP s.regs 4 = SOME (Word ptr4) /\
-      byte_aligned ptr2 /\
       s.memory ptr2 = Word bitmap_ptr /\ ptr2 IN s.mdomain /\
-      aligned (word_shift (:'a)) bitmap_ptr /\ (* TODO: check this in init_code instead? *)
       (word_list bitmap_ptr (MAP Word bitmaps) *
        word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
         (fun2set (s.memory,s.mdomain))`
@@ -2328,7 +2326,8 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ fs [FLOOKUP_UPDATE]
   \\ `((ptr3 − ptr2) DIV 2) < dimword (:α)` by fs [DIV_LT_X]
   \\ `bitmap_ptr ⋙ word_shift (:α) ≪ word_shift (:α) = bitmap_ptr` by (
-    simp[GSYM alignmentTheory.align_shift,GSYM alignmentTheory.aligned_def] )
+    simp[GSYM alignmentTheory.align_shift,GSYM alignmentTheory.aligned_def]
+    \\ simp[word_shift_def] \\ rw[])
   \\ fs [aligned_w2n] \\ rfs []
   \\ `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8` by
     (fs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def])
@@ -2507,7 +2506,6 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ rewrite_tac[GSYM word_list_EQ_rev]
   \\ pop_assum (SUBST_ALL_TAC o GSYM)
   \\ fs[AC STAR_ASSOC STAR_COMM,bytes_in_word_def,word_mul_n2w]
-
   \\ Cases_on `gen_gc` \\ fs []
   \\ qexists_tac `hi`
   \\ fs [bytes_in_word_def,word_mul_n2w]
@@ -2541,6 +2539,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
     pop_assum SUBST_ALL_TAC>>
     SEP_NEQ_TAC>>fs[])
   \\ Cases_on`d`>>fs[Abbr`b`,ADD1]
+  \\ fs[byte_aligned_bytes_in_word_MULT]
   \\ fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
   \\ match_mp_tac LESS_EQ_LESS_TRANS
   \\ qexists_tac `d * max_heap` \\ fs []));

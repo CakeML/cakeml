@@ -229,11 +229,12 @@ val init_code_def = Define `
                 sub_inst 5 2;
                 right_shift_inst 5 1;
                 (* check that all values are aligned *)
-                move 0 2;
+                load_inst 0 2;
+                or_inst 0 2; (* redundant given backendProof's assumptions *)
                 or_inst 0 3;
-                or_inst 0 4;
+                or_inst 0 4; (* redundant given backendProof's assumptions *)
                 or_inst 0 5;
-                If Test 0 (Imm 7w) Skip (halt_inst 5w);
+                If Test 0 (Imm 7w) Skip (halt_inst 6w);
                 (* setup store, stack *)
                 move (k+2) 2;
                 add_inst 2 5;
