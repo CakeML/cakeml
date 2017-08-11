@@ -229,11 +229,15 @@ val init_code_def = Define `
                 sub_inst 5 2;
                 right_shift_inst 5 1;
                 (* check that all values are aligned *)
-                load_inst 0 2;
-                or_inst 0 2; (* redundant given backendProof's assumptions *)
+                move 0 2;
                 or_inst 0 3;
-                or_inst 0 4; (* redundant given backendProof's assumptions *)
+                or_inst 0 4;
                 or_inst 0 5;
+                If Test 0 (Imm 7w) Skip (halt_inst 6w);
+                (* this alignment check must come AFTER the above, because
+                   the bitmap pointer lookup will fail if 2 is not aligned
+                *)
+                load_inst 0 2;
                 If Test 0 (Imm 7w) Skip (halt_inst 6w);
                 (* setup store, stack *)
                 move (k+2) 2;

@@ -426,6 +426,10 @@ val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section
   \\ pairarg_tac>>fs[]>>rveq>>fs[]
   \\ metis_tac[labs_correct_append]);
 
+val word_in_byte_mem_def = Define`
+  word_in_byte_mem a w m be ⇔
+  ∀n. n <+ bytes_in_word ⇒
+  m (a+n) = get_byte n w be`
 
 (* TODO: should be defined in targetSem *)
 (* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
@@ -440,12 +444,9 @@ val installed_def = Define`
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + n2w (LENGTH bitmaps)} in
       good_init_state mc_conf ms ffi bytes t m (heap_stack_dm ∪ bitmaps_dm) io_regs ∧
-      byte_aligned (t.regs r1) ∧
-      byte_aligned (t.regs r2) ∧
-      t.regs r1 <+ t.regs r2 ∧
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
-      word_list bitmap_ptr (MAP Word bitmaps) (fun2set (m,bitmaps_dm)) ∧
+      (* TODO: need an additional assumption on where the bitmaps are *)
       ffi_names = SOME mc_conf.ffi_names`;
 
 val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
@@ -942,11 +943,10 @@ val compile_correct = Q.store_thm("compile_correct",
         qmatch_asmsub_abbrev_tac`_ <+ b` \\
         `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
          rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
-        conj_tac >- ( fs[WORD_LOWER_EQ_REFL] ) \\
-        conj_tac >- simp[IN_DEF] \\
         once_rewrite_tac[INTER_COMM] \\
         rewrite_tac[UNION_OVER_INTER] \\
         once_rewrite_tac[UNION_COMM] \\
+        strip_tac \\
         match_mp_tac fun2set_disjoint_union \\
         conj_tac >- (
           match_mp_tac DISJOINT_INTER

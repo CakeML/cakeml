@@ -2242,10 +2242,15 @@ val init_code_pre_def = Define `
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
       FLOOKUP s.regs 3 = SOME (Word ptr3) /\
       FLOOKUP s.regs 4 = SOME (Word ptr4) /\
-      s.memory ptr2 = Word bitmap_ptr /\ ptr2 IN s.mdomain /\
+      s.memory ptr2 = Word bitmap_ptr /\
+      (* NOTE: The last conjunct only needs to hold if
+        the entry checks hold. Probably can make more assumptions
+        about the bitmap_ptr too
+      *)
+      (ptr2 <=+ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
       (word_list bitmap_ptr (MAP Word bitmaps) *
        word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
-        (fun2set (s.memory,s.mdomain))`
+        (fun2set (s.memory,s.mdomain)))`
 
 val byte_aligned_bytes_in_word_MULT = Q.prove(
   `good_dimindex (:'a) ==>
@@ -2277,6 +2282,19 @@ val word_list_wrap = Q.prove(`
   Cases_on`ls`>>fs[]>>
   metis_tac[]);
 
+val sub_rewrite = Q.prove(`
+  ptr <= ptr' ⇒
+  -1w * n2w ptr + n2w ptr' = n2w (ptr'-ptr)`,
+  rw[]>>simp[Once WORD_SUB_INTRO]>>
+  simp[WORD_LITERAL_ADD]);
+
+val div_rewrite = Q.prove(`
+  n <= x ∧ 1 < n
+  ⇒
+  x DIV n ≠ 0`,
+  rw[]>>
+  fs[DIV_EQ_0]);
+
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps s /\ code_rel jump off k code s.code /\
     lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
@@ -2284,6 +2302,10 @@ val init_code_thm = Q.store_thm("init_code_thm",
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) =>
+         (∃w2 w4.
+         FLOOKUP s.regs 2 = SOME (Word w2) ∧ byte_aligned w2 ∧
+         FLOOKUP s.regs 4 = SOME (Word w4) ∧ byte_aligned w4 ∧
+         w2 <+ w4) ∧
          state_rel jump off k (init_reduce gen_gc k code bitmaps t) t /\
          t.ffi = s.ffi /\
          init_prop gen_gc max_heap (init_reduce gen_gc k code bitmaps t)`,
@@ -2296,14 +2318,51 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ rw [] \\ fs [dimword_def])
   \\ fs [GSYM NOT_LESS]
   \\ rpt (tac \\ IF_CASES_TAC THEN1 halt_tac) \\ tac
-  \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
-  \\ fs [] \\ tac
   \\ Cases_on `ptr2` \\ fs []
   \\ rename1 `FLOOKUP s.regs 2 = SOME (Word (n2w ptr2))`
   \\ Cases_on `ptr3` \\ fs []
   \\ rename1 `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
   \\ rename1 `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
+  \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac>>
+  (* discharging the entry preconditions *)
+  `n2w ptr2 <=+ n2w ptr4` by
+    fs[word_lo_n2w,word_ls_n2w] >>
+  `n2w (ptr3 - ptr2) >>> 1 = n2w ((ptr3 - ptr2) DIV 2)` by
+   (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr]
+    \\ fs [DIV_LT_X] \\ NO_TAC)
+  \\ fs [alignmentTheory.aligned_bitwise_and
+         |> Q.SPEC `3` |> SIMP_RULE (srw_ss()) [] |> GSYM]
+  \\ `2 < 3:num` by EVAL_TAC
+  \\ drule alignmentTheory.aligned_imp
+  \\ disch_then drule
+  \\ fs [aligned_or] \\ strip_tac
+  \\ `byte_aligned ((n2w ptr2):'a word) ∧ byte_aligned ((n2w ptr4):'a word)` by
+    fs[alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]>>
+  `0 < w2n (((n2w ptr4):'a word) + -1w *n2w ptr2) DIV w2n (bytes_in_word:'a word)` by
+    (fs[word_lo_n2w,bytes_in_word_def,word_mul_n2w]>>
+    rfs[sub_rewrite,word_lo_n2w,NOT_LESS]>>
+    fs[]>>
+    DEP_REWRITE_TAC[LESS_MOD]>>
+    fs[labPropsTheory.good_dimindex_def,dimword_def]>>rfs[]>>
+    match_mp_tac bitTheory.DIV_GT0>>
+    fs[markerTheory.Abbrev_def])>>
+  `n2w ptr2 ∈ s.mdomain` by
+    (fs[word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]>>
+    fs[STAR_def,cond_def]>>
+    Cases_on`xs`>>fs[]>>
+    fs[word_list_def,one_def,SPLIT_EQ,STAR_def,SUBSET_DEF,fun2set_def,FORALL_PROD]>>
+    fs[EXTENSION,FORALL_PROD]>>
+    metis_tac[])
+  \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
+  \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
+  \\ fs [alignmentTheory.aligned_bitwise_and
+         |> Q.SPEC `3` |> SIMP_RULE (srw_ss()) [] |> GSYM]
+  \\ `2 < 3:num` by EVAL_TAC
+  \\ drule alignmentTheory.aligned_imp
+  \\ disch_then drule
+  \\ strip_tac
+  \\ fs [] \\ tac
   \\ `~(dimindex (:'a) <= word_shift (:'a))` by
     fs [labPropsTheory.good_dimindex_def,dimword_def,word_shift_def]
   \\ fs [WORD_LO,NOT_LESS]
@@ -2314,15 +2373,6 @@ val init_code_thm = Q.store_thm("init_code_thm",
      \\ full_simp_tac std_ss [wordsLib.WORD_DECIDE ``-1w * w + v = v - w``,
        addressTheory.word_arith_lemma2,GSYM NOT_LESS] \\ NO_TAC)
   \\ full_simp_tac std_ss [] \\ ntac 3 (pop_assum kall_tac)
-  \\ `n2w (ptr3 - ptr2) >>> 1 = n2w ((ptr3 - ptr2) DIV 2)` by
-   (once_rewrite_tac [GSYM w2n_11] \\ rewrite_tac [w2n_lsr]
-    \\ fs [DIV_LT_X] \\ NO_TAC)
-  \\ fs [alignmentTheory.aligned_bitwise_and
-         |> Q.SPEC `3` |> SIMP_RULE (srw_ss()) [] |> GSYM]
-  \\ `2 < 3:num` by EVAL_TAC
-  \\ drule alignmentTheory.aligned_imp
-  \\ disch_then drule
-  \\ fs [aligned_or] \\ strip_tac
   \\ fs [FLOOKUP_UPDATE]
   \\ `((ptr3 − ptr2) DIV 2) < dimword (:α)` by fs [DIV_LT_X]
   \\ `bitmap_ptr ⋙ word_shift (:α) ≪ word_shift (:α) = bitmap_ptr` by (
