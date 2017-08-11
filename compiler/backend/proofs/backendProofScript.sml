@@ -177,6 +177,19 @@ val DISJOINT_INTER = Q.store_thm("DISJOINT_INTER",
   `DISJOINT b c ⇒ DISJOINT (a ∩ b) (a ∩ c)`,
   rw[IN_DISJOINT] \\ metis_tac[]);
 
+val args = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #1 |> rand
+val defn = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #2 |> lhs
+val full_init_pre_fail_def =
+  Define`full_init_pre_fail ^args = ^defn`;
+
+val full_make_init_bitmaps = Q.prove(
+  `full_init_pre_fail args = SOME x ==>
+    (full_make_init args).bitmaps = FST args`,
+  PairCases_on`args` \\
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_bitmaps]
+  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_fail_def]);
+
 (* -- *)
 
 (* TODO: Move somewhere, not sure where though *)
@@ -440,13 +453,13 @@ val word_in_byte_mem_def = Define`
 *)
 val installed_def = Define`
   installed bytes bitmaps ffi_names ffi (r1,r2) mc_conf ms ⇔
-    ∃t m io_regs bitmap_ptr.
+    ∃t m io_regs bitmap_ptr bitmaps_dm.
+      (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
-      let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + n2w (LENGTH bitmaps)} in
       good_init_state mc_conf ms ffi bytes t m (heap_stack_dm ∪ bitmaps_dm) io_regs ∧
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
-      (* TODO: need an additional assumption on where the bitmaps are *)
+      word_list bitmap_ptr (MAP Word bitmaps) (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
       ffi_names = SOME mc_conf.ffi_names`;
 
 val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
@@ -950,8 +963,10 @@ val compile_correct = Q.store_thm("compile_correct",
         match_mp_tac fun2set_disjoint_union \\
         conj_tac >- (
           match_mp_tac DISJOINT_INTER
-          \\ simp[DISJOINT_SYM] ) \\
-        reverse conj_tac >- (
+          \\ metis_tac[DISJOINT_SYM] ) \\
+        conj_tac >- (
+          fs[attach_bitmaps_def] )
+        \\ (
           match_mp_tac word_list_exists_imp>>
           fs [addresses_thm]>>
           fs[mc_conf_ok_def]>>
@@ -985,8 +1000,7 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ Cases_on `a` \\ Cases_on `b`
           \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
           \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
-          \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [])>>
-        cheat (* if the first is aligned, the rest should be - word_list lemma? *) )
+          \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs []) \\
     CONJ_TAC>- (
       simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,Abbr`c4`]>>
       rw[]>-
@@ -1052,9 +1066,9 @@ val compile_correct = Q.store_thm("compile_correct",
       asm_exists_tac>>
       simp[]>>Cases>> simp[]))>>
   strip_tac \\
-
   Cases_on`full_init_pre_fail stack_args` >- (
     qunabbrev_tac`stack_args` \\
+    fs[full_init_pre_fail_def] \\
     drule full_make_init_semantics_fail \\
     strip_tac \\ rfs[] \\
     match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
@@ -1064,29 +1078,6 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[Once CONJ_COMM] \\
     asm_exists_tac \\ simp[] \\
     metis_tac[dataPropsTheory.Resource_limit_hit_implements_semantics] ) \\
-  `full_init_pre stack_args` by (
-    fs[full_init_pre_def,full_init_shared_def,Abbr`stack_args`] \\
-    IF_CASES_TAC \\ fs[] >- (
-      fs[IS_SOME_EXISTS]>>
-      drule make_init_opt_imp_bitmaps_limit>>simp[]>>
-      ntac 4 strip_tac>>
-      imp_res_tac ALOOKUP_MEM>>
-      `MEM k (MAP FST p6) ∧ MEM prog' (MAP SND p6)` by
-        metis_tac[MEM_MAP,FST,SND]>>
-      qpat_x_assum`MAP FST p6 = _` SUBST_ALL_TAC>>
-      fs[EVERY_MEM]
-      >-
-        (qpat_x_assum`MEM k _` mp_tac>>
-        EVAL_TAC>>
-        rpt(pop_assum kall_tac)>>
-        DECIDE_TAC)
-      >>
-        first_x_assum drule>>
-        EVAL_TAC>>
-        fs[])>>
-    qhdtm_x_assum`(~)`mp_tac \\
-    simp[full_init_pre_fail_def] ) \\
-
   fs[Abbr`word_st`] \\ rfs[] \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
@@ -1137,6 +1128,8 @@ val compile_correct = Q.store_thm("compile_correct",
   asm_exists_tac \\ simp[] \\
   simp[Abbr`stack_args`] \\
   match_mp_tac stack_to_labProofTheory.full_make_init_semantics \\
+  qhdtm_x_assum`full_init_pre_fail`mp_tac \\
+  simp[full_init_pre_fail_def] \\ strip_tac \\
   simp[]);
 
 val _ = export_theory();
