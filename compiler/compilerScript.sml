@@ -183,10 +183,11 @@ val parse_heap_stack_def = Define`
     (heap,stack)`
 
 val format_compiler_result_def = Define`
-  format_compiler_result bytes_export heap stack (Failure err) =
+  format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
-  format_compiler_result bytes_export heap stack (Success (bytes,c)) =
-    (bytes_export (the [] c.ffi_names) heap stack bytes, implode "")`;
+  format_compiler_result bytes_export heap stack
+    (Success ((bytes:word8 list),(data:'a word list),(c:'a lab_to_target$config))) =
+    (bytes_export (the [] c.ffi_names) heap stack bytes data, implode "")`;
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
 
