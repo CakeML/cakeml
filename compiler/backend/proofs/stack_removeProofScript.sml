@@ -2222,7 +2222,7 @@ val init_prop_def = Define `
        FLOOKUP s.store GenStart = SOME (Word 0w) /\
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
-       (* LENGTH s.bitmaps + 1 < dimword (:'a) /\ ??? *)
+       LENGTH s.bitmaps + 1 < dimword (:'a) /\
        LENGTH s.stack < dimword (:'a) /\
        (other = curr + bytes_in_word * n2w len) /\
        byte_aligned curr /\
@@ -2257,6 +2257,27 @@ val byte_aligned_bytes_in_word_MULT = Q.prove(
   \\ qspecl_then [`2`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
   \\ qspecl_then [`3`,`w`] mp_tac alignmentTheory.aligned_mul_shift_1
   \\ fs [WORD_MUL_LSL]);
+
+(* The extra b equality makes this work better with SEP_NEQ_TAC *)
+val word_list_wrap = Q.prove(`
+  good_dimindex (:'a) ∧
+  dimword(:'a) DIV (dimindex(:'a) DIV 8) < LENGTH ls ⇒
+  ∃x xs y ys b.
+  word_list (a:'a word) ls = word_list a (x::xs) * word_list b (y::ys)  ∧
+  b = a`,
+  rw[]>>
+  `∃r.r < LENGTH ls ∧ 0 < r ∧ a + bytes_in_word * n2w r = a` by
+    (fs[addressTheory.WORD_EQ_ADD_CANCEL,bytes_in_word_def,word_mul_n2w]>>
+    `0 <dimword(:'a)` by fs[labPropsTheory.good_dimindex_def] >>
+    drule (GEN_ALL MOD_EQ_0_DIVISOR)>>fs[]>>disch_then kall_tac>>
+    fs[labPropsTheory.good_dimindex_def,dimword_def,PULL_EXISTS]>>rfs[]>>
+    asm_exists_tac>>fs[])>>
+  Q.ISPECL_THEN [`TAKE r ls`,`DROP r ls`,`a`] assume_tac word_list_APPEND>>
+  fs[]>>
+  `0 < LENGTH (DROP r ls)` by fs[]>>
+  Cases_on`DROP r ls`>>fs[]>>
+  Cases_on`ls`>>fs[]>>
+  metis_tac[]);
 
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps s /\ code_rel jump off k code s.code /\
@@ -2498,10 +2519,31 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
     \\ rfs [dimword_def] \\ fs [])
   \\ fs[]
+  \\ (CONJ_TAC>-
+    (CCONTR_TAC>>
+    `dimword(:'a) ≤ LENGTH bitmaps+1` by fs[]>>
+    `dimword(:'a) DIV d < LENGTH bitmaps` by
+      (DEP_REWRITE_TAC [DIV_LT_X]>>
+      `2 < d ∧ 0 < LENGTH bitmaps` by
+        fs[Abbr`d`,labPropsTheory.good_dimindex_def]>>
+      fs[]>>
+      `LENGTH bitmaps +1 < LENGTH bitmaps * d` by
+        (Cases_on`LENGTH bitmaps`>>fs[ADD1]>>
+        Cases_on`d`>>fs[ADD1])>>
+      fs[])>>
+    fs[Abbr`d`]>>
+    Q.ISPECL_THEN [`MAP Word bitmaps`,`bitmap_ptr`] mp_tac (GEN_ALL word_list_wrap)>>
+    impl_tac>-
+      fs[]>>
+    strip_tac>>
+    ntac 2 (pop_assum mp_tac)>>simp[word_list_def]>>
+    strip_tac>>
+    pop_assum SUBST_ALL_TAC>>
+    SEP_NEQ_TAC>>fs[])
   \\ Cases_on`d`>>fs[Abbr`b`,ADD1]
   \\ fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
   \\ match_mp_tac LESS_EQ_LESS_TRANS
-  \\ qexists_tac `d * max_heap` \\ fs []);
+  \\ qexists_tac `d * max_heap` \\ fs []));
 
 val make_init_opt_def = Define `
   make_init_opt gen_gc max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =

@@ -1820,7 +1820,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi)
      (fromAList (stack_names$compile f
-       (compile jump off gen max_heap bitmaps k l code)))`,
+       (compile jump off gen max_heap k l code)))`,
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
          stackSemTheory.find_code_def]
@@ -1834,7 +1834,7 @@ val halt_assum_lemma = Q.prove(
          get_var_def,FLOOKUP_UPDATE]);
 
 val MAP_FST_compile_compile = Q.prove(
-  `MAP FST (compile jump off gen max_heap bitmaps k InitGlobals_location
+  `MAP FST (compile jump off gen max_heap k InitGlobals_location
               (stack_alloc$compile c code)) =
     0::1::2::gc_stub_location::MAP FST code`,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
@@ -1844,12 +1844,37 @@ val MAP_FST_compile_compile = Q.prove(
   \\ fs [stack_removeTheory.prog_comp_def,FORALL_PROD,
          stack_allocTheory.prog_comp_def]);
 
+val gen_gc = mk_var("gen_gc",``:bool``)
+
+val full_make_init_fail =
+  from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
+                   |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+                   |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
+                   |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap k start (compile c code4)`]
+                   |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
+                   |> Q.INST [`code4`|->`code`]
+                   |> Q.INST [`start`|->`InitGlobals_location`]
+                   |> REWRITE_RULE [make_init_any_bitmaps,
+                            make_init_any_code,
+                            make_init_any_use_alloc,
+                            make_init_any_use_store,
+                            make_init_any_use_stack,
+                            make_init_any_stack_limit,
+                            halt_assum_lemma,MAP_FST_compile_compile]
+                   |> CONV_RULE (PATH_CONV "lr" (move_conj_right (optionSyntax.is_none o rhs)))
+
+val full_init_shared_tm = full_make_init_fail |> concl |> dest_imp |> fst |> dest_conj |> #1
+
+val full_init_shared_def = define_abbrev "full_init_shared" full_init_shared_tm
+
+val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",
+  full_make_init_fail |> REWRITE_RULE [GSYM full_init_shared_def]);
+
 val full_make_init_semantics = save_thm("full_make_init_semantics",let
-  val gen_gc = mk_var("gen_gc",``:bool``)
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
@@ -1860,31 +1885,16 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
                             make_init_any_use_stack,
                             make_init_any_stack_limit,
                             halt_assum_lemma,MAP_FST_compile_compile]
-  val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand
-  val def = define_abbrev "full_make_init" tm
-  val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
-  in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
+  val th2 = ADD_ASSUM full_init_shared_tm th
+           |> DISCH_ALL
+           |> SIMP_RULE std_ss []
+           |> REWRITE_RULE [GSYM full_init_shared_def,AND_IMP_INTRO]
+  val full_make_init_tm = concl th2|> snd o dest_imp |> rand |> rator |> rand |> rand
+  val def = define_abbrev "full_make_init" full_make_init_tm
+  in
+    th2 |> REWRITE_RULE [GSYM def] end);
 
 val full_make_init_def = definition"full_make_init_def";
-
-val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
-  val gen_gc = mk_var("gen_gc",``:bool``)
-  val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
-           |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
-           |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
-           |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
-           |> Q.INST [`code4`|->`code`]
-           |> Q.INST [`start`|->`InitGlobals_location`]
-           |> REWRITE_RULE [make_init_any_bitmaps,
-                            make_init_any_code,
-                            make_init_any_use_alloc,
-                            make_init_any_use_store,
-                            make_init_any_use_stack,
-                            make_init_any_stack_limit,
-                            halt_assum_lemma,MAP_FST_compile_compile]
-  val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
-  in th |> REWRITE_RULE [GSYM pre] end);
 
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
