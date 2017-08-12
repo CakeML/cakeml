@@ -588,20 +588,6 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val () = computeLib.extend_compset[computeLib.Defs[stack_prog_def]] cs;
 
-      val stack_to_lab_thm0 =
-        from_word_thm'
-        |> timez "expand stack_to_lab_def" (CONV_RULE(RAND_CONV(
-             REWR_CONV from_stack_def THENC
-             RAND_CONV bare_compiler_eval THENC
-             REWR_CONV_BETA LET_THM THENC
-             RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
-             RAND_CONV(funpow 2 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             RAND_CONV(funpow 3 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             RAND_CONV(funpow 4 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             REWR_CONV_BETA LET_THM)))
-
-      val tm4 = stack_to_lab_thm0 |> rconc |> rand
-
       val prog_comp_tm =
         stack_allocTheory.prog_comp_def
         |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
@@ -617,25 +603,29 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val ths = time_with_size thms_size "stack_alloc (par)"
                   (parl eval_fn) stack_prog_els;
 
-      val stack_alloc_thm =
-        tm4 |>
-        (REWR_CONV stack_to_labTheory.compile_def THENC
-         RAND_CONV(
-           REWR_CONV stack_allocTheory.compile_def THENC
-           FORK_CONV(eval,
-             RAND_CONV(REWR_CONV stack_prog_def) THENC
-             map_ths_conv ths) THENC
-           listLib.APPEND_CONV))
+      val stack_to_lab_thm0 =
+        from_word_thm'
+        |> (CONV_RULE(RAND_CONV(
+             REWR_CONV from_stack_def THENC
+             RAND_CONV (RATOR_CONV eval) THENC
+             REWR_CONV_BETA LET_THM THENC
+             RAND_CONV (
+               REWR_CONV stack_to_labTheory.compile_def THENC
+               RAND_CONV (
+                 REWR_CONV stack_allocTheory.compile_def THENC
+                 FORK_CONV(eval,
+                   RAND_CONV(REWR_CONV stack_prog_def) THENC
+                   map_ths_conv ths) THENC
+                 listLib.APPEND_CONV)))))
 
       val stack_alloc_prog_def =
-        mk_abbrev"stack_alloc_prog" (stack_alloc_thm |> rconc |> rand);
+        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rand |> rand)
       val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
       val stack_to_lab_thm1 =
         stack_to_lab_thm0
         |> CONV_RULE(RAND_CONV(
              RAND_CONV (
-               REWR_CONV stack_alloc_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
                REWR_CONV_BETA LET_THM)))
 
