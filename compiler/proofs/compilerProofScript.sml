@@ -110,11 +110,11 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,c) =>
+    | Success (code,data,c) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed bytes c.ffi_names st.sem_st.ffi
+          installed code data c.ffi_names st.sem_st.ffi
             (heap_regs cc.backend_config.stack_conf.reg_names)
             mc ms ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
@@ -135,6 +135,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
+  \\ BasicProvers.CASE_TAC \\ simp[]
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ rpt strip_tac
@@ -158,11 +159,11 @@ val compile_correct = Q.store_thm("compile_correct",
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,c) =>
+    | Success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed bytes c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code data c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,
