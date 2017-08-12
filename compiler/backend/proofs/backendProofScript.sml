@@ -1000,7 +1000,7 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ Cases_on `a` \\ Cases_on `b`
           \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
           \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
-          \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs []) \\
+          \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [])) \\
     CONJ_TAC>- (
       simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,Abbr`c4`]>>
       rw[]>-
@@ -1130,6 +1130,23 @@ val compile_correct = Q.store_thm("compile_correct",
   match_mp_tac stack_to_labProofTheory.full_make_init_semantics \\
   qhdtm_x_assum`full_init_pre_fail`mp_tac \\
   simp[full_init_pre_fail_def] \\ strip_tac \\
-  simp[]);
+  fs[full_init_shared_def] \\
+  drule make_init_opt_imp_bitmaps_limit>>simp[]>>
+  rfs[] \\
+  ntac 4 strip_tac \\
+  imp_res_tac ALOOKUP_MEM>>
+  `MEM k (MAP FST p6) ∧ MEM prog' (MAP SND p6)` by
+    metis_tac[MEM_MAP,FST,SND]>>
+  qpat_x_assum`MAP FST p6 = _` SUBST_ALL_TAC>>
+  fs[EVERY_MEM]
+  >-
+    (qpat_x_assum`MEM k _` mp_tac>>
+    EVAL_TAC>>
+    rpt(pop_assum kall_tac)>>
+    DECIDE_TAC)
+  >>
+    first_x_assum drule>>
+    EVAL_TAC>>
+    fs[]);
 
 val _ = export_theory();
