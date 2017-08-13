@@ -41,6 +41,12 @@ val heap_stack_space =
           PATH_CONV"lrlrlrlr" EVAL)
       |> concl |> rand
 
+val bitmaps =
+  ``(MAP (\n. strlit(n ++ "\n"))
+     ["cake_bitmaps:";
+      "#unimplemented in exporter"])
+  `` |> EVAL |> concl |> rand
+
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["#### Start up code";
@@ -59,6 +65,8 @@ val startup =
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
        "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap";
+       "     leaq    cake_bitmaps(%rip), %rbx";
+       "     movq    %rbx, 0(%rsi)           # store bitmap pointer";
        "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack";
        "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack";
        "     jmp     cake_main";
@@ -98,11 +106,12 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val x64_export_def = Define `
-  x64_export ffi_names heap_space stack_space bytes =
+  x64_export ffi_names heap_space stack_space bytes data =
     SmartAppend
       (SmartAppend (List ^preamble)
       (SmartAppend (List ^heap_stack_space)
-      (SmartAppend (List ^startup) ^ffi_code)))
+      (SmartAppend (List ^bitmaps)
+      (SmartAppend (List ^startup) ^ffi_code))))
       (split16 bytes)`;
 
 (*

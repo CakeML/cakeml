@@ -756,7 +756,22 @@ val extract_ffi_names =
   map stringSyntax.fromHOLstring o fst o listSyntax.dest_list o
   optionSyntax.dest_some o assoc "ffi_names" o  #2 o TypeBase.dest_record
 
-val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+type compilation_result = {
+  code : Word8.word list,
+  data : Word64.word list,
+  config : term };
+
+fun extract_compilation_result th =
+  let
+    val ls =
+      th |> rconc |> optionSyntax.dest_some
+      |> pairSyntax.strip_pair
+    val (bytes,ty) = el 1 ls |> listSyntax.dest_list
+    val _ = assert (equal (wordsSyntax.mk_int_word_type 8)) ty
+    val code = map (Word8.fromInt o wordsSyntax.uint_of_word) bytes
+    val (bitmaps,ty) = el 2 ls |> listSyntax.dest_list
+    val data = map (Word64.fromInt o wordsSyntax.uint_of_word) bitmaps
+  in { code = code, data = data, config = el 3 ls } end
 
 fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
   let
@@ -1224,7 +1239,9 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
 
     val () = time (
       x64_exportLib.write_cake_S stack_mb heap_mb
-        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
+        (extract_ffi_names (#config r))
+        (#data r) (#code r) )
+      filename
 
     val sec_ok_light_tm =
       tm18 |> rator |> rand
@@ -1379,11 +1396,14 @@ fun cbv_to_bytes
       stack_to_lab_thm
       |> CONV_RULE(RAND_CONV(eval))
 
-    val (bytes_tm,ffi_names_tm) = extract_bytes_ffis bootstrap_thm
+    val r = extract_compilation_result bootstrap_thm
 
     val () = time (
       write_cake_S stack_mb heap_mb
-        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
+        (extract_ffi_names (#config r))
+        (#data r) (#code r) )
+      filename
+
   in
     bootstrap_thm
   end
@@ -1432,7 +1452,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val result = cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
     val bytes_name = (!intermediate_prog_prefix) ^ "bytes"
-    val bytes_def = mk_abbrev bytes_name (result |> extract_bytes_ffis |> #1)
+    val bytes_def = mk_abbrev bytes_name (result |> extract_compilation_result |> #1)
   in result |> PURE_REWRITE_RULE[GSYM bytes_def] end
   (*
 val extract_oracle = find_term listSyntax.is_list o lhs o concl
@@ -1463,7 +1483,7 @@ val to_x64_bytes = to_bytes 3 ``x64_backend_config``
   let
     val result = to_x64_bytes (prog_def |> rconc)
     val oracle = extract_oracle result
-    val (bytes,ffis) = extract_bytes_ffis result
+    val (bytes,ffis) = extract_compilation_result result
     val oracle_def = mk_abbrev(name^"_oracle") oracle
     val bytes_def = mk_abbrev(name^"_bytes") bytes
     val ffis_def = mk_abbrev(name^"_ffis") ffis
