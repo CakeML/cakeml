@@ -830,8 +830,10 @@ val add_backend_compset = computeLib.extend_compset
     ,``:'a sec``
     ]
   ,computeLib.Defs
-    [ (* ---- lab_filter ---- *)
-     lab_filterTheory.not_skip_def
+    [labLangTheory.Section_num_def
+    ,labLangTheory.Section_lines_def
+      (* ---- lab_filter ---- *)
+    ,lab_filterTheory.not_skip_def
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
@@ -866,6 +868,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)
+    ,backendTheory.attach_bitmaps_def
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def
     ,backendTheory.from_source_def

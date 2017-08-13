@@ -105,7 +105,13 @@ val _ = translate (extend_with_args_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBE
 
 val _ = translate (parse_heap_stack_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def])
 
-val _ = translate (compile_to_bytes_def |> spec64)
+val r = format_compiler_result_def
+        |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
+        |> Q.ISPECL[`bytes:word8 list`,`heap:num`,`stack:num`,`c:'a lab_to_target$config`]
+        |> spec64
+        |> translate;
+
+val r = translate (compile_to_bytes_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

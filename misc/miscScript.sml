@@ -380,6 +380,33 @@ val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
   map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
   [`l1`,`l2`]);
 
+val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
+  ``!xs1 zs.
+      LIST_REL P (xs1 ++ xs2) zs ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
+                  LIST_REL P xs2 ys2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
+  ``!xs1 zs.
+      LIST_REL P zs (xs1 ++ xs2) ==>
+      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
+                  LIST_REL P ys2 xs2``,
+  Induct \\ full_simp_tac std_ss [APPEND]
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
+
+val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
+  `LENGTH x1 = LENGTH x2 ⇒ (LIST_REL R (x1 ++ y1) (x2 ++ y2) = (LIST_REL R x1 x2 /\ LIST_REL R y1 y2))`,
+  rw[EQ_IMP_THM]
+  \\ imp_res_tac LIST_REL_APPEND_IMP
+  \\ match_mp_tac EVERY2_APPEND_suff
+  \\ rw[]);
+
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
   SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
@@ -2902,6 +2929,12 @@ val OPTION_MAP_I = Q.store_thm("OPTION_MAP_I[simp]",
   `OPTION_MAP I x = x`,
   Cases_on`x` \\ rw[]);
 
+val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
+  `(∀x y. f x = f y ⇒ x = y)
+   ⇒ ∀o1 o2.
+     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
+  strip_tac \\ Cases \\ Cases \\ simp[]);
+
 val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   `∀j k ls len.
     len = LENGTH ls ∧ k ≤ j ⇒
@@ -2929,5 +2962,17 @@ list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
 
 val list_set_eq = Define `
 list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+
+val BIJ_UPDATE = store_thm("BIJ_UPDATE",
+  ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
+
+val INJ_UPDATE = store_thm("INJ_UPDATE",
+  ``INJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
+  simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
+  \\ metis_tac []);
 
 val _ = export_theory()

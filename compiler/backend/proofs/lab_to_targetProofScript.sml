@@ -5765,9 +5765,9 @@ val good_init_state_def = Define `
     (* data memory relation -- note that this implies m contains no labels *)
     dm SUBSET t.mem_domain /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
-    (!a labs.
-      word_loc_val_byte t.pc labs m a
-        mc_conf.target.config.big_endian = SOME (t.mem a))  /\
+    (!a. ∃w.
+      t.mem a = get_byte a w mc_conf.target.config.big_endian ∧
+      m (byte_align a) = Word w) /\
     (* code buffer constraints *)
     (∀n. n < cbspace ⇒
       n2w (n + LENGTH bytes) + t.pc ∈ t.mem_domain  ∧
@@ -5845,7 +5845,9 @@ val IMP_state_rel_make_init = Q.prove(
       disch_then (qspec_then`0` strip_assume_tac)>>
       fs[libTheory.the_def])>>
     metis_tac[])
-  \\ conj_tac >- metis_tac[SUBSET_DEF]
+  \\ conj_tac >- (
+    simp[word_loc_val_byte_def,case_eq_thms] \\
+    metis_tac[SUBSET_DEF,word_loc_val_def] )
   \\ conj_tac >- metis_tac[word_add_n2w]
   \\ conj_tac>- simp[bytes_in_mem_def]
   \\ conj_tac>-

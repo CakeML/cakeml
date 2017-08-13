@@ -12,6 +12,7 @@ val config_ok_def = Define`
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config.inf_env ∧
     prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
+    ¬cc.input_is_sexp ∧
     backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
@@ -20,6 +21,7 @@ val initial_condition_def = Define`
     (?ctMap. type_sound_invariant st.sem_st st.sem_env st.tdecs ctMap FEMPTY st.tenv) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
     st.tdecs = convert_decls cc.inferencer_config.inf_decls ∧
+    ¬cc.input_is_sexp ∧
     backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
@@ -108,11 +110,11 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure (TypeError e) => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,c) =>
+    | Success (code,data,c) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed bytes c.ffi_names st.sem_st.ffi
+          installed code data c.ffi_names st.sem_st.ffi
             (heap_regs cc.backend_config.stack_conf.reg_names)
             mc ms ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
@@ -121,6 +123,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   rpt strip_tac
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
+  \\ BasicProvers.CASE_TAC
+  >- fs[initial_condition_def]
   \\ BasicProvers.CASE_TAC
   \\ simp[semantics_def]
   \\ fs[initial_condition_def]
@@ -131,6 +135,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
+  \\ BasicProvers.CASE_TAC \\ simp[]
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ rpt strip_tac
@@ -154,11 +159,11 @@ val compile_correct = Q.store_thm("compile_correct",
     | Failure ParseError => semantics_init ffi prelude input = CannotParse
     | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,c) =>
+    | Success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed bytes c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code data c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,

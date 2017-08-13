@@ -588,20 +588,6 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val () = computeLib.extend_compset[computeLib.Defs[stack_prog_def]] cs;
 
-      val stack_to_lab_thm0 =
-        from_word_thm'
-        |> timez "expand stack_to_lab_def" (CONV_RULE(RAND_CONV(
-             REWR_CONV from_stack_def THENC
-             RAND_CONV bare_compiler_eval THENC
-             REWR_CONV_BETA LET_THM THENC
-             RAND_CONV(RATOR_CONV(RAND_CONV eval)) THENC
-             RAND_CONV(funpow 2 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             RAND_CONV(funpow 3 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             RAND_CONV(funpow 4 RATOR_CONV(RAND_CONV bare_compiler_eval)) THENC
-             REWR_CONV_BETA LET_THM)))
-
-      val tm4 = stack_to_lab_thm0 |> rconc |> rand
-
       val prog_comp_tm =
         stack_allocTheory.prog_comp_def
         |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1
@@ -617,25 +603,29 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       val ths = time_with_size thms_size "stack_alloc (par)"
                   (parl eval_fn) stack_prog_els;
 
-      val stack_alloc_thm =
-        tm4 |>
-        (REWR_CONV stack_to_labTheory.compile_def THENC
-         RAND_CONV(
-           REWR_CONV stack_allocTheory.compile_def THENC
-           FORK_CONV(eval,
-             RAND_CONV(REWR_CONV stack_prog_def) THENC
-             map_ths_conv ths) THENC
-           listLib.APPEND_CONV))
+      val stack_to_lab_thm0 =
+        from_word_thm'
+        |> (CONV_RULE(RAND_CONV(
+             REWR_CONV from_stack_def THENC
+             RAND_CONV (RATOR_CONV eval) THENC
+             REWR_CONV_BETA LET_THM THENC
+             RAND_CONV (
+               REWR_CONV stack_to_labTheory.compile_def THENC
+               RAND_CONV (
+                 REWR_CONV stack_allocTheory.compile_def THENC
+                 FORK_CONV(eval,
+                   RAND_CONV(REWR_CONV stack_prog_def) THENC
+                   map_ths_conv ths) THENC
+                 listLib.APPEND_CONV)))))
 
       val stack_alloc_prog_def =
-        mk_abbrev"stack_alloc_prog" (stack_alloc_thm |> rconc |> rand);
+        mk_abbrev"stack_alloc_prog"(stack_to_lab_thm0 |> rconc |> rand |> rand)
       val temp_defs = (mk_abbrev_name"stack_alloc_prog") :: temp_defs
 
       val stack_to_lab_thm1 =
         stack_to_lab_thm0
         |> CONV_RULE(RAND_CONV(
              RAND_CONV (
-               REWR_CONV stack_alloc_thm THENC
                RAND_CONV(REWR_CONV(SYM stack_alloc_prog_def)) THENC
                REWR_CONV_BETA LET_THM)))
 
@@ -766,7 +756,22 @@ val extract_ffi_names =
   map stringSyntax.fromHOLstring o fst o listSyntax.dest_list o
   optionSyntax.dest_some o assoc "ffi_names" o  #2 o TypeBase.dest_record
 
-val extract_bytes_ffis = pairSyntax.dest_pair o optionSyntax.dest_some o rconc
+type compilation_result = {
+  code : Word8.word list,
+  data : Word64.word list,
+  config : term };
+
+fun extract_compilation_result th =
+  let
+    val ls =
+      th |> rconc |> optionSyntax.dest_some
+      |> pairSyntax.strip_pair
+    val (bytes,ty) = el 1 ls |> listSyntax.dest_list
+    val _ = assert (equal (wordsSyntax.mk_int_word_type 8)) ty
+    val code = map (Word8.fromInt o wordsSyntax.uint_of_word) bytes
+    val (bitmaps,ty) = el 2 ls |> listSyntax.dest_list
+    val data = map (Word64.fromInt o wordsSyntax.uint_of_word) bitmaps
+  in { code = code, data = data, config = el 3 ls } end
 
 fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
   let
@@ -1234,7 +1239,9 @@ fun to_bytes_x64 stack_to_lab_thm lab_prog_def heap_mb stack_mb filename =
 
     val () = time (
       x64_exportLib.write_cake_S stack_mb heap_mb
-        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
+        (extract_ffi_names (#config r))
+        (#data r) (#code r) )
+      filename
 
     val sec_ok_light_tm =
       tm18 |> rator |> rand
@@ -1389,11 +1396,14 @@ fun cbv_to_bytes
       stack_to_lab_thm
       |> CONV_RULE(RAND_CONV(eval))
 
-    val (bytes_tm,ffi_names_tm) = extract_bytes_ffis bootstrap_thm
+    val r = extract_compilation_result bootstrap_thm
 
     val () = time (
       write_cake_S stack_mb heap_mb
-        (extract_ffi_names ffi_names_tm) bytes_tm ) filename
+        (extract_ffi_names (#config r))
+        (#data r) (#code r) )
+      filename
+
   in
     bootstrap_thm
   end
@@ -1442,7 +1452,7 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val lab_prog_def = definition(mk_abbrev_name lab_prog_name)
     val result = cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size (name^".S")
     val bytes_name = (!intermediate_prog_prefix) ^ "bytes"
-    val bytes_def = mk_abbrev bytes_name (result |> extract_bytes_ffis |> #1)
+    val bytes_def = mk_abbrev bytes_name (result |> extract_compilation_result |> #1)
   in result |> PURE_REWRITE_RULE[GSYM bytes_def] end
   (*
 val extract_oracle = find_term listSyntax.is_list o lhs o concl
@@ -1473,7 +1483,7 @@ val to_x64_bytes = to_bytes 3 ``x64_backend_config``
   let
     val result = to_x64_bytes (prog_def |> rconc)
     val oracle = extract_oracle result
-    val (bytes,ffis) = extract_bytes_ffis result
+    val (bytes,ffis) = extract_compilation_result result
     val oracle_def = mk_abbrev(name^"_oracle") oracle
     val bytes_def = mk_abbrev(name^"_bytes") bytes
     val ffis_def = mk_abbrev(name^"_ffis") ffis

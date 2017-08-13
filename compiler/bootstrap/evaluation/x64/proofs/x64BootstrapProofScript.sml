@@ -13,20 +13,26 @@ val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events
 val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
 val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
 
-(* TODO: this might be better done in x64BootstrapTheory *)
-val cake_bytes_def = mk_abbrev "cake_bytes" (bootstrap_thm |> compilationLib.extract_bytes_ffis |> #1)
-val cake_compiled = bootstrap_thm |> PURE_REWRITE_RULE[GSYM cake_bytes_def]
-
 (* TODO: move *)
-val conf_ok_with_bvl_conf_updated = Q.store_thm("conf_ok_with_bvl_conf_updated[simp]",
-  `conf_ok (cc with bvl_conf updated_by f) mc ⇔ conf_ok cc mc`,
-  rw[conf_ok_def,lower_conf_ok_def]);
+val backend_config_ok_with_bvl_conf_updated = Q.store_thm("backend_config_ok_with_bvl_conf_updated[simp]",
+  `backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc`,
+  rw[backend_config_ok_def]);
+val backend_config_ok_with_word_to_word_conf_updated = Q.store_thm("backend_config_ok_with_word_to_word_conf_updated[simp]",
+  `backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc`,
+  rw[backend_config_ok_def]);
+val mc_init_ok_with_bvl_conf_updated = Q.store_thm("mc_init_ok_with_bvl_conf_updated[simp]",
+  `mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
+  rw[mc_init_ok_def]);
+val mc_init_ok_with_word_to_word_conf_updated = Q.store_thm("mc_init_ok_with_word_to_word_conf_updated[simp]",
+  `mc_init_ok (cc with word_to_word_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
+  rw[mc_init_ok_def]);
+(* -- *)
 
 val compile_correct_applied =
   MATCH_MP compile_correct cake_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP x64_conf_ok
   |> C MATCH_MP cake_not_fail
+  |> C MATCH_MP x64_backend_config_ok
   |> REWRITE_RULE[cake_sem_sing]
 
 val cake_compiled_thm =

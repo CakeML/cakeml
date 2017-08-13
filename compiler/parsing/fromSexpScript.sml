@@ -22,13 +22,6 @@ val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 (* TODO: move*)
-
-val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
-  `(∀x y. f x = f y ⇒ x = y)
-   ⇒ ∀o1 o2.
-     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
-  strip_tac \\ Cases \\ Cases \\ simp[]);
-
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
    ∃a b c. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ f a b c = r`,
