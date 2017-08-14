@@ -662,8 +662,9 @@ val check_tscheme_inst_sound = Q.store_thm ("check_tscheme_inst_sound",
     check_tscheme_inst x (tvs_spec,t_spec) (tvs_impl,t_impl)
     ⇒
     tscheme_inst (tvs_spec, convert_t t_spec) (tvs_impl, convert_t t_impl)`,
-  rw [check_tscheme_inst_def, tscheme_inst_def] >>
+  rw [check_tscheme_inst_def, run_check_tscheme_inst_aux_def, check_tscheme_inst_aux_def, run_def, tscheme_inst_def] >>
   every_case_tac >>
+  `!m a. FST (m : (unit, infer_exn) exc # infer_st) = Success a ==> ?r. m = (Success a, r)`  by (Cases_on `m` >> rw[]) >> POP_ASSUM IMP_RES_TAC >>
   fs [success_eqns] >>
   rw [] >>
   fs [init_state_def, init_infer_state_def] >>

@@ -7,6 +7,7 @@ val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
+val _ = temp_overload_on ("failwith", ``raise_Exc``);
 
 val _ = hide "state";
 
@@ -398,7 +399,7 @@ cases_on `q` >>
 rw []);
 (***********************)
 
-val monad_operators_defs = [get_next_uvar_def, set_next_uvar_def, get_subst_def, set_subst_def, st_ex_bind_def, st_ex_return_def, failwith_def];
+val monad_operators_defs = [get_next_uvar_def, set_next_uvar_def, get_subst_def, set_subst_def, st_ex_bind_def, st_ex_return_def, raise_Exc_def];
 val rw_monads_defs = rw monad_operators_defs;
 
 val fresh_uvar_success = Q.prove (
@@ -458,7 +459,7 @@ val add_constraints_success = Q.prove (
 ho_match_mp_tac add_constraints_ind >>
 rw_monads_defs >>
 rw [add_constraints_def, pure_add_constraints_def, st_ex_return_success,
-    failwith_def, st_ex_bind_success, add_constraint_success] >>
+    raise_Exc_def, st_ex_bind_success, add_constraint_success] >>
 TRY (cases_on `x`) >>
 rw [pure_add_constraints_def] >-
 metis_tac [infer_st_component_equality] >>
@@ -470,14 +471,14 @@ fs []);
 
 val failwith_success = Q.prove (
 `!l m st v st'. (failwith (l, m) st = (Success v, st')) = F`,
-rw [failwith_def]);
+rw [raise_Exc_def]);
 
 val lookup_st_ex_success = Q.prove (
 `!loc x l st v st'.
   (lookup_st_ex loc x l st = (Success v, st'))
   =
   ((nsLookup l x = SOME v) ∧ (st = st'))`,
- rw [lookup_st_ex_def, failwith_def, st_ex_return_success]
+ rw [lookup_st_ex_def, raise_Exc_def, st_ex_return_success]
  >> rw_monads_defs
  >> every_case_tac);
 
@@ -527,7 +528,7 @@ val guard_success = Q.prove (
   (guard P l m st = (Success v, st'))
   =
   (P ∧ (v = ()) ∧ (st = st'))`,
-rw [guard_def, st_ex_return_def, failwith_def] >>
+rw [guard_def, st_ex_return_def, raise_Exc_def] >>
 metis_tac []);
 
 val option_case_eq = Q.prove (
@@ -2289,7 +2290,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  >> fs [infer_d_def, success_eqns]
  (* >> fs monad_operators_defs *)
  >> rpt (pairarg_tac >> fs [success_eqns])
- >> fs[get_subst_def, set_subst_def, get_next_uvar_def, set_next_uvar_def, failwith_def]
+ >> fs[get_subst_def, set_subst_def, get_next_uvar_def, set_next_uvar_def, raise_Exc_def]
  >> fs [init_state_def]
  >> rw []
  >> strip_assume_tac init_infer_state_wfs
@@ -2432,11 +2433,11 @@ metis_tac []);
 
 val t_to_freevars_check = Q.store_thm ("t_to_freevars_check",
 `(!t st fvs st'.
-   (t_to_freevars t (st:'a) = (Success fvs, st'))
+   (t_to_freevars t st = (Success fvs, st'))
    ⇒
    check_freevars 0 fvs t) ∧
  (!ts st fvs st'.
-   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
+   (ts_to_freevars ts st = (Success fvs, st'))
    ⇒
    EVERY (check_freevars 0 fvs) ts)`,
 Induct >>
@@ -2452,9 +2453,9 @@ val check_freevars_more = Q.store_thm("check_freevars_more",
   fs[EVERY_MEM])
 
 val check_freevars_t_to_freevars = Q.store_thm("check_freevars_t_to_freevars",
-  `(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
+  `(∀t fvs st. check_freevars 0 fvs t ⇒
       ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
-    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
+    (∀ts fvs st. EVERY (check_freevars 0 fvs) ts ⇒
       ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)`,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])

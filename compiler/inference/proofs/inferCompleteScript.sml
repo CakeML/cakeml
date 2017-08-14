@@ -1292,7 +1292,7 @@ val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
     check_t tvs_spec {} t_spec ∧
     tscheme_approx 0 FEMPTY (tvs_spec,t_spec) (tvs_impl,t_impl) ⇒
     check_tscheme_inst id (tvs_spec,t_spec) (tvs_impl,t_impl)`,
-  rw [tscheme_approx_def, check_tscheme_inst_def] >>
+  rw [tscheme_approx_def, check_tscheme_inst_def, run_check_tscheme_inst_aux_def, check_tscheme_inst_aux_def, run_def] >>
   fs [t_walkstar_FEMPTY] >>
   simp [st_ex_bind_def, init_state_def, init_infer_state_def, st_ex_return_def,
         add_constraint_def] >>
@@ -1431,7 +1431,7 @@ val infer_prog_complete = Q.store_thm ("infer_prog_complete",
     ?idecls' ienv' st2.
       decls' = convert_decls idecls' ∧
       env_rel tenv' ienv' ∧
-      infer_prog idecls ienv prog st1x = (Success (idecls',ienv'), st2)`,
+      infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2)`,
   ho_match_mp_tac type_prog_ind >>
   rw [infer_prog_def, success_eqns]
   >- rw [convert_decls_def, empty_decls_def, empty_inf_decls_def] >>
