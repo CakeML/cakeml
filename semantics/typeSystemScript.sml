@@ -121,6 +121,12 @@ val _ = Define `
     tveLookup n inc tenvE))`;
 
 
+val _ = Hol_datatype `
+ tid_or_exn =
+    TypeId of (modN, typeN) id
+  | TypeExn of (modN, conN) id`;
+
+
 val _ = type_abbrev( "tenv_abbrev" , ``: (modN, typeN, ( tvarN list # t)) namespace``);
 val _ = type_abbrev( "tenv_ctor" , ``: (modN, conN, ( tvarN list # t list # tid_or_exn)) namespace``);
 val _ = type_abbrev( "tenv_val" , ``: (modN, varN, (num # t)) namespace``);
@@ -328,7 +334,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
  (check_ctor_tenv tenvT tds=  
- (check_dup_ctors tds /\
+ (EVERY check_dup_ctors tds /\
   EVERY
     (\ (tvs,tn,ctors) . 
        ALL_DISTINCT tvs /\

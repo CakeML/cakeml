@@ -92,6 +92,10 @@ tveLookup n inc (Bind_name n' tvs t tenvE) =
     tveLookup n inc tenvE
 declare termination_argument tveLookup = automatic
 
+type tid_or_exn =
+  | TypeId of id modN typeN
+  | TypeExn of id modN conN
+
 type tenv_abbrev = namespace modN typeN (list tvarN * t)
 type tenv_ctor = namespace modN conN (list tvarN * list t * tid_or_exn)
 type tenv_val = namespace modN varN (nat * t)
@@ -276,7 +280,7 @@ type_name_subst tenvT (Tvar_db n) = Tvar_db n
  * types mentioned are in scope. *)
 val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_ctor_tenv tenvT tds =
-  check_dup_ctors tds &&
+  List.all check_dup_ctors tds &&
   List.all
     (fun (tvs,tn,ctors) ->
        List.allDistinct tvs &&

@@ -132,7 +132,7 @@ val _ = Define `
 (evaluate st env [Mat e pes]=  
  ((case fix_clock st (evaluate st env [e]) of
     (st', Rval v) =>
-      evaluate_match st' env (HD v) pes Bindv
+      evaluate_match st' env (HD v) pes bind_exn_v
   | res => res
   )))
 /\
@@ -168,28 +168,28 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
 
 (*val evaluate_decs :
-  forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
+  forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
  val _ = Define `
 
-(evaluate_decs mn st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+(evaluate_decs st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-(evaluate_decs mn st env (d1::d2::ds)=  
- ((case evaluate_decs mn st env [d1] of
+(evaluate_decs st env (d1::d2::ds)=  
+ ((case evaluate_decs st env [d1] of
     (st1, Rval env1) =>
-    (case evaluate_decs mn st1 (extend_dec_env env1 env) (d2::ds) of
+    (case evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) of
       (st2,r) => (st2, combine_dec_result env1 r)
     )
   | res => res
   )))
 /\
-(evaluate_decs mn st env [Dlet locs p e]=  
+(evaluate_decs st env [Dlet locs p e]=  
  (if ALL_DISTINCT (pat_bindings p []) then
     (case evaluate st env [e] of
       (st', Rval v) =>
         (st',
          (case pmatch env.c st'.refs p (HD v) [] of
            Match new_vals => Rval <| v := (alist_to_ns new_vals); c := nsEmpty |>
-         | No_match => Rerr (Rraise Bindv)
+         | No_match => Rerr (Rraise bind_exn_v)
          | Match_type_error => Rerr (Rabort Rtype_error)
          ))
     | (st', Rerr err) => (st', Rerr err)
@@ -197,33 +197,26 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dletrec locs funs]= 
+(evaluate_decs st env [Dletrec locs funs]= 
   (st,   
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
      Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>
    else
      Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtype locs tds]=  
- (let new_tdecs = (type_defs_to_new_tdecs mn tds) in
-    if check_dup_ctors tds /\
-       DISJOINT new_tdecs st.defined_types /\
-       ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds)
-    then
-      (( st with<| defined_types := (new_tdecs UNION st.defined_types) |>),
-       Rval <| v := nsEmpty; c := (build_tdefs mn tds) |>)
-    else
-      (st, Rerr (Rabort Rtype_error))))
+(evaluate_decs st env [Dtype locs tds]=  
+ (if EVERY check_dup_ctors tds then
+    (( st with<| next_type_stamp := (st.next_type_stamp + LENGTH tds) |>),
+     Rval <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds) |>)
+  else
+    (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtabbrev locs tvs tn t]= 
+(evaluate_decs st env [Dtabbrev locs tvs tn t]= 
   (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
-(evaluate_decs mn st env [Dexn locs cn ts]=  
- (if TypeExn (mk_id mn cn) IN st.defined_types then
-    (st, Rerr (Rabort Rtype_error))
-  else
-    (( st with<| defined_types := ({TypeExn (mk_id mn cn)} UNION st.defined_types) |>),
-     Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn))) |>)))`;
+(evaluate_decs st env [Dexn locs cn ts]= 
+  (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
+   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, cn, ExnStamp st.next_exn_stamp)) |>))`;
 
 
 val _ = Define `
@@ -246,31 +239,17 @@ val _ = Define `
   | res => res
   )))
 /\
-(evaluate_tops st env [Tdec d]=  (evaluate_decs [] st env [d]))
+(evaluate_tops st env [Tdec d]=  (evaluate_decs st env [d]))
 /\
 (evaluate_tops st env [Tmod mn specs ds]=  
- (if ~ ([mn] IN st.defined_mods) /\ no_dup_types ds
-  then
-    (case evaluate_decs [mn] st env ds of
-      (st', r) =>
-        (( st' with<| defined_mods := ({[mn]} UNION st'.defined_mods) |>),
-         (case r of
-           Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
-         | Rerr err => Rerr err
-         ))
-    )
-  else
-    (st, Rerr (Rabort Rtype_error))))`;
-
-
-(*val evaluate_prog : forall 'ffi. state 'ffi -> sem_env v -> prog -> state 'ffi * result (sem_env v) v*)
-val _ = Define `
-
-(evaluate_prog st env prog=  
- (if no_dup_mods prog st.defined_mods /\ no_dup_top_types prog st.defined_types then
-    evaluate_tops st env prog
-  else
-    (st, Rerr (Rabort Rtype_error))))`;
+ ((case evaluate_decs st env ds of
+    (st', r) =>
+      (st',
+       (case r of
+         Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
+       | Rerr err => Rerr err
+       ))
+  )))`;
 
 val _ = export_theory()
 

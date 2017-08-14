@@ -6,6 +6,8 @@ open import Namespace
 open import Lib
 open import Evaluate
 
+(* The ordering in the following is important. The stamps generated from the
+   exceptions and types must match those in semanticPrimitives *)
 val prim_types_program : prog
 let prim_types_program =
   [Tdec  (Dexn unknown_loc "Bind" []);
@@ -19,7 +21,7 @@ let prim_types_program =
 val add_to_sem_env :
   forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> prog -> maybe (state 'ffi * sem_env v)
 let add_to_sem_env (st, env) prog =
-  match evaluate_prog st env prog with
+  match evaluate_tops st env prog with
   | (st', Rval env') -> Just (st', extend_dec_env env' env)
   | _ -> Nothing
   end
@@ -27,6 +29,6 @@ let add_to_sem_env (st, env) prog =
 val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)
 let prim_sem_env ffi =
   add_to_sem_env
-    (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
+    (<| clock = 0; ffi = ffi; refs = []; next_type_stamp = 0; next_exn_stamp = 0 |>,
      <| v = nsEmpty; c = nsEmpty |>)
         prim_types_program

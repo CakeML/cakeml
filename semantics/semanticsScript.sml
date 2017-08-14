@@ -29,7 +29,7 @@ can_type_prog state prog ⇔
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
     let (st',r) =
-      evaluate_prog (st with clock := k) env prog
+      evaluate_tops (st with clock := k) env prog
     in (st'.ffi,r)`;
 
 val semantics_prog_def = Define `

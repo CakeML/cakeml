@@ -206,6 +206,7 @@ val (vs_to_string_def,vs_to_string_ind) =
 wf_rel_tac `measure LENGTH` \\ rw[]);
 val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
 
+(*
 val check_ctor_foldr_flat_map = Q.prove (
 `!c. (FOLDR
          (λ(tvs,tn,condefs) x2.
@@ -237,6 +238,7 @@ val do_log_thm = Q.store_thm("do_log_thm",
     NONE`,
   rw[semanticPrimitivesTheory.do_log_def] >>
     every_case_tac >> rw[])
+    *)
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
@@ -250,7 +252,7 @@ val (evaluate_def,evaluate_ind) =
          | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   dec_clock_def,LESS_OR_EQ,
-  do_if_def,do_log_thm] >>
+  do_if_def,do_log_def] >>
   imp_res_tac fix_clock_IMP >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
