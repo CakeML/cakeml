@@ -5045,7 +5045,7 @@ val comp_correct = Q.store_thm("comp_correct",
       impl_tac>-
        (fs[convs_def,word_allocTheory.max_var_def]>>
         imp_res_tac evaluate_mono>>fs[]>>
-        metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])
+        metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])>>
       strip_tac>>qexists_tac`ck`>>rfs[])>>
     first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs'`,`lens`] mp_tac)>>
     impl_tac>-
@@ -5391,7 +5391,7 @@ val comp_correct = Q.store_thm("comp_correct",
         DECIDE_TAC)>>
       strip_tac>>simp[]>>
       `find_code dest' (t'.regs \\0) t'.code = find_code dest' t4.regs t4.code` by
-       (`subspt t'.code t4.code` by
+       (`subspt t4.code t'.code` by
          (unabbrev_all_tac>>
          fs[stackSemTheory.state_component_equality]>>
          imp_res_tac evaluate_mono>>fs[]>>
