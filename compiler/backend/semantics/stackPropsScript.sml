@@ -291,7 +291,7 @@ val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
     pairarg_tac \\ fs[] \\ rw[] \\
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC)));
 
-val evaluate_mono = Q.store_thm("evalute_mono",`
+val evaluate_mono = Q.store_thm("evaluate_mono",`
   ∀c s r s1.
   evaluate (c,s) = (r,s1) ⇒
   isPREFIX s.bitmaps s1.bitmaps ∧

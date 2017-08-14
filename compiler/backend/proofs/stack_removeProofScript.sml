@@ -2595,7 +2595,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ qexists_tac `d * max_heap` \\ fs []));
 
 val make_init_opt_def = Define `
-  make_init_opt gen_gc max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
+  make_init_opt gen_gc max_heap bitmaps k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
     | (NONE,t) => if init_prop gen_gc max_heap (init_reduce gen_gc k code bitmaps t)
@@ -2640,9 +2640,9 @@ val evaluate_init_code_clock = Q.prove(
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
 val evaluate_init_code_ffi = Q.prove(
-  `evaluate (init_code gen_gc max_heap k,(s:('a,'ffi) stackSem$state)) = (res,t) ==>
+  `evaluate (init_code gen_gc max_heap k,(s:('a,'c,'ffi) stackSem$state)) = (res,t) ==>
     evaluate (init_code gen_gc max_heap k,s with ffi := c) =
-      (res,(t with ffi := c):('a,'ffi) stackSem$state)`,
+      (res,(t with ffi := c):('a,'c,'ffi) stackSem$state)`,
   srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
   \\ fs [clock_neutral_def,init_code_def] \\ rw []
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
