@@ -62,6 +62,8 @@ val read_bitmap_def = Define `
      else (* this is the last bitmap word *)
        SOME (GENLIST (\i. w ' i) (bit_length w - 1)))`
 
+val _ = Datatype.big_record_size := 25;
+
 val _ = Datatype `
   state =
     <| regs    : num |-> 'a word_loc
@@ -71,9 +73,10 @@ val _ = Datatype `
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; bitmaps : 'a word list
-     ; compile : 'c -> (num # 'a stackLang$prog) list # 'a word list -> (word8 list # 'c) option
+     ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
      ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
-     ; code_buffer : 'a code_buffer
+     ; code_buffer : ('a,8) buffer
+     ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; use_stack : bool
      ; use_store : bool
@@ -474,20 +477,22 @@ val evaluate_def = tDefine "evaluate" `
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
               | res => res))) /\
-  (evaluate (InstallAndRun ptr len ret,s) =
-    case (get_var ptr s, get_var len s) of
-    | SOME (Word w1), SOME (Word w2) =>
-       (case code_buffer_flush s.code_buffer w1 w2 of
-         SOME (bytes, cb) =>
+  (evaluate (Install ptr len dptr dlen,s) =
+    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
+    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
+       (case (buffer_flush s.code_buffer w1 w2,
+              buffer_flush s.data_buffer w3 w4) of
+         SOME (bytes, cb), SOME (data, db) =>
         let (cfg,progs,bm) = s.compile_oracle 0 in
         let new_oracle = shift_seq 1 s.compile_oracle in
-        (case s.compile cfg (progs,bm), progs of
+        (case s.compile cfg progs, progs of
           | SOME (bytes',cfg'), (k,prog)::_ =>
-            if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then
+            if bytes = bytes' ∧ data = bm ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
+                ; data_buffer := db
                 ; code := union s.code (fromAList progs) (* This order is convenient because it means all of s.code's entries are preserved *)
                 (* TODO: this might need to be a new field, cc_save_regs *)
                 ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)
@@ -505,9 +510,18 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (CodeBufferWrite r1 r2,s) =
     (case (get_var r1 s,get_var r2 s) of
         | (SOME (Word w1), SOME (Word w2)) =>
-          (case code_buffer_write s.code_buffer w1 (w2w w2) of
+          (case buffer_write s.code_buffer w1 (w2w w2) of
           | SOME new_cb =>
             (NONE,s with code_buffer:=new_cb)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))) /\
+  (evaluate (DataBufferWrite r1 r2,s) =
+    if ~s.use_stack then (SOME Error,s) else
+    (case (get_var r1 s,get_var r2 s) of
+        | (SOME (Word w1), SOME (Word w2)) =>
+          (case buffer_write s.data_buffer w1 w2 of
+          | SOME new_db =>
+            (NONE,s with data_buffer:=new_db)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len ret,s) =

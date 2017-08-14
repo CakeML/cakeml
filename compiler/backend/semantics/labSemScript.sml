@@ -21,7 +21,7 @@ val _ = Datatype `
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
      ; compile_oracle : num -> 'c # 'a labLang$prog
-     ; code_buffer : 'a code_buffer
+     ; code_buffer : ('a,8) buffer
      ; clock      : num
      ; failed     : bool
      ; ptr_reg    : num
@@ -302,7 +302,7 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (Asm (Cbw r1 r2) _ _) =>
       (case (read_reg r1 s,read_reg r2 s) of
       | (Word w1, Word w2) =>
-        (case code_buffer_write s.code_buffer w1 (w2w w2) of
+        (case buffer_write s.code_buffer w1 (w2w w2) of
         | SOME new_cb =>
           evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
         | _ => (Error,s))
@@ -340,7 +340,7 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (LabAsm Install _ _ _) =>
        (case (s.regs s.ptr_reg,s.regs s.len_reg,s.regs s.link_reg) of
         | (Word w1, Word w2, Loc n1 n2) =>
-           (case (code_buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
+           (case (buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
             | (SOME (bytes, cb), SOME new_pc) =>
               let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
               let new_oracle = shift_seq 1 s.compile_oracle in

@@ -9,20 +9,20 @@ val _ = set_grammar_ancestry [
 ]
 
 val _ = Datatype `
-  code_buffer =
+  buffer =
     <| position   : 'a word
-     ; buffer     : word8 list
+     ; buffer     : 'b word list
      ; space_left : num |>`
 
-val code_buffer_flush_def = Define`
-  code_buffer_flush cb w1 w2 =
+val buffer_flush_def = Define`
+  buffer_flush cb w1 w2 =
     if cb.position = w1 ∧ cb.position + n2w(LENGTH cb.buffer) = w2 then
       SOME (cb.buffer,
             cb with <| position := w2 ; buffer := [] |>)
     else NONE`;
 
-val code_buffer_write_def = Define`
-  code_buffer_write cb w b =
+val buffer_write_def = Define`
+  buffer_write cb w b =
     if cb.position + n2w(LENGTH cb.buffer) = w ∧ 0 < cb.space_left then
       SOME (cb with <| buffer := cb.buffer++[b] ; space_left := cb.space_left-1|>)
     else NONE`;
