@@ -63,7 +63,7 @@ sig
     val find_def_for_const   : (term -> thm) ref
     val clean_on_exit        : bool ref
 
-    (* internals, for ml_hol_kernel *)
+    (* internals, for the monadic translation *)
 
     val match_rec_pattern            : term -> term * string * term
     val install_rec_pattern          : term -> string -> string -> unit
@@ -98,6 +98,8 @@ sig
     val force_thm_the                : thm option -> thm
     val clean_precondition           : thm -> thm
     val quietDefine                  : term quotation -> thm
+    val derive_split                 : term -> thm
+    val diff                         : ''a list -> ''a list -> ''a list
     exception UnableToTranslate of term
 
     val find_const_name : string -> string

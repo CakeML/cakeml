@@ -6,7 +6,7 @@
 (* Load the CakeML basic stuff *)
 open preamble
 
-(* The ml_monadBaseLib is necessary to define the references and arrays manipulating functions
+(* The ml_monadBaseLib is necessary to define the references and arrays manipulation functions
  * automatically.
  *)
 open ml_monadBaseLib
@@ -14,7 +14,7 @@ open ml_monadBaseLib
 (* 
  * Those libraries are used in the translation
  *)
-open ml_monad_translatorTheory ml_monad_translatorLib
+open (* ml_monad_translatorTheory *) ml_monad_translatorLib
 
 val _ = new_theory "refStateProg"
 
@@ -50,7 +50,7 @@ val _ = Hol_datatype `
 val refs_access_funs = define_monad_access_funs (``:state_refs``);
 val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def)] = refs_access_funs;
 
-(* Those functions too can of course be defined by hand:
+(* Those functions too can be defined by hand:
 
 val get_the_num_ref_def =
 Define `get_the_num_ref = \(state : state_refs). (Success state.the_num, state)`;
@@ -102,7 +102,7 @@ val state_type = ``:state_refs``;
 val exn_ri_def = ml_translatorTheory.UNIT_TYPE_def;
 val exn_functions = [] : (thm * thm) list;
 
-(* No additional type theory names where to look for types *)
+(* No additional theories where to look for types *)
 val type_theories = [] : string list;
 
 (* Initialize the translation *)
@@ -115,7 +115,7 @@ val (monad_parameters, store_translation, exn_specs) =
 					      exn_functions
 					      type_theories;
 
-(* Notice that the polymorphism of simple_fun is taken into account *)
+(* The polymorphism of simple_fun is taken into account *)
 val simple_fun_v_thm = simple_fun_def |> m_translate;
 
 (* It is of course possible to translate recursive functions *)

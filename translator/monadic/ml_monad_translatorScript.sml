@@ -2768,6 +2768,39 @@ rw[EvalSt_def]
 \\ fs[write_def, merge_env_def]
 \\ metis_tac[]);
 
+val nsAppend_build_rec_env_eq_lemma = Q.prove(
+`!funs funs0 cl_env v0 v1.
+nsAppend (FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs0 f) env') v1 funs) v0 =
+FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs0 f) env') (nsAppend v1 v0) funs`,
+Induct_on `funs`
+>-(fs[merge_env_def, build_rec_env_def, namespaceTheory.nsAppend_def])
+\\ rw[]
+\\ Cases_on `h`
+\\ Cases_on `r`
+\\ fs[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]);
+
+val nsAppend_build_rec_env_eq = Q.prove(`!funs cl_env v0 v1.
+nsAppend (build_rec_env funs cl_env v1) v0 = build_rec_env funs cl_env (nsAppend v1 v0)`,
+fs[build_rec_env_def]
+\\ fs[nsAppend_build_rec_env_eq_lemma]);
+
+val merge_build_rec_env = Q.prove(`!funs env1 env0.
+merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v); c := env1.c|> env0 =
+(merge_env env1 env0) with v := build_rec_env funs (merge_env env1 env0) (merge_env env1 env0).v`,
+fs[merge_env_def, nsAppend_build_rec_env_eq]);
+
+val EvalSt_Letrec_Fun = Q.store_thm("EvalSt_Letrec_Fun",
+`!funs env0 env1 exp refs P H.
+(ALL_DISTINCT (MAP (\(x,y,z). x) funs)) ==>
+EvalSt (merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v); c := env1.c|> env0) exp P refs H ==>
+EvalSt (merge_env env1 env0) (Letrec funs exp) P refs H`,
+rw[EvalSt_def]
+\\ qpat_x_assum `!s. A` IMP_RES_TAC
+\\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
+\\ rw[Once evaluate_cases]
+\\ fs[merge_build_rec_env]
+\\ metis_tac[]);
+
 val merge_env_bind_empty = Q.store_thm("merge_env_bind_empty",
 `merge_env <| v := Bind [] []; c := Bind [] [] |> env  = env`,
 rw[merge_env_def]

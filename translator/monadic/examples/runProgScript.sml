@@ -84,38 +84,6 @@ val (translation_parameters, exn_specs) =
                                                [];
 
 (* Monadic translations *)
-(* val test2_def = Define `test2 n = the_num_array_sub n`;
-val def = test2_def |> m_translate;
-
-val test3_def = Define `test3 n x = update_the_num_array n x`;
-val def = test2_def |> m_translate;
-
-val test4_def = Define `test4 n x = alloc_the_num_array n x`;
-val def = test3_def |> m_translate;
-
-val test5_def = Define `
-test5 n z =
-    do
-	alloc_the_num_array n z;
-        return ()
-    od`;
-val def = test5_def |> m_translate;
-val test5_trans_th = m_translate test5_def;
-
-val test6_def = Define `
-test6 n z = test5 n z`;
-val def = test6_def;
-val test6_trans_th = m_translate test6_def;
-
-val test7_def = Define `
-(test7 [] = return 0) /\ ((test7 (x::l)) = (do x <- test7 l; return (x+1) od))`;
-val def = test7_def;
-val test7_v_th = m_translate test7_def;
-
-val test8_def = Define `
-test8 l = test7 l`;
-val test8_v_th = m_translate test8_def; *)
-
 val _ = temp_tight_equality ();
 
 val test1_def = Define `test1 x = do y <- get_the_num; return (x + y) od`;
@@ -133,6 +101,20 @@ test3 n m z =
    od`;
 val test3_v_th = m_translate test3_def;
 
+(* Several non recursive functions *)
+val run_test3_def = Define `run_test3 n m z refs = run (test3 n m z) refs`;
+val def = run_test3_def;
+val run_test3_v_th = m_translate_run run_test3_def;
+
+(* Recursive function *)
+val test4_def = Define `
+test4 (x::l) = do y <- test4 l; return (x + y) od /\
+test4 [] = return (0 : num)`;
+val def = test4_def;
+val test4_v_th = m_translate test4_def;
+val run_test4_def = Define `run_test4 l state = run (test4 l) state`;
+val run_test4_v_thm = m_translate_run run_test4_def;
+
 (* Mutual recursion *)
 val _ = Hol_datatype `
 data = C1 of num | C2 of data list`;
@@ -143,16 +125,26 @@ data_length2 (x::xl) = do y1 <- data_length1 x; y2 <- data_length2 xl; return (y
         data_length2 [] = return 0`;
 val def = data_length_def;
 val data_length_v_th = m_translate def;
+val run_data_length1_def = Define `run_data_length d state = run (data_length1 d) state`;
+val run_data_length1_v_thm = m_translate_run run_data_length1_def;
 
-(* Recursion *)
-val test4_def = Define `
-test4 (x::l) = do y <- test4 l; return (x + y) od /\
-test4 [] = return (0 : num)`;
-val test4_v_th = m_translate test4_def;
+(* Other test *)
+val test6_def = Define `
+test6 (x::l) = do y <- test6 l; z <- test1 x; return (x + y + z) od /\
+test6 [] = return (0 : num)`;
+val def = test6_def;
+val test6_v_th = m_translate test6_def;
 
-(* Run *)
-val run_test_def = Define `run_test n m z refs = run (test3 n m z) refs`;
-val def = run_test_def;
-val run_test_v_th = m_translate_run run_test_def;
+val run_test6_def = Define `run_test6 l state = run (test6 l) state`;
+val def = run_test6_def;
+val run_test6_v_th = m_translate_run def;
+
+(* Mix standard and monadic functions *)
+val LENGTH_v_thm = translate LENGTH;
+val test7_def = Define `test7 x l = do y <- test1 x; return (y + (LENGTH l)) od`
+val test7_v_thm = m_translate test7_def;
+val run_test7_def = Define `run_test7 x l state = run (test7 x l) state`;
+val run_test7_v_thm = m_translate_run run_test7_def;
+
 
 val _ = export_theory ();
