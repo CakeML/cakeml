@@ -303,34 +303,30 @@ val comp_correct = Q.prove(
   (* Install *)
     simp[Once comp_def] >>
     fs[evaluate_def] >>
-    ntac 9 (TOP_CASE_TAC \\ fs[]) \\
-    simp[Once rename_state_def] >>
-    ntac 3 (TOP_CASE_TAC>>fs[])>>
+    ntac 8 (TOP_CASE_TAC \\ fs[]) \\
+    pairarg_tac>>fs[]>>
     pairarg_tac>>fs[]>>
     qpat_x_assum`(rename_state c f s).compile_oracle _ = _`mp_tac>>
     simp[Once rename_state_def]>> strip_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
-    rw[]>>fs[]>>
-    qpat_x_assum`_ = (_,t)`mp_tac \\
-    TOP_CASE_TAC \\ fs[]
-    >- fs[compile_def] \\
-    Cases_on`h` \\ fs[] \\
-    fs[compile_def] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    strip_tac \\
-    TOP_CASE_TAC \\ fs[] \\
-    fs[shift_seq_def] \\
-    simp[Once rename_state_def] \\
-    TOP_CASE_TAC \\ fs[prog_comp_eta] \\
-    rw[]>>fs[rename_state_def,state_component_equality]>>
-    CONJ_TAC>-
-      (dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    qpat_x_assum`_ = (r,t)` mp_tac>>
+    TOP_CASE_TAC \\
+    rveq>>fs[compile_def]>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    TOP_CASE_TAC>>simp[prog_comp_eta]>>
+    fs[rename_state_def,shift_seq_def]>>
+    TOP_CASE_TAC>>fs[]>>strip_tac>>
+    fs[state_component_equality]>>
+    CONJ_TAC>-(
+      qpat_x_assum`_=t.regs` sym_sub_tac>>
+      dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
       conj_tac >- metis_tac[BIJ_DEF] \\
       dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE] \\
-      fs[INJ_DEF,BIJ_DEF]) \\
-    CONJ_TAC>-
-      simp[FUN_EQ_THM]>>
+      fs[INJ_DEF,BIJ_DEF])>>
+    CONJ_TAC>-(
+      qpat_x_assum`_ = t.compile_oracle` sym_sub_tac>>
+      simp[FUN_EQ_THM])>>
+    qpat_x_assum`_ = t.code` sym_sub_tac>>
     simp[compile_def,GSYM prog_comp_eta] \\
     dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm] \\
     simp[wf_union,wf_fromAList] \\

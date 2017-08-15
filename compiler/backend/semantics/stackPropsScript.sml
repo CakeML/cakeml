@@ -444,10 +444,9 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
     rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
   TRY(
-    rename1`shift_seq _ s.compile_oracle _`>>
-    every_case_tac >> fs[get_var_def]>>
+    rename1 `buffer_flush _ _ _ = _`>>
     pairarg_tac>>fs[]>>
-    every_case_tac >> fs[])>>
+    every_case_tac >> fs[get_var_def])>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
 
 val clock_neutral_def = Define `
