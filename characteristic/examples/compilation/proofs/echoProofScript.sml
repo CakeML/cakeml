@@ -14,8 +14,8 @@ val (echo_not_fail,echo_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail e
 val compile_correct_applied =
   MATCH_MP compile_correct echo_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP x64_conf_ok
   |> C MATCH_MP echo_not_fail
+  |> C MATCH_MP x64_backend_config_ok
   |> REWRITE_RULE[echo_sem_sing]
 
 val echo_compiled_thm =

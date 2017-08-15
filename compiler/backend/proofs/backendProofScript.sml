@@ -500,6 +500,13 @@ val backend_config_ok_def = Define`
          c.lab_conf.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
          c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
 
+val backend_config_ok_with_bvl_conf_updated = Q.store_thm("backend_config_ok_with_bvl_conf_updated[simp]",
+  `backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc`,
+  rw[backend_config_ok_def]);
+val backend_config_ok_with_word_to_word_conf_updated = Q.store_thm("backend_config_ok_with_word_to_word_conf_updated[simp]",
+  `backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc`,
+  rw[backend_config_ok_def]);
+
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
   mc_init_ok c mc ⇔
@@ -513,6 +520,13 @@ val mc_init_ok_def = Define`
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr_reg ∧
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
    c.lab_conf.asm_conf = mc.target.config`
+
+val mc_init_ok_with_bvl_conf_updated = Q.store_thm("mc_init_ok_with_bvl_conf_updated[simp]",
+  `mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
+  rw[mc_init_ok_def]);
+val mc_init_ok_with_word_to_word_conf_updated = Q.store_thm("mc_init_ok_with_word_to_word_conf_updated[simp]",
+  `mc_init_ok (cc with word_to_word_conf updated_by f) mc ⇔ mc_init_ok cc mc`,
+  rw[mc_init_ok_def]);
 
 val heap_regs_def = Define`
   heap_regs reg_names =
