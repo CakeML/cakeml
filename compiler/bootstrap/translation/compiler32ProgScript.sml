@@ -25,6 +25,13 @@ val max_heap_limit_32_thm = Q.store_thm("max_heap_limit_32_thm",
   `max_heap_limit (:32) = max_heap_limit_32`,
   rw[FUN_EQ_THM] \\ EVAL_TAC);
 
+val def = spec32
+  (backendTheory.attach_bitmaps_def
+   |> Q.GENL[`bitmaps`,`bytes`,`c`]
+   |> Q.ISPECL[`bitmaps:'a word list`,`bytes:word8 list`,`c:'a lab_to_target$config`])
+
+val res = translate def
+
 val def = spec32 backendTheory.compile_def
   |> REWRITE_RULE[max_heap_limit_32_thm]
 
