@@ -15,15 +15,15 @@ val _ = Datatype `
      ; space_left : num |>`
 
 val buffer_flush_def = Define`
-  buffer_flush cb w1 w2 =
-    if cb.position = w1 ∧ cb.position + n2w(LENGTH cb.buffer) = w2 then
-      SOME (cb.buffer,
+  buffer_flush cb (w1:'a word) w2 =
+    if cb.position = w1 ∧ cb.position + (n2w(dimindex(:'b) DIV 8)) * n2w(LENGTH cb.buffer) = w2 then
+      SOME ((cb.buffer:'b word list),
             cb with <| position := w2 ; buffer := [] |>)
     else NONE`;
 
 val buffer_write_def = Define`
-  buffer_write cb w b =
-    if cb.position + n2w(LENGTH cb.buffer) = w ∧ 0 < cb.space_left then
+  buffer_write cb (w:'a word) (b:'b word) =
+    if cb.position + (n2w(dimindex(:'b) DIV 8)) * n2w(LENGTH cb.buffer) = w ∧ 0 < cb.space_left then
       SOME (cb with <| buffer := cb.buffer++[b] ; space_left := cb.space_left-1|>)
     else NONE`;
 

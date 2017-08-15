@@ -480,10 +480,11 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Install ptr len dptr dlen ret,s) =
     case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
     | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
-       (case (buffer_flush s.code_buffer w1 w2,
-              buffer_flush s.data_buffer w3 w4) of
-         SOME (bytes, cb), SOME (data, db) =>
         let (cfg,progs,bm) = s.compile_oracle 0 in
+       (case (buffer_flush s.code_buffer w1 w2,
+              if s.use_stack then buffer_flush s.data_buffer w3 w4
+              else SOME (bm, s.data_buffer)) of
+         SOME (bytes, cb), SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
           | SOME (bytes',cfg'), (k,prog)::_ =>

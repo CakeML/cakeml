@@ -131,6 +131,7 @@ val comp_def = Define `
         Inst (Mem Load r (Addr k w))
       else
         Seq (move r k) (stack_load r n)
+    | DataBufferWrite r1 r2 => Inst (Mem Store r2 (Addr r1 0w)) (* remove data buffer *)
     | StackLoadAny r i => Seq (Seq (move r i) (add_inst r k))
                               (Inst (Mem Load r (Addr r 0w)))
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
