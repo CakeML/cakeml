@@ -200,7 +200,8 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
     (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
-    (pairarg_tac >> simp[])));
+    (pairarg_tac >> simp[]))>>
+  (every_case_tac>>fs[]>>rw[]));
 
 val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
   `∀c s r s1.
@@ -279,11 +280,7 @@ val evaluate_code_bitmaps = Q.store_thm("evaluate_code_bitmaps",
     pairarg_tac \\ fs[] \\
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    rfs[] \\
-    qexists_tac`n+1` \\
-    fs[shift_seq_def] \\
-    simp[GSYM ADD1] \\
-    simp[GENLIST_CONS,o_DEF] )
+    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def])
   (* FFI *)
   >- (
     fs[case_eq_thms] >> rw[] \\
@@ -380,6 +377,15 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ fs[] \\ rfs[]
     \\ fsrw_tac[ARITH_ss][dec_clock_def] ) >>
+  TRY (
+    rename1 `buffer_flush _ _ _` >>
+    qpat_x_assum`_ = (_,_)` mp_tac>>
+    TOP_CASE_TAC>>fs[get_var_def]>-
+      (rw[]>>fs[])>>
+    ntac 11 (TOP_CASE_TAC>>fs[])>>
+    pairarg_tac>>fs[]>>
+    ntac 5 (TOP_CASE_TAC>>fs[])>>
+    rw[]>>fs[])>>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
   TRY BasicProvers.TOP_CASE_TAC \\ fs[get_var_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
@@ -441,14 +447,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     rename1`shift_seq _ s.compile_oracle _`>>
     every_case_tac >> fs[get_var_def]>>
     pairarg_tac>>fs[]>>
-    every_case_tac >> fs[]>>
-    fs[dec_clock_def]>>
-    rfs[]>>
-    simp[]>>
-    qmatch_asmsub_abbrev_tac`evaluate (r'',s'') = _`>>
-    `isPREFIX s.ffi.io_events s''.ffi.io_events ∧ s''.ffi = s.ffi` by
-      (unabbrev_all_tac>>fs[])>>
-    metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR])>>
+    every_case_tac >> fs[])>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
 
 val clock_neutral_def = Define `
@@ -592,7 +591,7 @@ val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
   \\ every_case_tac \\ fs []
   \\ metis_tac []);
 
-(* TODO: NOT UPDATED FOR INSTALL AND CBW *)
+(* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
 val stack_asm_ok_def = Define`
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
@@ -791,9 +790,11 @@ val reg_bound_def = Define `
       | SOME (y,r,_,_) => reg_bound y k /\ r < k
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
-  (reg_bound (InstallAndRun ptr len ret) k ⇔
-    ptr < k ∧ len < k ∧ ret < k) ∧
+  (reg_bound (Install ptr len dptr dlen ret) k ⇔
+    ptr < k ∧ len < k ∧ dptr < k ∧ dlen < k ∧ ret < k) ∧
   (reg_bound (CodeBufferWrite r1 r2) k ⇔
+    r1 < k ∧ r2 < k) ∧
+  (reg_bound (DataBufferWrite r1 r2) k ⇔
     r1 < k ∧ r2 < k) ∧
   (reg_bound (BitmapLoad r v) k <=> r < k /\ v < k) /\
   (reg_bound (Inst i) k <=> reg_bound_inst i k) /\
@@ -806,7 +807,7 @@ val reg_bound_def = Define `
   (reg_bound (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
   (reg_bound _ k <=> T)`
 
-(* Finally, stack_to_lab requires correct arguments for Call/FFI/InstallAndRun calls *)
+(* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
 val call_args_def = Define `
   (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
      call_args p1 ptr len ret /\
@@ -824,7 +825,7 @@ val call_args_def = Define `
       | SOME (y,r,_,_) => call_args y ptr len ret /\ r = ret
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => call_args y ptr len ret | NONE => T)) /\
-  (call_args (InstallAndRun ptr' len' ret') ptr len ret <=>
+  (call_args (Install ptr' len' _ _ ret') ptr len ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ret <=> T)`
 

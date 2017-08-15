@@ -477,7 +477,7 @@ val evaluate_def = tDefine "evaluate" `
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
               | res => res))) /\
-  (evaluate (Install ptr len dptr dlen,s) =
+  (evaluate (Install ptr len dptr dlen ret,s) =
     case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
     | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
        (case (buffer_flush s.code_buffer w1 w2,
@@ -493,16 +493,13 @@ val evaluate_def = tDefine "evaluate" `
                   bitmaps := s.bitmaps ++ bm
                 ; code_buffer := cb
                 ; data_buffer := db
-                ; code := union s.code (fromAList progs) (* This order is convenient because it means all of s.code's entries are preserved *)
+                ; code := union s.code (fromAList progs)
+                (* This order is convenient because it means all of s.code's entries are preserved *)
                 (* TODO: this might need to be a new field, cc_save_regs *)
                 ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)
                 ; compile_oracle := new_oracle
                 |> in
-            if s'.clock = 0 then (SOME TimeOut,empty_env s)
-            else
-              (case evaluate (prog,dec_clock s') of
-              | (NONE,s) => (SOME Error,s)
-              | (SOME res,s) => (SOME res,s))
+              (NONE,s')
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
