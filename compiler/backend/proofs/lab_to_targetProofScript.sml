@@ -4704,8 +4704,8 @@ val compile_correct = Q.prove(
       qpat_assum`!r. word_loc_val _ _ _ = SOME _` (qspec_then`r1` mp_tac)>>
       qpat_x_assum`!r. word_loc_val _ _ _ = SOME _` (qspec_then`r2` mp_tac)>>
       simp[word_loc_val_def])>>
-    qpat_x_assum`code_buffer_write _ _ _ = _ `mp_tac>>
-    simp[code_buffer_write_def]>>
+    qpat_x_assum`buffer_write _ _ _ = _ `mp_tac>>
+    simp[buffer_write_def]>>
     strip_tac>>
     qmatch_asmsub_abbrev_tac`Inst jj`>>
     (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`Inst jj`]MP_TAC
@@ -5148,7 +5148,7 @@ val compile_correct = Q.prove(
     ntac 6 (TOP_CASE_TAC >> fs[])>>
     pairarg_tac \\ fs[] \\
     ntac 5 (TOP_CASE_TAC \\ fs[]) >>
-    strip_tac >> fs[]>>
+    strip_tac >> rfs[]>>
     mp_tac IMP_bytes_in_memory_Install>>
     fs[]>>impl_tac>-
       fs[state_rel_def]>>
@@ -5326,8 +5326,8 @@ val compile_correct = Q.prove(
         \\ simp[Once loc_to_pc_def]
         \\ imp_res_tac pos_val_0
         \\ rw[]
-        \\ qhdtm_x_assum`code_buffer_flush`mp_tac
-        \\ simp[code_buffer_flush_def]
+        \\ qhdtm_x_assum`buffer_flush`mp_tac
+        \\ simp[buffer_flush_def]
         \\ strip_tac
         \\ rfs[])
       \\ conj_tac >- (
@@ -5345,27 +5345,27 @@ val compile_correct = Q.prove(
         \\ first_x_assum drule \\ simp[])
       \\ conj_tac >- (
         strip_tac \\
-        qhdtm_x_assum`code_buffer_flush`mp_tac \\
-        simp[code_buffer_flush_def] \\ ntac 2 strip_tac \\
+        qhdtm_x_assum`buffer_flush`mp_tac \\
+        simp[buffer_flush_def] \\ ntac 2 strip_tac \\
         qpat_x_assum `∀n. n < _ ⇒ _`(qspec_then`n'''` mp_tac)>>
         rw[]>>rfs[] >> fs[GSYM word_add_n2w])
       \\ conj_tac >- (
         simp[prog_to_bytes_APPEND]
         \\ fs[bytes_in_mem_APPEND]
-        \\ qhdtm_x_assum`code_buffer_flush`mp_tac
-        \\ simp[code_buffer_flush_def]
+        \\ qhdtm_x_assum`buffer_flush`mp_tac
+        \\ simp[buffer_flush_def]
         \\ rw[]
         \\ fs[])
       \\ conj_tac >- (
         simp[prog_to_bytes_APPEND]
-        \\ fs[code_buffer_flush_def] \\ rw[]
+        \\ fs[buffer_flush_def] \\ rw[]
         \\ qpat_x_assum`_ = t1.regs s1.len_reg` sym_sub_tac
         \\ simp[GSYM word_add_n2w])
       \\ conj_tac >- (
-        fs[code_buffer_flush_def]>>rw[]>>
+        fs[buffer_flush_def]>>rw[]>>
         simp[bytes_in_mem_def])
       \\ conj_tac >-
-        (fs[code_buffer_flush_def] \\ rw[] >>
+        (fs[buffer_flush_def] \\ rw[] >>
         fs[LENGTH_prog_to_bytes2,prog_to_bytes_APPEND])
       \\ conj_tac>- (
         `EVERY sec_label_zero sec_list` by
