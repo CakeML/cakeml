@@ -28,7 +28,8 @@ val rename_state_const = Q.store_thm("rename_state_const[simp]",
    (rename_state c f s).mdomain = s.mdomain ∧
    (rename_state c f s).code_buffer = s.code_buffer ∧
    (rename_state c f s).clock = s.clock ∧
-   (rename_state c f s).compile = c`,
+   (rename_state c f s).compile = c ∧
+   (rename_state c f s).use_stack = s.use_stack`,
   EVAL_TAC);
 
 val rename_state_with_memory = Q.store_thm("rename_state_with_memory",
@@ -165,7 +166,7 @@ val comp_correct = Q.prove(
   `!p s r t.
      evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
      ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
-     s.compile = (λcfg. c cfg o (stack_names$compile f ## I))
+     s.compile = (λcfg. c cfg o (stack_names$compile f))
      ==>
      evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)`,
   recInduct evaluate_ind \\ rpt strip_tac
@@ -299,19 +300,17 @@ val comp_correct = Q.prove(
     imp_res_tac evaluate_consts >>
     fs[rename_state_def] )
   THEN1 (
-  (* InstallAndRun *)
+  (* Install *)
     simp[Once comp_def] >>
     fs[evaluate_def] >>
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    pairarg_tac \\ fs[] \\
-    qpat_x_assum`(rename_state c f s).compile_oracle _ = _`mp_tac \\
-    simp[Once rename_state_def] \\ strip_tac \\ rveq \\ fs[] \\
+    ntac 9 (TOP_CASE_TAC \\ fs[]) \\
+    simp[Once rename_state_def] >>
+    ntac 3 (TOP_CASE_TAC>>fs[])>>
+    pairarg_tac>>fs[]>>
+    qpat_x_assum`(rename_state c f s).compile_oracle _ = _`mp_tac>>
+    simp[Once rename_state_def]>> strip_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    rw[]>>fs[]>>
     qpat_x_assum`_ = (_,t)`mp_tac \\
     TOP_CASE_TAC \\ fs[]
     >- fs[compile_def] \\
@@ -323,32 +322,22 @@ val comp_correct = Q.prove(
     TOP_CASE_TAC \\ fs[] \\
     fs[shift_seq_def] \\
     simp[Once rename_state_def] \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[]
-    >- (rw[] \\ simp[state_component_equality] \\ EVAL_TAC \\ simp[] ) \\
-    rveq \\ fs[] \\
-    qpat_x_assum`_ = (_,t)`mp_tac \\
-    TOP_CASE_TAC \\ fs[] \\
-    fs[prog_comp_eta] \\ rveq \\ fs[] \\
-    strip_tac \\
-    qmatch_goalsub_abbrev_tac`evaluate x1` \\
-    qmatch_asmsub_abbrev_tac`evaluate x2` \\
-    `x1 = x2` by (
-      simp[Abbr`x1`,Abbr`x2`] \\
-      simp[rename_state_def,dec_clock_def,state_component_equality,FUN_EQ_THM] \\
-      dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
+    TOP_CASE_TAC \\ fs[prog_comp_eta] \\
+    rw[]>>fs[rename_state_def,state_component_equality]>>
+    CONJ_TAC>-
+      (dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
       conj_tac >- metis_tac[BIJ_DEF] \\
       dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE] \\
-      conj_tac >- ( fs[INJ_DEF,BIJ_DEF] ) \\
-      simp[compile_def,GSYM prog_comp_eta] \\
-      dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm] \\
-      simp[wf_union,wf_fromAList] \\
-      simp[lookup_union,lookup_fromAList,ALOOKUP_MAP,prog_comp_eta,ALOOKUP_toAList] \\
-      gen_tac \\
-      TOP_CASE_TAC \\ fs[] \\
-      TOP_CASE_TAC \\ fs[] ) \\
-    fs[] \\
-    TOP_CASE_TAC \\ fs[])
+      fs[INJ_DEF,BIJ_DEF]) \\
+    CONJ_TAC>-
+      simp[FUN_EQ_THM]>>
+    simp[compile_def,GSYM prog_comp_eta] \\
+    dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm] \\
+    simp[wf_union,wf_fromAList] \\
+    simp[lookup_union,lookup_fromAList,ALOOKUP_MAP,prog_comp_eta,ALOOKUP_toAList] \\
+    gen_tac \\
+    TOP_CASE_TAC \\ fs[] \\
+    TOP_CASE_TAC \\ fs[] )
   THEN1 (
   (* CodeBufferWrite *)
     simp[Once comp_def] \\
@@ -359,6 +348,10 @@ val comp_correct = Q.prove(
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\ rw[] \\
     EVAL_TAC)
+  THEN1 (
+  (* DataBufferWrite is not needed anymore *)
+    simp[Once comp_def] \\
+    fs[evaluate_def])
   (* FFI *)
   THEN1 (
     simp[Once comp_def] >>
@@ -387,7 +380,7 @@ val comp_correct = Q.prove(
 val compile_semantics = Q.store_thm("compile_semantics",
   `BIJ (find_name f) UNIV UNIV /\
     ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
-    s.compile = (λcfg. c cfg o (compile f ## I)) ==>
+    s.compile = (λcfg. c cfg o (compile f)) ==>
     semantics start (rename_state c f s) = semantics start s`,
   simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
@@ -405,7 +398,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
 val compile_semantics_alt = Q.prove(
   `!s t.
       BIJ (find_name f) UNIV UNIV /\ (rename_state t.compile f s = t) /\
-      s.compile = (λc. t.compile c o (compile f ## I)) /\
+      s.compile = (λc. t.compile c o (compile f)) /\
       ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
       semantics start t = semantics start s`,
   metis_tac [compile_semantics]);
@@ -415,7 +408,7 @@ val make_init_def = Define `
     s with
      <| code := code;
         regs := MAP_KEYS (LINV (find_name f) UNIV) s.regs;
-        compile := (λcfg. s.compile cfg o (compile f ## I));
+        compile := (λcfg. s.compile cfg o (compile f));
         compile_oracle := oracle;
         ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
 

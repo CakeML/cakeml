@@ -64,7 +64,6 @@ local val comp_quotation = `
     | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
       (find_name f r3) (find_name f r4) (find_name f r5)
     | CodeBufferWrite r1 r2 => CodeBufferWrite (find_name f r1) (find_name f r2)
-    | DataBufferWrite r1 r2 => DataBufferWrite (find_name f r1) (find_name f r2)
     | JumpLower r1 r2 dest => JumpLower (find_name f r1) (find_name f r2) dest
     | p => p`
 in
