@@ -5003,7 +5003,7 @@ val comp_correct = Q.store_thm("comp_correct",
      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
      s.regs SUBMAP regs /\
-     s.compile = (λc. compile_rest c o (MAP prog_comp ## I))
+     s.compile = (λc. compile_rest c o (MAP prog_comp))
      ==>
      ?ck regs1.
        evaluate (FST (comp n m p),
@@ -5481,7 +5481,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
     \\ simp[state_component_equality])
-  (* InstallAndRun *)
+  (* Install *)
   \\ conj_tac >- (
     rw[] \\
     simp[Once comp_def] \\
@@ -5504,43 +5504,11 @@ val comp_correct = Q.store_thm("comp_correct",
     simp[Once shift_seq_def] \\
     simp[Once shift_seq_def] \\
     rfs[] \\
-    Cases_on`s.clock = 0` \\ fs[] >- (
-      qexists_tac`0` \\ simp[empty_env_def,state_component_equality] \\
-      rveq \\ simp[empty_env_def] ) \\
-    qpat_x_assum`_ = (r,t)`mp_tac \\
-    TOP_CASE_TAC \\ fs[] \\
-    TOP_CASE_TAC \\ fs[] \\
-    strip_tac \\ rveq \\ fs[] \\ rfs[] \\
-    fs[prog_comp_def] \\ rveq \\
-    qmatch_goalsub_abbrev_tac`FST (comp m n p)` \\
-    first_x_assum(qspecl_then[`n`,`m`,`c`,`DRESTRICT regs s.ffi_save_regs |+ (ptr,Loc m 0)`]mp_tac) \\
-    impl_tac >- (
-      simp[shift_seq_def] \\
-      simp[lookup_union] \\
-      simp[dec_clock_def] \\
-      first_assum(qspecl_then[`0`,`m`,`p`]mp_tac) \\
-      impl_tac >- fs[] \\ simp[] \\ strip_tac \\
-      conj_tac >- (
-        rpt gen_tac \\
-        reverse CASE_TAC >- metis_tac[] \\
-        simp[lookup_fromAList] \\
-        IF_CASES_TAC \\ fs[] >- (rw[] \\ rw[]) \\
-        strip_tac \\
-        imp_res_tac ALOOKUP_MEM \\
-        first_x_assum(qspec_then`0`mp_tac) \\
-        simp[] \\ metis_tac[] ) \\
-      conj_tac >- metis_tac[] \\
-      conj_tac >- cheat (* same as previous cheat *) \\
-      match_mp_tac SUBMAP_mono_FUPDATE \\
-      simp[GSYM SUBMAP_DOMSUB_gen] \\
-      metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT,SUBSET_REFL] ) \\
-    strip_tac \\ fs[dec_clock_def] \\
-    fs[shift_seq_def,o_DEF] \\
-    qexists_tac`ck` \\ fs[] \\
-    qmatch_goalsub_abbrev_tac`(FST (comp m n p), s1)` \\
-    qmatch_asmsub_abbrev_tac`(FST (comp m n p), s2)` \\
-    `s1 = s2` by (
-      simp[Abbr`s2`,Abbr`s1`,state_component_equality] \\
+    fs[state_component_equality] \\
+    CONJ_TAC>-
+      fs[shift_seq_def,FUN_EQ_THM]>>
+    CONJ_TAC>-(
+      qpat_x_assum`_=t.code` sym_sub_tac>>
       DEP_REWRITE_TAC[spt_eq_thm] \\
       simp[wf_union,wf_fromAList,lookup_union,lookup_fromAList] \\
       simp[compile_def,ALOOKUP_APPEND] \\
@@ -5549,9 +5517,20 @@ val comp_correct = Q.store_thm("comp_correct",
       simp[ALOOKUP_MAP_gen] \\
       simp[ALOOKUP_toAList,lookup_union] \\
       match_mp_tac EQ_SYM \\ CASE_TAC \\ fs[] \\
-      simp[lookup_fromAList] \\ rw[] ) \\
-    fs[] \\ fs[state_component_equality] )
+      simp[lookup_fromAList] >>
+      fs[prog_comp_lemma]>>rw[])>>
+    qpat_x_assum`_=t.regs` sym_sub_tac>>
+    fs[prog_comp_lemma]>>
+    match_mp_tac SUBMAP_mono_FUPDATE \\
+    simp[GSYM SUBMAP_DOMSUB_gen] \\
+    metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT,SUBSET_REFL] )
   (* CodeBufferWrite *)
+  \\ conj_tac >- (
+    rw[Once comp_def,evaluate_def,get_var_def] \\
+    fs[case_eq_thms] \\ rw[] \\
+    imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\
+    simp[state_component_equality] )
+  (* DataBufferWrite *)
   \\ conj_tac >- (
     rw[Once comp_def,evaluate_def,get_var_def] \\
     fs[case_eq_thms] \\ rw[] \\
@@ -5599,7 +5578,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
    (s:('a,'c,'b)stackSem$state).gc_fun = (word_gc_fun c:α gc_fun_type) /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
-   s.compile = (λc. compile_rest c o (MAP prog_comp ## I)) /\
+   s.compile = (λc. compile_rest c o (MAP prog_comp)) /\
    semantics start s <> Fail
    ==>
    semantics start (s with <|
@@ -5794,7 +5773,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
 val make_init_def = Define `
   make_init c code oracle s =
     s with <| code := code; use_alloc := T; gc_fun := word_gc_fun c
-            ; compile := λc. s.compile c o (MAP prog_comp ## I)
+            ; compile := λc. s.compile c o (MAP prog_comp)
             ; compile_oracle := oracle |>`;
 
 val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
