@@ -63,15 +63,14 @@ val add_ast_compset = computeLib.extend_compset
     ,typeSystemTheory.check_exn_tenv_def
     ,typeSystemTheory.tid_exn_to_tc_def
     ,typeSystemTheory.build_ctor_tenv_def
-    ,terminationTheory.check_dup_ctors_thm
+    (*,terminationTheory.check_dup_ctors_thm *)
+    ,semanticPrimitivesTheory.build_constrs_def
     ,semanticPrimitivesTheory.build_tdefs_def
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.match_result_case_def
     ,semanticPrimitivesTheory.combine_dec_result_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
-    ,semanticPrimitivesTheory.no_dup_mods_def
-    ,semanticPrimitivesTheory.no_dup_top_types_def
     ,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def
