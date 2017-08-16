@@ -211,7 +211,13 @@ val compile_def = tDefine"compile" `
     Letrec tra NONE NONE (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global tra n) =
     Let (tra§0) (REPLICATE n (Op (tra§1) AllocGlobal []))
-      (Op (tra§2) (Cons tuple_tag) []))`
+      (Op (tra§2) (Cons tuple_tag) [])) /\
+  (compile (App tra (Op (Op (FP_cmp cmp))) es) =
+    (Op tra (FP_cmp cmp) (REVERSE (MAP compile es)))) /\
+  (compile (App tra (Op (Op (FP_uop u))) es) =
+    (Op tra (FP_uop u) (REVERSE (MAP compile es)))) /\
+  (compile (App tra (Op (Op (FP_bop b))) es) =
+    (Op tra (FP_bop b) (REVERSE (MAP compile es))))`
   let
     val exp_size_def = patLangTheory.exp_size_def
   in
