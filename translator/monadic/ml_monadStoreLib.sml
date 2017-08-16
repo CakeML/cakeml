@@ -136,7 +136,7 @@ fun rewrite_pure_invariant refs_manip_list store_pinv_def = let
     val _ = if not is_partition then raise (ERR "rewrite_pure_invariant_aux" "Incorrect pure store invariant") else ()
 
     (* Rewrite the pure invariant *)
-    val preds = List.map list_mk_conj split_conjs
+    val preds = List.map (fn x => list_mk mk_conj x ``T``) split_conjs
     val preds_info = zip get_pats preds
     fun make_abstract (pat, pred) = let
 	val x = mk_var("x", type_of pat)
@@ -749,6 +749,9 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	val (PINV, H_part, H_eq) =
 	    case store_pinv_def_opt of
 		SOME store_pinv_def => let
+		 val ty = dest_type(type_of get_var) |> snd |> List.last
+		 val x = mk_var("x", ty)
+
 		 val pinv_rw = mk_comb(concl store_pinv_def |> lhs, state_var)
 				      |> (PURE_REWRITE_CONV[store_pinv_def]
 							   THENC (DEPTH_CONV BETA_CONV))
@@ -758,13 +761,18 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 				       THENC (PICK_PINV_CONV field_pat)
 				       THENC (PURE_REWRITE_CONV[GSYM STAR_ASSOC])
 		 val H_eq2 = concl H_eq |> rhs |> ((ABS_CONV o RAND_CONV) compos_conv)
-		 val (PINV, H_part) = (dest_abs H_part |> snd) |> compos_conv
+		 
+
+		 val (PINV, H_part, H_eq) = let
+		     val (PINV, H_part2) = (dest_abs H_part |> snd) |> compos_conv
 							       |> concl |> rhs |> dest_star
-		 val ty = dest_type(type_of get_var) |> snd |> List.last
-		 val x = mk_var("x", ty)
-		 val PINV = mk_abs(x, Term.subst[field_pat |-> x] (rand PINV))
-		 val H_part = mk_abs(state_var, H_part)
-		 val H_eq = TRANS H_eq H_eq2
+		 in if (patternMatchesSyntax.has_subterm (fn x => x = field_pat) PINV)
+		    then let
+			val PINV = mk_abs(x, Term.subst[field_pat |-> x] (rand PINV))
+			val H_part = mk_abs(state_var, H_part2)
+			val H_eq = TRANS H_eq H_eq2
+		    in (PINV, H_part, H_eq) end
+		    else (mk_abs(x, ``T``), H_part, H_eq) end
 	     in (PINV, H_part, H_eq) end
 	      | NONE => let
 		  val ty = dest_type(type_of get_var) |> snd |> List.last
@@ -795,7 +803,10 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	val write_spec = ISPECL[name_v, loc, TYPE, PINV, EXN_TYPE, H_part, get_var, set_var] EvalM_write_heap
 	val write_spec = rewrite_thm write_spec
 	val update_conditions = concl write_spec |> strip_forall |> snd |> strip_imp |> fst
-	val update_conditions = List.take(update_conditions, 2) |> List.map (SIMP_CONV (srw_ss()) [])
+	val rw_thms = case store_pinv_def_opt of
+			      SOME store_pinv_def => [store_pinv_def] 
+			    | NONE => []
+	val update_conditions = List.take(update_conditions, 2) |> List.map (SIMP_CONV (srw_ss()) rw_thms)
 	val write_spec = SIMP_RULE bool_ss update_conditions write_spec
 
 	val thm_name = "set_" ^name ^"_thm"

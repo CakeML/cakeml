@@ -8,7 +8,7 @@ open terminationTheory
 open ml_monadStoreLib cfTacticsLib
 open Net List
 open ml_translatorLib
- 
+
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
@@ -428,7 +428,7 @@ fun derive_case_of ty = let
 (* val (mem_derive_case_of, mem_derive_case_ref) = type_mem derive_case_of; *)
 
 fun get_general_type ty =
-  if can dest_type ty then let
+  if can dest_type ty andalso not (List.null (snd (dest_type ty))) then let
       val (ty_cons, ty_args) = dest_type ty
       fun generate_varnames c i n =
 	if n = 0 then [] else
@@ -671,7 +671,7 @@ fun prove_EvalMPatBind goal m2deep = let
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
   val vs = List.filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
-  val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
+  val new_goal = goal |> subst [``e:ast$exp``|->exp,p2 |-> p]
   val new_goal = List.foldr mk_imp new_goal vs
   (*
     set_goal([],new_goal)
@@ -717,9 +717,24 @@ fun pmatch_m2deep tm m2deep = let
   fun prove_hyp conv th =
     MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
   val assm = nil_lemma |> concl |> dest_imp |> fst
+
+(*
+DEBUG:
+
+val i = ref 35
+val xs_ref = ref xs
+val th_ref = ref th
+*)
+
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     val th = trans xs
+    (* DEBUG
+    val _ = print ((Int.toString (!i)) ^ "\n")
+    val _ = (i := !i - 1)
+    val _ = th_ref := th
+    val _ = xs_ref := xs
+    DEBUG *)
     val p = pat |> dest_pabs |> snd |> hol2deep
                 |> concl |> rator |> rand |> to_pattern
     val lemma = cons_lemma |> Q.GEN `p` |> ISPEC p
@@ -747,6 +762,15 @@ fun pmatch_m2deep tm m2deep = let
   val th = UNDISCH_ALL th
   in th end handle HOL_ERR e =>
   failwith ("pmatch_m2deep failed (" ^ #message e ^ ")");
+
+(*
+DEBUG:
+
+val i = 15;
+val xs = drop(ts, i)
+val (pat,rhs_tm) = List.hd (List.drop(ts, i-1))
+val th = !th_ref
+*)
 
 (* ---- *)
 
@@ -781,46 +805,6 @@ fun apply_EvalM_Fun v th fix = let
   val th2 = if fix then MATCH_MP (ISPEC_EvalM EvalM_Fun_Eq) (GEN ``v:v`` th1)
                    else MATCH_MP (ISPEC_EvalM EvalM_Fun) (GEN ``v:v`` (FORCE_GEN v th1))
   in th2 end;
-
-(* fun apply_EvalM_Recclosure fname v th = let
-  val vname = fst (dest_var v)
-  val vname_str = stringLib.fromMLstring vname
-  val fname_str = stringLib.fromMLstring fname
-  val body = th |> UNDISCH_ALL |> concl |> rator |> rator |> rand (* |> concl |> rator |> rand *)
-  val inv = smart_get_type_inv (type_of v)
-  val new_env = ``write ^vname_str v (write_rec
-                    [(^fname_str,^vname_str,^body)] env env)``
-  val old_env = env_tm
-  val tys = Type.match_type (type_of v) (type_of inv |> dest_type |> snd |> List.hd)
-  val v = Term.inst tys v
-  val assum = subst [old_env|->new_env]
-              ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
-  val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-               |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
-               |> INST [old_env|->new_env]
-               |> SIMP_RULE bool_ss [Eval_Var_SIMP]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
-               |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
-               |> REWRITE_RULE [lookup_cons_write,lookup_var_write,write_rec_one]
-               |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-               |> REWRITE_RULE [GSYM write_rec_one]
-               |> SIMP_RULE bool_ss [SafeVar_def]
-  val new_assum = fst (dest_imp (concl thx))
-  val th1 = thx |> UNDISCH_ALL
-                |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (UNBETA_CONV v)) (* RATOR_CONV *)
-                |> DISCH new_assum
-  val th2 = MATCH_MP (ISPEC_EvalM EvalM_Recclosure) (Q.INST [`env`|->`cl_env`] (GEN ``v:v`` th1))
-  val assum = ASSUME (fst (dest_imp (concl th2)))
-  val th3 = D th2 |> REWRITE_RULE [assum]
-  val lemma = MATCH_MP Eval_Eq_Recclosure assum
-  val lemma_lhs = lemma |> concl |> dest_eq |> fst
-  fun replace_conv tm = let
-    val (i,t) = match_term lemma_lhs tm
-    in INST i (INST_TYPE t lemma) end handle HOL_ERR _ => NO_CONV tm
-  val th4 = CONV_RULE (QCONV (DEPTH_CONV replace_conv)) th3
-  in th4 end; *)
-
-(* fun mk_EvalM(env, exp, P) = ``ml_monad_translator$EvalM ^env ^exp ^P ^(!H)``; *)
 
 fun apply_EvalM_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
@@ -995,7 +979,8 @@ fun m2deep tm =
 	 val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_bind_CONTAINER) th1
 
 	 val b2_origin = concl th2 |> strip_forall |> snd |> dest_imp |> fst
-	 val [x, v] = strip_comb vs |> snd
+	 val v = rand vs
+	 val x = rator vs |> rand
 	 val b2 = mk_comb(mk_comb(mk_abs(x, mk_abs(v, b2_origin)), x), v)
 	 val b2_eq = mk_eq(b2, b2_origin) |> ((DEPTH_CONV BETA_CONV) THENC (SIMP_CONV bool_ss []))
 			  |> EQT_ELIM

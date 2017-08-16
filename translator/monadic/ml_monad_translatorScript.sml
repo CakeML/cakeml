@@ -671,7 +671,7 @@ val EvalM_return = Q.store_thm("EvalM_return",
 
 (* bind *)
 
-val EvalM_bind = Q.store_thm("EvalM_bind",
+(* val EvalM_bind = Q.store_thm("EvalM_bind",
   `!H c. EvalM env e1 (MONAD b c (x:('refs, 'b, 'c) M)) H /\
     (!x v. b x v ==> EvalM (write name v env) e2 (MONAD a c ((f x):('refs, 'a, 'c) M)) H) ==>
     EvalM env (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H`,
@@ -694,9 +694,9 @@ val EvalM_bind = Q.store_thm("EvalM_bind",
   rw[Once evaluate_cases] \\
   srw_tac[DNF_ss][] \\ disj2_tac \\
   asm_exists_tac \\ rw[] \\
-  rw[st_ex_bind_def]);
+  rw[st_ex_bind_def]); *)
 
-val EvalM_bind_CONTAINER = Q.store_thm("EvalM_bind_CONTAINER",
+(* val EvalM_bind_CONTAINER = Q.store_thm("EvalM_bind_CONTAINER",
   `!H c. EvalM env e1 (MONAD b1 c (x:('refs, 'b, 'c) M)) H ==>
     !b2. (!x v. b2 x v ==> EvalM (write name v env) e2 (MONAD a c ((f x):('refs, 'a, 'c) M)) H) ==>
     (!x v. CONTAINER(b1 x v) ==> b2 x v) ==>
@@ -721,7 +721,36 @@ val EvalM_bind_CONTAINER = Q.store_thm("EvalM_bind_CONTAINER",
   rw[Once evaluate_cases] \\
   srw_tac[DNF_ss][] \\ disj2_tac \\
   asm_exists_tac \\ rw[] \\
-  rw[st_ex_bind_def]);
+  rw[st_ex_bind_def]); *)
+
+(* val EvalM_bind = Q.store_thm("EvalM_bind",
+  `!H. (a1 ==> EvalM env e1 (MONAD b1 c (x:('refs, 'b, 'c) M)) (\state. H state * &PINV state)) ==>
+    (!z. a2 z ==> EvalM (write name v env) e2 (MONAD a c ((f z):('refs, 'a, 'c) M))
+	 (\state. H state * &PINV state)) ==>
+    (a1 /\ (!st z. a1 /\ PINV st /\ Success z = FST(x st) ==> a2 z)) ==>
+    EvalM env (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) (\state. H state * &PINV state)`,
+  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\
+  fs[] \\
+  first_x_assum drule \\
+  disch_then(qspec_then`junk`strip_assume_tac) \\
+  Cases_on`x refs` \\ Cases_on`q` \\ Cases_on`res` \\ fs[]
+  >- (
+    qpat_x_assum `!x v. b1 x v ==> P` IMP_RES_TAC \\
+    rw[Once evaluate_cases] \\
+    srw_tac[DNF_ss][] \\ disj1_tac \\
+    asm_exists_tac \\ rw[] \\
+    IMP_RES_TAC REFS_PRED_FRAME_imp \\
+    first_x_assum drule \\ disch_then drule \\
+    disch_then(qspec_then`[]`strip_assume_tac) \\
+    fs[GSYM write_def,namespaceTheory.nsOptBind_def,st_ex_bind_def,with_same_refs] \\
+    asm_exists_tac \\ fs[] \\ 
+    instantiate \\
+    IMP_RES_TAC REFS_PRED_FRAME_trans)
+  \\ Cases_on`e` \\ fs[] \\
+  rw[Once evaluate_cases] \\
+  srw_tac[DNF_ss][] \\ disj2_tac \\
+  asm_exists_tac \\ rw[] \\
+  rw[st_ex_bind_def]); *)
 
 val Eval_COMBINE_INV_IMP = Q.store_thm("Eval_COMBINE_INV_IMP",
 `Eval env exp (COMBINE_INV A B x) ==> Eval env exp (A x)`,
