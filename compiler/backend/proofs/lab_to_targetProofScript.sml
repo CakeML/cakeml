@@ -19,17 +19,6 @@ val evaluate_ignore_clocks = Q.prove(
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM])
 
-(* invariant: labels have correct section number and are non-zero *)
-
-val sec_label_ok_def = Define`
-  (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
-  (sec_label_ok _ _ = T)`;
-val _ = export_rewrites["sec_label_ok_def"];
-
-val sec_labels_ok_def = Define`
-  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
-val _ = export_rewrites["sec_labels_ok_def"];
-
 val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
   `EVERY (sec_label_ok n1) lines ∧
    MEM (n1',n2) (extract_labels lines) ⇒
