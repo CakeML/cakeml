@@ -53,7 +53,7 @@ fun prove_Hpred_Mem_Only H_def = let
 in (th, unit_th) end
 
 val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``;
-fun mk_app_of_ArrowP_goal ffi spec = let
+fun mk_app_of_ArrowP ffi spec = let
     val spec = PURE_REWRITE_RULE[ArrowM_def] spec
     val arrow_RI = concl spec |> rator |> rator
     val f_const = concl spec |> rator |> rand

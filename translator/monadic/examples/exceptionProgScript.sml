@@ -78,6 +78,9 @@ val exn_ri_def = STATE_EXN_TYPE_def;
 (* No additional type theories *)
 val type_theories = [] : string list;
 
+(* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
+val store_pinv_opt = NONE : (thm * thm) option;
+
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
@@ -86,7 +89,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      state_type
 					      exn_ri_def
 					      exn_functions
-					      type_theories;
+					      type_theories
+                                              store_pinv_opt;;
 
 (* Translate *)
 val assert_v_thm = assert_def |> m_translate;

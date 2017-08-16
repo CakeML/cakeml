@@ -84,7 +84,7 @@ val init_adj_mat_def = Define`
 
 val arrays_init_list = [mk_arr_init adj_mat_manip init_adj_mat_def]
 
-val (init_trans, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def
+val (init_trans, store_translation) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type STATE_EXN_TYPE_def NONE
 
 (* Initialize the translation *)
 val store_exists_thm = SOME(#store_pred_exists_thm store_translation);

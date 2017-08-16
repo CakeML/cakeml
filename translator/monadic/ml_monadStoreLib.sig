@@ -19,10 +19,11 @@ sig
 
   val translate_dynamic_init_fixed_store  : (string * thm * thm) list ->
        (string * thm * thm * thm * thm * thm * thm) list ->
-       string -> hol_type -> thm -> monadic_translation_parameters
+       string -> hol_type -> thm -> thm option -> monadic_translation_parameters
 
    val translate_static_init_fixed_store :
        (string * thm * thm * thm) list ->
        (string * thm * thm * thm * thm * thm * thm * thm) list ->
-       string -> hol_type -> thm -> monadic_translation_parameters * store_translation_result
+       string -> hol_type -> thm -> (thm * thm) option ->
+       monadic_translation_parameters * store_translation_result
 end

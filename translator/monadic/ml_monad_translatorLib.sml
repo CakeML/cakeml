@@ -6,7 +6,7 @@ open astTheory libTheory semanticPrimitivesTheory bigStepTheory
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorTheory ml_translatorTheory
 open terminationTheory
 open ml_monadStoreLib cfTacticsLib
-open Net
+open Net List
 open ml_translatorLib
  
 val RW = REWRITE_RULE;
@@ -332,7 +332,7 @@ fun derive_case_of ty = let
     if let val r = dest_thy_type ty in #Tyop r = "cpn" andalso #Thy r = "toto" end then "order"
     else full_name_of_type ty
   fun get_name ty = clean_uppercase (smart_full_name_of_type ty) ^ "_TYPE"
-  val name = get_name ty
+  val name = if ty <> ``:unit`` then get_name ty else "UNIT_TYPE"
   val inv_def = tryfind (fn thy_name => fetch thy_name (name ^ "_def"))
                         (!type_theories)
   val case_th = get_nchotomy_of ty
@@ -527,8 +527,8 @@ fun init_translation (translation_parameters : monadic_translation_parameters) s
   in () end;
 
 (* user-initialisation functions *)
-fun start_static_init_fixed_store_translation refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories = let
-    val (monad_translation_params, store_trans_result) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def
+fun start_static_init_fixed_store_translation refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories store_pinv_opt = let
+    val (monad_translation_params, store_trans_result) = translate_static_init_fixed_store refs_init_list arrays_init_list store_hprop_name state_type exn_ri_def store_pinv_opt
     val store_pred_exists_thm = SOME(#store_pred_exists_thm store_trans_result)
     val _ = init_translation monad_translation_params store_pred_exists_thm exn_ri_def add_type_theories
     val exn_specs = if List.length exn_functions > 0 then
@@ -536,8 +536,8 @@ fun start_static_init_fixed_store_translation refs_init_list arrays_init_list st
 		    else []
 in (monad_translation_params, store_trans_result, exn_specs) end
 
-fun start_dynamic_init_fixed_store_translation refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories = let
-    val monad_translation_params = translate_dynamic_init_fixed_store refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def
+fun start_dynamic_init_fixed_store_translation refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def exn_functions add_type_theories store_pinv_def_opt = let
+    val monad_translation_params = translate_dynamic_init_fixed_store refs_manip_list arrays_manip_list store_hprop_name state_type exn_ri_def store_pinv_def_opt
     val store_pred_exists_thm = NONE
     val _ = init_translation monad_translation_params store_pred_exists_thm exn_ri_def add_type_theories
     val exn_specs = if List.length exn_functions > 0 then
@@ -591,6 +591,7 @@ val tm = dest_conj hyps |> snd
 sat_hyps tm
 is_conj tm
 
+val tm = y;
 val tm = z;
 *)
 
@@ -611,6 +612,9 @@ fun inst_case_thm tm m2deep = let
     val lemma = if can dest_monad_type (type_of z)
                 then m2deep z
                 else hol2deep z
+    (* Provisional: we loose information about the returned value *)
+    val lemma = MATCH_MP EvalM_MONAD_COMBINE_INV_IMP lemma handle HOL_ERR _ => lemma
+    (* --- *)
     val lemma = D lemma
     val new_env = get_Eval_env y
     val env = env_tm
@@ -890,7 +894,26 @@ fun check_inv name tm result = let
     val _ = (show_types_verbosely := false)
     in failwith("checkinv") end end
 (* end of adaptation *)
-				   
+
+(* COPY/PASTE from ml_translatorLib *)
+fun rm_fix res = let
+  val lemma = mk_thm([],get_term "eq remove")
+  val tm2 = QCONV (REWRITE_CONV [lemma]) res |> concl |> dest_eq |> snd
+  in tm2 end
+
+fun MY_MATCH_MP th1 th2 = let
+  val tm1 = fst (dest_imp (concl th1))
+  val tm2 = concl th2
+  val (s,i) = match_term tm1 tm2
+  in MP (INST s (INST_TYPE i th1)) th2 end;
+(* End of COPY/PASTE from ml_translatorLib *)
+
+fun force_remove_fix thx = let
+  val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
+  val xs = List.map rand (find_terms (can (match_term pat)) (concl thx))
+  val s = SIMP_RULE std_ss [EvalM_FUN_FORALL_EQ,M_FUN_QUANT_SIMP]
+  val thx = List.foldr (fn (x,th) => s (FORCE_GEN x th)) thx xs
+  in thx end;
 
 (* ---- *) 
 fun var_hol2deep tm =
@@ -910,6 +933,10 @@ fun print_tm_msg msg tm =
   print (msg  ^(term_to_string tm) ^ "\n\n");
 
 (* exception BREAKPOINT of term; *)
+
+fun is_EvalM_COMBINE_INV tm =
+  (can (match_term (concl EvalM_def |> strip_forall |> snd |> lhs)) tm)
+  andalso (can (match_term ``COMBINE_INV A B``) (rator tm |> rand |> rator |> rator |> rand));
 
 fun m2deep tm =
   (* variable *)
@@ -955,17 +982,33 @@ fun m2deep tm =
     in check_inv "return" tm result end
   (* bind *)
   else if can (match_term ``(st_ex_bind (x:^(!bM)) f): ^(!aM)``) tm then let
-    (* val _ = print_tm_msg "monad_bind\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "monad_bind\n" tm DEBUG *)
     val x1 = tm |> rator |> rand
     val (v,x2) = tm |> rand |> dest_abs
     val th1 = m2deep x1
     val th2 = m2deep x2
     val th2 = inst_EvalM_env v th2
     val vs = th2 |> concl |> dest_imp |> fst
-    val th2 = th2 |> GEN (rand vs) |> FORCE_GEN (rand (rator vs))
-    val th1 = UNDISCH_ALL th1
-    val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_bind) (CONJ th1 th2)
-    in check_inv "bind" tm result end else
+  (* If COMBINE_INV is used *)
+  in if is_EvalM_COMBINE_INV (concl th1) then let
+	 val th2 = th2 |> Dfilt |> GEN (rand vs) |> FORCE_GEN (rand (rator vs))
+	 val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_bind_CONTAINER) th1
+
+	 val b2_origin = concl th2 |> strip_forall |> snd |> dest_imp |> fst
+	 val [x, v] = strip_comb vs |> snd
+	 val b2 = mk_comb(mk_comb(mk_abs(x, mk_abs(v, b2_origin)), x), v)
+	 val b2_eq = mk_eq(b2, b2_origin) |> ((DEPTH_CONV BETA_CONV) THENC (SIMP_CONV bool_ss []))
+			  |> EQT_ELIM
+	 val result = ISPEC (rator (rator b2)) result |> PURE_ONCE_REWRITE_RULE[b2_eq]
+	 val result = MATCH_MP result th2
+	      |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV bool_ss [COMBINE_INV_def]))
+	      |> UNDISCH
+  in result end
+     else let
+	 val th2 = th2 |> GEN (rand vs) |> FORCE_GEN (rand (rator vs))
+	 val th1 = UNDISCH_ALL th1
+	 val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_bind) (CONJ th1 th2)
+     in check_inv "bind" tm result end end else
   (* otherwise *)
   if can (match_term ``(x: ^(!aM)) otherwise (y: ^(!aM))``) tm then let
     (* val _ = print_tm_msg "otherwise\n" tm DEBUG *) 
@@ -1031,15 +1074,29 @@ fun m2deep tm =
   (* previously translated term *) 
   if can lookup_v_thm tm then let
     (* val _ = print_tm_msg "previously translated\n" tm DEBUG *) 
-    val th = lookup_v_thm tm
+    (* val th = lookup_v_thm tm
     val inv = smart_get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val (ss,ii) = match_term (th |> concl |> rand) target
     val result = INST ss (INST_TYPE ii th)
                  |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
-                 |> REWRITE_RULE [GSYM ArrowM_def]
+                 |> REWRITE_RULE [GSYM ArrowM_def] *)
+
+    val th = lookup_v_thm tm
+    val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
+    val xs = find_terms (can (match_term pat)) (concl th) |> List.map rand
+    val ss = List.map (fn v => v |-> genvar(type_of v)) xs
+    val th = INST ss th
+    val res = th |> UNDISCH_ALL |> concl |> rand
+    val inv = smart_get_type_inv (type_of tm)
+    val target = mk_comb(inv,tm)
+    val (ss,ii) = match_term res target handle HOL_ERR _ =>
+                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
+    val result = INST ss (INST_TYPE ii th)
+		      |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
+                      |> REWRITE_RULE [GSYM ArrowM_def]
     in check_inv "lookup_v_thm" tm result end else
-  (* if *)
+  (* if statements *)
   if can (match_term ``if b then x: ^(!aM) else y: ^(!aM)``) tm then let
     (* val _ = print_tm_msg "if\n" tm DEBUG *) 
     val (t,x1,x2) = dest_cond tm
@@ -1128,12 +1185,21 @@ fun m2deep tm =
   (* normal function applications *)
   if is_comb tm then let
     (* val _ = print_tm_msg "normal function application\n" tm DEBUG *) 
-    val (f,x) = dest_comb tm
+    (* val (f,x) = dest_comb tm
     val thf = m2deep f
     val result = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
                             |> MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf)
                  handle e =>
-                 m2deep x |> MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf)
+                 m2deep x |> MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) *)
+
+
+    val (f,x) = dest_comb tm
+    val thf = m2deep f
+    val thx = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
+	      handle e => m2deep x
+    val thx = force_remove_fix thx
+    val result = MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) thx handle HOL_ERR _ =>
+                 MY_MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) (MATCH_MP (ISPEC_EvalM EvalM_Eq) thx)
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
@@ -1358,6 +1424,11 @@ fun register_pure_type ty =
     if (!refs_type) = ty orelse can (match_type ``:('a, 'b) ml_monadBase$exc``) ty then ()
     else register_type ty;
 
+(* Preprocess the monadic defs *)
+fun preprocess_monadic_def def = let
+    val (is_rec,defs,ind) = preprocess_def def
+in (is_rec,defs,ind) end
+
 (*
  * m_translate_main
  *)
@@ -1386,7 +1457,7 @@ fun m_translate_main (* m_translate *) def = (let
     in thms end
 (*
 val _ = List.map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
-val (fname,ml_name,lhs,rhs,def) = el 0 info
+val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
     val _ = print ("Translating " ^ msg ^ "\n")
@@ -2163,5 +2234,10 @@ fun m_translate_run def = let
     val th = save_thm(fname ^ "_v_thm",th)
     val _ = print ("Saved theorem ____ :" ^fname ^ "_v_thm\n")
 in th end
+
+(*
+val lhs = fst o dest_eq;
+val rhs = snd o dest_eq;
+*)
 
 end

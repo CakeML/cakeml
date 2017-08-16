@@ -404,7 +404,7 @@ val rw_monads_defs = rw monad_operators_defs;
 
 val fresh_uvar_success = Q.prove (
 `!st t st'.
-  (fresh_uvar st = (Success t, st')) =
+  (fresh_uvar () st = (Success t, st')) =
   ((t = Infer_Tuvar st.next_uvar) ∧
    (st' = st with next_uvar := st.next_uvar + 1))`,
 rw [fresh_uvar_def, get_next_uvar_def, set_next_uvar_def] >>

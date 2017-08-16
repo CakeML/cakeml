@@ -1,12 +1,14 @@
 open preamble
-     parserProgTheory inferTheory
+     ioProgTheory (* parserProgTheory *) inferTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
-open ml_monadBaseTheory
+open ml_monadBaseTheory ml_monad_translatorLib inferTheory
 
 val _ = new_theory "inferProg"
 
-val _ = translation_extends "parserProg";
+val _ = translation_extends "ioProg" (* "parserProg"; *);
+
+val _ = hide "state";
 
 (* translator setup *)
 
@@ -54,10 +56,57 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
+(* monadic translation setup *)
+val _ = register_type ``:locs``; (* TODO : remove *)
+val _ = register_exn_type ``:infer_exn``;
+val INFER_EXN_TYPE_def = theorem"INFER_EXN_TYPE_def";
+
+val exn_functions = [(raise_Exc_def, handle_Exc_def)];
+val _ = temp_overload_on ("failwith", ``raise_Exc``);
+
+val init_next_uvar = Define `init_next_uvar = (0 : num)`;
+val init_subst = Define `init_subst = FEMPTY : (num |-> infer_t)`;
+val refs_init_list = [("next_uvar", init_next_uvar, get_next_uvar_def, set_next_uvar_def),
+		      ("subst", init_subst, get_subst_def, set_subst_def)];
+
+val store_hprop_name = "INFER_STATE_STORE";
+val state_type = ``:infer_st``;
+
+val INFER_STATE_PINV_def = Define `INFER_STATE_PINV = \(s : infer_st). t_wfs s.subst`;
+val t_wfs_init_infer_state = Q.store_thm("wfs_init_infer_state",
+`INFER_STATE_PINV init_infer_state`,
+rw[INFER_STATE_PINV_def, init_infer_state_def]
+\\ rw[unifyTheory.t_wfs_def, substTheory.wfs_def, relationTheory.WF_DEF]
+\\ rw[substTheory.vR_def]
+\\ metis_tac[])
+val store_pinv_opt = SOME(INFER_STATE_PINV_def, t_wfs_init_infer_state);
+
+(*
+val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+val type_theories = [] : string list;
+val exn_ri_def = INFER_EXN_TYPE_def;
+*)
+
+(* TODO: dynamic initialization *)
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      []
+					      store_hprop_name
+					      state_type
+					      INFER_EXN_TYPE_def
+					      exn_functions
+					      []
+                                              store_pinv_opt;
+
 (* TODO:
    these things are a discrepancy between HOL's standard libraries and
    mllist. probably the compiler should be using the mllist versions? *)
 
+
+(*
+set_trace "assumptions" 1;
+Globals.max_print_depth := 40;
+*)
 val res = translate ZIP;
 val res = translate EL;
 
@@ -95,7 +144,7 @@ val t_vwalk_ind = Q.store_thm("t_vwalk_ind",
        |> DISCH_ALL |> RW [AND_IMP_INTRO])
   THEN FULL_SIMP_TAC std_ss []);
 
-val _ = translate
+val res = translate
   (unifyTheory.t_vwalk_eqn
     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> MATCH_MP PRECONDITION_INTRO);
@@ -113,7 +162,7 @@ val t_vwalk_side_def = Q.store_thm("t_vwalk_side_def",
   THEN FULL_SIMP_TAC std_ss [PULL_FORALL])
   |> update_precondition;
 
-val _ = translate unifyTheory.t_walk_eqn;
+val res = translate unifyTheory.t_walk_eqn;
 
 val t_walkstar_ind = Q.store_thm("t_walkstar_ind",
   `!P.
@@ -215,7 +264,7 @@ val t_unify_lemma = Q.prove(
   THEN Cases_on `ts1` THEN Cases_on `ts2`
   THEN ASM_SIMP_TAC (srw_ss()) [unifyTheory.ts_unify_def])
   |> UNDISCH |> CONJUNCTS
-  |> map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
+  |> List.map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
 
 val _ = translate t_unify_lemma
 
@@ -252,16 +301,17 @@ val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
-   st_ex_return_def, failwith_def, guard_def]);
+  [MEMBER_INTRO, MAP, (* OPTION_BIND_THM, *) (* st_ex_bind_def,
+   st_ex_return_def, raise_Exc_def,*) guard_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
-val _ = translate (def_of_const ``lookup_st_ex``)
-val _ = translate (def_of_const ``fresh_uvar``)
-val _ = translate (def_of_const ``n_fresh_uvar``)
+(* TODO *)
+val _ = translate (def_of_const ``nsLookup``)
+val res = m_translate (def_of_const ``lookup_st_ex``)
+val res = m_translate (def_of_const ``fresh_uvar``)
+val res = m_translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
-val _ = translate (def_of_const ``infer$init_state``)
-val _ = translate (def_of_const ``get_next_uvar``)
+val res = m_translate (def_of_const ``infer$init_state``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
 val _ = translate (def_of_const ``infer_type_subst``)
@@ -440,8 +490,9 @@ fun full_infer_def aggressive const = let
 val infer_def = full_infer_def false;
 val aggr_infer_def = full_infer_def true;
 
-val _ = translate (infer_def ``apply_subst``);
-val _ = translate (infer_def ``apply_subst_list``);
+val def = (def_of_const ``apply_subst``); 
+val res = m_translate (def_of_const ``apply_subst``);
+val res = m_translate (def_of_const ``apply_subst_list``);
 val _ = translate (infer_def ``tc_to_string``);
 
 val tc_to_string_side_thm = Q.store_thm ("tc_to_string_side_thm",
@@ -459,15 +510,18 @@ val inf_type_to_string_side_thm  = Q.store_thm ("inf_type_to_string_side_thm",
   rw [] >>
   rw [Once (theorem "inf_type_to_string_side_def")]) |> update_precondition;
 
-val _ = translate (infer_def ``add_constraint``);
+(* TODO : precondition on the state *)
+val def = (def_of_const ``add_constraint``)
+val res = m_translate (def_of_const ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
 
-val _ = translate (infer_def ``add_constraints``);
+(* TODO : check that the dynamic translation is correct *)
+val res = m_translate (def_of_const ``add_constraints``);
 
-val add_constraint_side_thm = Q.store_thm("add_constraint_side_thm",
-  `∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z`,
-  rw[add_constraint_side_def]);
+(* val add_constraint_side_thm = Q.store_thm("add_constraint_side_thm",
+  `∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z``,
+  rw[add_constraint_side_def]); *)
 
 val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
   `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`,

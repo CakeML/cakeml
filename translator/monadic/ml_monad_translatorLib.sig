@@ -10,13 +10,14 @@ sig
 	(string * thm * thm * thm) list ->
 	(string * thm * thm * thm * thm * thm * thm * thm) list ->
 	string -> hol_type -> thm -> (thm * thm) list ->  string list ->
+	(thm * thm) option ->
         monadic_translation_parameters * store_translation_result *
         (thm * thm) list
 
     val start_dynamic_init_fixed_store_translation :
 	(string * thm * thm) list ->
-	(string * thm * thm * thm * thm * thm * thm) list ->
-	string -> hol_type -> thm -> (thm * thm) list -> string list ->
+	(string * thm * thm * thm * thm * thm * thm) list -> string ->
+	hol_type -> thm -> (thm * thm) list -> string list -> thm option ->
         monadic_translation_parameters * (thm * thm) list
 
     (* Other functions to initialize the translation - the above ones should be preferred *)

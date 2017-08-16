@@ -61,6 +61,7 @@ val arrays_init_list = List.map (fn ((x1, x2, x3, x4, x5, x6, x7), x) => (x1, x,
 val store_hprop_name = "STATE_STORE";
 val state_type = ``:state_refs``;
 val exn_ri_def = STATE_EXN_TYPE_def;
+val store_pinv_opt = NONE : (thm * thm) option;
 
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
@@ -70,7 +71,8 @@ val (monad_parameters, store_translation, exn_specs) =
 					      state_type
 					      exn_ri_def
 					      exn_functions
-					      [];
+					      []
+                                              store_pinv_opt;
 
 (* Monadic translations *)
 val test1_def = Define `test1 n =
