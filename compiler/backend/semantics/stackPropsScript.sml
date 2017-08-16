@@ -591,4 +591,117 @@ val stack_asm_remove_def = Define`
     | _ => T)) ∧
   (stack_asm_remove c _ ⇔  T)`
 
+(* Various syntactic properties required for correctness of the stackLang passes
+  All of these are trivially preserved from word_to_stack until the pass that
+  they are used.
+*)
+
+(* stack_alloc requires that Allocs have a fixed argument
+   TODO: this can also be a semantic check...
+*)
+
+val alloc_arg_def = Define `
+  (alloc_arg (Alloc v) <=> (v = 1)) /\
+  (alloc_arg ((Seq p1 p2):'a stackLang$prog) <=>
+     alloc_arg p1 /\ alloc_arg p2) /\
+  (alloc_arg ((If c r ri p1 p2):'a stackLang$prog) <=>
+     alloc_arg p1 /\ alloc_arg p2) /\
+  (alloc_arg (While c r ri p1) <=>
+     alloc_arg p1) /\
+  (alloc_arg (Call x1 _ x2) <=>
+     (case x1 of | SOME (y,r,_,_) => alloc_arg y | NONE => T) /\
+     (case x2 of SOME (y,_,_) => alloc_arg y | NONE => T)) /\
+  (alloc_arg _ <=> T)`
+
+(* stack_remove requires that all register arguments are bounded by k *)
+
+val reg_bound_exp_def = tDefine"reg_bound_exp"`
+  (reg_bound_exp (Var n) k ⇔ n < k) ∧
+  (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
+  (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
+  (reg_bound_exp (Lookup _) _ ⇔ F) ∧
+  (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
+  (reg_bound_exp _ _ ⇔ T)`
+  (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+   \\ Induct \\ simp[wordLangTheory.exp_size_def]
+   \\ srw_tac[][] \\ res_tac \\ simp[]);
+val _ = export_rewrites["reg_bound_exp_def"];
+
+val reg_bound_inst_def = Define`
+  (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
+  (reg_bound_inst (Const n _) k ⇔ n < k) ∧
+  (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
+  (reg_bound_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
+  (reg_bound_inst (Arith (Div r1 r2 r3)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k) ∧
+  (reg_bound_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (reg_bound_inst (Arith (AddOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (reg_bound_inst (Arith (SubOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (reg_bound_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
+  (reg_bound_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
+  (reg_bound_inst _ _ ⇔ T)`;
+val _ = export_rewrites["reg_bound_inst_def"];
+
+val reg_bound_def = Define `
+  (reg_bound (Halt v1) k <=>
+     v1 < k) /\
+  (reg_bound (Raise v1) k <=>
+     v1 < k) /\
+  (reg_bound (Get v1 n) k <=>
+     v1 < k) /\
+  (reg_bound (Set n v1) k <=>
+     v1 < k /\ n <> BitmapBase) /\
+  (reg_bound (LocValue v1 l1 l2) k <=>
+     v1 < k) /\
+  (reg_bound (Return v1 v2) k <=>
+     v1 < k /\ v2 < k) /\
+  (reg_bound (JumpLower v1 v2 dest) k <=>
+     v1 < k /\ v2 < k) /\
+  (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>
+     reg_bound p1 k /\ reg_bound p2 k) /\
+  (reg_bound ((If c r ri p1 p2):'a stackLang$prog) k <=>
+     r < k /\ (case ri of Reg n => n < k | _ => T) /\
+     reg_bound p1 k /\ reg_bound p2 k) /\
+  (reg_bound (While c r ri p1) k <=>
+     r < k /\ (case ri of Reg n => n < k | _ => T) /\
+     reg_bound p1 k) /\
+  (reg_bound (Halt n) k <=> n < k) /\
+  (reg_bound (FFI ffi_index ptr' len' ret') k <=>
+     ptr' < k /\ len' < k /\ ret' < k) /\
+  (reg_bound (Call x1 dest x2) k <=>
+     (case dest of INR i => i < k | _ => T) /\
+     (case x1 of
+      | SOME (y,r,_,_) => reg_bound y k /\ r < k
+      | NONE => T) /\
+     (case x2 of SOME (y,_,_) => reg_bound y k | NONE => T)) /\
+  (reg_bound (BitmapLoad r v) k <=> r < k /\ v < k) /\
+  (reg_bound (Inst i) k <=> reg_bound_inst i k) /\
+  (reg_bound (StackStore r _) k <=> r < k) /\
+  (reg_bound (StackSetSize r) k <=> r < k) /\
+  (reg_bound (StackGetSize r) k <=> r < k) /\
+  (reg_bound (StackLoad r n) k <=> r < k) /\
+  (reg_bound (StackLoadAny r r2) k <=> r < k /\ r2 < k) /\
+  (reg_bound (StackStore r n) k <=> r < k) /\
+  (reg_bound (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
+  (reg_bound _ k <=> T)`
+
+(* Finally, stack_to_lab requires correct arguments for Call/FFI calls *)
+val call_args_def = Define `
+  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
+     call_args p1 ptr len ret /\
+     call_args p2 ptr len ret) /\
+  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
+     call_args p1 ptr len ret /\
+     call_args p2 ptr len ret) /\
+  (call_args (While c r ri p1) ptr len ret <=>
+     call_args p1 ptr len ret) /\
+  (call_args (Halt n) ptr len ret <=> (n = ptr)) /\
+  (call_args (FFI ffi_index ptr' len' ret') ptr len ret <=>
+     ptr' = ptr /\ len' = len /\ ret' = ret) /\
+  (call_args (Call x1 _ x2) ptr len ret <=>
+     (case x1 of
+      | SOME (y,r,_,_) => call_args y ptr len ret /\ r = ret
+      | NONE => T) /\
+     (case x2 of SOME (y,_,_) => call_args y ptr len ret | NONE => T)) /\
+  (call_args _ ptr len ret <=> T)`
+
 val _ = export_theory();

@@ -50,11 +50,6 @@ running regression tests.
 [documentation](documentation):
 Work-in-progress documentation regarding the CakeML language.
 
-[explorer](explorer):
-Tools for stepping through execution of the compiler from one
-intermediate language to the next, and pretty-printing the
-intermediate results. An instance is available on the CakeML website.
-
 [flame](flame):
 The start of a set theory formalisation that has net yet been used.
 

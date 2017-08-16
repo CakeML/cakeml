@@ -356,7 +356,7 @@ val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
-    | SOME (Asm a _ _) =>
+    | SOME (Asm (Asmi a) _ _) =>
         (case a of
          | Inst i =>
             (let s1 = asm_inst i s in

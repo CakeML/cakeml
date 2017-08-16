@@ -22,25 +22,6 @@ val assert_T = Q.store_thm("assert_T[simp]",
   `assert T s = s`,
   srw_tac[][assert_def,state_component_equality]);
 
-val good_syntax_def = Define `
-  (good_syntax ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
-     good_syntax p1 ptr len ret /\
-     good_syntax p2 ptr len ret) /\
-  (good_syntax ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
-     good_syntax p1 ptr len ret /\
-     good_syntax p2 ptr len ret) /\
-  (good_syntax (While c r ri p1) ptr len ret <=>
-     good_syntax p1 ptr len ret) /\
-  (good_syntax (Halt n) ptr len ret <=> (n = ptr)) /\
-  (good_syntax (FFI ffi_index ptr' len' ret') ptr len ret <=>
-     ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (good_syntax (Call x1 _ x2) ptr len ret <=>
-     (case x1 of
-      | SOME (y,r,_,_) => good_syntax y ptr len ret /\ r = ret
-      | NONE => T) /\
-     (case x2 of SOME (y,_,_) => good_syntax y ptr len ret | NONE => T)) /\
-  (good_syntax _ ptr len ret <=> T)`
-
 val word_cmp_word_cmp = Q.store_thm("word_cmp_word_cmp",
   `(word_cmp cmp (Word w1) (Word w2) = SOME T) ⇔ word_cmp cmp w1 w2`,
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]>>
@@ -116,7 +97,7 @@ val state_rel_def = Define`
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
-      good_syntax prog t.ptr_reg t.len_reg t.link_reg ∧
+      call_args prog t.ptr_reg t.len_reg t.link_reg ∧
       ∃pc. code_installed pc
              (append (FST (flatten prog n (next_lab prog 1)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
@@ -314,11 +295,13 @@ val no_ret_correct = Q.store_thm("no_ret_correct",
   every_case_tac >> fs[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES]);
 
+val s = ``s:('a,'ffi) labSem$state``;
+
 val compile_jump_correct = Q.store_thm("compile_jump_correct",
   `asm_fetch_aux pc code = SOME (compile_jump dest) ∧
    loc_to_pc (dest_to_loc' regs dest) 0 code = SOME pc' ∧
    (∀r. dest = INR r ⇒ ∃p. read_reg r s = Loc p 0) ∧
-   s.pc = pc ∧ s.code = code ∧ s.regs = regs ∧ s.clock ≠ 0
+   ^s.pc = pc ∧ s.code = code ∧ s.regs = regs ∧ s.clock ≠ 0
    ⇒
    evaluate s = evaluate (upd_pc pc' (dec_clock s))`,
   Cases_on`dest`>>srw_tac[][compile_jump_def,dest_to_loc'_def] >>
@@ -416,11 +399,13 @@ val finish_tac =
   simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
   first_x_assum(qspec_then`ck'`mp_tac) \\ simp[];
 
+val call_args_def = stackPropsTheory.call_args_def
+
 val flatten_correct = Q.store_thm("flatten_correct",
-  `∀prog s1 r s2 n l t1.
+  `∀prog s1 r s2 n l (t1:('a,'ffi)labSem$state).
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
-     good_syntax prog t1.ptr_reg t1.len_reg t1.link_reg ∧
+     call_args prog t1.ptr_reg t1.len_reg t1.link_reg ∧
      code_installed t1.pc (append (FST (flatten prog n l))) t1.code
      ⇒
      ∃ck t2.
@@ -459,7 +444,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qexists_tac`1`>>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     full_simp_tac(srw_ss())[get_var_def] >>
-    full_simp_tac(srw_ss())[good_syntax_def,state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[call_args_def,state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
     res_tac >> full_simp_tac(srw_ss())[] >>
     every_case_tac >> full_simp_tac(srw_ss())[]) >>
   conj_tac >- (
@@ -518,7 +503,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[UNCURRY] >> strip_tac >>
     imp_res_tac code_installed_append_imp >>
     full_simp_tac(srw_ss())[Q.SPEC`Seq _ _`next_lab_thm] >>
-    full_simp_tac(srw_ss())[good_syntax_def] >>
+    full_simp_tac(srw_ss())[call_args_def] >>
     reverse (Cases_on`res`)>>full_simp_tac(srw_ss())[]>-(
       rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
       first_x_assum drule >>
@@ -643,7 +628,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,next_lab_thm] >>
+        simp[call_args_def,next_lab_thm] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
@@ -652,7 +637,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
-      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[call_args_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
@@ -696,7 +681,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,next_lab_thm] >>
+        simp[call_args_def,next_lab_thm] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
@@ -705,7 +690,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
-      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[call_args_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
@@ -739,7 +724,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         `IS_SOME r` by metis_tac[no_ret_correct,FST,SND] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
-        rfs[good_syntax_def,FILTER_APPEND] >>
+        rfs[call_args_def,FILTER_APPEND] >>
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
@@ -765,7 +750,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule state_rel_with_pc >> strip_tac >>
       rfs[] >>
       first_x_assum drule >>
-      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[call_args_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
       strip_tac >>
@@ -791,7 +776,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         `IS_SOME r` by metis_tac[no_ret_correct,FST,SND] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
-        rfs[good_syntax_def,FILTER_APPEND] >>
+        rfs[call_args_def,FILTER_APPEND] >>
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
@@ -817,7 +802,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule state_rel_with_pc >> strip_tac >>
       rfs[] >>
       first_x_assum drule >>
-      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[call_args_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
@@ -843,7 +828,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       qmatch_assum_abbrev_tac`code_installed pc (append xs) _` >>
       drule state_rel_with_pc >> strip_tac >> rfs[] >>
       first_x_assum drule >>
-      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[call_args_def] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       full_simp_tac(srw_ss())[FILTER_APPEND,ADD1,upd_pc_def] >>
       strip_tac >>
@@ -861,7 +846,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qmatch_assum_abbrev_tac`code_installed pc (append ys) _` >>
     drule state_rel_with_pc >> strip_tac >> rfs[] >>
     first_x_assum drule >>
-    full_simp_tac(srw_ss())[good_syntax_def] >>
+    full_simp_tac(srw_ss())[call_args_def] >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
     strip_tac >>
     full_simp_tac(srw_ss())[upd_pc_def] >>
@@ -935,7 +920,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ imp_res_tac code_installed_append_imp
       \\ full_simp_tac(srw_ss())[code_installed_def]
       \\ first_x_assum(qspecl_then[`n`,`l`,`upd_pc (t1.pc +1) t1`]mp_tac)
-      \\ full_simp_tac(srw_ss())[good_syntax_def]
+      \\ full_simp_tac(srw_ss())[call_args_def]
       \\ impl_tac >- metis_tac[state_rel_with_pc]
       \\ strip_tac
       \\ rename1`halt_view r` \\ Cases_on`r` \\ fs[]
@@ -967,7 +952,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ simp[]
       \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
       \\ first_x_assum(qspecl_then[`n`,`l`,`inc_pc t1`]mp_tac)
-      \\ simp[] \\ full_simp_tac(srw_ss())[good_syntax_def]
+      \\ simp[] \\ full_simp_tac(srw_ss())[call_args_def]
       \\ impl_tac
       >- ( simp[inc_pc_def,GSYM upd_pc_def] \\ metis_tac[state_rel_with_pc] )
       \\ strip_tac
@@ -987,7 +972,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ impl_tac
     >- (
       simp[inc_pc_def,GSYM upd_pc_def,state_rel_with_pc]
-      \\ full_simp_tac(srw_ss())[good_syntax_def] )
+      \\ full_simp_tac(srw_ss())[call_args_def] )
     \\ strip_tac
     \\ `s.clock ≠ 0`
     by (
@@ -1162,7 +1147,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[UNCURRY] >> strip_tac >>
       imp_res_tac code_installed_append_imp >> fs[] >>
       imp_res_tac code_installed_append_imp >> fs[]) >>
-    full_simp_tac(srw_ss())[good_syntax_def] >> var_eq_tac >>
+    full_simp_tac(srw_ss())[call_args_def] >> var_eq_tac >>
     imp_res_tac find_code_lookup >>
     `dest_to_loc (s.regs \\ t1.link_reg) dest = dest_to_loc' t1.regs dest` by (
       EVAL_TAC >>
@@ -1394,7 +1379,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
     pairarg_tac >> simp[] >> srw_tac[][] >> simp[] >>
-    full_simp_tac(srw_ss())[code_installed_def,good_syntax_def] >>
+    full_simp_tac(srw_ss())[code_installed_def,call_args_def] >>
     qexists_tac`2` >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     rpt var_eq_tac >>
@@ -1448,7 +1433,7 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
                t.ffi = s.ffi ∧ t.clock = s.clock - 1)))
    ⇒
    ∃ck r2 t2.
-     evaluate (t1 with clock := t1.clock - 1 + ck) = (r2,t2) ∧
+     evaluate ((t1:('a,'ffi)labSem$state)with clock := t1.clock - 1 + ck) = (r2,t2) ∧
      (∀w. res = SOME (Halt w) ⇒ r2 =
       (case w of | Word 0w => Halt Success
                  | Word _ => Halt Resource_limit_hit
@@ -1518,7 +1503,7 @@ val halt_assum_def = Define `
 
 val flatten_semantics = Q.store_thm("flatten_semantics",
   `halt_assum (:'ffi) (s1:(α,'ffi)stackSem$state).code /\
-   state_rel s1 s2 /\
+   state_rel s1 (s2:('a,'ffi)labSem$state) /\
    loc_to_pc start 0 s2.code = SOME s2.pc /\
    semantics start s1 <> Fail ==>
    semantics s2 = semantics start s1`,
@@ -1715,8 +1700,8 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     simp[prefix_chain_def,PULL_EXISTS] >>
     qx_genl_tac[`k1`,`k2`] >>
     qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-    let val s = ``s:('a,'b) labSem$state``
-        val t = ``s:('a,'b) stackSem$state``
+    let val s = ``s:('a,'ffi) labSem$state``
+        val t = ``s:('a,'ffi) stackSem$state``
     in
     metis_tac[
       LESS_EQ_EXISTS,
@@ -1758,7 +1743,7 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[EL_APPEND1]);
 
 val make_init_def = Define `
-  make_init code regs fp_regs save_regs s =
+  make_init code regs fp_regs save_regs (s:('a,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
      ; fp_regs    := FEMPTY |++ (MAP (\r. r, read_fp_reg r s) fp_regs)
      ; memory  := s.mem
@@ -1772,8 +1757,8 @@ val make_init_def = Define `
      ; ffi_save_regs := save_regs
      ; be      := s.be |> :(α,'ffi)stackSem$state`;
 
-val make_init_semantis = flatten_semantics
-  |> Q.INST [`s1`|->`make_init code regs fp_regs save_regs s`,`s2`|->`s`]
+val make_init_semantics = flatten_semantics
+  |> Q.INST [`s1`|->`make_init code regs fp_regs save_regs (s:('a,'ffi)labSem$state)`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code regs fp_regs save_regs s).code``];
 
 val from_names = let
@@ -1782,7 +1767,7 @@ val from_names = let
     |> MATCH_MP implements_trivial_intro |> UNDISCH_ALL
     |> Q.INST [`code`|->`code1`]
   val lemma2 =
-    make_init_semantis |> REWRITE_RULE [CONJ_ASSOC]
+    make_init_semantics |> REWRITE_RULE [CONJ_ASSOC]
     |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
   in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end;
@@ -1850,7 +1835,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
   `state_rel (make_init code regs fp_regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
-     good_syntax prog s.ptr_reg s.len_reg s.link_reg ∧
+     call_args prog s.ptr_reg s.len_reg s.link_reg ∧
      ∃pc.
        code_installed pc (append (FST (flatten prog n (next_lab prog 1)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
@@ -1864,7 +1849,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi)
      (fromAList (stack_names$compile f
-       (compile jump off gen max_heap bitmaps k l code)))`,
+       (compile jump off gen max_heap k l code)))`,
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
          stackSemTheory.find_code_def]
@@ -1878,7 +1863,7 @@ val halt_assum_lemma = Q.prove(
          get_var_def,FLOOKUP_UPDATE]);
 
 val MAP_FST_compile_compile = Q.prove(
-  `MAP FST (compile jump off gen max_heap bitmaps k InitGlobals_location
+  `MAP FST (compile jump off gen max_heap k InitGlobals_location
               (stack_alloc$compile c code)) =
     0::1::2::gc_stub_location::MAP FST code`,
   fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,
@@ -1888,12 +1873,37 @@ val MAP_FST_compile_compile = Q.prove(
   \\ fs [stack_removeTheory.prog_comp_def,FORALL_PROD,
          stack_allocTheory.prog_comp_def]);
 
+val gen_gc = mk_var("gen_gc",``:bool``)
+
+val full_make_init_fail =
+  from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
+                   |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+                   |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
+                   |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap k start (compile c code4)`]
+                   |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
+                   |> Q.INST [`code4`|->`code`]
+                   |> Q.INST [`start`|->`InitGlobals_location`]
+                   |> REWRITE_RULE [make_init_any_bitmaps,
+                            make_init_any_code,
+                            make_init_any_use_alloc,
+                            make_init_any_use_store,
+                            make_init_any_use_stack,
+                            make_init_any_stack_limit,
+                            halt_assum_lemma,MAP_FST_compile_compile]
+                   |> CONV_RULE (PATH_CONV "lr" (move_conj_right (optionSyntax.is_none o rhs)))
+
+val full_init_shared_tm = full_make_init_fail |> concl |> dest_imp |> fst |> dest_conj |> #1
+
+val full_init_shared_def = define_abbrev "full_init_shared" full_init_shared_tm
+
+val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",
+  full_make_init_fail |> REWRITE_RULE [GSYM full_init_shared_def]);
+
 val full_make_init_semantics = save_thm("full_make_init_semantics",let
-  val gen_gc = mk_var("gen_gc",``:bool``)
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
            |> Q.INST [`start`|->`InitGlobals_location`]
@@ -1904,29 +1914,16 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
                             make_init_any_use_stack,
                             make_init_any_stack_limit,
                             halt_assum_lemma,MAP_FST_compile_compile]
-  val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand
-  val def = define_abbrev "full_make_init" tm
-  val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
-  in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
+  val th2 = ADD_ASSUM full_init_shared_tm th
+           |> DISCH_ALL
+           |> SIMP_RULE std_ss []
+           |> REWRITE_RULE [GSYM full_init_shared_def,AND_IMP_INTRO]
+  val full_make_init_tm = concl th2|> snd o dest_imp |> rand |> rator |> rand |> rand
+  val def = define_abbrev "full_make_init" full_make_init_tm
+  in
+    th2 |> REWRITE_RULE [GSYM def] end);
 
-val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
-  val gen_gc = mk_var("gen_gc",``:bool``)
-  val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
-           |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
-           |> Q.INST [`code3`|->`stack_alloc$compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile jump off ^gen_gc max_heap bitmaps k start (compile c code4)`]
-           |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
-           |> Q.INST [`code4`|->`code`]
-           |> Q.INST [`start`|->`InitGlobals_location`]
-           |> REWRITE_RULE [make_init_any_bitmaps,
-                            make_init_any_code,
-                            make_init_any_use_alloc,
-                            make_init_any_use_store,
-                            make_init_any_use_stack,
-                            make_init_any_stack_limit,
-                            halt_assum_lemma,MAP_FST_compile_compile]
-  val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
-  in th |> REWRITE_RULE [GSYM pre] end);
+val full_make_init_def = definition"full_make_init_def";
 
 val sextract_labels_def = stackPropsTheory.extract_labels_def
 
@@ -2092,9 +2089,8 @@ val compile_all_enc_ok_pre = Q.prove(`
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
   fs[prog_to_section_def]>>pairarg_tac>>rw[]
   >- metis_tac[flatten_line_ok_pre]
-  >- EVAL_TAC)
+  >- EVAL_TAC);
 
-(*TODO: doing proofs here for convenience, move to stackProps when done*)
 (* stack_name renames registers to obey non-clashing names
   It should be sufficient that the incoming nregs < reg_count - avoid_regs,
   and that the mapping target for these avoids bad regs
@@ -2117,8 +2113,42 @@ val stack_to_lab_compile_all_enc_ok = Q.store_thm("stack_to_lab_compile_all_enc_
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)`,
   rw[stack_to_labTheory.compile_def]>>
   match_mp_tac compile_all_enc_ok_pre>>
-  match_mp_tac sn_compile_imp_stack_asm_ok>>fs[]>>
-  match_mp_tac sr_compile_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
-  match_mp_tac sa_compile_stack_asm_convs>>fs[stackPropsTheory.reg_name_def])
+  match_mp_tac stack_names_stack_asm_ok>>fs[]>>
+  match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
+  match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]);
+
+val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
+  `max_heap = 2 * max_heap_limit (:'a) c1 -1 ==>
+    init_store_ok c1
+      ((full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,(s:('a,'ffi)labSem$state),
+             save_regs)).store \\ Handler)
+       (full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,s,save_regs)).memory
+       (full_make_init
+          (bitmaps,c1,code3,f,is_gen_gc c1.gc_kind,
+           jump,k,max_heap,off,regs,s,save_regs)).mdomain`,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_def]
+  \\ CASE_TAC \\ fs [] THEN1
+   (fs [data_to_word_gcProofTheory.init_store_ok_def,FUPDATE_LIST,
+        stack_removeTheory.store_list_def,
+        FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
+    \\ rw [] \\ qexists_tac `0` \\ fs [word_list_exists_def]
+    \\ conj_tac THEN1 (CASE_TAC \\ fs [])
+    \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
+    \\ fs [word_list_def,set_sepTheory.emp_def,set_sepTheory.fun2set_def]
+    \\ EVAL_TAC)
+  \\ fs [stack_removeProofTheory.make_init_opt_def]
+  \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
+  \\ fs [data_to_word_gcProofTheory.init_store_ok_def,
+         stack_removeProofTheory.init_prop_def]
+  \\ rewrite_tac [DECIDE ``2 * n = n + n:num``,
+       stack_removeProofTheory.word_list_exists_ADD]
+  \\ qexists_tac`len`
+  \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
+  \\ Cases_on `c1.gc_kind` \\ fs [is_gen_gc_def]);
 
 val _ = export_theory();

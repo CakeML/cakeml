@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open explorerProgTheory;
+open sexp_parserProgTheory;
 
 val _ = new_theory "to_word32Prog"
 
-val _ = translation_extends "explorerProg";
+val _ = translation_extends "sexp_parserProg";
 
 val RW = REWRITE_RULE
 

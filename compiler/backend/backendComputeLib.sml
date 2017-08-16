@@ -828,16 +828,20 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- labLang ---- *)
      ``:lab``
     ,``:'a asm_with_lab``
+    ,``:'a asm_or_cbw``
     ,``:'a line``
     ,``:'a sec``
     ]
   ,computeLib.Defs
-    [ (* ---- lab_filter ---- *)
-     lab_filterTheory.not_skip_def
+    [labLangTheory.Section_num_def
+    ,labLangTheory.Section_lines_def
+      (* ---- lab_filter ---- *)
+    ,lab_filterTheory.not_skip_def
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
     ,lab_to_targetTheory.lab_inst_def
+    ,lab_to_targetTheory.cbw_to_asm_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def
     ,lab_to_targetTheory.enc_sec_list_def
@@ -863,9 +867,11 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.find_ffi_names_def
     ,lab_to_targetTheory.list_add_if_fresh_def
     ,lab_to_targetTheory.get_ffi_index_def
+    ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)
+    ,backendTheory.attach_bitmaps_def
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def
     ,backendTheory.from_source_def

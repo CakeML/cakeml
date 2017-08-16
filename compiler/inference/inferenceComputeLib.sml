@@ -23,7 +23,6 @@ structure inferenceComputeLib = struct
     ,guard_def
     ,failwith_def
     ,lookup_st_ex_def
-    ,list_subset_def
     ,sub_completion_def
     ,t_to_freevars_def
     ,check_s_def
@@ -63,7 +62,6 @@ structure inferenceComputeLib = struct
     ,n_fresh_uvar_def
     ,fresh_uvar_def
     ,read_def
-    ,list_set_eq_def
     ],
    computeLib.Tys
     [``:infer_t``

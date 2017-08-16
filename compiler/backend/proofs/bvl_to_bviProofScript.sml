@@ -3488,4 +3488,47 @@ val compile_semantics = Q.store_thm("compile_semantics",
       [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]);
 
+val compile_distinct_names = Q.store_thm("compile_distinct_names",
+  `ALL_DISTINCT (MAP FST p2) /\
+   bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
+   EVERY (λn. data_num_stubs ≤ n) (MAP FST p3) /\
+   ALL_DISTINCT (MAP FST p3)`,
+  fs[bvl_to_bviTheory.compile_def]>>
+  strip_tac>>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  drule (GEN_ALL compile_prog_distinct_locs) >>
+  fs [bvl_to_bviTheory.compile_prog_def] >>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  strip_tac>>
+  EVAL_TAC>>
+  REWRITE_TAC[GSYM append_def] >>
+  fs[EVERY_MEM]>>
+  imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
+  rfs[backend_commonTheory.bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
+  fs[EVERY_MEM]
+  \\ simp[PULL_FORALL] \\ strip_tac
+  \\ reverse conj_tac >- (
+    match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
+    \\ asm_exists_tac \\ simp[]
+    \\ EVAL_TAC \\ fs [GSYM append_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ res_tac \\ fs [EXISTS_MEM]
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ EVAL_TAC
+    \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
+    \\ PairCases_on `e` \\ fs [GSYM append_def]
+    \\ qexists_tac `e0` \\ fs []
+    \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
+    \\ metis_tac [EVEN_DOUBLE,EVEN_ODD])
+  \\ strip_tac
+  \\ drule bvi_tailrecProofTheory.compile_prog_MEM
+  \\ simp[]
+  \\ EVAL_TAC
+  \\ rw[] \\ simp[]
+  \\ fs[GSYM append_def]
+  \\ res_tac
+  \\ pop_assum mp_tac
+  \\ EVAL_TAC \\ rw[]);
+
 val _ = export_theory();
