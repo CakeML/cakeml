@@ -983,9 +983,11 @@ val do_app = Q.prove (
       pop_assum mp_tac >>
       pop_assum mp_tac >>
       srw_tac[][])
+  >- (tac >> fs[])
   >- tac
-  >- tac
-  >- tac
+  >- (tac >> fs [] >>
+      srw_tac[] [EL_LUPDATE] >>
+      first_x_assum match_mp_tac >> fs [])
   >- tac
   >- tac
   >- tac
@@ -1000,17 +1002,16 @@ val do_app = Q.prove (
     full_simp_tac(srw_ss())[vs_rel_list_rel] >> srw_tac[][] >- (
       every_case_tac >>
       imp_res_tac v_to_char_list >>
-      full_simp_tac(srw_ss())[] >> srw_tac[][conSemTheory.do_app_def,result_rel_cases,v_rel_eqns]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[])
+      full_simp_tac(srw_ss())[] >> srw_tac[][conSemTheory.do_app_def,result_rel_cases,v_rel_eqns] >>
+      fs[Once v_rel_cases] ))
   >- tac
   >- tac
   >- (
     fs[modSemTheory.do_app_def,conSemTheory.do_app_def]
     \\ every_case_tac \\ fs[vs_rel_list_rel]
-    \\ imp_res_tac v_to_list \\ fs[]
-    \\ imp_res_tac vs_to_string \\ fs[]
+    \\ imp_res_tac v_to_char_list \\ fs[]
     \\ rw[] \\ fs[vs_rel_list_rel]
-    \\ imp_res_tac vs_to_string \\ fs[result_rel_cases,v_rel_eqns] )
+    \\ fs[result_rel_cases,v_rel_eqns])
   >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
@@ -1019,6 +1020,9 @@ val do_app = Q.prove (
       TRY (cases_on `t'`) >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       srw_tac[][]
+      >- (every_case_tac \\ fs[Once v_rel_cases] \\ rw[]
+          \\ TRY (every_case_tac) \\ fs [conSemTheory.do_app_def] \\ rw[]
+          \\ full_simp_tac (srw_ss()) [conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def, has_exns_def, gtagenv_wf_def])
       >- (every_case_tac >>
           imp_res_tac v_to_list >>
           srw_tac[][conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def] >>
@@ -1029,18 +1033,23 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       srw_tac[][v_rel_eqns] >>
       rpt (pop_assum mp_tac) >>
-      srw_tac[][]
-      >- full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def] >>
+      srw_tac[][] >>
+      TRY (full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def]))
+(* >>
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
       FIRST_X_ASSUM match_mp_tac >>
-      decide_tac)
+      decide_tac) *)
   >- (tac >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       imp_res_tac LIST_REL_LENGTH >>
+      full_simp_tac(srw_ss())[] >> imp_res_tac v_to_list >>
+      full_simp_tac(srw_ss())[vs_rel_list_rel] >> imp_res_tac vs_to_string >>
       full_simp_tac(srw_ss())[])
   >- (tac >>
       full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] >>
-      srw_tac[][v_rel_eqns, vs_rel_list_rel, LIST_REL_EL_EQN])
+      srw_tac[][v_rel_eqns, vs_rel_list_rel, LIST_REL_EL_EQN] >>
+      imp_res_tac v_to_list >>
+      full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE])
   >- (tac >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -1061,12 +1070,25 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[] >>
       srw_tac[][v_rel_eqns] >>
       rpt (pop_assum mp_tac) >>
-      srw_tac[][]
-      >- full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def] >>
-      full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-      srw_tac[][EL_LUPDATE] >>
-      full_case_tac >>
-      metis_tac [])
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE])
+  (* MARKER *)
+  >- (tac \\
+     full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN] \\
+      TRY (qpat_x_assum `_ = s2` (fn thm => fs [GSYM thm])) \\
+      TRY (qpat_x_assum `_ = r` (fn thm => full_simp_tac (srw_ss()) [GSYM thm])) \\
+      TRY (first_x_assum match_mp_tac) \\
+      tac \\
+      fs [])
+  >- (tac >>
+     full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN])
+  >- (tac \\
+     full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN] \\
+      TRY (qpat_x_assum `_ = s2` (fn thm => fs [GSYM thm])) \\
+      TRY (qpat_x_assum `_ = r` (fn thm => full_simp_tac (srw_ss()) [GSYM thm])) \\
+      TRY (first_x_assum match_mp_tac) \\
+      tac \\
+      fs [])
   >- tac);
 
 val do_opapp = Q.prove (
