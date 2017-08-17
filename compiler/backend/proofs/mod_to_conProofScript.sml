@@ -1072,7 +1072,6 @@ val do_app = Q.prove (
       rpt (pop_assum mp_tac) >>
       srw_tac[][] >>
       full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE])
-  (* MARKER *)
   >- (tac \\
      full_simp_tac(srw_ss())[vs_rel_list_rel, LIST_REL_EL_EQN] \\
       TRY (qpat_x_assum `_ = s2` (fn thm => fs [GSYM thm])) \\

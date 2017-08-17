@@ -2966,6 +2966,12 @@ val ADD_MOD_EQ_LEMMA = Q.store_thm("ADD_MOD_EQ_LEMMA",
   \\ drule MOD_MULT
   \\ fs []);
 
+val list_subset_def = Define `
+list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
+
+val list_set_eq = Define `
+list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+
 val BIJ_UPDATE = store_thm("BIJ_UPDATE",
   ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
     BIJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,

@@ -388,7 +388,7 @@ val names_ok_imp2 = Q.prove(`
   rw[names_ok_def]>>fs[ALL_DISTINCT_GENLIST,reg_name_def]>>
   metis_tac[])
 
-val sn_comp_imp_stack_asm_ok = Q.prove(`
+val stack_names_comp_stack_asm_ok = Q.prove(`
   ∀f p.
   stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
@@ -421,13 +421,29 @@ val sn_comp_imp_stack_asm_ok = Q.prove(`
   >>
   metis_tac[names_ok_imp,asmTheory.reg_ok_def])
 
-val sn_compile_imp_stack_asm_ok = Q.store_thm("sn_compile_imp_stack_asm_ok",`
+val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
   EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)`,
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
   rw[]>>
-  metis_tac[sn_comp_imp_stack_asm_ok])
+  metis_tac[stack_names_comp_stack_asm_ok])
+
+val stack_names_call_args = Q.store_thm("stack_names_call_args",`
+  compile f p = p' ∧
+  EVERY (λp. call_args p 1 2 0) (MAP SND p) ==>
+  EVERY (λp. call_args p (find_name f 1)
+                           (find_name f 2)
+                           (find_name f 0)) (MAP SND p')`,
+  rw[]>>fs[compile_def]>>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+  rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
+  map_every qid_spec_tac[`p_2`,`f`]>>
+  ho_match_mp_tac comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  ONCE_REWRITE_TAC [comp_def]>>
+  fs[call_args_def]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val _ = export_theory();

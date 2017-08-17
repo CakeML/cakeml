@@ -239,6 +239,11 @@ val get_byte_set_byte_diff = Q.store_thm("get_byte_set_byte_diff",
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
 
+fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
+val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)
+  [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,``:'a asm``,
+   ``:'a word_loc``,``:'a list``,``:'a sec``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
+
 val evaluate_pres_final_event = Q.store_thm("evaluate_pres_final_event",
   `!s1.
       (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi`,
@@ -247,7 +252,9 @@ val evaluate_pres_final_event = Q.store_thm("evaluate_pres_final_event",
   \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
   \\ Cases_on `s1.clock = 0` \\ fs []
   \\ `0 < s1.clock` by decide_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF] \\ rpt strip_tac
+  \\ simp[case_eq_thms]\\ rw[]
+  \\ TRY(pairarg_tac \\ fs[case_eq_thms])
+  \\ TRY( qpat_x_assum`(res,s2) = _` (assume_tac o SYM))
   \\ fs [AND_IMP_INTRO]
   \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
   \\ rfs [call_FFI_def] \\ fs[] \\ res_tac \\ fs []);
@@ -280,14 +287,10 @@ val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> fs[] >> strip_tac >>
   simp[Once evaluate_def] >>
-  fs[asm_fetch_def] >>
-  Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
-  Cases_on`x`>>fs[] >>
-  Cases_on`a`>>fs[] >>
-  every_case_tac >> fs[] >>
+  fs[asm_fetch_def,case_eq_thms] >> rw[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  TRY pairarg_tac >> fs[] >>
+  TRY pairarg_tac >> fs[case_eq_thms] >> rw[]>>
   first_x_assum(qspec_then`k`mp_tac)>>simp[]);
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
@@ -307,6 +310,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
     Cases_on`x`>>fs[] >>
     Cases_on`a`>>fs[] >>
+    TRY(pairarg_tac >> fs[]) >>
     every_case_tac >> fs[] >>
     TRY
     (conj_tac >- (
@@ -335,6 +339,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
   Cases_on`x`>>fs[] >>
   Cases_on`a`>>fs[] >>
+  TRY(pairarg_tac >> fs[]) >>
   every_case_tac >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
@@ -591,11 +596,13 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ BasicProvers.TOP_CASE_TAC >- ( simp[Once evaluate_def] )
   >- (
     BasicProvers.TOP_CASE_TAC
-    \\ simp[asm_inst_align_dm]
     \\ simp[Once evaluate_def,SimpRHS]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_dm]
     \\ rw[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
-    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[])
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ fs[inc_pc_def,align_dm_def,dec_clock_def])
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[Once evaluate_def,SimpRHS]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -604,8 +611,14 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ pairarg_tac \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[align_dm_def]);
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ fs[align_dm_def]
+  \\ every_case_tac \\ fs[]);
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
   `good_dimindex(:α) ⇒
@@ -624,7 +637,7 @@ val implements_align_dm = Q.store_thm("implements_align_dm",
 
 (* asm_ok checks coming into lab_to_target *)
 val line_ok_pre_def = Define`
-  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok b c) ∧
+  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (cbw_to_asm b) c) ∧
   (line_ok_pre c _ ⇔ T)`
 
 val sec_ok_pre_def = Define`

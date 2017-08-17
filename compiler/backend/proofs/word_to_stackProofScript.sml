@@ -2220,6 +2220,13 @@ val compile_word_to_stack_isPREFIX = Q.store_thm("compile_word_to_stack_isPREFIX
   \\ imp_res_tac compile_prog_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
+val compile_word_to_stack_bitmaps = Q.store_thm("compile_word_to_stack_bitmaps",
+  `word_to_stack$compile c p = (c2,prog1) ==>
+    (case c2.bitmaps of [] => F | h::v1 => 4w = h)`,
+  fs [word_to_stackTheory.compile_def] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  \\ Cases_on `bitmaps` \\ fs []);
+
 val EVEN_DIV2_INJ = Q.store_thm("EVEN_DIV2_INJ",
   `EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y`,
   srw_tac[][EVEN_EXISTS,DIV2_def,MULT_COMM]
@@ -7276,5 +7283,223 @@ val word_to_stack_stack_asm_convs = Q.store_thm("word_to_stack_stack_asm_convs",
       rw[]>>EVAL_TAC>>fs[])
     >>
       metis_tac[])
+
+val stack_move_alloc_arg = Q.store_thm("stack_move_alloc_arg",`
+  ∀n st off i p.
+  alloc_arg p ⇒
+  alloc_arg (stack_move n st off i p)`,
+  Induct>>rw[stack_move_def,alloc_arg_def]);
+
+val word_to_stack_alloc_arg = Q.store_thm("word_to_stack_alloc_arg",`
+  ∀p n args.
+  alloc_arg (FST(word_to_stack$comp p n args))`,
+  recInduct comp_ind >>
+  fs[comp_def,alloc_arg_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>
+  rw[]>>fs[alloc_arg_def]
+  >-
+    (fs[wMove_def]>>qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,alloc_arg_def]>>
+    Cases_on`ls`>>fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs [alloc_arg_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,alloc_arg_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs[alloc_arg_def])
+  >- (rpt (pairarg_tac>>fs[alloc_arg_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,alloc_arg_def])
+  >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs [alloc_arg_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,alloc_arg_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs [alloc_arg_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,alloc_arg_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [alloc_arg_def]>>
+    match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def]))
+  >>
+    rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]);
+
+val stack_move_reg_bound = Q.store_thm("stack_move_reg_bound",`
+  ∀n st off i p k.
+  i < k ∧
+  reg_bound p k ⇒
+  reg_bound (stack_move n st off i p) k`,
+  Induct>>rw[stack_move_def,reg_bound_def]);
+
+val word_to_stack_reg_bound = Q.store_thm("word_to_stack_reg_bound",`
+  ∀p n args.
+  post_alloc_conventions (FST args) p ∧
+  4 ≤ FST args ⇒
+  reg_bound (FST(word_to_stack$comp p n args)) (FST args+2)`,
+  recInduct comp_ind >>fs[comp_def,reg_bound_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>
+  fs[reg_bound_def,convs_def]
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = parmove A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,reg_bound_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    Cases_on`p_1''`>>Cases_on`p_2'`>>fs[format_var_def]>>
+    BasicProvers.EVERY_CASE_TAC>>fs [reg_bound_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,reg_bound_def]>>fs [reg_bound_def,convs_def,inst_arg_convention_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[reg_bound_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs [reg_bound_def])
+  >- (rpt (pairarg_tac>>fs [reg_bound_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,reg_bound_def])
+  >-
+    (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>
+    fs[reg_bound_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [reg_bound_def])>>
+    fs[wStackLoad_def,reg_bound_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [reg_bound_def])>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs [reg_bound_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,reg_bound_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [reg_bound_def]>>
+    match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
+  >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]));
+
+val stack_move_call_args = Q.store_thm("stack_move_call_args",`
+  ∀n st off i p.
+  call_args p 1 2 0 ⇒
+  call_args (stack_move n st off i p) 1 2 0`,
+  Induct>>rw[stack_move_def,call_args_def]);
+
+val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
+  ∀p n args.
+  post_alloc_conventions (FST args) p ⇒
+  call_args (FST(word_to_stack$comp p n args)) 1 2 0`,
+  ho_match_mp_tac comp_ind >>
+  fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
+  fs[call_args_def]
+  >-
+    (fs[wMove_def]>>
+    qpat_abbrev_tac`ls = MAP f A`>>
+    pop_assum kall_tac>>
+    qid_spec_tac`ls`>>Induct>>fs[wMoveAux_def,call_args_def]>>
+    Cases_on`ls`>>
+    fs[FORALL_PROD,wMoveAux_def,wMoveSingle_def]>>rw[]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[call_args_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    BasicProvers.EVERY_CASE_TAC>>
+    fs[wStackLoad_def,convs_def]>>fs [call_args_def])
+  >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
+  >- rpt (pairarg_tac>>fs [call_args_def,convs_def])
+  >- (rpt (pairarg_tac>>fs [call_args_def])>>
+  Cases_on`ri`>>fs[wReg1_def,wRegImm2_def,wReg2_def]>>BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[wStackLoad_def,call_args_def])
+  >- (fs[wReg1_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
+  >-
+    (Cases_on`ret`>>fs[]
+    >-
+    (Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [call_args_def])>>
+    fs[wStackLoad_def,call_args_def])
+    >>
+    (PairCases_on`x`>>
+    Cases_on`dest`>>fs[call_dest_def,wReg2_def,SeqStackFree_def]>>
+    rpt (IF_CASES_TAC>>fs [call_args_def])>>
+    Cases_on`handler`>>TRY(PairCases_on`x`)>>TRY(PairCases_on`x'`)>>
+    fs [call_args_def]>>
+    rpt(pairarg_tac>>fs[StackArgs_def,call_args_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
+    rveq>>fs [call_args_def]>>
+    match_mp_tac stack_move_call_args>>fs [call_args_def]))
+  >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]));
+
+
+val reg_bound_ind = stackPropsTheory.reg_bound_ind
+val reg_bound_def = stackPropsTheory.reg_bound_def
+val reg_bound_inst_def = stackPropsTheory.reg_bound_inst_def
+
+val reg_bound_mono = Q.store_thm("reg_bound_mono",`
+  ∀p k k'.
+  reg_bound p k ∧
+  k ≤ k' ⇒
+  reg_bound p k'`,
+  ho_match_mp_tac reg_bound_ind>>rw[reg_bound_def]>>
+  rpt(TOP_CASE_TAC>>fs[])>>
+  Cases_on`i`>>
+  TRY(Cases_on`a`)>>
+  TRY(Cases_on`m`)>>
+  fs[reg_bound_inst_def]>>
+  rpt(TOP_CASE_TAC>>fs[]));
+
+(* Gluing all the conventions together *)
+val word_to_stack_stack_convs = Q.store_thm("word_to_stack_stack_convs",`
+  word_to_stack$compile ac p = (c',p') ∧
+  EVERY (post_alloc_conventions k) (MAP (SND o SND) p) ∧
+  k = (ac.reg_count- (5 +LENGTH ac.avoid_regs)) ∧
+  4 ≤ k
+  ⇒
+  EVERY alloc_arg (MAP SND p') ∧
+  EVERY (λp. reg_bound p (k+2)) (MAP SND p') ∧
+  EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
+  fs[EVERY_MEM,GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM]>>
+  ntac 3 strip_tac>>
+  fs[compile_def]>>
+  pairarg_tac>>fs[]>>rveq>>fs[]
+  >-
+    (rw[]>>
+    EVAL_TAC>>fs[])
+  >>
+    qabbrev_tac`k=ac.reg_count-(LENGTH ac.avoid_regs+5)`>>
+    `ac.reg_count-(LENGTH ac.avoid_regs+3) = k+2` by fs[Abbr`k`]>>
+    pop_assum SUBST_ALL_TAC>>
+    pop_assum kall_tac>>
+    rpt (pop_assum mp_tac)>>
+    qspec_tac(`[4w]`,`bm`)>>
+    map_every qid_spec_tac [`p''`,`progs`,`bitmaps`,`p`]>>
+    Induct>>fs[compile_word_to_stack_def,FORALL_PROD]>>
+    ntac 11 strip_tac>>
+    pairarg_tac>>fs[]>>
+    pairarg_tac>>fs[]>>
+    rveq>>fs[]
+    >-
+      (qpat_x_assum`_ = (prog,bitmaps')` mp_tac>>
+      SIMP_TAC (std_ss++LET_ss) [Once compile_prog_def]>>
+      qpat_abbrev_tac`mm = if _ then _ else _`>>
+      pop_assum kall_tac>>
+      pairarg_tac >> fs[]>> strip_tac>> rveq>>fs[]>>
+      EVAL_TAC>>
+      first_x_assum(qspec_then`p_2` assume_tac)>>
+      rw[]
+      >-
+        metis_tac[word_to_stack_alloc_arg,FST]
+      >>
+        qmatch_asmsub_abbrev_tac`word_to_stack$comp _ _ xxx `>>
+        `k = FST xxx` by fs[Abbr`xxx`]>>
+        pop_assum SUBST_ALL_TAC>>
+        imp_res_tac word_to_stack_reg_bound >>
+        imp_res_tac word_to_stack_call_args >>
+        metis_tac[FST])
+    >>
+    fs[AND_IMP_INTRO]>>
+    first_x_assum match_mp_tac>>
+    metis_tac[]);
 
 val _ = export_theory();

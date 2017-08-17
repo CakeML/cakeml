@@ -748,6 +748,8 @@ val compile_semantics = save_thm("compile_semantics",let
          |> UNDISCH
          |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
 
+val code_rel_ext_def = definition"code_rel_ext_def";
+
 val _ = (max_print_depth := 15);
 
 val extract_labels_def = wordPropsTheory.extract_labels_def;
@@ -1001,5 +1003,40 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
    first_x_assum match_mp_tac>>
    fs[good_dimindex_def]>>
    metis_tac[bounds_lem]);
+
+val data_to_word_names = Q.store_thm("data_to_word_names",
+  `word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog`,
+  rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
+  pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
+  fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]);
+
+val ALL_DISTINCT_MAP_FST_stubs = Q.store_thm("ALL_DISTINCT_MAP_FST_stubs",
+  `ALL_DISTINCT (MAP FST (stubs a c))`,
+  Cases_on`a` \\ EVAL_TAC);
+
+val MAP_FST_stubs_bound = Q.store_thm("MAP_FST_stubs_bound",
+  `MEM n (MAP FST (stubs a c)) ⇒ n < data_num_stubs`,
+  Cases_on`a` \\ EVAL_TAC
+  \\ strip_tac \\ rveq \\ EVAL_TAC);
+
+val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
+  `∀code c1 col code'.
+   compile c1 c2 code = (col,code') ⇒
+   code_rel_ext (fromAList code, fromAList code')`,
+  simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
+  ntac 2 gen_tac \\
+  map_every qspec_tac (map swap [(`r`,`c1.reg_alg`), (`col`,`c1.col_oracle`)]) \\
+  Induct_on`code` \\ rw[] \\
+  pairarg_tac \\ fs[lookup_fromAList] \\ rw[] \\
+  fs[word_to_wordTheory.next_n_oracle_def] \\ rw[] \\
+  simp[GENLIST_CONS] \\ Cases_on`h` \\ fs[] \\
+  simp[word_to_wordTheory.full_compile_single_def,SimpRHS] \\
+  pairarg_tac \\ fs[] \\
+  qmatch_asmsub_rename_tac`((q,p),col 0)` \\
+  PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
+  rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
+  simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
+  metis_tac[]);
 
 val _ = export_theory();

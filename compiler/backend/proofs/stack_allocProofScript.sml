@@ -88,19 +88,6 @@ val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
 
 (* ---- *)
 
-val good_syntax_def = Define `
-  (good_syntax (Alloc v) <=> (v = 1)) /\
-  (good_syntax ((Seq p1 p2):'a stackLang$prog) <=>
-     good_syntax p1 /\ good_syntax p2) /\
-  (good_syntax ((If c r ri p1 p2):'a stackLang$prog) <=>
-     good_syntax p1 /\ good_syntax p2) /\
-  (good_syntax (While c r ri p1) <=>
-     good_syntax p1) /\
-  (good_syntax (Call x1 _ x2) <=>
-     (case x1 of | SOME (y,r,_,_) => good_syntax y | NONE => T) /\
-     (case x2 of SOME (y,_,_) => good_syntax y | NONE => T)) /\
-  (good_syntax _ <=> T)`
-
 val get_var_imm_case = Q.prove(
   `get_var_imm ri s =
     case ri of
@@ -5067,8 +5054,8 @@ val inst_correct = Q.prove(`
 
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
-     evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
-     (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location /\ good_syntax prog) /\
+     evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
+     (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location /\ alloc_arg prog) /\
      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
      s.regs SUBMAP regs ==>
@@ -5096,7 +5083,7 @@ val comp_correct = Q.store_thm("comp_correct",
    (rpt strip_tac \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ every_case_tac \\ fs []
     \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
-    \\ fs [good_syntax_def] \\ rw []
+    \\ fs [alloc_arg_def] \\ rw []
     \\ drule (GEN_ALL alloc_correct) \\ fs []
     \\ `word_gc_fun c = word_gc_fun c` by fs []
     \\ disch_then drule
@@ -5146,7 +5133,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ full_simp_tac(srw_ss())[good_syntax_def,evaluate_def]
+    \\ full_simp_tac(srw_ss())[alloc_arg_def,evaluate_def]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
     \\ match_mp_tac IMP_IMP \\ conj_tac
     THEN1 (CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ res_tac)
@@ -5187,7 +5174,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
+    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,alloc_arg_def]
     \\ rev_full_simp_tac(srw_ss())[]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
     THENL [first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac),
@@ -5209,7 +5196,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ imp_res_tac FLOOKUP_SUBMAP
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
+    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,alloc_arg_def]
     \\ strip_tac
     \\ BasicProvers.TOP_CASE_TAC
     >- (
@@ -5249,7 +5236,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ full_simp_tac(srw_ss())[STOP_def]
     \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs1`]mp_tac)
     \\ impl_tac
-    THEN1 (full_simp_tac(srw_ss())[good_syntax_def] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
+    THEN1 (full_simp_tac(srw_ss())[alloc_arg_def] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
            \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac
            \\ fs[dec_clock_def])
     \\ once_rewrite_tac [comp_def] \\ full_simp_tac(srw_ss())[LET_THM]
@@ -5304,7 +5291,7 @@ val comp_correct = Q.store_thm("comp_correct",
      (Cases_on `find_code dest s.regs s.code` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac find_code_regs_SUBMAP
       \\ every_case_tac \\ full_simp_tac(srw_ss())[empty_env_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[good_syntax_def] \\ simp [Once comp_def,evaluate_def]
+      \\ full_simp_tac(srw_ss())[alloc_arg_def] \\ simp [Once comp_def,evaluate_def]
       \\ drule find_code_IMP_lookup \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
       \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
       \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
@@ -5317,7 +5304,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
       \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
       \\ simp[state_component_equality])
-    \\ qmatch_assum_rename_tac `good_syntax (Call (SOME z) dest handler)`
+    \\ qmatch_assum_rename_tac `alloc_arg (Call (SOME z) dest handler)`
     \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `find_code dest (s.regs \\ z1) s.code` \\ full_simp_tac(srw_ss())[]
@@ -5329,7 +5316,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ disch_then drule \\ strip_tac
     \\ drule find_code_IMP_lookup \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
-    \\ pop_assum (qspec_then`c`strip_assume_tac) \\ full_simp_tac(srw_ss())[good_syntax_def]
+    \\ pop_assum (qspec_then`c`strip_assume_tac) \\ full_simp_tac(srw_ss())[alloc_arg_def]
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
      (srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ TRY pairarg_tac \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -5460,7 +5447,7 @@ val with_same_regs_lemma = Q.prove(
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `(!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ good_syntax prog) /\
+  `(!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
    s.gc_fun = (word_gc_fun c:α gc_fun_type) /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
    semantics start s <> Fail
@@ -5485,7 +5472,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
       drule comp_correct_thm >>
-      simp[good_syntax_def,RIGHT_FORALL_IMP_THM] >>
+      simp[alloc_arg_def,RIGHT_FORALL_IMP_THM] >>
       impl_tac >- metis_tac[] >>
       simp[comp_def] >>
       strip_tac >>
@@ -5507,7 +5494,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         drule comp_correct_thm >>
         simp[RIGHT_FORALL_IMP_THM] >>
         impl_tac >- (
-          simp[Abbr`e`,good_syntax_def] >>
+          simp[Abbr`e`,alloc_arg_def] >>
           reverse conj_tac >- metis_tac[] >>
           rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
         simp[Abbr`e`,comp_def] >>
@@ -5538,7 +5525,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       drule comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
-        simp[good_syntax_def] >>
+        simp[alloc_arg_def] >>
         reverse conj_tac >- metis_tac[] >>
         rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
       simp[comp_def] >>
@@ -5558,7 +5545,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     drule comp_correct_thm >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
-      simp[good_syntax_def] >>
+      simp[alloc_arg_def] >>
       reverse conj_tac >- metis_tac[] >>
       rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][]) >>
     simp[comp_def] >>
@@ -5574,7 +5561,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[] >>
     srw_tac[][] >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     drule comp_correct_thm >>
-    simp[good_syntax_def,comp_def] >>
+    simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
@@ -5591,7 +5578,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     last_x_assum(qspec_then`k`mp_tac) >>
     srw_tac[][] >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     drule comp_correct_thm >>
-    simp[good_syntax_def,comp_def] >>
+    simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>-(
@@ -5638,7 +5625,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   drule comp_correct_thm >>
   simp[comp_def,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
-    simp[good_syntax_def] >>
+    simp[alloc_arg_def] >>
     reverse conj_tac >- metis_tac[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][] ) >>
   strip_tac >>
@@ -5664,7 +5651,7 @@ val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
   srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]);
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `(!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ good_syntax prog) /\
+  `(!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    LENGTH s.bitmaps < dimword (:α) - 1 ∧
    LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
@@ -5785,7 +5772,7 @@ val stack_alloc_lab_pres = Q.store_thm("stack_alloc_lab_pres",`
   >>
     res_tac>>fs[]));
 
-val sa_comp_stack_asm_name = Q.prove(`
+val stack_alloc_comp_stack_asm_name = Q.prove(`
   ∀n m p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
   let (p',m') = comp n m p in
@@ -5805,7 +5792,7 @@ val sa_comp_stack_asm_name = Q.prove(`
     rpt(pairarg_tac>>fs[])>>rw[]>>
     fs[stack_asm_name_def,stack_asm_remove_def]);
 
-val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
+val stack_alloc_stack_asm_convs = Q.store_thm("stack_alloc_stack_asm_convs",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
@@ -5830,8 +5817,67 @@ val sa_compile_stack_asm_convs = Q.store_thm("sa_compile_stack_asm_convs",`
   >>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>>
-  drule sa_comp_stack_asm_name>>fs[]>>
+  drule stack_alloc_comp_stack_asm_name>>fs[]>>
   disch_then(qspecl_then[`p_1`,`next_lab p_2 1`] assume_tac)>>
   pairarg_tac>>fs[]);
+
+val stack_alloc_reg_bound = Q.store_thm("stack_alloc_reg_bound",
+  `10 ≤ sp ∧
+    EVERY (\p. reg_bound p sp)
+       (MAP SND prog1) ==>
+    EVERY (\p. reg_bound p sp)
+       (MAP SND (compile c.data_conf prog1))`,
+  fs[stack_allocTheory.compile_def]>>
+  strip_tac>>CONJ_TAC
+  >-
+    (EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
+    IF_CASES_TAC>>EVAL_TAC>>fs[])
+  >>
+  pop_assum mp_tac>>
+  qid_spec_tac`prog1`>>Induct>>
+  fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
+  ntac 3 strip_tac>>fs[]>>
+  qpat_x_assum`reg_bound p_2 sp` mp_tac>>
+  qpat_x_assum`10 ≤ sp` mp_tac>>
+  rpt (pop_assum kall_tac)>>
+  (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
+  qid_spec_tac `p_2` >>
+  qid_spec_tac `l` >>
+  qid_spec_tac `p_1` >>
+  ho_match_mp_tac stack_allocTheory.comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  simp[Once stack_allocTheory.comp_def]>>
+  fs[reg_bound_def]>>
+  TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
+    Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[reg_bound_def]>>
+    BasicProvers.EVERY_CASE_TAC)>>
+  rpt(pairarg_tac>>fs[reg_bound_def]));
+
+val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
+  `EVERY (λp. call_args p 1 2 0) (MAP SND prog1) ==>
+   EVERY (λp. call_args p 1 2 0) (MAP SND (compile c.data_conf prog1))`,
+  fs[stack_allocTheory.compile_def]>>
+  strip_tac>>CONJ_TAC
+  >-
+    (EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
+    IF_CASES_TAC>>EVAL_TAC>>fs[])
+  >>
+  pop_assum mp_tac>>
+  qid_spec_tac`prog1`>>Induct>>
+  fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
+  ntac 3 strip_tac>>fs[]>>
+  (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
+  qpat_x_assum`call_args p_2 1 2 0` mp_tac>>
+  rpt (pop_assum kall_tac)>>
+  qid_spec_tac `p_2` >>
+  qid_spec_tac `l` >>
+  qid_spec_tac `p_1` >>
+  ho_match_mp_tac stack_allocTheory.comp_ind>>
+  Cases_on`p_2`>>rw[]>>
+  simp[Once stack_allocTheory.comp_def]>>fs[call_args_def]>>
+  TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
+    Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[call_args_def]>>
+    BasicProvers.EVERY_CASE_TAC)>>
+  rpt(pairarg_tac>>fs[call_args_def]));
 
 val _ = export_theory();
