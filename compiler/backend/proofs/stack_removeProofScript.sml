@@ -2774,39 +2774,73 @@ val make_init_any_def = Define `
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
 
+val discharge_these_def = Define`
+  discharge_these jump off gen_gc max_heap k start code s1 s2 ⇔
+      EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
+      s2.code = fromAList (compile jump off gen_gc max_heap k start code) /\
+      semantics start s1 <> Fail
+       ∧ 8 ≤ k ∧ 1 ∈ domain s2.code ∧
+      {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
+      ¬s2.use_store ∧ ¬s2.use_alloc`;
+
+val propagate_these_def = Define`
+  propagate_these s (bitmaps:'a word list) ⇔
+  good_dimindex(:'a) /\ s.ffi.final_event = NONE /\
+  ∃ptr2 ptr3 ptr4 bitmap_ptr.
+       FLOOKUP s.regs 2 = SOME (Word ptr2) ∧
+       FLOOKUP s.regs 3 = SOME (Word ptr3) ∧
+       FLOOKUP s.regs 4 = SOME (Word ptr4) ∧
+       s.memory ptr2 = Word bitmap_ptr ∧
+       (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
+        (word_list bitmap_ptr (MAP Word bitmaps) *
+         word_list_exists ptr2
+           (w2n (ptr4 − ptr2) DIV w2n (bytes_in_word:'a word)))
+          (fun2set (s.memory,s.mdomain)))`;
+
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `init_pre gen_gc max_heap bitmaps k start s2 /\
-    EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
-    s2.code = fromAList (compile jump off gen_gc max_heap k start code) /\
-    IS_SOME (make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2) /\
-    make_init_any gen_gc max_heap bitmaps k (fromAList code) s2 = s1 /\
-    semantics start s1 <> Fail ==>
+  `discharge_these jump off gen_gc max_heap k start code s1 s2 /\
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = SOME s1 /\
+   propagate_these s2 bitmaps
+    ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
-  fs [make_init_any_def]
-  \\ Cases_on `make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2` \\ fs []
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  rw[discharge_these_def]
   \\ imp_res_tac IMP_code_rel
-  \\ drule (make_init_opt_SOME_semantics |> GEN_ALL)
-  \\ fs [init_pre_def]
-  \\ disch_then match_mp_tac \\ fs []
-  \\ qexists_tac`off`
-  \\ qexists_tac`jump`
-  \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
-  \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
+  \\ imp_res_tac make_init_opt_SOME_semantics
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ impl_tac
+  >- (
+    fs[compile_def,lookup_fromAList]
+    \\ EVAL_TAC )
+  \\ impl_tac
+  >- (
+    fs[init_pre_def,init_code_pre_def,propagate_these_def]
+    \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
+    \\ EVAL_TAC )
+  \\ rw[]);
 
 val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
-  `init_pre gen_gc max_heap bitmaps k start s2 /\
-    EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
-    s2.code = fromAList (compile jump off gen_gc max_heap k start code) /\
-    make_init_opt gen_gc max_heap bitmaps k (fromAList code) s2 = NONE ==>
-    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
-  rw [] \\ drule (GEN_ALL make_init_opt_NONE_semantics)
-  \\ disch_then match_mp_tac \\ fs []
-  \\ qexists_tac`off`
-  \\ qexists_tac`jump`
-  \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
-  \\ imp_res_tac IMP_code_rel \\ rfs []
-  \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
+  `discharge_these jump off gen_gc max_heap k start code s1 s2 /\
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = NONE /\
+   propagate_these s2 bitmaps
+   ==>
+   semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
+  rw[discharge_these_def]
+  \\ imp_res_tac IMP_code_rel
+  \\ imp_res_tac make_init_opt_NONE_semantics
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ impl_tac
+  >- (
+    fs[compile_def,lookup_fromAList]
+    \\ EVAL_TAC )
+  \\ disch_then(qspec_then`start`mp_tac)
+  \\ impl_tac
+  >- (
+    fs[init_pre_def,init_code_pre_def,propagate_these_def]
+    \\ simp[lookup_fromAList,compile_def,ALOOKUP_APPEND]
+    \\ EVAL_TAC )
+  \\ rw[]);
 
 val make_init_any_ffi = Q.store_thm("make_init_any_ffi",
   `(make_init_any gen_gc max_heap bitmaps k code s).ffi =

@@ -28,18 +28,6 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
   `pair_CASE p f = a ⇔ ∃x y. p = (x,y) ∧ f x y = a`,
   Cases_on`p`>>rw[]);
 
-val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
-  `BIJ bij UNIV UNIV ==>
-    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
-  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
-  \\ match_mp_tac (METIS_PROVE []
-      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
-  \\ fs [] \\ rw []
-  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
-  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
-  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
-  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
-
 val word_list_exists_imp = Q.store_thm("word_list_exists_imp",
   `dm = addresses a n /\
     dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
@@ -119,6 +107,7 @@ val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
 
 val prim_config_eq = save_thm("prim_config_eq", EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
 
+(*
 val IMP_init_state_ok = Q.store_thm("IMP_init_state_ok",
   `4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
     (case bitmaps of [] => F | h::_ => 4w = h) /\
@@ -160,6 +149,20 @@ val full_make_init_code =
   ``(^(full_make_init_def |> SPEC_ALL |> concl |> dest_eq |> fst)).code``
   |> SIMP_CONV (srw_ss()) [full_make_init_def,stack_allocProofTheory.make_init_def];
 
+val args = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #1 |> rand
+val defn = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #2 |> lhs
+val full_init_pre_fail_def =
+  Define`full_init_pre_fail ^args = ^defn`;
+
+val full_make_init_bitmaps = Q.prove(
+  `full_init_pre_fail args = SOME x ==>
+    (full_make_init args).bitmaps = FST args`,
+  PairCases_on`args` \\
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+      stack_removeProofTheory.make_init_any_bitmaps]
+  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_fail_def]);
+*)
+
 val fun2set_disjoint_union = Q.store_thm("fun2set_disjoint_union",
   `
    DISJOINT d1 d2 ∧
@@ -177,34 +180,7 @@ val DISJOINT_INTER = Q.store_thm("DISJOINT_INTER",
   `DISJOINT b c ⇒ DISJOINT (a ∩ b) (a ∩ c)`,
   rw[IN_DISJOINT] \\ metis_tac[]);
 
-val args = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #1 |> rand
-val defn = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #2 |> lhs
-val full_init_pre_fail_def =
-  Define`full_init_pre_fail ^args = ^defn`;
-
-val full_make_init_bitmaps = Q.prove(
-  `full_init_pre_fail args = SOME x ==>
-    (full_make_init args).bitmaps = FST args`,
-  PairCases_on`args` \\
-  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_bitmaps]
-  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_fail_def]);
-
 (* -- *)
-
-(* TODO: Move somewhere, not sure where though *)
-val make_init_opt_imp_bitmaps_limit = Q.store_thm("make_init_opt_imp_bitmaps_limit",
-  `make_init_opt ggc max_heap bitmaps k code s = SOME x ==>
-    LENGTH (bitmaps:'a word list) < dimword (:'a) − 1`,
-  fs [stack_removeProofTheory.make_init_opt_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ fs [stack_removeProofTheory.init_prop_def,
-         stack_removeProofTheory.init_reduce_def]);
-
-val word_in_byte_mem_def = Define`
-  word_in_byte_mem a w m be ⇔
-  ∀n. n <+ bytes_in_word ⇒
-  m (a+n) = get_byte n w be`
 
 (* TODO: should be defined in targetSem *)
 (* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
@@ -600,7 +576,13 @@ val compile_correct = Q.store_thm("compile_correct",
   qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes tar_st m dm io_regs` \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
   qabbrev_tac`lab_st:('a,'ffi) labSem$state = make_init mc ffi io_regs tar_st m (dm ∩ byte_aligned) ms p7` \\
-  (* syntactic properties from stack_to_lab *)
+  `all_enc_ok_pre c4.lab_conf.asm_conf p7` by
+    (fs[Abbr`p7`]>>
+    match_mp_tac stack_to_lab_compile_all_enc_ok>>
+    fs[stackPropsTheory.reg_name_def,Abbr`c4`,mc_conf_ok_def]>>
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>rfs[]>>
+    metis_tac[])>>
+
   `labels_ok p7` by
     (fs[Abbr`p7`]>>
     match_mp_tac stack_to_lab_compile_lab_pres>>
@@ -608,19 +590,21 @@ val compile_correct = Q.store_thm("compile_correct",
     fs[EVERY_MEM]>> rpt strip_tac>>
     first_x_assum drule>>
     EVAL_TAC>>rw[])>>
-  `all_enc_ok_pre c4.lab_conf.asm_conf p7` by
-    (fs[Abbr`p7`]>>
-    match_mp_tac stack_to_lab_compile_all_enc_ok>>
-    fs[stackPropsTheory.reg_name_def,Abbr`c4`,mc_conf_ok_def]>>
-    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>rfs[]>>
-    metis_tac[])>>
+
+  (* syntactic properties from stack_to_lab *)
+
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
+  qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
+  strip_tac
+
+  (*
   simp[stack_to_labTheory.compile_def]>>
   qpat_abbrev_tac`sl1 = stack_alloc$compile _ p6`>>
   qpat_abbrev_tac`sl2 = stack_remove$compile _ _ _ _ _ _ sl1`>>
   qpat_abbrev_tac`sl3 = stack_names$compile _ sl2`>>
   strip_tac>>
   qmatch_asmsub_abbrev_tac`stack_remove$compile stjump stoff _ _ stk _ _`>>
+
   (* syntactic properties of stackLang passes needed to discharge full_init *)
   (* stack_alloc *)
   drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args |> INST_TYPE[beta|->alpha])>>
@@ -642,12 +626,20 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then (assume_tac o SYM)>>
   drule stack_namesProofTheory.stack_names_call_args>>
   simp[]>> strip_tac>>
-  qabbrev_tac`stregs = MAP (find_name c.stack_conf.reg_names) [2;3;4]`>>
+*)
+
   qabbrev_tac`stack_st =
-    full_make_init (c6.bitmaps,c.data_conf,p6,c.stack_conf.reg_names,is_gen_gc c.data_conf.gc_kind,
-                    stjump,stk,2 * max_heap_limit (:'a) c.data_conf - 1,
-                    stoff,stregs,lab_st,set mc.callee_saved_regs)` \\
-  qmatch_asmsub_abbrev_tac`full_make_init stack_args`>>
+    full_make_init
+      c.stack_conf
+      c.data_conf
+      (2 * max_heap_limit (:'a) c.data_conf - 1)
+      stk
+      stoff
+      c6.bitmaps
+      p6
+      lab_st
+      (set mc.callee_saved_regs)` >>
+
   qabbrev_tac`word_st = make_init stack_st (fromAList p5)` \\
   (data_to_wordProofTheory.compile_semantics
    |> DISCH_ALL
@@ -659,153 +651,22 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`] \\
     fs[mc_conf_ok_def] \\
     conj_tac >- (
-      simp[Abbr`stack_st`,Abbr`stack_args`] \\
+      simp[Abbr`stack_st`] \\
       simp[full_make_init_def,stack_allocProofTheory.make_init_def] ) \\
-    simp[Abbr`stack_st`,Abbr`stack_args`] \\
-    match_mp_tac IMP_init_store_ok \\ simp[] ) \\
+    simp[Abbr`stack_st`] \\
+    match_mp_tac (GEN_ALL IMP_init_store_ok)
+    \\ metis_tac[]) \\
   `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
-    fs[Abbr`stack_st`,Abbr`stack_args`,Abbr`lab_st`,full_make_init_ffi] ) \\
+    fs[Abbr`stack_st`,Abbr`lab_st`] \\
+    fs [full_make_init_def,stack_allocProofTheory.make_init_def,
+        stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC) \\
   `ffi.final_event = NONE` by
     fs[installed_def,good_init_state_def]>>
   impl_tac >- fs[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
   strip_tac \\
-  (* This invariant is shared between full_init_pre_fail and full_init_pre *)
-  `full_init_shared stack_args` by (
-    simp[full_init_shared_def,Abbr`stack_args`] \\
-    CONJ_TAC >- (
-      (* stl *)
-      simp[state_rel_make_init,Abbr`lab_st`,make_init_def]>>
-      CONJ_TAC>-
-        (fs[Abbr`c4`,lookup_fromAList]>>rw[]
-        >-
-          (imp_res_tac ALOOKUP_MEM>>
-          fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
-          rfs[mc_init_ok_def]>>
-          metis_tac[])>>
-        metis_tac[code_installed_prog_to_section])>>
-      fs[mc_init_ok_def,Abbr`dm`]>>
-      fs[mc_conf_ok_def]>>
-      metis_tac[byte_aligned_MOD])>>
-    CONJ_TAC>-
-      (unabbrev_all_tac>>
-      qpat_x_assum`_ = sl3` sym_sub_tac>>
-      qpat_x_assum`_ = sl2` sym_sub_tac>>
-      simp[stack_removeTheory.compile_def
-          ,stack_namesTheory.compile_def
-          ,stack_to_labTheory.compile_def
-          ,stack_to_labTheory.prog_to_section_def
-          ,stack_removeTheory.init_stubs_def
-          ,stack_namesTheory.prog_comp_def]>>
-      pairarg_tac \\ fs [] \\ fs [Once labSemTheory.loc_to_pc_def])>>
-    CONJ_TAC>-
-      (* stack rm*)
-      (simp[stack_removeProofTheory.init_pre_def]>>
-      rw[]
-      >-
-        (simp[stack_to_labProofTheory.make_init_def,stack_namesProofTheory.make_init_def
-            ,stack_removeTheory.compile_def]>>
-        simp[stack_removeTheory.init_stubs_def,lookup_fromAList])
-      >-
-        (EVAL_TAC>>fs[])
-      >>
-        simp[stack_removeProofTheory.init_code_pre_def]>>
-        simp[stack_to_labProofTheory.make_init_def,stack_namesProofTheory.make_init_def
-             ,stack_removeTheory.compile_def,GSYM PULL_EXISTS]>>
-        CONJ_TAC >-
-          fs[mc_conf_ok_def]>>
-        CONJ_TAC >-
-          fs[Abbr`stk`,Abbr`c4`]>>
-        CONJ_TAC >-
-          (simp[domain_fromAList]>>
-          DISJ1_TAC>>
-          EVAL_TAC)>>
-        CONJ_TAC>-
-          (fs[mc_init_ok_def,Abbr`stk`,Abbr`c4`]>>
-          metis_tac[LINV_DEF,IN_UNIV,BIJ_DEF])>>
-        simp[PULL_EXISTS]>>
-        simp[Abbr`lab_st`,make_init_def,Abbr`dm`,Abbr`stregs`]>>
-        simp[BIJ_FLOOKUP_MAPKEYS,flookup_fupdate_list]>>
-        fs[installed_def,mc_conf_ok_def]>>
-        qmatch_goalsub_abbrev_tac`a <=+ _` \\
-        qmatch_asmsub_abbrev_tac`_ <+ b` \\
-        `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
-         rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
-        once_rewrite_tac[INTER_COMM] \\
-        rewrite_tac[UNION_OVER_INTER] \\
-        once_rewrite_tac[UNION_COMM] \\
-        strip_tac \\
-        match_mp_tac fun2set_disjoint_union \\
-        conj_tac >- (
-          match_mp_tac DISJOINT_INTER
-          \\ metis_tac[DISJOINT_SYM] ) \\
-        conj_tac >- (
-          fs[attach_bitmaps_def] )
-        \\ (
-          match_mp_tac word_list_exists_imp>>
-          fs [addresses_thm]>>
-          fs[mc_conf_ok_def]>>
-          `0 < dimindex (:α) DIV 8` by
-            rfs [labPropsTheory.good_dimindex_def]>>
-          reverse conj_tac >-
-           (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
-            \\ rfs [labPropsTheory.good_dimindex_def])
-          \\ `a <=+ b` by metis_tac[WORD_LOWER_IMP_LOWER_OR_EQ]
-          \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
-          \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
-          \\ rw [] \\ reverse eq_tac THEN1
-           (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
-            \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
-            \\ drule X_LT_DIV \\ disch_then (fn th => fs [th])
-            \\ fs [RIGHT_ADD_DISTRIB]
-            \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
-            \\ fs [byte_aligned_mult])
-          \\ rw [] \\ fs []
-          \\ `i < dimword (:'a)` by metis_tac [LESS_TRANS,w2n_lt] \\ fs []
-          \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
-          \\ rfs [alignmentTheory.byte_aligned_def,
-               ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-          \\ fs [stack_removeProofTheory.aligned_w2n]
-          \\ drule DIVISION
-          \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
-          \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
-               (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
-          \\ fs [] \\ rfs [] \\ `-1w * a + b = b - a` by fs []
-          \\ full_simp_tac std_ss []
-          \\ Cases_on `a` \\ Cases_on `b`
-          \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
-          \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
-          \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [])) \\
-    CONJ_TAC>- (
-      simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,Abbr`c4`]>>
-      rw[]>-
-        (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
-        metis_tac[])>>
-      fs[Abbr`sl1`,stack_allocTheory.compile_def]
-      >-
-        (fs[stack_allocTheory.stubs_def]>>
-        EVAL_TAC)
-      >>
-        `MEM p_1 (MAP FST p6)` by
-          (fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP]>>
-          pairarg_tac>>fs[]>>
-          metis_tac[FST])>>
-        rfs[]
-        >-
-          EVAL_TAC
-        >-
-          (pop_assum mp_tac>>EVAL_TAC>>
-          rpt(pop_assum kall_tac)>>
-          DECIDE_TAC)
-        >>
-          fs[EVERY_MEM]>>
-          first_x_assum drule>>
-          EVAL_TAC>>fs[])>>
-    rw[]>>EVAL_TAC>>
-    CCONTR_TAC>>fs[EVERY_MEM]>>
-    first_x_assum drule>>
-    EVAL_TAC)>>
+
   qmatch_abbrev_tac`x ⊆ extend_with_resource_limit y` \\
   `Fail ∉ y` by fs[Abbr`y`] \\
   pop_assum mp_tac \\ simp[GSYM implements_def] \\
@@ -818,7 +679,7 @@ val compile_correct = Q.store_thm("compile_correct",
     fs[good_code_def,labels_ok_def] \\
     rfs[]>>rw[]
     >-
-      fs[Abbr`p7`]
+      fs[Abbr`p7`,stack_to_labTheory.compile_def]
     >-
       (match_mp_tac (MP_CANON EVERY_MONOTONIC)>>
       simp[Once CONJ_COMM]>>
@@ -842,16 +703,155 @@ val compile_correct = Q.store_thm("compile_correct",
       asm_exists_tac>>
       simp[]>>Cases>> simp[]))>>
   strip_tac \\
-  Cases_on`full_init_pre_fail stack_args` >- (
-    qunabbrev_tac`stack_args` \\
-    fs[full_init_pre_fail_def] \\
-    drule full_make_init_semantics_fail \\
-    strip_tac \\ rfs[] \\
+  `semantics lab_st = Terminate Resource_limit_hit lab_st.ffi.io_events ∨
+   implements {semantics lab_st} {semantics InitGlobals_location stack_st}`
+  by (
+    qunabbrev_tac`stack_st`
+    \\ once_rewrite_tac[DISJ_COMM]
+    \\ (full_make_init_semantics
+        |> SIMP_RULE (std_ss ++ LET_ss) []
+        |> match_mp_tac)
+    \\ cheat )
+    (*
+    (* This invariant is shared between full_init_pre_fail and full_init_pre *)
+    `full_init_shared stack_args` by (
+      simp[full_init_shared_def,Abbr`stack_args`] \\
+      CONJ_TAC >- (
+        (* stl *)
+        simp[state_rel_make_init,Abbr`lab_st`,make_init_def]>>
+        CONJ_TAC>-
+          (fs[Abbr`c4`,lookup_fromAList]>>rw[]
+          >-
+            (imp_res_tac ALOOKUP_MEM>>
+            fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
+            rfs[mc_init_ok_def]>>
+            metis_tac[])>>
+          metis_tac[code_installed_prog_to_section])>>
+        fs[mc_init_ok_def,Abbr`dm`]>>
+        fs[mc_conf_ok_def]>>
+        metis_tac[byte_aligned_MOD])>>
+      CONJ_TAC>-
+        (unabbrev_all_tac>>
+        qpat_x_assum`_ = sl3` sym_sub_tac>>
+        qpat_x_assum`_ = sl2` sym_sub_tac>>
+        simp[stack_removeTheory.compile_def
+            ,stack_namesTheory.compile_def
+            ,stack_to_labTheory.compile_def
+            ,stack_to_labTheory.prog_to_section_def
+            ,stack_removeTheory.init_stubs_def
+            ,stack_namesTheory.prog_comp_def]>>
+        pairarg_tac \\ fs [] \\ fs [Once labSemTheory.loc_to_pc_def])>>
+      CONJ_TAC>-
+        (* stack rm*)
+        (simp[stack_removeProofTheory.init_pre_def]>>
+        rw[]
+        >-
+          (simp[stack_to_labProofTheory.make_init_def,stack_namesProofTheory.make_init_def
+              ,stack_removeTheory.compile_def]>>
+          simp[stack_removeTheory.init_stubs_def,lookup_fromAList])
+        >-
+          (EVAL_TAC>>fs[])
+        >>
+          simp[stack_removeProofTheory.init_code_pre_def]>>
+          simp[stack_to_labProofTheory.make_init_def,stack_namesProofTheory.make_init_def
+               ,stack_removeTheory.compile_def,GSYM PULL_EXISTS]>>
+          CONJ_TAC >-
+            fs[mc_conf_ok_def]>>
+          CONJ_TAC >-
+            fs[Abbr`stk`,Abbr`c4`]>>
+          CONJ_TAC >-
+            (simp[domain_fromAList]>>
+            DISJ1_TAC>>
+            EVAL_TAC)>>
+          CONJ_TAC>-
+            (fs[mc_init_ok_def,Abbr`stk`,Abbr`c4`]>>
+            metis_tac[LINV_DEF,IN_UNIV,BIJ_DEF])>>
+          simp[PULL_EXISTS]>>
+          simp[Abbr`lab_st`,make_init_def,Abbr`dm`,Abbr`stregs`]>>
+          simp[BIJ_FLOOKUP_MAPKEYS,flookup_fupdate_list]>>
+          fs[installed_def,mc_conf_ok_def]>>
+          qmatch_goalsub_abbrev_tac`a <=+ _` \\
+          qmatch_asmsub_abbrev_tac`_ <+ b` \\
+          `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
+           rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
+          once_rewrite_tac[INTER_COMM] \\
+          rewrite_tac[UNION_OVER_INTER] \\
+          once_rewrite_tac[UNION_COMM] \\
+          strip_tac \\
+          match_mp_tac fun2set_disjoint_union \\
+          conj_tac >- (
+            match_mp_tac DISJOINT_INTER
+            \\ metis_tac[DISJOINT_SYM] ) \\
+          conj_tac >- (
+            fs[attach_bitmaps_def] )
+          \\ (
+            match_mp_tac word_list_exists_imp>>
+            fs [addresses_thm]>>
+            fs[mc_conf_ok_def]>>
+            `0 < dimindex (:α) DIV 8` by
+              rfs [labPropsTheory.good_dimindex_def]>>
+            reverse conj_tac >-
+             (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
+              \\ rfs [labPropsTheory.good_dimindex_def])
+            \\ `a <=+ b` by metis_tac[WORD_LOWER_IMP_LOWER_OR_EQ]
+            \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
+            \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
+            \\ rw [] \\ reverse eq_tac THEN1
+             (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
+              \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
+              \\ drule X_LT_DIV \\ disch_then (fn th => fs [th])
+              \\ fs [RIGHT_ADD_DISTRIB]
+              \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
+              \\ fs [byte_aligned_mult])
+            \\ rw [] \\ fs []
+            \\ `i < dimword (:'a)` by metis_tac [LESS_TRANS,w2n_lt] \\ fs []
+            \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
+            \\ rfs [alignmentTheory.byte_aligned_def,
+                 ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
+            \\ fs [stack_removeProofTheory.aligned_w2n]
+            \\ drule DIVISION
+            \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
+            \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
+                 (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
+            \\ fs [] \\ rfs [] \\ `-1w * a + b = b - a` by fs []
+            \\ full_simp_tac std_ss []
+            \\ Cases_on `a` \\ Cases_on `b`
+            \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
+            \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
+            \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs [])) \\
+      CONJ_TAC>- (
+        simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,Abbr`c4`]>>
+        rw[]>-
+          (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
+          metis_tac[])>>
+        fs[Abbr`sl1`,stack_allocTheory.compile_def]
+        >-
+          (fs[stack_allocTheory.stubs_def]>>
+          EVAL_TAC)
+        >>
+          `MEM p_1 (MAP FST p6)` by
+            (fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP]>>
+            pairarg_tac>>fs[]>>
+            metis_tac[FST])>>
+          rfs[]
+          >-
+            EVAL_TAC
+          >-
+            (pop_assum mp_tac>>EVAL_TAC>>
+            rpt(pop_assum kall_tac)>>
+            DECIDE_TAC)
+          >>
+            fs[EVERY_MEM]>>
+            first_x_assum drule>>
+            EVAL_TAC>>fs[])>>
+      rw[]>>EVAL_TAC>>
+      CCONTR_TAC>>fs[EVERY_MEM]>>
+      first_x_assum drule>>
+      EVAL_TAC)>>
+    *)
+  >- (
     match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
-    simp[Once CONJ_COMM] \\
-    asm_exists_tac \\ simp[] \\
-    match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
-    simp[Once CONJ_COMM] \\
+    simp[Once CONJ_COMM] \\ rfs[]
     asm_exists_tac \\ simp[] \\
     metis_tac[dataPropsTheory.Resource_limit_hit_implements_semantics] ) \\
   fs[Abbr`word_st`] \\ rfs[] \\
@@ -867,12 +867,14 @@ val compile_correct = Q.store_thm("compile_correct",
    |> Q.ISPECL_THEN[`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
   impl_tac >- (
     fs[] \\
-    conj_tac >- simp[Abbr`stack_st`,full_make_init_code,Abbr`stack_args`] \\
+    conj_tac >- simp[Abbr`stack_st`,full_make_init_def,stack_allocProofTheory.make_init_def]
     conj_tac >- (
-      simp[Abbr`stack_st`,Abbr`stack_args`] \\
+      simp[Abbr`stack_st`] \\
+      cheat
+      (*
       match_mp_tac IMP_init_state_ok \\
       fs[mc_conf_ok_def,backend_config_ok_def] \\
-      metis_tac[compile_word_to_stack_bitmaps] ) \\
+      metis_tac[compile_word_to_stack_bitmaps] *)) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
@@ -882,8 +884,10 @@ val compile_correct = Q.store_thm("compile_correct",
       res_tac \\ pop_assum mp_tac >> EVAL_TAC) \\
     conj_tac >- (
       simp[Abbr`stack_st`] \\
+      cheat (* full_make_init_semantics needs to include this in the non-fail branch *)
+      (*
       drule full_make_init_bitmaps \\
-      simp[Abbr`stack_args`] ) \\
+      simp[Abbr`stack_args`] *)) \\
     conj_tac >- (
       fs[EVERY_MEM,FORALL_PROD] \\
       metis_tac[] ) \\
@@ -901,7 +905,8 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`x`] \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   ONCE_REWRITE_TAC[CONJ_COMM] \\
-  asm_exists_tac \\ simp[] \\
+  asm_exists_tac \\ simp[]);
+  (*
   simp[Abbr`stack_args`] \\
   match_mp_tac stack_to_labProofTheory.full_make_init_semantics \\
   qhdtm_x_assum`full_init_pre_fail`mp_tac \\
@@ -924,5 +929,6 @@ val compile_correct = Q.store_thm("compile_correct",
     first_x_assum drule>>
     EVAL_TAC>>
     fs[]);
+    *)
 
 val _ = export_theory();
