@@ -638,6 +638,11 @@ val reg_bound_inst_def = Define`
   (reg_bound_inst (Arith (SubOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
+  (reg_bound_inst (FP (FPLess r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPLessEqual r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPEqual r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPMovToReg r1 r2 d)) k ⇔ r1 < k ∧ r2 < k) ∧
+  (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst _ _ ⇔ T)`;
 val _ = export_rewrites["reg_bound_inst_def"];
 
