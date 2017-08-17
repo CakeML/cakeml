@@ -501,7 +501,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
          \\ fs [EXP_SUB,X_LE_DIV,dimword_def]
          \\ rfs [good_dimindex_def])
        \\ fs [] \\ strip_tac
-       \\ `-&(4 * n) / 4 = - & n` by
+       \\ `-&(4 * n) / 4 = (- & n):int` by
         (rewrite_tac [MATCH_MP (GSYM integerTheory.INT_DIV_NEG)
                          (intLib.COOPER_PROVE ``0 <> 4i``)]
          \\ fs [integerTheory.INT_DIV_CALCULATE]
