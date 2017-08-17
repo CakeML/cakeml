@@ -87,6 +87,281 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
   Induct>>simp[code_installed_def]>>srw_tac[][] >>
   res_tac >> fsrw_tac[ARITH_ss][ADD1]);
 
+val code_installed_get_labels_IMP = Q.prove(
+  `!e n q pc.
+      code_installed pc (append (FST (flatten e n q))) c /\
+      (l1,l2) ∈ get_labels e ==>
+      ?v. loc_to_pc l1 l2 c = SOME v`,
+  recInduct flatten_ind \\ rw []
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ once_rewrite_tac [flatten_def]
+  \\ Cases_on `p` \\ fs [get_labels_def] THEN1
+   (every_case_tac
+    \\ TRY pairarg_tac \\ fs []
+    \\ TRY pairarg_tac \\ fs [code_installed_def]
+    \\ rw [] \\ res_tac \\ fs []
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ fs [code_installed_def]
+    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+    \\ fs [code_installed_def])
+  \\ every_case_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs []
+  \\ TRY pairarg_tac \\ fs [code_installed_def]
+  \\ TRY pairarg_tac \\ fs [code_installed_def]
+  \\ rw [] \\ res_tac \\ fs [code_installed_def]
+  \\ fs [get_labels_def]
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []);
+
+val code_installed'_def = Define `
+  (code_installed' n [] code ⇔ T) /\
+  (code_installed' n (x::xs) code ⇔
+     if is_Label x then code_installed' n xs code
+     else asm_fetch_aux n code = SOME x ∧ code_installed' (n + 1) xs code)`;
+
+val code_installed'_cons_label = Q.store_thm("code_installed'_cons_label",
+  `!lines pos.
+      is_Label h ==>
+      code_installed' pos lines (Section n (h::xs)::other) =
+      code_installed' pos lines (Section n xs::other)`,
+  Induct \\ fs [code_installed'_def]
+  \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def]);
+
+val code_installed'_cons_non_label = Q.store_thm("code_installed'_cons_non_label",
+  `!lines pos.
+      ~is_Label h ==>
+      code_installed' (pos+1) lines (Section n (h::xs)::other) =
+      code_installed' pos lines (Section n xs::other)`,
+  Induct \\ fs [code_installed'_def]
+  \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def])
+  |> Q.SPECL [`lines`,`0`] |> SIMP_RULE std_ss [];
+
+val code_installed'_simp = Q.store_thm("code_installed'_simp",
+  `!lines. code_installed' 0 lines (Section n (lines ++ rest)::other)`,
+  Induct \\ fs [code_installed'_def]
+  \\ fs [labSemTheory.asm_fetch_aux_def]
+  \\ rpt strip_tac \\ IF_CASES_TAC
+  \\ fs [code_installed'_cons_label,code_installed'_cons_non_label]);
+
+val loc_to_pc_skip_section = Q.store_thm("loc_to_pc_skip_section",
+  `!lines.
+      n <> p ==>
+      loc_to_pc n 0 (Section p lines :: xs) =
+      case loc_to_pc n 0 xs of
+      | NONE => NONE
+      | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))`,
+  Induct \\ once_rewrite_tac [labSemTheory.loc_to_pc_def] \\ fs []
+  THEN1 (every_case_tac \\ fs [])
+  \\ strip_tac \\ IF_CASES_TAC \\ fs [] \\ CASE_TAC \\ fs []);
+
+val asm_fetch_aux_add = Q.store_thm("asm_fetch_aux_add",
+  `!ys pc rest.
+      asm_fetch_aux (pc + LENGTH (FILTER (λx. ¬is_Label x) ys))
+        (Section pos ys::rest) = asm_fetch_aux pc rest`,
+  Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]);
+
+val labs_correct_def = Define `
+  (labs_correct n [] code ⇔ T) /\
+  (labs_correct n (x::xs) code ⇔
+     if is_Label x then labs_correct n xs code /\
+       (case x of
+        | Label l1 l2 v2 => loc_to_pc l1 l2 code = SOME n
+        | _ => T)
+     else labs_correct (n + 1) xs code)`
+
+val is_Label_def = labSemTheory.is_Label_def
+
+val code_installed_eq = Q.store_thm("code_installed_eq",
+  `!pc xs code.
+      code_installed pc xs code <=>
+      code_installed' pc xs code /\ labs_correct pc xs code`,
+  Induct_on `xs`
+  \\ fs [code_installed_def,code_installed'_def,labs_correct_def]
+  \\ ntac 3 strip_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ Cases_on `h` \\ fs [is_Label_def]
+  \\ rw [] \\ eq_tac \\ fs []);
+
+val code_installed_cons = Q.store_thm("code_installed_cons",
+  `!xs ys pos pc.
+      code_installed' pc xs rest ==>
+      code_installed' (pc + LENGTH (FILTER (λx. ¬is_Label x) ys)) xs
+        (Section pos ys :: rest)`,
+  Induct \\ fs [] \\ fs [code_installed'_def]
+  \\ ntac 4 strip_tac \\ IF_CASES_TAC \\ fs []
+  \\ rw [] \\ res_tac \\ fs [asm_fetch_aux_add]);
+
+val code_installed_prog_to_section_lemma = Q.prove(
+  `!prog4 n prog3.
+      ALOOKUP prog4 n = SOME prog3 ==>
+      ?pc.
+        code_installed' pc (append (FST (flatten prog3 n (next_lab prog3 1))))
+          (MAP prog_to_section prog4) /\
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
+  Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
+  THEN1
+   (fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac \\ fs []
+    \\ once_rewrite_tac [labSemTheory.loc_to_pc_def]
+    \\ fs [code_installed'_simp])
+  \\ res_tac \\ fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac
+  \\ fs [loc_to_pc_skip_section,code_installed_cons]);
+
+val extract_labels_def = labPropsTheory.extract_labels_def
+val extract_labels_append = labPropsTheory.extract_labels_append
+
+val labs_correct_hd = Q.store_thm("labs_correct_hd",`
+  ∀extra l.
+  ALL_DISTINCT (extract_labels (extra++l)) ∧
+  EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (extra++l)) ⇒
+  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)`,
+  Induct_on`l`>>fs[labs_correct_def]>>rw[]
+  >-
+    (first_x_assum(qspec_then `extra++[h]` mp_tac)>>
+    Cases_on`h`>>fs[extract_labels_def,labSemTheory.is_Label_def,FILTER_APPEND]>>
+    metis_tac[APPEND_ASSOC,APPEND])
+  >-
+    (Cases_on`h`>>fs[]>>
+    ntac 2 (pop_assum mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    Induct_on`extra`>>fs[extract_labels_def]>>rw[]
+    >-
+      (once_rewrite_tac [labSemTheory.loc_to_pc_def]>>
+      fs[])
+    >>
+    `n = n' ∧ n0 ≠ 0` by
+      (Cases_on`h`>>fs[extract_labels_append,extract_labels_def])>>
+    once_rewrite_tac [labSemTheory.loc_to_pc_def]>>
+    Cases_on`h`>>fs[extract_labels_def]>>
+    IF_CASES_TAC>>fs[extract_labels_append,extract_labels_def])
+  >>
+    first_x_assum(qspec_then `extra++[h]` mp_tac)>>
+    Cases_on`h`>>fs[extract_labels_def,FILTER_APPEND]>>
+    metis_tac[APPEND_ASSOC,APPEND]);
+
+val labels_ok_def = Define`
+  labels_ok code ⇔
+  (*Section names are distinct*)
+  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
+  EVERY (λs. case s of Section n lines =>
+    let labs = extract_labels lines in
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
+    ALL_DISTINCT labs) code`;
+
+val labels_ok_imp = Q.store_thm("labels_ok_imp",
+  `∀code.
+   labels_ok code ⇒
+   EVERY sec_labels_ok code ∧
+   ALL_DISTINCT (MAP Section_num code) ∧
+   EVERY (ALL_DISTINCT o extract_labels o Section_lines) code`,
+  Induct_on`code` \\ simp[]
+  \\ Cases \\ simp[]
+  \\ fs[labels_ok_def]
+  \\ strip_tac \\ fs[]
+  \\ reverse conj_tac
+  >- (
+    strip_tac \\ fs[MEM_MAP,EXISTS_PROD] \\ fs[]
+    \\ qmatch_assum_rename_tac`MEM sec code`
+    \\ first_x_assum(qspec_then`sec`mp_tac) \\ simp[]
+    \\ CASE_TAC \\ fs[] )
+  \\ Induct_on`l` \\ fs[]
+  \\ Cases \\ fs[]);
+
+val labels_ok_labs_correct = Q.store_thm("labels_ok_labs_correct",`
+  ∀code.
+  labels_ok code ⇒
+  EVERY ( λs. case s of Section n lines =>
+      case loc_to_pc n 0 code of
+       SOME pc => labs_correct pc lines code
+      | _ => T) code`,
+  Induct>>fs[labels_ok_def]>>Cases_on`h`>>fs[]>>
+  rw[]
+  >-
+    (once_rewrite_tac[labSemTheory.loc_to_pc_def]>>fs[]>>
+    assume_tac (Q.SPEC `[]` labs_correct_hd)>>fs[])
+  >>
+    fs[EVERY_MEM]>>rw[]>>res_tac>>
+    Cases_on`s`>>fs[]>>
+    `n ≠ n'` by
+      (fs[MEM_MAP]>>
+      last_x_assum kall_tac>>
+      last_x_assum (qspec_then`Section n' l'` assume_tac)>>rfs[])>>
+    fs[loc_to_pc_skip_section]>>
+    BasicProvers.EVERY_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>
+    pop_assum kall_tac>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    pop_assum mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    qid_spec_tac`x`>>
+    Induct_on`l'`>>rw[labs_correct_def]>>fs[AND_IMP_INTRO]
+    >-
+      (first_assum match_mp_tac>>
+      Cases_on`h`>>fs[ALL_DISTINCT,extract_labels_def])
+    >-
+      (Cases_on`h`>>fs[]>>
+      `n'' ≠ n` by
+        (fs[extract_labels_def]>>
+        first_x_assum(qspec_then`n'',n0` mp_tac)>>fs[])>>
+      pop_assum mp_tac>>
+      pop_assum mp_tac>>
+      ntac 5 (pop_assum kall_tac)>>
+      ntac 2 (pop_assum mp_tac)>>
+      rpt (pop_assum kall_tac)>>
+      map_every qid_spec_tac [`n''`,`n0`,`l`]>>
+      Induct>> once_rewrite_tac [labSemTheory.loc_to_pc_def]>>fs[]>>
+      rw[]>>fs[is_Label_def,extract_labels_def,AND_IMP_INTRO]
+      >-
+        (fs[FORALL_PROD]>>metis_tac[])
+      >-
+        (fs[FORALL_PROD]>>metis_tac[])
+      >-
+        (first_assum match_mp_tac>>
+        Cases_on`h`>>fs[extract_labels_def])
+      >>
+        rveq>>fs[loc_to_pc_skip_section]>>
+        (first_x_assum(qspecl_then[`n0`,`n''`] mp_tac)>>
+        impl_tac>- (Cases_on`h`>>fs[extract_labels_def])>>
+        fs[]))
+    >>
+      first_x_assum (qspec_then`x+1` mp_tac)>>
+      impl_tac
+      >-
+        (Cases_on`h`>>fs[ALL_DISTINCT,extract_labels_def])
+      >>
+       fs[]);
+
+val labs_correct_append = Q.store_thm("labs_correct_append",`
+  ∀ls pc.
+  labs_correct pc (ls ++ rest) code ⇒
+  labs_correct pc ls code`,
+  Induct>>fs[labs_correct_def]>>rw[]);
+
+val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section",
+  `!prog4 n prog3.
+      labels_ok (MAP prog_to_section prog4) ∧
+      ALOOKUP prog4 n = SOME prog3 ==>
+      ?pc.
+        code_installed pc (append (FST (flatten prog3 n (next_lab prog3 1))))
+          (MAP prog_to_section prog4) /\
+        loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc`,
+  rpt strip_tac \\ fs [code_installed_eq]
+  \\ drule code_installed_prog_to_section_lemma \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ imp_res_tac labels_ok_labs_correct
+  \\ fs[EVERY_MEM,MEM_MAP]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ first_x_assum (qspec_then`prog_to_section (n,prog3)` mp_tac)
+  \\ impl_tac >- metis_tac[]
+  \\ BasicProvers.TOP_CASE_TAC>>fs[stack_to_labTheory.prog_to_section_def]
+  \\ pairarg_tac>>fs[]>>rveq>>fs[]
+  \\ metis_tac[labs_correct_append]);
+
 val state_rel_def = Define`
   state_rel (s:('a,'b)stackSem$state) (t:('a,'b)labSem$state) ⇔
     (∀n v. FLOOKUP s.regs n = SOME v ⇒ t.regs n = v) ∧
@@ -108,6 +383,13 @@ val state_rel_def = Define`
     ¬s.use_stack ∧
     ¬s.use_store ∧
     ¬s.use_alloc`;
+
+val loc_check_IMP_loc_to_pc = Q.store_thm("loc_check_IMP_loc_to_pc",
+  `loc_check s.code (l1,l2) /\ state_rel s t1 ==>
+    ?v. loc_to_pc l1 l2 t1.code = SOME v`,
+  rw [loc_check_def] \\ fs [state_rel_def]
+  \\ fs [domain_lookup] \\ res_tac \\ fs []
+  \\ imp_res_tac code_installed_get_labels_IMP \\ fs []);
 
 val state_rel_dec_clock = Q.store_thm("state_rel_dec_clock",
   `state_rel s t ⇒ state_rel (dec_clock s) (dec_clock t)`,
@@ -286,41 +568,6 @@ val compile_jump_correct = Q.store_thm("compile_jump_correct",
   Cases_on`dest`>>srw_tac[][compile_jump_def,dest_to_loc'_def] >>
   simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
   CASE_TAC >> full_simp_tac(srw_ss())[]);
-
-val code_installed_get_labels_IMP = Q.prove(
-  `!e n q pc.
-      code_installed pc (append (FST (flatten e n q))) c /\
-      (l1,l2) ∈ get_labels e ==>
-      ?v. loc_to_pc l1 l2 c = SOME v`,
-  recInduct flatten_ind \\ rw []
-  \\ ntac 2 (pop_assum mp_tac)
-  \\ once_rewrite_tac [flatten_def]
-  \\ Cases_on `p` \\ fs [get_labels_def] THEN1
-   (every_case_tac
-    \\ TRY pairarg_tac \\ fs []
-    \\ TRY pairarg_tac \\ fs [code_installed_def]
-    \\ rw [] \\ res_tac \\ fs []
-    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
-    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
-    \\ fs [code_installed_def]
-    \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
-    \\ fs [code_installed_def])
-  \\ every_case_tac \\ fs []
-  \\ TRY pairarg_tac \\ fs []
-  \\ TRY pairarg_tac \\ fs [code_installed_def]
-  \\ TRY pairarg_tac \\ fs [code_installed_def]
-  \\ rw [] \\ res_tac \\ fs [code_installed_def]
-  \\ fs [get_labels_def]
-  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
-  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []
-  \\ imp_res_tac code_installed_append_imp \\ res_tac \\ fs []);
-
-val loc_check_IMP_loc_to_pc = Q.store_thm("loc_check_IMP_loc_to_pc",
-  `loc_check s.code (l1,l2) /\ state_rel s t1 ==>
-    ?v. loc_to_pc l1 l2 t1.code = SOME v`,
-  rw [loc_check_def] \\ fs [state_rel_def]
-  \\ fs [domain_lookup] \\ res_tac \\ fs []
-  \\ imp_res_tac code_installed_get_labels_IMP \\ fs []);
 
 val _ = Datatype`
   result_view = Vloc num num | Vtimeout | Verr`;
@@ -1951,15 +2198,6 @@ val stack_to_lab_lab_pres = Q.store_thm("stack_to_lab_lab_pres",`
       res_tac>>fs[]>>
       imp_res_tac extract_labels_next_lab>>fs[])>>
     metis_tac[]));
-
-val labels_ok_def = Define`
-  labels_ok code ⇔
-  (*Section names are distinct*)
-  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
-  EVERY (λs. case s of Section n lines =>
-    let labs = extract_labels lines in
-    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
-    ALL_DISTINCT labs) code`;
 
 val MAP_prog_to_section_FST = Q.prove(`
   MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
