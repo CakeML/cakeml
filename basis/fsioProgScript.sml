@@ -1,27 +1,10 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcommandLineProgTheory fsFFITheory
+     mlstringTheory mlcommandLineProgTheory fsFFITheory fsioProgConstantsTheory
 
 val _ = new_theory"fsioProg";
-val _ = translation_extends "mlcommandLineProg";
-
-fun basis_st () = get_ml_prog_state ();
-
-val _ = ml_prog_update (open_module "IO");
-(* " *)
-
-val _ = process_topdecs `
-  exception BadFileName;
-  exception InvalidFD;
-  exception EndOfFile
-` |> append_prog
-
-(* 257 w8 array *)
-val iobuff_e = ``(App Aw8alloc [Lit (IntLit 257); Lit (Word8 0w)])``
-val _ = ml_prog_update
-          (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
-val iobuff_loc_def = definition "iobuff_loc_def"
+val _ = translation_extends "fsioProgConstants";
 
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)
@@ -55,8 +38,6 @@ val _ =
       if n = 0 then () else
         let val nw = writei fd (Word8.fromInt n) (Word8.fromInt i) in
           if nw < n then write fd (n-nw) (i+nw) else () end` |> append_prog
-
-
 
 (* Output functions on given file descriptor *)
 val _ = 
@@ -192,6 +173,6 @@ fun read_char fd =
     else Word8Array.sub iobuff 2
   end` |> append_prog
 
-
 val _ = ml_prog_update (close_module NONE);
+
 val _ = export_theory();

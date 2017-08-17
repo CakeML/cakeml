@@ -1,7 +1,8 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      basisFunctionsLib fsFFIProofTheory optionMonadTheory cfHeapsBaseTheory
      ltemporalTheory mlcommandLineProgTheory fsFFITheory set_sepTheory
-     cfMainTheory fsioSpecTheory
+     cfMainTheory fsioProgConstantsTheory cfLetAutoTheory cfLetAutoLib
+     cfHeapsBaseLib
 
 val _ = new_theory"fsioProof";
 
@@ -141,6 +142,58 @@ val extract_fs_basis_ffi = Q.store_thm ("extract_fs_basis_ffi",
   rw[ml_progTheory.init_state_def,extract_fs_def,basis_ffi_def,basis_proj1_write]);
 
 
+val emp_precond = Q.store_thm("emp_precond",
+  `emp {}`, EVAL_TAC);
+
+val append_hprop = Q.store_thm ("append_hprop",
+  `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`,
+  rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
+);
+
+(* TODO: avoid using constant for iobuff_loc *)
+
+val IOFS_precond = Q.store_thm("IOFS_precond",
+  `wfFS fs ⇒ liveFS fs ⇒ LENGTH v = 258 ⇒
+   IOFS fs
+    ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
+    ∪ {Mem 1 (W8array v)})`,
+  rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def,
+     IOFS_iobuff_def,W8ARRAY_def,cell_def]
+  \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES]
+  \\ qexists_tac`events` \\  qexists_tac`v` \\ qexists_tac`1`
+  \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
+  );
+
+val STDIO_precond = Q.store_thm("STDIO_precond",
+`(∀fname. fname ∉ {strlit "stdin"; strlit "stdout"; strlit "stderr"} ⇒
+    ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ==> 
+  ALOOKUP fs'.infds 0 = SOME (strlit "stdin",STRLEN (FST inp)) ==>
+  ALOOKUP fs'.files (strlit "stdin") = SOME (STRCAT (FST inp) (SND inp)) ==>
+  ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ==>
+  ALOOKUP fs'.files (strlit "stdout") = SOME out ==>
+  ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ==>
+  ALOOKUP fs'.files (strlit "stderr") = SOME err ==>
+  wfFS fs' ==> liveFS fs' ==> LENGTH v = 258 ==>     
+    (SEP_EXISTS fs'.
+        IOFS fs' *
+        &((∀fname.
+             fname ≠ strlit "stdin" ∧ fname ≠ strlit "stdout" ∧
+             fname ≠ strlit "stderr" ⇒
+             ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ∧
+          (ALOOKUP fs'.infds 0 =
+           SOME (strlit "stdin",STRLEN (FST inp)) ∧
+           ALOOKUP fs'.files (strlit "stdin") =
+           SOME (STRCAT (FST inp) (SND inp))) ∧
+          (ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ∧
+           ALOOKUP fs'.files (strlit "stdout") = SOME out) ∧
+          ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ∧
+          ALOOKUP fs'.files (strlit "stderr") = SOME err))
+    ({FFI_part (encode fs') (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
+     ∪ {Mem 1 (W8array v)})`,
+  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM] >>
+  qexists_tac`fs'` >> fs[SEP_CLAUSES,IOFS_precond]);
+ 
+
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
   showing that post-condition which gives effects your programs output is an FFI_part and
@@ -159,7 +212,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
  ML_code env1 (init_state (basis_ffi inp cls fs ll)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (basis_proj1, basis_proj2) fv [Conv NONE []] P
-    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS fs. &R fs * IOFS fs) * Q) ==>
+    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS fs. IOFS fs * &R fs) * Q) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
@@ -170,7 +223,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     extract_fs (basis_fs inp fs ll) io_events = SOME fs'`,
     rw[]
     \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
-          &UNIT_TYPE () uv * ((SEP_EXISTS fs. &R fs * IOFS fs) * Q))` by (fs[STAR_ASSOC])
+          &UNIT_TYPE () uv * ((SEP_EXISTS fs. IOFS fs * &R fs) * Q))` by (fs[STAR_ASSOC])
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
     \\ qmatch_goalsub_abbrev_tac`FFI_part_hprop X`
@@ -234,52 +287,6 @@ val oracle_parts = Q.store_thm("oracle_parts",
 );
 
 (*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
-val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
-  `parts_ok (auto_state_1 (basis_ffi inp cls fs ll)).ffi (basis_proj1, basis_proj2)` ,
-  qmatch_goalsub_abbrev_tac`st.ffi`
-  \\ `st.ffi.oracle = basis_ffi_oracle`
-  by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
-  \\ rw[cfStoreTheory.parts_ok_def]
-  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
-  \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
-  \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
-  \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
-  \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
-  \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
-  \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-  \\ srw_tac[DNF_ss][]
-);
-
-val UNION_DIFF_3 = Q.store_thm("UNION_DIFF_3",
-  `!a b c. (DISJOINT a b /\ DISJOINT a c /\ DISJOINT b c) \/
-    (DISJOINT b a /\ DISJOINT c a /\ DISJOINT c b) ==>
-    (a ∪ b ∪ c DIFF b DIFF c) = a`,
-    SPLIT_TAC
-);
-
-
-val star_delete_heap_imp = Q.store_thm("star_delete_heap_imp",
-  `((A * B * C):hprop) h /\ A s1 /\ B s2 /\ C s3
-    /\ (!a b. C a /\ C b ==> a = b)
-    /\ (!a b. B a /\ B b ==> a = b)
-    /\ (!a b. A a /\ A b ==> a = b)
-    ==>
-    (A * B) (h DIFF s3) /\ (A * C) (h DIFF s2) /\
-    (B * C) (h DIFF s1) /\ A (h DIFF s2 DIFF s3) /\
-    B (h DIFF s1 DIFF s3) /\ C (h DIFF s1 DIFF s2)`,
-    rw[set_sepTheory.STAR_def]
-    \\ `v = s3` by fs[] \\ rw[]
-    \\ `v' = s2` by fs[] \\ rw[]
-    \\ `u' = s1` by fs[] \\ rw[]
-    \\ TRY (instantiate \\ SPLIT_TAC \\ NO_TAC)
-    \\ fs[SPLIT_def]  \\ rw[] \\ fs[]
-    \\ imp_res_tac UNION_DIFF_3 \\ rw[] \\ fs[DISJOINT_SYM] \\ rfs[]
-    \\ metis_tac[UNION_COMM, UNION_ASSOC]
-);
-
 
 val _ = export_theory();
 
