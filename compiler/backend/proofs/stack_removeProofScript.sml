@@ -165,10 +165,11 @@ val word_store_def = Define `
 
 val code_rel_def = Define `
   code_rel jump off k code1 code2 <=>
-    !n prog.
+    (!n prog.
       lookup n code1 = SOME prog ==>
       reg_bound prog k /\
-      lookup n code2 = SOME (comp jump off k prog)`
+      lookup n code2 = SOME (comp jump off k prog)) ∧
+    domain code2 = domain code1 ∪ {0;1;2}` (* exact characterization for Install *)
 
 val is_SOME_Word_def = Define `
   (is_SOME_Word (SOME (Word w)) = T) /\
@@ -191,7 +192,7 @@ val state_rel_def = Define `
     s1.compile = (λc p. s2.compile c (MAP (prog_comp jump off k) p)) /\
     (* s2.data_buffer = empty_buffer /\ *)
     s2.compile_oracle = (λn. (I ## MAP (prog_comp jump off k) ## I (*K []*)) (s1.compile_oracle n)) /\
-    (∀n i p. MEM (i,p) (FST(SND(s1.compile_oracle n ))) ⇒ reg_bound p k) ∧
+    (∀n i p. MEM (i,p) (FST(SND(s1.compile_oracle n ))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     good_dimindex (:'a) /\
     (!n.
        n < k ==>
@@ -1453,7 +1454,7 @@ val comp_correct = Q.prove(
     \\ disch_then(qspec_then`ck2`mp_tac)
     \\ simp[] \\ ntac 2 strip_tac
     \\ qexists_tac`ck' + ck2` \\  simp[] )
-  THEN1 ( (* Install *)
+ THEN1 ( (* Install *)
     rw[comp_def]
     \\ fs[evaluate_def]
     \\ fs[reg_bound_def]
@@ -1489,15 +1490,21 @@ val comp_correct = Q.prove(
     \\ conj_tac >- (
       qhdtm_x_assum`code_rel`mp_tac \\
       simp[code_rel_def,lookup_union,lookup_fromAList] \\
-      ntac 3 strip_tac \\
-      reverse TOP_CASE_TAC >- (
-        strip_tac  \\ rveq \\
-        res_tac \\ simp[] ) \\
-      strip_tac \\ imp_res_tac ALOOKUP_MEM \\
-      simp[ALOOKUP_MAP_gen] \\
-      conj_tac >- metis_tac[FST,SND] \\
-      CASE_TAC \\ simp[] \\
-      cheat (* section numbers don't overlap *))
+      strip_tac >>
+      conj_tac>-(
+        ntac 2 strip_tac \\
+        reverse TOP_CASE_TAC >- (
+          strip_tac  \\ rveq \\
+          res_tac \\ simp[] ) \\
+        strip_tac \\ imp_res_tac ALOOKUP_MEM \\
+        simp[ALOOKUP_MAP_gen] \\
+        last_x_assum(qspec_then`0` mp_tac)>>simp[]>>
+        disch_then drule>>strip_tac>>simp[]>>
+        CASE_TAC>>fs[EXTENSION,domain_lookup,PULL_EXISTS]>>
+        first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+        fs[backend_commonTheory.stack_num_stubs_def])>>
+     simp[domain_union,domain_fromAList,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]>>
+     metis_tac[UNION_COMM,UNION_ASSOC])
     \\ conj_tac >- simp[lookup_union]
     \\ conj_tac >- (
       simp[FLOOKUP_DRESTRICT,FLOOKUP_UPDATE] \\
@@ -2487,7 +2494,7 @@ val div_rewrite = Q.prove(`
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\
     s.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) o coracle /\
-    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k) ∧
+    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME res,t) =>
@@ -2658,6 +2665,9 @@ val init_code_thm = Q.store_thm("init_code_thm",
     simp_tac(srw_ss()++LET_ss)[Abbr`s8`,Abbr`s7`,init_reduce_def,o_DEF] \\
     ASM_REWRITE_TAC[] \\
     simp_tac(srw_ss()++LET_ss)[o_DEF] ) \\
+  conj_tac>- (
+    fs[Abbr`s8`,init_reduce_def]>>
+    metis_tac[])>>
   conj_tac >- (
     simp_tac(srw_ss()++LET_ss)[init_reduce_def] \\
     metis_tac[] )
@@ -2811,7 +2821,7 @@ val init_pre_def = Define `
 val evaluate_init_code = Q.store_thm("evaluate_init_code",
   `init_pre gen_gc max_heap bitmaps data_sp k start s /\
     s.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k) ∧
+    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
     code_rel jump off k code s.code ==>
     case evaluate (init_code gen_gc max_heap k,s) of
@@ -2856,7 +2866,7 @@ val init_semantics = Q.store_thm("init_semantics",
     code_rel jump off k code s.code /\
     init_pre gen_gc max_heap bitmaps data_sp k start s ∧
     s.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k)
+    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1)
     ==>
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME (Halt _),t) =>
@@ -2930,7 +2940,7 @@ val init_semantics = Q.store_thm("init_semantics",
 val make_init_opt_SOME_semantics = Q.store_thm("make_init_opt_SOME_semantics",
   `init_pre gen_gc max_heap bitmaps data_sp k start s2 /\
     s2.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k) ∧
+    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     code_rel jump off k code s2.code /\
     lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
     make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = SOME s1 /\
@@ -2944,7 +2954,7 @@ val make_init_opt_SOME_semantics = Q.store_thm("make_init_opt_SOME_semantics",
 val make_init_opt_NONE_semantics = Q.store_thm("make_init_opt_NONE_semantics",
   `init_pre gen_gc max_heap bitmaps data_sp k start s2 /\ code_rel jump off k code s2.code /\
     s2.compile_oracle = ((I ## MAP (prog_comp jump off k) ## I) o coracle) /\
-    (∀n i p. MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k) ∧
+    (∀n i p. MEM (i,p) (FST(SND(coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i+1) ∧
     lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
     make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s2 = NONE ==>
     semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
@@ -2952,21 +2962,22 @@ val make_init_opt_NONE_semantics = Q.store_thm("make_init_opt_NONE_semantics",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
-val prog_comp_eta = Q.store_thm("prog_comp_eta",
-  `prog_comp = \jump off k (n,p). (n,comp jump off k p)`,
-  srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]);
-
 val IMP_code_rel = Q.prove(
   `EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code1 /\
    code2 = fromAList (compile jump off gen_gc max_heap k start code1) ==>
    code_rel jump off k (fromAList code1) code2`,
-  full_simp_tac(srw_ss())[code_rel_def,lookup_fromAList]
-  \\ strip_tac \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
-  \\ imp_res_tac ALOOKUP_MEM
-  \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
-  \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]
-  \\ pop_assum mp_tac \\ EVAL_TAC);
+  rw[]>>
+  fs[code_rel_def,lookup_fromAList]>>
+  CONJ_TAC>- (
+    fs[ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
+    \\ rpt var_eq_tac
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
+    \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]
+    \\ pop_assum mp_tac \\ EVAL_TAC)>>
+  simp[domain_fromAList,compile_def,init_stubs_def,prog_comp_eta,MAP_MAP_o,UNCURRY,o_DEF,ETA_AX]>>
+  simp[EXTENSION]>>
+  metis_tac[]);
 
 val make_init_any_def = Define `
   make_init_any gen_gc max_heap bitmaps data_sp coracle jump off k code s =
@@ -2985,15 +2996,18 @@ val make_init_any_def = Define `
                                    (CurrHeap::store_list)) |>`
 
 val discharge_these_def = Define`
-  discharge_these jump off gen_gc max_heap k start code s2 ⇔
+  discharge_these jump off gen_gc max_heap k start coracle code s2 ⇔
       EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
-      s2.code = fromAList (compile jump off gen_gc max_heap k start code)
-       ∧ 8 ≤ k ∧ 1 ∈ domain s2.code ∧
+      (∀n i p.
+        MEM (i,p) (FST (SND (coracle n))) ⇒ reg_bound p k ∧ num_stubs ≤ i + 1) ∧
+      s2.compile_oracle = (I ## MAP (prog_comp jump off k) ## I) ∘ coracle ∧
+      s2.code = fromAList (compile jump off gen_gc max_heap k start code) ∧
+      8 ≤ k ∧ 1 ∈ domain s2.code ∧
       {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
       ¬s2.use_store ∧ ¬s2.use_alloc`;
 
 val propagate_these_def = Define`
-  propagate_these s (bitmaps:'a word list) ⇔
+  propagate_these s (bitmaps:'a word list) data_sp ⇔
   good_dimindex(:'a) /\ s.ffi.final_event = NONE /\
   ∃ptr2 ptr3 ptr4 bitmap_ptr.
        FLOOKUP s.regs 2 = SOME (Word ptr2) ∧
@@ -3001,15 +3015,22 @@ val propagate_these_def = Define`
        FLOOKUP s.regs 4 = SOME (Word ptr4) ∧
        s.memory ptr2 = Word bitmap_ptr ∧
        (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
+         (word_list bitmap_ptr (MAP Word bitmaps) *
+          word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps))
+            data_sp *
+          word_list_exists ptr2 (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
+         (fun2set (s.memory,s.mdomain)))`
+       
+       (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
         (word_list bitmap_ptr (MAP Word bitmaps) *
          word_list_exists ptr2
            (w2n (ptr4 − ptr2) DIV w2n (bytes_in_word:'a word)))
           (fun2set (s.memory,s.mdomain)))`;
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `discharge_these jump off gen_gc max_heap k start code s2 /\
-   propagate_these s2 bitmaps /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = SOME s1 /\
+  `discharge_these jump off gen_gc max_heap k start coracle code s2 /\
+   propagate_these s2 bitmaps data_sp /\
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = SOME s1 /\
    semantics start s1 <> Fail
     ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
@@ -3018,10 +3039,14 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ imp_res_tac make_init_opt_SOME_semantics
   \\ pop_assum kall_tac
   \\ pop_assum mp_tac
+  \\ rpt(qpat_x_assum`lookup _ s2.code = _ ⇒ _` kall_tac)
+  \\ ntac 2 (pop_assum kall_tac)
   \\ impl_tac
   >- (
     fs[compile_def,lookup_fromAList]
     \\ EVAL_TAC )
+  \\ impl_tac >- metis_tac[]
+  \\ impl_tac >- metis_tac[]
   \\ impl_tac
   >- (
     fs[init_pre_def,init_code_pre_def,propagate_these_def]
@@ -3030,9 +3055,9 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ rw[]);
 
 val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
-  `discharge_these jump off gen_gc max_heap k start code s2 /\
-   propagate_these s2 bitmaps /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = NONE
+  `discharge_these jump off gen_gc max_heap k start coracle code s2 /\
+   propagate_these s2 bitmaps data_sp /\
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = NONE 
    ==>
    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   rw[discharge_these_def]
@@ -3044,6 +3069,8 @@ val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
   >- (
     fs[compile_def,lookup_fromAList]
     \\ EVAL_TAC )
+  \\ impl_tac >- fs[discharge_these_def]
+  \\ impl_tac >- fs[discharge_these_def]
   \\ disch_then(qspec_then`start`mp_tac)
   \\ impl_tac
   >- (
@@ -3154,7 +3181,7 @@ val stack_remove_comp_stack_asm_name = Q.prove(`
   fs[stack_asm_name_def,inst_name_def,stack_asm_remove_def,addr_name_def,arith_name_def,reg_imm_name_def,stackLangTheory.list_Seq_def]
   >-
     (every_case_tac>>fs[])
-  >- cheat
+  >- cheat (* minor syntactic constraint needed on DBW *)
   >-
     (* stack alloc *)
     (completeInduct_on`n`>>

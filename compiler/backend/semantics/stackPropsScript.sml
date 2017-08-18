@@ -88,6 +88,8 @@ val empty_env_const = Q.store_thm("empty_env_const[simp]",
    (empty_env z).gc_fun = z.gc_fun ∧
    (empty_env z).mdomain = z.mdomain ∧
    (empty_env z).bitmaps = z.bitmaps ∧
+   (empty_env z).data_buffer = z.data_buffer ∧
+   (empty_env z).code_buffer = z.code_buffer ∧
    (empty_env z).compile = z.compile ∧
    (empty_env z).compile_oracle = z.compile_oracle`,
   EVAL_TAC)
