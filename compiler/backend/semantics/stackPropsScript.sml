@@ -41,6 +41,8 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
    (set_store x y z).gc_fun = z.gc_fun ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
+   (set_store x y z).data_buffer = z.data_buffer ∧
+   (set_store x y z).code_buffer = z.code_buffer ∧
    (set_store x y z).compile = z.compile ∧
    (set_store x y z).compile_oracle = z.compile_oracle`,
   EVAL_TAC);
@@ -106,6 +108,8 @@ val alloc_const = Q.store_thm("alloc_const",
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps ∧
     t.compile = s.compile ∧
+    t.data_buffer = s.data_buffer ∧
+    t.code_buffer = s.code_buffer ∧
     t.compile_oracle = s.compile_oracle`,
   srw_tac[][alloc_def,gc_def,LET_THM] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
