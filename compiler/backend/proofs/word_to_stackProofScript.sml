@@ -7304,7 +7304,8 @@ val word_to_stack_alloc_arg = Q.store_thm("word_to_stack_alloc_arg",`
     BasicProvers.EVERY_CASE_TAC>>fs [alloc_arg_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    TRY(Cases_on`f`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,alloc_arg_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[alloc_arg_def,wStackLoad_def])
@@ -7356,7 +7357,8 @@ val word_to_stack_reg_bound = Q.store_thm("word_to_stack_reg_bound",`
     BasicProvers.EVERY_CASE_TAC>>fs [reg_bound_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    TRY(Cases_on`f`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,reg_bound_def]>>fs [reg_bound_def,convs_def,inst_arg_convention_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[reg_bound_def,wStackLoad_def])
@@ -7406,7 +7408,8 @@ val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
     BasicProvers.EVERY_CASE_TAC>>fs[call_args_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
-    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def]>>
+    TRY(Cases_on`f`)>>
+    fs[wInst_def,wRegWrite1_def,wReg1_def,wReg2_def,wRegWrite2_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[wStackLoad_def,convs_def]>>fs [call_args_def])
   >- (fs[wReg1_def,SeqStackFree_def]>>BasicProvers.EVERY_CASE_TAC>>fs[call_args_def,wStackLoad_def])
@@ -7431,7 +7434,6 @@ val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
     match_mp_tac stack_move_call_args>>fs [call_args_def]))
   >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]));
 
-
 val reg_bound_ind = stackPropsTheory.reg_bound_ind
 val reg_bound_def = stackPropsTheory.reg_bound_def
 val reg_bound_inst_def = stackPropsTheory.reg_bound_inst_def
@@ -7446,6 +7448,7 @@ val reg_bound_mono = Q.store_thm("reg_bound_mono",`
   Cases_on`i`>>
   TRY(Cases_on`a`)>>
   TRY(Cases_on`m`)>>
+  TRY(Cases_on`f`)>>
   fs[reg_bound_inst_def]>>
   rpt(TOP_CASE_TAC>>fs[]));
 

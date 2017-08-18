@@ -903,15 +903,19 @@ val MemEqList_no_inst = Q.prove(`
 val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+  1 < ac.fp_reg_count ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
   Cases_on`e`>>fs[every_inst_def]>>
   rw[]>>fs[every_inst_def,GiveUp_def]>>
   every_case_tac>>
+  TRY(Cases_on`f'`)>>
   fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]>>
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
+    asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
+    fp_bop_inst_def]>>
   IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
@@ -920,6 +924,7 @@ val comp_no_inst = Q.prove(`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+  1 < ac.fp_reg_count ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))`,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
@@ -960,6 +965,7 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
+    1 < ac.fp_reg_count ∧
     addr_offset_ok ac 0w /\
     (* NOTE: this condition is
        stricter than necessary, but we have much more byte_offset space
