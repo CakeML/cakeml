@@ -65,24 +65,11 @@ val add_backend_compset = computeLib.extend_compset
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
-      (* basis, TODO: move? *)
-    ,``:mlstring$mlstring``
-    ,``:location$locn``
+    (* backend_common *)
     ,``:backend_common$tra``
     ]
   ,computeLib.Defs
-    [
-      (* basis, TODO: move to its own computeLib? *)
-    mlstringTheory.implode_def,
-    mlstringTheory.str_def,
-    mlintTheory.zero_pad_def,
-    mlintTheory.toChar_def,
-    mlintTheory.simple_toChars_def,
-    mlintTheory.maxSmall_DEC_def,
-    mlintTheory.padLen_DEC_eq,
-    mlintTheory.toChars_def,
-    mlintTheory.toString_def,
-      (* ---- source_to_mod ---- *)
+    [ (* ---- source_to_mod ---- *)
      source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
@@ -916,6 +903,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
+    ,basisComputeLib.add_basis_compset
     ,semanticsComputeLib.add_ast_compset
     ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset

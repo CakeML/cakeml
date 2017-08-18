@@ -586,6 +586,8 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
     \\BasicProvers.TOP_CASE_TAC
     \\ simp[asm_inst_align_dm]
     \\ simp[Once evaluate_def,SimpRHS]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ simp[asm_inst_align_dm]
     \\ rw[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
@@ -645,5 +647,12 @@ val _ = export_rewrites["sec_label_ok_def"];
 val sec_labels_ok_def = Define`
   sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
 val _ = export_rewrites["sec_labels_ok_def"];
+
+val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
+  `EVERY (sec_label_ok n1) lines ∧
+   MEM (n1',n2) (extract_labels lines) ⇒
+   n1' = n1 ∧ n2 ≠ 0`,
+  Induct_on`lines` \\ simp[]
+  \\ Cases \\ rw[] \\ fs[]);
 
 val _ = export_theory();
