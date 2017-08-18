@@ -2387,7 +2387,7 @@ val init_reduce_def = Define `
          code := code;
          compile := (λc p. s.compile c (MAP (prog_comp jump off k) p)) ;
          compile_oracle := coracle ;
-         data_buffer := <|buffer := []; position := bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps); space_left := data_sp|>;
+         data_buffer := <|buffer := []; position := (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)); space_left := data_sp|>;
          stack_space := stack_sp;
          stack := read_mem base_ptr s.memory (stack_sp + 1);
          store := FEMPTY |++ (MAP (\n. case store_init gen_gc k n of
@@ -2991,8 +2991,9 @@ val make_init_any_def = Define `
                       ; use_alloc := F
                       ; stack := [Word 0w]
                       ; stack_space := 0
-                      ; compile_oracle := coracle
                       ; compile := (λc p. s.compile c (MAP (prog_comp jump off k) p))
+                      ; compile_oracle := coracle
+                      ; data_buffer := <|buffer := []; position := 0w; space_left := 0|>
                       ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
