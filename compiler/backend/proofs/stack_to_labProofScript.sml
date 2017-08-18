@@ -2002,9 +2002,9 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[EL_APPEND1]);
 
 val make_init_def = Define `
-  make_init code regs fp_regs save_regs (s:('a,'ffi) labSem$state) =
+  make_init code regs save_regs (s:('a,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
-     ; fp_regs    := FEMPTY |++ (MAP (\r. r, read_fp_reg r s) fp_regs)
+     ; fp_regs    := FEMPTY (*TODO: is this right? *)
      ; memory  := s.mem
      ; mdomain := s.mem_domain
      ; use_stack := F
@@ -2017,8 +2017,8 @@ val make_init_def = Define `
      ; be      := s.be |> :(α,'ffi)stackSem$state`;
 
 val make_init_semantics = flatten_semantics
-  |> Q.INST [`s1`|->`make_init code regs fp_regs save_regs (s:('a,'ffi)labSem$state)`,`s2`|->`s`]
-  |> SIMP_RULE std_ss [EVAL ``(make_init code regs fp_regs save_regs s).code``];
+  |> Q.INST [`s1`|->`make_init code regs save_regs (s:('a,'ffi)labSem$state)`,`s2`|->`s`]
+  |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``];
 
 val _ = temp_overload_on("stack_to_lab_compile",``stack_to_lab$compile``);
 val _ = temp_overload_on("stack_names_compile",``stack_names$compile``);
@@ -2073,15 +2073,16 @@ val FLOOKUP_regs = Q.prove(
   recInduct SNOC_INDUCT \\ fs [FUPDATE_LIST,FOLDL_SNOC,MAP_SNOC]
   \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs []);
 
+(*
 val FLOOKUP_fp_regs = Q.prove(
   `!regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_fp_reg r s)) regs) n = SOME v ==>
       s.fp_regs n = v`,
   recInduct SNOC_INDUCT \\ fs [FUPDATE_LIST,FOLDL_SNOC,MAP_SNOC]
-  \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs [read_fp_reg_def]);
+  \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs [read_fp_reg_def]);*)
 
 val state_rel_make_init = Q.store_thm("state_rel_make_init",
-  `state_rel (make_init code regs fp_regs save_regs s) (s:('a,'ffi) labSem$state) <=>
+  `state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
      call_args prog s.ptr_reg s.len_reg s.link_reg ∧
@@ -2091,10 +2092,9 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
     s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)`,
-  fs [state_rel_def,make_init_def,FLOOKUP_regs,FLOOKUP_fp_regs]
+  fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []
-  \\ metis_tac [FLOOKUP_regs,FLOOKUP_fp_regs]);
-
+  \\ metis_tac [FLOOKUP_regs]);
 
 val MAP_FST_compile_compile = Q.prove(
   `MAP FST (compile jump off gen max_heap k InitGlobals_location

@@ -232,6 +232,7 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    1 < c.lab_conf.asm_conf.fp_reg_count ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
