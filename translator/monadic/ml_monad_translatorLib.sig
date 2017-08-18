@@ -22,7 +22,9 @@ sig
 
     (* Other functions to initialize the translation - the above ones should be preferred *)
     val init_translation :
-        monadic_translation_parameters -> thm option -> thm -> string list -> unit
+        monadic_translation_parameters -> (thm * thm) list ->
+	(thm * thm * thm * thm * thm * thm) list -> (thm * thm) list ->
+        thm option -> thm -> string list -> thm option -> unit
     val add_raise_handle_functions : (thm * thm) list -> thm -> (thm * thm) list
 
     (* Translation functions *)

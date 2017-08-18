@@ -76,7 +76,7 @@ Induct
 val Mupdate_def = Define `
 Mupdate e x (n : num) l = dtcase l of [] => Failure e
 | x'::l' => if n = 0 then Success (x::l')
-	    else (case Mupdate e x (n-1) l' of Success l'' => Success (x'::l'')
+	    else (dtcase Mupdate e x (n-1) l' of Success l'' => Success (x'::l'')
 					  | other => other)`;
 
 val Mupdate_eq = Q.store_thm("Mupdate_eq",
@@ -224,7 +224,7 @@ rw[Once Mref_assign_def]
 
 val ref_bind_def = Define `
 ref_bind create f pop = \s.
-case create s of
+dtcase create s of
 (Success x, s) => pop(f x s)
 | (Failure x, s) => (Failure x, s)`;
 

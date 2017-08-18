@@ -81,7 +81,7 @@ val (translation_parameters, exn_specs) =
 					       state_type
 					       exn_ri_def
 					       exn_functions
-                                               [];
+                                               [] NONE;
 
 (* Monadic translations *)
 val _ = temp_tight_equality ();
@@ -145,6 +145,5 @@ val test7_def = Define `test7 x l = do y <- test1 x; return (y + (LENGTH l)) od`
 val test7_v_thm = m_translate test7_def;
 val run_test7_def = Define `run_test7 x l state = run (test7 x l) state`;
 val run_test7_v_thm = m_translate_run run_test7_def;
-
 
 val _ = export_theory ();

@@ -4,7 +4,7 @@ open infer_tTheory unifyTheory;
 open stringTheory ;
 open ml_monadBaseTheory ml_monadBaseLib;
 
-Val _ = New_theory "infer";
+val _ = new_theory "infer";
 (* val _ = ParseExtras.temp_loose_equality(); *)
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
@@ -942,6 +942,5 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
   (pure_add_constraints s1 extra_constraints s2 ∧
    (count next_uvar SUBSET FDOM s2) ∧
    (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
-
 
 val _ = export_theory ();

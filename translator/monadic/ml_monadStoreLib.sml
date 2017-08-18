@@ -746,38 +746,15 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 		     else mk_abs(state_var, ``emp : hprop``)
 
 	(* If there is a pure heap invariant provided *)
-	val (PINV, H_part, H_eq) =
+	val (PINV, H_part2) =
 	    case store_pinv_def_opt of
 		SOME store_pinv_def => let
-		 val ty = dest_type(type_of get_var) |> snd |> List.last
-		 val x = mk_var("x", ty)
-
-		 val pinv_rw = mk_comb(concl store_pinv_def |> lhs, state_var)
-				      |> (PURE_REWRITE_CONV[store_pinv_def]
-							   THENC (DEPTH_CONV BETA_CONV))
-		 val field_pat = mk_comb(get_var, state_var) |> BETA_CONV |> concl |> rhs
-		 val compos_conv = (PURE_REWRITE_CONV[pinv_rw, STAR_ASSOC, CONJ_ASSOC,
-								set_sepTheory.cond_CONJ])
-				       THENC (PICK_PINV_CONV field_pat)
-				       THENC (PURE_REWRITE_CONV[GSYM STAR_ASSOC])
-		 val H_eq2 = concl H_eq |> rhs |> ((ABS_CONV o RAND_CONV) compos_conv)
-		 
-
-		 val (PINV, H_part, H_eq) = let
-		     val (PINV, H_part2) = (dest_abs H_part |> snd) |> compos_conv
-							       |> concl |> rhs |> dest_star
-		 in if (patternMatchesSyntax.has_subterm (fn x => x = field_pat) PINV)
-		    then let
-			val PINV = mk_abs(x, Term.subst[field_pat |-> x] (rand PINV))
-			val H_part = mk_abs(state_var, H_part2)
-			val H_eq = TRANS H_eq H_eq2
-		    in (PINV, H_part, H_eq) end
-		    else (mk_abs(x, ``T``), H_part, H_eq) end
-	     in (PINV, H_part, H_eq) end
-	      | NONE => let
-		  val ty = dest_type(type_of get_var) |> snd |> List.last
-		  val x = mk_var("x", ty)
-	      in (mk_abs(x, ``T``), H_part, H_eq) end
+                 val (H_part2, PINV) = (QCONV (PURE_REWRITE_CONV[STAR_ASSOC]) H_part)
+					   |> concl |> rhs |> dest_abs |> snd |> dest_star
+		 val H_part2 = mk_abs(state_var, H_part2)
+		 val PINV = rand PINV |> rator
+	     in (PINV, H_part2) end
+	      | NONE => (mk_abs(state_var, ``T``), H_part)
 
 	fun rewrite_thm th = let
 	    val th = PURE_ONCE_REWRITE_RULE[GSYM loc_def] th
@@ -792,7 +769,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	in th end
 
 	(* read *)
-	val read_spec = ISPECL[name_v, loc, TYPE, PINV, EXN_TYPE, H_part, get_var] EvalM_read_heap
+	val read_spec = ISPECL[name_v, loc, TYPE, EXN_TYPE, H_part, get_var] EvalM_read_heap
 	val read_spec = rewrite_thm read_spec
 
 	val thm_name = "get_" ^name ^"_thm"
@@ -800,7 +777,7 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 	val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
 	(* write *)
-	val write_spec = ISPECL[name_v, loc, TYPE, PINV, EXN_TYPE, H_part, get_var, set_var] EvalM_write_heap
+	val write_spec = ISPECL[name_v, loc, TYPE, PINV, EXN_TYPE, H_part2, get_var, set_var] EvalM_write_heap
 	val write_spec = rewrite_thm write_spec
 	val update_conditions = concl write_spec |> strip_forall |> snd |> strip_imp |> fst
 	val rw_thms = case store_pinv_def_opt of
@@ -964,7 +941,7 @@ fun translate_dynamic_init_fixed_store refs_manip_list arrays_manip_list store_h
     val (refs_locs, arrays_refs_locs) = create_locs_variables refs_manip_list arrays_manip_list
     val refs_manip_list = find_refs_access_functions refs_manip_list
     val arrays_manip_list = find_arrays_access_functions arrays_manip_list
-    val store_pinv_def_opt = get_rewritten_pure_invariant refs_manip_list store_pinv_def_opt
+    (* val store_pinv_def_opt = get_rewritten_pure_invariant refs_manip_list store_pinv_def_opt *)
     val store_X_hprop_def = create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs_locs state_type store_hprop_name store_pinv_def_opt
 
     (* Prove the store access specifications *)
@@ -1001,7 +978,7 @@ fun translate_static_init_fixed_store refs_init_list arrays_init_list store_hpro
     val refs_locs = List.map (lhs o concl) refs_locs_defs
     val arrays_refs_locs = List.map (lhs o concl) arrays_refs_locs_defs
     val store_pinv_def_opt = get_store_pinv_def_opt store_pinv_opt
-    val store_pinv_def_opt = get_rewritten_pure_invariant refs_manip_list store_pinv_def_opt
+    (* val store_pinv_def_opt = get_rewritten_pure_invariant refs_manip_list store_pinv_def_opt *)
     val store_X_hprop_def = create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs_locs state_type store_hprop_name store_pinv_def_opt
 
     (* Prove the access specifications *)
