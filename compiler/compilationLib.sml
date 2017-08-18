@@ -781,24 +781,6 @@ fun cbv_compile_to_data cs conf_def prog_def data_prog_name =
     val () = computeLib.extend_compset [computeLib.Defs [data_prog_def]] cs;
   in to_data_thm end
 
-(* TODO: these are copied from backendComputeLib *)
-val TODO_move_tys = [
-    ``:mlstring$mlstring``
-]
-val TODO_move_defs = [
-    mlstringTheory.implode_def,
-    mlstringTheory.str_def,
-    mlstringTheory.concat_thm,
-    mlstringTheory.explode_thm,
-    mlintTheory.zero_pad_def,
-    mlintTheory.toChar_def,
-    mlintTheory.simple_toChars_def,
-    mlintTheory.maxSmall_DEC_def,
-    mlintTheory.padLen_DEC_eq,
-    mlintTheory.toChars_def,
-    mlintTheory.toString_def
-]
-
 val export_defs = [
    exportTheory.word_to_string_def
   ,exportTheory.all_bytes_def
@@ -918,7 +900,7 @@ fun eval_export target_export_defs heap_size stack_size code_def data_def ffi_na
       computeLib.Extenders [basicComputeLib.add_basic_compset] ] cs;
     val () = computeLib.scrub_const cs (prim_mk_const{Thy="misc",Name="SmartAppend"})
     val () = computeLib.extend_compset [
-      computeLib.Defs TODO_move_defs, computeLib.Tys TODO_move_tys,
+      computeLib.Extenders [basisComputeLib.add_basis_compset],
       computeLib.Defs export_defs,
       computeLib.Defs target_export_defs ] cs;
     val exporter_tm = target_export_defs |> hd |> SPEC_ALL |> concl |> lhs |> strip_comb |> #1

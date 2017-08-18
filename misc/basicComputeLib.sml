@@ -36,7 +36,9 @@ val add_basic_compset =
    , state_monadLib.add_state_monad_compset],
    computeLib.Tys
    [ (* misc *)
-     ``:α app_list``],
+     ``:α app_list``
+    ,``:location$locn``
+    ],
    computeLib.Defs
    [ (* misc *)
      miscTheory.find_index_def
