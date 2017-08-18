@@ -2775,10 +2775,9 @@ val make_init_any_def = Define `
                                    (CurrHeap::store_list)) |>`
 
 val discharge_these_def = Define`
-  discharge_these jump off gen_gc max_heap k start code s1 s2 ⇔
+  discharge_these jump off gen_gc max_heap k start code s2 ⇔
       EVERY (\(n,p). reg_bound p k /\ num_stubs ≤ n+1) code /\
-      s2.code = fromAList (compile jump off gen_gc max_heap k start code) /\
-      semantics start s1 <> Fail
+      s2.code = fromAList (compile jump off gen_gc max_heap k start code)
        ∧ 8 ≤ k ∧ 1 ∈ domain s2.code ∧
       {k; k + 1; k + 2} ⊆ s2.ffi_save_regs ∧ ¬s2.use_stack ∧
       ¬s2.use_store ∧ ¬s2.use_alloc`;
@@ -2798,9 +2797,10 @@ val propagate_these_def = Define`
           (fun2set (s.memory,s.mdomain)))`;
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
-  `discharge_these jump off gen_gc max_heap k start code s1 s2 /\
+  `discharge_these jump off gen_gc max_heap k start code s2 /\
+   propagate_these s2 bitmaps /\
    make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = SOME s1 /\
-   propagate_these s2 bitmaps
+   semantics start s1 <> Fail
     ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}`,
   rw[discharge_these_def]
@@ -2820,9 +2820,9 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ rw[]);
 
 val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
-  `discharge_these jump off gen_gc max_heap k start code s1 s2 /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = NONE /\
-   propagate_these s2 bitmaps
+  `discharge_these jump off gen_gc max_heap k start code s2 /\
+   propagate_these s2 bitmaps /\
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) k (fromAList code) s2 = NONE
    ==>
    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   rw[discharge_these_def]
