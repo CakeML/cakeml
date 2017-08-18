@@ -2991,6 +2991,8 @@ val make_init_any_def = Define `
                       ; use_alloc := F
                       ; stack := [Word 0w]
                       ; stack_space := 0
+                      ; compile_oracle := coracle
+                      ; compile := (λc p. s.compile c (MAP (prog_comp jump off k) p))
                       ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
@@ -3051,7 +3053,7 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
 val make_init_semantics_fail = Q.store_thm("make_init_semantics_fail",
   `discharge_these jump off gen_gc max_heap k start coracle code s2 /\
    propagate_these s2 bitmaps data_sp /\
-   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = NONE 
+   make_init_opt gen_gc max_heap (bitmaps:'a word list) data_sp coracle jump off k (fromAList code) s2 = NONE
    ==>
    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events`,
   rw[discharge_these_def]
@@ -3121,6 +3123,19 @@ val make_init_any_stack_limit = Q.store_thm("make_init_any_stack_limit",
   \\ match_mp_tac LESS_EQ_LESS_TRANS
   \\ qexists_tac `8 * dimindex (:'a)` \\ fs []
   \\ fs [X_LT_EXP_X_IFF]);
+
+val make_init_any_compile_oracle = Q.store_thm("make_init_any_compile_oracle",
+  `(make_init_any ggc max_heap bitmaps data_sp coracle jump off k code s).compile_oracle = coracle`,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+
+(*
+val make_init_any_data_buffer = Q.store_thm("make_init_any_data_buffer",
+  `(make_init_any ggc max_heap bitmaps data_sp coracle jump off k code s).data_buffer =
+    the correct thing on the success branch (which needs to be set on the fail branch too)`,
+  fs [make_init_any_def,make_init_opt_def,init_reduce_def]
+  \\ every_case_tac \\ fs []);
+*)
 
 (* Syntactic *)
 

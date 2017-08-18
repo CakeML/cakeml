@@ -1,13 +1,11 @@
 open preamble
-     stackSemTheory
-     stack_to_labTheory
-     stack_allocTheory
+     stackSemTheory stackPropsTheory
+     stack_allocTheory stack_to_labTheory
      labSemTheory labPropsTheory
      stack_removeProofTheory
      stack_allocProofTheory
      stack_namesProofTheory
      semanticsPropsTheory
-local open stack_removeProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
@@ -2420,13 +2418,17 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[EL_APPEND1]);
 
 val make_init_def = Define `
-  make_init code regs save_regs (s:('a,'c,'ffi) labSem$state) =
+  make_init code coracle db regs save_regs (s:('a,'c,'ffi) labSem$state) =
     <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
      ; memory  := s.mem
      ; mdomain := s.mem_domain
      ; use_stack := F
      ; use_store := F
      ; use_alloc := F
+     ; compile := (λc p. s.compile c (MAP prog_to_section p))
+     ; compile_oracle := coracle
+     ; code_buffer := s.code_buffer
+     ; data_buffer := db
      ; clock   := s.clock
      ; code    := code
      ; ffi     := s.ffi
@@ -2434,8 +2436,8 @@ val make_init_def = Define `
      ; be      := s.be |> :(α,'c,'ffi)stackSem$state`;
 
 val make_init_semantics = flatten_semantics
-  |> Q.INST [`s1`|->`make_init code regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
-  |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``];
+  |> Q.INST [`s1`|->`make_init code coracle db regs save_regs (s:('a,'c,'ffi)labSem$state)`,`s2`|->`s`]
+  |> SIMP_RULE std_ss [EVAL ``(make_init code coracle db regs save_regs s).code``];
 
 val _ = temp_overload_on("stack_to_lab_compile",``stack_to_lab$compile``);
 val _ = temp_overload_on("stack_names_compile",``stack_names$compile``);
@@ -2443,19 +2445,24 @@ val _ = temp_overload_on("stack_alloc_compile",``stack_alloc$compile``);
 val _ = temp_overload_on("stack_remove_compile",``stack_remove$compile``);
 
 val full_make_init_def = Define`
-  full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs =
+  full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_pos data_sp coracle =
   let ggc = is_gen_gc data_conf.gc_kind in
+  let jump = stack_conf.jump in
+  let db = <| buffer := [] ; position := data_pos; space_left := data_sp |> in
   let code1 = stack_alloc$compile data_conf code in
-  let code2 = compile stack_conf.jump offset ggc max_heap sp InitGlobals_location code1 in
+  let code2 = compile jump offset ggc max_heap sp InitGlobals_location code1 in
   let code3 = fromAList (compile stack_conf.reg_names code2) in
-  let s3 = make_init code3 (MAP (find_name stack_conf.reg_names) [2;3;4]) save_regs s4 in
-  let s2 = make_init stack_conf.reg_names (fromAList code2) s3 in
-  let s1 = make_init_any ggc max_heap bitmaps sp (fromAList code1) s2 in
-    (make_init data_conf (fromAList code) s1,
-     make_init_opt ggc max_heap bitmaps sp (fromAList code1) s2)`;
+  let coracle1 = (I ## MAP prog_comp ## I) o coracle in
+  let coracle2 = (I ## MAP (prog_comp jump offset sp) ## I) o coracle1 in
+  let coracle3 = (I ## compile stack_conf.reg_names ## I) o coracle2 in
+  let s3 = make_init code3 coracle3 db (MAP (find_name stack_conf.reg_names) [2;3;4]) save_regs s4 in
+  let s2 = make_init stack_conf.reg_names (fromAList code2) coracle2 s3 in
+  let s1 = make_init_any ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
+    (make_init data_conf (fromAList code) coracle s1,
+     make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)`;
 
 val memory_assumption_def = Define`
-  memory_assumption rnames (bitmaps:'a word list) t =
+  memory_assumption rnames (bitmaps:'a word list) data_sp t =
     ∃ptr2 ptr3 ptr4 bitmap_ptr.
       read_reg (find_name rnames 2) t = Word ptr2 ∧
       read_reg (find_name rnames 3) t = Word ptr3 ∧
@@ -2463,12 +2470,13 @@ val memory_assumption_def = Define`
       t.mem ptr2 = Word bitmap_ptr ∧
       (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
        (word_list bitmap_ptr (MAP Word bitmaps) *
+        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
         word_list_exists ptr2
           (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
          (fun2set (t.mem,t.mem_domain)))`;
 
 val halt_assum_lemma = Q.prove(
-  `halt_assum (:'ffi)
+  `halt_assum (:'ffi#'c)
      (fromAList (stack_names$compile f
        (compile jump off gen max_heap k l code)))`,
   fs [halt_assum_def] \\ rw []
@@ -2478,8 +2486,10 @@ val halt_assum_lemma = Q.prove(
          stack_namesTheory.prog_comp_def,
          stack_removeTheory.compile_def,
          stack_removeTheory.init_stubs_def,
-         lookup_fromAList,
+         subspt_def,
+         lookup_fromAList,domain_fromAList,
          EVAL ``stack_names$comp f (halt_inst 0w)``]
+  \\ first_x_assum(qspec_then`1`mp_tac) \\ simp[]
   \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0w) (dec_clock s)``,
          get_var_def,FLOOKUP_UPDATE]);
 
@@ -2491,15 +2501,28 @@ val FLOOKUP_regs = Q.prove(
   \\ fs [FLOOKUP_UPDATE] \\ rw [] \\ Cases_on `x = n` \\ fs []);
 
 val state_rel_make_init = Q.store_thm("state_rel_make_init",
-  `state_rel (make_init code regs save_regs s) (s:('a,'c,'ffi) labSem$state) <=>
+  `state_rel (make_init code coracle db regs save_regs s) (s:('a,'c,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
      call_args prog s.ptr_reg s.len_reg s.link_reg ∧
      ∃pc.
        code_installed pc (append (FST (flatten prog n (next_lab prog 1)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
+    s.compile_oracle = (λn. (λ(c,p,_). (c, MAP prog_to_section p)) (coracle n)) ∧
+    (∀k.
+      (λ(c,ps,_).
+         EVERY
+           (λ(n,p).
+              call_args p s.ptr_reg s.len_reg s.link_reg ∧
+              EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
+              ALL_DISTINCT (extract_labels p)) ps ∧
+         ALL_DISTINCT (MAP FST ps)) (coracle k)) ∧
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
-    s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
+    s.link_reg ∉ save_regs ∧
+    domain code = set (MAP Section_num s.code) ∧
+    EVERY sec_labels_ok s.code ∧
+    (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
+    (∀k n. k ∈ save_regs ⇒ s.cc_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)`,
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
   \\ eq_tac \\ strip_tac \\ fs []
@@ -2630,23 +2653,41 @@ val stack_to_lab_compile_lab_pres = Q.store_thm("stack_to_lab_compile_lab_pres",
       CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
       imp_res_tac extract_labels_next_lab>>fs[]);
 
-val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
-  `full_make_init stack_conf data_conf max_heap sp offset (bitmaps:'a word list) code t save_regs = (s,opt) ∧
-   good_dimindex(:'a) ∧
-   t.code = stack_to_lab$compile stack_conf data_conf max_heap sp offset code ∧
-   t.ffi.final_event = NONE ∧ ¬t.failed ∧
-   memory_assumption stack_conf.reg_names bitmaps t ∧
-   t.link_reg ∉ save_regs ∧ t.pc = 0 ∧
-   (∀k n. k ∈ save_regs ⇒ t.io_regs n k = NONE) ∧
-   (∀x. x ∈ t.mem_domain ⇒ w2n x MOD (dimindex(:'a) DIV 8) = 0) ∧
+val compile_no_stubs_def = Define`
+  compile_no_stubs f jump offset sp prog =
+  MAP prog_to_section
+    (stack_names$compile f
+      (MAP (prog_comp jump offset sp)
+        (MAP prog_comp prog)))`;
+
+val good_code_def = Define`
+  good_code sp code ⇔
    ALL_DISTINCT (MAP FST code) ∧
    EVERY (λ(k,prog). stack_num_stubs ≤ k ∧ alloc_arg prog) code ∧
    EVERY (λp. call_args p 1 2 0) (MAP SND code) ∧
-   10 <= sp ∧ EVERY (λp. reg_bound p sp) (MAP SND code) ∧
+   EVERY (λp. reg_bound p sp) (MAP SND code) ∧
    EVERY
    (λ(n,p).
       EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
-      ALL_DISTINCT (extract_labels p)) code ∧
+      ALL_DISTINCT (extract_labels p)) code`;
+
+val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
+  `full_make_init stack_conf data_conf max_heap sp offset
+    (bitmaps:'a word list) code t save_regs data_pos data_sp coracle = (s,opt) ∧
+   good_dimindex(:'a) ∧
+   t.code = stack_to_lab$compile stack_conf data_conf max_heap sp offset code ∧
+   t.compile_oracle = (λn.
+     let (c,p,b) = coracle n in
+       (c,compile_no_stubs stack_conf.reg_names stack_conf.jump offset sp p)) ∧
+   t.ffi.final_event = NONE ∧ ¬t.failed ∧
+   memory_assumption stack_conf.reg_names bitmaps data_sp t ∧
+   t.link_reg ∉ save_regs ∧ t.pc = 0 ∧
+   (∀k n. k ∈ save_regs ⇒ t.io_regs n k = NONE) ∧
+   (∀k n. k ∈ save_regs ⇒ t.cc_regs n k = NONE) ∧
+   (∀x. x ∈ t.mem_domain ⇒ w2n x MOD (dimindex(:'a) DIV 8) = 0) ∧
+   good_code sp code ∧
+   (∀n. good_code sp (FST(SND(coracle n)))) ∧
+   10 <= sp ∧
    EVERY (λr. (find_name stack_conf.reg_names (r+sp-2)) ∈ save_regs) [2;3;4] ∧
    find_name stack_conf.reg_names 2 = t.len_reg ∧
    find_name stack_conf.reg_names 1 = t.ptr_reg ∧
@@ -2664,12 +2705,12 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
   by (
     strip_tac
     \\ (GSYM stack_namesProofTheory.make_init_semantics
-        |> Q.GENL[`code`,`f`,`s`,`start`]
-        |> Q.ISPECL_THEN[`code2`,`stack_conf.reg_names`,`s3`,`0`]mp_tac)
+        |> Q.GENL[`code`,`f`,`s`,`start`,`oracle`]
+        |> Q.ISPECL_THEN[`code2`,`stack_conf.reg_names`,`s3`,`0`,`coracle2`]mp_tac)
     \\ simp[]
     \\ impl_tac
     >- (
-      simp[Abbr`s3`]
+      simp[Abbr`s3`] \\ fs[good_code_def]
       \\ simp[make_init_def]
       \\ simp[Abbr`code2`]
       \\ simp[stack_removeTheory.compile_def,
@@ -2691,39 +2732,48 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
     >- ( simp[Abbr`code3`,Abbr`code2`,halt_assum_lemma] )
     \\ conj_tac
     >- (
-      simp[state_rel_make_init]
-      \\ reverse conj_tac
-      >- (
-       metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
-      \\ simp[Abbr`code3`,lookup_fromAList]
-      \\ qmatch_goalsub_abbrev_tac`ALOOKUP code3`
-      \\ `EVERY (λp. call_args p t.ptr_reg t.len_reg t.link_reg) (MAP SND code3)`
-      by (
-        rpt(qpat_x_assum`find_name _ _ = _`(sym_sub_tac))
-        \\ match_mp_tac (GEN_ALL stack_namesProofTheory.stack_names_call_args)
-        \\ qexists_tac`code2` \\ simp[]
-        \\ match_mp_tac (GEN_ALL stack_removeProofTheory.stack_remove_call_args)
-        \\ first_assum(part_match_exists_tac (fst o dest_conj) o (rconc o SYM_CONV o rand o concl))
-        \\ simp[Abbr`code1`]
-        \\ drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
-        \\ disch_then(qspec_then`<|data_conf:=data_conf|>`mp_tac) \\ simp[] )
-      \\ ntac 3 strip_tac
+      simp[state_rel_make_init] \\ fs[good_code_def]
       \\ conj_tac
       >- (
-        imp_res_tac ALOOKUP_MEM \\
-        fs[EVERY_MAP,EVERY_MEM,FORALL_PROD]
-        \\ metis_tac[] )
-      \\ simp[stack_to_labTheory.compile_def]
-      \\ match_mp_tac code_installed_prog_to_section
-      \\ simp[Abbr`code2`,Abbr`code1`,Abbr`ggc`,Abbr`code3`]
-      \\ (stack_to_lab_compile_lab_pres
-          |> SIMP_RULE(srw_ss()++LET_ss)[stack_to_labTheory.compile_def]
-          |> match_mp_tac)
-      \\ simp[]
-      \\ fs[EVERY_MEM,EVERY_MAP,EXISTS_PROD,FORALL_PROD]
-      \\ rw[] \\ strip_tac \\ res_tac
-      \\ rfs[backend_commonTheory.stack_num_stubs_def,stackLangTheory.gc_stub_location_eq] )
-    \\ simp[]
+        simp[Abbr`code3`,lookup_fromAList]
+        \\ simp[stack_to_labTheory.compile_def]
+        \\ qmatch_goalsub_abbrev_tac`ALOOKUP code3`
+        \\ `EVERY (λp. call_args p t.ptr_reg t.len_reg t.link_reg) (MAP SND code3)`
+        by (
+          rpt(qpat_x_assum`find_name _ _ = _`(sym_sub_tac))
+          \\ match_mp_tac (GEN_ALL stack_namesProofTheory.stack_names_call_args)
+          \\ qexists_tac`code2` \\ simp[]
+          \\ match_mp_tac (GEN_ALL stack_removeProofTheory.stack_remove_call_args)
+          \\ first_assum(part_match_exists_tac (fst o dest_conj) o (rconc o SYM_CONV o rand o concl))
+          \\ simp[Abbr`code1`]
+          \\ drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
+          \\ disch_then(qspec_then`<|data_conf:=data_conf|>`mp_tac) \\ simp[] )
+        \\ ntac 3 strip_tac
+        \\ conj_tac
+        >- (
+          imp_res_tac ALOOKUP_MEM \\
+          fs[EVERY_MAP,EVERY_MEM,FORALL_PROD]
+          \\ metis_tac[] )
+        \\ match_mp_tac code_installed_prog_to_section
+        \\ simp[Abbr`code2`,Abbr`code1`,Abbr`ggc`,Abbr`code3`,Abbr`jump`]
+        \\ (stack_to_lab_compile_lab_pres
+            |> SIMP_RULE(srw_ss()++LET_ss)[stack_to_labTheory.compile_def]
+            |> match_mp_tac)
+        \\ simp[]
+        \\ fs[EVERY_MEM,EVERY_MAP,EXISTS_PROD,FORALL_PROD]
+        \\ rw[] \\ strip_tac \\ res_tac
+        \\ rfs[backend_commonTheory.stack_num_stubs_def,stackLangTheory.gc_stub_location_eq] )
+      \\ conj_tac
+      >- (
+        simp[FUN_EQ_THM,Abbr`coracle3`,Abbr`coracle2`,Abbr`coracle1`,compile_no_stubs_def]
+        \\ simp[UNCURRY] )
+      \\ conj_tac >- cheat
+      \\ conj_tac
+      >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
+      \\ conj_tac
+      >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
+      \\ simp[Abbr`code3`,domain_fromAList,Abbr`code2`]
+      \\ cheat )
     \\ conj_tac
     >- (
       simp[stack_to_labTheory.compile_def,
@@ -2734,9 +2784,9 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
            prog_to_section_def] \\
       pairarg_tac \\ fs[Once loc_to_pc_def] )
     \\ rfs[])
-  \\ `discharge_these stack_conf.jump offset ggc max_heap sp InitGlobals_location code1 s2`
+  \\ `discharge_these stack_conf.jump offset ggc max_heap sp InitGlobals_location coracle1 code1 s2`
   by (
-    simp[discharge_these_def]
+    simp[discharge_these_def] \\ fs[good_code_def]
     \\ simp[Abbr`s2`]
     \\ conj_tac
     >- (
@@ -2751,10 +2801,11 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       \\ res_tac \\ fs[] )
     \\ simp[stack_namesProofTheory.make_init_def,Abbr`code2`,Abbr`s3`,make_init_def]
     \\ simp[domain_fromAList]
+    \\ conj_tac >- cheat
     \\ conj_tac >- EVAL_TAC
     \\ fs[]
     \\ metis_tac[LINV_DEF,IN_UNIV,BIJ_DEF] ) \\
-  `propagate_these s2 bitmaps` by (
+  `propagate_these s2 bitmaps data_sp` by (
     fs[propagate_these_def,Abbr`s2`,Abbr`s3`,
         stack_namesProofTheory.make_init_def,
         make_init_def,BIJ_FLOOKUP_MAPKEYS,
@@ -2766,18 +2817,21 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
   >- ( drule stack_removeProofTheory.make_init_semantics_fail \\ fs[] )
   \\ strip_tac \\ fs[]
   \\ (stack_allocProofTheory.make_init_semantics
-      |> Q.GENL[`start`,`c`,`s`]
-      |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`]mp_tac)
+      |> Q.GENL[`start`,`c`,`s`,`oracle`]
+      |> Q.ISPECL_THEN[`InitGlobals_location`,`data_conf`,`s1`,`coracle`]mp_tac)
   \\ `¬(stack_num_stubs ≤ gc_stub_location)` by EVAL_TAC
   \\ impl_tac
   >- (
+    fs[good_code_def] \\
     conj_tac >- (
       ntac 3 strip_tac \\ imp_res_tac ALOOKUP_MEM
       \\ fs[EVERY_MEM,FORALL_PROD]
-      \\ metis_tac[])
+      \\ metis_tac[]) \\
+    conj_tac >- cheat
     \\ simp[Abbr`s1`,make_init_any_use_stack,make_init_any_use_store,
             make_init_any_use_alloc,make_init_any_code,make_init_any_bitmaps,
-            make_init_any_stack_limit]
+            make_init_any_stack_limit,make_init_any_compile_oracle]
+    \\ conj_tac >- cheat
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def] )
   \\ disch_then(assume_tac o SYM)
   \\ rw[]
