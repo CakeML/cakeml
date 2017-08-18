@@ -3019,13 +3019,7 @@ val propagate_these_def = Define`
           word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps))
             data_sp *
           word_list_exists ptr2 (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-         (fun2set (s.memory,s.mdomain)))`
-       
-       (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
-        (word_list bitmap_ptr (MAP Word bitmaps) *
-         word_list_exists ptr2
-           (w2n (ptr4 − ptr2) DIV w2n (bytes_in_word:'a word)))
-          (fun2set (s.memory,s.mdomain)))`;
+         (fun2set (s.memory,s.mdomain)))`;
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
   `discharge_these jump off gen_gc max_heap k start coracle code s2 /\
