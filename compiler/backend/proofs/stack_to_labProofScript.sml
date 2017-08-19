@@ -2701,6 +2701,7 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
      semantics t = Terminate Resource_limit_hit t.ffi.io_events`,
   srw_tac[][full_make_init_def]
   \\ last_x_assum mp_tac \\ LET_ELIM_TAC
+  (* Prove the syntactic things for the oracle sequences *)
   \\ `semantics 0 s2 ≠ Fail ⇒ semantics t = semantics 0 s2`
   by (
     strip_tac
@@ -2774,8 +2775,16 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
       \\ simp[Abbr`code3`,domain_fromAList,Abbr`code2`]
       \\ conj_tac >-
-        simp[compile_def,MAP_prog_to_section_Section_num]
-      \\ cheat )
+        simp[compile_def,MAP_prog_to_section_Section_num]>>
+      qmatch_goalsub_abbrev_tac`EVERY _ cc`>>
+      `labels_ok cc` by
+        (fs[Abbr`cc`]>>
+        match_mp_tac stack_to_lab_compile_lab_pres>>
+        fs[]>>
+        `!n. stack_num_stubs ≤ n ⇒ n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location` by
+          (EVAL_TAC>>fs[])>>
+        fs[UNCURRY,EVERY_MEM,MEM_MAP,PULL_EXISTS])>>
+      metis_tac[labels_ok_imp])
     \\ conj_tac
     >- (
       simp[stack_to_labTheory.compile_def,
@@ -2803,7 +2812,8 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       \\ res_tac \\ fs[] )
     \\ simp[stack_namesProofTheory.make_init_def,Abbr`code2`,Abbr`s3`,make_init_def]
     \\ simp[domain_fromAList]
-    \\ conj_tac >- cheat (* oracle syntax *)
+    \\ conj_tac >-
+      cheat (* oracle syntax *)
     \\ conj_tac >- EVAL_TAC
     \\ fs[]
     \\ metis_tac[LINV_DEF,IN_UNIV,BIJ_DEF] ) \\

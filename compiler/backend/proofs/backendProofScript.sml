@@ -128,7 +128,7 @@ val IMP_init_state_ok = Q.store_thm("IMP_init_state_ok",
   `4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
     (case bitmaps of [] => F | h::_ => (4w:'a word) = h) /\
     good_dimindex (:α) /\
-    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs = (fmis,xxx))
+    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs  data_sp coracle = (fmis,xxx))
     ==>
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
@@ -201,19 +201,6 @@ val DISJOINT_INTER = Q.store_thm("DISJOINT_INTER",
   `DISJOINT b c ⇒ DISJOINT (a ∩ b) (a ∩ c)`,
   rw[IN_DISJOINT] \\ metis_tac[]);
 
-val args = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #1 |> rand
-val defn = full_make_init_semantics_fail |> concl |> dest_imp |> #1 |> dest_conj |> #2 |> lhs
-val full_init_pre_fail_def =
-  Define`full_init_pre_fail ^args = ^defn`;
-
-val full_make_init_bitmaps = Q.prove(
-  `full_init_pre args ==>
-    (full_make_init args).bitmaps = FST args`,
-  PairCases_on`args` \\
-  fs [full_make_init_def,stack_allocProofTheory.make_init_def,
-      stack_removeProofTheory.make_init_any_bitmaps]
-  \\ every_case_tac \\ fs [] \\ fs [full_init_pre_def]);
-
 (* -- *)
 
 (* TODO: should be defined in targetSem *)
@@ -224,14 +211,16 @@ val full_make_init_bitmaps = Q.prove(
    i.e., the range of the data memory
 *)
 val installed_def = Define`
-  installed bytes bitmaps ffi_names ffi (r1,r2) mc_conf ms ⇔
+  installed bytes cbspace bitmaps data_sp ffi_names ffi (r1,r2) mc_conf ms ⇔
     ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm.
       (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
-      word_list bitmap_ptr (MAP Word bitmaps) (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
+      (word_list bitmap_ptr (MAP Word bitmaps) *
+        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
+       (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
       ffi_names = SOME mc_conf.ffi_names`;
 
 val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
@@ -309,7 +298,7 @@ val compile_correct = Q.store_thm("compile_correct",
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
-   installed bytes bitmaps c'.ffi_names ffi cbspace (heap_regs c.stack_conf.reg_names) mc ms ⇒
+   installed bytes cbspace bitmaps data_sp c'.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
@@ -609,10 +598,6 @@ val compile_correct = Q.store_thm("compile_correct",
   fs[installed_def] \\
   qmatch_assum_abbrev_tac`good_init_state mc ms ffi bytes cbspace tar_st m dm io_regs cc_regs` \\
   qpat_x_assum`Abbrev(tar_st = _)`kall_tac \\
-  qabbrev_tac`coracle =λn:num.
-      (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, ([]:'a labLang$prog))` \\
-  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
-       (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace coracle` \\
   (* syntactic properties from stack_to_lab *)
   `labels_ok p7` by
     (fs[Abbr`p7`]>>
@@ -629,18 +614,32 @@ val compile_correct = Q.store_thm("compile_correct",
     metis_tac[])>>
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
+
+  (* an explicit choices of oracles *)
+  qabbrev_tac`stack_oracle = λn:num.
+    (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, ([]:(num # 'a stackLang$prog) list),[]:'a word list)` \\
+  qabbrev_tac`lab_oracle =
+    (λn.
+     let (c,p,b) = stack_oracle n in
+       (c,compile_no_stubs c4.stack_conf.reg_names c4.stack_conf.jump stoff stk p))`\\
+
+  qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
+       (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
+
   strip_tac \\
   qabbrev_tac`stack_st_opt =
     full_make_init
-      c.stack_conf
-      c.data_conf
-      (2 * max_heap_limit (:'a) c.data_conf - 1)
+      c4.stack_conf
+      c4.data_conf
+      (2 * max_heap_limit (:'a) c4.data_conf - 1)
       stk
       stoff
       c6.bitmaps
       p6
       lab_st
-      (set mc.callee_saved_regs)` >>
+      (set mc.callee_saved_regs)
+      data_sp
+      stack_oracle` >>
   qabbrev_tac`stack_st = FST stack_st_opt` >>
   qabbrev_tac`word_st = make_init stack_st (fromAList p5)` \\
   (data_to_wordProofTheory.compile_semantics
@@ -676,9 +675,18 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspec_then`coracle`mp_tac) \\
+  disch_then(qspec_then`lab_oracle`mp_tac) \\
   impl_tac >- (
-    conj_tac >- simp[compiler_oracle_ok_def,good_code_def,Abbr`coracle`] \\
+    conj_tac >-
+      (simp[compiler_oracle_ok_def,good_code_def,Abbr`lab_oracle`] \\
+      conj_tac>-
+        (* for now, this is trivial because the oracle is [],
+           but in the full compiler, this will need an annoying syntactic
+           proof again...
+        *)
+        (simp[Abbr`stack_oracle`,compile_no_stubs_def]>>
+        EVAL_TAC>>simp[])>>
+      simp[Abbr`stack_oracle`])>>
     fs[good_code_def,labels_ok_def] \\
     rfs[]>>rw[]
     >-
@@ -715,6 +723,11 @@ val compile_correct = Q.store_thm("compile_correct",
     qunabbrev_tac`stack_st` \\
     fs[Abbr`lab_st`,make_init_def] \\
     fs[mc_init_ok_def, mc_conf_ok_def, Abbr`stk`,byte_aligned_MOD] \\
+    conj_tac>-
+      (* this is implied by the word_list + word_list_exists assumption,
+         see proof in stack_removeProof *)
+      cheat>>
+    conj_tac>- simp[ETA_AX]
     conj_tac >- (
       rfs[memory_assumption_def,Abbr`dm`]
       \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
@@ -765,16 +778,24 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
         \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
         \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs []))
-    >- (
-      fs[ALL_DISTINCT_MAP_FST_stubs,ALL_DISTINCT_APPEND]
-      \\ fs[EVERY_MEM]
-      \\ rw[] \\ CCONTR_TAC \\ fs[]
-      \\ res_tac
-      \\ imp_res_tac MAP_FST_stubs_bound
-      \\ pop_assum mp_tac \\ EVAL_TAC
-      \\ pop_assum mp_tac \\ EVAL_TAC
-      \\ pop_assum mp_tac \\ EVAL_TAC
-      \\ decide_tac )) \\
+    conj_tac>- (
+      fs[stack_to_labProofTheory.good_code_def]>>
+      rfs[]>>
+      CONJ_TAC>-
+        (fs[ALL_DISTINCT_MAP_FST_stubs,ALL_DISTINCT_APPEND]
+        \\ fs[EVERY_MEM]
+        \\ rw[] \\ CCONTR_TAC \\ fs[]
+        \\ res_tac
+        \\ imp_res_tac MAP_FST_stubs_bound
+        \\ pop_assum mp_tac \\ EVAL_TAC
+        \\ pop_assum mp_tac \\ EVAL_TAC
+        \\ pop_assum mp_tac \\ EVAL_TAC
+        \\ decide_tac )>>
+      (* simple syntactic thing *)
+      cheat)
+    >>
+      (* See above comment about triviality here *)
+      fs[stack_to_labProofTheory.good_code_def,Abbr`stack_oracle`])>>
   CASE_TAC
   >- (
     strip_tac \\
