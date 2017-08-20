@@ -851,14 +851,14 @@ val infertype_prog_aux_def = Define`
     od`;
 
 val infertype_prog = Define `
-infertype_prog c prog state = run (infertype_prog_aux c prog) state`;
+infertype_prog c prog = run (infertype_prog_aux c prog) init_infer_state`;
 
 open primTypesTheory
 
 val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
 
 val init_config = Define`
-  init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program init_infer_state``
+  init_config = ^(EVAL ``infertype_prog ^(conf) prim_types_program``
                  |> concl |> rand |> rand)`
 
 val Infer_Tfn_def = Define `

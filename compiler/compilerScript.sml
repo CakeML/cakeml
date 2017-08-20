@@ -39,7 +39,7 @@ val compile_def = Define`
     case parse_prog (lexer_fun input) of
     | NONE => Failure ParseError
     | SOME prog =>
-       case infertype_prog c.inferencer_config (prelude ++ prog) init_infer_state of
+       case infertype_prog c.inferencer_config (prelude ++ prog) of
        | Failure (Exc (locs, msg)) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
@@ -52,7 +52,7 @@ val compile_explorer_def = Define`
     case parse_prog (lexer_fun input) of
     | NONE => Failure ParseError
     | SOME prog =>
-       case infertype_prog c.inferencer_config (prelude ++ prog) init_infer_state of
+       case infertype_prog c.inferencer_config (prelude ++ prog) of
        | Failure (Exc (locs, msg)) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
