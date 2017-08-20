@@ -20,6 +20,7 @@ val _ = Datatype `
             ; len_size : num (* size of length field in block header *)
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
+            ; has_fp_ops : bool (* can compile floating-point ops *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
@@ -1389,7 +1390,8 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | FP_cmp fpc => (dtcase args of
        | [v1;v2] =>
-       (if dimindex(:'a) = 64 then
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
            ((list_Seq [
                Assign 3 (Load (Op Add
                            [real_addr c (adjust_var v1); Const bytes_in_word]));
@@ -1416,7 +1418,8 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | FP_bop fpb => (dtcase args of
        | [v1;v2] =>
-       (if dimindex(:'a) = 64 then
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
@@ -1449,7 +1452,8 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | FP_uop fpu => (dtcase args of
        | [v1] =>
-       (if dimindex(:'a) = 64 then
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
@@ -1796,6 +1800,7 @@ val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
+    let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
