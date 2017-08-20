@@ -128,7 +128,7 @@ val IMP_init_state_ok = Q.store_thm("IMP_init_state_ok",
   `4 < asm_conf.reg_count − (LENGTH asm_conf.avoid_regs + 5) /\
     (case bitmaps of [] => F | h::_ => (4w:'a word) = h) /\
     good_dimindex (:α) /\
-    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs  data_sp coracle = (fmis,xxx))
+    (full_make_init sc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp coracle = (fmis,xxx))
     ==>
     init_state_ok
       (asm_conf.reg_count − (LENGTH (asm_conf:'a asm_config).avoid_regs + 5))
@@ -143,7 +143,7 @@ val IMP_init_state_ok = Q.store_thm("IMP_init_state_ok",
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [init_state_ok_def,data_to_word_gcProofTheory.gc_fun_ok_word_gc_fun]
   \\ conj_tac THEN1 fs [labPropsTheory.good_dimindex_def]
-  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap x /\ x.bitmaps = 4w::t` by
+  \\ `init_prop (is_gen_gc dc.gc_kind) max_heap data_sp x /\ x.bitmaps = 4w::t` by
         (fs [stack_removeProofTheory.make_init_opt_def]
          \\ every_case_tac \\ fs [stack_removeProofTheory.init_reduce_def] \\ rw [])
   \\ fs [stack_removeProofTheory.init_prop_def]
@@ -615,7 +615,7 @@ val compile_correct = Q.store_thm("compile_correct",
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ stk stoff`>>
 
-  (* an explicit choices of oracles *)
+  (* an explicit choice of oracles *)
   qabbrev_tac`stack_oracle = λn:num.
     (<| labels := c'.labels; pos := LENGTH bytes; asm_conf := mc.target.config; ffi_names := SOME mc.ffi_names|>, ([]:(num # 'a stackLang$prog) list),[]:'a word list)` \\
   qabbrev_tac`lab_oracle =
@@ -723,11 +723,7 @@ val compile_correct = Q.store_thm("compile_correct",
     qunabbrev_tac`stack_st` \\
     fs[Abbr`lab_st`,make_init_def] \\
     fs[mc_init_ok_def, mc_conf_ok_def, Abbr`stk`,byte_aligned_MOD] \\
-    conj_tac>-
-      (* this is implied by the word_list + word_list_exists assumption,
-         see proof in stack_removeProof *)
-      cheat>>
-    conj_tac>- simp[ETA_AX]
+    conj_tac>- simp[ETA_AX] \\
     conj_tac >- (
       rfs[memory_assumption_def,Abbr`dm`]
       \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
@@ -777,7 +773,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ Cases_on `a` \\ Cases_on `b`
         \\ full_simp_tac std_ss [WORD_LS,addressTheory.word_arith_lemma2]
         \\ fs [] \\ match_mp_tac DIV_LESS_DIV \\ fs []
-        \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs []))
+        \\ rfs [] \\ fs [] \\ match_mp_tac MOD_SUB_LEMMA \\ fs []))>>
     conj_tac>- (
       fs[stack_to_labProofTheory.good_code_def]>>
       rfs[]>>
@@ -792,9 +788,14 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ pop_assum mp_tac \\ EVAL_TAC
         \\ decide_tac )>>
       (* simple syntactic thing *)
-      cheat)
+      simp[EVERY_FST_SND]>>
+      CONJ_TAC>- EVAL_TAC>>
+      `!k. data_num_stubs<= k ⇒ stack_num_stubs <=k` by
+        (EVAL_TAC>>fs[])>>
+      CONJ_TAC>-
+        EVAL_TAC>>
+      metis_tac[EVERY_MONOTONIC])
     >>
-      (* See above comment about triviality here *)
       fs[stack_to_labProofTheory.good_code_def,Abbr`stack_oracle`])>>
   CASE_TAC
   >- (

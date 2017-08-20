@@ -2401,7 +2401,7 @@ val init_reduce_stack_space = Q.prove(
   fs [init_reduce_def,LENGTH_read_mem]);
 
 val init_prop_def = Define `
-  init_prop gen_gc max_heap (s:('a,'c,'ffi)stackSem$state) =
+  init_prop gen_gc max_heap data_sp (s:('a,'c,'ffi)stackSem$state) =
     ?curr other bitmap_base len.
        FLOOKUP s.store CurrHeap = SOME (Word curr) /\
        FLOOKUP s.store NextFree = SOME (Word curr) /\
@@ -2417,7 +2417,7 @@ val init_prop_def = Define `
        FLOOKUP s.store GenStart = SOME (Word 0w) /\
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
-       LENGTH s.bitmaps + 1 < dimword (:'a) /\
+       LENGTH s.bitmaps + data_sp + 1 < dimword (:'a) /\
        LENGTH s.stack < dimword (:'a) /\
        (other = curr + bytes_in_word * n2w len) /\
        byte_aligned curr /\
@@ -2458,7 +2458,7 @@ val byte_aligned_bytes_in_word_MULT = Q.prove(
   \\ fs [WORD_MUL_LSL]);
 
 (* The extra b equality makes this work better with SEP_NEQ_TAC *)
-val word_list_wrap = Q.prove(`
+val word_list_wrap = Q.store_thm("word_list_wrap",`
   good_dimindex (:'a) ∧
   dimword(:'a) DIV (dimindex(:'a) DIV 8) < LENGTH ls ⇒
   ∃x xs y ys b.
@@ -2506,7 +2506,7 @@ val init_code_thm = Q.store_thm("init_code_thm",
          w2 <+ w4) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
-         init_prop gen_gc max_heap (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)`,
+         init_prop gen_gc max_heap data_sp (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)`,
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
@@ -2777,20 +2777,27 @@ val init_code_thm = Q.store_thm("init_code_thm",
     \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
     \\ rfs [dimword_def] \\ fs [])
   \\ fs[]
-  \\ (CONJ_TAC>-
-    (CCONTR_TAC>>
-    `dimword(:'a) ≤ LENGTH bitmaps+1` by fs[]>>
-    `dimword(:'a) DIV d < LENGTH bitmaps` by
-      (DEP_REWRITE_TAC [DIV_LT_X]>>
-      `2 < d ∧ 0 < LENGTH bitmaps` by
+  \\ (CONJ_TAC>-(
+    qmatch_asmsub_abbrev_tac`(a1 * (a2 * (word_list _ ls1 * (a3 * (word_list _ ls2 * a4))))) _`>>
+    `(word_list bitmap_ptr (ls1++ls2) * a1*a2*a3*a4) (fun2set (m1,dm))` by
+     (fs[Abbr`ls1`,Abbr`ls2`,word_list_APPEND]>>
+     metis_tac[STAR_ASSOC,STAR_COMM])>>
+    qabbrev_tac`ls = ls1++ls2`>>
+    CCONTR_TAC>>
+    `dimword(:'a) ≤ LENGTH ls +1` by
+      (unabbrev_all_tac>>fs[])>>
+    `dimword(:'a) DIV d < LENGTH ls` by
+      (
+      DEP_REWRITE_TAC [DIV_LT_X]>>
+      `2 < d ∧ 0 < LENGTH ls` by
         fs[Abbr`d`,labPropsTheory.good_dimindex_def]>>
       fs[]>>
-      `LENGTH bitmaps +1 < LENGTH bitmaps * d` by
-        (Cases_on`LENGTH bitmaps`>>fs[ADD1]>>
+      `LENGTH ls +1 < LENGTH ls * d` by
+        (Cases_on`LENGTH ls`>>fs[ADD1]>>
         Cases_on`d`>>fs[ADD1])>>
       fs[])>>
     fs[Abbr`d`]>>
-    Q.ISPECL_THEN [`MAP Word bitmaps`,`bitmap_ptr`] mp_tac (GEN_ALL word_list_wrap)>>
+    Q.ISPECL_THEN [`ls`,`bitmap_ptr`] mp_tac (GEN_ALL word_list_wrap)>>
     impl_tac>-
       fs[]>>
     strip_tac>>
@@ -2808,7 +2815,7 @@ val make_init_opt_def = Define `
   make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code (s:('a,'c,'ffi)stackSem$state) =
     case evaluate (init_code gen_gc max_heap k,s) of
     | (SOME _,t) => NONE
-    | (NONE,t) => if init_prop gen_gc max_heap (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
+    | (NONE,t) => if init_prop gen_gc max_heap data_sp (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)
                   then SOME (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) else NONE`
 
 val init_pre_def = Define `

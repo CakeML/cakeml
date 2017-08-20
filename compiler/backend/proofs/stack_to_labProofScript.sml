@@ -2673,8 +2673,6 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
   `full_make_init stack_conf data_conf max_heap sp offset
     (bitmaps:'a word list) code t save_regs data_sp coracle = (s,opt) ∧
    good_dimindex(:'a) ∧
-   (* TODO: THIS SHOULD BE CHECKED BY INIT CODE *)
-   LENGTH bitmaps + data_sp < dimword(:'a) -1 ∧
    t.code = stack_to_lab$compile stack_conf data_conf max_heap sp offset code ∧
    t.compile_oracle = (λn.
      let (c,p,b) = coracle n in
@@ -2768,7 +2766,34 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       >- (
         simp[FUN_EQ_THM,Abbr`coracle3`,Abbr`coracle2`,Abbr`coracle1`,compile_no_stubs_def]
         \\ simp[UNCURRY] )
-      \\ conj_tac >- cheat
+      \\ conj_tac >-(
+        strip_tac>>
+        first_x_assum(qspec_then`k` assume_tac)>>fs[]>>
+        Cases_on`coracle k`>>Cases_on`r`>>rfs[]>>
+        unabbrev_all_tac>>fs[]>>
+        drule stack_alloc_call_args>>
+        strip_tac>>
+        fs[stack_allocTheory.compile_def,PAIR_MAP]>>
+        (* call_args preservation *)
+        drule (stack_remove_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL) >> simp[]>>
+        fs[stack_removeTheory.compile_def,FORALL_AND_THM,GSYM AND_IMP_INTRO]>>
+        disch_then kall_tac>>
+        disch_then(qspecl_then[`offset`,`sp`,`stack_conf.jump`] assume_tac)>>
+        drule (stack_names_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL)>>
+        simp[]>>
+        disch_then(qspec_then`stack_conf.reg_names` assume_tac)>>rfs[]>>
+        fs[Once EVERY_MEM,stack_namesTheory.compile_def,MEM_MAP,PULL_EXISTS,UNCURRY]>>
+        reverse conj_tac>-
+          fs[MAP_MAP_o,o_DEF,ETA_AX,prog_comp_eta,stack_allocProofTheory.prog_comp_lambda,UNCURRY]>>
+        simp[FORALL_PROD,PULL_FORALL,prog_comp_eta,stack_allocProofTheory.prog_comp_lambda,stack_namesTheory.prog_comp_def]>>
+        ntac 3 strip_tac>>
+        rpt(first_x_assum drule>>strip_tac)>>
+        fs[]>>
+        imp_res_tac stack_alloc_lab_pres>>
+        ntac 2 (pop_assum kall_tac)>>
+        pop_assum(qspec_then`next_lab p_2 1` assume_tac)>>fs[]>>
+        pairarg_tac>>fs[]>>
+        metis_tac[stack_names_lab_pres,stack_remove_lab_pres])
       \\ conj_tac
       >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
       \\ conj_tac
@@ -2812,8 +2837,22 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       \\ res_tac \\ fs[] )
     \\ simp[stack_namesProofTheory.make_init_def,Abbr`code2`,Abbr`s3`,make_init_def]
     \\ simp[domain_fromAList]
-    \\ conj_tac >-
-      cheat (* oracle syntax *)
+    \\ conj_tac >-(
+      ntac 4 strip_tac>>
+      first_x_assum(qspec_then`n` assume_tac)>>
+      Cases_on`coracle n`>>Cases_on`r`>>fs[]>>
+      fs[Abbr`coracle1`]>>
+      drule (GEN_ALL stack_alloc_reg_bound)>>
+      disch_then drule>>
+      disch_then(qspec_then `<|data_conf:=ARB|>` assume_tac)>>
+      fs[stack_allocTheory.compile_def]>>
+      fs[Once EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD]>>
+      conj_tac>-
+        metis_tac[]>>
+      fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP,UNCURRY]>>
+      Cases_on`y`>>fs[]>>
+      rpt(first_x_assum drule)>>
+      fs[])
     \\ conj_tac >- EVAL_TAC
     \\ fs[]
     \\ metis_tac[LINV_DEF,IN_UNIV,BIJ_DEF] ) \\
