@@ -475,8 +475,11 @@ val stack_names_comp_stack_asm_ok = Q.prove(`
   >-
     (every_case_tac>>fs[dest_find_name_def]>>
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
+  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
+  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >>
-  metis_tac[names_ok_imp,asmTheory.reg_ok_def])
+    fs[asmTheory.inst_ok_def,inst_name_def,addr_name_def]>>
+    imp_res_tac names_ok_imp>>fs[]);
 
 val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧

@@ -2934,10 +2934,7 @@ val flatten_line_ok_pre = Q.prove(`
     (rpt(pairarg_tac>>fs[])>>rw[]>>fs[stack_asm_ok_def]>>
     EVAL_TAC)
   >>
-    EVAL_TAC>>fs[stack_asm_ok_def]
-  >>
-    cheat (*Cbw cheat*)
-  );
+    pop_assum mp_tac>>EVAL_TAC);
 
 val compile_all_enc_ok_pre = Q.prove(`
   EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
