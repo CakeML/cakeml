@@ -5974,6 +5974,7 @@ val th = Q.store_thm("assign_FP_cmp",
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
   \\ simp [assign_FP_cmp]
+  \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (fs [] \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -6067,6 +6068,7 @@ val th = Q.store_thm("assign_FP_bop",
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
   \\ simp [assign_FP_bop]
+  \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs [] \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -6162,6 +6164,7 @@ val th = Q.store_thm("assign_FP_uop",
   \\ strip_tac
   \\ clean_tac \\ rfs []
   \\ simp [assign_FP_uop]
+  \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
    (TOP_CASE_TAC \\ fs [] \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)

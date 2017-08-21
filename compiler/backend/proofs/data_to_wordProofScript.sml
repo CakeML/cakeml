@@ -844,7 +844,11 @@ val stub_labels = Q.store_thm("stub_labels",`
     (stubs (:'a) data_conf)`,
   simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
   EVAL_TAC>>
-  rw[]>>EVAL_TAC)
+  rw[]>>EVAL_TAC);
+
+val stubs_with_has_fp_ops = store_thm("stubs_with_has_fp_ops[simp]",
+  ``stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf``,
+  EVAL_TAC);
 
 val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",`
   let (c,p) = compile data_conf word_conf asm_conf prog in
@@ -874,7 +878,9 @@ val data_to_word_compile_lab_pres = Q.store_thm("data_to_word_compile_lab_pres",
       fs[EVERY_MEM])
     >>
       fs[MEM_MAP,MEM_EL,EXISTS_PROD]>>rw[]>>fs[compile_part_def]>>
-      Q.SPECL_THEN [`data_conf`,`p_1`,`1n`,`p_2`]assume_tac data_to_word_lab_pres_lem>>
+      qmatch_goalsub_abbrev_tac `comp data_conf2` >>
+      Q.SPECL_THEN [`data_conf2`,`p_1`,`1n`,`p_2`]assume_tac
+        data_to_word_lab_pres_lem>>
       fs[]>>pairarg_tac>>fs[EVERY_EL,PULL_EXISTS]>>
       rw[]>>res_tac>>
       pairarg_tac>>fs[])>>
@@ -903,7 +909,7 @@ val MemEqList_no_inst = Q.prove(`
 val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-  1 < ac.fp_reg_count ∧
+   (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
@@ -924,8 +930,8 @@ val comp_no_inst = Q.prove(`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-  1 < ac.fp_reg_count ∧
-  addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
+   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count)) ∧
+  addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))`,
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def,every_inst_def]>>
@@ -965,7 +971,6 @@ val data_to_word_compile_conventions = Q.store_thm("data_to_word_compile_convent
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-    1 < ac.fp_reg_count ∧
     addr_offset_ok ac 0w /\
     (* NOTE: this condition is
        stricter than necessary, but we have much more byte_offset space
@@ -1044,5 +1049,10 @@ val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
   simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
   metis_tac[]);
+
+val max_heap_limit_has_fp_ops = store_thm("max_heap_limit_has_fp_ops[simp]",
+  ``max_heap_limit (:α) (conf with has_fp_ops := b) =
+    max_heap_limit (:α) conf``,
+  EVAL_TAC);
 
 val _ = export_theory();
