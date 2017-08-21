@@ -93,6 +93,10 @@ val _ = Datatype `
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
+     ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
+     ; code_buffer : ('a,8) buffer
+     ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
@@ -116,8 +120,10 @@ val isResult_def = Define `
 val isException_def = Define `
   (isException (Exception a b) = T) /\ (isException _ = F)`;
 
+val s = ``(s:('a,'c,'ffi) wordSem$state)``
+
 val dec_clock_def = Define `
-  dec_clock (s:('a,'ffi) wordSem$state) = s with clock := s.clock - 1`;
+  dec_clock ^s = s with clock := s.clock - 1`;
 
 val fix_clock_def = Define `
   fix_clock old_s (res,new_s) =
@@ -135,13 +141,13 @@ val get_word_def = Define `
 val _ = export_rewrites["is_word_def","get_word_def"];
 
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) wordSem$state) =
+  mem_store (addr:'a word) (w:'a word_loc) ^s =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
 
 val mem_load_def = Define `
-  mem_load (addr:'a word) (s:('a,'ffi) wordSem$state) =
+  mem_load (addr:'a word) ^s =
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
@@ -154,7 +160,7 @@ val the_words_def = Define `
      | _ => NONE)`
 
 val word_exp_def = tDefine "word_exp" `
-  (word_exp s (Const w) = SOME (Word w)) /\
+  (word_exp ^s (Const w) = SOME (Word w)) /\
   (word_exp s (Var v) = lookup v s.locals) /\
   (word_exp s (Lookup name) = FLOOKUP s.store name) /\
   (word_exp s (Load addr) =
@@ -175,10 +181,10 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:('a,'ffi) wordSem$state) = sptree$lookup v s.locals`;
+  get_var v ^s = sptree$lookup v s.locals`;
 
 val get_vars_def = Define `
-  (get_vars [] s = SOME []) /\
+  (get_vars [] ^s = SOME []) /\
   (get_vars (v::vs) s =
      case get_var v s of
      | NONE => NONE
@@ -187,18 +193,18 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x (s:('a,'ffi) wordSem$state) =
+  set_var v x ^s =
     (s with locals := (insert v x s.locals))`;
 
 val set_vars_def = Define `
-  set_vars vs xs (s:('a,'ffi) wordSem$state) =
+  set_vars vs xs ^s =
     (s with locals := (alist_insert vs xs s.locals))`;
 
 val set_store_def = Define `
-  set_store v x (s:('a,'ffi) wordSem$state) = (s with store := s.store |+ (v,x))`;
+  set_store v x ^s = (s with store := s.store |+ (v,x))`;
 
 val call_env_def = Define `
-  call_env args (s:('a,'ffi) wordSem$state) =
+  call_env args ^s =
     s with <| locals := fromList2 args |>`;
 
 val list_rearrange_def = Define `
@@ -237,7 +243,7 @@ val env_to_list_def = Define `
       (l,permute)`
 
 val push_env_def = Define `
-  (push_env env NONE s =
+  (push_env env NONE ^s =
     let (l,permute) = env_to_list env s.permute in
       s with <| stack := StackFrame l NONE :: s.stack
               ; permute := permute|>) ∧
@@ -249,7 +255,7 @@ val push_env_def = Define `
               ; handler := LENGTH s.stack|>)`;
 
 val pop_env_def = Define `
-  pop_env s =
+  pop_env ^s =
     case s.stack of
     | (StackFrame e NONE::xs) =>
          SOME (s with <| locals := fromAList e ; stack := xs |>)
@@ -258,19 +264,19 @@ val pop_env_def = Define `
     | _ => NONE`;
 
 val push_env_clock = Q.prove(
-  `(wordSem$push_env env b s).clock = s.clock`,
+  `(wordSem$push_env env b ^s).clock = s.clock`,
   Cases_on `b` \\ TRY(PairCases_on`x`) \\ full_simp_tac(srw_ss())[push_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val pop_env_clock = Q.prove(
-  `(wordSem$pop_env s = SOME s1) ==> (s1.clock = s.clock)`,
+  `(wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)`,
   full_simp_tac(srw_ss())[pop_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val jump_exc_def = Define `
-  jump_exc s =
+  jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
       | StackFrame e (SOME (n,l1,l2)) :: xs =>
@@ -287,13 +293,13 @@ val cut_env_def = Define `
 (* -- *)
 
 val cut_state_def = Define `
-  cut_state names s =
+  cut_state names ^s =
     case cut_env names s.locals of
     | NONE => NONE
     | SOME env => SOME (s with locals := env)`;
 
 val cut_state_opt_def = Define `
-  cut_state_opt names s =
+  cut_state_opt names ^s =
     case names of
     | NONE => SOME s
     | SOME names => cut_state names s`;
@@ -330,7 +336,7 @@ val dec_stack_def = Define `
   (dec_stack _ _ = NONE)`
 
 val gc_def = Define `  (* gc runs the garbage collector algorithm *)
-  gc s =
+  gc ^s =
     let wl_list = enc_stack s.stack in
       case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
       | NONE => NONE
@@ -343,13 +349,13 @@ val gc_def = Define `  (* gc runs the garbage collector algorithm *)
                           ; memory := m |>))`
 
 val has_space_def = Define `
-  has_space wl s =
+  has_space wl ^s =
     case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store TriggerGC) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
 val alloc_def = Define `
-  alloc (w:'a word) names s =
+  alloc (w:'a word) names ^s =
     (* prune local names *)
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
@@ -375,13 +381,13 @@ val alloc_def = Define `
                         (SOME NotEnoughSpace,call_env [] s with stack:= [])))))`
 
 val assign_def = Define `
-  assign reg exp s =
+  assign reg exp ^s =
     case word_exp s exp of
      | NONE => NONE
      | SOME w => SOME (set_var reg w s)`;
 
 val inst_def = Define `
-  inst i s =
+  inst i ^s =
     case i of
     | Skip => SOME s
     | Const reg w => assign reg (Const w) s
@@ -472,7 +478,7 @@ val inst_def = Define `
     | _ => NONE`
 
 val get_var_imm_def = Define`
-  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧
+  (get_var_imm ((Reg n):'a reg_imm) ^s = get_var n s) ∧
   (get_var_imm (Imm w) s = SOME(Word w))`
 
 val add_ret_loc_def = Define `
@@ -484,13 +490,13 @@ val bad_dest_args_def = Define`
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
 
 val termdep_rw = Q.prove(
-  `((call_env p_1 s).termdep = s.termdep) /\
+  `((call_env p_1 ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
     ((set_var n v s).termdep = s.termdep)`,
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val fix_clock_IMP_LESS_EQ = Q.prove(
-  `!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
+  `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 val MustTerminate_limit_def = zDefine `
@@ -503,7 +509,7 @@ val MustTerminate_limit_def = zDefine `
     dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
+  (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
@@ -573,6 +579,50 @@ val evaluate_def = tDefine "evaluate" `
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
+  (evaluate (Install ptr len dptr dlen names,s) =
+    case cut_env names s.locals of
+    | NONE => (SOME Error,s)
+    | SOME env =>
+    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
+    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
+       let (cfg,progs) = s.compile_oracle 0 in
+       (case (buffer_flush s.code_buffer w1 w2
+             ,buffer_flush s.data_buffer w3 w4) of
+         SOME (bytes, cb), SOME (data, db) =>
+        let new_oracle = shift_seq 1 s.compile_oracle in
+        (case s.compile cfg progs, progs of
+          | SOME (bytes',data',cfg'), (k,prog)::_ =>
+            if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+            let s' =
+                s with <|
+                  code_buffer := cb
+                ; data_buffer := db
+                ; code := union s.code (fromAList progs)
+                (* This order is convenient because it means all of s.code's entries are preserved *)
+                ; locals := insert ptr (Loc k 0) env
+                ; compile_oracle := new_oracle
+                |> in
+              (NONE,s')
+            else (SOME Error,s)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))
+      | _ => (SOME Error,s)) /\
+  (evaluate (CodeBufferWrite r1 r2,s) =
+    (case (get_var r1 s,get_var r2 s) of
+        | (SOME (Word w1), SOME (Word w2)) =>
+          (case buffer_write s.code_buffer w1 (w2w w2) of
+          | SOME new_cb =>
+            (NONE,s with code_buffer:=new_cb)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))) /\
+  (evaluate (DataBufferWrite r1 r2,s) =
+    (case (get_var r1 s,get_var r2 s) of
+        | (SOME (Word w1), SOME (Word w2)) =>
+          (case buffer_write s.data_buffer w1 w2 of
+          | SOME new_db =>
+            (NONE,s with data_buffer:=new_db)
+          | _ => (SOME Error,s))
+        | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len names,s) =
     case (get_var len s, get_var ptr s) of
     | SOME (Word w),SOME (Word w2) =>
@@ -636,7 +686,7 @@ val evaluate_def = tDefine "evaluate" `
         | (NONE,s) => (SOME Error,s)
 		| res => res)))`
   (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
-                  (\(xs,(s:('a,'ffi) wordSem$state)). (s.termdep,s.clock,xs)))`
+                  (\(xs,^s). (s.termdep,s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
    \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
    \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
@@ -722,7 +772,7 @@ val evaluate_def = save_thm("evaluate_def",
 (* observational semantics *)
 
 val semantics_def = Define `
-  semantics s start =
+  semantics ^s start =
   let prog = Call NONE (SOME start) [0] NONE in
   if ∃k. case FST(evaluate (prog,s with clock := k)) of
          | SOME (Exception _ _) => T

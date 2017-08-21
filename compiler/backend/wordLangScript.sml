@@ -50,6 +50,10 @@ val _ = Datatype `
        | Return num num
        | Tick
        | LocValue num num        (* assign v1 := Loc v2 0 *)
+       | Install num num num num num_set (* code buffer start, length of new code,
+                                      data buffer start, length of new data, cut-set *)
+       | CodeBufferWrite num num (* code buffer address, byte to write *)
+       | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI string num num num_set (* FFI index, array_ptr, array_len, cut-set *) `;
 
 val raise_stub_location_def = Define`
@@ -99,13 +103,16 @@ val every_name_def = Define`
   EVERY P (MAP FST (toAList t))`
 
 val every_var_def = Define `
-  (every_var P Skip = T) ∧
+  (every_var P (Skip:'a prog) ⇔ T) ∧
   (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
   (every_var P (Inst i) = every_var_inst P i) ∧
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (LocValue r _) = P r) ∧
+  (every_var P (Install r1 r2 r3 r4 names) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ every_name P names)) ∧
+  (every_var P (CodeBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
+  (every_var P (DataBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
   (every_var P (FFI ffi_index ptr len names) =
     (P ptr ∧ P len ∧ every_name P names)) ∧
   (every_var P (MustTerminate s1) = every_var P s1) ∧
