@@ -2,7 +2,7 @@ open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simp
 
 val _ = new_theory "word_simpProof";
 
-val s = ``s:('a,'ffi) wordSem$state``
+val s = ``s:('a,'c,'ffi) wordSem$state``
 
 (** common **)
 
@@ -482,7 +482,7 @@ val pop_env_gc_fun_const_ok_thm = Q.store_thm("pop_env_gc_fun_const_ok",
 val evaluate_gc_fun_const_ok_thm = Q.store_thm("evaluate_gc_fun_const_ok",
   `!p s res s'. evaluate (p, s) = (res, s') /\ gc_fun_const_ok s.gc_fun ==>
                 gc_fun_const_ok s'.gc_fun`,
-  metis_tac [evaluate_gc_fun_const]);
+  metis_tac[evaluate_consts]);
 
 val get_above_handler_def = Define `
   get_above_handler s = case EL (LENGTH s.stack - (s.handler + 1)) s.stack of
@@ -594,7 +594,7 @@ val HD_LASTN_thm = Q.store_thm("HD_LASTN",
   rw [] \\ imp_res_tac LASTN_DROP \\ ASSUME_TAC (Q.SPEC `0` EL_DROP) \\ fs []);
 
 val push_env_pop_env_locals_thm = Q.store_thm("push_env_pop_env_locals_thm",
-  `!(s:('a, 'ffi) wordSem$state) s' s'' s''' env names (handler:(num # 'a prog # num # num) option).
+  `!^s s' s'':('a,'c,'ffi) wordSem$state s''' env names (handler:(num # 'a prog # num # num) option).
   cut_env names s.locals = SOME env /\
   push_env env handler s = s' /\
   LIST_REL sf_gc_consts s'.stack s''.stack /\
@@ -719,7 +719,11 @@ val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
   imp_res_tac inst_const_full \\
   rw [] \\
   irule EVERY2_refl \\ rw [sf_gc_consts_refl_thm])
-
+  >- (* Install *)
+    (rw[evaluate_def] \\ fs[case_eq_thms]>>rw[]>>
+    pairarg_tac>>fs[case_eq_thms]>>rw[]>>
+    irule EVERY2_refl>>
+    metis_tac[sf_gc_consts_refl_thm])
   >- (** Raise **)
   (rw [evaluate_def, jump_exc_def] \\ every_case_tac \\ fs [] \\
   imp_res_tac LASTN_TL_res_thm \\ rw [get_above_handler_def]
@@ -811,7 +815,7 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   (rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac \\
   fs [evaluate_def, const_fp_loop_def] \\
   rpt (pairarg_tac \\ fs []) \\
-  imp_res_tac evaluate_gc_fun_const \\
+  imp_res_tac evaluate_consts \\
   (* Does the first program evaluation fail? *)
   Cases_on `res'` \\ fs [] \\ res_tac \\ fs [] \\ rw [evaluate_def])
 
@@ -862,9 +866,9 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
        drule push_env_pop_env_locals_thm \\ fs [] \\
        rpt (disch_then drule) \\ fs [AND_IMP_INTRO] \\
        disch_then match_mp_tac \\ fs [is_gc_word_const_def])
-    >- (imp_res_tac evaluate_gc_fun_const \\ imp_res_tac pop_env_gc_fun_thm \\
+    >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun_thm \\
        fs [set_var_def, push_env_gc_fun_thm])
-    >- (rw []))
+    >- rw[])
 
   >- (** FFI **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
@@ -898,8 +902,16 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   every_case_tac \\ rw [] \\ metis_tac [get_var_mem_store_thm])
 
   \\ (** Remaining: Raise, Return and Tick **)
-  (fs [const_fp_loop_def] \\ rw [evaluate_def, dec_clock_def] \\
-  every_case_tac \\ fs []));
+    TRY (fs [const_fp_loop_def] \\ rw [evaluate_def, dec_clock_def] \\
+    every_case_tac \\ fs [] \\ NO_TAC)
+  >- (* Install TODO*)
+    (rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms] \\
+    pairarg_tac \\ fs[case_eq_thms] \\
+    rw[] \\ fs[cut_env_def,get_var_def] \\
+    rw[get_var_def,lookup_insert])
+  >> (* DBW, CBW*)
+    (rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms,evaluate_def] \\
+    rw[]));
 
 val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
   `!p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)`,

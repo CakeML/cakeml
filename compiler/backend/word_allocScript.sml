@@ -285,6 +285,30 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
+  (ssa_cc_trans (Install ptr len dptr dlen numset) ssa na =
+    let ls = MAP FST (toAList numset) in
+    let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
+    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let ptr' = option_lookup ssa' ptr in
+    let len' = option_lookup ssa' len in
+    let dptr' = option_lookup ssa' dptr in
+    let dlen' = option_lookup ssa' dlen in
+    let ssa_cut = inter ssa' numset in
+    let (ret_mov,ssa'',na'') =
+      list_next_var_rename_move ssa_cut (na'+2) ls in
+    let prog = (Seq (stack_mov)
+               (Seq (Move 0 [(2,ptr');(4,len')])
+               (Seq (Install 2 4 dptr' dlen' stack_set)
+               (Seq ret_mov (Move 0 [(ptr',2)]))))) in
+    (prog,ssa'',na'')) ∧
+  (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (CodeBufferWrite r1' r2',ssa,na)) ∧
+  (ssa_cc_trans (DataBufferWrite r1 r2) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = option_lookup ssa r2 in
+    (DataBufferWrite r1' r2',ssa,na)) ∧
   (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -412,6 +436,12 @@ val apply_colour_def = Define `
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
   (apply_colour f (FFI ffi_index ptr len numset) =
     FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
+  (apply_colour f (Install r1 r2 r3 r4 numset) =
+    Install (f r1) (f r2) (f r3) (f r4) (apply_nummap_key f numset)) ∧
+  (apply_colour f (CodeBufferWrite r1 r2) =
+    CodeBufferWrite (f r1) (f r2)) ∧
+  (apply_colour f (DataBufferWrite r1 r2) =
+    DataBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (LocValue r l1) =
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
@@ -527,6 +557,12 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (Install r1 r2 r3 r4 numset) live =
+    list_insert [r1;r2;r3;r4] numset) ∧
+  (get_live (CodeBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
+  (get_live (DataBufferWrite r1 r2) live =
+    list_insert [r1;r2] live) ∧
   (get_live (FFI ffi_index ptr len numset) live =
     insert ptr () (insert len () numset)) ∧
   (get_live (Raise num) live = insert num () live) ∧
@@ -740,6 +776,12 @@ val get_clash_tree_def = Define`
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
+  (get_clash_tree (Install r1 r2 r3 r4 numset) =
+    Seq (Delta [] [r1;r2;r3;r4]) (Set numset)) ∧
+  (get_clash_tree (CodeBufferWrite r1 r2) =
+    Delta [] [r1;r2]) ∧
+  (get_clash_tree (DataBufferWrite r1 r2) =
+    Delta [] [r1;r2]) ∧
   (get_clash_tree (FFI ffi_index ptr len numset) =
     Seq (Delta [] [ptr;len]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
@@ -796,11 +838,11 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
     | prog => acc`,
   rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac      
+  >> rpt strip_tac
   >> every_case_tac
   >> fs [get_prefs_def]
   >- (rpt(POP_ASSUM MP_TAC)
-  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)  
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)
   >> ho_match_mp_tac (theorem "get_prefs_ind")
   >> rpt strip_tac >> fs[Once get_prefs_def]
   >> every_case_tac >> metis_tac[pair_CASES]));
@@ -899,7 +941,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
   >> fs[get_forced_def]
   >> every_case_tac
   >> fs[]
-  >> metis_tac[pair_CASES])
+  >> metis_tac[pair_CASES]);
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`
@@ -1021,6 +1063,12 @@ val max_var_def = Define `
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     MAX num (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (Install r1 r2 r3 r4 numset) =
+    (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
+  (max_var (CodeBufferWrite r1 r2) =
+    MAX r1 r2) ∧
+  (max_var (DataBufferWrite r1 r2) =
+    MAX r1 r2) ∧
   (max_var (FFI ffi_index ptr len numset) =
     max3 ptr len (list_max (MAP FST (toAList numset)))) ∧
   (max_var (Raise num) = num) ∧

@@ -189,7 +189,7 @@ val simp_if_pmatch = Q.store_thm("simp_if_pmatch",`!prog.
        dest args
           (dtcase handler of
            | NONE => NONE
-           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))    
+           | SOME (y1,q2,y2,y3) => SOME (y1,simp_if q2,y2,y3))
   | x => x`,
   rpt(
     rpt strip_tac
@@ -320,11 +320,12 @@ val const_fp_loop_def = Define `
   (const_fp_loop (FFI x0 x1 x2 names) cs = (FFI x0 x1 x2 names, inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
+  (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop p cs = (p, cs))`;
 
 val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   const_fp_loop p cs =
-  case p of 
+  case p of
   | (Move pri moves) => (Move pri moves, const_fp_move_cs moves cs cs)
   | (Inst i) => (Inst i, const_fp_inst_cs i cs)
   | (Assign v e) =>
@@ -359,6 +360,7 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   | (FFI x0 x1 x2 names) => (FFI x0 x1 x2 names, inter cs names)
   | (LocValue v x3) => (LocValue v x3, delete v cs)
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
+  | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, filter_v is_gc_const (inter cs names))
   | p => (p, cs)`,
   rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
@@ -368,7 +370,7 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
   >- (CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
      >> rpt strip_tac >> fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[])
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
-  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]  
+  >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- fs[const_fp_loop_def,pairTheory.ELIM_UNCURRY]
   >- (CONV_TAC(RAND_CONV(patternMatchesLib.PMATCH_ELIM_CONV))
               >> every_case_tac >> fs[Once const_fp_loop_def])

@@ -112,12 +112,16 @@ val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
 val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
   `get_var x (y with clock := k) = get_var x y /\
    get_var x (y with permute := p) = get_var x y /\
+   get_var x (y with code_buffer := cb) = get_var x y /\
+   get_var x (y with data_buffer := db) = get_var x y /\
    get_var x (y with stack := xs) = get_var x y`,
   EVAL_TAC);
 
 val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
   `get_vars x (y with clock := k) = get_vars x y /\
    get_vars x (y with permute := p) = get_vars x y /\
+   get_vars x (y with code_buffer := cb) = get_vars x y /\
+   get_vars x (y with data_buffer := db) = get_vars x y /\
    get_vars x (y with stack := xs) = get_vars x y`,
   Induct_on`x`>>srw_tac[][get_vars_def]);
 
