@@ -674,6 +674,7 @@ val get_writes_def = Define`
   (get_writes (Assign num exp) = insert num () LN)∧
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes (LocValue r l1) = insert r () LN) ∧
+  (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
 val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
@@ -684,6 +685,7 @@ val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
+    | Install r1 _ _ _ _ => insert r1 () LN
     | prog => LN`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -777,11 +779,11 @@ val get_clash_tree_def = Define`
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
   (get_clash_tree (Install r1 r2 r3 r4 numset) =
-    Seq (Delta [] [r1;r2;r3;r4]) (Set numset)) ∧
+    Seq (Delta [] [r4;r3;r2;r1]) (Seq (Set numset) (Delta [r1] []))) ∧
   (get_clash_tree (CodeBufferWrite r1 r2) =
-    Delta [] [r1;r2]) ∧
+    Delta [] [r2;r1]) ∧
   (get_clash_tree (DataBufferWrite r1 r2) =
-    Delta [] [r1;r2]) ∧
+    Delta [] [r2;r1]) ∧
   (get_clash_tree (FFI ffi_index ptr len numset) =
     Seq (Delta [] [ptr;len]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
