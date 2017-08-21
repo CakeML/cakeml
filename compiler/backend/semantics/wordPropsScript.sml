@@ -15,6 +15,32 @@ Main lemmas:
 
 val _ = new_theory "wordProps";
 
+val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
+  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`,
+  full_simp_tac(srw_ss())[MEM_EL]>>srw_tac[][wordSemTheory.list_rearrange_def]>>
+  imp_res_tac BIJ_IFF_INV>>
+  full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
+  srw_tac[][EQ_IMP_THM]>>full_simp_tac(srw_ss())[EL_GENLIST]
+  >- metis_tac[]>>
+  qexists_tac `g n`>>full_simp_tac(srw_ss())[]);
+
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
+  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
+  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
+  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
+
 (* Clock lemmas *)
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
@@ -996,6 +1022,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     (every_case_tac>>
     IMP_RES_TAC gc_s_key_eq>>
     IMP_RES_TAC push_env_pop_env_s_key_eq>>
+    qpat_x_assum`_.stack = _`kall_tac>>
     `s_key_eq s.stack y.stack` by full_simp_tac(srw_ss())[set_store_def]>>
     full_simp_tac(srw_ss())[SOME_11]>>TRY(CONJ_TAC>>srw_tac[][]>-
       (qpat_x_assum`gc a = SOME b` mp_tac>>
@@ -1219,7 +1246,11 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
       full_case_tac>>
       IF_CASES_TAC>>
       full_simp_tac(srw_ss())[set_var_def,call_env_def]>>
-      IMP_RES_TAC push_env_pop_env_s_key_eq>>full_simp_tac(srw_ss())[dec_clock_def,SOME_11]>>
+      IMP_RES_TAC push_env_pop_env_s_key_eq>>
+      qpat_x_assum`_.stack = _`kall_tac>>
+      qpat_x_assum`_.locals = fromAList _`kall_tac>>
+      qpat_x_assum`domain _ = domain _.locals`kall_tac>>
+      full_simp_tac(srw_ss())[dec_clock_def,SOME_11]>>
       Cases_on`evaluate(x'2,x'' with locals:=insert x'0 w0 x''.locals)`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q'`>>TRY(Cases_on`x'''`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       `s_key_eq s.stack x''.stack` by full_simp_tac(srw_ss())[EQ_SYM_EQ]>>full_simp_tac(srw_ss())[]>>
@@ -2182,32 +2213,6 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     full_simp_tac(srw_ss())[]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
     Cases_on`res`>>full_simp_tac(srw_ss())[]));
-
-val mem_list_rearrange = Q.store_thm("mem_list_rearrange",`
-  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`,
-  full_simp_tac(srw_ss())[MEM_EL]>>srw_tac[][wordSemTheory.list_rearrange_def]>>
-  imp_res_tac BIJ_IFF_INV>>
-  full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
-  srw_tac[][EQ_IMP_THM]>>full_simp_tac(srw_ss())[EL_GENLIST]
-  >- metis_tac[]>>
-  qexists_tac `g n`>>full_simp_tac(srw_ss())[]);
-
-val GENLIST_I =
-  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
-    |> SIMP_RULE std_ss []
-
-val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
-  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
-  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
-
-val PERM_list_rearrange = Q.store_thm("PERM_list_rearrange",
-  `!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)`,
-  srw_tac[][] \\ match_mp_tac PERM_ALL_DISTINCT
-  \\ full_simp_tac(srw_ss())[mem_list_rearrange]
-  \\ full_simp_tac(srw_ss())[wordSemTheory.list_rearrange_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
-  \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
