@@ -6622,4 +6622,8 @@ val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP",
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]);
 
+val word_gc_fun_has_fp_ops = store_thm("word_gc_fun_has_fp_ops[simp]",
+  ``word_gc_fun (conf with has_fp_ops := b) = word_gc_fun conf``,
+  cheat);
+
 val _ = export_theory();

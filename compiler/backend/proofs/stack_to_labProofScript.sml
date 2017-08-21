@@ -559,9 +559,9 @@ val inst_correct = Q.store_thm("inst_correct",
          \\ disch_then (assume_tac o SYM) \\ fs[] )
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac) >>
-    
+
     fs[get_fp_var_def]>>res_tac>>fs[]
-    
+
     );
 
 val flatten_leq = Q.store_thm("flatten_leq",
@@ -2480,5 +2480,13 @@ val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
   \\ qexists_tac`len`
   \\ fs [FLOOKUP_DEF,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM]
   \\ Cases_on `c1.gc_kind` \\ fs [is_gen_gc_def]);
+
+val full_make_init_has_fp_ops = store_thm("full_make_init_has_fp_ops[simp]",
+  ``full_make_init stack_conf
+      (dconf with has_fp_ops := b)
+      mheap sp offset bitmaps code s save_regs =
+    full_make_init stack_conf dconf
+      mheap sp offset bitmaps code s save_regs``,
+  cheat);
 
 val _ = export_theory();
