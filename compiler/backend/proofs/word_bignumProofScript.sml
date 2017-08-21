@@ -191,8 +191,8 @@ val code_rel_def = Define `
          code_subset cs2 cs`
 
 val div_code_assum_def = Define `
-  div_code_assum (:'ffi) code =
-    !(t1:('a,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
+  div_code_assum (:'ffi) (:'c) code =
+    !(t1:('a,'c,'ffi) wordSem$state) n l i0 i1 i2 i3 i4 w3 w4 w5 ret_val.
       0 < i0 /\ 0 < i1 /\ 0 < i2 /\ 0 < i3 /\ 0 < i4 /\
       ALL_DISTINCT [i0;i1;i2;i3;i4] /\
       t1.code = code /\ t1.termdep <> 0 /\
@@ -212,7 +212,7 @@ val div_code_assum_def = Define `
 val _ = temp_overload_on("max_var_name",``25n``);
 
 val state_rel_def = Define `
-  state_rel s (t:('a,'ffi) wordSem$state) cs t0 frame <=>
+  state_rel s (t:('a,'c,'ffi) wordSem$state) cs t0 frame <=>
     (* clock related *)
     s.clock = t.clock /\
     (* array related *)
@@ -226,7 +226,7 @@ val state_rel_def = Define `
        FLOOKUP t.store (Temp (n2w a)) = SOME (Word v)) /\
     (* code assumption *)
     code_rel cs t.code /\
-    div_code_assum (:'ffi) t.code /\
+    div_code_assum (:'ffi) (:'c) t.code /\
     t.termdep <> 0 /\
     (* rest same as original *)
     t0.gc_fun = t.gc_fun /\
@@ -235,6 +235,10 @@ val state_rel_def = Define `
     t0.code = t.code /\
     t0.be = t.be /\
     t0.ffi = t.ffi /\
+    t0.compile = t.compile /\
+    t0.compile_oracle = t.compile_oracle /\
+    t0.code_buffer = t.code_buffer /\
+    t0.data_buffer = t.data_buffer /\
     FLOOKUP t.store TempOut = FLOOKUP t0.store TempOut /\
     (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)`
 
@@ -850,7 +854,7 @@ val compile_thm = store_thm("compile_thm",
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [set_var_def]
     \\ fs [evaluate_def,inst_def,get_vars_def,get_var_def,lookup_insert,
            set_var_def,word_exp_def,set_store_def,single_div_pre_def]
-    \\ `div_code_assum (:'c) t1.code` by fs [state_rel_def]
+    \\ `div_code_assum (:'d) (:'c) t1.code` by fs [state_rel_def]
     \\ pop_assum mp_tac
     \\ fs [div_code_assum_def]
     \\ disch_then (qspecl_then [`t1`,`n`,`l`,`i+0`,`i+1`,`i+2`,`i+3`,`i+4`,
