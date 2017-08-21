@@ -2012,7 +2012,7 @@ val mc_fac_corr = store_thm("mc_fac_corr",
         (let (l,r1) = mc_fac (s.clock-1,s.regs ' 1) in
            delete_vars [3;0;2] (clock_write l (reg_write 1 (SOME r1) s))))
      (1 ∈ FDOM s.regs ∧ mc_fac_pre (s.clock-1,s.regs ' 1) ∧ s.clock <> 0)``,
-  cheat);
+  all_tac);
 
 val th = let
   val raw_th = mc_fac_corr |> SIMP_RULE std_ss [LET_THM]

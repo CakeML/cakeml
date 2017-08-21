@@ -2487,6 +2487,7 @@ val full_make_init_has_fp_ops = store_thm("full_make_init_has_fp_ops[simp]",
       mheap sp offset bitmaps code s save_regs =
     full_make_init stack_conf dconf
       mheap sp offset bitmaps code s save_regs``,
-  cheat);
+  rewrite_tac [full_make_init_def] \\ fs []
+  \\ fs [stack_allocProofTheory.make_init_def]);
 
 val _ = export_theory();

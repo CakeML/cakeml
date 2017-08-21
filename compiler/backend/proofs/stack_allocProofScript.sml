@@ -5880,4 +5880,31 @@ val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
     BasicProvers.EVERY_CASE_TAC)>>
   rpt(pairarg_tac>>fs[call_args_def]));
 
+val compile_has_fp_ops = store_thm("compile_has_fp_ops[simp]",
+  ``compile (dconf with has_fp_ops := b) code = compile dconf code``,
+  fs [compile_def,stubs_def,word_gc_code_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [data_to_wordTheory.small_shift_length_def,
+         word_gc_move_code_def,
+         word_gc_move_list_code_def,
+         word_gc_move_loop_code_def,
+         word_gc_move_roots_bitmaps_code_def,
+         word_gc_move_bitmaps_code_def,
+         word_gc_move_bitmap_code_def,
+         word_gen_gc_move_code_def,
+         word_gen_gc_move_list_code_def,
+         word_gen_gc_move_roots_bitmaps_code_def,
+         word_gen_gc_move_bitmaps_code_def,
+         word_gen_gc_move_bitmap_code_def,
+         word_gen_gc_move_data_code_def,
+         word_gen_gc_move_refs_code_def,
+         word_gen_gc_move_loop_code_def,
+         word_gen_gc_partial_move_code_def,
+         word_gen_gc_partial_move_list_code_def,
+         word_gen_gc_partial_move_roots_bitmaps_code_def,
+         word_gen_gc_partial_move_bitmaps_code_def,
+         word_gen_gc_partial_move_bitmap_code_def,
+         word_gen_gc_partial_move_data_code_def,
+         word_gen_gc_partial_move_ref_list_code_def]);
+
 val _ = export_theory();

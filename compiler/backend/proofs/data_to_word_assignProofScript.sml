@@ -1870,7 +1870,6 @@ val th = Q.store_thm("assign_CopyByte",
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
-  (* \\ Cases_on `new_flag` THEN1 cheat (* case for CopyByte T *) *)
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app]
   \\ `?src srcoff le dst dstoff. vals =
