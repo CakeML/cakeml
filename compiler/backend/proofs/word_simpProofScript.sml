@@ -144,11 +144,12 @@ val evaluate_simp_if = Q.store_thm("evaluate_simp_if",
   \\ PairCases_on `x'` \\ fs[add_ret_loc_def,push_env_def]
   \\ TRY (PairCases_on `x''`) \\ fs[add_ret_loc_def,push_env_def]);
 
+(*
 val simp_if_works = Q.store_thm("simp_if_works",
   `IS_SOME (apply_if_opt
      (If Less 5 (Imm 5w) (Assign 3 (Const 5w)) (Assign 3 (Const (4w:word32))))
      (If Equal 3 (Imm (4w:word32)) (Raise 1) (Raise 2)))`,
-  EVAL_TAC);
+  EVAL_TAC); *)
 
 val extract_labels_apply_if_opt = Q.store_thm("extract_labels_apply_if_opt",
   `apply_if_opt p1 p2 = SOME p ==>
@@ -890,6 +891,15 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   imp_res_tac lookup_filter_v_SOME_imp_thm \\ fs [lookup_inter_EQ] \\
   metis_tac [push_env_pop_env_locals_thm, is_gc_word_const_def])
 
+  >- (* Install *) (
+    rw[const_fp_loop_def]\\ fs[evaluate_def,case_eq_thms] \\
+    pairarg_tac \\ fs[case_eq_thms] \\
+    rw[] \\ fs[cut_env_def,get_var_def] \\
+    fs[lookup_insert,lookup_delete] \\
+    imp_res_tac lookup_filter_v_SOME_imp_thm \\
+    rw[]>>
+    fs[lookup_inter,case_eq_thms])
+
   >- (** Skip **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ fs [])
 
@@ -901,17 +911,9 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\
   every_case_tac \\ rw [] \\ metis_tac [get_var_mem_store_thm])
 
-  \\ (** Remaining: Raise, Return and Tick **)
-    TRY (fs [const_fp_loop_def] \\ rw [evaluate_def, dec_clock_def] \\
-    every_case_tac \\ fs [] \\ NO_TAC)
-  >- (* Install TODO*)
-    (rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms] \\
-    pairarg_tac \\ fs[case_eq_thms] \\
-    rw[] \\ fs[cut_env_def,get_var_def] \\
-    rw[get_var_def,lookup_insert])
-  >> (* DBW, CBW*)
-    (rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms,evaluate_def] \\
-    rw[]));
+  \\ (** Remaining: Raise, Return and Tick, buffer writes**)
+    rw[const_fp_loop_def,evaluate_def] \\ fs[case_eq_thms,evaluate_def] \\
+    rw[dec_clock_def]);
 
 val evaluate_const_fp = Q.store_thm("evaluate_const_fp",
   `!p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)`,
