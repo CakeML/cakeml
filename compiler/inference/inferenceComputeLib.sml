@@ -24,6 +24,11 @@ structure inferenceComputeLib = struct
     ,infer_p_def
     ,guard_def
     ,raise_Exc_def
+    ,handle_Exc_def
+    ,set_next_uvar_def
+    ,get_next_uvar_def
+    ,set_subst_def
+    ,get_subst_def
     ,lookup_st_ex_def
     ,list_subset_def
     ,sub_completion_def
@@ -46,6 +51,8 @@ structure inferenceComputeLib = struct
     ,check_signature_def
     ,check_weak_ienv_def
     ,check_tscheme_inst_def
+    ,check_tscheme_inst_aux_def
+    ,run_check_tscheme_inst_aux_def
     ,check_weak_decls_def
     ,check_specs_def
     ,extend_dec_ienv_def

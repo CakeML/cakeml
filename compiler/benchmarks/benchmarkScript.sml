@@ -18,7 +18,7 @@ val () = computeLib.extend_compset
       [basisProgTheory.basis_def]
     ] cmp
 val inf_eval = computeLib.CBV_CONV cmp
-val basis_config = dest_Success (rconc (inf_eval ``infertype_prog init_config basis init_infer_state``))
+val basis_config = dest_Success (rconc (inf_eval ``infertype_prog init_config basis``))
 
 fun check_inf prog =
   inf_eval ``infertype_prog ^(basis_config) ^(prog)``
