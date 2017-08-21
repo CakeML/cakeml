@@ -72,10 +72,34 @@ val MAP2_K = Q.store_thm ("MAP2_K",
   \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC
   \\ IF_CASES_TAC \\ fs []);
 
+val MAP2_EL = Q.store_thm ("MAP2_HD",
+  `∀xs ys n.
+     n < MIN (LENGTH xs) (LENGTH ys) ⇒
+       EL n (MAP2 f xs ys) = f (EL n xs) (EL n ys)`,
+  Induct \\ rw []
+  \\ Cases_on `ys` \\ Cases_on `n` \\ fs []);
+
 val try_update_LENGTH = Q.store_thm ("try_update_LENGTH",
   `LENGTH (try_update ty idx ts) = LENGTH ts`,
   Cases_on `idx` \\ fs [try_update_def]
   \\ PURE_CASE_TAC \\ fs []);
+
+(* TODO surely there is a less contrived way to do this *)
+val try_update_mono = Q.store_thm ("try_update_mono",
+  `∀ts n idx.
+     n < LENGTH ts ∧
+     EL n ts = Int ⇒
+       EL n (try_update Int idx ts) = Int`,
+  Induct \\ rw []
+  \\ Cases_on `idx` \\ rw [try_update_def]
+  \\ Cases_on `x < n` \\ fs []
+  \\ Cases_on `n`
+  \\ fs [EL_APPEND1, EL_APPEND2, ADD1, EL_TAKE, EL_DROP]
+  \\ Cases_on `x` \\ fs []
+  \\ simp [EL_CONS, prim_recTheory.PRE, GSYM ADD1]
+  \\ fs [ADD1]
+  \\ Cases_on `n' = n` \\ rw []
+  \\ fs [EL_APPEND1, EL_APPEND2, EL_TAKE]);
 
 val scan_aux_LENGTH = Q.store_thm ("scan_aux_LENGTH",
   `∀ts exp.
@@ -101,9 +125,10 @@ val scan_aux_mono = Q.store_thm ("scan_aux_mono",
   ho_match_mp_tac scan_aux_ind
   \\ rw [scan_aux_def, MAP2_K, scan_aux_LENGTH, EL_TAKE]
   >- cheat (* TODO *)
-  \\ PURE_TOP_CASE_TAC \\ fs []
-  \\ cheat (* TODO *)
-  );
+  \\ PURE_TOP_CASE_TAC \\ fs [] \\ rw []
+  \\ simp [MAP2_EL, try_update_LENGTH]
+  \\ PURE_CASE_TAC \\ fs []
+  \\ metis_tac [try_update_mono]);
 
 val ty_rel_extend_CONS = Q.store_thm ("ty_rel_extend_CONS",
   `∀x env s v t ts.
