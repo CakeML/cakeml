@@ -2421,6 +2421,7 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (FFI x ptr len args) = (ptr = 2 ∧ len = 4)) ∧
+  (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of

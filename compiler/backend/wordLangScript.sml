@@ -143,6 +143,8 @@ val every_var_def = Define `
 val every_stack_var_def = Define `
   (every_stack_var P (FFI ffi_index ptr len names) =
     every_name P names) ∧
+  (every_stack_var P (Install _ _ _ _ names) =
+    every_name P names) ∧
   (every_stack_var P (Call ret dest args h) =
     (case ret of
       NONE => T
