@@ -174,25 +174,13 @@ val STDIO_precond = Q.store_thm("STDIO_precond",
   ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ==>
   ALOOKUP fs'.files (strlit "stderr") = SOME err ==>
   wfFS fs' ==> liveFS fs' ==> LENGTH v = 258 ==>     
-    (SEP_EXISTS fs'.
-        IOFS fs' *
-        &((∀fname.
-             fname ≠ strlit "stdin" ∧ fname ≠ strlit "stdout" ∧
-             fname ≠ strlit "stderr" ⇒
-             ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ∧
-          (ALOOKUP fs'.infds 0 =
-           SOME (strlit "stdin",STRLEN (FST inp)) ∧
-           ALOOKUP fs'.files (strlit "stdin") =
-           SOME (STRCAT (FST inp) (SND inp))) ∧
-          (ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ∧
-           ALOOKUP fs'.files (strlit "stdout") = SOME out) ∧
-          ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ∧
-          ALOOKUP fs'.files (strlit "stderr") = SOME err))
+  STDIO fs inp out err
     ({FFI_part (encode fs') (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
   rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM] >>
   qexists_tac`fs'` >> fs[SEP_CLAUSES,IOFS_precond]);
  
+
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
