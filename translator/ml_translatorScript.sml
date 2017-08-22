@@ -657,7 +657,7 @@ val Eval_NUM_MULT = save_thm("Eval_NUM_MULT",
 
 val Eval_NUM_DIV = save_thm("Eval_NUM_DIV",
   Eval_INT_DIV |> Q.SPECL [`&n1`,`&n2`]
-  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0)``
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
@@ -666,7 +666,7 @@ val Eval_NUM_DIV = save_thm("Eval_NUM_DIV",
 
 val Eval_NUM_MOD = save_thm("Eval_NUM_MOD",
   Eval_INT_MOD |> Q.SPECL [`&n1`,`&n2`]
-  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0)``
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
@@ -733,7 +733,7 @@ val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
         Eval env (App (Opb Leq) [x; Lit (IntLit 0)]) (BOOL (n = 0))`,
   REPEAT STRIP_TAC \\ ASSUME_TAC (Q.SPEC `0` Eval_Val_NUM)
   \\ FULL_SIMP_TAC std_ss [NUM_def]
-  \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
+  \\ `(n = 0) = (&n <= 0:int)` by intLib.COOPER_TAC
   \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
 
 (* word operations *)
