@@ -45,10 +45,15 @@ type v =
 type env_ctor = namespace modN conN (nat * conN * stamp)
 type env_val = namespace modN varN v
 
-let bind_exn_v = Conv (Just ("Bind", ExnStamp 0)) []
-let chr_exn_v = Conv (Just ("Chr", ExnStamp 1)) []
-let div_exn_v = Conv (Just ("Div", ExnStamp 2)) []
-let sub_exn_v = Conv (Just ("Subscript", ExnStamp 3)) []
+let bind_stamp = ExnStamp 0
+let chr_stamp = ExnStamp 1
+let div_stamp = ExnStamp 2
+let subscript_stamp = ExnStamp 3
+
+let bind_exn_v = Conv (Just ("Bind", bind_stamp)) []
+let chr_exn_v = Conv (Just ("Chr", chr_stamp)) []
+let div_exn_v = Conv (Just ("Div", div_stamp)) []
+let sub_exn_v = Conv (Just ("Subscript", subscript_stamp)) []
 
 let bool_stamp = TypeStamp 0
 let list_stamp = TypeStamp 1

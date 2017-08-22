@@ -62,16 +62,29 @@ val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # conN # stamp)) namespa
 val _ = type_abbrev( "env_val" , ``: (modN, varN, v) namespace``);
 
 val _ = Define `
- (bind_exn_v=  (Conv (SOME ("Bind", ExnStamp(( 0 : num)))) []))`;
+ (bind_stamp=  (ExnStamp(( 0 : num))))`;
 
 val _ = Define `
- (chr_exn_v=  (Conv (SOME ("Chr", ExnStamp(( 1 : num)))) []))`;
+ (chr_stamp=  (ExnStamp(( 1 : num))))`;
 
 val _ = Define `
- (div_exn_v=  (Conv (SOME ("Div", ExnStamp(( 2 : num)))) []))`;
+ (div_stamp=  (ExnStamp(( 2 : num))))`;
 
 val _ = Define `
- (sub_exn_v=  (Conv (SOME ("Subscript", ExnStamp(( 3 : num)))) []))`;
+ (subscript_stamp=  (ExnStamp(( 3 : num))))`;
+
+
+val _ = Define `
+ (bind_exn_v=  (Conv (SOME ("Bind", bind_stamp)) []))`;
+
+val _ = Define `
+ (chr_exn_v=  (Conv (SOME ("Chr", chr_stamp)) []))`;
+
+val _ = Define `
+ (div_exn_v=  (Conv (SOME ("Div", div_stamp)) []))`;
+
+val _ = Define `
+ (sub_exn_v=  (Conv (SOME ("Subscript", subscript_stamp)) []))`;
 
 
 val _ = Define `
