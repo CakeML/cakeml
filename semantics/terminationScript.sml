@@ -163,6 +163,16 @@ res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
 
+val (check_freevars_ast_def,check_freevars_ast_ind) =
+  tprove_no_defn ((check_freevars_ast_def,check_freevars_ast_ind),
+wf_rel_tac `measure (ast_t_size o SND)` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+induct_on `ts` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "check_freevars_ast" check_freevars_ast_def check_freevars_ast_ind;
+
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
 wf_rel_tac `measure (t_size o SND o SND)` >>

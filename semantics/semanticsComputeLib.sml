@@ -58,10 +58,11 @@ val add_ast_compset = computeLib.extend_compset
     ,typeSystemTheory.check_ctor_tenv_def
     ,terminationTheory.type_subst_def
     ,terminationTheory.check_freevars_def
+    ,terminationTheory.check_freevars_ast_def
     ,terminationTheory.check_type_names_def
     ,terminationTheory.type_name_subst_def
-    ,typeSystemTheory.check_exn_tenv_def
-    ,typeSystemTheory.tid_exn_to_tc_def
+    (*,typeSystemTheory.check_exn_tenv_def*)
+    (*,typeSystemTheory.tid_exn_to_tc_def*)
     ,typeSystemTheory.build_ctor_tenv_def
     (*,terminationTheory.check_dup_ctors_thm *)
     ,semanticPrimitivesTheory.build_constrs_def
@@ -71,24 +72,24 @@ val add_ast_compset = computeLib.extend_compset
     ,semanticPrimitivesTheory.combine_dec_result_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
-    ,astTheory.Texn_def
+    (*,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def
     ,astTheory.Tref_def
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
-    ,astTheory.TC_word_def
+    ,astTheory.TC_word_def*)
     ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys
     [``:MMLnonT``
-    ,``:ast$top``
-    ,``:ast$spec``
+    (*,``:ast$top``
+    ,``:ast$spec``*)
     ,``:ast$dec``
     ,``:ast$pat``
     ,``:ast$exp``
-    ,``:tid_or_exn``
+    ,``:stamp``
     ,``:ast$op``
     ,``:ast$lop``
     ,``:ast$lit``
@@ -98,9 +99,8 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$shift``
     ,``:ast$word_size``
     ,``:eq_result``
-    ,``:ast$tctor``
     ,``:'a sem_env``
-    ,``:ast$t``
+    ,``:ast$ast_t``
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset
@@ -146,7 +146,7 @@ val add_lexparse_compset = computeLib.extend_compset
    computeLib.Tys
     [``:symbol``
     ,``:token``
-    ],
+    ](*,
    computeLib.Defs
     let open cmlPtreeConversionTheory in
       [tuplify_def
@@ -187,6 +187,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,dePat_def
       ]
     end
+      *)
   ]
 
 val add_semantics_compset = computeLib.extend_compset
