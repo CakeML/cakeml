@@ -163,6 +163,77 @@ val every_stack_var_def = Define `
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
   (every_stack_var P p = T)`
 
+(*Find the maximum variable*)
+val max_var_exp_def = tDefine "max_var_exp" `
+  (max_var_exp (Var num) = num) ∧
+  (max_var_exp (Load exp) = max_var_exp exp) ∧
+  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
+  (max_var_exp (Shift sh exp nexp) = max_var_exp exp) ∧
+  (max_var_exp exp = 0:num)`
+(WF_REL_TAC `measure (exp_size ARB )`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC);
+
+val max_var_inst_def = Define`
+  (max_var_inst Skip = 0) ∧
+  (max_var_inst (Const reg w) = reg) ∧
+  (max_var_inst (Arith (Binop bop r1 r2 ri)) =
+    case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
+  (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (SubOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongMul r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
+  (max_var_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = MAX (MAX (MAX r1 r2) (MAX r3 r4)) r5) ∧
+  (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst _ = 0)`
+
+val max_var_def = Define `
+  (max_var Skip = 0) ∧
+  (max_var (Move pri ls) =
+    list_max (MAP FST ls ++ MAP SND ls)) ∧
+  (max_var (Inst i) = max_var_inst i) ∧
+  (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
+  (max_var (Get num store) = num) ∧
+  (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
+  (max_var (Call ret dest args h) =
+    let n = list_max args in
+    case ret of
+      NONE => n
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      let cutset_max = MAX n (list_max (MAP FST (toAList cutset))) in
+      let ret_max = max3 v cutset_max (max_var ret_handler) in
+      (case h of
+        NONE => ret_max
+      | SOME (v,prog,l1,l2) =>
+        max3 v ret_max (max_var prog))) ∧
+  (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
+  (max_var (MustTerminate s1) = max_var s1) ∧
+  (max_var (If cmp r1 ri e2 e3) =
+    let r = case ri of Reg r => MAX r r1 | _ => r1 in
+      max3 r (max_var e2) (max_var e3)) ∧
+  (max_var (Alloc num numset) =
+    MAX num (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (Install r1 r2 r3 r4 numset) =
+    (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
+  (max_var (CodeBufferWrite r1 r2) =
+    MAX r1 r2) ∧
+  (max_var (DataBufferWrite r1 r2) =
+    MAX r1 r2) ∧
+  (max_var (FFI ffi_index ptr len numset) =
+    max3 ptr len (list_max (MAP FST (toAList numset)))) ∧
+  (max_var (Raise num) = num) ∧
+  (max_var (Return num1 num2) = MAX num1 num2) ∧
+  (max_var Tick = 0) ∧
+  (max_var (LocValue r l1) = r) ∧
+  (max_var (Set n exp) = max_var_exp exp) ∧
+  (max_var p = 0)`;
+
 (*Moved from wordSem, because we use them to simplify constant expressions in word_inst*)
 val num_exp_def = Define `
   (num_exp (Nat n) = n) /\

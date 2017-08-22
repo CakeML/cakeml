@@ -428,6 +428,9 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.every_var_def
     ,wordLangTheory.every_name_def
     ,wordLangTheory.every_var_inst_def
+    ,wordLangTheory.max_var_def
+    ,wordLangTheory.max_var_inst_def
+    ,wordLangTheory.max_var_exp_def
     ,backend_commonTheory.word_num_stubs_def
     ,wordLangTheory.raise_stub_location_eq
       (* ---- data_to_word ---- *)
@@ -645,10 +648,6 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
-    ,word_allocTheory.max_var_def
-    ,word_allocTheory.max_var_inst_def
-    ,word_allocTheory.max_var_exp_def
-    ,word_allocTheory.max3_def
     ,word_allocTheory.setup_ssa_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
