@@ -218,62 +218,6 @@ val no_err_correct = Q.store_thm ("no_err_correct",
   \\ rpt (disch_then drule) \\ rw []
   \\ imp_res_tac evaluate_SING_IMP \\ fs []);
 
-val comm_theorem = Q.store_thm ("comm_theorem",
-  `∀(s:'ffi bviSem$state).
-     op ≠ Noop ∧
-     no_err ts x1 ∧
-     ty_rel env ts ∧
-     evaluate ([apply_op op x1 x2], env, s) = (r, t) ∧
-     r ≠ Rerr (Rabort Rtype_error) ⇒
-       evaluate ([apply_op op x2 x1], env, s) = (r, t)`,
-  simp [apply_op_def]
-  \\ rpt strip_tac
-  \\ qhdtm_x_assum `evaluate` mp_tac
-  \\ simp [evaluate_def]
-  \\ CASE_TAC
-  \\ drule (GEN_ALL no_err_correct)
-  \\ rpt (disch_then drule)
-  \\ strip_tac \\ rveq
-  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
-  \\ CASE_TAC
-  \\ reverse CASE_TAC \\ fs []
-  >- (PURE_CASE_TAC \\ fs [])
-  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
-  \\ Cases_on `op` \\ fs [to_op_def]
-  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ fs [] \\ rveq
-  \\ fs [integerTheory.INT_ADD_COMM, integerTheory.INT_MUL_COMM]);
-
-val assoc_theorem = Q.store_thm ("assoc_theorem",
-  `∀(s: 'ffi bviSem$state).
-     op ≠ Noop ∧
-     evaluate ([apply_op op (apply_op op x1 x2) x3], env, s) = (r, t) ∧
-     r ≠ Rerr (Rabort Rtype_error) ⇒
-       evaluate ([apply_op op x1 (apply_op op x2 x3)], env, s) = (r, t)`,
-  simp [apply_op_def]
-  \\ rpt strip_tac
-  \\ qhdtm_x_assum `evaluate` mp_tac
-  \\ simp [evaluate_def]
-  \\ ntac 2 (PURE_CASE_TAC \\ fs [])
-  \\ strip_tac
-  \\ PURE_CASE_TAC \\ fs []
-  \\ rename1 `evaluate ([x1],_,_) = (r1, _)`
-  \\ rename1 `evaluate ([x2],_,_) = (r2, _)`
-  \\ rename1 `evaluate ([x3],_,_) = (r3, _)`
-  \\ Cases_on `r1`
-  \\ Cases_on `r2`
-  \\ Cases_on `r3` \\ fs []
-  \\ TRY (rw [] \\ NO_TAC)
-  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
-  \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw [] \\ fs []
-  \\ imp_res_tac do_app_err
-  \\ Cases_on `op` \\ fs [to_op_def]
-  \\ Cases_on `w` \\ Cases_on `w'` \\ TRY (Cases_on `w''`)
-  \\ fs [do_app_def, do_app_aux_def,
-         bvlSemTheory.do_app_def, bvl_to_bvi_id]
-  \\ rveq \\ rfs [] \\ rveq
-  \\ fs [integerTheory.INT_ADD_ASSOC, integerTheory.INT_MUL_ASSOC]);
-
 val op_id_val_def = Define `
   (op_id_val Plus  = Number 0) ∧
   (op_id_val Times = Number 1) ∧
