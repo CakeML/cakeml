@@ -36,10 +36,13 @@ val add_basic_compset =
    , state_monadLib.add_state_monad_compset],
    computeLib.Tys
    [ (* misc *)
-     ``:α app_list``],
+     ``:α app_list``
+    ,``:location$locn``
+    ],
    computeLib.Defs
    [ (* misc *)
      miscTheory.find_index_def
+   , miscTheory.max3_def
    , miscTheory.LEAST_thm
    , miscTheory.least_from_thm
    , miscTheory.lookup_any_def

@@ -1,7 +1,71 @@
-open preamble mlstringTheory mlvectorTheory;
+open preamble mlstringTheory mlvectorTheory mlintTheory;
 
 (* Some common helper functions for writing the final byte list -> string exporter *)
 val _ = new_theory "export";
+
+val split16_def = tDefine "split16" `
+  (split16 f [] = Nil) /\
+  (split16 f xs =
+     let xs1 = TAKE 16 xs in
+     let xs2 = DROP 16 xs in
+       SmartAppend (f xs1) (split16 f xs2))`
+  (WF_REL_TAC `measure (LENGTH o SND)`
+   \\ fs [listTheory.LENGTH_DROP]);
+
+val preamble_tm =
+  ``(MAP (\n. strlit(n ++ "\n"))
+      ["/* Preprocessor to get around Mac OS and Linux differences in naming */";
+       "";
+       "#if defined(__APPLE__)";
+       "# define cdecl(s) _##s";
+       "#else";
+       "# define cdecl(s) s";
+       "#endif";
+       "";
+       "     .file        \"cake.S\"";
+       ""])`` |> EVAL |> rconc;
+val preamble_def = Define`preamble = ^preamble_tm`;
+
+val space_line_def = Define`
+  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (&n); strlit "\n"]`;
+
+val data_section_def = Define`data_section word_directive heap_space stack_space =
+     MAP (\n. strlit (n ++ "\n"))
+       ["/* Data section -- modify the numbers to change stack/heap size */";
+        "";
+        "     .bss";
+        "     .p2align 3";
+        "cake_heap:"] ++ [space_line heap_space] ++
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .p2align 3";
+        "cake_stack:"] ++ [space_line stack_space] ++
+      MAP (\n. (strlit (n ++ "\n")))
+       ["     .p2align 3";
+        "cake_end:";
+        "";
+        "     .data";
+        "     .p2align 3";
+        "cdecl(argc): " ++ word_directive ++ " 0";
+        "cdecl(argv): " ++ word_directive ++ " 0";
+        "     .p2align 3";
+        "cake_bitmaps:"]`;
+
+val comm_strlit_def = Define `comm_strlit = strlit ","`;
+val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+
+val comma_cat_def = Define `
+  comma_cat f x =
+    case x of
+    | [] => [newl_strlit]
+    | [x] => [f x; newl_strlit]
+    | (x::xs) => f x :: comm_strlit :: comma_cat f xs`;
+
+val words_line_def = Define`
+  words_line word_directive to_string ls =
+    List (word_directive :: comma_cat to_string ls)`;
+
+val word_to_string_def = Define`
+  word_to_string w = toString(&(w2n w))`;
 
 val byte_to_string_def = Define `
   byte_to_string (b:word8) =
@@ -19,34 +83,5 @@ val byte_to_string_eq = store_thm("byte_to_string_eq",
   \\ rewrite_tac [all_bytes_def,mlvectorTheory.sub_def]
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
   \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);
-
-val byte_strlit_def = Define `byte_strlit = strlit "\t.byte "`;
-val comm_strlit_def = Define `comm_strlit = strlit ","`;
-val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
-
-val comma_cat_def = Define `
-  comma_cat x =
-    case x of
-    | [] => [newl_strlit]
-    | [x] => [byte_to_string x; newl_strlit]
-    | (x::xs) => byte_to_string x :: comm_strlit :: comma_cat xs`
-
-val bytes_row_def = Define `
-  bytes_row xs = List (byte_strlit :: comma_cat xs)`;
-
-val split16_def = tDefine "split16" `
-  (split16 [] = Nil) /\
-  (split16 xs =
-     let xs1 = TAKE 16 xs in
-     let xs2 = DROP 16 xs in
-       SmartAppend (bytes_row xs1) (split16 xs2))`
-  (WF_REL_TAC `measure LENGTH`
-   \\ fs [listTheory.LENGTH_DROP]);
-
-val num_to_str_def = Define `
-  num_to_str n = if n < 10 then [CHR (48 + n)]
-                 else (num_to_str (n DIV 10)) ++ ([CHR (48 + (n MOD 10))])`;
-
-val num_to_str_ind = fetch "-" "num_to_str_ind";
 
 val _ = export_theory ();

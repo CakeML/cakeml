@@ -19,24 +19,6 @@ val evaluate_ignore_clocks = Q.prove(
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM])
 
-(* invariant: labels have correct section number and are non-zero *)
-
-val sec_label_ok_def = Define`
-  (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
-  (sec_label_ok _ _ = T)`;
-val _ = export_rewrites["sec_label_ok_def"];
-
-val sec_labels_ok_def = Define`
-  sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
-val _ = export_rewrites["sec_labels_ok_def"];
-
-val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
-  `EVERY (sec_label_ok n1) lines ∧
-   MEM (n1',n2) (extract_labels lines) ⇒
-   n1' = n1 ∧ n2 ≠ 0`,
-  Induct_on`lines` \\ simp[]
-  \\ Cases \\ rw[] \\ fs[]);
-
 val sec_loc_to_pc_def = Define`
   (sec_loc_to_pc n2 xs =
    if n2 = 0 then SOME 0
@@ -89,8 +71,6 @@ val loc_to_pc_thm = Q.store_thm("loc_to_pc_thm",
   \\ `¬(∃k. h = Label n1 n2 k)` by (CCONTR_TAC \\ fs[] \\ fs[])
   \\ simp[] \\ rfs[]
   \\ Cases_on`loc_to_pc n1 n2 ls` \\ fs[]);
-
-(* -- *)
 
 (* -- evaluate-level semantics preservation of compiler -- *)
 
@@ -5242,9 +5222,9 @@ val good_init_state_def = Define `
     (* data memory relation -- note that this implies m contains no labels *)
     dm SUBSET t.mem_domain /\
     (!a. byte_align a ∈ dm ==> a ∈ dm) /\
-    (!a labs.
-      word_loc_val_byte t.pc labs m a
-        mc_conf.target.config.big_endian = SOME (t.mem a))`;
+    (!a. ∃w.
+      t.mem a = get_byte a w mc_conf.target.config.big_endian ∧
+      m (byte_align a) = Word w)`;
 
 (* mc_conf_ok: conditions on the machine configuration
    which will be discharged for the particular configuration of each target
@@ -5298,7 +5278,9 @@ val IMP_state_rel_make_init = Q.prove(
       disch_then (qspec_then`0` strip_assume_tac)>>
       fs[libTheory.the_def])>>
     metis_tac[])
-  \\ conj_tac >- metis_tac[SUBSET_DEF]
+  \\ conj_tac >- (
+    simp[word_loc_val_byte_def,case_eq_thms] \\
+    metis_tac[SUBSET_DEF,word_loc_val_def] )
   \\ conj_tac>-
     (drule pos_val_0 \\ simp[])
   \\ metis_tac[code_similar_sec_labels_ok]);
