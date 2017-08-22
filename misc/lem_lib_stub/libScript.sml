@@ -22,6 +22,7 @@ val _ = new_theory "lib"
 (*val disjoint : forall 'a. set 'a -> set 'a -> bool*)
 
 (*val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool*)
+(*val map2 : forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c*)
 
 (*val num_fold : forall 'a. ('a -> 'a) -> 'a -> nat -> 'a*)
  val _ = Define `

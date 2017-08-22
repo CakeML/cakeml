@@ -169,7 +169,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val evaluate_decs :
   forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
- val _ = Define `
+ val evaluate_decs_defn = Defn.Hol_multi_defns `
 
 (evaluate_decs st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
@@ -216,32 +216,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\
 (evaluate_decs st env [Dexn locs cn ts]= 
   (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
-   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, cn, ExnStamp st.next_exn_stamp)) |>))`;
-
-
-val _ = Define `
- (envLift mn env=  
- (<| v := (nsLift mn env.v); c := (nsLift mn env.c) |>))`;
-
-
-(*val evaluate_tops :
-  forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v*)
- val _ = Define `
-
-(evaluate_tops st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, cn, ExnStamp st.next_exn_stamp)) |>))
 /\
-(evaluate_tops st env (top1::top2::tops)=  
- ((case evaluate_tops st env [top1] of
-    (st1, Rval env1) =>
-      (case evaluate_tops st1 (extend_dec_env env1 env) (top2::tops) of
-        (st2, r) => (st2, combine_dec_result env1 r)
-      )
-  | res => res
-  )))
-/\
-(evaluate_tops st env [Tdec d]=  (evaluate_decs st env [d]))
-/\
-(evaluate_tops st env [Tmod mn specs ds]=  
+(evaluate_decs st env [Dmod mn ds]=  
  ((case evaluate_decs st env ds of
     (st', r) =>
       (st',
@@ -251,5 +228,6 @@ val _ = Define `
        ))
   )))`;
 
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
 val _ = export_theory()
 

@@ -118,7 +118,8 @@ val _ = Hol_datatype `
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
     Atvar of tvarN
-  (* 0-ary type applications represent unparameterised types (e.g., num or string) *)
+  (* Type constructor applications.
+    0-ary type applications represent unparameterised types (e.g., num or string) *)
   | Atapp of ast_t list => (modN, typeN) id`;
 
 
@@ -186,31 +187,23 @@ val _ = Hol_datatype `
   (* Type abbreviations *)
   | Dtabbrev of locs => tvarN list => typeN => ast_t
   (* New exceptions *)
-  | Dexn of locs => conN => ast_t list`;
+  | Dexn of locs => conN => ast_t list
+  | Dmod of modN => dec list`;
 
 
-val _ = type_abbrev( "decs" , ``: dec list``);
-
+(*
 (* Specifications
    For giving the signature of a module *)
-val _ = Hol_datatype `
- spec =
-    Sval of varN => ast_t
+type spec =
+  | Sval of varN * ast_t
   | Stype of type_def
-  | Stabbrev of tvarN list => typeN => ast_t
-  | Stype_opq of tvarN list => typeN
-  | Sexn of conN => ast_t list`;
+  | Stabbrev of list tvarN * typeN * ast_t
+  | Stype_opq of list tvarN * typeN
+  | Sexn of conN * list ast_t
 
+type specs = list spec
 
-val _ = type_abbrev( "specs" , ``: spec list``);
-
-val _ = Hol_datatype `
- top =
-    Tmod of modN =>  specs option => decs
-  | Tdec of dec`;
-
-
-val _ = type_abbrev( "prog" , ``: top list``);
+*)
 
 (* Accumulates the bindings of a pattern *)
 (*val pat_bindings : pat -> list varN -> list varN*)

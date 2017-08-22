@@ -125,7 +125,7 @@ val mk_binop_def = Define`
 
 val _ = temp_overload_on ("'", ``λf a. OPTION_BIND a f``);
 val tokcheck_def = Define`
-  tokcheck pt tok <=> destTOK ' (destLf pt) = SOME tok
+  tokcheck pt tok <=> (destTOK ' (destLf pt) = SOME tok)
 `;
 
 val ptree_UQTyop_def = Define`

@@ -840,7 +840,7 @@ val _ = Define `
 
 
 (* Build a constructor environment for the type definition tds *)
-(*val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list t)) -> env_ctor*)
+(*val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list ast_t)) -> env_ctor*)
 val _ = Define `
  (build_tdefs next_stamp tds=  
  (alist_to_ns
@@ -856,7 +856,7 @@ val _ = Define `
 
 
 (* Checks that no constructor is defined twice in a type *)
-(*val check_dup_ctors : list tvarN * typeN * list (conN * list t) -> bool*)
+(*val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool*)
 val _ = Define `
  (check_dup_ctors (tvs, tn, condefs)=  
  (ALL_DISTINCT (let x2 = 

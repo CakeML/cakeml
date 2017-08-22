@@ -91,7 +91,8 @@ type lop =
 type ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
   | Atvar of tvarN
-  (* 0-ary type applications represent unparameterised types (e.g., num or string) *)
+  (* Type constructor applications.
+    0-ary type applications represent unparameterised types (e.g., num or string) *)
   | Atapp of list ast_t * id modN typeN
 
 (* Patterns *)
@@ -154,9 +155,9 @@ type dec =
   | Dtabbrev of locs * list tvarN * typeN * ast_t
   (* New exceptions *)
   | Dexn of locs * conN * list ast_t
+  | Dmod of modN * list dec
 
-type decs = list dec
-
+(*
 (* Specifications
    For giving the signature of a module *)
 type spec =
@@ -168,11 +169,7 @@ type spec =
 
 type specs = list spec
 
-type top =
-  | Tmod of modN * maybe specs * decs
-  | Tdec of dec
-
-type prog = list top
+*)
 
 (* Accumulates the bindings of a pattern *)
 val pat_bindings : pat -> list varN -> list varN
