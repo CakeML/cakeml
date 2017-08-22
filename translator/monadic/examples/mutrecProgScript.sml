@@ -24,3 +24,5 @@ test6 (x::l) = (let (y : num) = test6 l in
 test6 [] = (0 : num)`;
 val def = test6_def;
 val test6_v_th = translate test6_def;
+
+val _ = export_theory();
