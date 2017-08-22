@@ -138,6 +138,10 @@ val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
 
 val set_vars_const = Q.store_thm("set_vars_const[simp]",
   `(set_vars x y z).clock = z.clock ∧
+   (set_vars x y z).compile_oracle = z.compile_oracle ∧
+   (set_vars x y z).code_buffer = z.code_buffer ∧
+   (set_vars x y z).data_buffer = z.data_buffer ∧
+   (set_vars x y z).compile = z.compile ∧
    (set_vars x y z).ffi = z.ffi`,
   EVAL_TAC);
 

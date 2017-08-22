@@ -294,13 +294,14 @@ val ssa_cc_trans_def = Define`
     let dptr' = option_lookup ssa' dptr in
     let dlen' = option_lookup ssa' dlen in
     let ssa_cut = inter ssa' numset in
-    let (ret_mov,ssa'',na'') =
-      list_next_var_rename_move ssa_cut (na'+2) ls in
+    let (ptr'',ssa'',na'') = next_var_rename ptr ssa_cut (na'+2) in
+    let (ret_mov,ssa''',na''') =
+      list_next_var_rename_move ssa'' na'' ls in
     let prog = (Seq (stack_mov)
                (Seq (Move 0 [(2,ptr');(4,len')])
                (Seq (Install 2 4 dptr' dlen' stack_set)
-               (Seq ret_mov (Move 0 [(ptr',2)]))))) in
-    (prog,ssa'',na'')) ∧
+               (Seq (Move 0 [(ptr'',2)]) ret_mov)))) in
+    (prog,ssa''',na''')) ∧
   (ssa_cc_trans (CodeBufferWrite r1 r2) ssa na =
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
