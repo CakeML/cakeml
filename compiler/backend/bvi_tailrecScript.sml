@@ -247,25 +247,6 @@ val mk_tailcall_def = Define `
           push_call n op acc exp3 (args_from call))
   `;
 
-(* -------------------------------------------------------------------------- *)
-
-(*val _ = Define `*)
-  (*test_fac = If (Op LessEq [Var 0; Op (Const 1) []])*)
-                (*(Op (Const 1) [])*)
-                (*(Op Mult [Call 0 (SOME 0) [Op Sub [Var 0; Op (Const 1) []]] NONE; Var 0])`*)
-
-(*val _ = Define `*)
-  (*test_foo = If (Op LessEq [Var 0; Var 1])*)
-                (*(Op (Const 1) [])*)
-                (*(Op Mult [Var 0; Var 1])`*)
-
-(*EVAL ``scan_expr [Any] 0 test_fac``*)
-(*EVAL ``scan_expr [Any; Any] 0 test_foo``*)
-(*EVAL ``scan_aux [Any; Any] (Op Add [Var 0; Var 1])``*)
-(*EVAL ``try_update Int (SOME 1) [Any; Any]``*)
-(*EVAL ``try_update Int (SOME 0) [Any; Any]``*)
-
-(* -------------------------------------------------------------------------- *)
 
 (* Unfortunately rewrite_op now requires a context implying some code
    duplication between rewrite and scan_expr.
@@ -274,7 +255,7 @@ val rewrite_def = Define `
   (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
     let ti = scan_aux ts xi in
     let (tt, rt, yt) = rewrite (loc, next, op, acc, ti) xt in
-    let (te, re, ye) = rewrite (loc, next, op, acc, ti) xt in
+    let (te, re, ye) = rewrite (loc, next, op, acc, ti) xe in
     let zt = if rt then yt else apply_op op xt (Var acc) in
     let ze = if re then ye else apply_op op xe (Var acc) in
       (MAP2 K tt te, rt ∨ re, If xi zt ze)) ∧
@@ -294,7 +275,7 @@ val rewrite_def = Define `
 
 val check_exp_def = Define `
   check_exp loc arity exp =
-    let (_, _, ok, op) = scan_expr (GENLIST (K Any) arity) loc exp in
+    let (_, _, ok, op) = scan_expr (REPLICATE arity Any) loc exp in
       if ¬ok then NONE else op`;
 
 val let_wrap_def = Define `
@@ -310,7 +291,7 @@ val compile_exp_def = Define `
     case check_exp loc arity exp of
       NONE    => NONE
     | SOME op =>
-      let ts          = GENLIST (K Any) arity in
+      let ts          = REPLICATE arity Any in
       let (_, _, opt) = rewrite (loc, next, op, arity, ts) exp in
       let aux         = let_wrap arity (id_from_op op) opt in
         SOME (aux, opt)`;
