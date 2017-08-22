@@ -1,6 +1,6 @@
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory stackPropsTheory
-     word_instProofTheory parmoveTheory;
+     parmoveTheory;
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
