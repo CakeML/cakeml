@@ -358,7 +358,7 @@ val alloc_def = Define `
   alloc (w:'a word) names ^s =
     (* prune local names *)
     case cut_env names s.locals of
-    | NONE => (SOME Error,s)
+    | NONE => (SOME (Error:'a result),s)
     | SOME env =>
      (* perform garbage collection *)
      (case gc (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of

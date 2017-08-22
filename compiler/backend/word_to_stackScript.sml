@@ -263,6 +263,18 @@ val comp_def = Define `
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
   (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
+  (comp (Install r1 r2 r3 r4 live) bs kf =
+    let (l3,r3) = wReg1 r3 kf in
+    let (l4,r4) = wReg2 r4 kf in
+      (wStackLoad (l3++l4) (Install (r1 DIV 2) (r2 DIV 2) r3 r4 0),bs)) /\
+  (comp (CodeBufferWrite r1 r2) bs kf =
+    let (l1,r1) = wReg1 r1 kf in
+    let (l2,r2) = wReg2 r2 kf in
+      (wStackLoad (l1++l2) (CodeBufferWrite r1 r2),bs)) /\
+  (comp (DataBufferWrite r1 r2) bs kf =
+    let (l1,r1) = wReg1 r1 kf in
+    let (l2,r2) = wReg2 r2 kf in
+      (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
   (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 

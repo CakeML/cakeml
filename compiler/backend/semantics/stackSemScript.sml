@@ -234,7 +234,7 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME (Halt (Word 1w)),empty_env s)))`
+                        (SOME (Halt (Word (1w:'a word))),empty_env s)))`
 
 val assign_def = Define `
   assign reg exp s =
