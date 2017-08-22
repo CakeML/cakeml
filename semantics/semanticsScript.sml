@@ -1,9 +1,11 @@
 open preamble;
-open lexer_funTheory cmlPtreeConversionTheory; (* TODO: should be included in termination *)
+open lexer_funTheory
+(* open cmlPtreeConversionTheory;  TODO: should be included in termination *)
 open terminationTheory;
 
 val _ = new_theory "semantics";
 
+(*
 val parse_def = Define`
 parse toks =
   case some pt. valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
@@ -11,10 +13,11 @@ parse toks =
   of
      NONE => NONE
    | SOME p => ptree_TopLevelDecs p`;
+   *)
 
 val _ = Datatype`
   state = <| (* Type system state *)
-            tdecs : decls;
+            next_comp_unit : num;
             tenv : type_env;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
@@ -24,12 +27,12 @@ val _ = hide "state";
 
 val can_type_prog_def = Define `
 can_type_prog state prog ⇔
-  ∃tdecs' new_tenv. type_prog T state.tdecs state.tenv prog tdecs' new_tenv`;
+  ∃tdecs' new_tenv. type_ds T state.next_comp_unit state.tenv prog tdecs' new_tenv`;
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
     let (st',r) =
-      evaluate_tops (st with clock := k) env prog
+      evaluate_decs (st with clock := k) env prog
     in (st'.ffi,r)`;
 
 val semantics_prog_def = Define `
@@ -64,6 +67,7 @@ val semantics_prog_def = Define `
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
+(*
 val semantics_def = Define`
   semantics state prelude input =
   case parse (lexer_fun input) of
@@ -72,5 +76,6 @@ val semantics_def = Define`
     if can_type_prog state (prelude ++ prog)
     then Execute (semantics_prog state.sem_st state.sem_env (prelude ++ prog))
     else IllTyped`;
+    *)
 
 val _ = export_theory();
