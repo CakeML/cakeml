@@ -710,8 +710,24 @@ val list_max_def = Define `
      let m = list_max xs in
        if m < x then x else m)`
 
+val list_max_max = Q.store_thm("list_max_max",
+  `∀ls.  EVERY (λx. x ≤ list_max ls) ls`,
+  Induct>>full_simp_tac(srw_ss())[list_max_def,LET_THM]>>srw_tac[][]>>full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>
+  res_tac >> decide_tac);
+
+val list_max_intro = Q.store_thm("list_max_intro",`
+  ∀ls.
+  P 0 ∧ EVERY P ls ⇒ P (list_max ls)`,
+  Induct>>full_simp_tac(srw_ss())[list_max_def]>>srw_tac[][]>>
+  IF_CASES_TAC>>full_simp_tac(srw_ss())[]);
+
 val list_inter_def = Define `
   list_inter xs ys = FILTER (\y. MEM y xs) ys`;
+
+val max3_def = Define`
+  max3 (x:num) y z = if x > y then (if z > x then z else x)
+                     else (if z > y then z else y)`
+val _ = export_rewrites["max3_def"];
 
 val SING_HD = Q.store_thm("SING_HD",
   `(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
