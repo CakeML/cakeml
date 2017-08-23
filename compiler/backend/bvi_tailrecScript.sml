@@ -310,18 +310,5 @@ val compile_prog_def = Define `
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
   `;
 
-EVAL ``
-  let loc   = 0 in
-  let next  = 0 in
-  let arity = 1 in
-  let body  =
-    If (Op LessEq [Var 0; Op (Const 0) []])
-       (Op (Const 1) [])
-       (Op Mult
-         [ Call 0 (SOME 0) [Op Sub [Var 0; Op (Const 1) []]] NONE
-         ; Var 0])
-  in
-    compile_prog next [(loc, arity, body)]``
-
 val _ = export_theory();
 
