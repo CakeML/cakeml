@@ -51,7 +51,8 @@ val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).clock = z.clock ∧
-   (set_store x y z).ffi = z.ffi`,
+   (set_store x y z).ffi = z.ffi ∧
+   (set_store x y z).code = z.code`,
   EVAL_TAC);
 
 val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
@@ -81,7 +82,9 @@ val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
 val pop_env_const = Q.store_thm("pop_env_const",
   `pop_env x = SOME y ⇒
    y.clock = x.clock /\
-   y.ffi = x.ffi`,
+   y.ffi = x.ffi ∧
+   y.compile = x.compile ∧
+   y.code = x.code`,
    srw_tac[][pop_env_def] >>
    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -95,7 +98,8 @@ val call_env_const = Q.store_thm("call_env_const[simp]",
    (call_env x y).compile_oracle = y.compile_oracle ∧
    (call_env x y).compile = y.compile ∧
    (call_env x y).gc_fun = y.gc_fun ∧
-   (call_env x y).ffi = y.ffi`,
+   (call_env x y).ffi = y.ffi ∧
+   (call_env x y).code = y.code`,
   EVAL_TAC);
 
 val call_env_with_const = Q.store_thm("call_env_with_const[simp]",
@@ -109,7 +113,8 @@ val has_space_with_const = Q.store_thm("has_space_with_const[simp]",
 val gc_const = Q.store_thm("gc_const",
   `gc x = SOME y ⇒
    y.clock = x.clock ∧
-   y.ffi = x.ffi`,
+   y.ffi = x.ffi ∧
+   y.code = x.code`,
   simp[gc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]);
 
@@ -125,7 +130,8 @@ val gc_with_const = Q.store_thm("gc_with_const[simp]",
 val alloc_const = Q.store_thm("alloc_const",
   `alloc c names s = (r,s') ⇒
    s'.clock = s.clock ∧
-   s'.ffi = s.ffi`,
+   s'.ffi = s.ffi ∧
+   s'.code = s.code`,
   srw_tac[][alloc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
@@ -167,6 +173,7 @@ val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
 val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).clock = z.clock ∧
    (set_var x y z).ffi = z.ffi ∧
+   (set_var x y z).compile = z.compile ∧
    (set_var x y z).stack = z.stack`,
   EVAL_TAC);
 
@@ -285,7 +292,10 @@ val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi /\
-   (dec_clock s).compile_oracle = s.compile_oracle`,
+   (dec_clock s).compile_oracle = s.compile_oracle ∧
+   (dec_clock s).stack = s.stack ∧
+   (dec_clock s).permute = s.permute ∧
+   (dec_clock s).compile = s.compile`,
   EVAL_TAC);
 
 (* Standard add clock lemma for FBS *)
