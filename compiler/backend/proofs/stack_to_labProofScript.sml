@@ -2910,6 +2910,7 @@ val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
 
 val flatten_line_ok_pre = Q.prove(`
   ∀p n m ls a b c.
+  byte_offset_ok c 0w /\
   stack_asm_ok c p ∧
   flatten p n m = (ls,a,b) ⇒
   EVERY (line_ok_pre c) (append ls)`,
@@ -2934,9 +2935,12 @@ val flatten_line_ok_pre = Q.prove(`
     (rpt(pairarg_tac>>fs[])>>rw[]>>fs[stack_asm_ok_def]>>
     EVAL_TAC)
   >>
-    pop_assum mp_tac>>EVAL_TAC);
+    pop_assum mp_tac>>EVAL_TAC>>
+    pop_assum mp_tac>>EVAL_TAC>>
+    fs[]);
 
 val compile_all_enc_ok_pre = Q.prove(`
+  byte_offset_ok c 0w ∧
   EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
   all_enc_ok_pre c (MAP prog_to_section prog)`,
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
@@ -2955,6 +2959,7 @@ val stack_to_lab_compile_all_enc_ok = Q.store_thm("stack_to_lab_compile_all_enc_
   names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
   addr_offset_ok c 0w ∧ good_dimindex (:α) ∧
+  byte_offset_ok c 0w ∧
   (∀n. n ≤ max_stack_alloc ⇒
   c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
   c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
@@ -2965,7 +2970,7 @@ val stack_to_lab_compile_all_enc_ok = Q.store_thm("stack_to_lab_compile_all_enc_
   conf_ok (:'a) c2 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)`,
   rw[stack_to_labTheory.compile_def]>>
-  match_mp_tac compile_all_enc_ok_pre>>
+  match_mp_tac compile_all_enc_ok_pre>>fs[]>>
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
   match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
   match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]);

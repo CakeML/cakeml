@@ -600,7 +600,7 @@ val find_code_IMP_get_labels = Q.store_thm("find_code_IMP_get_labels",
 (* asm_ok out of stack_names *)
 val stack_asm_ok_def = Define`
   (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
-  (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ asm$inst_ok (Mem Store8 r2 (Addr r1 0w)) c) ∧
+  (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
   (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
@@ -670,7 +670,7 @@ val inst_name_def = Define`
 
 val stack_asm_name_def = Define`
   (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
-  (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ inst_name c (Mem Store8 r2 (Addr r1 0w))) ∧
+  (stack_asm_name c (CodeBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧

@@ -4691,8 +4691,7 @@ val Install_tac =
         \\ CASE_TAC
         \\ fs[EXTENSION,domain_lookup]
         \\ last_x_assum(qspec_then`n`mp_tac)
-        \\ simp[]
-        \\ cheat )
+        \\ simp[])
       \\ conj_tac >- simp[lookup_union]
       \\ conj_tac >- (
         fs[buffer_flush_def]
@@ -7271,8 +7270,7 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[])
   >> PairCases_on`kf` \\ EVAL_TAC
-  \\ rw[] \\ EVAL_TAC \\ fs[]
-  \\ cheat (* full_inst_ok_less or something needs extending for DataBufferWrite and CodeBufferWrite ? *))
+  \\ rw[] \\ EVAL_TAC \\ fs[]);
 
 val call_dest_stack_asm_remove = Q.prove(`
   (FST k)+1 < c.reg_count - LENGTH c.avoid_regs ∧
@@ -7391,7 +7389,7 @@ val word_to_stack_stack_asm_convs = Q.store_thm("word_to_stack_stack_asm_convs",
       rfs[Abbr`kf`]>>
       rw[]>>EVAL_TAC>>fs[])
     >>
-      metis_tac[])
+      metis_tac[]);
 
 val stack_move_alloc_arg = Q.store_thm("stack_move_alloc_arg",`
   ∀n st off i p.

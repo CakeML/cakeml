@@ -477,9 +477,7 @@ val stack_names_comp_stack_asm_ok = Q.prove(`
     metis_tac[names_ok_imp,asmTheory.reg_ok_def])
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
-  >>
-    fs[asmTheory.inst_ok_def,inst_name_def,addr_name_def]>>
-    imp_res_tac names_ok_imp>>fs[]);
+  >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]);
 
 val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
   EVERY (λ(n,p). stack_asm_name c p) prog ∧
@@ -488,7 +486,7 @@ val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
   EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)`,
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
   rw[]>>
-  metis_tac[stack_names_comp_stack_asm_ok])
+  metis_tac[stack_names_comp_stack_asm_ok]);
 
 val stack_names_call_args = Q.store_thm("stack_names_call_args",`
   compile f p = p' ∧
