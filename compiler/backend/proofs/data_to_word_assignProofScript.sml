@@ -60,7 +60,7 @@ val memory_rel_lookup_var_IMP = Q.store_thm("memory_rel_lookup_var_IMP",
      (join_env ll
         (toAList (inter t.locals (adjust_set ll))) ++ envs) ∧
     get_vars n ll = SOME x ∧
-    get_vars (MAP adjust_var n) (t:('a,'ffi) wordSem$state) = SOME w ⇒
+    get_vars (MAP adjust_var n) (t:('a,'c,'ffi) wordSem$state) = SOME w ⇒
     memory_rel c be refs sp st m dm
       (ZIP (x,w) ++
        join_env ll
@@ -156,14 +156,14 @@ val LESS_DIV_16_IMP = Q.store_thm("LESS_DIV_16_IMP",
 val word_exp_real_addr = Q.store_thm("word_exp_real_addr",
   `get_real_addr c t.store ptr_w = SOME a /\
     shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
-    lookup (adjust_var a1) (t:('a,'ffi) wordSem$state).locals = SOME (Word ptr_w) ==>
+    lookup (adjust_var a1) (t:('a,'c,'ffi) wordSem$state).locals = SOME (Word ptr_w) ==>
     !w. word_exp (t with locals := insert 1 (Word (w:'a word)) t.locals)
           (real_addr c (adjust_var a1)) = SOME (Word a)`,
   rpt strip_tac \\ match_mp_tac (GEN_ALL get_real_addr_lemma)
   \\ fs [wordSemTheory.get_var_def,lookup_insert])
 
 val word_exp_real_addr_2 = Q.store_thm("word_exp_real_addr_2",
-  `get_real_addr c (t:('a,'ffi) wordSem$state).store ptr_w = SOME a /\
+  `get_real_addr c (t:('a,'c,'ffi) wordSem$state).store ptr_w = SOME a /\
     shift_length c < dimindex (:α) ∧ good_dimindex (:α) /\
     lookup (adjust_var a1) t.locals = SOME (Word ptr_w) ==>
     !w1 w2.
@@ -283,7 +283,7 @@ val state_rel_get_var_Number_IMP_alt = Q.store_thm("state_rel_get_var_Number_IMP
   \\ imp_res_tac memory_rel_any_Number_IMP \\ fs []);
 
 val RefArray_thm = Q.store_thm("RefArray_thm",
-  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_vars [0;1] s.locals = SOME vals /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app RefArray vals s = Rval (v,s2) ==>
@@ -538,7 +538,7 @@ fun sort_tac n =
 
 val evaluate_WriteLastBytes = Q.store_thm("evaluate_WriteLastBytes",
   `good_dimindex(:'a) ∧ w2n n < dimindex(:'a) DIV 8 ∧
-   get_vars [av;bv;nv] (s:('a,'ffi)state) = SOME [Word (a:'a word); Word b; Word n] ∧
+   get_vars [av;bv;nv] (s:('a,'c,'ffi)state) = SOME [Word (a:'a word); Word b; Word n] ∧
    byte_aligned a ∧ a ∈ s.mdomain ∧ s.memory a = Word w
   ⇒
    evaluate (WriteLastBytes av bv nv,s) =
@@ -594,7 +594,7 @@ val byte_aligned_bytes_in_word = store_thm("byte_aligned_bytes_in_word",
   \\ fs []);
 
 val RefByte_thm = Q.store_thm("RefByte_thm",
-  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_vars [0;1;2] s.locals = SOME (vals ++ [Number &(if fl then 0 else 4)]) /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
     do_app (RefByte fl) vals s = Rval (v,s2) ==>
@@ -1023,7 +1023,7 @@ val RefByte_thm = Q.store_thm("RefByte_thm",
 val FromList1_code_thm = Q.store_thm("Replicate_code_thm",
   `!k a b r x m1 a1 a2 a3 a4 a5 a6.
       lookup FromList1_location r.code = SOME (6,FromList1_code c) /\
-      copy_list c r.store k (a,x,b,(r:('a,'ffi) wordSem$state).memory,
+      copy_list c r.store k (a,x,b,(r:('a,'c,'ffi) wordSem$state).memory,
         r.mdomain) = SOME (b1,m1) /\
       shift_length c < dimindex (:'a) /\ good_dimindex (:'a) /\
       get_var a1 r = SOME (Loc l1 l2) /\
@@ -1092,7 +1092,7 @@ val FromList1_code_thm = Q.store_thm("Replicate_code_thm",
   \\ fs [MULT_CLAUSES,GSYM word_add_n2w]);
 
 val state_rel_IMP_test_zero = Q.store_thm("state_rel_IMP_test_zero",
-  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) vs locs /\
+  `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) vs locs /\
     get_var i s.locals = SOME (Number n) ==>
     ?w. get_var (adjust_var i) t = SOME (Word w) /\ (w = 0w <=> (n = 0))`,
   strip_tac
@@ -1143,7 +1143,7 @@ val EXP_LEMMA1 = Q.store_thm("EXP_LEMMA1",
 val evaluate_Maxout_bits_code = Q.store_thm("evaluate_Maxout_bits_code",
   `n_reg <> dest /\ n < dimword (:'a) /\ rep_len < dimindex (:α) /\
     k < dimindex (:'a) /\
-    lookup n_reg (t:('a,'ffi) wordSem$state).locals = SOME (Word (n2w n:'a word)) ==>
+    lookup n_reg (t:('a,'c,'ffi) wordSem$state).locals = SOME (Word (n2w n:'a word)) ==>
     evaluate (Maxout_bits_code rep_len k dest n_reg,set_var dest (Word w) t) =
       (NONE,set_var dest (Word (w || maxout_bits n rep_len k)) t)`,
   fs [Maxout_bits_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
@@ -1156,7 +1156,7 @@ val Make_ptr_bits_thm = Q.store_thm("Make_ptr_bits_thm",
   `tag_reg ≠ dest ∧ tag1 < dimword (:α) ∧ c.tag_bits < dimindex (:α) ∧
     len_reg ≠ dest ∧ len1 < dimword (:α) ∧ c.len_bits < dimindex (:α) ∧
     c.len_bits + 1 < dimindex (:α) /\
-    FLOOKUP (t:('a,'ffi) wordSem$state).store NextFree = SOME (Word f) /\
+    FLOOKUP (t:('a,'c,'ffi) wordSem$state).store NextFree = SOME (Word f) /\
     FLOOKUP t.store CurrHeap = SOME (Word d) /\
     lookup tag_reg t.locals = SOME (Word (n2w tag1)) /\
     lookup len_reg t.locals = SOME (Word (n2w len1)) /\
@@ -1177,7 +1177,7 @@ val Make_ptr_bits_thm = Q.store_thm("Make_ptr_bits_thm",
   \\ fs [ptr_bits_def]);
 
 val FromList_thm = Q.store_thm("FromList_thm",
-  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     encode_header c (4 * tag) 0 <> (NONE:'a word option) /\
     get_vars [0; 1; 2] s.locals = SOME [v1; v2; Number (&(4 * tag))] /\
     t.clock = MustTerminate_limit (:'a) - 1 /\
@@ -1351,7 +1351,7 @@ val get_var_get_real_addr_lemma =
 val evaluate_LoadWord64 = Q.store_thm("evaluate_LoadWord64",
   `memory_rel c be refs sp t.store t.memory t.mdomain ((Word64 w,v)::vars) ∧
    shift_length c < dimindex(:α) ∧ dimindex(:α) = 64 ∧
-   get_var src (t:('a,'ffi) state) = SOME v
+   get_var src (t:('a,'c,'ffi) state) = SOME v
    ==>
    evaluate (LoadWord64 c dest src,t) = (NONE, set_var dest (Word (w2w w)) t)`,
   rw[LoadWord64_def] \\ eval_tac
@@ -1368,7 +1368,7 @@ val evaluate_LoadWord64 = Q.store_thm("evaluate_LoadWord64",
 val evaluate_WriteWord64 = Q.store_thm("evaluate_WriteWord64",
   `memory_rel c be refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src (t:('a,'ffi) state) = SOME (Word w) ∧
+   get_var src (t:('a,'c,'ffi) state) = SOME (Word w) ∧
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 64 ∧
@@ -1420,8 +1420,8 @@ val evaluate_WriteWord64 = Q.store_thm("evaluate_WriteWord64",
 val evaluate_WriteWord64_on_32 = Q.store_thm("evaluate_WriteWord64_on_32",
   `memory_rel c be refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src1 (t:('a,'ffi) state) = SOME (Word ((31 >< 0) w)) ∧
-   get_var src2 (t:('a,'ffi) state) = SOME (Word ((63 >< 32) w)) ∧
+   get_var src1 (t:('a,'c,'ffi) state) = SOME (Word ((31 >< 0) w)) ∧
+   get_var src2 (t:('a,'c,'ffi) state) = SOME (Word ((63 >< 32) w)) ∧
    shift_length c < dimindex(:α) ∧
    src1 ≠ 1 ∧ src2 ≠ 1 ∧ 2 < sp ∧
    dimindex(:α) = 32 ∧
@@ -1479,7 +1479,7 @@ val evaluate_WriteWord64_on_32 = Q.store_thm("evaluate_WriteWord64_on_32",
 val evaluate_WriteWord64_bignum = Q.store_thm("evaluate_WriteWord64_bignum",
   `memory_rel c be refs sp t.store t.memory t.mdomain
      (join_env_locals sl t.locals ++ vars) ∧
-   get_var src (t:('a,'ffi) state) = SOME (Word w) ∧
+   get_var src (t:('a,'c,'ffi) state) = SOME (Word w) ∧
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 64 ∧
@@ -1540,7 +1540,7 @@ val evaluate_WriteWord64_bignum = Q.store_thm("evaluate_WriteWord64_bignum",
 val evaluate_LoadBignum = Q.store_thm("evaluate_LoadBignum",
   `memory_rel c be refs sp t.store t.memory t.mdomain ((Number i,v)::vars) ∧
    ¬small_int (:α) i ∧ good_dimindex (:α) ∧ shift_length c < dimindex (:α) ∧
-   get_var src (t:(α,'ffi) state) = SOME v ∧ header ≠ w1
+   get_var src (t:(α,'c,'ffi) state) = SOME v ∧ header ≠ w1
    ⇒
    ∃h junk.
    evaluate (LoadBignum c header w1 src,t) =
@@ -1556,7 +1556,7 @@ val evaluate_LoadBignum = Q.store_thm("evaluate_LoadBignum",
   \\ rw[] \\ metis_tac[]);
 
 val assign_thm_goal =
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
    (op_requires_names op ==> names_opt <> NONE) /\
    cut_state_opt names_opt s = SOME x /\
    get_vars args x.locals = SOME vals /\
@@ -1647,7 +1647,7 @@ val get_var_consts = Q.prove(`
   EVAL_TAC>>rw[]);
 
 val CopyByteAdd_thm = Q.store_thm("CopyByteAdd_thm",
-  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
+  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
       word_copy_fwd be n a1 a2 m dm = SOME m1 /\
       s.memory = m /\ s.mdomain = dm /\
       s.be = be ∧
@@ -1750,7 +1750,7 @@ val CopyByteAdd_thm = Q.store_thm("CopyByteAdd_thm",
     simp[wordSemTheory.state_component_equality,wordSemTheory.set_var_def]));
 
 val CopyByteSub_thm = Q.store_thm("CopyByteSub_thm",
-  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'ffi) wordSem$state) m1.
+  `!be n a1 a2 m dm ret_val l1 l2 (s:('a,'c,'ffi) wordSem$state) m1.
       word_copy_bwd be n a1 a2 m dm = SOME m1 /\
       s.memory = m /\ s.mdomain = dm /\
       s.be = be ∧
@@ -3212,7 +3212,7 @@ val word_bit_lsr_dimindex_1 = store_thm("word_bit_lsr_dimindex_1",
   fs [word_bit_def,word_lsr_def,fcpTheory.FCP_BETA,word_msb_def]);
 
 val state_rel_Number_IMP = store_thm("state_rel_Number_IMP",
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_var a1 s.locals = SOME (Number i1) /\
     lookup (adjust_var a1) t.locals = SOME v1 ==>
     ?w1. (v1 = Word w1) /\
@@ -3982,7 +3982,7 @@ val th = Q.store_thm("assign_LessSmallConst",
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs []));
 
 val Compare1_code_thm = store_thm("Compare1_code_thm",
-  ``!l a1 a2 dm m res (t:('a,'b) wordSem$state).
+  ``!l a1 a2 dm m res (t:('a,'c,'ffi) wordSem$state).
       word_cmp_loop l a1 a2 dm m = SOME res /\
       dm = t.mdomain /\
       m = t.memory /\
@@ -4045,7 +4045,7 @@ val word_exp_insert = store_thm("word_exp_insert",
 val Compare_code_thm = store_thm("Compare_code_thm",
   ``memory_rel c be refs sp st m dm
       ((Number i1,Word v1)::(Number i2,Word v2)::vars) /\
-    dm = (t:('a,'b) wordSem$state).mdomain /\
+    dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
     m = t.memory /\
     st = t.store /\
     (~word_bit 0 v1 ==> word_bit 0 v2) /\
@@ -4570,7 +4570,7 @@ val th = Q.store_thm("assign_EqualInt",
 val Equal_code_lemma = store_thm("Equal_code_lemma",
   ``(!c st dm m l v1 v2 t l1 l2 q1 q2 res l'.
       word_eq c st dm m l v1 v2 = SOME (res,l') /\
-      dm = (t:('a,'b) wordSem$state).mdomain /\
+      dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
       m = t.memory /\
       st = t.store /\
       l <= t.clock /\
@@ -4591,7 +4591,7 @@ val Equal_code_lemma = store_thm("Equal_code_lemma",
         l' <= ck) /\
     (!c st dm m l w a1 a2 t l1 l2 res l'.
       word_eq_list c st dm m l w a1 a2 = SOME (res,l') /\
-      dm = (t:('a,'b) wordSem$state).mdomain /\
+      dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
       m = t.memory /\
       st = t.store /\
       l <= t.clock /\
@@ -4821,7 +4821,7 @@ val Equal_code_lemma = store_thm("Equal_code_lemma",
 val Equal_code_thm = store_thm("Equal_code_thm",
   ``memory_rel c be refs sp st m dm ((q1,Word v1)::(q2,Word v2)::vars) /\
     word_eq c st dm m l v1 v2 = SOME (res,l') /\
-    dm = (t:('a,'b) wordSem$state).mdomain /\
+    dm = (t:('a,'c,'ffi) wordSem$state).mdomain /\
     m = t.memory /\
     st = t.store /\
     l <= t.clock /\
@@ -5188,7 +5188,7 @@ val evaluate_WordOp64_on_32 = store_thm("evaluate_WordOp64_on_32",
     ?w27 w29.
       evaluate
        (WordOp64_on_32 opw,
-        (t:('a,'ffi) wordSem$state) with
+        (t:('a,'c,'ffi) wordSem$state) with
         locals :=
           insert 23 (Word ((31 >< 0) c''))
             (insert 21 (Word ((63 >< 32) c''))
@@ -5689,7 +5689,7 @@ val evaluate_WordShift64_on_32 = store_thm("evaluate_WordShift64_on_32",
     dimindex (:'a) = 32 ==>
       evaluate
        (WordShift64_on_32 sh n,
-        (t:('a,'ffi) wordSem$state) with
+        (t:('a,'c,'ffi) wordSem$state) with
         locals :=
           (insert 13 (Word ((31 >< 0) c'))
           (insert 11 (Word ((63 >< 32) c')) l))) =
@@ -6367,7 +6367,7 @@ val memcopy_def = Define `
       else NONE`
 
 val MemCopy_thm = store_thm("MemCopy_thm",
-  ``!ret_val l1 l2 k a1 a2 (s:('a,'ffi) wordSem$state) m dm m1.
+  ``!ret_val l1 l2 k a1 a2 (s:('a,'c,'ffi) wordSem$state) m dm m1.
       memcopy k a1 a2 m dm  = SOME m1 /\
       s.memory = m /\ s.mdomain = dm /\
       lookup MemCopy_location s.code = SOME (5,MemCopy_code) /\
@@ -6460,7 +6460,7 @@ val word_exp_real_addr_some_value = store_thm("word_exp_real_addr_some_value",
   ``FLOOKUP s3.store CurrHeap = SOME (Word curr) /\
     get_var a s3 = SOME (Word ww) /\
     good_dimindex (:'a) /\ shift_length c < dimindex (:'a) ==>
-    ∃wx. word_exp (s3:('a,'ffi) wordSem$state) (real_addr c a) = SOME (Word wx)``,
+    ∃wx. word_exp (s3:('a,'c,'ffi) wordSem$state) (real_addr c a) = SOME (Word wx)``,
   rw [real_addr_def] \\ fs [eq_eval] \\ eval_tac
   \\ IF_CASES_TAC \\ fs [NOT_LESS] \\ fs [GSYM NOT_LESS]
   \\ fs [good_dimindex_def] \\ rfs [shift_def]);

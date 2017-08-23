@@ -20,7 +20,7 @@ val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
 val data_compile_correct = Q.store_thm("data_compile_correct",
-  `!prog (s:'ffi dataSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
+  `!prog (s:'ffi dataSem$state) c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs /\
@@ -112,7 +112,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
          wordSemTheory.get_var_def,wordSemTheory.set_var_def]
     \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
          (t with locals := insert 1 (Word (alloc_size k)) t.locals))
-             :('a result option)#( ('a,'ffi) wordSem$state)`
+             :('a result option)#( ('a,'c,'ffi) wordSem$state)`
     \\ full_simp_tac(srw_ss())[]
     \\ drule (GEN_ALL alloc_lemma)
     \\ rpt (disch_then drule)
@@ -349,7 +349,7 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
 val compile_correct_lemma = Q.store_thm("compile_correct_lemma",
-  `!(s:'ffi dataSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+  `!(s:'ffi dataSem$state) c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       t.termdep > 1 /\
@@ -387,7 +387,7 @@ val state_rel_ext_def = Define `
       u = t with <|code := l;termdep:=0|>`
 
 val compile_correct = Q.store_thm("compile_correct",
-  `!x (s:'ffi dataSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+  `!x (s:'ffi dataSem$state) l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel_ext x l1 l2 s t ==>
@@ -647,8 +647,8 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     simp[LESS_EQ_EXISTS] >>
     metis_tac[
       wordPropsTheory.evaluate_add_clock_io_events_mono,
-      EVAL``((t:('a,'ffi) wordSem$state) with clock := k).clock``,
-      EVAL``((t:('a,'ffi) wordSem$state) with clock := k) with clock := k2``,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k).clock``,
+      EVAL``((t:('a,'c,'ffi) wordSem$state) with clock := k) with clock := k2``,
       dataPropsTheory.evaluate_add_clock_io_events_mono,
       dataPropsTheory.initial_state_with_simp,
       dataPropsTheory.initial_state_simp]) >>
@@ -730,13 +730,13 @@ val compile_semantics = save_thm("compile_semantics",let
     |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
          FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
     |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-    |> REWRITE_RULE [ASSUME ``(t:('a,'ffi) wordSem$state).clock =
-                              (t':('a,'ffi) wordSem$state).clock``]
+    |> REWRITE_RULE [ASSUME ``(t:('a,'c,'ffi) wordSem$state).clock =
+                              (t':('a,'c,'ffi) wordSem$state).clock``]
     |> (fn th => MATCH_MP th (UNDISCH state_rel_init
             |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`,`t`|->`t'`]))
     |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
     |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
-    |> DISCH ``(t':('a,'ffi) wordSem$state).code = code``
+    |> DISCH ``(t':('a,'c,'ffi) wordSem$state).code = code``
     |> SIMP_RULE std_ss [] |> UNDISCH |> UNDISCH
   val def = define_abbrev "code_rel_ext" (th1 |> concl |> dest_imp |> fst)
   in th1 |> REWRITE_RULE [GSYM def,code_termdep_equiv]
