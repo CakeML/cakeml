@@ -146,7 +146,7 @@ val add_lexparse_compset = computeLib.extend_compset
    computeLib.Tys
     [``:symbol``
     ,``:token``
-    ](*,
+    ],
    computeLib.Defs
     let open cmlPtreeConversionTheory in
       [tuplify_def
@@ -154,9 +154,11 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_TopLevelDec_def
       ,ptree_Structure_def
       ,ptree_StructName_def
+      (*
       ,ptree_SignatureValue_def
       ,ptree_SpeclineList_def
       ,ptree_SpecLine_def
+      *)
       ,ptree_Decls_def
       ,ptree_Decl_def
       ,ptree_Expr_def
@@ -187,8 +189,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ,dePat_def
       ]
     end
-      *)
-  ]
+    ]
 
 val add_semantics_compset = computeLib.extend_compset
   [computeLib.Extenders [add_ast_compset, add_lexparse_compset,add_namespace_compset]]

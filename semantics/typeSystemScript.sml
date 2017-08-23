@@ -136,6 +136,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (check_freevars_ast tvs (Atvar tv)=  
  (MEM tv tvs))
 /\
+(check_freevars_ast tvs (Attup ts)=  
+ (EVERY (check_freevars_ast tvs) ts))
+/\
+(check_freevars_ast tvs (Atfun t1 t2)=  
+ (check_freevars_ast tvs t1 /\ check_freevars_ast tvs t2))
+/\
 (check_freevars_ast tvs (Atapp ts tn)=  
  (EVERY (check_freevars_ast tvs) ts))`;
 
@@ -374,6 +380,12 @@ val _ = Define `
 (check_type_names tenvT (Atvar tv)= 
   T)
 /\
+(check_type_names tenvT (Attup ts)=  
+ (EVERY (check_type_names tenvT) ts))
+/\
+(check_type_names tenvT (Atfun t1 t2)=  
+ (check_type_names tenvT t1 /\ check_type_names tenvT t2))
+/\
 (check_type_names tenvT (Atapp ts tn)=  
  ((case nsLookup tenvT tn of
     SOME (tvs, _) => LENGTH tvs = LENGTH ts
@@ -389,11 +401,17 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (type_name_subst tenvT (Atvar tv)=  (Tvar tv))
 /\
+(type_name_subst tenvT (Attup ts)=  
+ (Ttup (MAP (type_name_subst tenvT) ts)))
+/\
+(type_name_subst tenvT (Atfun t1 t2)=  
+ (Tfn (type_name_subst tenvT t1) (type_name_subst tenvT t2)))
+/\
 (type_name_subst tenvT (Atapp ts tc)=  
  (let args = (MAP (type_name_subst tenvT) ts) in
   (case nsLookup tenvT tc of
     SOME (tvs, t) => type_subst (alist_to_fmap (ZIP (tvs, args))) t
-  | NONE => Ttup args (* can't happen *)
+  | NONE => Ttup args (* can't happen, for a type that passes the check *)
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_name_subst_defn;
@@ -700,6 +718,11 @@ val _ = Define `
 (deBruijn_subst(( 0 : num)) subst t_impl = t_spec)))`;
 
 
+val _ = Define `
+ (tenvLift mn tenv=  
+ (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
+
+
 val _ = Hol_reln ` (! extra_checks tvs cu tenv p e t bindings locs.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
@@ -768,9 +791,14 @@ type_d extra_checks cu tenv (Dexn locs cn ts)
   {}
   <| v := nsEmpty;
      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
-     t := nsEmpty |>)`;
+     t := nsEmpty |>)
 
-val _ = Hol_reln ` (! extra_checks cu tenv.
+/\ (! extra_checks cu tenv mn ds decls tenv'.
+(type_ds extra_checks cu tenv ds decls tenv')
+==>
+type_d extra_checks cu tenv (Dmod mn ds) decls (tenvLift mn tenv'))
+
+/\ (! extra_checks cu tenv.
 T
 ==>
 type_ds extra_checks cu tenv []
@@ -868,7 +896,9 @@ let weak_decls decls_impl decls_spec =
   decls_impl.defined_mods = decls_spec.defined_mods &&
   decls_spec.defined_types subset decls_impl.defined_types &&
   decls_spec.defined_exns subset decls_impl.defined_exns
+   *)
 
+(*
 val weak_tenvT : id modN typeN -> (list tvarN * t) -> (list tvarN * t) -> bool
 let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
@@ -876,15 +906,21 @@ let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   (t_spec = t_impl ||
    (* The specified type is opaque *)
    t_spec = Tapp (List.map Tvar tvs_spec) (TC_name n))
+   *)
 
-let tscheme_inst2 _ ts1 ts2 = tscheme_inst ts1 ts2
+val _ = Define `
+ (tscheme_inst2 _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
 
-val weak_tenv : type_env -> type_env -> bool
-let weak_tenv tenv_impl tenv_spec =
-  nsSub tscheme_inst2 tenv_spec.v tenv_impl.v &&
-  nsSub (fun _ x y -> x = y) tenv_spec.c tenv_impl.c &&
-  nsSub weak_tenvT tenv_spec.t tenv_impl.t
 
+(*val weak_tenv : type_env -> type_env -> bool*)
+val _ = Define `
+ (weak_tenv tenv_impl tenv_spec=  
+ (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
+  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c))`;
+(* &&
+  nsSub weak_tenvT tenv_spec.t tenv_impl.t*)
+
+(*
 indreln [check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool]
 
 none : forall mn tenvT decls tenv.

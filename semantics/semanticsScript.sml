@@ -1,11 +1,10 @@
 open preamble;
 open lexer_funTheory
-(* open cmlPtreeConversionTheory;  TODO: should be included in termination *)
+open cmlPtreeConversionTheory;  (* TODO: should be included in termination *)
 open terminationTheory;
 
 val _ = new_theory "semantics";
 
-(*
 val parse_def = Define`
 parse toks =
   case some pt. valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
@@ -13,7 +12,6 @@ parse toks =
   of
      NONE => NONE
    | SOME p => ptree_TopLevelDecs p`;
-   *)
 
 val _ = Datatype`
   state = <| (* Type system state *)
@@ -67,7 +65,6 @@ val semantics_prog_def = Define `
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
-(*
 val semantics_def = Define`
   semantics state prelude input =
   case parse (lexer_fun input) of
@@ -76,6 +73,5 @@ val semantics_def = Define`
     if can_type_prog state (prelude ++ prog)
     then Execute (semantics_prog state.sem_st state.sem_env (prelude ++ prog))
     else IllTyped`;
-    *)
 
 val _ = export_theory();

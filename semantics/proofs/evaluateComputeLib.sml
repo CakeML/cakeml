@@ -8,6 +8,7 @@ open semanticPrimitivesTheory evaluateTheory
     ,computeLib.Defs
       [evaluate_def
       ,evaluate_decs_def
+      (*
       ,evaluate_tops_def
       ,evaluate_prog_def
       ,no_dup_types_def
@@ -15,9 +16,9 @@ open semanticPrimitivesTheory evaluateTheory
       ,no_dup_mods_def
       ,prog_to_mods_def
       ,no_dup_top_types_def
-      ,prog_to_top_types_def
+      ,prog_to_top_types_def *)
       ,extend_dec_env_def
-      ,type_defs_to_new_tdecs_def
+      (*,type_defs_to_new_tdecs_def*)
       ]
     ]
 
