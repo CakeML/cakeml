@@ -4109,7 +4109,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ simp[])
   >- ( (*FP*)
     qpat_x_assum`A=SOME s'` mp_tac>>
-    TOP_CASE_TAC>>fs[wInst_def,evaluate_def,word_allocTheory.max_var_inst_def]>>
+    TOP_CASE_TAC>>fs[wInst_def,evaluate_def,wordLangTheory.max_var_inst_def]>>
     (* Cases not interfering with normal registers *)
     TRY
       (simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def]>>EVERY_CASE_TAC>>fs[]>>

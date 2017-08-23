@@ -193,6 +193,15 @@ val max_var_inst_def = Define`
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (FP (FPLess r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPLessEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPMovToReg r1 r2 d):'a inst) =
+    if dimindex(:'a) = 64 then r1
+    else MAX r1 r2) ∧
+  (max_var_inst (FP (FPMovFromReg d r1 r2)) =
+    if dimindex(:'a) = 64 then r1
+    else MAX r1 r2) ∧
   (max_var_inst _ = 0)`
 
 val max_var_def = Define `

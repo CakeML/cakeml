@@ -2554,6 +2554,7 @@ val max_var_intro = Q.store_thm("max_var_intro",`
   TRY (match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    TRY(Cases_on`f`)>>
     full_simp_tac(srw_ss())[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def])
   >-
