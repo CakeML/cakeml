@@ -59,7 +59,8 @@ val _ = Datatype `
      | BoundsCheckBlock
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
-     | LessConstSmall num`
+     | LessConstSmall num
+     | Install`
 
 val _ = Datatype `
   exp = Var tra num

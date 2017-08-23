@@ -167,8 +167,16 @@ val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val Install_location_def = Define `
+  Install_location = ByteCopyNew_location+1`;
+val InstallCode_location_def = Define `
+  InstallCode_location = Install_location+1`;
+val InstallData_location_def = Define `
+  InstallData_location = InstallCode_location+1`;
+val Dummy_location_def = Define `
+  Dummy_location = InstallData_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = ByteCopyNew_location+1`;
+  Bignum_location = Dummy_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -216,6 +224,14 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
   ``ByteCopySub_location`` |> EVAL);
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
+val Install_location_eq = save_thm("Install_location_eq",
+  ``Install_location`` |> EVAL);
+val InstallCode_location_eq = save_thm("InstallCode_location_eq",
+  ``InstallCode_location`` |> EVAL);
+val InstallData_location_eq = save_thm("InstallData_location_eq",
+  ``InstallData_location`` |> EVAL);
+val Dummy_location_eq = save_thm("Dummy_location_eq",
+  ``Dummy_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -525,6 +541,15 @@ val Mod_code_def = Define `
   Mod_code = Seq (Assign 6 (Const (n2w (4 * 6))))
                  (Call NONE (SOME AnyArith_location) [0;2;4;6] NONE)
              :'a wordLang$prog`;
+
+val Install_code_def = Define `
+  Install_code conf = Skip :'a wordLang$prog`;
+
+val InstallCode_code_def = Define `
+  InstallCode_code conf = Skip :'a wordLang$prog`;
+
+val InstallData_code_def = Define `
+  InstallData_code conf = Skip :'a wordLang$prog`;
 
 val Compare1_code_def = Define `
   Compare1_code =
@@ -1370,6 +1395,14 @@ local val assign_quotation = `
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
        | _ => (Skip,l))
+    | Install =>
+      (dtcase args of
+       | [v1;v2] =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME Install_location)
+                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 
 val assign_pmatch_lemmas = [
@@ -1676,11 +1709,15 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
+    (Install_location,3n,Install_code data_conf);
+    (InstallCode_location,3n,InstallCode_code data_conf);
+    (InstallData_location,3n,InstallData_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
-    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf)
+    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
+    (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",

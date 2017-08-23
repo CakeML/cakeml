@@ -3,22 +3,26 @@ local open bviPropsTheory in end;
 
 val _ = new_theory"dataProps";
 
+val s = ``s:('c,'ffi) dataSem$state``
+
 val bvi_to_data_id = Q.store_thm("bvi_to_data_id[simp]",
   `bvi_to_data (data_to_bvi x) x = x`,
   EVAL_TAC \\ rw[state_component_equality]);
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
-  `(initial_state f c k).clock = k ∧
-   (initial_state f c k).locals = LN ∧
-   (initial_state f c k).code = c ∧
-   (initial_state f c k).ffi = f ∧
-   (initial_state f c k).stack = []`,
+  `(initial_state f c co cc k).clock = k ∧
+   (initial_state f c co cc k).locals = LN ∧
+   (initial_state f c co cc k).code = c ∧
+   (initial_state f c co cc k).ffi = f ∧
+   (initial_state f c co cc k).compile_oracle = co ∧
+   (initial_state f c co cc k).compile = cc ∧
+   (initial_state f c co cc k).stack = []`,
   srw_tac[][initial_state_def]);
 
 val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
-  `(initial_state f c k with clock := k' = initial_state f c k') ∧
-   (initial_state f c k with stack := [] = initial_state f c k) ∧
-   (initial_state f c k with locals := LN = initial_state f c k)`,
+  `(initial_state f c co cc k with clock := k' = initial_state f c co cc k') ∧
+   (initial_state f c co cc k with stack := [] = initial_state f c co cc k) ∧
+   (initial_state f c co cc k with locals := LN = initial_state f c co cc k)`,
   srw_tac[][initial_state_def]);
 
 val with_same_locals = Q.store_thm("with_same_locals",
@@ -80,24 +84,31 @@ val consume_space_with_locals = Q.prove(
 
 val do_app_with_stack = Q.prove(
   `do_app op vs (s with stack := z) = map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_stack] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
+  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def,do_install_def] >>
+  rpt (every_case_tac >>
+       full_simp_tac(srw_ss())[consume_space_with_stack] >>
+       srw_tac[][] >> full_simp_tac(srw_ss())[]));
 
 val do_app_with_locals = Q.prove(
   `do_app op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_locals] >> srw_tac[][] >> full_simp_tac(srw_ss())[]);
+  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def,do_install_def] >>
+  rpt (every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_locals] >> srw_tac[][] >> full_simp_tac(srw_ss())[]));
 
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
-  srw_tac[][do_app_def] >>
+  srw_tac[][do_app_def,do_install_def]
+  THEN1 (rpt (every_case_tac \\ fs [] \\ pairarg_tac \\ fs [])) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[]);
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
-    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧ z.clock = x.clock`,
-  simp[do_app_def,do_space_def] >>
+    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
+    z.clock = x.clock ∧ z.compile = x.compile`,
+  simp[do_app_def,do_space_def,do_install_def] >>
+  IF_CASES_TAC THEN1
+    (every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
+     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   every_case_tac >> simp[bvi_to_data_def] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
   full_simp_tac(srw_ss())[bviSemTheory.do_app_def] >>
@@ -112,6 +123,10 @@ val do_app_locals = Q.store_thm("do_app_locals",
     (do_app op x (s with locals := extra) =
        Rval (q,r with locals := extra))`,
   full_simp_tac(srw_ss())[do_app_def,do_space_def,consume_space_def,data_to_bvi_def]
+  \\ IF_CASES_TAC THEN1
+    (fs [do_install_def]
+     \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
+     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
   \\ every_case_tac >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
   \\ full_simp_tac(srw_ss())[bvi_to_data_def,state_component_equality]);
 
@@ -127,7 +142,7 @@ val Seq_Skip = Q.store_thm("Seq_Skip",
   full_simp_tac(srw_ss())[evaluate_def] \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []);
 
 val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
-  `!c s.
+  `!c ^s.
      case evaluate (c,s) of
      | (SOME (Rerr(Rabort Rtype_error)),s1) => T
      | (SOME (Rerr(Rabort a)),s1) => (s1.stack = []) /\
@@ -218,13 +233,14 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1 (full_simp_tac(srw_ss())[call_env_def])
-    \\ Cases_on `evaluate (r,call_env q (push_env x' (IS_SOME handler) (dec_clock s)))` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `q''` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `evaluate (r,call_env q (push_env x' (IS_SOME handler) (dec_clock ^s)))` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `q''` \\ fs []
     \\ Cases_on `x''` \\ full_simp_tac(srw_ss())[]
-    \\ TRY (Cases_on `handler`
+    THEN1 (Cases_on `handler`
        \\ full_simp_tac(srw_ss())[pop_env_def,call_env_def,push_env_def,set_var_def,dec_clock_def]
        \\ REPEAT STRIP_TAC
-       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `Exc x' s.handler::xs`) \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `Exc x' ^s.handler::xs`)
+       \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ reverse(Cases_on`e`)\\full_simp_tac(srw_ss())[] THEN1 (
          Cases_on`a`>>full_simp_tac(srw_ss())[]>>
          srw_tac[][]>>
@@ -235,7 +251,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
             EVAL_TAC >>
             Cases_on`handler`>>EVAL_TAC >>
             simp[] )) >>
-         qpat_abbrev_tac`st:'ffi dataSem$state = X Y` >>
+         qpat_abbrev_tac`st:('c,'ffi) dataSem$state = X Y` >>
          `st = ss` by (
            simp[Abbr`ss`,Abbr`st`,dataSemTheory.state_component_equality] >>
            EVAL_TAC >>
@@ -272,7 +288,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
-           (dec_clock (s with stack := xs)))).stack`)
+           (dec_clock (^s with stack := xs)))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
             (call_env q (push_env x8 T (dec_clock (s with stack := xs)))).stack) =
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
@@ -293,7 +309,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
-           (dec_clock (s with stack := xs)))).stack`)
+           (dec_clock (^s with stack := xs)))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
             (call_env q (push_env x8 T (dec_clock (s with stack := xs)))).stack) =
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
@@ -308,7 +324,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Rraise *)
      (FIRST_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
-           (dec_clock s))).stack`)
+           (dec_clock ^s))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
             (call_env q (push_env x8 T (dec_clock s))).stack) =
           (call_env q (push_env x8 T (dec_clock s)))` by full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
@@ -328,7 +344,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ SIMP_TAC std_ss [Once jump_exc_def] \\ full_simp_tac(srw_ss())[]
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
-           (dec_clock (s with stack := xs)))).stack`)
+           (dec_clock (^s with stack := xs)))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
             (call_env q (push_env x8 T (dec_clock (s with stack := xs)))).stack) =
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
@@ -348,7 +364,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     THEN (* Rtimeout_error *)
      (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
-           (dec_clock (s with stack := xs)))).stack`)
+           (dec_clock (^s with stack := xs)))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
             (call_env q (push_env x8 T (dec_clock (s with stack := xs)))).stack) =
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
@@ -359,10 +375,10 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])))
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])));
 
 val evaluate_stack = Q.store_thm("evaluate_stack",
-  `!c s.
+  `!c ^s.
       case evaluate (c,s) of
       | (SOME (Rerr(Rabort Rtype_error)),s1) => T
       | (SOME (Rerr(Rabort _)),s1) => (s1.stack = [])
@@ -374,7 +390,7 @@ val evaluate_stack = Q.store_thm("evaluate_stack",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_NONE_jump_exc = Q.store_thm("evaluate_NONE_jump_exc",
-  `(evaluate (c,s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
+  `(evaluate (c,^s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
     (jump_exc s = SOME (s with <| stack := x.stack ;
                                   handler := x.handler ;
                                   locals := x.locals |>))`,
@@ -384,7 +400,7 @@ val evaluate_NONE_jump_exc = Q.store_thm("evaluate_NONE_jump_exc",
   \\ SRW_TAC [] []);
 
 val evaluate_NONE_jump_exc_ALT = Q.store_thm("evaluate_NONE_jump_exc_ALT",
-  `(evaluate (c,s) = (NONE,u1)) /\ (jump_exc s = SOME x) ==>
+  `(evaluate (c,^s) = (NONE,u1)) /\ (jump_exc s = SOME x) ==>
     (jump_exc u1 = SOME (u1 with <| stack := x.stack ;
                                   handler := x.handler ;
                                   locals := x.locals |>))`,
@@ -394,7 +410,7 @@ val evaluate_NONE_jump_exc_ALT = Q.store_thm("evaluate_NONE_jump_exc_ALT",
   \\ SRW_TAC [] []);
 
 val evaluate_locals_LN_lemma = Q.prove(
-  `!c s.
+  `!c ^s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
@@ -406,7 +422,7 @@ val evaluate_locals_LN_lemma = Q.prove(
   \\ Cases_on`a`>>full_simp_tac(srw_ss())[]);
 
 val evaluate_locals_LN = Q.store_thm("evaluate_locals_LN",
-  `!c s res t.
+  `!c ^s res t.
       (evaluate (c,s) = (res,t)) /\ res <> NONE /\ res <> SOME (Rerr(Rabort Rtype_error)) ==>
       (t.locals = LN) \/ ?t. res = SOME (Rerr(Rraise t))`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ full_simp_tac(srw_ss())[]);
@@ -450,7 +466,7 @@ val locals_ok_get_vars = Q.store_thm("locals_ok_get_vars",
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]);
 
 val data_to_bvi_ignore = Q.store_thm("data_to_bvi_ignore",
-  `(data_to_bvi (s with space := t) = data_to_bvi s) ∧
+  `(data_to_bvi (s with space := t) = data_to_bvi ^s) ∧
    (data_to_bvi (s with locals := l) = data_to_bvi s) ∧
    (data_to_bvi (s with <| locals := l; space := t |>) = data_to_bvi s)`,
   EVAL_TAC);
@@ -616,6 +632,8 @@ val FUNPOW_dec_clock_code = Q.store_thm("FUNPOW_dec_clock_code[simp]",
     ((FUNPOW dec_clock n t).ffi = t.ffi) /\
     ((FUNPOW dec_clock n t).global = t.global) /\
     ((FUNPOW dec_clock n t).locals = t.locals) /\
+    ((FUNPOW dec_clock n t).compile = t.compile) /\
+    ((FUNPOW dec_clock n t).compile_oracle = t.compile_oracle) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)`,
   Induct_on `n` \\ full_simp_tac(srw_ss())[FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC);
 
@@ -636,14 +654,21 @@ val jump_exc_IMP = Q.store_thm("jump_exc_IMP",
 
 val do_app_Rerr = Q.store_thm("do_app_Rerr",
   `dataSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error`,
-  rw[dataSemTheory.do_app_def]
+  rw[dataSemTheory.do_app_def,dataSemTheory.do_install_def]
+  \\ every_case_tac \\ fs[]
+  \\ rpt (pairarg_tac \\ fs [])
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac bviPropsTheory.do_app_err);
 
 val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
-  srw_tac[][do_app_def,do_space_def] >>
+  Cases_on `op = Install` THEN1
+   (fs [do_app_def,do_install_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
+  srw_tac[][do_app_def,do_space_def,do_install_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac bviPropsTheory.do_app_change_clock >>
   full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def,state_component_equality] >>
@@ -655,6 +680,11 @@ val do_app_change_clock = Q.store_thm("do_app_change_clock",
 val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
   `(do_app op args s1 = Rerr e) ==>
    (do_app op args (s1 with clock := ck) = Rerr e)`,
+  Cases_on `op = Install` THEN1
+   (fs [do_app_def,do_install_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac bviPropsTheory.do_app_change_clock_err >>
@@ -673,7 +703,7 @@ val cut_state_eq_none = Q.store_thm("cut_state_eq_none",
   srw_tac[][cut_state_def] >> every_case_tac >> full_simp_tac(srw_ss())[EQ_IMP_THM]);
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
-  `(s:'ffi dataSem$state) with clock := s.clock = s`,
+  `^s with clock := s.clock = s`,
   srw_tac[][state_component_equality]);
 
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
@@ -738,6 +768,11 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app x y z = Rval (a,b) ⇒
    z.ffi.io_events ≼ b.ffi.io_events ∧
    (IS_SOME z.ffi.final_event ⇒ b.ffi = z.ffi)`,
+  Cases_on `x = Install` THEN1
+   (fs [do_app_def,do_install_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   srw_tac[][bvi_to_data_def] >>
@@ -794,7 +829,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   metis_tac[IS_PREFIX_TRANS]);
 
 val with_clock_ffi = Q.store_thm("with_clock_ffi",
-  `(s with clock := y).ffi = s.ffi`,
+  `(^s with clock := y).ffi = s.ffi`,
   EVAL_TAC)
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
@@ -829,7 +864,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 val semantics_Div_IMP_LPREFIX = Q.store_thm("semantics_Div_IMP_LPREFIX",
-  `semantics ffi prog start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`,
+  `semantics ffi prog co cc start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`,
   simp[semantics_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
@@ -854,7 +889,7 @@ val semantics_Div_IMP_LPREFIX = Q.store_thm("semantics_Div_IMP_LPREFIX",
                initial_state_simp,initial_state_with_simp]);
 
 val semantics_Term_IMP_PREFIX = Q.store_thm("semantics_Term_IMP_PREFIX",
-  `semantics ffi prog start = Terminate tt l ==> ffi.io_events ≼ l`,
+  `semantics ffi prog co cc start = Terminate tt l ==> ffi.io_events ≼ l`,
   simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
   \\ imp_res_tac evaluate_io_events_mono \\ fs[]);
@@ -862,9 +897,9 @@ val semantics_Term_IMP_PREFIX = Q.store_thm("semantics_Term_IMP_PREFIX",
 val Resource_limit_hit_implements_semantics =
   Q.store_thm("Resource_limit_hit_implements_semantics",
   `implements {Terminate Resource_limit_hit ffi.io_events}
-       {semantics ffi (fromAList prog) start}`,
+       {semantics ffi (fromAList prog) co cc start}`,
   fs [implements_def,extend_with_resource_limit_def]
-  \\ Cases_on `semantics ffi (fromAList prog) start` \\ fs []
+  \\ Cases_on `semantics ffi (fromAList prog) co cc start` \\ fs []
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []);
 
