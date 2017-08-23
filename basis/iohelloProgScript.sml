@@ -265,62 +265,9 @@ val hello_semantics = save_thm("hello_semantics",
 val foo = prog_rewrite |> concl |> rhs;
 
 fun mk_main_call s =
-(* TODO: don't use the parser so much here? *)
   ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val main_call = mk_main_call ``"hello"``;
 
 
-`fv = ^(fetch_v "hello" st) ==>
- P = STDIO fs0 inp0 out err ==>
- !fs'. R fs' = ((∀fname.
-            fname ∉ {strlit "stdin"; strlit "stdout"; strlit "stderr"} ⇒
-            ALOOKUP fs0.files fname = ALOOKUP fs'.files fname) ∧
-         (ALOOKUP fs'.infds 0 = SOME (strlit "stdin",STRLEN (FST inp0)) ∧
-          ALOOKUP fs'.files (strlit "stdin") =
-          SOME (STRCAT (FST inp0) (SND inp0))) ∧
-         (ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ∧
-          ALOOKUP fs'.files (strlit "stdout") = SOME (out ++ "Hello World!\n")) ∧
-         ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ∧
-         ALOOKUP fs'.files (strlit "stderr") = SOME err) ==>
-   prog = ^foo ==>
-    ∃io_events fs'. R fs' /\
-    semantics_prog (init_state (basis_ffi inp cls fs ll)) env1
-      (SNOC ^main_call prog)
-	 (Terminate Success io_events) /\
-    extract_fs (basis_fs inp fs ll) io_events = SOME fs'`
-rpt strip_tac >>
-match_mp_tac (Q.SPECL [`"hello"`,`fv`] call_main_thm_basis
-				|> CONV_RULE (DEPTH_CONV Thm_convs.IMP_IMP_CONJ_IMP_CONV)) >>
-rpt strip_tac >>
-cheat
-match_mp_tac (call_main_thm_basis
-        |> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
-        |> SPEC(stringSyntax.fromMLstring name)
-        |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
-        |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-        |> C HO_MATCH_MP spec)
-
-
-hr
-
-
-
-
-
-
-!fname fv.
- ML_code env1 (init_state (basis_ffi inp cls fs ll)) prog NONE env2 st2 ==>
-   lookup_var fname env2 = SOME fv ==>
-
-  app (basis_proj1, basis_proj2) fv [Conv NONE []] P
-    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS fs. IOFS fs * &R fs) * Q) ==>
-  no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_mods /\
-  no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_types ==>
-  (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
-  ==>
-    ∃io_events fs'. R fs' /\
-    semantics_prog (init_state (basis_ffi inp cls fs ll)) env1
-      (SNOC ^main_call prog) (Terminate Success io_events) /\
-    extract_fs (basis_fs inp fs ll) io_events = SOME fs'`
 
 val _ = export_theory ()
