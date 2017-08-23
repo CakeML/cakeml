@@ -60,7 +60,11 @@ val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
 
 val push_env_const = Q.store_thm("push_env_const[simp]",
   `(push_env x y z).clock = z.clock ∧
-   (push_env x y z).ffi = z.ffi`,
+   (push_env x y z).ffi = z.ffi ∧
+   (push_env x y z).termdep = z.termdep ∧
+   (push_env x y z).compile = z.compile ∧
+   (push_env x y z).gc_fun = z.gc_fun ∧
+   (push_env x y z).code = z.code`,
   Cases_on`y`>>simp[push_env_def,UNCURRY] >>
   rename1`SOME p` >>
   PairCases_on`p` >>
@@ -88,6 +92,9 @@ val pop_env_with_const = Q.store_thm("pop_env_with_const[simp]",
 
 val call_env_const = Q.store_thm("call_env_const[simp]",
   `(call_env x y).clock = y.clock ∧
+   (call_env x y).compile_oracle = y.compile_oracle ∧
+   (call_env x y).compile = y.compile ∧
+   (call_env x y).gc_fun = y.gc_fun ∧
    (call_env x y).ffi = y.ffi`,
   EVAL_TAC);
 
@@ -140,6 +147,9 @@ val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
    get_var x (y with permute := p) = get_var x y /\
    get_var x (y with code_buffer := cb) = get_var x y /\
    get_var x (y with data_buffer := db) = get_var x y /\
+   get_var x (y with code := cc) = get_var x y /\
+   get_var x (y with compile_oracle := co) = get_var x y /\
+   get_var x (y with compile := ccc) = get_var x y /\
    get_var x (y with stack := xs) = get_var x y`,
   EVAL_TAC);
 
@@ -148,6 +158,9 @@ val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
    get_vars x (y with permute := p) = get_vars x y /\
    get_vars x (y with code_buffer := cb) = get_vars x y /\
    get_vars x (y with data_buffer := db) = get_vars x y /\
+   get_vars x (y with code := cc) = get_vars x y /\
+   get_vars x (y with compile_oracle := co) = get_vars x y /\
+   get_vars x (y with compile := ccc) = get_vars x y /\
    get_vars x (y with stack := xs) = get_vars x y`,
   Induct_on`x`>>srw_tac[][get_vars_def]);
 
@@ -177,7 +190,10 @@ val set_vars_with_const = Q.store_thm("set_vars_with_const[simp]",
   EVAL_TAC);
 
 val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
-  `mem_load x (y with clock := k) = mem_load x y`,
+  `mem_load x (y with clock := k) = mem_load x y ∧
+   mem_load x (y with code := c) = mem_load x y ∧
+   mem_load x (y with compile_oracle := co) = mem_load x y ∧
+   mem_load x (y with compile := cc) = mem_load x y`,
   EVAL_TAC);
 
 val mem_store_const_full = Q.store_thm("mem_store_const_full",
@@ -199,10 +215,14 @@ val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
   EVAL_TAC >> every_case_tac >> simp[]);
 
 val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
-  `∀x y k. word_exp (x with clock := k) y = word_exp x y`,
+  `∀x y k c co cc.
+  word_exp (x with clock := k) y = word_exp x y ∧
+  word_exp (x with code := c) y = word_exp x y ∧
+  word_exp (x with compile_oracle := co) y = word_exp x y ∧
+  word_exp (x with compile := cc) y = word_exp x y`,
   recInduct word_exp_ind >>
-  srw_tac[][word_exp_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  rw[word_exp_def] >>
+  every_case_tac >> fs[]>>
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`ls = MAP A B`>>
   qpat_abbrev_tac`ls' = MAP A B`>>
@@ -264,7 +284,8 @@ val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
   Cases_on`x`>>EVAL_TAC);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
-  `(dec_clock s).ffi = s.ffi`,
+  `(dec_clock s).ffi = s.ffi /\
+   (dec_clock s).compile_oracle = s.compile_oracle`,
   EVAL_TAC);
 
 (* Standard add clock lemma for FBS *)
@@ -580,19 +601,20 @@ val pop_env_code_gc_fun_clock = Q.store_thm("pop_env_code_gc_fun_clock",`
   r.gc_fun = x.gc_fun ∧
   r.clock = x.clock ∧
   r.be = x.be ∧
-  r.mdomain = x.mdomain`,
+  r.mdomain = x.mdomain ∧
+  r.compile = x.compile`,
   fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality]);
 
 val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
   alloc x names s = (res,t) ⇒
-  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be`,
+  t.code = s.code /\ t.gc_fun = s.gc_fun /\ t.mdomain = s.mdomain /\ t.be = s.be ∧ t.compile=s.compile`,
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
   imp_res_tac pop_env_code_gc_fun_clock>>fs[]);
 
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
-  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
+  s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be ∧ s.compile = t.compile`,
   Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def]);
 
 (* TODO: other consts *)
@@ -600,7 +622,9 @@ val evaluate_consts = Q.store_thm("evaluate_consts",
   `!xs s1 vs s2.
      evaluate (xs,s1) = (vs,s2) ==>
      s1.gc_fun = s2.gc_fun /\
-     s1.mdomain = s2.mdomain /\ s1.be = s2.be`,
+     s1.mdomain = s2.mdomain /\ s1.be = s2.be ∧
+     s1.compile = s2.compile
+     `,
   recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rpt conj_tac>>rpt gen_tac>>rpt DISCH_TAC)
   >-
     (rename1 `bad_dest_args _ _`>>
