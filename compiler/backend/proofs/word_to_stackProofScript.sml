@@ -6968,7 +6968,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
   simp[EL_APPEND1]);
 
 val init_state_ok_def = Define `
-  init_state_ok k ^t <=>
+  init_state_ok k ^t coracle <=>
     4n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
@@ -6978,10 +6978,20 @@ val init_state_ok_def = Define `
     [4w] ≼ t.bitmaps /\
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
-    Handler IN FDOM t.store`
+    Handler IN FDOM t.store /\
+    LENGTH t.bitmaps + LENGTH t.data_buffer.buffer + t.data_buffer.space_left + 1 < dimword (:'a) /\
+    t.compile_oracle = (λn.
+      let ((bm0,cfg),progs) = coracle n in
+      let (progs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
+        (cfg,progs,DROP (LENGTH bm0) bm)) ∧
+    (∀n. let ((bm0,cfg),progs) = coracle n in
+        EVERY (post_alloc_conventions k o SND o SND) progs ∧
+        EVERY (flat_exp_conventions o SND o SND) progs ∧
+        EVERY ((<>) raise_stub_location o FST) progs ∧
+        (n = 0 ⇒ bm0 = t.bitmaps))`
 
 val make_init_def = Define `
-  make_init ^t code =
+  make_init k ^t code coracle =
     <| locals  := insert 0 (Loc 1 0) LN
      ; store   := t.store \\ Handler
      ; stack   := []
@@ -6992,6 +7002,13 @@ val make_init_def = Define `
      ; handler := 0
      ; clock   := t.clock
      ; code    := code
+     ; data_buffer := t.data_buffer
+     ; code_buffer := t.code_buffer
+     ; compile := (λ(bm0,cfg) progs.
+        let (progs,bm) = word_to_stack$compile_word_to_stack k progs bm0 in
+        OPTION_MAP (λ(bytes,cfg). (bytes,DROP (LENGTH bm0) bm,(bm,cfg)))
+          (t.compile cfg progs))
+     ; compile_oracle := coracle
      ; be      := t.be
      ; ffi     := t.ffi
      ; termdep := 0 |> `;
@@ -7006,9 +7023,12 @@ val init_state_ok_IMP_state_rel = Q.prove(
          word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
          isPREFIX bs2 t.bitmaps /\
          (lookup n t.code = SOME stack_prog)) /\
-    init_state_ok k t ==>
-    state_rel k 0 0 (make_init t code) (t:('a,'c,'ffi)stackSem$state) []`,
+    domain t.code = raise_stub_location INSERT domain code ∧
+    init_state_ok k t coracle ==>
+    state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []`,
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs[])
+  >- (first_x_assum(qspec_then`n`mp_tac) \\ simp[])
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
@@ -7017,30 +7037,29 @@ val init_state_ok_IMP_state_rel = Q.prove(
   \\ fs [sptreeTheory.wf_def,Once insert_def,lookup_insert] \\ metis_tac[]);
 
 val init_state_ok_semantics =
-  state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
+  state_rel_IMP_semantics |> Q.INST [`s`|->`make_init k t code coracle`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `^t.code = fromAList (SND (compile asm_conf code)) /\
-    init_state_ok (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) t /\ (ALOOKUP code raise_stub_location = NONE) /\
+    k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
+    init_state_ok k t coracle /\ (ALOOKUP code raise_stub_location = NONE) /\
     (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
     EVERY (λn,m,prog. flat_exp_conventions prog /\ post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
-    semantics (make_init t (fromAList code)) start <> Fail ==>
+    semantics (make_init k t (fromAList code) coracle) start <> Fail ==>
     semantics start t IN
-    extend_with_resource_limit {semantics (make_init t (fromAList code)) start}`,
-  qabbrev_tac `k = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)`
-  \\ rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
-  \\ qexists_tac `k` \\ fs []
-  \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM] \\ rw [] \\ fs []
-  THEN1 (pairarg_tac \\ fs [])
+    extend_with_resource_limit {semantics (make_init k t (fromAList code) coracle) start}`,
+  rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
+  \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM,domain_fromAList] \\ rw [] \\ fs []
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ imp_res_tac MAP_FST_compile_word_to_stack \\ fs[]
   \\ Cases_on `n=raise_stub_location` \\ fs []
   \\ TRY
     (imp_res_tac ALOOKUP_MEM>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
-  \\ pairarg_tac \\ fs []
   \\ match_mp_tac compile_word_to_stack_IMP_ALOOKUP
   \\ metis_tac []);
 
@@ -7095,7 +7114,9 @@ val word_to_stack_lab_pres = Q.store_thm("word_to_stack_lab_pres",`
   >-
     (fs[wLive_def]>>rpt(pairarg_tac>>fs[])>>
     EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>EVAL_TAC)
-  >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC))
+  >- (EVAL_TAC>>EVERY_CASE_TAC>>EVAL_TAC)
+  >> rpt(pairarg_tac \\ fs[wReg2_def])
+  \\ every_case_tac \\ rw[] \\ EVAL_TAC);
 
 val word_to_stack_compile_lab_pres = Q.store_thm("word_to_stack_compile_lab_pres",`
   EVERY (λn,m,p.
@@ -7248,7 +7269,10 @@ val word_to_stack_stack_asm_name_lem = Q.prove(`
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
-    EVAL_TAC>>rw[]))
+    EVAL_TAC>>rw[])
+  >> PairCases_on`kf` \\ EVAL_TAC
+  \\ rw[] \\ EVAL_TAC \\ fs[]
+  \\ cheat (* full_inst_ok_less or something needs extending for DataBufferWrite and CodeBufferWrite ? *))
 
 val call_dest_stack_asm_remove = Q.prove(`
   (FST k)+1 < c.reg_count - LENGTH c.avoid_regs ∧
@@ -7334,7 +7358,11 @@ val word_to_stack_stack_asm_remove_lem = Q.prove(`
   >-
     (PairCases_on`kf`>>
     EVAL_TAC>>rw[]>>
-    EVAL_TAC>>rw[]))
+    EVAL_TAC>>rw[])
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ PairCases_on`kf` \\ fs[wReg1_def,wReg2_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ EVAL_TAC \\ fs[])
 
 val word_to_stack_stack_asm_convs = Q.store_thm("word_to_stack_stack_asm_convs",`
   EVERY (λ(n,m,p).
@@ -7410,7 +7438,9 @@ val word_to_stack_alloc_arg = Q.store_thm("word_to_stack_alloc_arg",`
     rveq>>fs [alloc_arg_def]>>
     match_mp_tac stack_move_alloc_arg>>fs [alloc_arg_def]))
   >>
-    rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]);
+    rpt(pairarg_tac>>fs[alloc_arg_def])>>rveq>>fs[alloc_arg_def]
+  >> fs[wReg1_def,wReg2_def]
+  >> every_case_tac \\ fs[] \\ rw[alloc_arg_def,wStackLoad_def]);
 
 val stack_move_reg_bound = Q.store_thm("stack_move_reg_bound",`
   ∀n st off i p k.
@@ -7462,7 +7492,10 @@ val word_to_stack_reg_bound = Q.store_thm("word_to_stack_reg_bound",`
     rpt(pairarg_tac>>fs[StackArgs_def,reg_bound_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
     rveq>>fs [reg_bound_def]>>
     match_mp_tac stack_move_reg_bound>>fs [reg_bound_def]))
-  >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]));
+  >- (rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def])
+  \\ rpt(pairarg_tac>>fs[reg_bound_def])>>rveq>>fs[reg_bound_def]
+  \\ fs[wReg1_def,wReg2_def]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]);
 
 val stack_move_call_args = Q.store_thm("stack_move_call_args",`
   ∀n st off i p.
@@ -7510,8 +7543,10 @@ val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
     rpt(pairarg_tac>>fs[StackArgs_def,call_args_def,wStackLoad_def,PushHandler_def,StackHandlerArgs_def,PopHandler_def])>>
     rveq>>fs [call_args_def]>>
     match_mp_tac stack_move_call_args>>fs [call_args_def]))
-  >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]));
-
+  >- (rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def])
+  \\ rpt(pairarg_tac>>fs[call_args_def])>>rveq>>fs[call_args_def]
+  \\ fs[wReg1_def,wReg2_def]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ EVAL_TAC \\ fs[]);
 
 val reg_bound_ind = stackPropsTheory.reg_bound_ind
 val reg_bound_def = stackPropsTheory.reg_bound_def
