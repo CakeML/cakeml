@@ -208,7 +208,7 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
        in
          SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
-       case skip_comment (TL str) 0 (loc with col := loc.col + 2) of
+       case skip_comment (TL str) (0:num) (loc with col := loc.col + 2) of
        | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
      else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
