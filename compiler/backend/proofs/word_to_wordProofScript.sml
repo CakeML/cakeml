@@ -6,8 +6,8 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_wordProof";
 
-val _ = bring_to_front_overload"Call"{Thy="wordLang",Name="Call"};
-"
+val _ = bring_to_front_overload "Call" {Thy="wordLang",Name="Call"};
+(*"*)
 
 val is_phy_var_tac =
     full_simp_tac(srw_ss())[reg_allocTheory.is_phy_var_def]>>
@@ -158,7 +158,7 @@ val code_rel_union_fromAList = Q.prove(`
     simp[]>>metis_tac[]);
 
 val compile_single_correct = Q.prove(`
-  ∀prog( st:('a,'c,'ffi) wordSem$state) l coracle cc.
+  ∀prog (st:('a,'c,'ffi) wordSem$state) l coracle cc.
   code_rel st.code l /\
   (domain st.code = domain l) ∧
   (st.compile = λconf progs.
@@ -572,60 +572,51 @@ val compile_single_correct = Q.prove(`
      Cases_on`call_FFI st.ffi s x'`>>simp[]));
 
 val compile_word_to_word_thm = Q.store_thm("compile_word_to_word_thm",
-  `(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
-           ∃t k a c col.
-           lookup n l = SOME (SND (full_compile_single t k a c ((n,v),col)))) /\
-   gc_fun_const_ok st.gc_fun ==>
-    ?perm' clk.
-      let prog = Call NONE (SOME start) [0] NONE in
-      let (res,rst) = evaluate (prog,st with permute := perm') in
-        if res = SOME Error then T else
-          let (res1,rst1) = evaluate (prog,st with <|code := l;clock:=st.clock+clk;termdep:=0|>) in
-            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi`,
-  simp[LET_THM]>>
-  srw_tac[][]>>
-  (*namely, l' is some map over st.code that replicates l everywhere except
-  it doesn't do the last remove_must_terminate*)
-  `∃l'.
-    (!n v p. lookup n l' = SOME (v,p) ==>
-     lookup n l = SOME (v,remove_must_terminate p)) ∧
-    !n v.
-      lookup n st.code = SOME v ⇒
-      ∃t k a c col.
-        lookup n l' = SOME (SND (compile_single t k a c ((n,v),col)))` by
-      (qexists_tac`
-      let ls = toAList st.code in
-      let ls' = MAP (λn,v.
-        n, @res.
-        ∃t k a c col. lookup n l = SOME (SND (full_compile_single t k a c ((n,v),col))) ∧
-        res = SND(compile_single t k a c ((n,v),col))) ls in
-          fromAList ls'`>>
-      simp[lookup_fromAList]>>srw_tac[][]
-      >-
-        (imp_res_tac ALOOKUP_MEM>>
-        full_simp_tac(srw_ss())[MEM_MAP]>>pairarg_tac>>
-        full_simp_tac(srw_ss())[]>>
-        qpat_x_assum`(v,p) = A` mp_tac>>
-        SELECT_ELIM_TAC>>srw_tac[][]>>
-        full_simp_tac(srw_ss())[MEM_toAList,full_compile_single_def,LET_THM]>>
-        pairarg_tac>>full_simp_tac(srw_ss())[])
-      >>
-        res_tac>>
-        simp[ALOOKUP_MAP_gen,ALOOKUP_toAList]>>
-        SELECT_ELIM_TAC>>srw_tac[][]>>
-        metis_tac[])>>
-  qpat_abbrev_tac`prog = Call A B C D`>>
-  imp_res_tac compile_single_correct>>
-  first_x_assum(qspec_then`prog` assume_tac)>>full_simp_tac(srw_ss())[LET_THM]>>
-  qexists_tac`perm'`>>pairarg_tac>>full_simp_tac(srw_ss())[]>>
-  pairarg_tac>>full_simp_tac(srw_ss())[]>>
-  Cases_on`res=SOME Error`>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac word_remove_correct>>
-  pop_assum kall_tac>>
-  rev_full_simp_tac(srw_ss())[]>>
-  pop_assum(qspec_then`l` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  full_simp_tac(srw_ss())[Abbr`prog`,word_removeTheory.remove_must_terminate_def,LET_THM]>>
-  qexists_tac`clk`>>full_simp_tac(srw_ss())[ADD_COMM])
+  `
+  code_rel (st:('a,'c,'ffi) wordSem$state).code l ∧
+  (domain st.code = domain l) ∧
+  (st.compile = λconf progs.
+    cc conf (MAP (λp. full_compile_single tt kk aa co (p,NONE)) progs)) ∧
+  (coracle = (I ## MAP (λp. full_compile_single tt kk aa co (p,NONE))) o st.compile_oracle) ∧
+  gc_fun_const_ok st.gc_fun ==>
+  ?perm' clk.
+    let prog = Call NONE (SOME start) [0] NONE in
+    let (res,rst) = evaluate (prog,st with permute := perm') in
+      if res = SOME Error then T else
+      let (res1,rst1) = evaluate (prog,
+        st with <|code           := map (I ## remove_must_terminate) l;
+                  clock          :=st.clock+clk;
+                  termdep        :=0;
+                  compile        := cc;
+                  compile_oracle := coracle
+                  |>)
+      in
+        res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi`,
+  simp[]>>rw[]>>
+  qpat_abbrev_tac`prog = Call _ _ _ _`>>
+  drule compile_single_correct>>fs[]>>
+  disch_then(qspecl_then[`prog`,`λconf. cc conf o ((MAP (I ## I ## remove_must_terminate)))`] mp_tac)>>
+  impl_tac>-(
+    simp[FUN_EQ_THM,full_compile_single_def,LAMBDA_PROD,MAP_MAP_o,o_DEF]>>
+    rw[]>>AP_TERM_TAC>>
+    simp[MAP_EQ_f,FORALL_PROD]>>rw[]>>
+    pairarg_tac>>fs[])>>
+  rw[]>>
+  qexists_tac`perm'`>>pairarg_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  Cases_on`res=SOME Error`>>fs[]>>
+  drule (GEN_ALL word_remove_correct)>>fs[]>>
+  disch_then(qspec_then`cc` assume_tac)>>rfs[]>>
+  qexists_tac`clk`>>
+  fs[Abbr`prog`,word_removeTheory.remove_must_terminate_def,compile_state_def]>>
+  qmatch_asmsub_abbrev_tac`evaluate (_,sa) = (res,_)`>>
+  qmatch_goalsub_abbrev_tac`evaluate (_,sb)`>>
+  `sa = sb` by
+    (unabbrev_all_tac>>fs[state_component_equality,FUN_EQ_THM]>>rw[]>>
+    Cases_on`st.compile_oracle x`>>
+    fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,full_compile_single_def]>>
+    rw[MAP_EQ_f,FORALL_PROD]>>pairarg_tac>>fs[])>>
+  fs[]>>fs[state_component_equality]);
 
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
