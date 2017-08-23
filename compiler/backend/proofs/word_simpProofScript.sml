@@ -861,12 +861,12 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
        imp_res_tac lookup_filter_v_SOME_thm \\
        imp_res_tac lookup_filter_v_SOME_imp_thm \\
        fs [lookup_inter_EQ] \\ rfs [] \\
-       qpat_x_assum `_ ==> _ /\ _` mp_tac \\
-       impl_tac THEN1 (fs [push_env_def] \\ pairarg_tac \\ fs []) \\
-       strip_tac \\
        drule push_env_pop_env_locals_thm \\ fs [] \\
-       rpt (disch_then drule) \\ fs [AND_IMP_INTRO] \\
-       disch_then match_mp_tac \\ fs [is_gc_word_const_def])
+       rpt (disch_then drule) \\
+       last_x_assum drule>>
+       strip_tac>>
+       disch_then drule>>
+       fs[is_gc_word_const_def])
     >- (imp_res_tac evaluate_consts \\ imp_res_tac pop_env_gc_fun_thm \\
        fs [set_var_def, push_env_gc_fun_thm])
     >- rw[])
