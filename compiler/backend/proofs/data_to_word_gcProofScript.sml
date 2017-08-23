@@ -4335,8 +4335,10 @@ val the_global_def = Define `
 val contains_loc_def = Define `
   contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
 
+val s = ``(s:('d,'ffi) dataSem$state)``
+
 val state_rel_thm = Define `
-  state_rel c l1 l2 (s:'ffi dataSem$state) (t:('a,'c,'ffi) wordSem$state) v1 locs <=>
+  state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) v1 locs <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
@@ -4413,7 +4415,8 @@ val state_rel_init = Q.store_thm("state_rel_init",
     t.stack = [] /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain ==>
-    state_rel c l1 l2 (initial_state ffi code t.clock) (t:('a,'c,'ffi) state) [] []`,
+    state_rel c l1 l2 (initial_state ffi code co cc t.clock)
+                      (t:('a,'c,'ffi) state) [] []`,
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,
     join_env_def,lookup_def,the_global_def,
@@ -4472,7 +4475,7 @@ val adjust_var_NOT_0 = Q.store_thm("adjust_var_NOT_0[simp]",
   full_simp_tac(srw_ss())[adjust_var_def]);
 
 val state_rel_get_var_IMP = Q.store_thm("state_rel_get_var_IMP",
-  `state_rel c l1 l2 s t v1 locs ==>
+  `state_rel c l1 l2 ^s t v1 locs ==>
     (get_var n s.locals = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w`,
   full_simp_tac(srw_ss())[dataSemTheory.get_var_def,wordSemTheory.get_var_def]
@@ -4482,7 +4485,7 @@ val state_rel_get_var_IMP = Q.store_thm("state_rel_get_var_IMP",
 
 val state_rel_get_vars_IMP = Q.store_thm("state_rel_get_vars_IMP",
   `!n xs.
-      state_rel c l1 l2 s t [] locs ==>
+      state_rel c l1 l2 ^s t [] locs ==>
       (get_vars n s.locals = SOME xs) ==>
       ?ws. get_vars (MAP adjust_var n) t = SOME ws /\ (LENGTH xs = LENGTH ws)`,
   Induct \\ full_simp_tac(srw_ss())[dataSemTheory.get_vars_def,wordSemTheory.get_vars_def]
@@ -4492,7 +4495,7 @@ val state_rel_get_vars_IMP = Q.store_thm("state_rel_get_vars_IMP",
   \\ imp_res_tac state_rel_get_var_IMP \\ full_simp_tac(srw_ss())[]);
 
 val state_rel_0_get_vars_IMP = Q.store_thm("state_rel_0_get_vars_IMP",
-  `state_rel c l1 l2 s t [] locs ==>
+  `state_rel c l1 l2 ^s t [] locs ==>
     (get_vars n s.locals = SOME xs) ==>
     ?ws. get_vars (0::MAP adjust_var n) t = SOME ((Loc l1 l2)::ws) /\
          (LENGTH xs = LENGTH ws)`,
@@ -4502,7 +4505,7 @@ val state_rel_0_get_vars_IMP = Q.store_thm("state_rel_0_get_vars_IMP",
   \\ full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.get_var_def]);
 
 val get_var_T_OR_F = Q.store_thm("get_var_T_OR_F",
-  `state_rel c l1 l2 s (t:('a,'c,'ffi) state) [] locs /\
+  `state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -4525,7 +4528,7 @@ val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
 val cut_env_IMP_cut_env = Q.store_thm("cut_env_IMP_cut_env",
-  `state_rel c l1 l2 s t [] locs /\
+  `state_rel c l1 l2 ^s t [] locs /\
     dataSem$cut_env r s.locals = SOME x ==>
     ?y. wordSem$cut_env (adjust_set r) t.locals = SOME y`,
   full_simp_tac(srw_ss())[dataSemTheory.cut_env_def,wordSemTheory.cut_env_def]
@@ -4567,8 +4570,10 @@ val jump_exc_push_env_NONE = Q.store_thm("jump_exc_push_env_NONE",
   \\ every_case_tac \\ srw_tac[][mk_loc_def]
   \\ `F` by decide_tac);
 
+val s1 = mk_var("s1",type_of s)
+
 val state_rel_pop_env_IMP = Q.store_thm("state_rel_pop_env_IMP",
-  `state_rel c q l s1 t1 xs locs /\
+  `state_rel c q l ^s1 t1 xs locs /\
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
@@ -4592,7 +4597,7 @@ val state_rel_pop_env_IMP = Q.store_thm("state_rel_pop_env_IMP",
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
 val state_rel_pop_env_set_var_IMP = Q.store_thm("state_rel_pop_env_set_var_IMP",
-  `state_rel c q l s1 t1 [(a,w)] locs /\
+  `state_rel c q l ^s1 t1 [(a,w)] locs /\
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
@@ -4628,7 +4633,7 @@ val state_rel_pop_env_set_var_IMP = Q.store_thm("state_rel_pop_env_set_var_IMP",
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
 val state_rel_jump_exc = Q.store_thm("state_rel_jump_exc",
-  `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+  `state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w /\
     jump_exc s = SOME s1 ==>
@@ -4686,7 +4691,7 @@ val lookup_adjust_var_fromList2 = Q.store_thm("lookup_adjust_var_fromList2",
   \\ full_simp_tac(srw_ss())[GSYM MULT_CLAUSES,MULT_DIV]);
 
 val state_rel_call_env = Q.store_thm("state_rel_call_env",
-  `get_vars args s.locals = SOME q /\
+  `get_vars args ^s.locals = SOME q /\
     get_vars (MAP adjust_var args) (t:('a,'c,'ffi) wordSem$state) = SOME ws /\
     state_rel c l5 l6 s t [] locs ==>
     state_rel c l1 l2 (call_env q (dec_clock s))
@@ -4767,8 +4772,8 @@ val state_rel_CodePtr = Q.store_thm("state_rel_CodePtr",
   \\ imp_res_tac word_ml_inv_CodePtr);
 
 val find_code_thm = Q.store_thm("find_code_thm",
-  `!(s:'ffi dataSem$state) (t:('a,'c,'ffi)wordSem$state).
-      state_rel c l1 l2 s t [] locs /\
+  `!s (t:('a,'c,'ffi)wordSem$state).
+      state_rel c l1 l2 ^s t [] locs /\
       get_vars args s.locals = SOME x /\
       get_vars (0::MAP adjust_var args) t = SOME (Loc l1 l2::ws) /\
       find_code dest x s.code = SOME (q,r) ==>
@@ -4921,7 +4926,7 @@ val state_rel_call_env_push_env = Q.store_thm("state_rel_call_env_push_env",
   \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList]);
 
 val find_code_thm_ret = Q.store_thm("find_code_thm_ret",
-  `!(s:'ffi dataSem$state) (t:('a,'c,'ffi)wordSem$state).
+  `!s (t:('a,'c,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
@@ -4959,7 +4964,7 @@ val find_code_thm_ret = Q.store_thm("find_code_thm_ret",
 val _ = save_thm("find_code_thm_ret",find_code_thm_ret);
 
 val find_code_thm_handler = Q.store_thm("find_code_thm_handler",
-  `!(s:'ffi dataSem$state) (t:('a,'c,'ffi)wordSem$state).
+  `!s (t:('a,'c,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
       get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
@@ -5014,7 +5019,7 @@ val s_key_eq_LASTN = Q.store_thm("s_key_eq_LASTN",
   \\ imp_res_tac s_key_eq_LENGTH \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
 val evaluate_mk_loc_EQ = Q.store_thm("evaluate_mk_loc_EQ",
-  `evaluate (q,t) = (NONE,t1:('a,'c,'ffi) state) ==>
+  `evaluate (q,t) = (NONE,t1:('a,'b,'c) state) ==>
     mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)`,
   qspecl_then [`q`,`t`] mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def]
@@ -5027,7 +5032,7 @@ val mk_loc_eq_push_env_exc_Exception = Q.store_thm("mk_loc_eq_push_env_exc_Excep
   `evaluate
       (c:'a wordLang$prog, call_env args1
             (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
-               (dec_clock t))) = (SOME (Exception xx w),(t1:('a,'c,'ffi) state)) ==>
+               (dec_clock t))) = (SOME (Exception xx w),(t1:('a,'b,'c) state)) ==>
     mk_loc (jump_exc t1) = mk_loc (jump_exc t) :'a word_loc`,
   qspecl_then [`c`,`call_env args1
     (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l)) (dec_clock t))`]
@@ -5062,7 +5067,7 @@ val evaluate_IMP_domain_EQ = Q.store_thm("evaluate_IMP_domain_EQ",
 val evaluate_IMP_domain_EQ_Exc = Q.store_thm("evaluate_IMP_domain_EQ_Exc",
   `evaluate (c,call_env args1 (push_env y
       (SOME (x0,prog1:'a wordLang$prog,x1,l))
-      (dec_clock (t:('a,'c,'ffi) state)))) = (SOME (Exception ll w),t1) ==>
+      (dec_clock (t:('a,'b,'c) state)))) = (SOME (Exception ll w),t1) ==>
     domain t1.locals = domain y`,
   qspecl_then [`c`,`call_env args1
      (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l)) (dec_clock t))`]
@@ -5233,11 +5238,13 @@ val state_rel_get_var_Block = Q.store_thm("state_rel_get_var_Block",
   \\ strip_tac \\ rveq
   \\ simp[word_addr_def]);
 
+val s' = mk_var("s'",type_of s);
+
 val state_rel_cut_state_opt_get_var = Q.store_thm("state_rel_cut_state_opt_get_var",
-  `state_rel c l1 l2 s t [] locs ∧
+  `state_rel c l1 l2 ^s t [] locs ∧
    cut_state_opt names_opt s = SOME x ∧
    get_var v x.locals = SOME w ⇒
-   ∃s'. state_rel c l1 l2 s' t [] locs ∧
+   ∃s'. state_rel c l1 l2 ^s' t [] locs ∧
         get_var v s'.locals = SOME w`,
   rw[cut_state_opt_def]
   \\ every_case_tac \\ fs[] >- metis_tac[]
@@ -5289,7 +5296,7 @@ val jump_exc_push_env_SOME = Q.store_thm("jump_exc_push_env_SOME",
   \\ full_simp_tac(srw_ss())[LASTN_ADD1]);
 
 val eval_push_env_T_Raise_IMP_stack_length = Q.store_thm("eval_push_env_T_Raise_IMP_stack_length",
-  `evaluate (p,call_env ys (push_env x T (dec_clock s))) =
+  `evaluate (p,call_env ys (push_env x T (dec_clock (s:('c,'ffi)dataSem$state)))) =
        (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack = LENGTH s.stack`,
   qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
@@ -5312,7 +5319,7 @@ val eval_push_env_SOME_exc_IMP_s_key_eq = Q.store_thm("eval_push_env_SOME_exc_IM
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val eval_exc_stack_shorter = Q.store_thm("eval_exc_stack_shorter",
-  `evaluate (c,call_env ys (push_env x F (dec_clock s))) =
+  `evaluate (c,call_env ys (push_env x F (dec_clock (s:('c,'ffi)dataSem$state)))) =
       (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack < LENGTH s.stack`,
   srw_tac[][] \\ qspecl_then [`c`,`call_env ys (push_env x F (dec_clock s))`]
@@ -6076,7 +6083,7 @@ val state_rel_gc = Q.store_thm("state_rel_gc",
 val gc_lemma = Q.store_thm("gc_lemma",
   `let t0 = call_env [Loc l1 l2] (push_env y
         (NONE:(num # 'a wordLang$prog # num # num) option) t) in
-      dataSem$cut_env names (s:'ffi dataSem$state).locals = SOME x /\
+      dataSem$cut_env names (s:('b,'ffi) dataSem$state).locals = SOME x /\
       state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
       FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
@@ -6471,7 +6478,7 @@ val memory_rel_get_vars_IMP = Q.store_thm("memory_rel_get_vars_IMP",
   `memory_rel c be s.refs sp st m dm
      (join_env s.locals
         (toAList (inter t.locals (adjust_set s.locals))) ++ envs) ∧
-    get_vars n (s:'ffi dataSem$state).locals = SOME x ∧
+    get_vars n ^s.locals = SOME x ∧
     get_vars (MAP adjust_var n) (t:('a,'c,'ffi) wordSem$state) = SOME w ⇒
     memory_rel c be s.refs sp st m dm
       (ZIP (x,w) ++
