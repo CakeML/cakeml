@@ -5758,6 +5758,12 @@ val comp_correct = Q.store_thm("comp_correct",
           simp[FUN_EQ_THM]>>
         CONJ_TAC>-
           metis_tac[]>>
+        CONJ_TAC>- fs[push_env_def] >>
+        CONJ_TAC>-
+          metis_tac[]>>
+        CONJ_TAC>-
+          metis_tac[]>>
+        CONJ_TAC>- fs[push_env_def] >>
         CONJ_ASM1_TAC>-
           DECIDE_TAC>>
         CONJ_TAC>-
@@ -6665,7 +6671,7 @@ val comp_Call_lemma = comp_correct
        wordLangTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 
 val comp_Call = Q.prove(
-  `∀start (s:('a,'ffi) wordSem$state) k res s1 t lens.
+  `∀start (s:('a,'a word list # 'c,'ffi) wordSem$state) k res s1 t lens.
       evaluate (Call NONE (SOME start) [0] NONE,s) = (res,s1) /\
       res ≠ SOME Error /\ state_rel k 0 0 s t lens ⇒
       ∃ck t1:(α,'c,'ffi)stackSem$state res1.
@@ -6690,7 +6696,7 @@ val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
   `state_rel a 0 0 s t lens ⇒ state_rel a 0 0 (s with clock := k) (t with clock := k) lens`,
   rw[state_rel_def]\\metis_tac[]);
 
-val s = ``(s:(α,'ffi)wordSem$state)``;
+val s = ``(s:(α,α word list # γ,'ffi)wordSem$state)``;
 val s' = ``(s:(α,'c,'ffi)stackSem$state)``;
 val t = ``(t:(α,'c,'ffi)stackSem$state)``;
 val clock_simps =
