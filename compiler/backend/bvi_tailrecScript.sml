@@ -247,7 +247,6 @@ val mk_tailcall_def = Define `
           push_call n op acc exp3 (args_from call))
   `;
 
-
 (* Unfortunately rewrite_op now requires a context implying some code
    duplication between rewrite and scan_expr.
 *)
@@ -263,6 +262,9 @@ val rewrite_def = Define `
     let tt = FOLDL (λt e. Any :: scan_aux t e) ts xs in
     let (t, r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt) x in
       (DROP (LENGTH xs) t, r, Let xs y)) ∧
+  (rewrite (loc, next, op, acc, ts) (Tick x) =
+    let (tt, r, y) = rewrite (loc, next, op, acc, ts) x in
+      (tt, r, Tick y)) ∧
   (rewrite (loc, next, op, acc, ts) (Raise x) = (ts, F, Raise x)) ∧
   (rewrite (loc, next, op, acc, ts) exp =
     case rewrite_op ts op loc exp of
@@ -307,6 +309,19 @@ val compile_prog_def = Define `
         let (n, ys) = compile_prog (next + 2) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
   `;
+
+EVAL ``
+  let loc   = 0 in
+  let next  = 0 in
+  let arity = 1 in
+  let body  =
+    If (Op LessEq [Var 0; Op (Const 0) []])
+       (Op (Const 1) [])
+       (Op Mult
+         [ Call 0 (SOME 0) [Op Sub [Var 0; Op (Const 1) []]] NONE
+         ; Var 0])
+  in
+    compile_prog next [(loc, arity, body)]``
 
 val _ = export_theory();
 
