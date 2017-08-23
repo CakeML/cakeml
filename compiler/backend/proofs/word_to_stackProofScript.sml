@@ -7025,9 +7025,10 @@ val init_state_ok_IMP_state_rel = Q.prove(
     domain t.code = raise_stub_location INSERT domain code ∧
     init_state_ok k t coracle ==>
     state_rel k 0 0 (make_init k t code coracle) (t:('a,'c,'ffi)stackSem$state) []`,
-  fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
-  \\ rpt (pairarg_tac \\ fs[])
-  >- (first_x_assum(qspec_then`n`mp_tac) \\ simp[])
+  fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def]
+  \\ strip_tac
+  \\ conj_tac>-
+    metis_tac[]
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
