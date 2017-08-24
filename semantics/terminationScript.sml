@@ -216,29 +216,21 @@ val (vs_to_string_def,vs_to_string_ind) =
 wf_rel_tac `measure LENGTH` \\ rw[]);
 val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
 
-(*
-val check_ctor_foldr_flat_map = Q.prove (
-`!c. (FOLDR
-         (λ(tvs,tn,condefs) x2.
-            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
-    =
-    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
-induct_on `c` >>
-rw [LET_THM] >>
-PairCases_on `h` >>
-fs [LET_THM] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
-
 val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
-`!tds.
-  check_dup_ctors tds =
-    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
-metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
+  `check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)`,
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []);
 
+(*
 val do_log_thm = Q.store_thm("do_log_thm",
   `do_log l v e =
     if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
@@ -289,5 +281,14 @@ val evaluate_ind = save_thm("evaluate_ind",
 val _ = register "evaluate" evaluate_def evaluate_ind
 
 val _ = export_rewrites["evaluate.list_result_def"];
+
+val (evaluate_decs_def,evaluate_decs_ind) =
+  tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),
+  wf_rel_tac `measure (list_size dec_size o SND o SND)` >>
+  rw [] >>
+  induct_on `ds` >>
+  rw [list_size_def, dec_size_def]);
+
+val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind
 
 val _ = export_theory ();

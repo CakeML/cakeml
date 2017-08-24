@@ -45,7 +45,13 @@ val _ = type_abbrev( "ctMap", ``:((conN # stamp), (tvarN list # t list # (num # 
 
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
-    FEVERY (\((cn,tn),(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap`;
+    FEVERY (\((cn,stamp),(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
+    (!cn ex tvs ts ti. FLOOKUP ctMap (cn, ExnStamp ex) = SOME (tvs, ts, ti) ⇒
+      tvs = [] ∧ ti = Texn_num) ∧
+    (!cn1 stamp1 tvs1 ts1 ti cn2 stamp2 tvs2 ts2.
+      FLOOKUP ctMap (cn1,stamp1) = SOME (tvs1, ts1, ti) ∧
+      FLOOKUP ctMap (cn2,stamp2) = SOME (tvs2, ts2, ti) ⇒
+      stamp1 = stamp2)`;
 
     (*
 val type_decs_to_ctMap_def = Define `

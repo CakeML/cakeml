@@ -10,6 +10,22 @@ local open primSemEnvTheory in end;
 
 val _ = new_theory "typeSound";
 
+val type_num_defs = LIST_CONJ [
+  Tarray_num_def,
+  Tbool_num_def,
+  Tchar_num_def,
+  Texn_num_def,
+  Tfn_num_def,
+  Tint_num_def,
+  Tlist_num_def,
+  Tref_num_def,
+  Tstring_num_def,
+  Ttup_num_def,
+  Tvector_num_def,
+  Tword64_num_def,
+  Tword8_num_def,
+  Tword8array_num_def];
+
 val list_rel_flat = Q.store_thm ("list_rel_flat",
   `!R l1 l2. LIST_REL (LIST_REL R) l1 l2 ⇒ LIST_REL R (FLAT l1) (FLAT l2)`,
  Induct_on `l1`
@@ -47,22 +63,27 @@ val v_unchanged = Q.store_thm ("v_unchanged[simp]",
 
 val has_lists_v_to_list = Q.prove (
 `!ctMap tvs tenvS t3.
+  ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
-  type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list")))
+  type_v tvs ctMap tenvS v (Tlist t3)
   ⇒
   ?vs. v_to_list v = SOME vs ∧
   (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs) ∧
   (t3 = Tstring ⇒ ∃str. vs_to_string vs = SOME str)`,
+
  measureInduct_on `v_size v` >>
  srw_tac[][] >>
  pop_assum mp_tac >>
  srw_tac[][Once type_v_cases] >>
  full_simp_tac(srw_ss())[] >>
  imp_res_tac type_funs_Tfn >>
- full_simp_tac(srw_ss())[tid_exn_to_tc_def,Tchar_def] >>
- cases_on `tn` >>
- full_simp_tac(srw_ss())[] >>
- srw_tac[][] >>
+ fs [] >>
+ TRY (fs [type_num_defs] >> NO_TAC) >>
+ `tn = list_stamp`
+ by (
+   fs [ctMap_ok_def, ctMap_has_lists_def] >>
+   metis_tac []) >>
+ rw [] >>
  full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
  `cn = "::" ∨ cn = "nil"` by metis_tac [NOT_SOME_NONE] >>
  srw_tac[][] >>
@@ -74,8 +95,9 @@ val has_lists_v_to_list = Q.prove (
  full_simp_tac(srw_ss())[type_subst_def] >>
  rename1 `type_v _ _ _ v _` >>
  LAST_X_ASSUM (mp_tac o Q.SPEC `v`) >>
+
  srw_tac[][v_size_def, basicSizeTheory.option_size_def, basicSizeTheory.pair_size_def,
-     namespaceTheory.id_size_def, list_size_def, tid_or_exn_size_def] >>
+     namespaceTheory.id_size_def, list_size_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  res_tac >> srw_tac[][] >>
  full_simp_tac(srw_ss())[flookup_fupdate_list] >> srw_tac[][] >> full_simp_tac(srw_ss())[GSYM Tchar_def] >>

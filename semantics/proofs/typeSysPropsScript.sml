@@ -1489,12 +1489,15 @@ val tid_exn_not = Q.store_thm ("tid_exn_not",
 
 (* ---------- ctMap stuff ---------- *)
 
+(*
 val ctMap_ok_merge_imp = Q.store_thm ("ctMap_ok_merge_imp",
 `!tenvC1 tenvC2.
   ctMap_ok tenvC1 ∧ ctMap_ok tenvC2 ⇒
   ctMap_ok (FUNION tenvC1 tenvC2)`,
  srw_tac[][ctMap_ok_def] >>
  metis_tac [fevery_funion]);
+
+ *)
 
 val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
 `!ctMap cn tvs ts ti tn.

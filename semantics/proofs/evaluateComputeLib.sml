@@ -7,7 +7,7 @@ open semanticPrimitivesTheory evaluateTheory
     ,computeLib.Tys [``:'ffi semanticPrimitives$state``]
     ,computeLib.Defs
       [evaluate_def
-      ,evaluate_decs_def
+      ,terminationTheory.evaluate_decs_def
       (*
       ,evaluate_tops_def
       ,evaluate_prog_def
