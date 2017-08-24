@@ -978,8 +978,8 @@ val compile_thm = store_thm("compile_thm",
     \\ disch_then (qspecl_then [`cs2`,`t6`,`Loc n l`] mp_tac)
     \\ impl_tac THEN1
      (`t6.code = t1.code` by
-       (unabbrev_all_tac \\ fs [call_env_def,push_env_def]
-        \\ pairarg_tac \\ fs [] \\ EVAL_TAC) \\ fs []
+       (unabbrev_all_tac
+        \\ fs [call_env_def,push_env_def,wordSemTheory.dec_clock_def]) \\ fs []
       \\ conj_tac THEN1
        (match_mp_tac state_rel_delete_vars
         \\ fs [state_rel_def,dec_clock_def,wordSemTheory.dec_clock_def,Abbr`t6`,

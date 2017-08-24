@@ -294,7 +294,7 @@ val LongDiv1_thm = store_thm("LongDiv1_thm",
 val get_real_addr_lemma = Q.store_thm("get_real_addr_lemma",
   `shift_length c < dimindex (:'a) /\
     good_dimindex (:'a) /\
-    get_var v t = SOME (Word ptr_w) /\
+    get_var v (t:('a,'c,'ffi) wordSem$state) = SOME (Word ptr_w) /\
     get_real_addr c t.store ptr_w = SOME x ==>
     word_exp t (real_addr c v) = SOME (Word (x:'a word))`,
   fs [get_real_addr_def] \\ every_case_tac \\ fs []
@@ -1795,6 +1795,7 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
   \\ `state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a)-1)
         (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>)
           [] locs` by (fs [state_rel_def] \\ asm_exists_tac \\ fs [] \\ NO_TAC)
+
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ `dataSem$get_vars [a1; a2] s.locals = SOME [Number i1; Number i2]` by
     (fs [dataSemTheory.get_vars_def] \\ every_case_tac \\ fs [cut_env_def]
@@ -1831,11 +1832,10 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
   \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
        Once dataSemTheory.bvi_to_data_def]
   \\ strip_tac \\ fs [] \\ clean_tac
-  \\ `domain t2.locals = domain y` by cheat
-(*
+  \\ `domain t2.locals = domain y` by
    (qspecl_then [`AnyArith_code c`,`t4`] mp_tac
          (wordPropsTheory.evaluate_stack_swap
-            |> INST_TYPE [``:'b``|->``:'ffi``])
+            |> INST_TYPE [``:'b``|->``:'c``,``:'c``|->``:'ffi``])
     \\ fs [] \\ fs [wordSemTheory.pop_env_def,wordSemTheory.dec_clock_def]
     \\ Cases_on `r''.stack` \\ fs [] \\ Cases_on `h` \\ fs []
     \\ rename1 `r2.stack = StackFrame ns opt::t'`
@@ -1847,7 +1847,7 @@ val eval_Call_Arith = store_thm("eval_Call_Arith",
     \\ rw [] \\ drule env_to_list_lookup_equiv
     \\ fs [EXTENSION,domain_lookup,lookup_fromAList]
     \\ fs[GSYM IS_SOME_EXISTS]
-    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac []) *) \\ fs []
+    \\ imp_res_tac MAP_FST_EQ_IMP_IS_SOME_ALOOKUP \\ metis_tac [])
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
