@@ -525,7 +525,8 @@ val state_rel_set_store_Temp = store_thm("state_rel_set_store_Temp",
     state_rel c l1 l2 s t vs locs``,
   fs [state_rel_def,wordSemTheory.set_store_def]
   \\ rw [] \\ eq_tac \\ rw []
-  \\ fs [heap_in_memory_store_def,PULL_EXISTS,FLOOKUP_UPDATE,FAPPLY_FUPDATE_THM]
+  \\ fs [heap_in_memory_store_def,PULL_EXISTS,FLOOKUP_UPDATE,
+         FAPPLY_FUPDATE_THM,code_oracle_rel_def]
   \\ rpt (asm_exists_tac \\ fs []) \\ metis_tac []);
 
 val state_rel_IMP_num_size_limit = store_thm("state_rel_IMP_num_size_limit",
@@ -817,7 +818,7 @@ val Replicate_code_alt_thm = Q.store_thm("Replicate_code_alt_thm",
   \\ fs [wordSemTheory.state_component_equality]
   \\ fs [fromAList_def,insert_shadow]);
 
-val s = ``s:('d,'ffi)dataSem$state``
+val s = ``s:('c,'ffi)dataSem$state``
 
 val AnyArith_thm = Q.store_thm("AnyArith_thm",
   `∀op_index i j v t s r2 r1 locs l2 l1 c.
@@ -1434,6 +1435,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE,TempOut_def]
     \\ qunabbrev_tac `s0` \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac
+    THEN1 cheat
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0
@@ -1696,6 +1698,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ match_mp_tac LESS_EQ_LESS_TRANS
     \\ qexists_tac `2 ** c.len_size` \\ fs [])
   \\ fs [store_list_def] \\ strip_tac
+  \\ conj_tac THEN1 cheat
   \\ `(next_addr =+ Word new_header) m22 = m1` by
    (`next_addr + bytes_in_word =
      curr + bytes_in_word + bytes_in_word * n2w (heap_length ha)` by

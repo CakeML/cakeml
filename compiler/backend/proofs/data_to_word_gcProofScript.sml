@@ -4315,6 +4315,7 @@ val word_gc_fun_correct = Q.store_thm("word_gc_fun_correct",
 
 val code_rel_def = Define `
   code_rel c s_code (t_code: (num # 'a wordLang$prog) num_map) <=>
+    domain t_code = domain s_code UNION set (MAP FST (stubs (:'a) c)) /\
     EVERY (\(n,x). lookup n t_code = SOME x) (stubs (:'a) c) /\
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
@@ -4335,7 +4336,23 @@ val the_global_def = Define `
 val contains_loc_def = Define `
   contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
 
-val s = ``(s:('d,'ffi) dataSem$state)``
+val code_oracle_rel_def = Define `
+  code_oracle_rel c
+      (s_compile:'c -> (num # num # dataLang$prog) list ->
+                       (word8 list # word64 list # 'c) option)
+      s_compile_oracle t_store
+      (t_compile:'c -> (num # num # 'a wordLang$prog) list ->
+                       (word8 list # 'a word list # 'c) option)
+      t_compile_oracle t_code_buffer t_data_buffer <=>
+    t_code_buffer.buffer = [] /\
+    t_data_buffer.buffer = [] /\
+    (* TODO: relate t_store with buffer limits *)
+    s_compile = (\cfg. OPTION_MAP (I ## MAP w2w ## I) o t_compile cfg o
+                       MAP (compile_part c)) /\
+    t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
+    (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))`
+
+val s = ``(s:('c,'ffi) dataSem$state)``
 
 val state_rel_thm = Define `
   state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) v1 locs <=>
@@ -4345,6 +4362,8 @@ val state_rel_thm = Define `
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
     code_rel c s.code t.code /\
+    code_oracle_rel c s.compile s.compile_oracle t.store
+      t.compile t.compile_oracle t.code_buffer t.data_buffer /\
     good_dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\
     (* the store *)
@@ -4410,6 +4429,8 @@ val init_store_ok_def = Define `
 val state_rel_init = Q.store_thm("state_rel_init",
   `t.ffi = ffi ∧ t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
     code_rel c code t.code ∧
+    code_oracle_rel c cc co t.store
+      t.compile t.compile_oracle t.code_buffer t.data_buffer ∧
     good_dimindex (:α) ∧
     lookup 0 t.locals = SOME (Loc l1 l2) ∧
     t.stack = [] /\
@@ -5375,6 +5396,7 @@ val state_rel_set_store_AllocSize = Q.store_thm("state_rel_set_store_AllocSize",
   full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.set_store_def]
   \\ eq_tac \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+  \\ fs [code_oracle_rel_def]
   \\ metis_tac []);
 
 val inter_insert = Q.store_thm("inter_insert",
@@ -6063,6 +6085,7 @@ val state_rel_gc = Q.store_thm("state_rel_gc",
          \\ rpt (pairarg_tac \\ fs []) \\ rveq
          \\ every_case_tac \\ fs [] \\ rveq
          \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
+  \\ fs [code_oracle_rel_def]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
@@ -6083,7 +6106,7 @@ val state_rel_gc = Q.store_thm("state_rel_gc",
 val gc_lemma = Q.store_thm("gc_lemma",
   `let t0 = call_env [Loc l1 l2] (push_env y
         (NONE:(num # 'a wordLang$prog # num # num) option) t) in
-      dataSem$cut_env names (s:('b,'ffi) dataSem$state).locals = SOME x /\
+      dataSem$cut_env names (s:('c,'ffi) dataSem$state).locals = SOME x /\
       state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
       FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
       wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
