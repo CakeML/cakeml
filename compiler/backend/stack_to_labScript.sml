@@ -6,6 +6,8 @@ val _ = new_theory "stack_to_lab";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
+val _ = temp_overload_on ("Asm",``λa. Asm (Asmi a)``);
+
 val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)`;
@@ -102,16 +104,15 @@ val is_gen_gc_def = Define `
 
 val _ = Datatype`config =
   <| reg_names : num num_map
-   ; max_heap : num
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
    |>`;
 
 val compile_def = Define `
-  compile c c2 c3 sp offset prog =
-    let prog = stack_alloc$compile c2 prog in
-    let prog = stack_remove$compile c.jump offset (is_gen_gc c2.gc_kind)
-                 c.max_heap c3.bitmaps sp InitGlobals_location prog in
-    let prog = stack_names$compile c.reg_names prog in
-      MAP prog_to_section prog`;
+ compile stack_conf data_conf max_heap sp offset prog =
+   let prog = stack_alloc$compile data_conf prog in
+   let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+                max_heap sp InitGlobals_location prog in
+   let prog = stack_names$compile stack_conf.reg_names prog in
+     MAP prog_to_section prog`;
 
 val _ = export_theory();

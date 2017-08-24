@@ -1,7 +1,7 @@
 open preamble;
 open semanticPrimitivesTheory;
 open ml_translatorTheory ml_translatorLib ml_progLib;
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
+open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib cfLetAutoLib;
 open basisFunctionsLib;
 open mlarrayProgTheory;
 
@@ -1050,9 +1050,8 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       full_simp_tac (std_ss++ARITH_ss) [GSYM LENGTH_NIL] >>
       xapp >>
       rw [] >>
-      xlet `POSTv b_v. &(BOOL T b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
+      xlet_auto
       >- (
-        xapp_spec eq_int_v_thm >>
         xsimpl >>
         fs [BOOL_def, INT_def]) >>
       xif >>
@@ -1064,23 +1063,12 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       fs [sing_length1]) >>
     (* Get the code of the loop *)
     last_x_assum irule >>
-    xlet `POSTv b_v. &(BOOL F b_v) * ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3)`
-    >- (
-      xapp_spec eq_int_v_thm >>
-      xsimpl >>
-      fs [BOOL_def, INT_def]) >>
+    xlet_auto >- xsimpl >>
     xif >>
     qexists_tac `F` >>
     rw [] >>
     (* Get the pivot *)
-    xlet `POSTv pivot_v. ARRAY arr_v (elem_vs1 ++ elem_vs2 ++ elem_vs3) * &(pivot_v = HD elem_vs2)`
-    >- (
-      xapp >>
-      xsimpl >>
-      qexists_tac `LENGTH elem_vs1` >>
-      fs [NUM_def, INT_def] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      simp [EL_APPEND1, EL_APPEND2]) >>
+    xlet_auto >- xsimpl >>
     qabbrev_tac `pivot = HD elems2` >>
     (* The post-condition of partition *)
     xlet
@@ -1096,7 +1084,9 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
         `LENGTH elems2 > 1` by metis_tac [LIST_REL_LENGTH] >>
         imp_res_tac length_gt1 >>
         simp [FRONT_DEF] >>
-        fs [])
+        fs [] >>
+        REWRITE_TAC [GSYM APPEND_ASSOC] >>
+        simp [EL_LENGTH_APPEND])
       >- metis_tac []) >>
     fs [partition_pred_def] >>
     (* The first recursive call sorts the lower partition *)
@@ -1127,12 +1117,7 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
       MAP_EVERY qexists_tac [`elems1`, `part2++elem_vs3`, `elem_vs1`] >>
       rw [] >>
       metis_tac []) >>
-    xlet `POSTv upper_v2. ARRAY arr_v (elem_vs1++sorted_vs1++part2++elem_vs3) *
-              &(INT (&(LENGTH elem_vs1 + LENGTH part1)) upper_v2)`
-    >- (
-      xapp >>
-      xsimpl >>
-      fs [INT_def, int_arithTheory.INT_NUM_SUB]) >>
+    xlet_auto >- xsimpl >>
     (* The second recursive call sorts the upper partition, and that should
      * leave the whole list between lower and upper sorted. *)
     first_x_assum (qspec_then `LENGTH part2` mp_tac) >>
@@ -1154,7 +1139,11 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     `LENGTH part1 = LENGTH sorted_vs1`
     by metis_tac [PERM_LENGTH, LENGTH_ZIP] >>
     rw []
-    >- metis_tac []
+    >- (
+      fs [NUM_def] >>
+      `LENGTH sorted_vs1 ≠ 0` by metis_tac [LENGTH_NIL] >>
+      `LENGTH sorted_vs1 - 1 + 1 = LENGTH sorted_vs1` by intLib.ARITH_TAC >>
+      fs [])
     >- metis_tac [ADD_COMM, PERM_LENGTH, LIST_REL_LENGTH, LENGTH_ZIP, LENGTH_APPEND] >>
     qexists_tac `sorted1++x` >>
     rw []
@@ -1173,30 +1162,22 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
     fs [strict_weak_order_def, transitive_def] >>
     metis_tac []) >>
   (* Make the initial call to the sorting loop, unless the array is empty *)
-  xlet `POSTv len_v. ARRAY arr_v elem_vs * &INT (&LENGTH elem_vs) len_v`
-  >- (
-    xapp >>
-    xsimpl >>
-    simp [NUM_def, INT_def]) >>
-  xlet `POSTv b_v. ARRAY arr_v elem_vs * &BOOL (LENGTH elem_vs = 0) b_v`
-  >- (
-    xapp_spec eq_int_v_thm >>
-    xsimpl >>
-    fs [NUM_def, BOOL_def, INT_def]) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
   xif
   >- (
     xret >>
     xsimpl >>
     fs [LENGTH_NIL]) >>
-  xlet `POSTv len_v1. ARRAY arr_v elem_vs * &INT (&(LENGTH elem_vs - 1)) len_v1`
-  >- (
-    xapp >>
-    xsimpl >>
-    fs [INT_def, int_arithTheory.INT_NUM_SUB]) >>
+  xlet_auto >- xsimpl >>
   first_x_assum xapp_spec >>
   xsimpl >>
   MAP_EVERY qexists_tac [`elems`, `[]`, `elem_vs`] >>
-  rw [] >>
+  rw []
+  >- (
+    fs [INT_def] >>
+    `LENGTH elem_vs ≠ 0` by simp [] >>
+    simp [int_arithTheory.INT_NUM_SUB]) >>
   qexists_tac `x` >>
   rw [] >>
   irule list_rel_perm >>

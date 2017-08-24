@@ -2,6 +2,7 @@
 *Script
 *Theory.sig
 *Theory.sml
+*Theory.dat
 *.uo
 *.ui
 *.o
@@ -55,3 +56,5 @@ compiler/benchmarks/cakeml/cake_O4_*
 compiler/benchmarks/sml/mlton_*
 compiler/benchmarks/sml/polyc_*
 compiler/benchmarks/sml/sml_*
+compiler/benchmarks/*.dat
+compiler/benchmarks/*.eps

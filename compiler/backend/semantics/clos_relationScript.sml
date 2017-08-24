@@ -809,7 +809,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, eqs]
+         dsimp[SimpL ``$==>``, res_rel_rw, case_eq_thms]
          >- (qx_gen_tac `rv2` >> simp[] >> strip_tac >> first_assum irule
              >- first_x_assum ACCEPT_TAC >>
              qexists_tac `s1.clock` >> simp[] >>
@@ -864,7 +864,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
+         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, case_eq_thms, pair_case_eq] >>
          simp[] >> strip_tac >>
          qmatch_abbrev_tac `res_rel _ (evaluate_app NONE rv1 rest1 s1) RHS` >>
          rename1 `state_rel s1.clock _ s1 s2` >>
@@ -937,7 +937,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                rename1 `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
                rename1 `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
          rveq >>
-         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
+         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, case_eq_thms, pair_case_eq] >>
          simp[] >> strip_tac >>
          qmatch_abbrev_tac `res_rel _ LHS (evaluate_app NONE rv2 rest2 s2)` >>
          full_simp_tac(srw_ss())[] >> rename1 `state_rel s2.clock _ s1 s2` >>
@@ -1070,9 +1070,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
  >- (`?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
      srw_tac[][] >>
      srw_tac[][res_rel_rw] >>
-     imp_res_tac do_app_cases_val >>
-     full_simp_tac(srw_ss())[] >>
-     srw_tac[][] >>
+     fs[do_app_cases_val] >> rw[] >>
      full_simp_tac(srw_ss())[do_app_def, val_rel_rw]
      >> TRY (
        fs[SWAP_REVERSE_SYM] >>
@@ -1176,6 +1174,72 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
          simp [state_rel_rw])
+     >- (
+       fs[]
+       \\ qpat_x_assum`$some _ = SOME _`mp_tac
+       \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ strip_tac \\ rveq
+       \\ imp_res_tac v_to_list_val_rel
+       \\ rfs[OPTREL_SOME]
+       \\ fs[EVERY2_MAP]
+       \\ DEEP_INTRO_TAC some_intro \\ fs[val_rel_rw]
+       \\ fs[state_rel_refs]
+       \\ reverse conj_asm2_tac
+       >- (
+         fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP]
+         \\ map_every qexists_tac[`wss`]
+         \\ simp[EL_MAP] \\ rfs[EL_MAP]
+         \\ simp[GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM]
+         \\ qx_gen_tac`x` \\ strip_tac
+         \\ rpt(first_x_assum(qspec_then`x`mp_tac))
+         \\ Cases_on`EL x z` \\ simp[val_rel_rw])
+       \\ rw[]
+       \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\ rveq
+       \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+       \\ fs[EVERY2_MAP,val_rel_rw]
+       \\ AP_TERM_TAC
+       \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE])
+     >- (
+       fs[SWAP_REVERSE_SYM] \\ rw[] \\
+       rpt(
+         qhdtm_x_assum`val_rel`mp_tac \\
+         qmatch_rename_tac`val_rel _ _ _ _ v ⇒ _` \\
+         Cases_on`v` \\ rw[val_rel_rw] ) \\
+       imp_res_tac state_rel_refs \\
+       fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
+       rw[Unit_def,val_rel_rw] \\
+       fs[Once state_rel_rw]
+       \\ match_mp_tac fmap_rel_FUPDATE_same
+       \\ fs[ref_v_rel_rw] )
+     >- (
+       fs[SWAP_REVERSE_SYM] \\ rw[] \\
+       rpt(
+         qhdtm_x_assum`val_rel`mp_tac \\
+         qmatch_rename_tac`val_rel _ _ _ _ v ⇒ _` \\
+         Cases_on`v` \\ rw[val_rel_rw] ) \\
+       imp_res_tac state_rel_refs \\
+       fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
+       rw[Unit_def,val_rel_rw] \\
+       fs[Once state_rel_rw]
+       \\ match_mp_tac fmap_rel_FUPDATE_same
+       \\ fs[ref_v_rel_rw] )
+     >- (
+       fs[SWAP_REVERSE_SYM] \\ rw[] \\
+       rpt(
+         qhdtm_x_assum`val_rel`mp_tac \\
+         qmatch_rename_tac`val_rel _ _ _ _ v ⇒ _` \\
+         Cases_on`v` \\ rw[val_rel_rw] ) \\
+       imp_res_tac state_rel_refs \\
+       fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
+       rw[Unit_def,val_rel_rw])
+     >- (
+       fs[SWAP_REVERSE_SYM] \\ rw[] \\
+       rpt(
+         qhdtm_x_assum`val_rel`mp_tac \\
+         qmatch_rename_tac`val_rel _ _ _ _ v ⇒ _` \\
+         Cases_on`v` \\ rw[val_rel_rw] ) \\
+       imp_res_tac state_rel_refs \\
+       fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
+       rw[Unit_def,val_rel_rw])
      >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>
@@ -1363,19 +1427,19 @@ val compat_cons = Q.store_thm ("compat_cons",
  metis_tac [val_rel_mono]);
 
 val compat_var = Q.store_thm ("compat_var",
-`!n. exp_rel (:'ffi) w [Var n] [Var n]`,
+`!n t t'. exp_rel (:'ffi) w [Var t n] [Var t' n]`,
  srw_tac[][exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  srw_tac[][res_rel_rw] >>
  full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
  metis_tac [MEM_EL, val_rel_mono]);
 
 val compat_if = Q.store_thm ("compat_if",
-`!e1 e2 e3 e1' e2' e3'.
+`!e1 e2 e3 e1' e2' e3' t t'.
   exp_rel (:'ffi) w [e1] [e1'] ∧
   exp_rel (:'ffi) w [e2] [e2'] ∧
   exp_rel (:'ffi) w [e3] [e3']
   ⇒
-  exp_rel (:'ffi) w [If e1 e2 e3] [If e1' e2' e3']`,
+  exp_rel (:'ffi) w [If t1 e1 e2 e3] [If t1' e1' e2' e3']`,
  srw_tac[][Boolv_def, exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  full_simp_tac(srw_ss())[PULL_FORALL] >>
  imp_res_tac val_rel_mono >>
@@ -1406,11 +1470,11 @@ val compat_if = Q.store_thm ("compat_if",
      full_simp_tac(srw_ss())[]));
 
 val compat_let = Q.store_thm ("compat_let",
-`!e es e' es'.
+`!e es e' es' t t'.
   exp_rel (:'ffi) w es es' ∧
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Let es e] [Let es' e']`,
+  exp_rel (:'ffi) w [Let t es e] [Let t' es' e']`,
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  srw_tac[][] >>
@@ -1438,10 +1502,10 @@ val compat_let = Q.store_thm ("compat_let",
  metis_tac [clock_lemmas, LESS_EQ_REFL]);
 
 val compat_raise = Q.store_thm ("compat_raise",
-`!e e'.
+`!e e' t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Raise e] [Raise e']`,
+  exp_rel (:'ffi) w [Raise t e] [Raise t' e']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
  srw_tac[][evaluate_def] >>
@@ -1461,11 +1525,11 @@ val compat_raise = Q.store_thm ("compat_raise",
  full_simp_tac(srw_ss())[]);
 
 val compat_handle = Q.store_thm ("compat_handle",
-`!e1 e2 e1' e2'.
+`!e1 e2 e1' e2' t t'.
   exp_rel (:'ffi) w [e1] [e1'] ∧
   exp_rel (:'ffi) w [e2] [e2']
   ⇒
-  exp_rel (:'ffi) w [Handle e1 e2] [Handle e1' e2']`,
+  exp_rel (:'ffi) w [Handle t e1 e2] [Handle t' e1' e2']`,
  srw_tac[][exp_rel_def] >>
  srw_tac[][evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  `exec_rel i' w (Exp [e1] env,s with clock := i') (Exp [e1'] env',s' with clock := i')`
@@ -1500,10 +1564,10 @@ val compat_handle = Q.store_thm ("compat_handle",
  full_simp_tac(srw_ss())[res_rel_rw]);
 
 val compat_tick = Q.store_thm ("compat_tick",
-`!e e'.
+`!e e' t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Tick e] [Tick e']`,
+  exp_rel (:'ffi) w [Tick t e] [Tick t' e']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
  srw_tac[][evaluate_def, res_rel_rw]
@@ -1519,10 +1583,10 @@ val compat_tick = Q.store_thm ("compat_tick",
  srw_tac[][]);
 
 val compat_call = Q.store_thm ("compat_call",
-`!ticks n es es'.
+`!ticks n es es' t t'.
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [Call ticks n es] [Call ticks n es']`,
+  exp_rel (:'ffi) w [Call t ticks n es] [Call t' ticks n es']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  srw_tac[][] >>
@@ -1557,11 +1621,11 @@ val compat_call = Q.store_thm ("compat_call",
  metis_tac []);
 
 val compat_app = Q.store_thm ("compat_app",
-`!loc e es e' es'.
+`!loc e es e' es' t t'.
   exp_rel (:'ffi) w [e] [e'] ∧
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [App loc e es] [App loc e' es']`,
+  exp_rel (:'ffi) w [App t loc e es] [App t' loc e' es']`,
  srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
@@ -1831,10 +1895,10 @@ val compat_closure = Q.store_thm ("compat_closure",
  metis_tac [compat_closure_some, compat_closure_none]);
 
 val compat_fn = Q.store_thm ("compat_fn",
-`!vars num_args e e' loc.
+`!vars num_args e e' loc t t'.
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Fn loc vars num_args e] [Fn loc vars num_args e']`,
+  exp_rel (:'ffi) w [Fn t loc vars num_args e] [Fn t' loc vars num_args e']`,
  rpt strip_tac >>
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
@@ -1969,11 +2033,11 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
   irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `j` >> simp[])
 
 val compat_letrec = Q.store_thm ("compat_letrec",
-`!loc vars funs e funs' e'.
+`!loc vars funs e funs' e' t t'.
   LIST_REL (\(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) w [e] [e']) funs funs' ∧
   exp_rel (:'ffi) w [e] [e']
   ⇒
-  exp_rel (:'ffi) w [Letrec loc vars funs e] [Letrec loc vars funs' e']`,
+  exp_rel (:'ffi) w [Letrec t loc vars funs e] [Letrec t' loc vars funs' e']`,
  rpt strip_tac >>
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
@@ -2034,7 +2098,7 @@ val compat_op = Q.store_thm ("compat_op",
 `!op es es'.
   exp_rel (:'ffi) w es es'
   ⇒
-  exp_rel (:'ffi) w [Op op es] [Op op es']`,
+  exp_rel (:'ffi) w [Op t op es] [Op t' op es']`,
  srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def] >>
  srw_tac[][] >>
@@ -2130,7 +2194,7 @@ val fmap_rel_t = prim_mk_const{Thy = "finite_map", Name = "fmap_rel"}
 val evaluate_ev_timeout_clocks0 = Q.store_thm(
   "evaluate_ev_timeout_clocks0",
   `evaluate_ev j e s0 = (Rerr (Rabort Rtimeout_error), s) ⇒ s.clock = 0`,
-  Cases_on `e` >> dsimp[evaluate_ev_def, eqs, pair_case_eq, bool_case_eq] >>
+  Cases_on `e` >> dsimp[evaluate_ev_def, case_eq_thms, pair_case_eq, bool_case_eq] >>
   rpt strip_tac >> imp_res_tac evaluate_timeout_clocks0);
 
 val val_rel_trans = Q.store_thm ("val_rel_trans",
