@@ -441,32 +441,33 @@ val code_rel_def = Define `
           lookup n c2 = SOME (arity + 1, exp_opt))`;
 
 val code_rel_find_code_SOME = Q.prove (
-  `∀c1 c2 x (args: v list) exp.
+  `∀c1 c2 x (args: v list) a exp.
      code_rel c1 c2 ∧
-     find_code (SOME n) args c1 = SOME (args, exp) ⇒
+     find_code (SOME n) args c1 = SOME (a, exp) ⇒
        find_code (SOME n) args c2 ≠ NONE`,
-  rw []
+  rw [find_code_def, code_rel_def]
   \\ pop_assum mp_tac
-  \\ simp [find_code_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
-  \\ fs [code_rel_def]
   \\ first_x_assum drule
-  \\ Cases_on `check_exp n q r`
+  \\ Cases_on `check_exp n q r` \\ fs []
   \\ rw [compile_exp_def]
   \\ pairarg_tac \\ fs []);
 
 val code_rel_find_code_NONE = Q.prove (
-  `∀c1 c2 x (args: v list) exp.
+  `∀c1 c2 x (args: v list) a exp.
      code_rel c1 c2 ∧
-     find_code NONE args c1 = SOME (FRONT args, exp) ⇒
+     find_code NONE args c1 = SOME (a, exp) ⇒
        find_code NONE args c2 ≠ NONE`,
-  rw []
+  rw [find_code_def, code_rel_def]
   \\ pop_assum mp_tac
-  \\ simp [find_code_def]
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
-  \\ fs [code_rel_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
+  >-
+   (first_x_assum drule
+    \\ Cases_on `check_exp n q r` \\ fs []
+    \\ rw [compile_exp_def]
+    \\ pairarg_tac \\ fs [])
   \\ first_x_assum drule
-  \\ Cases_on `check_exp n q r`
+  \\ Cases_on `check_exp n q exp` \\ fs []
   \\ rw [compile_exp_def]
   \\ pairarg_tac \\ fs []);
 
@@ -1094,7 +1095,121 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
 
   >-
    (
-   cheat (* TODO *)
+   simp [scan_expr_def, evaluate_def]
+   \\ IF_CASES_TAC
+   >- fs []
+   \\ `dest = NONE ⇒ ¬IS_SOME hdl` by fs []
+   \\ qpat_x_assum `¬(_)` kall_tac
+   \\ TOP_CASE_TAC
+   \\ first_assum (qspecl_then [`xs`, `s`] mp_tac)
+   \\ simp [bviTheory.exp_size_def]
+   \\ sg `env_rel F acc env1 env2`
+   >- fs [env_rel_def]
+   \\ rpt (disch_then drule) \\ fs []
+   \\ strip_tac
+   \\ reverse PURE_TOP_CASE_TAC \\ fs []
+   >- (rw [] \\ rfs [])
+   \\ PURE_TOP_CASE_TAC \\ fs []
+   \\ PURE_TOP_CASE_TAC \\ fs []
+   \\ IF_CASES_TAC \\ fs []
+   >-
+    (rw []
+     \\ PURE_TOP_CASE_TAC \\ fs []
+     \\ TRY (PURE_CASE_TAC \\ fs [])
+     \\ sg `code_rel r'.code c`
+     >- (imp_res_tac evaluate_code_const \\ fs [])
+     \\ Cases_on `dest` \\ fs []
+     \\ metis_tac [code_rel_find_code_NONE, code_rel_find_code_SOME])
+   \\ rename1 `([exp],args, _ _ s1)`
+   \\ Cases_on `dest` \\ fs []
+   >-
+    (
+     strip_tac
+     \\ PURE_TOP_CASE_TAC \\ fs []
+     >-
+      (sg `code_rel s1.code c`
+       >- (imp_res_tac evaluate_code_const \\ fs [])
+       \\ metis_tac [code_rel_find_code_NONE])
+     \\ PURE_TOP_CASE_TAC \\ fs []
+     \\ rpt (qpat_x_assum `find_code _ _ _ = _` mp_tac)
+     \\ simp [find_code_def]
+     \\ ntac 5 (PURE_CASE_TAC \\ fs []) \\ rw []
+     \\ qpat_x_assum `_ = (r, t)` mp_tac
+     \\ PURE_TOP_CASE_TAC \\ fs []
+     \\ sg `code_rel s1.code c`
+     >- (imp_res_tac evaluate_code_const \\ fs [])
+     \\ pop_assum mp_tac
+     \\ simp [code_rel_def]
+     \\ disch_then drule
+     \\ Cases_on `check_exp n q' exp` \\ fs []
+     >-
+      (rw []
+       \\ `env_rel F (LENGTH (FRONT a)) (FRONT a) (FRONT a)` by fs [env_rel_def]
+       \\ sg `ty_rel (FRONT a) (REPLICATE (LENGTH (FRONT a)) Any)`
+       >- fs [ty_rel_def, LIST_REL_EL_EQN, EL_REPLICATE]
+       \\ imp_res_tac evaluate_code_const
+       \\ first_assum (qspecl_then [`[exp]`,`dec_clock (ticks+1) s1`] mp_tac)
+       \\ impl_tac
+       >-
+        (imp_res_tac evaluate_clock
+         \\ simp [dec_clock_def])
+       \\ simp []
+       \\ rpt (disch_then drule) \\ fs []
+       \\ impl_tac
+       >- (rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw [])
+       \\ rw []
+       \\ rpt (PURE_FULL_CASE_TAC \\ fs []))
+     \\ rw [compile_exp_def]
+     \\ pairarg_tac \\ fs [] \\ rw []
+     \\ `q' = LENGTH (FRONT a)` by fs [LENGTH_FRONT]
+     \\ pop_assum (fn th => fs [th])
+     \\ imp_res_tac check_exp_not_Noop
+     \\ simp [evaluate_let_wrap]
+     \\ sg
+       `env_rel T (LENGTH (FRONT a)) (FRONT a)
+         (FRONT a ++ [op_id_val x] ++ FRONT a)`
+     >-
+       (fs [env_rel_def, EL_LENGTH_APPEND, EL_APPEND1, IS_PREFIX_APPEND]
+        \\ Cases_on `x` \\ fs [op_id_val_def])
+     \\ sg `ty_rel (FRONT a) (REPLICATE (LENGTH (FRONT a)) Any)`
+     >- fs [ty_rel_def, LIST_REL_EL_EQN, EL_REPLICATE]
+     \\ first_x_assum (qspecl_then [`[exp]`,`dec_clock (ticks+1) s1`] mp_tac)
+     \\ impl_tac
+     >-
+      (imp_res_tac evaluate_clock
+       \\ simp [dec_clock_def])
+     \\ imp_res_tac evaluate_code_const
+     \\ simp []
+     \\ rpt (disch_then drule)
+     \\ disch_then (qspec_then `n` mp_tac) \\ fs []
+     \\ impl_tac
+     >- (rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw [])
+     \\ rw []
+     \\ first_x_assum (qspecl_then [`x`,`n'`] mp_tac)
+     \\ simp [optimized_code_def, compile_exp_def]
+     \\ fs [check_exp_def]
+     \\ pairarg_tac \\ fs [] \\ rw []
+     \\ simp [apply_op_def, evaluate_def]
+     \\ reverse PURE_CASE_TAC \\ fs []
+     >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
+     \\ rw [EL_LENGTH_APPEND, EL_APPEND1]
+     \\ sg `∃m. a' = [Number m]`
+     >- cheat (* TODO scan_expr_ok_type thing *)
+     \\ Cases_on `x`
+     \\ fs [to_op_def, op_id_val_def, do_app_def, do_app_aux_def,
+            bvlSemTheory.do_app_def, bvl_to_bvi_id])
+   \\ PURE_TOP_CASE_TAC \\ fs [] \\ rw []
+   \\ PURE_TOP_CASE_TAC \\ fs []
+   >-
+    (imp_res_tac evaluate_code_const
+     \\ metis_tac [code_rel_find_code_SOME])
+   \\ PURE_TOP_CASE_TAC \\ fs []
+   \\ first_assum (qspecl_then [`[exp]`, `dec_clock (ticks+1) s1`] mp_tac)
+   \\ impl_tac
+   >-
+    (imp_res_tac evaluate_clock
+     \\ simp [dec_clock_def])
+   \\ cheat (* TODO *)
    )
   \\ Cases_on `h` \\ fs []);
 
