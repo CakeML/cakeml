@@ -56,7 +56,7 @@ val _ = Define `
  (Tstring_num : num # num=  (( 1 : num),( 9 : num)))`;
 
 val _ = Define `
- (Ttup_num : num # num=  (( 1 : num),( 11 : num)))`;
+ (Ttup_num : num # num=  (( 1 : num),( 10 : num)))`;
 
 val _ = Define `
  (Tvector_num : num # num=  (( 1 : num),( 11 : num)))`;

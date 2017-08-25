@@ -61,6 +61,8 @@ val v_unchanged = Q.store_thm ("v_unchanged[simp]",
 `!tenv x. tenv with v := tenv.v = tenv`,
  srw_tac[][type_env_component_equality]);
 
+val char
+
 val has_lists_v_to_list = Q.prove (
 `!ctMap tvs tenvS t3.
   ctMap_ok ctMap ∧
@@ -95,6 +97,29 @@ val has_lists_v_to_list = Q.prove (
  full_simp_tac(srw_ss())[type_subst_def] >>
  rename1 `type_v _ _ _ v _` >>
  LAST_X_ASSUM (mp_tac o Q.SPEC `v`) >>
+ simp [v_size_def] >>
+ disch_then drule >>
+ simp [] >>
+ disch_then drule >>
+ fs [flookup_fupdate_list] >>
+ rw [] >>
+ rw []
+
+ >- (
+   qpat_x_assum `type_v _ _ _ _ (Tapp [] Tchar_num)` mp_tac >>
+   simp [Once type_v_cases] >>
+   fs [ctMap_ok_def, type_num_defs] >>
+   rw [] >>
+   rw [v_to_char_list_def] >>
+   Cases_on `tn` >>
+   fs [] >>
+   first_x_assum drule >>
+   simp []
+   >- 
+
+
+
+
 
  srw_tac[][v_size_def, basicSizeTheory.option_size_def, basicSizeTheory.pair_size_def,
      namespaceTheory.id_size_def, list_size_def] >>
@@ -120,32 +145,58 @@ val has_lists_v_to_list = Q.prove (
    BasicProvers.CASE_TAC ) >>
  imp_res_tac type_funs_Tfn >> full_simp_tac(srw_ss())[]);
 
+  Texn_num_def,
+  Tlist_num_def,
+
 (* Classifying values of basic types *)
 val canonical_values_thm = Q.store_thm ("canonical_values_thm",
-` (type_v tvs tenvC tenvS v (Tref t1) ⇒ (∃n. v = Loc n)) ∧
-  (type_v tvs tenvC tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
-  (type_v tvs tenvC tenvS v Tchar ⇒ (∃c. v = Litv (Char c))) ∧
-  (type_v tvs tenvC tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
-  (type_v tvs ctMap tenvS v (Tapp [] (TC_name (Short "bool"))) ∧ ctMap_has_bools ctMap ⇒
-   ∃b. v = Boolv b) ∧
-  (type_v tvs tenvC tenvS v (Tfn t1 t2) ⇒
-    (∃env n e. v = Closure env n e) ∨
-    (∃env funs n. v = Recclosure env funs n)) ∧
-  (type_v tvs ctMap tenvS v Tword8 ⇒ (∃n. v = Litv (Word8 n))) ∧
-  (type_v tvs ctMap tenvS v Tword64 ⇒ (∃n. v = Litv (Word64 n))) ∧
-  (type_v tvs ctMap tenvS v Tword8array ⇒ (∃n. v = Loc n)) ∧
-  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] (TC_name (Short "list"))) ∧ ctMap_has_lists ctMap ⇒
-        (?vs. v_to_list v = SOME vs) ∧
-        ((t3 = Tchar) ⇒ ?vs. v_to_char_list v = SOME vs)) ∧
-  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_vector) ⇒ (?vs. v = Vectorv vs)) ∧
-  (!t3. type_v tvs ctMap tenvS v (Tapp [t3] TC_array) ⇒ (∃n. v = Loc n))`,
- srw_tac[][] >>
+  `ctMap_ok ctMap ⇒
+   (type_v tvs ctMap tenvS v Tint ⇒ (∃n. v = Litv (IntLit n))) ∧
+   (type_v tvs ctMap tenvS v Tchar ⇒ (∃c. v = Litv (Char c))) ∧
+   (type_v tvs ctMap tenvS v Tstring ⇒ (∃s. v = Litv (StrLit s))) ∧
+   (type_v tvs ctMap tenvS v Tword8 ⇒ (∃n. v = Litv (Word8 n))) ∧
+   (type_v tvs ctMap tenvS v Tword64 ⇒ (∃n. v = Litv (Word64 n))) ∧
+   (type_v tvs ctMap tenvS v Tbool ∧ ctMap_has_bools ctMap ⇒ ∃b. v = Boolv b) ∧
+   (type_v tvs ctMap tenvS v (Tlist t) ∧ ctMap_has_lists ctMap ⇒
+     (?vs. v_to_list v = SOME vs) ∧
+     (t = Tchar ⇒ ?vs. v_to_char_list v = SOME vs)) ∧
+   (type_v tvs ctMap tenvS v (Ttup ts) ⇒ (∃vs. v = Conv NONE vs)) ∧
+   (type_v tvs ctMap tenvS v (Tfn t1 t2) ⇒
+     (∃env n e. v = Closure env n e) ∨
+     (∃env funs n. v = Recclosure env funs n)) ∧
+   (type_v tvs ctMap tenvS v (Tref t1) ∧ type_s ctMap envS tenvS ⇒
+     (∃n v2. v = Loc n ∧ store_lookup n envS = SOME (Refv v2))) ∧
+   (type_v tvs ctMap tenvS v Tword8array ∧ type_s ctMap envS tenvS ⇒
+     (∃n ws. v = Loc n ∧ store_lookup n envS = SOME (W8array ws))) ∧
+   (type_v tvs ctMap tenvS v (Tarray t) ∧ type_s ctMap envS tenvS ⇒
+     (∃n vs. v = Loc n ∧ store_lookup n envS = SOME (Varray vs))) ∧
+   (type_v tvs ctMap tenvS v (Tvector t) ⇒ (?vs. v = Vectorv vs))`,
+
+  strip_tac >>
+  rpt (conj_tac) >>
+  simp [Once type_v_cases] >>
+  fs [ctMap_ok_def, type_num_defs] >>
+  rw [] >>
+  imp_res_tac type_funs_Tfn >>
+  fs [type_num_defs] >>
+  TRY (Cases_on `tn` >> res_tac >> fs [] >> NO_TAC)
+  >- (
+    fs [ctMap_has_bools_def, Boolv_def, type_num_defs] >>
+    `tn = bool_stamp` by metis_tac [] >>
+    `cn = "true" ∨ cn = "false"` by metis_tac [NOT_SOME_NONE] >>
+    rw [] >>
+    fs [] >>
+    rw [] >>
+    fs [] >>
+    metis_tac [])
+
+   srw_tac[][] >>
  full_simp_tac(srw_ss())[Once type_v_cases, deBruijn_subst_def] >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  TRY (Cases_on `tn`) >>
  TRY (full_simp_tac(srw_ss())[Tchar_def]>>NO_TAC) >>
- full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac type_funs_Tfn >>
  TRY (full_simp_tac(srw_ss())[Tchar_def]>>NO_TAC) >>
  full_simp_tac(srw_ss())[] >>
