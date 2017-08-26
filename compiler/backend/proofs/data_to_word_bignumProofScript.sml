@@ -1037,7 +1037,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
      \\ qunabbrev_tac `w1` \\ fs [word_mul_n2w,word_add_n2w]
      \\ conj_tac THEN1
        (unabbrev_all_tac
-        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def])
+        \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def] \\ rfs [])
      \\ `s0.clock = t.clock` by
        (unabbrev_all_tac
         \\ fs [wordSemTheory.set_store_def,code_rel_def,stubs_def,state_rel_def])
@@ -1055,12 +1055,9 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
   \\ `t9.code = t.code /\ t9.termdep = t.termdep /\
       t9.mdomain = t.mdomain /\ t9.be = t.be` by
    (imp_res_tac wordSemTheory.evaluate_clock
-    (* Broken:
-    \\ imp_res_tac evaluate_code_gc_fun_const
-    \\ imp_res_tac evaluate_mdomain_const
-    \\ imp_res_tac evaluate_be_const*)
     \\ unabbrev_all_tac
-    \\ fs [wordSemTheory.set_store_def] \\ cheat)
+    \\ fs [wordSemTheory.set_store_def]
+    \\ imp_res_tac evaluate_consts \\ fs [])
   \\ `FLOOKUP t9.store (Temp 29w) = SOME
         (Word (curr + bytes_in_word * n2w (heap_length ha)))` by
      (qunabbrev_tac `t9` \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE]
@@ -1107,8 +1104,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
           `get_iop op_index`] mp_tac
        (evaluate_mc_iop |> INST_TYPE [``:'d``|->``:'ffi``])
   \\ asm_rewrite_tac [] \\ simp_tac std_ss [AND_IMP_INTRO]
-  \\ impl_tac THEN1 cheat
-(*
+  \\ impl_tac THEN1
    (simp [LENGTH_REPLICATE]
     \\ simp_tac (srw_ss()) [word_bignumProofTheory.state_rel_def,GSYM CONJ_ASSOC]
     \\ simp [mc_multiwordTheory.mc_div_max_def,LENGTH_REPLICATE]
@@ -1124,7 +1120,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ fs [] \\ `t3.code = t.code /\ t3.termdep = t.termdep` by
      (qunabbrev_tac `t3` \\ fs [wordSemTheory.push_env_def]
       \\ pairarg_tac \\ fs [] \\ NO_TAC) \\ fs []
-    \\ `div_code_assum (:'ffi) t.code` by metis_tac [div_code_assum_thm]
+    \\ `div_code_assum (:'ffi) (:'c) t.code` by metis_tac [div_code_assum_thm]
     \\ `get_var 0 t3 = SOME (Loc AnyArith_location 2)` by
           (qunabbrev_tac `t3` \\ fs [wordSemTheory.get_var_def] \\ NO_TAC)
     \\ simp []
@@ -1366,7 +1362,6 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
         \\ qabbrev_tac `b = repl_list`
         \\ full_simp_tac std_ss [AC STAR_COMM STAR_ASSOC]
         \\ asm_exists_tac \\ asm_rewrite_tac [])))
-*)
   \\ strip_tac \\ simp []
   \\ rewrite_tac [eq_eval]
   \\ fs [wordSemTheory.get_var_def,push_env_insert_0]
@@ -1398,13 +1393,12 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ rw [] \\ simp_tac std_ss [GSYM LENGTH_NIL] \\ intLib.COOPER_TAC)
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ `t2.be = s1.be` by
-   (
-    (* Broken imp_res_tac evaluate_be_const
-    \\ *) unabbrev_all_tac
+   (imp_res_tac evaluate_consts
+    \\ rfs [] \\ unabbrev_all_tac
     \\ fs [wordSemTheory.set_store_def] \\ asm_rewrite_tac []
     \\ qpat_x_assum `state_rel _ _ _ _ _` mp_tac
     \\ rewrite_tac [word_bignumProofTheory.state_rel_def]
-    \\ simp_tac (srw_ss()) [] \\ cheat)
+    \\ simp_tac (srw_ss()) [])
   \\ `FLOOKUP t2.store CurrHeap = FLOOKUP s9.store CurrHeap /\
       FLOOKUP t2.store OtherHeap = FLOOKUP s9.store OtherHeap /\
       FLOOKUP t2.store NextFree = FLOOKUP s9.store NextFree /\
@@ -1435,7 +1429,10 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE,TempOut_def]
     \\ qunabbrev_tac `s0` \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac
-    THEN1 cheat
+    THEN1
+     (qpat_x_assum `code_oracle_rel _ s_compile s_compile_oracle t_store t_compile
+                      t_compile_oracle t_code_buffer t_data_buffer` mp_tac
+      \\ simp [code_oracle_rel_def])
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0
@@ -1698,7 +1695,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ match_mp_tac LESS_EQ_LESS_TRANS
     \\ qexists_tac `2 ** c.len_size` \\ fs [])
   \\ fs [store_list_def] \\ strip_tac
-  \\ conj_tac THEN1 cheat
+  \\ conj_tac THEN1 (fs [code_oracle_rel_def])
   \\ `(next_addr =+ Word new_header) m22 = m1` by
    (`next_addr + bytes_in_word =
      curr + bytes_in_word + bytes_in_word * n2w (heap_length ha)` by

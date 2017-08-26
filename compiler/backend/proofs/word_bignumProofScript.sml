@@ -1094,8 +1094,6 @@ val compile_thm = store_thm("compile_thm",
     \\ `get_var 0 (call_env [ret_val] (dec_clock t2)) = SOME ret_val` by
       (fs [get_var_def,call_env_def,dec_clock_def,state_rel_def] \\ EVAL_TAC)
     \\ fs []
-    \\ impl_tac
-    THEN1 fs [call_env_def,dec_clock_def,state_rel_def]
     \\ strip_tac \\ fs []
     \\ simp [Once evaluate_def,get_vars_def]
     \\ `t2.clock <> 0` by fs [state_rel_def] \\ fs []

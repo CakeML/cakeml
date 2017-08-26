@@ -6243,6 +6243,10 @@ val alloc_lemma = Q.store_thm("alloc_lemma",
      state_rel c l1 l2 (s with <|locals := x; space := k|>) r [] locs ∧
      alloc_size k <> -1w:'a word /\
      FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
+     r.code = t.code /\
+     r.code_buffer = t.code_buffer /\
+     r.data_buffer = t.data_buffer /\
+     r.compile_oracle = t.compile_oracle /\
      q = NONE)`,
   strip_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.alloc_def,
@@ -6281,7 +6285,7 @@ val alloc_lemma = Q.store_thm("alloc_lemma",
   \\ CCONTR_TAC \\ fs [wordSemTheory.has_space_def]
   \\ rfs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ rfs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w,w2n_minus_1_LESS_EQ]
-  \\ rfs [bytes_in_word_ADD_1_NOT_ZERO])
+  \\ rfs [bytes_in_word_ADD_1_NOT_ZERO]);
 
 val evaluate_GiveUp = Q.store_thm("evaluate_GiveUp",
   `state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
@@ -6358,6 +6362,10 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
       w2n w DIV 4 < limit /\
       state_rel c l1 l2 (s with <|locals := x; space := w2n w DIV 4 + 1|>) r [] locs ∧
       FLOOKUP r.store (Temp 29w) = FLOOKUP t.store (Temp 29w) /\
+      r.code = t.code /\
+      r.code_buffer = t.code_buffer /\
+      r.data_buffer = t.data_buffer /\
+      r.compile_oracle = t.compile_oracle /\
       q = NONE)`,
   fs [wordSemTheory.evaluate_def,AllocVar_def,list_Seq_def] \\ strip_tac
   \\ `limit < dimword (:'a)` by
@@ -6415,6 +6423,11 @@ val AllocVar_thm = Q.store_thm("AllocVar_thm",
   \\ fs [] \\ strip_tac
   \\ match_mp_tac (alloc_alt |> SPEC_ALL
         |> DISCH ``(t:('a,'c,'ffi) wordSem$state).store = st``
+        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code = c1``
+        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).code_buffer = c2``
+        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).data_buffer = c2``
+        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile = c3``
+        |> DISCH ``(t:('a,'c,'ffi) wordSem$state).compile_oracle = c4``
         |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)
   \\ qexists_tac `t with locals := insert 3 (Word (end + -1w * next)) t.locals`
   \\ fs [state_rel_insert_3]
