@@ -4506,8 +4506,8 @@ val get_var_T_OR_F = Q.store_thm("get_var_T_OR_F",
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((x = Boolv T) ==> (w = Word 2w)) /\
-    ((x = Boolv F) ==> (w = Word 18w))`,
+    ((x = Boolv T) ==> (w = Word 18w)) /\
+    ((x = Boolv F) ==> (w = Word 2w))`,
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac THEN1 (full_simp_tac(srw_ss())[good_dimindex_def] \\ full_simp_tac(srw_ss())[dimword_def])
   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]

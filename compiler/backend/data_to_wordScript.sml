@@ -1506,7 +1506,7 @@ val comp_def = Define `
     | If n p1 p2 =>
         let (q1,l1) = comp c secn l p1 in
         let (q2,l2) = comp c secn l1 p2 in
-          (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
+          (If Equal (adjust_var n) (Imm 18w) q1 q2,l2)
     | MakeSpace n names =>
         let k = dimindex (:'a) DIV 8 in
         let w = n2w (n * k) in

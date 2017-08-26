@@ -4463,7 +4463,7 @@ val MemEqList_thm = store_thm("MemEqList_thm",
       word_mem_eq (a + offset) xs dm m = SOME b /\
       get_var 3 t = SOME (Word a) /\ dm = t.mdomain /\ m = t.memory ==>
       ?x. evaluate (MemEqList offset xs,t) =
-            (NONE,t with locals := ((if b then insert 1 (Word 2w) else I) o
+            (NONE,t with locals := ((if b then insert 1 (Word 18w) else I) o
                                     (if xs <> [] then insert 5 x else I)) t.locals)``,
   Induct_on `xs`
   THEN1 (fs [MemEqList_def,eq_eval,word_mem_eq_def])
