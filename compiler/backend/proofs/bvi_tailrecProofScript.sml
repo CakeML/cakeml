@@ -1582,14 +1582,11 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
        \\ Cases_on `compile_prog n prog` \\ fs []
        \\ strip_tac
        \\ Cases_on `find_code (SOME start) ([]: v list) (fromAList prog)`
-       >- rfs [find_code_def]
        \\ fs [] \\ rveq
        \\ rename1 `_ = SOME (q1, q2)`
        \\ imp_res_tac code_rel_find_code_SOME
-       \\ `q1 = []` by (fs [find_code_def] \\ every_case_tac \\ fs [])
-       \\ rveq
-       \\ first_x_assum drule \\ strip_tac
-       \\ every_case_tac \\ fs [])
+       \\ PURE_TOP_CASE_TAC \\ fs []
+       \\ PURE_TOP_CASE_TAC \\ fs [])
      \\ simp []
      \\ spose_not_then strip_assume_tac
      \\ qmatch_assum_abbrev_tac `FST q = _`
