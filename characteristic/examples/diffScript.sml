@@ -159,14 +159,14 @@ val patch_aux_def = tDefine "patch_aux" `
                       | NONE => NONE)
     | SOME(orig,opt,#"c",dest,opt') =>
       let orig' = case opt of NONE => orig+1 | SOME orig' => orig' in
-        let dest' = case opt' of NONE => dest+1 | SOME dest' => dest' in        
+        let dest' = case opt' of NONE => dest+1 | SOME dest' => dest' in
           if orig < n \/ orig' < orig \/ remfl < (orig'-n) \/ dest' <= dest \/ LENGTH patch < (dest' - dest) then
             NONE
           else
             let relevant_patch = DROP (1+orig'-orig) patch in
               (case depatch_lines(TAKE (dest'-dest) relevant_patch) of
                    NONE => NONE
-                 | SOME p => 
+                 | SOME p =>
                    let lf = TAKE (orig-n) file in
                      let rf = DROP (orig'-n) file in
                        (case patch_aux (DROP (dest'-dest) relevant_patch) rf (remfl-(orig'-n)) orig' of
@@ -184,7 +184,7 @@ val patch_alg_def = Define `
 (* Patch cancels diff *)
 
 val string_concat_empty = Q.store_thm("string_concat_empty",
-`!s. s ^ strlit "" = s /\ strlit "" ^ s = s`,fs[strcat_def,implode_explode]);
+`!s. s ^ strlit "" = s /\ strlit "" ^ s = s`,fs[strcat_thm,implode_explode]);
 
 val tokens_append_strlit = Q.store_thm("tokens_append_strlit",
   `∀P s1 x s2.
@@ -261,7 +261,7 @@ val SPLITP_toChars = Q.prove(
   >> fs[] >> PURE_ONCE_REWRITE_TAC[GSYM toChars_acc] >> fs[]);
 
 val one_to_ten = Q.store_thm("one_to_ten",
-  `!P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n`, 
+  `!P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (!n. (n:num) >= 10 ==> P n) ==> !n. P n`,
   rpt strip_tac >> Cases_on `n` >> fs[]
   >> qmatch_goalsub_rename_tac `SUC n`
   >> Cases_on `n` >> fs[]
@@ -360,16 +360,16 @@ val tokens_strcat' = Q.prove(
 
 val strsub_strcat =
     Q.prove(`!s s'. strsub(s ^ s') (strlen s) = strsub s' 0`,
-    Induct >> fs[strcat_def,implode_def,strsub_def,EL_APPEND_EQN]
+    Induct >> fs[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
     >> Induct >> fs[explode_thm]);
 
 val strsub_nil =
     Q.prove(`!s c. strsub(strlit (STRING c "") ^ s) 0 = c`,
-    Induct >> fs[strcat_def,implode_def,strsub_def]);
+    Induct >> fs[strcat_thm,implode_def,strsub_def]);
 
 val strlen_append =
     Q.prove(`!s s'. strlen(s ^ s') = strlen s + strlen s'`,
-    Induct >> strip_tac >> Induct >> strip_tac >> fs[strcat_def,implode_def]);
+    Induct >> strip_tac >> Induct >> strip_tac >> fs[strcat_thm,implode_def]);
 
 val acd_simps =
     Q.prove(`l ≠ [] ==> (acd [] l = #"a" /\ acd l [] = #"d")`,
@@ -378,7 +378,7 @@ val acd_simps =
 val acd_more_simps =
     Q.prove(`l ≠ [] /\ r ≠ [] ==> (acd l r = #"c")`,
     Cases_on `l` >> Cases_on `r` >> fs[acd_def])
-           
+
 val HEX_not_tilde = Q.prove(`!n. n < 10 ==> HEX n <> #"~"`,
   recInduct one_to_ten >> fs[]);
 
@@ -446,7 +446,7 @@ val substring_adhoc_simps = Q.prove(`!h.
 /\ (substring (strlit "< " ^ h) 0 2 = strlit "< ")
 /\ (substring (strlit "< " ^ h) 2 (strlen h) = h)
 `,
-  Induct >> rpt strip_tac >> fs[strcat_def,implode_def,strong_substring_thm,strlen_def]
+  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,strong_substring_thm,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
   >> fs[SEG_LENGTH_ID])
 
@@ -462,7 +462,7 @@ val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux
 
 val line_numbers_not_empty = Q.prove(
   `!l n . line_numbers l n <> strlit ""`,
-  fs[line_numbers_def,toString_def,str_def,implode_def,maxSmall_DEC_def,strcat_def] >>
+  fs[line_numbers_def,toString_def,str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
   rw[] >> fs[] >> rw[Once toChars_def]
   >> PURE_ONCE_REWRITE_TAC[simple_toChars_def] >> rw[Once zero_pad_def,padLen_DEC_def]
   >> fs[integerTheory.INT_ABS_NUM]
@@ -495,7 +495,7 @@ val tokens_comma_lemma = Q.prove(
   `EVERY (λx. isDigit x \/ x = #",") (explode(line_numbers l n))`
   by(fs[line_numbers_def] >> rw[]
      >> fs[toString_thm,int_abs_toString_num]
-     >> fs[explode_implode,strcat_def,integerTheory.INT_ABS_NUM]
+     >> fs[explode_implode,strcat_thm,integerTheory.INT_ABS_NUM]
      >> `!x. isDigit x ==> (\x. isDigit x \/ x = #",") x` by fs[]
      >> drule EVERY_MONOTONIC
      >> strip_tac
@@ -609,7 +609,7 @@ val patch_aux_keep_init = Q.prove(
       >> Cases_on `lr` >> fs[lcs_empty']
       >> Cases_on `l'r` >> fs[lcs_empty']
       >> rveq >> first_assum(qspecl_then [`p++[h]`,`t'`,`n`,`t`,`n`] mp_tac)
-      >> first_x_assum(qspecl_then [`[h]`,`t'`,`n+LENGTH p`,`t`,`n+LENGTH p`] mp_tac)   
+      >> first_x_assum(qspecl_then [`[h]`,`t'`,`n+LENGTH p`,`t`,`n+LENGTH p`] mp_tac)
       >> fs[cons_lcs_optimal_substructure]
       >> full_simp_tac pure_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
       >> rpt strip_tac >> fs[] >> TOP_CASE_TAC)
@@ -672,7 +672,7 @@ Induct
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[] >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
                   depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND]
-    >> drule patch_aux_keep_init_cons    
+    >> drule patch_aux_keep_init_cons
     >> disch_then(qspecl_then [`n`,`h`,`m + LENGTH l'l`] assume_tac)
     >> drule SPLITP_JOIN
     >> fs[])
@@ -722,7 +722,7 @@ val patch_diff_cancel = Q.store_thm("patch_diff_cancel",
   >> disch_then (qspecl_then [`r`,`l`] assume_tac)
   >> fs[patch_aux_diff_cancel]);
 
-(* TODO: 
+(* TODO:
    this property is false as stated; prove some appropriate weakening
 val diff_patch_cancel = Q.store_thm("diff_patch_cancel",
   `patch_alg patch l = SOME r ==> diff_alg l r = patch`,
@@ -738,7 +738,7 @@ val is_patch_line_def = Define `
   if strlen s > 1 then
     if substring s 0 2 = strlit "> " then
       T
-    else substring s 0 2 = strlit "< "      
+    else substring s 0 2 = strlit "< "
   else
       F`
 
@@ -747,7 +747,7 @@ val is_patch_line_simps = Q.prove(
        /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
 `,
   Induct_on `r` >> fs[] >> Induct
-  >> fs[is_patch_line_def,strlen_def,strcat_def,implode_def,substring_thm,MIN_DEF]
+  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_thm,MIN_DEF]
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
 
 val toString_obtain_digits = Q.prove(
@@ -765,7 +765,7 @@ val diff_single_patch_length = Q.prove(
   >> qspec_then `n` assume_tac toString_obtain_digits
   >> qspec_then `m` assume_tac toString_obtain_digits
   >> fs[] >> rw[]
-  >> fs[is_patch_line_simps,substring_thm,strcat_def,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> fs[is_patch_line_simps,substring_thm,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
   >> fs[is_patch_line_def,substring_thm,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
   >> fs[]);

@@ -7,12 +7,6 @@ val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val list_subset_def = Define `
-list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
-
-val list_set_eq = Define `
-list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
-
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
 (* 'a is the type of the state, 'b is the type of successful computations, and
@@ -321,6 +315,38 @@ constrain_op l op ts =
        do () <- add_constraint l t (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] TC_int)
        od
+   | (CopyStrStr, [t1;t2;t3]) =>
+       do
+         () <- add_constraint l t1 (Infer_Tapp [] TC_string);
+         () <- add_constraint l t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t3 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_string)
+        od
+   | (CopyStrAw8, [t1;t2;t3;t4;t5]) =>
+       do
+         () <- add_constraint l t1 (Infer_Tapp [] TC_string);
+         () <- add_constraint l t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t3 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t4 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint l t5 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_tup)
+        od
+   | (CopyAw8Str, [t1;t2;t3]) =>
+       do
+         () <- add_constraint l t1 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint l t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t3 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_string)
+        od
+   | (CopyAw8Aw8, [t1;t2;t3;t4;t5]) =>
+       do
+         () <- add_constraint l t1 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint l t2 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t3 (Infer_Tapp [] TC_int);
+         () <- add_constraint l t4 (Infer_Tapp [] TC_word8array);
+         () <- add_constraint l t5 (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_tup)
+        od
    | (Chr, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_char)
@@ -347,6 +373,10 @@ constrain_op l op ts =
        do () <- add_constraint l t (Infer_Tapp [] TC_string);
           return (Infer_Tapp [] TC_int)
        od
+   | (Strcat, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] TC_string] (TC_name (Short "list")));
+          return (Infer_Tapp [] TC_string)
+        od
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] (TC_name (Short "list")));

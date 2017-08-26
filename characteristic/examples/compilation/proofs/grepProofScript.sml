@@ -14,8 +14,8 @@ val (grep_not_fail,grep_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail g
 val compile_correct_applied =
   MATCH_MP compile_correct grep_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP x64_conf_ok
   |> C MATCH_MP grep_not_fail
+  |> C MATCH_MP x64_backend_config_ok
   |> REWRITE_RULE[grep_sem_sing]
 
 val grep_compiled_thm =

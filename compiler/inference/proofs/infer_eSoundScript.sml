@@ -394,7 +394,7 @@ val binop_tac =
  imp_res_tac sub_completion_wfs >>
  fsrw_tac[] [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
  srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def] >>
- metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
+ metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
 
 val binop_tac2 =
 imp_res_tac infer_e_wfs >>
@@ -431,11 +431,9 @@ val constrain_op_sound = Q.prove (
  constrain_op l op ts st = (Success t,st')
  ⇒
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
- fs [constrain_op_def, type_op_cases] >>
- every_case_tac >>
- fs [success_eqns] >>
+ fs[constrain_op_success] >>
  rw [] >>
- fs [infer_st_rewrs,Tchar_def] >>
+ fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
  binop_tac);
 
 val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar",

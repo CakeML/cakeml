@@ -1,4 +1,5 @@
 open preamble astTheory;
+open backend_commonTheory;
 
 val _ = new_theory "modLang";
 
@@ -43,6 +44,11 @@ val _ = Datatype `
   (* Word/integer conversions *)
   | WordFromInt word_size
   | WordToInt word_size
+  (* string/bytearray conversions *)
+  | CopyStrStr
+  | CopyStrAw8
+  | CopyAw8Str
+  | CopyAw8Aw8
   (* Char operations *)
   | Ord
   | Chr
@@ -51,6 +57,7 @@ val _ = Datatype `
   | Implode
   | Strsub
   | Strlen
+  | Strcat
   (* Vector operations *)
   | VfromList
   | Vsub
@@ -65,18 +72,18 @@ val _ = Datatype `
 
 val _ = Datatype`
  exp =
-    Raise exp
-  | Handle exp ((pat # exp) list)
-  | Lit lit
-  | Con (((modN,conN) id) option) (exp list)
-  | Var_local varN
-  | Var_global num
-  | Fun varN exp
-  | App op (exp list)
-  | If exp exp exp
-  | Mat exp ((pat # exp) list)
-  | Let (varN option) exp exp
-  | Letrec ((varN # varN # exp) list) exp`;
+    Raise tra exp
+  | Handle tra exp ((pat # exp) list)
+  | Lit tra lit
+  | Con tra (((modN,conN) id) option) (exp list)
+  | Var_local tra varN
+  | Var_global tra num
+  | Fun tra varN exp
+  | App tra op (exp list)
+  | If tra exp exp exp
+  | Mat tra exp ((pat # exp) list)
+  | Let tra (varN option) exp exp
+  | Letrec tra ((varN # varN # exp) list) exp`;
 
 val exp_size_def = definition"exp_size_def";
 

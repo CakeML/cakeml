@@ -6,7 +6,6 @@ semantics
 semantics/proofs
 
 # translator
-explorer/pp/astPP
 basis/pure
 translator
 
@@ -72,10 +71,6 @@ characteristic/examples
 characteristic/examples/compilation
 characteristic/examples/compilation/proofs
 
-# explorer
-explorer/pp
-explorer
-
 # tests
 translator/okasaki-examples
 translator/other-examples
@@ -85,6 +80,6 @@ compiler/parsing/tests
 compiler/bootstrap/translation
 compiler/bootstrap/translation/x64
 compiler/bootstrap/evaluation/x64
+compiler/bootstrap/evaluation/x64/proofs
 compiler/bootstrap/translation/riscv
 compiler/bootstrap/evaluation/riscv
-

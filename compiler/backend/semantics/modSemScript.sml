@@ -155,6 +155,14 @@ val v_to_char_list_def = Define `
  ∧
  (v_to_char_list _ = NONE)`;
 
+val vs_to_string_def = Define`
+  (vs_to_string [] = SOME "") ∧
+  (vs_to_string (Litv(StrLit s1)::vs) =
+   case vs_to_string vs of
+   | SOME s2 => SOME (s1++s2)
+   | _ => NONE) ∧
+  (vs_to_string _ = NONE)`;
+
 val do_app_def = Define `
   do_app (s,t) op (vs:modSem$v list) =
   case (op, vs) of
@@ -233,6 +241,41 @@ val do_app_def = Define `
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME ((s,t), Rval (Litv (IntLit i))))
+  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME ((s,t),
+      (case copy_array (str,off) len NONE of
+        NONE => Rerr (Rraise (prim_exn "Subscript"))
+      | SOME cs => Rval (Litv(StrLit(cs)))))
+  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s of
+        SOME (W8array ws) =>
+          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          | SOME cs =>
+            (case store_assign dst (W8array (chars_to_ws cs)) s of
+              SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
+      | _ => NONE)
+  | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s of
+      SOME (W8array ws) =>
+      SOME ((s,t),
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise (prim_exn "Subscript"))
+        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+    | _ => NONE)
+  | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                  Loc dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s, store_lookup dst s) of
+      (SOME (W8array ws), SOME (W8array ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+        | SOME ws =>
+            (case store_assign dst (W8array ws) s of
+              SOME s' => SOME ((s',t), Rval (Conv NONE []))
+            | _ => NONE))
+    | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -259,6 +302,14 @@ val do_app_def = Define `
           SOME ((s,t), Rval (Litv (Char (EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
     SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+  | (Strcat, [v]) =>
+      (case v_to_list v of
+        SOME vs =>
+          (case vs_to_string vs of
+            SOME str =>
+              SOME ((s,t), Rval (Litv(StrLit str)))
+          | _ => NONE)
+      | _ => NONE)
   | (VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>
@@ -414,16 +465,16 @@ val evaluate_def = tDefine"evaluate"`
          | (s, Rval vs) => (s, Rval (HD v::vs))
          | res => res)
     | res => res) ∧
-  (evaluate env s [(Lit l)] = (s, Rval [Litv l])) ∧
-  (evaluate env s [Raise e] =
+  (evaluate env s [Lit _ l] = (s, Rval [Litv l])) ∧
+  (evaluate env s [Raise _ e] =
    case evaluate env s [e] of
    | (s, Rval v) => (s, Rerr (Rraise (HD v)))
    | res => res) ∧
-  (evaluate env s [Handle e pes] =
+  (evaluate env s [Handle _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
-  (evaluate env s [Con cn es] =
+  (evaluate env s [Con _ cn es] =
    if do_con_check env.c cn (LENGTH es) then
      case evaluate env s (REVERSE es) of
      | (s, Rval vs) =>
@@ -432,16 +483,16 @@ val evaluate_def = tDefine"evaluate"`
            | NONE => Rerr (Rabort Rtype_error))
      | res => res
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Var_local n] = (s,
+  (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
    | NONE => Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Var_global n] = (s,
+  (evaluate env s [Var_global _ n] = (s,
    if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
    then Rval [THE (EL n s.globals)]
    else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Fun n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
-  (evaluate env s [App op es] =
+  (evaluate env s [Fun _ n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
+  (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
        if op = Opapp then
@@ -457,24 +508,24 @@ val evaluate_def = tDefine"evaluate"`
         | NONE => (s, Rerr (Rabort Rtype_error))
         | SOME ((refs',ffi'),r) => (s with <|refs:=refs';ffi:=ffi'|>, list_result r))
    | res => res) ∧
-  (evaluate env s [If e1 e2 e3] =
+  (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) =>
      (case do_if (HD vs) e2 e3 of
       | SOME e => evaluate env s [e]
       | NONE => (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
-  (evaluate env s [Mat e pes] =
+  (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
        evaluate_match env s (HD v) pes
          (Conv (SOME ("Bind", (TypeExn (Short "Bind")))) [])
    | res => res) ∧
-  (evaluate env s [Let n e1 e2] =
+  (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
    | (s, Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) s [e2]
    | res => res) ∧
-  (evaluate env s [Letrec funs e] =
+  (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs (env.c,env.v) env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
@@ -591,7 +642,6 @@ val prompt_mods_ok_def = Define `
         | _ => T))
     ds)`;
 
-
 val evaluate_prompt_def = Define`
   evaluate_prompt env s (Prompt mn ds) =
   if no_dup_types ds ∧ prompt_mods_ok mn ds ∧ mn ∉ IMAGE SOME s.defined_mods then
@@ -616,8 +666,8 @@ val evaluate_prompts_def = Define`
 
 val prog_to_mods_def = Define `
   (prog_to_mods [] = []) ∧
-  (prog_to_mods (Prompt NONE ds :: mods) = prog_to_mods mods) ∧
-  (prog_to_mods (Prompt (SOME mn) ds :: mods) = mn::prog_to_mods mods)`;
+  (prog_to_mods (modLang$Prompt NONE ds :: mods) = prog_to_mods mods) ∧
+  (prog_to_mods (modLang$Prompt (SOME mn) ds :: mods) = mn::prog_to_mods mods)`;
 
 val no_dup_mods_def = Define `
   no_dup_mods prompts mods ⇔
@@ -626,7 +676,7 @@ val no_dup_mods_def = Define `
 
 val prog_to_top_types_def = Define `
   prog_to_top_types prompts =
-    FLAT (MAP (λprompt. case prompt of Prompt NONE ds => decs_to_types ds | _ => []) prompts)`;
+    FLAT (MAP (λprompt. case prompt of modLang$Prompt NONE ds => decs_to_types ds | _ => []) prompts)`;
 
 val no_dup_top_types_def = Define `
   no_dup_top_types prompts tids ⇔

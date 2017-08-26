@@ -45,7 +45,7 @@ do
   pushd $i > /dev/null 2>&1
   /bin/rm -f timing.log 2> /dev/null
   Holmake cleanAll &&
-  if eval $TIMECMD Holmake > regression.log 2>&1
+  if eval $TIMECMD Holmake --qof > regression.log 2>&1
   then
       echo -n "OK: $i"
       if [ -f timing.log ]

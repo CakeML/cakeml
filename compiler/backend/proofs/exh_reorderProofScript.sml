@@ -491,36 +491,26 @@ val v_to_list_compile = Q.store_thm("v_to_list_compile[simp]",
   ho_match_mp_tac v_to_list_ind \\ rw[v_to_list_def]
   \\ every_case_tac \\ fs[]);
 
+val vs_to_strings_compile = Q.store_thm("vs_to_strings_compile[simp]",
+  `∀vs. vs_to_string (MAP compile_v vs) = vs_to_string vs`,
+  ho_match_mp_tac vs_to_string_ind \\ rw[vs_to_string_def]);
+
 val do_app_compile = Q.store_thm("do_app_compile[simp]",
   `do_app (compile_state s) op (MAP compile_v as) =
    OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r)) (do_app s op as)`,
-  Cases_on`do_app s op as` \\ imp_res_tac do_app_cases
-  >- (
-    pop_assum mp_tac
-    \\ fs[do_app_def]
-    \\ ntac 6 (TRY(TOP_CASE_TAC \\ fs[]))
-    \\ ntac 6 (TRY(TOP_CASE_TAC \\ fs[]))
-    \\ fs[semanticPrimitivesTheory.store_assign_def,
-          semanticPrimitivesTheory.store_alloc_def,
-          semanticPrimitivesTheory.store_lookup_def]
-    \\ rfs[EL_MAP] \\ fs[EL_MAP] \\ rfs[]
-    \\ TRY CASE_TAC \\ fs[compile_store_v_def,semanticPrimitivesTheory.store_v_same_type_def]
-    \\ TRY CASE_TAC \\ fs[compile_store_v_def]
-    \\ TRY CASE_TAC \\ fs[compile_store_v_def]
-    \\ strip_tac \\ fs[EL_MAP] )
-  \\ fs[do_app_def]
+  Cases_on`do_app s op as`
+  \\ pop_assum(strip_assume_tac o SIMP_RULE(srw_ss())[do_app_cases,do_app_cases_none])
+  \\ rw[]
+  \\ fs[do_app_def,
+        semanticPrimitivesTheory.store_assign_def,
+        semanticPrimitivesTheory.store_alloc_def,
+        semanticPrimitivesTheory.store_lookup_def,
+        EL_MAP,compile_store_v_def]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ EVAL_TAC
-  \\ fs[semanticPrimitivesTheory.store_assign_def,
-        semanticPrimitivesTheory.store_alloc_def,
-        semanticPrimitivesTheory.store_lookup_def]
-  \\ rfs[EL_MAP] \\ fs[EL_MAP] \\ rfs[]
-  \\ EVAL_TAC \\ rw[]
-  \\ rw[LUPDATE_MAP,REPLICATE_GENLIST,MAP_GENLIST,EL_MAP]
-  \\ EVAL_TAC
-  \\ fs[compile_store_v_def,LUPDATE_MAP,MAP_GENLIST,EL_MAP]
-  \\ rw[]
-  \\ fs[semanticPrimitivesTheory.store_v_same_type_def,EL_MAP]);
+  \\ rfs[EL_MAP,semanticPrimitivesTheory.store_v_same_type_def,
+         LUPDATE_MAP,compile_store_v_def,map_replicate]
+  \\ every_case_tac \\ fs[compile_store_v_def]);
 
 (* main results *)
 

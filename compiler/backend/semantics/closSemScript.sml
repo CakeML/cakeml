@@ -1,5 +1,5 @@
-open preamble closLangTheory conLangTheory backend_commonTheory
-open semanticPrimitivesPropsTheory (* for opw_lookup and others *)
+open preamble backend_commonTheory closLangTheory conLangTheory
+     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
 
@@ -168,6 +168,10 @@ val do_app_def = Define `
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (ConcatByteVec,[lv]) =>
+        (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
+         | SOME wss => Rval (ByteVector (FLAT wss), s)
+         | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
@@ -183,6 +187,31 @@ val do_app_def = Define `
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
+    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+        (case FLOOKUP s.refs dst of
+         | SOME (ByteArray F ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray F ds))
+            | NONE => Error)
+         | _ => Error)
+    | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray F ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray F ds))
+            | NONE => Error)
+         | _ => Error)
+    | (CopyByte T,[ByteVector ws; Number srcoff; Number len]) =>
+       (case copy_array (ws,srcoff) len NONE of
+        | SOME ds => Rval (ByteVector ds, s)
+        | _ => Error)
+    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+       (case FLOOKUP s.refs src of
+        | SOME (ByteArray _ ws) =>
+          (case copy_array (ws,srcoff) len NONE of
+           | SOME ds => Rval (ByteVector ds, s)
+           | _ => Error)
+        | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block tag xs]) =>
@@ -251,12 +280,12 @@ val do_app_def = Define `
          | _ => Error)
     | (BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
-    | (BoundsCheckByte,[ByteVector bs; Number i]) =>
-        Rval (Boolv (0 <= i /\ i < & LENGTH bs),s)
-    | (BoundsCheckByte,[RefPtr ptr; Number i]) =>
+    | (BoundsCheckByte loose,[ByteVector bs; Number i]) =>
+        Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
+    | (BoundsCheckByte loose,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray _ ws) =>
-             Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
+             Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
     | (BoundsCheckArray,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
@@ -382,34 +411,34 @@ val evaluate_def = tDefine "evaluate" `
           | (Rval vs,s2) => (Rval (HD v1::vs),s2)
           | res => res)
      | res => res) /\
-  (evaluate ([Var n],env,s) =
+  (evaluate ([Var _ n],env,s) =
      if n < LENGTH env then (Rval [EL n env],s) else (Rerr(Rabort Rtype_error),s)) /\
-  (evaluate ([If x1 x2 x3],env,s) =
+  (evaluate ([If _ x1 x2 x3],env,s) =
      case fix_clock s (evaluate ([x1],env,s)) of
      | (Rval vs,s1) =>
           if Boolv T = HD vs then evaluate ([x2],env,s1) else
           if Boolv F = HD vs then evaluate ([x3],env,s1) else
             (Rerr(Rabort Rtype_error),s1)
      | res => res) /\
-  (evaluate ([Let xs x2],env,s) =
+  (evaluate ([Let _ xs x2],env,s) =
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s1) => evaluate ([x2],vs++env,s1)
      | res => res) /\
-  (evaluate ([Raise x1],env,s) =
+  (evaluate ([Raise _ x1],env,s) =
      case evaluate ([x1],env,s) of
      | (Rval vs,s) => (Rerr(Rraise (HD vs)),s)
      | res => res) /\
-  (evaluate ([Handle x1 x2],env,s1) =
+  (evaluate ([Handle _ x1 x2],env,s1) =
      case fix_clock s1 (evaluate ([x1],env,s1)) of
      | (Rerr(Rraise v),s) => evaluate ([x2],v::env,s)
      | res => res) /\
-  (evaluate ([Op op xs],env,s) =
+  (evaluate ([Op _ op xs],env,s) =
      case evaluate (xs,env,s) of
      | (Rval vs,s) => (case do_app op (REVERSE vs) s of
                           | Rerr err => (Rerr err,s)
                           | Rval (v,s) => (Rval [v],s))
      | res => res) /\
-  (evaluate ([Fn loc vsopt num_args exp],env,s) =
+  (evaluate ([Fn _ loc vsopt num_args exp],env,s) =
      if num_args ≤ s.max_app ∧ num_args ≠ 0 then
        case vsopt of
          | NONE => (Rval [Closure loc [] env num_args exp], s)
@@ -419,7 +448,7 @@ val evaluate_def = tDefine "evaluate" `
               | SOME env' => (Rval [Closure loc [] env' num_args exp], s))
      else
        (Rerr(Rabort Rtype_error), s)) /\
-  (evaluate ([Letrec loc namesopt fns exp],env,s) =
+  (evaluate ([Letrec _ loc namesopt fns exp],env,s) =
      if EVERY (\(num_args,e). num_args ≤ s.max_app ∧ num_args ≠ 0) fns then
        let
          build_rc e = GENLIST (Recclosure loc [] e fns) (LENGTH fns) in
@@ -434,7 +463,7 @@ val evaluate_def = tDefine "evaluate" `
            | SOME ed => evaluate ([exp],ed ++ env,s)
      else
        (Rerr(Rabort Rtype_error), s)) /\
-  (evaluate ([App loc_opt x1 args],env,s) =
+  (evaluate ([App _ loc_opt x1 args],env,s) =
      if LENGTH args > 0 then
        (case fix_clock s (evaluate (args,env,s)) of
         | (Rval y2,s1) =>
@@ -444,9 +473,9 @@ val evaluate_def = tDefine "evaluate" `
         | res => res)
      else
        (Rerr(Rabort Rtype_error), s)) /\
-  (evaluate ([Tick x],env,s) =
+  (evaluate ([Tick _ x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
-  (evaluate ([Call ticks dest xs],env,s1) =
+  (evaluate ([Call _ ticks dest xs],env,s1) =
      case fix_clock s1 (evaluate (xs,env,s1)) of
      | (Rval vs,s) =>
          (case find_code dest vs s.code of
@@ -489,6 +518,28 @@ val evaluate_app_NIL = save_thm(
   "evaluate_app_NIL[simp]",
   ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
 
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
+val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
+val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
+                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
+                          case_def = TypeBase.case_def_of ``:'a error_result`` }
+val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
+                       case_def = TypeBase.case_def_of ``:eq_result`` }
+val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
+                     case_def = TypeBase.case_def_of ``:app_kind`` }
+val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
+                     case_def = TypeBase.case_def_of ``:word_size`` }
+
+val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, list_thms, option_thms, v_thms, ref_thms,
+   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
+
+val _ = save_thm ("case_eq_thms", case_eq_thms);
+
 (* We prove that the clock never increases. *)
 
 val do_app_const = Q.store_thm("do_app_const",
@@ -496,17 +547,9 @@ val do_app_const = Q.store_thm("do_app_const",
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
     (s2.code = s1.code)`,
-  SIMP_TAC std_ss [do_app_def] >>
-  Cases_on `?tag. op = ConsExtend tag`
-  >- (
-    rw [] >>
-    fs [] >>
-    BasicProvers.EVERY_CASE_TAC >>
-    fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []) >>
-  Cases_on `op` >>
-  fs [] >>
-  BasicProvers.EVERY_CASE_TAC
-  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
+  simp[do_app_def,case_eq_thms]
+  \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
 
 val evaluate_ind = theorem"evaluate_ind"
 

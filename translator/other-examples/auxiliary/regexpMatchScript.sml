@@ -730,17 +730,17 @@ val match_seq_surg_thm = Q.prove
              by METIS_TAC [match_seq_down_closed,APPEND,APPEND_ASSOC,
                            match_seq_def]
         THEN FULL_SIMP_TAC list_ss [m_def],
-      ASSUME_TAC (Q.SPECL
-         [`(bad_r,bad_w,s1)`, `x1`, `(a,b,c)::t1`,
-          `y ++ [(bad_r,bad_w,bad_s)] ++ ((a,b,c)::t1)`] match_seq_lemma)
-        THEN FIRST_ASSUM MATCH_MP_TAC THEN RW_TAC list_ss [match_seq_def]
+      match_mp_tac match_seq_lemma
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ first_assum(part_match_exists_tac (fst o dest_conj) o concl)
+        \\ simp[match_seq_def]
+        \\ reverse conj_tac >- metis_tac[match_seq_down_closed]
         THEN `m (bad_r,bad_w,bad_s) (a,b,c)`
              by METIS_TAC [match_seq_down_closed,APPEND,APPEND_ASSOC,
                            match_seq_def]
-        THEN `?r l. bad_r = Repeat r::l` by IMP_RES_TAC split_prop_thm
+        THEN `?r l. bad_r = Repeat r::l` by (IMP_RES_TAC split_prop_thm \\ fs[])
         THEN POP_ASSUM MP_TAC THEN EVAL_TAC THEN RW_TAC list_ss []
-        THENL [FULL_SIMP_TAC list_ss [m_def],
-               METIS_TAC [match_seq_down_closed]]]]]);
+        \\ fs[m_def]]]]);
 
 val NS_match_thm = Q.prove
 (`!ms. match_seq ms ==> match_seq (NS ms)`,
@@ -817,7 +817,7 @@ val  NS_HD_THM = Q.prove
          by METIS_TAC [optionTheory.option_nchotomy,ABS_PAIR_THM]
      THEN Cases_on `l1` THEN FULL_SIMP_TAC list_ss []
      THENL [FULL_SIMP_TAC list_ss [split_def], ALL_TAC]
-     THEN `h = (r,w,NONE)` by IMP_RES_TAC split_thm THEN FULL_SIMP_TAC list_ss []
+     THEN `h = (r,w,NONE)` by (IMP_RES_TAC split_thm THEN FULL_SIMP_TAC list_ss [])
      THEN IMP_RES_TAC match_seq_surg_thm
      THEN Cases_on `a1` THEN RW_TAC list_ss [match_seq_def]
      THEN IMP_RES_TAC split_thm THEN FULL_SIMP_TAC list_ss []]);

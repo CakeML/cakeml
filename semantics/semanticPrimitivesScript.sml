@@ -429,6 +429,43 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_char_list_defn;
 
+(*val vs_to_string : list v -> maybe string*)
+ val vs_to_string_defn = Defn.Hol_multi_defns `
+ (vs_to_string []=  (SOME ""))
+/\ (vs_to_string (Litv(StrLit s1)::vs)=  
+ ((case vs_to_string vs of
+    SOME s2 => SOME ( STRCAT s1 s2)
+  | _ => NONE
+  )))
+/\ (vs_to_string _=  NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) vs_to_string_defn;
+
+(*val copy_array : forall 'a. list 'a * integer -> integer -> maybe (list 'a * integer) -> maybe (list 'a)*)
+val _ = Define `
+ (copy_array (src,srcoff) len d=  
+ (if (srcoff <( 0 : int)) \/ ((len <( 0 : int)) \/ (LENGTH src < Num (ABS (I (srcoff + len))))) then NONE else
+    let copied = (TAKE (Num (ABS (I len))) (DROP (Num (ABS (I srcoff))) src)) in
+    (case d of
+      SOME (dst,dstoff) =>
+        if (dstoff <( 0 : int)) \/ (LENGTH dst < Num (ABS (I (dstoff + len)))) then NONE else
+          SOME ((TAKE (Num (ABS (I dstoff))) dst ++
+                copied) ++
+                DROP (Num (ABS (I (dstoff + len)))) dst)
+    | NONE => SOME copied
+    )))`;
+
+
+(*val ws_to_chars : list word8 -> list char*)
+val _ = Define `
+ (ws_to_chars ws=  (MAP (\ w .  CHR(w2n w)) ws))`;
+
+
+(*val chars_to_ws : list char -> list word8*)
+val _ = Define `
+ (chars_to_ws cs=  (MAP (\ c .  i2w(int_of_num(ORD c))) cs))`;
+
+
 (*val opn_lookup : opn -> integer -> integer -> integer*)
 val _ = Define `
  (opn_lookup n : int -> int -> int=  ((case n of
@@ -595,6 +632,50 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+        SOME ((s,t),
+        (case copy_array (EXPLODE str,off) len NONE of
+          NONE => Rerr (Rraise (prim_exn "Subscript"))
+        | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
+        ))
+    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+                    Loc dst;Litv(IntLit dstoff)]) =>
+        (case store_lookup dst s of
+          SOME (W8array ws) =>
+            (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
+              NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+            | SOME cs =>
+              (case store_assign dst (W8array (chars_to_ws cs)) s of
+                SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
+              | _ => NONE
+              )
+            )
+        | _ => NONE
+        )
+    | (CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+      (case store_lookup src s of
+        SOME (W8array ws) =>
+        SOME ((s,t),
+          (case copy_array (ws,off) len NONE of
+            NONE => Rerr (Rraise (prim_exn "Subscript"))
+          | SOME ws => Rval (Litv(StrLit(IMPLODE(ws_to_chars ws))))
+          ))
+      | _ => NONE
+      )
+    | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
+                    Loc dst;Litv(IntLit dstoff)]) =>
+      (case (store_lookup src s, store_lookup dst s) of
+        (SOME (W8array ws), SOME (W8array ds)) =>
+          (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+            NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          | SOME ws =>
+              (case store_assign dst (W8array ws) s of
+                SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              | _ => NONE
+              )
+          )
+      | _ => NONE
+      )
     | (Ord, [Litv (Char c)]) =>
           SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Chr, [Litv (IntLit i)]) =>
@@ -622,6 +703,16 @@ val _ = Define `
               SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+    | (Strcat, [v]) =>
+        (case v_to_list v of
+          SOME vs =>
+            (case vs_to_string vs of
+              SOME str =>
+                SOME ((s,t), Rval (Litv(StrLit str)))
+            | _ => NONE
+            )
+        | _ => NONE
+        )
     | (VfromList, [v]) =>
           (case v_to_list v of
               SOME vs =>

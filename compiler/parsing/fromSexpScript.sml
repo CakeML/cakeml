@@ -22,13 +22,6 @@ val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 (* TODO: move*)
-
-val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
-  `(∀x y. f x = f y ⇒ x = y)
-   ⇒ ∀o1 o2.
-     OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
-  strip_tac \\ Cases \\ Cases \\ simp[]);
-
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
    ∃a b c. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ f a b c = r`,
@@ -509,6 +502,10 @@ val sexpop_def = Define`
   if s = "Aw8sub" then SOME Aw8sub else
   if s = "Aw8length" then SOME Aw8length else
   if s = "Aw8update" then SOME Aw8update else
+  if s = "CopyStrStr" then SOME CopyStrStr else
+  if s = "CopyStrAw8" then SOME CopyStrAw8 else
+  if s = "CopyAw8Str" then SOME CopyAw8Str else
+  if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
   if s = "W8fromInt" then SOME (WordFromInt W8) else
@@ -522,6 +519,7 @@ val sexpop_def = Define`
   if s = "Implode" then SOME Implode else
   if s = "Strsub" then SOME Strsub else
   if s = "Strlen" then SOME Strlen else
+  if s = "Strcat" then SOME Strcat else
   if s = "VfromList" then SOME VfromList else
   if s = "Vsub" then SOME Vsub else
   if s = "Vlength" then SOME Vlength else
@@ -868,6 +866,10 @@ val opsexp_def = Define`
   (opsexp Aw8sub = SX_SYM "Aw8sub") ∧
   (opsexp Aw8length = SX_SYM "Aw8length") ∧
   (opsexp Aw8update = SX_SYM "Aw8update") ∧
+  (opsexp CopyStrStr = SX_SYM "CopyStrStr") ∧
+  (opsexp CopyStrAw8 = SX_SYM "CopyStrAw8") ∧
+  (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
+  (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
   (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
@@ -881,6 +883,7 @@ val opsexp_def = Define`
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
   (opsexp Strlen = SX_SYM "Strlen") ∧
+  (opsexp Strcat = SX_SYM "Strcat") ∧
   (opsexp VfromList = SX_SYM "VfromList") ∧
   (opsexp Vsub = SX_SYM "Vsub") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧

@@ -1,11 +1,10 @@
 open preamble
-     lexer_funTheory
+     lexer_funTheory lexer_implTheory
      cmlParseTheory
      inferTheory
      backendTheory
-     mlintTheory
-     mlstringTheory;
-open lexer_implTheory basisProgTheory;
+     mlintTheory mlstringTheory basisProgTheory
+     fromSexpTheory simpleSexpParseTheory
 
 val _ = new_theory"compiler";
 
@@ -13,6 +12,7 @@ val _ = Datatype`
   config =
     <| inferencer_config : inferencer_config
      ; backend_config : α backend$config
+     ; input_is_sexp : bool
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError`;
@@ -33,9 +33,16 @@ val locs_to_string_def = Define `
          implode " column ";
          toString &endl.col])`;
 
+(* this is a rather annoying feature of peg_exec requiring locs... *)
+val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+
 val compile_def = Define`
   compile c prelude input =
-    case parse_prog (lexer_fun input) of
+    case
+      if c.input_is_sexp
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      else parse_prog (lexer_fun input)
+    of
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
@@ -44,7 +51,20 @@ val compile_def = Define`
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
-          | SOME (bytes,limit) => Success (bytes,limit)`;
+          | SOME (bytes,c) => Success (bytes,c)`;
+
+val compile_explorer_def = Define`
+  compile_explorer c prelude input =
+    case
+      if c.input_is_sexp
+      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexptop)
+      else parse_prog (lexer_fun input)
+    of
+    | NONE => Failure ParseError
+    | SOME prog =>
+       case infertype_prog c.inferencer_config (prelude ++ prog) of
+       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
@@ -162,6 +182,13 @@ val parse_heap_stack_def = Define`
       | SOME v => v in
     (heap,stack)`
 
+val format_compiler_result_def = Define`
+  format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
+    (List[]:mlstring app_list, error_to_str err) ∧
+  format_compiler_result bytes_export heap stack
+    (Success ((bytes:word8 list),(data:'a word list),(c:'a lab_to_target$config))) =
+    (bytes_export (the [] c.ffi_names) heap stack bytes data, implode "")`;
+
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
 
 val compile_to_bytes_def = Define `
@@ -170,9 +197,9 @@ val compile_to_bytes_def = Define `
     let (heap,stack) = parse_heap_stack cl in
     let compiler_conf =
       <| inferencer_config := init_config;
-         backend_config := ext_conf |> in
-    case compiler$compile compiler_conf basis input of
-    | Failure err => (List[]:mlstring app_list, error_to_str err)
-    | Success (bytes,ffis) => (bytes_export ffis heap stack bytes, implode "")`;
+         backend_config := ext_conf;
+         input_is_sexp := MEM (strlit"--sexp") cl |> in
+    format_compiler_result bytes_export heap stack
+      (compiler$compile compiler_conf basis input)`;
 
 val _ = export_theory();
