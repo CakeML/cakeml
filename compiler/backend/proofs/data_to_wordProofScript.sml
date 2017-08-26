@@ -380,11 +380,39 @@ val state_rel_ext_def = Define `
   state_rel_ext c l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
-      t.termdep > 1  /\
+      domain t.code = domain l /\
+      t.termdep > 1 /\
+      (?tt kk aa co.
+         t.compile_oracle =
+           (I ## MAP (λp. full_compile_single tt kk aa co (p,NONE))) ∘
+             u.compile_oracle /\
+         t.compile = (λconf progs. u.compile conf
+           (MAP (λp. full_compile_single tt kk aa co (p,NONE)) progs))) /\
       (!n v. lookup n t.code = SOME v ==>
              ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
-      u = t with <|code := l;termdep:=0|>`
+      u = t with <| code := l; termdep:=0; compile:=u.compile |>`
+
+val eq_shape_def = Define `
+  eq_shape LN LN = T /\
+  eq_shape (LS _) (LS _) = T /\
+  eq_shape (BN t1 t2) (BN u1 u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape (BS t1 _ t2) (BS u1 _ u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
+  eq_shape _ _ = F`;
+
+val spt_eq = store_thm("spt_eq",
+  ``!t1 t2.
+      t1 = t2 <=>
+      (eq_shape t1 t2 /\ (!k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v))``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,lookup_def]
+  THEN1 metis_tac []
+  \\ rw [] \\ eq_tac \\ rw [] \\ rw [] \\ fs []
+  \\ first_assum (qspec_then `0` mp_tac)
+  \\ first_assum (qspec_then `k * 2 + 1` mp_tac)
+  \\ first_x_assum (qspec_then `k * 2 + 1 + 1` mp_tac)
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] DIV_MULT,EVEN_ADD]
+  \\ fs [GSYM ADD1,EVEN,EVEN_DOUBLE]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
@@ -404,28 +432,50 @@ val compile_correct = Q.store_thm("compile_correct",
                             ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
-  cheat);
-(*
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
-  \\ rename1 `state_rel x0 l1 l2 s t [] []`
-  \\ drule compile_word_to_word_thm
-  \\ impl_tac THEN1 fs [state_rel_def,gc_fun_const_ok_word_gc_fun]
-  \\ srw_tac[][]
-  \\ drule compile_correct_lemma \\ full_simp_tac(srw_ss())[]
-  \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ rename1 `state_rel x0 l1 l2 s t2 [] []`
+  \\ `?l2. code_rel t2.code l2 /\
+              map (I ## remove_must_terminate) l2 = l` by
+    (fs [word_to_wordProofTheory.code_rel_def,
+         word_to_wordTheory.full_compile_single_def]
+     \\ `?l3. eq_shape l3 l /\ ∀n v.
+           lookup n t2.code = SOME v ⇒
+           ∃t' k' a' c' col.
+             lookup n l3 = SOME (SND
+               ((λ(name_num,arg_count,reg_prog).
+                   (name_num,arg_count,reg_prog))
+                  (compile_single t' k' a' c' ((n,v),col))))` by
+             cheat (* this is going to be awkward *)
+     \\ qexists_tac `l3`
+     \\ rw [] \\ res_tac \\ fs []
+     THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
+     \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+     \\ cheat (* can be proved... *))
+  \\ drule (compile_word_to_word_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ `domain l2' = domain l` by (rveq \\ fs [domain_map])
+  \\ `domain t2.code = domain l2'` by fs []
+  \\ `gc_fun_const_ok t2.gc_fun` by
+         fs [state_rel_def,gc_fun_const_ok_word_gc_fun]
+  \\ rpt (disch_then drule)
+  \\ disch_then (qspec_then `start` mp_tac)
+  \\ strip_tac \\ fs [] \\ rveq
+  \\ `state_rel x0 l1 l2 s (t2 with permute := perm') [] []` by
    (full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `s.stack` \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ `(t with permute := perm').termdep > 1` by fs[]
-  \\ ntac 2 (disch_then drule) \\ strip_tac
-  \\ qexists_tac `clk` \\ full_simp_tac(srw_ss())[]
-  \\ qpat_x_assum `let prog = Call NONE (SOME start) [0] NONE in _` mp_tac
-  \\ full_simp_tac(srw_ss())[LET_THM] \\ strip_tac
-  THEN1 (full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
-  \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[inc_clock_def]
-  \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[]); *)
+  \\ drule compile_correct_lemma \\ fs []
+  \\ disch_then (drule o ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ fs [] \\ strip_tac \\ fs []
+  THEN1 (rveq \\ fs [] \\ every_case_tac \\ fs[])
+  \\ pairarg_tac \\ fs [inc_clock_def]
+  \\ qexists_tac `clk`
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,t6)`
+  \\ qpat_x_assum `evaulate _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac `evaluate (_,t7)`
+  \\ qsuff_tac `t6 = t7` THEN1 (every_case_tac \\ fs [])
+  \\ unabbrev_all_tac \\ fs []
+  \\ fs [wordSemTheory.state_component_equality]);
 
 val state_rel_ext_with_clock = Q.prove(
   `state_rel_ext a b c s1 s2 ==>
@@ -433,22 +483,23 @@ val state_rel_ext_with_clock = Q.prove(
   full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
   \\ drule state_rel_with_clock
   \\ strip_tac \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
-  \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]);
+  \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]
+  \\ fs [wordSemTheory.state_component_equality]
+  \\ metis_tac []);
 
 (* observational semantics preservation *)
 
 val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
-  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) t /\
+  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
    semantics ffi (fromAList prog) co cc start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }`,
-  cheat);
-(*
   simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
   simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
+  conj_tac
+ >- (
     qx_gen_tac`r`>>simp[]>>strip_tac>>
     strip_tac >>
     simp[wordSemTheory.semantics_def] >>
@@ -507,7 +558,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
         full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
       `∃r s'.
         evaluate
-          (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
+          (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) co cc (k + k')) = (r,s') ∧
         s'.ffi = s.ffi` by (
           srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
           metis_tac[dataPropsTheory.evaluate_add_clock_io_events_mono,SND,
@@ -710,7 +761,7 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[])) >>
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
-  simp[EL_APPEND1]); *)
+  simp[EL_APPEND1]);
 
 fun define_abbrev name tm = let
   val vs = free_vars tm |> sort
@@ -1024,6 +1075,7 @@ val MAP_FST_stubs_bound = Q.store_thm("MAP_FST_stubs_bound",
   Cases_on`a` \\ EVAL_TAC
   \\ strip_tac \\ rveq \\ EVAL_TAC);
 
+(* broken
 val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   `∀code c1 col code'.
    compile c1 c2 code = (col,code') ⇒
@@ -1041,6 +1093,6 @@ val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
   rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
   simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
-  metis_tac[]);
+  metis_tac[]); *)
 
 val _ = export_theory();
