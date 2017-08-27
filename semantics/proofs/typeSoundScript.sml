@@ -940,6 +940,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl]));
 
+   (*
 val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
 `!envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
  nsAll2 (type_ctor ctMap) envC tenvC ∧
@@ -1098,6 +1099,8 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    >> metis_tac [])
  >- pat_sound_tac
  >- pat_sound_tac);
+
+ *)
 
 val lookup_var_sound = Q.store_thm ("lookup_var_sound",
   `!n tvs tenvE targs t ctMap tenvS env tenv.
