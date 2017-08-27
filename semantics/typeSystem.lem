@@ -240,7 +240,7 @@ let type_op op ts t =
     | (Equality, [t1; t2]) -> t1 = t2 && t = Tbool
     | (Opassign, [t1; t2]) -> t1 = Tref t2 && t = Ttup []
     | (Opref, [t1]) -> t = Tref t1
-    | (Opderef, [t1]) -> t = Tref t1
+    | (Opderef, [t1]) -> t1 = Tref t
     | (Aw8alloc, [t1; t2]) -> t1 = Tint && t2 = Tword8 && t = Tword8array
     | (Aw8sub, [t1; t2]) -> t1 = Tword8array && t2 = Tint && t = Tword8
     | (Aw8length, [t1]) -> t1 = Tword8array && t = Tint
