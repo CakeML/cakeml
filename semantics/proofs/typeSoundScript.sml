@@ -261,27 +261,21 @@ val eq_same_type = Q.prove (
          full_simp_tac(srw_ss())[])
      >- metis_tac []));
 
-     (*
 val type_env_conv_thm = Q.prove (
   `∀ctMap envC tenvC.
      nsAll2 (type_ctor ctMap) envC tenvC ⇒
-     ∀cn tvs ts tn cn' stamp ti.
+     ∀cn tvs ts tn ti.
        (nsLookup tenvC cn = SOME (tvs,ts,ti) ⇒
-        nsLookup envC cn = SOME (LENGTH ts,cn',stamp) ∧
-        FLOOKUP ctMap (cn',stamp) = SOME (tvs, ts, ti)) ∧
+        ?cn' stamp.
+          nsLookup envC cn = SOME (LENGTH ts,cn',stamp) ∧
+          FLOOKUP ctMap (cn',stamp) = SOME (tvs, ts, ti)) ∧
        (nsLookup tenvC cn = NONE ⇒ nsLookup envC cn = NONE)`,
  rw []
  >> imp_res_tac nsAll2_nsLookup2
  >> TRY (PairCases_on `v1`)
  >> fs [type_ctor_def] >>
  rw [] >>
- first_x_assum drule
- res_tac >>
- fs []
-
- >> metis_tac [nsAll2_nsLookup_none]
-
- *)
+ metis_tac [nsAll2_nsLookup_none]);
 
 val type_funs_fst = Q.prove (
 `!tenv tenvE funs tenv'.
@@ -940,7 +934,6 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl]));
 
-   (*
 val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
 `!envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
  nsAll2 (type_ctor ctMap) envC tenvC ∧
@@ -954,7 +947,7 @@ val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
  ⇒
  ?v.
    build_conv envC (SOME cn) (REVERSE vs) = SOME v ∧
-   type_v tvs ctMap tenvS v (Tapp ts' (tid_exn_to_tc tn))`,
+   type_v tvs ctMap tenvS v (Tapp ts' tn)`,
  rw []
  >> drule do_con_check_build_conv
  >> disch_then (qspec_then `REVERSE vs` mp_tac)
@@ -969,9 +962,7 @@ val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
  >> rw []
  >> simp [Once type_v_cases, GSYM EVERY2_REVERSE1]
  >> simp [GSYM FUNION_alist_to_fmap]
- >> rfs [bind_tvar_def, num_tvs_def]
- >> Cases_on `tvs`
- >> rfs [num_tvs_def]);
+ >> rfs [bind_tvar_def, num_tvs_def]);
 
 val pat_sound_tac =
  CCONTR_TAC >>
@@ -1007,6 +998,9 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
      LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))`,
+ cheat );
+
+ (*
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
  >> TRY (qpat_x_assum `type_p _ _ _ _ _` mp_tac
@@ -1099,7 +1093,6 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    >> metis_tac [])
  >- pat_sound_tac
  >- pat_sound_tac);
-
  *)
 
 val lookup_var_sound = Q.store_thm ("lookup_var_sound",
@@ -1163,7 +1156,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
     type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
     type_s ctMap s.refs tenvS ∧
     type_v tvs ctMap tenvS v t1 ∧
-    type_v 0 ctMap tenvS err_v (Tapp [] TC_exn) ∧
+    type_v 0 ctMap tenvS err_v Texn ∧
     type_pes tvs tvs tenv tenvE pes t1 t2
     ⇒
     ∃tenvS'.
@@ -1363,6 +1356,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        drule opapp_type_sound
        >> fs [EVERY2_REVERSE1]
        >> disch_then drule
+       >> disch_then drule
        >> rw []
        >> fs []
        >> Cases_on `s1.clock = 0`
@@ -1412,18 +1406,18 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> first_x_assum drule
    >> rpt (disch_then drule)
    >> simp [PULL_EXISTS]
-   >> disch_then (qspecl_then [`0`, `(Tapp [] (TC_name (Short "bool")))`] mp_tac)
+   >> disch_then (qspecl_then [`0`, `Tbool`] mp_tac)
    >> simp []
    >> rw []
    >> Cases_on `r1`
    >> fs []
    >> rw []
    >- (
-     drule (GEN_ALL (List.nth (CONJUNCTS (SPEC_ALL canonical_values_thm), 4)))
-     >> disch_then drule
-     >> rw []
-     >> Cases_on `b`
-     >> fs [do_log_def, Boolv_def]
+     MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+         (CONJUNCTS ctor_canonical_values_thm) >>
+     rw [] >>
+     Cases_on `b`
+     >> fs [do_log_def]
      >> Cases_on `lop`
      >> fs []
      >> rw []
@@ -1433,7 +1427,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> first_x_assum drule
        >> rpt (disch_then drule)
        >> fs [PULL_EXISTS]
-       >> disch_then (qspecl_then [`0`, `Tapp [] (TC_name (Short "bool"))`] mp_tac)
+       >> disch_then (qspecl_then [`0`, `Tbool`] mp_tac)
        >> simp []
        >> rw []
        >> metis_tac [store_type_extension_trans])
@@ -1445,7 +1439,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        >> first_x_assum drule
        >> rpt (disch_then drule)
        >> fs [PULL_EXISTS]
-       >> disch_then (qspecl_then [`0`, `Tapp [] (TC_name (Short "bool"))`] mp_tac)
+       >> disch_then (qspecl_then [`0`, `Tbool`] mp_tac)
        >> simp []
        >> rw []
        >> metis_tac [store_type_extension_trans]))
@@ -1461,16 +1455,16 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
    >> first_x_assum drule
    >> rpt (disch_then drule)
    >> simp [PULL_EXISTS]
-   >> disch_then (qspecl_then [`0`, `(Tapp [] (TC_name (Short "bool")))`] mp_tac)
+   >> disch_then (qspecl_then [`0`, `Tbool`] mp_tac)
    >> simp []
    >> rw []
    >> Cases_on `r1`
    >> fs []
    >> rw []
    >- (
-     drule (GEN_ALL (List.nth (CONJUNCTS (SPEC_ALL canonical_values_thm), 4)))
-     >> disch_then drule
-     >> rw []
+     MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+         (CONJUNCTS ctor_canonical_values_thm) >>
+     rw []
      >> Cases_on `b`
      >> fs [do_if_def, Boolv_def]
      >> rw []
@@ -1511,7 +1505,7 @@ val exp_type_sound = Q.store_thm ("exp_type_sound",
        by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
-     >> fs [type_v_exn, Bindv_def]
+     >> fs [type_v_exn, bind_exn_v_def]
      >> rpt (disch_then drule)
      >> rw []
      >> Cases_on `r`
