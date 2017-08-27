@@ -16,12 +16,6 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
 
-val list_subset_def = Define `
-list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
-
-val list_set_eq = Define `
-list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
-
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
 val _ = Hol_datatype `
