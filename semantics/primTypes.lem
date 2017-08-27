@@ -14,7 +14,7 @@ let prim_types_program =
    Dexn unknown_loc "Chr" [];
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
-   Dtype unknown_loc [([], "bool", [("true", []); ("false", [])])];
+   Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
    Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];
    Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Atvar "'a"]);])];]
 
