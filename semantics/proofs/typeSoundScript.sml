@@ -92,7 +92,7 @@ val prim_canonical_values_thm = Q.store_thm ("prim_canonical_values_thm",
   rw [] >>
   imp_res_tac type_funs_Tfn >>
   fs [type_num_defs] >>
-  TRY (Cases_on `tn` >> res_tac >> fs [] >> NO_TAC) >>
+  TRY (Cases_on `stamp` >> res_tac >> fs [] >> NO_TAC) >>
   fs [type_s_def]
   >- metis_tac [LIST_REL_LENGTH] >>
   res_tac >>
@@ -117,10 +117,10 @@ val has_lists_v_to_list = Q.prove (
  imp_res_tac type_funs_Tfn >>
  fs [] >>
  TRY (fs [type_num_defs] >> NO_TAC) >>
- `tn = list_stamp`
+ `?cn. stamp = TypeStamp cn list_type_num`
  by (
    fs [ctMap_ok_def, ctMap_has_lists_def] >>
-   metis_tac []) >>
+   metis_tac [same_type_def, stamp_nchotomy]) >>
  rw [] >>
  full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
  `cn = "::" ∨ cn = "nil"` by metis_tac [NOT_SOME_NONE] >>
@@ -154,32 +154,40 @@ val ctor_canonical_values_thm = Q.store_thm ("ctor_canonical_values_thm",
        (t = Tstring ⇒ ∃str. vs_to_string vs = SOME str)) ∧
    (type_v tvs ctMap tenvS v (Tapp ts ti) ∧
     ctMap_ok ctMap ∧
-    FLOOKUP ctMap (cn,stamp) = SOME (tvs',ts',ti) ⇒
-    (?cn vs. v = Conv (SOME (cn,stamp)) vs))`,
+    FLOOKUP ctMap stamp = SOME (tvs',ts',ti) ⇒
+    (?cn n vs. same_type stamp (TypeStamp cn n) ∧ v = Conv (SOME (TypeStamp cn n)) vs) ∨
+    (?n vs. same_type stamp (ExnStamp n) ∧ v = Conv (SOME (ExnStamp n)) vs))`,
   rw []
   >- (
     fs [Once type_v_cases] >>
     fs [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
     imp_res_tac type_funs_Tfn >>
     fs [] >>
-    TRY (fs [type_num_defs] >> NO_TAC) >>
-    `tn = bool_stamp` by metis_tac [] >>
-    `cn = "true" ∨ cn = "false"` by metis_tac [NOT_SOME_NONE] >>
+    rw [] >>
+    `stamp = TypeStamp "true" bool_type_num ∨ stamp = TypeStamp "false" bool_type_num`
+    by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
     rw [] >>
     fs [] >>
     rw [] >>
     fs [] >>
-    metis_tac [])
+    metis_tac [NOT_SOME_NONE])
   >- metis_tac [has_lists_v_to_list, Tlist_def, Tchar_def, Tstring_def]
   >- (
-    Cases_on `stamp` >>
     fs [Once type_v_cases, ctMap_ok_def, type_num_defs] >>
     rw [] >>
     fs [] >>
     res_tac >>
     fs [] >>
     imp_res_tac type_funs_Tfn >>
-    fs [type_num_defs]));
+    fs [type_num_defs] >>
+    Cases_on `stamp` >>
+    fs [same_type_def] >>
+    res_tac >>
+    fs [] >>
+    Cases_on `stamp'` >>
+    fs [same_type_def] >>
+    res_tac >>
+    fs []));
 
 val same_type_refl = Q.prove (
   `!t. same_type t t`,
@@ -220,7 +228,7 @@ val eq_same_type = Q.prove (
    rw [] >>
    imp_res_tac type_funs_Tfn >>
    TRY (fs [type_num_defs] >> NO_TAC) >>
-   Cases_on `tn` >>
+   Cases_on `stamp` >>
    res_tac >>
    fs [type_num_defs] >>
    NO_TAC)
@@ -267,8 +275,8 @@ val type_env_conv_thm = Q.prove (
      ∀cn tvs ts tn ti.
        (nsLookup tenvC cn = SOME (tvs,ts,ti) ⇒
         ?cn' stamp.
-          nsLookup envC cn = SOME (LENGTH ts,cn',stamp) ∧
-          FLOOKUP ctMap (cn',stamp) = SOME (tvs, ts, ti)) ∧
+          nsLookup envC cn = SOME (LENGTH ts,stamp) ∧
+          FLOOKUP ctMap stamp = SOME (tvs, ts, ti)) ∧
        (nsLookup tenvC cn = NONE ⇒ nsLookup envC cn = NONE)`,
  rw []
  >> imp_res_tac nsAll2_nsLookup2
@@ -353,10 +361,10 @@ metis_tac [type_recfun_env_help]);
 val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
 `!tvs cenv senv.
   ctMap_has_exns cenv ⇒
-  type_v tvs cenv senv (Conv (SOME ("Chr", chr_stamp)) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME ("Subscript", subscript_stamp)) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME ("Bind", bind_stamp)) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME ("Div", div_stamp)) []) Texn`,
+  type_v tvs cenv senv (Conv (SOME chr_stamp) []) Texn ∧
+  type_v tvs cenv senv (Conv (SOME subscript_stamp) []) Texn ∧
+  type_v tvs cenv senv (Conv (SOME bind_stamp) []) Texn ∧
+  type_v tvs cenv senv (Conv (SOME div_stamp) []) Texn`,
  ONCE_REWRITE_TAC [type_v_cases] >>
  srw_tac[][ctMap_has_exns_def] >>
  metis_tac [type_v_rules]));
@@ -965,13 +973,11 @@ val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
  >> rfs [bind_tvar_def, num_tvs_def]);
 
 val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
-  `!stamp1 stamp2 cn1 cn2.
-    same_ctor (cn1, stamp1) (cn2, stamp2) ∧
+  `!stamp1 stamp2.
+    same_ctor stamp1 stamp2 ∧
     same_type stamp1 stamp2
     ⇒
-    stamp1 = stamp2 ∧
-    ((?ti. stamp1 = TypeStamp ti ∧ cn1 = cn2) ∨
-     (?n. stamp1 = ExnStamp n))`,
+    stamp1 = stamp2`,
   rw [] >>
   Cases_on `stamp1` >>
   Cases_on `stamp2` >>
@@ -984,9 +990,9 @@ val pat_sound_tac =
  imp_res_tac type_funs_Tfn >>
  imp_res_tac nsAll2_nsLookup2 >>
  fs [type_num_defs, ctMap_ok_def] >>
- TRY (rename1 `type_ctor _ _ v1 _` >> PairCases_on `v1` >> Cases_on `v12`) >>
- TRY (rename1 `FLOOKUP _ (_,tn) = SOME _` >> Cases_on `tn`) >>
+ TRY (rename1 `type_ctor _ _ v _` >> PairCases_on `v` >> Cases_on `v1`) >>
  fs [type_ctor_def] >>
+ TRY (rename1 `FLOOKUP _ stamp = SOME _` >> Cases_on `stamp`) >>
  fs [] >>
  res_tac >>
  rw [] >>
@@ -1018,8 +1024,6 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
      LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))`,
-
-
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
  >> TRY (qpat_x_assum `type_p _ _ _ _ _` mp_tac
@@ -1044,17 +1048,10 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
      >> fs [GSYM FUNION_alist_to_fmap]
      >> imp_res_tac same_ctor_and_same_tid >>
      fs [] >>
-     >- metis_tac [] >>
-     rw [] >>
+     metis_tac [])
+   >- (
      fs [ctMap_ok_def] >>
-     res_tac >>
-     rw []
-     >> cheat)
-   >- cheat)
-   (*>- (
-     fs [same_tid_def, tid_exn_to_tc_def]
-     >> every_case_tac
-     >> fs [same_tid_def]))*)
+     metis_tac []))
  >- (
    qpat_x_assum `type_v _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]

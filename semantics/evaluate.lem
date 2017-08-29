@@ -196,7 +196,7 @@ evaluate_decs st env [Dtabbrev locs tvs tn t] =
 and
 evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
-   Rval <| v = nsEmpty; c = nsSing cn (length ts, cn, ExnStamp st.next_exn_stamp) |>)
+   Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
 and
 evaluate_decs st env [Dmod mn ds] =
   match evaluate_decs st env ds with

@@ -293,11 +293,11 @@ val weakCT_def = Define `
 weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl`;
 
 val weak_ctMap_lookup = Q.prove (
-`∀cn ctMap ctMap' tvs ts tn.
+`∀ctMap ctMap' tvs ts stamp.
   weakCT ctMap' ctMap ∧
-  FLOOKUP ctMap (cn,tn) = SOME (tvs,ts)
+  FLOOKUP ctMap stamp = SOME (tvs,ts)
   ⇒
-  FLOOKUP ctMap' (cn,tn) = SOME (tvs,ts)`,
+  FLOOKUP ctMap' stamp = SOME (tvs,ts)`,
 rw [weakCT_def] >>
 metis_tac [FLOOKUP_SUBMAP]);
 
@@ -334,7 +334,7 @@ val type_tenv_ctor_weakening = Q.store_thm ("type_tenv_ctor_weakening",
  >>  qexists_tac `type_ctor ctMap`
  >> rw []
  >> rename1 `type_ctor ctMap cn x1 x2`
- >> `?n t1 stamp tvs ts t2. x1 = (n,t1,stamp) ∧ x2 = (tvs,ts,t2)` by metis_tac [pair_CASES]
+ >> `?n t1 stamp tvs ts t2. x1 = (n,stamp) ∧ x2 = (tvs,ts,t2)` by metis_tac [pair_CASES]
  >> fs [type_ctor_def]
  >> rw []
  >> metis_tac [FLOOKUP_SUBMAP]);

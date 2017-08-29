@@ -216,7 +216,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\
 (evaluate_decs st env [Dexn locs cn ts]= 
   (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
-   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, cn, ExnStamp st.next_exn_stamp)) |>))
+   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>))
 /\
 (evaluate_decs st env [Dmod mn ds]=  
  ((case evaluate_decs st env ds of

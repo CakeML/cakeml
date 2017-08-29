@@ -1501,7 +1501,7 @@ val ctMap_ok_merge_imp = Q.store_thm ("ctMap_ok_merge_imp",
 
 val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
 `!ctMap cn tvs ts ti tn.
-  ctMap_ok ctMap ∧ (FLOOKUP ctMap (cn,tn) = SOME (tvs,ts,ti))
+  ctMap_ok ctMap ∧ (FLOOKUP ctMap tn = SOME (tvs,ts,ti))
   ⇒
   EVERY (check_freevars 0 tvs) ts`,
  srw_tac[][ctMap_ok_def, FEVERY_ALL_FLOOKUP] >>
@@ -1603,6 +1603,7 @@ val still_has_exns = Q.store_thm ("still_has_exns",
  full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
  metis_tac []);
 
+ (*
 val still_has_lists = Q.store_thm ("still_has_lists",
 `!ctMap1 ctMap2.
   (DISJOINT (IMAGE SND (FDOM ctMap1)) (IMAGE SND (FDOM ctMap2)) ∨
@@ -1628,6 +1629,7 @@ val still_has_bools = Q.store_thm ("still_has_bools",
  full_simp_tac(srw_ss())[] >>
  full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
  metis_tac [SND]);
+ *)
 
 val all_distinct_map_fst_lemma = Q.prove (
 `!l v. ALL_DISTINCT (MAP (\(x,y). x) l) ⇒ ALL_DISTINCT (MAP (\(x,y). (x, v)) l)`,
@@ -1870,7 +1872,7 @@ val type_subst = Q.store_thm ("type_subst",
      >> metis_tac [type_subst_lem1, EVERY_MEM])
    >> fs [EVERY2_EVERY, EVERY_MAP]
    >> simp [GSYM FUNION_alist_to_fmap]
-   >> rename1 `FLOOKUP ctMap (cn,tn) = SOME (tvs,ts,ti)`
+   >> rename1 `FLOOKUP ctMap stamp = SOME (tvs,ts,ti)`
    >> `EVERY (check_freevars 0 tvs) ts` by metis_tac [ctMap_ok_lookup, EVERY_MEM]
    >> `EVERY (check_freevars (LENGTH targs) tvs) ts`
      by (`LENGTH targs ≥ 0` by decide_tac >> metis_tac [EVERY_MEM, check_freevars_add])

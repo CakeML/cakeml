@@ -17,12 +17,12 @@ val _ = new_theory "semanticPrimitives"
 (*open import Namespace*)
 (*open import Ffi*)
 
-(* Types and exceptions need unique identities, which we represent by stamps.
-   Non-exception constructors don't need stamps because their names are unique
-   within the type. *)
+(* Constructors and exceptions need unique identities, which we represent by stamps. *)
 val _ = Hol_datatype `
  stamp =
-    TypeStamp of num
+  (* Each type gets a unique number, and the constructor name must be unique
+     inside of the type *)
+    TypeStamp of conN => num
   | ExnStamp of num`;
 
 
@@ -36,7 +36,7 @@ val _ = Hol_datatype `
 (*  'v *) sem_env =
   <| v : (modN, varN, 'v) namespace
    (* Lexical mapping of constructor idents to arity, name, stamp pairs *)
-   ; c : (modN, conN, (num # conN # stamp)) namespace
+   ; c : (modN, conN, (num # stamp)) namespace
    |>`;
 
 
@@ -45,7 +45,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. Can be a tuple or a given constructor of a given type *)
-  | Conv of  (conN # stamp)option => v list
+  | Conv of  stamp option => v list
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of v sem_env => varN => exp
@@ -58,7 +58,7 @@ val _ = Hol_datatype `
   | Vectorv of v list`;
 
 
-val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # conN # stamp)) namespace``);
+val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # stamp)) namespace``);
 val _ = type_abbrev( "env_val" , ``: (modN, varN, v) namespace``);
 
 val _ = Define `
@@ -75,23 +75,23 @@ val _ = Define `
 
 
 val _ = Define `
- (bind_exn_v=  (Conv (SOME ("Bind", bind_stamp)) []))`;
+ (bind_exn_v=  (Conv (SOME bind_stamp) []))`;
 
 val _ = Define `
- (chr_exn_v=  (Conv (SOME ("Chr", chr_stamp)) []))`;
+ (chr_exn_v=  (Conv (SOME chr_stamp) []))`;
 
 val _ = Define `
- (div_exn_v=  (Conv (SOME ("Div", div_stamp)) []))`;
+ (div_exn_v=  (Conv (SOME div_stamp) []))`;
 
 val _ = Define `
- (sub_exn_v=  (Conv (SOME ("Subscript", subscript_stamp)) []))`;
+ (sub_exn_v=  (Conv (SOME subscript_stamp) []))`;
 
 
 val _ = Define `
- (bool_stamp=  (TypeStamp(( 0 : num))))`;
+ (bool_type_num : num= (( 0 : num)))`;
 
 val _ = Define `
- (list_stamp=  (TypeStamp(( 1 : num))))`;
+ (list_type_num : num= (( 1 : num)))`;
 
 
 (* The result of evaluation *)
@@ -189,7 +189,7 @@ val _ = Define `
     | SOME n =>
         (case nsLookup cenv n of
             NONE => F
-          | SOME (l',_,_) => l = l'
+          | SOME (l',_) => l = l'
         )
   )))`;
 
@@ -203,7 +203,7 @@ val _ = Define `
     | SOME id =>
         (case nsLookup envC id of
             NONE => NONE
-          | SOME (len,cn',stamp) => SOME (Conv (SOME (cn', stamp)) vs)
+          | SOME (len,stamp) => SOME (Conv (SOME stamp) vs)
         )
   )))`;
 
@@ -230,23 +230,22 @@ val _ = Hol_datatype `
 
 (*val same_type : stamp -> stamp -> bool*)
  val _ = Define `
- (same_type (TypeStamp n1) (TypeStamp n2)=  (n1 = n2))
+ (same_type (TypeStamp _ n1) (TypeStamp _ n2)=  (n1 = n2))
 /\ (same_type (ExnStamp _) (ExnStamp _)=  T)
 /\ (same_type _ _=  F)`;
 
 
-(*val same_ctor : conN * stamp -> conN * stamp -> bool*)
- val _ = Define `
- (same_ctor (_, ExnStamp n1) (_, ExnStamp n2)=  (n1 = n2))
-/\ (same_ctor (cn1, _) (cn2, _)=  (cn1 = cn2))`;
+(*val same_ctor : stamp -> stamp -> bool*)
+val _ = Define `
+ (same_ctor stamp1 stamp2=  (stamp1 = stamp2))`;
 
 
-(*val ctor_same_type : maybe (conN * stamp) -> maybe (conN * stamp) -> bool*)
+(*val ctor_same_type : maybe stamp -> maybe stamp -> bool*)
 val _ = Define `
  (ctor_same_type c1 c2=  
  ((case (c1,c2) of
       (NONE, NONE) => T
-    | (SOME (_,stamp1), SOME (_,stamp2)) => same_type stamp1 stamp2
+    | (SOME stamp1, SOME stamp2) => same_type stamp1 stamp2
     | _ => F
   )))`;
 
@@ -274,11 +273,11 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (cn', stamp')) vs) env=  
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=  
  ((case nsLookup envC n of
-      SOME (l,cn,stamp) =>
+      SOME (l,stamp) =>
         if same_type stamp stamp' /\ (LENGTH ps = l) then
-          if same_ctor (cn, stamp) (cn',stamp') then
+          if same_ctor stamp stamp' then
             pmatch_list envC s ps vs env
           else
             No_match
@@ -419,13 +418,13 @@ val _ = Define `
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 (*val v_to_list : v -> maybe (list v)*)
  val v_to_list_defn = Defn.Hol_multi_defns `
- (v_to_list (Conv (SOME (cn, stamp)) [])=  
- (if (cn = "nil") /\ (stamp = list_stamp) then
+ (v_to_list (Conv (SOME stamp) [])=  
+ (if stamp = TypeStamp "nil" list_type_num then
     SOME []
   else
     NONE))
-/\ (v_to_list (Conv (SOME (cn, stamp)) [v1;v2])=  
- (if (cn = "::")  /\ (stamp = list_stamp) then
+/\ (v_to_list (Conv (SOME stamp) [v1;v2])=  
+ (if stamp = TypeStamp "::" list_type_num then
     (case v_to_list v2 of
         SOME vs => SOME (v1::vs)
       | NONE => NONE
@@ -438,13 +437,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val v_to_char_list : v -> maybe (list char)*)
  val v_to_char_list_defn = Defn.Hol_multi_defns `
- (v_to_char_list (Conv (SOME (cn, stamp)) [])=  
- (if (cn = "nil") /\ (stamp = list_stamp) then
+ (v_to_char_list (Conv (SOME stamp) [])=  
+ (if stamp = TypeStamp "nil" list_type_num then
     SOME []
   else
     NONE))
-/\ (v_to_char_list (Conv (SOME (cn,stamp)) [Litv (Char c);v])=  
- (if (cn = "::")  /\ (stamp = list_stamp) then
+/\ (v_to_char_list (Conv (SOME stamp) [Litv (Char c);v])=  
+ (if stamp = TypeStamp "::" list_type_num then
     (case v_to_char_list v of
         SOME cs => SOME (c::cs)
       | NONE => NONE
@@ -558,8 +557,8 @@ val _ = Define `
 (*val Boolv : bool -> v*)
 val _ = Define `
  (Boolv b=  (if b
-  then Conv (SOME ("true", bool_stamp)) []
-  else Conv (SOME ("false", bool_stamp)) []))`;
+  then Conv (SOME (TypeStamp "true" bool_type_num)) []
+  else Conv (SOME (TypeStamp "false" bool_type_num)) []))`;
 
 
 val _ = Hol_datatype `
@@ -848,7 +847,7 @@ val _ = Define `
  (build_constrs stamp condefs=  
  (MAP
     (\ (conN, ts) . 
-      (conN, (LENGTH ts, conN, TypeStamp stamp)))
+      (conN, (LENGTH ts, TypeStamp conN stamp)))
     condefs))`;
 
 

@@ -41,24 +41,24 @@ val tenv_val_exp_ok_def = Define `
 (* Global constructor type environments keyed by constructor name and type
  * stamp. Contains the type variables, the type of the arguments, and
  * the identity of the type. *)
-val _ = type_abbrev( "ctMap", ``:((conN # stamp), (tvarN list # t list # (num # num))) fmap``);
+val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # (num # num))) fmap``);
 
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
     (* No free variables in the range *)
-    FEVERY (\((cn,stamp),(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
+    FEVERY (\(stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
     (* Exceptions have type exception, and no type variables *)
-    (!cn ex tvs ts ti. FLOOKUP ctMap (cn, ExnStamp ex) = SOME (tvs, ts, ti) ⇒
+    (!ex tvs ts ti. FLOOKUP ctMap (ExnStamp ex) = SOME (tvs, ts, ti) ⇒
       tvs = [] ∧ ti = Texn_num) ∧
     (* Primitive, non-constructor types are not mapped *)
-    (!cn x tvs ts ti. FLOOKUP ctMap (cn, TypeStamp x) = SOME (tvs, ts, ti) ⇒
+    (!cn x tvs ts ti. FLOOKUP ctMap (TypeStamp cn x) = SOME (tvs, ts, ti) ⇒
       ~MEM ti [Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num;
                Ttup_num; Tvector_num; Tword64_num; Tword8_num; Tword8array_num]) ∧
     (* Injective as a map from stamps to type identities *)
-    (!cn1 stamp1 tvs1 ts1 ti cn2 stamp2 tvs2 ts2.
-      FLOOKUP ctMap (cn1,stamp1) = SOME (tvs1, ts1, ti) ∧
-      FLOOKUP ctMap (cn2,stamp2) = SOME (tvs2, ts2, ti) ⇒
-      stamp1 = stamp2)`;
+    (!stamp1 tvs1 ts1 ti stamp2 tvs2 ts2.
+      FLOOKUP ctMap stamp1 = SOME (tvs1, ts1, ti) ∧
+      FLOOKUP ctMap stamp2 = SOME (tvs2, ts2, ti) ⇒
+      same_type stamp1 stamp2)`;
 
     (*
 val type_decs_to_ctMap_def = Define `
@@ -74,8 +74,8 @@ val type_decs_to_ctMap_def = Define `
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
 val type_ctor_def = Define `
-  type_ctor ctMap _ (n, cn, stamp) (tvs, ts, ti) ⇔
-    FLOOKUP ctMap (cn,stamp) = SOME (tvs, ts, ti) ∧
+  type_ctor ctMap _ (n, stamp) (tvs, ts, ti) ⇔
+    FLOOKUP ctMap stamp = SOME (tvs, ts, ti) ∧
     LENGTH ts = n`;
 
 val add_tenvE_def = Define `
@@ -94,14 +94,14 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
-  (!tvs ctMap tenvS cn vs tvs' tn ts' ts ti.
+  (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
     LIST_REL (type_v tvs ctMap tenvS)
       vs (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts) ∧
-    FLOOKUP ctMap (cn, tn) = SOME (tvs',ts,ti)
+    FLOOKUP ctMap stamp = SOME (tvs',ts,ti)
     ⇒
-    type_v tvs ctMap tenvS (Conv (SOME (cn,tn)) vs) (Tapp ts' ti)) ∧
+    type_v tvs ctMap tenvS (Conv (SOME stamp) vs) (Tapp ts' ti)) ∧
   (!tvs ctMap tenvS vs ts.
     LIST_REL (type_v tvs ctMap tenvS) vs ts
     ⇒
@@ -169,25 +169,25 @@ val type_s_def = Define `
 (* The global constructor type environment has the primitive exceptions in it *)
 val ctMap_has_exns_def = Define `
   ctMap_has_exns ctMap ⇔
-    FLOOKUP ctMap ("Bind", bind_stamp) = SOME ([],[],Texn_num) ∧
-    FLOOKUP ctMap ("Chr", chr_stamp) = SOME ([],[],Texn_num) ∧
-    FLOOKUP ctMap ("Div", div_stamp) = SOME ([],[],Texn_num) ∧
-    FLOOKUP ctMap ("Subscript", subscript_stamp) = SOME ([],[],Texn_num)`;
+    FLOOKUP ctMap bind_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap chr_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap div_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap subscript_stamp = SOME ([],[],Texn_num)`;
 
 (* The global constructor type environment has the list primitives in it *)
 val ctMap_has_lists_def = Define `
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap ("nil", list_stamp) = SOME (["'a"],[],Tlist_num) ∧
-    FLOOKUP ctMap ("::", list_stamp) =
+    FLOOKUP ctMap (TypeStamp "nil" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp "::" list_type_num) =
       SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "nil" ⇒ FLOOKUP ctMap (cn, list_stamp) = NONE)`;
+    (!cn. cn ≠ "::" ∧ cn ≠ "nil" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
 
 (* The global constructor type environment has the bool primitives in it *)
 val ctMap_has_bools_def = Define `
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap ("true", bool_stamp) = SOME ([],[],Tbool_num) ∧
-    FLOOKUP ctMap ("false", bool_stamp) = SOME ([],[],Tbool_num) ∧
-    (!cn. cn ≠ "true" ∧ cn ≠ "false" ⇒ FLOOKUP ctMap (cn, bool_stamp) = NONE)`;
+    FLOOKUP ctMap (TypeStamp "true" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp "false" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    (!cn. cn ≠ "true" ∧ cn ≠ "false" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)`;
 
 val good_ctMap_def = Define `
   good_ctMap ctMap ⇔
