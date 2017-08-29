@@ -1400,7 +1400,6 @@ local val assign_quotation = `
                Inst (FP (FPMovFromReg 0 3 3));
                Inst (FP (FPMovFromReg 1 5 5));
                Inst (FP (fp_cmp_inst fpc));
-               Assign 3 (Op Sub [Const 1w; Var 3]); (* TODO: remove this line once T and F are represented correctly, issue 298 *)
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l))
         else
            ((list_Seq [
@@ -1413,7 +1412,6 @@ local val assign_quotation = `
                Inst (FP (FPMovFromReg 0 13 11));
                Inst (FP (FPMovFromReg 1 23 21));
                Inst (FP (fp_cmp_inst fpc));
-               Assign 3 (Op Sub [Const 1w; Var 3]); (* TODO: remove this line once T and F are represented correctly, issue 298 *)
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
        | _ => (Skip,l))
     | FP_bop fpb => (dtcase args of

@@ -452,8 +452,7 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
     \\ `1 < dimindex (:α) − (c.len_size + 2)` by
      (qpat_assum `c.len_size + _ < dimindex (:α)` mp_tac
       \\ rpt (pop_assum kall_tac) \\ decide_tac)
-    \\ Cases_on `dimindex (:α) − (c.len_size + 2)` \\ fs[]
-    \\ Cases_on `n` \\ fs [EXP] \\ Cases_on `2 ** n'` \\ fs [])
+    \\ fs[good_dimindex_def,dimword_def])
   \\ rpt (disch_then drule)
   \\ impl_tac THEN1 (fs [ONCE_REWRITE_RULE[MULT_COMM]MULT_DIV])
   \\ strip_tac
@@ -5302,7 +5301,7 @@ val evaluate_WordOp64_on_32 = store_thm("evaluate_WordOp64_on_32",
   \\ `mw2n [x1;x2] = n /\ mw2n [y1;y2] = n'` by
     (rw [] \\ match_mp_tac IMP_mw2n_2 \\ fs [] \\ fs [markerTheory.Abbrev_def])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
-  \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``w-x``)]
+  \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``w:'a word-x``)]
   \\ rewrite_tac [word_sub_def,word_2comp_n2w,word_add_n2w]
   \\ fs [word_extract_n2w]
   \\ fs [bitTheory.BITS_THM2,dimword_def] \\ rfs []
