@@ -964,14 +964,34 @@ val build_conv_type_sound = Q.store_thm ("build_conv_type_sound",
  >> simp [GSYM FUNION_alist_to_fmap]
  >> rfs [bind_tvar_def, num_tvs_def]);
 
+val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
+  `!stamp1 stamp2 cn1 cn2.
+    same_ctor (cn1, stamp1) (cn2, stamp2) ∧
+    same_type stamp1 stamp2
+    ⇒
+    stamp1 = stamp2 ∧
+    ((?ti. stamp1 = TypeStamp ti ∧ cn1 = cn2) ∨
+     (?n. stamp1 = ExnStamp n))`,
+  rw [] >>
+  Cases_on `stamp1` >>
+  Cases_on `stamp2` >>
+  fs [same_ctor_def, same_type_def]);
+
 val pat_sound_tac =
  CCONTR_TAC >>
  full_simp_tac(srw_ss())[Once type_v_cases, Once type_p_cases, lit_same_type_def] >>
  srw_tac[][] >>
- full_simp_tac(srw_ss())[deBruijn_subst_def, tid_exn_not] >>
  imp_res_tac type_funs_Tfn >>
- full_simp_tac(srw_ss())[Tchar_def]
- >> fs [tid_exn_not]
+ imp_res_tac nsAll2_nsLookup2 >>
+ fs [type_num_defs, ctMap_ok_def] >>
+ TRY (rename1 `type_ctor _ _ v1 _` >> PairCases_on `v1` >> Cases_on `v12`) >>
+ TRY (rename1 `FLOOKUP _ (_,tn) = SOME _` >> Cases_on `tn`) >>
+ fs [type_ctor_def] >>
+ fs [] >>
+ res_tac >>
+ rw [] >>
+ fs [] >>
+ NO_TAC;
 
 val pat_type_sound = Q.store_thm ("pat_type_sound",
  `(∀(cenv : env_ctor) st p v bindings tenv ctMap tbindings t new_tbindings tenvS tvs.
@@ -998,9 +1018,8 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
      LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))`,
- cheat );
 
- (*
+
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
  >> TRY (qpat_x_assum `type_p _ _ _ _ _` mp_tac
@@ -1023,11 +1042,19 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
      first_x_assum irule
      >> simp []
      >> fs [GSYM FUNION_alist_to_fmap]
-     >> metis_tac [SOME_11, PAIR_EQ, same_ctor_and_same_tid])
-   >- (
+     >> imp_res_tac same_ctor_and_same_tid >>
+     fs [] >>
+     >- metis_tac [] >>
+     rw [] >>
+     fs [ctMap_ok_def] >>
+     res_tac >>
+     rw []
+     >> cheat)
+   >- cheat)
+   (*>- (
      fs [same_tid_def, tid_exn_to_tc_def]
      >> every_case_tac
-     >> fs [same_tid_def]))
+     >> fs [same_tid_def]))*)
  >- (
    qpat_x_assum `type_v _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
@@ -1045,11 +1072,12 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    qpat_x_assum `type_v _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
-   >> drule store_lookup_type_sound
-   >> disch_then drule
+   >> fs [type_s_def]
+   >> res_tac
+   >> fs []
    >> rw []
-   >> Cases_on `sv`
-   >> fs [type_sv_def]
+   >> Cases_on `v`
+   >> fs [type_sv_def, type_num_defs]
    >> first_x_assum irule
    >> simp []
    >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl])
@@ -1093,7 +1121,6 @@ val pat_type_sound = Q.store_thm ("pat_type_sound",
    >> metis_tac [])
  >- pat_sound_tac
  >- pat_sound_tac);
- *)
 
 val lookup_var_sound = Q.store_thm ("lookup_var_sound",
   `!n tvs tenvE targs t ctMap tenvS env tenv.
