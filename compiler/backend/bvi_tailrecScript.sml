@@ -101,11 +101,10 @@ val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   \\ fs [bviTheory.exp_size_def]);
 
 val try_update_def = Define `
-  (try_update vty NONE     ts = ts) ∧
-  (try_update vty (SOME n) ts =
-    if n < LENGTH ts
-    then TAKE n ts ++ [vty] ++ DROP (n + 1) ts
-    else ts)
+  (try_update vty NONE           ts      = ts) ∧
+  (try_update vty (SOME (SUC n)) (t::ts) = t::try_update vty (SOME n) ts) ∧
+  (try_update vty (SOME 0)       (t::ts) = vty::ts) ∧
+  (try_update vty (SOME n)       []      = [])
   `;
 
 (* Allowed expressions `y` in the tail position `f x + y`. *)
@@ -161,33 +160,9 @@ val rewrite_op_def = tDefine "rewrite_op" `
   (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
   \\ rw [exp_size_get_bin_args]);
 
-val scan_aux_def = tDefine "scan_aux" `
-  (scan_aux ts (If xi xt xe) =
-    let ti = scan_aux ts xi in
-    let tt = scan_aux ti xt in
-    let te = scan_aux ti xe in
-      MAP2 K tt te) ∧
-  (scan_aux ts (Let xs x) =
-    let tt = FOLDL (λt e. Any :: scan_aux t e) ts xs in
-    let t  = scan_aux tt x in
-      DROP (LENGTH xs) t) ∧
-  (scan_aux ts (Tick x) = scan_aux ts x) ∧
-  (scan_aux ts (Op op xs) =
-    if ¬(is_arith_op op ∨ is_num_rel op) then ts
-    else
-      case get_bin_args (Op op xs) of
-        NONE        => ts
-      | SOME (x, y) =>
-          MAP2 (λa b. if a = Int ∨ b = Int then Int else Any)
-            (try_update Int (index_of x) ts)
-            (try_update Int (index_of y) ts)) ∧
-  (scan_aux ts _ = ts)`
-  (WF_REL_TAC `measure (exp_size o SND)`
-  \\ fs [bviTheory.exp_size_def]
-  \\ gen_tac
-  \\ Induct \\ rw []
-  \\ res_tac
-  \\ fs [bviTheory.exp_size_def]);
+val decide_ty_def = Define `
+  (decide_ty Int Int = Int) ∧
+  (decide_ty _   _   = Any)`;
 
 (* Gather information about expressions:
 
@@ -199,23 +174,26 @@ val scan_aux_def = tDefine "scan_aux" `
      - Check if tail positions carry suitable operation (Add/Mult) and track
        branch of origin for the operation in conditionals.
 *)
-val scan_expr_def = Define `
-  (scan_expr ts loc (Var n)       = (ts, F, n < LENGTH ts ∧ EL n ts = Int, NONE)) ∧
+val scan_expr_def = tDefine "scan_expr" `
+  (scan_expr ts loc (Var n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, n < LENGTH ts ∧ EL n ts = Int, NONE)) ∧
   (scan_expr ts loc (If xi xt xe) =
-    let ti = scan_aux ts xi in
-    let (tt, _, pt, ot) = scan_expr ti loc xt in
-    let (te, _, pe, oe) = scan_expr ti loc xe in
-      (MAP2 K tt te, IS_SOME oe, pt ∧ pe,
-       case ot of
-         NONE => oe
-       | _    => ot)) ∧
+    let (ti, tyi, _, pi, oi) = scan_expr ts loc xi in
+    let (tt, ty1, _, pt, ot) = scan_expr ti loc xt in
+    let (te, ty2, _, pe, oe) = scan_expr ti loc xe in
+      (MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe, pt ∧ pe,
+        case ot of
+          NONE => oe
+        | _    => ot)) ∧
   (scan_expr ts loc (Let xs x) =
-    let tt = FOLDL (λt e. Any :: scan_aux t e) ts xs in
-    let (t,_, p, oo) = scan_expr tt loc x in
-      (DROP (LENGTH xs) t, F, p, oo)) ∧
-  (scan_expr ts loc (Raise x) = (ts, F, F, NONE)) ∧
+    let tt =
+      FOLDL (λt e. let (ts,ty,_,_,_) = scan_expr t loc e in ty::ts) ts xs in
+    let (t, ty, _, p, oo) = scan_expr tt loc x in
+      (DROP (LENGTH xs) t, ty, F, p, oo)) ∧
+  (scan_expr ts loc (Raise x) = (ts, Any, F, F, NONE)) ∧
   (scan_expr ts loc (Tick x) = scan_expr ts loc x) ∧
-  (scan_expr ts loc (Call t d xs h) = (ts, F, F, NONE)) ∧
+  (scan_expr ts loc (Call t d xs h) = (ts, Any, F, F, NONE)) ∧
   (scan_expr ts loc (Op op xs) =
     let ok_type = is_arith_op op in
     let iop =
@@ -227,8 +205,24 @@ val scan_expr_def = Define `
       else
         NONE
       in
-    let tt = scan_aux ts (Op op xs) in
-      (tt, F, ok_type, iop))`
+    let tt =
+      if ¬(is_arith_op op ∨ is_num_rel op) then ts
+      else
+        case get_bin_args (Op op xs) of
+          NONE        => ts
+        | SOME (x, y) =>
+            MAP2 (λa b. if a = Int ∨ b = Int then Int else Any)
+              (try_update Int (index_of x) ts)
+              (try_update Int (index_of y) ts)
+    in (tt, if ok_type then Int else Any, F, ok_type, iop))`
+    (WF_REL_TAC `measure (exp_size o SND o SND)`
+     \\ rw [bviTheory.exp_size_def]
+     \\ pop_assum mp_tac
+     \\ qspec_tac (`e`,`e`)
+     \\ qspec_tac (`xs`,`xs`)
+     \\ Induct \\ rw []
+     \\ res_tac
+     \\ fs [bviTheory.exp_size_def]);
 
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
@@ -251,33 +245,37 @@ val mk_tailcall_def = Define `
    duplication between rewrite and scan_expr.
 *)
 val rewrite_def = Define `
+  (rewrite (loc, next, op, acc, ts) (Var n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, Var n)) ∧
   (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
-    let ti = scan_aux ts xi in
-    let (tt, rt, yt) = rewrite (loc, next, op, acc, ti) xt in
-    let (te, re, ye) = rewrite (loc, next, op, acc, ti) xe in
+    let (ti, tyi, ri, ok, iop) = scan_expr ts loc xi in
+    let (tt, ty1, rt, yt) = rewrite (loc, next, op, acc, ti) xt in
+    let (te, ty2, re, ye) = rewrite (loc, next, op, acc, ti) xe in
     let zt = if rt then yt else apply_op op xt (Var acc) in
     let ze = if re then ye else apply_op op xe (Var acc) in
-      (MAP2 K tt te, rt ∨ re, If xi zt ze)) ∧
+      (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)) ∧
   (rewrite (loc, next, op, acc, ts) (Let xs x) =
-    let tt = FOLDL (λt e. Any :: scan_aux t e) ts xs in
-    let (t, r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt) x in
-      (DROP (LENGTH xs) t, r, Let xs y)) ∧
+    let tt =
+      FOLDL (λt e. let (ts,ty,_,_,_) = scan_expr t loc e in ty::ts) ts xs in
+    let (t, ty, r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt) x in
+      (DROP (LENGTH xs) t, ty, r, Let xs y)) ∧
   (rewrite (loc, next, op, acc, ts) (Tick x) =
-    let (tt, r, y) = rewrite (loc, next, op, acc, ts) x in
-      (tt, r, Tick y)) ∧
-  (rewrite (loc, next, op, acc, ts) (Raise x) = (ts, F, Raise x)) ∧
+    let (tt, ty, r, y) = rewrite (loc, next, op, acc, ts) x in
+      (tt, ty, r, Tick y)) ∧
+  (rewrite (loc, next, op, acc, ts) (Raise x) = (ts, Any, F, Raise x)) ∧
   (rewrite (loc, next, op, acc, ts) exp =
     case rewrite_op ts op loc exp of
-      (F, _)    => (ts, F, apply_op op exp (Var acc))
+      (F, _)    => (ts, Int, F, apply_op op exp (Var acc))
     | (T, exp1) =>
       case get_bin_args exp1 of
-        NONE              => (ts, F, apply_op op exp (Var acc))
+        NONE              => (ts, Int, F, apply_op op exp (Var acc))
       | SOME (call, exp2) =>
-          (ts, T, push_call next op acc exp2 (args_from call)))`;
+          (ts, Int, T, push_call next op acc exp2 (args_from call)))`;
 
 val check_exp_def = Define `
   check_exp loc arity exp =
-    let (_, _, ok, op) = scan_expr (REPLICATE arity Any) loc exp in
+    let (ts, ty, r, ok, op) = scan_expr (REPLICATE arity Any) loc exp in
       if ¬ok then NONE else op`;
 
 val let_wrap_def = Define `
@@ -293,9 +291,9 @@ val compile_exp_def = Define `
     case check_exp loc arity exp of
       NONE    => NONE
     | SOME op =>
-      let ts          = REPLICATE arity Any in
-      let (_, _, opt) = rewrite (loc, next, op, arity, ts) exp in
-      let aux         = let_wrap arity (id_from_op op) opt in
+      let ts               = REPLICATE arity Any in
+      let (tu, ty, r, opt) = rewrite (loc, next, op, arity, ts) exp in
+      let aux             = let_wrap arity (id_from_op op) opt in
         SOME (aux, opt)`;
 
 val compile_prog_def = Define `
