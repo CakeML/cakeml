@@ -377,4 +377,507 @@ val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
   `MAP FST (bvl_inline$compile_prog limit prog) = MAP FST prog`,
   fs [bvl_inlineTheory.compile_prog_def] \\ rw [MAP_FST_inline_all]);
 
+(* removal of ticks *)
+
+val remove_ticks_def = tDefine "remove_ticks" `
+  (remove_ticks [] = []) /\
+  (remove_ticks (x::y::xs) =
+     HD (remove_ticks [x]) :: remove_ticks (y::xs)) /\
+  (remove_ticks [Var v] = [Var v]) /\
+  (remove_ticks [If x1 x2 x3] =
+     [If (HD (remove_ticks [x1]))
+         (HD (remove_ticks [x2]))
+         (HD (remove_ticks [x3]))]) /\
+  (remove_ticks [Let xs x2] =
+     [Let (remove_ticks xs) (HD (remove_ticks [x2]))]) /\
+  (remove_ticks [Raise x1] =
+     [Raise (HD (remove_ticks [x1]))]) /\
+  (remove_ticks [Handle x1 x2] =
+     [Handle (HD (remove_ticks [x1]))
+             (HD (remove_ticks [x2]))]) /\
+  (remove_ticks [Op op xs] =
+     [Op op (remove_ticks xs)]) /\
+  (remove_ticks [Tick x] = remove_ticks [x]) /\
+  (remove_ticks [Call ticks dest xs] =
+     [Call 0 dest (remove_ticks xs)])`
+  (WF_REL_TAC `measure exp1_size`);
+
+val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks[simp]",
+  ``!xs. LENGTH (remove_ticks xs) = LENGTH xs``,
+  recInduct (theorem "remove_ticks_ind") \\ fs [remove_ticks_def]);
+
+val remove_ticks_SING = store_thm("remove_ticks_SING[simp]",
+  ``[HD (remove_ticks [r])] = remove_ticks [r]``,
+  qsuff_tac `?a. remove_ticks [r] = [a]` \\ rw[] \\ fs []
+  \\ `LENGTH (remove_ticks [r]) = LENGTH [r]` by fs [LENGTH_remove_ticks]
+  \\ Cases_on `remove_ticks [r]` \\ fs []);
+
+val state_rel_def = Define `
+  state_rel (s:'ffi bvlSem$state) (t:'ffi bvlSem$state) <=>
+    t = s with code := map (I ## (\x. HD (remove_ticks [x]))) s.code`
+
+val do_app_lemma = prove(
+  ``state_rel t' r ==>
+    case do_app op (REVERSE a) r of
+    | Rerr err => do_app op (REVERSE a) t' = Rerr err
+    | Rval (v,r2) => ?t2. state_rel t2 r2 /\ do_app op (REVERSE a) t' = Rval (v,t2)``,
+  strip_tac \\ Cases_on `do_app op (REVERSE a) t'`
+  THEN1
+   (PairCases_on `a'`
+    \\ drule (GEN_ALL bvlPropsTheory.do_app_with_code)
+    \\ disch_then (qspec_then `r.code` mp_tac)
+    \\ fs [state_rel_def,domain_map]
+    \\ rw [] \\ fs [state_component_equality]
+    \\ imp_res_tac do_app_const \\ fs [])
+  \\ drule (GEN_ALL bvlPropsTheory.do_app_with_code_err)
+  \\ disch_then (qspec_then `r.code` mp_tac)
+  \\ fs [state_rel_def,domain_map]);
+
+val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
+  `!k xs env s (t:'ffi bvlSem$state) res s'.
+      state_rel t s /\ s.clock = k /\
+      evaluate (remove_ticks xs,env,s) = (res,s') ==>
+      ?ck t'. evaluate (xs,env,t with clock := t.clock + ck) = (res,t') /\
+              state_rel t' s'`,
+  strip_tac \\ completeInduct_on `k` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ recInduct (theorem "remove_ticks_ind") \\ rw []
+  THEN1 (* NIL *)
+   (fs [evaluate_def,remove_ticks_def] \\ rveq
+    \\ qexists_tac `0` \\ fs [state_rel_def,state_component_equality])
+  THEN1 (* CONS *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ pop_assum mp_tac \\ simp [Once evaluate_CONS]
+    \\ TOP_CASE_TAC
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs []
+    THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+    \\ strip_tac
+    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+         state_rel t s' ∧ s'.clock <= s.clock ∧
+         evaluate (remove_ticks (y::xs),env,s') = (res,s'') ⇒
+         ∃ck t'.
+           evaluate (y::xs,env,t with clock := ck + t.clock) = (res,t') ∧
+           state_rel t' s''` by metis_tac [LESS_OR_EQ]
+    \\ pop_assum drule
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ TOP_CASE_TAC \\ disch_then drule \\ strip_tac
+    \\ rw [] \\ qexists_tac `ck+ck'`
+    \\ qpat_x_assum `evaluate ([x],_) = _` assume_tac
+    \\ drule evaluate_add_clock \\ fs [inc_clock_def]
+    \\ disch_then kall_tac
+    \\ CASE_TAC \\ fs [])
+  THEN1 (* Var *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ CASE_TAC \\ fs [] \\ rveq
+    \\ qexists_tac `0` \\ fs [state_rel_def,state_component_equality])
+  THEN1 (* If *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs []
+    THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+    \\ TOP_CASE_TAC THEN1
+     (disch_then assume_tac \\ disch_then kall_tac \\ strip_tac
+      \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+           state_rel t s' ∧ s'.clock <= s.clock ∧
+           evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
+           ∃ck t'.
+             evaluate ([x2],env,t with clock := ck + t.clock) = (res,t') ∧
+             state_rel t' s''` by metis_tac [LESS_OR_EQ]
+      \\ first_x_assum drule
+      \\ imp_res_tac evaluate_clock \\ fs []
+      \\ disch_then drule \\ strip_tac
+      \\ rw [] \\ qexists_tac `ck+ck'`
+      \\ qpat_x_assum `evaluate ([x1],_) = _` assume_tac
+      \\ drule evaluate_add_clock \\ fs [inc_clock_def]
+      \\ disch_then kall_tac)
+    \\ TOP_CASE_TAC THEN1
+     (disch_then kall_tac \\ disch_then assume_tac \\ strip_tac
+      \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+           state_rel t s' ∧ s'.clock <= s.clock ∧
+           evaluate (remove_ticks [x3],env,s') = (res,s'') ⇒
+           ∃ck t'.
+             evaluate ([x3],env,t with clock := ck + t.clock) = (res,t') ∧
+             state_rel t' s''` by metis_tac [LESS_OR_EQ]
+      \\ first_x_assum drule
+      \\ imp_res_tac evaluate_clock \\ fs []
+      \\ disch_then drule \\ strip_tac
+      \\ rw [] \\ qexists_tac `ck+ck'`
+      \\ qpat_x_assum `evaluate ([x1],_) = _` assume_tac
+      \\ drule evaluate_add_clock \\ fs [inc_clock_def]
+      \\ disch_then kall_tac)
+    \\ rw [] \\ qexists_tac `ck` \\ fs [])
+  THEN1 (* Let *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs []
+    THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+    \\ strip_tac
+    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+           state_rel t s' ∧ s'.clock <= s.clock ∧
+           evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
+           ∃ck t'.
+             evaluate ([x2],env,t with clock := ck + t.clock) = (res,t') ∧
+             state_rel t' s''` by metis_tac [LESS_OR_EQ]
+    \\ first_x_assum drule
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ rw [] \\ qexists_tac `ck+ck'`
+    \\ qpat_x_assum `evaluate (xs,_) = _` assume_tac
+    \\ drule evaluate_add_clock \\ fs [inc_clock_def])
+  THEN1 (* Raise *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ reverse (Cases_on `q`) \\ fs []
+    \\ rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+  THEN1 (* Handle *)
+   (fs [evaluate_def,remove_ticks_def]
+    \\ pop_assum mp_tac \\ TOP_CASE_TAC
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ Cases_on `q` \\ fs []
+    THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+    \\ reverse (Cases_on `e`) \\ fs []
+    THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
+    \\ rpt strip_tac
+    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+           state_rel t s' ∧ s'.clock <= s.clock ∧
+           evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
+           ∃ck t'.
+             evaluate ([x2],env,t with clock := ck + t.clock) = (res,t') ∧
+             state_rel t' s''` by metis_tac [LESS_OR_EQ]
+    \\ first_x_assum drule
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ rw [] \\ qexists_tac `ck+ck'`
+    \\ qpat_x_assum `evaluate ([x1],_) = _` assume_tac
+    \\ drule evaluate_add_clock \\ fs [inc_clock_def])
+  THEN1 (* Op *)
+   (fs [remove_ticks_def,evaluate_def]
+    \\ FULL_CASE_TAC \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ qexists_tac `ck` \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
+    \\ drule do_app_lemma \\ every_case_tac \\ fs []
+    \\ rveq \\ fs [])
+  THEN1 (* Tick *)
+   (fs [remove_ticks_def]
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ fs [bvlSemTheory.evaluate_def]
+    \\ qexists_tac `ck + 1` \\ fs [dec_clock_def])
+  (* Call *)
+  \\ fs [remove_ticks_def]
+  \\ fs [bvlSemTheory.evaluate_def]
+  \\ FULL_CASE_TAC \\ fs []
+  \\ reverse (Cases_on `q`) \\ fs [] \\ rveq
+  THEN1
+   (first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ qexists_tac `ck` \\ fs [])
+  \\ pop_assum mp_tac
+  \\ TOP_CASE_TAC \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
+  THEN1
+   (first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ qexists_tac `ck` \\ fs []
+    \\ qsuff_tac `find_code dest a t'.code = NONE` \\ fs []
+    \\ Cases_on `dest` \\ fs [find_code_def]
+    \\ every_case_tac \\ fs [state_rel_def]
+    \\ rveq \\ fs [lookup_map]
+    \\ PairCases_on `z` \\ fs [])
+  \\ PairCases_on `x` \\ fs []
+  \\ pop_assum mp_tac
+  \\ IF_CASES_TAC \\ rw []
+  THEN1
+   (first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac
+    \\ qexists_tac `ck` \\ fs []
+    \\ qsuff_tac `?x1 x2. find_code dest a t'.code = SOME (x1,x2)`
+    THEN1 (strip_tac \\ fs [] \\ fs [state_rel_def])
+    \\ fs [state_rel_def] \\ rveq \\ fs []
+    \\ Cases_on `dest` \\ fs [find_code_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [lookup_map] \\ fs []
+    \\ PairCases_on `z` \\ fs [])
+  \\ first_x_assum drule \\ fs []
+  \\ disch_then drule \\ strip_tac
+  \\ `(dec_clock 1 r).clock < s.clock` by
+        (imp_res_tac evaluate_clock  \\ fs [dec_clock_def] \\ fs [])
+  \\ first_x_assum drule
+  \\ `state_rel (dec_clock 1 t') (dec_clock 1 r)` by fs [state_rel_def]
+  \\ disch_then drule
+  \\ `?a2. find_code dest a t'.code = SOME (x0,a2) /\
+           [x1] = remove_ticks [a2]` by
+   (Cases_on `dest` \\ fs [state_rel_def,find_code_def] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [lookup_map] \\ rveq \\ fs []
+    \\ rveq \\ fs [])
+  \\ fs [] \\ disch_then drule \\ strip_tac
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ drule evaluate_add_clock \\ fs [inc_clock_def]
+  \\ disch_then (qspec_then `ticks+ck'` assume_tac)
+  \\ rw [] \\ qexists_tac `ticks + ck+ck'` \\ fs [dec_clock_def]
+  \\ qsuff_tac `t'.clock <> 0` \\ rpt strip_tac \\ fs []
+  \\ fs [state_rel_def]);
+
+val evaluate_remove_ticks_thm =
+  evaluate_remove_ticks
+  |> SIMP_RULE std_ss []
+  |> Q.SPEC `[Call 0 (SOME start) []]`
+  |> SIMP_RULE std_ss [remove_ticks_def];
+
+val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
+  `evaluate ([Call 0 (SOME start) []], [],
+             initial_state ffi0 (map
+                (I ## (λx. HD (remove_ticks [x]))) prog) k) = (r, s) ⇒
+   ∃ck (s2:'ffi bvlSem$state).
+     evaluate
+      ([Call 0 (SOME start) []], [],
+        initial_state ffi0 prog (k + ck)) = (r, s2) ∧
+     s2.ffi = s.ffi`,
+  strip_tac
+  \\ drule (ONCE_REWRITE_RULE [CONJ_COMM]
+             (REWRITE_RULE [CONJ_ASSOC] evaluate_remove_ticks_thm))
+  \\ disch_then (qspec_then `initial_state ffi0 prog k` mp_tac)
+  \\ impl_tac THEN1 fs [state_rel_def]
+  \\ strip_tac \\ fs []
+  \\ qexists_tac `ck` \\ fs [state_rel_def]);
+
+val FST_EQ_LEMMA = prove(
+  ``FST x = y <=> ?y1. x = (y,y1)``,
+  Cases_on `x` \\ fs []);
+
+val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
+  `semantics ffi (map (I ## (λx. HD (remove_ticks [x]))) prog) start =
+   semantics ffi prog start`,
+  simp [Once semantics_def]
+  \\ IF_CASES_TAC \\ fs []
+  THEN1
+   (simp [semantics_def] \\ IF_CASES_TAC \\ fs [FST_EQ_LEMMA]
+    \\ drule evaluate_compile_prog \\ metis_tac [])
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+   (gen_tac \\ strip_tac \\ rveq \\ simp []
+    \\ simp [semantics_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+      (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+      \\ drule evaluate_add_clock
+      \\ impl_tac >- fs []
+      \\ strip_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _) = _` kall_tac
+      \\ last_assum (qspec_then `k'` mp_tac)
+      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
+      \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
+      \\ strip_tac
+      \\ first_x_assum (qspec_then `ck` mp_tac)
+      \\ simp [inc_clock_def]
+      \\ rw[] \\ fs [])
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ conj_tac
+    >-
+     (gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ qabbrev_tac `opts = (map (I ## (λx. HD (remove_ticks [x]))) prog)`
+      \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (opts1,[],sopt1) = _`
+      \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (exps1,[],st1) = (r,s)`
+      \\ qspecl_then [`opts1`,`[]`,`sopt1`] mp_tac
+           evaluate_add_to_clock_io_events_mono
+      \\ qspecl_then [`exps1`,`[]`,`st1`] mp_tac
+           evaluate_add_to_clock_io_events_mono
+      \\ simp [inc_clock_def, Abbr`sopt1`, Abbr`st1`]
+      \\ ntac 2 strip_tac
+      \\ Cases_on `s.ffi.final_event` \\ fs []
+      >-
+        (Cases_on `s'.ffi.final_event` \\ fs []
+        >-
+          (unabbrev_all_tac
+          \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
+          \\ strip_tac
+          \\ drule evaluate_add_clock
+          \\ impl_tac
+          >- (every_case_tac \\ fs [])
+          \\ rveq
+          \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+          \\ qpat_x_assum `evaluate _ = _` kall_tac
+          \\ drule evaluate_add_clock
+          \\ impl_tac
+          >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
+          \\ disch_then (qspec_then `ck+k` mp_tac) \\ simp [inc_clock_def]
+          \\ ntac 2 strip_tac \\ rveq \\ fs []
+          \\ fs [state_component_equality, state_rel_def])
+        \\ qpat_x_assum `∀extra._` mp_tac
+        \\ first_x_assum (qspec_then `k'` assume_tac)
+        \\ first_assum (subterm
+             (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl)
+        \\ strip_tac \\ fs []
+        \\ unabbrev_all_tac
+        \\ drule (GEN_ALL evaluate_compile_prog)
+        \\ strip_tac
+        \\ qhdtm_x_assum `evaluate` mp_tac
+        \\ imp_res_tac evaluate_add_clock
+        \\ pop_assum mp_tac
+        \\ ntac 2 (pop_assum kall_tac)
+        \\ impl_tac
+        >- (strip_tac \\ fs [])
+        \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+        \\ first_x_assum (qspec_then `ck + k` mp_tac) \\ fs []
+        \\ ntac 3 strip_tac
+        \\ fs [state_rel_def] \\ rveq)
+      \\ qpat_x_assum `∀extra._` mp_tac
+      \\ first_x_assum (qspec_then `k'` assume_tac)
+      \\ first_assum (subterm (fn tm =>
+            Cases_on`^(assert has_pair_type tm)`) o concl)
+      \\ fs []
+      \\ unabbrev_all_tac
+      \\ strip_tac
+      \\ drule (GEN_ALL evaluate_compile_prog)
+      \\ strip_tac \\ rveq \\ fs []
+      \\ reverse (Cases_on `s'.ffi.final_event`) \\ fs [] \\ rfs []
+      >-
+        (first_x_assum (qspec_then `ck + k` mp_tac)
+        \\ fs [ADD1]
+        \\ strip_tac \\ fs [state_rel_def] \\ rfs [])
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ imp_res_tac evaluate_add_clock
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac
+      \\ impl_tac
+      >- (strip_tac \\ fs [])
+      \\ disch_then (qspec_then `ck + k` mp_tac)
+      \\ simp [inc_clock_def]
+      \\ rpt strip_tac \\ rveq
+      \\ CCONTR_TAC \\ fs []
+      \\ rveq \\ fs [] \\ rfs [])
+    \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (exps2,[],st2) = _`
+    \\ qspecl_then [`exps2`,`[]`,`st2`] mp_tac evaluate_add_to_clock_io_events_mono
+    \\ simp [inc_clock_def, Abbr`st2`]
+    \\ disch_then (qspec_then `0` strip_assume_tac)
+    \\ first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+    \\ unabbrev_all_tac
+    \\ drule (GEN_ALL evaluate_compile_prog)
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+  \\ strip_tac
+  \\ simp [semantics_def]
+  \\ IF_CASES_TAC \\ fs []
+  >-
+    (last_x_assum (qspec_then `k` assume_tac) \\ rfs []
+    \\ first_assum (qspec_then `e` assume_tac)
+    \\ fs [] \\ rfs []
+    \\ qmatch_assum_abbrev_tac `FST q ≠ _`
+    \\ Cases_on `q` \\ fs [markerTheory.Abbrev_def]
+    \\ pop_assum (assume_tac o SYM)
+    \\ drule (GEN_ALL evaluate_compile_prog)
+    \\ simp []
+    \\ spose_not_then strip_assume_tac
+    \\ qmatch_assum_abbrev_tac `FST q = _`
+    \\ Cases_on `q` \\ fs [markerTheory.Abbrev_def]
+    \\ pop_assum (assume_tac o SYM)
+    \\ imp_res_tac evaluate_add_clock \\ rfs []
+    \\ first_x_assum (qspec_then `ck` mp_tac)
+    \\ simp [inc_clock_def])
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+    (spose_not_then assume_tac \\ rw []
+    \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
+    \\ last_assum (qspec_then `k` mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ strip_tac
+    \\ drule (GEN_ALL evaluate_compile_prog)
+    \\ strip_tac
+    \\ qmatch_assum_rename_tac `evaluate (_,[],_ k) = (_,rr)`
+    \\ reverse (Cases_on `rr.ffi.final_event`)
+    >-
+      (first_x_assum
+        (qspecl_then
+          [`k`, `FFI_outcome(THE rr.ffi.final_event)`] mp_tac)
+      \\ simp [])
+    \\ qpat_x_assum `∀x y. ¬z` mp_tac \\ simp []
+    \\ qexists_tac `k` \\ simp []
+    \\ reverse (Cases_on `s.ffi.final_event`) \\ fs []
+    >-
+      (qhdtm_x_assum `evaluate` mp_tac
+      \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (opts1,[],os1) = (r,_)`
+      \\ qspecl_then [`opts1`,`[]`,`os1`] mp_tac evaluate_add_to_clock_io_events_mono
+      \\ disch_then (qspec_then `ck` mp_tac)
+      \\ fs [ADD1, inc_clock_def, Abbr`os1`]
+      \\ rpt strip_tac \\ fs []
+      \\ fs [state_rel_def] \\ rfs [])
+    \\ qhdtm_x_assum `evaluate` mp_tac
+    \\ imp_res_tac evaluate_add_clock
+    \\ pop_assum mp_tac
+    \\ impl_tac
+    >- (strip_tac \\ fs [])
+    \\ disch_then (qspec_then `ck` mp_tac)
+    \\ simp [inc_clock_def]
+    \\ fs [ADD1]
+    \\ rpt strip_tac \\ rveq \\ fs [])
+  \\ strip_tac
+  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
+  \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+     suffices_by metis_tac [build_lprefix_lub_thm,
+                            lprefix_lub_new_chain,
+                            unique_lprefix_lub]
+  \\ conj_asm1_tac
+  >-
+    (unabbrev_all_tac
+    \\ conj_tac
+    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    \\ REWRITE_TAC [IMAGE_COMPOSE]
+    \\ match_mp_tac prefix_chain_lprefix_chain
+    \\ simp [prefix_chain_def, PULL_EXISTS]
+    \\ qx_genl_tac [`k1`,`k2`]
+    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
+    \\ metis_tac [
+         LESS_EQ_EXISTS,
+         bviPropsTheory.initial_state_with_simp,
+         bvlPropsTheory.initial_state_with_simp,
+         bviPropsTheory.evaluate_add_to_clock_io_events_mono
+           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+           |> Q.SPEC`s with clock := k`
+           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
+         bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+           |> Q.SPEC`s with clock := k`
+           |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]])
+  \\ simp [equiv_lprefix_chain_thm]
+  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
+  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  \\ rpt gen_tac
+  \\ Cases_on `(evaluate
+         ([Call 0 (SOME start) []],[],
+          initial_state ffi
+            (map (I ## (λx. HD (remove_ticks [x]))) prog) k))`
+  \\ drule (GEN_ALL evaluate_compile_prog)
+  \\ strip_tac \\ fs []
+  \\ conj_tac \\ rw []
+  >- (qexists_tac `ck + k`
+      \\ fs [])
+  \\ qexists_tac `k` \\ fs []
+  \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
+  \\ `ffi1.io_events ≼ r.ffi.io_events` by
+    (qunabbrev_tac `ffi1`
+    \\ metis_tac [
+       initial_state_with_simp, evaluate_add_to_clock_io_events_mono
+         |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+         |> Q.SPEC`s with clock := k`
+         |> SIMP_RULE(srw_ss())[inc_clock_def],
+       SND,ADD_SYM])
+  \\ fs [IS_PREFIX_APPEND]
+  \\ simp [EL_APPEND1]);
+
 val _ = export_theory();
