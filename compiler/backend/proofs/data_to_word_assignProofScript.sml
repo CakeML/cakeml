@@ -10,8 +10,10 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_assignProof";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+val _ = hide "next";
+
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
@@ -450,7 +452,8 @@ val RefArray_thm = Q.store_thm("RefArray_thm",
     \\ `1 < dimindex (:α) − (c.len_size + 2)` by
      (qpat_assum `c.len_size + _ < dimindex (:α)` mp_tac
       \\ rpt (pop_assum kall_tac) \\ decide_tac)
-    \\ fs [good_dimindex_def,dimword_def])
+    \\ Cases_on `dimindex (:α) − (c.len_size + 2)` \\ fs[]
+    \\ Cases_on `n` \\ fs [EXP] \\ Cases_on `2 ** n'` \\ fs [])
   \\ rpt (disch_then drule)
   \\ impl_tac THEN1 (fs [ONCE_REWRITE_RULE[MULT_COMM]MULT_DIV])
   \\ strip_tac
@@ -1870,6 +1873,7 @@ val th = Q.store_thm("assign_CopyByte",
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP
+  (* \\ Cases_on `new_flag` THEN1 cheat (* case for CopyByte T *) *)
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [assign_def] \\ rw []
   \\ fs [do_app]
   \\ `?src srcoff le dst dstoff. vals =
@@ -4459,7 +4463,7 @@ val MemEqList_thm = store_thm("MemEqList_thm",
       word_mem_eq (a + offset) xs dm m = SOME b /\
       get_var 3 t = SOME (Word a) /\ dm = t.mdomain /\ m = t.memory ==>
       ?x. evaluate (MemEqList offset xs,t) =
-            (NONE,t with locals := ((if b then insert 1 (Word 2w) else I) o
+            (NONE,t with locals := ((if b then insert 1 (Word 18w) else I) o
                                     (if xs <> [] then insert 5 x else I)) t.locals)``,
   Induct_on `xs`
   THEN1 (fs [MemEqList_def,eq_eval,word_mem_eq_def])
@@ -5298,7 +5302,7 @@ val evaluate_WordOp64_on_32 = store_thm("evaluate_WordOp64_on_32",
   \\ `mw2n [x1;x2] = n /\ mw2n [y1;y2] = n'` by
     (rw [] \\ match_mp_tac IMP_mw2n_2 \\ fs [] \\ fs [markerTheory.Abbrev_def])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
-  \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``w:'a word-x``)]
+  \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``w-x``)]
   \\ rewrite_tac [word_sub_def,word_2comp_n2w,word_add_n2w]
   \\ fs [word_extract_n2w]
   \\ fs [bitTheory.BITS_THM2,dimword_def] \\ rfs []

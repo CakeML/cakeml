@@ -11,8 +11,8 @@ val _ = Define `chr_tag       = 1`;
 val _ = Define `div_tag       = 2`;
 val _ = Define `subscript_tag = 3`;
 
-val _ = Define `true_tag  = 0`;
-val _ = Define `false_tag = 1`;
+val _ = Define `false_tag = 0`;
+val _ = Define `true_tag  = 1`;
 
 val _ = Define `nil_tag   = 0`;
 val _ = Define `cons_tag  = 0`;

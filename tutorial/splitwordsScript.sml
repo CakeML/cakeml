@@ -16,6 +16,8 @@ EVAL ``splitwords (strlit"hello there hello how are you one two one two three")`
 
 val splitwords_nil = Q.store_thm("splitwords_nil[simp]",
   `splitwords (implode "") = []`, EVAL_TAC);
+val splitwords_nil_lit = Q.store_thm("splitwords_nil_lit[simp]",
+  `splitwords (strlit "") = []`, EVAL_TAC);
 
 val splitwords_concat = Q.store_thm("splitwords_concat",
   `isSpace sp ⇒
@@ -63,6 +65,8 @@ EVAL``frequency (strlit"hello there hello how are you one two one two three") (s
 
 val frequency_nil = Q.store_thm("frequency_nil[simp]",
   `frequency (implode "") w = 0`, EVAL_TAC);
+val frequency_nil_lit = Q.store_thm("frequency_nil_lit[simp]",
+  `frequency (strlit "") w = 0`, EVAL_TAC);
 
 val frequency_concat = Q.store_thm("frequency_concat",
   `isSpace sp ⇒

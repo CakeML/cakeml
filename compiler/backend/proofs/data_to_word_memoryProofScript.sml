@@ -6257,10 +6257,10 @@ val memory_rel_RefPtr_EQ = Q.store_thm("memory_rel_RefPtr_EQ",
 
 val memory_rel_Boolv_T = Q.store_thm("memory_rel_Boolv_T",
   `memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
-    memory_rel c be refs sp st m dm ((Boolv T,Word (2w:'a word))::vars)`,
+    memory_rel c be refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)`,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
@@ -6268,10 +6268,10 @@ val memory_rel_Boolv_T = Q.store_thm("memory_rel_Boolv_T",
 
 val memory_rel_Boolv_F = Q.store_thm("memory_rel_Boolv_F",
   `memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
-    memory_rel c be refs sp st m dm ((Boolv F,Word (18w:'a word))::vars)`,
+    memory_rel c be refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)`,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
