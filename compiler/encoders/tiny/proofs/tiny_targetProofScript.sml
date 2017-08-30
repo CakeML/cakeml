@@ -376,7 +376,7 @@ val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
                 LongMul
               --------------*)
             print_tac "LongMul"
-            \\ next_tac
+            \\ cheat
             )
          >- (
             (*--------------
