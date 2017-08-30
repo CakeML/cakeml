@@ -63,6 +63,16 @@ val shift_lem = Q.prove(
   \\ simp []
   )
 
+val long_mul_lem = Q.prove(
+  `!a : word32 b : word32.
+    n2w ((w2n a * w2n b) DIV 4294967296) =
+    (63 >< 32) (w2w a * w2w b : word64) : word32`,
+  Cases
+  \\ Cases
+  \\ fs [wordsTheory.w2w_n2w, wordsTheory.word_mul_n2w,
+         wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
+  )
+
 val jump_lem =
   blastLib.BBLAST_PROVE
    ``!c: word32. 0xFFFFFFE0w <= c /\ c < 32w ==> (sw2sw (w2w c : word6) = c)``
@@ -265,7 +275,9 @@ val state_tac =
          wordsTheory.word_lsl_bv_def, wordsTheory.word_lsr_bv_def,
          wordsTheory.word_asr_bv_def, wordsTheory.word_ror_bv_def,
          shift_lem, add_carry_lem, add_carry_lem2,
-         jump_lem, jump_lem2, jump_lem3, GSYM wordsTheory.word_add_def,
+         jump_lem, jump_lem2, jump_lem3, long_mul_lem,
+         GSYM wordsTheory.word_add_def,
+         GSYM wordsTheory.word_mul_def,
          ONCE_REWRITE_RULE [wordsTheory.WORD_ADD_COMM]
              alignmentTheory.aligned_add_sub]
   \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [store_lem]
@@ -291,18 +303,15 @@ local
          \\ NTAC j next_state_tac
       end gs
 in
-  fun next_tac gs =
-    let
-    in
-      Q.PAT_ABBREV_TAC `instr = tiny_enc _`
-      \\ pop_assum mp_tac
-      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ strip_tac
-      \\ qunabbrev_tac `instr`
-      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
-      \\ next_tac'
-      \\ state_tac
-    end gs
+  val next_tac =
+    Q.PAT_ABBREV_TAC `instr = tiny_enc _`
+    \\ pop_assum mp_tac
+    \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+    \\ strip_tac
+    \\ qunabbrev_tac `instr`
+    \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+    \\ next_tac'
+    \\ state_tac
 end
 
 (* -------------------------------------------------------------------------
@@ -376,7 +385,7 @@ val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
                 LongMul
               --------------*)
             print_tac "LongMul"
-            \\ cheat
+            \\ next_tac
             )
          >- (
             (*--------------

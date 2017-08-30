@@ -65,7 +65,10 @@ val tiny_enc_def = Define`
    (tiny_enc (Inst (Arith (asm$Shift sh r1 r2 n))) =
       enc (Shift (tiny_sh sh, n2w r1, Reg (n2w r2), Imm (n2w n)))) /\
    (tiny_enc (Inst (Arith (Div _ _ _))) = enc ReservedInstr) /\
-   (tiny_enc (Inst (Arith (LongMul _ _ _ _))) = enc ReservedInstr) /\
+   (tiny_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
+      tiny_encode
+        [Normal (fMulHU, n2w r1, Reg (n2w r3), Reg (n2w r4));
+         Normal (fMul, n2w r2, Reg (n2w r3), Reg (n2w r4))]) /\
    (tiny_enc (Inst (Arith (LongDiv _ _ _ _ _))) = enc ReservedInstr) /\
    (tiny_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       tiny_encode
