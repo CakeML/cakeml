@@ -120,7 +120,7 @@ val () = Datatype `
 (* -- ASM target-specific configuration -- *)
 
 val () = Datatype `
-  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | x86_64`
+  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | Tiny | x86_64`
 
 val () = Datatype `
   asm_config =
@@ -166,6 +166,7 @@ val arith_ok_def = Define `
      c.ISA IN {ARMv8; MIPS; RISC_V}) /\
   (arith_ok (LongMul r1 r2 r3 r4) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
+     c.ISA <> Tiny /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
      ((c.ISA = ARMv6) ==> r1 <> r2) /\
      (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
