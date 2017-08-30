@@ -421,30 +421,30 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool*)
-val _ = Define `
- (check_ctor_tenv tenvT tds=  
- (EVERY check_dup_ctors tds /\
+ val _ = Define `
+ (check_ctor_tenv tenvT []=  T)
+/\ (check_ctor_tenv tenvT ((tvs,tn,ctors)::tds)=  
+ (check_dup_ctors (tvs,tn,ctors) /\
+  ALL_DISTINCT tvs /\
   EVERY
-    (\ (tvs,tn,ctors) . 
-       ALL_DISTINCT tvs /\
-       EVERY
-         (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
-         ctors)
-    tds /\
-  ALL_DISTINCT (MAP (\p .  
-  (case (p ) of ( (_,tn,_) ) => tn )) tds)))`;
+    (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
+    ctors /\
+  ~ (MEM tn (MAP (\p .  
+  (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
+  check_ctor_tenv tenvT tds))`;
 
 
 (*val build_ctor_tenv : nat -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor*)
-val _ = Define `
- (build_ctor_tenv cu tenvT tds type_identities=  
- (alist_to_ns
-    (REVERSE
-      (FLAT
-        (MAP2
-           (\ (tvs,tn,ctors) i . 
-              MAP (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, (cu, i)))) ctors)
-           tds type_identities)))))`;
+ val _ = Define `
+ (build_ctor_tenv cu tenvT [] []=  (alist_to_ns []))
+/\ (build_ctor_tenv cu tenvT ((tvs,tn,ctors)::tds) (id::ids)=  
+ (nsAppend
+    (build_ctor_tenv cu tenvT tds ids)
+    (alist_to_ns
+      (REVERSE
+        (MAP
+          (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, (cu, id))))
+          ctors)))))`;
 
 
 (* For the value restriction on let-based polymorphism *)

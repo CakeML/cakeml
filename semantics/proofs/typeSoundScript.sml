@@ -1734,8 +1734,17 @@ val let_tac =
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [weakCT_refl]);
 
+val type_def_to_ctMap_def = Define `
+  (type_def_to_ctMap tenvT cu next_stamp [] [] = []) ∧
+  (type_def_to_ctMap tenvT cu next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
+    type_def_to_ctMap tenvT cu (next_stamp + 1) tds ids ++
+    REVERSE
+      (MAP (\(cn,ts).
+        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, (id,cu))))
+        ctors))`;
+
 val decs_type_sound_invariant_def = Define `
-decs_type_sound_invariant st env ctMap tenvS tenv ⇔
+decs_type_sound_invariant st env ctMap tenvS tdecls tenv ⇔
   tenv_ok tenv ∧
   good_ctMap ctMap ∧
   type_all_env ctMap tenvS env tenv ∧
@@ -1839,7 +1848,6 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> disch_then drule)
    >- let_tac
    >- let_tac)
-
  >- ( (* case let, duplicate bindings *)
    fs [Once type_d_cases]
    >> fs [])
@@ -1870,26 +1878,21 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
  >- ( (* case letrec duplicate bindings *)
    fs [Once type_d_cases]
    >> metis_tac [type_funs_distinct])
+
  >- ( (* case type definition *)
    drule type_d_tenv_ok
    >> fs [Once type_d_cases]
    >> rw [extend_dec_env_def]
    >> fs [decs_type_sound_invariant_def]
    >> qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _`
-   >> qexists_tac `FUNION (type_decs_to_ctMap mn new_tabbrev tds) ctMap`
+   >> qexists_tac `FUNION (FEMPTY |++ (type_def_to_ctMap new_tabbev cu st.next_type_stamp tds type_identities)) ctMap`
    >> qexists_tac `tenvS`
    >> simp [store_type_extension_refl]
-   >> simp [Once type_v_cases, GSYM type_defs_to_new_tdecs_def]
-   >> drule consistent_ctMap_disjoint
-   >> disch_then drule
-   >> strip_tac
-   >> conj_asm1_tac
-   >- metis_tac [disjoint_env_weakCT, disjoint_image]
    >> conj_asm1_tac
    >- (
      drule check_ctor_tenv_type_decs_to_ctMap
      >> rw []
-     >> fs [type_all_env_def, build_tdefs_def, build_ctor_tenv_def]
+     >> fs [type_all_env_def]
      >> irule nsAll2_alist_to_ns
      >> simp [LIST_REL_REVERSE_EQ]
      >> irule list_rel_flat
@@ -2057,7 +2060,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> `type_all_env ctMap' tenvS env tenv`
        by metis_tac [type_all_env_weakening, weakS_refl]
      >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
-     >> irule nsAll2_nsBind
+     >> irule nsAll2_nsAppend
      >> simp [])
    >> conj_tac
    >- metis_tac [type_s_weakening, good_ctMap_def]

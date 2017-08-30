@@ -853,18 +853,12 @@ val _ = Define `
 
 (* Build a constructor environment for the type definition tds *)
 (*val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list ast_t)) -> env_ctor*)
-val _ = Define `
- (build_tdefs next_stamp tds=  
- (alist_to_ns
-    (REVERSE
-      (SND
-         (FOLDR
-          (\p p0 .  (case (p ,p0 ) of
-     ( (_,_,condefs) , (next_stamp, bindings) ) =>
- ((next_stamp + ( 1 : num)), (build_constrs next_stamp condefs ++ bindings))
- ))
-          (next_stamp, [])
-          tds)))))`;
+ val _ = Define `
+ (build_tdefs next_stamp []=  (alist_to_ns []))
+/\ (build_tdefs next_stamp ((tvs,tn,condefs)::tds)=  
+ (nsAppend
+    (build_tdefs (next_stamp +( 1 : num)) tds)
+    (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))))`;
 
 
 (* Checks that no constructor is defined twice in a type *)

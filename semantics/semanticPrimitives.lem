@@ -732,15 +732,12 @@ let build_constrs stamp condefs =
 
 (* Build a constructor environment for the type definition tds *)
 val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list ast_t)) -> env_ctor
-let build_tdefs next_stamp tds =
-  alist_to_ns
-    (List.reverse
-      (snd
-         (List.foldr
-          (fun (_,_,condefs) (next_stamp, bindings) ->
-            (next_stamp + 1, build_constrs next_stamp condefs ++ bindings))
-          (next_stamp, [])
-          tds)))
+let rec build_tdefs next_stamp [] = alist_to_ns []
+and build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
+  nsAppend
+    (build_tdefs (next_stamp + 1) tds)
+    (alist_to_ns (List.reverse (build_constrs next_stamp condefs)))
+declare termination_argument build_tdefs = automatic
 
 (* Checks that no constructor is defined twice in a type *)
 val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool

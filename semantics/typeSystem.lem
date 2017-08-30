@@ -315,26 +315,28 @@ type_name_subst tenvT (Atapp ts tc) =
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool
-let check_ctor_tenv tenvT tds =
-  List.all check_dup_ctors tds &&
+let rec check_ctor_tenv tenvT [] = true
+and check_ctor_tenv tenvT ((tvs,tn,ctors)::tds) =
+  check_dup_ctors (tvs,tn,ctors) &&
+  List.allDistinct tvs &&
   List.all
-    (fun (tvs,tn,ctors) ->
-       List.allDistinct tvs &&
-       List.all
-         (fun (cn,ts) -> List.all (check_freevars_ast tvs) ts && List.all (check_type_names tenvT) ts)
-         ctors)
-    tds &&
-  List.allDistinct (List.map (fun (_,tn,_) -> tn) tds)
+    (fun (cn,ts) -> List.all (check_freevars_ast tvs) ts && List.all (check_type_names tenvT) ts)
+    ctors &&
+  not (List.elem tn (List.map (fun (_,tn,_) -> tn) tds)) &&
+  check_ctor_tenv tenvT tds
+declare termination_argument check_ctor_tenv = automatic
 
 val build_ctor_tenv : nat -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor
-let build_ctor_tenv cu tenvT tds type_identities =
-  alist_to_ns
-    (List.reverse
-      (List.concat
-        (Lib.map2
-           (fun (tvs,tn,ctors) i ->
-              List.map (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, (cu, i)))) ctors)
-           tds type_identities)))
+let rec build_ctor_tenv cu tenvT [] [] = alist_to_ns []
+and build_ctor_tenv cu tenvT ((tvs,tn,ctors)::tds) (id::ids) =
+  nsAppend
+    (build_ctor_tenv cu tenvT tds ids)
+    (alist_to_ns
+      (List.reverse
+        (List.map
+          (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, (cu, id))))
+          ctors)))
+declare termination_argument build_ctor_tenv = automatic
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool

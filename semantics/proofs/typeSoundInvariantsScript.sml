@@ -60,16 +60,6 @@ val ctMap_ok_def = Define `
       FLOOKUP ctMap stamp2 = SOME (tvs2, ts2, ti) ⇒
       same_type stamp1 stamp2)`;
 
-    (*
-val type_decs_to_ctMap_def = Define `
-  type_decs_to_ctMap mn tenvT tds ⇔
-  FEMPTY |++
-  FLAT
-    (MAP (\(tvs,tn,ctors).
-       MAP (\(cn,ts).
-         ((cn,TypeId (mk_id mn tn)), (tvs, MAP (type_name_subst tenvT) ts))) ctors) tds)`;
-         *)
-
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)

@@ -1939,17 +1939,18 @@ val type_subst = Q.store_thm ("type_subst",
    >> simp [nil_deBruijn_subst, nil_deBruijn_inc]));
 
 val check_ctor_tenv_ok = Q.store_thm ("check_ctor_tenv_ok",
-`!cu tds tenvT tis.
+`!cu tenvT tds tis.
  LENGTH tds = LENGTH tis ∧
  check_ctor_tenv tenvT tds ∧
  tenv_abbrev_ok tenvT
  ⇒
  tenv_ctor_ok (build_ctor_tenv cu tenvT tds tis)`,
- rw [build_ctor_tenv_def, tenv_ctor_ok_def]
+ ho_match_mp_tac build_ctor_tenv_ind >>
+ rw [build_ctor_tenv_def, tenv_ctor_ok_def, check_ctor_tenv_def]
+ >> irule nsAll_nsAppend
+ >> simp []
  >> irule nsAll_alist_to_ns
- >> simp [EVERY_REVERSE]
- >> rw [MAP2_MAP]
- >> fs [check_ctor_tenv_def, EVERY_MEM, MEM_FLAT, MEM_MAP]
+ >> fs [EVERY_REVERSE, check_ctor_tenv_def, EVERY_MEM, MEM_FLAT, MEM_MAP]
  >> rw []
  >> pairarg_tac
  >> fs []
@@ -1957,13 +1958,10 @@ val check_ctor_tenv_ok = Q.store_thm ("check_ctor_tenv_ok",
  >> fs []
  >> pairarg_tac
  >> fs [] >>
- `MEM (tvs', tn', ctors) tds` by metis_tac  [MEM_ZIP_MEM_MAP, FST, SND] >>
  rw [] >>
  first_x_assum drule >>
  rw [] >>
  fs [MEM_MAP] >>
- pairarg_tac >>
- fs [] >>
  first_x_assum drule >>
  rw [] >>
  fs [MEM_MAP]
