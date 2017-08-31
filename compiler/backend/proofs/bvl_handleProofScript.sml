@@ -23,7 +23,7 @@ val handle_ok_def = tDefine "handle_ok" `
      else
        handle_ok xs /\ handle_ok [x2]) /\
   (handle_ok [Raise x1] <=> handle_ok [x1]) /\
-  (handle_ok [Tick x1] <=> handle_ok [x1]) /\
+  (handle_ok [Tick _ x1] <=> handle_ok [x1]) /\
   (handle_ok [Op op xs] <=> handle_ok xs) /\
   (handle_ok [Handle x1 x2] <=>
      case x1 of
@@ -272,7 +272,13 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac do_app_err \\ fs [] \\ res_tac \\ fs [])
   THEN1 (* Tick *)
-   (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
+   (IF_CASES_TAC \\ fs [] \\ rveq
+    THEN1 (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
+    \\ fs [evaluate_def]
+    \\ TOP_CASE_TAC \\ fs []
+    \\ Cases_on `q` \\ fs []
+    THEN1 (IF_CASES_TAC \\ fs [])
+    \\ rw [] \\ fs [] \\ metis_tac [])
   THEN1 (* Call *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
