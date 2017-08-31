@@ -69,7 +69,7 @@ val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
+  `(call_FFI s i conf xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
   srw_tac[][ffiTheory.call_FFI_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -201,8 +201,8 @@ val good_syntax_def = Define `
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      good_syntax p1 k) /\
   (good_syntax (Halt n) k <=> n < k) /\
-  (good_syntax (FFI ffi_index ptr' len' ret') k <=>
-     ptr' < k /\ len' < k /\ ret' < k) /\
+  (good_syntax (FFI ffi_index ptr' len' ptr'' len'' ret') k <=>
+     ptr' < k /\ len' < k /\ ptr'' < k /\ len'' < k /\ ret' < k) /\
   (good_syntax (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of

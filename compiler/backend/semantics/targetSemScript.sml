@@ -15,6 +15,8 @@ val _ = Datatype `
     ; ffi_names : string list
     ; ptr_reg : num
     ; len_reg : num
+    ; ptr2_reg : num
+    ; len2_reg : num
     (* major interference by FFI calls *)
     ; ffi_interfer : num -> num # word8 list # 'b -> 'b
     ; callee_saved_regs : num list
@@ -49,18 +51,23 @@ val evaluate_def = Define `
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
-          case read_bytearray (mc.target.get_reg ms mc.ptr_reg)
-                 (w2n (mc.target.get_reg ms mc.len_reg))
-                 (\a. if a IN mc.prog_addresses
-                      then SOME (mc.target.get_byte ms a) else NONE) of
-          | NONE => (Error,ms,ffi)
-          | SOME bytes =>
-            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index mc.ffi_names) bytes(*TODO:wrong*) bytes in
+          case (read_bytearray (mc.target.get_reg ms mc.ptr_reg)
+                  (w2n (mc.target.get_reg ms mc.len_reg))
+                  (\a. if a IN mc.prog_addresses
+                       then SOME (mc.target.get_byte ms a) else NONE),
+                read_bytearray (mc.target.get_reg ms mc.ptr2_reg)
+                  (w2n (mc.target.get_reg ms mc.len2_reg))
+                  (\a. if a IN mc.prog_addresses
+                       then SOME (mc.target.get_byte ms a) else NONE))
+           of
+          | SOME bytes, SOME bytes2 =>
+            let (new_ffi,new_bytes) = call_FFI ffi (EL ffi_index mc.ffi_names) bytes bytes2 in
             let (ms1,new_oracle) = apply_oracle mc.ffi_interfer (ffi_index,new_bytes,ms) in
             let mc = mc with ffi_interfer := new_oracle in
               if new_ffi.final_event <> NONE
               then (Halt (FFI_outcome (THE new_ffi.final_event)),ms,new_ffi)
-              else evaluate mc new_ffi (k - 1:num) ms1`
+              else evaluate mc new_ffi (k - 1:num) ms1
+          | _ => (Error,ms,ffi)`
 
 val machine_sem_def = Define `
   (machine_sem mc st ms (Terminate t io_list) <=>

@@ -334,12 +334,12 @@ val evaluate_def = tDefine "evaluate" `
               s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of
         | (Word w, Word w2, Word w3, Word w4, Loc n1 n2) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
-                read_bytearray w4 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
+                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME bytes2, SOME new_pc) =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
               let new_io_regs = shift_seq 1 s.io_regs in
-              let new_m = write_bytearray w2 new_bytes s.mem s.mem_domain s.be in
+              let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
                 evaluate (s with <|
                                  mem := new_m ;
                                  ffi := new_ffi ;

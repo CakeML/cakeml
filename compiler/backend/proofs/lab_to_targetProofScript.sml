@@ -472,17 +472,19 @@ val state_rel_def = Define `
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.target.config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
     reg_ok s1.len_reg mc_conf.target.config /\ (mc_conf.len_reg = s1.len_reg) /\
+    reg_ok s1.ptr2_reg mc_conf.target.config /\ (mc_conf.ptr2_reg = s1.ptr2_reg) /\
+    reg_ok s1.len2_reg mc_conf.target.config /\ (mc_conf.len2_reg = s1.len2_reg) /\
     reg_ok s1.link_reg mc_conf.target.config /\
     (!ms2 k index new_bytes t1 x.
        target_state_rel mc_conf.target
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
-       (read_bytearray (t1.regs s1.ptr_reg) (LENGTH new_bytes)
+       (read_bytearray (t1.regs s1.ptr2_reg) (LENGTH new_bytes)
          (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) =
            SOME x) ==>
        target_state_rel mc_conf.target
          (t1 with
          <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs s1.ptr_reg) new_bytes t1.mem;
+           mem := asm_write_bytearray (t1.regs s1.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs s1.link_reg|>)
         (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
     (!l1 l2 x.
@@ -1914,16 +1916,23 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (CallFFI s) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.regs s1.len2_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.regs s1.ptr2_reg` \\ full_simp_tac(srw_ss())[]
+    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`    
+    \\ qmatch_assum_rename_tac `read_reg _.ptr2_reg _ = Word c2'`
+    \\ qmatch_assum_rename_tac `read_reg _.ptr_reg _ = Word c'`
     \\ Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
     \\ full_simp_tac(srw_ss())[]
-    \\ qmatch_assum_rename_tac
-         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`
+    \\ Cases_on `read_bytearray c2' (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
+    \\ full_simp_tac(srw_ss())[]
+(*    \\ qmatch_assum_rename_tac
+         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`*)
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
-    \\ Cases_on `call_FFI s1.ffi s x` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `call_FFI s1.ffi s x x'` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
-         `call_FFI s1.ffi s x = (new_ffi,new_bytes)`
+         `call_FFI s1.ffi s x x' = (new_ffi,new_bytes)`
     \\ mp_tac (Q.GEN `name` IMP_bytes_in_memory_CallFFI) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
@@ -1965,6 +1974,8 @@ val compile_correct = Q.prove(
        \\ rev_full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
+        (mc_conf.target.get_reg ms2 mc_conf.ptr2_reg = t1.regs mc_conf.ptr2_reg) /\
+        (mc_conf.target.get_reg ms2 mc_conf.len2_reg = t1.regs mc_conf.len2_reg) /\
         !a. a IN mc_conf.prog_addresses ==>
             (mc_conf.target.get_byte ms2 a = t1.mem a)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
@@ -1977,15 +1988,21 @@ val compile_correct = Q.prove(
       \\ rpt strip_tac \\ first_x_assum match_mp_tac
       \\ full_simp_tac(srw_ss())[reg_ok_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
-    \\ `(t1.regs mc_conf.ptr_reg = c1) /\
-        (t1.regs mc_conf.len_reg = c2)` by
+    \\ `(t1.regs mc_conf.ptr_reg = c') /\
+        (t1.regs mc_conf.len_reg = c) /\
+        (t1.regs mc_conf.ptr2_reg = c2') /\
+        (t1.regs mc_conf.len2_reg = c2)` by
      (full_simp_tac(srw_ss())[state_rel_def]
       \\ Q.PAT_X_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
            (fn th =>
           MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
-          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr2_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len2_reg` th))
       \\ Q.PAT_X_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
       \\ Q.PAT_X_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `xx = s1.ptr2_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `xx = s1.len2_reg` (ASSUME_TAC o GSYM)
       \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
@@ -1999,7 +2016,7 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[shift_interfer_def,LET_DEF,apply_oracle_def]
       \\ BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
       >> `mc_conf.ffi_names = find_ffi_names s1.code` by fs[state_rel_def]
-      >> `EL (get_ffi_index (find_ffi_names s1.code) s) (find_ffi_names s1.code) = s` by fs[get_ffi_index_roundtrip]
+      >> qspecl_then [`s1.code`,`s`] assume_tac get_ffi_index_roundtrip
       >> fs [])
     \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
@@ -2007,7 +2024,7 @@ val compile_correct = Q.prove(
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
          `code2`,`labs`,
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
-                     mem := asm_write_bytearray c1 new_bytes t1.mem ;
+                     mem := asm_write_bytearray c2' new_bytes t1.mem ;
                      regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
          `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names s,new_bytes,ms2)`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -2041,7 +2058,7 @@ val compile_correct = Q.prove(
       THEN1
        (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO]
         \\ rev_full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
+        \\ Q.PAT_X_ASSUM `t1.regs s1.ptr2_reg = c2'` (ASSUME_TAC o GSYM)
         \\ full_simp_tac(srw_ss())[] \\ first_x_assum match_mp_tac
         \\ full_simp_tac(srw_ss())[] \\ qexists_tac `new_io`
         \\ full_simp_tac(srw_ss())[])
@@ -2054,7 +2071,7 @@ val compile_correct = Q.prove(
       \\ qpat_x_assum `!a.
            byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ match_mp_tac (SIMP_RULE std_ss [] CallFFI_bytearray_lemma)
+      \\ match_mp_tac (SIMP_RULE std_ss [] (Q.INST [`x` |-> `x'`] CallFFI_bytearray_lemma))
       \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
@@ -4778,6 +4795,8 @@ val make_init_def = Define `
      ; failed     := F
      ; ptr_reg    := mc_conf.ptr_reg
      ; len_reg    := mc_conf.len_reg
+     ; ptr2_reg    := mc_conf.ptr2_reg
+     ; len2_reg    := mc_conf.len2_reg
      ; link_reg   := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
      |>`;
 
@@ -4788,6 +4807,7 @@ val good_init_state_def = Define `
         ffi ffis bytes io_regs save_regs dm <=>
     ffi.final_event = NONE /\
     byte_aligned (t.regs mc_conf.ptr_reg) /\
+    byte_aligned (t.regs mc_conf.ptr2_reg) /\
     target_state_rel mc_conf.target t ms /\ ~t.failed /\
     good_dimindex (:'a) /\
     mc_conf.prog_addresses = t.mem_domain /\
@@ -4799,6 +4819,8 @@ val good_init_state_def = Define `
     (n2w (2 ** t.align - 1) && mc_conf.target.get_pc ms) = 0w /\
     reg_ok mc_conf.ptr_reg mc_conf.target.config /\
     reg_ok mc_conf.len_reg mc_conf.target.config /\
+    reg_ok mc_conf.ptr2_reg mc_conf.target.config /\
+    reg_ok mc_conf.len2_reg mc_conf.target.config /\
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config /\
     (!index.
@@ -4825,7 +4847,7 @@ val good_init_state_def = Define `
          (t1 with
           pc := -n2w ((3 + index) * ffi_offset) + mc_conf.target.get_pc ms)
        ms2 /\
-       read_bytearray (t1.regs mc_conf.ptr_reg) (LENGTH new_bytes)
+       read_bytearray (t1.regs mc_conf.ptr2_reg) (LENGTH new_bytes)
          (\a. if a IN t1.mem_domain then SOME (t1.mem a) else NONE) =
        SOME x ==>
        target_state_rel mc_conf.target
@@ -4835,7 +4857,7 @@ val good_init_state_def = Define `
              get_reg_value
                (if a IN save_regs then NONE else io_regs k a)
                (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs mc_conf.ptr_reg) new_bytes t1.mem;
+           mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                   | SOME n => n)|>)
         (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\

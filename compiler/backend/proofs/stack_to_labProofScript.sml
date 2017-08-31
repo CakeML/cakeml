@@ -23,23 +23,23 @@ val assert_T = Q.store_thm("assert_T[simp]",
   srw_tac[][assert_def,state_component_equality]);
 
 val good_syntax_def = Define `
-  (good_syntax ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
-     good_syntax p1 ptr len ret /\
-     good_syntax p2 ptr len ret) /\
-  (good_syntax ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
-     good_syntax p1 ptr len ret /\
-     good_syntax p2 ptr len ret) /\
-  (good_syntax (While c r ri p1) ptr len ret <=>
-     good_syntax p1 ptr len ret) /\
-  (good_syntax (Halt n) ptr len ret <=> (n = ptr)) /\
-  (good_syntax (FFI ffi_index ptr' len' ret') ptr len ret <=>
-     ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (good_syntax (Call x1 _ x2) ptr len ret <=>
+  (good_syntax ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     good_syntax p1 ptr len ptr2 len2 ret /\
+     good_syntax p2 ptr len ptr2 len2 ret) /\
+  (good_syntax ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     good_syntax p1 ptr len ptr2 len2 ret /\
+     good_syntax p2 ptr len ptr2 len2 ret) /\
+  (good_syntax (While c r ri p1) ptr len ptr2 len2 ret <=>
+     good_syntax p1 ptr len ptr2 len2 ret) /\
+  (good_syntax (Halt n) ptr len ptr2 len2 ret <=> (n = ptr)) /\
+  (good_syntax (FFI ffi_index ptr' len' ptr2' len2' ret') ptr len ptr2 len2 ret <=>
+     ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
+  (good_syntax (Call x1 _ x2) ptr len ptr2 len2 ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => good_syntax y ptr len ret /\ r = ret
+      | SOME (y,r,_,_) => good_syntax y ptr len ptr2 len2 ret /\ r = ret
       | NONE => T) /\
-     (case x2 of SOME (y,_,_) => good_syntax y ptr len ret | NONE => T)) /\
-  (good_syntax _ ptr len ret <=> T)`
+     (case x2 of SOME (y,_,_) => good_syntax y ptr len ptr2 len2 ret | NONE => T)) /\
+  (good_syntax _ ptr len ptr2 len2 ret <=> T)`
 
 val word_cmp_word_cmp = Q.store_thm("word_cmp_word_cmp",
   `(word_cmp cmp (Word w1) (Word w2) = SOME T) ⇔ word_cmp cmp w1 w2`,
@@ -115,12 +115,13 @@ val state_rel_def = Define`
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
-      good_syntax prog t.ptr_reg t.len_reg t.link_reg ∧
+      good_syntax prog t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg ∧
       ∃pc. code_installed pc
              (append (FST (flatten prog n (next_lab prog 1)))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
+    t.link_reg ≠ t.len2_reg ∧ t.link_reg ≠ t.ptr2_reg ∧    
     ~(t.link_reg ∈ s.ffi_save_regs) /\
     (!k n. k ∈ s.ffi_save_regs ==> t.io_regs n k = NONE) /\
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
@@ -399,7 +400,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
   `∀prog s1 r s2 n l t1.
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
-     good_syntax prog t1.ptr_reg t1.len_reg t1.link_reg ∧
+     good_syntax prog t1.ptr_reg t1.len_reg t1.ptr2_reg t1.len2_reg t1.link_reg ∧
      code_installed t1.pc (append (FST (flatten prog n l))) t1.code
      ⇒
      ∃ck t2.
@@ -412,6 +413,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
          evaluate (t2 with clock := t2.clock + ck1)) ∧
        t2.len_reg = t1.len_reg ∧
        t2.ptr_reg = t1.ptr_reg ∧
+       t2.len2_reg = t1.len2_reg ∧
+       t2.ptr2_reg = t1.ptr2_reg ∧                                                       
        t2.link_reg = t1.link_reg ∧
        t2.code = t1.code ∧
        case OPTION_MAP result_view r of
@@ -731,7 +734,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         strip_tac >>
         reverse TOP_CASE_TAC \\ fs[upd_pc_def] >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-        \\ simp[inc_pc_def,dec_clock_def]
+        \\ simp[inc_pc_def,dec_clock_def] \\ rfs[]
         \\ qexists_tac`ck+1`>>simp[] >>
         qexists_tac`t2`>>simp[]) >>
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
@@ -748,7 +751,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
       strip_tac >>
-      fs[upd_pc_def,ADD1] >>
+      fs[upd_pc_def,ADD1] >> rfs[] >>
       qexists_tac`ck` >>
       TOP_CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -783,7 +786,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         strip_tac >>
         reverse TOP_CASE_TAC \\ fs[upd_pc_def] >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-        \\ simp[inc_pc_def,dec_clock_def]
+        \\ simp[inc_pc_def,dec_clock_def] \\ rfs[]
         \\ qexists_tac`ck+1`>>simp[] >>
         qexists_tac`t2`>>simp[]) >>
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
@@ -794,13 +797,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
       fs[FILTER_APPEND] >>
       qmatch_assum_abbrev_tac`code_installed pc (append xs) _` >>
       drule state_rel_with_pc >> strip_tac >>
-      rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
-      fs[upd_pc_def,ADD1] >>
+      fs[upd_pc_def,ADD1] >> first_x_assum drule >> fs[] >> strip_tac >>
       qexists_tac`ck` >>
       TOP_CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -844,7 +846,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
     strip_tac >>
     full_simp_tac(srw_ss())[upd_pc_def] >>
-    reverse TOP_CASE_TAC \\ fs[]
+    reverse TOP_CASE_TAC \\ fs[] \\ rfs[]
     >- (
       qexists_tac`ck+1`>>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def,inc_pc_def,dec_clock_def] ) >>
@@ -1370,7 +1372,9 @@ val flatten_correct = Q.store_thm("flatten_correct",
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     Cases_on`get_var len s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    last_x_assum mp_tac >> CASE_TAC >> simp[] >>
+    Cases_on`get_var len2 s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var ptr2 s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    last_x_assum mp_tac >> CASE_TAC >> simp[] >> CASE_TAC >> simp[] >>
     pairarg_tac >> simp[] >> srw_tac[][] >> simp[] >>
     full_simp_tac(srw_ss())[code_installed_def,good_syntax_def] >>
     qexists_tac`2` >>
@@ -1380,8 +1384,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[Once labSemTheory.evaluate_def,asm_fetch_def,upd_reg_def,dec_clock_def,inc_pc_def,APPLY_UPDATE_THM] >>
     IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
     IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
+    IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
+    IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
     `get_var t1.ptr_reg s = SOME (read_reg t1.ptr_reg t1) ∧
-     get_var t1.len_reg s = SOME (read_reg t1.len_reg t1)` by (
+     get_var t1.len_reg s = SOME (read_reg t1.len_reg t1) ∧
+     get_var t1.ptr2_reg s = SOME (read_reg t1.ptr2_reg t1) ∧
+     get_var t1.len2_reg s = SOME (read_reg t1.len2_reg t1)` by (
       full_simp_tac(srw_ss())[state_rel_def,get_var_def] >> res_tac >> full_simp_tac(srw_ss())[] ) >>
     full_simp_tac(srw_ss())[] >>
     `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by full_simp_tac(srw_ss())[state_rel_def] >>
@@ -1820,11 +1828,12 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
   `state_rel (make_init code regs save_regs s) (s:('a,'ffi) labSem$state) <=>
     (∀n prog.
      lookup n code = SOME (prog) ⇒
-     good_syntax prog s.ptr_reg s.len_reg s.link_reg ∧
+     good_syntax prog s.ptr_reg s.len_reg s.ptr2_reg s.len2_reg s.link_reg ∧
      ∃pc.
        code_installed pc (append (FST (flatten prog n (next_lab prog 1)))) s.code ∧
        loc_to_pc n 0 s.code = SOME pc) ∧ ¬s.failed ∧
     s.link_reg ≠ s.len_reg ∧ s.link_reg ≠ s.ptr_reg ∧
+    s.link_reg ≠ s.len2_reg ∧ s.link_reg ≠ s.ptr2_reg ∧
     s.link_reg ∉ save_regs ∧ (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)`,
   fs [state_rel_def,make_init_def,FLOOKUP_regs]

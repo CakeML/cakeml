@@ -45,7 +45,7 @@ val _ = Datatype `
 val word_shift_def = Define `
   word_shift (:'a) =
     (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
-       to be sure that LOG doesn't unecessarily end up in the
+       to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num`;
 

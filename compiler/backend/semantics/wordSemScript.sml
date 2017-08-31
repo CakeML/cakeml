@@ -561,11 +561,11 @@ val evaluate_def = tDefine "evaluate" `
       | NONE => (SOME Error,s)
       | SOME env =>
         (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
-               read_bytearray w4 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be))
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
-              let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
+              let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                 (NONE, s with <| memory := new_m ;
                                  locals := env ;
                                  ffi := new_ffi |>)

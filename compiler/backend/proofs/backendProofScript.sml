@@ -359,14 +359,14 @@ val word_to_stack_sr_gs = Q.store_thm("word_to_stack_sr_gs",`
 
 val stack_move_sl_gs = Q.store_thm("stack_move_sl_gs",`
   ∀n st off i p.
-  good_syntax p 1 2 0 ⇒
-  good_syntax (stack_move n st off i p) 1 2 0`,
+  good_syntax p 1 2 3 4 0 ⇒
+  good_syntax (stack_move n st off i p) 1 2 3 4 0`,
   Induct>>rw[stack_move_def,sl_gs_def]);
 
 val word_to_stack_sl_gs = Q.store_thm("word_to_stack_sl_gs",`
   ∀p n args.
   post_alloc_conventions (FST args) p ⇒
-  good_syntax (FST(word_to_stack$comp p n args)) 1 2 0`,
+  good_syntax (FST(word_to_stack$comp p n args)) 1 2 3 4 0`,
   ho_match_mp_tac comp_ind >>fs[comp_def,sl_gs_def,FORALL_PROD,wRegWrite1_def,wLive_def]>>rw[]>>fs convs
   >-
     (fs[wMove_def]>>
@@ -437,7 +437,7 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
         full_inst_ok_less mc_conf.target.config prog') ∧
        (mc_conf.target.config.two_reg_arith ⇒ every_inst two_reg_inst prog')) p /\
     (compile mc_conf.target.config p = (c2,prog1) ==>
-     EVERY (\p. stack_to_labProof$good_syntax p 1 2 0) (MAP SND prog1) /\
+     EVERY (\p. stack_to_labProof$good_syntax p 1 2 3 4 0) (MAP SND prog1) /\
      EVERY stack_allocProof$good_syntax (MAP SND prog1) /\
      EVERY (\p. stack_removeProof$good_syntax p (mc_conf.target.config.reg_count - (LENGTH mc_conf.target.config.avoid_regs +3)))
        (MAP SND prog1))`,
@@ -526,10 +526,10 @@ val data_to_word_compile_imp = Q.store_thm("data_to_word_compile_imp",
 
 val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
   `10 ≤ sp ∧ (* I think 10 has to do with the number of vars used by the gc implementation *)
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog1) /\
+    EVERY (λp. good_syntax p 1 2 3 4 0) (MAP SND prog1) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND prog1) ==>
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND (compile c.data_conf prog1)) /\
+    EVERY (λp. good_syntax p 1 2 3 4 0) (MAP SND (compile c.data_conf prog1)) /\
     EVERY (\p. stack_removeProof$good_syntax p sp)
        (MAP SND (compile c.data_conf prog1))`,
   fs[stack_allocTheory.compile_def]>>
@@ -541,7 +541,7 @@ val stack_alloc_syntax = Q.store_thm("stack_alloc_syntax",
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
-  qpat_x_assum`good_syntax p_2 1 2 0` mp_tac>>
+  qpat_x_assum`good_syntax p_2 1 2 3 4 0` mp_tac>>
   qpat_x_assum`good_syntax p_2 sp` mp_tac>>
   qpat_x_assum`10 ≤ sp` mp_tac>>
   rpt (pop_assum kall_tac)>>
@@ -837,15 +837,15 @@ val code_installed_prog_to_section = Q.store_thm("code_installed_prog_to_section
 
 val upshift_downshift_syntax = Q.store_thm("upshift_downshift_syntax",`
   ∀n n0.
-  good_syntax (upshift n n0) 1 2 0 ∧
-  good_syntax (downshift n n0) 1 2 0`,
+  good_syntax (upshift n n0) 1 2 3 4 0 ∧
+  good_syntax (downshift n n0) 1 2 3 4 0`,
   completeInduct_on`n0`>>simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>strip_tac>>IF_CASES_TAC>>simp[sl_gs_def]>>
   first_assum match_mp_tac>>EVAL_TAC>>fs[])
 
 val stack_remove_syntax_pres = Q.store_thm("stack_remove_syntax_pres",
   `Abbrev (prog3 = compile jump off gen_gc n bitmaps k pos prog2) /\
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog2) ==>
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3)`,
+    EVERY (λp. good_syntax p 1 2 3 4 0) (MAP SND prog2) ==>
+    EVERY (λp. good_syntax p 1 2 3 4 0) (MAP SND prog3)`,
   rw[]>>
   unabbrev_all_tac>>fs[]>>
   EVAL_TAC>>
@@ -876,9 +876,11 @@ val stack_remove_syntax_pres = Q.store_thm("stack_remove_syntax_pres",
 
 val stack_names_syntax_pres = Q.store_thm("stack_names_syntax_pres",
   `Abbrev (prog4 = stack_names$compile f prog3) /\
-    EVERY (λp. good_syntax p 1 2 0) (MAP SND prog3) ==>
+    EVERY (λp. good_syntax p 1 2 3 4 0) (MAP SND prog3) ==>
     EVERY (λp. good_syntax p (find_name f 1)
                              (find_name f 2)
+                             (find_name f 3)
+                             (find_name f 4)
                              (find_name f 0)) (MAP SND prog4)`,
   rw[]>>
   unabbrev_all_tac>>fs[stack_namesTheory.compile_def]>>
@@ -1016,7 +1018,10 @@ val lower_conf_ok_def = Define`lower_conf_ok c mc_conf ⇔
     backend_correct mc_conf.target /\ good_dimindex (:'a) /\
     find_name c.stack_conf.reg_names PERMUTES UNIV /\
     (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n) ∉
-      ({mc_conf.len_reg; mc_conf.ptr_reg} UNION set mc_conf.callee_saved_regs) /\
+      ({mc_conf.len_reg; mc_conf.ptr_reg; mc_conf.len2_reg; mc_conf.ptr2_reg}
+       UNION set mc_conf.callee_saved_regs) /\
+    find_name c.stack_conf.reg_names 4 = mc_conf.len2_reg /\
+    find_name c.stack_conf.reg_names 3 = mc_conf.ptr2_reg /\
     find_name c.stack_conf.reg_names 2 = mc_conf.len_reg /\
     find_name c.stack_conf.reg_names 1 = mc_conf.ptr_reg /\
     (find_name c.stack_conf.reg_names 0 =
@@ -1067,7 +1072,7 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
     lower_conf_ok c mc_conf ==>
     data_to_word_precond (bytes,c,ffi:'ffi ffi_state,ffis,mc_conf,ms,prog)`,
   strip_tac \\ fs [data_to_word_precond_def,lower_conf_ok_def]
-  \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg)` by
+  \\ `ffi.final_event = NONE /\ byte_aligned (t.regs mc_conf.ptr_reg) /\ byte_aligned (t.regs mc_conf.ptr2_reg)` by
         fs [good_init_state_def] \\ fs [EXISTS_PROD]
   \\ fs [EVAL ``lookup 0 (LS x)``,word_to_stackProofTheory.make_init_def]
   \\ fs [full_make_init_ffi,full_make_init_gc_fun]
@@ -1197,6 +1202,7 @@ val imp_data_to_word_precond = Q.store_thm("imp_data_to_word_precond",
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
     \\ conj_tac THEN1 metis_tac [LINV_DEF,IN_UNIV,BIJ_DEF]
+    \\ qpat_x_assum `_ = mc_conf.len2_reg` (fn th => fs [GSYM th])
     \\ qpat_x_assum `_ = mc_conf.len_reg` (fn th => fs [GSYM th])
     \\ qunabbrev_tac `dm`
     \\ rpt (qpat_x_assum `byte_aligned (t.regs _)` mp_tac)

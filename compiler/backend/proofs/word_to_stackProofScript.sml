@@ -5055,7 +5055,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
     \\ fs [loc_check_def,IN_DEF])
   THEN1 (* FFI *)
-   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
+   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
     \\ rw [] \\ fs [] \\ rw []
     \\ fs [wordSemTheory.evaluate_def]
     \\ qpat_x_assum `aaa = (res,s1)` mp_tac
@@ -5066,7 +5066,11 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `FLOOKUP t.regs 1 = get_var 2 s /\
         FLOOKUP t.regs 2 = get_var 4 s` by
      (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
-      \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+       \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+    \\ `FLOOKUP t.regs 3 = get_var 6 s /\
+        FLOOKUP t.regs 4 = get_var 8 s` by
+     (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
+      \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
     \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
         s.memory = t.memory /\ s.ffi = t.ffi` by
           fs [state_rel_def] \\ fs [LET_THM]

@@ -295,11 +295,7 @@ val comp_correct = Q.prove(
   THEN1 (
     simp[Once comp_def] >>
     fs[evaluate_def] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    rpt(BasicProvers.TOP_CASE_TAC >> fs[]) >>
     simp[Once rename_state_def] >>
     simp[Once rename_state_def] >>
     simp[Once rename_state_def] >>
