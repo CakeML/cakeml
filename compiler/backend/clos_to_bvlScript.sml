@@ -332,7 +332,7 @@ val compile_exps_def = tDefine "compile_exps" `
        ([Raise (HD c1)], aux1)) /\
   (compile_exps max_app [Tick t x1] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
-       ([Tick (HD c1)], aux1)) /\
+       ([Tick T (HD c1)], aux1)) /\
   (compile_exps max_app [Op t op xs] aux =
      let (c1,aux1) = compile_exps max_app xs aux in
      ([(* if op = Equal then

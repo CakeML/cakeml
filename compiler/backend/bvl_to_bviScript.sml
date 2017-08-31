@@ -62,7 +62,7 @@ val alloc_glob_count_def = tDefine "alloc_glob_count" `
   (alloc_glob_count [Handle x y] =
      alloc_glob_count [x] +
      alloc_glob_count [y]) /\
-  (alloc_glob_count [Tick x] = alloc_glob_count [x]) /\
+  (alloc_glob_count [Tick _ x] = alloc_glob_count [x]) /\
   (alloc_glob_count [Raise x] = alloc_glob_count [x]) /\
   (alloc_glob_count [Let xs x] = alloc_glob_count (x::xs)) /\
   (alloc_glob_count [Call _ _ xs] = alloc_glob_count xs) /\
@@ -266,9 +266,10 @@ val compile_exps_def = tDefine "compile_exps" `
   (compile_exps n [Raise x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Raise (HD c1)], aux1, n1)) /\
-  (compile_exps n [Tick x1] =
+  (compile_exps n [Tick b x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
-       ([Tick (HD c1)], aux1, n1)) /\
+       (if b then [Tick (HD c1)] else
+         [Let (c1 ++ [Tick (Op (Const 0) [])]) (Var 0)], aux1, n1)) /\
   (compile_exps n [Op op xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([compile_op op c1],aux1,n1)) /\

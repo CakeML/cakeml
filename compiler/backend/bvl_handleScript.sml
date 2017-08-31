@@ -65,9 +65,9 @@ val compile_def = tDefine "compile" `
   (compile l n [Op op xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
        OptionalLetLet (Op op ys) n lx (s1+1) l nr1) /\
-  (compile l n [Tick x] =
+  (compile l n [Tick b x] =
      let (y,lx,s1,nr1) = compile l n [x] in
-       ([Tick (HD y)],lx,s1,nr1)) /\
+       ([Tick b (HD y)],lx,s1,nr1)) /\
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
        OptionalLetLet (Call t dest ys) n lx (s1+1) l F)`
