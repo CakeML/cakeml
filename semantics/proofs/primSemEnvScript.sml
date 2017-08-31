@@ -28,7 +28,6 @@ val semantics_init_def = Define`
   semantics_init ffi =
     semantics <| sem_st := FST(THE (prim_sem_env ffi));
                  sem_env := SND(THE (prim_sem_env ffi));
-                 next_comp_unit := 0;
                  tenv := prim_tenv |>`;
 
 val _ = export_theory ();

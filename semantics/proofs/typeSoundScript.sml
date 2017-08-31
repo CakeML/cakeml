@@ -160,17 +160,17 @@ val ctor_canonical_values_thm = Q.store_thm ("ctor_canonical_values_thm",
   rw []
   >- (
     fs [Once type_v_cases] >>
-    fs [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
-    imp_res_tac type_funs_Tfn >>
-    fs [] >>
-    rw [] >>
-    `stamp = TypeStamp "true" bool_type_num ∨ stamp = TypeStamp "false" bool_type_num`
-    by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
-    rw [] >>
-    fs [] >>
-    rw [] >>
-    fs [] >>
-    metis_tac [NOT_SOME_NONE])
+    full_simp_tac std_ss [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
+    imp_res_tac type_funs_Tfn
+    >- (
+      `stamp = TypeStamp "true" bool_type_num ∨ stamp = TypeStamp "false" bool_type_num`
+        by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
+      var_eq_tac >>
+      rpt (qpat_x_assum `LIST_REL _ _ _` mp_tac) >>
+      rpt (qpat_x_assum `FLOOKUP _ _ = SOME _` mp_tac) >>
+      simp_tac list_ss [] >>
+      metis_tac [])
+    >- fs [])
   >- metis_tac [has_lists_v_to_list, Tlist_def, Tchar_def, Tstring_def]
   >- (
     fs [Once type_v_cases, ctMap_ok_def, type_num_defs] >>
@@ -1706,7 +1706,8 @@ val let_tac =
     >- ( (* No match *)
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
-      >> rw [weakCT_refl, type_v_exn, bind_exn_v_def])
+      >> rw [weakCT_refl, type_v_exn, bind_exn_v_def] >>
+      metis_tac [consistent_ctMap_def, evaluate_state_unchanged])
     >- ( (* match *)
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
@@ -1717,6 +1718,8 @@ val let_tac =
       >- (
         irule nsAll2_alist_to_ns
         >> fs [tenv_add_tvs_def, EVERY2_MAP, LAMBDA_PROD])
+      >> conj_asm1_tac
+      >- metis_tac [consistent_ctMap_def, evaluate_state_unchanged]
       >> irule nsAll2_nsAppend
       >> simp []))
   >- ( (* An exception *)
@@ -1726,6 +1729,8 @@ val let_tac =
       qexists_tac `ctMap`
       >> qexists_tac `tenvS''`
       >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
+      >> conj_tac
+      >- metis_tac [consistent_ctMap_def, evaluate_state_unchanged]
       >> irule nsAll2_mono
       >> qexists_tac `(λi v (tvs,t). type_v tvs ctMap tenvS v t)`
       >> rw []
@@ -1735,25 +1740,113 @@ val let_tac =
     >- metis_tac [weakCT_refl]);
 
 val type_def_to_ctMap_def = Define `
-  (type_def_to_ctMap tenvT cu next_stamp [] [] = []) ∧
-  (type_def_to_ctMap tenvT cu next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
-    type_def_to_ctMap tenvT cu (next_stamp + 1) tds ids ++
+  (type_def_to_ctMap tenvT next_stamp [] [] = []) ∧
+  (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
+    type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
     REVERSE
       (MAP (\(cn,ts).
-        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, (id,cu))))
+        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
         ctors))`;
 
+val mem_type_def_to_ctMap = Q.prove (
+  `!tenvT next tds ids stamp x.
+    MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
+    LENGTH tds = LENGTH ids
+    ⇒
+    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i`,
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+  rw [type_def_to_ctMap_def] >>
+  fs [] >>
+  res_tac >>
+  rw [] >>
+  fs [MEM_MAP] >>
+  pairarg_tac >>
+  fs []);
+
+val build_tdefs_build_tenv = Q.prove (
+  `!tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
+    EVERY (λ(_, _, ctors). ALL_DISTINCT (MAP FST ctors)) tds ∧
+    LENGTH tds = LENGTH tids ⇒
+    nsAll2
+      (type_ctor (ctMap |++ REVERSE (type_def_to_ctMap tenvT next tds tids)))
+      (build_tdefs next tds : env_ctor)
+      (build_ctor_tenv tenvT tds tids)`,
+  ho_match_mp_tac build_ctor_tenv_ind >>
+  rw [build_tdefs_def, build_ctor_tenv_def, type_def_to_ctMap_def] >>
+  fs [] >>
+  irule nsAll2_nsAppend >>
+  rw []
+  >- (
+    simp [REVERSE_APPEND] >>
+    first_x_assum (qspecl_then [`next + 1`, `ctMap |++ MAP (λ(cn,ts). (TypeStamp cn next,tvs,MAP (type_name_subst tenvT) ts,id)) ctors`] assume_tac) >>
+    irule (GEN_ALL nsAll2_mono) >>
+    qexists_tac `
+      type_ctor
+           (ctMap |++
+            MAP
+              (λ(cn,ts).
+                 (TypeStamp cn next,tvs,MAP (type_name_subst tenvT) ts,
+                  id)) ctors |++
+            REVERSE (type_def_to_ctMap tenvT (next + 1) tds tids))` >>
+    rw [] >>
+    rename1 `type_ctor _ _ stamp t` >>
+    PairCases_on `stamp` >>
+    PairCases_on `t` >>
+    fs [type_ctor_def, flookup_fupdate_list, FLOOKUP_FUNION] >>
+    every_case_tac >>
+    fs [REVERSE_APPEND, ALOOKUP_APPEND] >>
+    rw [])
+  >- (
+    irule nsAll2_alist_to_ns >>
+    irule EVERY2_REVERSE >>
+    simp [build_constrs_def, EVERY2_MAP] >>
+    irule EVERY2_refl >>
+    rw [] >>
+    rpt (pairarg_tac >> fs []) >>
+    rw [type_ctor_def, flookup_fupdate_list, ALOOKUP_APPEND] >>
+    CASE_TAC
+    >- (
+      simp [] >>
+      qmatch_goalsub_abbrev_tac `ALOOKUP (REVERSE l) _` >>
+      `ALL_DISTINCT (MAP FST l)`
+      by (
+        rw [Abbr `l`, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
+        qpat_x_assum `ALL_DISTINCT _` mp_tac >>
+        rpt (pop_assum kall_tac) >>
+        induct_on `ctors` >>
+        rw [] >>
+        fs [MEM_MAP] >>
+        rw [] >>
+        rpt (pairarg_tac >> fs []) >>
+        metis_tac [FST]) >>
+      simp [alookup_distinct_reverse] >>
+      unabbrev_all_tac >>
+      induct_on `ctors` >>
+      rw [] >>
+      rw [] >>
+      fs [] >>
+      rpt (pairarg_tac >> fs []) >>
+      rw [] >>
+      fs [MEM_MAP] >>
+      metis_tac [FST])
+    >- (
+      drule ALOOKUP_MEM >>
+      rw [] >>
+      drule mem_type_def_to_ctMap >>
+      rw [])));
+
 val decs_type_sound_invariant_def = Define `
-decs_type_sound_invariant st env ctMap tenvS tdecls tenv ⇔
+decs_type_sound_invariant st env ctMap tenvS tenv ⇔
   tenv_ok tenv ∧
   good_ctMap ctMap ∧
+  consistent_ctMap st ctMap ∧
   type_all_env ctMap tenvS env tenv ∧
   type_s ctMap st.refs tenvS`;
 
 val decs_type_sound = Q.store_thm ("decs_type_sound",
- `∀(st:'ffi semanticPrimitives$state) env ds st' r cu ctMap tenvS tenv tdecs tenv'.
+ `∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tdecs tenv'.
    evaluate_decs st env ds = (st',r) ∧
-   type_ds F cu tenv ds tdecs tenv' ∧
+   type_ds F tenv ds tdecs tenv' ∧
    decs_type_sound_invariant st env ctMap tenvS tenv
    ⇒
    ∃ctMap' tenvS'.
@@ -1779,7 +1872,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl, weakCT_refl])
  >- ( (* case d1::d2::ds *)
-   qpat_x_assum `type_ds _ _ _ (_::_::_) _ _` mp_tac >>
+   qpat_x_assum `type_ds _ _ (_::_::_) _ _` mp_tac >>
    simp [Once type_d_cases] >>
    rw [] >>
    split_pair_case_tac
@@ -1885,31 +1978,38 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
    >> rw [extend_dec_env_def]
    >> fs [decs_type_sound_invariant_def]
    >> qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _`
-   >> qexists_tac `FUNION (FEMPTY |++ (type_def_to_ctMap new_tabbev cu st.next_type_stamp tds type_identities)) ctMap`
+   >> qexists_tac `FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)) ctMap`
    >> qexists_tac `tenvS`
    >> simp [store_type_extension_refl]
    >> conj_asm1_tac
    >- (
-     drule check_ctor_tenv_type_decs_to_ctMap
-     >> rw []
-     >> fs [type_all_env_def]
-     >> irule nsAll2_alist_to_ns
-     >> simp [LIST_REL_REVERSE_EQ]
-     >> irule list_rel_flat
-     >> simp [EVERY2_MAP]
-     >> simp [LIST_REL_EL_EQN]
-     >> ntac 2 strip_tac
-     >> pairarg_tac
-     >> fs []
-     >> ntac 2 strip_tac
-     >> simp [EL_MAP]
-     >> rpt (pairarg_tac >> fs [])
-     >> rw [type_ctor_def, FLOOKUP_FUNION, namespaceTheory.id_to_n_def]
-     >> fs [MEM_EL, PULL_EXISTS, GSYM CONJ_ASSOC]
-     >> first_x_assum drule
-     >> simp []
-     >> disch_then drule
-     >> simp [])
+     irule disjoint_env_weakCT >>
+     fs [DISJOINT_DEF, EXTENSION, consistent_ctMap_def, FDOM_FUPDATE_LIST,
+         MEM_MAP] >>
+     rw [] >>
+     CCONTR_TAC >>
+     fs [FDOM_FUPDATE_LIST] >>
+     rw [] >>
+     rename1 `FST stamp ∈ FDOM _` >>
+     PairCases_on `stamp` >>
+     drule mem_type_def_to_ctMap >>
+     rw [] >>
+     CCONTR_TAC >>
+     fs [] >>
+     res_tac >>
+     decide_tac) >>
+  conj_asm1_tac
+   >- (
+     fs [type_all_env_def, GSYM fupdate_list_funion] >>
+     irule build_tdefs_build_tenv >>
+     simp [] >>
+     qpat_x_assum `check_ctor_tenv _ _` mp_tac >>
+     rpt (pop_assum kall_tac) >>
+     induct_on `tds` >>
+     rw [] >>
+     rename1 `check_ctor_tenv _ (td::_)` >>
+     PairCases_on `td` >>
+     fs [check_ctor_tenv_def, check_dup_ctors_thm])
    >> conj_asm1_tac
    >- (
      fs [good_ctMap_def]

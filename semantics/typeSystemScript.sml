@@ -14,6 +14,9 @@ val _ = new_theory "typeSystem"
 (*open import Namespace*)
 (*open import SemanticPrimitives*)
 
+
+val _ = type_abbrev( "type_ident" , ``: num``);
+
 (* Types *)
 val _ = Hol_datatype `
  t =
@@ -24,51 +27,51 @@ val _ = Hol_datatype `
   (* The two numbers represent the identity of the type constructor. The first
      is the identity of the compilation unit that it was defined in, and the
      second is its identity inside of that unit *)
-  | Tapp of t list => (num # num)`;
+  | Tapp of t list => type_ident`;
 
 
 (* Some abbreviations *)
 val _ = Define `
- (Tarray_num : num # num=  (( 1 : num),( 1 : num)))`;
+ (Tarray_num : type_ident= (( 0 : num)))`;
 
 val _ = Define `
- (Tbool_num : num # num=  (( 1 : num),( 2 : num)))`;
+ (Tbool_num : type_ident= (( 1 : num)))`;
 
 val _ = Define `
- (Tchar_num : num # num=  (( 1 : num),( 3 : num)))`;
+ (Tchar_num : type_ident= (( 2 : num)))`;
 
 val _ = Define `
- (Texn_num : num # num=  (( 1 : num),( 4 : num)))`;
+ (Texn_num : type_ident= (( 3 : num)))`;
 
 val _ = Define `
- (Tfn_num : num # num=  (( 1 : num),( 5 : num)))`;
+ (Tfn_num : type_ident= (( 4 : num)))`;
 
 val _ = Define `
- (Tint_num : num # num=  (( 1 : num),( 6 : num)))`;
+ (Tint_num : type_ident= (( 5 : num)))`;
 
 val _ = Define `
- (Tlist_num : num # num=  (( 1 : num),( 7 : num)))`;
+ (Tlist_num : type_ident= (( 6 : num)))`;
 
 val _ = Define `
- (Tref_num : num # num=  (( 1 : num),( 8 : num)))`;
+ (Tref_num : type_ident= (( 7 : num)))`;
 
 val _ = Define `
- (Tstring_num : num # num=  (( 1 : num),( 9 : num)))`;
+ (Tstring_num : type_ident= (( 8 : num)))`;
 
 val _ = Define `
- (Ttup_num : num # num=  (( 1 : num),( 10 : num)))`;
+ (Ttup_num : type_ident= (( 9 : num)))`;
 
 val _ = Define `
- (Tvector_num : num # num=  (( 1 : num),( 11 : num)))`;
+ (Tvector_num : type_ident= (( 10 : num)))`;
 
 val _ = Define `
- (Tword64_num : num # num=  (( 1 : num),( 12 : num)))`;
+ (Tword64_num : type_ident= (( 11 : num)))`;
 
 val _ = Define `
- (Tword8_num : num # num=  (( 1 : num),( 13 : num)))`;
+ (Tword8_num : type_ident= (( 12 : num)))`;
 
 val _ = Define `
- (Tword8array_num : num # num=  (( 1 : num),( 14 : num)))`;
+ (Tword8array_num : type_ident= (( 13 : num)))`;
 
 
 val _ = Define `
@@ -240,7 +243,7 @@ val _ = Define `
 
 
 val _ = type_abbrev( "tenv_abbrev" , ``: (modN, typeN, ( tvarN list # t)) namespace``);
-val _ = type_abbrev( "tenv_ctor" , ``: (modN, conN, ( tvarN list # t list # (num # num))) namespace``);
+val _ = type_abbrev( "tenv_ctor" , ``: (modN, conN, ( tvarN list # t list # type_ident)) namespace``);
 val _ = type_abbrev( "tenv_val" , ``: (modN, varN, (num # t)) namespace``);
 
 val _ = Hol_datatype `
@@ -315,14 +318,13 @@ val _ = Define `
 (* Check a declaration and update the top-level environments
  * The arguments are in order:
  * - whether to do extra checks
- * - the identity of the compilation unit
  * - the type environment
  * - the declaration
  * - the set of type identity stamps defined here
  * - the environment of new stuff declared here *)
 
-(*val type_d : bool -> nat -> type_env -> dec -> set nat -> type_env -> bool*)
-(*val type_ds : bool -> nat -> type_env -> list dec -> set nat -> type_env -> bool*)
+(*val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool*)
+(*val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool*)
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
@@ -434,16 +436,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   check_ctor_tenv tenvT tds))`;
 
 
-(*val build_ctor_tenv : nat -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor*)
+(*val build_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor*)
  val _ = Define `
- (build_ctor_tenv cu tenvT [] []=  (alist_to_ns []))
-/\ (build_ctor_tenv cu tenvT ((tvs,tn,ctors)::tds) (id::ids)=  
+ (build_ctor_tenv tenvT [] []=  (alist_to_ns []))
+/\ (build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids)=  
  (nsAppend
-    (build_ctor_tenv cu tenvT tds ids)
+    (build_ctor_tenv tenvT tds ids)
     (alist_to_ns
       (REVERSE
         (MAP
-          (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, (cu, id))))
+          (\ (cn,ts) .  (cn,(tvs,MAP (type_name_subst tenvT) ts, id)))
           ctors)))))`;
 
 
@@ -723,7 +725,7 @@ val _ = Define `
  (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
 
 
-val _ = Hol_reln ` (! extra_checks tvs cu tenv p e t bindings locs.
+val _ = Hol_reln ` (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs tenv p t bindings /\
@@ -734,11 +736,11 @@ type_e tenv (bind_tvar tvs Empty) e t /\
     type_e tenv (bind_tvar tvs' Empty) e t') ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks cu tenv (Dlet locs p e)
+type_d extra_checks tenv (Dlet locs p e)
   {}
   <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks cu tenv p e t bindings locs.
+/\ (! extra_checks tenv p e t bindings locs.
 (
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
@@ -748,69 +750,69 @@ ALL_DISTINCT (pat_bindings p []) /\
 type_p(( 0 : num)) tenv p t bindings /\
 type_e tenv Empty e t)
 ==>
-type_d extra_checks cu tenv (Dlet locs p e)
+type_d extra_checks tenv (Dlet locs p e)
   {} <| v := (alist_to_ns (tenv_add_tvs(( 0 : num)) bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks cu tenv funs bindings tvs locs.
+/\ (! extra_checks tenv funs bindings tvs locs.
 (type_funs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
 (extra_checks ==>  
 (! tvs' bindings'.
     type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks cu tenv (Dletrec locs funs)
+type_d extra_checks tenv (Dletrec locs funs)
   {} <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks cu tenv tdefs type_identities tenvT locs.
+/\ (! extra_checks tenv tdefs type_identities tenvT locs.
 (ALL_DISTINCT type_identities /\
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs /\
 (LENGTH type_identities = LENGTH tdefs) /\
 (tenvT = alist_to_ns (MAP2
                       (\ (tvs,tn,ctors) i . 
-                        (tn, (tvs, Tapp (MAP Tvar tvs) (cu,i))))
+                        (tn, (tvs, Tapp (MAP Tvar tvs) i)))
                       tdefs type_identities)))
 ==>
-type_d extra_checks cu tenv (Dtype locs tdefs)
+type_d extra_checks tenv (Dtype locs tdefs)
   (LIST_TO_SET type_identities)
-  <| v := nsEmpty; c := (build_ctor_tenv cu (nsAppend tenvT tenv.t) tdefs type_identities); t := tenvT |>)
+  <| v := nsEmpty; c := (build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities); t := tenvT |>)
 
-/\ (! extra_checks cu tenv tvs tn t locs.
+/\ (! extra_checks tenv tvs tn t locs.
 (check_freevars_ast tvs t /\
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
-type_d extra_checks cu tenv (Dtabbrev locs tvs tn t)
+type_d extra_checks tenv (Dtabbrev locs tvs tn t)
   {}
   <| v := nsEmpty; c := nsEmpty; t := (nsSing tn (tvs,type_name_subst tenv.t t)) |>)
 
-/\ (! extra_checks cu tenv cn ts locs.
+/\ (! extra_checks tenv cn ts locs.
 (EVERY (check_freevars_ast []) ts /\
 EVERY (check_type_names tenv.t) ts)
 ==>
-type_d extra_checks cu tenv (Dexn locs cn ts)
+type_d extra_checks tenv (Dexn locs cn ts)
   {}
   <| v := nsEmpty;
      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
      t := nsEmpty |>)
 
-/\ (! extra_checks cu tenv mn ds decls tenv'.
-(type_ds extra_checks cu tenv ds decls tenv')
+/\ (! extra_checks tenv mn ds decls tenv'.
+(type_ds extra_checks tenv ds decls tenv')
 ==>
-type_d extra_checks cu tenv (Dmod mn ds) decls (tenvLift mn tenv'))
+type_d extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv'))
 
-/\ (! extra_checks cu tenv.
+/\ (! extra_checks tenv.
 T
 ==>
-type_ds extra_checks cu tenv []
+type_ds extra_checks tenv []
   {}
   <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks cu tenv d ds tenv1 tenv2 decls1 decls2.
-(type_d extra_checks cu tenv d decls1 tenv1 /\
-type_ds extra_checks cu (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
+/\ (! extra_checks tenv d ds tenv1 tenv2 decls1 decls2.
+(type_d extra_checks tenv d decls1 tenv1 /\
+type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
 DISJOINT decls1 decls2)
 ==>
-type_ds extra_checks cu tenv (d::ds)
+type_ds extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
 
 (*

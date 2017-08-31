@@ -1939,12 +1939,12 @@ val type_subst = Q.store_thm ("type_subst",
    >> simp [nil_deBruijn_subst, nil_deBruijn_inc]));
 
 val check_ctor_tenv_ok = Q.store_thm ("check_ctor_tenv_ok",
-`!cu tenvT tds tis.
+`!tenvT tds tis.
  LENGTH tds = LENGTH tis ∧
  check_ctor_tenv tenvT tds ∧
  tenv_abbrev_ok tenvT
  ⇒
- tenv_ctor_ok (build_ctor_tenv cu tenvT tds tis)`,
+ tenv_ctor_ok (build_ctor_tenv tenvT tds tis)`,
  ho_match_mp_tac build_ctor_tenv_ind >>
  rw [build_ctor_tenv_def, tenv_ctor_ok_def, check_ctor_tenv_def]
  >> irule nsAll_nsAppend
@@ -1985,14 +1985,14 @@ val decls_ok_union = Q.store_thm ("decls_ok_union",
 (* ---------- type_d ---------- *)
 
 val type_d_check_uniq = Q.store_thm ("type_d_check_uniq",
-`(!check cu tenv d tdecs new_tenv.
-  type_d check cu tenv d tdecs new_tenv
+`(!check tenv d tdecs new_tenv.
+  type_d check tenv d tdecs new_tenv
   ⇒
-  type_d F cu tenv d tdecs new_tenv) ∧
- (!check cu tenv d tdecs new_tenv.
-  type_ds check cu tenv d tdecs new_tenv
+  type_d F tenv d tdecs new_tenv) ∧
+ (!check tenv d tdecs new_tenv.
+  type_ds check tenv d tdecs new_tenv
   ⇒
-  type_ds F cu tenv d tdecs new_tenv)`,
+  type_ds F tenv d tdecs new_tenv)`,
  ho_match_mp_tac type_d_ind >>
  rw [] >>
  simp [Once type_d_cases] >>
@@ -2010,13 +2010,13 @@ val extend_dec_tenv_ok = Q.store_thm ("extend_dec_tenv_ok",
  >> simp []);
 
 val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
- `(∀check cu tenv d tdecs tenv'.
-   type_d check cu tenv d tdecs tenv' ⇒
+ `(∀check tenv d tdecs tenv'.
+   type_d check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
    tenv_ok tenv') ∧
-  (∀check cu tenv d tdecs tenv'.
-   type_ds check cu tenv d tdecs tenv' ⇒
+  (∀check tenv d tdecs tenv'.
+   type_ds check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
    tenv_ok tenv')`,
@@ -2097,8 +2097,8 @@ val type_d_tenv_ok_helper = Q.store_thm ("type_d_tenv_ok_helper",
  >- metis_tac [extend_dec_tenv_ok]);
 
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
- `∀check cu tenv d tdecs tenv'.
-   type_d check cu tenv d tdecs tenv' ∧
+ `∀check tenv d tdecs tenv'.
+   type_d check tenv d tdecs tenv' ∧
    tenv_ok tenv
    ⇒
    tenv_ok (extend_dec_tenv tenv' tenv)`,
@@ -2125,14 +2125,14 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 (* ---------- type_ds ---------- *)
 
 val type_ds_empty = Q.store_thm ("type_ds_empty[simp]",
- `!check cu tenv decls r.
-  type_ds check cu tenv [] decls r ⇔
+ `!check tenv decls r.
+  type_ds check tenv [] decls r ⇔
   decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty |>`,
  rw [Once type_d_cases]);
 
 val type_ds_sing = Q.store_thm ("type_ds_sing[simp]",
- `!check cu tenv d decls r.
-  type_ds check cu tenv [d] decls r ⇔ type_d check cu tenv d decls r`,
+ `!check tenv d decls r.
+  type_ds check tenv [d] decls r ⇔ type_d check tenv d decls r`,
  simp [Once type_d_cases]
  >> rw [extend_dec_tenv_def, type_env_component_equality]
  >> eq_tac

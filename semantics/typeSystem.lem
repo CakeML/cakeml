@@ -4,6 +4,9 @@ open import Ast
 open import Namespace
 open import SemanticPrimitives
 
+
+type type_ident = nat
+
 (* Types *)
 type t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
@@ -13,23 +16,23 @@ type t =
   (* The two numbers represent the identity of the type constructor. The first
      is the identity of the compilation unit that it was defined in, and the
      second is its identity inside of that unit *)
-  | Tapp of list t * (nat * nat)
+  | Tapp of list t * type_ident
 
 (* Some abbreviations *)
-let Tarray_num : nat * nat = (1, 1)
-let Tbool_num : nat * nat = (1, 2)
-let Tchar_num : nat * nat = (1, 3)
-let Texn_num : nat * nat = (1, 4)
-let Tfn_num : nat * nat = (1, 5)
-let Tint_num : nat * nat = (1, 6)
-let Tlist_num : nat * nat = (1, 7)
-let Tref_num : nat * nat = (1, 8)
-let Tstring_num : nat * nat = (1, 9)
-let Ttup_num : nat * nat = (1, 10)
-let Tvector_num : nat * nat = (1, 11)
-let Tword64_num : nat * nat = (1, 12)
-let Tword8_num : nat * nat = (1, 13)
-let Tword8array_num : nat * nat = (1, 14)
+let Tarray_num : type_ident = 0
+let Tbool_num : type_ident = 1
+let Tchar_num : type_ident = 2
+let Texn_num : type_ident = 3
+let Tfn_num : type_ident = 4
+let Tint_num : type_ident = 5
+let Tlist_num : type_ident = 6
+let Tref_num : type_ident = 7
+let Tstring_num : type_ident = 8
+let Ttup_num : type_ident = 9
+let Tvector_num : type_ident = 10
+let Tword64_num : type_ident = 11
+let Tword8_num : type_ident = 12
+let Tword8array_num : type_ident = 13
 
 let Tarray t = Tapp [t] Tarray_num
 let Tbool = Tapp [] Tbool_num
@@ -150,7 +153,7 @@ tveLookup n inc (Bind_name n' tvs t tenvE) =
 declare termination_argument tveLookup = automatic
 
 type tenv_abbrev = namespace modN typeN (list tvarN * t)
-type tenv_ctor = namespace modN conN (list tvarN * list t * (nat * nat))
+type tenv_ctor = namespace modN conN (list tvarN * list t * type_ident)
 type tenv_val = namespace modN varN (nat * t)
 
 type type_env =
@@ -217,14 +220,13 @@ val type_funs : type_env -> tenv_val_exp -> list (varN * varN * exp) -> list (va
 (* Check a declaration and update the top-level environments
  * The arguments are in order:
  * - whether to do extra checks
- * - the identity of the compilation unit
  * - the type environment
  * - the declaration
  * - the set of type identity stamps defined here
  * - the environment of new stuff declared here *)
 
-val type_d : bool -> nat -> type_env -> dec -> set nat -> type_env -> bool
-val type_ds : bool -> nat -> type_env -> list dec -> set nat -> type_env -> bool
+val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool
+val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 val type_op : op -> list t -> t -> bool
@@ -326,15 +328,15 @@ and check_ctor_tenv tenvT ((tvs,tn,ctors)::tds) =
   check_ctor_tenv tenvT tds
 declare termination_argument check_ctor_tenv = automatic
 
-val build_ctor_tenv : nat -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor
-let rec build_ctor_tenv cu tenvT [] [] = alist_to_ns []
-and build_ctor_tenv cu tenvT ((tvs,tn,ctors)::tds) (id::ids) =
+val build_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor
+let rec build_ctor_tenv tenvT [] [] = alist_to_ns []
+and build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids) =
   nsAppend
-    (build_ctor_tenv cu tenvT tds ids)
+    (build_ctor_tenv tenvT tds ids)
     (alist_to_ns
       (List.reverse
         (List.map
-          (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, (cu, id))))
+          (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, id)))
           ctors)))
 declare termination_argument build_ctor_tenv = automatic
 
@@ -691,10 +693,10 @@ let tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =
 let tenvLift mn tenv =
   <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
 
-indreln [type_d : bool -> nat -> type_env -> dec -> set nat -> type_env -> bool] and
-        [type_ds : bool -> nat -> type_env -> list dec -> set nat -> type_env -> bool]
+indreln [type_d : bool -> type_env -> dec -> set nat -> type_env -> bool] and
+        [type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool]
 
-dlet_poly : forall extra_checks tvs cu tenv p e t bindings locs.
+dlet_poly : forall extra_checks tvs tenv p e t bindings locs.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
 type_p tvs tenv p t bindings &&
@@ -705,13 +707,13 @@ type_e tenv (bind_tvar tvs Empty) e t &&
     type_e tenv (bind_tvar tvs' Empty) e t' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks cu tenv (Dlet locs p e)
+type_d extra_checks tenv (Dlet locs p e)
   {}
   <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dlet_mono : forall extra_checks cu tenv p e t bindings locs.
+dlet_mono : forall extra_checks tenv p e t bindings locs.
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
@@ -721,54 +723,54 @@ List.allDistinct (pat_bindings p []) &&
 type_p 0 tenv p t bindings &&
 type_e tenv Empty e t
 ==>
-type_d extra_checks cu tenv (Dlet locs p e)
+type_d extra_checks tenv (Dlet locs p e)
   {} <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dletrec : forall extra_checks cu tenv funs bindings tvs locs.
+dletrec : forall extra_checks tenv funs bindings tvs locs.
 type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings &&
 (extra_checks -->
   forall tvs' bindings'.
     type_funs tenv (bind_var_list 0 bindings' (bind_tvar tvs' Empty)) funs bindings' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks cu tenv (Dletrec locs funs)
+type_d extra_checks tenv (Dletrec locs funs)
   {} <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dtype : forall extra_checks cu tenv tdefs type_identities tenvT locs.
+dtype : forall extra_checks tenv tdefs type_identities tenvT locs.
 List.allDistinct type_identities &&
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs &&
 List.length type_identities = List.length tdefs &&
 tenvT = alist_to_ns (Lib.map2
                       (fun (tvs,tn,ctors) i ->
-                        (tn, (tvs, Tapp (List.map Tvar tvs) (cu,i))))
+                        (tn, (tvs, Tapp (List.map Tvar tvs) i)))
                       tdefs type_identities)
 ==>
-type_d extra_checks cu tenv (Dtype locs tdefs)
+type_d extra_checks tenv (Dtype locs tdefs)
   (Set.fromList type_identities)
-  <| v = nsEmpty; c = build_ctor_tenv cu (nsAppend tenvT tenv.t) tdefs type_identities; t = tenvT |>
+  <| v = nsEmpty; c = build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities; t = tenvT |>
 
 and
 
-dtabbrev : forall extra_checks cu tenv tvs tn t locs.
+dtabbrev : forall extra_checks tenv tvs tn t locs.
 check_freevars_ast tvs t &&
 check_type_names tenv.t t &&
 List.allDistinct tvs
 ==>
-type_d extra_checks cu tenv (Dtabbrev locs tvs tn t)
+type_d extra_checks tenv (Dtabbrev locs tvs tn t)
   {}
   <| v = nsEmpty; c = nsEmpty; t = nsSing tn (tvs,type_name_subst tenv.t t) |>
 
 and
 
-dexn : forall extra_checks cu tenv cn ts locs.
+dexn : forall extra_checks tenv cn ts locs.
 List.all (check_freevars_ast []) ts &&
 List.all (check_type_names tenv.t) ts
 ==>
-type_d extra_checks cu tenv (Dexn locs cn ts)
+type_d extra_checks tenv (Dexn locs cn ts)
   {}
   <| v = nsEmpty;
      c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, Texn_num);
@@ -776,28 +778,28 @@ type_d extra_checks cu tenv (Dexn locs cn ts)
 
 and
 
-dexn : forall extra_checks cu tenv mn ds decls tenv'.
-type_ds extra_checks cu tenv ds decls tenv'
+dexn : forall extra_checks tenv mn ds decls tenv'.
+type_ds extra_checks tenv ds decls tenv'
 ==>
-type_d extra_checks cu tenv (Dmod mn ds) decls (tenvLift mn tenv')
+type_d extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv')
 
 and
 
-empty : forall extra_checks cu tenv.
+empty : forall extra_checks tenv.
 true
 ==>
-type_ds extra_checks cu tenv []
+type_ds extra_checks tenv []
   {}
   <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
 
 and
 
-cons : forall extra_checks cu tenv d ds tenv1 tenv2 decls1 decls2.
-type_d extra_checks cu tenv d decls1 tenv1 &&
-type_ds extra_checks cu (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 &&
+cons : forall extra_checks tenv d ds tenv1 tenv2 decls1 decls2.
+type_d extra_checks tenv d decls1 tenv1 &&
+type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 &&
 disjoint decls1 decls2
 ==>
-type_ds extra_checks cu tenv (d::ds)
+type_ds extra_checks tenv (d::ds)
   (decls1 union decls2) (extend_dec_tenv tenv2 tenv1)
 
 (*

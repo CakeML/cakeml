@@ -41,7 +41,7 @@ val tenv_val_exp_ok_def = Define `
 (* Global constructor type environments keyed by constructor name and type
  * stamp. Contains the type variables, the type of the arguments, and
  * the identity of the type. *)
-val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # (num # num))) fmap``);
+val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # type_ident)) fmap``);
 
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
@@ -205,14 +205,15 @@ val consistent_decls_def = Define `
        | TypeId tid =>
            tid ∈ d.defined_types ∨
            (?mn tn. tid = Long mn (Short tn) ∧([mn] ∈ d.defined_mods)))`;
+           *)
 
 val consistent_ctMap_def = Define `
-  consistent_ctMap d ctMap ⇔
-    (!((cn,tid) :: FDOM ctMap).
-       case tid of
-       | TypeId tn => tn ∈ d.defined_types
-       | TypeExn cn => cn ∈ d.defined_exns)`;
+  consistent_ctMap st ctMap ⇔
+    !cn id.
+      (TypeStamp cn id ∈ FDOM ctMap ⇒ id < st.next_type_stamp) ∧
+      (ExnStamp id ∈ FDOM ctMap ⇒ id < st.next_exn_stamp)`;
 
+       (*
 val decls_ok_def = Define `
   decls_ok d ⇔ [] ∉ d.defined_mods ∧ decls_to_mods d ⊆ {[]} ∪ d.defined_mods`;
   *)

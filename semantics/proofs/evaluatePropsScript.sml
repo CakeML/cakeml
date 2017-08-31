@@ -620,24 +620,26 @@ val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
   `∃s1 r. evaluate_tops ss e p = (s1,r)` by metis_tac[PAIR] >>
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
   metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
+  *)
 
 val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  `(!(st:'ffi state) env es st' r.
     evaluate st env es = (st', r)
     ⇒
-    st'.defined_types = st.defined_types ∧
-    st'.defined_mods = st.defined_mods) ∧
+    st'.next_type_stamp = st.next_type_stamp ∧
+    st'.next_exn_stamp = st.next_exn_stamp) ∧
   (!(st:'ffi state) env v pes err_v st' r.
     evaluate_match st env v pes err_v = (st', r)
     ⇒
-    st'.defined_types = st.defined_types ∧
-    st'.defined_mods = st.defined_mods)`,
+    st'.next_type_stamp = st.next_type_stamp ∧
+    st'.next_exn_stamp = st.next_exn_stamp)`,
  ho_match_mp_tac evaluate_ind
  >> rw [evaluate_def]
  >> every_case_tac
  >> fs []
  >> rw [dec_clock_def]);
 
+ (*
 val evaluate_decs_state_unchanged = Q.store_thm ("evaluate_decs_state_unchanged",
  `!mn st env ds st' r.
   evaluate_decs mn st env ds = (st',r)

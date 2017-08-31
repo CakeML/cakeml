@@ -580,22 +580,22 @@ val weak_tenv_extend_dec_tenv = Q.store_thm ("weak_tenv_extend_dec_tenv",
  >> simp []);
 
 val type_d_weakening = Q.store_thm ("type_d_weakening",
-`(!check cu tenv d decls tenv'.
-  type_d check cu tenv d decls tenv' ⇒
+`(!check tenv d decls tenv'.
+  type_d check tenv d decls tenv' ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
   weak tenv'' tenv
   ⇒
-  type_d check cu tenv'' d decls tenv') ∧
- (!check cu tenv d decls tenv'.
-  type_ds check cu tenv d decls tenv' ⇒
+  type_d check tenv'' d decls tenv') ∧
+ (!check tenv d decls tenv'.
+  type_ds check tenv d decls tenv' ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
   weak tenv'' tenv
   ⇒
-  type_ds check cu tenv'' d decls tenv')`,
+  type_ds check tenv'' d decls tenv')`,
  ho_match_mp_tac type_d_ind >>
  rw [] >>
  simp [Once type_d_cases] >>
