@@ -10,49 +10,49 @@ val free_def = tDefine "free" `
      let (c1,l1) = free [x] in
      let (c2,l2) = free (y::xs) in
        (c1 ++ c2,mk_Union l1 l2)) /\
-  (free [Var v] = ([Var v], Var v)) /\
-  (free [If x1 x2 x3] =
+  (free [Var t v] = ([Var t v], Var v)) /\
+  (free [If t x1 x2 x3] =
      let (c1,l1) = free [x1] in
      let (c2,l2) = free [x2] in
      let (c3,l3) = free [x3] in
-       ([If (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
-  (free [Let xs x2] =
+       ([If t (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
+  (free [Let t xs x2] =
      let (c1,l1) = free xs in
      let (c2,l2) = free [x2] in
-       ([Let c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
-  (free [Raise x1] =
+       ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
+  (free [Raise t x1] =
      let (c1,l1) = free [x1] in
-       ([Raise (HD c1)],l1)) /\
-  (free [Tick x1] =
+       ([Raise t (HD c1)],l1)) /\
+  (free [Tick t x1] =
      let (c1,l1) = free [x1] in
-       ([Tick (HD c1)],l1)) /\
-  (free [Op op xs] =
+       ([Tick t (HD c1)],l1)) /\
+  (free [Op t op xs] =
      let (c1,l1) = free xs in
-       ([Op op c1],l1)) /\
-  (free [App loc_opt x1 xs2] =
+       ([Op t op c1],l1)) /\
+  (free [App t loc_opt x1 xs2] =
      let (c1,l1) = free [x1] in
      let (c2,l2) = free xs2 in
-       ([App loc_opt (HD c1) c2],mk_Union l1 l2)) /\
-  (free [Fn loc _ num_args x1] =
+       ([App t loc_opt (HD c1) c2],mk_Union l1 l2)) /\
+  (free [Fn t loc _ num_args x1] =
      let (c1,l1) = free [x1] in
      let l2 = Shift num_args l1 in
-       ([Fn loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
-  (free [Letrec loc _ fns x1] =
+       ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
+  (free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
      let res = MAP (\(n,x). let (c,l) = free [x] in
                               ((n,HD c),Shift (n + m) l)) fns in
      let c1 = MAP FST res in
      let l1 = list_mk_Union (MAP SND res) in
      let (c2,l2) = free [x1] in
-       ([Letrec loc (SOME (vars_to_list l1)) c1 (HD c2)],
+       ([Letrec t loc (SOME (vars_to_list l1)) c1 (HD c2)],
         mk_Union l1 (Shift (LENGTH fns) l2))) /\
-  (free [Handle x1 x2] =
+  (free [Handle t x1 x2] =
      let (c1,l1) = free [x1] in
      let (c2,l2) = free [x2] in
-       ([Handle (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (free [Call ticks dest xs] =
+       ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
+  (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
-       ([Call ticks dest c1],l1))`
+       ([Call t ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
 

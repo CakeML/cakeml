@@ -636,9 +636,9 @@ val jump_exc_IMP = Q.store_thm("jump_exc_IMP",
 
 val do_app_Rerr = Q.store_thm("do_app_Rerr",
   `dataSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error`,
-  full_simp_tac(srw_ss())[dataSemTheory.do_app_def,bviSemTheory.do_app_def] \\ every_case_tac \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[bvlSemTheory.do_app_def] \\ every_case_tac \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[LET_DEF]);
+  rw[dataSemTheory.do_app_def]
+  \\ every_case_tac \\ fs[]
+  \\ imp_res_tac bviPropsTheory.do_app_err);
 
 val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>

@@ -12,8 +12,8 @@ val _ = new_theory "data_to_word_bignumProof";
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
@@ -1427,9 +1427,7 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ rewrite_tac [word_bignumProofTheory.state_rel_def]
     \\ simp_tac (srw_ss()) [FLOOKUP_UPDATE,TempOut_def]
     \\ qunabbrev_tac `s0` \\ full_simp_tac (srw_ss()) []
-    \\ rpt strip_tac THEN1
-     (qpat_x_assum `code_rel c s.code t.code` mp_tac
-      \\ asm_rewrite_tac [])
+    \\ rpt strip_tac
     \\ rewrite_tac [GSYM (EVAL ``Smallnum 0``)]
     \\ match_mp_tac IMP_memory_rel_Number
     \\ imp_res_tac small_int_0

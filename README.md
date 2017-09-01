@@ -12,8 +12,8 @@ Example build instructions can be found in
 [build-instructions.sh](build-instructions.sh).
 
 The [master](../../tree/master) branch contains the latest development
-version of CakeML.  See the [version1](../../tree/version1) branch for
-the previous version.
+version of CakeML. See the [version2](../../tree/version2) or
+[version1](../../tree/version1) branch for previous versions.
 
 Directory structure
 -------------------
@@ -50,21 +50,12 @@ running regression tests.
 [documentation](documentation):
 Work-in-progress documentation regarding the CakeML language.
 
-[explorer](explorer):
-Tools for stepping through execution of the compiler from one
-intermediate language to the next, and pretty-printing the
-intermediate results. An instance is available on the CakeML website.
-
 [flame](flame):
 The start of a set theory formalisation that has net yet been used.
 
 [misc](misc):
 Auxiliary files providing glue between a standard HOL installation
 and what we want to use for CakeML development.
-
-[readmePrefix](readmePrefix):
-The CakeML project: https://cakeml.org
-======================================
 
 [semantics](semantics):
 The definition of the CakeML language. The definition is (mostly)

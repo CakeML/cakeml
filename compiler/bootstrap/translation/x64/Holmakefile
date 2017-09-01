@@ -1,4 +1,4 @@
-INCLUDES = ../../../../translator ../../../../characteristic .. ../../..  ../../../x64 \
+INCLUDES = ../../../../translator ../../../../characteristic ../../../../basis .. ../../..  ../../../x64 \
            ../../../encoders/x64 ../../../backend/x64 $(HOLDIR)/examples/l3-machine-code/x64/model
 OPTIONS = QUIT_ON_FAILURE
 

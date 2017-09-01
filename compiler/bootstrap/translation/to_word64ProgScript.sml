@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_dataProgTheory;
+open sexp_parserProgTheory;
 
 val _ = new_theory "to_word64Prog"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "sexp_parserProg";
 
 val RW = REWRITE_RULE
 
@@ -534,7 +534,7 @@ val _ = translate (spec64 const_fp_loop_def)
 
 val _ = translate (spec64 compile_exp_def)
 
-val _ = translate (spec64 max_var_def)
+val _ = translate (spec64 wordLangTheory.max_var_def)
 
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
@@ -736,6 +736,10 @@ val _ = translate(Mul_code_def|> conv64)
 val _ = translate(Div_code_def|> conv64)
 val _ = translate(Mod_code_def|> conv64)
 val _ = translate(MemCopy_code_def|> inline_simp |> conv64)
+val r = translate(ByteCopy_code_def |> inline_simp |> conv64)
+val r = translate(ByteCopyAdd_code_def |> conv64)
+val r = translate(ByteCopySub_code_def |> conv64 |> econv)
+val r = translate(ByteCopyNew_code_def |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)
@@ -749,7 +753,7 @@ val _ = translate(LongDiv_code_def|> inline_simp |> conv64)
 
 val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |> conv64)
 
-val _ = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
+val r = translate (data_to_wordTheory.compile_def |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv64_RHS)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

@@ -508,6 +508,34 @@ val do_app = Q.prove(
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_OPTREL_FLOOKUP] >>
     simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
     simp[OPTREL_def] )
+  (* ConcatByteVec *)
+  >- (
+    Cases_on`t` \\ fs[]
+    \\ rename1`v_rel _ v1 v2`
+    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS]
+    \\ DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS,v_rel_simp]
+    \\ Cases_on`v_to_list v1` \\ fs[] \\ Cases_on`v_to_list v2` \\ fs[]
+    \\ imp_res_tac v_to_list \\ fs[OPTREL_def] \\ fs[] \\ rveq
+    \\ rename1`LIST_REL _ l1 l2`
+    \\ reverse(Cases_on`∃ws. l1 = MAP ByteVector ws` \\ fs[])
+    >- (
+      spose_not_then strip_assume_tac
+      \\ fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP,v_rel_simp]
+      \\ metis_tac[EL_MAP,v_rel_simp] )
+    \\ `l2 = MAP ByteVector ws`
+    by (
+      fs[LIST_REL_EL_EQN,LIST_EQ_REWRITE] \\
+      metis_tac[EL_MAP,v_rel_simp] )
+    \\ fs[]
+    \\ rw[]
+    \\ qexists_tac`ws` \\ rw[]
+    \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF])
+  (* CopyByte *)
+  >- (
+    rw[] \\ fs[case_eq_thms,bool_case_eq] \\ rw[] \\ fs[v_rel_simp] \\
+    imp_res_tac state_rel_refs \\
+    imp_res_tac fmap_rel_FLOOKUP_imp \\ fs[] \\
+    fs[state_rel_def,fmap_rel_FUPDATE_same])
   >- (
     Cases_on`t` >> fsrw_tac[][v_rel_simp]>>
     imp_res_tac v_to_list >>
@@ -527,7 +555,15 @@ val do_app = Q.prove(
     Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
     full_simp_tac(srw_ss())[LIST_REL_EL_EQN] )
   >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[] )
-  >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
+  >- (
+    Cases_on`h`>>full_simp_tac(srw_ss())[v_rel_simp]>>
+    Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
+    every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+    imp_res_tac LIST_REL_LENGTH >> fs [] >>
+    imp_res_tac state_rel_refs >>
+    full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
+    first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
   >- ( every_case_tac \\ fs[v_rel_simp] \\ rw[] \\ fs[LIST_REL_EL_EQN] )
   >- (
     full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> srw_tac[][] )
@@ -680,6 +716,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY] >>
     tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
+    rename1`evaluate(xs,env,s)` \\
     `?r1 s1. evaluate (xs,env,s) = (r1,s1)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>

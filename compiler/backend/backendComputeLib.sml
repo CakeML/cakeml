@@ -65,34 +65,29 @@ val add_backend_compset = computeLib.extend_compset
     ,``:modLang$exp``
     ,``:modLang$dec``
     ,``:modLang$prompt``
-      (* basis, TODO: move? *)
-    ,``:mlstring$mlstring``
+    (* backend_common *)
+    ,``:backend_common$tra``
     ]
   ,computeLib.Defs
-    [
-      (* basis, TODO: move to its own computeLib? *)
-    mlstringTheory.implode_def,
-    mlstringTheory.str_def,
-    mlintTheory.zero_pad_def,
-    mlintTheory.toChar_def,
-    mlintTheory.simple_toChars_def,
-    mlintTheory.maxSmall_DEC_def,
-    mlintTheory.padLen_DEC_eq,
-    mlintTheory.toChars_def,
-    mlintTheory.toString_def,
-      (* ---- source_to_mod ---- *)
+    [ (* ---- source_to_mod ---- *)
      source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
     ,source_to_modTheory.compile_dec_def
     ,source_to_modTheory.compile_exp_def
     ,source_to_modTheory.compile_pat_def
+    ,source_to_modTheory.pat_tups_def
+    ,source_to_modTheory.om_tra_def
+    ,source_to_modTheory.make_varls_def
     ,source_to_modTheory.alloc_defs_def
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
     ,source_to_modTheory.empty_config_def
     ,source_to_modTheory.astOp_to_modOp_def
       (* ---- conLang ---- *)
+    ,backend_commonTheory.orphan_trace_def
+    ,backend_commonTheory.mk_cons_def
+    ,backend_commonTheory.mk_union_def
     ,backend_commonTheory.bind_tag_def
     ,backend_commonTheory.chr_tag_def
     ,backend_commonTheory.div_tag_def
@@ -130,11 +125,12 @@ val add_backend_compset = computeLib.extend_compset
     ,mod_to_conTheory.empty_config_def
       (* decLang *)
       (* ---- con_to_dec ---- *)
-    ,con_to_decTheory.compile_prog_def
-    ,con_to_decTheory.compile_prompt_def
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
+    ,con_to_decTheory.od_tra_def
     ,con_to_decTheory.compile_decs_def
+    ,con_to_decTheory.compile_prompt_def
+    ,con_to_decTheory.compile_prog_def
     ,con_to_decTheory.compile_def
     ]
   ,computeLib.Tys
@@ -145,11 +141,11 @@ val add_backend_compset = computeLib.extend_compset
   ,computeLib.Defs
     [ (* ---- dec_to_exh ---- *)
      dec_to_exhTheory.is_unconditional_def
-    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.get_tags_def
     ,dec_to_exhTheory.exhaustive_match_def
-    ,dec_to_exhTheory.compile_exp_def
+    ,dec_to_exhTheory.add_default_def
     ,dec_to_exhTheory.compile_pat_def
+    ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_def
     ,exh_reorderTheory.is_const_con_def
     ,exh_reorderTheory.isPcon_def
@@ -165,17 +161,18 @@ val add_backend_compset = computeLib.extend_compset
     ]
       (* ---- exh_to_pat ---- *)
   ,computeLib.Defs
-    [exh_to_patTheory.compile_exp_def
-    ,exh_to_patTheory.compile_row_def
-    ,exh_to_patTheory.compile_pat_def
-    ,exh_to_patTheory.sLet_def
+    [exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.isBool_def
     ,exh_to_patTheory.sIf_def
-    ,exh_to_patTheory.ground_def
-    ,exh_to_patTheory.pure_def
-    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
-    ,exh_to_patTheory.pure_op_def
     ,exh_to_patTheory.pure_op_op_eqn
-    ,exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.pure_op_def
+    ,exh_to_patTheory.pure_def
+    ,exh_to_patTheory.ground_def
+    ,exh_to_patTheory.sLet_def
+    ,numLib.SUC_RULE exh_to_patTheory.Let_Els_def
+    ,exh_to_patTheory.compile_pat_def
+    ,exh_to_patTheory.compile_row_def
+    ,exh_to_patTheory.compile_exp_def
     ,exh_to_patTheory.compile_def
     ]
   ,computeLib.Tys
@@ -190,6 +187,8 @@ val add_backend_compset = computeLib.extend_compset
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
     ,pat_to_closTheory.compile_def
+    ,pat_to_closTheory.CopyByteStr_def
+    ,pat_to_closTheory.CopyByteAw8_def
     ,pat_to_closTheory.vector_tag_def
     ,pat_to_closTheory.compile_def
       (*,pat_to_closTheory.pat_tag_shift_def*)
@@ -209,6 +208,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.calls_def
     ,clos_callTheory.calls_list_def
     ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
     ,clos_annotateTheory.shifted_env_def
@@ -331,12 +331,16 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
     ,bvl_to_bviTheory.FromListByte_code_def
+    ,bvl_to_bviTheory.SumListLength_code_def
+    ,bvl_to_bviTheory.ConcatByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
     ,bvl_to_bviTheory.AllocGlobal_location_eq
     ,bvl_to_bviTheory.InitGlobals_max_def
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.FromListByte_location_eq
+    ,bvl_to_bviTheory.SumListLength_location_eq
+    ,bvl_to_bviTheory.ConcatByte_location_eq
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
@@ -424,6 +428,9 @@ val add_backend_compset = computeLib.extend_compset
     ,wordLangTheory.every_var_def
     ,wordLangTheory.every_name_def
     ,wordLangTheory.every_var_inst_def
+    ,wordLangTheory.max_var_def
+    ,wordLangTheory.max_var_inst_def
+    ,wordLangTheory.max_var_exp_def
     ,backend_commonTheory.word_num_stubs_def
     ,wordLangTheory.raise_stub_location_eq
       (* ---- data_to_word ---- *)
@@ -467,6 +474,11 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
     ,data_to_wordTheory.Bignum_location_eq
+    ,data_to_wordTheory.ByteCopy_location_eq
+    ,data_to_wordTheory.ByteCopyAdd_location_eq
+    ,data_to_wordTheory.ByteCopySub_location_eq
+    ,data_to_wordTheory.ByteCopyNew_location_eq
+    ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.get_gen_size_def
     ,data_to_wordTheory.AllocVar_def
     ,data_to_wordTheory.MakeBytes_def
@@ -493,6 +505,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv_code_def
     ,data_to_wordTheory.LongDiv1_code_def
     ,data_to_wordTheory.MemCopy_code_def
+    ,data_to_wordTheory.ByteCopy_code_def
+    ,data_to_wordTheory.ByteCopyAdd_code_def
+    ,data_to_wordTheory.ByteCopySub_code_def
+    ,data_to_wordTheory.ByteCopyNew_code_def
     ,data_to_wordTheory.get_names_def
     ,data_to_wordTheory.LoadWord64_def
     ,data_to_wordTheory.LoadBignum_def
@@ -632,10 +648,6 @@ val add_backend_compset = computeLib.extend_compset
     ,word_allocTheory.word_alloc_def
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
-    ,word_allocTheory.max_var_def
-    ,word_allocTheory.max_var_inst_def
-    ,word_allocTheory.max_var_exp_def
-    ,word_allocTheory.max3_def
     ,word_allocTheory.setup_ssa_def
     ,word_allocTheory.oracle_colour_ok_def
     ,word_allocTheory.every_even_colour_def
@@ -799,16 +811,20 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- labLang ---- *)
      ``:lab``
     ,``:'a asm_with_lab``
+    ,``:'a asm_or_cbw``
     ,``:'a line``
     ,``:'a sec``
     ]
   ,computeLib.Defs
-    [ (* ---- lab_filter ---- *)
-     lab_filterTheory.not_skip_def
+    [labLangTheory.Section_num_def
+    ,labLangTheory.Section_lines_def
+      (* ---- lab_filter ---- *)
+    ,lab_filterTheory.not_skip_def
     ,lab_filterTheory.filter_skip_def
       (* ---- lab_to_target ---- *)
     ,lab_to_targetTheory.ffi_offset_def
     ,lab_to_targetTheory.lab_inst_def
+    ,lab_to_targetTheory.cbw_to_asm_def
     ,lab_to_targetTheory.enc_line_def
     ,lab_to_targetTheory.enc_sec_def
     ,lab_to_targetTheory.enc_sec_list_def
@@ -834,9 +850,11 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.find_ffi_names_def
     ,lab_to_targetTheory.list_add_if_fresh_def
     ,lab_to_targetTheory.get_ffi_index_def
+    ,lab_to_targetTheory.sec_length_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
       (* ---- Everything in backend theory ---- *)
+    ,backendTheory.attach_bitmaps_def
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def
     ,backendTheory.from_source_def
@@ -884,6 +902,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Extenders
     [basicComputeLib.add_basic_compset
+    ,basisComputeLib.add_basis_compset
     ,semanticsComputeLib.add_ast_compset
     ,semanticsComputeLib.add_namespace_compset
     ,reg_allocComputeLib.add_reg_alloc_compset

@@ -10,8 +10,8 @@ val _ = new_theory "data_to_word_gcProof";
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 
 (* TODO: move *)
 val _ = type_abbrev("state", ``:('a,'b)wordSem$state``)
@@ -144,23 +144,6 @@ val NOT_NIL_IMP_LAST = Q.store_thm("NOT_NIL_IMP_LAST",
 val IS_SOME_IF = Q.store_thm("IS_SOME_IF",
   `IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y`,
   Cases_on `b` \\ full_simp_tac(srw_ss())[]);
-
-val PERM_ALL_DISTINCT_MAP = Q.store_thm("PERM_ALL_DISTINCT_MAP",
-  `!xs ys. PERM xs ys ==>
-            ALL_DISTINCT (MAP f xs) ==>
-            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs`,
-  full_simp_tac(srw_ss())[MEM_PERM] \\ srw_tac[][]
-  \\ `PERM (MAP f xs) (MAP f ys)` by full_simp_tac(srw_ss())[PERM_MAP]
-  \\ metis_tac [ALL_DISTINCT_PERM])
-
-val ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = Q.store_thm(
-   "ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME",
-  `!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y`,
-  Induct \\ full_simp_tac(srw_ss())[]
-  \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[MEM_MAP,FORALL_PROD]
-  \\ rev_full_simp_tac(srw_ss())[]) |> SPEC_ALL
-  |> curry save_thm "ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME";
 
 val IS_SOME_ALOOKUP_EQ = Q.store_thm("IS_SOME_ALOOKUP_EQ",
   `!l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)`,
@@ -4523,8 +4506,8 @@ val get_var_T_OR_F = Q.store_thm("get_var_T_OR_F",
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
-    ((x = Boolv T) ==> (w = Word 2w)) /\
-    ((x = Boolv F) ==> (w = Word 18w))`,
+    ((x = Boolv T) ==> (w = Word 18w)) /\
+    ((x = Boolv F) ==> (w = Word 2w))`,
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac THEN1 (full_simp_tac(srw_ss())[good_dimindex_def] \\ full_simp_tac(srw_ss())[dimword_def])
   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
@@ -4818,33 +4801,6 @@ val find_code_thm = Q.store_thm("find_code_thm",
         full_simp_tac(srw_ss())[wordSemTheory.get_vars_def]
   \\ imp_res_tac state_rel_call_env \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL;
 val _ = save_thm("find_code_thm",find_code_thm);
-
-val env_to_list_lookup_equiv = Q.store_thm("env_to_list_lookup_equiv",
-  `env_to_list y f = (q,r) ==>
-    (!n. ALOOKUP q n = lookup n y) /\
-    (!x1 x2. MEM (x1,x2) q ==> lookup x1 y = SOME x2)`,
-  full_simp_tac(srw_ss())[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
-  \\ `ALL_DISTINCT (MAP FST (toAList y))` by full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList]
-  \\ imp_res_tac (MATCH_MP PERM_ALL_DISTINCT_MAP
-        (QSORT_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
-  \\ `ALL_DISTINCT (QSORT key_val_compare (toAList y))`
-        by imp_res_tac ALL_DISTINCT_MAP
-  \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
-  \\ imp_res_tac PERM_ALL_DISTINCT_MAP
-  \\ rpt (qpat_x_assum `!x. pp ==> qq` (K all_tac))
-  \\ rpt (qpat_x_assum `!x y. pp ==> qq` (K all_tac)) \\ rev_full_simp_tac(srw_ss())[]
-  \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
-  \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
-  \\ Q.ABBREV_TAC `xs =
-       (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
-  \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[MEM_toAList]
-  \\ Cases_on `?i. MEM (n,i) xs` \\ full_simp_tac(srw_ss())[] THEN1
-     (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ full_simp_tac(srw_ss())[]
-      \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[MEM_toAList])
-  \\ `~MEM n (MAP FST xs)` by rev_full_simp_tac(srw_ss())[MEM_MAP,FORALL_PROD]
-  \\ full_simp_tac(srw_ss())[GSYM ALOOKUP_NONE]
-  \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[MEM_toAList]
-  \\ Cases_on `lookup n y` \\ full_simp_tac(srw_ss())[]);
 
 val cut_env_adjust_set_lookup_0 = Q.store_thm("cut_env_adjust_set_lookup_0",
   `wordSem$cut_env (adjust_set r) x = SOME y ==> lookup 0 y = lookup 0 x`,

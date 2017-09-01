@@ -57,10 +57,10 @@ val res = translate (source_to_modTheory.compile_exp_def);
 
 val source_to_mod_compile_exp_side_def = theorem"source_to_mod_compile_exp_side_def"
 val source_to_mod_compile_exp_side = Q.prove(
-  `(∀x y. source_to_mod_compile_exp_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_exps_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_pes_side x y ⇔ T) ∧
-   (∀x y. source_to_mod_compile_funs_side x y ⇔ T)`,
+  `(∀x y z. source_to_mod_compile_exp_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_exps_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_pes_side x y z ⇔ T) ∧
+   (∀x y z. source_to_mod_compile_funs_side x y z ⇔ T)`,
   ho_match_mp_tac source_to_modTheory.compile_exp_ind \\ rw[]
   \\ rw[Once source_to_mod_compile_exp_side_def]
   \\ rw[definition"source_to_mod_astop_to_modop_side_def"])
@@ -71,9 +71,16 @@ val _ = translate (source_to_modTheory.compile_def);
 
 val _ = translate (mod_to_conTheory.compile_def);
 
-val _ = translate (con_to_decTheory.compile_def);
+val r = translate con_to_decTheory.compile_decs_def;
+val con_to_dec_compile_decs_side_def = theorem"con_to_dec_compile_decs_side_def";
+val con_to_dec_compile_decs_side = Q.prove(
+  `∀x y z. con_to_dec_compile_decs_side x y z ⇔ T`,
+  Induct_on`z` \\ rw[Once con_to_dec_compile_decs_side_def])
+  |> update_precondition;
 
-val _ = translate (exh_reorderTheory.compile_def);
+val r = translate (con_to_decTheory.compile_def);
+
+val r = translate (exh_reorderTheory.compile_def);
 
 val exh_reorder_compile_side_def = theorem"exh_reorder_compile_side_def"
 val exh_reorder_compile_side = Q.prove(`
@@ -85,7 +92,7 @@ val exh_reorder_compile_side = Q.prove(`
   TRY(asm_exists_tac \\ rw[]) \\
   fs[Once exh_reorderTheory.compile_cons])|>update_precondition;
 
-val _ = translate (dec_to_exhTheory.compile_def);
+val r = translate (dec_to_exhTheory.compile_def);
 
 val dec_to_exh_compile_side_def = definition"dec_to_exh_compile_side_def";
 val dec_to_exh_compile_side = Q.prove(
@@ -93,8 +100,8 @@ val dec_to_exh_compile_side = Q.prove(
   rw[dec_to_exh_compile_side_def,Once exh_reorderTheory.compile_cons])
   |> update_precondition;
 
-val _ = translate (exh_to_patTheory.pure_op_op_pmatch);
-val _ = translate (exh_to_patTheory.compile_def);
+val r = translate (exh_to_patTheory.pure_op_op_pmatch);
+val r = translate (exh_to_patTheory.compile_def);
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -140,6 +147,9 @@ val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
 
 val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_CONLANG_OP_TYPE]
+
+val EqualityType_BACKEND_COMMON_TRA_TYPE = find_equality_type_thm``BACKEND_COMMON_TRA_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM]
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
 
@@ -224,9 +234,10 @@ val EXHLANG_PAT_TYPE_11 = Q.prove(
             EqualityType_LIST_TYPE_CHAR,
             EqualityType_def]);
 
-val EqualityType_EXHLANG_PAT_TYPE = Q.prove(
+val EqualityType_EXHLANG_PAT_TYPE = Q.store_thm("EqualityType_EXHLANG_PAT_TYPE",
   `EqualityType EXHLANG_PAT_TYPE`,
-  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
+  metis_tac[EqualityType_def,EXHLANG_PAT_TYPE_no_closures,
+    EXHLANG_PAT_TYPE_types_match,EXHLANG_PAT_TYPE_11])
   |> store_eq_thm
 
 val PATLANG_EXP_TYPE_def = theorem"PATLANG_EXP_TYPE_def";
@@ -248,6 +259,7 @@ val PATLANG_EXP_TYPE_no_closures = Q.prove(
     rw[] >>
     METIS_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -274,6 +286,7 @@ val PATLANG_EXP_TYPE_types_match = Q.prove(
     rw[types_match_def,ctor_same_type_def] >>
     PROVE_TAC[EqualityType_def] ) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -309,6 +322,7 @@ val PATLANG_EXP_TYPE_11 = Q.prove(
     gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
     metis_tac[]) >>
   metis_tac[EqualityType_NUM,
+            EqualityType_BACKEND_COMMON_TRA_TYPE,
             EqualityType_MODLANG_OP_TYPE,
             EqualityType_CONLANG_OP_TYPE,
             EqualityType_PATLANG_OP_TYPE,
@@ -320,7 +334,7 @@ val EqualityType_PATLANG_EXP_TYPE = Q.prove(
   metis_tac[EqualityType_def,PATLANG_EXP_TYPE_no_closures,PATLANG_EXP_TYPE_types_match,PATLANG_EXP_TYPE_11])
   |> store_eq_thm
 
-val _ = translate (pat_to_closTheory.compile_def);
+val r = translate (pat_to_closTheory.compile_def);
 
 val pat_to_clos_compile_side = Q.prove(`
   ∀x. pat_to_clos_compile_side x ⇔ T`,
@@ -358,6 +372,15 @@ val clos_number_renumber_code_locs_list_side = Q.prove(`
 
 val _ = translate clos_knownTheory.merge_alt
 
+val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
+
+val clos_known_merge_side = Q.prove(`
+  ∀a b. clos_known_merge_side a b ⇔ T`,
+  EVAL_TAC \\
+  recInduct clos_knownTheory.merge_tup_ind \\
+  rw[] \\
+  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
+
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
   rw[]>>intLib.COOPER_TAC);
@@ -375,23 +398,12 @@ val lemma = ``(if 0 <= i /\ q
 val _ = translate (clos_knownTheory.known_op_pmatch |> ONCE_REWRITE_RULE [lemma]);
 *)
 
-val _ = translate (clos_knownTheory.known_def)
-
-val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
-
-val clos_known_merge_side = Q.prove(`
-  ∀a b. clos_known_merge_side a b ⇔ T`,
-  EVAL_TAC \\
-  recInduct clos_knownTheory.merge_tup_ind \\
-  rw[] \\
-  rw[Once clos_known_merge_tup_side_def]);
-
 val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
   fs[clos_known_merge_side]>>rw[]>>
-  intLib.COOPER_TAC)
+  intLib.COOPER_TAC) |> update_precondition;
 
 (*
 val clos_known_known_op_side = Q.prove(`
@@ -405,6 +417,8 @@ val clos_known_known_op_side = Q.prove(`
   intLib.COOPER_TAC))
 *)
 
+val r = translate (clos_knownTheory.known_def)
+
 val clos_known_known_side = Q.prove(`
   ∀a b c. clos_known_known_side a b c ⇔ T`,
   ho_match_mp_tac clos_knownTheory.known_ind>>
@@ -413,12 +427,19 @@ val clos_known_known_side = Q.prove(`
     imp_res_tac clos_knownTheory.known_sing_EQ_E>>
     fs[])>>
   rw[]>>simp[Once (fetch"-" "clos_known_known_side_def")]>>
-  fs[clos_known_merge_side] >>
-  metis_tac[FST,PAIR,clos_known_known_op_side]) |> update_precondition
+  metis_tac[FST,PAIR]) |> update_precondition
+
+val r = translate clos_knownTheory.compile_def
+
+val clos_known_compile_side = Q.prove(
+  `∀x y. clos_known_compile_side x y ⇔ T`,
+  EVAL_TAC \\ rw[] \\ strip_tac \\
+  imp_res_tac clos_knownTheory.known_sing_EQ_E \\
+  fs[]) |> update_precondition;
 
 (* call *)
 
-val _ = translate (clos_callTheory.calls_def)
+val r = translate (clos_callTheory.calls_def)
 
 val clos_free_free_side = Q.prove(`
   ∀a. clos_free_free_side a ⇔ T`,
@@ -446,10 +467,18 @@ val clos_call_calls_side = Q.prove(`
     >- (imp_res_tac clos_callTheory.calls_length>>fs[])
     >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
 
+val r = translate clos_callTheory.compile_def
+
+val clos_call_compile_side = Q.prove(
+  `∀x y. clos_call_compile_side x y = T`,
+  EVAL_TAC \\ rw[] \\ strip_tac \\
+  imp_res_tac clos_callTheory.calls_sing \\
+  fs[]) |> update_precondition;
+
 (* remove *)
 val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
 
-val _ = translate (clos_removeTheory.remove_alt)
+val r = translate (clos_removeTheory.remove_alt)
 
 val clos_remove_remove_side = Q.prove(`
   ∀x. clos_remove_remove_side x ⇔ T`,
@@ -461,6 +490,17 @@ val clos_remove_remove_side = Q.prove(`
   TRY(first_x_assum match_mp_tac>>fs[]>>metis_tac[])>>
   CCONTR_TAC>>fs[]>>
   imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
+
+val r = translate clos_removeTheory.compile_def
+
+val clos_remove_compile_side = Q.prove(
+  `∀x y. clos_remove_compile_side x y = T`,
+  EVAL_TAC \\ rw[] \\
+  qmatch_goalsub_abbrev_tac`FST p` \\
+  Cases_on`p` \\ fs[markerTheory.Abbrev_def] \\
+  pop_assum(assume_tac o SYM) \\
+  imp_res_tac clos_removeTheory.remove_LENGTH \\fs[])
+  |> update_precondition;
 
 (* shift *)
 val _ = translate (clos_annotateTheory.shift_def)
@@ -476,7 +516,15 @@ val clos_annotate_shift_side = Q.prove(`
   simp[Once (fetch "-" "clos_annotate_shift_side_def")]>>
   rw[]>> metis_tac[]) |> update_precondition
 
-val _ = translate clos_to_bvlTheory.compile_def
+val r = translate clos_annotateTheory.compile_def
+
+val clos_annotate_compile_side = Q.prove(
+  `∀x. clos_annotate_compile_side x = T`,
+  EVAL_TAC \\ rw[] \\
+  METIS_TAC[clos_annotateTheory.shift_SING,clos_freeTheory.free_SING,
+            FST,PAIR,list_distinct]) |> update_precondition;
+
+val r = translate clos_to_bvlTheory.compile_def
 
 val BVL_EXP_TYPE_def = theorem"BVL_EXP_TYPE_def";
 val BVL_EXP_TYPE_ind = theorem"BVL_EXP_TYPE_ind";
@@ -597,7 +645,7 @@ val bvl_jump_jumplist_side = Q.prove(`
   >>
     `SUC x1 DIV 2 < SUC x1` by
       fs[]>>
-    simp[]);
+    simp[]) |> update_precondition;
 
 val clos_to_bvl_recc_lets_side = Q.prove(`
   ∀a b c d.
@@ -606,7 +654,7 @@ val clos_to_bvl_recc_lets_side = Q.prove(`
   ho_match_mp_tac clos_to_bvlTheory.recc_Lets_ind>>
   rw[]>>
   simp[Once (fetch"-" "clos_to_bvl_recc_lets_side_def")]>>
-  Cases_on`b`>>fs[])
+  Cases_on`b`>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_exps_side = Q.prove(`
   ∀max_app a b. clos_to_bvl_compile_exps_side max_app a b`,
@@ -625,12 +673,13 @@ val clos_to_bvl_compile_exps_side = Q.prove(`
     simp[LENGTH_TL])
   >>
   first_x_assum(qspecl_then[`max_app`,`x1`,`x43`,`x41`] assume_tac)>>
-  CCONTR_TAC>>fs[])
+  CCONTR_TAC>>fs[]) |> update_precondition;
 
 val clos_to_bvl_compile_prog_side = Q.prove(`
   ∀max_app x. clos_to_bvl_compile_prog_side max_app x ⇔ T`,
   ho_match_mp_tac clos_to_bvlTheory.compile_prog_ind>>rw[]>>
   simp[Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),clos_to_bvl_compile_exps_side])
+  |> update_precondition;
 
 val clos_to_bvl_compile_side = Q.prove(`
   ∀x y. clos_to_bvl_compile_side x y ⇔ T`,
@@ -640,30 +689,11 @@ val clos_to_bvl_compile_side = Q.prove(`
   Once (fetch "-" "clos_remove_compile_side_def"),
   Once (fetch "-" "clos_known_compile_side_def")]
   >-
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_callTheory.calls_sing>>
-    fs[])
-  >-
     (EVAL_TAC>>simp[bvl_jump_jumplist_side])
   >-
     simp[clos_to_bvl_compile_exps_side]
   >-
     simp[clos_to_bvl_compile_prog_side]
-  >-
-    (EVAL_TAC>>
-    CCONTR_TAC >> fs[]>>
-    Cases_on`free [v1]`>>
-    imp_res_tac clos_freeTheory.free_SING>>fs[]>>
-    imp_res_tac clos_annotateTheory.shift_SING>>fs[])
-  >-
-    (qpat_abbrev_tac`ls = v6'::A`>>
-    Cases_on`remove ls`>>fs[Abbr`ls`]>>
-    imp_res_tac clos_removeTheory.remove_LENGTH>>
-    simp[])
-  >-
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_knownTheory.known_sing_EQ_E>>
-    fs[])
   >>
     `∃z. compile x.do_mti x.max_app [y] = [z]` by
       (Cases_on`x.do_mti`>>fs[clos_mtiTheory.compile_def]>>
@@ -890,6 +920,39 @@ val _ = translate tail_is_ok_lemma
 val _ = translate(bvi_tailrecTheory.compile_prog_def);
 
 val _ = translate(bvl_to_bviTheory.compile_aux_def);
+
+(* TODO: better way to translate Boolean pmatch patterns *)
+(* this code turns the
+      case ... | CopyByte T => ... | _ => last_case
+   in compile_op into
+      case ... | CopyByte b => if b then ... else last_case | _ => last_case
+*)
+val def = bvl_to_bviTheory.compile_op_pmatch;
+val rows = def |> SPEC_ALL |> concl |> rhs |> rand
+           |> listSyntax.dest_list |> #1
+val bad_row = rows |> List.rev |> el 2
+val default_row = rows |> last
+val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
+val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
+val pat_var = mk_var("b",bool);
+val new_pat = mk_abs(pat_var,mk_comb(pat |> dest_abs |> #2 |> rator,pat_var))
+val new_guard = mk_abs(pat_var,guard |> dest_abs |> #2)
+val new_exp = mk_abs(pat_var,
+  mk_cond(pat_var, exp |> dest_abs |> #2, default_exp |> dest_abs |> #2))
+val new_row = patternMatchesSyntax.mk_PMATCH_ROW (new_pat,new_guard,new_exp)
+val goal = def |> SPEC_ALL |> concl |> Term.subst[bad_row |-> new_row]
+val some_v_T = prove(``(some (v:unit). T) = SOME ()``, rw[some_def]);
+val new_def = prove(goal,
+  rewrite_tac[bvl_to_bviTheory.compile_op_def]
+  \\ PURE_TOP_CASE_TAC
+  \\ CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[]))
+  \\ rewrite_tac[patternMatchesTheory.PMATCH_def,
+                 patternMatchesTheory.PMATCH_ROW_def,
+                 patternMatchesTheory.PMATCH_ROW_COND_def]
+  \\ simp[]
+  \\ PURE_TOP_CASE_TAC
+  \\ simp[some_v_T]);
+val r = translate new_def;
 
 val _ = translate(bvl_to_bviTheory.compile_exps_def);
 

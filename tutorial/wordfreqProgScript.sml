@@ -81,7 +81,7 @@ val FOLDL_insert_line = Q.store_thm("FOLDL_insert_line",
     invariant compare t' ∧
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
     FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ IMAGE (key_set compare) (set (splitwords s))`,
-  Induct \\ simp[concat_def] \\ ntac 3 strip_tac \\
+  Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
   `strlit "\n" = str #"\n"` by EVAL_TAC \\

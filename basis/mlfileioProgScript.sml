@@ -762,7 +762,7 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
         fcv * ROFS (bumpAllFD (w2n fd) (bumpLineFD (w2n fd) fs))`
   >- (xapp  \\ xsimpl \\ simp[validFD_bumpLineFD])
   \\ xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  \\ fs[mlstringTheory.implode_def,ml_translatorTheory.STRING_TYPE_def,mlstringTheory.strcat_def]
+  \\ fs[mlstringTheory.implode_def,ml_translatorTheory.STRING_TYPE_def,mlstringTheory.strcat_thm]
   \\ drule linesFD_eq_cons_imp \\ fs[]);
 
 val _ = (append_prog o process_topdecs) `
@@ -785,25 +785,26 @@ val concat_all_lines = Q.store_thm("concat_all_lines",
   qspec_tac(`THE (ALOOKUP fs.files fname)`,`ls`) \\
   Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
-  fs[splitlines_eq_nil,concat_def] \\
+  fs[splitlines_eq_nil,concat_cons]
+  >- EVAL_TAC \\
   imp_res_tac splitlines_next \\ rw[] \\
   first_x_assum(qspec_then`DROP (SUC (LENGTH h)) ls`mp_tac) \\
   rw[] \\ rw[]
   >- (
     Cases_on`LENGTH h < LENGTH ls` \\ fs[] >- (
       disj1_tac \\
-      rw[strcat_def] \\ AP_TERM_TAC \\
+      rw[strcat_thm] \\ AP_TERM_TAC \\
       fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] ) \\
     fs[DROP_LENGTH_TOO_LONG] \\
-    fs[IS_PREFIX_APPEND,strcat_def] \\ rw[] \\ fs[] \\
+    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[] \\
     EVAL_TAC )
   >- (
     disj2_tac \\
-    rw[strcat_def] \\
+    rw[strcat_thm] \\
     AP_TERM_TAC \\ rw[] \\
     Cases_on`LENGTH h < LENGTH ls` \\
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
-    qpat_x_assum`concat [] = _`mp_tac \\ EVAL_TAC ));
+    qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC ));
 
 val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   `FILENAME f fv /\ hasFreeFD fs

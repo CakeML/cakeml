@@ -159,8 +159,16 @@ val LongDiv_location_def = Define `
   LongDiv_location = LongDiv1_location+1`;
 val MemCopy_location_def = Define `
   MemCopy_location = LongDiv_location+1`;
+val ByteCopy_location_def = Define `
+  ByteCopy_location = MemCopy_location+1`;
+val ByteCopyAdd_location_def = Define `
+  ByteCopyAdd_location = ByteCopy_location+1`;
+val ByteCopySub_location_def = Define `
+  ByteCopySub_location = ByteCopyAdd_location+1`;
+val ByteCopyNew_location_def = Define `
+  ByteCopyNew_location = ByteCopySub_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = MemCopy_location+1`;
+  Bignum_location = ByteCopyNew_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -200,6 +208,14 @@ val MemCopy_location_eq = save_thm("MemCopy_location_eq",
   ``MemCopy_location`` |> EVAL);
 val Bignum_location_eq = save_thm("Bignum_location_eq",
   ``Bignum_location`` |> EVAL);
+val ByteCopy_location_eq = save_thm("ByteCopy_location_eq",
+  ``ByteCopy_location`` |> EVAL);
+val ByteCopyAdd_location_eq = save_thm("ByteCopyAdd_location_eq",
+  ``ByteCopyAdd_location`` |> EVAL);
+val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
+  ``ByteCopySub_location`` |> EVAL);
+val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
+  ``ByteCopyNew_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -769,8 +785,8 @@ val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 
 val MemEqList_def = Define `
   (MemEqList a [] = Assign 1 TRUE_CONST :'a wordLang$prog) /\
@@ -915,6 +931,21 @@ local val assign_quotation = `
                 (SOME RefByte_location)
                    [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
        | _ => (Skip,l))
+    | CopyByte alloc_new =>
+      (dtcase args of
+       | [v1;v2;v3;v4;v5] (* alloc_new is F *) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME ByteCopy_location)
+                   [adjust_var v1; adjust_var v2; adjust_var v3;
+                    adjust_var v4; adjust_var v5] NONE) :'a wordLang$prog,l+1)
+       | [v1;v2;v3] (* alloc_new is T *) =>
+           (MustTerminate
+             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
+                (SOME ByteCopyNew_location)
+                   [adjust_var v1; adjust_var v2;
+                    adjust_var v3] NONE) :'a wordLang$prog,l+1)
+       | _ => (Skip,l))
     | RefArray =>
       (dtcase args of
        | [v1;v2] =>
@@ -940,7 +971,7 @@ local val assign_quotation = `
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
         | _ => (Skip,l))
-    | BoundsCheckByte =>
+    | BoundsCheckByte leq =>
      (dtcase args of
       | [v1;v2] => (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
@@ -950,9 +981,10 @@ local val assign_quotation = `
                                 let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
                                   Op Sub [Shift Lsr header (Nat k); Const kk]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
-                              If Lower 3 (Reg 1)
-                               (Assign (adjust_var dest) TRUE_CONST)
-                               (Assign (adjust_var dest) FALSE_CONST)],l)
+                              (if leq then If NotLower 1 (Reg 3) else
+                                           If Lower 3 (Reg 1))
+                                 (Assign (adjust_var dest) TRUE_CONST)
+                                 (Assign (adjust_var dest) FALSE_CONST)],l)
       | _ => (Skip,l))
     | BoundsCheckArray =>
       (dtcase args of
@@ -1371,6 +1403,16 @@ val assign_pmatch_lemmas = [
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[]),
   Q.prove(`
+   (case args of
+    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
+    | [v1;v2;v3] => y2 v1 v2 v3
+    | _ => z) = (dtcase args of
+    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
+    | [v1;v2;v3] => y2 v1 v2 v3
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
    (case opt of
       NONE => y
     | SOME x => z x) = (dtcase opt of
@@ -1469,7 +1511,7 @@ val comp_def = Define `
     | If n p1 p2 =>
         let (q1,l1) = comp c secn l p1 in
         let (q2,l2) = comp c secn l1 p2 in
-          (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
+          (If Equal (adjust_var n) (Imm 18w) q1 q2,l2)
     | MakeSpace n names =>
         let k = dimindex (:'a) DIV 8 in
         let w = n2w (n * k) in
@@ -1505,6 +1547,121 @@ val MemCopy_code_def = Define `
                    Call NONE (SOME MemCopy_location) [0;2;4;6;8] NONE])
       :'a wordLang$prog`;
 
+val ByteCopy_code_def = Define `
+  ByteCopy_code c = list_Seq
+     [Assign 4 (ShiftVar Lsr 4 2);
+      Assign 6 (ShiftVar Lsr 6 2);
+      Assign 10 (ShiftVar Lsr 10 2);
+      Assign 1 Unit;
+      Assign 2 (Op Add [real_addr c 2; Const bytes_in_word; Var 4]);
+      Assign 8 (Op Add [real_addr c 8; Const bytes_in_word; Var 10]);
+      If Lower 4 (Reg 10)
+        (list_Seq [Assign 3 (Op Sub [Var 6; Const 1w]);
+                   Assign 2 (Op Add [Var 2; Var 3]);
+                   Assign 8 (Op Add [Var 8; Var 3]);
+                   Call NONE (SOME ByteCopySub_location) [0;6;2;8;1] NONE])
+        (Call NONE (SOME ByteCopyAdd_location) [0;6;2;8;1] NONE)]
+     :'a wordLang$prog`;
+
+val ByteCopyAdd_code_def = Define`
+  ByteCopyAdd_code =
+  If Lower 2 (Imm 4w) (* n <+ 4w *)
+    (
+      If Lower 2 (Imm 2w) (* n <+ 2w *)
+      (
+        If Equal 2 (Imm 0w) (Return 0 8) (* n = 0w *)
+        (
+          list_Seq[
+            Inst (Mem Load8 1 (Addr 4 0w));
+            Inst (Mem Store8 1(Addr 6 0w));
+            Return 0 8
+          ]
+        )
+      )
+      (list_Seq [
+        Inst (Mem Load8 1 (Addr 4 0w));
+        Inst (Mem Load8 3 (Addr 4 1w));
+        If Equal 2 (Imm 2w)
+          (list_Seq [
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 1w));
+            Return 0 8
+          ])
+          (list_Seq [
+            Inst (Mem Load8 5 (Addr 4 2w));
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 1w));
+            Inst (Mem Store8 5 (Addr 6 2w));
+            Return 0 8
+          ])
+      ])
+    )
+    (list_Seq [
+     Inst (Mem Load8 1 (Addr 4 0w));
+     Inst (Mem Load8 3 (Addr 4 1w));
+     Inst (Mem Load8 5 (Addr 4 2w));
+     Inst (Mem Load8 7 (Addr 4 3w));
+     Inst (Mem Store8 1 (Addr 6 0w));
+     Inst (Mem Store8 3 (Addr 6 1w));
+     Inst (Mem Store8 5 (Addr 6 2w));
+     Inst (Mem Store8 7 (Addr 6 3w));
+     Assign 9 (Op Sub [Var 2; Const 4w]);
+     Assign 11 (Op Add [Var 4; Const 4w]);
+     Assign 13 (Op Add [Var 6; Const 4w]);
+     Call NONE (SOME ByteCopyAdd_location) [0;9;11;13;8] NONE
+    ])`
+
+val ByteCopySub_code_def = Define`
+  ByteCopySub_code =
+  If Lower 2 (Imm 4w) (* n <+ 4w *)
+    (
+      If Lower 2 (Imm 2w) (* n <+ 2w *)
+      (
+        If Equal 2 (Imm 0w) (Return 0 8) (* n = 0w *)
+        (
+          list_Seq[
+            Inst (Mem Load8 1 (Addr 4 0w));
+            Inst (Mem Store8 1(Addr 6 0w));
+            Return 0 8
+          ]
+        )
+      )
+      (list_Seq [
+        Inst (Mem Load8 1 (Addr 4 0w));
+        Inst (Mem Load8 3 (Addr 4 (-1w)));
+        If Equal 2 (Imm 2w)
+          (list_Seq [
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 (-1w)));
+            Return 0 8
+          ])
+          (list_Seq [
+            Inst (Mem Load8 5 (Addr 4 (-2w)));
+            Inst (Mem Store8 1 (Addr 6 0w));
+            Inst (Mem Store8 3 (Addr 6 (-1w)));
+            Inst (Mem Store8 5 (Addr 6 (-2w)));
+            Return 0 8
+          ])
+      ])
+    )
+    (list_Seq [
+     Inst (Mem Load8 1 (Addr 4 0w));
+     Inst (Mem Load8 3 (Addr 4 (-1w)));
+     Inst (Mem Load8 5 (Addr 4 (-2w)));
+     Inst (Mem Load8 7 (Addr 4 (-3w)));
+     Inst (Mem Store8 1 (Addr 6 0w));
+     Inst (Mem Store8 3 (Addr 6 (-1w)));
+     Inst (Mem Store8 5 (Addr 6 (-2w)));
+     Inst (Mem Store8 7 (Addr 6 (-3w)));
+     Assign 9 (Op Sub [Var 2; Const 4w]);
+     Assign 11 (Op Sub [Var 4; Const 4w]);
+     Assign 13 (Op Sub [Var 6; Const 4w]);
+     Call NONE (SOME ByteCopySub_location) [0;9;11;13;8] NONE
+    ])`
+
+val ByteCopyNew_code_def = Define `
+  ByteCopyNew_code c = Skip :'a wordLang$prog`;
+
 val stubs_def = Define`
   stubs (:α) data_conf = [
     (FromList_location,4n,(FromList_code data_conf):α wordLang$prog );
@@ -1524,7 +1681,11 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
-    (MemCopy_location,5n,MemCopy_code)
+    (MemCopy_location,5n,MemCopy_code);
+    (ByteCopy_location,6n,ByteCopy_code data_conf);
+    (ByteCopyAdd_location,5n,ByteCopyAdd_code);
+    (ByteCopySub_location,5n,ByteCopySub_code);
+    (ByteCopyNew_location,4n,ByteCopyNew_code data_conf)
   ] ++ generated_bignum_stubs Bignum_location`;
 
 val check_stubs_length = Q.store_thm("check_stubs_length",
