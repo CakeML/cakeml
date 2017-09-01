@@ -4,6 +4,15 @@ val _ = new_theory "bvl_inline";
 
 (* A function that inlines a function body *)
 
+val var_list_def = Define `
+  var_list n [] [] = T /\
+  var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
+  var_list _ _ _ = F`
+
+val dest_op_def = Define `
+  dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
+  dest_op _ _ = NONE`
+
 val inline_def = tDefine "inline" `
   (inline cs [] = []) /\
   (inline cs (x::y::xs) =
@@ -23,13 +32,15 @@ val inline_def = tDefine "inline" `
               (HD (inline cs [x2]))]) /\
   (inline cs [Op op xs] =
      [Op op (inline cs xs)]) /\
-  (inline cs [Tick b x] =
-     [Tick b (HD (inline cs [x]))]) /\
+  (inline cs [Tick b x] = inline cs [x]) /\
   (inline cs [Call ticks dest xs] =
-     case dest of NONE => [Call ticks dest (inline cs xs)] | SOME n =>
+     case dest of NONE => [Call 0 dest (inline cs xs)] | SOME n =>
      case lookup n cs of
-     | NONE => [Call ticks dest (inline cs xs)]
-     | SOME (arity,code) => [Let (inline cs xs) (mk_tick (SUC ticks) code)])`
+     | NONE => [Call 0 dest (inline cs xs)]
+     | SOME (arity,code) =>
+         case dest_op code xs of
+         | NONE => [Let (inline cs xs) code]
+         | SOME op => [Op op (inline cs xs)])`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
 val inline_ind = theorem"inline_ind";
@@ -105,8 +116,7 @@ val inline_all_def = Define `
        inline_all limit cs2 xs ((n,arity,e2)::aux))`;
 
 val compile_prog_def = Define `
-  compile_prog limit prog =
-    if limit = 0 then prog else inline_all limit LN prog []`
+  compile_prog limit prog = inline_all limit LN prog []`
 
 val LENGTH_inline = Q.store_thm("LENGTH_inline",
   `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,

@@ -6,569 +6,9 @@ val _ = new_theory"bvl_inlineProof";
 
 (*
 TODO:
- - rewrite inline implementation in backend/
  - prove composition: inline_all = remove_ticks o tick_inline_all
 *)
 
-val mk_tick_F_def = Define `
-  mk_tick_F n e = FUNPOW (Tick F) n e : bvl$exp`;
-
-val attach_tick_def = Define `
-  attach_tick n [] = [] /\
-  attach_tick n xs = FRONT xs ++ [mk_tick_F n (LAST xs)]`;
-
-val var_list_def = Define `
-  var_list n [] [] = T /\
-  var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
-  var_list _ _ _ = F`
-
-val dest_op_def = Define `
-  dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
-  dest_op _ _ = NONE`
-
-val tick_inline_def = tDefine "tick_inline" `
-  (tick_inline cs [] = []) /\
-  (tick_inline cs (x::y::xs) =
-     HD (tick_inline cs [x]) :: tick_inline cs (y::xs)) /\
-  (tick_inline cs [Var v] = [Var v]) /\
-  (tick_inline cs [If x1 x2 x3] =
-     [If (HD (tick_inline cs [x1]))
-         (HD (tick_inline cs [x2]))
-         (HD (tick_inline cs [x3]))]) /\
-  (tick_inline cs [Let xs x2] =
-     [Let (tick_inline cs xs)
-           (HD (tick_inline cs [x2]))]) /\
-  (tick_inline cs [Raise x1] =
-     [Raise (HD (tick_inline cs [x1]))]) /\
-  (tick_inline cs [Handle x1 x2] =
-     [Handle (HD (tick_inline cs [x1]))
-              (HD (tick_inline cs [x2]))]) /\
-  (tick_inline cs [Op op xs] =
-     [Op op (tick_inline cs xs)]) /\
-  (tick_inline cs [Tick b x] =
-     [Tick b (HD (tick_inline cs [x]))]) /\
-  (tick_inline cs [Call ticks dest xs] =
-     case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
-     case lookup n cs of
-     | NONE => [Call ticks dest (tick_inline cs xs)]
-     | SOME (arity,code) =>
-         case dest_op code xs of
-         | NONE => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)]
-         | SOME op =>
-           (if NULL xs then [mk_tick (SUC ticks) (Op op [])] else
-             [Op op (attach_tick (SUC ticks) (tick_inline cs xs))]))`
-  (WF_REL_TAC `measure (exp1_size o SND)`);
-
-val tick_inline_ind = theorem"tick_inline_ind";
-
-val tick_inline_all_def = Define `
-  (tick_inline_all limit cs [] aux = REVERSE aux) /\
-  (tick_inline_all limit cs ((n,arity,e1)::xs) aux =
-     let e2 = HD (tick_inline cs [e1]) in
-     let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))`;
-
-val tick_compile_prog_def = Define `
-  tick_compile_prog limit prog =
-    if limit = 0 then prog else tick_inline_all limit LN prog []`
-
-val LENGTH_tick_inline = Q.store_thm("LENGTH_tick_inline",
-  `!cs xs. LENGTH (tick_inline cs xs) = LENGTH xs`,
-  recInduct tick_inline_ind \\ REPEAT STRIP_TAC
-  \\ fs [Once tick_inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
-
-val HD_tick_inline = Q.store_thm("HD_tick_inline[simp]",
-  `[HD (tick_inline cs [x])] = tick_inline cs [x]`,
-  `LENGTH (tick_inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_tick_inline]
-  \\ Cases_on `tick_inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
-  \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
-
-val tick_code_rel_def = Define `
-  tick_code_rel (:'ffi) c1 c2 <=>
-    !n arity e1.
-      lookup n c1 = SOME (arity,e1) ==>
-      ?e2. lookup n c2 = SOME (arity,e2) /\
-           !(s:'ffi bvlSem$state) env res t.
-             LENGTH env = arity /\ res <> Rerr (Rabort Rtype_error) /\
-             evaluate ([e1],env,s with code := c1) = (res,t with code := c1) ==>
-             evaluate ([e2],env,s with code := c2) = (res,t with code := c2)`
-
-val tick_code_rel_refl = Q.store_thm("tick_code_rel_refl",
-  `!c. tick_code_rel (:'ffi) c c`,
-  fs [tick_code_rel_def]);
-
-val tick_code_rel_trans = Q.store_thm("tick_code_rel_trans",
-  `!c1 c2 c3.
-      tick_code_rel (:'ffi) c1 c2 /\ tick_code_rel (:'ffi) c2 c3 ==>
-      tick_code_rel (:'ffi) c1 c3`,
-  fs [tick_code_rel_def] \\ rw [] \\ res_tac
-  \\ first_x_assum drule \\ rw [] \\ fs []);
-
-val exp_rel_def = Define `
-  exp_rel (:'ffi) c e1 e2 <=>
-    !(s:'ffi bvlSem$state) env res t.
-      evaluate ([e1],env,s) = (res,t) /\ s.code = c /\
-      res <> Rerr (Rabort Rtype_error) ==>
-      evaluate ([e2],env,s) = (res,t)`
-
-val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
-  `!xs env (s:'ffi bvlSem$state) res t e1 e2 n arity c.
-      evaluate (xs,env,s) = (res,t) /\
-      exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 /\
-      res ≠ Rerr (Rabort Rtype_error) /\
-      lookup n c = SOME (arity,e1) /\
-      s.code = c ==>
-      evaluate (xs,env,s with code := insert n (arity,e2) c) =
-                  (res,t with code := insert n (arity,e2) c)`,
-  recInduct bvlSemTheory.evaluate_ind \\ reverse (rw [])
-  \\ fs [bvlSemTheory.evaluate_def]
-  THEN1 (* Call *)
-   (Cases_on `evaluate (xs,env,s1)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ fs [] \\ first_x_assum drule
-    \\ disch_then drule \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rw []
-    \\ Cases_on `find_code dest a (insert n (arity,e2) s1.code) =
-                 find_code dest a r.code` \\ fs []
-    THEN1
-     (BasicProvers.TOP_CASE_TAC \\ fs []
-      \\ PairCases_on `x` \\ fs [] \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs []
-      \\ rfs [] \\ imp_res_tac evaluate_code \\ fs [])
-    \\ reverse (Cases_on `dest`) \\ fs [] THEN1
-     (fs [find_code_def,lookup_insert]
-      \\ Cases_on `lookup x r.code` \\ fs []
-      \\ Cases_on `x'` \\ fs []
-      \\ Cases_on `LENGTH a = q` \\ fs []
-      \\ Cases_on `x = n` \\ fs []
-      \\ rveq \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
-      \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-      \\ first_x_assum drule
-      \\ disch_then drule
-      \\ fs [exp_rel_def] \\ rw [])
-    \\ fs [find_code_def,lookup_insert] \\ IF_CASES_TAC \\ fs []
-    \\ Cases_on `LAST a` \\ fs []
-    \\ Cases_on `lookup n' r.code` \\ fs []
-    \\ PairCases_on `x` \\ fs []
-    \\ Cases_on `LENGTH a = x0 + 1` \\ fs []
-    \\ Cases_on `n' = n` \\ fs []
-    \\ fs [] \\ rveq \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
-    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then drule
-    \\ fs [exp_rel_def] \\ rw [])
-  \\ TRY (IF_CASES_TAC \\ fs [] \\ fs [] \\ NO_TAC)
-  THEN1
-   (IF_CASES_TAC \\ fs [] \\ TRY IF_CASES_TAC \\ fs []
-    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then drule \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ IF_CASES_TAC \\ fs [])
-  THEN1
-   (Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then drule \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ Cases_on `do_app op (REVERSE a) r` \\ fs []
-    \\ TRY (Cases_on `a'` \\ fs [] \\ rveq \\ fs []) \\ rveq \\ fs []
-    \\ TRY (drule (GEN_ALL bvlPropsTheory.do_app_with_code) ORELSE
-            drule (GEN_ALL bvlPropsTheory.do_app_with_code_err))
-    \\ disch_then (qspec_then `insert n (arity,e2) s.code` mp_tac)
-    \\ (impl_tac THEN1 fs [domain_insert,SUBSET_DEF])
-    \\ rw [] \\ fs [])
-  \\ TRY
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
-  \\ TRY
-   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
-  THEN1
-   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ every_case_tac \\ fs [] \\ rfs []
-    \\ first_x_assum drule \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
-  THEN1
-   (Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ first_x_assum drule \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
-  THEN1
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ rpt (IF_CASES_TAC \\ fs [])
-    \\ first_x_assum drule \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
-  THEN1
-   (Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
-    \\ first_x_assum drule \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []));
-
-val tick_code_rel_insert = Q.store_thm("tick_code_rel_insert",
-  `lookup n c = SOME (arity,e1) /\
-    exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 ==>
-    tick_code_rel (:'ffi) c (insert n (arity,e2) c)`,
-  fs [tick_code_rel_def] \\ rw [lookup_insert] \\ rw [] \\ fs [] \\ rw []
-  \\ TRY (drule evaluate_code_insert \\ fs [] \\ NO_TAC)
-  \\ drule evaluate_code_insert \\ fs []
-  \\ disch_then drule \\ fs [] \\ rw []
-  \\ qpat_x_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
-  \\ simp_tac std_ss [exp_rel_def]
-  \\ disch_then drule \\ fs []);
-
-val attach_ticks_SNOC = prove(
-  ``attach_tick ticks (ys ++ [y]) = ys ++ [mk_tick_F ticks y]``,
-  Cases_on `ys`
-  \\ fs [attach_tick_def]
-  \\ fs [FRONT_DEF]
-  \\ rewrite_tac [GSYM SNOC_APPEND,FRONT_SNOC]);
-
-val evaluate_mk_ticks_F = prove(
-  ``!ticks r y.
-      evaluate ([mk_tick_F ticks y],env,r) =
-      case evaluate ([y],env,r) of
-      | (Rval v,s1) =>
-           if s1.clock < ticks then
-             (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-           else (Rval v,dec_clock ticks s1)
-      | res => res``,
-  Induct
-  THEN1 (rw [] \\ fs [mk_tick_F_def] \\ every_case_tac \\ fs [])
-  \\ fs [mk_tick_F_def,FUNPOW]
-  \\ fs [evaluate_def] \\ rw []
-  \\ Cases_on `evaluate ([y],env,r)` \\ fs []
-  \\ Cases_on `q` \\ fs []
-  \\ IF_CASES_TAC \\ fs []
-  THEN1 (fs [state_component_equality])
-  \\ fs [dec_clock_def,ADD1]
-  \\ Cases_on `0 < ticks` \\ fs []);
-
-val evaluate_attach_tick = prove(
-  ``~NULL xs ==>
-    evaluate (attach_tick ticks xs,env,s) =
-    case evaluate (xs,env,s) of
-    | (Rerr v,s1) => (Rerr v,s1)
-    | (Rval v,s1) =>
-         if s1.clock < ticks then
-           (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-         else (Rval v,dec_clock ticks s1)``,
-  `xs = [] \/ ?y ys. xs = SNOC y ys` by metis_tac [SNOC_CASES]
-  \\ fs [] \\ rveq \\ fs [attach_ticks_SNOC]
-  \\ fs [evaluate_APPEND]
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs [evaluate_mk_ticks_F]
-  \\ rpt (TOP_CASE_TAC \\ fs [])
-  \\ rpt (FULL_CASE_TAC \\ fs [])
-  \\ rveq \\ fs []);
-
-val var_list_IMP_evaluate = prove(
-  ``!a2 a1 l xs s.
-      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
-      evaluate (l,a1++a2,s) = (Rval a2,s)``,
-  Induct THEN1
-   (fs [APPEND_NIL,var_list_def]
-    \\ Cases_on `l` \\ fs [var_list_def,evaluate_def]
-    \\ Cases_on `h` \\ fs [var_list_def,evaluate_def])
-  \\ Cases_on `xs` \\ fs [LENGTH]
-  \\ Cases_on `l` \\ fs [var_list_def]
-  \\ Cases_on `h'` \\ fs [var_list_def]
-  \\ once_rewrite_tac [evaluate_CONS]
-  \\ fs [evaluate_def,EL_LENGTH_APPEND] \\ rw []
-  \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
-  \\ fs [] \\ rw [] \\ res_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []);
-
-val var_list_IMP_evaluate = prove(
-  ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
-    evaluate (l,a,s) = (Rval a,s)``,
-  rw []
-  \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
-       |> SIMP_RULE std_ss [APPEND,LENGTH])
-  \\ asm_exists_tac \\ fs []);
-
-fun split_tac q = Cases_on q \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [];
-
-val evaluate_tick_inline = Q.store_thm("evaluate_tick_inline",
-  `!cs xs s env.
-     subspt cs s.code /\
-     FST (evaluate (xs,env,s)) <> Rerr(Rabort Rtype_error) ==>
-     (evaluate (tick_inline cs xs,env,s) = evaluate (xs,env,s))`,
-  recInduct tick_inline_ind \\ reverse (REPEAT STRIP_TAC)
-  \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [Once tick_inline_def,LET_DEF] \\ RES_TAC
-  THEN1
-   (Cases_on `dest` \\ fs [] THEN1
-     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
-      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
-      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
-    \\ Cases_on `lookup x cs` \\ fs [] THEN1
-     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
-      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
-      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
-    \\ rename1 `lookup x cs = SOME args`
-    \\ PairCases_on `args` \\ fs []
-    \\ Cases_on `dest_op args1 xs` \\ fs []
-    THEN1
-     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
-      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
-      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-      \\ IMP_RES_TAC evaluate_code
-      \\ `lookup x s.code = SOME (args0,args1)` by fs [subspt_def,domain_lookup]
-      \\ fs [find_code_def]
-      \\ IMP_RES_TAC evaluate_IMP_LENGTH \\ fs []
-      \\ IF_CASES_TAC \\ fs []
-      \\ SIMP_TAC std_ss [evaluate_mk_tick] \\ SRW_TAC [] [] \\ fs [ADD1]
-      \\ MATCH_MP_TAC evaluate_expand_env \\ FULL_SIMP_TAC std_ss [])
-    \\ IF_CASES_TAC \\ fs []
-    \\ fs [evaluate_def]
-    THEN1
-     (Cases_on `xs` \\ fs [evaluate_def]
-      \\ TOP_CASE_TAC \\ fs []
-      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx`
-      \\ fs [evaluate_mk_tick,ADD1]
-      \\ IF_CASES_TAC \\ fs []
-      \\ fs [find_code_def]
-      \\ fs [subspt_lookup]
-      \\ res_tac \\ fs [] \\ rveq
-      \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
-      \\ Cases_on `l` \\ fs [var_list_def]
-      \\ fs [evaluate_def] \\ Cases_on `h` \\ fs [var_list_def])
-    \\ `~(NULL (tick_inline cs xs))` by
-      (fs [NULL_LENGTH]
-       \\ full_simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_tick_inline])
-    \\ simp [evaluate_attach_tick]
-    \\ Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ TOP_CASE_TAC \\ fs []
-    \\ TOP_CASE_TAC \\ fs [ADD1]
-    \\ TOP_CASE_TAC \\ fs [find_code_def]
-    \\ Cases_on `lookup x r.code` \\ fs []
-    \\ rename1 `_ = SOME yy` \\ PairCases_on `yy` \\ fs [] \\ rveq
-    \\ fs[subspt_lookup] \\ res_tac \\ fs []
-    \\ drule evaluate_code \\ fs [] \\ rw[] \\ fs [] \\ rveq
-    \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
-    \\ fs [evaluate_def]
-    \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ qsuff_tac `evaluate (l,a,dec_clock (ticks + 1) r) =
-                   (Rval a,dec_clock (ticks + 1) r)` THEN1 fs []
-    \\ match_mp_tac var_list_IMP_evaluate \\ fs [])
-  \\ TRY (Cases_on `b`)
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
-  \\ TRY (SRW_TAC [] [] \\ FIRST_X_ASSUM MATCH_MP_TAC
-          \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ NO_TAC)
-  \\ TRY (split_tac `evaluate (xs,env,s)`
-     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
-  \\ TRY (split_tac `evaluate ([x1],env,s)` \\ SRW_TAC [] []
-     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) []
-     \\ Cases_on`e`>>fs[]>>NO_TAC)
-  THEN (Cases_on `tick_inline cs (y::xs)` THEN1
-      (`LENGTH (tick_inline cs (y::xs)) = 0` by METIS_TAC [LENGTH]
-       \\ FULL_SIMP_TAC std_ss [LENGTH_tick_inline,LENGTH] \\ `F` by DECIDE_TAC)
-     \\ SIMP_TAC std_ss [Once evaluate_def,HD_tick_inline]
-     \\ POP_ASSUM (fn th => FULL_SIMP_TAC std_ss [GSYM th])
-     \\ split_tac `evaluate ([x],env,s)` \\ split_tac `evaluate (y::xs,env,r)`
-     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) []));
-
-val exp_rel_tick_inline = Q.store_thm("exp_rel_tick_inline",
-  `subspt cs c ==> exp_rel (:'ffi) c e (HD (tick_inline cs [e]))`,
-  fs [exp_rel_def] \\ rw []
-  \\ qpat_x_assum `_ = (_,_)` (fn th => assume_tac th THEN
-        once_rewrite_tac [GSYM th])
-  \\ match_mp_tac evaluate_tick_inline \\ fs []);
-
-val tick_code_rel_insert_tick_inline = Q.store_thm("tick_code_rel_insert_tick_inline",
-  `lookup n c = SOME (arity,e1) /\ subspt cs c /\ ~(n IN domain cs) ==>
-    tick_code_rel (:'ffi) c (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
-  rw [] \\ match_mp_tac tick_code_rel_insert \\ fs []
-  \\ match_mp_tac exp_rel_tick_inline
-  \\ fs [subspt_def,domain_lookup,PULL_EXISTS,lookup_insert]
-  \\ rw [] \\ res_tac \\ fs []);
-
-val tick_code_rel_insert_insert_tick_inline = Q.store_thm("tick_code_rel_insert_insert_tick_inline",
-  `subspt cs (insert n (arity,e1) c) /\ ~(n IN domain cs) ==>
-    tick_code_rel (:'ffi) (insert n (arity,e1) c)
-                     (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
-  `insert n (arity,HD (tick_inline cs [e1])) c =
-   insert n (arity,HD (tick_inline cs [e1])) (insert n (arity,e1) c)` by fs [insert_shadow]
-  \\ pop_assum (fn th => once_rewrite_tac [th]) \\ rw []
-  \\ match_mp_tac tick_code_rel_insert_tick_inline \\ fs []);
-
-val tick_inline_all_acc = Q.store_thm("tick_inline_all_acc",
-  `!xs ys cs limit.
-      tick_inline_all limit cs xs ys = REVERSE ys ++ tick_inline_all limit cs xs []`,
-  Induct \\ fs [tick_inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
-  \\ once_rewrite_tac [tick_inline_all_def] \\ simp_tac std_ss [LET_THM]
-  \\ rpt strip_tac \\ IF_CASES_TAC
-  \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
-
-val fromAList_SWAP = Q.prove(
-  `!xs x ys.
-      ALL_DISTINCT (FST x::MAP FST xs) ==>
-      fromAList (xs ++ x::ys) = fromAList (x::(xs ++ ys))`,
-  Induct \\ fs [] \\ rw []
-  \\ PairCases_on `h` \\ fs [fromAList_def]
-  \\ PairCases_on `x` \\ fs [fromAList_def]
-  \\ fs [spt_eq_thm,wf_insert,wf_fromAList]
-  \\ rw [lookup_insert]);
-
-val tick_code_rel_rearrange_lemma = Q.store_thm("tick_code_rel_rearrange_lemma",
-  `ALL_DISTINCT (FST x::MAP FST xs) /\
-    MAP FST zs = MAP FST xs /\
-    tick_code_rel (:'ffi) (fromAList (xs++x::ys)) (fromAList (zs++x::ys)) ==>
-    tick_code_rel (:'ffi) (fromAList (x::(xs++ys))) (fromAList (x::(zs++ys))) `,
-  metis_tac [fromAList_SWAP,APPEND]);
-
-val MAP_FST_tick_inline_all = Q.store_thm("MAP_FST_tick_inline_all",
-  `!xs cs. MAP FST (tick_inline_all limit cs xs []) = MAP FST xs`,
-  Induct \\ fs [tick_inline_all_def] \\ strip_tac
-  \\ PairCases_on `h` \\ fs [tick_inline_all_def] \\ rw []
-  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []);
-
-val MEM_IMP_ALOOKUP_SOME = Q.store_thm("MEM_IMP_ALOOKUP_SOME",
-  `!xs x y.
-      ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==>
-      ALOOKUP xs x = SOME y`,
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []);
-
-val tick_code_rel_tick_inline_all = Q.store_thm("tick_code_rel_tick_inline_all",
-  `!xs ys cs.
-      (!x y. lookup x cs = SOME y ==> MEM (x,y) ys /\ !y. ~MEM (x,y) xs) /\
-      ALL_DISTINCT (MAP FST (ys ++ xs)) ==>
-      tick_code_rel (:'ffi)
-        (fromAList (xs ++ ys))
-        (fromAList (tick_inline_all limit cs xs [] ++ ys))`,
-  Induct \\ fs [tick_inline_all_def,tick_code_rel_refl]
-  \\ strip_tac \\ PairCases_on `h` \\ fs []
-  \\ reverse (rw [tick_inline_all_def])
-  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []
-  \\ qpat_abbrev_tac `zs = tick_inline_all limit _ xs []`
-  \\ match_mp_tac tick_code_rel_trans
-  \\ qexists_tac `fromAList ((h0,h1,HD (tick_inline cs [h2]))::(xs ++ ys))`
-  \\ rpt strip_tac
-  \\ TRY
-   (fs [fromAList_def]
-    \\ match_mp_tac tick_code_rel_insert_insert_tick_inline
-    \\ fs [domain_lookup,subspt_def,PULL_EXISTS,lookup_insert]
-    \\ reverse (rpt strip_tac) THEN1 (res_tac \\ fs [])
-    \\ IF_CASES_TAC \\ fs [] \\ rveq THEN1 (res_tac \\ fs [])
-    \\ qexists_tac `v` \\ fs [] \\ res_tac
-    \\ fs [lookup_fromAList]
-    \\ match_mp_tac MEM_IMP_ALOOKUP_SOME \\ fs []
-    \\ fs [ALL_DISTINCT_APPEND] \\ metis_tac [])
-  \\ match_mp_tac tick_code_rel_rearrange_lemma \\ fs []
-  \\ unabbrev_all_tac \\ fs [MAP_FST_tick_inline_all]
-  \\ fs [ALL_DISTINCT_APPEND,ALL_DISTINCT]
-  \\ first_x_assum match_mp_tac
-  \\ fs [ALL_DISTINCT_APPEND,ALL_DISTINCT]
-  \\ (reverse conj_tac THEN1 metis_tac [])
-  THEN1 metis_tac []
-  \\ fs [lookup_insert] \\ rw []
-  \\ fs [MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ Cases_on `y'` \\ fs [])
-  |> Q.SPECL [`xs`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
-
-val tick_code_rel_tick_compile_prog = Q.store_thm("tick_code_rel_tick_compile_prog",
-  `ALL_DISTINCT (MAP FST prog) ==>
-    tick_code_rel (:'ffi) (fromAList prog) (fromAList (tick_compile_prog limit prog))`,
-  fs [tick_compile_prog_def] \\ rw [tick_code_rel_refl]
-  \\ match_mp_tac tick_code_rel_tick_inline_all \\ fs [lookup_def]);
-
-val tick_code_rel_IMP_semantics_EQ = Q.store_thm("tick_code_rel_IMP_semantics_EQ",
-  `!(ffi:'ffi ffi_state) c1 c2 start.
-      tick_code_rel (:'ffi) c1 c2 /\ semantics ffi c1 start <> Fail ==>
-      semantics ffi c2 start = semantics ffi c1 start`,
-  rewrite_tac [GSYM AND_IMP_INTRO]
-  \\ ntac 5 strip_tac \\ simp[bvlSemTheory.semantics_def]
-  \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi c2 k) =
-    let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],
-         [],initial_state ffi c1 k) in
-      (r, s with code := c2)` by
-   (fs [evaluate_def,find_code_def]
-    \\ Cases_on `lookup start c1` \\ fs []
-    \\ PairCases_on `x` \\ fs []
-    \\ IF_CASES_TAC \\ fs [] \\ rveq
-    \\ strip_tac \\ fs [tick_code_rel_def]
-    \\ first_x_assum drule \\ strip_tac \\ fs [LENGTH_NIL]
-    \\ IF_CASES_TAC \\ fs []
-    \\ qpat_x_assum `!x. _ <> _` (qspec_then `k` mp_tac) \\ fs [] \\ rw []
-    \\ Cases_on `evaluate ([x1],[],dec_clock 1 (initial_state ffi c1 k))`
-    \\ fs [] \\ first_x_assum drule
-    \\ disch_then (qspec_then `dec_clock 1 (initial_state ffi c1 k)` mp_tac)
-    \\ `dec_clock 1 (initial_state ffi c1 k) with code := c1 =
-        dec_clock 1 (initial_state ffi c1 k) /\
-        dec_clock 1 (initial_state ffi c1 k) with code := c2 =
-        dec_clock 1 (initial_state ffi c2 k)` by
-          fs [dec_clock_def,initial_state_def]
-    \\ fs [] \\ disch_then (qspec_then `r` mp_tac)
-    \\ impl_tac THEN1
-     (imp_res_tac evaluate_code
-      \\ fs [dec_clock_def,initial_state_def,bvlSemTheory.state_component_equality])
-    \\ fs [])
-  \\ simp []
-  \\ qpat_x_assum `tick_code_rel (:'ffi) _ _` kall_tac
-  \\ DEEP_INTRO_TAC some_intro >> simp[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  full_simp_tac(srw_ss())[UNCURRY,LET_THM] >>
-  reverse conj_tac >- (
-    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] ) >>
-  gen_tac >> strip_tac >> var_eq_tac >>
-  asm_simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-  reverse conj_tac >- METIS_TAC[] >>
-  gen_tac >> strip_tac >>
-  strip_tac >> full_simp_tac(srw_ss())[] >>
-  qpat_abbrev_tac`abb2 = bvlSem$evaluate _` >>
-  qpat_abbrev_tac`abb1 = bvlSem$evaluate _` >>
-  qmatch_assum_abbrev_tac`Abbrev(abb2 = evaluate (e1,v1,s1))` >>
-  qmatch_assum_abbrev_tac`Abbrev(abb1 = evaluate (e1,v1,s2))` >>
-  map_every qunabbrev_tac[`abb1`,`abb2`] >>
-  qmatch_assum_rename_tac`Abbrev(s1 = _ _ _ k1)` >>
-  qmatch_assum_rename_tac`Abbrev(s2 = _ _ _ k2)` >>
-  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  Q.ISPECL_THEN[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
-  disch_then(qspec_then`k2`mp_tac) >>
-  Q.ISPECL_THEN[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
-  disch_then(qspec_then`k1`mp_tac) >>
-  simp[bvlPropsTheory.inc_clock_def,Abbr`s1`,Abbr`s2`] >>
-  ntac 2 strip_tac >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac bvlPropsTheory.evaluate_add_clock >>
-  rpt(first_x_assum (fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]))) >>
-  simp[bvlPropsTheory.inc_clock_def] >>
-  TRY (
-    disch_then(qspec_then`k1`strip_assume_tac) >>
-    disch_then(qspec_then`k2`strip_assume_tac) >>
-    fsrw_tac[ARITH_ss][bvlSemTheory.state_component_equality] ) >>
-  TRY (
-    qexists_tac`k1` >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
-  TRY (
-    qexists_tac`k2` >>
-    spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][] >>
-    rev_full_simp_tac(srw_ss())[] >> NO_TAC) >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
-
-val tick_compile_prog_semantics = save_thm("tick_compile_prog_semantics",
-  MATCH_MP (tick_code_rel_IMP_semantics_EQ |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-   (tick_code_rel_tick_compile_prog |> UNDISCH) |> SPEC_ALL
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
-
-val MAP_FST_tick_compile_prog = Q.store_thm("MAP_FST_tick_compile_prog",
-  `MAP FST (tick_compile_prog limit prog) = MAP FST prog`,
-  fs [tick_compile_prog_def] \\ rw [MAP_FST_tick_inline_all]);
 
 (* removal of ticks *)
 
@@ -1086,10 +526,82 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
   \\ fs [IS_PREFIX_APPEND]
   \\ simp [EL_APPEND1]);
 
-(* combined theorems *)
+(* inline implementation *)
 
-val code_rel_def = Define `
-  code_rel (:'ffi) c1 c2 <=>
+val mk_tick_F_def = Define `
+  mk_tick_F n e = FUNPOW (Tick F) n e : bvl$exp`;
+
+val attach_tick_def = Define `
+  attach_tick n [] = [] /\
+  attach_tick n xs = FRONT xs ++ [mk_tick_F n (LAST xs)]`;
+
+val var_list_def = Define `
+  var_list n [] [] = T /\
+  var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
+  var_list _ _ _ = F`
+
+val dest_op_def = Define `
+  dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
+  dest_op _ _ = NONE`
+
+val tick_inline_def = tDefine "tick_inline" `
+  (tick_inline cs [] = []) /\
+  (tick_inline cs (x::y::xs) =
+     HD (tick_inline cs [x]) :: tick_inline cs (y::xs)) /\
+  (tick_inline cs [Var v] = [Var v]) /\
+  (tick_inline cs [If x1 x2 x3] =
+     [If (HD (tick_inline cs [x1]))
+         (HD (tick_inline cs [x2]))
+         (HD (tick_inline cs [x3]))]) /\
+  (tick_inline cs [Let xs x2] =
+     [Let (tick_inline cs xs)
+           (HD (tick_inline cs [x2]))]) /\
+  (tick_inline cs [Raise x1] =
+     [Raise (HD (tick_inline cs [x1]))]) /\
+  (tick_inline cs [Handle x1 x2] =
+     [Handle (HD (tick_inline cs [x1]))
+              (HD (tick_inline cs [x2]))]) /\
+  (tick_inline cs [Op op xs] =
+     [Op op (tick_inline cs xs)]) /\
+  (tick_inline cs [Tick b x] =
+     [Tick b (HD (tick_inline cs [x]))]) /\
+  (tick_inline cs [Call ticks dest xs] =
+     case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
+     case lookup n cs of
+     | NONE => [Call ticks dest (tick_inline cs xs)]
+     | SOME (arity,code) =>
+         case dest_op code xs of
+         | NONE => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)]
+         | SOME op =>
+           (if NULL xs then [mk_tick (SUC ticks) (Op op [])] else
+             [Op op (attach_tick (SUC ticks) (tick_inline cs xs))]))`
+  (WF_REL_TAC `measure (exp1_size o SND)`);
+
+val tick_inline_ind = theorem"tick_inline_ind";
+
+val tick_inline_all_def = Define `
+  (tick_inline_all limit cs [] aux = REVERSE aux) /\
+  (tick_inline_all limit cs ((n,arity,e1)::xs) aux =
+     let e2 = HD (tick_inline cs [e1]) in
+     let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
+       tick_inline_all limit cs2 xs ((n,arity,e2)::aux))`;
+
+val tick_compile_prog_def = Define `
+  tick_compile_prog limit prog = tick_inline_all limit LN prog []`
+
+val LENGTH_tick_inline = Q.store_thm("LENGTH_tick_inline",
+  `!cs xs. LENGTH (tick_inline cs xs) = LENGTH xs`,
+  recInduct tick_inline_ind \\ REPEAT STRIP_TAC
+  \\ fs [Once tick_inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
+
+val HD_tick_inline = Q.store_thm("HD_tick_inline[simp]",
+  `[HD (tick_inline cs [x])] = tick_inline cs [x]`,
+  `LENGTH (tick_inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_tick_inline]
+  \\ Cases_on `tick_inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
+  \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
+
+val tick_code_rel_def = Define `
+  tick_code_rel (:'ffi) c1 c2 <=>
     !n arity e1.
       lookup n c1 = SOME (arity,e1) ==>
       ?e2. lookup n c2 = SOME (arity,e2) /\
@@ -1098,21 +610,544 @@ val code_rel_def = Define `
              evaluate ([e1],env,s with code := c1) = (res,t with code := c1) ==>
              evaluate ([e2],env,s with code := c2) = (res,t with code := c2)`
 
-val code_rel_compile_prog = Q.store_thm("code_rel_compile_prog",
-  `ALL_DISTINCT (MAP FST prog) ==>
-    code_rel (:'ffi) (fromAList prog) (fromAList (compile_prog limit prog))`,
-  cheat);
+val tick_code_rel_refl = Q.store_thm("tick_code_rel_refl",
+  `!c. tick_code_rel (:'ffi) c c`,
+  fs [tick_code_rel_def]);
 
-val code_rel_IMP_semantics_EQ = Q.store_thm("code_rel_IMP_semantics_EQ",
+val tick_code_rel_trans = Q.store_thm("tick_code_rel_trans",
+  `!c1 c2 c3.
+      tick_code_rel (:'ffi) c1 c2 /\ tick_code_rel (:'ffi) c2 c3 ==>
+      tick_code_rel (:'ffi) c1 c3`,
+  fs [tick_code_rel_def] \\ rw [] \\ res_tac
+  \\ first_x_assum drule \\ rw [] \\ fs []);
+
+val exp_rel_def = Define `
+  exp_rel (:'ffi) c e1 e2 <=>
+    !(s:'ffi bvlSem$state) env res t.
+      evaluate ([e1],env,s) = (res,t) /\ s.code = c /\
+      res <> Rerr (Rabort Rtype_error) ==>
+      evaluate ([e2],env,s) = (res,t)`
+
+val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
+  `!xs env (s:'ffi bvlSem$state) res t e1 e2 n arity c.
+      evaluate (xs,env,s) = (res,t) /\
+      exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 /\
+      res ≠ Rerr (Rabort Rtype_error) /\
+      lookup n c = SOME (arity,e1) /\
+      s.code = c ==>
+      evaluate (xs,env,s with code := insert n (arity,e2) c) =
+                  (res,t with code := insert n (arity,e2) c)`,
+  recInduct bvlSemTheory.evaluate_ind \\ reverse (rw [])
+  \\ fs [bvlSemTheory.evaluate_def]
+  THEN1 (* Call *)
+   (Cases_on `evaluate (xs,env,s1)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ fs [] \\ first_x_assum drule
+    \\ disch_then drule \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rw []
+    \\ Cases_on `find_code dest a (insert n (arity,e2) s1.code) =
+                 find_code dest a r.code` \\ fs []
+    THEN1
+     (BasicProvers.TOP_CASE_TAC \\ fs []
+      \\ PairCases_on `x` \\ fs [] \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs []
+      \\ rfs [] \\ imp_res_tac evaluate_code \\ fs [])
+    \\ reverse (Cases_on `dest`) \\ fs [] THEN1
+     (fs [find_code_def,lookup_insert]
+      \\ Cases_on `lookup x r.code` \\ fs []
+      \\ Cases_on `x'` \\ fs []
+      \\ Cases_on `LENGTH a = q` \\ fs []
+      \\ Cases_on `x = n` \\ fs []
+      \\ rveq \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
+      \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+      \\ first_x_assum drule
+      \\ disch_then drule
+      \\ fs [exp_rel_def] \\ rw [])
+    \\ fs [find_code_def,lookup_insert] \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on `LAST a` \\ fs []
+    \\ Cases_on `lookup n' r.code` \\ fs []
+    \\ PairCases_on `x` \\ fs []
+    \\ Cases_on `LENGTH a = x0 + 1` \\ fs []
+    \\ Cases_on `n' = n` \\ fs []
+    \\ fs [] \\ rveq \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ fs [exp_rel_def] \\ rw [])
+  \\ TRY (IF_CASES_TAC \\ fs [] \\ fs [] \\ NO_TAC)
+  THEN1
+   (IF_CASES_TAC \\ fs [] \\ TRY IF_CASES_TAC \\ fs []
+    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ IF_CASES_TAC \\ fs [])
+  THEN1
+   (Cases_on `evaluate (xs,env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs []
+    \\ Cases_on `q` \\ fs []
+    \\ Cases_on `do_app op (REVERSE a) r` \\ fs []
+    \\ TRY (Cases_on `a'` \\ fs [] \\ rveq \\ fs []) \\ rveq \\ fs []
+    \\ TRY (drule (GEN_ALL bvlPropsTheory.do_app_with_code) ORELSE
+            drule (GEN_ALL bvlPropsTheory.do_app_with_code_err))
+    \\ disch_then (qspec_then `insert n (arity,e2) s.code` mp_tac)
+    \\ (impl_tac THEN1 fs [domain_insert,SUBSET_DEF])
+    \\ rw [] \\ fs [])
+  \\ TRY
+   (Cases_on `evaluate ([x1],env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
+  \\ TRY
+   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
+  THEN1
+   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ every_case_tac \\ fs [] \\ rfs []
+    \\ first_x_assum drule \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (Cases_on `evaluate (xs,env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (Cases_on `evaluate ([x1],env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ rpt (IF_CASES_TAC \\ fs [])
+    \\ first_x_assum drule \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (Cases_on `evaluate ([x],env,s)` \\ fs []
+    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []));
+
+val tick_code_rel_insert = Q.store_thm("tick_code_rel_insert",
+  `lookup n c = SOME (arity,e1) /\
+    exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 ==>
+    tick_code_rel (:'ffi) c (insert n (arity,e2) c)`,
+  fs [tick_code_rel_def] \\ rw [lookup_insert] \\ rw [] \\ fs [] \\ rw []
+  \\ TRY (drule evaluate_code_insert \\ fs [] \\ NO_TAC)
+  \\ drule evaluate_code_insert \\ fs []
+  \\ disch_then drule \\ fs [] \\ rw []
+  \\ qpat_x_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
+  \\ simp_tac std_ss [exp_rel_def]
+  \\ disch_then drule \\ fs []);
+
+val attach_ticks_SNOC = prove(
+  ``attach_tick ticks (ys ++ [y]) = ys ++ [mk_tick_F ticks y]``,
+  Cases_on `ys`
+  \\ fs [attach_tick_def]
+  \\ fs [FRONT_DEF]
+  \\ rewrite_tac [GSYM SNOC_APPEND,FRONT_SNOC]);
+
+val evaluate_mk_ticks_F = prove(
+  ``!ticks r y.
+      evaluate ([mk_tick_F ticks y],env,r) =
+      case evaluate ([y],env,r) of
+      | (Rval v,s1) =>
+           if s1.clock < ticks then
+             (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
+           else (Rval v,dec_clock ticks s1)
+      | res => res``,
+  Induct
+  THEN1 (rw [] \\ fs [mk_tick_F_def] \\ every_case_tac \\ fs [])
+  \\ fs [mk_tick_F_def,FUNPOW]
+  \\ fs [evaluate_def] \\ rw []
+  \\ Cases_on `evaluate ([y],env,r)` \\ fs []
+  \\ Cases_on `q` \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [state_component_equality])
+  \\ fs [dec_clock_def,ADD1]
+  \\ Cases_on `0 < ticks` \\ fs []);
+
+val evaluate_attach_tick = prove(
+  ``~NULL xs ==>
+    evaluate (attach_tick ticks xs,env,s) =
+    case evaluate (xs,env,s) of
+    | (Rerr v,s1) => (Rerr v,s1)
+    | (Rval v,s1) =>
+         if s1.clock < ticks then
+           (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
+         else (Rval v,dec_clock ticks s1)``,
+  `xs = [] \/ ?y ys. xs = SNOC y ys` by metis_tac [SNOC_CASES]
+  \\ fs [] \\ rveq \\ fs [attach_ticks_SNOC]
+  \\ fs [evaluate_APPEND]
+  \\ TOP_CASE_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs [evaluate_mk_ticks_F]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  \\ rpt (FULL_CASE_TAC \\ fs [])
+  \\ rveq \\ fs []);
+
+val var_list_IMP_evaluate = prove(
+  ``!a2 a1 l xs s.
+      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
+      evaluate (l,a1++a2,s) = (Rval a2,s)``,
+  Induct THEN1
+   (fs [APPEND_NIL,var_list_def]
+    \\ Cases_on `l` \\ fs [var_list_def,evaluate_def]
+    \\ Cases_on `h` \\ fs [var_list_def,evaluate_def])
+  \\ Cases_on `xs` \\ fs [LENGTH]
+  \\ Cases_on `l` \\ fs [var_list_def]
+  \\ Cases_on `h'` \\ fs [var_list_def]
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ fs [evaluate_def,EL_LENGTH_APPEND] \\ rw []
+  \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
+  \\ fs [] \\ rw [] \\ res_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []);
+
+val var_list_IMP_evaluate = prove(
+  ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
+    evaluate (l,a,s) = (Rval a,s)``,
+  rw []
+  \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
+       |> SIMP_RULE std_ss [APPEND,LENGTH])
+  \\ asm_exists_tac \\ fs []);
+
+fun split_tac q = Cases_on q \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [];
+
+val evaluate_tick_inline = Q.store_thm("evaluate_tick_inline",
+  `!cs xs s env.
+     subspt cs s.code /\
+     FST (evaluate (xs,env,s)) <> Rerr(Rabort Rtype_error) ==>
+     (evaluate (tick_inline cs xs,env,s) = evaluate (xs,env,s))`,
+  recInduct tick_inline_ind \\ reverse (REPEAT STRIP_TAC)
+  \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [Once tick_inline_def,LET_DEF] \\ RES_TAC
+  THEN1
+   (Cases_on `dest` \\ fs [] THEN1
+     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
+      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
+      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
+    \\ Cases_on `lookup x cs` \\ fs [] THEN1
+     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
+      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
+      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
+    \\ rename1 `lookup x cs = SOME args`
+    \\ PairCases_on `args` \\ fs []
+    \\ Cases_on `dest_op args1 xs` \\ fs []
+    THEN1
+     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
+      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
+      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+      \\ IMP_RES_TAC evaluate_code
+      \\ `lookup x s.code = SOME (args0,args1)` by fs [subspt_def,domain_lookup]
+      \\ fs [find_code_def]
+      \\ IMP_RES_TAC evaluate_IMP_LENGTH \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ SIMP_TAC std_ss [evaluate_mk_tick] \\ SRW_TAC [] [] \\ fs [ADD1]
+      \\ MATCH_MP_TAC evaluate_expand_env \\ FULL_SIMP_TAC std_ss [])
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [evaluate_def]
+    THEN1
+     (Cases_on `xs` \\ fs [evaluate_def]
+      \\ TOP_CASE_TAC \\ fs []
+      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx`
+      \\ fs [evaluate_mk_tick,ADD1]
+      \\ IF_CASES_TAC \\ fs []
+      \\ fs [find_code_def]
+      \\ fs [subspt_lookup]
+      \\ res_tac \\ fs [] \\ rveq
+      \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
+      \\ Cases_on `l` \\ fs [var_list_def]
+      \\ fs [evaluate_def] \\ Cases_on `h` \\ fs [var_list_def])
+    \\ `~(NULL (tick_inline cs xs))` by
+      (fs [NULL_LENGTH]
+       \\ full_simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_tick_inline])
+    \\ simp [evaluate_attach_tick]
+    \\ Cases_on `evaluate (xs,env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs [ADD1]
+    \\ TOP_CASE_TAC \\ fs [find_code_def]
+    \\ Cases_on `lookup x r.code` \\ fs []
+    \\ rename1 `_ = SOME yy` \\ PairCases_on `yy` \\ fs [] \\ rveq
+    \\ fs[subspt_lookup] \\ res_tac \\ fs []
+    \\ drule evaluate_code \\ fs [] \\ rw[] \\ fs [] \\ rveq
+    \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ qsuff_tac `evaluate (l,a,dec_clock (ticks + 1) r) =
+                   (Rval a,dec_clock (ticks + 1) r)` THEN1 fs []
+    \\ match_mp_tac var_list_IMP_evaluate \\ fs [])
+  \\ TRY (Cases_on `b`)
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
+  \\ TRY (SRW_TAC [] [] \\ FIRST_X_ASSUM MATCH_MP_TAC
+          \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ NO_TAC)
+  \\ TRY (split_tac `evaluate (xs,env,s)`
+     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
+  \\ TRY (split_tac `evaluate ([x1],env,s)` \\ SRW_TAC [] []
+     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) []
+     \\ Cases_on`e`>>fs[]>>NO_TAC)
+  THEN (Cases_on `tick_inline cs (y::xs)` THEN1
+      (`LENGTH (tick_inline cs (y::xs)) = 0` by METIS_TAC [LENGTH]
+       \\ FULL_SIMP_TAC std_ss [LENGTH_tick_inline,LENGTH] \\ `F` by DECIDE_TAC)
+     \\ SIMP_TAC std_ss [Once evaluate_def,HD_tick_inline]
+     \\ POP_ASSUM (fn th => FULL_SIMP_TAC std_ss [GSYM th])
+     \\ split_tac `evaluate ([x],env,s)` \\ split_tac `evaluate (y::xs,env,r)`
+     \\ IMP_RES_TAC evaluate_code \\ FULL_SIMP_TAC (srw_ss()) []));
+
+val exp_rel_tick_inline = Q.store_thm("exp_rel_tick_inline",
+  `subspt cs c ==> exp_rel (:'ffi) c e (HD (tick_inline cs [e]))`,
+  fs [exp_rel_def] \\ rw []
+  \\ qpat_x_assum `_ = (_,_)` (fn th => assume_tac th THEN
+        once_rewrite_tac [GSYM th])
+  \\ match_mp_tac evaluate_tick_inline \\ fs []);
+
+val tick_code_rel_insert_tick_inline = Q.store_thm("tick_code_rel_insert_tick_inline",
+  `lookup n c = SOME (arity,e1) /\ subspt cs c /\ ~(n IN domain cs) ==>
+    tick_code_rel (:'ffi) c (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
+  rw [] \\ match_mp_tac tick_code_rel_insert \\ fs []
+  \\ match_mp_tac exp_rel_tick_inline
+  \\ fs [subspt_def,domain_lookup,PULL_EXISTS,lookup_insert]
+  \\ rw [] \\ res_tac \\ fs []);
+
+val tick_code_rel_insert_insert_tick_inline = Q.store_thm("tick_code_rel_insert_insert_tick_inline",
+  `subspt cs (insert n (arity,e1) c) /\ ~(n IN domain cs) ==>
+    tick_code_rel (:'ffi) (insert n (arity,e1) c)
+                     (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
+  `insert n (arity,HD (tick_inline cs [e1])) c =
+   insert n (arity,HD (tick_inline cs [e1])) (insert n (arity,e1) c)` by fs [insert_shadow]
+  \\ pop_assum (fn th => once_rewrite_tac [th]) \\ rw []
+  \\ match_mp_tac tick_code_rel_insert_tick_inline \\ fs []);
+
+val tick_inline_all_acc = Q.store_thm("tick_inline_all_acc",
+  `!xs ys cs limit.
+      tick_inline_all limit cs xs ys = REVERSE ys ++ tick_inline_all limit cs xs []`,
+  Induct \\ fs [tick_inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
+  \\ once_rewrite_tac [tick_inline_all_def] \\ simp_tac std_ss [LET_THM]
+  \\ rpt strip_tac \\ IF_CASES_TAC
+  \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
+
+val fromAList_SWAP = Q.prove(
+  `!xs x ys.
+      ALL_DISTINCT (FST x::MAP FST xs) ==>
+      fromAList (xs ++ x::ys) = fromAList (x::(xs ++ ys))`,
+  Induct \\ fs [] \\ rw []
+  \\ PairCases_on `h` \\ fs [fromAList_def]
+  \\ PairCases_on `x` \\ fs [fromAList_def]
+  \\ fs [spt_eq_thm,wf_insert,wf_fromAList]
+  \\ rw [lookup_insert]);
+
+val tick_code_rel_rearrange_lemma = Q.store_thm("tick_code_rel_rearrange_lemma",
+  `ALL_DISTINCT (FST x::MAP FST xs) /\
+    MAP FST zs = MAP FST xs /\
+    tick_code_rel (:'ffi) (fromAList (xs++x::ys)) (fromAList (zs++x::ys)) ==>
+    tick_code_rel (:'ffi) (fromAList (x::(xs++ys))) (fromAList (x::(zs++ys))) `,
+  metis_tac [fromAList_SWAP,APPEND]);
+
+val MAP_FST_tick_inline_all = Q.store_thm("MAP_FST_tick_inline_all",
+  `!xs cs. MAP FST (tick_inline_all limit cs xs []) = MAP FST xs`,
+  Induct \\ fs [tick_inline_all_def] \\ strip_tac
+  \\ PairCases_on `h` \\ fs [tick_inline_all_def] \\ rw []
+  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []);
+
+val MEM_IMP_ALOOKUP_SOME = Q.store_thm("MEM_IMP_ALOOKUP_SOME",
+  `!xs x y.
+      ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==>
+      ALOOKUP xs x = SOME y`,
+  Induct \\ fs [FORALL_PROD] \\ rw []
+  \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []);
+
+val tick_code_rel_tick_inline_all = Q.store_thm("tick_code_rel_tick_inline_all",
+  `!xs ys cs.
+      (!x y. lookup x cs = SOME y ==> MEM (x,y) ys /\ !y. ~MEM (x,y) xs) /\
+      ALL_DISTINCT (MAP FST (ys ++ xs)) ==>
+      tick_code_rel (:'ffi)
+        (fromAList (xs ++ ys))
+        (fromAList (tick_inline_all limit cs xs [] ++ ys))`,
+  Induct \\ fs [tick_inline_all_def,tick_code_rel_refl]
+  \\ strip_tac \\ PairCases_on `h` \\ fs []
+  \\ reverse (rw [tick_inline_all_def])
+  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []
+  \\ qpat_abbrev_tac `zs = tick_inline_all limit _ xs []`
+  \\ match_mp_tac tick_code_rel_trans
+  \\ qexists_tac `fromAList ((h0,h1,HD (tick_inline cs [h2]))::(xs ++ ys))`
+  \\ rpt strip_tac
+  \\ TRY
+   (fs [fromAList_def]
+    \\ match_mp_tac tick_code_rel_insert_insert_tick_inline
+    \\ fs [domain_lookup,subspt_def,PULL_EXISTS,lookup_insert]
+    \\ reverse (rpt strip_tac) THEN1 (res_tac \\ fs [])
+    \\ IF_CASES_TAC \\ fs [] \\ rveq THEN1 (res_tac \\ fs [])
+    \\ qexists_tac `v` \\ fs [] \\ res_tac
+    \\ fs [lookup_fromAList]
+    \\ match_mp_tac MEM_IMP_ALOOKUP_SOME \\ fs []
+    \\ fs [ALL_DISTINCT_APPEND] \\ metis_tac [])
+  \\ match_mp_tac tick_code_rel_rearrange_lemma \\ fs []
+  \\ unabbrev_all_tac \\ fs [MAP_FST_tick_inline_all]
+  \\ fs [ALL_DISTINCT_APPEND,ALL_DISTINCT]
+  \\ first_x_assum match_mp_tac
+  \\ fs [ALL_DISTINCT_APPEND,ALL_DISTINCT]
+  \\ (reverse conj_tac THEN1 metis_tac [])
+  THEN1 metis_tac []
+  \\ fs [lookup_insert] \\ rw []
+  \\ fs [MEM_MAP,FORALL_PROD,PULL_EXISTS]
+  \\ Cases_on `y'` \\ fs [])
+  |> Q.SPECL [`xs`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
+
+val tick_code_rel_tick_compile_prog = Q.store_thm("tick_code_rel_tick_compile_prog",
+  `ALL_DISTINCT (MAP FST prog) ==>
+    tick_code_rel (:'ffi) (fromAList prog) (fromAList (tick_compile_prog limit prog))`,
+  fs [tick_compile_prog_def] \\ rw [tick_code_rel_refl]
+  \\ match_mp_tac tick_code_rel_tick_inline_all \\ fs [lookup_def]);
+
+val tick_code_rel_IMP_semantics_EQ = Q.store_thm("tick_code_rel_IMP_semantics_EQ",
   `!(ffi:'ffi ffi_state) c1 c2 start.
-      code_rel (:'ffi) c1 c2 /\ semantics ffi c1 start <> Fail ==>
+      tick_code_rel (:'ffi) c1 c2 /\ semantics ffi c1 start <> Fail ==>
       semantics ffi c2 start = semantics ffi c1 start`,
-  cheat);
+  rewrite_tac [GSYM AND_IMP_INTRO]
+  \\ ntac 5 strip_tac \\ simp[bvlSemTheory.semantics_def]
+  \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi c2 k) =
+    let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],
+         [],initial_state ffi c1 k) in
+      (r, s with code := c2)` by
+   (fs [evaluate_def,find_code_def]
+    \\ Cases_on `lookup start c1` \\ fs []
+    \\ PairCases_on `x` \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq
+    \\ strip_tac \\ fs [tick_code_rel_def]
+    \\ first_x_assum drule \\ strip_tac \\ fs [LENGTH_NIL]
+    \\ IF_CASES_TAC \\ fs []
+    \\ qpat_x_assum `!x. _ <> _` (qspec_then `k` mp_tac) \\ fs [] \\ rw []
+    \\ Cases_on `evaluate ([x1],[],dec_clock 1 (initial_state ffi c1 k))`
+    \\ fs [] \\ first_x_assum drule
+    \\ disch_then (qspec_then `dec_clock 1 (initial_state ffi c1 k)` mp_tac)
+    \\ `dec_clock 1 (initial_state ffi c1 k) with code := c1 =
+        dec_clock 1 (initial_state ffi c1 k) /\
+        dec_clock 1 (initial_state ffi c1 k) with code := c2 =
+        dec_clock 1 (initial_state ffi c2 k)` by
+          fs [dec_clock_def,initial_state_def]
+    \\ fs [] \\ disch_then (qspec_then `r` mp_tac)
+    \\ impl_tac THEN1
+     (imp_res_tac evaluate_code
+      \\ fs [dec_clock_def,initial_state_def,bvlSemTheory.state_component_equality])
+    \\ fs [])
+  \\ simp []
+  \\ qpat_x_assum `tick_code_rel (:'ffi) _ _` kall_tac
+  \\ DEEP_INTRO_TAC some_intro >> simp[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  full_simp_tac(srw_ss())[UNCURRY,LET_THM] >>
+  reverse conj_tac >- (
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] ) >>
+  gen_tac >> strip_tac >> var_eq_tac >>
+  asm_simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+  reverse conj_tac >- METIS_TAC[] >>
+  gen_tac >> strip_tac >>
+  strip_tac >> full_simp_tac(srw_ss())[] >>
+  qpat_abbrev_tac`abb2 = bvlSem$evaluate _` >>
+  qpat_abbrev_tac`abb1 = bvlSem$evaluate _` >>
+  qmatch_assum_abbrev_tac`Abbrev(abb2 = evaluate (e1,v1,s1))` >>
+  qmatch_assum_abbrev_tac`Abbrev(abb1 = evaluate (e1,v1,s2))` >>
+  map_every qunabbrev_tac[`abb1`,`abb2`] >>
+  qmatch_assum_rename_tac`Abbrev(s1 = _ _ _ k1)` >>
+  qmatch_assum_rename_tac`Abbrev(s2 = _ _ _ k2)` >>
+  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  Q.ISPECL_THEN[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
+  disch_then(qspec_then`k2`mp_tac) >>
+  Q.ISPECL_THEN[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
+  disch_then(qspec_then`k1`mp_tac) >>
+  simp[bvlPropsTheory.inc_clock_def,Abbr`s1`,Abbr`s2`] >>
+  ntac 2 strip_tac >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac bvlPropsTheory.evaluate_add_clock >>
+  rpt(first_x_assum (fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]))) >>
+  simp[bvlPropsTheory.inc_clock_def] >>
+  TRY (
+    disch_then(qspec_then`k1`strip_assume_tac) >>
+    disch_then(qspec_then`k2`strip_assume_tac) >>
+    fsrw_tac[ARITH_ss][bvlSemTheory.state_component_equality] ) >>
+  TRY (
+    qexists_tac`k1` >>
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
+  TRY (
+    qexists_tac`k2` >>
+    spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][] >>
+    rev_full_simp_tac(srw_ss())[] >> NO_TAC) >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
+
+val tick_compile_prog_semantics = save_thm("tick_compile_prog_semantics",
+  MATCH_MP (tick_code_rel_IMP_semantics_EQ |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+   (tick_code_rel_tick_compile_prog |> UNDISCH) |> SPEC_ALL
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
+
+val MAP_FST_tick_compile_prog = Q.store_thm("MAP_FST_tick_compile_prog",
+  `MAP FST (tick_compile_prog limit prog) = MAP FST prog`,
+  fs [tick_compile_prog_def] \\ rw [MAP_FST_tick_inline_all]);
+
+(* combined theorems *)
+
+val remove_ticks_tick_inline = prove(
+  ``!cs xs.
+      inline (map (I ## (λx. HD (remove_ticks [x]))) cs) xs =
+      remove_ticks (tick_inline cs xs)``,
+  ho_match_mp_tac inline_ind \\ rw []
+  \\ fs [tick_inline_def,inline_def,remove_ticks_def]
+  THEN1 cheat
+  \\ CASE_TAC \\ fs [remove_ticks_def,lookup_map]
+  \\ Cases_on `lookup x cs` \\ fs [remove_ticks_def]
+  \\ Cases_on `x'` \\ fs []
+  \\ cheat (* almost true *));
+
+val must_inline_remove_ticks = prove(
+  ``LENGTH x = 1 ==>
+    must_inline p_1 limit (HD x) =
+    must_inline p_1 limit (HD (remove_ticks x))``,
+  fs [must_inline_def]
+  \\ cheat (* true *));
+
+val must_inline_ignores_ticks = prove(
+  ``must_inline p_1 limit
+      (HD (inline (map (I ## (λx. HD (remove_ticks [x]))) cs) [p_2]))  =
+    must_inline p_1 limit
+      (HD (tick_inline cs [p_2])) ``,
+  once_rewrite_tac [EQ_SYM_EQ]
+  \\ `LENGTH (tick_inline cs [p_2]) = 1` by fs [LENGTH_tick_inline]
+  \\ drule must_inline_remove_ticks
+  \\ fs [remove_ticks_tick_inline]);
+
+val tick_inline_all_rel = prove(
+  ``!prog cs xs.
+      MAP (I ## I ## (λx. HD (remove_ticks [x])))
+        (tick_inline_all limit cs prog xs) =
+      inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
+        prog (MAP (I ## I ## (λx. HD (remove_ticks [x]))) xs)``,
+  Induct
+  \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
+  \\ fs [remove_ticks_tick_inline,must_inline_ignores_ticks]
+  \\ rw [] \\ fs [map_insert]);
+
+val map_fromAList = store_thm("map_fromAList",
+  ``!xs f. map f (fromAList xs) = fromAList (MAP (I ## f) xs)``,
+  Induct \\ fs [fromAList_def,fromAList_def,FORALL_PROD,map_insert]);
+
+val composition_thm = prove(
+  ``(map (I ## (λx. HD (remove_ticks [x])))
+        (fromAList (tick_compile_prog limit prog))) =
+    fromAList (compile_prog limit prog)``,
+  fs [compile_prog_def,tick_compile_prog_def,map_fromAList]
+  \\ AP_TERM_TAC \\ fs [tick_inline_all_rel] \\ fs [map_def]);
 
 val compile_prog_semantics = save_thm("compile_prog_semantics",
-  MATCH_MP (code_rel_IMP_semantics_EQ |> REWRITE_RULE [GSYM AND_IMP_INTRO])
-   (code_rel_compile_prog |> UNDISCH) |> SPEC_ALL
-  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
+  MATCH_MP
+    (REWRITE_RULE [GSYM AND_IMP_INTRO] tick_code_rel_IMP_semantics_EQ)
+    (tick_code_rel_tick_compile_prog |> UNDISCH_ALL)
+  |> SPEC_ALL |> UNDISCH_ALL
+  |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
+  |> SIMP_RULE std_ss [composition_thm]
+  |> DISCH_ALL |> GEN_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
 
 val inline_all_acc = Q.store_thm("inline_all_acc",
   `!xs ys cs limit.
