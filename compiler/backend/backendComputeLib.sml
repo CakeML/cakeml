@@ -282,12 +282,14 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_to_bvlTheory.code_split_def
     ,clos_to_bvlTheory.code_sort_def
       (* ---- bvl_inline ---- *)
-    ,bvl_inlineTheory.var_list_def
-    ,bvl_inlineTheory.dest_op_def
     ,bvl_inlineTheory.inline_def
     ,bvl_inlineTheory.is_small_aux_def
     ,bvl_inlineTheory.is_small_def
     ,bvl_inlineTheory.is_rec_def
+    ,bvl_inlineTheory.var_list_def
+    ,bvl_inlineTheory.dest_op_def
+    ,bvl_inlineTheory.let_op_def
+    ,bvl_inlineTheory.let_op_sing_def
     ,bvl_inlineTheory.must_inline_def
     ,bvl_inlineTheory.inline_all_def
     ,bvl_inlineTheory.compile_prog_def

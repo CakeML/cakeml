@@ -4,12 +4,6 @@ open preamble
 
 val _ = new_theory"bvl_inlineProof";
 
-(*
-TODO:
- - prove composition: inline_all = remove_ticks o tick_inline_all
-*)
-
-
 (* removal of ticks *)
 
 val remove_ticks_def = tDefine "remove_ticks" `
@@ -526,6 +520,11 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
   \\ fs [IS_PREFIX_APPEND]
   \\ simp [EL_APPEND1]);
 
+val remove_ticks_CONS = prove(
+  ``!xs x. remove_ticks (x::xs) =
+           HD (remove_ticks [x]) :: remove_ticks xs``,
+  Cases \\ fs [remove_ticks_def]);
+
 (* inline implementation *)
 
 val mk_tick_F_def = Define `
@@ -534,15 +533,6 @@ val mk_tick_F_def = Define `
 val attach_tick_def = Define `
   attach_tick n [] = [] /\
   attach_tick n xs = FRONT xs ++ [mk_tick_F n (LAST xs)]`;
-
-val var_list_def = Define `
-  var_list n [] [] = T /\
-  var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
-  var_list _ _ _ = F`
-
-val dest_op_def = Define `
-  dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
-  dest_op _ _ = NONE`
 
 val tick_inline_def = tDefine "tick_inline" `
   (tick_inline cs [] = []) /\
@@ -569,12 +559,7 @@ val tick_inline_def = tDefine "tick_inline" `
      case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
      case lookup n cs of
      | NONE => [Call ticks dest (tick_inline cs xs)]
-     | SOME (arity,code) =>
-         case dest_op code xs of
-         | NONE => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)]
-         | SOME op =>
-           (if NULL xs then [mk_tick (SUC ticks) (Op op [])] else
-             [Op op (attach_tick (SUC ticks) (tick_inline cs xs))]))`
+     | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
 val tick_inline_ind = theorem"tick_inline_ind";
@@ -793,7 +778,7 @@ val evaluate_attach_tick = prove(
 val var_list_IMP_evaluate = prove(
   ``!a2 a1 l xs s.
       var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
-      evaluate (l,a1++a2,s) = (Rval a2,s)``,
+      evaluate (l,a1++a2++env,s) = (Rval a2,s)``,
   Induct THEN1
    (fs [APPEND_NIL,var_list_def]
     \\ Cases_on `l` \\ fs [var_list_def,evaluate_def]
@@ -803,13 +788,15 @@ val var_list_IMP_evaluate = prove(
   \\ Cases_on `h'` \\ fs [var_list_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ fs [evaluate_def,EL_LENGTH_APPEND] \\ rw []
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
   \\ fs [] \\ rw [] \\ res_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND] \\ fs []);
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]);
 
 val var_list_IMP_evaluate = prove(
   ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
-    evaluate (l,a,s) = (Rval a,s)``,
+    evaluate (l,a++env,s) = (Rval a,s)``,
   rw []
   \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
        |> SIMP_RULE std_ss [APPEND,LENGTH])
@@ -835,51 +822,16 @@ val evaluate_tick_inline = Q.store_thm("evaluate_tick_inline",
       \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF])
     \\ rename1 `lookup x cs = SOME args`
     \\ PairCases_on `args` \\ fs []
-    \\ Cases_on `dest_op args1 xs` \\ fs []
-    THEN1
-     (ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
-      \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
-      \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-      \\ IMP_RES_TAC evaluate_code
-      \\ `lookup x s.code = SOME (args0,args1)` by fs [subspt_def,domain_lookup]
-      \\ fs [find_code_def]
-      \\ IMP_RES_TAC evaluate_IMP_LENGTH \\ fs []
-      \\ IF_CASES_TAC \\ fs []
-      \\ SIMP_TAC std_ss [evaluate_mk_tick] \\ SRW_TAC [] [] \\ fs [ADD1]
-      \\ MATCH_MP_TAC evaluate_expand_env \\ FULL_SIMP_TAC std_ss [])
+    \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
+    \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []
+    \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+    \\ IMP_RES_TAC evaluate_code
+    \\ `lookup x s.code = SOME (args0,args1)` by fs [subspt_def,domain_lookup]
+    \\ fs [find_code_def]
+    \\ IMP_RES_TAC evaluate_IMP_LENGTH \\ fs []
     \\ IF_CASES_TAC \\ fs []
-    \\ fs [evaluate_def]
-    THEN1
-     (Cases_on `xs` \\ fs [evaluate_def]
-      \\ TOP_CASE_TAC \\ fs []
-      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx`
-      \\ fs [evaluate_mk_tick,ADD1]
-      \\ IF_CASES_TAC \\ fs []
-      \\ fs [find_code_def]
-      \\ fs [subspt_lookup]
-      \\ res_tac \\ fs [] \\ rveq
-      \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
-      \\ Cases_on `l` \\ fs [var_list_def]
-      \\ fs [evaluate_def] \\ Cases_on `h` \\ fs [var_list_def])
-    \\ `~(NULL (tick_inline cs xs))` by
-      (fs [NULL_LENGTH]
-       \\ full_simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_tick_inline])
-    \\ simp [evaluate_attach_tick]
-    \\ Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ TOP_CASE_TAC \\ fs []
-    \\ TOP_CASE_TAC \\ fs [ADD1]
-    \\ TOP_CASE_TAC \\ fs [find_code_def]
-    \\ Cases_on `lookup x r.code` \\ fs []
-    \\ rename1 `_ = SOME yy` \\ PairCases_on `yy` \\ fs [] \\ rveq
-    \\ fs[subspt_lookup] \\ res_tac \\ fs []
-    \\ drule evaluate_code \\ fs [] \\ rw[] \\ fs [] \\ rveq
-    \\ Cases_on `args1` \\ fs [dest_op_def] \\ rveq
-    \\ fs [evaluate_def]
-    \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ qsuff_tac `evaluate (l,a,dec_clock (ticks + 1) r) =
-                   (Rval a,dec_clock (ticks + 1) r)` THEN1 fs []
-    \\ match_mp_tac var_list_IMP_evaluate \\ fs [])
+    \\ SIMP_TAC std_ss [evaluate_mk_tick] \\ SRW_TAC [] [] \\ fs [ADD1]
+    \\ MATCH_MP_TAC evaluate_expand_env \\ FULL_SIMP_TAC std_ss [])
   \\ TRY (Cases_on `b`)
   \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_tick_inline]
   \\ TRY (SRW_TAC [] [] \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -915,7 +867,7 @@ val tick_code_rel_insert_tick_inline = Q.store_thm("tick_code_rel_insert_tick_in
 val tick_code_rel_insert_insert_tick_inline = Q.store_thm("tick_code_rel_insert_insert_tick_inline",
   `subspt cs (insert n (arity,e1) c) /\ ~(n IN domain cs) ==>
     tick_code_rel (:'ffi) (insert n (arity,e1) c)
-                     (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
+                          (insert n (arity,(HD (tick_inline cs [e1]))) c)`,
   `insert n (arity,HD (tick_inline cs [e1])) c =
    insert n (arity,HD (tick_inline cs [e1])) (insert n (arity,e1) c)` by fs [insert_shadow]
   \\ pop_assum (fn th => once_rewrite_tac [th]) \\ rw []
@@ -1087,67 +1039,217 @@ val MAP_FST_tick_compile_prog = Q.store_thm("MAP_FST_tick_compile_prog",
   `MAP FST (tick_compile_prog limit prog) = MAP FST prog`,
   fs [tick_compile_prog_def] \\ rw [MAP_FST_tick_inline_all]);
 
+val semantics_tick_inline =
+  MATCH_MP (tick_code_rel_IMP_semantics_EQ |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+   (tick_code_rel_insert_insert_tick_inline |> UNDISCH) |> SPEC_ALL
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO];
+
+(* let_op *)
+
+val HD_let_op = store_thm("HD_let_op[simp]",
+  ``[HD (let_op [x])] = let_op [x]``,
+  Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
+  \\ CASE_TAC \\ fs []);
+
+val evaluate_let_op = store_thm("evaluate_let_op",
+  ``!es env s res t.
+      evaluate (es,env,s) = (res,t) /\ res ≠ Rerr (Rabort Rtype_error) ==>
+      evaluate
+        (let_op es,env,s with code := map (I ## let_op_sing) s.code) =
+        (res,t with code := map (I ## let_op_sing) s.code)``,
+  recInduct evaluate_ind \\ rw [] \\ fs [let_op_def]
+  \\ fs [evaluate_def]
+  THEN1
+   (once_rewrite_tac [evaluate_CONS]
+    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1 (rw [] \\ fs [])
+  THEN1
+   (Cases_on `evaluate ([x1],env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq \\ fs []
+    \\ rw [] \\ fs [] \\ rfs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (TOP_CASE_TAC \\ fs [] THEN1
+     (Cases_on `evaluate (xs,env,s)` \\ fs [evaluate_def]
+      \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_code \\ fs [])
+    \\ Cases_on `evaluate (xs,env,s)` \\ fs [evaluate_def]
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ `?d. let_op [x2] = [d]` by
+       (Cases_on `x2` \\ fs [let_op_def] \\ CASE_TAC \\ fs [])
+    \\ rveq \\ fs []
+    \\ Cases_on `d` \\ fs [dest_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ drule (Q.GENL [`l`,`a`,`env`,`s`] var_list_IMP_evaluate)
+    \\ disch_then (qspecl_then [`a`,`env`] assume_tac)
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (Cases_on `evaluate ([x1],env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [])
+  THEN1
+   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `e` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [])
+  THEN1
+   (Cases_on `evaluate (xs,env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `do_app op (REVERSE a) r` \\ fs []
+    \\ imp_res_tac evaluate_code
+    THEN1
+     (Cases_on `a'`
+      \\ imp_res_tac do_app_with_code
+      \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
+      \\ fs [domain_map])
+    \\ rveq \\ fs []
+    \\ imp_res_tac do_app_with_code_err
+    \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
+    \\ fs [domain_map])
+  THEN1
+   (Cases_on `b` \\ fs [] \\ rw [] \\ fs []
+    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_code \\ fs [] \\ rw [] \\ fs [])
+  \\ Cases_on `evaluate (xs,env,s1)` \\ fs []
+  \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_code \\ fs []
+  \\ Cases_on `find_code dest a s1.code` \\ fs []
+  \\ PairCases_on `x` \\ fs []
+  \\ `find_code dest a (map (I ## let_op_sing) s1.code) =
+        SOME (x0,let_op_sing x1)` by
+   (Cases_on `dest` \\ fs [find_code_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [lookup_map])
+  \\ fs [] \\ rw [] \\ fs []
+  \\ fs [state_component_equality]
+  \\ qsuff_tac `[let_op_sing x1] = let_op [x1]` \\ rw [] \\ fs []
+  \\ fs [let_op_sing_def]
+  \\ Cases_on `x1` \\ fs [let_op_def]
+  \\ rpt (pop_assum kall_tac) \\ every_case_tac \\ fs []);
+
+val map_let_op = prove(
+  ``semantics ffi prog start <> Fail ==>
+    semantics ffi (map (I ## let_op_sing) prog) start =
+    semantics ffi prog start``,
+  match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] tick_code_rel_IMP_semantics_EQ)
+  \\ fs [tick_code_rel_def,lookup_map] \\ rw []
+  \\ drule evaluate_let_op \\ fs []
+  \\ fs [let_op_sing_def]
+  \\ qsuff_tac `?d. let_op [e1] = [d]` \\ rw [] \\ fs [] \\ rfs []
+  \\ Cases_on `e1` \\ fs [let_op_def] \\ every_case_tac \\ fs []);
+
 (* combined theorems *)
+
+val remove_ticks_mk_tick = prove(
+  ``!n r. remove_ticks [mk_tick n r] = remove_ticks [r]``,
+  Induct THEN1 (EVAL_TAC \\ fs [])
+  \\ fs [bvlTheory.mk_tick_def,FUNPOW,remove_ticks_def]);
 
 val remove_ticks_tick_inline = prove(
   ``!cs xs.
       inline (map (I ## (λx. HD (remove_ticks [x]))) cs) xs =
       remove_ticks (tick_inline cs xs)``,
   ho_match_mp_tac inline_ind \\ rw []
-  \\ fs [tick_inline_def,inline_def,remove_ticks_def]
-  THEN1 cheat
-  \\ CASE_TAC \\ fs [remove_ticks_def,lookup_map]
-  \\ Cases_on `lookup x cs` \\ fs [remove_ticks_def]
+  \\ fs [tick_inline_def,remove_ticks_def,inline_def]
+  THEN1 (once_rewrite_tac [EQ_SYM_EQ] \\ simp [Once remove_ticks_CONS])
+  \\ TOP_CASE_TAC \\ fs [tick_inline_def,remove_ticks_def,inline_def]
+  \\ Cases_on `lookup x cs` \\ fs [lookup_map]
+  \\ fs [tick_inline_def,remove_ticks_def,inline_def]
   \\ Cases_on `x'` \\ fs []
-  \\ cheat (* almost true *));
+  \\ fs [remove_ticks_def,remove_ticks_mk_tick]);
+
+val is_small_aux_0 = prove(
+  ``!n:num xs. is_small_aux 0 xs = 0``,
+  recInduct is_small_aux_ind
+  \\ rw [] \\ fs [is_small_aux_def]);
+
+val is_small_aux_CONS = prove(
+  ``is_small_aux n (x::xs) =
+    if n = 0 then n else
+      let n = is_small_aux n [x] in
+        if n = 0 then n else is_small_aux n xs``,
+  Induct_on `xs` \\ fs [is_small_aux_def] \\ rw []
+  \\ Cases_on `x` \\ fs [is_small_aux_def,is_small_aux_0]);
+
+val is_small_aux_remove_ticks = prove(
+  ``!limit d. is_small_aux limit (remove_ticks d) = is_small_aux limit d``,
+  recInduct is_small_aux_ind \\ rw []
+  \\ fs [is_small_aux_def,remove_ticks_def]
+  \\ rw [] \\ fs []
+  \\ once_rewrite_tac [is_small_aux_CONS] \\ fs []
+  \\ simp [Once is_small_aux_CONS] \\ fs []);
+
+val is_rec_CONS = prove(
+  ``is_rec n (x::xs) <=> is_rec n [x] \/ is_rec n xs``,
+  Cases_on `xs` \\ fs [is_rec_def]);
+
+val is_rec_remove_ticks = prove(
+  ``!p_1 xs. is_rec p_1 (remove_ticks xs) = is_rec p_1 xs``,
+  recInduct is_rec_ind \\ rw []
+  \\ fs [remove_ticks_def,is_rec_def]
+  \\ simp [Once is_rec_CONS]
+  \\ fs [] \\ fs [is_rec_def]
+  \\ metis_tac []);
 
 val must_inline_remove_ticks = prove(
-  ``LENGTH x = 1 ==>
-    must_inline p_1 limit (HD x) =
-    must_inline p_1 limit (HD (remove_ticks x))``,
+  ``must_inline p_1 limit (HD (remove_ticks (tick_inline cs [p_2]))) =
+    must_inline p_1 limit (HD ((tick_inline cs [p_2])))``,
   fs [must_inline_def]
-  \\ cheat (* true *));
-
-val must_inline_ignores_ticks = prove(
-  ``must_inline p_1 limit
-      (HD (inline (map (I ## (λx. HD (remove_ticks [x]))) cs) [p_2]))  =
-    must_inline p_1 limit
-      (HD (tick_inline cs [p_2])) ``,
-  once_rewrite_tac [EQ_SYM_EQ]
-  \\ `LENGTH (tick_inline cs [p_2]) = 1` by fs [LENGTH_tick_inline]
-  \\ drule must_inline_remove_ticks
-  \\ fs [remove_ticks_tick_inline]);
+  \\ `?d. tick_inline cs [p_2] = [d]` by
+   (`LENGTH (tick_inline cs [p_2]) = LENGTH [p_2]`
+       by metis_tac [LENGTH_tick_inline] \\ fs []
+    \\ Cases_on `tick_inline cs [p_2]` \\ fs [])
+  \\ fs [is_small_def,is_rec_def,is_small_aux_remove_ticks]
+  \\ fs [is_rec_remove_ticks]);
 
 val tick_inline_all_rel = prove(
   ``!prog cs xs.
-      MAP (I ## I ## (λx. HD (remove_ticks [x])))
+      MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x]))))
         (tick_inline_all limit cs prog xs) =
       inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
-        prog (MAP (I ## I ## (λx. HD (remove_ticks [x]))) xs)``,
+        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs)``,
   Induct
   \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
-  \\ fs [remove_ticks_tick_inline,must_inline_ignores_ticks]
-  \\ rw [] \\ fs [map_insert]);
+  \\ fs [remove_ticks_tick_inline,must_inline_remove_ticks]
+  \\ rw [] \\ fs [map_insert])
+  |> Q.SPECL [`prog`,`LN`,`[]`]
+  |> SIMP_RULE std_ss [MAP,map_def] |> GSYM
+  |> REWRITE_RULE [GSYM compile_prog_def];
+
+val map_fromAList_HASH = prove(
+  ``map (I ## f) (fromAList ls) = fromAList (MAP (I ## I ## f) ls)``,
+  fs [map_fromAList]
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [FUN_EQ_THM,FORALL_PROD]);
+
+val compile_prog_semantics = store_thm("compile_prog_semantics",
+  ``ALL_DISTINCT (MAP FST prog) /\
+    semantics ffi (fromAList prog) start <> Fail ==>
+    semantics ffi (fromAList (compile_prog limit prog)) start =
+    semantics ffi (fromAList prog) start``,
+  fs [tick_inline_all_rel] \\ rw []
+  \\ imp_res_tac (tick_compile_prog_semantics |> UNDISCH_ALL
+      |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
+      |> DISCH_ALL)
+  \\ qmatch_goalsub_abbrev_tac `MAP ff`
+  \\ `ff = (I ## I ## let_op_sing) o (I ## I ## \x. (HD (remove_ticks [x])))`
+       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD]
+  \\ fs [GSYM MAP_MAP_o]
+  \\ fs [GSYM map_fromAList_HASH,tick_compile_prog_def]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ qpat_assum `_` (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [GSYM th])))
+  \\ match_mp_tac (GSYM map_let_op) \\ fs []);
 
 val map_fromAList = store_thm("map_fromAList",
   ``!xs f. map f (fromAList xs) = fromAList (MAP (I ## f) xs)``,
   Induct \\ fs [fromAList_def,fromAList_def,FORALL_PROD,map_insert]);
-
-val composition_thm = prove(
-  ``(map (I ## (λx. HD (remove_ticks [x])))
-        (fromAList (tick_compile_prog limit prog))) =
-    fromAList (compile_prog limit prog)``,
-  fs [compile_prog_def,tick_compile_prog_def,map_fromAList]
-  \\ AP_TERM_TAC \\ fs [tick_inline_all_rel] \\ fs [map_def]);
-
-val compile_prog_semantics = save_thm("compile_prog_semantics",
-  MATCH_MP
-    (REWRITE_RULE [GSYM AND_IMP_INTRO] tick_code_rel_IMP_semantics_EQ)
-    (tick_code_rel_tick_compile_prog |> UNDISCH_ALL)
-  |> SPEC_ALL |> UNDISCH_ALL
-  |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
-  |> SIMP_RULE std_ss [composition_thm]
-  |> DISCH_ALL |> GEN_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
 
 val inline_all_acc = Q.store_thm("inline_all_acc",
   `!xs ys cs limit.
