@@ -175,25 +175,28 @@ val decide_ty_def = Define `
        branch of origin for the operation in conditionals.
 *)
 val scan_expr_def = tDefine "scan_expr" `
-  (scan_expr ts loc (Var n) =
+  (scan_expr ts loc [] = []) ∧
+  (scan_expr ts loc (x::y::xs) =
+    HD (scan_expr ts loc [x])::scan_expr ts loc (y::xs)) ∧
+  (scan_expr ts loc [Var n] =
     let ty = if n < LENGTH ts then EL n ts else Any in
-      (ts, ty, F, NONE)) ∧
-  (scan_expr ts loc (If xi xt xe) =
-    let (ti, tyi, _, oi) = scan_expr ts loc xi in
-    let (tt, ty1, _, ot) = scan_expr ti loc xt in
-    let (te, ty2, _, oe) = scan_expr ti loc xe in
-      (MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe,
+      [(ts, ty, F, NONE)]) ∧
+  (scan_expr ts loc [If xi xt xe] =
+    let (ti, tyi, _, oi) = HD (scan_expr ts loc [xi]) in
+    let (tt, ty1, _, ot) = HD (scan_expr ti loc [xt]) in
+    let (te, ty2, _, oe) = HD (scan_expr ti loc [xe]) in
+      [(MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe,
         case ot of
           NONE => oe
-        | _    => ot)) ∧
-  (scan_expr ts loc (Let xs x) =
-    let tt = MAP (λe. (λ(ts,ty,r,op). ty) (scan_expr ts loc e)) xs in
-    let (tu, ty, _, oo) = scan_expr (tt ++ ts) loc x in
-      (DROP (LENGTH xs) tu, ty, F, oo)) ∧
-  (scan_expr ts loc (Raise x) = (ts, Any, F, NONE)) ∧
-  (scan_expr ts loc (Tick x) = scan_expr ts loc x) ∧
-  (scan_expr ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
-  (scan_expr ts loc (Op op xs) =
+        | _    => ot)]) ∧
+  (scan_expr ts loc [Let xs x] =
+    let ys = scan_expr ts loc xs in
+    let (tu, ty, _, op) = HD (scan_expr (MAP (FST o SND) ys ++ ts) loc [x]) in
+      [(DROP (LENGTH ys) tu, ty, F, op)]) ∧
+  (scan_expr ts loc [Raise x] = [(ts, Any, F, NONE)]) ∧
+  (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
+  (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
+  (scan_expr ts loc [Op op xs] =
     let ok_type = is_arith_op op in
     let iop =
       if op = Add ∨ op = Mult then
@@ -213,15 +216,8 @@ val scan_expr_def = tDefine "scan_expr" `
             MAP2 (λa b. if a = Int ∨ b = Int then Int else Any)
               (try_update Int (index_of x) ts)
               (try_update Int (index_of y) ts)
-    in (tt, if ok_type then Int else Any, F, iop))`
-    (WF_REL_TAC `measure (exp_size o SND o SND)`
-     \\ rw [bviTheory.exp_size_def]
-     \\ pop_assum mp_tac
-     \\ qspec_tac (`e`,`e`)
-     \\ qspec_tac (`xs`,`xs`)
-     \\ Induct \\ rw []
-     \\ res_tac
-     \\ fs [bviTheory.exp_size_def]);
+    in [(tt, if ok_type then Int else Any, F, iop)])`
+    (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
@@ -240,24 +236,21 @@ val mk_tailcall_def = Define `
           push_call n op acc exp3 (args_from call))
   `;
 
-(* Unfortunately rewrite_op now requires a context implying some code
-   duplication between rewrite and scan_expr.
-*)
 val rewrite_def = Define `
   (rewrite (loc, next, op, acc, ts) (Var n) =
     let ty = if n < LENGTH ts then EL n ts else Any in
       (ts, ty, F, Var n)) ∧
   (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
-    let (ti, tyi, ri, iop) = scan_expr ts loc xi in
+    let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
     let (tt, ty1, rt, yt) = rewrite (loc, next, op, acc, ti) xt in
     let (te, ty2, re, ye) = rewrite (loc, next, op, acc, ti) xe in
     let zt = if rt then yt else apply_op op xt (Var acc) in
     let ze = if re then ye else apply_op op xe (Var acc) in
       (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)) ∧
   (rewrite (loc, next, op, acc, ts) (Let xs x) =
-    let tt = MAP (λe. (λ(ts,ty,r,op). ty) (scan_expr ts loc e)) xs in
-    let (tu, ty, r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt ++ ts) x in
-      (DROP (LENGTH xs) tu, ty, r, Let xs y)) ∧
+    let ys = MAP (FST o SND) (scan_expr ts loc xs) in
+    let (tu, ty, r, y) = rewrite (loc, next, op, acc + LENGTH xs, ys ++ ts) x in
+      (DROP (LENGTH ys) tu, ty, r, Let xs y)) ∧
   (rewrite (loc, next, op, acc, ts) (Tick x) =
     let (tt, ty, r, y) = rewrite (loc, next, op, acc, ts) x in
       (tt, ty, r, Tick y)) ∧
@@ -273,7 +266,7 @@ val rewrite_def = Define `
 
 val check_exp_def = Define `
   check_exp loc arity exp =
-    let (ts, ty, r, op) = scan_expr (REPLICATE arity Any) loc exp in
+    let (ts, ty, r, op) = HD (scan_expr (REPLICATE arity Any) loc [exp]) in
       if ty ≠ Int then NONE else op`;
 
 val let_wrap_def = Define `
