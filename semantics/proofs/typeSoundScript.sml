@@ -1739,30 +1739,6 @@ val let_tac =
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [weakCT_refl]);
 
-val type_def_to_ctMap_def = Define `
-  (type_def_to_ctMap tenvT next_stamp [] [] = []) ∧
-  (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
-    type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
-    REVERSE
-      (MAP (\(cn,ts).
-        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
-        ctors))`;
-
-val mem_type_def_to_ctMap = Q.prove (
-  `!tenvT next tds ids stamp x.
-    MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
-    LENGTH tds = LENGTH ids
-    ⇒
-    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i`,
-  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
-  rw [type_def_to_ctMap_def] >>
-  fs [] >>
-  res_tac >>
-  rw [] >>
-  fs [MEM_MAP] >>
-  pairarg_tac >>
-  fs []);
-
 val build_tdefs_build_tenv = Q.prove (
   `!tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
     EVERY (λ(_, _, ctors). ALL_DISTINCT (MAP FST ctors)) tds ∧
@@ -2010,6 +1986,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      rename1 `check_ctor_tenv _ (td::_)` >>
      PairCases_on `td` >>
      fs [check_ctor_tenv_def, check_dup_ctors_thm])
+
    >> conj_asm1_tac
    >- (
      fs [good_ctMap_def]

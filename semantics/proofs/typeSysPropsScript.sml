@@ -1489,15 +1489,87 @@ val tid_exn_not = Q.store_thm ("tid_exn_not",
 
 (* ---------- ctMap stuff ---------- *)
 
-(*
-val ctMap_ok_merge_imp = Q.store_thm ("ctMap_ok_merge_imp",
-`!tenvC1 tenvC2.
-  ctMap_ok tenvC1 ∧ ctMap_ok tenvC2 ⇒
-  ctMap_ok (FUNION tenvC1 tenvC2)`,
- srw_tac[][ctMap_ok_def] >>
- metis_tac [fevery_funion]);
 
- *)
+val type_def_to_ctMap_def = Define `
+  (type_def_to_ctMap tenvT next_stamp [] [] = []) ∧
+  (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
+    type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
+    REVERSE
+      (MAP (\(cn,ts).
+        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
+        ctors))`;
+
+val mem_type_def_to_ctMap = Q.store_thm ("mem_type_def_to_ctMap",
+  `!tenvT next tds ids stamp x.
+    MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
+    LENGTH tds = LENGTH ids
+    ⇒
+    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i`,
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+  rw [type_def_to_ctMap_def] >>
+  fs [] >>
+  res_tac >>
+  rw [] >>
+  fs [MEM_MAP] >>
+  pairarg_tac >>
+  fs []);
+
+val o_f_FRANGE2 = Q.prove (
+  `(?x. y = f x ∧ x ∈ FRANGE g) ⇒ y ∈ FRANGE (f o_f g)`,
+  rw [FRANGE_DEF] >>
+  metis_tac [o_f_FAPPLY]);
+
+val ctMap_ok_merge_imp = Q.store_thm ("ctMap_ok_merge_imp",
+  `!ctMap1 ctMap2.
+    DISJOINT (FRANGE ((SND o SND) o_f ctMap1)) (FRANGE ((SND o SND) o_f ctMap2)) ∧
+    ctMap_ok ctMap1 ∧ ctMap_ok ctMap2 ⇒
+    ctMap_ok (FUNION ctMap1 ctMap2)`,
+ REWRITE_TAC [ctMap_ok_def] >>
+ rpt gen_tac >>
+ strip_tac >>
+ rpt conj_tac
+ >- metis_tac [fevery_funion]
+ >- (
+   simp [FLOOKUP_FUNION] >>
+   rpt gen_tac >>
+   CASE_TAC >>
+   metis_tac [])
+ >- (
+   REWRITE_TAC [FLOOKUP_FUNION] >>
+   rpt gen_tac >>
+   CASE_TAC >>
+   metis_tac [])
+ >- (
+   rw [FLOOKUP_FUNION] >>
+   every_case_tac
+   >- metis_tac []
+   >- (
+     `ti ∈ FRANGE ((SND ∘ SND) o_f ctMap1)`
+     by (
+       simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+       qexists_tac `stamp1` >>
+       simp []) >>
+     `ti ∈ FRANGE ((SND ∘ SND) o_f ctMap2)`
+     by (
+       simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+       qexists_tac `stamp2` >>
+       simp []) >>
+     fs [DISJOINT_DEF, EXTENSION] >>
+     metis_tac [])
+   >- (
+     `ti ∈ FRANGE ((SND ∘ SND) o_f ctMap1)`
+     by (
+       simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+       qexists_tac `stamp2` >>
+       simp []) >>
+     `ti ∈ FRANGE ((SND ∘ SND) o_f ctMap2)`
+     by (
+       simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+       qexists_tac `stamp1` >>
+       simp []) >>
+     fs [DISJOINT_DEF, EXTENSION] >>
+     metis_tac [])
+   >- metis_tac []));
 
 val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
 `!ctMap cn tvs ts ti tn.
