@@ -170,12 +170,11 @@ val evaluate_code = Q.store_thm("evaluate_code",
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss []
   \\ BasicProvers.FULL_CASE_TAC
-  \\ TRY (Cases_on `b` \\ fs [] \\ TRY CASE_TAC) \\ fs []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [dec_clock_def]
   \\ Cases_on`q`  \\ FULL_SIMP_TAC (srw_ss())[]
   \\ POP_ASSUM MP_TAC
   \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
-  \\ SRW_TAC[][dec_clock_def] \\ SRW_TAC[][]
+  \\ SRW_TAC[][] \\ SRW_TAC[][]
   \\ POP_ASSUM MP_TAC
   \\ BasicProvers.CASE_TAC \\ FULL_SIMP_TAC (srw_ss())[]
   \\ SRW_TAC[][] \\ IMP_RES_TAC do_app_const \\ SRW_TAC[][]
@@ -185,11 +184,11 @@ val evaluate_code = Q.store_thm("evaluate_code",
 
 val evaluate_mk_tick = Q.store_thm ("evaluate_mk_tick",
   `!exp env s n.
-     evaluate ([mk_tick n exp], env, s) =
-       if s.clock < n then
-         (Rerr(Rabort Rtimeout_error), s with clock := 0)
-       else
-         evaluate ([exp], env, dec_clock n s)`,
+    evaluate ([mk_tick n exp], env, s) =
+      if s.clock < n then
+        (Rerr(Rabort Rtimeout_error), s with clock := 0)
+      else
+        evaluate ([exp], env, dec_clock n s)`,
   Induct_on `n` >>
   srw_tac[][mk_tick_def, evaluate_def, dec_clock_def, FUNPOW] >>
   full_simp_tac(srw_ss())[mk_tick_def, evaluate_def, dec_clock_def] >>
@@ -227,7 +226,7 @@ val evaluate_expand_env = Q.store_thm("evaluate_expand_env",
   THEN1 (split_tac `evaluate ([x1],env,s)`)
   THEN1 (split_tac `evaluate ([x1],env,s1)` \\ BasicProvers.CASE_TAC >> simp[])
   THEN1 (split_tac `evaluate (xs,env,s)`)
-  THEN1 (SRW_TAC [] [] \\ split_tac `evaluate ([x],env,s)`)
+  THEN1 (SRW_TAC [] [])
   THEN1 (split_tac `evaluate (xs,env,s1)`));
 
 val inc_clock_def = Define `
@@ -328,17 +327,6 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       srw_tac[][] >>
       `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
       metis_tac [])
-  >- (Cases_on `evaluate ([x],env,s)` >>
-      full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> fs [] >> fs [] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> fs [] >> fs [] >>
-      full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def,
-        state_component_equality] >>
-      decide_tac)
   >- (Cases_on `evaluate (xs,env,s1)` >>
       full_simp_tac(srw_ss())[] >>
       Cases_on `q` >>
@@ -551,7 +539,7 @@ val bVarBound_def = tDefine "bVarBound" `
   (bVarBound n [Let xs x2] <=>
      bVarBound n xs /\ bVarBound (n + LENGTH xs) [x2]) /\
   (bVarBound n [Raise x1] <=> bVarBound n [x1]) /\
-  (bVarBound n [Tick b x1] <=>  bVarBound n [x1]) /\
+  (bVarBound n [Tick x1] <=>  bVarBound n [x1]) /\
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
@@ -570,7 +558,7 @@ val bEvery_def = tDefine "bEvery" `
   (bEvery P [Let xs x2] <=> P (Let xs x2) /\
      bEvery P xs /\ bEvery P [x2]) /\
   (bEvery P [Raise x1] <=> P (Raise x1) /\ bEvery P [x1]) /\
-  (bEvery P [Tick b x1] <=> P (Tick b x1) /\ bEvery P [x1]) /\
+  (bEvery P [Tick x1] <=> P (Tick x1) /\ bEvery P [x1]) /\
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\

@@ -812,14 +812,6 @@ val iEval_bVarBound = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[iEval_def] \\ NO_TAC)
   THEN1
-   (IMP_RES_TAC compile_exps_SING \\ SRW_TAC [] []
-    \\ fs [evaluate_def] \\ first_x_assum drule
-    \\ disch_then (qspec_then `n` mp_tac) \\ fs []
-    \\ CASE_TAC \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ IF_CASES_TAC \\ fs []
-    \\ rpt (CASE_TAC \\ fs []))
-  THEN1
    (Cases_on `(?t. op = FromList t) ∨ op = FromListByte ∨ op = ConcatByteVec` THEN1
      (fs [] \\ rw[] \\ fs [compile_op_def]
       \\ once_rewrite_tac [bviSemTheory.evaluate_def]
@@ -1217,10 +1209,9 @@ val eval_ind_alt = Q.store_thm("eval_ind_alt",
         (∀xs env. exp1_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
         P ([Handle x1 x2],env,s1)) ∧
      (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
-     (∀b x env s.
-        (b /\ s.clock ≠ 0 ⇒ P ([x],env,dec_clock 1 s)) /\
-        (~b ==> P ([x],env,s)) ⇒
-        P ([Tick b x],env,s)) ∧
+     (∀x env s.
+        (s.clock ≠ 0 ⇒ P ([x],env,dec_clock 1 s)) ⇒
+        P ([Tick x],env,s)) ∧
      (∀ticks dest xs env s1.
         (∀v2 s vs v args exp.
            evaluate (xs,env,s1) = (v2,s) ∧ v2 = Rval vs ∧
@@ -2590,49 +2581,22 @@ val compile_exps_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]
     \\ IMP_RES_TAC compile_exps_LENGTH
     \\ `?d. c1 = [d]` by (Cases_on `c1` \\ full_simp_tac(srw_ss())[LENGTH_NIL]) \\ full_simp_tac(srw_ss())[]
-   THEN1
-     (FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
-      \\ SRW_TAC [] [iEval_def]
-      \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
-       (SRW_TAC [] [] \\ Q.LIST_EXISTS_TAC [`t1`,`b1`,`0`]
-        \\ full_simp_tac(srw_ss())[inc_clock_ZERO] \\ full_simp_tac(srw_ss())[state_rel_def]) \\ full_simp_tac(srw_ss())[]
-      \\ `t1.clock <> 0 /\ !c. (inc_clock c t1).clock <> 0` by
-        (EVAL_TAC \\ full_simp_tac(srw_ss())[state_rel_def] \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
-      \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
-      \\ `(dec_clock 1 s).refs = s.refs` by EVAL_TAC \\ full_simp_tac(srw_ss())[]
-      \\ Q.PAT_X_ASSUM `!xx yy. bbb` (MP_TAC o Q.SPECL [`dec_clock 1 t1`,`b1`])
-      \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
-      \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-      THEN1 (full_simp_tac(srw_ss())[evaluate_ok_lemma]
-             \\ full_simp_tac(srw_ss())[state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def]
-             \\ metis_tac[])
-      \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL])
-    \\ rveq \\ fs []
-    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
-    THEN1
-     (first_x_assum drule \\ disch_then drule \\ fs []
-      \\ strip_tac \\ fs [GSYM PULL_FORALL]
-      \\ qexists_tac `t2`
-      \\ qexists_tac `b2`
-      \\ qexists_tac `c`
-      \\ fs [evaluate_def])
-    \\ first_x_assum drule \\ disch_then drule \\ fs []
-    \\ strip_tac \\ fs [GSYM PULL_FORALL]
-    \\ `r.clock = t2.clock` by fs [state_rel_def]
-    \\ Cases_on `r.clock = 0` \\ fs [] \\ rveq \\ fs []
-    THEN1
-     (qexists_tac `t2`
-      \\ qexists_tac `b2`
-      \\ qexists_tac `c`
-      \\ fs [evaluate_def,EVAL ``bviSem$do_app (Const 0) [] s``]
-      \\ drule evaluate_SING \\ strip_tac \\ fs [] \\ rveq \\ fs [])
-    \\ qexists_tac `dec_clock 1 t2`
-    \\ qexists_tac `b2`
-    \\ qexists_tac `c`
-    \\ fs [evaluate_def,EVAL ``bviSem$do_app (Const 0) [] s``]
-    \\ drule evaluate_SING \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ fs [state_rel_def,bviSemTheory.dec_clock_def,bvlSemTheory.dec_clock_def])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [iEval_def]
+    \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
+     (SRW_TAC [] [] \\ Q.LIST_EXISTS_TAC [`t1`,`b1`,`0`]
+      \\ full_simp_tac(srw_ss())[inc_clock_ZERO] \\ full_simp_tac(srw_ss())[state_rel_def]) \\ full_simp_tac(srw_ss())[]
+    \\ `t1.clock <> 0 /\ !c. (inc_clock c t1).clock <> 0` by
+      (EVAL_TAC \\ full_simp_tac(srw_ss())[state_rel_def] \\ DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
+    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
+    \\ `(dec_clock 1 s).refs = s.refs` by EVAL_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Q.PAT_X_ASSUM `!xx yy. bbb` (MP_TAC o Q.SPECL [`dec_clock 1 t1`,`b1`])
+    \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+    THEN1 (full_simp_tac(srw_ss())[evaluate_ok_lemma]
+           \\ full_simp_tac(srw_ss())[state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def]
+           \\ metis_tac[])
+    \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL])
   THEN1 (* Call *)
    (`?c1 aux1 n1. compile_exps n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[PULL_FORALL]

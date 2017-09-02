@@ -23,7 +23,7 @@ val inline_def = tDefine "inline" `
               (HD (inline cs [x2]))]) /\
   (inline cs [Op op xs] =
      [Op op (inline cs xs)]) /\
-  (inline cs [Tick b x] = inline cs [x]) /\
+  (inline cs [Tick x] = inline cs [x]) /\
   (inline cs [Call ticks dest xs] =
      case dest of NONE => [Call 0 dest (inline cs xs)] | SOME n =>
      case lookup n cs of
@@ -60,7 +60,7 @@ val is_small_aux_def = tDefine "is_small_aux" `
   (is_small_aux n [Op op xs] =
      let n = n - 1 in if n = 0 then 0 else
        is_small_aux n xs) /\
-  (is_small_aux n [Tick _ x] = is_small_aux n [x]) /\
+  (is_small_aux n [Tick x] = is_small_aux n [x]) /\
   (is_small_aux n [Call ticks dest xs] =
      let n = n - 1 in if n = 0 then 0 else
        is_small_aux n xs)`
@@ -87,7 +87,7 @@ val is_rec_def = tDefine "is_rec" `
      if is_rec n [x1] then T else
        is_rec n [x2]) /\
   (is_rec n [Op op xs] = is_rec n xs) /\
-  (is_rec n [Tick _ x] = is_rec n [x]) /\
+  (is_rec n [Tick x] = is_rec n [x]) /\
   (is_rec n [Call ticks dest xs] =
      if dest = SOME n then T else is_rec n xs)`
   (WF_REL_TAC `measure (exp1_size o SND)`);
@@ -123,7 +123,7 @@ val let_op_def = tDefine "let_op" `
               (HD (let_op [x2]))]) /\
   (let_op [Op op xs] =
      [Op op (let_op xs)]) /\
-  (let_op [Tick b x] = [Tick b (HD (let_op [x]))]) /\
+  (let_op [Tick x] = [Tick (HD (let_op [x]))]) /\
   (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])`
   (WF_REL_TAC `measure exp1_size`);
 

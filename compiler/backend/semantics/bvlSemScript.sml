@@ -372,15 +372,8 @@ val evaluate_def = tDefine "evaluate" `
                           | Rerr err => (Rerr err,s)
                           | Rval (v,s) => (Rval [v],s))
      | res => res) /\
-  (evaluate ([Tick b x],env,s) =
-     if b then
-       if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s)
-       else evaluate ([x],env,dec_clock 1 s)
-     else
-       case evaluate ([x],env,s) of
-       | (Rval vs,s) => if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s)
-                        else (Rval vs,dec_clock 1 s)
-       | res => res) /\
+  (evaluate ([Tick x],env,s) =
+     if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
   (evaluate ([Call ticks dest xs],env,s1) =
      case fix_clock s1 (evaluate (xs,env,s1)) of
      | (Rval vs,s) =>

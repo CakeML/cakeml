@@ -42,7 +42,7 @@ val _ = Datatype `
       | Let (exp list) exp
       | Raise exp
       | Handle exp exp
-      | Tick bool exp
+      | Tick exp
       | Call num (num option) (exp list)
       | Op closLang$op (exp list) `
 
@@ -50,6 +50,6 @@ val Bool_def = Define`
   Bool b = Op (Cons (bool_to_tag b)) []`;
 
 val mk_tick_def = Define `
-  mk_tick n e = FUNPOW (Tick T) n e : bvl$exp`;
+  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
 
 val _ = export_theory();

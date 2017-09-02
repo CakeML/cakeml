@@ -24,7 +24,7 @@ val remove_ticks_def = tDefine "remove_ticks" `
              (HD (remove_ticks [x2]))]) /\
   (remove_ticks [Op op xs] =
      [Op op (remove_ticks xs)]) /\
-  (remove_ticks [Tick b x] = remove_ticks [x]) /\
+  (remove_ticks [Tick x] = remove_ticks [x]) /\
   (remove_ticks [Call ticks dest xs] =
      [Call 0 dest (remove_ticks xs)])`
   (WF_REL_TAC `measure exp1_size`);
@@ -200,24 +200,11 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ drule do_app_lemma \\ every_case_tac \\ fs []
     \\ rveq \\ fs [])
   THEN1 (* Tick *)
-   (Cases_on `b` THEN1
-     (fs [remove_ticks_def]
-      \\ first_x_assum drule \\ fs []
-      \\ disch_then drule \\ strip_tac
-      \\ fs [bvlSemTheory.evaluate_def]
-      \\ qexists_tac `ck + 1` \\ fs [dec_clock_def])
-    \\ fs [remove_ticks_def]
+   (fs [remove_ticks_def]
     \\ first_x_assum drule \\ fs []
     \\ disch_then drule \\ strip_tac
-    \\ reverse (Cases_on `res`) \\ fs []
-    THEN1 (qexists_tac `ck` \\ fs []
-           \\ fs [bvlSemTheory.evaluate_def])
-    \\ qexists_tac `ck+1` \\ fs []
     \\ fs [bvlSemTheory.evaluate_def]
-    \\ drule evaluate_add_clock \\ fs []
-    \\ disch_then (qspec_then `1` mp_tac)
-    \\ fs [inc_clock_def,dec_clock_def]
-    \\ fs [state_rel_def,state_component_equality])
+    \\ qexists_tac `ck + 1` \\ fs [dec_clock_def])
   (* Call *)
   \\ fs [remove_ticks_def]
   \\ fs [bvlSemTheory.evaluate_def]
@@ -527,13 +514,6 @@ val remove_ticks_CONS = prove(
 
 (* inline implementation *)
 
-val mk_tick_F_def = Define `
-  mk_tick_F n e = FUNPOW (Tick F) n e : bvl$exp`;
-
-val attach_tick_def = Define `
-  attach_tick n [] = [] /\
-  attach_tick n xs = FRONT xs ++ [mk_tick_F n (LAST xs)]`;
-
 val tick_inline_def = tDefine "tick_inline" `
   (tick_inline cs [] = []) /\
   (tick_inline cs (x::y::xs) =
@@ -553,8 +533,8 @@ val tick_inline_def = tDefine "tick_inline" `
               (HD (tick_inline cs [x2]))]) /\
   (tick_inline cs [Op op xs] =
      [Op op (tick_inline cs xs)]) /\
-  (tick_inline cs [Tick b x] =
-     [Tick b (HD (tick_inline cs [x]))]) /\
+  (tick_inline cs [Tick x] =
+     [Tick (HD (tick_inline cs [x]))]) /\
   (tick_inline cs [Call ticks dest xs] =
      case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
      case lookup n cs of
@@ -660,14 +640,6 @@ val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
     \\ fs [exp_rel_def] \\ rw [])
   \\ TRY (IF_CASES_TAC \\ fs [] \\ fs [] \\ NO_TAC)
   THEN1
-   (IF_CASES_TAC \\ fs [] \\ TRY IF_CASES_TAC \\ fs []
-    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
-    \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then drule \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ IF_CASES_TAC \\ fs [])
-  THEN1
    (Cases_on `evaluate (xs,env,s)` \\ fs []
     \\ `q <> Rerr (Rabort Rtype_error)` by (rpt strip_tac \\ fs [])
     \\ fs [] \\ imp_res_tac evaluate_code \\ fs []
@@ -729,51 +701,6 @@ val tick_code_rel_insert = Q.store_thm("tick_code_rel_insert",
   \\ qpat_x_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
   \\ simp_tac std_ss [exp_rel_def]
   \\ disch_then drule \\ fs []);
-
-val attach_ticks_SNOC = prove(
-  ``attach_tick ticks (ys ++ [y]) = ys ++ [mk_tick_F ticks y]``,
-  Cases_on `ys`
-  \\ fs [attach_tick_def]
-  \\ fs [FRONT_DEF]
-  \\ rewrite_tac [GSYM SNOC_APPEND,FRONT_SNOC]);
-
-val evaluate_mk_ticks_F = prove(
-  ``!ticks r y.
-      evaluate ([mk_tick_F ticks y],env,r) =
-      case evaluate ([y],env,r) of
-      | (Rval v,s1) =>
-           if s1.clock < ticks then
-             (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-           else (Rval v,dec_clock ticks s1)
-      | res => res``,
-  Induct
-  THEN1 (rw [] \\ fs [mk_tick_F_def] \\ every_case_tac \\ fs [])
-  \\ fs [mk_tick_F_def,FUNPOW]
-  \\ fs [evaluate_def] \\ rw []
-  \\ Cases_on `evaluate ([y],env,r)` \\ fs []
-  \\ Cases_on `q` \\ fs []
-  \\ IF_CASES_TAC \\ fs []
-  THEN1 (fs [state_component_equality])
-  \\ fs [dec_clock_def,ADD1]
-  \\ Cases_on `0 < ticks` \\ fs []);
-
-val evaluate_attach_tick = prove(
-  ``~NULL xs ==>
-    evaluate (attach_tick ticks xs,env,s) =
-    case evaluate (xs,env,s) of
-    | (Rerr v,s1) => (Rerr v,s1)
-    | (Rval v,s1) =>
-         if s1.clock < ticks then
-           (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
-         else (Rval v,dec_clock ticks s1)``,
-  `xs = [] \/ ?y ys. xs = SNOC y ys` by metis_tac [SNOC_CASES]
-  \\ fs [] \\ rveq \\ fs [attach_ticks_SNOC]
-  \\ fs [evaluate_APPEND]
-  \\ TOP_CASE_TAC \\ fs []
-  \\ TOP_CASE_TAC \\ fs [evaluate_mk_ticks_F]
-  \\ rpt (TOP_CASE_TAC \\ fs [])
-  \\ rpt (FULL_CASE_TAC \\ fs [])
-  \\ rveq \\ fs []);
 
 val var_list_IMP_evaluate = prove(
   ``!a2 a1 l xs s.
@@ -1113,8 +1040,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
     \\ fs [domain_map])
   THEN1
-   (Cases_on `b` \\ fs [] \\ rw [] \\ fs []
-    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
+   (Cases_on `evaluate ([x],env,s)` \\ fs []
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_code \\ fs [] \\ rw [] \\ fs [])
   \\ Cases_on `evaluate (xs,env,s1)` \\ fs []

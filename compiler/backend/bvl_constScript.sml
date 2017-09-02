@@ -135,7 +135,7 @@ val compile_def = tDefine "compile" `
   (compile env [Raise x1] =
      [Raise (HD (compile env [x1]))]) /\
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
-  (compile env [Tick b x] = [Tick b (HD (compile env [x]))]) /\
+  (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
   (compile env [Call t dest xs] = [Call t dest (compile env xs)])`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
