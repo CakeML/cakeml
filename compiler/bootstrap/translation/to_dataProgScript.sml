@@ -978,6 +978,19 @@ val _ = translate(bvl_to_bviTheory.compile_list_def);
 
 val _ = translate(bvl_to_bviTheory.compile_prog_def);
 
+val _ = translate(bvl_inlineTheory.let_op_def);
+
+val let_op_SING_NOT_NIL = store_thm("let_op_SING_NOT_NIL[simp]",
+  ``let_op [x] <> []``,
+  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+  \\ CASE_TAC \\ fs []);
+
+val bvl_inline_let_op_side = Q.prove(`
+  ∀a. bvl_inline_let_op_side a ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.let_op_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
+  |> update_precondition;
+
 val _ = translate(bvl_inlineTheory.inline_all_def);
 
 val bvl_inline_inline_all_side = Q.prove(`
