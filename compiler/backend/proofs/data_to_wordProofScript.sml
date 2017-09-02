@@ -414,6 +414,14 @@ val spt_eq = store_thm("spt_eq",
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] DIV_MULT,EVEN_ADD]
   \\ fs [GSYM ADD1,EVEN,EVEN_DOUBLE]);
 
+val eq_shape_map = store_thm("eq_shape_map",
+  ``!t1 t2 f. eq_shape (map f t1) t2 <=> eq_shape t1 t2``,
+  Induct \\ Cases_on `t2` \\ fs [eq_shape_def,map_def]);
+
+val eq_shape_IMP_domain = store_thm("eq_shape_IMP_domain",
+  ``eq_shape t1 t2 ==> domain t1 = domain t2``,
+  cheat);
+
 val compile_correct = Q.store_thm("compile_correct",
   `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
@@ -436,8 +444,13 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ fs [wordSemTheory.state_component_equality]
   \\ rename1 `state_rel x0 l1 l2 s t2 [] []`
-  \\ `?l2. code_rel t2.code l2 /\
-              map (I ## remove_must_terminate) l2 = l` by
+  \\ sg `?l2. code_rel t2.code l2 /\
+              map (I ## remove_must_terminate) l2 = l`
+  THEN1 cheat
+(*
+    fs [boolTheory.SKOLEM_THM,METIS_PROVE [] ``(b ==> ?x. P x) <=> ?x. b ==> P x``]
+    \\ fs [spt_eq,lookup_map,eq_shape_map]
+    \\ simp [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
     (fs [word_to_wordProofTheory.code_rel_def,
          word_to_wordTheory.full_compile_single_def]
      \\ `?l3. eq_shape l3 l /\ ∀n v.
@@ -452,7 +465,17 @@ val compile_correct = Q.store_thm("compile_correct",
      \\ rw [] \\ res_tac \\ fs []
      THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
      \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+     \\ fs [eq_shape_map] \\ rw []
+     \\ rpt_drule eq_shape_IMP_domain
+     \\ fs [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
+     \\ strip_tac
+     \\ `?v1. lookup k t.code = SOME v1` by metis_tac []
+     \\ `?v2. lookup k t2.code = SOME v2` by metis_tac []
+     \\ fs [] \\ PairCases_on `v1` \\ PairCases_on `v2`
+     \\ res_tac
+     \\ fs [] \\ rveq \\ pairarg_tac \\ fs [] \\ rveq
      \\ cheat (* can be proved... *))
+*)
   \\ drule (compile_word_to_word_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ `domain l2' = domain l` by (rveq \\ fs [domain_map])
   \\ `domain t2.code = domain l2'` by fs []

@@ -20,7 +20,7 @@ val code_rel_def = Define `
       (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))`;
 
 val state_rel_def = Define `
-  state_rel (s:'ffi bviSem$state) (t:'ffi dataSem$state) <=>
+  state_rel (s:'ffi bviSem$state) (t:('c,'ffi) dataSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
     (s.refs = t.refs) /\
@@ -1149,7 +1149,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒
    ∃r2 s2.
-   evaluate (Call NONE (SOME start) [] NONE, initial_state ffi0 (fromAList (compile_prog prog)) k) = (SOME r2,s2) ∧
+   evaluate (Call NONE (SOME start) [] NONE, initial_state ffi0 (fromAList (compile_prog prog)) co cc k) = (SOME r2,s2) ∧
    state_rel s s2 ∧ res_list r2 = r`,
   srw_tac[][] >>
   match_mp_tac (GEN_ALL compile_part_evaluate) >>
@@ -1162,7 +1162,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (compile_prog prog)) start =
+   semantics ffi0 (fromAList (compile_prog prog)) co cc start =
    semantics ffi0 (fromAList prog) start`,
   simp[bviSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>

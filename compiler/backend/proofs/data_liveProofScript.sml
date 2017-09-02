@@ -10,7 +10,7 @@ val SPLIT_PAIR = Q.prove(
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val state_rel_def = Define `
-  state_rel (s1:'ffi dataSem$state) (t1:'ffi dataSem$state) (live:num_set) <=>
+  state_rel (s1:('a,'ffi) dataSem$state) (t1:('a,'ffi) dataSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\

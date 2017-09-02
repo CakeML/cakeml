@@ -1710,8 +1710,8 @@ val stubs_def = Define`
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Install_location,3n,Install_code data_conf);
-    (InstallCode_location,3n,InstallCode_code data_conf);
-    (InstallData_location,3n,InstallData_code data_conf);
+    (InstallCode_location,7n,InstallCode_code data_conf);
+    (InstallData_location,7n,InstallData_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
