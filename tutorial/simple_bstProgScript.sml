@@ -56,7 +56,9 @@ val res = translate insert_def;
 
 val res = translate lookup_def;
 
+(*
 val res = translate member_def;
+*)
 
 (* TODO: use of certificate theorem to show something about the generated code? *)
 
