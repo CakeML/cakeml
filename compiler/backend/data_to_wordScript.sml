@@ -168,8 +168,12 @@ val ByteCopySub_location_def = Define `
   ByteCopySub_location = ByteCopyAdd_location+1`;
 val ByteCopyNew_location_def = Define `
   ByteCopyNew_location = ByteCopySub_location+1`;
+val Append_location_def = Define `
+  Append_location = ByteCopyNew_location+1`;
+val Append1_location_def = Define `
+  Append1_location = Append_location+1`;
 val Bignum_location_def = Define `
-  Bignum_location = ByteCopyNew_location+1`;
+  Bignum_location = Append1_location+1`;
 
 val FromList_location_eq = save_thm("FromList_location_eq",
   ``FromList_location`` |> EVAL);
@@ -217,6 +221,10 @@ val ByteCopySub_location_eq = save_thm("ByteCopySub_location_eq",
   ``ByteCopySub_location`` |> EVAL);
 val ByteCopyNew_location_eq = save_thm("ByteCopyNew_location_eq",
   ``ByteCopyNew_location`` |> EVAL);
+val Append_location_eq = save_thm("Append_location_eq",
+  ``Append_location`` |> EVAL);
+val Append1_location_eq = save_thm("Append1_location_eq",
+  ``Append1_location`` |> EVAL);
 
 val AllocVar_def = Define `
   AllocVar (limit:num) (names:num_set) =
@@ -673,6 +681,12 @@ val LongDiv1_code_def = Define `
                    Inst (Arith (AddCarry 10 10 16 1));
                    Inst (Arith (AddCarry 12 12 14 1));
                    Call NONE (SOME LongDiv1_location) [0;2;4;6;8;10;12] NONE])`;
+
+val Append_code_def = Define `
+  Append_code c = GiveUp`;
+
+val Append1_code_def = Define `
+  Append1_code c = GiveUp`;
 
 val get_names_def = Define `
   (get_names NONE = LN) /\
@@ -1781,6 +1795,8 @@ val stubs_def = Define`
     (Equal_location,3n,Equal_code data_conf);
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
+    (Append_location,5n,Append_code data_conf);
+    (Append1_location,5n,Append1_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
