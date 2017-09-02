@@ -50,7 +50,13 @@ in current_prog end
 (*
   get_current_prog()
 *)
-(* TODO: it would be nice to be able to print this in concrete syntax *)
+
+(*
+  To print in concrete syntax:
+  astPP.enable_astPP();
+  To remove this pretty-printing:
+  astPP.disable_astPP();
+*)
 
 val res = translate insert_def;
 
