@@ -473,6 +473,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LongDiv1_location_eq
     ,data_to_wordTheory.LongDiv_location_eq
     ,data_to_wordTheory.MemCopy_location_eq
+    ,data_to_wordTheory.Append_location_eq
+    ,data_to_wordTheory.AppendMainLoop_location_eq
+    ,data_to_wordTheory.AppendLenLoop_location_eq
+    ,data_to_wordTheory.AppendFastLoop_location_eq
     ,data_to_wordTheory.Bignum_location_eq
     ,data_to_wordTheory.ByteCopy_location_eq
     ,data_to_wordTheory.ByteCopyAdd_location_eq
@@ -498,6 +502,10 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.Mul_code_def
     ,data_to_wordTheory.Div_code_def
     ,data_to_wordTheory.Mod_code_def
+    ,data_to_wordTheory.Append_code_def
+    ,data_to_wordTheory.AppendMainLoop_code_def
+    ,data_to_wordTheory.AppendLenLoop_code_def
+    ,data_to_wordTheory.AppendFastLoop_code_def
     ,data_to_wordTheory.Compare1_code_def
     ,data_to_wordTheory.Compare_code_def
     ,data_to_wordTheory.Equal1_code_def

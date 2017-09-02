@@ -2284,6 +2284,36 @@ val th = Q.store_thm("assign_CopyByte",
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])));
 
+(* plan:
+
+temp0 contains: head of xs value
+temp1 contains: head of ys value
+
+main loop carries:
+  arg  2: next pointer to write to
+  arg  4: next xs value
+  arg  6: cons header
+  arg  8: next ptr value to produce
+  arg 10: space left
+
+len loop carries:
+  arg  2: current length
+  arg  4: next xs value
+  arg  6: cons header
+
+fast loop carries:
+  arg  2: next pointer to write to
+  arg  4: next xs value
+  arg  6: cons header
+  arg  8: next ptr value to produce
+  (same as main loop, but knows that there is enough space)
+
+*)
+
+val th = Q.store_thm("assign_ListAppend",
+  `op = ListAppend ==> ^assign_thm_goal`,
+  cheat);
+
 val th = Q.store_thm("assign_WordToInt",
   `op = WordToInt ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
