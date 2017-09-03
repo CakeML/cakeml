@@ -136,10 +136,10 @@ val calls_sing = Q.store_thm("calls_sing",
 
 val selftest = let
   (* example code *)
-  val f = ``Fn Empty (SOME 800) NONE 1 (Op Empty Add [Var Empty 0; Op Empty (Const 1) []])``
-  val g = ``Fn Empty (SOME 900) NONE 1 (App Empty (SOME 800) (Var Empty 1) [Var Empty 0])``
-  val f_g_5 = ``App Empty (SOME 800) (Var Empty 1) [App Empty (SOME 900) (Var Empty 0) [Op Empty (Const 5) []]]``
-  val let_let = ``Let Empty [^f] (Let Empty [^g] ^f_g_5)``
+  val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
+  val g = ``Fn None (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
+  val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
+  val let_let = ``Let None [^f] (Let None [^g] ^f_g_5)``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl
   val n = tm |> find_terms (aconv ``closLang$Call``) |> length
