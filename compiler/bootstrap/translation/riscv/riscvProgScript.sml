@@ -143,7 +143,9 @@ val notw2w = Q.prove(`
   !a. ~w2w a = (-1w ?? (w2w a))`,
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
 
-val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o rand) [riscv_enc1_1,riscv_enc1_2,riscv_enc1_3,riscv_enc1_4] |> SIMP_RULE std_ss[notw2w,word_2comp_def,dimword_32,dimword_20] |> gconv
+val riscv_enc1_5 = el 5 riscv_enc1s
+
+val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o rand) [riscv_enc1_1,riscv_enc1_2,riscv_enc1_3,riscv_enc1_4,riscv_enc1_5] |> SIMP_RULE std_ss[notw2w,word_2comp_def,dimword_32,dimword_20] |> gconv
 
 val if_eq1w = Q.prove(`
   ((if w2w (c ⋙ m && 1w:word64) = 1w:word20 then 1w:word1 else 0w) && 1w)
