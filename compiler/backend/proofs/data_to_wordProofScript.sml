@@ -423,6 +423,20 @@ val eq_shape_IMP_domain = store_thm("eq_shape_IMP_domain",
   ho_match_mp_tac (fetch "-" "eq_shape_ind")
   \\ rw [] \\ fs [eq_shape_def]);
 
+val copy_shape_def = Define `
+  copy_shape t1 t2 = t1`
+
+val shape_eq_copy_shape = prove(
+  ``domain t1 = domain t2 ==> shape_eq (copy_shape t1 t2) t2``,
+  cheat);
+
+val mapi_def = Define `
+  mapi f x = fromAList (MAP (\x. (FST x, f (FST x) (SND x))) (toAList x))`;
+
+val domain_mapi = store_thm("domain_mapi[simp]",
+  ``domain (mapi f x) = domain x``,
+  cheat);
+
 val compile_correct = Q.store_thm("compile_correct",
   `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
@@ -463,9 +477,12 @@ val compile_correct = Q.store_thm("compile_correct",
                 (name_num,arg_count,reg_prog))
                (compile_single (f n v) (f' n v) (f'' n v) (f''' n v)
                    ((n,v),f'''' n v))))`
+    THEN1
+     (qho_match_abbrev_tac `?l3. _ l3 /\ !n v. _ n v ==> _ n l3 = SOME (ff n v)`
+      \\ qexists_tac `copy_shape (mapi ff t2.code) l`
+      \\ conj_tac THEN1 (fs [] \\ match_mp_tac shape_eq_copy_shape \\ fs [])
+      \\ fs [] \\ cheat)
 
-
-    THEN1 cheat (* this is going to be awkward *)
     \\ qexists_tac `l3`
     \\ rw [] \\ res_tac \\ fs []
     THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
