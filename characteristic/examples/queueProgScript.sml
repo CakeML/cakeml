@@ -5,51 +5,119 @@ using CF.
 
 *)
 open preamble ml_progLib ioProgLib ml_translatorLib
-	       cfTacticsLib basisFunctionsLib ml_translatorTheory
-	       cfLetAutoTheory cfLetAutoLib
+     cfTacticsLib basisFunctionsLib ml_translatorTheory
+     cfLetAutoTheory cfLetAutoLib
 
 val _ = new_theory "queueProg";
 
 val _ = translation_extends"ioProg";
 
 val queue_decls = process_topdecs
-    `fun empty_queue u = ref (Array.arrayEmpty (), 0)
+   ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
 
-    fun push q e =
-    	case !q of (a,i) =>
-      let val l = Array.length a in
-        if i >= l then
-          let val a' = Array.array (2*l+1) e in
-            (Array.copy a a' 0;
-             q := (a', i+1))
-          end
-      	else
-          (Array.update a i e;
-           q := (a,i+1))
-      end
+    fun full q =
+      case !q of (a,f,r,c) => c = Array.length a
 
+    exception FullQueue
     exception EmptyQueue
+    fun enqueue q e =
+      if full q then raise FullQueue
+      else
+        case !q of
+          (a,f,r,c) =>
+              (Array.update a r e;
+               q := (a,f,(r + 1) mod Array.length a,c+1))
 
-    fun pop q =
-    	case !q of (a,i) =>
-      	if i = 0 then raise EmptyQueue
-      	else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end`;
+    fun dequeue q =
+      case !q of
+        (a,f,r,c) =>
+           if c = 0 then raise EmptyQueue
+           else let val e = Array.sub a f
+                in
+                  q := (a, (f + 1) mod Array.length a, r, c - 1);
+                  e
+                end’;
 
 val _ = append_prog queue_decls;
 
 val EmptyQueue_exn_def = Define`
   EmptyQueue_exn v = (v = Conv (SOME ("EmptyQueue", TypeExn (Short "EmptyQueue"))) [])`;
 
+val lqueue_def = Define‘
+  lqueue qels f r els ⇔
+    f < LENGTH qels ∧ r < LENGTH qels ∧
+    (f ≤ r ∧
+     (∃pj rj. qels = pj ++ els ++ rj ∧ LENGTH pj = f ∧
+              r + LENGTH rj = LENGTH qels) ∨
+     r ≤ f ∧ (∃p s mj. qels = s ++ mj ++ p ∧ els = p ++ s ∧
+                       r = LENGTH s ∧ f = r + LENGTH mj))’;
+
+val lqueue_empty = Q.store_thm(
+  "lqueue_empty",
+  ‘i < LENGTH xs ⇒ lqueue xs i i []’,
+  simp[lqueue_def] >> strip_tac >>
+  map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[])
+
+val lqueue_enqueue = Q.store_thm(
+  "lqueue_enqueue",
+  ‘∀x f r vs aels n.
+      LENGTH vs < LENGTH aels ∧ lqueue aels f r vs ∧ (n = LENGTH aels) ⇒
+      lqueue (LUPDATE x r aels) f ((r + 1) MOD n) (vs ++ [x])’,
+  rw[lqueue_def] >> fs[]
+  >- (Cases_on ‘r + 1 = LENGTH pj + (LENGTH rj + LENGTH vs)’ >> simp[]
+      >- ((* wrap around happened *)
+          disj2_tac >> qexists_tac `pj` >> simp[] >>
+          simp[rich_listTheory.LUPDATE_APPEND2] >>
+          ‘LENGTH rj = 1’ by simp[] >>
+          ‘r = LENGTH pj + LENGTH vs’ by simp[] >> simp[] >>
+          Cases_on `rj` >> fs[] >> simp[LUPDATE_def]) >>
+      map_every qexists_tac [`pj`, `TL rj`] >> simp[] >>
+      Cases_on `rj` >> fs[] >> simp[LUPDATE_APPEND2, LUPDATE_APPEND1] >>
+      `r = LENGTH pj + LENGTH vs` by simp[] >> simp[LUPDATE_def]) >>
+  (* already wrapped around *) disj2_tac >>
+  map_every qexists_tac [‘p’, ‘s ++ [x]’, ‘TL mj’] >> Cases_on ‘mj’ >> fs[] >>
+  simp[LUPDATE_APPEND2, LUPDATE_APPEND1])
+
+val lqueue_dequeue = Q.store_thm(
+  "lqueue_dequeue",
+  ‘lqueue aels f r (v::vs) ⇒ lqueue aels ((f + 1) MOD LENGTH aels) r vs’,
+  rw[lqueue_def] >> fs[]
+  >- (disj1_tac >> map_every qexists_tac [‘pj ++ [v]’, ‘rj’] >> simp[]) >>
+  Cases_on ‘LENGTH p = 1’ >> simp[]
+  >- ((* f wraps around *) disj1_tac >> Cases_on ‘p’ >> fs[]) >>
+  map_every qexists_tac [‘TL p’, ‘s’, ‘mj ++ [v]’] >> simp[] >>
+  Cases_on ‘p’ >> fs[])
+
+
 (* Heap predicate for queues:
-   QUEUE A vs qv means qv is a reference to a queue of
-   elements vs, with A the refinement invariant satsfied by the elements of the queue *)
-val QUEUE_def  = Define `
-  QUEUE A vs qv =
-  SEP_EXISTS av iv vvs junk.
-    REF qv (Conv NONE [av;iv]) *
-    & NUM (LENGTH vs) iv *
-    ARRAY av (vvs ++ junk) *
-    & LIST_REL A vs vvs`;
+     QUEUE A mx vs qv means qv is a reference to a queue of elements vs, with A
+     the refinement invariant satsfied by the elements of the queue, and mx
+     being the largest the queue can be allowed to get.
+
+   There are two levels of representation from memory to value here:
+     1. first there is an array/list of values (the qelvs) that actually appear
+        in memory. This representation step is captured by LIST_REL below.
+        This list is accompanied by values that encode the front
+        index, rear index, and count of the number of things in the queue.
+     2. then there is another step that extracts the queue elements (els) in the
+        right order from the sequence of HOL values that were encoded in the
+        array (qels).
+
+   The QUEUE predicate mentions els so that the specifications of the
+   operations can be expressed in terms of the abstract value
+*)
+
+val QUEUE_def = Define‘
+  QUEUE A sz els qv ⇔
+    SEP_EXISTS av fv rv cv qelvs.
+      REF qv (Conv NONE [av;fv;rv;cv]) *
+      ARRAY av qelvs *
+      & (0 < sz ∧ NUM (LENGTH els) cv ∧
+         ∃qels f r. LIST_REL A qels qelvs ∧ NUM f fv ∧ NUM r rv ∧
+                    lqueue qels f r els ∧ LENGTH qels = sz)’;
+(*
+   type_of “QUEUE”;
+*)
 
 (* Some simple auto tactics *)
 val xsimpl_tac = rpt(FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp]);
@@ -58,167 +126,115 @@ val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xle
 val st = get_ml_prog_state ();
 
 val empty_queue_spec = Q.store_thm ("empty_queue_spec",
-    `!uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [uv]
-          emp (POSTv qv. QUEUE A [] qv)`,
+    `NUM n nv ∧ 0 < n ∧ A a errv ⇒
+      app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [nv; errv]
+          emp (POSTv qv. QUEUE A n [] qv)`,
     xcf "empty_queue" st \\
-    xlet `POSTv v. &UNIT_TYPE () v` THEN1(xcon \\ xsimpl) \\
-    xlet `POSTv av. ARRAY av []` THEN1(xapp \\ fs[]) \\
-    xlet `POSTv pv. SEP_EXISTS av iv.
-      &(pv = Conv NONE [av; iv]) * ARRAY av [] * &NUM 0 iv`
-    THEN1(xcon \\ xsimpl) \\
-    xref >> simp[QUEUE_def] >> xsimpl);
+    xs_auto_tac >> simp[QUEUE_def] >> xsimpl >>
+    qexists_tac `REPLICATE n a` >>
+    simp[lqueue_def, LIST_REL_REPLICATE_same])
 
-val empty_queue_spec = Q.store_thm ("empty_queue_spec",
-    `!uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [uv]
-          emp (POSTv qv. QUEUE A [] qv)`,
-    xcf "empty_queue" st >> simp[QUEUE_def] >> xs_auto_tac
-);
+val EqualityType_INT = prove(``EqualityType INT``, simp[EqualityType_NUM_BOOL])
 
-val push_spec = Q.store_thm ("push_spec",
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
-          (QUEUE A vs qv * & A x xv)
-	  (POSTv uv. QUEUE A (vs ++ [x]) qv)`,
-    xcf "push" st >>
-    simp[QUEUE_def] >>
-    xpull >>
-    xlet_auto >-(xsimpl)>>
-    xmatch >> reverse(rw[]) >- EVAL_TAC >>
-    xlet_auto >-(xsimpl) >>
+val eq_int_thm = mlbasicsProgTheory.eq_v_thm
+                   |> INST_TYPE [alpha |-> “:int”]
+                   |> Q.INST [‘a’ |-> ‘INT’]
+                   |> PROVE_HYP EqualityType_INT
 
-    xlet_auto >-(xsimpl) >>
-    xif
-	>-(
-	    xlet_auto >-(xsimpl) >>
-	    xlet_auto >-(xsimpl) >>
-	    xlet_auto >-(xsimpl) >>
-	    xlet_auto >-(xsimpl >> fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE]) >>
-	    xlet_auto >-(xsimpl) >>
-	    xlet_auto >-(xcon >> xsimpl) >>
-	    xapp >>
-	    xsimpl >>
-	    fs[UNIT_TYPE_def] >>
-	    (* Should be partially automatized *)
-	    qexists_tac `vvs ++ [xv]` >>
-     `LENGTH junk = 0` by (
-                `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-	        bossLib.DECIDE_TAC
-	    ) >>
-	    fs[LENGTH_NIL] >>
-	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs (get_retract_thms())
-	    (*---------------------------------*)
-	) >>
-	xlet_auto >-(xsimpl) >>
-	xlet_auto >-(xsimpl) >>
-	xlet_auto >-(xcon >> xsimpl) >>
-	xapp >>
-	xsimpl >>
-	(* Should be partially automatized *)
-	fs[UNIT_TYPE_def] >>
-	qexists_tac `vvs ++ [xv]` >>
-	qexists_tac `TL junk` >>
-	fs (get_retract_thms()) >>
-        `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
-        `vvs++[h]++t = vvs++h::t` by rw[] >>
-	POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-);
+val full_spec = Q.store_thm("full_spec",
+  `app (p:'ffi ffi_proj) ^(fetch_v "full" st) [qv]
+       (QUEUE A mx vs qv)
+       (POSTv bv. &(BOOL (LENGTH vs = mx) bv) * QUEUE A mx vs qv)`,
+  xcf "full" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
+  reverse (rw[]) >- EVAL_TAC (* validate_pat *) >>
+  xlet_auto >- xsimpl >>
+  xapp_spec (cf_spec “:'ffi” Translator_spec eq_int_thm) >> xsimpl >>
+  fs[ml_translatorTheory.BOOL_def, ml_translatorTheory.NUM_def] >>
+  rpt (goal_assum (first_assum o mp_then.mp_then (mp_then.Pos hd) mp_tac)) >>
+  imp_res_tac LIST_REL_LENGTH >> simp[] >> metis_tac[]);
 
-val push_spec = Q.store_thm ("push_spec",
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
-          (QUEUE A vs qv * & A x xv)
-	  (POSTv uv. QUEUE A (vs ++ [x]) qv)`,
-    xcf "push" st >>
-    simp[QUEUE_def] >>
-    xpull >>
-    xs_auto_tac >>
-    reverse(rw[]) >- EVAL_TAC >>
+val enqueue_spec = Q.store_thm ("enqueue_spec",
+    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "enqueue" st) [qv; xv]
+          (QUEUE A mx vs qv * & (A x xv ∧ LENGTH vs < mx))
+          (POSTv uv. QUEUE A mx (vs ++ [x]) qv)`,
+    xcf "enqueue" st >>
+    xpull >> xs_auto_tac >>
+    xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
+    >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
+        map_every qexists_tac [`vs`, `mx`, `A`] >> xsimpl) >>
+    xs_auto_tac >> qexists_tac `F` >> simp[] >>
+    simp[QUEUE_def] >> xpull >> xs_auto_tac >> reverse (rw[])
+    >- EVAL_TAC >>
     xs_auto_tac
-	(* 3 subgoals *)
-	>-(fs[REPLICATE, REPLICATE_APPEND_DECOMPOSE_SYM, LENGTH_REPLICATE])
-	>-(
-	    fs[UNIT_TYPE_def] >>
-	    qexists_tac `vvs ++ [xv]` >>
-      `LENGTH junk = 0` by (
-          `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-	        bossLib.DECIDE_TAC
-	    ) >>
-	    fs[LENGTH_NIL] >>
-	    fs[REPLICATE, REPLICATE_PLUS_ONE] >>
-	    fs (get_retract_thms())
-	) >>
-	fs[UNIT_TYPE_def] >>
-	qexists_tac `vvs ++ [xv]` >>
-	qexists_tac `TL junk` >>
-	fs (get_retract_thms()) >>
-        `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-	Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
-        `vvs++[h]++t = vvs++h::t` by rw[] >>
-	POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-);
+    >- (imp_res_tac LIST_REL_LENGTH >> fs[lqueue_def])
+    >- (imp_res_tac LIST_REL_LENGTH >> strip_tac >> fs[]) >>
+    simp[ml_translatorTheory.UNIT_TYPE_def] >>
+    qexists_tac ‘LUPDATE x r qels’ >> simp[EVERY2_LUPDATE_same] >>
+    fs[ml_translatorTheory.NUM_def] >>
+    qpat_x_assum `INT (_ % _) _` mp_tac >> imp_res_tac LIST_REL_LENGTH >>
+    ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
+    strip_tac >>
+    rpt (goal_assum (first_assum o mp_then.mp_then (mp_then.Pos hd) mp_tac)) >>
+    simp[lqueue_enqueue]);
 
-val eq_num_v_thm =
-  mlbasicsProgTheory.eq_v_thm
-  |> DISCH_ALL
-  |> C MATCH_MP (EqualityType_NUM_BOOL |> CONJUNCT1);
-
-val pop_spec = Q.store_thm("pop_spec",
-  `!qv.
-   EqualityType A ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
-   (QUEUE A vs qv)
-   (POST (\v. &(not(NULL vs) /\ A (LAST vs) v) * QUEUE A (FRONT vs) qv)
-	 (\e. &(NULL vs /\ EmptyQueue_exn e) * QUEUE A vs qv))`,
-   xcf "pop" st >>
-   simp[QUEUE_def] >>
-   xpull >>
-   xlet_auto >-(xsimpl)>>
-   xmatch >>
-   reverse(rw[]) >- EVAL_TAC >>
-   xlet_auto >-(xsimpl) >>
-   xif
-   >-(
-       xlet_auto >-(xcon >> xsimpl) >>
-       xraise >>
-       xsimpl >>
-       fs[EmptyQueue_exn_def] >>
-       rw[] >>
-       irule FALSITY >>
-       fs[computeLib.EVAL_CONV ``not T``]
-   ) >>
-   xlet_auto >-(xsimpl) >>
-   xlet_auto
-   >-(
-       xsimpl >>
-       `vvs <> []` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL] >>
-       `LENGTH vs <> 0 /\ LENGTH vvs <> 0` by metis_tac[LENGTH_NIL] >>
-       `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-       bossLib.DECIDE_TAC
-   ) >>
-   xlet_auto >-(xsimpl) >>
-   xlet_auto >-(xcon >> xsimpl) >>
-   xlet_auto >-(xsimpl) >>
-   xvar
-   >-(
-      xsimpl >>
-      qexists_tac `FRONT vvs` >>
-      qexists_tac `[LAST vvs] ++ junk` >>
-      fs[mlbasicsProgTheory.not_def, NULL_EQ] >>
-      `vvs <> [] /\ LENGTH vs <> 0 /\ LENGTH vvs <> 0` by metis_tac[LIST_REL_LENGTH, LENGTH_NIL] >>
-      `LENGTH vs = LENGTH vvs` by metis_tac[LIST_REL_LENGTH] >>
-      FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-      `LENGTH vvs - 1 = PRE(LENGTH vvs)` by rw[] >>
-      FIRST_ASSUM (fn x => fs[x]) >>
-      fs[EL_APPEND_EQN, GSYM LAST_EL, LIST_REL_FRONT_LAST] >>
-      fs[APPEND_FRONT_LAST] >>
-      rw[LENGTH_FRONT] >>
-      `PRE(LENGTH vvs) = LENGTH vvs - 1` by rw[] >>
-      POP_ASSUM(fn x => fs[x]) >>
-      fs[NUM_def, int_arithTheory.INT_NUM_SUB]
-  ) >>
-  xsimpl >>
+val LIST_REL_REL_lqueue_HD = Q.store_thm(
+  "LIST_REL_REL_lqueue_HD",
+  ‘LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)’,
+  simp[lqueue_def] >> rw[]
+  >- (imp_res_tac LIST_REL_SPLIT1 >> rw[] >>
+      first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
+      rw[] >>
+      first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
+      fs[LIST_REL_CONS1] >> rw[] >> imp_res_tac LIST_REL_LENGTH >>
+      simp[EL_APPEND1, EL_APPEND2]) >>
+  Cases_on `p` >> fs[] >>
+  first_x_assum (strip_assume_tac o MATCH_MP (GEN_ALL LIST_REL_SPLIT1)) >>
   rw[] >>
-  fs[NULL_EQ]
-);
+  fs[LIST_REL_CONS1] >> rw[] >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+  simp[EL_APPEND1, EL_APPEND2]);
+
+
+val dequeue_spec_noexn = Q.prove(
+    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
+          (QUEUE A mx vs qv * &(vs ≠ []))
+          (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)`,
+    xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
+    reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif >>
+    qexists_tac `F` >> simp[] >> xs_auto_tac
+    >- (imp_res_tac LIST_REL_LENGTH >> fs[lqueue_def])
+    >- (strip_tac >> fs[]) >>
+    dsimp[] >> fs[ml_translatorTheory.NUM_def] >>
+    rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+    qpat_x_assum ‘INT (_ % _) _’ mp_tac >> imp_res_tac LIST_REL_LENGTH >>
+    ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
+    strip_tac >>
+    rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+    Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
+    metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
+
+val dequeue_spec = Q.store_thm(
+  "dequeue_spec",
+  ‘∀p qv xv vs x A mx.
+      app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
+          (QUEUE A mx vs qv)
+       (POST (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
+             (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))’,
+  xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
+  reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
+  >- ((* throws exception *)
+      xs_auto_tac >> rw[] >> xraise >> xsimpl >> dsimp[] >> fs[] >>
+      simp[EmptyQueue_exn_def] >> metis_tac[]) >>
+  (* as before *)
+  xs_auto_tac
+  >- (imp_res_tac LIST_REL_LENGTH >> fs[lqueue_def])
+  >- (strip_tac >> fs[]) >>
+  dsimp[] >> fs[ml_translatorTheory.NUM_def] >>
+  rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+  qpat_x_assum ‘INT (_ % _) _’ mp_tac >> imp_res_tac LIST_REL_LENGTH >>
+  ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
+  strip_tac >>
+  rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+  Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
+  metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
 
 val _ = export_theory ()

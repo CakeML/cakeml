@@ -29,10 +29,10 @@ val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 (* Trace of an expression through the compiler, for exploring transformations *)
 val _ = Datatype`
   tra =
-    | Empty
-    | None (* Dead trace, do not make traces at all *)
+    | SourceLoc num (* start-row *) num (* start-col *) num (* end-row *) num (* end-col *)
     | Cons tra num
-    | Union tra tra`
+    | Union tra tra
+    | None (* Dead trace, do not make traces at all *)`
 
 (* The code below replaces "Cons" in hol output with the chosen symbol *)
 val _ = set_fixity "▷" (Infixl 480);
@@ -46,7 +46,7 @@ val _ = overload_on ("▷", Term `backend_common$Cons`);
 * It's structure guarantees it will not conflict with any trace originating from
 * source, since the always start with four Cons, indicating source position. *)
 val orphan_trace_def = Define`
-  orphan_trace = Union Empty Empty`;
+  orphan_trace = SourceLoc 2 2 1 1`;
 
 (* Create new Cons trace, unless original trace is `None`, indicating traces are
 * turned off. *)
