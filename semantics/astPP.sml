@@ -5,21 +5,26 @@ open HolKernel boolLib bossLib Parse astTheory stringLib
 open Portable smpp term_pp_types
 
 (* Bring forward explicitly so that the PP rules don't confuse things*)
-fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
+fun bring_fwd_ctors ty =
+  TypeBase.constructors_of ty
+  |> map (fn cn =>
+    let val {Thy,Name,...} = dest_thy_const cn in
+      Parse.bring_to_front_overload Name {Name=Name,Thy=Thy}
+    end)
 
-val _ = bring_fwd_ctors "ast" ``:ast$lit``
-val _ = bring_fwd_ctors "ast" ``:ast$opn``
-val _ = bring_fwd_ctors "ast" ``:ast$opb``
-val _ = bring_fwd_ctors "namespace" ``:('a,'b) namespace$id``
-val _ = bring_fwd_ctors "ast" ``:ast$op``
-val _ = bring_fwd_ctors "ast" ``:ast$lop``
-val _ = bring_fwd_ctors "ast" ``:ast$tctor``
-val _ = bring_fwd_ctors "ast" ``:ast$t``
-val _ = bring_fwd_ctors "ast" ``:ast$pat``
-val _ = bring_fwd_ctors "ast" ``:ast$exp``
-val _ = bring_fwd_ctors "ast" ``:ast$dec``
-val _ = bring_fwd_ctors "ast" ``:ast$spec``
-val _ = bring_fwd_ctors "ast" ``:ast$top``
+val _ = bring_fwd_ctors ``:ast$lit``
+val _ = bring_fwd_ctors ``:ast$opn``
+val _ = bring_fwd_ctors ``:ast$opb``
+val _ = bring_fwd_ctors ``:('a,'b) namespace$id``
+val _ = bring_fwd_ctors ``:ast$op``
+val _ = bring_fwd_ctors ``:ast$lop``
+val _ = bring_fwd_ctors ``:ast$tctor``
+val _ = bring_fwd_ctors ``:ast$t``
+val _ = bring_fwd_ctors ``:ast$pat``
+val _ = bring_fwd_ctors ``:ast$exp``
+val _ = bring_fwd_ctors ``:ast$dec``
+val _ = bring_fwd_ctors ``:ast$spec``
+val _ = bring_fwd_ctors ``:ast$top``
 
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 

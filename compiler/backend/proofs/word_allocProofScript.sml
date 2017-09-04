@@ -26,11 +26,6 @@ val INJ_less = Q.prove(`
   INJ f s UNIV`,
   metis_tac[INJ_DEF,SUBSET_DEF])
 
-val list_max_max = Q.store_thm("list_max_max",
-  `∀ls.  EVERY (λx. x ≤ list_max ls) ls`,
-  Induct>>full_simp_tac(srw_ss())[list_max_def,LET_THM]>>srw_tac[][]>>full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>
-  res_tac >> decide_tac);
-
 (* TODO: can we have a global for this *)
 val hide_def = Define`
   hide x = x`;
@@ -462,22 +457,6 @@ val list_rearrange_keys = Q.store_thm("list_rearrange_keys",`
   set(MAP FST e) = set(MAP FST ls)`,
   full_simp_tac(srw_ss())[LET_THM,EXTENSION]>>srw_tac[][EQ_IMP_THM]>>
   metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP]);
-
-val push_env_pop_env_s_key_eq = Q.store_thm("push_env_pop_env_s_key_eq",
-  `∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
-       ∃l ls opt.
-              t.stack = (StackFrame l opt)::ls ∧
-              ∃y. (pop_env t = SOME y ∧
-                   y.locals = fromAList l ∧
-                   domain x = domain y.locals ∧
-                   s_key_eq s.stack y.stack)`,
-  srw_tac[][]>>Cases_on`b`>>TRY(PairCases_on`x'`)>>full_simp_tac(srw_ss())[push_env_def]>>
-  full_simp_tac(srw_ss())[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
-  full_simp_tac(srw_ss())[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
-  full_simp_tac(srw_ss())[domain_fromAList,s_frame_key_eq_def]>>
-  qpat_x_assum `A = MAP FST l` (SUBST1_TAC o SYM)>>
-  full_simp_tac(srw_ss())[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
-    ,EXISTS_PROD,domain_lookup]);
 
 val pop_env_frame = Q.store_thm("pop_env_frame",
   `s_val_eq r'.stack st' ∧
@@ -6841,39 +6820,5 @@ val remove_dead_conventions = Q.store_thm("remove_dead_conventions",
   rpt(pairarg_tac>>fs[])>>
   rw[]>> fs convs>>
   EVERY_CASE_TAC>>fs convs);
-
-(* MISC *)
-val list_max_IMP = Q.prove(`
-  ∀ls.
-  P 0 ∧ EVERY P ls ⇒ P (list_max ls)`,
-  Induct>>full_simp_tac(srw_ss())[list_max_def]>>srw_tac[][]>>
-  IF_CASES_TAC>>full_simp_tac(srw_ss())[]);
-
-val max_var_exp_IMP = Q.prove(`
-  ∀exp.
-  P 0 ∧ every_var_exp P exp ⇒
-  P (max_var_exp exp)`,
-  ho_match_mp_tac max_var_exp_ind>>full_simp_tac(srw_ss())[max_var_exp_def,every_var_exp_def]>>
-  srw_tac[][]>>
-  match_mp_tac list_max_IMP>>
-  full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]);
-
-val max_var_IMP = Q.store_thm("max_var_IMP",`
-  ∀prog.
-  P 0 ∧ every_var P prog ⇒
-  P (max_var prog)`,
-  ho_match_mp_tac max_var_ind>>
-  full_simp_tac(srw_ss())[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>srw_tac[][]>>
-  TRY(metis_tac[max_var_exp_IMP])>>
-  TRY (match_mp_tac list_max_IMP>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
-    full_simp_tac(srw_ss())[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def])
-  >-
-    (TOP_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[list_max_IMP]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>srw_tac[][]>>
-    match_mp_tac list_max_IMP>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
-  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def]));
 
 val _ = export_theory();

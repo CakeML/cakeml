@@ -7,12 +7,6 @@ val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val list_subset_def = Define `
-list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
-
-val list_set_eq = Define `
-list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
-
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
 (* 'a is the type of the state, 'b is the type of successful computations, and

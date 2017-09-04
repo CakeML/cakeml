@@ -2,45 +2,6 @@ open preamble exportTheory
 
 val () = new_theory "export_riscv";
 
-val preamble =
-  ``(MAP (\n. strlit(n ++ "\n"))
-      ["#### Preprocessor to get around Mac OS and Linux differences in naming";
-       "";
-       "#if defined(__APPLE__)";
-       "# define cdecl(s) _##s";
-       "#else";
-       "# define cdecl(s) s";
-       "#endif";
-       "";
-       "     .file        \"cake.S\"";
-       ""])`` |> EVAL |> concl |> rand
-
-val heap_stack_space =
-  `` (MAP (\n. strlit (n ++ "\n"))
-       ["#### Data section -- modify the numbers to change stack/heap size";
-        "";
-        "     .bss";
-        "     .p2align 3";
-        "cake_heap:"] ++
-      [implode("     .space 1024 * 1024 * " ++ num_to_str heap_space ++ "\n")] ++
-      MAP (\n. strlit (n ++ "\n"))
-       ["     .p2align 3";
-        "cake_stack:"] ++
-      [implode("     .space 1024 * 1024 * " ++ num_to_str stack_space ++ "\n")] ++
-      MAP (\n. (strlit (n ++ "\n")))
-       ["     .p2align 3";
-        "cake_end:";
-        "";
-        "     .data";
-        "     .p2align 3";
-        "cdecl(argc): .quad 0";
-        "cdecl(argv): .quad 0";
-        ""])``
-      |> (PATH_CONV"r" EVAL THENC
-          PATH_CONV"lrlrr" EVAL THENC
-          PATH_CONV"lrlrlrlr" EVAL)
-      |> concl |> rand
-
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
       ["#### Start up code";
@@ -58,6 +19,8 @@ val startup =
        "     sd      a1, 0(x4)      # a1 stores argv";
        "     la      a0,cake_main   # arg1: entry address";
        "     la      a1,cake_heap   # arg2: first address of heap";
+       "     la      t3,cake_bitmaps";
+       "     sd      t3, 0(a1)      # store bitmap pointer";
        "     la      t3,cake_stack  # arg3: first address of stack";
        "     la      x4,cake_end    # arg4: first address past the stack";
        "     j       cake_main";
@@ -99,17 +62,12 @@ val ffi_code =
        ""])))`` |> EVAL |> concl |> rand
 
 val riscv_export_def = Define `
-  riscv_export ffi_names heap_space stack_space bytes =
+  riscv_export ffi_names heap_space stack_space bytes (data:word64 list) =
     SmartAppend
-      (SmartAppend (List ^preamble)
-      (SmartAppend (List ^heap_stack_space)
-      (SmartAppend (List ^startup) ^ffi_code)))
-      (split16 bytes)`;
-
-(*
-  EVAL ``append (riscv_export ["getArgs";"putChar";"getChar"] 400 300 [3w;4w;5w])``
-  |> concl |> rand |> listSyntax.dest_list |> fst |> map rand
-  |> map stringSyntax.fromHOLstring |> concat |> print
-*)
+      (SmartAppend (List preamble)
+      (SmartAppend (List (data_section ".quad" heap_space stack_space))
+      (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
+      (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
+      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
 
 val _ = export_theory ();

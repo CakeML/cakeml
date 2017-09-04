@@ -1,11 +1,11 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open explorerProgTheory;
+open sexp_parserProgTheory;
 
 val _ = new_theory "to_word32Prog"
 
-val _ = translation_extends "explorerProg";
+val _ = translation_extends "sexp_parserProg";
 
 val RW = REWRITE_RULE
 
@@ -540,7 +540,7 @@ val _ = translate (spec32 const_fp_loop_def)
 
 val _ = translate (spec32 compile_exp_def)
 
-val _ = translate (spec32 max_var_def)
+val _ = translate (spec32 wordLangTheory.max_var_def)
 
 val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi)
 

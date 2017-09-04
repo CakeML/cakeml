@@ -1,4 +1,4 @@
-INCLUDES = ../../../../translator ../../../../characteristic .. ../../../riscv \
+INCLUDES = ../../../../translator ../../../../characteristic ../../../../basis .. ../../../riscv \
            ../../../encoders/riscv ../../../backend/riscv $(HOLDIR)/examples/l3-machine-code/riscv/model
 OPTIONS = QUIT_ON_FAILURE
 

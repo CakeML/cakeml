@@ -3,6 +3,8 @@
 *)
 
 open preamble
+     mlstringTheory
+     mlfileioProgTheory
 
 val _ = new_theory"splitwords";
 
@@ -14,6 +16,8 @@ EVAL ``splitwords (strlit"hello there hello how are you one two one two three")`
 
 val splitwords_nil = Q.store_thm("splitwords_nil[simp]",
   `splitwords (implode "") = []`, EVAL_TAC);
+val splitwords_nil_lit = Q.store_thm("splitwords_nil_lit[simp]",
+  `splitwords (strlit "") = []`, EVAL_TAC);
 
 val splitwords_concat = Q.store_thm("splitwords_concat",
   `isSpace sp ⇒
@@ -23,7 +27,7 @@ val splitwords_concat = Q.store_thm("splitwords_concat",
 val splitwords_concat_space = Q.store_thm("splitwords_concat_space",
   `isSpace sp ⇒ splitwords (s1 ^ str sp) = splitwords s1`,
   rw[] \\ qspec_then`implode ""`mp_tac(Q.GEN`s2`splitwords_concat) \\
-  fs[mlstringTheory.strcat_def]);
+  fs[mlstringTheory.strcat_thm]);
 
 val splitwords_all_lines = Q.store_thm("splitwords_all_lines",
   `FLAT (MAP splitwords (all_lines fs fname)) =
@@ -61,6 +65,8 @@ EVAL``frequency (strlit"hello there hello how are you one two one two three") (s
 
 val frequency_nil = Q.store_thm("frequency_nil[simp]",
   `frequency (implode "") w = 0`, EVAL_TAC);
+val frequency_nil_lit = Q.store_thm("frequency_nil_lit[simp]",
+  `frequency (strlit "") w = 0`, EVAL_TAC);
 
 val frequency_concat = Q.store_thm("frequency_concat",
   `isSpace sp ⇒
