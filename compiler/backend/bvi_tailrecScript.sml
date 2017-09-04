@@ -3,7 +3,7 @@ open backend_commonTheory;
 
 val _ = new_theory "bvi_tailrec";
 
-val _ = Define `dummy = bvi$Var 1234567890`;
+val dummy_def = Define `dummy = bvi$Var 1234567890`;
 
 val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
   `∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs`,
