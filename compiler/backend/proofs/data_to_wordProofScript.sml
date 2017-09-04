@@ -437,6 +437,14 @@ val domain_mapi = store_thm("domain_mapi[simp]",
   ``domain (mapi f x) = domain x``,
   cheat);
 
+val lookup_copy_shape = prove(
+  ``lookup n (copy_shape t1 t2) = lookup n t1``,
+  cheat);
+
+val lookup_mapi = prove(
+  ``lookup n t = SOME v ==> lookup n (mapi f t) = SOME (f n v)``,
+  cheat);
+
 val compile_correct = Q.store_thm("compile_correct",
   `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
@@ -455,16 +463,13 @@ val compile_correct = Q.store_thm("compile_correct",
                             ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`,
-
   gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ fs [wordSemTheory.state_component_equality]
   \\ rename1 `state_rel x0 l1 l2 s t2 [] []`
   \\ sg `?l2. code_rel t2.code l2 /\
               map (I ## remove_must_terminate) l2 = l`
-
   THEN1 (
-
     fs [boolTheory.SKOLEM_THM,METIS_PROVE [] ``(b ==> ?x. P x) <=> ?x. b ==> P x``]
     \\ fs [spt_eq,lookup_map,eq_shape_map]
     \\ simp [spt_eq,lookup_map,domain_lookup,EXTENSION,PULL_EXISTS,FORALL_PROD]
@@ -481,8 +486,8 @@ val compile_correct = Q.store_thm("compile_correct",
      (qho_match_abbrev_tac `?l3. _ l3 /\ !n v. _ n v ==> _ n l3 = SOME (ff n v)`
       \\ qexists_tac `copy_shape (mapi ff t2.code) l`
       \\ conj_tac THEN1 (fs [] \\ match_mp_tac shape_eq_copy_shape \\ fs [])
-      \\ fs [] \\ cheat)
-
+      \\ fs [lookup_copy_shape]
+      \\ rw [] \\ match_mp_tac lookup_mapi \\ fs [])
     \\ qexists_tac `l3`
     \\ rw [] \\ res_tac \\ fs []
     THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
@@ -495,7 +500,6 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ `?v21 v22. lookup k t2.code = SOME (v21,v22)` by metis_tac []
     \\ res_tac
     \\ fs [] \\ rveq \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
-
   \\ drule (compile_word_to_word_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ `domain l2' = domain l` by (rveq \\ fs [domain_map])
   \\ `domain t2.code = domain l2'` by fs []
