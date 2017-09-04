@@ -383,15 +383,15 @@ val state_rel_ext_def = Define `
       domain t.code = domain l /\
       t.termdep > 1 /\
       (?tt kk aa co.
-         t.compile_oracle =
+         u.compile_oracle =
            (I ## MAP (λp. full_compile_single tt kk aa co (p,NONE))) ∘
-             u.compile_oracle /\
+             t.compile_oracle /\
          t.compile = (λconf progs. u.compile conf
            (MAP (λp. full_compile_single tt kk aa co (p,NONE)) progs))) /\
       (!n v. lookup n t.code = SOME v ==>
              ∃t' k' a' c' col.
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
-      u = t with <| code := l; termdep:=0; compile:=u.compile |>`
+      u = t with <| code := l; termdep:=0; compile:=u.compile; compile_oracle := u.compile_oracle|>`
 
 val eq_shape_def = Define `
   eq_shape LN LN = T /\
@@ -810,45 +810,61 @@ val compile_semantics_lemma = Q.store_thm("compile_semantics_lemma",
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
   simp[EL_APPEND1]);
 
-fun define_abbrev name tm = let
-  val vs = free_vars tm |> sort
-    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
-  val vars = foldr mk_pair (last vs) (butlast vs)
-  val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
-  in Define `^n ^vars = ^tm` end
+val code_rel_ext_def = Define`
+  code_rel_ext code l ⇔
+  (∀n p_1 p_2.
+        SOME (p_1,p_2) = lookup n code ⇒
+        ∃t' k' a' c' col.
+          SOME
+            (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
+          lookup n l)`
 
-val code_termdep_equiv = Q.prove(
-  `t' with <|code := l; termdep := 0|> = t <=>
-    ?x1 x2.
-      t.code = l /\ t.termdep = 0 /\ t' = t with <|code := x1; termdep := x2|>`,
-  fs [wordSemTheory.state_component_equality] \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
-
-val compile_semantics = save_thm("compile_semantics",let
-  val th1 =
-    compile_semantics_lemma |> Q.GEN `conf`
-    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-    |> REWRITE_RULE [state_rel_ext_def]
-    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-    |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO,
-         FORALL_PROD,PULL_EXISTS] |> SPEC_ALL
-    |> ONCE_REWRITE_RULE [EQ_SYM_EQ]
-    |> REWRITE_RULE [ASSUME ``(t:('a,'c,'ffi) wordSem$state).clock =
-                              (t':('a,'c,'ffi) wordSem$state).clock``]
-    |> (fn th => MATCH_MP th (UNDISCH state_rel_init
-            |> Q.INST [`l1`|->`1`,`l2`|->`0`,`code`|->`fromAList prog`,`t`|->`t'`]))
-    |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
-    |> SIMP_RULE std_ss [METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``]
-    |> DISCH ``(t':('a,'c,'ffi) wordSem$state).code = code``
-    |> SIMP_RULE std_ss [] |> UNDISCH |> UNDISCH
-  val def = define_abbrev "code_rel_ext" (th1 |> concl |> dest_imp |> fst)
-  in th1 |> REWRITE_RULE [GSYM def,code_termdep_equiv]
-         |> SIMP_RULE std_ss [PULL_EXISTS,PULL_FORALL] |> SPEC_ALL
-         |> DISCH_ALL |> GEN_ALL |> SIMP_RULE (srw_ss()) []
-         |> Q.SPEC `2` |> SIMP_RULE std_ss []
-         |> SPEC_ALL
-         |> SIMP_RULE std_ss []
-         |> UNDISCH
-         |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC] end);
+val compile_semantics = Q.store_thm("compile_semantics",`
+   (* Definitely correct *)
+   t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
+   init_store_ok c t.store t.memory t.mdomain ∧
+   good_dimindex (:α) ∧
+   lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧ conf_ok (:α) c ∧
+   t.termdep = 0 ∧
+   (* Maybe? *)
+   t.code_buffer.buffer = [] ∧
+   t.data_buffer.buffer = [] ∧
+   (* Construct an intermediate state *)
+   code_rel c (fromAList prog) x1 ∧
+   (* Explicitly instantiate code_oracle_rel at the intermediate state *)
+   cc = (λcfg.
+        lift (I ## MAP w2w ## I) ∘ tcc cfg ∘
+        MAP (compile_part c)) ∧
+   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
+   (∀n. EVERY (λ(n,_). data_num_stubs ≤ n) (SND (co n))) ∧
+   (* Construct the next composition *)
+   code_rel_ext x1 t.code ∧
+   domain x1 = domain t.code ∧
+   t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
+   Abbrev (tcc = (λconf progs.
+    t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
+   Fail ≠ semantics t.ffi (fromAList prog) co cc start ⇒
+   semantics t start ∈
+   extend_with_resource_limit
+   {semantics t.ffi (fromAList prog) co cc start}`,
+   rw[]>>
+   match_mp_tac (GEN_ALL compile_semantics_lemma)>>
+   qexists_tac`c`>>fs[state_rel_ext_def]>>rw[]>>
+   fs[code_rel_ext_def]>>
+   qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
+   simp[wordSemTheory.state_component_equality]>>
+   CONJ_TAC>-
+     (qmatch_goalsub_abbrev_tac`state_rel _ _ _ _ ttt`>>
+     `t.clock = ttt.clock` by
+       fs[Abbr`ttt`]>>
+     simp[]>>
+     match_mp_tac state_rel_init>>
+     unabbrev_all_tac>>fs[code_oracle_rel_def])>>
+   CONJ_TAC>-
+     (unabbrev_all_tac>>fs[]>>
+     metis_tac[])>>
+   fs[FORALL_PROD]>>
+   metis_tac[]);
 
 val code_rel_ext_def = definition"code_rel_ext_def";
 
@@ -934,7 +950,7 @@ val data_to_word_lab_pres_lem = Q.store_thm("data_to_word_lab_pres_lem",`
     rw[]>> res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[]));
 
-open match_goal
+open match_goal;
 
 val labels_rel_emp = Q.prove(`
   labels_rel [] ls ⇒ ls = [] `,
@@ -1122,11 +1138,10 @@ val MAP_FST_stubs_bound = Q.store_thm("MAP_FST_stubs_bound",
   Cases_on`a` \\ EVAL_TAC
   \\ strip_tac \\ rveq \\ EVAL_TAC);
 
-(* broken
 val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   `∀code c1 col code'.
    compile c1 c2 code = (col,code') ⇒
-   code_rel_ext (fromAList code, fromAList code')`,
+   code_rel_ext (fromAList code) (fromAList code')`,
   simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
   ntac 2 gen_tac \\
   map_every qspec_tac (map swap [(`r`,`c1.reg_alg`), (`col`,`c1.col_oracle`)]) \\
@@ -1140,6 +1155,6 @@ val code_rel_ext_word_to_word = Q.store_thm("code_rel_ext_word_to_word",
   PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
   rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
   simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
-  metis_tac[]); *)
+  metis_tac[]);
 
 val _ = export_theory();
