@@ -51,7 +51,7 @@ val empty_def = mlDefine `
   empty = QUEUE 0 [] Idle 0 []`
 
 val is_empty_def = mlDefine `
-  is_empty lenf _ _ _ _ = (lenf = 0)`;
+  is_empty lenf _ _ _ _ = (lenf = 0:num)`;
 
 val snoc_def = mlDefine `
   snoc (QUEUE lenf f state lenr r) x =
