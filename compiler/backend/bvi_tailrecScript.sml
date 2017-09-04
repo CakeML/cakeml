@@ -21,8 +21,12 @@ val is_arith_op_def = Define `
   is_arith_op Sub       = T ∧
   is_arith_op Div       = T ∧
   is_arith_op Mod       = T ∧
-  is_arith_op (Const _) = T ∧
   is_arith_op _         = F
+  `;
+
+val is_const_def = Define `
+  (is_const (Const i) ⇔ small_int i) ∧
+  (is_const _         ⇔ F)
   `;
 
 val is_num_rel_def = Define `
@@ -49,7 +53,7 @@ val _ = Datatype `v_ty = Int | Any`;
 val to_op_def = Define `
   (to_op Plus  = Add) ∧
   (to_op Times = Mult) ∧
-  (to_op Noop  = Const 0)
+  (to_op Noop  = Mod)
   `;
 
 val from_op_def = Define `
@@ -197,7 +201,7 @@ val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
-    let ok_type = is_arith_op op in
+    let ok_type = (is_arith_op op ∨ is_const op) in
     let iop =
       if op = Add ∨ op = Mult then
         let iop = from_op op in
