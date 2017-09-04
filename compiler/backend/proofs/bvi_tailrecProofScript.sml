@@ -175,6 +175,7 @@ val scan_expr_Op = Q.store_thm ("scan_expr_Op",
        op = to_op iop1 ∧
        iop1 = iop2`,
   rw [scan_expr_def]
+  \\ fs [is_arith_op_def, is_const_def] \\ rw []
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [rewrite_op_def]
   \\ simp [op_eq_def, to_op_def, from_op_def]
@@ -890,6 +891,28 @@ val ty_rel_APPEND = Q.prove (
   >- (fs [ty_rel_def, LIST_REL_EL_EQN])
   \\ fs [ty_rel_def, LIST_REL_APPEND_EQ]);
 
+val try_update_mono = Q.prove (
+  `∀ts n m.
+   EL n ts = Int ⇒
+     EL n (try_update Int (SOME m) ts) = Int`,
+  Induct \\ rw [try_update_def]
+  \\ Cases_on `m`
+  >-
+   (fs []
+    \\ Cases_on `n` \\ fs [])
+  \\ fs [EL_TAKE]
+  \\ first_x_assum (qspec_then `n - 1` mp_tac)
+  \\ disch_then (qspec_then `n'` assume_tac)
+  \\ Cases_on `n` \\ fs []
+  \\ rfs [try_update_def, ADD1]);
+
+val MAP2_EL = Q.prove (
+  `∀ts tt n.
+    n < MIN (LENGTH ts) (LENGTH tt) ⇒
+      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
+  Induct \\ rw []
+  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
+
 val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
   `∀ts loc xs env ys (s: 'ffi bviSem$state) vs (t: 'ffi bviSem$state).
      ty_rel env ts ∧
@@ -956,19 +979,94 @@ val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
   \\ pop_assum mp_tac
   \\ ntac 4 (PURE_TOP_CASE_TAC \\ fs [])
   \\ strip_tac \\ rveq
-  \\ reverse conj_tac
+  \\ reverse conj_tac \\ fs []
   >-
    (pop_assum mp_tac
-    \\ Cases_on `op` \\ fs [is_arith_op_def]
+    \\ Cases_on `op` \\ fs [is_arith_op_def, is_const_def]
     \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
     \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
   \\ IF_CASES_TAC >- fs []
   \\ `¬is_arith_op op ⇒ is_num_rel op` by fs []
   \\ qpat_x_assum `¬(_)` kall_tac
   \\ PURE_TOP_CASE_TAC \\ fs [] \\ rveq
-  \\ cheat (* TODO try_update things; they are variables if the index_of is *)
-           (*      SOME, in which case they are bound (because of evaluate) *)
-  );
+  \\ Cases_on `∃n. e1 = Var n` \\ fs [] \\ rveq
+  >-
+   (Cases_on `∃m. e2 = Var m` \\ fs [] \\ rveq
+    >-
+     (sg `∃k. EL n env = Number k ∧ ∃j. EL m env = Number j`
+      >-
+       (qpat_x_assum `evaluate _ = _` mp_tac
+        \\ simp [evaluate_def]
+        \\ IF_CASES_TAC \\ fs []
+        \\ IF_CASES_TAC \\ fs []
+        \\ rw []
+        \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
+        \\ Cases_on `op` \\ fs [is_arith_op_def, is_num_rel_def]
+        \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+        \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
+      \\ fs [ty_rel_def, LIST_REL_EL_EQN, MAP2_LENGTH, index_of_def,
+             try_update_LENGTH, MAP2_EL]
+      \\ rw []
+      \\ pop_assum mp_tac
+      \\ simp [try_update_def]
+      \\ TRY (IF_CASES_TAC \\ fs [])
+      \\ TRY
+       (Cases_on `n' < n` \\ fs [EL_TAKE, EL_APPEND1, EL_APPEND2]
+        \\ Cases_on `n' > n` \\ fs [EL_APPEND1, EL_APPEND2, EL_DROP]
+        \\ `n' = n` by fs [] \\ fs []
+        \\ NO_TAC)
+      \\ Cases_on `n' < m` \\ fs [EL_TAKE, EL_APPEND1, EL_APPEND2]
+      \\ Cases_on `n' > m` \\ fs [EL_APPEND1, EL_APPEND2, EL_DROP]
+      \\ `n' = m` by fs [] \\ fs [])
+    \\ sg `∃k. EL n env = Number k`
+    >-
+     (qpat_x_assum `evaluate _ = _` mp_tac
+      \\ simp [evaluate_def]
+      \\ IF_CASES_TAC \\ fs []
+      \\ PURE_TOP_CASE_TAC \\ fs []
+      \\ PURE_TOP_CASE_TAC \\ fs []
+      \\ rw []
+      \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
+      \\ Cases_on `op` \\ fs [is_arith_op_def, is_num_rel_def]
+      \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+      \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
+    \\ fs [ty_rel_def, LIST_REL_EL_EQN, MAP2_LENGTH, index_of_def,
+           try_update_LENGTH, MAP2_EL]
+    \\ rw []
+    \\ pop_assum mp_tac
+    \\ TRY (Cases_on `e2` \\ fs [index_of_def])
+    \\ simp [try_update_def]
+    \\ TRY (IF_CASES_TAC \\ fs [])
+    \\ Cases_on `n' < n` \\ fs [EL_TAKE, EL_APPEND1, EL_APPEND2]
+    \\ Cases_on `n' > n` \\ fs [EL_APPEND1, EL_APPEND2, EL_DROP]
+    \\ `n' = n` by fs [] \\ fs [])
+  \\ reverse (Cases_on `∃m. e2 = Var m`) \\ fs [] \\ rveq
+  >-
+   (fs [MAP2_EL, try_update_LENGTH, ty_rel_def, LIST_REL_EL_EQN]
+    \\ Cases_on `e1` \\ Cases_on `e2`
+    \\ fs [try_update_def, index_of_def] \\ rw [])
+  \\ sg `∃k. EL m env = Number k`
+  >-
+   (qpat_x_assum `evaluate _ = _` mp_tac
+    \\ simp [evaluate_def]
+    \\ PURE_TOP_CASE_TAC \\ fs []
+    \\ PURE_TOP_CASE_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+    \\ rw []
+    \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
+    \\ Cases_on `op` \\ fs [is_arith_op_def, is_num_rel_def]
+    \\ simp [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ rpt (PURE_CASE_TAC \\ fs []) \\ rw [])
+  \\ fs [ty_rel_def, LIST_REL_EL_EQN, MAP2_LENGTH, index_of_def,
+         try_update_LENGTH, MAP2_EL]
+  \\ rw []
+  \\ pop_assum mp_tac
+  \\ TRY (Cases_on `e1` \\ fs [index_of_def])
+  \\ simp [try_update_def]
+  \\ TRY (IF_CASES_TAC \\ fs [])
+  \\ Cases_on `n < m` \\ fs [EL_TAKE, EL_APPEND1, EL_APPEND2]
+  \\ Cases_on `n > m` \\ fs [EL_APPEND1, EL_APPEND2, EL_DROP]
+  \\ `n = m` by fs [] \\ fs []);
 
 (* TODO Some touch-ups are in order. *)
 val rewrite_scan_expr = Q.store_thm ("rewrite_scan_expr",
