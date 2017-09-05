@@ -2861,7 +2861,7 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
         stack_namesProofTheory.make_init_def,
         make_init_def,BIJ_FLOOKUP_MAPKEYS,
         flookup_fupdate_list]
-    \\ fs[memory_assumption_def] ) \\
+    \\ fs[memory_assumption_def] \\ cheat ) \\
   `t.ffi = s2.ffi` by
     (unabbrev_all_tac>>EVAL_TAC)>>
   CASE_TAC
@@ -2982,7 +2982,9 @@ val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
     init_store_ok c1
       (fmis.store \\ Handler)
        fmis.memory
-       fmis.mdomain`,
+       fmis.mdomain
+      fmis.code_buffer
+      fmis.data_buffer`,
   strip_tac \\ rveq \\
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
       stack_removeProofTheory.make_init_any_def]
@@ -2994,7 +2996,7 @@ val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
     \\ conj_tac THEN1 (CASE_TAC \\ fs [])
     \\ fs [set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,LENGTH_NIL]
     \\ fs [word_list_def,set_sepTheory.emp_def,set_sepTheory.fun2set_def]
-    \\ EVAL_TAC)
+    \\ EVAL_TAC \\ fs [n2w_mod])
   \\ fs [stack_removeProofTheory.make_init_opt_def]
   \\ every_case_tac \\ fs [] \\ NTAC 2 (pop_assum kall_tac) \\ rw []
   \\ fs [data_to_word_gcProofTheory.init_store_ok_def,

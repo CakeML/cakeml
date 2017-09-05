@@ -406,6 +406,8 @@ val make_init_def = Define `
         regs := MAP_KEYS (LINV (find_name f) UNIV) s.regs;
         compile := (λcfg. s.compile cfg o (compile f));
         compile_oracle := oracle;
+        code_buffer := <| position := 0w; buffer := []; space_left := 0 |>;
+        data_buffer := <| position := 0w; buffer := []; space_left := 0 |>;
         ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
