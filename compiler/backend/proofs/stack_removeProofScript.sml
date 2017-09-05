@@ -988,7 +988,7 @@ val mem_load_lemma = Q.prove(`
     ,word_store_def,GSYM word_mul_n2w, store_list_def
     ,word_list_rev_def,bytes_in_word_def] \\ rfs[] \\
   strip_tac>>
-  ntac 43 (
+  (* ntac 47 *) rpt (
   IF_CASES_TAC>>simp[Once one_fun2set]>>
   qmatch_abbrev_tac `P ∧ Q ∧ R ⇒ _`>>
   strip_tac
@@ -1027,7 +1027,7 @@ val mem_load_lemma2 = Q.prove(`
   simp[store_offset_def,store_pos_def,word_offset_def,word_offset_def,INDEX_FIND_def
     ,word_store_def,GSYM word_mul_n2w, store_list_def
     ,word_list_rev_def,bytes_in_word_def] \\ rfs[] \\
-  ntac 43(
+  (* ntac 47 *) rpt (
   IF_CASES_TAC>>simp[Once one_fun2set]>>
   qmatch_abbrev_tac `P ∧ Q ∧ R ⇒ _`>>
   strip_tac>>
@@ -1094,7 +1094,7 @@ val store_write_lemma = Q.prove(`
     qexists_tac`vv`>>
     first_x_assum ACCEPT_TAC)
   >>
-  ntac 42(
+  (* ntac 42 *) rpt (
   qpat_x_assum` _ (fun2set _)` mp_tac>>
   simp[Once (GSYM STAR_ASSOC)]>>
   simp[Once assoc_lem]>>strip_tac>>
@@ -2438,6 +2438,13 @@ val init_code_pre_def = Define `
       FLOOKUP s.regs 3 = SOME (Word ptr3) /\
       FLOOKUP s.regs 4 = SOME (Word ptr4) /\
       s.memory ptr2 = Word bitmap_ptr /\
+      s.memory (ptr2 + bytes_in_word) = Word (s.data_buffer.position) /\
+      s.memory (ptr2 + 2w * bytes_in_word) =
+         Word (s.data_buffer.position +
+               bytes_in_word * n2w s.data_buffer.space_left) /\
+      s.memory (ptr2 + 3w * bytes_in_word) = Word (s.code_buffer.position) /\
+      s.memory (ptr2 + 4w * bytes_in_word) =
+         Word (s.code_buffer.position + n2w s.code_buffer.space_left) /\
       (* NOTE: The last conjunct only needs to hold if
         the entry checks hold. Probably can make more assumptions
         about the bitmap_ptr too
@@ -2536,21 +2543,28 @@ val init_code_thm = Q.store_thm("init_code_thm",
   \\ disch_then drule
   \\ fs [aligned_or] \\ strip_tac
   \\ `byte_aligned ((n2w ptr2):'a word) ∧ byte_aligned ((n2w ptr4):'a word)` by
-    fs[alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]>>
-  `0 < w2n (((n2w ptr4):'a word) + -1w *n2w ptr2) DIV w2n (bytes_in_word:'a word)` by
+    fs[alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
+  \\ `min_stack-1 < w2n (((n2w ptr4):'a word) + -1w *n2w ptr2) DIV w2n (bytes_in_word:'a word)` by
     (fs[word_lo_n2w,bytes_in_word_def,word_mul_n2w]>>
     rfs[sub_rewrite,word_lo_n2w,NOT_LESS]>>
     fs[]>>
     DEP_REWRITE_TAC[LESS_MOD]>>
     fs[labPropsTheory.good_dimindex_def,dimword_def]>>rfs[]>>
-    match_mp_tac bitTheory.DIV_GT0>>
-    fs[markerTheory.Abbrev_def])>>
-  `n2w ptr2 ∈ s.mdomain` by (
-    fs[] \\
-    qmatch_assum_rename_tac`0 < x` \\
+    fs [X_LT_DIV,EVAL ``LENGTH store_list``,Abbr`min_stack`])
+  \\ `n2w ptr2 ∈ s.mdomain /\
+    n2w ptr2 + bytes_in_word ∈ s.mdomain /\
+    n2w ptr2 + 2w * bytes_in_word ∈ s.mdomain /\
+    n2w ptr2 + 3w * bytes_in_word ∈ s.mdomain /\
+    n2w ptr2 + 4w * bytes_in_word ∈ s.mdomain` by (
+    fs[Abbr`min_stack`,EVAL ``LENGTH store_list``] \\
+    qmatch_assum_rename_tac`_ < x` \\
     Cases_on`x` \\ fs[] \\
     fs[word_list_exists_thm,SEP_CLAUSES,SEP_EXISTS_THM] \\
-    SEP_R_TAC)
+    SEP_R_TAC \\ rpt (
+      Cases_on `n`
+      \\ fs[word_list_exists_thm,SEP_CLAUSES,SEP_EXISTS_THM] \\ SEP_R_TAC
+      \\ Cases_on `n'`
+      \\ fs[word_list_exists_thm,SEP_CLAUSES,SEP_EXISTS_THM] \\ SEP_R_TAC))
   \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
   \\ reverse IF_CASES_TAC THEN1 halt_tac \\ tac
   \\ fs [alignmentTheory.aligned_bitwise_and
@@ -3024,6 +3038,15 @@ val propagate_these_def = Define`
        FLOOKUP s.regs 3 = SOME (Word ptr3) ∧
        FLOOKUP s.regs 4 = SOME (Word ptr4) ∧
        s.memory ptr2 = Word bitmap_ptr ∧
+       s.memory (ptr2 + bytes_in_word) = Word s.data_buffer.position ∧
+       s.memory (ptr2 + 2w * bytes_in_word) =
+       Word
+         (s.data_buffer.position +
+          bytes_in_word * n2w s.data_buffer.space_left) ∧
+       s.memory (ptr2 + 3w * bytes_in_word) =
+       Word s.code_buffer.position ∧
+       s.memory (ptr2 + 4w * bytes_in_word) =
+       Word (s.code_buffer.position + n2w s.code_buffer.space_left) ∧
        (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
          (word_list bitmap_ptr (MAP Word bitmaps) *
           word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps))
@@ -3251,7 +3274,7 @@ val stack_remove_stack_asm_name = Q.store_thm("stack_remove_stack_asm_name",`
   c.valid_imm (INL Add) 8w ∧
   (* Needed to implement the global store *)
   (∀s. addr_offset_ok c (store_offset s)) ∧
-  reg_name 5 c ∧
+  reg_name 7 c ∧
   reg_name (k+2) c ∧
   reg_name (k+1) c ∧
   reg_name k c ⇒

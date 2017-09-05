@@ -192,7 +192,11 @@ val store_init_def = Define `
        (EndOfHeap,INR 2);
        (HeapLength,INR 5);
        (OtherHeap,INR 2);
-       (BitmapBase,INR 3)]`
+       (BitmapBase,INR 3);
+       (BitmapBuffer,INR 4);
+       (BitmapBufferEnd,INR 6);
+       (CodeBuffer,INR 7);
+       (CodeBufferEnd,INR 1)]`
 
 (* init code assumes:
     reg 1: start of program
@@ -248,6 +252,15 @@ val init_code_def = Define `
                 move (k+1) 3;
                 load_inst 3 (k+2);
                 right_shift_inst 3 (word_shift (:'a));
+                move 0 (k+2);
+                add_bytes_in_word_inst 0;
+                load_inst 4 0;
+                add_bytes_in_word_inst 0;
+                load_inst 6 0;
+                add_bytes_in_word_inst 0;
+                load_inst 7 0;
+                add_bytes_in_word_inst 0;
+                load_inst 1 0;
                 init_memory k (MAP (store_init gen_gc k) (REVERSE store_list));
                 LocValue 0 1 0]`
 
