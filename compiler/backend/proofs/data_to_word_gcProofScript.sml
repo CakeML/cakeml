@@ -4346,7 +4346,13 @@ val code_oracle_rel_def = Define `
       t_compile_oracle t_code_buffer t_data_buffer <=>
     t_code_buffer.buffer = [] /\
     t_data_buffer.buffer = [] /\
-    (* TODO: relate t_store with buffer limits *)
+    FLOOKUP t_store CodeBuffer = SOME (Word t_code_buffer.position) /\
+    FLOOKUP t_store CodeBufferEnd =
+      SOME (Word (t_code_buffer.position + n2w t_code_buffer.space_left)) /\
+    FLOOKUP t_store BitmapBuffer = SOME (Word t_data_buffer.position) /\
+    FLOOKUP t_store BitmapBufferEnd =
+      SOME (Word (t_data_buffer.position +
+                  bytes_in_word * n2w t_data_buffer.space_left)) /\
     s_compile = (\cfg. OPTION_MAP (I ## MAP w2w ## I) o t_compile cfg o
                        MAP (compile_part c)) /\
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
@@ -4407,7 +4413,7 @@ val conf_ok_def = Define `
     c.len_size + 7 < dimindex (:α)`
 
 val init_store_ok_def = Define `
-  init_store_ok c store m (dm:'a word set) <=>
+  init_store_ok c store m (dm:'a word set) code_buffer data_buffer <=>
     ?limit curr.
       limit <= max_heap_limit (:'a) c /\
       FLOOKUP store Globals = SOME (Word 0w) /\
@@ -4423,6 +4429,15 @@ val init_store_ok_def = Define `
                     | _ => curr + bytes_in_word * n2w limit)) ∧
       FLOOKUP store HeapLength =
         SOME (Word (bytes_in_word * n2w limit)) ∧
+      FLOOKUP store CodeBuffer = SOME (Word code_buffer.position) ∧
+      FLOOKUP store CodeBufferEnd =
+        SOME (Word (code_buffer.position + n2w code_buffer.space_left)) ∧
+      FLOOKUP store BitmapBuffer = SOME (Word data_buffer.position) ∧
+      FLOOKUP store BitmapBufferEnd = SOME
+        (Word (data_buffer.position +
+               bytes_in_word * n2w data_buffer.space_left)) ∧
+      code_buffer.buffer = [] /\
+      data_buffer.buffer = [] /\
       (word_list_exists curr (limit + limit)) (fun2set (m,dm)) ∧
       byte_aligned curr`
 
@@ -4435,7 +4450,7 @@ val state_rel_init = Q.store_thm("state_rel_init",
     lookup 0 t.locals = SOME (Loc l1 l2) ∧
     t.stack = [] /\
     conf_ok (:'a) c /\
-    init_store_ok c t.store t.memory t.mdomain ==>
+    init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
     state_rel c l1 l2 (initial_state ffi code co cc t.clock)
                       (t:('a,'c,'ffi) state) [] []`,
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
@@ -5396,7 +5411,7 @@ val state_rel_set_store_AllocSize = Q.store_thm("state_rel_set_store_AllocSize",
   full_simp_tac(srw_ss())[state_rel_def,wordSemTheory.set_store_def]
   \\ eq_tac \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-  \\ fs [code_oracle_rel_def]
+  \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ metis_tac []);
 
 val inter_insert = Q.store_thm("inter_insert",
@@ -5721,6 +5736,10 @@ val word_gc_fun_IMP = Q.store_thm("word_gc_fun_IMP",
   `word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
     FLOOKUP s1 AllocSize = FLOOKUP s AllocSize /\
     FLOOKUP s1 Handler = FLOOKUP s Handler /\
+    FLOOKUP s1 CodeBuffer = FLOOKUP s CodeBuffer /\
+    FLOOKUP s1 CodeBufferEnd = FLOOKUP s CodeBufferEnd /\
+    FLOOKUP s1 BitmapBuffer = FLOOKUP s BitmapBuffer /\
+    FLOOKUP s1 BitmapBufferEnd = FLOOKUP s BitmapBufferEnd /\
     Globals IN FDOM s1`,
   fs[IMP_EQ_DISJ,word_gc_fun_def] \\ TOP_CASE_TAC \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE]
@@ -6085,7 +6104,7 @@ val state_rel_gc = Q.store_thm("state_rel_gc",
          \\ rpt (pairarg_tac \\ fs []) \\ rveq
          \\ every_case_tac \\ fs [] \\ rveq
          \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ EVAL_TAC)
-  \\ fs [code_oracle_rel_def]
+  \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)

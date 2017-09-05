@@ -872,13 +872,10 @@ val code_rel_ext_def = Define`
 val compile_semantics = Q.store_thm("compile_semantics",`
    (* Definitely correct *)
    t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
-   init_store_ok c t.store t.memory t.mdomain ∧
+   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
    good_dimindex (:α) ∧
    lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧ conf_ok (:α) c ∧
    t.termdep = 0 ∧
-   (* Maybe? *)
-   t.code_buffer.buffer = [] ∧
-   t.data_buffer.buffer = [] ∧
    (* Construct an intermediate state *)
    code_rel c (fromAList prog) x1 ∧
    (* Explicitly instantiate code_oracle_rel at the intermediate state *)
@@ -903,13 +900,14 @@ val compile_semantics = Q.store_thm("compile_semantics",`
    fs[code_rel_ext_def]>>
    qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
    simp[wordSemTheory.state_component_equality]>>
-   CONJ_TAC>-
+   CONJ_TAC >-
      (qmatch_goalsub_abbrev_tac`state_rel _ _ _ _ ttt`>>
      `t.clock = ttt.clock` by
        fs[Abbr`ttt`]>>
      simp[]>>
      match_mp_tac state_rel_init>>
-     unabbrev_all_tac>>fs[code_oracle_rel_def])>>
+     unabbrev_all_tac>>fs[code_oracle_rel_def] >>
+     fs [init_store_ok_def])>>
    CONJ_TAC>-
      (unabbrev_all_tac>>fs[]>>
      metis_tac[])>>

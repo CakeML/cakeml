@@ -7,6 +7,7 @@ val _ = Datatype `
   store_name =
     NextFree | EndOfHeap | TriggerGC | HeapLength | ProgStart | BitmapBase |
     CurrHeap | OtherHeap | AllocSize | Globals | Handler | GenStart |
+    CodeBuffer | CodeBufferEnd | BitmapBuffer | BitmapBufferEnd |
     Temp (5 word)`
 
 val _ = Datatype `
