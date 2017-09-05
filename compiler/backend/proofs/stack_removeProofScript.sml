@@ -2885,7 +2885,7 @@ val evaluate_init_code_clock = Q.prove(
   \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
          list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
-val evaluate_init_code_ffi = Q.prove(
+val evaluate_init_code_ffi = Q.store_thm("evaluate_init_code_ffi",
   `evaluate (init_code gen_gc max_heap k,(s:('a,'c,'ffi) stackSem$state)) = (res,t) ==>
     evaluate (init_code gen_gc max_heap k,s with ffi := c) =
       (res,(t with ffi := c):('a,'c,'ffi) stackSem$state)`,

@@ -9,6 +9,8 @@ open preamble
 
 val _ = new_theory"stack_to_labProof";
 
+(* val _ = set_prover (fn (tm,_) => mk_thm([],tm)); remove *)
+
 (* TODO: move *)
 
 val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
@@ -2466,6 +2468,15 @@ val memory_assumption_def = Define`
       read_reg (find_name rnames 3) t = Word ptr3 ∧
       read_reg (find_name rnames 4) t = Word ptr4 ∧
       t.mem ptr2 = Word bitmap_ptr ∧
+      t.mem (ptr2 + bytes_in_word) =
+          Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) ∧
+      t.mem (ptr2 + 2w * bytes_in_word) =
+          Word (bitmap_ptr + bytes_in_word * n2w data_sp +
+                bytes_in_word * n2w (LENGTH bitmaps)) ∧
+      t.mem (ptr2 + 3w * bytes_in_word) = Word t.code_buffer.position ∧
+      t.mem (ptr2 + 4w * bytes_in_word) =
+          Word (t.code_buffer.position + n2w t.code_buffer.space_left) ∧
+      t.code_buffer.buffer = [] /\
       (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
        (word_list bitmap_ptr (MAP Word bitmaps) *
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
@@ -2861,7 +2872,7 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
         stack_namesProofTheory.make_init_def,
         make_init_def,BIJ_FLOOKUP_MAPKEYS,
         flookup_fupdate_list]
-    \\ fs[memory_assumption_def] \\ cheat ) \\
+    \\ fs[memory_assumption_def]) \\
   `t.ffi = s2.ffi` by
     (unabbrev_all_tac>>EVAL_TAC)>>
   CASE_TAC

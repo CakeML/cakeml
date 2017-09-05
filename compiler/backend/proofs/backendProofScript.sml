@@ -171,7 +171,7 @@ val extend_with_resource_limit_not_fail = Q.store_thm("extend_with_resource_limi
   rw[extend_with_resource_limit_def] \\ metis_tac[])
 
 val full_make_init_buffer = Q.prove(`
-  (FST(full_make_init a b c d e f g h i j k)).code_buffer = h.code_buffer ∧
+  (FST(full_make_init a b c d e f g h i j k)).code_buffer.buffer = [] ∧
   (FST(full_make_init a b c d e f g h i j k)).data_buffer.buffer = []`,
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
      stack_removeProofTheory.make_init_any_def] >>
@@ -179,11 +179,12 @@ val full_make_init_buffer = Q.prove(`
   EVAL_TAC>>
   pop_assum mp_tac>>fs[stack_removeProofTheory.make_init_opt_def]>>
   every_case_tac>>rw[]>>
-  fs[stack_removeProofTheory.init_reduce_def]>>
-  cheat);
+  fs [stack_removeProofTheory.init_prop_def]);
 
 val full_make_init_ffi = Q.prove(`
-  (FST(full_make_init a b c d e f g h i j k)).ffi = h.ffi`, cheat);
+  (FST(full_make_init a b c d e f g h i j k)).ffi = h.ffi`,
+  fs [full_make_init_def,stack_allocProofTheory.make_init_def] >>
+  fs [stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC);
 
 (*
 val full_make_init_ffi = Q.prove(
@@ -246,6 +247,15 @@ val installed_def = Define`
       good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
+      m (t.regs r1 + bytes_in_word) =
+        Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) ∧
+      m (t.regs r1 + 2w * bytes_in_word) =
+        Word (bitmap_ptr + bytes_in_word * n2w data_sp +
+              bytes_in_word * n2w (LENGTH bitmaps)) ∧
+      m (t.regs r1 + 3w * bytes_in_word) =
+        Word (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) ∧
+      m (t.regs r1 + 4w * bytes_in_word) =
+        Word (mc_conf.target.get_pc ms + n2w cbspace + n2w (LENGTH bytes)) ∧
       (word_list bitmap_ptr (MAP Word bitmaps) *
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
        (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
@@ -587,7 +597,6 @@ val compile_correct = Q.store_thm("compile_correct",
     (λn.
      let (cfg,p,b) = stack_oracle n in
        (cfg,compile_no_stubs c4.stack_conf.reg_names c4.stack_conf.jump stoff stk p))`\\
-
   qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
   qabbrev_tac`stack_st_opt =
@@ -605,14 +614,12 @@ val compile_correct = Q.store_thm("compile_correct",
       stack_oracle` >>
   qabbrev_tac`stack_st = FST stack_st_opt` >>
   qabbrev_tac`word_st = make_init kkk stack_st (fromAList p5) word_oracle` \\
-
   qabbrev_tac`data_cc =
     (λcfg.
         lift (I ## MAP (w2w:'a word -> word64) ## I) ∘
         (λprogs. word_st.compile cfg
           (MAP (λp. full_compile_single tt kk aa c4.lab_conf.asm_conf (p,NONE)) progs)) ∘
         MAP (compile_part c4.data_conf))` >>
-
   (bvi_to_dataProofTheory.compile_prog_semantics
    |> GEN_ALL
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
@@ -622,7 +629,6 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ `s3 = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ rpt (pairarg_tac \\ fs []))
-
   \\ qhdtm_x_assum`data_to_word$compile`mp_tac
   \\ (data_to_word_compile_conventions
      |> Q.GENL[`data_conf`,`wc`,`ac`,`prog`]
@@ -721,8 +727,8 @@ val compile_correct = Q.store_thm("compile_correct",
     fs[Abbr`stack_st_opt`,full_make_init_buffer]>>
     fs[Abbr`lab_st`,full_make_init_ffi]>>
     fs[Abbr`word_oracle`,Abbr`t_code`,domain_fromAList]>>
-    CONJ_TAC>-
-      fs[make_init_def]>>
+   (* CONJ_TAC>-
+      fs[make_init_def]>> *)
     CONJ_TAC>-
       fs[Abbr`data_oracle`]>>
     AP_TERM_TAC>>
@@ -796,6 +802,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
       `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
        rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
+      fs [attach_bitmaps_def] \\
       once_rewrite_tac[INTER_COMM] \\
       rewrite_tac[UNION_OVER_INTER] \\
       once_rewrite_tac[UNION_COMM] \\
@@ -873,7 +880,6 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[Once CONJ_COMM] \\ rfs[] \\
     asm_exists_tac \\ simp[] \\
     metis_tac[dataPropsTheory.Resource_limit_hit_implements_semantics] ) \\
-
   fs[Abbr`word_st`] \\ rfs[] \\
   strip_tac \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
@@ -884,7 +890,6 @@ val compile_correct = Q.store_thm("compile_correct",
     match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
     simp[] ) \\
   simp[Abbr`z`] \\
-
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
