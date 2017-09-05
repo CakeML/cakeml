@@ -1,5 +1,4 @@
-open preamble bviTheory
-open backend_commonTheory;
+open preamble bviTheory backend_commonTheory;
 
 val _ = new_theory "bvi_tailrec";
 
@@ -270,7 +269,9 @@ val rewrite_def = Define `
 
 val check_exp_def = Define `
   check_exp loc arity exp =
-    let (ts, ty, r, op) = HD (scan_expr (REPLICATE arity Any) loc [exp]) in
+    case scan_expr (REPLICATE arity Any) loc [exp] of
+      [] => NONE
+    | (ts,ty,r,op)::_ =>
       if ty ≠ Int then NONE else op`;
 
 val let_wrap_def = Define `
@@ -302,6 +303,34 @@ val compile_prog_def = Define `
         let (n, ys) = compile_prog (next + 2) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
   `;
+
+val scan_expr_not_nil = Q.store_thm ("scan_expr_not_nil[simp]",
+  `!x. scan_expr ts loc [x] <> []`,
+  Induct \\ fs [scan_expr_def]
+  \\ rpt (pairarg_tac \\ fs []));
+
+val LENGTH_scan_expr = Q.store_thm ("LENGTH_scan_expr[simp]",
+  `∀ts loc xs. LENGTH (scan_expr ts loc xs) = LENGTH xs`,
+  recInduct (theorem"scan_expr_ind") \\ rw [scan_expr_def]
+  \\ rpt (pairarg_tac \\ fs []));
+
+val scan_expr_SING = Q.store_thm ("scan_expr_SING[simp]",
+  `[HD (scan_expr ts loc [x])] = scan_expr ts loc [x]`,
+  `LENGTH (scan_expr ts loc [x]) = LENGTH [x]` by fs []
+  \\ Cases_on `scan_expr ts loc [x]` \\ fs []);
+
+val scan_expr_HD_SING = Q.store_thm ("scan_expr_HD_SING[simp]",
+  `HD (scan_expr ts loc [x]) = y ⇔ scan_expr ts loc [x] = [y]`,
+  `LENGTH (scan_expr ts loc [x]) = LENGTH [x]` by fs []
+  \\ Cases_on `scan_expr ts loc [x]` \\ fs []);
+
+val check_exp_SOME_simp = Q.store_thm ("check_exp_SOME_simp[simp]",
+  `check_exp loc arity exp = SOME op <=>
+     ?ts ty r.
+       scan_expr (REPLICATE arity Any) loc [exp] = [(ts,Int,r,SOME op)]`,
+  simp [check_exp_def]
+  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [exp]) = LENGTH [exp]` by fs []
+  \\ EVERY_CASE_TAC \\ fs []);
 
 val _ = export_theory();
 

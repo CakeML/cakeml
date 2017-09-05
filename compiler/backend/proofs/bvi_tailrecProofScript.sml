@@ -1,5 +1,4 @@
-open preamble bviSemTheory
-open bviPropsTheory bvi_tailrecTheory
+open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 
 (* TODO
 
@@ -13,21 +12,6 @@ open bviPropsTheory bvi_tailrecTheory
 val _ = new_theory "bvi_tailrecProof";
 
 val find_code_def = bvlSemTheory.find_code_def;
-
-val LENGTH_scan_expr = Q.store_thm ("LENGTH_scan_expr[simp]",
-  `∀ts loc xs. LENGTH (scan_expr ts loc xs) = LENGTH xs`,
-  recInduct scan_expr_ind \\ rw [scan_expr_def]
-  \\ rpt (pairarg_tac \\ fs []));
-
-val scan_expr_SING = Q.store_thm ("scan_expr_SING[simp]",
-  `[HD (scan_expr ts loc [x])] = scan_expr ts loc [x]`,
-  `LENGTH (scan_expr ts loc [x]) = LENGTH [x]` by fs []
-  \\ Cases_on `scan_expr ts loc [x]` \\ fs []);
-
-val scan_expr_HD_SING = Q.store_thm ("scan_expr_HD_SING[simp]",
-  `HD (scan_expr ts loc [x]) = y ⇔ scan_expr ts loc [x] = [y]`,
-  `LENGTH (scan_expr ts loc [x]) = LENGTH [x]` by fs []
-  \\ Cases_on `scan_expr ts loc [x]` \\ fs []);
 
 val case_SOME = Q.store_thm ("case_SOME",
   `(case x of
@@ -160,9 +144,7 @@ val scan_expr_not_Noop = Q.store_thm ("scan_expr_not_Noop",
 val check_exp_not_Noop = Q.store_thm ("check_exp_not_Noop",
   `∀loc arity exp op.
      check_exp loc arity exp = SOME op ⇒ op ≠ Noop`,
-  rw [check_exp_def]
-  \\ pairarg_tac \\ fs [] \\ rveq
-  \\ imp_res_tac scan_expr_not_Noop);
+  rw [check_exp_def] \\ imp_res_tac scan_expr_not_Noop);
 
 val scan_expr_Op = Q.store_thm ("scan_expr_Op",
   `scan_expr ts loc [Op op xs] = [(tt, ty, r, SOME iop1)] ∧
@@ -276,8 +258,8 @@ val code_rel_find_code_SOME = Q.prove (
   \\ pop_assum mp_tac
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
   \\ first_x_assum drule
-  \\ Cases_on `check_exp n q r` \\ fs []
-  \\ rw [compile_exp_def]
+  \\ fs [compile_exp_def]
+  \\ CASE_TAC \\ fs [] \\ rw []
   \\ pairarg_tac \\ fs []);
 
 val code_rel_find_code_NONE = Q.prove (
@@ -290,12 +272,12 @@ val code_rel_find_code_NONE = Q.prove (
   \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
   >-
    (first_x_assum drule
-    \\ Cases_on `check_exp n q r` \\ fs []
-    \\ rw [compile_exp_def]
+    \\ fs [compile_exp_def]
+    \\ CASE_TAC \\ fs [] \\ rw []
     \\ pairarg_tac \\ fs [])
   \\ first_x_assum drule
-  \\ Cases_on `check_exp n q exp` \\ fs []
-  \\ rw [compile_exp_def]
+  \\ fs [compile_exp_def]
+  \\ CASE_TAC \\ fs [] \\ rw []
   \\ pairarg_tac \\ fs []);
 
 val state_rel_def = Define `
@@ -316,8 +298,8 @@ val code_rel_domain = Q.store_thm ("code_rel_domain",
   \\ rename1 `SOME z`
   \\ PairCases_on `z`
   \\ first_x_assum drule
-  \\ Cases_on `check_exp x z0 z1`
-  \\ rw [compile_exp_def]
+  \\ fs [compile_exp_def]
+  \\ CASE_TAC \\ fs [] \\ rw []
   \\ pairarg_tac \\ fs []);
 
 val take_drop_lem = Q.prove (
@@ -1369,7 +1351,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
        \\ impl_tac
        >-
         (fs [optimized_code_def]
-         \\ imp_res_tac check_exp_not_Noop
+         \\ imp_res_tac scan_expr_not_Noop
          \\ drule rewrite_scan_expr
          \\ rpt (disch_then drule)
          \\ PURE_CASE_TAC \\ fs []
@@ -1394,7 +1376,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
      \\ impl_tac
      >-
       (fs [optimized_code_def]
-       \\ imp_res_tac check_exp_not_Noop
+       \\ imp_res_tac scan_expr_not_Noop
        \\ drule rewrite_scan_expr
        \\ rpt (disch_then drule)
        \\ PURE_CASE_TAC \\ fs []
@@ -1420,7 +1402,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
         \\ impl_tac
         >-
          (fs [optimized_code_def]
-          \\ imp_res_tac check_exp_not_Noop
+          \\ imp_res_tac scan_expr_not_Noop
           \\ qpat_x_assum `rewrite _ x3 = _` kall_tac
           \\ drule rewrite_scan_expr
           \\ rpt (disch_then drule)
@@ -1464,7 +1446,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
       \\ impl_tac
       >-
        (fs [optimized_code_def]
-        \\ imp_res_tac check_exp_not_Noop
+        \\ imp_res_tac scan_expr_not_Noop
         \\ drule rewrite_scan_expr
         \\ rpt (disch_then drule)
         \\ PURE_CASE_TAC \\ fs []
@@ -1683,6 +1665,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ rpt (qpat_x_assum `_ = SOME (_,_)` mp_tac)
     \\ imp_res_tac evaluate_code_const
     \\ rw []
+    \\ pairarg_tac \\ fs [] \\ rveq
     \\ simp [evaluate_let_wrap]
     \\ `env_rel T (LENGTH a) a (a ++ [op_id_val op] ++ a)` by
      (fs [env_rel_def, EL_LENGTH_APPEND, EL_APPEND1, IS_PREFIX_APPEND]
@@ -1808,7 +1791,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
      \\ pop_assum mp_tac
      \\ simp [code_rel_def]
      \\ disch_then drule
-     \\ Cases_on `check_exp n q' exp` \\ fs []
+     \\ simp [compile_exp_def]
+     \\ CASE_TAC \\ fs []
      >-
       (rw []
        \\ `env_rel F (LENGTH (FRONT a)) (FRONT a) (FRONT a)` by fs [env_rel_def]
@@ -1826,11 +1810,11 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
        >- (rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw [])
        \\ rw []
        \\ rpt (PURE_FULL_CASE_TAC \\ fs []))
-     \\ rw [compile_exp_def]
+     \\ rw []
      \\ pairarg_tac \\ fs [] \\ rw []
      \\ `q' = LENGTH (FRONT a)` by fs [LENGTH_FRONT]
      \\ pop_assum (fn th => fs [th])
-     \\ imp_res_tac check_exp_not_Noop
+     \\ imp_res_tac scan_expr_not_Noop
      \\ simp [evaluate_let_wrap]
      \\ sg
        `env_rel T (LENGTH (FRONT a)) (FRONT a)
@@ -1855,7 +1839,6 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
      \\ first_x_assum (qspecl_then [`x`,`n'`] mp_tac)
      \\ simp [optimized_code_def, compile_exp_def]
      \\ fs [check_exp_def]
-     \\ pairarg_tac \\ fs [] \\ rw []
      \\ simp [apply_op_def, evaluate_def]
      \\ reverse PURE_CASE_TAC \\ fs []
      >- (rpt (PURE_FULL_CASE_TAC \\ fs []))
@@ -1892,7 +1875,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
    \\ qpat_assum `code_rel _ _` mp_tac
    \\ simp_tac std_ss [code_rel_def]
    \\ disch_then drule \\ fs []
-   \\ Cases_on `check_exp x (LENGTH a) exp` \\ fs [] \\ rw []
+   \\ simp [compile_exp_def]
+   \\ CASE_TAC \\ fs []
    >-
     (rpt (PURE_CASE_TAC \\ fs [])
      \\ rename1 `([z], aa::env1, s2)`
@@ -1906,9 +1890,9 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
      >- fs [ty_rel_def, LIST_REL_EL_EQN]
      \\ imp_res_tac evaluate_code_const \\ fs []
      \\ rpt (disch_then drule) \\ rw [])
-   \\ rfs [compile_exp_def]
+   \\ rw []
    \\ pairarg_tac \\ fs [] \\ rw []
-   \\ imp_res_tac check_exp_not_Noop
+   \\ imp_res_tac scan_expr_not_Noop
    \\ simp [evaluate_let_wrap]
    \\ first_assum (qspecl_then [`[exp]`,`dec_clock (ticks+1) s1`] mp_tac)
    \\ impl_tac
@@ -1929,11 +1913,7 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
    >- (rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw [])
    \\ rw []
    \\ first_x_assum (qspecl_then [`x'`,`n`] mp_tac)
-   \\ simp [optimized_code_def]
-   \\ Cases_on `compile_exp x n (LENGTH a) exp` \\ fs []
-   \\ rfs [compile_exp_def] \\ rveq
-   \\ fs [check_exp_def]
-   \\ pairarg_tac \\ fs [] \\ rw []
+   \\ simp [optimized_code_def, compile_exp_def, check_exp_def]
    \\ simp [apply_op_def, evaluate_def]
    \\ reverse (PURE_CASE_TAC \\ fs [])
    >-
@@ -2059,13 +2039,16 @@ val compile_prog_touched = Q.store_thm ("compile_prog_touched",
   >-
    (rw []
     \\ qpat_x_assum `compile_exp _ _ _ _ = _` mp_tac
-    \\ simp [Once compile_exp_def]
+    \\ simp [Once compile_exp_def, check_exp_def]
+    \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [exp]) = LENGTH [exp]` by fs []
+    \\ CASE_TAC \\ fs []
+    \\ PairCases_on `h` \\ fs [] \\ rveq
     \\ qpat_x_assum `_ = SOME (_, _)` mp_tac
     \\ simp [lookup_insert, fromAList_def]
-    \\ IF_CASES_TAC \\ fs []
-    \\ TRY (PURE_CASE_TAC \\ fs [])
+    \\ IF_CASES_TAC \\ strip_tac
+    \\ rw [] \\ rfs []
+    \\ rveq \\ fs []
     \\ TRY (pairarg_tac \\ fs [])
-    \\ strip_tac
     \\ first_x_assum drule
     \\ disch_then drule \\ rw []
     \\ fs [lookup_insert, fromAList_def]
@@ -2092,7 +2075,8 @@ val check_exp_NONE_compile_exp = Q.prove (
 val check_exp_SOME_compile_exp = Q.prove (
   `check_exp loc arity exp = SOME p ⇒
      ∃q. compile_exp loc next arity exp = SOME q`,
-  fs [compile_exp_def]
+  fs [compile_exp_def, check_exp_def]
+  \\ rw [] \\ rw []
   \\ pairarg_tac \\ fs []);
 
 val EVERY_free_names_thm = Q.prove (
