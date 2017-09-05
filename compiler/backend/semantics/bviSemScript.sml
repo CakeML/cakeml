@@ -10,6 +10,8 @@ val _ = Datatype `
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; global  : num option
+     ; compile : 'c -> (num # num # bvi$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # bvi$exp) list
      ; code    : (num # bvi$exp) num_map
      ; ffi     : 'ffi ffi_state |> `
 
@@ -21,14 +23,14 @@ val LESS_EQ_dec_clock = Q.prove(
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val bvi_to_bvl_def = Define `
-  (bvi_to_bvl:'ffi bviSem$state->'ffi bvlSem$state) s =
+  (bvi_to_bvl:('c,'ffi) bviSem$state->('c,'ffi) bvlSem$state) s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; ffi := s.ffi |>`;
 
 val bvl_to_bvi_def = Define `
-  (bvl_to_bvi:'ffi bvlSem$state->'ffi bviSem$state->'ffi bviSem$state) s t =
+  (bvl_to_bvi:('c,'ffi) bvlSem$state->('c,'ffi) bviSem$state->('c,'ffi) bviSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi |>`;
@@ -36,8 +38,10 @@ val bvl_to_bvi_def = Define `
 val small_enough_int_def = Define `
   small_enough_int i <=> -268435457 <= i /\ i <= 268435457`;
 
+val s = ``(s:('c,'ffi) bviSem$state)``
+
 val do_app_aux_def = Define `
-  do_app_aux op (vs:bvlSem$v list) (s:'ffi bviSem$state) =
+  do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
     | (Const i,xs) => if small_enough_int i then
                         SOME (SOME (Number i, s))
@@ -84,8 +88,31 @@ val do_app_aux_def = Define `
     | (CopyByte T, _) => NONE
     | _ => SOME NONE`
 
+val do_install_def = Define `
+  do_install vs ^s =
+      (case vs of
+       | [v1;v2] =>
+           (case (v_to_bytes v1, v_to_words v2) of
+            | (SOME bytes, SOME data) =>
+               let (cfg,progs) = s.compile_oracle 0 in
+               let new_oracle = shift_seq 1 s.compile_oracle in
+                 (case s.compile cfg progs, progs of
+                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                        let s' =
+                          s with <|
+                             code := union s.code (fromAList progs)
+                           ; compile_oracle := new_oracle |>
+                        in
+                          Rval (CodePtr k, s')
+                      else Rerr(Rabort Rtype_error)
+                  | _ => Rerr(Rabort Rtype_error))
+            | _ => Rerr(Rabort Rtype_error))
+       | _ => Rerr(Rabort Rtype_error))`;
+
 val do_app_def = Define `
-  do_app op vs (s:'ffi bviSem$state) =
+  do_app op vs ^s =
+    if op = Install then do_install vs s else
     case do_app_aux op vs s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME (SOME (v,t)) => Rval (v,t)
@@ -170,8 +197,10 @@ val evaluate_ind = theorem"evaluate_ind";
 
 val do_app_const = Q.store_thm("do_app_const",
   `(bviSem$do_app op args s1 = Rval (res,s2)) ==>
-    (s2.clock = s1.clock) /\ (s2.code = s1.code)`,
-  SIMP_TAC std_ss [do_app_def]
+    (s2.clock = s1.clock)`,
+  SIMP_TAC std_ss [do_app_def,do_install_def]
+  \\ IF_CASES_TAC
+  THEN1 (ntac 2 (every_case_tac \\ fs [UNCURRY]) \\ rw [] \\ fs [])
   \\ Cases_on `do_app_aux op args s1` \\ fs []
   \\ Cases_on `x` \\ fs [] THEN1
    (Cases_on `do_app op args (bvi_to_bvl s1)` \\ fs []
@@ -210,22 +239,25 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code k= <|
+  initial_state ffi code k co cc = <|
     clock := k;
     ffi := ffi;
     code := code;
+    compile := cc;
+    compile_oracle := co;
     refs := FEMPTY;
     global := NONE |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code start =
+  semantics init_ffi code co cc start =
   let es = [bvi$Call 0 (SOME start) [] NONE] in
-    if ∃k e. FST (evaluate (es,[],initial_state init_ffi code k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
+  let init = initial_state init_ffi code co cc in
+    if ∃k e. FST (evaluate (es,[],init k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate (es,[],initial_state init_ffi code k) = (r,s) ∧
+        evaluate (es,[],init k) = (r,s) ∧
         (case (s.ffi.final_event,r) of
          | (SOME e,_) => outcome = FFI_outcome e
          | (_,Rval _) => outcome = Success
@@ -235,7 +267,8 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (es,[],initial_state init_ffi code k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND
+              (evaluate (es,[],init k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 
