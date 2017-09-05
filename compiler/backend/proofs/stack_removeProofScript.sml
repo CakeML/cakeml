@@ -2415,6 +2415,15 @@ val init_prop_def = Define `
        FLOOKUP s.store Globals = SOME (Word 0w) /\
        FLOOKUP s.store Handler = SOME (Word 0w) /\
        FLOOKUP s.store GenStart = SOME (Word 0w) /\
+       FLOOKUP s.store CodeBuffer = SOME (Word s.code_buffer.position) ∧
+       FLOOKUP s.store CodeBufferEnd =
+         SOME (Word (s.code_buffer.position + n2w s.code_buffer.space_left)) ∧
+       FLOOKUP s.store BitmapBuffer = SOME (Word s.data_buffer.position) ∧
+       FLOOKUP s.store BitmapBufferEnd =
+         SOME (Word
+          (s.data_buffer.position +
+           bytes_in_word * n2w s.data_buffer.space_left)) ∧
+       s.code_buffer.buffer = [] ∧ s.data_buffer.buffer = [] ∧
        s.use_stack /\ s.use_store /\
        FLOOKUP s.regs 0 = SOME (Loc 1 0) /\
        LENGTH s.bitmaps + data_sp + 1 < dimword (:'a) /\
@@ -2438,10 +2447,11 @@ val init_code_pre_def = Define `
       FLOOKUP s.regs 3 = SOME (Word ptr3) /\
       FLOOKUP s.regs 4 = SOME (Word ptr4) /\
       s.memory ptr2 = Word bitmap_ptr /\
-      s.memory (ptr2 + bytes_in_word) = Word (s.data_buffer.position) /\
+      s.memory (ptr2 + bytes_in_word) =
+        Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) /\
       s.memory (ptr2 + 2w * bytes_in_word) =
-         Word (s.data_buffer.position +
-               bytes_in_word * n2w s.data_buffer.space_left) /\
+        Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps) +
+                           bytes_in_word * n2w data_sp) /\
       s.memory (ptr2 + 3w * bytes_in_word) = Word (s.code_buffer.position) /\
       s.memory (ptr2 + 4w * bytes_in_word) =
          Word (s.code_buffer.position + n2w s.code_buffer.space_left) /\
@@ -2449,6 +2459,7 @@ val init_code_pre_def = Define `
         the entry checks hold. Probably can make more assumptions
         about the bitmap_ptr too
       *)
+      s.code_buffer.buffer = [] /\
       (ptr2 <=+ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
       (word_list bitmap_ptr (MAP Word bitmaps) *
        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
@@ -2513,7 +2524,8 @@ val init_code_thm = Q.store_thm("init_code_thm",
          w2 <+ w4) ∧
          state_rel jump off k (init_reduce gen_gc jump off k code bitmaps data_sp coracle t) t /\
          t.ffi = s.ffi /\
-         init_prop gen_gc max_heap data_sp (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)`,
+         init_prop gen_gc max_heap data_sp
+           (init_reduce gen_gc jump off k code bitmaps data_sp coracle t)`,
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
@@ -3015,6 +3027,7 @@ val make_init_any_def = Define `
                       ; compile := (λc p. s.compile c (MAP (prog_comp jump off k) p))
                       ; compile_oracle := coracle
                       ; data_buffer := <|buffer := []; position := 0w; space_left := 0|>
+                      ; code_buffer := <|buffer := []; position := 0w; space_left := 0|>
                       ; code := code
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>`
@@ -3038,15 +3051,16 @@ val propagate_these_def = Define`
        FLOOKUP s.regs 3 = SOME (Word ptr3) ∧
        FLOOKUP s.regs 4 = SOME (Word ptr4) ∧
        s.memory ptr2 = Word bitmap_ptr ∧
-       s.memory (ptr2 + bytes_in_word) = Word s.data_buffer.position ∧
+       s.memory (ptr2 + bytes_in_word) =
+           Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) ∧
        s.memory (ptr2 + 2w * bytes_in_word) =
-       Word
-         (s.data_buffer.position +
-          bytes_in_word * n2w s.data_buffer.space_left) ∧
+           Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps) +
+                              bytes_in_word * n2w data_sp) ∧
        s.memory (ptr2 + 3w * bytes_in_word) =
-       Word s.code_buffer.position ∧
+         Word s.code_buffer.position ∧
        s.memory (ptr2 + 4w * bytes_in_word) =
-       Word (s.code_buffer.position + n2w s.code_buffer.space_left) ∧
+         Word (s.code_buffer.position + n2w s.code_buffer.space_left) ∧
+       s.code_buffer.buffer = [] /\
        (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
          (word_list bitmap_ptr (MAP Word bitmaps) *
           word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps))
