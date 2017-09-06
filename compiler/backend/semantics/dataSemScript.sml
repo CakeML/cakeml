@@ -29,10 +29,10 @@ val data_to_bvi_def = Define `
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; ffi := s.ffi
-     ; global := s.global |> : 'ffi bviSem$state`;
+     ; global := s.global |> : ('c,'ffi) bviSem$state`;
 
 val bvi_to_data_def = Define `
-  (bvi_to_data:'ffi bviSem$state->('c,'ffi) dataSem$state->('c,'ffi) dataSem$state) s t =
+  (bvi_to_data:('c,'ffi) bviSem$state->('c,'ffi) dataSem$state->('c,'ffi) dataSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi

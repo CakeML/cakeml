@@ -111,12 +111,13 @@ val do_app_const = Q.store_thm("do_app_const",
      \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   every_case_tac >> simp[bvi_to_data_def] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
-  full_simp_tac(srw_ss())[bviSemTheory.do_app_def] >>
+  full_simp_tac(srw_ss())[bviSemTheory.do_app_def] >> rfs [] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
   full_simp_tac(srw_ss())[bviSemTheory.bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.bvi_to_bvl_def] >>
   imp_res_tac bvlSemTheory.do_app_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac bviPropsTheory.do_app_aux_const >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[consume_space_def] >> TRY var_eq_tac >> simp[])
+  fs [data_to_bvi_def] >>
+  full_simp_tac(srw_ss())[consume_space_def] >> TRY var_eq_tac >> simp[]);
 
 val do_app_locals = Q.store_thm("do_app_locals",
   `(do_app op x s = Rval (q,r)) ==>

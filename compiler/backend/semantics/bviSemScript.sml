@@ -239,7 +239,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code k co cc = <|
+  initial_state ffi code co cc k = <|
     clock := k;
     ffi := ffi;
     code := code;

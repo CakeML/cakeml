@@ -4,16 +4,18 @@ local open bvlPropsTheory in end;
 val _ = new_theory"bviProps";
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
-  `(initial_state f c k).code = c ∧
-   (initial_state f c k).ffi = f ∧
-   (initial_state f c k).clock = k ∧
-   (initial_state f c k).refs = FEMPTY ∧
-   (initial_state f c k).global = NONE`,
+  `(initial_state f c co cc k).code = c ∧
+   (initial_state f c co cc k).ffi = f ∧
+   (initial_state f c co cc k).clock = k ∧
+   (initial_state f c co cc k).compile = cc ∧
+   (initial_state f c co cc k).compile_oracle = co ∧
+   (initial_state f c co cc k).refs = FEMPTY ∧
+   (initial_state f c co cc k).global = NONE`,
    srw_tac[][initial_state_def]);
 
 val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
-  `initial_state f c k with clock := k1 = initial_state f c k1 ∧
-   initial_state f c k with code := c1 = initial_state f c1 k`,
+  `initial_state f c co cc k with clock := k1 = initial_state f c co cc k1 ∧
+   initial_state f c co cc k with code := c1 = initial_state f c1 co cc k`,
   EVAL_TAC);
 
 val bvl_to_bvi_id = Q.store_thm("bvl_to_bvi_id",
@@ -158,7 +160,7 @@ val evaluate_APPEND = Q.store_thm("evaluate_APPEND",
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val inc_clock_def = Define `
-  inc_clock n (s:'ffi bviSem$state) = s with clock := s.clock + n`;
+  inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n`;
 
 val inc_clock_ZERO = Q.store_thm("inc_clock_ZERO",
   `!s. inc_clock 0 s = s`,
@@ -217,21 +219,26 @@ val dec_clock_inv_clock1 = Q.store_thm("dec_clock_inv_clock1",
   full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
 
 val dec_clock0 = Q.store_thm ("dec_clock0[simp]",
-  `!n (s:'ffi bviSem$state). dec_clock 0 s = s`,
+  `!n (s:('c,'ffi) bviSem$state). dec_clock 0 s = s`,
   simp [dec_clock_def, state_component_equality]);
 
 val do_app_inv_clock = Q.prove(
   `case do_app op (REVERSE a) s of
     | Rerr e => (do_app op (REVERSE a) (inc_clock n s) = Rerr e)
     | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))`,
-  Q.SPEC_TAC(`REVERSE a`,`a`) \\ gen_tac
-  \\ CASE_TAC
+  Cases_on `op = Install` THEN1
+   (Q.SPEC_TAC(`REVERSE a`,`a`) \\ gen_tac \\ CASE_TAC
+    \\ fs [do_app_def,do_install_def,UNCURRY,inc_clock_def] \\ rfs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs [])
+  \\ Q.SPEC_TAC(`REVERSE a`,`a`) \\ gen_tac \\ CASE_TAC
   \\ fs[bviSemTheory.do_app_def,case_eq_thms,pair_case_eq,
-        inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def] \\ rw[]
+        inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def] \\ rw[] \\ rfs []
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ fs[do_app_aux_def,case_eq_thms]
-  \\ rfs[bvlSemTheory.do_app_def,case_eq_thms,pair_case_eq]
-  \\ rw[state_component_equality] \\ fs[] \\ rw[] \\ fs[]
-  \\ fs[case_eq_thms,pair_case_eq] \\ rw[]);
+  \\ imp_res_tac bvlPropsTheory.do_app_change_clock
+  \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
+  \\ rfs [] \\ fs[state_component_equality] \\ fs[] \\ rw[] \\ fs[]
+  \\ fs[bvlSemTheory.state_component_equality] \\ fs[] \\ rw[] \\ fs[]);
 
 val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
   `!xs env t1 res t2 n.
@@ -277,6 +284,7 @@ val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
     \\ RES_TAC \\ TRY (full_simp_tac(srw_ss())[inc_clock_def] \\ decide_tac)
     \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]));
 
+(*
 val do_app_code = Q.store_thm("do_app_code",
   `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)`,
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
@@ -291,13 +299,18 @@ val evaluate_code_const_lemma = Q.prove(
 val evaluate_code_const = Q.store_thm("evaluate_code_const",
   `!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)`,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ full_simp_tac(srw_ss())[]);
+*)
 
 val evaluate_global_mono_lemma = Q.prove(
   `∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)`,
   recInduct evaluate_ind \\ rw[evaluate_def,case_eq_thms,pair_case_eq]
   \\ every_case_tac \\ fs[] \\ rfs[] \\ fs[]
+  \\ Cases_on `op = Install`
   \\ fs[do_app_def,case_eq_thms,pair_case_eq] \\ rw[bvl_to_bvi_def]
-  \\ fs[do_app_aux_def,case_eq_thms] \\ rw[]);
+  \\ fs[do_app_aux_def,case_eq_thms] \\ rw[]
+  \\ every_case_tac \\ fs [do_install_def,UNCURRY]
+  \\ every_case_tac \\ fs [do_install_def]
+  \\ rw [] \\ fs []);
 
 val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
   `∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global`,
@@ -306,13 +319,15 @@ val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op a s = Rerr e ⇒ e = Rabort Rtype_error`,
   rw[bviSemTheory.do_app_def,case_eq_thms,pair_case_eq] >>
-  imp_res_tac bvlPropsTheory.do_app_err);
+  imp_res_tac bvlPropsTheory.do_app_err >>
+  fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
 
 val do_app_aux_const = Q.store_thm("do_app_aux_const",
   `do_app_aux op vs s = SOME (SOME (y,z)) ⇒
    z.clock = s.clock`,
   rw[do_app_aux_def,case_eq_thms] >> rw[]);
 
+(*
 val do_app_with_code = Q.store_thm("do_app_with_code",
   `bviSem$do_app op vs s = Rval (r,s') ⇒
    domain s.code ⊆ domain c ⇒
@@ -379,6 +394,7 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
     srw_tac[][] >> NO_TAC) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
+*)
 
 val do_app_aux_with_clock = Q.store_thm("do_app_aux_with_clock",
   `do_app_aux op vs (s with clock := c) =
@@ -391,14 +407,16 @@ val do_app_change_clock = Q.store_thm("do_app_change_clock",
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock
-  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]);
+  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
 
 val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
   `bviSem$do_app op vs s = Rerr e ⇒
    do_app op vs (s with clock := c) = Rerr e`,
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
-  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]);
+  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
 
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
   `!exps env s1 res s2.
@@ -463,7 +481,9 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   rw[do_app_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def]
   \\ imp_res_tac bvlPropsTheory.do_app_io_events_mono \\ fs[]
-  \\ imp_res_tac do_app_aux_io_events_mono \\ fs[]);
+  \\ imp_res_tac do_app_aux_io_events_mono \\ fs[]
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
+  \\ rw [] \\ fs []);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps env s1 res s2.
