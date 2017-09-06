@@ -118,7 +118,7 @@ val no_err_def = tDefine "no_err" `
     | Add     => LENGTH xs = 2 ∧ EVERY (no_err ts) xs
     | Mult    => LENGTH xs = 2 ∧ EVERY (no_err ts) xs
     | _       => F) ∧
-  (no_err ts (Var i) ⇔ i < LENGTH ts ∧ EL i ts = Int) ∧
+  (no_err ts (Var i) ⇔ if i < LENGTH ts then EL i ts = Int else F) ∧
   (no_err ts _       ⇔ F)`
   (WF_REL_TAC `measure (exp_size o SND)`
   \\ Induct
