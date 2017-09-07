@@ -540,7 +540,7 @@ val _ = translate (spec32 const_fp_loop_def)
 
 val _ = translate (spec32 compile_exp_def)
 
-val _ = translate (spec32 max_var_def)
+val _ = translate (spec32 wordLangTheory.max_var_def)
 
 val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi)
 

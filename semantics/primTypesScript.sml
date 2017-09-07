@@ -23,7 +23,7 @@ val _ = Define `
    Tdec  (Dexn unknown_loc "Chr" []);
    Tdec  (Dexn unknown_loc "Div" []);
    Tdec  (Dexn unknown_loc "Subscript" []);
-   Tdec  (Dtype unknown_loc [([], "bool", [("true", []); ("false", [])])]);
+   Tdec  (Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])]);
    Tdec  (Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
    Tdec (Dtype unknown_loc [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
 

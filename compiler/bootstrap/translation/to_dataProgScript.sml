@@ -877,45 +877,63 @@ val bvi_let_compile_side = Q.prove(`
 
 val _ = translate(bvi_letTheory.compile_exp_def);
 
-val tail_is_ok_alt_def = Define `
-  tail_is_ok_alt name x =
-     case x of
-       Var n => NONE
-     | If v15 v16 v17 =>
-         (let inl = tail_is_ok_alt name v16 in
-          let inr = tail_is_ok_alt name v17
-          in
-            case inl of
-              NONE =>
-                (case inr of
-                   NONE => NONE
-                 | SOME (v4,iop') => SOME (T,iop'))
-            | SOME (v6,iop) =>
-                case inr of
-                  NONE => SOME (F,iop)
-                | SOME v8 => SOME (T,iop))
-     | Let v18 v19 => tail_is_ok_alt name v19
-     | Raise v20 => NONE
-     | Tick v21 => tail_is_ok_alt name v21
-     | Call v22 v23 v24 v25 => NONE
-     | Op v26 v27 =>
-         if v26 = Add ∨ v26 = Mult then
-           (let iop = from_op v26
-            in
-              case rewrite_op iop name (Op v26 v27) of
-                (T,v3) => SOME (F,iop)
-              | (F,v3) => NONE)
-         else NONE`;
+val _ = translate bvi_tailrecTheory.scan_expr_def
 
-val _ = translate tail_is_ok_alt_def
+val bvi_tailrec_scan_expr_side = Q.prove (
+  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2 <=> T`,
+  ho_match_mp_tac bvi_tailrecTheory.scan_expr_ind \\ rw []
+  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")])
+  |> update_precondition
 
-val tail_is_ok_lemma = prove(
-  ``!name x. tail_is_ok name x = tail_is_ok_alt name x``,
-  ho_match_mp_tac (fetch "-" "tail_is_ok_alt_ind") \\ rw []
-  \\ once_rewrite_tac [tail_is_ok_alt_def]
-  \\ CASE_TAC \\ fs [bvi_tailrecTheory.tail_is_ok_def]);
+val rewrite_alt_def = Define `
+  rewrite_alt loc next op acc ts x =
+    case x of
+      Var n =>
+        let ty = if n < LENGTH ts then EL n ts else Any in
+          (ts, ty, F, Var n)
+    | If xi xt xe =>
+        let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
+        let (tt, ty1, rt, yt) = rewrite_alt loc next op acc ti xt in
+        let (te, ty2, re, ye) = rewrite_alt loc next op acc ti xe in
+        let zt = if rt then yt else apply_op op xt (Var acc) in
+        let ze = if re then ye else apply_op op xe (Var acc) in
+          (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)
+    | Let xs x =>
+        let ys = MAP (FST o SND) (scan_expr ts loc xs) in
+        let (tu, ty, r, y) = rewrite_alt loc next op (acc + LENGTH xs) (ys ++ ts) x in
+          (DROP (LENGTH ys) tu, ty, r, Let xs y)
+    | Tick x =>
+        let (tt, ty, r, y) = rewrite_alt loc next op acc ts x in
+          (tt, ty, r, Tick y)
+    | Raise x => (ts, Any, F, Raise x)
+    | exp =>
+        (case rewrite_op ts op loc exp of
+          (F, _)    => (ts, Int, F, apply_op op exp (Var acc))
+        | (T, exp1) =>
+          case get_bin_args exp1 of
+            NONE              => (ts, Int, F, apply_op op exp (Var acc))
+          | SOME (call, exp2) =>
+              (ts, Int, T, push_call next op acc exp2 (args_from call)))`;
 
-val _ = translate tail_is_ok_lemma
+val _ = translate rewrite_alt_def
+
+val rewrite_alt_side = Q.prove (
+  `!a0 a1 a2 a3 a4 a5. to_dataprog_rewrite_alt_side a0 a1 a2 a3 a4 a5 <=> T`,
+  ho_match_mp_tac (theorem "rewrite_alt_ind") \\ rw []
+  \\ once_rewrite_tac [fetch "-" "to_dataprog_rewrite_alt_side_def"]
+  \\ rw []) |> update_precondition
+
+val rewrite_alt_lem = Q.prove (
+  `!loc next op acc ts x.
+     bvi_tailrec$rewrite (loc,next,op,acc,ts) x =
+     rewrite_alt loc next op acc ts x`,
+  ho_match_mp_tac (fetch "-" "rewrite_alt_ind") \\ rw []
+  \\ once_rewrite_tac [rewrite_alt_def]
+  \\ CASE_TAC
+  \\ fs [bvi_tailrecTheory.rewrite_def]
+  \\ rpt (pairarg_tac \\ fs []));
+
+val _ = translate rewrite_alt_lem
 
 val _ = translate(bvi_tailrecTheory.compile_prog_def);
 
@@ -977,6 +995,19 @@ val bvl_to_bvi_compile_single_side = Q.prove(`
 val _ = translate(bvl_to_bviTheory.compile_list_def);
 
 val _ = translate(bvl_to_bviTheory.compile_prog_def);
+
+val _ = translate(bvl_inlineTheory.let_op_def);
+
+val let_op_SING_NOT_NIL = store_thm("let_op_SING_NOT_NIL[simp]",
+  ``let_op [x] <> []``,
+  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+  \\ CASE_TAC \\ fs []);
+
+val bvl_inline_let_op_side = Q.prove(`
+  ∀a. bvl_inline_let_op_side a ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.let_op_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
+  |> update_precondition;
 
 val _ = translate(bvl_inlineTheory.inline_all_def);
 

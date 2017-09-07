@@ -170,7 +170,8 @@ val evaluate_def = tDefine "evaluate" `
                           | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
-     if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
+     if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else
+       evaluate ([x],env,dec_clock 1 s)) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of
