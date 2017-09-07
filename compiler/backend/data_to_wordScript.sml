@@ -543,13 +543,42 @@ val Mod_code_def = Define `
              :'a wordLang$prog`;
 
 val Install_code_def = Define `
-  Install_code conf = Skip :'a wordLang$prog`;
+  Install_code c =
+      list_Seq [Assign 1 (Lookup BitmapBuffer);
+                Assign 3 (Lookup CodeBuffer);
+                Set BitmapBuffer (Var 2);
+                Set CodeBuffer (Var 4);
+                Install 3 4 1 2 (LS ());
+                Return 0 3]
+   :'a wordLang$prog`;
 
 val InstallCode_code_def = Define `
-  InstallCode_code conf = Skip :'a wordLang$prog`;
+  InstallCode_code c =
+       If Test 2 (Imm 1w)
+        (Seq (Assign 2 (Lookup BitmapBuffer))
+             (Call NONE (SOME InstallData_location) [0;2;4;6] NONE))
+        (list_Seq [Assign 3 (real_addr c 2);
+                   Assign 2 (Load (Op Add [Var 3; Const bytes_in_word]));
+                   Assign 2 (ShiftVar Lsr 2 2);
+                   CodeBufferWrite 6 2;
+                   Assign 6 (Op Add [Var 6; Const 1w]);
+                   Assign 2 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
+                   Call NONE (SOME InstallCode_location) [0;2;4;6] NONE])
+   :'a wordLang$prog`;
 
 val InstallData_code_def = Define `
-  InstallData_code conf = Skip :'a wordLang$prog`;
+  InstallData_code c =
+       If Test 4 (Imm 1w)
+        (list_Seq [Call NONE (SOME Install_location) [0;2;6] NONE])
+        (list_Seq [Assign 3 (real_addr c 4);
+                   Assign 4 (Load (Op Add [Var 3; Const bytes_in_word]));
+                   Assign 4 (real_addr c 4);
+                   Assign 4 (Load (Op Add [Var 4; Const bytes_in_word]));
+                   DataBufferWrite 2 4;
+                   Assign 2 (Op Add [Var 2; Const bytes_in_word]);
+                   Assign 4 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
+                   Call NONE (SOME InstallData_location) [0;2;4;6] NONE])
+   :'a wordLang$prog`;
 
 val Compare1_code_def = Define `
   Compare1_code =
@@ -1402,12 +1431,12 @@ local val assign_quotation = `
                    BignumHalt (adjust_var v4); (* length must be smallint *)
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
-                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
+                   Assign 5 (ShiftVar Lsr (adjust_var v4) 2);
                    Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
                    If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
                    Assign 1 (Lookup CodeBuffer);
                    Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
-                   Assign 5 (ShiftVar Lsr (adjust_var v4) 2);
+                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
                    If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
                    MustTerminate
                     (Call (SOME (adjust_var dest,
@@ -1723,7 +1752,7 @@ val stubs_def = Define`
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Install_location,3n,Install_code data_conf);
     (InstallCode_location,4n,InstallCode_code data_conf);
-    (InstallData_location,3n,InstallData_code data_conf);
+    (InstallData_location,4n,InstallData_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);

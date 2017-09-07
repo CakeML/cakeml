@@ -4336,6 +4336,10 @@ val the_global_def = Define `
 val contains_loc_def = Define `
   contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
 
+val upper_w2w_def = Define `
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64`;
+
 val code_oracle_rel_def = Define `
   code_oracle_rel c
       (s_compile:'c -> (num # num # dataLang$prog) list ->
@@ -4353,7 +4357,7 @@ val code_oracle_rel_def = Define `
     FLOOKUP t_store BitmapBufferEnd =
       SOME (Word (t_data_buffer.position +
                   bytes_in_word * n2w t_data_buffer.space_left)) /\
-    s_compile = (\cfg. OPTION_MAP (I ## MAP w2w ## I) o t_compile cfg o
+    s_compile = (\cfg. OPTION_MAP (I ## MAP upper_w2w ## I) o t_compile cfg o
                        MAP (compile_part c)) /\
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
     (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))`
