@@ -5386,6 +5386,12 @@ val NOT_3_domain = Q.store_thm("NOT_3_domain",
       FORALL_PROD,adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `p_1'` \\ fs [])
 
+val NOT_5_domain = Q.store_thm("NOT_5_domain",
+  `~(5 IN domain (adjust_set names))`,
+  full_simp_tac(srw_ss())[domain_fromAList,adjust_set_def,MEM_MAP,MEM_toAList,
+      FORALL_PROD,adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `p_1'` \\ fs []  \\ Cases_on `n` \\ fs [])
+
 val cut_env_adjust_set_insert_1 = Q.store_thm("cut_env_adjust_set_insert_1",
   `cut_env (adjust_set names) (insert 1 w l) = cut_env (adjust_set names) l`,
   full_simp_tac(srw_ss())[wordSemTheory.cut_env_def,MATCH_MP SUBSET_INSERT_EQ_SUBSET NOT_1_domain]
@@ -5431,6 +5437,11 @@ val lookup_1_adjust_set = Q.store_thm("lookup_1_adjust_set",
 
 val lookup_3_adjust_set = Q.store_thm("lookup_3_adjust_set",
   `lookup 3 (adjust_set l) = NONE`,
+  full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
+  \\ full_simp_tac(srw_ss())[adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+
+val lookup_5_adjust_set = Q.store_thm("lookup_5_adjust_set",
+  `lookup 5 (adjust_set l) = NONE`,
   full_simp_tac(srw_ss())[adjust_set_def,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]
   \\ full_simp_tac(srw_ss())[adjust_var_def] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 

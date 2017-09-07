@@ -96,6 +96,7 @@ val do_install_def = Define `
             | (SOME bytes, SOME data) =>
                if vl1 <> Number (& LENGTH bytes) \/
                   vl2 <> Number (& LENGTH data)
+               then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of

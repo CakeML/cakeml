@@ -1397,11 +1397,23 @@ local val assign_quotation = `
        | _ => (Skip,l))
     | Install =>
       (dtcase args of
-       | [v1;v2] =>
-           (MustTerminate
-             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
-                (SOME Install_location)
-                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
+       | [v1;v2;v3;v4] => (list_Seq
+                  [BignumHalt (adjust_var v3); (* length must be smallint *)
+                   BignumHalt (adjust_var v4); (* length must be smallint *)
+                   Assign 1 (Lookup BitmapBuffer);
+                   Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
+                   Assign 5 (ShiftVar Lsr (adjust_var v3) 2);
+                   Assign 3 (ShiftVar Lsr 3 (shift (:'a)));
+                   If Lower 3 (Reg 5) (* too little data space *) GiveUp Skip;
+                   Assign 1 (Lookup CodeBuffer);
+                   Assign 3 (Op Sub [Lookup CodeBufferEnd; Var 1]);
+                   Assign 5 (ShiftVar Lsr (adjust_var v4) 2);
+                   If Lower 3 (Reg 5) (* too little code space *) GiveUp Skip;
+                   MustTerminate
+                    (Call (SOME (adjust_var dest,
+                       adjust_set (get_names names),Skip,secn,l))
+                    (SOME InstallCode_location)
+                      [adjust_var v1; adjust_var v2; 1] NONE)],l+1)
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 
@@ -1710,8 +1722,8 @@ val stubs_def = Define`
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Install_location,3n,Install_code data_conf);
-    (InstallCode_location,7n,InstallCode_code data_conf);
-    (InstallData_location,7n,InstallData_code data_conf);
+    (InstallCode_location,4n,InstallCode_code data_conf);
+    (InstallData_location,3n,InstallData_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
