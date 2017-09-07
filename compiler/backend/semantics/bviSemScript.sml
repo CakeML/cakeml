@@ -91,9 +91,11 @@ val do_app_aux_def = Define `
 val do_install_def = Define `
   do_install vs ^s =
       (case vs of
-       | [v1;v2] =>
+       | [v1;v2;vl1;vl2] =>
            (case (v_to_bytes v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
+               if vl1 <> Number (& LENGTH bytes) \/
+                  vl2 <> Number (& LENGTH data)
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of
