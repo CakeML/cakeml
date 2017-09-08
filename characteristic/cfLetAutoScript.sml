@@ -8,20 +8,20 @@ val INT_OF_NUM_ADD = Q.store_thm("INT_OF_NUM_ADD",
 val INT_OF_NUM_TIMES = Q.store_thm("INT_OF_NUM_TIMES",
 `!(x:num) (y:num).(&x) * &y = &(x*y)`, rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_LE = Q.store_thm("INT_OF_NUM_LE",
-`!(x:num) (y:num). (&x <= &y) = (x <= y)`, rw[]);
+`!(x:num) (y:num). (&x <= (&y):int) = (x <= y)`, rw[]);
 val INT_OF_NUM_LESS = Q.store_thm("INT_OF_NUM_LESS",
-`!(x:num) (y:num). (&x < &y) = (x < y)`, rw[]);
+`!(x:num) (y:num). (&x < (&y):int) = (x < y)`, rw[]);
 val INT_OF_NUM_GE = Q.store_thm("INT_OF_NUM_GE",
-`!(x:num) (y:num). (&x >= &y) = (x >= y)`, rw[] >> intLib.ARITH_TAC);
+`!(x:num) (y:num). (&x >= (&y):int) = (x >= y)`, rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_GREAT = Q.store_thm("INT_OF_NUM_GREAT",
-`!(x:num) (y:num). (&x > &y) = (x > y)`, rw[] >> intLib.ARITH_TAC);
+`!(x:num) (y:num). (&x > (&y):int) = (x > y)`, rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_EQ = Q.store_thm("INT_OF_NUM_EQ",
-`!(x:num) (y:num). (&x = &y) = (x = y)`, rw[] >> intLib.ARITH_TAC);
+`!(x:num) (y:num). (&x = (&y):int) = (x = y)`, rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_SUBS = Q.store_thm("INT_OF_NUM_SUBS",
-`!(x:num) (y:num) (z:num). (&x - &y = &z) <=> (x - y = z) /\ y <= x`,
+`!(x:num) (y:num) (z:num). (&x - (&y):int = &z) <=> (x - y = z) /\ y <= x`,
 rw[] >> intLib.ARITH_TAC);
 val INT_OF_NUM_SUBS_2 = Q.store_thm("INT_OF_NUM_SUBS_2",
-`!(x:num) (y:num). y <= x ==> (&x - &y = &(x - y))`,
+`!(x:num) (y:num). y <= x ==> (&x - (&y):int = &(x - y))`,
 rw[] >> fs[int_arithTheory.INT_NUM_SUB]);
 
 (* TODO: move that *)
@@ -204,7 +204,7 @@ rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]);
 val FRAME_UNIQUE_IO = Q.store_thm("FRAME_UNIQUE_IO",
 `!s. VALID_HEAP s ==>
 !s1 u1 ns1 s2 u2 ns2 H1 H2.
-(IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==> 
+(IO s1 u1 ns1 * H1) s /\ (IO s2 u2 ns2 * H2) s ==>
 (?pn. MEM pn ns1 /\ MEM pn ns2) ==>
 s2 = s1 /\ u2 = u1 /\ ns2 = ns1`,
 rpt (FIRST[GEN_TAC, DISCH_TAC]) >>
@@ -307,7 +307,9 @@ val HEAD_TAIL_DECOMPOSE_LEFT = Q.store_thm("HEAD_TAIL_DECOMPOSE_LEFT",
 rw[] >> EQ_TAC
 >-(Cases_on `b:'a list` >-(rw[]) >>  rw[listTheory.TL, listTheory.HD, HEAD_TAIL]) >>
 rw[HEAD_TAIL]);
-	 
+
+val _ = hide "abs";
+
 (* Theorems used as rewrites for the refinement invariants *)
 fun eqtype_unicity_thm_tac x =
   let

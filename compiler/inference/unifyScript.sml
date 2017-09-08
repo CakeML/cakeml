@@ -1,4 +1,4 @@
-open preamble finite_mapTheory optionTheory libTheory astTheory;
+open preamble;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
 open infer_tTheory;

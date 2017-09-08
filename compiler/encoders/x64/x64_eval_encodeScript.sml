@@ -18,7 +18,7 @@ local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", (* "load32", *) "load8", "store", (* "store32", *)
-           "store8", "jump", "cjump reg", "cjump imm", "call",
+           "store8", "fp", "jump", "cjump reg", "cjump imm", "call",
            "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS x64_ast_def)
   val rex_prefix_conv =

@@ -113,9 +113,12 @@ val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
+val EqualityType_ASM_FP_TYPE = find_equality_type_thm``ASM_FP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE]
+                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE,
+                       EqualityType_ASM_FP_TYPE]
 
 val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
   |> SIMP_RULE std_ss []
@@ -231,6 +234,7 @@ val _ = translate (spec32 word_to_stackTheory.wMove_def)
 
 val _ = translate (spec32 call_dest_def)
 
+val _ = translate (wInst_def |> conv32)
 val _ = translate (spec32 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
@@ -340,6 +344,7 @@ val _ = translate (conv32 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_E
 
 val _ = translate (conv32 arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
+val _ = translate (fp_ok_def |> conv32)
 val _ = translate (conv32 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 
 (* TODO: there may be a better rewrite for aligned (in to_word32Prog's translation of offset_ok) *)

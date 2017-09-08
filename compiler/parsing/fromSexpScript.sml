@@ -2,7 +2,7 @@ open preamble match_goal
 open simpleSexpTheory astTheory
 
 val _ = new_theory "fromSexp";
-val _ = set_grammar_ancestry ["simpleSexp", "ast", "location"]
+val _ = set_grammar_ancestry ["simpleSexp", "ast", "location","fpSem"]
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = temp_overload_on ("return", ``SOME``)
@@ -494,6 +494,18 @@ val sexpop_def = Define`
   if s = "Opw64Add" then SOME (Opw W64 Add) else
   if s = "Opw64Sub" then SOME (Opw W64 Sub) else
   if s = "Equality" then SOME Equality else
+  if s = "FPcmpFPLess" then SOME (FP_cmp FP_Less) else
+  if s = "FPcmpFPLessEqual" then SOME (FP_cmp FP_LessEqual) else
+  if s = "FPcmpFPGreater" then SOME (FP_cmp FP_Greater) else
+  if s = "FPcmpFPGreaterEqual" then SOME (FP_cmp FP_GreaterEqual) else
+  if s = "FPcmpFPEqual" then SOME (FP_cmp FP_Equal) else
+  if s = "FPuopFPAbs" then SOME (FP_uop FP_Abs) else
+  if s = "FPuopFPNeg" then SOME (FP_uop FP_Neg) else
+  if s = "FPuopFPSqrt" then SOME (FP_uop FP_Sqrt) else
+  if s = "FPbopFPAdd" then SOME (FP_bop FP_Add) else
+  if s = "FPbopFPSub" then SOME (FP_bop FP_Sub) else
+  if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
+  if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -858,6 +870,18 @@ val opsexp_def = Define`
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
+  (opsexp (FP_cmp FP_Less) = SX_SYM "FPcmpFPLess") ∧
+  (opsexp (FP_cmp FP_LessEqual) = SX_SYM "FPcmpFPLessEqual") ∧
+  (opsexp (FP_cmp FP_Greater) = SX_SYM "FPcmpFPGreater") ∧
+  (opsexp (FP_cmp FP_GreaterEqual) = SX_SYM "FPcmpFPGreaterEqual") ∧
+  (opsexp (FP_cmp FP_Equal) = SX_SYM "FPcmpFPEqual") ∧
+  (opsexp (FP_uop FP_Abs) = SX_SYM "FPuopFPAbs") ∧
+  (opsexp (FP_uop FP_Neg) = SX_SYM "FPuopFPNeg") ∧
+  (opsexp (FP_uop FP_Sqrt) = SX_SYM "FPuopFPSqrt") ∧
+  (opsexp (FP_bop FP_Add) = SX_SYM "FPbopFPAdd") ∧
+  (opsexp (FP_bop FP_Sub) = SX_SYM "FPbopFPSub") ∧
+  (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
+  (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -894,6 +918,7 @@ val opsexp_def = Define`
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
+(* TODO: This proof is not very scalable... *)
 val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   `∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2`,
   Cases \\ TRY(Cases_on`o'`)
@@ -906,6 +931,10 @@ val opsexp_11 = Q.store_thm("opsexp_11[simp]",
   \\ TRY (Cases_on`w'`)
   \\ simp[opsexp_def]
   \\ TRY (Cases_on`s'`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`f`)
+  \\ simp[opsexp_def]
+  \\ TRY (Cases_on`f'`)
   \\ simp[opsexp_def]);
 
 val locnsexp_def = Define`
@@ -1202,7 +1231,8 @@ val sexpop_opsexp = Q.store_thm("sexpop_opsexp[simp]",
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(Cases_on`o'`>>rw[sexpop_def,opsexp_def]) >>
   TRY(Cases_on`w`>>rw[sexpop_def,opsexp_def]) >>
-  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def,SEXSTR_def]));
+  TRY(Cases_on`s`>>rw[sexpop_def,opsexp_def,SEXSTR_def])>>
+  TRY(Cases_on`f`>>rw[sexpop_def,opsexp_def,SEXSTR_def]));
 
 val sexplop_lopsexp = Q.store_thm("sexplop_lopsexp[simp]",
   `sexplop (lopsexp l) = SOME l`,
@@ -1664,6 +1694,7 @@ val opsexp_valid = Q.store_thm("opsexp_valid[simp]",
   \\ TRY(Cases_on`o'`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
+  \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
   \\ EVAL_TAC);
 
 val lopsexp_valid = Q.store_thm("lopsexp_valid[simp]",

@@ -9,7 +9,7 @@ open listTheory pairTheory ml_translatorLib ml_translatorTheory;
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
-  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) 5)`
+  (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
 
 val res = translate ZIP2_def;
 

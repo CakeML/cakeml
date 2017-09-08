@@ -271,6 +271,23 @@ val () = Count.apply (encodings [All])
     `Loc 6 0xF00w`
    ]
 
+val () = Count.apply (encodings [ARMv6, MIPS])
+   [
+    `Inst (FP (FPLess 3 4 5))`,
+    `Inst (FP (FPLessEqual 3 4 5))`,
+    `Inst (FP (FPEqual 3 4 5))`,
+    `Inst (FP (FPAbs 4 5))`,
+    `Inst (FP (FPNeg 4 5))`,
+    `Inst (FP (FPSqrt 4 5))`,
+    `Inst (FP (FPMul 3 4 5))`,
+    `Inst (FP (FPDiv 3 4 5))`,
+    `Inst (FP (FPMov 4 5))`,
+    `Inst (FP (FPMovToReg 3 4 5))`,
+    `Inst (FP (FPMovFromReg 3 4 5))`,
+    `Inst (FP (FPToInt 4 5))`,
+    `Inst (FP (FPFromInt 4 5))`
+   ]
+
 *)
 
 end

@@ -92,7 +92,7 @@ val skip_comment_def = Define `
   (skip_comment [x] d _ = NONE) /\
   (skip_comment (x::y::xs) d loc =
     if [x;y] = "(*" then
-      skip_comment xs (d+1) (loc with col := loc.col + 2)
+      skip_comment xs (d+1:num) (loc with col := loc.col + 2)
     else if [x;y] = "*)" then
       (if d = 0 then SOME (xs, loc with col := loc.col + 2)
        else skip_comment xs (d-1) (loc with col := loc.col +2))

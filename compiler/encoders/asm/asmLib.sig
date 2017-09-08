@@ -18,6 +18,7 @@ sig
    val isBinop: Term.term -> bool
    val isCall: Term.term -> bool
    val isConst: Term.term -> bool
+   val isFP: Term.term -> bool
    val isInst: Term.term -> bool
    val isJump: Term.term -> bool
    val isJumpCmp: Term.term -> bool
