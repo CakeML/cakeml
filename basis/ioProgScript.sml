@@ -138,14 +138,21 @@ val read_all_spec = Q.store_thm ("read_all_spec",
   \\ qexists_tac`F`
   \\ xsimpl);
 
-
-
 (*TODO: update this to include Char.fromByte and move to a more appropriate location*)
-val print_dec = process_topdecs
+(*val print_dec = process_topdecs
   `fun print s =
     let
       val l = String.explode s
-    in write_list l end`
+    in write_list l end`*)
+
+val print_dec = process_topdecs
+  `fun print s =
+   if String.strlen s < 65536 then
+     CharIO.writeStr s
+   else
+     let
+       val l = String.explode s
+     in write_list l end`
 
 val res = ml_prog_update(ml_progLib.add_prog print_dec pick_name)
 
@@ -155,7 +162,17 @@ val print_spec = Q.store_thm("print_spec",
    (STDOUT output)
    (POSTv uv. &UNIT_TYPE () uv * STDOUT (output ++ (explode s)))`,
     xcf "print" (basis_st())
-    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
+    \\ xlet `POSTv lv. & NUM (strlen s) lv * STDOUT output`
+    >- (xapp \\ xsimpl \\ instantiate)
+    \\ xlet `POSTv lv. & BOOL (strlen s < 65536) lv * STDOUT output`
+    >- (xapp \\ xsimpl \\ fs[NUM_def] \\ instantiate)
+    \\ xif
+    >- (xapp \\ xsimpl \\ instantiate
+        \\ map_every qexists_tac [`emp`,`output`]
+        \\ Cases_on `s`
+        \\ fs[mlstringTheory.explode_thm,TAKE_LENGTH_TOO_LONG]
+        \\ xsimpl)
+    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`        
     >-(xapp \\ xsimpl \\ instantiate)
     \\ xapp \\ rw[]
 );

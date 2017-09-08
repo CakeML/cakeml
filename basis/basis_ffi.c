@@ -7,6 +7,16 @@ void ffiputChar (char* c, long clen, char* a) {
   putchar(a[0]);
 }
 
+// size_t is guaranteed to be at least 16 bytes.
+#define WRITE_MAXLEN 65535
+
+void ffiwriteStr (char* c, long clen, char* a) {
+  fwrite(sizeof (char),
+         c,
+         clen <= WRITE_MAXLEN ? clen : WRITE_MAXLEN,
+         stdout);
+}
+
 /* stderr */
 void ffiputChar_err(char* c, long clen, char* a, long len) {
   putc(a[0], stderr);

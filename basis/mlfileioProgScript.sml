@@ -14,7 +14,7 @@ val _ = translation_extends "mlcharioProg";
 
     1. write requires write_loc for the storage of the character to be
        written
-    2. open-file requires filenamae_loc for the storage of the name of the
+    2. open-file requires filename_loc for the storage of the name of the
        (probably zero-terminated) file
     3. read-char needs storage for a single byte for identifying the
        file-descripter to read through. This assumes that there can't
