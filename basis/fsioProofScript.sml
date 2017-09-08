@@ -153,7 +153,7 @@ val append_hprop = Q.store_thm ("append_hprop",
 (* TODO: avoid using constant for iobuff_loc *)
 
 val IOFS_precond = Q.store_thm("IOFS_precond",
-  `wfFS fs ⇒ liveFS fs ⇒ LENGTH v = 258 ⇒
+  `!fs. wfFS fs ⇒ liveFS fs ⇒ LENGTH v = 258 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
     ∪ {Mem 1 (W8array v)})`,
@@ -165,22 +165,29 @@ val IOFS_precond = Q.store_thm("IOFS_precond",
   );
 
 val STDIO_precond = Q.store_thm("STDIO_precond",
-`(∀fname. fname ∉ {strlit "stdin"; strlit "stdout"; strlit "stderr"} ⇒
-    ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ==> 
-  ALOOKUP fs'.infds 0 = SOME (strlit "stdin",STRLEN (FST inp)) ==>
-  ALOOKUP fs'.files (strlit "stdin") = SOME (STRCAT (FST inp) (SND inp)) ==>
-  ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ==>
-  ALOOKUP fs'.files (strlit "stdout") = SOME out ==>
-  ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ==>
-  ALOOKUP fs'.files (strlit "stderr") = SOME err ==>
-  wfFS fs' ==> liveFS fs' ==> LENGTH v = 258 ==>     
-  STDIO fs inp out err
-    ({FFI_part (encode fs') (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
+` ALOOKUP fs.infds 0 = SOME (strlit "stdin",inp) ==>
+  ALOOKUP fs.infds 1 = SOME (strlit "stdout",STRLEN out) ==>
+  ALOOKUP fs.infds 2 = SOME (strlit "stderr",STRLEN err) ==>
+  ALOOKUP fs.files (strlit "stdout") = SOME out ==>
+  ALOOKUP fs.files (strlit "stderr") = SOME err ==>
+  wfFS fs ==> liveFS fs ==> LENGTH v = 258 ==>     
+  STDIO fs
+    ({FFI_part (encode (fs with numchars := (THE (LDROP k fs.numchars)))) 
+               (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
-  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM] >>
-  qexists_tac`fs'` >> fs[SEP_CLAUSES,IOFS_precond]);
- 
-
+  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
+  qexists_tac`k` >>
+  `(fs with numchars := THE (LDROP k fs.numchars)) = 
+   fsupdate fs 1 k (STRLEN out) out`
+    by fs[fsupdate_def,ALIST_FUPDKEY_unchanged,IO_fs_component_equality] >>
+  mp_tac (Q.SPEC `fsupdate fs 1 k (STRLEN out) out` IOFS_precond) >>
+  impl_tac >-(
+    `MEM 1 (MAP FST fs.infds)` by
+      (fs[MEM_MAP] >> qexists_tac`(1,strlit "stdout",STRLEN out)` >> 
+      imp_res_tac ALOOKUP_MEM >> fs[]) >>
+    fs[wfFS_fsupdate]) >>
+  impl_tac >- fs[liveFS_fsupdate] >>
+  fs[]);
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
   theorems to prove the outcome of extract_output. If RTC_call_FFI_rel_IMP* uses proj1, after
@@ -190,7 +197,6 @@ val STDIO_precond = Q.store_thm("STDIO_precond",
   st.io_events  *)
 
 fun mk_main_call s =
-(* TODO: don't use the parser so much here? *)
   ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
@@ -200,18 +206,21 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
  ML_code env1 (init_state (basis_ffi inp cls fs ll)) prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (basis_proj1, basis_proj2) fv [Conv NONE []] P
-    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS fs. IOFS fs * &R fs) * Q) ==>
+    (POSTv uv. &UNIT_TYPE () uv * (SEP_EXISTS k. 
+        IOFS (fs0 with numchars := THE (LDROP k fs0.numchars)) * &R fs0) * Q) ==>
   no_dup_mods (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_mods /\
   no_dup_top_types (SNOC ^main_call prog) (init_state (basis_ffi inp cls fs ll)).defined_types ==>
   (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\ P h1)
   ==>
-    ∃io_events fs'. R fs' /\
+    ∃io_events k. R fs0 /\
     semantics_prog (init_state (basis_ffi inp cls fs ll)) env1
       (SNOC ^main_call prog) (Terminate Success io_events) /\
-    extract_fs (basis_fs inp fs ll) io_events = SOME fs'`,
+    extract_fs (basis_fs inp fs ll) io_events = 
+        SOME (fs0 with numchars := THE (LDROP k fs0.numchars))`,
     rw[]
-    \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv.
-          &UNIT_TYPE () uv * ((SEP_EXISTS fs. IOFS fs * &R fs) * Q))` by (fs[STAR_ASSOC])
+    \\ `app (basis_proj1,basis_proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv *
+         ((SEP_EXISTS k.IOFS (fs0 with numchars := THE (LDROP k fs0.numchars)) * &R fs0  ) * Q))` 
+          by (fs[STAR_ASSOC])
     \\ drule (GEN_ALL call_main_thm2)
     \\ rpt(disch_then drule)
     \\ qmatch_goalsub_abbrev_tac`FFI_part_hprop X`
@@ -222,10 +231,11 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
        \\ metis_tac[IOFS_FFI_part_hprop, FFI_part_hprop_STAR])
     \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac) \\ rw[Abbr`X`]
     \\ fs[SEP_EXISTS_THM,SEP_CLAUSES]
-    \\ `R fs'` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
-    \\ map_every qexists_tac [`st3.ffi.io_events`,`fs'`]
+    \\ `R fs0` by metis_tac[cond_STAR,STAR_ASSOC,STAR_COMM]
+    \\ map_every qexists_tac [`st3.ffi.io_events`,`k`]
     \\ fs[]
-    \\ `decode (basis_proj1 st3.ffi.ffi_state ' "write") = SOME fs'`
+    \\ `decode (basis_proj1 st3.ffi.ffi_state ' "write") = 
+            SOME (fs0 with numchars := THE (LDROP k fs0.numchars))`
         suffices_by
       (imp_res_tac RTC_call_FFI_rel_IMP_basis_events
        \\ rfs[GSYM extract_fs_basis_ffi,ml_progTheory.init_state_def,basis_ffi_def]
@@ -247,7 +257,8 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
     \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
     \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
     \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
-    \\ fs[basis_proj1_write,STAR_def,cond_def]);
+    \\ fs[basis_proj1_write,STAR_def,cond_def]
+    );
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,

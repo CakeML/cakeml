@@ -7,6 +7,7 @@ val _ = new_theory"fsioProgConstants";
 (* filesystem constants and corresponding hprops *)
 val _ = translation_extends "mlcommandLineProg";
 val _ = ml_prog_update (open_module "IO");
+(* " *)
 
 val _ = process_topdecs `
   exception BadFileName;
@@ -51,22 +52,17 @@ val FILENAME_def = Define `
 `;
 
 (* "end-user" property *)
-(* states that the current file system is equal to fs, except that:
-* - standard streams are opened on their usual fds with usual offsets
-*   and their content is specified by inp out and err
-* - read is the part of stdin already read, and inp is what remains 
-* - the other file descriptors and the llist are unspecified *)
-
+(* abstracts away the lazy list and ensure that standard streams are opened on
+* their respective standard fds at the right position *)
 val STDIO_def = Define`
- STDIO fs inp out err = SEP_EXISTS fs'. IOFS fs' *
-   &((∀ fname. ¬(fname ∈ {strlit "stdin"; strlit "stdout"; strlit "stderr"}) ⇒ 
-          ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ∧
-     (ALOOKUP fs'.infds 0 = SOME (strlit "stdin", LENGTH (FST inp)) ∧
-      ALOOKUP fs'.files (strlit "stdin") = SOME (FST inp ++ SND inp)) ∧ 
-     (ALOOKUP fs'.infds 1 = SOME (strlit "stdout", LENGTH out) ∧
-      ALOOKUP fs'.files (strlit "stdout") = SOME out) ∧ 
-     (ALOOKUP fs'.infds 2 = SOME (strlit "stderr", LENGTH err) ∧
-      ALOOKUP fs'.files (strlit "stderr") = SOME err))`
+ STDIO fs = SEP_EXISTS k. 
+   IOFS (fs with numchars := THE (LDROP k fs.numchars)) *
+   &(? inp out err. 
+        (ALOOKUP fs.infds 0 = SOME (strlit "stdin", inp)) ∧
+        (ALOOKUP fs.infds 1 = SOME (strlit "stdout", LENGTH out)) ∧
+        (ALOOKUP fs.infds 2 = SOME (strlit "stderr", LENGTH err)) ∧
+        (ALOOKUP fs.files (strlit "stdout") = SOME out) ∧ 
+        (ALOOKUP fs.files (strlit "stderr") = SOME err))`
 
 open cfLetAutoTheory cfLetAutoLib
 
@@ -137,6 +133,19 @@ val InvalidFD_UNICITY = Q.store_thm("InvalidFD_UNICITY[xlet_auto_match]",
 val EndOfFile_UNICITY = Q.store_thm("EndOfFile_UNICITY[xlet_auto_match]",
 `!v1 v2. EndOfFile_exn v1 ==> (EndOfFile_exn v2 <=> v2 = v1)`,
   fs[EndOfFile_exn_def]);
+
+
+val UNIQUE_STDIO = Q.store_thm("UNIQUE_STDIO",
+`!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
+                                      (STDIO fs2 * H2) s ==> 
+     ?k1 k2. (THE(LDROP k1 fs1.numchars) = THE(LDROP k2 fs2.numchars)) /\
+             (IOFS (fs1 with numchars := THE(LDROP k1 fs1.numchars)) * H1) s`,
+  rw[STDIO_def,SEP_CLAUSES,SEP_EXISTS_THM] >>
+  qexists_tac`k` >> qexists_tac`k'` >> rw[] >>
+  fs[STAR_COMM,STAR_ASSOC,cond_STAR] >>
+  fs[Once STAR_COMM] >>
+  imp_res_tac UNIQUE_IOFS >>
+  cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd]);
 
 val _ = export_theory();
 
