@@ -4,6 +4,8 @@ open preamble
 
 val _ = new_theory"wordcountProof";
 
+val _ = temp_clear_overloads_on"STRCAT";
+
 val wordcount_io_events_def = new_specification("wordcount_io_events_def",["wordcount_io_events"],
   wordcount_semantics |> Q.GENL[`inp`,`files`,`pname`,`fname`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
@@ -14,8 +16,8 @@ val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_
 val compile_correct_applied =
   MATCH_MP compile_correct wordcount_compiled
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP x64_conf_ok
   |> C MATCH_MP wordcount_not_fail
+  |> C MATCH_MP x64_backend_config_ok
   |> REWRITE_RULE[wordcount_sem_sing]
 
 val wordcount_compiled_thm =

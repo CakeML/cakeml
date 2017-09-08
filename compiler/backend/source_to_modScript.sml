@@ -157,7 +157,7 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) =
-    let t' = if t = None then t else (Cons (Cons (Cons (Cons Empty st.row) st.col) en.row) en.col) in
+    let t' = if t = None then t else SourceLoc st.row st.col en.row en.col in
       compile_exp t' env e)
   ∧
   (compile_exps t env [] = [])

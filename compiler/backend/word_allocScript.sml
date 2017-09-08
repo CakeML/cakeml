@@ -891,7 +891,7 @@ val get_forced_def = Define`
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
@@ -938,7 +938,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
