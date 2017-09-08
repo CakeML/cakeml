@@ -1482,6 +1482,14 @@ val assign_pmatch_lemmas = [
   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
   >> fs[]),
   Q.prove(`
+   (case args of
+    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
+    | _ => z) = (dtcase args of
+    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
+    | _ => z)`,
+  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
+  >> fs[]),
+  Q.prove(`
    (case opt of
       NONE => y
     | SOME x => z x) = (dtcase opt of
@@ -1561,7 +1569,7 @@ val assign_pmatch = Q.store_thm("assign_pmatch", `∀c secn l dest op args names
   >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
   >> Cases_on `op` >> fs []
   >> fs[assign_def]
-  >> Cases_on `w` >> fs[]
+  >> TRY(Cases_on `w`) >> fs[]
   >> every_case_tac >> fs []);
 end
 
