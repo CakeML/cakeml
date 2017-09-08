@@ -8,16 +8,18 @@ val arm6_names_def = Define `
        target's r15 must be avoided (pc),
        target's r13 must be avoided (stack pointer),
        source 0 must represent r14 (link register),
-       source 1-2 must be r0 and r1 (1st 2 arguments)
+       source 1-4 must be r0-r3 (1st 4 arguments)
        the top three (source 11-13) must be callee-saved
        (callee-saved include: r4-r8, r10-11) *)
     (insert 0 14 o
      insert 1 0 o
      insert 2 1 o
+     insert 3 2 o
+     insert 4 3 o
      insert 12 8 o
      insert 13 10 o
      (* the rest just ensures that the mapping is well-formed *)
-     insert 8 2 o
+     insert 8 4 o
      insert 10 12 o
      insert 14 13) LN:num num_map`
 

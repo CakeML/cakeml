@@ -7195,7 +7195,6 @@ val th = Q.store_thm("assign_FFI",
     \\ simp[bytes_in_word_def,GSYM word_add_n2w]
     \\ simp[dimword_def] )
   \\ fs[] \\ strip_tac
-  (* here*)
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa2 len2 _`
   \\ qispl_then[`l''`,`LENGTH l''`,`aa2`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
@@ -7211,7 +7210,7 @@ val th = Q.store_thm("assign_FFI",
   \\ eval_tac
   \\ simp[lookup_insert]
   \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
-  \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]  (* here*)
+  \\ simp[lookup_inter,lookup_insert,lookup_adjust_var_adjust_set]
   \\ IF_CASES_TAC
      >- (fs[adjust_set_def,lookup_fromAList,cut_state_opt_def,cut_state_def,cut_env_def]
          >> Cases_on `domain x' ⊆ domain s.locals` >> fs[]

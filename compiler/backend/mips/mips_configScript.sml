@@ -12,13 +12,15 @@ val mips_names_def = Define `
        target's r26-r27 avoided (reserved for OS kernel),
        target's r30 must be avoided (used by encoder in asm),
        source 0 must represent r31 (link register),
-       source 1 2 must be r4, r5 (1st 2 args),
+       source 1-4 must be r4-r7 (1st 4 args),
        top 3 (21-23) must be callee-saved (in 16-23, 28, 30) *)
     (insert 0 31 o
      insert 1 4 o
      insert 2 5 o
+     insert 3 6 o
+     insert 4 7 o     
      (* the rest just ensures that the mapping is well-formed *)
-     insert 4 2 o
+     insert 7 2 o
      insert 5 24 o
      insert 24 0 o
      insert 31 1) LN:num num_map`

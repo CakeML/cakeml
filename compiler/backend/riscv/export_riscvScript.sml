@@ -21,8 +21,8 @@ val startup =
        "     la      a1,cake_heap   # arg2: first address of heap";
        "     la      t3,cake_bitmaps";
        "     sd      t3, 0(a1)      # store bitmap pointer";
-       "     la      t3,cake_stack  # arg3: first address of stack";
-       "     la      x4,cake_end    # arg4: first address past the stack";
+       "     la      a2,cake_stack  # arg3: first address of stack";
+       "     la      a3,cake_end    # arg4: first address past the stack";
        "     j       cake_main";
        ""])`` |> EVAL |> concl |> rand
 

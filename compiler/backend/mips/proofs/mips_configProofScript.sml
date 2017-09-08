@@ -9,6 +9,8 @@ val is_mips_machine_config_def = Define`
   mc.target = mips_target ∧
   mc.len_reg =5  ∧
   mc.ptr_reg = 4 ∧
+  mc.len2_reg =7  ∧
+  mc.ptr2_reg = 6 ∧
   mc.callee_saved_regs = [21;22;23]`;
 
 val names_tac =

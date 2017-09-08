@@ -150,17 +150,17 @@ val ssa_cc_trans_inst_def = Define`
     let mov_in = Move 0 [(0,r3');(4,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',8)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 4))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',0);(r1',6)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(8,r3');(0,r4')] in
+    let mov_in = Move 0 [(6,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',8);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 8 0 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',6);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in

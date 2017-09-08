@@ -5,6 +5,61 @@ val _ = new_theory"x64_config";
 val x64_names_def = Define `
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
+         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rbp, r5=rsp, r6=rsi,
+         r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
+       The first six arguments are passed in registers. The first
+       argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
+       the third(3) in rdx(r3), the fourth(4) in rcx(2), the fifth(5)
+       in r8 and the sixth in r9.
+       Callee-saved regs: r12-r15, rbx
+     *)
+    (insert 1 7 o  (* arg 1 *)
+     insert 2 6 o  (* arg 2 *)
+     insert 3 2 o
+     insert 4 1 o
+     insert 5 8 o
+     insert 6 9 o
+     insert 11 12 o
+     insert 12 13 o
+     insert 13 14 o
+     (* the rest just ensures that the mapping is well-formed *)
+     insert 7 3 o
+     insert 8 15 o
+     insert 9 11 o
+     insert 14 4 o
+     insert 15 5) LN:num num_map`;
+
+(*val x64_names_def = Define `
+  x64_names =
+    (* 16 regs, must avoid 4 and 5, names:
+         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rsp, r5=rbp, r6=rsi,
+         r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
+       The first six arguments are passed in registers. The first
+       argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
+       the third(3) in rdx(r2), the fourth(4) in rcx(1), the fifth(5)
+       in r8 and the sixth(6) in r9.
+       Callee-saved regs: r12-r15, rbx
+     *)
+    (insert 1 7 o  (* arg 1 *)
+     insert 2 6 o  (* arg 2 *)
+     insert 3 2 o
+     insert 4 1 o
+     insert 5 8 o
+     insert 6 9 o
+     insert 11 12 o
+     insert 12 13 o
+     insert 13 14 o
+     (* the rest just ensures that the mapping is well-formed *)
+     insert 7 3 o
+     insert 8 15 o
+     insert 9 11 o
+     insert 14 4 o
+     insert 15 5) LN:num num_map`;*)
+
+(*
+val x64_names_def = Define `
+  x64_names =
+    (* 16 regs, must avoid 4 and 5, names:
          r0=rax, r1=rbx, r2=rcx, r3=rdx, r4=rbp, r5=rsp, r6=rsi,
          r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
        The first six arguments are passed in registers. The first
@@ -28,7 +83,7 @@ val x64_names_def = Define `
      insert 9 11 o
      insert 14 4 o
      insert 15 5) LN:num num_map`;
-
+ *)
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 

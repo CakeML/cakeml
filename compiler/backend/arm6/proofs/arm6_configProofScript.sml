@@ -9,6 +9,8 @@ val is_arm6_machine_config_def = Define`
   mc.target = arm6_target ∧
   mc.len_reg = 1  ∧
   mc.ptr_reg = 0 ∧
+  mc.len2_reg = 3  ∧
+  mc.ptr2_reg = 2 ∧                                 
   mc.callee_saved_regs = [8;10;11]`;
 
 val names_tac =

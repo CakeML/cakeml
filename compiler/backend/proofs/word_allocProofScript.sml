@@ -4153,7 +4153,7 @@ val ssa_cc_trans_correct = Q.store_thm("ssa_cc_trans_correct",
       ntac 3 FULL_CASE_TAC >>fs[]>>
       disch_then sym_sub_tac>>fs[]>>
       imp_res_tac ssa_locals_rel_get_var>>fs[set_vars_def,get_var_def,lookup_alist_insert]>>
-      `option_lookup ssa n3 ≠ 0 ∧ option_lookup ssa n3 ≠ 8` by
+      `option_lookup ssa n3 ≠ 0 ∧ option_lookup ssa n3 ≠ 6` by
         (fs[ssa_locals_rel_def]>>
         first_x_assum(qspecl_then[`n3`,`x'`]assume_tac)>>
         rfs[domain_lookup,ssa_map_ok_def]>>

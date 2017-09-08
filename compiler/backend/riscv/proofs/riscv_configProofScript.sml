@@ -9,6 +9,8 @@ val is_riscv_machine_config_def = Define`
   mc.target = riscv_target ∧
   mc.len_reg = 11  ∧
   mc.ptr_reg = 10 ∧
+  mc.len2_reg = 13  ∧
+  mc.ptr2_reg = 12 ∧                                   
   mc.callee_saved_regs = [25;26;27]`;
 
 val names_tac =
