@@ -101,17 +101,9 @@ val lookup_copy_shape = store_thm("lookup_copy_shape",
   Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
   \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
 
-val mapi_def = Define `
-  mapi f x = fromAList (MAP (\(x,y). (x, f x y)) (toAList x))`;
-
-val lookup_mapi = store_thm("lookup_mapi",
-  ``lookup n t = SOME v ==> lookup n (mapi f t) = SOME (f n v)``,
-  fs [mapi_def,lookup_fromAList,ALOOKUP_MAP_gen,ALOOKUP_toAList]);
-
 val domain_mapi = store_thm("domain_mapi[simp]",
   ``domain (mapi f x) = domain x``,
-  fs [domain_lookup,EXTENSION] \\ rw [] \\ reverse EQ_TAC \\ rw []
-  \\ fs [mapi_def,lookup_fromAList,ALOOKUP_MAP_gen,ALOOKUP_toAList]);
+  fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
 
 (* / TODO *)
 
@@ -537,7 +529,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qexists_tac `copy_shape (mapi ff t2.code) l`
       \\ conj_tac THEN1 (fs [] \\ match_mp_tac shape_eq_copy_shape \\ fs [])
       \\ fs [lookup_copy_shape]
-      \\ rw [] \\ match_mp_tac lookup_mapi \\ fs [])
+      \\ rw [] \\ fs [lookup_mapi])
     \\ qexists_tac `l3`
     \\ rw [] \\ res_tac \\ fs []
     THEN1 (CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [] \\ metis_tac [])
