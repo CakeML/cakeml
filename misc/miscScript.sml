@@ -3011,4 +3011,11 @@ val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
   qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
   BasicProvers.TOP_CASE_TAC \\ simp[]);
 
+val map_union = Q.store_thm("map_union",
+  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`,
+  Induct
+  \\ rw[map_def,union_def]
+  \\ TOP_CASE_TAC
+  \\ rw[map_def,union_def]);
+
 val _ = export_theory()

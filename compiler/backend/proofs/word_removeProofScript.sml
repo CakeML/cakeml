@@ -2,15 +2,6 @@ open preamble word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
 
-(* TODO : move *)
-val map_union = Q.store_thm("map_union",
-  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`,
-  Induct
-  \\ rw[map_def,union_def]
-  \\ TOP_CASE_TAC
-  \\ rw[map_def,union_def]);
-(* -- *)
-
 val compile_state_def = Define`
   compile_state clk c s =
     s with <|
