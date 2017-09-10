@@ -47,9 +47,13 @@ val do_app_cases_err = save_thm ("do_app_cases_err",
 val do_app_with_code = Q.store_thm("do_app_with_code",
   `bvlSem$do_app op vs s = Rval (r,s') /\ op <> Install ⇒
    domain s.code ⊆ domain c ⇒
-   ?c2. do_app op vs (s with code := c) = Rval (r,s' with code := union c c2) `,
-  rw[do_app_cases_val] >> rfs[SUBSET_DEF]
-  \\ qexists_tac `LN` \\ fs []);
+   do_app op vs (s with <| code := c
+                         ; compile := cc
+                         ; compile_oracle := co |>) =
+        Rval (r,s' with <| code := c
+                         ; compile := cc
+                         ; compile_oracle := co |>) `,
+  rw[do_app_cases_val] >> rfs[SUBSET_DEF] >> fs []);
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bvlSem$do_app op vs s = Rerr e ⇒
@@ -65,6 +69,15 @@ val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   \\ PairCases_on `x` \\ fs []
   \\ Cases_on `v6` \\ fs []
   \\ rveq \\ fs [] \\ rfs []);
+
+val do_app_with_code_err_not_Install = Q.store_thm("do_app_with_code_err_not_Install",
+  `bvlSem$do_app op vs s = Rerr e /\ op <> Install ⇒
+   (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
+   do_app op vs (s with <| code := c
+                         ; compile := cc
+                         ; compile_oracle := co |>) = Rerr e`,
+  rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
+  fs [do_install_def,case_eq_thms,UNCURRY]);
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
   `(initial_state f c co cc k).code = c ∧

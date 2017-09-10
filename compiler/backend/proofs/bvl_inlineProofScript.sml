@@ -40,28 +40,67 @@ val remove_ticks_SING = store_thm("remove_ticks_SING[simp]",
   \\ Cases_on `remove_ticks [r]` \\ fs []);
 
 val state_rel_def = Define `
-  state_rel (s:'ffi bvlSem$state) (t:'ffi bvlSem$state) <=>
-    t = s with code := map (I ## (\x. HD (remove_ticks [x]))) s.code`
+  state_rel (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
+    t = s with <| code := map (I ## (\x. HD (remove_ticks [x]))) s.code
+                ; compile := t.compile
+                ; compile_oracle := (I ##
+      MAP (I ## I ## (\x. HD (remove_ticks [x])))) o s.compile_oracle |> /\
+    s.compile = \cfg prog. t.compile cfg
+                   (MAP (I ## I ## (\x. HD (remove_ticks [x]))) prog)`
+
+val state_rel_alt = state_rel_def
+
+val state_rel_def =
+  state_rel_def |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
 val do_app_lemma = prove(
   ``state_rel t' r ==>
     case do_app op (REVERSE a) r of
     | Rerr err => do_app op (REVERSE a) t' = Rerr err
     | Rval (v,r2) => ?t2. state_rel t2 r2 /\ do_app op (REVERSE a) t' = Rval (v,t2)``,
-  strip_tac \\ Cases_on `do_app op (REVERSE a) t'`
+  Cases_on `op = Install` THEN1
+   (rw [] \\ fs [do_app_def]
+    \\ every_case_tac \\ fs []
+    \\ fs [case_eq_thms,UNCURRY,do_install_def]
+    \\ rveq \\ fs [PULL_EXISTS]
+    \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ fs [state_rel_def] \\ rveq \\ fs []
+    \\ fs [state_component_equality]
+    THEN1
+     (fs [shift_seq_def,o_DEF] \\ rfs []
+      \\ Cases_on `t'.compile_oracle 0` \\ fs []
+      \\ Cases_on `r'` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
+      \\ fs [map_union] \\ AP_TERM_TAC
+      \\ fs [map_fromAList] \\ AP_TERM_TAC \\ fs []
+      \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+      \\ fs [FUN_EQ_THM,FORALL_PROD])
+    \\ CCONTR_TAC \\ fs [] \\ rfs [FORALL_PROD,shift_seq_def]
+    \\ metis_tac [list_nchotomy,PAIR])
+  \\ strip_tac \\ Cases_on `do_app op (REVERSE a) t'`
   THEN1
-   (PairCases_on `a'`
-    \\ drule (GEN_ALL bvlPropsTheory.do_app_with_code)
-    \\ disch_then (qspec_then `r.code` mp_tac)
-    \\ fs [state_rel_def,domain_map]
+   (rename1 `_ = Rval aa`
+    \\ PairCases_on `aa`
+    \\ drule (Q.GENL [`c`,`cc`,`co`] do_app_with_code) \\ fs []
+    \\ fs [state_rel_alt]
+    \\ disch_then (qspecl_then [`map (I ## (λx. HD (remove_ticks [x]))) t'.code`,
+        `r.compile`,`(I ## MAP (I ## I ## (λx. HD (remove_ticks [x])))) ∘
+          t'.compile_oracle`] mp_tac)
+    \\ qpat_x_assum `r = _` (assume_tac o GSYM) \\ fs []
+    \\ impl_tac THEN1 fs [domain_map]
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum `_ = r` (assume_tac o GSYM) \\ fs []
     \\ rw [] \\ fs [state_component_equality]
     \\ imp_res_tac do_app_const \\ fs [])
-  \\ drule (GEN_ALL bvlPropsTheory.do_app_with_code_err)
-  \\ disch_then (qspec_then `r.code` mp_tac)
-  \\ fs [state_rel_def,domain_map]);
+  \\ drule (Q.GENL [`c`,`cc`,`co`] do_app_with_code_err_not_Install) \\ fs []
+  \\ fs [state_rel_alt]
+  \\ disch_then (qspecl_then [`map (I ## (λx. HD (remove_ticks [x]))) t'.code`,
+      `r.compile`,`(I ## MAP (I ## I ## (λx. HD (remove_ticks [x])))) ∘
+        t'.compile_oracle`] mp_tac)
+  \\ qpat_x_assum `r = _` (assume_tac o GSYM) \\ fs []
+  \\ impl_tac THEN1 fs [domain_map] \\ fs []);
 
 val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
-  `!k xs env s (t:'ffi bvlSem$state) res s'.
+  `!k xs env s (t:('c,'ffi) bvlSem$state) res s'.
       state_rel t s /\ s.clock = k /\
       evaluate (remove_ticks xs,env,s) = (res,s') ==>
       ?ck t'. evaluate (xs,env,t with clock := t.clock + ck) = (res,t') /\
@@ -81,7 +120,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ reverse (Cases_on `q`) \\ fs []
     THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
     \\ strip_tac
-    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+    \\ `∀env s' (t:('c,'ffi) bvlSem$state) res s''.
          state_rel t s' ∧ s'.clock <= s.clock ∧
          evaluate (remove_ticks (y::xs),env,s') = (res,s'') ⇒
          ∃ck t'.
@@ -110,7 +149,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
     \\ TOP_CASE_TAC THEN1
      (disch_then assume_tac \\ disch_then kall_tac \\ strip_tac
-      \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+      \\ `∀env s' (t:('c,'ffi) bvlSem$state) res s''.
            state_rel t s' ∧ s'.clock <= s.clock ∧
            evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
            ∃ck t'.
@@ -125,7 +164,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ disch_then kall_tac)
     \\ TOP_CASE_TAC THEN1
      (disch_then kall_tac \\ disch_then assume_tac \\ strip_tac
-      \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+      \\ `∀env s' (t:('c,'ffi) bvlSem$state) res s''.
            state_rel t s' ∧ s'.clock <= s.clock ∧
            evaluate (remove_ticks [x3],env,s') = (res,s'') ⇒
            ∃ck t'.
@@ -148,7 +187,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ reverse (Cases_on `q`) \\ fs []
     THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
     \\ strip_tac
-    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+    \\ `∀env s' (t:('c,'ffi) bvlSem$state) res s''.
            state_rel t s' ∧ s'.clock <= s.clock ∧
            evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
            ∃ck t'.
@@ -178,7 +217,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ reverse (Cases_on `e`) \\ fs []
     THEN1 (rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
     \\ rpt strip_tac
-    \\ `∀env s' (t:'ffi bvlSem$state) res s''.
+    \\ `∀env s' (t:('c,'ffi) bvlSem$state) res s''.
            state_rel t s' ∧ s'.clock <= s.clock ∧
            evaluate (remove_ticks [x2],env,s') = (res,s'') ⇒
            ∃ck t'.
@@ -224,7 +263,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ Cases_on `dest` \\ fs [find_code_def]
     \\ every_case_tac \\ fs [state_rel_def]
     \\ rveq \\ fs [lookup_map]
-    \\ PairCases_on `z` \\ fs [])
+    \\ rfs [lookup_map])
   \\ PairCases_on `x` \\ fs []
   \\ pop_assum mp_tac
   \\ IF_CASES_TAC \\ rw []
@@ -243,7 +282,7 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
   \\ `(dec_clock 1 r).clock < s.clock` by
         (imp_res_tac evaluate_clock  \\ fs [dec_clock_def] \\ fs [])
   \\ first_x_assum drule
-  \\ `state_rel (dec_clock 1 t') (dec_clock 1 r)` by fs [state_rel_def]
+  \\ `state_rel (dec_clock 1 t') (dec_clock 1 r)` by fs [state_rel_def,dec_clock_def]
   \\ disch_then drule
   \\ `?a2. find_code dest a t'.code = SOME (x0,a2) /\
            [x1] = remove_ticks [a2]` by
@@ -264,19 +303,30 @@ val evaluate_remove_ticks_thm =
   |> Q.SPEC `[Call 0 (SOME start) []]`
   |> SIMP_RULE std_ss [remove_ticks_def];
 
+val remove_ticks_cc_def = Define `
+  remove_ticks_cc cc =
+    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))`;
+
+val remove_ticks_co_def = Define `
+  remove_ticks_co =
+    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))`;
+
 val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
   `evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 (map
-                (I ## (λx. HD (remove_ticks [x]))) prog) k) = (r, s) ⇒
-   ∃ck (s2:'ffi bvlSem$state).
+                (I ## (λx. HD (remove_ticks [x]))) prog)
+                (remove_ticks_co ∘ co) cc k) = (r, s) ⇒
+   ∃ck (s2:('c,'ffi) bvlSem$state).
      evaluate
       ([Call 0 (SOME start) []], [],
-        initial_state ffi0 prog (k + ck)) = (r, s2) ∧
+        initial_state ffi0 prog co (remove_ticks_cc cc) (k + ck)) = (r, s2) ∧
      s2.ffi = s.ffi`,
-  strip_tac
+  strip_tac \\ fs [remove_ticks_co_def,remove_ticks_cc_def]
   \\ drule (ONCE_REWRITE_RULE [CONJ_COMM]
              (REWRITE_RULE [CONJ_ASSOC] evaluate_remove_ticks_thm))
-  \\ disch_then (qspec_then `initial_state ffi0 prog k` mp_tac)
+  \\ disch_then (qspec_then `initial_state ffi0 prog co
+        (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))
+            k` mp_tac)
   \\ impl_tac THEN1 fs [state_rel_def]
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck` \\ fs [state_rel_def]);
@@ -286,8 +336,10 @@ val FST_EQ_LEMMA = prove(
   Cases_on `x` \\ fs []);
 
 val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
-  `semantics ffi (map (I ## (λx. HD (remove_ticks [x]))) prog) start =
-   semantics ffi prog start`,
+  `semantics ffi (map (I ## (λx. HD (remove_ticks [x]))) prog)
+                 (remove_ticks_co ∘ co)
+                 cc start =
+   semantics (ffi:'b ffi_state) prog co (remove_ticks_cc cc) start`,
   simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs []
   THEN1
@@ -304,7 +356,7 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
       \\ drule evaluate_add_clock
       \\ impl_tac >- fs []
       \\ strip_tac
-      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _) = _` kall_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
       \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
       \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
@@ -488,7 +540,8 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
   \\ Cases_on `(evaluate
          ([Call 0 (SOME start) []],[],
           initial_state ffi
-            (map (I ## (λx. HD (remove_ticks [x]))) prog) k))`
+            (map (I ## (λx. HD (remove_ticks [x]))) prog)
+            (remove_ticks_co ∘ co) cc k))`
   \\ drule (GEN_ALL evaluate_compile_prog)
   \\ strip_tac \\ fs []
   \\ conj_tac \\ rw []
