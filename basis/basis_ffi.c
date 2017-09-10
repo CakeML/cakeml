@@ -11,8 +11,8 @@ void ffiputChar (char* c, long clen, char* a) {
 #define WRITE_MAXLEN 65535
 
 void ffiwriteStr (char* c, long clen, char* a) {
-  fwrite(sizeof (char),
-         c,
+  fwrite(c,
+         sizeof(char),
          clen <= WRITE_MAXLEN ? clen : WRITE_MAXLEN,
          stdout);
 }

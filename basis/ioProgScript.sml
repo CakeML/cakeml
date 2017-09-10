@@ -464,7 +464,6 @@ val emp_precond = Q.store_thm("emp_precond",
   that to make the subsequent proofs similar one should show an equivalence between
   extract_output and proj1  *)
 
-(* No longer true because of writeStr *)
 val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
   `!st st'. call_FFI_rel^* st st' ==>
   st.oracle = basis_ffi_oracle ==>
