@@ -2997,4 +2997,18 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
   simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
+val subspt_union = Q.store_thm("subspt_union",`
+  subspt s (union s t)`,
+  fs[subspt_lookup,lookup_union]);
+
+val subspt_FOLDL_union = Q.store_thm("subspt_FOLDL_union",
+  `∀ls t. subspt t (FOLDL union t ls)`,
+  Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
+
+val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
+  `lookup k (FOLDL union t ls) =
+   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`,
+  qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
+  TOP_CASE_TAC \\ simp[]);
+
 val _ = export_theory()

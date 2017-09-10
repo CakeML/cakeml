@@ -4,21 +4,6 @@ val _ = new_theory"stackProps";
 
 (* TODO: move *)
 
-(* TODO: not sure if useful *)
-val subspt_union = Q.store_thm("subspt_union",`
-  subspt s (union s t)`,
-  fs[subspt_lookup,lookup_union]);
-
-val subspt_FOLDL_union = Q.store_thm("subspt_FOLDL_union",
-  `∀ls t. subspt t (FOLDL union t ls)`,
-  Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
-
-val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
-  `lookup k (FOLDL union t ls) =
-   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`,
-  qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
-  TOP_CASE_TAC \\ simp[]);
-
 val FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM = Q.store_thm("FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM",
   `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`,
   qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\

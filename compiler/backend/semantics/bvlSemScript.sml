@@ -442,7 +442,8 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
 
 val do_app_const = Q.store_thm("do_app_const",
   `(do_app op args s1 = Rval (res,s2)) ==>
-    (s2.clock = s1.clock) (* /\ (s2.code = s1.code) *)`,
+    (s2.clock = s1.clock) /\
+    (op <> Install ==> s2.code = s1.code /\ s2.compile_oracle = s1.compile_oracle)`,
   rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
