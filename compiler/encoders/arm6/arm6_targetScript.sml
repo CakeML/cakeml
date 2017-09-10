@@ -11,11 +11,23 @@ val arm6_next_def = Define `arm6_next = THE o NextStateARM`
 
 (* --- Valid ARMv6 states --- *)
 
+(* NOTE: The underlying model of ARM VFP does not cover all possible
+         details, e.g. floating-point exceptions, treatement of NaNs and
+         flushing to zero (non-IEEE operation). However, the model should
+         adequately capture CakeML use cases, provided arm6_ok below holds.
+*)
+
+
 val arm6_ok_def = Define`
    arm6_ok ms <=>
    GoodMode ms.CPSR.M /\ ~ms.CPSR.E /\ ~ms.CPSR.J /\ ~ms.CPSR.T /\
+   (ms.FP.FPSCR.RMode = 0w) /\ (* Rounding mode is TiesToEven *)
+   ~ms.FP.FPSCR.FZ /\  (* Disable flush to zero *)
+   ~ms.FP.FPSCR.IXE /\ ~ms.FP.FPSCR.UFE /\ ~ms.FP.FPSCR.OFE /\
+   ~ms.FP.FPSCR.DZE /\ ~ms.FP.FPSCR.IOE /\ (* Disable FP exception traps *)
    (ms.Architecture = ARMv6) /\ ~ms.Extensions Extension_Security /\
-   (ms.exception = NoException) /\ aligned 2 (ms.REG RName_PC)`
+   (ms.VFPExtension = VFPv2) /\ (ms.exception = NoException) /\
+   aligned 2 (ms.REG RName_PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -62,6 +74,16 @@ val arm6_cmp_def = Define`
    (arm6_cmp NotLower = (2w, 0b0010w)) /\
    (arm6_cmp NotEqual = (2w, 0b0001w)) /\
    (arm6_cmp NotTest  = (0w, 0b0001w))`
+
+val arm6_vfp_cmp_def = Define`
+  arm6_vfp_cmp c n d1 d2 =
+  arm6_encode
+    [(AL, VFP (vcmp (T, n2w d1, SOME (n2w d2))));
+     (AL, VFP (vmrs 15w)); (* move FPSCR flags to CPSR flags *)
+     (AL, Data (Move (F, F, n2w n, 0w)));
+     (c,  Data (Move (F, F, n2w n, 1w)));
+     (VS, Data (Move (F, F, n2w n, 0w))) (* unordered (d1 or d2 is a NaN) *)
+    ]`
 
 val arm6_enc_def = Define`
    (arm6_enc (Inst Skip) =
@@ -131,6 +153,33 @@ val arm6_enc_def = Define`
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreByte (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
+   (arm6_enc (Inst (FP (FPLess n d1 d2))) = arm6_vfp_cmp LT n d1 d2) /\
+   (arm6_enc (Inst (FP (FPLessEqual n d1 d2))) = arm6_vfp_cmp LE n d1 d2) /\
+   (arm6_enc (Inst (FP (FPEqual n d1 d2))) = arm6_vfp_cmp EQ n d1 d2) /\
+   (arm6_enc (Inst (FP (FPMov d1 d2))) =
+      enc (VFP (vmov (F, n2w d1, n2w d2)))) /\
+   (arm6_enc (Inst (FP (FPAbs d1 d2))) =
+      enc (VFP (vabs (T, n2w d1, n2w d2)))) /\
+   (arm6_enc (Inst (FP (FPNeg d1 d2))) =
+      enc (VFP (vneg (T, n2w d1, n2w d2)))) /\
+   (arm6_enc (Inst (FP (FPSqrt d1 d2))) =
+      enc (VFP (vsqrt (T, n2w d1, n2w d2)))) /\
+   (arm6_enc (Inst (FP (FPAdd d1 d2 d3))) =
+      enc (VFP (vadd (T, n2w d1, n2w d2, n2w d3)))) /\
+   (arm6_enc (Inst (FP (FPSub d1 d2 d3))) =
+      enc (VFP (vsub (T, n2w d1, n2w d2, n2w d3)))) /\
+   (arm6_enc (Inst (FP (FPMul d1 d2 d3))) =
+      enc (VFP (vmul (T, n2w d1, n2w d2, n2w d3)))) /\
+   (arm6_enc (Inst (FP (FPDiv d1 d2 d3))) =
+      enc (VFP (vdiv (T, n2w d1, n2w d2, n2w d3)))) /\
+   (arm6_enc (Inst (FP (FPMovToReg r1 r2 d))) =
+      enc (VFP (vmov_double (T, n2w r1, n2w r2, n2w d)))) /\
+   (arm6_enc (Inst (FP (FPMovFromReg d r1 r2))) =
+      enc (VFP (vmov_double (F, n2w r1, n2w r2, n2w d)))) /\
+   (arm6_enc (Inst (FP (FPToInt d1 d2))) =
+      enc (VFP (vcvt_to_integer (T, F, F, n2w d1, n2w d2)))) /\
+   (arm6_enc (Inst (FP (FPFromInt d1 d2))) =
+      enc (VFP (vcvt_from_integer (T, F, n2w d1, n2w d2)))) /\
    (arm6_enc (Jump a) = enc (Branch (BranchTarget (a - 8w)))) /\
    (arm6_enc (JumpCmp cmp r1 (Reg r2) a) =
       let (opc, c) = arm6_cmp cmp in
@@ -190,6 +239,7 @@ val arm6_config_def = Define`
     ; encode := arm6_enc
     ; code_alignment := 2
     ; reg_count := 16
+    ; fp_reg_count := 32
     ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
     ; two_reg_arith := F
@@ -204,8 +254,8 @@ val arm6_config_def = Define`
 
 val arm6_proj_def = Define`
    arm6_proj d s =
-   (s.CPSR, s.Architecture, s.Extensions, s.exception,
-    s.REG o R_mode s.CPSR.M, fun2set (s.MEM,d))`
+   (s.CPSR, s.FP.FPSCR, s.Architecture, s.Extensions, s.VFPExtension,
+    s.exception, s.REG o R_mode s.CPSR.M, s.FP.REG, fun2set (s.MEM,d))`
 
 val arm6_target_def = Define`
    arm6_target =
@@ -213,6 +263,7 @@ val arm6_target_def = Define`
     ; config := arm6_config
     ; get_pc := (\s. s.REG RName_PC)
     ; get_reg := (\s. s.REG o R_mode s.CPSR.M o n2w)
+    ; get_fp_reg := (\s. s.FP.REG o n2w)
     ; get_byte := arm_state_MEM
     ; state_ok := arm6_ok
     ; proj := arm6_proj

@@ -29,7 +29,9 @@ val trace_to_json_def = Define`
   (trace_to_json (Union tra1 tra2) =
       Object [("name", String "Union"); ("trace1", trace_to_json tra1); ("trace2", trace_to_json tra2)])
   /\
-  (trace_to_json Empty = Object [("name", String "Empty")])
+  (trace_to_json (SourceLoc sr sc er ec) =
+    let arr = MAP Int (MAP (&)  [ sr; sc; er; ec ]) in
+      Object [("name", String "SourcePos"); ("pos", Array arr)])
   /\
   (* TODO: cancel entire trace when None, or verify that None will always be at
   * the top level of a trace. *)

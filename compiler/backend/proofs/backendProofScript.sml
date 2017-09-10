@@ -561,10 +561,14 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ imp_res_tac compile_distinct_names
   \\ `MAP FST p4 = MAP FST p3`
   by metis_tac[bvi_to_dataProofTheory.MAP_FST_compile_prog]
-  \\ `code_rel c4.data_conf (fromAList p4) (fromAList t_code)`
+  \\ qabbrev_tac `c4_data_conf = (c4.data_conf with
+        has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count))`
+  \\ `code_rel c4_data_conf (fromAList p4) (fromAList t_code)`
   by (
     simp[data_to_word_gcProofTheory.code_rel_def] \\
     simp[Abbr`t_code`,lookup_fromAList,ALOOKUP_APPEND,EVERY_MEM,FORALL_PROD] \\
+    `stubs (:α) c4.data_conf = stubs (:α) c4_data_conf` by fs [Abbr`c4_data_conf`] \\
+    fs [] \\
     conj_tac >- (
       rw[] \\
       drule(ONCE_REWRITE_RULE[CONJ_COMM] ALOOKUP_ALL_DISTINCT_MEM) \\
@@ -620,16 +624,19 @@ val compile_correct = Q.store_thm("compile_correct",
    |> GEN_ALL
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"]))
    |> qspec_then`word_st`mp_tac) \\
-  disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4.data_conf`]mp_tac) \\
+  disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   impl_tac >- (
-    simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`] \\
+    simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`] \\
     fs[mc_conf_ok_def] \\
     conj_tac >- (
       simp[Abbr`stack_st`] \\
       simp[full_make_init_def,stack_allocProofTheory.make_init_def,Abbr`stack_st_opt`] ) \\
     simp[Abbr`stack_st`] \\
-    match_mp_tac (GEN_ALL IMP_init_store_ok)
-    \\ metis_tac[PAIR]) \\
+    conj_tac
+    >- fs [data_to_word_gcProofTheory.conf_ok_def,
+           data_to_wordTheory.shift_length_def] \\
+    match_mp_tac (GEN_ALL IMP_init_store_ok) \\ fs [] \\
+    metis_tac[PAIR]) \\
   `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\

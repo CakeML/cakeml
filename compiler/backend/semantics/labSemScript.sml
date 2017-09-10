@@ -11,6 +11,7 @@ val _ = Datatype `
 val _ = Datatype `
   state =
     <| regs       : num -> 'a word_loc
+     ; fp_regs    : num -> word64
      ; mem        : 'a word -> 'a word_loc
      ; mem_domain : 'a word set
      ; pc         : num
@@ -128,6 +129,73 @@ val arith_upd_def = Define `
             (upd_reg r1 (Word (w2 - w3)) s)
      | _ => assert F s)`
 
+
+val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
+val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
+
+val fp_upd_def = Define `
+  (fp_upd (FPLess r d1 d2) (s:('a,'b) state) =
+     upd_reg r (Word (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
+                      then 1w
+                      else 0w)) s) /\
+  (fp_upd (FPLessEqual r d1 d2) s =
+     upd_reg r (Word (if fp64_lessEqual (read_fp_reg d1 s) (read_fp_reg d2 s)
+                      then 1w
+                      else 0w)) s) /\
+  (fp_upd (FPEqual r d1 d2) s =
+     upd_reg r (Word (if fp64_equal (read_fp_reg d1 s) (read_fp_reg d2 s)
+                      then 1w
+                      else 0w)) s) /\
+  (fp_upd (FPMov d1 d2) s = upd_fp_reg d1 (read_fp_reg d2 s) s) /\
+  (fp_upd (FPAbs d1 d2) s = upd_fp_reg d1 (fp64_abs (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPNeg d1 d2) s = upd_fp_reg d1 (fp64_negate (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPSqrt d1 d2) s =
+     upd_fp_reg d1 (fp64_sqrt roundTiesToEven (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPAdd d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPSub d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_sub roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPMul d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_mul roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPDiv d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPMovToReg r1 r2 d) s =
+     if dimindex(:'a) = 64 then
+       upd_reg r1 (Word (w2w (read_fp_reg d s))) s
+     else let v = read_fp_reg d s in
+       upd_reg r2 (Word ((63 >< 32) v)) (upd_reg r1 (Word ((31 >< 0) v)) s)) /\
+  (fp_upd (FPMovFromReg d r1 r2) s =
+     if dimindex(:'a) = 64 then
+       case read_reg r1 s of
+         Word w1 => upd_fp_reg d (w2w w1) s
+       | _ => assert F s
+     else
+       case (read_reg r1 s,read_reg r2 s) of
+         (Word w1,Word w2) => upd_fp_reg d (w2 @@ w1) s
+       | _ => assert F s) /\
+  (fp_upd (FPToInt d1 d2) s =
+     case fp64_to_int roundTiesToEven (read_fp_reg d2 s) of
+         SOME i =>
+           let w = i2w i : 'a word in
+             (if dimindex(:'a) = 64 then
+                upd_fp_reg d1 (w2w w)
+              else let (h, l) = if ODD d1 then (63, 32) else (31, 0) in
+                     upd_fp_reg (d1 DIV 2)
+                       (bit_field_insert h l w (read_fp_reg (d1 DIV 2) s)))
+                (assert (w2i w = i) s)
+      | _ => assert F s) /\
+  (fp_upd (FPFromInt d1 d2) s =
+     let i = if dimindex(:'a) = 64 then
+               w2i (read_fp_reg d2 s)
+             else let v = read_fp_reg (d2 DIV 2) s in
+               w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word)
+     in
+       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)`
+
 val addr_def = Define `
   addr (Addr r offset) s =
     case read_reg r s of
@@ -185,9 +253,10 @@ val asm_inst_def = Define `
   (asm_inst Skip s = (s:('a,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
-  (asm_inst (Mem m r a) s = mem_op m r a s)`;
+  (asm_inst (Mem m r a) s = mem_op m r a s) /\
+  (asm_inst (FP fp) s = fp_upd fp s)`;
 
-val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def"]
+val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def","fp_upd_def"]
 
 val dec_clock_def = Define `
   dec_clock s = s with clock := s.clock - 1`
@@ -219,34 +288,41 @@ val lab_to_loc_def = Define `
 val loc_to_pc_def = Define `
   (loc_to_pc n1 n2 [] = NONE) /\
   (loc_to_pc n1 n2 ((Section k xs)::ys) =
-     if (k = n1) /\ (n2 = 0) then SOME (0:num) else
+     if (k = n1) /\ (n2 = 0n) then SOME (0:num) else
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
-         if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0 else
+         if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0n else
            if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
            else
              case loc_to_pc n1 n2 ((Section k zs)::ys) of
              | NONE => NONE
-             | SOME pos => SOME (pos + 1))`;
+             | SOME pos => SOME (pos + 1:num))`;
 
 val asm_inst_consts = Q.store_thm("asm_inst_consts",
   `((asm_inst i s).pc = s.pc) /\
-    ((asm_inst i s).code = s.code) /\
-    ((asm_inst i s).clock = s.clock) /\
-    ((asm_inst i s).ffi = s.ffi) ∧
-    ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
-    ((asm_inst i s).len_reg = s.len_reg) ∧
-    ((asm_inst i s).link_reg = s.link_reg)`,
+   ((asm_inst i s).code = s.code) /\
+   ((asm_inst i s).clock = s.clock) /\
+   ((asm_inst i s).ffi = s.ffi) ∧
+   ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
+   ((asm_inst i s).len_reg = s.len_reg) ∧
+   ((asm_inst i s).link_reg = s.link_reg)`,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
-  \\ TRY (Cases_on `a`)
-  \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ TRY (Cases_on `b`)
-  \\ fs [binop_upd_def,upd_reg_def,assert_def] \\ Cases_on `m`
-  \\ fs [mem_op_def,mem_load_def,LET_DEF,mem_load_byte_def,upd_mem_def,
+  >-
+    (Cases_on `a`
+    \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ TRY (Cases_on `b`)
+    \\ fs [binop_upd_def,upd_reg_def,assert_def])
+  >-
+    (Cases_on `m`
+    \\ fs [mem_op_def,mem_load_def,LET_DEF,mem_load_byte_def,upd_mem_def,
          assert_def,upd_reg_def,mem_store_def,mem_store_byte_def,
          mem_store_byte_aux_def,addr_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
+  >>
+    Cases_on`f`
+    \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]) ;
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:('a,'ffi) labSem$state) =

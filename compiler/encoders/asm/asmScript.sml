@@ -70,6 +70,7 @@ val () = new_theory "asm"
 (* -- syntax of ASM instruction -- *)
 
 val () = Parse.temp_type_abbrev ("reg", ``:num``)
+val () = Parse.temp_type_abbrev ("fp_reg", ``:num``)
 val () = Parse.temp_type_abbrev ("imm", ``:'a word``)
 
 val () = Datatype `
@@ -92,6 +93,27 @@ val () = Datatype `
         | SubOverflow reg reg reg reg`
 
 val () = Datatype `
+  fp = (* orderings *)
+       FPLess reg fp_reg fp_reg
+     | FPLessEqual reg fp_reg fp_reg
+     | FPEqual reg fp_reg fp_reg
+       (* unary ops *)
+     | FPAbs fp_reg fp_reg (* IEEE754:2008 *)
+     | FPNeg fp_reg fp_reg (* IEEE754:2008 *)
+     | FPSqrt fp_reg fp_reg
+       (* binary ops *)
+     | FPAdd fp_reg fp_reg fp_reg
+     | FPSub fp_reg fp_reg fp_reg
+     | FPMul fp_reg fp_reg fp_reg
+     | FPDiv fp_reg fp_reg fp_reg
+       (* moves and converts *)
+     | FPMov fp_reg fp_reg
+     | FPMovToReg reg reg fp_reg
+     | FPMovFromReg fp_reg reg reg
+     | FPToInt fp_reg fp_reg
+     | FPFromInt fp_reg fp_reg`
+
+val () = Datatype `
   addr = Addr reg ('a word)`
 
 (* old version
@@ -107,7 +129,8 @@ val () = Datatype `
   inst = Skip
        | Const reg ('a word)
        | Arith ('a arith)
-       | Mem memop reg ('a addr)`
+       | Mem memop reg ('a addr)
+       | FP fp`
 
 val () = Datatype `
   asm = Inst ('a inst)
@@ -120,7 +143,7 @@ val () = Datatype `
 (* -- ASM target-specific configuration -- *)
 
 val () = Datatype `
-  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | x86_64`
+  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | Tiny | x86_64`
 
 val () = Datatype `
   asm_config =
@@ -131,6 +154,7 @@ val () = Datatype `
      ; link_reg       : num option
      ; avoid_regs     : num list
      ; reg_count      : num
+     ; fp_reg_count   : num  (* set to 0 if float not available *)
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
@@ -142,6 +166,9 @@ val () = Datatype `
 
 val reg_ok_def = Define `
   reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs`
+
+val fp_reg_ok_def = Define `
+  fp_reg_ok d c <=> d < c.fp_reg_count`
 
 val reg_imm_ok_def = Define `
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
@@ -168,7 +195,7 @@ val arith_ok_def = Define `
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
      ((c.ISA = ARMv6) ==> r1 <> r2) /\
-     (((c.ISA = ARMv8) \/ (c.ISA = RISC_V)) ==> r1 <> r3 /\ r1 <> r4)) /\
+     (c.ISA IN {ARMv8; RISC_V; Tiny} ==> r1 <> r3 /\ r1 <> r4)) /\
   (arith_ok (LongDiv r1 r2 r3 r4 r5) c <=>
      (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 2) /\ (r4 = 0) /\
      reg_ok r5 c) /\
@@ -184,6 +211,34 @@ val arith_ok_def = Define `
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))`
+
+val fp_ok_def = Define `
+  (fp_ok (FPLess r d1 d2) c <=>
+      reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPLessEqual r d1 d2) c <=>
+      reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPEqual r d1 d2) c <=>
+      reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPAbs d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPNeg d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPSqrt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPAdd d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPSub d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPMul d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPDiv d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
+      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+      fp_reg_ok d c) /\
+  (fp_ok (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
+      reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
+      fp_reg_ok d c) /\
+  (fp_ok (FPToInt r d) c <=> fp_reg_ok r c /\ fp_reg_ok d c) /\
+  (fp_ok (FPFromInt d r) c <=> fp_reg_ok r c /\ fp_reg_ok d c)`
 
 val cmp_ok_def = Define `
   cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
@@ -203,6 +258,7 @@ val inst_ok_def = Define `
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
+  (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
      (if m IN {Load; Store} then

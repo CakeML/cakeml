@@ -42,7 +42,7 @@ val ffi_code =
     (List (MAP (\n. strlit(n ++ "\n"))
      ["/* CakeML FFI interface (each block is 16 bytes long) */";
        "";
-       "     .p2align 3";
+       "     .p2align 4";
        ""]))(
     SmartAppend
      (ffi_asm (REVERSE ffi_names))

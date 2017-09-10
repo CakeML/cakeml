@@ -10,6 +10,14 @@ val _ = new_theory "ml_hol_kernelProg";
 
 val _ = (use_full_type_names := false);
 
+val _ = hide "abs";
+
+val _ = register_type ``:ordering``
+val _ = register_type ``:'a # 'b``;
+val _ = register_type ``:'a list``
+val _ = register_type ``:'a option``
+val _ = register_type ``:unit``
+
 val _ = ml_prog_update (open_module "Kernel");
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);

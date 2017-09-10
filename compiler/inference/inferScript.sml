@@ -2,6 +2,7 @@ open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open namespacePropsTheory;
 open infer_tTheory unifyTheory;
 open stringTheory ;
+open primTypesTheory;
 open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "infer";
@@ -257,6 +258,20 @@ constrain_op l op ts =
        do () <- add_constraint l t1 (Infer_Tapp [] (TC_word wz));
           () <- add_constraint l t2 (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] (TC_word wz))
+       od
+   | (FP_bop bop, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tapp [] (TC_word W64));
+          () <- add_constraint l t2 (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_word W64))
+       od
+   | (FP_uop uop, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_word W64))
+       od
+   | (FP_cmp cmp, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tapp [] (TC_word W64));
+          () <- add_constraint l t2 (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Shift wz sh n, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] (TC_word wz));
@@ -846,8 +861,6 @@ val infertype_prog_aux_def = Define`
 
 val infertype_prog = Define `
 infertype_prog c prog = run (infertype_prog_aux c prog) init_infer_state`;
-
-open primTypesTheory
 
 val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
 

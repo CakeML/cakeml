@@ -4,11 +4,22 @@
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
 open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
-ASCIInumbersLib
+ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.tight_equality()
+
+(* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
+
+val _ = remove_ovl_mapping "exp" {Name="exp", Thy="transc"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
+val _ = remove_ovl_mapping "lim" {Name="lim", Thy="seq"}
+val _ = remove_ovl_mapping "ln" {Name="ln", Thy="transc"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
@@ -2460,13 +2471,6 @@ val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
 val CONCAT_WITH_def = Define`
     CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
 
-val OPT_MMAP_def = Define`
-  (OPT_MMAP f [] = SOME []) ∧
-  (OPT_MMAP f (h0::t0) =
-     OPTION_BIND (f h0)
-     (λh. OPTION_BIND (OPT_MMAP f t0)
-       (λt. SOME (h::t))))`;
-
 val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
   `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
   Induct \\ rw[OPT_MMAP_def]);
@@ -2474,6 +2478,19 @@ val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
 val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
   `OPT_MMAP SOME ls = SOME ls`,
   Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_CONG = Q.store_thm("OPT_MMAP_CONG[defncong]",
+  `!l1 l2 f f'.
+     (l1 = l2) /\
+     (!x. MEM x l2 ==> (f x = f' x))
+     ==> (OPT_MMAP f l1 = OPT_MMAP f' l2)`,
+  Induct \\ rw[OPT_MMAP_def] \\ rw[OPT_MMAP_def] \\
+  Cases_on`f' h` \\ rw[] \\ fs[] \\ metis_tac[]);
+
+val IMP_OPT_MMAP_EQ = Q.store_thm("IMP_OPT_MMAP_EQ",
+  `!l1 l2. (MAP f1 l1 = MAP f2 l2) ==> (OPT_MMAP f1 l1 = OPT_MMAP f2 l2)`,
+  Induct \\ rw[OPT_MMAP_def] \\ Cases_on`l2` \\ fs[OPT_MMAP_def] \\
+  Cases_on`f2 h'` \\ fs[] \\ metis_tac[]);
 
 val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
   `DISJOINT (set []) s /\
