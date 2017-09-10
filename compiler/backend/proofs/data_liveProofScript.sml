@@ -14,6 +14,7 @@ val state_rel_def = Define `
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
+    s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
 val state_rel_ID = Q.prove(
@@ -42,12 +43,11 @@ val state_rel_IMP_do_app = Q.prove(
   \\ IMP_RES_TAC do_app_const
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def]
-  \\ every_case_tac >> fs[]
   \\ `(!n. (data_to_bvi (s1 with space := n)) =
            (data_to_bvi (t1 with space := n))) /\
       (data_to_bvi (s1) = (data_to_bvi (t1)))` by
        (fs [data_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvi_to_data_def]
+  \\ fs [bvlPropsTheory.case_eq_thms,bvi_to_data_def,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
 
@@ -57,13 +57,13 @@ val state_rel_IMP_do_app_err = Q.prove(
   STRIP_TAC
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def]
-  \\ every_case_tac >> fs[]
   \\ `(!n. (data_to_bvi (s1 with space := n)) =
            (data_to_bvi (t1 with space := n))) /\
       (data_to_bvi (s1) = (data_to_bvi (t1)))` by
        (fs [data_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvi_to_data_def]
-  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]);
+  \\ fs [bvlPropsTheory.case_eq_thms,bvi_to_data_def,do_install_def,UNCURRY]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
+  \\ SRW_TAC [] [] \\ fs[]);
 
 val state_rel_IMP_get_vars = Q.prove(
   `!args s1 t1 t xs.
@@ -83,8 +83,8 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
     Rabort Rtype_error = e`,
   Cases_on `op` \\ fs [is_pure_def,do_app_def]
   \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
-          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def]
-  \\ every_case_tac \\ fs[]);
+          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def,
+          bvlPropsTheory.case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
 val is_pure_do_app_Rval_IMP = Q.prove(
   `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
@@ -92,9 +92,8 @@ val is_pure_do_app_Rval_IMP = Q.prove(
   \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
           bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def,
           bviSemTheory.bvl_to_bvi_def,dataSemTheory.data_to_bvi_def,dataSemTheory.bvi_to_data_def,
-          dataSemTheory.consume_space_def]
-  \\ every_case_tac \\ fs [data_spaceTheory.op_space_req_def] \\ rw[]
-  \\ fs [state_component_equality,is_pure_def]);
+          dataSemTheory.consume_space_def,do_install_def,UNCURRY,bvlPropsTheory.case_eq_thms]
+  \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def]);
 
 val evaluate_compile = Q.prove(
   `!c s1 res s2 l2 t1 l1 d.
@@ -263,7 +262,7 @@ val evaluate_compile = Q.prove(
       fs [call_env_def,dec_clock_def,state_rel_def,state_component_equality]
     \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
          `evaluate (r,call_env q (dec_clock s)) = (SOME res2,s2)`
-    \\ MP_TAC (Q.SPECL [`r`,`call_env q (dec_clock s)`] evaluate_stack_swap)
+    \\ (Q.ISPECL_THEN [`r`,`call_env q (dec_clock s)`] mp_tac evaluate_stack_swap)
     \\ fs [] \\ Cases_on `res2` \\ fs [] THEN1
      (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
@@ -322,7 +321,7 @@ val evaluate_compile = Q.prove(
     \\ `LENGTH t4.stack = LENGTH t5.stack` by
      (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
       \\ fs [state_rel_def] \\ NO_TAC)
-    \\ MP_TAC (Q.SPECL [`r`,`t4`] evaluate_stack_swap)
+    \\ (Q.ISPECL_THEN [`r`,`t4`] mp_tac evaluate_stack_swap)
     \\ Cases_on `s.clock = 0` \\ fs []
     THEN1 (fs [state_rel_def,call_env_def])
     \\ Cases_on `evaluate (r,t4)` \\ fs []
@@ -402,7 +401,7 @@ val evaluate_compile = Q.prove(
   \\ `LENGTH t4.stack = LENGTH t5.stack` by
    (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
     \\ fs [state_rel_def] \\ NO_TAC)
-  \\ MP_TAC (Q.SPECL [`r`,`t4`] evaluate_stack_swap)
+  \\ (Q.ISPECL_THEN [`r`,`t4`]mp_tac evaluate_stack_swap)
   \\ Cases_on `s.clock = 0` \\ fs []
   THEN1 (fs [state_rel_def,call_env_def])
   \\ Cases_on `evaluate (r,t4)` \\ fs []
@@ -474,8 +473,8 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ SRW_TAC [] [] \\ Cases_on `q` \\ fs []
   \\ IMP_RES_TAC evaluate_locals_LN
   \\ fs [state_rel_def,state_component_equality]
-  \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_stack)
-  \\ MP_TAC (Q.SPECL [`FST (compile c LN)`,`s`] evaluate_stack)
+  \\ (Q.ISPECL_THEN [`c`,`s`] mp_tac evaluate_stack)
+  \\ (Q.ISPECL_THEN [`FST (compile c LN)`,`s`]mp_tac evaluate_stack)
   \\ fs [] \\ Cases_on `x` \\ fs []
   \\ Cases_on`e`>>fs[] \\ Cases_on`a`>>fs[]
   \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
