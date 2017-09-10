@@ -284,12 +284,19 @@ val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
     \\ RES_TAC \\ TRY (full_simp_tac(srw_ss())[inc_clock_def] \\ decide_tac)
     \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]));
 
-(*
 val do_app_code = Q.store_thm("do_app_code",
-  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)`,
+  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==> (s2.code = s1.code)`,
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
   fs[do_app_aux_def,case_eq_thms] \\ rw[]);
 
+val do_app_oracle = Q.store_thm("do_app_oracle",
+  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==>
+    (s2.compile_oracle = s1.compile_oracle) /\
+    (s2.compile = s1.compile)`,
+  rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
+  fs[do_app_aux_def,case_eq_thms] \\ rw[]);
+
+(*
 val evaluate_code_const_lemma = Q.prove(
   `!xs env s. (SND (evaluate (xs,env,s))).code = s.code`,
   recInduct evaluate_ind \\ rw[evaluate_def,case_eq_thms,pair_case_eq]
