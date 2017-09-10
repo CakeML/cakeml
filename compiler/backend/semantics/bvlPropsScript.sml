@@ -15,6 +15,7 @@ val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
 
 val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val case_eq_thms = CONJ (prove_case_eq_thm v_thms) closSemTheory.case_eq_thms
+val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 
 val _ = save_thm ("case_eq_thms", case_eq_thms);
 
