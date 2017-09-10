@@ -3009,6 +3009,6 @@ val lookup_FOLDL_union = Q.store_thm("lookup_FOLDL_union",
   `lookup k (FOLDL union t ls) =
    FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`,
   qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
-  TOP_CASE_TAC \\ simp[]);
+  BasicProvers.TOP_CASE_TAC \\ simp[]);
 
 val _ = export_theory()
