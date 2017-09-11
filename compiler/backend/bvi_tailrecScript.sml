@@ -87,9 +87,10 @@ val args_from_def = Define `
   `;
 
 val get_bin_args_def = Define `
-  get_bin_args (bvi$Op _ [e1; e2]) = SOME (e1, e2) ∧
-  get_bin_args _                   = NONE
-  `;
+  get_bin_args op =
+    case op of
+    | bvi$Op _ [e1; e2] => SOME (e1, e2)
+    | _ => NONE`;
 
 val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   `∀x x1 x2.
