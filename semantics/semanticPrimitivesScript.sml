@@ -35,7 +35,7 @@ let type_defs_to_new_tdecs mn tdefs =
 val _ = Hol_datatype `
 (*  'v *) sem_env =
   <| v : (modN, varN, 'v) namespace
-   (* Lexical mapping of constructor idents to arity, name, stamp pairs *)
+   (* Lexical mapping of constructor idents to arity, stamp pairs *)
    ; c : (modN, conN, (num # stamp)) namespace
    |>`;
 

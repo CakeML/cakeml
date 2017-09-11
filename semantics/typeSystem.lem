@@ -34,6 +34,11 @@ let Tword64_num : type_ident = 11
 let Tword8_num : type_ident = 12
 let Tword8array_num : type_ident = 13
 
+(* The numbers for the primitive types *)
+let prim_type_nums =
+  [Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]
+
 let Tarray t = Tapp [t] Tarray_num
 let Tbool = Tapp [] Tbool_num
 let Tchar = Tapp [] Tchar_num
@@ -742,6 +747,8 @@ and
 
 dtype : forall extra_checks tenv tdefs type_identities tenvT locs.
 List.allDistinct type_identities &&
+disjoint (Set.fromList type_identities)
+         (Set.fromList (Tlist_num :: Tbool_num :: prim_type_nums)) &&
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs &&
 List.length type_identities = List.length tdefs &&
 tenvT = alist_to_ns (Lib.map2

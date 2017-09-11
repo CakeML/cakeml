@@ -74,6 +74,13 @@ val _ = Define `
  (Tword8array_num : type_ident= (( 13 : num)))`;
 
 
+(* The numbers for the primitive types *)
+val _ = Define `
+ (prim_type_nums=  
+ ([Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]))`;
+
+
 val _ = Define `
  (Tarray t=  (Tapp [t] Tarray_num))`;
 
@@ -765,6 +772,8 @@ type_d extra_checks tenv (Dletrec locs funs)
 
 /\ (! extra_checks tenv tdefs type_identities tenvT locs.
 (ALL_DISTINCT type_identities /\
+DISJOINT (LIST_TO_SET type_identities)
+         (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums))) /\
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs /\
 (LENGTH type_identities = LENGTH tdefs) /\
 (tenvT = alist_to_ns (MAP2

@@ -1504,7 +1504,7 @@ val mem_type_def_to_ctMap = Q.store_thm ("mem_type_def_to_ctMap",
     MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
     LENGTH tds = LENGTH ids
     ⇒
-    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i`,
+    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i ∧ i < next + LENGTH tds`,
   ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
   rw [type_def_to_ctMap_def] >>
   fs [] >>
@@ -1555,7 +1555,7 @@ val ctMap_ok_merge_imp = Q.store_thm ("ctMap_ok_merge_imp",
        qexists_tac `stamp2` >>
        simp []) >>
      fs [DISJOINT_DEF, EXTENSION] >>
-     metis_tac [])
+     metis_tac [NOT_NONE_SOME])
    >- (
      `ti ∈ FRANGE ((SND ∘ SND) o_f ctMap1)`
      by (
@@ -1579,6 +1579,104 @@ val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
  srw_tac[][ctMap_ok_def, FEVERY_ALL_FLOOKUP] >>
  res_tac >>
  full_simp_tac(srw_ss())[]);
+
+val type_def_to_ctMap_mem = Q.store_thm ("type_def_to_ctMap_mem",
+  `!tenvT next tds tids.
+    ALOOKUP (type_def_to_ctMap tenvT next tds tids) k = SOME x ∧
+    LENGTH tds = LENGTH tids
+    ⇒
+    MEM (SND (SND x)) tids`,
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+  rw [type_def_to_ctMap_def] >>
+  fs [ALOOKUP_APPEND] >>
+  every_case_tac >>
+  fs [ALOOKUP_NONE] >>
+  drule ALOOKUP_MEM >>
+  rw [MEM_MAP] >>
+  pairarg_tac >>
+  fs []);
+
+val fupdate2_union = Q.prove (
+  `!m a1 a2. m |++ a1 |++ a2 = FEMPTY |++ a2 ⊌ (m |++ a1)`,
+  rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION, flookup_fupdate_list] >>
+  every_case_tac);
+
+val ctMap_ok_type_defs = Q.store_thm ("ctMap_ok_type_defs",
+  `!tenvT next tds tids.
+    ALL_DISTINCT tids ∧
+    DISJOINT (set tids) (set prim_type_nums) ∧
+    LENGTH tds = LENGTH tids ∧
+    check_ctor_tenv tenvT tds ∧
+    tenv_abbrev_ok tenvT
+    ⇒
+    ctMap_ok
+      (FEMPTY |++
+        REVERSE (type_def_to_ctMap tenvT next tds tids))`,
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+  rw [type_def_to_ctMap_def, check_ctor_tenv_def]
+  >- rw [ctMap_ok_def, flookup_fupdate_list, FEVERY_FUPDATE_LIST, FEVERY_FEMPTY] >>
+  fs [REVERSE_APPEND, FUPDATE_LIST_APPEND, fupdate2_union] >>
+  irule ctMap_ok_merge_imp >>
+  simp []
+  >- (
+    simp [ctMap_ok_def, flookup_fupdate_list, FEVERY_ALL_FLOOKUP] >>
+    rpt conj_tac >>
+    rpt gen_tac >>
+    rpt DISCH_TAC
+    >- (
+      every_case_tac >>
+      fs [] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs [EVERY_MEM, MEM_MAP] >>
+      pairarg_tac >>
+      fs [] >>
+      pairarg_tac >>
+      fs [] >>
+      rw [] >>
+      first_x_assum drule >>
+      rw [] >>
+      fs [MEM_MAP] >>
+      rw [] >>
+      irule check_freevars_type_name_subst >>
+      simp [])
+    >- (
+      every_case_tac >>
+      fs [] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs [EVERY_MEM, MEM_MAP] >>
+      pairarg_tac >>
+      fs [])
+    >- (
+      every_case_tac >>
+      fs [] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs [EVERY_MEM, MEM_MAP] >>
+      pairarg_tac >>
+      fs [] >>
+      rw [])
+    >- (
+      every_case_tac >>
+      fs [] >>
+      rw [] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs [MEM_MAP] >>
+      pairarg_tac >>
+      fs [] >>
+      pairarg_tac >>
+      fs [semanticPrimitivesTheory.same_type_def]))
+  >- (
+    rw [DISJOINT_DEF, EXTENSION, flookup_fupdate_list, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+    CCONTR_TAC >>
+    fs [] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    imp_res_tac type_def_to_ctMap_mem >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [MEM_MAP] >>
+    pairarg_tac >>
+    fs []));
+
 
  (*
 val ctMap_ok_type_decs = Q.store_thm ("ctMap_ok_type_decs",
@@ -1661,46 +1759,6 @@ val consistent_ctMap_disjoint = Q.store_thm ("consistent_ctMap_disjoint",
  >> fs [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``, PULL_EXISTS]
  >> first_x_assum drule
  >> simp []);
- *)
-
-val still_has_exns = Q.store_thm ("still_has_exns",
-`!ctMap1 ctMap2.
-  (DISJOINT (FDOM ctMap1) (FDOM ctMap2) ∨ DISJOINT (FDOM ctMap2) (FDOM ctMap1)) ∧
-  ctMap_has_exns ctMap1
-  ⇒
-  ctMap_has_exns (FUNION ctMap2 ctMap1)`,
- srw_tac[][FLOOKUP_FUNION, ctMap_has_exns_def] >>
- every_case_tac >>
- full_simp_tac(srw_ss())[] >>
- full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
- metis_tac []);
-
- (*
-val still_has_lists = Q.store_thm ("still_has_lists",
-`!ctMap1 ctMap2.
-  (DISJOINT (IMAGE SND (FDOM ctMap1)) (IMAGE SND (FDOM ctMap2)) ∨
-   DISJOINT (IMAGE SND (FDOM ctMap2)) (IMAGE SND (FDOM ctMap1))) ∧
-  ctMap_has_lists ctMap1
-  ⇒
-  ctMap_has_lists (FUNION ctMap2 ctMap1)`,
- srw_tac[][FLOOKUP_FUNION, ctMap_has_lists_def] >>
- every_case_tac >>
- full_simp_tac(srw_ss())[] >>
- full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
- metis_tac [SND]);
-
-val still_has_bools = Q.store_thm ("still_has_bools",
-`!ctMap1 ctMap2.
-  (DISJOINT (IMAGE SND (FDOM ctMap1)) (IMAGE SND (FDOM ctMap2)) ∨
-   DISJOINT (IMAGE SND (FDOM ctMap2)) (IMAGE SND (FDOM ctMap1))) ∧
-  ctMap_has_bools ctMap1
-  ⇒
-  ctMap_has_bools (FUNION ctMap2 ctMap1)`,
- srw_tac[][FLOOKUP_FUNION, ctMap_has_bools_def] >>
- every_case_tac >>
- full_simp_tac(srw_ss())[] >>
- full_simp_tac(srw_ss())[FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
- metis_tac [SND]);
  *)
 
 val all_distinct_map_fst_lemma = Q.prove (

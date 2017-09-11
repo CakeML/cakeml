@@ -52,9 +52,8 @@ val ctMap_ok_def = Define `
       tvs = [] ∧ ti = Texn_num) ∧
     (* Primitive, non-constructor types are not mapped *)
     (!cn x tvs ts ti. FLOOKUP ctMap (TypeStamp cn x) = SOME (tvs, ts, ti) ⇒
-      ~MEM ti [Tarray_num; Tchar_num; Tfn_num; Tint_num; Tref_num; Tstring_num;
-               Ttup_num; Tvector_num; Tword64_num; Tword8_num; Tword8array_num]) ∧
-    (* Injective as a map from stamps to type identities *)
+      ~MEM ti prim_type_nums) ∧
+    (* If type identities are equal then the stamps are from the same type *)
     (!stamp1 tvs1 ts1 ti stamp2 tvs2 ts2.
       FLOOKUP ctMap stamp1 = SOME (tvs1, ts1, ti) ∧
       FLOOKUP ctMap stamp2 = SOME (tvs2, ts2, ti) ⇒
@@ -208,7 +207,8 @@ val consistent_decls_def = Define `
            *)
 
 val consistent_ctMap_def = Define `
-  consistent_ctMap st ctMap ⇔
+  consistent_ctMap st type_ids ctMap ⇔
+    (DISJOINT type_ids (FRANGE ((SND o SND) o_f ctMap))) ∧
     !cn id.
       (TypeStamp cn id ∈ FDOM ctMap ⇒ id < st.next_type_stamp) ∧
       (ExnStamp id ∈ FDOM ctMap ⇒ id < st.next_exn_stamp)`;

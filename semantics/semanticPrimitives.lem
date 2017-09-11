@@ -22,7 +22,7 @@ let type_defs_to_new_tdecs mn tdefs =
 
 type sem_env 'v =
   <| v : namespace modN varN 'v
-   (* Lexical mapping of constructor idents to arity, name, stamp pairs *)
+   (* Lexical mapping of constructor idents to arity, stamp pairs *)
    ; c : namespace modN conN (nat * stamp)
    |>
 
