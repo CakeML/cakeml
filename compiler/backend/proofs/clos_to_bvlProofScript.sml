@@ -2417,7 +2417,7 @@ val v_rel_run = Q.prove (
   `LENGTH args' + LENGTH ys − (num_args' + 1) ≤ LENGTH args'` by ARITH_TAC >>
   first_x_assum (qspec_then `t1 with <| clock := t1.clock; code := code |>` mp_tac) >>
   full_simp_tac(srw_ss())[DROP_APPEND1] >>
-  srw_tac[][dec_clock_def]) |> INST_TYPE[alpha|->``:'ffi``];
+  srw_tac[][dec_clock_def]) |> INST_TYPE[alpha|->gamma,beta|->``:'ffi``];
 
 val list_rel_app = Q.prove (
   `!R args args' l0 c l func rem_args.
@@ -2457,7 +2457,7 @@ val mk_call_simp2 = Q.prove(
   srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, el_take_append] >>
   srw_tac[][] >>
   `n+1 ≤ SUC (LENGTH args + LENGTH stuff')` by decide_tac >>
-  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]) |> INST_TYPE[alpha|->``:'ffi``];
+  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]) |> INST_TYPE[alpha|->gamma,beta|->``:'ffi``];
 
 val no_partial_args = Q.prove (
   `num_remaining_args func = SOME x ∧
@@ -3724,7 +3724,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ simp [bEval_def, bvlPropsTheory.evaluate_APPEND]
     \\ full_simp_tac(srw_ss())[] >> srw_tac[][ADD_ASSOC] >> srw_tac[][] >- metis_tac [SUBMAP_TRANS, inc_clock_def]
     \\ rev_full_simp_tac(srw_ss())[]
-    \\ reverse (Cases_on `find_code (SOME (x + num_stubs s.max_app)) (v' ++ [y]) t1.code`)
+    \\ reverse (Cases_on `find_code (SOME (x + num_stubs s.max_app)) (v' ++ [y]) t2'.code`)
     \\ full_simp_tac(srw_ss())[]
     >- (Cases_on `x'` >>
         srw_tac[][inc_clock_def] >>
@@ -3869,8 +3869,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
             full_simp_tac(srw_ss())[closSemTheory.state_component_equality] >>
             `s1 = s2` by srw_tac[][closSemTheory.state_component_equality] >>
             metis_tac []) >>
-        assume_tac (GEN_ALL (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] unpack_closure_thm)) >>
-        rpt (pop_assum (fn th => first_assum  (strip_assume_tac o MATCH_MP th))) >>
+        drule (GEN_ALL unpack_closure_thm) >>
+        disch_then drule >> disch_then strip_assume_tac >>
         `lookup (partial_app_fn_location s1.max_app total_args (LENGTH args' + LENGTH prev_args − 1)) t1.code =
              SOME (total_args - (LENGTH args' + LENGTH prev_args-1) + 1, generate_partial_app_closure_fn total_args (LENGTH args' + LENGTH prev_args − 1))`
                  by (full_simp_tac(srw_ss())[state_rel_def] >>
@@ -3994,11 +3994,10 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                               srw_tac[][] >>
                               full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
                               srw_tac[][] >>
+                              match_mp_tac (GEN_ALL v_rel_subspt) >>
+                              imp_res_tac evaluate_mono >>
+                              first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) >> simp[] >>
                               match_mp_tac (GEN_ALL v_rel_SUBMAP) >>
-                              srw_tac[][] >>
-                              `t1.code = t2.code`
-                                     by (imp_res_tac evaluate_code >>
-                                         full_simp_tac(srw_ss())[]) >>
                               metis_tac []) >>
                  first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
                  rev_full_simp_tac(srw_ss())[] >>
@@ -4051,8 +4050,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                      simp [] >>
                      pop_assum kall_tac >>
                      first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
-                     qpat_abbrev_tac`t11:'ffi bvlSem$state = inc_clock ck' Z` >>
-                     qpat_abbrev_tac`t12:'ffi bvlSem$state = dec_clock X Y` >>
+                     qpat_abbrev_tac`t11:('c,'ffi) bvlSem$state = inc_clock ck' Z` >>
+                     qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = dec_clock X Y` >>
                      `t11 = t12` by (
                        simp[Abbr`t11`,Abbr`t12`] >>
                        srw_tac[][inc_clock_def,dec_clock_def,bvlSemTheory.state_component_equality] >>
@@ -4061,7 +4060,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                      disch_then SUBST1_TAC >>
                      map_every qunabbrev_tac[`t11`,`t12`] >>
                      qmatch_assum_abbrev_tac`evaluate (_,_,t11) = (_,t2)` >>
-                     qpat_abbrev_tac`t12:'ffi bvlSem$state = X Y` >>
+                     qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = X Y` >>
                      `t12 = inc_clock ck'' t11` by (
                        unabbrev_all_tac >>
                        srw_tac[][bvlSemTheory.state_component_equality,inc_clock_def] >>
@@ -4075,7 +4074,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                      pop_assum SUBST_ALL_TAC >>
                      `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by srw_tac[][] >>
                      `LENGTH args'' − rem_args ≤ LENGTH args''` by (rpt var_eq_tac >> ARITH_TAC) >>
-                     first_x_assum (fn th => strip_assume_tac (MATCH_MP (SIMP_RULE (std_ss) [GSYM AND_IMP_INTRO] mk_call_simp2) th)) >>
+                     drule mk_call_simp2 \\ disch_then strip_assume_tac \\
                      pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
                      pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
                      rpt var_eq_tac >>
@@ -4679,8 +4678,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   r ≠ Rerr (Rabort Rtype_error) ∧
   0 < c.max_app ∧
   compile c e = (c',p) ⇒
-  ∃r1 s'1 ck.
-     let init_bvl = initial_state s.ffi (fromAList p) (s.clock+ck) in
+  ∃r1 (s'1:('c,'ffi) bvlSem$state) ck.
+     let init_bvl = initial_state s.ffi (fromAList p) anything youwant (s.clock+ck) in
      evaluate ([Call 0 (SOME c'.start) []],[], init_bvl) = (r1,s'1) ∧
      full_result_rel c (r,s') (r1,s'1)`,
 
@@ -4923,7 +4922,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
   qpat_abbrev_tac`s_annot = s_remove with code:=A`>>
   (* Constructed BVL state *)
-  disch_then(qspecl_then [`initial_state s.ffi (fromAList p) (ck +s.clock) with globals:=[SOME (global_table c.max_app)] `,`[]`,`FEMPTY`] mp_tac)>>
+  disch_then(qspecl_then [`initial_state s.ffi (fromAList p) anything youwant (ck +s.clock) with globals:=[SOME (global_table c.max_app)] `,`[]`,`FEMPTY`] mp_tac)>>
   impl_tac >-
     (fs(map Abbr [`s_annot`,`s_remove`,`s_call`])>>
     rveq>>
@@ -5080,7 +5079,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
    clos_init c.max_app (s:'ffi closSem$state) ∧
    semantics [] s [e] ≠ Fail
    ⇒
-   semantics s.ffi (fromAList p) c'.start =
+   semantics s.ffi (fromAList p) (anything:num->'c#(num#num#bvl$exp)list) youwant c'.start =
    semantics [] s [e]`,
   rpt strip_tac >> qpat_x_assum `closSem$semantics _ _ _ ≠ Fail` mp_tac >>
   simp[closSemTheory.semantics_def] >>
@@ -5100,7 +5099,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       disch_then drule >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
-      strip_tac >>
+      disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
       first_x_assum(qspec_then`ck`mp_tac) >>
       simp[inc_clock_def] >>
       strip_tac >> rveq >>
@@ -5112,7 +5111,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       qmatch_assum_abbrev_tac`closSem$evaluate (bxps,[],bs) = _` >>
       qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
       qspecl_then[`(bxps,[],bs)`](mp_tac o Q.GEN`extra`) (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono) >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->gamma,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
       simp[bvlPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
       ntac 2 strip_tac >>
       Cases_on`s'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
@@ -5120,7 +5119,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
           unabbrev_all_tac >>
           drule (GEN_ALL compile_evaluate) >> fs[] >>
           rpt(disch_then drule) >>
-          strip_tac >>
+          disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
           drule bvlPropsTheory.evaluate_add_clock >>
           impl_tac >- (
             PROVE_TAC[FST,full_result_rel_abort] ) >>
@@ -5143,6 +5142,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         impl_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
         rpt (disch_then drule)>>
+        disch_then(qspecl_then[`youwant`,`anything`]mp_tac) >>
         CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[LET_THM])) >> strip_tac >>
         qhdtm_x_assum`closSem$evaluate`mp_tac >>
         drule (Q.GEN`extra`(SIMP_RULE std_ss [] (CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
@@ -5164,7 +5164,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
       rpt(disch_then drule) >>
-      strip_tac >> rveq >>
+      disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
+      rveq >>
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`s''.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         first_x_assum(qspec_then`ck+k`mp_tac) >>
@@ -5187,7 +5188,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_keep_tac >- ( strip_tac >> PROVE_TAC[FST] ) >>
     rpt(disch_then drule) >>
-    strip_tac >>
+    disch_then(qspecl_then[`youwant`,`anything`]strip_assume_tac) >>
     qexists_tac`ck + k` >> simp[] >>
     imp_res_tac full_result_rel_ffi >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >> rpt strip_tac >>
@@ -5202,6 +5203,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
     simp[GSYM PULL_FORALL] >>
     rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
+    map_every qexists_tac[`youwant`,`anything`] >>
     spose_not_then strip_assume_tac >>
     qmatch_assum_abbrev_tac`FST q = _` >>
     Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
@@ -5221,12 +5223,13 @@ val compile_semantics = Q.store_thm("compile_semantics",
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
     simp[] >> fs[] >>
     rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
+    map_every qexists_tac[`youwant`,`anything`] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
     reverse(Cases_on`s'.ffi.final_event`)>>full_simp_tac(srw_ss())[] >- (
       qhdtm_x_assum`bvlSem$evaluate`mp_tac >>
       qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->gamma,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
       disch_then(qspec_then`ck`mp_tac)>>
       fsrw_tac[ARITH_ss][ADD1,bvlPropsTheory.inc_clock_def,Abbr`ss`] >>
       rpt strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -5277,7 +5280,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   (compile_evaluate
    |> Q.GEN`s` |> Q.SPEC`s with clock := k`
    |> GEN_ALL |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[]
-   |> Q.SPECL[`s`,`k`,`e`,`c`] |> mp_tac) >>
+   |> Q.SPECL[`youwant`,`s`,`k`,`e`,`c`,`anything`] |> mp_tac) >>
   (impl_tac >- ( simp[] )) >>
   srw_tac[][] >> fs[] >>
   qmatch_assum_abbrev_tac`full_result_rel c p1 p2` >>
