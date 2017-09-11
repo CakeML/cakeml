@@ -565,6 +565,8 @@ val remove_ticks_CONS = prove(
            HD (remove_ticks [x]) :: remove_ticks xs``,
   Cases \\ fs [remove_ticks_def]);
 
+(*
+
 (* inline implementation *)
 
 val tick_inline_def = tDefine "tick_inline" `
@@ -619,37 +621,37 @@ val HD_tick_inline = Q.store_thm("HD_tick_inline[simp]",
   \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
 
 val tick_code_rel_def = Define `
-  tick_code_rel (:'ffi) c1 c2 <=>
+  tick_code_rel (:'c) (:'ffi) c1 c2 <=>
     !n arity e1.
       lookup n c1 = SOME (arity,e1) ==>
       ?e2. lookup n c2 = SOME (arity,e2) /\
-           !(s:'ffi bvlSem$state) env res t.
+           !(s:('c,'ffi) bvlSem$state) env res t.
              LENGTH env = arity /\ res <> Rerr (Rabort Rtype_error) /\
              evaluate ([e1],env,s with code := c1) = (res,t with code := c1) ==>
              evaluate ([e2],env,s with code := c2) = (res,t with code := c2)`
 
 val tick_code_rel_refl = Q.store_thm("tick_code_rel_refl",
-  `!c. tick_code_rel (:'ffi) c c`,
+  `!c. tick_code_rel (:'c) (:'ffi) c c`,
   fs [tick_code_rel_def]);
 
 val tick_code_rel_trans = Q.store_thm("tick_code_rel_trans",
   `!c1 c2 c3.
-      tick_code_rel (:'ffi) c1 c2 /\ tick_code_rel (:'ffi) c2 c3 ==>
-      tick_code_rel (:'ffi) c1 c3`,
+      tick_code_rel (:'c) (:'ffi) c1 c2 /\ tick_code_rel (:'c) (:'ffi) c2 c3 ==>
+      tick_code_rel (:'c) (:'ffi) c1 c3`,
   fs [tick_code_rel_def] \\ rw [] \\ res_tac
   \\ first_x_assum drule \\ rw [] \\ fs []);
 
 val exp_rel_def = Define `
-  exp_rel (:'ffi) c e1 e2 <=>
-    !(s:'ffi bvlSem$state) env res t.
+  exp_rel (:'c) (:'ffi) c e1 e2 <=>
+    !(s:('c,'ffi) bvlSem$state) env res t.
       evaluate ([e1],env,s) = (res,t) /\ s.code = c /\
       res <> Rerr (Rabort Rtype_error) ==>
       evaluate ([e2],env,s) = (res,t)`
 
 val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
-  `!xs env (s:'ffi bvlSem$state) res t e1 e2 n arity c.
+  `!xs env (s:('c,'ffi) bvlSem$state) res t e1 e2 n arity c.
       evaluate (xs,env,s) = (res,t) /\
-      exp_rel (:'ffi) (insert n (arity,e2) c) e1 e2 /\
+      exp_rel (:'c) (:'ffi) (insert n (arity,e2) c) e1 e2 /\
       res ≠ Rerr (Rabort Rtype_error) /\
       lookup n c = SOME (arity,e1) /\
       s.code = c ==>
@@ -668,7 +670,7 @@ val evaluate_code_insert = Q.store_thm("evaluate_code_insert",
     THEN1
      (BasicProvers.TOP_CASE_TAC \\ fs []
       \\ PairCases_on `x` \\ fs [] \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ fs []
-      \\ rfs [] \\ imp_res_tac evaluate_code \\ fs [])
+      \\ rfs [] \\ imp_res_tac evaluate_mono \\ fs [])
     \\ reverse (Cases_on `dest`) \\ fs [] THEN1
      (fs [find_code_def,lookup_insert]
       \\ Cases_on `lookup x r.code` \\ fs []
@@ -754,33 +756,6 @@ val tick_code_rel_insert = Q.store_thm("tick_code_rel_insert",
   \\ qpat_x_assum `exp_rel (:'ffi) _ e1 e2` (fn th => mp_tac th \\ assume_tac th)
   \\ simp_tac std_ss [exp_rel_def]
   \\ disch_then drule \\ fs []);
-
-val var_list_IMP_evaluate = prove(
-  ``!a2 a1 l xs s.
-      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
-      evaluate (l,a1++a2++env,s) = (Rval a2,s)``,
-  Induct THEN1
-   (fs [APPEND_NIL,var_list_def]
-    \\ Cases_on `l` \\ fs [var_list_def,evaluate_def]
-    \\ Cases_on `h` \\ fs [var_list_def,evaluate_def])
-  \\ Cases_on `xs` \\ fs [LENGTH]
-  \\ Cases_on `l` \\ fs [var_list_def]
-  \\ Cases_on `h'` \\ fs [var_list_def]
-  \\ once_rewrite_tac [evaluate_CONS]
-  \\ fs [evaluate_def,EL_LENGTH_APPEND] \\ rw []
-  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
-  \\ fs [] \\ rw [] \\ res_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [EL_LENGTH_APPEND]);
-
-val var_list_IMP_evaluate = prove(
-  ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
-    evaluate (l,a++env,s) = (Rval a,s)``,
-  rw []
-  \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
-       |> SIMP_RULE std_ss [APPEND,LENGTH])
-  \\ asm_exists_tac \\ fs []);
 
 fun split_tac q = Cases_on q \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [];
 
@@ -1024,93 +999,187 @@ val semantics_tick_inline =
    (tick_code_rel_insert_insert_tick_inline |> UNDISCH) |> SPEC_ALL
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO];
 
+*)
+
 (* let_op *)
+
+val let_state_rel_def = Define `
+  let_state_rel (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
+    t = s with <| code := map (I ## let_op_sing) s.code
+                ; compile := t.compile
+                ; compile_oracle := (I ##
+      MAP (I ## I ## let_op_sing)) o s.compile_oracle |> /\
+    s.compile = \cfg prog. t.compile cfg (MAP (I ## I ## let_op_sing) prog)`
+
+val let_state_rel_alt = let_state_rel_def
+
+val let_state_rel_def = let_state_rel_def
+  |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
 val HD_let_op = store_thm("HD_let_op[simp]",
   ``[HD (let_op [x])] = let_op [x]``,
   Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
   \\ CASE_TAC \\ fs []);
 
+val let_op_sing_thm = prove(
+  ``let_op_sing x = HD (let_op [x])``,
+  fs [let_op_sing_def]
+  \\ once_rewrite_tac [GSYM HD_let_op] \\ fs []);
+
+val var_list_IMP_evaluate = prove(
+  ``!a2 a1 l xs s.
+      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
+      evaluate (l,a1++a2++env,s) = (Rval a2,s)``,
+  Induct THEN1
+   (fs [APPEND_NIL,var_list_def]
+    \\ Cases_on `l` \\ fs [var_list_def,evaluate_def]
+    \\ Cases_on `h` \\ fs [var_list_def,evaluate_def])
+  \\ Cases_on `xs` \\ fs [LENGTH]
+  \\ Cases_on `l` \\ fs [var_list_def]
+  \\ Cases_on `h'` \\ fs [var_list_def]
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ fs [evaluate_def,EL_LENGTH_APPEND] \\ rw []
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
+  \\ fs [] \\ rw [] \\ res_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]);
+
+val var_list_IMP_evaluate = prove(
+  ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
+    evaluate (l,a++env,s) = (Rval a,s)``,
+  rw []
+  \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
+       |> SIMP_RULE std_ss [APPEND,LENGTH])
+  \\ asm_exists_tac \\ fs []);
+
+val LENGTH_let_op = store_thm("LENGTH_let_op",
+  ``!xs. LENGTH (let_op xs) = LENGTH xs``,
+  ho_match_mp_tac let_op_ind \\ rw [let_op_def]
+  \\ CASE_TAC \\ fs []);
+
+val do_app_lemma = prove(
+  ``let_state_rel s1 t1 ==>
+    case do_app op a s1 of
+    | Rerr err => do_app op a t1 = Rerr err
+    | Rval (v,s2) => ?t2. let_state_rel s2 t2 /\ do_app op a t1 = Rval (v,t2)``,
+  Cases_on `op = Install` THEN1
+   (rw [] \\ fs [do_app_def]
+    \\ every_case_tac \\ fs []
+    \\ fs [case_eq_thms,UNCURRY,do_install_def]
+    \\ rveq \\ fs [PULL_EXISTS]
+    \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ fs [let_state_rel_def] \\ rveq \\ fs []
+    \\ fs [state_component_equality]
+    THEN1
+     (fs [shift_seq_def,o_DEF] \\ rfs []
+      \\ Cases_on `s1.compile_oracle 0` \\ fs []
+      \\ Cases_on `r` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
+      \\ fs [map_union] \\ AP_TERM_TAC
+      \\ fs [map_fromAList] \\ AP_TERM_TAC \\ fs []
+      \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+      \\ fs [FUN_EQ_THM,FORALL_PROD])
+    \\ CCONTR_TAC \\ fs [] \\ rfs [FORALL_PROD,shift_seq_def])
+  \\ strip_tac \\ Cases_on `do_app op a s1` \\ fs []
+  THEN1
+   (rename1 `_ = Rval aa`
+    \\ PairCases_on `aa`
+    \\ drule (Q.GENL [`c`,`cc`,`co`] do_app_with_code) \\ fs []
+    \\ fs [let_state_rel_alt]
+    \\ disch_then (qspecl_then [`map (I ## let_op_sing) s1.code`,
+        `t1.compile`,`(I ## MAP (I ## I ## let_op_sing)) ∘
+          s1.compile_oracle`] mp_tac)
+    \\ qpat_x_assum `t1 = _` (assume_tac o GSYM) \\ fs []
+    \\ impl_tac THEN1 fs [domain_map]
+    \\ strip_tac \\ fs []
+    \\ qpat_x_assum `_ = t1` (assume_tac o GSYM) \\ fs []
+    \\ rw [] \\ fs [state_component_equality]
+    \\ imp_res_tac do_app_const \\ fs [])
+  \\ drule (Q.GENL [`c`,`cc`,`co`] do_app_with_code_err_not_Install) \\ fs []
+  \\ fs [let_state_rel_alt]
+  \\ disch_then (qspecl_then [`map (I ## let_op_sing) s1.code`,
+      `t1.compile`,`(I ## MAP (I ## I ## let_op_sing)) ∘
+        s1.compile_oracle`] mp_tac)
+  \\ qpat_x_assum `t1 = _` (assume_tac o GSYM) \\ fs []
+  \\ impl_tac THEN1 fs [domain_map] \\ fs []);
+
 val evaluate_let_op = store_thm("evaluate_let_op",
-  ``!es env s res t.
-      evaluate (es,env,s) = (res,t) /\ res ≠ Rerr (Rabort Rtype_error) ==>
-      evaluate
-        (let_op es,env,s with code := map (I ## let_op_sing) s.code) =
-        (res,t with code := map (I ## let_op_sing) s.code)``,
+  ``!es env s1 res t1 s2.
+      let_state_rel s1 t1 /\
+      evaluate (es,env,s1) = (res,s2) /\ res ≠ Rerr (Rabort Rtype_error) ==>
+      ?t2. evaluate (let_op es,env,t1) = (res,t2) /\ let_state_rel s2 t2``,
   recInduct evaluate_ind \\ rw [] \\ fs [let_op_def]
   \\ fs [evaluate_def]
   THEN1
    (once_rewrite_tac [evaluate_CONS]
-    \\ Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `evaluate (y::xs,env,r)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
+    \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ res_tac \\ fs [])
   THEN1 (rw [] \\ fs [])
   THEN1
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq \\ fs []
-    \\ rw [] \\ fs [] \\ rfs []
-    \\ imp_res_tac evaluate_code \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (TOP_CASE_TAC \\ fs [] THEN1
-     (Cases_on `evaluate (xs,env,s)` \\ fs [evaluate_def]
-      \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-      \\ imp_res_tac evaluate_code \\ fs [])
-    \\ Cases_on `evaluate (xs,env,s)` \\ fs [evaluate_def]
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ `?d. let_op [x2] = [d]` by
-       (Cases_on `x2` \\ fs [let_op_def] \\ CASE_TAC \\ fs [])
-    \\ rveq \\ fs []
-    \\ Cases_on `d` \\ fs [dest_op_def] \\ rveq
-    \\ fs [evaluate_def]
-    \\ drule (Q.GENL [`l`,`a`,`env`,`s`] var_list_IMP_evaluate)
-    \\ disch_then (qspecl_then [`a`,`env`] assume_tac)
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
-  THEN1
-   (Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs [])
-  THEN1
-   (Cases_on `evaluate ([x1],env,s1)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `e` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [])
-  THEN1
-   (Cases_on `evaluate (xs,env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `do_app op (REVERSE a) r` \\ fs []
-    \\ imp_res_tac evaluate_code
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ first_x_assum drule \\ rw [] \\ fs []
     THEN1
-     (Cases_on `a'`
-      \\ imp_res_tac do_app_with_code
-      \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
-      \\ fs [domain_map])
-    \\ rveq \\ fs []
-    \\ imp_res_tac do_app_with_code_err
-    \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
-    \\ fs [domain_map])
+     (first_x_assum drule \\ rw [] \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      \\ fs [evaluate_def]
+      \\ Cases_on `HD (let_op [x2])` \\ fs [dest_op_def] \\ rveq
+      \\ drule (GEN_ALL var_list_IMP_evaluate) \\ fs [LENGTH_let_op]
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ disch_then drule \\ rw []
+      \\ rename1 `_ = Op opname l`
+      \\ qsuff_tac `let_op [x2] = [Op opname l]`
+      THEN1 (rw [] \\ fs [evaluate_def])
+      \\ once_rewrite_tac [GSYM HD_let_op] \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    \\ fs [evaluate_def])
   THEN1
-   (Cases_on `evaluate ([x],env,s)` \\ fs []
-    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-    \\ imp_res_tac evaluate_code \\ fs [] \\ rw [] \\ fs [])
-  \\ Cases_on `evaluate (xs,env,s1)` \\ fs []
-  \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_code \\ fs []
-  \\ Cases_on `find_code dest a s1.code` \\ fs []
-  \\ PairCases_on `x` \\ fs []
-  \\ `find_code dest a (map (I ## let_op_sing) s1.code) =
-        SOME (x0,let_op_sing x1)` by
-   (Cases_on `dest` \\ fs [find_code_def]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [lookup_map])
-  \\ fs [] \\ rw [] \\ fs []
-  \\ fs [state_component_equality]
-  \\ qsuff_tac `[let_op_sing x1] = let_op [x1]` \\ rw [] \\ fs []
-  \\ fs [let_op_sing_def]
-  \\ Cases_on `x1` \\ fs [let_op_def]
-  \\ rpt (pop_assum kall_tac) \\ every_case_tac \\ fs []);
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+  THEN1
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+  THEN1
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM)) \\ fs []
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    \\ rveq \\ fs []
+    \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)
+    \\ fs [] \\ rw [] \\ fs [])
+  THEN1
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    THEN1 (fs [let_state_rel_def])
+    \\ `let_state_rel (dec_clock 1 s) (dec_clock 1 t1)`
+           by fs [let_state_rel_def,dec_clock_def]
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+    \\ rveq \\ fs []
+    \\ qexists_tac `t2` \\ fs [] \\ fs [let_state_rel_def])
+  THEN1
+   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
+    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
+    \\ res_tac \\ fs [PULL_EXISTS]
+    THEN1
+     (qexists_tac `t2' with clock := 0` \\ fs [let_state_rel_def]
+      \\ Cases_on `dest` \\ fs [find_code_def]
+      \\ fs [case_eq_thms,lookup_map])
+    \\ `find_code dest vs t2.code = SOME (args,HD (let_op [exp]))` by
+     (Cases_on `dest`
+      \\ fs [find_code_def,case_eq_thms,let_state_rel_def,lookup_map]
+      \\ fs [let_op_sing_thm])
+    \\ fs []
+    \\ `let_state_rel (dec_clock (ticks + 1) s) (dec_clock (ticks + 1) t2)`
+          by fs [let_state_rel_def,dec_clock_def]
+    \\ res_tac \\ fs [] \\ rfs [let_state_rel_def]));
+
+
 
 val map_let_op = prove(
   ``semantics ffi prog start <> Fail ==>
