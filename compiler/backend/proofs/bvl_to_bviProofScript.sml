@@ -465,7 +465,7 @@ val evaluate_CopyGlobals_code = Q.prove(
     simp[Abbr`ss`] >> EVAL_TAC >>
     simp[state_component_equality] ) >>
   simp[Abbr`ss`] >>
-  `&SUC n - 1 = &n` by (
+  `&SUC n - 1 = &n:int` by (
     simp[ADD1] >> intLib.COOPER_TAC ) >>
   simp[state_component_equality] >>
   simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE] >>
@@ -524,7 +524,7 @@ val evaluate_AllocGlobal_code = Q.prove(
     simp[Abbr`ss`] >> EVAL_TAC >>
     simp[state_component_equality] ) >>
   simp[Abbr`ss`] >>
-  `&SUC n - 1 = &n` by (Cases_on`n`>>full_simp_tac(srw_ss())[]>>simp[ADD1]>>intLib.COOPER_TAC) >> full_simp_tac(srw_ss())[] >>
+  `&SUC n - 1 = &n:int` by (Cases_on`n`>>full_simp_tac(srw_ss())[]>>simp[ADD1]>>intLib.COOPER_TAC) >> full_simp_tac(srw_ss())[] >>
   simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE,state_component_equality] >>
   srw_tac[][] >> simp[] >> TRY(intLib.COOPER_TAC) >>
   `n = LENGTH ls`by decide_tac >>
@@ -561,7 +561,7 @@ val evaluate_ListLength_code = Q.store_thm("evaluate_ListLength_code",
    (unabbrev_all_tac \\ fs [bviSemTheory.state_component_equality,
        bviSemTheory.dec_clock_def])
   \\ fs [] \\ pop_assum kall_tac
-  \\ `(1 + &n) = (&(n + 1))` by intLib.COOPER_TAC \\ fs []);
+  \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []);
 
 val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
   `∀lv vs n bs (s:'ffi bviSem$state).

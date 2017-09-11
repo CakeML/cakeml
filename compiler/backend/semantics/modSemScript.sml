@@ -1,5 +1,5 @@
 open preamble modLangTheory;
-open semanticPrimitivesPropsTheory (* for do_shift and others *)
+open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory "modSem"
 
@@ -173,6 +173,12 @@ val do_app_def = Define `
       SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
+  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
+  | (FP_uop uop, [Litv (Word64 w)]) =>
+      SOME ((s,t),Rval (Litv (Word64 (fp_uop uop w))))
+  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME ((s,t),Rval (Boolv (fp_cmp cmp w1 w2)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
      (case do_word_op op wz w1 w2 of
           | NONE => NONE

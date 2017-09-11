@@ -4,11 +4,22 @@
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
 open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
-ASCIInumbersLib
+ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.tight_equality()
+
+(* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
+
+val _ = remove_ovl_mapping "exp" {Name="exp", Thy="transc"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
+val _ = remove_ovl_mapping "lim" {Name="lim", Thy="seq"}
+val _ = remove_ovl_mapping "ln" {Name="ln", Thy="transc"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =

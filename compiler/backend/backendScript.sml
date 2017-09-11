@@ -271,6 +271,7 @@ val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
@@ -346,7 +347,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   rpt(pairarg_tac>>fs[])>>
   fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
   rveq>>fs[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[])
+  BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   to_livesets (c with word_to_word_conf:=wc) p =

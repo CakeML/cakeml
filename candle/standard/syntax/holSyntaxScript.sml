@@ -572,6 +572,8 @@ val _ = Parse.overload_on("thyof",``λctxt:update list. (sigof ctxt, axsof ctxt)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
 
+val _ = hide "abs";
+
 val (updates_rules,updates_ind,updates_cases) = Hol_reln`
   (* new_axiom *)
   (prop has_type Bool ∧

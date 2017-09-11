@@ -650,6 +650,17 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    rename1`opw64_lookup`
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])
+ >> TRY ( (* FP cmp *)
+   rename1`fp_cmp` >>
+   metis_tac[type_v_Boolv,store_type_extension_refl])
+ >> TRY ( (* FP uop *)
+   rename1`fp_uop`>>
+   simp[Once type_v_cases]>>
+   metis_tac [store_type_extension_refl])
+ >> TRY ( (* FP bop *)
+   rename1`fp_bop`>>
+   simp[Once type_v_cases]>>
+   metis_tac [store_type_extension_refl])
  >> TRY ( (* Equality *)
    rename1`do_eq`
    >> metis_tac [type_v_Boolv, store_type_extension_refl, eq_result_nchotomy, eq_same_type])

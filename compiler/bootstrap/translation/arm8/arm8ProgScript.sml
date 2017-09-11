@@ -172,7 +172,9 @@ val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss ++ Dataty
 
 val arm8_enc1_4 = reconstruct_case ``arm8_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``arm8_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
 
-val arm8_simp1 = reconstruct_case ``arm8_enc (Inst i)`` (rand o rand) [arm8_enc1_1,arm8_enc1_2,arm8_enc1_3,arm8_enc1_4]
+val arm8_enc1_5 = el 5 arm8_enc1s
+
+val arm8_simp1 = reconstruct_case ``arm8_enc (Inst i)`` (rand o rand) [arm8_enc1_1,arm8_enc1_2,arm8_enc1_3,arm8_enc1_4,arm8_enc1_5]
 
 val arm8_simp2 = arm8_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv
 

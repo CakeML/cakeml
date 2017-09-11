@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open preamble
+open preamble fpSemTheory;
 
 val _ = new_theory "backend_common";
 val _ = set_grammar_ancestry ["arithmetic"]

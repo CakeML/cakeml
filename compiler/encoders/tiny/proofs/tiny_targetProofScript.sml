@@ -416,12 +416,20 @@ val tiny_backend_correct = Q.store_thm ("tiny_backend_correct",
             \\ next_tac
             )
          )
+      >- (
          (*--------------
              Mem
            --------------*)
-         \\ print_tac "Mem"
+         print_tac "Mem"
          \\ Cases_on `a`
          \\ Cases_on `m`
+         \\ next_tac
+         )
+         (*--------------
+             FP
+           --------------*)
+         \\ print_tac "FP"
+         \\ Cases_on `f`
          \\ next_tac
       ) (* close Inst *)
       (*--------------

@@ -12,7 +12,7 @@ val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
    On the other hand: its use here is temporary.
 *)
 val small_int_def = Define `
-  small_int i <=> -268435457 <= i /\ i <= 268435457`;
+  small_int (i:int) <=> -268435457 <= i /\ i <= 268435457`;
 
 val is_arith_op_def = Define `
   is_arith_op Add       = T ∧
