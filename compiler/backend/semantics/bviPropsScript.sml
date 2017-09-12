@@ -365,10 +365,9 @@ val do_app_aux_const = Q.store_thm("do_app_aux_const",
    z.clock = s.clock`,
   rw[do_app_aux_def,case_eq_thms] >> rw[]);
 
-(*
 val do_app_with_code = Q.store_thm("do_app_with_code",
   `bviSem$do_app op vs s = Rval (r,s') ⇒
-   domain s.code ⊆ domain c ⇒
+   domain s.code ⊆ domain c ∧ op ≠ Install ⇒
    do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
@@ -377,13 +376,14 @@ val do_app_with_code = Q.store_thm("do_app_with_code",
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bviSem$do_app op vs s = Rerr e ⇒
-   (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
+   (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ∧ op ≠ Install ⇒
    do_app op vs (s with code := c) = Rerr e`,
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
   \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac);
 
+(*
 val find_code_add_code = Q.store_thm("find_code_add_code",
   `bvlSem$find_code dest a (fromAList code) = SOME x ⇒
    find_code dest a (fromAList (code ++ extra)) = SOME x`,
