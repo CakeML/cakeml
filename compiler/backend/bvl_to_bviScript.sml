@@ -192,6 +192,14 @@ local val compile_op_quotation = `
                         (Op (FromList n)
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
+    | Install => Let (if LENGTH c1 <> 2
+                      then [Op (Const 0) []; Op (Const 0) []] else c1)
+                        (Op Install
+                        [Var 0; Var 1;
+                         Call 0 (SOME ListLength_location)
+                           [Var 0; Op (Const 0) []] NONE;
+                         Call 0 (SOME ListLength_location)
+                           [Var 1; Op (Const 0) []] NONE])
     | String str =>
         Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
           (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
