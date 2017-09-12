@@ -352,12 +352,12 @@ val E_OK0 = Q.store_thm(
   >- (erule strip_assume_tac (n V_OK) >> std)
   >- (dsimp[] >>
       map_every (erule strip_assume_tac o n) [V_OK, PbaseList1_OK] >>
-      asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std))
+      asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std));
 
 val E_OK = save_thm("E_OK", okify CONJUNCT1 `nE` E_OK0)
 val AndFDecls_OK = save_thm(
   "AndFDecls_OK",
-  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0)
+  okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0);
 
 val PTbase_OK = Q.store_thm(
   "PTbase_OK",
@@ -367,7 +367,7 @@ val PTbase_OK = Q.store_thm(
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>
   simp[ptree_PTbase_def, tokcheck_def]
   >- (erule strip_assume_tac (n TyOp_OK) >> simp[] >>
-      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Tvar (destTyvarPT pt)’ >>
+      rename [‘destTyvarPT pt’] >> Cases_on ‘lift Atvar (destTyvarPT pt)’ >>
       simp[]) >>
   metis_tac[Type_OK]);
 
@@ -502,6 +502,7 @@ val OptTypEqn_OK = Q.store_thm(
   start >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_OptTypEqn_def, tokcheck_def] >> metis_tac[Type_OK]);
 
+  (*
 val SpecLine_OK = Q.store_thm(
   "SpecLine_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nSpecLine ∧
@@ -529,6 +530,7 @@ val SpecLineList_OK = Q.store_thm(
   asm_match `ptree_head pt' = NN nSpecLine` >>
   Cases_on `pt'`
   >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >> simp[])
+  *)
 
 val StructName_OK = Q.store_thm(
   "StructName_OK",
@@ -538,6 +540,7 @@ val StructName_OK = Q.store_thm(
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_StructName_def]);
 
+  (*
 val SignatureValue_OK = Q.store_thm(
   "SignatureValue_OK",
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nSignatureValue ∧
@@ -598,6 +601,7 @@ val TopLevelDecs_OK = Q.store_thm(
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
       metis_tac[TopLevelDec_OK, grammarTheory.ptree_fringe_def]))
 
+  *)
 (*
 val REPLTop_OK = Q.store_thm(
   "REPLTop_OK",
