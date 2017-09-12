@@ -5,6 +5,11 @@ val _ = new_theory"bvlProps";
 
 val s = ``(s:('c,'ffi) bvlSem$state)``
 
+(* TODO: move to misc *)
+val MAP_FST_I_PAIR_MAP = store_thm("MAP_FST_I_PAIR_MAP[simp]",
+  ``!xs. MAP FST (MAP (I ## f) xs) = MAP FST xs``,
+  Induct \\ fs [FORALL_PROD]);
+
 val with_same_code = Q.store_thm("with_same_code[simp]",
   `^s with code := s.code = s`,
   srw_tac[][bvlSemTheory.state_component_equality])
@@ -97,7 +102,7 @@ val do_app_with_code_err_not_Install = Q.store_thm("do_app_with_code_err_not_Ins
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bvlSem$do_app op vs s = Rerr e ⇒
-   (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
+   (domain c = domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
   rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
   fs [do_install_def,case_eq_thms,UNCURRY] >>

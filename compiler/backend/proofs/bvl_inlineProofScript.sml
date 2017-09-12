@@ -65,16 +65,19 @@ val do_app_lemma = prove(
     \\ rveq \\ fs [PULL_EXISTS]
     \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
     \\ fs [state_rel_def] \\ rveq \\ fs []
+    \\ fs [domain_map]
     \\ fs [state_component_equality]
     THEN1
      (fs [shift_seq_def,o_DEF] \\ rfs []
       \\ Cases_on `t'.compile_oracle 0` \\ fs []
       \\ Cases_on `r'` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
+      \\ fs [domain_map]
       \\ fs [map_union] \\ AP_TERM_TAC
       \\ fs [map_fromAList] \\ AP_TERM_TAC \\ fs []
       \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
       \\ fs [FUN_EQ_THM,FORALL_PROD])
-    \\ CCONTR_TAC \\ fs [] \\ rfs [FORALL_PROD,shift_seq_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ rfs [FORALL_PROD,shift_seq_def,domain_map]
     \\ metis_tac [list_nchotomy,PAIR])
   \\ strip_tac \\ Cases_on `do_app op (REVERSE a) t'`
   THEN1
@@ -666,9 +669,6 @@ val in_state_rel_def = Define `
       let ((cs,cfg),progs) = s.compile_oracle n in
       let (cs1,progs) = tick_compile_prog limit cs progs in
         (cfg,progs)) ∧
-    (!n. let ((cs,cfg),progs) = s.compile_oracle n in
-         let (cs1,progs) = tick_compile_prog limit cs progs in
-           FST (FST (s.compile_oracle (n+1))) = cs1) /\
     subspt (FST (FST (s.compile_oracle 0))) t.code /\
     s.compile = in_cc limit t.compile /\
     domain t.code = domain s.code /\
@@ -686,17 +686,124 @@ val subspt_exp_rel = store_thm("subspt_exp_rel",
   \\ fs [subspt_def,domain_lookup,PULL_EXISTS]
   \\ res_tac \\ fs [] \\ metis_tac []);
 
+val tick_inline_all_acc = prove(
+  ``!limit cs t aux.
+      tick_inline_all limit cs t aux =
+        let (cs1,xs) = tick_inline_all limit cs t [] in
+          (cs1, REVERSE aux ++ xs)``,
+  Induct_on `t` \\ fs [tick_inline_all_def] \\ rpt strip_tac
+  \\ PairCases_on `h` \\ simp_tac std_ss  [tick_inline_all_def]
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [] \\ pairarg_tac \\ fs []);
+
+val tick_inline_all_names = prove(
+  ``!limit cs t aux cs1 xs.
+      tick_inline_all limit cs t [] = (cs1,xs) ==>
+      MAP FST t = MAP FST xs``,
+  Induct_on `t` \\ fs [tick_inline_all_def,FORALL_PROD]
+  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []
+  \\ rpt strip_tac
+  \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
+  \\ res_tac);
+
 val tick_compile_prog_IMP = prove(
   ``tick_compile_prog limit q0 ((k,prog)::t) = (cs1,prog1) ==>
     ?p1 vs. prog1 = (k,p1)::vs /\ MAP FST vs = MAP FST t``,
+  Cases_on `prog` \\ strip_tac \\ fs [tick_compile_prog_def]
+  \\ imp_res_tac tick_inline_all_names \\ fs []
+  \\ Cases_on `prog1` \\ fs []
+  \\ Cases_on `h` \\ fs []);
+
+val subspt_union_lemma = prove(
+  ``(!x. lookup x t1 = lookup x t2) ==>
+    subspt x (union c t1) ==> subspt x (union c t2)``,
+  fs [subspt_def,domain_union,lookup_union,domain_lookup]);
+
+val subspt_alt = store_thm("subspt_alt",
+  ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
+  fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
+  \\ res_tac \\ fs []);
+
+val subspt_domain = store_thm("subspt_domain",
+  ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
+  fs [subspt_def,SUBSET_DEF]);
+
+val tick_inline_all_domain = prove(
+  ``!limit cs0 in1 cs1 xs.
+      tick_inline_all limit cs0 in1 [] = (cs1,xs) ==>
+      domain cs1 SUBSET domain cs0 UNION set (MAP FST xs)``,
+  Induct_on `in1`
+  \\ fs [tick_inline_all_def,FORALL_PROD] \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [tick_inline_all_acc]
+  \\ fs [] \\ pairarg_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs [MAP,SUBSET_DEF] \\ metis_tac []);
+
+val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
+  ``!in1 limit in2 c cs0 cs1.
+      tick_compile_prog limit cs0 in1 = (cs1,in2) /\
+      ALL_DISTINCT (MAP FST in1) /\
+      subspt cs0 c /\ domain c INTER set (MAP FST in1) = EMPTY ==>
+      subspt cs1 (union c (fromAList in2))``,
+  Induct \\ fs [tick_compile_prog_def]
+  THEN1 (fs [tick_inline_all_def,fromAList_def])
+  \\ fs [FORALL_PROD]
+  \\ fs [tick_inline_all_def,fromAList_def]
+  \\ rw []
+  THEN1
+   (qpat_x_assum `_ = (_,_)` mp_tac
+    \\ once_rewrite_tac [tick_inline_all_acc]
+    \\ fs [] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `union c
+          (insert p_1 (p_1',HD (tick_inline cs0 [p_2])) LN)` mp_tac)
+    \\ impl_tac THEN1 cheat
+    \\ fs [GSYM union_assoc]
+    \\ match_mp_tac subspt_union_lemma
+    \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def]
+    \\ fs [case_eq_thms] \\ metis_tac [])
+  \\ qpat_x_assum `_ = (_,_)` mp_tac
+  \\ once_rewrite_tac [tick_inline_all_acc]
+  \\ fs [] \\ pairarg_tac \\ fs [] \\ rw [] \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule \\ fs []
+  \\ impl_tac THEN1 (fs [EXTENSION] \\ metis_tac [])
+  \\ imp_res_tac tick_inline_all_names \\ fs []
+  \\ Cases_on `p_1 IN domain cs1`
+  THEN1
+   (sg `F` \\ fs []
+    \\ imp_res_tac tick_inline_all_domain
+    \\ fs [SUBSET_DEF] \\ res_tac
+    \\ imp_res_tac subspt_domain
+    \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
+  \\ fs [subspt_alt]
+  \\ fs [lookup_union,fromAList_def,lookup_insert]
+  \\ rw [] \\ fs[domain_lookup]
+  \\ rw [] \\ fs []);
+
+val ALOOKUP_exp_rel = prove(
+  ``tick_compile_prog limit q0 in1 = (cs1,in2) /\
+    subspt q0 t1.code /\
+    (∀k arity exp.
+      lookup k s1.code = SOME (arity,exp) ⇒
+      ∃exp2.
+        lookup k t1.code = SOME (arity,exp2) ∧
+        exp_rel s1.code [exp] [exp2]) /\
+    ALOOKUP in1 k' = SOME (arity,exp) /\
+    ALL_DISTINCT (MAP FST in1) /\
+    DISJOINT (domain q0) (set (MAP FST in1)) ==>
+    ∃exp2.
+      ALOOKUP in2 k' = SOME (arity,exp2) ∧
+      exp_rel (union s1.code (fromAList in1)) [exp] [exp2]``,
   cheat);
 
 val in_do_app_lemma = prove(
   ``in_state_rel limit s1 t1 ==>
     case do_app op a s1 of
-    | Rerr err => do_app op a t1 = Rerr err
+    | Rerr err => (err <> Rabort Rtype_error ==> do_app op a t1 = Rerr err)
     | Rval (v,s2) => ?t2. in_state_rel limit s2 t2 /\
                           do_app op a t1 = Rval (v,t2)``,
+
   Cases_on `op = Install`
   THEN1
    (rw [] \\ fs [do_app_def]
@@ -706,40 +813,38 @@ val in_do_app_lemma = prove(
     \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
     \\ fs [state_rel_def] \\ rveq \\ fs []
     \\ fs [state_component_equality,in_state_rel_def]
+    \\ fs [shift_seq_def,o_DEF] \\ rfs []
+    \\ Cases_on `s1.compile_oracle 0` \\ fs []
+    \\ Cases_on `r` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
+    \\ PairCases_on `q` \\ fs [domain_union]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+    \\ fs [domain_fromAList,in_cc_def]
+    \\ pairarg_tac \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ qpat_x_assum `_ = FST _` (assume_tac o GSYM) \\ fs []
+    \\ drule tick_compile_prog_IMP \\ strip_tac \\ fs []
+    \\ rveq \\ fs []
+    \\ qpat_abbrev_tac `in1 = (k,prog)::t`
+    \\ qpat_abbrev_tac `in2 = (k,p1)::vs`
+    \\ fs [lookup_union,case_eq_thms]
+    \\ reverse (rw [])
     THEN1
-     (fs [shift_seq_def,o_DEF] \\ rfs []
-      \\ Cases_on `s1.compile_oracle 0` \\ fs []
-      \\ Cases_on `r` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
-      \\ PairCases_on `q` \\ fs [domain_union]
-      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-      \\ fs [domain_fromAList,in_cc_def]
-      \\ pairarg_tac \\ fs [case_eq_thms] \\ rveq \\ fs []
-      \\ qpat_x_assum `_ = FST _` (assume_tac o GSYM) \\ fs []
-      \\ drule tick_compile_prog_IMP \\ strip_tac \\ fs []
-      \\ rveq \\ fs []
-      \\ qpat_abbrev_tac `in1 = (k,prog)::t`
-      \\ qpat_abbrev_tac `in2 = (k,p1)::vs`
-      \\ fs [lookup_union,case_eq_thms]
-      \\ reverse (rw [])
-      THEN1
-       (first_x_assum drule \\ strip_tac \\ fs []
-        \\ match_mp_tac subspt_exp_rel \\ metis_tac [subspt_union])
-      THEN1
-       (reverse (Cases_on `lookup k' t1.code`) \\ fs []
-        THEN1 (fs [domain_lookup,EXTENSION] \\ metis_tac [NOT_SOME_NONE])
-        \\ fs [lookup_fromAList]
-        \\ cheat (* probably true *))
-      \\ cheat (* needs assumption about oracle names *))
-    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
-    THEN1 fs [tick_compile_prog_def,tick_inline_all_def]
-    \\ disj2_tac \\ rfs [in_cc_def]
-    \\ rpt (pairarg_tac \\ fs []) \\ fs [case_eq_thms]
-    \\ TRY (PairCases_on `v6`) \\ fs [PULL_EXISTS]
-    \\ drule tick_compile_prog_IMP \\ strip_tac \\ fs [] \\ rveq \\ fs []
-    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
-    \\ fs [shift_seq_def]
-
-    \\ cheat (* almost true *))
+     (first_x_assum drule \\ strip_tac \\ fs []
+      \\ match_mp_tac subspt_exp_rel \\ metis_tac [subspt_union])
+    THEN1
+     (reverse (Cases_on `lookup k' t1.code`) \\ fs []
+      THEN1 (fs [domain_lookup,EXTENSION] \\ metis_tac [NOT_SOME_NONE])
+      \\ fs [lookup_fromAList]
+      \\ `DISJOINT (domain q0) (set (MAP FST in1))` by
+       (fs [subspt_def,EXTENSION,DISJOINT_DEF,Abbr`in1`] \\ metis_tac [])
+      \\ `ALL_DISTINCT (MAP FST in1)` by fs [Abbr `in1`]
+      \\ metis_tac [ALOOKUP_exp_rel])
+    \\ drule (tick_compile_prog_res_range |> SIMP_RULE std_ss [])
+    \\ disch_then match_mp_tac \\ fs []
+    \\ unabbrev_all_tac \\ fs []
+    \\ CCONTR_TAC \\ fs [EXTENSION] \\ rveq \\ fs []
+    \\ fs [subspt_def] \\ res_tac
+    \\ fs [DISJOINT_DEF,EXTENSION]
+    \\ metis_tac [])
   \\ strip_tac \\ reverse (Cases_on `do_app op a s1`) \\ fs []
   \\ `t1 = t1 with <| globals := s1.globals ;
                                refs := s1.refs ;
@@ -747,7 +852,7 @@ val in_do_app_lemma = prove(
                                ffi := s1.ffi |>` by
          fs [in_state_rel_def,state_component_equality]
   \\ pop_assum (fn th => once_rewrite_tac [th])
-  THEN1 (match_mp_tac do_app_Rerr_swap \\ fs [in_state_rel_def])
+  THEN1 (strip_tac \\ match_mp_tac do_app_Rerr_swap \\ fs [in_state_rel_def])
   \\ rename1 `_ = Rval x`
   \\ PairCases_on `x` \\ fs []
   \\ drule (do_app_Rval_swap |> GEN_ALL
@@ -941,7 +1046,7 @@ val do_app_lemma = prove(
     \\ rveq \\ fs [PULL_EXISTS]
     \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
     \\ fs [let_state_rel_def] \\ rveq \\ fs []
-    \\ fs [state_component_equality]
+    \\ fs [state_component_equality,domain_map]
     THEN1
      (fs [shift_seq_def,o_DEF] \\ rfs []
       \\ Cases_on `s1.compile_oracle 0` \\ fs []
@@ -1324,7 +1429,7 @@ val semantics_let_op = prove(
   \\ fs [IS_PREFIX_APPEND]
   \\ simp [EL_APPEND1]);
 
-
+(*
 (* combined theorems *)
 
 val remove_ticks_mk_tick = prove(
@@ -1449,5 +1554,6 @@ val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
 val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
   `MAP FST (compile_prog limit prog) = MAP FST prog`,
   fs [bvl_inlineTheory.compile_prog_def] \\ rw [MAP_FST_inline_all]);
+*)
 
 val _ = export_theory();
