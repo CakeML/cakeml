@@ -296,17 +296,48 @@ val do_app_oracle = Q.store_thm("do_app_oracle",
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
   fs[do_app_aux_def,case_eq_thms] \\ rw[]);
 
-(*
-val evaluate_code_const_lemma = Q.prove(
-  `!xs env s. (SND (evaluate (xs,env,s))).code = s.code`,
-  recInduct evaluate_ind \\ rw[evaluate_def,case_eq_thms,pair_case_eq]
-  \\ every_case_tac \\ fs[] \\ rfs[] \\ fs[]
-  \\ imp_res_tac do_app_code \\ fs[]);
+val evaluate_code = Q.store_thm("evaluate_code",
+  `!xs env s1 vs s2.
+     (evaluate (xs,env,s1) = (vs,s2)) ==>
+     ∃n.
+       s2.compile_oracle = shift_seq n s1.compile_oracle ∧
+       s2.code = FOLDL union s1.code (MAP (fromAList o SND)
+         (GENLIST s1.compile_oracle n))`,
+  recInduct evaluate_ind \\ rw [evaluate_def]
+  \\ fs[case_eq_thms,pair_case_eq,bool_case_eq,bvlPropsTheory.case_eq_thms]
+  \\ rveq \\ fs[shift_seq_def,dec_clock_def] \\ rfs[]
+  \\ TRY (qexists_tac`0` \\ srw_tac[ETA_ss][] \\ NO_TAC)
+  \\ TRY (qexists_tac`n` \\ srw_tac[ETA_ss][] \\ NO_TAC)
+  \\ TRY ( qpat_x_assum`(_,_) = _`(assume_tac o SYM) \\ fs[] )
+  \\ TRY(
+       qmatch_goalsub_rename_tac`a1 + a2`
+    \\ qexists_tac`a1+a2`
+    \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
+  \\ TRY(
+       qmatch_goalsub_rename_tac`a1 + a2`
+    \\ qexists_tac`a2+a1`
+    \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
+  \\ TRY(
+       qmatch_goalsub_rename_tac`a1 + (a2 + a3)`
+    \\ qexists_tac`a3+a2+a1`
+    \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
+  \\ Cases_on`op=Install`
+  >- (
+    fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
+    \\ pairarg_tac \\ fs[] \\ rveq
+    \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
+    \\ fs[shift_seq_def]
+    \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
+  \\ imp_res_tac do_app_code \\ rfs[]
+  \\ imp_res_tac do_app_oracle \\ rfs[]
+  \\ qexists_tac`n` \\ fs[]);
 
-val evaluate_code_const = Q.store_thm("evaluate_code_const",
-  `!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)`,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ full_simp_tac(srw_ss())[]);
-*)
+val evaluate_code_mono = Q.store_thm("evaluate_code_mono",
+  `!xs env s1 vs s2.
+     (evaluate (xs,env,s1) = (vs,s2)) ==>
+     subspt s1.code s2.code`,
+  rw[] \\ imp_res_tac evaluate_code
+  \\ rw[] \\ metis_tac[subspt_FOLDL_union]);
 
 val evaluate_global_mono_lemma = Q.prove(
   `∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)`,
