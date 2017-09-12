@@ -1,8 +1,9 @@
 open  preamble ml_progLib ml_translatorLib fsioProgTheory fsioProofTheory cfTacticsLib
       fsioSpecTheory fsioProgConstantsTheory
+open semanticsLib
     (*  myioProgLib *)
 
-val _ = new_theory "helloProg"
+val _ = new_theory "iohelloProg"
 
 val _ = translation_extends"fsioProg";
 
@@ -14,23 +15,17 @@ val res = ml_prog_update(ml_progLib.add_prog hello pick_name)
 val st = get_ml_prog_state ()
 
 val hello_spec = Q.store_thm ("hello_spec",
-  `!cv input output.
+  `!out.
       app (p:'ffi ffi_proj) ^(fetch_v "hello" st)
         [Conv NONE []]
-        (STDIO fs inp out err)
+        (STDIO fs * & stdout fs out)
         (POSTv uv. &UNIT_TYPE () uv * 
-		   (STDIO fs inp (out ++ "Hello World!\n") err) * emp)`,
-  xcf "hello" st
-  \\ xapp \\ xsimpl
-  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-(* this should be automated. can it? *)
-  \\ qexists_tac`err`
-  \\ qexists_tac`fs`
-  \\ qexists_tac`inp`
-  \\ qexists_tac`out`
-  \\ xsimpl)
+		   (STDIO (up_stdout (out ++ "Hello World!\n") fs)) * emp)`,
+  xcf "hello" st \\ xpull \\ xapp \\ xsimpl \\ instantiate \\ xsimpl);
 
 (* from now on, try to apply the main theorem to hello_spec in the spirit of ioProgLib *)
+
+
 
 val IOFS_tm = prim_mk_const{Thy="fsioProgConstants",Name="IOFS"}
 fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x))
@@ -60,19 +55,10 @@ val basis_ffi_tm =
       (zip ["inp","cls","files","numchars"]
         (#1(strip_fun(type_of basis_ffi_const)))))
 
-open semanticsLib
-
-val STDIO_precond = Q.store_thm("STDIO_precond",
-`wfFS fs' ==> liveFS fs' ==> LENGTH v = 258 ==> R fs' ==>
-    (SEP_EXISTS fs'.  IOFS fs' * &R fs')
-    ({FFI_part (encode fs') (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-     ∪ {Mem 1 (W8array v)})`,
-  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM] >>
-  qexists_tac`fs'` >> fs[SEP_CLAUSES,IOFS_precond]);
-
+(* TODO: IOFS_precond, STDIO_precond ... don't have the right shape *)
 val hprop_heap_thms =
   ref [emp_precond, IOFS_precond, mlcommandLineProgTheory.COMMANDLINE_precond,
-	   STDIO_precond,STDIO_precond |> SIMP_RULE(srw_ss())[STDIO_def]];
+	   STDIO_precond,STDIO_precond'];
 
 
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
@@ -122,24 +108,6 @@ fun parts_ok_basis_st st =
     \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
     \\ srw_tac[DNF_ss][])
   in th end
-
-(*
-val tm = ``SEP_EXISTS fs'.
-   IOFS fs' *
-   &((∀fname.
-        fname ≠ strlit "stdin" ∧ fname ≠ strlit "stdout" ∧
-        fname ≠ strlit "stderr" ⇒
-        ALOOKUP fs.files fname = ALOOKUP fs'.files fname) ∧
-     (ALOOKUP fs'.infds 0 = SOME (strlit "stdin",STRLEN (FST inp')) ∧
-      ALOOKUP fs'.files (strlit "stdin") =
-      SOME (STRCAT (FST inp') (SND inp'))) ∧
-     (ALOOKUP fs'.infds 1 = SOME (strlit "stdout",STRLEN out) ∧
-      ALOOKUP fs'.files (strlit "stdout") = SOME out) ∧
-     ALOOKUP fs'.infds 2 = SOME (strlit "stderr",STRLEN err) ∧
-     ALOOKUP fs'.files (strlit "stderr") = SOME err)``
-
-val th = STDIO_precond |> SIMP_RULE(srw_ss())[STDIO_def]
-*) 
 
 (* This function proves the SPLIT pre-condition of call_main_thm_basis *)
 fun subset_basis_st st precond =
@@ -212,7 +180,7 @@ fun call_thm st name spec =
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
     val st = split |> rator |> rand
-    val SPLIT_thm = subset_basis_st st precond
+    val SPLIT_thm = subset_basis_st st precond (* HERE *)
     val th = PART_MATCH_A (#1 o dest_imp) th (concl SPLIT_thm)
     val th = MATCH_MP th SPLIT_thm
   in (th,rhs(concl prog_rewrite)) end
@@ -227,6 +195,7 @@ fun add_basis_proj spec =
 
     fun is_cond_UNIT_TYPE x = aconv v (snd (dest_UNIT_TYPE (dest_cond x))) handle HOL_ERR _ => false
     val (unitvs,hprops) = partition is_cond_UNIT_TYPE hprops
+val (call_thm_hello, hello_prog_tm) = call_thm st name spec;
     val (sepexists, hprops) = partition (can dest_sep_exists) hprops
     val star_type = type_of precond
     val rest_hprop = list_mk_star hprops star_type

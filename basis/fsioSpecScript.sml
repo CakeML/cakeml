@@ -34,27 +34,6 @@ val STRCAT_eq = Q.store_thm("STRCAT_eq",
     (x1 = x2 ∧ y1 = y2)`,
   induct_on`x1` >> fs[] >> cases_on`x2` >> fs[] >> metis_tac[]);
 
-val UNIQUE_STDIO = Q.store_thm("UNIQUE_STDIO",
-`!s. VALID_HEAP s ==> !fs inp1 inp2 out1 out2 err1 err2 H1 H2. 
-        (STDIO fs inp1 out1 err1 * H1) s ∧ (STDIO fs inp2 out2 err2 * H2) s ==>
-        (inp1 = inp2 ∧ out1 = out2 ∧ err1 = err2)`,
-  rw[] >> cases_on`inp1` >> cases_on`inp2` >>
-  fs[STDIO_def,SEP_CLAUSES,SEP_EXISTS_THM,GSYM STAR_ASSOC] >>
-  imp_res_tac (SIMP_RULE (srw_ss()) [HPROP_INJ_def] IOFS_iobuff_HPROP_INJ) >>
-  fs[GSYM STAR_ASSOC,cond_STAR] >> fs[Once STAR_def] >>
-  rfs[cond_STAR] >> metis_tac[STRCAT_eq]);
-
-(* weak injection theorem, with the same fs *)
-val STDIO_HPROP_INJ = Q.store_thm("STDIO_HPROP_INJ[hprop_inj]",
-`!fs inp1 inp2 out1 out2 err1 err2. 
-   HPROP_INJ (STDIO fs inp1 out1 err1) 
-             (STDIO fs inp2 out2 err2) 
-             (inp1 = inp2 ∧ out1 = out2 ∧ err1 = err2)`,
-  rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM,
-     HCOND_EXTRACT] >>
-  EQ_TAC >> rpt DISCH_TAC >>
-  IMP_RES_TAC UNIQUE_STDIO >> fs[] >> 
-  metis_tac[]);
 
 val copyi_spec = Q.store_thm(
   "copyi_spec",
@@ -589,20 +568,37 @@ val stderr_spec = Q.store_thm("stderr_spec",
   xcf "IO.stderr" (basis_st()) >> xmatch >> fs[UNIT_TYPE_def] >>
   rw[] >-(xapp >> xsimpl) >> EVAL_TAC);
 
+(* convenient functions for standard output/error 
+* to be used with STDIO as numchars is ignored *)
+
+val stdout_def = Define
+`stdout fs out = (get_file_content fs 1 = SOME(out, LENGTH out))`
+
+val up_stdout_def = Define
+`up_stdout c fs = fsupdate fs 1 0 (LENGTH c) c`
+
+val stderr_def = Define
+`stderr fs err = (get_file_content fs 2 = SOME(err, LENGTH err))`
+
+val up_stderr_def = Define
+`up_stderr c fs = fsupdate fs 2 0 (LENGTH c) c`
+(* TODO: idem for input *)
+
 val print_string_spec = Q.store_thm("print_string_spec",
-  `!s sv fs output. 
+  `!s sv fs out. 
     STRING_TYPE s sv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.print_string" (basis_st())) [sv]
-    (STDIO fs inp out err)  
-    (POSTv uv. &(UNIT_TYPE () uv) * STDIO fs inp (out ++ explode s) err)`,
+    (STDIO fs * &stdout fs out )  
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (up_stdout (out ++ explode s) fs))`,
   xcf "IO.print_string" (basis_st()) >> 
-  cases_on`inp` >> fs[STDIO_def,IOFS_def] >> xpull >>
+  fs[STDIO_def,IOFS_def,up_stdout_def,stdout_def] >> xpull >>
   xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
-  xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >> instantiate >>
-  fs[get_file_content_def,ALOOKUP_validFD,IOFS_def] >> 
-  xsimpl >> rw[] >> instantiate >>
+  xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >> 
+  fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >> 
+  instantiate >>fs[ALOOKUP_validFD] >>
+  xsimpl >> rw[] >>
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
-  xsimpl >> rw[] >> CASE_TAC);
+  rfs[] >> instantiate >> xsimpl);
 
 val _ = export_theory();
