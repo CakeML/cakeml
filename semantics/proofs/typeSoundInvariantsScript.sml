@@ -223,4 +223,13 @@ val type_all_env_def = Define `
     nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
     nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v`;
 
+val type_sound_invariant_def = Define `
+type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
+  tenv_ok tenv ∧
+  good_ctMap ctMap ∧
+  consistent_ctMap st type_idents ctMap ∧
+  type_all_env ctMap tenvS env tenv ∧
+  type_s ctMap st.refs tenvS`;
+
+
 val _ = export_theory();

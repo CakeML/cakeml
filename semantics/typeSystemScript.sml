@@ -53,25 +53,28 @@ val _ = Define `
  (Tlist_num : type_ident= (( 6 : num)))`;
 
 val _ = Define `
- (Tref_num : type_ident= (( 7 : num)))`;
+ (Toption_num : type_ident= (( 7 : num)))`;
 
 val _ = Define `
- (Tstring_num : type_ident= (( 8 : num)))`;
+ (Tref_num : type_ident= (( 8 : num)))`;
 
 val _ = Define `
- (Ttup_num : type_ident= (( 9 : num)))`;
+ (Tstring_num : type_ident= (( 9 : num)))`;
 
 val _ = Define `
- (Tvector_num : type_ident= (( 10 : num)))`;
+ (Ttup_num : type_ident= (( 10 : num)))`;
 
 val _ = Define `
- (Tword64_num : type_ident= (( 11 : num)))`;
+ (Tvector_num : type_ident= (( 11 : num)))`;
 
 val _ = Define `
- (Tword8_num : type_ident= (( 12 : num)))`;
+ (Tword64_num : type_ident= (( 12 : num)))`;
 
 val _ = Define `
- (Tword8array_num : type_ident= (( 13 : num)))`;
+ (Tword8_num : type_ident= (( 13 : num)))`;
+
+val _ = Define `
+ (Tword8array_num : type_ident= (( 14 : num)))`;
 
 
 (* The numbers for the primitive types *)
@@ -101,6 +104,9 @@ val _ = Define `
 
 val _ = Define `
  (Tlist t=  (Tapp [t] Tlist_num))`;
+
+val _ = Define `
+ (Toption t=  (Tapp [t] Toption_num))`;
 
 val _ = Define `
  (Tref t=  (Tapp [t] Tref_num))`;
