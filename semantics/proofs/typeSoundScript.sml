@@ -1831,7 +1831,7 @@ val check_ctor_tenv_dups = Q.prove (
   ho_match_mp_tac check_ctor_tenv_ind >>
   rw [check_ctor_tenv_def]);
 
-val decs_type_sound = Q.store_thm ("decs_type_sound",
+val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
  `∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
    type_ds F tenv ds tids tenv' ∧
@@ -2244,6 +2244,34 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      disch_then drule >>
      rw [])));
 
+val decs_type_sound = Q.store_thm ("decs_type_sound",
+ `∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.
+   evaluate_decs st env ds = (st',r) ∧
+   type_ds extra_checks tenv ds tids tenv' ∧
+   decs_type_sound_invariant st env ctMap tenvS tids tenv
+   ⇒
+   ∃ctMap' tenvS'.
+     weakCT ctMap' ctMap ∧
+     FRANGE ((SND o SND) o_f ctMap') DIFF FRANGE ((SND o SND) o_f ctMap) ⊆ tids ∧
+     store_type_extension tenvS tenvS' ∧
+     case r of
+     | Rval env' =>
+       type_all_env ctMap' tenvS' env' tenv' ∧
+       decs_type_sound_invariant st' (extend_dec_env env' env)
+         ctMap' tenvS' {} (extend_dec_tenv tenv' tenv)
+     | Rerr (Rraise err_v) =>
+       type_v 0 ctMap' tenvS' err_v Texn ∧
+       decs_type_sound_invariant st' env ctMap' tenvS' {} tenv
+     | Rerr (Rabort Rtype_error) => F
+     | Rerr (Rabort Rtimeout_error) => T`,
+  rw [] >>
+  imp_res_tac type_d_check_uniq >>
+  imp_res_tac decs_type_sound_no_check >>
+  qexists_tac `ctMap'` >>
+  qexists_tac `tenvS'` >>
+  Cases_on `r` >>
+  fs []);
+
      (*
 val type_sound_invariant_def = Define `
 type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
@@ -2643,10 +2671,10 @@ val prog_type_sound = Q.store_thm ("prog_type_sound",
    *)
 
 val semantics_type_sound = Q.store_thm ("semantics_type_sound",
- `∀(st:'ffi semanticPrimitives$state) env tops st' new_ctors r checks tdecs1 ctMap tenvS tenv tdecs1' new_tenv.
+ `∀(st:'ffi semanticPrimitives$state) env tops r checks ctMap tenvS tenv new_tenv tids.
    semantics_prog st env tops r ∧
-   type_prog checks tdecs1 tenv tops tdecs1' new_tenv ∧
-   type_sound_invariant st env tdecs1 ctMap tenvS tenv ⇒
+   type_ds checks tenv tops tids new_tenv ∧
+   decs_type_sound_invariant st env ctMap tenvS tids tenv ⇒
    r ≠ Fail`,
  rw []
  >> CCONTR_TAC
@@ -2658,10 +2686,11 @@ val semantics_type_sound = Q.store_thm ("semantics_type_sound",
  >> pairarg_tac
  >> fs []
  >> rw []
- >> drule prog_type_sound
+ >> drule decs_type_sound
  >> disch_then drule
  >> simp []
- >> fs [type_sound_invariant_def]
+ >> fs [decs_type_sound_invariant_def]
+ >> fs [consistent_ctMap_def]
  >> metis_tac []);
 
 val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
