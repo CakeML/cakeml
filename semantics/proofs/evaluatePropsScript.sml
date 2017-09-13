@@ -471,18 +471,10 @@ val with_clock_with_clock = Q.prove (
 val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
 
-val tac1 =
-  metis_tac[result_distinct,result_11,(*evaluate_tops_add_to_clock,*)
-            error_result_11,error_result_distinct,option_nchotomy,
-            abort_distinct,pair_CASES,FST,with_clock_ffi,
-            PAIR_EQ,IS_SOME_EXISTS,SOME_11,NOT_SOME_NONE,SND,PAIR, add_lemma,
-            state_component_equality, with_clock_with_clock]
-
-            (*
-val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
+val evaluate_decs_clock_determ = Q.store_thm ("evaluate_decs_clock_determ",
 `!s e p s1 r1 s2 r2 k1 k2.
-  evaluate_prog (s with clock := k1) e p = (s1,r1) ∧
-  evaluate_prog (s with clock := k2) e p = (s2,r2)
+  evaluate_decs (s with clock := k1) e p = (s1,r1) ∧
+  evaluate_decs (s with clock := k2) e p = (s2,r2)
   ⇒
   case (r1,r2) of
   | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
@@ -503,47 +495,28 @@ val evaluate_prog_clock_determ = Q.store_thm ("evaluate_prog_clock_determ",
  >- (
    `k2 < k1` suffices_by (every_case_tac >> fs [])
    >> CCONTR_TAC
-   >> fs [evaluate_prog_def]
-   >> every_case_tac
-   >> fs []
    >> `?extra. k2 = k1 + extra` by intLib.ARITH_TAC
-   >> qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
-   >> drule evaluate_tops_add_to_clock
+   >> qpat_x_assum `evaluate_decs _ _ _ = _` mp_tac
+   >> drule evaluate_decs_add_to_clock
    >> rw [])
  >- (
    `k1 < k2` suffices_by (every_case_tac >> fs [])
    >> CCONTR_TAC
-   >> fs [evaluate_prog_def]
-   >> every_case_tac
-   >> fs []
    >> `?extra. k1 = k2 + extra` by intLib.ARITH_TAC
-   >> drule evaluate_tops_add_to_clock
+   >> drule evaluate_decs_add_to_clock
    >> fs []
    >> qexists_tac `extra`
    >> simp [])
  >- (
-   fs [evaluate_prog_def]
-   >> qpat_x_assum `(if _ then _ else _) = _` mp_tac
-   >> CASE_TAC
-   >> rw []
-   >> rw []
-   >> qspecl_then [`k1`, `k2`] strip_assume_tac add_lemma
-   >> var_eq_tac
-   >| [
-     drule evaluate_tops_add_to_clock
-       >> simp []
-       >> disch_then (qspec_then `extra` mp_tac)
-       >> rw [],
-     qpat_x_assum `evaluate_tops _ _ _ = _` mp_tac
-       >> drule evaluate_tops_add_to_clock
-       >> simp []
-       >> disch_then (qspec_then `extra` mp_tac)
-       >> rw []]
-   >> every_case_tac
-   >> fs []
-   >> rw []));
-
-   *)
+   every_case_tac >>
+   fs [] >>
+   rw [] >>
+   `(?extra. k1 = k2 + extra) ∨ (?extra. k2 = k1 + extra)`
+   by intLib.ARITH_TAC >>
+   rw [] >>
+   imp_res_tac evaluate_decs_add_to_clock >>
+   fs [] >>
+   rw []))
 
 val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 
@@ -608,19 +581,17 @@ val with_clock_with_clock = Q.prove(
   `((s with clock := k1) with clock := k2) = s with clock := k2`,
   EVAL_TAC)
 
-  (*
-val evaluate_prog_ffi_mono_clock = Q.store_thm("evaluate_prog_ffi_mono_clock",
+val evaluate_decs_ffi_mono_clock = Q.store_thm("evaluate_decs_ffi_mono_clock",
   `∀k1 k2 s e p.
     k1 ≤ k2 ⇒
     io_events_mono
-    (FST (evaluate_prog (s with clock := k1) e p)).ffi
-    (FST (evaluate_prog (s with clock := k2) e p)).ffi`,
-  srw_tac[][evaluate_prog_def] >>
+    (FST (evaluate_decs (s with clock := k1) e p)).ffi
+    (FST (evaluate_decs (s with clock := k2) e p)).ffi`,
+  rw [] >>
   qabbrev_tac`ss = s with clock := k1` >>
-  `∃s1 r. evaluate_tops ss e p = (s1,r)` by metis_tac[PAIR] >>
+  `∃s1 r. evaluate_decs ss e p = (s1,r)` by metis_tac[PAIR] >>
   full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
-  metis_tac[evaluate_tops_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock])
-  *)
+  metis_tac[evaluate_decs_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock]);
 
 val evaluate_state_unchanged = Q.store_thm ("evaluate_state_unchanged",
  `(!(st:'ffi state) env es st' r.

@@ -16,6 +16,7 @@ parse toks =
 val _ = Datatype`
   state = <| (* Type system state *)
             tenv : type_env;
+            type_ids : type_ident set;
             (* Semantics state *)
             sem_st : 'ffi semanticPrimitives$state;
             sem_env : v sem_env |>`;
@@ -24,7 +25,9 @@ val _ = hide "state";
 
 val can_type_prog_def = Define `
 can_type_prog state prog ⇔
-  ∃tdecs' new_tenv. type_ds T state.tenv prog tdecs' new_tenv`;
+  ∃new_tids new_tenv.
+    DISJOINT state.type_ids new_tids ∧
+    type_ds T state.tenv prog new_tids new_tenv`;
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st env k prog =
