@@ -303,7 +303,7 @@ val compile_prog_def = Define `
         let (n, ys) = compile_prog next xs in
           (n, (loc, arity, exp)::ys)
     | SOME (exp_aux, exp_opt) =>
-        let (n, ys) = compile_prog (next + 2) xs in
+        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
   `;
 
