@@ -332,10 +332,19 @@ T
 ==>
 evaluate_dec ck env s (Dexn locs cn ts)
     (( s with<| next_exn_stamp := (s.next_exn_stamp +( 1 : num)) |>),
-     Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, cn, ExnStamp s.next_exn_stamp)) |>))`;
+     Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp s.next_exn_stamp)) |>))
 
+/\ (! ck s1 s2 env ds mn new_env.
+(evaluate_decs ck env s1 ds (s2, Rval new_env))
+==>
+evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v := (nsLift mn new_env.v); c := (nsLift mn new_env.c) |>))
 
-val _ = Hol_reln ` (! ck env s.
+/\ (! ck s1 s2 env ds mn err.
+(evaluate_decs ck env s1 ds (s2, Rerr err))
+==>
+evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err))
+
+/\ (! ck env s.
 T
 ==>
 evaluate_decs ck env s [] (s, Rval <| v := nsEmpty; c := nsEmpty |>))
@@ -351,40 +360,58 @@ evaluate_decs ck (extend_dec_env new_env env) s2 ds (s3, r))
 ==>
 evaluate_decs ck env s1 (d::ds) (s3, combine_dec_result new_env r))`;
 
-val _ = Hol_reln ` (! ck s1 s2 env d new_env.
-(evaluate_dec ck env s1 d (s2, Rval new_env))
-==>
-evaluate_top ck env s1 (Tdec d) (s2, Rval new_env))
-/\ (! ck s1 s2 env d err.
-(evaluate_dec ck env s1 d (s2, Rerr err))
-==>
-evaluate_top ck env s1 (Tdec d) (s2, Rerr err))
+(*
+indreln [evaluate_top : forall 'ffi. bool -> sem_env v -> state 'ffi -> top ->
+              state 'ffi * result (sem_env v) v -> bool]
 
-/\ (! ck s1 s2 env ds mn specs new_env.
-(evaluate_decs ck env s1 ds (s2, Rval new_env))
+tdec1 : forall ck s1 s2 env d new_env.
+evaluate_dec ck env s1 d (s2, Rval new_env)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rval <| v := (nsLift mn new_env.v); c := (nsLift mn new_env.c) |>))
+evaluate_top ck env s1 (Tdec d) (s2, Rval new_env)
+and
 
-/\ (! ck s1 s2 env ds mn specs err.
-(evaluate_decs ck env s1 ds (s2, Rerr err))
+tdec2 : forall ck s1 s2 env d err.
+evaluate_dec ck env s1 d (s2, Rerr err)
 ==>
-evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rerr err))`;
+evaluate_top ck env s1 (Tdec d) (s2, Rerr err)
 
-val _ = Hol_reln ` (! ck env s.
-T
-==>
-evaluate_prog ck env s [] (s, Rval <| v := nsEmpty; c := nsEmpty |>))
+and
 
-/\ (! ck s1 s2 s3 env top tops new_env r.
-(evaluate_top ck env s1 top (s2, Rval new_env) /\
-evaluate_prog ck (extend_dec_env new_env env) s2 tops (s3,r))
+tmod1 : forall ck s1 s2 env ds mn specs new_env.
+evaluate_decs ck env s1 ds (s2, Rval new_env)
 ==>
-evaluate_prog ck env s1 (top::tops) (s3, combine_dec_result new_env r))
+evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
 
-/\ (! ck s1 s2 env top tops err.
-(evaluate_top ck env s1 top (s2, Rerr err))
+and
+
+tmod2 : forall ck s1 s2 env ds mn specs err.
+evaluate_decs ck env s1 ds (s2, Rerr err)
 ==>
-evaluate_prog ck env s1 (top::tops) (s2, Rerr err))`;
+evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rerr err)
+
+indreln [evaluate_prog : forall 'ffi. bool -> sem_env v -> state 'ffi -> prog ->
+             state 'ffi * result (sem_env v) v -> bool]
+
+empty : forall ck env s.
+true
+==>
+evaluate_prog ck env s [] (s, Rval <| v = nsEmpty; c = nsEmpty |>)
+
+and
+
+cons1 : forall ck s1 s2 s3 env top tops new_env r.
+evaluate_top ck env s1 top (s2, Rval new_env) &&
+evaluate_prog ck (extend_dec_env new_env env) s2 tops (s3,r)
+==>
+evaluate_prog ck env s1 (top::tops) (s3, combine_dec_result new_env r)
+
+and
+
+cons2 : forall ck s1 s2 env top tops err.
+evaluate_top ck env s1 top (s2, Rerr err)
+==>
+evaluate_prog ck env s1 (top::tops) (s2, Rerr err)
+*)
 
 (*val dec_diverges : forall 'ffi. sem_env v -> state 'ffi -> dec -> bool*)
 val _ = Define `
@@ -409,25 +436,35 @@ decs_diverges (extend_dec_env new_env env) s2 ds)
 ==>
 decs_diverges env s1 (d::ds))`;
 
-val _ = Hol_reln ` (! st env d.
-(dec_diverges env st d)
-==>
-top_diverges env st (Tdec d))
+(*
+indreln [top_diverges : forall 'ffi. sem_env v -> state 'ffi -> top -> bool]
 
-/\ (! env s1 ds mn specs.
-(decs_diverges env s1 ds)
+tdec : forall st env d.
+dec_diverges env st d
 ==>
-top_diverges env s1 (Tmod mn specs ds))`;
+top_diverges env st (Tdec d)
 
-val _ = Hol_reln ` (! st env top tops.
-(top_diverges env st top)
-==>
-prog_diverges env st (top::tops))
+and
 
-/\ (! s1 s2 env top tops new_env.
-(evaluate_top F env s1 top (s2, Rval new_env) /\
-prog_diverges (extend_dec_env new_env env) s2 tops)
+tmod : forall env s1 ds mn specs.
+decs_diverges env s1 ds
 ==>
-prog_diverges env s1 (top::tops))`;
+top_diverges env s1 (Tmod mn specs ds)
+
+indreln [prog_diverges : forall 'ffi. sem_env v -> state 'ffi -> prog -> bool]
+
+cons1 : forall st env top tops.
+top_diverges env st top
+==>
+prog_diverges env st (top::tops)
+
+and
+
+cons2 : forall s1 s2 env top tops new_env.
+evaluate_top false env s1 top (s2, Rval new_env) &&
+prog_diverges (extend_dec_env new_env env) s2 tops
+==>
+prog_diverges env s1 (top::tops)
+*)
 val _ = export_theory()
 

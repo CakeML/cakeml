@@ -346,6 +346,8 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error))
  * that have been declared *)
 indreln [evaluate_dec : forall 'ffi. bool -> sem_env v -> state 'ffi -> dec ->
                 state 'ffi * result (sem_env v) v -> bool]
+and [evaluate_decs : forall 'ffi. bool -> sem_env v -> state 'ffi -> list dec ->
+            state 'ffi * result (sem_env v) v -> bool]
 
 dlet1 : forall ck env p e v env' s1 s2 locs.
 evaluate ck env s1 e (s2, Rval v) &&
@@ -431,11 +433,23 @@ true
 ==>
 evaluate_dec ck env s (Dexn locs cn ts)
     (<| s with next_exn_stamp = s.next_exn_stamp + 1 |>,
-     Rval  <| v = nsEmpty; c = nsSing cn (length ts, cn, ExnStamp s.next_exn_stamp) |>)
+     Rval  <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp s.next_exn_stamp) |>)
 
+and
 
-indreln [evaluate_decs : forall 'ffi. bool -> sem_env v -> state 'ffi -> list dec ->
-            state 'ffi * result (sem_env v) v -> bool]
+dmod1 : forall ck s1 s2 env ds mn new_env.
+evaluate_decs ck env s1 ds (s2, Rval new_env)
+==>
+evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
+
+and
+
+dmod2 : forall ck s1 s2 env ds mn err.
+evaluate_decs ck env s1 ds (s2, Rerr err)
+==>
+evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err)
+
+and
 
 empty : forall ck env s.
 true
@@ -457,6 +471,7 @@ evaluate_decs ck (extend_dec_env new_env env) s2 ds (s3, r)
 ==>
 evaluate_decs ck env s1 (d::ds) (s3, combine_dec_result new_env r)
 
+(*
 indreln [evaluate_top : forall 'ffi. bool -> sem_env v -> state 'ffi -> top ->
               state 'ffi * result (sem_env v) v -> bool]
 
@@ -507,6 +522,7 @@ cons2 : forall ck s1 s2 env top tops err.
 evaluate_top ck env s1 top (s2, Rerr err)
 ==>
 evaluate_prog ck env s1 (top::tops) (s2, Rerr err)
+*)
 
 val dec_diverges : forall 'ffi. sem_env v -> state 'ffi -> dec -> bool
 let dec_diverges env st d =
@@ -518,7 +534,7 @@ let dec_diverges env st d =
     | Dexn locs cn ts -> false
   end
 
-indreln [decs_diverges : forall 'ffi. sem_env v -> state 'ffi -> decs -> bool]
+indreln [decs_diverges : forall 'ffi. sem_env v -> state 'ffi -> list dec -> bool]
 
 cons1 : forall st env d ds.
 dec_diverges env st d
@@ -533,6 +549,7 @@ decs_diverges (extend_dec_env new_env env) s2 ds
 ==>
 decs_diverges env s1 (d::ds)
 
+(*
 indreln [top_diverges : forall 'ffi. sem_env v -> state 'ffi -> top -> bool]
 
 tdec : forall st env d.
@@ -561,3 +578,4 @@ evaluate_top false env s1 top (s2, Rval new_env) &&
 prog_diverges (extend_dec_env new_env env) s2 tops
 ==>
 prog_diverges env s1 (top::tops)
+*)

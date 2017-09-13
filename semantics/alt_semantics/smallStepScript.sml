@@ -35,7 +35,7 @@ val _ = Hol_datatype `
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of  ( (modN, conN)id)option => v list => unit => exp list
-  | Ctannot of unit => t
+  | Ctannot of unit => ast_t
   | Clannot of unit => locs`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v sem_env``);

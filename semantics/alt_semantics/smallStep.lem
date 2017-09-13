@@ -24,7 +24,7 @@ type ctxt_frame =
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of maybe (id modN conN) * list v * unit * list exp
-  | Ctannot of unit * t
+  | Ctannot of unit * ast_t
   | Clannot of unit * locs
 type ctxt = ctxt_frame * sem_env v
 

@@ -66,8 +66,8 @@ val to_small_st_surj = Q.prove(
   `∀s. ∃y. s = to_small_st y`,
   srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
 
+  (*
 val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-  `!mn s env d. (∃r. evaluate_dec F mn env s d r) = ~dec_diverges env s d`,
   rw [] >>
   rw [Once evaluate_dec_cases, dec_diverges_def] >>
   cases_on `d` >>
@@ -101,9 +101,35 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
       );
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
-`!mn s env ds. (?r. evaluate_decs F mn env s ds r) = ~decs_diverges mn env s ds`,
- induct_on `ds` >>
- rw [] >-
+  `(!d s env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
+   (!ds s env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`,
+
+ ho_match_mp_tac dec_induction >>
+ rw [] >>
+ rw [Once evaluate_dec_cases, dec_diverges_def] >>
+ rw [GSYM untyped_safety_exp]
+ >- (
+  cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+  fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+  eq_tac
+  >- metis_tac [] >>
+  rw [] >>
+  `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))`
+        by metis_tac [pair_CASES, result_nchotomy] >>
+  rw []
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr err)` >>
+    rw [])
+  >- (
+
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rval <|v := v; c := nsEmpty|>)` >>
+    rw [])
+
+
+
+
+
+
  rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
  rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
  eq_tac
@@ -126,6 +152,9 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked]));
+     *)
+
+     (*
 
 val untyped_safety_top = Q.store_thm ("untyped_safety_top",
 `!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`,
@@ -161,5 +190,6 @@ val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, top_determ, top_unclocked]));
+     *)
 
 val _ = export_theory ();
