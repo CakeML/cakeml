@@ -668,7 +668,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
   impl_tac >- (
     fs[good_code_def,labels_ok_def] \\
-    qmatch_goalsub_rename_tac`c5.lab_conf.labels` \\ qunabbrev_tac`c5`
+    qmatch_goalsub_rename_tac`c5.lab_conf.labels` \\ qunabbrev_tac`c5` >>
     rfs[]>>rw[]
     >-
       fs[Abbr`p7`,stack_to_labTheory.compile_def]
