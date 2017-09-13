@@ -224,6 +224,7 @@ val backend_config_ok_def = Define`
     c.source_conf = ^prim_config.source_conf ∧
     c.mod_conf = ^prim_config.mod_conf ∧
     0 < c.clos_conf.max_app ∧
+    c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH c.lab_conf.asm_conf.avoid_regs + 13 ≤ c.lab_conf.asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
     c.lab_conf.labels = LN ∧
@@ -248,7 +249,8 @@ val backend_config_ok_def = Define`
          c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
 
 val backend_config_ok_with_bvl_conf_updated = Q.store_thm("backend_config_ok_with_bvl_conf_updated[simp]",
-  `backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc`,
+  `(f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
+   (backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc)`,
   rw[backend_config_ok_def]);
 val backend_config_ok_with_word_to_word_conf_updated = Q.store_thm("backend_config_ok_with_word_to_word_conf_updated[simp]",
   `backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc`,
@@ -490,7 +492,8 @@ val compile_correct = Q.store_thm("compile_correct",
   qhdtm_x_assum`from_bvl`mp_tac >>
   srw_tac[][from_bvl_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
+  Q.ISPEC_THEN`s2.ffi`drule(Q.GENL[`ffi0`,`x`] bvl_to_bviProofTheory.compile_semantics) >>
+  disch_then(qspec_then`0`mp_tac) >>
   qunabbrev_tac`c'''`>>fs[] >>
   impl_keep_tac >- (
     match_mp_tac (GEN_ALL clos_to_bvlProofTheory.compile_all_distinct_locs)>>
@@ -546,12 +549,14 @@ val compile_correct = Q.store_thm("compile_correct",
   (word_to_stack_stack_asm_convs |> GEN_ALL |> Q.SPECL_THEN[`p5`,`c4.lab_conf.asm_conf`] mp_tac)>>
   impl_tac>-
     (fs[Abbr`c4`,EVERY_MEM,FORALL_PROD]>>
+     unabbrev_all_tac \\ fs[] >>
     metis_tac[])>>
   strip_tac>>
   drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
   impl_tac>-
     (fs[backend_config_ok_def,Abbr`c4`]>>
+    unabbrev_all_tac >>
     fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
     fs[PULL_EXISTS]>>
     metis_tac[])>>
@@ -561,6 +566,10 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ imp_res_tac compile_distinct_names
   \\ `MAP FST p4 = MAP FST p3`
   by metis_tac[bvi_to_dataProofTheory.MAP_FST_compile_prog]
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ impl_keep_tac >- fs[] \\ strip_tac
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ fs[] \\ strip_tac
   \\ qabbrev_tac `c4_data_conf = (c4.data_conf with
         has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count))`
   \\ `code_rel c4_data_conf (fromAList p4) (fromAList t_code)`
@@ -593,6 +602,7 @@ val compile_correct = Q.store_thm("compile_correct",
     (fs[Abbr`p7`]>>
     match_mp_tac stack_to_lab_compile_all_enc_ok>>
     fs[stackPropsTheory.reg_name_def,Abbr`c4`,mc_conf_ok_def]>>
+    unabbrev_all_tac >>
     fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>rfs[]>>
     metis_tac[])>>
   `labels_ok p7` by
@@ -627,6 +637,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   impl_tac >- (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`] \\
+    qmatch_goalsub_rename_tac`c5.data_conf` \\ qunabbrev_tac`c5` \\
     fs[mc_conf_ok_def] \\
     conj_tac >- (
       simp[Abbr`stack_st`] \\
@@ -657,6 +668,7 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
   impl_tac >- (
     fs[good_code_def,labels_ok_def] \\
+    qmatch_goalsub_rename_tac`c5.lab_conf.labels` \\ qunabbrev_tac`c5`
     rfs[]>>rw[]
     >-
       fs[Abbr`p7`,stack_to_labTheory.compile_def]
@@ -687,6 +699,8 @@ val compile_correct = Q.store_thm("compile_correct",
   disch_then(assume_tac o SYM) \\
   Cases_on`stack_st_opt` \\
   drule full_make_init_semantics \\
+  qmatch_asmsub_rename_tac`c5 with bvl_conf updated_by _` \\
+  qunabbrev_tac`c5` \\ fs[] \\
   impl_tac >- (
     simp_tac std_ss [Once EVERY_FST_SND] \\
     qunabbrev_tac`stack_st` \\
@@ -751,6 +765,11 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ pop_assum mp_tac \\ EVAL_TAC
       \\ pop_assum mp_tac \\ EVAL_TAC
       \\ pop_assum mp_tac \\ EVAL_TAC
+      \\ TRY (
+        strip_tac
+        \\ qpat_x_assum`MEM k _ `mp_tac
+        \\ EVAL_TAC
+        \\ simp[] \\ NO_TAC )
       \\ decide_tac )) \\
   CASE_TAC
   >- (
