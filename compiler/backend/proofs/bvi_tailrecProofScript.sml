@@ -1681,11 +1681,11 @@ val compile_prog_LENGTH = Q.store_thm ("compile_prog_LENGTH",
   \\ pairarg_tac \\ fs []);
 
 val free_names_def = Define `
-  free_names n (name: num) ⇔ ∀k. n + 2*k ≠ name
+  free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
   `;
 
 val more_free_names = Q.prove (
-  `free_names n name ⇒ free_names (n + 2) name`,
+  `free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name`,
   fs [free_names_def] \\ rpt strip_tac
   \\ first_x_assum (qspec_then `k + 1` mp_tac) \\ strip_tac
   \\ rw []);
@@ -1697,7 +1697,7 @@ val is_free_name = Q.prove (
 
 val compile_exp_next_addr = Q.prove (
   `compile_exp loc next args exp = NONE ⇒
-     compile_exp loc (next + 2) args exp = NONE`,
+     compile_exp loc (next + bvl_to_bvi_namespaces) args exp = NONE`,
   fs [compile_exp_def]
   \\ every_case_tac
   \\ pairarg_tac \\ fs []);
@@ -1738,7 +1738,7 @@ val compile_prog_untouched = Q.store_thm ("compile_prog_untouched",
 val EVERY_free_names_SUCSUC = Q.prove (
   `∀xs.
      EVERY (free_names n o FST) xs ⇒
-       EVERY (free_names (n + 2) o FST) xs`,
+       EVERY (free_names (n + bvl_to_bvi_namespaces) o FST) xs`,
   Induct
   \\ strip_tac \\ fs []
   \\ strip_tac
@@ -1753,9 +1753,9 @@ val compile_prog_touched = Q.store_thm ("compile_prog_touched",
      check_exp loc arity exp = SOME op ∧
      compile_prog next prog = (next1, prog2) ⇒
        ∃k. ∀exp_aux exp_opt.
-         compile_exp loc (next + 2 * k) arity exp = SOME (exp_aux, exp_opt) ⇒
+         compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (exp_aux, exp_opt) ⇒
            lookup loc (fromAList prog2) = SOME (arity, exp_aux) ∧
-           lookup (next + 2 * k) (fromAList prog2) = SOME (arity + 1, exp_opt)`,
+           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 1, exp_opt)`,
   ho_match_mp_tac compile_prog_ind \\ rw []
   \\ fs [fromAList_def, lookup_def]
   \\ pop_assum mp_tac
@@ -1779,7 +1779,7 @@ val compile_prog_touched = Q.store_thm ("compile_prog_touched",
     \\ disch_then drule \\ rw []
     \\ fs [lookup_insert, fromAList_def]
     \\ qexists_tac `k` \\ rw []
-    \\ fs [free_names_def])
+    \\ fs [free_names_def,backend_commonTheory.bvl_to_bvi_namespaces_def])
   \\ PURE_CASE_TAC \\ rw []
   \\ qpat_x_assum `lookup _ _ = SOME (_,_)` mp_tac
   \\ fs [lookup_insert, fromAList_def]
@@ -1787,12 +1787,13 @@ val compile_prog_touched = Q.store_thm ("compile_prog_touched",
   \\ imp_res_tac more_free_names
   \\ rfs [EVERY_free_names_SUCSUC]
   \\ fs [lookup_insert, fromAList_def, free_names_def]
-  \\ TRY (qexists_tac `0` \\ fs [] \\ NO_TAC)
+  \\ TRY (qexists_tac `0` \\ fs [backend_commonTheory.bvl_to_bvi_namespaces_def] \\ NO_TAC)
   \\ first_x_assum (qspec_then `loc'` assume_tac)
   \\ first_x_assum drule
   \\ disch_then drule \\ rw []
   \\ qexists_tac `k + 1` \\ fs []
-  \\ simp [LEFT_ADD_DISTRIB]);
+  \\ simp [LEFT_ADD_DISTRIB]
+  \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]);
 
 val check_exp_NONE_compile_exp = Q.prove (
   `check_exp loc arity exp = NONE ⇒ compile_exp loc next arity exp = NONE`,
@@ -1823,7 +1824,7 @@ val compile_prog_code_rel = Q.store_thm ("compile_prog_code_rel",
   >- metis_tac [check_exp_NONE_compile_exp, compile_prog_untouched]
   \\ drule compile_prog_touched
   \\ rpt (disch_then drule) \\ rw []
-  \\ qexists_tac `2 * k + next` \\ fs []);
+  \\ qexists_tac `bvl_to_bvi_namespaces * k + next` \\ fs []);
 
 val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
   `EVERY (free_names next o FST) prog ∧
@@ -2250,7 +2251,7 @@ val compile_prog_ALL_DISTINCT = Q.store_thm("compile_prog_ALL_DISTINCT",
     \\ drule (GEN_ALL compile_prog_MEM)
     \\ disch_then drule
     \\ simp [MEM_MAP]
-    \\ fs [EVERY_MEM]
+    \\ fs [EVERY_MEM,backend_commonTheory.bvl_to_bvi_namespaces_def]
     \\ gen_tac
     \\ Cases_on `MEM y xs` \\ fs []
     \\ res_tac

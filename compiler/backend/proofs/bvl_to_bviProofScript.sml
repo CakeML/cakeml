@@ -31,12 +31,13 @@ val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 (* value relation *)
 val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
+val _ = temp_overload_on ("nss", ``bvl_to_bvi_namespaces``);
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
   (adjust_bv b (Word64 w) = Word64 w) /\
   (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
-  (adjust_bv b (CodePtr c) = CodePtr (num_stubs + 2 * c)) /\
+  (adjust_bv b (CodePtr c) = CodePtr (num_stubs + nss * c)) /\
   (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))`
   (WF_REL_TAC `measure (v_size o SND)`
    \\ Induct_on `vs` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [v_size_def]
@@ -92,7 +93,7 @@ val state_rel_def = Define `
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
        ?n. let (c1,aux1,n1) = compile_exps n [exp] in
-             (lookup (num_stubs + 2 * name) t.code = SOME (arity,bvi_let$compile_exp (HD c1))) /\
+             (lookup (num_stubs + nss * name) t.code = SOME (arity,bvi_let$compile_exp (HD c1))) /\
              aux_code_installed (append aux1) t.code /\
              handle_ok [exp])`;
 
@@ -2632,7 +2633,7 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[LET_DEF])
     \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)`
     \\ `?n7. let (c7,aux7,n8) = compile_exps n7 [body] in
-               (find_code (case dest of NONE => NONE | SOME n => SOME (num_stubs + 2 * n))
+               (find_code (case dest of NONE => NONE | SOME n => SOME (num_stubs + nss * n))
                  (MAP (adjust_bv b2) a) t2.code =
                  SOME (MAP (adjust_bv b2) args,bvi_let$compile_exp (HD c7))) /\
                aux_code_installed (append aux7) t2.code /\
@@ -2843,7 +2844,7 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
    res ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 t2.
-     evaluate ([Call 0 (SOME (num_stubs + 2 * start))[] NONE],[],inc_clock ck t1) =
+     evaluate ([Call 0 (SOME (num_stubs + nss * start))[] NONE],[],inc_clock ck t1) =
        (map_result (MAP (adjust_bv b2)) (adjust_bv b2) res,t2) ∧
      state_rel b2 s2 t2`,
   srw_tac[][] >>
@@ -2967,16 +2968,46 @@ val aux_code_installed_sublist = Q.store_thm("aux_code_installed_sublist",
 val compile_exps_aux_sorted = Q.store_thm("compile_exps_aux_sorted",
   `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
    SORTED $< (MAP FST (append aux)) ∧
-   EVERY (λx. ∃n. x = num_stubs + 2 * n + 1) (MAP FST (append aux)) ∧
-   EVERY (between (num_stubs + 2 * n) (num_stubs + 2 * n1)) (MAP FST (append aux)) ∧ n ≤ n1`,
+   EVERY (λx. ∃n. x = num_stubs + nss * n + 1) (MAP FST (append aux)) ∧
+   EVERY (between (num_stubs + nss * n) (num_stubs + nss * n1)) (MAP FST (append aux)) ∧ n ≤ n1`,
    ho_match_mp_tac compile_exps_ind >>
    simp[compile_exps_def] >> srw_tac[][] >>
    rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][compile_aux_def] >>
    rpt ((sorted_lt_append |> match_mp_tac) >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-   full_simp_tac(srw_ss())[EVERY_MEM,between_def] >>
+   fs[EVERY_MEM,between_def,backend_commonTheory.bvl_to_bvi_namespaces_def] >>
    srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC]));
 
-val ODD_num_stubs = EVAL``ODD num_stubs``;
+val in_ns_def = Define`in_ns k n ⇔ n MOD nss = k`;
+
+val nss_in_ns = Q.store_thm("nss_in_ns[simp]",
+  `in_ns k nss ⇔ k = 0`,
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+
+val mult_nss_in_ns = Q.store_thm("mult_nss_in_ns[simp]",
+  `in_ns k (m * nss) ⇔ k = 0`,
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+
+val mult_nss_in_ns_1 = Q.store_thm("mult_nss_in_ns_1[simp]",
+  `in_ns k (m * nss + 1) ⇔ k = 1`,
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+
+val mult_nss_in_ns_2 = Q.store_thm("mult_nss_in_ns_2[simp]",
+  `in_ns k (m * nss + 2) ⇔ k = 2`,
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+
+val in_ns_1_add_1 = Q.store_thm("in_ns_1_add_1",
+  `in_ns 0 x ⇒ in_ns 1 (x + 1)`,
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+  \\ qspecl_then[`3`,`x`,`1`]mp_tac(Q.GENL[`n`,`x`,`k`]MOD_LIFT_PLUS_IFF)
+  \\ simp[]);
+
+val ODD_num_stubs = EVAL``in_ns 0 num_stubs``;
+
+val in_ns_add_num_stubs = Q.store_thm("in_ns_add_num_stubs[simp]",
+  `in_ns k (num_stubs + x) ⇔ in_ns k x`,
+  assume_tac ODD_num_stubs \\ fs[in_ns_def] \\
+  qspecl_then[`nss`,`num_stubs`,`num_stubs MOD nss`,`x`]mp_tac ADD_MOD \\
+  impl_keep_tac >- EVAL_TAC \\ simp[]);
 
 val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
   `∀n prog code_app code n'.
@@ -2985,10 +3016,11 @@ val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
      code = append code_app
      ⇒
      ALL_DISTINCT (MAP FST code) ∧
-     EVERY (between (num_stubs + 2 * n) (num_stubs + 2 * n'))
-       (FILTER (λn. ODD (n - num_stubs)) (MAP FST code)) ∧
-     FILTER (λn. EVEN (n - num_stubs)) (MAP FST code) = MAP (λn. num_stubs + 2 * n) (MAP FST prog) ∧
+     EVERY (between (num_stubs + nss * n) (num_stubs + nss * n'))
+       (FILTER (λn. in_ns 1 (n - num_stubs)) (MAP FST code)) ∧
+     FILTER (λn. in_ns 0 (n - num_stubs)) (MAP FST code) = MAP (λn. num_stubs + nss * n) (MAP FST prog) ∧
      (* redundant, but useful *) EVERY ($<= num_stubs) (MAP FST code) ∧
+     EVERY (λn. ¬ in_ns 2 (n - num_stubs)) (MAP FST code) ∧
      n ≤ n'`,
   Induct_on`prog`>>simp[compile_list_def]>>
   qx_gen_tac`p`>>PairCases_on`p`>>
@@ -3006,41 +3038,39 @@ val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
   reverse conj_tac >- (
     reverse conj_tac >- (
       simp[FILTER_APPEND] >>
-      reverse IF_CASES_TAC >- METIS_TAC[EVEN_EXISTS] >>
       simp[FILTER_MAP,o_DEF] >>
       simp[MAP_MAP_o,o_DEF,UNCURRY,FILTER_EQ_NIL] >>
       fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,between_def] >>
-      rw[] >> res_tac >> fs[EVEN_ADD,EVEN_MULT]) >>
+      rw[] >> res_tac >> fs[]) >>
     fsrw_tac[ARITH_ss][EVERY_FILTER,between_def,EVERY_MAP] >>
     full_simp_tac(srw_ss())[EVERY_MEM] >> srw_tac[][] >> res_tac >>
     fsrw_tac[ARITH_ss][] >>
-    METIS_TAC[EVEN_ODD,EVEN_EXISTS] ) >>
+    fs[backend_commonTheory.bvl_to_bvi_namespaces_def]) >>
   simp[ALL_DISTINCT_APPEND] >>
   reverse conj_tac >- (
     full_simp_tac(srw_ss())[EVERY_MEM,PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
     srw_tac[][] >> spose_not_then strip_assume_tac >>
     res_tac >> full_simp_tac(srw_ss())[between_def] >- (
       full_simp_tac(srw_ss())[MEM_FILTER,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
-      res_tac >> fsrw_tac[ARITH_ss][] >> rveq >>
-      fs[ODD_ADD,ODD_MULT]) >>
+      res_tac >> fs[]) >>
     qmatch_assum_abbrev_tac`l1 = l2` >>
     qmatch_assum_abbrev_tac`MEM x l3` >>
     `MEM (FST x) l1` by (
       unabbrev_all_tac >>
       simp[MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
-      METIS_TAC[EVEN_EXISTS] ) >>
+      METIS_TAC[] ) >>
     `MEM (FST x) l2` by METIS_TAC[] >>
     pop_assum mp_tac >>
     unabbrev_all_tac >> simp[MEM_MAP,EXISTS_PROD] >>
-    METIS_TAC[EQ_MULT_LCANCEL,DECIDE``2 ≠ 0n``] ) >>
+    fs[backend_commonTheory.bvl_to_bvi_namespaces_def]) >>
   conj_tac >- (
     irule SORTED_ALL_DISTINCT >>
     METIS_TAC[irreflexive_def,prim_recTheory.LESS_REFL,transitive_LESS]) >>
-  `EVERY EVEN (MAP FST (append aux))` by (
-    fs[EVERY_MEM] \\ rw[] \\ res_tac \\ rw[EVEN_ADD,EVEN_MULT,EVEN_ODD,ODD_num_stubs]) >>
+  `EVERY (in_ns 1) (MAP FST (append aux))` by (
+    fs[EVERY_MEM] \\ rw[] \\ res_tac \\ rw[]) >>
   fs[EVERY_MEM] \\
   rw[] \\ spose_not_then strip_assume_tac \\ res_tac
-  \\ fs[EVEN_ADD,EVEN_MULT,EVEN_ODD,ODD_num_stubs]);
+  \\ fs[]);
 
 val compile_list_imp = Q.prove(
   `∀n prog code n' name arity exp.
@@ -3048,7 +3078,7 @@ val compile_list_imp = Q.prove(
      ALOOKUP prog name = SOME (arity,exp) ⇒
      ∃n0 c aux n1.
      compile_exps n0 [exp] = ([c],aux,n1) ∧
-     ALOOKUP (append code) (2 * name + num_stubs) = SOME (arity,bvi_let$compile_exp c) ∧
+     ALOOKUP (append code) (nss * name + num_stubs) = SOME (arity,bvi_let$compile_exp c) ∧
      IS_SUBLIST (append code) (append aux)`,
   Induct_on`prog` >> simp[] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
@@ -3070,9 +3100,10 @@ val compile_list_imp = Q.prove(
       imp_res_tac ALOOKUP_MEM >>
       imp_res_tac compile_exps_aux_sorted >>
       fs[EVERY_MEM,EVERY_MAP] >> res_tac >> fs[] >>
-      qmatch_assum_rename_tac`2 * a + num_stubs = 2 * b + (num_stubs + 1)` >>
-      `2 * a = 2 * b + 1` by decide_tac >>
-      METIS_TAC[EVEN_ODD,EVEN_EXISTS,ODD_EXISTS,ADD1] ) >>
+      qmatch_assum_rename_tac`a * nss = b * nss + 1` >>
+      `in_ns 0 (a * nss)` by simp[] \\
+      `in_ns 0 (b * nss + 1)` by METIS_TAC[] \\
+      fs[]) >>
     MATCH_MP_TAC IS_PREFIX_IS_SUBLIST >>
     simp[IS_PREFIX_APPEND] ) >>
   first_x_assum drule >>
@@ -3080,13 +3111,15 @@ val compile_list_imp = Q.prove(
   asm_exists_tac >> simp[] >>
   conj_tac >- (
     simp[ALOOKUP_APPEND] >>
+    IF_CASES_TAC >- (pop_assum mp_tac \\ EVAL_TAC) \\
     BasicProvers.CASE_TAC >>
     imp_res_tac ALOOKUP_MEM >>
     imp_res_tac compile_exps_aux_sorted >>
     fs[EVERY_MEM,EVERY_MAP] >> res_tac >> fs[] >>
-    qmatch_assum_rename_tac`2 * a + num_stubs = 2 * b + (num_stubs + 1)` >>
-    `2 * a = 2 * b + 1` by decide_tac >>
-    METIS_TAC[EVEN_ODD,EVEN_EXISTS,ODD_EXISTS,ADD1] ) >>
+    qmatch_assum_rename_tac`a * nss = b * nss + 1` >>
+    `in_ns 0 (a * nss)` by simp[] \\
+    `in_ns 0 (b * nss + 1)` by METIS_TAC[] \\
+    fs[]) >>
   full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
   imp_res_tac compile_exps_SING >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >>
@@ -3108,12 +3141,11 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
    state_rel b2 s s2`,
   srw_tac[][compile_prog_def,LET_THM] >>
   pairarg_tac >> full_simp_tac(srw_ss())[] >> var_eq_tac >>
-  `num_stubs ≤ num_stubs + 2 * start` by simp[] >>
   drule (GEN_ALL compile_single_evaluate) >>
   simp[state_ok_def] >>
   qabbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
   qspecl_then[`kk`,
-       `num_stubs + 2 * start`,`ffi0`,`append code`]
+       `num_stubs + nss * start`,`ffi0`,`append code`]
     (fn tmp =>
       disch_then(fn th => subterm (mp_tac o C SPEC th o #2 o boolSyntax.dest_let) (concl tmp)))
     bvi_stubs_evaluate >>
@@ -3153,7 +3185,8 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
       \\ Induct_on `prog` \\ fs [] \\ Cases \\ fs [] \\ rw [] \\ fs []
       \\ Cases_on `MAP (SND ∘ SND) prog` \\ fs [handle_ok_def]) >>
     conj_tac THEN1
-      (EVAL_TAC \\ fs [DECIDE ``m < n ==> m <> k + n:num``]) >>
+      (simp_tac (std_ss)[Once ADD_COMM,Once MULT_COMM,HD] \\
+       first_x_assum MATCH_ACCEPT_TAC ) >>
     match_mp_tac aux_code_installed_sublist >>
     conj_tac >- (
       full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
@@ -3167,6 +3200,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   `0 < ck + k` by simp[] >>
   drule (GEN_ALL bvi_stubs_evaluate) >>
   disch_then (qspec_then `kk` mp_tac) >>
+  `num_stubs ≤ num_stubs + nss * start` by fs[] >>
   disch_then drule >>
   disch_then(qspecl_then[`ffi0`,`append code`]mp_tac) >>
   simp[] >>
@@ -3426,8 +3460,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
 val compile_prog_distinct_locs = store_thm("compile_prog_distinct_locs",
   ``compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
     ALL_DISTINCT (MAP FST prog1) /\
-    EVERY (between (2 * n + num_stubs) (2 * n1 + num_stubs))
-      (FILTER (λn. ODD (n − num_stubs)) (MAP FST prog1))``,
+    EVERY (between (nss * n + num_stubs) (nss * n1 + num_stubs))
+      (FILTER (λn. in_ns 1 (n − num_stubs)) (MAP FST prog1)) /\
+    EVERY (λn. ¬in_ns 2 (n - num_stubs)) (MAP FST prog1)``,
   fs [compile_prog_def] \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
   \\ drule (compile_list_distinct_locs |> SIMP_RULE std_ss [])
   \\ disch_then drule
@@ -3445,8 +3480,9 @@ val ODD_lemma = prove(
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `compile start n limit prog = (start', prog', n') ∧
+  `compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
+   c.next_name2 = num_stubs + 2 + x * nss ∧
    semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
@@ -3460,10 +3496,10 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ rewrite_tac [GSYM AND_IMP_INTRO]
   \\ impl_tac THEN1
    (simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY]
-    \\ qspec_tac (`compile_prog limit.inline_size_limit prog`,`xs`)
+    \\ qspec_tac (`compile_prog c.inline_size_limit prog`,`xs`)
     \\ Induct \\ fs [handle_ok_def]
     \\ Cases_on
-        `MAP (λx. compile_any limit.split_main_at_seq limit.exp_cut (FST (SND x)) (SND (SND x))) xs`
+        `MAP (λx. compile_any c.split_main_at_seq c.exp_cut (FST (SND x)) (SND (SND x))) xs`
     \\ fs [handle_ok_def]
     \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
   \\ impl_tac
@@ -3471,7 +3507,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       [optimise_semantics,
        bvl_inlineProofTheory.compile_prog_semantics]
   \\ strip_tac
-  \\ sg `EVERY (free_names (2 * n1 + num_stubs + 1) o FST) code /\
+  \\ sg `EVERY (free_names c.next_name2 o FST) code /\
          ALL_DISTINCT (MAP FST code)`
   THEN1
    (drule compile_prog_distinct_locs
@@ -3479,7 +3515,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ fs [EVERY_MEM,MEM_FILTER,bvi_tailrecProofTheory.free_names_def,
            FORALL_PROD,MEM_MAP,PULL_EXISTS,between_def]
     \\ rpt strip_tac \\ rveq \\ fs []
-    \\ res_tac \\ fs [ODD_lemma])
+    \\ res_tac \\ fs []
+    \\ `¬in_ns 2 (((k + x) * nss)+2)` by metis_tac[ADD_ASSOC,ADD_COMM,RIGHT_ADD_DISTRIB]
+    \\ fs[])
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_semantics)
   \\ disch_then drule
   \\ simp [bvi_tailrecTheory.compile_prog_def]
@@ -3490,7 +3528,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 val compile_distinct_names = Q.store_thm("compile_distinct_names",
   `ALL_DISTINCT (MAP FST p2) /\
-   bvl_to_bvi$compile n1 n limit p2 = (k,p3,n2) ==>
+   c.next_name2 = bvl_num_stubs + 2 + n02 * nss /\
+   bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) ==>
    EVERY (λn. data_num_stubs ≤ n) (MAP FST p3) /\
    ALL_DISTINCT (MAP FST p3)`,
   fs[bvl_to_bviTheory.compile_def]>>
@@ -3520,7 +3559,12 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
     \\ PairCases_on `e` \\ fs [GSYM append_def]
     \\ qexists_tac `e0` \\ fs []
     \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
-    \\ metis_tac [EVEN_DOUBLE,EVEN_ODD])
+    \\ res_tac \\ fs[]
+    \\ qpat_x_assum`¬in_ns 2 _`mp_tac
+    \\ EVAL_TAC \\ strip_tac
+    \\ `(3 * (n02+k) + 2) MOD 3 ≠ 2` by fs[]
+    \\ `¬in_ns 2 (nss * (n02+k) + 2)` by (EVAL_TAC \\ fs[])
+    \\ fs[])
   \\ strip_tac
   \\ drule bvi_tailrecProofTheory.compile_prog_MEM
   \\ simp[]

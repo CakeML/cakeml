@@ -43,8 +43,8 @@ val do_app_aux_def = Define `
                         SOME (SOME (Number i, s))
                       else NONE
     | (Label l,xs) => (case xs of
-                       | [] => if num_stubs + 2 * l IN domain s.code then
-                                 SOME (SOME (CodePtr (num_stubs + 2 * l), s))
+                       | [] => if num_stubs + bvl_to_bvi_namespaces * l IN domain s.code then
+                                 SOME (SOME (CodePtr (num_stubs + bvl_to_bvi_namespaces * l), s))
                                else NONE
                        | _ => NONE)
     | (GlobalsPtr,xs) =>
