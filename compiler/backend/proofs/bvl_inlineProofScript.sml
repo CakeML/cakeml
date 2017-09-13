@@ -646,7 +646,7 @@ val (exp_rel_rules, exp_rel_ind, exp_rel_cases) = Hol_reln `
    exp_rel cs [Op op xs] [Op op ys]) /\
   (exp_rel cs xs ys ==>
    exp_rel cs [Call ticks dest xs] [Call ticks dest ys]) /\
-  (exp_rel cs xs ys /\ lookup n cs = SOME (LENGTH xs, x) /\
+  (exp_rel cs xs ys /\ lookup n cs = SOME (arity, x) /\
    exp_rel cs [x] [y] ==>
    exp_rel cs [Call ticks (SOME n) xs]
               [Let ys (mk_tick (SUC ticks) y)])`;
@@ -804,20 +804,47 @@ val domain_eq = store_thm("domain_eq",
     \\ Cases_on `lookup x t1` \\ fs []
     \\ Cases_on `lookup x t2` \\ fs []));
 
+val exp_rel_swap_lemma = prove(
+  ``!x1 x2 x3. exp_rel x1 x2 x3 ==>
+      !y1. (!k. lookup k x1 = lookup k y1) ==> exp_rel y1 x2 x3``,
+  ho_match_mp_tac exp_rel_ind \\ rw []
+  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
+  \\ res_tac \\ metis_tac []);
+
+val exp_rel_swap = store_thm("exp_rel_swap",
+  ``!x1 x2 x3 y1.
+      (!k. lookup k x1 = lookup k y1) ==> exp_rel x1 x2 x3 = exp_rel y1 x2 x3``,
+  metis_tac [exp_rel_swap_lemma]);
+
 val exp_rel_rw = prove(
   ``exp_rel (union (union src_code (insert p1 (p2,p3) LN)) (fromAList in1))
       [exp] [exp2] <=>
     exp_rel (union src_code (fromAList ((p1,p2,p3)::in1))) [exp] [exp2]``,
-  cheat);
+  match_mp_tac exp_rel_swap
+  \\ fs [lookup_union,lookup_insert,fromAList_def,case_eq_thms,lookup_def]
+  \\ Cases_on `lookup k src_code` \\ fs []
+  \\ CCONTR_TAC \\ fs []);
 
 val exp_rel_tick_inline = store_thm("exp_rel_tick_inline",
-  ``(∀k arity v.
+  ``!cs0 xs.
+      (∀k arity v.
         lookup k cs0 = SOME (arity,v) ⇒
         ∃exp.
           lookup k src_code = SOME (arity,exp) ∧
           exp_rel src_code [exp] [v]) ==>
-    exp_rel src_code [p3] (tick_inline cs0 [p3])``,
-  cheat);
+      exp_rel src_code xs (tick_inline cs0 xs)``,
+  ho_match_mp_tac tick_inline_ind \\ fs [tick_inline_def] \\ rw []
+  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
+  THEN1
+   (sg `?y1 ys. tick_inline cs0 (y::xs) = y1::ys` \\ fs []
+    \\ `LENGTH (tick_inline cs0 (y::xs)) = LENGTH (y::xs)` by
+          rewrite_tac [LENGTH_tick_inline]
+    \\ Cases_on `tick_inline cs0 (y::xs)` \\ fs [])
+  \\ Cases_on `dest` \\ fs [] \\ fs [case_eq_thms]
+  \\ Cases_on `lookup x cs0` \\ fs []
+  \\ rename1 `_ = SOME aa` \\ PairCases_on `aa`
+  \\ res_tac \\ fs []
+  \\ qexists_tac `aa1` \\ fs []);
 
 val tick_compile_prog_IMP_exp_rel = prove(
   ``!limit cs0 in1 cs1 in2 k arity exp src_code.
@@ -1517,7 +1544,6 @@ val semantics_let_op = prove(
   \\ fs [IS_PREFIX_APPEND]
   \\ simp [EL_APPEND1]);
 
-(*
 (* combined theorems *)
 
 val remove_ticks_mk_tick = prove(
@@ -1582,44 +1608,11 @@ val must_inline_remove_ticks = prove(
   \\ fs [is_small_def,is_rec_def,is_small_aux_remove_ticks]
   \\ fs [is_rec_remove_ticks]);
 
-val tick_inline_all_rel = prove(
-  ``!prog cs xs.
-      MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x]))))
-        (tick_inline_all limit cs prog xs) =
-      inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
-        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs)``,
-  Induct
-  \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
-  \\ fs [remove_ticks_tick_inline,must_inline_remove_ticks]
-  \\ rw [] \\ fs [map_insert])
-  |> Q.SPECL [`prog`,`LN`,`[]`]
-  |> SIMP_RULE std_ss [MAP,map_def] |> GSYM
-  |> REWRITE_RULE [GSYM compile_prog_def];
-
 val map_fromAList_HASH = prove(
   ``map (I ## f) (fromAList ls) = fromAList (MAP (I ## I ## f) ls)``,
   fs [map_fromAList]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [FUN_EQ_THM,FORALL_PROD]);
-
-val compile_prog_semantics = store_thm("compile_prog_semantics",
-  ``ALL_DISTINCT (MAP FST prog) /\
-    semantics ffi (fromAList prog) start <> Fail ==>
-    semantics ffi (fromAList (compile_prog limit prog)) start =
-    semantics ffi (fromAList prog) start``,
-  fs [tick_inline_all_rel] \\ rw []
-  \\ imp_res_tac (tick_compile_prog_semantics |> UNDISCH_ALL
-      |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
-      |> DISCH_ALL)
-  \\ qmatch_goalsub_abbrev_tac `MAP ff`
-  \\ `ff = (I ## I ## let_op_sing) o (I ## I ## \x. (HD (remove_ticks [x])))`
-       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD]
-  \\ fs [GSYM MAP_MAP_o]
-  \\ fs [GSYM map_fromAList_HASH,tick_compile_prog_def]
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ qpat_assum `_` (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [GSYM th])))
-  \\ match_mp_tac (GSYM semantics_let_op) \\ fs []);
 
 val map_fromAList = store_thm("map_fromAList",
   ``!xs f. map f (fromAList xs) = fromAList (MAP (I ## f) xs)``,
@@ -1642,6 +1635,42 @@ val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
 val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
   `MAP FST (compile_prog limit prog) = MAP FST prog`,
   fs [bvl_inlineTheory.compile_prog_def] \\ rw [MAP_FST_inline_all]);
+
+val tick_inline_all_rel = prove(
+  ``!prog cs xs.
+      MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x]))))
+        (SND (tick_inline_all limit cs prog xs)) =
+      (inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
+        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs))``,
+  Induct
+  \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
+  \\ fs [remove_ticks_tick_inline,must_inline_remove_ticks]
+  \\ rw [] \\ fs [map_insert])
+  |> Q.SPECL [`prog`,`LN`,`[]`]
+  |> SIMP_RULE std_ss [MAP,map_def] |> GSYM
+  |> REWRITE_RULE [GSYM compile_prog_def];
+
+(*
+
+val compile_prog_semantics = store_thm("compile_prog_semantics",
+  ``ALL_DISTINCT (MAP FST prog) /\
+    semantics ffi (fromAList prog) start <> Fail ==>
+    semantics ffi (fromAList (compile_prog limit prog)) start =
+    semantics ffi (fromAList prog) start``,
+  fs [tick_inline_all_rel] \\ rw []
+  \\ imp_res_tac (tick_compile_prog_semantics |> UNDISCH_ALL
+      |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
+      |> DISCH_ALL)
+  \\ qmatch_goalsub_abbrev_tac `MAP ff`
+  \\ `ff = (I ## I ## let_op_sing) o (I ## I ## \x. (HD (remove_ticks [x])))`
+       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD]
+  \\ fs [GSYM MAP_MAP_o]
+  \\ fs [GSYM map_fromAList_HASH,tick_compile_prog_def]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ qpat_assum `_` (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [GSYM th])))
+  \\ match_mp_tac (GSYM semantics_let_op) \\ fs []);
+
 *)
 
 val _ = export_theory();
