@@ -739,6 +739,10 @@ val tick_inline_all_domain = prove(
   \\ fs [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs [MAP,SUBSET_DEF] \\ metis_tac []);
 
+val not_in_domain = store_thm("not_in_domain",
+  ``!k t. k ∉ domain t <=> lookup k t = NONE``,
+  fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
+
 val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
   ``!in1 limit in2 c cs0 cs1.
       tick_compile_prog limit cs0 in1 = (cs1,in2) /\
@@ -757,7 +761,13 @@ val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
     \\ first_x_assum drule
     \\ disch_then (qspec_then `union c
           (insert p_1 (p_1',HD (tick_inline cs0 [p_2])) LN)` mp_tac)
-    \\ impl_tac THEN1 cheat
+    \\ impl_tac
+    THEN1
+     (fs [domain_union,EXTENSION]
+      \\ reverse conj_tac THEN1 metis_tac []
+      \\ fs [subspt_alt,lookup_insert] \\ rw []
+      \\ fs [lookup_union,lookup_insert,lookup_def,case_eq_thms]
+      \\ metis_tac [not_in_domain])
     \\ fs [GSYM union_assoc]
     \\ match_mp_tac subspt_union_lemma
     \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def]
@@ -781,21 +791,90 @@ val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
   \\ rw [] \\ fs[domain_lookup]
   \\ rw [] \\ fs []);
 
-val ALOOKUP_exp_rel = prove(
-  ``tick_compile_prog limit q0 in1 = (cs1,in2) /\
-    subspt q0 t1.code /\
-    (∀k arity exp.
-      lookup k s1.code = SOME (arity,exp) ⇒
-      ∃exp2.
-        lookup k t1.code = SOME (arity,exp2) ∧
-        exp_rel s1.code [exp] [exp2]) /\
-    ALOOKUP in1 k' = SOME (arity,exp) /\
-    ALL_DISTINCT (MAP FST in1) /\
-    DISJOINT (domain q0) (set (MAP FST in1)) ==>
-    ∃exp2.
-      ALOOKUP in2 k' = SOME (arity,exp2) ∧
-      exp_rel (union s1.code (fromAList in1)) [exp] [exp2]``,
+val domain_eq = store_thm("domain_eq",
+  ``!t1 t2. domain t1 = domain t2 <=>
+            !k. lookup k t1 = NONE <=> lookup k t2 = NONE``,
+  rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
+  THEN1
+   (pop_assum (qspec_then `k` mp_tac)
+    \\ Cases_on `lookup k t1` \\ fs []
+    \\ Cases_on `lookup k t2` \\ fs [])
+  THEN1
+   (pop_assum (qspec_then `x` mp_tac)
+    \\ Cases_on `lookup x t1` \\ fs []
+    \\ Cases_on `lookup x t2` \\ fs []));
+
+val exp_rel_rw = prove(
+  ``exp_rel (union (union src_code (insert p1 (p2,p3) LN)) (fromAList in1))
+      [exp] [exp2] <=>
+    exp_rel (union src_code (fromAList ((p1,p2,p3)::in1))) [exp] [exp2]``,
   cheat);
+
+val exp_rel_tick_inline = store_thm("exp_rel_tick_inline",
+  ``(∀k arity v.
+        lookup k cs0 = SOME (arity,v) ⇒
+        ∃exp.
+          lookup k src_code = SOME (arity,exp) ∧
+          exp_rel src_code [exp] [v]) ==>
+    exp_rel src_code [p3] (tick_inline cs0 [p3])``,
+  cheat);
+
+val tick_compile_prog_IMP_exp_rel = prove(
+  ``!limit cs0 in1 cs1 in2 k arity exp src_code.
+      tick_compile_prog limit cs0 in1 = (cs1,in2) /\
+      ALOOKUP in1 k = SOME (arity,exp) /\
+      ALL_DISTINCT (MAP FST in1) /\
+      (!k arity v.
+         lookup k cs0 = SOME (arity,v) ==>
+         ?exp. lookup k src_code = SOME (arity,exp) /\
+               exp_rel src_code [exp] [v]) /\
+      DISJOINT (domain src_code) (set (MAP FST in1)) /\
+      DISJOINT (domain cs0) (set (MAP FST in1)) ==>
+      ∃exp2.
+        ALOOKUP in2 k = SOME (arity,exp2) /\
+        exp_rel (union src_code (fromAList in1)) [exp] [exp2]``,
+  Induct_on `in1`
+  \\ fs [FORALL_PROD,tick_compile_prog_def,tick_inline_all_def]
+  \\ once_rewrite_tac [tick_inline_all_acc]
+  \\ fs [] \\ rpt gen_tac
+  \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+  \\ fs [] \\ rw [] \\ fs []
+  THEN1
+   (match_mp_tac subspt_exp_rel
+    \\ qexists_tac `src_code`
+    \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
+    \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
+  \\ first_x_assum drule
+  \\ disch_then (qspec_then `k` mp_tac) \\ fs []
+  \\ qmatch_goalsub_rename_tac `(p1,p2,p3)::in1`
+  \\ disch_then (qspec_then `union src_code (insert p1 (p2,p3) LN)` mp_tac)
+  \\ fs [exp_rel_rw] \\ disch_then match_mp_tac
+  \\ reverse (IF_CASES_TAC \\ fs [])
+  THEN1
+   (fs [DISJOINT_DEF,EXTENSION,domain_union] \\ rw []
+    \\ fs [lookup_union,lookup_insert,lookup_def,case_eq_thms]
+    THEN1
+     (first_x_assum drule \\ strip_tac \\ fs []
+      \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
+      \\ asm_exists_tac \\ fs []
+      \\ fs [subspt_alt,lookup_union])
+    \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
+  \\ reverse (rw [])
+  THEN1 (fs [DISJOINT_DEF,domain_union,EXTENSION] \\ metis_tac [])
+  \\ fs [lookup_insert,case_eq_thms] \\ rveq
+  THEN1
+   (rename1 `must_inline k2 _ _`
+    \\ fs [lookup_union,case_eq_thms,not_in_domain]
+    \\ match_mp_tac subspt_exp_rel
+    \\ qexists_tac `src_code`
+    \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
+    \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
+  \\ fs [lookup_union,case_eq_thms,not_in_domain,lookup_insert,lookup_def]
+  \\ pop_assum (assume_tac o GSYM)
+  \\ first_x_assum drule \\ strip_tac \\ fs []
+  \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
+  \\ asm_exists_tac \\ fs []
+  \\ fs [subspt_alt,lookup_union]);
 
 val in_do_app_lemma = prove(
   ``in_state_rel limit s1 t1 ==>
@@ -803,7 +882,6 @@ val in_do_app_lemma = prove(
     | Rerr err => (err <> Rabort Rtype_error ==> do_app op a t1 = Rerr err)
     | Rval (v,s2) => ?t2. in_state_rel limit s2 t2 /\
                           do_app op a t1 = Rval (v,t2)``,
-
   Cases_on `op = Install`
   THEN1
    (rw [] \\ fs [do_app_def]
@@ -837,7 +915,17 @@ val in_do_app_lemma = prove(
       \\ `DISJOINT (domain q0) (set (MAP FST in1))` by
        (fs [subspt_def,EXTENSION,DISJOINT_DEF,Abbr`in1`] \\ metis_tac [])
       \\ `ALL_DISTINCT (MAP FST in1)` by fs [Abbr `in1`]
-      \\ metis_tac [ALOOKUP_exp_rel])
+      \\ match_mp_tac tick_compile_prog_IMP_exp_rel
+      \\ asm_exists_tac \\ fs []
+      \\ reverse conj_tac
+      THEN1 (unabbrev_all_tac \\ fs [DISJOINT_DEF,EXTENSION] \\ metis_tac [])
+      \\ rw [] \\ fs [subspt_alt]
+      \\ first_x_assum drule \\ strip_tac
+      \\ rename1 `lookup k2 t1.code = SOME (arity2,v)`
+      \\ Cases_on `lookup k2 s1.code`
+      THEN1 (fs [domain_eq] \\ res_tac \\ fs [])
+      \\ PairCases_on `x` \\ res_tac \\ fs []
+      \\ rveq \\ fs [])
     \\ drule (tick_compile_prog_res_range |> SIMP_RULE std_ss [])
     \\ disch_then match_mp_tac \\ fs []
     \\ unabbrev_all_tac \\ fs []
