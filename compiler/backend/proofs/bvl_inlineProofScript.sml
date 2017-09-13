@@ -1092,6 +1092,353 @@ val evaluate_inline = store_thm("evaluate_inline",
       Rerr (Rabort Rtype_error)` by fs []
   \\ drule evaluate_expand_env \\ fs []);
 
+val exp_rel_refl = store_thm("exp_rel_refl",
+  ``!cs xs. exp_rel cs xs xs``,
+  ho_match_mp_tac tick_inline_ind \\ rw []
+  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
+  \\ Cases_on `dest` \\ fs []
+  \\ Cases_on `lookup x cs` \\ fs []
+  \\ Cases_on `x'` \\ fs []);
+
+val in_co_def = Define `
+  in_co limit co = (λn.
+      (let
+         ((cs,cfg),progs) = co n ;
+         (cs1,progs) = tick_compile_prog limit cs progs
+       in
+         (cfg,progs)))`;
+
+val MAP_FST_tick_inline_all = store_thm("MAP_FST_tick_inline_all",
+  ``!limit cs prog.
+      MAP FST (SND (tick_inline_all limit cs prog [])) = MAP FST prog``,
+  rw[] \\ Cases_on `tick_inline_all limit cs prog []`
+  \\ imp_res_tac tick_inline_all_names \\ fs []);
+
+val exp_rel_rw = prove(
+  ``~MEM x (MAP FST prog) ==>
+    exp_rel (union (insert x y (fromAList prog)) acc) [exp] [exp2] =
+    exp_rel (union (fromAList prog) (insert x y acc)) [exp] [exp2]``,
+  strip_tac
+  \\ match_mp_tac exp_rel_swap
+  \\ fs [lookup_union,lookup_insert,lookup_fromAList] \\ strip_tac
+  \\ IF_CASES_TAC \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []
+  \\ Cases_on `x'` \\ rfs []);
+
+val lookup_tick_inline_all = prove(
+  ``!cs0 prog acc.
+      (∀k arity v.
+          lookup k cs0 = SOME (arity,v) ⇒
+          ∃exp.
+            lookup k (union (fromAList prog) acc) = SOME (arity,exp) ∧
+            exp_rel (union (fromAList prog) acc) [exp] [v]) /\
+      DISJOINT (set (MAP FST prog)) (domain cs0) /\
+      DISJOINT (set (MAP FST prog)) (domain acc) /\
+      ALL_DISTINCT (MAP FST prog) ==>
+      ∀k arity exp.
+        lookup k (fromAList prog) = SOME (arity,exp) ⇒
+        ∃exp2.
+          lookup k (fromAList (SND (tick_inline_all limit cs0 prog []))) =
+          SOME (arity,exp2) ∧ exp_rel (union (fromAList prog) acc) [exp] [exp2]``,
+  Induct_on `prog` THEN1 (fs [fromAList_def,lookup_def])
+  \\ fs [FORALL_PROD] \\ rw []
+  \\ qmatch_goalsub_rename_tac `(p1,p2,p3)::_`
+  \\ fs [tick_inline_all_def]
+  \\ once_rewrite_tac [tick_inline_all_acc] \\ fs [UNCURRY]
+  \\ fs [fromAList_def,lookup_insert]
+  \\ IF_CASES_TAC \\ rw []
+  THEN1 (match_mp_tac exp_rel_tick_inline
+         \\ fs [lookup_insert,lookup_union]
+         \\ rw [] \\ fs [not_in_domain]
+         \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs [])
+  \\ fs [] \\ rveq
+  \\ qmatch_goalsub_abbrev_tac `tick_inline_all _ cs1`
+  \\ qpat_x_assum `!x cs. _ ==> _` (qspec_then `cs1` mp_tac)
+  \\ disch_then (qspec_then `insert p1 (p2,p3) acc` mp_tac)
+  \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ disch_then (qspec_then `k` mp_tac) \\ fs [GSYM PULL_FORALL]
+  \\ simp [exp_rel_rw]
+  \\ disch_then match_mp_tac \\ fs []
+  THEN1
+   (unabbrev_all_tac \\ fs [lookup_insert] \\ rw []
+    THEN1
+     (fs [lookup_union,lookup_insert,lookup_fromAList]
+      \\ reverse CASE_TAC \\ fs []
+      THEN1 (Cases_on `x`
+        \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,FORALL_PROD] \\ rfs [])
+      \\ match_mp_tac exp_rel_tick_inline
+      \\ rw [] \\ first_x_assum drule
+      \\ IF_CASES_TAC THEN1 fs [not_in_domain]
+      \\ fs [case_eq_thms] \\ strip_tac
+      \\ fs [lookup_union,lookup_insert,lookup_fromAList]
+      \\ rfs [exp_rel_rw])
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ fs [lookup_union,lookup_insert]
+    \\ fs [not_in_domain] \\ fs [exp_rel_rw])
+  \\ rpt strip_tac \\ first_x_assum drule
+  \\ fs [lookup_union,lookup_insert]
+  \\ IF_CASES_TAC \\ fs [not_in_domain] \\ fs [exp_rel_rw]);
+
+val evaluate_initial_state = prove(
+  ``evaluate
+     ([Call 0 (SOME start) []],env,
+      initial_state ffi0 (fromAList prog) co cc k) = (res,s2) ∧
+    in_co limit co = co1 /\ in_cc limit cc1 = cc /\
+    FST (FST (co 0)) = fromAList (SND (tick_compile_prog limit LN prog)) /\
+    ALL_DISTINCT (MAP FST prog) /\
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t2.
+      evaluate
+        ([Call 0 (SOME start) []],env,
+         initial_state ffi0
+          (fromAList (SND (tick_compile_prog limit LN prog))) co1 cc1 k) =
+        (res,t2) ∧ in_state_rel limit s2 t2``,
+  strip_tac
+  \\ match_mp_tac evaluate_inline
+  \\ qexists_tac `[Call 0 (SOME start) []]`
+  \\ qexists_tac `initial_state ffi0 (fromAList prog) co cc k`
+  \\ fs [exp_rel_refl]
+  \\ fs [in_state_rel_def,initial_state_def,GSYM in_co_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+  \\ fs [tick_compile_prog_def,domain_fromAList,MAP_FST_tick_inline_all]
+  \\ match_mp_tac (lookup_tick_inline_all
+       |> Q.SPECL [`LN`,`prog`,`LN`] |> SIMP_RULE (srw_ss()) [lookup_def])
+  \\ fs []) |> GEN_ALL |> SIMP_RULE std_ss [];
+
+val in_evaluate_Call = prove(
+  ``evaluate
+     ([Call 0 (SOME start) []],env,
+      initial_state ffi0 (fromAList prog) co (in_cc limit cc1) k) = (res,s2) ∧
+    FST (FST (co 0)) = fromAList (SND (tick_compile_prog limit LN prog)) /\
+    ALL_DISTINCT (MAP FST prog) /\
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t2.
+      evaluate
+        ([Call 0 (SOME start) []],env,
+         initial_state ffi0
+          (fromAList (SND (tick_compile_prog limit LN prog)))
+            (in_co limit co) cc1 k) =
+        (res,t2) ∧ s2.ffi = t2.ffi``,
+  metis_tac [evaluate_initial_state,in_state_rel_def]);
+
+val semantics_tick_inline = prove(
+  ``FST (FST (co 0)) = fromAList (SND (tick_compile_prog limit LN prog)) /\
+    ALL_DISTINCT (MAP FST prog) ==>
+    semantics ffi (fromAList prog) co (in_cc limit cc) start <> Fail ==>
+    semantics ffi (fromAList (SND (tick_compile_prog limit LN prog)))
+                  (in_co limit co) cc start =
+    semantics (ffi:'b ffi_state) (fromAList prog) co (in_cc limit cc) start``,
+  strip_tac
+  \\ simp [Once semantics_def]
+  \\ simp [Once semantics_def, SimpRHS]
+  \\ IF_CASES_TAC \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+   (gen_tac \\ strip_tac \\ rveq \\ simp []
+    \\ simp [semantics_def]
+    \\ IF_CASES_TAC \\ fs []
+    >-
+      (first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+      \\ drule evaluate_add_clock
+      \\ impl_tac >- fs []
+      \\ strip_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
+      \\ last_assum (qspec_then `k'` mp_tac)
+      \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g )
+      \\ rw [] \\ fs [] \\ rveq
+      \\ CCONTR_TAC
+      \\ drule (GEN_ALL in_evaluate_Call) \\ simp []
+      \\ strip_tac
+      \\ first_x_assum (qspec_then `0` mp_tac)
+      \\ simp [inc_clock_def]
+      \\ rw[] \\ fs [])
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ conj_tac
+    >-
+     (gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ qabbrev_tac `opts = (fromAList (SND (tick_compile_prog limit LN prog)))`
+      \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (opts1,[],sopt1) = _`
+      \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (exps1,[],st1) = (r,s)`
+      \\ qspecl_then [`opts1`,`[]`,`sopt1`] mp_tac
+          evaluate_add_to_clock_io_events_mono
+      \\ qspecl_then [`exps1`,`[]`,`st1`] mp_tac
+          (evaluate_add_to_clock_io_events_mono
+           |> INST_TYPE [alpha|->``:(num # bvl$exp) num_map # 'a``])
+      \\ simp [inc_clock_def, Abbr`sopt1`, Abbr`st1`]
+      \\ ntac 2 strip_tac
+      \\ Cases_on `s.ffi.final_event` \\ fs []
+      >-
+        (Cases_on `s'.ffi.final_event` \\ fs []
+        >-
+          (unabbrev_all_tac
+          \\ drule (GEN_ALL in_evaluate_Call) \\ simp []
+          \\ strip_tac
+          \\ drule evaluate_add_clock
+          \\ impl_tac
+          >- (every_case_tac \\ fs [])
+          \\ rveq
+          \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+          \\ qpat_x_assum `evaluate _ = _` kall_tac
+          \\ drule evaluate_add_clock
+          \\ impl_tac
+          >- (spose_not_then strip_assume_tac \\ fs [evaluate_def])
+          \\ disch_then (qspec_then `k` mp_tac) \\ simp [inc_clock_def]
+          \\ ntac 2 strip_tac \\ rveq \\ fs []
+          \\ fs [state_component_equality] \\ rfs [] \\ rfs [])
+        \\ qpat_x_assum `∀extra._` mp_tac
+        \\ first_x_assum (qspec_then `k'` assume_tac)
+        \\ first_assum (subterm
+             (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl)
+        \\ strip_tac \\ fs []
+        \\ unabbrev_all_tac
+        \\ drule (GEN_ALL in_evaluate_Call)
+        \\ impl_tac
+        >- (last_x_assum (qspec_then `k+k'` mp_tac) \\ fs [])
+        \\ strip_tac
+        \\ qhdtm_x_assum `evaluate` mp_tac
+        \\ imp_res_tac evaluate_add_clock
+        \\ pop_assum mp_tac
+        \\ ntac 2 (pop_assum kall_tac)
+        \\ impl_tac
+        >- (strip_tac \\ fs [])
+        \\ disch_then (qspec_then `k'` mp_tac) \\ simp [inc_clock_def]
+        \\ first_x_assum (qspec_then `k` mp_tac) \\ fs []
+        \\ ntac 3 strip_tac
+        \\ fs [] \\ rveq)
+      \\ qpat_x_assum `∀extra._` mp_tac
+      \\ first_x_assum (qspec_then `k'` assume_tac)
+      \\ first_assum (subterm (fn tm =>
+            Cases_on`^(assert has_pair_type tm)`) o concl)
+      \\ fs []
+      \\ unabbrev_all_tac
+      \\ strip_tac
+      \\ drule (GEN_ALL in_evaluate_Call)
+      \\ impl_tac
+      >- (last_x_assum (qspec_then `k+k'` mp_tac) \\ fs [])
+      \\ strip_tac \\ rveq \\ fs []
+      \\ reverse (Cases_on `s'.ffi.final_event`) \\ fs [] \\ rfs []
+      >-
+        (first_x_assum (qspec_then `k` mp_tac)
+        \\ fs [ADD1]
+        \\ strip_tac \\ fs [state_rel_def] \\ rfs [])
+      \\ qhdtm_x_assum `evaluate` mp_tac
+      \\ imp_res_tac evaluate_add_clock
+      \\ pop_assum kall_tac
+      \\ pop_assum mp_tac
+      \\ impl_tac
+      >- (strip_tac \\ fs [])
+      \\ disch_then (qspec_then `k` mp_tac)
+      \\ simp [inc_clock_def]
+      \\ rpt strip_tac \\ rveq
+      \\ CCONTR_TAC \\ fs []
+      \\ rveq \\ fs [] \\ rfs [])
+    \\ qmatch_assum_abbrev_tac `bvlSem$evaluate (exps2,[],st2) = _`
+    \\ qspecl_then [`exps2`,`[]`,`st2`] mp_tac
+          (evaluate_add_to_clock_io_events_mono
+           |> INST_TYPE [alpha|->``:(num # bvl$exp) num_map # 'a``])
+    \\ simp [inc_clock_def, Abbr`st2`]
+    \\ disch_then (qspec_then `0` strip_assume_tac)
+    \\ first_assum (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl)
+    \\ unabbrev_all_tac
+    \\ drule (GEN_ALL in_evaluate_Call)
+    \\ impl_tac
+    >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
+    \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
+  \\ strip_tac
+  \\ simp [semantics_def]
+  \\ IF_CASES_TAC \\ fs []
+  >-
+    (last_x_assum (qspec_then `k` assume_tac) \\ rfs []
+    \\ first_assum (qspec_then `e` assume_tac)
+    \\ fs [] \\ rfs []
+    \\ qmatch_assum_abbrev_tac `FST q ≠ _`
+    \\ Cases_on `q` \\ fs [markerTheory.Abbrev_def]
+    \\ pop_assum (assume_tac o SYM)
+    \\ drule (GEN_ALL in_evaluate_Call)
+    \\ simp []
+    \\ spose_not_then strip_assume_tac
+    \\ qmatch_assum_abbrev_tac `FST q = _`
+    \\ Cases_on `q` \\ fs [markerTheory.Abbrev_def]
+    \\ pop_assum (assume_tac o SYM))
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ conj_tac
+  >-
+    (spose_not_then assume_tac \\ rw []
+    \\ fsrw_tac [QUANT_INST_ss[pair_default_qp]] []
+    \\ last_assum (qspec_then `k` mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ strip_tac
+    \\ qmatch_assum_rename_tac `evaluate (_,[],_ k) = (_,rr)`
+    \\ drule (GEN_ALL in_evaluate_Call)
+    \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
+    \\ strip_tac
+    \\ reverse (Cases_on `rr.ffi.final_event`) >-
+      (first_x_assum
+        (qspecl_then
+          [`k`, `FFI_outcome(THE rr.ffi.final_event)`] mp_tac)
+      \\ simp [] \\ every_case_tac \\ fs [] \\ rfs [] \\ fs [])
+    \\ qpat_x_assum `∀x y. ¬z` mp_tac \\ simp []
+    \\ qexists_tac `k` \\ simp []
+    \\ reverse (Cases_on `s.ffi.final_event`) \\ fs [] \\ rveq
+    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
+    \\ rfs [] \\ fs [])
+  \\ strip_tac
+  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
+  \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+     suffices_by metis_tac [build_lprefix_lub_thm,
+                            lprefix_lub_new_chain,
+                            unique_lprefix_lub]
+  \\ conj_asm1_tac
+  >-
+    (unabbrev_all_tac
+    \\ conj_tac
+    \\ Ho_Rewrite.ONCE_REWRITE_TAC [GSYM o_DEF]
+    \\ REWRITE_TAC [IMAGE_COMPOSE]
+    \\ match_mp_tac prefix_chain_lprefix_chain
+    \\ simp [prefix_chain_def, PULL_EXISTS]
+    \\ qx_genl_tac [`k1`,`k2`]
+    \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
+    \\ metis_tac [
+         LESS_EQ_EXISTS,
+         bviPropsTheory.initial_state_with_simp,
+         bvlPropsTheory.initial_state_with_simp,
+         bviPropsTheory.evaluate_add_to_clock_io_events_mono
+           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+           |> Q.SPEC`s with clock := k`
+           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
+         bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+           |> Q.SPEC`s with clock := k`
+           |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]])
+  \\ simp [equiv_lprefix_chain_thm]
+  \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
+  \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
+  \\ rpt gen_tac
+  \\ Cases_on `evaluate
+         ([Call 0 (SOME start) []],[],
+          initial_state ffi (fromAList prog) co (in_cc limit cc) k)`
+  \\ drule (GEN_ALL in_evaluate_Call)
+  \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ conj_tac \\ rw []
+  \\ qexists_tac `k` \\ fs []
+  \\ qmatch_assum_abbrev_tac `_ < (LENGTH (_ ffi1))`
+  \\ `ffi1.io_events ≼ r.ffi.io_events` by
+    (qunabbrev_tac `ffi1`
+    \\ metis_tac [
+       initial_state_with_simp, evaluate_add_to_clock_io_events_mono
+         |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+         |> Q.SPEC`s with clock := k`
+         |> SIMP_RULE(srw_ss())[inc_clock_def],
+       SND,ADD_SYM])
+  \\ fs [IS_PREFIX_APPEND]
+  \\ simp [EL_APPEND1]);
+
 (* let_op *)
 
 val let_state_rel_def = Define `
