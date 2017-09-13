@@ -220,6 +220,7 @@ local val compile_op_quotation = `
         (Let [Op (RefByte T) [Op (Const 0) []; Var 0]]
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
              (Var 1)))
+    | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation

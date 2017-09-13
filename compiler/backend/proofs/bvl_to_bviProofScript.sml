@@ -956,7 +956,7 @@ val do_app_adjust = Q.prove(
    (!i. op <> Const i) /\ (op <> Ref) /\ (∀flag. op ≠ RefByte flag) ∧ (op ≠ RefArray) ∧
    (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
    (∀n. op ≠ FromList n) ∧ (op ≠ FromListByte) ∧ (∀str. op ≠ String str) ∧
-   (∀b. op ≠ CopyByte b) ∧ (op ≠ ConcatByteVec) ∧
+   (∀b. op ≠ CopyByte b) ∧ (op ≠ ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
           Rval (adjust_bv b2 q,t3)) /\
@@ -1049,15 +1049,6 @@ val do_app_adjust = Q.prove(
       full_simp_tac(srw_ss())[FLOOKUP_DEF,INJ_DEF] >>
       METIS_TAC[] ) >>
     res_tac >> METIS_TAC[])
-  \\ Cases_on `?n. op = Label n` \\ fs [] THEN1
-   (BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[bEvalOp_def,bvl_to_bvi_id]
-    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[adjust_bv_def]
-    \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
-    \\ fs [state_rel_def]
-    \\ fs [domain_lookup]
-    \\ rename1 `lookup _ r.code = SOME vv`
-    \\ PairCases_on `vv` \\ res_tac
-    \\ rfs [] \\ pairarg_tac \\ fs [])
   \\ Cases_on `?n. op = FFI n` \\ fs [] THEN1
    (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -1759,6 +1750,16 @@ val compile_exps_correct = Q.prove(
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[iEval_def,iEvalOp_def]
       \\ full_simp_tac(srw_ss())[EVAL ``do_app_aux (Const 0) [] t2``]
       \\ SRW_TAC [] [adjust_bv_def])
+    \\ Cases_on `∃n. op = Label n` THEN1 (
+      fs[compile_op_def,evaluate_def,case_eq_thms] \\ rveq \\
+      fs[do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,case_eq_thms,bool_case_eq] \\
+      CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`b2` \\
+      CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`c` \\ simp[] \\ rveq \\
+      reverse IF_CASES_TAC >- (
+        fs[state_rel_def,domain_lookup]
+        \\ Cases_on`v` \\ res_tac
+        \\ pairarg_tac \\ fs[] ) \\
+      simp[adjust_bv_def])
     \\ Cases_on `?i. op = FromList i` \\ full_simp_tac(srw_ss())[] THEN1
      (fs [compile_op_def] \\ rveq
       \\ fs [bvlSemTheory.do_app_def]
