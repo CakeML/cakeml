@@ -338,7 +338,7 @@ val FST_EQ_LEMMA = prove(
   ``FST x = y <=> ?y1. x = (y,y1)``,
   Cases_on `x` \\ fs []);
 
-val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
+val semantics_remove_ticks = Q.store_thm ("semantics_remove_ticks",
   `semantics ffi (map (I ## (λx. HD (remove_ticks [x]))) prog)
                  (remove_ticks_co ∘ co)
                  cc start =
@@ -1957,27 +1957,66 @@ val tick_inline_all_rel = prove(
   |> SIMP_RULE std_ss [MAP,map_def] |> GSYM
   |> REWRITE_RULE [GSYM compile_prog_def];
 
-(*
+val ticks =
+  semantics_remove_ticks
+  |> Q.INST [`prog`|->`fromAList p`]
+  |> SIMP_RULE std_ss [map_fromAList]
+
+val lets =
+  semantics_let_op
+  |> Q.INST [`prog`|->`fromAList p`]
+  |> SIMP_RULE std_ss [map_fromAList]
+
+val inline_ticks = prove(
+  ``FST (FST (co 0)) =
+    fromAList (SND (tick_compile_prog limit LN prog)) ∧
+    ALL_DISTINCT (MAP FST prog) ⇒
+    semantics ffi (fromAList prog) co
+      (in_cc limit (remove_ticks_cc cc)) start ≠ Fail ⇒
+    semantics ffi (fromAList (MAP (I ## I ## (λx. HD (remove_ticks [x])))
+                                (SND (tick_compile_prog limit LN prog))))
+      (remove_ticks_co ∘ in_co limit co) cc start =
+    semantics ffi (fromAList prog) co (in_cc limit (remove_ticks_cc cc)) start``,
+  fs [ticks] \\ strip_tac
+  \\ match_mp_tac semantics_tick_inline \\ fs []);
+
+val comp_lemma = prove(
+  ``(I ## I ## f) o (I ## I ## g) = (I ## I ## (f o g))``,
+  fs [FUN_EQ_THM,FORALL_PROD]);
+
+val bvl_inline_cc_def = Define `
+  bvl_inline_cc limit cc = (in_cc limit (remove_ticks_cc (let_op_cc cc)))`;
+
+val bvl_inline_co_def = Define `
+  bvl_inline_co limit co =
+   (λx. (I ## MAP (I ## I ## let_op_sing))
+          (remove_ticks_co (in_co limit co x)))`;
+
+val inline_ticks_lets = prove(
+  ``FST (FST (co 0)) =
+    fromAList (SND (tick_compile_prog limit LN prog)) ∧
+    ALL_DISTINCT (MAP FST prog) ⇒
+    semantics ffi (fromAList prog) co
+      (in_cc limit (remove_ticks_cc (let_op_cc cc))) start ≠ Fail ⇒
+    semantics ffi (fromAList (MAP (I ## I ## let_op_sing)
+                               (MAP (I ## I ## (λx. HD (remove_ticks [x])))
+                                 (SND (tick_compile_prog limit LN prog)))))
+      ((I ## MAP (I ## I ## let_op_sing)) o
+       remove_ticks_co ∘ in_co limit co) cc start =
+    semantics ffi (fromAList prog) co
+      (in_cc limit (remove_ticks_cc (let_op_cc cc))) start``,
+  metis_tac [lets,inline_ticks])
+  |> SIMP_RULE std_ss [MAP_MAP_o,comp_lemma]
+  |> SIMP_RULE std_ss [o_DEF,GSYM tick_inline_all_rel,tick_compile_prog_def,
+       GSYM bvl_inline_co_def, GSYM bvl_inline_cc_def];
 
 val compile_prog_semantics = store_thm("compile_prog_semantics",
-  ``ALL_DISTINCT (MAP FST prog) /\
-    semantics ffi (fromAList prog) start <> Fail ==>
-    semantics ffi (fromAList (compile_prog limit prog)) start =
-    semantics ffi (fromAList prog) start``,
-  fs [tick_inline_all_rel] \\ rw []
-  \\ imp_res_tac (tick_compile_prog_semantics |> UNDISCH_ALL
-      |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
-      |> DISCH_ALL)
-  \\ qmatch_goalsub_abbrev_tac `MAP ff`
-  \\ `ff = (I ## I ## let_op_sing) o (I ## I ## \x. (HD (remove_ticks [x])))`
-       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD]
-  \\ fs [GSYM MAP_MAP_o]
-  \\ fs [GSYM map_fromAList_HASH,tick_compile_prog_def]
-  \\ ntac 2 (pop_assum kall_tac)
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ qpat_assum `_` (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [GSYM th])))
-  \\ match_mp_tac (GSYM semantics_let_op) \\ fs []);
-
-*)
+  ``FST (FST (co 0)) = fromAList (SND (tick_compile_prog limit LN prog)) ∧
+    ALL_DISTINCT (MAP FST prog) ⇒
+    semantics ffi (fromAList prog) co (bvl_inline_cc limit cc) start ≠ Fail ⇒
+    semantics ffi (fromAList (compile_prog limit prog))
+      (bvl_inline_co limit co) cc start =
+    semantics ffi (fromAList prog) co (bvl_inline_cc limit cc) start``,
+  metis_tac [inline_ticks_lets,tick_compile_prog_def]);
 
 val _ = export_theory();
