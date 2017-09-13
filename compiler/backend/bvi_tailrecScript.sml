@@ -42,6 +42,8 @@ val is_rec_def = Define `
   (is_rec _    _                     ⇔ F)
   `;
 
+val _ = export_rewrites ["is_arith_op_def","is_const_def","is_num_rel_def"];
+
 val _ = Datatype `
   assoc_op = Plus
            | Times
