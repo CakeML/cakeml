@@ -55,7 +55,6 @@ val basis_ffi_tm =
       (zip ["cls","fs"]
         (#1(strip_fun(type_of basis_ffi_const)))))
 
-(* TODO: IOFS_precond, STDIO_precond ... don't have the right shape *)
 val hprop_heap_thms =
   ref [emp_precond, IOFS_precond, mlcommandLineProgTheory.COMMANDLINE_precond,
 	   STDIO_precond,STDIO_precond',cond_precond];
@@ -112,7 +111,6 @@ fun subset_basis_st st precond =
   let
   val hprops = precond |>  helperLib.list_dest helperLib.dest_star
   fun match_and_instantiate tm th =
-    (* TODO: doesn't work with IOFS_precond, STDIO_precond *)
     INST_TY_TERM (match_term (rator(concl th)) tm) th
   fun find_heap_thm hprop =
     Lib.tryfind (match_and_instantiate hprop) (!hprop_heap_thms)
