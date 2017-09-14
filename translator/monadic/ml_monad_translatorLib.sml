@@ -287,7 +287,7 @@ fun add_raise_handle_functions exceptions_functions exn_ri_def = let
       | zip4 [] [] [] [] = []
     val exn_info = zip4 exn_ri_cons  exn_ri_cons_names exn_ri_types exn_ri_deep_types
     val exn_type = type_of EXN_RI_tm |> dest_type |> snd |> List.hd
-						      
+
     (* Link the raise definitions with the appropriate information *)
     val raise_funct_pairs = List.map (fn x => (x, concl x |> strip_forall |> snd |> rhs
 		|> dest_abs |> snd |> dest_pair |> fst |> rand |> rator)) raise_functions
@@ -312,7 +312,7 @@ fun add_raise_handle_functions exceptions_functions exn_ri_def = let
     val handle_funct_pairs = List.map (fn x => (x, get_handle_cons x)) handle_functions
     val handle_info = List.map (fn(d, tm) => tryfind (fn (x1, x2, x3, x4) => if x1 = tm
 			then (d, x1, x3, x4) else failwith "") exn_info) handle_funct_pairs
-				      
+
     (* Prove the handle specifications *)
     val handle_specs = List.map (prove_handle_spec exn_ri_def EXN_RI_tm) handle_info
 
@@ -330,7 +330,7 @@ in zip raise_specs handle_specs end;
 
 (*
   val _ = set_goal([],goal)
-*)	      
+*)
 fun derive_case_of ty = let
   fun smart_full_name_of_type ty =
     if let val r = dest_thy_type ty in #Tyop r = "cpn" andalso #Thy r = "toto" end then "order"
@@ -918,7 +918,7 @@ fun force_remove_fix thx = let
   val thx = List.foldr (fn (x,th) => s (FORCE_GEN x th)) thx xs
   in thx end;
 
-(* ---- *) 
+(* ---- *)
 fun var_hol2deep tm =
   if is_var tm andalso can get_arrow_type_inv (type_of tm) then let
     val (name,ty) = dest_var tm
@@ -968,7 +968,7 @@ in HOLset.listItems s end;
 	val (tms, tys) = Term.match_term pat tm
 	val tm' = Term.inst tys tm |> Term.subst tms
     in tm' end
-    
+
     fun get_pat_matches pat = let
 	val all_matches = Net.match pat subterms_net
 	val tmsl = List.map (get_matched_tm pat) all_matches
@@ -1028,7 +1028,7 @@ in result end;
 fun m2deep tm =
   (* variable *)
   if is_var tm then let
-    (* val _ = print_tm_msg "is_var\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "is_var\n" tm DEBUG *)
     val (name,ty) = dest_var tm
     val inv = get_arrow_type_inv ty
     val inv = ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand
@@ -1038,7 +1038,7 @@ fun m2deep tm =
     in check_inv "var" tm result end else
   (* raise *)
   if can (get_pattern (!exn_raises)) tm then let
-    (* val _ = print_tm_msg "raise custom pattern\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "raise custom pattern\n" tm DEBUG *)
     val (_, EvalM_th) = get_pattern (!exn_raises) tm
     val ty = dest_monad_type (type_of tm)
     val inv = smart_get_type_inv (#2 ty)
@@ -1050,7 +1050,7 @@ fun m2deep tm =
     in check_inv "raise custom pattern" tm result end else
   (* handle *)
   if can (get_pattern (!exn_handles)) tm then let
-    (* val _ = print_tm_msg "handle custom pattern\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "handle custom pattern\n" tm DEBUG *)
     val (_, EvalM_th) = get_pattern (!exn_handles) tm
     val x = tm |> rator |> rand
     val (v,y) = tm |> rand |> dest_abs
@@ -1063,7 +1063,7 @@ fun m2deep tm =
     in check_inv "handle custom pattern" tm result end
   (* return *)
   else if can (match_term ``(st_ex_return x): ^(!aM)``) tm then let
-    (* val _ = print_tm_msg "return\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "return\n" tm DEBUG *)
     val th = hol2deep (rand tm)
     val result = MATCH_MP (ISPEC_EvalM_MONAD EvalM_return) th
     in check_inv "return" tm result end
@@ -1100,7 +1100,7 @@ fun m2deep tm =
      in check_inv "bind" tm result end end else *)
   (* otherwise *)
   if can (match_term ``(x: ^(!aM)) otherwise (y: ^(!aM))``) tm then let
-    (* val _ = print_tm_msg "otherwise\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "otherwise\n" tm DEBUG *)
     val x = tm |> rator |> rand
     val y = tm |> rand
     val th1 = m2deep x
@@ -1125,14 +1125,14 @@ fun m2deep tm =
     in check_inv "IGNORE_BIND" tm result end else *)
   (* abs *)
   if is_abs tm then let
-    (* val _ = print_tm_msg "abs\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "abs\n" tm DEBUG *)
     val (v,x) = dest_abs tm
     val thx = m2deep x
     val result = apply_EvalM_Fun v thx false
     in check_inv "abs" tm result end else
   (* let expressions *)
   if can dest_let tm andalso is_abs (fst (dest_let tm)) then let
-    (* val _ = print_tm_msg "let expressions\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "let expressions\n" tm DEBUG *)
     val (x,y) = dest_let tm
     val (v,x) = dest_abs x
     val th1 = hol2deep y
@@ -1145,9 +1145,9 @@ fun m2deep tm =
     in check_inv "let" tm result end else
   (* data-type pattern-matching *)
   ( (* print_tm_msg "data-type pattern-matching\n" tm; DEBUG *) inst_case_thm tm m2deep) handle HOL_ERR _ =>
-  (* previously translated term for dynamic store initialisation *) 
+  (* previously translated term for dynamic store initialisation *)
   if can lookup_dynamic_v_thm tm then let
-    (* val _ = print_tm_msg "previously translated - dynamic\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "previously translated - dynamic\n" tm DEBUG *)
     val th = lookup_dynamic_v_thm tm
     val inv = smart_get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
@@ -1160,9 +1160,9 @@ fun m2deep tm =
                  |> REWRITE_RULE [GSYM ArrowM_def]
 		 |> Thm.INST [H_var |-> !H]
     in check_inv "lookup_dynamic_v_thm" tm result end else
-  (* previously translated term *) 
+  (* previously translated term *)
   if can lookup_v_thm tm then let
-    (* val _ = print_tm_msg "previously translated\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "previously translated\n" tm DEBUG *)
         val th = lookup_v_thm tm
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
     val xs = find_terms (can (match_term pat)) (concl th) |> List.map rand
@@ -1179,7 +1179,7 @@ fun m2deep tm =
     in check_inv "lookup_v_thm" tm result end else
   (* if statements *)
   if can (match_term ``if b then x: ^(!aM) else y: ^(!aM)``) tm then let
-    (* val _ = print_tm_msg "if\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "if\n" tm DEBUG *)
     val (t,x1,x2) = dest_cond tm
     val th0 = hol2deep t
     val th1 = m2deep x1
@@ -1189,7 +1189,7 @@ fun m2deep tm =
     in check_inv "if" tm result end else
   (* access functions *)
   if can (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns) then let
-      (* val _ = print_tm_msg "access function\n" tm DEBUG *) 
+      (* val _ = print_tm_msg "access function\n" tm DEBUG *)
       val (pat,spec) = (first (fn (pat,_) => can (match_term pat) tm)) (!access_patterns)
       (* Substitute the parameters, and link the parameters to their expressions *)
       val (tms, _) = match_term pat tm (* the type subst shouldn't be used *)
@@ -1224,7 +1224,7 @@ fun m2deep tm =
   in check_inv "access ref/array" tm result end else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
-    (* val _ = print_tm_msg "recursive pattern\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "recursive pattern\n" tm DEBUG *)
     val (lhs,fname,pre_var) = match_rec_pattern tm
     fun dest_args tm = rand tm :: dest_args (rator tm) handle HOL_ERR _ => []
     val xs = dest_args tm
@@ -1265,7 +1265,7 @@ fun m2deep tm =
     in check_inv "pmatch_m2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
-    (* val _ = print_tm_msg "normal function application\n" tm DEBUG *) 
+    (* val _ = print_tm_msg "normal function application\n" tm DEBUG *)
     (* val (f,x) = dest_comb tm
     val thf = m2deep f
     val result = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
@@ -1416,7 +1416,7 @@ val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   val all_pre_vars = List.map (fn (fname,ml_fname,def,lemma,pre_var) =>
                             repeat rator pre_var) thms2
 (*
-val (fname,def,lemma,pre_var) = hd thms2
+val (fname,ml_fname,def,lemma,pre_var) = hd thms2
 *)
   val all_pres = List.map (fn (fname,ml_fname,def,lemma,pre_var) => let
     val tm = lemma |> concl |> dest_imp |> fst
@@ -1868,7 +1868,7 @@ fun m_translate def =
       in th end
       val thms = List.map inst_envs results
     in LIST_CONJ thms end
-    else (* not is_rec *) let 
+    else (* not is_rec *) let
       val (fname,ml_fname,def,th,pre) = hd results
     in
       if is_fun then let
@@ -1992,7 +1992,7 @@ fun create_local_defs th = let
 	    val env1 = env_var1
             val funs = rator fexp |> rand
 	    val exp = concl th |> rator |> rator |> rator |> rand
-	    
+
 	    (* Instantiate the EvalSt theorem, simplify the assumptions *)
 	    val EvalSt_th = ISPECL[funs, env0, env1, exp] EvalSt_Letrec_Fun |> SPEC_ALL
 	    val assum = concl EvalSt_th |> dest_imp |> fst
@@ -2013,7 +2013,7 @@ fun create_local_defs th = let
 						"unable to prove the lookup assumptions")
 	    val th' = List.foldr (fn (a, th) => MP (DISCH (concl a) th) a) th' assums_thms *)
 	in th' end
-	else let 
+	else let
 	    (* Closure *)
 	    (* Build the new environment *)
 	    val env0 = rator fexp |> rator |> rand |> rand
@@ -2160,7 +2160,7 @@ fun m_translate_run def = let
     val monad_th = (MATCH_MP Eval_IMP_PURE monad_th)
 		 |> ISPEC (!H)
 		 |> PURE_REWRITE_RULE[GSYM ArrowM_def]
-    
+
     (* Insert the parameters *)
     val monad_th = List.foldl (fn (x, th) => MATCH_MP(MATCH_MP EvalM_ArrowM th) x)
 			      monad_th params_evals
@@ -2198,7 +2198,7 @@ fun m_translate_run def = let
 	    concl th |> strip_imp |> fst, 4)
     val EXN_th = prove(EXN_assum, rw[] \\ Cases_on `e` \\ fs[!EXN_TYPE_def_ref])
     val th = MP th EXN_th
-		
+
     val distinct_th = SIMP_CONV list_ss [] distinct_assum |> EQT_ELIM
     val vname_th1 = SIMP_CONV list_ss [] vname_assum1 |> EQT_ELIM
     val vname_th2 = SIMP_CONV list_ss [] vname_assum2 |> EQT_ELIM
@@ -2244,7 +2244,7 @@ fun m_translate_run def = let
     val state_var_binding_v = (state_var_vname, state_var_v)
 
     val params_bindings = state_var_binding::(List.rev params_bindings)
-    
+
     (* Create variables for the deep embeddings of the parameters *)
     val fvl = HOLset.listItems(FVL ((concl th)::(hyp th)) empty_varset)
     val params_v = List.map (fn (n, var) => variant fvl (mk_var((dest_var var |> fst) ^ "_v", ``:v``))) params_bindings
@@ -2258,7 +2258,7 @@ fun m_translate_run def = let
     (* Create the environment 0 and substitute it *)
     val env0 = ``merge_env <| v := Bind ^params_bindings_v []; c := Bind [] [] |> ^global_env``
     val th = Thm.INST [local_environment_var_0 |-> env0] th
-    
+
     (* Simplify the assumptions *)
     val assums = hyp th
     val lookup_cons_assums = List.filter (can (match_term ``lookup_cons vname env = SOME t``)) assums
@@ -2275,7 +2275,7 @@ fun m_translate_run def = let
     val nsLookup_assums_rws = List.map (fn x => EVAL x |> EQT_ELIM handle HOL_ERR _ => raise (ERR "m_translate_run" (Eval_error_msg x))) nsLookup_assums
 
     val th = List.foldr (fn (a, th) => MP (DISCH (concl a) th) a) th nsLookup_assums_rws
-    
+
     (* Symplify the assumption parameters *)
     val assums = hyp th
     val Eval_var_assums = List.filter (can (match_term ``Eval env exp (P x)``)) assums
@@ -2290,7 +2290,7 @@ fun m_translate_run def = let
 	val rw_th = ISPECL[env, vname, xv, x, TYPE] Eval_lookup_var
 	val rw_th_assum = concl rw_th |> dest_imp |> fst
 	val rw_th = MP rw_th (EVAL rw_th_assum |> EQT_ELIM)
-		       
+
 	val inv_to_eval = EQ_IMP_RULE rw_th |> snd |> UNDISCH
 	val th = MP (DISCH (concl inv_to_eval) th) inv_to_eval
     in th end
@@ -2332,5 +2332,5 @@ val lhs = fst o dest_eq;
 val rhs = snd o dest_eq;
 *)
 
-			      
+
 end
