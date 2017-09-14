@@ -524,17 +524,22 @@ evaluate_top ck env s1 top (s2, Rerr err)
 evaluate_prog ck env s1 (top::tops) (s2, Rerr err)
 *)
 
-val dec_diverges : forall 'ffi. sem_env v -> state 'ffi -> dec -> bool
-let dec_diverges env st d =
-  match d with
-    | Dlet locs p e -> List.allDistinct (pat_bindings p []) && e_diverges env (st.refs, st.ffi) e
-    | Dletrec locs funs -> false
-    | Dtype locs tds -> false
-    | Dtabbrev locs tvs tn t -> false
-    | Dexn locs cn ts -> false
-  end
+indreln [dec_diverges : forall 'ffi. sem_env v -> state 'ffi -> dec -> bool]
+and [decs_diverges : forall 'ffi. sem_env v -> state 'ffi -> list dec -> bool]
 
-indreln [decs_diverges : forall 'ffi. sem_env v -> state 'ffi -> list dec -> bool]
+dlet : forall env st locs p e.
+List.allDistinct (pat_bindings p []) && e_diverges env (st.refs, st.ffi) e
+==>
+dec_diverges env st (Dlet locs p e)
+
+and
+
+dmod : forall st env ds mn.
+decs_diverges env st ds
+==>
+dec_diverges env st (Dmod mn ds)
+
+and
 
 cons1 : forall st env d ds.
 dec_diverges env st d

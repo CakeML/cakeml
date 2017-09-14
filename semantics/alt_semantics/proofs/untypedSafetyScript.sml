@@ -66,47 +66,12 @@ val to_small_st_surj = Q.prove(
   `∀s. ∃y. s = to_small_st y`,
   srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
 
-  (*
-val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-  rw [] >>
-  rw [Once evaluate_dec_cases, dec_diverges_def] >>
-  cases_on `d` >>
-  rw [] >>
-  TRY(metis_tac[]) >>
-  eq_tac >>
-  rw [GSYM untyped_safety_exp] >>
-  TRY(metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked]) >>
-  `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))` 
-        by metis_tac [pair_CASES, result_nchotomy] >>
-  rw [] >>
-  qmatch_goalsub_abbrev_tac`ALL_DISTINCT (pat_bindings p [])` >>
-  cases_on `ALL_DISTINCT (pat_bindings p [])` >>
-  fs []
-  >- (qexists_tac `(s with <| ffi := SND s'; refs := FST s' |>, Rerr err)` >>
-      rw [] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def])
-  >- (cases_on `pmatch env.c (FST s') p v []` >> fs []
-  >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-      metis_tac [])
-  >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-      metis_tac [])
-  >- (fs [] >>
-      rw [GSYM small_big_exp_equiv, to_small_st_def] >>
-      qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, 
-                    Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
-      rw [] >>
-      metis_tac []))
-      );
-
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
-  `(!d s env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
-   (!ds s env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`,
-
+  `(!d (s:'a state) env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
+   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`,
  ho_match_mp_tac dec_induction >>
  rw [] >>
- rw [Once evaluate_dec_cases, dec_diverges_def] >>
+ rw [Once evaluate_dec_cases, Once dec_diverges_cases] >>
  rw [GSYM untyped_safety_exp]
  >- (
   cases_on `ALL_DISTINCT (pat_bindings p [])` >>
@@ -119,40 +84,37 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
   rw []
   >- (
     qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr err)` >>
-    rw [])
+    rw []) >>
+  Cases_on `pmatch env.c (FST s') p v []` >>
+  rw []
   >- (
-
-    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rval <|v := v; c := nsEmpty|>)` >>
-    rw [])
-
-
-
-
-
-
- rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
- rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
- eq_tac
- >- (rw [] >>
-     rw [] >>
-     CCONTR_TAC >>
-     fs [] >>
-     imp_res_tac dec_determ >>
-     fs [] >>
-     rw [] >>
-     pop_assum mp_tac >>
-     rw []
-     >- metis_tac [untyped_safety_dec]
-     >- metis_tac [untyped_safety_dec]
-     >- metis_tac [dec_unclocked, result_distinct, dec_determ, PAIR_EQ, pair_CASES])
- >- (rw [] >>
-     imp_res_tac (GSYM untyped_safety_dec) >>
-     pop_assum (qspecl_then [`mn`] strip_assume_tac) >>
-     `?s. (?err. r = (s,Rerr err)) ∨ (?env'. r = (s,Rval env'))` by metis_tac [pair_CASES, result_nchotomy] >>
-     rw []
-     >- metis_tac []
-     >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked]));
-     *)
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr (Rraise bind_exn_v))` >>
+    rw [] >>
+    metis_tac [])
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr (Rabort Rtype_error))` >>
+    rw [] >>
+    metis_tac [])
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
+    rw [] >>
+    metis_tac []))
+  >- metis_tac []
+  >- metis_tac [NOT_EVERY]
+  >- (
+    qpat_x_assum `!x. P x` (mp_tac o GSYM) >>
+    rw [] >>
+    eq_tac >>
+    rw [] >>
+    metis_tac [pair_CASES, result_nchotomy])
+  >- (
+    pop_assum (mp_tac o GSYM) >>
+    pop_assum (mp_tac o GSYM) >>
+    rw [] >>
+    eq_tac >>
+    rw [] >>
+    metis_tac [pair_CASES, result_nchotomy, result_distinct, decs_determ,
+               PAIR_EQ, result_11]));
 
      (*
 
