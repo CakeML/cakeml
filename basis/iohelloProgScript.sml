@@ -52,17 +52,17 @@ val basis_ffi_const = prim_mk_const{Thy="fsioProof",Name="basis_ffi"};
 val basis_ffi_tm =
   list_mk_comb(basis_ffi_const,
     map mk_var
-      (zip ["inp","cls","files","numchars"]
+      (zip ["cls","fs"]
         (#1(strip_fun(type_of basis_ffi_const)))))
 
 (* TODO: IOFS_precond, STDIO_precond ... don't have the right shape *)
 val hprop_heap_thms =
   ref [emp_precond, IOFS_precond, mlcommandLineProgTheory.COMMANDLINE_precond,
-	   STDIO_precond,STDIO_precond'];
+	   STDIO_precond,STDIO_precond',cond_precond];
 
 
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
-  `parts_ok (auto_state_1 (basis_ffi inp cls fs ll)).ffi (basis_proj1, basis_proj2)` ,
+  `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
   qmatch_goalsub_abbrev_tac`st.ffi`
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
@@ -88,10 +88,8 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
   \\ SPLIT_TAC
 );
 
-(*This function proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
-fun parts_ok_basis_st st =
-  let val goal = ``parts_ok ^st.ffi (basis_proj1, basis_proj2)``
-  val th = prove(goal,
+(*This tactic proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
+val prove_parts_ok_st =
     qmatch_goalsub_abbrev_tac`st.ffi`
     \\ `st.ffi.oracle = basis_ffi_oracle`
     by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
@@ -106,14 +104,15 @@ fun parts_ok_basis_st st =
     \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
     \\ TRY pairarg_tac \\ fs[]
     \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-    \\ srw_tac[DNF_ss][])
-  in th end
+    \\ srw_tac[DNF_ss][];
+
 
 (* This function proves the SPLIT pre-condition of call_main_thm_basis *)
 fun subset_basis_st st precond =
   let
   val hprops = precond |>  helperLib.list_dest helperLib.dest_star
   fun match_and_instantiate tm th =
+    (* TODO: doesn't work with IOFS_precond, STDIO_precond *)
     INST_TY_TERM (match_term (rator(concl th)) tm) th
   fun find_heap_thm hprop =
     Lib.tryfind (match_and_instantiate hprop) (!hprop_heap_thms)
@@ -126,8 +125,9 @@ fun subset_basis_st st precond =
         let
           val th = MATCH_MP append_hprop (CONJ th1 th2)
           val th = CONV_RULE(LAND_CONV EVAL)th
-          val th = MATCH_MP th TRUTH
-          val th = CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
+          val th = MATCH_MP th TRUTH |> SIMP_RULE (srw_ss()) [UNION_EMPTY]
+          val th = (CONV_RULE(RAND_CONV (pred_setLib.UNION_CONV EVAL)) th
+					handle _ => th) (* TODO quick fix *)
         in build_set (th::ths) end
   val sets_thm = build_set heap_thms
   val (precond',sets) = dest_comb(concl sets_thm)
@@ -135,10 +135,13 @@ fun subset_basis_st st precond =
   val sets_thm = CONV_RULE(RATOR_CONV(REWR_CONV precond_rw)) sets_thm
   val to_inst = free_vars sets
   val goal = pred_setSyntax.mk_subset(sets,st)
-  val pok_thm = parts_ok_basis_st (rand st)
-  val tac = (strip_assume_tac pok_thm
-     \\ fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
+  val tac = (
+        fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
            cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
+     \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
+     \\ `parts_ok ffii (basis_proj1,basis_proj2)` 
+            by (fs[Abbr`ffii`] \\ prove_parts_ok_st)
+     \\ fs[Abbr`ffii`]
      \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE])
   val (subgoals,_) = tac ([],goal)
   fun mk_mapping (x,y) =
@@ -195,7 +198,6 @@ fun add_basis_proj spec =
 
     fun is_cond_UNIT_TYPE x = aconv v (snd (dest_UNIT_TYPE (dest_cond x))) handle HOL_ERR _ => false
     val (unitvs,hprops) = partition is_cond_UNIT_TYPE hprops
-val (call_thm_hello, hello_prog_tm) = call_thm st name spec;
     val (sepexists, hprops) = partition (can dest_sep_exists) hprops
     val star_type = type_of precond
     val rest_hprop = list_mk_star hprops star_type
@@ -219,24 +221,15 @@ val (call_thm_hello, hello_prog_tm) = call_thm st name spec;
   end
 
 val spec = hello_spec |> SPEC_ALL |> UNDISCH_ALL |> SIMP_RULE(srw_ss())[STDIO_def]
-      |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
-(*             |> add_basis_proj; *)
+      |> add_basis_proj;
 val name = "hello";
-(* HERE 
-   no hprop_heap_thm for SEP_EXISTS fs' ...
-*)
+
+
 val (call_thm_hello, hello_prog_tm) = call_thm st name spec;
 val hello_prog_def = Define`hello_prog = ^hello_prog_tm`;
 
 val hello_semantics = save_thm("hello_semantics",
   call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
   |> SIMP_RULE std_ss [APPEND]);
-val foo = prog_rewrite |> concl |> rhs;
-
-fun mk_main_call s =
-  ``Tdec (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
-val main_call = mk_main_call ``"hello"``;
-
-
 
 val _ = export_theory ()
