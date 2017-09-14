@@ -959,7 +959,7 @@ val _ = translate(bvl_to_bviTheory.compile_aux_def);
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 2
+val bad_row = rows |> List.rev |> el 3
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
