@@ -1051,6 +1051,14 @@ val LIST_REL_SNOC = prove(
       ?y zs. ys = zs ++ [y] /\ LIST_REL P xs zs /\ P x y``,
   Induct \\ fs [] \\ rw [] \\ fs [PULL_EXISTS] \\ metis_tac []);
 
+val list_to_v_val_rel = Q.store_thm("list_to_v_val_rel",
+  `!xs ys.
+     LIST_REL (val_rel (:'ffi) c w) xs ys ==>
+       val_rel (:'ffi) c w (list_to_v xs) (list_to_v ys)`,
+  Induct
+  >- rw [LIST_REL_EL_EQN, val_rel_rw, list_to_v_def]
+  \\ rw [] \\ fs [val_rel_rw, list_to_v_def]);
+
 val res_rel_do_app = Q.store_thm ("res_rel_do_app",
 `!c w op vs vs' (s:'ffi closSem$state) s'.
   state_rel c w s s' ∧
@@ -1240,6 +1248,12 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
        imp_res_tac state_rel_refs \\
        fs[case_eq_thms,PULL_EXISTS,ref_v_rel_rw] \\
        rw[Unit_def,val_rel_rw])
+     >-
+      (fs [PULL_EXISTS, SWAP_REVERSE_SYM, case_eq_thms, pair_case_eq]
+       \\ imp_res_tac v_to_list_val_rel
+       \\ rfs [OPTREL_SOME]
+       \\ match_mp_tac list_to_v_val_rel
+       \\ fs [EVERY2_APPEND_suff])
      >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>
