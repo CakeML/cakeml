@@ -191,7 +191,7 @@ val compile_single_correct = Q.prove(`
   >- tac
   >- tac
   >- (Cases_on`i`>>
-     fs[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_code_frame,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_vars_code_frame,get_fp_var_def]>>
+     fs[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_fp_var_def]>>
      EVERY_CASE_TAC>>
      fs[set_var_def,set_fp_var_def]>>
      rw[])
