@@ -1843,6 +1843,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort Rtimeout_error) => T`,
+
  ho_match_mp_tac evaluate_decs_ind
  >> rw [evaluate_decs_def]
  >> rw []
@@ -2069,7 +2070,13 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
        rw [flookup_fupdate_list] >>
        every_case_tac >>
        metis_tac [NOT_SOME_NONE])
-     >- cheat
+     >- (
+       fs [ctMap_has_exns_def, FLOOKUP_FUNION] >>
+       rw [flookup_fupdate_list] >>
+       every_case_tac >>
+       imp_res_tac ALOOKUP_MEM >>
+       imp_res_tac mem_type_def_to_ctMap >>
+       rfs [bind_stamp_def, chr_stamp_def, div_stamp_def, subscript_stamp_def])
      >- (
        fs [ctMap_has_lists_def, FLOOKUP_FUNION] >>
        rw [flookup_fupdate_list] >>
@@ -2089,7 +2096,12 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
      >- (
        res_tac >>
        decide_tac)
-     >- cheat
+     >- (
+       rename [`ExnStamp _ = FST YYY`] >>
+       PairCases_on `YYY` >>
+       imp_res_tac mem_type_def_to_ctMap >>
+       rfs [] >>
+       rw [])
      >- (
        res_tac >>
        decide_tac))
@@ -2115,6 +2127,7 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
    >> qexists_tac `tenvS`
    >> rw [weakCT_refl, store_type_extension_refl]
    >> fs [type_sound_invariant_def, type_all_env_def])
+
  >- ( (* case exception *)
    drule type_d_tenv_ok
    >> fs [Once type_d_cases]
@@ -2215,8 +2228,9 @@ val decs_type_sound_no_check = Q.store_thm ("decs_type_sound_no_check",
        >- (
          irule extend_dec_tenv_ok >>
          fs [tenvLift_def, tenv_ok_def, tenv_val_ok_def,
-             tenv_ctor_ok_def, tenv_abbrev_ok_def] >>
-         cheat)
+             tenv_ctor_ok_def, tenv_abbrev_ok_def,
+             extend_dec_tenv_def] >>
+         metis_tac [nsAll_nsAppend_left])
        >- (
          `type_all_env ctMap1 tenvS1 env tenv`
          by metis_tac [type_all_env_weakening, store_type_extension_weakS] >>
