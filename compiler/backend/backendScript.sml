@@ -49,8 +49,9 @@ val compile_def = Define`
     let e = pat_to_clos$compile e in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
     let c = c with clos_conf := c' in
-    let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-    let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
+    let (s,p,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+    let c = c with clos_conf updated_by (λc. c with start:=s) in
+    let c = c with bvl_conf updated_by (λc. c with <| next_name1 := n1; next_name2 := n2 |>) in
     let p = bvi_to_data$compile_prog p in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -111,8 +112,9 @@ val to_bvl_def = Define`
 val to_bvi_def = Define`
   to_bvi c p =
   let (c,p) = to_bvl c p in
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-  let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
+  let (s,p,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  let c = c with clos_conf updated_by (λc. c with start := s) in
+  let c = c with bvl_conf updated_by (λc. c with <| next_name1 := n1; next_name2 := n2 |>) in
   (c,p)`;
 
 val to_data_def = Define`
@@ -205,8 +207,9 @@ val from_bvi_def = Define`
 
 val from_bvl_def = Define`
   from_bvl c p =
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-  let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
+  let (s,p,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  let c = c with clos_conf updated_by (λc. c with start:=s) in
+  let c = c with bvl_conf updated_by (λc. c with <| next_name1 := n1; next_name2 := n2 |>) in
   from_bvi c p`;
 
 val from_clos_def = Define`

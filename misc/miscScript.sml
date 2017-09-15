@@ -289,6 +289,19 @@ val EL_MAP2i = Q.store_thm("EL_MAP2i",
   ho_match_mp_tac MAP2i_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
 
+val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
+  `∀xs ys.
+     LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
+  Induct \\ rw []
+  \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC);
+
+val EL_MAP2 = Q.store_thm("EL_MAP2",
+  `∀ts tt n.
+    n < MIN (LENGTH ts) (LENGTH tt) ⇒
+      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
+  Induct \\ rw []
+  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
+
 val MAP3_def = Define`
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
