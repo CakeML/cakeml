@@ -1711,7 +1711,7 @@ val Inst_lemma = Q.prove(
   reverse conj_tac >- metis_tac[] >>
   reverse conj_tac >- (
     rw[] >> fs[] >> res_tac >> fs[GSYM word_add_n2w] ) >>
-  match_mp_tac fp_upd_lemma>> fs[]));
+  match_mp_tac fp_upd_lemma>> fs[])));
 
 (* compile correct *)
 
