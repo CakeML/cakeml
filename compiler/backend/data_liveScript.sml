@@ -35,6 +35,8 @@ val is_pure_def = Define `
   (is_pure WordFromInt = F) /\
   (is_pure WordToInt = F) /\
   (is_pure Install = F) /\
+  (is_pure (FP_uop _) = F) /\
+  (is_pure (FP_bop _) = F) /\
   (is_pure _ = T)`
 
 val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
@@ -66,6 +68,8 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | WordFromInt => F
     | WordToInt => F
     | Install => F
+    | FP_uop _ => F
+    | FP_bop _ => F
     | _ => T`,
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)

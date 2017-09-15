@@ -25,6 +25,7 @@ val compile_state_const = Q.store_thm("compile_state_const[simp]",
    (compile_state clk c s).compile = c ∧
    (compile_state clk c s).stack = s.stack ∧
    (compile_state clk c s).store = s.store ∧
+   (compile_state clk c s).fp_regs = s.fp_regs ∧
    (compile_state clk c s).memory = s.memory ∧
    (compile_state clk c s).mdomain = s.mdomain ∧
    (compile_state clk c s).be = s.be ∧
@@ -47,11 +48,16 @@ val compile_state_update = Q.store_thm("compile_state_update[simp]",
    compile_state clk c s with locals updated_by f6 = compile_state clk c (s with locals updated_by f6) ∧
    compile_state clk c s with memory updated_by f5 = compile_state clk c (s with memory updated_by f5) ∧
    compile_state clk c s with store updated_by f4 = compile_state clk c (s with store updated_by f4) ∧
+   compile_state clk c s with fp_regs updated_by f11 = compile_state clk c (s with fp_regs updated_by f11) ∧
    compile_state clk c s with handler updated_by f3 = compile_state clk c (s with handler updated_by f3)`,
   EVAL_TAC);
 
 val get_var_compile_state = Q.store_thm("get_var_compile_state[simp]",
   `get_var x (compile_state clk c s) = get_var x s`,
+  EVAL_TAC);
+
+val get_fp_var_compile_state = Q.store_thm("get_fp_var_compile_state[simp]",
+  `get_fp_var x (compile_state clk c s) = get_fp_var x s`,
   EVAL_TAC);
 
 val get_vars_compile_state = Q.store_thm("get_vars_compile_state[simp]",
@@ -61,6 +67,10 @@ val get_vars_compile_state = Q.store_thm("get_vars_compile_state[simp]",
 val set_var_compile_state = Q.store_thm("set_var_compile_state[simp]",
   `set_var x y (compile_state clk c s) = compile_state clk c (set_var x y s)`,
   rw[set_var_def]);
+
+val set_fp_var_compile_state = Q.store_thm("set_fp_var_compile_state[simp]",
+  `set_fp_var x y (compile_state clk c s) = compile_state clk c (set_fp_var x y s)`,
+  rw[set_fp_var_def]);
 
 val set_vars_compile_state = Q.store_thm("set_vars_compile_state[simp]",
   `set_vars xs ys (compile_state clk c s) = compile_state clk c (set_vars xs ys s)`,

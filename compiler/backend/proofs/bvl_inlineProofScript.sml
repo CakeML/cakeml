@@ -1058,6 +1058,7 @@ val evaluate_inline = store_thm("evaluate_inline",
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def]
+    \\ rename1`_ = SOME (_,exp)`
     \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM)) \\ fs []
     \\ `?exp2. find_code dest vs t2.code = SOME (args,exp2) /\
                exp_rel s.code [exp] [exp2]` by
@@ -1076,6 +1077,7 @@ val evaluate_inline = store_thm("evaluate_inline",
   \\ disch_then drule \\ strip_tac
   \\ `t2.clock = s.clock` by fs [in_state_rel_def]
   \\ fs [evaluate_def,evaluate_mk_tick]
+  \\ rename1`find_code _ _ _ = SOME (_,exp)`
   \\ TRY (fs [in_state_rel_def] \\ NO_TAC)
   \\ fs [find_code_def,case_eq_thms] \\ rveq
   \\ `in_state_rel limit (dec_clock (ticks + 1) s) (dec_clock (ticks + 1) t2)`
@@ -1608,6 +1610,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
      (qexists_tac `t2' with clock := 0` \\ fs [let_state_rel_def]
       \\ Cases_on `dest` \\ fs [find_code_def]
       \\ fs [case_eq_thms,lookup_map])
+    \\ rename1`find_code _ _ _ = SOME (_,exp)`
     \\ `find_code dest vs t2.code = SOME (args,HD (let_op [exp]))` by
      (Cases_on `dest`
       \\ fs [find_code_def,case_eq_thms,let_state_rel_def,lookup_map]

@@ -3,8 +3,6 @@ open asmLib mips_stepTheory;
 
 val () = new_theory "mips_target"
 
-val () = wordsLib.guess_lengths()
-
 (* --- The next-state function --- *)
 
 (* --------------------------------------------------------------------------
@@ -26,9 +24,10 @@ val mips_next_def = Define`
 
 val mips_ok_def = Define`
    mips_ok ms <=>
-   ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
+   ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\
+   ms.CP0.Status.CU1 /\ ms.fcsr.ABS2008 /\ ~ms.fcsr.FS /\ (ms.fcsr.RM = 0w) /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
-   (ms.exception = NoException) /\ aligned 2 ms.PC`
+   ~ms.exceptionSignalled /\ (ms.exception = NoException) /\ aligned 2 ms.PC`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -83,6 +82,12 @@ val mips_cmp_def = Define`
    (mips_cmp NotLess  = (SOME (SLT, SLTI), BEQ)) /\
    (mips_cmp NotLower = (SOME (SLTU, SLTIU), BEQ)) /\
    (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))`
+
+val mips_fp_cmp_def = Define`
+   mips_fp_cmp c n d1 d2 =
+     [COP1 (C_cond_D (n2w d1, n2w d2, c, 0w));
+      ArithI (ORI (0w, n2w n, 1w));
+      COP1 (MOVF (n2w n, 0w, 0w))]`
 
 val eval = rhs o concl o EVAL
 val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
@@ -176,6 +181,29 @@ val mips_ast_def = Define`
        case mips_memop mop of
           INL f => [Load (f (n2w r2, n2w r1, w2w a))]
         | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+   (mips_ast (Inst (FP (FPLess n d1 d2))) = mips_fp_cmp 4w n d1 d2) /\
+   (mips_ast (Inst (FP (FPLessEqual n d1 d2))) = mips_fp_cmp 6w n d1 d2) /\
+   (mips_ast (Inst (FP (FPEqual n d1 d2))) = mips_fp_cmp 2w n d1 d2) /\
+   (mips_ast (Inst (FP (FPMov d1 d2))) = [COP1 (MOV_D (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP (FPAbs d1 d2))) = [COP1 (ABS_D (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP (FPNeg d1 d2))) = [COP1 (NEG_D (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP (FPSqrt d1 d2))) = [COP1 (SQRT_D (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP (FPAdd d1 d2 d3))) =
+       [COP1 (ADD_D (n2w d1, n2w d2, n2w d3))]) /\
+   (mips_ast (Inst (FP (FPSub d1 d2 d3))) =
+       [COP1 (SUB_D (n2w d1, n2w d2, n2w d3))]) /\
+   (mips_ast (Inst (FP (FPMul d1 d2 d3))) =
+       [COP1 (MUL_D (n2w d1, n2w d2, n2w d3))]) /\
+   (mips_ast (Inst (FP (FPDiv d1 d2 d3))) =
+       [COP1 (DIV_D (n2w d1, n2w d2, n2w d3))]) /\
+   (mips_ast (Inst (FP (FPMovToReg r _ d))) = [COP1 (DMFC1 (n2w r, n2w d))]) /\
+   (mips_ast (Inst (FP (FPMovFromReg d r _))) =
+       [COP1 (DMTC1 (n2w r, n2w d))]) /\
+   (mips_ast (Inst (FP (FPToInt d1 d2))) =
+       [COP1 (CVT_L_D (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP (FPFromInt d1 d2))) =
+       [COP1 (CVT_D_L (n2w d1, n2w d2))]) /\
+   (mips_ast (Inst (FP _ )) = mips_encode_fail) /\
    (mips_ast (Jump a) =
        if ^min18 + 4w <= a /\ a <= ^max18 + 4w then
          [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]
@@ -250,6 +278,7 @@ val mips_config_def = Define`
    <| ISA := MIPS
     ; encode := mips_enc
     ; reg_count := 32
+    ; fp_reg_count := 32
     ; avoid_regs := [0; 1; 25; 26; 27; 28; 29; 30]
     ; link_reg := SOME 31
     ; two_reg_arith := F
@@ -269,9 +298,10 @@ val mips_config_def = Define`
 
 val mips_proj_def = Define`
    mips_proj d s =
-   (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
-    s.BranchDelay, s.BranchTo, s.exception, s.gpr, s.lo, s.hi,
-    fun2set (s.MEM,d), s.PC)`
+   (s.CP0.Config, s.CP0.Status.RE,
+    s.CP0.Status.CU1, s.fcsr.ABS2008, s.fcsr.FS, s.fcsr.RM, s.fcsr.FCC,
+    s.exceptionSignalled, s.BranchDelay, s.BranchTo, s.exception, s.gpr,
+    s.lo, s.hi, s.FGR, fun2set (s.MEM,d), s.PC)`
 
 val mips_target_def = Define`
    mips_target =
@@ -279,6 +309,7 @@ val mips_target_def = Define`
     ; config := mips_config
     ; get_pc := mips_state_PC
     ; get_reg := (\s. mips_state_gpr s o n2w)
+    ; get_fp_reg := (\s. s.FGR o n2w)
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok
     ; proj := mips_proj

@@ -748,6 +748,10 @@ val evaluate_sf_gc_consts_thm = Q.store_thm("evaluate_sf_gc_consts",
   pairarg_tac \\ fs [] \\ res_tac \\ Cases_on `y` \\ fs [sf_gc_consts_def] \\
   rveq \\ fs [] \\ imp_res_tac gc_handler_thm \\ rw []));
 
+val get_var_set_fp_var = Q.store_thm("get_var_set_fp_var[simp]",
+  `get_var x (set_fp_var y v s) = get_var x s`,
+  fs[get_var_def,set_fp_var_def]);
+
 val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   `!p cs p' cs' s res s'.
    evaluate (p, s) = (res, s') /\
@@ -756,7 +760,6 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
    (!v w. lookup v cs = SOME w ==> get_var v s = SOME (Word w)) ==>
    evaluate (p', s) = (res, s') /\
    (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))`,
-
   ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
   >- (** Move **)
   (fs [const_fp_loop_def, evaluate_def] \\ rw [const_fp_move_cs_def] \\
@@ -764,7 +767,6 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
   imp_res_tac get_var_move_thm \\ asm_rewrite_tac [] \\
   imp_res_tac (INST_TYPE [``:'a``|->``:'a word``] lookup_const_fp_move_cs_thm) \\
   CASE_TAC \\ fs [])
-
   >- (** Inst **)
   (rw [] >- fs [const_fp_loop_def] \\
   Cases_on `i` \\ fs [const_fp_loop_def, const_fp_inst_cs_def, evaluate_def]
@@ -785,7 +787,12 @@ val evaluate_const_fp_loop_thm = Q.store_thm("evaluate_const_fp_loop",
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set_thm, cs_delete_if_set_thm])
       \\ (* Otherwise *)
-      every_case_tac \\ fs [mem_store_def, get_var_def] \\ rw []))
+      every_case_tac \\ fs [mem_store_def, get_var_def] \\ rw [])
+    >- (*Float*)
+      (Cases_on`f`>>fs[inst_def,const_fp_inst_cs_def]>>rw[]>>
+      every_case_tac>>fs[]>>rw[]>>
+      metis_tac [cs_delete_if_set_thm,cs_delete_if_set_x2_thm])
+  )
 
   >- (** Assign **)
   (rpt gen_tac \\ strip_tac \\

@@ -36,6 +36,24 @@ val lem1 = Q.prove(
 val lem2 = asmLib.v2w_BIT_n2w 4
 val lem3 = asmLib.v2w_BIT_n2w 5
 
+val lem3b =
+  lem3
+  |> Q.SPEC `n DIV 2`
+  |> Q.DISCH `n < 32`
+  |> SIMP_RULE (srw_ss())
+       [bitTheory.BIT_DIV2,
+        bitTheory.NOT_BIT_GT_TWOEXP
+        |> Q.SPEC `5`
+        |> SIMP_RULE (srw_ss()) []]
+
+val lem3c = blastLib.BBLAST_PROVE
+  ``((4 >< 4) (n2w i : word5) = 1w : word1) ==>
+    (v2w [T; BIT 3 i; BIT 2 i; BIT 1 i; BIT 0 i] = n2w i : word5)``
+
+val lem3d = blastLib.BBLAST_PROVE
+  ``((4 >< 4) (n2w i : word5) = 0w : word1) ==>
+    (v2w [F; BIT 3 i; BIT 2 i; BIT 1 i; BIT 0 i] = n2w i : word5)``
+
 val lem4 =
    blastLib.BBLAST_PROVE ``0w <= c /\ c <= 4095w ==> c <=+ 4095w: word32``
 
@@ -213,6 +231,15 @@ val decode_imm8_thm1 = Q.prove(
    \\ blastLib.FULL_BBLAST_TAC
    )
 
+val decode_imm8_thm2 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32.
+         8w <= c /\ c + 0xFFFFFFF8w <+ 256w ==>
+         (w2w (v2w [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+                    c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
+                    c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
+         c - 8w)``
+
 val decode_imm8_thm3 = Q.prove(
    `!c: word32.
        ~(8w <= c) /\ 0xFFFFFF09w <= c ==>
@@ -222,6 +249,105 @@ val decode_imm8_thm3 = Q.prove(
    \\ blastLib.FULL_BBLAST_TAC
    )
 
+val decode_imm8_thm4 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32 p.
+         8w <= c /\ c <= 0x10007w /\ ~(c + 0xFFFFFFF8w <+ 256w) ==>
+  (c + p =
+   w2w
+      (v2w
+         [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
+          c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0] : word8) +
+    p +
+    w2w
+      (v2w
+         [c ' 15 <=>
+          c ' 14 \/ c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/
+          c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 14 <=>
+          c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/
+          c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 13 <=>
+          c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/
+          c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 12 <=>
+          c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/
+          c ' 4 \/ c ' 3;
+          c ' 11 <=>
+          c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/
+          c ' 3;
+          c ' 10 <=>
+          c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 9 <=> c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
+          c ' 8 <=> c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3] : word8) #>> 24 +
+    8w)``
+
+val decode_imm8_thm5 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32 p.
+         ~(8w <= c) /\ 0xFFFF0009w <= c /\ -1w * c + 8w <+ 256w ==>
+  (c + p =
+   -1w *
+   w2w
+     (v2w
+        [c ' 7 <=>
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 6 <=>
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
+         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p + 8w)``
+
+val decode_imm8_thm6 =
+   blastLib.BBLAST_PROVE
+     ``!c: word32 p.
+         ~(8w <= c) /\ 0xFFFF0009w <= c /\ ~(-1w * c + 8w <+ 256w) ==>
+  (c + p =
+   -1w *
+   w2w
+     (v2w
+        [c ' 7 <=>
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 6 <=>
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
+         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
+         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p +
+   -1w *
+   w2w
+     (v2w
+        [c ' 15 <=>
+         ~c ' 14 /\ ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\
+         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 14 <=>
+         ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\
+         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 13 <=>
+         ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\
+         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 12 <=>
+         ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\
+         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 11 <=>
+         ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\
+         ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 10 <=>
+         ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 9 <=>
+         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
+         c ' 8 <=>
+         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
+         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 val loc_lem =
   utilsLib.map_conv asmLib.mk_blast_thm
     [``(31 >< 24) (a - 8w : word32) : word8``,
@@ -341,6 +467,116 @@ val mul_long_lem2 = Q.prove(
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
   )
 
+val adc_lem1 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
+      4294967296 <= w2n r2 + (w2n r3 + 1)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem2 = Q.prove(
+  `!r2 r3 : word32 r4 : word32.
+      FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
+      n2w (w2n r2 + (w2n r3 + 1))`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem3 = Q.prove(
+  `!r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val adc_lem4 = Q.prove(
+  `!r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)`,
+  rw [wordsTheory.add_with_carry_def]
+)
+
+val float_is_nan = Q.prove(
+  `!x. float_is_nan x = (float_value x = NaN)`,
+  rw [binary_ieeeTheory.float_is_nan_def]
+  \\ CASE_TAC)
+
+val fp_tac =
+  Cases_on `float_value (fp64_to_float a)`
+  \\ Cases_on `float_value (fp64_to_float b)`
+  \\ rw [machine_ieeeTheory.fp64_lessThan_def,
+         machine_ieeeTheory.fp64_lessEqual_def,
+         machine_ieeeTheory.fp64_greaterThan_def,
+         machine_ieeeTheory.fp64_greaterEqual_def,
+         machine_ieeeTheory.fp64_isNan_def,
+         machine_ieeeTheory.fp64_equal_def,
+         float_is_nan,
+         binary_ieeeTheory.float_less_than_def,
+         binary_ieeeTheory.float_less_equal_def,
+         binary_ieeeTheory.float_greater_than_def,
+         binary_ieeeTheory.float_greater_equal_def,
+         binary_ieeeTheory.float_equal_def,
+         binary_ieeeTheory.float_compare_def]
+
+val fp_lem1 = Q.prove(
+  `fp64_lessThan a b ==> ~fp64_isNan a /\ ~fp64_isNan b /\ ~fp64_equal a b`,
+  fp_tac
+  )
+
+val fp_lem2 = Q.prove(
+  `fp64_lessEqual a b ==>
+   (fp64_equal a b \/ fp64_lessThan a b) /\ ~fp64_isNan a /\ ~fp64_isNan b`,
+  fp_tac
+  )
+
+val fp_lem3 = Q.prove(
+  `~fp64_lessEqual a b ==> ~fp64_lessThan a b /\ ~fp64_equal a b`,
+  fp_tac
+  )
+
+val fp_lem4 = Q.prove(
+  `fp64_greaterThan a b ==>
+   ~fp64_lessThan a b /\ ~fp64_isNan a /\ ~fp64_isNan b /\ ~fp64_equal a b`,
+  fp_tac
+  )
+
+val fp_lem5 = Q.prove(
+  `~fp64_greaterThan a b ==>
+   fp64_equal a b \/ fp64_lessThan a b \/ fp64_isNan a \/ fp64_isNan b`,
+  fp_tac
+  )
+
+val fp_lem6 = Q.prove(
+  `fp64_greaterEqual a b ==>
+   ~fp64_lessThan a b /\ ~fp64_isNan a /\ ~fp64_isNan b`,
+  fp_tac
+  )
+
+val fp_lem7 = Q.prove(
+  `~fp64_greaterEqual a b ==>
+   ~fp64_equal a b /\ (fp64_lessThan a b \/ fp64_isNan a \/ fp64_isNan b)`,
+  fp_tac
+  )
+
+val fp_lem8 = Q.prove(
+  `fp64_equal a b ==> ~fp64_isNan a /\ ~fp64_isNan b`,
+  fp_tac
+  )
+
+val fp_to_int_lem = Q.prove(
+  `!i w : word32. (w2i w = i) ==> -0x80000000 <= i /\ i <= 0x7FFFFFFF`,
+  ntac 3 strip_tac
+  \\ assume_tac
+       (integer_wordTheory.w2i_le
+        |> Q.ISPEC `w : word32`
+        |> SIMP_RULE (srw_ss()) [])
+  \\ assume_tac
+       (integer_wordTheory.w2i_ge
+        |> Q.ISPEC `w : word32`
+        |> SIMP_RULE (srw_ss()) [])
+  \\ rfs []
+  )
+
+val fp_to_int_lem2 = Q.prove(
+  `!n. n < 32 ==> n DIV 2 < 32n`,
+  simp [arithmeticTheory.DIV_LT_X]
+  )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -348,9 +584,10 @@ val encode_rwts =
       open armTheory
    in
       [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def,
-       arm6_encode_def, arm6_encode1_def, encode_def,
-       e_branch_def, e_data_def, e_load_def, e_store_def,
-       e_multiply_def, EncodeImmShift_def, EncodeImmShift_def
+       arm6_encode_def, arm6_encode1_def, encode_def, arm6_vfp_cmp_def,
+       e_branch_def, e_data_def, e_load_def, e_store_def, e_vfp_def,
+       e_multiply_def, EncodeImmShift_def, EncodeImmShift_def,
+       EncodeVFPReg_def
       ]
    end
 
@@ -372,6 +609,8 @@ val bytes_in_memory_thm = Q.prove(
       (state.exception = NoException) /\
       (state.Architecture = ARMv6) /\
       ~state.Extensions Extension_Security /\
+      (state.VFPExtension = VFPv2) /\
+      (state.FP.FPSCR.RMode = 0w) /\
       ~state.CPSR.T /\
       ~state.CPSR.J /\
       ~state.CPSR.E /\
@@ -415,7 +654,7 @@ local
    fun boolify n tm =
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.rev o List.map (boolify 8)
-   val step6 = arm_stepLib.arm_eval "v6"
+   val step6 = arm_stepLib.arm_eval "v6, vfp"
    fun step state x l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
@@ -466,9 +705,10 @@ local
          \\ tac
          \\ assume_tac step_thm
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
-              [lem1, lem2, lem3, lem4, lem7, decode_imm12_thm,
-               decode_imm_thm, alignmentTheory.aligned_0,
-               alignmentTheory.aligned_numeric,
+              [lem1, lem2, lem3, lem3b, lem3c, lem3d, lem4, lem7,
+               decode_imm12_thm, decode_imm_thm, armTheory.FPCompare64_def,
+               arm_stepTheory.DecodeRoundingMode_def,
+               alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ fail_if_vacuous_tac
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
@@ -536,19 +776,22 @@ in
           asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
           alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
-          integer_wordTheory.overflow_add,
+          integer_wordTheory.overflow_add, fp_to_int_lem2,
+          arm_stepTheory.UpdateSingleOfDouble_def,
+          arm_stepTheory.SingleOfDouble_def,
           SIMP_RULE (srw_ss()) [] integer_wordTheory.overflow_sub]
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
-             lem1, lem2, lem3, adc_lem2, adc_lem4,
-             mul_long_lem1, mul_long_lem2, GSYM wordsTheory.word_mul_def,
-             alignmentTheory.align_aligned]
+             lem1, lem2, lem3, lem3b, lem3c, lem3d, adc_lem2, adc_lem4,
+             fp_to_int_lem2, mul_long_lem1, mul_long_lem2,
+             GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
       \\ srw_tac []
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate]
+             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5,
+             fp_to_int_lem2]
       \\ fs [adc_lem1, adc_lem3]
 end
 
@@ -658,6 +901,28 @@ in
            alignmentTheory.aligned_add_sub, aligned_add]
 end
 
+local
+  val next_tac' =
+    next_tac
+    \\ imp_res_tac fp_lem1
+    \\ imp_res_tac fp_lem2
+    \\ imp_res_tac fp_lem3
+    \\ imp_res_tac fp_lem4
+    \\ imp_res_tac fp_lem5
+    \\ imp_res_tac fp_lem6
+    \\ imp_res_tac fp_lem7
+    \\ imp_res_tac fp_lem8
+in
+  val fp_cmp_tac =
+    Cases_on `fp64_isNan (ms.FP.REG (n2w n0)) \/
+              fp64_isNan (ms.FP.REG (n2w n1))`
+    >- next_tac'
+    \\ Cases_on `fp64_equal (ms.FP.REG (n2w n0)) (ms.FP.REG (n2w n1))`
+    >- next_tac'
+    \\ Cases_on `fp64_lessThan (ms.FP.REG (n2w n0)) (ms.FP.REG (n2w n1))`
+    \\ next_tac'
+end
+
 (* -------------------------------------------------------------------------
    arm6 target_ok
    ------------------------------------------------------------------------- *)
@@ -687,7 +952,7 @@ val arm6_encoding = Q.prove (
    `!i. let l = arm6_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [arm6_enc_def, arm6_cmp_def, arm6_encode_fail_def,
+   \\ simp [arm6_enc_def, arm6_cmp_def, arm6_vfp_cmp_def, arm6_encode_fail_def,
             length_arm6_encode1, length_arm6_encode]
    \\ REPEAT CASE_TAC
    \\ rw [length_arm6_encode, length_arm6_encode1, arm6_encode_not_nil]
@@ -831,14 +1096,55 @@ val arm6_backend_correct = Q.store_thm ("arm6_backend_correct",
             \\ next_tac
             )
          )
+         >- (
+            (*--------------
+                Mem
+              --------------*)
+            print_tac "Mem"
+            \\ Cases_on `a`
+            \\ Cases_on `m`
+            \\ Cases_on `0w <= c`
+            \\ cnext_tac
+            )
          (*--------------
-             Mem
+             FP
            --------------*)
-         \\ print_tac "Mem"
-         \\ Cases_on `a`
-         \\ Cases_on `m`
-         \\ Cases_on `0w <= c`
-         \\ cnext_tac
+         \\ print_tac "FP"
+         \\ Cases_on `f`
+         >- (print_tac "FPLess"         \\ fp_cmp_tac)
+         >- (print_tac "FPLessEqual"    \\ fp_cmp_tac)
+         >- (print_tac "FPEqual"        \\ fp_cmp_tac)
+         >- (print_tac "FPAbs"  \\ next_tac)
+         >- (print_tac "FPNeg"  \\ next_tac)
+         >- (print_tac "FPSqrt" \\ next_tac)
+         >- (print_tac "FPAdd"  \\ next_tac)
+         >- (print_tac "FPSub"  \\ next_tac)
+         >- (print_tac "FPMul"  \\ next_tac)
+         >- (print_tac "FPDiv"  \\ next_tac)
+         >- (print_tac "FPMov"  \\ next_tac)
+         >- (print_tac "FPMovToReg"   \\ next_tac)
+         >- (print_tac "FPMovFromReg" \\ next_tac)
+         >- (print_tac "FPToInt"
+             \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
+             >- next_tac
+             \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
+             \\ Cases_on `w2i (i2w i : word32) = i`
+             >- (
+                 imp_res_tac fp_to_int_lem
+                 \\ assume_tac (GSYM bitTheory.BIT0_ODD)
+                 \\ Cases_on `BIT 0 n`
+                 \\ next_tac
+                )
+             \\ Cases_on `ODD n`
+             \\ next_tac
+             \\ imp_res_tac fp_to_int_lem2
+            )
+         >- (print_tac "FPFromInt"
+             \\ assume_tac (GSYM bitTheory.BIT0_ODD)
+             \\ wordsLib.Cases_on_word_value
+                  `(4 >< 4) (n2w n : word5) : word1` (* low or hi *)
+             \\ next_tac
+            )
       ) (* close Inst *)
       (*--------------
           Jump

@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open preamble
+open preamble fpSemTheory;
 
 val _ = new_theory "backend_common";
 val _ = set_grammar_ancestry ["arithmetic"]
@@ -83,7 +83,13 @@ val data_num_stubs_def = Define`
   data_num_stubs = word_num_stubs + (* general: *) 25 + (* dummy to make it odd *) 1 + (* bignum: *) 23 `;
 
 val bvl_num_stubs_def = Define`
-  bvl_num_stubs = data_num_stubs + 7
+  bvl_num_stubs = data_num_stubs + 7 + (* dummy for bvl_num_stub_MOD *) 2
 `;
+
+val bvl_to_bvi_namespaces_def = Define`
+  bvl_to_bvi_namespaces = 3n`;
+
+val bvl_num_stub_MOD = Q.store_thm("bvl_num_stub_MOD",
+  `bvl_num_stubs MOD bvl_to_bvi_namespaces = 0`, EVAL_TAC);
 
 val _ = export_theory();

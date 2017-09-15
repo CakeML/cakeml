@@ -50,6 +50,7 @@ val () = Datatype `
      ; next : 'b -> 'b
      ; get_pc : 'b -> 'a word
      ; get_reg : 'b -> num -> 'a word
+     ; get_fp_reg : 'b -> num -> word64
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; proj : 'a word set -> 'b -> 'c
@@ -60,7 +61,8 @@ val target_state_rel_def = Define`
   t.state_ok ms /\ (t.get_pc ms = s.pc) /\
   (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
   (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-       (t.get_reg ms i = s.regs i))`
+       (t.get_reg ms i = s.regs i)) /\
+  (!i. i < t.config.fp_reg_count ==> (t.get_fp_reg ms i = s.fp_regs i))`
 
 val target_ok_def = Define`
   target_ok t <=>
@@ -102,7 +104,8 @@ val sym_target_state_rel_def = Q.store_thm("sym_target_state_rel",
      t.state_ok ms /\ (s.pc = t.get_pc ms) /\
      (!a. a IN s.mem_domain ==> (s.mem a = t.get_byte ms a)) /\
      (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
-          (s.regs i = t.get_reg ms i))`,
+          (s.regs i = t.get_reg ms i)) /\
+     (!i. i < t.config.fp_reg_count ==> (s.fp_regs i = t.get_fp_reg ms i))`,
   metis_tac [target_state_rel_def]
   )
 
@@ -133,6 +136,7 @@ val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
    ((asmSem$upd_pc x s).be = s.be) ∧
    ((asmSem$upd_pc x s).mem = s.mem) ∧
    ((asmSem$upd_pc x s).regs = s.regs) ∧
+   ((asmSem$upd_pc x s).fp_regs = s.fp_regs) ∧
    ((asmSem$upd_pc x s).lr = s.lr) ∧
    ((asmSem$upd_pc x s).pc = x)`,
   EVAL_TAC);
@@ -180,12 +184,22 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    ((arith_upd a x).be = x.be)`,
   Cases_on`a` >> EVAL_TAC >> srw_tac[][]);
 
+val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
+  `((fp_upd a x).mem_domain = x.mem_domain) ∧
+   ((fp_upd a x).align = x.align) ∧
+   ((fp_upd a x).mem = x.mem) ∧
+   ((fp_upd a x).lr = x.lr) ∧
+   ((fp_upd a x).be = x.be)`,
+  Cases_on`a`
+  \\ rpt (EVAL_TAC \\ srw_tac[][] \\ CASE_TAC \\ rw []));
+
 val asm_consts = Q.store_thm("asm_consts[simp]",
   `!i w s. ((asm i w s).be = s.be) /\
             ((asm i w s).lr = s.lr) /\
             ((asm i w s).align = s.align) /\
             ((asm i w s).mem_domain = s.mem_domain)`,
-  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  Cases
+  \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
   \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ TRY (Cases_on `m`)

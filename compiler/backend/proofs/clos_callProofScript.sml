@@ -1565,6 +1565,13 @@ val do_app_thm = Q.prove(
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
     \\ first_x_assum drule \\ fs [])
+  \\ Cases_on `(?fpb. op = FP_bop fpb) \/
+               (? fpu. op = FP_uop fpu) \/
+               (? fcmp. op = FP_cmp fcmp)` THEN1
+   (fs [] \\ rw []
+    \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [Boolv_def] \\ rw [v_rel_def])
   \\ Cases_on `op` \\ fs []);
 
 val NOT_IN_domain_FST_g = Q.store_thm("NOT_IN_domain_FST_g",
@@ -2275,7 +2282,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[EVERY_MEM,calls_list_MAPi,indexedListsTheory.MEM_MAPi,
             FORALL_PROD,PULL_EXISTS,MEM_ZIP,ZIP_MAP,EL_MAP]
       \\ metis_tac[MEM_EL,FST,PAIR] )
-    \\ qunabbrev_tac`bo`\\fs[]
+    \\ qunabbrev_tac`bo`\\fs[](** MARKER **)
     \\ qmatch_assum_abbrev_tac`calls [exp] g2 = ([b2],_)`
     \\ qmatch_assum_rename_tac`calls [exp] g2 = ([b2],g4)`
     \\ qmatch_assum_rename_tac`calls [exp] g3 = ([b0],g5)`

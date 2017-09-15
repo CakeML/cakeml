@@ -4,11 +4,22 @@
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
 open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
-ASCIInumbersLib
+ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.tight_equality()
+
+(* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
+
+val _ = remove_ovl_mapping "exp" {Name="exp", Thy="transc"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
+val _ = remove_ovl_mapping "lim" {Name="lim", Thy="seq"}
+val _ = remove_ovl_mapping "ln" {Name="ln", Thy="transc"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
@@ -277,6 +288,19 @@ val EL_MAP2i = Q.store_thm("EL_MAP2i",
     EL n (MAP2i f l1 l2) = f n (EL n l1) (EL n l2)`,
   ho_match_mp_tac MAP2i_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
+
+val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
+  `∀xs ys.
+     LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
+  Induct \\ rw []
+  \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC);
+
+val EL_MAP2 = Q.store_thm("EL_MAP2",
+  `∀ts tt n.
+    n < MIN (LENGTH ts) (LENGTH tt) ⇒
+      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
+  Induct \\ rw []
+  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
 
 val MAP3_def = Define`
   (MAP3 f [] [] [] = []) /\

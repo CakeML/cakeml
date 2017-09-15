@@ -55,9 +55,9 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
   qexists_tac`perm''`>>
-  Cases_on`evaluate(prog,st with permute:=perm'')`>>
-  Cases_on`q=SOME Error`>>full_simp_tac(srw_ss())[]>>
-  Q.ISPECL_THEN [`c`,`max_var (word_simp$compile_exp prog) +1`,`word_simp$compile_exp prog`,`st with permute:=perm''`,`q`,`r`,`st.locals`] mp_tac inst_select_thm>>
+  pairarg_tac>>fs[]>>
+  Cases_on`res=SOME Error`>>full_simp_tac(srw_ss())[]>>
+  Q.ISPECL_THEN [`c`,`max_var (word_simp$compile_exp prog) +1`,`word_simp$compile_exp prog`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
   (impl_tac >-
     (drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
     simp[locals_rel_def]>>
@@ -72,7 +72,7 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
   pairarg_tac>>fs[]>>
   strip_tac>>
   Cases_on`remove_dead p2 LN`>>fs[]>>
-  Q.ISPECL_THEN [`p2`,`LN:num_set`,`q'`,`r'`,`st with permute := perm'`,`st.locals`,`res'`,`rcst`] mp_tac evaluate_remove_dead>>
+  Q.ISPECL_THEN [`p2`,`LN:num_set`,`q`,`r`,`st with permute := perm'`,`st.locals`,`res'`,`rcst`] mp_tac evaluate_remove_dead>>
   impl_tac>>fs[strong_locals_rel_def]>>
   strip_tac
   >-
@@ -83,7 +83,7 @@ val compile_single_lem = Q.store_thm("compile_single_lem",`
       metis_tac[full_ssa_cc_trans_distinct_tar_reg,el 4 rmd_thms,FST,PAIR])>>
     srw_tac[][]>>
     full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
-    Cases_on`q`>>full_simp_tac(srw_ss())[])
+    Cases_on`res`>>full_simp_tac(srw_ss())[])
   >>
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
     FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]);
@@ -191,9 +191,10 @@ val compile_single_correct = Q.prove(`
   >- tac
   >- tac
   >- (Cases_on`i`>>
-     fs[evaluate_def,inst_def,state_component_equality,assign_def,mem_load_def,mem_store_def,get_var_def]>>
+     fs[evaluate_def,inst_def,state_component_equality,assign_def,word_exp_code_frame,word_exp_perm,mem_load_def,get_var_perm,mem_store_def,get_var_def,get_vars_perm,LET_THM,get_vars_code_frame,get_fp_var_def]>>
      EVERY_CASE_TAC>>
-     fs[set_var_def])
+     fs[set_var_def,set_fp_var_def]>>
+     rw[])
   >- tac
   >- tac
   >- tac

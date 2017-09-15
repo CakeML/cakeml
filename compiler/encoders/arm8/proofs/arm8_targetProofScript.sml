@@ -1022,58 +1022,69 @@ val arm8_backend_correct = Q.store_thm ("arm8_backend_correct",
             \\ fs []
             )
          )
+         >- (
+            (*--------------
+                Mem
+              --------------*)
+            print_tac "Mem"
+            \\ Cases_on `a`
+            \\ Cases_on `m`
+            >| [
+               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
+               next_tac `0`
+               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+               ,
+               Cases_on `c = sw2sw ((8 >< 0) c : word9)`
+               >| [next_tac `0`
+                   \\ Cases_on
+                        `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
+               next_tac `0`
+               \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
+            ]
+            \\ enc_rwts_tac
+            \\ rfs []
+            \\ fs [lem7, lem7b, lem31, lem35]
+            \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
+                    by (imp_res_tac lem14 \\ NO_TAC))
+            \\ split_bytes_in_memory_tac 4
+            \\ next_state_tac01
+            \\ TRY (asmLib.split_bytes_in_memory_tac 4
+                    \\ next_state_tacN (`4w`, 1) filter_reg_31)
+            \\ state_tac
+                  [arm8_stepTheory.mem_dword_def, arm8_stepTheory.mem_word_def,
+                   arm8Theory.ExtendWord_def, set_sepTheory.fun2set_eq]
+            \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) []
+            \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
+            \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
+            )
          (*--------------
-             Mem
+             FP
            --------------*)
-         \\ print_tac "Mem"
-         \\ Cases_on `a`
-         \\ Cases_on `m`
-         >| [
-            Cases_on `c = sw2sw ((8 >< 0) c : word9)`
-            >| [next_tac `0`
-                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-                Cases_on `word_msb c`
-                >| [next_tac `1`,
-                    Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
-                    >| [next_tac `0`,
-                        next_tac `1`
-                    ]
-                ]
-            ]
-            ,
-            next_tac `0`
-            \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
-            ,
-            Cases_on `c = sw2sw ((8 >< 0) c : word9)`
-            >| [next_tac `0`
-                \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 (c >>> 3)) << 3)`,
-                Cases_on `word_msb c`
-                >| [next_tac `1`,
-                    Cases_on `c = w2w (^ext12 (c >>> 3)) << 3`
-                    >| [next_tac `0`,
-                        next_tac `1`
-                    ]
-                ]
-            ]
-            ,
-            next_tac `0`
-            \\ Cases_on `~word_msb c /\ (c = w2w (^ext12 c))`
-         ]
+         \\ print_tac "FP"
+         \\ Cases_on `f`
          \\ enc_rwts_tac
-         \\ rfs []
-         \\ fs [lem7, lem7b, lem31, lem35]
-         \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
-                 by (imp_res_tac lem14 \\ NO_TAC))
-         \\ split_bytes_in_memory_tac 4
-         \\ next_state_tac01
-         \\ TRY (asmLib.split_bytes_in_memory_tac 4
-                 \\ next_state_tacN (`4w`, 1) filter_reg_31)
-         \\ state_tac
-               [arm8_stepTheory.mem_dword_def, arm8_stepTheory.mem_word_def,
-                arm8Theory.ExtendWord_def, set_sepTheory.fun2set_eq]
-         \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) []
-         \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
-         \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
+
       ) (* close Inst *)
       (*--------------
           Jump

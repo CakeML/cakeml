@@ -276,6 +276,12 @@ val const_fp_inst_cs_def = Define `
   (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\
   (const_fp_inst_cs (Mem Load r _) cs = delete r cs) /\
   (const_fp_inst_cs (Mem Load8 r _) cs = delete r cs) /\
+  (const_fp_inst_cs (FP (FPLess r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
+  (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):'a inst) cs =
+    if dimindex(:'a) = 64 then delete r1 cs
+    else delete r2 (delete r1 cs)) ∧
   (const_fp_inst_cs _ cs = cs)`;
 
 val get_var_imm_cs_def = Define `

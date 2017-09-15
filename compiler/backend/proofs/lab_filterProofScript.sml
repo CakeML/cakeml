@@ -610,7 +610,32 @@ val filter_correct = Q.store_thm("filter_correct",
         qmatch_asmsub_abbrev_tac`evaluate _ = evaluate ss`>>
         `ss = tt` by (unabbrev_all_tac>>fs[state_component_equality])>>
         unabbrev_all_tac>>fs[]>>
-        metis_tac[ADD_ASSOC])))
+        metis_tac[ADD_ASSOC]))
+      >>
+        (* FP *)
+        Cases_on`f`>>fs[fp_upd_def]>> every_case_tac >>
+        fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def,read_fp_reg_def,upd_fp_reg_def]>>
+        rw[]>>fs[]>>
+        (* Error cases *)
+        TRY(
+          qmatch_goalsub_rename_tac`Error` >>
+          first_x_assum(qspec_then`0` mp_tac)>>
+          srw_tac[][]>>
+          qexists_tac`k`>>qexists_tac`t1 with pc:=k+t1.pc`>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
+        (qmatch_asmsub_abbrev_tac`evaluate tt = (res,s2)`>>
+        last_x_assum(qspec_then `tt with <|pc:= t1.pc+k+1; code:=t1.code; compile:=t1.compile;
+          compile_oracle := t1.compile_oracle|>` mp_tac)>>
+        simp[Abbr`tt`,state_component_equality]>>
+        impl_tac>-
+          metis_tac[adjust_pc_all_skips,ADD_COMM,ADD_ASSOC]>>
+        strip_tac>>
+        first_x_assum(qspec_then`k'` assume_tac)>>
+        qmatch_asmsub_abbrev_tac`evaluate tt = (res,t2)`>> rfs[] >>
+        qmatch_asmsub_abbrev_tac`evaluate _ = evaluate ss`>>
+        `ss = tt` by (unabbrev_all_tac>>fs[state_component_equality])>>
+        unabbrev_all_tac>>fs[]>>
+        metis_tac[ADD_ASSOC])
+      )
     >- (*JumpReg*)
       (FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>-same_inst_tac>>
       Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]

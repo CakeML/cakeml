@@ -35,7 +35,7 @@ val convert_sub_def = Define`
   (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
   (convert_sub ls = Op Sub ls)`
 
-val convert_sub_pmatch = Q.store_thm("convert_sub_pmatch",`!l. 
+val convert_sub_pmatch = Q.store_thm("convert_sub_pmatch",`!l.
   convert_sub l =
   case l of
     [Const w1;Const w2] => Const (w1 -w2)
@@ -50,7 +50,7 @@ val op_consts_def = Define`
   (op_consts And = Const (~0w)) ∧
   (op_consts _ = Const 0w)`
 
-val op_consts_pmatch = Q.store_thm("op_consts_pmatch",`!op. 
+val op_consts_pmatch = Q.store_thm("op_consts_pmatch",`!op.
   op_consts op =
   case op of
     And => Const (~0w)

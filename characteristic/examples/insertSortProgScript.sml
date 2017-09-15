@@ -87,7 +87,7 @@ val zip_append_sing = Q.store_thm ("zip_append_sing",
   metis_tac [ZIP_APPEND, LENGTH]);
 
 val arith = Q.prove (
-  `!x. x ≠ 0 ⇒ &(x-1) = &x - 1`,
+  `!x:num. x ≠ 0 ⇒ &(x-1) = &x - 1:int`,
   rw [int_arithTheory.INT_NUM_SUB]);
 
 val eq_num_v_thm =

@@ -228,6 +228,7 @@ local val compile_op_quotation = `
         (Let [Op (RefByte T) [Op (Const 0) []; Var 0]]
            (Let [Op (CopyByte F) [Op (Const 0) []; Var 0; Var 1; Var 2; Var 3]]
              (Var 1)))
+    | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | _ => Op op c1`
 in
 val compile_op_def = Define compile_op_quotation
@@ -242,10 +243,11 @@ val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
 end
 
 val _ = temp_overload_on("++",``SmartAppend``);
+val _ = temp_overload_on("nss",``bvl_to_bvi_namespaces``);
 
 val compile_aux_def = Define`
   compile_aux (k,args,p) =
-    List[(num_stubs + 2 * k + 1, args, bvi_let$compile_exp p)]`;
+    List[(num_stubs + nss * k + 1, args, bvi_let$compile_exp p)]`;
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps n [] = ([],Nil,n)) /\
@@ -265,7 +267,7 @@ val compile_exps_def = tDefine "compile_exps" `
        let (c1,aux1,n1) = compile_exps n args in
        let (c2,aux2,n2) = compile_exps n1 [x0] in
        let n3 = n2 + 1 in
-         ([Call 0 (SOME (num_stubs + 2 * n2 + 1)) c1 NONE],
+         ([Call 0 (SOME (num_stubs + nss * n2 + 1)) c1 NONE],
           aux1++aux2++compile_aux(n2,LENGTH args,HD c2), n3)
      else
        let (c1,aux1,n1) = compile_exps n xs in
@@ -287,14 +289,14 @@ val compile_exps_def = tDefine "compile_exps" `
      let (c3,aux3,n3) = compile_exps n2 [x2] in
      let aux4 = compile_aux(n3,LENGTH args,HD c2) in
      let n4 = n3 + 1 in
-       ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
+       ([Call 0 (SOME (num_stubs + nss * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
   (compile_exps n [Call ticks dest xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([Call ticks
               (dtcase dest of
                | NONE => NONE
-               | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
+               | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
@@ -321,7 +323,7 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (aux ++ List [(num_stubs + 2 * name,arg_count,bvi_let$compile_exp (HD c))],n1)`
+      (aux ++ List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))],n1)`
 
 val compile_list_def = Define `
   (compile_list n [] = (List [],n)) /\
@@ -334,7 +336,7 @@ val compile_prog_def = Define `
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
     let (code,n1) = compile_list n prog in
-      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + 2 * start) k ++ append code, n1)`;
+      (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)`;
 
 val optimise_def = Define `
   optimise split_seq cut_size ls =
@@ -345,6 +347,8 @@ val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
             ; split_main_at_seq : bool (* split main expression at Seqs *)
+            ; next_name1 : num (* there should be as many of       *)
+            ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
             |>`;
 
 val default_config_def = Define`
@@ -352,15 +356,17 @@ val default_config_def = Define`
     <| inline_size_limit := 10
      ; exp_cut := 1000
      ; split_main_at_seq := T
+     ; next_name1 := num_stubs + 1
+     ; next_name2 := num_stubs + 2
      |>`;
 
 val compile_def = Define `
-  compile start n c prog =
+  compile start c prog =
     let (loc, code, n1) =
-      compile_prog start n
+      compile_prog start c.next_name1
         (optimise c.split_main_at_seq c.exp_cut
            (bvl_inline$compile_prog c.inline_size_limit prog)) in
-    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2 * n1 + 1) code in
-      (loc, code', n2)`;
+    let (n2, code') = bvi_tailrec$compile_prog c.next_name2 code in
+      (loc, code', n1, n2)`;
 
 val _ = export_theory();

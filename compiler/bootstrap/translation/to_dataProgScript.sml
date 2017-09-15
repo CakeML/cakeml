@@ -135,12 +135,19 @@ val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_LIST_TYPE_CHAR]
 
+val EqualityType_FPSEM_FP_BOP_TYPE = find_equality_type_thm ``FPSEM_FP_BOP_TYPE``
+val EqualityType_FPSEM_FP_UOP_TYPE = find_equality_type_thm ``FPSEM_FP_UOP_TYPE``
+val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE``
+
 val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
                        EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_LIST_TYPE_CHAR]
-
+                       EqualityType_LIST_TYPE_CHAR,
+                       EqualityType_FPSEM_FP_BOP_TYPE,
+                       EqualityType_FPSEM_FP_UOP_TYPE,
+                       EqualityType_FPSEM_FP_CMP_TYPE
+                       ]
 
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
@@ -543,7 +550,11 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_AST_OPW_TYPE,
       EqualityType_AST_WORD_SIZE_TYPE,
       EqualityType_LIST_TYPE_CHAR,
-      EqualityType_BOOL]
+      EqualityType_BOOL,
+      EqualityType_FPSEM_FP_BOP_TYPE,
+      EqualityType_FPSEM_FP_UOP_TYPE,
+      EqualityType_FPSEM_FP_CMP_TYPE
+      ]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
@@ -948,7 +959,7 @@ val _ = translate(bvl_to_bviTheory.compile_aux_def);
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 2
+val bad_row = rows |> List.rev |> el 3
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row

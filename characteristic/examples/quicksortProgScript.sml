@@ -585,7 +585,7 @@ val partition_spec = Q.store_thm ("partition_spec",
       rw []
       >- metis_tac [LENGTH_APPEND]
       >- (
-        `!x. x + -1 = x - 1` by intLib.ARITH_TAC >>
+        `!x:int. x + -1 = x - 1` by intLib.ARITH_TAC >>
         simp [])
       >- (
         unabbrev_all_tac >>

@@ -188,6 +188,7 @@ val state_rel_def = Define `
     s2.clock = s1.clock /\
     s2.ffi = s1.ffi /\
     s2.ffi_save_regs = s1.ffi_save_regs /\
+    s2.fp_regs = s1.fp_regs /\
     s2.code_buffer = s1.code_buffer /\
     s1.compile = (λc p. s2.compile c (MAP (prog_comp jump off k) p)) /\
     (* s2.data_buffer = empty_buffer /\ *)
@@ -684,6 +685,17 @@ val state_rel_mem_store_byte_aux = Q.store_thm("state_rel_mem_store_byte_aux",
   \\ match_mp_tac memory_write
   \\ simp[]);
 
+val state_rel_get_fp_var = Q.prove(`
+  state_rel jump off k s t ⇒
+  get_fp_var n s = get_fp_var n t`,
+  fs[state_rel_def,get_fp_var_def]);
+
+val state_rel_set_fp_var = Q.prove(`
+  state_rel jump off k s t ⇒
+  state_rel jump off k (set_fp_var n v s) (set_fp_var n v t)`,
+  rw[state_rel_def,set_fp_var_def]>>rfs[]>>
+  res_tac >> fs[]);
+
 val state_rel_inst = Q.store_thm("state_rel_inst",
   `state_rel jump off k s t ∧
    reg_bound_inst i k ∧
@@ -740,7 +752,8 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][] )
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+  >- (
+     BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ pop_assum mp_tac
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -771,7 +784,14 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ imp_res_tac state_rel_mem_store)
   \\ drule (GEN_ALL state_rel_mem_store_byte_aux)
   \\ disch_then drule
-  \\ strip_tac \\ simp[]);
+  \\ strip_tac \\ simp[])
+  >>
+    BasicProvers.TOP_CASE_TAC \\ fs[case_eq_thms] \\
+    imp_res_tac state_rel_get_fp_var>>fs[]>>
+    imp_res_tac state_rel_get_var >> fs[]>>
+    rw[]>>fs[state_rel_set_var,state_rel_set_fp_var]>>
+    rfs[]>>
+    rw[]>>fs[state_rel_set_var,state_rel_set_fp_var]);
 
 val stack_write = Q.store_thm("stack_write",
   `∀stack base p m d a v.
@@ -1039,7 +1059,7 @@ val mem_load_lemma2 = Q.prove(`
   fs[store_list_def]);
 
 val assoc_lem = Q.prove(`
-  (A * B) * C =
+  (A:(('a -> bool) -> bool) * B) * C =
   (B * C) * A`,
   metis_tac[STAR_ASSOC,STAR_COMM])
 
@@ -3017,6 +3037,7 @@ val make_init_any_def = Define `
     case make_init_opt gen_gc max_heap bitmaps data_sp coracle jump off k code s of
     | SOME t => t
     | NONE => s with <| regs := FEMPTY |+ (0,Loc 1 0)
+                      ; fp_regs := FEMPTY
                       ; mdomain := EMPTY
                       ; bitmaps := [4w]
                       ; use_stack := T

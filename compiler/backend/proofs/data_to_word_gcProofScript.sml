@@ -6699,4 +6699,157 @@ val word_ml_inv_get_var_IMP = save_thm("word_ml_inv_get_var_IMP",
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]);
 
+(* lemmas about has_fp_ops *)
+
+val shift_length_has_fp_ops = store_thm("shift_length_has_fp_ops[simp]",
+  ``shift_length (conf with has_fp_ops := b) = shift_length conf``,
+  EVAL_TAC);
+
+val word_gc_fun_assum_has_fp_ops = store_thm("word_gc_fun_assum_has_fp_ops[simp]",
+  ``word_gc_fun_assum (conf with has_fp_ops := b) s =
+    word_gc_fun_assum conf s``,
+  EVAL_TAC \\ fs []);
+
+val word_gc_move_has_fp_ops = store_thm("word_gc_move_has_fp_ops[simp]",
+  ``!x. word_gc_move (conf with has_fp_ops := b) x =
+        word_gc_move conf x``,
+  simp_tac std_ss [FORALL_PROD] \\ Cases
+  \\ simp_tac std_ss [FORALL_PROD,word_gc_move_def]
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_move_has_fp_ops = store_thm("word_gen_gc_move_has_fp_ops[simp]",
+  ``!x. word_gen_gc_move (conf with has_fp_ops := b) x =
+        word_gen_gc_move conf x``,
+  simp_tac std_ss [FORALL_PROD] \\ Cases
+  \\ simp_tac std_ss [FORALL_PROD,word_gen_gc_move_def]
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_partial_move_has_fp_ops = store_thm("word_gen_gc_move_has_fp_ops[simp]",
+  ``!x. word_gen_gc_partial_move (conf with has_fp_ops := b) x =
+        word_gen_gc_partial_move conf x``,
+  simp_tac std_ss [FORALL_PROD] \\ Cases
+  \\ simp_tac std_ss [FORALL_PROD,word_gen_gc_partial_move_def]
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gc_move_list_has_fp_ops = store_thm("word_gc_move_list_has_fp_ops[simp]",
+  ``!conf x. word_gc_move_list (conf with has_fp_ops := b) x =
+             word_gc_move_list conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gc_move_list_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gc_move_list_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gen_gc_move_list_has_fp_ops = store_thm("word_gen_gc_move_list_has_fp_ops[simp]",
+  ``!conf x. word_gen_gc_move_list (conf with has_fp_ops := b) x =
+             word_gen_gc_move_list conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gen_gc_move_list_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gen_gc_move_list_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gen_gc_partial_move_list_has_fp_ops = store_thm("word_gen_gc_partial_move_list_has_fp_ops[simp]",
+  ``!conf x. word_gen_gc_partial_move_list (conf with has_fp_ops := b) x =
+             word_gen_gc_partial_move_list conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gen_gc_partial_move_list_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gen_gc_partial_move_list_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gc_move_roots_has_fp_ops = store_thm("word_gc_move_roots_has_fp_ops[simp]",
+  ``!conf x. word_gc_move_roots (conf with has_fp_ops := b) x =
+             word_gc_move_roots conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gc_move_roots_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gc_move_roots_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gen_gc_move_roots_has_fp_ops = store_thm("word_gen_gc_move_roots_has_fp_ops[simp]",
+  ``!conf x. word_gen_gc_move_roots (conf with has_fp_ops := b) x =
+             word_gen_gc_move_roots conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gen_gc_move_roots_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gen_gc_move_roots_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gen_gc_partial_move_roots_has_fp_ops = store_thm("word_gen_gc_partial_move_roots_has_fp_ops[simp]",
+  ``!conf x. word_gen_gc_partial_move_roots (conf with has_fp_ops := b) x =
+             word_gen_gc_partial_move_roots conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ recInduct (fetch "-" "word_gen_gc_partial_move_roots_ind")
+  \\ rw [] \\ once_rewrite_tac [word_gen_gc_partial_move_roots_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []));
+
+val word_gc_move_loop_has_fp_ops = store_thm("word_gc_move_loop_has_fp_ops[simp]",
+  ``!n conf x. word_gc_move_loop n (conf with has_fp_ops := b) x =
+               word_gc_move_loop n conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_partial_move_data_has_fp_ops = store_thm("word_gen_gc_partial_move_data_has_fp_ops[simp]",
+  ``!n conf x. word_gen_gc_partial_move_data (conf with has_fp_ops := b) n x =
+               word_gen_gc_partial_move_data conf n x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gen_gc_partial_move_data_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_move_data_has_fp_ops = store_thm("word_gen_gc_move_data_has_fp_ops[simp]",
+  ``!n conf x. word_gen_gc_move_data (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_data conf n x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gen_gc_move_data_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_move_refs_has_fp_ops = store_thm("word_gen_gc_move_refs_has_fp_ops[simp]",
+  ``!n conf x. word_gen_gc_move_refs (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_refs conf n x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gen_gc_move_refs_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_partial_move_ref_list_has_fp_ops = store_thm("word_gen_gc_partial_move_ref_list_has_fp_ops[simp]",
+  ``!n conf x. word_gen_gc_partial_move_ref_list n (conf with has_fp_ops := b) x =
+               word_gen_gc_partial_move_ref_list n conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_gen_gc_move_loop_has_fp_ops = store_thm("word_gen_gc_move_loop_has_fp_ops[simp]",
+  ``!n conf x. word_gen_gc_move_loop (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_loop conf n x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ Induct \\ rw []
+  \\ once_rewrite_tac [word_gen_gc_move_loop_def] \\ fs []
+  \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
+
+val word_full_gc_has_fp_ops = store_thm("word_full_gc_has_fp_ops[simp]",
+  ``!x. word_full_gc (conf with has_fp_ops := b) x =
+        word_full_gc conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ rewrite_tac [word_full_gc_def] \\ fs []);
+
+val word_gen_gc_partial_full_has_fp_ops = store_thm("word_gen_gc_partial_full_has_fp_ops[simp]",
+  ``!x. word_gen_gc_partial_full (conf with has_fp_ops := b) x =
+        word_gen_gc_partial_full conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ rewrite_tac [word_gen_gc_partial_full_def]
+  \\ fs [word_gen_gc_partial_def]);
+
+val word_gen_gc_has_fp_ops = store_thm("word_gen_gc_has_fp_ops[simp]",
+  ``!x. word_gen_gc (conf with has_fp_ops := b) x =
+        word_gen_gc conf x``,
+  simp_tac std_ss [FORALL_PROD]
+  \\ rewrite_tac [word_gen_gc_def]
+  \\ fs [word_gen_gc_partial_def]);
+
+val word_gc_fun_has_fp_ops = store_thm("word_gc_fun_has_fp_ops[simp]",
+  ``word_gc_fun (conf with has_fp_ops := b) = word_gc_fun conf``,
+  fs [word_gc_fun_def,FUN_EQ_THM,FORALL_PROD]
+  \\ Cases_on `conf.gc_kind` \\ fs []);
+
 val _ = export_theory();

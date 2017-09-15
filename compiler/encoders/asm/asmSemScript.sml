@@ -1,15 +1,17 @@
 open HolKernel Parse boolLib bossLib
-open asmTheory
+open asmTheory machine_ieeeTheory
 
 val () = new_theory "asmSem"
 
 (* -- semantics of ASM program -- *)
 
 val () = Parse.temp_type_abbrev ("reg", ``:num``)
+val () = Parse.temp_type_abbrev ("fp_reg", ``:num``)
 
 val () = Datatype `
   asm_state =
     <| regs       : num -> 'a word
+     ; fp_regs    : num -> word64
      ; mem        : 'a word -> word8
      ; mem_domain : 'a word set
      ; pc         : 'a word
@@ -19,11 +21,13 @@ val () = Datatype `
      ; failed     : bool
      |>`
 
-val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def  = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
-val upd_mem_def  = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
-val read_reg_def = Define `read_reg r s = s.regs r`
-val read_mem_def = Define `read_mem a s = s.mem a`
+val upd_pc_def      = Define `upd_pc pc s = s with pc := pc`
+val upd_reg_def     = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
+val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
+val upd_mem_def     = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
+val read_reg_def    = Define `read_reg r s = s.regs r`
+val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
+val read_mem_def    = Define `read_mem a s = s.mem a`
 
 val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
 
@@ -84,6 +88,66 @@ val arith_upd_def = Define `
        upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
          (upd_reg r1 (w2 - w3) s))`
 
+val fp_upd_def = Define `
+  (fp_upd (FPLess r d1 d2) s =
+     upd_reg r (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
+                  then 1w
+                else 0w) s) /\
+  (fp_upd (FPLessEqual r d1 d2) s =
+     upd_reg r (if fp64_lessEqual (read_fp_reg d1 s) (read_fp_reg d2 s)
+                  then 1w
+                else 0w) s) /\
+  (fp_upd (FPEqual r d1 d2) s =
+     upd_reg r (if fp64_equal (read_fp_reg d1 s) (read_fp_reg d2 s)
+                  then 1w
+                else 0w) s) /\
+  (fp_upd (FPMov d1 d2) s = upd_fp_reg d1 (read_fp_reg d2 s) s) /\
+  (fp_upd (FPAbs d1 d2) s = upd_fp_reg d1 (fp64_abs (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPNeg d1 d2) s = upd_fp_reg d1 (fp64_negate (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPSqrt d1 d2) s =
+     upd_fp_reg d1 (fp64_sqrt roundTiesToEven (read_fp_reg d2 s)) s) /\
+  (fp_upd (FPAdd d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPSub d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_sub roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPMul d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_mul roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPDiv d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPMovToReg r1 r2 d) (s : 'a asm_state) =
+     if dimindex(:'a) = 64 then
+       upd_reg r1 (w2w (read_fp_reg d s)) s
+     else let v = read_fp_reg d s in
+       upd_reg r2 ((63 >< 32) v) (upd_reg r1 ((31 >< 0) v) s)) /\
+  (fp_upd (FPMovFromReg d r1 r2) (s : 'a asm_state) =
+     upd_fp_reg d
+       (if dimindex(:'a) = 64 then
+          w2w (read_reg r1 s)
+        else
+          read_reg r2 s @@ read_reg r1 s) s) /\
+  (fp_upd (FPToInt d1 d2) (s : 'a asm_state) =
+     case fp64_to_int roundTiesToEven (read_fp_reg d2 s) of
+         SOME i =>
+           let w = i2w i : 'a word in
+             (if dimindex(:'a) = 64 then
+                upd_fp_reg d1 (w2w w)
+              else let (h, l) = if ODD d1 then (63, 32) else (31, 0) in
+                     upd_fp_reg (d1 DIV 2)
+                       (bit_field_insert h l w (read_fp_reg (d1 DIV 2) s)))
+                (assert (w2i w = i) s)
+      | _ => assert F s) /\
+  (fp_upd (FPFromInt d1 d2) (s : 'a asm_state) =
+     let i = if dimindex(:'a) = 64 then
+               w2i (read_fp_reg d2 s)
+             else let v = read_fp_reg (d2 DIV 2) s in
+               w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word)
+     in
+       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)`
+
 val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
 
 val read_mem_word_def = Define `
@@ -125,7 +189,8 @@ val inst_def = Define `
   (inst Skip s = s) /\
   (inst (Const r imm) s = upd_reg r imm s) /\
   (inst (Arith x) s = arith_upd x s) /\
-  (inst (Mem m r a) s = mem_op m r a s)`
+  (inst (Mem m r a) s = mem_op m r a s) /\
+  (inst (FP fp) s = fp_upd fp s)`
 
 val jump_to_offset_def = Define `jump_to_offset w s = upd_pc (s.pc + w) s`
 

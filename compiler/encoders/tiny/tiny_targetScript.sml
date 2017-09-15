@@ -99,6 +99,7 @@ val tiny_enc_def = Define`
       tiny_encode
         [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
          StoreMEMByte (fSnd, temp_reg, Reg (n2w r1), Reg temp_reg)]) /\
+   (tiny_enc (Inst (FP _)) = enc ReservedInstr) /\
    (tiny_enc (Jump a) =
       if -32w <= a /\ a < 32w then
         enc (Jump (fAdd, temp_reg, Imm (w2w a)))
@@ -149,6 +150,7 @@ val tiny_config_def = Define`
     ; encode := tiny_enc
     ; code_alignment := 2
     ; reg_count := 64
+    ; fp_reg_count := 0
     ; avoid_regs := [63]
     ; link_reg := SOME 62
     ; two_reg_arith := F

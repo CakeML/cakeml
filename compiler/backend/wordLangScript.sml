@@ -96,6 +96,15 @@ val every_var_inst_def = Define`
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (FP (FPLess r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPLessEqual r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPEqual r d1 d2)) = P r) ∧
+  (every_var_inst P (FP (FPMovToReg r1 r2 d):'a inst) =
+    if dimindex(:'a) = 64 then P r1
+    else (P r1 ∧ P r2)) ∧
+  (every_var_inst P (FP (FPMovFromReg d r1 r2)) =
+    if dimindex(:'a) = 64 then P r1
+    else (P r1 ∧ P r2)) ∧
   (every_var_inst P inst = T)` (*catchall*)
 
 val every_name_def = Define`
@@ -193,6 +202,15 @@ val max_var_inst_def = Define`
   (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Load8 r (Addr a w)) = MAX a r) ∧
   (max_var_inst (Mem Store8 r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (FP (FPLess r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPLessEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPEqual r f1 f2)) = r) ∧
+  (max_var_inst (FP (FPMovToReg r1 r2 d):'a inst) =
+    if dimindex(:'a) = 64 then r1
+    else MAX r1 r2) ∧
+  (max_var_inst (FP (FPMovFromReg d r1 r2)) =
+    if dimindex(:'a) = 64 then r1
+    else MAX r1 r2) ∧
   (max_var_inst _ = 0)`
 
 val max_var_def = Define `

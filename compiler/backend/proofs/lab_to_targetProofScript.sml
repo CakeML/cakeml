@@ -581,6 +581,7 @@ val state_rel_def = Define `
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (* Relating register *)
+    (!r. s1.fp_regs r = t1.fp_regs r) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (* Relating (data) memories *)
     (!a. byte_align a IN s1.mem_domain ==>
@@ -1350,6 +1351,43 @@ val arith_upd_lemma = Q.prove(
     \\ fs[read_reg_def]
     \\ fs[labSemTheory.assert_def]));
 
+(* The lab and asm versions should be in their individual props *)
+val arith_upd_fp_regs = Q.store_thm("arith_upd_fp_regs[simp]",`
+  ((arith_upd a s).fp_regs = s.fp_regs ∧
+  (arith_upd a (t:'a asm_state)).fp_regs = t.fp_regs)`,
+  Cases_on`a`>>
+  TRY(Cases_on`b`)>>
+  EVAL_TAC>>fs[]>>every_case_tac>>
+  fs[]);
+
+val fp_upd_lemma = Q.prove(`
+  (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧
+  (!r. s1.fp_regs r = t1.fp_regs r) /\
+   ¬(fp_upd f s1).failed ⇒
+  (∀r. (fp_upd f s1).fp_regs r = (fp_upd f t1).fp_regs r) ∧
+  ∀r.
+    word_loc_val p labs (read_reg r (fp_upd f s1)) =
+    SOME ((fp_upd f t1).regs r)`,
+  strip_tac>>Cases_on`f`>>fs[fp_upd_def,read_fp_reg_def,labSemTheory.read_fp_reg_def,upd_reg_def,labSemTheory.upd_reg_def]>>
+  TRY(rw[]>>EVAL_TAC>>rw[]>>EVAL_TAC>>NO_TAC)
+  >-
+    (IF_CASES_TAC>>fs[]>>
+    Cases_on`read_reg n0 s1`>>fs[labSemTheory.assert_def]
+    >-
+      (last_assum(qspec_then`n0` mp_tac)>>
+      pop_assum SUBST1_TAC>>EVAL_TAC>>rw[])
+    >>
+      Cases_on`read_reg n1 s1`>>fs[labSemTheory.assert_def]>>
+      last_assum(qspec_then`n0` mp_tac)>>
+      last_assum(qspec_then`n1` mp_tac)>>
+      pop_assum SUBST1_TAC>>
+      pop_assum SUBST1_TAC>>
+      EVAL_TAC>>rw[])
+  >>
+    TOP_CASE_TAC>>rfs[]>>fs[labSemTheory.assert_def]>>
+    IF_CASES_TAC>>fs[]>>
+    rw[]>>EVAL_TAC>>rw[])
+
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
@@ -1406,8 +1444,9 @@ val Inst_lemma = Q.prove(
     conj_tac>- (match_mp_tac arith_upd_lemma >> srw_tac[][]) >>
     conj_tac>- fs[GSYM word_add_n2w]>>
     metis_tac[])
-  \\ strip_tac >>
-  Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
+  THEN1
+    (strip_tac >>
+    Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
   >-
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
     fs[good_dimindex_def]>>
@@ -1522,7 +1561,7 @@ val Inst_lemma = Q.prove(
       (`aligned 2 x` by fs [aligned_w2n]>>
        drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
-       `byte_align (x+1w) ∈ s1.mem_domain ∧
+      `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
        byte_align (x+3w) ∈ s1.mem_domain ∧
        byte_align x ∈ s1.mem_domain` by fs[]>>
@@ -1548,7 +1587,9 @@ val Inst_lemma = Q.prove(
            res_tac>>
            imp_res_tac aligned_2_not_eq>>fs[word_loc_val_byte_def])
        >-
-         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+         simp[APPLY_UPDATE_THM]>>
+         qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
          rfs[])
        >-
@@ -1556,8 +1597,7 @@ val Inst_lemma = Q.prove(
          simp[APPLY_UPDATE_THM]>>
          qexists_tac`t1.mem`>>rfs[]>>
          rw[APPLY_UPDATE_THM]>>
-         rfs[])
-      ))
+         rfs[])))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
        drule aligned_3_imp>>
@@ -1617,31 +1657,61 @@ val Inst_lemma = Q.prove(
     qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
     fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
     rw[]
-    >-
-      (fs[APPLY_UPDATE_THM]>>
-      IF_CASES_TAC>>fs[])
-    >- metis_tac[]
-    >-
-      (simp[APPLY_UPDATE_THM]>>
-      IF_CASES_TAC>>fs[word_loc_val_def]>>
-      IF_CASES_TAC>>fs[]
       >-
-        (simp[get_byte_set_byte]>>
-        first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
-      >>
-      simp[get_byte_set_byte_diff]>>
-      first_x_assum(qspec_then`a` mp_tac)>>
-      TOP_CASE_TAC>>rfs[word_loc_val_def])
-    >-
-      (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
-      rw[APPLY_UPDATE_THM]>>
-      rfs[])
+        (fs[APPLY_UPDATE_THM]>>
+        IF_CASES_TAC>>fs[])
+      >- metis_tac[]
+      >-
+        (simp[APPLY_UPDATE_THM]>>
+        IF_CASES_TAC>>fs[word_loc_val_def]>>
+        IF_CASES_TAC>>fs[]
+        >-
+          (simp[get_byte_set_byte]>>
+          first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
+        >>
+        simp[get_byte_set_byte_diff]>>
+        first_x_assum(qspec_then`a` mp_tac)>>
+        TOP_CASE_TAC>>rfs[word_loc_val_def])
+      >-
+        (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+        qexists_tac`t1.mem`>>rfs[]>>
+        rw[APPLY_UPDATE_THM]>>
+        rfs[])
     >-
       (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
       qexists_tac`t1.mem`>>rfs[]>>
       rw[APPLY_UPDATE_THM]>>
       rfs[])
-      ));
+      ))
+  THEN1 (
+  (strip_tac>>CONJ_ASM1_TAC>-
+    (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
+    >-
+      (EVAL_TAC>>rw[]>>fs[state_rel_def])
+    >>
+      fs[fp_upd_def]>>
+      `read_fp_reg n0 s1 = read_fp_reg n0 t1` by
+        (EVAL_TAC>>fs[state_rel_def])>>
+      TOP_CASE_TAC>>fs[assert_def,labSemTheory.assert_def]>>
+      IF_CASES_TAC>-
+        fs[state_rel_def,labSemTheory.upd_fp_reg_def,upd_fp_reg_def]>>
+      IF_CASES_TAC>>
+      fs[state_rel_def,labSemTheory.upd_fp_reg_def,upd_fp_reg_def])
+  >>
+  strip_tac>>
+  simp[inc_pc_dec_clock] >>
+  simp[dec_clock_def] >>
+  match_mp_tac state_rel_clock >>
+  full_simp_tac(srw_ss())[state_rel_def] >>
+  simp[GSYM word_add_n2w] >>
+  fsrw_tac[ARITH_ss][] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- metis_tac[] >>
+  reverse conj_tac >- (
+    rw[] >> fs[] >> res_tac >> fs[GSYM word_add_n2w] ) >>
+  match_mp_tac fp_upd_lemma>> fs[]));
 
 (* compile correct *)
 
@@ -5613,6 +5683,7 @@ val make_init_def = Define `
   make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm (ms:'state) code
     comp cbpos cbspace coracle =
     <| regs           := \k. Word ((t.regs k):'a word)
+     ; fp_regs    := t.fp_regs
      ; mem            := m
      ; mem_domain     := dm
      ; pc             := 0
