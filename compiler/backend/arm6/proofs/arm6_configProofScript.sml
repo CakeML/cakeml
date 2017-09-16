@@ -51,6 +51,8 @@ val arm6_machine_config_ok = Q.store_thm("arm6_machine_config_ok",
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
+  >- EVAL_TAC
+  >- EVAL_TAC
   >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,arm6_backend_correct]);
 
 val arm6_init_ok = Q.store_thm("arm6_init_ok",
