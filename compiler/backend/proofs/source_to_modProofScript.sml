@@ -305,7 +305,7 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
     ⇒
     env_all_rel genv var_map
       <| c := env_c; v := nsAppend env_v_local env_v_top |>
-      <| c := env_c; v := env' |>
+      <| c := env_c; v := env'; exh_pat := F |>
       locals)`;
 
 val match_result_rel_def = Define
@@ -775,7 +775,7 @@ val do_opapp = Q.prove (
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
      ∃var_map env_i1 locals t1 ts.
-       env_all_rel genv var_map env env_i1 locals ∧
+       env_all_rel genv var_map env (env_i1 with exh_pat := F) locals ∧
        LENGTH ts = LENGTH locals ∧
        do_opapp vs_i1 = SOME (env_i1, compile_exp t1 (bind_locals ts locals var_map) e)`,
    srw_tac[][do_opapp_cases, modSemTheory.do_opapp_def] >>
@@ -1219,7 +1219,8 @@ val compile_exp_correct' = Q.prove (
       asm_exists_tac >> full_simp_tac(srw_ss())[] >>
       srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] >>
-      metis_tac []) >>
+      `env_i1.exh_pat = F` by fs [env_all_rel_cases] >>
+      rw []) >>
     BasicProvers.TOP_CASE_TAC >>
     BasicProvers.TOP_CASE_TAC >>
     strip_tac >> rveq >>
@@ -1431,6 +1432,7 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac [LENGTH_MAP])
   >-
     (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
+  >- fs [env_all_rel_cases]
   >- (
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
@@ -1503,11 +1505,11 @@ val compile_exp_correct = Q.prove (
      ∃s'_i1 r_i1.
        result_rel (LIST_REL ∘ v_rel) s_i1.globals r r_i1 ∧
        s_rel s' s'_i1 ∧
-       evaluate <| c := env.c; v := [] |> s_i1 (compile_exps t var_map es) = (s'_i1,r_i1)`,
+       evaluate <| c := env.c; v := []; exh_pat := F |> s_i1 (compile_exps t var_map es) = (s'_i1,r_i1)`,
   rw [] >>
   drule (CONJUNCT1 compile_exp_correct') >>
   rfs [env_all_rel_cases] >>
-  disch_then (qspecl_then [`var_map`, `<| c := env.c; v := [] |>`, `s_i1`, `[]`,`t`,`[]`] mp_tac) >>
+  disch_then (qspecl_then [`var_map`, `<| c := env.c; v := []; exh_pat := F |>`, `s_i1`, `[]`,`t`,`[]`] mp_tac) >>
   simp [PULL_EXISTS, sem_env_component_equality] >>
   impl_tac
   >- simp [v_rel_eqns] >>
@@ -1731,7 +1733,7 @@ val compile_decs_correct = Q.prove (
     source_to_mod$compile_decs t (LENGTH s_i1.globals) mn var_map ds = (t',next', var_map', ds_i1)
     ⇒
     ?(s'_i1:'a modSem$state) cenv' env'_i1 r_i1.
-      modSem$evaluate_decs <| c := env.c; v := [] |> s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
+      modSem$evaluate_decs <| c := env.c; v := []; exh_pat := F |> s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
       (!env'.
         r = Rval env'
         ⇒
@@ -2194,7 +2196,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     source_to_mod$compile_prog t (LENGTH s_i1.globals) var_map prog = (next',var_map',prog_i1)
     ⇒
     ∃(s'_i1:'a modSem$state) new_genv cenv' r_i1.
-     modSem$evaluate_prompts <|c := env.c; v := []|> s_i1 prog_i1 =
+     modSem$evaluate_prompts <|c := env.c; v := []; exh_pat := F |> s_i1 prog_i1 =
        (s'_i1,cenv',new_genv,r_i1) ∧
      (!new_env.
        r = Rval new_env
@@ -2370,29 +2372,6 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       fs [s_rel_cases, update_mod_state_def, result_rel_cases] >>
       metis_tac [v_rel_weakening])));
 
-val compile_prog_mods = Q.prove (
-  `!l var_map prog l' prog_i1 n.
-    source_to_mod$compile_prog n l var_map prog = (l',var_map',prog_i1)
-    ⇒
-    EVERY (\mn. LENGTH mn = 1) (prog_to_mods prog) ∧
-    modSem$prog_to_mods prog_i1 = MAP HD (semanticPrimitives$prog_to_mods prog)`,
-  induct_on `prog` >>
-  srw_tac[][compile_prog_def, LET_THM, modSemTheory.prog_to_mods_def, semanticPrimitivesTheory.prog_to_mods_def] >>
-  srw_tac[][modSemTheory.prog_to_mods_def] >>
-  srw_tac[][] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs [compile_top_def] >>
-  every_case_tac >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[LET_THM] >>
-  pairarg_tac >>
-  fs [] >>
-  first_x_assum drule >>
-  rw [] >>
-  fs [semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def]);
-
 val inj_hd_sing = Q.prove (
   `EVERY (\mn. LENGTH mn = 1) l
    ⇒
@@ -2407,33 +2386,6 @@ val inj_hd_sing = Q.prove (
   fs [] >>
   rw [] >>
   fs []);
-
-val compile_prog_top_types = Q.prove (
-  `!l var_map prog l' var_map' prog_i1 n.
-    compile_prog n l var_map prog = (l',var_map',prog_i1)
-    ⇒
-    prog_to_top_types prog
-    =
-    prog_to_top_types prog_i1`,
-  induct_on `prog` >>
-  srw_tac[][compile_prog_def, LET_THM] >>
-  fs [semanticPrimitivesTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs [] >>
-  first_x_assum drule >>
-  rw [] >>
-  every_case_tac >>
-  fs [] >>
-  fs [compile_top_def] >>
-  pairarg_tac >>
-  fs [] >>
-  rw [] >>
-  full_simp_tac(srw_ss())[compile_dec_def] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[LET_THM] >>
-  srw_tac[][semanticPrimitivesTheory.decs_to_types_def, modSemTheory.decs_to_types_def]);
 
 val compile_prog_mods_ok = Q.prove (
   `!l var_map prog l' var_map' prog_i1 n.
@@ -2464,20 +2416,18 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
     ∃(s'_i1:'a modSem$state) r_i1.
-     evaluate_prog <| c := env.c; v := [] |> s_i1 prog_i1 = (s'_i1,r_i1) ∧
+     evaluate_prog <| c := env.c; v := []; exh_pat := F |> s_i1 prog_i1 = (s'_i1,r_i1) ∧
      s_rel s' s'_i1 ∧
      (∀v. r = Rval v ⇒ r_i1 = NONE) ∧
      (∀err. r = Rerr err ⇒ ∃err_i1. r_i1 = SOME err_i1 ∧
        ∃new_genv.
          result_rel (\a b (c:'a). T) (s_i1.globals ++ new_genv) r (Rerr err_i1))`,
   rw [modSemTheory.evaluate_prog_def, evaluateTheory.evaluate_prog_def]
-  \\ imp_res_tac compile_prog_mods
-  \\ imp_res_tac compile_prog_top_types
   \\ imp_res_tac compile_prog_mods_ok
   \\ imp_res_tac invariant_defined_mods
   \\ imp_res_tac invariant_defined_types
-  \\ fs[semanticPrimitivesTheory.no_dup_mods_def,modSemTheory.no_dup_mods_def,
-        semanticPrimitivesTheory.no_dup_top_types_def,modSemTheory.no_dup_top_types_def]
+  \\ fs[semanticPrimitivesTheory.no_dup_mods_def,
+        semanticPrimitivesTheory.no_dup_top_types_def]
   >- (
     fs[EVERY_MEM,EXISTS_MEM]
     \\ res_tac
@@ -2487,55 +2437,7 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
     \\ rw[] \\ fs[LIST_TO_SET_MAP]
     \\ TRY (Cases_on`r`\\fs[invariant_def])
     \\ rw []
-    \\ metis_tac[PAIR, ALL_DISTINCT_MAP, typeSoundTheory.disjoint_image])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs [])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs [])
-  >- metis_tac [ALL_DISTINCT_MAP_INJ, inj_hd_sing]
-  >- (
-    fs [DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-    rw [] >>
-    `LENGTH x' = 1` by metis_tac [invariant_def] >>
-    `LENGTH y = 1` by fs [EVERY_MEM] >>
-    Cases_on `x'` >>
-    Cases_on `y` >>
-    fs [LENGTH_NIL] >>
-    metis_tac [])
-  >- (
-    fs [EXISTS_MEM, EVERY_MEM] >>
-    every_case_tac >>
-    fs [] >>
-    res_tac >>
-    fs []));
+    \\ metis_tac[PAIR, ALL_DISTINCT_MAP, typeSoundTheory.disjoint_image]));
 
 open semanticsTheory
 
@@ -2544,6 +2446,7 @@ val precondition_def = Define`
     invariant conf.mod_env env1.v s1 s2 ∧
     env2.c = env1.c ∧
     env2.v = [] ∧
+    env2.exh_pat = F ∧
     conf.next_global = LENGTH s2.globals`;
 
 val SND_eq = Q.prove(

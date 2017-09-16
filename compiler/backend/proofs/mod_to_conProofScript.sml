@@ -2032,7 +2032,6 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     ∀res s1_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' gtagenv.
       r = (s', envC', genv', res) ∧
       res ≠ SOME (Rabort Rtype_error) ∧
-      no_dup_types ds ∧
       compile_decs tagenv_st ds = (tagenv_st', ds_i2) ∧
       cenv_inv env.c (get_exh (FST tagenv_st)) (get_tagenv tagenv_st) gtagenv ∧
       s_rel gtagenv s s1_i2 ∧
@@ -2115,7 +2114,6 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   BasicProvers.CASE_TAC >>
   split_pair_case_tac >> simp[] >>
   srw_tac[][] >>
-  imp_res_tac modPropsTheory.no_dup_types_cons_imp >>
   qhdtm_x_assum`mod_to_con$compile_decs`mp_tac >>
   simp[compile_decs_def] >>
   BasicProvers.CASE_TAC >> strip_tac >>
@@ -2263,8 +2261,8 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     >- (
       fs [gtagenv_weak_def] >>
       metis_tac [FLOOKUP_SUBMAP])) >>
-  qmatch_assum_rename_tac`no_dup_types (Dexn mn tn ls::ds)` >>
-  first_x_assum(qspecl_then[`TypeExn(mk_id mn tn)`,`s.defined_types`,`tn`,`LENGTH ls`]mp_tac o
+  qmatch_assum_rename_tac`TypeExn (mk_id mn tn) ∉ _` >>
+  first_x_assum(qspecl_then[`TypeExn(mk_id mn tn)`,`s.defined_types`,`tn`,`LENGTH l0`]mp_tac o
     MATCH_MP(GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tag_cenv_inv))) >>
   impl_tac >- (
     full_simp_tac(srw_ss())[] >>
@@ -2625,8 +2623,6 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     res_tmp = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
     invariant env.c (next,tagenv,exh) gtagenv s s_i2 ∧
-    no_dup_mods prog s.defined_mods ∧
-    no_dup_top_types prog s.defined_types ∧
     EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) prog ∧
     ((next',tagenv',exh'), prog_i2) = compile_prog (next,tagenv,exh) prog
     ⇒
@@ -2670,44 +2666,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   `∃a b c. st' = (a,b,c)` by metis_tac[PAIR] >> var_eq_tac >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th o SYM)) >>
-  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left (same_const``invariant`` o fst o strip_comb))))) >>
   disch_then drule >>
-  impl_tac >- (
-    full_simp_tac(srw_ss())[modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
-    imp_res_tac modPropsTheory.evaluate_prompt_tids >> full_simp_tac(srw_ss())[] >>
-    conj_tac >- (
-      full_simp_tac(srw_ss())[modSemTheory.no_dup_mods_def,modSemTheory.evaluate_prompt_def,LET_THM] >>
-      BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-      first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-      rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[modSemTheory.update_mod_state_def] >>
-      imp_res_tac modPropsTheory.evaluate_decs_state_const >> full_simp_tac(srw_ss())[] >>
-      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[DISJOINT_SYM] ) >>
-    full_simp_tac(srw_ss())[modSemTheory.no_dup_top_types_def] >>
-    full_simp_tac(srw_ss())[modPropsTheory.tids_of_prompt_def,IN_DISJOINT,MEM_MAP,EXTENSION] >>
-    spose_not_then strip_assume_tac >> srw_tac[][] >>
-    first_x_assum(qspec_then`(Short tn)`mp_tac) >> simp[] >>
-    reverse conj_tac >- metis_tac[] >>
-    qhdtm_x_assum`prompt_mods_ok`mp_tac >>
-    simp[modSemTheory.prompt_mods_ok_def] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,PULL_FORALL] >>
-      gen_tac >> strip_tac >>
-      every_case_tac >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[MEM_MAP] >> srw_tac[][] >>
-      spose_not_then strip_assume_tac >>
-      qmatch_assum_rename_tac`MEM (Dtype mno tds) decs` >>
-      Cases_on`mno`>>full_simp_tac(srw_ss())[namespaceTheory.mk_id_def]>>
-      var_eq_tac >>
-      Cases_on`decs`>>full_simp_tac(srw_ss())[]>>Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
-      var_eq_tac >> full_simp_tac(srw_ss())[modSemTheory.decs_to_types_def,MEM_MAP,UNCURRY] >>
-      metis_tac[] ) >>
-    simp[EVERY_MEM] >>
-    simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >> srw_tac[][] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    spose_not_then strip_assume_tac >>
-    res_tac >> full_simp_tac(srw_ss())[namespaceTheory.mk_id_def,MEM_MAP] >>
-    Cases_on `l'` >>
-    fs [namespaceTheory.mk_id_def]) >>
   reverse strip_tac >- (
     rpt var_eq_tac >> simp[] >>
     simp[conSemTheory.evaluate_prog_def] >>
@@ -2921,7 +2880,6 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   first_assum(fn th => mp_tac th >> impl_tac >- metis_tac[SND]) >>
   strip_tac >> simp[] >> full_simp_tac(srw_ss())[s_rel_cases]);
 
-val prog_to_top_types_def = modSemTheory.prog_to_top_types_def;
 val decs_to_types_def = modSemTheory.decs_to_types_def;
 val prompt_mods_ok_def = modSemTheory.prompt_mods_ok_def;
 
@@ -2997,6 +2955,7 @@ val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
   Cases_on `l'` >>
   fs []);
 
+  (*
 val compile_prog_exh_unchanged = Q.store_thm("compile_prog_exh_unchanged",
   `∀p st.
    ¬MEM t (prog_to_top_types p) ∧
@@ -3012,6 +2971,7 @@ val compile_prog_exh_unchanged = Q.store_thm("compile_prog_exh_unchanged",
   full_simp_tac(srw_ss())[prog_to_top_types_def] >>
   match_mp_tac compile_prompt_exh_unchanged >>
   Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[]);
+  *)
 
 val compile_exp_no_set_globals = Q.prove(`
   (∀(c:(tvarN, tvarN, α # num # tid_or_exn) namespace) e. set_globals (mod_to_con$compile_exp c e) = {||}) ∧

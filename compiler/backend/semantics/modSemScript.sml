@@ -41,7 +41,9 @@ val _ = Datatype`
 val _ = Datatype`
   environment = <|
     c : env_ctor;
-    v : (varN, modSem$v) alist
+    v : (varN, modSem$v) alist;
+    (* T if all patterns are required to be exhaustive *)
+    exh_pat : bool
   |>`;
 
 val _ = Define`
@@ -501,7 +503,7 @@ val evaluate_def = tDefine"evaluate"`
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate env' (dec_clock s) [e]
+              evaluate (env' with exh_pat := env.exh_pat) (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app (s.refs,s.ffi) op (REVERSE vs)) of
@@ -529,7 +531,11 @@ val evaluate_def = tDefine"evaluate"`
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs (env.c,env.v) env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match env s v [] err_v = (s, Rerr(Rraise err_v))) ∧
+  (evaluate_match env s v [] err_v =
+    if env.exh_pat then
+      (s, Rerr(Rabort Rtype_error))
+    else
+      (s, Rerr(Rraise err_v))) ∧
   (evaluate_match env s v ((p,e)::pes) err_v =
    if ALL_DISTINCT (pat_bindings p []) then
      case pmatch env.c s.refs p v [] of
@@ -664,30 +670,9 @@ val evaluate_prompts_def = Define`
       | (s, cenv', genv', r) => (s, nsAppend cenv' cenv, genv ++ genv', r))
    | res => res)`;
 
-val prog_to_mods_def = Define `
-  (prog_to_mods [] = []) ∧
-  (prog_to_mods (modLang$Prompt NONE ds :: mods) = prog_to_mods mods) ∧
-  (prog_to_mods (modLang$Prompt (SOME mn) ds :: mods) = mn::prog_to_mods mods)`;
-
-val no_dup_mods_def = Define `
-  no_dup_mods prompts mods ⇔
-    ALL_DISTINCT (prog_to_mods prompts) /\
-    DISJOINT (set (prog_to_mods prompts)) mods`;
-
-val prog_to_top_types_def = Define `
-  prog_to_top_types prompts =
-    FLAT (MAP (λprompt. case prompt of modLang$Prompt NONE ds => decs_to_types ds | _ => []) prompts)`;
-
-val no_dup_top_types_def = Define `
-  no_dup_top_types prompts tids ⇔
-    ALL_DISTINCT (prog_to_top_types prompts) ∧
-    DISJOINT (LIST_TO_SET (MAP (\tn. TypeId (Short tn)) (prog_to_top_types prompts))) tids`;
-
 val evaluate_prog_def = Define `
  (evaluate_prog env s prompts =
-  if modSem$no_dup_mods prompts s.defined_mods ∧
-     no_dup_top_types prompts s.defined_types ∧
-     EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
+  if EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
   then let (s,_,_,r) = evaluate_prompts env s prompts in (s,r)
   else (s, SOME(Rabort Rtype_error)))`;
 
