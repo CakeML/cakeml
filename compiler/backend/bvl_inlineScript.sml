@@ -138,14 +138,19 @@ val must_inline_def = Define `
     if is_small limit e then ~(is_rec name [e]) else F`
 
 val inline_all_def = Define `
-  (inline_all limit cs [] aux = REVERSE aux) /\
+  (inline_all limit cs [] aux = (cs,REVERSE aux)) /\
   (inline_all limit cs ((n,arity,e1)::xs) aux =
      let e2 = HD (inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
        inline_all limit cs2 xs ((n,arity,let_op_sing e2)::aux))`;
 
+val compile_def = Define `
+  compile limit cs prog = inline_all limit cs prog []`;
+
 val compile_prog_def = Define `
-  compile_prog limit prog = inline_all limit LN prog []`
+  compile_prog limit prog =
+    (* TODO: use compile from above in backendScript.sml *)
+    SND (inline_all limit LN prog [])`
 
 val LENGTH_inline = Q.store_thm("LENGTH_inline",
   `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,

@@ -193,13 +193,13 @@ local val compile_op_quotation = `
                         [Var 0; Call 0 (SOME ListLength_location)
                                    [Var 0; Op (Const 0) []] NONE])
     | Install => Let (if LENGTH c1 <> 2
-                      then [Op (Const 0) []; Op (Const 0) []] else c1)
+                      then [Let c1 (Op (Const 0) []); Op (Const 0) []] else c1)
                         (Op Install
-                        [Var 0; Var 1;
-                         Call 0 (SOME ListLength_location)
+                        [Call 0 (SOME ListLength_location)
                            [Var 0; Op (Const 0) []] NONE;
                          Call 0 (SOME ListLength_location)
-                           [Var 1; Op (Const 0) []] NONE])
+                           [Var 1; Op (Const 0) []] NONE;
+                         Var 0; Var 1])
     | String str =>
         Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
           (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
@@ -323,7 +323,8 @@ val compile_exps_SING = Q.store_thm("compile_exps_SING",
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (aux ++ List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))],n1)`
+      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
+        ++ aux, n1)`
 
 val compile_list_def = Define `
   (compile_list n [] = (List [],n)) /\

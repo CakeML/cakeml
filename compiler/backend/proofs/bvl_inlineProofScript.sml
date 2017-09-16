@@ -4,6 +4,39 @@ open preamble
 
 val _ = new_theory"bvl_inlineProof";
 
+(* TODO: move -- but where? *)
+
+val state_cc_def = Define `
+  state_cc f cc =
+    (\(state,cfg) prog.
+       let (state1,prog1) = f state prog in
+         case cc cfg prog1 of
+         | NONE => NONE
+         | SOME (code,data,cfg1) => SOME (code,data,state1,cfg1))`;
+
+val pure_cc_def = Define `
+  pure_cc f cc =
+    (\cfg prog.
+       let prog1 = f prog in
+         cc cfg prog1)`;
+
+val state_co_def = Define `
+  state_co f co =
+     (λn.
+        (let
+           ((state,cfg),progs) = co n ;
+           (state1,progs) = f state progs
+         in
+           (cfg,progs)))`;
+
+val pure_co_def = Define `
+  pure_co f = I ## f`;
+
+val subspt_alt = store_thm("subspt_alt",
+  ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
+  fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
+  \\ res_tac \\ fs []);
+
 (* removal of ticks *)
 
 val remove_ticks_def = tDefine "remove_ticks" `
@@ -718,11 +751,6 @@ val subspt_union_lemma = prove(
   ``(!x. lookup x t1 = lookup x t2) ==>
     subspt x (union c t1) ==> subspt x (union c t2)``,
   fs [subspt_def,domain_union,lookup_union,domain_lookup]);
-
-val subspt_alt = store_thm("subspt_alt",
-  ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
-  fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
-  \\ res_tac \\ fs []);
 
 val subspt_domain = store_thm("subspt_domain",
   ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
@@ -1930,14 +1958,15 @@ val map_fromAList = store_thm("map_fromAList",
 
 val inline_all_acc = Q.store_thm("inline_all_acc",
   `!xs ys cs limit.
-      inline_all limit cs xs ys = REVERSE ys ++ inline_all limit cs xs []`,
+      SND (inline_all limit cs xs ys) =
+      REVERSE ys ++ SND (inline_all limit cs xs [])`,
   Induct \\ fs [inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ once_rewrite_tac [inline_all_def] \\ simp_tac std_ss [LET_THM]
   \\ rpt strip_tac \\ IF_CASES_TAC
   \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
 
 val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
-  `!xs cs. MAP FST (inline_all limit cs xs []) = MAP FST xs`,
+  `!xs cs. MAP FST (SND (inline_all limit cs xs [])) = MAP FST xs`,
   Induct \\ fs [inline_all_def] \\ strip_tac
   \\ PairCases_on `h` \\ fs [inline_all_def] \\ rw []
   \\ once_rewrite_tac [inline_all_acc] \\ fs []);
@@ -1950,8 +1979,8 @@ val tick_inline_all_rel = prove(
   ``!prog cs xs.
       MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x]))))
         (SND (tick_inline_all limit cs prog xs)) =
-      (inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
-        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs))``,
+      (SND (inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
+        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs)))``,
   Induct
   \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
   \\ fs [remove_ticks_tick_inline,must_inline_remove_ticks]
