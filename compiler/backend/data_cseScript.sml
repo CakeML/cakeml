@@ -188,7 +188,6 @@ val map_fmap = Define `
 val num_set_toList = Define`
 num_set_toList = MAP FST o toAList`
 
-
 val map_maybe = Define`
 (map_maybe f [] = []) /\
 (map_maybe f (x::xs) =
@@ -294,6 +293,25 @@ do
     x <- ALOOKUP m args;
     num_set_head_may x od`
 
+(* val cache_intersect_entries = Define` *)
+(* cache_intersect_entries (a : (op, (num list, num_set) alist) alist) b = *)
+(*     map_intersect (\x y . map_intersect inter x y) a b` *)
+
+val map_intersect = Define `
+(map_intersect f [] y = []) /\
+(map_intersect f ((ka, va)::xs) y =
+ case ALOOKUP y ka of
+   | NONE => map_intersect f xs y
+   | SOME vb => (ka, f va vb) :: map_intersect f xs y)`
+
+val cache_intersect_entries = Define`
+cache_intersect_entries =
+    map_intersect (map_intersect inter)`
+
+val cache_intersect = Define `
+cache_intersect (Cache varset1 entries1) (Cache varset2 entries2) =
+Cache (inter varset1 varset2) (cache_intersect_entries entries1 entries2)`
+
 val compile_def = Define`
 (compile Skip c = (Skip, c)) /\
 (compile (Return n) c = (Return n, c)) /\
@@ -306,107 +324,57 @@ val compile_def = Define`
 (compile Tick c = (Tick, c)) /\
 (compile (MakeSpace k live) c =
  (MakeSpace k live, cache_cut_out_not_live c live)) /\
-(compile (Assign n op args live) ci =
+(compile (Assign n op args live) ci1 =
+ let ci = option_CASE live ci1 (cache_cut_out_not_live ci1) in
  let c = cache_invalidate ci n in
-     if ~ (is_pure op) /\ F then (Assign n op args live, c) else (
- let (p0, c0) =
+     if ~ (is_pure op) then (Assign n op args live, c) else (
      if is_cheap_op op
      then (Assign n op args live, cache_memoize c n op args)
-     else (if MEM n args (* I don't think this is needed *)
-           then (Assign n op args live, cache_invalidate c n)
-           else (dtcase cache_lookup c op args:num option of
-                   | NONE =>     (Assign n op args live, cache_memoize c n op args)
-                   | (SOME m) => (Move n m, cache_memoize_move c n m)
+     else ((dtcase cache_lookup c op args:num option of
+             | NONE => (Assign n op args live,
+                        if MEM n args then c
+                        else cache_memoize c n op args)
+             | (SOME m) => (Move n m, cache_memoize_move c n m)
           ))
- in (p0, option_CASE live c0 (cache_cut_out_not_live c0)))) /\
+ )) /\
 (compile (If cond p1 p2) c =
- let (p1c, _) = compile p1 c in
- let (p2c, _) = compile p2 c in
-     (If cond p1c p2c, c)) /\
+ let (p1c, c1) = compile p1 c in
+ let (p2c, c2) = compile p2 c in
+     (If cond p1c p2c, cache_intersect c1 c2)) /\
 (compile (Call NONE dest vs handler) c = (Call NONE dest vs handler, c)) /\
-(compile (Call (SOME (n, live)) dest vs handler) c =
+(compile (Call (SOME (n, live)) dest vs NONE) c =
  let c1 = cache_invalidate c n in
- (Call (SOME (n, live)) dest vs handler, cache_cut_out_not_live c1 live)
+     (Call (SOME (n, live)) dest vs NONE, cache_cut_out_not_live c1 live)) /\
+(compile (Call (SOME (n, live)) dest args (SOME (m, p))) c =
+ let c1 = cache_invalidate c n in
+ let l2 = cache_cut_out_not_live c1 live in
+ let (pc, l3) = compile p (cache_invalidate c m) in
+     (Call (SOME (n, live)) dest args (SOME (m, pc)), cache_intersect l2 l3)
 )`
 
+(* Holmake in benchmarks *)
 
-(* a = 1; *)
-(* cache = [(1, [a])] *)
-(* b = 2; *)
-(* cache = [(2, [b]), (1, [a])] *)
-(* c = a + b; *)
-(* cache = [(a + b, [c]), (2, [b]), (1, [a])] *)
-(* d = a + b;    ==> d = c; *)
-(* cache = [(a + b, [c, d]), (2, [b]), (1, [a])] *)
-(* e = 1;        ==> e = 1; //cheap expression *)
-(* cache = [(a + b, [c, d]), (2, [b]), (1, [a, e])] *)
-(* f = e + b;  ==> Naive: e + b; *)
-(*             ==> Smart: f = c; (is this hard?) *)
-(* cache = [(e + b, [f]), (a + b, [c, d]), (2, [b]), (1, [a, e])] *)
-(* g = 2;        ==> g = 2; //cheap expression *)
-(* cache = [(e + b, [f]), (a + b, [c, d]), (2, [b, g]), (1, [a, e])] *)
-(* b = 0; *)
-(* Naive: cache = [(b, 0), (1, [a, e])] *)
-(* Smart: cache = [(b, 0), (e + g, [f]), (a + g, [c, d]), (2, [g]), (1, [a, e])] *)
-(* g = 4; *)
-(* Smart: cache = [(g, 4), (b, 0), (1, [a, e])] *)
-
-
-computeLib.add_funs [OPTION_BIND_def];
+(* computeLib.add_funs [OPTION_BIND_def]; *)
 
 val p1 = `` (compile
 (FOLDR Seq Skip
        [
-         Assign 0 (Const 1) [] NONE
-       ; Assign 1 (Const 2) [] NONE
-       ; Assign 2 (Add) [0; 1] NONE
-       ; Assign 3 (Add) [0; 1] NONE
-       ; Assign 4 (Const 1) [] NONE
-       ; Assign 5 Add [4; 1] NONE
-       ; Assign 6 (Const 2) [] NONE
-       ; Assign 1 (Const 0) [] NONE
-       ; Assign 3 Add [0; 6] NONE
-       ; Assign 6 (Const 4) [] NONE
+         Assign 0 (Const 1) [] NONE (* a = 1; *)
+       ; Assign 1 (Const 2) [] NONE (* b = 2 *)
+       ; Assign 2 (Add) [0; 1] NONE (* c = a + b *)
+       ; Assign 3 (Add) [0; 1] NONE (* d = a + b *)
+       ; Assign 4 (Const 1) [] NONE (* e = 1 *)
+       ; Assign 5 Add [4; 1] NONE   (* f = e + b *)
+       ; Assign 6 (Const 2) [] NONE (* g = 2 *)
+       ; Assign 1 (Const 0) [] NONE (* b = 0 *)
+       ; Assign 3 Add [0; 6] NONE   (* d = a + g *)
+       ; Assign 6 (Const 4) [] NONE (* g = 4 *)
+       ; Assign 6 (Add) [6; 6] NONE (* g = g + g *)
+       ; Assign 0 (Add) [6; 6] NONE (* a = g + g *)
+       ; Assign 1 (Add) [6; 6] NONE (* b = g + g *)
 ])
 empty_cache)
 ``
 val p1c = EVAL p1
-
-val compile_def_live = Define `
-  (compile Skip live = (Skip,live)) /\
-  (compile (Return n) live = (Return n, insert n () LN)) /\
-  (compile (Raise n) live = (Raise n, insert n () LN)) /\
-  (compile (Move n1 n2) live =
-    (Move n1 n2, insert n2 () (delete n1 live))) /\
-  (compile (Seq c1 c2) live =
-     let (d2,l2) = compile c2 live in
-     let (d1,l1) = compile c1 l2 in
-       (Seq d1 d2, l1)) /\
-  (compile Tick live = (Tick,live)) /\
-  (compile (MakeSpace k names) live =
-     let l1 = inter names live in (MakeSpace k l1,l1)) /\
-  (compile (Assign v op vs NONE) live =
-     if IS_NONE (lookup v live) /\ is_pure op then (Skip,live) else
-       let l1 = list_insert vs (delete v live) in
-         (Assign v op vs NONE,l1)) /\
-  (compile (Assign v op vs (SOME names)) live =
-     let l1 = inter names (list_insert vs (delete v live)) in
-       (Assign v op vs (SOME l1),l1)) /\
-  (compile (If n c2 c3) live =
-     let (d3,l3) = compile c3 live in
-     let (d2,l2) = compile c2 live in
-       (If n d2 d3, insert n () (union l2 l3))) /\
-  (compile (Call NONE dest vs handler) live =
-     (Call NONE dest vs handler,list_to_num_set vs)) /\
-  (compile (Call (SOME (n,names)) dest vs NONE) live =
-     let l1 = inter names (delete n live) in
-     let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs NONE,l2)) /\
-  (compile (Call (SOME (n,names)) dest vs (SOME (v,c))) live =
-     let (d,l3) = compile c live in
-     let l0 = union (delete n live) (delete v l3) in
-     let l1 = inter names l0 in
-     let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))`;
 
 val _ = export_theory();

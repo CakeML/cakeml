@@ -1,5 +1,5 @@
 open preamble bviTheory dataLangTheory
-     data_simpTheory data_liveTheory data_spaceTheory;
+     data_simpTheory data_liveTheory data_spaceTheory data_cseTheory;
 
 val _ = new_theory "bvi_to_data";
 
@@ -171,20 +171,26 @@ val compile_SING_IMP = Q.store_thm("compile_SING_IMP",
 (* combine dataLang optimisations *)
 
 val optimise_def = Define `
-  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)`;
+optimise use_cse prog = data_space$compile (
+                   simp
+                       ((
+                         if use_cse
+                         then \prog. FST (data_cse$compile prog data_cse$empty_cache)
+                         else I)
+                       (FST (data_live$compile prog LN))) Skip)`;
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)
 
 val compile_exp = Define `
-  compile_exp arg_count exp =
-    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
+  compile_exp use_cse arg_count exp =
+    optimise use_cse (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
 
 val compile_part = Define `
-  compile_part (name:num, arg_count, exp) =
-    (name, arg_count, compile_exp arg_count exp)`
+  compile_part use_cse (name:num, arg_count, exp) =
+    (name, arg_count, compile_exp use_cse arg_count exp)`
 
 val compile_prog_def = Define `
-  compile_prog prog = MAP compile_part prog`;
+  compile_prog use_cse prog = MAP (compile_part use_cse) prog`;
 
 val _ = export_theory();

@@ -51,7 +51,7 @@ val compile_def = Define`
     let c = c with clos_conf := c' in
     let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
     let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
-    let p = bvi_to_data$compile_prog p in
+    let p = bvi_to_data$compile_prog c.clos_conf.do_cse p in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
@@ -118,7 +118,7 @@ val to_bvi_def = Define`
 val to_data_def = Define`
   to_data c p =
   let (c,p) = to_bvi c p in
-  let p = bvi_to_data$compile_prog p in
+  let p = bvi_to_data$compile_prog c.clos_conf.do_cse p in
   (c,p)`;
 
 val to_word_def = Define`
@@ -200,7 +200,7 @@ val from_data_def = Define`
 
 val from_bvi_def = Define`
   from_bvi c p =
-  let p = bvi_to_data$compile_prog p in
+  let p = bvi_to_data$compile_prog c.clos_conf.do_cse p in
   from_data c p`;
 
 val from_bvl_def = Define`

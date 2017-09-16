@@ -25,6 +25,7 @@ open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory s
 open labLangTheory stack_to_labTheory lab_filterTheory
 open asmTheory backendTheory
 open semanticsComputeLib reg_allocComputeLib
+open data_cseTheory
 
 (*Order of thms shown below:
 First, all the small compilation steps between ILs + IL to IL transforms
@@ -394,6 +395,8 @@ val add_backend_compset = computeLib.extend_compset
       (* ---- data_to_word ---- *)
     ,``:data_to_word$word_op_type``
     ,``:data_to_word$gc_kind``
+    (* data_cse *)
+    , ``:data_cse$cache``
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
@@ -407,6 +410,31 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_to_dataTheory.compile_exp_def
     ,bvi_to_dataTheory.compile_def
     ,bvi_to_dataTheory.iAssign_def
+    (* data_cse *)
+    ,data_cseTheory.is_pure_def
+    ,data_cseTheory.replace_var_twin_def
+    ,data_cseTheory.compile_def
+    ,data_cseTheory.cache_lookup_def
+    ,data_cseTheory.cache_cut_out_not_live_def
+    ,data_cseTheory.cache_varset_def
+    ,data_cseTheory.cache_memoize_move_def
+    ,data_cseTheory.cache_memoize_def
+    ,data_cseTheory.cache_memoize1_def
+    ,data_cseTheory.cache_memoize2_def
+    ,data_cseTheory.cache_invalidate_def
+    ,data_cseTheory.pop_var_find_twin2_def
+    ,data_cseTheory.pop_var_find_twin_def
+    ,data_cseTheory.num_set_head_may_def
+    ,data_cseTheory.empty_cache_def
+    ,data_cseTheory.num_set_toList_def
+    ,data_cseTheory.map_maybe_def
+    ,data_cseTheory.map_fmap_def
+    ,data_cseTheory.map_insert_def
+    ,data_cseTheory.map_alter_def
+    ,data_cseTheory.map_combine_def
+    ,data_cseTheory.map_update_def
+    ,data_cseTheory.empty_map_def
+    ,data_cseTheory.is_cheap_op_def
       (* ---- data_simp ---- *)
     ,data_simpTheory.pSeq_def
     ,data_simpTheory.simp_def

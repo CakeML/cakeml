@@ -243,12 +243,34 @@ val reverse = check_prog reverse_str
 val benchmarks = map Option.valOf [nqueens,foldl,reverse,fib,qsort]
 val names = ["nqueens","foldl","reverse","fib","qsort"]
 
+val benchmarks = map Option.valOf [fib]
+val names = ["fib"]
+
+
+(* JAN: my version of compile (use_cse/ not use it). Recompile every time *)
+
+val config_no_cse = Define `
+config_no_cse = x64_backend_config with <| clos_conf := x64_backend_config.clos_conf with  <|do_cse:=F|> |>`
+
+
+val config_cse = Define `
+config_cse = x64_backend_config with <| clos_conf := x64_backend_config.clos_conf with  <|do_cse:=T|> |>`
+
+
+val compile_x64_cse = compile config_cse cbv_to_bytes_x64
+val compile_x64_no_cse = compile config_no_cse cbv_to_bytes_x64
+
 val benchmarks_compiled =
   map (fn (name,prog) =>
-    (intermediate_prog_prefix := (name^"_");
-     save_thm(name,
-       compile_x64 1000 1000 (String.concat["cakeml/",name])
-         (mk_abbrev(String.concat[name,"_prog"])prog))))
+          let val name_cse = name^"_cse";
+              val name_no_cse = name;
+          in
+              (compile_x64_no_cse 1000 1000 (String.concat["cakeml/", name_no_cse])
+                               (mk_abbrev(String.concat[name,"_prog"]) prog);
+               compile_x64_cse 1000 1000 (String.concat["cakeml/", name_cse])
+                               (mk_abbrev(String.concat[name,"_prog"]) prog)
+              )
+          end)
   (zip names benchmarks)
 
 (*
@@ -258,7 +280,7 @@ val benchmarks_bytes2 = map extract_bytes_ffis benchmarks_compiled2
 val _ = write_asm (zip names benchmarks_bytes2);
 
 (* Turn off clos optimizations*)
-val clos_o0 = ``x64_backend_config.clos_conf with <|do_mti:=F;do_known:=F;do_call:=F;do_remove:=F|>``
+val clos_o0 = ``x64_backend_config.clos_conf with <|do_mti:=f;do_known:=f;do_call:=f;do_remove:=f|>``
 val benchmarks_compiled3 = map (to_bytes 0 ``x64_backend_config with clos_conf:=^(clos_o0)``) benchmarks
 val benchmarks_bytes3 = map extract_bytes_ffis benchmarks_compiled3
 val _ = write_asm (zip names benchmarks_bytes3);

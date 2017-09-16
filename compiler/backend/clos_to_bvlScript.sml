@@ -480,6 +480,7 @@ val _ = Datatype`
             ; do_known : bool
             ; do_call : bool
             ; do_remove : bool
+            ; do_cse : bool
             ; max_app : num
             |>`;
 
@@ -491,6 +492,7 @@ val default_config_def = Define`
     do_known := T;
     do_call := T;
     do_remove := T;
+    do_cse := T;
     max_app := 10 |>`;
 
 val code_split_def = Define `
