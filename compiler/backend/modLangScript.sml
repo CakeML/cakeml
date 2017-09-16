@@ -95,22 +95,12 @@ val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
   `modLang$exp6_size (REVERSE es) = exp6_size es`,
   Induct_on`es`>>simp[exp_size_def])
 
-
 val _ = Datatype`
  dec =
     (* The num is how many top-level variables this declaration binds *)
     Dlet num exp
   | Dletrec ((varN # varN # exp) list)
-  | Dtype (modN list) type_def
-  | Dexn (modN list) conN (t list)`;
-
-
-(* A prompt is a list of declarations that must execute `atomically'; it
- * corresponds to a module body in the source language. If any of the
- * declarations results in an exception reaching the prompt's top level, none
- * of the declaration binding are installed. *)
-val _ = Datatype`
- prompt =
-    Prompt (modN option) (dec list)`;
+  | Dtype type_def
+  | Dexn conN (t list)`;
 
 val _ = export_theory ();

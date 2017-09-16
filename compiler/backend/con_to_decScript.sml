@@ -48,6 +48,7 @@ val _ = Define `
        (c,
        Let (EL 0 ts) NONE (init_global_funs (EL 1 ts) 2 next funs) decs))`;
 
+       (*
 val _ = Define `
   (compile_prompt c none_tag some_tag next prompt =
    case prompt of
@@ -83,4 +84,5 @@ val _ = Define`
         (some_tag, TypeId(Short "option")) conf p in
           (n, e)`;
 
+          *)
 val _ = export_theory()

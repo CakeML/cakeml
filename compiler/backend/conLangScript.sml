@@ -23,7 +23,7 @@ val _ = Datatype`
   | Pany
   | Pvar varN
   | Plit lit
-  | Pcon ((num # tid_or_exn)option) (pat list)
+  | Pcon ((num # stamp) option) (pat list)
   | Pref pat`;
 
 val _ = Datatype`
@@ -31,7 +31,7 @@ val _ = Datatype`
   | Raise tra exp
   | Handle tra exp ((pat # exp) list)
   | Lit tra lit
-  | Con tra ((num # tid_or_exn)option) (exp list)
+  | Con tra ((num # stamp) option) (exp list)
   | Var_local tra varN
   | Var_global tra num
   | Fun tra varN exp
@@ -55,10 +55,6 @@ val _ = Datatype`
  dec =
   | Dlet num exp
   | Dletrec ((varN # varN # exp) list)`;
-
-val _ = Datatype`
- prompt =
-    Prompt (dec list)`;
 
 val _ = Define `
   (num_defs [] = 0)
