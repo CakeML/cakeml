@@ -332,6 +332,11 @@ val compile_list_def = Define `
      let (code2,n2) = compile_list n1 progs in
        (code1 ++ code2,n2))`
 
+val compile_inc_def = Define ` (* incremental version used by Install *)
+  compile_inc n prog =
+    let (p1,n1) = bvl_to_bvi$compile_list n prog in
+      (n1,append p1)`
+
 val compile_prog_def = Define `
   compile_prog start n prog =
     let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
