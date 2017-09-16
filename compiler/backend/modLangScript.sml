@@ -100,7 +100,9 @@ val _ = Datatype`
     (* The num is how many top-level variables this declaration binds *)
     Dlet num exp
   | Dletrec ((varN # varN # exp) list)
-  | Dtype type_def
-  | Dexn conN (t list)`;
+  (* The numbers are the constructor arities *)
+  | Dtype ((conN # num) list)
+  (* The number is the constructor arity *)
+  | Dexn conN num`;
 
 val _ = export_theory ();

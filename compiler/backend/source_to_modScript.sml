@@ -41,11 +41,10 @@ val compile_pat_def = tDefine "compile_pat" `
    decide_tac);
 
 val pat_tups_def = Define`
-  (pat_tups t [] = [])
-  /\
+  (pat_tups t [] = []) ∧
   (pat_tups t (x::xs) =
-    let t' = mk_cons t ((LENGTH xs) + 1) in
-      (x, Var_local t' x)::pat_tups t xs)`;
+   let t' = mk_cons t ((LENGTH xs) + 1) in
+     (x, Var_local t' x)::pat_tups t xs)`;
 
 val astOp_to_modOp_def = Define `
   astOp_to_modOp (op : ast$op) : modLang$op =
@@ -86,35 +85,28 @@ val astOp_to_modOp_def = Define `
   | FFI string => modLang$FFI string`;
 
 (* The traces are passed along without being split for most expressions, since we
-* expect Lannots to appear around every expression. *)
+ * expect Lannots to appear around every expression. *)
 
 val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Raise e) =
-    Raise t (compile_exp t env e))
-  ∧
+    Raise t (compile_exp t env e)) ∧
   (compile_exp t env (Handle e pes) =
-    Handle t (compile_exp t env e) (compile_pes t env pes))
-  ∧
-  (compile_exp t env (ast$Lit l) = modLang$Lit t l)
-  ∧
-  (compile_exp t env (Con cn es) = Con t cn (compile_exps t env es))
-  ∧
+    Handle t (compile_exp t env e) (compile_pes t env pes)) ∧
+  (compile_exp t env (ast$Lit l) = modLang$Lit t l) ∧
+  (compile_exp t env (Con cn es) = Con t cn (compile_exps t env es)) ∧
   (compile_exp t env (Var x) =
     case nsLookup env x of
     | NONE => Var_local t "" (* Can't happen *)
-    | SOME x => x)
-  ∧
+    | SOME x => x) ∧
   (compile_exp t env (Fun x e) =
     let (t1, t2) = (mk_cons t 1, mk_cons t 2) in
-      Fun t1 x (compile_exp t (nsBind x (Var_local t2 x) env) e))
-  ∧
+      Fun t1 x (compile_exp t (nsBind x (Var_local t2 x) env) e)) ∧
   (compile_exp t env (ast$App op es) =
     if op = AallocEmpty then
       FOLDR (Let t NONE) (modLang$App t Aalloc [Lit t (IntLit (&0)); Lit t (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
-      modLang$App t (astOp_to_modOp op) (compile_exps t env es))
-  ∧
+      modLang$App t (astOp_to_modOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
     let t' = mk_cons t 1 in
       case lop of
@@ -127,51 +119,38 @@ val compile_exp_def = tDefine"compile_exp"`
         If t'
            (compile_exp t env e1)
            (Bool t T)
-           (compile_exp t env e2))
-  ∧
+           (compile_exp t env e2)) ∧
   (compile_exp t env (If e1 e2 e3) =
     If t
        (compile_exp t env e1)
        (compile_exp t env e2)
-       (compile_exp t env e3))
-  ∧
+       (compile_exp t env e3)) ∧
   (compile_exp t env (Mat e pes) =
-    Mat t (compile_exp t env e) (compile_pes t env pes))
-  ∧
+    Mat t (compile_exp t env e) (compile_pes t env pes)) ∧
   (compile_exp t env (Let (SOME x) e1 e2) =
     let (t1, t2) = (mk_cons t 1, mk_cons t 2) in
-      Let t1 (SOME x) (compile_exp t env e1) (compile_exp t (nsBind x (Var_local t2 x) env) e2))
-  ∧
+      Let t1 (SOME x) (compile_exp t env e1) (compile_exp t (nsBind x (Var_local t2 x) env) e2)) ∧
   (compile_exp t env (Let NONE e1 e2) =
-    Let t NONE (compile_exp t env e1) (compile_exp t env e2))
-  ∧
+    Let t NONE (compile_exp t env e1) (compile_exp t env e2)) ∧
   (compile_exp t env (Letrec funs e) =
     let fun_names = MAP FST funs in
     let new_env = nsBindList (MAP (\x. (x, Var_local t x)) fun_names) env in
-      Letrec t (compile_funs t new_env funs) (compile_exp t new_env e))
-  ∧
-  (compile_exp t env (Tannot e _) = compile_exp t env e)
-  ∧
+      Letrec t (compile_funs t new_env funs) (compile_exp t new_env e)) ∧
+  (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) =
     let t' = if t = None then t else (Cons (Cons (Cons (Cons Empty st.row) st.col) en.row) en.col) in
-      compile_exp t' env e)
-  ∧
-  (compile_exps t env [] = [])
-  ∧
+      compile_exp t' env e) ∧
+  (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
-     compile_exp t env e :: compile_exps t env es)
-  ∧
-  (compile_pes t env [] = [])
-  ∧
+     compile_exp t env e :: compile_exps t env es) ∧
+  (compile_pes t env [] = []) ∧
   (compile_pes t env ((p,e)::pes) =
     let pbs = pat_bindings p [] in
     let pts = pat_tups t pbs in
     (compile_pat p, compile_exp t (nsBindList pts env) e)
-    :: compile_pes t env pes)
-  ∧
-  (compile_funs t env [] = [])
-  ∧
+    :: compile_pes t env pes) ∧
+  (compile_funs t env [] = []) ∧
   (compile_funs t env ((f,x,e)::funs) =
     (f,x,compile_exp t (nsBind x (Var_local t x) env) e) :: compile_funs t env funs)`
   (WF_REL_TAC `inv_image $< (\x. case x of INL (t,x,e) => exp_size e
@@ -250,58 +229,44 @@ val make_varls_def = Define`
     let t' = Cons t n in
       Var_local t' x :: make_varls (n+1) t xs)`;
 
-val compile_dec_def = Define `
- (compile_dec n next mn env d =
-  case d of
-   | Dlet locs p e =>
-       let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
-       let e' = compile_exp t1 env e in
-       let xs = REVERSE (pat_bindings p []) in
-       let l = LENGTH xs in
-       let n'' = n' + l in
-         (n'', next + l,
-          alist_to_ns (alloc_defs n' next xs),
-          Dlet l (Mat t2 e'
-            [(compile_pat p, Con t3 NONE (make_varls 0 t4 xs))]))
-   | Dletrec locs funs =>
-       let fun_names = REVERSE (MAP FST funs) in
-       let env' = alist_to_ns (alloc_defs n next fun_names) in
-         (n+2, next + LENGTH fun_names,
-          env',
-          Dletrec (compile_funs (Cons om_tra (n+1)) (nsAppend env' env) (REVERSE funs)))
-   | Dtype locs type_def =>
-       (n, next, nsEmpty, Dtype mn type_def)
-   | Dtabbrev locs tvs tn t =>
-       (n, next, nsEmpty, Dtype mn [])
-   | Dexn locs cn ts =>
-       (n, next, nsEmpty, Dexn mn cn ts))`;
-
-val compile_decs_def = Define`
-  (compile_decs n next mn env [] = (n, next, nsEmpty, [])) ∧
-  (compile_decs n next mn env (d::ds) =
-   let (n', next1, new_env1, d') = compile_dec n next mn env d in
-   let (n'', next2, new_env2, ds') =
-     compile_decs n' next1 mn (nsAppend new_env1 env) ds
-   in
-     (n'', next2, nsAppend new_env2 new_env1, d'::ds'))`;
-
-val compile_top_def = Define `
-  compile_top n next env top =
-   case top of
-    | Tdec d =>
-      let (n', next', new_env, d') = (compile_dec n next [] env d) in
-        (n', next', nsAppend new_env env, Prompt NONE [d'])
-    | Tmod mn specs ds =>
-      let (n', next', new_env, ds') = (compile_decs n next [mn] env ds) in
-        (n', next', nsAppend (nsLift mn new_env) env, Prompt (SOME mn) ds')`;
-
-val compile_prog_def = Define `
-  (* n counts the next number to wrap the orphan trace in. *)
-  (compile_prog n next env [] = (next, env, [])) ∧
-  (compile_prog n next env (p::ps) =
-   let (n', next', env',p') = compile_top n next env p in
-   let (next'',env'',ps') = compile_prog n' next' env' ps in
-     (next'',env'',(p'::ps')))`;
+val compile_decs_def = tDefine "compile_decs" `
+  (compile_decs n next env [ast$Dlet locs p e] =
+     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
+     let e' = compile_exp t1 env e in
+     let xs = REVERSE (pat_bindings p []) in
+     let l = LENGTH xs in
+     let n'' = n' + l in
+       (n'', next + l,
+        alist_to_ns (alloc_defs n' next xs),
+        [modLang$Dlet l (Mat t2 e'
+          [(compile_pat p, Con t3 NONE (make_varls 0 t4 xs))])])) ∧
+  (compile_decs n next env [Dletrec locs funs] =
+     let fun_names = REVERSE (MAP FST funs) in
+     let env' = alist_to_ns (alloc_defs n next fun_names) in
+       (n+2, next + LENGTH fun_names,
+        env',
+        [Dletrec (compile_funs (Cons om_tra (n+1)) (nsAppend env' env) (REVERSE funs))])) ∧
+  (compile_decs n next env [Dtype locs type_def] =
+     (n, next, nsEmpty,
+       MAP (λ(_,_,constrs). Dtype (MAP (λ(cn,ts). (cn, LENGTH ts)) constrs)) type_def)) ∧
+  (compile_decs n next env [Dtabbrev locs tvs tn t] =
+     (n, next, nsEmpty, [Dtype []])) ∧
+  (compile_decs n next env [Dexn locs cn ts] =
+     (n, next, nsEmpty, [Dexn cn (LENGTH ts)])) ∧
+  (compile_decs n next env [Dmod mn ds] =
+     let (n', next', new_env, ds') = compile_decs n next env ds in
+       (n', next', nsAppend (nsLift mn new_env) env, ds')) ∧
+  (compile_decs n next env [] = (n, next, env, [])) ∧
+  (compile_decs n next env (d::ds) =
+     let (n', next1, new_env1, d') = compile_decs n next env [d] in
+     let (n'', next2, new_env2, ds') =
+       compile_decs n' next1 (nsAppend new_env1 env) ds
+     in
+       (n'', next2, nsAppend new_env2 new_env1, d'++ds'))`
+ (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)` >>
+  rw [] >>
+  Induct_on `ds` >>
+  rw [astTheory.dec_size_def, list_size_def]);
 
 val _ = Datatype`
   config = <| next_global : num
@@ -313,7 +278,7 @@ val empty_config_def = Define`
 
 val compile_def = Define`
   compile c p =
-    let (_,e,p') = compile_prog 1 c.next_global c.mod_env p in
+    let (_,_,e,p') = compile_decs 1 c.next_global c.mod_env p in
     (c with mod_env := e, p')`;
 
 val _ = export_theory();

@@ -41,7 +41,7 @@ val _ = Define `
   (exhaustive_match exh ps ⇔
    EXISTS is_unconditional ps ∨
    (case ps of
-    | Pcon (SOME (tag,TypeId t)) ps'::_ =>
+    | Pcon (SOME (tag,TypeStamp t)) ps'::_ =>
       EVERY is_unconditional ps' ∧
       (case FLOOKUP exh t of
        | NONE => F
