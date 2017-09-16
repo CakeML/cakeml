@@ -317,6 +317,15 @@ val mglobals_extend_decclock = Q.store_thm(
    (mglobals_extend s0 gs (dec_clock n s) ⇔ mglobals_extend s0 gs s)`,
   simp[dec_clock_def]);
 
+val list_to_v_vsgc_free = Q.store_thm("list_to_v_vsgc_free",
+  `!h xs.
+     vsgc_free h /\
+     v_to_list h = SOME xs ==>
+       vsgc_free (list_to_v xs)`,
+   ho_match_mp_tac v_to_list_ind \\ fs [v_to_list_def, list_to_v_def]
+   \\ rw [v_to_list_def, list_to_v_def, case_eq_thms]
+   \\ rfs [list_to_v_def]);
+
 val do_app_ssgc = Q.store_thm(
   "do_app_ssgc",
   `∀opn args s0 res.
@@ -375,6 +384,12 @@ val do_app_ssgc = Q.store_thm(
       >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
   >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
+  >- (* ListAppend *)
+   (
+    rw [] \\ fs []
+    \\ match_mp_tac list_to_v_vsgc_free
+    \\ cheat (* TODO *)
+   )
   >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
       simp[v_to_list_def] >> Cases >>
@@ -1310,6 +1325,12 @@ val kvrel_op_correct_Rval = Q.store_thm(
       ntac 2 strip_tac >>
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
+  >-
+   (
+    rw [] \\ fs [] \\ rw []
+    \\ imp_res_tac kvrel_v_to_list \\ fs [] \\ rveq
+    \\ cheat (* TODO *)
+   )
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
   >- (
     rw[] \\ fs[] \\
