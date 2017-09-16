@@ -44,6 +44,8 @@ val mips_machine_config_ok = Q.store_thm("mips_machine_config_ok",
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
+  >- EVAL_TAC
+  >- EVAL_TAC
   >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,mips_backend_correct]);
 
 val mips_init_ok = Q.store_thm("mips_init_ok",
