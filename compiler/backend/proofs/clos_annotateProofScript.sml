@@ -19,23 +19,8 @@ val alt_fv_def = Define `
 val free_thm = Q.store_thm("free_thm",
   `!xs.
      let (ys,l) = free xs in
-       !n. (alt_fv n ys = has_var n l) /\
-           (alt_fv n xs = has_var n l)`,
-  fs [alt_fv_def,UNCURRY]
-  \\ qsuff_tac `!xs. free (FST (free xs)) = free xs` THEN1 fs []
-  \\ ho_match_mp_tac free_ind \\ rw [] \\ fs [free_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [free_def] \\ rpt (pairarg_tac \\ fs [])
-  \\ imp_res_tac free_SING \\ rveq \\ fs []
-  \\ imp_res_tac free_LENGTH \\ fs []
-  THEN1 (Cases_on `c2` \\ fs [free_def])
-  \\ qmatch_goalsub_abbrev_tac `MAP FST f1 = MAP FST g1`
-  \\ qsuff_tac `f1 = g1` THEN1 fs []
-  \\ unabbrev_all_tac
-  \\ fs [listTheory.MAP_EQ_f,MAP_MAP_o,FORALL_PROD]
-  \\ rveq \\ fs [] \\ rw []
-  \\ res_tac \\ rpt (pairarg_tac \\ fs [])
-  \\ imp_res_tac free_SING \\ fs []);
+       !n. (alt_fv n xs = has_var n l)`,
+  fs [alt_fv_def,UNCURRY]);
 
 val alt_fv = store_thm("alt_fv",
   ``(∀n. alt_fv n [] ⇔ F) ∧
@@ -44,7 +29,11 @@ val alt_fv = store_thm("alt_fv",
     (∀x3 x2 x1 v1 n.
       alt_fv n [If v1 x1 x2 x3] ⇔ alt_fv n [x1] ∨ alt_fv n [x2] ∨ alt_fv n [x3]) ∧
     (∀xs x2 v2 n.
-      alt_fv n [Let v2 xs x2] ⇔ alt_fv n xs ∨ alt_fv (n + LENGTH xs) [x2]) ∧
+      alt_fv n [Let v2 xs x2] ⇔
+        if clos_free$no_overlap (LENGTH xs) (SND (free [x2])) /\ EVERY pure xs then
+          alt_fv (n + LENGTH xs) [x2]
+        else
+          alt_fv n xs ∨ alt_fv (n + LENGTH xs) [x2]) ∧
     (∀x1 v3 n. alt_fv n [Raise v3 x1] ⇔ alt_fv n [x1]) ∧
     (∀x1 v4 n. alt_fv n [Tick v4 x1] ⇔ alt_fv n [x1]) ∧
     (∀xs v5 op n. alt_fv n [Op v5 op xs] ⇔ alt_fv n xs) ∧
@@ -54,14 +43,18 @@ val alt_fv = store_thm("alt_fv",
        alt_fv n [Fn v7 loc vs num_args x1] ⇔ alt_fv (n + num_args) [x1]) ∧
     (∀x1 vs v8 n loc fns.
        alt_fv n [Letrec v8 loc vs fns x1] ⇔
-       EXISTS (λ(num_args,x). alt_fv (n + num_args + LENGTH fns) [x]) fns ∨
-       alt_fv (n + LENGTH fns) [x1]) ∧
+       if clos_free$no_overlap (LENGTH fns) (SND (free [x1])) then
+         alt_fv (n + LENGTH fns) [x1]
+       else
+         EXISTS (λ(num_args,x). alt_fv (n + num_args + LENGTH fns) [x]) fns ∨
+         alt_fv (n + LENGTH fns) [x1]) ∧
     (∀x2 x1 v9 n. alt_fv n [Handle v9 x1 x2] ⇔ alt_fv n [x1] ∨ alt_fv (n + 1) [x2]) ∧
     ∀xs v10 ticks n dest. alt_fv n [Call v10 ticks dest xs] ⇔ alt_fv n xs``,
   rw [alt_fv_def,free_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ Cases_on `has_var (n + LENGTH fns) l2` \\ fs []
-  \\ fs [EXISTS_MAP,UNCURRY]
+  \\ fs [EXISTS_MAP,UNCURRY] \\ fs []
+  \\ TRY (rw [] \\ fs [EXISTS_MEM,EVERY_MEM] \\ res_tac \\ fs [] \\ NO_TAC)
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ fs [FUN_EQ_THM,FORALL_PROD]);
 
@@ -204,6 +197,16 @@ val env_ok_some = env_ok_EXTEND
 val env_ok_append = env_ok_EXTEND
   |> GSYM |> Q.INST [`l`|->`0`]
   |> SIMP_RULE (srw_ss()) []
+
+val env_ok_EXTEND_IGNORE = Q.prove(
+  `(LENGTH env2 = LENGTH env1) /\ LENGTH env1 <= n /\ l1 = LENGTH env1 /\
+   env_ok m l i env1' env2' (n - l1) ==>
+   env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n`,
+  SRW_TAC [] [] \\ SIMP_TAC std_ss [env_ok_def] \\ fs []
+  \\ Cases_on `n < LENGTH env1` \\ fs []
+  \\ full_simp_tac(srw_ss())[NOT_LESS]
+  \\ full_simp_tac(srw_ss())[env_ok_def]
+  \\ fs [rich_listTheory.EL_APPEND2]);
 
 val state_rel_def = Define `
   state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
@@ -618,6 +621,39 @@ val EL_shift_free = Q.prove(
   \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ full_simp_tac(srw_ss())[SING_HD,LENGTH_FST_free]);
 
+val FOLDR_mk_Union = prove(
+  ``!ys aux l.
+      FOLDR (λ(x,l) (ts,frees). (x::ts,mk_Union l frees)) (aux,l) ys =
+      (MAP FST ys ++ aux, FOLDR mk_Union l (MAP SND ys))``,
+  Induct \\ fs [FORALL_PROD]);
+
+(*
+val MAPi_MAPi = store_thm("MAPi_MAPi",
+  ``!xs. MAPi f (MAPi g xs) = MAPi (\i x. f i (g i x)) xs``,
+  ...);
+*)
+
+val evaluate_shift_REPLICATE_const_0 =
+  store_thm("evaluate_shift_REPLICATE_const_0[simp]",
+  ``evaluate (shift (REPLICATE n (clos_free$const_0 v8)) m l i,env,t1) =
+      (Rval (REPLICATE n (Number 0)),t1)``,
+  Induct_on `n` \\ fs [REPLICATE,shift_def]
+  \\ once_rewrite_tac [shift_CONS]
+  \\ fs [EVAL ``shift [clos_free$const_0 t] a2 a3 a4``]
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ fs [EVAL ``evaluate ([Op v8 (Const 0) []],env,t1)``]);
+
+val no_overlap_has_var_IMP = prove(
+  ``!n l2 x. clos_free$no_overlap n l2 /\ has_var x l2 ==> n <= x``,
+  Induct \\ fs [no_overlap_def] \\ rw [] \\ res_tac
+  \\ Cases_on `x = n` \\ fs []);
+
+val evaluate_pure_IMP = prove(
+  ``evaluate (xs,env,s) = (q,r) /\ EVERY pure xs /\
+    q <> Rerr (Rabort Rtype_error) ==>
+    ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs``,
+  cheat);
+
 val shift_correct = Q.prove(
   `(!xs env (s1:'ffi closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
@@ -710,16 +746,40 @@ val shift_correct = Q.prove(
     \\ Cases_on `r1 = Boolv T` \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ Cases_on `r1 = Boolv F` \\ full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* Let *)
-   (full_simp_tac(srw_ss())[free_def]
-    \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
+   (full_simp_tac std_ss [free_def]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
+    \\ full_simp_tac std_ss [LET_DEF]
+    \\ IF_CASES_TAC
+    THEN1
+     (fs [shift_def]
+      \\ full_simp_tac(srw_ss())[free_def,evaluate_def,case_eq_thms]
+      \\ Cases_on `evaluate (xs,env,s1')` \\ fs []
+      \\ Cases_on `q = Rerr (Rabort Rtype_error)` \\ fs []
+      \\ drule (GEN_ALL evaluate_pure_IMP) \\ fs [] \\ strip_tac \\ fs []
+      \\ rveq \\ fs []
+      \\ first_x_assum match_mp_tac \\ fs []
+      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
+      \\ fs [SUBSET_DEF,IN_DEF]
+      \\ rpt strip_tac
+      \\ match_mp_tac (GEN_ALL env_ok_EXTEND_IGNORE)
+      \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac no_overlap_has_var_IMP \\ fs []
+      \\ first_x_assum match_mp_tac
+      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
+      \\ fs [free_def])
+    \\ full_simp_tac(srw_ss())[free_def]
+    \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
     \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
     \\ rename1`Let tra xs x2` \\ rename1`evaluate(xs,env,s1)`
-    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR]
+    \\ full_simp_tac(srw_ss())[]
     \\ `alt_fv_set xs SUBSET env_ok m l i env env'` by
-      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,alt_fv,alt_fv1_thm])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+      (fs[SUBSET_DEF,IN_DEF,alt_fv_def,alt_fv1_thm]
+       \\ `~(EVERY pure xs)` by fs []
+       \\ full_simp_tac std_ss [SUBSET_DEF,IN_DEF,alt_fv_def,alt_fv1_thm])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`])
+    \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -727,14 +787,15 @@ val shift_correct = Q.prove(
          `m`,`l + LENGTH y1`,`i`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF]
+    \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC free_LENGTH
     \\ IMP_RES_TAC EVERY2_LENGTH
     \\ IMP_RES_TAC evaluate_IMP_LENGTH
     \\ IMP_RES_TAC evaluate_const
     \\ full_simp_tac(srw_ss())[shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
     \\ MATCH_MP_TAC env_ok_EXTEND \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[alt_fv,alt_fv1_thm]
+    \\ full_simp_tac(srw_ss())[alt_fv_def,alt_fv1_thm]
     \\ REPEAT STRIP_TAC
     \\ Q.PAT_X_ASSUM `!x.bbb` (K ALL_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -839,7 +900,26 @@ val shift_correct = Q.prove(
     \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MEM_vars_to_list] \\ METIS_TAC [])
     \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[ALL_DISTINCT_vars_to_list])
   THEN1 (* Letrec *)
-   (full_simp_tac(srw_ss())[free_def,evaluate_def]
+   (full_simp_tac std_ss [free_def]
+    \\ `?y2 l2. free [exp] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
+    \\ full_simp_tac std_ss [LET_DEF]
+    \\ IF_CASES_TAC
+    THEN1
+     (fs [shift_def]
+      \\ full_simp_tac(srw_ss())[free_def,evaluate_def,case_eq_thms]
+      \\ qpat_x_assum `_ = (res,_)` mp_tac \\ IF_CASES_TAC \\ fs []
+      \\ strip_tac \\ fs []
+      \\ first_x_assum match_mp_tac \\ fs []
+      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
+      \\ fs [SUBSET_DEF,IN_DEF]
+      \\ rpt strip_tac
+      \\ match_mp_tac (GEN_ALL env_ok_EXTEND_IGNORE)
+      \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac no_overlap_has_var_IMP \\ fs []
+      \\ first_x_assum match_mp_tac
+      \\ asm_rewrite_tac [alt_fv1_def,alt_fv_def]
+      \\ fs [free_def])
+    \\ full_simp_tac(srw_ss())[free_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `EVERY (\(num_args,e). num_args <= s1.max_app /\
@@ -850,14 +930,14 @@ val shift_correct = Q.prove(
                         (\(n,x).
                            (let (c,l) = free [x] in
                               ((n,HD c),Shift (n + LENGTH fns) l))) fns`
-    \\ `?y2 l2. free [exp] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
-    \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,build_recc_def,clos_env_def,
-           shift_LENGTH_LEMMA]
+    \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,
+           build_recc_def,clos_env_def,shift_LENGTH_LEMMA]
     \\ Q.PAT_ABBREV_TAC `ev = EVERY PP xx`
     \\ `ev` by
      (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
-      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ full_simp_tac(srw_ss())[EVERY_MAP]
-      \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC
+      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+      \\ full_simp_tac(srw_ss())[EVERY_MAP]
+      \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ rpt strip_tac \\ RES_TAC
       \\ imp_res_tac state_rel_max_app \\ fs[])
     \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l)
@@ -872,7 +952,8 @@ val shift_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
       \\ REPEAT STRIP_TAC
       \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (p_11,p_21) fns`
-      \\ Cases_on `free [p_21]` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `free [p_21]` \\ full_simp_tac(srw_ss())[]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ MP_TAC (Q.SPEC`[p_21]` free_thm)
       \\ full_simp_tac(srw_ss())[LET_DEF] \\ CCONTR_TAC
       \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM] \\ RES_TAC
@@ -890,8 +971,10 @@ val shift_correct = Q.prove(
     \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ full_simp_tac(srw_ss())[]
     \\ reverse (REPEAT STRIP_TAC) THEN1
      (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ2_TAC
-      \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
-      \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ full_simp_tac(srw_ss())[])
+      \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
+      \\ full_simp_tac(srw_ss())[] \\ rfs [])
     \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[LIST_REL_GENLIST] \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[v_rel_simp]
@@ -1221,8 +1304,9 @@ val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
   srw_tac[][EVERY_MEM] >>
   rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >>
-  full_simp_tac(srw_ss())[GSYM every_Fn_SOME_EVERY] >>
-  metis_tac[free_SING,HD,FST,PAIR]);
+  full_simp_tac(srw_ss())[GSYM every_Fn_SOME_EVERY]
+  THEN1 cheat (* statement needs adjustment *)
+  \\ metis_tac[free_SING,HD,FST,PAIR]);
 
 val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
   `every_Fn_SOME (annotate n es) ⇔ every_Fn_SOME es`, srw_tac[][annotate_def]);
@@ -1236,12 +1320,13 @@ val shift_code_locs = Q.prove(
   \\ srw_tac[][code_locs_append]
   \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
   \\ ONCE_REWRITE_TAC [code_locs_map]
-  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD])
+  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD]);
 
 val free_code_locs = Q.prove(
   `!xs. code_locs (FST (free xs)) = code_locs xs`,
-  ho_match_mp_tac free_ind >>
-  simp[free_def,code_locs_def,UNCURRY] >> srw_tac[][]
+  cheat(* statement needs adjustment *) (*
+  ho_match_mp_tac free_ind
+  \\s imp[free_def,code_locs_def,UNCURRY] >> srw_tac[][]
   \\ Cases_on `free [x]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
   \\ Cases_on `free [x1]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
   \\ Cases_on `free [x2]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
@@ -1249,7 +1334,7 @@ val free_code_locs = Q.prove(
   \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
   \\ ONCE_REWRITE_TAC [code_locs_map] \\ AP_TERM_TAC
   \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD,HD_FST_free]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] *));
 
 val annotate_code_locs = Q.store_thm("annotate_code_locs",
   `!n ls. code_locs (annotate n ls) = code_locs ls`,

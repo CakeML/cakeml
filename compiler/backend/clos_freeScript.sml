@@ -4,6 +4,14 @@ open preamble db_varsTheory closLangTheory;
 
 val _ = new_theory"clos_free";
 
+val const_0_def = Define `
+  const_0 t = Op t (Const 0) []`;
+
+val no_overlap_def = Define `
+  (no_overlap 0 l <=> T) /\
+  (no_overlap (SUC n) l <=>
+     if has_var n l then F else no_overlap n l)`
+
 val free_def = tDefine "free" `
   (free [] = ([],Empty)) /\
   (free ((x:closLang$exp)::y::xs) =
@@ -17,9 +25,13 @@ val free_def = tDefine "free" `
      let (c3,l3) = free [x3] in
        ([If t (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
   (free [Let t xs x2] =
-     let (c1,l1) = free xs in
+     let m = LENGTH xs in
      let (c2,l2) = free [x2] in
-       ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
+       if no_overlap m l2 /\ EVERY pure xs then
+         ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
+       else
+         let (c1,l1) = free xs in
+           ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
   (free [Raise t x1] =
      let (c1,l1) = free [x1] in
        ([Raise t (HD c1)],l1)) /\
@@ -39,11 +51,14 @@ val free_def = tDefine "free" `
        ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
   (free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
+     let (c2,l2) = free [x1] in
+       if no_overlap m l2 then
+         ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
+       else
      let res = MAP (\(n,x). let (c,l) = free [x] in
                               ((n,HD c),Shift (n + m) l)) fns in
      let c1 = MAP FST res in
      let l1 = list_mk_Union (MAP SND res) in
-     let (c2,l2) = free [x1] in
        ([Letrec t loc (SOME (vars_to_list l1)) c1 (HD c2)],
         mk_Union l1 (Shift (LENGTH fns) l2))) /\
   (free [Handle t x1 x2] =
@@ -54,7 +69,10 @@ val free_def = tDefine "free" `
      let (c1,l1) = free xs in
        ([Call t ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
+  \\ rename1 `MEM ee xx`
+  \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
+  \\ simp[]);
 
 val free_ind = theorem "free_ind";
 
@@ -65,7 +83,7 @@ val free_LENGTH_LEMMA = Q.prove(
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC [] [] \\ DECIDE_TAC)
+  \\ rw [])
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
 val free_LENGTH = Q.store_thm("free_LENGTH",
