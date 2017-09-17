@@ -86,9 +86,8 @@ val names_ok_def = Define `
     (!n k prog. s_oracle n = (k,prog) ==>
                 EVERY (\(name,arity,exp). handle_ok [exp]) prog) /\
     let next = FST (FST (s_oracle 0n)) in
-      in_ns_1 next /\
       (!n. n IN domain t_code ==>
-           if in_ns_1 n then n < next
+           if in_ns_1 n then n < num_stubs + nss * next
            else in_ns_0 n /\
                 (n - num_stubs) DIV bvl_to_bvi_namespaces IN domain s_code)`;
 
@@ -1531,23 +1530,86 @@ val compile_list_imp = Q.prove(
   full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
   metis_tac [APPEND,APPEND_ASSOC]);
 
+val nss_lemma = prove(
+  ``n * nss <> k * nss + 1``,
+  strip_tac
+  \\ `(n * nss) MOD nss = (k * nss + 1) MOD nss` by metis_tac [EVAL ``nss``]
+  \\ sg `F` \\ fs [] \\ pop_assum mp_tac
+  \\ simp_tac std_ss [MOD_MULT,EVAL ``1 < nss``,MOD_EQ_0,EVAL ``0 < nss``]);
+
+val in_ns_0_simp = prove(
+  ``in_ns 0 (nss * p_1 + num_stubs)``,
+  fs [in_ns_def] \\ EVAL_TAC
+  \\ `0 < nss` by EVAL_TAC \\ fs [EVAL ``nss``]);
+
+val compile_inc_lemma = store_thm("compile_inc_lemma",
+  ``compile_inc next1 prog1 = (next2,prog2) ==>
+    (ALL_DISTINCT (MAP FST prog1) ==>
+    ALL_DISTINCT (MAP FST prog2)) /\ next1 <= next2 /\
+    (!p. MEM (num_stubs + p * nss) (MAP FST prog2) ==>
+         MEM p (MAP FST prog1)) /\
+    (!p. MEM p (MAP FST prog2) ==>
+         if in_ns 0 p then (?q. num_stubs + q * nss = p) else
+         in_ns 1 p /\ num_stubs + nss * next1 <= p /\
+                      p < num_stubs + nss * next2)``,
+  fs [compile_inc_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
+  \\ rpt (pop_assum mp_tac)
+  \\ qid_spec_tac `next1`
+  \\ qid_spec_tac `prog1`
+  \\ qid_spec_tac `p1`
+  \\ qid_spec_tac `n1`
+  \\ Induct_on `prog1` \\ fs [FORALL_PROD,compile_list_def,compile_single_def]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ res_tac
+  \\ imp_res_tac compile_exps_aux_sorted \\ fs []
+  \\ rpt strip_tac
+  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [nss_lemma])
+  THEN1 res_tac
+  THEN1
+   (fs [ALL_DISTINCT_APPEND]
+    \\ conj_tac THEN1
+     (METIS_TAC[irreflexive_def,prim_recTheory.LESS_REFL,transitive_LESS,
+        SORTED_ALL_DISTINCT])
+    \\ rw [] \\ fs [EVERY_MEM] \\ res_tac
+    \\ strip_tac \\ res_tac
+    \\ fs [] \\ rveq \\ fs []
+    \\ fs [] \\ rveq \\ fs [EVAL ``nss``]
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` drule
+    \\ fs [between_def])
+  THEN1 (CCONTR_TAC \\ fs [] \\ fs [EVAL ``nss``])
+  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [nss_lemma])
+  \\ fs [EVAL ``nss``] \\ rveq
+  \\ fs [in_ns_0_simp,GSYM (EVAL ``nss``)]
+  \\ fs [EVERY_MEM] \\ res_tac \\ fs [between_def]
+  \\ rveq \\ fs [EVAL ``nss``]
+  \\ rw [] \\ fs []
+  \\ asm_exists_tac \\ fs []);
+
 val compile_inc_next = store_thm("compile_inc_next",
   ``compile_inc next1 prog1 = (next2,prog2) ==>
-    next2 MOD nss = next1 MOD nss /\ next1 <= next2``,
-  cheat);
+    next1 <= next2``,
+  rw [] \\ drule compile_inc_lemma \\ rw []);
 
 val compile_inc_DISTINCT = store_thm("compile_inc_DISTINCT",
-  ``compile_inc next1 prog1 = (next2,prog2) /\ in_ns_1 next1 /\
+  ``compile_inc next1 prog1 = (next2,prog2) /\
     ALL_DISTINCT (MAP FST prog1) ==>
     ALL_DISTINCT (MAP FST prog2)``,
-  cheat);
+  rw [] \\ drule compile_inc_lemma \\ rw []);
 
 val compile_inc_next_range = store_thm("compile_inc_next_range",
   ``compile_inc next1 prog1 = (next2,prog2) /\
-    in_ns_1 next1 /\ MEM x (MAP FST prog2) ==>
-    if in_ns_1 x then next1 <= x /\ x < next2
+    MEM x (MAP FST prog2) ==>
+    if in_ns_1 x then num_stubs + nss * next1 <= x /\ x < num_stubs + nss * next2
     else in_ns_0 x /\ MEM ((x - num_stubs) DIV nss) (MAP FST prog1)``,
-  cheat);
+  rpt strip_tac
+  \\ drule (GEN_ALL compile_inc_lemma)
+  \\ rpt strip_tac
+  \\ first_x_assum drule
+  \\ Cases_on `in_ns 1 x` \\ fs [in_ns_def]
+  \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ fs [EVAL ``nss``,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
 
 val not_in_ns_1 = prove(
   ``~(in_ns_1 (num_stubs + name * nss))``,
@@ -2083,11 +2145,12 @@ val compile_exps_correct = Q.prove(
        (simp [IN_DISJOINT] \\ CCONTR_TAC \\ fs [] \\ fs [names_ok_def]
         \\ rfs [] \\ first_x_assum drule
         \\ IF_CASES_TAC \\ fs []
-        \\ imp_res_tac compile_inc_next_range \\ rfs []
+        \\ imp_res_tac compile_inc_next_range \\ rfs [EVAL ```nss``]
         \\ `DISJOINT (domain s5.code) (set (MAP FST prog1))` by fs [Abbr`prog1`]
         \\ pop_assum mp_tac \\ rewrite_tac [IN_DISJOINT]
         \\ strip_tac \\ fs []
-        \\ pop_assum (qspec_then `(x - num_stubs) DIV nss` strip_assume_tac))
+        \\ pop_assum (qspec_then `(x - num_stubs) DIV nss` strip_assume_tac)
+        \\ fs [EVAL ``nss``])
       \\ conj_asm1_tac THEN1
        (rfs [names_ok_def]
         \\ imp_res_tac compile_inc_DISTINCT \\ rfs [Abbr`prog1`])
@@ -2104,8 +2167,8 @@ val compile_exps_correct = Q.prove(
         \\ drule (GEN_ALL compile_inc_next)
         \\ strip_tac \\ fs []
         \\ rpt strip_tac
-        THEN1 (res_tac \\ fs [] \\ rw [] \\ fs [])
-        THEN1 (res_tac \\ fs [] \\ rw [] \\ fs [])
+        THEN1 (res_tac \\ fs [] \\ rw [] \\ fs [EVAL ``nss``])
+        THEN1 (res_tac \\ fs [] \\ rw [] \\ fs [EVAL ``nss``])
         \\ fs [domain_fromAList]
         \\ drule (GEN_ALL compile_inc_next_range) \\ fs []
         \\ disch_then drule \\ fs []
