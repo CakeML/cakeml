@@ -38,14 +38,6 @@ val basis_ffi_oracle_def = Define `
        | _ => Oracle_fail else
      Oracle_fail`
 
-(*
-val basis_fs_def = Define`
-  basis_fs inp files numchars = 
-    <| files := ((strlit "stdin",inp)::(strlit "stdout","")::(strlit "stderr","")::files);
-       infds := [(0,strlit "stdin",0);(1,strlit "stdout",0);(2,strlit "stderr",0)];
-       numchars := numchars |> : IO_fs`
-*)
-
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
   basis_ffi (cls: string list) fs =
@@ -186,7 +178,7 @@ val STDIO_precond = Q.prove(
   rpt(disch_then drule) >> fs[]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
-(* TODO: clean. split previous thm in two *)
+(* *)
 val STDIO_precond' = Q.prove(
  `wfFS fs ==> liveFS (fs with numchars := ll) ==> ¬ LFINITE ll ==>
   LENGTH v = 258 ==>     
@@ -200,8 +192,6 @@ val STDIO_precond' = Q.prove(
   `wfFS (fs with numchars := ll)` by fs[fsFFIProofTheory.wfFS_def] >>
   rpt(disch_then drule) >> fs[]
   )|> UNDISCH_ALL |> curry save_thm "STDIO_precond'";
-
-(* DUMMY *)
 
 val cond_precond = Q.prove(
   `P ==> (&P) ∅`,
@@ -303,7 +293,33 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ CCONTR_TAC \\ fs[] \\ rfs[]
 );
 
-(*This is an example of how to show parts_ok for a given state -- could be automate and put in ioProgLib.sml *)
+val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
+  `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
+  qmatch_goalsub_abbrev_tac`st.ffi`
+  \\ `st.ffi.oracle = basis_ffi_oracle`
+  by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
+  \\ rw[cfStoreTheory.parts_ok_def]
+  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
+  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
+  \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+  \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
+  \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
+  \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
+  \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
+  \\ TRY pairarg_tac \\ fs[]
+  \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
+  \\ srw_tac[DNF_ss][]
+);
+
+(* TODO: move somewhere else? *)
+val SPLIT_exists = Q.store_thm ("SPLIT_exists",
+  `(A * B) s /\ s ⊆ C
+    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
+  rw[]
+  \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
+  \\ SPLIT_TAC
+);
 
 val _ = export_theory();
 

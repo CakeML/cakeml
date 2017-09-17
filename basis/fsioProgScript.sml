@@ -15,7 +15,7 @@ val _ = process_topdecs`
     ` |> append_prog
 
 (* writei: higher-lever write function which calls #write until something is written or
-* an filesystem error is raised and outputs the number of bytes written.
+* a filesystem error is raised and outputs the number of bytes written.
 * It assumes that iobuff is initialised 
 * write: idem, but keeps writing until the whole (specified part of the) buffer
 * is written *)
@@ -131,10 +131,47 @@ fun close fd =
         then () else raise InvalidFD
   end` |> append_prog
 
+(* wrapper for ffi call *)
+val _ = process_topdecs`
+  fun read fd n =     
+    let val a = Word8Array.update iobuff 0 fd
+        val a = Word8Array.update iobuff 1 n in
+          #(read) iobuff
+    end` |> append_prog
+
+(* reads 1 char *)
+val _ = process_topdecs`
+fun read_char fd =
+  let val a = read fd (Word8.fromInt 1) in
+    if Word8.toInt (Word8Array.sub iobuff 0) = 1 then raise InvalidFD
+    else if Word8.toInt (Word8Array.sub iobuff 1) = 0 then raise EndOfFile
+    else Word8Array.sub iobuff 2
+  end` |> append_prog
+
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
 * storing them in byte sequence buf, starting at character number pos. *)
-(* TODO: rewrite with read *)
+(* TODO: input_aux as local fun *)
+val _ = 
+  process_topdecs`
+fun input_aux fd buf pos' len' count =
+  if len' = 0 then count else   
+  let val m = min len' 255
+      val m' = Word8.fromInt m
+          a = read fd m'
+          res = Word8.toInt (Word8Array.sub iobuff 0) in
+        if res = 1 then raise InvalidFD
+        else let val nread = Word8.toInt (Word8Array.sub iobuff 1) in
+          if nread = 0 then count
+          else let val a = Word8Array.copy_aux iobuff buf pos' nread 2 in
+                 input_aux fd buf (pos' + nread) (len' - nread) (count + nread)
+          end
+        end
+  end 
+
+fun input fd buf pos len = input_aux fd buf pos len 0
+` |> append_prog
+(*
 val _ = 
   process_topdecs`
 fun input fd buf pos len =
@@ -155,23 +192,7 @@ fun input fd buf pos len =
       end 
         in input_aux pos len count
   end` |> append_prog
-
-(* wrapper for ffi call *)
-val _ = process_topdecs`
-  fun read fd n =     
-    let val a = Word8Array.update iobuff 0 fd
-        val a = Word8Array.update iobuff 1 n in
-          #(read) iobuff
-    end` |> append_prog
-
-(* reads 1 char *)
-val _ = process_topdecs`
-fun read_char fd =
-  let val a = read fd (Word8.fromInt 1) in
-    if Word8.toInt (Word8Array.sub iobuff 0) = 1 then raise InvalidFD
-    else if Word8.toInt (Word8Array.sub iobuff 1) = 0 then raise EndOfFile
-    else Word8Array.sub iobuff 2
-  end` |> append_prog
+*)
 
 val _ = ml_prog_update (close_module NONE);
 
