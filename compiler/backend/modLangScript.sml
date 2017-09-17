@@ -30,6 +30,10 @@ val _ = Datatype `
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  (* FP operations *)
+  | FP_cmp fp_cmp
+  | FP_uop fp_uop
+  | FP_bop fp_bop
   (* Function application *)
   | Opapp
   (* Reference operations *)

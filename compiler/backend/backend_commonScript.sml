@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open preamble
+open preamble fpSemTheory;
 
 val _ = new_theory "backend_common";
 val _ = set_grammar_ancestry ["arithmetic"]
@@ -11,8 +11,8 @@ val _ = Define `chr_tag       = 1`;
 val _ = Define `div_tag       = 2`;
 val _ = Define `subscript_tag = 3`;
 
-val _ = Define `true_tag  = 0`;
-val _ = Define `false_tag = 1`;
+val _ = Define `false_tag = 0`;
+val _ = Define `true_tag  = 1`;
 
 val _ = Define `nil_tag   = 0`;
 val _ = Define `cons_tag  = 0`;
@@ -29,10 +29,10 @@ val _ = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 (* Trace of an expression through the compiler, for exploring transformations *)
 val _ = Datatype`
   tra =
-    | Empty
-    | None (* Dead trace, do not make traces at all *)
+    | SourceLoc num (* start-row *) num (* start-col *) num (* end-row *) num (* end-col *)
     | Cons tra num
-    | Union tra tra`
+    | Union tra tra
+    | None (* Dead trace, do not make traces at all *)`
 
 (* The code below replaces "Cons" in hol output with the chosen symbol *)
 val _ = set_fixity "▷" (Infixl 480);
@@ -46,7 +46,7 @@ val _ = overload_on ("▷", Term `backend_common$Cons`);
 * It's structure guarantees it will not conflict with any trace originating from
 * source, since the always start with four Cons, indicating source position. *)
 val orphan_trace_def = Define`
-  orphan_trace = Union Empty Empty`;
+  orphan_trace = SourceLoc 2 2 1 1`;
 
 (* Create new Cons trace, unless original trace is `None`, indicating traces are
 * turned off. *)
@@ -85,5 +85,11 @@ val data_num_stubs_def = Define`
 val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 7
 `;
+
+val bvl_to_bvi_namespaces_def = Define`
+  bvl_to_bvi_namespaces = 3n`;
+
+val bvl_num_stub_MOD = Q.store_thm("bvl_num_stub_MOD",
+  `bvl_num_stubs MOD bvl_to_bvi_namespaces = 0`, EVAL_TAC);
 
 val _ = export_theory();

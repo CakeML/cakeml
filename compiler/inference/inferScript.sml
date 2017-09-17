@@ -2,6 +2,8 @@ open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open namespacePropsTheory;
 open infer_tTheory unifyTheory;
 open stringTheory ;
+open primTypesTheory;
+
 
 val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -263,6 +265,20 @@ constrain_op l op ts =
        do () <- add_constraint l t1 (Infer_Tapp [] (TC_word wz));
           () <- add_constraint l t2 (Infer_Tapp [] (TC_word wz));
           return (Infer_Tapp [] (TC_word wz))
+       od
+   | (FP_bop bop, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tapp [] (TC_word W64));
+          () <- add_constraint l t2 (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_word W64))
+       od
+   | (FP_uop uop, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_word W64))
+       od
+   | (FP_cmp cmp, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tapp [] (TC_word W64));
+          () <- add_constraint l t2 (Infer_Tapp [] (TC_word W64));
+          return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Shift wz sh n, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] (TC_word wz));
@@ -824,9 +840,6 @@ val infertype_prog_def = Define`
         Success ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
     | Failure x => Failure x`;
-
-
-open primTypesTheory
 
 val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
 

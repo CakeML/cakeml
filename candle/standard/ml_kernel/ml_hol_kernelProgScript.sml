@@ -9,6 +9,8 @@ val _ = new_theory "ml_hol_kernelProg";
 
 val _ = (use_full_type_names := false);
 
+val _ = hide "abs";
+
 val _ = register_type ``:ordering``
 val _ = register_type ``:'a # 'b``;
 val _ = register_type ``:'a list``

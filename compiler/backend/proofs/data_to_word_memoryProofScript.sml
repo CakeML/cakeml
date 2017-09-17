@@ -195,7 +195,7 @@ val v_size_LEMMA = Q.prove(
 
 val small_int_def = Define `
   small_int (:'a) i <=>
-    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int`
 
 (*
   code pointers (i.e. Locs) will end in ...0
@@ -3419,7 +3419,7 @@ val memory_rel_El = Q.store_thm("memory_rel_El",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []
       \\ fs [] \\ clean_tac \\ fs [word_addr_def])
     \\ fs[word_addr_def]
@@ -3482,7 +3482,7 @@ val memory_rel_Deref = Q.store_thm("memory_rel_Deref",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
       \\ rw [] \\ rfs [] \\ fs [] \\ NO_TAC)
     \\ fs [] \\ clean_tac \\ fs [word_addr_def]
@@ -3606,7 +3606,7 @@ val memory_rel_Update = Q.store_thm("memory_rel_Update",
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
     \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
     \\ `small_int (:α) (&index)` by
-     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k``]
+     (fs [small_int_def,intLib.COOPER_CONV ``-&n <= &k:int``]
       \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
       \\ rw [] \\ rfs [] \\ fs [] \\ NO_TAC)
     \\ fs [] \\ clean_tac \\ fs [word_addr_def]
@@ -6257,10 +6257,10 @@ val memory_rel_RefPtr_EQ = Q.store_thm("memory_rel_RefPtr_EQ",
 
 val memory_rel_Boolv_T = Q.store_thm("memory_rel_Boolv_T",
   `memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
-    memory_rel c be refs sp st m dm ((Boolv T,Word (2w:'a word))::vars)`,
+    memory_rel c be refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)`,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
@@ -6268,10 +6268,10 @@ val memory_rel_Boolv_T = Q.store_thm("memory_rel_Boolv_T",
 
 val memory_rel_Boolv_F = Q.store_thm("memory_rel_Boolv_F",
   `memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
-    memory_rel c be refs sp st m dm ((Boolv F,Word (18w:'a word))::vars)`,
+    memory_rel c be refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)`,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]

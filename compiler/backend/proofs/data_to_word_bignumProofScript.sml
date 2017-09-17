@@ -12,8 +12,8 @@ val _ = new_theory "data_to_word_bignumProof";
 
 val _ = hide "next";
 
-val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18:'a word)``)
-val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
@@ -501,7 +501,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
          \\ fs [EXP_SUB,X_LE_DIV,dimword_def]
          \\ rfs [good_dimindex_def])
        \\ fs [] \\ strip_tac
-       \\ `-&(4 * n) / 4 = - & n` by
+       \\ `-&(4 * n) / 4:int = - & n` by
         (rewrite_tac [MATCH_MP (GSYM integerTheory.INT_DIV_NEG)
                          (intLib.COOPER_PROVE ``0 <> 4i``)]
          \\ fs [integerTheory.INT_DIV_CALCULATE]

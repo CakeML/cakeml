@@ -23,13 +23,12 @@ val inline_def = tDefine "inline" `
               (HD (inline cs [x2]))]) /\
   (inline cs [Op op xs] =
      [Op op (inline cs xs)]) /\
-  (inline cs [Tick x] =
-     [Tick (HD (inline cs [x]))]) /\
+  (inline cs [Tick x] = inline cs [x]) /\
   (inline cs [Call ticks dest xs] =
-     case dest of NONE => [Call ticks dest (inline cs xs)] | SOME n =>
+     case dest of NONE => [Call 0 dest (inline cs xs)] | SOME n =>
      case lookup n cs of
-     | NONE => [Call ticks dest (inline cs xs)]
-     | SOME (arity,code) => [Let (inline cs xs) (mk_tick (SUC ticks) code)])`
+     | NONE => [Call 0 dest (inline cs xs)]
+     | SOME (arity,code) => [Let (inline cs xs) code])`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
 val inline_ind = theorem"inline_ind";
@@ -93,6 +92,47 @@ val is_rec_def = tDefine "is_rec" `
      if dest = SOME n then T else is_rec n xs)`
   (WF_REL_TAC `measure (exp1_size o SND)`);
 
+val var_list_def = Define `
+  var_list n [] [] = T /\
+  var_list n (bvl$Var m :: xs) (y::ys) = (m = n /\ var_list (n+1) xs ys) /\
+  var_list _ _ _ = F`
+
+val dest_op_def = Define `
+  dest_op (bvl$Op op xs) args = (if var_list 0 xs args then SOME op else NONE) /\
+  dest_op _ _ = NONE`
+
+val let_op_def = tDefine "let_op" `
+  (let_op [] = []) /\
+  (let_op ((x:bvl$exp)::y::xs) =
+     HD (let_op [x]) :: let_op (y::xs)) /\
+  (let_op [Var v] = [Var v]) /\
+  (let_op [If x1 x2 x3] =
+     [If (HD (let_op [x1]))
+         (HD (let_op [x2]))
+         (HD (let_op [x3]))]) /\
+  (let_op [Let xs x2] =
+     let xs = let_op xs in
+     let x2 = HD (let_op [x2]) in
+       case dest_op x2 xs of
+       | SOME op => [Op op xs]
+       | NONE => [Let xs x2]) /\
+  (let_op [Raise x1] =
+     [Raise (HD (let_op [x1]))]) /\
+  (let_op [Handle x1 x2] =
+     [Handle (HD (let_op [x1]))
+              (HD (let_op [x2]))]) /\
+  (let_op [Op op xs] =
+     [Op op (let_op xs)]) /\
+  (let_op [Tick x] = [Tick (HD (let_op [x]))]) /\
+  (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])`
+  (WF_REL_TAC `measure exp1_size`);
+
+val let_op_sing_def = Define `
+  let_op_sing x =
+    case let_op [x] of
+    | (y::ys) => y
+    | _ => Op (Const 0) []`;
+
 val must_inline_def = Define `
   must_inline name limit e =
     if is_small limit e then ~(is_rec name [e]) else F`
@@ -102,11 +142,10 @@ val inline_all_def = Define `
   (inline_all limit cs ((n,arity,e1)::xs) aux =
      let e2 = HD (inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       inline_all limit cs2 xs ((n,arity,e2)::aux))`;
+       inline_all limit cs2 xs ((n,arity,let_op_sing e2)::aux))`;
 
 val compile_prog_def = Define `
-  compile_prog limit prog =
-    if limit = 0 then prog else inline_all limit LN prog []`
+  compile_prog limit prog = inline_all limit LN prog []`
 
 val LENGTH_inline = Q.store_thm("LENGTH_inline",
   `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,

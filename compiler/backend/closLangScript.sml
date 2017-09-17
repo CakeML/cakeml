@@ -56,6 +56,9 @@ val _ = Datatype `
      | WordShift word_size shift num
      | WordFromInt
      | WordToInt
+     | FP_cmp fp_cmp
+     | FP_uop fp_uop
+     | FP_bop fp_bop
      | BoundsCheckBlock
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)

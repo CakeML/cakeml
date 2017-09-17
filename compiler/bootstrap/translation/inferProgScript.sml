@@ -315,18 +315,84 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38) y =
          (ast$op_CASE op
+            (* Opn 1 *)
             (\z. x1 z y)
+            (* Opb 1 *)
             (\z. x2 z y)
+            (* Opw 2 *)
             (\z1 z2. x3 z1 z2 y)
+            (* Shift 3 *)
             (\z1 z2 z3. x4 z1 z2 z3 y)
-            (x5 y) (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y) (x12 y) (x13 y)
-            (\z. x14 z y) (\z. x15 z y)
-            (x16 y) (x17 y) (x18 y) (x19 y) (x20 y) (x21 y)
-            (\z. x22 z y)
-            (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y) (x29 y) (x30 y) (x31 y) (x32 y) (x33 y) (x34 y)
-            (\z. x35 z y))`,
+            (* Equality 0 *)
+            (x5 y)
+            (* FP_cmp 1 *)
+            (\z. x6 z y)
+            (* FP_uop 1 *)
+            (\z. x7 z y)
+            (* FP_bop 1 *)
+            (\z. x8 z y)
+            (* Opapp 0 *)
+            (x9 y)
+            (* Opassign 0 *)
+            (x10 y)
+            (* Opref 0 *)
+            (x11 y)
+            (* Opderef 0 *)
+            (x12 y)
+            (* Aw8alloc *)
+            (x13 y)
+            (* Aw8sub *)
+            (x14 y)
+            (* Aw8length*)
+            (x15 y)
+            (* Aw8update *)
+            (x16 y)
+            (* WfI 1 *)
+            (\z. x17 z y)
+            (* WtI 1 *)
+            (\z. x18 z y)
+            (* CopyStrStr *)
+            (x19 y)
+            (* CopyStrAw8 *)
+            (x20 y)
+            (* CopyAw8Str *)
+            (x21 y)
+            (* CopyAw8Aw8 *)
+            (x22 y)
+            (* Ord *)
+            (x23 y)
+            (* Chr *)
+            (x24 y)
+            (* Chopb 1 *)
+            (\z. x25 z y)
+            (* Implode *)
+            (x26 y)
+            (* Strsub*)
+            (x27 y)
+            (* Strlen *)
+            (x28 y)
+            (* Strcat *)
+            (x29 y)
+            (* Vfromlist *)
+            (x30 y)
+            (* Vsub *)
+            (x31 y)
+            (* Vlength *)
+            (x32 y)
+            (* Aalloc *)
+            (x33 y)
+            (* AallocEmpty *)
+            (x34 y)
+            (* Asub *)
+            (x35 y)
+            (* Alength*)
+            (x36 y)
+            (* Aupdate *)
+            (x37 y)
+            (* FFI *)
+            (\z. x38 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -730,11 +796,20 @@ val EqualityType_AST_OPW_TYPE = find_equality_type_thm``AST_OPW_TYPE`` |> SIMP_R
 val EqualityType_AST_WORD_SIZE_TYPE = find_equality_type_thm``AST_WORD_SIZE_TYPE`` |> SIMP_RULE std_ss []
 val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE`` |> SIMP_RULE std_ss []
 
+val EqualityType_FPSEM_FP_BOP_TYPE = find_equality_type_thm ``FPSEM_FP_BOP_TYPE``
+val EqualityType_FPSEM_FP_UOP_TYPE = find_equality_type_thm ``FPSEM_FP_UOP_TYPE``
+val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE``
+
 val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
-                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
+                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,
+                       EqualityType_AST_OPW_TYPE,
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_LIST_TYPE_CHAR]
+                       EqualityType_LIST_TYPE_CHAR,
+                       EqualityType_FPSEM_FP_BOP_TYPE,
+                       EqualityType_FPSEM_FP_UOP_TYPE,
+                       EqualityType_FPSEM_FP_CMP_TYPE
+                       ]
 
 val EqualityType_AST_LOP_TYPE = find_equality_type_thm``AST_LOP_TYPE``
   |> SIMP_RULE std_ss []

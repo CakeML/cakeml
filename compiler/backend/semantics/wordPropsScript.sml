@@ -137,14 +137,28 @@ val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
   `get_vars x (y with clock := k) = get_vars x y`,
   Induct_on`x`>>srw_tac[][get_vars_def]);
 
+val get_fp_var_with_const = Q.store_thm("get_fp_var_with_const[simp]",
+  `get_fp_var x (y with clock := k) = get_fp_var x y`,
+  EVAL_TAC);
+
 val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).clock = z.clock ∧
    (set_var x y z).ffi = z.ffi ∧
    (set_var x y z).stack = z.stack`,
   EVAL_TAC);
 
+val set_fp_var_const = Q.store_thm("set_fp_var_const[simp]",
+  `(set_fp_var x y z).clock = z.clock ∧
+   (set_fp_var x y z).ffi = z.ffi ∧
+   (set_fp_var x y z).stack = z.stack`,
+  EVAL_TAC);
+
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
   `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  EVAL_TAC);
+
+val set_fp_var_with_const = Q.store_thm("set_fp_var_with_const[simp]",
+  `set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k`,
   EVAL_TAC);
 
 val set_vars_const = Q.store_thm("set_vars_const[simp]",
@@ -218,7 +232,7 @@ val inst_const_full = Q.store_thm("inst_const_full",
    s'.ffi = s.ffi ∧
    s'.handler = s.handler ∧
    s'.stack = s.stack`,
-  rw[inst_def, set_var_def] >>
+  rw[inst_def, set_var_def,set_fp_var_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
@@ -566,7 +580,7 @@ val alloc_code_gc_fun_const = Q.store_thm("alloc_code_gc_fun_const",`
 val inst_code_gc_fun_const = Q.prove(`
   inst i s = SOME t ⇒
   s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.mdomain = t.mdomain /\ s.be = t.be`,
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def]);
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def,set_fp_var_def]);
 
 val evaluate_code_gc_fun_const = Q.store_thm("evaluate_code_gc_fun_const",
   `!xs s1 vs s2.
@@ -1063,15 +1077,16 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Inst*)
     (full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,LET_THM]>>
-    every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
+    every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,set_fp_var_def]>>
     fs[get_vars_stack_swap_simp]>>
     srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,mem_store_def]>>
-    srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,get_var_def,mem_load_def]>>
+    srw_tac [] []>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl,get_var_def,mem_load_def,get_fp_var_def]>>
     rfs[]>>
-    HINT_EXISTS_TAC>>
-    full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
+    TRY(HINT_EXISTS_TAC>>
+    full_simp_tac(srw_ss())[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])>>
+    rw[]>>fs[])
   >- (*Assign*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>full_simp_tac(srw_ss())[set_var_def,s_key_eq_refl]>>
     rpt strip_tac>>
@@ -1595,6 +1610,10 @@ val get_var_perm = Q.store_thm("get_var_perm",`
   get_var n (st with permute:=perm) =
   (get_var n st)`,full_simp_tac(srw_ss())[get_var_def]);
 
+val get_fp_var_perm = Q.store_thm("get_fp_var_perm",`
+  get_fp_var n (st with permute:=perm) =
+  (get_fp_var n st)`,full_simp_tac(srw_ss())[get_fp_var_def]);
+
 val get_var_imm_perm = Q.store_thm("get_var_imm_perm",`
   get_var_imm n (st with permute:=perm) =
   (get_var_imm n st)`,
@@ -1605,6 +1624,11 @@ val set_var_perm = Q.store_thm("set_var_perm",`
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm`,
   full_simp_tac(srw_ss())[set_var_def]);
+
+val set_fp_var_perm = Q.store_thm("set_fp_var_perm",`
+  set_fp_var v x (s with permute:=perm) =
+  (set_fp_var v x s) with permute:=perm`,
+  full_simp_tac(srw_ss())[set_fp_var_def]);
 
 val get_vars_perm = Q.prove(`
   ∀ls. get_vars ls (st with permute:=perm) =
@@ -1691,7 +1715,7 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
   >-
     (qexists_tac`perm`>>
     full_simp_tac(srw_ss())[inst_def,assign_def,LET_THM]>>every_case_tac>>
-    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm]>>
+    full_simp_tac(srw_ss())[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def,get_vars_perm,get_fp_var_perm,set_fp_var_perm]>>
     rfs[]>>fs[]>>rveq>>
     fs[state_component_equality])
   >-
@@ -2077,8 +2101,8 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
       TRY(Cases_on`r`)>>rev_full_simp_tac(srw_ss())[every_var_exp_def,every_var_imm_def]>>
       full_simp_tac(srw_ss())[set_var_def]>>
       metis_tac[locals_rel_set_var])
-    >>
-      Cases_on`a`>>Cases_on`m`>>full_simp_tac(srw_ss())[assign_def]>>
+    >-
+      (Cases_on`a`>>Cases_on`m`>>full_simp_tac(srw_ss())[assign_def]>>
       qpat_x_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`A = word_exp B C`>>
       Cases_on`A`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
@@ -2093,6 +2117,12 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
       full_simp_tac(srw_ss())[state_component_equality]>>
       EVERY_CASE_TAC>>fs[state_component_equality]>>
       metis_tac[locals_rel_set_var])
+    >-
+      (Cases_on`f`>>fs[get_fp_var_def]>>every_case_tac>>
+      fs[set_var_def,set_fp_var_def,every_var_inst_def]>>
+      imp_res_tac locals_rel_get_var>>
+      rw[]>>fs[]>>
+      metis_tac[locals_rel_set_var]))
   >-
     (every_case_tac>>imp_res_tac locals_rel_word_exp>>full_simp_tac(srw_ss())[every_var_def]>>
     rev_full_simp_tac(srw_ss())[state_component_equality,set_var_def]>>
@@ -2227,19 +2257,17 @@ val gc_fun_ok_def = Define `
 (* No expressions occur except in Set, where it must be a Var expr *)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
-  (flat_exp_conventions (Assign v exp) = F) ∧
-  (flat_exp_conventions (Store exp num) = F) ∧
+  (flat_exp_conventions (Assign v exp) ⇔ F) ∧
+  (flat_exp_conventions (Store exp num) ⇔ F) ∧
   (*The only place where top level (expression) vars are allowed*)
-  (flat_exp_conventions (Set store_name (Var r)) = T) ∧
-  (flat_exp_conventions (Set store_name _) = F) ∧
-  (flat_exp_conventions (Seq p1 p2) =
-    (flat_exp_conventions p1 ∧ flat_exp_conventions p2)) ∧
-  (flat_exp_conventions (If cmp r1 ri e2 e3) =
-    (flat_exp_conventions e2 ∧
-    flat_exp_conventions e3)) ∧
-  (flat_exp_conventions (MustTerminate p) =
-    flat_exp_conventions p) ∧
-  (flat_exp_conventions (Call ret dest args h) =
+  (flat_exp_conventions (Set store_name (Var r)) ⇔ T) ∧
+  (flat_exp_conventions (Set store_name _) ⇔ F) ∧
+  (flat_exp_conventions (Seq p1 p2) ⇔
+    flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
+  (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
+    flat_exp_conventions e2 ∧ flat_exp_conventions e3) ∧
+  (flat_exp_conventions (MustTerminate p) ⇔ flat_exp_conventions p) ∧
+  (flat_exp_conventions (Call ret dest args h) ⇔
     ((case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
@@ -2247,31 +2275,50 @@ val flat_exp_conventions_def = Define`
     (case h of
       NONE => T
     | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
-  (flat_exp_conventions _ = T)`
+  (flat_exp_conventions _ ⇔ T)`
 
-(* Well-formed instructions *)
+(* Well-formed instructions
+  This also includes the FP conditions since we do not allocate them
+*)
 val inst_ok_less_def = Define`
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
+  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
     c.valid_imm (INL b) w) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
     (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Div r1 r2 r3)) =
+  (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
-  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
     ((c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
-    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Tiny ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
   (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
     (c.ISA = x86_64)) ∧
-  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) =
-    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3 /\ r1 ≠ r4)) ∧
-  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) ⇔
+    (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3  ∧ r1 ≠ r4)) ∧
+  (inst_ok_less c (Arith (AddOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) =
+  (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
-  (inst_ok_less c (Mem m r (Addr r' w)) =
+  (inst_ok_less c (Mem m r (Addr r' w)) ⇔
     if m IN {Load; Store} then addr_offset_ok c w else byte_offset_ok c w) ∧
+  (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
+  (inst_ok_less c (FP (FPAbs d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPNeg d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPSqrt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPAdd d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPSub d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPMul d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
+      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+  (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
+      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+  (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
+  (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less _ _ = T)`
 
 (* Instructions have distinct targets and read vars -- set by SSA form *)
@@ -2507,6 +2554,7 @@ val max_var_intro = Q.store_thm("max_var_intro",`
   TRY (match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    TRY(Cases_on`f`)>>
     full_simp_tac(srw_ss())[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def])
   >-
