@@ -170,6 +170,13 @@ val decide_ty_def = Define `
   (decide_ty Int Int = Int) ∧
   (decide_ty _   _   = Any)`;
 
+val LAST1_def = Define `
+  LAST1 xs = case xs of
+               []    => NONE
+             | [x]   => SOME x
+             | x::xs => LAST1 xs
+  `;
+
 (* Gather information about expressions:
 
      - Build context by following order of evaluation during recursion
@@ -183,7 +190,8 @@ val decide_ty_def = Define `
 val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [] = []) ∧
   (scan_expr ts loc (x::y::xs) =
-    HD (scan_expr ts loc [x])::scan_expr ts loc (y::xs)) ∧
+    let (tx, ty, r, op) = HD (scan_expr ts loc [x]) in
+      (tx, ty, r, op)::scan_expr tx loc (y::xs)) /\
   (scan_expr ts loc [Var n] =
     let ty = if n < LENGTH ts then EL n ts else Any in
       [(ts, ty, F, NONE)]) ∧
@@ -197,7 +205,10 @@ val scan_expr_def = tDefine "scan_expr" `
         | _    => ot)]) ∧
   (scan_expr ts loc [Let xs x] =
     let ys = scan_expr ts loc xs in
-    let (tu, ty, _, op) = HD (scan_expr (MAP (FST o SND) ys ++ ts) loc [x]) in
+    let tt = MAP (FST o SND) ys in
+    (*let tr = FST (LAST ys) in*)
+    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+    let (tu, ty, _, op) = HD (scan_expr (tt ++ tr) loc [x]) in
       [(DROP (LENGTH ys) tu, ty, F, op)]) ∧
   (scan_expr ts loc [Raise x] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
@@ -243,32 +254,31 @@ val mk_tailcall_def = Define `
   `;
 
 val rewrite_def = Define `
-  (rewrite (loc, next, op, acc, ts) (Var n) =
-    let ty = if n < LENGTH ts then EL n ts else Any in
-      (ts, ty, F, Var n)) ∧
+  (rewrite (loc, next, op, acc, ts) (Var n) = (F, Var n)) ∧
   (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
     let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
-    let (tt, ty1, rt, yt) = rewrite (loc, next, op, acc, ti) xt in
-    let (te, ty2, re, ye) = rewrite (loc, next, op, acc, ti) xe in
+    let (rt, yt) = rewrite (loc, next, op, acc, ti) xt in
+    let (re, ye) = rewrite (loc, next, op, acc, ti) xe in
     let zt = if rt then yt else apply_op op xt (Var acc) in
     let ze = if re then ye else apply_op op xe (Var acc) in
-      (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)) ∧
+      (rt ∨ re, If xi zt ze)) ∧
   (rewrite (loc, next, op, acc, ts) (Let xs x) =
-    let ys = MAP (FST o SND) (scan_expr ts loc xs) in
-    let (tu, ty, r, y) = rewrite (loc, next, op, acc + LENGTH xs, ys ++ ts) x in
-      (DROP (LENGTH ys) tu, ty, r, Let xs y)) ∧
+    let ys = scan_expr ts loc xs in
+    let tt = MAP (FST o SND) ys in
+    (*let tr = FST (LAST ys) in*)
+    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+    let (r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt ++ tr) x in
+      (r, Let xs y)) ∧
   (rewrite (loc, next, op, acc, ts) (Tick x) =
-    let (tt, ty, r, y) = rewrite (loc, next, op, acc, ts) x in
-      (tt, ty, r, Tick y)) ∧
-  (rewrite (loc, next, op, acc, ts) (Raise x) = (ts, Any, F, Raise x)) ∧
+    let (r, y) = rewrite (loc, next, op, acc, ts) x in (r, Tick y)) ∧
+  (rewrite (loc, next, op, acc, ts) (Raise x) = (F, Raise x)) ∧
   (rewrite (loc, next, op, acc, ts) exp =
     case rewrite_op ts op loc exp of
-      (F, _)    => (ts, Int, F, apply_op op exp (Var acc))
+      (F, _)    => (F, apply_op op exp (Var acc))
     | (T, exp1) =>
       case get_bin_args exp1 of
-        NONE              => (ts, Int, F, apply_op op exp (Var acc))
-      | SOME (call, exp2) =>
-          (ts, Int, T, push_call next op acc exp2 (args_from call)))`;
+        NONE              => (F, apply_op op exp (Var acc))
+      | SOME (call, exp2) => (T, push_call next op acc exp2 (args_from call)))`;
 
 val check_exp_def = Define `
   check_exp loc arity exp =
@@ -290,9 +300,9 @@ val compile_exp_def = Define `
     case check_exp loc arity exp of
       NONE    => NONE
     | SOME op =>
-      let ts               = REPLICATE arity Any in
-      let (tu, ty, r, opt) = rewrite (loc, next, op, arity, ts) exp in
-      let aux             = let_wrap arity (id_from_op op) opt in
+      let ts       = REPLICATE arity Any in
+      let (r, opt) = rewrite (loc, next, op, arity, ts) exp in
+      let aux      = let_wrap arity (id_from_op op) opt in
         SOME (aux, opt)`;
 
 val compile_prog_def = Define `
