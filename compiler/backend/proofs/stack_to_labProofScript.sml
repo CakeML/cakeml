@@ -3051,9 +3051,9 @@ val IMP_init_store_ok = Q.store_thm("IMP_init_store_ok",
 val full_make_init_has_fp_ops = store_thm("full_make_init_has_fp_ops[simp]",
   ``full_make_init stack_conf
       (dconf with has_fp_ops := b)
-      mheap sp offset bitmaps code s save_regs =
+      mheap sp offset bitmaps code s save_regs dsp cor =
     full_make_init stack_conf dconf
-      mheap sp offset bitmaps code s save_regs``,
+      mheap sp offset bitmaps code s save_regs dsp cor``,
   rewrite_tac [full_make_init_def] \\ fs []
   \\ fs [stack_allocProofTheory.make_init_def]);
 
