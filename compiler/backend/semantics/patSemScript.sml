@@ -132,39 +132,39 @@ val _ = Datatype`
      |>`;
 
 val do_app_def = Define `
- (do_app s op vs =
+ (do_app s (op : patLang$op) vs =
 ((case (op,vs) of
-      (Op (Op (Opn op)), [Litv (IntLit n1); Litv (IntLit n2)]) =>
+      (Op (Opn op), [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
           SOME (s, Rerr (Rraise (prim_exn div_tag)))
         else
           SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Op (Op (Opb op)), [Litv (IntLit n1); Litv (IntLit n2)]) =>
+    | (Op (Opb op), [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-    | (Op (Op (Opw wz op)), [Litv w1; Litv w2]) =>
+    | (Op (Opw wz op), [Litv w1; Litv w2]) =>
        (case do_word_op op wz w1 w2 of
             | NONE => NONE
             | SOME w => SOME (s, Rval (Litv w)))
-    | (Op (Op (Shift wz sh n)), [Litv w]) =>
+    | (Op (Shift wz sh n), [Litv w]) =>
         (case do_shift sh n wz w of
            | NONE => NONE
            | SOME w => SOME (s, Rval (Litv w)))
-    | (Op (Op Equality), [v1; v2]) =>
+    | (Op Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval(Boolv b))
         )
-    | (Op (Op Opassign), [Loc lnum; v]) =>
+    | (Op Opassign, [Loc lnum; v]) =>
         (case store_assign lnum (Refv v) s.refs of
           SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
         | NONE => NONE
         )
-    | (Op (Op Opderef), [Loc n]) =>
+    | (Op Opderef, [Loc n]) =>
         (case store_lookup n s.refs of
             SOME (Refv v) => SOME (s,Rval v)
           | _ => NONE
         )
-    | (Op (Op Opref), [v]) =>
+    | (Op Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s.refs) in
           SOME (s with refs := s', Rval (Loc n))
     | (Op (Init_global_var idx), [v]) =>
@@ -175,7 +175,7 @@ val do_app_def = Define `
           )
         else
           NONE
-    | (Op (Op Aw8alloc), [Litv (IntLit n); Litv (Word8 w)]) =>
+    | (Op Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
         if n <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
@@ -183,7 +183,7 @@ val do_app_def = Define `
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.refs)
           in
             SOME (s with refs := st, Rval (Loc lnum))
-    | (Op (Op Aw8sub), [Loc lnum; Litv (IntLit i)]) =>
+    | (Op Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s.refs of
             SOME (W8array ws) =>
               if i <( 0 : int) then
@@ -196,13 +196,13 @@ val do_app_def = Define `
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
-    | (Op (Op Aw8length), [Loc n]) =>
+    | (Op Aw8length, [Loc n]) =>
         (case store_lookup n s.refs of
             SOME (W8array ws) =>
               SOME (s,Rval (Litv (IntLit (int_of_num (LENGTH ws)))))
           | _ => NONE
         )
-    | (Op (Op Aw8update), [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) =>
+    | (Op Aw8update, [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -218,18 +218,18 @@ val do_app_def = Define `
                   )
         | _ => NONE
         )
-    | (Op (Op (WordFromInt wz)), [Litv (IntLit i)]) =>
+    | (Op (WordFromInt wz), [Litv (IntLit i)]) =>
       SOME (s, Rval (Litv (do_word_from_int wz i)))
-    | (Op (Op (WordToInt wz)), [Litv w]) =>
+    | (Op (WordToInt wz), [Litv w]) =>
       (case do_word_to_int wz w of
         | NONE => NONE
         | SOME i => SOME (s, Rval (Litv (IntLit i))))
-    | (Op (Op CopyStrStr), [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (Op CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
         (case copy_array (str,off) len NONE of
           NONE => Rerr (Rraise (prim_exn subscript_tag))
         | SOME cs => Rval (Litv(StrLit(cs)))))
-    | (Op (Op CopyStrAw8), [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+    | (Op CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                     Loc dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s.refs of
           SOME (W8array ws) =>
@@ -240,7 +240,7 @@ val do_app_def = Define `
                 SOME s' =>  SOME (s with refs := s', Rval (Conv tuple_tag []))
               | _ => NONE))
         | _ => NONE)
-    | (Op (Op CopyAw8Str), [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
+    | (Op CopyAw8Str, [Loc src;Litv(IntLit off);Litv(IntLit len)]) =>
       (case store_lookup src s.refs of
         SOME (W8array ws) =>
         SOME (s,
@@ -248,7 +248,7 @@ val do_app_def = Define `
             NONE => Rerr (Rraise (prim_exn subscript_tag))
           | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
       | _ => NONE)
-    | (Op (Op CopyAw8Aw8), [Loc src;Litv(IntLit off);Litv(IntLit len);
+    | (Op CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
                     Loc dst;Litv(IntLit dstoff)]) =>
       (case (store_lookup src s.refs, store_lookup dst s.refs) of
         (SOME (W8array ws), SOME (W8array ds)) =>
@@ -259,24 +259,23 @@ val do_app_def = Define `
                 SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag []))
               | _ => NONE))
       | _ => NONE)
-
-    | (Op (Op Ord), [Litv (Char c)]) =>
+    | (Op Ord, [Litv (Char c)]) =>
           SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-    | (Op (Op Chr), [Litv (IntLit i)]) =>
+    | (Op Chr, [Litv (IntLit i)]) =>
         SOME (s,
 (if (i <( 0 : int)) \/ (i >( 255 : int)) then
             Rerr (Rraise (prim_exn chr_tag))
           else
             Rval (Litv(Char(CHR(Num (ABS ( i))))))))
-    | (Op (Op (Chopb op)), [Litv (Char c1); Litv (Char c2)]) =>
+    | (Op (Chopb op), [Litv (Char c1); Litv (Char c2)]) =>
         SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
-    | (Op (Op Implode), [v]) =>
+    | (Op Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
               SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
           )
-    | (Op (Op Strsub), [Litv (StrLit str); Litv (IntLit i)]) =>
+    | (Op Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
@@ -285,9 +284,9 @@ val do_app_def = Define `
               SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
             else
               SOME (s, Rval (Litv (Char (EL n str))))
-    | (Op (Op Strlen), [Litv (StrLit str)]) =>
+    | (Op Strlen, [Litv (StrLit str)]) =>
         SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
-    | (Op (Op Strcat), [v]) =>
+    | (Op Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
@@ -295,13 +294,13 @@ val do_app_def = Define `
                 SOME (s, Rval (Litv(StrLit str)))
             | _ => NONE)
         | _ => NONE)
-    | (Op (Op VfromList), [v]) =>
+    | (Op VfromList, [v]) =>
           (case v_to_list v of
               SOME vs =>
                 SOME (s, Rval (Vectorv vs))
             | NONE => NONE
           )
-    | (Op (Op Vsub), [Vectorv vs; Litv (IntLit i)]) =>
+    | (Op Vsub, [Vectorv vs; Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
@@ -310,9 +309,9 @@ val do_app_def = Define `
               SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
             else
               SOME (s, Rval (EL n vs))
-    | (Op (Op Vlength), [Vectorv vs]) =>
+    | (Op Vlength, [Vectorv vs]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
-    | (Op (Op Aalloc), [Litv (IntLit n); v]) =>
+    | (Op Aalloc, [Litv (IntLit n); v]) =>
         if n <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
@@ -320,7 +319,7 @@ val do_app_def = Define `
 (store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s.refs)
           in
             SOME (s with refs := s', Rval (Loc lnum))
-    | (Op (Op Asub), [Loc lnum; Litv (IntLit i)]) =>
+    | (Op Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s.refs of
             SOME (Varray vs) =>
               if i <( 0 : int) then
@@ -333,13 +332,13 @@ val do_app_def = Define `
                     SOME (s, Rval (EL n vs))
           | _ => NONE
         )
-    | (Op (Op Alength), [Loc n]) =>
+    | (Op Alength, [Loc n]) =>
         (case store_lookup n s.refs of
             SOME (Varray ws) =>
               SOME (s,Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
-    | (Op (Op Aupdate), [Loc lnum; Litv (IntLit i); v]) =>
+    | (Op Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
         (case store_lookup lnum s.refs of
           SOME (Varray vs) =>
             if i <( 0 : int) then
@@ -355,7 +354,7 @@ val do_app_def = Define `
                   )
         | _ => NONE
       )
-    | (Op (Op (FFI n)), [Loc lnum]) =>
+    | (Op (FFI n), [Loc lnum]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             (case call_FFI s.ffi n ws of
@@ -375,7 +374,6 @@ val do_app_def = Define `
   )))`;
 
 val op_thms = { nchotomy = patLangTheory.op_nchotomy, case_def = patLangTheory.op_case_def}
-val conop_thms = { nchotomy = conLangTheory.op_nchotomy, case_def = conLangTheory.op_case_def}
 val modop_thms = {nchotomy = modLangTheory.op_nchotomy, case_def = modLangTheory.op_case_def}
 val astop_thms = {nchotomy = astTheory.op_nchotomy, case_def = astTheory.op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -384,7 +382,7 @@ val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"
 val sv_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def }
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, conop_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
+  [op_thms, modop_thms, astop_thms, list_thms, option_thms, v_thms, sv_thms, lit_thms])
 
 val do_app_cases = save_thm("do_app_cases",
   ``patSem$do_app s op vs = SOME x`` |>
@@ -457,7 +455,7 @@ val evaluate_def = tDefine "evaluate"`
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
-       if op = Op (Op Opapp) then
+       if op = Op Opapp then
          (case do_opapp (REVERSE vs) of
           | SOME (env, e) =>
             if s.clock = 0 then

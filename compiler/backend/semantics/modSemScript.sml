@@ -1,10 +1,11 @@
 open preamble modLangTheory;
-open semanticPrimitivesPropsTheory (* for do_shift and others *)
+(* for do_shift and others *)
+open semanticPrimitivesPropsTheory;
 
-val _ = new_theory "modSem"
+val _ = new_theory "modSem";
 
-(* The values of modLang differ in that the closures do not contain a module
- * environment.
+(* The values of modLang differ in that the closures do not environments for
+ * global definitions.
  *
  * The semantics of modLang differ in that there is no module environment menv, nor
  * are top-level bindings added to the normal env, thus when a closure is
@@ -21,47 +22,78 @@ val _ = new_theory "modSem"
 val _ = Datatype`
   v =
     | Litv lit
-    | Conv ((conN # tid_or_exn) option) (v list)
-    | Closure (env_ctor # (varN, v) alist) varN modLang$exp
-    | Recclosure (env_ctor # (varN, v) alist) ((varN # varN # modLang$exp) list) varN
+    | Conv ((ctor_id # type_id) option) (v list)
+    | Closure ((varN, v) alist) varN exp
+    | Recclosure ((varN, v) alist) ((varN # varN # exp) list) varN
     | Loc num
     | Vectorv (v list)`;
 
 val _ = Datatype`
   state = <|
     clock   : num;
-    refs    : modSem$v store;
+    refs    : v store;
     ffi     : 'ffi ffi_state;
-    defined_types : tid_or_exn set;
-    (* Top level module names *)
-    defined_mods : modN set;
-    globals : (modSem$v option) list
+    next_type_id : num;
+    next_exn_id : num;
+    globals : (v option) list
   |>`;
 
 val _ = Datatype`
   environment = <|
-    c : env_ctor;
-    v : (varN, modSem$v) alist;
+    v : (varN, v) alist;
+    c : ctor_id#type_id |-> num;
     (* T if all patterns are required to be exhaustive *)
     exh_pat : bool
   |>`;
 
-val _ = Define`
-  Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
+val bool_id_def = Define `
+  bool_id = 0n`;
 
-val build_conv_def = Define`
-  build_conv (envC:env_ctor) cn vs =
-  case cn of
-  | NONE => SOME (Conv NONE vs)
-  | SOME id =>
-    (case nsLookup envC id of
-     | NONE => NONE
-     | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs))`;
+val list_id_def = Define `
+  list_id = 1n`;
+
+val Boolv_def = Define`
+  Boolv b = Conv (SOME (if b then 1 else 0, SOME bool_id)) []`;
+
+val nil_id_def = Define `
+  nil_id = 0n`;
+
+val cons_id_def = Define `
+  cons_id = 1n`;
+
+val bind_id_def = Define `
+  bind_id = 0n`;
+
+val chr_id_def = Define `
+  chr_id = 1n`;
+
+val div_id_def = Define `
+  div_id = 2n`;
+
+val subscript_id_def = Define `
+  subscript_id = 3n`;
+
+val bind_exn_v_def = Define `
+  bind_exn_v = Conv (SOME (bind_id, NONE)) []`;
+
+val chr_exn_v_def = Define `
+  chr_exn_v = Conv (SOME (chr_id, NONE)) []`;
+
+val div_exn_v_def = Define `
+  div_exn_v = Conv (SOME (div_id, NONE)) []`;
+
+val subscript_exn_v_def = Define `
+  subscript_exn_v = Conv (SOME (subscript_id, NONE)) []`;
 
 val build_rec_env_def = Define `
   build_rec_env funs cl_env add_to_env =
     FOLDR (λ(f,x,e) env'. (f, Recclosure cl_env funs f) :: env')
       add_to_env funs`;
+
+val ctor_same_type_def = Define `
+  (ctor_same_type (SOME (_,t)) (SOME (_,t')) ⇔ t = t') ∧
+  (ctor_same_type NONE NONE ⇔ T) ∧
+  (ctor_same_type _ _ ⇔ F)`;
 
 val do_eq_def = tDefine"do_eq"`
   (do_eq (Litv l1) (Litv l2) =
@@ -107,34 +139,30 @@ val do_eq_def = tDefine"do_eq"`
   ∧
   (do_eq_list _ _ = Eq_val F)`
   (WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
-                                         | INR (xs,ys) => v4_size xs)`);
-
-val prim_exn_def = Define`
-  prim_exn cn = Conv (SOME (cn, TypeExn (Short cn))) []`;
+                                         | INR (xs,ys) => v3_size xs)`);
 
 (* Do an application *)
 val do_opapp_def = Define `
   do_opapp vs =
   case vs of
-    | [Closure (cenv, env) n e; v] =>
-      SOME (<|c:=cenv; v:=((n,v) :: env)|>, e)
-    | [Recclosure (cenv, env) funs n; v] =>
+    | [Closure env n e; v] =>
+      SOME ((n,v) :: env, e)
+    | [Recclosure env funs n; v] =>
       if ALL_DISTINCT (MAP FST funs) then
         (case find_recfun n funs of
-         | SOME (n,e) =>
-             SOME (<|c:=cenv; v:=((n,v) :: build_rec_env funs (cenv, env) env)|>, e)
+         | SOME (n,e) => SOME ((n,v) :: build_rec_env funs env env, e)
          | NONE => NONE)
       else NONE
     | _ => NONE`;
 
 val v_to_list_def = Define `
-  (v_to_list (Conv (SOME (cn, TypeId (Short tn))) []) =
-   if (cn = "nil") ∧ (tn = "list") then
+  (v_to_list (Conv (SOME (cid, tid)) []) =
+   if cid = nil_id ∧ tid = SOME list_id then
      SOME []
    else NONE)
   ∧
-  (v_to_list (Conv (SOME (cn,TypeId (Short tn))) [v1;v2]) =
-   if (cn = "::") ∧ (tn = "list") then
+  (v_to_list (Conv (SOME (cid, tid)) [v1;v2]) =
+   if cid = cons_id ∧ tid = SOME list_id then
      (case v_to_list v2 of
       | SOME vs => SOME (v1::vs)
       | NONE => NONE)
@@ -143,13 +171,13 @@ val v_to_list_def = Define `
   (v_to_list _ = NONE)`;
 
 val v_to_char_list_def = Define `
- (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) []) =
-  if (cn = "nil") ∧ (tn = "list") then
+ (v_to_char_list (Conv (SOME (cid, tid)) []) =
+  if cid = nil_id ∧ tid = SOME list_id then
     SOME []
   else NONE)
  ∧
- (v_to_char_list (Conv (SOME (cn,TypeId (Short tn))) [Litv (Char c);v]) =
-  if (cn = "::") ∧ (tn = "list") then
+ (v_to_char_list (Conv (SOME (cid, tid)) [Litv (Char c);v]) =
+  if cid = cons_id ∧ tid = SOME list_id then
     (case v_to_char_list v of
      | SOME cs => SOME (c::cs)
      | NONE => NONE)
@@ -170,7 +198,7 @@ val do_app_def = Define `
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
-      SOME ((s,t), Rerr (Rraise (prim_exn "Div")))
+      SOME ((s,t), Rerr (Rraise div_exn_v))
     else
       SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
@@ -200,7 +228,7 @@ val do_app_def = Define `
      | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
-      SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+      SOME ((s,t), Rerr (Rraise subscript_exn_v))
     else
       let (s',lnum) =
         store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s
@@ -210,11 +238,11 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
        if i < 0 then
-         SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+         SOME ((s,t), Rerr (Rraise subscript_exn_v))
        else
          let n = (Num (ABS i)) in
            if n >= LENGTH ws then
-             SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+             SOME ((s,t), Rerr (Rraise subscript_exn_v))
            else
              SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
@@ -227,11 +255,11 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
        if i < 0 then
-         SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+         SOME ((s,t), Rerr (Rraise subscript_exn_v))
        else
          let n = (Num (ABS i)) in
            if n >= LENGTH ws then
-             SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+             SOME ((s,t), Rerr (Rraise subscript_exn_v))
            else
              (case store_assign lnum (W8array (LUPDATE w n ws)) s of
               | NONE => NONE
@@ -246,14 +274,14 @@ val do_app_def = Define `
   | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME ((s,t),
       (case copy_array (str,off) len NONE of
-        NONE => Rerr (Rraise (prim_exn "Subscript"))
+        NONE => Rerr (Rraise subscript_exn_v)
       | SOME cs => Rval (Litv(StrLit(cs)))))
   | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                   Loc dst;Litv(IntLit dstoff)]) =>
       (case store_lookup dst s of
         SOME (W8array ws) =>
           (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
-            NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+            NONE => SOME ((s,t), Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s of
               SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
@@ -264,7 +292,7 @@ val do_app_def = Define `
       SOME (W8array ws) =>
       SOME ((s,t),
         (case copy_array (ws,off) len NONE of
-          NONE => Rerr (Rraise (prim_exn "Subscript"))
+          NONE => Rerr (Rraise subscript_exn_v)
         | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
     | _ => NONE)
   | (CopyAw8Aw8, [Loc src;Litv(IntLit off);Litv(IntLit len);
@@ -272,7 +300,7 @@ val do_app_def = Define `
     (case (store_lookup src s, store_lookup dst s) of
       (SOME (W8array ws), SOME (W8array ds)) =>
         (case copy_array (ws,off) len (SOME(ds,dstoff)) of
-          NONE => SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          NONE => SOME ((s,t), Rerr (Rraise subscript_exn_v))
         | SOME ws =>
             (case store_assign dst (W8array ws) s of
               SOME s' => SOME ((s',t), Rval (Conv NONE []))
@@ -283,7 +311,7 @@ val do_app_def = Define `
   | (Chr, [Litv (IntLit i)]) =>
     SOME ((s,t),
           if (i < 0) ∨ (i > 255) then
-            Rerr (Rraise (prim_exn "Chr"))
+            Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num(ABS i))))))
   | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
@@ -295,11 +323,11 @@ val do_app_def = Define `
      | NONE => NONE)
   | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
     if i < 0 then
-      SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+      SOME ((s,t), Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
         if n >= LENGTH str then
-          SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          SOME ((s,t), Rerr (Rraise subscript_exn_v))
         else
           SOME ((s,t), Rval (Litv (Char (EL n str))))
   | (Strlen, [Litv (StrLit str)]) =>
@@ -319,18 +347,18 @@ val do_app_def = Define `
      | NONE => NONE)
   | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
     if i < 0 then
-      SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+      SOME ((s,t), Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
         if n >= LENGTH vs then
-          SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          SOME ((s,t), Rerr (Rraise subscript_exn_v))
         else
           SOME ((s,t), Rval (EL n vs))
   | (Vlength, [Vectorv vs]) =>
     SOME ((s,t), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
   | (Aalloc, [Litv (IntLit n); v]) =>
     if n < 0 then
-      SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+      SOME ((s,t), Rerr (Rraise subscript_exn_v))
     else
       let (s',lnum) =
         store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s
@@ -340,11 +368,11 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (Varray vs) =>
      if i < 0 then
-       SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+       SOME ((s,t), Rerr (Rraise subscript_exn_v))
      else
        let n = (Num (ABS i)) in
          if n >= LENGTH vs then
-           SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+           SOME ((s,t), Rerr (Rraise subscript_exn_v))
          else
            SOME ((s,t), Rval (EL n vs))
      | _ => NONE)
@@ -357,11 +385,11 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (Varray vs) =>
      if i < 0 then
-       SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+       SOME ((s,t), Rerr (Rraise subscript_exn_v))
      else
        let n = (Num (ABS i)) in
          if n >= LENGTH vs then
-           SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+           SOME ((s,t), Rerr (Rraise subscript_exn_v))
          else
            (case store_assign lnum (Varray (LUPDATE v n vs)) s of
             | NONE => NONE
@@ -394,10 +422,20 @@ val do_if_either_or = Q.store_thm("do_if_is_ether_or",
   THENL [simp [],
     Cases_on `v = Boolv F` THEN simp []]))
 
+val pat_bindings_def = Define `
+  (pat_bindings Pany already_bound = already_bound) ∧
+  (pat_bindings (Pvar n) already_bound = n::already_bound) ∧
+  (pat_bindings (Plit l) already_bound = already_bound) ∧
+  (pat_bindings (Pcon _ ps) already_bound = pats_bindings ps already_bound) ∧
+  (pat_bindings (Pref p) already_bound = pat_bindings p already_bound) ∧
+  (pats_bindings [] already_bound = already_bound) ∧
+  (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
+
+
 val pmatch_def = tDefine"pmatch"`
 (pmatch envC s (Pvar x) v' env = (Match ((x,v') :: env)))
 /\
-(pmatch envC s Pany v' env = Match env)
+(pmatch envC s modLang$Pany v' env = Match env)
 /\
 (pmatch envC s (Plit l) (Litv l') env =
 (if l = l' then
@@ -407,19 +445,17 @@ val pmatch_def = tDefine"pmatch"`
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =
-((case nsLookup envC n of
-      SOME (l, t)=>
-        if same_tid t t' /\ (LENGTH ps = l) then
-          if same_ctor (id_to_n n, t) (n',t') then
-            pmatch_list envC s ps vs env
-          else
-            No_match
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =
+  case FLOOKUP envC n of
+    SOME arity =>
+      if ctor_same_type (SOME n) (SOME n') ∧ (LENGTH ps = arity) then
+        if same_ctor n n' then
+          pmatch_list envC s ps vs env
         else
-          Match_type_error
-    | _ => Match_type_error
-  )))
-/\
+          No_match
+      else
+        Match_type_error
+  | _ => Match_type_error) ∧
 (pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =
 (if LENGTH ps = LENGTH vs then
     pmatch_list envC s ps vs env
@@ -445,7 +481,7 @@ val pmatch_def = tDefine"pmatch"`
 /\
 (pmatch_list envC s _ _ env = Match_type_error)`
   (WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
-                                        | INR (a,x,ps,y,z) => pats_size ps)` >>
+                                        | INR (a,x,ps,y,z) => pat1_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
 val dec_clock_def = Define`
@@ -476,15 +512,19 @@ val evaluate_def = tDefine"evaluate"`
    case fix_clock s (evaluate env s [e]) of
    | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
-  (evaluate env s [Con _ cn es] =
-   if do_con_check env.c cn (LENGTH es) then
+  (evaluate env s [Con _ NONE es] =
      case evaluate env s (REVERSE es) of
-     | (s, Rval vs) =>
-       (s, case build_conv env.c cn (REVERSE vs) of
-           | SOME v => Rval [v]
-           | NONE => Rerr (Rabort Rtype_error))
-     | res => res
-   else (s, Rerr (Rabort Rtype_error))) ∧
+     | (s, Rval vs) => (s,Rval [Conv NONE vs])
+     | res => res) ∧
+  (evaluate env s [Con _ (SOME cn) es] =
+    case FLOOKUP env.c cn of
+    | NONE => (s,Rerr (Rabort Rtype_error))
+    | SOME arity =>
+        if arity = LENGTH es then
+          case evaluate env s (REVERSE es) of
+           | (s, Rval vs) => (s, Rval [Conv (SOME cn) vs])
+           | res => res
+        else (s, Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -493,17 +533,17 @@ val evaluate_def = tDefine"evaluate"`
    if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
    then Rval [THE (EL n s.globals)]
    else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Fun _ n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
+  (evaluate env s [Fun _ n e] = (s, Rval [Closure env.v n e])) ∧
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
-       if op = Opapp then
-         (case do_opapp (REVERSE vs) of
+       if op = modLang$Opapp then
+         (case modSem$do_opapp (REVERSE vs) of
           | SOME (env', e) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
-              evaluate (env' with exh_pat := env.exh_pat) (dec_clock s) [e]
+              evaluate (env with v := env') (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
        (case (do_app (s.refs,s.ffi) op (REVERSE vs)) of
@@ -520,8 +560,7 @@ val evaluate_def = tDefine"evaluate"`
   (evaluate env s [Mat _ e pes] =
    case fix_clock s (evaluate env s [e]) of
    | (s, Rval v) =>
-       evaluate_match env s (HD v) pes
-         (Conv (SOME ("Bind", (TypeExn (Short "Bind")))) [])
+       evaluate_match env s (HD v) pes bind_exn_v
    | res => res) ∧
   (evaluate env s [Let _ n e1 e2] =
    case fix_clock s (evaluate env s [e1]) of
@@ -529,9 +568,10 @@ val evaluate_def = tDefine"evaluate"`
    | res => res) ∧
   (evaluate env s [Letrec _ funs e] =
    if ALL_DISTINCT (MAP FST funs)
-   then evaluate (env with v := build_rec_env funs (env.c,env.v) env.v) s [e]
+   then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_match env s v [] err_v =
+  (evaluate env s [Extend_global _ n] = (s, Rerr (Rabort Rtype_error))) ∧
+  (evaluate_match (env:modSem$environment) s v [] err_v =
     if env.exh_pat then
       (s, Rerr(Rabort Rtype_error))
     else
@@ -552,7 +592,7 @@ val evaluate_def = tDefine"evaluate"`
   >> imp_res_tac do_if_either_or
   >> rw[]);
 
-val evaluate_ind = theorem"evaluate_ind"
+val evaluate_ind = theorem"evaluate_ind";
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
@@ -577,113 +617,39 @@ val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =
    case evaluate (env with v := []) s [e] of
    | (s, Rval [Conv NONE vs]) =>
-     (s, if LENGTH vs = n then Rval (nsEmpty,vs)
+     (s, if LENGTH vs = n then Rval (FEMPTY,vs)
          else Rerr (Rabort Rtype_error))
    | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
    | (s, Rerr e) => (s, Rerr e)) ∧
   (evaluate_dec env s (Dletrec funs) =
-     (s, Rval (nsEmpty, MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
-  (evaluate_dec env s (Dtype mn tds) =
-   let new_tdecs = type_defs_to_new_tdecs mn tds in
-   if check_dup_ctors tds ∧ DISJOINT new_tdecs s.defined_types ∧
-      ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds)
-   then (s with defined_types updated_by ($UNION new_tdecs),
-         Rval (build_tdefs mn tds, []))
-   else (s, Rerr (Rabort Rtype_error))) ∧
-  (evaluate_dec env s (Dexn mn cn ts) =
-   if TypeExn (mk_id mn cn) ∈ s.defined_types
-   then (s,Rerr (Rabort Rtype_error))
-   else (s with defined_types updated_by ($INSERT (TypeExn (mk_id mn cn))),
-         Rval (nsSing cn (LENGTH ts, TypeExn (mk_id mn cn)),[])))`;
+     (s, Rval (FEMPTY, MAP (λ(f,x,e). Closure [] x e) funs))) ∧
+  (evaluate_dec env s (Dtype arities) =
+    (s with next_type_id := s.next_type_id + 1,
+     Rval (FEMPTY |++ MAPi (\idx a. ((idx, SOME s.next_type_id), a)) arities, []))) ∧
+  (evaluate_dec env s (Dexn a) =
+    (s with next_exn_id := s.next_exn_id + 1,
+     Rval (FEMPTY |+ ((s.next_exn_id, NONE), a), [])))`;
 
 val evaluate_decs_def = Define`
-  (evaluate_decs env s [] = (s, nsEmpty, [], NONE)) ∧
+  (evaluate_decs env s [] = (s, FEMPTY, [], NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
    | (s, Rval (new_tds,new_env)) =>
      (case evaluate_decs
-             (env with c updated_by nsAppend new_tds)
+             (env with c updated_by FUNION new_tds)
              (s with globals updated_by (λg. g ++ MAP SOME new_env))
              ds of
-      | (s, new_tds', new_env', r) => (s, nsAppend new_tds' new_tds, new_env ++ new_env', r))
-   | (s, Rerr e) => (s, nsEmpty, [], SOME e))`;
-
-val update_mod_state_def = Define `
-  update_mod_state (mn:modN option) mods =
-    case mn of
-      NONE => mods
-    | SOME mn => mn INSERT mods`;
-
-val dec_to_dummy_env_def = Define `
-  (dec_to_dummy_env (modLang$Dlet n e) = n) ∧
-  (dec_to_dummy_env (Dletrec funs) = (LENGTH funs)) ∧
-  (dec_to_dummy_env _ = 0)`;
-
-val decs_to_dummy_env_def = Define `
-  (decs_to_dummy_env [] = 0) ∧
-  (decs_to_dummy_env (d::ds) = (decs_to_dummy_env ds + dec_to_dummy_env d))`;
-
-val decs_to_types_def = Define `
-  decs_to_types ds =
-    FLAT (MAP (λd.
-        (case d of
-            Dtype mn tds => MAP (λ(tvs,tn,ctors). tn) tds
-          | _ => [] ))
-     ds)`;
-
-val no_dup_types_def = Define `
-  no_dup_types ds = ALL_DISTINCT (decs_to_types ds)`;
-
-val prompt_mods_ok_def = Define `
-  (prompt_mods_ok mn ds ⇔
-    (case mn of
-       NONE => LENGTH ds < 2
-     | _ => T) ∧
-    EVERY (λd.
-      (case d of
-          Dtype (mn'::_) _ => SOME mn' = mn
-        | Dexn (mn'::_) _ _ => SOME mn' = mn
-        | Dtype [] _ => mn = NONE
-        | Dexn [] _ _ => mn = NONE
-        | _ => T))
-    ds)`;
-
-val evaluate_prompt_def = Define`
-  evaluate_prompt env s (Prompt mn ds) =
-  if no_dup_types ds ∧ prompt_mods_ok mn ds ∧ mn ∉ IMAGE SOME s.defined_mods then
-  let (s, cenv, genv, r) = evaluate_decs env s ds in
-    (s with defined_mods updated_by update_mod_state mn,
-     option_fold nsLift cenv mn,
-     MAP SOME genv ++ (if r = NONE then [] else GENLIST (K NONE) (decs_to_dummy_env ds - LENGTH genv)),
-     r)
-  else (s, option_fold nsLift nsEmpty mn, [], SOME (Rabort Rtype_error))`;
-
-val evaluate_prompts_def = Define`
-  (evaluate_prompts env s [] = (s, nsEmpty, [], NONE)) ∧
-  (evaluate_prompts env s (prompt::prompts) =
-   case evaluate_prompt env s prompt of
-   | (s', cenv, genv, NONE) =>
-     (case evaluate_prompts
-           (env with c updated_by nsAppend cenv)
-           (s' with globals := s.globals ++ genv)
-           prompts of
-      | (s, cenv', genv', r) => (s, nsAppend cenv' cenv, genv ++ genv', r))
-   | res => res)`;
-
-val evaluate_prog_def = Define `
- (evaluate_prog env s prompts =
-  if EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
-  then let (s,_,_,r) = evaluate_prompts env s prompts in (s,r)
-  else (s, SOME(Rabort Rtype_error)))`;
+      | (s, new_tds', new_env', r) => (s, FUNION new_tds' new_tds, new_env ++ new_env', r))
+   | (s, Rerr e) => (s, FEMPTY, [], SOME e))`;
 
 val semantics_def = Define`
   semantics env st prog =
-    if ∃k. SND (evaluate_prog env (st with clock := k) prog) = SOME (Rabort Rtype_error)
+    if ∃k. (SND o SND o SND) (evaluate_decs env (st with clock := k) prog) = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
-      ∃k s r outcome.
-        evaluate_prog env (st with clock := k) prog = (s,r) ∧
+      ∃k s r outcome x y.
+        evaluate_decs env (st with clock := k) prog = (s,x,y,r) ∧
         (case s.ffi.final_event of
          | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
          | SOME e => outcome = FFI_outcome e) ∧
@@ -692,11 +658,11 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (FST (evaluate_prog env (st with clock := k) prog)).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (FST (evaluate_decs env (st with clock := k) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION",
    "evaluate_UNION_aux","evaluate_UNION"];
 
-val _ = export_theory()
+val _ = export_theory();

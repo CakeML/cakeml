@@ -1,7 +1,8 @@
-open preamble decSemTheory conPropsTheory;
+open preamble conPropsTheory;
 
 val _ = new_theory"decProps"
 
+(*
 val map_state_def = Define`
   map_state f s =
     <|clock := s.clock;
@@ -159,5 +160,6 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   full_simp_tac(srw_ss())[do_app_add_to_clock,UNCURRY] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   TRY(last_x_assum(qspec_then`extra`mp_tac)>>simp[]>>NO_TAC) >>
   metis_tac[FST,IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi,do_app_io_events_mono]);
+  *)
 
 val _ = export_theory()

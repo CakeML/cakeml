@@ -1,6 +1,6 @@
 open preamble modLangTheory
 
-val _ = new_theory"mod_reorder_exn";
+val _ = new_theory"mod_reorder_match";
 
 val is_const_con_def = Define`
   (is_const_con (Pcon tag plist) = (plist = [])) /\

@@ -6,6 +6,7 @@ in end
 
 val _ = new_theory"modProps"
 
+(*
 val pat_bindings_def = astTheory.pat_bindings_def
 val pat_bindings_accum = semanticPrimitivesPropsTheory.pat_bindings_accum
 
@@ -638,5 +639,6 @@ val evaluate_decs_globals = Q.store_thm("evaluate_decs_globals",
   \\ res_tac
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]);
+  *)
 
 val _ = export_theory()

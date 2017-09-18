@@ -1,8 +1,9 @@
-open preamble conSemTheory
+open preamble 
 open evaluatePropsTheory semanticsPropsTheory
 
 val _ = new_theory"conProps"
 
+(*
 val with_same_v = Q.store_thm("with_same_v[simp]",
   `((env:conSem$environment) with v := env.v) = env`,
   srw_tac[][conSemTheory.environment_component_equality])
@@ -459,5 +460,6 @@ val dec_set_globals_def = Define`
   (dec_set_globals (Dletrec es) = elist_globals (MAP (SND o SND) es)) ∧
   (decs_set_globals (Prompt []) = {||}) ∧
   (decs_set_globals (Prompt (d::ds)) = dec_set_globals d ⊎ decs_set_globals (Prompt ds))`
+  *)
 
 val _ = export_theory()

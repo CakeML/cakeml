@@ -5,6 +5,7 @@ val _ = numLib.prefer_num()
 
 val _ = new_theory"mod_exh_match"
 
+(*
 (* The translation only detects the following patterns:
  *   - A single variable, (), or ref variable
  *   - A list of patterns, each of which is a constructor applied to variables.
@@ -190,5 +191,5 @@ val compile_exps_map = Q.store_thm ("compile_exps_map",
 
 val compile_def = Define`
   compile exh e = HD (exh_reorder$compile [dec_to_exh$compile_exp exh e])`;
-
+  *)
 val _ = export_theory()

@@ -1,7 +1,8 @@
-open preamble exhSemTheory;
+open preamble 
 
 val _ = new_theory"exhProps";
 
+(*
 val build_rec_env_merge = Q.store_thm("build_rec_env_merge",
   `build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env`,
   srw_tac[][build_rec_env_def] >>
@@ -271,5 +272,6 @@ val esgc_free_def = tDefine "esgc_free" `
 
 val esgc_free_def = save_thm("esgc_free_def[simp]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
+  *)
 
 val _ = export_theory()
