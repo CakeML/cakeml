@@ -514,20 +514,9 @@ val scan_expr_EVERY_SING = Q.store_thm ("scan_expr_EVERY_SING[simp]",
   `LENGTH (scan_expr ts loc [x]) = 1` by fs []
   \\ Cases_on `scan_expr ts loc [x]` \\ fs []);
 
-(* TODO: What? *)
 val EVERY_LAST1 = Q.store_thm("EVERY_LAST1",
   `!xs y. EVERY P xs /\ LAST1 xs = SOME y ==> P y`,
-  ho_match_mp_tac LAST1_ind
-  \\ rw [Once LAST1_def]
-  \\ fs [case_eq_thms, case_elim_thms]
-  \\ pop_assum mp_tac
-  \\ simp [Once LAST1_def, case_eq_thms, case_elim_thms, PULL_EXISTS]
-  \\ rw [] \\ fs []
-  \\ pop_assum mp_tac
-  \\ srw_tac [DNF_ss] []
-  \\ Cases_on `v5` \\ fs []
-  >- fs [Once LAST1_def]
-  \\ rfs [Once LAST1_def]);
+  ho_match_mp_tac LAST1_ind \\ rw [LAST1_def] \\ fs []);
 
 val scan_expr_LENGTH = Q.store_thm ("scan_expr_LENGTH",
   `∀ts loc xs ys.
@@ -538,10 +527,8 @@ val scan_expr_LENGTH = Q.store_thm ("scan_expr_LENGTH",
   \\ rpt (pairarg_tac \\ fs [])
   \\ TRY (PURE_CASE_TAC \\ fs [case_eq_thms, case_elim_thms, pair_case_eq])
   \\ rw [LENGTH_MAP2_MIN, try_update_LENGTH]
-  \\ fs [Once LAST1_def, case_eq_thms] \\ rw [] \\ fs []
-  \\ imp_res_tac EVERY_LAST1
-  \\ pop_assum mp_tac
-  \\ simp [EVERY_DEF]);
+  \\ fs [LAST1_def, case_eq_thms] \\ rw [] \\ fs []
+  \\ imp_res_tac EVERY_LAST1 \\ fs []);
 
 val ty_rel_decide_ty = Q.store_thm ("ty_rel_decide_ty",
   `∀ts tt env.
@@ -579,6 +566,11 @@ val try_update_mono = Q.prove (
   \\ Cases_on `n` \\ fs []
   \\ rfs [try_update_def, ADD1]);
 
+val LAST1_thm = Q.store_thm("LAST1_thm",
+  `!xs. LAST1 xs = NONE <=> xs = []`,
+  Induct \\ rw [LAST1_def]
+  \\ Cases_on `xs` \\ fs [LAST1_def]);
+
 val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
   `∀ts loc xs env ys (s: 'ffi bviSem$state) vs (t: 'ffi bviSem$state).
      ty_rel env ts ∧
@@ -608,9 +600,31 @@ val scan_expr_ty_rel = Q.store_thm ("scan_expr_ty_rel",
     \\ imp_res_tac scan_expr_LENGTH \\ fs []
     \\ metis_tac [ty_rel_decide_ty])
   >- (* Let *)
-   (
-    cheat (* TODO *)
-   )
+   (fs [case_eq_thms, pair_case_eq, case_elim_thms, bool_case_eq]
+    \\ fs [PULL_EXISTS] \\ rw []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [] \\ rveq
+    \\ qpat_x_assum `scan_expr _ _ [x] = _` mp_tac
+    \\ CASE_TAC
+    >-
+     (fs [LAST1_thm]
+      \\ res_tac \\ rfs [] \\ rveq
+      \\ fs [LENGTH_EQ_NUM_compute])
+    \\ strip_tac
+    \\ fs [case_eq_thms]
+    \\ res_tac \\ fs []
+    \\ sg `ty_rel vs' (MAP (FST o SND) (scan_expr ts loc xs))`
+    >- fs [ty_rel_def]
+    \\ sg `ty_rel env (FST x')`
+    >-
+     (fs [ty_rel_def]
+      \\ imp_res_tac EVERY_LAST1 \\ fs [])
+    \\ fs [ty_rel_APPEND]
+    \\ fs [ty_rel_def, LIST_REL_EL_EQN] \\ rw []
+    \\ rfs [EL_DROP]
+    \\ `n + LENGTH xs < LENGTH tu` by fs []
+    \\ res_tac \\ fs []
+    \\ rfs [EL_APPEND1, EL_APPEND2, EL_LENGTH_APPEND])
   \\ fs [case_eq_thms, case_elim_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
   \\ rveq \\ fs []
   \\ reverse conj_tac \\ fs []
@@ -869,14 +883,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
       \\ simp []
       \\ strip_tac
       \\ fs [ty_rel_def]
-      \\ fs [Once LAST1_def]
-      \\ CASE_TAC \\ fs [] \\ rveq
-      \\ CASE_TAC \\ fs [] \\ rveq
-      \\ CASE_TAC \\ fs [] \\ rveq
-      \\ imp_res_tac EVERY_LAST1
-      \\ pop_assum mp_tac
-      \\ simp_tac std_ss [EVERY_DEF]
-      \\ fs [EVERY_MEM])
+      \\ CASE_TAC \\ fs []
+      \\ imp_res_tac EVERY_LAST1 \\ fs [])
     \\ qunabbrev_tac `ttt`
     \\ first_assum (qspecl_then [`[x1]`,`s2`] mp_tac)
     \\ impl_tac
