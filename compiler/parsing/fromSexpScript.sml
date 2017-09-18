@@ -941,6 +941,12 @@ val locnsexp_def = Define`
   locnsexp (Locs (locn n1 n2 n3) (locn n4 n5 n6)) =
     listsexp (MAP SX_NUM [n1;n2;n3;n4;n5;n6])`;
 
+val locnsexp_thm = Q.store_thm("locnsexp_thm[compute]",
+  `locnsexp (Locs l1 l2) =
+   listsexp [&(l1.row); &(l1.col); &(l1.offset);
+             &(l2.row); &(l2.col); &(l2.offset)]`,
+  Cases_on`l1` \\ Cases_on`l2` \\ rw[locnsexp_def]);
+
 val locnsexp_11 = Q.store_thm("locnsexp_11[simp]",
   `∀l1 l2. locnsexp l1 = locnsexp l2 ⇔ l1 = l2`,
   Cases \\ Cases \\ rename [`locnsexp (Locs l1 l2) = locnsexp (Locs l3 l4)`] >>

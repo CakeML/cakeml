@@ -42,6 +42,8 @@ val is_rec_def = Define `
   (is_rec _    _                     ⇔ F)
   `;
 
+val _ = export_rewrites ["is_arith_op_def","is_const_def","is_num_rel_def"];
+
 val _ = Datatype `
   assoc_op = Plus
            | Times
@@ -87,9 +89,10 @@ val args_from_def = Define `
   `;
 
 val get_bin_args_def = Define `
-  get_bin_args (bvi$Op _ [e1; e2]) = SOME (e1, e2) ∧
-  get_bin_args _                   = NONE
-  `;
+  get_bin_args op =
+    case op of
+    | bvi$Op _ [e1; e2] => SOME (e1, e2)
+    | _ => NONE`;
 
 val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   `∀x x1 x2.
@@ -300,7 +303,7 @@ val compile_prog_def = Define `
         let (n, ys) = compile_prog next xs in
           (n, (loc, arity, exp)::ys)
     | SOME (exp_aux, exp_opt) =>
-        let (n, ys) = compile_prog (next + 2) xs in
+        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
   `;
 

@@ -86,4 +86,10 @@ val bvl_num_stubs_def = Define`
   bvl_num_stubs = data_num_stubs + 7
 `;
 
+val bvl_to_bvi_namespaces_def = Define`
+  bvl_to_bvi_namespaces = 3n`;
+
+val bvl_num_stub_MOD = Q.store_thm("bvl_num_stub_MOD",
+  `bvl_num_stubs MOD bvl_to_bvi_namespaces = 0`, EVAL_TAC);
+
 val _ = export_theory();
