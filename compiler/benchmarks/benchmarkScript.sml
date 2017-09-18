@@ -263,7 +263,7 @@ val compile_x64_no_cse = compile config_no_cse cbv_to_bytes_x64
 val benchmarks_compiled =
   map (fn (name,prog) =>
           let val name_cse = name^"_cse";
-              val name_no_cse = name;
+              val name_no_cse = name^"_no_cse";
           in
               (compile_x64_no_cse 1000 1000 (String.concat["cakeml/", name_no_cse])
                                (mk_abbrev(String.concat[name,"_prog"]) prog);
