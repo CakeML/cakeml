@@ -1,4 +1,4 @@
-open preamble closLangTheory clos_freeTheory;
+open preamble closLangTheory clos_annotateTheory;
 
 val _ = new_theory "clos_call";
 

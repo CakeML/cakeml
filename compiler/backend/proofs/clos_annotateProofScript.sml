@@ -1,7 +1,6 @@
 open preamble
      db_varsTheory
      closSemTheory closPropsTheory
-     clos_freeTheory clos_freeProofTheory
      clos_annotateTheory;
 
 val _ = new_theory"clos_annotateProof";
@@ -30,7 +29,7 @@ val alt_fv = store_thm("alt_fv",
       alt_fv n [If v1 x1 x2 x3] ⇔ alt_fv n [x1] ∨ alt_fv n [x2] ∨ alt_fv n [x3]) ∧
     (∀xs x2 v2 n.
       alt_fv n [Let v2 xs x2] ⇔
-        if clos_free$no_overlap (LENGTH xs) (SND (free [x2])) /\ EVERY pure xs then
+        if clos_annotate$no_overlap (LENGTH xs) (SND (free [x2])) /\ EVERY pure xs then
           alt_fv (n + LENGTH xs) [x2]
         else
           alt_fv n xs ∨ alt_fv (n + LENGTH xs) [x2]) ∧
@@ -43,7 +42,7 @@ val alt_fv = store_thm("alt_fv",
        alt_fv n [Fn v7 loc vs num_args x1] ⇔ alt_fv (n + num_args) [x1]) ∧
     (∀x1 vs v8 n loc fns.
        alt_fv n [Letrec v8 loc vs fns x1] ⇔
-       if clos_free$no_overlap (LENGTH fns) (SND (free [x1])) then
+       if clos_annotate$no_overlap (LENGTH fns) (SND (free [x1])) then
          alt_fv (n + LENGTH fns) [x1]
        else
          EXISTS (λ(num_args,x). alt_fv (n + num_args + LENGTH fns) [x]) fns ∨
@@ -635,16 +634,16 @@ val MAPi_MAPi = store_thm("MAPi_MAPi",
 
 val evaluate_shift_REPLICATE_const_0 =
   store_thm("evaluate_shift_REPLICATE_const_0[simp]",
-  ``evaluate (shift (REPLICATE n (clos_free$const_0 v8)) m l i,env,t1) =
+  ``evaluate (shift (REPLICATE n (clos_annotate$const_0 v8)) m l i,env,t1) =
       (Rval (REPLICATE n (Number 0)),t1)``,
   Induct_on `n` \\ fs [REPLICATE,shift_def]
   \\ once_rewrite_tac [shift_CONS]
-  \\ fs [EVAL ``shift [clos_free$const_0 t] a2 a3 a4``]
+  \\ fs [EVAL ``shift [clos_annotate$const_0 t] a2 a3 a4``]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ fs [EVAL ``evaluate ([Op v8 (Const 0) []],env,t1)``]);
 
 val no_overlap_has_var_IMP = prove(
-  ``!n l2 x. clos_free$no_overlap n l2 /\ has_var x l2 ==> n <= x``,
+  ``!n l2 x. clos_annotate$no_overlap n l2 /\ has_var x l2 ==> n <= x``,
   Induct \\ fs [no_overlap_def] \\ rw [] \\ res_tac
   \\ Cases_on `x = n` \\ fs []);
 
@@ -1305,7 +1304,7 @@ val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
   rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >>
   full_simp_tac(srw_ss())[GSYM every_Fn_SOME_EVERY]
-  THEN1 cheat (* statement needs adjustment *)
+  \\ cheat (* statement needs adjustment *)
   \\ metis_tac[free_SING,HD,FST,PAIR]);
 
 val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
