@@ -5,22 +5,24 @@ val _ = new_theory "modLang";
 
 val _ = set_grammar_ancestry ["ast"];
 
-(* The first intermediate language modLang. Removes modules, and introduces
- * special variable references for referring to top-level bindings.  Also
- * removes andalso and orelse and replaces them with if.
+(* The first intermediate language modLang. It removes modules and resolves all
+ * global scoping. Each value definition gets allocated a slot in a global
+ * variable store, and each constructor gets a unique global identifier.
+ * It removes andalso and orelse and replaces them with if, and removes the
+ * AallocEmpty primitive op and replaces it with an alloc call with 0.
  *
  * The AST of modLang differs from the source language by having two variable
  * reference forms, one to reference local bindings (still by name) and one to
  * reference global bindings (by index). At the top level, modules are gone.
- * However a Prompt is introduced to group declarations whose bindings should
- * all be installed by the REPL only if none of them encounters an exception
- * (one of the functions that modules perform in the source language).
  * Top-level lets and letrecs no longer bind names (or have patterns), and the
  * lets come with just a number indicating how many bindings to install in the
- * global environment.
+ * global environment. Constructor names are replaced with numbers, and type and
+ * exception definitions record the arities of the constructors rather than the
+ * types. Type annotations are also gone.
  *)
 
-(* Copied from the semantics, but with AallocEmpty missing *)
+(* Copied from the semantics, but with AallocEmpty missing. Init_global_var has
+ * been added. *)
 val _ = Datatype `
  op =
   (* Operations on integers *)
@@ -68,14 +70,27 @@ val _ = Datatype `
   | Alength
   | Aupdate
   (* Call a given foreign function *)
-  | FFI string`;
+  | FFI string
+  | Init_global_var num`;
+
+val _ = type_abbrev ("ctor_id", ``:num``);
+(* NONE represents the exception type *)
+val _ = type_abbrev ("type_id", ``:num option``);
+
+val _ = Datatype `
+  pat =
+  | Pany
+  | Pvar varN
+  | Plit lit
+  | Pcon ((ctor_id # type_id) option) (pat list)
+  | Pref pat`;
 
 val _ = Datatype`
- exp =
+  exp =
     Raise tra exp
   | Handle tra exp ((pat # exp) list)
   | Lit tra lit
-  | Con tra (((modN,conN) id) option) (exp list)
+  | Con tra ((ctor_id # type_id) option) (exp list)
   | Var_local tra varN
   | Var_global tra num
   | Fun tra varN exp
@@ -83,7 +98,8 @@ val _ = Datatype`
   | If tra exp exp exp
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
-  | Letrec tra ((varN # varN # exp) list) exp`;
+  | Letrec tra ((varN # varN # exp) list) exp
+  | Extend_global tra num`;
 
 val exp_size_def = definition"exp_size_def";
 
@@ -100,9 +116,9 @@ val _ = Datatype`
     (* The num is how many top-level variables this declaration binds *)
     Dlet num exp
   | Dletrec ((varN # varN # exp) list)
-  (* The numbers are the constructor arities *)
-  | Dtype ((conN # num) list)
-  (* The number is the constructor arity *)
-  | Dexn conN num`;
+  (* The numbers are each constructor's arity *)
+  | Dtype (num list)
+  (* The number is the constructor's arity *)
+  | Dexn num`;
 
 val _ = export_theory ();

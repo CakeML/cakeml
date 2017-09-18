@@ -1,9 +1,9 @@
-open preamble conLangTheory decLangTheory exhLangTheory exh_reorderTheory
+open preamble modLangTheory mod_reorder_matchTheory
 open backend_commonTheory
 
 val _ = numLib.prefer_num()
 
-val _ = new_theory"dec_to_exh"
+val _ = new_theory"mod_exh_match"
 
 (* The translation only detects the following patterns:
  *   - A single variable, (), or ref variable

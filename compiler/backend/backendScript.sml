@@ -1,9 +1,5 @@
 open preamble
      source_to_modTheory
-     mod_to_conTheory
-     con_to_decTheory
-     dec_to_exhTheory
-     exh_to_patTheory
      pat_to_closTheory
      clos_to_bvlTheory
      bvl_to_bviTheory
@@ -18,6 +14,7 @@ open jsonLangTheory presLangTheory
 
 val _ = new_theory"backend";
 
+(*
 val _ = Datatype`config =
   <| source_conf : source_to_mod$config
    ; mod_conf : mod_to_con$config
@@ -418,5 +415,5 @@ val compile_explorer_def = Define`
     let prog = clos_annotate$compile prog in
     let res = clos_to_json_table "-annotate" prog::res in
       json_to_string (Array (REVERSE res))`;
-
+      *)
 val _ = export_theory();

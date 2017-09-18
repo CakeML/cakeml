@@ -1,4 +1,4 @@
-open preamble modLangTheory conLangTheory;
+open preamble modLangTheory;
 open backend_commonTheory;
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
@@ -11,15 +11,15 @@ open backend_commonTheory;
  * includes the expression for extending the global store.
  *)
 
-val _ = new_theory "mod_to_con";
-val _ = set_grammar_ancestry ["misc", "backend_common", "modLang", "conLang",
-                              "semanticPrimitives" (* for TypeId *)];
+val _ = new_theory "mod_tag";
+val _ = set_grammar_ancestry ["misc", "backend_common", "modLang"];
 
-(* for each constructor, its arity, tag, and type *)
-val _ = type_abbrev( "tag_env" , ``:(modN, conN, num # num # tid_or_exn) namespace``);
+(*
+(* for each constructor, its arity and tag *)
+val _ = type_abbrev( "tag_env" , ``:(modN, conN, num # num) namespace``);
 
 val lookup_tag_env_def = Define`
-  lookup_tag_env cn (tagenv:(tvarN,tvarN,'a#num#tid_or_exn) namespace) =
+  lookup_tag_env cn (tagenv:(tvarN,tvarN,'a#num) namespace) =
   OPTION_MAP SND (OPTION_JOIN (OPTION_MAP (nsLookup tagenv) cn))`
 
 val compile_pat_def = tDefine"compile_pat"`
@@ -66,8 +66,8 @@ val compile_exp_def = tDefine"compile_exp"`
   ∧
   (compile_exp tagenv (If t e1 e2 e3) =
    Mat t (compile_exp tagenv e1)
-     [(Pcon(SOME(true_tag,TypeId(Short"bool")))[],compile_exp tagenv e2);
-      (Pcon(SOME(false_tag,TypeId(Short"bool")))[],compile_exp tagenv e3)])
+     [(Pcon (SOME true_tag) [],compile_exp tagenv e2);
+      (Pcon (SOME false_tag) [],compile_exp tagenv e3)])
   ∧
   (compile_exp tagenv (Mat t e pes) =
    Mat t (compile_exp tagenv e) (compile_pes tagenv pes))
@@ -110,6 +110,8 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
    rw [compile_exp_def] >>
    PairCases_on `h` >>
    rw [compile_exp_def]);
+
+val _ = type_abbrev( "exh_ctors_env" , ``:(modN,typeN) id |-> num spt``);
 
 (* next exception tag (arity-indexed),
  * current tag env,
@@ -163,38 +165,20 @@ val _ = Define `
      alloc_tags mn st' types)`;
 
 val _ = Define `
-  (compile_decs st [] = (st,[]))
-  ∧
-  (compile_decs st (d::ds) =
-   (case d of
-    | Dlet n e =>
-      let (st', ds') = compile_decs st ds in
-        (st', (Dlet n (compile_exp (get_tagenv st) e)::ds'))
-    | Dletrec funs =>
-      let (st', ds') = (compile_decs st ds) in
-        (st', (Dletrec (compile_funs (get_tagenv st) funs)::ds'))
-    | Dtype mn type_def =>
-      let st'' = (alloc_tags mn st type_def) in
-      let (st',ds') = (compile_decs st'' ds) in
-        (st', ds')
-    | Dexn mn cn ts =>
-      let (st', ds') = (compile_decs (alloc_tag (TypeExn (mk_id mn cn)) cn (LENGTH ts) st) ds) in
-        (st', ds')))`;
-
-val _ = Define `
-  compile_prompt tagenv_st prompt =
-  (case prompt of
-   Prompt mn ds =>
-     let (((next',tagenv',exh'),acc'), ds') = compile_decs (tagenv_st,nsEmpty) ds in
-       ((next',nsAppend (option_fold nsLift acc' mn) (get_tagenv (tagenv_st,acc')),exh'), Prompt ds'))`;
-
-val _ = Define `
-  (compile_prog st [] = (st, []))
-  ∧
-  (compile_prog st (p::ps) =
-   let (st',p') = compile_prompt st p in
-   let (st'',ps') = compile_prog st' ps in
-   (st'',(p'::ps')))`;
+  (compile_decs st [] = (st,[])) ∧
+  (compile_decs st (Dlet n e :: ds) =
+    let (st', ds') = compile_decs st ds in
+      (st', Dlet n (compile_exp (get_tagenv st) e)::ds')) ∧
+  (compile_decs st (Dletrec funs :: ds) =
+    let (st', ds') = compile_decs st ds in
+      (st', Dletrec (compile_funs (get_tagenv st) funs)::ds')) ∧
+  (compile_decs st (Dtype type_def :: ds) =
+    let st'' = alloc_tags mn st type_def in
+    let (st',ds') = compile_decs st'' ds in
+      (st', ds')) ∧
+  (compile_decs st (Dexn cn arity :: ds) =
+    let (st', ds') = compile_decs (alloc_tag (TypeExn (mk_id mn cn)) cn arity st) ds in
+      (st', ds'))`;
 
 val _ = Datatype`
   config = <| next_exception : num spt
@@ -212,5 +196,6 @@ val compile_def = Define`
   let ((n,t,e),p) =
     compile_prog (c.next_exception, c.tag_env, c.exh_ctors_env) p in
   (<| next_exception := n; tag_env := t; exh_ctors_env := e|>, p)`;
+  *)
 
 val _ = export_theory ();

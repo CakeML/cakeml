@@ -1,6 +1,6 @@
-open preamble exhLangTheory
+open preamble modLangTheory
 
-val _ = new_theory"exh_reorder";
+val _ = new_theory"mod_reorder_exn";
 
 val is_const_con_def = Define`
   (is_const_con (Pcon tag plist) = (plist = [])) /\
@@ -69,6 +69,7 @@ val compile_def = tDefine "compile" `
     (compile [Var_global t n] = [Var_global t n]) /\
     (compile [Fun t v e] = [Fun t v (HD (compile [e]))]) /\
     (compile [App t op es] = [App t op (compile es)]) /\
+    (compile [If t e1 e2 e3] = [If t (HD (compile [e1])) (HD (compile [e2])) (HD (compile [e3]))]) ∧
     (compile [Mat t e pes] =  [Mat t (HD (compile [e])) (MAP (λ(p,e). (p,HD (compile [e]))) (const_cons_fst pes))]) /\
     (compile [Let t vo e1 e2] = [Let t vo (HD (compile [e1])) (HD (compile [e2]))]) /\
     (compile [Letrec t funs e] =
@@ -102,15 +103,15 @@ val compile_ind = theorem"compile_ind";
 val compile_length = Q.store_thm ("compile_length[simp]",
   `! es. LENGTH (compile es) = LENGTH es`,
   ho_match_mp_tac compile_ind
-  \\ rw [compile_def])
+  \\ rw [compile_def]);
 
 val compile_sing = Q.store_thm ("compile_sing",
   `! e. ?e2. compile [e] = [e2]`,
   rw []
   \\ qspec_then `[e]` mp_tac compile_length
-  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute])
+  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]);
 
-val compile_nil = save_thm ("compile_nil[simp]", EVAL ``exh_reorder$compile []``);
+val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
 
 val compile_cons = Q.store_thm ("compile_cons",
   `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`,

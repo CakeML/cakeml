@@ -1,7 +1,7 @@
-open preamble conLangTheory
+open preamble modLangTheory
 open backend_commonTheory mlintTheory
 
-val _ = new_theory"con_to_dec"
+val _ = new_theory"mod_intro_global"
 
 (* The translator to decLang maps a declaration to an expression that sets of
  * the global environment in the right way. If evaluating the expression

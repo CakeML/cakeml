@@ -1,9 +1,10 @@
 open preamble astTheory mlintTheory
-open conLangTheory modLangTheory exhLangTheory patLangTheory closLangTheory
+open modLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_modTheory;
 
 val _ = new_theory"presLang";
 
+(*
 (*
 * presLang is a presentation language, encompassing intermediate languages from
 * modLang to patLang of the compiler, adopting their constructors. However, the
@@ -937,5 +938,6 @@ val clos_to_json_def = Define`
 val clos_to_json_table_def = Define`
   clos_to_json_table suffix =
     lang_to_json ("closLang" ++ suffix) clos_to_pres_code`;
+    *)
 
 val _ = export_theory();
