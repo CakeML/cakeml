@@ -154,24 +154,23 @@ fun read_char fd =
 (* TODO: input_aux as local fun *)
 val _ = 
   process_topdecs`
-fun input_aux fd buf pos' len' count =
-  if len' = 0 then count else   
-  let val m = min len' 255
-      val m' = Word8.fromInt m
-          a = read fd m'
-          res = Word8.toInt (Word8Array.sub iobuff 0) in
-        if res = 1 then raise InvalidFD
-        else let val nread = Word8.toInt (Word8Array.sub iobuff 1) in
-          if nread = 0 then count
-          else let val a = Word8Array.copy_aux iobuff buf pos' nread 2 in
-                 input_aux fd buf (pos' + nread) (len' - nread) (count + nread)
-          end
-        end
-  end 
-
-fun input fd buf pos len = input_aux fd buf pos len 0
+fun input fd buff pos len = let 
+fun input_aux len' =
+  if len' = 0 then len else   
+   (read fd (Word8.fromInt(min len' 255));
+    if Word8Array.sub iobuff 0 = Word8.fromInt 1  then raise InvalidFD
+    else
+      let val nread0 = Word8Array.sub iobuff 1
+          val nread = Word8.toInt nread0 in
+        if nread = 0 then len - len' else
+          (Word8Array.copy_aux iobuff buf (pos + len - len') nread 2;
+           input_aux (len' - nread))
+      end)
+in input_aux len
+end
 ` |> append_prog
 (*
+fun input fd buf pos len = input_aux fd buf pos len 0
 val _ = 
   process_topdecs`
 fun input fd buf pos len =
