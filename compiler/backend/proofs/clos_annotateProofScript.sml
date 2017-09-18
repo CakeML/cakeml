@@ -651,7 +651,13 @@ val evaluate_pure_IMP = prove(
   ``evaluate (xs,env,s) = (q,r) /\ EVERY pure xs /\
     q <> Rerr (Rabort Rtype_error) ==>
     ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs``,
-  cheat);
+  rw[]
+  \\ imp_res_tac (EVERY_pure_correct |> INST_TYPE[``:'ffi``|->alpha]) \\ fs[]
+  \\ first_x_assum(qspecl_then[`s`,`env`]mp_tac)
+  \\ simp[case_eq_thms]
+  \\ CASE_TAC \\ simp[]
+  \\ CASE_TAC \\ simp[]
+  \\ strip_tac \\ fs[]);
 
 val shift_correct = Q.prove(
   `(!xs env (s1:'ffi closSem$state) env' t1 res s2 m l i.
