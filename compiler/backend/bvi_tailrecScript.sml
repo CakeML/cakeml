@@ -171,11 +171,9 @@ val decide_ty_def = Define `
   (decide_ty _   _   = Any)`;
 
 val LAST1_def = Define `
-  LAST1 xs = case xs of
-               []    => NONE
-             | [x]   => SOME x
-             | x::xs => LAST1 xs
-  `;
+  LAST1 []      = NONE   /\
+  LAST1 [x]     = SOME x /\
+  LAST1 (x::xs) = LAST1 xs`;
 
 (* Gather information about expressions:
 
@@ -206,7 +204,6 @@ val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [Let xs x] =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    (*let tr = FST (LAST ys) in*)
     let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
     let (tu, ty, _, op) = HD (scan_expr (tt ++ tr) loc [x]) in
       [(DROP (LENGTH ys) tu, ty, F, op)]) ∧
@@ -265,7 +262,6 @@ val rewrite_def = Define `
   (rewrite (loc, next, op, acc, ts) (Let xs x) =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    (*let tr = FST (LAST ys) in*)
     let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
     let (r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt ++ tr) x in
       (r, Let xs y)) ∧
