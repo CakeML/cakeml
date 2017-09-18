@@ -759,7 +759,6 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
                  evaluate ([x], env2, s with code := c) =
                  evaluate ([apply_op op (HD xs) (Var acc)],
                    env2, s with code := c))`,
-
   ho_match_mp_tac evaluate_complete_ind
   \\ ntac 2 (rpt gen_tac \\ strip_tac)
   \\ Cases_on `xs` \\ fs []
@@ -834,10 +833,8 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ rpt (PURE_FULL_CASE_TAC \\ fs [])
     \\ rw [] \\ fs [])
   \\ Cases_on `∃xs x1. h = Let xs x1` \\ fs [] \\ rveq
-
   >-
-   (
-    simp [evaluate_def]
+   (simp [evaluate_def]
     \\ `env_rel F acc env1 env2` by fs [env_rel_def]
     \\ PURE_TOP_CASE_TAC \\ fs []
     \\ reverse PURE_TOP_CASE_TAC \\ fs []
@@ -863,47 +860,24 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     \\ imp_res_tac evaluate_code_const
     \\ rename1 `evaluate (xs,env,s) = (Rval a, s2)`
     \\ qabbrev_tac `ttt = scan_expr ts loc xs`
-    \\ sg `ty_rel (a ++ env) (MAP (FST o SND) ttt ++ FST (LAST ttt))`
+    \\ sg `ty_rel (a ++ env) (MAP (FST o SND) ttt ++ (case LAST1 ttt of SOME z => FST z | NONE => ts))`
     >-
-     (
-      drule scan_expr_ty_rel
+     (match_mp_tac ty_rel_APPEND
+      \\ drule scan_expr_ty_rel
       \\ disch_then (qspecl_then [`loc`,`xs`,`ttt`,`s`] mp_tac)
-      \\ qunabbrev_tac `ttt` \\ rw []
-      \\ sg `ty_rel env (FST (LAST (scan_expr ts loc xs)))`
-      >-
-       (
-        fs [ty_rel_def]
-        \\ fs [EVERY_MEM]
-        \\ sg `?z zs. scan_expr ts loc xs = z::zs`
-        >-
-         (
-          `LENGTH (scan_expr ts loc xs) = LENGTH xs` by fs []
-          \\
-         )
-        \\ fs [MEM_LAST]
-       )
-      \\
-      \\ match_mp_tac EVERY2_APPEND
-      \\ metis_tac [ty_rel_def, EVERY2_APPEND]
-      )
-    \\ sg `ty_rel env (FST (LAST (scan_expr ts loc xs)))`
-    >-
-     (
-      drule scan_expr_ty_rel
+      \\ qunabbrev_tac `ttt`
       \\ simp []
-      \\ disch_then (qspecl_then [`loc`,`xs`,`s`] mp_tac)
-      \\ simp []
-     )
-    scan_expr_ty_rel
-    scan_expr_def
-
-
-    \\ sg `ty_rel (a++env) (MAP (FST o SND) (scan_expr ts loc xs) ++ ts)`
-    >-
-     (drule scan_expr_ty_rel
-      \\ disch_then (qspecl_then [`loc`,`xs`,`scan_expr ts loc xs`,`s`] mp_tac)
-      \\ simp [] \\ rw []
-      \\ metis_tac [ty_rel_def, EVERY2_APPEND])
+      \\ strip_tac
+      \\ fs [ty_rel_def]
+      \\ fs [Once LAST1_def]
+      \\ CASE_TAC \\ fs [] \\ rveq
+      \\ CASE_TAC \\ fs [] \\ rveq
+      \\ CASE_TAC \\ fs [] \\ rveq
+      \\ imp_res_tac EVERY_LAST1
+      \\ pop_assum mp_tac
+      \\ simp_tac std_ss [EVERY_DEF]
+      \\ fs [EVERY_MEM])
+    \\ qunabbrev_tac `ttt`
     \\ first_assum (qspecl_then [`[x1]`,`s2`] mp_tac)
     \\ impl_tac
     >- simp [bviTheory.exp_size_def]
