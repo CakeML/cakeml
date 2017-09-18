@@ -893,38 +893,38 @@ val _ = translate bvi_tailrecTheory.scan_expr_def
 val bvi_tailrec_scan_expr_side = Q.prove (
   `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2 <=> T`,
   ho_match_mp_tac bvi_tailrecTheory.scan_expr_ind \\ rw []
-  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")])
+  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")]
+  \\ PURE_FULL_CASE_TAC \\ fs [])
   |> update_precondition
 
 val rewrite_alt_def = Define `
   rewrite_alt loc next op acc ts x =
     case x of
-      Var n =>
-        let ty = if n < LENGTH ts then EL n ts else Any in
-          (ts, ty, F, Var n)
+      Var n => (F, Var n)
     | If xi xt xe =>
         let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
-        let (tt, ty1, rt, yt) = rewrite_alt loc next op acc ti xt in
-        let (te, ty2, re, ye) = rewrite_alt loc next op acc ti xe in
+        let (rt, yt) = rewrite_alt loc next op acc ti xt in
+        let (re, ye) = rewrite_alt loc next op acc ti xe in
         let zt = if rt then yt else apply_op op xt (Var acc) in
         let ze = if re then ye else apply_op op xe (Var acc) in
-          (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)
+          (rt ∨ re, If xi zt ze)
     | Let xs x =>
-        let ys = MAP (FST o SND) (scan_expr ts loc xs) in
-        let (tu, ty, r, y) = rewrite_alt loc next op (acc + LENGTH xs) (ys ++ ts) x in
-          (DROP (LENGTH ys) tu, ty, r, Let xs y)
+        let ys = scan_expr ts loc xs in
+        let tt = MAP (FST o SND) ys in
+        let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+        let (r, y) = rewrite_alt loc next op (acc + LENGTH xs) (tt ++ tr) x in
+          (r, Let xs y)
     | Tick x =>
-        let (tt, ty, r, y) = rewrite_alt loc next op acc ts x in
-          (tt, ty, r, Tick y)
-    | Raise x => (ts, Any, F, Raise x)
+        let (r, y) = rewrite_alt loc next op acc ts x in (r, Tick y)
+    | Raise x => (F, Raise x)
     | exp =>
-        (case rewrite_op ts op loc exp of
-          (F, _)    => (ts, Int, F, apply_op op exp (Var acc))
+        case rewrite_op ts op loc exp of
+          (F, _)    => (F, apply_op op exp (Var acc))
         | (T, exp1) =>
           case get_bin_args exp1 of
-            NONE              => (ts, Int, F, apply_op op exp (Var acc))
+            NONE => (F, apply_op op exp (Var acc))
           | SOME (call, exp2) =>
-              (ts, Int, T, push_call next op acc exp2 (args_from call)))`;
+              (T, push_call next op acc exp2 (args_from call))`;
 
 val _ = translate rewrite_alt_def
 
@@ -932,7 +932,8 @@ val rewrite_alt_side = Q.prove (
   `!a0 a1 a2 a3 a4 a5. to_dataprog_rewrite_alt_side a0 a1 a2 a3 a4 a5 <=> T`,
   ho_match_mp_tac (theorem "rewrite_alt_ind") \\ rw []
   \\ once_rewrite_tac [fetch "-" "to_dataprog_rewrite_alt_side_def"]
-  \\ rw []) |> update_precondition
+  \\ rw []
+  \\ PURE_FULL_CASE_TAC \\ fs []) |> update_precondition
 
 val rewrite_alt_lem = Q.prove (
   `!loc next op acc ts x.
