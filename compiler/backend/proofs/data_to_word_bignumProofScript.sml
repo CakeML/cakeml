@@ -1695,7 +1695,6 @@ val AnyArith_thm = Q.store_thm("AnyArith_thm",
     \\ match_mp_tac LESS_EQ_LESS_TRANS
     \\ qexists_tac `2 ** c.len_size` \\ fs [])
   \\ fs [store_list_def] \\ strip_tac
-  \\ conj_tac THEN1 (fs [code_oracle_rel_def,FLOOKUP_UPDATE])
   \\ `(next_addr =+ Word new_header) m22 = m1` by
    (`next_addr + bytes_in_word =
      curr + bytes_in_word + bytes_in_word * n2w (heap_length ha)` by

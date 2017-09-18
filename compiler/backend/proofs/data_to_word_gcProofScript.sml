@@ -4362,6 +4362,11 @@ val code_oracle_rel_def = Define `
     t_compile_oracle = (I ## MAP (compile_part c)) o s_compile_oracle /\
     (!n. EVERY (\(n,_). data_num_stubs <= n) (SND (s_compile_oracle n)))`
 
+val code_oracle_rel_NextFree = Q.store_thm("code_oracle_rel_NextFree[simp]",
+  `code_oracle_rel c sc sco (ts |+ (NextFree,x)) tcc tco cb db ⇔
+   code_oracle_rel c sc sco ts tcc tco cb db`,
+  rw[code_oracle_rel_def,FLOOKUP_UPDATE]);
+
 val s = ``(s:('c,'ffi) dataSem$state)``
 
 val state_rel_thm = Define `
