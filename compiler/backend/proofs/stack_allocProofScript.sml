@@ -5007,19 +5007,28 @@ val SUBMAP_FUPDATE_both = Q.prove(`
   rw[]>>match_mp_tac SUBMAP_mono_FUPDATE >>
   fs[SUBMAP_DOMSUB_both]);
 
+(* This proof is very slow! *)
 val inst_correct = Q.prove(`
-  inst (i:'a inst) (s:('a,'b) stackSem$state) = SOME t ∧
+  inst (i:'a inst) (s:('a,'c,'b) stackSem$state) = SOME t ∧
   LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
+  LENGTH s.data_buffer.buffer + (LENGTH s.bitmaps + s.data_buffer.space_left) < dimword (:'a) - 1 ∧
   s.regs SUBMAP regs ⇒
   ∃regs1.
-  inst i (s with <|regs := regs; gc_fun := anything; use_stack := T;
+  inst i (s with <|regs := regs;
+          compile := compile_rest;
+          compile_oracle := (I ## MAP prog_comp ## I) o s.compile_oracle;
+          gc_fun := anything; use_stack := T;
           use_store := T; use_alloc := F;
           code := fromAList (compile c (toAList s.code))|>) =
-    SOME (t with <|regs := regs1; gc_fun := anything; use_stack := T;
+    SOME (t with <|regs := regs1;
+          compile := compile_rest;
+          compile_oracle := (I ## MAP prog_comp ## I) o t.compile_oracle;
+          gc_fun := anything; use_stack := T;
           use_store := T; use_alloc := F;
-          code := fromAList (compile c (toAList s.code))|>) ∧
+          code := fromAList (compile c (toAList t.code))|>) ∧
     t.regs SUBMAP regs1 ∧
-    LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α)`,
+    LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
+    LENGTH t.data_buffer.buffer + (LENGTH t.bitmaps + t.data_buffer.space_left) < dimword (:'a) - 1`,
   Cases_on`i`>>fs[inst_def]
   >-
     (rw[]>>rfs[state_component_equality])
@@ -5027,12 +5036,12 @@ val inst_correct = Q.prove(`
     (rw[assign_def,word_exp_def,set_var_def]>>rfs[state_component_equality]>>
     metis_tac[SUBMAP_FUPDATE_both])
   >-
-    (* Can be sped up by avoiding ect *)
     (TOP_CASE_TAC>>rw[]>>
     fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def]>>
-    every_case_tac>>fs[IS_SOME_EXISTS,word_exp_def]>>
-    every_case_tac>>fs[]>>
-    imp_res_tac FLOOKUP_SUBMAP>>
+    fs[case_eq_thms] \\ rw[] \\ fs[IS_SOME_EXISTS,case_eq_thms] \\
+    imp_res_tac FLOOKUP_SUBMAP>>fs[] \\
+    TRY(Cases_on`r`) \\ fs[case_eq_thms,IS_SOME_EXISTS,word_exp_def]>>
+    imp_res_tac FLOOKUP_SUBMAP>>fs[] \\
     fs[set_var_def,state_component_equality]>>
     metis_tac[SUBMAP_FUPDATE_both])
   >-
@@ -5112,7 +5121,6 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [state_component_equality,Abbr`f2`]
     \\ metis_tac[alloc_length_stack,alloc_const])
   \\ conj_tac (* Inst *) >- (
-    (* This proof is very slow! *)
     rpt strip_tac
     \\ fs[Once comp_def,evaluate_def]
     \\ qpat_x_assum `_ = (r,t)` mp_tac
