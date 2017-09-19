@@ -545,7 +545,7 @@ val tick_inline_def = tDefine "tick_inline" `
 val tick_inline_ind = theorem"tick_inline_ind";
 
 val tick_inline_all_def = Define `
-  (tick_inline_all limit cs [] aux = REVERSE aux) /\
+  (tick_inline_all limit cs [] aux = (cs,REVERSE aux)) /\
   (tick_inline_all limit cs ((n,arity,e1)::xs) aux =
      let e2 = HD (tick_inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
