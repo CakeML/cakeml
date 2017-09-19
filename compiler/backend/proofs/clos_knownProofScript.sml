@@ -317,14 +317,25 @@ val mglobals_extend_decclock = Q.store_thm(
    (mglobals_extend s0 gs (dec_clock n s) ⇔ mglobals_extend s0 gs s)`,
   simp[dec_clock_def]);
 
-val list_to_v_vsgc_free = Q.store_thm("list_to_v_vsgc_free",
-  `!h xs.
-     vsgc_free h /\
-     v_to_list h = SOME xs ==>
-       vsgc_free (list_to_v xs)`,
-   ho_match_mp_tac v_to_list_ind \\ fs [v_to_list_def, list_to_v_def]
-   \\ rw [v_to_list_def, list_to_v_def, case_eq_thms]
-   \\ rfs [list_to_v_def]);
+(* TODO closProps? *)
+val list_to_v_EVERY_APPEND = Q.store_thm("list_to_v_EVERY_APPEND",
+  `!(x: closSem$v) y xs ys.
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys /\
+     (!t l. P (Block t l) <=> EVERY P l) /\
+     P x /\ P y ==>
+       P (list_to_v (xs ++ ys))`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def, case_eq_thms] \\ fs []
+  >-
+   (qpat_x_assum `v_to_list _ = _` mp_tac
+    \\ pop_assum mp_tac
+    \\ ConseqConv.SPEC_ALL_TAC
+    \\ ho_match_mp_tac v_to_list_ind
+    \\ rw [v_to_list_def, case_eq_thms]
+    \\ fs [list_to_v_def])
+  \\ rfs []
+  \\ res_tac
+  \\ fs [list_to_v_def])
 
 val do_app_ssgc = Q.store_thm(
   "do_app_ssgc",
@@ -385,11 +396,11 @@ val do_app_ssgc = Q.store_thm(
       dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
   >- (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (* ListAppend *)
-   (
-    rw [] \\ fs []
-    \\ match_mp_tac list_to_v_vsgc_free
-    \\ cheat (* TODO *)
-   )
+   (rw [] \\ fs []
+    \\ match_mp_tac list_to_v_EVERY_APPEND
+    \\ simp [vsgc_free_def]
+    \\ asm_exists_tac \\ fs []
+    \\ asm_exists_tac \\ fs [])
   >- (simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
       map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
       simp[v_to_list_def] >> Cases >>
@@ -1283,6 +1294,7 @@ val kvrel_op_correct_Rval = Q.store_thm(
    ksrel g s01 s02 ⇒
    ∃v2 s2. do_app opn vs2 s02 = Rval(v2,s2) ∧ ksrel g s1 s2 ∧
            kvrel g v1 v2`,
+
   Cases_on `opn` >> simp[do_app_def, case_eq_thms, bool_case_eq, PULL_EXISTS] >>
   TRY (rw[] >> fs[LIST_REL_EL_EQN] >> NO_TAC) \\
   TRY (rw[] >> fs[] >>
@@ -1327,9 +1339,7 @@ val kvrel_op_correct_Rval = Q.store_thm(
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   >-
    (
-    rw [] \\ fs [] \\ rw []
-    \\ imp_res_tac kvrel_v_to_list \\ fs [] \\ rveq
-    \\ cheat (* TODO *)
+    cheat (* TODO *)
    )
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
   >- (
