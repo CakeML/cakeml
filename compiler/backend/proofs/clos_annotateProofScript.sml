@@ -1296,25 +1296,26 @@ val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
   simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]);
 
-val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
-  `∀es. every_Fn_SOME (FST (free es)) = every_Fn_SOME es`,
-  ho_match_mp_tac free_ind >>
-  srw_tac[][free_def] >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac free_SING >> full_simp_tac(srw_ss())[] >>
-  unabbrev_all_tac >> full_simp_tac(srw_ss())[] >>
-  simp[MAP_MAP_o,UNCURRY,o_DEF] >>
-  rpt (pop_assum mp_tac) >>
-  ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
-  srw_tac[][EVERY_MAP] >>
-  srw_tac[][EVERY_MEM] >>
-  rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  simp[FUN_EQ_THM] >>
-  full_simp_tac(srw_ss())[GSYM every_Fn_SOME_EVERY]
-  \\ cheat (* statement needs adjustment *)
-  \\ metis_tac[free_SING,HD,FST,PAIR]);
+val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
+  `every_Fn_SOME [clos_annotate$const_0 t]`,
+  EVAL_TAC );
 
-val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
-  `every_Fn_SOME (annotate n es) ⇔ every_Fn_SOME es`, srw_tac[][annotate_def]);
+val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free",
+  `∀es. every_Fn_SOME es ⇒ every_Fn_SOME (FST (free es))`,
+  ho_match_mp_tac free_ind >>
+  rw[free_def] \\ rpt(pairarg_tac \\ fs[]) \\
+  imp_res_tac free_SING >> fs[] \\
+  simp[MAP_MAP_o,UNCURRY,o_DEF] >> rveq >>
+  TRY IF_CASES_TAC >> fs[] >>
+  rpt (pop_assum mp_tac) >>
+  fs[REPLICATE_GENLIST] >>
+  ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
+  fs[EVERY_MAP,EVERY_GENLIST] >>
+  rw[EVERY_MEM,FORALL_PROD] >> res_tac
+  \\ metis_tac[free_SING,HD,FST,PAIR,MEM]);
+
+val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate",
+  `every_Fn_SOME es ⇒ every_Fn_SOME (annotate n es)`, rw[annotate_def,every_Fn_SOME_free]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
@@ -1327,22 +1328,24 @@ val shift_code_locs = Q.prove(
   \\ ONCE_REWRITE_TAC [code_locs_map]
   \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD]);
 
+val code_locs_const_0 = Q.store_thm("code_locs_const_0[simp]",
+  `code_locs [clos_annotate$const_0 t] = []`, EVAL_TAC);
+
 val free_code_locs = Q.prove(
-  `!xs. code_locs (FST (free xs)) = code_locs xs`,
-  cheat(* statement needs adjustment *) (*
+  `!xs. set (code_locs (FST (free xs))) ⊆ set (code_locs xs)`,
   ho_match_mp_tac free_ind
-  \\s imp[free_def,code_locs_def,UNCURRY] >> srw_tac[][]
+  \\ simp[free_def,code_locs_def,UNCURRY] >> rw[]
   \\ Cases_on `free [x]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
   \\ Cases_on `free [x1]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
   \\ Cases_on `free [x2]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
   \\ Cases_on `free xs` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
-  \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
-  \\ ONCE_REWRITE_TAC [code_locs_map] \\ AP_TERM_TAC
-  \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD,HD_FST_free]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] *));
+  \\ fs[MAP_MAP_o,o_DEF,SUBSET_DEF,code_locs_def,GSYM MAP_K_REPLICATE]
+  \\ ONCE_REWRITE_TAC [code_locs_map]
+  \\ simp[MEM_FLAT,MEM_GENLIST,MEM_MAP,PULL_EXISTS,UNCURRY,HD_FST_free]
+  \\ metis_tac[HD_FST_free,FST,PAIR]);
 
 val annotate_code_locs = Q.store_thm("annotate_code_locs",
-  `!n ls. code_locs (annotate n ls) = code_locs ls`,
+  `!n ls. set (code_locs (annotate n ls)) ⊆ set (code_locs ls)`,
   srw_tac[][annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()
