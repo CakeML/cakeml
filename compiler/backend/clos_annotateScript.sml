@@ -3,7 +3,7 @@ open preamble closLangTheory db_varsTheory;
 val _ = new_theory "clos_annotate";
 val _ = set_grammar_ancestry ["closLang","db_vars"]
 
-(* free calculates free variable annotations, and replaces unused lets with dummies *)
+(* alt_free calculates free variable annotations, and replaces unused lets with dummies *)
 
 val const_0_def = Define `
   const_0 t = Op t (Const 0) []`;
@@ -13,61 +13,61 @@ val no_overlap_def = Define `
   (no_overlap (SUC n) l <=>
      if has_var n l then F else no_overlap n l)`
 
-val free_def = tDefine "free" `
-  (free [] = ([],Empty)) /\
-  (free ((x:closLang$exp)::y::xs) =
-     let (c1,l1) = free [x] in
-     let (c2,l2) = free (y::xs) in
+val alt_free_def = tDefine "alt_free" `
+  (alt_free [] = ([],Empty)) /\
+  (alt_free ((x:closLang$exp)::y::xs) =
+     let (c1,l1) = alt_free [x] in
+     let (c2,l2) = alt_free (y::xs) in
        (c1 ++ c2,mk_Union l1 l2)) /\
-  (free [Var t v] = ([Var t v], Var v)) /\
-  (free [If t x1 x2 x3] =
-     let (c1,l1) = free [x1] in
-     let (c2,l2) = free [x2] in
-     let (c3,l3) = free [x3] in
+  (alt_free [Var t v] = ([Var t v], Var v)) /\
+  (alt_free [If t x1 x2 x3] =
+     let (c1,l1) = alt_free [x1] in
+     let (c2,l2) = alt_free [x2] in
+     let (c3,l3) = alt_free [x3] in
        ([If t (HD c1) (HD c2) (HD c3)],mk_Union l1 (mk_Union l2 l3))) /\
-  (free [Let t xs x2] =
+  (alt_free [Let t xs x2] =
      let m = LENGTH xs in
-     let (c2,l2) = free [x2] in
+     let (c2,l2) = alt_free [x2] in
        if no_overlap m l2 /\ EVERY pure xs then
          ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
        else
-         let (c1,l1) = free xs in
+         let (c1,l1) = alt_free xs in
            ([Let t c1 (HD c2)],mk_Union l1 (Shift (LENGTH xs) l2))) /\
-  (free [Raise t x1] =
-     let (c1,l1) = free [x1] in
+  (alt_free [Raise t x1] =
+     let (c1,l1) = alt_free [x1] in
        ([Raise t (HD c1)],l1)) /\
-  (free [Tick t x1] =
-     let (c1,l1) = free [x1] in
+  (alt_free [Tick t x1] =
+     let (c1,l1) = alt_free [x1] in
        ([Tick t (HD c1)],l1)) /\
-  (free [Op t op xs] =
-     let (c1,l1) = free xs in
+  (alt_free [Op t op xs] =
+     let (c1,l1) = alt_free xs in
        ([Op t op c1],l1)) /\
-  (free [App t loc_opt x1 xs2] =
-     let (c1,l1) = free [x1] in
-     let (c2,l2) = free xs2 in
+  (alt_free [App t loc_opt x1 xs2] =
+     let (c1,l1) = alt_free [x1] in
+     let (c2,l2) = alt_free xs2 in
        ([App t loc_opt (HD c1) c2],mk_Union l1 l2)) /\
-  (free [Fn t loc _ num_args x1] =
-     let (c1,l1) = free [x1] in
+  (alt_free [Fn t loc _ num_args x1] =
+     let (c1,l1) = alt_free [x1] in
      let l2 = Shift num_args l1 in
        ([Fn t loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
-  (free [Letrec t loc _ fns x1] =
+  (alt_free [Letrec t loc _ fns x1] =
      let m = LENGTH fns in
-     let (c2,l2) = free [x1] in
+     let (c2,l2) = alt_free [x1] in
        if no_overlap m l2 then
          ([Let t (REPLICATE m (const_0 t)) (HD c2)], Shift m l2)
        else
-     let res = MAP (\(n,x). let (c,l) = free [x] in
+     let res = MAP (\(n,x). let (c,l) = alt_free [x] in
                               ((n,HD c),Shift (n + m) l)) fns in
      let c1 = MAP FST res in
      let l1 = list_mk_Union (MAP SND res) in
        ([Letrec t loc (SOME (vars_to_list l1)) c1 (HD c2)],
         mk_Union l1 (Shift (LENGTH fns) l2))) /\
-  (free [Handle t x1 x2] =
-     let (c1,l1) = free [x1] in
-     let (c2,l2) = free [x2] in
+  (alt_free [Handle t x1 x2] =
+     let (c1,l1) = alt_free [x1] in
+     let (c2,l2) = alt_free [x2] in
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
-  (free [Call t ticks dest xs] =
-     let (c1,l1) = free xs in
+  (alt_free [Call t ticks dest xs] =
+     let (c1,l1) = alt_free xs in
        ([Call t ticks dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[]
@@ -75,42 +75,42 @@ val free_def = tDefine "free" `
   \\ Induct_on `xx` \\ rpt strip_tac \\ lfs[exp_size_def] \\ res_tac
   \\ simp[]);
 
-val free_ind = theorem "free_ind";
+val alt_free_ind = theorem "alt_free_ind";
 
-val free_LENGTH_LEMMA = Q.prove(
-  `!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
-  recInduct free_ind \\ REPEAT STRIP_TAC
-  \\ FULL_SIMP_TAC (srw_ss()) [free_def]
+val alt_free_LENGTH_LEMMA = Q.prove(
+  `!xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
+  recInduct alt_free_ind \\ REPEAT STRIP_TAC
+  \\ FULL_SIMP_TAC (srw_ss()) [alt_free_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) []
   \\ rw [])
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-val free_LENGTH = Q.store_thm("free_LENGTH",
-  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
-  REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
+val alt_free_LENGTH = Q.store_thm("alt_free_LENGTH",
+  `!xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
+  REPEAT STRIP_TAC \\ MP_TAC alt_free_LENGTH_LEMMA \\ fs []);
 
-val free_SING = Q.store_thm("free_SING",
-  `(free [x] = (ys,l)) ==> ?y. ys = [y]`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
+val alt_free_SING = Q.store_thm("alt_free_SING",
+  `(alt_free [x] = (ys,l)) ==> ?y. ys = [y]`,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC alt_free_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_free = Q.store_thm("LENGTH_FST_free",
-  `LENGTH (FST (free fns)) = LENGTH fns`,
-  Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
+val LENGTH_FST_alt_free = Q.store_thm("LENGTH_FST_alt_free",
+  `LENGTH (FST (alt_free fns)) = LENGTH fns`,
+  Cases_on `alt_free fns` \\ fs [] \\ IMP_RES_TAC alt_free_LENGTH);
 
-val HD_FST_free = Q.store_thm("HD_FST_free",
-  `[HD (FST (free [x1]))] = FST (free [x1])`,
-  Cases_on `free [x1]` \\ fs []
-  \\ imp_res_tac free_SING \\ fs[]);
+val HD_FST_alt_free = Q.store_thm("HD_FST_alt_free",
+  `[HD (FST (alt_free [x1]))] = FST (alt_free [x1])`,
+  Cases_on `alt_free [x1]` \\ fs []
+  \\ imp_res_tac alt_free_SING \\ fs[]);
 
-val free_CONS = Q.store_thm("free_CONS",
-  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`,
-  Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
-  \\ Cases_on `free [x]` \\ fs []
-  \\ Cases_on `free (h::t)` \\ fs [SING_HD]
-  \\ IMP_RES_TAC free_SING \\ fs []);
+val alt_free_CONS = Q.store_thm("alt_free_CONS",
+  `FST (alt_free (x::xs)) = HD (FST (alt_free [x])) :: FST (alt_free xs)`,
+  Cases_on `xs` \\ fs [alt_free_def,SING_HD,LENGTH_FST_alt_free,LET_DEF]
+  \\ Cases_on `alt_free [x]` \\ fs []
+  \\ Cases_on `alt_free (h::t)` \\ fs [SING_HD]
+  \\ IMP_RES_TAC alt_free_SING \\ fs []);
 
 (* shift renames variables to use only those in the annotations *)
 
@@ -208,7 +208,7 @@ val HD_shift = Q.store_thm("HD_shift[simp]",
 (* main functions *)
 
 val annotate_def = Define `
-  annotate arity xs = shift (FST (free xs)) 0 arity LN`;
+  annotate arity xs = shift (FST (alt_free xs)) 0 arity LN`;
 
 val compile_def = Define `
   compile prog =
