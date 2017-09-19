@@ -154,11 +154,8 @@ val state_rel_max_app = Q.store_thm("state_rel_max_app",
 
 (* semantic functions respect relation *)
 
-(* TODO closProps ? *)
 val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
-  `!xs ys.
-     LIST_REL v_rel xs ys ==>
-       v_rel (list_to_v xs) (list_to_v ys)`,
+  `!xs ys.  LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`,
   Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
