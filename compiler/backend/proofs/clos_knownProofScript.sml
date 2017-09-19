@@ -1287,6 +1287,29 @@ val kvrel_do_eq0 = Q.prove(
 
 val kvrel_do_eq = save_thm("kvrel_do_eq", kvrel_do_eq0 |> CONJUNCT1);
 
+val kvrel_list_to_v = Q.store_thm("kvrel_list_to_v",
+  `!xs1 xs2 ys1 ys2.
+     LIST_REL (kvrel g) xs1 xs2 /\
+     LIST_REL (kvrel g) ys1 ys2 /\
+     kvrel g (list_to_v xs1) (list_to_v xs2) /\
+     kvrel g (list_to_v ys1) (list_to_v ys2) ==>
+       kvrel g (list_to_v (xs1 ++ ys1)) (list_to_v (xs2 ++ ys2))`,
+  Induct >- rw [list_to_v_def] \\ gen_tac
+  \\ Induct \\ rw [list_to_v_def] \\ fs []);
+
+val kvrel_v2l_l2v = Q.store_thm("kvrel_v2l_l2v",
+  `!x y xs ys.
+     kvrel g x y /\
+     v_to_list x = SOME xs /\
+     v_to_list y = SOME ys ==>
+       kvrel g (list_to_v xs) (list_to_v ys)`,
+  ho_match_mp_tac v_to_list_ind \\ rw [v_to_list_def]
+  \\ fs [list_to_v_def] \\ rveq
+  \\ fs [v_to_list_def] \\ rveq
+  \\ fs [list_to_v_def, case_eq_thms] \\ rveq
+  \\ fs [list_to_v_def]
+  \\ res_tac);
+
 (* necessary(!) *)
 val kvrel_op_correct_Rval = Q.store_thm(
   "kvrel_op_correct_Rval",
@@ -1294,7 +1317,6 @@ val kvrel_op_correct_Rval = Q.store_thm(
    ksrel g s01 s02 ⇒
    ∃v2 s2. do_app opn vs2 s02 = Rval(v2,s2) ∧ ksrel g s1 s2 ∧
            kvrel g v1 v2`,
-
   Cases_on `opn` >> simp[do_app_def, case_eq_thms, bool_case_eq, PULL_EXISTS] >>
   TRY (rw[] >> fs[LIST_REL_EL_EQN] >> NO_TAC) \\
   TRY (rw[] >> fs[] >>
@@ -1338,9 +1360,10 @@ val kvrel_op_correct_Rval = Q.store_thm(
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] \\
       imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] )
   >-
-   (
-    cheat (* TODO *)
-   )
+   (rw [] \\ fs [] \\ rw []
+    \\ imp_res_tac kvrel_v_to_list \\ fs [] \\ rfs [] \\ rw []
+    \\ match_mp_tac kvrel_list_to_v \\ fs []
+    \\ imp_res_tac kvrel_v2l_l2v \\ fs [])
   >- (rw[] >> fs[] >> metis_tac[kvrel_v_to_list])
   >- (
     rw[] \\ fs[] \\
