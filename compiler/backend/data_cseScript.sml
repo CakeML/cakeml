@@ -103,18 +103,12 @@ Otherwise removes all expressions that contain `n`.
 - invalidate_all_but : cache -> num_set -> cache
 Invalidates all the variables but the ones in the given set.
 
-- assign : cache -> num -> (op, vs) -> cache
+- memoize : cache -> num -> (op, vs) -> cache
 Inserts the assignment into the cache, i.e. it appends the `n` to the entry pointed by `(op, vs)`.
-
-- twin_set : cache -> num -> num list -> bool
-Returns the list of variables that are interchangeable with `n`, i.e. that contain the same.
-
-- with_op : cache -> op -> (num list) list
-Returns the list of list of arguments in the cache that use the given operator.
 
 Algorithm:
 When we find an assignment `a@(Assign v op vs live)`:
-- live is ignored.
+- Remove every variable that is not in live from the cache.
 - Invalidate `v`, i.e. remove all expressions from the cache that contain `v`.
 - If the `op` is not pure, return `a`.
 - Lookup whether an equivalent expression is in the cache. If present associated
@@ -127,35 +121,6 @@ Append `m` to the same entry as `n`.
 When we find `call _ _ _ _` ?? if the first argument is NONE, it will not
 return. if it is SOME (n, live), then it cuts out everything that is not in live
 and assigns something "impure" to `n`
-
-
-Questions:
-- When looking up expressions, should we consider operator properties such as a + b = b + a ?
-
-Example:
-- Consider this program:
-              cache = []
-a = 1;
-              cache = [(1, [a])]
-b = 2;
-              cache = [(2, [b]), (1, [a])]
-c = a + b;
-              cache = [(a + b, [c]), (2, [b]), (1, [a])]
-d = a + b;    ==> d = c;
-              cache = [(a + b, [c, d]), (2, [b]), (1, [a])]
-e = 1;        ==> e = 1; //cheap expression
-              cache = [(a + b, [c, d]), (2, [b]), (1, [a, e])]
-f = e + b;    ==> Naive: e + b;
-              ==> Smart: f = c; (is this hard?)
-              cache = [(e + b, [f]), (a + b, [c, d]), (2, [b]), (1, [a, e])]
-g = 2;        ==> g = 2; //cheap expression
-              cache = [(e + b, [f]), (a + b, [c, d]), (2, [b, g]), (1, [a, e])]
-b = 0;
-              Naive: cache = [(b, 0), (1, [a, e])]
-              Smart: cache = [(b, 0), (e + g, [f]), (a + g, [c, d]), (2, [g]), (1, [a, e])]
-g = 4;
-              Smart: cache = [(g, 4), (b, 0), (1, [a, e])]
-
  *)
 
 (* MAP UTILS *)
@@ -201,10 +166,10 @@ num_set_head_may sp = dtcase num_set_toList sp of
                          | (x::_) => SOME x : num option
                          | _ => NONE`
 val _ = Datatype `
-cache = Cache num_set ((op # ((num list # num_set) list)) list)`
+cache = Cache ((op # ((num list # num_set) list)) list)`
 
 val empty_cache = Define`
-empty_cache = Cache LN [] : cache`
+empty_cache = Cache [] : cache`
 
 (* Auxiliary function for invalidate. Removes `n` from its twin set and returns
  a twin, if any. `n` is assumed to be in at most one twin set. Note that the
@@ -244,16 +209,14 @@ val replace_var_twin = Define `
 (* Removes `n` from its entry (if present). Then, if it has a twin `t`, replaces
 all occurrences of `n` by `t` in the cache. Otherwise removes all expressions
 that contain `n`. *)
-
 val cache_invalidate = Define`
-cache_invalidate (Cache varset entries : cache) (n : num) =
+cache_invalidate (Cache entries : cache) (n : num) =
 let (twin, entries1) = pop_var_find_twin2 n entries in
-    Cache (delete n varset)
+    Cache
           (map_maybe (\ (op, es).
                         let r = replace_var_twin twin n es in
                             if NULL r then NONE
-                            else SOME (op, r)) entries1)
-`
+                            else SOME (op, r)) entries1)`
 
 val cache_memoize2 = Define`
 (cache_memoize2 n NONE = insert n () LN ) /\
@@ -265,29 +228,35 @@ val cache_memoize1 = Define`
 
 (* memoizes `n = op args` *)
 val cache_memoize = Define`
-cache_memoize (Cache varset entries) (n:num) (op:op) (args:num list) =
-Cache (insert n () varset) (map_combine (cache_memoize1 n args) op entries)`
+cache_memoize (Cache entries) (n:num) (op:op) (args:num list) =
+Cache (map_combine (cache_memoize1 n args) op entries)`
 
 (* memoizes `n = m` *)
 (* TODO Since `n` must appear only once, this should be made more efficient *)
 val cache_memoize_move = Define`
-cache_memoize_move (Cache varset entries) n m =
-Cache (insert n () varset)
+cache_memoize_move (Cache entries) n m =
+Cache
     (map_fmap (map_fmap
                   (\twins. if IS_SOME (lookup m twins)
                            then insert n () twins else twins)) entries)`
 
+(* The set of all variables in the cache *)
 val cache_varset = Define`
-cache_varset (Cache varset entries) = varset`
+cache_varset (Cache entries) =
+    FOLDR (\ (op, is) ac.
+             FOLDR (\ (args, twins) ac1.
+                      FOLDR (\arg ac2.
+                              insert arg () ac2) (union ac1 twins) args) ac is)
+          LN entries`
 
 val cache_cut_out_not_live = Define`
 cache_cut_out_not_live cache live =
     FOLDR (\n ac. cache_invalidate ac n) cache
-          (num_set_toList (difference live (cache_varset cache)))`
+          (num_set_toList (difference (cache_varset cache) live))`
 
 (* Returns a variable that contains the result of the given expression *)
 val cache_lookup = Define`
-cache_lookup (Cache varset entries) op args =
+cache_lookup (Cache entries) op args =
 do
     m <- ALOOKUP entries op;
     x <- ALOOKUP m args;
@@ -296,7 +265,6 @@ do
 (* val cache_intersect_entries = Define` *)
 (* cache_intersect_entries (a : (op, (num list, num_set) alist) alist) b = *)
 (*     map_intersect (\x y . map_intersect inter x y) a b` *)
-
 val map_intersect = Define `
 (map_intersect f [] y = []) /\
 (map_intersect f ((ka, va)::xs) y =
@@ -309,8 +277,8 @@ cache_intersect_entries =
     map_intersect (map_intersect inter)`
 
 val cache_intersect = Define `
-cache_intersect (Cache varset1 entries1) (Cache varset2 entries2) =
-Cache (inter varset1 varset2) (cache_intersect_entries entries1 entries2)`
+cache_intersect (Cache entries1) (Cache entries2) =
+Cache (cache_intersect_entries entries1 entries2)`
 
 val compile_def = Define`
 (compile Skip c = (Skip, c)) /\
@@ -324,17 +292,17 @@ val compile_def = Define`
 (compile Tick c = (Tick, c)) /\
 (compile (MakeSpace k live) c =
  (MakeSpace k live, cache_cut_out_not_live c live)) /\
-(compile (Assign n op args live) ci1 =
- let ci = option_CASE live ci1 (cache_cut_out_not_live ci1) in
- let c = cache_invalidate ci n in
-     if ~ (is_pure op) then (Assign n op args live, c) else (
+(compile (Assign n op args live) c0 =
+ let c1 = option_CASE live c0 (cache_cut_out_not_live c0) in
+ let c2 = cache_invalidate c1 n in
+     if ~ (is_pure op) then (Assign n op args live, c2) else (
      if is_cheap_op op
-     then (Assign n op args live, cache_memoize c n op args)
-     else ((dtcase cache_lookup c op args:num option of
+     then (Assign n op args live, cache_memoize c2 n op args)
+     else ((dtcase cache_lookup c2 op args:num option of
              | NONE => (Assign n op args live,
-                        if MEM n args then c
-                        else cache_memoize c n op args)
-             | (SOME m) => (Move n m, cache_memoize_move c n m)
+                        if MEM n args then c2
+                        else cache_memoize c2 n op args)
+             | (SOME m) => (Move n m, cache_memoize_move c2 n m)
           ))
  )) /\
 (compile (If cond p1 p2) c =
@@ -361,17 +329,17 @@ val p1 = `` (compile
        [
          Assign 0 (Const 1) [] NONE (* a = 1; *)
        ; Assign 1 (Const 2) [] NONE (* b = 2 *)
-       ; Assign 2 (Add) [0; 1] NONE (* c = a + b *)
-       ; Assign 3 (Add) [0; 1] NONE (* d = a + b *)
+       ; Assign 2 Greater [0; 1] NONE (* c = a > b *)
+       ; Assign 3 Greater [0; 1] NONE (* d = a > b *)
        ; Assign 4 (Const 1) [] NONE (* e = 1 *)
-       ; Assign 5 Add [4; 1] NONE   (* f = e + b *)
+       ; Assign 5 Greater [4; 1] NONE   (* f = e > b *)
        ; Assign 6 (Const 2) [] NONE (* g = 2 *)
        ; Assign 1 (Const 0) [] NONE (* b = 0 *)
-       ; Assign 3 Add [0; 6] NONE   (* d = a + g *)
+       ; Assign 3 Greater [0; 6] NONE   (* d = a > g *)
        ; Assign 6 (Const 4) [] NONE (* g = 4 *)
-       ; Assign 6 (Add) [6; 6] NONE (* g = g + g *)
-       ; Assign 0 (Add) [6; 6] NONE (* a = g + g *)
-       ; Assign 1 (Add) [6; 6] NONE (* b = g + g *)
+       ; Assign 6 Greater [6; 6] NONE (* g = g > g *)
+       ; Assign 0 Greater [6; 6] NONE (* a = g > g *)
+       ; Assign 1 Greater [6; 6] NONE (* b = g > g *)
 ])
 empty_cache)
 ``
