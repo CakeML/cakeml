@@ -1344,8 +1344,33 @@ val alt_free_code_locs = Q.prove(
   \\ simp[MEM_FLAT,MEM_GENLIST,MEM_MAP,PULL_EXISTS,UNCURRY,HD_FST_alt_free]
   \\ metis_tac[HD_FST_alt_free,FST,PAIR]);
 
+val alt_free_code_locs_distinct = Q.prove(
+  `∀xs. ALL_DISTINCT (code_locs xs) ⇒ ALL_DISTINCT (code_locs (FST (alt_free xs)))`,
+  recInduct alt_free_ind
+  \\ rw[alt_free_def,code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[code_locs_append,ALL_DISTINCT_APPEND,code_locs_def] \\ rw[]
+  \\ fs[code_locs_append,ALL_DISTINCT_APPEND,code_locs_def,GSYM MAP_K_REPLICATE,code_locs_map,FLAT_MAP_NIL]
+  \\ TRY (
+    rename1`GENLIST`
+    \\ fs[MEM_GENLIST,MAP_MAP_o,o_DEF,UNCURRY,HD_FST_alt_free,PULL_EXISTS]
+    \\ imp_res_tac alt_free_SING \\ fs[] \\ rveq
+    \\ reverse conj_tac
+    >- (
+      fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] \\ rw[]
+      \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST] )
+    \\ reverse conj_tac
+    >- (
+      fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] \\ rw[]
+      \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST] )
+    \\ fs[ALL_DISTINCT_FLAT,EL_MAP]
+    \\ fs[MEM_FLAT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] \\ rw[]
+    \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST] )
+  \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST,alt_free_SING,HD]);
+
 val annotate_code_locs = Q.store_thm("annotate_code_locs",
-  `!n ls. set (code_locs (annotate n ls)) ⊆ set (code_locs ls)`,
-  srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs])
+  `!n ls. set (code_locs (annotate n ls)) ⊆ set (code_locs ls) ∧
+          (ALL_DISTINCT (code_locs ls) ⇒ ALL_DISTINCT (code_locs (annotate n ls)))`,
+  srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs,alt_free_code_locs_distinct]);
 
 val _ = export_theory()
