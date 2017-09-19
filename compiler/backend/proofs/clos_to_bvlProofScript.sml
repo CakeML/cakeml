@@ -10,7 +10,6 @@ open
   clos_mtiProofTheory
   clos_numberProofTheory
   clos_knownProofTheory
-  clos_removeProofTheory
   clos_annotateProofTheory
   clos_callProofTheory
 in end
@@ -4148,64 +4147,39 @@ val build_aux_thm = Q.prove(
   srw_tac[][GENLIST,REVERSE_APPEND,REVERSE_GENLIST,PRE_SUB1] >>
   simp[LIST_EQ_REWRITE])
 
-val lemma =
-  SIMP_RULE(std_ss++LET_ss)[UNCURRY]compile_exps_acc
+val lemma = Q.prove(`
+  compile_exps max_app xs aux = (c,aux1) ⇒
+  LENGTH c = LENGTH xs ∧ ∃ys. aux1 = ys ++ aux`,
+  mp_tac (SPEC_ALL compile_exps_acc) \\ rw[] \\
+  pairarg_tac \\ fs[] \\ rw[]);
 
-fun tac (g as (asl,w)) =
-  let
-    fun get tm =
-      let
-        val tm = tm |> strip_forall |> snd |> dest_imp |> fst
-        fun a tm =
-          let
-            val (f,xs) = strip_comb tm
-          in
-            same_const``clos_to_bvl$compile_exps``f andalso
-            length xs = 3
-          end
-      in
-        first a [rhs tm, lhs tm]
-      end
-    val tm = tryfind get asl
-    val args = snd(strip_comb tm)
-  in
-    Cases_on[ANTIQUOTE tm] >>
-    strip_assume_tac(SPECL args lemma) >>
-    rev_full_simp_tac(srw_ss())[]
-  end g
+val lemma2 = Q.prove(`
+  build_aux n k aux = (a,b) ⇒
+  ∃z. b = z ++ aux`,
+  mp_tac (SPEC_ALL build_aux_acc) \\ rw[] \\ fs[]);
 
 val compile_exps_code_locs = Q.store_thm("compile_exps_code_locs",
   `∀max_app xs aux ys aux2.
     compile_exps max_app xs aux = (ys,aux2++aux) ⇒
     MAP FST aux2 = MAP ((+) (num_stubs max_app)) (REVERSE(code_locs xs))`,
   ho_match_mp_tac compile_exps_ind >> rpt conj_tac >>
-  TRY (
-    srw_tac[][compile_exps_def] >>
-    Cases_on`fns`>>full_simp_tac(srw_ss())[code_locs_def]>-(
-      full_simp_tac(srw_ss())[LET_THM] ) >>
-    Cases_on`t`>>full_simp_tac(srw_ss())[code_locs_def]>-(
-      Cases_on `h` >> full_simp_tac(srw_ss())[] >>
-      srw_tac[][LET_THM] >> tac >> tac  >> srw_tac[][] >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> DECIDE_TAC) >>
-    simp[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[compile_exps_def,LET_THM,UNCURRY] >> srw_tac[][] >>
-    qmatch_assum_abbrev_tac`SND (compile_exps _ [x1] aux1) = aux2 ++ aux` >>
-    qspecl_then[`max_app`,`[x1]`,`aux1`]strip_assume_tac lemma >>
-    Cases_on`compile_exps max_app [x1] aux1`>>full_simp_tac(srw_ss())[Abbr`aux1`] >> srw_tac[][] >>
-    qmatch_assum_abbrev_tac`ys++SND(build_aux (loc + (num_stubs max_app)) aux1 z) = aux2 ++ aux` >>
-    qspecl_then[`aux1`,`loc+num_stubs max_app`,`z`]STRIP_ASSUME_TAC build_aux_acc >>
-    Cases_on`build_aux (loc+num_stubs max_app) aux1 z`>>full_simp_tac(srw_ss())[] >>
-    qspecl_then[`max_app`,`[SND h]`,`aux`]strip_assume_tac lemma >>
-    Cases_on`compile_exps max_app [SND h] aux`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    qspecl_then[`max_app`,`SND h'::MAP SND t'`,`ys'++aux`]strip_assume_tac lemma >>
-    Cases_on`compile_exps max_app (SND h'::MAP SND t') (ys'++aux)`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[Abbr`z`] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac std_ss [GSYM APPEND_ASSOC]  >>
-    imp_res_tac build_aux_thm >>
-    simp[Abbr`aux1`,ADD1, MAP_REVERSE, LENGTH_MAP2, MAP_GENLIST] >>
-    match_mp_tac (METIS_PROVE [] ``!f x y z. (!a. x a = y a) ⇒ f x z = f y z``) >>
-    simp [combinTheory.o_DEF]) >>
-  simp[compile_exps_def,code_locs_def,UNCURRY] >> srw_tac[][] >>
-  rpt tac >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  rw[compile_exps_def] >>
+  rpt(pairarg_tac \\ fs[]) >>
+  fs[case_eq_thms,code_locs_def,pair_case_eq] >>
+  rveq \\ fs[] >>
+  rpt(pairarg_tac \\ fs[]) >>
+  rveq \\ fs[] >> rw[] >>
+  imp_res_tac lemma \\ fs[] \\ rveq \\
+  imp_res_tac lemma2 \\ fs[] \\ rveq
+  \\ fs[MAP_REVERSE,MAP_GENLIST]
+  \\ rw[Once code_locs_cons]
+  \\ fs[compile_exps_def] \\ rveq \\ fs[]
+  \\ rfs[ADD1]
+  \\ rw[Once code_locs_cons]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac build_aux_thm
+  \\ fs[LENGTH_MAP2,ADD1]
+  \\ simp[LIST_EQ_REWRITE]);
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `0 < max_app ⇒
@@ -4269,25 +4243,6 @@ val compile_prog_code_locs = Q.store_thm("compile_prog_code_locs",
   specl_args_of_then``compile_exps``compile_exps_code_locs mp_tac >> srw_tac[][] >>
   imp_res_tac compile_exps_LENGTH>>
   fs[quantHeuristicsTheory.LIST_LENGTH_1])
-
-(* TODO: Gets rid of the annoying ZIP in clos_remove$compile,
-  should probably be the definition instead, but this might translate worse
-*)
-val remove_compile_alt = Q.prove(`
-  ∀b prog.
-  clos_remove$compile b prog =
-  MAP (λ(n,args,exp). (n,args, if b then HD(FST(remove [exp])) else exp)) prog`,
-  Cases>>
-  Induct>>fs[clos_removeTheory.compile_def]>-EVAL_TAC>>
-  simp[FORALL_PROD]>>rw[Once clos_removeTheory.remove_CONS]);
-
-val remove_FST = Q.prove(`
-  ∀ls b.MAP FST (clos_remove$compile b ls) = MAP FST ls`,
-  Induct>>Cases_on`b`>>fs[clos_removeTheory.compile_def,FORALL_PROD]
-  >-
-    EVAL_TAC>>
-  first_x_assum(qspec_then`T` assume_tac)>>fs[clos_removeTheory.compile_def]>>
-  rw[Once clos_removeTheory.remove_CONS])
 
 val IMP_PERM_code_merge = Q.store_thm("IMP_PERM_code_merge",
   `!xs ys zs. PERM (xs ++ ys) zs ==> PERM (code_merge xs ys) zs`,
