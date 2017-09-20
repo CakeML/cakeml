@@ -160,6 +160,9 @@ let ts = map_maybe f xs in
 option_CASE (f x) ts (\sx. sx::ts))
 `
 
+val num_set_contains = Define `
+num_set_contains k s = IS_SOME (lookup k s)`
+
 (* TODO there must be a faster way of doing this *)
 val num_set_head_may = Define `
 num_set_head_may sp = dtcase num_set_toList sp of
@@ -218,6 +221,23 @@ let (twin, entries1) = pop_var_find_twin2 n entries in
                             if NULL r then NONE
                             else SOME (op, r)) entries1)`
 
+val cache_entries = Define`
+cache_entries (Cache entries) = entries`
+
+val cache_invalidate_simple = Define `
+cache_invalidate_simple (Cache entries) n = Cache
+    (map_maybe (\ (op, aargs).
+      dtcase map_maybe (\ (args, twins).
+           if MEM n args
+           then NONE
+           else (let twins1 = delete n twins in
+                if isEmpty twins1
+                then NONE
+                else (SOME (args, twins1)))) aargs
+      of
+        | [] => NONE
+        | aargs1 => SOME (op, aargs1)) entries)`
+
 val cache_memoize2 = Define`
 (cache_memoize2 n NONE = insert n () LN ) /\
 (cache_memoize2 n (SOME twinset) = insert n () twinset)`
@@ -243,10 +263,10 @@ Cache
 (* The set of all variables in the cache *)
 val cache_varset = Define`
 cache_varset (Cache entries) =
-    FOLDR (\ (op, is) ac.
+    FOLDR (\ (op, aargs) ac.
              FOLDR (\ (args, twins) ac1.
                       FOLDR (\arg ac2.
-                              insert arg () ac2) (union ac1 twins) args) ac is)
+                              insert arg () ac2) (union ac1 twins) args) ac aargs)
           LN entries`
 
 val cache_cut_out_not_live = Define`
@@ -268,7 +288,7 @@ do
 val map_intersect = Define `
 (map_intersect f [] y = []) /\
 (map_intersect f ((ka, va)::xs) y =
- case ALOOKUP y ka of
+ dtcase ALOOKUP y ka of
    | NONE => map_intersect f xs y
    | SOME vb => (ka, f va vb) :: map_intersect f xs y)`
 
