@@ -47,7 +47,7 @@ val _ = Hol_datatype `
 
 (*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
- (initial_ffi_state oc ffi =
+ (initial_ffi_state oc ffi=
  (<| oracle      := oc
  ; ffi_state   := ffi
  ; final_event := NONE
@@ -57,7 +57,7 @@ val _ = Define `
 
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * list word8*)
 val _ = Define `
- (call_FFI st s conf bytes =  
+ (call_FFI st s conf bytes=  
  (if st.final_event = NONE then
     (case st.oracle s st.ffi_state conf bytes of
       Oracle_return ffi' bytes' =>
