@@ -71,6 +71,8 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* List operations *)
+  | ListAppend
   (* Call a given foreign function *)
   | FFI string`;
 
