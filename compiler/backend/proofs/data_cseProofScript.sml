@@ -27,36 +27,33 @@ Induct_on `l` >- rw[] >>
 rw[lookup_insert]
 );
 
-val cache_invalidate_lookup = Q.prove(
-`!cache n. ~(num_set_contains n (cache_varset (cache_invalidate_simple cache n)))`,
+val cache_member_invalidate = Q.prove(
+`!cache n. ~(num_set_member n (cache_varset (cache_invalidate_simple cache n)))`,
   Cases_on `cache` >>
   Induct_on `l` >-
   (
     rw[cache_invalidate_simple_def] >>
     rw[map_maybe_def] >>
     rw[cache_varset_def] >>
-    rw[num_set_contains_def] >>
+    rw[num_set_member_def] >>
     rw[lookup_def]
   ) >>
   rw[] >>
   Cases_on `h` >>
-  qabbrev_tac `op = q` >> first_x_assum kall_tac >>
   qabbrev_tac `aargs = r` >> first_x_assum kall_tac >>
   rw[cache_invalidate_simple_def] >>
   Induct_on `aargs` >-
   (
-  rw[map_maybe_def] >>
-  fs[cache_invalidate_simple_def]
+    rw[map_maybe_def] >>
+    fs[cache_invalidate_simple_def]
   ) >>
   GEN_TAC >>
   Cases_on `h` >>
-  qabbrev_tac `args = q` >> first_x_assum kall_tac >>
-  qabbrev_tac `twins = r` >> first_x_assum kall_tac >>
   rw[map_maybe_head] >-
   fs[map_maybe_head] >-
   fs[map_maybe_head] >>
   rw[cache_varset_def] >>
-  fs[num_set_contains_def] >>
+  fs[num_set_member_def] >>
   ASSUME_TAC lookup_foldr_l1 >>
   res_tac >>
   asm_rewrite_tac [] >>

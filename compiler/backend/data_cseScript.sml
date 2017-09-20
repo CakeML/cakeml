@@ -160,8 +160,8 @@ let ts = map_maybe f xs in
 option_CASE (f x) ts (\sx. sx::ts))
 `
 
-val num_set_contains = Define `
-num_set_contains k s = IS_SOME (lookup k s)`
+val num_set_member = Define `
+num_set_member k s = IS_SOME (lookup k s)`
 
 (* TODO there must be a faster way of doing this *)
 val num_set_head_may = Define `
