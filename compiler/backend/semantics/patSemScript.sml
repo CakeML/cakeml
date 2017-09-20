@@ -375,7 +375,7 @@ val do_app_def = Define `
                | NONE => NONE))
         | _ => NONE)
     | (Op (Op ListAppend), [x1;x2]) =>
-        (case (v_to_list x2, v_to_list x1) of
+        (case (v_to_list x1, v_to_list x2) of
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE)
     | (Tag_eq n l, [Conv tag vs]) =>

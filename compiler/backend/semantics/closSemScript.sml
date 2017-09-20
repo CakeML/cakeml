@@ -134,7 +134,7 @@ val do_app_def = Define `
     | (El,[Block tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (ListAppend, [x1; x2]) =>
-        (case (v_to_list x2, v_to_list x1) of
+        (case (v_to_list x1, v_to_list x2) of
         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
         | _ => Error)
     | (LengthBlock,[Block tag xs]) =>
