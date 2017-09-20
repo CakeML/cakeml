@@ -6,7 +6,7 @@ open ml_progLib fsioProofTheory semanticsLib helperLib set_sepTheory cfHeapsBase
      fsioSpecTheory fsioProgTheory
 
 
-val IOFS_tm = prim_mk_const{Thy="fsioProgConstants",Name="IOFS"}
+val IOFS_tm = prim_mk_const{Thy="fsioConstantsProg",Name="IOFS"}
 fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x))
 val is_IOFS = can dest_IOFS
 

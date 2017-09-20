@@ -1,10 +1,10 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcommandLineProgTheory fsFFITheory fsioProgConstantsTheory
+     mlstringTheory mlcommandLineProgTheory fsFFITheory fsioConstantsProgTheory
 
 val _ = new_theory"fsioProg";
-val _ = translation_extends "fsioProgConstants";
+val _ = translation_extends "fsioConstantsProg";
 
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)

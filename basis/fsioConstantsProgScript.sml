@@ -3,7 +3,7 @@ open preamble
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
      mlstringTheory mlcommandLineProgTheory fsFFITheory fsFFIProofTheory
 
-val _ = new_theory"fsioProgConstants";
+val _ = new_theory"fsioConstantsProg";
 (* filesystem constants and corresponding hprops *)
 val _ = translation_extends "mlcommandLineProg";
 val _ = ml_prog_update (open_module "IO");

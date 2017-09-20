@@ -4,7 +4,7 @@ open preamble
      mlstringTheory fsFFITheory fsFFIProofTheory  
      cfLetAutoLib cfLetAutoTheory optionMonadTheory cfHeapsBaseTheory
      mlw8arrayProgTheory mlstringProgTheory cfMainTheory ltemporalTheory
-     mlarrayProgTheory cfHeapsTheory fsioProgConstantsTheory fsioProgTheory
+     mlarrayProgTheory cfHeapsTheory fsioConstantsProgTheory fsioProgTheory
 
 val _ = new_theory"fsioSpec";
 
