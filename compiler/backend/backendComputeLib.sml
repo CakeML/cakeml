@@ -292,6 +292,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.let_op_sing_def
     ,bvl_inlineTheory.must_inline_def
     ,bvl_inlineTheory.inline_all_def
+    ,bvl_inlineTheory.optimise_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def

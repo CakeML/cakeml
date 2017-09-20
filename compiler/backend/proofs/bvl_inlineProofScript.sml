@@ -802,7 +802,8 @@ val tick_code_rel_insert_insert_tick_inline = Q.store_thm("tick_code_rel_insert_
 
 val tick_inline_all_acc = Q.store_thm("tick_inline_all_acc",
   `!xs ys cs limit.
-      tick_inline_all limit cs xs ys = REVERSE ys ++ tick_inline_all limit cs xs []`,
+      SND (tick_inline_all limit cs xs ys) =
+      REVERSE ys ++ SND (tick_inline_all limit cs xs [])`,
   Induct \\ fs [tick_inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ once_rewrite_tac [tick_inline_all_def] \\ simp_tac std_ss [LET_THM]
   \\ rpt strip_tac \\ IF_CASES_TAC
@@ -826,7 +827,7 @@ val tick_code_rel_rearrange_lemma = Q.store_thm("tick_code_rel_rearrange_lemma",
   metis_tac [fromAList_SWAP,APPEND]);
 
 val MAP_FST_tick_inline_all = Q.store_thm("MAP_FST_tick_inline_all",
-  `!xs cs. MAP FST (tick_inline_all limit cs xs []) = MAP FST xs`,
+  `!xs cs. MAP FST (SND (tick_inline_all limit cs xs [])) = MAP FST xs`,
   Induct \\ fs [tick_inline_all_def] \\ strip_tac
   \\ PairCases_on `h` \\ fs [tick_inline_all_def] \\ rw []
   \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []);
@@ -844,7 +845,7 @@ val tick_code_rel_tick_inline_all = Q.store_thm("tick_code_rel_tick_inline_all",
       ALL_DISTINCT (MAP FST (ys ++ xs)) ==>
       tick_code_rel (:'ffi)
         (fromAList (xs ++ ys))
-        (fromAList (tick_inline_all limit cs xs [] ++ ys))`,
+        (fromAList (SND (tick_inline_all limit cs xs []) ++ ys))`,
   Induct \\ fs [tick_inline_all_def,tick_code_rel_refl]
   \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ reverse (rw [tick_inline_all_def])
@@ -877,7 +878,8 @@ val tick_code_rel_tick_inline_all = Q.store_thm("tick_code_rel_tick_inline_all",
 
 val tick_code_rel_tick_compile_prog = Q.store_thm("tick_code_rel_tick_compile_prog",
   `ALL_DISTINCT (MAP FST prog) ==>
-    tick_code_rel (:'ffi) (fromAList prog) (fromAList (tick_compile_prog limit prog))`,
+    tick_code_rel (:'ffi) (fromAList prog)
+       (fromAList (SND (tick_compile_prog limit prog)))`,
   fs [tick_compile_prog_def] \\ rw [tick_code_rel_refl]
   \\ match_mp_tac tick_code_rel_tick_inline_all \\ fs [lookup_def]);
 
@@ -963,7 +965,7 @@ val tick_compile_prog_semantics = save_thm("tick_compile_prog_semantics",
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO]);
 
 val MAP_FST_tick_compile_prog = Q.store_thm("MAP_FST_tick_compile_prog",
-  `MAP FST (tick_compile_prog limit prog) = MAP FST prog`,
+  `MAP FST (SND (tick_compile_prog limit prog)) = MAP FST prog`,
   fs [tick_compile_prog_def] \\ rw [MAP_FST_tick_inline_all]);
 
 val semantics_tick_inline =
@@ -978,12 +980,16 @@ val HD_let_op = store_thm("HD_let_op[simp]",
   Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
   \\ CASE_TAC \\ fs []);
 
+val let_opt_def = Define `
+  let_opt split_seq cut_size (arity, prog) =
+    (arity, optimise split_seq cut_size arity (let_op_sing prog))`
+
 val evaluate_let_op = store_thm("evaluate_let_op",
   ``!es env s res t.
       evaluate (es,env,s) = (res,t) /\ res ≠ Rerr (Rabort Rtype_error) ==>
       evaluate
-        (let_op es,env,s with code := map (I ## let_op_sing) s.code) =
-        (res,t with code := map (I ## let_op_sing) s.code)``,
+        (let_op es,env,s with code := map (let_opt split_seq cut_size) s.code) =
+        (res,t with code := map (let_opt split_seq cut_size) s.code)``,
   recInduct evaluate_ind \\ rw [] \\ fs [let_op_def]
   \\ fs [evaluate_def]
   THEN1
@@ -1033,11 +1039,11 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     THEN1
      (Cases_on `a'`
       \\ imp_res_tac do_app_with_code
-      \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
+      \\ pop_assum (qspec_then `map (let_opt split_seq cut_size) s.code` mp_tac)
       \\ fs [domain_map])
     \\ rveq \\ fs []
     \\ imp_res_tac do_app_with_code_err
-    \\ pop_assum (qspec_then `map (I ## let_op_sing) s.code` mp_tac)
+    \\ pop_assum (qspec_then `map (let_opt split_seq cut_size) s.code` mp_tac)
     \\ fs [domain_map])
   THEN1
    (Cases_on `evaluate ([x],env,s)` \\ fs []
@@ -1048,12 +1054,15 @@ val evaluate_let_op = store_thm("evaluate_let_op",
   \\ imp_res_tac evaluate_code \\ fs []
   \\ Cases_on `find_code dest a s1.code` \\ fs []
   \\ PairCases_on `x` \\ fs []
-  \\ `find_code dest a (map (I ## let_op_sing) s1.code) =
-        SOME (x0,let_op_sing x1)` by
+  \\ `find_code dest a (map (let_opt split_seq cut_size) s1.code) =
+        SOME (x0,optimise split_seq cut_size (LENGTH x0) (let_op_sing x1))` by
    (Cases_on `dest` \\ fs [find_code_def]
-    \\ every_case_tac \\ fs [] \\ rveq \\ fs [lookup_map])
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [lookup_map,let_opt_def]
+    \\ `?x xs. a = SNOC x xs` by metis_tac [SNOC_CASES]
+    \\ full_simp_tac std_ss [FRONT_SNOC,LENGTH_SNOC,LAST_SNOC,ADD1])
   \\ fs [] \\ rw [] \\ fs []
-  \\ fs [state_component_equality]
+  \\ fs [state_component_equality,optimise_def]
+  \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
   \\ qsuff_tac `[let_op_sing x1] = let_op [x1]` \\ rw [] \\ fs []
   \\ fs [let_op_sing_def]
   \\ Cases_on `x1` \\ fs [let_op_def]
@@ -1061,10 +1070,12 @@ val evaluate_let_op = store_thm("evaluate_let_op",
 
 val map_let_op = prove(
   ``semantics ffi prog start <> Fail ==>
-    semantics ffi (map (I ## let_op_sing) prog) start =
+    semantics ffi (map (let_opt split_seq cut_size) prog) start =
     semantics ffi prog start``,
   match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] tick_code_rel_IMP_semantics_EQ)
-  \\ fs [tick_code_rel_def,lookup_map] \\ rw []
+  \\ fs [tick_code_rel_def,lookup_map,let_opt_def] \\ rw []
+  \\ fs [optimise_def]
+  \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
   \\ drule evaluate_let_op \\ fs []
   \\ fs [let_op_sing_def]
   \\ qsuff_tac `?d. let_op [e1] = [d]` \\ rw [] \\ fs [] \\ rfs []
@@ -1134,22 +1145,26 @@ val must_inline_remove_ticks = prove(
   \\ fs [is_small_def,is_rec_def,is_small_aux_remove_ticks]
   \\ fs [is_rec_remove_ticks]);
 
+val let_opt_remove_def = Define `
+  let_opt_remove b l (arity,prog) =
+    let_opt b l (arity,HD (remove_ticks [prog]))`;
+
 val tick_inline_all_rel = prove(
   ``!prog cs xs.
-      MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x]))))
-        (tick_inline_all limit cs prog xs) =
-      inline_all limit (map (I ## (λx. HD (remove_ticks [x]))) cs)
-        prog (MAP (I ## I ## (λx. let_op_sing (HD (remove_ticks [x])))) xs)``,
+      MAP (I ## let_opt_remove b l)
+        (SND (tick_inline_all limit cs prog xs)) =
+      SND (inline_all limit b l (map (I ## (λx. HD (remove_ticks [x]))) cs)
+        prog (MAP (I ## let_opt_remove b l) xs))``,
   Induct
   \\ fs [tick_inline_all_def,inline_all_def,MAP_REVERSE,FORALL_PROD]
   \\ fs [remove_ticks_tick_inline,must_inline_remove_ticks]
-  \\ rw [] \\ fs [map_insert])
+  \\ rw [] \\ fs [map_insert,optimise_def,let_opt_remove_def,let_opt_def])
   |> Q.SPECL [`prog`,`LN`,`[]`]
   |> SIMP_RULE std_ss [MAP,map_def] |> GSYM
   |> REWRITE_RULE [GSYM compile_prog_def];
 
 val map_fromAList_HASH = prove(
-  ``map (I ## f) (fromAList ls) = fromAList (MAP (I ## I ## f) ls)``,
+  ``map f (fromAList ls) = fromAList (MAP (I ## f) ls)``,
   fs [map_fromAList]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [FUN_EQ_THM,FORALL_PROD]);
@@ -1157,15 +1172,16 @@ val map_fromAList_HASH = prove(
 val compile_prog_semantics = store_thm("compile_prog_semantics",
   ``ALL_DISTINCT (MAP FST prog) /\
     semantics ffi (fromAList prog) start <> Fail ==>
-    semantics ffi (fromAList (compile_prog limit prog)) start =
+    semantics ffi (fromAList (SND (bvl_inline$compile_prog limit b l prog))) start =
     semantics ffi (fromAList prog) start``,
   fs [tick_inline_all_rel] \\ rw []
-  \\ imp_res_tac (tick_compile_prog_semantics |> UNDISCH_ALL
+  \\ drule (tick_compile_prog_semantics |> UNDISCH_ALL
       |> SIMP_RULE std_ss [Once (GSYM compile_prog_semantics)]
-      |> DISCH_ALL)
+      |> DISCH_ALL |> ONCE_REWRITE_RULE [CONJ_COMM]) \\ fs []
+  \\ disch_then (fn th => fs [GSYM th])
   \\ qmatch_goalsub_abbrev_tac `MAP ff`
-  \\ `ff = (I ## I ## let_op_sing) o (I ## I ## \x. (HD (remove_ticks [x])))`
-       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD]
+  \\ `ff = (I ## let_opt b l) o (I ## I ## \x. (HD (remove_ticks [x])))`
+       by fs [FUN_EQ_THM,Abbr `ff`,FORALL_PROD,let_opt_remove_def]
   \\ fs [GSYM MAP_MAP_o]
   \\ fs [GSYM map_fromAList_HASH,tick_compile_prog_def]
   \\ ntac 2 (pop_assum kall_tac)
@@ -1179,20 +1195,42 @@ val map_fromAList = store_thm("map_fromAList",
 
 val inline_all_acc = Q.store_thm("inline_all_acc",
   `!xs ys cs limit.
-      inline_all limit cs xs ys = REVERSE ys ++ inline_all limit cs xs []`,
+      SND (inline_all limit b l cs xs ys) =
+      REVERSE ys ++ SND (inline_all limit b l cs xs [])`,
   Induct \\ fs [inline_all_def] \\ strip_tac \\ PairCases_on `h` \\ fs []
   \\ once_rewrite_tac [inline_all_def] \\ simp_tac std_ss [LET_THM]
   \\ rpt strip_tac \\ IF_CASES_TAC
   \\ qpat_x_assum `!x._` (fn th => once_rewrite_tac [th]) \\ fs []);
 
 val MAP_FST_inline_all = Q.store_thm("MAP_FST_inline_all",
-  `!xs cs. MAP FST (inline_all limit cs xs []) = MAP FST xs`,
+  `!xs cs. MAP FST (SND (inline_all limit b l cs xs [])) = MAP FST xs`,
   Induct \\ fs [inline_all_def] \\ strip_tac
   \\ PairCases_on `h` \\ fs [inline_all_def] \\ rw []
   \\ once_rewrite_tac [inline_all_acc] \\ fs []);
 
 val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog",
-  `MAP FST (compile_prog limit prog) = MAP FST prog`,
+  `MAP FST (SND (compile_prog limit b l prog)) = MAP FST prog`,
   fs [bvl_inlineTheory.compile_prog_def] \\ rw [MAP_FST_inline_all]);
+
+val handle_ok_inline_all = prove(
+  ``!prog cs aux.
+      handle_ok (MAP (SND o SND) aux) ==>
+      handle_ok (MAP (SND o SND)
+        (SND (inline_all limit split_seq cut_size cs prog aux)))``,
+  Induct
+  \\ fs [inline_all_def,FORALL_PROD] \\ rw []
+  \\ rpt (pop_assum mp_tac)
+  \\ once_rewrite_tac [bvl_handleProofTheory.handle_ok_EVERY]
+  \\ fs [EVERY_REVERSE,EVERY_MAP] \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ fs [optimise_def,bvl_handleProofTheory.compile_any_handle_ok])
+  |> Q.SPECL [`p`,`c`,`[]`]
+  |> REWRITE_RULE [MAP,bvl_handleProofTheory.handle_ok_def];
+
+val compile_prog_handle_ok = store_thm("compile_prog_handle_ok",
+  ``compile_prog l b i prog = (inlines,prog3) ==>
+    handle_ok (MAP (SND o SND) prog3)``,
+  fs [compile_prog_def]
+  \\ metis_tac [handle_ok_inline_all,PAIR,FST,SND]);
 
 val _ = export_theory();

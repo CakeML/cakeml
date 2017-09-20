@@ -529,4 +529,12 @@ val compile_any_handle_ok = Q.store_thm("compile_any_handle_ok",
   rw [compile_any_def,compile_exp_handle_ok]
   \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
 
+val handle_ok_CONS = store_thm("handle_ok_CONS",
+  ``!x xs. handle_ok (x::xs) <=> handle_ok [x] /\ handle_ok xs``,
+  Cases_on `xs` \\ fs [handle_ok_def]);
+
+val handle_ok_EVERY = store_thm("handle_ok_EVERY",
+  ``!xs. handle_ok xs <=> EVERY (\x. handle_ok [x]) xs``,
+  Induct \\ fs [handle_ok_def] \\ simp [Once handle_ok_CONS] \\ fs []);
+
 val _ = export_theory();
