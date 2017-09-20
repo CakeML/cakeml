@@ -196,6 +196,8 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (Init_global_var n)) es) =
     Let (tra§0) [Op (tra§1) (SetGlobal n) (REVERSE (MAP compile es))]
       (Op (tra§2) (Cons tuple_tag) [])) ∧
+  (compile (App tra (Op (Op ListAppend)) es) =
+    Op tra ListAppend (REVERSE (MAP compile es))) ∧
   (compile (App tra (Tag_eq n l) es) =
     Op tra (TagLenEq n l) (REVERSE (MAP compile es))) ∧
   (compile (App tra (El n) es) =
