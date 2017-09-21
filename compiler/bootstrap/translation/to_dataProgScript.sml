@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory;
+open basisProgTheory;
 
 val _ = new_theory "to_dataProg"
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "basisProg";
 
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
@@ -52,6 +52,29 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
+
+(* TODO:
+   these things are a discrepancy between HOL's standard libraries and
+   mllist. probably the compiler should be using the mllist versions? *)
+
+val res = translate ZIP;
+val res = translate EL;
+
+val list_zip_side_def = theorem"list_zip_side_def";
+
+val list_zip_side = Q.prove(
+  `∀p. list_zip_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
+  gen_tac \\ PairCases_on`p`
+  \\ qid_spec_tac`p1` \\ Induct_on`p0`
+  \\ rw[Once list_zip_side_def,LENGTH_NIL_SYM]
+  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
+
+val list_el_side = Q.prove(
+  `!n xs. list_el_side n xs = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+(* -- *)
 
 val res = translate (source_to_modTheory.compile_exp_def);
 
