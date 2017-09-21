@@ -143,6 +143,11 @@ val _ = Define `
   ∧
   (v_to_list _ = NONE)`;
 
+val list_to_v_def = Define `
+  list_to_v []      = Conv nil_tag [] /\
+  list_to_v (x::xs) = Conv cons_tag [x; list_to_v xs]
+  `;
+
 val _ = Define `
   (v_to_char_list (Conv tag []) =
    if tag = nil_tag then
@@ -217,6 +222,10 @@ val do_app_def = Define `
               *)
   (
   case (op, vs) of
+    (ListAppend, [x1; x2]) =>
+      (case (v_to_list x1, v_to_list x2) of
+         (SOME xs, SOME ys) => SOME (s, (Rval (list_to_v (xs ++ ys))))
+       | _ => NONE)
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
       SOME (s, Rerr (Rraise (prim_exn div_tag)))
