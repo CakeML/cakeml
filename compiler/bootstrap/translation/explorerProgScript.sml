@@ -58,8 +58,8 @@ val res = translate presLangTheory.op_to_display_def;
 val op_to_display_side = Q.prove(
   `∀x. op_to_display_side x = T`,
   recInduct presLangTheory.op_to_display_ind \\ rw[] \\
-  rw[Once (theorem"op_to_display_side_def"),source_to_mod_astop_to_modop_side_def])
-  |> update_precondition;
+  rw[Once (theorem"op_to_display_side_def")] \\
+  EVAL_TAC) |> update_precondition;
 
 val res = translate presLangTheory.pres_to_display_def;
 val res = translate presLangTheory.lang_to_json_def;
