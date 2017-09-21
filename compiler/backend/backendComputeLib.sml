@@ -200,6 +200,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.free_def
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
@@ -215,7 +216,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.compile_def
     ,clos_annotateTheory.const_0_def
     ,clos_annotateTheory.no_overlap_def_compute
-    ,clos_annotateTheory.free_def
+    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.compile_def
