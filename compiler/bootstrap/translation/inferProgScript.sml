@@ -610,6 +610,9 @@ val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
 
 val _ = translate (infer_def ``infer_e``)
 
+(* open to_dataProg for the AST_* definitions *)
+open to_dataProgTheory
+
 local
   val ths = ml_translatorLib.eq_lemmas();
 in
