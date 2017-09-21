@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory;
+open basisProgTheory;
 
 val _ = new_theory "to_dataProg"
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "basisProg";
 
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 

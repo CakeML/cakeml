@@ -1,10 +1,10 @@
 open preamble
      ml_translatorLib
-     to_dataProgTheory
+     reg_allocProgTheory
 
 val _ = new_theory "explorerProg"
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "reg_allocProg";
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
