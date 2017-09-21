@@ -417,8 +417,6 @@ val compile_explorer_def = Define`
     let prog = (3,0,e)::aux in
     let res = clos_to_json_table "-call" prog::res in
     let new_c = new_c with start := num_stubs new_c.max_app + 1 in
-    let prog = clos_remove$compile new_c.do_remove prog in
-    let res = clos_to_json_table "-remove" prog::res in
     let prog = clos_annotate$compile prog in
     let res = clos_to_json_table "-annotate" prog::res in
       json_to_string (Array (REVERSE res))`;
