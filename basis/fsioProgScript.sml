@@ -136,62 +136,35 @@ val _ = process_topdecs`
   fun read fd n =     
     let val a = Word8Array.update iobuff 0 fd
         val a = Word8Array.update iobuff 1 n in
-          #(read) iobuff
+          (#(read) iobuff;
+          if Word8.toInt (Word8Array.sub iobuff 0) = 1
+          then raise InvalidFD else ())
     end` |> append_prog
 
 (* reads 1 char *)
 val _ = process_topdecs`
 fun read_char fd =
   let val a = read fd (Word8.fromInt 1) in
-    if Word8.toInt (Word8Array.sub iobuff 0) = 1 then raise InvalidFD
-    else if Word8.toInt (Word8Array.sub iobuff 1) = 0 then raise EndOfFile
+    if Word8.toInt (Word8Array.sub iobuff 1) = 0 then raise EndOfFile
     else Word8Array.sub iobuff 2
   end` |> append_prog
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
 * storing them in byte sequence buf, starting at character number pos. *)
-(* TODO: input_aux as local fun *)
+(* TODO: input0 as local fun *)
 val _ = 
   process_topdecs`
-fun input fd buff pos len = let 
-fun input_aux len' =
-  if len' = 0 then len else   
-   (read fd (Word8.fromInt(min len' 255));
-    if Word8Array.sub iobuff 0 = Word8.fromInt 1  then raise InvalidFD
-    else
-      let val nread0 = Word8Array.sub iobuff 1
-          val nread = Word8.toInt nread0 in
-        if nread = 0 then len - len' else
-          (Word8Array.copy_aux iobuff buf (pos + len - len') nread 2;
-           input_aux (len' - nread))
-      end)
-in input_aux len
-end
+fun input fd buff off len = 
+let fun input0 off len count =
+    let val a = read fd (Word8.fromInt(min len 255))
+        val nread = Word8.toInt (Word8Array.sub iobuff 1)in
+        if nread = 0 then count else
+          (Word8Array.copy iobuff 2 nread buff off;
+           input0 (off + nread) (len - nread) (count + nread))
+    end
+in input0 off len 0 end
 ` |> append_prog
-(*
-fun input fd buf pos len = input_aux fd buf pos len 0
-val _ = 
-  process_topdecs`
-fun input fd buf pos len =
-  let val a = Word8Array.update iobuff 0 fd
-      fun input_aux pos len count =
-      let val a = Word8Array.update iobuff 1 (min len 255)
-        val a = #(read) iobuff
-        val res = Word8.toInt (Word8Array.sub iobuff 0)
-        val nread = Word8.toInt (Word8Array.sub iobuff 1)
-      in           
-        if res = 1 then raise InvalidFD
-        else if nread = 0 then count
-        else 
-          let val a = Word8Array.copy_aux iobuff buf pos nread 2 in
-            if nread < len then input_aux (pos + nread) (len - nread) count
-            else (count + nread)
-          end
-      end 
-        in input_aux pos len count
-  end` |> append_prog
-*)
 
 val _ = ml_prog_update (close_module NONE);
 
