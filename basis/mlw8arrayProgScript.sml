@@ -69,8 +69,8 @@ val w8array_update_spec = Q.store_thm ("w8array_update_spec",
 val w8array_copy_spec = Q.store_thm ("w8array_copy_spec",
   `!src srcv srcoff srcoffv len lenv dst dstv dstoff dstoffv.
      NUM srcoff srcoffv /\ NUM dstoff dstoffv /\ NUM len lenv /\
-     srcoff + len < LENGTH src /\
-     dstoff + len < LENGTH dst ==>
+     srcoff + len <= LENGTH src /\
+     dstoff + len <= LENGTH dst ==>
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.copy" (basis_st()))
        [srcv; srcoffv; lenv; dstv; dstoffv]
        (W8ARRAY srcv src * W8ARRAY dstv dst)

@@ -1304,7 +1304,7 @@ val app_copyaw8aw8_def = Define `
   app_copyaw8aw8 s so l d do H Q =
     ((?ws wd F.
         0 <= do /\ 0 <= so /\ 0 <= l /\
-        (Num do + Num l) < LENGTH wd /\(Num so + Num l) < LENGTH ws /\
+        (Num do + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
         (F * W8ARRAY s ws * 
              W8ARRAY d (TAKE (Num do) wd ⧺ 
