@@ -293,13 +293,13 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   reverse(Cases_on`wfcl cl`)
   >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
 
-  xlet_auto >- (xcon \\ xsimpl)
-  xlet_auto >- (xsimpl)
-  xlet_auto >- (xsimpl)
+  xlet_auto >- (xcon \\ xsimpl) \\
+  xlet_auto >- (xsimpl) \\
+  xlet_auto >- (xsimpl) \\
   xlet_auto >- (
     xsimpl \\
     rfs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
-    fsrw_tac[DNF_ss][LENGTH_explode])
+    fsrw_tac[DNF_ss][LENGTH_explode]) \\
 
   (* To get through the pattern match, try this: *)
   xmatch \\

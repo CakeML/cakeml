@@ -344,17 +344,13 @@ val compile_prog_def = Define `
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)`;
 
-val optimise_def = Define `
-  optimise split_seq cut_size ls =
-    MAP (λ(name,arity,exp).
-          (name,arity,bvl_handle$compile_any split_seq cut_size arity exp)) ls`;
-
 val _ = Datatype`
   config = <| inline_size_limit : num (* zero disables inlining *)
             ; exp_cut : num (* huge number effectively disables exp splitting *)
             ; split_main_at_seq : bool (* split main expression at Seqs *)
             ; next_name1 : num (* there should be as many of       *)
             ; next_name2 : num (* these as bvl_to_bvi_namespaces-1 *)
+            ; inlines : (num # bvl$exp) spt
             |>`;
 
 val default_config_def = Define`
@@ -364,15 +360,15 @@ val default_config_def = Define`
      ; split_main_at_seq := T
      ; next_name1 := num_stubs + 1
      ; next_name2 := num_stubs + 2
+     ; inlines := LN
      |>`;
 
 val compile_def = Define `
   compile start c prog =
-    let (loc, code, n1) =
-      compile_prog start c.next_name1
-        (optimise c.split_main_at_seq c.exp_cut
-           (bvl_inline$compile_prog c.inline_size_limit prog)) in
+    let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
+           c.split_main_at_seq c.exp_cut prog in
+    let (loc, code, n1) = compile_prog start c.next_name1 prog in
     let (n2, code') = bvi_tailrec$compile_prog c.next_name2 code in
-      (loc, code', n1, n2)`;
+      (loc, code', inlines, n1, n2)`;
 
 val _ = export_theory();
