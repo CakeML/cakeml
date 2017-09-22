@@ -932,6 +932,23 @@ val tac =
   full_simp_tac(srw_ss())[Boolv] >>
   TRY (full_simp_tac(srw_ss())[gtagenv_wf_def, has_exns_def] >> NO_TAC);
 
+val v_rel_l2v_APPEND = Q.store_thm("v_rel_l2v_APPEND",
+  `!x1 y1 x2 y2.
+     v_rel tagenv (list_to_v x1) (list_to_v x2) /\
+     v_rel tagenv (list_to_v y1) (list_to_v y2) ==>
+       v_rel tagenv (list_to_v (x1 ++ y1)) (list_to_v (x2 ++ y2))`,
+  Induct \\ Induct_on `x2`
+  \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]);
+
+val v_rel_l2v = Q.store_thm("v_rel_l2v",
+  `!x y.
+   gtagenv_wf tagenv /\
+   vs_rel tagenv x y ==>
+     v_rel tagenv (list_to_v x) (list_to_v y)`,
+  Induct \\ rw [list_to_v_def, conSemTheory.list_to_v_def, v_rel_eqns]
+  \\ fs [gtagenv_wf_def, has_lists_def, conSemTheory.list_to_v_def]
+  \\ res_tac \\ fs []);
+
 val do_app = Q.prove (
   `!gtagenv s1 s2 op vs r s1_i2 vs_i2.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -948,7 +965,13 @@ val do_app = Q.prove (
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i2` >>
-  cases_on `op` >>
+  Cases_on `op = ListAppend`
+  >-
+   (rw [] \\ tac
+    \\ imp_res_tac v_to_list \\ fs []
+    \\ rfs [] \\ rw []
+    \\ metis_tac [v_rel_l2v, v_rel_l2v_APPEND])
+  \\ cases_on `op` >>
   srw_tac[][]
   >- tac
   >- tac
