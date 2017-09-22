@@ -171,7 +171,7 @@ val STDIO_precond = Q.prove(
     ({FFI_part (encode (fs with numchars := ll)) 
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
-  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
+  rw[STDIO_def,STD_streams_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`ll` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
   `wfFS (fs with numchars := ll)` by fs[wfFS_def] >>

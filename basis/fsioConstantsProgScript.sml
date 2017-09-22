@@ -51,17 +51,21 @@ val FILENAME_def = Define `
      strlen s < 256)
 `;
 
+(* Property ensuring that standard streams are correctly opened *)
+val STD_streams_def = Define
+`STD_streams fs = ?inp out err. 
+    (ALOOKUP fs.infds 0 = SOME (strlit "stdin", inp)) ∧
+    (ALOOKUP fs.infds 1 = SOME (strlit "stdout", LENGTH out)) ∧
+    (ALOOKUP fs.infds 2 = SOME (strlit "stderr", LENGTH err)) ∧
+    (ALOOKUP fs.files (strlit "stdout") = SOME out) ∧ 
+    (ALOOKUP fs.files (strlit "stderr") = SOME err)`
+
 (* "end-user" property *)
 (* abstracts away the lazy list and ensure that standard streams are opened on
 * their respective standard fds at the right position *)
 val STDIO_def = Define`
  STDIO fs = (SEP_EXISTS ll. IOFS (fs with numchars := ll)) *
-   &(? inp out err. 
-        (ALOOKUP fs.infds 0 = SOME (strlit "stdin", inp)) ∧
-        (ALOOKUP fs.infds 1 = SOME (strlit "stdout", LENGTH out)) ∧
-        (ALOOKUP fs.infds 2 = SOME (strlit "stderr", LENGTH err)) ∧
-        (ALOOKUP fs.files (strlit "stdout") = SOME out) ∧ 
-        (ALOOKUP fs.files (strlit "stderr") = SOME err))`
+   &STD_streams fs`
 
 open cfLetAutoTheory cfLetAutoLib
 
@@ -137,7 +141,7 @@ val UNIQUE_STDIO = Q.store_thm("UNIQUE_STDIO",
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
                                       (STDIO fs2 * H2) s ==> 
               (fs1.infds = fs2.infds /\ fs1.files = fs2.files)`,
-  rw[STDIO_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
+  rw[STDIO_def,STD_streams_def,SEP_CLAUSES,SEP_EXISTS_THM,STAR_COMM,STAR_ASSOC,cond_STAR] >>
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
   cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd]);
@@ -153,7 +157,7 @@ val STDIO_HPROP_INJ = Q.store_thm("STDIO_HPROP_INJ[hprop_inj]",
      strip_tac >> 
      first_x_assum (qspecl_then [`fs1`, `fs2`] mp_tac) >>
      rpt (disch_then drule) >> fs[cond_def] >> rw[] >>
-     fs[STDIO_def,STAR_def,SEP_EXISTS,cond_def] >>
+     fs[STDIO_def,STD_streams_def,STAR_def,SEP_EXISTS,cond_def] >>
      qmatch_assum_rename_tac`IOFS (fs2 with numchars := ll) u1` >>
      qmatch_assum_rename_tac`SPLIT u0 (u1, _)` >>
      qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
@@ -161,7 +165,7 @@ val STDIO_HPROP_INJ = Q.store_thm("STDIO_HPROP_INJ[hprop_inj]",
      qexists_tac`u1` >> fs[] >> qexists_tac`ll` >> fs[] >>
      cases_on`fs1` >> cases_on`fs2` >> fs[IO_fs_numchars_fupd]
      ) >>
-  fs[STDIO_def,STAR_def,SEP_EXISTS,cond_def] >>
+  fs[STDIO_def,STD_streams_def,STAR_def,SEP_EXISTS,cond_def] >>
   qmatch_assum_rename_tac`IOFS (fs1 with numchars := ll) u1` >>
   qmatch_assum_rename_tac`SPLIT u0 (u1, _)` >>
   qmatch_assum_rename_tac`SPLIT s (u0, v0)` >>
