@@ -20,9 +20,8 @@ val hello_spec = Q.store_thm ("hello_spec",
             (STDIO (up_stdout (output ++ "Hello World!\n") fs)) * emp)`,
   xcf "hello" st \\ xpull \\ xapp \\ xsimpl \\ instantiate \\ xsimpl);
 
-val st = get_ml_prog_state();
 val spec = hello_spec |> SPEC_ALL |> UNDISCH_ALL
-        |> SIMP_RULE(srw_ss())[fsioProgConstantsTheory.STDIO_def]|> add_basis_proj;
+        |> SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def]|> add_basis_proj;
 
 val name = "hello";
 val (call_thm_hello, hello_prog_tm) = call_thm st name spec;
