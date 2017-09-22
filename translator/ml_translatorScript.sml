@@ -1459,6 +1459,55 @@ val Eval_length = Q.store_thm("Eval_length",
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
+val list_to_v_LIST_TYPE = Q.store_thm("list_to_v_LIST_TYPE",
+  `!xs v ys.
+     LIST_TYPE a xs v /\
+     v_to_list v = SOME ys ==>
+       LIST_TYPE a xs (list_to_v ys)`,
+  Induct
+  \\ fs [LIST_TYPE_def, v_to_list_def, list_to_v_def]
+  \\ rw [] \\ fs [v_to_list_def]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw []
+  \\ fs [list_to_v_def]
+  \\ res_tac \\ fs []);
+
+(* ListAppend theorems *)
+
+val list_to_v_LIST_TYPE_APPEND = Q.store_thm("list_to_v_LIST_TYPE_APPEND",
+  `!xs ys x y.
+     LIST_TYPE a x (list_to_v xs) /\
+     LIST_TYPE a y (list_to_v ys) ==>
+       LIST_TYPE a (x ++ y) (list_to_v (xs ++ ys))`,
+  Induct \\ Induct_on `ys` \\ EVAL_TAC \\ rw []
+  \\ Cases_on `x` \\ Cases_on `y` \\ fs [list_to_v_def, LIST_TYPE_def]);
+
+val v_to_list_LIST_TYPE = Q.store_thm("v_to_list_LIST_TYPE",
+  `!x v.
+     LIST_TYPE a x v ==> ?xs. v_to_list v = SOME xs`,
+  Induct \\ EVAL_TAC \\ rw [] \\ fs [v_to_list_def]
+  \\ res_tac \\ fs []);
+
+val Eval_ListAppend = Q.store_thm("Eval_ListAppend",
+  `!env x1 x2 a l1 l2.
+     Eval env x2 (LIST_TYPE a l1) ==>
+     Eval env x1 (LIST_TYPE a l2) ==>
+      Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))`,
+  rw [Eval_def]
+  \\ rw [Once evaluate_cases, PULL_EXISTS, empty_state_with_refs_eq]
+  \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))), PULL_EXISTS])
+  \\ rename1 `_ with refs := rfs1`
+  \\ first_x_assum (qspec_then `rfs1` strip_assume_tac) \\ rename1 `(_,Rval r1)`
+  \\ rename1 `rfs1 ++ rfs2`
+  \\ first_x_assum (qspec_then `rfs1++rfs2` strip_assume_tac) \\ rename1 `(_,Rval r2)`
+  \\ CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["ffi"]))
+  \\ qexists_tac `empty_state.ffi` \\ simp [empty_state_with_ffi_elim]
+  \\ rw [do_app_cases, PULL_EXISTS]
+  \\ rename1 `_ ++ _ ++ rfs3`
+  \\ qexists_tac `rfs2++rfs3` \\ fs [APPEND_ASSOC]
+  \\ rpt (asm_exists_tac \\ fs [])
+  \\ imp_res_tac v_to_list_LIST_TYPE \\ fs []
+  \\ metis_tac [list_to_v_LIST_TYPE, list_to_v_LIST_TYPE_APPEND]);
+
 (* a few misc. lemmas that help the automation *)
 
 val IMP_PreImp = Q.store_thm("IMP_PreImp",

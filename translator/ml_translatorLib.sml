@@ -2345,6 +2345,7 @@ val builtin_binops =
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
    Eval_strsub,
+   Eval_ListAppend,
    Eval_sub,
    Eval_And,
    Eval_Or,
