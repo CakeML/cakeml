@@ -64,24 +64,21 @@ val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
 val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy,
                     case_def = semanticPrimitivesTheory.result_case_def };
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
-val v_thms = { nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def };
-val ref_thms = { nchotomy = closSemTheory.ref_nchotomy, case_def = closSemTheory.ref_case_def };
-val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy,
-                       case_def = semanticPrimitivesTheory.eq_result_case_def };
-val word_size_thms = { nchotomy = astTheory.word_size_nchotomy,
-                       case_def = astTheory.word_size_case_def };
 
 val pair_case_elim = prove(
   ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
   Cases_on`p` \\ rw[]);
 
 val elims = List.map prove_case_elim_thm [
-  list_thms, result_thms ] |> cons pair_case_elim |> LIST_CONJ;
+  list_thms, option_thms, result_thms ] |> cons pair_case_elim |> LIST_CONJ
+  |> curry save_thm "case_elim_thms";
+val case_elim_thms = elims;
 
-val case_eq_thms = List.map prove_case_eq_thm [
-  list_thms, option_thms, result_thms, op_thms, v_thms,
-  ref_thms, eq_result_thms, word_size_thms ] |> LIST_CONJ;
+val case_eq_thms =
+  CONJ
+  (prove_case_eq_thm {nchotomy = bviTheory.exp_nchotomy, case_def = bviTheory.exp_case_def})
+  bvlPropsTheory.case_eq_thms
+  |> curry save_thm "case_eq_thms";
 
 val evaluate_LENGTH = Q.prove(
   `!xs s env. (\(xs,s,env).
@@ -530,5 +527,51 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,PAIR,
             inc_clock_ffi,dec_clock_ffi]);
+
+val take_drop_lem = Q.prove (
+  `!skip env.
+    skip < LENGTH env ∧
+    skip + SUC n ≤ LENGTH env ∧
+    DROP skip env ≠ [] ⇒
+    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
+  Induct_on `n` >>
+  srw_tac[][take1, hd_drop] >>
+  `skip + SUC n ≤ LENGTH env` by decide_tac >>
+  res_tac >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>
+  `SUC n < LENGTH (DROP skip env)` by decide_tac >>
+  `LENGTH (DROP (1 + skip) env) = LENGTH env - (1 + skip)` by srw_tac[][LENGTH_DROP] >>
+  `n < LENGTH (DROP (1 + skip) env)` by decide_tac >>
+  srw_tac[][TAKE_EL_SNOC, ADD1] >>
+  `n + (1 + skip) < LENGTH env` by decide_tac >>
+  `(n+1) + skip < LENGTH env` by decide_tac >>
+  srw_tac[][EL_DROP] >>
+  srw_tac [ARITH_ss] []);
+
+val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
+  `!skip env n (st:'ffi bviSem$state).
+    n + skip ≤ LENGTH env ⇒
+    evaluate (GENLIST (λarg. Var (arg + skip)) n, env, st)
+    =
+    (Rval (TAKE n (DROP skip env)), st)`,
+  Induct_on `n` >>
+  srw_tac[][evaluate_def, DROP_LENGTH_NIL, GSYM ADD1] >>
+  srw_tac[][Once GENLIST_CONS] >>
+  srw_tac[][Once evaluate_CONS, evaluate_def] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  first_x_assum (qspecl_then [`skip + 1`, `env`] mp_tac) >>
+  srw_tac[][] >>
+  `n + (skip + 1) ≤ LENGTH env` by decide_tac >>
+  full_simp_tac(srw_ss())[] >>
+  srw_tac[][combinTheory.o_DEF, ADD1, GSYM ADD_ASSOC] >>
+  `skip + 1 = 1 + skip ` by decide_tac >>
+  full_simp_tac(srw_ss())[] >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>
+  `n < LENGTH env - skip` by decide_tac >>
+  `DROP skip env ≠ []`
+        by (Cases_on `DROP skip env` >>
+            full_simp_tac(srw_ss())[] >>
+            decide_tac) >>
+  metis_tac [take_drop_lem]);
 
 val _ = export_theory();

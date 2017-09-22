@@ -17,7 +17,7 @@ val heap_mb = 1000
 val filename = "cake.S"
 
 val bootstrap_thm =
-  compilationLib.cbv_to_bytes_x64
+  compilationLib.cbv_to_bytes_riscv
     stack_to_lab_thm lab_prog_def
     heap_mb stack_mb "cake_code" "cake_data" "cake_config" filename;
 

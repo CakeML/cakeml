@@ -14,8 +14,6 @@ open clos_mtiTheory
 open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
-open clos_freeTheory
-open clos_removeTheory
 open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory bvi_tailrecTheory
@@ -202,6 +200,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.free_def
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
@@ -215,14 +214,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
-      (* ---- clos_free----  *)
-    ,clos_freeTheory.free_def
-      (* ---- clos_remove ---- *)
-    ,clos_removeTheory.no_overlap_def
-    ,clos_removeTheory.no_overlap_def_compute
-    ,clos_removeTheory.remove_def
-    ,clos_removeTheory.const_0_def
-    ,clos_removeTheory.compile_def
+    ,clos_annotateTheory.const_0_def
+    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.compile_def
@@ -325,6 +319,7 @@ val add_backend_compset = computeLib.extend_compset
      bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
     ,backend_commonTheory.bvl_num_stubs_def
+    ,backend_commonTheory.bvl_to_bvi_namespaces_def
     ,bvl_to_bviTheory.compile_prog_def
     ,bvl_to_bviTheory.compile_list_def
     ,bvl_to_bviTheory.compile_single_def
@@ -378,6 +373,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.assoc_swap_def
     ,bvi_tailrecTheory.rewrite_op_def
     ,bvi_tailrecTheory.decide_ty_def
+    ,bvi_tailrecTheory.LAST1_def
     ,bvi_tailrecTheory.scan_expr_def
     ,bvi_tailrecTheory.push_call_def
     ,bvi_tailrecTheory.mk_tailcall_def

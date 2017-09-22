@@ -1044,7 +1044,7 @@ local val assign_quotation = `
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
+    | Label n => (LocValue (adjust_var dest) n,l)
     | LessConstSmall i =>
        (dtcase args of
         | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))

@@ -3313,7 +3313,7 @@ val th = Q.store_thm("assign_Div",
       \\ match_mp_tac memory_rel_insert
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
       \\ `(n2w (4 * n1) / n2w (4 * n2)) ≪ 2 = Smallnum (&(n1 DIV n2))` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
                MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]])
       \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
@@ -3337,7 +3337,7 @@ val th = Q.store_thm("assign_Div",
       \\ match_mp_tac memory_rel_insert
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
       \\ `n2w (4 * n1 DIV (4 * n2)) ≪ 2 = Smallnum (&(n1 DIV n2))` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
                MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] \\ NO_TAC)
       \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
@@ -3395,7 +3395,7 @@ val th = Q.store_thm("assign_Div",
     \\ fs [FAPPLY_FUPDATE_THM,memory_rel_Temp]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ `n2w (4 * n1 DIV (4 * n2)) ≪ 2 = Smallnum (&(n1 DIV n2))` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
                MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]] \\ NO_TAC)
     \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
@@ -3483,7 +3483,7 @@ val th = Q.store_thm("assign_Mod",
       \\ match_mp_tac memory_rel_insert
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
       \\ `(n2w (4 * n1) / n2w (4 * n2)) = n2w (n1 DIV n2)` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [WORD_MUL_LSL,word_mul_n2w,GSYM DIV_DIV_DIV_MULT,
                MULT_DIV |> ONCE_REWRITE_RULE [MULT_COMM]])
       \\ fs [] \\ qmatch_goalsub_abbrev_tac `Word ww`
@@ -3518,7 +3518,7 @@ val th = Q.store_thm("assign_Mod",
       \\ match_mp_tac memory_rel_insert
       \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
       \\ `n2w ((4 * n1) MOD (4 * n2)) = Smallnum (&(n1 MOD n2))` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [MOD_COMMON_FACTOR] \\ NO_TAC)
       \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
       \\ imp_res_tac memory_rel_zero_space \\ fs [])
@@ -3575,7 +3575,7 @@ val th = Q.store_thm("assign_Mod",
     \\ fs [FAPPLY_FUPDATE_THM,memory_rel_Temp]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ `n2w ((4 * n1) MOD (4 * n2)) = Smallnum (&(n1 MOD n2))` by
-       (fs [wordsTheory.word_sdiv_def,word_div_def,Smallnum_def]
+       (fs [wordsTheory.word_quot_def,word_div_def,Smallnum_def]
         \\ fs [MOD_COMMON_FACTOR] \\ NO_TAC)
     \\ fs [] \\ match_mp_tac IMP_memory_rel_Number \\ fs []
     \\ imp_res_tac memory_rel_zero_space \\ fs [APPEND]

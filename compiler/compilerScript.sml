@@ -122,13 +122,12 @@ val extend_with_args_def = Define`
     let multi = ¬(MEM (strlit"--no_multi") ls) in
     let known = ¬(MEM (strlit"--no_known") ls) in
     let call = ¬(MEM (strlit"--no_call") ls) in
-    let remove = ¬(MEM (strlit"--no_remove") ls) in
     let maxapp = find_parse (strlit "--max_app=") ls in
     let clos = conf.clos_conf in
     let updated_clos =
       clos with <|
         do_mti:= multi; do_known:= known;
-        do_call:= call; do_remove:= remove;
+        do_call:= call;
         max_app:= (case maxapp of NONE => clos.max_app | SOME v => v)
       |> in
     (* bvl optimisation flags *)
