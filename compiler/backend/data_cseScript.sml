@@ -213,7 +213,7 @@ val replace_var_twin = Define `
 all occurrences of `n` by `t` in the cache. Otherwise removes all expressions
 that contain `n`. *)
 val cache_invalidate = Define`
-cache_invalidate (Cache entries : cache) (n : num) =
+cache_invalidate n (Cache entries : cache) =
 let (twin, entries1) = pop_var_find_twin2 n entries in
     Cache
           (map_maybe (\ (op, es).
@@ -225,7 +225,7 @@ val cache_entries = Define`
 cache_entries (Cache entries) = entries`
 
 val cache_invalidate_simple = Define `
-cache_invalidate_simple (Cache entries) n = Cache
+cache_invalidate_simple n (Cache entries) = Cache
     (map_maybe (\ (op, aargs).
       dtcase map_maybe (\ (args, twins).
            if MEM n args
@@ -248,13 +248,13 @@ val cache_memoize1 = Define`
 
 (* memoizes `n = op args` *)
 val cache_memoize = Define`
-cache_memoize (Cache entries) (n:num) (op:op) (args:num list) =
+cache_memoize (op:op) (args:num list) n (Cache entries) =
 Cache (map_combine (cache_memoize1 n args) op entries)`
 
 (* memoizes `n = m` *)
 (* TODO Since `n` must appear only once, this should be made more efficient *)
 val cache_memoize_move = Define`
-cache_memoize_move (Cache entries) n m =
+cache_memoize_move n m (Cache entries) =
 Cache
     (map_fmap (map_fmap
                   (\twins. if IS_SOME (lookup m twins)
@@ -271,12 +271,12 @@ cache_varset (Cache entries) =
 
 val cache_cut_out_not_live = Define`
 cache_cut_out_not_live cache live =
-    FOLDR (\n ac. cache_invalidate ac n) cache
+    FOLDR (\n ac. cache_invalidate n ac) cache
           (num_set_toList (difference (cache_varset cache) live))`
 
 (* Returns a variable that contains the result of the given expression *)
 val cache_lookup = Define`
-cache_lookup (Cache entries) op args =
+cache_lookup op args (Cache entries) =
 do
     m <- ALOOKUP entries op;
     x <- ALOOKUP m args;
@@ -304,7 +304,7 @@ val compile_def = Define`
 (compile Skip c = (Skip, c)) /\
 (compile (Return n) c = (Return n, c)) /\
 (compile (Raise n) c = (Raise n, c)) /\
-(compile (Move n1 n2) c = (Move n1 n2, cache_memoize_move c n1 n2)) /\
+(compile (Move n1 n2) c = (Move n1 n2, cache_memoize_move n1 n2 c)) /\
 (compile (Seq p1 p2) c =
  let (p1c, c1) = compile p1 c in
  let (p2c, c2) = compile p2 c1 in
@@ -314,15 +314,15 @@ val compile_def = Define`
  (MakeSpace k live, cache_cut_out_not_live c live)) /\
 (compile (Assign n op args live) c0 =
  let c1 = option_CASE live c0 (cache_cut_out_not_live c0) in
- let c2 = cache_invalidate c1 n in
+ let c2 = cache_invalidate n c1 in
      if ~ (is_pure op) then (Assign n op args live, c2) else (
      if is_cheap_op op
-     then (Assign n op args live, cache_memoize c2 n op args)
-     else ((dtcase cache_lookup c2 op args:num option of
+     then (Assign n op args live, cache_memoize op args n c2)
+     else ((dtcase cache_lookup op args c2:num option of
              | NONE => (Assign n op args live,
                         if MEM n args then c2
-                        else cache_memoize c2 n op args)
-             | (SOME m) => (Move n m, cache_memoize_move c2 n m)
+                        else cache_memoize op args n c2)
+             | (SOME m) => (Move n m, cache_memoize_move n m c2)
           ))
  )) /\
 (compile (If cond p1 p2) c =
@@ -331,12 +331,12 @@ val compile_def = Define`
      (If cond p1c p2c, cache_intersect c1 c2)) /\
 (compile (Call NONE dest vs handler) c = (Call NONE dest vs handler, c)) /\
 (compile (Call (SOME (n, live)) dest vs NONE) c =
- let c1 = cache_invalidate c n in
+ let c1 = cache_invalidate n c in
      (Call (SOME (n, live)) dest vs NONE, cache_cut_out_not_live c1 live)) /\
 (compile (Call (SOME (n, live)) dest args (SOME (m, p))) c =
- let c1 = cache_invalidate c n in
+ let c1 = cache_invalidate n c in
  let l2 = cache_cut_out_not_live c1 live in
- let (pc, l3) = compile p (cache_invalidate c m) in
+ let (pc, l3) = compile p (cache_invalidate m c) in
      (Call (SOME (n, live)) dest args (SOME (m, pc)), cache_intersect l2 l3)
 )`
 
