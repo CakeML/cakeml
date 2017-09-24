@@ -433,8 +433,7 @@ val constrain_op_sound = Q.prove (
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))`,
  fs[constrain_op_success] >>
  rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >>
- fs[ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, get_next_uvar_def, set_next_uvar_def] >> rw[] >> 
+ fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
  binop_tac);
 
 val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar",
@@ -511,7 +510,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      fs [t_walkstar_eqn1, convert_t_def, Texn_def])
   >- (
     Cases_on `pes` >>
-    fs [raise_Exc_def, success_eqns] >>
+    fs [failwith_def, success_eqns] >>
     first_x_assum match_mp_tac >>
     rw [] >>
     `?ts. sub_completion (num_tvs tenvE) st''.next_uvar st''.subst  ts s`
@@ -522,7 +521,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
   >-
      (
      Cases_on `pes = []` >>
-     fs [raise_Exc_def, success_eqns] >>
+     fs [failwith_def, success_eqns] >>
      `?ts. sub_completion (num_tvs tenvE) st''.next_uvar st''.subst  ts s`
               by (imp_res_tac sub_completion_infer_pes >>
                   fs [] >>
@@ -821,7 +820,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      metis_tac [ienv_ok_more])
   >- ( (* Match *)
      Cases_on `pes = []` >>
-     fs [raise_Exc_def, success_eqns] >>
+     fs [failwith_def, success_eqns] >>
      `?ts. sub_completion (num_tvs tenvE) st''.next_uvar st''.subst  ts s`
               by (imp_res_tac sub_completion_infer_pes >>
                   fs [] >>

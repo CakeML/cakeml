@@ -1,4 +1,4 @@
-INCLUDES = ../../../misc ../../../translator ../../../translator/monadic ../../../characteristic \
+INCLUDES = ../../../misc ../../../translator ../../../characteristic \
            ../../inference ../../inference/proofs ../../parsing ../../backend \
            ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
            ../../../basis $(HOLDIR)/examples/formal-languages/context-free

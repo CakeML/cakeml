@@ -33,8 +33,6 @@ val locs_to_string_def = Define `
          implode " column ";
          toString &endl.col])`;
 
-(* TODO : find a way to mix standard and monadic translations *)
-
 (* this is a rather annoying feature of peg_exec requiring locs... *)
 val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
 
@@ -48,7 +46,7 @@ val compile_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (Exc (locs, msg)) =>
+       | Failure (locs, msg) =>
            Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
@@ -65,7 +63,7 @@ val compile_explorer_def = Define`
     | NONE => Failure ParseError
     | SOME prog =>
        case infertype_prog c.inferencer_config (prelude ++ prog) of
-       | Failure (Exc (locs, msg)) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
        | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
 
 (* The top-level compiler *)
@@ -124,13 +122,12 @@ val extend_with_args_def = Define`
     let multi = ¬(MEM (strlit"--no_multi") ls) in
     let known = ¬(MEM (strlit"--no_known") ls) in
     let call = ¬(MEM (strlit"--no_call") ls) in
-    let remove = ¬(MEM (strlit"--no_remove") ls) in
     let maxapp = find_parse (strlit "--max_app=") ls in
     let clos = conf.clos_conf in
     let updated_clos =
       clos with <|
         do_mti:= multi; do_known:= known;
-        do_call:= call; do_remove:= remove;
+        do_call:= call;
         max_app:= (case maxapp of NONE => clos.max_app | SOME v => v)
       |> in
     (* bvl optimisation flags *)

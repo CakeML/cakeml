@@ -1,14 +1,11 @@
 open preamble
-     ioProgTheory (* parserProgTheory *) inferTheory
+     parserProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
      semanticPrimitivesTheory inferPropsTheory
-open ml_monadBaseTheory ml_monad_translatorLib inferTheory
 
 val _ = new_theory "inferProg"
 
-val _ = translation_extends "ioProg" (* "parserProg"; *);
-
-val _ = hide "state";
+val _ = translation_extends "parserProg";
 
 (* translator setup *)
 
@@ -56,77 +53,6 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* monadic translation setup *)
-val _ = register_type ``:locs``; (* TODO : remove *)
-val _ = register_exn_type ``:infer_exn``;
-val INFER_EXN_TYPE_def = theorem"INFER_EXN_TYPE_def";
-
-val exn_functions = [(raise_Exc_def, handle_Exc_def)];
-val _ = temp_overload_on ("failwith", ``raise_Exc``);
-
-val init_next_uvar = Define `init_next_uvar = (0 : num)`;
-val init_subst = Define `init_subst = FEMPTY : (num |-> infer_t)`;
-val refs_init_list = [("next_uvar", init_next_uvar, get_next_uvar_def, set_next_uvar_def),
-		      ("subst", init_subst, get_subst_def, set_subst_def)];
-
-val store_hprop_name = "INFER_STATE_STORE";
-val state_type = ``:infer_st``;
-
-val INFER_STATE_PINV_def = Define `INFER_STATE_PINV = \(s : infer_st). t_wfs s.subst`;
-val t_wfs_init_infer_state = Q.store_thm("wfs_init_infer_state",
-`state.next_uvar = 0 /\ state.subst = FEMPTY ==>
-INFER_STATE_PINV state`,
-rw[INFER_STATE_PINV_def, init_infer_state_def]
-\\ rw[unifyTheory.t_wfs_def, substTheory.wfs_def, relationTheory.WF_DEF]
-\\ rw[substTheory.vR_def]
-\\ metis_tac[])
-val store_pinv_opt = SOME(INFER_STATE_PINV_def, t_wfs_init_infer_state);
-
-(*
-val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
-val add_type_theories = [] : string list;
-val exn_ri_def = INFER_EXN_TYPE_def;
-*)
-
-(* TODO: dynamic initialization *)
-val (monad_parameters, store_translation, exn_specs) =
-    start_static_init_fixed_store_translation refs_init_list
-					      []
-					      store_hprop_name
-					      state_type
-					      INFER_EXN_TYPE_def
-					      exn_functions
-					      []
-                                              store_pinv_opt;
-
-(* TODO:
-   these things are a discrepancy between HOL's standard libraries and
-   mllist. probably the compiler should be using the mllist versions? *)
-
-
-(*
-set_trace "assumptions" 1;
-Globals.max_print_depth := 40;
-*)
-val res = translate ZIP;
-val res = translate EL;
-
-val zip_1_side_def = theorem"zip_1_side_def";
-
-val zip_1_side_thm = Q.prove(
-  `∀p. zip_1_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
-  gen_tac \\ PairCases_on`p`
-  \\ qid_spec_tac`p1` \\ Induct_on`p0`
-  \\ rw[Once zip_1_side_def,LENGTH_NIL_SYM]
-  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
-
-val el_side_def = Q.prove(
-  `!n xs. el_side n xs = (n < LENGTH xs)`,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-(* -- *)
-
 (* type inference: t_walkstar and t_unify *)
 
 val PRECONDITION_INTRO = Q.prove(
@@ -145,7 +71,7 @@ val t_vwalk_ind = Q.store_thm("t_vwalk_ind",
        |> DISCH_ALL |> RW [AND_IMP_INTRO])
   THEN FULL_SIMP_TAC std_ss []);
 
-val res = translate
+val _ = translate
   (unifyTheory.t_vwalk_eqn
     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> MATCH_MP PRECONDITION_INTRO);
@@ -163,7 +89,7 @@ val t_vwalk_side_def = Q.store_thm("t_vwalk_side_def",
   THEN FULL_SIMP_TAC std_ss [PULL_FORALL])
   |> update_precondition;
 
-val res = translate unifyTheory.t_walk_eqn;
+val _ = translate unifyTheory.t_walk_eqn;
 
 val t_walkstar_ind = Q.store_thm("t_walkstar_ind",
   `!P.
@@ -265,7 +191,7 @@ val t_unify_lemma = Q.prove(
   THEN Cases_on `ts1` THEN Cases_on `ts2`
   THEN ASM_SIMP_TAC (srw_ss()) [unifyTheory.ts_unify_def])
   |> UNDISCH |> CONJUNCTS
-  |> List.map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
+  |> map (MATCH_MP PRECONDITION_INTRO o DISCH_ALL) |> LIST_CONJ
 
 val _ = translate t_unify_lemma
 
@@ -302,18 +228,16 @@ val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
 val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
-  [MEMBER_INTRO, MAP, (* OPTION_BIND_THM, *) (* st_ex_bind_def,
-   st_ex_return_def, raise_Exc_def,*) guard_def]);
+  [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,
+   st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
 
 val _ = translate (def_of_const ``id_to_string``)
-(* TODO *)
-val _ = translate (def_of_const ``nsLookup``)
-val res = m_translate (def_of_const ``lookup_st_ex``)
-val res = m_translate (def_of_const ``fresh_uvar``)
-val res = m_translate (def_of_const ``n_fresh_uvar``)
+val _ = translate (def_of_const ``lookup_st_ex``)
+val _ = translate (def_of_const ``fresh_uvar``)
+val _ = translate (def_of_const ``n_fresh_uvar``)
 val _ = translate (def_of_const ``init_infer_state``)
-val res = m_translate (def_of_const ``infer$init_state``)
-(* definition"init_state_side_def"; *)
+val _ = translate (def_of_const ``infer$init_state``)
+val _ = translate (def_of_const ``get_next_uvar``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
 val _ = translate (def_of_const ``infer_type_subst``)
@@ -507,8 +431,6 @@ into
      | p2 => b2 a
      | ....
  *)
-
-(* Not needed anymore? *)
 fun pmatch_app_distrib_conv tm =
   let
     fun mk_pmatch_beta tm =
@@ -560,9 +482,8 @@ fun full_infer_def aggressive const = let
 val infer_def = full_infer_def false;
 val aggr_infer_def = full_infer_def true;
 
-val def = (def_of_const ``apply_subst``); 
-val res = m_translate (def_of_const ``apply_subst``);
-val res = m_translate (def_of_const ``apply_subst_list``);
+val _ = translate (infer_def ``apply_subst``);
+val _ = translate (infer_def ``apply_subst_list``);
 val _ = translate (infer_def ``tc_to_string``);
 
 val tc_to_string_side_thm = Q.store_thm ("tc_to_string_side_thm",
@@ -580,38 +501,36 @@ val inf_type_to_string_side_thm  = Q.store_thm ("inf_type_to_string_side_thm",
   rw [] >>
   rw [Once (theorem "inf_type_to_string_side_def")]) |> update_precondition;
 
-(* *)
-val def = (def_of_const ``add_constraint``)
-val res = m_translate (def_of_const ``add_constraint``);
-(* val res = m_translate def *)
+val _ = translate (infer_def ``add_constraint``);
 
 val add_constraint_side_def = definition"add_constraint_side_def"
 
-val res = m_translate (def_of_const ``add_constraints``);
+val _ = translate (infer_def ``add_constraints``);
 
 val add_constraint_side_thm = Q.store_thm("add_constraint_side_thm",
-  `∀l x y. add_constraint_side l x y`,
-  rw[add_constraint_side_def] \\ metis_tac[unifyTheory.t_unify_wfs]);
+  `∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z`,
+  rw[add_constraint_side_def]);
 
 val add_constraints_side_thm = Q.store_thm("add_constraints_side_thm",
-  `∀l x y. add_constraints_side l x y`,
+  `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`,
   recInduct add_constraints_ind
   \\ rw[Once(theorem"add_constraints_side_def")]
   \\ rw[Once(theorem"add_constraints_side_def")]
-  \\ rw[add_constraint_side_thm]);
+  \\ rw[add_constraint_side_def]
+  \\ first_x_assum match_mp_tac
+  \\ fs[add_constraint_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ metis_tac[unifyTheory.t_unify_wfs]);
 
-(* TODO: Needed? *)
-val def = def_of_const ``TC_word``
-val res = translate def;
-(* TODO *)
+val def = infer_def ``constrain_op``
+(*
+  val tm = def |> SPEC_ALL |> concl |> rand
+*)
 
-(* val def = infer_def ``constrain_op``*)
+val r = translate
+  (def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV pmatch_app_distrib_conv)));
 
-val def = (def_of_const ``constrain_op``)
-val r = m_translate def;
-
-val def = (def_of_const ``t_to_freevars``)
-val res = m_translate def;
+val _ = translate (infer_def ``t_to_freevars``);
 
 val MAP_type_name_subst = prove(
   ``MAP (type_name_subst tenvT) ts =
@@ -660,31 +579,23 @@ val EVERY_EQ_EVERY = Q.prove(
   `!xs. EVERY P xs = EVERY I (MAP P xs)`,
   Induct THEN SRW_TAC [] []);
 
-val _ = translate (def_of_const ``check_freevars``
+val _ = translate (infer_def ``check_freevars``
                    |> RW1 [EVERY_EQ_EVERY])
 
 val _ = translate (infer_def ``check_dup_ctors``
                    |> SIMP_RULE std_ss [EVERY_INTRO,LET_DEF])
 
-(* TODO: necessary? *)
-val _ = translate (def_of_const ``check_type_names``)
-(********************)
 val _ = translate (infer_def ``check_ctor_tenv``)
 
 val _ = translate (infer_def ``is_value``
             |> RW1 [prove(``~b <=> (b = F)``,SIMP_TAC std_ss [])]
             |> RW1 [EVERY_EQ_EVERY])
 
-(* TODO: necessary? *)
-val _ = translate (def_of_const ``tid_exn_to_tc``)
-(********************)
-
-val def = (def_of_const ``infer_p``)
-val res = m_translate (def_of_const ``infer_p``)
+val _ = translate (infer_def ``infer_p``)
 
 val infer_p_side_def = theorem"infer_p_side_def";
 
-(* val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
+val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
   `(!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
    (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)`,
   ho_match_mp_tac infer_p_ind >>
@@ -695,42 +606,12 @@ val infer_p_side_def = theorem"infer_p_side_def";
   TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
   TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
   every_case_tac >> fs[] >> rw[] >>
-  metis_tac[infer_p_wfs,PAIR,type_name_subst_side_thm]); *)
-
-(* TODO HERE *)
-val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
-  `(!l cenv p. infer_p_side l cenv p) ∧
-   (!l cenv ps. infer_ps_side l cenv ps)`,
-  ho_match_mp_tac infer_p_ind >>
-  rw [] >>
-  rw [Once infer_p_side_def] >>
-  fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
-  rw [add_constraint_side_thm, add_constraints_side_thm] >>
-  >-(
-
-(def_of_const ``type_name_subst_side``)
-
-inf
-
-m2deep ``if LENGTH x = LENGTH y then st_ex_return () else failwith z``
-
-m2deep ``n_fresh_uvar (LENGTH tvs')``
-
-hol2deep ``st_ex_bind (n_fresh_uvar (LENGTH tvs')
-hol2deep ``(n_fresh_uvar (LENGTH tvs')``
-
-hol2deep 
-val tm = ``case l of [] => 0 | x::l => 1``
-
-theorem"type_name_subst_side_def"
-
-
-  TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
-  TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
-  every_case_tac >> fs[] >> rw[] >>
   metis_tac[infer_p_wfs,PAIR,type_name_subst_side_thm]);
 
 val _ = translate (infer_def ``infer_e``)
+
+(* open to_dataProg for the AST_* definitions *)
+open to_dataProgTheory
 
 local
   val ths = ml_translatorLib.eq_lemmas();

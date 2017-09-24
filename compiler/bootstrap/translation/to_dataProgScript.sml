@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory;
+open basisProgTheory;
 
 val _ = new_theory "to_dataProg"
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "basisProg";
 
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
@@ -52,6 +52,29 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
+
+(* TODO:
+   these things are a discrepancy between HOL's standard libraries and
+   mllist. probably the compiler should be using the mllist versions? *)
+
+val res = translate ZIP;
+val res = translate EL;
+
+val list_zip_side_def = theorem"list_zip_side_def";
+
+val list_zip_side = Q.prove(
+  `∀p. list_zip_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
+  gen_tac \\ PairCases_on`p`
+  \\ qid_spec_tac`p1` \\ Induct_on`p0`
+  \\ rw[Once list_zip_side_def,LENGTH_NIL_SYM]
+  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
+
+val list_el_side = Q.prove(
+  `!n xs. list_el_side n xs = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+(* -- *)
 
 val res = translate (source_to_modTheory.compile_exp_def);
 
@@ -448,12 +471,12 @@ val clos_known_compile_side = Q.prove(
 
 val r = translate (clos_callTheory.calls_def)
 
-val clos_free_free_side = Q.prove(`
-  ∀a. clos_free_free_side a ⇔ T`,
-  ho_match_mp_tac clos_freeTheory.free_ind>>rw[]>>
-  simp[Once (fetch "-" "clos_free_free_side_def")]>>rw[]>>
+val clos_call_free_side = Q.prove(`
+  ∀a. clos_call_free_side a ⇔ T`,
+  ho_match_mp_tac clos_callTheory.free_ind>>rw[]>>
+  simp[Once (fetch "-" "clos_call_free_side_def")]>>rw[]>>
   CCONTR_TAC>>fs[]>>
-  imp_res_tac clos_freeTheory.free_SING>>fs[]>>
+  imp_res_tac clos_callTheory.free_SING>>fs[]>>
   metis_tac[]) |> update_precondition
 
 val clos_call_calls_side = Q.prove(`
@@ -463,10 +486,10 @@ val clos_call_calls_side = Q.prove(`
   `∀a b c. calls [a] b ≠ ([],c)` by
     (CCONTR_TAC>>fs[]>>
     imp_res_tac clos_callTheory.calls_sing>>fs[])>>
-  rw[]>> simp[Once (fetch"-" "clos_call_calls_side_def"),Once (fetch "-" "clos_call_closed_side_def"),clos_free_free_side]>>
+  rw[]>> simp[Once (fetch"-" "clos_call_calls_side_def"),Once (fetch "-" "clos_call_closed_side_def"),clos_call_free_side]>>
   TRY(metis_tac[])>>
   ntac 2 strip_tac>>
-  simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_free_free_side]
+  simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_call_free_side]
   >-
     metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
   >>
@@ -482,35 +505,8 @@ val clos_call_compile_side = Q.prove(
   imp_res_tac clos_callTheory.calls_sing \\
   fs[]) |> update_precondition;
 
-(* remove *)
-val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
-
-val r = translate (clos_removeTheory.remove_alt)
-
-val clos_remove_remove_side = Q.prove(`
-  ∀x. clos_remove_remove_side x ⇔ T`,
-  recInduct clos_removeTheory.remove_alt_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "clos_remove_remove_side_def")]>>
-  rw[]>>
-  imp_res_tac clos_removeTheory.remove_SING>>fs[]>>
-  TRY(first_x_assum match_mp_tac>>fs[]>>metis_tac[])>>
-  CCONTR_TAC>>fs[]>>
-  imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
-
-val r = translate clos_removeTheory.compile_def
-
-val clos_remove_compile_side = Q.prove(
-  `∀x y. clos_remove_compile_side x y = T`,
-  EVAL_TAC \\ rw[] \\
-  qmatch_goalsub_abbrev_tac`FST p` \\
-  Cases_on`p` \\ fs[markerTheory.Abbrev_def] \\
-  pop_assum(assume_tac o SYM) \\
-  imp_res_tac clos_removeTheory.remove_LENGTH \\fs[])
-  |> update_precondition;
-
 (* shift *)
-val _ = translate (clos_annotateTheory.shift_def)
+val r = translate (clos_annotateTheory.shift_def)
 
 val clos_annotate_shift_side = Q.prove(`
   ∀a b c d. clos_annotate_shift_side a b c d ⇔ T`,
@@ -525,10 +521,19 @@ val clos_annotate_shift_side = Q.prove(`
 
 val r = translate clos_annotateTheory.compile_def
 
+val clos_annotate_alt_free_side = Q.prove(
+  `∀x. clos_annotate_alt_free_side x ⇔ T`,
+  ho_match_mp_tac clos_annotateTheory.alt_free_ind \\ rw[] \\
+  simp[Once(fetch "-" "clos_annotate_alt_free_side_def")] \\
+  rw[] \\ fs[] \\
+  CCONTR_TAC \\ fs[] \\
+  imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[] \\
+  METIS_TAC[]) |> update_precondition;
+
 val clos_annotate_compile_side = Q.prove(
   `∀x. clos_annotate_compile_side x = T`,
-  EVAL_TAC \\ rw[] \\
-  METIS_TAC[clos_annotateTheory.shift_SING,clos_freeTheory.free_SING,
+  EVAL_TAC \\ rw[clos_annotate_alt_free_side] \\
+  METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
 
 val r = translate clos_to_bvlTheory.compile_def
@@ -697,7 +702,6 @@ val clos_to_bvl_compile_side = Q.prove(`
   rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
   Once (fetch "-" "clos_call_compile_side_def"),
   Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),
-  Once (fetch "-" "clos_remove_compile_side_def"),
   Once (fetch "-" "clos_known_compile_side_def")]
   >-
     (EVAL_TAC>>simp[bvl_jump_jumplist_side])
@@ -893,38 +897,38 @@ val _ = translate bvi_tailrecTheory.scan_expr_def
 val bvi_tailrec_scan_expr_side = Q.prove (
   `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2 <=> T`,
   ho_match_mp_tac bvi_tailrecTheory.scan_expr_ind \\ rw []
-  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")])
+  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")]
+  \\ PURE_FULL_CASE_TAC \\ fs [])
   |> update_precondition
 
 val rewrite_alt_def = Define `
   rewrite_alt loc next op acc ts x =
     case x of
-      Var n =>
-        let ty = if n < LENGTH ts then EL n ts else Any in
-          (ts, ty, F, Var n)
+      Var n => (F, Var n)
     | If xi xt xe =>
         let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
-        let (tt, ty1, rt, yt) = rewrite_alt loc next op acc ti xt in
-        let (te, ty2, re, ye) = rewrite_alt loc next op acc ti xe in
+        let (rt, yt) = rewrite_alt loc next op acc ti xt in
+        let (re, ye) = rewrite_alt loc next op acc ti xe in
         let zt = if rt then yt else apply_op op xt (Var acc) in
         let ze = if re then ye else apply_op op xe (Var acc) in
-          (MAP2 decide_ty tt te, decide_ty ty1 ty2, rt ∨ re, If xi zt ze)
+          (rt ∨ re, If xi zt ze)
     | Let xs x =>
-        let ys = MAP (FST o SND) (scan_expr ts loc xs) in
-        let (tu, ty, r, y) = rewrite_alt loc next op (acc + LENGTH xs) (ys ++ ts) x in
-          (DROP (LENGTH ys) tu, ty, r, Let xs y)
+        let ys = scan_expr ts loc xs in
+        let tt = MAP (FST o SND) ys in
+        let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+        let (r, y) = rewrite_alt loc next op (acc + LENGTH xs) (tt ++ tr) x in
+          (r, Let xs y)
     | Tick x =>
-        let (tt, ty, r, y) = rewrite_alt loc next op acc ts x in
-          (tt, ty, r, Tick y)
-    | Raise x => (ts, Any, F, Raise x)
+        let (r, y) = rewrite_alt loc next op acc ts x in (r, Tick y)
+    | Raise x => (F, Raise x)
     | exp =>
-        (case rewrite_op ts op loc exp of
-          (F, _)    => (ts, Int, F, apply_op op exp (Var acc))
+        case rewrite_op ts op loc exp of
+          (F, _)    => (F, apply_op op exp (Var acc))
         | (T, exp1) =>
           case get_bin_args exp1 of
-            NONE              => (ts, Int, F, apply_op op exp (Var acc))
+            NONE => (F, apply_op op exp (Var acc))
           | SOME (call, exp2) =>
-              (ts, Int, T, push_call next op acc exp2 (args_from call)))`;
+              (T, push_call next op acc exp2 (args_from call))`;
 
 val _ = translate rewrite_alt_def
 
@@ -932,7 +936,8 @@ val rewrite_alt_side = Q.prove (
   `!a0 a1 a2 a3 a4 a5. to_dataprog_rewrite_alt_side a0 a1 a2 a3 a4 a5 <=> T`,
   ho_match_mp_tac (theorem "rewrite_alt_ind") \\ rw []
   \\ once_rewrite_tac [fetch "-" "to_dataprog_rewrite_alt_side_def"]
-  \\ rw []) |> update_precondition
+  \\ rw []
+  \\ PURE_FULL_CASE_TAC \\ fs []) |> update_precondition
 
 val rewrite_alt_lem = Q.prove (
   `!loc next op acc ts x.
@@ -959,7 +964,7 @@ val _ = translate(bvl_to_bviTheory.compile_aux_def);
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 2
+val bad_row = rows |> List.rev |> el 3
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
