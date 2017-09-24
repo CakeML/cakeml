@@ -286,6 +286,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.let_op_sing_def
     ,bvl_inlineTheory.must_inline_def
     ,bvl_inlineTheory.inline_all_def
+    ,bvl_inlineTheory.optimise_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
@@ -344,7 +345,6 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
-    ,bvl_to_bviTheory.optimise_def
     ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
