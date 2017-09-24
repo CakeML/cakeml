@@ -2098,7 +2098,7 @@ val cf_ffi_sound = Q.prove (
    fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\
    progress store2heap_LUPDATE \\ fs [] \\
    fs [FLOOKUP_DEF] \\ rveq \\
-   first_assum progress \\ fs [MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n'] \\
+   first_assum progress \\ fs [MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',IMPLODE_EXPLODE_I] \\
    qabbrev_tac `events1 = (FILTER (ffi_has_index_in ns) st.ffi.io_events)` \\
    qabbrev_tac `new_events = events1 ++ [IO_event
                                            ffi_index
