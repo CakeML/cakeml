@@ -351,7 +351,6 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
-    ,bvl_to_bviTheory.optimise_def
     ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
