@@ -146,7 +146,7 @@ val _ = process_topdecs`
 val _ = process_topdecs`
 fun read_char fd =
     if read fd (Word8.fromInt 1) = 0 then raise EndOfFile
-    else Word8Array.sub iobuff 2
+    else Word8Array.sub iobuff 3
 ` |> append_prog
 
 (* val input : in_channel -> bytes -> int -> int -> int
@@ -159,7 +159,7 @@ fun input fd buff off len =
 let fun input0 off len count =
     let val nread = read fd (Word8.fromInt(min len 255)) in
         if nread = 0 then count else
-          (Word8Array.copy iobuff 2 nread buff off;
+          (Word8Array.copy iobuff 3 nread buff off;
            input0 (off + nread) (len - nread) (count + nread))
     end
 in input0 off len 0 end

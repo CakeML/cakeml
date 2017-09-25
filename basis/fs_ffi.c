@@ -33,7 +33,7 @@ void ffiopen_out (char *a) {
 }
 
 void ffiread (char *a) {
-  int nread = read(infds[a[0]], &a[2], a[1]);
+  int nread = read(infds[a[0]], &a[3], a[1]);
   if(nread < 0) a[0] = 0;
   else{
     a[0] = 1; 

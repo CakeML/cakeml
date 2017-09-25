@@ -250,10 +250,7 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ fs[] \\ TRY(metis_tac[LENGTH_LUPDATE])
   \\ fs[LENGTH_MAP,LENGTH_DROP,LENGTH_LUPDATE,LENGTH]
   \\ imp_res_tac read_length
-  >- (`bytes' = 0w::n2w (STRLEN l)::(MAP (n2w ∘ ORD) l ++ DROP (STRLEN l) t')`
-        by (fs[]) \\ fs[])
-  >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])
-  >- (`bytes' = LUPDATE 1w 0 (h::h'::t')` by (fs[]) \\ fs[])); 
+  \\ imp_res_tac LENGTH_EQ \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
   `ffi_write bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,

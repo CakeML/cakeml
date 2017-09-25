@@ -488,9 +488,9 @@ val output_spec = Q.store_thm("output_spec",
 val read_spec = Q.store_thm("read_spec",
   `fd < 255 ⇒ wfFS fs ⇒ liveFS fs ⇒
    WORD (n2w fd:word8) fdv ⇒ WORD (n:word8) nv ⇒ 
-   LENGTH rest = 256 ⇒  w2n n <= 255 ⇒ 
+   LENGTH rest = 255 ⇒  w2n n <= 255 ⇒ 
    app (p:'ffi ffi_proj) ^(fetch_v "IO.read" (basis_st())) [fdv;nv]
-   (W8ARRAY iobuff_loc (h1 :: h2 :: rest) * IOx fs_ffi_part fs)
+   (W8ARRAY iobuff_loc (h1 :: h2 :: h3 :: rest) * IOx fs_ffi_part fs)
    (POST
      (\nrv. SEP_EXISTS (nr : num).
       &(NUM nr nrv) * 
@@ -499,14 +499,14 @@ val read_spec = Q.store_thm("read_spec",
           (nr <= MIN (w2n n) (LENGTH content - pos)) /\
           (nr = 0 ⇔ eof fd fs = SOME T ∨ w2n n = 0)) * 
       IOx fs_ffi_part (bumpFD fd fs nr) *
-      W8ARRAY iobuff_loc (0w :: n2w nr :: 
+      W8ARRAY iobuff_loc (0w :: n2w nr :: h3 ::
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
      (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE) * IOFS fs))`,
    xcf "IO.read" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
    NTAC 2 (xlet_auto >- (fs[LUPDATE_def] >> xsimpl)) >>
    simp[LUPDATE_def,EVAL ``LUPDATE rr 1 (zz :: tt)``] >>
    cases_on`get_file_content fs fd`
-   >-(xlet`POSTv v. W8ARRAY (Loc 1) (1w::n::rest) * IOx fs_ffi_part fs`
+   >-(xlet`POSTv v. W8ARRAY (Loc 1) (1w::n::h3::rest) * IOx fs_ffi_part fs`
       >-(xffi >> xsimpl >>
          fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
          qmatch_goalsub_abbrev_tac`IO st f ns` >>
@@ -528,7 +528,7 @@ val read_spec = Q.store_thm("read_spec",
           (nr <= MIN (w2n n) (LENGTH content - pos)) /\
           (nr = 0 ⇔ eof fd fs = SOME T ∨ w2n n = 0)) * 
         IOx fs_ffi_part (bumpFD fd fs nr) *
-        W8ARRAY iobuff_loc (0w :: n2w nr :: 
+        W8ARRAY iobuff_loc (0w :: n2w nr :: h3 ::
           MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)) 
             (\e. &(get_file_content fs fd = NONE))` >> xsimpl
    >-(xffi >> xsimpl >>
@@ -618,6 +618,7 @@ val input_spec = Q.store_thm("input_spec",
      rename [`W8ARRAY (Loc 1) bdef`] >>
      Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
+     Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
      PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
      xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
      xlet_auto >-xsimpl >>
@@ -639,6 +640,7 @@ val input_spec = Q.store_thm("input_spec",
      rename [`W8ARRAY (Loc 1) bdef`] >>
      Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
+     Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
      PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
      xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
      xlet_auto >- xsimpl >> xif >> instantiate >> xlit >> xsimpl >>
@@ -655,6 +657,7 @@ val input_spec = Q.store_thm("input_spec",
   rename [`W8ARRAY (Loc 1) bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
+  Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto
   >-(fs[iobuff_loc_def] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)

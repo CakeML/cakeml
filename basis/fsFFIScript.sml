@@ -184,13 +184,13 @@ val ffi_read_def = Define`
   ffi_read bytes fs =
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
-       | fd :: (numb :: tll) =>
+       | fd :: (numb :: pad :: tll) =>
            do
              assert(LENGTH tll >= w2n numb);
              (l, fs') <- read (w2n fd) fs (w2n numb);
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
-             return (0w :: n2w (LENGTH l) ::
+             return (0w :: n2w (LENGTH l) :: pad ::
                     MAP (n2w o ORD) l ++
                     DROP (LENGTH l) tll, fs')
            od ++ return (LUPDATE 1w 0 bytes, fs)
