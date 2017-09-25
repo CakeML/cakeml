@@ -492,9 +492,9 @@ val read_spec = Q.store_thm("read_spec",
    app (p:'ffi ffi_proj) ^(fetch_v "IO.read" (basis_st())) [fdv;nv]
    (W8ARRAY iobuff_loc (h1 :: h2 :: rest) * IOx fs_ffi_part fs)
    (POST
-     (\uv. 
-      &(UNIT_TYPE () uv) * 
-      SEP_EXISTS nr content pos. 
+     (\nrv. SEP_EXISTS (nr : num).
+      &(NUM nr nrv) * 
+      SEP_EXISTS content pos. 
         &(get_file_content fs fd = SOME(content, pos) /\
           (nr <= MIN (w2n n) (LENGTH content - pos)) /\
           (nr = 0 ⇔ eof fd fs = SOME T ∨ w2n n = 0)) * 
@@ -505,7 +505,6 @@ val read_spec = Q.store_thm("read_spec",
    xcf "IO.read" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
    NTAC 2 (xlet_auto >- (fs[LUPDATE_def] >> xsimpl)) >>
    simp[LUPDATE_def,EVAL ``LUPDATE rr 1 (zz :: tt)``] >>
-   qmatch_goalsub_abbrev_tac`cf_let _ _ _ _ _ (POST Q _)` >>
    cases_on`get_file_content fs fd`
    >-(xlet`POSTv v. W8ARRAY (Loc 1) (1w::n::rest) * IOx fs_ffi_part fs`
       >-(xffi >> xsimpl >>
@@ -522,10 +521,16 @@ val read_spec = Q.store_thm("read_spec",
          pairarg_tac >> fs[]) >>
       rpt(xlet_auto >- xsimpl) >> xif >> instantiate >> 
       xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
-      xraise >> xsimpl >> fs[InvalidFD_exn_def,Abbr`Q`] >> xsimpl) >>
+      xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
    cases_on`x` >> fs[] >>
-   xlet `POST Q (\e. &(get_file_content fs fd = NONE))` >> 
-   fs[Abbr`Q`] >> xsimpl
+   xlet `POST (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) * 
+      SEP_EXISTS content pos.  &(get_file_content fs fd = SOME(content, pos) /\
+          (nr <= MIN (w2n n) (LENGTH content - pos)) /\
+          (nr = 0 ⇔ eof fd fs = SOME T ∨ w2n n = 0)) * 
+        IOx fs_ffi_part (bumpFD fd fs nr) *
+        W8ARRAY iobuff_loc (0w :: n2w nr :: 
+          MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)) 
+            (\e. &(get_file_content fs fd = NONE))` >> xsimpl
    >-(xffi >> xsimpl >>
       fs[iobuff_loc,IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
@@ -540,9 +545,12 @@ val read_spec = Q.store_thm("read_spec",
       pairarg_tac >> xsimpl >> fs[] >>
       cases_on`fs.numchars` >> fs[wfFS_def] >>
       qmatch_goalsub_abbrev_tac`k = _ MOD 256` >> qexists_tac`k` >>
-      fs[MIN_LE,eof_def,Abbr`k`] >> rfs[liveFS_bumpFD] >> metis_tac[]) >>
-   xpull >> rpt(xlet_auto >- xsimpl) >>
-   xif >> instantiate >> xcon >> xsimpl >> instantiate >> xsimpl);
+      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def] >> 
+      rfs[liveFS_bumpFD] >> metis_tac[]) >>
+   rpt(xlet_auto >- xsimpl) >>
+   xif >> instantiate >> xlet_auto >- xsimpl >>
+   xapp >> xsimpl >> instantiate >> 
+   rw[] >> instantiate >> xsimpl);
 
 
 val read_char_spec = Q.store_thm("read_char_spec",
@@ -565,7 +573,7 @@ val read_char_spec = Q.store_thm("read_char_spec",
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto >-(fs[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl)
   >- xsimpl >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
+  xlet_auto >- xsimpl >>
   xif >-(xlet_auto >- (xcon >> xsimpl) >> xraise >> 
          fs[EndOfFile_exn_def,eof_def,get_file_content_def,liveFS_bumpFD] >> xsimpl) >>
   xapp >> xsimpl >>
@@ -612,7 +620,8 @@ val input_spec = Q.store_thm("input_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
      PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
      xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
-     NTAC 3 (xlet_auto >- xsimpl) >> xif >> instantiate >> xlit >> xsimpl >>
+     xlet_auto >-xsimpl >>
+     xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,validFD_ALOOKUP] >>
@@ -632,7 +641,7 @@ val input_spec = Q.store_thm("input_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
      PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
      xlet_auto >-(fs[iobuff_loc_def] >> xsimpl) >- xsimpl >>
-     NTAC 3 (xlet_auto >- xsimpl) >> xif >> instantiate >> xlit >> xsimpl >>
+     xlet_auto >- xsimpl >> xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
      fs[wfFS_fsupdate,liveFS_fsupdate,MIN_DEF,MEM_MAP,insert_atI_NIL,validFD_ALOOKUP] >>
@@ -650,7 +659,7 @@ val input_spec = Q.store_thm("input_spec",
   xlet_auto
   >-(fs[iobuff_loc_def] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)
   >- xsimpl >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
+  xlet_auto >- xsimpl >>
   `MEM fd (MAP FST fs'.infds)` by 
      (fs[get_file_content_def] >> pairarg_tac >> fs[ALOOKUP_MEM,MEM_MAP] >> 
       qexists_tac`fd,(fnm, pos'')` >> fs[ALOOKUP_MEM]) >>
