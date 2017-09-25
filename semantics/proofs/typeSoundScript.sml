@@ -796,7 +796,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    Cases_on `n < 0 ∨ n > 255`
    >> rw []
    >> rw []
-   >> simp [type_v_exn, sub_exn_v_def]
+   >> simp [type_v_exn, chr_exn_v_def]
    >> fs []
    >> simp [Once type_v_cases]
    >> metis_tac [store_type_extension_refl])

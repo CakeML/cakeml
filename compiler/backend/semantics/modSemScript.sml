@@ -514,7 +514,7 @@ val evaluate_def = tDefine"evaluate"`
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
      case evaluate env s (REVERSE es) of
-     | (s, Rval vs) => (s,Rval [Conv NONE vs])
+     | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
      | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
     case FLOOKUP env.c cn of
@@ -522,7 +522,7 @@ val evaluate_def = tDefine"evaluate"`
     | SOME arity =>
         if arity = LENGTH es then
           case evaluate env s (REVERSE es) of
-           | (s, Rval vs) => (s, Rval [Conv (SOME cn) vs])
+           | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
            | res => res
         else (s, Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Var_local _ n] = (s,

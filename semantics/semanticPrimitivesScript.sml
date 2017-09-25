@@ -709,7 +709,7 @@ val _ = Define `
     | (Chr, [Litv (IntLit i)]) =>
         SOME ((s,t),          
 (if (i <( 0 : int)) \/ (i >( 255 : int)) then
-            Rerr (Rraise sub_exn_v)
+            Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>

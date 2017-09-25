@@ -53,10 +53,11 @@ val pmatch_length = Q.store_thm ("pmatch_length",
   rw [] >>
   imp_res_tac pmatch_bindings >>
   metis_tac [LENGTH_APPEND, LENGTH_MAP]);
+  *)
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
-  FOLDR (λ(f,x,e) env'. (f, Recclosure env funs' f)::env') env' funs =
+  FOLDR (λ(f,x,e) env'. (f, modSem$Recclosure env funs' f)::env') env' funs =
   MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'`,
   Induct >>
   srw_tac[][] >>
@@ -70,7 +71,9 @@ val build_rec_env_merge = Q.store_thm ("build_rec_env_merge",
     MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs ++ env'`,
   srw_tac[][build_rec_env_def, build_rec_env_help_lem]);
 
+  (*
 val Boolv_11 = Q.store_thm("Boolv_11[simp]",`Boolv b1 = Boolv b2 ⇔ (b1 = b2)`,srw_tac[][Boolv_def]);
+*)
 
 val evaluate_length = Q.store_thm("evaluate_length",
   `(∀env (s:'ffi modSem$state) ls s' vs.
@@ -82,7 +85,7 @@ val evaluate_length = Q.store_thm("evaluate_length",
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
-  `evaluate env s (e::es) =
+  `modSem$evaluate env s (e::es) =
    (case evaluate env s [e] of
     | (s,Rval v) =>
       (case evaluate env s es of
@@ -91,13 +94,15 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
     | r => r)`,
   Cases_on`es`>>srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
-  imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[SING_HD]);
+  imp_res_tac evaluate_length >>
+  full_simp_tac(srw_ss())[SING_HD]);
 
 val evaluate_sing = Q.store_thm("evaluate_sing",
   `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
   srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
+  (*
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `(∀env (s:'ffi modSem$state) es s' r.
        evaluate env s es = (s',r) ∧
@@ -608,6 +613,7 @@ val evaluate_prompt_mods_disjoint = Q.store_thm("evaluate_prompt_mods_disjoint",
      ∀mn ds. p = Prompt (SOME mn) ds ⇒ mn ∉ s.defined_mods`,
   Cases_on`p`>>srw_tac[][evaluate_prompt_def]>>full_simp_tac(srw_ss())[]);
   *)
+  *)
 
 val s = ``s:'ffi modSem$state``;
 
@@ -618,6 +624,8 @@ val evaluate_globals = Q.store_thm("evaluate_globals",
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def]);
+
+  (*
 
 val evaluate_dec_globals = Q.store_thm("evaluate_dec_globals",
   `∀env st d res. evaluate_dec env st d = res ⇒
