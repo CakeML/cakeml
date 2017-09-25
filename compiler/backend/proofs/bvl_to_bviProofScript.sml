@@ -7,7 +7,7 @@ local open
   bvl_handleProofTheory
   bvi_letProofTheory
   bvl_inlineProofTheory
-  (* bvi_tailrecProofTheory *)
+  bvi_tailrecProofTheory
 in end;
 
 (*

@@ -586,4 +586,50 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,PAIR,
             inc_clock_ffi,dec_clock_ffi]);
 
+val take_drop_lem = Q.prove (
+  `!skip env.
+    skip < LENGTH env ∧
+    skip + SUC n ≤ LENGTH env ∧
+    DROP skip env ≠ [] ⇒
+    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
+  Induct_on `n` >>
+  srw_tac[][take1, hd_drop] >>
+  `skip + SUC n ≤ LENGTH env` by decide_tac >>
+  res_tac >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>
+  `SUC n < LENGTH (DROP skip env)` by decide_tac >>
+  `LENGTH (DROP (1 + skip) env) = LENGTH env - (1 + skip)` by srw_tac[][LENGTH_DROP] >>
+  `n < LENGTH (DROP (1 + skip) env)` by decide_tac >>
+  srw_tac[][TAKE_EL_SNOC, ADD1] >>
+  `n + (1 + skip) < LENGTH env` by decide_tac >>
+  `(n+1) + skip < LENGTH env` by decide_tac >>
+  srw_tac[][EL_DROP] >>
+  srw_tac [ARITH_ss] []);
+
+val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
+  `!skip env n (st:('c,'ffi) bviSem$state).
+    n + skip ≤ LENGTH env ⇒
+    evaluate (GENLIST (λarg. Var (arg + skip)) n, env, st)
+    =
+    (Rval (TAKE n (DROP skip env)), st)`,
+  Induct_on `n` >>
+  srw_tac[][evaluate_def, DROP_LENGTH_NIL, GSYM ADD1] >>
+  srw_tac[][Once GENLIST_CONS] >>
+  srw_tac[][Once evaluate_CONS, evaluate_def] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  first_x_assum (qspecl_then [`skip + 1`, `env`] mp_tac) >>
+  srw_tac[][] >>
+  `n + (skip + 1) ≤ LENGTH env` by decide_tac >>
+  full_simp_tac(srw_ss())[] >>
+  srw_tac[][combinTheory.o_DEF, ADD1, GSYM ADD_ASSOC] >>
+  `skip + 1 = 1 + skip ` by decide_tac >>
+  full_simp_tac(srw_ss())[] >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>
+  `n < LENGTH env - skip` by decide_tac >>
+  `DROP skip env ≠ []`
+        by (Cases_on `DROP skip env` >>
+            full_simp_tac(srw_ss())[] >>
+            decide_tac) >>
+  metis_tac [take_drop_lem]);
+
 val _ = export_theory();

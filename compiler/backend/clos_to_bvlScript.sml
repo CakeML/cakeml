@@ -4,7 +4,6 @@ local open
   clos_mtiTheory
   clos_callTheory
   clos_knownTheory
-  clos_removeTheory
   clos_numberTheory
   clos_annotateTheory
 in (* clos-to-clos transformations *) end;
@@ -12,7 +11,7 @@ in (* clos-to-clos transformations *) end;
 val _ = new_theory "clos_to_bvl";
 val _ = set_grammar_ancestry [
   "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_remove", "clos_number",
+  "clos_mti", "clos_call", "clos_known", "clos_number",
   "clos_annotate",
   "bvl_jump"
 ]
@@ -479,7 +478,6 @@ val _ = Datatype`
             ; do_mti : bool
             ; do_known : bool
             ; do_call : bool
-            ; do_remove : bool
             ; max_app : num
             |>`;
 
@@ -490,7 +488,6 @@ val default_config_def = Define`
     do_mti := T;
     do_known := T;
     do_call := T;
-    do_remove := T;
     max_app := 10 |>`;
 
 val code_split_def = Define `
@@ -542,7 +539,6 @@ val compile_def = Define`
     let (e,aux) = clos_call$compile c.do_call e in
     let prog = (3,0,e) :: aux in
     let c = c with start := num_stubs c.max_app + 1 in
-    let prog = clos_remove$compile c.do_remove prog in
     let prog = clos_annotate$compile prog in
     let prog = (num_stubs c.max_app+1,0,init_globals c.max_app) :: compile_prog c.max_app prog in
     let prog = toAList (init_code c.max_app) ++ prog in
