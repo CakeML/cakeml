@@ -3369,13 +3369,10 @@ val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
   unabbrev_all_tac >> simp[MEM_MAP,EXISTS_PROD] >>
   fs[backend_commonTheory.bvl_to_bvi_namespaces_def]);
 
-
-(*
-
 val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   `compile_prog start n prog = (start', prog', n') ∧
    evaluate ([Call 0 (SOME start) []],[],
-             initial_state ffi0 (fromAList prog) co cc k) = (r,s) ∧
+             initial_state ffi0 (fromAList prog) co (state_cc compile_inc cc) k) = (r,s) ∧
    0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
    handle_ok (MAP (SND o SND) prog) ∧
@@ -3383,30 +3380,29 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
    ⇒
    ∃ck b2 s2.
    evaluate ([Call 0 (SOME start') [] NONE],[],
-             initial_state ffi0 (fromAList prog') co cc (k+ck)) =
+             initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc (k+ck)) =
      (map_result (MAP (adjust_bv b2)) (adjust_bv b2)
        (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
    state_rel b2 s (s2:('c,'ffi) bviSem$state)`,
-
 (*
   theorems to compose:
     bvi_stubs_evaluate
     compile_single_evaluate
 *)
-
   srw_tac[][compile_prog_def,LET_THM] >>
   pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   drule (GEN_ALL compile_single_evaluate) >>
   simp[state_ok_def] >>
-  qabbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
-  mp_tac bvi_stubs_evaluate >>
-  disch_then (qspecl_then[`kk`,
-       `num_stubs + nss * start`,`ffi0`,`append code`] mp_tac) >>
+  qpat_abbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
+  (Q.ISPECL_THEN[`state_co compile_inc co`,`cc`,`kk`,
+       `num_stubs + nss * start`,`ffi0`,`append code`,`k`] mp_tac)
+    (Q.GENL[`co`,`cc`] bvi_stubs_evaluate) >>
+  simp[] >>
+  qmatch_goalsub_abbrev_tac`_ = _ (evaluate (_,[],t1))` >>
+  strip_tac \\ pairarg_tac \\ fs[] \\
   simp [Once state_rel_def,FLOOKUP_UPDATE] >>
-
-
-
-
+  disch_then(qspec_then`t1`mp_tac) >>
+  simp[Abbr`t1`] >>
   impl_tac >- (
     conj_tac >- (qexists_tac `MIN (MAX kk 1) InitGlobals_max`
                  \\ fs [] \\ EVAL_TAC) >>
@@ -3421,6 +3417,9 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
         `F` suffices_by srw_tac[][] >>
         pop_assum mp_tac >> EVAL_TAC >> decide_tac)) >>
     simp_tac std_ss [] >>
+    conj_tac >- (
+      simp_tac(srw_ss()++LET_ss)[names_ok_def,domain_fromAList]
+      \\ cheat (* need to make assumptions about co *) ) \\
     rpt gen_tac \\ strip_tac \\
     rpt (
       IF_CASES_TAC >- (
@@ -3454,9 +3453,10 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[EVERY_MEM] >>
     res_tac >> pop_assum mp_tac >> EVAL_TAC) >>
   strip_tac >>
+  qexists_tac`ck+1` >>
   `0 < ck + k` by simp[] >>
   drule (GEN_ALL bvi_stubs_evaluate) >>
-  disch_then (qspec_then `kk` mp_tac) >>
+  disch_then (qspecl_then [`state_co compile_inc co`,`cc`,`kk`] mp_tac) >>
   `num_stubs ≤ num_stubs + nss * start` by fs[] >>
   disch_then drule >>
   disch_then(qspecl_then[`ffi0`,`append code`]mp_tac) >>
@@ -3467,6 +3467,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
   PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
+(*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `compile_prog start n prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -3713,6 +3714,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         |> SIMP_RULE(srw_ss())[bviPropsTheory.inc_clock_def],
       SND,ADD_SYM]) >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
+*)
 
 val compile_prog_distinct_locs = store_thm("compile_prog_distinct_locs",
   ``compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
@@ -3736,6 +3738,7 @@ val ODD_lemma = prove(
   ``ODD (2 * n + k) = ODD k``,
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]);
 
+(*
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -3830,7 +3833,6 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   \\ res_tac
   \\ pop_assum mp_tac
   \\ EVAL_TAC \\ rw[]);
-
 *)
 
 val _ = export_theory();
