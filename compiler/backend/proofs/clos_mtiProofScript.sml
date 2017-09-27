@@ -1,12 +1,335 @@
-open preamble;
-open clos_relationTheory clos_relationPropsTheory closPropsTheory clos_mtiTheory;
-open closSemTheory
+(* A proof of the clos_mti compiler pass. The theorem is proved using
+   a backwards simulation, i.e. against the direction of compilation. *) 
+open preamble; open closPropsTheory
+clos_mtiTheory closSemTheory;
 
 val _ = new_theory "clos_mtiProof";
 
 fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
 
 val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
+
+(* well-formed syntax *)
+
+val syntax_ok_def = tDefine "syntax_ok" `
+  (syntax_ok max_app [] <=> T) ∧
+  (syntax_ok max_app (e1::e2::es) <=>
+    syntax_ok max_app [e1] /\
+    syntax_ok max_app (e2::es)) /\
+  (syntax_ok max_app [Var t n] = T) ∧
+  (syntax_ok max_app [If t e1 e2 e3] <=>
+    syntax_ok max_app [e1] /\
+    syntax_ok max_app [e2] /\
+    syntax_ok max_app [e3]) ∧
+  (syntax_ok max_app [Let t es e] <=>
+    syntax_ok max_app es /\
+    syntax_ok max_app [e]) ∧
+  (syntax_ok max_app [Raise t e] <=>
+    syntax_ok max_app [e]) ∧
+  (syntax_ok max_app [Handle t e1 e2] <=>
+    syntax_ok max_app [e1] /\
+    syntax_ok max_app [e2]) ∧
+  (syntax_ok max_app [Tick t e] <=>
+    syntax_ok max_app [e]) ∧
+  (syntax_ok max_app [Call t ticks n es] = F) /\
+  (syntax_ok max_app [App t opt e es] <=>
+    LENGTH es = 1 /\ opt = NONE /\
+    syntax_ok max_app es /\
+    syntax_ok max_app [e]) ∧
+  (syntax_ok max_app [Fn t opt1 opt2 num_args e] <=>
+    num_args = 1 /\ opt1 = NONE /\ opt2 = NONE /\
+    syntax_ok max_app [e]) /\
+  (syntax_ok max_app [Letrec t _ _ funs e] <=> 
+    F (* TODO: fix this *)) ∧
+  (syntax_ok max_app [Op t op es] <=>
+    syntax_ok max_app es)`
+  (WF_REL_TAC `measure (exp3_size o SND)`);
+
+(* code relation *)
+
+val code_rel_def = Define `
+  code_rel max_app e1 e2 <=>
+    syntax_ok max_app e1 /\ (e2 = intro_multi max_app e1)`
+
+val code_rel_IMP_LENGTH = store_thm("code_rel_IMP_LENGTH",
+  ``code_rel max_app xs ys ==> LENGTH ys = LENGTH xs``,
+  rw [code_rel_def,clos_mtiTheory.intro_multi_length]);
+
+val NEQ_intro_multi = store_thm("NEQ_intro_multi[simp]",
+  ``[Var loc_opt n] <> intro_multi max_app [App t o1 e1 l1] /\
+    [Var loc_opt n] <> intro_multi max_app [Fn t o0 o' n' e] /\
+    [Var loc_opt n] <> intro_multi max_app [Letrec t o0 o' l e] /\ 
+    [Fn v7 loc vsopt num_args exp] <> intro_multi max_app [App t o1 e1 l1] /\ 
+    [Fn v7 loc vsopt num_args exp] <> intro_multi max_app [Letrec t o0 o' l e]``,
+  cheat);
+
+val code_rel_CONS_CONS = store_thm("code_rel_CONS_CONS",
+  ``code_rel m (x1::x2::xs) (y1::y2::ys) <=>
+    code_rel m [x1] [y1] /\ code_rel m (x2::xs) (y2::ys)``,
+  cheat);  
+
+(* value relation *)
+
+val mk_Fns_def = Define `
+  mk_Fns [] e = e /\
+  mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)`
+
+val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+  (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
+  (!w. v_rel max_app (Word64 w) (Word64 w)) /\
+  (!b. v_rel max_app (ByteVector w) (ByteVector b)) /\
+  (!n. v_rel max_app (RefPtr n) (RefPtr n)) /\
+  (!tag xs ys. 
+     LIST_REL (v_rel max_app) xs ys ==>
+     v_rel max_app (Block tag xs) (Block tag ys)) /\
+  (!args env1 env2 arg_count e1 ts e2.
+     LENGTH ts + LENGTH args = arg_count /\
+     code_rel max_app [e1] [e2] /\
+     LIST_REL (v_rel max_app) env1 env2 /\
+     LENGTH args < arg_count ==>
+     v_rel max_app 
+       (Closure NONE [] (args ++ env1) 1 (mk_Fns ts e1))
+       (Closure NONE args env2 arg_count e2))
+  (* TODO: add case for Recclosure *)`
+
+val v_rel_opt_def = Define `
+  (v_rel_opt max_app NONE NONE <=> T) /\ 
+  (v_rel_opt max_app (SOME x) (SOME y) <=> v_rel max_app x y) /\
+  (v_rel_opt max_app _ _ = F)`;
+
+val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
+  (!b bs. ref_rel max_app (ByteArray b bs) (ByteArray b bs)) /\
+  (!xs ys.
+    LIST_REL (v_rel max_app) xs ys ==>    
+    ref_rel max_app (ValueArray xs) (ValueArray ys))`
+
+val FMAP_REL_def = Define `
+  FMAP_REL r f1 f2 <=> 
+    FDOM f1 = FDOM f2 /\
+    !k v. FLOOKUP f1 k = SOME v ==>
+          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
+
+(* state relation *)
+
+val state_rel_def = Define `
+  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=> 
+    s.code = FEMPTY /\ t.code = FEMPTY /\
+    t.max_app = s.max_app /\ 1 <= s.max_app /\
+    t.clock = s.clock /\
+    t.ffi = s.ffi /\
+    LIST_REL (v_rel_opt s.max_app) s.globals t.globals /\
+    FMAP_REL (ref_rel s.max_app) s.refs t.refs`;
+
+(* evaluation theorem *)
+
+val collect_args_IMP = store_thm("collect_args_IMP",
+  ``collect_args max_app k e1 = (num_args,e2) ==>
+    k <= num_args /\ num_args <= max_app``,
+  cheat);
+
+val collect_args_ok_IMP = store_thm("collect_args_ok_IMP",
+  ``collect_args max_app 1 e = (num_args,e2) /\ syntax_ok max_app [e] ==>
+    ?ts. e = mk_Fns ts e2 ∧ num_args = LENGTH ts /\ 
+         syntax_ok max_app [e2] /\ 0 < LENGTH ts``,
+  cheat);
+
+val HD_intro_multi = store_thm("HD_intro_multi",
+  ``[HD (intro_multi max_app [e2])] = intro_multi max_app [e2]``,
+  `?x. intro_multi max_app [e2] = [x]` by metis_tac [intro_multi_sing]
+  \\ fs []);
+
+val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
+  ``dest_closure max_app loc_opt f2 xs = SOME x ==>
+    (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)``,
+  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+
+val collect_apps_acc = prove(
+  ``!max_app acc e res s.
+      collect_apps max_app acc e = (res,s) ==>
+      ?other. res = acc ++ other``,
+  recInduct collect_apps_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [collect_apps_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ rw [] \\ res_tac \\ fs []);
+
+val collect_apps_prefix = prove(
+  ``collect_apps max_app xs e = (xs ++ ys, e2) ==>
+    collect_apps max_app [] e = (ys,e2)``,
+  cheat);
+
+val collect_apps_cons = prove(
+  ``collect_apps max_app [x] e = (x::ys, e2) ==>
+    collect_apps max_app [] e = (ys,e2)``,
+  cheat);
+
+val collect_apps_err = prove(
+  ``evaluate (other,env1,s2') = (Rerr e'',s2) /\ 
+    collect_apps s2'.max_app [] e1 = (other,e2) ==>
+    evaluate ([e],env1,s2') = (Rerr e'',s2)``,
+  cheat);
+
+val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
+  `(!ys env2 (t1:'ffi closSem$state) env1 t2 s1 res2 xs.
+     (evaluate (ys,env2,t1) = (res2,t2)) /\ 
+     EVERY2 (v_rel s1.max_app) env1 env2 /\
+     state_rel s1 t1 /\ code_rel s1.max_app xs ys ==>
+     ?res1 s2.
+        (evaluate (xs,env1,s1) = (res1,s2)) /\
+        result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res1 res2 /\
+        state_rel s2 t2) /\
+   (!loc_opt f2 args2 (t1:'ffi closSem$state) res2 t2 f1 args1 s1.
+     (evaluate_app loc_opt f2 args2 t1 = (res2,t2)) /\ loc_opt = NONE /\
+     v_rel s1.max_app f1 f2 /\ EVERY2 (v_rel s1.max_app) args1 args2 /\
+     state_rel s1 t1 ==>
+     ?res1 s2.
+       (evaluate_app loc_opt f1 args1 s1 = (res1,s2)) /\
+       result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res1 res2 /\ 
+       state_rel s2 t2)`,
+
+  HO_MATCH_MP_TAC (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3` 
+                   |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
+  \\ rpt strip_tac
+  \\ TRY (drule code_rel_IMP_LENGTH \\ strip_tac)
+  THEN1 (* NIL *)
+   (fs [evaluate_def] \\ rveq \\ fs [])
+  THEN1 (* CONS *) 
+   (rename1 `_ = LENGTH zs`
+    \\ Cases_on `zs` THEN1 fs [LENGTH]
+    \\ Cases_on `t` THEN1 fs [LENGTH]
+    \\ fs [evaluate_def,closSemTheory.case_eq_thms,pair_case_eq]
+    \\ rveq \\ fs []
+    \\ first_x_assum drule \\ fs [code_rel_CONS_CONS]
+    \\ disch_then drule \\ strip_tac \\ fs []     
+    \\ Cases_on `res1` \\ fs []     
+    \\ `s1.max_app = s2'.max_app` by (imp_res_tac evaluate_const \\ fs [])
+    \\ fs [] \\ first_x_assum drule \\ fs []
+    \\ disch_then drule \\ strip_tac \\ fs []     
+    \\ Cases_on `res1` \\ fs []     
+    \\ imp_res_tac evaluate_SING \\ rveq \\ fs [])
+  THEN1
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ fs [evaluate_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ fs [LIST_REL_EL_EQN]) 
+  THEN1 (* If *) cheat
+  THEN1 (* Let *) cheat
+  THEN1 (* Raise *) cheat
+  THEN1 (* Handle *) cheat
+  THEN1 (* Op *) cheat
+  THEN1 (* Fn *) 
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ pairarg_tac \\ fs [] \\ rveq
+    \\ `1 <= s1.max_app` by fs [state_rel_def]
+    \\ fs [evaluate_def]
+    \\ imp_res_tac collect_args_IMP \\ fs []
+    \\ `t1.max_app = s1.max_app` by fs [state_rel_def] \\ fs []
+    \\ rveq \\ fs []
+    \\ once_rewrite_tac [v_rel_cases] \\ fs [code_rel_def]
+    \\ rename1 `_ = (_,e2)` \\ qexists_tac `e2`
+    \\ fs [HD_intro_multi]
+    \\ match_mp_tac collect_args_ok_IMP \\ fs [])    
+  THEN1 (* Letrec *) 
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs [])
+
+  THEN1 (* App *) 
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs []
+    \\ fs [intro_multi_length]
+    \\ fs [DECIDE ``n > 0n <=> n <> 0``]
+    \\ imp_res_tac collect_apps_acc \\ rveq 
+    \\ `?x. l = [x]` by (Cases_on `l` \\ fs [] \\ Cases_on `t`) \\ rveq \\ fs []
+    \\ `syntax_ok s1.max_app other /\ 
+        syntax_ok s1.max_app (x::other)` by cheat
+    \\ fs [evaluate_def]
+    \\ fs [intro_multi_length]
+    \\ fs [DECIDE ``n > 0n <=> n <> 0``]
+    \\ reverse (fs [closSemTheory.case_eq_thms,pair_case_eq])
+    \\ rveq \\ fs []
+    \\ first_x_assum drule \\ fs []
+    \\ disch_then (qspec_then `x::other` mp_tac) \\ fs [] 
+    \\ strip_tac \\ Cases_on `res1` \\ fs [] \\ rveq
+    THEN1
+     (qpat_x_assum `evaluate (x::other,env1,s1) = _` mp_tac
+      \\ simp [Once evaluate_CONS]
+      \\ fs [closSemTheory.case_eq_thms,pair_case_eq]
+      \\ reverse strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac collect_apps_cons
+      \\ `s1.max_app = s2'.max_app` by (imp_res_tac evaluate_const \\ fs [])
+      \\ fs [] \\ imp_res_tac collect_apps_err \\ fs [])            
+    \\ cheat)
+
+  THEN1 (* Tick *) 
+   (`t1.clock = s1.clock` by fs [state_rel_def]
+    \\ Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ TRY pairarg_tac \\ fs []
+    \\ fs [evaluate_def,case_eq_thms] 
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ `LIST_REL (v_rel (dec_clock 1 s1).max_app) env1 env2` by fs [dec_clock_def]
+    \\ first_x_assum drule
+    \\ fs [dec_clock_def]
+    \\ disch_then (qspec_then `[e]` mp_tac)
+    \\ fs [HD_intro_multi]
+    \\ impl_tac \\ fs []
+    \\ fs [state_rel_def])
+  THEN1 (* Call *) 
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ TRY pairarg_tac \\ fs [])
+  THEN1 (* app NIL *) 
+   (fs [evaluate_def] \\ rveq \\ fs [])
+  (* app CONS *) 
+  \\ fs [evaluate_def] \\ rveq \\ fs []
+  \\ fs [case_eq_thms] \\ fs [] \\ rveq
+  THEN1 (* dest_closure returns NONE *) 
+   (qsuff_tac `dest_closure s1.max_app NONE f1 (x::xs) = NONE` THEN1 fs []
+    \\ fs [dest_closure_def,case_eq_thms]
+    \\ qpat_x_assum `v_rel _ f1 f2` mp_tac 
+    \\ once_rewrite_tac [v_rel_cases] \\ fs []    
+    \\ strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ every_case_tac \\ fs [])
+  
+  THEN1 (* dest_closure returns Patrial_app *) 
+   (qpat_x_assum `v_rel _ f1 f2` mp_tac 
+    \\ once_rewrite_tac [v_rel_cases] \\ fs []    
+    \\ drule dest_closure_SOME_IMP \\ strip_tac \\ fs []
+    \\ strip_tac \\ fs [] \\ rveq
+    (* needs case for Recclosure *)
+    \\ qpat_x_assum `_ = SOME (Partial_app _)` mp_tac   
+    \\ simp [Once dest_closure_def] 
+    \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs []
+    \\ fs [dest_closure_def,check_loc_def]
+    \\ `s1.clock = t1.clock` by fs [state_rel_def] 
+    \\ Cases_on `s1.clock = 0` \\ fs []
+    THEN1 (imp_res_tac LIST_REL_LENGTH \\ rveq \\ fs [state_rel_def])
+    \\ cheat)  
+  (* dest_closure returns Full_app *) 
+  \\ cheat);
+
+      
+
+
+
+
+(* semantics theorem *)
+
+
 
 (* TODO: move (also move the same in clos_removeProof if necessary) *)
 val option_CASE_NONE_T = Q.store_thm(
