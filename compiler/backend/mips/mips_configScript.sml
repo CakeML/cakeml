@@ -22,6 +22,7 @@ val mips_names_def = Define `
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 2 o
      insert 5 24 o
+     insert 6 3 o     
      insert 24 0 o
      insert 31 1) LN:num num_map`
 
