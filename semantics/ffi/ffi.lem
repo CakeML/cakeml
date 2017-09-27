@@ -6,7 +6,7 @@ open import Lib
 * represented by the type variable 'ffi. *)
 
 type oracle_result 'ffi = Oracle_return of 'ffi * list word8 | Oracle_diverge | Oracle_fail
-type oracle_function 'ffi = 'ffi -> list word8 -> oracle_result 'ffi
+type oracle_function 'ffi = 'ffi -> list word8 -> list word8 -> oracle_result 'ffi
 type oracle 'ffi = string -> oracle_function 'ffi
 
 (* An I/O event, IO_event s bytes bytes2, represents the call of FFI function s with

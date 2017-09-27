@@ -667,7 +667,7 @@ val do_app = Q.prove (
   >- ((* FFI *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
-      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] >>
       imp_res_tac LIST_REL_LENGTH >>
       srw_tac[][] >>
       every_case_tac >>
