@@ -86,7 +86,7 @@ val names_ok_def = Define `
     (!n k prog. s_oracle n = (k,prog) ==>
                 EVERY (\(name,arity,exp). handle_ok [exp]) prog) /\
     let next = FST (FST (s_oracle 0n)) in
-      (!n. n IN domain t_code ==>
+      (!n. n IN domain t_code /\ num_stubs <= n ==>
            if in_ns_1 n then n < num_stubs + nss * next
            else in_ns_0 n /\
                 (n - num_stubs) DIV bvl_to_bvi_namespaces IN domain s_code)`;
@@ -1601,7 +1601,7 @@ val compile_inc_next_range = store_thm("compile_inc_next_range",
   ``compile_inc next1 prog1 = (next2,prog2) /\
     MEM x (MAP FST prog2) ==>
     if in_ns_1 x then num_stubs + nss * next1 <= x /\ x < num_stubs + nss * next2
-    else in_ns_0 x /\ MEM ((x - num_stubs) DIV nss) (MAP FST prog1)``,
+    else in_ns_0 x /\ num_stubs <= x /\ MEM ((x - num_stubs) DIV nss) (MAP FST prog1)``,
   rpt strip_tac
   \\ drule (GEN_ALL compile_inc_lemma)
   \\ rpt strip_tac
@@ -2144,8 +2144,11 @@ val compile_exps_correct = Q.prove(
       \\ conj_asm1_tac THEN1
        (simp [IN_DISJOINT] \\ CCONTR_TAC \\ fs [] \\ fs [names_ok_def]
         \\ rfs [] \\ first_x_assum drule
+        \\ impl_tac >-  (
+          imp_res_tac compile_inc_next_range
+          \\ pop_assum mp_tac \\ rw[] )
         \\ IF_CASES_TAC \\ fs []
-        \\ imp_res_tac compile_inc_next_range \\ rfs [EVAL ```nss``]
+        \\ imp_res_tac compile_inc_next_range \\ rfs [EVAL ``nss``]
         \\ `DISJOINT (domain s5.code) (set (MAP FST prog1))` by fs [Abbr`prog1`]
         \\ pop_assum mp_tac \\ rewrite_tac [IN_DISJOINT]
         \\ strip_tac \\ fs []
@@ -3376,6 +3379,8 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
    0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
    handle_ok (MAP (SND o SND) prog) ∧
+   (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
+   n' ≤ (FST(FST(co 0))) ∧
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 s2.
@@ -3419,7 +3424,53 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     simp_tac std_ss [] >>
     conj_tac >- (
       simp_tac(srw_ss()++LET_ss)[names_ok_def,domain_fromAList]
-      \\ cheat (* need to make assumptions about co *) ) \\
+      \\ conj_tac
+      >- (
+        qx_gen_tac`m`
+        \\ rpt strip_tac
+        \\ first_x_assum(qspec_then`m`mp_tac)
+        \\ simp[EVERY_MEM,UNCURRY] )
+      \\ rpt strip_tac \\ rveq
+      \\ TRY (pop_assum mp_tac \\ EVAL_TAC \\ NO_TAC)
+      \\ rpt(qpat_x_assum`_ ≠ _`kall_tac)
+      \\ drule compile_list_distinct_locs
+      \\ disch_then drule \\ simp[]
+      \\ simp[EVERY_MEM,MEM_FILTER,between_def]
+      \\ strip_tac
+      \\ qmatch_assum_rename_tac`MEM m (MAP FST _)`
+      \\ IF_CASES_TAC
+      >- (
+        last_x_assum(qspec_then`m`mp_tac) \\
+        last_x_assum(qspec_then`m`mp_tac) \\
+        impl_tac >- (
+          simp[] \\
+          ONCE_REWRITE_TAC[GSYM in_ns_add_num_stubs] \\
+          asm_simp_tac(std_ss++ARITH_ss)[] \\
+          simp[in_ns_def] )
+        \\ rw[]
+        \\ qmatch_assum_rename_tac`m < num_stubs + x * nss`
+        \\ qmatch_assum_rename_tac`x <= y`
+        \\ `x * nss <= y * nss` by simp[]
+        \\ decide_tac )
+      \\ conj_asm1_tac
+      >- (
+        assume_tac(EVAL``nss``)
+        \\ `m MOD nss < nss` by simp[]
+        \\ CCONTR_TAC
+        \\ `m MOD nss = 2` by decide_tac
+        \\ first_x_assum drule
+        \\ simp_tac std_ss []
+        \\ ONCE_REWRITE_TAC[GSYM in_ns_add_num_stubs]
+        \\ asm_simp_tac(std_ss++ARITH_ss)[]
+        \\ simp[in_ns_def] )
+      \\ qpat_x_assum`FILTER _ _ = _`(mp_tac o Q.AP_TERM`LIST_TO_SET`)
+      \\ simp[EXTENSION,MEM_FILTER]
+      \\ disch_then(qspec_then`m`mp_tac)
+      \\ once_rewrite_tac[GSYM in_ns_add_num_stubs]
+      \\ asm_simp_tac(std_ss++ARITH_ss)[]
+      \\ simp[in_ns_def]
+      \\ cheat (* something is off? *)
+      ) \\
     rpt gen_tac \\ strip_tac \\
     rpt (
       IF_CASES_TAC >- (
