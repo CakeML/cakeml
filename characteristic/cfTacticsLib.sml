@@ -472,9 +472,32 @@ fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
 
 (* [xapp] *)
 
+val unfolded_app_reduce_conv =
+let
+  fun fail_if_F_conv msg tm =
+    if tm = boolSyntax.F then raise ERR "xapp" msg
+    else REFL tm
+
+  val fname_lookup_reduce_conv =
+    reduce_conv THENC
+    (fail_if_F_conv "Unbound function")
+
+  val args_lookup_reduce_conv =
+    reduce_conv THENC
+    (fail_if_F_conv "Unbound argument(s)")
+in
+  STRIP_QUANT_CONV (
+    FORK_CONV (
+      fname_lookup_reduce_conv,
+      (LAND_CONV args_lookup_reduce_conv)
+    )
+  )
+end
+
 val unfold_cf_app =
   head_unfold cf_app_def \\
   irule local_elim \\ hnf \\
+  CONV_TAC unfolded_app_reduce_conv \\
   reduce_tac
 
 val xapp_prepare_goal =
