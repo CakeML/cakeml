@@ -35,7 +35,7 @@ val openFile_def = Define`
      let fd = nextFD fsys
      in
        do
-          assert (fd < 255) ;
+          assert (fd <= 255) ;
           ALOOKUP fsys.files fnm ;
           return (fd, fsys with infds := (nextFD fsys, (fnm, pos)) :: fsys.infds)
        od
@@ -53,7 +53,7 @@ val openFile_truncate_def = Define`
   openFile_truncate fnm fsys =
     let fd = nextFD fsys in
       do
-        assert (fd < 255) ;
+        assert (fd <= 255) ;
         ALOOKUP fsys.files fnm ;
         return (fd, (fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
                           with files updated_by (ALIST_FUPDKEY fnm (\x."")))
@@ -151,7 +151,7 @@ val ffi_open_in_def = Define`
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
-      assert(fd < 255);
+      assert(fd <= 255);
       return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
@@ -170,7 +170,7 @@ val ffi_open_out_def = Define`
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs;
-      assert(fd < 255);
+      assert(fd <= 255);
       return (LUPDATE 0w 0 (LUPDATE (n2w fd) 1 bytes), fs')
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;

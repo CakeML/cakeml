@@ -11,7 +11,7 @@ val _ = translation_extends "fsioConstantsProg";
 val _ = process_topdecs`
     fun stdin () = Word8.fromInt 0;
     fun stdout () = Word8.fromInt 1;
-    fun stderr () = Word8.fromInt  2
+    fun stderr () = Word8.fromInt 2
     ` |> append_prog
 
 (* writei: higher-lever write function which calls #write until something is written or
