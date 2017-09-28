@@ -3465,12 +3465,14 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
         \\ simp[in_ns_def] )
       \\ qpat_x_assum`FILTER _ _ = _`(mp_tac o Q.AP_TERM`LIST_TO_SET`)
       \\ simp[EXTENSION,MEM_FILTER]
-      \\ disch_then(qspec_then`m`mp_tac)
-      \\ once_rewrite_tac[GSYM in_ns_add_num_stubs]
-      \\ asm_simp_tac(std_ss++ARITH_ss)[]
-      \\ simp[in_ns_def]
-      \\ cheat (* something is off? *)
-      ) \\
+      \\ qpat_x_assum`num_stubs ≤ _`mp_tac
+      \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
+      \\ disch_then(qx_choose_then`x`strip_assume_tac)
+      \\ `0 < nss` by EVAL_TAC
+      \\ `∃y. x = y * nss` by METIS_TAC[MOD_EQ_0_DIVISOR,in_ns_def,in_ns_add_num_stubs,ADD_COMM]
+      \\ rveq
+      \\ disch_then(qspec_then`num_stubs + y * nss`mp_tac)
+      \\ simp[in_ns_def,MEM_MAP,MULT_DIV]) \\
     rpt gen_tac \\ strip_tac \\
     rpt (
       IF_CASES_TAC >- (
@@ -3518,16 +3520,17 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
   PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
-(*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `compile_prog start n prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
    handle_ok (MAP (SND o SND) prog) ∧
-   semantics ffi0 (fromAList prog) start ≠ Fail
+   (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
+   n' ≤ FST (FST ((co:num -> (num # 'c) # (num # num # bvl$exp) list) 0)) ∧
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') start' =
-   semantics ffi0 (fromAList prog) start`,
-  simp[GSYM AND_IMP_INTRO] >> ntac 3 strip_tac >>
+   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
+   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start`,
+  simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -3539,7 +3542,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       drule bviPropsTheory.evaluate_add_clock >>
       impl_tac >- full_simp_tac(srw_ss())[] >> strip_tac >>
       qhdtm_x_assum`bvlSem$evaluate`kall_tac >>
-      last_assum(qspec_then`SUC k'`mp_tac)>>
+      qpat_assum`∀k. FST _ ≠ _`(qspec_then`SUC k'`mp_tac)>>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       drule (GEN_ALL compile_prog_evaluate) >>
       disch_then drule >>
@@ -3560,8 +3563,10 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       gen_tac >> strip_tac >> rveq >> full_simp_tac(srw_ss())[] >>
       qmatch_assum_abbrev_tac`bvlSem$evaluate (bxps,[],bs) = _` >>
       qmatch_assum_abbrev_tac`bviSem$evaluate (exps,[],ss) = _` >>
-      qspecl_then[`bxps`,`[]`,`bs`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac bviPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      qspecl_then[`bxps`,`[]`,`bs`]mp_tac
+        (INST_TYPE[alpha|->``:num#'c``,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac
+        (INST_TYPE[alpha|->``:'c``,beta|->``:'ffi``]bviPropsTheory.evaluate_add_to_clock_io_events_mono) >>
       simp[bvlPropsTheory.inc_clock_def,bviPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
       ntac 2 strip_tac >>
       Cases_on`s.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
@@ -3593,7 +3598,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         drule (GEN_ALL compile_prog_evaluate) >>
         disch_then drule >>
         impl_tac >- (
-          last_x_assum(qspec_then`k+k'`mp_tac)>>
+          qpat_x_assum`∀k. FST _ ≠ _`(qspec_then`k+k'`mp_tac)>>
           fsrw_tac[ARITH_ss][] >> strip_tac >>
           spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
           rveq >> full_simp_tac(srw_ss())[bvlSemTheory.evaluate_def] >>
@@ -3613,7 +3618,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       drule (GEN_ALL compile_prog_evaluate) >>
       disch_then drule >>
       impl_tac >- (
-        last_x_assum(qspec_then`k+SUC k'`mp_tac)>>
+        qpat_x_assum`∀k. FST _ ≠ _`(qspec_then`k+SUC k'`mp_tac)>>
         fsrw_tac[ARITH_ss][] ) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
@@ -3629,7 +3634,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       ntac 2 strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
     qmatch_assum_abbrev_tac`bvlSem$evaluate (bxps,[],bs) = _` >>
-    qspecl_then[`bxps`,`[]`,`bs`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
+    qspecl_then[`bxps`,`[]`,`bs`]mp_tac
+      (INST_TYPE[alpha|->``:num#'c``,beta|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
     simp[bvlPropsTheory.inc_clock_def,Abbr`bs`] >>
     disch_then(qspec_then`1`strip_assume_tac) >>
     first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
@@ -3637,7 +3643,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     drule (GEN_ALL compile_prog_evaluate) >>
     disch_then drule >> simp[] >>
     impl_tac >- (
-      last_x_assum(qspec_then`k+1`mp_tac)>>fsrw_tac[ARITH_ss][] ) >>
+      qpat_x_assum`∀k. _ ≠ _`(qspec_then`k+1`mp_tac)>>fsrw_tac[ARITH_ss][] ) >>
     strip_tac >>
     asm_exists_tac >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >- (
@@ -3649,7 +3655,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   strip_tac >>
   simp[bviSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
-    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qpat_x_assum`∀k. _ ≠ _`(qspec_then`k`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`FST q ≠ _` >>
     Cases_on`q`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
     pop_assum(assume_tac o SYM) >>
@@ -3678,7 +3684,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   conj_tac >- (
     spose_not_then strip_assume_tac >> srw_tac[][] >>
     fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    last_assum(qspec_then`SUC k`mp_tac) >>
+    qpat_assum`∀k. _ ≠ _`(qspec_then`SUC k`mp_tac) >>
     (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
     strip_tac >>
     drule (GEN_ALL compile_prog_evaluate) >>
@@ -3694,7 +3700,8 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     reverse(Cases_on`s.ffi.final_event`)>>full_simp_tac(srw_ss())[]>-(
       qhdtm_x_assum`bviSem$evaluate`mp_tac >>
       qmatch_assum_abbrev_tac`bviSem$evaluate (exps,[],ss) = _` >>
-      qspecl_then[`exps`,`[]`,`ss`]mp_tac bviPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac
+        (INST_TYPE[alpha|->``:'c``,beta|->``:'ffi``]bviPropsTheory.evaluate_add_to_clock_io_events_mono) >>
       disch_then(qspec_then`SUC ck`mp_tac)>>
       fsrw_tac[ARITH_ss][ADD1,bviPropsTheory.inc_clock_def,Abbr`ss`] >>
       rpt strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -3739,7 +3746,7 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   rpt gen_tac >>
   drule (GEN_ALL compile_prog_evaluate) >>
   fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-  disch_then(qspecl_then[`k`,`ffi0`]mp_tac)>>simp[]>>
+  disch_then(qspecl_then[`k`,`ffi0`,`co`,`cc`]mp_tac)>>simp[]>>
   Cases_on`k=0`>>simp[]>-(
     full_simp_tac(srw_ss())[bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]>>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -3765,7 +3772,6 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
         |> SIMP_RULE(srw_ss())[bviPropsTheory.inc_clock_def],
       SND,ADD_SYM]) >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
-*)
 
 val compile_prog_distinct_locs = store_thm("compile_prog_distinct_locs",
   ``compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
@@ -3794,10 +3800,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
   `compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
    c.next_name2 = num_stubs + 2 + x * nss ∧
-   semantics ffi0 (fromAList prog) start ≠ Fail
+   (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
+   c.next_name1 ≤ FST (FST (co 0)) (* TODO:fix*) ∧
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') start' =
-   semantics ffi0 (fromAList prog) start`,
+   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
+   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start`,
   srw_tac[][compile_def]
   \\ fs [LET_THM]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
