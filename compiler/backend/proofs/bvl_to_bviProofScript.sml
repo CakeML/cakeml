@@ -3796,13 +3796,70 @@ val ODD_lemma = prove(
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]);
 
 (*
+  the composed compiler correctness should be the composition of
+   [bvl_inlineProofTheory.compile_prog_semantics,
+    compile_prog_semantics,
+    bvi_tailrecProofTheory.compile_prog_semantics]
+  so the composed cc and co are:
+*)
+
+val full_cc_def = Define `
+  full_cc c cc =
+    let limit = c.inline_size_limit in
+    let split = c.split_main_at_seq in
+    let cut = c.exp_cut in
+      bvl_inline_cc limit split cut (state_cc compile_inc (mk_cc cc))`
+
+val full_co_def = Define `
+  full_co c co =
+    let limit = c.inline_size_limit in
+    let split = c.split_main_at_seq in
+    let cut = c.exp_cut in
+      mk_co (state_co compile_inc (bvl_inline_co limit split cut co))`
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `compile start c prog = (start', prog', inlines, n1, n2) ∧
+   (* TODO: the following asumption should refer to inlines rather than
+            the result of running another compiler, more proofs and change
+            of statement needed in bvl_inlineProof *)
+   FST (FST (co 0)) =
+     fromAList (SND (tick_inline_all c.inline_size_limit LN prog [])) /\
+   (* the following are the right assumptions, i.e. the one above should
+      be deleted once bvl_inlineProof has been tweaked *)
+   FST (FST (co 0)) = inlines /\
+   FST (SND (FST (co 0))) = n1 /\
+   FST (SND (SND (FST (co 0)))) = n2 /\
+   ALL_DISTINCT (MAP FST prog) ==>
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) start ≠ Fail
+   ⇒
+   semantics ffi0 (fromAList prog') (full_co c co) cc start' =
+   semantics ffi0 (fromAList prog) co (full_cc c cc) start`,
+  rw [full_cc_def,full_co_def]
+  \\ drule (bvl_inlineProofTheory.compile_prog_semantics
+          |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM])
+  \\ fs [] \\ fs [compile_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ drule (compile_prog_semantics |> REWRITE_RULE [CONJ_ASSOC]
+            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`n'`,`start'`,`prog'`])
+  \\ disch_then (qspec_then `c.next_name1` mp_tac) \\ fs []
+  \\ impl_tac THEN1 cheat
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ drule (bvi_tailrecProofTheory.compile_prog_semantics
+            |> REWRITE_RULE [CONJ_ASSOC]
+            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
+  \\ disch_then (qspec_then `c.next_name2` mp_tac) \\ fs []
+  \\ impl_tac THEN1 cheat
+  \\ disch_then (assume_tac o GSYM) \\ fs []);
+
+(*
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
    c.next_name2 = num_stubs + 2 + x * nss ∧
    (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
    c.next_name1 ≤ FST (FST (co 0)) (* TODO:fix*) ∧
-   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
+   semantics (ffi0:'ffi ffi_state) romAList prog) co (state_cc compile_inc cc) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
    semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start`,
@@ -3892,6 +3949,7 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   \\ res_tac
   \\ pop_assum mp_tac
   \\ EVAL_TAC \\ rw[]);
+
 *)
 
 val _ = export_theory();
