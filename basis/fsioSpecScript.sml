@@ -11,6 +11,7 @@ val _ = new_theory"fsioSpec";
 val _ = translation_extends "fsioProg";
 val _ = monadsyntax.add_monadsyntax();
 
+val basis_st = get_ml_prog_state;
 
 (* TODO: move *)
 val LDROP_NONE_LFINITE = Q.store_thm("LDROP_NONE_LFINITE", 
@@ -236,10 +237,14 @@ val STD_streams_openFileFS = Q.store_thm("STD_streams_openFileFS",
   map_every qexists_tac[`inp`,`out`,`err`] >>
   cheat);
 
-val openFileFS_numchars = Q.store_thm("openFileFS_numchars",
+val openFileFS_fupd_numchars = Q.store_thm("openFileFS_fupd_numchars",
  `!s fs k ll. openFileFS s (fs with numchars := ll) k =
               openFileFS s fs k with numchars := ll`,
   rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
+
+val openFileFS_numchars = Q.store_thm("openFileFS_numchars",
+ `!s fs k. (openFileFS s fs k).numchars = fs.numchars`,
+  rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[IO_fs_component_equality]));
 
 (* STDIO version *)
 val openIn_STDIO_spec = Q.store_thm(
@@ -257,10 +262,10 @@ val openIn_STDIO_spec = Q.store_thm(
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))`,
  rw[STDIO_def] >> xpull >> xapp >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
- xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_numchars] >> xsimpl >>
+ xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
  rw[] >>
- fs[nextFD_numchars,nextFD_numchars,openFileFS_numchars,STD_streams_openFileFS] >>
- fs[GSYM validFD_numchars,GSYM openFileFS_numchars,inFS_fname_numchars])
+ fs[nextFD_numchars,nextFD_numchars,openFileFS_fupd_numchars,STD_streams_openFileFS] >>
+ fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars])
 
 (* openOut, openAppend here *)
 
@@ -894,5 +899,17 @@ val prerr_string_spec = Q.store_thm("prerr_string_spec",
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[] >> instantiate >> xsimpl);
+
+(* TODO: move *)
+val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",
+  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT a * STDERR b * Q) ==>
+   app p fv xs P (POSTv uv. (A uv) * (SEP_EXISTS x y. &(x = a /\ y = b) * STDOUT x * STDERR y) * Q)`,
+  qmatch_abbrev_tac`_ (_ X) ==> _ (_ Y)`
+  \\ `X = Y` suffices_by rw[]
+  \\ unabbrev_all_tac
+  \\ simp[FUN_EQ_THM,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ CONV_TAC(PATH_CONV"bbrbbllr"(REWR_CONV STAR_COMM))
+  \\ simp[cond_STAR,GSYM STAR_ASSOC]
+  \\ simp[AC STAR_ASSOC STAR_COMM]);
 
 val _ = export_theory();

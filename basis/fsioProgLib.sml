@@ -6,26 +6,15 @@ open ml_progLib fsioProofTheory semanticsLib helperLib set_sepTheory cfHeapsBase
      fsioSpecTheory fsioProgTheory
 
 
-val IOFS_tm = prim_mk_const{Thy="fsioConstantsProg",Name="IOFS"}
-fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x))
-val is_IOFS = can dest_IOFS
+val IOFS_tm = prim_mk_const{Thy="fsioConstantsProg",Name="IOFS"};
+fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x));
+val is_IOFS = can dest_IOFS;
 
-val (UNIT_TYPE_tm,mk_UNIT_TYPE,dest_UNIT_TYPE,is_UNIT_TYPE) = syntax_fns2 "ml_translator" "UNIT_TYPE"
-val cond_tm = set_sepTheory.cond_def |> SPEC_ALL |> concl |> lhs |> rator
-fun dest_cond x = snd (assert (same_const cond_tm o fst) (dest_comb x))
+val (UNIT_TYPE_tm,mk_UNIT_TYPE,dest_UNIT_TYPE,is_UNIT_TYPE) = syntax_fns2 "ml_translator" "UNIT_TYPE";
+val cond_tm = set_sepTheory.cond_def |> SPEC_ALL |> concl |> lhs |> rator;
+fun dest_cond x = snd (assert (same_const cond_tm o fst) (dest_comb x));
 
-val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",
-  `app (p:'ffi ffi_proj) fv xs P (POSTv uv. (A uv) * STDOUT a * STDERR b * Q) ==>
-   app p fv xs P (POSTv uv. (A uv) * (SEP_EXISTS x y. &(x = a /\ y = b) * STDOUT x * STDERR y) * Q)`,
-  qmatch_abbrev_tac`_ (_ X) ==> _ (_ Y)`
-  \\ `X = Y` suffices_by rw[]
-  \\ unabbrev_all_tac
-  \\ simp[FUN_EQ_THM,SEP_CLAUSES,SEP_EXISTS_THM]
-  \\ CONV_TAC(PATH_CONV"bbrbbllr"(REWR_CONV STAR_COMM))
-  \\ simp[cond_STAR,GSYM STAR_ASSOC]
-  \\ simp[AC STAR_ASSOC STAR_COMM]);
-
-fun ERR f s = mk_HOL_ERR"fsio" f s
+fun ERR f s = mk_HOL_ERR"fsio" f s;
 
 val basis_ffi_const = prim_mk_const{Thy="fsioProof",Name="basis_ffi"};
 val basis_ffi_tm =
@@ -106,7 +95,7 @@ fun subset_basis_st st precond =
   val goal' = Term.subst s goal
   val th = prove(goal',tac)
   val th = MATCH_MP SPLIT_exists (CONJ (INST s sets_thm) th)
-  in th end
+  in th end;
 
 fun call_thm st name spec =
   let
@@ -132,11 +121,10 @@ fun call_thm st name spec =
     val (split,precondh1) = th |> concl |> dest_imp |> #1 |> strip_exists |> #2 |> dest_conj
     val precond = rator precondh1
     val st = split |> rator |> rand
-    val SPLIT_thm = subset_basis_st st precond (* HERE *)
+    val SPLIT_thm = subset_basis_st st precond
     val th = PART_MATCH_A (#1 o dest_imp) th (concl SPLIT_thm)
     val th = MATCH_MP th SPLIT_thm
-  in (th,rhs(concl prog_rewrite)) end
-
+  in (th,rhs(concl prog_rewrite)) end;
 
 fun add_basis_proj spec =
   let
@@ -166,6 +154,6 @@ fun add_basis_proj spec =
     val spec2 = HO_MATCH_MP append_SEP_EXISTS lemma handle HOL_ERR _ => lemma
   in
       spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
-  end
+  end;
 
 end
