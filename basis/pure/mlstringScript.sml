@@ -178,6 +178,37 @@ val extract_aux_TAKE = Q.store_thm("extract_aux_TAKE",
      rfs[] >> fs[extract_aux_eq]) >>
   FIRST_X_ASSUM MP_TAC >> PURE_REWRITE_TAC[extract_aux_DROP] >> rw[]);
 
+val strsub_substring_0_thm = Q.store_thm("strsub_substring_0_thm",
+  `∀m n l. m < n ⇒ strsub (substring l 0 n) m = strsub l m`,
+  Cases_on `l` \\ Cases_on `s = ""`
+      >- rw [strsub_def
+            , substring_thm
+            , substring_def
+            , implode_def
+            , explode_aux_def]
+      >- (rw [strsub_def]
+          \\ `0 < strlen (strlit s)`
+             by (Cases_on `s` \\ rw [strlen_def,STRLEN_DEF])
+          \\ rw [substring_thm]
+          \\ Cases_on `n ≤ STRLEN s`
+          \\ fs [MIN_DEF
+                , strsub_def
+                , implode_def
+                , GSYM TAKE_SEG
+                , EL_TAKE
+                ,SEG_LENGTH_ID]));
+
+val substring_DROP = Q.store_thm("substring_DROP",
+`∀s. substring (strlit s) 1 (STRLEN s) = strlit (DROP 1 s)`,
+rw []
+\\ Cases_on `1 < strlen (strlit s)`
+\\ Cases_on `s`
+\\ rw [substring_thm, MIN_DEF, implode_def
+      , GSYM DROP_SEG, GSYM TAKE_SEG
+      , SEG_SUC_CONS
+        |> CONV_RULE PairRules.SWAP_PFORALL_CONV
+        |> SPEC ``0n``|> EVAL_RULE ]
+\\ fs [substring_def, implode_def, NOT_LESS,GSYM LESS_EQ]);
 
 val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
