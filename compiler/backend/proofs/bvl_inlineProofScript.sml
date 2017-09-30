@@ -1,6 +1,7 @@
 open preamble
      bvlSemTheory bvlPropsTheory
-     bvl_inlineTheory;
+     bvl_inlineTheory
+local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
@@ -36,6 +37,27 @@ val subspt_alt = store_thm("subspt_alt",
   ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
   fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
   \\ res_tac \\ fs []);
+
+val not_in_domain = store_thm("not_in_domain",
+  ``!k t. k ∉ domain t <=> lookup k t = NONE``,
+  fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
+
+val subspt_domain = store_thm("subspt_domain",
+  ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
+  fs [subspt_def,SUBSET_DEF]);
+
+val domain_eq = store_thm("domain_eq",
+  ``!t1 t2. domain t1 = domain t2 <=>
+            !k. lookup k t1 = NONE <=> lookup k t2 = NONE``,
+  rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
+  THEN1
+   (pop_assum (qspec_then `k` mp_tac)
+    \\ Cases_on `lookup k t1` \\ fs []
+    \\ Cases_on `lookup k t2` \\ fs [])
+  THEN1
+   (pop_assum (qspec_then `x` mp_tac)
+    \\ Cases_on `lookup x t1` \\ fs []
+    \\ Cases_on `lookup x t2` \\ fs []));
 
 (* removal of ticks *)
 
@@ -752,10 +774,6 @@ val subspt_union_lemma = prove(
     subspt x (union c t1) ==> subspt x (union c t2)``,
   fs [subspt_def,domain_union,lookup_union,domain_lookup]);
 
-val subspt_domain = store_thm("subspt_domain",
-  ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
-  fs [subspt_def,SUBSET_DEF]);
-
 val tick_inline_all_domain = prove(
   ``!limit cs0 in1 cs1 xs.
       tick_inline_all limit cs0 in1 [] = (cs1,xs) ==>
@@ -766,10 +784,6 @@ val tick_inline_all_domain = prove(
   \\ once_rewrite_tac [tick_inline_all_acc]
   \\ fs [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs [MAP,SUBSET_DEF] \\ metis_tac []);
-
-val not_in_domain = store_thm("not_in_domain",
-  ``!k t. k ∉ domain t <=> lookup k t = NONE``,
-  fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
 
 val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
   ``!in1 limit in2 c cs0 cs1.
@@ -818,19 +832,6 @@ val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
   \\ fs [lookup_union,fromAList_def,lookup_insert]
   \\ rw [] \\ fs[domain_lookup]
   \\ rw [] \\ fs []);
-
-val domain_eq = store_thm("domain_eq",
-  ``!t1 t2. domain t1 = domain t2 <=>
-            !k. lookup k t1 = NONE <=> lookup k t2 = NONE``,
-  rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
-  THEN1
-   (pop_assum (qspec_then `k` mp_tac)
-    \\ Cases_on `lookup k t1` \\ fs []
-    \\ Cases_on `lookup k t2` \\ fs [])
-  THEN1
-   (pop_assum (qspec_then `x` mp_tac)
-    \\ Cases_on `lookup x t1` \\ fs []
-    \\ Cases_on `lookup x t2` \\ fs []));
 
 val exp_rel_swap_lemma = prove(
   ``!x1 x2 x3. exp_rel x1 x2 x3 ==>
