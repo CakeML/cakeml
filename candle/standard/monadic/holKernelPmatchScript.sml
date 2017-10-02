@@ -13,6 +13,11 @@ val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 val _ = temp_overload_on ("ex_return", ``st_ex_return``);
+val _ = temp_overload_on ("failwith", ``raise_Fail``);
+val _ = temp_overload_on ("raise_clash", ``raise_Clash``);
+val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
+
+val _ = hide "state";
 
 val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
 

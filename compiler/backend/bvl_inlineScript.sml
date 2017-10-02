@@ -1,4 +1,4 @@
-open preamble bvlTheory ;
+open preamble bvlTheory bvl_handleTheory;
 
 val _ = new_theory "bvl_inline";
 
@@ -133,19 +133,25 @@ val let_op_sing_def = Define `
     | (y::ys) => y
     | _ => Op (Const 0) []`;
 
+val optimise_def = Define `
+  optimise split_seq cut_size arity exp =
+    bvl_handle$compile_any split_seq cut_size arity exp`;
+
 val must_inline_def = Define `
   must_inline name limit e =
     if is_small limit e then ~(is_rec name [e]) else F`
 
 val inline_all_def = Define `
-  (inline_all limit cs [] aux = REVERSE aux) /\
-  (inline_all limit cs ((n,arity,e1)::xs) aux =
+  (inline_all limit split_seq cut_size cs [] aux = (cs,REVERSE aux)) /\
+  (inline_all limit split_seq cut_size cs ((n,arity,e1)::xs) aux =
      let e2 = HD (inline cs [e1]) in
      let cs2 = if must_inline n limit e2 then insert n (arity,e2) cs else cs in
-       inline_all limit cs2 xs ((n,arity,let_op_sing e2)::aux))`;
+       inline_all limit split_seq cut_size cs2 xs
+         ((n,arity,optimise split_seq cut_size arity (let_op_sing e2))::aux))`;
 
 val compile_prog_def = Define `
-  compile_prog limit prog = inline_all limit LN prog []`
+  compile_prog limit split_seq cut_size prog =
+    inline_all limit split_seq cut_size LN prog []`
 
 val LENGTH_inline = Q.store_thm("LENGTH_inline",
   `!cs xs. LENGTH (inline cs xs) = LENGTH xs`,

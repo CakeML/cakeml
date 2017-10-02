@@ -14,8 +14,6 @@ open clos_mtiTheory
 open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
-open clos_freeTheory
-open clos_removeTheory
 open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory bvi_tailrecTheory
@@ -202,6 +200,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.free_def
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
@@ -215,14 +214,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
-      (* ---- clos_free----  *)
-    ,clos_freeTheory.free_def
-      (* ---- clos_remove ---- *)
-    ,clos_removeTheory.no_overlap_def
-    ,clos_removeTheory.no_overlap_def_compute
-    ,clos_removeTheory.remove_def
-    ,clos_removeTheory.const_0_def
-    ,clos_removeTheory.compile_def
+    ,clos_annotateTheory.const_0_def
+    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.compile_def
@@ -292,6 +286,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.let_op_sing_def
     ,bvl_inlineTheory.must_inline_def
     ,bvl_inlineTheory.inline_all_def
+    ,bvl_inlineTheory.optimise_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
@@ -350,7 +345,6 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
-    ,bvl_to_bviTheory.optimise_def
     ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
@@ -379,6 +373,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_tailrecTheory.assoc_swap_def
     ,bvi_tailrecTheory.rewrite_op_def
     ,bvi_tailrecTheory.decide_ty_def
+    ,bvi_tailrecTheory.LAST1_def
     ,bvi_tailrecTheory.scan_expr_def
     ,bvi_tailrecTheory.push_call_def
     ,bvi_tailrecTheory.mk_tailcall_def

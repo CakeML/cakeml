@@ -1302,7 +1302,7 @@ val state_rel_add_bytearray = Q.store_thm("state_rel_add_bytearray",
   \\ fs[state_ok_def,EVERY_MEM]
   \\ res_tac \\ fs[]
   \\ rw[]
-  \\ metis_tac[INJ_DEF] )
+  \\ metis_tac[INJ_DEF] );
 
 val compile_exps_correct = Q.prove(
   `!xs env (s1:'ffi bvlSem$state) n res s2 t1 n2 ys aux b1.
@@ -2703,142 +2703,6 @@ val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
 (* composed compiler correctness *)
 
-val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
-  `MAP FST (optimise split_seq x prog) = MAP FST prog`,
-  simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
-
-val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
-  `lookup n ls = SOME (a,b) ⇒
-   ALOOKUP (optimise split_seq x (toAList ls)) n =
-     SOME (a,bvl_handle$compile_any split_seq x a b)`,
-  srw_tac[][] >>
-  Cases_on`ALOOKUP (optimise split_seq x (toAList ls)) n` >- (
-    imp_res_tac ALOOKUP_FAILS >>
-    `¬MEM n (MAP FST (optimise split_seq x (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
-    full_simp_tac(srw_ss())[toAList_domain] >>
-    METIS_TAC[domain_lookup] ) >>
-  imp_res_tac ALOOKUP_MEM >>
-  fs [optimise_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_toAList] >>
-  full_simp_tac(srw_ss())[]);
-
-val evaluate_IMP_optimise = Q.store_thm("evaluate_IMP_optimise",
-  `evaluate ([r],zenv,zs) = (res,s') /\ res <> Rerr (Rabort Rtype_error) /\
-    LENGTH zenv = q ==>
-    evaluate ([bvl_handle$compile_any split_seq x q r],zenv,zs) = (res,s')`,
-  rw [] \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
-  \\ drule (GEN_ALL bvl_constProofTheory.evaluate_compile_exp) \\ fs []);
-
-val optimise_evaluate = Q.store_thm("optimise_evaluate",
-  `∀xs env s res s'.
-     evaluate (xs,env,s) = (res,s') ∧
-     res ≠ Rerr (Rabort Rtype_error) ⇒
-     evaluate (xs,env,s with code := fromAList (optimise split_seq x (toAList s.code))) =
-       (res,s' with code := fromAList (optimise split_seq x (toAList s.code)))`,
-  recInduct bvlSemTheory.evaluate_ind >>
-  srw_tac[][bvlSemTheory.evaluate_def] >>
-  TRY (
-    rename1`Boolv T = HD _` >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    rpt(IF_CASES_TAC >> full_simp_tac(srw_ss())[]) >>
-    TRY(qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[]>>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac bvlPropsTheory.evaluate_code >> full_simp_tac(srw_ss())[] >>
-    TRY(qpat_x_assum`_ = HD _`(assume_tac o SYM))>>full_simp_tac(srw_ss())[] ) >>
-  TRY (
-    rename1`bvlSem$do_app` >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac bvlPropsTheory.evaluate_code >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac bvlPropsTheory.do_app_with_code >>
-    imp_res_tac bvlPropsTheory.do_app_with_code_err >>
-    full_simp_tac(srw_ss())[domain_fromAList] >>
-    full_simp_tac(srw_ss())[SUBSET_DEF,toAList_domain] >>
-    qmatch_assum_rename_tac`bvlSem$do_app op _ z = _` >>
-    rpt(first_x_assum(qspec_then`z.code`mp_tac)) >> simp[] >>
-    NO_TAC) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-  imp_res_tac bvlPropsTheory.evaluate_code >> full_simp_tac(srw_ss())[] >>
-  Cases_on`dest`>>full_simp_tac(srw_ss())[find_code_def]>>
-  every_case_tac>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[lookup_fromAList] >>
-  imp_res_tac ALOOKUP_optimise_lookup >> full_simp_tac(srw_ss())[] >>
-  rpt var_eq_tac
-  \\ qmatch_assum_abbrev_tac`bvlSem$evaluate (zxs,zenv,zs) = (_,_ with code := _)`
-  \\ match_mp_tac evaluate_IMP_optimise
-  \\ unabbrev_all_tac \\ fs []
-  \\ `?x1 x2. a = SNOC x1 x2` by metis_tac [SNOC_CASES]
-  \\ rw []\\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]);
-
-val fromAList_optimise = Q.prove(
-  `fromAList (optimise split_seq x p) =
-   map (λ(a,e). (a, bvl_handle$compile_any split_seq x a e)) (fromAList p)`,
-  simp[map_fromAList,optimise_def] >>
-  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  simp[FUN_EQ_THM,UNCURRY]);
-
-val optimise_semantics = Q.store_thm("optimise_semantics",
-  `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (optimise split_seq x prog)) start =
-   semantics ffi0 (fromAList prog) start`,
-  simp[bvlSemTheory.semantics_def] >>
-  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise split_seq x prog)) k) =
-    let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) in
-      (r, s with code := fromAList (optimise split_seq x (toAList s.code)))` by (
-    gen_tac >> simp[] >>
-    qmatch_abbrev_tac`_ = (_ (bvlSem$evaluate (xs,env,s)))` >>
-    Q.ISPECL_THEN[`xs`,`env`,`s`]mp_tac optimise_evaluate >>
-    Cases_on`evaluate (xs,env,s)` >>
-    simp[Abbr`s`] >>
-    impl_tac >- METIS_TAC[FST] >>
-    full_simp_tac(srw_ss())[fromAList_optimise,fromAList_toAList,wf_fromAList] >>
-    full_simp_tac(srw_ss())[GSYM fromAList_optimise] >>
-    imp_res_tac bvlPropsTheory.evaluate_code >>
-    full_simp_tac(srw_ss())[bvlSemTheory.state_component_equality] >>
-    full_simp_tac(srw_ss())[fromAList_optimise,fromAList_toAList,wf_fromAList] ) >>
-  simp[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  full_simp_tac(srw_ss())[UNCURRY,LET_THM] >>
-  reverse conj_tac >- (
-    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] ) >>
-  gen_tac >> strip_tac >> var_eq_tac >>
-  asm_simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-  reverse conj_tac >- METIS_TAC[] >>
-  gen_tac >> strip_tac >>
-  strip_tac >> full_simp_tac(srw_ss())[] >>
-  qpat_abbrev_tac`abb2 = bvlSem$evaluate _` >>
-  qpat_abbrev_tac`abb1 = bvlSem$evaluate _` >>
-  qmatch_assum_abbrev_tac`Abbrev(abb2 = evaluate (e1,v1,s1))` >>
-  qmatch_assum_abbrev_tac`Abbrev(abb1 = evaluate (e1,v1,s2))` >>
-  map_every qunabbrev_tac[`abb1`,`abb2`] >>
-  qmatch_assum_rename_tac`Abbrev(s1 = _ _ _ k1)` >>
-  qmatch_assum_rename_tac`Abbrev(s2 = _ _ _ k2)` >>
-  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  Q.ISPECL_THEN[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
-  disch_then(qspec_then`k2`mp_tac) >>
-  Q.ISPECL_THEN[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
-  disch_then(qspec_then`k1`mp_tac) >>
-  simp[bvlPropsTheory.inc_clock_def,Abbr`s1`,Abbr`s2`] >>
-  ntac 2 strip_tac >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac bvlPropsTheory.evaluate_add_clock >>
-  rpt(first_x_assum (fn th => mp_tac th >> impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]))) >>
-  simp[bvlPropsTheory.inc_clock_def] >>
-  TRY (
-    disch_then(qspec_then`k1`strip_assume_tac) >>
-    disch_then(qspec_then`k2`strip_assume_tac) >>
-    fsrw_tac[ARITH_ss][bvlSemTheory.state_component_equality] ) >>
-  TRY (
-    qexists_tac`k1` >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
-  TRY (
-    qexists_tac`k2` >>
-    spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][] >>
-    rev_full_simp_tac(srw_ss())[] >> NO_TAC) >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
-
 val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   `evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
    state_rel b1 s1 t1 ∧ IS_SOME t1.global ∧ state_ok s1 ∧
@@ -3492,21 +3356,18 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ fs [LET_THM]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ drule (GEN_ALL compile_prog_semantics)
-  \\ fs [MAP_FST_optimise,bvl_inlineProofTheory.MAP_FST_compile_prog]
+  \\ fs [bvl_inlineProofTheory.MAP_FST_compile_prog]
   \\ disch_then (qspec_then `ffi0` mp_tac)
   \\ rewrite_tac [GSYM AND_IMP_INTRO]
-  \\ impl_tac THEN1
-   (simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY]
-    \\ qspec_tac (`compile_prog c.inline_size_limit prog`,`xs`)
-    \\ Induct \\ fs [handle_ok_def]
-    \\ Cases_on
-        `MAP (λx. compile_any c.split_main_at_seq c.exp_cut (FST (SND x)) (SND (SND x))) xs`
-    \\ fs [handle_ok_def]
-    \\ simp[bvl_handleProofTheory.compile_any_handle_ok])
+  \\ rename1 `_ c.exp_cut prog = (_,prog3)`
+  \\ `ALL_DISTINCT (MAP FST prog3)` by
+        metis_tac [bvl_inlineProofTheory.MAP_FST_compile_prog,PAIR,FST,SND]
+  \\ fs []
+  \\ impl_tac THEN1 metis_tac [bvl_inlineProofTheory.compile_prog_handle_ok]
   \\ impl_tac
-  >- metis_tac
-      [optimise_semantics,
-       bvl_inlineProofTheory.compile_prog_semantics]
+  THEN1
+   (imp_res_tac bvl_inlineProofTheory.compile_prog_semantics
+    \\ metis_tac [PAIR,FST,SND])
   \\ strip_tac
   \\ sg `EVERY (free_names c.next_name2 o FST) code /\
          ALL_DISTINCT (MAP FST code)`
@@ -3517,15 +3378,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
            FORALL_PROD,MEM_MAP,PULL_EXISTS,between_def]
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ res_tac \\ fs []
-    \\ `¬in_ns 2 (((k + x) * nss)+2)` by metis_tac[ADD_ASSOC,ADD_COMM,RIGHT_ADD_DISTRIB]
+    \\ `¬in_ns 2 (((k + x) * nss)+2)` by metis_tac[ADD_ASSOC,ADD_COMM,
+                                                   RIGHT_ADD_DISTRIB]
     \\ fs[])
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_semantics)
   \\ disch_then drule
   \\ simp [bvi_tailrecTheory.compile_prog_def]
   \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
-  \\ metis_tac
-      [optimise_semantics,
-       bvl_inlineProofTheory.compile_prog_semantics]);
+  \\ metis_tac [bvl_inlineProofTheory.compile_prog_semantics,PAIR,FST,SND]);
 
 val compile_distinct_names = Q.store_thm("compile_distinct_names",
   `ALL_DISTINCT (MAP FST p2) /\
@@ -3543,8 +3403,11 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   EVAL_TAC>>
   REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
+  `ALL_DISTINCT (MAP FST prog)` by
+    metis_tac [bvl_inlineProofTheory.MAP_FST_compile_prog,PAIR,FST,SND] >>
   imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
-  rfs[backend_commonTheory.bvl_num_stubs_def,bvl_inlineProofTheory.MAP_FST_compile_prog]>>
+  rfs[backend_commonTheory.bvl_num_stubs_def,
+      bvl_inlineProofTheory.MAP_FST_compile_prog]>>
   fs[EVERY_MEM]
   \\ simp[PULL_FORALL] \\ strip_tac
   \\ reverse conj_tac >- (

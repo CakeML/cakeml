@@ -24,6 +24,13 @@ val _ = new_theory"backendProof";
 fun Abbrev_intro th =
   EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
 
+val EVERY_sec_label_ok = store_thm("EVERY_sec_label_ok",
+  ``EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) ∧
+    ALL_DISTINCT (extract_labels l) ⇒
+    EVERY (sec_label_ok n) l``,
+  Induct_on`l`>>simp[labPropsTheory.extract_labels_def]>>
+  Cases>>simp[labPropsTheory.extract_labels_def]);
+
 val EVERY_FST_SND = Q.store_thm("EVERY_FST_SND",
   `EVERY (λ(a,b). P a ∧ Q b) ls ⇔ EVERY P (MAP FST ls) ∧ EVERY Q (MAP SND ls)`,
   rw[EVERY_MEM,MEM_MAP,UNCURRY,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
@@ -679,8 +686,7 @@ val compile_correct = Q.store_thm("compile_correct",
       asm_exists_tac>>
       simp[]>>Cases>> simp[]>>
       rpt(pop_assum kall_tac)>>
-      Induct_on`l`>>simp[labPropsTheory.extract_labels_def]>>
-      Cases>>simp[labPropsTheory.extract_labels_def])
+      metis_tac [EVERY_sec_label_ok])
     >-
       (qpat_x_assum`ALL_DISTINCT (MAP _ p7)` mp_tac>>
       qmatch_goalsub_abbrev_tac`MAP ff p7`>>
