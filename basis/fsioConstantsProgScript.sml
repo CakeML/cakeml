@@ -67,6 +67,30 @@ val STDIO_def = Define`
  STDIO fs = (SEP_EXISTS ll. IOFS (fs with numchars := ll)) *
    &STD_streams fs`
 
+val STD_streams_fsupdate = Q.store_thm("STD_streams_fsupdate", 
+  `! fs fd k pos c.
+   ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> strlit "stdout" /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> strlit "stderr")) /\
+   STD_streams fs ==> 
+   STD_streams (fsupdate fs fd k pos c)`,
+   rw[STD_streams_def,fsupdate_def] >>
+   qexists_tac`if fd = 0 then pos else inp` >>
+   qexists_tac`if fd = 1 then c else out` >>
+   qexists_tac`if fd = 2 then c else err` >>
+   rpt(CASE_TAC >> fs[ALIST_FUPDKEY_ALOOKUP]));
+
+val STD_streams_openFileFS = Q.store_thm("STD_streams_openFileFS",
+ `!fs s k. STD_streams fs ==> STD_streams (openFileFS s fs k)`,
+  rw[STD_streams_def,openFileFS_files] >>
+  map_every qexists_tac[`inp`,`out`,`err`] >>
+  fs[openFileFS_def] >> rpt(CASE_TAC >> fs[]) >>
+  `nextFD fs <> 0` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
+  `nextFD fs <> 1` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
+  `nextFD fs <> 2` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
+  fs[openFile_def,IO_fs_component_equality] >>
+  `r.infds = (nextFD fs,s,k)::fs.infds` by fs[] >> fs[]);
+
 open cfLetAutoTheory cfLetAutoLib
 
 val UNIQUE_IOFS = Q.store_thm("UNIQUE_IOFS",

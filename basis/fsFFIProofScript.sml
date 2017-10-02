@@ -445,15 +445,10 @@ val fsupdate_numchars = Q.store_thm("fsupdate_numchars",
                     fsupdate (fs with numchars := ll) fd 0 p c`,
   rw[fsupdate_def]);
 
-val wfFS_ALOOKUP_fsupdate = Q.store_thm("wfFS_ALOOKUP_fsupdate",
-  `∀fs fd content pos k.
-       (wfFS fs /\
-            ?f. ALOOKUP fs.infds fd = SOME f) ⇒
-                 wfFS (fsupdate fs fd k pos content)`, cheat);
 val wfFS_numchars = Q.store_thm("wfFS_numchars",
   `∀fs ll.
        (wfFS fs /\ ¬ LFINITE ll ) ⇒ wfFS (fs with numchars := ll)`,
-       cheat);
+    fs[wfFS_def]);
 val numchars_self = Q.store_thm("numchars_self",
  `!fs. fs = fs with numchars := fs.numchars`, 
  cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
@@ -483,6 +478,33 @@ val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   CASE_TAC
   >-(cases_on`y` >> fs[] >> cases_on`r` >> fs[] >> metis_tac[nextFD_NOT_MEM])
   >> metis_tac[])
+
+val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
+ `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
+  rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
+
+
+val nextFD_numchars = Q.store_thm("nextFD_numchars",
+ `!fs ll. nextFD (fs with numchars := ll) = nextFD fs`,
+  rw[nextFD_def]);
+
+val openFileFS_files = Q.store_thm("openFileFS_files",
+ `!f fs pos. (openFileFS f fs pos).files = fs.files`, 
+  rw[openFileFS_def] >> CASE_TAC >> cases_on`x` >> 
+  fs[IO_fs_component_equality,openFile_def]);
+
+val openFile_fupd_numchars = Q.store_thm("openFile_fupd_numchars",
+ `!s fs k ll fd fs'. openFile s (fs with numchars := ll) k = 
+      case openFile s fs k of
+        SOME (fd, fs') => SOME (fd, fs' with numchars := ll)
+      | NONE => NONE`,
+  rw[openFile_def,nextFD_def] >> rpt(CASE_TAC >> fs[]) >>
+  rfs[IO_fs_component_equality]);
+
+val openFileFS_fupd_numchars = Q.store_thm("openFileFS_fupd_numchars",
+ `!s fs k ll. openFileFS s (fs with numchars := ll) k =
+              (openFileFS s fs k with numchars := ll)`,
+  rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC);
 
 val _ = export_theory();
 
