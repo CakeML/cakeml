@@ -29,6 +29,14 @@ val _ = new_theory"bvl_to_bviProof";
 
 val _ = Parse.hide"str";
 
+(* TODO: move *)
+
+val EVERY_o = store_thm("EVERY_o",
+  ``!xs P f. EVERY (P o f) xs = EVERY P (MAP f xs)``,
+  Induct \\ fs []);
+
+(* -- *)
+
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 
 val state_cc_def = bvl_inlineProofTheory.state_cc_def;
@@ -3795,37 +3803,42 @@ val ODD_lemma = prove(
   ``ODD (2 * n + k) = ODD k``,
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]);
 
-(*
-  the composed compiler correctness should be the composition of
-   [bvl_inlineProofTheory.compile_prog_semantics,
-    compile_prog_semantics,
-    bvi_tailrecProofTheory.compile_prog_semantics]
-  so the composed cc and co are:
-*)
-
 val full_cc_def = Define `
   full_cc c cc =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      bvl_inline_cc limit split cut (state_cc compile_inc (mk_cc cc))`
+      state_cc (compile_inc limit split cut) (state_cc compile_inc (mk_cc cc))`
 
 val full_co_def = Define `
   full_co c co =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      mk_co (state_co compile_inc (bvl_inline_co limit split cut co))`
+      mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
+
+val compile_prog_avoids_nss_2 = store_thm("compile_prog_avoids_nss_2",
+  ``compile_prog start f prog = (loc,code,new_state) /\
+    ALL_DISTINCT (MAP FST prog) /\
+    k MOD nss = 2 /\ MEM k (MAP FST code) ==>
+    k ≤ num_stubs``,
+  fs [compile_prog_def] \\ pairarg_tac \\ fs []
+  \\ rw [] \\ fs []
+  THEN1 (pop_assum mp_tac \\ EVAL_TAC \\ rw [])
+  \\ imp_res_tac (compile_list_distinct_locs |> SIMP_RULE std_ss [])
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ rveq
+  \\ res_tac \\ fs [in_ns_def]
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
+  \\ strip_tac \\ fs []
+  \\ qpat_x_assum `(p + num_stubs) MOD nss = 2` mp_tac
+  \\ `(p MOD nss + num_stubs MOD nss) MOD nss = (p + num_stubs) MOD nss` by
+       (match_mp_tac MOD_PLUS \\ EVAL_TAC)
+  \\ fs [EVAL ``num_stubs MOD nss``]
+  \\ `0 < nss` by EVAL_TAC \\ fs []);
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start c prog = (start', prog', inlines, n1, n2) ∧
-   (* TODO: the following asumption should refer to inlines rather than
-            the result of running another compiler, more proofs and change
-            of statement needed in bvl_inlineProof *)
-   FST (FST (co 0)) =
-     fromAList (SND (tick_inline_all c.inline_size_limit LN prog [])) /\
-   (* the following are the right assumptions, i.e. the one above should
-      be deleted once bvl_inlineProof has been tweaked *)
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
@@ -3836,23 +3849,44 @@ val compile_semantics = Q.store_thm("compile_semantics",
    semantics ffi0 (fromAList prog) co (full_cc c cc) start`,
   rw [full_cc_def,full_co_def]
   \\ drule (bvl_inlineProofTheory.compile_prog_semantics
-          |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM])
+          |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM] |> GEN_ALL)
   \\ fs [] \\ fs [compile_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ drule (compile_prog_semantics |> REWRITE_RULE [CONJ_ASSOC]
             |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`n'`,`start'`,`prog'`])
-  \\ disch_then (qspec_then `c.next_name1` mp_tac) \\ fs []
-  \\ impl_tac THEN1 cheat
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs []
+  \\ impl_tac
+  THEN1
+   (fs [state_co_def,UNCURRY]
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_handle_ok \\ fs []
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names \\ fs []
+    \\ fs [bvl_inlineTheory.compile_inc_def,UNCURRY,EVERY_MEM,MEM_MAP,EXISTS_PROD]
+    \\ rw [] \\ fs [bvl_inlineTheory.optimise_def]
+    \\ fs [bvl_handleProofTheory.compile_any_handle_ok])
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ drule (bvi_tailrecProofTheory.compile_prog_semantics
             |> REWRITE_RULE [CONJ_ASSOC]
             |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
-  \\ disch_then (qspec_then `c.next_name2` mp_tac) \\ fs []
-  \\ impl_tac THEN1 cheat
-  \\ disch_then (assume_tac o GSYM) \\ fs []);
+  \\ disch_then (qspec_then `num_stubs + 2` mp_tac) \\ fs []
+  \\ reverse impl_tac
+  THEN1 (disch_then (assume_tac o GSYM) \\ fs [])
+  \\ simp [state_co_def,UNCURRY]
+  \\ reverse conj_asm2_tac
+  THEN1
+   (rw [] \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+    \\ disch_then drule \\ strip_tac \\ fs []
+    \\ match_mp_tac LESS_EQ_LESS_TRANS
+    \\ qexists_tac `num_stubs`
+    \\ imp_res_tac compile_prog_avoids_nss_2 \\ fs[]
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
+    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ strip_tac \\ fs [])
+  \\ fs [bvi_tailrecProofTheory.input_condition_def,EVERY_o]
+  \\ fs [GSYM in_ns_def,EVAL ``in_ns 2 2``]
+  \\ cheat (* name spaces and input_condition *));
 
-(*
+(* -- old version of the above proof --
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧

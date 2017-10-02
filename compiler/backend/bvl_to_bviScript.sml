@@ -367,8 +367,8 @@ val compile_def = Define `
   compile start c prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
-    let (loc, code, n1) = compile_prog start c.next_name1 prog in
-    let (n2, code') = bvi_tailrec$compile_prog c.next_name2 code in
+    let (loc, code, n1) = compile_prog start 0 prog in
+    let (n2, code') = bvi_tailrec$compile_prog (num_stubs + 2) code in
       (loc, code', inlines, n1, n2)`;
 
 val _ = export_theory();
