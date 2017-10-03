@@ -667,15 +667,15 @@ val tick_inline_all_acc = prove(
   \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs [] \\ pairarg_tac \\ fs []);
 
-val tick_inline_all_names = prove(
-  ``!limit cs t aux cs1 xs.
-      tick_inline_all limit cs t [] = (cs1,xs) ==>
-      MAP FST t = MAP FST xs``,
+val tick_inline_all_names = Q.store_thm("tick_inline_all_names",
+  `!limit cs t aux cs1 xs aux.
+     tick_inline_all limit cs t aux = (cs1,xs) ==>
+     MAP FST (REVERSE aux) ++ MAP FST t = MAP FST xs`,
   Induct_on `t` \\ fs [tick_inline_all_def,FORALL_PROD]
   \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []
   \\ rpt strip_tac
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
-  \\ res_tac);
+  \\ res_tac \\ fs[]);
 
 val tick_compile_prog_IMP = prove(
   ``tick_compile_prog limit q0 ((k,prog)::t) = (cs1,prog1) ==>
@@ -1988,13 +1988,16 @@ val compile_prog_handle_ok = store_thm("compile_prog_handle_ok",
   \\ pairarg_tac \\ fs [] \\ rw []
   \\ fs [MAP_MAP_o,handl_ok_optimise]);
 
+val MAP_FST_MAP_optimise = Q.store_thm("MAP_FST_MAP_optimise[simp]",
+  `MAP FST (MAP (optimise x y) z) = MAP FST z`,
+  Induct_on`z` \\ fs[FORALL_PROD,optimise_def]);
+
 val compile_prog_names = store_thm("compile_prog_names",
   ``compile_prog l b i prog = (inlines,prog3) ==>
     MAP FST prog3 = MAP FST prog``,
   fs [compile_prog_def,compile_inc_def] \\ pairarg_tac \\ fs []
   \\ fs [tick_compile_prog_def]
-  \\ imp_res_tac tick_inline_all_names
-  \\ rw [] \\ qid_spec_tac `prog1`
-  \\ Induct \\ fs [FORALL_PROD,optimise_def]);
+  \\ imp_res_tac tick_inline_all_names \\ rw []
+  \\ rw[] \\ fs[]);
 
 val _ = export_theory();
