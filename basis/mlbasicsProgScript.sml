@@ -38,6 +38,7 @@ val _ = trans ">" `(>):int->int->bool`
 val _ = trans "<=" `(<=):int->int->bool`
 val _ = trans ">=" `(>=):int->int->bool`
 val _ = trans "~" `\i. - (i:int)`
+val _ = trans "@" `(++):'a list -> 'a list -> 'a list`
 
 
 (* other basics that parser targets -- CF verified *)
