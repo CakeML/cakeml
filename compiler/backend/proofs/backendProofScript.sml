@@ -528,11 +528,18 @@ val compile_correct = Q.store_thm("compile_correct",
   srw_tac[][from_clos_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_abbrev_tac`_ ⊆ _ { closSem$semantics [] st3 [e3] }` >>
+  qhdtm_x_assum`from_bvl`mp_tac >>
+  simp[from_bvl_def] >>
+  pairarg_tac \\ fs[] \\ strip_tac \\
   (clos_to_bvlProofTheory.compile_semantics
    |> GEN_ALL
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s","e","c"]))
+   |> INST_TYPE[gamma|->``:(num#bvl$exp)num_map#num#num#'c``]
    |> qispl_then[`st3`,`e3`,`c.clos_conf`]mp_tac) >>
   simp[] >>
+  disch_then(qspecl_then[
+    `full_cc c.bvl_conf TODO_clos_compile`,
+    `λn. ((l,n1,n2,ARB),[])`]mp_tac) >>
   impl_tac >- (
     `esgc_free e3 ∧ BAG_ALL_DISTINCT (set_globals e3)` by
       (unabbrev_all_tac>>
@@ -548,12 +555,18 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
-  qhdtm_x_assum`from_bvl`mp_tac >>
-  srw_tac[][from_bvl_def] >>
-  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  Q.ISPEC_THEN`s2.ffi`drule(Q.GENL[`ffi0`,`x`] bvl_to_bviProofTheory.compile_semantics) >>
-  disch_then(qspec_then`0`mp_tac) >>
+  qmatch_goalsub_abbrev_tac`semantics _ _ TODO_clos_oracle _ _` >>
+  Q.ISPECL_THEN[`s2.ffi`,`TODO_clos_oracle`,`TODO_clos_compile`]drule
+    ((Q.GENL[`ffi0`,`co`,`cc`] bvl_to_bviProofTheory.compile_semantics)) >>
   qunabbrev_tac`c'''`>>fs[] >>
+  simp[Abbr`TODO_clos_oracle`] >>
+  once_rewrite_tac[GSYM AND_IMP_INTRO] >>
+  impl_tac >- (
+    qhdtm_x_assum`bvl_to_bvi$compile`mp_tac \\
+    simp[bvl_to_bviTheory.compile_def] \\
+    rpt(pairarg_tac \\ fs[]) \\ strip_tac \\
+    drule bvi_tailrecProofTheory.compile_prog_next_mono \\
+    strip_tac \\ rveq \\ simp[] ) \\
   impl_keep_tac >- (
     match_mp_tac (GEN_ALL clos_to_bvlProofTheory.compile_all_distinct_locs)>>
     qexists_tac`e''''`>>
@@ -566,7 +579,7 @@ val compile_correct = Q.store_thm("compile_correct",
   qhdtm_x_assum`from_bvi`mp_tac >>
   srw_tac[][from_bvi_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }`
+  qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) clos_oracle TODO_clos_compile s3 }`
   \\ rename1 `from_data c4 p4 = _`
   \\ qhdtm_x_assum`from_data`mp_tac
   \\ simp[from_data_def]
