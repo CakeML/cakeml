@@ -1037,8 +1037,9 @@ val compile_prog_ALL_DISTINCT = Q.store_thm("compile_prog_ALL_DISTINCT",
 
 val namespace_rel_def = Define`
   namespace_rel c1 c2 ⇔
-    (∀n. n ∈ domain c2 ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
-    (∀n. n ∈ domain c1 ⇒ ¬(in_ns_2 n))`;
+    (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
+    (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_2 n)) ∧
+    (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)`;
 
 val mk_co_def = Define`
   mk_co co = λn.
@@ -1053,6 +1054,13 @@ val mk_cc_def = Define`
     let (next,prog) = compile_prog next prog in
       OPTION_MAP (λ(code,data,cfg). (code,data,(next,cfg))) (cc cfg prog)`;
 
+val input_condition_def = Define`
+  input_condition next prog ⇔
+    EVERY (free_names next o FST) prog ∧
+   ALL_DISTINCT (MAP FST prog) ∧
+   EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
+   bvl_num_stubs ≤ next ∧ in_ns_2 next`;
+
 val state_rel_def = Define`
   state_rel s t ⇔
     t.refs = s.refs ∧
@@ -1064,10 +1072,7 @@ val state_rel_def = Define`
     code_rel s.code t.code ∧
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
-            ALL_DISTINCT (MAP FST prog) ∧
-            EVERY (free_names next o FST) prog ∧
-            EVERY ($~ o in_ns_2 o FST) prog ∧
-            in_ns_2 next) ∧
+            input_condition next prog) ∧
     (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))`;
 
 val state_rel_const = Q.store_thm("state_rel_const",
@@ -1111,17 +1116,18 @@ val namespace_rel_union = Q.store_thm("namespace_rel_union",
   \\ metis_tac[]);
 
 val compile_prog_namespace_rel = Q.store_thm("compile_prog_namespace_rel",
-  `compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ EVERY ($~ o in_ns_2 o FST) prog ⇒
+  `compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ bvl_num_stubs ≤ next ∧
+   EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
    namespace_rel (fromAList prog) (fromAList prog2)`,
-  rw[namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS] \\
+  rw[namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER] \\
   imp_res_tac compile_prog_MEM \\
   fs[MEM_MAP,PULL_EXISTS]
   \\ res_tac \\ fs[]
   \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
-  \\ CCONTR_TAC \\ fs[] >- metis_tac[]
+  \\ CCONTR_TAC \\ fs[] >|[metis_tac[],ALL_TAC,metis_tac[]]
+  \\ qpat_x_assum`FST _ = _`(assume_tac o SYM) \\ fs[]
   \\ last_x_assum drule
-  \\ qpat_x_assum`_ = FST _`(assume_tac o SYM)
-  \\ simp[]);
+  \\ rpt(qpat_x_assum`_ + _ = FST _`(assume_tac o SYM) \\ fs[]));
 
 val state_rel_do_app_aux = Q.store_thm("state_rel_do_app_aux",
   `do_app_aux op vs s = res ∧
@@ -1648,20 +1654,21 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
         \\ qmatch_assum_rename_tac`code_rel src.code tgt.code`
         \\ qmatch_assum_abbrev_tac`compile_prog next1 prog1 = (next2, prog2)`
         \\ `DISJOINT (domain src.code) (set (MAP FST prog1))` by simp[Abbr`prog1`]
-        \\ `in_ns_2 next1` by (rpt(first_x_assum(qspec_then`0`mp_tac) \\ simp[]))
+        \\ `in_ns_2 next1` by (fs[input_condition_def] \\ rpt(first_x_assum(qspec_then`0`mp_tac) \\ simp[]))
         \\ qpat_x_assum`compile_prog next1 prog1 = _`assume_tac
         \\ drule (GEN_ALL compile_prog_code_rel)
         \\ impl_tac
         >- (
           simp[Abbr`prog1`]
+          \\ fs[input_condition_def]
           \\ rpt(first_x_assum(qspec_then`0`mp_tac) \\ simp[] ))
         \\ strip_tac
-        \\ `∀n. in_ns_2 n ⇒ ¬MEM n (MAP FST prog1)`
+        \\ `∀n. in_ns_2 n ∧ bvl_num_stubs <= n ⇒ ¬MEM n (MAP FST prog1)`
         by (
-          rw[] \\
+          rw[] \\ fs[input_condition_def] \\
           qpat_x_assum`∀n. _ (src.compile_oracle n)`(qspec_then`0`mp_tac) \\
           simp[] \\
-          strip_tac \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]
+          strip_tac \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_FILTER]
           \\ metis_tac[] )
         \\ conj_asm1_tac
         >- (
@@ -1669,25 +1676,28 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
           \\ qx_gen_tac`n`
           \\ spose_not_then strip_assume_tac
           \\ qpat_x_assum`∀n. _ (src.compile_oracle n)`(qspec_then`0`mp_tac)
-          \\ simp[]
+          \\ simp[input_condition_def]
           \\ CCONTR_TAC \\ fs[]
-          \\ Cases_on`in_ns_2 n`
+          \\ Cases_on`in_ns_2 n ∧ bvl_num_stubs <= n`
           >- (
             `¬MEM n (MAP FST prog1)` by ( metis_tac[] )
             \\ drule (GEN_ALL compile_prog_MEM)
             \\ disch_then drule \\ simp[]
             \\ CCONTR_TAC \\ fs[]
             \\ res_tac \\ fs[] )
-          \\ fs[namespace_rel_def]
-          \\ `n ∈ domain src.code` by metis_tac[]
+          \\ qhdtm_x_assum`namespace_rel`mp_tac
+          \\ simp[namespace_rel_def]
+          \\ spose_not_then strip_assume_tac
+          \\ `n ∈ domain src.code` by metis_tac[NOT_LESS]
           \\ drule (GEN_ALL compile_prog_MEM)
           \\ disch_then drule
           \\ strip_tac >- metis_tac[]
-          \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def] )
+          \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
+          \\ res_tac \\ fs[])
         \\ qpat_x_assum`∀n. _ (src.compile_oracle n)`(qspec_then`0`mp_tac)
         \\ simp[] \\ strip_tac
         \\ conj_asm1_tac
-        >- ( drule compile_prog_ALL_DISTINCT \\ simp[] )
+        >- ( drule compile_prog_ALL_DISTINCT \\ fs[input_condition_def] )
         \\ conj_tac >- (
           Cases_on`prog2` \\ fs[compile_prog_def,Abbr`prog1`]
           \\ Cases_on`prog` \\ fs[compile_prog_def,case_eq_thms]
@@ -1696,20 +1706,24 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
         >- (
           match_mp_tac code_rel_union
           \\ fs[domain_fromAList,DISJOINT_SYM] )
+        \\ `namespace_rel (fromAList prog1) (fromAList prog2)`
+        by (
+          match_mp_tac (GEN_ALL compile_prog_namespace_rel)
+          \\ asm_exists_tac \\ fs[input_condition_def])
         \\ conj_asm1_tac
         >- (
           match_mp_tac namespace_rel_union
-          \\ fs[domain_fromAList,DISJOINT_SYM]
-          \\ match_mp_tac (GEN_ALL compile_prog_namespace_rel)
-          \\ asm_exists_tac \\ fs[])
+          \\ fs[domain_fromAList,DISJOINT_SYM])
         \\ simp[domain_union]
         \\ imp_res_tac compile_prog_next_mono
         \\ rveq \\ rw[]
         >- ( res_tac \\ simp[] )
-        \\ fs[domain_fromAList]
+        \\ fs[domain_fromAList,input_condition_def]
         \\ drule (GEN_ALL compile_prog_MEM)
         \\ disch_then drule
-        \\ simp[] )
+        \\ strip_tac \\ fs[]
+        \\ Cases_on`n < bvl_num_stubs` >- decide_tac
+        \\ fs[NOT_LESS] \\ metis_tac[])
       \\ Cases_on`∃n. op = Label n`
       >- (
         fs[] \\ rveq \\
@@ -2256,13 +2270,6 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
    \\ rw[bvl_to_bvi_id])
   \\ Cases_on `h` \\ fs []);
 
-val input_condition_def = Define`
-  input_condition next prog ⇔
-    EVERY (free_names next o FST) prog ∧
-   ALL_DISTINCT (MAP FST prog) ∧
-   EVERY ($~ o in_ns_2 o FST) prog ∧
-   in_ns_2 next`;
-
 val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
   `input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
@@ -2276,7 +2283,7 @@ val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
         initial_state ffi0 (fromAList (SND (compile_prog next prog))) (mk_co co) cc k)
       = (r, s2) ∧
      state_rel s s2`,
-  rw [input_condition_def]
+  rw []
   \\ qmatch_asmsub_abbrev_tac `(es,env,st1)`
   \\ `env_rel F 0 env env` by fs [env_rel_def]
   \\ qabbrev_tac `ts: v_ty list = []`
@@ -2289,6 +2296,7 @@ val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
   \\ `state_rel st1 st2`
   by (
     simp[state_rel_def,Abbr`st1`,Abbr`st2`,domain_fromAList]
+    \\ rfs[input_condition_def]
     \\ reverse conj_tac >- (
       rw[] \\
       last_x_assum(qspec_then`n`mp_tac)
