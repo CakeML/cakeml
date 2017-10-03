@@ -3842,6 +3842,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
+   (∀n. ALL_DISTINCT (MAP FST (SND (co n))) ∧
+        num_stubs ≤ FST(SND(SND(FST(co n)))) ∧ in_ns 2 (FST(SND(SND(FST(co n)))))) /\
    ALL_DISTINCT (MAP FST prog) ==>
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) start ≠ Fail
    ⇒
@@ -3884,7 +3886,55 @@ val compile_semantics = Q.store_thm("compile_semantics",
     \\ strip_tac \\ fs [])
   \\ fs [bvi_tailrecProofTheory.input_condition_def,EVERY_o]
   \\ fs [GSYM in_ns_def,EVAL ``in_ns 2 2``]
-  \\ cheat (* name spaces and input_condition *));
+  \\ conj_asm1_tac
+  >- (
+    drule bvl_inlineProofTheory.compile_prog_names
+    \\ strip_tac
+    \\ drule compile_prog_distinct_locs
+    \\ impl_tac >- fs[]
+    \\ strip_tac
+    \\ conj_tac >- (
+      fs[EVERY_MEM,bvi_tailrecProofTheory.free_names_def]
+      \\ rw[] \\ res_tac
+      \\ strip_tac \\ rveq
+      \\ pop_assum mp_tac
+      \\ simp_tac(srw_ss())[] )
+    \\ conj_tac >- fs[]
+    \\ fs[EVERY_MAP] \\ fs[EVERY_MEM,MEM_FILTER]
+    \\ rw[] \\ strip_tac \\ first_x_assum drule
+    \\ simp_tac std_ss []
+    \\ once_rewrite_tac[GSYM in_ns_add_num_stubs]
+    \\ asm_simp_tac(std_ss++ARITH_ss)[])
+  \\ rpt gen_tac \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`compile_inc next1 prog1`
+  \\ Cases_on`compile_inc next1 prog1`
+  \\ drule compile_inc_lemma
+  \\ `ALL_DISTINCT (MAP FST prog1)`
+  by (
+    simp[Abbr`prog1`,bvl_inlineTheory.compile_inc_def]
+    \\ pairarg_tac \\ fs[]
+    \\ fs[bvl_inlineTheory.tick_compile_prog_def]
+    \\ imp_res_tac bvl_inlineProofTheory.tick_inline_all_names \\ fs[]
+    \\ metis_tac[] )
+  \\ fs[] \\ strip_tac
+  \\ last_x_assum(qspec_then`k`mp_tac) \\ simp[]
+  \\ strip_tac
+  \\ fs[EVERY_MEM,EVERY_MAP,MEM_MAP,PULL_EXISTS,MEM_FILTER]
+  \\ reverse conj_tac
+  >- (
+    rw[]
+    \\ `in_ns 0 (FST x) ∨ in_ns 1 (FST x)` by metis_tac[]
+    \\ pop_assum mp_tac \\ EVAL_TAC \\ rw[] )
+  \\ simp[bvi_tailrecProofTheory.free_names_def]
+  \\ rw[] \\ strip_tac
+  \\ first_x_assum drule
+  \\ pop_assum(assume_tac o SYM)
+  \\ `in_ns 2 (FST x)`
+  by ( fs[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def] )
+  \\ IF_CASES_TAC
+  >- ( ntac 2 (pop_assum mp_tac) \\ EVAL_TAC \\ rw[] )
+  \\ strip_tac
+  \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]);
 
 (* -- old version of the above proof --
 val compile_semantics = Q.store_thm("compile_semantics",
