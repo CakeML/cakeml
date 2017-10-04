@@ -3981,11 +3981,13 @@ val compile_semantics = Q.store_thm("compile_semantics",
   \\ simp [bvi_tailrecTheory.compile_prog_def]
   \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
   \\ metis_tac [bvl_inlineProofTheory.compile_prog_semantics,PAIR,FST,SND]);
+*)
 
 val compile_distinct_names = Q.store_thm("compile_distinct_names",
-  `ALL_DISTINCT (MAP FST p2) /\
-   c.next_name2 = bvl_num_stubs + 2 + n02 * nss /\
-   bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) ==>
+  ` bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) /\
+   ALL_DISTINCT (MAP FST p2) /\
+   c.next_name2 = bvl_num_stubs + 2 + n02 * nss
+   ==>
    EVERY (λn. data_num_stubs ≤ n) (MAP FST p3) /\
    ALL_DISTINCT (MAP FST p3)`,
   fs[bvl_to_bviTheory.compile_def]>>
@@ -3999,14 +4001,19 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   REWRITE_TAC[GSYM append_def] >>
   fs[EVERY_MEM]>>
   `ALL_DISTINCT (MAP FST prog)` by
-    metis_tac [bvl_inlineProofTheory.MAP_FST_compile_prog,PAIR,FST,SND] >>
+    metis_tac [bvl_inlineProofTheory.compile_prog_names,PAIR,FST,SND] >>
   imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
   rfs[backend_commonTheory.bvl_num_stubs_def,
-      bvl_inlineProofTheory.MAP_FST_compile_prog]>>
+      bvl_inlineProofTheory.compile_prog_names]>>
   fs[EVERY_MEM]
   \\ simp[PULL_FORALL] \\ strip_tac
   \\ reverse conj_tac >- (
-    match_mp_tac (GEN_ALL bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT)
+    match_mp_tac (
+      bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
+      |> UNDISCH_ALL
+      |> CONJUNCT1
+      |> DISCH_ALL
+      |> GEN_ALL)
     \\ asm_exists_tac \\ simp[]
     \\ EVAL_TAC \\ fs [GSYM append_def]
     \\ CCONTR_TAC \\ fs []
@@ -4033,7 +4040,5 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   \\ res_tac
   \\ pop_assum mp_tac
   \\ EVAL_TAC \\ rw[]);
-
-*)
 
 val _ = export_theory();
