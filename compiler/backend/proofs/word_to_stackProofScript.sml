@@ -3748,19 +3748,19 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       pairarg_tac>>fs[]>>
       strip_tac>>
       qho_match_abbrev_tac`∃t'. evaluate (wStackLoad (l) (kont),t) = (NONE,t') ∧ _ t'`>>fs[]>>
-      `kont = (λn. Inst(Arith (LongDiv 0 4 4 0 n))) n5` by fs[]>>
+      `kont = (λn. Inst(Arith (LongDiv 0 3 3 0 n))) n5` by fs[]>>
       pop_assum SUBST1_TAC>>
       match_mp_tac (GEN_ALL wStackLoad_thm1)>>
       asm_exists_tac >> simp[]>>
       rfs[]>> asm_exists_tac >> simp[]>>
       drule (GEN_ALL state_rel_get_var_imp)>>
       disch_then assume_tac>>
-      first_assum (qspecl_then [`4`,`Word c`] mp_tac)>>
+      first_assum (qspecl_then [`3`,`Word c`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
       first_x_assum (qspecl_then [`0`,`Word c'`] mp_tac)>>
       impl_tac>- fs[state_rel_def]>>
       simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.get_vars_def,stackSemTheory.get_var_def]>>
-      `4 < k` by fs[state_rel_def]>>
+      `3 < k` by fs[state_rel_def]>>
       rw[]
       >-
         (imp_res_tac state_rel_get_var_imp>>
@@ -3768,10 +3768,10 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         assume_tac (GEN_ALL state_rel_set_var)>>
         first_assum (qspec_then`0` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
-        first_assum (qspec_then`4` assume_tac)>>fs[])
+        first_assum (qspec_then`3` assume_tac)>>fs[])
       >-
         (imp_res_tac state_rel_get_var_imp2>>
-        qpat_abbrev_tac`A = FLOOKUP B 4n`>>
+        qpat_abbrev_tac`A = FLOOKUP B 3n`>>
         `A = SOME (Word c)` by fs[Abbr`A`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
         qpat_abbrev_tac`Z = FLOOKUP C 0n`>>
         `Z = SOME (Word c')` by fs[Abbr`Z`,stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
@@ -3779,7 +3779,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         assume_tac (GEN_ALL state_rel_set_var)>>
         first_assum (qspec_then`0` assume_tac)>>fs[]>>
         pop_assum match_mp_tac>>fs[]>>
-        first_assum (qspec_then`4` assume_tac)>>fs[]))
+        first_assum (qspec_then`3` assume_tac)>>fs[]))
     >-
       (* LongMul Note: this is greatly simplified because no stack loading is done*)
       (pop_assum mp_tac>>fs[get_vars_def]>>
@@ -3796,7 +3796,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       assume_tac (GEN_ALL state_rel_set_var)>>
       first_assum (qspec_then`0` assume_tac)>>fs[]>>
       pop_assum match_mp_tac>>fs[]>>
-      first_assum (qspec_then`4` assume_tac)>>fs[])
+      first_assum (qspec_then`3` assume_tac)>>fs[])
     >- (* Div *)
       (fs[get_vars_def]>>pop_assum mp_tac>>
       ntac 5 (FULL_CASE_TAC)>>
@@ -5276,7 +5276,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
     \\ fs [loc_check_def,IN_DEF])
   THEN1 (* FFI *)
-   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
+   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
     \\ rw [] \\ fs [] \\ rw []
     \\ fs [wordSemTheory.evaluate_def]
     \\ qpat_x_assum `aaa = (res,s1)` mp_tac
@@ -5287,7 +5287,11 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `FLOOKUP t.regs 1 = get_var 2 s /\
         FLOOKUP t.regs 2 = get_var 4 s` by
      (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
-      \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+       \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+    \\ `FLOOKUP t.regs 3 = get_var 6 s /\
+        FLOOKUP t.regs 4 = get_var 8 s` by
+     (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
+      \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
     \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
         s.memory = t.memory /\ s.ffi = t.ffi` by
           fs [state_rel_def] \\ fs [LET_THM]
@@ -7387,14 +7391,14 @@ val word_to_stack_reg_bound = Q.store_thm("word_to_stack_reg_bound",`
 
 val stack_move_call_args = Q.store_thm("stack_move_call_args",`
   ∀n st off i p.
-  call_args p 1 2 0 ⇒
-  call_args (stack_move n st off i p) 1 2 0`,
+  call_args p 1 2 3 4 0 ⇒
+  call_args (stack_move n st off i p) 1 2 3 4 0`,
   Induct>>rw[stack_move_def,call_args_def]);
 
 val word_to_stack_call_args = Q.store_thm("word_to_stack_call_args",`
   ∀p n args.
   post_alloc_conventions (FST args) p ⇒
-  call_args (FST(word_to_stack$comp p n args)) 1 2 0`,
+  call_args (FST(word_to_stack$comp p n args)) 1 2 3 4 0`,
   ho_match_mp_tac comp_ind >>
   fs[comp_def,call_args_def,FORALL_PROD,wRegWrite1_def,wLive_def,convs_def]>>rw[]>>
   fs[call_args_def]
@@ -7461,7 +7465,7 @@ val word_to_stack_stack_convs = Q.store_thm("word_to_stack_stack_convs",`
   ⇒
   EVERY alloc_arg (MAP SND p') ∧
   EVERY (λp. reg_bound p (k+2)) (MAP SND p') ∧
-  EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
+  EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p')`,
   fs[EVERY_MEM,GSYM FORALL_AND_THM,GSYM IMP_CONJ_THM]>>
   ntac 3 strip_tac>>
   fs[compile_def]>>

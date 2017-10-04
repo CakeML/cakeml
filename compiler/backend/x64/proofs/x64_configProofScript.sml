@@ -9,6 +9,8 @@ val is_x64_machine_config_def = Define`
     mc.target = x64_target ∧
     mc.len_reg = 6 ∧
     mc.ptr_reg = 7 ∧
+    mc.len2_reg = 1 ∧
+    mc.ptr2_reg = 2 ∧
     mc.callee_saved_regs = [12;13;14]`;
 
 val names_tac =
@@ -42,6 +44,8 @@ val x64_machine_config_ok = Q.store_thm("x64_machine_config_ok",
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
+  >- EVAL_TAC
+  >- EVAL_TAC  
   >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,x64_backend_correct]);
 
 val x64_init_ok = Q.store_thm("x64_init_ok",

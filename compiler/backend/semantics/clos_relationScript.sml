@@ -1297,7 +1297,8 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
              match_mp_tac EVERY2_LUPDATE_same >>
              srw_tac[][LIST_REL_EL_EQN])
          >- intLib.ARITH_TAC)
-     >- (Cases_on `y` >>
+     >- (fs[SWAP_REVERSE_SYM] >>
+         Cases_on `y` >> Cases_on `y'` >>
          full_simp_tac(srw_ss())[val_rel_rw] >>
          srw_tac[][] >>
          imp_res_tac state_rel_refs >>

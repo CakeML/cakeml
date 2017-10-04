@@ -12,18 +12,18 @@ val startup =
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
        "cdecl(main):";
-       "     leaq    cdecl(argc)(%rip), %rbx";
-       "     leaq    cdecl(argv)(%rip), %rdx";
-       "     movq    %rdi, 0(%rbx)  # %rdi stores argc";
-       "     movq    %rsi, 0(%rdx)  # %rsi stores argv";
+       "     leaq    cdecl(argc)(%rip), %rdx";
+       "     leaq    cdecl(argv)(%rip), %rcx";
+       "     movq    %rdi, 0(%rdx)  # %rdi stores argc";
+       "     movq    %rsi, 0(%rcx)  # %rsi stores argv";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     leaq    cake_main(%rip), %rdi   # arg1: entry address";
        "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap";
-       "     leaq    cake_bitmaps(%rip), %rbx";
-       "     movq    %rbx, 0(%rsi)           # store bitmap pointer";
-       "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack";
-       "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack";
+       "     leaq    cake_bitmaps(%rip), %rdx";
+       "     movq    %rdx, 0(%rsi)           # store bitmap pointer";
+       "     leaq    cake_stack(%rip), %rdx  # arg3: first address of stack";
+       "     leaq    cake_end(%rip), %rcx    # arg4: first address past the stack";
        "     jmp     cake_main";
        ""])`` |> EVAL |> concl |> rand
 

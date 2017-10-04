@@ -27,7 +27,7 @@ val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_state_loc" e) "write_st
 val _ = ml_prog_update (add_Dlet (derive_eval_thm "write_err_state_loc" e) "write_err_state" [])
 
 val e =
-  ``Let NONE (App (FFI "getChar") [Var (Short "read_state")])
+  ``Let NONE (App (FFI "getChar") [Lit(StrLit ""); Var (Short "read_state")])
      (LetApps "b" (Long "Word8Array" (Short "sub")) [Var (Short "read_state");  Lit (IntLit 0)]
        (LetApps "i" (Long "Word8" (Short "toInt")) [Var (Short "b")]
          (Apps [Var (Long "Char" (Short "chr")); Var (Short "i")])))``
@@ -48,17 +48,22 @@ val e =
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_state");
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar") [Var (Short "write_state")]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar") [Lit(StrLit ""); Var (Short "write_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write"`` ``"c"`` e "write_v")
 
+val e =
+  ``App (FFI "writeStr") [Var (Short "s"); Var (Short "write_state")]``
+  |> EVAL |> concl |> rand
+val _ = ml_prog_update (add_Dlet_Fun ``"writeStr"`` ``"s"`` e "writeStr_v")
+                       
 val e =
   ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
     (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])
      (Let (SOME "u") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "write_err_state");
                           Lit (IntLit 0); Var (Short "b")])
-      (Let NONE (App (FFI "putChar_err") [Var (Short "write_err_state")]) (Var (Short "u")))))``
+      (Let NONE (App (FFI "putChar_err") [Lit(StrLit ""); Var (Short "write_err_state")]) (Var (Short "u")))))``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"write_err"`` ``"c"`` e "write_err_v")
 
@@ -71,7 +76,10 @@ val STDOUT_def = Define `
 
 val STDOUT_precond = Q.store_thm("STDOUT_precond",
   `(STDOUT out)
-    {FFI_part (Str out) (mk_ffi_next (Str,destStr,[("putChar",ffi_putChar)])) ["putChar"] events;
+    {FFI_part (Str out) (mk_ffi_next (Str,destStr,
+                                      [("putChar",ffi_putChar);
+                                       ("writeStr",ffi_writeStr)]))
+              ["putChar"; "writeStr"] events;
      Mem 2 (W8array [w])}`,
   rw[STDOUT_def, cfHeapsBaseTheory.IO_def, cfHeapsBaseTheory.IOx_def,
      stdout_ffi_part_def,set_sepTheory.SEP_EXISTS_THM, set_sepTheory.SEP_CLAUSES]
@@ -204,7 +212,8 @@ val read_spec = Q.store_thm ("read_spec",
       \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ map_every qexists_tac[`ns`,`u`] \\ rpt(qexists_tac`s`)
       \\ simp[cfHeapsBaseTheory.mk_ffi_next_def,Abbr`u`,Abbr`s`]
-      \\ xsimpl \\ fs[ ffi_getChar_def,Abbr`ns`] )
+      \\ xsimpl \\ fs[ ffi_getChar_def,Abbr`ns`]
+       )
     \\ fs[STDIN_def] \\ xpull
     \\ xlet `POSTv x. STDIN "" T * cond (WORD (w:word8) x)`
     >- (
@@ -289,6 +298,24 @@ val write_spec = Q.store_thm ("write_spec",
     \\ simp[ORD_BOUND,CHR_ORD])
   \\ xret \\ xsimpl);
 
+val writeStr_spec = Q.store_thm ("writeStr_spec",
+  `STRING_TYPE s sv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "CharIO.writeStr" (basis_st()))
+       [sv]
+       (STDOUT output)
+       (POSTv uv. cond (UNIT_TYPE () uv) * STDOUT (output ++ TAKE 65535 (explode s)))`,
+  xcf "CharIO.writeStr" (basis_st())
+  \\ fs [STDOUT_def] \\ xpull
+  \\ xffi
+  \\ fs [EVAL ``write_state_loc``, STDOUT_def, cfHeapsBaseTheory.IOx_def,stdout_ffi_part_def]
+  \\ xsimpl
+  \\ qmatch_goalsub_abbrev_tac `IO is u ns`
+  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ map_every qexists_tac[`ns`,`u`]
+  \\ xsimpl \\ unabbrev_all_tac
+  \\ Cases_on `s` \\ rename1 `strlit s`
+  \\ simp[mlstringTheory.explode_thm] \\ EVAL_TAC
+  \\ qexists_tac `MAP (n2w o ORD) s`
+  \\ fs[MAP_MAP_o,CHR_w2n_n2w_ORD,ml_translatorTheory.STRING_TYPE_def]);
 
 val write_err_spec = Q.store_thm ("write_err_spec",
   `CHAR c cv ==>
