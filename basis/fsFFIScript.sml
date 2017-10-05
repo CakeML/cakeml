@@ -2,13 +2,18 @@ open preamble mlstringTheory cfHeapsBaseTheory optionMonadTheory
 
 val _ = new_theory"fsFFI"
 
+
+
+val _ = Datatype` inode = IOStream mlstring | File mlstring` 
+
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
 *    write *)
+
 val _ = Datatype`
-  IO_fs = <| files : (mlstring # char list) list ;
-             infds : (num # (mlstring # num)) list;
+  IO_fs = <| files : (inode # char list) list ;
+             infds : (num # (inode # num)) list;
              numchars : num llist |>`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
@@ -36,8 +41,8 @@ val openFile_def = Define`
      in
        do
           assert (fd <= 255) ;
-          ALOOKUP fsys.files fnm ;
-          return (fd, fsys with infds := (nextFD fsys, (fnm, pos)) :: fsys.infds)
+          ALOOKUP fsys.files (File fnm);
+          return (fd, fsys with infds := (nextFD fsys, (File fnm, pos)) :: fsys.infds)
        od
 
 `;
@@ -54,9 +59,9 @@ val openFile_truncate_def = Define`
     let fd = nextFD fsys in
       do
         assert (fd <= 255) ;
-        ALOOKUP fsys.files fnm ;
-        return (fd, (fsys with infds := (nextFD fsys, (fnm, 0)) :: fsys.infds)
-                          with files updated_by (ALIST_FUPDKEY fnm (\x."")))
+        ALOOKUP fsys.files (File fnm);
+        return (fd, (fsys with infds := (nextFD fsys, (File fnm, 0)) :: fsys.infds)
+                          with files updated_by (ALIST_FUPDKEY (File fnm) (\x."")))
       od `;
 
 (* checks if a descriptor index is in the file descriptor *)
@@ -240,13 +245,17 @@ val ffi_close_def = Define`
 
 (* -- *)
 
+val encode_inode_def = Define`
+  (encode_inode (IOStream s) = Cons (Num 0) ((Str o explode) s)) /\
+  encode_inode (File s) = Cons (Num 1) ((Str o explode) s)`;
+
 val encode_files_def = Define`
-  encode_files fs = encode_list (encode_pair (Str o explode) Str) fs
+  encode_files fs = encode_list (encode_pair encode_inode Str) fs
 `;
 
 val encode_fds_def = Define`
   encode_fds fds =
-     encode_list (encode_pair Num (encode_pair (Str o explode) Num)) fds
+     encode_list (encode_pair Num (encode_pair encode_inode Num)) fds
 `;
 
 val encode_def = zDefine`
@@ -257,15 +266,19 @@ val encode_def = zDefine`
                 (Stream fs.numchars)
 `
 
+val decode_inode_def = Define`
+  decode_inode f = case decode_pair destNum (lift implode o destStr) f of
+                       SOME (0,s) => SOME (IOStream s)
+                     | SOME (1,s) => SOME (File s)
+                     | _ => NONE`;
+
+
 val decode_files_def = Define`
-  decode_files f = decode_list (decode_pair (lift implode o destStr) destStr) f
-`
+  decode_files = decode_list (decode_pair decode_inode destStr) `
 
 val decode_fds_def = Define`
   decode_fds =
-    decode_list (decode_pair destNum
-                             (decode_pair (lift implode o destStr) destNum))
-`;
+    decode_list (decode_pair destNum (decode_pair decode_inode destNum)) `;
 
 val decode_def = zDefine`
   (decode (Cons (Cons files0 fds0) (Stream numchars0)) =

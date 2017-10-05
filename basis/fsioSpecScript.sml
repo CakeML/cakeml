@@ -123,9 +123,9 @@ val openIn_spec = Q.store_thm(
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
-                  inFS_fname fs s) *
+                  inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * IOFS fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`,
   xcf "IO.openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >> 
   xpull >> rename [`W8ARRAY _ fnm0`] >>
@@ -134,7 +134,7 @@ val openIn_spec = Q.store_thm(
   >- (xsimpl >> Cases_on`s` \\ fs[]) >>
   qabbrev_tac `fnm = insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 fnm0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
-  Cases_on `inFS_fname fs s`
+  Cases_on `inFS_fname fs (File s)`
   >- (xlet `POSTv u2.
             &(UNIT_TYPE () u2 /\ nextFD fs < 256 /\
               validFD (nextFD fs) (openFileFS s fs 0)) *
@@ -152,7 +152,7 @@ val openIn_spec = Q.store_thm(
              getNullTermStr_insert_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ, wfFS_openFile,
              implode_explode, LENGTH_explode] >>
-        `∃content. ALOOKUP fs.files s = SOME content`
+        `∃content. ALOOKUP fs.files (File s) = SOME content`
           by (fs[inFS_fname_def, ALOOKUP_EXISTS_IFF, MEM_MAP, EXISTS_PROD] >>
               metis_tac[]) >>
         imp_res_tac nextFD_ltX >>
@@ -217,9 +217,9 @@ val openIn_STDIO_spec = Q.store_thm(
        (POST
           (\wv. &(WORD (n2w (nextFD fs) :word8) wv ∧
                   validFD (nextFD fs) (openFileFS s fs 0) ∧
-                  inFS_fname fs s) *
+                  inFS_fname fs (File s)) *
                 STDIO (openFileFS s fs 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))`,
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs))`,
  rw[STDIO_def] >> xpull >> xapp >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
  xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>

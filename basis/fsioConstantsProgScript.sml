@@ -15,8 +15,8 @@ val _ = process_topdecs `
   exception EndOfFile
 ` |> append_prog
 
-(* 257 w8 array *)
-val iobuff_e = ``(App Aw8alloc [Lit (IntLit 257); Lit (Word8 0w)])``
+(* 258 w8 array *)
+val iobuff_e = ``(App Aw8alloc [Lit (IntLit 258); Lit (Word8 0w)])``
 val _ = ml_prog_update
           (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
 val iobuff_loc_def = definition "iobuff_loc_def"
@@ -54,11 +54,11 @@ val FILENAME_def = Define `
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define
 `STD_streams fs = ?inp out err. 
-    (ALOOKUP fs.infds 0 = SOME (strlit "stdin", inp)) ∧
-    (ALOOKUP fs.infds 1 = SOME (strlit "stdout", LENGTH out)) ∧
-    (ALOOKUP fs.infds 2 = SOME (strlit "stderr", LENGTH err)) ∧
-    (ALOOKUP fs.files (strlit "stdout") = SOME out) ∧ 
-    (ALOOKUP fs.files (strlit "stderr") = SOME err)`
+    (ALOOKUP fs.infds 0 = SOME (IOStream(strlit "stdin"), inp)) ∧
+    (ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"), LENGTH out)) ∧
+    (ALOOKUP fs.infds 2 = SOME (IOStream(strlit "stderr"), LENGTH err)) ∧
+    (ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out) ∧ 
+    (ALOOKUP fs.files (IOStream(strlit "stderr")) = SOME err)`
 
 (* "end-user" property *)
 (* abstracts away the lazy list and ensure that standard streams are opened on
@@ -70,8 +70,8 @@ val STDIO_def = Define`
 val STD_streams_fsupdate = Q.store_thm("STD_streams_fsupdate", 
   `! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> strlit "stdout" /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> strlit "stderr")) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> IOStream(strlit "stdout") /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> IOStream(strlit "stderr"))) /\
    STD_streams fs ==> 
    STD_streams (fsupdate fs fd k pos c)`,
    rw[STD_streams_def,fsupdate_def] >>
@@ -80,16 +80,23 @@ val STD_streams_fsupdate = Q.store_thm("STD_streams_fsupdate",
    qexists_tac`if fd = 2 then c else err` >>
    rpt(CASE_TAC >> fs[ALIST_FUPDKEY_ALOOKUP]));
 
+val STDIO_fsupdate_o = Q.store_thm("STDIO_fsupdate_o",
+  `!fs fd pos1 pos2 c1 c2 k1 k2. liveFS fs ==>
+  STDIO(fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2) ==>>
+  STDIO(fsupdate fs fd (k1 + k2) pos2 c2)`,
+  rw[STDIO_def,IOFS_def] >> xsimpl >> rw[] >> qexists_tac`x` >>
+  fs[fsupdate_numchars] >>
+  `liveFS (fs with numchars := x)` by fs[liveFS_def,fsupdate_def] >>
+  rfs[fsupdate_o] >> fs[fsupdate_o] >> xsimpl);
+
 val STD_streams_openFileFS = Q.store_thm("STD_streams_openFileFS",
  `!fs s k. STD_streams fs ==> STD_streams (openFileFS s fs k)`,
   rw[STD_streams_def,openFileFS_files] >>
   map_every qexists_tac[`inp`,`out`,`err`] >>
   fs[openFileFS_def] >> rpt(CASE_TAC >> fs[]) >>
-  `nextFD fs <> 0` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
-  `nextFD fs <> 1` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
-  `nextFD fs <> 2` by (imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]) >>
   fs[openFile_def,IO_fs_component_equality] >>
-  `r.infds = (nextFD fs,s,k)::fs.infds` by fs[] >> fs[]);
+  `r.infds = (nextFD fs,File s,k)::fs.infds` by fs[] >> fs[] >>
+  imp_res_tac ALOOKUP_MEM >> metis_tac[nextFD_NOT_MEM]);
 
 open cfLetAutoTheory cfLetAutoLib
 

@@ -160,11 +160,11 @@ val IOFS_precond = Q.prove(
   )|> UNDISCH_ALL |> curry save_thm "IOFS_precond"
 
 val STDIO_precond = Q.prove(
-`ALOOKUP fs.infds 0 = SOME (strlit "stdin",inp) ==>
-  ALOOKUP fs.infds 1 = SOME (strlit "stdout",STRLEN out) ==>
-  ALOOKUP fs.infds 2 = SOME (strlit "stderr",STRLEN err) ==>
-  ALOOKUP fs.files (strlit "stdout") = SOME out ==>
-  ALOOKUP fs.files (strlit "stderr") = SOME err ==>
+`ALOOKUP fs.infds 0 = SOME (IOStream(strlit "stdin"),inp) ==>
+  ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out) ==>
+  ALOOKUP fs.infds 2 = SOME (IOStream(strlit "stderr"),STRLEN err) ==>
+  ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out ==>
+  ALOOKUP fs.files (IOStream(strlit "stderr")) = SOME err ==>
   wfFS fs ==> liveFS (fs with numchars := ll) ==> ¬ LFINITE ll ==>
   LENGTH v = 258 ==>     
   STDIO fs
