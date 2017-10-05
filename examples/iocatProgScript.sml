@@ -281,7 +281,8 @@ val cat_prog_def = Define`cat_prog = ^prog_tm`;
 val cat_semantics_thm =
   semantics_thm
   |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
-  |> SIMP_RULE(srw_ss())[wfFS_def,inFS_fname_def,wfcl_def]
+  |> DISCH_ALL
+  |> SIMP_RULE(srw_ss())[inFS_fname_def,wfcl_def,LENGTH]
   |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

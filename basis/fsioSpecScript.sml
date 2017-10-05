@@ -804,28 +804,32 @@ val stderr_spec = Q.store_thm("stderr_spec",
 * to be used with STDIO as numchars is ignored *)
 
 val stdout_def = Define
-`stdout fs out = (ALOOKUP fs.infds 1 = SOME(strlit"stdout",LENGTH out) /\
-                  ALOOKUP fs.files (strlit"stdout") = SOME out)`
+`stdout fs out = (ALOOKUP fs.infds 1 = SOME(IOStream(strlit"stdout"),LENGTH out) /\
+                  ALOOKUP fs.files (IOStream(strlit"stdout")) = SOME out)`
+
+val stdout_UNICITY_R = Q.store_thm("stdout_UNICITY_R[xlet_auto_match]",
+`!fs out out'. stdout fs out ==> (stdout fs out' <=> out = out')`, 
+rw[stdout_def] >> EQ_TAC >> rw[]);
 
 val up_stdout_def = Define
 `up_stdout out fs = fsupdate fs 1 0 (LENGTH out) out`
 
 val stderr_def = Define
-`stderr fs err = (ALOOKUP fs.infds 2 = SOME(strlit"stderr",LENGTH err) /\
-                  ALOOKUP fs.files (strlit"stderr") = SOME err)`
+`stderr fs err = (ALOOKUP fs.infds 2 = SOME(IOStream(strlit"stderr"),LENGTH err) /\
+                  ALOOKUP fs.files (IOStream(strlit"stderr")) = SOME err)`
 
 val up_stderr_def = Define
 `up_stderr err fs = fsupdate fs 2 0 (LENGTH err) err`
 
 val stdin_def = Define
-`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(strlit"stdin",pos) /\
-                     ALOOKUP fs.files (strlit"stdin") = SOME inp)`
+`stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(IOStream(strlit"stdin"),pos) /\
+                     ALOOKUP fs.files (IOStream(strlit"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
 
 val print_string_spec = Q.store_thm("print_string_spec",
-  `!s sv fs out. 
+  `!fs out sv s. 
     STRING_TYPE s sv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.print_string" (basis_st())) [sv]
     (STDIO fs * &stdout fs out )  
@@ -843,7 +847,7 @@ val print_string_spec = Q.store_thm("print_string_spec",
   rfs[] >> instantiate >> xsimpl);
 
 val prerr_string_spec = Q.store_thm("prerr_string_spec",
-  `!s sv fs out. 
+  `!fs out sv s. 
     STRING_TYPE s sv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.prerr_string" (basis_st())) [sv]
     (STDIO fs * &stderr fs err)  
@@ -859,6 +863,47 @@ val prerr_string_spec = Q.store_thm("prerr_string_spec",
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[] >> instantiate >> xsimpl);
+
+
+val print_newline_spec = Q.store_thm("print_newline_spec",
+  `!fs out uv. 
+    UNIT_TYPE u uv ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "IO.print_newline" (basis_st())) [uv]
+    (STDIO fs * &stdout fs out )  
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (up_stdout (out ++ "\n") fs))`,
+  xcf "IO.print_newline" (basis_st()) >> 
+  fs[STDIO_def,STD_streams_def,IOFS_def,up_stdout_def,stdout_def] >> xpull >>
+  xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
+  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
+  xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >> 
+  `get_file_content (fs with numchars := ll) 1 = 
+     SOME(out,LENGTH out)` by fs[get_file_content_def] >>
+  fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >> 
+  instantiate >>fs[ALOOKUP_validFD] >>
+  xsimpl >> rw[] >>
+  fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
+     LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
+  rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
+
+val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
+  `!fs err uv. 
+    UNIT_TYPE u uv ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "IO.prerr_newline" (basis_st())) [uv]
+    (STDIO fs * &stderr fs err )  
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (up_stderr (err ++ "\n") fs))`,
+  xcf "IO.prerr_newline" (basis_st()) >> 
+  fs[STDIO_def,STD_streams_def,IOFS_def,up_stderr_def,stderr_def] >> xpull >>
+  xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
+  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
+  xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >> 
+  `get_file_content (fs with numchars := ll) 2 = 
+     SOME(err,LENGTH err)` by fs[get_file_content_def] >>
+  fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >> 
+  instantiate >>fs[ALOOKUP_validFD] >>
+  xsimpl >> rw[] >>
+  fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
+     LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
+  rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
 
 (* TODO: move *)
 val append_SEP_EXISTS = Q.store_thm("append_SEP_EXISTS",

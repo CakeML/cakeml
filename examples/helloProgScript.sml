@@ -29,6 +29,7 @@ val hello_prog_def = Define`hello_prog = ^hello_prog_tm`;
 
 val hello_semantics = save_thm("hello_semantics",
   call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
-  |> SIMP_RULE std_ss [APPEND]);
+  |> DISCH_ALL
+  |> SIMP_RULE std_ss [APPEND,LENGTH]);
 
 val _ = export_theory ()

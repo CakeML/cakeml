@@ -31,6 +31,7 @@ val helloErr_prog_def = Define`helloErr_prog = ^helloErr_prog_tm`;
 
 val helloErr_semantics = save_thm("helloErr_semantics",
   call_thm_helloErr |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]
-  |> SIMP_RULE std_ss [APPEND]);
+  |> DISCH_ALL
+  |> SIMP_RULE std_ss [APPEND,LENGTH]);
 
 val _ = export_theory ()

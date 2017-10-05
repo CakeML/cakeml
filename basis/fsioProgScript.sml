@@ -95,8 +95,8 @@ val _ =
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`
     fun write_newline fd = write_char fd #"\n"
-    fun print_newline () = write_newline (stdin())
-    fun prerr_newline () = write_newline (stdout())
+    fun print_newline () = write_char (stdout()) #"\n"
+    fun prerr_newline () = write_char (stderr()) #"\n"
     ` |> append_prog
 
 
