@@ -1605,26 +1605,7 @@ val every_var_in_get_clash_set = Q.store_thm("every_var_in_get_clash_set",
         full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])>>
     TRY(HINT_EXISTS_TAC>>metis_tac[domain_union])>>
     TRY(qexists_tac`insert n () (union q' q)`>>
-        full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union]))
-  >-
-    (srw_tac[][]
-    >-
-      (HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])
-    >>
-      qexists_tac`insert n () s`>>full_simp_tac(srw_ss())[])
-  >-
-    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
-    qexists_tac`insert n () live`>>full_simp_tac(srw_ss())[])
-  >-
-    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
-    qexists_tac`insert n () (insert n0 () live)`>>full_simp_tac(srw_ss())[])
-  >-
-    (rw[]>>
-    (qexists_tac`union (insert n () LN) live`>>fs[domain_union]))
-  >-
-    (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
-     qexists_tac `insert n () (insert n0 () (insert n1 () (insert n2 () s0)))` >> fs[])
-    );
+        full_simp_tac(srw_ss())[domain_union]>>metis_tac[domain_union])));
 
 (* Proofs for check_clash_tree *)
 val check_col_INJ = Q.store_thm("check_col_INJ",

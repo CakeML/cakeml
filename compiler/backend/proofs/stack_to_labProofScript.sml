@@ -556,7 +556,7 @@ val state_rel_def = Define`
                            (c,MAP prog_to_section p)) ∧
     (∀k. let (c,ps,_) = s.compile_oracle k in
       EVERY (λ(n,p).
-        call_args p t.ptr_reg t.len_reg t.link_reg ∧
+        call_args p t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg ∧
         EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
         ALL_DISTINCT (extract_labels p)) ps ∧
         (* This last conjunct might not be necessary *)
@@ -733,10 +733,7 @@ val inst_correct = Q.store_thm("inst_correct",
          \\ disch_then (assume_tac o SYM) \\ fs[] )
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac) >>
-
-    fs[get_fp_var_def]>>res_tac>>fs[]
-
-    );
+    fs[get_fp_var_def]>>res_tac>>fs[]);
 
 val flatten_leq = Q.store_thm("flatten_leq",
   `∀x y z. z ≤ SND (SND (flatten x y z))`,
@@ -2560,7 +2557,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
       (λ(c,ps,_).
          EVERY
            (λ(n,p).
-              call_args p s.ptr_reg s.len_reg s.link_reg ∧
+              call_args p s.ptr_reg s.len_reg s.ptr2_reg s.len2_reg s.link_reg ∧
               EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
               ALL_DISTINCT (extract_labels p)) ps ∧
          ALL_DISTINCT (MAP FST ps)) (coracle k)) ∧
@@ -2850,6 +2847,12 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
       >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
       \\ conj_tac
       >- ( metis_tac[BIJ_DEF,IN_UNIV,DECIDE``0n <> 1 /\ 0n <> 2 /\ 1n <> 2``,INJ_DEF] )
+      \\ conj_tac
+      >- ( metis_tac[BIJ_DEF,IN_UNIV,
+             DECIDE``0n <> 1 /\ 0n <> 2 /\ 0n <> 3 /\ 0n <> 4 /\ 1n <> 2 /\ 1n <> 3 /\ 2n <> 3``, INJ_DEF] )
+      \\ conj_tac
+      >- ( metis_tac[BIJ_DEF,IN_UNIV,
+             DECIDE``0n <> 1 /\ 0n <> 2 /\ 0n <> 3 /\ 1n <> 2 /\ 1n <> 3``, INJ_DEF] )
       \\ simp[Abbr`code3`,domain_fromAList,Abbr`code2`]
       \\ conj_tac >-
         simp[compile_def,MAP_prog_to_section_Section_num]>>

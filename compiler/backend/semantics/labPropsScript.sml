@@ -640,8 +640,8 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
     \\ fs[inc_pc_def,align_dm_def,dec_clock_def])
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[Once evaluate_def,SimpRHS]
-  \\ rpt(BasicProvers.TOP_CASE_TAC \\ simp[])
-  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
   \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[]);
 
 val implements_align_dm = Q.store_thm("implements_align_dm",
