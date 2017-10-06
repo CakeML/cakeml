@@ -1,7 +1,5 @@
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
-open clos_to_bvlTheory (* for closure_tag et al. *)
-     lab_to_targetTheory (* for is_Label *)
 
 val _ = new_theory"labSem";
 
@@ -24,7 +22,7 @@ val _ = Datatype `
      ; ptr_reg    : num
      ; len_reg    : num
      ; ptr2_reg    : num
-     ; len2_reg    : num                      
+     ; len2_reg    : num
      ; link_reg   : num
      |>`
 
