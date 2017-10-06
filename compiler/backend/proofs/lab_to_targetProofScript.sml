@@ -3513,6 +3513,27 @@ val offset_ok_pad_code = Q.store_thm("offset_ok_pad_code",
   \\ Cases_on`ls` \\ fs[]
   \\ Cases_on`h` \\ fs[label_prefix_zero_cons]);
 
+(* invariant: referenced labels exist *)
+
+val labs_of_def = Define`
+  labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
+  labs_of _ = {}`;
+
+val line_labs_exist_def = Define`
+  (line_labs_exist labs (LabAsm a _ _ _) ⇔
+    ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
+  (line_labs_exist _ _ ⇔ T)`;
+
+val _ = export_rewrites["labs_of_def","line_labs_exist_def"];
+
+val sec_labs_exist_def = Define`
+  sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls`;
+val _ = export_rewrites["sec_labs_exist_def"];
+
+val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) code``);
+
 (* invariant: labels aligned at even positions *)
 
 val even_labels_def = Define`
@@ -3649,12 +3670,14 @@ val line_ok_pre_light_imp_line_ok = Q.store_thm("line_ok_pre_light_imp_line_ok",
      line_ok_pre c line ∧
      line_enc_with_nop c.encode labs ffis pos line ∧
      line_offset_ok labs ffis pos line ∧
+     line_labs_exist labs line ∧
      line_ok_light c line ∧ (is_Label line ⇒ EVEN pos) ⇒
      line_ok c labs ffis pos line`,
   ho_match_mp_tac line_ok_ind
-  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,line_ok_pre_def,line_offset_ok_def,get_jump_offset_def] \\ fs[]
-  \\ cheat (* need to assume that the labs exist *)
-  );
+  \\ rw[line_ok_def,line_ok_light_def,get_label_def,lab_inst_def,line_enc_with_nop_def,
+        line_ok_pre_def,line_offset_ok_def,get_jump_offset_def]
+  \\ fs[] \\ CASE_TAC
+  \\ CASE_TAC \\ imp_res_tac lab_lookup_IMP \\ rveq \\ fs[]);
 
 val all_enc_ok_pre_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_pre_light_imp_all_enc_ok",
   `∀c labs ffis pos code.
@@ -3662,6 +3685,7 @@ val all_enc_ok_pre_light_imp_all_enc_ok = Q.store_thm("all_enc_ok_pre_light_imp_
     all_enc_ok_pre c code ∧
     all_enc_ok_light c code ∧
     even_labels_strong pos code ∧
+    all_labs_exist labs code ∧
     offset_ok labs ffis pos code
     ⇒
     all_enc_ok c labs ffis pos code`,
@@ -4265,6 +4289,7 @@ val remove_labels_loop_thm = Q.prove(
                    pad_code_ends_with_label,all_enc_with_nop_label_zero]
       \\ match_mp_tac label_zero_pos_ok_even_labels \\ fs[]
       \\ match_mp_tac all_lab_len_pos_ok_pad_code \\ fs[])
+    \\ conj_tac >- cheat (* need to prove all labs exist *)
     \\ match_mp_tac offset_ok_pad_code \\ fs[]
     \\ metis_tac[enc_secs_again_offset_ok])
   \\ conj_asm1_tac
@@ -5028,7 +5053,7 @@ val compile_correct = Q.prove(
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr2_reg` \\ full_simp_tac(srw_ss())[]
-    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`    
+    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`
     \\ qmatch_assum_rename_tac `read_reg _.ptr2_reg _ = Word c2'`
     \\ qmatch_assum_rename_tac `read_reg _.ptr_reg _ = Word c'`
     \\ Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
@@ -5712,7 +5737,7 @@ val make_init_def = Define `
      ; ptr_reg        := mc_conf.ptr_reg
      ; len_reg        := mc_conf.len_reg
      ; ptr2_reg       := mc_conf.ptr2_reg
-     ; len2_reg       := mc_conf.len2_reg                           
+     ; len2_reg       := mc_conf.len2_reg
      ; link_reg       := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
      ; compile        := comp
      (* Initialize with code buffer empty *)
