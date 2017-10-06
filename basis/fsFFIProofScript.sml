@@ -1,5 +1,4 @@
-open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory optionMonadTheory
-     ltemporalTheory
+open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
 
 val _ = new_theory"fsFFIProof"
 

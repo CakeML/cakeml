@@ -68,7 +68,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
          (fs with numchars := ll) with numchars := THE (LTL ll)` by fs[] >>
          first_x_assum (fn thm => PURE_REWRITE_TAC[thm]) >>
         fs[wfFS_numchars,liveFS_def] >>
-        cases_on`ll` >> imp_res_tac ltemporalTheory.always_thm >> fs[] >>
+        cases_on`ll` >> imp_res_tac always_thm >> fs[] >>
         qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2 * GC` >>
         `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
         cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd,
@@ -93,11 +93,11 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
         >-(fs[MEM_MAP] >> qexists_tac`(fd1,(fnm'',off''))` >> rfs[FST,ALOOKUP_MEM]))
      >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',STRLEN c2))` >> 
         fs[ALOOKUP_MEM,FST]))
-  >-(cases_on`ll` >> fs[liveFS_def,ltemporalTheory.always_DROP] >>
+  >-(cases_on`ll` >> fs[liveFS_def,always_DROP] >>
      imp_res_tac NOT_LFINITE_DROP >> first_x_assum(assume_tac o Q.SPEC`k`)  >>
      strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
-     irule ltemporalTheory.always_DROP >> imp_res_tac ltemporalTheory.always_thm >> 
-	 fs[ltemporalTheory.always_DROP])
+     irule always_DROP >> imp_res_tac always_thm >> 
+	 fs[always_DROP])
   >-(irule STD_streams_fsupdate
      >-(irule STD_streams_fsupdate >> rw[] >> NTAC 3 (fs[STD_streams_def]))
      >> fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP]) >>

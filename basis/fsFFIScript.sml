@@ -1,8 +1,6 @@
-open preamble mlstringTheory cfHeapsBaseTheory optionMonadTheory
+open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory"fsFFI"
-
-
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring` 
 
