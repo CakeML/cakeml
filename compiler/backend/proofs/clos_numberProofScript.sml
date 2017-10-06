@@ -603,7 +603,9 @@ val do_app = Q.prove(
     \\ first_x_assum(qspec_then`n`mp_tac)>>srw_tac[][v_rel_simp]
     \\ every_case_tac \\ fs[OPTREL_def]
     \\ rveq\\ fs[state_rel_def,fmap_rel_OPTREL_FLOOKUP,OPTREL_def,FLOOKUP_UPDATE]
-    \\ rw[] \\ rfs[])
+    \\ rw[] \\ rfs[] \\ fs[v_rel_simp] \\ rename [`FLOOKUP _ k = _`]
+    \\ rpt(first_x_assum(qspec_then `k` assume_tac))
+    \\ rfs[] >> fs[] )
   >- (
     Cases_on`t`>>full_simp_tac(srw_ss())[v_rel_simp]>>
     Cases_on`t'`>>full_simp_tac(srw_ss())[v_rel_simp]>>

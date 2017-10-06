@@ -11,7 +11,7 @@ val decode_encode = Q.store_thm("decode_encode[simp]",
   EVAL_TAC \\ simp[OPT_MMAP_MAP_o]);
 
 val ffi_getArgs_def = Define`
-  ffi_getArgs (bytes:word8 list) cls  =
+  ffi_getArgs (conf:word8 list) (bytes:word8 list) cls  =
     if LENGTH bytes = 256 /\ EVERY (\c. c = n2w 0) bytes then
       let cl = FLAT (MAP (\s. s ++ [CHR 0]) cls) in
         if (LENGTH cl < 257) then
@@ -21,7 +21,7 @@ val ffi_getArgs_def = Define`
     else NONE`;
 
 val ffi_getArgs_length = Q.store_thm("ffi_getArgs_length",
-  `ffi_getArgs bytes cls = SOME (bytes',cls') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_getArgs conf bytes cls = SOME (bytes',cls') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[] \\ rw[]);
 
 val validArg_def = Define`

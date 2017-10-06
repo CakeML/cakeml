@@ -150,17 +150,17 @@ val ssa_cc_trans_inst_def = Define`
     let mov_in = Move 0 [(0,r3');(4,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',8)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 4))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',0);(r1',6)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(8,r3');(0,r4')] in
+    let mov_in = Move 0 [(6,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',8);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 8 0 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',6);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -331,18 +331,20 @@ val ssa_cc_trans_def = Define`
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
     (DataBufferWrite r1' r2',ssa,na)) ∧
-  (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
+  (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
-    let cptr = option_lookup ssa' ptr in
-    let clen = option_lookup ssa' len in
+    let cptr1 = option_lookup ssa' ptr1 in
+    let clen1 = option_lookup ssa' len1 in
+    let cptr2 = option_lookup ssa' ptr2 in
+    let clen2 = option_lookup ssa' len2 in
     let ssa_cut = inter ssa' numset in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,cptr);(4,clen)])
-               (Seq (FFI ffi_index 2 4 stack_set) (ret_mov)))) in
+               (Seq (Move 0 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
+               (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
@@ -461,14 +463,14 @@ val apply_colour_def = Define `
   (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
-  (apply_colour f (FFI ffi_index ptr len numset) =
-    FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
   (apply_colour f (Install r1 r2 r3 r4 numset) =
     Install (f r1) (f r2) (f r3) (f r4) (apply_nummap_key f numset)) ∧
   (apply_colour f (CodeBufferWrite r1 r2) =
     CodeBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (DataBufferWrite r1 r2) =
     DataBufferWrite (f r1) (f r2)) ∧
+  (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
   (apply_colour f (LocValue r l1) =
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
@@ -608,8 +610,9 @@ val get_live_def = Define`
     list_insert [r1;r2] live) ∧
   (get_live (DataBufferWrite r1 r2) live =
     list_insert [r1;r2] live) ∧
-  (get_live (FFI ffi_index ptr len numset) live =
-    insert ptr () (insert len () numset)) ∧
+  (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
+   insert ptr1 () (insert len1 ()
+     (insert ptr2 () (insert len2 () numset)))) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
@@ -846,8 +849,8 @@ val get_clash_tree_def = Define`
     Delta [] [r2;r1]) ∧
   (get_clash_tree (DataBufferWrite r1 r2) =
     Delta [] [r2;r1]) ∧
-  (get_clash_tree (FFI ffi_index ptr len numset) =
-    Seq (Delta [] [ptr;len]) (Set numset)) ∧
+  (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
   (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
   (get_clash_tree Tick = Delta [] []) ∧

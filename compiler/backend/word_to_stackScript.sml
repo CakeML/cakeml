@@ -103,13 +103,13 @@ val wInst_def = Define `
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
   (wInst (Arith (LongMul n1 n2 n3 n4)) kf =
-    (*n1 = 4, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
-      (Inst (Arith (LongMul 4 0 0 2)))) /\
+    (*n1 = 2, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
+      (Inst (Arith (LongMul 3 0 0 2)))) /\
   (wInst (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
     (*n1 = 0, n2 = 2, n3 = 2, n4 = 0 no spills necessary*)
     let (l,n5) = wReg1 n5 kf in
     wStackLoad l
-      (Inst (Arith (LongDiv 0 4 4 0 n5)))) /\
+      (Inst (Arith (LongDiv 0 3 3 0 n5)))) /\
   (wInst (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
@@ -299,7 +299,8 @@ val comp_def = Define `
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
-  (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
+  (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
+                                                (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 val raise_stub_def = Define `

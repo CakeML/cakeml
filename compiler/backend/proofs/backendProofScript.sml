@@ -363,13 +363,17 @@ val assign_with_has_fp_ops = Q.store_thm("assign_with_has_fp_ops",
 val mc_init_ok_def = Define`
   mc_init_ok c mc ⇔
   EVERY (λr. MEM (find_name c.stack_conf.reg_names (r + mc.target.config.reg_count -(LENGTH mc.target.config.avoid_regs+5))) mc.callee_saved_regs) [2;3;4] ∧
+  find_name c.stack_conf.reg_names 4 = mc.len2_reg ∧
+  find_name c.stack_conf.reg_names 3 = mc.ptr2_reg ∧
   find_name c.stack_conf.reg_names 2 = mc.len_reg ∧
   find_name c.stack_conf.reg_names 1 = mc.ptr_reg ∧
   find_name c.stack_conf.reg_names 0 =
     (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ∧
-  (* the next two are implied by injectivity of find_name *)
+  (* the next four are implied by injectivity of find_name *)
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len_reg ∧
   (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr_reg ∧
+  (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.len2_reg ∧
+  (case mc.target.config.link_reg of NONE => 0 | SOME n => n) ≠ mc.ptr2_reg ∧  
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
    c.lab_conf.asm_conf = mc.target.config`
 

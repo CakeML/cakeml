@@ -1351,8 +1351,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",`
     every_case_tac>>fs[state_component_equality]>>
     metis_tac[s_key_eq_refl])
   >-(*FFI*)
-    (full_simp_tac(srw_ss())[evaluate_def]>>
-    every_case_tac>>Cases_on`call_FFI s.ffi ffi_index x'`>>full_simp_tac(srw_ss())[LET_THM]>>
+   (full_simp_tac(srw_ss())[evaluate_def]>>
+    every_case_tac>>rename[`call_FFI s.ffi ffi_index conf bytes`]>>
+    Cases_on`call_FFI s.ffi ffi_index conf bytes`>>full_simp_tac(srw_ss())[LET_THM]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[get_var_def]>>
     metis_tac[s_key_eq_refl])
   >-(*Call*)
@@ -1914,8 +1915,10 @@ val permute_swap_lemma = Q.store_thm("permute_swap_lemma",`
     fs[case_eq_thms,state_component_equality]
   >- (*FFI*)
     (qexists_tac`perm`>>
-    full_simp_tac(srw_ss())[]>>
-    every_case_tac>>Cases_on`call_FFI st.ffi ffi_index x'`>>
+    full_simp_tac(srw_ss())[get_var_perm]>>
+    every_case_tac>>
+    TRY(rename[`call_FFI st.ffi ffi_index conf bytes`] >>
+        Cases_on`call_FFI st.ffi ffi_index conf bytes`) >>
     full_simp_tac(srw_ss())[LET_THM,state_component_equality])
   >- (*Call*)
     (fs[evaluate_def]>>
@@ -2393,7 +2396,12 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>
     full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-    Cases_on`res`>>full_simp_tac(srw_ss())[]));
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    full_case_tac>>full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
+    fs[pairTheory.ELIM_UNCURRY] >> rpt strip_tac >> rveq >> fs[]));
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
@@ -2549,7 +2557,7 @@ val wf_cutsets_def = Define`
         NONE => T
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x y z args) = wf args) ∧
+  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
@@ -2564,8 +2572,8 @@ val inst_arg_convention_def = Define`
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (* Follows conventions for x86 *)
-  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 8 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
-  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 8 ∧ r3 = 8 ∧ r4 = 0) ∧
+  (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
+  (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
   (inst_arg_convention _ = T)`
 
 (* Syntactic conventions for allocator *)
@@ -2573,8 +2581,9 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Inst i) = inst_arg_convention i) ∧
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (FFI x ptr len args) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
+  (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
+                                                         ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of

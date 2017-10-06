@@ -569,8 +569,8 @@ val compile_single_correct = Q.prove(`
   >- (*CBW*) tac
   >- (*DBW*) tac
   >- (*FFI*)
-     (tac>>
-     Cases_on`call_FFI st.ffi s x'`>>simp[]));
+    (tac>>
+     Cases_on`call_FFI st.ffi s x'' x'`>>simp[]));
 
 val compile_word_to_word_thm = Q.store_thm("compile_word_to_word_thm",
   `

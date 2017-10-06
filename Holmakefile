@@ -1,4 +1,4 @@
-INCLUDES = developers compiler/bootstrap/evaluation/x64/proofs compiler/benchmarks
+INCLUDES = developers compiler/bootstrap/compilation/x64/proofs compiler/benchmarks
 OPTIONS = QUIT_ON_FAILURE
 
 README_SOURCES = COPYING developers build-instructions.sh
@@ -9,7 +9,7 @@ all: README.md cake
 README.md: $(README_SOURCES) readmePrefix developers/readme_gen
 	developers/readme_gen $(README_SOURCES)
 
-cake: compiler/bootstrap/evaluation/x64/cake
+cake: compiler/bootstrap/compilation/x64/cake
 	$(CP) $< $@
 
 benchmarks: compiler/benchmarks/benchmarkTheory.uo

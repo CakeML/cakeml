@@ -15,7 +15,7 @@ val _ = Datatype `
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> ffi -> (word8 list # ffi) option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> (word8 list # ffi) option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
@@ -100,10 +100,10 @@ val decode_encode_list = Q.store_thm(
 
 (* make an ffi_next function from base functions and encode/decode *)
 val mk_ffi_next_def = Define`
-  mk_ffi_next (encode,decode,ls) name bytes s =
+  mk_ffi_next (encode,decode,ls) name conf bytes s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f bytes s) (λ(bytes,s).
+    OPTION_BIND (f conf bytes s) (λ(bytes,s).
     SOME (bytes,encode s))))`;
 
 (*------------------------------------------------------------------*)

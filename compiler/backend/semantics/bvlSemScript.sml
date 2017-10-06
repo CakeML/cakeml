@@ -295,10 +295,10 @@ val do_app_def = Define `
         Rval (Word64 (i2w i),s)
     | (WordToInt, [Word64 w]) =>
         Rval (Number (&(w2n w)),s)
-    | (FFI n, [RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n ws of
+    | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
+        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
+         | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
+           (case call_FFI s.ffi n cws ws of
             | (ffi',ws') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray F ws')

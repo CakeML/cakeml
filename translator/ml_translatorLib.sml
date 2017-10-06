@@ -391,6 +391,7 @@ in
     if ty = intSyntax.int_ty then Tapp [] astSyntax.TC_int else
     if ty = numSyntax.num then Tapp [] astSyntax.TC_int else
     if ty = stringSyntax.char_ty then Tapp [] astSyntax.TC_char else
+    if ty = oneSyntax.one_ty then Tapp [] astSyntax.TC_tup else
     if can dest_vartype ty then
       astSyntax.mk_Tvar(stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let

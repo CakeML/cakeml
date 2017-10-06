@@ -27,7 +27,8 @@ val _ = Datatype `
        | Alloc num
        | Raise num
        | Return num num
-       | FFI string num num num (* FFI index, array_ptr, array_len, ret_addr *)
+       | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
+                                           array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
        | Install num num num num num (* code buffer start, length of new code,
@@ -49,7 +50,7 @@ val _ = Datatype `
 val word_shift_def = Define `
   word_shift (:'a) =
     (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
-       to be sure that LOG doesn't unecessarily end up in the
+       to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num`;
 

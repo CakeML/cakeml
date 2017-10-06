@@ -69,7 +69,7 @@ val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
+  `(call_FFI s i conf xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
   srw_tac[][ffiTheory.call_FFI_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -3327,8 +3327,8 @@ val stack_remove_stack_asm_name = Q.store_thm("stack_remove_stack_asm_name",`
 
 val upshift_downshift_call_args = Q.store_thm("upshift_downshift_call_args",`
   ∀n n0.
-  call_args (upshift n n0) 1 2 0 ∧
-  call_args (downshift n n0) 1 2 0`,
+  call_args (upshift n n0) 1 2 3 4 0 ∧
+  call_args (downshift n n0) 1 2 3 4 0`,
   completeInduct_on`n0`>>
   simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
   strip_tac>>IF_CASES_TAC>>
@@ -3337,8 +3337,8 @@ val upshift_downshift_call_args = Q.store_thm("upshift_downshift_call_args",`
 
 val stack_remove_call_args = Q.store_thm("stack_remove_call_args",
   `compile jump off gen_gc n k pos p = p' /\
-    EVERY (λp. call_args p 1 2 0) (MAP SND p) ==>
-    EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p) ==>
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p')`,
   rw[]>>
   unabbrev_all_tac>>fs[]>>
   EVAL_TAC>>
