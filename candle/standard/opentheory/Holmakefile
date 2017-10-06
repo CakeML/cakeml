@@ -1,1 +1,4 @@
-INCLUDES = ../../../misc ../monadic
+INCLUDES = ../../../misc ../monadic \
+	   ../ml_kernel \
+	   ../../../basis \
+	   ../../../translator/monadic

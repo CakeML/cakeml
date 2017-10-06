@@ -1,0 +1,6 @@
+INCLUDES = .. ../../../../compiler
+CLINE_OPTIONS = -j1 --qof
+
+reader: reader.S ../../../../basis/basis_ffi.o
+	$(CC) $< ../../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+

@@ -1,4 +1,7 @@
-open preamble holKernelTheory
+open preamble
+     ml_hol_kernelProgTheory
+     mlstringProgTheory
+     (*holKernelTheory*)
 
 val _ = new_theory"reader"
 
