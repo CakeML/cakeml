@@ -147,7 +147,7 @@ val read_all_spec = Q.store_thm ("read_all_spec",
 
 val print_dec = process_topdecs
   `fun print s =
-   if String.strlen s < 65536 then
+   if String.size s < 65536 then
      CharIO.writeStr s
    else
      let
@@ -172,7 +172,7 @@ val print_spec = Q.store_thm("print_spec",
         \\ Cases_on `s`
         \\ fs[mlstringTheory.explode_thm,TAKE_LENGTH_TOO_LONG]
         \\ xsimpl)
-    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`        
+    \\ xlet `POSTv lv. & LIST_TYPE CHAR (explode s) lv * STDOUT output`
     >-(xapp \\ xsimpl \\ instantiate)
     \\ xapp \\ rw[]
 );
@@ -488,7 +488,7 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
   \\ simp[basis_ffi_oracle_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[] \\ rfs[] \\ fs[]
-  
+
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ fs[stdoutFFITheory.ffi_putChar_def,
         stdoutFFITheory.ffi_writeStr_def,
@@ -597,7 +597,7 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [stdinFFITheory.ffi_getChar_length,
  stdoutFFITheory.ffi_putChar_length,
- stdoutFFITheory.ffi_writeStr_length, 
+ stdoutFFITheory.ffi_writeStr_length,
  stderrFFITheory.ffi_putChar_err_length,
  commandLineFFITheory.ffi_getArgs_length,
  rofsFFITheory.ffi_open_length,
