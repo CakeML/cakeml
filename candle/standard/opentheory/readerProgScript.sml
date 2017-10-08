@@ -1,23 +1,20 @@
 open preamble
-     ml_monad_translatorLib
      readerTheory
-     (*ml_hol_kernelProgTheory*)
+     ml_hol_kernelProgTheory
 
 val _ = new_theory "readerProg"
 
+(* --- Translate the OpenTheory reader --- *)
+
+open ml_monad_translatorLib
 val _ = translation_extends "ml_hol_kernelProg"
 
-(* Initial state for the reader.
-
-   TODO: Move to readerScript
+(*
+val _ = register_type ``:object``
+val _ = register_type ``:state``
+val _ = register_exn_type ``:hol_exn``
+val _ = register_type ``:('a,'b) exc``
 *)
-val init_state_def = Define `
-  init_state =
-    <| stack := []
-     ; dict  := LN
-     ; thms  := [] |>`;
-
-(* --- Translate the OpenTheory reader --- *)
 
 val _ = translate init_state_def
 val _ = translate object_case_def
@@ -54,3 +51,4 @@ val r = m_translate getNvs_def
 val r = m_translate getCns_def
 val r = m_translate readLine_def
 
+val _ = export_theory ();

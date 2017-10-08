@@ -90,6 +90,12 @@ val _ = Datatype`
     dict : object spt;
     thms : thm list |>`;
 
+val init_state_def = Define `
+  init_state =
+    <| stack := []
+     ; dict  := LN
+     ; thms  := [] |>`;
+
 val pop_def = Define`
   pop s =
   case s.stack of
