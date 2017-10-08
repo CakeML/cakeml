@@ -301,11 +301,7 @@ val comp_correct = Q.prove(
   THEN1 (
     simp[Once comp_def] >>
     fs[evaluate_def] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    rpt(BasicProvers.TOP_CASE_TAC >> fs[]) >>
     simp[Once rename_state_def] >>
     simp[Once rename_state_def] >>
     simp[Once rename_state_def] >>
@@ -432,9 +428,11 @@ val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
 
 val stack_names_call_args = Q.store_thm("stack_names_call_args",`
   compile f p = p' ∧
-  EVERY (λp. call_args p 1 2 0) (MAP SND p) ==>
+  EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p) ==>
   EVERY (λp. call_args p (find_name f 1)
                            (find_name f 2)
+                           (find_name f 3)
+                           (find_name f 4)
                            (find_name f 0)) (MAP SND p')`,
   rw[]>>fs[compile_def]>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>

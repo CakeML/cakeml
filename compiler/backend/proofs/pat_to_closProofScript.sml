@@ -294,6 +294,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
     fs[patSemTheory.do_app_cases] >> rw[] >>
+    rfs[] >>
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
     fs[evaluate_def,MAP_REVERSE,do_app_def,PULL_EXISTS,
        store_alloc_def,FLOOKUP_compile_state_refs,int_gt,
@@ -305,6 +306,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
        INT_NOT_LT,int_ge,PULL_EXISTS,IMPLODE_EXPLODE_I,
        INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
     simp[MAP_MAP_o,n2w_ORD_CHR_w2n,EL_MAP,Unit_def] >>
+    simp[o_DEF] >>
     rfs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
     TRY (
       rename1`CopyByteStr`
@@ -406,7 +408,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac vs_to_string \\ fs[] >>
       DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] >>
       qexists_tac`wss` \\ rw[] >>
-      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] >>
+      simp[o_DEF]
       \\ NO_TAC) >>
     TRY (
       rename1`get_global` >>
@@ -433,7 +436,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ qpat_x_assum `_ = w` (fn thm => rw [GSYM thm])) >>
     fs[state_component_equality,compile_state_def,fmap_eq_flookup,
        ALOOKUP_GENLIST,FLOOKUP_UPDATE,store_assign_def,store_lookup_def]
-    \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP] ) >>
+    \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP]
+    \\ simp[ETA_THM]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     every_case_tac >> fs[] >>

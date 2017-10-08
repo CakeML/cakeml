@@ -676,16 +676,18 @@ val evaluate_def = tDefine "evaluate" `
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
-  (evaluate (FFI ffi_index ptr len names,s) =
-    case (get_var len s, get_var ptr s) of
-    | SOME (Word w),SOME (Word w2) =>
+  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
+    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
       (case cut_env names s.locals of
       | NONE => (SOME Error,s)
       | SOME env =>
-         (case read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be) of
-          | SOME bytes =>
-              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
-              let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
+        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+          | SOME bytes,SOME bytes2 =>
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes bytes2 in
+              let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                 (NONE, s with <| memory := new_m ;
                                  locals := env ;
                                  ffi := new_ffi |>)

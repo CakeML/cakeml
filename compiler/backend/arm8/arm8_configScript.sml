@@ -8,12 +8,14 @@ val arm8_names_def = Define `
        target's r26 must be avoided (extra encoding register),
        target's r31 must be avoided (stack pointer),
        source 0 must represent r30 (link register),
-       source 1-2 must be r0,r1 (1st 2 args),
+       source 1-4 must be r0-r3 (1st 4 args),
        top three (28-30) must be callee-saved (in r19-r29) *)
     (insert 0 30 o
      insert 1 0 o
      insert 2 1 o
-     insert 26 2 o
+     insert 3 2 o
+     insert 4 3 o
+     insert 26 4 o
      (* Next one is for well-formedness only *)
      insert 30 26) LN:num num_map`
 

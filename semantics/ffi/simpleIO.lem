@@ -6,14 +6,14 @@ open import Ffi
 type simpleIO = <| input : llist word8; output : llist word8 |>
 
 val isEof : oracle_function simpleIO
-let isEof st input =
+let isEof st conf input =
   match input with
   | [] -> Oracle_fail
   | x::xs -> Oracle_return st ((if st.input = lnil then 1 else 0)::xs)
   end
 
 val getChar : oracle_function simpleIO
-let getChar st input =
+let getChar st conf input =
   match input with
   | [] -> Oracle_fail
   | x::xs ->
@@ -24,24 +24,24 @@ let getChar st input =
   end
 
 val putChar : oracle_function simpleIO
-let putChar st input =
+let putChar st conf input =
   match input with
   | [] -> Oracle_fail
   | x::_ -> Oracle_return (<| st with output = lcons x st.output |>) input
   end
 
 val exit : oracle_function simpleIO
-let exit st input = Oracle_diverge
+let exit st conf input = Oracle_diverge
 
 val simpleIO_oracle : oracle simpleIO
-let simpleIO_oracle s st input =
+let simpleIO_oracle s st conf input =
   if s = "isEof" then
-    isEof st input
+    isEof st conf input
   else if s = "getChar" then
-    getChar st input
+    getChar st conf input
   else if s = "putChar" then
-    putChar st input
+    putChar st conf input
   else if s = "exit" then
-    exit st input
+    exit st conf input
   else
     Oracle_fail

@@ -484,11 +484,11 @@ val arith_name_def = Define`
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (arith_name (LongMul r1 r2 r3 r4) c ⇔
     reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
+    (c.ISA = x86_64 ⇒ r1 = 3 ∧ r2 = 0 ∧ r3 = 0) ∧
     (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Tiny ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
-    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 4 ∧ r4 = 0 ∧
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 3 ∧ r3 = 3 ∧ r4 = 0 ∧
     reg_name r5 c) ∧
   (arith_name (AddCarry r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
@@ -565,7 +565,7 @@ val stack_asm_name_def = Define`
 val fixed_names_def = Define`
   fixed_names names c =
   if c.ISA = x86_64 then
-    find_name names 4 = 2 ∧
+    find_name names 3 = 2 ∧
     find_name names 0 = 0
   else T`
 
@@ -670,8 +670,8 @@ val reg_bound_def = Define `
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k) /\
   (reg_bound (Halt n) k <=> n < k) /\
-  (reg_bound (FFI ffi_index ptr' len' ret') k <=>
-     ptr' < k /\ len' < k /\ ret' < k) /\
+  (reg_bound (FFI ffi_index ptr' len' ptr2' len2' ret') k <=>
+     ptr' < k /\ len' < k /\ ptr2' < k /\ len2' < k /\ ret' < k) /\
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
@@ -691,22 +691,22 @@ val reg_bound_def = Define `
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI calls *)
 val call_args_def = Define `
-  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
-     call_args p1 ptr len ret /\
-     call_args p2 ptr len ret) /\
-  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
-     call_args p1 ptr len ret /\
-     call_args p2 ptr len ret) /\
-  (call_args (While c r ri p1) ptr len ret <=>
-     call_args p1 ptr len ret) /\
-  (call_args (Halt n) ptr len ret <=> (n = ptr)) /\
-  (call_args (FFI ffi_index ptr' len' ret') ptr len ret <=>
-     ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (call_args (Call x1 _ x2) ptr len ret <=>
+  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret /\
+     call_args p2 ptr len ptr2 len2 ret) /\
+  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret /\
+     call_args p2 ptr len ptr2 len2 ret) /\
+  (call_args (While c r ri p1) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret) /\
+  (call_args (Halt n) ptr len ptr2 len2 ret <=> (n = ptr)) /\
+  (call_args (FFI ffi_index ptr' len' ptr2' len2' ret') ptr len ptr2 len2 ret <=>
+     ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
+  (call_args (Call x1 _ x2) ptr len ptr2 len2 ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ret /\ r = ret
+      | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
       | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ret | NONE => T)) /\
-  (call_args _ ptr len ret <=> T)`
+     (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
+  (call_args _ ptr len ptr2 len2 ret <=> T)`
 
 val _ = export_theory();

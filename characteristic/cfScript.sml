@@ -1559,18 +1559,20 @@ val cf_wordToInt_W64_def = Define `
       app_wordToInt w H Q)`
 
 val app_ffi_def = Define `
-  app_ffi ffi_index a H Q =
-    ((?ws F vs s s' u ns.
-        u ffi_index ws s = SOME (vs,s') /\ MEM ffi_index ns /\
+  app_ffi ffi_index c a H Q =
+    ((?conf ws F vs s s' u ns.
+        u ffi_index conf ws s = SOME (vs,s') /\ MEM ffi_index ns /\
+        c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
         (H ==>> F * W8ARRAY a ws * IO s u ns) /\
         (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Val (Conv NONE []))) /\
      Q ==e> POST_F)`
 
 val cf_ffi_def = Define `
-  cf_ffi ffi_index r = \env. local (\H Q.
-    ?rv.
+  cf_ffi ffi_index c r = \env. local (\H Q.
+    ?conf rv.
       exp2v env r = SOME rv /\
-      app_ffi ffi_index rv H Q)`
+      exp2v env c = SOME conf /\
+      app_ffi ffi_index conf rv H Q)`
 
 val cf_log_def = Define `
   cf_log lop e1 cf2 = \env. local (\H Q.
@@ -1715,7 +1717,7 @@ val cf_def = tDefine "cf" `
              | _ => cf_bottom)
         | FFI ffi_index =>
           (case args of
-             | [w] => cf_ffi ffi_index w
+             | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
@@ -2072,10 +2074,15 @@ val cf_cases_evaluate_match = Q.prove (
   )
 );
 
+(* TODO: move to misc? *)
+val n2w_ORD_CHR_w2n' = Q.prove(`!w. n2w(ORD(CHR(w2n w))) = (w:word8)`,
+  metis_tac[n2w_ORD_CHR_w2n,o_THM,I_THM]);
+
 val cf_ffi_sound = Q.prove (
-  `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [r]) (\env. local (\H Q.
-     ?rv. exp2v env r = SOME rv /\
-          app_ffi ffi_index rv H Q))`,
+  `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
+     ?cv rv. exp2v env r = SOME rv /\
+          exp2v env c = SOME cv /\
+          app_ffi ffi_index cv rv H Q))`,
    cf_strip_sound_tac \\ Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
    cf_evaluate_step_tac \\
    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
@@ -2119,9 +2126,12 @@ val cf_ffi_sound = Q.prove (
    fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\
    progress store2heap_LUPDATE \\ fs [] \\
    fs [FLOOKUP_DEF] \\ rveq \\
-   first_assum progress \\ fs [] \\
+   first_assum progress \\ fs [MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',IMPLODE_EXPLODE_I] \\
    qabbrev_tac `events1 = (FILTER (ffi_has_index_in ns) st.ffi.io_events)` \\
-   qabbrev_tac `new_events = events1 ++ [IO_event ffi_index (ZIP (ws,vs))]` \\
+   qabbrev_tac `new_events = events1 ++ [IO_event
+                                           ffi_index
+                                           conf
+                                           (ZIP (ws,vs))]` \\
    qexists_tac `
       (FFI_part s' u ns new_events INSERT
        (Mem y (W8array vs) INSERT u2))` \\

@@ -1218,6 +1218,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]) >>
   pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases]) >>
   rw[patSemTheory.do_app_def] >>
+  rfs[] >>
   fs[store_alloc_def,store_lookup_def,store_assign_def] >> rw[] >>
   fs[state_rel_def] >>
   TRY (

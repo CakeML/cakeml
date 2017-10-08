@@ -2,12 +2,12 @@ datatype tree = Leaf
               | Branch of tree * int * tree;
 fun insert x t =
   case t
-  of Leaf => (Branch(Leaf,x,Leaf))
-  |  Branch(t1,y,t2) => (if (x < y)
-                         then (Branch(insert x t1,y,t2))
+  of Leaf => (Branch Leaf x Leaf)
+  |  Branch t1 y t2 => (if (x < y)
+                         then (Branch(insert x t1) y t2)
                          else (if (y < x)
-                               then (Branch(t1,y,insert x t2))
-                               else (Branch(t1,y,t2))));
+                               then (Branch t1 y (insert x t2))
+                               else (Branch t1 y t2)));
 fun build_tree l =
   case l
   of [] => Leaf
@@ -19,7 +19,7 @@ fun append l ys =
 fun flatten t =
   case t
   of Leaf => []
-  |  Branch(t1,x,t2) => (append (flatten t1) (append [x] (flatten t2)));
+  |  Branch t1 x t2 => (append (flatten t1) (append [x] (flatten t2)));
 fun tree_sort xs = flatten (build_tree xs);
 fun mk_list n =
   if (n = 0)

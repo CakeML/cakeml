@@ -18,7 +18,7 @@ val store2heap_aux_def = Define `
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
 
 val ffi_has_index_in_def = Define `
-  ffi_has_index_in ns (IO_event i ws) = (MEM i ns)`;
+  ffi_has_index_in ns (IO_event i conf ws) = (MEM i ns)`;
 
 val parts_ok_def = Define `
   parts_ok st ((proj,parts):'ffi ffi_proj) <=>
@@ -28,12 +28,12 @@ val parts_ok_def = Define `
     (!ns u.
        MEM (ns,u) parts ==>
        ?s. !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) /\
-    !x bytes w new_bytes m ns u.
+    !x conf bytes w new_bytes m ns u.
       MEM (ns,u) parts /\ MEM m ns /\
-      u m bytes (proj x ' m) = SOME (new_bytes,w) ==>
+      u m conf bytes (proj x ' m) = SOME (new_bytes,w) ==>
       LENGTH new_bytes = LENGTH bytes /\
       ?y.
-        st.oracle m x bytes = Oracle_return y new_bytes /\
+        st.oracle m x conf bytes = Oracle_return y new_bytes /\
         proj x |++ (MAP (\n. (n,w)) ns) = proj y`
 
 val ffi2heap_def = Define `
