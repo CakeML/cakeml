@@ -2,6 +2,11 @@ open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory"fsFFI"
 
+
+val _ = overload_on ("return", ``SOME``)
+val _ = overload_on ("fail", ``NONE``)
+val _ = overload_on ("++", ``OPTION_CHOICE``)
+
 val _ = Datatype` inode = IOStream mlstring | File mlstring` 
 
 (* files: a list of file names and their content.
