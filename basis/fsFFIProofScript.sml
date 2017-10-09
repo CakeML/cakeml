@@ -2,6 +2,14 @@ open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
 
 val _ = new_theory"fsFFIProof"
 
+(* TODO: put these calls in a re-usable option syntax Lib *)
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 val _ = monadsyntax.add_monadsyntax();
 
 (* nextFD *)
@@ -83,16 +91,9 @@ val eof_read = Q.store_thm("eof_read",
             read fd fs n = SOME ([], fs with numchars := THE(LTL fs.numchars))`,
  rw[eof_def,read_def,MIN_DEF]  >>
  qexists_tac `x` >> rw[] >>
- cases_on `x` >> 
- fs[DROP_LENGTH_TOO_LONG] >>
- fs[bumpFD_def,wfFS_def] >>
- `ALIST_FUPDKEY fd (I ## $+ (STRLEN contents − r)) fs.infds = fs.infds` by 
-   (`(∀v. ALOOKUP fs.infds fd = SOME v ⇒ (I ## $+ (STRLEN contents − r)) v = v)`
-      by (cases_on`v` >> rw[]) >>
-    imp_res_tac ALIST_FUPDKEY_unchanged) >>
-  cases_on`fs.numchars` >> fs[] >>
-  cases_on`fs` >>
-  fs[IO_fs_fn_updates,IO_fs_11]);
+ pairarg_tac >> fs[bumpFD_def,wfFS_def] >>
+ cases_on`fs.numchars` >> fs[IO_fs_component_equality] >>
+ irule ALIST_FUPDKEY_unchanged >> cases_on`v` >> rw[]);
 
 val read_eof = Q.store_thm("eof_read",
  `!fd fs n fs'. 0 < n ⇒ read fd fs n = SOME ([], fs') ⇒ eof fd fs = SOME T`,
@@ -228,12 +229,12 @@ val encode_11 = Q.store_thm(
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",
-  `ffi_open_in bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_open_in conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_in_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
 
 val ffi_open_out_length = Q.store_thm("ffi_open_out_length",
-  `ffi_open_out bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_open_out conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_out_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ fs[] \\ metis_tac[LENGTH_LUPDATE]);
 
@@ -246,7 +247,7 @@ val read_length = Q.store_thm("read_length",
 
 
 val ffi_read_length = Q.store_thm("ffi_read_length",
-  `ffi_read bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def] 
   \\ every_case_tac
   \\ fs[option_eq_some]
@@ -257,14 +258,14 @@ val ffi_read_length = Q.store_thm("ffi_read_length",
   \\ imp_res_tac LENGTH_EQ \\ fs[]);
 
 val ffi_write_length = Q.store_thm("ffi_write_length",
-  `ffi_write bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_write conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[] 
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
   \\ metis_tac[LENGTH_LUPDATE]);
 
 val ffi_close_length = Q.store_thm("ffi_close_length",
-  `ffi_close bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_close conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_close_def]
   \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ rw[]);

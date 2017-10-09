@@ -2,10 +2,14 @@ open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory"fsFFI"
 
-
-val _ = overload_on ("return", ``SOME``)
-val _ = overload_on ("fail", ``NONE``)
-val _ = overload_on ("++", ``OPTION_CHOICE``)
+(* TODO: put these calls in a re-usable option syntax Lib *)
+val _ = monadsyntax.temp_add_monadsyntax();
+val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
+val _ = temp_overload_on ("SOME", ``SOME``)
+val _ = temp_overload_on ("NONE", ``NONE``)
+val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
+val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring` 
 
@@ -155,7 +159,7 @@ val getNullTermStr_def = Define`
 *  return result code in first byte
 *  write its file descriptor index in the second byte *)
 val ffi_open_in_def = Define`
-  ffi_open_in bytes fs =
+  ffi_open_in (conf: word8 list) bytes fs =
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs 0;
@@ -174,7 +178,7 @@ val ffi_open_in_def = Define`
 * The file is truncated to zero length if it already exists. 
 * TODO: It is created if it does not already exists.*)
 val ffi_open_out_def = Define`
-  ffi_open_out bytes fs =
+  ffi_open_out (conf: word8 list) bytes fs =
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile_truncate (implode fname) fs;
@@ -189,7 +193,7 @@ val ffi_open_out_def = Define`
 * corresponding system call:
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
-  ffi_read bytes fs =
+  ffi_read (conf: word8 list) bytes fs =
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
        | fd :: (numb :: pad :: tll) =>
@@ -211,7 +215,7 @@ val ffi_read_def = Define`
 * corresponding system call:
 * ssize_t write(int fildes, const void *buf, size_t nbytes) *)
 val ffi_write_def = Define`
-  ffi_write bytes fs =
+  ffi_write (conf:word8 list) bytes fs =
     do
     (* the buffer contains at least the number of requested bytes *)
       assert(LENGTH bytes >= 3);
@@ -224,7 +228,7 @@ val ffi_write_def = Define`
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
-  ffi_close bytes fs =
+  ffi_close (conf:word8 list) (bytes: word8 list) fs =
     do
       assert(LENGTH bytes >= 1);
       do

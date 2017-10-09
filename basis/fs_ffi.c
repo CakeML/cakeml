@@ -11,7 +11,7 @@ extern char **argv;
 
 #define MAXLEN 256
 
-void ffigetArgs (unsigned char *a) {
+void ffigetArgs (unsigned char *c, long clen, unsigned char *a, long alen) {
         int i, j, k;
 
         for (i = 0, k = 0; (i < argc) && (k < MAXLEN); i++, k++) {
@@ -32,7 +32,7 @@ int nextFD() {
   return fd;
 }
 
-void ffiopen_in (unsigned char *a) {
+void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
   if (fd <= 255 && (infds[fd] = open(a, O_RDONLY|O_CREAT))){
     a[0] = 0;
@@ -42,7 +42,7 @@ void ffiopen_in (unsigned char *a) {
     a[0] = 255;
 }
 
-void ffiopen_out (unsigned char *a) {
+void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
   if (fd <= 255 && (infds[fd] = open(a, O_RDWR|O_CREAT|O_TRUNC))){
     a[0] = 0;
@@ -52,7 +52,7 @@ void ffiopen_out (unsigned char *a) {
     a[0] = 255;
 }
 
-void ffiread (unsigned char *a) {
+void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
   int nread = read(infds[a[0]], &a[3], a[1]);
   if(nread < 0){
     a[0] = 1;
@@ -63,7 +63,7 @@ void ffiread (unsigned char *a) {
   }
 }
 
-void ffiwrite (unsigned char * a){
+void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
   int nw = write(infds[a[0]], &a[3+a[2]], a[1]);
   if(nw < 0){
       a[0] = 1;
@@ -75,7 +75,7 @@ void ffiwrite (unsigned char * a){
   }
 }
 
-void fficlose (unsigned char *a) {
+void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
   if (infds[a[0]] && close(infds[a[0]]) == 0) {
     infds[a[0]] = -1;
     a[0] = 1;

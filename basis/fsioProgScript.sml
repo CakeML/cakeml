@@ -25,7 +25,7 @@ val _ =
     let val a = Word8Array.update iobuff 0 fd
         val a = Word8Array.update iobuff 1 n
         val a = Word8Array.update iobuff 2 i
-        val a = #(write) iobuff in
+        val a = #(write) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 1 
         then raise InvalidFD
         else 
@@ -83,7 +83,7 @@ val _ =
   if s = "" then () else
   let val s1 = String.substring s 0 255
       val fl = copyi iobuff 3 (String.explode s1)
-      val n = String.strlen s1
+      val n = String.size s1
       val a = write fd n 0 in
          output fd (String.extract s n NONE)
   end;
@@ -110,14 +110,14 @@ val _ = process_topdecs
 val _ = process_topdecs`
 fun openIn fname =
   let val a = str_to_w8array iobuff fname
-      val a = #(open_in) iobuff in
+      val a = #(open_in) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0 
         then Word8Array.sub iobuff 1
         else raise BadFileName
   end
 fun openOut fname =
   let val a = str_to_w8array iobuff fname
-      val a = #(open_out) iobuff in
+      val a = #(open_out) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0 
         then Word8Array.sub iobuff 1
         else raise BadFileName
@@ -126,7 +126,7 @@ val _ = process_topdecs`
 
 fun close fd =
   let val a = Word8Array.update iobuff 0 fd
-      val a = #(close) iobuff in
+      val a = #(close) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 1 
         then () else raise InvalidFD
   end` |> append_prog
@@ -136,7 +136,7 @@ val _ = process_topdecs`
   fun read fd n =     
     let val a = Word8Array.update iobuff 0 fd
         val a = Word8Array.update iobuff 1 n in
-          (#(read) iobuff;
+          (#(read) "" iobuff;
           if Word8.toInt (Word8Array.sub iobuff 0) <> 1
           then Word8.toInt(Word8Array.sub iobuff 1)
           else raise InvalidFD)

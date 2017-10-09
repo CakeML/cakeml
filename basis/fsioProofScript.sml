@@ -11,29 +11,29 @@ val _ = new_theory"fsioProof";
 
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
-    \name (cls,fs) bytes.
+    \name (cls,fs) conf bytes.
      if name = "write" then
-       case ffi_write bytes fs of
+       case ffi_write conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      if name = "read" then
-       case ffi_read bytes fs of
+       case ffi_read conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      if name = "getArgs" then
-       case ffi_getArgs bytes cls of
+       case ffi_getArgs conf bytes cls of
        | SOME (bytes,cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      if name = "open_in" then
-       case ffi_open_in bytes fs of
+       case ffi_open_in conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      if name = "open_out" then
-       case ffi_open_out bytes fs of
+       case ffi_open_out conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      if name = "close" then
-       case ffi_close bytes fs of
+       case ffi_close conf bytes fs of
        | SOME (bytes,fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_fail else
      Oracle_fail`
@@ -47,7 +47,7 @@ val basis_ffi_def = Define `
      ; io_events := [] |>`;
 
 val basis_proj1_def = Define `
-  basis_proj1 = (\clsfs. let (cls, fs) = clsfs in
+  basis_proj1 = (\(cls, fs).
     FEMPTY |++ ((mk_proj1 commandLine_ffi_part cls) 
 			++ (mk_proj1 fs_ffi_part fs)))`;
 
@@ -63,13 +63,13 @@ val basis_proj1_write = Q.store_thm("basis_proj1_write",
 (* builds the file system from a list of events *)
 val extract_fs_def = Define `
   (extract_fs init_fs [] = SOME init_fs) ∧ 
-  (extract_fs init_fs ((IO_event name bytes)::xs) =
+  (extract_fs init_fs ((IO_event name conf bytes)::xs) =
   (* monadic style doesn't work here *)
     case (ALOOKUP [("open_in",ffi_open_in); ("write",ffi_write);
                            ("open_out",ffi_open_out); ("read",ffi_read);
                            ("close",ffi_close);
-                           ("getArgs", (λ b fs. SOME (b,fs)))] name) of
-    | SOME ffi_fun => (case ffi_fun (MAP FST bytes) init_fs of
+                           ("getArgs", (λ c b fs. SOME (b,fs)))] name) of
+    | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
                        | SOME (bytes',fs') => extract_fs fs' xs
                        | NONE => NONE)
     | NONE => NONE)`
@@ -277,8 +277,8 @@ val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",
-  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
-    ==> (?y. st.ffi.oracle m x bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
+  `!st. st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\ MEM m ns /\ u m conf bytes (basis_proj1 x ' m) = SOME (new_bytes, w)
+    ==> (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\ basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
@@ -290,8 +290,7 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
   \\ rw[] )
   \\ disj2_tac
-  \\ CCONTR_TAC \\ fs[] \\ rfs[]
-);
+  \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
 val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
   `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
