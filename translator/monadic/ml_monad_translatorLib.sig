@@ -1,4 +1,4 @@
-signature ml_monad_translatorLib = 
+signature ml_monad_translatorLib =
 sig
     include ml_translatorLib
 
@@ -30,4 +30,13 @@ sig
     (* Translation functions *)
     val m_translate : thm -> thm
     val m_translate_run : thm -> thm
+    val m2deep : term -> thm
+
+    (* Resume prior monadic translation.
+
+       Loads the state specific to the monadic translation from the specified
+       theory, followed by a call to translation_extends from the 'standard'
+       translator (i.e. fetching the rest of the translator state). *)
+    val m_translation_extends : string -> unit
+
 end
