@@ -29,6 +29,8 @@ word8
 w8array
 array
 commandLine
+fsioConstants
+fsio
 chario
 fileio
 io
