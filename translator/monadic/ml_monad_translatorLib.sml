@@ -2328,6 +2328,177 @@ fun m_translate_run def = let
 in th end
 
 (*
+   Code for loading and storing the monadic translator state,
+   as the things in ml_translatorLib does not include the
+   bits and pieces specific to the monadic translator (i.e.
+   exceptions, refs, et cetera.
+
+   Installs a hook to fire off on export_theory (like in the standard
+   translator) and recursively calls on translation_extends to load all
+   the standard translator state as well.
+
+*)
+fun check_uptodate_term tm =
+  if Theory.uptodate_term tm then () else let
+    val t = find_term (fn tm => is_const tm
+      andalso not (Theory.uptodate_term tm)) tm
+    val _ = print "\n\nFound out-of-date term: "
+    val _ = print_term t
+    val _ = print "\n\n"
+    in () end
+
+
+(* Code for resuming a monadic translation.
+
+   Packs all the monadic state into a theorem when the theory is exported.
+   The translation can then be resumed by a call to m_translation_extends,
+   which acts as a stand-in to translation_extends from the standard translator.
+
+   The following fields are currently *not* saved:
+
+   - dynamic_specs
+   - dynamic_init_env
+
+*)
+
+local
+  open packLib
+
+  val suffix = "_monad_translator_state_thm"
+
+  (* --- Packing --- *)
+
+  fun pack_part0 () =
+    pack_5tuple
+      pack_type                                  (* refs_type           *)
+      pack_type                                  (* exn_type            *)
+      pack_term                                  (* aM                  *)
+      pack_term                                  (* bM                  *)
+      (pack_option pack_thm)                     (* VALID_STORE_THM     *)
+        (!refs_type, !exn_type, !aM, !bM, !VALID_STORE_THM)
+  fun pack_part1 () =
+    pack_6tuple
+      pack_thm                                   (* EXN_TYPE_def_ref    *)
+      pack_term                                  (* EXN_TYPE            *)
+      (pack_list pack_string)                    (* type_theories       *)
+      (pack_list (pack_pair pack_term pack_thm)) (* exn_handles         *)
+      (pack_list (pack_pair pack_term pack_thm)) (* exn_raises          *)
+      (pack_list (pack_pair pack_thm pack_thm))  (* exn_functions_defs  *)
+        ( !EXN_TYPE_def_ref, !EXN_TYPE, !type_theories
+        , !exn_handles, !exn_raises, !exn_functions_defs )
+  fun pack_part2 () =
+    pack_6tuple
+      pack_term                                  (* default_H           *)
+      pack_thm                                   (* H_def               *)
+      pack_term                                  (* H                   *)
+      (pack_list (pack_pair pack_term pack_thm)) (* access_patterns     *)
+      (pack_list (pack_pair pack_thm pack_thm))  (* refs_functions_defs *)
+      (pack_list (pack_6tuple
+                  pack_thm pack_thm pack_thm
+                  pack_thm pack_thm pack_thm))   (* arrays_functions_defs *)
+        ( !default_H, !H_def, !H, !access_patterns
+        , !refs_functions_defs, !arrays_functions_defs )
+
+  fun pack_state () =
+    let
+      val name      = Theory.current_theory () ^ suffix
+      val name_tm   = stringSyntax.fromMLstring name
+      val tag_lemma = ISPEC (mk_var("b",bool)) (ISPEC name_tm TAG_def) |> GSYM
+
+      val p = pack_triple I I I (pack_part0 (), pack_part1 (), pack_part2 ())
+
+      val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
+      val _ = check_uptodate_term (concl th)
+    in
+      save_thm(name,th)
+    end
+
+  (* --- Unpacking --- *)
+
+  fun unpack_types th =
+    let
+      val (rty, ety, am, bm, vst) =
+        unpack_5tuple unpack_type unpack_type unpack_term
+                      unpack_term (unpack_option unpack_thm) th
+      val _ = (refs_type := rty)
+      val _ = (exn_type := ety)
+      val _ = (aM := am)
+      val _ = (bM := bm)
+      val _ = (VALID_STORE_THM := vst)
+    in () end
+
+  fun unpack_state1 th =
+    let
+      val (etdr, et, tt, eh, er, efd) =
+        unpack_6tuple
+          unpack_thm
+          unpack_term
+          (unpack_list unpack_string)
+          (unpack_list (unpack_pair unpack_term unpack_thm))
+          (unpack_list (unpack_pair unpack_term unpack_thm))
+          (unpack_list (unpack_pair unpack_thm unpack_thm)) th
+      val _ = (EXN_TYPE_def_ref := etdr)
+      val _ = (EXN_TYPE := et)
+      val _ = (type_theories := tt)
+      val _ = (exn_handles := eh)
+      val _ = (exn_raises := er)
+      val _ = (exn_functions_defs := efd)
+    in () end
+
+  fun unpack_state2 th =
+    let
+      val (dh, hd, h, ap, rfd, afd) =
+        unpack_6tuple
+          unpack_term
+          unpack_thm
+          unpack_term
+          (unpack_list (unpack_pair unpack_term unpack_thm))
+          (unpack_list (unpack_pair unpack_thm unpack_thm))
+          (unpack_list (unpack_6tuple unpack_thm unpack_thm unpack_thm
+                                      unpack_thm unpack_thm unpack_thm)) th
+      val _ = (default_H := dh)
+      val _ = (H_def := hd)
+      val _ = (H := h)
+      val _ = (access_patterns := ap)
+      val _ = (refs_functions_defs := rfd)
+      val _ = (arrays_functions_defs := afd)
+    in () end
+
+  fun unpack_state name =
+    let
+      val th = fetch name (name ^ suffix)
+      val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
+      val (tys, st1, st2) = unpack_triple I I I th
+      val _ = unpack_types tys
+      val _ = unpack_state1 st1
+      val _ = unpack_state2 st2
+    in () end
+
+  val finalised = ref false
+in (* Borrowed from ml_translatorLib *)
+  fun finalise_reset () = (finalised := false)
+  fun finalise_translation () =
+    if !finalised then () else let
+      val _ = (finalised := true)
+      val _ = pack_state ()
+      (* val _ = print_translation_output () *) (* TODO: Would this be useful? *)
+      in () end
+
+  val _ = Theory.register_hook
+            ( "cakeML.ml_monad_translator"
+            , (fn TheoryDelta.ExportTheory _ => finalise_translation ()
+                  | _                        => ()))
+
+  fun m_translation_extends name = let
+    val _ = print ("Loading monadic translator state from: " ^ name ^ " ... ")
+    val _ = unpack_state name
+    val _ = print "done.\n"
+    val _ = translation_extends name
+    in () end;
+
+end
+
+(*
 val lhs = fst o dest_eq;
 val rhs = snd o dest_eq;
 *)

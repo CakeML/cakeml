@@ -64,6 +64,11 @@ val destNum_def = Define`
   (destNum _ = NONE)`;
 val _ = export_rewrites ["destNum_def"]
 
+val destStream_def = Define`
+  (destStream (Stream ll) = SOME ll) ∧
+  (destStream _ = NONE)`;
+val _ = export_rewrites ["destStream_def"]
+
 val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
   `destStr o Str = SOME`, rw[FUN_EQ_THM]);
 
