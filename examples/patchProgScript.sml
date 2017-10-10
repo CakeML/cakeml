@@ -22,45 +22,6 @@ fun def_of_const tm = let
 
 val _ = find_def_for_const := def_of_const;
 
-(* TODO: a better version of num_from_dec_string should be in the basis library, Int.fromString *)
-
-(* Circumvents a problem where the translator generates unprovable side conditions
-   for higher-order functions *)
-val unhex_all_def = Define `(unhex_all [] = []) /\ (unhex_all (a::b) = UNHEX a::unhex_all b)`
-
-val unhex_map = Q.prove(`!s. unhex_all s = MAP UNHEX s`, Induct >> fs[unhex_all_def])
-
-val s2n_UNHEX_def = Define `s2n_UNHEX b s = l2n b (unhex_all (REVERSE s))`
-
-val num_from_dec_string_thm = Q.store_thm("num_from_dec_string_thm",
-  `!s. toNum s = s2n_UNHEX 10 s`,
-  rw[ASCIInumbersTheory.num_from_dec_string_def,s2n_UNHEX_def,ASCIInumbersTheory.s2n_def,
-     unhex_map]);
-
-val _ = translate num_from_dec_string_thm;
-
-val l2n_side_IMP = Q.prove(`∀n l. n <> 0 ==> l2n_side n l = T`,
-  strip_tac >> Induct >> rw[Once(fetch "-" "l2n_side_def")]);
-
-val unhex_side = Q.prove(`!c. unhex_side c <=> isHexDigit c`,
-  Cases >> fs[isHexDigit_def] >> PURE_ONCE_REWRITE_TAC[fetch "-" "unhex_side_def"]
-        >> PURE_REWRITE_TAC[AC DISJ_ASSOC DISJ_COMM]
-        >> PURE_REWRITE_TAC [GSYM DISJ_ASSOC,AND_CLAUSES]
-        >> PURE_ONCE_REWRITE_TAC[EQ_IMP_THM]
-        >> rpt strip_tac >> rfs[CHR_11]) |> update_precondition
-
-val unhex_all_side = Q.prove(`!s. unhex_all_side s <=> EVERY isHexDigit s`,
-  Induct >> PURE_ONCE_REWRITE_TAC[fetch "-" "unhex_all_side_def"]>> fs[unhex_side])
-  |> update_precondition;
-
-val s2n_unhex_side_IMP = Q.prove(`∀n s. n <> 0 ==> s2n_unhex_side n s = EVERY isHexDigit s`,
-  rpt strip_tac
-  >> rw[Once(fetch "-" "s2n_unhex_side_def"),l2n_side_IMP,unhex_all_side,EVERY_REVERSE]);
-
-val num_from_dec_string_side = Q.prove(`
-  ∀s. num_from_dec_string_side s = EVERY isHexDigit s`,
-  fs[fetch "-" "num_from_dec_string_side_def",s2n_unhex_side_IMP]) |> update_precondition;
-
 val _ = translate parse_patch_header_def;
 
 val tokens_less_eq = Q.prove(`!s f. EVERY (\x. strlen x <= strlen s) (tokens f s)`,
@@ -101,9 +62,7 @@ val hexDigit_IMP_digit = Q.store_thm("hexDigit_IMP_digit",`!c. isDigit c ==> isH
   rw[isHexDigit_def,isDigit_def]);
 
 val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
-  rw[fetch "-" "parse_patch_header_side_def",
-     fetch "-" "num_from_string_side_def",
-     fetch "-" "fromstring_side_def"]
+  rw[fetch "-" "parse_patch_header_side_def"]
   >> TRY(match_mp_tac(MATCH_MP EVERY_MONOTONIC hexDigit_IMP_digit) >> fs[string_is_num_def])
   >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[string_is_num_def])
   >> metis_tac[tokens_two_less]) |> update_precondition;
