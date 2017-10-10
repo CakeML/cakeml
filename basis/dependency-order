@@ -23,6 +23,7 @@ vector
 string
 basics
 int
+rat
 char
 word64
 word8
