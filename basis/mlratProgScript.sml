@@ -339,6 +339,14 @@ val pair_div_v_thm =
   |> DISCH_ALL |> REWRITE_RULE [pair_div_side_def] |> UNDISCH_ALL
   |> add_user_proved_v_thm;
 
+val toString_def = Define `
+  toString (i:int,n:num) =
+    if n = 1 then mlint$toString i else
+      concat [mlint$toString i ; implode"/" ; mlint$toString (& n)]`
+
+val _ = (next_ml_names := ["toString"]);
+val v = translate toString_def;
+
 val EqualityType_REAL_TYPE = store_thm("EqualityType_REAL_TYPE",
   ``EqualityType REAL_TYPE``,
   rw [EqualityType_def]
