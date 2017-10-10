@@ -2437,9 +2437,17 @@ local
           (unpack_list (unpack_pair unpack_term unpack_thm))
           (unpack_list (unpack_pair unpack_term unpack_thm))
           (unpack_list (unpack_pair unpack_thm unpack_thm)) th
+
+      (* Need to add the current theory to type_theories or we cannot
+         access definitions generated after extending! *)
+      val curr_thy =
+        case List.find (fn thy => thy = current_theory ()) tt of
+          NONE => [current_theory ()]
+        | _ => []
+
       val _ = (EXN_TYPE_def_ref := etdr)
       val _ = (EXN_TYPE := et)
-      val _ = (type_theories := tt)
+      val _ = (type_theories := tt @ curr_thy)
       val _ = (exn_handles := eh)
       val _ = (exn_raises := er)
       val _ = (exn_functions_defs := efd)
