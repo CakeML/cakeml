@@ -97,6 +97,9 @@ val Eval_REAL_LE = Q.prove(
   |> (fn th => MATCH_MP th pair_le_v_thm)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := [">="];
+val v = translate real_ge;
+
 val pair_lt_def = Define `
   pair_lt (n1,d1) (n2,d2) = (n1 * & d2 < n2 * (& d1):int)`;
 
@@ -127,6 +130,15 @@ val Eval_REAL_LT = Q.prove(
   \\ fs [integerTheory.INT_NOT_LE])
   |> (fn th => MATCH_MP th pair_lt_v_thm)
   |> add_user_proved_v_thm;
+
+val _ = next_ml_names := [">"];
+val v = translate real_gt;
+
+val _ = next_ml_names := ["min"];
+val v = translate realTheory.min_def;
+
+val _ = next_ml_names := ["max"];
+val v = translate realTheory.max_def;
 
 val div_gcd_def = Define `
   div_gcd a b =
