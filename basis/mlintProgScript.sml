@@ -1,6 +1,6 @@
 open preamble
      ml_translatorLib ml_progLib mlintTheory
-     mlbasicsProgTheory basisFunctionsLib
+     mlbasicsProgTheory basisFunctionsLib gcdTheory
 
 val _ = new_theory"mlintProg"
 
@@ -51,6 +51,22 @@ val tostring_side = Q.prove(
   `∀x. tostring_side x = T`,
   rw[definition"tostring_side_def"]
   \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+(* GCD *)
+
+val gcd_def = Define `
+  gcd a b = if a = 0n then b else gcd (b MOD a) a`
+
+val _ = delete_const "gcd"; (* keeps induction thm *)
+
+val res = translate GCD_EFFICIENTLY;
+
+val gcd_side = prove(
+  ``!a b. gcd_side a b = T``,
+  recInduct (theorem "gcd_ind") \\ rw []
+  \\ once_rewrite_tac [theorem "gcd_side_def"]
+  \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
 
 val _ = ml_prog_update (close_module NONE);
