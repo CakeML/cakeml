@@ -1,7 +1,6 @@
 open preamble
      ml_hol_kernelProgTheory
      mlstringProgTheory
-     (*holKernelTheory*)
 
 val _ = new_theory"reader"
 
@@ -126,9 +125,10 @@ val first_def = Define`
     | (h::t) => if p h then SOME h else first p t`;
 
 val find_axiom_def = Define`
-  find_axiom (ls,tm) =
+  find_axiom (ls, tm) =
     do
-      axs <- axioms;
+      (* axs <- axioms; *) (* the monadic translator wont figure this out *)
+      axs <- get_the_axioms;
       case first (λth.
         case th of
         | Sequent h c =>
@@ -213,6 +213,7 @@ val readLine_def = Define`
       (* We only allow axioms already in the context *)
       (* and we return an alpha-equivalent variant *)
       (* (contrary to normal article semantics) *)
+      (*th <- find_axiom (ls,tm);*)
       th <- find_axiom (ls,tm);
       return (push (Thm th) s)
     od
@@ -417,5 +418,21 @@ val readLine_def = Define`
         case fromDecString ls of
         | NONE => failwith (strlit"readLine")
         | SOME n => return (push (Num (int_of_num n)) s)`;
+
+val readLines_def = Define `
+  readLines lls s =
+    case lls of
+      []    => return s
+    | l::ls =>
+        do
+          s <- readLine l s;
+          readLines ls s
+        od`;
+
+val run_reader_def = Define `
+  run_reader ls =
+    do
+      readLines ls init_state
+    od`;
 
 val _ = export_theory()
