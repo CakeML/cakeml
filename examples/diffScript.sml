@@ -289,6 +289,10 @@ val SPLITP_HEX = Q.prove(
        (STRING (HEX n) l,r)`,
   recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
 
+val _ = temp_overload_on("ml_int_toString",``mlint$toString``);
+val _ = temp_overload_on("hol_int_toString",``integer_word$toString``);
+val _ = temp_overload_on("num_toString",``num_to_dec_string``);
+
 val SPLITP_num_toString = Q.prove(
   `!i.
    SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
@@ -343,8 +347,8 @@ val tokens_toString = Q.prove(
 val tokens_strcat = Q.prove(
 `l ≠ [] ==>
 (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString n ^
-                                    strlit (STRING (acd l r) "") ^ toString m ^ strlit "\n")
+                                   (toString (n:int) ^
+                                    strlit (STRING (acd l r) "") ^ toString (m:int) ^ strlit "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
   fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
@@ -352,8 +356,8 @@ val tokens_strcat = Q.prove(
 val tokens_strcat' = Q.prove(
 `r ≠ [] ==>
 (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
-                                   (toString n ^
-                                    strlit (STRING (acd l r) "") ^ toString m ^ strlit "\n")
+                                   (toString (n:int) ^
+                                    strlit (STRING (acd l r) "") ^ toString (m:int) ^ strlit "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
   fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
@@ -462,7 +466,7 @@ val line_numbers_not_empty = Q.prove(
   >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
 
 val tokens_toString_comma =
-    Q.prove(`tokens ($= #",") (toString n) = [toString n]`,
+    Q.prove(`tokens ($= #",") (toString (n:int)) = [toString n]`,
   fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
   >> fs[implode_def]
   >> `EVERY isDigit (toString (Num (ABS n)))` by metis_tac[toString_isDigit]
