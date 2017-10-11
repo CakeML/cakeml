@@ -18,7 +18,7 @@ val _ = register_type ``:'a list``
 val _ = register_type ``:'a option``
 val _ = register_type ``:unit``
 
-val _ = ml_prog_update (open_module "Kernel");
+(*val _ = ml_prog_update (open_module "Kernel");*)
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
@@ -408,7 +408,7 @@ val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate
 val def = ALPHA_THM_def |> m_translate
 
-val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
+(*val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)*)
 
 (* extract the interesting thm *)
 

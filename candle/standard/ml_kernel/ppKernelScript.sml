@@ -3,9 +3,13 @@ open ml_translatorLib ml_monad_translatorTheory ml_hol_kernelProgTheory astPP
 
 val _ = new_theory"ppKernel"
 
+(*
 val pat = ``Tmod "Kernel" _ _``
 val decls = ml_hol_kernelProgTheory.candle_code_def |> concl |> rand
             |> find_term (can (match_term pat)) |> rand
+*)
+
+val decls = ml_hol_kernelProgTheory.candle_code_def |> concl |> rand
 
 fun equalityprinter _ _ sysp _ gs d t =
   let
