@@ -51,8 +51,7 @@ running regression tests.
 Work-in-progress documentation regarding the CakeML language.
 
 [examples](examples):
-Examples of verified programs built using CakeML infrastructure
-================================================================
+Examples of verified programs built using CakeML infrastructure.
 
 [misc](misc):
 Auxiliary files providing glue between a standard HOL installation

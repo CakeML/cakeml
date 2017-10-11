@@ -23,12 +23,15 @@ vector
 string
 basics
 int
+rat
 char
 word64
 word8
 w8array
 array
 commandLine
+fsioConstants
+fsio
 chario
 fileio
 io

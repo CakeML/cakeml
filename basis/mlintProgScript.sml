@@ -1,6 +1,6 @@
 open preamble
      ml_translatorLib ml_progLib mlintTheory
-     mlbasicsProgTheory basisFunctionsLib
+     mlbasicsProgTheory basisFunctionsLib gcdTheory
 
 val _ = new_theory"mlintProg"
 
@@ -51,6 +51,79 @@ val tostring_side = Q.prove(
   `∀x. tostring_side x = T`,
   rw[definition"tostring_side_def"]
   \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+val result = translate fromChar_unsafe_def;
+val result = translate fromChars_range_unsafe_def;
+
+val _ = save_thm("fromChars_unsafe_ind",
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val result = translate fromString_unsafe_def;
+
+val fromString_unsafe_side = Q.prove(
+  `∀x. fromstring_unsafe_side x = T`,
+  let val front_tac = rw [definition"fromstring_unsafe_side_def"
+                         , NOT_NIL_EQ_LENGTH_NOT_0
+                         , mlstringTheory.substring_DROP
+                         , Once (theorem"fromchars_unsafe_side_def")
+                         , theorem"fromchars_range_unsafe_side_def"];
+      val back_tac = qpat_x_assum `_ = SUC _` (K ALL_TAC)
+                     \\ completeInduct_on `x1`
+                     \\ rw [Once (theorem"fromchars_unsafe_side_def")
+                           , theorem"fromchars_range_unsafe_side_def"]
+  in Cases_on `x`
+     \\ front_tac
+        >- (             `x1 ≤ strlen (strlit (DROP 1 s))` by rw [] \\ back_tac)
+        >- (front_tac \\ `x1 ≤ strlen (strlit s)` by rw []          \\ back_tac)
+  end)
+  |> update_precondition;
+
+
+val result = translate fromChar_def;
+val result = translate fromChars_range_def;
+
+val _ = save_thm("fromChars_ind",
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val result = translate fromString_def;
+
+val fromString_side = Q.prove(
+  `∀x. fromstring_side x = T`,
+  let val front_tac = rw [definition"fromstring_side_def"
+                         , NOT_NIL_EQ_LENGTH_NOT_0
+                         , mlstringTheory.substring_DROP
+                         , Once (theorem"fromchars_side_def")
+                         , theorem"fromchars_range_side_def"];
+      val back_tac = qpat_x_assum `_ = SUC _` (K ALL_TAC)
+                     \\ completeInduct_on `x1`
+                     \\ rw [Once (theorem"fromchars_side_def")
+                           , theorem"fromchars_range_side_def"]
+  in Cases_on `x`
+     \\ front_tac
+        >- (             `x1 ≤ strlen (strlit (DROP 1 s))` by rw [] \\ back_tac)
+        >- (front_tac \\ `x1 ≤ strlen (strlit s)` by rw []          \\ back_tac)
+  end)
+  |> update_precondition;
+
+(* GCD *)
+
+val gcd_def = Define `
+  gcd a b = if a = 0n then b else gcd (b MOD a) a`
+
+val _ = delete_const "gcd"; (* keeps induction thm *)
+
+val res = translate GCD_EFFICIENTLY;
+
+val gcd_side = prove(
+  ``!a b. gcd_side a b = T``,
+  recInduct (theorem "gcd_ind") \\ rw []
+  \\ once_rewrite_tac [theorem "gcd_side_def"]
+  \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
 
 val _ = ml_prog_update (close_module NONE);

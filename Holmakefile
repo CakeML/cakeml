@@ -1,7 +1,7 @@
 INCLUDES = developers compiler/bootstrap/compilation/x64/proofs compiler/benchmarks
 OPTIONS = QUIT_ON_FAILURE
 
-README_SOURCES = COPYING developers build-instructions.sh
+README_SOURCES = COPYING developers examples build-instructions.sh
 
 all: README.md cake
 .PHONY: all benchmarks
