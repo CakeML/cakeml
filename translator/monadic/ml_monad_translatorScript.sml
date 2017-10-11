@@ -759,6 +759,34 @@ val EvalM_ArrowM = Q.store_thm("EvalM_ArrowM",
   \\ evaluate_unique_result_tac
   \\ rw[] \\ metis_tac[]);
 
+val EvalM_ArrowM_EqSt = Q.store_thm("EvalM_ArrowM_EqSt",
+  `EvalM env st x1 ((ArrowM H (EqSt (PURE a) st) b) f) H ==>
+    EvalM env st x2 (PURE a x) H ==>
+    EvalM env st (App Opapp [x1;x2]) (b (f x)) H`,
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS]
+  \\ rw[Once evaluate_cases,evaluate_list_cases,PULL_EXISTS]
+  \\ first_x_assum drule \\ rw[]
+  \\ srw_tac[DNF_ss][] \\ disj1_tac
+  \\ first_x_assum(qspec_then`junk`strip_assume_tac)
+  \\ evaluate_unique_result_tac
+  \\ last_x_assum drule \\ rw[]
+  \\ first_x_assum(qspec_then`junk'`strip_assume_tac)
+  \\ fs[GSYM AND_IMP_INTRO]
+  \\ fs[EqSt_def]
+  \\ `PURE a x (st,s) (st,s with refs := s.refs ++ ARB,Rval v)`
+     by fs[PURE_def, state_component_equality]
+  \\ qpat_assum `!p. P` IMP_RES_TAC
+  \\ fs[state_component_equality] \\ rw[]
+  \\ evaluate_unique_result_tac
+  \\ POP_ASSUM(fn x => ALL_TAC)
+  \\ `PURE a x (st,s) (st,s with refs := s.refs ++ junk'',Rval v)`
+     by fs[PURE_def, state_component_equality]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum (qspec_then `[]` STRIP_ASSUME_TAC) \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ metis_tac[]);
+
 val EvalM_Fun = Q.store_thm("EvalM_Fun",
   `(!v x. a x v ==> EvalM (write name v env) n_st body (b (f x)) H) ==>
     EvalM env st (Fun name body) (ArrowM H (EqSt (PURE a) n_st) b f) H`,
