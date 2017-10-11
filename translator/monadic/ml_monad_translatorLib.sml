@@ -377,7 +377,7 @@ fun derive_case_of ty = let
   fun Eval_to_EvalM tm = let
     val (m,i) = match_term pat tm
     val res = mk_var("res", M_type ``:'a``)
-    val tm1 = subst m (inst i ``EvalM env exp (MONAD P ^(!EXN_TYPE) ^res) ^H_var``)
+    val tm1 = subst m (inst i ``EvalM env st exp (MONAD P ^(!EXN_TYPE) ^res) ^H_var``)
     val ty1 = tm |> rand |> rand |> type_of
     val monad_ret_type = M_type ty1
     val y1 = tm |> rand |> rand |> inst [ty1|->monad_ret_type]
@@ -447,16 +447,6 @@ fun derive_case_of ty = let
   val case_lemma = GEN H_var case_lemma
   in case_lemma end
   handle HOL_ERR _ => raise (ERR "derive_case_of" ("failed on type : " ^(type_to_string ty)));
-
-(* fun type_mem f = let
-  val memory = ref []
-  fun lookup x [] = fail()
-    | lookup x ((y,z)::ys) = if can (match_type y) x then z else lookup x ys
-  in (fn ty => lookup ty (!memory) handle HOL_ERR _ => let
-              val th = f ty
-              val _ = (memory := (ty,th)::(!memory))
-              in th end, memory) end; *)
-(* val (mem_derive_case_of, mem_derive_case_ref) = type_mem derive_case_of; *)
 
 fun get_general_type ty =
   if can dest_type ty andalso not (List.null (snd (dest_type ty))) then let
@@ -1229,6 +1219,12 @@ fun m2deep tm =
   if can match_rec_pattern tm then let
     (* val _ = print_tm_msg "recursive pattern\n" tm DEBUG *)
     val (lhs,fname,pre_var) = match_rec_pattern tm
+    val (pre_var, pre_var_args) = strip_comb pre_var
+    val pre_var = mk_var(dest_var pre_var |> fst,
+		mk_type("fun", [!refs_type,dest_var pre_var |> snd]))
+    val state_var = mk_var("st", !refs_type)
+    val state_eq_var = state_var
+    val pre_var = list_mk_comb (pre_var, state_eq_var::pre_var_args)
     fun dest_args tm = rand tm :: dest_args (rator tm) handle HOL_ERR _ => []
     val xs = dest_args tm
     val f = repeat rator lhs
@@ -1236,25 +1232,36 @@ fun m2deep tm =
     fun mk_fix tm = let
       val inv_type = type_of tm
       val inv = smart_get_type_inv inv_type
-      val eq = ``Eq ^inv ^tm``
+      val eq = ISPECL [inv, tm] Eq_def |> concl |> dest_eq |> fst
       val PURE_tm = mk_PURE_tm inv_type
-      in ``^PURE_tm (Eq ^inv ^tm)`` end
+    in mk_comb(PURE_tm, eq) end
+    fun mk_fix_st tm = let
+      val inv_type = type_of tm
+      val inv = smart_get_type_inv inv_type
+      val eq = ISPECL [inv, tm] Eq_def |> concl |> dest_eq |> fst
+      val pure = mk_comb(mk_PURE_tm inv_type, eq)
+      val eq_st = ISPECL [pure, state_eq_var] EqSt_def
+			 |> concl |> dest_eq |> fst
+    in eq_st end
     fun mk_m_arrow x y = ``ArrowM ^(!H) ^x ^y``
     fun mk_inv [] res = res
       | mk_inv (x::xs) res = mk_inv xs (mk_m_arrow (mk_fix x) res)
-    val inv = mk_inv xs (get_m_type_inv (type_of tm))
+    val res = mk_m_arrow (mk_fix_st (hd xs)) (get_m_type_inv (type_of tm))
+    val inv = mk_inv (tl xs) res
     val ss = fst (match_term lhs tm)
     val tys = match_type (type_of f) (type_of inv |> dest_type |> snd |> List.hd)
     val f = Term.inst tys f
 
     val pre = subst ss pre_var
-    val h = ASSUME ``PreImp ^pre (EvalM env (Var (Short ^str)) (^inv ^f) ^(!H))``
+    val h = ASSUME ``PreImp ^pre (EvalM env st (Var (Short ^str)) (^inv ^f) ^(!H))``
             |> RW [PreImp_def] |> UNDISCH
     val ys = List.map (fn tm => MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
                              (MATCH_MP Eval_Eq (var_hol2deep tm))) xs
-    fun apply_arrow hyp [] = hyp
-      | apply_arrow hyp (x::xs) =
-          MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) (apply_arrow hyp xs)) x
+    fun apply_arrow h [] = h
+      | apply_arrow h (x::xs) = (let
+	  val th = apply_arrow h xs
+      in MATCH_MP (MATCH_MP EvalM_ArrowM th) x end
+      handle HOL_ERR _ => MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt th) x)
     val result = apply_arrow h ys
     in check_inv "rec_pattern" tm result end else
   (* PMATCH *)
