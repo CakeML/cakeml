@@ -9,6 +9,8 @@ val is_mips_machine_config_def = Define`
   mc.target = mips_target ∧
   mc.len_reg =5  ∧
   mc.ptr_reg = 4 ∧
+  mc.len2_reg =7  ∧
+  mc.ptr2_reg = 6 ∧
   mc.callee_saved_regs = [21;22;23]`;
 
 val names_tac =
@@ -39,6 +41,8 @@ val mips_machine_config_ok = Q.store_thm("mips_machine_config_ok",
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_mips_machine_config_def]
   >- EVAL_TAC
   >- simp[mips_targetProofTheory.mips_backend_correct]
+  >- EVAL_TAC
+  >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC

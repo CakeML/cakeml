@@ -46,8 +46,8 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     movq    %rsp, %rbp  # save stack pointer",*)
    "     dla      $a0,cake_main   # arg1: entry address",
    "     dla      $a1,cake_heap   # arg2: first address of heap",
-   "     dla      $v1,cake_stack  # arg3: first address of stack",
-   "     dla      $v0,cake_end    # arg4: first address past the stack",
+   "     dla      $a2,cake_stack  # arg3: first address of stack",
+   "     dla      $a3,cake_end    # arg4: first address past the stack",
    "     j     cake_main",
    "     nop",
    "",

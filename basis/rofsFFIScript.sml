@@ -319,7 +319,7 @@ val getNullTermStr_def = Define`
        else SOME(MAP (CHR o w2n) (TAKE sz bytes))
 `
 val ffi_open_def = Define`
-  ffi_open bytes fs =
+  ffi_open (conf : word8 list) bytes fs =
     do
       fname <- getNullTermStr bytes;
       (fd, fs') <- openFile (implode fname) fs;
@@ -329,7 +329,7 @@ val ffi_open_def = Define`
     return (LUPDATE 255w 0 bytes, fs)`;
 
 val ffi_fgetc_def = Define`
-  ffi_fgetc bytes fs =
+  ffi_fgetc (conf : word8 list) bytes fs =
     do
       assert(LENGTH bytes = 1);
       (copt, fs') <- fgetc (w2n (HD bytes)) fs;
@@ -339,7 +339,7 @@ val ffi_fgetc_def = Define`
     od`;
 
 val ffi_close_def = Define`
-  ffi_close bytes fs =
+  ffi_close (conf : word8 list) bytes fs =
     do
       assert(LENGTH bytes = 1);
       do
@@ -350,7 +350,7 @@ val ffi_close_def = Define`
     od`;
 
 val ffi_isEof_def = Define`
-  ffi_isEof bytes fs =
+  ffi_isEof (conf : word8 list) bytes fs =
     do
       assert(LENGTH bytes = 1);
       do
@@ -369,7 +369,7 @@ val rofs_ffi_part_def = Define`
        ("isEof",ffi_isEof)])`;
 
 val ffi_open_length = Q.store_thm("ffi_open_length",
-  `ffi_open bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_open conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_open_def]
   \\ Cases_on`getNullTermStr bytes` \\ fs[] \\ rw[]
   \\ Cases_on`openFile (implode x) fs` \\ fs[] \\ rw[]
@@ -377,17 +377,17 @@ val ffi_open_length = Q.store_thm("ffi_open_length",
   \\ Cases_on`fd < 255` \\ fs[] \\ rw[]);
 
 val ffi_fgetc_length = Q.store_thm("ffi_fgetc_length",
-  `ffi_fgetc bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_fgetc conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[] \\ rw[]);
 
 val ffi_close_length = Q.store_thm("ffi_close_length",
-  `ffi_close bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_close conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_close_def]
   \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ rw[]);
 
 val ffi_isEof_length = Q.store_thm("ffi_isEof_length",
-  `ffi_isEof bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
+  `ffi_isEof conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_isEof_def]
   \\ Cases_on`eof (w2n (HD bytes)) fs` \\ fs[] \\ rw[]);
 

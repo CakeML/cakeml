@@ -422,10 +422,10 @@ val do_app_def = Define `
             | NONE => NONE
             | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag [])))
      | _ => NONE)
-  | (FFI n, [Loc lnum]) =>
+  | (FFI n, [Litv (StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi n ws of
+       (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
         | (t', ws') =>
           (case store_assign lnum (W8array ws') s.refs of
            | SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))

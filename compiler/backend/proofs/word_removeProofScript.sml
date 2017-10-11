@@ -108,7 +108,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",`
     (fs[domain_lookup,EXISTS_PROD] \\ res_tac \\ fs[]
      \\ fs[state_component_equality] )
   >- (
-     ntac 6(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+     rpt(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
     rveq>>full_simp_tac(srw_ss())[])
   >>

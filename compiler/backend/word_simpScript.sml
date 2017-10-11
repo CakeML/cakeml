@@ -323,7 +323,7 @@ val const_fp_loop_def = Define `
             (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
          else
            (Call ret dest args handler, LN))) /\
-  (const_fp_loop (FFI x0 x1 x2 names) cs = (FFI x0 x1 x2 names, inter cs names)) /\
+  (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop p cs = (p, cs))`;
@@ -362,7 +362,7 @@ val const_fp_loop_pmatch = Q.store_thm("const_fp_loop_pmatch",`!p cs.
             (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
          else
            (Call ret dest args handler, LN)))
-  | (FFI x0 x1 x2 names) => (FFI x0 x1 x2 names, inter cs names)
+  | (FFI x0 x1 x2 x3 x4 names) => (FFI x0 x1 x2 x3 x4 names, inter cs names)
   | (LocValue v x3) => (LocValue v x3, delete v cs)
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
   | p => (p, cs)`,

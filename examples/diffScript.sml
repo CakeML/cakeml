@@ -67,7 +67,7 @@ val diff_alg_refl = Q.store_thm("diff_alg_refl",
 
 (* Patch algorithm definition *)
 
-val num_from_string_def = Define `num_from_string s = num_of_int(fromString(explode s))`
+val num_from_string_def = Define `num_from_string s = num_of_int(fromString_unsafe s)`
 
 val string_is_num_def = Define `string_is_num s = EVERY isDigit (explode s)`
 
@@ -379,19 +379,11 @@ val acd_more_simps =
     Q.prove(`l ≠ [] /\ r ≠ [] ==> (acd l r = #"c")`,
     Cases_on `l` >> Cases_on `r` >> fs[acd_def])
 
-val HEX_not_tilde = Q.prove(`!n. n < 10 ==> HEX n <> #"~"`,
-  recInduct one_to_ten >> fs[]);
-
-val HEX_not_dash = Q.prove(`!n. n < 10 ==> HEX n <> #"-"`,
-  recInduct one_to_ten >> fs[]);
-
-val lemma = Q.prove(`!n. n < 10 ==> Num (ABS (&toNum (STRING (HEX n) ""))) = n`,
-  recInduct one_to_ten >> fs[]);
-
 val HEX_isDigit = Q.prove(`!n. n < 10 ==> isDigit(HEX n)`,
   recInduct one_to_ten >> fs[isDigit_def]);
 
-val toString_isDigit = Q.prove(
+(* TODO: move at least these (and probably others in this file) *)
+val toString_isDigit = Q.store_thm("toString_isDigit",
   `!n. EVERY isDigit (toString(n:num))`,
   recInduct COMPLETE_INDUCTION
   >> rpt strip_tac
@@ -400,21 +392,13 @@ val toString_isDigit = Q.prove(
   >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def]
   >> rw[] >> fs[HEX_isDigit]);
 
-val fromString_toString_toNum = Q.prove(
-  `!n. fromString(toString (n:num)) = &toNum(toString n)`,
-  strip_tac
-  >> qspec_then `n` assume_tac toString_isDigit
-  >> qpat_abbrev_tac `a = toString n`
-  >> pop_assum kall_tac
-  >> Induct_on `a` >> rpt strip_tac
-  >> fs[integer_wordTheory.fromString_def,isDigit_def]
-  >> fs[GSYM ORD_11]);
-
-val Num_ABS_fromString_toString =
- Q.prove(`!n. Num (ABS (fromString(toString (n:num)))) = n`,
-  recInduct COMPLETE_INDUCTION >> rpt strip_tac
-  >> fs[fromString_toString_toNum,ASCIInumbersTheory.toNum_toString,
-        integerTheory.INT_ABS_NUM]);
+val num_to_dec_string_not_nil = Q.store_thm("num_to_dec_string_not_nil",
+  `num_to_dec_string n ≠ []`,
+  rw[ASCIInumbersTheory.num_to_dec_string_def]
+  \\ rw[ASCIInumbersTheory.n2s_def]
+  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
+  \\ simp[] \\ rw[] \\ strip_tac \\ fs[]);
+(* -- *)
 
 (*`!n. explode (toString n) = toString n`*)
 val int_abs_toString_num = Q.store_thm("int_abs_toString_num",
@@ -424,12 +408,21 @@ val int_abs_toString_num = Q.store_thm("int_abs_toString_num",
 
 val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_cancel",
   `!n. num_from_string (toString (&n)) = n`,
-  recInduct COMPLETE_INDUCTION >> rpt strip_tac
-  >> fs[num_from_string_def,ml_translatorTheory.num_of_int_def,integer_wordTheory.fromString_def,
-        toString_thm,integerTheory.INT_ABS_NUM,explode_implode]
-  >> fs[integer_wordTheory.toString_def]
-  >> rw[] >> fs[toChar_def,str_def,implode_def]
-  >> fs[integer_wordTheory.fromString_def,Num_ABS_fromString_toString]);
+  rw[num_from_string_def]
+  \\ rw[toString_thm]
+  \\ rw[implode_def]
+  \\ qmatch_goalsub_abbrev_tac`strlit ss`
+  \\ `HD ss ≠ #"~" ∧ EVERY isDigit ss`
+  by (
+    qspec_then`Num(ABS(&n))`mp_tac toString_isDigit
+    \\ simp[Abbr`ss`]
+    \\ Cases_on`num_to_dec_string (Num(ABS(&n)))` \\ simp[]
+    >- fs[num_to_dec_string_not_nil]
+    \\ rpt strip_tac \\ fs[]
+    \\ qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC )
+  \\ rw[fromString_unsafe_thm,Abbr`ss`]
+  \\ rw[ASCIInumbersTheory.toString_toNum_cancel]
+  \\ rw[integerTheory.INT_ABS_NUM]);
 
 val strong_substring_thm = Q.store_thm (
   "strong_substring_thm",
@@ -468,19 +461,12 @@ val line_numbers_not_empty = Q.prove(
   >> fs[integerTheory.INT_ABS_NUM]
   >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
 
-val toString_not_empty = Q.prove(
-`!n . toString(n:num) <> []`,
-  rpt strip_tac
-  >> fs[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def,
-        Once numposrepTheory.n2l_def]
-  >> every_case_tac >> fs[]);
-
 val tokens_toString_comma =
     Q.prove(`tokens ($= #",") (toString n) = [toString n]`,
   fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
   >> fs[implode_def]
   >> `EVERY isDigit (toString (Num (ABS n)))` by metis_tac[toString_isDigit]
-  >> `toString(Num(ABS n)) <> []` by metis_tac[toString_not_empty]
+  >> `toString(Num(ABS n)) <> []` by metis_tac[num_to_dec_string_not_nil]
   >> qpat_abbrev_tac `a = toString(Num _)` >> pop_assum kall_tac
   >> `!x. isDigit x ==> (λx. (¬(($= #",") x))) x` by fs[isDigit_def]
   >> drule EVERY_MONOTONIC
@@ -754,7 +740,7 @@ val toString_obtain_digits = Q.prove(
   `!n. ?f r. toString (&n) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
   strip_tac >> fs[toString_thm,integerTheory.INT_ABS_NUM,implode_def]
   >> qspec_then `n` assume_tac toString_isDigit
-  >> qspec_then `n` assume_tac toString_not_empty
+  >> qspec_then `n` assume_tac (GEN_ALL num_to_dec_string_not_nil)
   >> Cases_on `toString n` >> fs[]);
 
 val diff_single_patch_length = Q.prove(

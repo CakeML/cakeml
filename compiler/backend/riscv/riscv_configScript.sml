@@ -17,15 +17,19 @@ val riscv_names_def = Define `
      4 avoid regs means 28 regs available for CakeML
      constraints:
        the last 3 of these (25, 26, 27) must be mapped to callee saved regs
-       0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
+       0 must be mapped to link reg (1)
+       1-4 must be mapped to 1st-4st args (10-13)
   *)
   (insert 0 1 o
    insert 1 10 o
    insert 2 11 o
-   insert 3 28 o
+   insert 3 12 o
+   insert 4 13 o
    (* the rest to make the mapping well-formed *)
    insert 10 29 o
    insert 11 30 o
+   insert 12 4 o
+   insert 13 28 o   
    insert 28 0 o
    insert 29 2 o
    insert 30 3) LN:num num_map`;

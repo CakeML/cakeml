@@ -730,11 +730,13 @@ val Eval_NUM_GREATER_EQ = save_thm("Eval_NUM_GREATER_EQ",
 
 val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
   `!n. Eval env x (NUM n) ==>
-        Eval env (App (Opb Leq) [x; Lit (IntLit 0)]) (BOOL (n = 0))`,
+        Eval env (App Equality [x; Lit (IntLit 0)]) (BOOL (n = 0))`,
   REPEAT STRIP_TAC \\ ASSUME_TAC (Q.SPEC `0` Eval_Val_NUM)
-  \\ FULL_SIMP_TAC std_ss [NUM_def]
-  \\ `(n = 0) = (&n <= 0:int)` by intLib.COOPER_TAC
-  \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
+  \\ pop_assum mp_tac
+  \\ drule (GEN_ALL Eval_Equality)
+  \\ rw [] \\ res_tac
+  \\ first_x_assum match_mp_tac
+  \\ fs [EqualityType_NUM_BOOL]);
 
 (* word operations *)
 
