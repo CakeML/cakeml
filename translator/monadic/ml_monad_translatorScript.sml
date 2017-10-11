@@ -857,6 +857,17 @@ val LOOKUP_VAR_EvalM_ArrowM_IMP = Q.store_thm("LOOKUP_VAR_EvalM_ArrowM_IMP",
   \\ first_x_assum drule \\ rw[]
   \\ fs[state_component_equality]);
 
+(* val LOOKUP_VAR_EvalM_ArrowM_IMP = Q.store_thm("LOOKUP_VAR_EvalM_ArrowM_IMP",
+  `(!env. LOOKUP_VAR n env v ==> EvalM env st (Var (Short n)) (ArrowM H a b f) H) ==>
+    ArrowP H (EqSt a st) b f v`,
+  fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,ArrowP_def,ArrowM_def,PURE_def,AND_IMP_INTRO,
+      Once evaluate_cases,PULL_EXISTS, VALID_REFS_PRED_def]
+  \\ `nsLookup (<|v := nsBind n v nsEmpty|>).v (Short n) = SOME v` by EVAL_TAC
+  \\ rw[EqSt_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[state_component_equality]); *)
+
 val EvalM_ArrowM_IMP = Q.store_thm("EvalM_ArrowM_IMP",
   `VALID_REFS_PRED H ==>
    (!st. EvalM env st (Var x) ((ArrowM H a b) f) H) ==>

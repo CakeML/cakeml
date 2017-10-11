@@ -175,6 +175,17 @@ fun smart_get_type_inv ty =
     in ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand end
   else get_type_inv ty;
 
+fun get_monad_pre_var th lhs fname = let
+    val state_var = UNDISCH_ALL th |> concl |> get_EvalM_state
+in if can (GEN state_var) (UNDISCH_ALL th) then get_pre_var lhs fname
+   else let
+       fun list_mk_type [] ret_ty = ret_ty
+	 | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
+       val args = state_var::(dest_args lhs)
+       val ty = list_mk_type args bool
+       val v = mk_var(fname ^ "_side",ty)
+   in (foldl (fn (x,y) => mk_comb(y,x)) v args) end end
+
 (* Retrieves the parameters given to Eval or EvalM *)
 val Eval_tm = ``Eval``;
 val EvalM_tm = ``EvalM``;
@@ -1315,7 +1326,7 @@ fun extract_precondition_non_rec th pre_var =
     val c = (RATOR_CONV o RAND_CONV o RAND_CONV) c
     val th = CONV_RULE c th |> UNDISCH_ALL
     val pre_def = clean_precondition pre_def
-    in (th,SOME pre_def) end end
+  in (th,SOME pre_def) end end
 (* *)
 
 fun extract_precondition_rec thms = let
@@ -1551,9 +1562,12 @@ val (fname,ml_fname,th,def) = List.hd thms
 			  (SIMP_CONV std_ss [EVAL_T_F])) th
       val th = clean_assumptions (D th)
       val (lhs,rhs) = dest_eq (concl def)
-      val pre_var = get_pre_var lhs fname
+
+      (* Precondition *)
+      val pre_var = get_monad_pre_var th lhs fname
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
       val (th,pre) = extract_precondition_non_rec th pre_var
+      (* Remove Eq *)
       val th = remove_Eq th
       (* simpliy EqualityType *)
       val th = SIMP_EqualityType_ASSUMS th
