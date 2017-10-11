@@ -175,16 +175,29 @@ fun smart_get_type_inv ty =
     in ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand end
   else get_type_inv ty;
 
+val ArrowP_PURE_pat = ``ArrowP H a (PURE b)``;
+val ArrowP_EqSt_pat = ``ArrowP H (EqSt a st) b``;
+fun get_EqSt_var tm =
+  if can (match_term ArrowP_PURE_pat) tm
+  then get_EqSt_var ((rand o rand) tm)
+  else if can (match_term ArrowP_EqSt_pat) tm
+  then SOME ((rand o rand o rator) tm)
+  else NONE
+
 fun get_monad_pre_var th lhs fname = let
-    val state_var = UNDISCH_ALL th |> concl |> get_EvalM_state
-in if can (GEN state_var) (UNDISCH_ALL th) then get_pre_var lhs fname
-   else let
-       fun list_mk_type [] ret_ty = ret_ty
-	 | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
-       val args = state_var::(dest_args lhs)
-       val ty = list_mk_type args bool
-       val v = mk_var(fname ^ "_side",ty)
-   in (foldl (fn (x,y) => mk_comb(y,x)) v args) end end
+    val thc = UNDISCH_ALL th |> PURE_REWRITE_RULE[ArrowM_def]
+			  |> concl |> rator |> rand |> rator |> rand
+    val state_var = get_EqSt_var thc
+in 
+    case state_var of
+	NONE => get_pre_var lhs fname
+      | SOME state_var => let
+	  fun list_mk_type [] ret_ty = ret_ty
+	    | list_mk_type (x::xs) ret_ty = mk_type("fun",[type_of x,list_mk_type xs ret_ty])
+	  val args = state_var::(dest_args lhs)
+	  val ty = list_mk_type args bool
+	  val v = mk_var(fname ^ "_side",ty)
+      in (foldl (fn (x,y) => mk_comb(y,x)) v args) end end
 
 (* Retrieves the parameters given to Eval or EvalM *)
 val Eval_tm = ``Eval``;
@@ -839,11 +852,10 @@ fun inst_EvalM_env v th = let
 val v = List.last (rev (if is_rec then butlast rev_params else rev_params))
 *)
 
-(* TODO HERE *)
-fun remove_EqSt th = let
+(* fun remove_EqSt th = let
   val st_var = UNDISCH_ALL th |> concl |> get_EvalM_state
   val th = GEN st_var th |> MATCH_MP ArrowP_EqSt_elim
-in th end handle HOL_ERR _ => th;
+in th end handle HOL_ERR _ => th; *)
 
 fun remove_ArrowM_EqSt th = let
   val st_var = th |> concl |> rator |> rand |> rator |> rator |> rand |> rand
@@ -1048,6 +1060,14 @@ fun instantiate_EvalM_otherwise tm m2deep = let
     val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
 in result end;
 
+(* val previously_translated_state_var_index = ref 1;
+fun previously_transl_state_var () = let
+    val i = !previously_translated_state_var_index
+    val name = "st" ^(Int.toString i)
+    val st_v = mk_var(name, !refs_type)
+    val _ = (previously_translated_state_var_index := i + 1)
+in st_v end; *)
+
 fun m2deep tm =
   (* variable *)
   if is_var tm then let
@@ -1138,17 +1158,25 @@ fun m2deep tm =
   (* previously translated term *)
   if can lookup_v_thm tm then let
     (* val _ = print_tm_msg "previously translated\n" tm DEBUG *)
-        val th = lookup_v_thm tm
-    val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
-    val xs = find_terms (can (match_term pat)) (concl th) |> List.map rand
-    val ss = List.map (fn v => v |-> genvar(type_of v)) xs
-    val th = INST ss th
-    val res = th |> UNDISCH_ALL |> concl |> rand
-    val inv = smart_get_type_inv (type_of tm)
-    val target = mk_comb(inv,tm)
-    val (ss,ii) = match_term res target handle HOL_ERR _ =>
-                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
-    val result = INST ss (INST_TYPE ii th)
+      val th = lookup_v_thm tm
+      (* Instantiate the variables in the occurences of Eq*)
+      val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
+      val xs = find_terms (can (match_term pat)) (concl th) |> List.map rand
+      val ss = List.map (fn v => v |-> genvar(type_of v)) xs
+      val th = INST ss th
+      (* Instantiate the variable in EqSt *)
+      val thc = UNDISCH_ALL th |> PURE_REWRITE_RULE[ArrowM_def]
+			    |> concl |> rand |> rator |> rand |> rand
+      val state_var_opt = get_EqSt_var thc
+      val th = case state_var_opt of NONE => th 
+	| SOME v => INST [v |-> genvar(type_of v)] th
+      (* *)
+      val res = th |> UNDISCH_ALL |> concl |> rand
+      val inv = smart_get_type_inv (type_of tm)
+      val target = mk_comb(inv,tm)
+      val (ss,ii) = match_term res target handle HOL_ERR _ =>
+         match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
+      val result = INST ss (INST_TYPE ii th)
 		      |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
                       |> REWRITE_RULE [GSYM ArrowM_def]
     in check_inv "lookup_v_thm" tm result end else
@@ -1241,21 +1269,26 @@ fun m2deep tm =
   (* normal function applications *)
   if is_comb tm then let
     (* val _ = print_tm_msg "normal function application\n" tm DEBUG *)
-    (* val (f,x) = dest_comb tm
-    val thf = m2deep f
-    val result = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
-                            |> MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf)
-                 handle e =>
-                 m2deep x |> MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) *)
-
-
     val (f,x) = dest_comb tm
     val thf = m2deep f
     val thx = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
 	      handle e => m2deep x
     val thx = force_remove_fix thx
-    val result = MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) thx handle HOL_ERR _ =>
-                 MY_MATCH_MP (MATCH_MP (ISPEC_EvalM EvalM_ArrowM) thf) (MATCH_MP (ISPEC_EvalM EvalM_Eq) thx)
+    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf) thx
+		 handle HOL_ERR _ =>
+                 MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
+			     (MATCH_MP EvalM_Eq thx)
+		 handle HOL_ERR _ => let
+      val state_var = concl thf |> get_EvalM_state
+      val thc = PURE_REWRITE_RULE[ArrowM_def] thf |> concl
+				 |> rator |> rand |> rator |> rand
+      val eq_state_var_opt = get_EqSt_var thc
+      in case eq_state_var_opt of NONE =>
+				  failwith "m2deep: function application" 
+         | SOME v => MY_MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt
+					   (INST [v |-> state_var] thf))
+				 (MATCH_MP EvalM_Eq thx)
+      end
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
@@ -1280,10 +1313,10 @@ fun get_curr_env () =
    in ``merge_env ^env_var (merge_env ^env ^local_environment_var_0)`` end
       | NONE => get_env (get_curr_prog_state ());
 
-val PURE_ArrowP_tm = ``PURE(ArrowP H (PURE (Eq a x)) b)``;
+val PURE_ArrowP_Eq_tm = ``PURE(ArrowP H (PURE (Eq a x)) b)``;
 fun remove_Eq th = let
   val th = RW [ArrowM_def] th
-  val pat = PURE_ArrowP_tm
+  val pat = PURE_ArrowP_Eq_tm
   fun dest_EqArrows tm =
     if can (match_term pat) tm
     then (rand o rand o rand o rator o rand) tm :: dest_EqArrows ((rand o rand) tm)
@@ -1420,7 +1453,7 @@ val (fname,ml_fname,def,lemma,pre_var) = hd thms2
     if can (match_term pat) tm then
       (tm |> rator |> rand |> rand) :: list_dest_Eq_Arrow (rand tm)
     else [] *)
-  val pat = PURE_ArrowP_tm
+  val pat = PURE_ArrowP_Eq_tm
   fun list_dest_Eq_Arrow tm =
     if can (match_term pat) tm
     then (rand o rand o rand o rator o rand) tm :: list_dest_Eq_Arrow ((rand o rand) tm)
