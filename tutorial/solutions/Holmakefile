@@ -1,0 +1,3 @@
+INCLUDES = $(HOLDIR)/examples/balanced_bst ../../misc ../../translator ../../basis/pure ../../basis ../../characteristic\
+					 ../../semantics ../../semantics/proofs
+CLINE_OPTIONS = --qof
