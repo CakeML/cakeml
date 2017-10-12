@@ -429,7 +429,7 @@ val compile_exps_acc = Q.store_thm("compile_exps_acc",
         (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux`,
   recInduct compile_exps_ind \\ REPEAT STRIP_TAC
   \\ fs [compile_exps_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
-  \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ fs []
   \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [pair_lem1] >>
   rw [] >>
   fs [pair_lem2] >>
