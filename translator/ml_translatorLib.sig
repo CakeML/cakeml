@@ -99,13 +99,12 @@ sig
     val clean_precondition           : thm -> thm
     val quietDefine                  : term quotation -> thm
     val derive_split                 : term -> thm
-    val diff                         : ''a list -> ''a list -> ''a list
     exception UnableToTranslate of term
 
     val find_const_name : string -> string
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
-    
+
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm
     val is_rec_def                   : thm -> bool
