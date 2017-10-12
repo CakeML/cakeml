@@ -866,8 +866,7 @@ fun apply_EvalM_Fun v th fix = let
   val th2 = inst_new_state_var [th1] th1
   val th3 = if fix then MATCH_MP EvalM_Fun_Eq (GEN ``v:v`` th2)
                    else MATCH_MP EvalM_Fun (GEN ``v:v`` (FORCE_GEN v th2))
-  val th4 = remove_ArrowM_EqSt th3
-  in th4 end;
+  in th3 end;
 
 fun apply_EvalM_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
@@ -1334,7 +1333,7 @@ in case st_opt of
 			      |> SIMP_RULE std_ss [M_FUN_QUANT_SIMP]
 			      |> PURE_REWRITE_RULE[GSYM ArrowM_def]
      | NONE => th |> PURE_REWRITE_RULE[GSYM ArrowM_def]
-end;
+end handle HOL_ERR _ => th;
 
 val EVAL_T_F = LIST_CONJ [EVAL ``ml_translator$CONTAINER ml_translator$TRUE``,
 			  EVAL ``ml_translator$CONTAINER ml_translator$FALSE``];
@@ -1398,7 +1397,7 @@ val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   (* check whether the precondition is T *)
   fun get_subst (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
     val pre_v = repeat rator pre_var
-    val true_pre = list_mk_abs (rev (dest_args pre_var), T)
+    val true_pre = list_mk_abs ((dest_args pre_var), T)
     in pre_v |-> true_pre end
   val ss = List.map get_subst thms
   val rw_thms = case (!store_pinv_def) of SOME th => th::(get_manip_functions_defs ())
@@ -1743,10 +1742,17 @@ val (fname,ml_fname,th,def) = List.hd thms
 	(* optimised generated code - do nothing *)
 	val th = D th
 	(* val th = clean_assumptions (D th) *)
-	val (th,v) = if no_params then (th,T) else
-                     (List.foldr (fn (v,th) => apply_EvalM_Fun v th true) th
-				 (rev (if is_rec then butlast rev_params else rev_params)),
-                      List.last rev_params)
+	val (th,v) = if no_params then (th,T) else let 
+            val params = (if is_rec then butlast rev_params else rev_params)
+	    val (x, xs) = (hd params, tl params)
+	    val v = List.last rev_params
+	    val th1 = apply_EvalM_Fun x th true
+	    val th2 = List.foldl (fn (v,th) => apply_EvalM_Fun v th true
+                       |> remove_ArrowM_EqSt) th1 xs
+	    in (th2,v) end
+     (* (List.foldr (fn (v,th) => apply_EvalM_Fun v th true) th
+        (rev (if is_rec then butlast rev_params else rev_params)),
+                      List.last rev_params) *)
     in (fname,ml_fname,def,th,v) end
     val thms = List.map optimise_and_abstract thms
     (* final phase: extract precondition, perform induction, store cert *)
@@ -1769,7 +1775,7 @@ val (fname,ml_fname,th,def) = List.hd thms
       val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
       val (th,pre) = extract_precondition_non_rec th pre_var
       (* Remove Eq *)
-      val th = remove_Eq th
+      val th = remove_EqSt th |> remove_Eq
       (* simpliy EqualityType *)
       val th = SIMP_EqualityType_ASSUMS th
       (* store for later use *)
