@@ -842,11 +842,6 @@ fun inst_EvalM_env v th = let
 val v = List.last (rev (if is_rec then butlast rev_params else rev_params))
 *)
 
-(* fun remove_EqSt th = let
-  val st_var = UNDISCH_ALL th |> concl |> get_EvalM_state
-  val th = GEN st_var th |> MATCH_MP ArrowP_EqSt_elim
-in th end handle HOL_ERR _ => th; *)
-
 fun remove_ArrowM_EqSt th = let
   val st_var = th |> concl |> rator |> rand |> rator |> rator |> rand |> rand
   val th = GEN st_var th |> MATCH_MP ArrowM_EqSt_elim
@@ -1330,6 +1325,17 @@ fun remove_Eq th = let
   val th = RW [GSYM ArrowM_def] th
 in th end handle HOL_ERR _ => th;
 
+fun remove_EqSt th = let
+    val th = UNDISCH_ALL th |> PURE_REWRITE_RULE[ArrowM_def]
+    val thc = concl th |> rator |> rand |> rator |> rand
+    val st_opt = get_EqSt_var thc
+in case st_opt of
+       SOME st => HO_MATCH_MP EvalM_FUN_FORALL (GEN st th)
+			      |> SIMP_RULE std_ss [M_FUN_QUANT_SIMP]
+			      |> PURE_REWRITE_RULE[GSYM ArrowM_def]
+     | NONE => th |> PURE_REWRITE_RULE[GSYM ArrowM_def]
+end;
+
 val EVAL_T_F = LIST_CONJ [EVAL ``ml_translator$CONTAINER ml_translator$TRUE``,
 			  EVAL ``ml_translator$CONTAINER ml_translator$FALSE``];
 
@@ -1531,6 +1537,164 @@ fun preprocess_monadic_def def = let
     val (is_rec,defs,ind) = preprocess_def def
 in (is_rec,defs,ind) end
 
+(* Apply the induction in the case of a recursive function without preconditions *)
+fun apply_ind thms ind = let
+    fun the (SOME x) = x | the _ = failwith("the of NONE")
+    (* val (fname,ml_fname,def,th,pre) = hd thms *)
+    fun get_goal (fname,ml_fname,def,th,pre) = let
+	val th = REWRITE_RULE [CONTAINER_def] th
+	val hs = hyp th
+	val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
+	val state_var = th |> UNDISCH_ALL |> concl |> rator
+			   |> rator |> rator |> rand
+	val forall_st_tm = mk_forall(state_var, th |> UNDISCH_ALL |> concl)
+	val hyp_tm = list_mk_abs(rev rev_params, forall_st_tm)
+	val goal = list_mk_forall(rev rev_params, forall_st_tm)
+    in (hyp_tm,(th,(hs,goal))) end
+    val goals = List.map get_goal thms
+    val gs = goals |> List.map (snd o snd o snd) |> list_mk_conj
+    val hs = goals |> List.map (fst o snd o snd) |> flatten
+		   |> all_distinct |> list_mk_conj
+    val goal = mk_imp(hs,gs)
+    val ind_thm = (the ind)
+		      |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
+		      |> ISPECL (goals |> List.map fst)
+		      |> CONV_RULE (DEPTH_CONV BETA_CONV)
+    fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
+      | POP_MP_TACs (ws,gg) =
+        POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
+    val pres = List.map (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
+
+      (*  val lhs = fst o dest_eq;  val rhs = snd o dest_eq; *)
+    fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
+    let
+        val (asms',concl) = strip_imp concl
+        val asms = asms'@asms
+        fun is_ineq t = is_neg t andalso is_eq(rand t)
+        fun is_disj_of_ineq t = all is_ineq (strip_disj t)
+        fun is_all_disj_of_ineq t = is_disj_of_ineq(snd(strip_forall t))
+        val var_equalities =
+            List.map strip_conj asms
+            |> List.concat
+            |> List.filter is_eq
+            |> List.filter (is_var o lhs)
+            |> List.filter (is_var o rhs)
+        fun eq_closure l [] = l
+          | eq_closure l (f::r) =
+            let val (lhs,rhs) = (lhs f, rhs f) in
+              if List.exists (fn x => term_eq lhs x) l then
+                eq_closure (rhs::l) r
+              else if List.exists (fn x => term_eq rhs x) l then
+                eq_closure (lhs::l) r
+              else
+                eq_closure l r
+            end
+        fun case_split_vars (l,r) =
+          if can (match_term r) l then
+            match_term r l
+            |> fst
+            |> List.filter (fn {residue,...} => not(is_var residue))
+            |> List.map (fn {redex,...} => redex)
+          else if is_comb r andalso
+                  not(TypeBase.is_constructor(fst(strip_comb r))) then
+            [r]
+          else
+            []
+      in
+        case List.find is_all_disj_of_ineq asms of
+            NONE => tac
+          | SOME asm =>
+            let val asm' = snd(strip_forall asm)
+                val disjuncts = strip_disj asm'
+                val lsrs = List.map (dest_eq o rand) disjuncts
+                val vars =
+                    List.map case_split_vars lsrs
+                    |> List.filter (not o null)
+                    |> List.map hd
+                    |> mlibUseful.setify
+            in
+              case vars of
+                  [] => tac
+                | l => List.foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
+            end
+      end
+(*
+      set_goal([],goal)
+*)
+    val lemma =
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ POP_MP_TACs
+        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
+        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
+        \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
+        \\ METIS_TAC[])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ SIMP_TAC std_ss [FORALL_PROD]
+        \\ (MATCH_MP_TAC ind_thm ORELSE
+            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ SIMP_TAC std_ss [FORALL_PROD]
+        \\ (MATCH_MP_TAC ind_thm ORELSE
+            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC PreImp_IMP
+        \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
+        \\ (STRIP_TAC THENL (List.map MATCH_MP_TAC (List.map (fst o snd) goals)))
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
+        \\ METIS_TAC [])
+      handle HOL_ERR _ =>
+      auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+        \\ METIS_TAC [])
+      handle HOL_ERR e =>
+        auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ POP_MP_TACs
+        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
+        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
+        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
+        \\ rpt(split_ineq_orelse_tac(metis_tac [])))
+    val results = UNDISCH lemma |> CONJUNCTS |> List.map SPEC_ALL
+    val thms = List.map (fn (th, (fname,ml_fname,def,_,pre)) => (fname,ml_fname,def,th,pre)) (zip results thms)
+in thms end;
+
 (*
  * m_translate_main
  *)
@@ -1655,175 +1819,31 @@ val (fname,ml_fname,def,th,v) = List.hd thms
       val thms = extract_precondition_rec thms
 
       (* apply induction *)
-      val thms = List.map (fn (fname,ml_fname,def,th,v) =>
-			      (fname, ml_fname, def, PURE_REWRITE_RULE[GSYM ArrowM_def] th, v)) thms
-      fun get_goal (fname,ml_fname,def,th,pre) = let
-	  val th = REWRITE_RULE [CONTAINER_def] th
-	  val hs = hyp th
-	  val rev_params = def |> concl |> dest_eq |> fst |> rev_param_list
-	  val hyp_tm = list_mk_abs(rev rev_params, th |> UNDISCH_ALL |> concl)
-	  val goal = list_mk_forall(rev rev_params, th |> UNDISCH_ALL |> concl)
-      in (hyp_tm,(th,(hs,goal))) end
-      val goals = List.map get_goal thms
-      val gs = goals |> List.map (snd o snd o snd) |> list_mk_conj
-      val hs = goals |> List.map (fst o snd o snd) |> flatten
-		     |> all_distinct |> list_mk_conj
-      val goal = mk_imp(hs,gs)
-      val ind_thm = (the ind)
-			|> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
-			|> ISPECL (goals |> List.map fst)
-			|> CONV_RULE (DEPTH_CONV BETA_CONV)
-      fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
-	| POP_MP_TACs (ws,gg) =
-          POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
-      val pres = List.map (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
-
-      (*  val lhs = fst o dest_eq;  val rhs = snd o dest_eq; *)
-      fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
-      let
-        val (asms',concl) = strip_imp concl
-        val asms = asms'@asms
-        fun is_ineq t = is_neg t andalso is_eq(rand t)
-        fun is_disj_of_ineq t = all is_ineq (strip_disj t)
-        fun is_all_disj_of_ineq t = is_disj_of_ineq(snd(strip_forall t))
-        val var_equalities =
-            List.map strip_conj asms
-            |> List.concat
-            |> List.filter is_eq
-            |> List.filter (is_var o lhs)
-            |> List.filter (is_var o rhs)
-        fun eq_closure l [] = l
-          | eq_closure l (f::r) =
-            let val (lhs,rhs) = (lhs f, rhs f) in
-              if List.exists (fn x => term_eq lhs x) l then
-                eq_closure (rhs::l) r
-              else if List.exists (fn x => term_eq rhs x) l then
-                eq_closure (lhs::l) r
-              else
-                eq_closure l r
-            end
-        fun case_split_vars (l,r) =
-          if can (match_term r) l then
-            match_term r l
-            |> fst
-            |> List.filter (fn {residue,...} => not(is_var residue))
-            |> List.map (fn {redex,...} => redex)
-          else if is_comb r andalso
-                  not(TypeBase.is_constructor(fst(strip_comb r))) then
-            [r]
-          else
-            []
-      in
-        case List.find is_all_disj_of_ineq asms of
-            NONE => tac
-          | SOME asm =>
-            let val asm' = snd(strip_forall asm)
-                val disjuncts = strip_disj asm'
-                val lsrs = List.map (dest_eq o rand) disjuncts
-                val vars =
-                    List.map case_split_vars lsrs
-                    |> List.filter (not o null)
-                    |> List.map hd
-                    |> mlibUseful.setify
-            in
-              case vars of
-                  [] => tac
-                | l => List.foldr (fn (x,t) => primCases_on x \\ t) ALL_TAC l
-            end
-      end
+      (* Apply the induction if necessary -
+         recursive function with no precondition *)
+      val thms = case #5 (hd thms) of
+		     SOME _ => thms 
+		   | NONE => apply_ind thms ind
 (*
-      set_goal([],goal)
+val (fname,ml_fname,def,th,pre) = List.hd thms
 *)
-      val lemma =
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ POP_MP_TACs
-        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
-        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0] (*For arithmetic-based goals*)
-        \\ METIS_TAC[])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
-        \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC PreImp_IMP
-        \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
-        \\ (STRIP_TAC THENL (List.map MATCH_MP_TAC (List.map (fst o snd) goals)))
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
-        \\ METIS_TAC [])
-      handle HOL_ERR _ =>
-      auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
-        \\ METIS_TAC [])
-      handle HOL_ERR e =>
-        auto_prove "ind" (goal,
-        STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
-        \\ REPEAT STRIP_TAC
-        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
-        \\ REPEAT STRIP_TAC
-        \\ POP_MP_TACs
-        \\ SIMP_TAC (srw_ss()) [ADD1,TRUE_def,FALSE_def]
-        \\ SIMP_TAC std_ss [UNCURRY_SIMP]
-        \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
-        \\ rpt(split_ineq_orelse_tac(metis_tac [])))
-    val results = UNDISCH lemma |> CONJUNCTS |> List.map SPEC_ALL
-(*
-val (th,(fname,ml_fname,def,_,pre)) = hd (zip results thms)
-*)
-    (* clean up *)
-    fun fix (th,(fname,ml_fname,def,_,pre)) = let
-      val th = let
-        val thi = MATCH_MP IMP_PreImp_THM th
-        val thi = CONV_RULE ((RATOR_CONV o RAND_CONV)
+      (* TODO HERE *)
+      (* clean up *)
+      fun fix (fname,ml_fname,def,th,pre) = let
+        (* val th = let
+          val thi = MATCH_MP IMP_PreImp_THM th
+          val thi = CONV_RULE ((RATOR_CONV o RAND_CONV)
                     (ONCE_REWRITE_CONV [force_thm_the pre] THENC
                      SIMP_CONV std_ss [PRECONDITION_def])) thi
-        val thi = MP thi TRUTH
-        in thi end handle HOL_ERR _ => th
-      val th = RW [PreImp_def] th |> UNDISCH_ALL
-      val th = remove_Eq th
-      val th = SIMP_EqualityType_ASSUMS th
-      val th = th |> DISCH_ALL |> REWRITE_RULE ((GSYM AND_IMP_INTRO)::code_defs) |> UNDISCH_ALL
+          val thi = MP thi TRUTH
+        in thi end handle HOL_ERR _ => th *)
+        (* val th = RW [PreImp_def, CONTAINER_def] th |> UNDISCH_ALL *)
+	val th = remove_EqSt th |> remove_Eq
+	val th = SIMP_EqualityType_ASSUMS th
+	val th = th |> DISCH_ALL |> REWRITE_RULE ((GSYM AND_IMP_INTRO)::code_defs) |> UNDISCH_ALL |> SPEC_ALL |> UNDISCH_ALL
       in (fname,ml_fname,def,th,pre) end
-    val results = List.map fix (zip results thms)
-    val _ = List.map (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
+      val results = List.map fix thms
+      val _ = List.map (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
   in (true,results) end
   fun check results = let
     val th = LIST_CONJ (List.map #4 results)
@@ -1867,12 +1887,17 @@ fun m_translate def =
       *)
       fun inst_envs (fname,ml_fname,def,th,pre) = let
 	  val lemmas = LOOKUP_VAR_def :: List.map GSYM v_defs
-	  val th = th |> ii |> jj |> prove_VALID_STORE_assum |> D |> REWRITE_RULE lemmas
-		      |> PURE_REWRITE_RULE[ArrowM_def]
-		      |> SIMP_RULE std_ss [ISPEC_EvalM_VALID EvalM_Var]
-		      |> SIMP_RULE std_ss [lookup_var_def]
-		      |> clean_assumptions |> UNDISCH_ALL
-		      |> PURE_REWRITE_RULE[GSYM ArrowM_def]
+	  val th = th |> ii |> jj |> prove_VALID_STORE_assum
+	  val state_var = concl th |> get_EvalM_state
+	  val th = GEN state_var th
+	  val th = MATCH_MP EvalM_Var_ArrowP th
+		   handle HOL_ERR _ => MATCH_MP EvalM_Var_ArrowP_EqSt th
+	  val assum = concl th |> dest_imp |> fst
+	  val v = th |> hyp |> first (can (match_term assum)) |> rand
+	  val th = INST [rand assum |-> v] th |> UNDISCH
+	  val th = D th |> REWRITE_RULE lemmas
+		     |> SIMP_RULE std_ss [lookup_var_def]
+		     |> clean_assumptions |> UNDISCH_ALL
 	  val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
 	  val th =
 	      if !dynamic_init_H then let val _ = add_dynamic_spec fname ml_fname th

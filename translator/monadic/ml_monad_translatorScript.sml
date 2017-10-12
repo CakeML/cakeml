@@ -1060,6 +1060,42 @@ val EvalM_Var = Q.store_thm("EvalM_Var",
       \\ fs[with_same_refs, evaluate_Var])
   \\ metis_tac[evaluate_Var, REFS_PRED_FRAME_append]);
 
+val EvalM_Var_ArrowP = Q.store_thm("EvalM_Var_ArrowP",
+  `(!st. EvalM env st (Var (Short n)) (ArrowM H (PURE a) b x) H) ==>
+   LOOKUP_VAR n env v ==>
+   ArrowP H (PURE a) b x v`,
+  rw[EvalM_def]
+  \\fs[Once evaluate_cases]
+  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]  
+  \\ fs[LOOKUP_VAR_def, lookup_var_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
+  \\ fs[PURE_def] \\ fs[state_component_equality]
+  \\ rw[] \\ fs[ArrowP_def]
+  \\ `PURE a x' (st1,s1) (st1,s2,Rval v')`
+     by fs[PURE_def,state_component_equality]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[state_component_equality]);
+
+val EvalM_Var_ArrowP_EqSt = Q.store_thm("EvalM_Var_ArrowP_EqSt",
+  `(!st. EvalM env st (Var (Short n)) (ArrowM H (EqSt (PURE a) n_st) b x) H) ==>
+   LOOKUP_VAR n env v ==>
+   ArrowP H (EqSt (PURE a) n_st) b x v`,
+  rw[EvalM_def]
+  \\ fs[Once evaluate_cases]
+  \\ fs[ArrowP_def, ArrowM_def] \\ rw[]  
+  \\ fs[LOOKUP_VAR_def, lookup_var_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum (qspec_then `[]` strip_assume_tac)
+  \\ fs[Once PURE_def, EqSt_def] \\ fs[state_component_equality]
+  \\ rw[] \\ fs[ArrowP_def]
+  \\ `PURE a x' (n_st,s1) (n_st,s2,Rval v')`
+     by fs[PURE_def,state_component_equality]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[state_component_equality]);
+
 (* Eq simps *)
 
 val EvalM_FUN_FORALL = Q.store_thm("EvalM_FUN_FORALL",
@@ -1102,12 +1138,18 @@ val M_FUN_FORALL_PUSH2 = Q.prove(
   FULL_SIMP_TAC std_ss [ArrowP_def,FUN_EQ_THM,AppReturns_def,
     FUN_FORALL,FUN_EXISTS,PURE_def] \\ METIS_TAC []) |> GEN_ALL;
 
+val M_FUN_FORALL_PUSH3 = Q.prove(
+  `(FUN_FORALL st. ArrowP H (EqSt a st) b) =
+    (ArrowP H a b)`,
+  FULL_SIMP_TAC std_ss [ArrowP_def,FUN_EQ_THM,AppReturns_def,
+    FUN_FORALL,FUN_EXISTS,EqSt_def] \\ METIS_TAC []) |> GEN_ALL;
+
 val FUN_EXISTS_Eq = Q.prove(
   `(FUN_EXISTS x. Eq a x) = a`,
   SIMP_TAC std_ss [FUN_EQ_THM,FUN_EXISTS,Eq_def]) |> GEN_ALL;
 
 val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
-  LIST_CONJ [FUN_EXISTS_Eq,M_FUN_FORALL_PUSH1,M_FUN_FORALL_PUSH2]);
+  LIST_CONJ [FUN_EXISTS_Eq,M_FUN_FORALL_PUSH1,M_FUN_FORALL_PUSH2,M_FUN_FORALL_PUSH3]);
 
 val EvalM_Eq = Q.store_thm("EvalM_Eq",
 `EvalM env st exp (PURE a x) H ==> EvalM env st exp (PURE (Eq a x) x) H`,
