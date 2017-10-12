@@ -926,7 +926,7 @@ val EvalM_Var_SIMP = Q.store_thm("EvalM_Var_SIMP",
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases,write_def]);
 
-val EvalM_Var_SIMP_PURE = Q.store_thm("EvalM_Var_SIMP_PURE",
+(* val EvalM_Var_SIMP_PURE = Q.store_thm("EvalM_Var_SIMP_PURE",
   `VALID_REFS_PRED H ==>
    (!st. EvalM (write nv v env) st (Var (Short n)) (PURE P x) H) =
     if nv = n then P x v else (!st. EvalM env st (Var (Short n)) (PURE P x) H)`,
@@ -938,6 +938,26 @@ val EvalM_Var_SIMP_PURE = Q.store_thm("EvalM_Var_SIMP_PURE",
       \\ EQ_TAC
       >-(metis_tac[])
       \\ metis_tac[REFS_PRED_FRAME_append])
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+  \\ ASM_SIMP_TAC (srw_ss()) [write_def]); *)
+
+val EvalM_Var_SIMP_ArrowM = Q.store_thm("EvalM_Var_SIMP_ArrowM",
+  `(!st. EvalM (write nv v env) st (Var (Short n)) (ArrowM H a b x) H) =
+    if nv = n then ArrowP H a b x v
+    else (!st. EvalM env st (Var (Short n)) (ArrowM H a b x) H)`,
+  SIMP_TAC std_ss [EvalM_def, ArrowM_def, VALID_REFS_PRED_def]
+  \\ SRW_TAC [] []
+  >-(
+      ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
+      \\ ASM_SIMP_TAC (srw_ss()) [write_def]
+      \\ EQ_TAC
+      >-(
+	  fs[PURE_def]
+	  \\ rw[ArrowP_def]
+	  \\ first_x_assum drule \\ rw[]
+	  \\ fs[state_component_equality])
+      \\ metis_tac[PURE_def, REFS_PRED_FRAME_append])
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ ASM_SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ ASM_SIMP_TAC (srw_ss()) [write_def]);
@@ -989,7 +1009,7 @@ val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   \\ fs[build_rec_env_def,write_rec_def,FOLDR,write_def]
   \\ METIS_TAC[APPEND_ASSOC]);
 
-val EvalM_Eq_Recclosure = Q.store_thm("EvalM_Eq_Recclosure",
+(* val EvalM_Eq_Recclosure = Q.store_thm("EvalM_Eq_Recclosure",
   `VALID_REFS_PRED H ==>
     LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
     (P f (Recclosure x1 x2 x3) =
@@ -1002,7 +1022,23 @@ val EvalM_Eq_Recclosure = Q.store_thm("EvalM_Eq_Recclosure",
       \\ fs[state_component_equality]
       \\ fs[REFS_PRED_FRAME_append])
   \\ fs [AND_IMP_INTRO, Once evaluate_cases,PULL_EXISTS,PULL_FORALL, VALID_REFS_PRED_def]
-  \\ metis_tac[]);
+  \\ metis_tac[]); *)
+
+val EvalM_Eq_Recclosure = Q.store_thm("EvalM_Eq_Recclosure",
+  `LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
+    (ArrowP H a b f (Recclosure x1 x2 x3) =
+     (!st. EvalM env st (Var (Short name)) (ArrowM H a b f) H))`,
+  rw[EvalM_Var_SIMP, EvalM_def, ArrowM_def, LOOKUP_VAR_def, lookup_var_def, PURE_def]
+  \\ EQ_TAC
+  >-(
+      rw[]
+      \\ rw[Once evaluate_cases]
+      \\ fs[state_component_equality]
+      \\ fs[REFS_PRED_FRAME_append])
+  \\ fs [AND_IMP_INTRO, Once evaluate_cases,PULL_EXISTS,PULL_FORALL, VALID_REFS_PRED_def]
+  \\ simp[state_component_equality]
+  \\ simp[ArrowP_def]
+  \\ metis_tac[REFS_PRED_FRAME_append]);
 
 val write_rec_one = Q.store_thm("write_rec_one",
   `write_rec [(x,y,z)] env env = write x (Recclosure env [(x,y,z)] x) env`,
@@ -1077,7 +1113,7 @@ val EvalM_Eq = Q.store_thm("EvalM_Eq",
 `EvalM env st exp (PURE a x) H ==> EvalM env st exp (PURE (Eq a x) x) H`,
 fs[EvalM_def, PURE_def, Eq_def]);
 
-val ArrowM_EqSt_elim = Q.store_thm("ArrowP_EqSt_elim",
+val ArrowM_EqSt_elim = Q.store_thm("ArrowM_EqSt_elim",
   `(!st_v. EvalM env st exp (ArrowM H (EqSt a st_v) b f) H) ==>
    EvalM env st exp (ArrowM H a b f) H`,
   fs[EvalM_def, ArrowP_def, ArrowM_def]
