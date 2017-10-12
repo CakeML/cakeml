@@ -41,7 +41,7 @@ fun hclean_one_conseq_conv_core ctx t =
     val (_, pre, _) = dest_F_pre_post t
     val hs = list_dest dest_star pre
     fun rearrange_conv tm =
-      let val rest = filter (fn tm' => tm' <> tm) hs in
+      let val rest = filter (not o aconv tm) hs in
         F_pre_post_conv (rearrange_star_conv tm rest) REFL
       end
     fun try_prove_local_cc t =
