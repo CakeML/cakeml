@@ -6,7 +6,10 @@ open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
 open holKernelTheory
 
+open ioProgTheory (* TODO temporary *)
+
 val _ = new_theory "ml_hol_kernelProg";
+val _ = translation_extends "ioProg" (* TODO temporary *)
 
 val _ = (use_full_type_names := false);
 
@@ -179,6 +182,7 @@ val res = translate listTheory.EXISTS_DEF;
 val res = translate listTheory.FILTER;
 val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
+(*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
 val explode_aux_side_thm = Q.prove(
@@ -189,12 +193,14 @@ val explode_side_thm = Q.prove(
   rw[definition"explode_side_def",explode_aux_side_thm])
   |> update_precondition
 val res = translate mlstringTheory.strcat_def;
+*) (* TODO temporary *)
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
 val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
                 simp [inv_image_def, mlstringTheory.mlstring_lt_inv_image])
           |> translate
 val res = translate totoTheory.TO_of_LinearOrder
+(*
 val res = translate mlstringTheory.compare_aux_def
 val res = translate mlstringTheory.compare_def
 
@@ -214,6 +220,7 @@ val compare_side_thm = Q.prove (
   `!s1 s2. compare_side s1 s2`,
   rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
 (* end copy and paste *)
+*) (* TODO temporary *)
 
 val res = translate comparisonTheory.pair_cmp_def
 val res = translate ternaryComparisonsTheory.list_compare_def
