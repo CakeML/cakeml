@@ -9,8 +9,8 @@ val _ = m_translation_extends "ml_hol_kernelProg"
 (* --- Standard translation --- *)
 
 val _ = translate init_state_def
-val _ = translate K_DEF
-val _ = translate EVEN
+(*val _ = translate K_DEF*)
+(*val _ = translate EVEN*)
 val _ = translate mk_BN_def
 val _ = translate mk_BS_def
 val _ = translate insert_def
@@ -20,7 +20,7 @@ val _ = translate push_def
 val _ = translate insert_dict_def
 val _ = translate delete_dict_def
 val _ = translate first_def
-val _ = translate REVERSE_DEF
+(*val _ = translate REVERSE_DEF*)
 val _ = translate stringTheory.isDigit_def
 
 (* --- match_type, tymatch : Replace REV_ASSOCD, use MEM_INTRO. --- *)
@@ -43,13 +43,13 @@ val _ = translate holSyntaxExtraTheory.match_type_def
 
 (* --- Side conditions --- *)
 
-val _ = translate FRONT_DEF
+(*val _ = translate FRONT_DEF*)
 
-val front_side = Q.store_thm ("front_side",
-  `!xs. front_side xs <=> xs <> []`,
-  Induct
-  \\ once_rewrite_tac [fetch "-" "front_side_def"] \\ fs [])
-  |> update_precondition;
+(*val front_side = Q.store_thm ("front_side",*)
+  (*`!xs. front_side xs <=> xs <> []`,*)
+  (*Induct*)
+  (*\\ once_rewrite_tac [fetch "-" "front_side_def"] \\ fs [])*)
+  (*|> update_precondition;*)
 
 val _ = translate numposrepTheory.l2n_def
 
@@ -103,9 +103,85 @@ val readline_side = Q.store_thm("readline_side",
 val r = m_translate readLines_def
 val r = m_translate run_reader_def
 
+(* --- Get reader program. --- *)
+
+(*
+val reader_prog_tm =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+  |> concl
+  |> rator |> rator |> rand
+  |> EVAL |> concl |> rhs
+*)
+
 (* --- Imperative code --- *)
 
-(* ... *)
+open ioProgTheory cfTacticsLib basisFunctionsLib rofsFFITheory
+      mlfileioProgTheory
+
+(*
+val _ = translation_extends "ioProg"
+val _ = append_decs reader_prog_tm
+*)
+
+(*
+val r =
+  reader_prog_thm
+  |> concl |> rator |> rator |> rand
+  |> EVAL |> concl |> rhs
+  |> append_prog
+*)
+
+val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>"`
+val _ = translate msg_usage_def
+
+val _ = process_topdecs `
+  fun msg_bad_name s = String.concat ["Bad filename: ", s, "\n"]
+
+  fun msg_success len =
+    String.concat [ "Success. Theorem stack contains ", Int.toString len
+                  , " theorems." ]
+
+  fun msg_failure loc =
+    String.concat [ "FAIL.\n Exception thrown from ", loc, "." ]
+  ` |> append_prog;
+
+val _ = process_topdecs`
+  fun read_lines ls =
+    let
+      val st_rec = run_reader ls
+      val thms  = st_rec.thms
+    in
+      print (msg_success (length thms));
+      print "OK."
+    end
+    handle Fail msg => printerr (msg_failure msg)
+  ` |> append_prog;
+
+val _ = process_topdecs `
+  fun read_file fname =
+    case FileIO.inputLinesFrom fname of
+      SOME ls => read_lines ls
+    | NONE    => print_err (msg_bad_name fname)
+  ` |> append_prog;
+
+val _ = process_topdecs `
+  fun reader_main u =
+    case Commandline.arguments () of
+      [fname] => read_file fname
+    | _       => print_err msg_usage
+  ` |> append_prog;
+
+val reader_prog_thm =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+
+val _ = save_thm ("reader_prog_thm", reader_prog_thm);
 
 val _ = export_theory ();
 

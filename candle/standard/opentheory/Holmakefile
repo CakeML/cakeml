@@ -1,4 +1,5 @@
 INCLUDES = ../../../misc ../monadic \
 	   ../ml_kernel \
 	   ../../../basis \
-	   ../../../translator/monadic
+	   ../../../translator/monadic \
+	   ../../../characteristic
