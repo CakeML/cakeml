@@ -676,10 +676,9 @@ fun inst_case_thm tm m2deep = let
   in th |> UNDISCH_ALL end handle Empty => failwith "empty";
 
 (* PMATCH *)
-
 val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
+val BETA_PAIR_THM = Q.prove(`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[]);
 
-val forall_pat = ``!x. P``;
 fun prove_EvalMPatBind goal m2deep = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> get_Eval_arg |> rator
@@ -707,7 +706,11 @@ fun prove_EvalMPatBind goal m2deep = let
   *)
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
-    \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC
+    (**)
+    \\ FULL_SIMP_TAC pure_ss [FORALL_PROD,BETA_PAIR_THM, UNCURRY_DEF]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ REPEAT STRIP_TAC
+    (* \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC *)
     \\ MATCH_MP_TAC (D res) \\ fs []
     \\ fs [EvalPatBind_def,Pmatch_def]
     \\ REPEAT (POP_ASSUM MP_TAC)
@@ -790,7 +793,7 @@ val th_ref = ref nil_lemma
     val th = DISCH assm th
     in th end
   val th = trans ts
-  val th = MATCH_MP th (UNDISCH x_res)
+  val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
   val th = UNDISCH_ALL th
   in th end handle HOL_ERR e =>
   failwith ("pmatch_m2deep failed (" ^ #message e ^ ")");
@@ -873,11 +876,14 @@ fun apply_EvalM_Recclosure recc fname v th = let
   val vname_str = stringLib.fromMLstring vname
   val fname_str = stringLib.fromMLstring fname
   val FORALL_CONV = RAND_CONV o ABS_CONV
-  val lemma = ISPECL [!H, recc,fname_str] EvalM_Recclosure_ALT
-              |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
-                            RATOR_CONV o RAND_CONV) EVAL)
-  val pat = lemma |> concl |> find_term (can (match_term (get_term "find_recfun")))
-  val lemma = SIMP_RULE std_ss [EVAL pat] lemma
+  val is_monad_only = not (can (match_term (SPEC_ALL ArrowM_def |> concl |> dest_eq |> fst)) (concl th |> rator |> rand |> rator))
+  val lemma = if is_monad_only
+    then ISPECL [!H, recc,fname_str] EvalM_Recclosure_ALT2 |> UNDISCH
+    else ISPECL [!H, recc,fname_str] EvalM_Recclosure_ALT
+  val lemma = lemma |> CONV_RULE ((FORALL_CONV o FORALL_CONV o
+                           RATOR_CONV o RAND_CONV) EVAL)              
+  val pat1 = lemma |> concl |> find_term (can (match_term (get_term "find_recfun")))
+  val lemma = SIMP_RULE std_ss [EVAL pat1] lemma
   val inv = smart_get_type_inv (type_of v)
   val pat = EvalM_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator |> rator |> rator |> rator
   val pat = lemma |> concl |> find_term (can (match_term pat))
@@ -900,7 +906,19 @@ fun apply_EvalM_Recclosure recc fname v th = let
 		|> UNDISCH_ALL
                 |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (UNBETA_CONV v)) (* RATOR_CONV *)
                 |> DISCH new_assum
-  val th2 = MATCH_MP lemma (Q.INST [`env`|->`cl_env`] (GENL [state_var, ``v:v``] th1))
+  val th2 = if not is_monad_only
+	    then MATCH_MP lemma (Q.INST [`env`|->`cl_env`]
+					(GENL [state_var, ``v:v``] th1))
+    else let
+      val assum = DISCH_ALL th1 |> concl |> dest_imp |> fst
+      val A = mk_abs(state_var, assum)
+      val A_eq = BETA_CONV (mk_comb(A,state_var))
+      val th = (Q.INST [`env`|->`cl_env`] (GENL [state_var, ``v:v``] (th1 |> DISCH_ALL))) |> SIMP_RULE pure_ss [Once(GSYM A_eq)]
+      val th = MATCH_MP (ISPECL [!H, recc,fname_str] EvalM_Recclosure_ALT3 |> SPEC_ALL) th
+			|> SIMP_RULE pure_ss [A_eq] |> UNDISCH
+      val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
+      val th = SIMP_RULE std_ss [EVAL pat1] th
+    in th end
   val assum = ASSUME (fst (dest_imp (concl th2)))
   val th3 = D th2 |> REWRITE_RULE [assum]
                   |> SIMP_RULE pure_ss [Eval_Var_SIMP, EvalM_Var_SIMP_ArrowM,lookup_var_write,FOLDR,write_rec_def]
@@ -1369,6 +1387,10 @@ fun extract_precondition_non_rec th pre_var =
   in (th,SOME pre_def) end end
 (* *)
 
+val PreImp_PRECONDITION_T_SIMP = Q.prove(
+ `PreImp T a /\ PRECONDITION T <=> a`,
+ fs[PreImp_def, PRECONDITION_def]);
+
 fun extract_precondition_rec thms = let
 (* val (fname,ml_fname,def,th) = List.hd thms *)
   fun rephrase_pre (fname,ml_fname,def,th) = let
@@ -1421,26 +1443,35 @@ val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
 (*
   val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
 *)
-  fun separate_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
-    val lemma = derive_split (th |> concl |> dest_imp |> fst)
-    val lemma = MATCH_MP combine_lemma (CONJ lemma th)
-                |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-                     (PURE_REWRITE_CONV [PRECONDITION_def]))
-    in (fname,ml_fname,def,lemma,pre_var) end;
-  val thms2 = List.map separate_pre thms
-  val all_pre_vars = List.map (fn (fname,ml_fname,def,lemma,pre_var) =>
-                            repeat rator pre_var) thms2
-(*
-val (fname,ml_fname,def,lemma,pre_var) = hd thms2
-*)
-  val all_pres = List.map (fn (fname,ml_fname,def,lemma,pre_var) => let
-    val tm = lemma |> concl |> dest_imp |> fst
-    val vs = diff (free_vars tm) all_pre_vars
-    val ws = tl (list_dest dest_comb pre_var)
-    val ws = ws @ diff vs ws
-    in list_mk_forall(ws,mk_imp(tm,pre_var)) end) thms2
-    |> list_mk_conj
-  val (_,_,pre_def) = Hol_reln [ANTIQUOTE all_pres]
+  (* Link the EvalM predicates to their "equivalent" pre vars *)
+    fun get_pre_var_EvalM_pair (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
+	val EvalM_tm = UNDISCH_ALL th |> concl
+	val pre_var = get_monad_pre_var th (concl def |> dest_eq |> fst) ml_fname
+    in (pre_var, EvalM_tm) end
+    val pre_var_EvalM_pairs = List.map get_pre_var_EvalM_pair thms
+    (* Those rewrites won't be used for any proof: only to generate appropriate terms to define the precondition *)
+    val pre_var_EvalM_rws = List.map (fn (x, y) => mk_thm([],
+        mk_eq(mk_forall(get_EvalM_state y,y), x))) pre_var_EvalM_pairs
+
+  (* Remove the occurences of PreImp and PreCond *)
+  fun replace_EvalM (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = let
+    val rw1 = mk_thm([], ``(PreImp a b /\ PRECONDITION a) <=> b``)
+    val rws = rw1::pre_var_EvalM_rws
+    val assum = concl th |> dest_imp |> fst
+    val st = concl th |> dest_imp |> snd |> get_EvalM_state
+    val tm = UNDISCH th |> GEN st |> DISCH assum
+		     |> PURE_REWRITE_RULE rws |> concl
+  in tm end
+  val no_quant_pres = List.map replace_EvalM thms
+  (* Define the pre conds *)
+  val all_pre_vars = List.map ((repeat rator) o fst) pre_var_EvalM_pairs
+  val (all_pres_list, vsl) = List.map (fn tm => let
+      val vs = diff (free_vars tm) all_pre_vars
+      val def_tm = list_mk_forall(vs, tm)
+    in (def_tm, vs) end) no_quant_pres |> unzip
+  val all_pres = list_mk_conj all_pres_list
+  val (_,pre_ind,pre_def) = Hol_reln [ANTIQUOTE all_pres]
+  (* Clean the pre_cond def *)
   val clean_pre_def = pre_def |> PURE_REWRITE_RULE [CONTAINER_def]
   val name = clean_pre_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
                |> concl |> dest_eq |> fst |> repeat rator |> dest_const |> fst
@@ -1449,37 +1480,52 @@ val (fname,ml_fname,def,lemma,pre_var) = hd thms2
   val _ = delete_binding (name ^ "_strongind") handle NotFound => ()
   val _ = delete_binding (name ^ "_cases") handle NotFound => ()
   val _ = save_thm(name ^ "_def", clean_pre_def)
-  val pre_defs = pre_def |> CONJUNCTS |> List.map SPEC_ALL
-  val thms3 = zip pre_defs thms2
-  fun get_sub (pre,(fname,ml_fname,def,lemma,pre_var)) = let
-    val x = pre_var |> repeat rator
-    val y = pre |> concl |> dest_eq |> fst |> repeat rator
-    in x |-> y end
-  val ss = List.map get_sub thms3
-  (* val pat = ``PURE (arrowP (****)
-  fun list_dest_Eq_Arrow tm =
-    if can (match_term pat) tm then
-      (tm |> rator |> rand |> rand) :: list_dest_Eq_Arrow (rand tm)
-    else [] *)
-  val pat = PURE_ArrowP_Eq_tm
-  fun list_dest_Eq_Arrow tm =
-    if can (match_term pat) tm
-    then (rand o rand o rand o rator o rand) tm :: list_dest_Eq_Arrow ((rand o rand) tm)
-    else []
+(* For every pre_cond, prove that: pre_cond ==> EvalM ... *)
 (*
-val (pre,(fname,ml_fname,def,lemma,pre_var)) = hd thms3
+      val (pre_var_tm, EvalM_tm) = hd pre_var_EvalM_pairs
 *)
-  fun compact_pre (pre,(fname,ml_fname,def,lemma,pre_var)) = let
-    val vs = pre |> concl |> dest_eq |> fst |> list_dest dest_comb |> tl
-    val ws = lemma |> UNDISCH_ALL |> PURE_REWRITE_RULE[ArrowM_def] |> concl |> rator |> rand |> rator |> list_dest_Eq_Arrow
-    val i = List.map (fn (x,y) => x |-> y) (zip vs ws) handle HOL_ERR _ => []
-    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM (INST i pre)))
-    val lemma = lemma |> INST ss |> CONV_RULE c
-                      |> MATCH_MP IMP_PreImp_LEMMA
-    val pre = pre |> PURE_REWRITE_RULE [CONTAINER_def]
-    in (fname,ml_fname,def,lemma,SOME pre) end
-  val thms4 = List.map compact_pre thms3
-  in thms4 end end
+  fun create_pre_var_EvalM_subst (pre_var_tm, EvalM_tm) = let
+    val (pre_var, args) = strip_comb pre_var_tm
+    val (pre_var_name, pre_var_type) = dest_var pre_var
+    val pre_var = mk_var(pre_var_name ^"'", pre_var_type)
+    val st = get_EvalM_state EvalM_tm
+    val EvalM_abs = list_mk_abs(args, mk_forall(st,EvalM_tm))
+  in (pre_var |-> EvalM_abs) end
+  val pre_var_EvalM_subst = List.map create_pre_var_EvalM_subst pre_var_EvalM_pairs
+  val inst_pre_ind = Thm.INST pre_var_EvalM_subst (SPEC_ALL pre_ind)
+			    |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  fun create_pre_var_T_subst (pre_var_tm, _) = let
+    val (pre_var, args) = strip_comb pre_var_tm
+    val TRUE = concl TRUE_def |> rand
+    val t_abs = list_mk_abs(args, TRUE)
+  in (pre_var |-> t_abs) end
+  val pre_var_T_subst = List.map create_pre_var_T_subst pre_var_EvalM_pairs
+(*
+  val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
+*)
+  fun inst_EvalM_thm (vs, (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2)) = let
+    val th1 = Thm.INST pre_var_T_subst th
+		       |> CONV_RULE (DEPTH_CONV BETA_CONV)
+		       |> PURE_REWRITE_RULE[PreImp_PRECONDITION_T_SIMP]
+    val assum = concl th1 |> dest_imp |> fst
+    val st = concl th1 |> dest_imp |> snd |> get_EvalM_state
+    val th2 = UNDISCH th1 |> GEN st |> DISCH assum
+    val th3 = GENL vs th2
+  in th3 end
+  val EvalM_thms = List.map inst_EvalM_thm (zip vsl thms) |> LIST_CONJ
+  val thms2 = MATCH_MP inst_pre_ind EvalM_thms |> CONJUNCTS
+  val pre_defs = clean_pre_def |> CONJUNCTS |> List.map SPEC_ALL
+  (* clean up *)
+  fun clean ((pre,lemma), (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2)) = let
+      val th1 = SPEC_ALL lemma
+      val assum = concl th1 |> dest_imp |> fst
+      val th2 = UNDISCH th1 |> SPEC_ALL |> DISCH assum
+      val precond_eq = ISPEC assum PRECONDITION_def
+      val th3 = PURE_ONCE_REWRITE_RULE[GSYM precond_eq] th2
+  in (fname,ml_fname,def,th3,SOME pre) end
+  val thms3 = List.map clean (zip (zip pre_defs thms2) thms)
+in thms3 end end
+handle HOL_ERR _ => failwith "extract_precondition_rec failed";
 
 (* Adapted from translatorLib *)
 (* val (fname,ml_fname,def,th,v) = List.hd thms *)
@@ -1557,7 +1603,7 @@ fun apply_ind thms ind = let
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
 		      |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
-		      |> ISPECL (goals |> List.map fst)
+		      |> ISPECL (goals |> List.map fst |> )
 		      |> CONV_RULE (DEPTH_CONV BETA_CONV)
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
       | POP_MP_TACs (ws,gg) =
@@ -1749,7 +1795,7 @@ val (fname,ml_fname,th,def) = List.hd thms
 	    val th1 = apply_EvalM_Fun x th true
 	    val th2 = List.foldl (fn (v,th) => apply_EvalM_Fun v th true
                        |> remove_ArrowM_EqSt) th1 xs
-	    in (th2,v) end
+	    in (th2,v) end handle Empty => (th, List.last rev_params)
      (* (List.foldr (fn (v,th) => apply_EvalM_Fun v th true) th
         (rev (if is_rec then butlast rev_params else rev_params)),
                       List.last rev_params) *)

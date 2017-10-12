@@ -978,19 +978,83 @@ val EvalM_Recclosure_ALT = Q.store_thm("EvalM_Recclosure_ALT",
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
   \\ evaluate_unique_result_tac
   \\ fs[state_component_equality]
-  \\ rw[]
-  >-(
-      `s2 = s1 with refs := s1.refs ++ junk'` by rw[state_component_equality]
-      \\ rw[do_opapp_def]
-      \\ fs[state_component_equality] \\ rw[]
-      \\ fs[Eq_def]
-      \\ first_x_assum drule \\ rw[]
-      \\ first_x_assum drule \\ rw[]
-      \\ first_x_assum(qspec_then `junk' ++ junk''` STRIP_ASSUME_TAC)
-      \\ fs[]
-      \\ evaluate_unique_result_tac
-      \\ metis_tac[])
-  \\ metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append]);
+  \\ reverse(rw[])
+  >-(metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ `s2 = s1 with refs := s1.refs ++ junk'` by rw[state_component_equality]
+  \\ rw[do_opapp_def]
+  \\ fs[state_component_equality] \\ rw[]
+  \\ fs[Eq_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum(qspec_then `junk' ++ junk''` STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ metis_tac[]);
+
+val EvalM_Recclosure_ALT2 = Q.store_thm("EvalM_Recclosure_ALT2",
+`!H funs fname.
+     A n_st ==>
+     !name body.
+     ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ==>
+     (∀st v.
+        A st ==>
+        a n v ==>
+        EvalM (write name v (write_rec funs env2 env2)) st body (b (f n)) H) ==>
+     LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
+     find_recfun fname funs = SOME (name,body) ==>
+     EvalM env st (Var (Short fname)) ((ArrowM H (EqSt (PURE (Eq a n)) n_st) b) f) H`,
+  rw[write_rec_thm,write_def]
+  \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def, EqSt_def] \\ REPEAT STRIP_TAC
+  \\ first_x_assum(qspec_then`s.refs ++ junk` STRIP_ASSUME_TAC)
+  \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ fs[state_component_equality]
+  \\ reverse(rw[])
+  >-(metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ `s2 = s1 with refs := s1.refs ++ junk'` by rw[state_component_equality]
+  \\ rw[do_opapp_def]
+  \\ fs[state_component_equality] \\ rw[]
+  \\ fs[Eq_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum(qspec_then `junk' ++ junk''` STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ metis_tac[]);
+
+val EvalM_Recclosure_ALT3 = Q.store_thm("EvalM_Recclosure_ALT3",
+`!H funs fname name body.
+     (∀st v.
+        A st ==>
+        a n v ==>
+        EvalM (write name v (write_rec funs env2 env2)) st body (b (f n)) H) ==>
+     A n_st ==>
+     ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ==>
+     LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
+     find_recfun fname funs = SOME (name,body) ==>
+     EvalM env st (Var (Short fname)) ((ArrowM H (EqSt (PURE (Eq a n)) n_st) b) f) H`,
+  rw[write_rec_thm,write_def]
+  \\ IMP_RES_TAC LOOKUP_VAR_THM
+  \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def, EqSt_def] \\ REPEAT STRIP_TAC
+  \\ first_x_assum(qspec_then`s.refs ++ junk` STRIP_ASSUME_TAC)
+  \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP_junk x |> STRIP_ASSUME_TAC)
+  \\ evaluate_unique_result_tac
+  \\ fs[state_component_equality]
+  \\ reverse(rw[])
+  >-(metis_tac[APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ `s2 = s1 with refs := s1.refs ++ junk'` by rw[state_component_equality]
+  \\ rw[do_opapp_def]
+  \\ fs[state_component_equality] \\ rw[]
+  \\ fs[Eq_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum(qspec_then `junk' ++ junk''` STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ evaluate_unique_result_tac
+  \\ metis_tac[]);
 
 val EvalM_Recclosure = Q.store_thm("EvalM_Recclosure",
   `!H. (!st v. a n v ==>
