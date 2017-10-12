@@ -276,8 +276,6 @@ fun specl_args_of_then f th (ttac:thm_tactic) (g as (_,w)) =
 
 (* TODO: all the following might not be used? *)
 
-fun term_in_list ls x = exists (aconv x) ls
-
 (* the theorem is of the form [!x1 ... xn. P ==> ?y1 ... ym. Q /\ ...]
    the goal is of the form [?z1 ... zk. Q' /\ ...]
    instantiate the xs as necessary to make Q and Q' match as much as possible
@@ -294,11 +292,11 @@ fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
     val (_,b) = strip_exists b
     val ts = strip_conj b val t = hd ts
     val (tms,_) = match_term t c
-    val tms = filter (term_in_list vs o #redex) tms
-    val tms = filter (not o term_in_list ws o #residue) tms
+    val tms = filter (C (op_mem aconv) vs o #redex) tms
+    val tms = filter (not o C (op_mem aconv) ws o #residue) tms
     val xs = map #redex tms
     val ys = map #residue tms
-    fun sorter ls = xs@(filter (not o term_in_list xs) ls)
+    fun sorter ls = xs@(filter (not o C (op_mem aconv) xs) ls)
     val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
   in
     ttac th
