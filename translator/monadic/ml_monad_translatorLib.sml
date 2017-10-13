@@ -1593,6 +1593,10 @@ fun apply_ind thms ind = let
 	val state_var = th |> UNDISCH_ALL |> concl |> rator
 			   |> rator |> rator |> rand
 	val forall_st_tm = mk_forall(state_var, th |> UNDISCH_ALL |> concl)
+	(* *)
+	val st_eq_tm = REWRITE_RULE[ArrowM_def ]th |> UNDISCH_ALL |> concl |> rator |> rand |> rator |> rand |> get_EqSt_var |> the
+	val forall_st_tm = mk_forall(st_eq_tm, forall_st_tm)
+        (* *)
 	val hyp_tm = list_mk_abs(rev rev_params, forall_st_tm)
 	val goal = list_mk_forall(rev rev_params, forall_st_tm)
     in (hyp_tm,(th,(hs,goal))) end
@@ -1603,7 +1607,7 @@ fun apply_ind thms ind = let
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
 		      |> rename_bound_vars_rule "i" |> SIMP_RULE std_ss []
-		      |> ISPECL (goals |> List.map fst |> )
+		      |> ISPECL (goals |> List.map fst)
 		      |> CONV_RULE (DEPTH_CONV BETA_CONV)
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
       | POP_MP_TACs (ws,gg) =
