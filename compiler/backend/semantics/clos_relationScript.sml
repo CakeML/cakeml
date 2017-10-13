@@ -2185,7 +2185,7 @@ fun PART_MATCH' f th t =
     val localconsts = hyp_frees specth
     val localtycons = HOLset.listItems (hyp_tyvars specth)
     val theta as (tms, tys) = match_terml localtycons localconsts pat t
-    val vs' = set_diff (map (Term.inst tys) vs) (map #redex tms)
+    val vs' = op_set_diff aconv (map (Term.inst tys) vs) (map #redex tms)
   in
     GENL vs' (INST_TY_TERM theta specth)
   end
