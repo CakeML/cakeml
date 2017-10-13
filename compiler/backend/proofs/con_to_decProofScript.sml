@@ -208,7 +208,7 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   simp[conLangTheory.num_defs_def] >>
   ONCE_REWRITE_TAC[ADD_COMM] >>
   simp[GENLIST_APPEND] >>
-  fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM,klem] \\
+  fsrw_tac[ARITH_ss][klem] \\
   rfs[]);
 
 val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
