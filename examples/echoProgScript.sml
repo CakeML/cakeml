@@ -51,7 +51,7 @@ val echo_spec = Q.store_thm("echo_spec",
   xsimpl >> rw[] >> qexists_tac`x` >>
   fs[fsFFIProofTheory.fsupdate_numchars] >>
   `liveFS (fs with numchars := x)` 
-    by fs[fsFFIProofTheory.liveFS_def,fsFFITheory.fsupdate_def] >>
+    by fs[fsFFIProofTheory.wfFS_def,fsFFIProofTheory.liveFS_def,fsFFITheory.fsupdate_def] >>
   rfs[fsFFIProofTheory.fsupdate_o] >> fs[fsFFIProofTheory.fsupdate_o] >> xsimpl >>
   irule STD_streams_fsupdate >> fs[STD_streams_fsupdate]);
 
@@ -67,6 +67,6 @@ val echo_semantics = save_thm("echo_semantics",
   call_thm_echo
   |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE std_ss [APPEND]);
+  |> SIMP_RULE std_ss [LENGTH,APPEND]);
 
 val _ = export_theory();
