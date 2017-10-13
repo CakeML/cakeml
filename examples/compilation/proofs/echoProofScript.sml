@@ -4,11 +4,28 @@ open preamble
 
 val _ = new_theory"echoProof";
 
-val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events"],
-  echo_semantics |> Q.GENL[`inp`,`cls`,`files`]
+(* TODO: move *)
+(* the spec theorems should have been simplified earlier.. *)
+val with_same_numchars = Q.store_thm("with_same_numchars",
+  `x with numchars := x.numchars = x`,
+  rw[fsFFITheory.IO_fs_component_equality])
+val STD_streams_imp_stdout = Q.store_thm("STD_streams_imp_stdout",
+  `STD_streams fs ⇒
+   stdout fs (THE(ALOOKUP fs.files (IOStream(strlit"stdout"))))`,
+  EVAL_TAC \\ rw[] \\ rw[]);
+(* -- *)
+
+val _ = clear_overloads_on"STRCAT";
+
+val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events","echo_numchars"],
+  echo_semantics
+  |> Q.GEN`ll` |> Q.SPEC`fs.numchars`
+  |> SIMP_RULE (bool_ss++listLib.LIST_ss++ARITH_ss) [with_same_numchars,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> Q.GENL[`cls`,`fs`,`output`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
-val (echo_sem,echo_output) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (echo_streams,th) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
+val (echo_sem,echo_output) = th |> CONJ_PAIR
 val (echo_not_fail,echo_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail echo_sem |> CONJ_PAIR
 
 val compile_correct_applied =
@@ -19,7 +36,7 @@ val compile_correct_applied =
   |> REWRITE_RULE[echo_sem_sing]
 
 val echo_compiled_thm =
-  CONJ compile_correct_applied echo_output
+  CONJ compile_correct_applied echo_output (*CONJ echo_output echo_streams -- do we need this?*)
   |> DISCH_ALL
   |> curry save_thm "echo_compiled_thm";
 
