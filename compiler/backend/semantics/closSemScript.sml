@@ -32,6 +32,8 @@ val _ = Datatype `
      ; refs    : num |-> closSem$v ref
      ; ffi     : 'ffi ffi_state
      ; clock   : num
+     ; compile : 'c -> closLang$exp # (num # num # closLang$exp) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (closLang$exp # (num # num # closLang$exp) list)
      ; code    : num |-> (num # closLang$exp)
      ; max_app : num
     |> `
@@ -101,10 +103,75 @@ val v_to_list_def = Define`
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#('ffi closSem$state),closSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state),closSem$v)result``)
+
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns:word8 list.
+                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+
+val s = ``s:('c,'ffi)closSem$state``;
+
+val do_install_def = Define `
+  do_install vs ^s =
+      (case vs of
+       | [v1;v2] =>
+           (case (v_to_bytes v1, v_to_words v2) of
+            | (SOME bytes, SOME data) =>
+               let (cfg,progs) = s.compile_oracle 0 in
+               let new_oracle = shift_seq 1 s.compile_oracle in
+                (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
+                    ALL_DISTINCT (MAP FST (SND progs)) /\
+                    0 < s.clock then
+                 (case s.compile cfg progs, progs of
+                  | SOME (bytes',data',cfg'), (exp,aux) =>
+                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                        let s' =
+                          s with <|
+                             code := s.code |++ aux
+                           ; compile_oracle := new_oracle
+                           ; clock := s.clock - 1
+                           |>
+                        in
+                          SOME (exp, s')
+                      else NONE
+                  | _ => NONE)
+                  else NONE)
+            | _ => NONE)
+       | _ => NONE)`;
+
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
+val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
+val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
+                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
+                          case_def = TypeBase.case_def_of ``:'a error_result`` }
+val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
+                       case_def = TypeBase.case_def_of ``:eq_result`` }
+val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
+                     case_def = TypeBase.case_def_of ``:app_kind`` }
+val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
+                     case_def = TypeBase.case_def_of ``:word_size`` }
+
+val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, list_thms, option_thms, v_thms, ref_thms,
+   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
+
+val _ = save_thm ("case_eq_thms", case_eq_thms);
+
+val do_install_clock = Q.store_thm("do_install_clock",
+  `do_install vs s = SOME (e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
+  rw[do_install_def,case_eq_thms]
+  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq]
+  \\ rw[]);
 
 val do_app_def = Define `
-  do_app (op:closLang$op) (vs:closSem$v list) (s:'ffi closSem$state) =
+  do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
@@ -309,10 +376,10 @@ val do_app_def = Define `
     | _ => Error`;
 
 val dec_clock_def = Define `
-dec_clock n (s:'ffi closSem$state) = s with clock := s.clock - n`;
+dec_clock n ^s = s with clock := s.clock - n`;
 
 val LESS_EQ_dec_clock = Q.prove(
-  `(r:'ffi closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock`,
+  `(r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock`,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val find_code_def = Define `
@@ -415,7 +482,7 @@ val build_recc_def = Define `
     | NONE => NONE`
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate ([],env:closSem$v list,s:'ffi closSem$state) = (Rval [],s)) /\
+  (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case fix_clock s (evaluate ([x],env,s)) of
      | (Rval v1,s1) =>
@@ -445,10 +512,16 @@ val evaluate_def = tDefine "evaluate" `
      | (Rerr(Rraise v),s) => evaluate ([x2],v::env,s)
      | res => res) /\
   (evaluate ([Op _ op xs],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | Rerr err => (Rerr err,s)
-                          | Rval (v,s) => (Rval [v],s))
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s) =>
+       if op = Install then
+       (case do_install (REVERSE vs) s of
+        | NONE => (Rerr(Rabort Rtype_error),s)
+        | SOME (e,s) => evaluate ([e],env,s))
+       else
+       (case do_app op (REVERSE vs) s of
+        | Rerr err => (Rerr err,s)
+        | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Fn _ loc vsopt num_args exp],env,s) =
      if num_args ≤ s.max_app ∧ num_args ≠ 0 then
@@ -521,6 +594,7 @@ val evaluate_def = tDefine "evaluate" `
   \\ imp_res_tac fix_clock_IMP
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ TRY DECIDE_TAC
+  \\ imp_res_tac do_install_clock
   \\ imp_res_tac dest_closure_length
   \\ imp_res_tac LESS_EQ_dec_clock
   \\ FULL_SIMP_TAC (srw_ss()) []
@@ -529,28 +603,6 @@ val evaluate_def = tDefine "evaluate" `
 val evaluate_app_NIL = save_thm(
   "evaluate_app_NIL[simp]",
   ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
-
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
-val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
-                          case_def = TypeBase.case_def_of ``:'a error_result`` }
-val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
-                       case_def = TypeBase.case_def_of ``:eq_result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
-                     case_def = TypeBase.case_def_of ``:word_size`` }
-
-val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, ref_thms,
-   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
-
-val _ = save_thm ("case_eq_thms", case_eq_thms);
 
 (* We prove that the clock never increases. *)
 
@@ -566,9 +618,9 @@ val do_app_const = Q.store_thm("do_app_const",
 val evaluate_ind = theorem"evaluate_ind"
 
 val evaluate_clock_help = Q.prove (
-  `(!tup vs (s2:'ffi closSem$state).
+  `(!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
-    (!loc_opt f args (s1:'ffi closSem$state) vs s2.
+    (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
@@ -578,6 +630,7 @@ val evaluate_clock_help = Q.prove (
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
   \\ IMP_RES_TAC fix_clock_IMP
   \\ IMP_RES_TAC do_app_const
+  \\ IMP_RES_TAC do_install_clock
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
