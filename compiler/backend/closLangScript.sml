@@ -97,6 +97,7 @@ val pure_op_def = Define `
     | CopyByte F => F
     | Ref => F
     | Update => F
+    | Install => F
     | _ => T
 `;
 
