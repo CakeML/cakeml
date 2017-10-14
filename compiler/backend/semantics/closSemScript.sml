@@ -123,52 +123,24 @@ val do_install_def = Define `
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                 (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
-                    ALL_DISTINCT (MAP FST (SND progs)) /\
-                    0 < s.clock then
+                    ALL_DISTINCT (MAP FST (SND progs)) then
                  (case s.compile cfg progs, progs of
                   | SOME (bytes',data',cfg'), (exp,aux) =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
-                        let s' =
-                          s with <|
-                             code := s.code |++ aux
-                           ; compile_oracle := new_oracle
-                           ; clock := s.clock - 1
-                           |>
-                        in
-                          SOME (exp, s')
-                      else NONE
-                  | _ => NONE)
-                  else NONE)
-            | _ => NONE)
-       | _ => NONE)`;
-
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
-val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
-                          case_def = TypeBase.case_def_of ``:'a error_result`` }
-val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
-                       case_def = TypeBase.case_def_of ``:eq_result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
-                     case_def = TypeBase.case_def_of ``:word_size`` }
-
-val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, ref_thms,
-   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
-
-val _ = save_thm ("case_eq_thms", case_eq_thms);
-
-val do_install_clock = Q.store_thm("do_install_clock",
-  `do_install vs s = SOME (e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
-  rw[do_install_def,case_eq_thms]
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq]
-  \\ rw[]);
+                        if s.clock = 0 then Rerr(Rabort Rtimeout_error) else
+                          let s' =
+                            s with <|
+                               code := s.code |++ aux
+                             ; compile_oracle := new_oracle
+                             ; clock := s.clock - 1
+                             |>
+                          in
+                            Rval (exp, s')
+                      else (Rerr(Rabort Rtype_error):(closLang$exp#('c,'ffi)state,unit)result)
+                  | _ => Rerr(Rabort Rtype_error))
+                  else Rerr(Rabort Rtype_error))
+            | _ => Rerr(Rabort Rtype_error))
+       | _ => Rerr(Rabort Rtype_error))`;
 
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
@@ -481,6 +453,33 @@ val build_recc_def = Define `
     | SOME env1 => SOME (GENLIST (Recclosure loc [] env1 fns) (LENGTH fns))
     | NONE => NONE`
 
+val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
+val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
+val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
+                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
+                          case_def = TypeBase.case_def_of ``:'a error_result`` }
+val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
+                       case_def = TypeBase.case_def_of ``:eq_result`` }
+val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
+                     case_def = TypeBase.case_def_of ``:app_kind`` }
+val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
+                     case_def = TypeBase.case_def_of ``:word_size`` }
+
+val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
+  [op_thms, list_thms, option_thms, v_thms, ref_thms,
+   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
+
+val _ = save_thm ("case_eq_thms", case_eq_thms);
+
+val do_install_clock = Q.store_thm("do_install_clock",
+  `do_install vs s = Rval (e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
+  rw[do_install_def,case_eq_thms]
+  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
@@ -516,8 +515,9 @@ val evaluate_def = tDefine "evaluate" `
      | (Rval vs,s) =>
        if op = Install then
        (case do_install (REVERSE vs) s of
-        | NONE => (Rerr(Rabort Rtype_error),s)
-        | SOME (e,s) => evaluate ([e],env,s))
+        | Rval (e,s) => evaluate ([e],env,s)
+        | Rerr(Rabort a) => (Rerr(Rabort a),s)
+        | _ => (Rerr(Rabort Rtype_error),s))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
