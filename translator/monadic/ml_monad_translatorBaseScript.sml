@@ -542,4 +542,22 @@ RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av`;
 val RARRAY_REL_def = Define `
 RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av`;
 
+val RARRAY_HPROP_SAT_EQ = Q.store_thm("RARRAY_HPROP_SAT_EQ",
+`RARRAY (Loc l) av s <=>
+?l'. s = {Mem l' (Varray av); Mem l (Refv (Loc l'))}`,
+fs[RARRAY_def, ARRAY_def, REF_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def, STAR_def]
+\\ EQ_TAC
+>-(
+    rw[SPLIT_def, cond_def]
+    \\ qexists_tac `y'`
+    \\ PURE_ONCE_REWRITE_TAC[UNION_COMM]
+    \\ irule EQ_EXT
+    \\ rw[])
+\\ rw[SPLIT_def, cond_def]
+\\ qexists_tac `Loc l'`
+\\ rw[]
+\\ PURE_ONCE_REWRITE_TAC[UNION_COMM]
+\\ irule EQ_EXT
+\\ rw[]);
+
 val _ = export_theory();
