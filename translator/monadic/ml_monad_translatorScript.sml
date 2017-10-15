@@ -2437,15 +2437,16 @@ merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v); c := env1.c|
 fs[merge_env_def, nsAppend_build_rec_env_eq]);
 
 val EvalSt_Letrec_Fun = Q.store_thm("EvalSt_Letrec_Fun",
-`!funs env0 env1 exp st P H.
+`!funs env exp st P H.
 (ALL_DISTINCT (MAP (\(x,y,z). x) funs)) ==>
-EvalSt (merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v); c := env1.c|> env0) st exp P H ==>
-EvalSt (merge_env env1 env0) st (Letrec funs exp) P H`,
+EvalSt <|v := (build_rec_env funs env env.v); c := env.c|> st exp P H ==>
+EvalSt env st (Letrec funs exp) P H`,
 rw[EvalSt_def]
 \\ qpat_x_assum `!s. A` IMP_RES_TAC
 \\ first_x_assum(qspec_then `junk` STRIP_ASSUME_TAC)
 \\ rw[Once evaluate_cases]
-\\ fs[merge_build_rec_env]
+\\ `<|v := build_rec_env funs env env.v; c := env.c|> = env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
+\\ fs[]
 \\ metis_tac[]);
 
 val merge_env_bind_empty = Q.store_thm("merge_env_bind_empty",
@@ -2630,19 +2631,34 @@ rw[Eval_def]
 \\ rw[Once evaluate_cases]
 \\ rw[state_component_equality]);
 
-val nsLookup_write_simp = Q.store_thm(
-  "nsLookup_write_simp",
+val nsBind_to_write = Q.prove(
+ `<|v := nsBind name v env1.v; c := env2.c|> =
+  write name v <|v := env1.v; c := env2.c|>`,
+ fs[write_def,sem_env_component_equality]);
+
+val nsLookup_write_simp = Q.prove(
  `nsLookup (write name1 exp env).v (Short name2) =
   if name1 = name2 then SOME exp
   else nsLookup env.v (Short name2)`,
   Cases_on `name1 = name2`
   \\ fs[namespaceTheory.nsLookup_def, merge_env_def, write_def]);
 
-val lookup_cons_write_simp = Q.store_thm(
-  "lookup_cons_write_simp",
+val sem_env_same_components = Q.prove(
+ `<|v := env.v; c := env.c|> = (env : v sem_env)`,
+ fs[sem_env_component_equality]);
+
+val lookup_cons_write_simp = Q.prove(
  `lookup_cons name2 (write name1 exp env) =
   lookup_cons name2 env`,
  fs[lookup_cons_def, write_def]);
+
+val lookup_cons_build_rec_env_simp = Q.prove(
+ `lookup_cons name2 <|v := build_rec_env exp env env.v; c := env.c|> =
+  lookup_cons name2 env`,
+  fs[lookup_cons_def]);
+
+val LOOKUP_ASSUM_SIMP = save_thm("LOOKUP_ASSUM_SIMP",
+LIST_CONJ[nsBind_to_write,Eval_Var_SIMP,Eval_lookup_var,nsLookup_write_simp,sem_env_same_components,lookup_cons_write_simp,lookup_cons_build_rec_env_simp]);
 
 (* Terms used by the ml_monad_translatorLib *)
 val m_translator_terms = save_thm("m_translator_terms",
