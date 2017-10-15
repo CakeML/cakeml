@@ -498,6 +498,87 @@ val evaluate_app_const = Q.store_thm("evaluate_app_const",
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
   \\ full_simp_tac(srw_ss())[]);
 
+val evaluate_code_ind =
+  evaluate_ind
+  |> Q.SPEC `\(xs,env,s).
+       (case evaluate (xs,env,s) of (_,s1) =>
+          ∃n.
+            s1.compile_oracle = shift_seq n s.compile_oracle ∧
+            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            s1.code = s.code |++ ls ∧
+            ALL_DISTINCT (MAP FST ls) ∧
+            DISJOINT (FDOM s.code) (set(MAP FST ls)))`
+  |> Q.SPEC `\x1 x2 x3 s.
+       (case evaluate_app x1 x2 x3 s of (_,s1) =>
+          ∃n.
+            s1.compile_oracle = shift_seq n s.compile_oracle ∧
+            let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+            s1.code = s.code |++ ls ∧
+            ALL_DISTINCT (MAP FST ls) ∧
+            DISJOINT (FDOM s.code) (set(MAP FST ls)))`
+
+val evaluate_code_lemma = prove(
+  evaluate_code_ind |> concl |> rand,
+  MATCH_MP_TAC evaluate_code_ind
+  \\ rw[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rfs[shift_seq_def,FUN_EQ_THM]
+  \\ fs[dec_clock_def]
+  \\ TRY(qexists_tac`0` \\ simp[FUPDATE_LIST_THM] \\ NO_TAC)
+  \\ TRY (
+    qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))` \\
+    qexists_tac`n3+n2+n1` \\
+    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
+    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
+    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
+    metis_tac[])
+  \\ TRY (
+    qmatch_goalsub_rename_tac`(z1 + (z2 + _))` \\
+    qexists_tac`z2+z1` \\
+    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
+    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
+    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
+    metis_tac[])
+  \\ TRY (
+    qmatch_goalsub_rename_tac`(z1 + (z2 + _))` \\
+    qexists_tac`z1+z2` \\
+    fs[GENLIST_APPEND,GSYM FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\
+    fsrw_tac[ETA_ss][GSYM FUN_EQ_THM] \\
+    rfs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\
+    metis_tac[])
+  \\ TRY (
+    qmatch_asmsub_rename_tac`_ = _ ((nn:num) + _)` \\
+    qexists_tac`nn` \\
+    imp_res_tac do_app_const \\
+    fs[] \\ NO_TAC)
+  \\ qmatch_asmsub_rename_tac`_ = _ ((z:num) + _)`
+  \\ qmatch_asmsub_rename_tac`s.compile_oracle (y + _)`
+  \\ fs[do_install_def,case_eq_thms,pair_case_eq,UNCURRY,bool_case_eq,shift_seq_def]
+  \\ qexists_tac`z+1+y`
+  \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
+  \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
+  \\ metis_tac[])
+  |> SIMP_RULE std_ss [FORALL_PROD];
+
+val evaluate_code = Q.store_thm("evaluate_code",
+  `(evaluate (xs,env,s) = (res,s1)) ==>
+      ∃n. s1.compile_oracle = shift_seq n s.compile_oracle ∧
+          let ls = FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n)) in
+          s1.code = s.code |++ ls ∧
+          ALL_DISTINCT (MAP FST ls) ∧
+          DISJOINT (FDOM s.code) (set (MAP FST ls))`,
+  REPEAT STRIP_TAC
+  \\ (evaluate_code_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
+  \\ fs[])
+
+val evaluate_mono = Q.store_thm("evaluate_mono",
+  `!xs env s1 vs s2.
+     (evaluate (xs,env,s1) = (vs,s2)) ==>
+     s1.code SUBMAP s2.code`,
+  rw[] \\ imp_res_tac evaluate_code \\ fs[]
+  \\ rw[DISTINCT_FUPDATE_LIST_UNION]
+  \\ match_mp_tac SUBMAP_FUNION \\ rw[]);
+
 val evaluate_MAP_Op_Const = Q.store_thm("evaluate_MAP_Op_Const",
   `∀f env s ls.
       evaluate (MAP (λx. Op tra (Const (f x)) []) ls,env,s) =

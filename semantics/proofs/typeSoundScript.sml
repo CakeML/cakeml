@@ -1895,7 +1895,7 @@ val decs_type_sound = Q.store_thm ("decs_type_sound",
      >> simp [type_decs_to_ctMap_def, consistent_ctMap_def, RES_FORALL]
      >> rw []
      >> pairarg_tac
-     >> fs [intro_alist_to_fmap, MEM_MAP, MEM_FLAT]
+     >> fs [FUPDATE_LIST_alist_to_fmap, MEM_MAP, MEM_FLAT]
      >> pairarg_tac
      >> fs []
      >> rw []

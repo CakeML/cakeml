@@ -16,10 +16,6 @@ val decs_to_types_def = semanticPrimitivesTheory.decs_to_types_def;
 
 (* ----------- Basic stuff ----------- *)
 
-val intro_alist_to_fmap = Q.store_thm ("intro_alist_to_fmap",
-`∀ls fm. fm |++ ls = alist_to_fmap (REVERSE ls) ⊌ fm`,
- metis_tac [FUNION_alist_to_fmap, REVERSE_REVERSE]);
-
 val unchanged_tenv = Q.store_thm ("unchanged_tenv[simp]",
  `!(tenv : type_env).
   <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv`,
@@ -1494,7 +1490,7 @@ val ctMap_ok_lookup = Q.store_thm ("ctMap_ok_lookup",
 
 val ctMap_ok_type_decs = Q.store_thm ("ctMap_ok_type_decs",
  `!mn tds. tenv_abbrev_ok tenvT ∧ check_ctor_tenv tenvT tds ⇒ ctMap_ok (type_decs_to_ctMap mn tenvT tds)`,
- rw [check_ctor_tenv_def, ctMap_ok_def, type_decs_to_ctMap_def, FEVERY_ALL_FLOOKUP, intro_alist_to_fmap]
+ rw [check_ctor_tenv_def, ctMap_ok_def, type_decs_to_ctMap_def, FEVERY_ALL_FLOOKUP, FUPDATE_LIST_alist_to_fmap]
  >> drule ALOOKUP_MEM
  >> simp [MEM_FLAT, MEM_MAP]
  >> pairarg_tac
@@ -1553,7 +1549,7 @@ val consistent_ctMap_disjoint = Q.store_thm ("consistent_ctMap_disjoint",
   ⇒
   DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tabbrev tds))) (IMAGE SND (FDOM ctMap))` ,
  rw [consistent_ctMap_def,
-     type_decs_to_ctMap_def, RES_FORALL, intro_alist_to_fmap, DISJOINT_DEF,
+     type_decs_to_ctMap_def, RES_FORALL, FUPDATE_LIST_alist_to_fmap, DISJOINT_DEF,
      EXTENSION, MEM_MAP]
  >> rw [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``]
  >> fs [MEM_FLAT, MEM_MAP]

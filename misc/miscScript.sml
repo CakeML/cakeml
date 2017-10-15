@@ -3123,4 +3123,19 @@ val _ =  save_thm("option_eq_some",
     OPTION_BIND_EQUALS_OPTION,
     OPTION_CHOICE_EQUALS_OPTION]);
 
+val ALL_DISTINCT_alist_to_fmap_REVERSE = Q.store_thm("ALL_DISTINCT_alist_to_fmap_REVERSE",
+  `ALL_DISTINCT (MAP FST ls) ⇒ alist_to_fmap (REVERSE ls) = alist_to_fmap ls`,
+  Induct_on`ls` \\ simp[FORALL_PROD] \\ rw[] \\ rw[FUNION_FUPDATE_2]);
+
+val FUPDATE_LIST_alist_to_fmap = Q.store_thm ("FUPDATE_LIST_alist_to_fmap",
+`∀ls fm. fm |++ ls = alist_to_fmap (REVERSE ls) ⊌ fm`,
+ metis_tac [FUNION_alist_to_fmap, REVERSE_REVERSE]);
+
+val DISTINCT_FUPDATE_LIST_UNION = Q.store_thm("DISTINCT_FUPDATE_LIST_UNION",
+  `ALL_DISTINCT (MAP FST ls) /\
+   DISJOINT (FDOM f) (set(MAP FST ls)) ==>
+   f |++ ls = FUNION f (alist_to_fmap ls)`,
+  rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
+  \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
+
 val _ = export_theory()

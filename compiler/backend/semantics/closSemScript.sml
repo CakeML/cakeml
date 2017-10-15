@@ -610,7 +610,9 @@ val do_app_const = Q.store_thm("do_app_const",
   `(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
-    (s2.code = s1.code)`,
+    (s2.code = s1.code) /\
+    (s2.compile_oracle = s1.compile_oracle) /\
+    (s2.compile = s1.compile)`,
   simp[do_app_def,case_eq_thms]
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
