@@ -490,34 +490,6 @@ fun mem_derive_case_of ty =
       val th = ISPEC (!H) th
   in th end);
 
-(* fun mk_list (l, ty) = let
-    val ty_aq = ty_antiq ty
-    val empty_list = ``[] : ^ty_aq list``
-    val cons_tm = ``$CONS : ^ty_aq -> ^ty_aq list -> ^ty_aq list``
-    val hol_l = List.foldr (fn (x, l) => mk_comb(mk_comb(cons_tm, x), l)) empty_list l
-in hol_l end;
-
-fun compute_dynamic_env_ext all_access_specs = let
-    val store_vars = FVL [(!H)] empty_varset;
-    fun get_dynamic_init_bindings spec = let
-	val spec = SPEC_ALL spec |> UNDISCH_ALL
-	val pat = ``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``
-	val lookup_assums = List.filter (can (match_term pat)) (hyp (UNDISCH_ALL spec))
-	val bindings = List.map(fn x => let val (tms, tys) = match_term pat x in
-	    (Term.subst tms ``(vname : tvarN)``, Term.subst tms ``(loc : v)``) end) lookup_assums
-	val bindings = List.filter (fn (x, y) => HOLset.member(store_vars, y)) bindings
-    in bindings end
-
-    val all_bindings = List.concat(List.map get_dynamic_init_bindings all_access_specs)
-    val bindings_map = List.foldl (fn ((n, v), m) => Redblackmap.insert(m, v, n))
-				  (Redblackmap.mkDict Term.compare) all_bindings
-    val store_varsl = strip_comb (!H) |> snd
-    val final_bindings = List.map (fn x => (Redblackmap.find (bindings_map, x), x)) store_varsl
-    val hol_bindings = List.map mk_pair final_bindings
-    val dynamic_store = mk_list(hol_bindings, ``:tvarN # v``)
-    val dynamic_store = ``<| v := Bind ^dynamic_store []; c := Bind [] []|> : v sem_env``
-in dynamic_store end; *)
-
 fun compute_dynamic_refs_bindings all_access_specs = let
     val store_vars = FVL [(!H)] empty_varset;
     fun get_dynamic_init_bindings spec = let
@@ -655,10 +627,6 @@ val original_tm = tm;
 
 val tm = dest_conj hyps |> snd
 sat_hyps tm
-is_conj tm
-
-val tm = y;
-val tm = z;
 *)
 
 fun inst_case_thm tm m2deep = let
@@ -756,9 +724,6 @@ fun prove_EvalMPatBind goal m2deep = let
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    (* Because of EvalM_bind *)
-    (* \\ rpt (qpat_x_assum `^forall_pat` IMP_RES_TAC) *)
-    (* --------------------- *)
     \\ fs[GSYM FORALL_PROD]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e => failwith "prove_EvalMPatBind failed";
@@ -870,15 +835,6 @@ fun inst_EvalM_env v th = let
                |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (UNBETA_CONV v))
                |> DISCH new_assum
   in th1 end;
-
-(* 
-	val (th,v) = if no_params then (th,T) else
-                     (List.foldr (fn (v,th) => apply_EvalM_Fun v th true) th
-				 (rev (if is_rec then butlast rev_params else rev_params)),
-                      List.last rev_params)
-
-val v = List.last (rev (if is_rec then butlast rev_params else rev_params))
-*)
 
 fun remove_ArrowM_EqSt th = let
   val st_var = th |> concl |> rator |> rand |> rator |> rator |> rand |> rand
@@ -1047,8 +1003,6 @@ fun instantiate_EvalM_handle EvalM_th tm m2deep = let
     val (v,y) = tm |> rand |> dest_abs
     val th1 = m2deep x
     val th2 = m2deep y
-    (* val st1 = concl th1 |> rator |> rator |> rator |> rand
-    val st2 = concl th2 |> rator |> rator |> rator |> rand *)
     val th3 = inst_EvalM_env v th2
     val type_assum = concl th3 |> dest_imp |> fst
     val th4 = Dfilter (UNDISCH th3) type_assum
@@ -1086,14 +1040,6 @@ fun instantiate_EvalM_otherwise tm m2deep = let
     val result = MATCH_MP (SPEC_ALL EvalM_otherwise) th4
     val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
 in result end;
-
-(* val previously_translated_state_var_index = ref 1;
-fun previously_transl_state_var () = let
-    val i = !previously_translated_state_var_index
-    val name = "st" ^(Int.toString i)
-    val st_v = mk_var(name, !refs_type)
-    val _ = (previously_translated_state_var_index := i + 1)
-in st_v end; *)
 
 fun inst_gen_eq_vars th = let
     (* Instantiate the variables in the occurences of Eq*)
@@ -1393,21 +1339,6 @@ fun EvalM_P_CONV CONV tm =
 val local_environment_var_name = "%env";
 val num_local_environment_vars = ref 0;
 val local_environment_var_0 = mk_var("%env", ``:v sem_env``);
-(* fun get_curr_env () =
-  case !dynamic_init_env of
-      SOME env => let
-       val _ = num_local_environment_vars := ((!num_local_environment_vars) +1)
-       val env_var = mk_var(local_environment_var_name ^(int_to_string (!num_local_environment_vars)),
-                            ``:v sem_env``)
-   in ``merge_env ^env_var (merge_env ^env ^local_environment_var_0)`` end
-      | NONE => get_env (get_curr_prog_state ()); *)
-(* fun get_curr_env () =
-   if !dynamic_init_H then let
-       val _ = num_local_environment_vars :=
-	       ((!num_local_environment_vars) +1)
-       val env_var = mk_var(local_environment_var_name ^(int_to_string (!num_local_environment_vars)),``:v sem_env``)
-   in ``merge_env ^env_var ^local_environment_var_0`` end
-   else get_env (get_curr_prog_state ()); *)
 fun get_curr_env () =
    if !dynamic_init_H then let
        val _ = num_local_environment_vars :=
@@ -1965,9 +1896,8 @@ val (fname,ml_fname,def,th,v) = List.hd thms
       (* collect precondition *)
       val thms = extract_precondition_rec thms
 
-      (* apply induction *)
-      (* Apply the induction if necessary -
-         recursive function with no precondition *)
+      (* Apply the induction if necessary:
+         recursive functions with no preconditions *)
       val thms = case #5 (hd thms) of
 		     SOME _ => thms 
 		   | NONE => apply_ind thms ind
@@ -2306,6 +2236,7 @@ fun m_translate_run def = let
     val tys = get_monadic_types_inst (def |> concl |> strip_forall |> snd |> rhs |> rator |> rand)
     val _ = if List.length tys > 0 then print "m_translate_run: instantiated monadic types\n" else ()
     val def = Thm.INST_TYPE tys def
+    val _ = undef_local_code_abbrevs ()
 
     (* preprocessing: register types *)
     val _ = register_term_types register_type (concl def)
