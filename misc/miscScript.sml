@@ -3138,4 +3138,34 @@ val DISTINCT_FUPDATE_LIST_UNION = Q.store_thm("DISTINCT_FUPDATE_LIST_UNION",
   rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
 
+val FEVERY_alist_to_fmap = Q.store_thm("FEVERY_alist_to_fmap",
+  `EVERY P ls ==> FEVERY P (alist_to_fmap ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[]
+  \\ imp_res_tac ALOOKUP_MEM \\ fs[EVERY_MEM]);
+
+val ALL_DISTINCT_FEVERY_alist_to_fmap = Q.store_thm("ALL_DISTINCT_FEVERY_alist_to_fmap",
+  `ALL_DISTINCT (MAP FST ls) ⇒
+   (FEVERY P (alist_to_fmap ls) ⇔ EVERY P ls)`,
+  Induct_on`ls` \\ simp[FORALL_PROD]
+  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] \\ fs[FEVERY_ALL_FLOOKUP]
+  \\ rw[EQ_IMP_THM]
+  \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[ALOOKUP_MEM]);
+
+val DISJOINT_FEVERY_FUNION = Q.store_thm("DISJOINT_FEVERY_FUNION",
+  `DISJOINT (FDOM m1) (FDOM m2) ⇒
+   (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`,
+  rw[EQ_IMP_THM,fevery_funion]
+  \\ fs[FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION,IN_DISJOINT] \\ rw[]
+  \\ first_x_assum match_mp_tac
+  \\ CASE_TAC
+  \\ fs[FLOOKUP_DEF]
+  \\ metis_tac[]);
+
+val EVERY_FLAT = Q.store_thm("EVERY_FLAT",
+  `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`,
+  rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
+
 val _ = export_theory()

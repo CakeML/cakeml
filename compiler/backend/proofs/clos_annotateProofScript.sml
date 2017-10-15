@@ -208,10 +208,12 @@ val env_ok_EXTEND_IGNORE = Q.prove(
   \\ fs [rich_listTheory.EL_APPEND2]);
 
 val state_rel_def = Define `
-  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
+  state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\
     (s.ffi = t.ffi) /\
     (s.max_app = t.max_app) /\
+    (t.compile_oracle = (I ## (λe. HD (annotate 0 [e])) ## compile) o s.compile_oracle) /\
+    (s.compile = (λcfg (e,aux). t.compile cfg (HD (annotate 0 [e]), compile aux))) /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     (FDOM s.refs = FDOM t.refs) /\
     (!n r1.
@@ -648,32 +650,49 @@ val no_overlap_has_var_IMP = prove(
   \\ Cases_on `x = n` \\ fs []);
 
 val evaluate_pure_IMP = prove(
-  ``evaluate (xs,env,s) = (q,r) /\ EVERY pure xs /\
+  ``evaluate (xs,env,(s:('c,'ffi)closSem$state)) = (q,r) /\ EVERY pure xs /\
     q <> Rerr (Rabort Rtype_error) ==>
     ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs``,
   rw[]
-  \\ imp_res_tac (EVERY_pure_correct |> INST_TYPE[``:'ffi``|->alpha]) \\ fs[]
+  \\ imp_res_tac EVERY_pure_correct \\ fs[]
   \\ first_x_assum(qspecl_then[`s`,`env`]mp_tac)
   \\ simp[case_eq_thms]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]
   \\ strip_tac \\ fs[]);
 
+val every_Fn_vs_NONE_EVERY_MAP =
+  every_Fn_vs_NONE_EVERY
+  |> Q.SPEC`MAP f ls`
+  |> SIMP_RULE std_ss [EVERY_MAP]
+  |> GSYM
+
+val code_tac =
+    imp_res_tac evaluate_code
+    \\ fs[DISTINCT_FUPDATE_LIST_UNION,DISJOINT_FEVERY_FUNION,
+          ALL_DISTINCT_FEVERY_alist_to_fmap,EVERY_FLAT,
+          EVERY_MAP,EVERY_GENLIST,shift_seq_def]
+    \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF]
+
 val shift_correct = Q.prove(
-  `(!xs env (s1:'ffi closSem$state) env' t1 res s2 m l i.
+  `(!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      alt_fv_set xs SUBSET env_ok m l i env env' /\
      every_Fn_vs_NONE xs ∧ FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
+     (∀n. every_Fn_vs_NONE [FST(SND(s1.compile_oracle n))] ∧
+          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
      state_rel s1 t1 ==>
      ?res' t2.
         (evaluate (shift (FST (alt_free xs)) m l i,env',t1) = (res',t2)) /\
         result_rel (LIST_REL v_rel) v_rel res res' /\
         state_rel s2 t2) /\
-   (!loc_opt f args (s1:'ffi closSem$state) res s2 f' args' s1'.
+   (!loc_opt f args (s1:('c,'ffi) closSem$state) res s2 f' args' s1'.
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
      FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
+     (∀n. every_Fn_vs_NONE [FST(SND(s1.compile_oracle n))] ∧
+          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
@@ -711,7 +730,7 @@ val shift_correct = Q.prove(
     \\ fs[] \\ rpt strip_tac
     \\ `?r2 s3. evaluate (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
-    \\ imp_res_tac evaluate_const
+    \\ code_tac
     \\ Cases_on `r2` \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -745,7 +764,7 @@ val shift_correct = Q.prove(
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ imp_res_tac evaluate_const
+    \\ code_tac
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ Cases_on `r1 = Boolv T` \\ full_simp_tac(srw_ss())[v_rel_simp]
@@ -797,8 +816,8 @@ val shift_correct = Q.prove(
     \\ IMP_RES_TAC alt_free_LENGTH
     \\ IMP_RES_TAC EVERY2_LENGTH
     \\ IMP_RES_TAC evaluate_IMP_LENGTH
-    \\ IMP_RES_TAC evaluate_const
     \\ full_simp_tac(srw_ss())[shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
+    \\ code_tac
     \\ MATCH_MP_TAC env_ok_EXTEND \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[alt_fv_def,alt_fv1_thm]
     \\ REPEAT STRIP_TAC
@@ -837,7 +856,9 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`v'::env'`,`t2`,`m`,`l+1`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM,ADD1]
-    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF]
+    \\ code_tac
+    \\ REPEAT STRIP_TAC
     \\ MATCH_MP_TAC env_ok_cons \\ full_simp_tac(srw_ss())[]
     \\ RES_TAC \\ REPEAT STRIP_TAC
     \\ full_simp_tac(srw_ss())[alt_fv,alt_fv1_thm]
@@ -855,6 +876,7 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    >- cheat (* Install *)
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
@@ -1034,7 +1056,7 @@ val shift_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ `?r2 s2. evaluate ([x1],env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `r2 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
-    \\ imp_res_tac evaluate_const
+    \\ code_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r2` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -1049,7 +1071,10 @@ val shift_correct = Q.prove(
     \\ SRW_TAC [] []
     \\ `alt_fv_set [x] SUBSET env_ok m l i env env'` by
       (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,alt_fv,alt_fv1_thm])
-    \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[Once dec_clock_def]
+    \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
+    \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
+    \\ rev_full_simp_tac(srw_ss())[Once dec_clock_def]
+    \\ code_tac
     \\ `state_rel (dec_clock 1 s1) (dec_clock 1 t1)` by
           full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ RES_TAC
     \\ STRIP_ASSUME_TAC (shift_SING |> Q.INST [`x`|->`y1`]) \\ full_simp_tac(srw_ss())[])
@@ -1080,15 +1105,21 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock (ticks+1) t2`,`0`,
          `LENGTH v'`,`LN`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (imp_res_tac evaluate_const
-      \\ full_simp_tac(srw_ss())[] \\ reverse (REPEAT STRIP_TAC)
+     (fs[EVAL``(closSem$dec_clock _ _).code``]
+      \\ fs[EVAL``(closSem$dec_clock _ _).compile_oracle``]
+      \\ full_simp_tac(srw_ss())[CONJ_ASSOC]
+      \\ reverse conj_tac
       THEN1 (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
-      THEN1 (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
-      THEN1 ( full_simp_tac(srw_ss())[FEVERY_ALL_FLOOKUP] >> res_tac >> full_simp_tac(srw_ss())[] )
-      \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
-      \\ SIMP_TAC std_ss [env_ok_def]
-      \\ reverse (Cases_on `x < LENGTH v'`) \\ full_simp_tac(srw_ss())[] THEN1 DECIDE_TAC
-      \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
+      \\ reverse conj_tac >- code_tac
+      \\ reverse conj_asm2_tac >- code_tac
+      \\ conj_tac
+      >- (
+        full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+        \\ SIMP_TAC std_ss [env_ok_def]
+        \\ reverse (Cases_on `x < LENGTH v'`) \\ full_simp_tac(srw_ss())[] THEN1 DECIDE_TAC
+        \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
+      \\ fs[FEVERY_ALL_FLOOKUP]
+      \\ res_tac \\ fs[])
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
   THEN1 (* evaluate_app NIL *)
    (full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -1154,12 +1185,11 @@ val shift_correct = Q.prove(
            vals' ++ env'`
       \\ FIRST_X_ASSUM (qspecl_then [`env3'`,`dec_clock n3 s1'`,
            `LENGTH (l0':closSem$v list)`,`n`,`i`]mp_tac)
-      \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[Once dec_clock_def]
+      \\ code_tac \\ full_simp_tac(srw_ss())[Once dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       THEN1
        (REPEAT STRIP_TAC
         \\ TRY (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ NO_TAC)
-        THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
         \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
         \\ Q.UNABBREV_TAC `env3`
         \\ Q.UNABBREV_TAC `env3'`
@@ -1183,6 +1213,7 @@ val shift_correct = Q.prove(
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
       \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
+      \\ reverse conj_tac >- fs[dec_clock_def]
       \\ MATCH_MP_TAC EVERY2_REVERSE
       \\ MATCH_MP_TAC EVERY2_DROP
       \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
@@ -1252,7 +1283,7 @@ val shift_correct = Q.prove(
     \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[dec_clock_def]
+    \\ code_tac \\ full_simp_tac(srw_ss())[dec_clock_def]
     \\ MATCH_MP_TAC EVERY2_REVERSE
     \\ MATCH_MP_TAC EVERY2_DROP
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
