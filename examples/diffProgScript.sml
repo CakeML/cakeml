@@ -30,6 +30,7 @@ val dynamic_lcs_row_side_def = Q.prove(
    (LENGTH l <= LENGTH previous_row)`,
   Induct_on `l`
   >> rw[Once(fetch "-" "dynamic_lcs_row_side_def")]
+  >> Cases_on `diagonal`
   >> Cases_on `previous_row`
   >> fs[] >> metis_tac[]) |> update_precondition;
 
