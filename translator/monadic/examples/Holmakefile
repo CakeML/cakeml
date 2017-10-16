@@ -1,19 +1,17 @@
-INCLUDES = ../.. $(HOLDIR)/examples/set-theory/hol_sets
+INCLUDES = .. ../.. ../../../semantics ../../../semantics/alt_semantics ../../../basis ../../../characteristic ../../../semantics/alt_semantics/proofs
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
+PARENT_HOLHEAP = ../../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = $(HOLDIR)/examples/set-theory/hol_sets/cardinalTheory ../../miscTheory
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
-
 $(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP)
 endif

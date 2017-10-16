@@ -46,7 +46,7 @@ val res = ml_prog_update (ml_progLib.add_prog w8arrayToStrings pick_name)
 
 val e =
   ``LetApps "cs" (Long "Word8Array" (Short "array")) [Lit (IntLit 256); Lit (Word8 0w)] (
-      Let NONE (App (FFI "getArgs") [Var (Short "cs")])
+      Let NONE (App (FFI "getArgs") [Lit (StrLit ""); Var (Short "cs")])
         (Apps [Var (Short "w8arrayToStrings"); Var (Short "cs")]))``
   |> EVAL |> concl |> rand
 

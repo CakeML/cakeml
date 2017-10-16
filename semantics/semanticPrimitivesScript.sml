@@ -792,10 +792,10 @@ val _ = Define `
                   )
         | _ => NONE
       )
-    | (FFI n, [Loc lnum]) =>
+    | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI t n ws of
+            (case call_FFI t n (MAP (\ c .  n2w(ORD c)) (EXPLODE conf)) ws of
               (t', ws') =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))

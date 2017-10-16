@@ -6,6 +6,7 @@ val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
+val _ = temp_overload_on ("failwith", ``raise_Fail``);
 val _ = temp_add_monadsyntax()
 
 (* We just represent names in the string (dotted) format.
@@ -41,6 +42,8 @@ val _ = Datatype`
          | Var (mlstring # type)
          | Term term
          | Thm thm`;
+
+(* TODO: these would translate to better code using PMATCH *)
 
 val getNum_def = Define`
   (getNum (Num n) = return n) ∧

@@ -626,7 +626,8 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    >> rw []
    >> Cases_on `sv`
    >> fs [type_sv_def]
-   >> `?ffi' ws'. call_FFI ffi n l = (ffi', ws')` by metis_tac [pair_CASES]
+   >> rename [`MAP _ conf`]
+   >> `?ffi' ws'. call_FFI ffi n (MAP (λc. n2w (ORD c)) conf) l = (ffi', ws')` by metis_tac [pair_CASES]
    >> simp []
    >> `type_sv ctMap tenvS (W8array ws') W8array_t` by rw [type_sv_def]
    >> drule store_assign_type_sound

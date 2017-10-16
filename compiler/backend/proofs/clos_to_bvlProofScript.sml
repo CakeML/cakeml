@@ -3119,20 +3119,28 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `t'` \\ full_simp_tac(srw_ss())[]
+      \\ fs[SWAP_REVERSE_SYM]
       \\ srw_tac[][]
       \\ simp[PULL_EXISTS]
       \\ full_simp_tac(srw_ss())[v_rel_SIMP] \\ srw_tac[][]
       \\ qmatch_assum_rename_tac`FLOOKUP f2 k = SOME r2`
+      \\ Cases_on`FLOOKUP t2.refs r2` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on`FLOOKUP p1.refs k` \\ full_simp_tac(srw_ss())[]
+      >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[])
       \\ Cases_on`x` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on`call_FFI p1.ffi n l` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ Cases_on`x'` \\ full_simp_tac(srw_ss())[]
+      >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
+      \\ Cases_on`call_FFI p1.ffi n l l''` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ imp_res_tac evaluate_const
+      >- (fs[state_rel_def] >> res_tac >> fs[] >> rfs[] >> rveq)
       \\ `?y m.
             FLOOKUP f2 k = SOME m /\ FLOOKUP t2.refs m = SOME y /\
-            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray b l) y` by
+            ref_rel (v_rel s.max_app f2 t2.refs t2.code) (ByteArray b' l'') y` by
               METIS_TAC [state_rel_def]
       \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-      >- ( fs[state_rel_def] \\ METIS_TAC[] )
+      \\ rfs[]        
       \\ `t2.ffi = p1.ffi` by METIS_TAC[state_rel_def]
       \\ simp[]
       \\ qexists_tac`f2` \\ simp[]

@@ -440,8 +440,9 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_tup)
        od
-   | (FFI n, [t]) =>
-       do () <- add_constraint l t (Infer_Tapp [] TC_word8array);
+   | (FFI n, [t1;t2]) =>
+       do () <- add_constraint l t1 (Infer_Tapp [] TC_string);
+          () <- add_constraint l t2 (Infer_Tapp [] TC_word8array);          
           return (Infer_Tapp [] TC_tup)
        od
    | _ => failwith l (implode "Wrong number of arguments to primitive")`;

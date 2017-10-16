@@ -5,7 +5,7 @@ val _ = new_theory"x64_config";
 val x64_names_def = Define `
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
-         r0=rax, r1=rbx, r2=rcx, r3=rdx, r4=rbp, r5=rsp, r6=rsi,
+         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rbp, r5=rsp, r6=rsi,
          r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
        The first six arguments are passed in registers. The first
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
@@ -15,15 +15,15 @@ val x64_names_def = Define `
      *)
     (insert 1 7 o  (* arg 1 *)
      insert 2 6 o  (* arg 2 *)
-  (* insert 3 3 o *)
-     insert 4 2 o
+     insert 3 2 o
+     insert 4 1 o
      insert 5 8 o
      insert 6 9 o
      insert 11 12 o
      insert 12 13 o
      insert 13 14 o
      (* the rest just ensures that the mapping is well-formed *)
-     insert 7 1 o
+     insert 7 3 o
      insert 8 15 o
      insert 9 11 o
      insert 14 4 o

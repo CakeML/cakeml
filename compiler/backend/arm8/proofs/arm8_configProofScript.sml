@@ -9,6 +9,8 @@ val is_arm8_machine_config_def = Define`
   mc.target = arm8_target ∧
   mc.len_reg =1  ∧
   mc.ptr_reg = 0 ∧
+  mc.len2_reg =3  ∧
+  mc.ptr2_reg = 2 ∧
   mc.callee_saved_regs = [27;28;29]`;
 
 val names_tac =
@@ -47,6 +49,8 @@ val arm8_machine_config_ok = Q.store_thm("arm8_machine_config_ok",
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_arm8_machine_config_def]
   >- EVAL_TAC
   >- simp[arm8_targetProofTheory.arm8_backend_correct]
+  >- EVAL_TAC
+  >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC

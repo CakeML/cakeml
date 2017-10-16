@@ -205,7 +205,7 @@ val tabulate_inv_spec = Q.store_thm("tabulate_inv_spec",
 
 val result = translate collate_def;
 
-val result = translate zip_def;
+val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
 

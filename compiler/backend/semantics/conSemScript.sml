@@ -393,10 +393,10 @@ val do_app_def = Define `
       (case (v_to_list x1, v_to_list x2) of
          (SOME xs, SOME ys) => SOME ((s, t), Rval (list_to_v (xs ++ ys)))
        | _ => NONE)
-  | (FFI n, [Loc lnum]) =>
+  | (FFI n, [Litv (StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
-       (case call_FFI t n ws of
+       (case call_FFI t n (MAP (λc. n2w(ORD c)) conf) ws of
         | (t', ws') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))

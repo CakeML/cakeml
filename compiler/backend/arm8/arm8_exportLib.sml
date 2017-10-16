@@ -46,8 +46,8 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_names = let
    "     movq    %rsp, %rbp  # save stack pointer",*)
    "     ldr    x0,=cake_main   // arg1: entry address",
    "     ldr    x1,=cake_heap   // arg2: first address of heap",
-   "     ldr    x3,=cake_stack  // arg3: first address of stack",
-   "     ldr    x4,=cake_end    // arg4: first address past the stack",
+   "     ldr    x2,=cake_stack  // arg3: first address of stack",
+   "     ldr    x3,=cake_end    // arg4: first address past the stack",
    "     b      cake_main",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",

@@ -5854,8 +5854,8 @@ val stack_alloc_reg_bound = Q.store_thm("stack_alloc_reg_bound",
   rpt(pairarg_tac>>fs[reg_bound_def]));
 
 val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
-  `EVERY (λp. call_args p 1 2 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 0) (MAP SND (compile c.data_conf prog1))`,
+  `EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile c.data_conf prog1))`,
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
@@ -5867,7 +5867,7 @@ val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
-  qpat_x_assum`call_args p_2 1 2 0` mp_tac>>
+  qpat_x_assum`call_args p_2 1 2 3 4 0` mp_tac>>
   rpt (pop_assum kall_tac)>>
   qid_spec_tac `p_2` >>
   qid_spec_tac `l` >>

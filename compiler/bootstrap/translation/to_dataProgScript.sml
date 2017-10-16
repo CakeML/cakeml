@@ -54,21 +54,9 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 (* TODO:
-   these things are a discrepancy between HOL's standard libraries and
+   this is a discrepancy between HOL's standard libraries and
    mllist. probably the compiler should be using the mllist versions? *)
-
-val res = translate ZIP;
 val res = translate EL;
-
-val list_zip_side_def = theorem"list_zip_side_def";
-
-val list_zip_side = Q.prove(
-  `∀p. list_zip_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
-  gen_tac \\ PairCases_on`p`
-  \\ qid_spec_tac`p1` \\ Induct_on`p0`
-  \\ rw[Once list_zip_side_def,LENGTH_NIL_SYM]
-  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
-
 val list_el_side = Q.prove(
   `!n xs. list_el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
@@ -390,26 +378,10 @@ TODO: make this not have to be explicitly translated, probably by renaming it to
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
 
-val clos_number_renumber_code_locs_list_side = Q.prove(`
-  (∀a b. clos_number_renumber_code_locs_list_side a b ⇔ T) ∧
-  (∀a b. clos_number_renumber_code_locs_side a b ⇔ T)`,
-  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind>>rw[]>>
-  simp[Once (fetch"-" "clos_number_renumber_code_locs_list_side_def")]>>
-  metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
-
 (* known *)
 (*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
 
 val _ = translate clos_knownTheory.merge_alt
-
-val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
-
-val clos_known_merge_side = Q.prove(`
-  ∀a b. clos_known_merge_side a b ⇔ T`,
-  EVAL_TAC \\
-  recInduct clos_knownTheory.merge_tup_ind \\
-  rw[] \\
-  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
 
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
@@ -432,7 +404,7 @@ val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  fs[clos_known_merge_side]>>rw[]>>
+  fs[]>>rw[]>>
   intLib.COOPER_TAC) |> update_precondition;
 
 (*
@@ -490,12 +462,7 @@ val clos_call_calls_side = Q.prove(`
   TRY(metis_tac[])>>
   ntac 2 strip_tac>>
   simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_call_free_side]
-  >-
-    metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
-  >>
-    simp[GSYM LAMBDA_PROD]>>rw[]
-    >- (imp_res_tac clos_callTheory.calls_length>>fs[])
-    >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
+  >> rw[GSYM LAMBDA_PROD]) |> update_precondition
 
 val r = translate clos_callTheory.compile_def
 
@@ -1025,18 +992,6 @@ val bvl_inline_let_op_side = Q.prove(`
   \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
   |> update_precondition;
 
-val _ = translate(bvl_inlineTheory.inline_all_def);
-
-val bvl_inline_inline_all_side = Q.prove(`
-  ∀a b c d. bvl_inline_inline_all_side a b c d ⇔ T`,
-  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
-  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
-  CCONTR_TAC>>fs[]>>
-  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-  simp[bvl_inlineTheory.LENGTH_inline]) |> update_precondition
-
-val _ = translate(bvl_inlineTheory.compile_prog_def);
-
 val _ = translate(bvl_handleTheory.compile_exp_def);
 
 val bvl_handle_compile_exp_side = Q.prove(`
@@ -1044,6 +999,18 @@ val bvl_handle_compile_exp_side = Q.prove(`
   EVAL_TAC \\ rpt strip_tac
   \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
   \\ rw[]) |> update_precondition;
+
+val _ = translate(bvl_inlineTheory.inline_all_def);
+
+val bvl_inline_inline_all_side = Q.prove(`
+  ∀a b c d e f. bvl_inline_inline_all_side a b c d e f ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
+  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
+  CCONTR_TAC>>fs[]>>
+  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+  simp[bvl_inlineTheory.LENGTH_inline]) |> update_precondition
+
+val _ = translate(bvl_inlineTheory.compile_prog_def);
 
 val _ = translate(bvl_to_bviTheory.compile_def)
 

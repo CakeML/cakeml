@@ -977,7 +977,7 @@ val do_app = Q.prove (
   >- tac
   >- tac
   >- tac
-  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
+  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >> 
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
       cases_on `t` >>
@@ -985,7 +985,7 @@ val do_app = Q.prove (
       cases_on `t'` >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       srw_tac[][]
-      >- (every_case_tac >>
+      >> (every_case_tac >>
           imp_res_tac do_eq >>
           srw_tac[][conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def] >>
           srw_tac[][] >> fsrw_tac[][Boolv] >>
@@ -1043,10 +1043,14 @@ val do_app = Q.prove (
       TRY (cases_on `t'`) >>
       full_simp_tac(srw_ss())[vs_rel_list_rel] >>
       srw_tac[][]
+(*<<<<<<< HEAD
+      >> (every_case_tac >>
+=======*)
       >- (every_case_tac \\ fs[Once v_rel_cases] \\ rw[]
           \\ TRY (every_case_tac) \\ fs [conSemTheory.do_app_def] \\ rw[]
           \\ full_simp_tac (srw_ss()) [conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def, has_exns_def, gtagenv_wf_def])
       >- (every_case_tac >>
+(*>>>>>>> origin*)
           imp_res_tac v_to_list >>
           srw_tac[][conSemTheory.do_app_def, result_rel_cases, v_rel_eqns, modSemTheory.prim_exn_def, conSemTheory.prim_exn_def, conSemTheory.exn_tag_def] >>
           srw_tac[][]))

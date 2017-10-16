@@ -14,7 +14,7 @@ val _ = translation_extends "mlcharioProg";
 
     1. write requires write_loc for the storage of the character to be
        written
-    2. open-file requires filenamae_loc for the storage of the name of the
+    2. open-file requires filename_loc for the storage of the name of the
        (probably zero-terminated) file
     3. read-char needs storage for a single byte for identifying the
        file-descripter to read through. This assumes that there can't
@@ -196,7 +196,7 @@ val openIn_e =
                Var (Short "filename_array");
                Var (Short "fname")]) (
     Let (SOME "_")
-        (App (FFI "open") [Var (Short "filename_array")]) (
+        (App (FFI "open") [Lit(StrLit ""); Var (Short "filename_array")]) (
     Let (SOME "fd")
         (Apps [Var (Long "Word8Array" (Short "sub")); Var (Short "filename_array");
                Lit (IntLit 0)]) (
@@ -215,7 +215,7 @@ val eof_e =
   ``Let (SOME "_") (Apps [Var (Long "Word8Array" (Short "update"));
                           Var (Short "onechar"); Lit (IntLit 0);
                           Var (Short "w8")]) (
-    Let (SOME "_") (App (FFI "isEof") [Var (Short "onechar")]) (
+    Let (SOME "_") (App (FFI "isEof") [Lit(StrLit ""); Var (Short "onechar")]) (
     Let (SOME "bw") (Apps [Var (Long "Word8Array" (Short "sub"));
                            Var (Short "onechar"); Lit (IntLit 0)]) (
       Mat (Var (Short "bw")) [
@@ -236,7 +236,7 @@ val fgetc_e =
                    Var (Short "onechar");
                    Lit (IntLit 0);
                    Var (Short "fd")]) (
-        Let (SOME "u2") (App (FFI "fgetc") [Var (Short "onechar")]) (
+        Let (SOME "u2") (App (FFI "fgetc") [Lit(StrLit ""); Var (Short "onechar")]) (
         Let (SOME "cw") (Apps [Var (Long "Word8Array" (Short "sub"));
                                Var (Short "onechar"); Lit (IntLit 0)]) (
         Let (SOME "ci") (Apps [Var (Long "Word8" (Short "toInt")); Var (Short "cw")]) (
@@ -252,7 +252,7 @@ val close_e =
                           Var (Short "onechar");
                           Lit (IntLit 0);
                           Var (Short "w8")]) (
-    Let (SOME "u2") (App (FFI "close") [Var (Short "onechar")]) (
+    Let (SOME "u2") (App (FFI "close") [Lit(StrLit ""); Var (Short "onechar")]) (
     Let (SOME "okw") (Apps [Var (Long "Word8Array" (Short "sub"));
                             Var (Short "onechar");
                             Lit (IntLit 0)]) (

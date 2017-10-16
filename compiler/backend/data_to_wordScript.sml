@@ -1421,15 +1421,20 @@ local val assign_quotation = `
       | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of
-       | [v] =>
-        let addr = real_addr c (adjust_var v) in
-        let header = Load addr in
+       | [v1; v2] =>
+        let addr1 = real_addr c (adjust_var v1) in
+        let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
-        let fakelen = Shift Lsr header (Nat k) in
+        let fakelen1 = Shift Lsr header1 (Nat k) in
+        let addr2 = real_addr c (adjust_var v2) in
+        let header2 = Load addr2 in
+        let fakelen2 = Shift Lsr header2 (Nat k) in            
         (list_Seq [
-          Assign 1 (Op Add [addr; Const bytes_in_word]);
-          Assign 3 (Op Sub [fakelen; Const (bytes_in_word-1w)]);
-          FFI ffi_index 1 3 (adjust_set (dtcase names of SOME names => names | NONE => LN));
+          Assign 1 (Op Add [addr1; Const bytes_in_word]);
+          Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
+          Assign 5 (Op Add [addr2; Const bytes_in_word]);
+          Assign 7 (Op Sub [fakelen2; Const (bytes_in_word-1w)]);
+          FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
        | _ => (Skip,l))

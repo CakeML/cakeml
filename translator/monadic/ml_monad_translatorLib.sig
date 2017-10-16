@@ -1,16 +1,42 @@
-signature ml_monad_translatorLib = 
+signature ml_monad_translatorLib =
 sig
-    type term = Term.term
-    type thm = Thm.thm
-    type hol_type = Type.hol_type
+    include ml_translatorLib
+
+    type monadic_translation_parameters = ml_monadStoreLib.monadic_translation_parameters
     type store_translation_result = ml_monadStoreLib.store_translation_result
 
-    val mem_derive_case_of : hol_type -> thm
+    (* Functions to initialize the translation *)
+    val start_static_init_fixed_store_translation :
+	(string * thm * thm * thm) list ->
+	(string * thm * thm * thm * thm * thm * thm * thm) list ->
+	string -> hol_type -> thm -> (thm * thm) list ->  string list ->
+	(thm * thm) option ->
+        monadic_translation_parameters * store_translation_result *
+        (thm * thm) list
 
+    val start_dynamic_init_fixed_store_translation :
+	(string * thm * thm) list ->
+	(string * thm * thm * thm * thm * thm * thm) list -> string ->
+	hol_type -> thm -> (thm * thm) list -> string list -> thm option ->
+        monadic_translation_parameters * (thm * thm) list
+
+    (* Other functions to initialize the translation - the above ones should be preferred *)
     val init_translation :
-        store_translation_result -> term -> string list -> unit
+        monadic_translation_parameters -> (thm * thm) list ->
+	(thm * thm * thm * thm * thm * thm) list -> (thm * thm) list ->
+        thm option -> thm -> string list -> thm option -> unit
+    val add_raise_handle_functions : (thm * thm) list -> thm -> (thm * thm) list
 
-    val add_raise_handle_functions : thm list -> thm list -> thm -> (thm list * thm list)
-
+    (* Translation functions *)
     val m_translate : thm -> thm
+    val m_translate_run : thm -> thm
+    val m2deep : term -> thm
+
+    (* Resume prior monadic translation.
+
+       Loads the state specific to the monadic translation from the specified
+       theory, followed by a call to translation_extends from the 'standard'
+       translator (i.e. fetching the rest of the translator state). *)
+    val m_translation_extends : string -> unit
+
 end
