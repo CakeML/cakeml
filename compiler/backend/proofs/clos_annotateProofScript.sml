@@ -219,6 +219,7 @@ val state_rel_def = Define `
     (!n r1.
       (FLOOKUP s.refs n = SOME r1) ==>
       ?r2. (FLOOKUP t.refs n = SOME r2) /\ ref_rel v_rel r1 r2) /\
+    (FDOM s.code = FDOM t.code) /\
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?c2.
@@ -228,6 +229,23 @@ val state_rel_def = Define `
 val state_rel_max_app = Q.store_thm("state_rel_max_app",
   `state_rel s t ⇒ s.max_app = t.max_app`,
   rw[state_rel_def]);
+
+(* some syntactic properties of the compiler *)
+
+val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
+  `MAP FST (clos_annotate$compile p) = MAP FST p`,
+  rw[compile_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
+
+val REVERSE_compile = Q.store_thm("REVERSE_compile",
+  `REVERSE (clos_annotate$compile ls) = compile (REVERSE ls)`,
+  rw[compile_def,MAP_REVERSE]);
+
+val ALOOKUP_compile = Q.store_thm("ALOOKUP_compile",
+  `ALOOKUP (clos_annotate$compile ls) =
+    OPTION_MAP (λ(args,e). (args, HD (annotate args [e])))
+      o (ALOOKUP ls)`,
+  rw[GSYM ALOOKUP_MAP]
+  \\ rw[FUN_EQ_THM,compile_def,LAMBDA_PROD]);
 
 (* semantic functions respect relation *)
 
@@ -569,6 +587,77 @@ val do_app_err_thm = Q.prove(
   \\ Cases_on `err` \\ fs []
   \\ fs [do_app_cases_err]
   \\ Cases_on `a` \\ fs []);
+
+val v_to_bytes = Q.store_thm("v_to_bytes",
+  `v_rel x y ==> OPTREL (=) (v_to_bytes x) (v_to_bytes y)`,
+  rw[v_to_bytes_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
+  \\ TRY (strip_tac \\ rw[])
+  \\ fs[EVERY2_MAP,v_rel_Number]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
+  \\ METIS_TAC[EL_MAP,o_DEF]);
+
+val v_to_words = Q.store_thm("v_to_words",
+  `v_rel x y ==> OPTREL (=) (v_to_words x) (v_to_words y)`,
+  rw[v_to_words_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
+  \\ TRY (strip_tac \\ rw[])
+  \\ fs[EVERY2_MAP,v_rel_Number]
+  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
+  \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
+  \\ METIS_TAC[EL_MAP,o_DEF]);
+
+val do_install_thm = Q.store_thm("do_install_thm",
+  `state_rel s1 t1 /\ LIST_REL v_rel xs ys
+   ==>
+   result_rel ((λe1 e2. e2 = HD (annotate 0 [e1])) ### state_rel) (=)
+     (do_install xs s1)
+     (do_install ys t1)`,
+  rw[do_install_def]
+  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
+  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
+  \\ TOP_CASE_TAC \\ rw[] \\ fs[]
+  \\ rename1`v_to_bytes b1`
+  \\ rename1`v_to_words w1`
+  \\ qpat_x_assum`v_rel w1 _`mp_tac
+  \\ imp_res_tac v_to_bytes
+  \\ strip_tac \\ fs[OPTREL_def]
+  \\ qpat_x_assum`v_rel b1 _`kall_tac
+  \\ imp_res_tac v_to_words
+  \\ fs[OPTREL_def]
+  \\ `FDOM s1.code = FDOM t1.code`
+  by fs[state_rel_def]
+  \\ `t1.compile_oracle = (I ## (λe. HD (annotate 0 [e])) ## compile) o s1.compile_oracle`
+  by fs[state_rel_def]
+  \\ Cases_on`s1.compile_oracle 0` \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ `s1.compile = λcfg (e,aux). t1.compile cfg (HD (annotate 0 [e]),compile aux)`
+  by fs[state_rel_def]
+  \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ split_pair_case_tac \\ fs[]
+  \\ fs[shift_seq_def]
+  \\ `s1.clock = t1.clock`
+  by fs[state_rel_def]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[quotient_pairTheory.PAIR_REL_THM]
+  \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
+  \\ conj_tac >- metis_tac[]
+  \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
+  \\ rpt gen_tac
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ simp[annotate_def]
+  \\ Cases_on`alt_free [c]`
+  \\ imp_res_tac alt_free_SING \\ fs[]);
 
 (* compiler correctness *)
 
