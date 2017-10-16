@@ -523,6 +523,8 @@ val store_lookup_type_sound = Q.store_thm ("store_lookup_type_sound",
  rw [type_s_def]
  >> metis_tac []);
 
+ (* HERE *)
+
 val op_type_sound = Q.store_thm ("op_type_sound",
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
@@ -540,7 +542,11 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    | Rval v => type_v 0 ctMap tenvS' v t
    | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
    | Rerr (Rabort _) => F`,
- rw [type_op_cases, good_ctMap_def]
+ rw []
+ \\ Cases_on `op = ListAppend`
+ >- cheat (* TODO *)
+ \\ fs [type_op_cases, good_ctMap_def] \\ rveq
+ (*\\ rw [type_op_cases, good_ctMap_def]*)
  >> fs []
  >> rw []
  >> TRY (Cases_on `wz`)
