@@ -515,7 +515,7 @@ val evaluate_def = tDefine "evaluate" `
      | (Rval vs,s) =>
        if op = Install then
        (case do_install (REVERSE vs) s of
-        | Rval (e,s) => evaluate ([e],env,s)
+        | Rval (e,s) => evaluate ([e],[],s)
         | Rerr(Rabort a) => (Rerr(Rabort a),s)
         | _ => (Rerr(Rabort Rtype_error),s))
        else
