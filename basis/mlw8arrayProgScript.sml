@@ -35,11 +35,11 @@ fun prove_array_spec op_name =
   xcf op_name (basis_st()) \\ TRY xpull \\
   fs [cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
       cf_copyaw8aw8_def, cf_aalloc_def, cf_asub_def, cf_alength_def,
-      cf_aupdate_def, cf_copystraw8_def] \\
+      cf_aupdate_def, cf_copystraw8_def, cf_copyaw8str_def] \\
   irule local_elim \\ reduce_tac \\
   fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
       app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def,
-      app_copyaw8aw8_def, app_copystraw8_def] \\
+      app_copyaw8aw8_def, app_copystraw8_def, app_copyaw8str_def] \\
   xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
   TRY (
@@ -103,5 +103,16 @@ val w8array_copyVec_spec = Q.store_thm ("w8array_copyVec_spec",
                                MAP (n2w o ORD) (explode (substring src srcoff len)) ⧺
                                DROP (dstoff + len) dst) )`,
   prove_array_spec "Word8Array.copyVec");
+
+val w8array_substring_spec = Q.store_thm ("w8array_substring_spec",
+  `!src srcv srcoff srcoffv len lenv.
+     NUM srcoff srcoffv /\ NUM len lenv /\
+     srcoff + len <= LENGTH src ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.substring" (basis_st()))
+       [srcv; srcoffv; lenv]
+       (W8ARRAY srcv src)
+       (POSTv v. &(STRING_TYPE (strlit (MAP (CHR o w2n) (TAKE len (DROP srcoff src)))) v) *
+                 W8ARRAY srcv src)`,
+  prove_array_spec "Word8Array.substring");
 
 val _ = export_theory()
