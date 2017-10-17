@@ -318,6 +318,11 @@ val EL_MAP3 = Q.store_thm("EL_MAP3",
   ho_match_mp_tac MAP3_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
 
+val MAP_REVERSE_STEP = Q.store_thm("MAP_REVERSE_STEP",
+  `∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))`,
+  recInduct SNOC_INDUCT
+  \\ rw [FRONT_APPEND]);
+
 val LENGTH_TAKE_EQ_MIN = Q.store_thm("LENGTH_TAKE_EQ_MIN",
   `!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)`,
   simp[LENGTH_TAKE_EQ] \\ full_simp_tac(srw_ss())[MIN_DEF] \\ decide_tac);
@@ -3035,7 +3040,7 @@ val eventually_thm = store_thm(
   CONJ_TAC THEN
   CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [eventually_cases])) THEN
   SRW_TAC [][]);
- 
+
 val _ = export_rewrites ["eventually_thm"]
 
 val (always_rules,always_coind,always_cases) = Hol_coreln`
@@ -3044,14 +3049,14 @@ val (always_rules,always_coind,always_cases) = Hol_coreln`
 val always_thm = Q.store_thm("always_thm",
    `∀h t. (always P (h:::t) ==> P (h:::t) ∧ always P t)`,
    rw[] >> fs[Once always_cases]);
-   
+
 val _ = export_rewrites ["always_thm"]
 
 val always_conj_l = Q.store_thm("always_conj_l",
   `!ll. ¬ LFINITE ll /\ (always (\x. P x /\ Q x) ll) ==> (always P ll)`,
   ho_match_mp_tac always_coind >>
   rw[] >> Cases_on`ll` >> fs[] >> imp_res_tac always_thm >> fs[]);
-  
+
 val always_eventually_ind = Q.store_thm("always_eventually_ind",
   `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
    !ll. ll <> [||] ⇒  always(eventually P) ll ==> Q ll`,
@@ -3076,8 +3081,8 @@ val Lnext_def = tDefine "Lnext" `
   Lnext P ll = if eventually P ll then
                         if P ll then 0
                         else SUC(Lnext P (THE (LTL ll)))
-                     else ARB` 
- (exists_tac``\(P,ll') (P',ll). 
+                     else ARB`
+ (exists_tac``\(P,ll') (P',ll).
     ((P = P') /\ eventually P ll /\ eventually P ll' /\
     (LTL ll = SOME ll') /\ ¬ P ll)`` >>
     reverse(rw[relationTheory.WF_DEF,eventually_thm])
@@ -3086,7 +3091,7 @@ val Lnext_def = tDefine "Lnext" `
   Cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
   reverse(Cases_on`eventually P ll`)
   >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
-  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >> 
+  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >>
   HO_MATCH_MP_TAC eventually_ind >> rw[]
   >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
   Cases_on`B(P,ll)` >-(metis_tac[]) >>
@@ -3094,7 +3099,7 @@ val Lnext_def = tDefine "Lnext" `
 
 val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
   `!(x:'a option) y z. (OPTION_CHOICE x y = SOME z) <=>
-                       ((x = SOME z) \/ ((x = NONE) /\ (y = SOME z)))`,    
+                       ((x = SOME z) \/ ((x = NONE) /\ (y = SOME z)))`,
  rw[] \\ Cases_on `x` \\ Cases_on `y` \\ fs[]);
 
 val _ =  save_thm("option_eq_some",
