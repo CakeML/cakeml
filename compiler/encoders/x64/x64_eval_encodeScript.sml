@@ -25,7 +25,7 @@ local
      Conv.REWR_CONV rex_prefix_def
      THENC Conv.PATH_CONV "llr"
              (blastLib.BBLAST_CONV
-              THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+              THENC (fn t => if Teq t orelse Feq t then
                                 ALL_CONV t
                              else
                                 NO_CONV t))

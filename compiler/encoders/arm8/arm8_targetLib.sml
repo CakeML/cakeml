@@ -55,7 +55,7 @@ local
 in
   val valid_immediate_conv =
     Conv.memoize dst (Redblackmap.mkDict Term.compare)
-      (fn tm => tm = boolSyntax.T orelse tm = boolSyntax.F)
+      (fn tm => Teq tm orelse Feq tm)
       (ERR "valid_immediate_conv" "")
       (computeLib.compset_conv (wordsLib.words_compset())
         [computeLib.Defs
