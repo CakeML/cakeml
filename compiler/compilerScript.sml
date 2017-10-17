@@ -86,7 +86,7 @@ val find_parse_def = Define`
   (find_parse flag [] = NONE) ∧
   (find_parse flag (x::xs) =
     if isPrefix flag x then
-      parse_num (substring x (strlen flag) (strlen x))
+      parse_num (extract x (strlen flag) NONE)
     else find_parse flag xs)`
 
 val comma_tokens_def = Define `
@@ -112,7 +112,7 @@ val find_parse_nums_def = Define`
   (find_parse_nums flag [] = NONE) ∧
   (find_parse_nums flag (x::xs) =
     if isPrefix flag x then
-      parse_nums (substring x (strlen flag) (strlen x))
+      parse_nums (extract x (strlen flag) NONE)
     else find_parse_nums flag xs)`
 
 (* parses a list of strings to configurations and modifies the configuration *)
