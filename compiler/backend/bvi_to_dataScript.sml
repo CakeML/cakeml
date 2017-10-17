@@ -175,7 +175,7 @@ optimise use_cse prog = data_space$compile (
                    simp
                        ((
                          if use_cse
-                         then \prog. FST (data_cse$compile prog data_cse$empty_cache)
+                         then data_cse$compile
                          else I)
                        (FST (data_live$compile prog LN))) Skip)`;
 

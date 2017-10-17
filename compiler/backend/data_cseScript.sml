@@ -139,13 +139,10 @@ val map_alter = Define `
 
 val map_update = Define `
 map_update f = map_alter (OPTION_MAP f)`
-
 val map_combine = Define `
 map_combine f = map_alter (SOME o f)`
-
 val map_insert = Define `
 map_insert k v = map_update (\_. SOME v) k`
-
 val map_fmap = Define `
 (map_fmap f [] = []) /\
 (map_fmap f ((k, v)::hs) = (k, f v)::map_fmap f hs)`
@@ -300,19 +297,19 @@ val cache_intersect = Define `
 cache_intersect (Cache entries1) (Cache entries2) =
 Cache (cache_intersect_entries entries1 entries2)`
 
-val compile_def = Define`
-(compile Skip c = (Skip, c)) /\
-(compile (Return n) c = (Return n, c)) /\
-(compile (Raise n) c = (Raise n, c)) /\
-(compile (Move n1 n2) c = (Move n1 n2, cache_memoize_move n1 n2 c)) /\
-(compile (Seq p1 p2) c =
- let (p1c, c1) = compile p1 c in
- let (p2c, c2) = compile p2 c1 in
+val compile_A_def = Define`
+(compile_A Skip c = (Skip, c)) /\
+(compile_A (Return n) c = (Return n, c)) /\
+(compile_A (Raise n) c = (Raise n, c)) /\
+(compile_A (Move n1 n2) c = (Move n1 n2, cache_memoize_move n1 n2 c)) /\
+(compile_A (Seq p1 p2) c =
+ let (p1c, c1) = compile_A p1 c in
+ let (p2c, c2) = compile_A p2 c1 in
      (Seq p1c p2c, c2)) /\
-(compile Tick c = (Tick, c)) /\
-(compile (MakeSpace k live) c =
+(compile_A Tick c = (Tick, c)) /\
+(compile_A (MakeSpace k live) c =
  (MakeSpace k live, cache_cut_out_not_live c live)) /\
-(compile (Assign n op args live) c0 =
+(compile_A (Assign n op args live) c0 =
  let c1 = option_CASE live c0 (cache_cut_out_not_live c0) in
  let c2 = cache_invalidate n c1 in
      if ~ (is_pure op) then (Assign n op args live, c2) else (
@@ -325,26 +322,28 @@ val compile_def = Define`
              | (SOME m) => (Move n m, cache_memoize_move n m c2)
           ))
  )) /\
-(compile (If cond p1 p2) c =
- let (p1c, c1) = compile p1 c in
- let (p2c, c2) = compile p2 c in
+(compile_A (If cond p1 p2) c =
+ let (p1c, c1) = compile_A p1 c in
+ let (p2c, c2) = compile_A p2 c in
      (If cond p1c p2c, cache_intersect c1 c2)) /\
-(compile (Call NONE dest vs handler) c = (Call NONE dest vs handler, c)) /\
-(compile (Call (SOME (n, live)) dest vs NONE) c =
+(compile_A (Call NONE dest vs handler) c = (Call NONE dest vs handler, c)) /\
+(compile_A (Call (SOME (n, live)) dest vs NONE) c =
  let c1 = cache_invalidate n c in
      (Call (SOME (n, live)) dest vs NONE, cache_cut_out_not_live c1 live)) /\
-(compile (Call (SOME (n, live)) dest args (SOME (m, p))) c =
+(compile_A (Call (SOME (n, live)) dest args (SOME (m, p))) c =
  let c1 = cache_invalidate n c in
  let l2 = cache_cut_out_not_live c1 live in
- let (pc, l3) = compile p (cache_invalidate m c) in
+ let (pc, l3) = compile_A p (cache_invalidate m c) in
      (Call (SOME (n, live)) dest args (SOME (m, pc)), cache_intersect l2 l3)
 )`
 
-(* Holmake in benchmarks *)
+val compile_def = Define`
+compile p = FST (compile_A p empty_cache)`
+
 
 (* computeLib.add_funs [OPTION_BIND_def]; *)
 
-val p1 = `` (compile
+val p1 = `` (compile_A
 (FOLDR Seq Skip
        [
          Assign 0 (Const 1) [] NONE (* a = 1; *)

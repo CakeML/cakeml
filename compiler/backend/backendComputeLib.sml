@@ -414,6 +414,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_cseTheory.is_pure_def
     ,data_cseTheory.replace_var_twin_def
     ,data_cseTheory.compile_def
+    ,data_cseTheory.compile_A_def
     ,data_cseTheory.cache_lookup_def
     ,data_cseTheory.cache_cut_out_not_live_def
     ,data_cseTheory.cache_varset_def
