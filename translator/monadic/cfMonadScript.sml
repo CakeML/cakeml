@@ -180,14 +180,6 @@ rw[]
 \\ `{} x` by metis_tac[]
 \\ fs[]);
 
-(* fun apply_REFS_PRED_Mem_Only_IMP ty = let
-    val lemma = Q.SPEC `H` REFS_PRED_Mem_Only_IMP |> UNDISCH
-    val v = concl lemma |> dest_forall |> fst
-    val ty_src = dest_type (type_of v) |> snd |> hd |> dest_type
-			   |> snd |> hd
-    val lemma = INST_TYPE [ty_src |-> ty] lemma |> UNDISCH_ALL
-in (drule lemma \\ rw[] \\ first_x_assum IMP_RES_TAC) end *)
-
 val apply_REFS_PRED_Mem_Only_IMP =
   first_assum (fn x => let val lemma = (MATCH_MP REFS_PRED_Mem_Only_IMP x)
   in first_assum (fn x => (MATCH_MP lemma x) |> drule) end)
@@ -197,13 +189,13 @@ val apply_REFS_PRED_Mem_Only_IMP2 =
   in last_assum (fn x => (MATCH_MP lemma x) |> drule) end)
 
 val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
-`!A B f fv x1 xv1 xv2 xvl H Q p.
+`!A B f fv x1 xv1 xv2 xvl H Q state p.
 REFS_PRED_Mem_Only H ==>
 A x1 xv1 ==>
-(!state gv. B (f x1) gv ==>
+(!gv. B (f x1) gv ==>
 app (p : 'a ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
-(!state. ArrowP H (PURE A) (PURE B) f fv ==>
-app p fv (xv1::xv2::xvl) (H state) (Q state))`,
+ArrowP H (PURE A) (PURE B) f fv ==>
+app p fv (xv1::xv2::xvl) (H state) (Q state)`,
 rw[app_def]
 \\ rw[app_basic_def]
 \\ fs[ArrowP_def]
@@ -418,19 +410,11 @@ val prove_ArrowP_MONAD_to_app_SPLIT3 =
   \\ fs[st2heap_def]
   \\ metis_tac[IN_UNION];
 
-val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
-`!A B C f fv H x xv refs p.
-REFS_PRED_Mem_Only H ==>
-A x xv ==>
-ArrowP H (PURE A) (MONAD B C) f fv ==>
-app (p : 'a ffi_proj) fv [xv] (H refs)
-(POST
-     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
-     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+val prove_MONAD_to_app =
 rw[app_def]
 \\ rw[app_basic_def]
 \\ fs[ArrowP_def]
-\\ fs[PURE_def]
+\\ fs[EqSt_def, PURE_def]
 \\ first_x_assum (qspec_then `x` ASSUME_TAC)
 \\ POP_ASSUM IMP_RES_TAC
 \\ fs[state_component_equality]
@@ -454,7 +438,7 @@ rw[app_def]
     >> fs[Mem_NOT_IN_ffi2heap, FFI_split_NOT_IN_store2heap_aux, FFI_full_NOT_IN_store2heap_aux, FFI_part_NOT_IN_store2heap_aux])
 \\ first_x_assum(qspec_then `pu` STRIP_ASSUME_TAC)
 \\ IMP_RES_TAC REFS_PRED_lemma
-\\ qpat_x_assum `!refs1 p. R ==> ?env. R2` IMP_RES_TAC
+\\ last_x_assum drule \\ rw[]
 \\ POP_ASSUM(qspec_then `[]` STRIP_ASSUME_TAC)
 \\ fs[REFS_PRED_FRAME_def]
 \\ fs[evaluate_ck_def]
@@ -487,6 +471,28 @@ THENL[IMP_RES_TAC evaluate_Rval_bigStep_to_evaluate \\ qexists_tac `Val a`,
 >-(fs[HCOND_EXTRACT])
 \\ ASSUME_TAC (Thm.INST_TYPE[``:'a`` |-> ``:unit``, ``:'b`` |-> ``:'a``] (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
 \\ first_x_assum IMP_RES_TAC
-\\ fs[state_component_equality, ml_translatorTheory.empty_state_def, ffiTheory.initial_ffi_state_def]);
+\\ fs[state_component_equality, ml_translatorTheory.empty_state_def, ffiTheory.initial_ffi_state_def]
+
+val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
+`!A B C f fv H x xv refs p.
+REFS_PRED_Mem_Only H ==>
+A x xv ==>
+ArrowP H (PURE A) (MONAD B C) f fv ==>
+app (p : 'a ffi_proj) fv [xv] (H refs)
+(POST
+     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
+     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+prove_MONAD_to_app);
+
+val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
+`!A B C f fv H x xv refs p.
+REFS_PRED_Mem_Only H ==>
+A x xv ==>
+ArrowP H (EqSt (PURE A) refs) (MONAD B C) f fv ==>
+app (p : 'a ffi_proj) fv [xv] (H refs)
+(POST
+     (\rv. SEP_EXISTS refs' r. H refs' * &(f x refs = (Success r, refs')) * &(B r rv))
+     (\ev. SEP_EXISTS refs' e. H refs' * &(f x refs = (Failure e, refs')) * &(C e ev)))`,
+prove_MONAD_to_app);
 
 val _ = export_theory();
