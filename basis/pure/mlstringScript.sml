@@ -118,6 +118,15 @@ val strsub_substring_0_thm = Q.store_thm("strsub_substring_0_thm",
   Cases_on`l` \\ rw[strsub_def,substring_def]
   \\ rw[SEG_TAKE_BUTFISTN,EL_TAKE]);
 
+val substring_full = Q.store_thm("substring_full[simp]",
+  `substring s 0 (strlen s) = s`,
+  Cases_on`s` \\ rw[substring_def,SEG_LENGTH_ID]);
+
+val substring_too_long = Q.store_thm("substring_too_long",
+  `strlen s <= i ==> substring s i j = strlit ""`,
+  Cases_on`s` \\ rw[substring_def,DROP_NIL] \\
+  `j = 0` by decide_tac \\ fs[SEG]);
+
 val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
 val _ = Parse.add_infix("^",480,Parse.LEFT)
 val _ = Parse.overload_on("^",``λx y. strcat x y``)
