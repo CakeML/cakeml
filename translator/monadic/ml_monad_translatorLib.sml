@@ -958,7 +958,16 @@ fun force_remove_fix thx = let
   val xs = List.map rand (find_terms (can (match_term pat)) (concl thx))
   val s = SIMP_RULE std_ss [EvalM_FUN_FORALL_EQ,M_FUN_QUANT_SIMP]
   val thx = List.foldr (fn (x,th) => s (FORCE_GEN x th)) thx xs
-  in thx end;
+
+  val thx = UNDISCH_ALL thx |> PURE_REWRITE_RULE[ArrowM_def]
+  val thc = concl thx |> rator |> rand |> rator |> rand
+  val st_opt = get_EqSt_var thc
+in case st_opt of
+       SOME st => HO_MATCH_MP EvalM_FUN_FORALL (GEN st thx)
+			      |> SIMP_RULE std_ss [M_FUN_QUANT_SIMP]
+			      |> PURE_REWRITE_RULE[GSYM ArrowM_def]
+     | NONE => PURE_REWRITE_RULE[GSYM ArrowM_def] thx
+end
 
 (* ---- *)
 fun var_hol2deep tm =
@@ -1305,11 +1314,13 @@ fun m2deep tm =
   if is_comb tm then let
     (* val _ = print_tm_msg "normal function application\n" tm DEBUG *)
     val (f,x) = dest_comb tm
-    val thf = m2deep f
-    val thx = hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE)
-	      handle e => m2deep x
-    val thx = force_remove_fix thx
-    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf) thx
+    val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
+    val (thx,is_monad) =
+	((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE),false)
+	      handle e => (m2deep x,true))
+    val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
+    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf
+                 |> PURE_REWRITE_RULE[ArrowM_def]) thx
 		 handle HOL_ERR _ =>
                  MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
 			     (MATCH_MP EvalM_Eq thx)
@@ -1324,6 +1335,7 @@ fun m2deep tm =
 					   (INST [v |-> state_var] thf))
 				 (MATCH_MP EvalM_Eq thx)
       end
+    val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
@@ -2063,7 +2075,7 @@ in th end
 
 fun clean_lookup_assums th = let
     val th = remove_local_code_abbrevs th
-    val th = HYP_CONV_RULE (fn x => true) (SIMP_CONV list_ss (build_rec_env_def::LOOKUP_ASSUM_SIMP::string_rewrites)) th
+    val th = HYP_CONV_RULE (fn x => true) (SIMP_CONV list_ss (build_rec_env_def::LOOKUP_ASSUM_SIMP::FOLDR::string_rewrites)) th
     val th = HYP_CONV_RULE (fn x => true) (PURE_REWRITE_CONV (List.map GSYM (!local_code_abbrevs))) th
     val th = MP (DISCH ``T`` th ) TRUTH handle HOL_ERR _ => th
 in th end;
@@ -2232,7 +2244,6 @@ fun m_translate_run_abstract_parameters th def params_evals = let
     val th = List.foldr apply_Eval_Fun_Eq th params_bindings
 in th end
 
-
 fun inst_gen_eq_vars2 st th = let
     (* Instantiate the variables in the occurences of Eq*)
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
@@ -2279,6 +2290,8 @@ fun m_translate_run def = let
 	val str = stringSyntax.fromMLstring name
 	val result = ASSUME (mk_comb(``Eval env (Var (Short ^str))``,mk_comb(inv,tm)))
 	val result = MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) result
+	val st = concl result |> get_EvalM_state
+	val result = INST [st |-> state_var] result
     in check_inv "var" tm result end
     val params_evals = List.map var_create_Eval monad_params
 
@@ -2293,6 +2306,7 @@ fun m_translate_run def = let
                  |> ISPEC (!H)
 		 |> PURE_REWRITE_RULE[GSYM ArrowM_def]
 		 |> abbrev_nsLookup_code
+    val monad_th = INST [concl monad_th |> get_EvalM_state |-> state_var] monad_th
 
     (* Insert the parameters *)
     val monad_th = inst_gen_eq_vars2 state_var monad_th
@@ -2351,7 +2365,7 @@ fun m_translate_run def = let
 
     val th = List.foldl (fn (a, th) => MP th a) th [distinct_th, vname_th1, vname_th2]
     val th = PURE_REWRITE_RULE[EXN_rw] th
-    val th = MP th monad_th
+    val th = MATCH_MP th monad_th
 
     (* Undischarge the EVERY lookup assumptions *)
     val every_lookup_assum = concl th |> dest_imp |> fst
@@ -2365,7 +2379,7 @@ fun m_translate_run def = let
     val th = create_local_fun_defs th
 
     (* Create the store *)
-    val th = create_local_references th
+    val th = create_local_references th 
 
     (* Abstract the parameters *)
     val all_params = strip_comb def_lhs |> snd
@@ -2381,7 +2395,7 @@ fun m_translate_run def = let
     val th = clean_assumptions (D th)
 
     (* Introduce the precondition *)
-    val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) [EQ_def,PRECONDITION_def])) th
+    val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) [EQ_def,PRECONDITION_def])) (D th)
     val precond = concl th |> dest_imp |> fst
     val is_precond_T = same_const (concl TRUTH) precond
     val (th,pre) = if is_precond_T then (MP th TRUTH |> remove_Eq, TRUTH)

@@ -2632,8 +2632,8 @@ rw[Eval_def]
 \\ rw[state_component_equality]);
 
 val nsBind_to_write = Q.prove(
- `<|v := nsBind name v env1.v; c := env2.c|> =
-  write name v <|v := env1.v; c := env2.c|>`,
+ `<|v := nsBind name v env1; c := env2|> =
+  write name v <|v := env1; c := env2|>`,
  fs[write_def,sem_env_component_equality]);
 
 val nsLookup_write_simp = Q.prove(
