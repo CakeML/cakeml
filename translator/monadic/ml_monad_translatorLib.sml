@@ -682,6 +682,9 @@ fun inst_case_thm tm m2deep = let
 val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
 val BETA_PAIR_THM = Q.prove(`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[]);
 
+val var_assum = ``Eval env (Var n) (a (y:'a))``
+val nsLookup_assum = ``nsLookup env name = opt``
+val lookup_cons_assum = ``lookup_cons name env = opt``
 fun prove_EvalMPatBind goal m2deep = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> get_Eval_arg |> rator
@@ -689,9 +692,13 @@ fun prove_EvalMPatBind goal m2deep = let
   val res = m2deep rhs_tm
   val exp = res |> concl |> get_Eval_exp
   val th = D res
-  val var_assum = ``Eval env (Var n) (a (y:'a))``
   val is_var_assum = can (match_term var_assum)
   val vs = find_terms is_var_assum (concl th |> remove_Eval_storePred)
+  (**)
+  val is_nslookup_assum = can (match_term nsLookup_assum)
+  val is_lookup_cons_assum = can (match_term lookup_cons_assum)
+  val vs = List.concat[vs, find_terms is_nslookup_assum (concl th |> remove_Eval_storePred), find_terms is_lookup_cons_assum (concl th |> remove_Eval_storePred)]
+  (**)
   fun delete_var tm =
     if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
   val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_var)) th
@@ -725,7 +732,12 @@ fun prove_EvalMPatBind goal m2deep = let
     \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ fs[GSYM FORALL_PROD]
-    \\ EVAL_TAC)
+    (* Provisional *)
+    (* \\ FIRST[rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
+	    \\ EVAL_TAC,
+	     EVAL_TAC]) *)
+    EVAL_TAC)
+    (***************)
   in UNDISCH_ALL th end handle HOL_ERR e => failwith "prove_EvalMPatBind failed";
 
 fun pmatch_m2deep tm m2deep = let
@@ -755,6 +767,10 @@ fun pmatch_m2deep tm m2deep = let
 
 (*
 DEBUG:
+
+val th = nil_lemma
+val xs = drop (ts,3)
+val (pat,rhs_tm) = el 3 ts
 
 val i = ref (List.length ts)
 val xs_ref = ref ts
@@ -1978,9 +1994,13 @@ fun m_translate def =
 	  val lemmas = LOOKUP_VAR_def :: List.map GSYM v_defs
 	  val th = th |> ii |> jj
 	  val state_var = concl th |> get_EvalM_state
-	  val th = GEN state_var th
-	  val th = MATCH_MP EvalM_Var_ArrowP th
-		   handle HOL_ERR _ => MATCH_MP EvalM_Var_ArrowP_EqSt th
+	  val th = GEN state_var th |>
+                   (CONV_RULE ((QUANT_CONV o RATOR_CONV o RAND_CONV o
+				RATOR_CONV o RATOR_CONV o RAND_CONV)
+				   (PURE_REWRITE_CONV [ArrowM_def])))
+	  val th = (MATCH_MP EvalM_Var_ArrowP th
+		   handle HOL_ERR _ => MATCH_MP EvalM_Var_ArrowP_EqSt th)
+		   |> PURE_REWRITE_RULE [GSYM ArrowM_def]
 	  val assum = concl th |> dest_imp |> fst
 	  val v = th |> hyp |> first (can (match_term assum)) |> rand
 	  val th = INST [rand assum |-> v] th |> UNDISCH
