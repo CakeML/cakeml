@@ -166,6 +166,41 @@ let fun input0 off len count =
 in input0 off len 0 end
 ` |> append_prog
 
+(* generalisable to splitl *)
+val _ = process_topdecs`
+fun find_newline s i l =
+  if i >= l then l else
+  if String.sub s i = #"\n" then i
+  else find_newline s (i+1) l
+fun split_newline s =
+  let val l = String.size s
+      val i = find_newline s 0 l in
+        (String.substring s 0 i, String.substring s i (l-i))
+  end
+` |> append_prog
+
+(* using lets/ifs as case take a while in cf *)
+val _ = process_topdecs`
+fun inputLine fd lbuf =
+  let fun inputLine_aux lacc =
+    let val nr = IO.read fd (Word8.fromInt 255) in
+      if nr = 0 then (String.concat (List.rev lacc), "") else
+        let val lread = Word8Array.substring iobuff 3 nr
+            val split = split_newline lread
+            val line = fst split
+            val lrest = snd split in
+              if lrest = "" then inputLine_aux (line :: lacc)
+              else (String.concat (List.rev("\n" :: line :: lacc)), List.tl lrest)
+        end
+    end
+  val split = split_newline lbuf
+  val line = fst split
+  val lrest = snd split in
+    if lrest = "" then
+      let val split' = inputLine_aux [] in (line ++ fst split', snd split') end
+    else (line ++ "\n", List.tl lrest)
+  end` |> append_prog
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
