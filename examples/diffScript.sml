@@ -428,22 +428,13 @@ val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_canc
   \\ rw[ASCIInumbersTheory.toString_toNum_cancel]
   \\ rw[integerTheory.INT_ABS_NUM]);
 
-val strong_substring_thm = Q.store_thm (
-  "strong_substring_thm",
- `!s i j. (i <= strlen s) ==> (substring s i j = implode (SEG (MIN (strlen s - i) j) i (explode s)))`,
-  rpt strip_tac
-  >> Cases_on `i < strlen s`
-  >- metis_tac[substring_thm]
-  >> `i = strlen s` by fs[]
-  >> fs[] >> rw[substring_def,SEG]);
-
 val substring_adhoc_simps = Q.prove(`!h.
    (substring (strlit "> " ^ h) 0 2 = strlit "> ")
 /\ (substring (strlit "> " ^ h) 2 (strlen h) = h)
 /\ (substring (strlit "< " ^ h) 0 2 = strlit "< ")
 /\ (substring (strlit "< " ^ h) 2 (strlen h) = h)
 `,
-  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,strong_substring_thm,strlen_def]
+  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
   >> fs[SEG_LENGTH_ID])
 
@@ -737,7 +728,7 @@ val is_patch_line_simps = Q.prove(
        /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
 `,
   Induct_on `r` >> fs[] >> Induct
-  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_thm,MIN_DEF]
+  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_def,MIN_DEF]
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
 
 val toString_obtain_digits = Q.prove(
@@ -755,9 +746,9 @@ val diff_single_patch_length = Q.prove(
   >> qspec_then `n` assume_tac toString_obtain_digits
   >> qspec_then `m` assume_tac toString_obtain_digits
   >> fs[] >> rw[]
-  >> fs[is_patch_line_simps,substring_thm,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> fs[is_patch_line_simps,substring_def,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
-  >> fs[is_patch_line_def,substring_thm,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
+  >> fs[is_patch_line_def,substring_def,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
   >> fs[]);
 
 val diff_with_lcs_optimal = Q.prove(

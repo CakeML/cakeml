@@ -3,7 +3,6 @@ open preamble ml_translatorLib ml_progLib
      rofsFFITheory mlfileioProgTheory ioProgTheory
      charsetTheory diffTheory mlstringTheory
 
-     
 val _ = new_theory "patchProg";
 
 val _ = translation_extends"ioProg";
@@ -67,6 +66,11 @@ val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   >> TRY(match_mp_tac(MATCH_MP EVERY_MONOTONIC hexDigit_IMP_digit) >> fs[string_is_num_def])
   >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[string_is_num_def])
   >> metis_tac[tokens_two_less]) |> update_precondition;
+
+val r = translate(depatch_line_def);
+val depatch_line_side = Q.prove(
+  `∀x. depatch_line_side x = T`,
+  EVAL_TAC \\ rw[]) |> update_precondition;
 
 val r = save_thm("patch_aux_ind",
   patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
