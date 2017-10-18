@@ -179,26 +179,29 @@ fun split_newline s =
   end
 ` |> append_prog
 
-(* using lets/ifs as case take a while in cf *)
+(* using lets/ifs as case take a while in xlet *)
+(* if/if take a while in xcf *)
 val _ = process_topdecs`
 fun inputLine fd lbuf =
   let fun inputLine_aux lacc =
-    let val nr = IO.read fd (Word8.fromInt 255) in
+    let val nr = read fd (Word8.fromInt 255) in
       if nr = 0 then (String.concat (List.rev lacc), "") else
         let val lread = Word8Array.substring iobuff 3 nr
             val split = split_newline lread
             val line = fst split
             val lrest = snd split in
               if lrest = "" then inputLine_aux (line :: lacc)
-              else (String.concat (List.rev("\n" :: line :: lacc)), List.tl lrest)
+              else (String.concat (List.rev("\n" :: line :: lacc)),
+                    String.extract lrest 1 NONE)
         end
     end
   val split = split_newline lbuf
   val line = fst split
   val lrest = snd split in
     if lrest = "" then
-      let val split' = inputLine_aux [] in (line ++ fst split', snd split') end
-    else (line ++ "\n", List.tl lrest)
+      let val split' = inputLine_aux [] in
+        (String.concat (line :: fst split' :: []), snd split') end
+    else (String.concat (line :: "\n" :: []), String.extract lrest 1 NONE)
   end` |> append_prog
 
 val _ = ml_prog_update (close_module NONE);
