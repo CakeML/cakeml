@@ -48,21 +48,6 @@ val _ =
     fun prerr_char c = write_char (stderr()) c
     ` |> append_prog
 
-(* copies the content of a list after position i of an array a
-* and terminates it with null byte *)
-val _ = process_topdecs
-  `fun copyi_nts a i clist =
-      case clist of
-          [] => Word8Array.update a i (Word8.fromInt 0)
-        | c::cs => let
-            val ordc = Char.ord c
-            val cw = Word8.fromInt ordc
-            val unit = Word8Array.update a i cw
-            val suci = i + 1
-          in
-            copyi_nts a suci cs
-          end` |> append_prog
-
 (* writes a string into a file *)
 val _ =
   process_topdecs` fun output fd s =
@@ -85,24 +70,18 @@ val _ = process_topdecs`
     fun prerr_newline () = write_char (stderr()) #"\n"
     ` |> append_prog
 
-
-val _ = process_topdecs
-  `fun str_to_w8array a s = let
-     val clist = String.explode s
-   in
-      copyi_nts a 0 clist
-   end` |> append_prog
-
 val _ = process_topdecs`
 fun openIn fname =
-  let val a = str_to_w8array iobuff fname
+  let val a = Word8Array.copyVec fname 0 (String.size fname) iobuff 0
+      val a = Word8Array.update iobuff (String.size fname) (Word8.fromInt 0)
       val a = #(open_in) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0
         then Word8Array.sub iobuff 1
         else raise BadFileName
   end
 fun openOut fname =
-  let val a = str_to_w8array iobuff fname
+  let val a = Word8Array.copyVec fname 0 (String.size fname) iobuff 0
+      val a = Word8Array.update iobuff (String.size fname) (Word8.fromInt 0)
       val a = #(open_out) "" iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0
         then Word8Array.sub iobuff 1

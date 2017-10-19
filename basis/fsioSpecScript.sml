@@ -89,37 +89,6 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
   rw[validFD_def] >> imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP] >> instantiate);
 
-val copyi_nts_spec = Q.store_thm(
-  "copyi_nts_spec",
-  `∀n nv cs csv a av.
-     NUM n nv /\ n + LENGTH cs < LENGTH a /\ LIST_TYPE CHAR cs csv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "IO.copyi_nts" (basis_st()))
-       [av; nv; csv]
-       (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) *
-                 W8ARRAY av (insert_atI (MAP (n2w o ORD) cs ++ [0w]) n a))`,
-  Induct_on `cs` >> fs[LIST_TYPE_def, LENGTH_NIL] >>
-  xcf "IO.copyi_nts" (basis_st()) >> xmatch
-  >-(xlet_auto >-(xsimpl) >>
-     xapp >> xsimpl >> simp[insert_atI_NIL] >> xsimpl >>
-     instantiate >> simp[insert_atI_NIL,insert_atI_CONS]) >>
-  rpt(xlet_auto >- (xsimpl)) >> xapp >> xsimpl >>
-  fs[NUM_def] >> instantiate >>
-  fs[GSYM LUPDATE_insert_commute,LUPDATE_commutes,insert_atI_app,
-     insert_atI_NIL,insert_atI_CONS]);
-
-val str_to_w8array_spec = Q.store_thm(
-  "str_to_w8array_spec",
-  `∀s sv a av.
-     LENGTH (explode s) < LENGTH a ∧ STRING_TYPE s sv ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "IO.str_to_w8array" (basis_st())) [av; sv]
-       (W8ARRAY av a)
-       (POSTv v.
-          cond (UNIT_TYPE () v) *
-          W8ARRAY av (insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 a))`,
-  rpt strip_tac >> xcf "IO.str_to_w8array" (basis_st()) >>
-  xlet_auto >- xsimpl >> xapp >> simp[]);
-
 val openIn_spec = Q.store_thm(
   "openIn_spec",
   `∀s sv fs.
@@ -139,7 +108,14 @@ val openIn_spec = Q.store_thm(
   qmatch_goalsub_abbrev_tac`catfs fs` >>
   fs[iobuff_loc_def] >> xlet_auto
   >- (xsimpl >> Cases_on`s` \\ fs[]) >>
-  qabbrev_tac `fnm = insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 fnm0` >>
+  ntac 3 (xlet_auto >- xsimpl) >>
+  xlet_auto >- ( xsimpl >> simp[LENGTH_explode] ) >>
+  simp[LUPDATE_APPEND2,LENGTH_explode] >>
+  qmatch_goalsub_abbrev_tac`W8ARRAY _ fnm` >>
+  `fnm = insert_atI (MAP (n2w o ORD) (explode s) ++ [0w]) 0 fnm0` by (
+    simp[Abbr`fnm`,insert_atI_def,LENGTH_explode,Once DROP_CONS_EL,LUPDATE_def,ADD1] ) \\
+  qunabbrev_tac`fnm` \\ fs[] \\ pop_assum kall_tac \\
+  qmatch_goalsub_abbrev_tac`W8ARRAY _ fnm` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
   Cases_on `inFS_fname fs (File s)`
   >- (xlet `POSTv u2.
@@ -164,11 +140,12 @@ val openIn_spec = Q.store_thm(
               metis_tac[]) >>
         imp_res_tac nextFD_ltX >>
         csimp[openFileFS_def, openFile_def, validFD_def]) >>
+    xlet_auto >- xsimpl >>
     xlet_auto
     >- (xsimpl >> csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insert_atI, LENGTH_explode]) >>
     fs[iobuff_loc_def] >> xlet_auto
-    >- (xsimpl >> rw[Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,iobuff_loc,HD_LUPDATE]) >>
-    xlet_auto >- (xsimpl) >> xif
+    >- (xsimpl >> imp_res_tac WORD_UNICITY_R)
+    >> xif
     >-(xapp >> simp[iobuff_loc_def] >> xsimpl >>
     fs[EL_LUPDATE,Abbr`fnm`,LENGTH_insert_atI,LENGTH_explode,wfFS_openFile,Abbr`fs'`,
        liveFS_openFileFS]) >>
@@ -197,7 +174,7 @@ val openIn_spec = Q.store_thm(
       simp[not_inFS_fname_openFile]) >>
   xlet_auto >-(xsimpl) >> fs[iobuff_loc] >> xlet_auto
   >- (xsimpl >> csimp[HD_LUPDATE] >> simp[Abbr`fnm`, LENGTH_insert_atI, LENGTH_explode]) >>
-  xlet_auto >-(xsimpl) >> xif
+  xlet_auto >-(xsimpl \\ imp_res_tac WORD_UNICITY_R) >> xif
   >-(xapp >> xsimpl >> irule FALSITY >>
      sg `0 < LENGTH fnm`
      >-(fs[markerTheory.Abbrev_def] >>
