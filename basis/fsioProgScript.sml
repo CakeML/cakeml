@@ -130,6 +130,37 @@ let fun input0 off len count =
 in input0 off len 0 end
 ` |> append_prog
 
+(* read a line (same semantics as SML's TextIO.inputLine) *)
+(* simple, inefficient version that reads 1 char at a time *)
+val () = (append_prog o process_topdecs)`
+  fun inputLine fd =
+    let
+      fun realloc arr =
+        let
+          val len = Word8Array.length arr
+          val arr' = Word8Array.array (2*len) (Word8.fromInt 0)
+        in (Word8Array.copy arr 0 len arr' 0; arr') end
+      val nl = Word8.fromInt (Char.ord #"\n")
+      fun inputLine_aux arr i =
+        if i < Word8Array.length arr then
+          let val c = read_char fd
+          in if c = nl then (arr,i+1) else
+            (Word8Array.update arr i c;
+             inputLine_aux arr (i+1))
+          end handle EndOfFile => (arr,i)
+        else inputLine_aux (realloc arr) i
+      val res = inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0
+      val arr = fst res val nr = snd res
+    in if nr = 0 then NONE else
+      (Word8Array.update arr (nr-1) nl;
+       SOME (Word8Array.substring arr 0 nr))
+    end`;
+
+(*
+
+Version of inputLine that reads chunks at a time, but has to return the unused
+part of the last chunk. I expect this will not end up being used, because something like the above simpler version becomes efficient if we switch to buffered streams.  I.e., the buffering shouldn't be inputLine-specific.
+
 (* generalisable to splitl *)
 val _ = process_topdecs`
 fun find_newline s i l =
@@ -167,6 +198,7 @@ fun inputLine fd lbuf =
         (String.concat (line :: fst split' :: []), snd split') end
     else (String.concat (line :: "\n" :: []), String.extract lrest 1 NONE)
   end` |> append_prog
+*)
 
 val _ = ml_prog_update (close_module NONE);
 

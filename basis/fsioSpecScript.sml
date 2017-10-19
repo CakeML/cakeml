@@ -767,7 +767,6 @@ val input_spec = Q.store_thm("input_spec",
   fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq] >>
   ho_match_mp_tac ALIST_FUPDKEY_eq >>
   fs[] >> cases_on`x'` >>fs[]) >>
-
   xapp >> instantiate >> xsimpl);
 
 val stdin_spec = Q.store_thm("stdin_spec",
@@ -895,51 +894,6 @@ val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
 
-val find_newline_spec = Q.store_thm("find_newline_spec",
- `!s sv lv i iv.
-  STRING_TYPE (strlit s) sv ==>
-  NUM (LENGTH s) lv ==>
-  NUM i iv ==>
-  EVERY ($~ ∘ ((=) #"\n")) (TAKE i s) ==>
-  app (p:'ffi ffi_proj) ^(fetch_v "IO.find_newline" (basis_st())) [sv;iv;lv]
-  emp
-  (POSTv nv. SEP_EXISTS n. &(NUM n nv /\ EVERY ($~ ∘ ((=) #"\n")) (TAKE n s) /\
-    n <= LENGTH s /\
-    (n < LENGTH s ==> EL n s = #"\n")))`,
-  Induct_on `(STRLEN s - i)` >>
-  xcf "IO.find_newline" (basis_st()) >>
-  xlet_auto >> xsimpl >>
-  xif >-(instantiate >> xvar >> xsimpl >> instantiate >> rfs[TAKE_LENGTH_TOO_LONG]) >>
-  instantiate >>
-  NTAC 2 (xlet_auto >> xsimpl) >>
-  xif >-(xvar >> xsimpl >> instantiate) >>
-  xlet_auto >> xsimpl >> xapp >> fs[] >>
-  qexists_tac `i+1` >> fs[TAKE_EL_SNOC,EVERY_SNOC]);
-
-val split_newline_spec = Q.store_thm("split_newline",
-  `!s sv line lrest line lrest.
-    STRING_TYPE s sv ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "IO.split_newline" (basis_st())) [sv]
-    emp
-    (POSTv rv. SEP_EXISTS line. SEP_EXISTS lrest.
-      &((line, lrest) = SPLITP ((=) #"\n") (explode s) /\
-      PAIR_TYPE STRING_TYPE STRING_TYPE
-                (implode line, implode lrest) rv))`,
-  xcf "IO.split_newline" (basis_st()) >> cases_on`s` >>
-  cases_on`SPLITP ($= #"\n") s'` >> fs[] >>
-  rpt (xlet_auto >> xsimpl) >>
-  xcon >> xsimpl >> fs[PAIR_TYPE_def,implode_def] >>
-  cases_on`n = STRLEN s'`
-  >-(fs[TAKE_LENGTH_TOO_LONG,SPLITP_NIL_SND_EVERY] >>
-     imp_res_tac SPLITP_NIL_SND_EVERY >> fs[] >>
-     `substring (strlit s') 0 (STRLEN s') = strlit q` by
-     (PURE_REWRITE_TAC [GSYM strlen_def] >> fs[substring_full]) >>
-     `substring (strlit s') (STRLEN s') 0 = strlit r` by
-     (PURE_REWRITE_TAC [GSYM strlen_def] >> fs[substring_too_long]) >>
-     rw[] >> fs[]) >>
-  `#"\n" = EL n s'` by fs[] >> imp_res_tac SPLITP_TAKE_DROP >>
-  rfs[substring_def] >> fs[TAKE_SEG,DROP_SEG]);
-
 (* those might probably have been useful earlier *)
 val bumpFD_numchars = Q.store_thm("bumpFD_numchars",
  `!fs fd n ll. bumpFD fd (fs with numchars := ll) n =
@@ -986,25 +940,135 @@ val bumpFD_o = Q.store_thm("bumpFD_o",
  rw[bumpFD_def] >> cases_on`fs` >> fs[IO_fs_component_equality] >>
  fs[ALIST_FUPDKEY_o] >> irule ALIST_FUPDKEY_eq >> rw[] >> cases_on `v` >> fs[])
 
+val _ = temp_clear_overloads_on"STRCAT";
 
-(* find a way to allow let line = ... in *)
+val FDline_def = Define`
+  FDline fs fd =
+    do
+      (content,off) <- get_file_content fs fd;
+      assert (off < LENGTH content);
+      let (l,r) = SPLITP ((=)#"\n") (DROP off content) in
+      SOME (l++"\n")
+    od`;
+
+val bumpLineFD_def = Define`
+  bumpLineFD fs fd =
+  case FDline fs fd of
+  | NONE => fs
+  | SOME ln => bumpFD fd fs (LENGTH ln - 1)`;
+
+(* WIP: proof of inputLine
+val inputLine_spec = Q.store_thm("inputLine_spec",
+  `WORD (n2w fd : word8) fdv ∧ fd ≤ 255 ∧
+   get_file_content fs fd = SOME (content, pos)
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "IO.inputLine" (get_ml_prog_state())) [fdv]
+     (STDIO fs)
+     (POSTv sov.
+       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline fs fd)) sov *
+       STDIO (bumpLineFD fs fd))`,
+  strip_tac
+  \\ xcf "IO.inputLine" (basis_st()) >>
+  xfun_spec `realloc`
+    `app (p:'ffi ffi_proj) realloc [arrv] (W8ARRAY arrv arr)
+       (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
+  >- (
+    first_x_assum match_mp_tac
+    \\ ntac 5 (xlet_auto >- xsimpl)
+    \\ xret \\ xsimpl
+    \\ simp[DROP_REPLICATE] ) \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xfun_spec `inputLine_aux`
+    `∀i arr iv arrv fs.
+     i ≤ LENGTH arr
+     ⇒
+     app (p:'ffi ffi_proj) inputLine_aux [arrv; iv]
+       (STDIO fs * W8ARRAY arrv arr)
+       (POSTv v.
+         SEP_EXISTS arrv jv.
+           &(v = Conv NONE [arrv; jv]) *
+           (case FDline fs fd of
+            | NONE => &NUM i jv * W8ARRAY arrv arr
+            | SOME ln =>
+              &NUM (i + LENGTH ln + 1) jv *
+              SEP_EXISTS extra.
+                W8ARRAY arrv (TAKE i arr ++ MAP (n2w o ORD) ln ++ extra)) *
+           STDIO (bumpLineFD fs fd))`
+  >- (
+    completeInduct_on`LENGTH arr
+*)
+
+(*
+unfinished proof for previous version of inputLine
+
+val find_newline_spec = Q.store_thm("find_newline_spec",
+ `!s sv lv i iv.
+  STRING_TYPE (strlit s) sv ==>
+  NUM (LENGTH s) lv ==>
+  NUM i iv ==>
+  EVERY ($~ ∘ ((=) #"\n")) (TAKE i s) ==>
+  app (p:'ffi ffi_proj) ^(fetch_v "IO.find_newline" (basis_st())) [sv;iv;lv]
+  emp
+  (POSTv nv. SEP_EXISTS n. &(NUM n nv /\ EVERY ($~ ∘ ((=) #"\n")) (TAKE n s) /\
+    n <= LENGTH s /\
+    (n < LENGTH s ==> EL n s = #"\n")))`,
+  Induct_on `(STRLEN s - i)` >>
+  xcf "IO.find_newline" (basis_st()) >>
+  xlet_auto >> xsimpl >>
+  xif >-(instantiate >> xvar >> xsimpl >> instantiate >> rfs[TAKE_LENGTH_TOO_LONG]) >>
+  instantiate >>
+  NTAC 2 (xlet_auto >> xsimpl) >>
+  xif >-(xvar >> xsimpl >> instantiate) >>
+  xlet_auto >> xsimpl >> xapp >> fs[] >>
+  qexists_tac `i+1` >> fs[TAKE_EL_SNOC,EVERY_SNOC]);
+
+val split_newline_spec = Q.store_thm("split_newline",
+  `!s sv line lrest line lrest.
+    STRING_TYPE s sv ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "IO.split_newline" (basis_st())) [sv]
+    emp
+    (POSTv rv. SEP_EXISTS line. SEP_EXISTS lrest.
+      &((line, lrest) = SPLITP ((=) #"\n") (explode s) /\
+      PAIR_TYPE STRING_TYPE STRING_TYPE
+                (implode line, implode lrest) rv))`,
+  xcf "IO.split_newline" (basis_st()) >> cases_on`s` >>
+  cases_on`SPLITP ($= #"\n") s'` >> fs[] >>
+  rpt (xlet_auto >> xsimpl) >>
+  xcon >> xsimpl >> fs[PAIR_TYPE_def,implode_def] >>
+  cases_on`n = STRLEN s'`
+  >-(fs[TAKE_LENGTH_TOO_LONG,SPLITP_NIL_SND_EVERY] >>
+     imp_res_tac SPLITP_NIL_SND_EVERY >> fs[] >>
+     `substring (strlit s') 0 (STRLEN s') = strlit q` by
+     (PURE_REWRITE_TAC [GSYM strlen_def] >> fs[substring_full]) >>
+     `substring (strlit s') (STRLEN s') 0 = strlit r` by
+     (PURE_REWRITE_TAC [GSYM strlen_def] >> fs[substring_too_long]) >>
+     rw[] >> fs[]) >>
+  `#"\n" = EL n s'` by fs[] >> imp_res_tac SPLITP_TAKE_DROP >>
+  rfs[substring_def] >> fs[TAKE_SEG,DROP_SEG]);
+
 val inputLine_spec = Q.store_thm("inputLine_spec",
  `!fd fdv lbuf lbufv pos content line.
-  WORD (n2w fd : word8) fdv ⇒ fd <= 255 ⇒
-  STRING_TYPE (strlit lbuf) lbufv ⇒
- get_file_content fs fd = SOME(content, pos) ⇒
+  WORD (n2w fd : word8) fdv ∧ fd <= 255 ∧
+  STRING_TYPE (strlit lbuf) lbufv ∧
+  get_file_content fs fd = SOME(content, pos) ∧
+  line = FST(SPLITP ((=) #"\n") (lbuf ++ content))
+  ⇒
  app (p:'ffi ffi_proj) ^(fetch_v "IO.inputLine" (basis_st())) [fdv; lbufv]
     (STDIO fs)
     (POSTv rv.
-       SEP_EXISTS line. &(line = FST(SPLITP ((=) #"\n") (lbuf ++ content))) *
-       SEP_EXISTS lrest. SEP_EXISTS k.
+       SEP_EXISTS lrest k.
        &(PAIR_TYPE STRING_TYPE STRING_TYPE (implode line, implode lrest) rv /\
          lbuf ++ DROP pos content = line ++ lrest ++ DROP (pos + k) content) *
-       STDIO (bumpFD fd fs k))`, cheat);
-(*
+       STDIO (bumpFD fd fs k))`,
  xcf "IO.inputLine" (basis_st()) >>
- (* /!\ ~ 5m *)
- xfun_spec `inputLine_aux` `
+ (* TODO: xfun_spec is very slow here, so this more careful version instead: *)
+ (* could the normal version be made faster? *)
+ xfun_rec_core
+ \\ qx_gen_tac`inputLine_aux`
+ \\ disch_then ((fn(curried_th,spec_th)=> assume_tac curried_th \\ mp_tac spec_th) o CONJ_PAIR)
+ \\ rpt(CHANGED_TAC (disch_then (mp_tac o CONV_RULE reduce_conv o PURE_ONCE_REWRITE_RULE[cf_def])))
+ \\ reverse (disch_then (fn spec_th => qsuff_tac `
  !pos' fs' lacc laccv.
  LIST_TYPE STRING_TYPE (MAP strlit lacc) laccv ⇒
  get_file_content fs' fd = SOME(content, pos') ⇒
@@ -1015,9 +1079,9 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       &(PAIR_TYPE STRING_TYPE STRING_TYPE (implode line, implode lbuf) rv /\
         lbuf ++ DROP (pos' + k) content =
         SND (SPLITP ((=) #"\n") (DROP pos' content))) *
-      STDIO (bumpFD fd fs' k))`
+      STDIO (bumpFD fd fs' k))` THENL [strip_tac, assume_tac spec_th]))
  >-(
-    strip_tac >>
+    qx_gen_tac`pos'` >>
     `?N. LENGTH content - pos' <= N` by
         (qexists_tac `LENGTH content -pos'` >> fs[]) >>
     first_x_assum mp_tac >> qid_spec_tac`pos'` >>
@@ -1070,15 +1134,14 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
        xsimpl >> fs[bumpFD_o,GSYM STD_streams_numchars] >> xsimpl >>
        fs[MAP_TAKE,TAKE_APPEND,TAKE_TAKE,LENGTH_MAP,LENGTH_DROP,
           GSYM MAP_o, MAP_APPEND,TAKE_TAKE] >>
-       `!(l : char list). MAP (CHR ∘ (w2n : word8 -> num)) (MAP (n2w ∘ ORD) l) = l`
-        by fs[CHR_w2n_n2w_ORD,MAP_MAP_o] >> fs[] >>
-        fs[TAKE_TAKE_MIN,LENGTH_TAKE,LENGTH_DROP] >>
-        `MIN nr (STRLEN content − pos') = nr` by fs[MIN_DEF] >>
-        fs[GSYM TAKE_APPEND,LENGTH_TAKE_EQ_MIN,MIN_DEF] >>
-        `SPLITP ($= #"\n") (TAKE nr (DROP pos' content)) = (line, "")` by fs[] >>
-        imp_res_tac SPLITP_NIL_SND_EVERY >>
-        fs[SND_SPLITP_DROP,GSYM DROP_DROP_T] >>
-        imp_res_tac FST_SPLITP_DROP >> rw[]
+       fs[MAP_MAP_o,CHR_w2n_n2w_ORD] >>
+       fs[TAKE_TAKE_MIN,LENGTH_TAKE,LENGTH_DROP] >>
+       `MIN nr (STRLEN content − pos') = nr` by fs[MIN_DEF] >>
+       fs[GSYM TAKE_APPEND,LENGTH_TAKE_EQ_MIN,MIN_DEF] >>
+       `SPLITP ($= #"\n") (TAKE nr (DROP pos' content)) = (line, "")` by fs[] >>
+       imp_res_tac SPLITP_NIL_SND_EVERY >>
+       fs[SND_SPLITP_DROP,GSYM DROP_DROP_T] >>
+       imp_res_tac FST_SPLITP_DROP >> rw[]
     ) >>
     xlet_auto >-(xcon >> xsimpl) >>
     (* TODO: xlet_auto *)
@@ -1103,19 +1166,47 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     qexists_tac`THE (LTL ll)` >> qexists_tac`nr` >> xsimpl >>
     fs[concat_def]
     qexists_tac`explode (extract (strlit lrest) 1 NONE)` >>
-    fs[extract_def,substring_def,implode_def,concat_def] >>
-    PURE_REWRITE_TAC [Once(GSYM (Q.SPECL [`nr`,`DROP pos' content`] TAKE_DROP))]
     fs[GSYM get_file_content_numchars] >>
     `pos' = pos''` by fs[] >>
     `content' = content` by fs[] >> rfs[] >>
     fs[GSYM STD_streams_numchars,STD_streams_bumpFD,GSYM bumpFD_numchars] >>
     fs[MAP_TAKE,TAKE_APPEND,TAKE_TAKE,LENGTH_MAP,LENGTH_DROP,
           GSYM MAP_o, MAP_APPEND,TAKE_TAKE] >>
-    `!(l : char list). MAP (CHR ∘ (w2n : word8 -> num)) (MAP (n2w ∘ ORD) l) = l`
-        by fs[CHR_w2n_n2w_ORD,MAP_MAP_o] >> fs[] >>
+    fs[MAP_MAP_o,CHR_w2n_n2w_ORD] >>
+    fs[GSYM implode_def, implode_explode] >> fs[implode_def] \\
+    rveq \\
+    qmatch_goalsub_abbrev_tac`SPLITP _ ls` \\
+    `nr ≤ LENGTH ls` by simp[Abbr`ls`] \\
+    simp[GSYM DROP_DROP_T] \\
+    fs[MAP_REVERSE,MAP_MAP_o,o_DEF] \\
+    fs[STRING_TYPE_def] \\
+    `extract (strlit lrest) 1 NONE = implode (TL lrest)` by (
+      simp[extract_def,substring_def,implode_def]
+      \\ Cases_on`LENGTH lrest = 1`
+      >- (pop_assum mp_tac \\ rw[LENGTH_EQ_NUM_compute] \\ rw[] \\ rw[SEG])
+      \\ Cases_on`LENGTH lrest = 0` >- fs[]
+      \\ `¬(LENGTH lrest ≤ 1)` by decide_tac
+      \\ simp[SEG_TAKE_BUTFISTN,TAKE_LENGTH_ID_rwt]
+      \\ simp[DROP_FUNPOW_TL]
+      \\ Cases_on`lrest` \\ fs[TL_T_def]) \\
+    fs[] \\
+    qpat_x_assum`_ = SPLITP _ _`(assume_tac o SYM) \\
+    imp_res_tac SPLITP_IMP \\
+    first_x_assum(qspec_then`_`kall_tac) \\
+    first_x_assum(qspec_then`_`kall_tac) \\
+    rfs[NULL_EQ] \\
+    pop_assum(assume_tac o SYM) \\ fs[] \\
+    Cases_on`SPLITP ($= #"\n") ls` \\ fs[] \\
+    SPLITP_IMP
+
+    fs[extract_def,substring_def,implode_def,concat_def] >>
+    PURE_REWRITE_TAC [Once(GSYM (Q.SPECL [`nr`,`DROP pos' content`] TAKE_DROP))]
     fs[TAKE_APPEND,TAKE_TAKE_MIN,LENGTH_TAKE,LENGTH_DROP] >>
     `MIN nr (STRLEN content' − pos'') = nr` by fs[MIN_DEF] >> fs[] >>
-    fs[SPLITP_STRCAT] >>
+    fs[SPLITP_APPEND] >>
+    fs[STRING_TYPE_def] >> rveq >>
+    IF_CASES_TAC \\ fs[STRING_TYPE_def,MAP_REVERSE,MAP_MAP_o,o_DEF]
+
     FULL_CASE_TAC >>
     FULL_CASE_TAC >>
     fs[GSYM DROP_DROP_T] >>
@@ -1135,7 +1226,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
               &(PAIR_TYPE STRING_TYPE STRING_TYPE
                   (implode (FST (SPLITP ($= #"\n") (DROP pos content))),
                    implode lbuf) rv ∧
-                STRCAT lbuf (DROP (k + pos) content) =
+                lbuf ++ (DROP (k + pos) content) =
                 SND (SPLITP ($= #"\n") (DROP pos content))) *
               STDIO (bumpFD fd fs k))` >>
     >- cheat >>
@@ -1172,4 +1263,6 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
   fs[implode_def,bumpFD_def,explode_def] >>
   cheat);
   *)
+*)
+
 val _ = export_theory();
