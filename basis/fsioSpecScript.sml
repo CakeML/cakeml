@@ -549,7 +549,7 @@ val output_spec = Q.store_thm("output_spec",
   \\ Cases_on`s` \\ fs[substring_def,SEG_TAKE_BUTFISTN,TAKE_LENGTH_ID_rwt]);
 
 val read_spec = Q.store_thm("read_spec",
-  `!fs fd fdv n nv h1 h2 h3. fd <= 255 ⇒ wfFS fs ⇒
+  `!fs fd fdv n nv. fd <= 255 ⇒ wfFS fs ⇒
    WORD (n2w fd:word8) fdv ⇒ WORD (n:word8) nv ⇒
    LENGTH rest = 255 ⇒  w2n n <= 255 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "IO.read" (basis_st())) [fdv;nv]
