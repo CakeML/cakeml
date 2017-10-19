@@ -1,6 +1,9 @@
-INCLUDES = .. ../../../../compiler
+INCLUDES = .. ../../../../compiler ../../../../misc
 CLINE_OPTIONS = -j1 --qof
+TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+
+all: $(TARGETS)
+.PHONY: all
 
 reader: reader.S ../../../../basis/basis_ffi.o
 	$(CC) $< ../../../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-
