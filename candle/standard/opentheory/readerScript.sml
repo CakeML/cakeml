@@ -170,9 +170,16 @@ val getCns_def = Define`
       return (Const n)
     od`;
 
+(* TODO Nothing in the reader respects the version so far. *)
+
 val readLine_def = Define`
   readLine line s =
-  if line = strlit"absTerm" then
+  if line = strlit"version" then
+    do
+      (obj, s) <- pop s; ver <- getNum obj;
+      return s
+    od
+  else if line = strlit"absTerm" then
     do
       (obj,s) <- pop s; b <- getTerm obj;
       (obj,s) <- pop s; v <- getVar obj;
