@@ -206,8 +206,8 @@ val fromString_unsafe_def = Define`
     if strlen str = 0
     then 0i
     else if strsub str 0 = #"~"
-      then ~&fromChars_unsafe (strlen (substring str 1 (strlen str)))
-                              (substring str 1 (strlen str))
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
       else &fromChars_unsafe (strlen str) str`;
 
 val fromString_def = Define`
@@ -216,8 +216,8 @@ val fromString_def = Define`
     then SOME 0i
     else if strsub str 0 = #"~"
       then OPTION_MAP ($~ o $&)
-             (fromChars (strlen (substring str 1 (strlen str)))
-                        (substring str 1 (strlen str)))
+             (fromChars (strlen str - 1)
+                        (substring str 1 (strlen str - 1)))
       else OPTION_MAP $& (fromChars (strlen str) str)`;
 
 (* fromString auxiliar lemmas *)
@@ -241,11 +241,6 @@ val fromChars_range_unsafe_split = Q.store_thm("fromChars_range_unsafe_split",
       \\ Cases_on `m`
       \\ rw [fromChars_range_unsafe_def]));
 
-val MAP_REVERSE_STEP = Q.store_thm("MAP_REVERSE_STEP",
-  `∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))`,
-  recInduct SNOC_INDUCT
-  \\ rw [FRONT_APPEND]);
-
 (* fromString proofs *)
 val fromChar_unsafe_thm = Q.store_thm("fromChar_unsafe_thm",
   `∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]`,
@@ -267,7 +262,7 @@ val fromChars_range_unsafe_thm = Q.store_thm("fromChars_range_unsafe_thm",
   \\ rw [ASCIInumbersTheory.s2n_def
         , numposrepTheory.l2n_def
         , MAP_REVERSE_STEP
-        , substring_thm
+        , substring_def
         , MIN_DEF, implode_def
         , EL_LENGTH_SNOC
         , fromChar_unsafe_thm
@@ -280,9 +275,7 @@ val fromChars_range_unsafe_thm = Q.store_thm("fromChars_range_unsafe_thm",
         , SEG_0_SNOC |> SPEC ``LENGTH l``
                      |> SPEC ``l : 'a list``
                      |> SIMP_RULE std_ss [SEG_LENGTH_ID]]
-  \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]
-  \\  Cases_on `l`
-  \\ rw [fromChars_range_unsafe_def,fromChar_unsafe_def]);
+  \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]);
 
 val fromChars_range_unsafe_eq = Q.store_thm("fromChars_range_unsafe_eq",
   `∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s`,
@@ -305,11 +298,13 @@ val fromString_unsafe_thm = Q.store_thm("fromString_unsafe_thm",
   rw [fromString_unsafe_def
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
-     , substring_DROP
+     , substring_def, SEG_TAKE_BUTFISTN
+     , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
        |> REWRITE_RULE
-          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]);
+          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
 
 val fromString_thm = Q.store_thm("fromString_thm",
   `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
@@ -319,14 +314,16 @@ val fromString_thm = Q.store_thm("fromString_thm",
            then ~&num_from_dec_string (DROP 1 str)
            else &num_from_dec_string str`,
   rw [fromString_def
-     , substring_DROP
      , fromChars_eq_unsafe
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
+     , substring_def, SEG_TAKE_BUTFISTN
+     , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
        |> REWRITE_RULE
-          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]);
+          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
 
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
   fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);

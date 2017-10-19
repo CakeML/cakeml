@@ -210,18 +210,6 @@ val collate_cpn_reln_thm = Q.store_thm (
   `(h1 = h1) = T` by DECIDE_TAC \\ rw[] \\`EQUAL ≠ LESS` by fs[] \\ rw[]
 );
 
-val zip_def = Define`
-  (zip [] [] = []) /\
-  (zip [] (h::t) = []) /\
-  (zip (h::t) [] = []) /\
-  (zip (h1::t1) (h2::t2) = (h1, h2)::(zip t1 t2))`;
-
-val zip_ind = theorem"zip_ind";
-
-val zip_thm = Q.store_thm("zip_thm",
-  `!l1 l2. ((LENGTH l1) = (LENGTH l2)) ==> ((zip l1 l2) = (ZIP (l1, l2)))`,
-  ho_match_mp_tac zip_ind \\ rw[zip_def,ZIP]);
-
 (* from std_preludeLib *)
 val LENGTH_AUX_def = Define `
   (LENGTH_AUX [] n = (n:num)) /\

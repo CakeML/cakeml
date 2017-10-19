@@ -63,11 +63,10 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
   xif >-(xlit >> xsimpl >> fs[bumpFD_def] >> qexists_tac`THE (LTL ll)` >>
         strip_tac >- fs[eof_def] >>
           imp_res_tac ALOOKUP_validFD >> fs[fsupdate_unchanged] >>
-        `¬LFINITE (THE (LTL ll))` by (cases_on`ll` >> fs[liveFS_def]) >>
         `fs with numchars := THE (LTL ll) = 
          (fs with numchars := ll) with numchars := THE (LTL ll)` by fs[] >>
          first_x_assum (fn thm => PURE_REWRITE_TAC[thm]) >>
-        fs[wfFS_numchars,liveFS_def] >>
+        fs[wfFS_def,liveFS_def] >>
         cases_on`ll` >> imp_res_tac always_thm >> fs[] >>
         qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2 * GC` >>
         `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
@@ -87,17 +86,14 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
   >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate
      >-(irule wfFS_fsupdate
         >-(fs[wfFS_def] >> imp_res_tac NOT_LFINITE_DROP_LFINITE >>
-           first_x_assum ho_match_mp_tac >> cases_on`ll` >> fs[] >> 
-           qexists_tac`SUC k` >> cases_on`LDROP k t'` >> fs[] >> 
-           imp_res_tac LDROP_NONE_LFINITE)
+           cases_on`ll` >> fs[liveFS_def,always_DROP] >>
+           imp_res_tac NOT_LFINITE_DROP >> first_x_assum(assume_tac o Q.SPEC`k`)  >>
+           strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
+           irule always_DROP >> imp_res_tac always_thm >> 
+           fs[always_DROP])
         >-(fs[MEM_MAP] >> qexists_tac`(fd1,(fnm'',off''))` >> rfs[FST,ALOOKUP_MEM]))
      >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',STRLEN c2))` >> 
         fs[ALOOKUP_MEM,FST]))
-  >-(cases_on`ll` >> fs[liveFS_def,always_DROP] >>
-     imp_res_tac NOT_LFINITE_DROP >> first_x_assum(assume_tac o Q.SPEC`k`)  >>
-     strip_tac >-(fs[] >> imp_res_tac NOT_LFINITE_DROP_LFINITE) >>
-     irule always_DROP >> imp_res_tac always_thm >> 
-	 fs[always_DROP])
   >-(irule STD_streams_fsupdate
      >-(irule STD_streams_fsupdate >> rw[] >> NTAC 3 (fs[STD_streams_def]))
      >> fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP]) >>
@@ -282,7 +278,7 @@ val cat_semantics_thm =
   semantics_thm
   |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[inFS_fname_def,wfcl_def,LENGTH]
+  |> SIMP_RULE(srw_ss())[inFS_fname_def,LENGTH]
   |> curry save_thm "cat_semantics_thm";
 
 val _ = export_theory();

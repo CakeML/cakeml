@@ -148,7 +148,7 @@ val append_hprop = Q.store_thm ("append_hprop",
 (* TODO: avoid using constant for iobuff_loc *)
 
 val IOFS_precond = Q.prove(
-  `wfFS fs ⇒ liveFS fs ⇒ LENGTH v = 258 ⇒
+  `wfFS fs ⇒ LENGTH v = 258 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
     ∪ {Mem 1 (W8array v)})`,
@@ -159,38 +159,37 @@ val IOFS_precond = Q.prove(
   \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
   )|> UNDISCH_ALL |> curry save_thm "IOFS_precond"
 
+  (* TODO: useful? *)
 val STDIO_precond = Q.prove(
 `ALOOKUP fs.infds 0 = SOME (IOStream(strlit "stdin"),inp) ==>
   ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out) ==>
   ALOOKUP fs.infds 2 = SOME (IOStream(strlit "stderr"),STRLEN err) ==>
   ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out ==>
   ALOOKUP fs.files (IOStream(strlit "stderr")) = SOME err ==>
-  wfFS fs ==> liveFS (fs with numchars := ll) ==> ¬ LFINITE ll ==>
+  wfFS fs ==> 
   LENGTH v = 258 ==>     
   STDIO fs
-    ({FFI_part (encode (fs with numchars := ll)) 
+    ({FFI_part (encode fs) 
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
   rw[STDIO_def,STD_streams_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
-  qexists_tac`ll` >>
+  qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
-  `wfFS (fs with numchars := ll)` by fs[wfFS_def] >>
-  rpt(disch_then drule) >> fs[]
+  cases_on`fs` >> fs[IO_fs_numchars_fupd]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
 (* *)
 val STDIO_precond' = Q.prove(
- `wfFS fs ==> liveFS (fs with numchars := ll) ==> ¬ LFINITE ll ==>
-  LENGTH v = 258 ==>     
+ `wfFS fs ==> LENGTH v = 258 ==>     
   (SEP_EXISTS ll. IOFS (fs with numchars := ll))
-    ({FFI_part (encode (fs with numchars := ll)) 
+    ({FFI_part (encode fs) 
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
   rw[IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
-  qexists_tac`ll` >>
+  qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs`` )>>
-  `wfFS (fs with numchars := ll)` by fs[fsFFIProofTheory.wfFS_def] >>
-  rpt(disch_then drule) >> fs[]
+  cases_on`fs` >> 
+  fs[IO_fs_numchars_fupd]
   )|> UNDISCH_ALL |> curry save_thm "STDIO_precond'";
 
 val cond_precond = Q.prove(

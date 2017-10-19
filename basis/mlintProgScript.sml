@@ -63,24 +63,23 @@ val result = translate (fromChars_unsafe_def
 
 val result = translate fromString_unsafe_def;
 
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+
+val fromchars_unsafe_side_thm = Q.store_thm("fromchars_unsafe_side_thm",
+  `∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)`,
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]);
+
 val fromString_unsafe_side = Q.prove(
   `∀x. fromstring_unsafe_side x = T`,
-  let val front_tac = rw [definition"fromstring_unsafe_side_def"
-                         , NOT_NIL_EQ_LENGTH_NOT_0
-                         , mlstringTheory.substring_DROP
-                         , Once (theorem"fromchars_unsafe_side_def")
-                         , theorem"fromchars_range_unsafe_side_def"];
-      val back_tac = qpat_x_assum `_ = SUC _` (K ALL_TAC)
-                     \\ completeInduct_on `x1`
-                     \\ rw [Once (theorem"fromchars_unsafe_side_def")
-                           , theorem"fromchars_range_unsafe_side_def"]
-  in Cases_on `x`
-     \\ front_tac
-        >- (             `x1 ≤ strlen (strlit (DROP 1 s))` by rw [] \\ back_tac)
-        >- (front_tac \\ `x1 ≤ strlen (strlit s)` by rw []          \\ back_tac)
-  end)
-  |> update_precondition;
-
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]) |> update_precondition;
 
 val result = translate fromChar_def;
 val result = translate fromChars_range_def;
@@ -91,24 +90,23 @@ val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
 val result = translate fromString_def;
+val fromstring_side_def = definition"fromstring_side_def";
+val fromchars_side_def = theorem"fromchars_side_def";
+val fromchars_range_side_def = theorem"fromchars_range_side_def";
+
+val fromchars_side_thm = Q.store_thm("fromchars_side_thm",
+  `∀n s. n ≤ LENGTH s ⇒ fromchars_side n (strlit s)`,
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_side_def,fromchars_range_side_def]);
 
 val fromString_side = Q.prove(
   `∀x. fromstring_side x = T`,
-  let val front_tac = rw [definition"fromstring_side_def"
-                         , NOT_NIL_EQ_LENGTH_NOT_0
-                         , mlstringTheory.substring_DROP
-                         , Once (theorem"fromchars_side_def")
-                         , theorem"fromchars_range_side_def"];
-      val back_tac = qpat_x_assum `_ = SUC _` (K ALL_TAC)
-                     \\ completeInduct_on `x1`
-                     \\ rw [Once (theorem"fromchars_side_def")
-                           , theorem"fromchars_range_side_def"]
-  in Cases_on `x`
-     \\ front_tac
-        >- (             `x1 ≤ strlen (strlit (DROP 1 s))` by rw [] \\ back_tac)
-        >- (front_tac \\ `x1 ≤ strlen (strlit s)` by rw []          \\ back_tac)
-  end)
-  |> update_precondition;
+  Cases
+  \\ rw[fromstring_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_side_thm
+  \\ rw[]) |> update_precondition;
 
 (* GCD *)
 
