@@ -89,23 +89,6 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
   rw[validFD_def] >> imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP] >> instantiate);
 
-val copyi_spec = Q.store_thm(
-  "copyi_spec",
-  `∀n nv cs csv a av.
-     NUM n nv /\ n + LENGTH cs <= LENGTH a /\ LIST_TYPE CHAR cs csv ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "IO.copyi" (basis_st()))
-       [av; nv; csv]
-       (W8ARRAY av a)
-       (POSTv v. cond (UNIT_TYPE () v) *
-                 W8ARRAY av (insert_atI (MAP (n2w o ORD) cs) n a))`,
-  Induct_on `cs` >> fs[LIST_TYPE_def, LENGTH_NIL] >>
-  xcf "IO.copyi" (basis_st()) >> xmatch
-  >-(xcon >> xsimpl >> simp[insert_atI_NIL]) >>
-  rpt(xlet_auto >- (xsimpl)) >> xapp >> xsimpl >>
-  fs[NUM_def,GSYM LUPDATE_insert_commute,LUPDATE_commutes,insert_atI_app,
-     insert_atI_NIL,insert_atI_CONS] >>
-  instantiate);
-
 val copyi_nts_spec = Q.store_thm(
   "copyi_nts_spec",
   `∀n nv cs csv a av.
@@ -538,9 +521,6 @@ val output_spec = Q.store_thm("output_spec",
     >- (xret \\ xsimpl \\ fs[NUM_def,INT_def,MIN_DEF] )
     \\ xlit \\ xsimpl \\ fs[MIN_DEF] ) >>
   xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- (
-    xsimpl \\ fs[LENGTH_explode,strlen_substring] ) >>
   fs[insert_atI_def] >> PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   xlet_auto >> xsimpl
   >-(PURE_REWRITE_TAC[GSYM iobuff_loc_def] >> xsimpl >>

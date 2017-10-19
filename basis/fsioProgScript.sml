@@ -48,20 +48,6 @@ val _ =
     fun prerr_char c = write_char (stderr()) c
     ` |> append_prog
 
-(* copies the content of a list after position i of an array a *)
-val _ = process_topdecs
-  `fun copyi a i clist =
-      case clist of
-          [] => ()
-        | c::cs => let
-            val ordc = Char.ord c
-            val cw = Word8.fromInt ordc
-            val unit = Word8Array.update a i cw
-            val suci = i + 1
-          in
-            copyi a suci cs
-          end` |> append_prog
-
 (* copies the content of a list after position i of an array a
 * and terminates it with null byte *)
 val _ = process_topdecs
@@ -83,8 +69,7 @@ val _ =
   if s = "" then () else
   let val z = String.size s
       val n = if z <= 255 then z else 255
-      val s1 = String.substring s 0 n
-      val fl = copyi iobuff 3 (String.explode s1)
+      val fl = Word8Array.copyVec s 0 n iobuff 3
       val a = write fd n 0 in
          output fd (String.substring s n (z-n))
   end;
