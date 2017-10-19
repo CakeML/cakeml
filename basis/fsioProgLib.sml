@@ -151,7 +151,7 @@ fun add_basis_proj spec =
       mp_tac (GENL arg_vars spec)
       \\ simp_tac(bool_ss)[set_sepTheory.SEP_CLAUSES]
       \\ simp_tac (std_ss++star_ss) [])
-    val spec2 = HO_MATCH_MP append_SEP_EXISTS lemma handle HOL_ERR _ => lemma
+    val spec2 = lemma
   in
       spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end;
