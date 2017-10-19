@@ -693,12 +693,12 @@ fun prove_EvalMPatBind goal m2deep = let
   val exp = res |> concl |> get_Eval_exp
   val th = D res
   val is_var_assum = can (match_term var_assum)
-  val vs = find_terms is_var_assum (concl th |> remove_Eval_storePred)
-  (**)
   val is_nslookup_assum = can (match_term nsLookup_assum)
   val is_lookup_cons_assum = can (match_term lookup_cons_assum)
-  val vs = List.concat[vs, find_terms is_nslookup_assum (concl th |> remove_Eval_storePred), find_terms is_lookup_cons_assum (concl th |> remove_Eval_storePred)]
-  (**)
+  fun is_var_lookup_assum x = is_var_assum x
+			      orelse is_nslookup_assum x
+			      orelse is_lookup_cons_assum x
+  val vs = find_terms is_var_lookup_assum (concl th |> remove_Eval_storePred)
   fun delete_var tm =
     if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
   val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_var)) th
@@ -736,7 +736,7 @@ fun prove_EvalMPatBind goal m2deep = let
     (* \\ FIRST[rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
 	    \\ EVAL_TAC,
 	     EVAL_TAC]) *)
-    EVAL_TAC)
+    \\ EVAL_TAC)
     (***************)
   in UNDISCH_ALL th end handle HOL_ERR e => failwith "prove_EvalMPatBind failed";
 
