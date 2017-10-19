@@ -28,19 +28,34 @@ val THE_LDROP_comm = Q.store_thm("THE_LDROP_comm",
     fs[LDROP_ADD] >>
     NTAC 2 (full_case_tac >- imp_res_tac LDROP_NONE_LFINITE) >> fs[])
 
-val fsupdate_comm = Q.store_thm("fsupdate_comm",
- `!fs fd1 fd2 k1 p1 c1 fnm1 pos1 k2 p2 c2 fnm2 pos2.
-    ALOOKUP fs.infds fd1 = SOME(fnm1, pos1) /\
-  ALOOKUP fs.infds fd2 = SOME(fnm2, pos2) /\
-  fnm1 <> fnm2 /\ fd1 <> fd2 /\ ¬ LFINITE fs.numchars ==>
-  fsupdate (fsupdate fs fd1 k1 p1 c1) fd2 k2 p2 c2 =
-  fsupdate (fsupdate fs fd2 k2 p2 c2) fd1 k1 p1 c1`,
-  fs[fsupdate_def] >> rw[] >> fs[ALIST_FUPDKEY_ALOOKUP] >>
-  rpt CASE_TAC >> fs[ALIST_FUPDKEY_comm,THE_LDROP_comm]);
-val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
-  `ALOOKUP fs.infds fd = SOME (fname, pos) ⇒ validFD fd fs`,
-  rw[validFD_def] >> imp_res_tac ALOOKUP_MEM >>
-  fs[MEM_MAP] >> instantiate);
+val TAKE_TAKE_MIN = Q.store_thm("TAKE_TAKE_MIN",
+  `!m n. TAKE n (TAKE m l) = TAKE (MIN n m) l`,
+  induct_on`l` >> rw[] >>
+  cases_on`m` >> cases_on`n` >> fs[MIN_DEF] >> CASE_TAC >> fs[]);
+
+val SPLITP_TAKE_DROP = Q.store_thm("SPLITP_TAKE_DROP",
+ `!P i l. EVERY ($~ ∘ P) (TAKE i l) ==>
+  P (EL i l) ==>
+  SPLITP P l = (TAKE i l, DROP i l)`,
+  Induct_on`l` >> rw[SPLITP] >> Cases_on`i` >> fs[] >>
+  res_tac >> fs[FST,SND]);
+
+val SND_SPLITP_DROP = Q.store_thm("SND_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   SND (SPLITP P (DROP n l)) = SND (SPLITP P l)`,
+ Induct_on`n` >> rw[SPLITP] >> cases_on`l` >> fs[SPLITP]);
+
+val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   FST (SPLITP P l) = (TAKE n l) ++ FST (SPLITP P (DROP n l))`,
+ Induct_on`n` >> rw[SPLITP] >> cases_on`l` >>
+ PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
+ fs[SPLITP]);
+
+val STRCAT_eq = Q.store_thm("STRCAT_eq",
+ `∀ x1 x2 y1 y2. LENGTH x1 = LENGTH x2 ∧ x1 ++ y1 = x2 ++ y2 ⇒
+    (x1 = x2 ∧ y1 = y2)`,
+  induct_on`x1` >> fs[] >> cases_on`x2` >> fs[] >> metis_tac[]);
 
 val WORD_UNICITY_R = Q.store_thm("WORD_UNICITY_R[xlet_auto_match]",
 `!f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)`, fs[WORD_def]);
@@ -57,12 +72,22 @@ val WORD_n2w_UNICITY_L = Q.store_thm("WORD_n2w_UNICITY[xlet_auto_match]",
    (WORD (n2w n2 :word8) f /\ n2 <= 255 <=> n1 = n2)`,
  rw[] >> eq_tac >> rw[] >> imp_res_tac WORD_UNICITY_L >>
 `n1 MOD 256 = n1` by fs[] >> `n2 MOD 256 = n2` by fs[] >> fs[])
+(* -- *)
 
-(* TODO: somewhere else *)
-val STRCAT_eq = Q.store_thm("STRCAT_eq",
- `∀ x1 x2 y1 y2. LENGTH x1 = LENGTH x2 ∧ x1 ++ y1 = x2 ++ y2 ⇒
-    (x1 = x2 ∧ y1 = y2)`,
-  induct_on`x1` >> fs[] >> cases_on`x2` >> fs[] >> metis_tac[]);
+val fsupdate_comm = Q.store_thm("fsupdate_comm",
+ `!fs fd1 fd2 k1 p1 c1 fnm1 pos1 k2 p2 c2 fnm2 pos2.
+    ALOOKUP fs.infds fd1 = SOME(fnm1, pos1) /\
+  ALOOKUP fs.infds fd2 = SOME(fnm2, pos2) /\
+  fnm1 <> fnm2 /\ fd1 <> fd2 /\ ¬ LFINITE fs.numchars ==>
+  fsupdate (fsupdate fs fd1 k1 p1 c1) fd2 k2 p2 c2 =
+  fsupdate (fsupdate fs fd2 k2 p2 c2) fd1 k1 p1 c1`,
+  fs[fsupdate_def] >> rw[] >> fs[ALIST_FUPDKEY_ALOOKUP] >>
+  rpt CASE_TAC >> fs[ALIST_FUPDKEY_comm,THE_LDROP_comm]);
+
+val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
+  `ALOOKUP fs.infds fd = SOME (fname, pos) ⇒ validFD fd fs`,
+  rw[validFD_def] >> imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP] >> instantiate);
 
 val copyi_spec = Q.store_thm(
   "copyi_spec",
@@ -660,12 +685,6 @@ val read_char_spec = Q.store_thm("read_char_spec",
   `nr = 1` by fs[] >> fs[] >> xsimpl >>
   fs[take1_drop,eof_def,get_file_content_def] >> pairarg_tac >> fs[liveFS_bumpFD]);
 
-(* TODO: move *)
-val TAKE_TAKE_MIN = Q.store_thm("TAKE_TAKE_MIN",
-  `!m n. TAKE n (TAKE m l) = TAKE (MIN n m) l`,
-  induct_on`l` >> rw[] >>
-  cases_on`m` >> cases_on`n` >> fs[MIN_DEF] >> CASE_TAC >> fs[]);
-
 val input_spec = Q.store_thm("input_spec",
   `!fd fdv fs content pos off offv.
     len + off <= LENGTH buf ⇒ pos <= LENGTH content  ⇒
@@ -879,7 +898,6 @@ val prerr_string_spec = Q.store_thm("prerr_string_spec",
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[] >> instantiate >> xsimpl);
 
-
 val print_newline_spec = Q.store_thm("print_newline_spec",
   `!fs out uv.
     UNIT_TYPE u uv ⇒
@@ -919,13 +937,6 @@ val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
-
-val SPLITP_TAKE_DROP = Q.store_thm("SPLITP_TAKE_DROP",
- `!P i l. EVERY ($~ ∘ P) (TAKE i l) ==>
-  P (EL i l) ==>
-  SPLITP P l = (TAKE i l, DROP i l)`,
-  Induct_on`l` >> rw[SPLITP] >> Cases_on`i` >> fs[] >>
-  res_tac >> fs[FST,SND]);
 
 val find_newline_spec = Q.store_thm("find_newline_spec",
  `!s sv lv i iv.
@@ -1011,18 +1022,6 @@ val wfFS_LTL = Q.store_thm("wfFS_LTL",
  rw[wfFS_def,liveFS_def] >> cases_on `ll` >> fs[LDROP_1] >>
  imp_res_tac always_thm);
 
-val SND_SPLITP_DROP = Q.store_thm("SND_SPLITP_DROP",
- `!P n l. EVERY ($~ o P) (TAKE n l) ==>
-   SND (SPLITP P (DROP n l)) = SND (SPLITP P l)`,
- Induct_on`n` >> rw[SPLITP] >> cases_on`l` >> fs[SPLITP]);
-
-val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
- `!P n l. EVERY ($~ o P) (TAKE n l) ==>
-   FST (SPLITP P l) = (TAKE n l) ++ FST (SPLITP P (DROP n l))`,
- Induct_on`n` >> rw[SPLITP] >> cases_on`l` >>
- PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
- fs[SPLITP]);
-
 val bumpFD_o = Q.store_thm("bumpFD_o",
  `!fs fd n1 n2.
     bumpFD fd (bumpFD fd fs n1) n2 =
@@ -1030,12 +1029,6 @@ val bumpFD_o = Q.store_thm("bumpFD_o",
  rw[bumpFD_def] >> cases_on`fs` >> fs[IO_fs_component_equality] >>
  fs[ALIST_FUPDKEY_o] >> irule ALIST_FUPDKEY_eq >> rw[] >> cases_on `v` >> fs[])
 
-val SPLITP_STRCAT = Q.store_thm("SPLITP_STRCAT",
- `!P l1 l2. SPLITP P (l1++l2) =
-            case SPLITP P l1 of
-              (ll, []) => (ll ++ FST (SPLITP P l2), SND (SPLITP P l2))
-            | (ll, lr) => (ll, lr ++ l2)`,
-  Induct_on`l1` >> fs[SPLITP] >> rw[] >> CASE_TAC >> CASE_TAC >> fs[]);
 
 (* find a way to allow let line = ... in *)
 val inputLine_spec = Q.store_thm("inputLine_spec",
