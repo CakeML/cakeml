@@ -23,6 +23,13 @@ val is_arith_op_def = Define `
   is_arith_op _         = F
   `;
 
+val is_list_op_def = Define `
+  is_list_op ListAppend = T /\
+  is_list_op _          = F
+  `;
+
+(* TODO may need some is_list for constructed lists *)
+
 val is_const_def = Define `
   (is_const (Const i) ⇔ small_int i) ∧
   (is_const _         ⇔ F)
@@ -42,40 +49,53 @@ val is_rec_def = Define `
   (is_rec _    _                     ⇔ F)
   `;
 
-val _ = export_rewrites ["is_arith_op_def","is_const_def","is_num_rel_def"];
+val _ = export_rewrites
+  ["is_arith_op_def", "is_list_op_def", "is_const_def", "is_num_rel_def"];
 
 val _ = Datatype `
   assoc_op = Plus
            | Times
+           | Append
            | Noop`;
 
-val _ = Datatype `v_ty = Int | Any`;
+val _ = Datatype `v_ty = Int | List | Any`;
 
 val to_op_def = Define `
-  (to_op Plus  = Add) ∧
-  (to_op Times = Mult) ∧
-  (to_op Noop  = Mod)
+  to_op Plus   = Add        /\
+  to_op Times  = Mult       /\
+  to_op Append = ListAppend /\
+  to_op Noop   = Mod
   `;
 
 val from_op_def = Define `
   from_op op =
-    if op = Add then Plus else
-      if op = Mult then Times else Noop
+    if op = Add then Plus
+    else if op = Mult then Times
+    else if op = ListAppend then Append
+    else Noop
   `;
 
+val from_op_thm = save_thm("from_op_thm[simp]",
+  map (fn tm => EVAL ``from_op ^tm``)
+  (TypeBase.case_def_of ``:closLang$op``
+   |> CONJUNCTS |> map (el 1 o #2 o strip_comb o lhs o concl o SPEC_ALL))
+  |> LIST_CONJ)
+
 val op_eq_def = Define `
-  (op_eq Plus  (Op op xs) ⇔ op = Add) ∧
-  (op_eq Times (Op op xs) ⇔ op = Mult) ∧
-  (op_eq _     _          ⇔ F)`;
+  (op_eq Plus   (Op op xs) <=> op = Add) /\
+  (op_eq Times  (Op op xs) <=> op = Mult) /\
+  (op_eq Append (Op op xs) <=> op = ListAppend) /\
+  (op_eq _      _          <=> F)`;
 
 val apply_op_def = Define `
   apply_op op e1 e2 = Op (to_op op) [e1; e2]
   `;
 
 val id_from_op_def = Define `
-  (id_from_op Plus  = bvi$Op (Const 0) []) ∧
-  (id_from_op Times = bvi$Op (Const 1) []) ∧
-  (id_from_op Noop  = dummy)
+  id_from_op Plus   = bvi$Op (Const 0) []       /\
+  id_from_op Times  = bvi$Op (Const 1) []       /\
+  id_from_op Append = bvi$Op (Cons nil_tag) []  /\
+  id_from_op Noop   = dummy
   `;
 
 val index_of_def = Define `
@@ -99,12 +119,10 @@ val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
      get_bin_args x = SOME (x1, x2) ⇒
        exp_size x1 < exp_size x ∧
        exp_size x2 < exp_size x`,
-  Induct \\ fs [get_bin_args_def]
-  \\ ntac 3 strip_tac
-  \\ Cases_on `l` \\ simp [get_bin_args_def]
-  \\ Cases_on `t` \\ simp [get_bin_args_def]
-  \\ Cases_on `t'` \\ simp [get_bin_args_def]
-  \\ fs [bviTheory.exp_size_def]);
+  Induct
+  \\ rw [get_bin_args_def, exp_size_def]
+  \\ every_case_tac
+  \\ fs [exp_size_def]);
 
 val try_update_def = Define `
   (try_update vty NONE     ts = ts) ∧
@@ -113,28 +131,27 @@ val try_update_def = Define `
     then TAKE n ts ++ [vty] ++ DROP (n + 1) ts
     else ts)`;
 
-(* Allowed expressions `y` in the tail position `f x + y`. *)
-val no_err_def = tDefine "no_err" `
-  (no_err ts (Op op xs) ⇔
+(* --- Rewriting arithmetic (associative and commutative) --- *)
+
+val no_err_ar_def = tDefine "no_err_ar" `
+  (no_err_ar ts (Op op xs) ⇔
     case op of
       Const i => small_int i ∧ xs = []
-    | Add     => LENGTH xs = 2 ∧ EVERY (no_err ts) xs
-    | Mult    => LENGTH xs = 2 ∧ EVERY (no_err ts) xs
+    | Add     => LENGTH xs = 2 ∧ EVERY (no_err_ar ts) xs
+    | Mult    => LENGTH xs = 2 ∧ EVERY (no_err_ar ts) xs
     | _       => F) ∧
-  (no_err ts (Var i) ⇔ if i < LENGTH ts then EL i ts = Int else F) ∧
-  (no_err ts _       ⇔ F)`
+  (no_err_ar ts (Var i) ⇔ if i < LENGTH ts then EL i ts = Int else F) ∧
+  (no_err_ar ts _       ⇔ F)`
   (WF_REL_TAC `measure (exp_size o SND)`
-  \\ Induct
-  \\ rw [bviTheory.exp_size_def]
-  \\ res_tac \\ fs []);
+  \\ Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []);
 
-val is_rec_or_rec_binop_def = Define `
-  is_rec_or_rec_binop ts name op exp ⇔
+val is_recl_ar_def = Define `
+  is_recl_ar ts name op exp ⇔
     is_rec name exp ∨
     op_eq op exp ∧
       (case get_bin_args exp of
         NONE        => F
-      | SOME (x, y) => is_rec name x ∧ no_err ts y)
+      | SOME (x, y) => is_rec name x ∧ no_err_ar ts y)
   `;
 
 val assoc_swap_def = Define `
@@ -147,28 +164,62 @@ val assoc_swap_def = Define `
       | SOME (x, y) => apply_op op x (apply_op op from y)
   `;
 
-val rewrite_op_def = tDefine "rewrite_op" `
-  rewrite_op ts op loc exp =
-    if ¬op_eq op exp then
-      (F, exp)
+val rewrite_ar_def = tDefine "rewrite_ar" `
+  rewrite_ar ts op loc exp =
+    if ¬op_eq op exp then (F, exp)
     else
       case get_bin_args exp of
         NONE => (F, exp)
       | SOME (x1, x2) =>
-        let (r1, y1) = rewrite_op ts op loc x1 in
-        let (r2, y2) = rewrite_op ts op loc x2 in
-          case (is_rec_or_rec_binop ts loc op y1,
-                is_rec_or_rec_binop ts loc op y2) of
-            (T, F) => if no_err ts y2 then (T, assoc_swap op y2 y1) else (F, exp)
-          | (F, T) => if no_err ts y1 then (T, assoc_swap op y1 y2) else (F, exp)
+        let (r1, y1) = rewrite_ar ts op loc x1 in
+        let (r2, y2) = rewrite_ar ts op loc x2 in
+          case (is_recl_ar ts loc op y1, is_recl_ar ts loc op y2) of
+            (T, F) => if no_err_ar ts y2
+                      then (T, assoc_swap op y2 y1) else (F, exp)
+          | (F, T) => if no_err_ar ts y1
+                      then (T, assoc_swap op y1 y2) else (F, exp)
           | _      => (F, exp)
   `
   (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
   \\ rw [exp_size_get_bin_args]);
 
+(* --- Rewriting append (only associative) --- *)
+
+(* TODO *)
+val no_err_app = Define `
+  (no_err_app ts (Op op xs) <=> op = ListAppend) /\
+  (no_err_app ts _          <=> F)
+  `;
+
+val is_recl_app_def = Define `
+  is_recl_app ts name op exp <=>
+    is_rec name exp \/
+    op_eq op exp /\
+      (case get_bin_args exp of
+         NONE => F
+       | SOME (x, y) => is_rec name x /\ no_err_app ts y)
+  `;
+
+val rewrite_app_def = tDefine "rewrite_app" `
+  rewrite_app ts op loc exp =
+    if ~op_eq op exp then (F, exp) else
+      case get_bin_args exp of
+        NONE => (F, exp)
+      | SOME (x1, x2) =>
+          let (r1, y1) = rewrite_app ts op loc x1 in
+          let (r2, y2) = rewrite_app ts op loc x2 in
+            if ~is_recl_app ts loc op y1 then (F, exp)
+            else if ~no_err_app ts y2    then (F, exp)
+            else (T, assoc_swap op y2 y1)`
+  (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
+   \\ rw [exp_size_get_bin_args]) ;
+
+(* --- Pre-rewrite analysis (correct types and tail positions) --- *)
+
 val decide_ty_def = Define `
-  (decide_ty Int Int = Int) ∧
-  (decide_ty _   _   = Any)`;
+  (decide_ty Int  Int  = Int)  /\
+  (decide_ty List List = List) /\
+  (decide_ty _    _    = Any)`;
 
 val LAST1_def = Define `
   LAST1 []      = NONE   /\
@@ -184,6 +235,8 @@ val LAST1_def = Define `
        context.
      - Check if tail positions carry suitable operation (Add/Mult) and track
        branch of origin for the operation in conditionals.
+
+  TODO Add case for ListAppend
 *)
 val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [] = []) ∧
@@ -215,7 +268,7 @@ val scan_expr_def = tDefine "scan_expr" `
     let iop =
       if op = Add ∨ op = Mult then
         let iop = from_op op in
-          if (FST (rewrite_op ts iop loc (Op op xs)))
+          if (FST (rewrite_ar ts iop loc (Op op xs)))
           then SOME iop
           else NONE
       else
@@ -241,7 +294,7 @@ val push_call_def = Define `
 
 val mk_tailcall_def = Define `
   mk_tailcall ts n op name acc exp =
-    case rewrite_op ts op name exp of
+    case rewrite_ar ts op name exp of
       (F, exp2) => apply_op op exp2 (Var acc)
     | (T, exp2) =>
         (case get_bin_args exp2 of
@@ -250,6 +303,7 @@ val mk_tailcall_def = Define `
           push_call n op acc exp3 (args_from call))
   `;
 
+(* TODO Add case for ListAppend *)
 val rewrite_def = Define `
   (rewrite (loc, next, op, acc, ts) (Var n) = (F, Var n)) ∧
   (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
@@ -269,13 +323,14 @@ val rewrite_def = Define `
     let (r, y) = rewrite (loc, next, op, acc, ts) x in (r, Tick y)) ∧
   (rewrite (loc, next, op, acc, ts) (Raise x) = (F, Raise x)) ∧
   (rewrite (loc, next, op, acc, ts) exp =
-    case rewrite_op ts op loc exp of
+    case rewrite_ar ts op loc exp of
       (F, _)    => (F, apply_op op exp (Var acc))
     | (T, exp1) =>
       case get_bin_args exp1 of
         NONE              => (F, apply_op op exp (Var acc))
       | SOME (call, exp2) => (T, push_call next op acc exp2 (args_from call)))`;
 
+(* TODO ty <> Int ==> NONE ~> ty = Any ==> NONE *)
 val check_exp_def = Define `
   check_exp loc arity exp =
     case scan_expr (REPLICATE arity Any) loc [exp] of
