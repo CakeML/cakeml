@@ -8,6 +8,7 @@ val _ = translation_extends "fsioConstantsProg";
 
 (* stdin, stdout, stderr *)
 (* these are functions as append_prog rejects constants *)
+(* TODO: use add_Dlet instead to use constants *)
 val _ = process_topdecs`
     fun stdin () = Word8.fromInt 0;
     fun stdout () = Word8.fromInt 1;
@@ -143,6 +144,33 @@ val () = (append_prog o process_topdecs)`
       val nl = Word8.fromInt (Char.ord #"\n")
       fun inputLine_aux arr i =
         if i < Word8Array.length arr then
+          let
+            val c = read_char fd
+            val u = Word8Array.update arr i c
+          in
+            if c = nl then SOME (Word8Array.substring arr 0 (i+1))
+            else inputLine_aux arr (i+1)
+          end
+          handle EndOfFile =>
+            if i = 0 then NONE
+            else (Word8Array.update arr i nl;
+                  SOME (Word8Array.substring arr 0 (i+1)))
+        else inputLine_aux (realloc arr) i
+      in inputLine_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
+
+(* This version doesn't work because CF makes it difficult (impossible?) to
+   work with references/arrays inside data structures (here inside a pair)
+val () = (append_prog o process_topdecs)`
+  fun inputLine fd =
+    let
+      fun realloc arr =
+        let
+          val len = Word8Array.length arr
+          val arr' = Word8Array.array (2*len) (Word8.fromInt 0)
+        in (Word8Array.copy arr 0 len arr' 0; arr') end
+      val nl = Word8.fromInt (Char.ord #"\n")
+      fun inputLine_aux arr i =
+        if i < Word8Array.length arr then
           let val c = read_char fd
           in if c = nl then (arr,i+1) else
             (Word8Array.update arr i c;
@@ -155,6 +183,7 @@ val () = (append_prog o process_topdecs)`
       (Word8Array.update arr (nr-1) nl;
        SOME (Word8Array.substring arr 0 nr))
     end`;
+*)
 
 (*
 

@@ -940,64 +940,332 @@ val bumpFD_o = Q.store_thm("bumpFD_o",
  rw[bumpFD_def] >> cases_on`fs` >> fs[IO_fs_component_equality] >>
  fs[ALIST_FUPDKEY_o] >> irule ALIST_FUPDKEY_eq >> rw[] >> cases_on `v` >> fs[])
 
+val get_file_content_eof = Q.store_thm("get_file_content_eof",
+  `get_file_content fs fd = SOME (content,pos) ⇒ eof fd fs = SOME (¬(pos < LENGTH content))`,
+  rw[get_file_content_def,eof_def]
+  \\ pairarg_tac \\ fs[]);
+
+val bumpFD_0 = Q.store_thm("bumpFD_0",
+  `bumpFD fd fs 0 = fs with numchars := THE (LTL fs.numchars)`,
+  rw[bumpFD_def,IO_fs_component_equality] \\
+  match_mp_tac ALIST_FUPDKEY_unchanged \\
+  simp[FORALL_PROD]);
+
+val STDIO_numchars = Q.store_thm("STDIO_numchars",
+  `STDIO (fs with numchars := x) = STDIO fs`,
+  rw[STDIO_def,GSYM STD_streams_numchars]);
+
 val _ = temp_clear_overloads_on"STRCAT";
 
-val FDline_def = Define`
-  FDline fs fd =
-    do
-      (content,off) <- get_file_content fs fd;
-      assert (off < LENGTH content);
-      let (l,r) = SPLITP ((=)#"\n") (DROP off content) in
-      SOME (l++"\n")
-    od`;
-
-val bumpLineFD_def = Define`
-  bumpLineFD fs fd =
-  case FDline fs fd of
-  | NONE => fs
-  | SOME ln => bumpFD fd fs (LENGTH ln - 1)`;
-
-(* WIP: proof of inputLine
 val inputLine_spec = Q.store_thm("inputLine_spec",
   `WORD (n2w fd : word8) fdv ∧ fd ≤ 255 ∧
-   get_file_content fs fd = SOME (content, pos)
+   get_file_content fs fd = SOME (content, pos) ∧
+   SPLITP((=)#"\n")(DROP pos content)=(l,r)
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "IO.inputLine" (get_ml_prog_state())) [fdv]
      (STDIO fs)
      (POSTv sov.
-       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline fs fd)) sov *
-       STDIO (bumpLineFD fs fd))`,
+       &OPTION_TYPE STRING_TYPE
+         (if pos < LENGTH content
+          then SOME(implode(l++"\n")) else NONE) sov *
+       STDIO (bumpFD fd fs (* ignore numchars because STDIO *)
+                (if pos < LENGTH content then LENGTH l + if NULL r then 0 else 1 else 0)))`,
   strip_tac
   \\ xcf "IO.inputLine" (basis_st()) >>
   xfun_spec `realloc`
-    `app (p:'ffi ffi_proj) realloc [arrv] (W8ARRAY arrv arr)
+    `∀arrv arr.
+     app (p:'ffi ffi_proj) realloc [arrv] (W8ARRAY arrv arr)
        (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
   >- (
-    first_x_assum match_mp_tac
+    rw[] \\ first_x_assum match_mp_tac
     \\ ntac 5 (xlet_auto >- xsimpl)
     \\ xret \\ xsimpl
     \\ simp[DROP_REPLICATE] ) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
+  qpat_abbrev_tac`protect = STDIO fs` \\
+  (*
+  xfun_spec `finish`
+    `∀arr n arrv nv.
+      NUM n nv ∧ n ≤ LENGTH arr ⇒
+      app (p:'ffi ffi_proj) finish [arrv;nv]
+        (W8ARRAY arrv arr)
+        (POSTv v.
+          &(OPTION_TYPE STRING_TYPE
+              (if n = 0 then NONE else
+               SOME (implode (MAP (CHR o w2n) (TAKE (n-1) arr) ++ "\n"))) v))`
+  >- (
+    rpt strip_tac
+    \\ first_x_assum match_mp_tac
+    \\ xlet_auto >- xsimpl
+    \\ xif
+    >- ( xcon \\ xsimpl \\ simp[OPTION_TYPE_def] )
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xcon
+    \\ xsimpl
+    \\ simp[OPTION_TYPE_def,implode_def]
+    \\ fs[STRING_TYPE_def]
+    \\ simp[LIST_EQ_REWRITE,EL_MAP,EL_APPEND_EQN,EL_TAKE,EL_LUPDATE]
+    \\ rw[] \\ fs[] )
+  *)
+  reverse IF_CASES_TAC \\ fs[] >- (
+    simp[bumpFD_0,STDIO_numchars] \\
+    xfun_spec`inputLine_aux`
+      `∀arr arrv.
+       0 < LENGTH arr ⇒
+       app (p:'ffi ffi_proj) inputLine_aux [arrv;Litv(IntLit 0)]
+       (STDIO fs * W8ARRAY arrv arr)
+       (POSTv v. &OPTION_TYPE STRING_TYPE NONE v * STDIO fs)`
+    >- (
+      rw[Abbr`protect`]
+      \\ first_x_assum match_mp_tac
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ xif
+      \\ instantiate
+      \\ xhandle`POSTe e. &EndOfFile_exn e * STDIO fs * W8ARRAY arrv arr`
+      >- (
+        (* TODO xlet_auto *)
+        xlet`POSTe e. &EndOfFile_exn e * STDIO fs * W8ARRAY arrv arr`
+        >- (
+          fs[STDIO_def] \\ xpull
+          \\ xapp
+          \\ asm_exists_tac \\ fs[]
+          \\ mp_tac (SPEC_ALL (GSYM get_file_content_numchars))
+          \\ rw[]
+          \\ asm_exists_tac \\ fs[]
+          \\ xsimpl
+          \\ imp_res_tac get_file_content_eof \\ fs[]
+          \\ rw[bumpFD_0]
+          \\ qexists_tac`THE(LTL ll)`
+          \\ xsimpl )
+        \\ xsimpl )
+      \\ xcases
+      \\ fs[EndOfFile_exn_def]
+      \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
+      \\ `NUM 0 (Litv(IntLit 0))` by EVAL_TAC
+      \\ xlet_auto >- xsimpl
+      \\ xif
+      \\ instantiate
+      \\ xcon
+      \\ xsimpl
+      \\ fs[OPTION_TYPE_def])
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ xsimpl ) \\
+  qabbrev_tac`arrmax = MAX 128 (2 * LENGTH l + 1)` \\
   xfun_spec `inputLine_aux`
-    `∀i arr iv arrv fs.
-     i ≤ LENGTH arr
+    `∀pp arr i arrv iv fs.
+     arr ≠ [] ∧ i ≤ LENGTH arr ∧ LENGTH arr < arrmax ∧
+     NUM i iv ∧ pos ≤ pp ∧ pp ≤ LENGTH content ∧
+     get_file_content fs fd = SOME (content,pp) ∧ i = pp - pos ∧
+     EVERY ($~ o $= #"\n") (TAKE i (DROP pos content)) ∧
+     i ≤ LENGTH l ∧ MAP (CHR o w2n) (TAKE i arr) = TAKE i l
      ⇒
      app (p:'ffi ffi_proj) inputLine_aux [arrv; iv]
        (STDIO fs * W8ARRAY arrv arr)
        (POSTv v.
-         SEP_EXISTS arrv jv.
-           &(v = Conv NONE [arrv; jv]) *
-           (case FDline fs fd of
-            | NONE => &NUM i jv * W8ARRAY arrv arr
-            | SOME ln =>
-              &NUM (i + LENGTH ln + 1) jv *
-              SEP_EXISTS extra.
-                W8ARRAY arrv (TAKE i arr ++ MAP (n2w o ORD) ln ++ extra)) *
-           STDIO (bumpLineFD fs fd))`
+        &(OPTION_TYPE STRING_TYPE (SOME (implode(l ++ "\n"))) v) *
+        STDIO (bumpFD fd fs ((LENGTH l - i)+ if NULL r then 0 else 1)))`
   >- (
-    completeInduct_on`LENGTH arr
-*)
+    qx_gen_tac`pp` \\
+    `WF (inv_image ($< LEX $<) (λ(pp,(arr:word8 list)). (arrmax - LENGTH arr, LENGTH content - pp)))`
+    by (
+      match_mp_tac WF_inv_image \\
+      match_mp_tac WF_LEX \\
+      simp[] ) \\
+    gen_tac \\
+    qho_match_abbrev_tac`PC pp arr` \\
+    qabbrev_tac`P = λ(pp,arr). PC pp arr` \\
+    `∀x. P x` suffices_by simp[FORALL_PROD,Abbr`P`] \\
+    qunabbrev_tac`PC` \\
+    match_mp_tac(MP_CANON WF_INDUCTION_THM) \\
+    asm_exists_tac \\ fs[] \\
+    simp[FORALL_PROD,Abbr`P`] \\
+    rpt strip_tac \\
+    last_x_assum match_mp_tac \\
+    xlet_auto >- xsimpl \\
+    xlet_auto >- xsimpl \\
+    reverse xif >- (
+      qmatch_goalsub_rename_tac`W8ARRAY arrv arr` \\
+      (* TODO: xlet_auto *)
+      xlet`POSTv v. W8ARRAY v (arr ++ REPLICATE (LENGTH arr) 0w) * STDIO fs'`
+      >- ( xapp \\ xsimpl )
+      \\ xapp
+      \\ xsimpl
+      \\ instantiate
+      \\ xsimpl
+      \\ simp[TAKE_APPEND1]
+      \\ simp[LEX_DEF]
+      \\ Cases_on`LENGTH arr = 0` >- fs[]
+      \\ simp[Abbr`arrmax`]
+      (*
+      \\ `LENGTH arr ≤ LENGTH l` suffices_by fs[]
+      \\ qmatch_assum_rename_tac`x ≤ pos + LENGTH arr`
+      \\ `x = pos + LENGTH arr` by fs[] \\ rveq
+      \\ qpat_x_assum`LENGTH _ < _`mp_tac \\ fs[]
+      \\ imp_res_tac SPLITP_JOIN
+      \\ disch_then kall_tac \\ CCONTR_TAC
+      \\ fs[TAKE_APPEND]
+      \\ imp_res_tac SPLITP_IMP
+      \\ Cases_on`r` \\ fs[]
+      \\ rveq
+      \\ fs[TAKE_LENGTH_TOO_LONG]*))
+    \\ qmatch_asmsub_rename_tac`MAP _ (TAKE (pp-pos) arr2)`
+    \\ qho_match_abbrev_tac`cf_handle _ _ _ _ (POSTv v. post v)`
+    \\ reverse (xhandle`POST (λv. &(pp < LENGTH content) * post v)
+        (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
+            * W8ARRAY arrv arr2 * STDIO fs')`)
+    >- (
+      xcases \\ xsimpl
+      \\ fs[EndOfFile_exn_def]
+      \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
+      \\ xlet_auto >- xsimpl
+      \\ xif
+      \\ instantiate
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ xcon
+      \\ simp[Abbr`post`]
+      \\ fs[TAKE_LENGTH_ID_rwt]
+      \\ (SPLITP_NIL_SND_EVERY
+          |> SPEC_ALL |> EQ_IMP_RULE |> #2
+          |> GEN_ALL |> SIMP_RULE std_ss []
+          |> imp_res_tac)
+      \\ fs[] \\ rveq
+      \\ fs[OPTION_TYPE_def,implode_def,STRING_TYPE_def]
+      \\ simp[bumpFD_0,STDIO_numchars]
+      \\ xsimpl
+      \\ fs[TAKE_LENGTH_ID_rwt] \\ rveq
+      \\ fs[MAP_TAKE,LUPDATE_MAP]
+      \\ qpat_x_assum`_ = DROP pos content`(SUBST1_TAC o SYM)
+      \\ simp[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE,EL_MAP]
+      \\ rw[] \\ rw[EL_APPEND_EQN,EL_TAKE,EL_MAP] )
+    >- xsimpl
+    \\ fs[Abbr`post`]
+    (* TODO xlet_auto *)
+    \\ xlet `POST (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
+                         pp < LENGTH content)
+                      * W8ARRAY arrv arr2 * STDIO (bumpFD fd fs' 1))
+                  (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
+                      * W8ARRAY arrv arr2 * STDIO fs')`
+    >- (
+      fs[STDIO_def]
+      \\ xpull
+      \\ xapp >>
+      asm_exists_tac \\ fs[]
+      \\ mp_tac (SPEC_ALL (Q.SPEC`fs'`(GSYM get_file_content_numchars)))
+      \\ rw[]
+      \\ asm_exists_tac \\ fs[]
+      \\ xsimpl
+      \\ imp_res_tac get_file_content_eof \\ fs[]
+      \\ rw[bumpFD_numchars,STD_streams_bumpFD,bumpFD_0]
+      \\ qexists_tac`THE(LTL ll)`
+      \\ xsimpl )
+    >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xif
+    >- (
+      xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ xcon
+      >- (
+        xsimpl
+        \\ fs[OPTION_TYPE_def,implode_def,STRING_TYPE_def,ORD_BOUND]
+        \\ qhdtm_x_assum`SPLITP`assume_tac
+        \\ qispl_then[`(=)#"\n"`,`pp-pos`,`DROP pos content`]mp_tac SPLITP_TAKE_DROP
+        \\ simp[EL_DROP]
+        \\ impl_tac >- simp[CHAR_EQ_THM]
+        \\ strip_tac \\ rveq
+        \\ fs[TAKE_LENGTH_ID_rwt]
+        \\ rfs[LENGTH_TAKE,TAKE_LENGTH_ID_rwt]
+        \\ simp[DROP_DROP,NULL_EQ,DROP_NIL]
+        \\ xsimpl
+        \\ qpat_x_assum`_ = _ (DROP pos content)`(SUBST1_TAC o SYM)
+        \\ simp[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE,EL_MAP]
+        \\ rw[] \\ rw[EL_APPEND_EQN,EL_TAKE,EL_MAP] )
+      \\ xsimpl )
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ xsimpl
+    \\ drule get_file_content_bumpFD
+    \\ disch_then(qspec_then`1`strip_assume_tac)
+    \\ `pp+1 ≤ LENGTH content` by fs[]
+    \\ instantiate
+    \\ simp[LEX_DEF]
+    \\ simp[bumpFD_o,STDIO_numchars]
+    \\ xsimpl
+    \\ fs[ORD_BOUND]
+    \\ first_x_assum(qspec_then`_`kall_tac)
+    \\ Cases_on`NULL r`
+    >- (
+      fs[NULL_EQ]
+      \\ imp_res_tac SPLITP_NIL_SND_EVERY
+      \\ rveq \\ fs[]
+      \\ xsimpl
+      \\ `pp + 1 - pos = (pp - pos) + 1` by fs[]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ rewrite_tac[TAKE_SUM]
+      \\ fs[]
+      \\ conj_tac
+      >- (
+        simp[LIST_EQ_REWRITE,EL_MAP,EL_TAKE,EL_APPEND_EQN,DROP_DROP,EL_LUPDATE,EL_DROP,ORD_BOUND,CHR_ORD]
+        \\ rw[] \\ rfs[]
+        >- (
+          qpat_x_assum`MAP _ _ =  _`mp_tac
+          \\ simp[LIST_EQ_REWRITE,EL_MAP,EL_TAKE,EL_DROP] )
+        \\ `x = pp - pos` by fs[]
+        \\ rw[] )
+      \\ simp[DROP_DROP]
+      \\ simp[take1_drop,CHAR_EQ_THM] )
+    \\ fs[]
+    \\ xsimpl
+    \\ conj_asm1_tac
+    >- (
+      CCONTR_TAC
+      \\ `pp - pos = LENGTH l` by fs[]
+      \\ imp_res_tac SPLITP_JOIN
+      \\ fs[NULL_EQ]
+      \\ `EL (pp - pos) (DROP pos content) = HD r`
+      by ( simp[EL_APPEND2] )
+      \\ `pp = STRLEN l + pos` by fs[]
+      \\ `EL pp content = HD r` by (
+        qpat_x_assum`_ = HD r` (SUBST1_TAC o SYM)
+        \\ simp[EL_DROP] )
+      \\ imp_res_tac SPLITP_IMP
+      \\ rfs[NULL_EQ]
+      \\ pop_assum mp_tac
+      \\ simp[CHAR_EQ_THM] \\ fs[] )
+    \\ conj_tac
+    >- (
+      qpat_x_assum`MAP _ _ = _`mp_tac
+      \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,EL_MAP,EL_TAKE,EL_LUPDATE]
+      \\ rw[]
+      \\ rw[ORD_BOUND,CHR_ORD]
+      \\ imp_res_tac SPLITP_JOIN
+      \\ `EL (pp - pos) l = EL (pp - pos) (DROP pos content)` by simp[EL_APPEND_EQN]
+      \\ pop_assum SUBST1_TAC
+      \\ simp[EL_DROP] )
+    \\ `pp + 1 - pos = (pp - pos) + 1` by fs[]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ rewrite_tac[TAKE_SUM]
+    \\ simp[]
+    \\ simp[take1_drop,EL_DROP,CHAR_EQ_THM] )
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xapp
+  \\ xsimpl
+  \\ simp[Abbr`arrmax`,Abbr`protect`]
+  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+  \\ qexists_tac`pos` \\ simp[]
+  \\ instantiate
+  \\ xsimpl
+  \\ EVAL_TAC);
 
 (*
 unfinished proof for previous version of inputLine
