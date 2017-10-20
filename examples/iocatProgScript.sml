@@ -52,7 +52,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
   Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest` >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
   (* xlet_auto picks the wrong fd here *)
-  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`,`255w`] read_spec))
+  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`, `fd1v`, `255w`] read_spec))
   >-(rw[get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
   >-(rw[get_file_content_def] >> xsimpl) >>
   xlet_auto >- xsimpl >>
