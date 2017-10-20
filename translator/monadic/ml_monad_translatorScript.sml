@@ -140,7 +140,7 @@ val EvalM_return = Q.store_thm("EvalM_return",
 val EvalM_bind = Q.store_thm("EvalM_bind",
   `(a1 ==> EvalM env st e1 (MONAD b c (x:('refs, 'b, 'c) M)) H) /\
    (!z v. b z v ==> a2 z ==> EvalM (write name v env) (SND (x st)) e2 (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
-   (!z. a1 /\ (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
+   (a1 /\ !z. (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
    EvalM env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H`,
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[] \\
   rw[Once evaluate_cases] \\
@@ -699,7 +699,7 @@ val ArrowP_EqSt_elim = Q.store_thm("ArrowP_EqSt_elim",
 val EvalM_otherwise = Q.store_thm("EvalM_otherwise",
   `!H b n. ((a1 ==> EvalM env st exp1 (MONAD a b x1) H) /\
    (!st i. a2 st ==> EvalM (write n i env) st exp2 (MONAD a b x2) H)) ==>
-   (!st'. a1 /\ (CONTAINER(SND(x1 st) = st') ==> a2 st')) ==>
+   (a1 /\ !st'. (CONTAINER(SND(x1 st) = st') ==> a2 st')) ==>
    EvalM env st (Handle exp1 [(Pvar n,exp2)]) (MONAD a b (x1 otherwise x2)) H`,
   SIMP_TAC std_ss [EvalM_def, EvalM_def] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
