@@ -6,7 +6,7 @@ open preamble
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
-(* --- Standard translation --- *)
+(* --- Standard translation ------------------------------------------------ *)
 
 val _ = translate init_state_def
 val _ = translate mk_BN_def
@@ -19,8 +19,6 @@ val _ = translate insert_dict_def
 val _ = translate delete_dict_def
 val _ = translate first_def
 val _ = translate stringTheory.isDigit_def
-
-(* --- match_type, tymatch : Replace REV_ASSOCD, use MEM_INTRO. --- *)
 
 val rev_assocd_thm = Q.prove (
   `!a l d. REV_ASSOCD a l d = rev_assocd a l d`,
@@ -61,7 +59,7 @@ val unhex_side = Q.store_thm("unhex_side",
 val _ = translate ASCIInumbersTheory.num_from_dec_string_def
 val _ = translate ASCIInumbersTheory.fromDecString_def
 
-(* --- Monadic translation --- *)
+(* --- Monadic translation ------------------------------------------------- *)
 
 val _ = m_translate find_axiom_def
 val _ = m_translate getNum_def
@@ -92,7 +90,7 @@ val readline_side = Q.store_thm("readline_side",
 val _ = m_translate readLines_def
 val _ = m_translate run_reader_def
 
-(* --- CakeML wrapper --- *)
+(* --- CakeML wrapper ------------------------------------------------------ *)
 
 open ioProgTheory ioProgLib cfTacticsLib basisFunctionsLib rofsFFITheory
      mlfileioProgTheory
@@ -113,8 +111,7 @@ val _ = translate msg_usage_def
 val _ = translate msg_bad_name_def
 val _ = translate msg_failure_def
 
-(* For some reason inputLine keeps the newline characters *)
-
+(* Remove trailing newline from FileIO.inputLine. *)
 val clean_line_def = Define `
   clean_line s =
     case explode s of
@@ -122,20 +119,34 @@ val clean_line_def = Define `
     | c::cs => implode (FRONT (c::cs))
     `;
 
+(* Remove empty lines if any. *)
 val clean_lines_def = Define `
   clean_lines ss = FILTER ($<> (strlit"")) (MAP clean_line ss)
   `;
 
+(* Comments are strings with a leading # character. *)
+val is_comment = Define `
+  is_comment s =
+    case explode s of
+      #"#"::_ => T
+    | _ => F
+  `;
+
+(* Strip lines with comments *)
+val strip_comments = Define `
+  strip_comments ss = FILTER ($<> is_comment) ss
+  `;
+
 val _ = translate clean_line_def
 val _ = translate clean_lines_def
+val _ = translate is_comment
+val _ = translate strip_comments
 
 val _ = process_topdecs `
   fun read_lines ls =
     let
-      val st_rec = run_reader (clean_lines ls)
-      (*val thms = st_rec.thms*)
+      val st = run_reader (strip_comments (clean_lines ls))
     in
-      (*print (msg_success (length thms));*)
       print "OK.\n"
     end
     handle Fail msg => print_err (msg_failure msg)
