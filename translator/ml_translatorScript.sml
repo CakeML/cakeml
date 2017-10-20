@@ -1392,6 +1392,32 @@ val Eval_concat = Q.store_thm("Eval_concat",
   \\ rw[vs_to_string_def]
   \\ fs[concat_def,STRING_TYPE_def]);
 
+val Eval_substring = Q.store_thm("Eval_substring",
+  `∀env x1 x2 x3 len off st.
+    Eval env x1 (STRING_TYPE st) ==>
+    Eval env x2 (NUM off) ==>
+    Eval env x3 (NUM len) ==>
+      off + len <= strlen st ==>
+    Eval env (App CopyStrStr [x1; x2; x3]) (STRING_TYPE (substring st off len))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs++refs'`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs++refs'++refs''`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[state_component_equality]
+  \\ rw[do_app_def]
+  \\ Cases_on`st` \\ fs[STRING_TYPE_def]
+  \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
+  \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
+        substring_def,SEG_TAKE_BUTFISTN,STRING_TYPE_def]);
+
 (* vectors *)
 
 val VECTOR_TYPE_def = Define `
