@@ -24,7 +24,7 @@ val negate_def = Define `
 
 val _ = export_rewrites ["negate_def"];
 
-val _ = temp_overload_on("++",``Append``)
+val _ = temp_overload_on("++",``misc$Append``)
 
 local val flatten_quotation = `
   flatten p n m =
