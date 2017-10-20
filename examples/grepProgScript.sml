@@ -1,11 +1,11 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib
-     rofsFFITheory mlfileioProgTheory ioProgTheory
+     fsFFITheory fsioProgTheory
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"fsioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -405,7 +405,7 @@ val parse_regexp_side = Q.prove(
 
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
-    case FileIO.inputLine fd of NONE => ()
+    case IO.inputLine fd of NONE => ()
     | SOME ln => (if match ln then (print prefix; print ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
@@ -416,15 +416,16 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
    WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
-     (ROFS fs * STDOUT out)
+     (IOFS fs * &stdout fs out)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       ROFS (bumpAllFD (w2n fd) fs) *
-       STDOUT (out ++ CONCAT
-         (MAP ((++) (explode pfx))
-           (FILTER (m o implode)
-             (MAP (combin$C (++) "\n")
-               (linesFD (w2n fd) fs))))))`,
+       IOFS (up_stdout(out ++ CONCAT
+                        (MAP ((++) (explode pfx))
+                           (FILTER (m o implode)
+                            (MAP (combin$C (++) "\n")
+                               (linesFD (w2n fd) fs)))))
+               (bumpAllFD (w2n fd) fs) *
+       )`,
   Induct_on`linesFD (w2n fd) fs` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
@@ -479,11 +480,11 @@ val r = translate notfound_string_def;
 
 val print_matching_lines_in_file = process_topdecs`
   fun print_matching_lines_in_file m file =
-    let val fd = FileIO.openIn file
+    let val fd = IO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
-        FileIO.close fd)
-    end handle FileIO.BadFileName =>
-        print_err (notfound_string file)`;
+        IO.close fd)
+    end handle IO.BadFileName =>
+        IO.print_err (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",

@@ -1692,4 +1692,37 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ simp[bumpFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
           IO_fs_component_equality,openFileFS_files]);
 
+val up_stdout_unchanged = Q.store_thm("up_stdout_unchanged",
+ `!fs out. stdout fs out ==> up_stdout out fs = fs`,
+fs[up_stdout_def,stdout_def,fsupdate_unchanged,get_file_content_def]);
+
+val stdout_up_stdout = Q.store_thm("stdout_up_stdout",
+ `!fs out. STD_streams fs ==> stdout (up_stdout out fs) out`,
+ rw[up_stdout_def,stdout_def,fsupdate_def,STD_streams_def,ALIST_FUPDKEY_ALOOKUP]
+ \\ rw[]);
+
+val print_list_spec = Q.store_thm("print_list_spec",
+  `∀ls lv fs out. LIST_TYPE STRING_TYPE ls lv ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "IO.print_list" (get_ml_prog_state())) [lv]
+     (STDIO fs * &stdout fs out)
+     (POSTv v. &UNIT_TYPE () v * STDIO (up_stdout (out ++ FLAT (MAP explode ls)) fs))`,
+  Induct \\ rw[LIST_TYPE_def] \\ xcf "IO.print_list" (get_ml_prog_state())
+  \\ xpull\\ xmatch
+  >- (xcon \\ fs[up_stdout_unchanged] \\ xsimpl)
+  \\ rename1`STRING_TYPE s sv`
+  \\ cases_on`¬ STD_streams fs` >-(fs[STDIO_def] \\ xpull)
+  \\ fs[]
+  (* xlet_auto needs to be able to deal with STDIO properly *)
+  \\ xlet`POSTv uv.  &UNIT_TYPE () uv *
+            STDIO (up_stdout (out ++ explode s) fs)`
+  >-(xapp \\ xsimpl \\ instantiate \\ xsimpl)
+  \\ xapp \\ xsimpl
+  \\ map_every qexists_tac [`emp`,`out ++ explode s`,
+                `up_stdout(out ++ explode s) fs`]
+  \\ xsimpl
+  \\ fs[stdout_up_stdout,up_stdout_def]
+  (* why do I need to do this? *)
+  \\ fs[GC_def] \\ xsimpl \\ qexists_tac`emp` \\ xsimpl
+  \\ fs[STDIO_fsupdate_o]);
+
 val _ = export_theory();

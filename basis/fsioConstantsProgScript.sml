@@ -81,9 +81,9 @@ val STD_streams_fsupdate = Q.store_thm("STD_streams_fsupdate",
    rpt(CASE_TAC >> fs[ALIST_FUPDKEY_ALOOKUP]));
 
 val STDIO_fsupdate_o = Q.store_thm("STDIO_fsupdate_o",
-  `!fs fd pos1 pos2 c1 c2 k1 k2.
+  `!fs fd pos1 pos2 c1 c2 k1 k2 k3.
   STDIO(fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2) ==>>
-  STDIO(fsupdate fs fd (k1 + k2) pos2 c2)`,
+  STDIO(fsupdate fs fd k3 pos2 c2)`,
   rw[STDIO_def,IOFS_def] >> xsimpl >> rw[] >> qexists_tac`x` >>
   fs[fsupdate_numchars] >>
   `liveFS (fs with numchars := x)` by fs[wfFS_def,liveFS_def,fsupdate_def] >>

@@ -64,6 +64,11 @@ val _ =
 
     ` |> append_prog
 
+val _ = process_topdecs`
+  fun print_list ls =
+    case ls of [] => () | (x::xs) => (print_string x; print_list xs)`
+       |> append_prog ;
+
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`
     fun write_newline fd = write_char fd #"\n"

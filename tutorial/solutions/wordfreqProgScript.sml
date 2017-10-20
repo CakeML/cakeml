@@ -5,7 +5,7 @@
 
 open preamble
      ml_translatorLib cfTacticsLib basisFunctionsLib cfLetAutoLib
-     ioProgLib basisProgTheory
+     fsioProgLib fsFFITheory fsFFIProofTheory
      mlstringTheory balanced_mapTheory splitwordsTheory
 
 (* note: opening all these theories/libraries can take a while
@@ -13,7 +13,7 @@ open preamble
 
 val _ = new_theory "wordfreqProg";
 
-val _ = translation_extends"basisProg";
+val _ = translation_extends"fsioProg";
 
 (* Avoid printing potentially very long output *)
 val _ = Globals.max_print_depth := 20
@@ -121,9 +121,9 @@ val res = translate format_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case FileIO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case IO.inputLinesFrom (List.hd (Commandline.arguments()))
     of SOME lines =>
-      print_list
+      IO.print_list
         (List.map format_output
           (toAscList
             (List.foldl insert_line empty lines)))`;
@@ -202,7 +202,7 @@ val wordfreq_output_spec_def =
 *)
 
 val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
-  `valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
+  `!(fs: IO_fs) fname. valid_wordfreq_output (implode (THE (ALOOKUP fs.files fname)))
       (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
   rw[valid_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
@@ -215,7 +215,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
   simp[empty_thm] \\
   impl_tac >- (
-    simp[mlfileioProgTheory.all_lines_def,EVERY_MAP,implode_def,strcat_def] \\
+    simp[all_lines_def,EVERY_MAP,implode_def,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
   assume_tac good_cmp_compare \\ simp[Abbr`ls`] \\
@@ -225,7 +225,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
   qmatch_goalsub_abbrev_tac`set (splitwords w1) = set (splitwords w2)` \\
   `splitwords w1 = splitwords w2` by (
-    strip_assume_tac mlfileioProgTheory.concat_all_lines
+    strip_assume_tac concat_all_lines
     \\ simp[Abbr`w1`,Abbr`w2`]
     \\ `isSpace #"\n"` by EVAL_TAC
     \\ simp[splitwords_concat_space] ) \\
@@ -265,14 +265,15 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
   `
-  hasFreeFD fs ∧ inFS_fname fs fname ∧
+  hasFreeFD fs ∧ fsFFIProof$inFS_fname fs (File fname) ∧
   cl = [explode pname; explode fname] ∧
-  contents = THE (ALOOKUP fs.files fname)
+  contents = THE (ALOOKUP fs.files (File fname))
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
-    [uv] (COMMANDLINE cl * ROFS fs * STDOUT out)
-    (POSTv uv. &UNIT_TYPE () uv * ROFS fs * COMMANDLINE cl *
-                STDOUT (out ++ wordfreq_output_spec contents))`,
+    [uv] (COMMANDLINE cl * STDIO fs * &stdout fs out)
+    (POSTv uv. &UNIT_TYPE () uv *
+        (STDIO (up_stdout (out ++ wordfreq_output_spec contents) fs)) *
+        COMMANDLINE cl)`,
 
 (* The following proof sketch should work when you have roughly the right
    specification
@@ -292,15 +293,21 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   *)
   reverse(Cases_on`wfcl cl`)
   >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
+  xpull \\
 
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
-  xlet_auto >- (
-    xsimpl \\
-    rfs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
-    fsrw_tac[DNF_ss][LENGTH_explode]) \\
 
+  (* xlet_auto needs to work with STDIO here *)
+  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+           (if inFS_fname fs (File fname) then SOME (all_lines fs (File fname))
+              else NONE) sv * STDIO fs *
+              COMMANDLINE [explode pname; explode fname])`
+  >-(xapp \\
+     fs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,
+        fsioConstantsProgTheory.FILENAME_def,EVERY_MEM,GSYM LENGTH_explode] \\
+     instantiate \\ xsimpl) \\
   (* To get through the pattern match, try this: *)
   xmatch \\
   fs[ml_translatorTheory.OPTION_TYPE_def] \\
@@ -324,8 +331,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
   xapp \\ xsimpl \\
   instantiate \\
-  CONV_TAC SWAP_EXISTS_CONV \\
-  qexists_tac`out` \\ xsimpl \\
+  xsimpl \\
 
   (* After the CF part of the proof is finished, you should have a goal
      roughly of the form:
@@ -334,7 +340,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
      after which xsimpl will solve the goal.
      We can make this aim explicit as follows:
   *)
-  qmatch_abbrev_tac`STDOUT xxxx ==>> STDOUT yyyy * GC` \\
+  qmatch_abbrev_tac`STDIO (up_stdout xxxx _) ==>> STDIO (up_stdout yyyy _)* GC` \\
   `xxxx = yyyy` suffices_by xsimpl \\
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
@@ -346,16 +352,17 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
 (* Finally, we package the verified program up with the following boilerplate*)
 
-val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |> add_basis_proj;
+val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |>
+    SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def] |> add_basis_proj;
 val name = "wordfreq"
-val (sem_thm,prog_tm) = ioProgLib.call_thm (get_ml_prog_state ()) name spec
+val (sem_thm,prog_tm) = fsioProgLib.call_thm (get_ml_prog_state ()) name spec
 val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
 
 val wordfreq_semantics =
   sem_thm
   |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[rofsFFITheory.wfFS_def,rofsFFITheory.inFS_fname_def,PULL_EXISTS]
+  |> SIMP_RULE(srw_ss())[fsFFIProofTheory.inFS_fname_def,PULL_EXISTS,LENGTH]
   |> Q.GEN`cls`
   |> SIMP_RULE(srw_ss())[mlcommandLineProgTheory.wfcl_def,AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH_explode]
   |> curry save_thm "wordfreq_semantics";
