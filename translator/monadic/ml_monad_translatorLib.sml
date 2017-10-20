@@ -225,8 +225,8 @@ fun get_Eval_env e = if same_const (strip_comb e |> fst) Eval_tm then e |> rator
 		     else e |> rator |> rator |> rator |> rator |> rand;
 fun get_Eval_exp e = if same_const (strip_comb e |> fst) Eval_tm then e |> rator |> rand
 		     else e |> rator |> rator |> rand;
-fun remove_Eval_storePred e = if same_const (strip_comb e |> fst) Eval_tm then e
-		     else e |> rator;
+(* fun remove_Eval_storePred e = if same_const (strip_comb e |> fst) Eval_tm then e
+		     else e |> rator; *)
 val get_EvalM_state = rand o rator o rator o rator;
 (* ---- *)
 
@@ -680,11 +680,12 @@ fun inst_case_thm tm m2deep = let
 
 (* PMATCH *)
 val IMP_EQ_T = Q.prove(`a ==> (a <=> T)`,fs [])
-val BETA_PAIR_THM = Q.prove(`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[]);
+val BETA_PAIR_THM = Q.prove(`(\(x, y). f x y) (x, y) = (\x y. f x y) x y`, fs[])
 
 val var_assum = ``Eval env (Var n) (a (y:'a))``
 val nsLookup_assum = ``nsLookup env name = opt``
 val lookup_cons_assum = ``lookup_cons name env = opt``
+val eqtype_assum = ``EqualityType A``
 fun prove_EvalMPatBind goal m2deep = let
   val (vars,rhs_tm) = repeat (snd o dest_forall) goal
                       |> rand |> get_Eval_arg |> rator
@@ -692,16 +693,20 @@ fun prove_EvalMPatBind goal m2deep = let
   val res = m2deep rhs_tm
   val exp = res |> concl |> get_Eval_exp
   val th = D res
+  (* *)
   val is_var_assum = can (match_term var_assum)
-  val is_nslookup_assum = can (match_term nsLookup_assum)
-  val is_lookup_cons_assum = can (match_term lookup_cons_assum)
-  fun is_var_lookup_assum x = is_var_assum x
-			      orelse is_nslookup_assum x
-			      orelse is_lookup_cons_assum x
-  val vs = find_terms is_var_lookup_assum (concl th |> remove_Eval_storePred)
-  fun delete_var tm =
-    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
-  val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_var)) th
+  fun is_lookup_eqtype_assum x =
+      can (match_term nsLookup_assum) x
+      orelse can (match_term lookup_cons_assum) x
+      orelse can (match_term eqtype_assum) x
+  val vs = find_terms is_var_assum (concl th)
+  val assums = find_terms is_lookup_eqtype_assum (concl th)
+  val all_assums = append vs assums
+  fun delete_assum tm =
+    if mem tm (all_assums) then MATCH_MP IMP_EQ_T (ASSUME tm)
+    else NO_CONV tm
+  val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assum)) th
+  val th = CONV_RULE ((RATOR_CONV) (SIMP_CONV bool_ss [])) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
               (PairRules.UNPBETA_CONV vars)) th
   val p = th |> concl |> dest_imp |> fst |> rator
@@ -710,12 +715,15 @@ fun prove_EvalMPatBind goal m2deep = let
   val ws = free_vars vars
   val vs = List.filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
   val new_goal = goal |> subst [``e:ast$exp``|->exp,p2 |-> p]
-  val new_goal = List.foldr mk_imp new_goal vs
+  val all_assums = (append vs assums)
+  val all_assums = List.foldl (fn (x,s) => HOLset.add (s,x)) empty_tmset all_assums |> HOLset.listItems
+  val num_assums = List.length all_assums
+  val new_goal = List.foldr mk_imp new_goal all_assums
   (*
     set_goal([],new_goal)
   *)
   val th = TAC_PROOF (([],new_goal),
-    NTAC (length vs) STRIP_TAC \\ STRIP_TAC
+    NTAC num_assums STRIP_TAC \\ STRIP_TAC
     (**)
     \\ FULL_SIMP_TAC pure_ss [FORALL_PROD,BETA_PAIR_THM, UNCURRY_DEF]
     \\ CONV_TAC (DEPTH_CONV BETA_CONV)
@@ -724,20 +732,15 @@ fun prove_EvalMPatBind goal m2deep = let
     \\ MATCH_MP_TAC (D res) \\ fs []
     \\ fs [EvalPatBind_def,Pmatch_def]
     \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC (length vs) STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ NTAC num_assums STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL) (* Expand the refin. inv. *)
     \\ STRIP_TAC \\ fs [] \\ rfs []
     \\ fs [Pmatch_def,PMATCH_option_case_rwt]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ fs[GSYM FORALL_PROD]
-    (* Provisional *)
-    (* \\ FIRST[rpt (qpat_x_assum `!x. P` IMP_RES_TAC)
-	    \\ EVAL_TAC,
-	     EVAL_TAC]) *)
     \\ EVAL_TAC)
-    (***************)
   in UNDISCH_ALL th end handle HOL_ERR e => failwith "prove_EvalMPatBind failed";
 
 fun pmatch_m2deep tm m2deep = let
@@ -769,8 +772,10 @@ fun pmatch_m2deep tm m2deep = let
 DEBUG:
 
 val th = nil_lemma
-val xs = drop (ts,3)
-val (pat,rhs_tm) = el 3 ts
+
+val n = 1;
+val xs = drop (ts,n);
+val (pat,rhs_tm) = el n ts;
 
 val i = ref (List.length ts)
 val xs_ref = ref ts
@@ -808,6 +813,7 @@ val th_ref = ref nil_lemma
           (SIMP_CONV std_ss [FORALL_PROD,patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
+
   val th = trans ts
   val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
   val th = UNDISCH_ALL th
@@ -1079,9 +1085,9 @@ fun inst_gen_eq_vars th = let
     val th = case state_var_opt of NONE => th 
       | SOME v => INST [v |-> genvar(type_of v)] th
     (* *)
-in th end;
+in th end
 
-fun inst_previously_translated th tm = let
+fun m2deep_previously_translated th tm = let
     val th = inst_gen_eq_vars th
     val res = th |> UNDISCH_ALL |> concl |> rand
     val inv = smart_get_type_inv (type_of tm)
@@ -1091,6 +1097,54 @@ fun inst_previously_translated th tm = let
     val result = INST ss (INST_TYPE ii th)
 		      |> MY_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE |> SPEC_ALL)
                       |> REWRITE_RULE [GSYM ArrowM_def]
+in result end
+
+(* normal function application *)
+val nsLookup_assum = ``nsLookup env name = opt``
+val lookup_cons_assum = ``lookup_cons name env = opt``
+val eqtype_assum = ``EqualityType A``
+fun m2deep_normal_fun_app tm m2deep = let
+    val (f,x) = dest_comb tm
+    val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
+    val (thx,is_monad) =
+	((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> D,false)
+	      handle e => (D(m2deep x),true))
+    (* If the argument is monadic, clean it by removing Eq and EqSt*)
+    val is_var_assum = can (match_term var_assum)
+    fun is_var_lookup_eqtype_assum x =
+      can (match_term var_assum) x
+      orelse can (match_term nsLookup_assum) x
+      orelse can (match_term lookup_cons_assum) x
+      orelse can (match_term eqtype_assum) x
+    val assums = find_terms is_var_lookup_eqtype_assum (concl thx)
+    fun delete_assums tm =
+      if mem tm assums then MATCH_MP IMP_EQ_T (ASSUME tm)
+      else NO_CONV tm
+    val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
+    val thx = CONV_RULE ((RATOR_CONV o RAND_CONV)
+              (SIMP_CONV (srw_ss()) [CONTAINER_def])) thx
+    val thx =  MP thx TRUTH
+	       handle HOL_ERR _ => failwith "normal function application"
+    val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
+
+    (* Compute the result *)
+    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf
+                 |> PURE_REWRITE_RULE[ArrowM_def]) thx
+		 handle HOL_ERR _ =>
+                 MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
+			     (MATCH_MP EvalM_Eq thx)
+		 handle HOL_ERR _ => let
+      val state_var = concl thf |> get_EvalM_state
+      val thc = PURE_REWRITE_RULE[ArrowM_def] thf |> concl
+				 |> rator |> rand |> rator |> rand
+      val eq_state_var_opt = get_EqSt_var thc
+      in case eq_state_var_opt of NONE =>
+				  failwith "m2deep: function application" 
+         | SOME v => MY_MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt
+					   (INST [v |-> state_var] thf))
+				 (MATCH_MP EvalM_Eq thx)
+      end
+    val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
 in result end
 
 fun abbrev_nsLookup_code th = let
@@ -1214,13 +1268,13 @@ fun m2deep tm =
   if can lookup_dynamic_v_thm tm then let
     (* val _ = print_tm_msg "previously translated - dynamic\n" tm DEBUG *)
       val th = lookup_dynamic_v_thm tm |> abbrev_nsLookup_code
-      val result = inst_previously_translated th tm
+      val result = m2deep_previously_translated th tm
     in check_inv "lookup_dynamic_v_thm" tm result end else
   (* previously translated term *)
   if can lookup_v_thm tm then let
     (* val _ = print_tm_msg "previously translated\n" tm DEBUG *)
       val th = lookup_v_thm tm
-      val result = inst_previously_translated th tm
+      val result = m2deep_previously_translated th tm
     in check_inv "lookup_v_thm" tm result end else
   (* if statements *)
   if can (match_term ``if b then x: ^(!aM) else y: ^(!aM)``) tm then let
@@ -1329,29 +1383,7 @@ fun m2deep tm =
   (* normal function applications *)
   if is_comb tm then let
     (* val _ = print_tm_msg "normal function application\n" tm DEBUG *)
-    val (f,x) = dest_comb tm
-    val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
-    val (thx,is_monad) =
-	((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE),false)
-	      handle e => (m2deep x,true))
-    val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
-    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf
-                 |> PURE_REWRITE_RULE[ArrowM_def]) thx
-		 handle HOL_ERR _ =>
-                 MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
-			     (MATCH_MP EvalM_Eq thx)
-		 handle HOL_ERR _ => let
-      val state_var = concl thf |> get_EvalM_state
-      val thc = PURE_REWRITE_RULE[ArrowM_def] thf |> concl
-				 |> rator |> rand |> rator |> rand
-      val eq_state_var_opt = get_EqSt_var thc
-      in case eq_state_var_opt of NONE =>
-				  failwith "m2deep: function application" 
-         | SOME v => MY_MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt
-					   (INST [v |-> state_var] thf))
-				 (MATCH_MP EvalM_Eq thx)
-      end
-    val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
+    val result = m2deep_normal_fun_app tm m2deep
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
 
