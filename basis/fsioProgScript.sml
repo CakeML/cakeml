@@ -229,6 +229,21 @@ fun inputLine fd lbuf =
   end` |> append_prog
 *)
 
+val _ = (append_prog o process_topdecs) `
+  fun inputLines fd =
+    case inputLine fd of
+        NONE => []
+      | SOME l => l::inputLines fd`;
+
+val _ = (append_prog o process_topdecs) `
+  fun inputLinesFrom fname =
+    let
+      val fd = openIn fname
+      val lines = inputLines fd
+    in
+      close fd; SOME lines
+    end handle BadFileName => NONE`;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
