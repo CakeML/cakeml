@@ -252,8 +252,6 @@ val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
    metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
    );
 
-val st = get_ml_prog_state();
-
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
 val insert_line_v_thm = theorem"insert_line_v_thm";
 val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TYPE`,`NUM`];
