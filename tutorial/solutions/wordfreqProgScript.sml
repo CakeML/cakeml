@@ -280,7 +280,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
    *)
 
   strip_tac \\
-  xcf"wordfreq" (get_ml_prog_state())) \\
+  xcf"wordfreq" (get_ml_prog_state()) \\
 
   (* TODO: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
