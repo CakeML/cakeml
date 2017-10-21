@@ -8,6 +8,8 @@ open infer_eSoundTheory;
 open infer_eCompleteTheory;
 open type_eDetermTheory envRelTheory namespacePropsTheory;
 
+open ml_monadBaseTheory;
+
 val _ = new_theory "inferComplete";
 
 (* TODO move. n.b. something like this is defined elsewhere (Abbrev_intro) *)
@@ -357,7 +359,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     disch_then (qspec_then `SOME locs` mp_tac) >>
     rw [] >>
     qexists_tac `empty_inf_decls` >>
-    simp [init_state_def, success_eqns] >>
+    simp [init_state_def, success_eqns, set_next_uvar_def, set_subst_def] >>
+    PURE_REWRITE_TAC[GSYM init_infer_state_def] >>
+    simp [init_state_def, success_eqns, set_next_uvar_def, set_subst_def] >>
+    simp[get_subst_def] >>
     pairarg_tac >>
     fs[success_eqns]>>
     CONJ_TAC >-
@@ -392,14 +397,21 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         (*Recover the check_t property directly from infer_d_check*)
         (imp_res_tac infer_d_check >>
         pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
-        disch_then(qspec_then`Dlet locs p e` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
-        rfs[guard_def]>>
-        `MAP FST new_bindings = pat_bindings p []` by
-          (imp_res_tac type_p_pat_bindings>>
-          fs[convert_env_def,MAP_MAP_o]>>
-          pop_assum sym_sub_tac>>
-          simp[MAP_EQ_f]>>fs[FORALL_PROD])>>
-        fs[]>>rfs[success_eqns])
+        disch_then(qspec_then`Dlet locs p e` assume_tac)>>
+	fs[infer_d_def,success_eqns,init_state_def]>>
+	fs[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+        fs[GSYM init_infer_state_def] >>
+        qpat_assum `infer_e a1 a2 a3 a4 = a5` (fn x =>
+           first_x_assum(fn y => SIMP_RULE (srw_ss()) [x] y |> ASSUME_TAC)) >>
+        qpat_assum `infer_p a1 a2 a3 a4 = a5` (fn x =>
+           first_x_assum(fn y => SIMP_RULE (srw_ss()) [x] y |> ASSUME_TAC)) >>
+	qpat_assum `ALL_DISTINCT a0` (fn x =>
+           first_x_assum(fn y => SIMP_RULE (srw_ss()) [x] y |> ASSUME_TAC)) >>
+	qpat_assum `t_unify a0 a1 a2 = a3` (fn x =>
+           first_x_assum(fn y => SIMP_RULE (srw_ss()) [x] y |> ASSUME_TAC)) >>
+	fs[infer_d_def,success_eqns,init_state_def]>>
+        fs[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+        fs[infer_d_def,success_eqns,init_state_def])
       >-
         (fs[namespaceTheory.alist_to_ns_def]>>
         Cases_on`x`>>fs[namespaceTheory.nsLookupMod_def])
@@ -635,6 +647,10 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     rw [] >>
     qexists_tac `empty_inf_decls` >>
     simp [init_state_def, success_eqns] >>
+    simp[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+    PURE_REWRITE_TAC[GSYM init_infer_state_def] >>
+    simp [init_state_def, success_eqns] >>
+    simp[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
     pairarg_tac >> fs[success_eqns]>>
     imp_res_tac infer_p_bindings>>
     pop_assum(qspec_then`[]` assume_tac)>>
@@ -681,7 +697,12 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
     imp_res_tac type_funs_MAP_FST >>
     imp_res_tac type_funs_Tfn>>
     simp[PULL_EXISTS]>>
-    CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
+    simp[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+    PURE_REWRITE_TAC[GSYM init_infer_state_def] >>
+    simp [init_state_def, success_eqns] >>
+    simp[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+    `<|next_uvar := LENGTH funs; subst := FEMPTY|> = init_infer_state with next_uvar := LENGTH funs` by rw[init_infer_state_def] >> POP_ASSUM(fn x => fs[x]) >>
+    CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''''"]))>>
     qexists_tac`st'`>>simp[]>>
     pairarg_tac>>fs[success_eqns]>>rw[]
     >-
@@ -720,9 +741,11 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
         (imp_res_tac infer_d_check >>
         pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d"]))))>>
         disch_then(qspec_then`Dletrec locs funs` assume_tac)>>fs[infer_d_def,success_eqns,init_state_def]>>
+	fs[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
+        `<|next_uvar := LENGTH funs; subst := FEMPTY|> = init_infer_state with next_uvar := LENGTH funs` by rw[init_infer_state_def] >> POP_ASSUM(fn x => fs[x]) >>
         rfs[guard_def,LENGTH_COUNT_LIST]>>
         pop_assum match_mp_tac>>
-        CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st''''"]))>>
+        CONV_TAC (RESORT_EXISTS_CONV (sort_vars ["st'''''"]))>>
         qexists_tac`st'`>>fs[success_eqns]>>
         metis_tac[LENGTH_MAP])
       >-
@@ -1218,6 +1241,7 @@ val n_fresh_uvar_rw = Q.prove(`
     (EVAL_TAC>>fs[infer_st_component_equality])
   >>
     rw[st_ex_bind_def,fresh_uvar_def,st_ex_return_def,ADD1]>>
+    simp[get_next_uvar_def, set_next_uvar_def] >>
     simp[GENLIST_CONS,GSYM ADD1]>>
     AP_THM_TAC>>AP_TERM_TAC>>fs[o_DEF]>>
     fs[FUN_EQ_THM])
@@ -1268,10 +1292,11 @@ val check_tscheme_inst_complete = Q.store_thm ("check_tscheme_inst_complete",
     check_t tvs_spec {} t_spec ∧
     tscheme_approx 0 FEMPTY (tvs_spec,t_spec) (tvs_impl,t_impl) ⇒
     check_tscheme_inst id (tvs_spec,t_spec) (tvs_impl,t_impl)`,
-  rw [tscheme_approx_def, check_tscheme_inst_def] >>
+  rw [tscheme_approx_def, check_tscheme_inst_def, run_check_tscheme_inst_aux_def, check_tscheme_inst_aux_def, run_def] >>
   fs [t_walkstar_FEMPTY] >>
   simp [st_ex_bind_def, init_state_def, init_infer_state_def, st_ex_return_def,
         add_constraint_def] >>
+  simp[set_next_uvar_def, set_subst_def, get_next_uvar_def, get_subst_def] >>
   simp[n_fresh_uvar_rw]>>
   imp_res_tac infer_deBruijn_subst_id2>>
   ntac 2 (pop_assum kall_tac)>>
@@ -1377,7 +1402,7 @@ val infer_top_complete = Q.store_thm ("infer_top_complete",
     fs [union_decls_def, convert_decls_def, GSYM INSERT_SING_UNION] >>
     metis_tac [env_rel_lift])
   >- (
-    drule (INST_TYPE [``:'a`` |-> ``:(num |-> infer_t) infer_st``] check_specs_complete) >>
+    drule (INST_TYPE [``:'a`` |-> ``:infer_st``] check_specs_complete) >>
     `ienv.inf_t = tenv.t` by fs [env_rel_def, ienv_ok_def, env_rel_sound_def] >>
     simp [GSYM PULL_FORALL] >>
     impl_tac
