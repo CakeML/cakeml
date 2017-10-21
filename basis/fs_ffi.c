@@ -34,7 +34,7 @@ int nextFD() {
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   int fd = nextFD();
-  if (fd <= 255 && (infds[fd] = open(a, O_RDONLY|O_CREAT))){
+  if (fd <= 255 && (infds[fd] = open(a, O_RDONLY))){
     a[0] = 0;
     a[1] = fd;
   }
