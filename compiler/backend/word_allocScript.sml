@@ -150,17 +150,17 @@ val ssa_cc_trans_inst_def = Define`
     let mov_in = Move 0 [(0,r3');(4,r4')] in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
-    let mov_out = Move 0 [(r2',0);(r1',8)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongMul 8 0 0 4))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',0);(r1',6)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
-    let mov_in = Move 0 [(8,r3');(0,r4')] in
+    let mov_in = Move 0 [(6,r3');(0,r4')] in
     let (r2',ssa',na') = next_var_rename r2 ssa na in
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
-    let mov_out = Move 0 [(r2',8);(r1',0)] in
-      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 8 8 0 r5'))) mov_out),ssa'',na'')) ∧
+    let mov_out = Move 0 [(r2',6);(r1',0)] in
+      (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
   (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
@@ -177,7 +177,28 @@ val ssa_cc_trans_inst_def = Define`
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store8 r' (Addr a' w)),ssa,na)) ∧
-  (*Catchall -- for future instructions to be added*)
+  (ssa_cc_trans_inst (FP (FPLess r f1 f2)) ssa na =
+    let (r',ssa',na') = next_var_rename r ssa na in
+      (Inst (FP (FPLess r' f1 f2)),ssa',na')) ∧
+  (ssa_cc_trans_inst (FP (FPLessEqual r f1 f2)) ssa na =
+    let (r',ssa',na') = next_var_rename r ssa na in
+      (Inst (FP (FPLessEqual r' f1 f2)),ssa',na')) ∧
+  (ssa_cc_trans_inst (FP (FPEqual r f1 f2)) ssa na =
+    let (r',ssa',na') = next_var_rename r ssa na in
+      (Inst (FP (FPEqual r' f1 f2)),ssa',na')) ∧
+  (ssa_cc_trans_inst (FP (FPMovToReg r1 r2 d):'a inst) ssa na =
+    if dimindex(:'a) = 64 then
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+        (Inst (FP (FPMovToReg r1' r2 d)),ssa',na')
+    else
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+      let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
+        (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
+  (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
+    let r1' = option_lookup ssa r1 in
+    let r2' = (dtcase lookup r2 ssa of NONE => 4 | SOME v => v) in
+      (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
+  (*Catchall -- for future instructions to be added, and all other FP *)
   (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))`
 
 (*Expressions only ever need to lookup a variable's current ssa map
@@ -285,18 +306,20 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (LocValue r l1) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
-  (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
+  (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
-    let cptr = option_lookup ssa' ptr in
-    let clen = option_lookup ssa' len in
+    let cptr1 = option_lookup ssa' ptr1 in
+    let clen1 = option_lookup ssa' len1 in
+    let cptr2 = option_lookup ssa' ptr2 in
+    let clen2 = option_lookup ssa' len2 in
     let ssa_cut = inter ssa' numset in
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,cptr);(4,clen)])
-               (Seq (FFI ffi_index 2 4 stack_set) (ret_mov)))) in
+               (Seq (Move 0 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
+               (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
@@ -388,6 +411,11 @@ val apply_colour_inst_def = Define`
     Mem Load8 (f r) (Addr (f a) w)) ∧
   (apply_colour_inst f (Mem Store8 r (Addr a w)) =
     Mem Store8 (f r) (Addr (f a) w)) ∧
+  (apply_colour_inst f (FP (FPLess r f1 f2)) = FP (FPLess (f r) f1 f2)) ∧
+  (apply_colour_inst f (FP (FPLessEqual r f1 f2)) = FP (FPLessEqual (f r) f1 f2)) ∧
+  (apply_colour_inst f (FP (FPEqual r f1 f2)) = FP (FPEqual (f r) f1 f2)) ∧
+  (apply_colour_inst f (FP (FPMovToReg r1 r2 d)) = FP (FPMovToReg (f r1) (f r2) d)) ∧
+  (apply_colour_inst f (FP (FPMovFromReg d r1 r2)) = FP (FPMovFromReg d (f r1) (f r2))) ∧
   (apply_colour_inst f x = x)` (*Catchall -- for future instructions to be added*)
 
 val apply_colour_def = Define `
@@ -410,8 +438,8 @@ val apply_colour_def = Define `
   (apply_colour f (MustTerminate s1) = MustTerminate (apply_colour f s1)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
-  (apply_colour f (FFI ffi_index ptr len numset) =
-    FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
+  (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
   (apply_colour f (LocValue r l1) =
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
@@ -441,6 +469,13 @@ val get_writes_inst_def = Define`
   (get_writes_inst (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst (Mem Load r (Addr a w)) = insert r () LN) ∧
   (get_writes_inst (Mem Load8 r (Addr a w)) = insert r () LN) ∧
+  (get_writes_inst (FP (FPLess r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst (FP (FPLessEqual r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst (FP (FPEqual r f1 f2)) = insert r () LN) ∧
+  (get_writes_inst (FP (FPMovToReg r1 r2 d) :'a inst) =
+    if dimindex(:'a) = 64
+      then insert r1 () LN
+      else insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst inst = LN)`
 
 (*Liveness for instructions, follows liveness equations
@@ -474,6 +509,17 @@ val get_live_inst_def = Define`
     insert a () (delete r live)) ∧
   (get_live_inst (Mem Store8 r (Addr a w)) live =
     insert a () (insert r () live)) ∧
+  (get_live_inst (FP (FPLess r f1 f2)) live = delete r live) ∧
+  (get_live_inst (FP (FPLessEqual r f1 f2)) live = delete r live) ∧
+  (get_live_inst (FP (FPEqual r f1 f2)) live = delete r live) ∧
+  (get_live_inst (FP (FPMovToReg r1 r2 d): 'a inst) live =
+    if dimindex(:'a) = 64
+      then delete r1 live
+      else delete r1 (delete r2 live)) ∧
+  (get_live_inst (FP (FPMovFromReg d r1 r2)) live =
+    if dimindex(:'a) = 64
+      then insert r1 () live
+      else insert r2 () (insert r1 () live)) ∧
   (*Catchall -- for future instructions to be added*)
   (get_live_inst x live = live)`
 
@@ -527,8 +573,9 @@ val get_live_def = Define`
        dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
-  (get_live (FFI ffi_index ptr len numset) live =
-    insert ptr () (insert len () numset)) ∧
+  (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
+   insert ptr1 () (insert len1 ()
+     (insert ptr2 () (insert len2 () numset)))) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
@@ -562,6 +609,12 @@ val remove_dead_inst_def = Define`
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
   (remove_dead_inst (Mem Load8 r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst (FP (FPLess r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst (FP (FPLessEqual r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst (FP (FPEqual r f1 f2)) live = (lookup r live = NONE)) ∧
+  (remove_dead_inst (FP (FPMovToReg r1 r2 d) :'a inst) live =
+    if dimindex(:'a) = 64 then lookup r1 live = NONE
+    else (lookup r1 live = NONE ∧ (lookup r2 live = NONE))) ∧
   (*Catchall -- for other instructions*)
   (remove_dead_inst x live = F)`
 
@@ -706,6 +759,17 @@ val get_delta_inst_def = Define`
   (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
   (get_delta_inst (Mem Load8 r (Addr a w)) = Delta [r] [a]) ∧
   (get_delta_inst (Mem Store8 r (Addr a w)) = Delta [] [r;a]) ∧
+  (get_delta_inst (FP (FPLess r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst (FP (FPLessEqual r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst (FP (FPEqual r f1 f2)) = Delta [r] []) ∧
+  (get_delta_inst (FP (FPMovToReg r1 r2 d):'a inst) =
+    if dimindex(:'a) = 64
+      then Delta [r1] []
+      else Delta [r1;r2] []) ∧
+  (get_delta_inst (FP (FPMovFromReg d r1 r2)) =
+    if dimindex(:'a) = 64
+      then Delta [] [r1]
+      else Delta [] [r1;r2]) ∧
   (*Catchall -- for future instructions to be added*)
   (get_delta_inst x = Delta [] [])`
 
@@ -740,8 +804,8 @@ val get_clash_tree_def = Define`
     get_clash_tree s) ∧
   (get_clash_tree (Alloc num numset) =
     Seq (Delta [] [num]) (Set numset)) ∧
-  (get_clash_tree (FFI ffi_index ptr len numset) =
-    Seq (Delta [] [ptr;len]) (Set numset)) ∧
+  (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
   (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
   (get_clash_tree Tick = Delta [] []) ∧
@@ -809,7 +873,7 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
   At the moment this really only ever occurs for AddCarry, AddOverflow, SubOverflow
 *)
 val get_forced_def = Define`
-  (get_forced c (Inst i) acc =
+  (get_forced (c:'a asm_config) ((Inst i):'a prog) acc =
     dtcase i of
       Arith (AddCarry r1 r2 r3 r4) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
@@ -830,12 +894,18 @@ val get_forced_def = Define`
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
        else
          acc
+    | FP (FPMovToReg r1 r2 d) =>
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
+    | FP (FPMovFromReg d r1 r2) =>
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | _ => acc) ∧
   (get_forced c (MustTerminate s1) acc =
     get_forced c s1 acc) ∧
@@ -850,7 +920,7 @@ val get_forced_def = Define`
   (get_forced c prog acc = acc)`
 
 val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
-  (get_forced c prog acc =
+  (get_forced (c:'a asm_config) prog acc =
     case prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
@@ -871,12 +941,18 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
        else
          acc
+    | Inst (FP (FPMovToReg r1 r2 d)) =>
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
+    | Inst (FP (FPMovFromReg d r1 r2)) =>
+        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        else []) ++ acc
     | MustTerminate s1 => get_forced c s1 acc
     | Seq s1 s2 => get_forced c s1 (get_forced c s2 acc)
     | If cmp num rimm e2 e3 =>

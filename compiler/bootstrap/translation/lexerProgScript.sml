@@ -1,10 +1,10 @@
 open preamble
-     lexer_funTheory lexer_implTheory ioProgTheory
+     lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory
 
 val _ = new_theory "lexerProg"
 
-val _ = translation_extends "ioProg";
+val _ = translation_extends "to_dataProg";
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE

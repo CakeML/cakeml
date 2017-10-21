@@ -31,6 +31,11 @@ val wRegWrite1_def = Define `
     let r = r DIV 2 in
       if r < k then g r else Seq (g k) (StackStore k (f-1 - (r - k)))`
 
+val wRegWrite2_def = Define `
+  wRegWrite2 g r (k,f,f':num) =
+    let r = r DIV 2 in
+      if r < k then g r else Seq (g (k+1)) (StackStore (k+1) (f-1 - (r - k)))`
+
 val wStackLoad_def = Define `
   (wStackLoad [] x = x) /\
   (wStackLoad ((r,i)::ps) x = Seq (StackLoad r i) (wStackLoad ps x))`
@@ -62,7 +67,7 @@ val wMove_def = Define `
     wMoveAux (MAP (format_var k ## format_var k) (parmove (MAP (DIV2 ## DIV2) xs))) (k,f,f')`;
 
 val wInst_def = Define `
-  (wInst (Const n c) kf =
+  (wInst ((Const n c):'a inst) kf =
     wRegWrite1 (\n. Inst (Const n c)) n kf) /\
   (wInst (Arith (Binop bop n1 n2 (Imm imm))) kf =
     let (l,n2) = wReg1 n2 kf in
@@ -98,13 +103,13 @@ val wInst_def = Define `
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
   (wInst (Arith (LongMul n1 n2 n3 n4)) kf =
-    (*n1 = 4, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
-      (Inst (Arith (LongMul 4 0 0 2)))) /\
+    (*n1 = 2, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
+      (Inst (Arith (LongMul 3 0 0 2)))) /\
   (wInst (Arith (LongDiv n1 n2 n3 n4 n5)) kf =
     (*n1 = 0, n2 = 2, n3 = 2, n4 = 0 no spills necessary*)
     let (l,n5) = wReg1 n5 kf in
     wStackLoad l
-      (Inst (Arith (LongDiv 0 4 4 0 n5)))) /\
+      (Inst (Arith (LongDiv 0 3 3 0 n5)))) /\
   (wInst (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
@@ -123,6 +128,25 @@ val wInst_def = Define `
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
+  (wInst (FP (FPLess r f1 f2)) kf =
+    wRegWrite1 (\r. Inst (FP (FPLess r f1 f2))) r kf) /\
+  (wInst (FP (FPLessEqual r f1 f2)) kf =
+    wRegWrite1 (\r. Inst (FP (FPLessEqual r f1 f2))) r kf) /\
+  (wInst (FP (FPEqual r f1 f2)) kf =
+    wRegWrite1 (\r. Inst (FP (FPEqual r f1 f2))) r kf) /\
+  (wInst (FP (FPMovToReg r1 r2 d)) kf =
+    if dimindex(:'a) = 64 then
+      wRegWrite1 (λr1. Inst (FP (FPMovToReg r1 0 d))) r1 kf
+    else
+      wRegWrite2 (λr2. wRegWrite1 (λr1. Inst(FP (FPMovToReg r1 r2 d))) r1 kf) r2 kf) /\
+  (wInst (FP (FPMovFromReg d r1 r2)) kf =
+    let (l,n1) = wReg1 r1 kf in
+    let (l',n2) =
+      if dimindex(:'a) = 64 then ([],0)
+      else wReg2 r2 kf in
+    wStackLoad (l++l')
+      (Inst (FP (FPMovFromReg d n1 n2)))) /\
+  (wInst (FP f) kf = Inst (FP f)) /\ (*pass through the ones that don't use int registers *)
   (wInst _ kf = Inst Skip)`
 
 val bits_to_word_def = Define `
@@ -263,7 +287,8 @@ val comp_def = Define `
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
   (comp (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
-  (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
+  (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
+                                                (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 val raise_stub_def = Define `

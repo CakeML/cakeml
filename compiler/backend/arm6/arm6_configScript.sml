@@ -8,16 +8,18 @@ val arm6_names_def = Define `
        target's r15 must be avoided (pc),
        target's r13 must be avoided (stack pointer),
        source 0 must represent r14 (link register),
-       source 1-2 must be r0 and r1 (1st 2 arguments)
+       source 1-4 must be r0-r3 (1st 4 arguments)
        the top three (source 11-13) must be callee-saved
        (callee-saved include: r4-r8, r10-11) *)
     (insert 0 14 o
      insert 1 0 o
      insert 2 1 o
+     insert 3 2 o
+     insert 4 3 o
      insert 12 8 o
      insert 13 10 o
      (* the rest just ensures that the mapping is well-formed *)
-     insert 8 2 o
+     insert 8 4 o
      insert 10 12 o
      insert 14 13) LN:num num_map`
 
@@ -29,7 +31,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val arm6_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; gc_kind:=Simple|>``
+val arm6_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; gc_kind:=Simple|>``
 val arm6_word_conf = ``<| bitmaps := []:32 word list |>``
 val arm6_stack_conf = ``<|jump:=T;reg_names:=arm6_names|>``
 val arm6_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm6_config;init_clock:=5|>``

@@ -203,6 +203,12 @@ val do_app_def = Define `
       SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
+  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
+  | (FP_uop uop, [Litv (Word64 w)]) =>
+      SOME ((s,t),Rval (Litv (Word64 (fp_uop uop w))))
+  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME ((s,t),Rval (Boolv (fp_cmp cmp w1 w2)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
      (case do_word_op op wz w1 w2 of
           | NONE => NONE
@@ -395,10 +401,10 @@ val do_app_def = Define `
             | NONE => NONE
             | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
      | _ => NONE)
-  | (FFI n, [Loc lnum]) =>
+  | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
-       (case call_FFI t n ws of
+       (case call_FFI t n (MAP (λc. n2w(ORD c)) conf) ws of
         | (t', ws') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))

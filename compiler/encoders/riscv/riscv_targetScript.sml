@@ -134,6 +134,7 @@ val riscv_ast_def = Define`
       case riscv_memop mop of
          INL f => [Load (f (n2w r1, n2w r2, w2w a))]
        | INR f => [Store (f (n2w r2, n2w r1, w2w a))]) /\
+   (riscv_ast (Inst (FP _)) = riscv_encode_fail) /\
    (riscv_ast (Jump a) =
       if ^min21 <= a /\ a <= ^max21 then
          [Branch (JAL (0w, w2w (a >>> 1)))]
@@ -251,6 +252,7 @@ val riscv_config_def = Define`
        31 - used by encoder above
     *)
     ; avoid_regs := [0; 2; 3; 31]
+    ; fp_reg_count := 0
     ; link_reg := SOME 1
     ; two_reg_arith := F
     ; big_endian := F

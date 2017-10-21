@@ -50,8 +50,8 @@ running regression tests.
 [documentation](documentation):
 Work-in-progress documentation regarding the CakeML language.
 
-[flame](flame):
-The start of a set theory formalisation that has net yet been used.
+[examples](examples):
+Examples of verified programs built using CakeML infrastructure.
 
 [misc](misc):
 Auxiliary files providing glue between a standard HOL installation

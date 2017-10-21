@@ -69,7 +69,7 @@ val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
-  `(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
+  `(call_FFI s i conf xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
   srw_tac[][ffiTheory.call_FFI_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
@@ -187,6 +187,7 @@ val state_rel_def = Define `
     s2.clock = s1.clock /\
     s2.ffi = s1.ffi /\
     s2.ffi_save_regs = s1.ffi_save_regs /\
+    s2.fp_regs = s1.fp_regs /\
     good_dimindex (:'a) /\
     (!n.
        n < k ==>
@@ -651,6 +652,16 @@ val state_rel_mem_store_byte_aux = Q.store_thm("state_rel_mem_store_byte_aux",
   \\ match_mp_tac memory_write
   \\ simp[]);
 
+val state_rel_get_fp_var = Q.prove(`
+  state_rel jump off k s t ⇒
+  get_fp_var n s = get_fp_var n t`,
+  fs[state_rel_def,get_fp_var_def]);
+
+val state_rel_set_fp_var = Q.prove(`
+  state_rel jump off k s t ⇒
+  state_rel jump off k (set_fp_var n v s) (set_fp_var n v t)`,
+  rw[state_rel_def,set_fp_var_def]>>rfs[]);
+
 val state_rel_inst = Q.store_thm("state_rel_inst",
   `state_rel jump off k s t ∧
    reg_bound_inst i k ∧
@@ -707,38 +718,45 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ srw_tac[][] )
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ pop_assum mp_tac
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ drule state_rel_word_exp
-  \\ ONCE_REWRITE_TAC[CONJ_COMM]
-  \\ disch_then drule
-  \\ simp[]
-  \\ imp_res_tac mem_load_byte_aux_IMP \\ fs[]
-  >> TRY (
-    imp_res_tac state_rel_mem_load_imp
-    \\ simp[] \\ srw_tac[][] \\ srw_tac[][] \\ NO_TAC)
-  \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ TRY BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac state_rel_get_var
-  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ TRY (
-    qmatch_assum_rename_tac`mem_store x y s = SOME s'`
-    \\ `∃t'. mem_store x y t = SOME t'`
-    by (
-      full_simp_tac(srw_ss())[mem_store_def]
-      \\ full_simp_tac(srw_ss())[state_rel_def]
-      \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC]
-      \\ drule (GEN_ALL memory_fun2set_IMP_read)
-      \\ metis_tac[] )
+  >- (
+    BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ drule state_rel_word_exp
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ disch_then drule
     \\ simp[]
-    \\ imp_res_tac state_rel_mem_store)
-  \\ drule (GEN_ALL state_rel_mem_store_byte_aux)
-  \\ disch_then drule
-  \\ strip_tac \\ simp[]);
+    \\ imp_res_tac mem_load_byte_aux_IMP \\ fs[]
+    >> TRY (
+      imp_res_tac state_rel_mem_load_imp
+      \\ simp[] \\ srw_tac[][] \\ srw_tac[][] \\ NO_TAC)
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac state_rel_get_var
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ TRY (
+      qmatch_assum_rename_tac`mem_store x y s = SOME s'`
+      \\ `∃t'. mem_store x y t = SOME t'`
+      by (
+        full_simp_tac(srw_ss())[mem_store_def]
+        \\ full_simp_tac(srw_ss())[state_rel_def]
+        \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+        \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC]
+        \\ drule (GEN_ALL memory_fun2set_IMP_read)
+        \\ metis_tac[] )
+      \\ simp[]
+      \\ imp_res_tac state_rel_mem_store)
+    \\ drule (GEN_ALL state_rel_mem_store_byte_aux)
+    \\ disch_then drule
+    \\ strip_tac \\ simp[])
+  >>
+    BasicProvers.TOP_CASE_TAC \\ fs[] \\ every_case_tac \\
+    imp_res_tac state_rel_get_fp_var>>fs[]>>
+    imp_res_tac state_rel_get_var >> fs[]>>
+    rw[]>>fs[state_rel_set_var,state_rel_set_fp_var]>>
+    rfs[]);
 
 val stack_write = Q.store_thm("stack_write",
   `∀stack base p m d a v.
@@ -993,7 +1011,7 @@ val mem_load_lemma2 = Q.prove(`
   fs[store_list_def])
 
 val assoc_lem = Q.prove(`
-  (A * B) * C =
+  (A:(('a -> bool) -> bool) * B) * C =
   (B * C) * A`,
   metis_tac[STAR_ASSOC,STAR_COMM])
 
@@ -2763,6 +2781,7 @@ val make_init_any_def = Define `
     case make_init_opt gen_gc max_heap bitmaps k code s of
     | SOME t => t
     | NONE => s with <| regs := FEMPTY |+ (0,Loc 1 0)
+                      ; fp_regs := FEMPTY
                       ; mdomain := EMPTY
                       ; bitmaps := [4w]
                       ; use_stack := T
@@ -3016,8 +3035,8 @@ val stack_remove_stack_asm_name = Q.store_thm("stack_remove_stack_asm_name",`
 
 val upshift_downshift_call_args = Q.store_thm("upshift_downshift_call_args",`
   ∀n n0.
-  call_args (upshift n n0) 1 2 0 ∧
-  call_args (downshift n n0) 1 2 0`,
+  call_args (upshift n n0) 1 2 3 4 0 ∧
+  call_args (downshift n n0) 1 2 3 4 0`,
   completeInduct_on`n0`>>
   simp[Once stack_removeTheory.upshift_def,Once stack_removeTheory.downshift_def]>>
   strip_tac>>IF_CASES_TAC>>
@@ -3026,8 +3045,8 @@ val upshift_downshift_call_args = Q.store_thm("upshift_downshift_call_args",`
 
 val stack_remove_call_args = Q.store_thm("stack_remove_call_args",
   `compile jump off gen_gc n k pos p = p' /\
-    EVERY (λp. call_args p 1 2 0) (MAP SND p) ==>
-    EVERY (λp. call_args p 1 2 0) (MAP SND p')`,
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p) ==>
+    EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p')`,
   rw[]>>
   unabbrev_all_tac>>fs[]>>
   EVAL_TAC>>

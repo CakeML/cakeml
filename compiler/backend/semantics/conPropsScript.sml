@@ -328,7 +328,7 @@ val pmatch_any_match = Q.store_thm("pmatch_any_match",
   BasicProvers.CASE_TAC >>
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> fs [] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 val pmatch_any_no_match = Q.store_thm("pmatch_any_no_match",
@@ -343,7 +343,7 @@ val pmatch_any_no_match = Q.store_thm("pmatch_any_no_match",
   full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   imp_res_tac pmatch_any_match >>
-  TRY BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> fs [] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct]);
 
 val eval_decs_num_defs = Q.store_thm("eval_decs_num_defs",

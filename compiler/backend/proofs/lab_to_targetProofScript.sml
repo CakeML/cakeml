@@ -508,18 +508,20 @@ val state_rel_def = Define `
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.target.config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
     reg_ok s1.len_reg mc_conf.target.config /\ (mc_conf.len_reg = s1.len_reg) /\
+    reg_ok s1.ptr2_reg mc_conf.target.config /\ (mc_conf.ptr2_reg = s1.ptr2_reg) /\
+    reg_ok s1.len2_reg mc_conf.target.config /\ (mc_conf.len2_reg = s1.len2_reg) /\
     reg_ok s1.link_reg mc_conf.target.config /\
     (* FFI behaves correctly *)
     (!ms2 k index new_bytes t1 x.
        target_state_rel mc_conf.target
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
-       (read_bytearray (t1.regs s1.ptr_reg) (LENGTH new_bytes)
+       (read_bytearray (t1.regs s1.ptr2_reg) (LENGTH new_bytes)
          (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) =
            SOME x) ==>
        target_state_rel mc_conf.target
          (t1 with
          <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs s1.ptr_reg) new_bytes t1.mem;
+           mem := asm_write_bytearray (t1.regs s1.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs s1.link_reg|>)
         (mc_conf.ffi_interfer k (index,new_bytes,ms2))) /\
     (!l1 l2 x.
@@ -545,6 +547,7 @@ val state_rel_def = Define `
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (* Relating register *)
+    (!r. s1.fp_regs r = t1.fp_regs r) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (* Relating (data) memories *)
     (!a. byte_align a IN s1.mem_domain ==>
@@ -1251,6 +1254,43 @@ val arith_upd_lemma = Q.prove(
     \\ fs[read_reg_def]
     \\ fs[labSemTheory.assert_def]));
 
+(* The lab and asm versions should be in their individual props *)
+val arith_upd_fp_regs = Q.store_thm("arith_upd_fp_regs[simp]",`
+  ((arith_upd a s).fp_regs = s.fp_regs ∧
+  (arith_upd a (t:'a asm_state)).fp_regs = t.fp_regs)`,
+  Cases_on`a`>>
+  TRY(Cases_on`b`)>>
+  EVAL_TAC>>fs[]>>every_case_tac>>
+  fs[]);
+
+val fp_upd_lemma = Q.prove(`
+  (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧
+  (!r. s1.fp_regs r = t1.fp_regs r) /\
+   ¬(fp_upd f s1).failed ⇒
+  (∀r. (fp_upd f s1).fp_regs r = (fp_upd f t1).fp_regs r) ∧
+  ∀r.
+    word_loc_val p labs (read_reg r (fp_upd f s1)) =
+    SOME ((fp_upd f t1).regs r)`,
+  strip_tac>>Cases_on`f`>>fs[fp_upd_def,read_fp_reg_def,labSemTheory.read_fp_reg_def,upd_reg_def,labSemTheory.upd_reg_def]>>
+  TRY(rw[]>>EVAL_TAC>>rw[]>>EVAL_TAC>>NO_TAC)
+  >-
+    (IF_CASES_TAC>>fs[]>>
+    Cases_on`read_reg n0 s1`>>fs[labSemTheory.assert_def]
+    >-
+      (last_assum(qspec_then`n0` mp_tac)>>
+      pop_assum SUBST1_TAC>>EVAL_TAC>>rw[])
+    >>
+      Cases_on`read_reg n1 s1`>>fs[labSemTheory.assert_def]>>
+      last_assum(qspec_then`n0` mp_tac)>>
+      last_assum(qspec_then`n1` mp_tac)>>
+      pop_assum SUBST1_TAC>>
+      pop_assum SUBST1_TAC>>
+      EVAL_TAC>>rw[])
+  >>
+    TOP_CASE_TAC>>rfs[]>>fs[labSemTheory.assert_def]>>
+    IF_CASES_TAC>>fs[]>>
+    rw[]>>EVAL_TAC>>rw[])
+
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
@@ -1305,223 +1345,250 @@ val Inst_lemma = Q.prove(
     conj_tac >- metis_tac[] >>
     conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
     (match_mp_tac arith_upd_lemma >> srw_tac[][]))
-  \\ strip_tac >>
-  Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
-  >-
-    (`good_dimindex(:'a)` by fs[state_rel_def]>>
-    fs[good_dimindex_def]>>
-    Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
-    TOP_CASE_TAC>>fs[]>>
-    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
-    ntac 2 strip_tac>>fs[state_rel_def]>>
-    `t1.regs n' = c'` by
-      (first_x_assum(qspec_then`n'` assume_tac)>>
-      first_x_assum(qspec_then`n'` assume_tac)>>
-      rfs[word_loc_val_def])>>
-    fs[]
+  THEN1
+    (strip_tac >>
+    Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
     >-
-      (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
-       disch_then (strip_assume_tac o UNDISCH)>>
-      `byte_align (x+1w) ∈ s1.mem_domain ∧
-       byte_align (x+2w) ∈ s1.mem_domain ∧
-       byte_align (x+3w) ∈ s1.mem_domain ∧
-       byte_align x ∈ s1.mem_domain` by fs[]>>
-       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
-       (reverse (rw[])
-       >-
-         (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
-          fs[asmSemTheory.read_mem_def]>>
-          res_tac>>
-          fs[word_loc_val_byte_def]>>
-          ntac 4 (FULL_CASE_TAC>>fs[])>>
-          rfs[get_byte_def,byte_index_def]>>rveq>>
-          Cases_on `c + t1.regs n'`>>
-          rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
-          full_simp_tac std_ss [] \\ fs [] >>
-          strip_tac \\ fs [word_add_n2w] >>
-          rfs [ADD_MOD_EQ_LEMMA] >>
-          rpt (qpat_x_assum `w2w _ = _` (mp_tac o GSYM)) >>
-          imp_res_tac dimword_eq_32_imp_or_bytes >> fs [])
-        >>
-          metis_tac[]
-        ))
-    >>
-      `aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
-       disch_then (strip_assume_tac o UNDISCH)>>
-      `byte_align (x+1w) ∈ s1.mem_domain ∧
-       byte_align (x+2w) ∈ s1.mem_domain ∧
-       byte_align (x+3w) ∈ s1.mem_domain ∧
-       byte_align (x+4w) ∈ s1.mem_domain ∧
-       byte_align (x+5w) ∈ s1.mem_domain ∧
-       byte_align (x+6w) ∈ s1.mem_domain ∧
-       byte_align (x+7w) ∈ s1.mem_domain ∧
-       byte_align x ∈ s1.mem_domain` by fs[]>>
-       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
-       (reverse(rw[])
-       >-
-         (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
-          fs[asmSemTheory.read_mem_def]>>
-          res_tac>>
-          fs[word_loc_val_byte_def]>>
-          ntac 8 (FULL_CASE_TAC>>fs[])>>
-          rfs[get_byte_def,byte_index_def]>>rveq>>
-          Cases_on `c + t1.regs n'`>>
-          rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
-          full_simp_tac std_ss [] \\ fs [] >>
-          strip_tac \\ fs [word_add_n2w] >>
-          rfs [ADD_MOD_EQ_LEMMA] >>
-          rpt (qpat_x_assum `w2w _ = _` (mp_tac o GSYM)) >>
-          imp_res_tac dimword_eq_64_imp_or_bytes >> fs [])
-        >>
-          metis_tac[]))
-  >- (*Load8*)
-    (Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
-    ntac 2 (TOP_CASE_TAC>>fs[])>>
-    ntac 2 (pop_assum mp_tac)>>
-    ntac 2 (TOP_CASE_TAC>>fs[])>>
-    ntac 2 strip_tac>>
-    res_tac>>fs[word_loc_val_byte_def]>>
-    FULL_CASE_TAC>>fs[]>>
-    first_assum(qspec_then`n'` assume_tac)>>
-    qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
-    fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
-    rw[]
-    >- metis_tac[]
-    >-
-      (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
-      fs[asmSemTheory.read_mem_def]>>
-      rfs[word_loc_val_def]))
-  >-
-    (*Store*)
-    (`good_dimindex(:'a)` by fs[state_rel_def]>>
-    fs[good_dimindex_def]>>
-    Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
-    TOP_CASE_TAC>>fs[]>>
-    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
-    ntac 2 strip_tac>>fs[state_rel_def]>>
-    `t1.regs n' = c'` by
-      (first_x_assum(qspec_then`n'` assume_tac)>>
-      first_x_assum(qspec_then`n'` assume_tac)>>
-      rfs[word_loc_val_def])>>
-    fs[]
-    >-
-      (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
-       disch_then (strip_assume_tac o UNDISCH)>>
-       `byte_align (x+1w) ∈ s1.mem_domain ∧
-       byte_align (x+2w) ∈ s1.mem_domain ∧
-       byte_align (x+3w) ∈ s1.mem_domain ∧
-       byte_align x ∈ s1.mem_domain` by fs[]>>
-       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
-       (rw[]
-       >-
-         (simp[APPLY_UPDATE_THM]>>
-         res_tac>>fs[]>>
-         rpt(IF_CASES_TAC>>fs[]))
-       >-
-         metis_tac[]
-       >-
-         metis_tac[]
-       >-
-         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
-         IF_CASES_TAC>>fs[]
-         >-
-           (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_32_IMP>>
-           rpt IF_CASES_TAC>>fs[]>>
-           metis_tac[byte_align_32_CASES])
-         >>
-           res_tac>>
-           imp_res_tac aligned_2_not_eq>>fs[word_loc_val_byte_def])
-       >-
-         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
-         simp[APPLY_UPDATE_THM]>>
-         qexists_tac`t1.mem`>>rfs[]>>
-         rw[APPLY_UPDATE_THM]>>
-         rfs[])
-      ))
-     >>
-       (`aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
-       disch_then (strip_assume_tac o UNDISCH)>>
-       `byte_align (x+1w) ∈ s1.mem_domain ∧
-       byte_align (x+2w) ∈ s1.mem_domain ∧
-       byte_align (x+3w) ∈ s1.mem_domain ∧
-       byte_align (x+4w) ∈ s1.mem_domain ∧
-       byte_align (x+5w) ∈ s1.mem_domain ∧
-       byte_align (x+6w) ∈ s1.mem_domain ∧
-       byte_align (x+7w) ∈ s1.mem_domain ∧
-       byte_align x ∈ s1.mem_domain` by fs[]>>
-       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
-       (rw[]
-       >-
-         (simp[APPLY_UPDATE_THM]>>
-         res_tac>>fs[]>>
-         rpt(IF_CASES_TAC>>fs[]))
-       >-
-         metis_tac[]
-       >-
-         metis_tac[]
-       >-
-         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
-         IF_CASES_TAC>>fs[]
-         >-
-           (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_64_IMP>>
-           rpt IF_CASES_TAC>>fs[]>>
-           metis_tac[byte_align_64_CASES])
-         >>
-           res_tac>>
-           imp_res_tac aligned_3_not_eq>>fs[word_loc_val_byte_def])
-       >-
-         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
-         simp[APPLY_UPDATE_THM]>>
-         qexists_tac`t1.mem`>>rfs[]>>
-         rw[APPLY_UPDATE_THM]>>
-         rfs[])
-       )))
-  >-
-    (Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
-    ntac 3 (TOP_CASE_TAC>>fs[])>>
-    ntac 3 (pop_assum mp_tac)>>
-    ntac 2 (TOP_CASE_TAC>>fs[])>>
-    ntac 3 strip_tac>>
-    fs[state_rel_def]>>
-    res_tac>>fs[word_loc_val_byte_def]>>
-    FULL_CASE_TAC>>fs[]>>
-    first_assum(qspec_then`n'` assume_tac)>>
-    qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
-    fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
-    rw[]
-    >-
-      (fs[APPLY_UPDATE_THM]>>
-      IF_CASES_TAC>>fs[])
-    >- metis_tac[]
-    >-
-      (simp[APPLY_UPDATE_THM]>>
-      IF_CASES_TAC>>fs[word_loc_val_def]>>
-      IF_CASES_TAC>>fs[]
+      (`good_dimindex(:'a)` by fs[state_rel_def]>>
+      fs[good_dimindex_def]>>
+      Cases_on`a`>>last_x_assum mp_tac>>
+      fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
+      TOP_CASE_TAC>>fs[]>>
+      pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+      ntac 2 strip_tac>>fs[state_rel_def]>>
+      `t1.regs n' = c'` by
+        (first_x_assum(qspec_then`n'` assume_tac)>>
+        first_x_assum(qspec_then`n'` assume_tac)>>
+        rfs[word_loc_val_def])>>
+      fs[]
       >-
-        (simp[get_byte_set_byte]>>
-        first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
+        (`aligned 2 x` by fs [aligned_w2n]>>
+         drule aligned_2_imp>>
+         disch_then (strip_assume_tac o UNDISCH)>>
+        `byte_align (x+1w) ∈ s1.mem_domain ∧
+         byte_align (x+2w) ∈ s1.mem_domain ∧
+         byte_align (x+3w) ∈ s1.mem_domain ∧
+         byte_align x ∈ s1.mem_domain` by fs[]>>
+         IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+         (reverse (rw[])
+         >-
+           (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+            fs[asmSemTheory.read_mem_def]>>
+            res_tac>>
+            fs[word_loc_val_byte_def]>>
+            ntac 4 (FULL_CASE_TAC>>fs[])>>
+            rfs[get_byte_def,byte_index_def]>>rveq>>
+            Cases_on `c + t1.regs n'`>>
+            rename1 `k < dimword (:α)`>>
+            drule aligned_IMP_ADD_LESS_dimword >>
+            full_simp_tac std_ss [] \\ fs [] >>
+            strip_tac \\ fs [word_add_n2w] >>
+            rfs [ADD_MOD_EQ_LEMMA] >>
+            rpt (qpat_x_assum `w2w _ = _` (mp_tac o GSYM)) >>
+            imp_res_tac dimword_eq_32_imp_or_bytes >> fs [])
+          >>
+            metis_tac[]
+          ))
       >>
-      simp[get_byte_set_byte_diff]>>
-      first_x_assum(qspec_then`a` mp_tac)>>
-      TOP_CASE_TAC>>rfs[word_loc_val_def])
+        `aligned 3 x` by fs [aligned_w2n]>>
+         drule aligned_3_imp>>
+         disch_then (strip_assume_tac o UNDISCH)>>
+        `byte_align (x+1w) ∈ s1.mem_domain ∧
+         byte_align (x+2w) ∈ s1.mem_domain ∧
+         byte_align (x+3w) ∈ s1.mem_domain ∧
+         byte_align (x+4w) ∈ s1.mem_domain ∧
+         byte_align (x+5w) ∈ s1.mem_domain ∧
+         byte_align (x+6w) ∈ s1.mem_domain ∧
+         byte_align (x+7w) ∈ s1.mem_domain ∧
+         byte_align x ∈ s1.mem_domain` by fs[]>>
+         IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+         (reverse(rw[])
+         >-
+           (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+            fs[asmSemTheory.read_mem_def]>>
+            res_tac>>
+            fs[word_loc_val_byte_def]>>
+            ntac 8 (FULL_CASE_TAC>>fs[])>>
+            rfs[get_byte_def,byte_index_def]>>rveq>>
+            Cases_on `c + t1.regs n'`>>
+            rename1 `k < dimword (:α)`>>
+            drule aligned_IMP_ADD_LESS_dimword >>
+            full_simp_tac std_ss [] \\ fs [] >>
+            strip_tac \\ fs [word_add_n2w] >>
+            rfs [ADD_MOD_EQ_LEMMA] >>
+            rpt (qpat_x_assum `w2w _ = _` (mp_tac o GSYM)) >>
+            imp_res_tac dimword_eq_64_imp_or_bytes >> fs [])
+          >>
+            metis_tac[]))
+    >- (*Load8*)
+      (Cases_on`a`>>last_x_assum mp_tac>>
+      fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>>
+      ntac 2 (pop_assum mp_tac)>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>>
+      ntac 2 strip_tac>>
+      res_tac>>fs[word_loc_val_byte_def]>>
+      FULL_CASE_TAC>>fs[]>>
+      first_assum(qspec_then`n'` assume_tac)>>
+      qpat_x_assum`_=Word c'` SUBST_ALL_TAC>>
+      fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
+      rw[]
+      >- metis_tac[]
+      >-
+        (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+        fs[asmSemTheory.read_mem_def]>>
+        rfs[word_loc_val_def]))
     >-
-      (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
-      qexists_tac`t1.mem`>>rfs[]>>
-      rw[APPLY_UPDATE_THM]>>
-      rfs[])
-      ));
+      (*Store*)
+      (`good_dimindex(:'a)` by fs[state_rel_def]>>
+      fs[good_dimindex_def]>>
+      Cases_on`a`>>last_x_assum mp_tac>>
+      fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
+      TOP_CASE_TAC>>fs[]>>
+      pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+      ntac 2 strip_tac>>fs[state_rel_def]>>
+      `t1.regs n' = c'` by
+        (first_x_assum(qspec_then`n'` assume_tac)>>
+        first_x_assum(qspec_then`n'` assume_tac)>>
+        rfs[word_loc_val_def])>>
+      fs[]
+      >-
+        (`aligned 2 x` by fs [aligned_w2n]>>
+         drule aligned_2_imp>>
+         disch_then (strip_assume_tac o UNDISCH)>>
+         `byte_align (x+1w) ∈ s1.mem_domain ∧
+         byte_align (x+2w) ∈ s1.mem_domain ∧
+         byte_align (x+3w) ∈ s1.mem_domain ∧
+         byte_align x ∈ s1.mem_domain` by fs[]>>
+         IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+         (rw[]
+         >-
+           (simp[APPLY_UPDATE_THM]>>
+           res_tac>>fs[]>>
+           rpt(IF_CASES_TAC>>fs[]))
+         >-
+           metis_tac[]
+         >-
+           metis_tac[]
+         >-
+           (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
+           IF_CASES_TAC>>fs[]
+           >-
+             (fs[get_byte_def,byte_index_def]>>
+             drule byte_align_32_IMP>>
+             rpt IF_CASES_TAC>>fs[]>>
+             metis_tac[byte_align_32_CASES])
+           >>
+             res_tac>>
+             imp_res_tac aligned_2_not_eq>>fs[word_loc_val_byte_def])
+         >-
+           (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+           simp[APPLY_UPDATE_THM]>>
+           qexists_tac`t1.mem`>>rfs[]>>
+           rw[APPLY_UPDATE_THM]>>
+           rfs[])
+        ))
+       >>
+         (`aligned 3 x` by fs [aligned_w2n]>>
+         drule aligned_3_imp>>
+         disch_then (strip_assume_tac o UNDISCH)>>
+         `byte_align (x+1w) ∈ s1.mem_domain ∧
+         byte_align (x+2w) ∈ s1.mem_domain ∧
+         byte_align (x+3w) ∈ s1.mem_domain ∧
+         byte_align (x+4w) ∈ s1.mem_domain ∧
+         byte_align (x+5w) ∈ s1.mem_domain ∧
+         byte_align (x+6w) ∈ s1.mem_domain ∧
+         byte_align (x+7w) ∈ s1.mem_domain ∧
+         byte_align x ∈ s1.mem_domain` by fs[]>>
+         IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+         (rw[]
+         >-
+           (simp[APPLY_UPDATE_THM]>>
+           res_tac>>fs[]>>
+           rpt(IF_CASES_TAC>>fs[]))
+         >-
+           metis_tac[]
+         >-
+           metis_tac[]
+         >-
+           (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
+           IF_CASES_TAC>>fs[]
+           >-
+             (fs[get_byte_def,byte_index_def]>>
+             drule byte_align_64_IMP>>
+             rpt IF_CASES_TAC>>fs[]>>
+             metis_tac[byte_align_64_CASES])
+           >>
+             res_tac>>
+             imp_res_tac aligned_3_not_eq>>fs[word_loc_val_byte_def])
+         >-
+           (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+           simp[APPLY_UPDATE_THM]>>
+           qexists_tac`t1.mem`>>rfs[]>>
+           rw[APPLY_UPDATE_THM]>>
+           rfs[])
+         )))
+    >-
+      (Cases_on`a`>>last_x_assum mp_tac>>
+      fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
+      ntac 3 (TOP_CASE_TAC>>fs[])>>
+      ntac 3 (pop_assum mp_tac)>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>>
+      ntac 3 strip_tac>>
+      fs[state_rel_def]>>
+      res_tac>>fs[word_loc_val_byte_def]>>
+      FULL_CASE_TAC>>fs[]>>
+      first_assum(qspec_then`n'` assume_tac)>>
+      qpat_x_assum`_=Word c''` SUBST_ALL_TAC>>
+      fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
+      rw[]
+      >-
+        (fs[APPLY_UPDATE_THM]>>
+        IF_CASES_TAC>>fs[])
+      >- metis_tac[]
+      >-
+        (simp[APPLY_UPDATE_THM]>>
+        IF_CASES_TAC>>fs[word_loc_val_def]>>
+        IF_CASES_TAC>>fs[]
+        >-
+          (simp[get_byte_set_byte]>>
+          first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
+        >>
+        simp[get_byte_set_byte_diff]>>
+        first_x_assum(qspec_then`a` mp_tac)>>
+        TOP_CASE_TAC>>rfs[word_loc_val_def])
+      >-
+        (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>
+        qexists_tac`t1.mem`>>rfs[]>>
+        rw[APPLY_UPDATE_THM]>>
+        rfs[])
+    ))
+  >>
+  (strip_tac>>CONJ_ASM1_TAC>-
+    (Cases_on`f`>>TRY(EVAL_TAC>>fs[state_rel_def]>>NO_TAC)
+    >-
+      (EVAL_TAC>>rw[]>>fs[state_rel_def])
+    >>
+      fs[fp_upd_def]>>
+      `read_fp_reg n0 s1 = read_fp_reg n0 t1` by
+        (EVAL_TAC>>fs[state_rel_def])>>
+      TOP_CASE_TAC>>fs[assert_def,labSemTheory.assert_def]>>
+      IF_CASES_TAC>-
+        fs[state_rel_def,labSemTheory.upd_fp_reg_def,upd_fp_reg_def]>>
+      IF_CASES_TAC>>
+      fs[state_rel_def,labSemTheory.upd_fp_reg_def,upd_fp_reg_def])
+  >>
+  strip_tac>>
+  simp[inc_pc_dec_clock] >>
+  simp[dec_clock_def] >>
+  match_mp_tac state_rel_clock >>
+  full_simp_tac(srw_ss())[state_rel_def] >>
+  simp[GSYM word_add_n2w] >>
+  fsrw_tac[ARITH_ss][] >>
+  conj_tac >- metis_tac[] >>
+  conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
+  match_mp_tac fp_upd_lemma>>
+  fs[]));
 
 (* compile correct *)
 
@@ -4726,16 +4793,23 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (CallFFI s) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.regs s1.len2_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.regs s1.ptr2_reg` \\ full_simp_tac(srw_ss())[]
+    \\ qmatch_assum_rename_tac `read_reg _.len2_reg _ = Word c2`    
+    \\ qmatch_assum_rename_tac `read_reg _.ptr2_reg _ = Word c2'`
+    \\ qmatch_assum_rename_tac `read_reg _.ptr_reg _ = Word c'`
     \\ Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
     \\ full_simp_tac(srw_ss())[]
-    \\ qmatch_assum_rename_tac
-         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`
+    \\ Cases_on `read_bytearray c2' (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
+    \\ full_simp_tac(srw_ss())[]
+(*    \\ qmatch_assum_rename_tac
+         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`*)
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
-    \\ Cases_on `call_FFI s1.ffi s x` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `call_FFI s1.ffi s x x'` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
-         `call_FFI s1.ffi s x = (new_ffi,new_bytes)`
+         `call_FFI s1.ffi s x x' = (new_ffi,new_bytes)`
     \\ mp_tac (Q.GEN `name` IMP_bytes_in_memory_CallFFI) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (full_simp_tac(srw_ss())[state_rel_def]
@@ -4780,6 +4854,8 @@ val compile_correct = Q.prove(
        metis_tac[])
     \\ `(mc_conf.target.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.target.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
+        (mc_conf.target.get_reg ms2 mc_conf.ptr2_reg = t1.regs mc_conf.ptr2_reg) /\
+        (mc_conf.target.get_reg ms2 mc_conf.len2_reg = t1.regs mc_conf.len2_reg) /\
         !a. a IN mc_conf.prog_addresses ==>
             (mc_conf.target.get_byte ms2 a = t1.mem a)` by
      (full_simp_tac(srw_ss())[GSYM PULL_FORALL]
@@ -4792,15 +4868,21 @@ val compile_correct = Q.prove(
       \\ rpt strip_tac \\ first_x_assum match_mp_tac
       \\ full_simp_tac(srw_ss())[reg_ok_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
-    \\ `(t1.regs mc_conf.ptr_reg = c1) /\
-        (t1.regs mc_conf.len_reg = c2)` by
+    \\ `(t1.regs mc_conf.ptr_reg = c') /\
+        (t1.regs mc_conf.len_reg = c) /\
+        (t1.regs mc_conf.ptr2_reg = c2') /\
+        (t1.regs mc_conf.len2_reg = c2)` by
      (full_simp_tac(srw_ss())[state_rel_def]
       \\ Q.PAT_X_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
            (fn th =>
           MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
-          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr2_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len2_reg` th))
       \\ Q.PAT_X_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
       \\ Q.PAT_X_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `xx = s1.ptr2_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_X_ASSUM `xx = s1.len2_reg` (ASSUME_TAC o GSYM)
       \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
@@ -4826,22 +4908,22 @@ val compile_correct = Q.prove(
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
          `code2`,`labs`,
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a sec list)) ;
-                     mem := asm_write_bytearray c1 new_bytes t1.mem ;
+                     mem := asm_write_bytearray c2' new_bytes t1.mem ;
                      regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
          `mc_conf.ffi_interfer 0 (get_ffi_index mc_conf.ffi_names s,new_bytes,ms2)`]mp_tac)
-    \\ impl_tac >-
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
       THEN1 (full_simp_tac(srw_ss())[backend_correct_def,shift_interfer_def]
              \\ metis_tac [])
       \\ unabbrev_all_tac
+      \\ imp_res_tac bytes_in_mem_asm_write_bytearray
       \\ full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def,
              asm_def,jump_to_offset_def,
              asmSemTheory.upd_pc_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
             WORD_ADD_SUB] \\ full_simp_tac(srw_ss())[get_pc_value_def]
       \\ full_simp_tac bool_ss [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
-            WORD_ADD_SUB]
-      \\ full_simp_tac(srw_ss())[get_pc_value_def]
+            WORD_ADD_SUB] \\ full_simp_tac(srw_ss())[get_pc_value_def]
       \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
             (mc_conf.target.proj t1.mem_domain)` by
                (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]
@@ -4852,9 +4934,7 @@ val compile_correct = Q.prove(
         \\ full_simp_tac(srw_ss())[word_loc_val_def]
         \\ Cases_on `lab_lookup n1 n2 labs` \\ full_simp_tac(srw_ss())[]
         \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[]
-        \\ ntac 2 (qpat_x_assum`∀x. P x` kall_tac)
-        \\ res_tac \\ full_simp_tac(srw_ss())[])
-      \\ full_simp_tac(srw_ss())[]
+        \\ res_tac \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
       \\ `w2n c2 = LENGTH new_bytes` by
        (imp_res_tac read_bytearray_LENGTH
         \\ imp_res_tac evaluatePropsTheory.call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
@@ -4862,7 +4942,7 @@ val compile_correct = Q.prove(
       THEN1
        (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO]
         \\ rev_full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
+        \\ Q.PAT_X_ASSUM `t1.regs s1.ptr2_reg = c2'` (ASSUME_TAC o GSYM)
         \\ full_simp_tac(srw_ss())[] \\ first_x_assum match_mp_tac
         \\ full_simp_tac(srw_ss())[] \\ qexists_tac `new_io`
         \\ full_simp_tac(srw_ss())[])
@@ -4872,14 +4952,14 @@ val compile_correct = Q.prove(
       THEN1
        (Cases_on `s1.io_regs 0 r`
         \\ full_simp_tac(srw_ss())[get_reg_value_def,word_loc_val_def])
-      THEN1 (
-        qpat_x_assum `!a.
-             byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
+      THEN1
+       (qpat_x_assum `!a.
+           byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
         \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-        \\ match_mp_tac (SIMP_RULE std_ss [] CallFFI_bytearray_lemma)
-        \\ full_simp_tac(srw_ss())[] )
+        \\ match_mp_tac (SIMP_RULE std_ss [] (Q.INST [`x` |-> `x'`] CallFFI_bytearray_lemma))
+        \\ full_simp_tac(srw_ss())[])
       \\ (
-        match_mp_tac (MP_CANON bytes_in_mem_asm_write_bytearray)
+        match_mp_tac (MP_CANON (Q.INST [`x`|->`x'`] bytes_in_mem_asm_write_bytearray))
         \\ simp[]))
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
@@ -5118,6 +5198,7 @@ val make_word_def = Define `
 val make_init_def = Define `
   make_init mc_conf (ffi:'ffi ffi_state) io_regs t m dm (ms:'state) code =
     <| regs           := \k. Word ((t.regs k):'a word)
+     ; fp_regs    := t.fp_regs
      ; mem            := m
      ; mem_domain     := dm
      ; pc             := 0
@@ -5129,6 +5210,8 @@ val make_init_def = Define `
      ; failed         := F
      ; ptr_reg        := mc_conf.ptr_reg
      ; len_reg        := mc_conf.len_reg
+     ; ptr2_reg       := mc_conf.ptr2_reg
+     ; len2_reg       := mc_conf.len2_reg                           
      ; link_reg       := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
      |>`;
 
@@ -5146,6 +5229,7 @@ val target_configured_def = Define`
     t.align = mc_conf.target.config.code_alignment /\
     t.mem_domain = mc_conf.prog_addresses /\
     (* byte_aligned (t.regs mc_conf.ptr_reg) ∧ *)
+    (* byte_aligned (t.regs mc_conf.ptr2_reg) ∧ *)
     (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r)
     `;
 
@@ -5155,6 +5239,7 @@ val start_pc_ok_def = Define`
     mc_conf.halt_pc NOTIN mc_conf.prog_addresses /\
     pc - n2w ffi_offset = mc_conf.halt_pc /\
     (1w && pc) = 0w /\
+(*>>>>>>> origin/master*)
     (!index.
        index < LENGTH mc_conf.ffi_names ==>
        pc - n2w ((3 + index) * ffi_offset) NOTIN
@@ -5174,7 +5259,7 @@ val ffi_interfer_ok_def = Define`
          (t1 with
           pc := -n2w ((3 + index) * ffi_offset) + pc)
        ms2 /\
-       read_bytearray (t1.regs mc_conf.ptr_reg) (LENGTH new_bytes)
+       read_bytearray (t1.regs mc_conf.ptr2_reg) (LENGTH new_bytes)
          (\a. if a IN t1.mem_domain then SOME (t1.mem a) else NONE) =
        SOME x ==>
        target_state_rel mc_conf.target
@@ -5184,7 +5269,7 @@ val ffi_interfer_ok_def = Define`
              get_reg_value
                (if MEM a mc_conf.callee_saved_regs then NONE else io_regs k a)
                (t1.regs a) I);
-           mem := asm_write_bytearray (t1.regs mc_conf.ptr_reg) new_bytes t1.mem;
+           mem := asm_write_bytearray (t1.regs mc_conf.ptr2_reg) new_bytes t1.mem;
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                   | SOME n => n)|>)
         (mc_conf.ffi_interfer k (index,new_bytes,ms2)))`;
@@ -5235,6 +5320,8 @@ val mc_conf_ok_def = Define`
     backend_correct mc_conf.target ∧
     reg_ok mc_conf.ptr_reg mc_conf.target.config /\
     reg_ok mc_conf.len_reg mc_conf.target.config /\
+    reg_ok mc_conf.ptr2_reg mc_conf.target.config /\
+    reg_ok mc_conf.len2_reg mc_conf.target.config /\
     reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
       mc_conf.target.config ∧
     enc_ok mc_conf.target.config`;

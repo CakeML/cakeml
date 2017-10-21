@@ -1052,7 +1052,6 @@ val do_opapp_v_rel = Q.store_thm("do_opapp_v_rel",
   TRY (
     Cases >> Cases >> simp[] >>
     unabbrev_all_tac >> simp[] >> NO_TAC) >>
-  reverse conj_tac >- metis_tac[arithmeticTheory.ADD_SYM,arithmeticTheory.ADD_ASSOC] >>
   Cases >> Cases >> srw_tac[][env_rel_def] >> fsrw_tac[ARITH_ss][arithmeticTheory.ADD1] >>
   simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
   simp[Once v_rel_cases] >>
@@ -1218,6 +1217,7 @@ val do_app_v_rel = Q.store_thm("do_app_v_rel",
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]) >>
   pop_assum(strip_assume_tac o SIMP_RULE std_ss [patSemTheory.do_app_cases]) >>
   rw[patSemTheory.do_app_def] >>
+  rfs[] >>
   fs[store_alloc_def,store_lookup_def,store_assign_def] >> rw[] >>
   fs[state_rel_def] >>
   TRY (
@@ -1384,7 +1384,7 @@ val evaluate_exp_rel = Q.store_thm("evaluate_exp_rel",
     full_simp_tac(srw_ss())[patSemTheory.evaluate_def,PULL_EXISTS] >>
     first_x_assum match_mp_tac >> simp[] >>
     match_mp_tac (MP_CANON (GEN_ALL exp_rel_mono)) >>
-    simp[env_rel_def,patSemTheory.build_rec_env_def] >>
+    simp[env_rel_def,patSemTheory.build_rec_env_def] >> fs[] >>
     HINT_EXISTS_TAC >> simp[bindn_thm,GSYM bindn_def] >>
     imp_res_tac EVERY2_LENGTH >>
     srw_tac[][] >> simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>

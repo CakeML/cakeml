@@ -46,8 +46,9 @@ val compile_def = Define`
     let e = pat_to_clos$compile e in
     let (c',p) = clos_to_bvl$compile c.clos_conf e in
     let c = c with clos_conf := c' in
-    let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-    let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
+    let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+    let c = c with clos_conf updated_by (λc. c with start:=s) in
+    let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let p = bvi_to_data$compile_prog p in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -108,8 +109,9 @@ val to_bvl_def = Define`
 val to_bvi_def = Define`
   to_bvi c p =
   let (c,p) = to_bvl c p in
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-  let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
+  let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  let c = c with clos_conf updated_by (λc. c with start := s) in
+  let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
   (c,p)`;
 
 val to_data_def = Define`
@@ -202,8 +204,9 @@ val from_bvi_def = Define`
 
 val from_bvl_def = Define`
   from_bvl c p =
-  let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc c.bvl_conf p in
-  let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
+  let (s,p,l,n1,n2) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+  let c = c with clos_conf updated_by (λc. c with start:=s) in
+  let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
   from_bvi c p`;
 
 val from_clos_def = Define`
@@ -268,6 +271,7 @@ val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
   let (c',p) = to_data c p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
@@ -343,7 +347,7 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   rpt(pairarg_tac>>fs[])>>
   fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
   rveq>>fs[]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[])
+  BasicProvers.EVERY_CASE_TAC>>fs[]);
 
 val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   to_livesets (c with word_to_word_conf:=wc) p =
@@ -410,8 +414,6 @@ val compile_explorer_def = Define`
     let prog = (3,0,e)::aux in
     let res = clos_to_json_table "-call" prog::res in
     let new_c = new_c with start := num_stubs new_c.max_app + 1 in
-    let prog = clos_remove$compile new_c.do_remove prog in
-    let res = clos_to_json_table "-remove" prog::res in
     let prog = clos_annotate$compile prog in
     let res = clos_to_json_table "-annotate" prog::res in
       json_to_string (Array (REVERSE res))`;

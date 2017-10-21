@@ -1,7 +1,7 @@
 open preamble match_goal dep_rewrite
      closSemTheory closPropsTheory
      clos_callTheory
-     db_varsTheory clos_freeProofTheory;
+     db_varsTheory;
 
 val _ = new_theory"clos_callProof";
 
@@ -90,6 +90,46 @@ val every_refv = Define
 val _ = export_rewrites["every_refv_def"];
 
 (* -- *)
+
+(* correctness of free *)
+
+val IMP_EXISTS_IFF = Q.prove(
+  `!xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
+         (EXISTS P xs <=> EXISTS Q xs)`,
+  Induct \\ fs []);
+
+val free_thm = Q.prove(
+  `!xs.
+     let (ys,l) = free xs in
+       !n. (fv n ys = has_var n l) /\
+           (fv n xs = has_var n l)`,
+  recInduct free_ind \\ REPEAT STRIP_TAC \\ fs [free_def,LET_DEF]
+  \\ TRY (fs [has_var_def,fv_def,fv1_thm] \\ NO_TAC)
+  THEN1 (* cons *)
+   (`?y1 l1. free [x] = ([y1],l1)` by METIS_TAC [PAIR,free_SING] \\ fs []
+    \\ `?y2 l2. free (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ fs []
+    \\ IMP_RES_TAC evaluate_const \\ rfs [] \\ RES_TAC
+    \\ IMP_RES_TAC free_LENGTH
+    \\ Cases_on `y2` \\ fs [has_var_def,fv_def,fv1_thm])
+  \\ `?y1 l1. free (MAP SND fns) = (y1,l1)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ `?y1 l1. free [x1] = ([y1],l1)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ `?y1 l1. free xs2 = (y1,l1)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ `?y3 l3. free [x3] = ([y3],l3)` by METIS_TAC [PAIR,free_SING] \\ fs []
+  \\ rfs [] \\ RES_TAC \\ IMP_RES_TAC free_LENGTH \\ fs []
+  \\ fs [has_var_def,fv_def,fv1_thm,MEM_vars_to_list]
+  \\ fs [AC ADD_ASSOC ADD_COMM, MAP_ZIP]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV)) \\ fs []
+  \\ STRIP_TAC \\ Cases_on `has_var (n + LENGTH fns) l1'` \\ fs []
+  \\ fs [EXISTS_MAP]
+  \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC IMP_EXISTS_IFF \\ fs [FORALL_PROD]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ Cases_on `free [p_2]` \\ fs []
+  \\ IMP_RES_TAC free_SING \\ fs [])
+|> curry save_thm "free_thm";
 
 (* value relation *)
 
@@ -483,7 +523,7 @@ val closed_Fn = Q.store_thm("closed_Fn",
   \\ qspec_then`[e]`mp_tac free_thm
   \\ simp[] \\ pairarg_tac \\ fs[]
   \\ rw[]
-  \\ fs[clos_freeTheory.free_def]
+  \\ fs[free_def]
   \\ rw[EQ_IMP_THM]
   >- (
     spose_not_then strip_assume_tac
@@ -1564,6 +1604,13 @@ val do_app_thm = Q.prove(
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
     \\ first_x_assum drule \\ fs [])
+  \\ Cases_on `(?fpb. op = FP_bop fpb) \/
+               (? fpu. op = FP_uop fpu) \/
+               (? fcmp. op = FP_cmp fcmp)` THEN1
+   (fs [] \\ rw []
+    \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
+    \\ rw [] \\ fs [] \\ fs [v_rel_def] \\ rw []
+    \\ fs [Boolv_def] \\ rw [v_rel_def])
   \\ Cases_on `op` \\ fs []);
 
 val NOT_IN_domain_FST_g = Q.store_thm("NOT_IN_domain_FST_g",
@@ -2274,7 +2321,7 @@ val calls_correct = Q.store_thm("calls_correct",
       \\ fs[EVERY_MEM,calls_list_MAPi,indexedListsTheory.MEM_MAPi,
             FORALL_PROD,PULL_EXISTS,MEM_ZIP,ZIP_MAP,EL_MAP]
       \\ metis_tac[MEM_EL,FST,PAIR] )
-    \\ qunabbrev_tac`bo`\\fs[]
+    \\ qunabbrev_tac`bo`\\fs[](** MARKER **)
     \\ qmatch_assum_abbrev_tac`calls [exp] g2 = ([b2],_)`
     \\ qmatch_assum_rename_tac`calls [exp] g2 = ([b2],g4)`
     \\ qmatch_assum_rename_tac`calls [exp] g3 = ([b0],g5)`

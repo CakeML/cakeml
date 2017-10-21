@@ -130,9 +130,12 @@ val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
 val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
+val EqualityType_ASM_FP_TYPE = find_equality_type_thm``ASM_FP_TYPE``
+  |> SIMP_RULE std_ss [EqualityType_NUM]
 val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE]
+                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE,
+                       EqualityType_ASM_FP_TYPE]
 
 val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
   |> SIMP_RULE std_ss []
@@ -495,7 +498,7 @@ open word_simpTheory word_allocTheory word_instTheory
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
-val _ = translate (INST_TYPE [beta|->``:32``]const_fp_inst_cs_def)
+val _ = translate (const_fp_inst_cs_def |> spec32 |> econv)
 
 val rws = Q.prove(`
   ($+ = λx y. x + y) ∧
@@ -540,6 +543,7 @@ val _ = translate (spec32 const_fp_loop_def)
 
 val _ = translate (spec32 compile_exp_def)
 
+val _ = translate (wordLangTheory.max_var_inst_def |> conv32)
 val _ = translate (spec32 wordLangTheory.max_var_def)
 
 val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi)
@@ -565,53 +569,24 @@ val _ = translate (spec32 inst_select_pmatch)
 
 val _ = translate (spec32 list_next_var_rename_move_def)
 
-val word_alloc_list_next_var_rename_move_side = Q.prove(`
-  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T`,
-  simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
-  Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
-  rpt(pairarg_tac>>fs[])>>
-  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
-
+val _ = translate (conv32 ssa_cc_trans_inst_def)
 val _ = translate (spec32 full_ssa_cc_trans_def)
 
-val word_alloc_full_ssa_cc_trans_side = Q.prove(`
-  ∀x y. word_alloc_full_ssa_cc_trans_side x y`,
-  simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
-  rw[]>-
-    (simp[fetch "-" "word_alloc_setup_ssa_side_def"]>>
-    qmatch_goalsub_abbrev_tac `list_next_var_rename A B C`>>
-    map_every qid_spec_tac [`C`,`B`,`A`]>>
-    rpt (pop_assum kall_tac)>>
-    Induct>>EVAL_TAC>>fs[FORALL_PROD,LAMBDA_PROD]>>rw[]>>
-    pairarg_tac>>fs[]>>rveq>>
-    res_tac>>
-    fs[])>>
-  pop_assum kall_tac>>
-  map_every qid_spec_tac [`v6`,`v7`,`y`]>>
-  ho_match_mp_tac ssa_cc_trans_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "word_alloc_ssa_cc_trans_side_def")]>>
-  map_every qid_spec_tac [`ssa`,`na`]>>
-  Induct_on`ls`>>fs[list_next_var_rename_def]>>rw[]>>
-  rpt(pairarg_tac>>fs[])>>
-  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
-
+val _ = translate (conv32 remove_dead_inst_def)
+val _ = translate (conv32 get_live_inst_def)
 val _ = translate (spec32 remove_dead_def)
 
-val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``] get_forced_pmatch)
+val lem = Q.prove(`
+  dimindex(:64) = 64 ∧
+  dimindex(:32) = 32`,
+  EVAL_TAC);
 
+val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``] get_forced_pmatch
+                  |> SIMP_RULE (bool_ss++ARITH_ss) [lem])
+
+val _ = translate (get_delta_inst_def |> conv32)
+val _ = translate (wordLangTheory.every_var_inst_def |> conv32)
 val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
-
-val word_alloc_apply_colour_side = Q.prove(`
-  ∀x y. word_alloc_apply_colour_side x y ⇔ T`,
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
-
-val word_alloc_word_alloc_side = Q.prove(`
-  ∀v w x y z. word_alloc_word_alloc_side v w x y z ⇔ T`,
-  simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
-  Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
-  word_alloc_apply_colour_side]) |> update_precondition
 
 val _ = translate (spec32 three_to_two_reg_pmatch)
 

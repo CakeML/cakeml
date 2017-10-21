@@ -61,6 +61,9 @@ val astOp_to_modOp_def = Define `
   | Opb opb => modLang$Opb opb
   | Opw word_size opw => modLang$Opw word_size opw
   | Shift word_size shift num => modLang$Shift word_size shift num
+  | FP_cmp cmp => modLang$FP_cmp cmp
+  | FP_uop uop => modLang$FP_uop uop
+  | FP_bop bop => modLang$FP_bop bop
   | Equality => modLang$Equality
   | Opapp => modLang$Opapp
   | Opassign => modLang$Opassign
@@ -151,7 +154,7 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) =
-    let t' = if t = None then t else (Cons (Cons (Cons (Cons Empty st.row) st.col) en.row) en.col) in
+    let t' = if t = None then t else SourceLoc st.row st.col en.row en.col in
       compile_exp t' env e) ∧
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =

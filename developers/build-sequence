@@ -67,9 +67,9 @@ candle/standard/opentheory
 compiler/benchmarks
 
 # other examples
-characteristic/examples
-characteristic/examples/compilation
-characteristic/examples/compilation/proofs
+examples
+examples/compilation
+examples/compilation/proofs
 
 # tests
 translator/okasaki-examples
@@ -79,7 +79,7 @@ compiler/parsing/tests
 # compiler bootstrap
 compiler/bootstrap/translation
 compiler/bootstrap/translation/x64
-compiler/bootstrap/evaluation/x64
-compiler/bootstrap/evaluation/x64/proofs
+compiler/bootstrap/compilation/x64
+compiler/bootstrap/compilation/x64/proofs
 compiler/bootstrap/translation/riscv
-compiler/bootstrap/evaluation/riscv
+compiler/bootstrap/compilation/riscv

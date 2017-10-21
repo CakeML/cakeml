@@ -1,10 +1,10 @@
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open reg_allocProgTheory;
+open basisProgTheory;
 
 val _ = new_theory "to_dataProg"
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "basisProg";
 
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
@@ -52,6 +52,17 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
+
+(* TODO:
+   this is a discrepancy between HOL's standard libraries and
+   mllist. probably the compiler should be using the mllist versions? *)
+val res = translate EL;
+val list_el_side = Q.prove(
+  `!n xs. list_el_side n xs = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
+  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+(* -- *)
 
 val res = translate (source_to_modTheory.compile_exp_def);
 
@@ -135,12 +146,19 @@ val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
                        EqualityType_LIST_TYPE_CHAR]
 
+val EqualityType_FPSEM_FP_BOP_TYPE = find_equality_type_thm ``FPSEM_FP_BOP_TYPE``
+val EqualityType_FPSEM_FP_UOP_TYPE = find_equality_type_thm ``FPSEM_FP_UOP_TYPE``
+val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE``
+
 val EqualityType_MODLANG_OP_TYPE = find_equality_type_thm``MODLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
                        EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_LIST_TYPE_CHAR]
-
+                       EqualityType_LIST_TYPE_CHAR,
+                       EqualityType_FPSEM_FP_BOP_TYPE,
+                       EqualityType_FPSEM_FP_UOP_TYPE,
+                       EqualityType_FPSEM_FP_CMP_TYPE
+                       ]
 
 val EqualityType_CONLANG_OP_TYPE = find_equality_type_thm``CONLANG_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_OP_TYPE]
@@ -360,26 +378,10 @@ TODO: make this not have to be explicitly translated, probably by renaming it to
 *)
 val _ = translate (clos_numberTheory.renumber_code_locs_def)
 
-val clos_number_renumber_code_locs_list_side = Q.prove(`
-  (∀a b. clos_number_renumber_code_locs_list_side a b ⇔ T) ∧
-  (∀a b. clos_number_renumber_code_locs_side a b ⇔ T)`,
-  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind>>rw[]>>
-  simp[Once (fetch"-" "clos_number_renumber_code_locs_list_side_def")]>>
-  metis_tac[clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]) |> update_precondition
-
 (* known *)
 (*val _ = patternMatchesLib.ENABLE_PMATCH_CASES();*)
 
 val _ = translate clos_knownTheory.merge_alt
-
-val clos_known_merge_tup_side_def = theorem"clos_known_merge_tup_side_def";
-
-val clos_known_merge_side = Q.prove(`
-  ∀a b. clos_known_merge_side a b ⇔ T`,
-  EVAL_TAC \\
-  recInduct clos_knownTheory.merge_tup_ind \\
-  rw[] \\
-  rw[Once clos_known_merge_tup_side_def]) |> update_precondition;
 
 val num_abs_intro = Q.prove(`
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x`,
@@ -402,7 +404,7 @@ val clos_known_known_op_side = Q.prove(`
   ∀a b c. clos_known_known_op_side a b c ⇔ T`,
   rpt strip_tac >> Cases_on `b` >>
   simp[Once (fetch"-" "clos_known_known_op_side_def")]>>
-  fs[clos_known_merge_side]>>rw[]>>
+  fs[]>>rw[]>>
   intLib.COOPER_TAC) |> update_precondition;
 
 (*
@@ -441,12 +443,12 @@ val clos_known_compile_side = Q.prove(
 
 val r = translate (clos_callTheory.calls_def)
 
-val clos_free_free_side = Q.prove(`
-  ∀a. clos_free_free_side a ⇔ T`,
-  ho_match_mp_tac clos_freeTheory.free_ind>>rw[]>>
-  simp[Once (fetch "-" "clos_free_free_side_def")]>>rw[]>>
+val clos_call_free_side = Q.prove(`
+  ∀a. clos_call_free_side a ⇔ T`,
+  ho_match_mp_tac clos_callTheory.free_ind>>rw[]>>
+  simp[Once (fetch "-" "clos_call_free_side_def")]>>rw[]>>
   CCONTR_TAC>>fs[]>>
-  imp_res_tac clos_freeTheory.free_SING>>fs[]>>
+  imp_res_tac clos_callTheory.free_SING>>fs[]>>
   metis_tac[]) |> update_precondition
 
 val clos_call_calls_side = Q.prove(`
@@ -456,16 +458,11 @@ val clos_call_calls_side = Q.prove(`
   `∀a b c. calls [a] b ≠ ([],c)` by
     (CCONTR_TAC>>fs[]>>
     imp_res_tac clos_callTheory.calls_sing>>fs[])>>
-  rw[]>> simp[Once (fetch"-" "clos_call_calls_side_def"),Once (fetch "-" "clos_call_closed_side_def"),clos_free_free_side]>>
+  rw[]>> simp[Once (fetch"-" "clos_call_calls_side_def"),Once (fetch "-" "clos_call_closed_side_def"),clos_call_free_side]>>
   TRY(metis_tac[])>>
   ntac 2 strip_tac>>
-  simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_free_free_side]
-  >-
-    metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]
-  >>
-    simp[GSYM LAMBDA_PROD]>>rw[]
-    >- (imp_res_tac clos_callTheory.calls_length>>fs[])
-    >> metis_tac[LIST_REL_LENGTH,LAMBDA_PROD]) |> update_precondition
+  simp[LAMBDA_PROD]>> rw[fetch "-" "clos_call_closed_side_def",clos_call_free_side]
+  >> rw[GSYM LAMBDA_PROD]) |> update_precondition
 
 val r = translate clos_callTheory.compile_def
 
@@ -475,35 +472,8 @@ val clos_call_compile_side = Q.prove(
   imp_res_tac clos_callTheory.calls_sing \\
   fs[]) |> update_precondition;
 
-(* remove *)
-val _ = save_thm ("remove_ind",clos_removeTheory.remove_alt_ind)
-
-val r = translate (clos_removeTheory.remove_alt)
-
-val clos_remove_remove_side = Q.prove(`
-  ∀x. clos_remove_remove_side x ⇔ T`,
-  recInduct clos_removeTheory.remove_alt_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "clos_remove_remove_side_def")]>>
-  rw[]>>
-  imp_res_tac clos_removeTheory.remove_SING>>fs[]>>
-  TRY(first_x_assum match_mp_tac>>fs[]>>metis_tac[])>>
-  CCONTR_TAC>>fs[]>>
-  imp_res_tac clos_removeTheory.remove_SING>>fs[])|>update_precondition
-
-val r = translate clos_removeTheory.compile_def
-
-val clos_remove_compile_side = Q.prove(
-  `∀x y. clos_remove_compile_side x y = T`,
-  EVAL_TAC \\ rw[] \\
-  qmatch_goalsub_abbrev_tac`FST p` \\
-  Cases_on`p` \\ fs[markerTheory.Abbrev_def] \\
-  pop_assum(assume_tac o SYM) \\
-  imp_res_tac clos_removeTheory.remove_LENGTH \\fs[])
-  |> update_precondition;
-
 (* shift *)
-val _ = translate (clos_annotateTheory.shift_def)
+val r = translate (clos_annotateTheory.shift_def)
 
 val clos_annotate_shift_side = Q.prove(`
   ∀a b c d. clos_annotate_shift_side a b c d ⇔ T`,
@@ -518,10 +488,19 @@ val clos_annotate_shift_side = Q.prove(`
 
 val r = translate clos_annotateTheory.compile_def
 
+val clos_annotate_alt_free_side = Q.prove(
+  `∀x. clos_annotate_alt_free_side x ⇔ T`,
+  ho_match_mp_tac clos_annotateTheory.alt_free_ind \\ rw[] \\
+  simp[Once(fetch "-" "clos_annotate_alt_free_side_def")] \\
+  rw[] \\ fs[] \\
+  CCONTR_TAC \\ fs[] \\
+  imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[] \\
+  METIS_TAC[]) |> update_precondition;
+
 val clos_annotate_compile_side = Q.prove(
   `∀x. clos_annotate_compile_side x = T`,
-  EVAL_TAC \\ rw[] \\
-  METIS_TAC[clos_annotateTheory.shift_SING,clos_freeTheory.free_SING,
+  EVAL_TAC \\ rw[clos_annotate_alt_free_side] \\
+  METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
 
 val r = translate clos_to_bvlTheory.compile_def
@@ -543,7 +522,11 @@ val EqualityType_CLOSLANG_OP_TYPE = find_equality_type_thm``CLOSLANG_OP_TYPE``
       EqualityType_AST_OPW_TYPE,
       EqualityType_AST_WORD_SIZE_TYPE,
       EqualityType_LIST_TYPE_CHAR,
-      EqualityType_BOOL]
+      EqualityType_BOOL,
+      EqualityType_FPSEM_FP_BOP_TYPE,
+      EqualityType_FPSEM_FP_UOP_TYPE,
+      EqualityType_FPSEM_FP_CMP_TYPE
+      ]
 
 val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
   |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
@@ -686,7 +669,6 @@ val clos_to_bvl_compile_side = Q.prove(`
   rw[Once (fetch "-" "clos_to_bvl_compile_side_def"),
   Once (fetch "-" "clos_call_compile_side_def"),
   Once (fetch "-" "clos_to_bvl_compile_prog_side_def"),
-  Once (fetch "-" "clos_remove_compile_side_def"),
   Once (fetch "-" "clos_known_compile_side_def")]
   >-
     (EVAL_TAC>>simp[bvl_jump_jumplist_side])
@@ -877,45 +859,64 @@ val bvi_let_compile_side = Q.prove(`
 
 val _ = translate(bvi_letTheory.compile_exp_def);
 
-val tail_is_ok_alt_def = Define `
-  tail_is_ok_alt name x =
-     case x of
-       Var n => NONE
-     | If v15 v16 v17 =>
-         (let inl = tail_is_ok_alt name v16 in
-          let inr = tail_is_ok_alt name v17
-          in
-            case inl of
-              NONE =>
-                (case inr of
-                   NONE => NONE
-                 | SOME (v4,iop') => SOME (T,iop'))
-            | SOME (v6,iop) =>
-                case inr of
-                  NONE => SOME (F,iop)
-                | SOME v8 => SOME (T,iop))
-     | Let v18 v19 => tail_is_ok_alt name v19
-     | Raise v20 => NONE
-     | Tick v21 => tail_is_ok_alt name v21
-     | Call v22 v23 v24 v25 => NONE
-     | Op v26 v27 =>
-         if v26 = Add ∨ v26 = Mult then
-           (let iop = from_op v26
-            in
-              case rewrite_op iop name (Op v26 v27) of
-                (T,v3) => SOME (F,iop)
-              | (F,v3) => NONE)
-         else NONE`;
+val _ = translate bvi_tailrecTheory.scan_expr_def
 
-val _ = translate tail_is_ok_alt_def
+val bvi_tailrec_scan_expr_side = Q.prove (
+  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2 <=> T`,
+  ho_match_mp_tac bvi_tailrecTheory.scan_expr_ind \\ rw []
+  \\ simp [Once (fetch "-" "bvi_tailrec_scan_expr_side_def")]
+  \\ PURE_FULL_CASE_TAC \\ fs [])
+  |> update_precondition
 
-val tail_is_ok_lemma = prove(
-  ``!name x. tail_is_ok name x = tail_is_ok_alt name x``,
-  ho_match_mp_tac (fetch "-" "tail_is_ok_alt_ind") \\ rw []
-  \\ once_rewrite_tac [tail_is_ok_alt_def]
-  \\ CASE_TAC \\ fs [bvi_tailrecTheory.tail_is_ok_def]);
+val rewrite_alt_def = Define `
+  rewrite_alt loc next op acc ts x =
+    case x of
+      Var n => (F, Var n)
+    | If xi xt xe =>
+        let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
+        let (rt, yt) = rewrite_alt loc next op acc ti xt in
+        let (re, ye) = rewrite_alt loc next op acc ti xe in
+        let zt = if rt then yt else apply_op op xt (Var acc) in
+        let ze = if re then ye else apply_op op xe (Var acc) in
+          (rt ∨ re, If xi zt ze)
+    | Let xs x =>
+        let ys = scan_expr ts loc xs in
+        let tt = MAP (FST o SND) ys in
+        let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+        let (r, y) = rewrite_alt loc next op (acc + LENGTH xs) (tt ++ tr) x in
+          (r, Let xs y)
+    | Tick x =>
+        let (r, y) = rewrite_alt loc next op acc ts x in (r, Tick y)
+    | Raise x => (F, Raise x)
+    | exp =>
+        case rewrite_op ts op loc exp of
+          (F, _)    => (F, apply_op op exp (Var acc))
+        | (T, exp1) =>
+          case get_bin_args exp1 of
+            NONE => (F, apply_op op exp (Var acc))
+          | SOME (call, exp2) =>
+              (T, push_call next op acc exp2 (args_from call))`;
 
-val _ = translate tail_is_ok_lemma
+val _ = translate rewrite_alt_def
+
+val rewrite_alt_side = Q.prove (
+  `!a0 a1 a2 a3 a4 a5. to_dataprog_rewrite_alt_side a0 a1 a2 a3 a4 a5 <=> T`,
+  ho_match_mp_tac (theorem "rewrite_alt_ind") \\ rw []
+  \\ once_rewrite_tac [fetch "-" "to_dataprog_rewrite_alt_side_def"]
+  \\ rw []
+  \\ PURE_FULL_CASE_TAC \\ fs []) |> update_precondition
+
+val rewrite_alt_lem = Q.prove (
+  `!loc next op acc ts x.
+     bvi_tailrec$rewrite (loc,next,op,acc,ts) x =
+     rewrite_alt loc next op acc ts x`,
+  ho_match_mp_tac (fetch "-" "rewrite_alt_ind") \\ rw []
+  \\ once_rewrite_tac [rewrite_alt_def]
+  \\ CASE_TAC
+  \\ fs [bvi_tailrecTheory.rewrite_def]
+  \\ rpt (pairarg_tac \\ fs []));
+
+val _ = translate rewrite_alt_lem
 
 val _ = translate(bvi_tailrecTheory.compile_prog_def);
 
@@ -930,7 +931,7 @@ val _ = translate(bvl_to_bviTheory.compile_aux_def);
 val def = bvl_to_bviTheory.compile_op_pmatch;
 val rows = def |> SPEC_ALL |> concl |> rhs |> rand
            |> listSyntax.dest_list |> #1
-val bad_row = rows |> List.rev |> el 2
+val bad_row = rows |> List.rev |> el 3
 val default_row = rows |> last
 val (_,_,default_exp) = patternMatchesSyntax.dest_PMATCH_ROW default_row
 val (pat,guard,exp) = patternMatchesSyntax.dest_PMATCH_ROW bad_row
@@ -978,17 +979,18 @@ val _ = translate(bvl_to_bviTheory.compile_list_def);
 
 val _ = translate(bvl_to_bviTheory.compile_prog_def);
 
-val _ = translate(bvl_inlineTheory.inline_all_def);
+val _ = translate(bvl_inlineTheory.let_op_def);
 
-val bvl_inline_inline_all_side = Q.prove(`
-  ∀a b c d. bvl_inline_inline_all_side a b c d ⇔ T`,
-  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
-  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
-  CCONTR_TAC>>fs[]>>
-  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-  simp[bvl_inlineTheory.LENGTH_inline]) |> update_precondition
+val let_op_SING_NOT_NIL = store_thm("let_op_SING_NOT_NIL[simp]",
+  ``let_op [x] <> []``,
+  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+  \\ CASE_TAC \\ fs []);
 
-val _ = translate(bvl_inlineTheory.compile_prog_def);
+val bvl_inline_let_op_side = Q.prove(`
+  ∀a. bvl_inline_let_op_side a ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.let_op_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
+  |> update_precondition;
 
 val _ = translate(bvl_handleTheory.compile_exp_def);
 
@@ -997,6 +999,18 @@ val bvl_handle_compile_exp_side = Q.prove(`
   EVAL_TAC \\ rpt strip_tac
   \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
   \\ rw[]) |> update_precondition;
+
+val _ = translate(bvl_inlineTheory.inline_all_def);
+
+val bvl_inline_inline_all_side = Q.prove(`
+  ∀a b c d e f. bvl_inline_inline_all_side a b c d e f ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.inline_all_ind>>
+  rw[]>>simp[Once (fetch "-" "bvl_inline_inline_all_side_def")]>>
+  CCONTR_TAC>>fs[]>>
+  pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+  simp[bvl_inlineTheory.LENGTH_inline]) |> update_precondition
+
+val _ = translate(bvl_inlineTheory.compile_prog_def);
 
 val _ = translate(bvl_to_bviTheory.compile_def)
 

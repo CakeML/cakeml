@@ -17,15 +17,19 @@ val riscv_names_def = Define `
      4 avoid regs means 28 regs available for CakeML
      constraints:
        the last 3 of these (25, 26, 27) must be mapped to callee saved regs
-       0 1 and 2 must be mapped to link reg (1), 1st arg (10), 2nd arg (11)
+       0 must be mapped to link reg (1)
+       1-4 must be mapped to 1st-4st args (10-13)
   *)
   (insert 0 1 o
    insert 1 10 o
    insert 2 11 o
-   insert 3 28 o
+   insert 3 12 o
+   insert 4 13 o
    (* the rest to make the mapping well-formed *)
    insert 10 29 o
    insert 11 30 o
+   insert 12 4 o
+   insert 13 28 o   
    insert 28 0 o
    insert 29 2 o
    insert 30 3) LN:num num_map`;
@@ -38,7 +42,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
+val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; gc_kind:=Simple|>``
 val riscv_word_conf = ``<| bitmaps := []:64 word list |>``
 val riscv_stack_conf = ``<|jump:=F;reg_names:=riscv_names|>``
 val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=riscv_config;init_clock:=5|>``

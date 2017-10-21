@@ -1,5 +1,5 @@
-open preamble backend_commonTheory patLangTheory
-     semanticPrimitivesPropsTheory (* for do_shift and others *)
+open preamble backend_commonTheory patLangTheory;
+open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
 val _ = new_theory"patSem"
 
@@ -145,6 +145,12 @@ val do_app_def = Define `
        (case do_word_op op wz w1 w2 of
             | NONE => NONE
             | SOME w => SOME (s, Rval (Litv w)))
+    | (Op (FP_bop bop), [Litv (Word64 w1); Litv (Word64 w2)]) =>
+      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
+    | (Op (FP_uop uop), [Litv (Word64 w)]) =>
+        SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
+    | (Op (FP_cmp cmp), [Litv (Word64 w1); Litv (Word64 w2)]) =>
+        SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
     | (Op (Shift wz sh n), [Litv w]) =>
         (case do_shift sh n wz w of
            | NONE => NONE
@@ -354,10 +360,10 @@ val do_app_def = Define `
                   )
         | _ => NONE
       )
-    | (Op (FFI n), [Loc lnum]) =>
+    | (Op (FFI n), [Litv (StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
-            (case call_FFI s.ffi n ws of
+            (case call_FFI s.ffi n (MAP (λc. n2w(ORD c)) conf) ws of
               (t', ws') =>
                (case store_assign lnum (W8array ws') s.refs of
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))

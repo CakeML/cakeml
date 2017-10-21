@@ -552,14 +552,25 @@ val do_app = Q.prove (
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
+      TRY (rename1 `shift8_lookup s w1 n`) >>
+      TRY (rename1 `shift64_lookup s w1 n`) >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w'` \\ Cases_on`s` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      \\ Cases_on`w1` \\ Cases_on`s` \\ fs[shift8_lookup_def,shift64_lookup_def])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
+  >- ( (*FP_cmp *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+  >- ( (*FP_uop *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
+  >- ( (*FP_bop *)
+      rw[semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
+      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
   >- ((* Opapp *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -774,7 +785,7 @@ val do_app = Q.prove (
   >- ((* FFI *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] >>
       imp_res_tac LIST_REL_LENGTH >>
       srw_tac[][] >>
       every_case_tac >>
@@ -1780,7 +1791,7 @@ val ALOOKUP_alloc_defs_EL = Q.prove (
     ⇒
     ∃tt.
     ALOOKUP (alloc_defs m l (MAP FST (REVERSE funs))) (EL n (MAP FST funs)) =
-      SOME (Var_global tt (LENGTH funs + l − (n + 1)))`,
+      SOME (Var_global tt (l + LENGTH funs − (n + 1)))`,
   gen_tac >>
   Induct_on `LENGTH funs` >>
   rw [] >>
@@ -1834,7 +1845,7 @@ val letrec_global_env_lem3 = Q.prove (
   CONV_TAC (RESORT_EXISTS_CONV (List.rev))>>
   qexists_tac`tt`>>qexists_tac`tt`>>
   simp[GSYM PULL_EXISTS]>>
-  srw_tac [ARITH_ss] [EL_APPEND2]
+  rw[EL_APPEND2]
   >- metis_tac [ALOOKUP_alloc_defs_EL]
   >- (srw_tac[][find_recfun_ALOOKUP] >>
       rpt (pop_assum mp_tac) >>
@@ -1935,7 +1946,7 @@ val ALOOKUP_alloc_defs = Q.prove (
     ⇒
     ∃n t.
       ALOOKUP (alloc_defs tt (LENGTH genv) (MAP FST (REVERSE env))) x = SOME (Var_global t n) ∧
-      n < LENGTH genv + LENGTH (MAP FST env) ∧
+      n < LENGTH (MAP FST env) + LENGTH genv ∧
       EL n (genv ++ REVERSE (MAP SOME (MAP SND env))) = SOME v`,
   Induct_on `env` >>
   rw [ALOOKUP_APPEND, alloc_defs_append] >>

@@ -587,7 +587,9 @@ val op_to_display_def = tDefine "op_to_display"`
   (op_to_display (Modlang_op (FFI str)) =
     Item NONE "FFI" [string_to_display str])
   /\
-  (op_to_display (Closlang_op op) = empty_item "TODO_some_closLang_op")`
+  (op_to_display (Closlang_op op) = empty_item "TODO_some_closLang_op")
+  ∧
+  (op_to_display _ = empty_item "Unknown")`
 ( wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of (Ast_op op) => (1,op_size op) | x => (0n,op_size x))` )
 

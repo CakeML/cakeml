@@ -3,11 +3,14 @@ open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib holKernelTheory
+open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
+open holKernelTheory
 
 val _ = new_theory "ml_hol_kernelProg";
 
 val _ = (use_full_type_names := false);
+
+val _ = hide "abs";
 
 val _ = register_type ``:ordering``
 val _ = register_type ``:'a # 'b``;
@@ -112,103 +115,10 @@ val EqualityType_TYPE = Q.prove(
   |> store_eq_thm;
 
 val _ = register_type ``:term``;
-val _ = register_type ``:thm``;
-val _ = register_type ``:update``;
 val _ = register_exn_type ``:hol_exn``;
-
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
-(* handle_clash *)
-
-(* val EvalM_handle_clash = Q.store_thm("EvalM_handle_clash",
-  `!H n. (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
-        EvalM env exp1 (MONAD a HOL_EXN_TYPE x1) H ==>
-        (!t v.
-          TERM_TYPE t v ==>
-          EvalM (write n v env) exp2 (MONAD a HOL_EXN_TYPE (x2 t)) H) ==>
-        EvalM env (Handle exp1 [(Pcon (SOME (Short "Clash")) [Pvar n],exp2)])
-          (MONAD a HOL_EXN_TYPE (handle_clash x1 x2)) H`,
-  SIMP_TAC std_ss [EvalM_def] \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
-  \\ Q.PAT_X_ASSUM `!s refs. REFS_PRED H refs s ==> bbb` (MP_TAC o Q.SPECL [`s`,`refs`])
-  \\ FULL_SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
-  \\ first_x_assum(qspec_then`junk`strip_assume_tac)
-  \\ Cases_on `res` THEN1
-   (srw_tac[DNF_ss][] >> disj1_tac \\
-    asm_exists_tac \\ fs[MONAD_def,handle_clash_def] \\
-    CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] )
-  \\ Q.PAT_X_ASSUM `MONAD xx yy zz t1 t2` MP_TAC
-  \\ SIMP_TAC std_ss [Once MONAD_def] \\ STRIP_TAC
-  \\ Cases_on `x1 refs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
-  \\ Cases_on `e` \\ FULL_SIMP_TAC (srw_ss()) [handle_clash_def]
-  \\ srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac
-  \\ asm_exists_tac \\ fs[]
-  \\ simp[Once (CONJUNCT2 evaluate_cases),PULL_EXISTS,pat_bindings_def]
-  \\ Cases_on `b` >> fs[HOL_EXN_TYPE_def] >>
-  simp[pmatch_def] >> fs[lookup_cons_def] >>
-  fs[same_tid_def,namespaceTheory.id_to_n_def,same_ctor_def] >- (
-    simp[Once evaluate_cases,MONAD_def,HOL_EXN_TYPE_def] ) >>
-  first_x_assum drule >>
-  disch_then drule >>
-  simp[GSYM write_def] >>
-  disch_then(qspec_then`[]`strip_assume_tac) >>
-  fs[with_same_refs] >>
-  asm_exists_tac >>
-  fs[MONAD_def] >>
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[] \\
-  TOP_CASE_TAC \\ fs[]);
-
-(* failwith *)
-val EvalM_failwith = Q.store_thm("EvalM_failwith",
-  `!H x a.
-      (lookup_cons "Fail" env = SOME (1,TypeExn (Long "Kernel" (Short "Fail")))) ==>
-      Eval env exp1 (STRING_TYPE x) ==>
-      EvalM env (Raise (Con (SOME (Short "Fail")) [exp1]))
-        (MONAD a HOL_EXN_TYPE (failwith x)) H`,
-  rw[Eval_def,EvalM_def,MONAD_def,failwith_def] >>
-  rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases] >>
-  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once(CONJUNCT2 evaluate_cases)] >>
-  first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
-  IMP_RES_TAC (evaluate_empty_state_IMP
-               |> INST_TYPE [``:'ffi``|->``:unit``]) >>
-  rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
-  asm_exists_tac \\ fs[] >>
-  PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ METIS_TAC[REFS_PRED_append]);
-
-(* clash *)
-
-val EvalM_raise_clash = Q.store_thm("EvalM_raise_clash",
-  `!H x a.
-      (lookup_cons "Clash" env = SOME (1,TypeExn (Long "Kernel" (Short "Clash")))) ==>
-      Eval env exp1 (TERM_TYPE x) ==>
-      EvalM env (Raise (Con (SOME (Short "Clash")) [exp1]))
-        (MONAD a HOL_EXN_TYPE (raise_clash x)) H`,
-  rw[Eval_def,EvalM_def,MONAD_def,raise_clash_def] >>
-  rw[Once evaluate_cases] >>
-  rw[Once evaluate_cases] >>
-  srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-  rw[Once evaluate_cases,PULL_EXISTS] >>
-  rw[Once(CONJUNCT2 evaluate_cases)] >>
-  rw[do_con_check_def,build_conv_def] >>
-  fs [lookup_cons_def] >>
-  fs[HOL_EXN_TYPE_def,namespaceTheory.id_to_n_def] >>
-  first_x_assum(qspec_then`(s with refs := s.refs ++ junk).refs`strip_assume_tac) >>
-  IMP_RES_TAC (evaluate_empty_state_IMP
-               |> INST_TYPE [``:'ffi``|->``:unit``]) >>
-  fs[] >> asm_exists_tac \\ fs[] >>
-  PURE_REWRITE_TAC[GSYM APPEND_ASSOC] \\ METIS_TAC[REFS_PRED_append]);
-
-val exn_thms = [EvalM_failwith, EvalM_raise_clash, EvalM_handle_clash]; *)
-
-(* Define and translate the store *)
+(* Initialize the translation *)
 val init_type_constants_def = Define `
 init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
 
@@ -235,26 +145,25 @@ val refs_init_list = [
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
-(* Create the store *)
+val arrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
+
+val raise_functions = [raise_Fail_def, raise_Clash_def];
+val handle_functions = [handle_Fail_def, handle_Clash_def];
+val exn_functions = zip raise_functions handle_functions;
+
 val store_hprop_name = "HOL_STORE";
-val exc_ri = ``HOL_EXN_TYPE``;
-val translated_store_thms = translate_store refs_init_list store_hprop_name exc_ri;
+val state_type = ``:hol_refs``
+val exn_ri_def = HOL_EXN_TYPE_def
 
-(* Initialize the monadic translation *)
-val _ = init_translation translated_store_thms exc_ri []
-
-(* Prove the theorems mecessary to handle the exceptions *)
-val raise_functions = [failwith_def, raise_clash_def];
-val handle_functions = [handle_clash_def];
-val exn_thms = add_raise_handle_functions raise_functions handle_functions HOL_EXN_TYPE_def
-
-val ty = ``:'b # 'c``; val _ = mem_derive_case_of ty;
-val ty = ``:'a list``; val _ = mem_derive_case_of ty;
-val ty = ``:'a option``; val _ = mem_derive_case_of ty;
-val ty = ``:type``; val _ = mem_derive_case_of ty;
-val ty = ``:term``; val _ = mem_derive_case_of ty;
-val ty = ``:thm``; val _ = mem_derive_case_of ty;
-val ty = ``:update``; val _ = mem_derive_case_of ty;
+val (monad_parameters, store_translation, exn_specs) =
+    start_static_init_fixed_store_translation refs_init_list
+					      arrays_init_list
+					      store_hprop_name
+					      state_type
+					      exn_ri_def
+					      exn_functions
+					      []
+                                              NONE;
 
 (**************************************************************************************************)
 (**************************************************************************************************)
@@ -442,29 +351,29 @@ val res = translate holSyntaxTheory.orda_def;
 val res = translate holSyntaxTheory.term_remove_def;
 val res = translate holSyntaxTheory.term_union_def;
 
-val def = try_def |> m_translate
-val def = assoc_def   (* rec *) |> m_translate
-val def = map_def    (* rec *) |> m_translate
-val def = forall_def (* rec *) |> m_translate
-val def = dest_type_def |> m_translate
-val def = dest_vartype_def |> m_translate
-val def = holKernelPmatchTheory.dest_var_def |> m_translate
-val def = holKernelPmatchTheory.dest_const_def |> m_translate
-val def = holKernelPmatchTheory.dest_comb_def |> m_translate
-val def = holKernelPmatchTheory.dest_abs_def |> m_translate
-val def = holKernelPmatchTheory.rator_def |> m_translate
-val def = holKernelPmatchTheory.rand_def |> m_translate
-val def = holKernelPmatchTheory.dest_eq_def |> m_translate
-val def = holKernelPmatchTheory.mk_abs_def |> m_translate
-val def = get_type_arity_def |> m_translate
-val def = mk_type_def |> m_translate
-val def = mk_fun_ty_def |> m_translate
-val def = holKernelPmatchTheory.type_of_def |> m_translate
-val def = get_const_type_def |> m_translate
-val def = holKernelPmatchTheory.mk_comb_def |> m_translate
-val def = can_def |> m_translate
-val def = mk_const_def |> m_translate
-val def = image_def |> m_translate
+val def = try_def |> m_translate;
+val def = assoc_def   (* rec *) |> m_translate;
+val def = map_def    (* rec *) |> m_translate;
+val def = forall_def (* rec *) |> m_translate;
+val def = dest_type_def |> m_translate;
+val def = dest_vartype_def |> m_translate;
+val def = holKernelPmatchTheory.dest_var_def |> m_translate;
+val def = holKernelPmatchTheory.dest_const_def |> m_translate;
+val def = holKernelPmatchTheory.dest_comb_def |> m_translate;
+val def = holKernelPmatchTheory.dest_abs_def |> m_translate;
+val def = holKernelPmatchTheory.rator_def |> m_translate;
+val def = holKernelPmatchTheory.rand_def |> m_translate;
+val def = holKernelPmatchTheory.dest_eq_def |> m_translate;
+val def = holKernelPmatchTheory.mk_abs_def |> m_translate;
+val def = get_type_arity_def |> m_translate;
+val def = mk_type_def |> m_translate;
+val def = mk_fun_ty_def |> m_translate;
+val def = holKernelPmatchTheory.type_of_def |> m_translate; (* PMATCH *)
+val def = get_const_type_def |> m_translate;
+val def = holKernelPmatchTheory.mk_comb_def |> m_translate;
+val def = can_def |> m_translate;
+val def = mk_const_def |> m_translate;
+val def = image_def |> m_translate;
 
 val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
 val fdM_intro = SYM fdM_def
@@ -510,7 +419,7 @@ fun define_abbrev_conv name tm = let
   in GSYM def |> SPEC_ALL end
 
 val candle_prog_thm =
-  get_thm (get_curr_prog_state ())
+  get_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
   |> REWRITE_RULE [ML_code_def]
   |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (EVAL THENC define_abbrev_conv "candle_code"))

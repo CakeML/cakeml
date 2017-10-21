@@ -12,8 +12,9 @@ val _ = ml_prog_update (open_module "String");
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc [] "string" (Tapp [] TC_string)`` I);
 val _ = trans "sub" `strsub`
 val _ = trans "implode" `implode`
-val _ = trans "strlen" `strlen`
+val _ = trans "size" `strlen`
 val _ = trans "concat" `mlstring$concat`
+val _ = trans "substring" `mlstring$substring`
 
 val result = translate explode_aux_def;
 val result = translate explode_def;
@@ -26,25 +27,11 @@ val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm]) |> update_precondition
 
-
-val result = translate extract_aux_def;
-val extract_aux_side_def = theorem"extract_aux_side_def";
-val extract_aux_side_thm = Q.prove (
-  `!s n len. (n + len <= strlen s) ==> extract_aux_side s n len`,
-  Induct_on `len` \\ rw [Once extract_aux_side_def]
-);
-
 val result = translate extract_def;
 val extract_side_def = definition"extract_side_def";
 val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
-  rw [extract_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
-
-val result = translate substring_def;
-val substring_side_def = definition"substring_side_def";
-val substring_side_thm = Q.prove (
-  `!s i j. substring_side s i j`,
-  rw [substring_side_def, extract_aux_side_thm, MIN_DEF] ) |> update_precondition
+  rw [extract_side_def, MIN_DEF] ) |> update_precondition
 
 val result = translate strcat_def;
 
@@ -188,9 +175,6 @@ val collate_side_thm = Q.prove (
   rw [collate_side_def, collate_aux_side_thm] ) |> update_precondition
 
 
-
-
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory()
-

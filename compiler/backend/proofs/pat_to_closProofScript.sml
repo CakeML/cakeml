@@ -274,11 +274,12 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       TRY ( qmatch_goalsub_rename_tac`Chopb op` >> Cases_on`op`) >>
       TRY ( qmatch_goalsub_rename_tac`WordFromInt wz` >> Cases_on`wz`) >>
       TRY ( qmatch_goalsub_rename_tac`WordToInt wz` >> Cases_on`wz`) >>
-      fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
-        rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
-        rw[] >> fs[] >> pop_assum mp_tac >>
-        simp[Once evaluate_CONS] >>
-        every_case_tac >> fs[do_app_def] )
+      fs[evaluate_def,ETA_AX,MAP_REVERSE]
+      >- (
+          rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
+          rw[] >> fs[] >> pop_assum mp_tac >>
+          simp[Once evaluate_CONS] >>
+          every_case_tac >> fs[do_app_def] )
       >- (
         rw[Once evaluate_CONS,evaluate_def] >>
         rw[do_app_def] )
@@ -289,9 +290,11 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def])) >>
+    (*MARKER *)
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
     fs[patSemTheory.do_app_cases] >> rw[] >>
+    rfs[] >>
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
     fs[evaluate_def,MAP_REVERSE,do_app_def,PULL_EXISTS,
        store_alloc_def,FLOOKUP_compile_state_refs,int_gt,
@@ -303,6 +306,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
        INT_NOT_LT,int_ge,PULL_EXISTS,IMPLODE_EXPLODE_I,
        INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
     simp[MAP_MAP_o,n2w_ORD_CHR_w2n,EL_MAP,Unit_def] >>
+    simp[o_DEF] >>
     rfs[INT_ABS_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> snd] >>
     TRY (
       rename1`CopyByteStr`
@@ -404,7 +408,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       imp_res_tac vs_to_string \\ fs[] >>
       DEEP_INTRO_TAC some_intro \\ fs[PULL_EXISTS] >>
       qexists_tac`wss` \\ rw[] >>
-      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
+      imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF] >>
+      simp[o_DEF]
       \\ NO_TAC) >>
     TRY (
       rename1`get_global` >>
@@ -423,9 +428,16 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ fs[store_lookup_def,store_assign_def]
       \\ qmatch_assum_rename_tac`store_v_same_type (EL lnum t.refs) _`
       \\ Cases_on`EL lnum t.refs` \\ fs[store_v_same_type_def] ) >>
+    TRY (
+      rename1 `Litv w1`
+      \\ Cases_on `w1` \\ fs [compile_v_def]
+      \\ rename1 `do_shift sh n wl _`
+      \\ Cases_on `wl` \\ fs [semanticPrimitivesPropsTheory.do_shift_def]
+      \\ qpat_x_assum `_ = w` (fn thm => rw [GSYM thm])) >>
     fs[state_component_equality,compile_state_def,fmap_eq_flookup,
        ALOOKUP_GENLIST,FLOOKUP_UPDATE,store_assign_def,store_lookup_def]
-    \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP]) >>
+    \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP]
+    \\ simp[ETA_THM]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     every_case_tac >> fs[] >>

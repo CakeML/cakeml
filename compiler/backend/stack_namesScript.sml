@@ -33,7 +33,13 @@ val inst_find_name_def = Define `
         Arith (LongMul (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4))
     | Arith (LongDiv r1 r2 r3 r4 r5) =>
         Arith (LongDiv (find_name f r1) (find_name f r2) (find_name f r3) (find_name f r4) (find_name f r5))
-    | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
+    | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)
+    | FP (FPLess r f1 f2) => FP (FPLess (find_name f r) f1 f2)
+    | FP (FPLessEqual r f1 f2) => FP (FPLessEqual (find_name f r) f1 f2)
+    | FP (FPEqual r f1 f2) => FP (FPEqual (find_name f r) f1 f2)
+    | FP (FPMovToReg r1 r2 d) => FP (FPMovToReg (find_name f r1) (find_name f r2) d)
+    | FP (FPMovFromReg d r1 r2) => FP (FPMovFromReg d (find_name f r1) (find_name f r2))
+    | i => i`
 
 val dest_find_name_def = Define`
   dest_find_name f (INR r) = INR (find_name f r) ∧
@@ -60,7 +66,8 @@ local val comp_quotation = `
              (dtcase exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
-    | FFI i r1 r2 r3 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
+    | FFI i r1 r2 r3 r4 r5 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
+                                    (find_name f r4) (find_name f r5)
     | JumpLower r1 r2 dest => JumpLower (find_name f r1) (find_name f r2) dest
     | p => p`
 in

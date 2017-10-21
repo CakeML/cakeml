@@ -62,7 +62,8 @@ val word_remove_correct = Q.store_thm("word_remove_correct",`
     full_simp_tac(srw_ss())[set_vars_def,state_component_equality]>>rev_full_simp_tac(srw_ss())[])
   >-
     (Cases_on`i`>>full_simp_tac(srw_ss())[inst_def,state_component_equality,assign_def,GSYM word_exp_termdep_code_frame,get_var_def,GSYM get_vars_termdep_code_frame,LET_THM]>>
-    rpt(TOP_CASE_TAC>>full_simp_tac(srw_ss())[set_var_def,state_component_equality,mem_load_def,get_var_def,mem_store_def]))
+    rpt(TOP_CASE_TAC>>
+    full_simp_tac(srw_ss())[set_var_def,state_component_equality,mem_load_def,get_var_def,mem_store_def,get_fp_var_def,set_fp_var_def]))
   >- tac
   >- tac
   >- tac
@@ -107,7 +108,7 @@ val word_remove_correct = Q.store_thm("word_remove_correct",`
     (fs[domain_lookup,EXISTS_PROD] \\ res_tac \\ fs[]
      \\ fs[state_component_equality] )
   >- (
-     ntac 6(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
+     rpt(TOP_CASE_TAC>>full_simp_tac(srw_ss())[])>>
     full_simp_tac(srw_ss())[LET_THM]>>pairarg_tac>>full_simp_tac(srw_ss())[state_component_equality]>>
     rveq>>full_simp_tac(srw_ss())[])
   >>

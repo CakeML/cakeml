@@ -113,4 +113,219 @@ val toString_thm = Q.store_thm("toString_thm",
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
     \\ simp[] ));
 
+
+(* fromString Definitions *)
+val fromChar_unsafe_def = Define`
+  fromChar_unsafe char = ORD char - ORD #"0"`;
+
+val fromChar_def = Define`
+  fromChar char =
+    case char of
+      | #"0" => SOME 0n
+      | #"1" => SOME 1n
+      | #"2" => SOME 2n
+      | #"3" => SOME 3n
+      | #"4" => SOME 4n
+      | #"5" => SOME 5n
+      | #"6" => SOME 6n
+      | #"7" => SOME 7n
+      | #"8" => SOME 8n
+      | #"9" => SOME 9n
+      | _    => NONE`;
+
+(* Equivalence between the safe and unsafe versions of fromChar *)
+val fromChar_eq_unsafe = Q.store_thm("fromChar_eq_unsafe",
+  `∀char. isDigit char ⇒ fromChar char = SOME (fromChar_unsafe char)`,
+  Cases_on `char` \\ rw [isDigit_def, fromChar_def, fromChar_unsafe_def]
+  \\ rpt (pop_assum (ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV)))
+  \\ fs [LE]));
+
+val fromChars_range_unsafe_def = Define`
+  fromChars_range_unsafe l 0       str = 0 ∧
+  fromChars_range_unsafe l (SUC n) str =
+    fromChars_range_unsafe l n str * 10 + fromChar_unsafe (strsub str (l + n))`;
+
+val fromChars_range_def = Define`
+  fromChars_range l 0       str = SOME 0 ∧
+  fromChars_range l (SUC n) str =
+    let rest = OPTION_MAP ($* 10n) (fromChars_range l n str) and
+        head = fromChar (strsub str (l + n))
+    in OPTION_MAP2 $+ rest head`;
+
+val fromChars_range_eq_unsafe = Q.store_thm("fromChars_range_eq_unsafe",
+  `∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
+     fromChars_range l r (strlit str) =
+     SOME (fromChars_range_unsafe l r (strlit str))`,
+  Induct_on `r`
+  \\ rw [fromChars_range_def
+        , fromChars_range_unsafe_def
+        , fromChar_eq_unsafe
+        , EVERY_EL]);
+
+val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
+  fromChars_unsafe 0 str = 0n ∧ (* Shouldn't happend *)
+  fromChars_unsafe n str =
+    if n ≤ padLen_DEC
+    then fromChars_range_unsafe 0 n str
+    else let n'    = n - padLen_DEC;
+             front = fromChars_unsafe n' str * maxSmall_DEC;
+             back  = fromChars_range_unsafe n' padLen_DEC str
+         in front + back`
+(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+val fromChars_unsafe_ind = theorem"fromChars_unsafe_ind"
+
+val fromChars_def = tDefine "fromChars" `
+  fromChars 0 str = SOME 0n ∧ (* Shouldn't happend *)
+  fromChars n str =
+    if n ≤ padLen_DEC
+    then fromChars_range 0 n str
+    else let n'    = n - padLen_DEC;
+             front = OPTION_MAP ($* maxSmall_DEC) (fromChars n' str);
+             back  = fromChars_range n' padLen_DEC str
+         in OPTION_MAP2 $+ front back`
+(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+val fromChars_ind = theorem"fromChars_ind"
+
+val fromChars_eq_unsafe = Q.store_thm("fromChars_eq_unsafe",
+  `∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
+    fromChars n s = SOME (fromChars_unsafe n s)`,
+  let val tactics = [fromChars_def
+                    , fromChars_unsafe_def
+                    , fromChars_range_eq_unsafe
+                    , strlen_def
+                    , explode_def]
+  in recInduct fromChars_ind
+  \\ CONJ_TAC >- rw tactics
+  \\ rw [] \\ Cases_on `str'`
+  \\ rw tactics
+  \\ fs tactics
+  end);
+
+val fromString_unsafe_def = Define`
+  fromString_unsafe str =
+    if strlen str = 0
+    then 0i
+    else if strsub str 0 = #"~"
+      then ~&fromChars_unsafe (strlen str - 1)
+                              (substring str 1 (strlen str - 1))
+      else &fromChars_unsafe (strlen str) str`;
+
+val fromString_def = Define`
+  fromString str =
+    if strlen str = 0
+    then SOME 0i
+    else if strsub str 0 = #"~"
+      then OPTION_MAP ($~ o $&)
+             (fromChars (strlen str - 1)
+                        (substring str 1 (strlen str - 1)))
+      else OPTION_MAP $& (fromChars (strlen str) str)`;
+
+(* fromString auxiliar lemmas *)
+val fromChars_range_unsafe_0_substring_thm =
+  Q.store_thm("fromChars_range_unsafe_0_substring_thm",
+  `∀m r s. r ≤ m ⇒
+    fromChars_range_unsafe 0 r s =
+      fromChars_range_unsafe 0 r (substring s 0 m)`,
+  Induct_on `r` \\ rw [fromChars_range_unsafe_def, strsub_substring_0_thm]);
+
+val fromChars_range_unsafe_split = Q.store_thm("fromChars_range_unsafe_split",
+  `∀m n s. m ≠ 0 ∧ m < n
+    ⇒ fromChars_range_unsafe 0 n s =
+        10 ** m * fromChars_range_unsafe    0    (n - m) s
+        +         fromChars_range_unsafe (n - m)    m    s`,
+  Induct_on `m`
+  >- rw []
+  >- (`∀m k w. 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
+      \\ Cases_on `n`
+      \\ rw [fromChars_range_unsafe_def]
+      \\ Cases_on `m`
+      \\ rw [fromChars_range_unsafe_def]));
+
+(* fromString proofs *)
+val fromChar_unsafe_thm = Q.store_thm("fromChar_unsafe_thm",
+  `∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]`,
+  let
+    val num_conv = ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV))
+  in Cases_on `h`
+  \\ rw [isDigit_def]
+  \\ rpt (pop_assum num_conv >> fs [LE, fromChar_unsafe_def])
+  end);
+
+val fromChars_range_unsafe_thm = Q.store_thm("fromChars_range_unsafe_thm",
+  `∀str. EVERY isDigit str ⇒
+    fromChars_range_unsafe 0 (STRLEN str) (strlit str) =
+      num_from_dec_string str`,
+  recInduct SNOC_INDUCT
+  \\ rw [fromChars_range_unsafe_def
+        ,ASCIInumbersTheory.num_from_dec_string_def]
+  \\ `isDigit x` by fs [EVERY_SNOC]
+  \\ rw [ASCIInumbersTheory.s2n_def
+        , numposrepTheory.l2n_def
+        , MAP_REVERSE_STEP
+        , substring_def
+        , MIN_DEF, implode_def
+        , EL_LENGTH_SNOC
+        , fromChar_unsafe_thm
+          |> computeLib.RESTR_EVAL_RULE [``fromChar_unsafe``,``isDigit``]
+        , fromChars_range_unsafe_0_substring_thm
+          |> SPEC_ALL
+          |> INST [``m : num`` |->  ``r : num``]
+          |> SIMP_RULE std_ss []
+          |> Once
+        , SEG_0_SNOC |> SPEC ``LENGTH l``
+                     |> SPEC ``l : 'a list``
+                     |> SIMP_RULE std_ss [SEG_LENGTH_ID]]
+  \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]);
+
+val fromChars_range_unsafe_eq = Q.store_thm("fromChars_range_unsafe_eq",
+  `∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s`,
+  recInduct fromChars_unsafe_ind
+  \\ rw [fromChars_unsafe_def
+        , fromChars_range_unsafe_def
+        , padLen_DEC_eq
+        , maxSmall_DEC_def
+        , fromChars_range_unsafe_split |> SPEC ``8n``
+                                       |> SIMP_RULE std_ss []
+                                       |> GSYM]);
+
+val fromString_unsafe_thm = Q.store_thm("fromString_unsafe_thm",
+  `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
+         (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+         fromString_unsafe (strlit str) =
+           if HD str = #"~"
+           then ~&num_from_dec_string (DROP 1 str)
+           else &num_from_dec_string str`,
+  rw [fromString_unsafe_def
+     , fromChars_range_unsafe_eq
+     , fromChars_range_unsafe_thm
+     , substring_def, SEG_TAKE_BUTFISTN
+     , TAKE_LENGTH_ID_rwt
+     , fromChars_range_unsafe_thm
+       |> ISPEC ``DROP 1 str' : string``
+       |> REWRITE_RULE
+          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
+
+val fromString_thm = Q.store_thm("fromString_thm",
+  `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
+         (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+         fromString (strlit str) = SOME
+           if HD str = #"~"
+           then ~&num_from_dec_string (DROP 1 str)
+           else &num_from_dec_string str`,
+  rw [fromString_def
+     , fromChars_eq_unsafe
+     , fromChars_range_unsafe_eq
+     , fromChars_range_unsafe_thm
+     , substring_def, SEG_TAKE_BUTFISTN
+     , TAKE_LENGTH_ID_rwt
+     , fromChars_range_unsafe_thm
+       |> ISPEC ``DROP 1 str' : string``
+       |> REWRITE_RULE
+          [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
+
+val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
+  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
+
 val _ = export_theory();

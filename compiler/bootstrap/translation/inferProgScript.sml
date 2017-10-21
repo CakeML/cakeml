@@ -53,29 +53,6 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* TODO:
-   these things are a discrepancy between HOL's standard libraries and
-   mllist. probably the compiler should be using the mllist versions? *)
-
-val res = translate ZIP;
-val res = translate EL;
-
-val zip_1_side_def = theorem"zip_1_side_def";
-
-val zip_1_side_thm = Q.prove(
-  `∀p. zip_1_side p ⇔ LENGTH (FST p) = LENGTH (SND p)`,
-  gen_tac \\ PairCases_on`p`
-  \\ qid_spec_tac`p1` \\ Induct_on`p0`
-  \\ rw[Once zip_1_side_def,LENGTH_NIL_SYM]
-  \\ Cases_on`p1` \\ fs[]) |> update_precondition;
-
-val el_side_def = Q.prove(
-  `!n xs. el_side n xs = (n < LENGTH xs)`,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-(* -- *)
-
 (* type inference: t_walkstar and t_unify *)
 
 val PRECONDITION_INTRO = Q.prove(
@@ -315,18 +292,84 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38) y =
          (ast$op_CASE op
+            (* Opn 1 *)
             (\z. x1 z y)
+            (* Opb 1 *)
             (\z. x2 z y)
+            (* Opw 2 *)
             (\z1 z2. x3 z1 z2 y)
+            (* Shift 3 *)
             (\z1 z2 z3. x4 z1 z2 z3 y)
-            (x5 y) (x6 y) (x7 y) (x8 y) (x9 y) (x10 y) (x11 y) (x12 y) (x13 y)
-            (\z. x14 z y) (\z. x15 z y)
-            (x16 y) (x17 y) (x18 y) (x19 y) (x20 y) (x21 y)
-            (\z. x22 z y)
-            (x23 y) (x24 y) (x25 y) (x26 y) (x27 y) (x28 y) (x29 y) (x30 y) (x31 y) (x32 y) (x33 y) (x34 y)
-            (\z. x35 z y))`,
+            (* Equality 0 *)
+            (x5 y)
+            (* FP_cmp 1 *)
+            (\z. x6 z y)
+            (* FP_uop 1 *)
+            (\z. x7 z y)
+            (* FP_bop 1 *)
+            (\z. x8 z y)
+            (* Opapp 0 *)
+            (x9 y)
+            (* Opassign 0 *)
+            (x10 y)
+            (* Opref 0 *)
+            (x11 y)
+            (* Opderef 0 *)
+            (x12 y)
+            (* Aw8alloc *)
+            (x13 y)
+            (* Aw8sub *)
+            (x14 y)
+            (* Aw8length*)
+            (x15 y)
+            (* Aw8update *)
+            (x16 y)
+            (* WfI 1 *)
+            (\z. x17 z y)
+            (* WtI 1 *)
+            (\z. x18 z y)
+            (* CopyStrStr *)
+            (x19 y)
+            (* CopyStrAw8 *)
+            (x20 y)
+            (* CopyAw8Str *)
+            (x21 y)
+            (* CopyAw8Aw8 *)
+            (x22 y)
+            (* Ord *)
+            (x23 y)
+            (* Chr *)
+            (x24 y)
+            (* Chopb 1 *)
+            (\z. x25 z y)
+            (* Implode *)
+            (x26 y)
+            (* Strsub*)
+            (x27 y)
+            (* Strlen *)
+            (x28 y)
+            (* Strcat *)
+            (x29 y)
+            (* Vfromlist *)
+            (x30 y)
+            (* Vsub *)
+            (x31 y)
+            (* Vlength *)
+            (x32 y)
+            (* Aalloc *)
+            (x33 y)
+            (* AallocEmpty *)
+            (x34 y)
+            (* Asub *)
+            (x35 y)
+            (* Alength*)
+            (x36 y)
+            (* Aupdate *)
+            (x37 y)
+            (* FFI *)
+            (\z. x38 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -502,32 +545,6 @@ val _ = translate (typeSystemTheory.build_ctor_tenv_def
 		   |> REWRITE_RULE [MAP_type_name_subst]
   	           |> SIMP_RULE std_ss [lemma]);
 
-val type_name_subst_side_def = theorem"type_name_subst_side_def";
-
-val type_name_subst_side_thm = Q.store_thm("type_name_subst_side_thm",
-  `∀a b. check_type_names a b
-    ⇒ type_name_subst_side a b`,
-  ho_match_mp_tac terminationTheory.type_name_subst_ind >>
-  rw[Once type_name_subst_side_def] >>
-  rw[Once type_name_subst_side_def] >>
-  fs[terminationTheory.check_type_names_def,EVERY_MEM])
-
-val build_ctor_tenv_side_def = definition"build_ctor_tenv_side_def";
-
-val build_ctor_tenv_side_thm = Q.store_thm("build_ctor_tenv_side_thm",
-  `∀x y z. check_ctor_tenv y z ⇒ build_ctor_tenv_side x y z`,
-  rw[build_ctor_tenv_side_def] >>
-  fs[typeSystemTheory.check_ctor_tenv_def] >>
-  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  match_mp_tac type_name_subst_side_thm >>
-  fs [FORALL_PROD] >>
-  res_tac >> fs [] >>
-  res_tac >> fs [] >>
-  rename1 `MEM _ (SND vvv)` >>
-  Cases_on `vvv` >> fs [] >>
-  res_tac >> fs [] >>
-  res_tac >> fs []);
-
 val EVERY_INTRO = Q.prove(
   `(!x::set s. P x) = EVERY P s`,
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
@@ -563,9 +580,12 @@ val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
   TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
   TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
   every_case_tac >> fs[] >> rw[] >>
-  metis_tac[infer_p_wfs,PAIR,type_name_subst_side_thm]);
+  metis_tac[infer_p_wfs,PAIR]);
 
 val _ = translate (infer_def ``infer_e``)
+
+(* open to_dataProg for the AST_* definitions *)
+open to_dataProgTheory
 
 local
   val ths = ml_translatorLib.eq_lemmas();
@@ -730,11 +750,20 @@ val EqualityType_AST_OPW_TYPE = find_equality_type_thm``AST_OPW_TYPE`` |> SIMP_R
 val EqualityType_AST_WORD_SIZE_TYPE = find_equality_type_thm``AST_WORD_SIZE_TYPE`` |> SIMP_RULE std_ss []
 val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE`` |> SIMP_RULE std_ss []
 
+val EqualityType_FPSEM_FP_BOP_TYPE = find_equality_type_thm ``FPSEM_FP_BOP_TYPE``
+val EqualityType_FPSEM_FP_UOP_TYPE = find_equality_type_thm ``FPSEM_FP_UOP_TYPE``
+val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE``
+
 val EqualityType_AST_OP_TYPE = find_equality_type_thm``AST_OP_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM,
-                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,EqualityType_AST_OPW_TYPE,
+                       EqualityType_AST_OPB_TYPE,EqualityType_AST_OPN_TYPE,
+                       EqualityType_AST_OPW_TYPE,
                        EqualityType_AST_WORD_SIZE_TYPE,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_LIST_TYPE_CHAR]
+                       EqualityType_LIST_TYPE_CHAR,
+                       EqualityType_FPSEM_FP_BOP_TYPE,
+                       EqualityType_FPSEM_FP_UOP_TYPE,
+                       EqualityType_FPSEM_FP_CMP_TYPE
+                       ]
 
 val EqualityType_AST_LOP_TYPE = find_equality_type_thm``AST_LOP_TYPE``
   |> SIMP_RULE std_ss []
@@ -889,7 +918,6 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
    \\ asm_exists_tac \\ rw[]
    \\ imp_res_tac infer_e_wfs \\ fs[],
    every_case_tac \\ fs[] \\ rw[] \\ metis_tac[infer_e_wfs],
-   every_case_tac \\ fs[type_name_subst_side_thm],
    prove_tac [infer_p_side_thm],
    every_case_tac >>
        fs [] >>
@@ -969,7 +997,6 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
        imp_res_tac infer_p_wfs >>
        fs [] >>
        prove_tac [unifyTheory.t_unify_wfs])
-  >- metis_tac [generalise_list_length]
   >- (match_mp_tac (List.nth (CONJUNCTS infer_e_side_thm, 3)) >> rw [])
   >- (match_mp_tac add_constraints_side_thm >>
        rw [] >>
@@ -978,10 +1005,7 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   >- (imp_res_tac pure_add_constraints_wfs >>
        imp_res_tac infer_e_wfs >>
        fs [])
-  >- (match_mp_tac build_ctor_tenv_side_thm >>
-     last_x_assum mp_tac >> rw[])
-  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[])
-  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]));
+  );
 
 val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 
@@ -1069,8 +1093,6 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
     |> Q.GEN`P` |> ho_match_mp_tac) >>
   rw [] >>
   rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
-  TRY (match_mp_tac build_ctor_tenv_side_thm >>rw[])>>
-  TRY (match_mp_tac type_name_subst_side_thm>>every_case_tac>>fs[EVERY_MEM])>>
   fsrw_tac[boolSimps.ETA_ss][]
   >-
     (qmatch_goalsub_abbrev_tac`check_specs_side a ls (c with inf_defined_types := A ++ _) _ _ _`>>

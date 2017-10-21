@@ -63,35 +63,58 @@ sig
     val find_def_for_const   : (term -> thm) ref
     val clean_on_exit        : bool ref
 
-    (* internals, for ml_hol_kernel *)
+    (* internals, for the monadic translation *)
 
-    val match_rec_pattern        : term -> term * string * term
-    val install_rec_pattern      : term -> string -> string -> unit
-    val uninstall_rec_patterns   : unit -> unit
-    val preprocess_def           : thm -> bool * thm list * thm option
-    val get_unique_name          : string -> string
-    val get_nchotomy_of          : hol_type -> thm
-    val sat_hyp_lemma            : thm
-    val print_fname              : string -> thm -> unit
-    val last_fail                : term ref
-    val check_inv                : string -> term -> thm -> thm
-    val remove_primes            : thm -> thm
-    val clean_assumptions        : thm -> thm
-    val SIMP_EqualityType_ASSUMS : thm -> thm
-    val FORCE_GEN                : term -> thm -> thm
-    val rename_bound_vars_rule   : string -> thm -> thm
-    val clean_uppercase          : string -> string
-    val prove_EvalPatRel         : term -> (term -> thm) -> thm
-    val dest_pmatch_K_T          : term -> term * (term * term) list
-    val dest_pmatch_row_K_T      : term -> term * term
-    val is_pmatch                : term -> bool
-    val to_pattern               : term -> term
-    val pmatch_preprocess_conv   : term -> thm
+    val match_rec_pattern            : term -> term * string * term
+    val install_rec_pattern          : term -> string -> string -> unit
+    val uninstall_rec_patterns       : unit -> unit
+    val preprocess_def               : thm -> bool * thm list * thm option
+    val get_unique_name              : string -> string
+    val get_next_ml_name             : string -> string
+    val get_info                     : thm -> string * string * term * term * thm
+    val get_nchotomy_of              : hol_type -> thm
+    val sat_hyp_lemma                : thm
+    val comma                        : string list -> string
+    val rev_param_list               : term -> term list
+    val print_fname                  : string -> thm -> unit
+    val last_fail                    : term ref
+    val check_inv                    : string -> term -> thm -> thm
+    val remove_primes                : thm -> thm
+    val clean_assumptions            : thm -> thm
+    val SIMP_EqualityType_ASSUMS     : thm -> thm
+    val FORCE_GEN                    : term -> thm -> thm
+    val rename_bound_vars_rule       : string -> thm -> thm
+    val clean_uppercase              : string -> string
+    val prove_EvalPatRel             : term -> (term -> thm) -> thm
+    val dest_pmatch_K_T              : term -> term * (term * term) list
+    val dest_pmatch_row_K_T          : term -> term * term
+    val is_pmatch                    : term -> bool
+    val to_pattern                   : term -> term
+    val pmatch_preprocess_conv       : term -> thm
+    val register_term_types          : (hol_type -> unit) -> term -> unit
+    val get_curr_v_defs              : unit -> thm list
+    val get_pre_var                  : term -> string -> term
+    val ex_rename_bound_vars_rule    : thm -> thm
+    val force_thm_the                : thm option -> thm
+    val clean_precondition           : thm -> thm
+    val quietDefine                  : term quotation -> thm
+    val derive_split                 : term -> thm
+    val diff                         : ''a list -> ''a list -> ''a list
     exception UnableToTranslate of term
 
     val find_const_name : string -> string
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
+    
+    (* Internal - for preprocess_monadic_def *)
+    val force_eqns                   : thm -> thm
+    val is_rec_def                   : thm -> bool
+    val mutual_to_single_line_def    : thm -> thm list * thm option
+    val remove_pair_abs              : thm -> thm
+    (* val split_let_and_conv           : term -> thm *)
+    val get_preprocessor_rws         : unit -> thm list
+    val AUTO_ETA_EXPAND_CONV         : conv
+    val find_ind_thm                 : thm -> thm
 
     (* for debugging *)
     val pmatch_hol2deep_fail : term ref

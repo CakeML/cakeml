@@ -14,8 +14,6 @@ open clos_mtiTheory
 open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
-open clos_freeTheory
-open clos_removeTheory
 open clos_knownTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory bvi_tailrecTheory
@@ -202,6 +200,7 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [clos_callTheory.calls_def
+    ,clos_callTheory.free_def
     ,clos_callTheory.closed_def
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
@@ -215,14 +214,9 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
-      (* ---- clos_free----  *)
-    ,clos_freeTheory.free_def
-      (* ---- clos_remove ---- *)
-    ,clos_removeTheory.no_overlap_def
-    ,clos_removeTheory.no_overlap_def_compute
-    ,clos_removeTheory.remove_def
-    ,clos_removeTheory.const_0_def
-    ,clos_removeTheory.compile_def
+    ,clos_annotateTheory.const_0_def
+    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.merge_def
     ,clos_knownTheory.compile_def
@@ -286,8 +280,13 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_inlineTheory.is_small_aux_def
     ,bvl_inlineTheory.is_small_def
     ,bvl_inlineTheory.is_rec_def
+    ,bvl_inlineTheory.var_list_def
+    ,bvl_inlineTheory.dest_op_def
+    ,bvl_inlineTheory.let_op_def
+    ,bvl_inlineTheory.let_op_sing_def
     ,bvl_inlineTheory.must_inline_def
     ,bvl_inlineTheory.inline_all_def
+    ,bvl_inlineTheory.optimise_def
     ,bvl_inlineTheory.compile_prog_def
       (* ---- bvl_const ---- *)
     ,bvl_constTheory.dest_simple_def
@@ -314,12 +313,14 @@ val add_backend_compset = computeLib.extend_compset
     [ (* ---- bvi ---- *)
      ``:bvi$exp``
     ,``:bvi_tailrec$assoc_op``
+    ,``:bvi_tailrec$v_ty``
     ]
   ,computeLib.Defs
     [ (* ---- bvl_to_bvi ---- *)
      bvl_to_bviTheory.destLet_def
     ,bvl_to_bviTheory.alloc_glob_count_def
     ,backend_commonTheory.bvl_num_stubs_def
+    ,backend_commonTheory.bvl_to_bvi_namespaces_def
     ,bvl_to_bviTheory.compile_prog_def
     ,bvl_to_bviTheory.compile_list_def
     ,bvl_to_bviTheory.compile_single_def
@@ -344,7 +345,6 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.compile_aux_def
-    ,bvl_to_bviTheory.optimise_def
     ,bvl_to_bviTheory.default_config_def
       (* ---- bvi_let ---- *)
     ,bvi_letTheory.extract_def
@@ -353,25 +353,31 @@ val add_backend_compset = computeLib.extend_compset
     ,bvi_letTheory.compile_def
     ,bvi_letTheory.compile_exp_def
       (* ---- bvi_tailrec ---- *)
+    ,bvi_tailrecTheory.dummy_def
     ,bvi_tailrecTheory.small_int_def
-    ,bvi_tailrecTheory.args_from_def
-    ,bvi_tailrecTheory.is_arithmetic_def
+    ,bvi_tailrecTheory.is_arith_op_def
+    ,bvi_tailrecTheory.is_const_def
+    ,bvi_tailrecTheory.is_num_rel_def
+    ,bvi_tailrecTheory.is_rec_def
     ,bvi_tailrecTheory.to_op_def
     ,bvi_tailrecTheory.from_op_def
     ,bvi_tailrecTheory.op_eq_def
     ,bvi_tailrecTheory.apply_op_def
     ,bvi_tailrecTheory.id_from_op_def
+    ,bvi_tailrecTheory.index_of_def
+    ,bvi_tailrecTheory.args_from_def
     ,bvi_tailrecTheory.get_bin_args_def
+    ,bvi_tailrecTheory.try_update_def
     ,bvi_tailrecTheory.no_err_def
-    ,bvi_tailrecTheory.is_rec_def
-    ,bvi_tailrecTheory.is_ok_type_def
     ,bvi_tailrecTheory.is_rec_or_rec_binop_def
     ,bvi_tailrecTheory.assoc_swap_def
     ,bvi_tailrecTheory.rewrite_op_def
-    ,bvi_tailrecTheory.tail_is_ok_def
+    ,bvi_tailrecTheory.decide_ty_def
+    ,bvi_tailrecTheory.LAST1_def
+    ,bvi_tailrecTheory.scan_expr_def
     ,bvi_tailrecTheory.push_call_def
     ,bvi_tailrecTheory.mk_tailcall_def
-    ,bvi_tailrecTheory.rewrite_tail_def
+    ,bvi_tailrecTheory.rewrite_def
     ,bvi_tailrecTheory.check_exp_def
     ,bvi_tailrecTheory.let_wrap_def
     ,bvi_tailrecTheory.mk_aux_call_def
@@ -525,6 +531,9 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.Smallnum_def
     ,data_to_wordTheory.MemEqList_def
     ,data_to_wordTheory.assign_def
+    ,data_to_wordTheory.fp_cmp_inst_def
+    ,data_to_wordTheory.fp_bop_inst_def
+    ,data_to_wordTheory.fp_uop_inst_def
     ,data_to_wordTheory.comp_def
     ,data_to_wordTheory.compile_part_def
     ,data_to_wordTheory.stubs_def

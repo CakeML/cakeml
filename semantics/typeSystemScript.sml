@@ -349,6 +349,9 @@ val _ = Define `
     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
     | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
     | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
+    | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
+    | (FP_uop _, [t1]) =>  (t1 = Tword64) /\ (t = Tword64)
+    | (FP_cmp _, [t1; t2]) =>  (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tbool)
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
@@ -384,7 +387,7 @@ val _ = Define `
     | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
     | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
     | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\ (t2 = Tint) /\ (t = Ttup [])
-    | (FFI n, [t1]) => (t1 = Tword8array) /\ (t = Ttup [])
+    | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
     | _ => F
   )))`;
 

@@ -3,12 +3,22 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory
-ASCIInumbersLib
+open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.tight_equality()
+
+(* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
+
+val _ = remove_ovl_mapping "exp" {Name="exp", Thy="transc"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
+val _ = remove_ovl_mapping "lim" {Name="lim", Thy="seq"}
+val _ = remove_ovl_mapping "ln" {Name="ln", Thy="transc"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 fun drule th =
@@ -278,6 +288,19 @@ val EL_MAP2i = Q.store_thm("EL_MAP2i",
   ho_match_mp_tac MAP2i_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
 
+val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
+  `∀xs ys.
+     LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
+  Induct \\ rw []
+  \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC);
+
+val EL_MAP2 = Q.store_thm("EL_MAP2",
+  `∀ts tt n.
+    n < MIN (LENGTH ts) (LENGTH tt) ⇒
+      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
+  Induct \\ rw []
+  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
+
 val MAP3_def = Define`
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
@@ -294,6 +317,11 @@ val EL_MAP3 = Q.store_thm("EL_MAP3",
     EL n (MAP3 f l1 l2 l3) = f (EL n l1) (EL n l2) (EL n l3)`,
   ho_match_mp_tac MAP3_ind \\ rw[]
   \\ Cases_on`n` \\ fs[]);
+
+val MAP_REVERSE_STEP = Q.store_thm("MAP_REVERSE_STEP",
+  `∀x f. x ≠ [] ⇒ MAP f (REVERSE x) = f (LAST x) :: MAP f (REVERSE (FRONT x))`,
+  recInduct SNOC_INDUCT
+  \\ rw [FRONT_APPEND]);
 
 val LENGTH_TAKE_EQ_MIN = Q.store_thm("LENGTH_TAKE_EQ_MIN",
   `!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)`,
@@ -2460,13 +2488,6 @@ val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
 val CONCAT_WITH_def = Define`
     CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
 
-val OPT_MMAP_def = Define`
-  (OPT_MMAP f [] = SOME []) ∧
-  (OPT_MMAP f (h0::t0) =
-     OPTION_BIND (f h0)
-     (λh. OPTION_BIND (OPT_MMAP f t0)
-       (λt. SOME (h::t))))`;
-
 val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
   `!ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls`,
   Induct \\ rw[OPT_MMAP_def]);
@@ -2474,6 +2495,19 @@ val OPT_MMAP_MAP_o = Q.store_thm("OPT_MMAP_MAP_o",
 val OPT_MMAP_SOME = Q.store_thm("OPT_MMAP_SOME[simp]",
   `OPT_MMAP SOME ls = SOME ls`,
   Induct_on`ls` \\ rw[OPT_MMAP_def]);
+
+val OPT_MMAP_CONG = Q.store_thm("OPT_MMAP_CONG[defncong]",
+  `!l1 l2 f f'.
+     (l1 = l2) /\
+     (!x. MEM x l2 ==> (f x = f' x))
+     ==> (OPT_MMAP f l1 = OPT_MMAP f' l2)`,
+  Induct \\ rw[OPT_MMAP_def] \\ rw[OPT_MMAP_def] \\
+  Cases_on`f' h` \\ rw[] \\ fs[] \\ metis_tac[]);
+
+val IMP_OPT_MMAP_EQ = Q.store_thm("IMP_OPT_MMAP_EQ",
+  `!l1 l2. (MAP f1 l1 = MAP f2 l2) ==> (OPT_MMAP f1 l1 = OPT_MMAP f2 l2)`,
+  Induct \\ rw[OPT_MMAP_def] \\ Cases_on`l2` \\ fs[OPT_MMAP_def] \\
+  Cases_on`f2 h'` \\ fs[] \\ metis_tac[]);
 
 val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
   `DISJOINT (set []) s /\
@@ -2990,5 +3024,88 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
     INJ ((x =+ y) f) (x INSERT s) (y INSERT t)``,
   simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
+
+
+(* Some temporal logic definitions based on lazy lists *)
+(* move into llistTheory? *)
+
+val (eventually_rules,eventually_ind,eventually_cases) = Hol_reln`
+  (!ll. P ll ==> eventually P ll) /\
+  (!h t. ¬P (h:::t) /\ eventually P t ==> eventually P (h:::t)) `;
+
+val eventually_thm = store_thm(
+  "eventually_thm",
+  ``(eventually P [||] = P [||]) /\
+    (eventually P (h:::t) = (P (h:::t) \/(¬ P (h:::t) /\ eventually P t)))``,
+  CONJ_TAC THEN
+  CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV [eventually_cases])) THEN
+  SRW_TAC [][]);
+
+val _ = export_rewrites ["eventually_thm"]
+
+val (always_rules,always_coind,always_cases) = Hol_coreln`
+  (!h t. (P (h ::: t) /\ always P t) ==> always P (h ::: t))`;
+
+val always_thm = Q.store_thm("always_thm",
+   `∀h t. (always P (h:::t) ==> P (h:::t) ∧ always P t)`,
+   rw[] >> fs[Once always_cases]);
+
+val _ = export_rewrites ["always_thm"]
+
+val always_conj_l = Q.store_thm("always_conj_l",
+  `!ll. ¬ LFINITE ll /\ (always (\x. P x /\ Q x) ll) ==> (always P ll)`,
+  ho_match_mp_tac always_coind >>
+  rw[] >> Cases_on`ll` >> fs[] >> imp_res_tac always_thm >> fs[]);
+
+val always_eventually_ind = Q.store_thm("always_eventually_ind",
+  `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
+   !ll. ll <> [||] ⇒  always(eventually P) ll ==> Q ll`,
+   `(!ll. (P ll \/ (¬ P ll /\ Q (THE(LTL ll)))) ==> Q ll) ==>
+     (!ll. eventually P ll ==> (Q ll))` by
+     (strip_tac >> ho_match_mp_tac eventually_ind >> rw[]) >>
+   rw[] >> Cases_on`ll` >> fs[] >> imp_res_tac always_thm >> res_tac);
+
+val always_DROP = Q.store_thm("always_DROP",
+  `!ll. ¬ LFINITE ll /\ always P ll ==> always P (THE(LDROP k ll))`,
+  Induct_on`k` >> Cases_on`ll` >> fs[always_thm,LDROP] >>
+  rw[] >> imp_res_tac always_thm >> fs[]);
+
+(* TODO: move *)
+val LDROP_1 = Q.store_thm("LDROP_1",
+  `LDROP (1: num) (h:::t) = SOME t`,
+  `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>
+  metis_tac[arithmeticTheory.ONE]);
+
+(* computes the next position for which P holds *)
+val Lnext_def = tDefine "Lnext" `
+  Lnext P ll = if eventually P ll then
+                        if P ll then 0
+                        else SUC(Lnext P (THE (LTL ll)))
+                     else ARB`
+ (exists_tac``\(P,ll') (P',ll).
+    ((P = P') /\ eventually P ll /\ eventually P ll' /\
+    (LTL ll = SOME ll') /\ ¬ P ll)`` >>
+    reverse(rw[relationTheory.WF_DEF,eventually_thm])
+  >-(Cases_on`ll` >> fs[])
+  >-(Cases_on`ll` >> fs[]) >>
+  Cases_on`w` >> rename[`B(P, ll)`] >> rename[`B(P, ll)`] >>
+  reverse(Cases_on`eventually P ll`)
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  rpt(LAST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >>
+  HO_MATCH_MP_TAC eventually_ind >> rw[]
+  >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
+  Cases_on`B(P,ll)` >-(metis_tac[]) >>
+  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
+
+val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
+  `!(x:'a option) y z. (OPTION_CHOICE x y = SOME z) <=>
+                       ((x = SOME z) \/ ((x = NONE) /\ (y = SOME z)))`,
+ rw[] \\ Cases_on `x` \\ Cases_on `y` \\ fs[]);
+
+val _ =  save_thm("option_eq_some",
+    LIST_CONJ [
+    OPTION_IGNORE_BIND_EQUALS_OPTION,
+    OPTION_BIND_EQUALS_OPTION,
+    OPTION_CHOICE_EQUALS_OPTION]);
 
 val _ = export_theory()

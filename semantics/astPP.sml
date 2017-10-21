@@ -5,21 +5,26 @@ open HolKernel boolLib bossLib Parse astTheory stringLib
 open Portable smpp term_pp_types
 
 (* Bring forward explicitly so that the PP rules don't confuse things*)
-fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
+fun bring_fwd_ctors ty =
+  TypeBase.constructors_of ty
+  |> map (fn cn =>
+    let val {Thy,Name,...} = dest_thy_const cn in
+      Parse.bring_to_front_overload Name {Name=Name,Thy=Thy}
+    end)
 
-val _ = bring_fwd_ctors "ast" ``:ast$lit``
-val _ = bring_fwd_ctors "ast" ``:ast$opn``
-val _ = bring_fwd_ctors "ast" ``:ast$opb``
-val _ = bring_fwd_ctors "namespace" ``:('a,'b) namespace$id``
-val _ = bring_fwd_ctors "ast" ``:ast$op``
-val _ = bring_fwd_ctors "ast" ``:ast$lop``
-val _ = bring_fwd_ctors "ast" ``:ast$tctor``
-val _ = bring_fwd_ctors "ast" ``:ast$t``
-val _ = bring_fwd_ctors "ast" ``:ast$pat``
-val _ = bring_fwd_ctors "ast" ``:ast$exp``
-val _ = bring_fwd_ctors "ast" ``:ast$dec``
-val _ = bring_fwd_ctors "ast" ``:ast$spec``
-val _ = bring_fwd_ctors "ast" ``:ast$top``
+val _ = bring_fwd_ctors ``:ast$lit``
+val _ = bring_fwd_ctors ``:ast$opn``
+val _ = bring_fwd_ctors ``:ast$opb``
+val _ = bring_fwd_ctors ``:('a,'b) namespace$id``
+val _ = bring_fwd_ctors ``:ast$op``
+val _ = bring_fwd_ctors ``:ast$lop``
+val _ = bring_fwd_ctors ``:ast$tctor``
+val _ = bring_fwd_ctors ``:ast$t``
+val _ = bring_fwd_ctors ``:ast$pat``
+val _ = bring_fwd_ctors ``:ast$exp``
+val _ = bring_fwd_ctors ``:ast$dec``
+val _ = bring_fwd_ctors ``:ast$spec``
+val _ = bring_fwd_ctors ``:ast$top``
 
 val astPrettyPrinters = ref []: (string * term * term_grammar.userprinter) list ref
 
@@ -138,7 +143,7 @@ fun dtypePrint modn sys d t pg str brk blk =
 val _=add_astPP ("dtypeprint", ``Dtype locs x``,genPrint (dtypePrint ""));
 
 fun dtabbrevPrint sys d t pg str brk blk =
-  let val (t,[locs,typ,name,ls]) = strip_comb t
+  let val (t,[locs,ls,name,typ]) = strip_comb t
       val typaram = #1(listSyntax.dest_list ls)
   in
     add_newline >> str"type" >> (case typaram of [] => str""
@@ -148,7 +153,8 @@ fun dtabbrevPrint sys d t pg str brk blk =
              >> str" ">>blk CONSISTENT 0 (str "= " >> sys (pg,pg,pg) d typ>>str ";")
   end;
 
-val _ = add_astPP ("dtabbrevprint",``Dtabbrev locs x y z``,genPrint (dtabbrevPrint ));
+val _ = add_astPP("dtabbrevprint",``Dtabbrev locs x y z``,genPrint (dtabbrevPrint));
+
 (*tvar name*)
 fun tvarPrint sys d t pg str brk blk =
   str (toString (strip t));
@@ -196,6 +202,7 @@ fun tappPrint sys d t pg str brk blk =
      >> sys (pg,pg,pg) d r
   end;
 
+val _=add_astPP("tappnone",``Tapp [] TC_tup``,genPrint (deftypePrint "unit"));
 val _=add_astPP("tappprint", ``Tapp x y``,genPrint tappPrint);
 
 (*Tfn*)
@@ -493,7 +500,8 @@ val _=add_astPP ("varshortprint", ``Var (Short x)``,genPrint varShortPrint);
 (*Long Var name*)
 fun varLongPrint sys d t pg str brk blk =
   let val t = rand t
-      val (_,[l,r]) = strip_comb t
+      val (_,[l,sr]) = strip_comb t
+      val r = rand sr;
   in
     str (toString l)>> str".">>str(toString r)
   end;

@@ -658,6 +658,10 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    rename1 `Opb _` >>
    rw [do_app_cases, PULL_EXISTS] >>
    metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def])
+ >> TRY ( (* FP cmp *)
+   rename1`FP_cmp` >>
+   rw [do_app_cases, PULL_EXISTS] >>
+   metis_tac[type_v_Boolv,store_type_extension_refl, Tbool_def])
  >> TRY ( (* Equality *)
    rename1`Equality` >>
    rw [do_app_cases, PULL_EXISTS] >>
@@ -933,7 +937,7 @@ val op_type_sound = Q.store_thm ("op_type_sound",
    rw [do_app_cases, PULL_EXISTS] >>
    res_tac >>
    rw []
-   >> `?ffi' ws'. call_FFI ffi n ws = (ffi', ws')` by metis_tac [pair_CASES]
+   >> `?ffi' ws'. call_FFI ffi n (MAP (λc. n2w (ORD c)) (EXPLODE s)) ws = (ffi', ws')` by metis_tac [pair_CASES]
    >> simp []
    >> `type_sv ctMap tenvS (W8array ws') W8array_t` by rw [type_sv_def]
    >> drule store_assign_type_sound

@@ -118,7 +118,7 @@ val inst_const = Q.store_thm("inst_const",
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps`,
   Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[set_fp_var_def,set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
   fs[get_vars_def]>>every_case_tac>>fs[state_component_equality]);
 
@@ -127,7 +127,9 @@ val inst_with_const = Q.store_thm("inst_with_const[simp]",
   srw_tac[][inst_def] >>
   CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]>>
-  fs[get_vars_def,get_var_def]>>every_case_tac>>fs[]);
+  fs[get_vars_def,get_var_def,get_fp_var_def,set_fp_var_def]>>
+  every_case_tac>>fs[]>>
+  rw[]>>fs[]>>rw[]>>fs[]);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi ∧
@@ -313,17 +315,17 @@ val clock_neutral_def = Define `
 val inst_clock_neutral = Q.prove(
   `(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
     (inst i s = NONE ==> inst i (s with clock := k) = NONE)`,
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
+  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,set_fp_var_def]
   \\ srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
-  \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
+  \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def,get_fp_var_def]
   \\ srw_tac[][state_component_equality]);
 
 val inst_clock_neutral_ffi = Q.prove(
   `(inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)`,
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality]>>
+  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF,state_component_equality,set_fp_var_def]>>
   reverse full_case_tac>>fs[]>>
   TRY
     (qmatch_goalsub_abbrev_tac`get_vars _ _`>>
@@ -332,7 +334,7 @@ val inst_clock_neutral_ffi = Q.prove(
   \\ rpt (srw_tac[][state_component_equality]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
-  \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
+  \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def,get_fp_var_def]
   \\ srw_tac[][state_component_equality]));
 
 val evaluate_clock_neutral = Q.store_thm("evaluate_clock_neutral",
@@ -482,11 +484,11 @@ val arith_name_def = Define`
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (arith_name (LongMul r1 r2 r3 r4) c ⇔
     reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = x86_64 ⇒ r1 = 4 ∧ r2 = 0 ∧ r3 = 0) ∧
+    (c.ISA = x86_64 ⇒ r1 = 3 ∧ r2 = 0 ∧ r3 = 0) ∧
     (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
-    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Tiny ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
-    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 4 ∧ r3 = 4 ∧ r4 = 0 ∧
+    c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 3 ∧ r3 = 3 ∧ r4 = 0 ∧
     reg_name r5 c) ∧
   (arith_name (AddCarry r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
@@ -501,6 +503,36 @@ val arith_name_def = Define`
     reg_name r3 c ∧ reg_name r4 c ∧
     (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))`
 
+(* We could actually almost use fp_ok, except this needs to check reg_ok for
+   some registers as well *)
+val fp_name_def = Define `
+  (fp_name (FPLess r d1 d2) c <=>
+      reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPLessEqual r d1 d2) c <=>
+      reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPEqual r d1 d2) c <=>
+      reg_name r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPAbs d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPNeg d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPSqrt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPAdd d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_name (FPSub d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_name (FPMul d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_name (FPDiv d1 d2 d3) c <=>
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
+      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+      fp_reg_ok d c) /\
+  (fp_name (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
+      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+      fp_reg_ok d c) /\
+  (fp_name (FPToInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
+  (fp_name (FPFromInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c)`
+
 val addr_name_def = Define`
   addr_name m (Addr r w) c ⇔
   reg_name r c ∧
@@ -510,6 +542,7 @@ val inst_name_def = Define`
   (inst_name c (Const r w) ⇔ reg_name r c) ∧
   (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
+  (inst_name c (FP f) ⇔ fp_name f c) ∧
   (inst_name _ _ = T)`
 
 val stack_asm_name_def = Define`
@@ -532,7 +565,7 @@ val stack_asm_name_def = Define`
 val fixed_names_def = Define`
   fixed_names names c =
   if c.ISA = x86_64 then
-    find_name names 4 = 2 ∧
+    find_name names 3 = 2 ∧
     find_name names 0 = 0
   else T`
 
@@ -605,6 +638,11 @@ val reg_bound_inst_def = Define`
   (reg_bound_inst (Arith (SubOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
+  (reg_bound_inst (FP (FPLess r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPLessEqual r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPEqual r f1 f2)) k ⇔ r < k) ∧
+  (reg_bound_inst (FP (FPMovToReg r1 r2 d)) k ⇔ r1 < k ∧ r2 < k) ∧
+  (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst _ _ ⇔ T)`;
 val _ = export_rewrites["reg_bound_inst_def"];
 
@@ -632,8 +670,8 @@ val reg_bound_def = Define `
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k) /\
   (reg_bound (Halt n) k <=> n < k) /\
-  (reg_bound (FFI ffi_index ptr' len' ret') k <=>
-     ptr' < k /\ len' < k /\ ret' < k) /\
+  (reg_bound (FFI ffi_index ptr' len' ptr2' len2' ret') k <=>
+     ptr' < k /\ len' < k /\ ptr2' < k /\ len2' < k /\ ret' < k) /\
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
@@ -653,22 +691,22 @@ val reg_bound_def = Define `
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI calls *)
 val call_args_def = Define `
-  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
-     call_args p1 ptr len ret /\
-     call_args p2 ptr len ret) /\
-  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
-     call_args p1 ptr len ret /\
-     call_args p2 ptr len ret) /\
-  (call_args (While c r ri p1) ptr len ret <=>
-     call_args p1 ptr len ret) /\
-  (call_args (Halt n) ptr len ret <=> (n = ptr)) /\
-  (call_args (FFI ffi_index ptr' len' ret') ptr len ret <=>
-     ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (call_args (Call x1 _ x2) ptr len ret <=>
+  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret /\
+     call_args p2 ptr len ptr2 len2 ret) /\
+  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret /\
+     call_args p2 ptr len ptr2 len2 ret) /\
+  (call_args (While c r ri p1) ptr len ptr2 len2 ret <=>
+     call_args p1 ptr len ptr2 len2 ret) /\
+  (call_args (Halt n) ptr len ptr2 len2 ret <=> (n = ptr)) /\
+  (call_args (FFI ffi_index ptr' len' ptr2' len2' ret') ptr len ptr2 len2 ret <=>
+     ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
+  (call_args (Call x1 _ x2) ptr len ptr2 len2 ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ret /\ r = ret
+      | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
       | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ret | NONE => T)) /\
-  (call_args _ ptr len ret <=> T)`
+     (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
+  (call_args _ ptr len ptr2 len2 ret <=> T)`
 
 val _ = export_theory();

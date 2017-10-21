@@ -657,7 +657,7 @@ val Eval_NUM_MULT = save_thm("Eval_NUM_MULT",
 
 val Eval_NUM_DIV = save_thm("Eval_NUM_DIV",
   Eval_INT_DIV |> Q.SPECL [`&n1`,`&n2`]
-  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0)``
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
@@ -666,7 +666,7 @@ val Eval_NUM_DIV = save_thm("Eval_NUM_DIV",
 
 val Eval_NUM_MOD = save_thm("Eval_NUM_MOD",
   Eval_INT_MOD |> Q.SPECL [`&n1`,`&n2`]
-  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0)``
+  |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
@@ -730,11 +730,13 @@ val Eval_NUM_GREATER_EQ = save_thm("Eval_NUM_GREATER_EQ",
 
 val Eval_NUM_EQ_0 = Q.store_thm("Eval_NUM_EQ_0",
   `!n. Eval env x (NUM n) ==>
-        Eval env (App (Opb Leq) [x; Lit (IntLit 0)]) (BOOL (n = 0))`,
+        Eval env (App Equality [x; Lit (IntLit 0)]) (BOOL (n = 0))`,
   REPEAT STRIP_TAC \\ ASSUME_TAC (Q.SPEC `0` Eval_Val_NUM)
-  \\ FULL_SIMP_TAC std_ss [NUM_def]
-  \\ `(n = 0) = (&n <= 0)` by intLib.COOPER_TAC
-  \\ FULL_SIMP_TAC std_ss [Eval_INT_LESS_EQ]);
+  \\ pop_assum mp_tac
+  \\ drule (GEN_ALL Eval_Equality)
+  \\ rw [] \\ res_tac
+  \\ first_x_assum match_mp_tac
+  \\ fs [EqualityType_NUM_BOOL]);
 
 (* word operations *)
 
@@ -1389,6 +1391,32 @@ val Eval_concat = Q.store_thm("Eval_concat",
   \\ Cases_on`s` \\ fs[STRING_TYPE_def]
   \\ rw[vs_to_string_def]
   \\ fs[concat_def,STRING_TYPE_def]);
+
+val Eval_substring = Q.store_thm("Eval_substring",
+  `∀env x1 x2 x3 len off st.
+    Eval env x1 (STRING_TYPE st) ==>
+    Eval env x2 (NUM off) ==>
+    Eval env x3 (NUM len) ==>
+      off + len <= strlen st ==>
+    Eval env (App CopyStrStr [x1; x2; x3]) (STRING_TYPE (substring st off len))`,
+  rw[Eval_def]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs++refs'`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ first_x_assum(qspec_then`refs++refs'++refs''`strip_assume_tac)
+  \\ asm_exists_tac \\ rw[]
+  \\ rw[Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq]
+  \\ rw[state_component_equality]
+  \\ rw[do_app_def]
+  \\ Cases_on`st` \\ fs[STRING_TYPE_def]
+  \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
+  \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
+        substring_def,SEG_TAKE_BUTFISTN,STRING_TYPE_def]);
 
 (* vectors *)
 

@@ -74,7 +74,8 @@ val defaults =
   [mips_ast_def,mips_encode_def,Encode_def,
    mips_bop_r_def, mips_bop_i_def, mips_memop_def,
    mips_encode_fail_def,
-   form1_def,form2_def,form3_def,form4_def,form5_def,form6_def]
+   form1_def,form2_def,form3_def,form4_def,form5_def,form6_def,
+   mips_fp_cmp_def,COP1Encode_def]
 
 val mips_enc_thms =
   mips_enc_def
@@ -138,7 +139,11 @@ val mips_enc1_4_aux = el 4 mips_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.ex
 
 val mips_enc1_4 = reconstruct_case ``mips_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``mips_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) mips_enc1_4_aux]
 
-val mips_simp1 = reconstruct_case ``mips_enc (Inst i)`` (rand o rand) [mips_enc1_1,mips_enc1_2,mips_enc1_3,mips_enc1_4]
+val mips_enc1_5_aux = el 5 mips_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:fp``]) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
+
+val mips_enc1_5 = reconstruct_case ``mips_enc (Inst (FP f))`` (rand o rand o rand) mips_enc1_5_aux
+
+val mips_simp1 = reconstruct_case ``mips_enc (Inst i)`` (rand o rand) [mips_enc1_1,mips_enc1_2,mips_enc1_3,mips_enc1_4,mips_enc1_5]
 
 val mips_simp2 = mips_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 

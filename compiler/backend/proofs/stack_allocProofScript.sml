@@ -4995,6 +4995,63 @@ val loc_check_compile = Q.store_thm("loc_check_compile",
   \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
   \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]);
 
+val SUBMAP_DOMSUB_both = Q.prove(`
+  A SUBMAP B ⇒
+  A \\ c SUBMAP B \\ c`,
+  rw[GSYM SUBMAP_DOMSUB_gen]>>
+  metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]);
+
+val SUBMAP_FUPDATE_both = Q.prove(`
+  A SUBMAP B ⇒
+  A |+ (n,v) SUBMAP B |+ (n,v)`,
+  rw[]>>match_mp_tac SUBMAP_mono_FUPDATE >>
+  fs[SUBMAP_DOMSUB_both]);
+
+val inst_correct = Q.prove(`
+  inst (i:'a inst) (s:('a,'b) stackSem$state) = SOME t ∧
+  LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
+  s.regs SUBMAP regs ⇒
+  ∃regs1.
+  inst i (s with <|regs := regs; gc_fun := anything; use_stack := T;
+          use_store := T; use_alloc := F;
+          code := fromAList (compile c (toAList s.code))|>) =
+    SOME (t with <|regs := regs1; gc_fun := anything; use_stack := T;
+          use_store := T; use_alloc := F;
+          code := fromAList (compile c (toAList s.code))|>) ∧
+    t.regs SUBMAP regs1 ∧
+    LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α)`,
+  Cases_on`i`>>fs[inst_def]
+  >-
+    (rw[]>>rfs[state_component_equality])
+  >-
+    (rw[assign_def,word_exp_def,set_var_def]>>rfs[state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (* Can be sped up by avoiding ect *)
+    (TOP_CASE_TAC>>rw[]>>
+    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def]>>
+    every_case_tac>>fs[IS_SOME_EXISTS,word_exp_def]>>
+    every_case_tac>>fs[]>>
+    imp_res_tac FLOOKUP_SUBMAP>>
+    fs[set_var_def,state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (TOP_CASE_TAC>>rw[]>>
+    TOP_CASE_TAC>>rw[]>>
+    fs[]>>qpat_x_assum`A=SOME t` mp_tac>>
+    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
+    every_case_tac>>
+    imp_res_tac FLOOKUP_SUBMAP>>fs[set_var_def,state_component_equality]>>
+    rw[]>>fs[]>>
+    metis_tac[SUBMAP_FUPDATE_both])
+  >-
+    (TOP_CASE_TAC>>rw[]>>
+    fs[get_fp_var_def,set_fp_var_def,get_var_def]>>
+    every_case_tac>>
+    imp_res_tac FLOOKUP_SUBMAP>>fs[]>>
+    fs[set_var_def,state_component_equality]>>
+    metis_tac[SUBMAP_FUPDATE_both]));
+
 val comp_correct = Q.store_thm("comp_correct",
   `!p (s:('a,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
@@ -5037,68 +5094,18 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ metis_tac[alloc_length_stack])
   \\ conj_tac (* Inst *) >- (
     rpt strip_tac
-    \\ fs[Once comp_def] \\ fs[evaluate_def,inst_def]
-    \\ CASE_TAC \\ fs[] \\ rw[]
-    \\ fs[assign_def,word_exp_def,set_var_def,mem_load_def,get_var_def,mem_store_def]
-    \\ rw[] \\ fs[] \\ fs[state_component_equality]
-    \\ TRY (
-      match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
-    >- (
-      every_case_tac \\ fs[] \\ rw[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ rw[] \\ fs[word_exp_def,get_vars_def,get_var_def]
-      \\ every_case_tac \\ fs[]
-      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-      \\ fs[state_component_equality]
-      \\ match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB,SUBMAP_mono_FUPDATE,SUBMAP_DOMSUB_gen] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ fs[Once comp_def,evaluate_def]
+    \\ qpat_x_assum `_ = (r,t)` mp_tac
+    \\ TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ qexists_tac `0` \\ simp[]
+    \\ drule inst_correct
     \\ rw[]
-    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-    \\ rw[] \\ fs[]
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
-    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
-    \\ rw[] \\ fs[]
-    \\ rfs[]
-    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
-    \\ rfs[]
-    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-    \\ res_tac \\ fs[] \\ rw[] \\ fs[]
-    \\ fs[state_component_equality]
-    \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-    \\ TRY (
-      qpat_x_assum`¬_`mp_tac \\ simp[]
-      \\ match_mp_tac SUBMAP_mono_FUPDATE
-      \\ rw[GSYM SUBMAP_DOMSUB_gen]
-      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
-    \\ TRY (
-      rfs[]
-      \\ BasicProvers.CASE_TAC
-      \\ BasicProvers.CASE_TAC
-      \\ spose_not_then strip_assume_tac \\ rw[]
-      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
-      \\ res_tac \\ fs[] \\ rw[]
-      \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-      \\ res_tac \\ fs[] \\ rw[] \\ fs[]
-      \\ spose_not_then strip_assume_tac \\ fs[]
-      \\ rw[] \\ fs[] \\ rfs[])
-    \\ strip_tac \\ rw[] \\ fs[]
-    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
-    \\ res_tac \\ fs[] \\ rw[] \\ fs[] )
+    \\ qmatch_goalsub_abbrev_tac`inst i st`
+    \\ qmatch_asmsub_abbrev_tac`inst i st' = _`
+    \\ `st = st'` by
+        (unabbrev_all_tac>>fs[state_component_equality])
+    \\ HINT_EXISTS_TAC
+    \\ simp[])
   \\ conj_tac (* Get *) >- (
     fs[Once comp_def,evaluate_def,get_var_def]
     \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
@@ -5847,8 +5854,8 @@ val stack_alloc_reg_bound = Q.store_thm("stack_alloc_reg_bound",
   rpt(pairarg_tac>>fs[reg_bound_def]));
 
 val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
-  `EVERY (λp. call_args p 1 2 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 0) (MAP SND (compile c.data_conf prog1))`,
+  `EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile c.data_conf prog1))`,
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
@@ -5860,7 +5867,7 @@ val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
   fs[stack_allocTheory.prog_comp_def,FORALL_PROD]>>
   ntac 3 strip_tac>>fs[]>>
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
-  qpat_x_assum`call_args p_2 1 2 0` mp_tac>>
+  qpat_x_assum`call_args p_2 1 2 3 4 0` mp_tac>>
   rpt (pop_assum kall_tac)>>
   qid_spec_tac `p_2` >>
   qid_spec_tac `l` >>
@@ -5872,5 +5879,32 @@ val stack_alloc_call_args = Q.store_thm("stack_alloc_call_args",
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[call_args_def]>>
     BasicProvers.EVERY_CASE_TAC)>>
   rpt(pairarg_tac>>fs[call_args_def]));
+
+val compile_has_fp_ops = store_thm("compile_has_fp_ops[simp]",
+  ``compile (dconf with has_fp_ops := b) code = compile dconf code``,
+  fs [compile_def,stubs_def,word_gc_code_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [data_to_wordTheory.small_shift_length_def,
+         word_gc_move_code_def,
+         word_gc_move_list_code_def,
+         word_gc_move_loop_code_def,
+         word_gc_move_roots_bitmaps_code_def,
+         word_gc_move_bitmaps_code_def,
+         word_gc_move_bitmap_code_def,
+         word_gen_gc_move_code_def,
+         word_gen_gc_move_list_code_def,
+         word_gen_gc_move_roots_bitmaps_code_def,
+         word_gen_gc_move_bitmaps_code_def,
+         word_gen_gc_move_bitmap_code_def,
+         word_gen_gc_move_data_code_def,
+         word_gen_gc_move_refs_code_def,
+         word_gen_gc_move_loop_code_def,
+         word_gen_gc_partial_move_code_def,
+         word_gen_gc_partial_move_list_code_def,
+         word_gen_gc_partial_move_roots_bitmaps_code_def,
+         word_gen_gc_partial_move_bitmaps_code_def,
+         word_gen_gc_partial_move_bitmap_code_def,
+         word_gen_gc_partial_move_data_code_def,
+         word_gen_gc_partial_move_ref_list_code_def]);
 
 val _ = export_theory();

@@ -8,12 +8,14 @@ val arm8_names_def = Define `
        target's r26 must be avoided (extra encoding register),
        target's r31 must be avoided (stack pointer),
        source 0 must represent r30 (link register),
-       source 1-2 must be r0,r1 (1st 2 args),
+       source 1-4 must be r0-r3 (1st 4 args),
        top three (28-30) must be callee-saved (in r19-r29) *)
     (insert 0 30 o
      insert 1 0 o
      insert 2 1 o
-     insert 26 2 o
+     insert 3 2 o
+     insert 4 3 o
+     insert 26 4 o
      (* Next one is for well-formedness only *)
      insert 30 26) LN:num num_map`
 
@@ -26,7 +28,7 @@ val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
 (* TODO: this config may need to change *)
-val arm8_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; gc_kind:=Simple|>``
+val arm8_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; gc_kind:=Simple|>``
 val arm8_word_conf = ``<| bitmaps := []:64 word list |>``
 val arm8_stack_conf = ``<|jump:=T;reg_names:=arm8_names|>``
 val arm8_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm8_config;init_clock:=5|>``

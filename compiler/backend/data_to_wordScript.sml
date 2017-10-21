@@ -20,6 +20,7 @@ val _ = Datatype `
             ; len_size : num (* size of length field in block header *)
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
+            ; has_fp_ops : bool (* can compile floating-point ops *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
@@ -800,6 +801,23 @@ val get_gen_size_def = Define `
      if w2n (bytes_in_word:'a word) * x < dimword (:'a)
      then bytes_in_word * n2w x
      else bytes_in_word * (-1w))`;
+val fp_cmp_inst_def = Define `
+  fp_cmp_inst FP_Less = FPLess 3 0 1 /\
+  fp_cmp_inst FP_LessEqual = FPLessEqual 3 0 1 /\
+  fp_cmp_inst FP_Greater = FPLess 3 1 0 /\
+  fp_cmp_inst FP_GreaterEqual = FPLessEqual 3 1 0 /\
+  fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
+
+val fp_bop_inst_def = Define `
+  fp_bop_inst FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst FP_Div = FPDiv 0 0 1`
+
+val fp_uop_inst_def = Define `
+  fp_uop_inst FP_Neg = FPNeg 0 0 /\
+  fp_uop_inst FP_Abs = FPAbs 0 0 /\
+  fp_uop_inst FP_Sqrt = FPSqrt 0 0`
 
 local val assign_quotation = `
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
@@ -964,7 +982,7 @@ local val assign_quotation = `
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
        | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_num_stubs),l)
+    | Label n => (LocValue (adjust_var dest) n,l)
     | LessConstSmall i =>
        (dtcase args of
         | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))
@@ -1341,15 +1359,20 @@ local val assign_quotation = `
       | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of
-       | [v] =>
-        let addr = real_addr c (adjust_var v) in
-        let header = Load addr in
+       | [v1; v2] =>
+        let addr1 = real_addr c (adjust_var v1) in
+        let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
-        let fakelen = Shift Lsr header (Nat k) in
+        let fakelen1 = Shift Lsr header1 (Nat k) in
+        let addr2 = real_addr c (adjust_var v2) in
+        let header2 = Load addr2 in
+        let fakelen2 = Shift Lsr header2 (Nat k) in            
         (list_Seq [
-          Assign 1 (Op Add [addr; Const bytes_in_word]);
-          Assign 3 (Op Sub [fakelen; Const (bytes_in_word-1w)]);
-          FFI ffi_index 1 3 (adjust_set (dtcase names of SOME names => names | NONE => LN));
+          Assign 1 (Op Add [addr1; Const bytes_in_word]);
+          Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
+          Assign 5 (Op Add [addr2; Const bytes_in_word]);
+          Assign 7 (Op Sub [fakelen2; Const (bytes_in_word-1w)]);
+          FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
        | _ => (Skip,l))
@@ -1369,6 +1392,93 @@ local val assign_quotation = `
                            Assign 3 (real_addr c (adjust_var v));
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
+       | _ => (Skip,l))
+    | FP_cmp fpc => (dtcase args of
+       | [v1;v2] =>
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
+           ((list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (fp_cmp_inst fpc));
+               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l))
+        else
+           ((list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (fp_cmp_inst fpc));
+               Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
+       | _ => (Skip,l))
+    | FP_bop fpb => (dtcase args of
+       | [v1;v2] =>
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (fp_bop_inst fpb));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (fp_bop_inst fpb));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
+       | _ => (Skip,l))
+    | FP_uop fpu => (dtcase args of
+       | [v1] =>
+       (if ~c.has_fp_ops then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (fp_uop_inst fpu));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (fp_uop_inst fpu));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
        | _ => (Skip,l))
     | _ => (Skip:'a wordLang$prog,l)`;
 
@@ -1693,6 +1803,7 @@ val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
+    let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 

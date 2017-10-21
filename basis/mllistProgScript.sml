@@ -58,7 +58,7 @@ val result = translate FLAT;
 
 val result = next_ml_names := ["map","mapi_aux","mapi","mapPartial"];
 val result = translate MAP;
-val result = translate mapi_def;
+val result = translate mllistTheory.mapi_def;
 val result = translate MAPI_thm;
 
 
@@ -198,7 +198,7 @@ val tabulate_inv_spec = Q.store_thm("tabulate_inv_spec",
 
 val result = translate collate_def;
 
-val result = translate zip_def;
+val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
 
