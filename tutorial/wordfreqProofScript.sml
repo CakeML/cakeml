@@ -20,6 +20,7 @@ val compile_correct_applied =
 
 val wordfreq_compiled_thm =
   CONJ compile_correct_applied wordfreq_output
+  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> DISCH_ALL
   |> curry save_thm "wordfreq_compiled_thm";
 
