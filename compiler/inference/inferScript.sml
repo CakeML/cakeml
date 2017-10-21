@@ -3,95 +3,88 @@ open namespacePropsTheory;
 open infer_tTheory unifyTheory;
 open stringTheory ;
 open primTypesTheory;
-
+open ml_monadBaseTheory ml_monadBaseLib;
 
 val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-(*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
-
-(* 'a is the type of the state, 'b is the type of successful computations, and
- * 'c is the type of exceptions *)
-
-val _ = Datatype `
-  exc = Success 'a | Failure 'b`;
-
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
-
-val st_ex_bind_def = Define `
-(st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
-  λs.
-    dtcase x s of
-      (Success y,s) => f y s
-    | (Failure x,s) => (Failure x,s)`;
-
-val st_ex_return_def = Define `
-(st_ex_return (*: α -> (β, α, γ) M*)) x =
-  λs. (Success x, s)`;
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
-val failwith_def = Define `
-(failwith : locs option -> α -> (β, γ, (locs option # α)) M) l msg = (\s. (Failure (l, msg), s))`;
+val _ = hide "state";
 
-val guard_def = Define `
-guard P l msg = if P then return () else failwith l msg`;
+(*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
-val read_def = Define `
-(read : (α, α, β) M) =
-  \s. (Success s, s)`;
-
-val write_def = Define `
-(write : α -> (α, unit, β) M) v =
-  \s. (Success (), v)`;
-
-val lookup_st_ex_def = Define `
-  lookup_st_ex l id ienv st =
-    dtcase nsLookup ienv id of
-    | NONE => (Failure (l, concat [implode "Undefined variable: "; id_to_string id]), st)
-    | SOME v => (Success v, st)`;
+val _ = Hol_datatype `
+  infer_exn = Exc of locs option # mlstring`;
 
 val _ = Hol_datatype `
 infer_st = <| next_uvar : num;
-              subst : 'a |>`;
+              subst : (num |-> infer_t) |>`;
+
+val [(_, get_next_uvar_def, set_next_uvar_def),
+     (_, get_subst_def, set_subst_def)] = define_monad_access_funs ``:infer_st``;
+
+val [(raise_Exc_def, handle_Exc_def)]  = define_monad_exception_functions ``:infer_exn`` ``:infer_st``;
+
+val _ = temp_overload_on ("failwith", ``raise_Exc``);
+
+val guard_def = Define `
+guard P l msg = if P then return () else failwith (l, msg)`;
+
+val lookup_st_ex_def = Define `
+  lookup_st_ex (l : locs option) id ienv =
+    dtcase nsLookup ienv id of
+    | NONE => failwith (l, concat [implode "Undefined variable: "; id_to_string id])
+    | SOME v => return v`;
 
 val fresh_uvar_def = Define `
-(fresh_uvar : ('b infer_st, infer_t, α) M) =
-  \s. (Success (Infer_Tuvar s.next_uvar), s with <| next_uvar := s.next_uvar + 1 |>)`;
+(fresh_uvar () : (infer_st, infer_t, infer_exn) M) =
+  do uvar <- get_next_uvar;
+     set_next_uvar (uvar + 1);
+     return (Infer_Tuvar uvar)
+  od`;
 
 val n_fresh_uvar_def = Define  `
 n_fresh_uvar (n:num) =
   if n = 0 then
     return []
   else
-    do v <- fresh_uvar;
+    do v <- fresh_uvar ();
        vs <- n_fresh_uvar (n - 1);
        return (v::vs)
     od`;
 
 val init_infer_state_def = Define `
-  (init_infer_state : (num |-> infer_t) infer_st) = <| next_uvar := 0; subst := FEMPTY |>`;
+  (init_infer_state : infer_st) = <| next_uvar := 0; subst := FEMPTY |>`;
 
 val init_state_def = Define `
-init_state =
-  \st.
-    (Success (), init_infer_state)`;
+init_state () =
+  do
+      set_next_uvar 0;
+      set_subst FEMPTY;
+      return ()
+  od`;
 
 val add_constraint_def = Define `
 add_constraint (l : locs option) t1 t2 =
-  \st.
-    dtcase t_unify st.subst t1 t2 of
+  do
+    subst <- get_subst;
+    dtcase t_unify subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between ";
-                               inf_type_to_string (t_walkstar st.subst t1);
+          failwith (l, concat [implode "Type mismatch between ";
+                               inf_type_to_string (t_walkstar subst t1);
                                implode " and ";
-                               inf_type_to_string (t_walkstar st.subst t2)]), st)
+                               inf_type_to_string (t_walkstar subst t2)])
       | SOME s =>
-          (Success (), st with <| subst := s |>)`;
+          do
+	      set_subst s;
+              return ()
+          od
+  od`;
 
 val add_constraints_def = Define `
 (add_constraints l [] [] =
@@ -102,22 +95,18 @@ val add_constraints_def = Define `
      return ()
   od) ∧
 (add_constraints l _ _ =
-  failwith l (implode "Internal error: Bad call to add_constraints"))`;
-
-val get_next_uvar_def = Define `
-get_next_uvar =
-  \st. (Success st.next_uvar, st)`;
+  failwith (l, (implode "Internal error: Bad call to add_constraints")))`;
 
 val apply_subst_def = Define `
 apply_subst t =
-  do st <- read;
-     return (t_walkstar st.subst t)
+  do subst <- get_subst;
+     return (t_walkstar subst t)
   od`;
 
 val apply_subst_list_def = Define `
 apply_subst_list ts =
-  do st <- read;
-     return (MAP (t_walkstar st.subst) ts)
+  do subst <- get_subst;
+     return (MAP (t_walkstar subst) ts)
   od`;
 
 (* We use a state argument for the inferencer's typing environment. This corresponds to the type system's typing environment
@@ -191,11 +180,11 @@ val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
 
 val infer_p_def = tDefine "infer_p" `
 (infer_p l ienv (Pvar n) =
-  do t <- fresh_uvar;
+  do t <- fresh_uvar ();
      return (t, [(n,t)])
   od) ∧
 (infer_p l ienv Pany =
-  do t <- fresh_uvar;
+  do t <- fresh_uvar ();
      return (t, [])
   od) ∧
 (infer_p l ienv (Plit (IntLit i)) =
@@ -246,6 +235,8 @@ val infer_p_def = tDefine "infer_p" `
                                   | INR (_,_,ps) => pat1_size ps)` >>
  rw []);
 
+(** TODO ***)
+
 val infer_p_ind = fetch "-" "infer_p_ind";
 
 val constrain_op_quotation = `
@@ -289,7 +280,7 @@ constrain_op l op ts =
           return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Opapp, [t1;t2]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t1 (Infer_Tapp [t2;uvar] TC_fn);
           return uvar
        od
@@ -299,7 +290,7 @@ constrain_op l op ts =
        od
    | (Opref, [t]) => return (Infer_Tapp [t] TC_ref)
    | (Opderef, [t]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t (Infer_Tapp [uvar] TC_ref);
           return uvar
        od
@@ -394,18 +385,18 @@ constrain_op l op ts =
           return (Infer_Tapp [] TC_string)
         od
    | (VfromList, [t]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t (Infer_Tapp [uvar] (TC_name (Short "list")));
           return (Infer_Tapp [uvar] TC_vector)
        od
    | (Vsub, [t1;t2]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t1 (Infer_Tapp [uvar] TC_vector);
           () <- add_constraint l t2 (Infer_Tapp [] TC_int);
           return uvar
        od
    | (Vlength, [t]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t (Infer_Tapp [uvar] TC_vector);
           return (Infer_Tapp [] TC_int)
        od
@@ -414,18 +405,18 @@ constrain_op l op ts =
           return (Infer_Tapp [t2] TC_array)
        od
    | (AallocEmpty, [t1]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t1 (Infer_Tapp [] TC_tup);
           return (Infer_Tapp [uvar] TC_array)
        od
    | (Asub, [t1;t2]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t1 (Infer_Tapp [uvar] TC_array);
           () <- add_constraint l t2 (Infer_Tapp [] TC_int);
           return uvar
        od
    | (Alength, [t]) =>
-       do uvar <- fresh_uvar;
+       do uvar <- fresh_uvar ();
           () <- add_constraint l t (Infer_Tapp [uvar] TC_array);
           return (Infer_Tapp [] TC_int)
        od
@@ -434,12 +425,11 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_tup)
        od
-   | (FFI n, [t1;t2]) =>
-       do () <- add_constraint l t1 (Infer_Tapp [] TC_string);
-          () <- add_constraint l t2 (Infer_Tapp [] TC_word8array);          
+   | (FFI n, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] TC_word8array);
           return (Infer_Tapp [] TC_tup)
        od
-   | _ => failwith l (implode "Wrong number of arguments to primitive")`;
+   | _ => failwith (l, (implode "Wrong number of arguments to primitive"))`;
 
 val constrain_op_def = Define constrain_op_quotation
 
@@ -455,12 +445,12 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Raise e) =
   do t2 <- infer_e l ienv e;
      () <- add_constraint l t2 (Infer_Tapp [] TC_exn);
-     t1 <- fresh_uvar;
+     t1 <- fresh_uvar ();
      return t1
   od) ∧
 (infer_e l ienv (Handle e pes) =
   if pes = [] then
-    failwith l (implode "Empty pattern match")
+    failwith(l, (implode "Empty pattern match"))
   else
     do t1 <- infer_e l ienv e;
        () <- infer_pes l ienv pes (Infer_Tapp [] TC_exn) t1;
@@ -499,7 +489,7 @@ val infer_e_def = tDefine "infer_e" `
           return (Infer_Tapp ts' (tid_exn_to_tc tn))
        od) ∧
 (infer_e l ienv (Fun x e) =
-  do t1 <- fresh_uvar;
+  do t1 <- fresh_uvar ();
      t2 <- infer_e l (ienv with inf_v := nsBind x (0,t1) ienv.inf_v) e;
      return (Infer_Tapp [t1;t2] TC_fn)
   od) ∧
@@ -525,10 +515,10 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_e l ienv (Mat e pes) =
   if pes = [] then
-    failwith l (implode "Empty pattern match")
+    failwith(l, (implode "Empty pattern match"))
   else
     do t1 <- infer_e l ienv e;
-       t2 <- fresh_uvar;
+       t2 <- fresh_uvar ();
        () <- infer_pes l ienv pes t1 t2;
        return t2
   od) ∧
@@ -600,7 +590,7 @@ val infer_e_def = tDefine "infer_e" `
   od) ∧
 (infer_funs l ienv [] = return []) ∧
 (infer_funs l ienv ((f, x, e)::funs) =
-  do uvar <- fresh_uvar;
+  do uvar <- fresh_uvar ();
      t <- infer_e l (ienv with inf_v := nsBind x (0,uvar) ienv.inf_v) e;
      ts <- infer_funs l ienv funs;
      return (Infer_Tapp [uvar;t] TC_fn::ts)
@@ -624,9 +614,11 @@ val _ = Hol_datatype `
 val empty_inf_decls = Define `
  (empty_inf_decls = (<|inf_defined_mods := []; inf_defined_types := []; inf_defined_exns := []|>))`;
 
+(* TODO *)
+
 val infer_d_def = Define `
 (infer_d mn idecls ienv (Dlet locs p e) =
-  do () <- init_state;
+  do () <- init_state ();
      n <- get_next_uvar;
      t1 <- infer_e (SOME locs) ienv e;
      (t2,env') <- infer_p (SOME locs) ienv p;
@@ -642,7 +634,7 @@ val infer_d_def = Define `
   od) ∧
 (infer_d mn idecls ienv (Dletrec locs funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) (SOME locs) (implode "Duplicate function name");
-     () <- init_state;
+     () <- init_state ();
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
@@ -687,17 +679,23 @@ val infer_d_def = Define `
                 inf_t := nsEmpty |>)
   od)`;
 
+(* TODO *)
+
 val append_decls_def = Define `
 append_decls idecls1 idecls2 =
   <|inf_defined_mods := idecls1.inf_defined_mods ++ idecls2.inf_defined_mods ;
     inf_defined_types := idecls1.inf_defined_types ++ idecls2.inf_defined_types ;
     inf_defined_exns := idecls1.inf_defined_exns ++ idecls2.inf_defined_exns|>`;
 
+(* TODO *)
+
 val extend_dec_ienv_def = Define `
   extend_dec_ienv ienv' ienv =
      <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
         inf_c := nsAppend ienv'.inf_c ienv.inf_c;
         inf_t := nsAppend ienv'.inf_t ienv.inf_t |>`;
+
+(* TODO *)
 
 val infer_ds_def = Define `
 (infer_ds mn idecls ienv [] =
@@ -709,11 +707,13 @@ val infer_ds_def = Define `
     return (append_decls idecls'' idecls', extend_dec_ienv ienv'' ienv')
   od)`;
 
+(* TODO *)
+
 val t_to_freevars_def = Define `
 (t_to_freevars (Tvar tn) =
   return [tn]) ∧
 (t_to_freevars (Tvar_db _) =
-  failwith NONE (implode "deBruijn index in type definition")) ∧
+  failwith(NONE, (implode "deBruijn index in type definition"))) ∧
 (t_to_freevars (Tapp ts tc) =
   ts_to_freevars ts) ∧
 (ts_to_freevars [] = return []) ∧
@@ -722,6 +722,8 @@ val t_to_freevars_def = Define `
      fvs2 <- ts_to_freevars ts;
      return (fvs1++fvs2)
   od)`;
+
+(* TODO *)
 
 val check_specs_def = Define `
 (check_specs mn tenvT idecls ienv [] =
@@ -766,16 +768,20 @@ val check_specs_def = Define `
        (ienv with inf_t := nsAppend new_tenvT ienv.inf_t) specs
   od)`;
 
+(* TODO *)
+
 val check_weak_decls_def = Define `
 check_weak_decls decls_impl decls_spec ⇔
   list_set_eq decls_spec.inf_defined_mods decls_impl.inf_defined_mods ∧
   list_subset decls_spec.inf_defined_types decls_impl.inf_defined_types ∧
   list_subset decls_spec.inf_defined_exns decls_impl.inf_defined_exns`;
 
-val check_tscheme_inst_def = Define `
+(* TODO *)
+
+(* val check_tscheme_inst_def = Define `
   check_tscheme_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
     let M =
-    do () <- init_state;
+    do () <- init_state ();
        uvs <- n_fresh_uvar tvs_impl;
        t <- return (infer_deBruijn_subst uvs t_impl);
        () <- add_constraint NONE t_spec t
@@ -783,7 +789,23 @@ val check_tscheme_inst_def = Define `
     in
     dtcase M init_infer_state of
     | (Success _, _) => T
-    | (Failure _, _) => F `;
+    | (Failure _, _) => F `; *)
+
+val check_tscheme_inst_aux_def = Define `
+  check_tscheme_inst_aux _ (tvs_spec, t_spec) (tvs_impl, t_impl) ⇔
+    do () <- init_state();
+       uvs <- n_fresh_uvar tvs_impl;
+       t <- return (infer_deBruijn_subst uvs t_impl);
+       () <- add_constraint NONE t_spec t
+    od`
+
+val run_check_tscheme_inst_aux_def = Define
+`run_check_tscheme_inst_aux x1 x2 x3 state = run (check_tscheme_inst_aux x1 x2 x3) state`;
+
+val check_tscheme_inst_def = Define `
+check_tscheme_inst x1 x2 x3 = dtcase (run_check_tscheme_inst_aux x1 x2 x3 init_infer_state) of
+| Success _ => T
+| Failure _ => F `;
 
 val check_weak_ienv_def = Define `
   check_weak_ienv ienv_impl ienv_spec ⇔
@@ -800,6 +822,8 @@ val check_signature_def = Define `
      () <- guard (check_weak_decls decls1 decls') NONE (implode "Signature mismatch");
      return (decls',ienv')
   od)`;
+
+(* TODO *)
 
 val ienvLift_def = Define `
   ienvLift mn ienv =
@@ -819,6 +843,8 @@ val infer_top_def = Define `
     return (new_decls with inf_defined_mods := [mn] :: new_decls.inf_defined_mods, ienvLift mn ienv'')
   od)`;
 
+(* TODO *)
+
 val infer_prog_def = Define `
 (infer_prog idecls ienv [] =
   return (empty_inf_decls, <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>)) ∧
@@ -834,13 +860,28 @@ val _ = Datatype`
   <| inf_decls : inf_decls
    ; inf_env   : inf_env|>`
 
-val infertype_prog_def = Define`
+(* TODO *)
+
+(* val infertype_prog_def = Define`
   infertype_prog c prog =
     dtcase FST (infer_prog c.inf_decls c.inf_env prog init_infer_state) of
     | Success (new_decls, new_ienv) =>
         Success ( <| inf_decls := append_decls new_decls c.inf_decls
                 ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
-    | Failure x => Failure x`;
+    | Failure x => Failure x`; *)
+
+val infertype_prog_aux_def = Define`
+  infertype_prog_aux c prog =
+    do
+	(new_decls, new_ienv) <- infer_prog c.inf_decls c.inf_env prog;
+        return ( <| inf_decls := append_decls new_decls c.inf_decls
+                ; inf_env := extend_dec_ienv new_ienv c.inf_env |>)
+    od`;
+
+val infertype_prog_def = Define `
+infertype_prog c prog = run (infertype_prog_aux c prog) init_infer_state`;
+
+(* TODO *)
 
 val conf = ``<| inf_decls := empty_inf_decls ; inf_env := (<|inf_v := nsEmpty; inf_c := nsEmpty ; inf_t := nsEmpty |>)|>``
 
@@ -862,6 +903,8 @@ Infer_Tunit = Infer_Tapp [] TC_tup`;
 
 val Infer_Tref = Define `
 Infer_Tref t = Infer_Tapp [t] TC_ref`;
+
+(* TODO *)
 
 (* The following aren't needed to run the inferencer, but are useful in the proofs
  * about it *)
