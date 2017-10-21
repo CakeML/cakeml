@@ -268,9 +268,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   contents = THE (ALOOKUP fs.files (File fname))
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
-    [uv] (COMMANDLINE cl * STDIO fs * &stdout fs out)
+    [uv] (COMMANDLINE cl * STDIO fs)
     (POSTv uv. &UNIT_TYPE () uv *
-        (STDIO (up_stdout (out ++ wordfreq_output_spec contents) fs)) *
+        (STDIO (add_stdout fs (wordfreq_output_spec contents))) *
         COMMANDLINE cl)`,
 
 (* The following proof sketch should work when you have roughly the right
@@ -285,27 +285,28 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* TODO: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
-  (* Before you step through the call to FileIO.inputLinesFrom, the following
+  (* Before you step through the call to IO.inputLinesFrom, the following
      may be useful first to establish `wfcl cl`, which constrains fname to be
      a valid filename:
   *)
   reverse(Cases_on`wfcl cl`)
   >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
-  xpull \\
 
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
+  (* trying xlet_auto shows we need a FILENAME assumption *)
+  `fsioConstantsProg$FILENAME fname fnamev` by (
+    fs[fsioConstantsProgTheory.FILENAME_def,EVERY_MEM,
+       mlcommandLineProgTheory.wfcl_def,GSYM LENGTH_explode,
+       commandLineFFITheory.validArg_def] ) \\
 
-  (* xlet_auto needs to work with STDIO here *)
+  (* TODO: xlet_auto needs to be made to work with STDIO better *)
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
            (if inFS_fname fs (File fname) then SOME (all_lines fs (File fname))
               else NONE) sv * STDIO fs *
               COMMANDLINE [explode pname; explode fname])`
-  >-(xapp \\
-     fs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,
-        fsioConstantsProgTheory.FILENAME_def,EVERY_MEM,GSYM LENGTH_explode] \\
-     instantiate \\ xsimpl) \\
+  >-(xapp \\ instantiate \\ xsimpl) \\
   (* To get through the pattern match, try this: *)
   xmatch \\
   fs[ml_translatorTheory.OPTION_TYPE_def] \\
@@ -330,15 +331,17 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xapp \\ xsimpl \\
   instantiate \\
   xsimpl \\
+  (* TODO: more STDIO problems? *)
+  CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`fs` \\ xsimpl \\
 
   (* After the CF part of the proof is finished, you should have a goal
      roughly of the form:
-       STDOUT xxxx ==>> STDOUT yyyy * GC
+       STDIO (add_stdout _ xxxx) ==>> STDIO (add_stdout _ yyyy) * GC
      the aim now is simply to show that xxxx = yyyy
      after which xsimpl will solve the goal.
      We can make this aim explicit as follows:
   *)
-  qmatch_abbrev_tac`STDIO (up_stdout xxxx _) ==>> STDIO (up_stdout yyyy _)* GC` \\
+  qmatch_abbrev_tac`STDIO (add_stdout _ xxxx) ==>> STDIO (add_stdout _ yyyy)* GC` \\
   `xxxx = yyyy` suffices_by xsimpl \\
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
@@ -360,9 +363,9 @@ val wordfreq_semantics =
   sem_thm
   |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[fsFFIProofTheory.inFS_fname_def,PULL_EXISTS,LENGTH]
-  |> Q.GEN`cls`
-  |> SIMP_RULE(srw_ss())[mlcommandLineProgTheory.wfcl_def,AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH_explode]
+  |> Q.GENL[`cls`,`contents`]
+  |> SIMP_RULE(srw_ss())[PULL_EXISTS,LENGTH,STD_streams_add_stdout]
+  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH_explode]
   |> curry save_thm "wordfreq_semantics";
 
 val _ = export_theory();

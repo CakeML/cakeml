@@ -827,6 +827,10 @@ val stdin_def = Define
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
 
+val stdout_numchars = Q.store_thm("stdout_numchars",
+  `stdout (fs with numchars := l) out ⇔ stdout fs out`,
+  rw[stdout_def]);
+
 val add_stdout_def = Define`
   add_stdout fs out = up_stdout ((@init. stdout fs init) ++ out) fs`;
 
@@ -872,6 +876,15 @@ val add_stdout_o = Q.store_thm("add_stdout_o",
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,
   rw[STD_streams_def,stdout_def] \\ rw[]);
+
+val STD_streams_add_stdout = Q.store_thm("STD_streams_add_stdout",
+  `STD_streams fs ⇒ STD_streams (add_stdout fs out)`,
+  rw[]
+  \\ imp_res_tac STD_streams_stdout
+  \\ rw[add_stdout_def]
+  \\ SELECT_ELIM_TAC
+  \\ rw[] >- metis_tac[]
+  \\ fs[STD_streams_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
 
 (*
 val STD_streams_up_stdout = Q.store_thm("STD_streams_up_stdout",
