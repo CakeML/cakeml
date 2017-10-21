@@ -29,7 +29,7 @@ val IOFS_iobuff_def = Define`
     SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v = 258) `;
 
 val IOFS_def = Define `
-  IOFS fs = IOx fs_ffi_part fs * IOFS_iobuff * &(wfFS fs ∧ liveFS fs)`
+  IOFS fs = IOx fs_ffi_part fs * IOFS_iobuff * &wfFS fs`
 
 
 val BadFileName_exn_def = Define `
@@ -81,13 +81,18 @@ val STD_streams_fsupdate = Q.store_thm("STD_streams_fsupdate",
    rpt(CASE_TAC >> fs[ALIST_FUPDKEY_ALOOKUP]));
 
 val STDIO_fsupdate_o = Q.store_thm("STDIO_fsupdate_o",
-  `!fs fd pos1 pos2 c1 c2 k1 k2. liveFS fs ==>
+  `!fs fd pos1 pos2 c1 c2 k1 k2.
   STDIO(fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2) ==>>
   STDIO(fsupdate fs fd (k1 + k2) pos2 c2)`,
   rw[STDIO_def,IOFS_def] >> xsimpl >> rw[] >> qexists_tac`x` >>
   fs[fsupdate_numchars] >>
-  `liveFS (fs with numchars := x)` by fs[liveFS_def,fsupdate_def] >>
-  rfs[fsupdate_o] >> fs[fsupdate_o] >> xsimpl);
+  `liveFS (fs with numchars := x)` by fs[wfFS_def,liveFS_def,fsupdate_def] >>
+  rfs[fsupdate_o] >> fs[fsupdate_o] >> xsimpl >>
+  fs[STD_streams_def,fsupdate_def,ALIST_FUPDKEY_o] >>
+  map_every qexists_tac [`inp`,`out`,`err`] >>
+  fs[ALIST_FUPDKEY_ALOOKUP] >> rw[] >>
+  rpt(CASE_TAC >> fs[]) >> cases_on `x'` >> fs[] >>
+  FULL_CASE_TAC >> fs[]);
 
 val STD_streams_openFileFS = Q.store_thm("STD_streams_openFileFS",
  `!fs s k. STD_streams fs ==> STD_streams (openFileFS s fs k)`,

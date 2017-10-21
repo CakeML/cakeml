@@ -484,109 +484,138 @@ val naive_lcs_correct = Q.store_thm("naive_lcs_correct",
 
 (* A quadratic-time LCS algorithm in dynamic programming style *)
 
+val longest'_def =
+Define `longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')`
+
+val longest'_thm = Q.prove(
+  `!l l'. longest' l l' = if SND l >= SND l' then l else l'`,
+  Cases >> Cases >> fs[longest'_def]);
+
 val dynamic_lcs_row_def = Define `
-   (dynamic_lcs_row h [] previous_col previous_row diagonal = [])
-∧ (dynamic_lcs_row h (f::r) previous_col previous_row diagonal =
+   (dynamic_lcs_row h [] previous_col previous_row ddl = [])
+∧ (dynamic_lcs_row h (f::r) previous_col previous_row (diagonal,dl) =
     if f = h then
-      (let current = longest (SNOC f diagonal) (longest (HD previous_row) previous_col) in
+      (let current = longest' (f::diagonal,dl+1) (longest' (HD previous_row) previous_col) in
         current::dynamic_lcs_row h r current (TL previous_row) (HD previous_row))
     else
-      (let current = longest (HD previous_row) previous_col in
+      (let current = longest' (HD previous_row) previous_col in
         current::dynamic_lcs_row h r current (TL previous_row) (HD previous_row))
    )`;
 
 val dynamic_lcs_rows_def = Define `
-  (dynamic_lcs_rows [] r previous_row = if previous_row = [] then [] else LAST previous_row) ∧
+  (dynamic_lcs_rows [] r previous_row =
+   if previous_row = [] then [] else REVERSE(FST(LAST previous_row))) ∧
   (dynamic_lcs_rows (h::l) r previous_row =
-   dynamic_lcs_rows l r (dynamic_lcs_row h r [] previous_row []))
+   dynamic_lcs_rows l r (dynamic_lcs_row h r ([],0) previous_row ([],0)))
 `;
 
 val dynamic_lcs_def = Define `
-  dynamic_lcs l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) [])`;
+  dynamic_lcs l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))`;
 
 (* Verification of dynamic LCS algorithm *)
 
 val dynamic_lcs_row_invariant_def = Define `
   dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullr r) ∧
-   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (EL n previous_row) prevh (TAKE (SUC n + (LENGTH fullr - LENGTH r)) fullr))) ∧
-   (lcs diagonal prevh (TAKE (LENGTH fullr - LENGTH r) fullr)) ∧
-   (lcs previous_col (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))`;
+  (SND previous_col = LENGTH(FST previous_col)) ∧
+  (SND diagonal = LENGTH(FST diagonal)) ∧
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST((EL n previous_row)))) prevh (TAKE (SUC n + (LENGTH fullr - LENGTH r)) fullr))) ∧   
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))) ∧ 
+   (lcs (REVERSE(FST diagonal)) prevh (TAKE (LENGTH fullr - LENGTH r) fullr)) ∧
+   (lcs (REVERSE(FST previous_col)) (SNOC h prevh) (TAKE (LENGTH fullr - LENGTH r) fullr)))`;
 
 val dynamic_lcs_rows_invariant_def = Define `
   dynamic_lcs_rows_invariant h r previous_row fullh =
   ((LENGTH r = LENGTH previous_row) ∧ (IS_SUFFIX fullh h) ∧
-   (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (EL n previous_row) (TAKE (LENGTH fullh - LENGTH h) fullh) (TAKE (SUC n) r))))`;
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (lcs (REVERSE(FST(EL n previous_row))) (TAKE (LENGTH fullh - LENGTH h) fullh) (TAKE (SUC n) r))) ∧
+  (!n. 0 <= n /\ n < LENGTH previous_row ==> (SND(EL n previous_row) = LENGTH(FST(EL n previous_row)))))`;
 
 val dynamic_lcs_row_invariant_pres1 = Q.store_thm("dynamic_lcs_row_invariant_pres1",`
-  dynamic_lcs_row_invariant h (h::r) previous_col previous_row diagonal prevh fullr
-  ==> dynamic_lcs_row_invariant h r (longest (SNOC h diagonal)
-                                             (longest (HD previous_row) previous_col))
+  dynamic_lcs_row_invariant h (h::r) previous_col previous_row (diagonal,dl) prevh fullr
+  ==> dynamic_lcs_row_invariant h r (longest' (h::diagonal,dl+1)
+                                             (longest' (HD previous_row) previous_col))
                                 (TL previous_row) (HD previous_row) prevh fullr`,
- fs[dynamic_lcs_row_invariant_def]
+ Cases_on `previous_col`
+ >> rename1 `(previous_col,pcl)`
+ >> fs[dynamic_lcs_row_invariant_def]
  >> rpt strip_tac
   >- (Cases_on `previous_row` >> fs[])
   >- metis_tac[IS_SUFFIX_CONS2_E]
-  >- (first_x_assum(assume_tac o Q.SPEC `SUC n`)
+  >- (fs[longest'_thm] >> every_case_tac
+      >> fs[] >> first_x_assum(qspec_then `0` assume_tac)
+      >> rfs[])
+  >- (first_x_assum(qspec_then `0` assume_tac)
+      >> rfs[])
+  >- (last_x_assum(assume_tac o Q.SPEC `SUC n`)
       >> Cases_on `previous_row` >> fs[]
       >> first_x_assum(assume_tac o MATCH_MP is_suffix_length)
       >> fs[ADD_CLAUSES,SUB_LEFT_SUC] >> every_case_tac
       >> Cases_on `n`
       >> TRY(`LENGTH fullr = SUC(LENGTH t)` by(fs[]>>NO_TAC))
       >> fs[SUB,ADD_CLAUSES] >> rfs[])
-  >- (first_x_assum(assume_tac o Q.SPEC `0`)
+  >- (first_x_assum(qspec_then `SUC n` assume_tac)
+      >> Cases_on `previous_row` >> fs[])
+  >- (last_x_assum(assume_tac o Q.SPEC `0`)
       >> first_x_assum(assume_tac o MATCH_MP is_suffix_length)
       >> Cases_on `previous_row`
       >> fs[ADD_CLAUSES,SUB_LEFT_SUC]
       >> every_case_tac
       >> TRY(`LENGTH fullr = SUC(LENGTH t)` by(fs[]>>NO_TAC))
       >> fs[] >> rfs[])
-  >- (rw[longest_def]
+  >- (rw[longest'_thm]
       >> PAT_ASSUM ``IS_SUFFIX fullr (h::r)`` (assume_tac o MATCH_MP is_suffix_take)
-      >> fs[SNOC_APPEND,snoc_lcs_optimal_substructure] >> rfs[]
+      >> fs[SNOC_APPEND,REVERSE_SNOC,snoc_lcs_optimal_substructure] >> rfs[]
        (* longest is from previous row *)
-       >- (first_x_assum (assume_tac o Q.SPEC `0`)
+       >- (last_x_assum (assume_tac o Q.SPEC `0`)
+           >> first_x_assum (assume_tac o Q.SPEC `0`)
            >> rfs[] >> fs[Q.SPEC `1` ADD_SYM] >> fs[TAKE_SUM]
            >> PAT_ASSUM ``IS_SUFFIX fullr (h::r)`` (assume_tac o MATCH_MP is_suffix_drop)
-           >> rfs[] >> fs[] >> metis_tac[lcs_length_right])
+           >> rfs[] >> fs[] >> metis_tac[ADD1,lcs_length_right,LENGTH_REVERSE])
        (* longest is from previous column *)
-       >- metis_tac[lcs_length_left]));
+       >- metis_tac[ADD1,lcs_length_left,LENGTH_REVERSE]));
       
 val dynamic_lcs_row_invariant_pres2 = Q.store_thm("dynamic_lcs_row_invariant_pres2",`
   h ≠ f ∧ dynamic_lcs_row_invariant h (f::r) previous_col previous_row diagonal fullh fullr
-  ==> dynamic_lcs_row_invariant h r (longest (HD previous_row) previous_col) (TL previous_row)
+  ==> dynamic_lcs_row_invariant h r (longest' (HD previous_row) previous_col) (TL previous_row)
                                 (HD previous_row) fullh fullr`,
  fs[dynamic_lcs_row_invariant_def]
  >> rpt strip_tac
   >- (Cases_on `previous_row` >> fs[])
   >- metis_tac[IS_SUFFIX_CONS2_E]
-  >- (first_x_assum(assume_tac o Q.SPEC `SUC n`)
+  >- (first_x_assum(qspec_then `0` assume_tac)
+      >> Cases_on `previous_row` >> fs[longest'_thm] >> rw[])
+  >- (first_x_assum(qspec_then `0` assume_tac) >> fs[])
+  >- (last_x_assum(assume_tac o Q.SPEC `SUC n`)
       >> Cases_on `previous_row` >> fs[]
       >> first_x_assum(assume_tac o MATCH_MP is_suffix_length)
       >> fs[ADD_CLAUSES,SUB_LEFT_SUC] >> every_case_tac
       >> Cases_on `n`
       >> TRY(`LENGTH fullr = SUC(LENGTH t)` by(fs[]>>NO_TAC))
       >> fs[SUB,ADD_CLAUSES] >> rfs[])
-  >- (first_x_assum(assume_tac o Q.SPEC `0`)
+  >- (first_x_assum(qspec_then `SUC n` assume_tac) >>
+      Cases_on `previous_row` >> rfs[])
+  >- (last_x_assum(assume_tac o Q.SPEC `0`)
       >> first_x_assum(assume_tac o MATCH_MP is_suffix_length)
       >> Cases_on `previous_row`
       >> fs[ADD_CLAUSES,SUB_LEFT_SUC]
       >> every_case_tac
       >> TRY(`LENGTH fullr = SUC(LENGTH t)` by(fs[]>>NO_TAC))
       >> fs[] >> rfs[])
-  >- (rw[longest_def]
+  >- (rw[longest'_thm]
       >> PAT_ASSUM ``IS_SUFFIX fullr (f::r)`` (assume_tac o MATCH_MP is_suffix_take)
-      >> fs[SNOC_APPEND,snoc_lcs_optimal_substructure] >> rfs[]
+      >> fs[SNOC_APPEND,snoc_lcs_optimal_substructure,REVERSE_SNOC] >> rfs[]
        (* longest is from previous row *)
-       >- (MATCH_MP_TAC (Q.INST [`l`|->`previous_col`] snoc_lcs_optimal_substructure_right)
+       >- (MATCH_MP_TAC (Q.INST [`l`|->`REVERSE(FST (previous_col:'a list#num))`] snoc_lcs_optimal_substructure_right)
            >> rpt strip_tac >> fs[]                       
-           >> first_x_assum (assume_tac o Q.SPEC `0`)
+           >> last_x_assum (assume_tac o Q.SPEC `0`)
+           >> first_x_assum (assume_tac o Q.SPEC `0`)           
            >> rfs[] >> fs[Q.SPEC `1` ADD_SYM] >> fs[TAKE_SUM]
            >> PAT_ASSUM ``IS_SUFFIX fullr (f::r)`` (assume_tac o MATCH_MP is_suffix_drop)
            >> rfs[] >> fs[]) (*TODO: cleanup *)
        (* longest is from previous column *)
-       >- (MATCH_MP_TAC (Q.INST [`l'''`|->`HD previous_row`] snoc_lcs_optimal_substructure_left)
-           >> rpt strip_tac >> fs[]                       
+       >- (MATCH_MP_TAC (Q.INST [`l'''`|->`REVERSE(FST(HD (previous_row:('a list # num) list)))`] snoc_lcs_optimal_substructure_left)
+           >> rpt strip_tac >> fs[]
+           >> last_x_assum (assume_tac o Q.SPEC `0`)                        
            >> first_x_assum (assume_tac o Q.SPEC `0`)
            >> rfs[] >> fs[Q.SPEC `1` ADD_SYM] >> fs[TAKE_SUM]
            >> PAT_ASSUM ``IS_SUFFIX fullr (f::r)`` (assume_tac o MATCH_MP is_suffix_drop)
@@ -595,16 +624,18 @@ val dynamic_lcs_row_invariant_pres2 = Q.store_thm("dynamic_lcs_row_invariant_pre
 val dynamic_lcs_length = Q.store_thm("dynamic_lcs_length",`
   !h r previous_col previous_row diagonal.
   LENGTH(dynamic_lcs_row h r previous_col previous_row diagonal) = LENGTH r`,
-  Induct_on `r` >> rw[dynamic_lcs_row_def]);
+  Induct_on `r` >> Cases_on `diagonal` >> rw[dynamic_lcs_row_def]);
 
 val dynamic_lcs_row_invariant_pres = Q.store_thm("dynamic_lcs_row_invariant_pres",`
   !h r previous_col previous_row diagonal prevh fullr l n.
   (dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr
     /\ (dynamic_lcs_row h r previous_col previous_row diagonal = l)
     /\ (0 <= n) /\ (n < LENGTH l))
-  ==> (lcs (EL n l) (prevh ++ [h]) (TAKE (SUC n + (LENGTH fullr - (LENGTH l))) fullr))`,
+  ==> (lcs (REVERSE (FST(EL n l))) (prevh ++ [h]) (TAKE (SUC n + (LENGTH fullr - (LENGTH l))) fullr))`,
    Induct_on `r`
  >> rpt strip_tac
+ >> Cases_on `diagonal`
+ >> rename1 `(diagonal,dl)`
  >- (fs[dynamic_lcs_row_def]
       >> metis_tac[LENGTH,prim_recTheory.NOT_LESS_0])
  >> `IS_SUFFIX fullr (h::r)` by fs[dynamic_lcs_row_invariant_def]
@@ -622,10 +653,9 @@ val dynamic_lcs_row_invariant_pres = Q.store_thm("dynamic_lcs_row_invariant_pres
           `LENGTH fullr = SUC (LENGTH r)` by fs[] >> fs[])
       (* first element of r is NOT a match *)
       >- (`dynamic_lcs_row_invariant h' r
-            (longest (HD previous_row) previous_col) 
+            (longest' (HD previous_row) previous_col) 
             (TL previous_row) (HD previous_row) prevh fullr`
-            by (MATCH_MP_TAC (Q.INST [`h`|->`h'`,`f`|->`h`]dynamic_lcs_row_invariant_pres2)
-                >> fs[])
+          by (MATCH_MP_TAC(GEN_ALL dynamic_lcs_row_invariant_pres2) >> metis_tac[])
           >> fs[dynamic_lcs_row_invariant_def,SNOC_APPEND,GSYM ADD1,
                 dynamic_lcs_length,Q.SPEC `1` ADD_SYM]
           >> qpat_x_assum `LENGTH x = LENGTH y` (assume_tac o GSYM) >> rfs[]
@@ -642,45 +672,109 @@ val dynamic_lcs_row_invariant_pres = Q.store_thm("dynamic_lcs_row_invariant_pres
           >> fs[SNOC_APPEND,GSYM ADD1,
                 dynamic_lcs_length,Q.SPEC `1` ADD_SYM]
           >> first_x_assum(assume_tac o Q.SPECL[`h`,
-                                               `longest (diagonal ++ [h])
-                                                 (longest (HD previous_row) previous_col)`,
+                                               `longest' (h::diagonal,SUC dl)
+                                                 (longest' (HD previous_row) previous_col)`,
                                                `TL previous_row`, `HD previous_row`, `prevh`,
                                                `fullr`,`n'`])
           >> rfs[] >> metis_tac[sub_le_suc])
       (* first element of r is NOT a match *)
       >- (`dynamic_lcs_row_invariant h' r
-            (longest (HD previous_row) previous_col) 
+            (longest' (HD previous_row) previous_col) 
             (TL previous_row) (HD previous_row) prevh fullr`
-            by (MATCH_MP_TAC (Q.INST [`h`|->`h'`,`f`|->`h`]dynamic_lcs_row_invariant_pres2)
-                >> fs[])
+            by (MATCH_MP_TAC (GEN_ALL dynamic_lcs_row_invariant_pres2)
+                >> metis_tac[])
           >> fs[SNOC_APPEND,GSYM ADD1,
                 dynamic_lcs_length,Q.SPEC `1` ADD_SYM]
           >> first_x_assum(assume_tac o Q.SPECL[`h'`,
-                                               `longest (HD previous_row) previous_col`,
+                                               `longest' (HD previous_row) previous_col`,
                                                `TL previous_row`, `HD previous_row`, `prevh`,
                                                `fullr`,`n'`])
           >> rfs[] >> metis_tac[sub_le_suc]));
 
+val dynamic_lcs_row_invariant_pres2 = Q.store_thm("dynamic_lcs_row_invariant_pres2",`
+  !h r previous_col previous_row diagonal prevh fullr l n.
+  (dynamic_lcs_row_invariant h r previous_col previous_row diagonal prevh fullr
+    /\ (dynamic_lcs_row h r previous_col previous_row diagonal = l)
+    /\ (0 <= n) /\ (n < LENGTH l))
+  ==> (SND (EL n l) = LENGTH (FST (EL n l)))`,
+   Induct_on `r`
+ >> rpt strip_tac
+ >> Cases_on `diagonal`
+ >> rename1 `(diagonal,dl)`
+ >- (fs[dynamic_lcs_row_def]
+      >> metis_tac[LENGTH,prim_recTheory.NOT_LESS_0])
+ >> `IS_SUFFIX fullr (h::r)` by fs[dynamic_lcs_row_invariant_def]
+ >> first_assum(assume_tac o MATCH_MP is_suffix_length)
+ >> first_assum(assume_tac o MATCH_MP is_suffix_take)
+ >> Cases_on `n`
+  (* 0 requires special treatment since it's outside the range of the inductive hypothesis *)
+  >- (rw[dynamic_lcs_row_def]
+      (* first element of r is a match *)
+      >- (first_x_assum(ASSUME_TAC o MATCH_MP dynamic_lcs_row_invariant_pres1)
+          >> fs[dynamic_lcs_row_invariant_def,SNOC_APPEND,GSYM ADD1,
+                dynamic_lcs_length,Q.SPEC `1` ADD_SYM])
+      (* first element of r is NOT a match *)
+      >- (`dynamic_lcs_row_invariant h' r
+            (longest' (HD previous_row) previous_col) 
+            (TL previous_row) (HD previous_row) prevh fullr`
+          by (MATCH_MP_TAC(GEN_ALL dynamic_lcs_row_invariant_pres2) >> metis_tac[])
+          >> fs[dynamic_lcs_row_invariant_def,SNOC_APPEND,GSYM ADD1,
+                dynamic_lcs_length,Q.SPEC `1` ADD_SYM]))
+  (* SUC n -- inductive case *)
+  >> rw[dynamic_lcs_row_def]
+      (* first element of r is a match *)
+      >- (first_x_assum(ASSUME_TAC o MATCH_MP dynamic_lcs_row_invariant_pres1)
+          >> fs[SNOC_APPEND,GSYM ADD1,
+                dynamic_lcs_length,Q.SPEC `1` ADD_SYM]
+          >> first_x_assum(assume_tac o Q.SPECL[`h`,
+                                               `longest' (h::diagonal,SUC dl)
+                                                 (longest' (HD previous_row) previous_col)`,
+                                               `TL previous_row`, `HD previous_row`, `prevh`,
+                                               `fullr`,`n'`])
+          >> rfs[])
+      (* first element of r is NOT a match *)
+      >- (`dynamic_lcs_row_invariant h' r
+            (longest' (HD previous_row) previous_col) 
+            (TL previous_row) (HD previous_row) prevh fullr`
+            by (MATCH_MP_TAC (GEN_ALL dynamic_lcs_row_invariant_pres2)
+                >> metis_tac[])
+          >> fs[SNOC_APPEND,GSYM ADD1,
+                dynamic_lcs_length,Q.SPEC `1` ADD_SYM]
+          >> first_x_assum(assume_tac o Q.SPECL[`h'`,
+                                               `longest' (HD previous_row) previous_col`,
+                                               `TL previous_row`, `HD previous_row`, `prevh`,
+                                               `fullr`,`n'`])
+          >> rfs[]));
+
 val dynamic_lcs_rows_invariant_pres = Q.store_thm("dynamic_lcs_rows_invariant_pres",`
   dynamic_lcs_rows_invariant (h::l) r previous_row fullh
-  ==> dynamic_lcs_rows_invariant l r (dynamic_lcs_row h r [] previous_row []) fullh`,
-  fs[dynamic_lcs_rows_invariant_def]
+  ==> dynamic_lcs_rows_invariant l r (dynamic_lcs_row h r ([],0) previous_row ([],0)) fullh`,
+  fs[dynamic_lcs_rows_invariant_def]                                                  
   >> rpt strip_tac
     >- fs[dynamic_lcs_length]
     >- metis_tac[IS_SUFFIX_CONS2_E]
-    >> first_assum(assume_tac o MATCH_MP is_suffix_take)
-     >> fs[dynamic_lcs_length]
-     >> `lcs (EL n (dynamic_lcs_row h r [] previous_row []))
-          (TAKE (LENGTH fullh − SUC (LENGTH l)) fullh ++ [h])
-          (TAKE (SUC n + (LENGTH r -
-                          (LENGTH (dynamic_lcs_row h r [] previous_row []))))
-                r)` suffices_by fs[dynamic_lcs_length]
-     >> MATCH_MP_TAC dynamic_lcs_row_invariant_pres
-     >> Q.EXISTS_TAC `r` >> Q.EXISTS_TAC `[]`
-     >> Q.EXISTS_TAC `previous_row` >> Q.EXISTS_TAC `[]`
-     >> rpt strip_tac >> fs[dynamic_lcs_length]
-     >> fs[dynamic_lcs_row_invariant_def]
-     >> fs[lcs_def,common_subsequence_def,is_subsequence_nil]);
+    >- (first_assum(assume_tac o MATCH_MP is_suffix_take)
+        >> fs[dynamic_lcs_length]
+        >> `lcs (REVERSE (FST(EL n (dynamic_lcs_row h r ([],0) previous_row ([],0)))))
+             (TAKE (LENGTH fullh − SUC (LENGTH l)) fullh ++ [h])
+             (TAKE (SUC n + (LENGTH r -
+                             (LENGTH (dynamic_lcs_row h r ([],0) previous_row ([],0)))))
+                   r)` suffices_by fs[dynamic_lcs_length]
+        >> MATCH_MP_TAC dynamic_lcs_row_invariant_pres
+        >> Q.EXISTS_TAC `r` >> Q.EXISTS_TAC `([],0)`
+        >> Q.EXISTS_TAC `previous_row` >> Q.EXISTS_TAC `([],0)`
+        >> rpt strip_tac >> fs[dynamic_lcs_length]
+        >> fs[dynamic_lcs_row_invariant_def]
+        >> fs[lcs_def,common_subsequence_def,is_subsequence_nil])
+    >- (first_assum(assume_tac o MATCH_MP is_suffix_take)
+        >> fs[dynamic_lcs_length]
+        >> MATCH_MP_TAC dynamic_lcs_row_invariant_pres2        
+        >> Q.EXISTS_TAC `h` >> Q.EXISTS_TAC `r`
+        >> Q.EXISTS_TAC `([],0)` >> Q.EXISTS_TAC `previous_row`
+        >> Q.EXISTS_TAC `([],0)`
+        >> Q.EXISTS_TAC `(TAKE (LENGTH fullh − SUC (LENGTH l)) fullh)` >> Q.EXISTS_TAC `r`
+        >> fs[] >> fs[dynamic_lcs_row_invariant_def,lcs_empty]
+        >> fs[dynamic_lcs_length]));
 
 val dynamic_lcs_rows_correct = Q.store_thm("dynamic_lcs_rows_correct",`
   !l r previous_row fullh.
@@ -691,7 +785,7 @@ val dynamic_lcs_rows_correct = Q.store_thm("dynamic_lcs_rows_correct",`
     (* nil *)
     >- (fs[dynamic_lcs_rows_invariant_def]
         >> rw[dynamic_lcs_rows_def]
-        >> first_x_assum(assume_tac o Q.SPEC `LENGTH r - 1`)
+        >> last_x_assum(assume_tac o Q.SPEC `LENGTH r - 1`)
         >> rfs[quantHeuristicsTheory.LIST_LENGTH_0,lcs_empty]
         >> qpat_x_assum `LENGTH x = LENGTH y` (assume_tac o GSYM)
         >> `0 < LENGTH previous_row` by(Cases_on `previous_row` >> fs[])
@@ -699,7 +793,7 @@ val dynamic_lcs_rows_correct = Q.store_thm("dynamic_lcs_rows_correct",`
     (* cons *)
     >> first_assum(assume_tac o MATCH_MP dynamic_lcs_rows_invariant_pres)
     >> first_x_assum(assume_tac o Q.SPECL [`r`,
-                                           `dynamic_lcs_row h r [] previous_row []`,
+                                           `dynamic_lcs_row h r ([],0) previous_row ([],0)`,
                                            `fullh`])
     >> fs[dynamic_lcs_rows_def]);
 
@@ -707,7 +801,7 @@ val dynamic_lcs_rows_correct = Q.store_thm("dynamic_lcs_rows_correct",`
 
 val dynamic_lcs_correct = Q.store_thm("dynamic_lcs_correct",
   `lcs (dynamic_lcs l r) l r`,
-  `dynamic_lcs_rows_invariant l r (REPLICATE (LENGTH r) []) l`
+  `dynamic_lcs_rows_invariant l r (REPLICATE (LENGTH r) ([],0)) l`
     by fs[dynamic_lcs_rows_invariant_def,LENGTH_REPLICATE,EL_REPLICATE,lcs_empty]
   >> fs[dynamic_lcs_def, dynamic_lcs_rows_correct]);
 

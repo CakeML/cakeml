@@ -563,37 +563,8 @@ val _ = translate (spec64 inst_select_pmatch)
 
 val _ = translate (spec64 list_next_var_rename_move_def)
 
-val word_alloc_list_next_var_rename_move_side = Q.prove(`
-  ∀x y z. word_alloc_list_next_var_rename_move_side x y z ⇔ T`,
-  simp[fetch "-" "word_alloc_list_next_var_rename_move_side_def"]>>
-  Induct_on`z`>>fs[list_next_var_rename_def]>>rw[]>>
-  rpt(pairarg_tac>>fs[])>>
-  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
-
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)
-
-val word_alloc_full_ssa_cc_trans_side = Q.prove(`
-  ∀x y. word_alloc_full_ssa_cc_trans_side x y`,
-  simp[fetch "-" "word_alloc_full_ssa_cc_trans_side_def"]>>
-  rw[]>-
-    (simp[fetch "-" "word_alloc_setup_ssa_side_def"]>>
-    qmatch_goalsub_abbrev_tac `list_next_var_rename A B C`>>
-    map_every qid_spec_tac [`C`,`B`,`A`]>>
-    rpt (pop_assum kall_tac)>>
-    Induct>>EVAL_TAC>>fs[FORALL_PROD,LAMBDA_PROD]>>rw[]>>
-    pairarg_tac>>fs[]>>rveq>>
-    res_tac>>
-    fs[])>>
-  pop_assum kall_tac>>
-  map_every qid_spec_tac [`v6`,`v7`,`y`]>>
-  ho_match_mp_tac ssa_cc_trans_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "word_alloc_ssa_cc_trans_side_def")]>>
-  map_every qid_spec_tac [`ssa`,`na`]>>
-  Induct_on`ls`>>fs[list_next_var_rename_def]>>rw[]>>
-  rpt(pairarg_tac>>fs[])>>
-  res_tac>>rpt var_eq_tac>>fs[]) |> update_precondition
 
 val _ = translate (conv64 remove_dead_inst_def)
 val _ = translate (conv64 get_live_inst_def)
@@ -610,17 +581,6 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``] get_forced_pmatch
 val _ = translate (get_delta_inst_def |> conv64)
 val _ = translate (wordLangTheory.every_var_inst_def |> conv64)
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
-
-val word_alloc_apply_colour_side = Q.prove(`
-  ∀x y. word_alloc_apply_colour_side x y ⇔ T`,
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  simp[Once(fetch"-""word_alloc_apply_colour_side_def")])
-
-val word_alloc_word_alloc_side = Q.prove(`
-  ∀v w x y z. word_alloc_word_alloc_side v w x y z ⇔ T`,
-  simp[Once(fetch"-""word_alloc_word_alloc_side_def"),
-  Once(fetch"-""word_alloc_oracle_colour_ok_side_def"),
-  word_alloc_apply_colour_side]) |> update_precondition
 
 val _ = translate (spec64 three_to_two_reg_pmatch)
 

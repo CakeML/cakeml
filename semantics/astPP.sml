@@ -500,7 +500,8 @@ val _=add_astPP ("varshortprint", ``Var (Short x)``,genPrint varShortPrint);
 (*Long Var name*)
 fun varLongPrint sys d t pg str brk blk =
   let val t = rand t
-      val (_,[l,r]) = strip_comb t
+      val (_,[l,sr]) = strip_comb t
+      val r = rand sr;
   in
     str (toString l)>> str".">>str(toString r)
   end;

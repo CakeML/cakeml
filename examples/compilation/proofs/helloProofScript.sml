@@ -4,17 +4,10 @@ open preamble
 
 val _ = new_theory"helloProof";
 
-(* TODO: move *)
-(* the spec theorems should have been simplified earlier.. *)
-val with_same_numchars = Q.store_thm("with_same_numchars",
-  `x with numchars := x.numchars = x`,
-  rw[fsFFITheory.IO_fs_component_equality])
-(* -- *)
-
-val hello_io_events_def = new_specification("hello_io_events_def",["hello_io_events","hello_numchars"],
+val hello_io_events_def =
+  new_specification("hello_io_events_def",["hello_io_events","hello_numchars"],
   hello_semantics
-  |> Q.GEN`ll` |> Q.SPEC`fs.numchars`
-  |> SIMP_RULE (bool_ss++listLib.LIST_ss++ARITH_ss) [with_same_numchars,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE (bool_ss++listLib.LIST_ss++ARITH_ss) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> Q.GENL[`cls`,`fs`,`output`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 

@@ -4,11 +4,6 @@ open preamble
 
 val _ = new_theory"echoProof";
 
-(* TODO: move *)
-(* the spec theorems should have been simplified earlier.. *)
-val with_same_numchars = Q.store_thm("with_same_numchars",
-  `x with numchars := x.numchars = x`,
-  rw[fsFFITheory.IO_fs_component_equality])
 val STD_streams_imp_stdout = Q.store_thm("STD_streams_imp_stdout",
   `STD_streams fs ⇒
    stdout fs (THE(ALOOKUP fs.files (IOStream(strlit"stdout"))))`,
@@ -19,8 +14,7 @@ val _ = clear_overloads_on"STRCAT";
 
 val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events","echo_numchars"],
   echo_semantics
-  |> Q.GEN`ll` |> Q.SPEC`fs.numchars`
-  |> SIMP_RULE (bool_ss++listLib.LIST_ss++ARITH_ss) [with_same_numchars,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE (bool_ss++listLib.LIST_ss++ARITH_ss) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   |> Q.GENL[`cls`,`fs`,`output`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 

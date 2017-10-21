@@ -37,6 +37,11 @@ val nextFD_NOT_MEM = Q.store_thm(
       res_tac >> fs[]) >>
   simp[EXISTS_PROD, FORALL_PROD, MEM_MAP]);
 
+(* the filesystem will always eventually allow to write something *)
+val liveFS_def = Define`
+    liveFS fs = (¬ LFINITE fs.numchars ∧
+        always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars)`
+
 (* well formed file descriptor: all descriptors are <= 255 
 *  and correspond to file names in files *)
 val wfFS_def = Define`
@@ -45,7 +50,7 @@ val wfFS_def = Define`
          fd <= 255 ∧
          ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
                    fnm ∈ FDOM (alist_to_fmap fs.files))∧
-    ¬LFINITE fs.numchars)
+    liveFS fs)
 `;
 
 val wfFS_openFile = Q.store_thm(
@@ -55,7 +60,7 @@ val wfFS_openFile = Q.store_thm(
   Cases_on `nextFD fs <= 255` >> simp[] >>
   Cases_on `ALOOKUP fs.files (File fnm)` >> simp[] >>
   dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
-  metis_tac[ALOOKUP_EXISTS_IFF]);
+  fs[liveFS_def] >> metis_tac[ALOOKUP_EXISTS_IFF]);
 
 (* end of file is reached when the position index is the length of the file *)
 val eof_def = Define`
@@ -82,7 +87,7 @@ val wfFS_DELKEY = Q.store_thm(
   "wfFS_DELKEY[simp]",
   `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
   simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
-       ALOOKUP_ADELKEY] >> 
+       ALOOKUP_ADELKEY,liveFS_def] >> 
        metis_tac[]);
 
 val eof_read = Q.store_thm("eof_read",
@@ -92,7 +97,7 @@ val eof_read = Q.store_thm("eof_read",
  rw[eof_def,read_def,MIN_DEF]  >>
  qexists_tac `x` >> rw[] >>
  pairarg_tac >> fs[bumpFD_def,wfFS_def] >>
- cases_on`fs.numchars` >> fs[IO_fs_component_equality] >>
+ cases_on`fs.numchars` >> fs[IO_fs_component_equality,liveFS_def] >>
  irule ALIST_FUPDKEY_unchanged >> cases_on`v` >> rw[]);
 
 val read_eof = Q.store_thm("eof_read",
@@ -108,7 +113,7 @@ val neof_read = Q.store_thm(
      wfFS fs ⇒ 
      ∃l fs'. l <> "" /\ read fd fs n = SOME (l,fs')`,
   mp_tac (Q.SPECL [`fd`, `fs`, `n`] read_def) >>
-  rw[wfFS_def] >> 
+  rw[wfFS_def,liveFS_def] >> 
   cases_on `ALOOKUP fs.infds fd` >> fs[eof_def] >>
   cases_on `x` >> fs[] >>
   cases_on `ALOOKUP fs.files q` >> fs[eof_def] >>
@@ -126,9 +131,8 @@ val wfFS_bumpFD = Q.store_thm(
   simp[bumpFD_def] >> 
   dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
         EXISTS_PROD] >> 
-  `¬LFINITE fs.numchars ==>¬ LFINITE (THE (LTL fs.numchars)) `
-    by (cases_on`fs.numchars` >> fs[]) >>
-  metis_tac[]);
+  rw[] >- metis_tac[] >>
+  cases_on`fs.numchars` >> fs[liveFS_def] >> imp_res_tac always_thm);
 
 val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
   `validFD fd' fs ⇒ validFD fd' (bumpFD fd fs n)`,
@@ -360,8 +364,9 @@ val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
        cases_on`x` >> fs[] >> res_tac >>
        fs[ALOOKUP_MEM,A_DELKEY_def,MEM_MAP, MEM_FILTER] >>
        metis_tac[])
-    >-(`∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
-    fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
+    >-(fs[liveFS_def,always_DROP] >>
+       `∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
+         fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
 
 val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
  `get_file_content fs fd = SOME(content, pos) ==>
@@ -398,10 +403,6 @@ val get_file_content_fsupdate_unchanged = Q.store_thm(
   pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
   rpt(CASE_TAC >> fs[]));
 
-(* the filesystem will always eventually allow to write something *)
-val liveFS_def = Define`
-    liveFS fs = (¬ LFINITE fs.numchars ∧
-        always (eventually (\ll. ?k. LHD ll = SOME k /\ k <> 0)) fs.numchars)`
 
 val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
  `liveFS fs ⇒ liveFS (openFileFS s fs n)`,
@@ -422,9 +423,11 @@ val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
   imp_res_tac always_thm);
 
 val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
- `wfFS fs ==> LDROP k fs.numchars = SOME numchars' ==>
-    wfFS (fs with numchars := numchars')`,
- rw[wfFS_def] >> metis_tac[NOT_LFINITE_DROP_LFINITE]);
+ `wfFS fs ==> wfFS (fs with numchars := (THE (LDROP k fs.numchars)))`,
+ rw[wfFS_def,liveFS_def,always_DROP] >>
+ imp_res_tac NOT_LFINITE_DROP >>
+ first_x_assum (assume_tac o Q.SPEC `k`) >> fs[] >>
+ metis_tac[NOT_LFINITE_DROP_LFINITE]);
 
 val Lnext_pos_def = Define`
   Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
@@ -450,10 +453,6 @@ val fsupdate_numchars = Q.store_thm("fsupdate_numchars",
                     fsupdate (fs with numchars := ll) fd 0 p c`,
   rw[fsupdate_def]);
 
-val wfFS_numchars = Q.store_thm("wfFS_numchars",
-  `∀fs ll.
-       (wfFS fs /\ ¬ LFINITE ll ) ⇒ wfFS (fs with numchars := ll)`,
-    fs[wfFS_def]);
 val numchars_self = Q.store_thm("numchars_self",
  `!fs. fs = fs with numchars := fs.numchars`, 
  cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
@@ -464,7 +463,7 @@ val get_file_content_bumpFD = Q.store_thm("get_file_content_bumpFD",
     rw[bumpFD_def,get_file_content_def,ALIST_FUPDKEY_ALOOKUP] >>
     pairarg_tac >> fs[]);
 
-(* TODO: dans misc *)
+(* TODO: in misc *)
 val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
  `!k1 k2 f1 f2 l. k1 <> k2 ==> 
   ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
@@ -477,7 +476,7 @@ val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
 val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= 255 /\ wfFS fs ==> 
 		   wfFS (openFileFS f fs k)`,
-  rw[wfFS_def,openFileFS_def] >> full_case_tac >> fs[openFile_def] >> 
+  rw[wfFS_def,openFileFS_def,liveFS_def] >> full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
   >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File f,x')` >> fs[])) >>
   CASE_TAC
@@ -487,7 +486,6 @@ val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
 val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
  `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
   rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
-
 
 val nextFD_numchars = Q.store_thm("nextFD_numchars",
  `!fs ll. nextFD (fs with numchars := ll) = nextFD fs`,
