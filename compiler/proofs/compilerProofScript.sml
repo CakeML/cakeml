@@ -80,26 +80,19 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
    ⇒
    ∃c' x. infertype_prog c p = if can_type_prog st p then Success c' else Failure x`,
   strip_tac
-  (*
   \\ simp[inferTheory.infertype_prog_def,inferTheory.infertype_prog_aux_def,
           ml_monadBaseTheory.run_def,ml_monadBaseTheory.st_ex_bind_def]
-  *)
-  \\ simp[inferTheory.infertype_prog_def]
   \\ Cases_on`infer_prog c.inf_decls c.inf_env p init_infer_state`
   \\ simp[can_type_prog_def]
-  (*
-  \\ split_pair_case_tac \\ simp[]
-  *)
   \\ BasicProvers.TOP_CASE_TAC
   >- (
-    (* pairarg_tac \\ fs[] \\ rveq *)
-    split_pair_case_tac \\ fs[]
+    pairarg_tac \\ fs[] \\ rveq
+    \\ simp[ml_monadBaseTheory.st_ex_return_def]
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
-    \\ reverse CASE_TAC >- metis_tac[]
-    (*
-    \\ simp[ml_monadBaseTheory.st_ex_return_def]*))
+    \\ reverse CASE_TAC
+    \\ metis_tac[])
   \\ rw[] \\ CCONTR_TAC \\ fs[]
   \\ every_case_tac \\ fs []
   \\ drule infer_prog_complete
