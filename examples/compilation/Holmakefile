@@ -8,8 +8,8 @@ CC=gcc
 endif
 cake_cat: cat.S ../../basis/basis_ffi.o
 	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-cake_grep: grep.S ../../basis/basis_ffi.o
-	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_grep: grep.S ../../basis/fs_ffi.o
+	$(CC) $< ../../basis/fs_ffi.o $(GCCFLAGS) -o $@
 cake_patch: patch.S ../../basis/basis_ffi.o
 	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_diff: diff.S ../../basis/basis_ffi.o
