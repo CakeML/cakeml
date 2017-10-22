@@ -254,8 +254,9 @@ val cat_spec0 = Q.prove(
     SELECT_ELIM_TAC \\
     metis_tac[stdout_UNICITY_R,stdout_def,SOME_11,PAIR] )
   \\ pop_assum SUBST_ALL_TAC
-  \\ match_mp_tac STDIO_add_stdout_o
-  \\ fs[STD_streams_def]);
+  \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout,STD_streams_def]
+  \\ imp_res_tac add_stdout_o
+  \\ xsimpl);
 
 val cat_spec = save_thm(
   "cat_spec",

@@ -45,8 +45,9 @@ val echo_spec = Q.store_thm("echo_spec",
   unabbrev_all_tac \\
   simp[mlstringTheory.concatWith_CONCAT_WITH,MAP_TL,mlstringTheory.implode_def] \\
   xsimpl >> fs[] >>
-  imp_res_tac STDIO_add_stdout_o >>
-  fs[GC_def] >> xsimpl >> qexists_tac`emp` >> xsimpl);
+  imp_res_tac STD_streams_stdout >>
+  simp[UNDISCH add_stdout_o] >>
+  xsimpl);
 
 val st = get_ml_prog_state();
 val spec = echo_spec |> SPEC_ALL |> UNDISCH_ALL |>
