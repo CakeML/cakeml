@@ -888,45 +888,6 @@ val STD_streams_add_stdout = Q.store_thm("STD_streams_add_stdout",
   \\ rw[] >- metis_tac[]
   \\ fs[STD_streams_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
 
-(*
-val STD_streams_up_stdout = Q.store_thm("STD_streams_up_stdout",
-  `STD_streams (up_stdout out fs) ⇔ STD_streams fs`,
-  rw[STD_streams_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,EQ_IMP_THM] \\ fs[]
-  \\ every_case_tac \\ fs[] \\ rveq \\ fs[PAIR_MAP]
-  \\ rename1`FST p`
-  \\ Cases_on`p` \\ fs[]
-  \\ rveq \\ fs[]
-*)
-
-val STDIO_add_stdout_o = Q.store_thm("STDIO_add_stdout_o",
-  `STD_streams fs ⇒
-   (STDIO(add_stdout (add_stdout fs x1) x2) ==>>
-    STDIO(add_stdout fs (x1 ++ x2)))`,
-  rw[]
-  \\ imp_res_tac STD_streams_stdout
-  \\ fs[add_stdout_def,up_stdout_def]
-  \\ SELECT_ELIM_TAC
-  \\ conj_tac >- metis_tac[]
-  \\ rw[] \\ imp_res_tac stdout_UNICITY_R \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`stdout fss`
-  \\ `STD_streams fss`
-  by (
-    simp[Abbr`fss`]
-    \\ match_mp_tac STD_streams_fsupdate
-    \\ simp[] )
-  \\ imp_res_tac STD_streams_stdout
-  \\ SELECT_ELIM_TAC
-  \\ conj_tac >- metis_tac[]
-  \\ rw[] \\ imp_res_tac stdout_UNICITY_R \\ fs[] \\ rw[]
-  \\ `out' = out ++ x1`
-  by (
-    unabbrev_all_tac
-    \\ full_simp_tac std_ss [GSYM LENGTH_APPEND]
-    \\ fs[GSYM up_stdout_def]
-    \\ metis_tac[stdout_up_stdout,stdout_UNICITY_R] )
-  \\ rw[Abbr`fss`]
-  \\ rw[STDIO_fsupdate_o]);
-
 val print_string_spec = Q.store_thm("print_string_spec",
   `!fs out sv s.
     STRING_TYPE s sv ⇒
@@ -1933,10 +1894,10 @@ val print_list_spec = Q.store_thm("print_list_spec",
             STDIO (add_stdout fs (explode s))`
   \\ xapp \\ xsimpl
   \\ map_every qexists_tac [`emp`,`add_stdout fs (explode s)`]
-  \\ imp_res_tac STDIO_add_stdout_o
   \\ xsimpl
-  (* why do I need to do this? *)
-  \\ fs[GC_def] \\ xsimpl \\ qexists_tac`emp` \\ xsimpl);
+  \\ imp_res_tac STD_streams_stdout
+  \\ simp[UNDISCH add_stdout_o]
+  \\ xsimpl);
 
 val linesFD_def = Define`
  linesFD fs fd =
@@ -1995,6 +1956,18 @@ val STD_streams_lineForwardFD = Q.store_thm("STD_streams_lineForwardFD",
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[STD_streams_forwardFD]);
 
+val STD_streams_fastForwardFD = Q.store_thm("STD_streams_fastForwardFD",
+  `fd ≠ 1 ∧ fd ≠ 2 ⇒
+   (STD_streams (fastForwardFD fs fd) ⇔ STD_streams fs)`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[STD_streams_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ srw_tac[ETA_ss][]
+  \\ CASE_TAC \\ fs[]
+  \\ srw_tac[ETA_ss][]);
+
 (* TODO: move *)
 val STD_OstreamFD_def = Define`
   STD_OstreamFD fs fd ⇔
@@ -2017,6 +1990,16 @@ val STD_OstreamFD_lineForwardFD = Q.store_thm("STD_OstreamFD_lineForwardFD[simp]
   \\ TOP_CASE_TAC \\ fs[]
   \\ Cases_on`x` \\ fs[]
   \\ IF_CASES_TAC \\ fs[]);
+
+val STD_OstreamFD_fastForwardFD = Q.store_thm("STD_OstreamFD_fastForwardFD[simp]",
+  `STD_OstreamFD (fastForwardFD fs fd1) fd2 ⇔ STD_OstreamFD fs fd2`,
+  rw[STD_OstreamFD_def,fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd1` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[ALIST_FUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]);
 
 val STD_OstreamFD_fsupdate = Q.store_thm("STD_OstreamFD_fsupdate[simp]",
   `STD_OstreamFD (fsupdate fs a y z w) fd ⇔ STD_OstreamFD fs fd`,
@@ -2070,11 +2053,31 @@ val up_stdout_forwardFD = Q.store_thm("up_stdout_forwardFD",
   \\ match_mp_tac ALIST_FUPDKEY_comm
   \\ strip_tac \\ fs[] \\ rfs[]);
 
+val up_stdout_fastForwardFD = Q.store_thm("up_stdout_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   up_stdout out (fastForwardFD fs fd) = fastForwardFD (up_stdout out fs) fd`,
+  rw[fastForwardFD_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq]
+  \\ CASE_TAC \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_comm,ALIST_FUPDKEY_ALOOKUP]);
+
 val stdout_forwardFD = Q.store_thm("stdout_forwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    (stdout (forwardFD fs fd n) out ⇔ stdout fs out)`,
   rw[stdout_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
   \\ rw[] \\ rfs[]);
+
+val stdout_fastForwardFD = Q.store_thm("stdout_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   (stdout (fastForwardFD fs fd) out ⇔ stdout fs out)`,
+  rw[stdout_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[ALIST_FUPDKEY_ALOOKUP] \\ rw[]
+  \\ fs[] \\ rfs[]);
 
 val add_stdout_forwardFD = Q.store_thm("add_stdout_forwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
@@ -2087,5 +2090,10 @@ val add_stdout_lineForwardFD = Q.store_thm("add_stdout_lineForwardFD",
   rw[lineForwardFD_def,get_file_content_add_stdout]
   \\ CASE_TAC \\ CASE_TAC
   \\ rw[] \\ pairarg_tac \\ fs[add_stdout_forwardFD]);
+
+val add_stdout_fastForwardFD = Q.store_thm("add_stdout_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stdout (fastForwardFD fs fd) out = fastForwardFD (add_stdout fs out) fd`,
+  rw[add_stdout_def,up_stdout_fastForwardFD,stdout_fastForwardFD]);
 
 val _ = export_theory();

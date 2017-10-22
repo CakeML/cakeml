@@ -1,6 +1,6 @@
 open preamble ml_translatorLib ml_progLib
-     cfTacticsLib basisFunctionsLib
-     fsFFITheory fsioProgTheory
+     cfTacticsLib basisFunctionsLib cfLetAutoLib
+     fsFFITheory fsioConstantsProgTheory fsioProgTheory fsioSpecTheory
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
@@ -406,72 +406,96 @@ val parse_regexp_side = Q.prove(
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
     case IO.inputLine fd of NONE => ()
-    | SOME ln => (if match ln then (print prefix; print ln) else ();
+    | SOME ln => (if match ln then (IO.print_string prefix; IO.print_string ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
-  `∀fs out.
-   (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   WORD (fd:word8) fdv ∧ validFD (w2n fd) fs ⇒
+  `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
+   WORD ((n2w fd):word8) fdv ∧ ¬STD_OstreamFD fs fd ∧
+   fd ≤ 255 ∧ IS_SOME (get_file_content fs fd) ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
-     (IOFS fs * &stdout fs out)
+     (STDIO fs)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       IOFS (up_stdout(out ++ CONCAT
+       STDIO (add_stdout (fastForwardFD fs fd)
+                     (CONCAT
                         (MAP ((++) (explode pfx))
-                           (FILTER (m o implode)
-                            (MAP (combin$C (++) "\n")
-                               (linesFD (w2n fd) fs)))))
-               (bumpAllFD (w2n fd) fs) *
-       )`,
-  Induct_on`linesFD (w2n fd) fs` \\ rw[]
+                           (FILTER (m o implode) (linesFD fs fd))))))`,
+  Induct_on`linesFD fs fd` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
     \\ xcf"print_matching_lines"(get_ml_prog_state())
-    \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
-                     ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
-    >- ( xapp \\ instantiate \\ xsimpl )
-    \\ rfs[GSYM FDline_NONE_linesFD,ml_translatorTheory.OPTION_TYPE_def]
+    \\ xlet_auto >- xsimpl
+    \\ rfs[linesFD_nil_lineFD_NONE,ml_translatorTheory.OPTION_TYPE_def]
     \\ xmatch
     \\ xcon
-    \\ imp_res_tac FDline_NONE_bumpAll_bumpLine
+    \\ fs[lineFD_NONE_lineForwardFD_fastForwardFD]
+    \\ reverse(Cases_on`STD_streams (fastForwardFD fs fd)`) >- (fs[STDIO_def] \\ xsimpl)
+    \\ imp_res_tac STD_streams_stdout
+    \\ imp_res_tac add_stdout_nil
     \\ xsimpl )
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ imp_res_tac NOT_STD_OstreamFD_1_2
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
   \\ xcf"print_matching_lines"(get_ml_prog_state())
-  \\ xlet`POSTv x. &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline (w2n fd) fs))  x *
-                   ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
-  >- ( xapp \\ instantiate \\ xsimpl )
-  \\ Cases_on`FDline (w2n fd) fs` \\ fs[FDline_NONE_linesFD]
+  \\ xlet_auto >- xsimpl
+  \\ Cases_on`lineFD fs fd` \\ fs[GSYM linesFD_nil_lineFD_NONE]
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ xmatch
-  \\ rename1`FDline _ _ = SOME ln`
+  \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
-  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * ROFS (bumpLineFD (w2n fd) fs) * STDOUT out`
+  (* TODO: xlet_auto fails *)
+  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * STDIO (lineForwardFD fs fd)`
   >- ( xapp \\ instantiate \\ xsimpl )
-  \\ xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ (if m (implode ln) then explode pfx ++ ln else ""))`
+  \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)(if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif
     >- (
-      xlet`POSTv x. ROFS (bumpLineFD (w2n fd) fs) * STDOUT (out ++ explode pfx)`
+      (* TODO: xlet_auto failing on STDIO *)
+      xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd) (explode pfx))`
       >- (xapp \\ instantiate \\ xsimpl
-          \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out`
+          \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`lineForwardFD fs fd`
           \\ xsimpl )
       \\ xapp \\ instantiate \\ xsimpl
-      \\ simp[mlstringTheory.explode_implode]
-      \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`out ++ explode pfx`
-      \\ xsimpl )
-    \\ xcon \\ xsimpl )
-  \\ imp_res_tac linesFD_eq_cons_imp \\ rveq \\ fs[]
-  \\ first_x_assum(qspecl_then[`fd`,`bumpLineFD (w2n fd) fs`]mp_tac)
-  \\ simp[] \\ strip_tac
+      (* TODO: make this less painful? *)
+      \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`add_stdout (lineForwardFD fs fd) (explode pfx)`
+      \\ xsimpl \\ rw[]
+      (* TODO: make this less painful? *)
+      \\ imp_res_tac STD_streams_lineForwardFD
+      \\ imp_res_tac STD_streams_stdout
+      \\ imp_res_tac add_stdout_o
+      \\ xsimpl)
+    \\ xcon
+    \\ DEP_REWRITE_TAC[GEN_ALL add_stdout_nil]
+    \\ xsimpl
+    \\ metis_tac[STD_streams_stdout,STD_streams_lineForwardFD])
+  \\ imp_res_tac linesFD_cons_imp \\ rveq \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
+  \\ first_x_assum(qspecl_then[`fs'`,`fd`]mp_tac)
+  \\ simp[AND_IMP_INTRO]
+  \\ impl_keep_tac
+  >- (
+    simp[Abbr`fs'`]
+    \\ qmatch_goalsub_rename_tac`add_stdout _ x`
+    \\ DEP_REWRITE_TAC[linesFD_add_stdout]
+    \\ simp[STD_streams_lineForwardFD,get_file_content_add_stdout] )
+  \\ strip_tac
   \\ xapp
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`out ++ (if m (implode ln) then explode pfx ++ ln else "")`
-  \\ fs[] \\ xsimpl
-  \\ Cases_on`m (implode ln)` \\ fs[]
-  \\ xsimpl);
+  \\ xsimpl
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs1 ==>> STDIO fs2 * _`
+  \\ `fs1 = fs2` suffices_by xsimpl
+  \\ fs[Abbr`fs1`,Abbr`fs2`]
+  \\ qpat_x_assum`_ = linesFD fs' fd`(assume_tac o SYM) \\ fs[]
+  \\ simp[Abbr`fs'`,linesFD_add_stdout]
+  \\ simp[add_stdout_lineForwardFD]
+  \\ simp[add_stdout_fastForwardFD,STD_streams_fastForwardFD]
+  \\ DEP_REWRITE_TAC[add_stdout_fastForwardFD]
+  \\ simp[STD_streams_add_stdout]
+  \\ DEP_REWRITE_TAC[GEN_ALL add_stdout_o]
+  \\ conj_tac >- metis_tac[STD_streams_stdout]
+  \\ rw[]);
 
 val notfound_string_def = Define`
   notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]`;
