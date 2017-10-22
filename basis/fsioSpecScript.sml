@@ -271,6 +271,7 @@ val close_STDIO_spec = Q.store_thm(
  xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFD_def] >> xsimpl >>
  fs[STD_streams_def,ALOOKUP_ADELKEY]);
 
+(* TODO: remove redundant validFD assumption *)
 val writei_spec = Q.store_thm("writei_spec",
  `wfFS fs ⇒ validFD fd fs ⇒ 0 < n ⇒
   fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
@@ -396,6 +397,7 @@ val insert_atI_insert_atI = Q.store_thm("insert_atI_insert_atI",
     >> fs[DROP_LENGTH_NIL_rwt,LENGTH_TAKE,DROP_APPEND1,TAKE_APPEND,TAKE_TAKE,
        DROP_DROP_T,DROP_APPEND2,TAKE_LENGTH_TOO_LONG,TAKE_SUM,LENGTH_DROP]);
 
+(* TODO: remove redundant validFD assumption *)
 val write_spec = Q.store_thm("write_spec",
  `!n fs fd i pos h1 h2 h3 rest bc fdv nv iv content.
   validFD fd fs ⇒ wfFS fs ⇒
@@ -449,6 +451,7 @@ val write_spec = Q.store_thm("write_spec",
   PURE_REWRITE_TAC[Once (Q.SPECL [`i`,`nw`] ADD_COMM)] >>
   fs[Once ADD_COMM,GSYM DROP_DROP_T,take_drop_partition,MAP_DROP]);
 
+(* TODO: remove redundant validFD assumption *)
 val write_char_spec = Q.store_thm("write_char_spec",
   `!fd fdv c cv bc content pos.
     validFD fd fs ⇒ fd <= 255 ⇒
@@ -476,6 +479,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
   xcon >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >> rw[] >>
   fs[CHR_ORD,LESS_MOD,ORD_BOUND] >> qexists_tac`k` >> xsimpl);
 
+(* TODO: remove redundant validFD assumption *)
 val output_spec = Q.store_thm("output_spec",
   `!s fd fdv sv fs content pos.
     WORD (n2w fd :word8) fdv ⇒ validFD fd fs ⇒ STRING_TYPE s sv ⇒ fd <= 255 ⇒
@@ -757,7 +761,6 @@ val input_spec = Q.store_thm("input_spec",
   xsimpl >>
   fs[get_file_content_def, validFD_bumpFD,liveFS_bumpFD,bumpFD_def,
      ALIST_FUPDKEY_ALOOKUP,INT_OF_NUM_SUBS_2,NUM_def,INT_def] >>
-  strip_tac >-(NTAC 2 (pairarg_tac >> fs[])) >>
   rw[] >> qexists_tac`SUC x''` >>
   fs[NUM_def,INT_def,MIN_DEF,validFD_def,wfFS_fsupdate,liveFS_fsupdate] >>
   strip_tac
@@ -1019,16 +1022,13 @@ val STD_streams_numchars = Q.store_thm("STD_streams_numchars",
  fs[STD_streams_def]);
 
 val STD_streams_bumpFD = Q.store_thm("STD_streams_bumpFD",
- `!fs fd n. get_file_content fs fd = SOME(c,p) ==>
-   p + n <= LENGTH c ==>
- STD_streams fs ==> STD_streams (bumpFD fd fs n)`,
- fs[STD_streams_def,bumpFD_def,get_file_content_def] >>
- rw[] >> fs[ALIST_FUPDKEY_ALOOKUP] >>
- CASE_TAC >- rw[] >>
- CASE_TAC >-(rw[] >> pairarg_tac >> fs[] >> rw[] >>
-             `c = out` by fs[] >> rw[]) >>
- CASE_TAC >-(rw[] >> pairarg_tac >> fs[] >> rw[] >>
-             `c = err` by fs[] >> rw[]));
+  `fd ≠ 1 ∧ fd ≠ 2 ⇒
+   (STD_streams (bumpFD fd fs n) = STD_streams fs)`,
+  rw[STD_streams_def,bumpFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ fsrw_tac[ETA_ss][]
+  \\ every_case_tac \\ fs[PAIR_MAP]
+  \\ metis_tac[PAIR]);
 
 val wfFS_numchars = Q.store_thm("wfFS_numchars",
  `!fs ll. wfFS fs ==> ¬LFINITE ll ==>
@@ -1068,23 +1068,143 @@ val _ = temp_clear_overloads_on"STRCAT";
 val _ = temp_clear_overloads_on"STRLEN";
 val _ = temp_clear_overloads_on"STRING";
 
-val FDline_def = Define`
-  FDline fs fd = do
+val lineFD_def = Define`
+  lineFD fs fd = do
     (content, pos) <- get_file_content fs fd;
     assert (pos < LENGTH content);
     let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
       SOME(l++"\n") od`;
 
-val bumpLineFD_def = Define`
-  bumpLineFD fs fd =
+(* like bumpFD but leave numchars *)
+val forwardFD_def = Define`
+  forwardFD fs fd n =
+    fs with infds updated_by ALIST_FUPDKEY fd (I ## (+) n)`;
+
+val forwardFD_const = Q.store_thm("forwardFD_const[simp]",
+  `(forwardFD fs fd n).files = fs.files ∧
+   (forwardFD fs fd n).numchars = fs.numchars`,
+  rw[forwardFD_def]);
+
+val forwardFD_o = Q.store_thm("forwardFD_o",
+  `forwardFD (forwardFD fs fd n) fd m = forwardFD fs fd (n+m)`,
+  rw[forwardFD_def,IO_fs_component_equality,ALIST_FUPDKEY_o]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM,FORALL_PROD]);
+
+val forwardFD_0 = Q.store_thm("forwardFD_0[simp]",
+  `forwardFD fs fd 0 = fs`,
+  rw[forwardFD_def,IO_fs_component_equality]
+  \\ match_mp_tac ALIST_FUPDKEY_unchanged
+  \\ simp[FORALL_PROD]);
+
+val liveFS_forwardFD = Q.store_thm("liveFS_forwardFD[simp]",
+  `liveFS (forwardFD fs fd n) = liveFS fs`,
+  rw[liveFS_def]);
+
+val MAP_FST_forwardFD_infds = Q.store_thm("MAP_FST_forwardFD_infds[simp]",
+  `MAP FST (forwardFD fs fd n).infds = MAP FST fs.infds`,
+  rw[forwardFD_def]);
+
+val validFD_forwardFD = Q.store_thm("validFD_forwardFD[simp]",
+  `validFD fd (forwardFD fs fd n)= validFD fd fs`,
+  rw[validFD_def]);
+
+val wfFS_forwardFD = Q.store_thm("wfFS_forwardFD[simp]",
+  `wfFS (forwardFD fs fd n) = wfFS fs`,
+  rw[wfFS_def]
+  \\ rw[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[EQ_IMP_THM]
+  \\ res_tac \\ fs[]
+  \\ FULL_CASE_TAC \\ fs[]
+  \\ FULL_CASE_TAC \\ fs[]
+  \\ Cases_on`x` \\ fs[]);
+
+val get_file_content_forwardFD = Q.store_thm("get_file_content_forwardFD[simp]",
+  `!fs fd c pos n.
+    get_file_content (forwardFD fs fd n) fd =
+    OPTION_MAP (I ## (+) n) (get_file_content fs fd)`,
+  rw[get_file_content_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ rw[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]);
+
+val bumpFD_forwardFD = Q.store_thm("bumpFD_forwardFD",
+  `bumpFD fd fs n = forwardFD fs fd n with numchars := THE (LTL fs.numchars)`,
+  rw[bumpFD_def,forwardFD_def]);
+
+val STDIO_bumpFD = Q.store_thm("STDIO_bumpFD[simp]",
+  `STDIO (bumpFD fd fs n) = STDIO (forwardFD fs fd n)`,
+  rw[bumpFD_forwardFD,STDIO_numchars]);
+
+val STD_streams_forwardFD = Q.store_thm("STD_streams_forwardFD",
+  `fd ≠ 1 ∧ fd ≠ 2 ⇒
+   (STD_streams (forwardFD fs fd n) = STD_streams fs)`,
+  rw[STD_streams_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[EQ_IMP_THM] \\ rw[]
+  \\ fsrw_tac[ETA_ss][]
+  \\ every_case_tac \\ fs[PAIR_MAP]
+  \\ metis_tac[PAIR]);
+
+val lineForwardFD_def = Define`
+  lineForwardFD fs fd =
     case get_file_content fs fd of
     | NONE => fs
     | SOME (content, pos) =>
       if pos < LENGTH content
       then let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
-        (* n.b.: ignores numchars, so only good for STDIO or higher *)
-        bumpFD fd fs (LENGTH l + if NULL r then 0 else 1)
+        forwardFD fs fd (LENGTH l + if NULL r then 0 else 1)
       else fs`;
+
+val IS_SOME_get_file_content_lineForwardFD = Q.store_thm("IS_SOME_get_file_content_lineForwardFD[simp]",
+  `IS_SOME (get_file_content (lineForwardFD fs fd) fd) =
+   IS_SOME (get_file_content fs fd)`,
+  rw[lineForwardFD_def]
+  \\ CASE_TAC \\ simp[]
+  \\ CASE_TAC \\ simp[]
+  \\ CASE_TAC \\ simp[]
+  \\ pairarg_tac \\ simp[]);
+
+val fastForwardFD_lineForwardFD = Q.store_thm("fastForwardFD_lineForwardFD[simp]",
+  `fastForwardFD (lineForwardFD fs fd) fd = fastForwardFD fs fd`,
+  rw[fastForwardFD_def,lineForwardFD_def]
+  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
+  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
+  \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[forwardFD_def,ALIST_FUPDKEY_ALOOKUP,get_file_content_def]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ fs[IO_fs_component_equality,ALIST_FUPDKEY_o]
+  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ simp[] \\ rveq
+  \\ imp_res_tac SPLITP_JOIN
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ simp[SUB_RIGHT_EQ]
+  \\ rw[MAX_DEF,NULL_EQ] \\ fs[]);
+
+val fastForwardFD_0 = Q.store_thm("fastForwardFD_0",
+  `(∀content pos. get_file_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
+   fastForwardFD fs fd = fs`,
+  rw[fastForwardFD_def,get_file_content_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[IO_fs_component_equality]
+  \\ match_mp_tac ALIST_FUPDKEY_unchanged
+  \\ rw[] \\ rw[PAIR_MAP_THM]
+  \\ rw[MAX_DEF]);
+
+val fastForwardFD_forwardFD = Q.store_thm("fastForwardFD_forwardFD",
+  `get_file_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
+   fastForwardFD (forwardFD fs fd n) fd = fastForwardFD fs fd`,
+  rw[fastForwardFD_def,get_file_content_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ fs[IO_fs_component_equality,ALIST_FUPDKEY_o]
+  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ simp[MAX_DEF]);
 
 val inputLine_spec = Q.store_thm("inputLine_spec",
   `WORD (n2w fd : word8) fdv ∧ fd ≤ 255 ∧ IS_SOME (get_file_content fs fd)
@@ -1092,10 +1212,10 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
    app (p:'ffi ffi_proj) ^(fetch_v "IO.inputLine" (get_ml_prog_state())) [fdv]
      (STDIO fs)
      (POSTv sov.
-       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (FDline fs fd)) sov *
-       STDIO (bumpLineFD fs fd))`,
+       &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs fd)) sov *
+       STDIO (lineForwardFD fs fd))`,
   strip_tac
-  \\ xcf "IO.inputLine" (basis_st()) >>
+  \\ xcf "IO.inputLine" (get_ml_prog_state()) >>
   xfun_spec `realloc`
     `∀arrv arr.
      app (p:'ffi ffi_proj) realloc [arrv] (W8ARRAY arrv arr)
@@ -1109,7 +1229,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
   xlet_auto >- xsimpl \\
   qpat_abbrev_tac`protect = STDIO fs` \\
   fs[IS_SOME_EXISTS,EXISTS_PROD] \\
-  fs[FDline_def,bumpLineFD_def] \\
+  fs[lineFD_def,lineForwardFD_def] \\
   pairarg_tac \\ fs[] \\
   reverse IF_CASES_TAC \\ fs[] >- (
     xfun_spec`inputLine_aux`
@@ -1132,13 +1252,13 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
         >- (
           fs[STDIO_def] \\ xpull
           \\ xapp
-          \\ asm_exists_tac \\ fs[]
+          \\ asm_exists_tac \\ fs[bumpFD_0]
           \\ mp_tac (SPEC_ALL (GSYM get_file_content_numchars))
           \\ rw[]
           \\ asm_exists_tac \\ fs[]
           \\ xsimpl
           \\ imp_res_tac get_file_content_eof \\ fs[]
-          \\ rw[bumpFD_0]
+          \\ rw[]
           \\ qexists_tac`THE(LTL ll)`
           \\ xsimpl )
         \\ xsimpl )
@@ -1170,7 +1290,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
        (STDIO fs * W8ARRAY arrv arr)
        (POSTv v.
         &(OPTION_TYPE STRING_TYPE (SOME (implode(l ++ "\n"))) v) *
-        STDIO (bumpFD fd fs ((LENGTH l - i)+ if NULL r then 0 else 1)))`
+        STDIO (forwardFD fs fd ((LENGTH l - i)+ if NULL r then 0 else 1)))`
   >- (
     qx_gen_tac`pp` \\
     `WF (inv_image ($< LEX $<) (λ(pp,(arr:word8 list)). (arrmax - LENGTH arr, LENGTH content - pp)))`
@@ -1227,7 +1347,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
           |> imp_res_tac)
       \\ fs[] \\ rveq
       \\ fs[OPTION_TYPE_def,implode_def,STRING_TYPE_def]
-      \\ simp[bumpFD_0,STDIO_numchars]
+      \\ simp[STDIO_numchars]
       \\ xsimpl
       \\ fs[TAKE_LENGTH_ID_rwt] \\ rveq
       \\ fs[MAP_TAKE,LUPDATE_MAP]
@@ -1239,7 +1359,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     (* TODO xlet_auto *)
     \\ xlet `POST (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
                          pp < LENGTH content)
-                      * W8ARRAY arrv arr2 * STDIO (bumpFD fd fs' 1))
+                      * W8ARRAY arrv arr2 * STDIO (forwardFD fs' fd 1))
                   (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
                       * W8ARRAY arrv arr2 * STDIO fs')`
     >- (
@@ -1252,7 +1372,14 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       \\ asm_exists_tac \\ fs[]
       \\ xsimpl
       \\ imp_res_tac get_file_content_eof \\ fs[]
-      \\ rw[bumpFD_numchars,STD_streams_bumpFD,bumpFD_0]
+      \\ simp[bumpFD_numchars,bumpFD_0,bumpFD_forwardFD]
+      \\ `pp < LENGTH content ⇒ fd ≠ 1 ∧ fd ≠ 2`
+      by (
+        fs[STD_streams_def]
+        \\ rw[] \\ strip_tac \\ fs[get_file_content_def]
+        \\ pairarg_tac \\ fs[] \\ rw[] )
+      \\ simp[STD_streams_forwardFD]
+      \\ rw[]
       \\ qexists_tac`THE(LTL ll)`
       \\ xsimpl )
     >- xsimpl
@@ -1282,10 +1409,10 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     \\ xlet_auto >- xsimpl
     \\ xapp
     \\ xsimpl
-    \\ drule get_file_content_bumpFD
-    \\ disch_then(qspec_then`1`strip_assume_tac)
     \\ `pp+1 ≤ LENGTH content` by fs[]
     \\ instantiate
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`forwardFD fs' fd 1`
     \\ simp[LEX_DEF]
     \\ xsimpl
     \\ fs[ORD_BOUND]
@@ -1294,7 +1421,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
     >- (
       fs[NULL_EQ]
       \\ imp_res_tac SPLITP_NIL_SND_EVERY
-      \\ rveq \\ fs[bumpFD_o,STDIO_numchars]
+      \\ rveq \\ fs[forwardFD_o,STDIO_numchars]
       \\ xsimpl
       \\ `pp + 1 - pos = (pp - pos) + 1` by fs[]
       \\ pop_assum SUBST_ALL_TAC
@@ -1311,7 +1438,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
         \\ rw[] )
       \\ simp[DROP_DROP]
       \\ simp[take1_drop,CHAR_EQ_THM] )
-    \\ fs[bumpFD_o,STDIO_numchars]
+    \\ fs[forwardFD_o,STDIO_numchars]
     \\ xsimpl
     \\ conj_asm1_tac
     >- (
@@ -1630,7 +1757,7 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
        &LIST_TYPE STRING_TYPE
          (MAP (\x. strcat (implode x) (implode "\n"))
             (splitlines (DROP pos content))) fcv *
-       STDIO (bumpFD fd fs (LENGTH content - pos)))`,
+       STDIO (fastForwardFD fs fd))`,
   map_every qid_spec_tac[`fs`] \\
   Induct_on`splitlines (DROP pos content)` \\ rw[]
   >- (
@@ -1638,21 +1765,20 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
     \\ `LENGTH content - pos = 0` by simp[]
     \\ pop_assum SUBST1_TAC
     \\ `DROP pos content = []` by fs[DROP_NIL]
-    \\ fs[bumpFD_0,STDIO_numchars]
     \\ xcf"IO.inputLines"(get_ml_prog_state())
     \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
     \\ xlet_auto >- xsimpl
-    \\ rfs[FDline_def,OPTION_TYPE_def]
+    \\ rfs[lineFD_def,OPTION_TYPE_def]
     \\ xmatch
     \\ xcon
-    \\ simp[bumpLineFD_def]
+    \\ simp[lineForwardFD_def,fastForwardFD_0]
     \\ xsimpl
     \\ fs[LIST_TYPE_def])
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
   \\ xcf"IO.inputLines"(get_ml_prog_state())
   \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
   \\ xlet_auto >- xsimpl
-  \\ rfs[FDline_def]
+  \\ rfs[lineFD_def]
   \\ imp_res_tac splitlines_next
   \\ rveq
   \\ `pos < LENGTH content`
@@ -1660,9 +1786,9 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
   \\ fs[DROP_DROP_T]
   \\ pairarg_tac \\ fs[OPTION_TYPE_def,implode_def,STRING_TYPE_def] \\ rveq
   \\ xmatch
-  \\ fs[bumpLineFD_def]
+  \\ fs[lineForwardFD_def]
   \\ imp_res_tac splitlines_CONS_FST_SPLITP \\ rfs[] \\ rveq
-  \\ qmatch_goalsub_abbrev_tac`bumpFD fd fs n`
+  \\ qmatch_goalsub_abbrev_tac`forwardFD fs fd n`
   \\ first_x_assum(qspecl_then[`pos+n`,`content`]mp_tac)
   \\ impl_keep_tac
   >- (
@@ -1672,16 +1798,17 @@ val inputLines_spec = Q.store_thm("input_lines_spec",
     \\ imp_res_tac SPLITP_NIL_SND_EVERY
     \\ rveq
     \\ simp[DROP_LENGTH_TOO_LONG] )
-  \\ disch_then(qspec_then`bumpFD fd fs n`mp_tac)
-  \\ simp[get_file_content_bumpFD]
+  \\ disch_then(qspec_then`forwardFD fs fd n`mp_tac)
+  \\ simp[]
   \\ strip_tac \\ fs[Abbr`n`,NULL_EQ]
   \\ xlet_auto >- xsimpl
   \\ xcon
   \\ xsimpl
-  \\ simp[bumpFD_o,STDIO_numchars,LIST_TYPE_def]
+  \\ simp[forwardFD_o,STDIO_numchars,LIST_TYPE_def]
   \\ fs[strcat_thm,implode_def]
-  \\ qmatch_goalsub_abbrev_tac`pos + n`
-  \\ `n ≤ LENGTH content - pos` suffices_by (simp[] \\ xsimpl)
+  \\ qmatch_goalsub_abbrev_tac`forwardFD fs fd n`
+  \\ `n ≤ LENGTH content - pos` suffices_by (
+    simp[fastForwardFD_forwardFD] \\ xsimpl)
   \\ imp_res_tac IS_PREFIX_LENGTH
   \\ fs[] \\ rw[Abbr`n`] \\ fs[]
   \\ Cases_on`LENGTH h = LENGTH content - pos` \\ fs[]
@@ -1777,7 +1904,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
     \\ metis_tac[nextFD_NOT_MEM] )
   \\ strip_tac
   \\ xlet_auto >- xsimpl
-  >- ( xsimpl \\ simp[validFD_bumpFD,Abbr`fsob`] )
+  >- ( xsimpl \\ simp[Abbr`fsob`] )
   \\ reverse xcon \\ xsimpl
   \\ fs[OPTION_TYPE_def]
   \\ fs[all_lines_def]
@@ -1786,10 +1913,10 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ fs[Abbr`fso`,openFileFS_files]
   \\ rveq \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ `∃x. fs' = fs with numchars := x` suffices_by (
-    rw[] \\ rw[STDIO_numchars] \\ xsimpl)
+  \\ `fs' = fs` suffices_by ( rw[] \\ xsimpl)
   \\ unabbrev_all_tac
-  \\ simp[bumpFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
+  \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
+          libTheory.the_def, openFileFS_numchars,
           IO_fs_component_equality,openFileFS_files]);
 
 val print_list_spec = Q.store_thm("print_list_spec",
@@ -1811,5 +1938,155 @@ val print_list_spec = Q.store_thm("print_list_spec",
   \\ xsimpl
   (* why do I need to do this? *)
   \\ fs[GC_def] \\ xsimpl \\ qexists_tac`emp` \\ xsimpl);
+
+val linesFD_def = Define`
+ linesFD fs fd =
+   case get_file_content fs fd of
+   | NONE => []
+   | SOME (content,pos) =>
+       MAP (λx. x ++ "\n")
+         (splitlines (DROP pos content))`;
+
+val linesFD_nil_lineFD_NONE = Q.store_thm("linesFD_nil_lineFD_NONE",
+  `linesFD fs fd = [] ⇔ lineFD fs fd = NONE`,
+  rw[lineFD_def,linesFD_def]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[DROP_NIL]);
+
+val linesFD_cons_imp = Q.store_thm("linesFD_cons_imp",
+  `linesFD fs fd = ln::ls ⇒
+   lineFD fs fd = SOME ln ∧
+   linesFD (lineForwardFD fs fd) fd = ls`,
+  simp[linesFD_def,lineForwardFD_def]
+  \\ CASE_TAC \\ CASE_TAC
+  \\ strip_tac
+  \\ rename1`_ = SOME (content,off)`
+  \\ conj_asm1_tac
+  >- (
+    simp[lineFD_def]
+    \\ Cases_on`DROP off content` \\ rfs[DROP_NIL]
+    \\ conj_asm1_tac
+    >- ( CCONTR_TAC \\ fs[DROP_LENGTH_TOO_LONG] )
+    \\ fs[splitlines_def,FIELDS_def]
+    \\ pairarg_tac \\ fs[]
+    \\ every_case_tac \\ fs[] \\ rw[]
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+    >- ( Cases_on`FIELDS ($= #"\n") t` \\ fs[] )
+    >- ( Cases_on`FIELDS ($= #"\n") (TL r)` \\ fs[] ))
+  \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`splitlines (DROP off content)` \\ fs[] \\ rveq
+  \\ AP_TERM_TAC
+  \\ imp_res_tac splitlines_next
+  \\ fs[DROP_DROP_T,ADD1,NULL_EQ]
+  \\ imp_res_tac splitlines_CONS_FST_SPLITP \\ rfs[]
+  \\ IF_CASES_TAC \\ fs[] \\ rw[]
+  \\ fs[SPLITP_NIL_SND_EVERY]
+  \\ rveq \\ fs[DROP_LENGTH_TOO_LONG]);
+
+val STD_streams_lineForwardFD = Q.store_thm("STD_streams_lineForwardFD",
+  `fd ≠ 1 ∧ fd ≠ 2 ⇒
+   (STD_streams (lineForwardFD fs fd) ⇔ STD_streams fs)`,
+  rw[lineForwardFD_def]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[STD_streams_forwardFD]);
+
+(* TODO: move *)
+val STD_OstreamFD_def = Define`
+  STD_OstreamFD fs fd ⇔
+    ∃nm pos. ALOOKUP fs.infds fd = SOME (IOStream nm,pos) ∧
+            nm ∈ IMAGE strlit {"stdout";"stderr"}`;
+
+val NOT_STD_OstreamFD_1_2 = Q.store_thm("NOT_STD_OstreamFD_1_2",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒ fd ≠ 1 ∧ fd ≠ 2`,
+  rw[STD_streams_def,STD_OstreamFD_def]
+  \\ strip_tac \\ fs[] \\ rfs[]);
+
+val STD_OstreamFD_lineForwardFD = Q.store_thm("STD_OstreamFD_lineForwardFD[simp]",
+  `STD_OstreamFD (lineForwardFD fs fd1) fd2 ⇔ STD_OstreamFD fs fd2 `,
+  rw[STD_OstreamFD_def,lineForwardFD_def]
+  \\ CASE_TAC \\ simp[]
+  \\ CASE_TAC \\ simp[]
+  \\ CASE_TAC \\ simp[]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ Cases_on`x` \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]);
+
+val STD_OstreamFD_fsupdate = Q.store_thm("STD_OstreamFD_fsupdate[simp]",
+  `STD_OstreamFD (fsupdate fs a y z w) fd ⇔ STD_OstreamFD fs fd`,
+  rw[STD_OstreamFD_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ Cases_on`x` \\ fs[] \\ rw[]);
+
+val STD_OstreamFD_up_stdout = Q.store_thm("STD_OstreamFD_up_stdout[simp]",
+  `STD_OstreamFD (up_stdout x fs) fd ⇔ STD_OstreamFD fs fd`,
+  rw[up_stdout_def]);
+
+val STD_OstreamFD_add_stdout = Q.store_thm("STD_OstreamFD_add_stdout[simp]",
+  `STD_OstreamFD (add_stdout fs x) fd ⇔ STD_OstreamFD fs fd`,
+  rw[add_stdout_def]);
+(* -- *)
+
+val get_file_content_add_stdout = Q.store_thm("get_file_content_add_stdout",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   get_file_content (add_stdout fs out) fd = get_file_content fs fd`,
+  rw[get_file_content_def,add_stdout_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ srw_tac[ETA_ss][]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[STD_OstreamFD_def]
+  \\ pairarg_tac \\ fs[] \\ CASE_TAC \\ fs[] \\ rw[]
+  \\ srw_tac[ETA_ss][] \\ CASE_TAC \\ fs[] \\ srw_tac[ETA_ss][]
+  \\ fs[STD_streams_def] \\ rfs[]);
+
+val linesFD_add_stdout = Q.store_thm("linesFD_add_stdout",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   linesFD (add_stdout fs out) fd = linesFD fs fd`,
+  rw[linesFD_def,get_file_content_add_stdout]);
+
+val lineFD_NONE_lineForwardFD_fastForwardFD = Q.store_thm("lineFD_NONE_lineForwardFD_fastForwardFD",
+  `lineFD fs fd = NONE ⇒
+   lineForwardFD fs fd = fastForwardFD fs fd`,
+  rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_file_content_def]
+  \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ rveq \\ fs[libTheory.the_def]
+  \\ rw[] \\ TRY (
+    simp[IO_fs_component_equality]
+    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ simp[MAX_DEF] )
+  \\ rw[] \\ fs[forwardFD_def,libTheory.the_def]
+  \\ pairarg_tac \\ fs[]);
+
+val up_stdout_forwardFD = Q.store_thm("up_stdout_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   up_stdout out (forwardFD fs fd n) = forwardFD (up_stdout out fs) fd n`,
+  rw[forwardFD_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ rw[]
+  \\ match_mp_tac ALIST_FUPDKEY_comm
+  \\ strip_tac \\ fs[] \\ rfs[]);
+
+val stdout_forwardFD = Q.store_thm("stdout_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   (stdout (forwardFD fs fd n) out ⇔ stdout fs out)`,
+  rw[stdout_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ rw[] \\ rfs[]);
+
+val add_stdout_forwardFD = Q.store_thm("add_stdout_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stdout (forwardFD fs fd n) out = forwardFD (add_stdout fs out) fd n`,
+  rw[add_stdout_def,stdout_forwardFD,up_stdout_forwardFD]);
+
+val add_stdout_lineForwardFD = Q.store_thm("add_stdout_lineForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stdout (lineForwardFD fs fd) out = lineForwardFD (add_stdout fs out) fd`,
+  rw[lineForwardFD_def,get_file_content_add_stdout]
+  \\ CASE_TAC \\ CASE_TAC
+  \\ rw[] \\ pairarg_tac \\ fs[add_stdout_forwardFD]);
 
 val _ = export_theory();
