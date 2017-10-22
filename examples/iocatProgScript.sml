@@ -12,14 +12,6 @@ val _ = translation_extends"fsioProg";
 val st = get_ml_prog_state;
 val basis_st = get_ml_prog_state;
 
-(* TODO: move *)
-val A_DELKEY_ALIST_FUPDKEY_comm = Q.store_thm("A_DELKEY_ALIST_FUPDKEY_comm",
- `!ls f x y. x <> y ==>
-  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`,
-  Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
-  cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
-(* -- *)
-
 val _ = process_topdecs`
   fun pipe_255 fd1 fd2 =
   let val nr = IO.read fd1 (Word8.fromInt 255) in

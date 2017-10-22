@@ -527,7 +527,7 @@ val nextFD_numchars = Q.store_thm("nextFD_numchars",
  `!fs ll. nextFD (fs with numchars := ll) = nextFD fs`,
   rw[nextFD_def]);
 
-val openFileFS_files = Q.store_thm("openFileFS_files",
+val openFileFS_files = Q.store_thm("openFileFS_files[simp]",
  `!f fs pos. (openFileFS f fs pos).files = fs.files`,
   rw[openFileFS_def] >> CASE_TAC >> cases_on`x` >>
   fs[IO_fs_component_equality,openFile_def]);
@@ -544,5 +544,12 @@ val openFileFS_fupd_numchars = Q.store_thm("openFileFS_fupd_numchars",
  `!s fs k ll. openFileFS s (fs with numchars := ll) k =
               (openFileFS s fs k with numchars := ll)`,
   rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC);
+
+val IS_SOME_get_file_content_openFileFS_nextFD = Q.store_thm("IS_SOME_get_file_content_openFileFS_nextFD",
+  `inFS_fname fs (File f) ∧ nextFD fs ≤ 255
+   ⇒ IS_SOME (get_file_content (openFileFS f fs off) (nextFD fs)) `,
+  rw[get_file_content_def]
+  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]);
 
 val _ = export_theory();

@@ -871,6 +871,18 @@ val add_stdo_o = Q.store_thm("add_stdo_o",
   \\ `l = out ++ x1` by metis_tac[stdo_UNICITY_R,stdo_up_stdo]
   \\ rveq \\ fs[up_stdo_def]);
 
+val fsupdate_MAP_FST_infds = Q.store_thm("fsupdate_MAP_FST_infds[simp]",
+  `MAP FST (fsupdate fs fd k pos c).infds = MAP FST fs.infds`,
+  rw[fsupdate_def]);
+
+val up_stdo_MAP_FST_infds = Q.store_thm("up_stdo_MAP_FST_infds[simp]",
+  `MAP FST (up_stdo fd fs out).infds = MAP FST fs.infds`,
+  rw[up_stdo_def]);
+
+val add_stdo_MAP_FST_infds = Q.store_thm("add_stdo_MAP_FST_infds[simp]",
+  `MAP FST (add_stdo fd nm fs out).infds = MAP FST fs.infds`,
+  rw[add_stdo_def]);
+
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,
   rw[STD_streams_def,stdo_def] \\ rw[]);
@@ -896,6 +908,63 @@ val STD_streams_add_stderr = Q.store_thm("STD_streams_add_stderr",
   \\ SELECT_ELIM_TAC
   \\ rw[] >- metis_tac[]
   \\ fs[STD_streams_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
+
+val validFD_fsupdate = Q.store_thm("validFD_fsupdate[simp]",
+  `validFD fd (fsupdate fs fd' x y z) ⇔ validFD fd fs`,
+  rw[fsupdate_def,validFD_def]);
+
+val validFD_up_stdo = Q.store_thm("validFD_up_stdo[simp]",
+  `validFD fd (up_stdo fd' fs out) ⇔ validFD fd fs`,
+  rw[up_stdo_def]);
+
+val validFD_add_stdo = Q.store_thm("validFD_add_stdo[simp]",
+  `validFD fd (add_stdo fd' nm fs out) ⇔ validFD fd fs`,
+  rw[add_stdo_def]);
+
+(* TODO: move *)
+val A_DELKEY_ALIST_FUPDKEY_comm = Q.store_thm("A_DELKEY_ALIST_FUPDKEY_comm",
+ `!ls f x y. x <> y ==>
+  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`,
+  Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
+  cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
+(* -- *)
+
+val fsupdate_A_DELKEY = Q.store_thm("fsupdate_A_DELKEY",
+  `fd ≠ fd' ⇒
+   fsupdate (fs with infds updated_by A_DELKEY fd') fd k pos content =
+   fsupdate fs fd k pos content with infds updated_by A_DELKEY fd'`,
+  rw[fsupdate_def,ALOOKUP_ADELKEY,A_DELKEY_ALIST_FUPDKEY_comm]);
+
+val up_stdo_A_DELKEY = Q.store_thm("up_stdo_A_DELKEY",
+  `fd ≠ fd' ⇒
+   up_stdo fd (fs with infds updated_by A_DELKEY fd') out =
+   up_stdo fd fs out with infds updated_by A_DELKEY fd'`,
+  rw[up_stdo_def,fsupdate_A_DELKEY]);
+
+val stdo_A_DELKEY = Q.store_thm("stdo_A_DELKEY",
+  `fd ≠ fd' ⇒
+   stdo fd nm (fs with infds updated_by A_DELKEY fd') = stdo fd nm fs`,
+  rw[stdo_def,FUN_EQ_THM,ALOOKUP_ADELKEY]);
+
+val add_stdo_A_DELKEY = Q.store_thm("add_stdo_A_DELKEY",
+  `fd ≠ fd' ⇒
+   add_stdo fd nm (fs with infds updated_by A_DELKEY fd') out =
+   add_stdo fd nm fs out with infds updated_by A_DELKEY fd'`,
+  rw[add_stdo_def,up_stdo_A_DELKEY,stdo_A_DELKEY]);
+
+val fastForwardFD_A_DELKEY_same = Q.store_thm("fastForwardFD_A_DELKEY_same[simp]",
+  `fastForwardFD fs fd with infds updated_by A_DELKEY fd =
+   fs with infds updated_by A_DELKEY fd`,
+  rw[fastForwardFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[IO_fs_component_equality,A_DELKEY_I])
+
+val openFileFS_A_DELKEY_nextFD = Q.store_thm("openFileFS_A_DELKEY_nextFD",
+  `nextFD fs ≤ 255 ⇒
+   openFileFS f fs off with infds updated_by A_DELKEY (nextFD fs) = fs`,
+  rw[IO_fs_component_equality,openFileFS_numchars,A_DELKEY_nextFD_openFileFS]);
 
 val print_string_spec = Q.store_thm("print_string_spec",
   `!fs sv s.
@@ -1957,6 +2026,14 @@ val linesFD_cons_imp = Q.store_thm("linesFD_cons_imp",
   \\ fs[SPLITP_NIL_SND_EVERY]
   \\ rveq \\ fs[DROP_LENGTH_TOO_LONG]);
 
+val linesFD_openFileFS_nextFD = Q.store_thm("linesFD_openFileFS_nextFD",
+  `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
+   linesFD (openFileFS f fs 0) (nextFD fs) = MAP explode (all_lines fs (File f))`,
+  rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
+  \\ rw[all_lines_def]
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+  \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]);
+
 val STD_streams_lineForwardFD = Q.store_thm("STD_streams_lineForwardFD",
   `fd ≠ 1 ∧ fd ≠ 2 ⇒
    (STD_streams (lineForwardFD fs fd) ⇔ STD_streams fs)`,
@@ -2025,6 +2102,29 @@ val STD_OstreamFD_up_stdo = Q.store_thm("STD_OstreamFD_up_stdo[simp]",
 val STD_OstreamFD_add_stdo = Q.store_thm("STD_OstreamFD_add_stdo[simp]",
   `STD_OstreamFD (add_stdo fd' nm fs x) fd ⇔ STD_OstreamFD fs fd`,
   rw[add_stdo_def]);
+
+val STD_OstreamFD_openFileFS_nextFD = Q.store_thm("STD_OstreamFD_openFileFS_nextFD",
+  `inFS_fname fs (File f) ∧ nextFD fs ≤ 255 ⇒
+   ¬STD_OstreamFD (openFileFS f fs off) (nextFD fs)`,
+  rw[STD_OstreamFD_def,ALOOKUP_inFS_fname_openFileFS_nextFD]);
+
+val STD_streams_nextFD = Q.store_thm("STD_streams_nextFD",
+  `STD_streams fs ⇒ 3 ≤ nextFD fs`,
+  rw[STD_streams_def,nextFD_def,MEM_MAP,EXISTS_PROD]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ numLib.LEAST_ELIM_TAC \\ rw[]
+  >- (
+    CCONTR_TAC \\ fs[]
+    \\ `CARD (count (LENGTH fs.infds + 1)) ≤ CARD (set (MAP FST fs.infds))`
+    by (
+      match_mp_tac (MP_CANON CARD_SUBSET)
+      \\ simp[SUBSET_DEF,MEM_MAP,EXISTS_PROD] )
+    \\ `CARD (set (MAP FST fs.infds)) ≤ LENGTH fs.infds` by metis_tac[CARD_LIST_TO_SET,LENGTH_MAP]
+    \\ fs[] )
+  \\ Cases_on`n=0` >- metis_tac[]
+  \\ Cases_on`n=1` >- metis_tac[]
+  \\ Cases_on`n=2` >- metis_tac[]
+  \\ decide_tac);
 (* -- *)
 
 val get_file_content_add_stdout = Q.store_thm("get_file_content_add_stdout",
