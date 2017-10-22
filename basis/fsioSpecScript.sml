@@ -861,7 +861,7 @@ val add_stdout_nil = Q.store_thm("add_stdout_nil",
   \\ asm_exists_tac \\ rw[]);
 
 val add_stdout_o = Q.store_thm("add_stdout_o",
-  `stdout fs out ∧ liveFS fs ⇒
+  `stdout fs out ⇒
    add_stdout (add_stdout fs x1) x2 = add_stdout fs (x1 ++ x2)`,
   rw[add_stdout_def]
   \\ SELECT_ELIM_TAC
@@ -873,8 +873,7 @@ val add_stdout_o = Q.store_thm("add_stdout_o",
   \\ rename1`stdout (up_stdout _ _) l`
   \\ `l = out ++ x1` by metis_tac[stdout_UNICITY_R,stdout_up_stdout]
   \\ rveq
-  \\ fs[up_stdout_def]
-  \\ simp[fsupdate_o]);
+  \\ fs[up_stdout_def]);
 
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,

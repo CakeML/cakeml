@@ -468,6 +468,14 @@ val fsupdate_o = Q.store_thm("fsupdate_o",
   fs[LDROP_ADD,liveFS_def,live_numchars_def] >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]);
 
+val fsupdate_o_0 = Q.store_thm("fsupdate_o_0[simp]",
+  `fsupdate (fsupdate fs fd 0 pos1 c1) fd 0 pos2 c2 =
+   fsupdate fs fd 0 pos2 c2`,
+  rw[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o]
+  \\ TRY (CASE_TAC \\ fs[ALIST_FUPDKEY_o])
+  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ simp[FORALL_PROD]);
+
 val validFD_numchars = Q.store_thm("validFD_numchars",
   `!fd fs ll. validFD fd fs <=> validFD fd (fs with numchars := ll)`,
   rw[validFD_def])
