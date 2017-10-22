@@ -6,9 +6,13 @@ in end
 
 val _ = new_theory"modProps"
 
-(*
-val pat_bindings_def = astTheory.pat_bindings_def
-val pat_bindings_accum = semanticPrimitivesPropsTheory.pat_bindings_accum
+val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
+  `(∀p acc. modSem$pat_bindings p acc = pat_bindings p [] ⧺ acc) ∧
+    ∀ps acc. pats_bindings ps acc = pats_bindings ps [] ⧺ acc`,
+  ho_match_mp_tac modLangTheory.pat_induction >>
+  rw [] >>
+  REWRITE_TAC [modSemTheory.pat_bindings_def] >>
+  metis_tac [APPEND, APPEND_ASSOC]);
 
 val pmatch_extend = Q.store_thm("pmatch_extend",
   `(!cenv s p v env env' env''.
@@ -29,6 +33,7 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
   srw_tac[][] >>
   metis_tac [pat_bindings_accum]);
 
+  (*
 val pmatch_bindings = Q.store_thm ("pmatch_bindings",
   `(∀cenv s p v env r.
       modSem$pmatch cenv s p v env = Match r
@@ -101,6 +106,45 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
   `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
   srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
+
+val c_updated_by = Q.prove (
+  `((env:modSem$environment) with c updated_by f) = (env with c := f env.c)`,
+  rw [environment_component_equality]);
+
+val env_lemma = Q.prove (
+  `((env:modSem$environment) with c := env.c) = env`,
+  rw [environment_component_equality]);
+
+val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
+  `!env s ds1 s1 cenv1 env1 s2 cenv2 env2  r ds2.
+    evaluate_decs env s ds1 = (s1,cenv1,env1,NONE) ∧
+    evaluate_decs (env with c updated_by FUNION cenv1) s1 ds2 =
+      (s2,cenv2,env2,r)
+    ⇒
+    evaluate_decs env s (ds1++ds2) = (s2,FUNION cenv2 cenv1,env1 ++ env2,r)`,
+  induct_on `ds1` >>
+  rw [evaluate_decs_def] >>
+  fs [Once c_updated_by, env_lemma] >>
+  every_case_tac >>
+  fs [] >>
+  rpt var_eq_tac >>
+  first_x_assum drule >>
+  simp [] >>
+  fs [FUNION_ASSOC] >>
+  disch_then drule >>
+  fs [Once c_updated_by]);
+
+val evaluate_decs_append_err = Q.store_thm ("evaluate_decs_append_err",
+  `!env s d s' cenv' env' err_i1 ds.
+    evaluate_decs env s d = (s',cenv',env',SOME err_i1)
+    ⇒
+    evaluate_decs env s (d++ds) = (s',cenv',env',SOME err_i1)`,
+  induct_on `d` >>
+  rw [evaluate_decs_def] >>
+  every_case_tac >>
+  fs [] >>
+  rw [] >>
+  metis_tac [PAIR_EQ]);
 
   (*
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
@@ -380,9 +424,11 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
      (FST (evaluate_prog env s prog)).ffi)`,
   srw_tac[][evaluate_prog_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   metis_tac[evaluate_prompts_add_to_clock_io_events_mono,FST]);
+  *)
 
 val bind_locals_list_def = Define`
-  bind_locals_list ts ks = list$MAP2 (λt x. (modLang$Var_local t x)) ts ks`
+  bind_locals_list ts ks = list$MAP2 (λt x. (modLang$Var_local t x)) ts ks`;
+
 
 val evaluate_vars = Q.store_thm("evaluate_vars",
   `!env s kvs env' ks vs ts.
@@ -403,9 +449,11 @@ val evaluate_vars = Q.store_thm("evaluate_vars",
   first_x_assum(qspecl_then[`env`,`s`]mp_tac) >>
   full_simp_tac(srw_ss())[DISJOINT_SYM]);
 
+  (*
 val with_same_v = Q.store_thm("with_same_v[simp]",
   `env with v := env.v = env`,
   srw_tac[][environment_component_equality]);
+  *)
 
 val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
   `(!cenv refs p v evs env env' ts.
@@ -448,13 +496,13 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     `ALL_DISTINCT (pat_bindings p (MAP FST env.v))`
-            by full_simp_tac(srw_ss())[Once pat_bindings_accum, ALL_DISTINCT_APPEND] >>
+            by metis_tac[pat_bindings_accum, ALL_DISTINCT_APPEND] >>
     `pat_bindings p (MAP FST env.v) = MAP FST a`
                  by (imp_res_tac pmatch_extend >>
                      srw_tac[][] >>
                      metis_tac [pat_bindings_accum]) >>
     fsrw_tac[QUANT_INST_ss[record_default_qp]][] >> rev_full_simp_tac(srw_ss())[] >>
-    `env with v := env' = <| c := env.c; v := env' ; exh_pat := env.exh_pat |>` by (
+    `env with v := env' = <| v := env'; c := env.c;  exh_pat := env.exh_pat |>` by (
       srw_tac[][environment_component_equality]) >> metis_tac[]));
 
 val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
@@ -469,6 +517,7 @@ val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
   imp_res_tac pmatch_evaluate_vars >>
   fs []);
 
+      (*
 val evaluate_append = Q.store_thm("evaluate_append",
   `∀env s s1 s2 e1 e2 v1 v2.
    evaluate env s e1 = (s1, Rval v1) ∧
