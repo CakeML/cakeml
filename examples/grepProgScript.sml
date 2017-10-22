@@ -508,7 +508,7 @@ val print_matching_lines_in_file = process_topdecs`
     in (print_matching_lines m (String.concat[file,":"]) fd;
         IO.close fd)
     end handle IO.BadFileName =>
-        IO.print_err (notfound_string file)`;
+        IO.prerr_string (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
@@ -517,19 +517,18 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
      [mv; fv]
-     (ROFS fs * STDOUT out * STDERR err)
-     (POSTv uv. &UNIT_TYPE () uv * ROFS fs *
-                STDOUT (out ++
-                  if inFS_fname fs f then
-                    CONCAT
-                      (MAP ((++)(explode f ++ ":"))
-                        (FILTER (m o implode)
-                           (MAP (combin$C (++) "\n")
-                             (splitlines (THE (ALOOKUP fs.files f))))))
-                  else "") *
-                STDERR (err ++
-                  if inFS_fname fs f then ""
-                  else explode (notfound_string f)))`,
+     (STDIO fs)
+     (POSTv uv. &UNIT_TYPE () uv *
+                STDIO
+                (add_stderr
+                  (add_stdout fs (
+                    if inFS_fname fs (File f) then
+                      CONCAT
+                        (MAP (explode o strcat f o strcat (strlit":"))
+                          (FILTER m (all_lines fs (File f))))
+                    else ""))
+                  (if inFS_fname fs (File f) then ""
+                   else explode (notfound_string f))))`,
   xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ qmatch_goalsub_abbrev_tac`_ * ROFS fs * STDOUT result * STDERR error`
   \\ reverse(xhandle`POST

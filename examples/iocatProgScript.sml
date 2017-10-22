@@ -131,14 +131,14 @@ val do_onefile_spec = Q.store_thm(
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (st())) [fdv]
        (STDIO fs)
        (POSTv u. &UNIT_TYPE () u *
-              STDIO (up_stdout (out ++ DROP pos content)
-                              (fsupdate fs fd 0 (LENGTH content) content)))`,
+              STDIO (up_stdout (fsupdate fs fd 0 (LENGTH content) content)
+                               (out ++ DROP pos content)))`,
   NTAC 5 strip_tac >>
   `?N. STRLEN content - pos <= N`
     by (qexists_tac`STRLEN content - pos` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
   Induct_on`N` >> strip_tac >> cases_on`STRLEN content = pos` >> fs[] >>
-  xcf "do_onefile" (st()) >> fs[stdout_def,up_stdout_def] >>
+  xcf "do_onefile" (st()) >> fs[stdo_def,up_stdo_def] >>
   (xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
    xlet_auto_spec(SOME(Q.SPECL [`fs`,`fd`,`1`] pipe_255_spec))
    >-(xsimpl >> rw[] >> instantiate >> xsimpl) >> xlet_auto >- xsimpl >> xif)
@@ -188,7 +188,7 @@ val cat_spec0 = Q.prove(
   >- (xmatch >> xcon >>
       imp_res_tac STD_streams_stdout \\
       fs[catfiles_string_def,get_file_content_def] >>
-      imp_res_tac add_stdout_nil \\ xsimpl) >>
+      imp_res_tac add_stdo_nil \\ xsimpl) >>
   fs[FILENAME_def] >>
   xmatch >> progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME(Q.SPECL[`h`,`v2_1`,`fs` ] openIn_STDIO_spec)) >>
@@ -203,12 +203,12 @@ val cat_spec0 = Q.prove(
        fs[] >> CASE_TAC >> metis_tac[nextFD_NOT_MEM]) >>
   xlet_auto_spec (SOME(Q.SPECL[`content`,`0`, `File h`,`nextFD fs`, `wv`,
                                `openFileFS h fs 0`,`out`] do_onefile_spec))
-  >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_files,stdout_def] >>
+  >-(xsimpl >> fs[wfFS_openFileFS,openFileFS_files,stdo_def] >>
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
   >- xsimpl
-  >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdout_def] >>
+  >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
       irule ALOOKUP_validFD >>
      fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,ALOOKUP_inFS_fname_openFileFS_nextFD] >>
      progress ALOOKUP_SOME_inFS_fname >> progress nextFD_ltX >>
@@ -219,7 +219,7 @@ val cat_spec0 = Q.prove(
   map_every qexists_tac [`GC`,`fs'`] >>
   simp[Abbr`fs'`,catfiles_string_def, file_contents_def] >> xsimpl >>
   conj_tac >- (
-    fs[up_stdout_def] >>
+    fs[up_stdo_def] >>
     `!ls fs0. EVERY ((inFS_fname fs0) o File) ls <=>
               EVERY (\s. File s ∈ FDOM (alist_to_fmap fs0.files)) ls`
        by(Induct >> rw[inFS_fname_def]) >> fs[] >>
@@ -227,16 +227,16 @@ val cat_spec0 = Q.prove(
     fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
        A_DELKEY_ALIST_FUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD] ) >>
   qmatch_goalsub_abbrev_tac`add_stdout fs'`
-  \\ `fs' = up_stdout (out ++ content) fs`
+  \\ `fs' = up_stdout fs (out ++ content)`
   by (
-    fs[Abbr`fs'`,up_stdout_def,IO_fs_component_equality,fsupdate_def,
+    fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
        openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,
        ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
        A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.files _` \\
   `fs'.files = ALIST_FUPDKEY (IOStream (strlit "stdout")) (λ_. out++content) fs.files` by (
-    fs[Abbr`fs'`,up_stdout_def,IO_fs_component_equality,fsupdate_def,
+    fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
        openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,
        ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
        A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged]) \\
@@ -249,13 +249,13 @@ val cat_spec0 = Q.prove(
     \\ CASE_TAC ) \\
   qunabbrev_tac`f` \\
   pop_assum SUBST_ALL_TAC \\
-  `up_stdout (out ++ content) fs = add_stdout fs content`  by (
-    rw[add_stdout_def] \\
+  `up_stdout fs (out ++ content) = add_stdout fs content`  by (
+    rw[add_stdo_def] \\
     SELECT_ELIM_TAC \\
-    metis_tac[stdout_UNICITY_R,stdout_def,SOME_11,PAIR] )
+    metis_tac[stdo_UNICITY_R,stdo_def,SOME_11,PAIR] )
   \\ pop_assum SUBST_ALL_TAC
   \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout,STD_streams_def]
-  \\ imp_res_tac add_stdout_o
+  \\ imp_res_tac add_stdo_o
   \\ xsimpl);
 
 val cat_spec = save_thm(

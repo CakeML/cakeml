@@ -1,4 +1,4 @@
-open  preamble ml_progLib fsioProgLib ml_translatorLib cfTacticsLib
+open preamble ml_progLib fsioProgLib ml_translatorLib cfTacticsLib
 
 val _ = new_theory "helloErrProg"
 
@@ -15,12 +15,13 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
   `!err.
       app (p:'ffi ffi_proj) ^(fetch_v "helloErr" st)
         [Conv NONE []]
-        (STDIO fs * &stderr fs err)
-        (POSTv uv. &UNIT_TYPE () uv * 
-                   (STDIO (up_stderr (err ++ "Well oH lord!\n") fs)) * emp)`,
-  xcf "helloErr" st \\ xpull
+        (STDIO fs)
+        (POSTv uv. &UNIT_TYPE () uv *
+                   (STDIO (add_stderr fs "Well oH lord!\n")) * emp)`,
+  xcf "helloErr" st
   \\ xapp \\ xsimpl
-  \\instantiate \\xsimpl);
+  \\ qexists_tac`emp` \\ qexists_tac`fs`
+  \\ xsimpl);
 
 val st = get_ml_prog_state();
 val spec = helloErr_spec |> SPEC_ALL |> UNDISCH_ALL
@@ -32,6 +33,6 @@ val helloErr_prog_def = Define`helloErr_prog = ^helloErr_prog_tm`;
 val helloErr_semantics = save_thm("helloErr_semantics",
   call_thm_helloErr |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE std_ss [APPEND,LENGTH]);
+  |> SIMP_RULE std_ss [APPEND,LENGTH,STD_streams_add_stderr]);
 
 val _ = export_theory ()
