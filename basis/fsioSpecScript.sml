@@ -805,23 +805,22 @@ val stderr_spec = Q.store_thm("stderr_spec",
 (* convenient functions for standard output/error
 * to be used with STDIO as numchars is ignored *)
 
-val stdout_def = Define
-`stdout fs out = (ALOOKUP fs.infds 1 = SOME(IOStream(strlit"stdout"),LENGTH out) /\
-                  ALOOKUP fs.files (IOStream(strlit"stdout")) = SOME out)`
+val stdo_def = Define`
+  stdo fd name fs out =
+    (ALOOKUP fs.infds fd = SOME(IOStream(strlit name),LENGTH out) /\
+     ALOOKUP fs.files (IOStream(strlit name)) = SOME out)`;
 
-val stdout_UNICITY_R = Q.store_thm("stdout_UNICITY_R[xlet_auto_match]",
-`!fs out out'. stdout fs out ==> (stdout fs out' <=> out = out')`,
-rw[stdout_def] >> EQ_TAC >> rw[]);
+val _ = overload_on("stdout",``stdo 1 "stdout"``);
+val _ = overload_on("stderr",``stdo 2 "stderr"``);
 
-val up_stdout_def = Define
-`up_stdout out fs = fsupdate fs 1 0 (LENGTH out) out`
+val stdo_UNICITY_R = Q.store_thm("stdo_UNICITY_R[xlet_auto_match]",
+`!fd name fs out out'. stdo fd name fs out ==> (stdo fd name fs out' <=> out = out')`,
+rw[stdo_def] >> EQ_TAC >> rw[]);
 
-val stderr_def = Define
-`stderr fs err = (ALOOKUP fs.infds 2 = SOME(IOStream(strlit"stderr"),LENGTH err) /\
-                  ALOOKUP fs.files (IOStream(strlit"stderr")) = SOME err)`
-
-val up_stderr_def = Define
-`up_stderr err fs = fsupdate fs 2 0 (LENGTH err) err`
+val up_stdo_def = Define
+`up_stdo fd fs out = fsupdate fs fd 0 (LENGTH out) out`
+val _ = overload_on("up_stdout",``up_stdo 1``);
+val _ = overload_on("up_stderr",``up_stdo 2``);
 
 val stdin_def = Define
 `stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(IOStream(strlit"stdin"),pos) /\
@@ -830,73 +829,83 @@ val stdin_def = Define
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
 
-val stdout_numchars = Q.store_thm("stdout_numchars",
-  `stdout (fs with numchars := l) out ⇔ stdout fs out`,
-  rw[stdout_def]);
+val stdo_numchars = Q.store_thm("stdo_numchars",
+  `stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out`,
+  rw[stdo_def]);
 
-val add_stdout_def = Define`
-  add_stdout fs out = up_stdout ((@init. stdout fs init) ++ out) fs`;
+val add_stdo_def = Define`
+  add_stdo fd nm fs out = up_stdo fd fs ((@init. stdo fd nm fs init) ++ out)`;
+val _ = overload_on("add_stdout",``add_stdo 1 "stdout"``);
+val _ = overload_on("add_stderr",``add_stdo 2 "stderr"``);
 
-val stdout_add_stdout = Q.store_thm("stdout_add_stdout",
-  `stdout fs init ⇒ stdout (add_stdout fs out) (init++out)`,
-  rw[add_stdout_def]
+val stdo_add_stdo = Q.store_thm("stdo_add_stdo",
+  `stdo fd nm fs init ⇒ stdo fd nm (add_stdo fd nm fs out) (init++out)`,
+  rw[add_stdo_def]
   \\ SELECT_ELIM_TAC \\ rw[] >- metis_tac[]
-  \\ imp_res_tac stdout_UNICITY_R \\ rveq
-  \\ fs[up_stdout_def,stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
+  \\ imp_res_tac stdo_UNICITY_R \\ rveq
+  \\ fs[up_stdo_def,stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
 
-val up_stdout_unchanged = Q.store_thm("up_stdout_unchanged",
- `!fs out. stdout fs out ==> up_stdout out fs = fs`,
-fs[up_stdout_def,stdout_def,fsupdate_unchanged,get_file_content_def]);
+val up_stdo_unchanged = Q.store_thm("up_stdo_unchanged",
+ `!fs out. stdo fd nm fs out ==> up_stdo fd fs out = fs`,
+fs[up_stdo_def,stdo_def,fsupdate_unchanged,get_file_content_def]);
 
-val stdout_up_stdout = Q.store_thm("stdout_up_stdout",
- `!fs out out'. stdout fs out ==> stdout (up_stdout out' fs) out'`,
- rw[up_stdout_def,stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
+val stdo_up_stdo = Q.store_thm("stdo_up_stdo",
+ `!fs out out'. stdo fd nm fs out ==> stdo fd nm (up_stdo fd fs out') out'`,
+ rw[up_stdo_def,stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
  \\ rw[]);
 
-val add_stdout_nil = Q.store_thm("add_stdout_nil",
-  `stdout fs out ⇒ add_stdout fs "" = fs`,
-  rw[add_stdout_def]
+val add_stdo_nil = Q.store_thm("add_stdo_nil",
+  `stdo fd nm fs out ⇒ add_stdo fd nm fs "" = fs`,
+  rw[add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ rw[up_stdout_unchanged]
-  \\ asm_exists_tac \\ rw[]);
+  \\ metis_tac[up_stdo_unchanged]);
 
-val add_stdout_o = Q.store_thm("add_stdout_o",
-  `stdout fs out ⇒
-   add_stdout (add_stdout fs x1) x2 = add_stdout fs (x1 ++ x2)`,
-  rw[add_stdout_def]
-  \\ SELECT_ELIM_TAC
-  \\ SELECT_ELIM_TAC
-  \\ rw[]
-  >- metis_tac[]
-  >- metis_tac[stdout_up_stdout]
-  \\ imp_res_tac stdout_UNICITY_R \\ rveq
-  \\ rename1`stdout (up_stdout _ _) l`
-  \\ `l = out ++ x1` by metis_tac[stdout_UNICITY_R,stdout_up_stdout]
-  \\ rveq
-  \\ fs[up_stdout_def]);
+val add_stdo_o = Q.store_thm("add_stdo_o",
+  `stdo fd nm fs out ⇒
+   add_stdo fd nm (add_stdo fd nm fs x1) x2 = add_stdo fd nm fs (x1 ++ x2)`,
+  rw[add_stdo_def]
+  \\ SELECT_ELIM_TAC \\ rw[] >- metis_tac[]
+  \\ SELECT_ELIM_TAC \\ rw[] >- metis_tac[stdo_up_stdo]
+  \\ imp_res_tac stdo_UNICITY_R \\ rveq
+  \\ rename1`stdo _ _ (up_stdo _ _ _) l`
+  \\ `l = out ++ x1` by metis_tac[stdo_UNICITY_R,stdo_up_stdo]
+  \\ rveq \\ fs[up_stdo_def]);
 
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,
-  rw[STD_streams_def,stdout_def] \\ rw[]);
+  rw[STD_streams_def,stdo_def] \\ rw[]);
+
+val STD_streams_stderr = Q.store_thm("STD_streams_stderr",
+  `STD_streams fs ⇒ ∃out. stderr fs out`,
+  rw[STD_streams_def,stdo_def] \\ rw[]);
 
 val STD_streams_add_stdout = Q.store_thm("STD_streams_add_stdout",
   `STD_streams fs ⇒ STD_streams (add_stdout fs out)`,
   rw[]
   \\ imp_res_tac STD_streams_stdout
-  \\ rw[add_stdout_def]
+  \\ rw[add_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ rw[] >- metis_tac[]
-  \\ fs[STD_streams_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
+  \\ fs[STD_streams_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
+
+val STD_streams_add_stderr = Q.store_thm("STD_streams_add_stderr",
+  `STD_streams fs ⇒ STD_streams (add_stderr fs out)`,
+  rw[]
+  \\ imp_res_tac STD_streams_stderr
+  \\ rw[add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ rw[] >- metis_tac[]
+  \\ fs[STD_streams_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]);
 
 val print_string_spec = Q.store_thm("print_string_spec",
-  `!fs out sv s.
+  `!fs sv s.
     STRING_TYPE s sv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.print_string" (basis_st())) [sv]
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs (explode s)))`,
   xcf "IO.print_string" (basis_st()) >>
   xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
-  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdout_def,up_stdout_def,stdout_def] >> xpull >>
+  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   `get_file_content fs 1 = SOME(out,LENGTH out)` by fs[get_file_content_def] >>
   fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >>
@@ -908,25 +917,26 @@ val print_string_spec = Q.store_thm("print_string_spec",
   rfs[] >> instantiate >> xsimpl);
 
 val prerr_string_spec = Q.store_thm("prerr_string_spec",
-  `!fs out sv s.
+  `!fs sv s.
     STRING_TYPE s sv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.prerr_string" (basis_st())) [sv]
-    (STDIO fs * &stderr fs err)
-    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (up_stderr (err ++ explode s) fs))`,
+    (STDIO fs)
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs (explode s)))`,
   xcf "IO.prerr_string" (basis_st()) >>
-  fs[STDIO_def,STD_streams_def,IOFS_def,up_stderr_def,stderr_def] >> xpull >>
   xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
+  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   `get_file_content fs 2 = SOME(err,LENGTH err)` by fs[get_file_content_def] >>
   fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >>
   instantiate >>fs[ALOOKUP_validFD] >>
   xsimpl >> rw[] >>
+  SELECT_ELIM_TAC \\ simp[] >>
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[] >> instantiate >> xsimpl);
 
 val print_newline_spec = Q.store_thm("print_newline_spec",
-  `!fs out uv.
+  `!fs uv.
     UNIT_TYPE u uv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.print_newline" (basis_st())) [uv]
     (STDIO fs)
@@ -934,7 +944,7 @@ val print_newline_spec = Q.store_thm("print_newline_spec",
   xcf "IO.print_newline" (basis_st()) >>
   xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
   xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
-  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdout_def,up_stdout_def,stdout_def] >> xpull >>
+  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   `get_file_content (fs with numchars := ll) 1 =
      SOME(out,LENGTH out)` by fs[get_file_content_def] >>
@@ -947,21 +957,22 @@ val print_newline_spec = Q.store_thm("print_newline_spec",
   rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
 
 val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
-  `!fs err uv.
+  `!fs uv.
     UNIT_TYPE u uv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "IO.prerr_newline" (basis_st())) [uv]
-    (STDIO fs * &stderr fs err )
-    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (up_stderr (err ++ "\n") fs))`,
+    (STDIO fs)
+    (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs "\n"))`,
   xcf "IO.prerr_newline" (basis_st()) >>
-  fs[STDIO_def,STD_streams_def,IOFS_def,up_stderr_def,stderr_def] >> xpull >>
   xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
   xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
+  fs[STDIO_def,STD_streams_def,IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   `get_file_content (fs with numchars := ll) 2 =
      SOME(err,LENGTH err)` by fs[get_file_content_def] >>
   fs[get_file_content_def] >> pairarg_tac >> fs[IOFS_def] >>
   instantiate >>fs[ALOOKUP_validFD] >>
   xsimpl >> rw[] >>
+  SELECT_ELIM_TAC >> fs[] >>
   fs[wfFS_fsupdate,liveFS_fsupdate,get_file_content_fsupdate,insert_atI_end,
      LENGTH_explode,fsupdate_def,ALIST_FUPDKEY_ALOOKUP] >>
   rfs[UNIT_TYPE_def] >> instantiate >> xsimpl);
@@ -1887,7 +1898,7 @@ val print_list_spec = Q.store_thm("print_list_spec",
   Induct \\ rw[LIST_TYPE_def] \\ xcf "IO.print_list" (get_ml_prog_state())
   \\ (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull))
   \\ xmatch
-  >- (xcon \\ fs[STD_streams_stdout,add_stdout_nil] \\ xsimpl)
+  >- (xcon \\ fs[STD_streams_stdout,add_stdo_nil] \\ xsimpl)
   \\ rename1`STRING_TYPE s sv`
   (* TODO: fix xlet_auto to deal with STDIO properly *)
   \\ xlet`POSTv uv.  &UNIT_TYPE () uv *
@@ -1896,7 +1907,7 @@ val print_list_spec = Q.store_thm("print_list_spec",
   \\ map_every qexists_tac [`emp`,`add_stdout fs (explode s)`]
   \\ xsimpl
   \\ imp_res_tac STD_streams_stdout
-  \\ simp[UNDISCH add_stdout_o]
+  \\ imp_res_tac add_stdo_o
   \\ xsimpl);
 
 val linesFD_def = Define`
@@ -2007,19 +2018,19 @@ val STD_OstreamFD_fsupdate = Q.store_thm("STD_OstreamFD_fsupdate[simp]",
   \\ TOP_CASE_TAC \\ fs[]
   \\ Cases_on`x` \\ fs[] \\ rw[]);
 
-val STD_OstreamFD_up_stdout = Q.store_thm("STD_OstreamFD_up_stdout[simp]",
-  `STD_OstreamFD (up_stdout x fs) fd ⇔ STD_OstreamFD fs fd`,
-  rw[up_stdout_def]);
+val STD_OstreamFD_up_stdo = Q.store_thm("STD_OstreamFD_up_stdo[simp]",
+  `STD_OstreamFD (up_stdo fd' fs x) fd ⇔ STD_OstreamFD fs fd`,
+  rw[up_stdo_def]);
 
-val STD_OstreamFD_add_stdout = Q.store_thm("STD_OstreamFD_add_stdout[simp]",
-  `STD_OstreamFD (add_stdout fs x) fd ⇔ STD_OstreamFD fs fd`,
-  rw[add_stdout_def]);
+val STD_OstreamFD_add_stdo = Q.store_thm("STD_OstreamFD_add_stdo[simp]",
+  `STD_OstreamFD (add_stdo fd' nm fs x) fd ⇔ STD_OstreamFD fs fd`,
+  rw[add_stdo_def]);
 (* -- *)
 
 val get_file_content_add_stdout = Q.store_thm("get_file_content_add_stdout",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    get_file_content (add_stdout fs out) fd = get_file_content fs fd`,
-  rw[get_file_content_def,add_stdout_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
+  rw[get_file_content_def,add_stdo_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
   \\ srw_tac[ETA_ss][]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[STD_OstreamFD_def]
   \\ pairarg_tac \\ fs[] \\ CASE_TAC \\ fs[] \\ rw[]
@@ -2030,6 +2041,21 @@ val linesFD_add_stdout = Q.store_thm("linesFD_add_stdout",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    linesFD (add_stdout fs out) fd = linesFD fs fd`,
   rw[linesFD_def,get_file_content_add_stdout]);
+
+val get_file_content_add_stderr = Q.store_thm("get_file_content_add_stderr",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   get_file_content (add_stderr fs err) fd = get_file_content fs fd`,
+  rw[get_file_content_def,add_stdo_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ srw_tac[ETA_ss][]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[STD_OstreamFD_def]
+  \\ pairarg_tac \\ fs[] \\ CASE_TAC \\ fs[] \\ rw[]
+  \\ srw_tac[ETA_ss][] \\ CASE_TAC \\ fs[] \\ srw_tac[ETA_ss][]
+  \\ fs[STD_streams_def] \\ rfs[]);
+
+val linesFD_add_stderr = Q.store_thm("linesFD_add_stderr",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   linesFD (add_stderr fs err) fd = linesFD fs fd`,
+  rw[linesFD_def,get_file_content_add_stderr]);
 
 val lineFD_NONE_lineForwardFD_fastForwardFD = Q.store_thm("lineFD_NONE_lineForwardFD_fastForwardFD",
   `lineFD fs fd = NONE ⇒
@@ -2047,16 +2073,16 @@ val lineFD_NONE_lineForwardFD_fastForwardFD = Q.store_thm("lineFD_NONE_lineForwa
 
 val up_stdout_forwardFD = Q.store_thm("up_stdout_forwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
-   up_stdout out (forwardFD fs fd n) = forwardFD (up_stdout out fs) fd n`,
-  rw[forwardFD_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+   up_stdout (forwardFD fs fd n) out = forwardFD (up_stdout fs out) fd n`,
+  rw[forwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
   \\ rw[]
   \\ match_mp_tac ALIST_FUPDKEY_comm
   \\ strip_tac \\ fs[] \\ rfs[]);
 
 val up_stdout_fastForwardFD = Q.store_thm("up_stdout_fastForwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
-   up_stdout out (fastForwardFD fs fd) = fastForwardFD (up_stdout out fs) fd`,
-  rw[fastForwardFD_def,up_stdout_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+   up_stdout (fastForwardFD fs fd) out = fastForwardFD (up_stdout fs out) fd`,
+  rw[fastForwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
   \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq]
   \\ CASE_TAC \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
@@ -2066,13 +2092,13 @@ val up_stdout_fastForwardFD = Q.store_thm("up_stdout_fastForwardFD",
 val stdout_forwardFD = Q.store_thm("stdout_forwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    (stdout (forwardFD fs fd n) out ⇔ stdout fs out)`,
-  rw[stdout_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  rw[stdo_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
   \\ rw[] \\ rfs[]);
 
 val stdout_fastForwardFD = Q.store_thm("stdout_fastForwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    (stdout (fastForwardFD fs fd) out ⇔ stdout fs out)`,
-  rw[stdout_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  rw[stdo_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
@@ -2082,7 +2108,7 @@ val stdout_fastForwardFD = Q.store_thm("stdout_fastForwardFD",
 val add_stdout_forwardFD = Q.store_thm("add_stdout_forwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    add_stdout (forwardFD fs fd n) out = forwardFD (add_stdout fs out) fd n`,
-  rw[add_stdout_def,stdout_forwardFD,up_stdout_forwardFD]);
+  rw[add_stdo_def,stdout_forwardFD,up_stdout_forwardFD]);
 
 val add_stdout_lineForwardFD = Q.store_thm("add_stdout_lineForwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
@@ -2094,6 +2120,57 @@ val add_stdout_lineForwardFD = Q.store_thm("add_stdout_lineForwardFD",
 val add_stdout_fastForwardFD = Q.store_thm("add_stdout_fastForwardFD",
   `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
    add_stdout (fastForwardFD fs fd) out = fastForwardFD (add_stdout fs out) fd`,
-  rw[add_stdout_def,up_stdout_fastForwardFD,stdout_fastForwardFD]);
+  rw[add_stdo_def,up_stdout_fastForwardFD,stdout_fastForwardFD]);
+
+val up_stderr_forwardFD = Q.store_thm("up_stderr_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   up_stderr (forwardFD fs fd n) out = forwardFD (up_stderr fs out) fd n`,
+  rw[forwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ rw[]
+  \\ match_mp_tac ALIST_FUPDKEY_comm
+  \\ strip_tac \\ fs[] \\ rfs[]);
+
+val up_stderr_fastForwardFD = Q.store_thm("up_stderr_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   up_stderr (fastForwardFD fs fd) out = fastForwardFD (up_stderr fs out) fd`,
+  rw[fastForwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq]
+  \\ CASE_TAC \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[libTheory.the_def]
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[libTheory.the_def,ALIST_FUPDKEY_comm,ALIST_FUPDKEY_ALOOKUP]);
+
+val stderr_forwardFD = Q.store_thm("stderr_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   (stderr (forwardFD fs fd n) out ⇔ stderr fs out)`,
+  rw[stdo_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ rw[] \\ rfs[]);
+
+val stderr_fastForwardFD = Q.store_thm("stderr_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   (stderr (fastForwardFD fs fd) out ⇔ stderr fs out)`,
+  rw[stdo_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP,STD_streams_def,STD_OstreamFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ fs[ALIST_FUPDKEY_ALOOKUP] \\ rw[]
+  \\ fs[] \\ rfs[]);
+
+val add_stderr_forwardFD = Q.store_thm("add_stderr_forwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stderr (forwardFD fs fd n) out = forwardFD (add_stderr fs out) fd n`,
+  rw[add_stdo_def,stderr_forwardFD,up_stderr_forwardFD]);
+
+val add_stderr_lineForwardFD = Q.store_thm("add_stderr_lineForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stderr (lineForwardFD fs fd) out = lineForwardFD (add_stderr fs out) fd`,
+  rw[lineForwardFD_def,get_file_content_add_stderr]
+  \\ CASE_TAC \\ CASE_TAC
+  \\ rw[] \\ pairarg_tac \\ fs[add_stderr_forwardFD]);
+
+val add_stderr_fastForwardFD = Q.store_thm("add_stderr_fastForwardFD",
+  `STD_streams fs ∧ ¬STD_OstreamFD fs fd ⇒
+   add_stderr (fastForwardFD fs fd) out = fastForwardFD (add_stderr fs out) fd`,
+  rw[add_stdo_def,up_stderr_fastForwardFD,stderr_fastForwardFD]);
 
 val _ = export_theory();
