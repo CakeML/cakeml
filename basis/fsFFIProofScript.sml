@@ -383,27 +383,22 @@ val A_DELKEY_fastForwardFD_elim = Q.store_thm("A_DELKEY_fastForwardFD_elim[simp]
 val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
     `! fs fd content pos k. wfFS fs ==> MEM fd (MAP FST fs.infds) ==>
                             wfFS (fsupdate fs fd k pos content)`,
-    rw[wfFS_def,ALIST_FUPDKEY_ALOOKUP,fsupdate_def,
-       NOT_LFINITE_DROP_LFINITE]
-    >-(every_case_tac >> fs[ALOOKUP_NONE] >>
-       cases_on`x` >> fs[] >> res_tac >>
-       fs[ALOOKUP_MEM,A_DELKEY_def,MEM_MAP, MEM_FILTER] >>
-       metis_tac[])
-    >-(fs[liveFS_def,live_numchars_def,always_DROP] >>
-       `∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
-         fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
+  rw[wfFS_def,fsupdate_def]
+  >- (res_tac \\ fs[])
+  >- (
+    CASE_TAC \\ fs[] \\
+    CASE_TAC \\ fs[ALIST_FUPDKEY_ALOOKUP] \\
+    res_tac \\ fs[] \\ rw[] )
+  >-( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
+      fs[liveFS_def,live_numchars_def,always_DROP] >>
+     `∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
+       fs[] >> metis_tac[NOT_LFINITE_DROP_LFINITE]));
 
 val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
  `get_file_content fs fd = SOME(content, pos) ==>
     fsupdate fs fd 0 pos content = fs`,
     fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
-
-val fsupdate_LTL = Q.store_thm("fsupdate_LTL",
-  `fs.numchars = h:::t ==>
-   fsupdate fs fd (SUC k) p c =
-   fsupdate (fs with numchars := t) fd k p c`,
-   rw[] >> fs[fsupdate_def,LDROP]);
 
 val get_file_content_validFD = Q.store_thm("get_file_content_validFD",
   `get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs`,
@@ -438,7 +433,8 @@ val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
 
 val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
  `liveFS fs ⇒ liveFS (fsupdate fs fd n k c)`,
- rw[liveFS_def,live_numchars_def,fsupdate_def,always_DROP] >>
+ rw[liveFS_def,live_numchars_def,fsupdate_def] >>
+ every_case_tac \\ fs[always_DROP] \\
  metis_tac[NOT_LFINITE_DROP,NOT_LFINITE_DROP_LFINITE,THE_DEF]);
 
 val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
@@ -457,22 +453,21 @@ val Lnext_pos_def = Define`
   Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
 
 val fsupdate_o = Q.store_thm("fsupdate_o",
- `liveFS fs ==>
-  fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2 =
-  fsupdate fs fd (k1+k2) pos2 c2`,
+  `liveFS fs ==>
+   fsupdate (fsupdate fs fd k1 pos1 c1) fd k2 pos2 c2 =
+   fsupdate fs fd (k1+k2) pos2 c2`,
   rw[fsupdate_def]
-  >-(fs[ALIST_FUPDKEY_ALOOKUP] >>
-     CASE_TAC >> fs[ALOOKUP_NONE,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq])
-  >-(fs[ALIST_FUPDKEY_o] >> HO_MATCH_MP_TAC ALIST_FUPDKEY_eq >>
-	 rw[] >> cases_on`v` >> fs[]) >>
+  \\ CASE_TAC \\ fs[]
+  \\ CASE_TAC \\ fs[]
+  \\ fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq] \\
   fs[LDROP_ADD,liveFS_def,live_numchars_def] >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]);
 
 val fsupdate_o_0 = Q.store_thm("fsupdate_o_0[simp]",
   `fsupdate (fsupdate fs fd 0 pos1 c1) fd 0 pos2 c2 =
    fsupdate fs fd 0 pos2 c2`,
-  rw[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o]
-  \\ TRY (CASE_TAC \\ fs[ALIST_FUPDKEY_o])
+  rw[fsupdate_def] \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
+  rw[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o]
   \\ match_mp_tac ALIST_FUPDKEY_eq
   \\ simp[FORALL_PROD]);
 
@@ -483,7 +478,7 @@ val validFD_numchars = Q.store_thm("validFD_numchars",
 val fsupdate_numchars = Q.store_thm("fsupdate_numchars",
   `!fs fd k p c ll. fsupdate fs fd k p c with numchars := ll =
                     fsupdate (fs with numchars := ll) fd 0 p c`,
-  rw[fsupdate_def]);
+  rw[fsupdate_def] \\ CASE_TAC \\ CASE_TAC \\ rw[]);
 
 val numchars_self = Q.store_thm("numchars_self",
  `!fs. fs = fs with numchars := fs.numchars`,
