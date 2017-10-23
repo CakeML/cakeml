@@ -55,6 +55,9 @@ val diff_with_lcs_def = Define `
 val diff_alg_def = Define `
   diff_alg l l' = diff_with_lcs (optimised_lcs l l') l 0 l' 0`
 
+val diff_alg_offs_def = Define `
+  diff_alg_offs l l' n = diff_with_lcs (optimised_lcs l l') l n l' n`
+                                
 (* Diff algorithm properties *)
 
 val diff_with_lcs_refl = Q.store_thm("diff_with_lcs_refl",
