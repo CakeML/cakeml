@@ -114,10 +114,13 @@ val _ = process_topdecs`
 
 (* reads 1 char *)
 val _ = process_topdecs`
-fun read_char fd =
+fun read_byte fd =
     if read fd (Word8.fromInt 1) = 0 then raise EndOfFile
     else Word8Array.sub iobuff 3
 ` |> append_prog
+
+val _ = (append_prog o process_topdecs)`
+  fun read_char fd = Char.chr(Word8.toInt(read_byte fd))`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
@@ -149,7 +152,7 @@ val () = (append_prog o process_topdecs)`
       fun inputLine_aux arr i =
         if i < Word8Array.length arr then
           let
-            val c = read_char fd
+            val c = read_byte fd
             val u = Word8Array.update arr i c
           in
             if c = nl then SOME (Word8Array.substring arr 0 (i+1))
@@ -175,7 +178,7 @@ val () = (append_prog o process_topdecs)`
       val nl = Word8.fromInt (Char.ord #"\n")
       fun inputLine_aux arr i =
         if i < Word8Array.length arr then
-          let val c = read_char fd
+          let val c = read_byte fd
           in if c = nl then (arr,i+1) else
             (Word8Array.update arr i c;
              inputLine_aux arr (i+1))
