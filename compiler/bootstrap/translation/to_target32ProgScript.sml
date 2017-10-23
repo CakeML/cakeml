@@ -272,7 +272,6 @@ val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> i
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp |> conv32);
 val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp |> conv32);
 val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> inline_simp |> conv32);
-val r = translate (stack_allocTheory.SetNewTrigger_def |> conv32);
 val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp |> conv32);
 
 val _ = translate (spec32 stubs_def);

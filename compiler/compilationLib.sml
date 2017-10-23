@@ -1,7 +1,7 @@
 structure compilationLib = struct
 
 open preamble backendTheory
-     arm6_compileLib arm6_exportLib
+     arm6_compileLib export_arm6Theory
      arm8_compileLib arm8_exportLib
      mips_compileLib mips_exportLib
      riscv_compileLib export_riscvTheory
@@ -767,6 +767,10 @@ val export_defs = [
   ,exportTheory.preamble_def
   ,exportTheory.space_line_def];
 
+val arm6_export_defs = [
+  export_arm6Theory.arm6_export_def,
+  export_arm6Theory.ffi_asm_def];
+
 val x64_export_defs = [
   export_x64Theory.x64_export_def,
   export_x64Theory.ffi_asm_def];
@@ -933,7 +937,7 @@ val cbv_to_bytes_arm6 =
   cbv_to_bytes
     arm6_targetLib.add_arm6_encode_compset
     arm6_backend_config_def arm6_names_def
-    [] (* TODO *)
+    arm6_export_defs
 
 val cbv_to_bytes_mips =
   cbv_to_bytes
@@ -971,44 +975,6 @@ fun compile backend_config_def cbv_to_bytes heap_size stack_size name prog_def =
     val result_thm =
       cbv_to_bytes stack_to_lab_thm lab_prog_def heap_size stack_size code_name data_name config_name (name^".S")
   in result_thm end
-  (*
-val extract_oracle = find_term listSyntax.is_list o lhs o concl
-fun to_bytes alg conf prog =
-  let
-  val _ = println "Compile to livesets"
-  val init = Count.apply eval``to_livesets ^(conf) ^(prog)``
-  val _ = println "External oracle"
-  val oracles = reg_allocComputeLib.get_oracle alg (fst (pairSyntax.dest_pair (rconc init)))
-  val wc = ``<|reg_alg:=3;col_oracle:= ^(oracles)|>``
-  val _ = println "Repeat compilation with oracle"
-  (*This repeats the "to_livesets" step, but that isn't very costly*)
-  val compile_thm = Count.apply eval``
-    compile (^(conf) with word_to_word_conf := ^(wc)) ^(prog)``
-  (* Alternatively: we can use the theories to manipulate init directly
-  however, running the simplifier on the result takes quite long as well
-  val rw = backendTheory.to_livesets_invariant |> SIMP_RULE std_ss[LET_THM]
-   |> GEN_ALL |> ISPECL [wc,prog,``x64_compiler_config``]
-   |> ONCE_REWRITE_RULE[init] |> SIMP_RULE std_ss []
-  val test2 = Count.apply eval``
-    let (rcm,c,p) = ^(rconc init) in
-    from_livesets (rcm,c with word_to_word_conf:= ^(wc),p)``
-   *)
-  in
-    compile_thm
-  end
-val to_x64_bytes = to_bytes 3 ``x64_backend_config``
-  let
-    val result = to_x64_bytes (prog_def |> rconc)
-    val oracle = extract_oracle result
-    val (bytes,ffis) = extract_compilation_result result
-    val oracle_def = mk_abbrev(name^"_oracle") oracle
-    val bytes_def = mk_abbrev(name^"_bytes") bytes
-    val ffis_def = mk_abbrev(name^"_ffis") ffis
-    val () = write_cake_S heap_size stack_size (extract_ffi_names ffis) bytes (name^".S")
-  in
-     result |> ONCE_REWRITE_RULE[SYM oracle_def, SYM bytes_def, SYM ffis_def, SYM prog_def]
-  end
-  *)
 
 val compile_arm6 = compile arm6_backend_config_def cbv_to_bytes_arm6
 val compile_arm8 = compile arm8_backend_config_def cbv_to_bytes_arm8
