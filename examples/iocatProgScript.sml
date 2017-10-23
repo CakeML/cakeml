@@ -18,8 +18,7 @@ val _ = process_topdecs`
     if nr = 0 then 0 else (IO.write fd2 nr 0; nr) end`
  |> append_prog
 
-(* to ensure preserving standard STREAMS, fd1 cannot be a std output
-*  and fd2 cannot be a non standard FD on standard outputs *)
+(* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
 val pipe_255_spec = Q.store_thm("pipe_255_spec",
  `!fs fd1 fd2 fnm1 fnm2 fd1v fd2v pos1 c1 c2.
   fd1 <> fd2 /\ fnm1 <> fnm2 /\ fd1 <= 255 /\ fd2 <= 255 /\
@@ -27,8 +26,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
   ALOOKUP fs.infds fd1 = SOME(fnm1,pos1) /\
   ALOOKUP fs.infds fd2 = SOME(fnm2,LENGTH c2) /\
   ALOOKUP fs.files fnm1 = SOME c1 /\ ALOOKUP fs.files fnm2 = SOME c2 /\
-  fnm1 ≠ IOStream(strlit "stdout") ∧ fnm1 ≠ IOStream(strlit "stderr") /\
-  (fd2 >= 3 ==> (fnm2 <> IOStream(strlit "stdout") /\ fnm2 <> IOStream(strlit "stderr")))
+  fnm1 ≠ IOStream(strlit "stdout") ∧ fnm1 ≠ IOStream(strlit "stderr")
   ==>
   app (p:'ffi ffi_proj) ^(fetch_v "pipe_255" (st())) [fd1v;fd2v]
        (STDIO fs)
@@ -55,7 +53,6 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
   `get_file_content fs fd2 = SOME(c2,LENGTH c2)`
     by (fs[get_file_content_def] >> pairarg_tac >> fs[]) >>
   xif >-(xlit >> xsimpl >> fs[bumpFD_def] >> qexists_tac`THE (LTL ll)` >>
-        strip_tac >- fs[eof_def] >>
           imp_res_tac ALOOKUP_validFD >> fs[fsupdate_unchanged] >>
         `fs with numchars := THE (LTL ll) =
          (fs with numchars := ll) with numchars := THE (LTL ll)` by fs[] >>
@@ -89,7 +86,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
      >-(fs[fsupdate_def] >> fs[MEM_MAP] >> qexists_tac`(fd2,(fnm',STRLEN c2))` >>
         fs[ALOOKUP_MEM,FST]))
   >-(irule STD_streams_fsupdate
-     >-(irule STD_streams_fsupdate >> rw[] >> NTAC 3 (fs[STD_streams_def]))
+     >-(irule STD_streams_fsupdate >> rw[] >> metis_tac[STD_streams_def,PAIR,FST,SND,SOME_11])
      >> fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP]) >>
   qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2 * GC` >>
   `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
@@ -186,9 +183,9 @@ val cat_spec0 = Q.prove(
   xlet_auto_spec(SOME(Q.SPECL[`h`,`v2_1`,`fs` ] openIn_STDIO_spec)) >>
   xsimpl >> progress nextFD_ltX >>
   `nextFD fs <> 0 /\ nextFD fs <> 1 /\ nextFD fs <> 2`
-    by(fs[STD_streams_def] >> imp_res_tac ALOOKUP_MEM >>
-       metis_tac[nextFD_NOT_MEM]) >>
-  fs[STD_streams_def] >>
+    by(metis_tac[STD_streams_def,ALOOKUP_MEM,nextFD_NOT_MEM]) >>
+  `∃out. ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out) ∧
+         ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out` by metis_tac[STD_streams_def] \\
   `ALOOKUP (openFileFS h fs 0).infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out)`
     by(fs[openFileFS_def] >> CASE_TAC >> fs[] >> CASE_TAC >> fs[openFile_def] >>
        `r.infds = (nextFD fs,File h,0) :: fs.infds` by fs[IO_fs_component_equality] >>
@@ -228,10 +225,8 @@ val cat_spec0 = Q.prove(
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.files _` \\
   `fs'.files = ALIST_FUPDKEY (IOStream (strlit "stdout")) (λ_. out++content) fs.files` by (
-    fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
-       openFileFS_numchars,openFileFS_files,ALIST_FUPDKEY_ALOOKUP,
-       ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
-       A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged]) \\
+    fs[Abbr`fs'`,up_stdo_def,fsupdate_def,ALOOKUP_inFS_fname_openFileFS_nextFD,
+       ALIST_FUPDKEY_ALOOKUP,K_DEF,ALIST_FUPDKEY_unchanged]) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   simp[ALIST_FUPDKEY_ALOOKUP] \\
   qmatch_goalsub_abbrev_tac`MAP f` \\
@@ -246,7 +241,7 @@ val cat_spec0 = Q.prove(
     SELECT_ELIM_TAC \\
     metis_tac[stdo_UNICITY_R,stdo_def,SOME_11,PAIR] )
   \\ pop_assum SUBST_ALL_TAC
-  \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout,STD_streams_def]
+  \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout]
   \\ imp_res_tac add_stdo_o
   \\ xsimpl);
 

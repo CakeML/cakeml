@@ -412,7 +412,7 @@ val _ = append_prog print_matching_lines;
 
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   WORD ((n2w fd):word8) fdv ∧ ¬STD_OstreamFD fs fd ∧
+   WORD ((n2w fd):word8) fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
    fd ≤ 255 ∧ IS_SOME (get_file_content fs fd) ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
@@ -437,7 +437,6 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
     \\ imp_res_tac add_stdo_nil
     \\ xsimpl )
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ imp_res_tac NOT_STD_OstreamFD_1_2
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
   \\ xcf"print_matching_lines"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
@@ -556,7 +555,6 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
   \\ imp_res_tac nextFD_leX
   \\ imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD
-  \\ imp_res_tac STD_OstreamFD_openFileFS_nextFD
   \\ imp_res_tac STD_streams_nextFD
   \\ rpt(first_x_assum(qspec_then`0`strip_assume_tac))
   \\ xlet_auto >- xsimpl
@@ -725,27 +723,28 @@ val EL_ALIST_FUPDKEY_unchanged = Q.store_thm("EL_ALIST_FUPDKEY_unchanged",
   \\ IF_CASES_TAC \\ rveq \\ rw[]);
 
 val FILTER_File_add_stdo = Q.store_thm("FILTER_File_add_stdo",
-  `STD_OstreamFD fs fd ⇒
+  `stdo fd nm fs init ⇒
    FILTER (isFile o FST) (add_stdo fd nm fs out).files = FILTER (isFile o FST) fs.files`,
   rw[add_stdo_def,up_stdo_def,fsupdate_def]
+  \\ CASE_TAC \\ CASE_TAC \\ fs[]
   \\ match_mp_tac FILTER_EL_EQ \\ simp[]
-  \\ strip_tac
-  \\ reverse(Cases_on`FST (EL n fs.files) = FST(THE(ALOOKUP fs.infds fd))`)
+  \\ qmatch_assum_rename_tac`_ = SOME (k,_)`
+  \\ qx_gen_tac`n`
+  \\ simp[GSYM AND_IMP_INTRO] \\ strip_tac
+  \\ reverse(Cases_on`FST (EL n fs.files) = k`)
   >- simp[EL_ALIST_FUPDKEY_unchanged]
   \\ simp[FST_EL_ALIST_FUPDKEY,GSYM AND_IMP_INTRO]
-  \\ fs[STD_OstreamFD_def]);
+  \\ fs[stdo_def]);
 
 val FILTER_File_add_stdout = Q.store_thm("FILTER_File_add_stdout",
   `STD_streams fs ⇒
    FILTER (isFile o FST) (add_stdout fs out).files = FILTER (isFile o FST) fs.files`,
-  strip_tac \\ match_mp_tac FILTER_File_add_stdo
-  \\ fs[STD_streams_def,STD_OstreamFD_def]);
+  metis_tac[STD_streams_stdout,FILTER_File_add_stdo]);
 
 val FILTER_File_add_stderr = Q.store_thm("FILTER_File_add_stderr",
   `STD_streams fs ⇒
    FILTER (isFile o FST) (add_stderr fs out).files = FILTER (isFile o FST) fs.files`,
-  strip_tac \\ match_mp_tac FILTER_File_add_stdo
-  \\ fs[STD_streams_def,STD_OstreamFD_def]);
+  metis_tac[STD_streams_stderr,FILTER_File_add_stdo]);
 
 (* -- *)
 
