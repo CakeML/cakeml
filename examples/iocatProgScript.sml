@@ -99,7 +99,7 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
 
 (* implementation of cat using low-level IO functions *)
 val _ = process_topdecs `
-  fun do_onefile fd = if pipe_255 fd (IO.stdout()) > 0 then do_onefile fd else ();
+  fun do_onefile fd = if pipe_255 fd IO.stdOut > 0 then do_onefile fd else ();
   fun cat fnames =
     case fnames of
       [] => ()
@@ -128,9 +128,9 @@ val do_onefile_spec = Q.store_thm(
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
   Induct_on`N` >> strip_tac >> cases_on`STRLEN content = pos` >> fs[] >>
   xcf "do_onefile" (st()) >> fs[stdo_def,up_stdo_def] >>
-  (xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
-   xlet_auto_spec(SOME(Q.SPECL [`fs`,`fd`,`1`] pipe_255_spec))
-   >-(xsimpl >> rw[] >> instantiate >> xsimpl) >> xlet_auto >- xsimpl >> xif)
+  (xlet_auto_spec(SOME(Q.SPECL [`fs`,`fd`,`1`] pipe_255_spec))
+   >-(xsimpl >> rw[] \\ TRY instantiate \\ xsimpl \\ metis_tac[stdOut_def,stdout_v_thm])
+   >> xlet_auto >- xsimpl >> xif)
   >-(instantiate >> xcon >>
      fs[eof_def] >> pairarg_tac >> fs[] >> rfs[] >>
      `pos >= LENGTH contents` by fs[] >> imp_res_tac DROP_NIL >> xsimpl) >>
@@ -148,7 +148,7 @@ val do_onefile_spec = Q.store_thm(
         qmatch_abbrev_tac`_ _ f1 ll = _ _  f2 ll'` >>
         `ll = ll'`  by (unabbrev_all_tac >> fs[ALIST_FUPDKEY_eq]) >>
         unabbrev_all_tac >> fs[] >> irule ALIST_FUPDKEY_eq >> rw[] >>
-        cases_on`v'` >> rw[]))
+        cases_on`v` >> rw[]))
   >-(`nr = 0` by fs[] >> fs[eof_def] >> pairarg_tac >> fs[] >>
     `pos' = STRLEN content`  by (rfs[] >> fs[]) >> fs[]));
 
