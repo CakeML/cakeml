@@ -504,13 +504,16 @@ val dynamic_lcs_row_def = Define `
 
 val dynamic_lcs_rows_def = Define `
   (dynamic_lcs_rows [] r previous_row =
-   if previous_row = [] then [] else REVERSE(FST(LAST previous_row))) ∧
+   if previous_row = [] then [] else FST(LAST previous_row)) ∧
   (dynamic_lcs_rows (h::l) r previous_row =
    dynamic_lcs_rows l r (dynamic_lcs_row h r ([],0) previous_row ([],0)))
 `;
 
 val dynamic_lcs_def = Define `
-  dynamic_lcs l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))`;
+  dynamic_lcs l r = REVERSE(dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0)))`;
+
+val dynamic_lcs_no_rev_def = Define `
+  dynamic_lcs_no_rev l r = dynamic_lcs_rows l r (REPLICATE (LENGTH r) ([],0))`;
 
 (* Verification of dynamic LCS algorithm *)
 
@@ -779,7 +782,7 @@ val dynamic_lcs_rows_invariant_pres = Q.store_thm("dynamic_lcs_rows_invariant_pr
 val dynamic_lcs_rows_correct = Q.store_thm("dynamic_lcs_rows_correct",`
   !l r previous_row fullh.
   dynamic_lcs_rows_invariant l r previous_row fullh
-  ==> lcs (dynamic_lcs_rows l r previous_row) fullh r`,
+  ==> lcs (REVERSE (dynamic_lcs_rows l r previous_row)) fullh r`,
   Induct
   >> rpt strip_tac
     (* nil *)
@@ -805,6 +808,12 @@ val dynamic_lcs_correct = Q.store_thm("dynamic_lcs_correct",
     by fs[dynamic_lcs_rows_invariant_def,LENGTH_REPLICATE,EL_REPLICATE,lcs_empty]
   >> fs[dynamic_lcs_def, dynamic_lcs_rows_correct]);
 
+val dynamic_lcs_no_rev_correct = Q.store_thm("dynamic_lcs_correct",
+  `lcs (REVERSE(dynamic_lcs_no_rev l r)) l r`,
+  `dynamic_lcs_rows_invariant l r (REPLICATE (LENGTH r) ([],0)) l`
+    by fs[dynamic_lcs_rows_invariant_def,LENGTH_REPLICATE,EL_REPLICATE,lcs_empty]
+  >> fs[dynamic_lcs_no_rev_def, dynamic_lcs_rows_correct]);
+
 (* Further optimisation of the dynamic LCS algorithm: prune common
    prefixes and suffixes as a preprocessing step *)
 
@@ -813,6 +822,13 @@ val longest_common_prefix_def = Define `
   (longest_common_prefix l [] = []) /\
   (longest_common_prefix (f::r) (f'::r') =
     if f = f' then f::longest_common_prefix r r' else [])`
+
+val longest_common_prefix_clauses = Q.store_thm("longest_common_prefix_clauses",`
+  (longest_common_prefix [] l = []) /\
+  (longest_common_prefix l [] = []) /\
+  (longest_common_prefix (f::r) (f'::r') =
+    if f = f' then f::longest_common_prefix r r' else [])`,
+  Cases_on `l` >> fs[longest_common_prefix_def]);
 
 val optimised_lcs_def = Define `
   optimised_lcs l r =
@@ -824,16 +840,9 @@ val optimised_lcs_def = Define `
               let len = LENGTH suffix in
                 let l = DROP len l in
                   let r = DROP len r in
-                    prefix++REVERSE(dynamic_lcs l r)++REVERSE suffix`;
+                    prefix++dynamic_lcs_no_rev l r++REVERSE suffix`;
 
 (* Verification of optimised LCS *)
-
-val longest_common_prefix_clauses = Q.store_thm("longest_common_prefix_clauses",`
-  (longest_common_prefix [] l = []) /\
-  (longest_common_prefix l [] = []) /\
-  (longest_common_prefix (f::r) (f'::r') =
-    if f = f' then f::longest_common_prefix r r' else [])`,
-  Cases_on `l` >> fs[longest_common_prefix_def]);
 
 val longest_common_suffix_def = Define `
   (longest_common_suffix [] l = []) /\
@@ -907,7 +916,7 @@ val optimised_lcs_correct = Q.store_thm("optimised_lcs_correct",
   fs[optimised_lcs_def,longest_prefix_correct]
   >> PURE_ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
   >> fs[longest_prefix_correct,longest_common_prefix_reverse,
-        longest_suffix_correct,lcs_rev,dynamic_lcs_correct]);
+        longest_suffix_correct,lcs_rev',dynamic_lcs_no_rev_correct]);
 
 (* More properties of optimised LCS algorithm *)
 
