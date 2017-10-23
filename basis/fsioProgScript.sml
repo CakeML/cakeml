@@ -61,7 +61,6 @@ val _ =
   end;
   fun print_string s = output (stdout()) s;
   fun prerr_string s = output (stderr()) s;
-
     ` |> append_prog
 
 val _ = process_topdecs`

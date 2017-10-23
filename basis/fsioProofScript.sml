@@ -202,18 +202,14 @@ val IOFS_precond = Q.prove(
 
   (* TODO: useful? *)
 val STDIO_precond = Q.prove(
-`ALOOKUP fs.infds 0 = SOME (IOStream(strlit "stdin"),inp) ==>
-  ALOOKUP fs.infds 1 = SOME (IOStream(strlit "stdout"),STRLEN out) ==>
-  ALOOKUP fs.infds 2 = SOME (IOStream(strlit "stderr"),STRLEN err) ==>
-  ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out ==>
-  ALOOKUP fs.files (IOStream(strlit "stderr")) = SOME err ==>
-  wfFS fs ==>
+` wfFS fs ==>
+  STD_streams fs ==>
   LENGTH v = 258 ==>
   STDIO fs
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
      ∪ {Mem 1 (W8array v)})`,
-  rw[STDIO_def,STD_streams_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
+  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
   cases_on`fs` >> fs[IO_fs_numchars_fupd]
@@ -361,4 +357,3 @@ val SPLIT_exists = Q.store_thm ("SPLIT_exists",
 );
 
 val _ = export_theory();
-
