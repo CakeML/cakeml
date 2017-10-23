@@ -6,15 +6,6 @@ open preamble
 val _ = new_theory"fsioProg";
 val _ = translation_extends "fsioConstantsProg";
 
-(* stdin, stdout, stderr *)
-(* these are functions as append_prog rejects constants *)
-(* TODO: use add_Dlet instead to use constants *)
-val _ = process_topdecs`
-    fun stdin () = Word8.fromInt 0;
-    fun stdout () = Word8.fromInt 1;
-    fun stderr () = Word8.fromInt 2
-    ` |> append_prog
-
 (* writei: higher-lever write function which calls #write until something is written or
 * a filesystem error is raised and outputs the number of bytes written.
 * It assumes that iobuff is initialised
@@ -45,8 +36,8 @@ val _ =
   process_topdecs` fun write_char fd c =
     (Word8Array.update iobuff 3 (Word8.fromInt(Char.ord c)); write fd 1 0; ())
 
-    fun print_char c = write_char (stdout()) c
-    fun prerr_char c = write_char (stderr()) c
+    fun print_char c = write_char stdOut c
+    fun prerr_char c = write_char stdErr c
     ` |> append_prog
 
 (* writes a string into a file *)
@@ -59,8 +50,8 @@ val _ =
       val a = write fd n 0 in
          output fd (String.substring s n (z-n))
   end;
-  fun print_string s = output (stdout()) s;
-  fun prerr_string s = output (stderr()) s;
+  fun print_string s = output stdOut s;
+  fun prerr_string s = output stdErr s;
     ` |> append_prog
 
 val _ = process_topdecs`
@@ -71,8 +62,8 @@ val _ = process_topdecs`
 (* val print_newline : unit -> unit *)
 val _ = process_topdecs`
     fun write_newline fd = write_char fd #"\n"
-    fun print_newline () = write_char (stdout()) #"\n"
-    fun prerr_newline () = write_char (stderr()) #"\n"
+    fun print_newline () = write_char stdOut #"\n"
+    fun prerr_newline () = write_char stdErr #"\n"
     ` |> append_prog
 
 val _ = process_topdecs`

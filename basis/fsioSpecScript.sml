@@ -768,7 +768,7 @@ val write_char_spec = Q.store_thm("write_char_spec",
       IOFS (fsupdate fs fd k (pos+1) (insert_atI [c] pos content)))`,
   xcf "IO.write_char" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
+  ntac 3 (xlet_auto >- xsimpl) >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: t'` >>
   Cases_on `t'` >> fs[] >> qmatch_goalsub_abbrev_tac`h1 :: h2 :: h3 :: rest'` >>
@@ -1148,27 +1148,6 @@ val input_spec = Q.store_thm("input_spec",
   simp[ALIST_FUPDKEY_unchanged])
   \\ xapp \\ instantiate \\ xsimpl);
 
-val stdin_spec = Q.store_thm("stdin_spec",
-  `UNIT_TYPE () uv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "IO.stdin" (basis_st())) [uv]
-   (emp) (POSTv v. &WORD (0w:word8) v)`,
-  xcf "IO.stdin" (basis_st()) >> xmatch >> fs[UNIT_TYPE_def] >>
-  rw[] >-(xapp >> xsimpl) >> EVAL_TAC);
-
-val stdout_spec = Q.store_thm("stdout_spec",
-  `!uv. UNIT_TYPE () uv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "IO.stdout" (basis_st())) [uv]
-   (emp) (POSTv v. &WORD (1w:word8) v)`,
-  xcf "IO.stdout" (basis_st()) >> xmatch >> fs[UNIT_TYPE_def] >>
-  rw[] >-(xapp >> xsimpl) >> EVAL_TAC);
-
-val stderr_spec = Q.store_thm("stderr_spec",
-  `UNIT_TYPE () uv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "IO.stderr" (basis_st())) [uv]
-   (emp) (POSTv v. &WORD (2w:word8) v)`,
-  xcf "IO.stderr" (basis_st()) >> xmatch >> fs[UNIT_TYPE_def] >>
-  rw[] >-(xapp >> xsimpl) >> EVAL_TAC);
-
 (* convenient functions for standard output/error
 * to be used with STDIO as numchars is ignored *)
 
@@ -1351,8 +1330,6 @@ val print_char_spec = Q.store_thm("print_char_spec",
      (STDIO fs)
      (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs [c]))`,
   xcf "IO.print_char" (get_ml_prog_state())
-  \\ xlet_auto >- ( xcon \\ xsimpl )
-  \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec write_char_STDIO_spec
   \\ imp_res_tac STD_streams_stdout
@@ -1362,7 +1339,8 @@ val print_char_spec = Q.store_thm("print_char_spec",
   \\ simp[add_stdo_def,up_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ simp[stdo_def]
-  \\ xsimpl);
+  \\ xsimpl
+  \\ metis_tac[stdout_v_thm,stdOut_def]);
 
 val prerr_char_spec = Q.store_thm("prerr_char_spec",
   `CHAR c cv ⇒
@@ -1370,8 +1348,6 @@ val prerr_char_spec = Q.store_thm("prerr_char_spec",
      (STDIO fs)
      (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs [c]))`,
   xcf "IO.prerr_char" (get_ml_prog_state())
-  \\ xlet_auto >- ( xcon \\ xsimpl )
-  \\ xlet_auto >- xsimpl
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec write_char_STDIO_spec
   \\ imp_res_tac STD_streams_stderr
@@ -1381,7 +1357,8 @@ val prerr_char_spec = Q.store_thm("prerr_char_spec",
   \\ simp[add_stdo_def,up_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ simp[stdo_def]
-  \\ xsimpl);
+  \\ xsimpl
+  \\ metis_tac[stdErr_def,stderr_v_thm]);
 
 val print_string_spec = Q.store_thm("print_string_spec",
   `!fs sv s.
@@ -1390,11 +1367,11 @@ val print_string_spec = Q.store_thm("print_string_spec",
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs (explode s)))`,
   xcf "IO.print_string" (basis_st()) >>
-  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
   fs[STDIO_def] \\ xpull \\
   imp_res_tac STD_streams_add_stdout \\
   pop_assum(qspec_then`explode s`mp_tac) \\ rw[] \\
   fs[IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
+  `WORD (1w:word8) stdout_v` by metis_tac[stdout_v_thm,stdOut_def] >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   imp_res_tac STD_streams_stdout >> fs[stdo_def] >>
   instantiate >>fs[ALOOKUP_validFD,get_file_content_def] >>
@@ -1411,11 +1388,11 @@ val prerr_string_spec = Q.store_thm("prerr_string_spec",
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs (explode s)))`,
   xcf "IO.prerr_string" (basis_st()) >>
-  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
   fs[STDIO_def] \\ xpull \\
   imp_res_tac STD_streams_add_stderr \\
   pop_assum(qspec_then`explode s`mp_tac) \\ rw[] \\
   fs[IOFS_def,add_stdo_def,up_stdo_def,stdo_def] >> xpull >>
+  `WORD (2w:word8) stderr_v` by metis_tac[stderr_v_thm,stdErr_def] >>
   xapp >> fs[get_file_content_validFD,IOFS_def] >> xsimpl >>
   imp_res_tac STD_streams_stderr >> fs[stdo_def] >>
   instantiate >>fs[ALOOKUP_validFD,get_file_content_def] >>
@@ -1433,12 +1410,12 @@ val print_newline_spec = Q.store_thm("print_newline_spec",
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs "\n"))`,
   xcf "IO.print_newline" (basis_st()) >>
   xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
-  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xapp_spec write_char_STDIO_spec >>
   imp_res_tac STD_streams_stdout \\
   first_assum(strip_assume_tac o SIMP_RULE std_ss [stdo_def]) \\
   fs[get_file_content_def,PULL_EXISTS] \\
+  `WORD (1w:word8) stdout_v` by metis_tac[stdout_v_thm,stdOut_def] >>
   instantiate \\ xsimpl \\ rw[UNIT_TYPE_def] \\
   simp[insert_atI_end] \\
   rw[add_stdo_def,up_stdo_def] \\
@@ -1453,12 +1430,12 @@ val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs "\n"))`,
   xcf "IO.prerr_newline" (basis_st()) >>
   xmatch >> xsimpl >> fs[UNIT_TYPE_def] >> reverse(rw[]) >- EVAL_TAC >>
-  xlet_auto >-(xcon >> xsimpl) >> xlet_auto >- xsimpl >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xapp_spec write_char_STDIO_spec >>
   imp_res_tac STD_streams_stderr \\
   first_assum(strip_assume_tac o SIMP_RULE std_ss [stdo_def]) \\
   fs[get_file_content_def,PULL_EXISTS] \\
+  `WORD (2w:word8) stderr_v` by metis_tac[stderr_v_thm,stdErr_def] >>
   instantiate \\ xsimpl \\ rw[UNIT_TYPE_def] \\
   simp[insert_atI_end] \\
   rw[add_stdo_def,up_stdo_def] \\

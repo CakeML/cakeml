@@ -6,6 +6,7 @@ open preamble
 val _ = new_theory"fsioConstantsProg";
 (* filesystem constants and corresponding hprops *)
 val _ = translation_extends "mlcommandLineProg";
+(* TODO: rename to TextIO (and the theories) *)
 val _ = ml_prog_update (open_module "IO");
 (* " *)
 
@@ -50,6 +51,15 @@ val FILENAME_def = Define `
      ¬MEM (CHR 0) (explode s) ∧
      strlen s < 256)
 `;
+
+(* stdin, stdout, stderr *)
+val stdIn_def = Define`stdIn:word8 = n2w 0`;
+val stdOut_def = Define`stdOut:word8 = n2w 1`;
+val stdErr_def = Define`stdErr:word8 = n2w 2`;
+val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
+val r = translate stdIn_def;
+val r = translate stdOut_def;
+val r = translate stdErr_def;
 
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define
