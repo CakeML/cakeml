@@ -1250,6 +1250,22 @@ val add_stdo_MAP_FST_infds = Q.store_thm("add_stdo_MAP_FST_infds[simp]",
   `MAP FST (add_stdo fd nm fs out).infds = MAP FST fs.infds`,
   rw[add_stdo_def]);
 
+val fsupdate_MAP_FST_files = Q.store_thm("fsupdate_MAP_FST_files[simp]",
+  `MAP FST (fsupdate fs fd k pos c).files = MAP FST fs.files`,
+  rw[fsupdate_def] \\ every_case_tac \\ rw[]);
+
+val up_stdo_MAP_FST_files = Q.store_thm("up_stdo_MAP_FST_files[simp]",
+  `MAP FST (up_stdo fd fs out).files = MAP FST fs.files`,
+  rw[up_stdo_def]);
+
+val add_stdo_MAP_FST_files = Q.store_thm("add_stdo_MAP_FST_files[simp]",
+  `MAP FST (add_stdo fd nm fs out).files = MAP FST fs.files`,
+  rw[add_stdo_def]);
+
+val inFS_fname_add_stdo = Q.store_thm("inFS_fname_add_stdo[simp]",
+  `inFS_fname (add_stdo fd nm fs out) = inFS_fname fs`,
+  rw[inFS_fname_def,FUN_EQ_THM]);
+
 val STD_streams_stdout = Q.store_thm("STD_streams_stdout",
   `STD_streams fs ⇒ ∃out. stdout fs out`,
   rw[STD_streams_def,stdo_def] \\ rw[]);
