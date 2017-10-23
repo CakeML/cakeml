@@ -11,6 +11,11 @@ val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
 
 (* well-formed syntax *)
 
+val closLang_exp_size_lemma = prove(
+  ``!funs. MEM (p_1,p_2) funs ==> closLang$exp_size p_2 < exp3_size (MAP SND funs)``,
+  Induct \\ fs [closLangTheory.exp_size_def,FORALL_PROD]
+  \\ rw [] \\ fs []);
+
 val syntax_ok_def = tDefine "syntax_ok" `
   (syntax_ok [] <=> T) ∧
   (syntax_ok (e1::e2::es) <=>
@@ -39,11 +44,13 @@ val syntax_ok_def = tDefine "syntax_ok" `
   (syntax_ok [Fn t opt1 opt2 num_args e] <=>
     num_args = 1 /\ opt1 = NONE /\ opt2 = NONE /\
     syntax_ok [e]) /\
-  (syntax_ok [Letrec t _ _ funs e] <=>
-    F (* TODO: fix this *)) ∧
+  (syntax_ok [Letrec t opt1 opt2 funs e] <=>
+    syntax_ok [e] /\ opt1 = NONE /\ opt2 = NONE /\
+    EVERY (\x. FST x = 1 /\ syntax_ok [SND x]) funs) ∧
   (syntax_ok [Op t op es] <=>
     syntax_ok es)`
-  (WF_REL_TAC `measure exp3_size`);
+  (WF_REL_TAC `measure exp3_size` \\ rw []
+   \\ imp_res_tac closLang_exp_size_lemma \\ fs []);
 
 val syntax_ok_cons = store_thm("syntax_ok_cons",
   ``syntax_ok (x::xs) <=> syntax_ok [x] /\ syntax_ok xs``,
@@ -90,6 +97,12 @@ val mk_Fns_def = Define `
   mk_Fns [] e = e /\
   mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)`
 
+val f_rel_def = Define `
+  f_rel max_app (a1,e1) (a2,e2) <=>
+    ?b1 ts.
+      code_rel max_app [b1] [e2] /\ a2 <= max_app /\ syntax_ok [b1] /\
+      a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1`
+
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
   (!w. v_rel max_app (Word64 w) (Word64 w)) /\
@@ -102,12 +115,29 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      1 + LENGTH ts + LENGTH args1 = arg_count /\
      code_rel max_app [e1] [e2] /\
      LIST_REL (v_rel max_app) env1 env2 /\
-     LIST_REL (v_rel max_app) args1 args2 /\
-     LENGTH args1 < arg_count ==>
+     LIST_REL (v_rel max_app) args1 args2 ==>
      v_rel max_app
        (Closure NONE [] (args1 ++ env1) 1 (mk_Fns ts e1))
-       (Closure NONE args2 env2 arg_count e2))
-  (* TODO: add case for Recclosure *)`
+       (Closure NONE args2 env2 arg_count e2)) /\
+  (!env1 funs1 env2 funs2 n.
+     LIST_REL (f_rel max_app) funs1 funs2 /\
+     LIST_REL (v_rel max_app) env1 env2 /\
+     n < LENGTH funs2 ==>
+     v_rel max_app
+       (Recclosure NONE [] env1 funs1 n)
+       (Recclosure NONE [] env2 funs2 n)) /\
+  (!args1 env1 funs1 args2 env2 funs2 n recc ts e1 e2 arg_count.
+     LIST_REL (f_rel max_app) funs1 funs2 /\
+     LIST_REL (v_rel max_app) env1 env2 /\
+     LIST_REL (v_rel max_app) args1 args2 /\ args2 <> [] /\
+     n < LENGTH funs2 /\ EL n funs2 = (arg_count,e2) /\
+     1 + LENGTH ts + LENGTH args1 = arg_count /\
+     code_rel max_app [e1] [e2] /\
+     LIST_REL (v_rel max_app) recc
+          (GENLIST (Recclosure NONE [] env2 funs2) (LENGTH funs2)) ==>
+     v_rel max_app
+       (Closure NONE [] (args1 ++ recc ++ env1) 1 (mk_Fns ts e1))
+       (Recclosure NONE args2 env2 funs2 n))`
 
 val v_rel_opt_def = Define `
   (v_rel_opt max_app NONE NONE <=> T) /\
@@ -416,6 +446,25 @@ val evaluate_apps_Clos_long = prove(
   \\ fs [dec_clock_def,ADD1]
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]);
 
+val LIST_REL_MAP = prove(
+  ``!xs. LIST_REL P xs (MAP f xs) <=> EVERY (\x. P x (f x)) xs``,
+  Induct \\ fs []);
+
+val LIST_REL_f_rel_IMP = prove(
+  ``!fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)``,
+  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
+  \\ res_tac \\ fs []
+  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
+
+val do_app_lemma = store_thm("do_app_lemma",
+  ``state_rel s (t:'ffi closSem$state) /\ LIST_REL (v_rel max_app) xs ys ==>
+    case do_app opp ys t of
+    | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
+                           exc_rel (v_rel max_app) err1 err2)
+    | Rval (y,t1) => ?x s1. v_rel max_app x y /\ state_rel s1 t1 /\
+                            do_app opp xs s = Rval (x,s1)``,
+  cheat);
+
 val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
   `(!ys env2 (t1:'ffi closSem$state) env1 t2 s1 res2 xs.
      (evaluate (ys,env2,t1) = (res2,t2)) /\
@@ -530,7 +579,23 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ Cases_on `res1` \\ fs [] \\ rveq \\ fs[]
     \\ `s1.max_app = s2.max_app` by (imp_res_tac evaluate_const \\ fs [])
     \\ fs [] \\ first_x_assum match_mp_tac)
-  THEN1 (* Op *) cheat
+  THEN1 (* Op *)
+   (Cases_on `xs` \\ fs [] \\ rveq
+    \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
+    \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
+    \\ TRY pairarg_tac \\ fs [evaluate_def,HD_intro_multi]
+    \\ reverse (fs [evaluate_def,case_eq_thms,pair_case_eq] \\ rveq)
+    \\ first_x_assum drule
+    \\ disch_then drule \\ fs[]
+    \\ disch_then drule \\ fs[] \\ strip_tac \\ fs []
+    \\ Cases_on `res1` \\ fs []
+    \\ `LIST_REL (v_rel s1.max_app) (REVERSE a) (REVERSE vs)` by
+           (match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ drule (GEN_ALL do_app_lemma)
+    \\ disch_then drule
+    \\ rename1 `do_app opp _ _ = _`
+    \\ disch_then (qspec_then `opp` mp_tac) \\ fs []
+    \\ rw [] \\ fs [])
   THEN1 (* Fn *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
@@ -549,7 +614,35 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
     \\ fs [syntax_ok_def] \\ rveq \\ fs [intro_multi_def]
-    \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs [])
+    \\ TRY pairarg_tac \\ fs [] \\ rveq \\ fs []
+    \\ fs [evaluate_def]
+    \\ reverse IF_CASES_TAC
+    THEN1
+     (fs [EXISTS_MEM] \\ rename1 `MEM eee l`
+      \\ fs [EVERY_MEM] \\ res_tac
+      \\ PairCases_on `eee` \\ fs []
+      \\ fs [state_rel_def])
+    \\ fs [AND_IMP_INTRO,PULL_FORALL]
+    \\ first_x_assum match_mp_tac
+    \\ conj_asm1_tac
+    THEN1
+     (fs [EVERY_MAP] \\ fs [EVERY_MEM,FORALL_PROD]
+      \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+      \\ drule collect_args_IMP
+      \\ res_tac \\ fs [] \\ rveq
+      \\ fs [state_rel_def])
+    \\ fs []
+    \\ match_mp_tac EVERY2_APPEND_suff \\ fs [LIST_REL_GENLIST]
+    \\ rw [] \\ simp [Once v_rel_cases]
+    \\ fs [LIST_REL_MAP]
+    \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ rveq
+    \\ drule collect_args_IMP
+    \\ res_tac \\ fs [] \\ rveq \\ rw [f_rel_def]
+    \\ drule collect_args_ok_IMP \\ fs []
+    \\ strip_tac \\ fs [code_rel_def]
+    \\ asm_exists_tac \\ fs []
+    \\ qexists_tac `ts` \\ fs [])
   THEN1 (* App *)
    (Cases_on `xs` \\ fs [] \\ rveq
     \\ Cases_on `h` \\ fs [code_rel_def,intro_multi_def] \\ rveq \\ fs []
@@ -602,7 +695,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ fs [GSYM CONJ_ASSOC]
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
-    \\ impl_tac \\ fs []
+    \\ impl_tac \\ fs [] \\ rw [] \\ fs []
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [intro_multi_length]
     \\ fs [state_rel_def])
   THEN1 (* Tick *)
@@ -635,112 +728,331 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
      (fs [dest_closure_def,case_eq_thms]
       \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
       \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      THEN1
+       (strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
+        \\ CCONTR_TAC \\ fs []
+        \\ every_case_tac \\ fs [])
+      THEN1
+       (strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
+        \\ CCONTR_TAC \\ fs []
+        \\ every_case_tac \\ fs [])
+      \\ Cases_on `EL i fns` \\ fs []
+      \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) =
+                              SOME (if b then x else y)``]
       \\ strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
       \\ CCONTR_TAC \\ fs []
-      \\ every_case_tac \\ fs [])
+      \\ every_case_tac \\ fs []
+      \\ Cases_on `EL i funs1` \\ fs []
+      \\ imp_res_tac EL_MEM
+      \\ imp_res_tac LIST_REL_f_rel_IMP \\ rfs [] \\ fs [])
     \\ `dest_closure s1.max_app NONE f1 [LAST (x::xs)] = NONE` by
      (pop_assum mp_tac
       \\ simp [dest_closure_def,case_eq_thms,UNCURRY] \\ rw []
       \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
       \\ once_rewrite_tac [v_rel_cases] \\ fs []
-      \\ strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def])
+      \\ strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
+      \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) =
+                              SOME (if b then x else y)``])
     \\ drule dest_closure_NONE_IMP_apps \\ fs [])
   THEN1 (* dest_closure returns Patrial_app *)
    (qpat_x_assum `v_rel _ f1 f2` mp_tac
     \\ once_rewrite_tac [v_rel_cases] \\ fs []
     \\ drule dest_closure_SOME_IMP \\ strip_tac \\ fs []
     \\ strip_tac \\ fs [] \\ rveq
-    (* needs case for Recclosure *)
-    \\ qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
-    \\ simp [Once dest_closure_def]
-    \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs []
-    \\ fs [dest_closure_def,check_loc_def,ADD1]
-    \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
-    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
-    \\ `LENGTH xs < LENGTH ts` by fs []
-    \\ Cases_on `t1.clock < LENGTH xs + 1` \\ fs [] \\ rveq \\ fs []
     THEN1
-     (qexists_tac `s1 with clock := 0`
-      \\ reverse conj_tac THEN1 fs [state_rel_def]
-      \\ match_mp_tac (GEN_ALL evaluate_apps_Clos_timeout) \\ fs [])
-    \\ fs [evaluate_apps_Clos_short,ADD1]
-    \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
-    \\ simp [Once v_rel_cases]
-    \\ qexists_tac `x::xs ++ args1`
-    \\ qexists_tac `env1` \\ fs []
-    \\ qexists_tac `e1` \\ fs []
-    \\ qexists_tac `(DROP (LENGTH xs + 1) ts)` \\ fs []
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ imp_res_tac LIST_REL_APPEND_EQ \\ fs [])
+     (qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
+      \\ simp [Once dest_closure_def]
+      \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs []
+      \\ fs [dest_closure_def,check_loc_def,ADD1]
+      \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
+      \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+      \\ `LENGTH xs < LENGTH ts` by fs []
+      \\ Cases_on `t1.clock < LENGTH xs + 1` \\ fs [] \\ rveq \\ fs []
+      THEN1
+       (qexists_tac `s1 with clock := 0`
+        \\ reverse conj_tac THEN1 fs [state_rel_def]
+        \\ match_mp_tac (GEN_ALL evaluate_apps_Clos_timeout) \\ fs [])
+      \\ fs [evaluate_apps_Clos_short,ADD1]
+      \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
+      \\ simp [Once v_rel_cases]
+      \\ qexists_tac `x::xs ++ args1`
+      \\ qexists_tac `env1` \\ fs []
+      \\ qexists_tac `e1` \\ fs []
+      \\ qexists_tac `(DROP (LENGTH xs + 1) ts)` \\ fs []
+      \\ imp_res_tac LIST_REL_LENGTH
+      \\ imp_res_tac LIST_REL_APPEND_EQ \\ fs [])
+    THEN1
+     (qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
+      \\ simp [Once dest_closure_def]
+      \\ pairarg_tac \\ fs []
+      \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs []
+      \\ fs [dest_closure_def,check_loc_def,ADD1]
+      \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
+      \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+      \\ rename1 `EL i fns = (num_args,e)`
+      \\ `f_rel s1.max_app (EL i funs1) (EL i fns)` by fs [LIST_REL_EL_EQN]
+      \\ `?y ys. x::xs = SNOC y ys` by metis_tac [NOT_CONS_NIL,SNOC_CASES]
+      \\ simp [evaluate_apps_SNOC]
+      \\ `LENGTH (x::xs) = LENGTH (SNOC y ys)` by asm_rewrite_tac []
+      \\ fs [evaluate_def,dest_closure_def,check_loc_def]
+      \\ Cases_on `EL i funs1` \\ fs [] \\ rfs [f_rel_def]
+      \\ IF_CASES_TAC \\ fs[] \\ rveq
+      THEN1 (fs [state_rel_def])
+      \\ Cases_on `t1.clock < LENGTH ys + 1` \\ fs [] \\ rveq \\ fs []
+      THEN1
+       (qexists_tac `s1 with clock := 0`
+        \\ reverse conj_tac THEN1 fs [state_rel_def]
+        \\ `(dec_clock 1 s1).clock < LENGTH ys` by fs [dec_clock_def]
+        \\ drule (GEN_ALL evaluate_apps_Clos_timeout)
+        \\ Cases_on `ts` \\ fs [mk_Fns_def,evaluate_def]
+        \\ `LENGTH ys <= LENGTH t` by fs []
+        \\ disch_then drule
+        \\ fs [dec_clock_def])
+      \\ Cases_on `ts` \\ fs [mk_Fns_def,evaluate_def]
+      \\ `1 ≤ (dec_clock 1 s1).max_app` by rfs [state_rel_def,dec_clock_def]
+      \\ fs []
+      \\ `LENGTH ys <= (dec_clock 1 s1).clock` by fs [dec_clock_def]
+      \\ drule (GEN_ALL evaluate_apps_Clos_short) \\ fs []
+      \\ `LENGTH ys <= LENGTH t` by fs []
+      \\ disch_then drule \\ fs [] \\ disch_then kall_tac
+      \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
+      \\ simp [Once v_rel_cases,ADD1]
+      \\ qexists_tac `ys ++ [y]`
+      \\ qexists_tac `env1` \\ fs []
+      \\ qexists_tac `funs1` \\ fs []
+      \\ qexists_tac `DROP (LENGTH ys) t` \\ fs []
+      \\ qexists_tac `b1` \\ fs []
+      \\ qpat_x_assum `x::xs = _` (fn th => simp [GSYM th])
+      \\ fs [LIST_REL_GENLIST] \\ rw []
+      \\ simp [Once v_rel_cases,ADD1])
+    THEN1
+     (qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
+      \\ simp [Once dest_closure_def]
+      \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs []
+      \\ fs [dest_closure_def,check_loc_def,ADD1]
+      \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
+      \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+      \\ `LENGTH xs < LENGTH ts` by fs []
+      \\ Cases_on `t1.clock < LENGTH xs + 1` \\ fs [] \\ rveq \\ fs []
+      THEN1
+       (qexists_tac `s1 with clock := 0`
+        \\ reverse conj_tac THEN1 fs [state_rel_def]
+        \\ match_mp_tac (GEN_ALL evaluate_apps_Clos_timeout) \\ fs [])
+      \\ fs [evaluate_apps_Clos_short,ADD1]
+      \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
+      \\ simp [Once v_rel_cases]
+      \\ qexists_tac `x::xs ++ args1`
+      \\ qexists_tac `env1` \\ fs []
+      \\ qexists_tac `funs1` \\ fs []
+      \\ qexists_tac `(DROP (LENGTH xs + 1) ts)` \\ fs []
+      \\ qexists_tac `e1` \\ fs []
+      \\ fs [LIST_REL_APPEND_EQ]))
   (* dest_closure returns Full_app *)
-  \\ Cases_on `t1.clock < SUC (LENGTH v69) − LENGTH rest_args` \\ fs []
-  THEN1
-   (qpat_x_assum `v_rel _ f1 f2` mp_tac
-    \\ once_rewrite_tac [v_rel_cases] \\ fs []
-    \\ drule dest_closure_SOME_IMP \\ strip_tac \\ fs []
-    \\ strip_tac \\ fs [] \\ rveq
-    \\ qpat_x_assum `_ = SOME _` mp_tac
-    \\ simp [Once dest_closure_def]
-    \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS]
-    \\ qexists_tac `s1 with clock := 0`
-    \\ reverse conj_tac THEN1 fs [state_rel_def]
-    \\ match_mp_tac evaluate_apps_Clos_timeout_alt
-    \\ fs [check_loc_def,state_rel_def]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [ADD1])
   \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
   \\ once_rewrite_tac [v_rel_cases] \\ fs []
   \\ drule dest_closure_SOME_IMP \\ strip_tac \\ fs []
   \\ strip_tac \\ fs [] \\ rveq
   \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ simp [Once dest_closure_def,check_loc_def,ADD1]
-  \\ qmatch_goalsub_abbrev_tac `Full_app e e5 e6`
-  \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS]
-  \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
-  \\ `LENGTH e6 = LENGTH xs - LENGTH ts` by simp [Abbr `e6`] \\ fs []
-  \\ `LENGTH ts < s1.clock` by fs [state_rel_def]
-  \\ `LENGTH ts < LENGTH (x::xs)` by fs []
-  \\ drule evaluate_apps_Clos_long \\ simp []
-  \\ disch_then drule \\ fs []
-  \\ disch_then kall_tac \\ fs [ADD1]
-  \\ qmatch_goalsub_abbrev_tac `([_],e7,_)`
-  \\ Cases_on `evaluate ([e],e5,dec_clock (LENGTH ts + 1) t1)` \\ fs []
-  \\ `LIST_REL (v_rel (dec_clock (LENGTH ts + 1) s1).max_app) e7 e5` by
-   (unabbrev_all_tac
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
+  \\ simp [Once dest_closure_def]
+  THEN1
+   (Cases_on `t1.clock < SUC (LENGTH v69) − LENGTH rest_args` \\ fs []
+    THEN1
+     (IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS]
+      \\ qexists_tac `s1 with clock := 0`
+      \\ reverse conj_tac THEN1 fs [state_rel_def]
+      \\ match_mp_tac evaluate_apps_Clos_timeout_alt
+      \\ fs [check_loc_def,state_rel_def]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs [ADD1])
+    \\ simp [check_loc_def,ADD1]
+    \\ qmatch_goalsub_abbrev_tac `Full_app e e5 e6`
+    \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS]
+    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+    \\ `LENGTH e6 = LENGTH xs - LENGTH ts` by simp [Abbr `e6`] \\ fs []
+    \\ `LENGTH ts < s1.clock` by fs [state_rel_def]
+    \\ `LENGTH ts < LENGTH (x::xs)` by fs []
+    \\ drule evaluate_apps_Clos_long \\ simp []
+    \\ disch_then drule \\ fs []
+    \\ disch_then kall_tac \\ fs [ADD1]
+    \\ qmatch_goalsub_abbrev_tac `([_],e7,_)`
+    \\ Cases_on `evaluate ([e],e5,dec_clock (LENGTH ts + 1) t1)` \\ fs []
+    \\ `LIST_REL (v_rel (dec_clock (LENGTH ts + 1) s1).max_app) e7 e5` by
+     (unabbrev_all_tac
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_REVERSE
+      \\ match_mp_tac EVERY2_TAKE
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `[e1]` mp_tac)
+    \\ fs [EVAL ``(dec_clock n s).max_app``]
+    \\ impl_tac THEN1 fs [state_rel_def,dec_clock_def]
+    \\ strip_tac \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `res1` \\ fs []
+    \\ Cases_on `a` \\ fs [] \\ rveq
+    \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate_apps _ e8`
+    \\ rename1 `v_rel s1.max_app f1 f2`
+    \\ `v_rel s2.max_app f1 f2` by
+        (imp_res_tac evaluate_const \\ fs [dec_clock_def])
+    \\ first_x_assum drule
+    \\ `LIST_REL (v_rel s2.max_app) e8 e6` by
+     (unabbrev_all_tac
+      \\ match_mp_tac EVERY2_REVERSE
+      \\ match_mp_tac EVERY2_DROP
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ imp_res_tac evaluate_const \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ rpt (disch_then drule)
+    \\ impl_tac THEN1
+     (unabbrev_all_tac \\ fs []
+      \\ imp_res_tac evaluate_const \\ fs [dec_clock_def])
+    \\ strip_tac \\ fs []
+    \\ imp_res_tac evaluate_const
+    \\ fs [dec_clock_def])
+  THEN1
+   (Cases_on `EL i fns` \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS,ADD1]
+    \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
+    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+    \\ rename1 `EL i fns = (num_args,e)`
+    \\ `f_rel s1.max_app (EL i funs1) (EL i fns)` by fs [LIST_REL_EL_EQN]
+    \\ `?y ys. x::xs = SNOC y ys` by metis_tac [NOT_CONS_NIL,SNOC_CASES]
+    \\ simp [evaluate_apps_SNOC]
+    \\ `LENGTH (x::xs) = LENGTH (SNOC y ys)` by asm_rewrite_tac [] \\ fs []
+    \\ rename1 `v_rel _ x v`
+    \\ rename1 `LIST_REL (v_rel _) xs vs`
+    \\ `?z zs. v::vs = SNOC z zs` by metis_tac [NOT_CONS_NIL,SNOC_CASES]
+    \\ `LENGTH (v::vs) = LENGTH (SNOC z zs)` by asm_rewrite_tac [] \\ fs []
+    \\ fs [evaluate_def,dest_closure_def,check_loc_def]
+    \\ `v_rel s1.max_app y z /\
+        LIST_REL (v_rel s1.max_app) ys zs` by
+          (Cases_on `ys` \\ Cases_on `zs` \\ fs [])
+    \\ Cases_on `EL i funs1` \\ fs [] \\ rfs [f_rel_def]
+    \\ IF_CASES_TAC \\ fs[] \\ rveq
+    THEN1 (fs [state_rel_def])
+    \\ `1 <= (dec_clock 1 s1).max_app` by fs [dec_clock_def, state_rel_def]
+    \\ Cases_on `t1.clock < LENGTH ts + 1` \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (qexists_tac `s1 with clock := 0`
+      \\ reverse conj_tac THEN1 fs [state_rel_def]
+      \\ Cases_on `ts` \\ fs [mk_Fns_def,evaluate_def]
+      \\ `(dec_clock 1 s1).clock <= LENGTH t` by fs [dec_clock_def]
+      \\ drule (GEN_ALL evaluate_apps_Clos_timeout_alt)
+      \\ fs [dec_clock_def])
+    \\ `REVERSE vs ⧺ [v] = z::REVERSE zs` by
+        metis_tac [REVERSE_SNOC,REVERSE,SNOC_APPEND] \\ fs []
+    \\ Cases_on `ts` \\ fs [mk_Fns_def,evaluate_def]
+    THEN1
+     (Cases_on `evaluate ([e], z::
+               (GENLIST (Recclosure NONE [] clo_env fns)
+                  (LENGTH funs1) ⧺ clo_env),dec_clock 1 t1)`
+      \\ fs [PULL_EXISTS]
+      \\ helperLib.SEP_I_TAC "evaluate"
+      \\ rfs [EVAL ``(dec_clock 1 s1).max_app``]
+      \\ pop_assum mp_tac \\ impl_tac
+      THEN1
+       (reverse conj_tac THEN1 fs [state_rel_def,dec_clock_def]
+        \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+        \\ fs [LIST_REL_GENLIST] \\ rw []
+        \\ simp [Once v_rel_cases])
+      \\ strip_tac \\ fs []
+      \\ Cases_on `res1` \\ fs [] \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
+      \\ rename1 `state_rel s9 t9`
+      \\ `s1.max_app = s9.max_app` by
+               (imp_res_tac evaluate_const \\ fs [dec_clock_def])
+      \\ fs [] \\ first_x_assum match_mp_tac \\ fs [])
+    \\ simp [check_loc_def,ADD1]
+    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+    \\ `LENGTH t < (dec_clock 1 s1).clock` by fs [state_rel_def,dec_clock_def]
+    \\ drule evaluate_apps_Clos_long \\ simp []
+    \\ disch_then kall_tac \\ fs [ADD1]
+    \\ qmatch_goalsub_abbrev_tac `([_],e7,_)`
+    \\ qpat_x_assum `_ = (res2,t2)` mp_tac
+    \\ qmatch_goalsub_abbrev_tac `([_],e8,_)`
+    \\ Cases_on `evaluate ([e],e8,dec_clock (LENGTH t + 2) t1)` \\ fs []
+    \\ `LIST_REL (v_rel (dec_clock (LENGTH t + 2) s1).max_app) e7 e8` by
+     (unabbrev_all_tac \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ reverse conj_tac
+      THEN1 (fs [LIST_REL_GENLIST] \\ simp [Once v_rel_cases])
+      \\ match_mp_tac EVERY2_REVERSE
+      \\ match_mp_tac EVERY2_TAKE
+      \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `[b1]` mp_tac)
+    \\ fs [EVAL ``(dec_clock n s).max_app``]
+    \\ impl_tac THEN1 fs [state_rel_def,dec_clock_def]
+    \\ strip_tac \\ fs [] \\ strip_tac
+    \\ fs [dec_clock_def] \\ rfs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `res1` \\ fs []
+    \\ drule evaluate_SING \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ `s1.max_app = s2.max_app` by (imp_res_tac evaluate_const \\ fs [])
+    \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
     \\ match_mp_tac EVERY2_REVERSE
-    \\ match_mp_tac EVERY2_TAKE
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs [dec_clock_def]
+    \\ match_mp_tac EVERY2_DROP
     \\ match_mp_tac EVERY2_REVERSE \\ fs [])
-  \\ first_x_assum drule
-  \\ disch_then (qspec_then `[e1]` mp_tac)
-  \\ fs [EVAL ``(dec_clock n s).max_app``]
-  \\ impl_tac THEN1 fs [state_rel_def,dec_clock_def]
-  \\ strip_tac \\ fs []
-  \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
-  \\ Cases_on `res1` \\ fs []
-  \\ Cases_on `a` \\ fs [] \\ rveq
-  \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `evaluate_apps _ e8`
-  \\ rename1 `v_rel s1.max_app f1 f2`
-  \\ `v_rel s2.max_app f1 f2` by
-      (imp_res_tac evaluate_const \\ fs [dec_clock_def])
-  \\ first_x_assum drule
-  \\ `LIST_REL (v_rel s2.max_app) e8 e6` by
-   (unabbrev_all_tac
+  THEN1
+   (IF_CASES_TAC \\ fs [] \\ strip_tac \\ rveq \\ fs [NOT_LESS,ADD1]
+    \\ `s1.clock = t1.clock` by fs [state_rel_def] \\ fs []
+    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+    \\ `f_rel s1.max_app (EL i funs1) (EL i fns)` by fs [LIST_REL_EL_EQN]
+    \\ `1 <= s1.max_app` by fs [dec_clock_def, state_rel_def]
+    \\ Cases_on `t1.clock < LENGTH ts + 1` \\ fs [] \\ rveq \\ fs []
+    THEN1
+     (qexists_tac `s1 with clock := 0`
+      \\ reverse conj_tac THEN1 fs [state_rel_def]
+      \\ `s1.clock <= LENGTH ts` by fs [dec_clock_def]
+      \\ drule (GEN_ALL evaluate_apps_Clos_timeout_alt)
+      \\ `LENGTH ts < LENGTH (x::xs)` by fs [dec_clock_def]
+      \\ disch_then drule \\ fs [])
+    \\ rename1 `v_rel _ x v`
+    \\ rename1 `LIST_REL (v_rel _) xs vs`
+    \\ qabbrev_tac `xxs = x::xs`
+    \\ qabbrev_tac `vvs = v::vs`
+    \\ `REVERSE vs ⧺ [v] = REVERSE vvs` by fs [Abbr`vvs`] \\ fs []
+    \\ simp [check_loc_def,ADD1]
+    \\ imp_res_tac (GSYM LIST_REL_LENGTH) \\ fs []
+    \\ `LENGTH ts < s1.clock` by fs [state_rel_def,dec_clock_def]
+    \\ `LENGTH ts < LENGTH xxs` by fs [Abbr `xxs`]
+    \\ drule evaluate_apps_Clos_long \\ simp []
+    \\ disch_then kall_tac \\ fs [ADD1]
+    \\ qmatch_goalsub_abbrev_tac `([_],e7,_)`
+    \\ qpat_x_assum `_ = (res2,t2)` mp_tac
+    \\ qmatch_goalsub_abbrev_tac `([_],e8,_)`
+    \\ Cases_on `evaluate ([e2],e8,dec_clock (LENGTH ts + 1) t1)` \\ fs []
+    \\ `LIST_REL (v_rel (dec_clock (LENGTH ts + 1) s1).max_app) e7 e8` by
+     (unabbrev_all_tac \\ fs [dec_clock_def]
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ match_mp_tac EVERY2_REVERSE
+      \\ match_mp_tac EVERY2_TAKE
+      \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
+      \\ match_mp_tac EVERY2_REVERSE \\ fs [])
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `[e1]` mp_tac)
+    \\ fs [EVAL ``(dec_clock n s).max_app``]
+    \\ impl_tac THEN1 fs [state_rel_def,dec_clock_def]
+    \\ strip_tac \\ fs [] \\ strip_tac
+    \\ fs [dec_clock_def] \\ rfs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `res1` \\ fs []
+    \\ drule evaluate_SING \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ `s1.max_app = s2.max_app` by (imp_res_tac evaluate_const \\ fs [])
+    \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
+    \\ fs [Abbr `xxs`,Abbr`vvs`]
     \\ match_mp_tac EVERY2_REVERSE
     \\ match_mp_tac EVERY2_DROP
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
-    \\ imp_res_tac evaluate_const \\ fs [dec_clock_def]
-    \\ match_mp_tac EVERY2_REVERSE \\ fs [])
-  \\ rpt (disch_then drule)
-  \\ impl_tac THEN1
-   (unabbrev_all_tac \\ fs []
-    \\ imp_res_tac evaluate_const \\ fs [dec_clock_def])
-  \\ strip_tac \\ fs []
-  \\ imp_res_tac evaluate_const
-  \\ fs [dec_clock_def]);
+    \\ match_mp_tac EVERY2_REVERSE \\ fs []));
 
 val intro_multi_correct = store_thm("intro_multi_correct",
   ``!xs env1 s1 res1 s2 env2 t2 t1.
@@ -759,9 +1071,7 @@ val intro_multi_correct = store_thm("intro_multi_correct",
 
 
 
-(* semantics theorem *)
-
-
+(*
 
 (* TODO: move (also move the same in clos_removeProof if necessary) *)
 val option_CASE_NONE_T = Q.store_thm(
@@ -1649,5 +1959,7 @@ val compile_preserves_esgc_free = Q.store_thm(
   "compile_preserves_esgc_free",
   `∀do_mti es. EVERY esgc_free es ⇒ EVERY esgc_free (clos_mti$compile do_mti max_app es)`,
   Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
+
+*)
 
 val _ = export_theory();
