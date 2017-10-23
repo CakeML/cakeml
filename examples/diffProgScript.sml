@@ -85,6 +85,19 @@ val usage_string_def = Define`
 val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
+  fun diff'' fd1 fd2 n =
+    case FileIO.inputLine fd1 of
+        NONE => List.app print (diff_alg [] (FileIO.inputLines fd2))
+      | SOME line1 =>
+        case FileIO.inputLine fd2 of
+        NONE => List.app print (diff_alg (line1::FileIO.inputLines fd1) [])
+      | SOME line2 =>
+        if line1 = line2 then
+          diff'' fd1 fd2 (n+1)
+        else
+          List.app print (diff_alg (line1::FileIO.inputLines fd1) (line2::FileIO.inputLines fd2))`
+
+val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
     case FileIO.inputLinesFrom fname1 of
         NONE => print_err (notfound_string fname1)
