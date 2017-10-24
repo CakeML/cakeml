@@ -1,12 +1,12 @@
 open preamble
      ml_translatorLib ml_progLib
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     stdinFFITheory stdoutFFITheory stderrFFITheory mlcommandLineProgTheory
+     stdinFFITheory stdoutFFITheory stderrFFITheory mlcommandlineProgTheory
      cfLetAutoLib cfLetAutoTheory commandLineFFITheory
 
 val _ = new_theory "mlcharioProg";
 
-val _ = translation_extends "mlcommandLineProg";
+val _ = translation_extends "mlcommandlineProg";
 
 (* CharIO -- CF verified *)
 
@@ -56,7 +56,7 @@ val e =
   ``App (FFI "writeStr") [Var (Short "s"); Var (Short "write_state")]``
   |> EVAL |> concl |> rand
 val _ = ml_prog_update (add_Dlet_Fun ``"writeStr"`` ``"s"`` e "writeStr_v")
-                       
+
 val e =
   ``Let (SOME "i") (Apps [Var (Long "Char" (Short "ord")); Var (Short "c")])
     (Let (SOME "b") (Apps [Var (Long "Word8" (Short "fromInt")); Var (Short "i")])

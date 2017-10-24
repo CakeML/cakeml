@@ -1,14 +1,12 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcommandLineProgTheory fsFFITheory fsFFIProofTheory
+     mlstringTheory mlcommandlineProgTheory fsFFITheory fsFFIProofTheory
 
-val _ = new_theory"fsioConstantsProg";
+val _ = new_theory"textio_initProg";
 (* filesystem constants and corresponding hprops *)
-val _ = translation_extends "mlcommandLineProg";
-(* TODO: rename to TextIO (and the theories) *)
-val _ = ml_prog_update (open_module "IO");
-(* " *)
+val _ = translation_extends "mlcommandlineProg";
+val _ = ml_prog_update (open_module "TextIO");
 
 val _ = process_topdecs `
   exception BadFileName;
@@ -35,15 +33,15 @@ val IOFS_def = Define `
 
 val BadFileName_exn_def = Define `
   BadFileName_exn v =
-    (v = Conv (SOME ("BadFileName", TypeExn (Long "IO" (Short "BadFileName")))) [])`
+    (v = Conv (SOME ("BadFileName", TypeExn (Long "TextIO" (Short "BadFileName")))) [])`
 
 val InvalidFD_exn_def = Define `
   InvalidFD_exn v =
-    (v = Conv (SOME ("InvalidFD", TypeExn (Long "IO" (Short "InvalidFD")))) [])`
+    (v = Conv (SOME ("InvalidFD", TypeExn (Long "TextIO" (Short "InvalidFD")))) [])`
 
 val EndOfFile_exn_def = Define `
   EndOfFile_exn v =
-    (v = Conv (SOME ("EndOfFile", TypeExn (Long "IO" (Short "EndOfFile")))) [])`
+    (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
 
 val FILENAME_def = Define `
   FILENAME s sv =

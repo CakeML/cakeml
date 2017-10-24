@@ -1,10 +1,10 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      basisFunctionsLib fsFFIProofTheory cfHeapsBaseTheory
-     mlcommandLineProgTheory fsFFITheory set_sepTheory
-     cfMainTheory fsioConstantsProgTheory cfLetAutoTheory cfLetAutoLib
+     mlcommandlineProgTheory fsFFITheory set_sepTheory
+     cfMainTheory textio_initProgTheory cfLetAutoTheory cfLetAutoLib
      cfHeapsBaseLib
 
-val _ = new_theory"fsioProof";
+val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)

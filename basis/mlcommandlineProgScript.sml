@@ -3,7 +3,7 @@ open preamble
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
      mlarrayProgTheory commandLineFFITheory
 
-val _ = new_theory "mlcommandLineProg";
+val _ = new_theory "mlcommandlineProg";
 
 val _ = translation_extends "mlarrayProg";
 

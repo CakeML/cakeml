@@ -1,8 +1,8 @@
-open preamble ml_translatorLib ml_progLib ioProgTheory
+open preamble ml_translatorLib ml_progLib mltextioProgTheory mltextioSpecTheory
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"mltextioProg";
 
 val basis_st = get_ml_prog_state ();
 

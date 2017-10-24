@@ -1,10 +1,10 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcommandLineProgTheory fsFFITheory fsioConstantsProgTheory
+     mlstringTheory mlcommandlineProgTheory fsFFITheory textio_initProgTheory
 
-val _ = new_theory"fsioProg";
-val _ = translation_extends "fsioConstantsProg";
+val _ = new_theory"mltextioProg";
+val _ = translation_extends "textio_initProg";
 
 (* writei: higher-lever write function which calls #write until something is written or
 * a filesystem error is raised and outputs the number of bytes written.
