@@ -22,7 +22,9 @@ fun def_of_const tm = let
 
 val _ = find_def_for_const := def_of_const;
 
-val _ = translate (optimised_lcs_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
+val _ = translate dynamic_lcs_def
+
+(*val _ = translate (optimised_lcs_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);*)
 
 val dynamic_lcs_row_side_def = Q.prove(
 `∀h l previous_col previous_row diagonal.
@@ -47,11 +49,17 @@ val dynamic_lcs_side_def = Q.prove(
   rw[fetch "-" "dynamic_lcs_side_def",dynamic_lcs_rows_side_def,LENGTH_REPLICATE])
   |> update_precondition;
 
-val optimised_lcs_side_def = Q.prove(
-  `∀l r. optimised_lcs_side l r ⇔ T`,
-  rw[fetch "-" "optimised_lcs_side_def",dynamic_lcs_side_def]) |> update_precondition;
+val _ = translate(diff_alg2_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
 
-val _ = translate diff_alg_def;
+val longest_common_suffix_length_side = Q.prove(
+  `!l l' n. longest_common_suffix_length_side l l' n = (LENGTH l = LENGTH l')`,
+  ho_match_mp_tac (fetch "lcs" "longest_common_suffix_length_ind")
+  >> rpt strip_tac
+  >> rw[Once(fetch "-" "longest_common_suffix_length_side_def")]
+  >> rw[EQ_IMP_THM]
+  >> Cases_on `f = f'` >> fs[]
+  >> fs[EQ_IMP_THM]
+  >> fs[ADD1]) |> update_precondition
 
 val diff_with_lcs_side_IMP = Q.prove(
   `!l l' n l'' n'.
@@ -69,10 +77,12 @@ val diff_with_lcs_side_IMP = Q.prove(
   >> rfs[]
   >> metis_tac[list_distinct]);
 
-val diff_alg_side_def = Q.prove(`
-  !l r. diff_alg_side l r  ⇔ T`,
-  rw[fetch "-" "diff_alg_side_def"]
-  >> metis_tac[diff_with_lcs_side_IMP,optimised_lcs_correct]) |> update_precondition;
+val diff_alg2_side_def = Q.prove(`
+  !l r. diff_alg2_side l r  ⇔ T`,
+  rw[fetch "-" "diff_alg2_side_def"]
+  >> rw[longest_common_suffix_length_side]
+  >> fs[mllistTheory.drop_def]
+  >> metis_tac[diff_with_lcs_side_IMP,dynamic_lcs_correct]) |> update_precondition;
 
 val notfound_string_def = Define`
   notfound_string f = concat[strlit"cake_diff: ";f;strlit": No such file or directory\n"]`;
@@ -85,26 +95,13 @@ val usage_string_def = Define`
 val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
-  fun diff'' fd1 fd2 n =
-    case FileIO.inputLine fd1 of
-        NONE => List.app print (diff_alg [] (FileIO.inputLines fd2))
-      | SOME line1 =>
-        case FileIO.inputLine fd2 of
-        NONE => List.app print (diff_alg (line1::FileIO.inputLines fd1) [])
-      | SOME line2 =>
-        if line1 = line2 then
-          diff'' fd1 fd2 (n+1)
-        else
-          List.app print (diff_alg (line1::FileIO.inputLines fd1) (line2::FileIO.inputLines fd2))`
-
-val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
     case FileIO.inputLinesFrom fname1 of
         NONE => print_err (notfound_string fname1)
       | SOME lines1 =>
         case FileIO.inputLinesFrom fname2 of
             NONE => print_err (notfound_string fname2)
-          | SOME lines2 => List.app print (diff_alg lines1 lines2)`
+          | SOME lines2 => List.app print (diff_alg2 lines1 lines2)`
 
 val take_add_one_lemma = Q.prove(
   `!n l. n < LENGTH l ==> TAKE (n+1) l = TAKE n l ++ [EL n l]`,
@@ -122,7 +119,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
                 STDOUT (out ++
                   if inFS_fname fs f1 /\ inFS_fname fs f2 then
                     CONCAT (MAP explode
-                                (diff_alg (all_lines fs f1)
+                                (diff_alg2 (all_lines fs f1)
                                           (all_lines fs f2)))
                   else "") *
                 STDERR (err ++
@@ -166,12 +163,12 @@ val diff'_spec = Q.store_thm("diff'_spec",
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  \\ xlet `POSTv sv. &LIST_TYPE STRING_TYPE (diff_alg
+  \\ xlet `POSTv sv. &LIST_TYPE STRING_TYPE (diff_alg2
                                       (all_lines fs f1)
                                       (all_lines fs f2)) sv
                 * ROFS fs * STDOUT out * STDERR err`
   >- (xapp \\ instantiate \\ xsimpl)
-  \\ qpat_abbrev_tac `a1 = diff_alg _ _`
+  \\ qpat_abbrev_tac `a1 = diff_alg2 _ _`
   \\ xapp_spec (INST_TYPE [alpha |-> ``:mlstring``] mllistProgTheory.app_spec)
   \\ qexists_tac `emp` \\ qexists_tac `a1`
   \\ qexists_tac `\n. ROFS fs * STDOUT(out ++ CONCAT(TAKE n (MAP explode a1))) * STDERR err`
@@ -197,7 +194,7 @@ val diff_spec = Q.store_thm("diff_spec",
                 STDOUT (out ++
                   if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then
                     CONCAT
-                      (MAP explode (diff_alg
+                      (MAP explode (diff_alg2
                                       (all_lines fs (implode (EL 1 cl)))
                                       (all_lines fs (implode (EL 2 cl)))))
                   else "") *
