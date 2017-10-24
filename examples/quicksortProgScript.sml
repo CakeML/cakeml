@@ -3,7 +3,7 @@ open semanticPrimitivesTheory;
 open ml_translatorTheory ml_translatorLib ml_progLib;
 open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib cfLetAutoLib;
 open basisFunctionsLib;
-open mlarrayProgTheory;
+open fsioProgTheory mlarrayProgTheory;
 
 val _ = new_theory "quicksortProg";
 
