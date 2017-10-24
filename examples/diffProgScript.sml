@@ -1,11 +1,11 @@
 open preamble ml_translatorLib ml_progLib
-     cfTacticsLib basisFunctionsLib
-     rofsFFITheory mlfileioProgTheory ioProgTheory
+     cfTacticsLib cfLetAutoLib basisFunctionsLib
+     fsFFITheory fsioSpecTheory
      charsetTheory lcsTheory diffTheory
 
 val _ = new_theory "diffProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"fsioProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -86,16 +86,12 @@ val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
-    case FileIO.inputLinesFrom fname1 of
-        NONE => print_err (notfound_string fname1)
+    case IO.inputLinesFrom fname1 of
+        NONE => IO.prerr_string (notfound_string fname1)
       | SOME lines1 =>
-        case FileIO.inputLinesFrom fname2 of
-            NONE => print_err (notfound_string fname2)
-          | SOME lines2 => List.app print (diff_alg lines1 lines2)`
-
-val take_add_one_lemma = Q.prove(
-  `!n l. n < LENGTH l ==> TAKE (n+1) l = TAKE n l ++ [EL n l]`,
-  Induct >> Cases >> fs[TAKE] >> fs[ADD1]);
+        case IO.inputLinesFrom fname2 of
+            NONE => IO.prerr_string (notfound_string fname2)
+          | SOME lines2 => List.app IO.print_string (diff_alg lines1 lines2)`
 
 val diff'_spec = Q.store_thm("diff'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -103,140 +99,127 @@ val diff'_spec = Q.store_thm("diff'_spec",
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff'"(get_ml_prog_state()))
      [fv1; fv2]
-     (ROFS fs * STDOUT out * STDERR err)
-     (POSTv uv. &UNIT_TYPE () uv
-                * ROFS fs *
-                STDOUT (out ++
-                  if inFS_fname fs f1 /\ inFS_fname fs f2 then
-                    CONCAT (MAP explode
-                                (diff_alg (all_lines fs f1)
-                                          (all_lines fs f2)))
-                  else "") *
-                STDERR (err ++
-                  if inFS_fname fs f1 /\ inFS_fname fs f2 then ""
-                  else if inFS_fname fs f1 then explode (notfound_string f2)
-                  else explode (notfound_string f1)))`,
+     (STDIO fs)
+     (POSTv uv.
+       &UNIT_TYPE () uv *
+       STDIO (
+         if inFS_fname fs (File f1) /\ inFS_fname fs (File f2) then
+           add_stdout fs (
+              CONCAT (MAP explode
+                          (diff_alg (all_lines fs (File f1))
+                                    (all_lines fs (File f2)))))
+         else if inFS_fname fs (File f1)
+           then add_stderr fs (explode (notfound_string f2))
+         else add_stderr fs (explode (notfound_string f1))))`,
   xcf"diff'"(get_ml_prog_state())
-  \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs f1 then
-               SOME(all_lines fs f1)
-             else NONE) sv * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[fsioConstantsProgTheory.STDIO_def] \\ xpull)
+  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  >- xsimpl
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
   >- (fs[ml_translatorTheory.OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
-      \\ xlet`POSTv v. &STRING_TYPE (notfound_string f1) v
-                       * ROFS fs * STDOUT out * STDERR err`
-      >- (xapp \\ xsimpl \\ qexists_tac `f1` \\ fs[FILENAME_def])
-      \\ xapp \\ instantiate \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-      \\ xsimpl)
+      \\ xlet_auto >- xsimpl
+      \\ xapp \\ xsimpl)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs f2 then
-               SOME(all_lines fs f2)
-             else NONE) sv * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
+  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  >- xsimpl
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
   >- (fs[ml_translatorTheory.OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
-      \\ xlet`POSTv v. &STRING_TYPE (notfound_string f2) v
-                       * ROFS fs * STDOUT out * STDERR err`
-      >- (xapp \\ xsimpl \\ qexists_tac `f2` \\ fs[FILENAME_def])
-      \\ xapp \\ instantiate \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-      \\ xsimpl)
+      \\ xlet_auto >- xsimpl
+      \\ xapp \\ xsimpl)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  \\ xlet `POSTv sv. &LIST_TYPE STRING_TYPE (diff_alg
-                                      (all_lines fs f1)
-                                      (all_lines fs f2)) sv
-                * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
+  \\ xlet_auto >- xsimpl
   \\ qpat_abbrev_tac `a1 = diff_alg _ _`
   \\ xapp_spec (INST_TYPE [alpha |-> ``:mlstring``] mllistProgTheory.app_spec)
   \\ qexists_tac `emp` \\ qexists_tac `a1`
-  \\ qexists_tac `\n. ROFS fs * STDOUT(out ++ CONCAT(TAKE n (MAP explode a1))) * STDERR err`
-  \\ xsimpl \\ fs[GSYM MAP_TAKE] \\ xsimpl \\ instantiate \\ rpt strip_tac
+  \\ qexists_tac `\n. STDIO (add_stdout fs (CONCAT(TAKE n (MAP explode a1))))`
+  \\ xsimpl \\ fs[GSYM MAP_TAKE] \\ xsimpl \\ instantiate
+  \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_nil]
+  \\ conj_asm1_tac >- metis_tac[STD_streams_stdout] \\ xsimpl
+  \\ rpt strip_tac
   \\ xapp \\ instantiate \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `STRCAT out (CONCAT (MAP explode (TAKE n a1)))` \\ xsimpl
-  \\ imp_res_tac take_add_one_lemma \\ fs[] \\ xsimpl);
+  \\ qmatch_goalsub_abbrev_tac`STDIO fs'` \\ qexists_tac`fs'` \\ xsimpl
+  \\ simp[Abbr`fs'`,TAKE_EL_SNOC,SNOC_APPEND]
+  \\ simp[add_stdo_o]
+  \\ xsimpl);
 
 val _ = (append_prog o process_topdecs) `
   fun diff u =
     case Commandline.arguments () of
         (f1::f2::[]) => diff' f1 f2
-      | _ => print_err usage_string`
+      | _ => IO.prerr_string usage_string`;
 
 val diff_spec = Q.store_thm("diff_spec",
-`CARD (set (MAP FST fs.infds)) < 255
+  `hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff"(get_ml_prog_state()))
      [Conv NONE []]
-     (ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl)
-     (POSTv uv. &UNIT_TYPE () uv
-                *
-                STDOUT (out ++
-                  if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then
+     (STDIO fs * COMMANDLINE cl)
+     (POSTv uv. &UNIT_TYPE () uv *
+                STDIO (
+                  if (LENGTH cl = 3) /\ inFS_fname fs (File (implode (EL 1 cl)))
+                                     /\ inFS_fname fs (File (implode (EL 2 cl)))
+                  then add_stdout fs (
                     CONCAT
                       (MAP explode (diff_alg
-                                      (all_lines fs (implode (EL 1 cl)))
-                                      (all_lines fs (implode (EL 2 cl)))))
-                  else "") *
-                STDERR (err ++
-                  if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then ""
-                  else if LENGTH cl <> 3 then explode (usage_string)
-                  else if inFS_fname fs (implode (EL 1 cl)) then explode (notfound_string (implode (EL 2 cl)))
-                  else explode (notfound_string (implode (EL 1 cl)))) * (COMMANDLINE cl * ROFS fs))`,
+                                      (all_lines fs (File (implode (EL 1 cl))))
+                                      (all_lines fs (File (implode (EL 2 cl)))))))
+                  else add_stderr fs (
+                  if LENGTH cl <> 3 then explode usage_string
+                  else if inFS_fname fs (File (implode (EL 1 cl)))
+                  then explode (notfound_string (implode (EL 2 cl)))
+                  else explode (notfound_string (implode (EL 1 cl))))) * (COMMANDLINE cl))`,
   strip_tac \\ xcf "diff" (get_ml_prog_state())
-  \\ xlet `POSTv v. &UNIT_TYPE () v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xcon \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
-  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
+  \\ xlet_auto >- xsimpl
   \\ Cases_on `cl` \\ fs[mlcommandLineProgTheory.wfcl_def]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xmatch
   \\ reverse(Cases_on `t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ (reverse strip_tac >- (EVAL_TAC \\ rw[]))
   >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
-  \\ xapp \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `out`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
+  \\ xapp \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-  \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
+  \\ xsimpl \\ fs[fsioConstantsProgTheory.FILENAME_def,mlstringTheory.explode_implode]
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
+  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
+  \\ rw[] \\ xsimpl);
 
 val st = get_ml_prog_state();
 
 val name = "diff"
-val spec = diff_spec |> UNDISCH |> ioProgLib.add_basis_proj
-val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
+val spec = diff_spec |> UNDISCH
+  |> SIMP_RULE (srw_ss())[fsioConstantsProgTheory.STDIO_def] |> fsioProgLib.add_basis_proj
+val (sem_thm,prog_tm) = fsioProgLib.call_thm st name spec
 
 val diff_prog_def = Define`diff_prog = ^prog_tm`;
+
+val lemma = Q.prove(`P x ∧ P y ⇒ P (if z then x else y)`, rw[])
 
 val diff_semantics = save_thm("diff_semantics",
   sem_thm
   |> REWRITE_RULE[GSYM diff_prog_def]
   |> DISCH_ALL
-  |> REWRITE_RULE[AND_IMP_INTRO]
   |> CONV_RULE(LAND_CONV EVAL)
-  |> SIMP_RULE(srw_ss())[]);
+  |> REWRITE_RULE[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout,STD_streams_add_stderr,lemma]);
 
 val _ = export_theory ();
