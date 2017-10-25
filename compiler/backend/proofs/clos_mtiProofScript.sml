@@ -561,19 +561,61 @@ val do_app_lemma = time store_thm("do_app_lemma",
                            exc_rel (v_rel max_app) err1 err2)
     | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
                             do_app opp xs s = Rval (x,s1)``,
-
   `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
-
-  \\ Cases_on `?n. opp = FFI n` THEN1 cheat
-  \\ Cases_on `?b. opp = RefByte b` THEN1 cheat
-  \\ Cases_on `opp = RefArray` THEN1 cheat
-  \\ Cases_on `?b. opp = CopyByte b` THEN1 cheat
-  \\ Cases_on `opp = Ref` THEN1 cheat
-  \\ Cases_on `opp = Update` THEN1 cheat
-  \\ Cases_on `opp = UpdateByte` THEN1 cheat
-  \\ Cases_on `opp = AllocGlobal` THEN1 cheat
-  \\ Cases_on `?n. opp = SetGlobal n` THEN1 cheat
-
+  \\ Cases_on `opp = UpdateByte \/ opp = Update \/ ?n. opp = FFI n` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ TRY (drule state_rel_FLOOKUP_NONE)
+    \\ TRY (drule state_rel_FLOOKUP_ByteArray)
+    \\ TRY (drule state_rel_FLOOKUP_ValueArray)
+    \\ rpt (disch_then drule) \\ rpt strip_tac \\ fs []
+    \\ TRY
+     (rename1 `~((ii:int) < _)`
+      \\ Cases_on `ii` \\ fs []
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ rveq \\ fs [] \\ NO_TAC)
+    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
+    \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
+    \\ rveq \\ fs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ strip_tac
+    \\ match_mp_tac (METIS_PROVE []
+           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
+    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
+    \\ simp [ref_rel_cases]
+    \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
+  \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
+    \\ strip_tac
+    \\ match_mp_tac (METIS_PROVE []
+           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
+    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
+    \\ simp [ref_rel_cases,LIST_REL_REPLICATE_same])
+  \\ Cases_on `?n. opp = SetGlobal n` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ fs [state_rel_def,v_rel_opt_def]
+    THEN1 (match_mp_tac EVERY2_LUPDATE_same \\ fs [v_rel_opt_def])
+    \\ fs [get_global_def,state_rel_def,LIST_REL_EL_EQN]
+    \\ rfs [] \\ res_tac
+    \\ qpat_x_assum `!x. _` kall_tac
+    \\ Cases_on `EL n s.globals`
+    \\ rfs [v_rel_opt_def])
+  \\ Cases_on `opp = AllocGlobal` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ fs [state_rel_def,v_rel_opt_def])
   \\ Cases_on `opp = Equal` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
@@ -651,6 +693,25 @@ val do_app_lemma = time store_thm("do_app_lemma",
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
     \\ match_mp_tac EVERY2_TAKE \\ fs []
     \\ match_mp_tac EVERY2_DROP \\ fs [])
+  \\ Cases_on `?b. opp = CopyByte b` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ rveq \\ fs []
+    \\ TRY (drule state_rel_FLOOKUP_NONE)
+    \\ TRY (drule state_rel_FLOOKUP_ByteArray)
+    \\ TRY (drule state_rel_FLOOKUP_ValueArray)
+    \\ rpt (disch_then drule) \\ rpt strip_tac \\ fs []
+    \\ rveq \\ fs []
+    \\ imp_res_tac state_rel_FLOOKUP_ByteArray
+    \\ fs [state_rel_def,FMAP_REL_def,FLOOKUP_DEF]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ strip_tac
+    \\ match_mp_tac (METIS_PROVE []
+           ``(b1 \/ ~b1 /\ b2 ==> b3) ==> (b1 \/ b2 ==> b3)``)
+    \\ rw [] \\ simp [FAPPLY_FUPDATE_THM]
+    \\ simp [ref_rel_cases])
   \\ Cases_on `opp` \\ fs []);
 
 val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
