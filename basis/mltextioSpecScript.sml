@@ -98,6 +98,8 @@ val WORD_n2w_UNICITY_L = Q.store_thm("WORD_n2w_UNICITY[xlet_auto_match]",
  rw[] >> eq_tac >> rw[] >> imp_res_tac WORD_UNICITY_L >>
 `n1 MOD 256 = n1` by fs[] >> `n2 MOD 256 = n2` by fs[] >> fs[])
 
+val _ = overload_on("WORD8",``WORD:word8 -> v -> bool``);
+
 val get_file_content_numchars = Q.store_thm("get_file_content_numchars",
  `!fs fd c p. get_file_content fs fd =
               get_file_content (fs with numchars := ll) fd`,
@@ -1021,18 +1023,68 @@ val read_char_spec = Q.store_thm("read_char_spec",
   \\ instantiate
   \\ fs[ORD_BOUND,CHR_ORD]);
 
-val input_spec = Q.store_thm("input_spec",
+val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   `!fd fdv fs content pos off offv.
-    len + off <= LENGTH buf ⇒ pos <= LENGTH content  ⇒
-    WORD (n2w fd : word8) fdv ⇒ NUM off offv ⇒ NUM len lenv ⇒
-    fd <= 255 ⇒ (get_file_content fs fd = SOME(content, pos)) ⇒
+    len + off <= LENGTH buf ∧
+    WORD8 (n2w fd) fdv ∧ NUM off offv ∧ NUM len lenv ∧
+    fd <= 255 ∧ (get_file_content fs fd = SOME(content, pos)) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.input" (basis_st())) [fdv; bufv; offv; lenv]
     (IOFS fs * W8ARRAY bufv buf)
     (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
        W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
-       SEP_EXISTS k. IOFS (fsupdate fs fd k (MIN (len + pos) (LENGTH content)) content))`,
- xcf "TextIO.input" (basis_st()) >>
+       SEP_EXISTS k. IOFS (fsupdate fs fd k (MIN (len + pos) (MAX pos (LENGTH content))) content))`,
+  xcf "TextIO.input" (basis_st()) >>
+  reverse(Cases_on`pos ≤ LENGTH content`) >- (
+    imp_res_tac get_file_content_eof \\ rfs[] \\
+    reverse(Cases_on`wfFS fs`) >- (fs[IOFS_def] \\ xpull) \\
+    simp[MAX_DEF,MIN_DEF] \\
+    xfun_spec`input0`
+    `∀offv lenv countv.
+     NUM len lenv ∧ NUM 0 countv ⇒
+     app (p:'ffi ffi_proj) input0 [offv; lenv; countv]
+      (IOFS fs * W8ARRAY bufv buf)
+      (POSTv nv. &(NUM 0 nv) * W8ARRAY bufv buf * IOFS (bumpFD fd fs 0))`
+    >- (
+      rpt strip_tac \\
+      first_x_assum match_mp_tac \\
+      xlet_auto >- xsimpl \\
+      xlet_auto >- xsimpl \\
+      fs[IOFS_def,IOFS_iobuff_def] \\ xpull \\
+      qmatch_assum_rename_tac`LENGTH buff = _` \\
+      Cases_on`buff` \\ fs[] \\
+      Cases_on`t` \\ fs[] \\
+      qmatch_assum_rename_tac`SUC(SUC(LENGTH buff)) = _` \\
+      Cases_on`buff` \\ fs[] \\
+      rewrite_tac[GSYM iobuff_loc_def] \\
+      (* TODO: xlet_auto generates bad variables without this *)
+      qmatch_goalsub_rename_tac`W8ARRAY _ (h1::h2::h3::rest)` \\
+      xlet_auto \\ simp[]
+      >- xsimpl
+      >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ xif
+      \\ instantiate
+      \\ xvar
+      \\ xsimpl )
+    \\ `LENGTH content - pos = 0` by decide_tac
+    \\ xapp
+    \\ xsimpl
+    \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
+    \\ simp[fsupdate_def,bumpFD_def]
+    \\ fs[get_file_content_def]
+    \\ pairarg_tac \\ fs[] \\ rw[]
+    \\ fs[wfFS_def,liveFS_def,live_numchars_def]
+    \\ qexists_tac`1`
+    \\ Cases_on`fs.numchars` >- fs[]
+    \\ simp[LDROP_1]
+    \\ qmatch_abbrev_tac`IOFS f1 ==>> IOFS f2 * _`
+    \\ `f1 = f2` by (
+      simp[Abbr`f1`,Abbr`f2`,IO_fs_component_equality]
+      \\ simp[ALIST_FUPDKEY_unchanged] )
+    \\ xsimpl )
+  \\ `MAX pos (LENGTH content) = LENGTH content` by rw[MAX_DEF]
+  \\ pop_assum SUBST_ALL_TAC >>
  xfun_spec`input0`
   `!count countv buf fs pos off offv lenv.
     len + off <= LENGTH buf ⇒ pos <= LENGTH content  ⇒ NUM count countv ⇒
@@ -1147,6 +1199,38 @@ val input_spec = Q.store_thm("input_spec",
   fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq] >>
   simp[ALIST_FUPDKEY_unchanged])
   \\ xapp \\ instantiate \\ xsimpl);
+
+val input_spec = Q.store_thm("input_spec",
+  `!fd fdv fs content pos off offv len lenv buf bufv.
+    len + off <= LENGTH buf ∧
+    WORD8 (n2w fd) fdv ∧ NUM off offv ∧ NUM len lenv ∧
+    fd <= 255 ∧ (get_file_content fs fd = SOME(content, pos)) ⇒
+    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.input" (basis_st())) [fdv; bufv; offv; lenv]
+    (STDIO fs * W8ARRAY bufv buf)
+    (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
+       W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
+                                 off buf) *
+        STDIO (fsupdate fs fd 0 (MIN (len + pos) (MAX pos (LENGTH content))) content))`,
+  rw[STDIO_def]
+  \\ xpull
+  \\ `fd = 1 ∨ fd = 2 ⇒ pos = LENGTH content`
+  by (
+    fs[STD_streams_def]
+    \\ fs[get_file_content_def]
+    \\ pairarg_tac \\ fs[]
+    \\ rpt(first_x_assum(qspec_then`fd`mp_tac))
+    \\ rw[] \\ fs[]
+    \\ metis_tac[SOME_11] )
+  \\ `pos = LENGTH content ⇒ MIN (len + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+  \\ simp[STD_streams_fsupdate]
+  \\ xapp
+  \\ mp_tac(SYM (SPEC_ALL get_file_content_numchars)) \\ rw[]
+  \\ instantiate \\ xsimpl
+  \\ simp[fsupdate_numchars] \\ rw[]
+  \\ qexists_tac`THE (LDROP x ll)`
+  \\ simp[fsupdate_def]
+  \\ fs[get_file_content_def]
+  \\ xsimpl);
 
 (* convenient functions for standard output/error
 * to be used with STDIO as numchars is ignored *)
@@ -1442,6 +1526,15 @@ val prerr_newline_spec = Q.store_thm("prerr_newline_spec",
   SELECT_ELIM_TAC \\ rw[] \\
   imp_res_tac stdo_UNICITY_R \\ rw[] \\ xsimpl \\ metis_tac[]);
 
+val extend_array_spec = Q.store_thm("extend_array_spec",
+    `∀arrv arr.
+     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.extend_array" (get_ml_prog_state())) [arrv] (W8ARRAY arrv arr)
+       (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`,
+    xcf"TextIO.extend_array"(get_ml_prog_state())
+    \\ ntac 5 (xlet_auto >- xsimpl)
+    \\ xret \\ xsimpl
+    \\ simp[DROP_REPLICATE] );
+
 val inputLine_spec = Q.store_thm("inputLine_spec",
   `WORD (n2w fd : word8) fdv ∧ fd ≤ 255 ∧ IS_SOME (get_file_content fs fd)
    ⇒
@@ -1452,15 +1545,6 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
        STDIO (lineForwardFD fs fd))`,
   strip_tac
   \\ xcf "TextIO.inputLine" (get_ml_prog_state()) >>
-  xfun_spec `realloc`
-    `∀arrv arr.
-     app (p:'ffi ffi_proj) realloc [arrv] (W8ARRAY arrv arr)
-       (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
-  >- (
-    rw[] \\ first_x_assum match_mp_tac
-    \\ ntac 5 (xlet_auto >- xsimpl)
-    \\ xret \\ xsimpl
-    \\ simp[DROP_REPLICATE] ) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   qpat_abbrev_tac`protect = STDIO fs` \\
