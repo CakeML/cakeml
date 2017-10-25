@@ -210,7 +210,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* hint: toAscList returns a list of pairs, and you can use
            MAP FST ls and MAP SND ls to obtain lists of the first/second items
            of these pairs *)
-  qexists_tac `<put your answer here>` \\
+  (* qexists_tac `<put your answer here>` \\ *)
   (* Now we use the theorem about insert_line proved earlier *)
   qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
   simp[empty_thm] \\
