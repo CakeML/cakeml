@@ -456,14 +456,31 @@ val LIST_REL_f_rel_IMP = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
 
-val do_app_lemma = store_thm("do_app_lemma",
+val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Number n)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (ByteVector p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (RefPtr p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Closure x1 x2 x3 x4 x5)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Recclosure y1 y2 y3 y4 y5)``])
+
+val _ = print "The following proof is slow due to Rerr cases.\n"
+val do_app_lemma = time store_thm("do_app_lemma",
   ``state_rel s (t:'ffi closSem$state) /\ LIST_REL (v_rel max_app) xs ys ==>
     case do_app opp ys t of
     | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
                            exc_rel (v_rel max_app) err1 err2)
     | Rval (y,t1) => ?x s1. v_rel max_app x y /\ state_rel s1 t1 /\
                             do_app opp xs s = Rval (x,s1)``,
-  cheat);
+  `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq])
+  \\ cheat);
 
 val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
   `(!ys env2 (t1:'ffi closSem$state) env1 t2 s1 res2 xs.
@@ -726,8 +743,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
   THEN1 (* dest_closure returns NONE *)
    (`?y. dest_closure s1.max_app NONE f1 (x::xs) = NONE` by
      (fs [dest_closure_def,case_eq_thms]
-      \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
-      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ qpat_x_assum `v_rel _ f1 f2` mp_tac \\ fs []
       THEN1
        (strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
         \\ imp_res_tac LIST_REL_LENGTH \\ fs [state_rel_def]
@@ -751,15 +767,13 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
     \\ `dest_closure s1.max_app NONE f1 [LAST (x::xs)] = NONE` by
      (pop_assum mp_tac
       \\ simp [dest_closure_def,case_eq_thms,UNCURRY] \\ rw []
-      \\ qpat_x_assum `v_rel _ f1 f2` mp_tac
-      \\ once_rewrite_tac [v_rel_cases] \\ fs []
+      \\ qpat_x_assum `v_rel _ f1 f2` mp_tac \\ fs []
       \\ strip_tac \\ fs [] \\ rveq \\ fs [check_loc_def]
       \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) =
                               SOME (if b then x else y)``])
     \\ drule dest_closure_NONE_IMP_apps \\ fs [])
   THEN1 (* dest_closure returns Patrial_app *)
-   (qpat_x_assum `v_rel _ f1 f2` mp_tac
-    \\ once_rewrite_tac [v_rel_cases] \\ fs []
+   (qpat_x_assum `v_rel _ f1 f2` mp_tac \\ fs []
     \\ drule dest_closure_SOME_IMP \\ strip_tac \\ fs []
     \\ strip_tac \\ fs [] \\ rveq
     THEN1
@@ -777,7 +791,6 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
         \\ match_mp_tac (GEN_ALL evaluate_apps_Clos_timeout) \\ fs [])
       \\ fs [evaluate_apps_Clos_short,ADD1]
       \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
-      \\ simp [Once v_rel_cases]
       \\ qexists_tac `x::xs ++ args1`
       \\ qexists_tac `env1` \\ fs []
       \\ qexists_tac `e1` \\ fs []
@@ -819,7 +832,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ `LENGTH ys <= LENGTH t` by fs []
       \\ disch_then drule \\ fs [] \\ disch_then kall_tac
       \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
-      \\ simp [Once v_rel_cases,ADD1]
+      \\ simp [ADD1]
       \\ qexists_tac `ys ++ [y]`
       \\ qexists_tac `env1` \\ fs []
       \\ qexists_tac `funs1` \\ fs []
@@ -827,7 +840,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ qexists_tac `b1` \\ fs []
       \\ qpat_x_assum `x::xs = _` (fn th => simp [GSYM th])
       \\ fs [LIST_REL_GENLIST] \\ rw []
-      \\ simp [Once v_rel_cases,ADD1])
+      \\ simp [ADD1])
     THEN1
      (qpat_x_assum `_ = SOME (Partial_app _)` mp_tac
       \\ simp [Once dest_closure_def]
@@ -843,7 +856,6 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
         \\ match_mp_tac (GEN_ALL evaluate_apps_Clos_timeout) \\ fs [])
       \\ fs [evaluate_apps_Clos_short,ADD1]
       \\ reverse conj_tac THEN1 fs [state_rel_def,ADD1,dec_clock_def]
-      \\ simp [Once v_rel_cases]
       \\ qexists_tac `x::xs ++ args1`
       \\ qexists_tac `env1` \\ fs []
       \\ qexists_tac `funs1` \\ fs []
@@ -959,7 +971,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
        (reverse conj_tac THEN1 fs [state_rel_def,dec_clock_def]
         \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
         \\ fs [LIST_REL_GENLIST] \\ rw []
-        \\ simp [Once v_rel_cases])
+        \\ simp [])
       \\ strip_tac \\ fs []
       \\ Cases_on `res1` \\ fs [] \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
@@ -981,7 +993,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
       \\ reverse conj_tac
-      THEN1 (fs [LIST_REL_GENLIST] \\ simp [Once v_rel_cases])
+      THEN1 (fs [LIST_REL_GENLIST] \\ simp [])
       \\ match_mp_tac EVERY2_REVERSE
       \\ match_mp_tac EVERY2_TAKE
       \\ match_mp_tac EVERY2_REVERSE \\ fs [])
@@ -1245,8 +1257,6 @@ val intro_multi_preserves_elist_globals = Q.store_thm(
       rename1`EL n fns = (nn,e2)` >> `MEM (nn,e2) fns` by metis_tac[MEM_EL] >>
       res_tac >> rfs[]))
 
-
-
 val intro_multi_preserves_esgc_free = Q.store_thm(
   "intro_multi_preserves_esgc_free",
   `∀max_app es. EVERY esgc_free es ⇒ EVERY esgc_free (intro_multi max_app es)`,
@@ -1287,7 +1297,8 @@ val compile_preserves_elist_globals = Q.store_thm(
 
 val compile_preserves_esgc_free = Q.store_thm(
   "compile_preserves_esgc_free",
-  `∀do_mti es. EVERY esgc_free es ⇒ EVERY esgc_free (clos_mti$compile do_mti max_app es)`,
+  `∀do_mti es. EVERY esgc_free es ⇒
+               EVERY esgc_free (clos_mti$compile do_mti max_app es)`,
   Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
 
 val _ = export_theory();
