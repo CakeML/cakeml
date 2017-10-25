@@ -5,7 +5,8 @@
 
 open preamble
      ml_translatorLib cfTacticsLib basisFunctionsLib cfLetAutoLib
-     fsioProgLib fsFFITheory fsFFIProofTheory
+     basisProgTheory basis_ffiLib
+     fsFFITheory fsFFIProofTheory textio_initProgTheory
      mlstringTheory balanced_mapTheory splitwordsTheory
 
 (* note: opening all these theories/libraries can take a while
@@ -13,7 +14,7 @@ open preamble
 
 val _ = new_theory "wordfreqProg";
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 (* Avoid printing potentially very long output *)
 val _ = Globals.max_print_depth := 20
@@ -121,9 +122,9 @@ val res = translate format_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case IO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case TextIO.inputLinesFrom (List.hd (Commandline.arguments()))
     of SOME lines =>
-      IO.print_list
+      TextIO.print_list
         (List.map format_output
           (toAscList
             (List.foldl insert_line empty lines)))`;
@@ -285,20 +286,20 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* TODO: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
-  (* Before you step through the call to IO.inputLinesFrom, the following
+  (* Before you step through the call to TextIO.inputLinesFrom, the following
      may be useful first to establish `wfcl cl`, which constrains fname to be
      a valid filename:
   *)
   reverse(Cases_on`wfcl cl`)
-  >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
+  >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
 
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
   (* trying xlet_auto shows we need a FILENAME assumption *)
-  `fsioConstantsProg$FILENAME fname fnamev` by (
-    fs[fsioConstantsProgTheory.FILENAME_def,EVERY_MEM,
-       mlcommandLineProgTheory.wfcl_def,GSYM LENGTH_explode,
+  `FILENAME fname fnamev` by (
+    fs[FILENAME_def,EVERY_MEM,
+       mlcommandlineProgTheory.wfcl_def,GSYM LENGTH_explode,
        commandLineFFITheory.validArg_def] ) \\
 
   (* TODO: xlet_auto needs to be made to work with STDIO better *)
@@ -354,9 +355,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 (* Finally, we package the verified program up with the following boilerplate*)
 
 val spec = wordfreq_spec |> SPEC_ALL |> UNDISCH_ALL |>
-    SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def] |> add_basis_proj;
+    SIMP_RULE(srw_ss())[STDIO_def] |> add_basis_proj;
 val name = "wordfreq"
-val (sem_thm,prog_tm) = fsioProgLib.call_thm (get_ml_prog_state ()) name spec
+val (sem_thm,prog_tm) = call_thm (get_ml_prog_state ()) name spec
 val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;
 
 val wordfreq_semantics =
