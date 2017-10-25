@@ -1,3 +1,8 @@
 INCLUDES = $(HOLDIR)/examples/balanced_bst ../../misc ../../translator ../../basis/pure ../../basis ../../characteristic ../../compiler\
 					 ../../semantics ../../semantics/proofs ../../compiler/backend/proofs ../../compiler/backend/x64/proofs
 CLINE_OPTIONS = --qof
+
+SOLUTIONS = wordfreqProgScript.sml simple_bstScript.sml
+
+exercises: $(SOLUTIONS)
+	./make_ex.sh $(SOLUTIONS)
