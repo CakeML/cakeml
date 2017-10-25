@@ -1,7 +1,7 @@
 open preamble
      ml_translatorLib ml_progLib ml_translatorTheory
      cfTheory cfHeapsTheory cfTacticsLib cfTacticsBaseLib basisFunctionsLib
-     mlarrayProgTheory commandLineFFITheory
+     cfLetAutoTheory mlarrayProgTheory commandLineFFITheory
 
 val _ = new_theory "mlcommandlineProg";
 
@@ -268,5 +268,27 @@ val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
     \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
     \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]
 );
+
+fun prove_hprop_inj_tac thm =
+    rw[HPROP_INJ_def, GSYM STAR_ASSOC, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT] >>
+      EQ_TAC >-(DISCH_TAC >> IMP_RES_TAC thm >> rw[]) >> rw[];
+
+val UNIQUE_COMMANDLINE = Q.store_thm("UNIQUE_COMMANDLINE",
+`!s cl1 cl2 H1 H2. VALID_HEAP s ==>
+(COMMANDLINE cl1 * H1) s /\ (COMMANDLINE cl2 * H2) s ==> cl2 = cl1`,
+rw[COMMANDLINE_def, cfHeapsBaseTheory.IOx_def, commandLine_ffi_part_def, encode_def, cfHeapsBaseTheory.encode_list_def, GSYM STAR_ASSOC] >>
+IMP_RES_TAC FRAME_UNIQUE_IO >>
+fs[] >> rw[] >>
+sg `!l1 l2. (MAP Str l1 = MAP Str l2) ==> l2 = l1`
+>-(
+    Induct_on `l2` >-(rw[])>>
+    rw[] >> fs[] >>
+    Cases_on `l1` >-(fs[])>>  fs[]
+) >>
+fs[]);
+
+val COMMANDLINE_HPROP_INJ = Q.store_thm("COMMANDLINE_HPROP_INJ[hprop_inj]",
+`!cl1 cl2. HPROP_INJ (COMMANDLINE cl1) (COMMANDLINE cl2) (cl2 = cl1)`,
+prove_hprop_inj_tac UNIQUE_COMMANDLINE);
 
 val _ = export_theory();

@@ -11,7 +11,7 @@ val hprop_heap_thms =
     mlcharioProgTheory.STDERR_precond,
     mlcharioProgTheory.STDIN_T_precond,
     mlcharioProgTheory.STDIN_F_precond,
-    mlcommandLineProgTheory.COMMANDLINE_precond,
+    mlcommandlineProgTheory.COMMANDLINE_precond,
     mlfileioProgTheory.ROFS_precond];
 
 fun mk_main_call s =
