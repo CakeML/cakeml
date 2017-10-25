@@ -4,13 +4,16 @@ CLINE_OPTIONS = --qof
 
 SOLUTIONS = wordfreqProgScript.sml simple_bstScript.sml
 
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+
+all: $(TARGETS) exercises
+
+.PHONY: all
+
 exercises: $(SOLUTIONS) make_ex
 	./make_ex $(SOLUTIONS)
 
 make_ex: make_ex.sml
 	polyc make_ex.sml -o make_ex
-
-
-
-
 
