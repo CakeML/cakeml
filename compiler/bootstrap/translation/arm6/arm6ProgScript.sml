@@ -228,11 +228,7 @@ val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss()) [Ntimes Encode
 
 val res = translate arm6_enc_thm
 
-(* THE SIDE CONDITIONS:
-print_find"arm6_enc_side_def"
-val res = translate (arm6_config_def |> SIMP_RULE std_ss[valid_immediate_def])
-*)
-
+val res = translate (arm6_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

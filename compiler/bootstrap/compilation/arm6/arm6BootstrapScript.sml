@@ -1,6 +1,6 @@
 open preamble to_lab_arm6BootstrapTheory compilationLib
 
-val _ = new_theory "x64Bootstrap";
+val _ = new_theory "arm6Bootstrap";
 
 val () = ml_translatorLib.reset_translation();
 

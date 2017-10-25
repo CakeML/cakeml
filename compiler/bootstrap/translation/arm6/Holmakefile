@@ -1,4 +1,4 @@
-INCLUDES = ../../../../translator ../../../../characteristic .. ../../..  \
+INCLUDES = ../../../../translator ../../../../characteristic ../../../../basis .. ../../..  ../../../arm6 \
            ../../../encoders/arm6 ../../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model
 OPTIONS = QUIT_ON_FAILURE
 
