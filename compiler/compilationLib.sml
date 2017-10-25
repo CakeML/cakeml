@@ -2,7 +2,7 @@ structure compilationLib = struct
 
 open preamble backendTheory
      arm6_compileLib export_arm6Theory
-     arm8_compileLib arm8_exportLib
+     arm8_compileLib export_arm8Theory
      mips_compileLib mips_exportLib
      riscv_compileLib export_riscvTheory
      x64_compileLib export_x64Theory
@@ -771,6 +771,10 @@ val arm6_export_defs = [
   export_arm6Theory.arm6_export_def,
   export_arm6Theory.ffi_asm_def];
 
+val arm8_export_defs = [
+  export_arm8Theory.arm8_export_def,
+  export_arm8Theory.ffi_asm_def];
+
 val x64_export_defs = [
   export_x64Theory.x64_export_def,
   export_x64Theory.ffi_asm_def];
@@ -931,7 +935,7 @@ val cbv_to_bytes_arm8 =
   cbv_to_bytes
     arm8_targetLib.add_arm8_encode_compset
     arm8_backend_config_def arm8_names_def
-    [] (* TODO *)
+    arm8_export_defs
 
 val cbv_to_bytes_arm6 =
   cbv_to_bytes
