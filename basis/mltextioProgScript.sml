@@ -247,6 +247,23 @@ val _ = (append_prog o process_topdecs) `
       close fd; SOME lines
     end handle BadFileName => NONE`;
 
+(* read everything (same semantics as SML's TextIO.inputAll) *)
+val () = (append_prog o process_topdecs)`
+  fun inputAll fd =
+    let
+      fun inputAll_aux arr i =
+        let val len = Word8Array.length arr in
+          if i < len then
+            let
+              val n = input fd arr i (len - i)
+            in
+              if n = 0 then Word8Array.substring arr 0 i
+              else inputAll_aux arr (i + n)
+            end
+          else inputAll_aux (extend_array arr) i
+        end
+      in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
