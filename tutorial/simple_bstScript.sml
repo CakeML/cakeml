@@ -62,7 +62,8 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
-val insert_def = (* TODO: fill in your definition here *)
+val insert_def =
+(* TODO: fill in your definition here *)
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -182,7 +183,7 @@ val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
 
 
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
-  `∀t. ????? ⇒
+(* `∀t. ????? ⇒ *)
          key_ordered cmp k (insert cmp k' v' t) res`,
   (* TODO: you might want to prove a lemma about key_ordered and insert *)
   (* skip ahead to wf_tree_insert first *)

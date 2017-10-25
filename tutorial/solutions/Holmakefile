@@ -4,5 +4,13 @@ CLINE_OPTIONS = --qof
 
 SOLUTIONS = wordfreqProgScript.sml simple_bstScript.sml
 
-exercises: $(SOLUTIONS)
-	./make_ex.sh $(SOLUTIONS)
+exercises: $(SOLUTIONS) make_ex
+	./make_ex $(SOLUTIONS)
+
+make_ex: make_ex.sml
+	polyc make_ex.sml -o make_ex
+
+
+
+
+

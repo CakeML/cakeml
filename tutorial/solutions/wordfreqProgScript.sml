@@ -210,7 +210,8 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* hint: toAscList returns a list of pairs, and you can use
            MAP FST ls and MAP SND ls to obtain lists of the first/second items
            of these pairs *)
-  (*ex qexists_tac `<put your answer here>` \\ *)
+  (* qexists_tac `<put your answer here>` \\ *)
+  (*ex *)
   qexists_tac `MAP FST ls` \\
   (* ex*)
   (* Now we use the theorem about insert_line proved earlier *)
@@ -252,7 +253,8 @@ val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
   `valid_wordfreq_output (implode file_chars) output ⇒
    wordfreq_output_spec file_chars = output`,
    (* TODO: prove this *)
-   (*ex (* hint: it's a one-liner *) *)
+   (* hint: it's a one-liner *)
+   (*ex *)
    metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
    (* ex*)
    );

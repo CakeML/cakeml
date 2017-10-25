@@ -62,8 +62,10 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
-(*ex val insert_def = (* TODO: fill in your definition here *) *)
-val insert_def = Define`
+val insert_def =
+(* TODO: fill in your definition here *)
+(*ex *)
+Define`
   insert cmp k v Leaf = singleton k v ∧
   insert cmp k v (Node k' v' l r) =
     case cmp k k' of
@@ -141,7 +143,8 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
     ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`,
    Induct_on `t` >>
    (* TODO: finish this proof *)
-   (*ex (* hint: the same tactic probably works for both subgoals *) *)
+   (* hint: the same tactic probably works for both subgoals *)
+   (*ex *)
    rw[to_fmap_def] \\
    metis_tac[]
    (* ex*)
@@ -202,7 +205,8 @@ val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
 
 
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
-(*ex   `∀t. ????? ⇒ *)
+(* `∀t. ????? ⇒ *)
+(*ex  *)
   `∀t k k' v' res.
     key_ordered cmp k t res ∧ cmp k k' = res ⇒
 (* ex*)
