@@ -1,21 +1,22 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib cfLetAutoLib
-     mlstringTheory mlcommandLineProgTheory mlw8arrayProgTheory
-     fsioConstantsProgTheory fsioProgTheory basisFunctionsLib fsioProgLib
+     mlstringTheory mlcommandlineProgTheory mlw8arrayProgTheory
+     basisProgTheory basisFunctionsLib basis_ffiLib
+     textio_initProgTheory mltextioSpecTheory
      fsFFITheory fsFFIProofTheory
 
 val _ = new_theory "iocatProg"
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 val st = get_ml_prog_state;
 val basis_st = get_ml_prog_state;
 
 val _ = process_topdecs`
   fun pipe_255 fd1 fd2 =
-  let val nr = IO.read fd1 (Word8.fromInt 255) in
-    if nr = 0 then 0 else (IO.write fd2 nr 0; nr) end`
+  let val nr = TextIO.read fd1 (Word8.fromInt 255) in
+    if nr = 0 then 0 else (TextIO.write fd2 nr 0; nr) end`
  |> append_prog
 
 (* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
@@ -99,12 +100,12 @@ val pipe_255_spec = Q.store_thm("pipe_255_spec",
 
 (* implementation of cat using low-level IO functions *)
 val _ = process_topdecs `
-  fun do_onefile fd = if pipe_255 fd IO.stdOut > 0 then do_onefile fd else ();
+  fun do_onefile fd = if pipe_255 fd TextIO.stdOut > 0 then do_onefile fd else ();
   fun cat fnames =
     case fnames of
       [] => ()
-    | f::fs => (let val fd = IO.openIn f in
-                      do_onefile fd; IO.close fd; cat fs end)
+    | f::fs => (let val fd = TextIO.openIn f in
+                      do_onefile fd; TextIO.close fd; cat fs end)
 ` |> append_prog
 
 
@@ -280,7 +281,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ Cases_on`cl` \\ fs[]);
 
 val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
-            |> SIMP_RULE std_ss [Once STAR_ASSOC,fsioConstantsProgTheory.STDIO_def]
+            |> SIMP_RULE std_ss [Once STAR_ASSOC,STDIO_def]
             |> add_basis_proj;
 val name = "cat_main"
 

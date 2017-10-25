@@ -1,11 +1,11 @@
-open preamble ml_progLib fsioProgLib ml_translatorLib cfTacticsLib
+open preamble ml_progLib basis_ffiLib basisProgTheory ml_translatorLib cfTacticsLib
 
 val _ = new_theory "helloErrProg"
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 val helloErr = process_topdecs
-  `fun helloErr u = IO.prerr_string "Well oH lord!\n"`
+  `fun helloErr u = TextIO.prerr_string "Well oH lord!\n"`
 
 val res = ml_prog_update(ml_progLib.add_prog helloErr pick_name)
 
@@ -25,7 +25,7 @@ val helloErr_spec = Q.store_thm ("helloErr_spec",
 
 val st = get_ml_prog_state();
 val spec = helloErr_spec |> SPEC_ALL |> UNDISCH_ALL
-            |> SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def] |> add_basis_proj;
+            |> SIMP_RULE(srw_ss())[textio_initProgTheory.STDIO_def] |> add_basis_proj;
 val name = "helloErr";
 val (call_thm_helloErr, helloErr_prog_tm) = call_thm st name spec;
 val helloErr_prog_def = Define`helloErr_prog = ^helloErr_prog_tm`;

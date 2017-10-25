@@ -1,7 +1,7 @@
 open preamble mp_then ml_translatorTheory ml_translatorLib ml_progLib;
 open cfTacticsLib basisFunctionsLib cfLetAutoLib;
-open fsFFITheory fsFFIProofTheory fsioConstantsProgTheory fsioSpecTheory;
-open quicksortProgTheory fsioProgLib;
+open fsFFITheory fsFFIProofTheory textio_initProgTheory mltextioSpecTheory;
+open quicksortProgTheory basis_ffiLib;
 
 val _ = new_theory "sortProg";
 
@@ -74,12 +74,6 @@ val SORTED_string_lt_le = Q.store_thm("SORTED_string_lt_le",
   strip_tac \\ match_mp_tac SORTED_weaken
   \\ asm_exists_tac \\ rw[string_le_def]);
 
-val _ = remove_ovl_mapping"FILENAME"{Name="FILENAME",Thy="mlfileioProg"};
-val _ = remove_ovl_mapping"BadFileName_exn"{Name="BadFileName_exn",Thy="mlfileioProg"};
-val _ = remove_ovl_mapping"validFD"{Name="validFD",Thy="rofsFFI"};
-val _ = remove_ovl_mapping"nextFD"{Name="nextFD",Thy="rofsFFI"};
-val _ = remove_ovl_mapping"inFS_fname"{Name="inFS_fname",Thy="rofsFFI"};
-
 val validArg_filename = Q.store_thm ("validArg_filename",
   `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
   rw [commandLineFFITheory.validArg_def, FILENAME_def, EVERY_MEM,
@@ -107,9 +101,9 @@ val r = translate usage_string_def;
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
 val get_file_contents = process_topdecs `
-  (* Note: this is an accumulating version of IO.inputLines *)
+  (* Note: this is an accumulating version of TextIO.inputLines *)
   fun get_file_contents fd acc =
-    case IO.inputLine fd of
+    case TextIO.inputLine fd of
       NONE => acc
     | SOME l => get_file_contents fd (l::acc);
 
@@ -118,10 +112,10 @@ val get_file_contents = process_topdecs `
       [] => acc
     | file::files =>
       let
-        val fd = IO.openIn file
+        val fd = TextIO.openIn file
         val res = get_file_contents fd acc
       in
-        (IO.close fd;
+        (TextIO.close fd;
          get_files_contents files res)
       end;`
 val _ = append_prog get_file_contents;
@@ -237,14 +231,14 @@ val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
       case Commandline.arguments () of
-        [] => get_file_contents IO.stdIn []
+        [] => get_file_contents TextIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
     in
       (quicksort String.< contents_array;
-       Array.app IO.print_string contents_array)
+       Array.app TextIO.print_string contents_array)
     end
-    handle IO.BadFileName => IO.prerr_string "Cannot open file"`;
+    handle TextIO.BadFileName => TextIO.prerr_string "Cannot open file"`;
 
 val valid_sort_result_def = Define`
   valid_sort_result cl init_fs result_fs ⇔
@@ -310,8 +304,8 @@ val sort_spec = Q.store_thm ("sort_spec",
   xmatch >>
   qabbrev_tac `fnames = TL (MAP implode cl)` >>
   qabbrev_tac `inodes = if LENGTH cl > 1 then MAP File fnames else [IOStream(strlit"stdin")]` >>
-  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull) >>
-  fs[mlcommandLineProgTheory.wfcl_def] >>
+  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull) >>
+  fs[mlcommandlineProgTheory.wfcl_def] >>
   reverse(Cases_on`MEM (IOStream(strlit"stdin")) (MAP FST fs.files)`)
   >- (
     fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
@@ -482,7 +476,7 @@ val sort_spec = Q.store_thm ("sort_spec",
 
 val spec = sort_spec |> SPEC_ALL |> UNDISCH_ALL |> SIMP_RULE(srw_ss())[STDIO_def] |> add_basis_proj;
 val name = "sort"
-val (sem_thm,prog_tm) = fsioProgLib.call_thm (get_ml_prog_state ()) name spec
+val (sem_thm,prog_tm) = call_thm (get_ml_prog_state ()) name spec
 val sort_prog_def = Define `sort_prog = ^prog_tm`;
 
 val length_gt_1_not_null =

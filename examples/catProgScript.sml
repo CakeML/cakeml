@@ -1,24 +1,23 @@
 open preamble mp_then
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib cfLetAutoLib basisFunctionsLib
-     mlcommandLineProgTheory fsioProgTheory
-     mlstringTheory fsFFIProofTheory fsioConstantsProgTheory
-     fsioProgLib
+     mlstringTheory mlcommandlineProgTheory textio_initProgTheory
+     fsFFIProofTheory basisProgTheory basis_ffiLib
 
 val _ = new_theory "catProg"
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 val _ = process_topdecs `
   fun do_onefile fname =
     let
-      val fd = IO.openIn fname
+      val fd = TextIO.openIn fname
       fun recurse () =
-        (IO.print_char (IO.read_char fd); recurse ())
-        handle IO.EndOfFile => ()
+        (TextIO.print_char (TextIO.read_char fd); recurse ())
+        handle TextIO.EndOfFile => ()
     in
       recurse () ;
-      IO.close fd
+      TextIO.close fd
     end
 
   fun cat fnames =
@@ -202,7 +201,7 @@ val cat_spec = save_thm(
 val _ = process_topdecs `
   fun cat1 f =
     (do_onefile f)
-    handle IO.BadFileName => ()
+    handle TextIO.BadFileName => ()
 ` |> append_prog
 
 val catfile_string_def = Define `

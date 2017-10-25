@@ -1,11 +1,11 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib basisFunctionsLib cfLetAutoLib
-     fsFFITheory fsFFIProofTheory fsioConstantsProgTheory fsioProgTheory fsioSpecTheory fsioProgLib
+     fsFFIProofTheory textio_initProgTheory basisProgTheory basis_ffiLib
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -405,8 +405,8 @@ val parse_regexp_side = Q.prove(
 
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
-    case IO.inputLine fd of NONE => ()
-    | SOME ln => (if match ln then (IO.print_string prefix; IO.print_string ln) else ();
+    case TextIO.inputLine fd of NONE => ()
+    | SOME ln => (if match ln then (TextIO.print_string prefix; TextIO.print_string ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
@@ -503,11 +503,11 @@ val r = translate notfound_string_def;
 
 val print_matching_lines_in_file = process_topdecs`
   fun print_matching_lines_in_file m file =
-    let val fd = IO.openIn file
+    let val fd = TextIO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
-        IO.close fd)
-    end handle IO.BadFileName =>
-        IO.prerr_string (notfound_string file)`;
+        TextIO.close fd)
+    end handle TextIO.BadFileName =>
+        TextIO.prerr_string (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
@@ -625,11 +625,11 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 val grep = process_topdecs`
   fun grep u =
     case Commandline.arguments ()
-    of [] => IO.prerr_string usage_string
-     | [_] => IO.prerr_string usage_string
+    of [] => TextIO.prerr_string usage_string
+     | [_] => TextIO.prerr_string usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
-         NONE => IO.prerr_string (parse_failure_string regexp)
+         NONE => TextIO.prerr_string (parse_failure_string regexp)
        | SOME r =>
            (* abandoning this approach for now ...
          let
@@ -689,6 +689,8 @@ val STD_streams_grep_sem_file = Q.store_thm("STD_streams_grep_sem_file",
   \\ CASE_TAC \\ simp[STD_streams_add_stderr,STD_streams_add_stdout]);
 
 (* TODO: move *)
+
+open fsFFITheory
 
 val _ = temp_overload_on("isFile",``λinode. ∃fnm. inode = File fnm``);
 
@@ -797,9 +799,9 @@ val grep_spec = Q.store_thm("grep_spec",
   strip_tac
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- xsimpl
-  \\ Cases_on`cl` \\ fs[mlcommandLineProgTheory.wfcl_def]
+  \\ Cases_on`cl` \\ fs[mlcommandlineProgTheory.wfcl_def]
   \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (
     xmatch
@@ -928,8 +930,8 @@ val grep_spec = Q.store_thm("grep_spec",
 val st = get_ml_prog_state()
 val name = "grep"
 val spec = grep_spec |> UNDISCH |> SIMP_RULE std_ss [STDIO_def]
-                     |> fsioProgLib.add_basis_proj
-val (sem_thm,prog_tm) = fsioProgLib.call_thm st name spec
+                     |> add_basis_proj
+val (sem_thm,prog_tm) = call_thm st name spec
 
 val grep_prog_def = Define`grep_prog = ^prog_tm`;
 

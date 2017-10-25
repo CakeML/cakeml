@@ -1,11 +1,11 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib cfLetAutoLib basisFunctionsLib
-     fsFFITheory fsioSpecTheory
      charsetTheory lcsTheory diffTheory
+     textio_initProgTheory basis_ffiLib basisProgTheory
 
 val _ = new_theory "diffProg";
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -86,12 +86,12 @@ val r = translate usage_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
-    case IO.inputLinesFrom fname1 of
-        NONE => IO.prerr_string (notfound_string fname1)
+    case TextIO.inputLinesFrom fname1 of
+        NONE => TextIO.prerr_string (notfound_string fname1)
       | SOME lines1 =>
-        case IO.inputLinesFrom fname2 of
-            NONE => IO.prerr_string (notfound_string fname2)
-          | SOME lines2 => IO.print_list (diff_alg lines1 lines2)`
+        case TextIO.inputLinesFrom fname2 of
+            NONE => TextIO.prerr_string (notfound_string fname2)
+          | SOME lines2 => TextIO.print_list (diff_alg lines1 lines2)`
 
 val diff'_spec = Q.store_thm("diff'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -141,7 +141,7 @@ val _ = (append_prog o process_topdecs) `
   fun diff u =
     case Commandline.arguments () of
         (f1::f2::[]) => diff' f1 f2
-      | _ => IO.prerr_string usage_string`;
+      | _ => TextIO.prerr_string usage_string`;
 
 val diff_spec = Q.store_thm("diff_spec",
   `hasFreeFD fs
@@ -164,9 +164,9 @@ val diff_spec = Q.store_thm("diff_spec",
                   else add_stderr fs (explode usage_string)) * (COMMANDLINE cl))`,
   strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- xsimpl
-  \\ Cases_on `cl` \\ fs[mlcommandLineProgTheory.wfcl_def]
+  \\ Cases_on `cl` \\ fs[mlcommandlineProgTheory.wfcl_def]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
@@ -184,7 +184,7 @@ val diff_spec = Q.store_thm("diff_spec",
   \\ xapp \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
-  \\ xsimpl \\ fs[fsioConstantsProgTheory.FILENAME_def,mlstringTheory.explode_implode]
+  \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
   \\ rw[] \\ xsimpl);
@@ -193,8 +193,8 @@ val st = get_ml_prog_state();
 
 val name = "diff"
 val spec = diff_spec |> UNDISCH
-  |> SIMP_RULE (srw_ss())[fsioConstantsProgTheory.STDIO_def] |> fsioProgLib.add_basis_proj
-val (sem_thm,prog_tm) = fsioProgLib.call_thm st name spec
+  |> SIMP_RULE (srw_ss())[STDIO_def] |> add_basis_proj
+val (sem_thm,prog_tm) = call_thm st name spec
 
 val diff_prog_def = Define`diff_prog = ^prog_tm`;
 

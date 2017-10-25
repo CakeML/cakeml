@@ -1,18 +1,18 @@
 open preamble ml_progLib ml_translatorLib
-     basisFunctionsLib fsioProgLib
-     cfTacticsLib cfLetAutoLib fsioConstantsProgTheory
+     basisFunctionsLib basis_ffiLib
+     cfTacticsLib cfLetAutoLib textio_initProgTheory
 
 val _ = new_theory "echoProg";
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 val echo = process_topdecs
   `fun echo u =
       let
         val cl = Commandline.arguments ()
         val cls = String.concatwith " " cl
-        val ok = IO.print_string cls
-      in IO.print_newline() end`;
+        val ok = TextIO.print_string cls
+      in TextIO.print_newline() end`;
 
 val () = append_prog echo;
 
@@ -28,8 +28,8 @@ val echo_spec = Q.store_thm("echo_spec",
   xcf "echo" st \\
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
   xlet_auto >- (xcon \\ xsimpl) \\
-  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull) \\
-  `¬NULL cl` by fs[mlcommandLineProgTheory.wfcl_def] \\
+  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull) \\
+  `¬NULL cl` by fs[mlcommandlineProgTheory.wfcl_def] \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
@@ -50,7 +50,7 @@ val echo_spec = Q.store_thm("echo_spec",
 
 val st = get_ml_prog_state();
 val spec = echo_spec |> SPEC_ALL |> UNDISCH_ALL |>
-            SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def] |>
+            SIMP_RULE(srw_ss())[STDIO_def] |>
             add_basis_proj;
 val name = "echo";
 val (call_thm_echo, echo_prog_tm) = call_thm st name spec;

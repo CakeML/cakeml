@@ -4,13 +4,13 @@ An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble ml_progLib ioProgLib ml_translatorLib
-               cfTacticsLib basisFunctionsLib ml_translatorTheory
-               cfLetAutoTheory cfLetAutoLib
+open preamble ml_progLib ml_translatorLib
+     cfTacticsLib basisFunctionsLib ml_translatorTheory
+     cfLetAutoTheory cfLetAutoLib
 
 val _ = new_theory "stackProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"basisProg";
 
 val stack_decls = process_topdecs
    ‘fun empty_stack u = ref (Array.arrayEmpty (), 0)

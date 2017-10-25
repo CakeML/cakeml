@@ -1,11 +1,12 @@
 open preamble ml_translatorLib ml_progLib
      cfTacticsLib cfLetAutoLib basisFunctionsLib
-     fsioSpecTheory
+     textio_initProgTheory mltextioSpecTheory
+     basisProgTheory basis_ffiLib
      charsetTheory diffTheory mlstringTheory
 
 val _ = new_theory "patchProg";
 
-val _ = translation_extends"fsioProg";
+val _ = translation_extends"basisProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -98,15 +99,15 @@ val r = translate rejected_patch_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
-    case IO.inputLinesFrom fname1 of
-        NONE => IO.prerr_string (notfound_string fname1)
+    case TextIO.inputLinesFrom fname1 of
+        NONE => TextIO.prerr_string (notfound_string fname1)
       | SOME lines1 =>
-        case IO.inputLinesFrom fname2 of
-            NONE => IO.prerr_string (notfound_string fname2)
+        case TextIO.inputLinesFrom fname2 of
+            NONE => TextIO.prerr_string (notfound_string fname2)
           | SOME lines2 =>
             case patch_alg lines2 lines1 of
-                NONE => IO.prerr_string (rejected_patch_string)
-              | SOME s => IO.print_list s`
+                NONE => TextIO.prerr_string (rejected_patch_string)
+              | SOME s => TextIO.print_list s`
 
 val patch'_spec = Q.store_thm("patch'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -155,7 +156,7 @@ val _ = (append_prog o process_topdecs) `
   fun patch u =
     case Commandline.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => IO.prerr_string usage_string`
+      | _ => TextIO.prerr_string usage_string`
 
 val patch_spec = Q.store_thm("patch_spec",
   `hasFreeFD fs
@@ -177,8 +178,8 @@ val patch_spec = Q.store_thm("patch_spec",
                   else add_stderr fs (explode usage_string)) * COMMANDLINE cl)`,
   strip_tac \\ xcf "patch" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
-  \\ fs[mlcommandLineProgTheory.wfcl_def]
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ fs[mlcommandlineProgTheory.wfcl_def]
   \\ xlet_auto >- xsimpl
   \\ Cases_on `cl` \\ fs[]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
@@ -199,15 +200,15 @@ val patch_spec = Q.store_thm("patch_spec",
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
-  \\ xsimpl \\ fs[fsioConstantsProgTheory.FILENAME_def]
+  \\ xsimpl \\ fs[FILENAME_def]
   \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
 
 val st = get_ml_prog_state();
 
 val name = "patch"
-val spec = patch_spec |> UNDISCH |> SIMP_RULE(srw_ss())[fsioConstantsProgTheory.STDIO_def]
-           |> fsioProgLib.add_basis_proj
-val (sem_thm,prog_tm) = fsioProgLib.call_thm st name spec
+val spec = patch_spec |> UNDISCH |> SIMP_RULE(srw_ss())[STDIO_def]
+           |> add_basis_proj
+val (sem_thm,prog_tm) = call_thm st name spec
 
 val patch_prog_def = Define`patch_prog = ^prog_tm`;
 
