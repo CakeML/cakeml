@@ -1283,12 +1283,8 @@ val infer_prog_side = prove(``
   Cases_on`d`>>fs[]>>rw[Once (fetch "-" "infer_prog_side_def")])
  |> update_precondition
 
-(* TODO HERE *)
 val _ = m_translate (def_of_const ``infertype_prog_aux``)
-val res = m_translate_run (def_of_const ``infertype_prog``);
-val def = (def_of_const ``infertype_prog``);
-
-val _ = translate (def_of_const ``infertype_prog``);
+val _ = m_translate_run (def_of_const ``infertype_prog``);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
