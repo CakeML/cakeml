@@ -63,7 +63,7 @@ val arm8_export_def = Define `
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad" heap_space stack_space))
-      (SmartAppend (split16 (words_line (strlit"\t.quad") word_to_string) data)
+      (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
       (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
 
