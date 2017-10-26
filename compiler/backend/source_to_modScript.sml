@@ -269,7 +269,14 @@ val compile_decs_def = tDefine "compile_decs" `
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
         [modLang$Dlet l (Mat t2 e'
           [(compile_pat env p, Con t3 NONE (make_varls 0 t4 xs))])])) ∧
-  (compile_decs n next env [Dletrec locs funs] =
+  (compile_decs n next env [ast$Dletrec locs [(f,x,e)]] =
+     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
+     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
+     let e' = compile_exp t1 env (ast$Letrec [(f,x,e)] (ast$Var (mk_id [] f))) in
+       (n' + 1, (next with vidx := next.vidx + 1),
+        <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
+        [modLang$Dlet 1 e'])) ∧
+  (compile_decs n next env [ast$Dletrec locs funs] =
      let fun_names = REVERSE (MAP FST funs) in
      let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
        (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
