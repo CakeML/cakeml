@@ -29,7 +29,7 @@ val _ = (use_full_type_names := false);
 
 (* Some constants *)
 val venvironment = mk_environment v_ty
-val v_env = mk_var("env",venvironment) (* env_tm *)
+val v_env = mk_var("env",venvironment)
 val exp_ty = ``:ast$exp``
 val exp_var = mk_var("exp", exp_ty)
 val cl_env_tm = mk_var("cl_env",venvironment)
@@ -1560,7 +1560,6 @@ fun m2deep tm =
     in eq_st end
     fun mk_m_arrow x y = my_list_mk_comb(ArrowM_const, [!H,x,y])
 			        (* ``ArrowM ^(!H) ^x ^y`` *)
-    (* TODO HERE *)
     fun mk_inv [] res = res
       | mk_inv (x::xs) res = mk_inv xs (mk_m_arrow (mk_fix x) res)
     val res = mk_m_arrow (mk_fix_st (hd xs)) (get_m_type_inv (type_of tm))
@@ -2531,31 +2530,76 @@ fun create_local_references th = let
     val th = MATCH_MP EvalSt_to_Eval th
 in th end
 
+fun create_constant_state th state_var = let
+    (* Rewrite the data-type in an appropriate manner *)
+    val ty = type_of state_var
+    val type_name = dest_type ty |> fst
+    val rw_thms = DB.find (type_name ^ "_component_equality")
+			  |> List.map (fst o snd)
+    val pat = SPEC_ALL (TypeBase.one_one_of ty) |> concl |> dest_eq
+		       |> fst |> dest_eq |> fst
+    val eqns = mk_eq(pat,state_var) |> SIMP_CONV (srw_ss()) rw_thms
+    val ss = concl eqns |> rand |> list_dest dest_conj
+                 |> List.map ((fn (x,y) => x |-> y) o dest_eq)
+    val rw_state_var = Term.subst ss pat
+    val state_var_eq = prove(mk_eq(rw_state_var,state_var),fs rw_thms)
+
+    (* Instantiate the environment *)
+    val env = get_Eval_env (concl th)
+    val v = genvar v_ty
+    val nenv = mk_write (stringLib.fromMLstring "state") v env
+    val th1 = INST [env |-> nenv] th
+		   |> UNDISCH_ALL |> PURE_REWRITE_RULE [GSYM SafeVar_def]
+		   |> DISCH_ALL
+		   |> CONV_RULE (SIMP_CONV bool_ss [lookup_cons_write,lookup_var_write,Eval_Var_SIMP])
+		   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+		   |> SIMP_RULE bool_ss []
+		   |> UNDISCH_ALL
+		   |> PURE_REWRITE_RULE [SafeVar_def]
+
+    (* Apply the theorem *)
+    val STATE_INV = get_type_inv (type_of state_var)
+    val INV_pat = list_mk_comb(STATE_INV, [state_var,v_var])
+    val assum = List.hd (List.filter (can (match_term INV_pat)) (hyp th1))
+    val th2 = DISCH assum th1 |> GEN v
+
+    val Eval_state = hol2deep rw_state_var
+	             |> PURE_REWRITE_RULE [state_var_eq]
+    val old_env = concl Eval_state |> get_Eval_env
+    val Eval_state = INST [old_env |-> env] Eval_state
+    val th3 = CONJ Eval_state th2
+    val th4 = MATCH_MP Eval_Let th3
+              |> CONV_RULE ((RAND_CONV (PURE_REWRITE_CONV[LET_DEF]))
+				THENC (DEPTH_CONV BETA_CONV))
+in th4 end
+
 (* val (vname,x) = List.last params_bindings *)
 fun apply_Eval_Fun_Eq ((vname,x), th) = let
     val env = get_Eval_env (concl th)
     val v = genvar v_ty
     val tms = FVL [x,v] empty_varset
     val nenv = mk_write vname v env
-    (* val nenv = ``write ^vname ^v ^env`` *)
     val th = INST [env |-> nenv] th |> clean_lookup_assums
 
-    val assum = List.filter (can (fn y => Term.raw_match [] tms ``(A ^x (xv : v)):bool`` y ([], []))) (hyp th) |> hd
-    val th = DISCH assum th |> GEN v
+    val A = mk_var("A",mk_type("fun",[type_of x,v_bool_ty]))
+    val pat = list_mk_comb(A,[x,v_var])
+    val assum = List.filter (can (fn y => Term.raw_match [] tms pat y ([], []))) (hyp th) |> hd
+    val x = assum |> rator |> rand
+    val th = CONV_RULE ((RAND_CONV o RAND_CONV) (UNBETA_CONV x)) th
+             |> DISCH assum |> GEN v
     val th = MATCH_MP Eval_Fun_Eq th
 in th end
-
+				     
 fun m_translate_run_abstract_parameters th def params_evals = let
     val params_bindings = List.map(fn x => (concl x |> rator |> rator |> rand |> rand |> rand, concl x |> rator |> rand |> rand)) params_evals
-
-    (* Create variables for the deep embeddings of the parameters *)
-    (* val fvl = HOLset.listItems(FVL ((concl th)::(hyp th)) empty_varset)
-    val params_v = List.map (fn (n, var) => variant fvl (mk_var((dest_var var |> fst) ^ "_v", v_ty))) params_bindings
-    val hol_deep_pairs = List.map (fn ((n, x), xv) => (x, xv)) (zip params_bindings params_v)
-    val deep_params_map = List.foldr (fn ((x, xv), m) => Redblackmap.insert(m, x, xv)) (Redblackmap.mkDict Term.compare) hol_deep_pairs *)
-
     val th = PURE_REWRITE_RULE [GSYM def] th
     val th = List.foldr apply_Eval_Fun_Eq th params_bindings
+
+    (* Rewrite the function in the theorem *)
+    val f = concl th |> rand |> rand
+    val fc = SPEC_ALL def |> concl |> dest_eq |> fst |> strip_comb |> fst
+    val f_eq = prove(mk_eq(f,fc), rpt (irule EQ_EXT >> rw[]) >> rw[])
+    val th = PURE_REWRITE_RULE [f_eq] th
 in th end
 
 fun inst_gen_eq_vars2 st th = let
@@ -2636,10 +2680,13 @@ fun m_translate_run def = let
     val monad_state_is_var = is_var state_var
     val env = concl monad_th |> get_Eval_env
     val STATE_RI = get_type_inv (type_of state_var)
-    val monad_th = if not monad_state_is_var then let
+    val monad_th = if monad_state_is_var then let
 	val state_var_name = stringLib.fromMLstring(dest_var state_var |> fst)
 	(* val Eval_state_var_assum = ``Eval ^env (Var (Short ^state_var_name)) (^STATE_RI ^state_var)`` *)
-	val exp = mk_comb(Var_const,mk_comb(Short_const,state_var_name))
+	val exp1 = my_list_mk_comb(Short_const,[state_var_name])
+	val tys = Type.match_type (type_of exp1)
+                  (type_of Var_const |> dest_type |> snd |> List.hd)
+	val exp = mk_comb(Var_const,Term.inst tys exp1)
 	val Eval_state_var_assum = my_list_mk_comb(Eval_const,
                             [env,exp,mk_comb(STATE_RI,state_var)])
 	val monad_th = ADD_ASSUM Eval_state_var_assum monad_th
@@ -2704,28 +2751,8 @@ fun m_translate_run def = let
     val th = create_local_references th
 
     (* Abstract the parameters *)
-    (* TODO HERE *)
-    val th = if monad_state_is_var then th else let
-      val _ = if can lookup_v_thm ``combin$K`` then TRUTH
-	      else translate combinTheory.K_DEF
-      val Eval_state = hol2deep state_var (* TODO : PRECONDITION F ?? *)
-      val old_env = concl Eval_state |> get_Eval_env
-      val Eval_state = INST [old_env |-> env] Eval_state
-      val v = genvar(v_ty)
-      val nenv = ``write "state" ^v ^env``
-      val th1 = INST [env |-> nenv] th
-		     |> UNDISCH_ALL |> PURE_REWRITE_RULE [GSYM SafeVar_def]
-		     |> DISCH_ALL
-		     |> CONV_RULE (SIMP_CONV bool_ss [lookup_cons_write,lookup_var_write,Eval_Var_SIMP])
-		     |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-		     |> SIMP_RULE bool_ss []
-		     |> UNDISCH_ALL
-		     |> PURE_REWRITE_RULE [SafeVar_def]
-      val STATE_INV = get_type_inv (type_of state_var)
-      val assum = List.hd (List.filter (can (match_term ``^STATE_INV a v``)) (hyp th1))
-      val th2 = DISCH assum th1 |> GEN v
-      val th3 = CONJ Eval_state th2
-    in MATCH_MP Eval_Let th3 end
+    val th = if monad_state_is_var then th
+	     else create_constant_state th state_var
     val all_params = strip_comb def_lhs |> snd
     val params_evals = List.map var_create_Eval all_params
     val th = m_translate_run_abstract_parameters th def params_evals
