@@ -30,15 +30,9 @@ fun handle_file fname =
       val _ = TextIO.closeOut(dst)
   in () end;
 
-(* exists in CakeML? *)
-fun iter f l =
-  case l of
-       [] => ()
-     | h :: t => (f h; iter f t)
-
 fun main () = let
   val args = CommandLine.arguments ()
-  val _ = iter handle_file args
+  val _ = List.app handle_file args
   in () end;
 
 (* for a CakeML version:
