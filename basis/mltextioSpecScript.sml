@@ -1259,6 +1259,17 @@ val stdin_def = Define
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
 
+val get_stdin_def = Define`
+  get_stdin fs = let (inp,pos) = @(inp,pos). stdin fs inp pos in DROP pos inp`;
+
+val stdin_11 = Q.store_thm("stdin_11",
+  `stdin fs i1 p1 ∧ stdin fs i2 p2 ⇒ i1 = i2 ∧ p1 = p2`,
+  rw[stdin_def] \\ fs[]);
+
+val stdin_get_file_content = Q.store_thm("stdin_get_file_content",
+  `stdin fs inp pos ⇒ get_file_content fs 0 = SOME (inp,pos)`,
+  rw[stdin_def,fsFFITheory.get_file_content_def]);
+
 val stdo_numchars = Q.store_thm("stdo_numchars",
   `stdo fd name (fs with numchars := l) out ⇔ stdo fd name fs out`,
   rw[stdo_def]);
