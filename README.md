@@ -36,6 +36,9 @@ Verification of a HOL theorem prover, based on HOL Light
 A verified CakeML adaption of Arthur Charguéraud's "Characteristic
 Formulae for the Verification of Imperative Programs"
 
+[chat](chat):
+Toy implementation of choreographic compilation
+
 [compiler](compiler):
 A verified compiler for CakeML, including:
  - parsing: lexer and PEG parser

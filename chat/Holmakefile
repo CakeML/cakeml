@@ -1,0 +1,18 @@
+INCLUDES = .. ../semantics/ffi ../semantics
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+DEPS = $(PARENTHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP)
+endif
