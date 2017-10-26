@@ -2655,7 +2655,7 @@ val lookup_cons_write_simp = Q.prove(
 val lookup_cons_build_rec_env_simp = Q.prove(
  `lookup_cons name2 <|v := build_rec_env exp env env.v; c := env.c|> =
   lookup_cons name2 env`,
-  fs[lookup_cons_def]);
+  fs[lookup_cons_def]); 
 
 val LOOKUP_ASSUM_SIMP = save_thm("LOOKUP_ASSUM_SIMP",
 LIST_CONJ[nsBind_to_write,Eval_Var_SIMP,Eval_lookup_var,nsLookup_write_simp,sem_env_same_components,lookup_cons_write_simp,lookup_cons_build_rec_env_simp]);
@@ -2668,6 +2668,11 @@ val m_translator_terms = save_thm("m_translator_terms",
      ("ArrowP PURE", ``ArrowP H a (PURE b)``),
      ("ArrowP EqSt", ``ArrowP H (EqSt a st) b``)
 ]);
+
+(* val m_translator_types = save_thm("m_translator_types",
+  pack_list (pack_pair pack_string pack_type)
+    [];
+[; *)
 
 val _ = (print_asts := true);
 
