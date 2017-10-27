@@ -480,12 +480,6 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
   (theory_ok thy ∧ term_ok (sigof thy) t
    ⇒ (thy, []) |- t === t) ∧
 
-  (* TRANS *)
-  ((thy, h1) |- l === m1 ∧
-   (thy, h2) |- m2 === r ∧
-   ACONV m1 m2
-   ⇒ (thy, term_union h1 h2) |- l === r) ∧
-
   (* axioms *)
   (theory_ok thy ∧ c ∈ (axsof thy)
    ⇒ (thy, []) |- c)`

@@ -103,7 +103,6 @@ val test3_v_th = m_translate test3_def;
 
 (* Several non recursive functions *)
 val run_test3_def = Define `run_test3 n m z refs = run (test3 n m z) refs`;
-val def = run_test3_def;
 val run_test3_v_th = m_translate_run run_test3_def;
 
 (* Recursive function *)
