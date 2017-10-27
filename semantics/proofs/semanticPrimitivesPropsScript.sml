@@ -145,8 +145,7 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- res_tac >>
- qexists_tac `env'''++env''` >>
+ res_tac >> rveq >>
  srw_tac[][] >>
  metis_tac [pat_bindings_accum]);
 
