@@ -207,7 +207,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
       (FLAT (MAP explode (MAP format_output (toAscList (FOLDL insert_line empty (all_lines fs fname))))))`,
   rw[valid_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
-  (* TODO: what is the list of words to use here? *)
+  (* EXERCISE: what is the list of words to use here? *)
   (* hint: toAscList returns a list of pairs, and you can use
            MAP FST ls and MAP SND ls to obtain lists of the first/second items
            of these pairs *)
@@ -237,7 +237,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   AP_TERM_TAC \\
   simp[MAP_EQ_f] \\
   simp[FORALL_PROD] \\ rw[] \\
-  (* TODO: finish the proof *)
+  (* EXERCISE: finish the proof *)
   (* hint: try DB.match [] ``MEM _ (toAscList _)`` *)
   (* hint: also consider using lookup_thm *)
   (* hint: the following idiom is useful for specialising an assumption:
@@ -248,17 +248,17 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   simp[lookup0_def, lookup_thm] \\
   simp[frequency_def]
   (* ex*)
-  );
+);
 
 val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
   `valid_wordfreq_output (implode file_chars) output ⇒
    wordfreq_output_spec file_chars = output`,
-   (* TODO: prove this *)
-   (* hint: it's a one-liner *)
-   (*ex *)
-   metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
-   (* ex*)
-   );
+  (* EXERCISE: prove this *)
+  (* hint: it's a one-liner *)
+  (*ex *)
+  metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
+  (* ex*)
+);
 
 (* These will be needed for xlet_auto to handle our use of List.foldl *)
 val insert_line_v_thm = theorem"insert_line_v_thm";
@@ -267,20 +267,19 @@ val empty_v_thm = theorem"empty_v_thm" |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TY
 val format_output_v_thm = theorem"format_output_v_thm";
 
 val wordfreq_spec = Q.store_thm("wordfreq_spec",
-  (* TODO: write the specification for the wordfreq program *)
+  (* EXERCISE: write the specification for the wordfreq program *)
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
   (*ex *)
-  `
-  hasFreeFD fs ∧ fsFFIProof$inFS_fname fs (File fname) ∧
-  cl = [explode pname; explode fname] ∧
-  contents = THE (ALOOKUP fs.files (File fname))
-  ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
-    [uv] (COMMANDLINE cl * STDIO fs)
-    (POSTv uv. &UNIT_TYPE () uv *
-        (STDIO (add_stdout fs (wordfreq_output_spec contents))) *
-        COMMANDLINE cl)`,
+  `hasFreeFD fs ∧ fsFFIProof$inFS_fname fs (File fname) ∧
+   cl = [explode pname; explode fname] ∧
+   contents = THE (ALOOKUP fs.files (File fname))
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
+     [uv] (COMMANDLINE cl * STDIO fs)
+     (POSTv uv. &UNIT_TYPE () uv *
+         (STDIO (add_stdout fs (wordfreq_output_spec contents))) *
+         COMMANDLINE cl)`,
   (* ex*)
 
 (* The following proof sketch should work when you have roughly the right
@@ -292,7 +291,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   strip_tac \\
   xcf"wordfreq" (get_ml_prog_state()) \\
 
-  (* TODO: step through the first few function calls in wordfreq using CF
+  (* EXERCISE: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
   (* Before you step through the call to TextIO.inputLinesFrom, the following
@@ -305,13 +304,14 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
-  (* trying xlet_auto shows we need a FILENAME assumption *)
+  (* trying xlet_auto shows (TODO: in an obscure way) we need a FILENAME assumption *)
   `FILENAME fname fnamev` by (
     fs[FILENAME_def,EVERY_MEM,
        mlcommandlineProgTheory.wfcl_def,GSYM LENGTH_explode,
        commandLineFFITheory.validArg_def] ) \\
 
   (* TODO: xlet_auto needs to be made to work with STDIO better *)
+  (* TODO: inventing this is too hard for the tutorial *)
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
            (if inFS_fname fs (File fname) then SOME (all_lines fs (File fname))
               else NONE) sv * STDIO fs *
@@ -334,7 +334,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xlet_auto >- xsimpl \\
   (* ex*)
 
-  (* TODO: finish the rest of the CF part of the proof *)
+  (* EXERCISE: finish the rest of the CF part of the proof *)
   (*ex *)
 
   xlet_auto >- xsimpl \\
@@ -364,11 +364,11 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* TODO: use the lemmas above to finish the proof *)
+  (* EXERCISE: use the lemmas above to finish the proof *)
   (*ex *)
   metis_tac[wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
   (* ex*)
-  );
+);
 
 (* Finally, we package the verified program up with the following boilerplate*)
 
