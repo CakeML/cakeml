@@ -25,6 +25,29 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
 (* -- *)
 
+val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
+val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
+
+structure option_monadsyntax = struct
+fun temp_add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.temp_add_monadsyntax();
+    val _ = temp_inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = temp_overload_on ("monad_bind", option_bind_tm)
+    val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
+  in () end
+
+fun add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.add_monadsyntax();
+    val _ = inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = overload_on ("monad_bind", option_bind_tm)
+    val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
+  in () end
+end
+
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
 (* treat the given eq_tms (list of equations) as rewrite thereoms,

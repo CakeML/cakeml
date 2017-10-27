@@ -7,15 +7,7 @@ val _ = new_theory "mlcommandlineProg";
 
 val _ = translation_extends "mlarrayProg";
 
-(* TODO: put these calls in a re-usable option syntax Lib *)
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-(* -- *)
+val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 (* TODO: where should these be defined? They are not necessary if we have
 concrete syntax for FFI calls (issue #161) *)

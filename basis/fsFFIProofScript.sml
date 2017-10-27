@@ -2,15 +2,7 @@ open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
 
 val _ = new_theory"fsFFIProof"
 
-(* TODO: put these calls in a re-usable option syntax Lib *)
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-val _ = monadsyntax.add_monadsyntax();
+val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 (* nextFD *)
 val nextFD_ltX = Q.store_thm(
