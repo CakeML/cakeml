@@ -1,4 +1,4 @@
-open preamble mp_then
+open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
      cfTacticsBaseLib cfTacticsLib cfLetAutoLib basisFunctionsLib
      mlstringTheory mlcommandlineProgTheory textio_initProgTheory

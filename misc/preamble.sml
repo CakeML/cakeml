@@ -4,12 +4,12 @@
 structure preamble =
 struct
 local open intLib wordsLib in end;
-open set_relationTheory;
+open set_relationTheory; (* comes first so relationTheory takes precedence *)
 open BasicProvers Defn HolKernel Parse SatisfySimps Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     optionTheory pairLib pairTheory pred_setTheory
+     mp_then optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
 (* TOOD: move? *)
