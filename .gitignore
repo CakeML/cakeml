@@ -12,8 +12,9 @@
 # Generated assembly
 *.S
 
-# README.md generator's executable
+# Developer generated executables
 developers/readme_gen
+tutorial/solutions/make_ex
 
 # regression test logs
 regression.log

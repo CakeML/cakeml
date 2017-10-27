@@ -11,7 +11,7 @@ val _ = temp_overload_on ("NONE", ``NONE``)
 val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 
-val _ = Datatype` inode = IOStream mlstring | File mlstring` 
+val _ = Datatype` inode = IOStream mlstring | File mlstring`
 
 (* files: a list of file names and their content.
 *  infds: descriptor * (filename * position)
@@ -28,7 +28,7 @@ val IO_fs_component_equality = theorem"IO_fs_component_equality";
 val _ = monadsyntax.add_monadsyntax();
 
 val get_file_content_def = Define`
-    get_file_content fs fd = 
+    get_file_content fs fd =
       do
         (fnm, off) <- ALOOKUP fs.infds fd ;
         c <- ALOOKUP fs.files fnm;
@@ -95,15 +95,15 @@ val read_def = Define`
 (* replaces the content of the file in fs with filename fnm,
 * set the position in the file and skip k fsnumchars elements*)
 val fsupdate_def = Define`
-  fsupdate fs fd k pos content = 
-    let fnm = FST (THE (ALOOKUP fs.infds fd)) in
-    ((fs with files := ALIST_FUPDKEY fnm (\_. content) fs.files)
-        with numchars := THE (LDROP k fs.numchars))
-        with infds := (ALIST_FUPDKEY fd (I ## (\_. pos))) fs.infds`
+  fsupdate fs fd k pos content =
+    case ALOOKUP fs.infds fd of NONE => fs | SOME (fnm,_) =>
+    (fs with <| files := ALIST_FUPDKEY fnm (K content) fs.files;
+                numchars := THE (LDROP k fs.numchars);
+                infds := (ALIST_FUPDKEY fd (I ## (K pos))) fs.infds|>)`;
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
-*  an exceptional condition is encountered." *) 
+*  an exceptional condition is encountered." *)
 (* can it be 0? *)
 
 val write_def = Define`
@@ -117,7 +117,7 @@ val write_def = Define`
       let k = MIN n strm in
         (* an unspecified error occurred *)
         return (k, fsupdate fs fd 1 (off + k)
-                            (TAKE off content ++ 
+                            (TAKE off content ++
                              TAKE k chars ++
                              DROP (off + k) content))
     od `;
@@ -168,14 +168,14 @@ val ffi_open_in_def = Define`
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
-(* open append: 
+(* open append:
       contents <- ALOOKUP fs.files (implode fname);
       (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
       *)
 
 (* open for writing
-* position: the beginning of the file. 
-* The file is truncated to zero length if it already exists. 
+* position: the beginning of the file.
+* The file is truncated to zero length if it already exists.
 * TODO: It is created if it does not already exists.*)
 val ffi_open_out_def = Define`
   ffi_open_out (conf: word8 list) bytes fs =
@@ -187,7 +187,7 @@ val ffi_open_out_def = Define`
     od ++
     return (LUPDATE 255w 0 bytes, fs)`;
 
-(* 
+(*
 * [descriptor index; number of char to read; buffer]
 *   -> [return code; number of read chars; read chars]
 * corresponding system call:
@@ -206,7 +206,7 @@ val ffi_read_def = Define`
                     MAP (n2w o ORD) l ++
                     DROP (LENGTH l) tll, fs')
            od ++ return (LUPDATE 1w 0 bytes, fs)
-      (* inaccurate: "when an error occurs, [...] 
+      (* inaccurate: "when an error occurs, [...]
       * it is left unspecified whether the file position (if any) changes. *)
        | _ => NONE`
 
@@ -219,7 +219,7 @@ val ffi_write_def = Define`
     do
     (* the buffer contains at least the number of requested bytes *)
       assert(LENGTH bytes >= 3);
-      (nw, fs') <- write (w2n (HD bytes)) (w2n (HD (TL bytes))) 
+      (nw, fs') <- write (w2n (HD bytes)) (w2n (HD (TL bytes)))
                          (MAP (CHR o w2n) (DROP (3+w2n (HD(TL(TL bytes)))) bytes)) fs;
       (* return ok code and number of bytes written *)
       return (LUPDATE (n2w nw) 1 (LUPDATE 0w 0 bytes), fs')
@@ -246,7 +246,7 @@ val ffi_close_def = Define`
       do
         fs' <- seek (w2n (HD bytes)) fs (w2n (HD (TL bytes)));
         return(LUPDATE 0w 0 bytes, fs')
-      od ++ 
+      od ++
       return (LUPDATE 1w 0 bytes, fs)
     od`; *)
 
@@ -307,4 +307,3 @@ val fs_ffi_part_def = Define`
        ("close",ffi_close)])`;
 
 val _ = export_theory();
-

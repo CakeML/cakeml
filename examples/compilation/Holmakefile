@@ -14,16 +14,16 @@ cake_patch: patch.S ../../basis/basis_ffi.o
 	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_diff: diff.S ../../basis/basis_ffi.o
 	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-cake_hello: hello.S ../../basis/fs_ffi.o
-	$(CC) $< ../../basis/fs_ffi.o $(GCCFLAGS) -o $@
+cake_hello: hello.S ../../basis/basis_ffi.o
+	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 cake_sort: sort.S ../../basis/basis_ffi.o
 	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
-cake_echo: echo.S ../../basis/fs_ffi.o
-	$(CC) $< ../../basis/fs_ffi.o $(GCCFLAGS) -o $@
-cake_helloErr: helloErr.S ../../basis/fs_ffi.o
-	$(CC) $< ../../basis/fs_ffi.o $(GCCFLAGS) -o $@
-cake_iocat: iocat.S ../../basis/fs_ffi.o
-	$(CC) $< ../../basis/fs_ffi.o $(GCCFLAGS) -o $@
+cake_echo: echo.S ../../basis/basis_ffi.o
+	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_helloErr: helloErr.S ../../basis/basis_ffi.o
+	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
+cake_iocat: iocat.S ../../basis/basis_ffi.o
+	$(CC) $< ../../basis/basis_ffi.o $(GCCFLAGS) -o $@
 
 exec: cake_cat cake_grep cake_patch cake_diff cake_hello cake_sort cake_echo cake_helloErr cake_iocat
 
