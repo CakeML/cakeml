@@ -210,7 +210,10 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* hint: toAscList returns a list of pairs, and you can use
            MAP FST ls and MAP SND ls to obtain lists of the first/second items
            of these pairs *)
+  (* qexists_tac `<put your answer here>` \\ *)
+  (*ex *)
   qexists_tac `MAP FST ls` \\
+  (* ex*)
   (* Now we use the theorem about insert_line proved earlier *)
   qspecl_then[`all_lines fs fname`,`empty`]mp_tac FOLDL_insert_line \\
   simp[empty_thm] \\
@@ -238,10 +241,12 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* hint: also consider using lookup_thm *)
   (* hint: the following idiom is useful for specialising an assumption:
      first_x_assum (qspec_then `<insert specialisation here>` mp_tac) *)
+  (*ex *)
   imp_res_tac MEM_toAscList \\
   first_x_assum(qspec_then`p_1`mp_tac) \\
   simp[lookup0_def, lookup_thm] \\
   simp[frequency_def]
+  (* ex*)
   );
 
 val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
@@ -249,7 +254,9 @@ val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
    wordfreq_output_spec file_chars = output`,
    (* TODO: prove this *)
    (* hint: it's a one-liner *)
+   (*ex *)
    metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
+   (* ex*)
    );
 
 val st = get_ml_prog_state();
@@ -264,6 +271,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* TODO: write the specification for the wordfreq program *)
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
+  (*ex *)
   `
   hasFreeFD fs ∧ inFS_fname fs fname ∧
   cl = [explode pname; explode fname] ∧
@@ -273,6 +281,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
     [uv] (COMMANDLINE cl * ROFS fs * STDOUT out)
     (POSTv uv. &UNIT_TYPE () uv * ROFS fs * COMMANDLINE cl *
                 STDOUT (out ++ wordfreq_output_spec contents))`,
+  (* ex*)
 
 (* The following proof sketch should work when you have roughly the right
    specification
@@ -292,7 +301,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   *)
   reverse(Cases_on`wfcl cl`)
   >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
-
+  (*ex *)
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
   xlet_auto >- (xsimpl) \\
@@ -300,6 +309,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
     xsimpl \\
     rfs[mlcommandLineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
     fsrw_tac[DNF_ss][LENGTH_explode]) \\
+  (* ex*)
 
   (* To get through the pattern match, try this: *)
   xmatch \\
@@ -310,22 +320,28 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* try xlet_auto and see that some of the specs for helper functions declared
      above might be helpful. You can add them to the assumptions like this: *)
   assume_tac insert_line_v_thm \\
+  (*ex *)
 
   assume_tac empty_v_thm \\
   xlet_auto >- xsimpl \\
+  (* ex*)
 
   (* TODO: finish the rest of the CF part of the proof *)
+  (*ex *)
 
   xlet_auto >- xsimpl \\
   assume_tac format_output_v_thm \\
   xlet_auto >- xsimpl \\
+  (* ex*)
 
   (* hint: when xlet_auto is no longer applicable, you can use other CF tactics like xapp *)
+  (*ex *)
 
   xapp \\ xsimpl \\
   instantiate \\
   CONV_TAC SWAP_EXISTS_CONV \\
   qexists_tac`out` \\ xsimpl \\
+  (* ex*)
 
   (* After the CF part of the proof is finished, you should have a goal
      roughly of the form:
@@ -340,8 +356,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
   (* TODO: use the lemmas above to finish the proof *)
-
+  (*ex *)
   metis_tac[wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
+  (* ex*)
   );
 
 (* Finally, we package the verified program up with the following boilerplate*)

@@ -62,7 +62,8 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
-val insert_def = (* TODO: fill in your definition here *)
+val insert_def =
+(* TODO: fill in your definition here *)
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -105,6 +106,7 @@ val key_set_eq = Q.store_thm ("key_set_eq",
   (* hint: consider the tactics used above *)
   (* hint: remember DB.match and DB.find to find useful theorems *)
   (* hint: set extensionality theorem is called EXTENSION *)
+
 );
 
 (* A helper theorem, expanding out the definition of key_set, for use with
@@ -129,6 +131,7 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
    Induct_on `t` >>
    (* TODO: finish this proof *)
    (* hint: the same tactic probably works for both subgoals *)
+);
 
 (*
   Now some proofs about the basic tree operations.
@@ -178,12 +181,14 @@ val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
   (* TODO: you might want to prove a lemma about key_ordered and singleton *)
   (* skip ahead to wf_tree_insert first *)
 
+
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
-  `∀t. ????? ⇒
+(* `∀t. ????? ⇒ *)
          key_ordered cmp k (insert cmp k' v' t) res`,
   (* TODO: you might want to prove a lemma about key_ordered and insert *)
   (* skip ahead to wf_tree_insert first *)
   (* hint: this lemma might need induction *)
+);
 
 val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   `good_cmp cmp ⇒
@@ -197,6 +202,8 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
      then you can continue with:
     match_mp_tac key_ordered_insert
     ( or: match_mp_tac (MP_CANON key_ordered_insert) )*)
+
+);
 
 (*
   Correctness of lookup
@@ -238,5 +245,7 @@ val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
   (* TODO: fill in the rest of this proof *)
+
+);
 
 val _ = export_theory();

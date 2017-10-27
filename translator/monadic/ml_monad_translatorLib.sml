@@ -948,6 +948,7 @@ val th_ref = ref nil_lemma
           (SIMP_CONV std_ss [FORALL_PROD,patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
+
   val th = trans ts
   val _ = pmatch_index := (!pmatch_index - 1)
   val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
@@ -1003,6 +1004,25 @@ fun inst_EvalM_env v th = let
                |> CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV) (UNBETA_CONV v))
                |> DISCH new_assum
   in th1 end
+
+fun remove_ArrowM_EqSt th = let
+  val st_var = th |> concl |> rator |> rand |> rator |> rator |> rand |> rand
+  val th = GEN st_var th |> MATCH_MP ArrowM_EqSt_elim
+in th end handle HOL_ERR _ => th;
+
+fun inst_new_state_var thms th = let
+    val fvs = FVL (List.map (concl o DISCH_ALL) thms) empty_varset
+    val current_state_var = UNDISCH_ALL th |> concl |> get_EvalM_state
+    val basename = "st"
+    fun find_new_state_var i = let
+	val name = basename ^(Int.toString i)
+	val state_var = mk_var(name, !refs_type)
+    in if not (HOLset.member (fvs, state_var))
+       then state_var else find_new_state_var (i+1)
+    end
+    val nstate_var = find_new_state_var 1
+    val th = Thm.INST [current_state_var |-> nstate_var] th
+in th end;
 
 fun remove_ArrowM_EqSt th = let
   val st_var = th |> concl |> rator |> rand |> rator |> rator |> rand |> rand
@@ -1226,6 +1246,53 @@ in result end;
 
 fun inst_gen_eq_vars th = let
     (* Instantiate the variables in the occurences of Eq *)
+
+fun instantiate_EvalM_handle EvalM_th tm m2deep = let
+    val x = tm |> rator |> rand
+    val (v,y) = tm |> rand |> dest_abs
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val th3 = inst_EvalM_env v th2
+    val type_assum = concl th3 |> dest_imp |> fst
+    val th4 = Dfilter (UNDISCH th3) type_assum
+    val assums = concl th4 |> dest_imp |> fst
+    val state_var = th4 |> concl |> dest_imp |> snd |> get_EvalM_state
+    val t = rator type_assum |> rand
+    val v = rand type_assum
+    val assums_abs = list_mk_comb(list_mk_abs([state_var, t], assums), [state_var, t])
+    val assums_eq = ((RATOR_CONV BETA_CONV) THENC BETA_CONV) assums_abs
+    val th5 = CONV_RULE ((RATOR_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV [GSYM assums_eq])) th4 |> DISCH type_assum |> GENL[state_var, t, v]
+    val lemma = EvalM_th |> SPEC_ALL |> UNDISCH
+    val th6 = CONJ (D th1) th5
+    val result = (MATCH_MP lemma th6 handle HOL_ERR _ => HO_MATCH_MP th4 th3)
+    val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
+in result end;
+
+fun instantiate_EvalM_otherwise tm m2deep = let
+    val x = tm |> rator |> rand
+    val y = tm |> rand
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val th2 = th2 |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_cons_write]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> ONCE_REWRITE_RULE [EvalM_Var_SIMP]
+                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
+                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> REWRITE_RULE []
+                  |> D
+    val st2 = concl th2 |> dest_imp |> snd |> get_EvalM_state
+    val assums = concl th2 |> dest_imp |> fst
+    val assums_eq = mk_comb(mk_abs(st2, assums), st2) |> BETA_CONV
+    val th3 = CONV_RULE ((RATOR_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV [GSYM assums_eq])) th2 |> Q.GEN `i` |> GEN st2 
+    val th4 = CONJ (D th1) th3
+    val result = MATCH_MP (SPEC_ALL EvalM_otherwise) th4
+    val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
+in result end;
+
+fun inst_gen_eq_vars th = let
+    (* Instantiate the variables in the occurences of Eq*)
+>>>>>>> master
     val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
     val xs = find_terms (can (match_term pat)) (concl th) |> List.map rand
     val ss = List.map (fn v => v |-> genvar(type_of v)) xs
@@ -2671,7 +2738,7 @@ fun m_translate_run def = let
     val th = create_local_fun_defs th
 
     (* Create the store *)
-    val th = create_local_references th
+    val th = create_local_references th 
 
     (* Abstract the parameters *)
     val th = if monad_state_is_var then th
