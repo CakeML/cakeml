@@ -14,43 +14,10 @@ val MEM_exp_size_imp = Q.store_thm ("MEM_exp_size_imp",
 val small_int_def = Define `
   small_int (i:int) <=> -268435457 <= i /\ i <= 268435457`;
 
-val is_arith_op_def = Define `
-  is_arith_op Add       = T ∧
-  is_arith_op Mult      = T ∧
-  is_arith_op Sub       = T ∧
-  is_arith_op Div       = T ∧
-  is_arith_op Mod       = T ∧
-  is_arith_op _         = F
-  `;
-
-val is_list_op_def = Define `
-  is_list_op ListAppend = T /\
-  is_list_op _          = F
-  `;
-
-(* TODO may need some is_list for constructed lists *)
-
-val is_const_def = Define `
-  (is_const (Const i) ⇔ small_int i) ∧
-  (is_const _         ⇔ F)
-  `;
-
-val is_num_rel_def = Define `
-  (is_num_rel LessEq       ⇔ T) ∧
-  (is_num_rel Less         ⇔ T) ∧
-  (is_num_rel Greater      ⇔ T) ∧
-  (is_num_rel GreaterEq    ⇔ T) ∧
-  (is_num_rel (EqualInt _) ⇔ T) ∧
-  (is_num_rel _            ⇔ F)
-  `;
-
 val is_rec_def = Define `
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
   `;
-
-val _ = export_rewrites
-  ["is_arith_op_def", "is_list_op_def", "is_const_def", "is_num_rel_def"];
 
 val _ = Datatype `
   assoc_op = Plus
@@ -59,6 +26,11 @@ val _ = Datatype `
            | Noop`;
 
 val _ = Datatype `v_ty = Int | List | Any`;
+
+val op_type_def = Define `
+  op_type Append = List /\
+  op_type Noop   = Any /\
+  op_type _      = Int`;
 
 val to_op_def = Define `
   to_op Plus   = Add        /\
@@ -86,6 +58,13 @@ val op_eq_def = Define `
   (op_eq Times  (Op op xs) <=> op = Mult) /\
   (op_eq Append (Op op xs) <=> op = ListAppend) /\
   (op_eq _      _          <=> F)`;
+
+val op_eq_to_op = Q.store_thm ("op_eq_to_op[simp]",
+  `∀iop op xs.
+      op_eq iop (Op op xs)
+      ⇔
+      op = to_op iop ∧ iop ≠ Noop`,
+  Cases \\ Cases \\ fs [op_eq_def, to_op_def]);
 
 val apply_op_def = Define `
   apply_op op e1 e2 = Op (to_op op) [e1; e2]
@@ -117,12 +96,14 @@ val get_bin_args_def = Define `
 val exp_size_get_bin_args = Q.store_thm ("exp_size_get_bin_args",
   `∀x x1 x2.
      get_bin_args x = SOME (x1, x2) ⇒
-       exp_size x1 < exp_size x ∧
-       exp_size x2 < exp_size x`,
+       exp_size x1 + exp_size x2 < exp_size x`,
   Induct
   \\ rw [get_bin_args_def, exp_size_def]
   \\ every_case_tac
   \\ fs [exp_size_def]);
+
+val opbinargs_def = Define `
+  opbinargs opr exp = if ~op_eq opr exp then NONE else get_bin_args exp`;
 
 val try_update_def = Define `
   (try_update vty NONE     ts = ts) ∧
@@ -131,100 +112,222 @@ val try_update_def = Define `
     then TAKE n ts ++ [vty] ++ DROP (n + 1) ts
     else ts)`;
 
-(* --- Rewriting arithmetic (associative and commutative) --- *)
+(* --- Checking termination guarantees --- *)
 
-val no_err_ar_def = tDefine "no_err_ar" `
-  (no_err_ar ts (Op op xs) ⇔
-    case op of
-      Const i => small_int i ∧ xs = []
-    | Add     => LENGTH xs = 2 ∧ EVERY (no_err_ar ts) xs
-    | Mult    => LENGTH xs = 2 ∧ EVERY (no_err_ar ts) xs
-    | _       => F) ∧
-  (no_err_ar ts (Var i) ⇔ if i < LENGTH ts then EL i ts = Int else F) ∧
-  (no_err_ar ts _       ⇔ F)`
+val term_ok_def = tDefine "term_ok" `
+  (* Variables *)
+  (term_ok ts ty (Var i) <=>
+    if ty = Any then i < LENGTH ts
+    else if i < LENGTH ts then EL i ts = ty
+    else F) /\
+  (* Operations *)
+  (term_ok ts ty (Op op xs) <=>
+    (* List operations *)
+    if (ty = Any \/ ty = List) /\ op = ListAppend then
+      LENGTH xs = 2 /\ EVERY (term_ok ts ty) xs
+    else if (ty = Any \/ ty = List) /\ op = Cons nil_tag then
+      xs = []
+    else if (ty = Any \/ ty = List) /\ op = Cons cons_tag /\ LENGTH xs = 2 then
+      term_ok ts Any (HD xs) /\ term_ok ts List (EL 1 xs)
+    (* Arithmetic *)
+    else if (ty = Any \/ ty = Int) /\ op = Add then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if (ty = Any \/ ty = Int) /\ op = Mult then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if (ty = Any \/ ty = Int) /\ op = Sub then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if (ty = Any \/ ty = Int) /\ ?i. op = Const i /\ small_int i then
+      xs = []
+    (* Other types (accepted as first argument of ::) *)
+    else if ty = Any /\ op = Less then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if ty = Any /\ op = LessEq then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if ty = Any /\ op = Greater then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else if ty = Any /\ op = GreaterEq then
+      LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
+    else F) /\
+  (term_ok ts ty _ <=> F)`
+  (WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
+   \\ EVAL_TAC
+   \\ imp_res_tac MEM_exp_size_imp
+   \\ fs [bviTheory.exp_size_def, LENGTH_EQ_NUM_compute]);
+
+(* --- Right-associate all targeted operations --- *)
+
+val rotate_def = tDefine "rotate" `
+  rotate opr exp =
+    case opbinargs opr exp of
+      NONE => exp
+    | SOME (a, c) =>
+        case opbinargs opr a of
+          NONE => exp
+        | SOME (a, b) =>
+            rotate opr (apply_op opr a (apply_op opr b c))`
+  (WF_REL_TAC `measure (\(opr,x).
+    case opbinargs opr x of
+      NONE => exp_size x
+    | SOME (a, c) => exp_size a)`
+  \\ rw [opbinargs_def, apply_op_def, get_bin_args_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ Cases_on `opr` \\ fs [to_op_def, op_eq_def]
+  \\ fs [bviTheory.exp_size_def]);
+
+val rotate_exp_size = Q.store_thm("rotate_exp_size",
+  `!opr exp. exp_size exp = exp_size (rotate opr exp)`,
+  recInduct (theorem "rotate_ind") \\ rw []
+  \\ rw [opbinargs_def, get_bin_args_def, apply_op_def]
+  \\ once_rewrite_tac [rotate_def]
+  \\ CASE_TAC \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ CASE_TAC \\ fs []
+  \\ fs [apply_op_def, opbinargs_def, get_bin_args_def]
+  \\ every_case_tac \\ fs [] \\ rveq
+  \\ Cases_on `opr`
+  \\ fs [to_op_def, bviTheory.exp_size_def, closLangTheory.op_size_def]);
+
+val do_assocr_def = tDefine "do_assocr" `
+  do_assocr opr exp =
+    case opbinargs opr exp of
+      NONE => exp
+    | SOME _ =>
+        case opbinargs opr (rotate opr exp) of
+          NONE => exp
+        | SOME (l, r) =>
+            apply_op opr l (do_assocr opr r)`
   (WF_REL_TAC `measure (exp_size o SND)`
-  \\ Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []);
+   \\ rw [opbinargs_def, get_bin_args_def]
+   \\ every_case_tac \\ fs [] \\ rw []
+   \\ qmatch_asmsub_abbrev_tac `rotate _ exp`
+   \\ `exp_size exp = exp_size (rotate opr exp)` by fs [rotate_exp_size]
+   \\ unabbrev_all_tac
+   \\ rfs []
+   \\ fs [bviTheory.exp_size_def])
 
-val is_recl_ar_def = Define `
-  is_recl_ar ts name op exp ⇔
-    is_rec name exp ∨
-    op_eq op exp ∧
-      (case get_bin_args exp of
-        NONE        => F
-      | SOME (x, y) => is_rec name x ∧ no_err_ar ts y)
-  `;
+val assocr_def = Define `
+  (assocr (If x1 x2 x3) = If x1 (assocr x2) (assocr x3)) /\
+  (assocr (Let xs x) = Let xs (assocr x)) /\
+  (assocr (Tick x) = Tick (assocr x)) /\
+  (assocr (Op op xs) =
+    if ~(op = Add \/ op = Mult \/ op = ListAppend) then Op op xs
+    else do_assocr (from_op op) (Op op xs)) /\
+  (assocr exp = exp)`;
 
-val assoc_swap_def = Define `
-  assoc_swap op from into =
-    if ¬op_eq op into then
-      apply_op op into from
-    else
-      case get_bin_args into of
-        NONE        => apply_op op into from
-      | SOME (x, y) => apply_op op x (apply_op op from y)
-  `;
+(* Test do_assocr *)
+val test_tm = ``
+  apply_op Plus
+    (apply_op Plus (Var 0)
+      (apply_op Plus (apply_op Plus (Var 1) (Var 2)) (Var 3)))
+    (apply_op Plus (apply_op Plus (Var 4) (Var 5)) (Var 6))``;
 
-val rewrite_ar_def = tDefine "rewrite_ar" `
-  rewrite_ar ts op loc exp =
-    if ¬op_eq op exp then (F, exp)
-    else
-      case get_bin_args exp of
-        NONE => (F, exp)
-      | SOME (x1, x2) =>
-        let (r1, y1) = rewrite_ar ts op loc x1 in
-        let (r2, y2) = rewrite_ar ts op loc x2 in
-          case (is_recl_ar ts loc op y1, is_recl_ar ts loc op y2) of
-            (T, F) => if no_err_ar ts y2
-                      then (T, assoc_swap op y2 y1) else (F, exp)
-          | (F, T) => if no_err_ar ts y1
-                      then (T, assoc_swap op y1 y2) else (F, exp)
-          | _      => (F, exp)
-  `
-  (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
-  \\ rw [exp_size_get_bin_args]);
+val succ_tm = ``
+  apply_op Plus (Var 0) (apply_op Plus (Var 1) (apply_op Plus (Var 2)
+    (apply_op Plus (Var 3)
+    (apply_op Plus (Var 4) (apply_op Plus (Var 5) (Var 6))))))``;
 
-(* --- Rewriting append (only associative) --- *)
+val do_assocr_test = Q.store_thm ("do_assocr_test",
+  `do_assocr Plus ^test_tm = ^succ_tm`, EVAL_TAC);
 
-(* TODO *)
-val no_err_app = Define `
-  (no_err_app ts (Op op xs) <=> op = ListAppend) /\
-  (no_err_app ts _          <=> F)
-  `;
+(* --- Do commutative shifts of recursive calls --- *)
 
-val is_recl_app_def = Define `
-  is_recl_app ts name op exp <=>
-    is_rec name exp \/
-    op_eq op exp /\
-      (case get_bin_args exp of
-         NONE => F
-       | SOME (x, y) => is_rec name x /\ no_err_app ts y)
-  `;
+(* Assumes that tree is rotated right *)
+val do_comml_def = tDefine "do_comml" `
+  do_comml loc opr exp =
+    case opbinargs opr exp of
+      NONE => exp
+    | SOME (l, r) =>
+        if is_rec loc r then apply_op opr r l
+        else if is_rec loc l then exp else
+          case opbinargs opr (do_comml loc opr r) of
+            NONE => exp
+          | SOME (r1, r2) =>
+              if is_rec loc r2 then
+                apply_op opr r2 (apply_op opr l r1)
+              else if is_rec loc r1 then
+                apply_op opr r1 (apply_op opr l r2)
+              else exp`
+  (WF_REL_TAC `measure (exp_size o SND o SND)`
+  \\ rw [opbinargs_def]
+  \\ imp_res_tac exp_size_get_bin_args \\ fs []);
 
-val rewrite_app_def = tDefine "rewrite_app" `
-  rewrite_app ts op loc exp =
-    if ~op_eq op exp then (F, exp) else
-      case get_bin_args exp of
-        NONE => (F, exp)
-      | SOME (x1, x2) =>
-          let (r1, y1) = rewrite_app ts op loc x1 in
-          let (r2, y2) = rewrite_app ts op loc x2 in
-            if ~is_recl_app ts loc op y1 then (F, exp)
-            else if ~no_err_app ts y2    then (F, exp)
-            else (T, assoc_swap op y2 y1)`
-  (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
-   \\ rw [exp_size_get_bin_args]) ;
+val comml_def = Define `
+  (comml loc (If x1 x2 x3) = If x1 (comml loc x2) (comml loc x3)) /\
+  (comml loc (Let xs x) = Let xs (comml loc x)) /\
+  (comml loc (Tick x) = Tick (comml loc x)) /\
+  (comml loc (Op op xs) =
+    if ~(op = Add \/ op = Mult) then Op op xs
+    else do_comml loc (from_op op) (Op op xs)) /\
+  (comml loc exp = exp)`;
 
-(* --- Pre-rewrite analysis (correct types and tail positions) --- *)
+(* Test do_comml *)
+
+val test_tm = ``
+  apply_op Plus (Var 0) (apply_op Plus (Call 0 (SOME 0) [] NONE) (Var 1))``;
+
+val succ_tm = ``
+  apply_op Plus (Call 0 (SOME 0) [] NONE) (apply_op Plus (Var 0) (Var 1))``;
+
+val do_comml_test1 = Q.store_thm("do_comml_test1",
+  `do_comml 0 Plus ^test_tm = ^succ_tm`, EVAL_TAC);
+
+val test_tm = ``apply_op Times (Var 0) (Call 0 (SOME 0) [] NONE)``
+val succ_tm = ``apply_op Times (Call 0 (SOME 0) [] NONE) (Var 0)``;
+val do_comml_test2 = Q.store_thm("do_comml_test2",
+  `do_comml 0 Times ^test_tm = ^succ_tm`, EVAL_TAC);
+
+(* --- Simple tail checking before rewriting --- *)
+
+(* Check if ok to lift xs into accumulator *)
+val check_op_def = Define `
+  check_op ts opr loc exp =
+    case opbinargs opr exp of
+      NONE => F
+    | SOME (f, xs) => is_rec loc f /\ term_ok ts (op_type opr) xs`;
+
+(* --- Type analysis --- *)
 
 val decide_ty_def = Define `
   (decide_ty Int  Int  = Int)  /\
   (decide_ty List List = List) /\
   (decide_ty _    _    = Any)`;
 
+val _ = export_rewrites ["decide_ty_def"]
+
 val LAST1_def = Define `
   LAST1 []      = NONE   /\
   LAST1 [x]     = SOME x /\
   LAST1 (x::xs) = LAST1 xs`;
+
+val update_context_def = Define `
+  update_context ty ts x1 x2 =
+    MAP2 (\a b. if a = ty \/ b = ty then ty else Any)
+      (try_update ty (index_of x1) ts)
+      (try_update ty (index_of x2) ts)
+  `;
+
+val arg_ty_def = Define `
+  arg_ty Add        = Int /\
+  arg_ty Sub        = Int /\
+  arg_ty Mult       = Int /\
+  arg_ty Div        = Int /\
+  arg_ty Mod        = Int /\
+  arg_ty LessEq     = Int /\
+  arg_ty Less       = Int /\
+  arg_ty Greater    = Int /\
+  arg_ty GreaterEq  = Int /\
+  arg_ty ListAppend = List /\
+  arg_ty _          = Any`;
+
+val op_ty_def = Define `
+  (op_ty Add        = Int) /\
+  (op_ty Sub        = Int) /\
+  (op_ty Mult       = Int) /\
+  (op_ty Div        = Int) /\
+  (op_ty Mod        = Int) /\
+  (op_ty ListAppend = List) /\
+  (op_ty (Cons tag) = if tag = nil_tag \/ tag = cons_tag then List else Any) /\
+  (op_ty (Const i)  = if small_int i then Int else Any) /\
+  (op_ty _          = Any)`;
 
 (* Gather information about expressions:
 
@@ -235,8 +338,6 @@ val LAST1_def = Define `
        context.
      - Check if tail positions carry suitable operation (Add/Mult) and track
        branch of origin for the operation in conditionals.
-
-  TODO Add case for ListAppend
 *)
 val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [] = []) ∧
@@ -250,10 +351,8 @@ val scan_expr_def = tDefine "scan_expr" `
     let (ti, tyi, _, oi) = HD (scan_expr ts loc [xi]) in
     let (tt, ty1, _, ot) = HD (scan_expr ti loc [xt]) in
     let (te, ty2, _, oe) = HD (scan_expr ti loc [xe]) in
-      [(MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe,
-        case ot of
-          NONE => oe
-        | _    => ot)]) ∧
+    let op = case ot of NONE => oe | _ => ot in
+      [(MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe, op)]) ∧
   (scan_expr ts loc [Let xs x] =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
@@ -264,26 +363,13 @@ val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
-    let ok_type = (is_arith_op op ∨ is_const op) in
-    let iop =
-      if op = Add ∨ op = Mult then
-        let iop = from_op op in
-          if (FST (rewrite_ar ts iop loc (Op op xs)))
-          then SOME iop
-          else NONE
-      else
-        NONE
-      in
-    let tt =
-      if ¬(is_arith_op op ∨ is_num_rel op) then ts
-      else
-        case get_bin_args (Op op xs) of
-          NONE        => ts
-        | SOME (x, y) =>
-            MAP2 (λa b. if a = Int ∨ b = Int then Int else Any)
-              (try_update Int (index_of x) ts)
-              (try_update Int (index_of y) ts)
-    in [(tt, if ok_type then Int else Any, F, iop)])`
+    let opr = from_op op in
+    let iop = if check_op ts opr loc (Op op xs) then SOME opr else NONE in
+    let tt  =
+      case get_bin_args (Op op xs) of
+        NONE => ts
+      | SOME (x, y) => update_context (arg_ty op) ts x y
+    in [(tt, op_ty op, F, iop)])`
     (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
 val push_call_def = Define `
@@ -292,51 +378,59 @@ val push_call_def = Define `
   (push_call _ _ _ _ _ = dummy)
   `;
 
-val mk_tailcall_def = Define `
-  mk_tailcall ts n op name acc exp =
-    case rewrite_ar ts op name exp of
-      (F, exp2) => apply_op op exp2 (Var acc)
-    | (T, exp2) =>
-        (case get_bin_args exp2 of
-          NONE => dummy
-        | SOME (call, exp3) =>
-          push_call n op acc exp3 (args_from call))
-  `;
-
-(* TODO Add case for ListAppend *)
 val rewrite_def = Define `
-  (rewrite (loc, next, op, acc, ts) (Var n) = (F, Var n)) ∧
-  (rewrite (loc, next, op, acc, ts) (If xi xt xe) =
-    let (ti, tyi, ri, iop) = HD (scan_expr ts loc [xi]) in
-    let (rt, yt) = rewrite (loc, next, op, acc, ti) xt in
-    let (re, ye) = rewrite (loc, next, op, acc, ti) xe in
-    let zt = if rt then yt else apply_op op xt (Var acc) in
-    let ze = if re then ye else apply_op op xe (Var acc) in
-      (rt ∨ re, If xi zt ze)) ∧
-  (rewrite (loc, next, op, acc, ts) (Let xs x) =
+  (rewrite loc next opr acc ts (Var n) = (F, Var n)) /\
+  (rewrite loc next opr acc ts (If x1 x2 x3) =
+    let t1 = FST (HD (scan_expr ts loc [x1])) in
+    let (r2, y2) = rewrite loc next opr acc t1 x2 in
+    let (r3, y3) = rewrite loc next opr acc t1 x3 in
+    let z2 = if r2 then y2 else apply_op opr x2 (Var acc) in
+    let z3 = if r3 then y3 else apply_op opr x3 (Var acc) in
+      (r2 \/ r3, If x1 z2 z3)) /\
+  (rewrite loc next opr acc ts (Let xs x) =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
-    let (r, y) = rewrite (loc, next, op, acc + LENGTH xs, tt ++ tr) x in
-      (r, Let xs y)) ∧
-  (rewrite (loc, next, op, acc, ts) (Tick x) =
-    let (r, y) = rewrite (loc, next, op, acc, ts) x in (r, Tick y)) ∧
-  (rewrite (loc, next, op, acc, ts) (Raise x) = (F, Raise x)) ∧
-  (rewrite (loc, next, op, acc, ts) exp =
-    case rewrite_ar ts op loc exp of
-      (F, _)    => (F, apply_op op exp (Var acc))
-    | (T, exp1) =>
-      case get_bin_args exp1 of
-        NONE              => (F, apply_op op exp (Var acc))
-      | SOME (call, exp2) => (T, push_call next op acc exp2 (args_from call)))`;
+    let tr = case LAST1 ys of NONE => ts | SOME c => FST c in
+    let (r, y) = rewrite loc next opr (acc + LENGTH xs) (tt ++ tr) x in
+      (r, Let xs y)) /\
+  (rewrite loc next opr acc ts (Tick x) =
+    let (r, y) = rewrite loc next opr acc ts x in
+      (r, Tick y)) /\
+  (rewrite loc next opr acc ts exp =
+    if ~check_op ts opr loc exp then (F, exp) else
+      case opbinargs opr exp of
+        NONE => (F, exp)
+      | SOME (f, xs) => (T, push_call next opr acc xs (args_from f)))`
 
-(* TODO ty <> Int ==> NONE ~> ty = Any ==> NONE *)
+(* --- Top-level expression check --- *)
+
+val has_rec_def = tDefine "has_rec" `
+  (has_rec loc (If x1 x2 x3) <=> has_rec loc x2 \/ has_rec loc x3) /\
+  (has_rec loc (Let xs x) <=> has_rec loc x) /\
+  (has_rec loc (Tick x) <=> has_rec loc x) /\
+  (has_rec loc (Op op xs) <=> EXISTS (is_rec loc) xs \/ EXISTS (has_rec loc) xs) /\
+  (has_rec loc _ <=> F)`
+  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+   \\ imp_res_tac MEM_exp_size_imp \\ fs []);
+
+val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
+val has_rec_test1 = Q.store_thm("has_rec_test1",
+  `has_rec 0 ^test1_tm <=> F`, EVAL_TAC);
+
+val test2_tm = ``Op Add [Call 0 (SOME 0) [] NONE; Var 0]``
+val has_rec_test2 = Q.store_thm("has_rec_test2",
+  `has_rec 0 ^test2_tm <=> T`, EVAL_TAC);
+
 val check_exp_def = Define `
   check_exp loc arity exp =
-    case scan_expr (REPLICATE arity Any) loc [exp] of
-      [] => NONE
-    | (ts,ty,r,op)::_ =>
-      if ty ≠ Int then NONE else op`;
+    if ~has_rec loc exp then NONE else
+      let expa = assocr exp in
+      let expc = comml loc expa in
+      let context = REPLICATE arity Any in
+        case scan_expr context loc [expc] of
+          [] => NONE
+        | (ts,ty,r,op)::_ =>
+          if ty = Any then NONE else op`;
 
 val let_wrap_def = Define `
   let_wrap arity id exp =
@@ -351,8 +445,10 @@ val compile_exp_def = Define `
     case check_exp loc arity exp of
       NONE    => NONE
     | SOME op =>
-      let ts       = REPLICATE arity Any in
-      let (r, opt) = rewrite (loc, next, op, arity, ts) exp in
+      let context  = REPLICATE arity Any in
+      let expa = assocr exp in
+      let expc = comml loc expa in
+      let (r, opt) = rewrite loc next op arity context expc in
       let aux      = let_wrap arity (id_from_op op) opt in
         SOME (aux, opt)`;
 
@@ -391,10 +487,37 @@ val scan_expr_HD_SING = Q.store_thm ("scan_expr_HD_SING[simp]",
 val check_exp_SOME_simp = Q.store_thm ("check_exp_SOME_simp[simp]",
   `check_exp loc arity exp = SOME op <=>
      ?ts ty r.
-       scan_expr (REPLICATE arity Any) loc [exp] = [(ts,Int,r,SOME op)]`,
+       has_rec loc exp /\
+       scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)] = [(ts,ty,r,SOME op)] /\
+       ty <> Any`,
   simp [check_exp_def]
-  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [exp]) = LENGTH [exp]` by fs []
+  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)]) = LENGTH [exp]` by fs []
   \\ EVERY_CASE_TAC \\ fs []);
+
+(* --- Test rewriting --- *)
+
+val fac_tm = ``
+  Let [Op LessEq [Var 0; Op (Const 1) []]]
+    (If (Var 0)
+       (Op (Const 1) [])
+       (Let [Op Sub [Var 1; Op (Const 1) []]]
+         (Op Mult [Var 2; Call 0 (SOME 0) [Var 0] NONE])))``
+
+val opt_tm = ``
+  Let [Op LessEq [Var 0; Op (Const 1) []]]
+     (If (Var 0) (Op Mult [Op (Const 1) []; Var 2])
+        (Let [Op Sub [Var 1; Op (Const 1) []]]
+           (Call 0 (SOME 1) [Var 0; Op Mult [Var 2; Var 3]]
+              NONE)))``
+val aux_tm = ``Let [Var 0; Op (Const 1) []] ^opt_tm``
+
+
+val fac_check_exp = Q.store_thm("fac_check_exp",
+  `check_exp 0 1 ^fac_tm = SOME Times`,
+  EVAL_TAC);
+
+val fac_compile_exp = Q.store_thm("fac_compile_exp",
+  `compile_exp 0 1 1 ^fac_tm = SOME (^aux_tm, ^opt_tm)`, EVAL_TAC);
 
 val _ = export_theory();
 
