@@ -4,13 +4,13 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble ml_progLib ioProgLib ml_translatorLib
+open preamble ml_progLib basis_ffiLib ml_translatorLib
      cfTacticsLib basisFunctionsLib ml_translatorTheory
      cfLetAutoTheory cfLetAutoLib
 
 val _ = new_theory "queueProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"basisProg";
 
 val queue_decls = process_topdecs
    ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
