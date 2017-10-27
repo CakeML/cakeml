@@ -408,7 +408,7 @@ fun pconsomePrint sys d t pg str brk blk=
     val ctor =
       if (term_to_string ty = "Short") then
         toString(hd ls)
-      else (case ls of [l,r] => (toString l)^"."^(toString r))
+      else (case ls of [l,r] => (toString l)^"."^(toString(rand r)))
     (*Properly handle LONG names*)
   in
     case args of [] => str ctor
@@ -500,7 +500,8 @@ val _=add_astPP ("varshortprint", ``Var (Short x)``,genPrint varShortPrint);
 (*Long Var name*)
 fun varLongPrint sys d t pg str brk blk =
   let val t = rand t
-      val (_,[l,r]) = strip_comb t
+      val (_,[l,sr]) = strip_comb t
+      val r = rand sr;
   in
     str (toString l)>> str".">>str(toString r)
   end;
@@ -618,6 +619,20 @@ val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint 
 val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
 val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
 
+val _=add_astPP ("W64toIntprint", ``App (WordToInt W64) x``,genPrint (prefixargsPrint "W64toInt"))
+val _=add_astPP ("W8toIntprint", ``App (WordToInt W8) x``,genPrint (prefixargsPrint "W8toInt"))
+val _=add_astPP ("W64fromIntprint", ``App (WordFromInt W64) x``,genPrint (prefixargsPrint "W64fromInt"))
+val _=add_astPP ("W8fromIntprint", ``App (WordFromInt W8) x``,genPrint (prefixargsPrint "W8fromInt"))
+
+val _=add_astPP ("Opw64Andwprint", ``App (Opw W64 Andw) x``,genPrint (prefixargsPrint "Opw64Andw"))
+val _=add_astPP ("Opw8Andwprint", ``App (Opw W8 Andw) x``,genPrint (prefixargsPrint "Opw8Andw"))
+val _=add_astPP ("Opw64Orwprint", ``App (Opw W64 Orw) x``,genPrint (prefixargsPrint "Opw64Orw"))
+val _=add_astPP ("Opw8Orwprint", ``App (Opw W8 Orw) x``,genPrint (prefixargsPrint "Opw8Orw"))
+val _=add_astPP ("Opw64Xorprint", ``App (Opw W64 Xor) x``,genPrint (prefixargsPrint "Opw64Xor"))
+val _=add_astPP ("Opw8Xorprint", ``App (Opw W8 Xor) x``,genPrint (prefixargsPrint "Opw8Xor"))
+val _=add_astPP ("Opw64Xorprint", ``App (Opw W64 Xor) x``,genPrint (prefixargsPrint "Opw64Xor"))
+val _=add_astPP ("Opw8Xorprint", ``App (Opw W8 Xor) x``,genPrint (prefixargsPrint "Opw8Xor"))
+
 (*Opb*)
 val _=add_astPP ("gteqrealprint", ``App (Opb Geq) [x;y]``,genPrint (infixrealPrint ">="));
 val _=add_astPP ("lteqrealprint", ``App (Opb Leq) [x;y]``,genPrint (infixrealPrint "<="));
@@ -655,7 +670,6 @@ val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixreal
 *)
 
 (*String curried, not checking arity*)
-val _=add_astPP ("stringexploderealprint", ``App Explode ls``,genPrint (prefixargsPrint "String.explode"));
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
 (*Confusing name??*)
 val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
