@@ -2676,17 +2676,17 @@ val INST_CORE_Abs_thm = Q.store_thm("INST_CORE_Abs_thm",
   unabbrev_all_tac >> fs[] >>
   rfs[GSYM INST_def] >>
   imp_res_tac INST_WELLTYPED >>
-  fs[variant_inst_thm] >> rw[] >> fs[])
+  fs[variant_inst_thm] >> rw[] >> fs[]);
 
 (* provable terms are ok and of type bool *)
 
 val proves_theory_ok = Q.store_thm("proves_theory_ok",
   `∀thyh c. thyh |- c ⇒ theory_ok (FST thyh)`,
-  ho_match_mp_tac proves_ind >> rw[])
+  ho_match_mp_tac proves_ind >> rw[]);
 
 val theory_ok_sig = Q.store_thm("theory_ok_sig",
   `∀thy. theory_ok thy ⇒ is_std_sig (sigof thy)`,
-  Cases >> rw[theory_ok_def])
+  Cases >> rw[theory_ok_def]);
 
 val proves_term_ok = Q.store_thm("proves_term_ok",
   `∀thyh c. thyh |- c ⇒
@@ -2742,17 +2742,7 @@ val proves_term_ok = Q.store_thm("proves_term_ok",
     imp_res_tac term_ok_welltyped >>
     imp_res_tac theory_ok_sig >>
     rw[term_ok_equation,term_ok_def]) >>
-  strip_tac >- (
-    rw[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac proves_theory_ok >>
-    imp_res_tac theory_ok_sig >>
-    imp_res_tac term_ok_welltyped >>
-    fs[term_ok_equation] >>
-    fs[EQUATION_HAS_TYPE_BOOL] >>
-    imp_res_tac ACONV_TYPE >>
-    simp[] >>
-    match_mp_tac EVERY_term_union >> fs[] ) >>
-  rw[theory_ok_def])
+  rw[theory_ok_def]);
 
 (* some derived rules *)
 
@@ -2954,7 +2944,6 @@ val sym = Q.store_thm("sym",
   imp_res_tac term_ok_welltyped >> fs[] >>
   metis_tac[equation_def,sym_equation])
 
-(* TODO: Use this to close issue #97 *)
 val trans_equation = Q.store_thm("trans_equation",
   `∀thy h1 h2 t1 t2a t2b t3.
       (thy,h2) |- t2b === t3 ⇒
@@ -3336,7 +3325,7 @@ val extends_sub = Q.store_thm("extends_sub",
     imp_res_tac updates_DISJOINT >> fs[] >>
     fs[finite_mapTheory.SUBMAP_DEF,pred_setTheory.IN_DISJOINT] >>
     metis_tac[] ) >>
-  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS])
+  metis_tac[pred_setTheory.SUBSET_UNION,pred_setTheory.SUBSET_TRANS]);
 
 (* proofs still work in extended contexts *)
 
@@ -3461,12 +3450,7 @@ val update_extension = Q.prove (
           >- (Cases_on `ctxt` >>
               fs [])))
   >- (rw [Once proves_cases] >>
-      ntac 9 disj2_tac >>
-      disj1_tac >>
-      rw [] >>
-      metis_tac [])
-  >- (rw [Once proves_cases] >>
-      ntac 9 disj2_tac >>
+      ntac 8 disj2_tac >>
       rw []
       >- (imp_res_tac updates_theory_ok >>
           fs [])
@@ -3478,7 +3462,7 @@ val updates_proves = Q.store_thm("updates_proves",
     ∀h c.
     (thyof ctxt,h) |- c ⇒
     (thyof (upd::ctxt),h) |- c`,
-  metis_tac[update_extension])
+  metis_tac[update_extension]);
 
 (* types occurring in a term *)
 

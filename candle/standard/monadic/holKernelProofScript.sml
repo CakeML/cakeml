@@ -1427,7 +1427,7 @@ val TRANS_thm = Q.store_thm("TRANS_thm",
   imp_res_tac Equal_type_IMP >>
   ntac 2 (pop_assum(mp_tac o SYM)) >>
   simp[GSYM equation_def] >> rw[] >>
-  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
+  match_mp_tac (MP_CANON trans_equation) >>
   METIS_TAC[])
 
 val SYM_thm = Q.store_thm("SYM_thm",
@@ -2115,7 +2115,7 @@ val new_specification_thm = Q.store_thm("new_specification_thm",
     simp[TYPE_def] >>
     fs[TERM_def,term_ok_def]) >>
   strip_tac >> simp[] >>
-  match_mp_tac(List.nth(CONJUNCTS proves_rules,10)) >>
+  match_mp_tac(List.nth(CONJUNCTS proves_rules,9)) >>
   conj_tac >- (
     fs[STATE_def,CONTEXT_def] >>
     imp_res_tac extends_theory_ok >>
@@ -2403,12 +2403,11 @@ val new_basic_type_definition_thm = Q.store_thm("new_basic_type_definition_thm",
   simp[] >>
   simp[THM_def,ETA_AX] >>
   conj_tac >>
-  match_mp_tac (List.nth(CONJUNCTS proves_rules,10)) >>
+  match_mp_tac (List.nth(CONJUNCTS proves_rules,9)) >>
   (conj_tac >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]) >>
   simp[Abbr`s2`,conexts_of_upd_def] >>
   imp_res_tac QSORT_type_vars_in_term >>
   simp[equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
-
 
 (* ------------------------------------------------------------------------- *)
 (* Verification of context extension functions                               *)
@@ -2468,7 +2467,7 @@ val new_axiom_thm = Q.store_thm("new_axiom_thm",
   qexists_tac`NewAxiom p` >>
   conj_asm2_tac >- (
     REWRITE_TAC[THM_def] >>
-    MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,10)) >>
+    MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
     reverse conj_tac >- simp[] >>
     METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok] ) >>
   fs[STATE_def] >>
