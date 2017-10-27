@@ -65,7 +65,7 @@ val merge_tup_def = tDefine "merge_tup" `
    rpt strip_tac>>
    imp_res_tac MEM_ZIP>>fs[]>>
    rw[val_approx_size_def] >> Cases_on`ys`>>fs[]>>
-   first_x_assum (first_assum o mp_then.mp_then (mp_then.Pos (el 2)) mp_tac) >>
+   first_x_assum (first_assum o mp_then (Pos (el 2)) mp_tac) >>
    simp[] >> rename[`_ < (tag:num) + (_ + _)`] >>
    disch_then (qspec_then `tag` mp_tac) >> simp[])
 
