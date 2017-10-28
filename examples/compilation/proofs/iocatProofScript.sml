@@ -5,12 +5,11 @@ open preamble
 val _ = new_theory"iocatProof";
 
 val cat_io_events_def =
-  new_specification("cat_io_events_def",["cat_io_events","cat_numchars"],
-  cat_semantics_thm |> Q.GENL[`fs`,`cls`,`out`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
+  new_specification("cat_io_events_def",["cat_io_events"],
+  cat_semantics_thm |> Q.GENL[`fs`,`cls`]
+  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM),RIGHT_EXISTS_AND_THM]);
 
-val (cat_streams,th) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR
-val (cat_sem,cat_output) = th |> CONJ_PAIR
+val (cat_sem,cat_output) = cat_io_events_def |> SPEC_ALL |> UNDISCH_ALL |> CONJ_PAIR
 val (cat_not_fail,cat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cat_sem |> CONJ_PAIR
 
 val compile_correct_applied =
@@ -18,7 +17,11 @@ val compile_correct_applied =
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cat_not_fail
   |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[cat_sem_sing]
+  |> REWRITE_RULE[cat_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
+  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
+  |> DISCH(#1(dest_imp(concl x64_init_ok)))
+  |> REWRITE_RULE[AND_IMP_INTRO]
 
 val cat_compiled_thm =
   CONJ compile_correct_applied cat_output

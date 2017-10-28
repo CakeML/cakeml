@@ -57,7 +57,7 @@ val handle_fail_def = Define `handle_fail x f = \(state : state_refs). dtcase x 
  *)
 
 val assert_def = Define `assert b = if b then failwith "assert" else return ()`
-val decrease_def = Define `decrease n = monad_ignore_bind (assert (n > 0)) (return (n-1))`;
+val decrease_def = Define `decrease n = monad_ignore_bind (assert (n > (0:num))) (return (n-1))`;
 val handle_decrease_def = Define `handle_decrease n = handle_fail (decrease n) (\e. return 0)`;
 
 (* ... *)

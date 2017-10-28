@@ -62,13 +62,17 @@ val lookup_def = Define`
     | Greater => lookup cmp k r
     | Equal => SOME v'`;
 
-val insert_def = Define`
+val insert_def =
+(* EXERCISE: fill in your definition here *)
+(*ex *)
+Define`
   insert cmp k v Leaf = singleton k v ∧
   insert cmp k v (Node k' v' l r) =
     case cmp k k' of
     | Less => Node k' v' (insert cmp k v l) r
     | Greater => Node k' v' l (insert cmp k v r)
     | Equal => Node k' v l r`;
+(* ex*)
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -107,12 +111,15 @@ val key_set_eq = Q.store_thm ("key_set_eq",
     good_cmp cmp
     ⇒
     (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)`,
-  rw[key_set_def,EXTENSION]
-  \\ metis_tac[good_cmp_def]
-  (* TODO: prove this *)
+  (* EXERCISE: prove this *)
   (* hint: consider the tactics used above *)
   (* hint: remember DB.match and DB.find to find useful theorems *)
   (* hint: set extensionality theorem is called EXTENSION *)
+  (*ex *)
+  rw[key_set_def,EXTENSION]
+  \\ metis_tac[good_cmp_def]
+  (* ex*)
+
 );
 
 (* A helper theorem, expanding out the definition of key_set, for use with
@@ -135,10 +142,12 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
   `∀ks t.
     ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`,
    Induct_on `t` >>
+   (* EXERCISE: finish this proof *)
+   (* hint: the same tactic probably works for both subgoals *)
+   (*ex *)
    rw[to_fmap_def] \\
    metis_tac[]
-   (* TODO: finish this proof *)
-   (* hint: the same tactic probably works for both subgoals *)
+   (* ex*)
 );
 
 (*
@@ -186,22 +195,30 @@ val wf_tree_singleton = Q.store_thm("wf_tree_singleton[simp]",
    export_rewrites["wf_tree_singleton"] after storing this theorem. *)
 
 val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
+  (* EXERCISE: you might want to prove a lemma about key_ordered and singleton *)
+  (* skip ahead to wf_tree_insert first *)
+(*ex *)
   `cmp k k' = res ⇒
    key_ordered cmp k (singleton k' v') res`,
   rw[singleton_def]);
-  (* TODO: you might want to prove a lemma about key_ordered and singleton *)
-  (* skip ahead to wf_tree_insert first *)
+(* ex*)
+
 
 val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
+(* `∀t. ????? ⇒ *)
+(*ex  *)
   `∀t k k' v' res.
     key_ordered cmp k t res ∧ cmp k k' = res ⇒
+(* ex*)
          key_ordered cmp k (insert cmp k' v' t) res`,
+  (* EXERCISE: you might want to prove a lemma about key_ordered and insert *)
+  (* skip ahead to wf_tree_insert first *)
+  (* hint: this lemma might need induction *)
+  (*ex *)
   Induct_on`t`
   \\ rw[insert_def]
   \\ CASE_TAC \\ rw[]
-  (* TODO: you might want to prove a lemma about key_ordered and insert *)
-  (* skip ahead to wf_tree_insert first *)
-  (* hint: this lemma might need induction *)
+  (* ex*)
 );
 
 val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
@@ -211,14 +228,17 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   Induct \\
   rw[insert_def] \\
   CASE_TAC \\ fs[wf_tree_def] \\
-  match_mp_tac key_ordered_insert \\
-  rw[] \\
-  metis_tac[good_cmp_def]
-  (* TODO: fill in the rest of the proof *)
+  (* EXERCISE: fill in the rest of the proof *)
   (* hint: you might want to prove the key_ordered_insert lemma above at this point
      then you can continue with:
     match_mp_tac key_ordered_insert
     ( or: match_mp_tac (MP_CANON key_ordered_insert) )*)
+  (*ex *)
+  match_mp_tac key_ordered_insert \\
+  rw[] \\
+  metis_tac[good_cmp_def]
+  (* ex*)
+
 );
 
 (*
@@ -260,12 +280,15 @@ val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
     DB.match[] ``FLOOKUP (_ |+ _)``;
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
+  (* EXERCISE: fill in the rest of this proof *)
+  (*ex *)
   simp[FLOOKUP_FUNION,FLOOKUP_UPDATE] \\
   imp_res_tac wf_tree_Node_imp \\
   fs[wf_tree_def,key_set_eq] \\
   every_case_tac \\ fs[FLOOKUP_DEF] \\
   metis_tac[cmp_thms]
-  (* TODO: fill in the rest of this proof *)
+  (* ex*)
+
 );
 
 val _ = export_theory();
