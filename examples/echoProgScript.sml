@@ -1,6 +1,4 @@
-open preamble ml_progLib ml_translatorLib
-     basisFunctionsLib basis_ffiLib
-     cfTacticsLib cfLetAutoLib textio_initProgTheory
+open preamble basis
 
 val _ = new_theory "echoProg";
 
@@ -28,8 +26,8 @@ val echo_spec = Q.store_thm("echo_spec",
   xcf "echo" st \\
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
   xlet_auto >- (xcon \\ xsimpl) \\
-  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull) \\
-  `¬NULL cl` by fs[mlcommandlineProgTheory.wfcl_def] \\
+  reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) \\
+  `¬NULL cl` by fs[wfcl_def] \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet`POSTv uv.  &UNIT_TYPE () uv * COMMANDLINE cl *
@@ -43,7 +41,7 @@ val echo_spec = Q.store_thm("echo_spec",
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs'` \\
   unabbrev_all_tac \\
-  simp[mlstringTheory.concatWith_CONCAT_WITH,MAP_TL,mlstringTheory.implode_def] \\
+  simp[concatWith_CONCAT_WITH,MAP_TL,implode_def] \\
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
   imp_res_tac add_stdo_o >> xsimpl);

@@ -1,6 +1,5 @@
-open preamble ml_translatorLib ml_progLib std_preludeTheory
+open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory mloptionProgTheory
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
 
 (*this library depends on nothing*)
 val _ = new_theory"mllistProg"

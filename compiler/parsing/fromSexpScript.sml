@@ -16,7 +16,6 @@ val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_CHOICE_def",
                                         "option.OPTION_MAP2_DEF"]
 
-val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 (* -- *)
 

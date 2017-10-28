@@ -1,11 +1,11 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib
-     cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory mlcommandlineProgTheory fsFFITheory fsFFIProofTheory
+     cfLib basisFunctionsLib
+     mlstringTheory CommandlineProgTheory fsFFITheory fsFFIPropsTheory
 
 val _ = new_theory"textio_initProg";
 (* filesystem constants and corresponding hprops *)
-val _ = translation_extends "mlcommandlineProg";
+val _ = translation_extends "CommandlineProg";
 val _ = ml_prog_update (open_module "TextIO");
 
 val _ = process_topdecs `
