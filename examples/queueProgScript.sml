@@ -4,9 +4,7 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble ml_progLib basis_ffiLib ml_translatorLib
-     cfTacticsLib basisFunctionsLib ml_translatorTheory
-     cfLetAutoTheory cfLetAutoLib
+open preamble basis
 
 val _ = new_theory "queueProg";
 

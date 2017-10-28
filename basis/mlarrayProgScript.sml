@@ -1,7 +1,8 @@
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory basisFunctionsLib
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
-     mlbasicsProgTheory mlw8arrayProgTheory cfLetAutoLib
+     semanticPrimitivesTheory
+     ml_translatorTheory ml_translatorLib ml_progLib cfLib
+     basisFunctionsLib
+     mlbasicsProgTheory mlw8arrayProgTheory
 
 val _ = new_theory"mlarrayProg"
 
@@ -528,11 +529,11 @@ val array_copy_aux_spec = Q.store_thm("array_copy_aux_spec",
       max <= LENGTH src
       ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.copy_aux" (array_st())) [srcv; dstv; div; maxv; nv]
       (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
-    (POSTv uv. ARRAY srcv src * 
+    (POSTv uv. ARRAY srcv src *
                ARRAY dstv (bfr ++ (TAKE (max -n) (DROP n src)) ++ afr))`,
       gen_tac \\ gen_tac \\ Induct_on `max - n` >>
       xcf "Array.copy_aux" (array_st())
-      >-(xlet_auto >> (xsimpl >> xif) >> 
+      >-(xlet_auto >> (xsimpl >> xif) >>
          instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
       xlet_auto >- xsimpl >>
       xif >> instantiate >>

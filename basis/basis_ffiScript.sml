@@ -1,6 +1,6 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     basisFunctionsLib fsFFIProofTheory cfHeapsBaseTheory
-     mlcommandlineProgTheory fsFFITheory set_sepTheory
+     basisFunctionsLib fsFFIPropsTheory cfHeapsBaseTheory
+     CommandlineProgTheory fsFFITheory set_sepTheory
      cfMainTheory textio_initProgTheory cfLetAutoTheory cfLetAutoLib
      cfHeapsBaseLib
 
@@ -48,12 +48,12 @@ val basis_ffi_def = Define `
 
 val basis_proj1_def = Define `
   basis_proj1 = (\(cls, fs).
-    FEMPTY |++ ((mk_proj1 commandLine_ffi_part cls)
+    FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
 			++ (mk_proj1 fs_ffi_part fs)))`;
 
 val basis_proj2_def = Define `
   basis_proj2 =
-    [mk_proj2 commandLine_ffi_part;
+    [mk_proj2 cl_ffi_part;
      mk_proj2 fs_ffi_part]`;
 
 val basis_proj1_write = Q.store_thm("basis_proj1_write",
@@ -306,10 +306,10 @@ val call_main_thm_basis = Q.store_thm("call_main_thm_basis",
 
 val basis_ffi_length_thms = save_thm("basis_ffi_length_thms", LIST_CONJ
 [ffi_write_length,ffi_read_length,ffi_open_in_length,ffi_open_out_length,
- ffi_close_length, commandLineFFITheory.ffi_getArgs_length ]);
+ ffi_close_length, clFFITheory.ffi_getArgs_length ]);
 
 val basis_ffi_part_defs = save_thm("basis_ffi_part_defs", LIST_CONJ
-[fs_ffi_part_def,commandLineFFITheory.commandLine_ffi_part_def]);
+[fs_ffi_part_def,clFFITheory.cl_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
 val oracle_parts = Q.store_thm("oracle_parts",

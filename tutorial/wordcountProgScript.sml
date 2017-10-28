@@ -6,9 +6,7 @@
   those word lists. A more efficient implementation is possible even in CakeML.
 *)
 
-open preamble
-     ml_translatorLib cfTacticsLib cfLetAutoLib
-     basisProgTheory basisFunctionsLib basis_ffiLib
+open preamble basis
      splitwordsTheory
 
 val _ = new_theory"wordcountProg";
@@ -49,15 +47,14 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   (* we will need to know wfcl cl to prove that fname is a valid filename.
      this comes from the COMMANDLINE precondition.
      `wfcl cl` by ... wouldn't work because the current goal is needed to do the xpull on *)
-  reverse(Cases_on`wfcl cl`) >- (rfs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull) \\
+  reverse(Cases_on`wfcl cl`) >- (rfs[COMMANDLINE_def] \\ xpull) \\
   (* similarly we will later want to know STD_streams fs *)
-  reverse(Cases_on`STD_streams fs`) >- (fs[textio_initProgTheory.STDIO_def] \\ xpull) \\
+  reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   (* TODO: xlet_auto doesn't work *)
   xlet_auto_spec(SOME inputLinesFrom_spec) >- (
     xsimpl \\
-    rfs[mlcommandlineProgTheory.wfcl_def,commandLineFFITheory.validArg_def,
-        EVERY_MEM,mlstringTheory.LENGTH_explode] ) \\
-  xmatch \\ fs[ml_translatorTheory.OPTION_TYPE_def] \\
+    rfs[wfcl_def,validArg_def,EVERY_MEM,LENGTH_explode] ) \\
+  xmatch \\ fs[OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
@@ -95,7 +92,7 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
 
 val spec = wordcount_spec |> UNDISCH_ALL
-           |> SIMP_RULE (srw_ss()) [textio_initProgTheory.STDIO_def] |> add_basis_proj
+           |> SIMP_RULE (srw_ss()) [STDIO_def] |> add_basis_proj
 val name = "wordcount" (* TODO: call_thm is not robust to reordering the precondition conjuncts etc. *)
 val (sem_thm,prog_tm) = call_thm (get_ml_prog_state()) name spec
 

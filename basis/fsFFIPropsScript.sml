@@ -1,10 +1,15 @@
 open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory
 
-val _ = new_theory"fsFFIProof"
+val _ = new_theory"fsFFIProps"
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
-(* nextFD *)
+val numchars_self = Q.store_thm("numchars_self",
+  `!fs. fs = fs with numchars := fs.numchars`,
+  cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
+
+(* nextFD lemmas *)
+
 val nextFD_ltX = Q.store_thm(
   "nextFD_ltX",
   `CARD (set (MAP FST fs.infds)) < x ⇒ nextFD fs < x`,
@@ -46,7 +51,37 @@ val nextFD_NOT_MEM = Q.store_thm(
       res_tac >> fs[]) >>
   simp[EXISTS_PROD, FORALL_PROD, MEM_MAP]);
 
+val nextFD_numchars = Q.store_thm("nextFD_numchars",
+ `!fs ll. nextFD (fs with numchars := ll) = nextFD fs`,
+  rw[nextFD_def]);
+
+(* bumpFD lemmas *)
+
+val bumpFD_files = Q.store_thm("bumpFD_files[simp]",
+  `(bumpFD fd fs n).files = fs.files`,
+  EVAL_TAC \\ CASE_TAC \\ rw[]);
+
+(* validFD lemmas *)
+
+val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
+  `validFD fd' fs ⇒ validFD fd' (bumpFD fd fs n)`,
+  rw[bumpFD_def,validFD_def]);
+
+val validFD_ALOOKUP = Q.store_thm("validFD_ALOOKUP",
+  `validFD fd fs ==> ?v. ALOOKUP fs.infds fd = SOME v`,
+  rw[validFD_def] >> cases_on`ALOOKUP fs.infds fd` >> fs[ALOOKUP_NONE]);
+
+(* getNullTermStr lemmas *)
+
+val getNullTermStr_insert_atI = Q.store_thm(
+  "getNullTermStr_insert_atI",
+  `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
+          getNullTermStr (insert_atI (cs++[0w]) 0 l) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def, insert_atI_def, findi_APPEND, NOT_MEM_findi,
+       findi_def, TAKE_APPEND])
+
 (* the filesystem will always eventually allow to write something *)
+
 val live_numchars_def = Define`
   live_numchars ns ⇔
     ¬LFINITE ns ∧
@@ -57,6 +92,7 @@ val liveFS_def = Define`
 
 (* well formed file descriptor: all descriptors are <= 255
 *  and correspond to file names in files *)
+
 val wfFS_def = Define`
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
@@ -75,7 +111,34 @@ val wfFS_openFile = Q.store_thm(
   dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
   fs[liveFS_def] >> metis_tac[ALOOKUP_EXISTS_IFF]);
 
+val wfFS_DELKEY = Q.store_thm(
+  "wfFS_DELKEY[simp]",
+  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
+  simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
+       ALOOKUP_ADELKEY,liveFS_def] >>
+       metis_tac[]);
+
+val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
+  `wfFS fs ==> wfFS (fs with numchars := (THE (LDROP k fs.numchars)))`,
+  rw[wfFS_def,liveFS_def,live_numchars_def,always_DROP] >>
+  imp_res_tac NOT_LFINITE_DROP >>
+  first_x_assum (assume_tac o Q.SPEC `k`) >> fs[] >>
+  metis_tac[NOT_LFINITE_DROP_LFINITE]);
+
+val option_case_eq =
+    prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
+
+val wfFS_bumpFD = Q.store_thm(
+  "wfFS_bumpFD[simp]",
+  `wfFS fs ⇒ wfFS (bumpFD fd fs n)`,
+  simp[bumpFD_def] >>
+  dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
+        EXISTS_PROD] >>
+  rw[] >- metis_tac[] >>
+  cases_on`fs.numchars` >> fs[liveFS_def,live_numchars_def] >> imp_res_tac always_thm);
+
 (* end of file is reached when the position index is the length of the file *)
+
 val eof_def = Define`
   eof fd fsys =
     do
@@ -91,17 +154,6 @@ val wfFS_eof_EQ_SOME = Q.store_thm(
    ∃b. eof fd fs = SOME b`,
   simp[eof_def, EXISTS_PROD, PULL_EXISTS, MEM_MAP, wfFS_def, validFD_def] >>
   rpt strip_tac >> res_tac >> metis_tac[ALOOKUP_EXISTS_IFF]);
-
-val bumpFD_files = Q.store_thm("bumpFD_files[simp]",
-  `(bumpFD fd fs n).files = fs.files`,
-  EVAL_TAC \\ CASE_TAC \\ rw[]);
-
-val wfFS_DELKEY = Q.store_thm(
-  "wfFS_DELKEY[simp]",
-  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`,
-  simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
-       ALOOKUP_ADELKEY,liveFS_def] >>
-       metis_tac[]);
 
 val eof_read = Q.store_thm("eof_read",
  `!fd fs n. wfFS fs ⇒
@@ -135,25 +187,7 @@ val neof_read = Q.store_thm(
   `r ≥ LENGTH contents` by fs[DROP_EMPTY] >>
   fs[]);
 
-val option_case_eq =
-    prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
-
-val wfFS_bumpFD = Q.store_thm(
-  "wfFS_bumpFD[simp]",
-  `wfFS fs ⇒ wfFS (bumpFD fd fs n)`,
-  simp[bumpFD_def] >>
-  dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
-        EXISTS_PROD] >>
-  rw[] >- metis_tac[] >>
-  cases_on`fs.numchars` >> fs[liveFS_def,live_numchars_def] >> imp_res_tac always_thm);
-
-val validFD_bumpFD = Q.store_thm("validFD_bumpFD",
-  `validFD fd' fs ⇒ validFD fd' (bumpFD fd fs n)`,
-  rw[bumpFD_def,validFD_def]);
-
-val validFD_ALOOKUP = Q.store_thm("validFD_ALOOKUP",
-  `validFD fd fs ==> ?v. ALOOKUP fs.infds fd = SOME v`,
-  rw[validFD_def] >> cases_on`ALOOKUP fs.infds fd` >> fs[ALOOKUP_NONE]);
+(* inFS_fname *)
 
 val inFS_fname_def = Define `
   inFS_fname fs s = (s ∈ FDOM (alist_to_fmap fs.files))`
@@ -189,17 +223,12 @@ val ALOOKUP_inFS_fname_openFileFS_nextFD = Q.store_thm("ALOOKUP_inFS_fname_openF
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ rw[]);
 
-val A_DELKEY_nextFD_openFileFS = Q.store_thm("A_DELKEY_nextFD_openFileFS[simp]",
-  `nextFD fs <= 255 ⇒
-   A_DELKEY (nextFD fs) (openFileFS f fs off).infds = fs.infds`,
-  rw[openFileFS_def]
-  \\ CASE_TAC
-  \\ TRY CASE_TAC
-  \\ simp[A_DELKEY_I,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
-  \\ fs[openFile_def] \\ rw[]
-  \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
+val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
+ `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
+  rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
 
 (* encode/ decode *)
+
 val decode_encode_inode = Q.store_thm(
   "decode_encode_inode",
   `∀f. decode_inode (encode_inode f) = return f`,
@@ -262,7 +291,6 @@ val read_length = Q.store_thm("read_length",
         (DROP off content)` by (fs[]) >>
     fs[MIN_DEF,LENGTH_DROP]);
 
-
 val ffi_read_length = Q.store_thm("ffi_read_length",
   `ffi_read conf bytes fs = SOME (bytes',fs') ==> LENGTH bytes' = LENGTH bytes`,
   rw[ffi_read_def]
@@ -287,43 +315,7 @@ val ffi_close_length = Q.store_thm("ffi_close_length",
   \\ Cases_on`closeFD (w2n (HD bytes)) fs` \\ fs[] \\ rw[]
   \\ pairarg_tac \\ fs[] \\ rw[]);
 
-(* TODO: move *)
-(* insert a string (l1) at specified index (n) in a list (l2) *)
-val insert_atI_def = Define`
-  insert_atI l1 n l2 =
-    TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
-`;
-
-val insert_atI_NIL = Q.store_thm(
-  "insert_atI_NIL",
-  `∀n l.insert_atI [] n l = l`,
-  simp[insert_atI_def]);
-
-val insert_atI_CONS = Q.store_thm(
-  "insert_atI_CONS",
-  `∀n l h t.
-     n + LENGTH t < LENGTH l ==>
-     insert_atI (h::t) n l = LUPDATE h n (insert_atI t (n + 1) l)`,
-  simp[insert_atI_def] >> Induct_on `n`
-  >- (Cases_on `l` >> simp[ADD1, LUPDATE_def]) >>
-  Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
-  simp[GSYM ADD1, LUPDATE_def]);
-
-val LENGTH_insert_atI = Q.store_thm(
-  "LENGTH_insert_atI",
-  `p + LENGTH l1 <= LENGTH l2 ⇒ LENGTH (insert_atI l1 p l2) = LENGTH l2`,
-  simp[insert_atI_def]);
-
-val insert_atI_app = Q.store_thm("insert_atI_app",
-  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
-     insert_atI (c1 ++ c2) n l =
-     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
-  induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
-
-val insert_atI_end = Q.store_thm("insert_atI_end",
-  `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
-  simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
-(* -- *)
+(* fastForwardFD *)
 
 val fastForwardFD_def = Define`
   fastForwardFD fs fd =
@@ -332,21 +324,6 @@ val fastForwardFD_def = Define`
       content <- ALOOKUP fs.files fnm;
       SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## MAX (LENGTH content)))
     od)`;
-
-val LUPDATE_insert_commute = Q.store_thm(
-  "LUPDATE_insert_commute",
-  `∀ws pos1 pos2 a w.
-     pos2 < pos1 ∧ pos1 + LENGTH ws <= LENGTH a ⇒
-     insert_atI ws pos1 (LUPDATE w pos2 a) =
-       LUPDATE w pos2 (insert_atI ws pos1 a)`,
-  Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
-
-val getNullTermStr_insert_atI = Q.store_thm(
-  "getNullTermStr_insert_atI",
-  `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒
-          getNullTermStr (insert_atI (cs++[0w]) 0 l) = SOME (MAP (CHR o w2n) cs)`,
-  simp[getNullTermStr_def, insert_atI_def, findi_APPEND, NOT_MEM_findi,
-       findi_def, TAKE_APPEND])
 
 val validFD_fastForwardFD = Q.store_thm("validFD_fastForwardFD[simp]",
   `validFD fd (fastForwardFD fs fd) = validFD fd fs`,
@@ -372,6 +349,8 @@ val A_DELKEY_fastForwardFD_elim = Q.store_thm("A_DELKEY_fastForwardFD_elim[simp]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
+(* fsupdate *)
+
 val wfFS_fsupdate = Q.store_thm("wfFS_fsupdate",
     `! fs fd content pos k. wfFS fs ==> MEM fd (MAP FST fs.infds) ==>
                             wfFS (fsupdate fs fd k pos content)`,
@@ -391,58 +370,6 @@ val fsupdate_unchanged = Q.store_thm("fsupdate_unchanged",
     fsupdate fs fd 0 pos content = fs`,
     fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
-
-val get_file_content_validFD = Q.store_thm("get_file_content_validFD",
-  `get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs`,
-  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
-  imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >>
-  qexists_tac`(fd,x)` >> fs[]);
-
-val get_file_content_fsupdate = Q.store_thm("get_file_content_fsupdate",
-  `!fs fd x i c u. get_file_content fs fd = SOME u ⇒
-  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)`,
-  rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
-
-val get_file_content_fsupdate_unchanged = Q.store_thm(
-  "get_file_content_fsupdate_unchanged",
-  `!fs fd u fnm pos fd' fnm' pos' x i c.
-   get_file_content fs fd = SOME u ⇒
-   ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒
-   ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
-  get_file_content (fsupdate fs fd' x i c) fd = SOME u`,
-  rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
-  rpt(CASE_TAC >> fs[]));
-
-val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
- `liveFS fs ⇒ liveFS (openFileFS s fs n)`,
-  rw[liveFS_def,openFileFS_def, openFile_def] >>
-  CASE_TAC >> fs[] >> CASE_TAC >> fs[] >>
-  `r.numchars = fs.numchars` by
-    (cases_on`fs` >> cases_on`r` >> fs[IO_fs_infds_fupd]) >>
-  fs[]);
-
-val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
- `liveFS fs ⇒ liveFS (fsupdate fs fd n k c)`,
- rw[liveFS_def,live_numchars_def,fsupdate_def] >>
- every_case_tac \\ fs[always_DROP] \\
- metis_tac[NOT_LFINITE_DROP,NOT_LFINITE_DROP_LFINITE,THE_DEF]);
-
-val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
- `liveFS fs ⇒ liveFS (bumpFD fd fs k)`,
-  rw[liveFS_def,live_numchars_def,bumpFD_def] >> cases_on`fs.numchars` >> fs[] >>
-  imp_res_tac always_thm);
-
-val wfFS_LDROP = Q.store_thm("wfFS_LDROP",
- `wfFS fs ==> wfFS (fs with numchars := (THE (LDROP k fs.numchars)))`,
- rw[wfFS_def,liveFS_def,live_numchars_def,always_DROP] >>
- imp_res_tac NOT_LFINITE_DROP >>
- first_x_assum (assume_tac o Q.SPEC `k`) >> fs[] >>
- metis_tac[NOT_LFINITE_DROP_LFINITE]);
-
-val Lnext_pos_def = Define`
-  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
 
 val fsupdate_o = Q.store_thm("fsupdate_o",
   `liveFS fs ==>
@@ -472,9 +399,30 @@ val fsupdate_numchars = Q.store_thm("fsupdate_numchars",
                     fsupdate (fs with numchars := ll) fd 0 p c`,
   rw[fsupdate_def] \\ CASE_TAC \\ CASE_TAC \\ rw[]);
 
-val numchars_self = Q.store_thm("numchars_self",
- `!fs. fs = fs with numchars := fs.numchars`,
- cases_on`fs` >> fs[fsFFITheory.IO_fs_numchars_fupd]);
+(* get_file_content *)
+
+val get_file_content_validFD = Q.store_thm("get_file_content_validFD",
+  `get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs`,
+  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
+  imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >>
+  qexists_tac`(fd,x)` >> fs[]);
+
+val get_file_content_fsupdate = Q.store_thm("get_file_content_fsupdate",
+  `!fs fd x i c u. get_file_content fs fd = SOME u ⇒
+  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)`,
+  rw[get_file_content_def, fsupdate_def] >>
+  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
+
+val get_file_content_fsupdate_unchanged = Q.store_thm(
+  "get_file_content_fsupdate_unchanged",
+  `!fs fd u fnm pos fd' fnm' pos' x i c.
+   get_file_content fs fd = SOME u ⇒
+   ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒
+   ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
+  get_file_content (fsupdate fs fd' x i c) fd = SOME u`,
+  rw[get_file_content_def, fsupdate_def] >>
+  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
+  rpt(CASE_TAC >> fs[]));
 
 val get_file_content_bumpFD = Q.store_thm("get_file_content_bumpFD[simp]",
  `!fs fd c pos n.
@@ -486,15 +434,36 @@ val get_file_content_bumpFD = Q.store_thm("get_file_content_bumpFD[simp]",
  \\ pairarg_tac \\ fs[] \\ rw[]
  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]);
 
-(* TODO: in misc *)
-val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
- `!k1 k2 f1 f2 l. k1 <> k2 ==>
-  ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
-  ALIST_FUPDKEY k1 f1 (ALIST_FUPDKEY k2 f2 l)`,
-  induct_on`l` >> rw[] >> fs[ALIST_FUPDKEY_def] >>
-  cases_on`h`>> fs[ALIST_FUPDKEY_def] >>
-  CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
-  CASE_TAC >> fs[ALIST_FUPDKEY_def]);
+(* liveFS *)
+
+val liveFS_openFileFS = Q.store_thm("liveFS_openFileFS",
+ `liveFS fs ⇒ liveFS (openFileFS s fs n)`,
+  rw[liveFS_def,openFileFS_def, openFile_def] >>
+  CASE_TAC >> fs[] >> CASE_TAC >> fs[] >>
+  `r.numchars = fs.numchars` by
+    (cases_on`fs` >> cases_on`r` >> fs[IO_fs_infds_fupd]) >>
+  fs[]);
+
+val liveFS_fsupdate = Q.store_thm("liveFS_fsupdate",
+ `liveFS fs ⇒ liveFS (fsupdate fs fd n k c)`,
+ rw[liveFS_def,live_numchars_def,fsupdate_def] >>
+ every_case_tac \\ fs[always_DROP] \\
+ metis_tac[NOT_LFINITE_DROP,NOT_LFINITE_DROP_LFINITE,THE_DEF]);
+
+val liveFS_bumpFD = Q.store_thm("liveFS_bumpFD",
+ `liveFS fs ⇒ liveFS (bumpFD fd fs k)`,
+  rw[liveFS_def,live_numchars_def,bumpFD_def] >> cases_on`fs.numchars` >> fs[] >>
+  imp_res_tac always_thm);
+
+(* openFile, openFileFS *)
+
+val openFile_fupd_numchars = Q.store_thm("openFile_fupd_numchars",
+ `!s fs k ll fd fs'. openFile s (fs with numchars := ll) k =
+      case openFile s fs k of
+        SOME (fd, fs') => SOME (fd, fs' with numchars := ll)
+      | NONE => NONE`,
+  rw[openFile_def,nextFD_def] >> rpt(CASE_TAC >> fs[]) >>
+  rfs[IO_fs_component_equality]);
 
 val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= 255 /\ wfFS fs ==>
@@ -506,26 +475,10 @@ val wfFS_openFileFS = Q.store_thm("wfFS_openFileFS",
   >-(cases_on`y` >> fs[] >> cases_on`r` >> fs[] >> metis_tac[nextFD_NOT_MEM])
   >> metis_tac[])
 
-val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
- `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
-  rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
-
-val nextFD_numchars = Q.store_thm("nextFD_numchars",
- `!fs ll. nextFD (fs with numchars := ll) = nextFD fs`,
-  rw[nextFD_def]);
-
 val openFileFS_files = Q.store_thm("openFileFS_files[simp]",
  `!f fs pos. (openFileFS f fs pos).files = fs.files`,
   rw[openFileFS_def] >> CASE_TAC >> cases_on`x` >>
   fs[IO_fs_component_equality,openFile_def]);
-
-val openFile_fupd_numchars = Q.store_thm("openFile_fupd_numchars",
- `!s fs k ll fd fs'. openFile s (fs with numchars := ll) k =
-      case openFile s fs k of
-        SOME (fd, fs') => SOME (fd, fs' with numchars := ll)
-      | NONE => NONE`,
-  rw[openFile_def,nextFD_def] >> rpt(CASE_TAC >> fs[]) >>
-  rfs[IO_fs_component_equality]);
 
 val openFileFS_fupd_numchars = Q.store_thm("openFileFS_fupd_numchars",
  `!s fs k ll. openFileFS s (fs with numchars := ll) k =
@@ -538,5 +491,15 @@ val IS_SOME_get_file_content_openFileFS_nextFD = Q.store_thm("IS_SOME_get_file_c
   rw[get_file_content_def]
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]);
+
+val A_DELKEY_nextFD_openFileFS = Q.store_thm("A_DELKEY_nextFD_openFileFS[simp]",
+  `nextFD fs <= 255 ⇒
+   A_DELKEY (nextFD fs) (openFileFS f fs off).infds = fs.infds`,
+  rw[openFileFS_def]
+  \\ CASE_TAC
+  \\ TRY CASE_TAC
+  \\ simp[A_DELKEY_I,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  \\ fs[openFile_def] \\ rw[]
+  \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
 
 val _ = export_theory();

@@ -1,6 +1,4 @@
-open preamble ml_translatorLib ml_progLib
-     cfTacticsLib basisFunctionsLib cfLetAutoLib
-     fsFFIProofTheory textio_initProgTheory basisProgTheory basis_ffiLib
+open preamble basis
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
@@ -799,10 +797,10 @@ val grep_spec = Q.store_thm("grep_spec",
   strip_tac
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- xsimpl
-  \\ Cases_on`cl` \\ fs[mlcommandlineProgTheory.wfcl_def]
-  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  \\ Cases_on`cl` \\ fs[wfcl_def]
+  \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
     \\ xapp
@@ -817,7 +815,7 @@ val grep_spec = Q.store_thm("grep_spec",
     )
   \\ rveq
   \\ rename1`EVERY validArg t`
-  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
     \\ xapp
@@ -837,7 +835,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ qmatch_assum_abbrev_tac`Abbrev(cl = grep::regexp::fls)`
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ Cases_on`parse_regexp regexp` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ Cases_on`parse_regexp regexp` \\ fs[OPTION_TYPE_def]
   >- (
     xmatch
     \\ xlet_auto >- xsimpl
@@ -884,7 +882,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ `s1 = s2` suffices_by xsimpl
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
-    \\ simp[all_lines_def,FILTER_MAP,mlstringTheory.strcat_thm,MAP_MAP_o,o_DEF]
+    \\ simp[all_lines_def,FILTER_MAP,strcat_thm,MAP_MAP_o,o_DEF]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -909,16 +907,16 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ xsimpl
   \\ qexists_tac`STRING_TYPE`
   \\ reverse conj_tac
-  >- ( simp[Abbr`fls`,ml_translatorTheory.LIST_TYPE_def] )
+  >- ( simp[Abbr`fls`,LIST_TYPE_def] )
   \\ rw[] \\ rfs[EL_MAP]
   \\ qmatch_assum_abbrev_tac`STRING_TYPE f xv`
   \\ `validArg (explode f)`
   by (
-    fs[Abbr`fls`,Abbr`f`,mlstringTheory.explode_implode,EVERY_MEM,MEM_EL,PULL_EXISTS]
+    fs[Abbr`fls`,Abbr`f`,explode_implode,EVERY_MEM,MEM_EL,PULL_EXISTS]
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,commandLineFFITheory.validArg_def,Abbr`f`,mlstringTheory.explode_implode,mlstringTheory.implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )

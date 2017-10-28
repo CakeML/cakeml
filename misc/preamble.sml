@@ -27,6 +27,7 @@ val has_pair_type = can dest_prod o type_of
 
 val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
 val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
+val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
 
 structure option_monadsyntax = struct
 fun temp_add_option_monadsyntax() =
@@ -36,6 +37,7 @@ fun temp_add_option_monadsyntax() =
     val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
     val _ = temp_overload_on ("monad_bind", option_bind_tm)
     val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = temp_overload_on ("assert", option_guard_tm)
   in () end
 
 fun add_option_monadsyntax() =
@@ -45,6 +47,7 @@ fun add_option_monadsyntax() =
     val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
     val _ = overload_on ("monad_bind", option_bind_tm)
     val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = overload_on ("assert", option_guard_tm)
   in () end
 end
 

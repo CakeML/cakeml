@@ -1,9 +1,13 @@
-structure basis_ffiLib =
+(*
+  Automation for instantiating the FFI oracle with the
+  basis library functions, and removing CF separation logic.
+*)
+structure basis_ffiLib :> basis_ffiLib =
 struct
 
 open preamble
 open ml_progLib basis_ffiTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
-     mltextioSpecTheory mltextioProgTheory
+     CommandlineProofTheory mltextioSpecTheory mltextioProgTheory
 
 
 val IOFS_tm = prim_mk_const{Thy="textio_initProg",Name="IOFS"};
@@ -24,7 +28,7 @@ val basis_ffi_tm =
         (#1(strip_fun(type_of basis_ffi_const)))))
 
 val hprop_heap_thms =
-  ref [emp_precond, IOFS_precond, mlcommandlineProgTheory.COMMANDLINE_precond,
+  ref [emp_precond, IOFS_precond, COMMANDLINE_precond,
 	   STDIO_precond,STDIO_precond',cond_precond];
 
 (*This tactic proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)

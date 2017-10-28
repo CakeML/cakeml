@@ -3,7 +3,7 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
-open optionTheory combinTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+open optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -3097,6 +3097,9 @@ val Lnext_def = tDefine "Lnext" `
   Cases_on`B(P,ll)` >-(metis_tac[]) >>
   qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
 
+val Lnext_pos_def = Define`
+  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
+
 val OPTION_CHOICE_EQUALS_OPTION = Q.store_thm("OPTION_CHOICE_EQUALS_OPTION",
   `!(x:'a option) y z. (OPTION_CHOICE x y = SOME z) <=>
                        ((x = SOME z) \/ ((x = NONE) /\ (y = SOME z)))`,
@@ -3107,5 +3110,130 @@ val _ =  save_thm("option_eq_some",
     OPTION_IGNORE_BIND_EQUALS_OPTION,
     OPTION_BIND_EQUALS_OPTION,
     OPTION_CHOICE_EQUALS_OPTION]);
+
+val SUM_MAP_K = Q.store_thm("SUM_MAP_K",
+  `∀f ls c. (∀x. f x = c) ⇒ SUM (MAP f ls) = LENGTH ls * c`,
+  rw[] \\ Induct_on`ls` \\ rw[MULT_SUC]);
+
+val LAST_FLAT = Q.store_thm("LAST_FLAT",
+  `∀ls. ~NULL (FLAT ls) ==> (LAST (FLAT ls) = LAST (LAST (FILTER ($~ o NULL) ls)))`,
+  ho_match_mp_tac SNOC_INDUCT \\ rw[]
+  \\ fs[FLAT_SNOC,FILTER_SNOC]
+  \\ Cases_on`x` \\ fs[]);
+
+val TOKENS_FRONT = Q.store_thm("TOKENS_FRONT",
+  `¬NULL ls ∧ P (LAST ls) ⇒
+   TOKENS P (FRONT ls) = TOKENS P ls`,
+  Induct_on`ls` \\ rw[]
+  \\ Cases_on`ls` \\ fs[]
+  >- rw[TOKENS_def,SPLITP]
+  \\ rw[TOKENS_def]
+  \\ pairarg_tac
+  \\ simp[Once SPLITP]
+  \\ CASE_TAC \\ fs[NULL_EQ]
+  >- (
+    imp_res_tac SPLITP_NIL_IMP
+    \\ fs[] )
+  \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on`l` \\ fs[] \\ rveq
+  \\ imp_res_tac SPLITP_IMP
+  \\ CASE_TAC \\ fs[]
+  \\ qmatch_goalsub_rename_tac`SPLITP P (x::xs)`
+  \\ `∃y ys. x::xs = SNOC y ys` by metis_tac[SNOC_CASES,list_distinct]
+  \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC] \\ rveq
+  \\ qmatch_goalsub_rename_tac`SPLITP P (SNOC y (w ++ z))`
+  \\ Cases_on`NULL z` \\ fs[NULL_EQ]
+  >- (
+    simp[SPLITP_APPEND]
+    \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
+    \\ simp[SPLITP,TOKENS_def] )
+  \\ Cases_on`z` \\ fs[]
+  \\ simp[SPLITP_APPEND]
+  \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
+  \\ simp[SPLITP,TOKENS_def]
+  \\ simp[TOKENS_APPEND,TOKENS_NIL]);
+
+val TOKENS_unchanged = Q.store_thm("TOKENS_unchanged",
+  `EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]`,
+  Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
+  \\ pairarg_tac \\ fs[NULL_EQ]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ Cases_on`r=[]` \\ fs[]
+  >- ( imp_res_tac SPLITP_NIL_IMP \\ rveq \\ fs[TOKENS_NIL] )
+  \\ rw[]
+  >- (
+    imp_res_tac SPLITP_NIL_IMP
+    \\ rfs[] \\ rveq \\ fs[] )
+  \\ imp_res_tac SPLITP_IMP
+  \\ rfs[NULL_EQ]
+  \\ fs[EVERY_MEM]
+  \\ `MEM (HD r) (l ++ r)` by (Cases_on`r` \\ fs[])
+  \\ Cases_on`MEM (HD r) l` \\ fs[] >- metis_tac[]
+  \\ `MEM (HD r) (h::ls)` by metis_tac[MEM_APPEND]
+  \\ fs[] \\ rw[] \\ metis_tac[]);
+
+val TOKENS_FLAT_MAP_SNOC = Q.store_thm("TOKENS_FLAT_MAP_SNOC",
+  `EVERY (EVERY ((<>) x)) ls ∧ EVERY ($~ o NULL) ls ==>
+   TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls`,
+  Induct_on`ls` \\ rw[TOKENS_NIL]
+  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
+  \\ rewrite_tac[GSYM APPEND_ASSOC]
+  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
+  \\ DEP_REWRITE_TAC[TOKENS_unchanged]
+  \\ fs[EVERY_MEM]);
+
+(* insert a string (l1) at specified index (n) in a list (l2) *)
+val insert_atI_def = Define`
+  insert_atI l1 n l2 =
+    TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
+`;
+
+val insert_atI_NIL = Q.store_thm(
+  "insert_atI_NIL",
+  `∀n l.insert_atI [] n l = l`,
+  simp[insert_atI_def]);
+
+val insert_atI_CONS = Q.store_thm(
+  "insert_atI_CONS",
+  `∀n l h t.
+     n + LENGTH t < LENGTH l ==>
+     insert_atI (h::t) n l = LUPDATE h n (insert_atI t (n + 1) l)`,
+  simp[insert_atI_def] >> Induct_on `n`
+  >- (Cases_on `l` >> simp[ADD1, LUPDATE_def]) >>
+  Cases_on `l` >> simp[ADD1] >> fs[ADD1] >>
+  simp[GSYM ADD1, LUPDATE_def]);
+
+val LENGTH_insert_atI = Q.store_thm(
+  "LENGTH_insert_atI",
+  `p + LENGTH l1 <= LENGTH l2 ⇒ LENGTH (insert_atI l1 p l2) = LENGTH l2`,
+  simp[insert_atI_def]);
+
+val insert_atI_app = Q.store_thm("insert_atI_app",
+  `∀n l c1 c2.  n + LENGTH c1 + LENGTH c2 <= LENGTH l ==>
+     insert_atI (c1 ++ c2) n l =
+     insert_atI c1 n (insert_atI c2 (n + LENGTH c1) l)`,
+  Induct_on`c1` >> fs[insert_atI_NIL,insert_atI_CONS,LENGTH_insert_atI,ADD1]);
+
+val insert_atI_end = Q.store_thm("insert_atI_end",
+  `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
+  simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
+
+val LUPDATE_insert_commute = Q.store_thm(
+  "LUPDATE_insert_commute",
+  `∀ws pos1 pos2 a w.
+     pos2 < pos1 ∧ pos1 + LENGTH ws <= LENGTH a ⇒
+     insert_atI ws pos1 (LUPDATE w pos2 a) =
+       LUPDATE w pos2 (insert_atI ws pos1 a)`,
+  Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
+
+val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
+ `!k1 k2 f1 f2 l. k1 <> k2 ==>
+  ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
+  ALIST_FUPDKEY k1 f1 (ALIST_FUPDKEY k2 f2 l)`,
+  Induct_on`l` >> rw[] >> fs[ALIST_FUPDKEY_def] >>
+  Cases_on`h`>> fs[ALIST_FUPDKEY_def] >>
+  CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
+  CASE_TAC >> fs[ALIST_FUPDKEY_def]);
 
 val _ = export_theory()

@@ -1,6 +1,7 @@
-open preamble ml_translatorLib ml_progLib
-     cfTacticsLib cfLetAutoLib basisFunctionsLib
-     textio_initProgTheory mltextioProgTheory mltextioSpecTheory
+open preamble ml_translatorLib ml_progLib cfLib
+     basisFunctionsLib
+     textio_initProgTheory mltextioProgTheory
+     CommandlineProofTheory mltextioSpecTheory
 
 val _ = new_theory "basisProg"
 

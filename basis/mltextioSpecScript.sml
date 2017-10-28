@@ -1,15 +1,13 @@
 open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib
-     cfTacticsBaseLib cfTacticsLib basisFunctionsLib
-     mlstringTheory fsFFITheory fsFFIProofTheory
-     cfLetAutoLib cfLetAutoTheory cfHeapsBaseTheory
-     mlw8arrayProgTheory mlstringProgTheory cfMainTheory
-     mlarrayProgTheory cfHeapsTheory textio_initProgTheory mltextioProgTheory
+     ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
+     mlstringTheory fsFFITheory fsFFIPropsTheory
+     mlw8arrayProgTheory mlstringProgTheory
+     mlarrayProgTheory textio_initProgTheory mltextioProgTheory
 
 val _ = new_theory"mltextioSpec";
 
 val _ = translation_extends "mltextioProg";
-val _ = monadsyntax.add_monadsyntax();
+val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 val basis_st = get_ml_prog_state;
 
