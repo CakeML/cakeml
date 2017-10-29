@@ -35,12 +35,10 @@ val tl_1_side_def = Q.prove(
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "tl_1_side_def"])
   |> update_precondition;
 
-
 val result = translate LAST_DEF;
 
-
+val _ = next_ml_names := ["getItem"];
 val result = translate getItem_def;
-
 
 val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 val nth_side_def = theorem"nth_side_def";
@@ -209,6 +207,7 @@ val result = translate UNZIP;
 val result = translate PAD_RIGHT;
 val result = translate PAD_LEFT;
 val result = translate (ALL_DISTINCT |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = next_ml_names := ["isPrefix"];
 val result = translate isPREFIX;
 val result = translate FRONT_DEF;
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
@@ -233,11 +232,15 @@ val nth_side_def = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
+val _ = next_ml_names := ["update"];
+val result = translate LUPDATE_def;
+
 val _ =  ml_prog_update (close_module NONE);
 
 (* sorting -- included here because it depends on List functions like append  *)
 
 val res = translate sortingTheory.PART_DEF;
+val _ = next_ml_names := ["partition"];
 val res = translate sortingTheory.PARTITION_DEF;
 val res = translate sortingTheory.QSORT_DEF;
 

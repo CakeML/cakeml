@@ -12,6 +12,7 @@ val _ = ml_prog_update (open_module "Option");
 
 val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
 
+val () = next_ml_names := ["getOpt"];
 val result = translate getOpt_def;
 
 val () = next_ml_names := ["isSome"];
@@ -31,10 +32,12 @@ val result = translate OPTION_JOIN_DEF;
 val result = next_ml_names := ["map"];
 val result = translate OPTION_MAP_DEF;
 
+val () = next_ml_names := ["mapPartial"];
 val result = translate (OPTION_BIND_def |> REWRITE_RULE[GSYM mapPartial_def]);
 
 val result = translate compose_def;
 
+val () = next_ml_names := ["composePartial"];
 val result = translate composePartial_def;
 
 (*Functions declared in std_preludeLib *)
