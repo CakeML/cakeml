@@ -1,8 +1,8 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIPropsTheory
-     mlw8arrayProgTheory
-     mlarrayProgTheory textio_initProgTheory mltextioProgTheory
+     Word8ArrayProofTheory
+     ArrayProgTheory textio_initProgTheory mltextioProgTheory
 
 val _ = new_theory"mltextioSpec";
 

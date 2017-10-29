@@ -1,9 +1,9 @@
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     mlword64ProgTheory
+     Word64ProgTheory
 
-val _ = new_theory "mlword8Prog";
+val _ = new_theory "Word8Prog";
 
-val _ = translation_extends "mlword64Prog";
+val _ = translation_extends "Word64Prog";
 
 (* Word8 module -- translated *)
 
