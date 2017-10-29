@@ -4,12 +4,12 @@
 structure preamble =
 struct
 local open intLib wordsLib in end;
-open set_relationTheory;
+open set_relationTheory; (* comes first so relationTheory takes precedence *)
 open BasicProvers Defn HolKernel Parse SatisfySimps Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     optionTheory pairLib pairTheory pred_setTheory
+     mp_then optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
 (* TOOD: move? *)
@@ -24,6 +24,32 @@ val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
 (* -- *)
+
+val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
+val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
+val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
+
+structure option_monadsyntax = struct
+fun temp_add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.temp_add_monadsyntax();
+    val _ = temp_inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = temp_overload_on ("monad_bind", option_bind_tm)
+    val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = temp_overload_on ("assert", option_guard_tm)
+  in () end
+
+fun add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.add_monadsyntax();
+    val _ = inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = overload_on ("monad_bind", option_bind_tm)
+    val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = overload_on ("assert", option_guard_tm)
+  in () end
+end
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 

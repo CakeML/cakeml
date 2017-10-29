@@ -2,8 +2,10 @@ structure basisFunctionsLib :> basisFunctionsLib =
 struct
 
 open preamble
-     ml_translatorTheory ml_translatorLib semanticPrimitivesTheory
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib ml_progLib
+     semanticPrimitivesTheory ml_translatorTheory
+     ml_translatorLib ml_progLib cfLib
+(* TODO: process_topdecs is exported here, but should probably be in a parsing
+         library instead *)
 
 fun get_module_prefix () = let
   val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())

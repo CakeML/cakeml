@@ -63,7 +63,7 @@ val lookup_def = Define`
     | Equal => SOME v'`;
 
 val insert_def =
-(* TODO: fill in your definition here *)
+(* EXERCISE: fill in your definition here *)
 (*ex *)
 Define`
   insert cmp k v Leaf = singleton k v ∧
@@ -111,7 +111,7 @@ val key_set_eq = Q.store_thm ("key_set_eq",
     good_cmp cmp
     ⇒
     (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)`,
-  (* TODO: prove this *)
+  (* EXERCISE: prove this *)
   (* hint: consider the tactics used above *)
   (* hint: remember DB.match and DB.find to find useful theorems *)
   (* hint: set extensionality theorem is called EXTENSION *)
@@ -142,7 +142,7 @@ val to_fmap_key_set = Q.store_thm ("to_fmap_key_set",
   `∀ks t.
     ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`,
    Induct_on `t` >>
-   (* TODO: finish this proof *)
+   (* EXERCISE: finish this proof *)
    (* hint: the same tactic probably works for both subgoals *)
    (*ex *)
    rw[to_fmap_def] \\
@@ -195,7 +195,7 @@ val wf_tree_singleton = Q.store_thm("wf_tree_singleton[simp]",
    export_rewrites["wf_tree_singleton"] after storing this theorem. *)
 
 val key_ordered_singleton = Q.store_thm("key_ordered_singleton[simp]",
-  (* TODO: you might want to prove a lemma about key_ordered and singleton *)
+  (* EXERCISE: you might want to prove a lemma about key_ordered and singleton *)
   (* skip ahead to wf_tree_insert first *)
 (*ex *)
   `cmp k k' = res ⇒
@@ -211,7 +211,7 @@ val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
     key_ordered cmp k t res ∧ cmp k k' = res ⇒
 (* ex*)
          key_ordered cmp k (insert cmp k' v' t) res`,
-  (* TODO: you might want to prove a lemma about key_ordered and insert *)
+  (* EXERCISE: you might want to prove a lemma about key_ordered and insert *)
   (* skip ahead to wf_tree_insert first *)
   (* hint: this lemma might need induction *)
   (*ex *)
@@ -228,7 +228,7 @@ val wf_tree_insert = Q.store_thm("wf_tree_insert[simp]",
   Induct \\
   rw[insert_def] \\
   CASE_TAC \\ fs[wf_tree_def] \\
-  (* TODO: fill in the rest of the proof *)
+  (* EXERCISE: fill in the rest of the proof *)
   (* hint: you might want to prove the key_ordered_insert lemma above at this point
      then you can continue with:
     match_mp_tac key_ordered_insert
@@ -280,7 +280,7 @@ val lookup_to_fmap = Q.store_thm("lookup_to_fmap",
     DB.match[] ``FLOOKUP (_ |+ _)``;
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
-  (* TODO: fill in the rest of this proof *)
+  (* EXERCISE: fill in the rest of this proof *)
   (*ex *)
   simp[FLOOKUP_FUNION,FLOOKUP_UPDATE] \\
   imp_res_tac wf_tree_Node_imp \\

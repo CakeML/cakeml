@@ -1,12 +1,16 @@
-structure fsioProgLib =
+(*
+  Automation for instantiating the FFI oracle with the
+  basis library functions, and removing CF separation logic.
+*)
+structure basis_ffiLib :> basis_ffiLib =
 struct
 
 open preamble
-open ml_progLib fsioProofTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
-     fsioSpecTheory fsioProgTheory
+open ml_progLib basis_ffiTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
+     CommandlineProofTheory mltextioSpecTheory mltextioProgTheory
 
 
-val IOFS_tm = prim_mk_const{Thy="fsioConstantsProg",Name="IOFS"};
+val IOFS_tm = prim_mk_const{Thy="textio_initProg",Name="IOFS"};
 fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x));
 val is_IOFS = can dest_IOFS;
 
@@ -14,9 +18,9 @@ val (UNIT_TYPE_tm,mk_UNIT_TYPE,dest_UNIT_TYPE,is_UNIT_TYPE) = syntax_fns2 "ml_tr
 val cond_tm = set_sepTheory.cond_def |> SPEC_ALL |> concl |> lhs |> rator;
 fun dest_cond x = snd (assert (same_const cond_tm o fst) (dest_comb x));
 
-fun ERR f s = mk_HOL_ERR"fsio" f s;
+fun ERR f s = mk_HOL_ERR"basis_ffiLib" f s;
 
-val basis_ffi_const = prim_mk_const{Thy="fsioProof",Name="basis_ffi"};
+val basis_ffi_const = prim_mk_const{Thy="basis_ffi",Name="basis_ffi"};
 val basis_ffi_tm =
   list_mk_comb(basis_ffi_const,
     map mk_var
@@ -24,7 +28,7 @@ val basis_ffi_tm =
         (#1(strip_fun(type_of basis_ffi_const)))))
 
 val hprop_heap_thms =
-  ref [emp_precond, IOFS_precond, mlcommandLineProgTheory.COMMANDLINE_precond,
+  ref [emp_precond, IOFS_precond, COMMANDLINE_precond,
 	   STDIO_precond,STDIO_precond',cond_precond];
 
 (*This tactic proves that for a given state, parts_ok holds for the ffi and the basis_proj2*)
@@ -77,7 +81,7 @@ fun subset_basis_st st precond =
         fs[cfStoreTheory.st2heap_def, cfStoreTheory.FFI_part_NOT_IN_store2heap,
            cfStoreTheory.Mem_NOT_IN_ffi2heap, cfStoreTheory.ffi2heap_def]
      \\ qmatch_goalsub_abbrev_tac`parts_ok ffii (basis_proj1,basis_proj2)`
-     \\ `parts_ok ffii (basis_proj1,basis_proj2)` 
+     \\ `parts_ok ffii (basis_proj1,basis_proj2)`
             by (fs[Abbr`ffii`] \\ prove_parts_ok_st)
      \\ fs[Abbr`ffii`]
      \\ EVAL_TAC \\ rw[INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE])
@@ -151,7 +155,7 @@ fun add_basis_proj spec =
       mp_tac (GENL arg_vars spec)
       \\ simp_tac(bool_ss)[set_sepTheory.SEP_CLAUSES]
       \\ simp_tac (std_ss++star_ss) [])
-    val spec2 = HO_MATCH_MP append_SEP_EXISTS lemma handle HOL_ERR _ => lemma
+    val spec2 = lemma
   in
       spec2 |> Q.GEN`p` |> Q.ISPEC`(basis_proj1, basis_proj2)`
   end;
