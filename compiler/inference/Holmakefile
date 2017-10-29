@@ -1,4 +1,4 @@
-INCLUDES = ../../misc ../../semantics ../../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order ../../basis/pure ../../translator/monadic
+INCLUDES = ../../misc ../../semantics ../../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order ../../basis/pure
 OPTIONS = QUIT_ON_FAILURE
 
 SEMANTICSI = semanticPrimitives

@@ -1,8 +1,7 @@
 INCLUDES = ../../../misc ../../../translator ../../../characteristic \
            ../../inference ../../inference/proofs ../../parsing ../../backend \
            ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
-           ../../../basis $(HOLDIR)/examples/formal-languages/context-free \
-           ../../../translator/monadic
+           ../../../basis $(HOLDIR)/examples/formal-languages/context-free
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
