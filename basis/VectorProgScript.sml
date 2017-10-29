@@ -1,9 +1,9 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-    mlvectorTheory mllistProgTheory basisFunctionsLib
+    mlvectorTheory ListProgTheory basisFunctionsLib
 
-val _ = new_theory"mlvectorProg"
+val _ = new_theory"VectorProg"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
 

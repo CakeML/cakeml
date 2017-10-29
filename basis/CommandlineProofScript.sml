@@ -111,7 +111,7 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
   \\ fs[EVERY_SNOC,validArg_def,EVERY_MEM,NULL_EQ,MAP_SNOC]
 );
 
-val hd_v_thm = fetch "mllistProg" "hd_v_thm";
+val hd_v_thm = fetch "ListProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val Commandline_name_spec = Q.store_thm("Commandline_name_spec",
@@ -129,7 +129,7 @@ val Commandline_name_spec = Q.store_thm("Commandline_name_spec",
     \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]
 );
 
-val tl_v_thm = fetch "mllistProg" "tl_v_thm";
+val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
 val Commandline_arguments_spec = Q.store_thm("Commandline_arguments_spec",
