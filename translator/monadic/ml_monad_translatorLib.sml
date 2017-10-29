@@ -2764,13 +2764,16 @@ fun m_translate_run def = let
     val th = INST [env |-> global_env] th
 
     (* clean up the assumptions *)
-    val th = clean_assumptions (D th)
+    fun add_T_imp th =
+	if (is_imp o concl) th then th
+	else DISCH (concl TRUTH) th
+    val th = clean_assumptions (D th) |> add_T_imp
 
     (* Introduce the precondition *)
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) [EQ_def,PRECONDITION_def])) (D th)
     val precond = concl th |> dest_imp |> fst
     val is_precond_T = same_const (concl TRUTH) precond
-    val (th,pre) = if is_precond_T then (MP th TRUTH |> ml_translatorLib.remove_Eq_from_v_thm, TRUTH)
+    val (th,pre) = if is_precond_T then (MP th TRUTH, TRUTH)
 	     else let
 		 val pre_type = List.foldr (fn (x,y) =>
                      mk_type("fun", [x,y])) bool_ty
@@ -2801,6 +2804,7 @@ fun m_translate_run def = let
     val s = get_curr_prog_state ()
     val v_def = hd (get_v_defs s)
     val th = th |> REWRITE_RULE [GSYM v_def]
+    val th = remove_Eq_from_v_thm th
 
     (* Store the certificate for later use *)
     val _ = add_v_thms (fname,fname,th,pre)
