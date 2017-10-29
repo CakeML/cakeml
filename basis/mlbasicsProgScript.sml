@@ -1,11 +1,11 @@
 open preamble
      semanticPrimitivesTheory ml_translatorTheory
      ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     mlstringProgTheory
+     StringProgTheory
 
 val _ = new_theory "mlbasicsProg"
 
-val _ = translation_extends"mlstringProg"
+val _ = translation_extends"StringProg"
 
 val mk_binop_def = Define `
   mk_binop name prim = Dlet unknown_loc (Pvar name)
