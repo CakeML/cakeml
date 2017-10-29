@@ -1,8 +1,7 @@
 open preamble ml_translatorLib ml_progLib std_preludeTheory
      mloptionTheory
 
-(*this library depends on nothing *)
-val _ = new_theory"mloptionProg"
+val _ = new_theory"OptionProg"
 
 val _ = translation_extends"std_prelude"
 
@@ -40,16 +39,11 @@ val result = translate compose_def;
 val () = next_ml_names := ["composePartial"];
 val result = translate composePartial_def;
 
-(*Functions declared in std_preludeLib *)
 val () = next_ml_names := ["isNone"];
 val res = translate IS_NONE_DEF;
+
 val () = next_ml_names := ["map2"];
 val res = translate OPTION_MAP2_DEF;
 
-
-
-
-
 val _ = ml_prog_update (close_module NONE);
 val _ = export_theory();
-
