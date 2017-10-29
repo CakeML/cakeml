@@ -9,10 +9,11 @@ ml_translatorTheory ml_progLib ml_translatorLib cfLib
 clFFITheory
 fsFFITheory fsFFIPropsTheory
 
-ListProofTheory
 mlstringTheory
-mlw8arrayProgTheory
-mlarrayProgTheory
+
+ListProofTheory
+Word8ArrayProofTheory
+ArrayProofTheory
 CommandlineProofTheory
 textio_initProgTheory mltextioProgTheory mltextioSpecTheory
 

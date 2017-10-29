@@ -2,7 +2,7 @@ open preamble
      ml_translatorLib ml_progLib mlintTheory
      mlbasicsProgTheory basisFunctionsLib gcdTheory
 
-val _ = new_theory"mlintProg"
+val _ = new_theory"IntProg"
 
 val _ = translation_extends "mlbasicsProg";
 

@@ -1,9 +1,9 @@
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     mlratProgTheory
+     RatProgTheory
 
-val _ = new_theory "mlcharProg";
+val _ = new_theory "CharProg";
 
-val _ = translation_extends "mlratProg";
+val _ = translation_extends "RatProg";
 
 (* Char module -- translated *)
 

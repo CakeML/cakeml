@@ -1,5 +1,5 @@
-open preamble CommandlineProgTheory clFFITheory
-     ml_translatorTheory ml_progLib ml_translatorLib cfLib
+open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
+     CommandlineProgTheory clFFITheory Word8ArrayProofTheory
 
 val _ = new_theory"CommandlineProof";
 

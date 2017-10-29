@@ -3236,4 +3236,34 @@ val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
   CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
   CASE_TAC >> fs[ALIST_FUPDKEY_def]);
 
+open realLib
+
+val real_of_int_def = Define `
+  real_of_int (i:int) = if i < 0 then - & (Num (-i)) else & (Num i):real`;
+
+val real_of_int_num = store_thm("real_of_int_num[simp]",
+  ``real_of_int (& n) = &n``,
+  rewrite_tac[real_of_int_def]
+  \\ Cases_on `(&n):int`
+  \\ fs []);
+
+val real_of_int_add = store_thm("real_of_int_add[simp]",
+  ``real_of_int (m + n) = real_of_int m + real_of_int n``,
+  Cases_on `m` \\ Cases_on `n` \\ fs [real_of_int_def] \\ rw []
+  \\ fs [integerTheory.INT_ADD_CALCULATE]
+  \\ rw [] \\ fs [] \\ fs [GSYM NOT_LESS,realTheory.add_ints]);
+
+val real_of_int_neg = store_thm("real_of_int_neg[simp]",
+  ``real_of_int (-m) = -real_of_int m``,
+  Cases_on `m` \\ fs [real_of_int_def]);
+
+val real_of_int_sub = store_thm("real_of_int_sub[simp]",
+  ``real_of_int (m - n) = real_of_int m - real_of_int n``,
+  fs [integerTheory.int_sub,realTheory.real_sub]);
+
+val real_of_int_mul = store_thm("real_of_int_mul[simp]",
+  ``real_of_int (m * n) = real_of_int m * real_of_int n``,
+  Cases_on `m` \\ Cases_on `n` \\ fs [real_of_int_def] \\ rw []
+  \\ fs [integerTheory.INT_MUL_CALCULATE]);
+
 val _ = export_theory()

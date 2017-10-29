@@ -899,7 +899,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ imp_res_tac regexp_matcher_with_limit_sound
     \\ rveq \\ fs[])
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
+  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`λn. STDIO (FOLDL ff I (TAKE n fls) fs)`
   \\ xsimpl
