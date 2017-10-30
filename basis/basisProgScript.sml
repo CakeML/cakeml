@@ -1,11 +1,9 @@
-open preamble ml_translatorLib ml_progLib cfLib
-     basisFunctionsLib
-     textio_initProgTheory mltextioProgTheory
-     CommandlineProofTheory mltextioSpecTheory
+open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+     CommandlineProofTheory TextIOProofTheory
 
 val _ = new_theory "basisProg"
 
-val _ = translation_extends"mltextioProg";
+val _ = translation_extends"TextIOProg";
 
 val res = register_type``:'a app_list``;
 val MISC_APP_LIST_TYPE_def = theorem"MISC_APP_LIST_TYPE_def";

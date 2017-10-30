@@ -1,9 +1,47 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     mlstringTheory fsFFITheory textio_initProgTheory
+     CommandlineProgTheory
 
-val _ = new_theory"mltextioProg";
-val _ = translation_extends "textio_initProg";
+val _ = new_theory"TextIOProg";
+
+val _ = translation_extends "CommandlineProg";
+
+val _ = ml_prog_update (open_module "TextIO");
+
+val _ = process_topdecs `
+  exception BadFileName;
+  exception InvalidFD;
+  exception EndOfFile
+` |> append_prog
+
+val BadFileName_exn_def = Define `
+  BadFileName_exn v =
+    (v = Conv (SOME ("BadFileName", TypeExn (Long "TextIO" (Short "BadFileName")))) [])`
+
+val InvalidFD_exn_def = Define `
+  InvalidFD_exn v =
+    (v = Conv (SOME ("InvalidFD", TypeExn (Long "TextIO" (Short "InvalidFD")))) [])`
+
+val EndOfFile_exn_def = Define `
+  EndOfFile_exn v =
+    (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
+
+(* 258 w8 array *)
+val iobuff_e = ``(App Aw8alloc [Lit (IntLit 258); Lit (Word8 0w)])``
+val _ = ml_prog_update
+          (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
+val iobuff_loc_def = definition "iobuff_loc_def"
+val iobuff_loc = EVAL``iobuff_loc`` |> curry save_thm "iobuff_loc"
+val _ = export_rewrites["iobuff_loc"]
+
+(* stdin, stdout, stderr *)
+val stdIn_def = Define`stdIn:word8 = n2w 0`;
+val stdOut_def = Define`stdOut:word8 = n2w 1`;
+val stdErr_def = Define`stdErr:word8 = n2w 2`;
+val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
+val r = translate stdIn_def;
+val r = translate stdOut_def;
+val r = translate stdErr_def;
 
 (* writei: higher-lever write function which calls #write until something is written or
 * a filesystem error is raised and outputs the number of bytes written.

@@ -1,8 +1,7 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     basisFunctionsLib fsFFIPropsTheory cfHeapsBaseTheory
-     CommandlineProgTheory fsFFITheory set_sepTheory
-     cfMainTheory textio_initProgTheory cfLetAutoTheory cfLetAutoLib
-     cfHeapsBaseLib
+     cfLib cfMainTheory basisFunctionsLib set_sepTheory
+     fsFFITheory fsFFIPropsTheory
+     CommandlineProofTheory TextIOProofTheory
 
 val _ = new_theory"basis_ffi";
 
