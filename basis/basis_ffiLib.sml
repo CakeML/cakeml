@@ -7,10 +7,10 @@ struct
 
 open preamble
 open ml_progLib basis_ffiTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
-     CommandlineProofTheory mltextioSpecTheory mltextioProgTheory
+     CommandlineProofTheory TextIOProofTheory
 
 
-val IOFS_tm = prim_mk_const{Thy="textio_initProg",Name="IOFS"};
+val IOFS_tm = prim_mk_const{Thy="TextIOProof",Name="IOFS"};
 fun dest_IOFS x = snd (assert (same_const IOFS_tm o fst) (dest_comb x));
 val is_IOFS = can dest_IOFS;
 

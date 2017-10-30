@@ -15,7 +15,7 @@ ListProofTheory
 Word8ArrayProofTheory
 ArrayProofTheory
 CommandlineProofTheory
-textio_initProgTheory mltextioProgTheory mltextioSpecTheory
+TextIOProgTheory TextIOProofTheory
 
 basisProgTheory basisFunctionsLib basis_ffiLib
 
