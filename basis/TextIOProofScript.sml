@@ -605,9 +605,8 @@ val close_STDIO_spec = Q.store_thm(
   fs[STD_streams_def,ALOOKUP_ADELKEY] \\
   Cases_on`fd = 0` \\ fs[] \\ metis_tac[]);
 
-(* TODO: remove redundant validFD assumption *)
 val writei_spec = Q.store_thm("writei_spec",
- `wfFS fs ⇒ validFD fd fs ⇒ 0 < n ⇒
+ `wfFS fs ⇒ 0 < n ⇒
   fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
   get_file_content fs fd = SOME(content, pos) ⇒
   WORD (n2w fd:word8) fdv ⇒ WORD (n2w n:word8) nv ⇒ WORD (n2w i:word8) iv ⇒
@@ -628,6 +627,8 @@ val writei_spec = Q.store_thm("writei_spec",
   `ll ≠ [||]`  by (cases_on`ll` >> fs[wfFS_def,liveFS_def,live_numchars_def]) >>
   `always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0)) ll`
     by fs[wfFS_def,liveFS_def,live_numchars_def] >>
+  reverse(Cases_on`validFD fd fs`) >- metis_tac[get_file_content_validFD] \\
+  pop_assum mp_tac \\
   UNDISCH_TAC ``fs.numchars = ll`` >> LAST_X_ASSUM MP_TAC >>
   LAST_ASSUM MP_TAC >>
   qid_spec_tac `bc`>> qid_spec_tac `h3` >>  qid_spec_tac `h2` >> qid_spec_tac `h1` >>
@@ -721,20 +722,19 @@ val writei_spec = Q.store_thm("writei_spec",
   fs[ADD] >> xsimpl >> cases_on`t` >> fs[] >> rw[]
   >> instantiate >> xsimpl);
 
-(* TODO: remove redundant validFD assumption *)
 val write_spec = Q.store_thm("write_spec",
- `!n fs fd i pos h1 h2 h3 rest bc fdv nv iv content.
-  validFD fd fs ⇒ wfFS fs ⇒
-  fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
-  get_file_content fs fd = SOME(content, pos) ⇒
-  WORD (n2w fd:word8) fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
-  bc = h1 :: h2 :: h3 :: rest ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v "TextIO.write" (basis_st())) [fdv;nv;iv]
-  (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
-  (POSTv nwv. SEP_EXISTS k.
-     IOFS(fsupdate fs fd k (pos + n)
-                   (insert_atI (TAKE n (MAP (CHR o w2n) (DROP i rest))) pos
-                                    content)))`,
+  `!n fs fd i pos h1 h2 h3 rest bc fdv nv iv content.
+   wfFS fs ⇒
+   fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
+   get_file_content fs fd = SOME(content, pos) ⇒
+   WORD (n2w fd:word8) fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
+   bc = h1 :: h2 :: h3 :: rest ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.write" (basis_st())) [fdv;nv;iv]
+   (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
+   (POSTv nwv. SEP_EXISTS k.
+      IOFS(fsupdate fs fd k (pos + n)
+                    (insert_atI (TAKE n (MAP (CHR o w2n) (DROP i rest))) pos
+                                     content)))`,
   strip_tac >> `?N. n <= N` by (qexists_tac`n` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`n` >>
   Induct_on`N` >>
@@ -752,6 +752,7 @@ val write_spec = Q.store_thm("write_spec",
   xlet_auto >- xsimpl >> reverse xif
   >-(xcon >> xsimpl >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
 	 qexists_tac`(Lnext_pos fs.numchars + 1)` >> `nw = n` by fs[] >> xsimpl >>
+     imp_res_tac get_file_content_validFD >>
      fs[wfFS_fsupdate,validFD_def,always_DROP,ALIST_FUPDKEY_ALOOKUP,
         liveFS_fsupdate,get_file_content_def]) >>
   NTAC 2 (xlet_auto >- xsimpl) >>
@@ -761,7 +762,8 @@ val write_spec = Q.store_thm("write_spec",
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPECL[`fs'`, `fd`,`nw + i`,`pos+nw`]) >>
   FIRST_X_ASSUM xapp_spec >> xsimpl >>
   qexists_tac`insert_atI (TAKE nw (MAP (CHR ∘ w2n) (DROP i rest))) pos content` >>
-  NTAC 3 (strip_tac >-(
+  NTAC 2 (strip_tac >-(
+      imp_res_tac get_file_content_validFD >>
 		  fs[Abbr`fs'`,liveFS_def,live_numchars_def,LDROP_1, wfFS_fsupdate,validFD_def,
 			 always_DROP,ALIST_FUPDKEY_ALOOKUP,get_file_content_def] >>
 		  pairarg_tac >> fs[fsupdate_def,always_DROP,ALIST_FUPDKEY_ALOOKUP] >>
@@ -775,10 +777,9 @@ val write_spec = Q.store_thm("write_spec",
   PURE_REWRITE_TAC[Once (Q.SPECL [`i`,`nw`] ADD_COMM)] >>
   fs[Once ADD_COMM,GSYM DROP_DROP_T,take_drop_partition,MAP_DROP]);
 
-(* TODO: remove redundant validFD assumption *)
 val write_char_spec = Q.store_thm("write_char_spec",
   `!fd fdv c cv bc content pos.
-    validFD fd fs ⇒ fd <= 255 ⇒
+    fd <= 255 ⇒
     get_file_content fs fd = SOME(content, pos) ⇒
     CHAR c cv ⇒ WORD (n2w fd: word8) fdv ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.write_char" (basis_st())) [fdv; cv]
@@ -813,8 +814,7 @@ val write_char_STDIO_spec = Q.store_thm("write_char_STDIO_spec",
      STDIO (fsupdate fs fd 0 (pos+1) (insert_atI [c] pos content)))`,
   rw[STDIO_def] \\ xpull \\ xapp_spec write_char_spec \\
   mp_tac(SYM(SPEC_ALL get_file_content_numchars)) \\ rw[] \\
-  instantiate \\ simp[GSYM validFD_numchars] \\ xsimpl \\
-  conj_tac >- imp_res_tac get_file_content_validFD \\ rw[] \\
+  instantiate \\ simp[GSYM validFD_numchars] \\ xsimpl \\ rw[] \\
   qexists_tac`THE (LDROP x ll)` \\
   conj_tac >- (
     match_mp_tac STD_streams_fsupdate \\ fs[] \\
@@ -829,10 +829,9 @@ val write_char_STDIO_spec = Q.store_thm("write_char_STDIO_spec",
   \\ fs[get_file_content_def] \\ pairarg_tac \\ fs[]
   \\ rw[Abbr`fs1`,Abbr`fs2`,IO_fs_component_equality,fsupdate_def]);
 
-(* TODO: remove redundant validFD assumption *)
 val output_spec = Q.store_thm("output_spec",
   `!s fd fdv sv fs content pos.
-    WORD (n2w fd :word8) fdv ⇒ validFD fd fs ⇒ STRING_TYPE s sv ⇒ fd <= 255 ⇒
+    WORD (n2w fd :word8) fdv ⇒ STRING_TYPE s sv ⇒ fd <= 255 ⇒
     (get_file_content fs fd = SOME(content, pos)) ⇒
     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output" (basis_st())) [fdv; sv]
     (IOFS fs)
@@ -878,6 +877,7 @@ val output_spec = Q.store_thm("output_spec",
   instantiate >> xsimpl >>
   `strlen s <> 0` by (cases_on`s` >> cases_on`s'` >> fs[])>>
   fs[strlen_substring] >>
+  imp_res_tac get_file_content_validFD >>
   fs[get_file_content_def] >> pairarg_tac >>
   fs[Abbr`fs'`,Abbr`pos'`,Abbr`content'`,liveFS_def,live_numchars_def,
      fsupdate_def,LDROP_1, wfFS_fsupdate,validFD_def,always_DROP,
