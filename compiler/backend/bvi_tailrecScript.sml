@@ -429,8 +429,11 @@ val check_exp_def = Define `
       let context = REPLICATE arity Any in
         case scan_expr context loc [expc] of
           [] => NONE
-        | (ts,ty,r,op)::_ =>
-          if ty = Any then NONE else op`;
+        | (ts,ty,r,opr)::_ =>
+            case opr of
+              NONE => NONE
+            | SOME op =>
+                if ty <> op_type op then NONE else opr`;
 
 val let_wrap_def = Define `
   let_wrap arity id exp =
@@ -489,10 +492,13 @@ val check_exp_SOME_simp = Q.store_thm ("check_exp_SOME_simp[simp]",
      ?ts ty r.
        has_rec loc exp /\
        scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)] = [(ts,ty,r,SOME op)] /\
-       ty <> Any`,
+       ty = op_type op`,
   simp [check_exp_def]
   \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)]) = LENGTH [exp]` by fs []
-  \\ EVERY_CASE_TAC \\ fs []);
+  \\ TOP_CASE_TAC \\ fs []
+  \\ PairCases_on `h` \\ fs []
+  \\ TOP_CASE_TAC \\ fs []
+  \\ metis_tac []);
 
 (* --- Test rewriting --- *)
 
