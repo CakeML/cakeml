@@ -290,6 +290,7 @@ in
     val _ = prog_state := x3
     in () end
   fun get_names() = map (#2) (!v_thms)
+  fun get_v_thms_ref() = v_thms (* for the monadic translator *)
 end
 
 fun full_id n =
