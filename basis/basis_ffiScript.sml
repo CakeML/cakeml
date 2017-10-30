@@ -1,5 +1,5 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib cfMainTheory basisFunctionsLib set_sepTheory
+     cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
      CommandlineProofTheory TextIOProofTheory
 
