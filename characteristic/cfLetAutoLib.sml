@@ -996,7 +996,7 @@ fun max_instantiations_union pos_insts =
       val sorted_pos_insts = sort compare_f filt_pos_insts
 
       (* Recursive (and exhaustive) search *)
-      fun rec_search (tm_map, ty_map) (insts::pos_insts) =
+      (* fun rec_search (tm_map, ty_map) (insts::pos_insts) =
 	let
 	    fun rec_search_i (inst::insts) pos_insts =
 	      let
@@ -1009,7 +1009,18 @@ fun max_instantiations_union pos_insts =
 	in
 	    rec_search_i insts pos_insts
 	end
-	| rec_search (tm_map, ty_map) [] = (tm_map, ty_map)
+	| rec_search (tm_map, ty_map) [] = (tm_map, ty_map) *)
+
+      (* Recursive search *)
+      fun add_pos_inst (tm_map, ty_map) (inst::insts) = ((let
+	  val tm_map' = add_tmsl (fst inst) tm_map
+	  val ty_map' = add_tysl (snd inst) ty_map
+      in (tm_map', ty_map') end)
+      handle HOL_ERR _ => add_pos_inst (tm_map, ty_map) insts)
+	| add_pos_inst (tm_map, ty_map) [] = (tm_map, ty_map)
+
+      fun rec_search maps pos_insts =
+	List.foldl (fn (i,m) => add_pos_inst m i) maps pos_insts
 
       val (tm_inst, ty_inst) = rec_search (Redblackmap.mkDict Term.compare,
 					Redblackmap.mkDict Type.compare)
@@ -1419,7 +1430,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	end
 
       (* Use heuristics if necessary *)
-      fun heuristic_inst asl app_spec =
+      fun heuristic_inst ext_asl app_spec =
 	if not(all_instantiated asl let_pre app_info app_spec)
 	   andalso using_heuristics()
 	then
@@ -1427,7 +1438,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 		val _ = print "xlet_auto : using heuristics\n"
 
 		val solver = get_heuristic_solver()
-		val (tm_subst, ty_subst) = solver asl app_spec
+		val (tm_subst, ty_subst) = solver ext_asl app_spec
 		val ty_app_spec = Thm.INST_TYPE ty_subst app_spec
 		val tm_subst' =
 		    List.map (fn {redex = x, residue = y} =>
