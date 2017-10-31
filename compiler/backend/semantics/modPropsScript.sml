@@ -116,12 +116,12 @@ val env_lemma = Q.prove (
   rw [environment_component_equality]);
 
 val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
-  `!env s ds1 s1 cenv1 env1 s2 cenv2 env2  r ds2.
-    evaluate_decs env s ds1 = (s1,cenv1,env1,NONE) ∧
+  `!env s ds1 s1 cenv1 s2 cenv2 r ds2.
+    evaluate_decs env s ds1 = (s1,cenv1,NONE) ∧
     evaluate_decs (env with c updated_by FUNION cenv1) s1 ds2 =
-      (s2,cenv2,env2,r)
+      (s2,cenv2,r)
     ⇒
-    evaluate_decs env s (ds1++ds2) = (s2,FUNION cenv2 cenv1,env1 ++ env2,r)`,
+    evaluate_decs env s (ds1++ds2) = (s2,FUNION cenv2 cenv1,r)`,
   induct_on `ds1` >>
   rw [evaluate_decs_def] >>
   fs [Once c_updated_by, env_lemma] >>
@@ -135,10 +135,10 @@ val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
   fs [Once c_updated_by]);
 
 val evaluate_decs_append_err = Q.store_thm ("evaluate_decs_append_err",
-  `!env s d s' cenv' env' err_i1 ds.
-    evaluate_decs env s d = (s',cenv',env',SOME err_i1)
+  `!env s d s' cenv' err_i1 ds.
+    evaluate_decs env s d = (s',cenv',SOME err_i1)
     ⇒
-    evaluate_decs env s (d++ds) = (s',cenv',env',SOME err_i1)`,
+    evaluate_decs env s (d++ds) = (s',cenv',SOME err_i1)`,
   induct_on `d` >>
   rw [evaluate_decs_def] >>
   every_case_tac >>

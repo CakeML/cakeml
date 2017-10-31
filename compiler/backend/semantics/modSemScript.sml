@@ -637,7 +637,7 @@ val evaluate_dec_def = Define`
      Rval (FEMPTY |+ ((s.next_exn_id, NONE), a), [])))`;
 
 val evaluate_decs_def = Define`
-  (evaluate_decs env s [] = (s, FEMPTY, [], NONE)) ∧
+  (evaluate_decs env s [] = (s, FEMPTY, NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
    | (s, Rval (new_tds,new_env)) =>
@@ -645,17 +645,17 @@ val evaluate_decs_def = Define`
              (env with c updated_by FUNION new_tds)
              (s with globals updated_by (λg. g ++ MAP SOME new_env))
              ds of
-      | (s, new_tds', new_env', r) => (s, FUNION new_tds' new_tds, new_env ++ new_env', r))
-   | (s, Rerr e) => (s, FEMPTY, [], SOME e))`;
+      | (s, new_tds', r) => (s, FUNION new_tds' new_tds, r))
+   | (s, Rerr e) => (s, FEMPTY, SOME e))`;
 
 val semantics_def = Define`
   semantics env st prog =
-    if ∃k. (SND o SND o SND) (evaluate_decs env (st with clock := k) prog) = SOME (Rabort Rtype_error)
+    if ∃k. (SND o SND) (evaluate_decs env (st with clock := k) prog) = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
-      ∃k s r outcome x y.
-        evaluate_decs env (st with clock := k) prog = (s,x,y,r) ∧
+      ∃k s r outcome x.
+        evaluate_decs env (st with clock := k) prog = (s,x,r) ∧
         (case s.ffi.final_event of
          | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
          | SOME e => outcome = FFI_outcome e) ∧

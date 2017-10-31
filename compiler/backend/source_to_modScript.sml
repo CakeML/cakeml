@@ -275,7 +275,7 @@ val compile_decs_def = tDefine "compile_decs" `
      let e' = compile_exp t1 env (ast$Letrec [(f,x,e)] (ast$Var (mk_id [] f))) in
        (n' + 1, (next with vidx := next.vidx + 1),
         <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
-        [modLang$Dlet 1 e'])) ∧
+        [modLang$Dlet 1 (Con t4 NONE [e'])])) ∧
   (compile_decs n next env [ast$Dletrec locs funs] =
      let fun_names = REVERSE (MAP FST funs) in
      let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
