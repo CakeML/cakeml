@@ -1,11 +1,7 @@
 open preamble
-     riscvProgTheory
      compiler_riscvTheory
-     riscv_configTheory
-     export_riscvTheory
-     ml_translatorLib cfLetAutoLib cfTacticsLib
-     textio_initProgTheory mltextioSpecTheory
-     basisFunctionsLib basis_ffiLib
+     riscv_configTheory export_riscvTheory
+     ml_translatorLib cfLib basis riscvProgTheory
 
 val () = new_theory "compiler_riscvProg";
 
@@ -46,7 +42,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
-    (* TODO: why doesn't xsimpl work here on its own? *)
+    (* TODO: xlet_auto: why doesn't xsimpl work here on its own? *)
     CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl`
     \\ xsimpl )
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
@@ -58,7 +54,7 @@ val main_spec = Q.store_thm("main_spec",
   >- (
     fs[STDIO_def,IOFS_def] \\ xpull \\ fs[stdin_def]
     \\ `F` suffices_by fs[]
-    \\ fs[fsFFIProofTheory.wfFS_def,STD_streams_def,MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]
+    \\ fs[wfFS_def,STD_streams_def,MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]
     \\ fs[EXISTS_PROD]
     \\ metis_tac[ALOOKUP_FAILS,ALOOKUP_MEM,NOT_SOME_NONE,SOME_11,PAIR_EQ,option_CASES] )
   \\ fs[get_stdin_def]
@@ -72,7 +68,7 @@ val main_spec = Q.store_thm("main_spec",
   \\ xlet_auto >- xsimpl
   \\ pairarg_tac \\ fs[ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
-  (* TODO: why does xlet_auto not work? *)
+  (* TODO: xlet_auto: why does xlet_auto not work? *)
   \\ xlet_auto_spec(SOME (Q.SPEC`fastForwardFD fs 0`(Q.GEN`fs`basisProgTheory.print_app_list_spec)))
   >- xsimpl
   \\ xapp
