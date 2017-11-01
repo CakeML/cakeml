@@ -882,30 +882,27 @@ fun export_match_thms slist = List.app export slist;
 (* For each hypothesis of the app spec the list of possible substitutions
    which make it match with one of the assumptions
 *)
-fun find_possible_instantiations asl app_spec =
+fun find_possible_instantiations tmsl0 tmsl1  =
   let
-      (* Retrieve the list of hypothesis to satisfy *)
-      val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
+      (* Retrieve the known variables *)
+      val knwn_vars = FVL tmsl0 empty_varset
 
-      (* Retrieve the known variables from the assumptions *)
-      val knwn_vars = FVL asl empty_varset
-
-      (* Retrieve the type variables present in the assumptions *)
-      val asl_atoms = all_atomsl asl empty_tmset
+      (* Retrieve the type variables present in tmsl0 *)
+      val atoms = all_atomsl tmsl0 empty_tmset
       val knwn_typevarset =
 	  HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
-		       (HOLset.empty Type.compare) asl_atoms
+		       (HOLset.empty Type.compare) atoms
       val knwn_typevars = HOLset.listItems knwn_typevarset
 
-      (* Match every hypothesis of the app_spec against every assumption *)
-      (*val asl_net = List.foldr (fn (x, net) => Net.insert (x, x) net) Net.empty asl*)
-      fun find_insts hyp =
+      (* Match every term of tmsl0 against every term of tmsl1 *)
+      (*val tms_net = List.foldr (fn (x, net) => Net.insert (x, x) net) Net.empty tmsl0 *)
+      fun find_insts tm =
 	let
-	    val pos_matches = (*Net.match hyp asl_net*) asl
+	    val pos_matches = (*Net.match tm tms_net*) tmsl0
 	    fun match_aux a =
 		let
 		    val ((tms, tm_id), (tys, ty_id)) =
-			raw_match [] knwn_vars hyp a ([], [])
+			raw_match knwn_typevars knwn_vars tm a ([], [])
 		    val tms' = tms @ (List.map (fn x => x |-> x)
 			(HOLset.listItems (HOLset.difference (tm_id, knwn_vars))))
 		    val ty_id_set = HOLset.fromList Type.compare ty_id
@@ -919,10 +916,72 @@ fun find_possible_instantiations asl app_spec =
 	    pos_insts
 	end
 
-      val pos_insts = List.map find_insts app_spec_hyps
+      val pos_insts = List.map find_insts tmsl1
   in
       pos_insts
   end;
+
+fun find_possible_instantiations_from_eqs tmsl0 tmsl1 = let
+    (* Retrieve the known variables *)
+    val knwn_vars = FVL tmsl0 empty_varset
+
+    (* Retrieve the type variables present in tmsl0 *)
+    val atoms = all_atomsl tmsl0 empty_tmset
+    val knwn_typevarset =
+	HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
+		     (HOLset.empty Type.compare) atoms
+    val knwn_typevars = HOLset.listItems knwn_typevarset
+
+    (* Find valid equalities *)
+    fun is_not_schematic tm = let
+	val vs = free_vars tm
+    in not(List.exists (fn x => not(HOLset.member(knwn_vars,x))) vs) end
+
+    fun find_eq tm =
+      if (not o is_eq) tm then failwith ""
+      else let
+	  val (tm1,tm2) = dest_eq tm
+      in if is_not_schematic tm1 then (tm1,tm2)
+	 else if is_not_schematic tm2 then (tm2, tm1)
+	 else failwith ""
+      end
+    val eqs = mapfilter find_eq tmsl1
+
+    (* Match the equalities *)
+    fun find_insts (tm1,tm2) = let
+	val ((tms, tm_id), (tys, ty_id)) =
+	    raw_match knwn_typevars knwn_vars tm2 tm1  ([], [])
+	val tms' = tms @ (List.map (fn x => x |-> x)
+			 (HOLset.listItems (HOLset.difference (tm_id, knwn_vars))))
+	val ty_id_set = HOLset.fromList Type.compare ty_id
+	val tys' = tys @ (List.map (fn x => x |-> x)
+			 (HOLset.listItems (HOLset.difference (ty_id_set, knwn_typevarset))))
+      in
+	  [(tms', tys')]
+      end
+
+      val pos_insts = mapfilter find_insts eqs |> List.filter (not o List.null)
+in
+    pos_insts
+end;
+
+fun find_possible_instantiations_from_spec asl context_pre app_spec = let
+    (* Retrieve the list of hypothesis to satisfy *)
+    val app_spec_hyps = concl app_spec |> dest_imp |> fst |> list_dest dest_conj
+
+    (* Retrieve the precondition given by the spec *)
+    val spec_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
+			  dest_comb |> fst |> dest_comb |> snd
+
+    (* Compare the two pre-conditions *)
+    val (_, context_pres, spec_pres) = match_heap_conditions context_pre spec_pre
+
+    (* Compute the instantiations *)
+    val tmsl0 = append asl context_pres
+    val tmsl1 = append app_spec_hyps spec_pres
+    val pos_insts = (find_possible_instantiations tmsl0 tmsl1)
+		    @(find_possible_instantiations_from_eqs tmsl0 tmsl1)
+in find_possible_instantiations tmsl0 tmsl1 end;
 
 (* Add a substitution to a map of substitutions *)
 (* TODO: would be more efficient to compute the compatibility between all
@@ -977,9 +1036,9 @@ fun instantiations_union pos_insts =
 
 (* A heuristic solver based on unification - succeeds only if it can find a
    substitution such that all the hypothesis are satisfied *)
-fun unification_solver asl app_spec =
+fun unification_solver asl context_pre app_spec =
   let
-      val pos_insts = find_possible_instantiations asl app_spec
+      val pos_insts = find_possible_instantiations_from_spec asl context_pre app_spec
       val (tm_subst, ty_subst) = instantiations_union pos_insts
   in
       (tm_subst, ty_subst)
@@ -994,22 +1053,6 @@ fun max_instantiations_union pos_insts =
 	(List.length (List.hd insts1 |> fst)) >
 	(List.length (List.hd insts2 |> fst))
       val sorted_pos_insts = sort compare_f filt_pos_insts
-
-      (* Recursive (and exhaustive) search *)
-      (* fun rec_search (tm_map, ty_map) (insts::pos_insts) =
-	let
-	    fun rec_search_i (inst::insts) pos_insts =
-	      let
-		  val tm_map' = add_tmsl (fst inst) tm_map
-		  val ty_map' = add_tysl (snd inst) ty_map
-	      in
-		  rec_search (tm_map', ty_map') pos_insts
-	      end
-	      | rec_search_i [] pos_insts = rec_search (tm_map, ty_map) pos_insts
-	in
-	    rec_search_i insts pos_insts
-	end
-	| rec_search (tm_map, ty_map) [] = (tm_map, ty_map) *)
 
       (* Recursive search *)
       fun add_pos_inst (tm_map, ty_map) (inst::insts) = ((let
@@ -1036,9 +1079,9 @@ fun max_instantiations_union pos_insts =
 (* A solver which performs unification on as much hypothesis as possible -
    succeeds if it can find a substitution such that all variables and types are
    instantiated *)
-fun unif_heuristic_solver asl app_spec =
+fun unif_heuristic_solver asl context_pre app_spec =
   let
-      val pos_insts = find_possible_instantiations asl app_spec
+      val pos_insts = find_possible_instantiations_from_spec asl context_pre app_spec
       val (tms, tys) = max_instantiations_union pos_insts
 
       (* Check that all unknown variables are instantiated *)
@@ -1052,9 +1095,9 @@ fun unif_heuristic_solver asl app_spec =
 		      "unable to find an instantiation of all the variables")
   end;
 
-fun default_heuristic_solver asl app_spec =
-  let val inst = unification_solver asl app_spec in inst end
-  handle HOL_ERR _ => unif_heuristic_solver asl app_spec;
+fun default_heuristic_solver asl context_pre app_spec =
+  let val inst = unification_solver asl context_pre app_spec in inst end
+  handle HOL_ERR _ => unif_heuristic_solver asl context_pre app_spec;
 
 val heuristic_solver = ref default_heuristic_solver;
 
@@ -1430,15 +1473,16 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	end
 
       (* Use heuristics if necessary *)
-      fun heuristic_inst ext_asl app_spec =
-	if not(all_instantiated asl let_pre app_info app_spec)
+      (* val (ext_asl, context_pre, app_spec) = ((rw_asl_concl@asl),let_pre,simp_app_spec) *)
+      fun heuristic_inst ext_asl context_pre app_spec =
+	if not(all_instantiated ext_asl let_pre app_info app_spec)
 	   andalso using_heuristics()
 	then
 	    let
 		val _ = print "xlet_auto : using heuristics\n"
 
 		val solver = get_heuristic_solver()
-		val (tm_subst, ty_subst) = solver ext_asl app_spec
+		val (tm_subst, ty_subst) = solver ext_asl context_pre app_spec
 		val ty_app_spec = Thm.INST_TYPE ty_subst app_spec
 		val tm_subst' =
 		    List.map (fn {redex = x, residue = y} =>
@@ -1450,7 +1494,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 	else app_spec (* instantiation is re-tested below *)
 
       (* To perform the matching, we give both the rewritten asl and the original asl to match against- in some situations, it might be too expensive *)
-      val hsimp_app_spec = heuristic_inst (rw_asl_concl@asl) simp_app_spec
+      val hsimp_app_spec = heuristic_inst (rw_asl_concl@asl) let_pre simp_app_spec
 
        (* Modify the post-condition inside the app_spec *)
       fun simplify_app_post app_spec =
