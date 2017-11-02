@@ -1153,9 +1153,8 @@ fun find_equality_types asl eqTypeThms =
       val pot_eqTypes = mapfilter get_pot_EqualityType asl
 
       (* Get the assumptions of the form `EqualityType A` *)
-      val EqualityType_tm = ``EqualityType : ('a -> v -> bool) -> bool``
       fun isEqTypeHyp a =
-	(same_const ((fst o dest_comb) a) EqualityType_tm handle HOL_ERR _ => false)
+	(same_const ((fst o dest_comb) a) ml_translatorSyntax.EqualityType handle HOL_ERR _ => false)
       val eqType_asl = List.filter isEqTypeHyp asl
       val eqType_asl_thms = List.map ASSUME eqType_asl
 
@@ -1219,8 +1218,7 @@ fun find_equality_types asl eqTypeThms =
 
 
 (* [inst_refinement_invariants] : find instantiations for the quantified refinement invariants *)
-val equality_type_pattern = ``EqualityType (A:'a -> v -> bool)``
-val equality_type_tm = ``EqualityType:('a -> v -> bool)->bool``
+val equality_type_pattern = ``^(ml_translatorSyntax.EqualityType) A``
 fun inst_refinement_invariants eq_type_thms asl app_spec =
   let
       (* Retrieve information from the assumptions list *)
@@ -1228,7 +1226,7 @@ fun inst_refinement_invariants eq_type_thms asl app_spec =
 	let
 	    val P = dest_comb (concl t) |> fst
 	in
-	    same_const equality_type_tm P
+	    same_const ml_translatorSyntax.EqualityType P
 	end
 	handle HOL_ERR _ => false
 

@@ -55,6 +55,45 @@ val diff_with_lcs_def = Define `
 val diff_alg_def = Define `
   diff_alg l l' = diff_with_lcs (optimised_lcs l l') l 0 l' 0`
 
+val diff_alg_offs_def = Define `
+  diff_alg_offs l n l' n' = diff_with_lcs (dynamic_lcs l l') l n l' n'`
+
+val diff_alg2_def = Define `
+  diff_alg2 l l' =
+    let prefix_length = LENGTH(longest_common_prefix l l');
+        l = DROP prefix_length l;
+        l' = DROP prefix_length l';
+        llength = LENGTH l;
+        l'length = LENGTH l';
+        suffix_length = if llength = l'length then
+                          longest_common_suffix_length l l' 0
+                        else if llength < l'length then
+                          longest_common_suffix_length l (DROP (l'length-llength) l') 0
+                        else
+                          longest_common_suffix_length (DROP (llength-l'length) l) l' 0;
+        l = TAKE (llength - suffix_length) l;
+        l' = TAKE (l'length - suffix_length) l'
+    in
+      diff_with_lcs (dynamic_lcs l l') l prefix_length l' prefix_length`
+
+val diff_alg2_thm = Q.store_thm("diff_alg2_thm",`
+  diff_alg2 l l' =
+    let prefix_length = LENGTH(longest_common_prefix l l');
+        l = DROP prefix_length l;
+        l' = DROP prefix_length l';
+        llength = LENGTH l;
+        l'length = LENGTH l';
+        suffix_length = LENGTH(longest_common_suffix l l');
+        l = TAKE (llength - suffix_length) l;
+        l' = TAKE (l'length - suffix_length) l'
+    in
+      diff_with_lcs (dynamic_lcs l l') l prefix_length l' prefix_length`,
+  PURE_ONCE_REWRITE_TAC [diff_alg2_def]
+  >> ntac 5 (PURE_ONCE_REWRITE_TAC [LET_THM])
+  >> ntac 5 (Ho_Rewrite.PURE_ONCE_REWRITE_TAC [BETA_THM])
+  >> PURE_ONCE_REWRITE_TAC [longest_common_suffix_length_if]
+  >> REFL_TAC);
+
 (* Diff algorithm properties *)
 
 val diff_with_lcs_refl = Q.store_thm("diff_with_lcs_refl",
@@ -64,6 +103,11 @@ val diff_with_lcs_refl = Q.store_thm("diff_with_lcs_refl",
 val diff_alg_refl = Q.store_thm("diff_alg_refl",
   `diff_alg l l = []`,
   rw[diff_alg_def,lcs_refl',diff_with_lcs_refl,optimised_lcs_refl]);
+
+val diff_alg2_refl = Q.store_thm("diff_alg_refl",
+  `diff_alg2 l l = []`,
+  rw[diff_alg2_thm,lcs_refl',diff_with_lcs_refl,dynamic_lcs_refl,
+     longest_common_prefix_refl]);
 
 (* Patch algorithm definition *)
 
@@ -179,7 +223,8 @@ val patch_aux_def = tDefine "patch_aux" `
 val patch_alg_def = Define `
   patch_alg patch file = patch_aux patch file (LENGTH file) 0`
 
-
+val patch_alg_offs_def = Define `
+  patch_alg_offs n patch file = patch_aux patch file (LENGTH file) n`
 
 (* Patch cancels diff *)
 
@@ -428,22 +473,13 @@ val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_canc
   \\ rw[ASCIInumbersTheory.toString_toNum_cancel]
   \\ rw[integerTheory.INT_ABS_NUM]);
 
-val strong_substring_thm = Q.store_thm (
-  "strong_substring_thm",
- `!s i j. (i <= strlen s) ==> (substring s i j = implode (SEG (MIN (strlen s - i) j) i (explode s)))`,
-  rpt strip_tac
-  >> Cases_on `i < strlen s`
-  >- metis_tac[substring_thm]
-  >> `i = strlen s` by fs[]
-  >> fs[] >> rw[substring_def,SEG]);
-
 val substring_adhoc_simps = Q.prove(`!h.
    (substring (strlit "> " ^ h) 0 2 = strlit "> ")
 /\ (substring (strlit "> " ^ h) 2 (strlen h) = h)
 /\ (substring (strlit "< " ^ h) 0 2 = strlit "< ")
 /\ (substring (strlit "< " ^ h) 2 (strlen h) = h)
 `,
-  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,strong_substring_thm,strlen_def]
+  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
   >> fs[SEG_LENGTH_ID])
 
@@ -578,7 +614,7 @@ val SUCC_LE_ONE = Q.prove(`(SUC n ≤ 1) = (n = 0)`,intLib.COOPER_TAC);
 
 val patch_aux_keep_init = Q.prove(
 `!l p t n t' n h t m.
- lcs l t t' ==>
+ common_subsequence l t t' ==>
  patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) (p ++ t) (LENGTH t + LENGTH p) n
  =
  case patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) t (LENGTH t) (n+LENGTH p) of
@@ -596,11 +632,11 @@ val patch_aux_keep_init = Q.prove(
   >> fs[diff_with_lcs_def]
   >> rpt(pairarg_tac>>fs[]) >> rw[]
   >- (fs[SPLITP_NIL_FST] >> rveq
-      >> Cases_on `lr` >> fs[lcs_empty']
-      >> Cases_on `l'r` >> fs[lcs_empty']
+      >> Cases_on `lr` >> fs[common_subsequence_empty']
+      >> Cases_on `l'r` >> fs[common_subsequence_empty']
       >> rveq >> first_assum(qspecl_then [`p++[h]`,`t'`,`n`,`t`,`n`] mp_tac)
       >> first_x_assum(qspecl_then [`[h]`,`t'`,`n+LENGTH p`,`t`,`n+LENGTH p`] mp_tac)
-      >> fs[cons_lcs_optimal_substructure]
+      >> fs[cons_common_subsequence]
       >> full_simp_tac pure_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
       >> rpt strip_tac >> fs[] >> TOP_CASE_TAC)
   >> Cases_on `ll` >> Cases_on `l'l`
@@ -616,7 +652,7 @@ val patch_aux_keep_init = Q.prove(
 
 val patch_aux_keep_init_cons = Q.prove(
   `!l t n t' n h t m.
-   lcs l t t' ==>
+   common_subsequence l t t' ==>
    patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) (h::t) (SUC (LENGTH t)) n
    =
    case patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) t (LENGTH t) (n+1) of
@@ -637,7 +673,7 @@ val minus_add_too_large' = Q.prove(`(a + 1) - ((a:num) + 2) = 0`,intLib.COOPER_T
 
 val patch_aux_diff_cancel = Q.store_thm("patch_aux_diff_cancel",
 `!l r n r' m z.
-lcs l r r' ==>
+common_subsequence l r r' ==>
 (patch_aux (diff_with_lcs l r n r' m) r (LENGTH r) n = SOME r')`,
 Induct
 >> rpt strip_tac
@@ -647,17 +683,17 @@ Induct
 >> rpt(pairarg_tac >> fs[])
 >> rw[]
 >- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[lcs_empty']
-    >> Cases_on `l'r` >> fs[lcs_empty']
-    >> rveq >> fs[cons_lcs_optimal_substructure,patch_aux_keep_init_cons])
+    >> Cases_on `lr` >> fs[common_subsequence_empty']
+    >> Cases_on `l'r` >> fs[common_subsequence_empty']
+    >> rveq >> fs[cons_common_subsequence,patch_aux_keep_init_cons])
 >- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[lcs_empty']
-    >> Cases_on `l'r` >> fs[lcs_empty',SPLITP_NIL_SND_EVERY]
+    >> Cases_on `lr` >> fs[common_subsequence_empty']
+    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
-    >> fs[cons_lcs_optimal_substructure,patch_aux_keep_init_cons]
-    >> drule lcs_split_lcs2
-    >> fs[SPLITP_EVERY,o_DEF,lcs_empty',SPLITP]
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_lcs_optimal_substructure]
+    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+    >> drule common_subsequence_split_css2
+    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
+    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[] >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
@@ -667,13 +703,13 @@ Induct
     >> drule SPLITP_JOIN
     >> fs[])
 >- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[lcs_empty']
-    >> Cases_on `l'r` >> fs[lcs_empty',SPLITP_NIL_SND_EVERY]
+    >> Cases_on `lr` >> fs[common_subsequence_empty']
+    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
-    >> fs[cons_lcs_optimal_substructure,patch_aux_keep_init_cons]
-    >> drule lcs_split_lcs
-    >> fs[SPLITP_EVERY,o_DEF,lcs_empty',SPLITP]
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_lcs_optimal_substructure]
+    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+    >> drule common_subsequence_split_css
+    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
+    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[]
@@ -685,14 +721,14 @@ Induct
     >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m`] mp_tac)
     >> fs[list_length_1_lemma,ADD1])
 >- (fs[SPLITP_NIL_FST] >> rveq
-    >> Cases_on `lr` >> fs[lcs_empty']
-    >> Cases_on `l'r` >> fs[lcs_empty',SPLITP_NIL_SND_EVERY]
+    >> Cases_on `lr` >> fs[common_subsequence_empty']
+    >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
     >> rveq
-    >> fs[cons_lcs_optimal_substructure,patch_aux_keep_init_cons]
-    >> drule lcs_split_lcs >> strip_tac >> drule lcs_split_lcs2
-    >> fs[SPLITP_EVERY,o_DEF,lcs_empty',SPLITP]
+    >> fs[cons_common_subsequence,patch_aux_keep_init_cons]
+    >> drule common_subsequence_split_css >> strip_tac >> drule common_subsequence_split_css2
+    >> fs[SPLITP_EVERY,o_DEF,common_subsequence_empty',SPLITP]
     >> drule SPLITP_IMP >> qpat_x_assum `SPLITP _ _ = _ ` mp_tac
-    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_lcs_optimal_substructure]
+    >> drule SPLITP_IMP >> rpt strip_tac >> fs[] >> rveq >> fs[cons_common_subsequence]
     >> fs[patch_aux_def] >> rw[]
     >> fs[parse_header_cancel,TAKE_APPEND]
     >> rw[]
@@ -710,7 +746,442 @@ val patch_diff_cancel = Q.store_thm("patch_diff_cancel",
   fs[patch_alg_def,diff_alg_def]
   >> mp_tac (GEN_ALL (INST_TYPE [alpha|->``:mlstring``] optimised_lcs_correct))
   >> disch_then (qspecl_then [`r`,`l`] assume_tac)
-  >> fs[patch_aux_diff_cancel]);
+  >> fs[patch_aux_diff_cancel,lcs_def]);
+
+val headers_within_def = Define `
+  headers_within n m l =
+  EVERY (OPTION_ALL (λ(n':num,m':num option,c,_,_). (n <= n' /\ n' <= m /\ (IS_NONE m' /\ (c = #"d" \/ c = #"c") ==> n'+1 <= m) /\ (IS_SOME m' ==> (n <= THE m' /\ THE m' <= m))))) (MAP parse_patch_header l)
+`
+
+val headers_within_IMP = Q.store_thm("headers_within_IMP",
+  `headers_within n m (h::t) /\ parse_patch_header h = SOME(q,NONE,c,tup)
+     ==> n <= q /\ q <= m /\ ((c= #"d" \/ c = #"c") ==> q+1 <= m)`,
+  rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY])
+
+val headers_within_IMP_SOME = Q.store_thm("headers_within_IMP_SOME",
+  `headers_within n m (h::t) /\ parse_patch_header h = SOME(q,SOME q',c,tup)
+     ==> n <= q /\ q <= m /\ n <= q' /\ q' <= m`,
+  rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY])
+                                    
+val headers_within_grow = Q.store_thm("headers_within_grow",
+  `headers_within n' m' l /\ n <= n' /\ m' <= m ==> headers_within n m l`,
+  Induct_on `l` >> rpt strip_tac >> fs[headers_within_def]
+  >> Cases_on `parse_patch_header h` >> fs[pairTheory.ELIM_UNCURRY]
+  >> rw[] >> fs[]);
+ 
+val headers_within_append = Q.store_thm("headers_within_append",
+  `headers_within n m (l++l') = (headers_within n m l /\ headers_within n m l')`,
+  simp[headers_within_def]);
+
+val headers_within_dest_cons = Q.store_thm("headers_within_dest_cons",
+  `headers_within n m (e::l') ==> headers_within n m l'`,
+  simp[headers_within_def]);
+
+(* todo: move to richlist? *)
+val EVERY_DROP_T = Q.store_thm("EVERY_DROP_T",
+  `!P l m. EVERY P l ==> EVERY P (DROP m l)`,
+  Induct_on `l` >> rw[DROP_def]);
+
+val headers_within_drop = Q.store_thm("headers_within_drop",
+  `headers_within n m (l) ==> headers_within n m (DROP x l)`,
+  simp[headers_within_def,MAP_DROP,EVERY_DROP_T]);
+
+val parse_nonheader_lemma = Q.prove(
+  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))`,
+  strip_tac >> Induct
+  >- fs[diff_add_prefix_def]
+  >> strip_tac >> Cases_on `h`
+  >> fs[parse_patch_header_def,diff_add_prefix_def]
+  >> every_case_tac
+  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
+  >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
+  >> rveq
+  >> fs[string_is_num_def,explode_implode,isDigit_def]);
+
+val parse_nonheader_lemma2 = Q.prove(
+  `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))`,
+  strip_tac >> Induct
+  >- fs[diff_add_prefix_def]
+  >> strip_tac >> Cases_on `h`
+  >> fs[parse_patch_header_def,diff_add_prefix_def]
+  >> every_case_tac
+  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
+  >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
+  >> rveq
+  >> fs[string_is_num_def,explode_implode,isDigit_def]);
+
+val parse_nonheader_lemma3 = Q.prove(
+  `parse_patch_header (strlit "---\n") = NONE`,
+  fs[parse_patch_header_def]
+  >> every_case_tac
+  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
+  >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq);
+
+val diff_with_lcs_headers_within = Q.store_thm("diff_with_lcs_headers_within",
+  `!l r n r' n' m. common_subsequence l r r' ==>
+    headers_within n (n + LENGTH r) (diff_with_lcs l r n r' m)`,
+  Induct
+  >> rpt strip_tac
+  >- (fs[diff_with_lcs_def,headers_within_def,diff_single_def]
+      >> rw[] >> fs[parse_header_cancel]
+      >> rw[]
+      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
+      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
+      >> fs[parse_nonheader_lemma3]
+      >> Cases_on `r` >> fs[])
+  >> fs[diff_with_lcs_def]
+  >> rpt(pairarg_tac >> fs[])
+  >> IF_CASES_TAC
+  >- (drule split_common_subsequence
+      >> strip_tac
+      >> first_x_assum drule >> fs[]
+      >> disch_then(qspecl_then [`n+1`,`n+1`] assume_tac)
+      >> drule(GEN_ALL headers_within_grow)
+      >> disch_then match_mp_tac
+      >> fs[SPLITP_NIL_FST]
+      >> Cases_on `r` >> fs[common_subsequence_empty'])
+  >> simp[headers_within_append]
+  >> strip_tac
+  >- (fs[headers_within_def,diff_single_def]
+      >> fs[parse_header_cancel]
+      >> rw[]
+      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
+      >> fs[]
+      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
+      >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
+      >> fs[parse_nonheader_lemma3] >> rfs[]
+      >> drule common_subsequence_split >> strip_tac >> fs[] >> rveq >> fs[])
+  >> drule split_common_subsequence
+  >> drule common_subsequence_split
+  >> drule common_subsequence_split2
+  >> rpt strip_tac >> fs[] >> rveq
+  >> fs[] >> rfs[] >> first_x_assum drule
+  >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
+  >> drule(GEN_ALL headers_within_grow)
+  >> disch_then match_mp_tac
+  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)  
+  >> fs[]);
+
+val highly_specific_implication = Q.prove(
+  `¬(q < n + 1) /\ ¬(m < q − n) ==> n + (SUC m) - (q + 1) = (n + m - q)`,
+  fs[]);
+
+val highly_specific_implication2 = Q.prove(
+  `¬(SUC m < (q+1) − n) ==> n + (SUC m) - (q + 1) = (n + m - q)`,
+  fs[]);
+
+val headers_within_cons = Q.store_thm("headers_within_cons",
+`headers_within (n+1) m p1 /\ m >= n+1 ==>
+  patch_alg_offs n p1 (e::l) = OPTION_MAP (CONS e) (patch_alg_offs (n+1) p1 l)`,
+  Cases_on `p1` >> rpt strip_tac
+  >> fs[patch_alg_offs_def,patch_aux_def]
+  >> every_case_tac
+  >> fs[headers_within_def] >> rfs[]
+  >> TRY(drule(GEN_ALL highly_specific_implication) >> disch_then drule >> disch_then (fn x => fs[x]))
+  >> TRY(drule(GEN_ALL highly_specific_implication2) >> disch_then (fn x => fs[x]))
+  >> fs[GSYM ADD1]);
+
+val IS_SUFFIX_induct_aux =
+  Q.prove(`!P l. P [] /\ (!h l. (!sl. IS_SUFFIX l sl ==> P sl) ==> P (h::l)) ==> (!sl. IS_SUFFIX l sl ==> P sl)`,
+  strip_tac >> Induct_on `l`
+  >> rpt strip_tac
+  >> fs[]
+  >- (qspec_then `sl` assume_tac SNOC_CASES >> fs[] >> fs[IS_SUFFIX_compute,REVERSE_APPEND])
+  >> Cases_on `sl` >> fs[IS_SUFFIX]
+  >> Cases_on `IS_SUFFIX l (h'::t)` >> fs[]
+  >> fs[IS_SUFFIX_compute]
+  >> fs[] >> fs[IS_SUFFIX_compute,REVERSE_APPEND]
+  >> FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND, IS_PREFIX_SNOC]
+  >> fs[])
+
+val IS_SUFFIX_induct = Q.store_thm("IS_SUFFIX_induct",
+  `!P. P [] /\ (!h l. (!sl. IS_SUFFIX l sl ==> P sl) ==> P (h::l)) ==> !l. P l`,
+  metis_tac[IS_SUFFIX_induct_aux,IS_SUFFIX_REFL])
+
+val IS_SUFFIX_DROP = Q.store_thm("IS_SUFFIX_DROP",
+  `!l n. IS_SUFFIX l (DROP n l)`,
+  Induct >> rpt strip_tac >> rw[DROP_def]
+  >> metis_tac[IS_SUFFIX_CONS]);
+                                   
+val headers_within_snoc = Q.store_thm("headers_within_snoc",
+`!p1 n l m e. headers_within m (n + LENGTH l) p1 /\ m <= (n + LENGTH l) ==>
+  patch_alg_offs n p1 (SNOC e l) = OPTION_MAP (SNOC e) (patch_alg_offs n p1 l)`,
+  ho_match_mp_tac IS_SUFFIX_induct
+  >> rpt strip_tac
+  >> fs[patch_alg_offs_def,patch_aux_def]            
+  >> every_case_tac >> fs[] >> rfs[]
+  >> fs[DROP_DROP_T]
+  >> TRY(qmatch_goalsub_abbrev_tac `F`
+         >> qmatch_asmsub_abbrev_tac `patch_aux (DROP a1 _) _ _ a2`
+         >> `IS_SUFFIX p1 (DROP a1 p1)`
+               by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
+         >> first_assum drule
+         >> qunabbrev_tac `a1`
+         >> disch_then(qspecl_then [`a2`,`DROP (a2 - n) l`,`m`,`e`] mp_tac)
+         >> impl_tac
+         >- (qunabbrev_tac `a2`
+             >> match_mp_tac(GEN_ALL headers_within_grow)
+             >> MAP_EVERY qexists_tac [`m`,`n + LENGTH l`]
+             >> fs[]
+             >> match_mp_tac headers_within_drop
+             >> imp_res_tac headers_within_dest_cons)
+         >> fs[]
+         >> FULL_SIMP_TAC bool_ss [NOT_LESS, GSYM DROP_SNOC,LE]
+         >> fs[ADD1]
+         >> fs[SNOC_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG]
+         >> rfs[DROP_LENGTH_TOO_LONG]
+         >> fs[DROP_def] >> imp_res_tac headers_within_IMP >> fs[]
+         >> qunabbrev_tac `a2` >> fs[]
+         >> qmatch_asmsub_abbrev_tac `patch_aux _ _ _ a2`
+         >> (first_assum drule
+             >> disch_then(qspecl_then [`a2`,`[]`,`m`,`e`] mp_tac)
+             >> impl_tac
+             >- (match_mp_tac(GEN_ALL headers_within_grow)
+                 >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
+                 >> qunabbrev_tac `a2` >> fs[]
+                 >> match_mp_tac headers_within_drop
+                 >> imp_res_tac headers_within_dest_cons)
+             >> TRY(
+                 `(n + (LENGTH l + 1) − a2) = 0` by(intLib.COOPER_TAC)
+                 >> pop_assum(fn x => fs[x])
+                 >> `(n + LENGTH l - a2) = 0` by(intLib.COOPER_TAC)
+                 >> pop_assum(fn x => fs[x]) >> rveq >> fs[]
+                 >> (first_assum drule
+                     >> disch_then(qspecl_then [`a2`,`[]`,`m`,`e`] mp_tac)
+                     >> impl_tac
+                     >- (match_mp_tac(GEN_ALL headers_within_grow)
+                                     >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
+                                     >> qunabbrev_tac `a2` >> fs[]
+                                     >> match_mp_tac headers_within_drop
+                                     >> imp_res_tac headers_within_dest_cons)
+                     >> impl_tac >> fs[]
+                     >> rpt strip_tac >> fs[]
+                     >> imp_res_tac headers_within_IMP_SOME >> fs[] >> NO_TAC))
+             >> `n + LENGTH l - a2 = 0` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])
+             >> qunabbrev_tac `a2`
+             >> `n + LENGTH l - q = 0` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])
+             >> imp_res_tac headers_within_IMP >> fs[]
+             >> `n + (LENGTH l + 1) - q = 1` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])
+             >> imp_res_tac headers_within_IMP
+             >> `q - (n + LENGTH l) = 0` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])))
+  >> TRY(qmatch_goalsub_abbrev_tac `F`
+         >> qmatch_asmsub_abbrev_tac `DROP 1 _`
+         >> `IS_SUFFIX p1 (DROP 1 p1)`
+               by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
+         >> first_assum drule
+         >> disch_then(qspecl_then [`q`,`DROP (q - n) l`,`m`,`e`] mp_tac)
+         >> impl_tac
+         >- (match_mp_tac(GEN_ALL headers_within_grow)
+             >> MAP_EVERY qexists_tac [`m`,`n + LENGTH l`]
+             >> fs[]
+             >> match_mp_tac headers_within_drop
+             >> imp_res_tac headers_within_dest_cons)
+         >> fs[]
+         >> FULL_SIMP_TAC bool_ss [NOT_LESS, GSYM DROP_SNOC,LE]
+         >> fs[ADD1]
+         >> fs[SNOC_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG]
+         >> rfs[DROP_LENGTH_TOO_LONG]
+         >> imp_res_tac headers_within_IMP
+         >> `q = n + LENGTH l - 1` by intLib.COOPER_TAC
+         >> rveq >> fs[]
+         >> (first_assum drule
+             >> disch_then(qspecl_then [`q`,`[]`,`m`,`e`] mp_tac)
+             >> impl_tac
+             >- (match_mp_tac(GEN_ALL headers_within_grow)
+                 >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
+                 >> fs[]
+                 >> match_mp_tac headers_within_drop
+                 >> imp_res_tac headers_within_dest_cons)
+             >> `n + LENGTH l - (q + 1) = 0` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])
+             >> `n + LENGTH l - q = 0` by(intLib.COOPER_TAC)
+             >> pop_assum (fn x => fs[x])
+             >> imp_res_tac headers_within_IMP >> fs[]))
+  >> TRY((qmatch_goalsub_abbrev_tac `TAKE (q − n) (l ⧺ [e]) ⧺ a1 ⧺ a2 = TAKE (q − n) l ⧺ a1 ⧺ a3 ⧺ [e]`
+          ORELSE qmatch_goalsub_abbrev_tac `TAKE (q − n) (l ⧺ [e]) ⧺ a1 = TAKE (q − n) l ⧺ a2 ⧺ [e]`)
+         >> qmatch_asmsub_abbrev_tac `patch_aux (DROP a4 _) _ _ a5 = _`
+         >> imp_res_tac headers_within_IMP >> fs[]
+         >> `a5 - n <= LENGTH l` by(unabbrev_all_tac >> intLib.COOPER_TAC)
+         >> drule TAKE_SNOC
+         >> simp[SNOC_APPEND]
+         >> disch_then kall_tac
+         >> `IS_SUFFIX p1 (DROP a4 p1)` by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
+         >> first_assum drule
+         >> qunabbrev_tac `a4`         
+         >> disch_then(qspecl_then [`a5`,`DROP (a5 - n) l`,`m`,`e`] mp_tac)
+         >> impl_tac
+         >- (qunabbrev_tac `a5`
+             >> match_mp_tac (GEN_ALL headers_within_grow)
+             >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
+             >> fs[]
+             >> match_mp_tac headers_within_drop
+             >> imp_res_tac headers_within_dest_cons)
+         >> fs[ADD1]
+         >> `a5 - n <= LENGTH l` by(unabbrev_all_tac >> intLib.COOPER_TAC)
+         >> simp[GSYM DROP_SNOC]
+         >> qunabbrev_tac `a5`
+         >> `q - n <= LENGTH l` by intLib.COOPER_TAC
+         >> simp[TAKE_APPEND,SNOC_APPEND,DROP_APPEND]
+         >> simp[DROP_def]
+         >> fs[SNOC_APPEND,DROP_APPEND,DROP_def] >> NO_TAC));
+
+val headers_within_append1 = Q.store_thm("headers_within_append1",
+`!l' l. headers_within (n+LENGTH l') m p1 /\ m >= n+LENGTH l' ==>
+  patch_alg_offs n p1 (l' ++ l) = OPTION_MAP (APPEND l') (patch_alg_offs (n+LENGTH l') p1 l)`,
+  ho_match_mp_tac SNOC_INDUCT
+  >> rpt strip_tac
+  >- (fs[] >> qmatch_goalsub_abbrev_tac `OPTION_MAP _ a1` >> Cases_on `a1` >> fs[])
+  >> rpt strip_tac
+  >> fs[SNOC_APPEND]
+  >> FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC]
+  >> drule(GEN_ALL headers_within_grow)
+  >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
+  >> `!opt. lift ($++ (l' ⧺ [x])) opt = lift ($++ l') (lift (CONS x) opt)`
+       by(Cases >> fs[])  
+  >> fs[ADD1]
+  >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
+  >> pop_assum kall_tac
+  >> drule(GEN_ALL headers_within_cons)
+  >> fs[]);
+
+val headers_within_append1' = Q.store_thm("headers_within_append1'",
+`!l' l. headers_within (LENGTH l) m p1 /\ m >= LENGTH l+LENGTH l' ==>
+  patch_alg p1 (l ++ l') = OPTION_MAP (APPEND l) (patch_alg_offs (LENGTH l) p1 l')`,
+  rpt strip_tac
+  >> assume_tac (GEN_ALL headers_within_append1)
+  >> pop_assum (qspecl_then [`p1`,`0`,`m`,`l`,`l'`] assume_tac)
+  >> fs[patch_alg_def,patch_alg_offs_def]);
+
+val headers_within_append2 = Q.store_thm("headers_within_append2",
+`!l' l. headers_within m (n + LENGTH l) p1 /\ m <= n+LENGTH l ==>
+  patch_alg_offs n p1 (l ++ l') = OPTION_MAP (combin$C APPEND l') (patch_alg_offs n p1 l)`,
+  Induct
+  >> rpt strip_tac
+  >- (fs[] >> qmatch_goalsub_abbrev_tac `OPTION_MAP _ a1` >> Cases_on `a1` >> fs[])
+  >> SIMP_TAC bool_ss [Once CONS_APPEND,APPEND_ASSOC]
+  >> drule(GEN_ALL headers_within_grow)
+  >> disch_then(qspecl_then[`m`,`n + LENGTH(l ++ [h])`] mp_tac)
+  >> impl_tac >> fs[]
+  >> strip_tac >> first_x_assum drule
+  >> fs[]
+  >> `!opt. lift (combin$C $++ (h::l')) opt = lift (combin$C $++ l') (lift (SNOC h) opt)`
+       by(Cases >> fs[] ) 
+       >> fs[ADD1]
+  >> pop_assum kall_tac
+  >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
+  >> fs[GSYM SNOC_APPEND]
+  >> drule(GEN_ALL headers_within_snoc)
+  >> fs[]);
+
+val longest_common_sandwich = Q.store_thm("longest_common_sandwich",
+  `!l r. l = longest_common_prefix l r ++
+            let l' = DROP (LENGTH(longest_common_prefix l r)) l;
+                r' = DROP (LENGTH(longest_common_prefix l r)) r in
+              TAKE (LENGTH l' - LENGTH(longest_common_suffix l' r')) l' ++ longest_common_suffix l' r'`,
+  rpt strip_tac >> fs[]
+  >> qspecl_then [`l`,`r`] assume_tac longest_prefix_is_prefix
+  >> fs[]
+  >> imp_res_tac IS_PREFIX_APPEND
+  >> qpat_abbrev_tac `a1 = longest_common_prefix l r`
+  >> fs[DROP_APPEND,DROP_LENGTH_NIL]
+  >> qspecl_then [`l''`,`l'`] assume_tac longest_suffix_is_suffix
+  >> fs[]
+  >> imp_res_tac IS_SUFFIX_APPEND
+  >> qpat_abbrev_tac `a2 = longest_common_suffix _ _ `
+  >> fs[TAKE_APPEND]);
+
+val LENGTH_suffix_prefix = Q.store_thm("LENGTH_suffix_prefix",
+  `!l r. LENGTH l >= LENGTH (longest_common_prefix l r)
+        + LENGTH
+           (longest_common_suffix
+            (DROP (LENGTH (longest_common_prefix l r)) l)
+            (DROP (LENGTH (longest_common_prefix l r)) r))`,
+  rpt strip_tac
+  >> PURE_ONCE_REWRITE_TAC [Once longest_common_sandwich]
+  >> rw[SUB_RIGHT_ADD,SUB_LEFT_ADD]);
+
+val longest_common_sandwich' = Q.store_thm("longest_common_sandwich'",
+  `!l r. r = longest_common_prefix l r ++
+            let l' = DROP (LENGTH(longest_common_prefix l r)) l;
+                r' = DROP (LENGTH(longest_common_prefix l r)) r in
+              TAKE (LENGTH r' - LENGTH(longest_common_suffix l' r')) r' ++ longest_common_suffix l' r'`,
+  rpt strip_tac >> fs[]
+  >> qspecl_then [`l`,`r`] assume_tac longest_prefix_is_prefix
+  >> fs[]
+  >> imp_res_tac IS_PREFIX_APPEND
+  >> qpat_abbrev_tac `a1 = longest_common_prefix l r`
+  >> fs[DROP_APPEND,DROP_LENGTH_NIL]
+  >> qspecl_then [`l''`,`l'`] assume_tac longest_suffix_is_suffix
+  >> fs[]
+  >> imp_res_tac IS_SUFFIX_APPEND
+  >> qpat_abbrev_tac `a2 = longest_common_suffix _ _ `
+  >> fs[TAKE_APPEND]);
+
+val LENGTH_suffix_prefix' = Q.store_thm("LENGTH_suffix_prefix",
+  `!l r. LENGTH r >= LENGTH (longest_common_prefix l r)
+        + LENGTH
+           (longest_common_suffix
+            (DROP (LENGTH (longest_common_prefix l r)) l)
+            (DROP (LENGTH (longest_common_prefix l r)) r))`,
+  rpt strip_tac
+  >> PURE_ONCE_REWRITE_TAC [Once longest_common_sandwich']
+  >> rw[SUB_RIGHT_ADD,SUB_LEFT_ADD]);
+
+val patch_diff2_cancel = Q.store_thm("patch_diff2_cancel",
+  `patch_alg (diff_alg2 l r) l = SOME r`,
+  fs[diff_alg2_thm]
+  >> fs[patch_aux_def]
+  >> qmatch_goalsub_abbrev_tac `TAKE (LENGTH _ - (a1 + a2)) _`
+  >> qpat_abbrev_tac `a3 = DROP a1 l`
+  >> qpat_abbrev_tac `a4 = DROP a1 r`
+  >> qpat_abbrev_tac `a5 = TAKE (LENGTH r − (a1 + a2)) a4`
+  >> qmatch_goalsub_abbrev_tac `TAKE a6`
+  >> fs[patch_alg_def]
+  >> Q.ISPECL_THEN [`l`,`r`] assume_tac longest_common_sandwich
+  >> pop_assum(fn x => PURE_ONCE_REWRITE_TAC [x])
+  >> `lcs (dynamic_lcs (TAKE a6 a3) a5) (TAKE a6 a3) a5` by(MATCH_ACCEPT_TAC dynamic_lcs_correct)
+  >> fs[lcs_def]
+  >> imp_res_tac diff_with_lcs_headers_within
+  >> pop_assum(qspecl_then [`a1`,`a1`] assume_tac)
+  >> drule(GEN_ALL headers_within_grow)
+  >> disch_then(qspecl_then [`a1`,`a1 + (LENGTH a3 - a2 + a2)`] mp_tac)
+  >> impl_tac >- (unabbrev_all_tac >> fs[])  
+  >> qunabbrev_tac `a1` >> strip_tac
+  >> drule headers_within_append1'
+  >> disch_then(qspec_then `TAKE (LENGTH a3 − a2) a3 ++ longest_common_suffix a3 a4` mp_tac)
+  >> impl_tac >- (unabbrev_all_tac >> fs[])
+  >> strip_tac
+  >> fs[patch_alg_def]
+  >> qunabbrev_tac `a2` >> fs[]
+  >> qexists_tac `TAKE (LENGTH a4 − LENGTH (longest_common_suffix a3 a4)) a4 ⧺
+                                longest_common_suffix a3 a4`
+  >> fs[]
+  >> conj_tac
+  >- (ntac 2 (pop_assum kall_tac)
+      >> drule (GEN_ALL(headers_within_append2 |> PURE_ONCE_REWRITE_RULE [ADD_SYM]))
+      >> disch_then(qspec_then `longest_common_suffix a3 a4` mp_tac)
+      >> impl_tac >- fs[]
+      >> strip_tac
+      >> `a6 = LENGTH a3 - LENGTH(longest_common_suffix a3 a4)`
+           by(unabbrev_all_tac >> fs[])
+       >> rveq >> fs[]
+       >> drule patch_aux_diff_cancel
+       >> fs[patch_alg_offs_def]
+       >> disch_then kall_tac
+       >> unabbrev_all_tac >> fs[])
+  >> unabbrev_all_tac
+  >> Q.ISPECL_THEN [`l`,`r`] mp_tac (longest_common_sandwich' |> SIMP_RULE std_ss [LET_THM])
+  >> rpt(pop_assum kall_tac)
+  >> fs[]);
 
 (* TODO:
    this property is false as stated; prove some appropriate weakening
@@ -737,7 +1208,7 @@ val is_patch_line_simps = Q.prove(
        /\ (FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r)
 `,
   Induct_on `r` >> fs[] >> Induct
-  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_thm,MIN_DEF]
+  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_def,MIN_DEF]
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]);
 
 val toString_obtain_digits = Q.prove(
@@ -755,9 +1226,9 @@ val diff_single_patch_length = Q.prove(
   >> qspec_then `n` assume_tac toString_obtain_digits
   >> qspec_then `m` assume_tac toString_obtain_digits
   >> fs[] >> rw[]
-  >> fs[is_patch_line_simps,substring_thm,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> fs[is_patch_line_simps,substring_def,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
-  >> fs[is_patch_line_def,substring_thm,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
+  >> fs[is_patch_line_def,substring_def,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
   >> fs[]);
 
 val diff_with_lcs_optimal = Q.prove(
@@ -787,5 +1258,59 @@ val diff_optimal = Q.store_thm("diff_optimal",
   >> `LENGTH l = LENGTH (optimised_lcs r r')`
        by(fs[lcs_def,common_subsequence_def,is_subsequence_def] >> metis_tac[is_subsequence_length,LESS_EQUAL_ANTISYM])
   >> fs[diff_with_lcs_optimal]);
+
+val REVERSE_DROP_REVERSE_TAKE = Q.store_thm("REVERSE_DROP_REVERSE_TAKE",
+  `!l n. n <= LENGTH l ==>
+  REVERSE((DROP n (REVERSE l))) = TAKE (LENGTH l - n) l`,
+  Induct >> rpt strip_tac >> fs[DROP_def,DROP_APPEND] >> rw[]
+  >> fs[ADD1,NOT_LEQ]
+  >> imp_res_tac EQ_LESS_EQ >> fs[]
+  >> fs[DROP_LENGTH_TOO_LONG])
+                                           
+val diff2_optimal = Q.store_thm("diff2_optimal",
+  `!l r r'. lcs l r r' ==>
+   LENGTH(FILTER is_patch_line (diff_alg2 r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
+  rpt strip_tac >> fs[diff_alg2_thm]
+  >> qmatch_goalsub_abbrev_tac `longest_common_suffix a1 a2`
+  >> qmatch_goalsub_abbrev_tac `dynamic_lcs a3 a4`
+  >> `lcs (dynamic_lcs a3 a4) a3 a4` by(MATCH_ACCEPT_TAC dynamic_lcs_correct)
+  >> `lcs (longest_common_prefix r r' ++ dynamic_lcs a3 a4 ++ longest_common_suffix a1 a2) r r'`
+     by(FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,longest_prefix_correct,longest_suffix_correct]
+        >> fs[REVERSE_DROP]
+        >> `LENGTH (longest_common_suffix a1 a2) <= LENGTH a1`
+            by(metis_tac[longest_common_suffix_LENGTH])
+        >> `LENGTH (longest_common_suffix a1 a2) <= LENGTH a2`
+            by(metis_tac[longest_common_suffix_LENGTH])
+        >> simp[REVERSE_DROP_REVERSE_TAKE]
+        >> unabbrev_all_tac >> simp[])  
+  >> `LENGTH l = LENGTH (longest_common_prefix r r' ++ dynamic_lcs a3 a4 ++ longest_common_suffix a1 a2)`
+     by(match_mp_tac lcs_length >> metis_tac[])
+  >> fs[diff_with_lcs_optimal]
+  >> fs[LEFT_ADD_DISTRIB]
+  >> `LENGTH a3 = LENGTH r - (LENGTH(longest_common_prefix r r') + LENGTH(longest_common_suffix a1 a2))`
+       by(unabbrev_all_tac >> fs[])
+  >> `LENGTH a4 = LENGTH r' - (LENGTH(longest_common_prefix r r') + LENGTH(longest_common_suffix a1 a2))`
+      by(unabbrev_all_tac >> fs[])
+  >> fs[]
+  >> Q.ISPECL_THEN [`r`,`r'`] assume_tac longest_common_prefix_LENGTH
+  >> Q.ISPECL_THEN [`a1`,`a2`] assume_tac longest_common_suffix_LENGTH
+  >> rw[SUB_RIGHT_ADD]
+  >> rw[SUB_LEFT_ADD]
+  >> qpat_abbrev_tac `a5 = longest_common_prefix r r'`
+  >> `LENGTH r' = LENGTH a5 + LENGTH a4 + LENGTH (longest_common_suffix a1 a2)`
+     by (PURE_ONCE_REWRITE_TAC[Once longest_common_sandwich]
+          >> simp[] >> unabbrev_all_tac >> fs[]
+          >> rw[SUB_RIGHT_ADD,SUB_LEFT_ADD] >> fs[] >> rfs[]
+          >> Q.ISPECL_THEN [`r'`,`r`] assume_tac LENGTH_suffix_prefix
+          >> fs[])
+  >> `LENGTH r = LENGTH a5 + LENGTH a3 + LENGTH (longest_common_suffix a1 a2)`
+     by (PURE_ONCE_REWRITE_TAC[Once longest_common_sandwich']
+          >> simp[] >> unabbrev_all_tac >> fs[]
+          >> rw[SUB_RIGHT_ADD,SUB_LEFT_ADD] >> fs[] >> rfs[]
+          >> Q.ISPECL_THEN [`l`,`r`] assume_tac LENGTH_suffix_prefix'
+          >> fs[])
+  >> pop_assum (fn x => PURE_ONCE_REWRITE_TAC[x])
+  >> pop_assum (fn x => PURE_ONCE_REWRITE_TAC[x])
+  >> fs[]);
 
 val _ = export_theory ();

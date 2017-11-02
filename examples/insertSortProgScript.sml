@@ -1,14 +1,10 @@
-open preamble;
-open semanticPrimitivesTheory;
-open ml_translatorTheory ml_translatorLib ml_progLib;
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib;
-open basisFunctionsLib;
-
-open mlarrayProgTheory;
+open preamble semanticPrimitivesTheory
+     ml_translatorTheory ml_translatorLib ml_progLib cfLib
+     basisFunctionsLib ArrayProofTheory
 
 val _ = new_theory "insertSortProg";
 
-val _ = translation_extends"mlarrayProg";
+val _ = translation_extends"ArrayProg";
 
 fun basis_st () = get_ml_prog_state ()
 

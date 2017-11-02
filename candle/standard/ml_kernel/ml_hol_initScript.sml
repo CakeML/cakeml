@@ -1,8 +1,7 @@
 open preamble
-open ml_translatorLib ml_hol_kernelProgTheory holKernelProofTheory ml_monad_translatorTheory
-open bigStepTheory
-open terminationTheory
-open cfStoreTheory
+open ml_hol_kernelProgTheory holKernelProofTheory
+open ml_monad_translatorBaseTheory ml_translatorLib
+open bigStepTheory terminationTheory cfStoreTheory
 
 val _ = new_theory"ml_hol_init"
 

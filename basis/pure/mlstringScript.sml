@@ -20,6 +20,13 @@ val strlen_def = Define`
 val strsub_def = Define`
   strsub (strlit s) n = EL n s`;
 
+(* the test here is because underspecification is annoying (and SEG is underspecified) *)
+(* the underlying primitive (CopyStrStr) raises an exception if the test is false *)
+val substring_def = Define`
+  substring (strlit s) off len = strlit (if off + len ≤ LENGTH s then SEG len off s
+                                         else if off <= LENGTH s then DROP off s
+                                         else "")`;
+
 val concat_def = Define`
   concat l = strlit (FLAT (MAP (λs. case s of strlit x => x) l))`;
 
@@ -27,7 +34,6 @@ val concat_nil = Q.store_thm("concat_nil[simp]",
   `concat [] = strlit ""`, EVAL_TAC);
 
 val _ = export_rewrites["strlen_def","strsub_def"];
-
 
 val explode_aux_def = Define`
   (explode_aux s n 0 = []) ∧
@@ -89,126 +95,37 @@ val concat_thm = Q.store_thm("concat_thm",
 val strlen_implode = Q.store_thm("strlen_implode[simp]",
   `strlen (implode s) = LENGTH s`, EVAL_TAC);
 
-val extract_aux_def = Define`
-  (extract_aux s n 0 = []) /\
-  (extract_aux s n (SUC len) = strsub s n:: extract_aux s (n + 1) len)`;
+val strlen_substring = Q.store_thm("strlen_substring",
+  `strlen (substring s i j) = if i + j <= strlen s then j
+                              else if i <= strlen s then strlen s - i
+                              else 0`,
+  Cases_on`s` \\ rw[substring_def,LENGTH_SEG]);
 
 val extract_def = Define`
   extract s i opt =
     if strlen s <= i
       then implode []
     else case opt of
-      (SOME x) => implode (extract_aux s i (MIN (strlen s - i) x))
-      | NONE => implode (extract_aux s i ((strlen s) - i))`;
-
-val substring_def = Define`
-  substring s i j =
-    if strlen s <= i
-      then implode []
-    else implode (extract_aux s i (MIN (strlen s - i) j))`;
-
-val extract_aux_thm = Q.prove (
-  `!s n len. (n + len <= strlen s) ==> (extract_aux s n len = SEG len n (explode s))`,
-  Cases_on `s` \\ Induct_on `len` >-
-  rw[extract_aux_def, SEG] \\
-  fs [extract_aux_def, strsub_def, strlen_def, explode_def] \\
-  rw [EL_SEG, SEG_TAKE_BUTFISTN] \\
-  rw [TAKE_SUM, take1_drop, DROP_DROP, DROP_EL_CONS]
-);
-
-(*This proves that the functions are the same for values where SEG is defined*)
-val extract_thm = Q.store_thm (
-  "extract_thm",
-  `!s i opt. (i < strlen s) ==> (extract s i opt = (case opt of
-    (SOME x) => implode (SEG (MIN (strlen s - i) x) i (explode s))
-    | NONE => implode (SEG ((strlen s) - i) i (explode s))))`,
-    Cases_on `opt` >- rw [extract_def, extract_aux_thm, implode_def, strlen_def, MIN_DEF] \\
-    rw [extract_def] \\ AP_TERM_TAC ORELSE AP_THM_TAC \\ rw[MIN_DEF, extract_aux_thm]
-);
-
-val substring_thm = Q.store_thm (
-  "substring_thm",
-  `!s i j. (i < strlen s) ==> (substring s i j = implode (SEG (MIN (strlen s - i) j) i (explode s)))`,
-  rw [substring_def] \\ AP_TERM_TAC \\ rw [MIN_DEF, extract_aux_thm]
-);
-
-val LENGTH_extract_aux = Q.store_thm("LENGTH_extract_aux",
-`!s x y. LENGTH (extract_aux s x y) = y`,
-     Induct_on`y` >> fs[extract_aux_def,MIN_DEF]);
+        SOME x => substring s i (MIN (strlen s - i) x)
+      | NONE => substring s i (strlen s - i)`;
 
 val strlen_extract_le = Q.store_thm("strlen_extract_le",
 `!s x y. strlen (extract s x y) <= strlen s - x`,
-  rw[extract_def] >> CASE_TAC >> fs[LENGTH_extract_aux]);
-
-val extract_aux_DROP = Q.store_thm("extract_aux_DROP",
-  `!s k. extract_aux (strlit s) k (LENGTH s - k) = DROP k s`,
-  rw[] >> `?n. STRLEN s - k = n` by fs[] >>
-  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >> qid_spec_tac`k` >>
-  induct_on`n` >> fs[extract_aux_def,STRLEN_DEF,DROP_EL_CONS] >>
-  rw[] >> fs[extract_aux_def,DROP_LENGTH_TOO_LONG] >>
-  (* simplify *)
-  FIRST_X_ASSUM MP_TAC >> PURE_REWRITE_TAC [Once (GSYM SUB_EQ_0)] >>
-  strip_tac >> FIRST_X_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
-  fs[extract_aux_def])
-
-val extract_aux_eq = Q.store_thm("extract_aux_eq",
-  `!n s. n = LENGTH s ==>
-   extract_aux (strlit s) 0 n = s`,
-  rw[] >> ASSUME_TAC(Q.SPECL[`s`,`0`] extract_aux_DROP) >> fs[]);
-
-val extract_aux_add_r = Q.store_thm("extract_aux_add_r",
-  `!n1 n2 s i. extract_aux s i (n1 + n2) = 
-                extract_aux s i n1 ++ extract_aux s (i+n1) n2`,
-  induct_on`n1` >- fs[extract_aux_def] >>
-  rw[] >> fs[GSYM ADD_SUC,extract_aux_def] >> fs[ADD1]);
-
-val extract_aux_eq = Q.store_thm("extract_aux_eq",
-  `!s n. n = LENGTH s ==>
-   extract_aux (strlit s) 0 n =s`,
-  rw[] >> ASSUME_TAC(Q.SPECL[`s`,`0`] extract_aux_DROP) >> fs[]);
-
-val extract_aux_TAKE = Q.store_thm("extract_aux_TAKE",
-  `!s. n <= LENGTH s ==>
-     extract_aux (strlit s) 0 n = TAKE n s`,
-  rw[] >>
-  sg`extract_aux (strlit s) 0 n ++ extract_aux (strlit s) n (LENGTH s - n)  = 
-     TAKE n s ++ DROP n s`
-  >-(fs[TAKE_DROP, GSYM extract_aux_add_r] >>
-     ASSUME_TAC(Q.SPECL[`n`,`STRLEN s - n`,`strlit s`,`0`]extract_aux_add_r) >>
-     rfs[] >> fs[extract_aux_eq]) >>
-  FIRST_X_ASSUM MP_TAC >> PURE_REWRITE_TAC[extract_aux_DROP] >> rw[]);
+  rw[extract_def] >> CASE_TAC >> fs[strlen_substring]);
 
 val strsub_substring_0_thm = Q.store_thm("strsub_substring_0_thm",
   `∀m n l. m < n ⇒ strsub (substring l 0 n) m = strsub l m`,
-  Cases_on `l` \\ Cases_on `s = ""`
-      >- rw [strsub_def
-            , substring_thm
-            , substring_def
-            , implode_def
-            , explode_aux_def]
-      >- (rw [strsub_def]
-          \\ `0 < strlen (strlit s)`
-             by (Cases_on `s` \\ rw [strlen_def,STRLEN_DEF])
-          \\ rw [substring_thm]
-          \\ Cases_on `n ≤ STRLEN s`
-          \\ fs [MIN_DEF
-                , strsub_def
-                , implode_def
-                , GSYM TAKE_SEG
-                , EL_TAKE
-                ,SEG_LENGTH_ID]));
+  Cases_on`l` \\ rw[strsub_def,substring_def]
+  \\ rw[SEG_TAKE_BUTFISTN,EL_TAKE]);
 
-val substring_DROP = Q.store_thm("substring_DROP",
-`∀s. substring (strlit s) 1 (STRLEN s) = strlit (DROP 1 s)`,
-rw []
-\\ Cases_on `1 < strlen (strlit s)`
-\\ Cases_on `s`
-\\ rw [substring_thm, MIN_DEF, implode_def
-      , GSYM DROP_SEG, GSYM TAKE_SEG
-      , SEG_SUC_CONS
-        |> CONV_RULE PairRules.SWAP_PFORALL_CONV
-        |> SPEC ``0n``|> EVAL_RULE ]
-\\ fs [substring_def, implode_def, NOT_LESS,GSYM LESS_EQ]);
+val substring_full = Q.store_thm("substring_full[simp]",
+  `substring s 0 (strlen s) = s`,
+  Cases_on`s` \\ rw[substring_def,SEG_LENGTH_ID]);
+
+val substring_too_long = Q.store_thm("substring_too_long",
+  `strlen s <= i ==> substring s i j = strlit ""`,
+  Cases_on`s` \\ rw[substring_def,DROP_NIL] \\
+  `j = 0` by decide_tac \\ fs[SEG]);
 
 val strcat_def = Define`strcat s1 s2 = concat [s1; s2]`
 val _ = Parse.add_infix("^",480,Parse.LEFT)

@@ -1,12 +1,12 @@
 open preamble
-open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory;
+open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
 
 val rw = srw_tac []
 val fs = full_simp_tac (srw_ss())
 
 val _ = new_theory "SplayHeap"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 50 *)
 

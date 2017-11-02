@@ -1,13 +1,15 @@
 structure ml_monadStoreLib :> ml_monadStoreLib = struct 
 
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
+open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory Redblackmap AC_Sort Satisfy
+open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory ml_monadStoreTheory
+open Redblackmap AC_Sort Satisfy
+open ml_translatorLib
 
-fun ERR fname msg = mk_HOL_ERR "ml_monadProgLib" fname msg;
+fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT
 
@@ -47,6 +49,8 @@ val EXTRACT_PURE_FACTS_CONV =
   THENC (SIMP_CONV pure_ss [HCOND_EXTRACT])
   THENC (SIMP_CONV pure_ss [STAR_ASSOC]);
 
+val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD]) THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE]))
+
 (* TODO: use EXTRACT_PURE_FACT_CONV to rewrite EXTRACT_PURE_FACTS_TAC *)
 fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
   let
@@ -61,20 +65,6 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
 (******* End of COPY/PASTE from ml_monadProgScipt.sml *****************************************)
 
 (* Normalize the heap predicate before using the get_heap_constant_thm theorem  *)
-val SEP_EXISTS_SEPARATE_lemma = List.hd(SPEC_ALL SEP_CLAUSES |> CONJUNCTS) |> GSYM |> GEN_ALL
-val SEP_EXISTS_INWARD_lemma = List.nth(SPEC_ALL SEP_CLAUSES |> CONJUNCTS, 1) |> GSYM |> GEN_ALL
-
-val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD_lemma])
-				 THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE_lemma]))
-
-val ALLOCATE_EMPTY_RARRAY_lemma = Q.prove(
-`!env s. evaluate F env s (App Opref [App AallocEmpty [Con NONE []]])
-(s with refs := s.refs ++ [Varray []] ++ [Refv (Loc (LENGTH s.refs))], Rval (Loc (LENGTH s.refs + 1)))`,
-rw[]
-\\ ntac 10 (rw[Once evaluate_cases])
-\\ rw[do_opapp_def, do_con_check_def, build_conv_def, do_app_def, store_alloc_def]
-\\ rw[state_component_equality]);
-
 fun get_refs_manip_funs (l : (string * thm * thm * thm) list) =
   List.map (fn (x, _, y, z) => (x, y, z)) l;
 fun get_arrays_manip_funs (l : (string * thm * thm * thm * thm * thm * thm * thm) list) =
@@ -97,7 +87,7 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     (***)
 
     (* Expand the definitions *)
-    val th = SPECL [env, s] ALLOCATE_EMPTY_RARRAY_lemma
+    val th = SPECL [env, s] ALLOCATE_EMPTY_RARRAY_evaluate
     val th = SIMP_RULE pure_ss [GSYM array_v_def] th
     val res_pair = rand(concl th)
     val res_pair_eq = EVAL res_pair
@@ -256,10 +246,12 @@ fun create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs
       (* Create the heap predicate for the store *)
       val create_ref_hprop_params = List.map (fn (x, _, y, _, _) => (x, y)) refs_manip_list
       val create_ref_hprop_params = zip create_ref_hprop_params refs_locs
-      (* val (name, get_f) = List.hd create_ref_hprop_params *)
+      (* val ((name, get_f), ref_loc) = List.hd create_ref_hprop_params *)
       fun create_ref_hprop ((name, get_f), ref_loc) =
 	let
-	    val ref_inv = dest_abs get_f |> snd |> type_of |> get_type_inv
+	    val ty = dest_abs get_f |> snd |> type_of
+	    val ref_inv = (get_type_inv ty handle HOL_ERR _ =>
+                (register_type ty; get_type_inv ty))
 	    val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
 
 	    val hprop = ``REF_REL ^ref_inv ^ref_loc ^get_term``
@@ -362,125 +354,7 @@ val (g as (asl, w)) = top_goal();
 	  tac g
       end
 
-    val GC_INWARDS = Q.prove(`GC * A = A * GC`, SIMP_TAC std_ss [STAR_COMM])
-
-    val GC_DUPLICATE_0 = Q.prove(`H * GC = H * GC * GC`, rw[GSYM STAR_ASSOC, GC_STAR_GC])
-
-    val GC_DUPLICATE_1 = Q.prove(`A * (B * GC * C) = A * GC * (B * GC * C)`,
-				 SIMP_TAC std_ss [GSYM STAR_ASSOC, GC_INWARDS, GC_STAR_GC])
-
-    val GC_DUPLICATE_2 = Q.prove(`A * (B * GC) = A * GC * (B * GC)`,
-	ASSUME_TAC (Thm.INST [``C : hprop`` |-> ``emp : hprop``] GC_DUPLICATE_1)
-        \\ FULL_SIMP_TAC std_ss [GSYM STAR_ASSOC, SEP_CLAUSES])
-
-    val GC_DUPLICATE_3 = Q.prove(`A * GC * B = GC * (A * GC * B)`,
-	SIMP_TAC std_ss [GSYM STAR_ASSOC, GC_INWARDS, GC_STAR_GC])
-
-    val store2heap_aux_decompose_store1 = Q.prove(
-      `H (store2heap_aux n (a ++ (b ++ c))) =
-      (DISJOINT (store2heap_aux n (a ++ b)) (store2heap_aux (n + LENGTH (a ++b)) c) ==>
-      H ((store2heap_aux n (a ++ b)) UNION (store2heap_aux (n + LENGTH (a ++b)) c)))`,
-      EQ_TAC
-      >-(
-	 rw[]
-	 \\ FULL_SIMP_TAC pure_ss [GSYM APPEND_ASSOC]
-	 \\ FULL_SIMP_TAC pure_ss [store2heap_aux_append_many, ADD_ASSOC]
-	 \\ metis_tac[UNION_COMM, UNION_ASSOC]
-      )
-      \\ rw[]
-      \\ qspecl_then [`n`, `a ++ b`, `c`] ASSUME_TAC store2heap_aux_DISJOINT \\ fs[]
-      \\ PURE_REWRITE_TAC [Once store2heap_aux_append_many]
-      \\ fs[UNION_COMM])
-
-    val store2heap_aux_decompose_store2 = Q.prove(
-      `H (store2heap_aux n (a ++ b)) =
-      (DISJOINT (store2heap_aux n a) (store2heap_aux (n + LENGTH a) b) ==>
-      H ((store2heap_aux (n + LENGTH a) b) UNION (store2heap_aux n a)))`,
-      ASSUME_TAC (Thm.INST [``b:v store`` |-> ``[] : v store``] store2heap_aux_decompose_store1
-         |> GEN_ALL)
-      \\ fs[UNION_COMM])
-
-    val cons_to_append = Q.prove(`a::b::c = [a; b]++c`, fs[])
-
-    val append_empty = Q.prove(`a = a ++ []`, fs[])
-
-    val H_STAR_GC_SAT_IMP = Q.prove(`H s ==> (H * GC) s`,
-	rw[STAR_def]
-	\\ qexists_tac `s`
-        \\ qexists_tac `{}`
-        \\ rw[SPLIT_emp2, SAT_GC])
-
-    val store2heap_REF_SAT = Q.prove(`((Loc l) ~~> v) (store2heap_aux l [Refv v])`,
-        fs[store2heap_aux_def] >> fs[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def])
-
-    val store2heap_eliminate_ffi_thm = Q.prove(
-      `H (store2heap s.refs) ==> (GC * H) (st2heap p s)`,
-      rw[] 
-      \\ Cases_on `p`
-      \\ fs[st2heap_def, STAR_def]
-      \\ instantiate
-      \\ qexists_tac `ffi2heap (q, r) s.ffi`
-      \\ fs[SAT_GC]
-      \\ PURE_ONCE_REWRITE_TAC[SPLIT_SYM]
-      \\ fs[st2heap_SPLIT_FFI]);
-
-    val rarray_exact_thm = Q.prove(
-	`((l = l' + 1) /\ (n = l')) ==>
-	 RARRAY (Loc l) av (store2heap_aux n [Varray av; Refv (Loc l')])`,
-        rw[]
-        \\ rw[RARRAY_def]
-	\\ rw[SEP_EXISTS_THM]
-	\\ qexists_tac `Loc l'`
-        \\ PURE_REWRITE_TAC[Once STAR_COMM]
-	\\ `[Varray av; Refv (Loc l')] = [Varray av] ++ [Refv (Loc l')]` by fs[]
-        \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
-	\\ PURE_REWRITE_TAC[store2heap_aux_decompose_store2]
-	\\ DISCH_TAC
-	\\ rw[STAR_def, SPLIT_def]
-	\\ instantiate
-	\\ rw[]
-	>-(rw[Once UNION_COMM])
-	>-(rw[ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
-	\\ rw[REF_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]);
-	
-     val eliminate_inherited_references_thm = Q.prove(
-       `!a b. H (store2heap_aux (LENGTH a) b) ==> (GC * H) (store2heap_aux 0 (a++b))`,
-       rw[]
-       \\ fs[STAR_def]
-       \\ instantiate
-       \\ qexists_tac `store2heap_aux 0 a`
-       \\ fs[SPEC_ALL store2heap_aux_SPLIT |> Thm.INST [``n:num`` |-> ``0:num``]
-		      |> SIMP_RULE arith_ss [], SAT_GC]);
-
-     val eliminate_substore_thm = Q.prove(
-       `(H1 * GC * H2) (store2heap_aux (n + LENGTH a) b) ==>
-        (H1 * GC * H2) (store2heap_aux n (a++b))`,
-       rw[]
-       \\ PURE_ONCE_REWRITE_TAC[GC_DUPLICATE_3]
-       \\ rw[Once STAR_def]
-       \\ qexists_tac `store2heap_aux n a`
-       \\ qexists_tac `store2heap_aux (n + LENGTH a) b`
-       \\ simp[SAT_GC, store2heap_aux_SPLIT])
-
-     val eliminate_store_elem_thm = Q.prove(
-       `(H1 * GC * H2) (store2heap_aux (n + 1) b) ==>
-        (H1 * GC * H2) (store2heap_aux n (a::b))`,
-       rw[]
-       \\ PURE_ONCE_REWRITE_TAC[GC_DUPLICATE_3]
-       \\ rw[Once STAR_def]
-       \\ PURE_ONCE_REWRITE_TAC[CONS_APPEND]
-       \\ qexists_tac `store2heap_aux n [a]`
-       \\ qexists_tac `store2heap_aux (n + (LENGTH [a])) b`
-       \\ simp[SAT_GC, store2heap_aux_SPLIT])
-
      fun eliminate_inherited_store_rec remaining_store =
-       (*
-       val remaining_store = remaining_store'
-       val (binder, remaining_store') = dest_comb remaining_store
-       val (binder, e) = dest_comb binder
-       (irule eliminate_store_elem_thm)
-       (irule eliminate_substore_thm)
-       *)
        if same_const remaining_store ``[] : 'a list`` then ALL_TAC
        else let
 	   fun decompose_store remaining_store = let
@@ -502,34 +376,6 @@ val (g as (asl, w)) = top_goal();
          \\ eliminate_inherited_store_rec remaining_store
          \\ PURE_REWRITE_TAC [APPEND_ASSOC]
      end
-
-     (* val eliminate_store_init_refs_thm = Q.prove(
-       `(H1 * H2) (store2heap_aux (n + LENGTH a) b) ==>
-        (H1 * GC * H2) (store2heap_aux n (a++b))`,
-       rw[STAR_def]
-       \\ qexists_tac `
-       \\ qexists_tac `store2heap_aux n a`
-       \\ qexists_tac `store2heap_aux (n + (LENGTH a)) b`
-       \\ simp[SAT_GC, store2heap_aux_SPLIT]) *)
-
-     (* fun eliminate_inherited_references current_store =
-       if same_const initial_store ``[] : 'a list`` then ALL_TAC
-       else let
-	   val initial_store = PURE_REWRITE_CONV[GSYM APPEND_ASSOC] initial_store |> concl |> rhs
-			       handle UNCHANGED => initial_store
-	   fun num_sublists l = let
-	       val (l', b) = dest_comb l
-	       val (conc, a) = dest_comb l'
-	   in if same_const ``list$APPEND : 'a list -> 'a list -> 'a list`` conc then
-		  1 + num_sublists b
-	      else 1
-	   end handle HOL_ERR _ => 1
-
-	   val repeat_num = num_sublists initial_store
-	   val tac = PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-		     \\ ntac repeat_num (irule eliminate_substore_thm)		     
-                     \\ PURE_REWRITE_TAC [APPEND_ASSOC]
-       in tac end *)
 
      fun check_ref (g as (asl, w)) = let
 	    val hprop = PURE_REWRITE_CONV [GSYM STAR_ASSOC] w
@@ -655,7 +501,11 @@ fun prove_exists_store_X_hprop save_th state_type store_hprop_name valid_store_X
       val ty_subst = Type.match_type (type_of current_state) ``:unit semanticPrimitives$state``
       val current_state = Term.inst ty_subst current_state
 
-      val ([refs_var, ffi_var], hyps) = concl valid_store_X_hprop_thm |> strip_forall
+      val (vars, hyps) =
+	  concl valid_store_X_hprop_thm |> strip_forall
+      val (refs_var, ffi_var) = if List.length vars = 2
+            then (hd vars, hd(tl vars))
+            else failwith "prove_exists_store_X_hprop"
       val hyps = dest_imp hyps |> fst handle HOL_ERR _ => ``T``
       val interm_goal = ``?(^refs_var) (^ffi_var). ^hyps``
       val interm_solve_tac =  srw_tac[QI_ss][]
@@ -709,9 +559,6 @@ local
 
     fun PICK_PINV_CONV field_pat = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_pinv_order field_pat, combine = ALL_CONV, preprocess = ALL_CONV}
 
-    val H_STAR_empty = Q.prove(`H * emp = H`, rw[SEP_CLAUSES])
-
-    val H_STAR_TRUE = Q.prove(`(H * &T = H) /\ (&T * H = H)`, fs[SEP_CLAUSES])
 in
 
 fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs arrays_refs_locs_defs store_X_hprop_def state_type exn_ri_def store_pinv_def_opt = let
@@ -758,13 +605,12 @@ fun prove_store_access_specs refs_manip_list arrays_manip_list refs_locs_defs ar
 
 	fun rewrite_thm th = let
 	    val th = PURE_ONCE_REWRITE_RULE[GSYM loc_def] th
-	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def, GSYM STAR_ASSOC,
-				       COMBINE_INV_SIMP] th
+	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def, GSYM STAR_ASSOC] th
 	    val th = CONV_RULE (DEPTH_CONV BETA_CONV) th
 	    val th = PURE_REWRITE_RULE[H_STAR_empty, H_STAR_TRUE, GSYM H_eq] th
 	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
 	    val th = PURE_REWRITE_RULE[GSYM H_eq] th
-	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def, COMBINE_INV_SIMP] th
+	    val th = PURE_REWRITE_RULE[GSYM get_fun_def, GSYM set_fun_def] th
 	    val th = PURE_REWRITE_RULE[PRECONDITION_T, ConseqConvTheory.IMP_CLAUSES_TX] th
 	in th end
 

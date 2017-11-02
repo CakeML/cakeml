@@ -545,32 +545,6 @@ val _ = translate (typeSystemTheory.build_ctor_tenv_def
 		   |> REWRITE_RULE [MAP_type_name_subst]
   	           |> SIMP_RULE std_ss [lemma]);
 
-val type_name_subst_side_def = theorem"type_name_subst_side_def";
-
-val type_name_subst_side_thm = Q.store_thm("type_name_subst_side_thm",
-  `∀a b. check_type_names a b
-    ⇒ type_name_subst_side a b`,
-  ho_match_mp_tac terminationTheory.type_name_subst_ind >>
-  rw[Once type_name_subst_side_def] >>
-  rw[Once type_name_subst_side_def] >>
-  fs[terminationTheory.check_type_names_def,EVERY_MEM])
-
-val build_ctor_tenv_side_def = definition"build_ctor_tenv_side_def";
-
-val build_ctor_tenv_side_thm = Q.store_thm("build_ctor_tenv_side_thm",
-  `∀x y z. check_ctor_tenv y z ⇒ build_ctor_tenv_side x y z`,
-  rw[build_ctor_tenv_side_def] >>
-  fs[typeSystemTheory.check_ctor_tenv_def] >>
-  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  match_mp_tac type_name_subst_side_thm >>
-  fs [FORALL_PROD] >>
-  res_tac >> fs [] >>
-  res_tac >> fs [] >>
-  rename1 `MEM _ (SND vvv)` >>
-  Cases_on `vvv` >> fs [] >>
-  res_tac >> fs [] >>
-  res_tac >> fs []);
-
 val EVERY_INTRO = Q.prove(
   `(!x::set s. P x) = EVERY P s`,
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]);
@@ -606,7 +580,7 @@ val infer_p_side_thm = Q.store_thm ("infer_p_side_thm",
   TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
   TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
   every_case_tac >> fs[] >> rw[] >>
-  metis_tac[infer_p_wfs,PAIR,type_name_subst_side_thm]);
+  metis_tac[infer_p_wfs,PAIR]);
 
 val _ = translate (infer_def ``infer_e``)
 
@@ -944,7 +918,6 @@ val infer_e_side_thm = Q.store_thm ("infer_e_side_thm",
    \\ asm_exists_tac \\ rw[]
    \\ imp_res_tac infer_e_wfs \\ fs[],
    every_case_tac \\ fs[] \\ rw[] \\ metis_tac[infer_e_wfs],
-   every_case_tac \\ fs[type_name_subst_side_thm],
    prove_tac [infer_p_side_thm],
    every_case_tac >>
        fs [] >>
@@ -1024,7 +997,6 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
        imp_res_tac infer_p_wfs >>
        fs [] >>
        prove_tac [unifyTheory.t_unify_wfs])
-  >- metis_tac [generalise_list_length]
   >- (match_mp_tac (List.nth (CONJUNCTS infer_e_side_thm, 3)) >> rw [])
   >- (match_mp_tac add_constraints_side_thm >>
        rw [] >>
@@ -1033,10 +1005,7 @@ val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   >- (imp_res_tac pure_add_constraints_wfs >>
        imp_res_tac infer_e_wfs >>
        fs [])
-  >- (match_mp_tac build_ctor_tenv_side_thm >>
-     last_x_assum mp_tac >> rw[])
-  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[])
-  >- (match_mp_tac type_name_subst_side_thm>> every_case_tac>>fs[EVERY_MEM]));
+  );
 
 val _ = infer_d_side_thm |> SPEC_ALL |> EQT_INTRO |> update_precondition
 
@@ -1124,8 +1093,6 @@ val check_specs_side_thm = Q.store_thm ("check_specs_side_thm",
     |> Q.GEN`P` |> ho_match_mp_tac) >>
   rw [] >>
   rw [Once check_specs_side_def, rich_listTheory.LENGTH_COUNT_LIST] >>
-  TRY (match_mp_tac build_ctor_tenv_side_thm >>rw[])>>
-  TRY (match_mp_tac type_name_subst_side_thm>>every_case_tac>>fs[EVERY_MEM])>>
   fsrw_tac[boolSimps.ETA_ss][]
   >-
     (qmatch_goalsub_abbrev_tac`check_specs_side a ls (c with inf_defined_types := A ++ _) _ _ _`>>

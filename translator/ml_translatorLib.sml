@@ -285,6 +285,7 @@ in
     val _ = prog_state := x3
     in () end
   fun get_names() = map (#2) (!v_thms)
+  fun get_v_thms_ref() = v_thms (* for the monadic translator *)
 end
 
 fun full_id n =
@@ -2317,6 +2318,12 @@ fun mutual_to_single_line_def def = let
   val (def,ind) = single_line_def def
   in ([def],ind) end
 
+val builtin_terops =
+  [Eval_substring]
+  |> map SPEC_ALL
+  |> map (fn th =>
+      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
+
 val builtin_binops =
   [Eval_NUM_ADD,
    Eval_NUM_SUB,
@@ -2367,6 +2374,7 @@ val builtin_monops =
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
+    map fst builtin_terops @
     map fst builtin_binops @
     map fst builtin_monops
   fun must_eta_expand tm =
@@ -2437,6 +2445,15 @@ fun preprocess_def def = let
 
 
 (* definition of the main work horse: hol2deep: term -> thm *)
+
+fun dest_builtin_terop tm = let
+  val (pxx,r3) = dest_comb tm
+  val (px,r2) = dest_comb pxx
+  val (p,r1) = dest_comb px
+  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_terops
+  val (ss,ii) = match_term x p
+  val th = INST ss (INST_TYPE ii th)
+  in (p,r1,r2,r3,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
 
 fun dest_builtin_binop tm = let
   val (px,r2) = dest_comb tm
@@ -2789,6 +2806,14 @@ fun hol2deep tm =
     val (ss,ii) = match_term pat inv
     val result = INST ss (INST_TYPE ii th)
     in check_inv "lookup_eval_thm" tm result end else
+  (* built-in ternary operations *)
+  if can dest_builtin_terop tm then let
+    val (p,x1,x2,x3,lemma) = dest_builtin_terop tm
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val th3 = hol2deep x3
+    val result = MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2)) (UNDISCH_ALL th3) |> UNDISCH_ALL
+    in check_inv "terop" tm result end else
   (* built-in binary operations *)
   if can dest_builtin_binop tm then let
     val (p,x1,x2,lemma) = dest_builtin_binop tm

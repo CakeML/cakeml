@@ -5,7 +5,7 @@ val _ = new_theory "example_primality_test";
 open miller_rabinTheory;
 open arithmeticTheory;
 open combinTheory;
-open mllistProgTheory;
+open ListProgTheory;
 
 open ml_translatorLib;
 
@@ -19,7 +19,7 @@ fun find_def tm = let
 
 (* Miller-Rabin -- has higher-order functions and `MOD n` *)
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 val res = translate EVEN_MOD2;
 

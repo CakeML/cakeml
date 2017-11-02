@@ -73,6 +73,9 @@ val refs_manip_list = List.map (fn (x, _, y, z) => (x, y, z)) refs_init_list;
 (* val arrays_manip_list = List.map (fn (x1, _, x2, x3, x4, x5, x6, x7) => (x1, x2, x3, x4, x5, x6, x7)) arrays_init_list; *)
 val arrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 
+val add_type_theories = [] : string list;
+val store_pinv_def_opt = NONE : thm option;
+
 (* Initialize the translation *)
 val (translation_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
@@ -103,7 +106,6 @@ val test3_v_th = m_translate test3_def;
 
 (* Several non recursive functions *)
 val run_test3_def = Define `run_test3 n m z refs = run (test3 n m z) refs`;
-val def = run_test3_def;
 val run_test3_v_th = m_translate_run run_test3_def;
 
 (* Recursive function *)

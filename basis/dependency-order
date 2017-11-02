@@ -7,32 +7,21 @@ translator (which provides only translation_extends as a method for joining two
 translations). Eventually, when we have an abstract mode translator, the
 different modules can be made more independent and different combinations can
 be selected than simple prefixes of the current ordering.
-
-Note: CharIO is not in the SML basis, but is used for our
-current examples (hello, cat, compiler bootstrap). We should
-add a TextIO like the basis instead. Once we have an abstract
-translator, we could eiher keep CharIO as "more basic" I/O
-primitives, or replace with TextIO. Similarly, IO and FileIO
-diverge from SML too.
 *)
 
 std_prelude
-option
-list
-vector
-string
+Option
+List
+Vector
+String
 basics
-int
-rat
-char
-word64
-word8
-w8array
-array
-commandLine
-fsioConstants
-fsio
-chario
-fileio
-io
+Int
+Rat
+Char
+Word64
+Word8
+Word8Array
+Array
+Commandline
+TextIO
 basis

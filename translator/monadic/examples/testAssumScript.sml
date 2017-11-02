@@ -109,11 +109,18 @@ val mf6_def = Define `mf6 l = dtcase l of [] => return 0 | x::l => return 1`;
 val def = mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-val zip_v_thm = translate listTheory.ZIP;
+val ZIP_def2 = Q.prove(`ZIP (l1,l2) = dtcase (l1,l2) of
+    (x::l1,y::l2) => (x,y)::(ZIP (l1,l2))
+ |  ([],[]) => []
+ | other => []`,
+Cases_on `l1`
+\\ Cases_on `l2`
+\\ fs[ZIP_def]);
 
+val zip_v_thm = translate ZIP_def2;
+	
 val mf7_def = Define `mf7 l1 l2 = do z <- if LENGTH l1 = LENGTH l2 then return () else failwith ""; return (ZIP (l1, l2)) od`;
 val def = mf7_def;
 val mf7_v_thm = m_translate def;
-val mf7_side_def = definition"mf7_side_def"
 
 val _ = export_theory ();

@@ -1,11 +1,9 @@
-open preamble ml_translatorLib ml_progLib
-     cfTacticsLib basisFunctionsLib
-     rofsFFITheory mlfileioProgTheory ioProgTheory
-     charsetTheory diffTheory mlstringTheory
+open preamble basis
+     charsetTheory diffTheory
 
 val _ = new_theory "patchProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"basisProg";
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -67,6 +65,11 @@ val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[string_is_num_def])
   >> metis_tac[tokens_two_less]) |> update_precondition;
 
+val r = translate(depatch_line_def);
+val depatch_line_side = Q.prove(
+  `∀x. depatch_line_side x = T`,
+  EVAL_TAC \\ rw[]) |> update_precondition;
+
 val r = save_thm("patch_aux_ind",
   patch_aux_ind |> REWRITE_RULE (map GSYM [mllistTheory.take_def,
                                            mllistTheory.drop_def]));
@@ -93,164 +96,116 @@ val r = translate rejected_patch_string_def;
 
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
-    case FileIO.inputLinesFrom fname1 of
-        NONE => print_err (notfound_string fname1)
+    case TextIO.inputLinesFrom fname1 of
+        NONE => TextIO.prerr_string (notfound_string fname1)
       | SOME lines1 =>
-        case FileIO.inputLinesFrom fname2 of
-            NONE => print_err (notfound_string fname2)
+        case TextIO.inputLinesFrom fname2 of
+            NONE => TextIO.prerr_string (notfound_string fname2)
           | SOME lines2 =>
             case patch_alg lines2 lines1 of
-                NONE => print_err (rejected_patch_string)
-              | SOME s => List.app print s`
-
-(* TODO: copypasta from diffProgScript, should be elsewhere *)
-val take_add_one_lemma = Q.prove(
-  `!n l. n < LENGTH l ==> TAKE (n+1) l = TAKE n l ++ [EL n l]`,
-  Induct >> Cases >> fs[TAKE] >> fs[ADD1]);
+                NONE => TextIO.prerr_string (rejected_patch_string)
+              | SOME s => TextIO.print_list s`
 
 val patch'_spec = Q.store_thm("patch'_spec",
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch'"(get_ml_prog_state()))
      [fv1; fv2]
-     (ROFS fs * STDOUT out * STDERR err)
-     (POSTv uv. &UNIT_TYPE () uv
-                * ROFS fs *
-                STDOUT (out ++
-                        if inFS_fname fs f1 /\ inFS_fname fs f2 then
-                          case patch_alg (all_lines fs f2) (all_lines fs f1) of
-                              NONE => ""
-                            | SOME s => CONCAT (MAP explode s)
-                  else "") *
-                STDERR (err ++
-                   if inFS_fname fs f1 /\ inFS_fname fs f2
-                      /\ IS_SOME(patch_alg (all_lines fs f2) (all_lines fs f1)) then ""
-                  else if ¬(inFS_fname fs f1) then explode (notfound_string f1)
-                  else if ¬(inFS_fname fs f2) then explode (notfound_string f2)
-                  else explode rejected_patch_string))
-`,
+     (STDIO fs)
+     (POSTv uv. &UNIT_TYPE () uv *
+       STDIO
+       (if inFS_fname fs (File f1) then
+        if inFS_fname fs (File f2) then
+        case patch_alg (all_lines fs (File f2)) (all_lines fs (File f1)) of
+        | NONE => add_stderr fs (explode rejected_patch_string)
+        | SOME s => add_stdout fs (CONCAT (MAP explode s))
+        else add_stderr fs (explode (notfound_string f2))
+        else add_stderr fs (explode (notfound_string f1))))`,
   xcf"patch'"(get_ml_prog_state())
-  \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs f1 then
-               SOME(all_lines fs f1)
-             else NONE) sv * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
-  >- (fs[ml_translatorTheory.OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet`POSTv v. &STRING_TYPE (notfound_string f1) v
-                       * ROFS fs * STDOUT out * STDERR err`
-      >- (xapp \\ xsimpl \\ qexists_tac `f1` \\ fs[FILENAME_def])
-      \\ xapp \\ instantiate \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-      \\ xsimpl)
+  (* TODO: why doesn't this work fully auto? *)
+  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (reverse strip_tac
+      >- (strip_tac >> EVAL_TAC)
+      \\ xlet_auto >- xsimpl
+      \\ xapp \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-            (if inFS_fname fs f2 then
-               SOME(all_lines fs f2)
-             else NONE) sv * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
-  >- (fs[ml_translatorTheory.OPTION_TYPE_def]
-      \\ reverse strip_tac
-      >- (strip_tac >> EVAL_TAC)
-      \\ xlet`POSTv v. &STRING_TYPE (notfound_string f2) v
-                       * ROFS fs * STDOUT out * STDERR err`
-      >- (xapp \\ xsimpl \\ qexists_tac `f2` \\ fs[FILENAME_def])
-      \\ xapp \\ instantiate \\ xsimpl
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-      \\ xsimpl)
+  (* TODO: why doesn't this work fully auto? *)
+  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  >- (reverse strip_tac
+      >- (strip_tac >> EVAL_TAC)
+      \\ xlet_auto >- xsimpl
+      \\ xapp \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  \\ xlet `POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE) (patch_alg
-                                      (all_lines fs f2)
-                                      (all_lines fs f1)) sv
-                * ROFS fs * STDOUT out * STDERR err`
-  >- (xapp \\ instantiate \\ xsimpl)
+  \\ xlet_auto >- xsimpl
   \\ qpat_abbrev_tac `a1 = patch_alg _ _`
   \\ Cases_on `a1` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ xmatch
-  >- (xapp \\ assume_tac(theorem "rejected_patch_string_v_thm") \\ instantiate
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
-  \\ xapp_spec (INST_TYPE [alpha |-> ``:mlstring``] mllistProgTheory.app_spec)
-  \\ qexists_tac `emp` \\ qexists_tac `x`
-  \\ qexists_tac `\n. ROFS fs * STDOUT(out ++ CONCAT(TAKE n (MAP explode x))) * STDERR err`
-  \\ xsimpl \\ fs[GSYM MAP_TAKE] \\ xsimpl \\ instantiate \\ rpt strip_tac
-  \\ xapp \\ instantiate \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `STRCAT out (CONCAT (MAP explode (TAKE n x)))` \\ xsimpl
-  \\ imp_res_tac take_add_one_lemma \\ fs[] \\ xsimpl);
+  >- (xapp \\ ACCEPT_TAC(theorem "rejected_patch_string_v_thm"))
+  \\ xapp \\ rw[]);
 
 val _ = (append_prog o process_topdecs) `
   fun patch u =
     case Commandline.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => print_err usage_string`
+      | _ => TextIO.prerr_string usage_string`
 
 val patch_spec = Q.store_thm("patch_spec",
-  `CARD (set (MAP FST fs.infds)) < 255
+  `hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch"(get_ml_prog_state()))
      [Conv NONE []]
-     (ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl)
-     (POSTv uv. &UNIT_TYPE () uv
-                *
-                STDOUT (out ++
-                   if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl)) /\ inFS_fname fs (implode (EL 2 cl)) then
-                   case patch_alg (all_lines fs (implode (EL 2 cl)))
-                                  (all_lines fs (implode (EL 1 cl))) of
-                     NONE => ""
-                   | SOME s => CONCAT (MAP explode s)
-                  else "") *
-                STDERR (err ++
-                  if (LENGTH cl = 3) /\ inFS_fname fs (implode (EL 1 cl))
-                     /\ inFS_fname fs (implode (EL 2 cl))
-                     /\ IS_SOME (patch_alg (all_lines fs (implode (EL 2 cl)))
-                                            (all_lines fs (implode (EL 1 cl)))) then ""
-                  else if LENGTH cl <> 3 then explode (usage_string)
-                  else if ¬(inFS_fname fs (implode (EL 1 cl))) then explode (notfound_string (implode (EL 1 cl)))
-                  else if ¬(inFS_fname fs (implode (EL 2 cl))) then explode (notfound_string (implode (EL 2 cl)))
-                  else explode (rejected_patch_string)) * (COMMANDLINE cl * ROFS fs))`,
+     (STDIO fs * COMMANDLINE cl)
+     (POSTv uv. &UNIT_TYPE () uv *
+                STDIO (
+                  if (LENGTH cl = 3) then
+                  if inFS_fname fs (File (implode (EL 1 cl))) then
+                  if inFS_fname fs (File (implode (EL 2 cl))) then
+                   case patch_alg (all_lines fs (File (implode (EL 2 cl))))
+                                  (all_lines fs (File (implode (EL 1 cl)))) of
+                     NONE => add_stderr fs (explode (rejected_patch_string))
+                   | SOME s => add_stdout fs (CONCAT (MAP explode s))
+                  else add_stderr fs (explode (notfound_string (implode (EL 2 cl))))
+                  else add_stderr fs (explode (notfound_string (implode (EL 1 cl))))
+                  else add_stderr fs (explode usage_string)) * COMMANDLINE cl)`,
   strip_tac \\ xcf "patch" (get_ml_prog_state())
-  \\ xlet `POSTv v. &UNIT_TYPE () v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandLineProgTheory.COMMANDLINE_def] \\ xpull)
-  \\ fs[mlcommandLineProgTheory.wfcl_def]
-  \\ xlet`POSTv v. &LIST_TYPE STRING_TYPE (TL (MAP implode cl)) v * ROFS fs * STDOUT out * STDERR err * COMMANDLINE cl`
-  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
+  \\ fs[wfcl_def]
+  \\ xlet_auto >- xsimpl
   \\ Cases_on `cl` \\ fs[]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xmatch
   \\ reverse(Cases_on `t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ (reverse strip_tac >- (EVAL_TAC \\ rw[]))
   >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
-      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err` \\ xsimpl)
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xapp
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `out`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h''`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `err`
-  \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
-  \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
+  \\ xsimpl \\ fs[FILENAME_def]
+  \\ fs[validArg_def,EVERY_MEM]);
 
 val st = get_ml_prog_state();
 
 val name = "patch"
-val spec = patch_spec |> UNDISCH |> ioProgLib.add_basis_proj
-val (sem_thm,prog_tm) = ioProgLib.call_thm st name spec
+val spec = patch_spec |> UNDISCH |> SIMP_RULE(srw_ss())[STDIO_def]
+           |> add_basis_proj
+val (sem_thm,prog_tm) = call_thm st name spec
 
 val patch_prog_def = Define`patch_prog = ^prog_tm`;
 
@@ -258,8 +213,10 @@ val patch_semantics = save_thm("patch_semantics",
   sem_thm
   |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
-  |> ONCE_REWRITE_RULE[AND_IMP_INTRO]
   |> CONV_RULE(LAND_CONV EVAL)
-  |> SIMP_RULE(srw_ss())[]);
+  |> REWRITE_RULE[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE(srw_ss())[Once option_case_compute]
+  |> SIMP_RULE(srw_ss())[STD_streams_add_stdout,STD_streams_add_stderr,
+                         Q.ISPEC`STD_streams`COND_RAND]);
 
 val _ = export_theory ();

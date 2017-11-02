@@ -4,9 +4,9 @@ open preamble
 
 val _ = new_theory "benchmark";
 
-open listTheory arithmeticTheory ml_translatorLib mllistProgTheory;
+open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* copied from ImplicitQueueScript *)
 val _ = Hol_datatype `times = Once of 'a | Twice of times => times`;
