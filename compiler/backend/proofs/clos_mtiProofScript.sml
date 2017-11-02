@@ -1,6 +1,6 @@
 (* A proof of the clos_mti compiler pass. The theorem is proved using
    a backwards simulation, i.e. against the direction of compilation. *)
-open preamble; open closPropsTheory
+open preamble backendPropsTheory closPropsTheory
 clos_mtiTheory closSemTheory;
 
 val _ = new_theory "clos_mtiProof";
@@ -8,19 +8,6 @@ val _ = new_theory "clos_mtiProof";
 fun bring_fwd_ctors th ty = map ((fn s=> Parse.bring_to_front_overload s {Name = s,Thy = th}) o term_to_string) (TypeBase.constructors_of ty)
 
 val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
-
-(* TODO: move *)
-
-val pure_cc_def = Define `
-  pure_cc f cc =
-    (\cfg prog.
-       let prog1 = f prog in
-         cc cfg prog1)`;
-
-val pure_co_def = Define `
-  pure_co f = I ## f`;
-
-(* -- *)
 
 (* well-formed syntax *)
 
