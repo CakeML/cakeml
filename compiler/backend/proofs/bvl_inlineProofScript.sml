@@ -1,37 +1,11 @@
-open preamble
+open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory
 local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
-(* TODO: move -- but where? *)
-
-val state_cc_def = Define `
-  state_cc f cc =
-    (\(state,cfg) prog.
-       let (state1,prog1) = f state prog in
-         case cc cfg prog1 of
-         | NONE => NONE
-         | SOME (code,data,cfg1) => SOME (code,data,state1,cfg1))`;
-
-val pure_cc_def = Define `
-  pure_cc f cc =
-    (\cfg prog.
-       let prog1 = f prog in
-         cc cfg prog1)`;
-
-val state_co_def = Define `
-  state_co f co =
-     (λn.
-        (let
-           ((state,cfg),progs) = co n ;
-           (state1,progs) = f state progs
-         in
-           (cfg,progs)))`;
-
-val pure_co_def = Define `
-  pure_co f = I ## f`;
+(* TODO: move *)
 
 val subspt_alt = store_thm("subspt_alt",
   ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
@@ -58,6 +32,8 @@ val domain_eq = store_thm("domain_eq",
    (pop_assum (qspec_then `x` mp_tac)
     \\ Cases_on `lookup x t1` \\ fs []
     \\ Cases_on `lookup x t2` \\ fs []));
+
+(* -- *)
 
 (* removal of ticks *)
 
