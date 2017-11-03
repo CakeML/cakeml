@@ -124,11 +124,12 @@ val term_ok_def = tDefine "term_ok" `
   (term_ok ts ty (Op op xs) <=>
     (* List operations *)
     if (ty = Any \/ ty = List) /\ op = ListAppend then
-      LENGTH xs = 2 /\ EVERY (term_ok ts ty) xs
+      LENGTH xs = 2 /\ EVERY (term_ok ts List) xs
     else if (ty = Any \/ ty = List) /\ op = Cons nil_tag then
       xs = []
     else if (ty = Any \/ ty = List) /\ op = Cons cons_tag /\ LENGTH xs = 2 then
-      term_ok ts Any (HD xs) /\ term_ok ts List (EL 1 xs)
+      (*term_ok ts Any (HD xs) /\ term_ok ts List (EL 1 xs)*)
+      term_ok ts List (HD xs) /\ term_ok ts Any (EL 1 xs)
     (* Arithmetic *)
     else if (ty = Any \/ ty = Int) /\ op = Add then
       LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
@@ -365,11 +366,16 @@ val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
     let iop = if check_op ts opr loc (Op op xs) then SOME opr else NONE in
-    let tt  =
+    let tt  = case arg_ty op of Any => ts | _ =>
       case get_bin_args (Op op xs) of
         NONE => ts
-      | SOME (x, y) => update_context (arg_ty op) ts x y
-    in [(tt, op_ty op, F, iop)])`
+      | SOME (x, y) => update_context (arg_ty op) ts x y in
+    (* Note: We have stronger requirements for lists; want to guarantee that *)
+    (*       [|Op op xs|] = Rval v ==> IS_SOME (v_to_list v)                 *)
+    let ty = case op_ty op of
+               List => if term_ok ts List (Op op xs) then List else Any
+             | ty => ty in
+      [(tt, ty, F, iop)])`
     (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
 val push_call_def = Define `
