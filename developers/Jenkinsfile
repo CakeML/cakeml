@@ -10,12 +10,12 @@ node("Builder") {
     }
 
     stage('Get CakeML source') {
-        checkout([$class: 'GitSCM', 
-            branches: scm.branches, 
-            doGenerateSubmoduleConfigurations: false, 
-            extensions: [[$class: 'RelativeTargetDirectory', 
-                relativeTargetDir: 'cakeml']], 
-            submoduleCfg: [], 
+        checkout([$class: 'GitSCM',
+            branches: scm.branches,
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[$class: 'RelativeTargetDirectory',
+                relativeTargetDir: 'cakeml']],
+            submoduleCfg: [],
             userRemoteConfigs: scm.userRemoteConfigs])
     }
 
@@ -26,12 +26,12 @@ node("Builder") {
     }
 
     stage('PolyML') {
-        checkout([$class: 'GitSCM', 
-            branches: [[name: '*/fixes-5.6']], 
-            doGenerateSubmoduleConfigurations: false, 
-            extensions: [[$class: 'RelativeTargetDirectory', 
-                relativeTargetDir: 'polyml']], 
-            submoduleCfg: [], 
+        checkout([$class: 'GitSCM',
+            branches: [[name: '*/fixes-5.7']],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[$class: 'RelativeTargetDirectory',
+                relativeTargetDir: 'polyml']],
+            submoduleCfg: [],
             userRemoteConfigs: [[url: 'https://github.com/dcjm/polyml.git']]])
 
         withEnv(['CFLAGS=-fPIC', 'CXXFLAGS=-fPIC']) {
@@ -46,12 +46,12 @@ node("Builder") {
     }
 
     stage('HOL') {
-        checkout([$class: 'GitSCM', 
-            branches: [[name: '*/master']], 
-            doGenerateSubmoduleConfigurations: false, 
-            extensions: [[$class: 'RelativeTargetDirectory', 
-                relativeTargetDir: 'HOL']], 
-            submoduleCfg: [], 
+        checkout([$class: 'GitSCM',
+            branches: [[name: '*/master']],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [[$class: 'RelativeTargetDirectory',
+                relativeTargetDir: 'HOL']],
+            submoduleCfg: [],
             userRemoteConfigs: [[url: 'https://github.com/HOL-Theorem-Prover/HOL.git']]])
 
         build_image.inside('-e HOME=/tmp') {
@@ -63,7 +63,7 @@ node("Builder") {
     stage('CakeML') {
         withEnv(["PATH+EXTRA=${build_dir}/HOL/bin:${build_dir}/usr/bin",  // The PATH+SOMETHING syntax preserves the existing PATH
                  'LC_ALL=en_AU.UTF-8',
-                 'LANG=en_AU.UTF-8']) {  
+                 'LANG=en_AU.UTF-8']) {
             build_image.inside('-e HOME=/tmp') {
                 sh 'cd cakeml && bash ./developers/build-email.sh'
             }
