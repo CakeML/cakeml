@@ -3,6 +3,8 @@
 
 set -e
 
+printenv
+
 if [ -n "$bamboo_planRepository_integrationBranch_revision" ]
 then
   echo "Running regression test on $(git log -1 --oneline --no-color ${bamboo_planRepository_revision})"
