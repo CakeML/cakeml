@@ -25,6 +25,10 @@ val state_co_def = Define `
          in
            (cfg,progs)))`;
 
+val FST_state_co = Q.store_thm("FST_state_co",
+  `FST (state_co f co n) = SND(FST(co n))`,
+  rw[state_co_def,UNCURRY]);
+
 val pure_co_def = Define `
   pure_co f = I ## f`;
 

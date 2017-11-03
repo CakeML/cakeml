@@ -1535,4 +1535,12 @@ val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
   `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
   Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
+val ignore_table_def = Define`
+  ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))`;
+
+val ignore_table_imp = Q.store_thm("ignore_table_imp",
+  `ignore_table f st p = (st',p') ⇒ SND p' = SND p`,
+  Cases_on`p` \\ EVAL_TAC
+  \\ pairarg_tac \\ rw[] \\ rw[]);
+
 val _ = export_theory();

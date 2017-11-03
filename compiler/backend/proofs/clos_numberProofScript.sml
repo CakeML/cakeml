@@ -1,13 +1,15 @@
-open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
+open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
 val _ = new_theory"clos_numberProof";
 
-(* properties of renumber_code_locs *)
+(* TODO: move *)
 val option_case_eq = Q.prove(
   `(option_CASE opt n s = v) ⇔
       (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)`,
   Cases_on `opt` >> simp[EQ_SYM_EQ]);
+(* -- *)
 
+(* properties of renumber_code_locs *)
 
 fun tac (g as (asl,w)) =
   let
@@ -151,25 +153,30 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    ⇒
    v_rel max_app (Recclosure p argenv env es k) (Recclosure p' argenv' env' es' k))`
 
-val code_rel_def = Define`
-  code_rel max_app (a1,e1) (a2,e2) ⇔
-    (a1 = a2) ∧ ¬contains_App_SOME max_app [e1] ∧
-    ∃n. e2 = SND (renumber_code_locs n e1)`
-
 val state_rel_def = Define `
-  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
+  state_rel (s:(num#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\ (t.max_app = s.max_app) /\
+    s.compile = state_cc (ignore_table renumber_code_locs) t.compile /\
+    t.compile_oracle = state_co (ignore_table renumber_code_locs) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
-    fmap_rel (code_rel s.max_app) s.code t.code`
+    (∀n. SND (SND (s.compile_oracle n )) = [] ∧
+         ¬contains_App_SOME s.max_app [FST(SND(s.compile_oracle n))] ∧
+         FST (FST (s.compile_oracle (n+1))) = (* TODO: does this follow from something simpler? *)
+           FST (renumber_code_locs (FST(FST(s.compile_oracle n))) (FST(SND(s.compile_oracle n))))) /\
+    s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
   `!s t. state_rel s t ⇒ s.max_app = t.max_app`,
    srw_tac[][state_rel_def]);
 
-val state_rel_clock = Q.prove (
+val state_rel_with_clock = Q.prove (
   `!s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)`,
    srw_tac[][state_rel_def] \\ rfs[]);
+
+val state_rel_clock = Q.prove(
+  `state_rel s t ⇒ s.clock = t.clock`,
+  rw[state_rel_def]);
 
 val state_rel_globals = Q.prove(
   `state_rel s t ⇒
@@ -181,6 +188,10 @@ val state_rel_refs = Q.prove(
     fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs`,
   srw_tac[][state_rel_def])
 
+val state_rel_code = Q.prove(
+  `state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY`,
+  rw[state_rel_def]);
+
 val v_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
   in map f [``v_rel max_app (Number x) y``,
@@ -191,6 +202,7 @@ val v_rel_simp = let
             ``v_rel max_app (Closure n a l narg x) y``,
             ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel max_app y (Number x)``,
+            ``v_rel max_app y (Word64 n)``,
             ``v_rel max_app y (Block n l)``,
             ``v_rel max_app y (ByteVector ws)``,
             ``v_rel max_app y (RefPtr x)``,
@@ -625,6 +637,87 @@ val do_app = Q.prove(
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     simp[LIST_REL_EL_EQN] ));
 
+val v_to_bytes = Q.prove(
+  `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
+  rw[v_to_bytes_def]
+  \\ imp_res_tac v_to_list
+  \\ fs[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[] \\ fs[]
+  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
+  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rw[]
+  >- ( qexists_tac`x` \\ simp[EL_MAP] )
+  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+
+val v_to_words = Q.prove(
+  `v_rel m v w ⇒ v_to_words v = v_to_words w`,
+  rw[v_to_words_def]
+  \\ imp_res_tac v_to_list
+  \\ fs[OPTREL_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ rw[] \\ fs[]
+  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
+  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rw[]
+  >- ( qexists_tac`x` \\ simp[EL_MAP] )
+  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+
+val do_install = Q.prove(
+  `state_rel s1 s2 ∧
+   LIST_REL (v_rel s1.max_app) x1 x2 ⇒
+   (∀err. do_install x1 s1 = Rerr err ⇒ do_install x2 s2 = Rerr err) ∧
+   (∀e1 t1. do_install x1 s1 = Rval (e1,t1) ⇒
+     ∃e2 t2. do_install x2 s2 = Rval (e2,t2) ∧
+             ¬contains_App_SOME t1.max_app [e1] ∧ t1.max_app = s1.max_app ∧
+             e2 = SND (renumber_code_locs (FST(FST(s1.compile_oracle 0))) e1) ∧
+             state_rel t1 t2)`,
+  strip_tac
+  \\ `∃res. do_install x1 s1 = res` by fs[]
+  \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
+  \\ imp_res_tac v_to_bytes \\ fs[]
+  \\ imp_res_tac v_to_words \\ fs[]
+  \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac state_rel_code \\ fs[]
+  \\ imp_res_tac state_rel_max_app \\ fs[]
+  \\ imp_res_tac state_rel_clock \\ fs[]
+  \\ fs[shift_seq_def]
+  \\ `s2.compile_oracle = state_co (ignore_table renumber_code_locs) s1.compile_oracle` by fs[state_rel_def]
+  \\ `s1.compile = state_cc (ignore_table renumber_code_locs) s2.compile` by fs[state_rel_def]
+  \\ fs[]
+  \\ qpat_x_assum`state_co _ _ _ = _`mp_tac
+  \\ simp[Once state_co_def]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac \\ rveq
+  \\ imp_res_tac ignore_table_imp \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ simp[state_cc_def]
+  \\ CASE_TAC \\ fs[]
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ simp[FST_state_co]
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ split_pair_case_tac \\ fs[] \\ rveq
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    IF_CASES_TAC \\ fs[]
+    \\ fs[state_rel_def,state_co_def,ignore_table_def]
+    \\ pairarg_tac \\ fs[]
+    \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``] )
+  \\ IF_CASES_TAC \\ fs[]
+  \\ fs[ignore_table_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ fs[state_rel_def]
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ simp[]
+  \\ strip_tac \\ rveq \\ fs[]);
+
 (* compiler correctness *)
 
 val lookup_vars_NONE_related_env = Q.store_thm(
@@ -644,7 +737,7 @@ val lookup_vars_SOME_related_env = Q.store_thm(
   simp[LIST_REL_EL_EQN]);
 
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
-  `(!tmp xs env (s1:'ffi closSem$state) env' t1 res s2 n.
+  `(!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
      tmp = (xs,env,s1) ∧
      (evaluate (xs,env,s1) = (res,s2)) ⇒
      ¬contains_App_SOME s1.max_app xs ∧
@@ -654,7 +747,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         (evaluate (SND(renumber_code_locs_list n xs),env',t1) = (res',t2)) /\
         result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res res' /\
         state_rel s2 t2) ∧
-   (!loc f args (s:'ffi closSem$state) res s2 f' args' t1.
+   (!loc f args (s:(num#'c,'ffi) closSem$state) res s2 f' args' t1.
        evaluate_app loc f args s = (res,s2) ⇒
        v_rel s.max_app f f' ∧
        loc = NONE ∧
@@ -747,7 +840,21 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
    (full_simp_tac(srw_ss())[renumber_code_locs_def,LET_THM,UNCURRY]
     \\ `?r1 s2. evaluate (xs,env,s) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[evaluate_def,contains_App_SOME_def] >>
-    tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+    tac >> full_simp_tac(srw_ss())[] >>
+    Cases_on`op = Install` >- (
+      fs[]
+      \\ first_x_assum drule
+      \\ disch_then drule
+      \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
+      \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
+      \\ imp_res_tac EVERY2_REVERSE \\ pop_assum kall_tac
+      \\ imp_res_tac state_rel_max_app
+      \\ imp_res_tac evaluate_const
+      \\ drule (GEN_ALL do_install) \\ fs[]
+      \\ disch_then drule
+      \\ fs[case_eq_thms,pair_case_eq] \\ rveq \\ fs[]
+      \\ strip_tac \\ fs[] ) >>
+    srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -875,24 +982,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
       srw_tac[][] ) >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac LIST_REL_LENGTH >>
-    `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] >>
-    `∃x. FLOOKUP s2'.code dest = SOME x ∧ code_rel s2'.max_app x (q,r)` by (
-      full_simp_tac(srw_ss())[state_rel_def,fmap_rel_def,FLOOKUP_DEF] >>
-      METIS_TAC[] ) >>
-    Cases_on`x`>>full_simp_tac(srw_ss())[code_rel_def] >>
-    rpt BasicProvers.VAR_EQ_TAC >>
-    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >- (
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]
-      >- ( match_mp_tac state_rel_clock \\ rw[] ) >>
-      fs[dec_clock_def] >>
-      imp_res_tac state_rel_max_app >> fs[] >>
-      imp_res_tac evaluate_const >> fs[] >>
-      first_x_assum MATCH_MP_TAC >>
-      simp[] >>
-      full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] ) >>
-    srw_tac[][])
+    rfs[state_rel_def])
   THEN1 (* App empty *)
    (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][])
   THEN1 (* Real App *)
@@ -913,7 +1003,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         srw_tac[][] >>
         full_simp_tac(srw_ss())[] >>
         srw_tac[][ dec_clock_def] >>
-        metis_tac [state_rel_clock])
+        metis_tac [state_rel_with_clock])
     >- (`∃args1' args2' n.
            dest_closure t1.max_app NONE f' (y::ys) =
            SOME (Full_app (SND (renumber_code_locs n e)) args1' args2') ∧
@@ -927,7 +1017,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         full_simp_tac(srw_ss())[] >>
         srw_tac[][] >>
         full_simp_tac(srw_ss())[]
-        >- metis_tac [state_rel_clock] >>
+        >- metis_tac [state_rel_with_clock] >>
         Cases_on `evaluate ([e],l,dec_clock (SUC (LENGTH ys) − LENGTH args2') s)` >>
         srw_tac[][] >>
         full_simp_tac(srw_ss())[] >>
@@ -938,7 +1028,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
                                     `n`] mp_tac) >>
         srw_tac[][] >>
         full_simp_tac(srw_ss())[dec_clock_def] >>
-        rev_full_simp_tac(srw_ss())[state_rel_clock] >>
+        rev_full_simp_tac(srw_ss())[state_rel_with_clock] >>
         full_simp_tac(srw_ss())[renumber_code_locs_def, LET_THM, helper] >>
         BasicProvers.EVERY_CASE_TAC >>
         full_simp_tac(srw_ss())[] >> srw_tac[][] >>
