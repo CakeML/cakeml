@@ -197,7 +197,7 @@ val state_approx_better_definedg = Q.store_thm(
   metis_tac[val_approx_better_approx]);
 
 val mapped_globals_def = Define`
-  mapped_globals (s:'a closSem$state) =
+  mapped_globals (s:('c,'ffi) closSem$state) =
     { i | ∃v. get_global i s.globals = SOME (SOME v) }
 `;
 
@@ -343,11 +343,11 @@ val do_app_ssgc = Q.store_thm(
   >- (dsimp[ssgc_free_def, mglobals_extend_def, mapped_globals_def, SUBSET_DEF,
             get_global_def, EL_APPEND_EQN, bool_case_eq] >>
       reverse (rpt strip_tac)
-      >- (rename1 `ii < LENGTH (ss:α closSem$state).globals` >>
+      >- (rename1 `ii < LENGTH (ss:('a,'b) closSem$state).globals` >>
           Cases_on `ii < LENGTH ss.globals` >> simp[] >>
           Cases_on `ii - LENGTH ss.globals = 0`
           >- (pop_assum SUBST_ALL_TAC >> simp[]) >> simp[])
-      >- (rename1 `nn < LENGTH (ss:α closSem$state).globals` >>
+      >- (rename1 `nn < LENGTH (ss:('a,'b) closSem$state).globals` >>
           Cases_on `nn < LENGTH ss.globals` >> simp[] >>
           Cases_on `nn < LENGTH ss.globals + 1` >> simp[] >>
           `nn - LENGTH ss.globals = 0` by simp[] >> simp[]) >>
@@ -402,10 +402,10 @@ val EVERY_lookup_vars = Q.store_thm(
   metis_tac[MEM_EL, EVERY_MEM]);
 
 val lem = Q.prove(
-  `(∀a es env (s0:α closSem$state) res s.
+  `(∀a es env (s0:('a,'b) closSem$state) res s.
       a = (es,env,s0) ∧ evaluate(es,env,s0) = (res,s) ⇒
       mapped_globals s0 ⊆ mapped_globals s) ∧
-   (∀lopt f args (s0:α closSem$state) res s.
+   (∀lopt f args (s0:('a,'b) closSem$state) res s.
       evaluate_app lopt f args s0 = (res, s) ⇒
       mapped_globals s0 ⊆ mapped_globals s)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
@@ -421,7 +421,9 @@ val lem = Q.prove(
   >- (fs[result_case_eq, pair_case_eq, error_case_eq] >> rveq >> fs[] >>
       metis_tac[SUBSET_TRANS])
   >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
-      rename1 `closSem$do_app opn` >> Cases_on `opn` >>
+      rename1 `closSem$do_app opn` >>
+      Cases_on `opn = Install` >- cheat >>
+      Cases_on `opn` >>
       fs[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq] >> rw[] >>
       fs[]
       >- (rename1 `closSem$evaluate(_,_,s0) = (_, s1)` >>
@@ -449,13 +451,13 @@ fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 val say = say0 "ssgc_evaluate0"
 
 val ssgc_evaluate0 = Q.prove(
-  `(∀a es env (s0:α closSem$state) res s.
+  `(∀a es env (s0:('a,'b) closSem$state) res s.
       ssgc_free s0 ∧ EVERY vsgc_free env ∧
       EVERY esgc_free es ∧ a = (es,env,s0) ∧
       evaluate a = (res,s) ⇒
       ssgc_free s ∧ rsgc_free res ∧
       mglobals_extend s0 (SET_OF_BAG (elist_globals es)) s) ∧
-   (∀lopt f args (s0:α closSem$state) res s.
+   (∀lopt f args (s0:('a,'b) closSem$state) res s.
       ssgc_free s0 ∧ vsgc_free f ∧ EVERY vsgc_free args ∧
       evaluate_app lopt f args s0 = (res, s) ⇒
       ssgc_free s ∧ rsgc_free res ∧ mglobals_extend s0 ∅ s)`,
@@ -502,6 +504,7 @@ val ssgc_evaluate0 = Q.prove(
       rpt gen_tac >> strip_tac >> rveq >> fs[SUBSET_DEF, SET_OF_BAG_UNION] >>
       metis_tac[mglobals_extend_SUBSET, SUBSET_UNION, mglobals_extend_trans])
   >- ((* op *) say "op" >> rpt gen_tac >> strip_tac >>
+      Cases_on `op = Install` >- cheat >>
       simp[evaluate_def, pair_case_eq, result_case_eq] >>
       rpt gen_tac >> strip_tac >> rveq >> fs[]
       >- (IMP_RES_THEN mp_tac do_app_ssgc >> simp[EVERY_REVERSE] >>
@@ -679,7 +682,7 @@ val known_op_correct_approx = Q.store_thm(
   >- (fs[state_globals_approx_def, get_global_def, EL_APPEND_EQN,
          bool_case_eq] >> rw[]
       >- metis_tac[]
-      >- (rename1 `nn - LENGTH (ss:'a closSem$state).globals` >>
+      >- (rename1 `nn - LENGTH (ss:('a,'b) closSem$state).globals` >>
           `nn - LENGTH ss.globals = 0` by simp[] >>
           pop_assum (fn th => fs[th])))
   >- (rveq >> fs[LIST_REL_EL_EQN]));
@@ -874,6 +877,7 @@ val known_correct_approx = Q.store_thm(
              simp[set_globals_empty_esgc_free]) >>
       metis_tac[mglobals_extend_EMPTY_state_globals_approx])
   >- ((* op *) say "op" >> rpt (pairarg_tac >> fs[]) >> rveq >>
+      Cases_on `op = Install` >- cheat >>
       fs[BAG_ALL_DISTINCT_BAG_UNION] >>
       resolve_selected hd subspt_known_op_elist_globals >> simp[] >>
       disch_then (resolve_selected hd) >> simp[] >> strip_tac >>
@@ -1116,7 +1120,7 @@ val kvrel_LIST_REL_val_approx = Q.store_thm(
   Induct_on `LIST_REL` >> simp[] >> metis_tac[kvrel_val_approx]);
 
 val state_rel_def = Define`
-  state_rel g (s1:'a closSem$state) (s2:'a closSem$state) ⇔
+  state_rel g (s1:('a,'b) closSem$state) (s2:('a,'b) closSem$state) ⇔
      s2.clock = s1.clock ∧ s2.ffi = s1.ffi ∧ s2.max_app = s1.max_app ∧
      LIST_REL (OPTREL (kvrel g)) s1.globals s2.globals ∧
      fmap_rel (ref_rel (kvrel g)) s1.refs s2.refs ∧
@@ -1141,7 +1145,7 @@ val ksrel_sga = Q.store_thm(
   `ksrel g0 s1 s2 ⇒ (state_globals_approx s1 g ⇔ state_globals_approx s2 g)`,
   simp[ksrel_def, state_globals_approx_def, get_global_def, LIST_REL_EL_EQN] >>
   csimp[] >> rpt strip_tac >> eq_tac >> rpt strip_tac >>
-  rename1 `EL kk (ss:α closSem$state).globals = SOME vv` >>
+  rename1 `EL kk (ss:('a,'b) closSem$state).globals = SOME vv` >>
   rename1 `lookup kk gg` >>
   nailIHx mp_tac >>
   simp[optionTheory.OPTREL_def] >>
@@ -1552,7 +1556,7 @@ val kvrel_dest_closure_every_Fn_vs_NONE = Q.store_thm(
   metis_tac[MEM_EL]);
 
 val known_correct0 = Q.prove(
-  `(∀a es env1 env2 (s01:α closSem$state) s02 res1 s1 g0 g g' as ealist.
+  `(∀a es env1 env2 (s01:('a,'b) closSem$state) s02 res1 s1 g0 g g' as ealist.
       a = (es,env1,s01) ∧ evaluate (es, env1, s01) = (res1, s1) ∧
       EVERY esgc_free es ∧ subspt g0 g ∧ subspt g g' ∧
       LIST_REL val_approx_val as env1 ∧ EVERY vsgc_free env1 ∧
@@ -1563,7 +1567,7 @@ val known_correct0 = Q.prove(
       ∃res2 s2.
         evaluate(MAP FST ealist, env2, s02) = (res2, s2) ∧
         krrel g' (res1,s1) (res2,s2)) ∧
-   (∀lopt1 f1 args1 (s01:α closSem$state) res1 s1 lopt2 f2 args2 s02 g.
+   (∀lopt1 f1 args1 (s01:('a,'b) closSem$state) res1 s1 lopt2 f2 args2 s02 g.
       evaluate_app lopt1 f1 args1 s01 = (res1,s1) ∧ ssgc_free s01 ∧
       kvrel g f1 f2 ∧ LIST_REL (kvrel g) args1 args2 ∧
       ksrel g s01 s02 ∧ state_globals_approx s01 g ∧ vsgc_free f1 ∧
@@ -1730,8 +1734,10 @@ val known_correct0 = Q.prove(
       simp[evaluate_def, pair_case_eq, result_case_eq, known_def,
            BAG_ALL_DISTINCT_BAG_UNION] >>
       rpt gen_tac >> strip_tac >> rpt gen_tac >>
+      Cases_on `op = Install` >- cheat >>
       rpt (pairarg_tac >> fs[]) >>
       rename[`isGlobal opn`, `gO_destApx apx`] >>
+      cheat (*
       Cases_on `isGlobal opn ∧ gO_destApx apx ≠ gO_None`
       >- (pop_assum strip_assume_tac >> simp[] >>
           Cases_on `opn` >> fs[isGlobal_def] >>
@@ -1770,7 +1776,7 @@ val known_correct0 = Q.prove(
           rw[] >> imp_res_tac do_app_EQ_Rerr >> rw[] >>
           metis_tac[result_CASES, pair_CASES])
       >- ((* args error *) rw[] >> fs[krrel_err_rw] >>
-         metis_tac[result_CASES, pair_CASES]))
+         metis_tac[result_CASES, pair_CASES]) *))
   >- (say "fn" >>
       simp[evaluate_def, pair_case_eq, result_case_eq,
            known_def, bool_case_eq, case_eq_thms] >> rpt strip_tac >> rveq >> fs[] >>
@@ -1930,7 +1936,7 @@ val known_correct0 = Q.prove(
           fs[] >> rw[] >> simp[evaluate_def]))
   >- (say "tick" >> simp[dec_clock_def] >> rpt gen_tac >> strip_tac >>
       simp[evaluate_def, bool_case_eq, known_def] >>
-      rename1 `(s0:α closSem$state).clock = 0` >> Cases_on `s0.clock = 0` >>
+      rename1 `(s0:('a,'b) closSem$state).clock = 0` >> Cases_on `s0.clock = 0` >>
       fs[] >> rpt strip_tac >> rpt (pairarg_tac >> fs[]) >> rveq >> fs[] >>
       simp[evaluate_def] >- fs[ksrel_def] >>
       fs[dec_clock_def] >> fixeqs >> imp_res_tac known_sing_EQ_E >> rveq >>
@@ -2392,5 +2398,15 @@ val compile_code_locs = Q.store_thm("compile_code_locs",
   \\ specl_args_of_then``known``known_code_locs mp_tac
   \\ rw[] \\ fs[]
   \\ imp_res_tac known_sing_EQ_E \\ fs[]);
+
+(*
+vsgc_free_def
+ssgc_free_def
+esgc_free_def
+set_globals_def
+compile_correct
+state_globals_approx_def
+clos_knownTheory.compile_def
+*)
 
 val _ = export_theory();
