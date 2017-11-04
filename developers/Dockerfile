@@ -1,9 +1,9 @@
-FROM debian:jessie
+FROM debian:stretch
 
 RUN apt-get update -q \
     && apt-get install -y --no-install-recommends \
         bsdutils \
-        bsdmainutils \ 
+        bsdmainutils \
         build-essential \
         ca-certificates \
         gcc \
@@ -18,7 +18,7 @@ RUN apt-get update -q \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/ \
     && echo 'en_AU.UTF-8 UTF-8' > /etc/locale.gen \
     && dpkg-reconfigure --frontend=noninteractive locales \
-    && echo "LANG=en_AU.UTF-8" >> /etc/default/locale 
+    && echo "LANG=en_AU.UTF-8" >> /etc/default/locale
 
 ENV LANG en_AU.UTF-8
 
