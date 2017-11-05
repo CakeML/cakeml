@@ -1,4 +1,4 @@
-FROM debian:stable-slim
+FROM debian:testing-slim
 
 RUN apt-get update -q \
     && apt-get install -y --no-install-recommends \
