@@ -1415,6 +1415,7 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
 val intro_multi_correct = store_thm("intro_multi_correct",
   ``!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
       evaluate (xs,env1,s1) = (res1,s2) /\ syntax_ok xs /\
+      res1 <> Rerr (Rabort Rtype_error) /\
       LIST_REL (v_rel s1.max_app) env1 env2 /\ state_rel s1 t1 ==>
       ?res2 t2.
         evaluate (intro_multi s1.max_app xs,env2,t1) = (res2,t2) /\
@@ -1646,5 +1647,35 @@ val compile_preserves_esgc_free = Q.store_thm(
   `∀do_mti es. EVERY esgc_free es ⇒
                EVERY esgc_free (clos_mti$compile do_mti max_app es)`,
   Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
+
+(* preservation of observable semantics *)
+
+val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
+  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
+   (∀n. SND (SND (co n)) = [] ∧ syntax_ok [FST (SND (co n))]) ∧
+   1 <= max_app /\ syntax_ok xs ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     (pure_co (compile_inc max_app) ∘ co) cc
+     (intro_multi max_app xs) =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
+     co (pure_cc (compile_inc max_app) cc) xs`
+  ,
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule (intro_multi_correct |> SIMP_RULE std_ss [])
+  \\ fs []
+  \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
+       (pure_co (compile_inc max_app) ∘ co) cc k` mp_tac)
+  \\ impl_tac
+  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def])
+  \\ strip_tac \\ fs []
+  \\ qexists_tac `res2`
+  \\ qexists_tac `t2`
+  \\ qexists_tac `0`
+  \\ fs [] \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs []);
 
 val _ = export_theory();
