@@ -1,7 +1,7 @@
 open preamble
      db_varsTheory
      closSemTheory closPropsTheory
-     clos_annotateTheory;
+     clos_annotateTheory backendPropsTheory
 
 val _ = new_theory"clos_annotateProof";
 
@@ -1514,5 +1514,55 @@ val annotate_code_locs = Q.store_thm("annotate_code_locs",
   `!n ls. set (code_locs (annotate n ls)) ⊆ set (code_locs ls) ∧
           (ALL_DISTINCT (code_locs ls) ⇒ ALL_DISTINCT (code_locs (annotate n ls)))`,
   srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs,alt_free_code_locs_distinct]);
+
+(* semantics preservation *)
+
+val compile_inc_def = Define `
+  compile_inc (e,aux) = (HD (annotate 0 [e]),clos_annotate$compile aux)`;
+
+val semantics_annotate = Q.store_thm ("semantics_annotate",
+  `semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
+     (pure_cc compile_inc cc) xs <> Fail ==>
+   every_Fn_vs_NONE xs /\
+   EVERY (λp. every_Fn_vs_NONE [SND (SND p)]) prog /\
+   (∀n. every_Fn_vs_NONE [FST (SND (co n))] ∧
+        every_Fn_vs_NONE (MAP (SND ∘ SND) (SND (SND (co n))))) ==>
+   semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap (compile prog))
+     (pure_co compile_inc ∘ co) cc (annotate 0 xs) =
+   semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog)
+     co (pure_cc compile_inc cc) xs`
+  ,
+  strip_tac
+  \\ ho_match_mp_tac IMP_semantics_eq
+  \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ drule (annotate_correct |> GEN_ALL) \\ fs []
+  \\ qabbrev_tac `ff = initial_state ffi max_app (alist_to_fmap (compile prog))
+       (pure_co compile_inc ∘ co) cc`
+  \\ disch_then (qspec_then `ff k` mp_tac)
+  \\ qunabbrev_tac `ff`
+  \\ disch_then (qspec_then `[]` mp_tac)
+  \\ impl_tac THEN1
+   (fs [state_rel_def,initial_state_def]
+    \\ conj_tac THEN1 (match_mp_tac FEVERY_alist_to_fmap \\ fs [])
+    \\ rpt strip_tac
+    THEN1
+     (fs [FUN_EQ_THM,pure_co_def] \\ rw []
+      \\ Cases_on `co x` \\ PairCases_on `r` \\ fs [compile_inc_def])
+    THEN1
+     (fs [FUN_EQ_THM,pure_cc_def] \\ rw []
+      \\ PairCases_on `x` \\ fs [compile_inc_def])
+    \\ pop_assum mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ Induct_on `prog` \\ fs [FORALL_PROD,compile_def]
+    \\ rw [] \\ fs [annotate_def]
+    \\ Cases_on `alt_free [c]` \\ fs []
+    \\ imp_res_tac alt_free_SING \\ rveq \\ fs [])
+  \\ strip_tac
+  \\ qexists_tac `res'`
+  \\ qexists_tac `t2`
+  \\ qexists_tac `0` \\ fs []
+  \\ fs [state_rel_def]
+  \\ Cases_on `res1` \\ fs []
+  \\ Cases_on `e` \\ fs []);
 
 val _ = export_theory()
