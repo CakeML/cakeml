@@ -33,7 +33,6 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
   srw_tac[][] >>
   metis_tac [pat_bindings_accum]);
 
-  (*
 val pmatch_bindings = Q.store_thm ("pmatch_bindings",
   `(∀cenv s p v env r.
       modSem$pmatch cenv s p v env = Match r
@@ -44,7 +43,7 @@ val pmatch_bindings = Q.store_thm ("pmatch_bindings",
      ⇒
      MAP FST r = pats_bindings ps [] ++ MAP FST env`,
   ho_match_mp_tac modSemTheory.pmatch_ind >>
-  rw [pmatch_def, astTheory.pat_bindings_def] >>
+  rw [pmatch_def, pat_bindings_def] >>
   rw [] >>
   every_case_tac >>
   fs [] >>
@@ -58,7 +57,6 @@ val pmatch_length = Q.store_thm ("pmatch_length",
   rw [] >>
   imp_res_tac pmatch_bindings >>
   metis_tac [LENGTH_APPEND, LENGTH_MAP]);
-  *)
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
