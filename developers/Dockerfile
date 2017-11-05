@@ -10,6 +10,7 @@ RUN apt-get update -q \
         git \
         locales \
         polyml \
+        libpolyml-dev \
         mlton \
         time \
         exim4 \
