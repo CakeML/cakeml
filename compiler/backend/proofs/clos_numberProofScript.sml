@@ -1149,8 +1149,6 @@ val semantics_number = Q.store_thm ("semantics_number",
   \\ disch_then (qspec_then `n` mp_tac)
   \\ impl_tac THEN1 (fs [state_rel_def,initial_state_def])
   \\ strip_tac
-  \\ qexists_tac `res'`
-  \\ qexists_tac `t2`
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []

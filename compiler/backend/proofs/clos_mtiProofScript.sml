@@ -1415,7 +1415,6 @@ val evaluate_intro_multi = Q.store_thm("evaluate_intro_multi",
 val intro_multi_correct = store_thm("intro_multi_correct",
   ``!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
       evaluate (xs,env1,s1) = (res1,s2) /\ syntax_ok xs /\
-      res1 <> Rerr (Rabort Rtype_error) /\
       LIST_REL (v_rel s1.max_app) env1 env2 /\ state_rel s1 t1 ==>
       ?res2 t2.
         evaluate (intro_multi s1.max_app xs,env2,t1) = (res2,t2) /\
@@ -1671,8 +1670,6 @@ val semantics_intro_multi = Q.store_thm ("semantics_intro_multi",
   \\ impl_tac
   THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def])
   \\ strip_tac \\ fs []
-  \\ qexists_tac `res2`
-  \\ qexists_tac `t2`
   \\ qexists_tac `0`
   \\ fs [] \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []

@@ -1558,8 +1558,6 @@ val semantics_annotate = Q.store_thm ("semantics_annotate",
     \\ Cases_on `alt_free [c]` \\ fs []
     \\ imp_res_tac alt_free_SING \\ rveq \\ fs [])
   \\ strip_tac
-  \\ qexists_tac `res'`
-  \\ qexists_tac `t2`
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []

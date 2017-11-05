@@ -1576,7 +1576,7 @@ val eval_sim_def = Define `
       evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
       (allow_fail \/ res1 <> Rerr (Rabort Rtype_error)) /\
       rel code1 co1 cc1 es1 code2 co2 cc2 es2 ==>
-      ?res2 t2 ck.
+      ?ck res2 t2.
         evaluate (es2,[],
           initial_state ffi max_app code2 co2 cc2 (k+ck)) = (res2,t2) /\
         result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi`
