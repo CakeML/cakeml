@@ -2307,12 +2307,55 @@ val compile_decs_correct = Q.prove (
         rw [] >>
         drule sv_rel_weakening >>
         rw []))
+
     >- ( (* Multiple functions *)
       full_simp_tac std_ss [compile_decs_def] >>
       `LENGTH funs > 1` by rw [] >>
       qpat_x_assum `_ = _::_::_` (assume_tac o GSYM) >>
       full_simp_tac std_ss [] >>
       pop_assum kall_tac >>
+      fs [] >>
+      rw [evaluate_decs_def, evaluate_dec_def] >>
+      qmatch_goalsub_abbrev_tac `_ with globals updated_by (\g. g ++ MAP SOME cls)` >>
+      qexists_tac `<| v := genv.v ++ MAP SOME cls; c := genv.c |>` >>
+      fs [invariant_def] >>
+      rw []
+      >- (
+        drule global_env_inv_extend >>
+        full_simp_tac std_ss [semanticPrimitivesPropsTheory.build_rec_env_merge,
+                              nsAppend_nsEmpty] >>
+        qmatch_goalsub_abbrev_tac `extend_dec_env <| v := alist_to_ns pat_env; c := _ |>` >>
+        disch_then (qspecl_then [`pat_env`, `ZIP (MAP FST funs, REVERSE cls)`, `t`] mp_tac) >>
+        `LENGTH funs = LENGTH cls`
+        by simp [compile_funs_map, Abbr `cls`, Abbr `pat_env`] >>
+        simp [MAP_ZIP] >>
+        disch_then irule >>
+        rw []
+        >- (
+          simp [Abbr `pat_env`, MAP_MAP_o, combinTheory.o_DEF] >>
+          simp [LAMBDA_PROD]) >>
+        rw [env_rel_el]
+        >- simp [Abbr `pat_env`] >>
+        simp [ZIP_MAP, Abbr `pat_env`] >>
+        `n < LENGTH funs` by fs [] >>
+        simp [EL_MAP] >>
+        simp [EL_ZIP] >>
+        `∃f x e. EL n funs = (f,x,e)` by metis_tac [pair_CASES] >>
+        simp [LAMBDA_PROD] >>
+        simp [Abbr `cls`, MAP_REVERSE, compile_funs_map,
+              MAP_MAP_o, combinTheory.o_DEF] >>
+        simp [EL_MAP] >>
+        simp [Once v_rel_cases] >>
+        rw [] >>
+        cheat)
+      >- (
+        fs [s_rel_cases] >>
+        irule LIST_REL_mono >>
+        qexists_tac `sv_rel <|v := s_i1.globals; c := genv.c|>` >>
+        rw [] >>
+        drule sv_rel_weakening >>
+        rw [])
+      >- fs [Abbr `cls`, compile_funs_map]))
 
 
 
