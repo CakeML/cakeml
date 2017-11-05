@@ -658,22 +658,36 @@ val evaluate_ind = save_thm("evaluate_ind",
 
 (* observational semantics *)
 
+val initial_state_def = Define`
+  initial_state ffi ma code co cc k = <|
+    max_app := ma;
+    clock := k;
+    ffi := ffi;
+    code := code;
+    compile := cc;
+    compile_oracle := co;
+    globals := [];
+    refs := FEMPTY
+  |>`;
+
 val semantics_def = Define`
-  semantics env st es =
-    if ∃k. FST (evaluate (es,env,st with clock := k)) = Rerr (Rabort Rtype_error)
-      then Fail
-    else
-    case some res.
-      ∃k r s outcome.
-        evaluate (es,env,st with clock := k) = (r,s) ∧
-        (case s.ffi.final_event of
-         | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-         | SOME e => outcome = FFI_outcome e) ∧
-        res = Terminate outcome s.ffi.io_events
-    of SOME res => res
-     | NONE =>
-       Diverge
-         (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (es,env,st with clock := k))).ffi.io_events) UNIV))`;
+  semantics ffi ma code co cc es =
+    let st = initial_state ffi ma code co cc in
+      if ∃k. FST (evaluate (es,[],st k)) = Rerr (Rabort Rtype_error)
+        then Fail
+      else
+      case some res.
+        ∃k r s outcome.
+          evaluate (es,[],st k) = (r,s) ∧
+          (case s.ffi.final_event of
+           | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+           | SOME e => outcome = FFI_outcome e) ∧
+          res = Terminate outcome s.ffi.io_events
+      of SOME res => res
+       | NONE =>
+         Diverge
+           (build_lprefix_lub
+             (IMAGE (λk. fromList
+                (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))`;
 
 val _ = export_theory()
