@@ -1369,20 +1369,6 @@ local val assign_quotation = `
                  Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
                  WriteWord64_on_32 c header dest 13 11] ,l))
       | _ => (Skip, l))
-    | WordToInt =>
-     (dtcase args of
-      | [v] =>
-         if dimindex(:'a) = 64 then
-           dtcase encode_header c 3 1 of
-           | NONE => (GiveUp,l)
-           | SOME header =>
-             (list_Seq [LoadWord64 c 3 (adjust_var v);
-                        Assign 1 (Shift Lsr (Var 3) (Nat 61));
-                        If Equal 1 (Imm 0w)
-                          (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
-                          (WriteWord64 c header dest 3)], l)
-         else (GiveUp (* TODO: 32bit *) ,l)
-      | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of
        | [v1; v2] =>
