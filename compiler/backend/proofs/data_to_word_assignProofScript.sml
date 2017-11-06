@@ -2977,6 +2977,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 (*
+
 val assign_WordFromInt = prove(
   ``assign c secn l dest WordFromInt args names = (case args of
       | [v1] =>
@@ -3002,13 +3003,43 @@ val assign_WordFromInt = prove(
                 Assign 5 (Shift Asr (Var (adjust_var v1)) (Nat 31));
                 WriteWord64_on_32 c header dest 3 5
               ])
-              GiveUp (* TODO: 32bit bignum *)), l)
+              (list_Seq [
+                Assign 1 (real_addr c (adjust_var v1));
+                Assign 3 (Load (Var 1));
+                Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
+                Assign 7 (ShiftVar Lsr 3 (dimindex (:'a) − c.len_size));
+                If Equal 7 (Imm 1w)
+                  (* bignum of length 1 *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Const 0w))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case *)
+                    Skip)
+                  (* longer bignum *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Load
+                           (Op Add [Var 1; Const (2w * bytes_in_word)])))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case -- messy *)
+                    Skip)
+                ])), l)
       | _ => (Skip, l))``,
   cheat); (* TODO: remove *)
+
 *)
 
+val LENGTH_n2mw_1 = prove(
+  ``LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)``,
+  once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
+  \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
+  \\ fs [dimword_def,DIV_EQ_0]);
+
 val th = Q.store_thm("assign_WordFromInt",
-  `op = WordFromInt ==> ^assign_thm_goal`,
+  `op = WordFromInt ==>
+   ^assign_thm_goal`,
+
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -3025,10 +3056,13 @@ val th = Q.store_thm("assign_WordFromInt",
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
+  \\ simp [assign_WordFromInt] (* TODO: delete this line *)
   \\ simp[assign_def]
   \\ BasicProvers.TOP_CASE_TAC >- simp[]
   \\ reverse BasicProvers.TOP_CASE_TAC >-
+
     (
+
     simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
     \\ simp[asmTheory.word_cmp_def]
@@ -3069,7 +3103,12 @@ val th = Q.store_thm("assign_WordFromInt",
                wordsTheory.INT_MIN_def]
         \\ intLib.ARITH_TAC)
       \\ impl_keep_tac >-
-         cheat
+       (rewrite_tac [CONJ_ASSOC]
+        \\ reverse conj_tac THEN1 rw [adjust_var_def]
+        \\ Cases_on `i` \\ fs [Smallnum_def]
+        \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,
+               word_extract_def,w2w,word_bits_def]
+        \\ cheat)
       \\ strip_tac \\ fs[]
       \\ clean_tac \\ fs[]
       \\ conj_tac >-
@@ -3084,8 +3123,77 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ simp[Abbr`w1`,Abbr`w2`]
       \\ simp[Smallnum_i2w,GSYM integer_wordTheory.i2w_DIV,
             integerTheory.INT_DIV_LMUL,integer_wordTheory.w2w_i2w])
-    >>
-      simp[])
+    (* bignum cases *)
+    \\ rpt_drule memory_rel_Number_bignum_IMP_ALT
+    \\ strip_tac \\ rfs[] \\ clean_tac
+    \\ ntac 3 (once_rewrite_tac [list_Seq_def])
+    \\ rpt_drule get_var_get_real_addr_lemma
+    \\ simp[lookup_insert]
+    \\ simp[wordSemTheory.set_vars_def,
+          wordSemTheory.state_component_equality,alist_insert_def]
+    \\ eval_tac \\ fs [lookup_insert]
+    \\ once_rewrite_tac [list_Seq_def]
+    \\ eval_tac \\ fs [lookup_insert]
+    \\ once_rewrite_tac [word_exp_set_var_ShiftVar_lemma] \\ fs [eq_eval]
+    \\ fs [decode_length_def]
+    \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
+    \\ `dimindex (:α) = 32` by fs [good_dimindex_def]
+    \\ IF_CASES_TAC (* first case is LENGTH = 1 *)
+    THEN1
+     (IF_CASES_TAC THEN1
+       (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
+        \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
+        \\ fs [GSYM join_env_locals_def]
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ pop_assum drule
+        \\ disch_then (qspec_then `n2w (Num (ABS i))` mp_tac)
+        \\ fs [] \\ impl_keep_tac
+        THEN1
+         (fs [consume_space_def,LENGTH_n2mw_1]
+          \\ rfs [word_extract_n2w,bitTheory.BITS_THM,dimword_def]
+          \\ fs [DIV_MOD_MOD_DIV]
+          \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [DIV_EQ_X])
+        \\ strip_tac \\ fs []
+        \\ fs [consume_space_def,LENGTH_n2mw_1]
+        \\ rveq \\ fs []
+        \\ strip_tac \\ conj_tac THEN1 rw []
+        \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
+              (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
+        \\ fs [FAPPLY_FUPDATE_THM])
+      \\ cheat)
+    \\ `LENGTH (n2mw (Num (ABS i))) <> 0` by
+     (once_rewrite_tac [multiwordTheory.n2mw_def]
+      \\ rw [] \\ fs [small_int_def]
+      \\ Cases_on `i` \\ fs [Num_ABS_AND]
+      \\ fs [dimword_def] \\ intLib.COOPER_TAC)
+    \\ IF_CASES_TAC THEN1
+     (Cases_on `n2mw (Num (ABS i))` \\ fs []
+      \\ Cases_on `t'` \\ fs []
+      \\ fs [word_list_def] \\ SEP_R_TAC \\ fs []
+      \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
+      \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
+      \\ fs [GSYM join_env_locals_def]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ pop_assum drule
+      \\ disch_then (qspec_then `n2w (Num (ABS i))` mp_tac)
+      \\ fs [] \\ impl_keep_tac
+      THEN1
+       (fs [consume_space_def,LENGTH_n2mw_1]
+        \\ rfs [word_extract_n2w,bitTheory.BITS_THM,dimword_def]
+        \\ pop_assum mp_tac
+        \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
+        \\ pop_assum mp_tac
+        \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
+        \\ fs [dimword_def])
+      \\ strip_tac \\ fs []
+      \\ fs [consume_space_def,LENGTH_n2mw_1]
+      \\ rveq \\ fs []
+      \\ strip_tac \\ conj_tac THEN1 rw []
+      \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
+            (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
+      \\ fs [FAPPLY_FUPDATE_THM])
+
+    \\ cheat)
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
   \\ simp[asmTheory.word_cmp_def]
