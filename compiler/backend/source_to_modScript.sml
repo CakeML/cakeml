@@ -258,6 +258,19 @@ val lift_env_def = Define `
 val _ = Datatype `
   next_indices = <| vidx : num; tidx : num; eidx : num |>`;
 
+val _ = Define `
+  lookup_inc i t =
+    case sptree$lookup i t of
+    | NONE => (0, sptree$insert i 1 t)
+    | SOME n => (n, sptree$insert i (n+1) t)`;
+
+val alloc_tags = Define `
+  (alloc_tags tid cids [] = (nsEmpty, cids)) ∧
+  (alloc_tags tid cids ((cn, ts) :: ctors) =
+    let (tag, new_cids) = lookup_inc (LENGTH ts) cids in
+    let (ns, new_cids') = alloc_tags tid new_cids ctors in
+      (nsBind cn (tag, SOME tid) ns, new_cids'))`;
+
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [ast$Dlet locs p e] =
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
@@ -282,15 +295,11 @@ val compile_decs_def = tDefine "compile_decs" `
        (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
         [Dletrec (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))])) ∧
   (compile_decs n next env [Dtype locs type_def] =
-    let new_env =
-      MAPi (\tid (_,_,constrs).
-        (MAPi (\cid (cn,ts). (cn, (cid, SOME (next.tidx + tid)))) constrs))
-        type_def
-    in
+    let new_env = MAPi (\tid (_,_,constrs). alloc_tags tid LN ctors) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
-         c := FOLDL (\ns l. nsAppend (alist_to_ns l) ns) nsEmpty new_env |>,
-      MAP (λ(_,_,constrs). Dtype (MAP (λ(cn,ts). LENGTH ts) constrs)) type_def)) ∧
+         c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
+      MAP (λ(ns,cids). Dtype (sptree$toList cids)) new_env)) ∧
   (compile_decs n next env [Dtabbrev locs tvs tn t] =
      (n, (next with tidx := next.tidx + 1), empty_env, [Dtype []])) ∧
   (compile_decs n next env [Dexn locs cn ts] =

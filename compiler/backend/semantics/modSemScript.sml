@@ -41,7 +41,8 @@ val _ = Datatype`
 val _ = Datatype`
   environment = <|
     v : (varN, v) alist;
-    c : ctor_id#type_id |-> num;
+    (* The set of constructors that exist, according to their id, type and arity *)
+    c : (ctor_id # type_id # num) set;
     (* T if all patterns are required to be exhaustive *)
     exh_pat : bool
   |>`;

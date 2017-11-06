@@ -120,7 +120,8 @@ val _ = Datatype`
     (* The num is how many top-level variables this declaration binds *)
     Dlet num exp
   | Dletrec ((varN # varN # exp) list)
-  (* The numbers are each constructor's arity *)
+  (* The list is indexed by arity, and contains how many constructors have that
+   * arity *)
   | Dtype (num list)
   (* The number is the constructor's arity *)
   | Dexn num`;
