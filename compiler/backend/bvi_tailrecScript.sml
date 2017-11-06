@@ -1,5 +1,23 @@
 open preamble bviTheory backend_commonTheory;
 
+(* TODO
+
+   - When scan_expr returns an operation, the type it returns should match this
+     operation. scan_expr may need some tweaks to ensure that this is always the
+     case.
+
+   - If rewrite succeeds for an operation and an expression, then scan_expr
+     should succeed for the same combination.
+
+   - It does not really work to run comml as-is; it changes order of evaluation
+     and needs all expressions 'to the left' of the first function call to pass
+     term_ok.
+
+   - The update_context thing is incredibly annoying to work with (in
+     particular, proving that the ty_rel relation holds also for the result).
+     It might help to just figure out and prove the invariants.
+*)
+
 val _ = new_theory "bvi_tailrec";
 
 val dummy_def = Define `dummy = bvi$Var 1234567890`;
@@ -18,6 +36,12 @@ val is_rec_def = Define `
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
   `;
+
+val is_const_def = Define `
+  (is_const (Const i) <=> small_int i) /\
+  (is_const _ <=> F)`;
+
+val _ = export_rewrites ["is_const_def"];
 
 val _ = Datatype `
   assoc_op = Plus
@@ -108,8 +132,10 @@ val opbinargs_def = Define `
 val try_update_def = Define `
   (try_update vty NONE     ts = ts) ∧
   (try_update vty (SOME n) ts =
-    if n < LENGTH ts
-    then TAKE n ts ++ [vty] ++ DROP (n + 1) ts
+    if n < LENGTH ts then
+      if EL n ts = Any then
+        TAKE n ts ++ [vty] ++ DROP (n + 1) ts
+      else ts
     else ts)`;
 
 (* --- Checking termination guarantees --- *)
@@ -121,6 +147,7 @@ val term_ok_def = tDefine "term_ok" `
     else if i < LENGTH ts then EL i ts = ty
     else F) /\
   (* Operations *)
+  (term_ok ts ty (Op (Const i) xs) <=> small_int i /\ xs = [] /\ ty <> List) /\
   (term_ok ts ty (Op op xs) <=>
     (* List operations *)
     if (ty = Any \/ ty = List) /\ op = ListAppend then
@@ -137,8 +164,6 @@ val term_ok_def = tDefine "term_ok" `
       LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
     else if (ty = Any \/ ty = Int) /\ op = Sub then
       LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
-    else if (ty = Any \/ ty = Int) /\ ?i. op = Const i /\ small_int i then
-      xs = []
     (* Other types (accepted as first argument of ::) *)
     else if ty = Any /\ op = Less then
       LENGTH xs = 2 /\ EVERY (term_ok ts Int) xs
@@ -301,12 +326,10 @@ val LAST1_def = Define `
 
 val update_context_def = Define `
   update_context ty ts x1 x2 =
-    MAP2 (\a b. if a = ty \/ b = ty then ty else Any)
-      (try_update ty (index_of x1) ts)
-      (try_update ty (index_of x2) ts)
-  `;
+    try_update ty (index_of x2) (try_update ty (index_of x1) ts)`;
 
 val arg_ty_def = Define `
+  (arg_ty (Const i)  = if small_int i then Int else Any) /\
   arg_ty Add        = Int /\
   arg_ty Sub        = Int /\
   arg_ty Mult       = Int /\
@@ -340,6 +363,7 @@ val op_ty_def = Define `
      - Check if tail positions carry suitable operation (Add/Mult) and track
        branch of origin for the operation in conditionals.
 *)
+
 val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [] = []) ∧
   (scan_expr ts loc (x::y::xs) =
@@ -353,7 +377,10 @@ val scan_expr_def = tDefine "scan_expr" `
     let (tt, ty1, _, ot) = HD (scan_expr ti loc [xt]) in
     let (te, ty2, _, oe) = HD (scan_expr ti loc [xe]) in
     let op = case ot of NONE => oe | _ => ot in
-      [(MAP2 decide_ty tt te, decide_ty ty1 ty2, IS_SOME oe, op)]) ∧
+    let ty = case op of
+               NONE => decide_ty ty1 ty2
+             | SOME opr => decide_ty ty1 (decide_ty ty2 (op_type opr)) in
+      [(MAP2 decide_ty tt te, ty, IS_SOME oe, op)]) ∧
   (scan_expr ts loc [Let xs x] =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
@@ -365,17 +392,33 @@ val scan_expr_def = tDefine "scan_expr" `
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
-    let iop = if check_op ts opr loc (Op op xs) then SOME opr else NONE in
-    let tt  = case arg_ty op of Any => ts | _ =>
-      case get_bin_args (Op op xs) of
-        NONE => ts
-      | SOME (x, y) => update_context (arg_ty op) ts x y in
-    (* Note: We have stronger requirements for lists; want to guarantee that *)
-    (*       [|Op op xs|] = Rval v ==> IS_SOME (v_to_list v)                 *)
-    let ty = case op_ty op of
-               List => if term_ok ts List (Op op xs) then List else Any
-             | ty => ty in
-      [(tt, ty, F, iop)])`
+    let opt = op_type opr in
+      case opr of
+        Noop => (* Constants? *)
+          if arg_ty op = Int then
+            case get_bin_args (Op op xs) of
+              NONE =>
+                if is_const op then
+                  [(ts, Int, F, NONE)]
+                else
+                  [(ts, Any, F, NONE)]
+            | SOME (x, y) =>
+                if ~is_const op then
+                  [(update_context Int ts x y, Any, F, NONE)]
+                else
+                  [(ts, Any, F, NONE)]
+          else
+            [(ts, Any, F, NONE)]
+      | _ => (* Things we can optimize *)
+          if check_op ts opr loc (Op op xs) then
+            [(ts, opt, F, SOME opr)]
+          else if term_ok ts opt (Op op xs) then
+            case get_bin_args (Op op xs) of
+              NONE => [(ts, Any, F, NONE)]
+            | SOME (x, y) =>
+                [(update_context opt ts x y, opt, F, NONE)]
+          else
+            [(ts, Any, F, NONE)])`
     (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
 val push_call_def = Define `
@@ -403,9 +446,9 @@ val rewrite_def = Define `
     let (r, y) = rewrite loc next opr acc ts x in
       (r, Tick y)) /\
   (rewrite loc next opr acc ts exp =
-    if ~check_op ts opr loc exp then (F, exp) else
+    if ~check_op ts opr loc exp then (F, apply_op opr exp (Var acc)) else
       case opbinargs opr exp of
-        NONE => (F, exp)
+        NONE => (F, apply_op opr exp (Var acc))
       | SOME (f, xs) => (T, push_call next opr acc xs (args_from f)))`
 
 (* --- Top-level expression check --- *)
@@ -475,13 +518,15 @@ val compile_prog_def = Define `
 
 val scan_expr_not_nil = Q.store_thm ("scan_expr_not_nil[simp]",
   `!x. scan_expr ts loc [x] <> []`,
-  Induct \\ fs [scan_expr_def]
-  \\ rpt (pairarg_tac \\ fs []));
+  Induct \\ rw [scan_expr_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac \\ fs []);
 
 val LENGTH_scan_expr = Q.store_thm ("LENGTH_scan_expr[simp]",
   `∀ts loc xs. LENGTH (scan_expr ts loc xs) = LENGTH xs`,
   recInduct (theorem"scan_expr_ind") \\ rw [scan_expr_def]
-  \\ rpt (pairarg_tac \\ fs []));
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac \\ fs []);
 
 val scan_expr_SING = Q.store_thm ("scan_expr_SING[simp]",
   `[HD (scan_expr ts loc [x])] = scan_expr ts loc [x]`,
@@ -525,8 +570,7 @@ val aux_tm = ``Let [Var 0; Op (Const 1) []] ^opt_tm``
 
 
 val fac_check_exp = Q.store_thm("fac_check_exp",
-  `check_exp 0 1 ^fac_tm = SOME Times`,
-  EVAL_TAC);
+  `check_exp 0 1 ^fac_tm = SOME Times`, EVAL_TAC);
 
 val fac_compile_exp = Q.store_thm("fac_compile_exp",
   `compile_exp 0 1 1 ^fac_tm = SOME (^aux_tm, ^opt_tm)`, EVAL_TAC);
