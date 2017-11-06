@@ -3025,8 +3025,16 @@ val assign_WordFromInt = prove(
                            (Op Add [Var 1; Const (2w * bytes_in_word)])))
                          (WriteWord64_on_32 c header dest 5 9))
                     (* negative case -- messy *)
-                    Skip)
-                ])), l)
+                    (list_Seq
+                      [Assign 11 (Const 0w);
+                       Assign 13 (Const 1w);
+                       Assign 9 (Load
+                         (Op Add [Var 1; Const (2w * bytes_in_word)]));
+                       Assign 5 (Op Xor [Const ~0w; Var 5]);
+                       Assign 9 (Op Xor [Const ~0w; Var 9]);
+                       Inst (Arith (AddCarry 5 11 5 13));
+                       Inst (Arith (AddCarry 9 11 9 13));
+                       WriteWord64_on_32 c header dest 5 9]))])), l)
       | _ => (Skip, l))``,
   cheat); (* TODO: remove *)
 
@@ -3225,7 +3233,52 @@ val th = Q.store_thm("assign_WordFromInt",
             (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
       \\ fs [FAPPLY_FUPDATE_THM])
 
-    \\ cheat)
+    THEN1
+     (Cases_on `n2mw (Num (ABS i))` \\ fs []
+      \\ Cases_on `t'` \\ fs []
+      \\ fs [word_list_def] \\ SEP_R_TAC \\ fs []
+      \\ fs [list_Seq_def,eq_eval] \\ SEP_R_TAC
+      \\ fs [eq_eval,wordSemTheory.inst_def]
+      \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
+      \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
+      \\ fs [GSYM join_env_locals_def]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ pop_assum drule
+      \\ disch_then (qspec_then `-n2w (Num (ABS i))` mp_tac)
+      \\ fs [] \\ impl_keep_tac
+
+      THEN1
+       (fs [consume_space_def,LENGTH_n2mw_1]
+        \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+        \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``- w:'a word``)]
+        \\ rewrite_tac [word_2comp_n2w]
+        \\ conj_tac
+        \\ rfs [word_extract_n2w,bitTheory.BITS_THM,dimword_def]
+        THEN1 cheat
+        \\ pop_assum mp_tac
+        \\ once_rewrite_tac [multiwordTheory.n2mw_def]
+        \\ once_rewrite_tac [multiwordTheory.n2mw_def]
+        \\ IF_CASES_TAC \\ fs []
+        \\ IF_CASES_TAC \\ fs []
+        \\ strip_tac \\ rveq \\ fs []
+        \\ fs [ADD1,GSYM word_add_n2w,dimword_def]
+        \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+        \\ fs [DIV_MOD_MOD_DIV]
+        \\ fs [word_add_n2w,dimword_def]
+        \\ qmatch_goalsub_abbrev_tac `if (if bb then _ else _) = _ then _ else _`
+        \\ `bb <=> Num (ABS i) MOD 4294967296 = 0` by
+          (unabbrev_all_tac
+           \\ Cases_on `Num (ABS i) MOD 4294967296 = 0` \\ fs []
+           \\ fs [GSYM NOT_LESS] \\ cheat)
+        \\ Cases_on `bb` \\ fs [] \\ cheat)
+
+      \\ strip_tac \\ fs []
+      \\ fs [consume_space_def,LENGTH_n2mw_1]
+      \\ rveq \\ fs []
+      \\ strip_tac \\ conj_tac THEN1 rw []
+      \\ `Word64 (- n2w (Num (ABS i))) = Word64 (i2w i)` by
+            (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
+      \\ fs [FAPPLY_FUPDATE_THM]))
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
   \\ simp[asmTheory.word_cmp_def]
