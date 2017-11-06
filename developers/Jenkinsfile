@@ -38,7 +38,8 @@ node("Builder") {
 
         build_image.inside('-e HOME=/tmp') {
             sh '''cd HOL && echo 'val polymllibdir = "/usr/lib/x86_64-linux-gnu/";' > tools-poly/poly-includes.ML'''
-            sh (script: 'cd HOL && poly --script tools/smart-configure.sml', returnStatus: true)
+            sh 'cd HOL && cat tools-poly/poly-includes.ML' // TODO: debugging (remove)
+            sh (script: 'cd HOL && poly --script tools/smart-configure.sml', returnStatus: true) // TODO: debugging: remove returnStatus
             sh 'cd HOL && bin/build --nograph'
         }
     }
