@@ -45,7 +45,7 @@ node("Builder") {
             sh '''echo 'val DOT_PATH = "/usr/bin/dot";' >> HOL/tools-poly/jenkins-configure.sml'''
             sh '''echo 'val MLTON = SOME "/usr/bin/mlton";' >> HOL/tools-poly/jenkins-configure.sml'''
             sh '''echo 'use (OS.Path.concat(OS.Path.concat(holdir,"tools-poly"),"configure.sml"))' >> HOL/tools-poly/jenkins-configure.sml'''
-            sh 'cd HOL && poly --script tools/jenkins-configure.sml'
+            sh 'set +e; cd HOL && poly --script tools/jenkins-configure.sml'
             sh 'cd HOL && bin/build --nograph'
         }
     }
