@@ -1359,33 +1359,6 @@ local val assign_quotation = `
                 Assign 5 (Shift Asr (Var (adjust_var v1)) (Nat 31));
                 WriteWord64_on_32 c header dest 3 5
               ])
-              GiveUp (* TODO: 32bit bignum *)), l)
-      | _ => (Skip, l))
-   | WordToInt =>
-     (dtcase args of
-      | [v] =>
-        let len = if dimindex(:'a) < 64 then 2 else 1 in
-        (case encode_header c 3 len of
-         | NONE => (GiveUp,l)
-         | SOME (header:'a word) =>
-           (if len = 1 then
-             Seq
-               (* put the word value into 3 *)
-               (If Test (adjust_var v1) (Imm 1w)
-                   (* smallnum case *)
-                    (Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2)))
-                   (* bignum case *)
-                   (Seq
-                     (LoadBignum c 1 3 (adjust_var v1))
-                     (If Test 1 (Imm 16w) Skip
-                        (Assign 3 (Op Sub [Const 0w; Var 3])))))
-               (WriteWord64 c header dest 3)
-            else If Test (adjust_var v1) (Imm 1w)
-              (list_Seq [
-                Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2));
-                Assign 5 (Shift Asr (Var (adjust_var v1)) (Nat 31));
-                WriteWord64_on_32 c header dest 3 5
-              ])
               (list_Seq [
                 Assign 1 (real_addr c (adjust_var v1));
                 Assign 3 (Load (Var 1));
@@ -1418,6 +1391,35 @@ local val assign_quotation = `
                        Inst (Arith (AddCarry 5 11 5 13));
                        Inst (Arith (AddCarry 9 11 9 13));
                        WriteWord64_on_32 c header dest 5 9]))])), l)
+      | _ => (Skip, l))
+   | WordToInt =>
+     (dtcase args of
+      | [v] =>
+        let len = if dimindex(:'a) < 64 then 2 else 1 in
+        (dtcase encode_header c 3 len of
+           | NONE => (GiveUp,l)
+           | SOME header =>
+             if len = 1 then
+               (list_Seq [LoadWord64 c 3 (adjust_var v);
+                          Assign 1 (Shift Lsr (Var 3) (Nat 61));
+                          If Equal 1 (Imm 0w)
+                            (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
+                            (WriteWord64 c header dest 3)], l)
+             else
+              (dtcase encode_header c 3 1 of
+               | NONE => (GiveUp,l)
+               | SOME header1 =>
+                 (list_Seq [
+                  Assign 15 (real_addr c (adjust_var v));
+                  Assign 13 (Load (Op Add [Var 15; Const bytes_in_word]));
+                  Assign 11 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                  If NotEqual 13 (Imm 0w)
+                    (WriteWord64_on_32 c header dest 13 11)
+                    (list_Seq [
+                      Assign 1 (Shift Lsr (Var 11) (Nat 29));
+                      If Equal 1 (Imm 0w)
+                        (Assign (adjust_var dest) (Shift Lsl (Var 11) (Nat 2)))
+                        (WriteWord32_on_32 c header1 dest 11)])],l)))
       | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of
