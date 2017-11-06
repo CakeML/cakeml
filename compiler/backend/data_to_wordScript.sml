@@ -714,6 +714,18 @@ val WriteWord64_on_32_def = Define `
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]:'a wordLang$prog`;
 
+val WriteWord32_on_32_def = Define `
+  WriteWord32_on_32 c header dest i1 =
+     list_Seq
+       [Assign 1 (Lookup NextFree);
+        Store (Op Add [Var 1; Const bytes_in_word]) i1;
+        Assign 3 (Const header); Store (Var 1) 3;
+        Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
+        Assign (adjust_var dest)
+          (Op Or
+             [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                (Nat (shift_length c − shift (:α))); Const (1w:'a word)])]`
+
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
     case opw of
@@ -1363,11 +1375,20 @@ local val assign_quotation = `
                             (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
                             (WriteWord64 c header dest 3)], l)
              else
-                (list_Seq [
-                 Assign 15 (real_addr c (adjust_var v));
-                 Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
-                 Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
-                 WriteWord64_on_32 c header dest 13 11] ,l))
+              (dtcase encode_header c 3 1 of
+               | NONE => (GiveUp,l)
+               | SOME header1 =>
+                 (list_Seq [
+                  Assign 15 (real_addr c (adjust_var v));
+                  Assign 13 (Load (Op Add [Var 15; Const bytes_in_word]));
+                  Assign 11 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                  If NotEqual 13 (Imm 0w)
+                    (WriteWord64_on_32 c header dest 13 11)
+                    (list_Seq [
+                      Assign 1 (Shift Lsr (Var 11) (Nat 29));
+                      If Equal 1 (Imm 0w)
+                        (Assign (adjust_var dest) (Shift Lsl (Var 11) (Nat 2)))
+                        (WriteWord32_on_32 c header1 dest 11)])],l)))
       | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of
@@ -1378,7 +1399,7 @@ local val assign_quotation = `
         let fakelen1 = Shift Lsr header1 (Nat k) in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
-        let fakelen2 = Shift Lsr header2 (Nat k) in            
+        let fakelen2 = Shift Lsr header2 (Nat k) in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
