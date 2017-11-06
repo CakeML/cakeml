@@ -37,9 +37,15 @@ node("Builder") {
             userRemoteConfigs: [[url: 'https://github.com/HOL-Theorem-Prover/HOL.git']]])
 
         build_image.inside('-e HOME=/tmp') {
-            sh '''cd HOL && echo 'val polymllibdir = "/usr/lib/x86_64-linux-gnu/"; val cdi = OS.FileSys.getDir(); print "ch"; OS.FileSys.chDir(OS.Path.concat (cdi, "tools-poly")); print "chd"; use "poly/poly-init.ML"; print "used"; OS.FileSys.chDir cdi; print "chb";' > tools-poly/poly-includes.ML'''
-            sh 'cd HOL && cat tools-poly/poly-includes.ML' // TODO: debugging (remove)
-            sh (script: 'cd HOL && poly --script tools/smart-configure.sml', returnStatus: true) // TODO: debugging: remove returnStatus
+            sh '''echo 'val OS = "linux";' > HOL/tools-poly/jenkins-configure.sml'''
+            sh '''echo 'val poly = "/usr/bin/poly";' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh '''echo 'val polyc = "/usr/bin/polyc";' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh '''echo 'val polymllibdir = "/usr/lib/x86_64-linux-gnu/";' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh "echo 'val holdir = \"${build_dir}/HOL\";' >> HOL/tools-poly/jenkins-configure.sml"
+            sh '''echo 'val DOT_PATH = "/usr/bin/dot";' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh '''echo 'val MLTON = SOME "/usr/bin/mlton";' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh '''echo 'use (OS.Path.concat(OS.Path.concat(holdir,"tools-poly"),"configure.sml"))' >> HOL/tools-poly/jenkins-configure.sml'''
+            sh 'cd HOL && poly --script tools/jenkins-configure.sml'
             sh 'cd HOL && bin/build --nograph'
         }
     }
