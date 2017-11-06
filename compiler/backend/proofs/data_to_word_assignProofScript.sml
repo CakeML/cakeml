@@ -1476,7 +1476,7 @@ val evaluate_WriteWord64_on_32 = Q.store_thm("evaluate_WriteWord64_on_32",
   \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [dimword_def]);
 
 val Num_ABS_AND = prove(
-  ``Num (ABS (& n)) = n``,
+  ``Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n``,
   intLib.COOPER_TAC);
 
 val evaluate_WriteWord64_on_32_num = Q.store_thm("evaluate_WriteWord64_on_32_num",
@@ -3015,7 +3015,9 @@ val assign_WordFromInt = prove(
                     (Seq (Assign 9 (Const 0w))
                          (WriteWord64_on_32 c header dest 5 9))
                     (* negative case *)
-                    Skip)
+                    (Seq (Assign 9 (Const ~0w))
+                    (Seq (Assign 5 (Op Sub [Const 0w; Var 5]))
+                         (WriteWord64_on_32 c header dest 5 9))))
                   (* longer bignum *)
                   (If Test 3 (Imm 16w)
                     (* positive case *)
@@ -3160,7 +3162,37 @@ val th = Q.store_thm("assign_WordFromInt",
         \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
               (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
         \\ fs [FAPPLY_FUPDATE_THM])
-      \\ cheat)
+      THEN1
+       (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
+        \\ SEP_I_TAC "evaluate" \\ fs [eq_eval]
+        \\ fs [GSYM join_env_locals_def]
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ pop_assum drule
+        \\ disch_then (qspec_then `-n2w (Num (ABS i))` mp_tac)
+        \\ fs [] \\ impl_keep_tac
+        THEN1
+         (fs [consume_space_def,LENGTH_n2mw_1]
+          \\ rfs [word_extract_n2w,bitTheory.BITS_THM,dimword_def]
+          \\ rewrite_tac [GSYM (SIMP_CONV (srw_ss()) [] ``- w:'a word``)]
+          \\ rewrite_tac [word_2comp_n2w]
+          \\ fs [dimword_def]
+          \\ rewrite_tac [GSYM (EVAL ``4294967296 * 4294967296n``)]
+          \\ `(4294967296 * 4294967296 − Num (ABS i)) MOD 4294967296 =
+              (4294967296 − Num (ABS i)) MOD 4294967296` by
+                 (match_mp_tac MOD_TIMES_SUB \\ fs []) \\ fs []
+          \\ `18446744073709551616 − Num (ABS i) =
+              4294967295 * 4294967296 + (4294967296 - Num (ABS i))` by fs[]
+          \\ asm_rewrite_tac []
+          \\ `4294967296 − Num (ABS i) < 4294967296` by decide_tac
+          \\ drule DIV_MULT
+          \\ simp_tac std_ss [])
+        \\ strip_tac \\ fs []
+        \\ fs [consume_space_def,LENGTH_n2mw_1]
+        \\ rveq \\ fs []
+        \\ strip_tac \\ conj_tac THEN1 rw []
+        \\ `Word64 (-n2w (Num (ABS i))) = Word64 (i2w i)` by
+              (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
+        \\ fs [FAPPLY_FUPDATE_THM]))
     \\ `LENGTH (n2mw (Num (ABS i))) <> 0` by
      (once_rewrite_tac [multiwordTheory.n2mw_def]
       \\ rw [] \\ fs [small_int_def]
