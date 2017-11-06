@@ -39,7 +39,7 @@ node("Builder") {
         build_image.inside('-e HOME=/tmp') {
             sh 'dpkg -L libpolyml-dev' // TODO: remove (debugging)
             sh 'cd HOL && echo \'val polymllibdir = "/usr/lib/x86_64-linux-gnu/";\' > tools-poly/poly-includes.ML'
-            sh 'cd HOL && poly < tools/smart-configure.sml'
+            sh 'cd HOL && poly < tools/smart-configure.sml || echo hello' // TODO: remove || (debugging)
             sh 'cd HOL && bin/build --nograph'
         }
     }
