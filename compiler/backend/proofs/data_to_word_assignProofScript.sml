@@ -2285,7 +2285,9 @@ val th = Q.store_thm("assign_CopyByte",
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])));
 
 val th = Q.store_thm("assign_WordToInt",
-  `op = WordToInt ==> ^assign_thm_goal`,
+  `op = WordToInt ==> ^assign_thm_goal`, cheat);
+
+(*
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -2374,6 +2376,7 @@ val th = Q.store_thm("assign_WordToInt",
   \\ `w1 = w2` suffices_by simp[]
   \\ simp[Abbr`w1`,Abbr`w2`]
   \\ simp[w2n_w2w]);
+*)
 
 val th = Q.store_thm("assign_FromList",
   `(?tag. op = FromList tag) ==> ^assign_thm_goal`,
@@ -2756,7 +2759,65 @@ val th = Q.store_thm("assign_WordFromInt",
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ simp[assign_def]
   \\ BasicProvers.TOP_CASE_TAC >- simp[]
-  \\ reverse BasicProvers.TOP_CASE_TAC >- simp[]
+  \\ reverse BasicProvers.TOP_CASE_TAC >-
+    (
+    simp[Once wordSemTheory.evaluate_def]
+    \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
+    \\ simp[asmTheory.word_cmp_def]
+    \\ rpt_drule memory_rel_any_Number_IMP \\ strip_tac
+    \\ simp[]
+    \\ ONCE_REWRITE_TAC[WORD_AND_COMM]
+    \\ simp[word_and_one_eq_0_iff]
+    \\ IF_CASES_TAC
+    >- (
+      simp[list_Seq_def,Once wordSemTheory.evaluate_def]
+      \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def]
+      \\ simp[Once wordSemTheory.evaluate_def]
+      \\ simp[evaluate_Assign]
+      \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Shift``)) o concl)]
+      \\ simp[word_exp_rw |> CONJUNCTS |> first(can(find_term(same_const``wordLang$Var``)) o concl)]
+      \\ fs[wordSemTheory.get_var_def]
+      \\ `31 < dimindex(:'a)` by fs[good_dimindex_def]
+      \\ simp[wordLangTheory.word_sh_def,wordLangTheory.num_exp_def]
+      \\ simp[wordSemTheory.set_var_def]
+      \\ simp[wordSemTheory.word_exp_def]
+      \\ fs[adjust_var_def,lookup_insert]
+      \\ rpt_drule memory_rel_Number_IMP
+      \\ strip_tac \\ clean_tac
+      \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
+      \\ SEP_I_TAC "evaluate" \\ fs[]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,GSYM join_env_locals_def]
+      \\ first_x_assum drule
+      \\ simp[wordSemTheory.get_var_def]
+      \\ fs[consume_space_def]
+      \\ rfs[good_dimindex_def] \\ rfs[lookup_insert]
+      \\ simp[]
+      \\ disch_then (qspec_then `(Smallnum i >> 2)` mp_tac)
+      \\ `INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a) ∧
+          INT_MIN (:64) <= 4 * i /\ 4 * i <= INT_MAX (:64) ∧
+          INT_MIN (:'a) <= i /\ i <= INT_MAX (:'a) `
+        by (rfs [small_int_def,wordsTheory.dimword_def,
+               integer_wordTheory.INT_MIN_def,wordsTheory.INT_MAX_def,
+               wordsTheory.INT_MIN_def]
+        \\ intLib.ARITH_TAC)
+      \\ impl_keep_tac >-
+         cheat
+      \\ strip_tac \\ fs[]
+      \\ clean_tac \\ fs[]
+      \\ conj_tac >-
+        (fs[adjust_var_def]>>
+        metis_tac[])
+      \\ match_mp_tac (GEN_ALL memory_rel_less_space)
+      \\ qexists_tac`x.space - 3` \\ simp[]
+      \\ fs[FAPPLY_FUPDATE_THM]
+      \\ qmatch_asmsub_abbrev_tac`Word64 w1`
+      \\ qmatch_goalsub_abbrev_tac`Word64 w2`
+      \\ `w1 = w2` suffices_by (rw[] \\ fs[])
+      \\ simp[Abbr`w1`,Abbr`w2`]
+      \\ simp[Smallnum_i2w,GSYM integer_wordTheory.i2w_DIV,
+            integerTheory.INT_DIV_LMUL,integer_wordTheory.w2w_i2w])
+    >>
+      simp[])
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
   \\ simp[asmTheory.word_cmp_def]
