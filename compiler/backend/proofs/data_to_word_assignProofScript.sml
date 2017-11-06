@@ -2976,7 +2976,7 @@ val th = Q.store_thm("assign_RefArray",
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-(*
+
 
 val assign_WordFromInt = prove(
   ``assign c secn l dest WordFromInt args names = (case args of
@@ -3038,7 +3038,7 @@ val assign_WordFromInt = prove(
       | _ => (Skip, l))``,
   cheat); (* TODO: remove *)
 
-*)
+
 
 val LENGTH_n2mw_1 = prove(
   ``LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)``,
