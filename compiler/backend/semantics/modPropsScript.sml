@@ -499,19 +499,16 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
     fsrw_tac[QUANT_INST_ss[record_default_qp]][] >>
     rev_full_simp_tac(srw_ss())[]));
 
-    (*
 val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
-  `∀p v bindings env s ts b.
+  `∀p v bindings env s ts.
     pmatch env s.refs p v [] = Match bindings ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     LENGTH ts = LENGTH (pat_bindings p [])
     ⇒
-    evaluate <| c := env.c; v := bindings; exh_pat := b |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND bindings))`,
+    evaluate (env with v := bindings) s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND bindings))`,
   rw [] >>
-  `pmatch <|c := env.c; v := []; exh_pat := b|>.c s.refs p v <|c := env.c; v := []; exh_pat := b|>.v = Match bindings` by rw [] >>
   imp_res_tac pmatch_evaluate_vars >>
   fs []);
-  *)
 
       (*
 val evaluate_append = Q.store_thm("evaluate_append",

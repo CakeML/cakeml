@@ -295,7 +295,7 @@ val compile_decs_def = tDefine "compile_decs" `
        (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
         [Dletrec (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))])) ∧
   (compile_decs n next env [Dtype locs type_def] =
-    let new_env = MAPi (\tid (_,_,constrs). alloc_tags tid LN constrs) type_def in
+    let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,

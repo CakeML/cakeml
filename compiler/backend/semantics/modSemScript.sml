@@ -454,7 +454,7 @@ val pmatch_def = tDefine "pmatch" `
     if env.check_ctor ∧
        ((n, LENGTH ps) ∉ env.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
       Match_type_error
-    else if same_ctor n n' then
+    else if same_ctor n n' ∧ LENGTH ps = LENGTH vs then
       pmatch_list env s ps vs bindings
     else
       No_match) ∧
@@ -618,8 +618,11 @@ val evaluate_dec_def = Define`
      (s, Rval ({}, MAP (λ(f,x,e). Closure [] x e) funs))) ∧
   (evaluate_dec env s (Dtype ctors) =
     (s with next_type_id := s.next_type_id + 1,
-     Rval ({ ((idx, SOME s.next_type_id), arity) |
-             arity < LENGTH ctors ∧ idx < EL arity ctors },
+     Rval (if env.check_ctor then
+             { ((idx, SOME s.next_type_id), arity) |
+               arity < LENGTH ctors ∧ idx < EL arity ctors }
+           else
+             {},
            []))) ∧
   (evaluate_dec env s (Dexn arity) =
     (s with next_exn_id := s.next_exn_id + 1,
