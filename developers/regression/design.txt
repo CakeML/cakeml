@@ -1,0 +1,150 @@
+Notes on the design of the automated regression test infrastructure.
+
+Server API:
+
+  waiting:
+    return list of ids of waiting jobs
+
+  active:
+    return list of ids of active jobs
+
+  stopped:
+    return list of ids of stopped jobs
+
+  job id:
+    return information on job <id>
+    including:
+      - commits (including pull request integration, if any)
+      - (worker) name and time started (if any)
+      - output so far
+
+  claim id name:
+    worker <name> claims job <id>
+    fails if <id> is not currently waiting
+
+  append id [data]:
+    record <data> as additional output for job <id>
+    includes timestamp
+    fails if <id> is not currently active
+
+  stop id:
+    mark job <id> as stopped
+    sends email with output
+    fails if <id> is not currently active
+
+  retry id:
+    create a new job with the same commits as job <id>
+    fails if <id> is not currently stopped
+    fails if there is already an active or waiting job for the same commits
+
+example usages:
+
+  job N failed due to broken proofs:
+    append N [output from regression.log]; stop N
+
+  the worker running job N died:
+    append N "worker <name> fell over"; stop N
+
+some invariants:
+
+each job is on exactly one list: waiting, active, stopped
+if a job changes list, it can only move to the right
+
+Poll automatic behaviours:
+
+  1. add a job to the waiting list:
+    - create a new job id
+    - the commits for the job satisfy the following:
+      - they are the current commits (on GitHub) for a particular target
+      - there are no other jobs with the same commits
+
+  2. remove a job from the waiting list:
+    - if it does not have the current commits (on GitHub) for any target, or
+    - if there are other active or waiting jobs for the same commits
+        (this should never happen -- not checking it currently)
+        (we don't count duplicate stopped jobs since
+         they might have been retried)
+    - the removed job's id number could be re-used (but is that worthwhile?)
+    - the race with workers trying to obtain this job is handled by the global
+      lock on queues. either the job is claimed before it can be removed, or
+      removed before it can be claimed.
+
+  3. move a job from active to stopped:
+    - if the time since it started is too long
+    - adds a note, "timed out", to the output
+    - does stop API actions
+
+targets:
+
+  CakeML:
+    - branch "master"
+    - each open, mergeable pull request
+      in this case, there are two commits:
+        - the pull request commit
+        - the master commit to merge into
+      but they move together (as captured by the state of the PR on GitHub)
+  HOL:
+    - branch "master"
+
+---- OLD STUFF ----
+
+CakeML Regression Test
+
+Organised as two programs:
+
+  Queue Manager (Server)
+    - 1 instance, runs on cakeml.org
+    - Tracks commits on GitHub over the GitHub API
+    - Manages a queue of jobs
+    - Allocates jobs to workers as they are available
+    - Records which jobs have run or are running
+    - Stores all its state in the filesystem/database:
+      can be killed and restarted without problems.
+
+  Worker (Client)
+    - Runs regression test(s) as designated by the queue manager
+    - Can send the status (generated output) of any currently running job
+    - Interrupts the currently running job if requested
+    - May reuse a HOL build if the desired commit has already been built
+    - Assumes Poly/ML and git are installed
+    - Is almost stateless: either it's running a job, or it's ready for a job.
+      The state of HOL builds is kept in the filesystem.
+
+Scheduling is based on
+  - "targets"    identified by branch name or pull request number
+                 in the CakeML repository.
+  - "snapshots"  representing a specific combination of commits (in all
+                 relevant repositories, e.g., CakeML and HOL).
+  - "jobs"       representing a snapshot and a job state.
+  - "workers"    representing instances of the worker program, each of
+                 which has a worker state.
+Each snapshot will correspond to some target.
+A target may have many corresponding snapshots.
+The possible job states are as follows:
+  - queued
+  - active (running, has a corresponding worker)
+  - finished
+  - dead (cancelled or superseded)
+The possible worker states are as follows:
+  - testing (running)
+  - ready
+
+Jobs can be queued, superseded, allocated (made active and assigned a
+worker), or cancelled manually.
+
+A job will be automatically queued if:
+  - The job's snapshot has the most recent commits (on GitHub) for its target, and
+  - No active or finished job has the same snapshot
+
+A job will be automatically superseded if:
+  - Either of the conditions for queueing above is false, and
+  - The job was not queued manually
+
+A job will be automatically allocated if:
+  - It is currently queued
+  - A worker is ready
+
+The current policy for targets is defined as follows:
+  - each open pull request is a target
+  - the branch "master" is a target
+  - the branch "master" in HOL is assumed
