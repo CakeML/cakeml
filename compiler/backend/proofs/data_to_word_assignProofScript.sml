@@ -2976,75 +2976,18 @@ val th = Q.store_thm("assign_RefArray",
   \\ first_x_assum (fn th => mp_tac th \\ match_mp_tac word_ml_inv_rearrange)
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-
-
-val assign_WordFromInt = prove(
-  ``assign c secn l dest WordFromInt args names = (case args of
-      | [v1] =>
-        let len = if dimindex(:'a) < 64 then 2 else 1 in
-        (case encode_header c 3 len of
-         | NONE => (GiveUp,l)
-         | SOME (header:'a word) =>
-           (if len = 1 then
-             Seq
-               (* put the word value into 3 *)
-               (If Test (adjust_var v1) (Imm 1w)
-                   (* smallnum case *)
-                    (Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2)))
-                   (* bignum case *)
-                   (Seq
-                     (LoadBignum c 1 3 (adjust_var v1))
-                     (If Test 1 (Imm 16w) Skip
-                        (Assign 3 (Op Sub [Const 0w; Var 3])))))
-               (WriteWord64 c header dest 3)
-            else If Test (adjust_var v1) (Imm 1w)
-              (list_Seq [
-                Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2));
-                Assign 5 (Shift Asr (Var (adjust_var v1)) (Nat 31));
-                WriteWord64_on_32 c header dest 3 5
-              ])
-              (list_Seq [
-                Assign 1 (real_addr c (adjust_var v1));
-                Assign 3 (Load (Var 1));
-                Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
-                Assign 7 (ShiftVar Lsr 3 (dimindex (:'a) − c.len_size));
-                If Equal 7 (Imm 1w)
-                  (* bignum of length 1 *)
-                  (If Test 3 (Imm 16w)
-                    (* positive case *)
-                    (Seq (Assign 9 (Const 0w))
-                         (WriteWord64_on_32 c header dest 5 9))
-                    (* negative case *)
-                    (Seq (Assign 9 (Const ~0w))
-                    (Seq (Assign 5 (Op Sub [Const 0w; Var 5]))
-                         (WriteWord64_on_32 c header dest 5 9))))
-                  (* longer bignum *)
-                  (If Test 3 (Imm 16w)
-                    (* positive case *)
-                    (Seq (Assign 9 (Load
-                           (Op Add [Var 1; Const (2w * bytes_in_word)])))
-                         (WriteWord64_on_32 c header dest 5 9))
-                    (* negative case -- messy *)
-                    (list_Seq
-                      [Assign 11 (Const 0w);
-                       Assign 13 (Const 1w);
-                       Assign 9 (Load
-                         (Op Add [Var 1; Const (2w * bytes_in_word)]));
-                       Assign 5 (Op Xor [Const ~0w; Var 5]);
-                       Assign 9 (Op Xor [Const ~0w; Var 9]);
-                       Inst (Arith (AddCarry 5 11 5 13));
-                       Inst (Arith (AddCarry 9 11 9 13));
-                       WriteWord64_on_32 c header dest 5 9]))])), l)
-      | _ => (Skip, l))``,
-  cheat); (* TODO: remove *)
-
-
-
 val LENGTH_n2mw_1 = prove(
   ``LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)``,
   once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
   \\ fs [dimword_def,DIV_EQ_0]);
+
+val WordFromInt_DIV_LEMMA = prove(
+  ``kk < B * B /\ 0 < B ==> B * (kk DIV B) <= B * B − B``,
+  rw []
+  \\ `kk DIV B < B` by fs [DIV_LT_X]
+  \\ `B² − B = B * (B - 1)` by fs [LEFT_SUB_DISTRIB]
+  \\ fs []);
 
 val th = Q.store_thm("assign_WordFromInt",
   `op = WordFromInt ==>
@@ -3066,7 +3009,6 @@ val th = Q.store_thm("assign_WordFromInt",
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ simp [assign_WordFromInt] (* TODO: delete this line *)
   \\ simp[assign_def]
   \\ BasicProvers.TOP_CASE_TAC >- simp[]
   \\ reverse BasicProvers.TOP_CASE_TAC >-
@@ -3233,7 +3175,6 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ `Word64 (n2w (Num (ABS i))) = Word64 (i2w i)` by
             (Cases_on `i` \\ fs [integer_wordTheory.i2w_def,Num_ABS_AND])
       \\ fs [FAPPLY_FUPDATE_THM])
-
     THEN1
      (Cases_on `n2mw (Num (ABS i))` \\ fs []
       \\ Cases_on `t'` \\ fs []
@@ -3247,7 +3188,6 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ pop_assum drule
       \\ disch_then (qspec_then `-n2w (Num (ABS i))` mp_tac)
       \\ fs [] \\ impl_keep_tac
-
       THEN1
        (fs [consume_space_def,LENGTH_n2mw_1]
         \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
@@ -3284,21 +3224,80 @@ val th = Q.store_thm("assign_WordFromInt",
            \\ simp[NOT_LESS_EQUAL])
         \\ Cases_on `bb` \\ fs []
         >-
-          (simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def]>>
-          qmatch_goalsub_abbrev_tac`C MOD A DIV B`>>
-          `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]>>
-          drule (GSYM DIV_MOD_MOD_DIV)>>
-          disch_then drule>>
-          simp[]>>
-          cheat)
-        >>
-          simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def,word_add_n2w]>>
-          qmatch_goalsub_abbrev_tac`C MOD A DIV B`>>
-           `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]>>
-          drule (DIV_MOD_MOD_DIV)>>
-          disch_then drule>>
-          simp[]>>
-          cheat)
+          (simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def]
+          \\ Cases_on `Num (ABS i) MOD 18446744073709551616 = 0` \\ fs []
+          \\ qabbrev_tac `kk = Num (ABS i) MOD 18446744073709551616`
+          \\ `kk < 18446744073709551616` by fs [Abbr `kk`]
+          \\ `kk MOD 4294967296 = 0` by
+           (unabbrev_all_tac
+            \\ qmatch_goalsub_abbrev_tac`_ MOD A MOD B`
+            \\ `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]
+            \\ asm_rewrite_tac []
+            \\ asm_simp_tac std_ss [MOD_MULT_MOD])
+          \\ fs [DIV_MOD_MOD_DIV]
+          \\ once_rewrite_tac [EQ_SYM_EQ]
+          \\ `0n < 4294967296` by EVAL_TAC
+          \\ drule DIVISION
+          \\ disch_then (qspec_then `kk` strip_assume_tac)
+          \\ rfs [] \\ clean_tac
+          \\ `18446744073709551616 − kk =
+              (4294967296 - kk DIV 4294967296) * 4294967296`
+                  by fs [RIGHT_SUB_DISTRIB]
+          \\ asm_simp_tac std_ss [MULT_DIV]
+          \\ qpat_x_assum `kk = _` (fn th => simp [Once th])
+          \\ rewrite_tac [SUB_PLUS]
+          \\ qmatch_goalsub_abbrev_tac`A - B * _`
+          \\ `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]
+          \\ asm_rewrite_tac [GSYM LEFT_SUB_DISTRIB])
+        \\ simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def,word_add_n2w]
+        \\ qabbrev_tac `kk = Num (ABS i) MOD 18446744073709551616`
+        \\ `kk < 18446744073709551616` by fs [Abbr `kk`]
+        \\ `kk MOD 4294967296 <> 0` by
+         (unabbrev_all_tac
+          \\ qmatch_goalsub_abbrev_tac`_ MOD A MOD B`
+          \\ `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]
+          \\ asm_rewrite_tac []
+          \\ asm_simp_tac std_ss [MOD_MULT_MOD])
+        \\ Cases_on `kk = 0` \\ fs []
+        \\ once_rewrite_tac [EQ_SYM_EQ]
+        \\ `0n < 4294967296` by EVAL_TAC
+        \\ drule DIVISION
+        \\ disch_then (qspec_then `kk` strip_assume_tac)
+        \\ rfs [] \\ clean_tac
+        \\ qpat_x_assum `kk = _` (fn th => once_rewrite_tac [th])
+        \\ once_rewrite_tac [MULT_COMM] \\ fs [DIV_MULT]
+        \\ qmatch_goalsub_abbrev_tac`A - _`
+        \\ qmatch_goalsub_abbrev_tac`B * _`
+        \\ `A − (B * (kk DIV B) + kk MOD B) =
+            B * (B - 1) + B − (B * (kk DIV B) + kk MOD B)` by
+                 fs [Abbr `B`,Abbr `A`] \\ asm_rewrite_tac []
+        \\ `B * (B - 1) + B − (B * (kk DIV B) + kk MOD B) =
+            (B - 1 − (kk DIV B)) * B + (B - kk MOD B)` by
+            (fs [LEFT_SUB_DISTRIB,RIGHT_SUB_DISTRIB]
+             \\ rewrite_tac [SUB_PLUS]
+             \\ `B ** 2 − B + B − B * (kk DIV B) − kk MOD B =
+                 B ** 2 − B − B * (kk DIV B) + B − kk MOD B` by
+              (`B * (kk DIV B) <= B * B − B` by
+                 (match_mp_tac WordFromInt_DIV_LEMMA
+                  \\ fs [Abbr `B`,Abbr `A`])
+               \\ fs [Abbr `B`,Abbr `A`]) \\ asm_rewrite_tac []
+             \\ `kk MOD B < B` by simp [Abbr `B`]
+             \\ pop_assum mp_tac
+             \\ rpt (pop_assum kall_tac) \\ decide_tac)
+        \\ asm_rewrite_tac []
+        \\ `0 < B` by fs [Abbr `B`]
+        \\ simp [DIV_MULT]
+        \\ `8589934591 = B + (B-1)` by fs [Abbr `B`]
+        \\ asm_rewrite_tac []
+        \\ `B + (B − 1) − kk DIV B = B + ((B − 1) − kk DIV B)` by
+           (`kk DIV B < B /\ kk MOD B < B`
+                  by fs [Abbr `B`,Abbr `A`,DIV_LT_X]
+            \\ fs [Abbr `B`,Abbr `A`])
+        \\ asm_rewrite_tac []
+        \\ asm_simp_tac std_ss [ADD_MODULUS]
+        \\ rewrite_tac [GSYM SUB_PLUS]
+        \\ once_rewrite_tac [EQ_SYM_EQ]
+        \\ simp [])
       \\ strip_tac \\ fs []
       \\ fs [consume_space_def,LENGTH_n2mw_1]
       \\ rveq \\ fs []
