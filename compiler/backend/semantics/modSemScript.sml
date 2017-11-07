@@ -8,7 +8,7 @@ val _ = new_theory "modSem";
  * global definitions.
  *
  * The semantics of modLang differ in that there is no module environment menv, nor
- * are top-level bindings added to the normal env, thus when a closure is
+0* are top-level bindings added to the normal env, thus when a closure is
  * created, only locals bindings are put into it. There is a global environment
  * genv, which is just a list of the top-level bindings seen so far, with the
  * older bindings nearer the head. Global variable reference expressions simply
@@ -42,9 +42,11 @@ val _ = Datatype`
   environment = <|
     v : (varN, v) alist;
     (* The set of constructors that exist, according to their id, type and arity *)
-    c : (ctor_id # type_id # num) set;
+    c : ((ctor_id # type_id) # num) set;
     (* T if all patterns are required to be exhaustive *)
-    exh_pat : bool
+    exh_pat : bool;
+    (* T if constructors must be declared *)
+    check_ctor : bool
   |>`;
 
 val bool_id_def = Define `
@@ -60,7 +62,7 @@ val nil_id_def = Define `
   nil_id = 0n`;
 
 val cons_id_def = Define `
-  cons_id = 1n`;
+  cons_id = 0n`;
 
 val bind_id_def = Define `
   bind_id = 0n`;
@@ -438,56 +440,42 @@ val pat_bindings_def = Define `
   (pats_bindings [] already_bound = already_bound) ∧
   (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
 
-
-val pmatch_def = tDefine"pmatch"`
-(pmatch envC s (Pvar x) v' env = (Match ((x,v') :: env)))
-/\
-(pmatch envC s modLang$Pany v' env = Match env)
-/\
-(pmatch envC s (Plit l) (Litv l') env =
-(if l = l' then
-    Match env
-  else if lit_same_type l l' then
-    No_match
-  else
-    Match_type_error))
-/\
-(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME n') vs) env =
-  case FLOOKUP envC n of
-    SOME arity =>
-      if ctor_same_type (SOME n) (SOME n') ∧ (LENGTH ps = arity) then
-        if same_ctor n n' then
-          pmatch_list envC s ps vs env
-        else
-          No_match
-      else
-        Match_type_error
-  | _ => Match_type_error) ∧
-(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =
-(if LENGTH ps = LENGTH vs then
-    pmatch_list envC s ps vs env
-  else
-    Match_type_error))
-/\
-(pmatch envC s (Pref p) (Loc lnum) env =
-((case store_lookup lnum s of
-      SOME (Refv v) => pmatch envC s p v env
-    | _ => Match_type_error
-  )))
-/\
-(pmatch envC _ _ _ env = Match_type_error)
-/\
-(pmatch_list envC s [] [] env = (Match env))
-/\
-(pmatch_list envC s (p::ps) (v::vs) env =
-((case pmatch envC s p v env of
-      No_match => No_match
+val pmatch_def = tDefine "pmatch" `
+  (pmatch env s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
+  (pmatch env s modLang$Pany v' bindings = Match bindings) ∧
+  (pmatch env s (Plit l) (Litv l') bindings =
+    if l = l' then
+      Match bindings
+    else if lit_same_type l l' then
+      No_match
+    else
+      Match_type_error) ∧
+  (pmatch env s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
+    if env.check_ctor ∧
+       ((n, LENGTH ps) ∉ env.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
+      Match_type_error
+    else if same_ctor n n' then
+      pmatch_list env s ps vs bindings
+    else
+      No_match) ∧
+  (pmatch env s (Pcon NONE ps) (Conv NONE vs) bindings =
+    if LENGTH ps = LENGTH vs then
+      pmatch_list env s ps vs bindings
+    else
+      Match_type_error) ∧
+  (pmatch env s (Pref p) (Loc lnum) bindings =
+    case store_lookup lnum s of
+    | SOME (Refv v) => pmatch env s p v bindings
+    | _ => Match_type_error) ∧
+  (pmatch env _ _ _ bindings = Match_type_error) ∧
+  (pmatch_list env s [] [] bindings = Match bindings) ∧
+  (pmatch_list env s (p::ps) (v::vs) bindings =
+    case pmatch env s p v bindings of
+    | No_match => No_match
     | Match_type_error => Match_type_error
-    | Match env' => pmatch_list envC s ps vs env'
-  )))
-/\
-(pmatch_list envC s _ _ env = Match_type_error)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
+    | Match bindings' => pmatch_list env s ps vs bindings') ∧
+  (pmatch_list env s _ _ bindings = Match_type_error)`
+ (WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
                                         | INR (a,x,ps,y,z) => pat1_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
@@ -501,7 +489,7 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val evaluate_def = tDefine"evaluate"`
+val evaluate_def = tDefine "evaluate"`
   (evaluate (env:modSem$environment) (s:'ffi modSem$state) ([]:modLang$exp list) = (s,Rval [])) ∧
   (evaluate env s (e1::e2::es) =
     case fix_clock s (evaluate env s [e1]) of
@@ -524,14 +512,12 @@ val evaluate_def = tDefine"evaluate"`
      | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
      | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    case FLOOKUP env.c cn of
-    | NONE => (s,Rerr (Rabort Rtype_error))
-    | SOME arity =>
-        if arity = LENGTH es then
-          case evaluate env s (REVERSE es) of
-           | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-           | res => res
-        else (s, Rerr (Rabort Rtype_error))) ∧
+    if env.check_ctor ∧ (cn, LENGTH es) ∉ env.c then
+      (s, Rerr (Rabort Rtype_error))
+    else
+      case evaluate env s (REVERSE es) of
+      | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
+      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -585,7 +571,7 @@ val evaluate_def = tDefine"evaluate"`
       (s, Rerr(Rraise err_v))) ∧
   (evaluate_match env s v ((p,e)::pes) err_v =
    if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch env.c s.refs p v [] of
+     case pmatch env s.refs p v [] of
      | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
      | No_match => evaluate_match env s v pes err_v
      | _ => (s, Rerr(Rabort Rtype_error))
@@ -624,30 +610,32 @@ val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =
    case evaluate (env with v := []) s [e] of
    | (s, Rval [Conv NONE vs]) =>
-     (s, if LENGTH vs = n then Rval (FEMPTY,vs)
+     (s, if LENGTH vs = n then Rval ({},vs)
          else Rerr (Rabort Rtype_error))
    | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
    | (s, Rerr e) => (s, Rerr e)) ∧
   (evaluate_dec env s (Dletrec funs) =
-     (s, Rval (FEMPTY, MAP (λ(f,x,e). Closure [] x e) funs))) ∧
-  (evaluate_dec env s (Dtype arities) =
+     (s, Rval ({}, MAP (λ(f,x,e). Closure [] x e) funs))) ∧
+  (evaluate_dec env s (Dtype ctors) =
     (s with next_type_id := s.next_type_id + 1,
-     Rval (FEMPTY |++ MAPi (\idx a. ((idx, SOME s.next_type_id), a)) arities, []))) ∧
-  (evaluate_dec env s (Dexn a) =
+     Rval ({ ((idx, SOME s.next_type_id), arity) |
+             arity < LENGTH ctors ∧ idx < EL arity ctors },
+           []))) ∧
+  (evaluate_dec env s (Dexn arity) =
     (s with next_exn_id := s.next_exn_id + 1,
-     Rval (FEMPTY |+ ((s.next_exn_id, NONE), a), [])))`;
+     Rval ({((s.next_exn_id, NONE), arity)}, [])))`;
 
 val evaluate_decs_def = Define`
-  (evaluate_decs env s [] = (s, FEMPTY, NONE)) ∧
+  (evaluate_decs env s [] = (s, {}, NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
-   | (s, Rval (new_tds,new_env)) =>
+   | (s, Rval (new_ctors,new_env)) =>
      (case evaluate_decs
-             (env with c updated_by FUNION new_tds)
+             (env with c updated_by $UNION new_ctors)
              (s with globals updated_by (λg. g ++ MAP SOME new_env))
              ds of
-      | (s, new_tds', r) => (s, FUNION new_tds' new_tds, r))
-   | (s, Rerr e) => (s, FEMPTY, SOME e))`;
+      | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
+   | (s, Rerr e) => (s, {}, SOME e))`;
 
 val semantics_def = Define`
   semantics env st prog =

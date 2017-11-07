@@ -116,10 +116,10 @@ val env_lemma = Q.prove (
 val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
   `!env s ds1 s1 cenv1 s2 cenv2 r ds2.
     evaluate_decs env s ds1 = (s1,cenv1,NONE) ∧
-    evaluate_decs (env with c updated_by FUNION cenv1) s1 ds2 =
+    evaluate_decs (env with c updated_by $UNION cenv1) s1 ds2 =
       (s2,cenv2,r)
     ⇒
-    evaluate_decs env s (ds1++ds2) = (s2,FUNION cenv2 cenv1,r)`,
+    evaluate_decs env s (ds1++ds2) = (s2,cenv2 ∪ cenv1,r)`,
   induct_on `ds1` >>
   rw [evaluate_decs_def] >>
   fs [Once c_updated_by, env_lemma] >>
@@ -128,7 +128,7 @@ val evaluate_decs_append = Q.store_thm ("evaluate_decs_append",
   rpt var_eq_tac >>
   first_x_assum drule >>
   simp [] >>
-  fs [FUNION_ASSOC] >>
+  fs [UNION_ASSOC] >>
   disch_then drule >>
   fs [Once c_updated_by]);
 
@@ -454,34 +454,31 @@ val with_same_v = Q.store_thm("with_same_v[simp]",
   *)
 
 val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
-  `(!cenv refs p v evs env env' ts.
-    (cenv,refs,evs) = (env.c,s.refs,env.v) ∧
-    pmatch env.c s.refs p v env.v = Match env' ∧
-    ALL_DISTINCT (pat_bindings p (MAP FST env.v)) ∧
+  `(!env refs p v evs env' ts.
+    refs = s.refs ∧
+    modSem$pmatch env s.refs p v evs = Match env' ∧
+    ALL_DISTINCT (pat_bindings p (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pat_bindings p (MAP FST evs))
     ⇒
-    evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
-   (!cenv refs ps vs evs env env' ts.
-    (cenv,refs,evs) = (env.c,s.refs,env.v) ∧
-    pmatch_list env.c s.refs ps vs env.v = Match env' ∧
-    ALL_DISTINCT (pats_bindings ps (MAP FST env.v)) ∧
+    modSem$evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
+   (!env refs ps vs evs env' ts.
+    refs = s.refs ∧
+    modSem$pmatch_list env s.refs ps vs evs = Match env' ∧
+    ALL_DISTINCT (pats_bindings ps (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pats_bindings ps (MAP FST evs))
     ⇒
-    evaluate (env with v := env') s (bind_locals_list ts (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
+    modSem$evaluate (env with v := env') s (bind_locals_list ts (pats_bindings ps (MAP FST evs))) = (s,Rval (MAP SND env')))`,
   ho_match_mp_tac pmatch_ind >>
   srw_tac[][pat_bindings_def, pmatch_def]
   >- (
     match_mp_tac evaluate_vars >> srw_tac[][] >>
-    qexists_tac`(x,v)::env.v` >> srw_tac[][] )
+    qexists_tac`(x,v)::evs` >> srw_tac[][] )
   >- (
     match_mp_tac evaluate_vars >> srw_tac[][] >>
     first_assum(match_exists_tac o concl) >> simp[] )
   >- (
     match_mp_tac evaluate_vars >> srw_tac[][] >>
     first_assum(match_exists_tac o concl) >> simp[] )
-  >- (
-    first_x_assum (match_mp_tac o MP_CANON) >>
-    every_case_tac >> full_simp_tac(srw_ss())[] )
   >- (
     first_x_assum (match_mp_tac o MP_CANON) >>
     every_case_tac >> full_simp_tac(srw_ss())[] )
@@ -493,27 +490,28 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
     first_assum(match_exists_tac o concl) >> simp[] )
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[] >>
-    `ALL_DISTINCT (pat_bindings p (MAP FST env.v))`
+    `ALL_DISTINCT (pat_bindings p (MAP FST evs))`
             by metis_tac[pat_bindings_accum, ALL_DISTINCT_APPEND] >>
-    `pat_bindings p (MAP FST env.v) = MAP FST a`
+    `pat_bindings p (MAP FST evs) = MAP FST a`
                  by (imp_res_tac pmatch_extend >>
                      srw_tac[][] >>
                      metis_tac [pat_bindings_accum]) >>
-    fsrw_tac[QUANT_INST_ss[record_default_qp]][] >> rev_full_simp_tac(srw_ss())[] >>
-    `env with v := env' = <| v := env'; c := env.c;  exh_pat := env.exh_pat |>` by (
-      srw_tac[][environment_component_equality]) >> metis_tac[]));
+    fsrw_tac[QUANT_INST_ss[record_default_qp]][] >>
+    rev_full_simp_tac(srw_ss())[]));
 
+    (*
 val pmatch_evaluate_vars_lem = Q.store_thm ("pmatch_evaluate_vars_lem",
-  `∀p v env env_c s ts b.
-    pmatch env_c s.refs p v [] = Match env ∧
+  `∀p v bindings env s ts b.
+    pmatch env s.refs p v [] = Match bindings ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     LENGTH ts = LENGTH (pat_bindings p [])
     ⇒
-    evaluate <| c := env_c; v := env; exh_pat := b |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND env))`,
+    evaluate <| c := env.c; v := bindings; exh_pat := b |> s (bind_locals_list ts (pat_bindings p [])) = (s,Rval (MAP SND bindings))`,
   rw [] >>
-  `pmatch <|c := env_c; v := []; exh_pat := b|>.c s.refs p v <|c := env_c; v := []; exh_pat := b|>.v = Match env` by rw [] >>
+  `pmatch <|c := env.c; v := []; exh_pat := b|>.c s.refs p v <|c := env.c; v := []; exh_pat := b|>.v = Match bindings` by rw [] >>
   imp_res_tac pmatch_evaluate_vars >>
   fs []);
+  *)
 
       (*
 val evaluate_append = Q.store_thm("evaluate_append",
