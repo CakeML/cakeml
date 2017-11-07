@@ -103,7 +103,7 @@ fun get_api() =
   | _ => NONE
 
 local
-  fun id_list ids = String.concatWith ", " (List.map Int.toString ids)
+  fun id_list ids = String.concatWith " " (List.map Int.toString ids)
 in
   fun dispatch api =
     text_response (

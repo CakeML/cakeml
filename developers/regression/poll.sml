@@ -177,12 +177,11 @@ fun get_current_snapshots() : snapshot list =
       cakeml_integrations
   end
 
-val poll_delay = Time.fromSeconds(60 * 10)
-
 fun main() =
   let
+    val no_poll = List.exists (equal"--no-poll") (CommandLine.arguments())
     val () = ensure_queue_dirs die
-    fun loop() =
+    fun loop () =
       let
         val snapshots = get_current_snapshots()
         val fd = acquire_lock ()
@@ -196,6 +195,8 @@ fun main() =
                  else ignore (List.foldl add_waiting (next_job_id [waiting,active,stopped]) to_queue)
         (* TODO: stop timed out jobs *)
         val () = Posix.IO.close fd
-        val () = OS.Process.sleep poll_delay
-      in loop () end
+      in
+        if no_poll then ()
+        else (OS.Process.sleep poll_delay; loop ())
+      end
   in loop () end

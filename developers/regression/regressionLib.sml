@@ -72,6 +72,10 @@ fun die ls = (
   OS.Process.exit OS.Process.failure;
   raise (Fail "impossible"))
 
+fun warn ls = (
+  TextIO.output(TextIO.stdErr,String.concat ls);
+  TextIO.output(TextIO.stdErr,"\n"))
+
 fun assert b ls = if b then () else die ls
 
 type obj = { hash : string, message : string, date : Date.date }
@@ -225,11 +229,8 @@ fun queue_of_job die f =
 fun next_job_id qs =
   1 + List.foldl (fn (q,id) => max id (max_list(q()))) 0 qs
 
-fun read_job_snapshot q id : bare_snapshot =
+fun read_bare_snapshot invalid inp =
   let
-    val f = OS.Path.concat(q,Int.toString id)
-    val inp = TextIO.openIn f handle IO.Io _ => die ["cannot open ",f]
-    val invalid = [f," has invalid file format"]
     fun extract_sha prefix line =
       let
         val line = Substring.full line
@@ -263,6 +264,13 @@ fun read_job_snapshot q id : bare_snapshot =
     , bhol = hol_sha }
   end
 
+fun read_job_snapshot q id : bare_snapshot =
+  let
+    val f = OS.Path.concat(q,Int.toString id)
+    val inp = TextIO.openIn f handle IO.Io _ => die ["cannot open ",f]
+    val invalid = [f," has invalid file format"]
+  in read_bare_snapshot invalid inp end
+
 fun filter_existing snapshots qs =
   let
     exception Return
@@ -286,23 +294,47 @@ fun remove_if_superseded snapshots id =
 fun file_to_string f =
   let val inp = TextIO.openIn f in TextIO.inputAll inp before TextIO.closeIn inp end
 
+fun file_to_line f =
+  let
+    val inp = TextIO.openIn f
+    val lopt = TextIO.inputLine inp
+    val () = TextIO.closeIn inp
+  in
+    case lopt of NONE => ""
+    | SOME line => String.extract(line,0,SOME(String.size line - 1))
+  end
+
 val until_space =
   Substring.string o Substring.takel (not o Char.isSpace) o Substring.full
+
+local
+  open Unix
+in
+  fun system_output (cmd,args) =
+    let
+      val proc = execute (cmd,args) handle e as OS.SysErr _ => die[cmd," failed to execute on ",String.concatWith" "args,"\n",exnMessage e]
+      val output = TextIO.inputAll (textInstreamOf proc)
+      val status = reap proc
+    in
+      if OS.Process.isSuccess status then output
+      else die[cmd," failed on ",String.concatWith" "args]
+    end
+end
+
+val curl_path = "/usr/bin/curl"
 
 structure GitHub = struct
   val token = until_space (file_to_string "token")
   val endpoint = "https://api.github.com/graphql"
-  val curl_output_file = "output"
-  fun curl_cmd query = String.concat
-    ["curl --silent --show-error --output ",curl_output_file,
-     " --header 'Authorization: bearer ",token,
-     "' --request POST --data '{\"query\" : \"",query,"\"}' ",endpoint]
-  fun graphql query =
-    let
-      val status = OS.Process.system (curl_cmd query) handle OS.SysErr _ => die["failed to execute curl for ",query]
-      val () = assert (OS.Process.isSuccess status) ["curl failed for ",query]
-    in file_to_string curl_output_file end
+  fun curl_cmd query = (curl_path,["--silent","--show-error",
+    "--header",String.concat["Authorization: bearer ",token],
+    "--request","POST",
+    "--data",String.concat["{\"query\" : \"",query,"\"}"],
+    endpoint])
+  val graphql = system_output o curl_cmd
 end
+
+val poll_delay = Time.fromSeconds(60 * 30)
 
 type id = int
 
@@ -338,10 +370,8 @@ fun api_from_string s =
 
 structure API = struct
   val endpoint = "https://cakeml.org/regression.cgi"
-  val curl_output_file = "output"
-  fun curl_cmd api = String.concat
-    ["curl --silent --show-error --output ",curl_output_file,
-     "'",endpoint,api_to_string api,"'"]
+  fun curl_cmd api = (curl_path,["--silent","--show-error",String.concat[endpoint,api_to_string api]])
+  val send = system_output o curl_cmd
 end
 
 end
