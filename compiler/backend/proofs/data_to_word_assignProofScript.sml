@@ -2989,10 +2989,64 @@ val WordFromInt_DIV_LEMMA = prove(
   \\ `B² − B = B * (B - 1)` by fs [LEFT_SUB_DISTRIB]
   \\ fs []);
 
-val th = Q.store_thm("assign_WordFromInt",
-  `op = WordFromInt ==>
-   ^assign_thm_goal`,
+val explode_less_32 = prove(
+  ``(!n. n < 32n ==> P (n:num)) <=>
+    P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\
+    P 10 /\ P 11 /\ P 12 /\ P 13 /\ P 14 /\ P 15 /\ P 16 /\ P 17 /\ P 18 /\ P 19 /\
+    P 20 /\ P 21 /\ P 22 /\ P 23 /\ P 24 /\ P 25 /\ P 26 /\ P 27 /\ P 28 /\ P 29 /\
+    P 30 /\ P 31``,
+  rw [] \\ eq_tac \\ fs [] \\ rw []
+  \\ rpt (Cases_on `n` \\ fs [] \\ Cases_on `n'` \\ fs []));
 
+val LESS_IMP_NOT_BIT = prove(
+  ``!k n. n < 2 ** k ==> ~BIT k n``,
+  fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]);
+
+val Smallnum_alt = store_thm("Smallnum_alt",
+  ``Smallnum i =
+    if i < 0 then (0w - n2w (Num (-i))) << 2 else n2w (Num i) << 2``,
+  Cases_on `i` \\ fs [WORD_MUL_LSL,Smallnum_def,GSYM word_mul_n2w]
+  \\ once_rewrite_tac [SIMP_CONV (srw_ss()) [] ``-w:'a word``]
+  \\ simp_tac std_ss [AC WORD_MULT_COMM WORD_MULT_ASSOC]);
+
+val BIT_lemma = prove(
+  ``BIT n (2 ** k - i) <=> if n < k /\ i < 2n ** k /\ i <> 0
+                           then BIT n (2 ** (MAX n i + 1) - i)
+                           else BIT n (2 ** k - i)``,
+  IF_CASES_TAC \\ fs []
+  \\ `i = i MOD 2 ** k` by fs []
+  \\ pop_assum (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [th])))
+  \\ rewrite_tac [bitTheory.BIT_COMPLEMENT] \\ fs []
+  \\ `i < 2 ** (MAX n i + 1)` by
+   (match_mp_tac LESS_LESS_EQ_TRANS
+    \\ `i < 2 ** i` by fs [multiwordTheory.LESS_2_EXP]
+    \\ asm_exists_tac \\ fs []
+    \\ rw [MAX_DEF])
+  \\ `i MOD 2 ** (MAX n i + 1) = i` by fs []
+  \\ `2 ** (MAX n i + 1) − i =
+      2 ** (MAX n i + 1) − (i MOD 2 ** (MAX n i + 1))` by metis_tac []
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ rewrite_tac [bitTheory.BIT_COMPLEMENT] \\ fs []
+  \\ eq_tac \\ rw []
+  \\ rw [MAX_DEF] \\ fs []);
+
+val BIT_Lemma2 = prove(
+  ``BIT m (2 ** k - n) = if n <> 0 /\ n <= 2 ** m /\ m < k then T
+                         else BIT m (2n ** k - n)``,
+  IF_CASES_TAC \\ fs []
+  \\ imp_res_tac bitTheory.TWOEXP_MONO
+  \\ drule LESS_EQ_LESS_TRANS
+  \\ disch_then drule
+  \\ strip_tac
+  \\ `n = n MOD 2 ** k` by fs []
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ rewrite_tac [bitTheory.BIT_COMPLEMENT]
+  \\ fs [] \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
+  \\ `n - 1 < 2 ** m` by fs [] \\ fs []
+  \\ fs [LESS_DIV_EQ_ZERO]);
+
+val th = Q.store_thm("assign_WordFromInt",
+  `op = WordFromInt ==> ^assign_thm_goal`,
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -3011,10 +3065,7 @@ val th = Q.store_thm("assign_WordFromInt",
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ simp[assign_def]
   \\ BasicProvers.TOP_CASE_TAC >- simp[]
-  \\ reverse BasicProvers.TOP_CASE_TAC >-
-
-    (
-
+  \\ reverse BasicProvers.TOP_CASE_TAC >- (
     simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
     \\ simp[asmTheory.word_cmp_def]
@@ -3057,11 +3108,24 @@ val th = Q.store_thm("assign_WordFromInt",
       \\ impl_keep_tac >-
        (rewrite_tac [CONJ_ASSOC]
         \\ reverse conj_tac THEN1 rw [adjust_var_def]
-        \\ Cases_on `i` \\ fs [Smallnum_def]
+        \\ rewrite_tac [Smallnum_alt,WORD_SUB_LZERO]
+        \\ fs [] \\ Cases_on `i` \\ fs []
+        \\ rfs [small_int_def,dimword_def]
         \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,
-               word_extract_def,w2w,word_bits_def]
-        \\ simp[]
-        \\ cheat)
+               word_extract_def,w2w,word_bits_def,word_msb_def,word_lsl_def]
+        THEN1
+         (fs [word_lsl_def,fcpTheory.FCP_BETA]
+          \\ fs [explode_less_32,fcpTheory.FCP_BETA,word_index]
+          \\ `~BIT 29 n` by (match_mp_tac LESS_IMP_NOT_BIT \\ fs []) \\ fs []
+          \\ rw [] \\ TRY (match_mp_tac LESS_IMP_NOT_BIT) \\ fs [])
+        \\ fs [word_lsl_def,fcpTheory.FCP_BETA]
+        \\ fs [explode_less_32,fcpTheory.FCP_BETA,word_index]
+        \\ fs [word_2comp_n2w,dimword_def,word_index]
+        \\ reverse (rw [])
+        \\ rewrite_tac [GSYM (EVAL ``2n ** 32``)]
+        \\ rewrite_tac [GSYM (EVAL ``2n ** 64``)]
+        \\ TRY (once_rewrite_tac [BIT_Lemma2] \\ fs [] \\ NO_TAC)
+        \\ once_rewrite_tac [BIT_lemma] \\ fs [])
       \\ strip_tac \\ fs[]
       \\ clean_tac \\ fs[]
       \\ conj_tac >-
