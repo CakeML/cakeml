@@ -436,6 +436,7 @@ val assign_rw = Q.prove(`
    TODO: econv might be going too far with case simplification
 *)
 
+val _ = translate (WriteWord32_on_32_def |> inline_simp |> conv32)
 val _ = translate (WriteWord64_on_32_def |> inline_simp |> conv32)
 val _ = translate (WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def,word_2comp_def]|> conv32)
 
