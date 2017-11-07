@@ -3118,6 +3118,7 @@ val th = Q.store_thm("assign_WordFromInt",
         \\ Cases_on `i` \\ fs [Smallnum_def]
         \\ fs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA,
                word_extract_def,w2w,word_bits_def]
+        \\ simp[]
         \\ cheat)
       \\ strip_tac \\ fs[]
       \\ clean_tac \\ fs[]
@@ -3254,7 +3255,15 @@ val th = Q.store_thm("assign_WordFromInt",
         \\ rewrite_tac [word_2comp_n2w]
         \\ conj_tac
         \\ rfs [word_extract_n2w,bitTheory.BITS_THM,dimword_def]
-        THEN1 cheat
+        THEN1
+          (qmatch_goalsub_abbrev_tac`_ MOD A MOD B`>>
+          `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]>>
+          drule MOD_MULT_MOD>>
+          disch_then drule >>
+          simp[]>> strip_tac>>
+          drule MOD_COMPLEMENT>>
+          disch_then drule>>
+          simp[])
         \\ pop_assum mp_tac
         \\ once_rewrite_tac [multiwordTheory.n2mw_def]
         \\ once_rewrite_tac [multiwordTheory.n2mw_def]
@@ -3269,9 +3278,27 @@ val th = Q.store_thm("assign_WordFromInt",
         \\ `bb <=> Num (ABS i) MOD 4294967296 = 0` by
           (unabbrev_all_tac
            \\ Cases_on `Num (ABS i) MOD 4294967296 = 0` \\ fs []
-           \\ fs [GSYM NOT_LESS] \\ cheat)
-        \\ Cases_on `bb` \\ fs [] \\ cheat)
-
+           \\ fs [GSYM NOT_LESS]
+           \\ DEP_REWRITE_TAC [GSYM bitTheory.MOD_ADD_1]
+           \\ simp[ADD_COMM,ADD_ASSOC]
+           \\ simp[NOT_LESS_EQUAL])
+        \\ Cases_on `bb` \\ fs []
+        >-
+          (simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def]>>
+          qmatch_goalsub_abbrev_tac`C MOD A DIV B`>>
+          `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]>>
+          drule (GSYM DIV_MOD_MOD_DIV)>>
+          disch_then drule>>
+          simp[]>>
+          cheat)
+        >>
+          simp[Once (GSYM WORD_NEG_MUL),word_2comp_n2w,dimword_def,word_add_n2w]>>
+          qmatch_goalsub_abbrev_tac`C MOD A DIV B`>>
+           `A = B * B ∧ 0 < B` by fs[Abbr`A`,Abbr`B`]>>
+          drule (DIV_MOD_MOD_DIV)>>
+          disch_then drule>>
+          simp[]>>
+          cheat)
       \\ strip_tac \\ fs []
       \\ fs [consume_space_def,LENGTH_n2mw_1]
       \\ rveq \\ fs []
