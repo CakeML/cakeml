@@ -282,6 +282,12 @@ fun filter_existing snapshots qs =
     handle Return => []
   end
 
+fun remove_if_superseded snapshots id =
+  if List.exists (equal (read_job_snapshot "waiting" id) o bare_of_snapshot) snapshots
+  then ()
+  else OS.FileSys.remove(OS.Path.concat("waiting",Int.toString id))
+       handle OS.SysErr _ => die["waiting job ",Int.toString id," disappeared"]
+
 fun file_to_string f =
   let val inp = TextIO.openIn f in TextIO.inputAll inp before TextIO.closeIn inp end
 

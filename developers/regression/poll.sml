@@ -186,6 +186,7 @@ fun main() =
       let
         val snapshots = get_current_snapshots()
         val fd = acquire_lock ()
+        val () = List.app (remove_if_superseded snapshots) (waiting())
         val to_queue =
           filter_existing snapshots
             [("waiting",waiting),
@@ -193,7 +194,6 @@ fun main() =
              ("stopped",stopped)]
         val () = if List.null to_queue then ()
                  else ignore (List.foldl add_waiting (next_job_id [waiting,active,stopped]) to_queue)
-        (* TODO: remove superseded jobs from waiting *)
         (* TODO: stop timed out jobs *)
         val () = Posix.IO.close fd
         val () = OS.Process.sleep poll_delay
