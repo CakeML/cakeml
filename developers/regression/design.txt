@@ -22,8 +22,8 @@ Server API:
     worker <name> claims job <id>
     fails if <id> is not currently waiting
 
-  append id [data]:
-    record <data> as additional output for job <id>
+  append id line:
+    record <line> as additional output for job <id>
     includes timestamp
     fails if <id> is not currently active
 

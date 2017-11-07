@@ -102,7 +102,7 @@ fun bare_of_snapshot ({cakeml,hol}:snapshot) : bare_snapshot =
   {bcml = bare_of_integration cakeml, bhol = #hash hol}
 
 type line = string
-type log_entry = Date.date * line list
+type log_entry = Date.date * line
 type log = log_entry list
 
 type worker_name = string
@@ -116,8 +116,6 @@ type job = {
 
 local
   val full_date = Date.fmt "%Y %b %d %H:%M:%S"
-  val date_len = 4 + 1 + 3 + 1 + 2 + 1 + 2 + 1 + 2 + 1 + 2
-  fun spaces n = CharVector.tabulate(n,(fn _ => #" "))
 in
   fun print_claimed out (worker,date) =
     let
@@ -127,15 +125,12 @@ in
       prl ["Machine: ",worker,"\nClaimed: ",full_date date,"\n"]
     end
 
-  fun print_log_entry out (date,lines) =
+  fun print_log_entry out (date,line) =
     let
       fun pr s = TextIO.output(out,s)
       val prl = List.app pr
-      val () = prl[ full_date date, ": "]
     in
-      case lines of [] => () | l::ls =>
-       (prl [l, "\n"];
-        List.app (fn l => prl[spaces (date_len+2), l, "\n"]) ls)
+      prl [full_date date, ": ", line, "\n"]
     end
 
   fun print_snapshot out (s:snapshot) =
@@ -291,11 +286,11 @@ fun remove_if_superseded snapshots id =
 fun file_to_string f =
   let val inp = TextIO.openIn f in TextIO.inputAll inp before TextIO.closeIn inp end
 
-structure Curl = struct
-  val token =
-    Substring.string (
-      Substring.takel (not o Char.isSpace) (
-        Substring.full (file_to_string "token")))
+val until_space =
+  Substring.string o Substring.takel (not o Char.isSpace) o Substring.full
+
+structure GitHub = struct
+  val token = until_space (file_to_string "token")
   val endpoint = "https://api.github.com/graphql"
   val curl_output_file = "output"
   fun curl_cmd query = String.concat
@@ -307,6 +302,46 @@ structure Curl = struct
       val status = OS.Process.system (curl_cmd query) handle OS.SysErr _ => die["failed to execute curl for ",query]
       val () = assert (OS.Process.isSuccess status) ["curl failed for ",query]
     in file_to_string curl_output_file end
+end
+
+type id = int
+
+datatype api = Waiting | Active | Stopped
+             | Job of id | Claim of id * worker_name
+             | Append of id * line (* not including newline *)
+             | Stop of id | Retry of id
+
+fun api_to_string Waiting = "/waiting"
+  | api_to_string Active = "/active"
+  | api_to_string Stopped = "/stopped"
+  | api_to_string (Job id) = String.concat["/job/",Int.toString id]
+  | api_to_string (Claim (id,name)) = String.concat["/claim/",Int.toString id,"/",name]
+  | api_to_string (Append (id,line)) = String.concat["/append/",Int.toString id,"/",line]
+  | api_to_string (Stop id) = String.concat["/stop/",Int.toString id]
+  | api_to_string (Retry id) = String.concat["/retry/",Int.toString id]
+
+fun id_from_string n =
+  case Int.fromString n of NONE => NONE
+  | SOME id => if check_id n id then SOME id else NONE
+
+fun api_from_string s =
+  if s = "/waiting" then SOME Waiting
+  else if s = "/active" then SOME Active
+  else if s = "/stopped" then SOME Stopped
+  else (case String.tokens (equal #"/") s of
+    ["job",n] => Option.map Job (id_from_string n)
+  | ["claim",n,s] => Option.map (fn id => Claim(id,s)) (id_from_string n)
+  | ["append",n,s] => Option.map (fn id => Append(id,s)) (id_from_string n)
+  | ["stop",n] => Option.map Stop (id_from_string n)
+  | ["retry",n] => Option.map Retry (id_from_string n)
+  | _ => NONE)
+
+structure API = struct
+  val endpoint = "https://cakeml.org/regression.cgi"
+  val curl_output_file = "output"
+  fun curl_cmd api = String.concat
+    ["curl --silent --show-error --output ",curl_output_file,
+     "'",endpoint,api_to_string api,"'"]
 end
 
 end

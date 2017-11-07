@@ -52,13 +52,13 @@ fun claim id name =
     print_claimed out (name,Date.fromTimeUniv(Time.now())) before TextIO.closeOut out
   end
 
-fun append id data =
+fun append id line =
   let
     val f = Int.toString id
     val p = OS.Path.concat("active",f)
     val out = TextIO.openAppend p handle e as IO.Io _ => (cgi_die ["job ",f," is not active: cannot append"]; raise e)
   in
-    print_log_entry out (Date.fromTimeUniv(Time.now()),data) before TextIO.closeOut out
+    print_log_entry out (Date.fromTimeUniv(Time.now()),line) before TextIO.closeOut out
   end
 
 fun stop id =
@@ -95,41 +95,12 @@ fun retry id =
     val () = TextIO.closeIn inp
   in id end
 
-type id = int
-
-datatype api = Waiting | Active | Stopped
-             | Job of id | Claim of id * worker_name
-             | Append of id * line list
-             | Stop of id | Retry of id
-
-local
-  fun get_id n =
-    case Int.fromString n of NONE => NONE
-    | SOME id => if check_id n id then SOME id else NONE
-  fun guard b x = if b then SOME x else NONE
-  fun mguard b f x = if b then Option.map f x else NONE
-  fun mguard2 b f x y = if b then Option.join (Option.map (fn x => Option.map (fn y => f(x,y)) y) x) else NONE
-in
-  fun get_api() =
-    case (OS.Process.getEnv "PATH_INFO",
-          OS.Process.getEnv "REQUEST_METHOD") of
-      (SOME path_info, SOME request_method) =>
-      if path_info = "/waiting" then guard (request_method="GET") Waiting
-      else if path_info = "/active" then guard (request_method="GET") Active
-      else if path_info = "/stopped" then guard (request_method="GET") Stopped
-      else (case String.tokens (equal #"/") path_info of
-        ["job",n] => mguard (request_method="GET") Job (get_id n)
-      | ["claim",n,s] => mguard (request_method="GET") (fn id => Claim(id,s)) (get_id n)
-      | ["append",n] => mguard2 (request_method="POST") Append
-          (get_id n)
-          (Option.map
-            (fn len => String.fields (equal #"\n") (TextIO.inputN(TextIO.stdIn,len)))
-            (Option.composePartial(Int.fromString,OS.Process.getEnv) "CONTENT_LENGTH"))
-      | ["stop",n] => mguard (request_method="GET") Stop (get_id n)
-      | ["retry",n] => mguard (request_method="GET") Retry (get_id n)
-      | _ => NONE)
-    | _ => NONE
-end
+fun get_api() =
+  case (OS.Process.getEnv "PATH_INFO",
+        OS.Process.getEnv "REQUEST_METHOD") of
+    (SOME path_info, SOME "GET")
+      => api_from_string path_info
+  | _ => NONE
 
 local
   fun id_list ids = String.concatWith ", " (List.map Int.toString ids)
@@ -140,9 +111,9 @@ in
         Waiting => id_list (waiting())
       | Active => id_list (active())
       | Stopped => id_list (stopped())
-      | Job id => let val inp = TextIO.openIn(job id) in TextIO.inputAll inp before TextIO.closeIn inp end
+      | Job id => file_to_string (job id)
       | Claim(id,name) => (claim id name; "claimed")
-      | Append(id,data) => (append id data; "appended")
+      | Append(id,line) => (append id line; "appended")
       | Stop id => (stop id; "stopped")
       | Retry id => String.concat["retried as job ",Int.toString(retry id)]
     ) handle e => cgi_die [exnMessage e]

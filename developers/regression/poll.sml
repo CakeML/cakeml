@@ -141,7 +141,7 @@ val read_pr =
 
 fun get_current_snapshots() : snapshot list =
   let
-    val response = Curl.graphql cakeml_query
+    val response = GitHub.graphql cakeml_query
     fun add_master obj acc = (Branch("master",obj)::acc)
     fun add_prs prs [m as (Branch(_,base_obj))] =
       m :: (List.map (PR o with_base_obj base_obj) prs)
@@ -160,7 +160,7 @@ fun get_current_snapshots() : snapshot list =
             [("nodes", transform (read_opt_list read_pr []) add_prs)])
           ])])] []
       (Substring.full response)
-    val response = Curl.graphql hol_query
+    val response = GitHub.graphql hol_query
     fun ignore_acc obj acc = obj
     val (hol_obj,ss) =
       read_dict
