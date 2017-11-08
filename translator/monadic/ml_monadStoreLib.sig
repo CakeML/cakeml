@@ -1,8 +1,6 @@
 signature ml_monadStoreLib =
 sig
-    type thm = Thm.thm
-    type term = Term.term
-    type hol_type = Type.hol_type
+    include ml_translatorLib
 
     type monadic_translation_parameters =
     {store_pred_def : thm,

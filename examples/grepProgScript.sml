@@ -138,17 +138,9 @@ val EqualityType_REGEXP_REGEXP_TYPE = Q.store_thm("EqualityType_REGEXP_REGEXP_TY
 val _ = store_eq_thm EqualityType_REGEXP_REGEXP_TYPE;
 (* -- *)
 
-(* TODO: the regexp can be avoided by using listTheory one instead *)
-val zip_eq_zip = Q.store_thm("zip_eq_zip",
-  `regexp$zip = CURRY list$ZIP`,
-  simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac regexpTheory.zip_ind
-  \\ EVAL_TAC \\ rw[ZIP_def]);
+val r = translate regexp_compareW_def;
 
-val r = save_thm("regexp_compareW_ind", regexp_compareW_ind |> REWRITE_RULE[zip_eq_zip,CURRY_DEF])
-val _ = add_preferred_thy"-";
-val r = translate (regexp_compareW_def |> REWRITE_RULE[zip_eq_zip,CURRY_DEF]);
-
+val _ = add_preferred_thy "-";
 val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 
@@ -899,7 +891,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ imp_res_tac regexp_matcher_with_limit_sound
     \\ rveq \\ fs[])
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
+  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`λn. STDIO (FOLDL ff I (TAKE n fls) fs)`
   \\ xsimpl

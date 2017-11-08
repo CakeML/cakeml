@@ -29,6 +29,9 @@ given as command-line arguments to this script. The contents of the
 summaries are read from a specific style of comment that needs to
 appear at the top of each given file.
 
+[regression](regression):
+Automated regression test infrastructure for CakeML.
+
 [regression-test.sh](regression-test.sh):
 A script that runs the regression test.
 

@@ -1,10 +1,10 @@
 open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib mlvectorProgTheory mlstringTheory
-  basisFunctionsLib
+  ml_translatorLib ml_translatorTheory ml_progLib
+  mlstringTheory VectorProgTheory basisFunctionsLib
 
-val _ = new_theory"mlstringProg"
+val _ = new_theory"StringProg"
 
-val _ = translation_extends "mlvectorProg";
+val _ = translation_extends "VectorProg";
 
 val _ = ml_prog_update (open_module "String");
 
@@ -36,6 +36,7 @@ val extract_side_thm = Q.prove(
 val result = translate strcat_def;
 
 val result = translate concatWith_aux_def;
+val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;
 
 val result = translate str_def;
@@ -102,9 +103,9 @@ val isStringThere_aux_side_thm = Q.prove (
 
 val _ = next_ml_names := ["isPrefix"];
 val result = translate isPrefix_def;
-val isPrefix_side_def = definition"isprefix_1_side_def";
+val isPrefix_side_def = definition"isprefix_side_def";
 val isPrefix_thm = Q.prove (
-  `!s1 s2. isprefix_1_side s1 s2`,
+  `!s1 s2. isprefix_side s1 s2`,
   rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
 val _ = next_ml_names := ["isSuffix"];

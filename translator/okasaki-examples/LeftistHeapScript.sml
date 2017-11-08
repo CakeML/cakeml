@@ -1,13 +1,13 @@
 open preamble
 open bagTheory bagLib okasaki_miscTheory;
-open ml_translatorLib mllistProgTheory;
+open ml_translatorLib ListProgTheory;
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
 
 val _ = new_theory "LeftistHeap"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 20 *)
 

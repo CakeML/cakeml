@@ -10,10 +10,12 @@ clFFITheory
 fsFFITheory fsFFIPropsTheory
 
 mlstringTheory
-mlw8arrayProgTheory
-mlarrayProgTheory
+
+ListProofTheory
+Word8ArrayProofTheory
+ArrayProofTheory
 CommandlineProofTheory
-textio_initProgTheory mltextioProgTheory mltextioSpecTheory
+TextIOProgTheory TextIOProofTheory
 
 basisProgTheory basisFunctionsLib basis_ffiLib
 

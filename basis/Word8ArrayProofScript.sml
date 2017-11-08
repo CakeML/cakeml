@@ -1,33 +1,10 @@
 open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib basisFunctionsLib
-     mlword8ProgTheory
+     ml_translatorTheory ml_translatorLib ml_progLib cfLib
+     Word8ArrayProgTheory
 
-val _ = new_theory "mlw8arrayProg";
+val _ = new_theory "Word8ArrayProof";
 
-val _ = translation_extends "mlword8Prog";
-
-val _ = ml_prog_update (open_module "Word8Array");
-
-val _ = append_decs
-   ``[mk_binop "array" Aw8alloc;
-      mk_binop "sub" Aw8sub;
-      mk_unop "length" Aw8length;
-      Dlet unknown_loc (Pvar "update") (Fun "x" (Fun "y" (Fun "z"
-        (App Aw8update [Var (Short "x"); Var (Short "y"); Var (Short "z")]))));
-      Dlet unknown_loc (Pvar "copy")
-        (Fun "src" (Fun "srcoff" (Fun "len" (Fun "dst" (Fun "dstoff"
-        (App CopyAw8Aw8 [Var (Short "src");Var (Short "srcoff");Var (Short "len");
-                         Var (Short "dst");Var (Short "dstoff")]))))));
-      Dlet unknown_loc (Pvar "copyVec")
-        (Fun "src" (Fun "srcoff" (Fun "len" (Fun "dst" (Fun "dstoff"
-        (App CopyStrAw8 [Var (Short "src");Var (Short "srcoff");Var (Short "len");
-                         Var (Short "dst");Var (Short "dstoff")]))))));
-      Dlet unknown_loc (Pvar "substring")
-        (Fun "src" (Fun "srcoff" (Fun "len"
-        (App CopyAw8Str [Var (Short "src");Var (Short "srcoff");Var (Short "len")])))) ]``;
-
-val _ = ml_prog_update (close_module NONE);
+val _ = translation_extends "Word8ArrayProg";
 
 val basis_st = get_ml_prog_state;
 

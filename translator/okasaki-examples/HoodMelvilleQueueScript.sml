@@ -1,9 +1,8 @@
-
 open HolKernel Parse boolLib bossLib; val _ = new_theory "HoodMelvilleQueue";
 
-open listTheory arithmeticTheory ml_translatorLib mllistProgTheory;
+open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 val _ = Parse.hide"state";
 

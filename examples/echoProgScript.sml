@@ -8,7 +8,7 @@ val echo = process_topdecs
   `fun echo u =
       let
         val cl = Commandline.arguments ()
-        val cls = String.concatwith " " cl
+        val cls = String.concatWith " " cl
         val ok = TextIO.print_string cls
       in TextIO.print_newline() end`;
 

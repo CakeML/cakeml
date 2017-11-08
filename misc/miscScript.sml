@@ -2907,6 +2907,15 @@ val splitlines_eq_nil = Q.store_thm("splitlines_eq_nil[simp]",
   >- ( imp_res_tac FIELDS_next \\ fs[] )
   \\ fs[LENGTH_NIL]);
 
+val splitlines_CONS_FST_SPLITP = Q.store_thm("splitlines_CONS_FST_SPLITP",
+  `splitlines ls = ln::lns ⇒ FST (SPLITP ($= #"\n") ls) = ln`,
+  rw[splitlines_def]
+  \\ Cases_on`ls` \\ fs[FIELDS_def]
+  \\ TRY pairarg_tac \\ fs[] \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ]
+  \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
+  \\ Cases_on`y` \\ fs[]);
+
 val DIV_EQ_0 = Q.store_thm("DIV_EQ_0",
   `1 < b ==> ((n DIV b = 0) = (n < b))`,
   metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
@@ -3070,11 +3079,47 @@ val always_DROP = Q.store_thm("always_DROP",
   Induct_on`k` >> Cases_on`ll` >> fs[always_thm,LDROP] >>
   rw[] >> imp_res_tac always_thm >> fs[]);
 
-(* TODO: move *)
 val LDROP_1 = Q.store_thm("LDROP_1",
   `LDROP (1: num) (h:::t) = SOME t`,
   `LDROP (SUC 0) (h:::t) = SOME t` by fs[LDROP] >>
   metis_tac[arithmeticTheory.ONE]);
+
+val LDROP_NONE_LFINITE = Q.store_thm("LDROP_NONE_LFINITE",
+  `LDROP k l = NONE ⇒ LFINITE l`,
+  metis_tac[NOT_LFINITE_DROP,NOT_SOME_NONE]);
+
+val LDROP_LDROP = Q.store_thm("LDROP_LDROP",
+  `!ll k1 k2. ¬ LFINITE ll ==>
+    THE (LDROP k2 (THE (LDROP k1 ll))) =
+    THE (LDROP k1 (THE (LDROP k2 ll)))`,
+    rw[] >>
+    `LDROP (k1+k2) ll = LDROP (k2 + k1) ll` by fs[] >>
+    fs[LDROP_ADD] >>
+    NTAC 2 (full_case_tac >- imp_res_tac LDROP_NONE_LFINITE) >> fs[])
+
+val TAKE_TAKE_MIN = Q.store_thm("TAKE_TAKE_MIN",
+  `!m n. TAKE n (TAKE m l) = TAKE (MIN n m) l`,
+  Induct_on`l` >> rw[] >>
+  Cases_on`m` >> Cases_on`n` >> fs[MIN_DEF] >> CASE_TAC >> fs[]);
+
+val SPLITP_TAKE_DROP = Q.store_thm("SPLITP_TAKE_DROP",
+ `!P i l. EVERY ($~ ∘ P) (TAKE i l) ==>
+  P (EL i l) ==>
+  SPLITP P l = (TAKE i l, DROP i l)`,
+  Induct_on`l` >> rw[SPLITP] >> Cases_on`i` >> fs[] >>
+  res_tac >> fs[FST,SND]);
+
+val SND_SPLITP_DROP = Q.store_thm("SND_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   SND (SPLITP P (DROP n l)) = SND (SPLITP P l)`,
+ Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >> fs[SPLITP]);
+
+val FST_SPLITP_DROP = Q.store_thm("FST_SPLITP_DROP",
+ `!P n l. EVERY ($~ o P) (TAKE n l) ==>
+   FST (SPLITP P l) = (TAKE n l) ++ FST (SPLITP P (DROP n l))`,
+ Induct_on`n` >> rw[SPLITP] >> Cases_on`l` >>
+ PURE_REWRITE_TAC[DROP_def,TAKE_def,APPEND] >> simp[] >>
+ fs[SPLITP]);
 
 (* computes the next position for which P holds *)
 val Lnext_def = tDefine "Lnext" `
@@ -3219,6 +3264,14 @@ val insert_atI_end = Q.store_thm("insert_atI_end",
   `insert_atI l1 (LENGTH l2) l2 = l2 ++ l1`,
   simp[insert_atI_def,DROP_LENGTH_TOO_LONG]);
 
+val insert_atI_insert_atI = Q.store_thm("insert_atI_insert_atI",
+  `pos2 = pos1 + LENGTH c1 ==>
+    insert_atI c2 pos2 (insert_atI c1 pos1 l) = insert_atI (c1 ++ c2) pos1 l`,
+    rw[insert_atI_def,TAKE_SUM,TAKE_APPEND,LENGTH_TAKE_EQ,LENGTH_DROP,
+       GSYM DROP_DROP_T,DROP_LENGTH_TOO_LONG,DROP_LENGTH_NIL_rwt]
+    >> fs[DROP_LENGTH_NIL_rwt,LENGTH_TAKE,DROP_APPEND1,TAKE_APPEND,TAKE_TAKE,
+       DROP_DROP_T,DROP_APPEND2,TAKE_LENGTH_TOO_LONG,TAKE_SUM,LENGTH_DROP]);
+
 val LUPDATE_insert_commute = Q.store_thm(
   "LUPDATE_insert_commute",
   `∀ws pos1 pos2 a w.
@@ -3235,5 +3288,41 @@ val ALIST_FUPDKEY_comm = Q.store_thm("ALIST_FUPDKEY_comm",
   Cases_on`h`>> fs[ALIST_FUPDKEY_def] >>
   CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
   CASE_TAC >> fs[ALIST_FUPDKEY_def]);
+
+val A_DELKEY_ALIST_FUPDKEY_comm = Q.store_thm("A_DELKEY_ALIST_FUPDKEY_comm",
+  `!ls f x y. x <> y ==>
+  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`,
+  Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
+  Cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
+
+open realLib
+
+val real_of_int_def = Define `
+  real_of_int (i:int) = if i < 0 then - & (Num (-i)) else & (Num i):real`;
+
+val real_of_int_num = store_thm("real_of_int_num[simp]",
+  ``real_of_int (& n) = &n``,
+  rewrite_tac[real_of_int_def]
+  \\ Cases_on `(&n):int`
+  \\ fs []);
+
+val real_of_int_add = store_thm("real_of_int_add[simp]",
+  ``real_of_int (m + n) = real_of_int m + real_of_int n``,
+  Cases_on `m` \\ Cases_on `n` \\ fs [real_of_int_def] \\ rw []
+  \\ fs [integerTheory.INT_ADD_CALCULATE]
+  \\ rw [] \\ fs [] \\ fs [GSYM NOT_LESS,realTheory.add_ints]);
+
+val real_of_int_neg = store_thm("real_of_int_neg[simp]",
+  ``real_of_int (-m) = -real_of_int m``,
+  Cases_on `m` \\ fs [real_of_int_def]);
+
+val real_of_int_sub = store_thm("real_of_int_sub[simp]",
+  ``real_of_int (m - n) = real_of_int m - real_of_int n``,
+  fs [integerTheory.int_sub,realTheory.real_sub]);
+
+val real_of_int_mul = store_thm("real_of_int_mul[simp]",
+  ``real_of_int (m * n) = real_of_int m * real_of_int n``,
+  Cases_on `m` \\ Cases_on `n` \\ fs [real_of_int_def] \\ rw []
+  \\ fs [integerTheory.INT_MUL_CALCULATE]);
 
 val _ = export_theory()
