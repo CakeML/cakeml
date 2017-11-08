@@ -14,3 +14,6 @@ If there are stale jobs, they will be removed.
 
 [regressionLib.sml](regressionLib.sml):
 Code shared between the pieces of the regression test suite.
+
+[worker.sml](worker.sml):
+Worker that claims and runs regression test jobs.

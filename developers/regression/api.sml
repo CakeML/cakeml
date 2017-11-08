@@ -12,7 +12,6 @@ fun text_response s =
   let
     val () = TextIO.output(TextIO.stdOut, text_response_header)
     val () = TextIO.output(TextIO.stdOut, s)
-    val () = TextIO.output(TextIO.stdOut, "\n")
   in () end
 
 fun cgi_die ls =
@@ -61,6 +60,15 @@ fun append id line =
     print_log_entry out (Date.fromTimeUniv(Time.now()),line) before TextIO.closeOut out
   end
 
+fun log id data =
+  let
+    val f = Int.toString id
+    val p = OS.Path.concat("active",f)
+    val out = TextIO.openAppend p handle e as IO.Io _ => (cgi_die ["job ",f," is not active: cannot log"]; raise e)
+  in
+    TextIO.output(out,data) before TextIO.closeOut out
+  end
+
 fun stop id =
   let
     val f = Int.toString id
@@ -95,11 +103,23 @@ fun retry id =
     val () = TextIO.closeIn inp
   in id end
 
+datatype request_api = Get of api | Post of id * string
+
 fun get_api() =
   case (OS.Process.getEnv "PATH_INFO",
         OS.Process.getEnv "REQUEST_METHOD") of
     (SOME path_info, SOME "GET")
-      => api_from_string path_info
+      => Option.map Get (api_from_string path_info)
+  | (SOME path_info, SOME "POST")
+      => (case String.tokens (equal #"/") path_info of
+            ["log",n] =>
+              (Option.mapPartial
+                (fn len =>
+                  Option.compose
+                    ((fn id => Post(id,TextIO.inputN(TextIO.stdIn,len))),
+                     id_from_string) n)
+                (Option.composePartial(Int.fromString,OS.Process.getEnv) "CONTENT_LENGTH"))
+          | _ => NONE)
   | _ => NONE
 
 local
@@ -112,20 +132,27 @@ in
       | Active => id_list (active())
       | Stopped => id_list (stopped())
       | Job id => file_to_string (job id)
-      | Claim(id,name) => (claim id name; "claimed")
-      | Append(id,line) => (append id line; "appended")
-      | Stop id => (stop id; "stopped")
-      | Retry id => String.concat["retried as job ",Int.toString(retry id)]
+      | Claim(id,name) => (claim id name; claim_response)
+      | Append(id,line) => (append id line; append_response)
+      | Stop id => (stop id; stop_response)
+      | Retry id => String.concat["retried as job ",Int.toString(retry id),"\n"]
     ) handle e => cgi_die [exnMessage e]
 end
+
+fun dispatch_log id data =
+  text_response (log id data; log_response)
+  handle e => cgi_die [exnMessage e]
 
 fun main() =
   let
     val () = ensure_queue_dirs cgi_die
     val () = case get_api() of NONE => cgi_die ["bad usage"]
-             | SOME api =>
+             | SOME (Get api) =>
                let val fd = acquire_lock()
                in dispatch api before Posix.IO.close fd end
+             | SOME (Post (id,data)) =>
+               let val fd = acquire_lock()
+               in dispatch_log id data before Posix.IO.close fd end
   in
     OS.Process.exit OS.Process.success
   end

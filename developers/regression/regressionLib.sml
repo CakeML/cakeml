@@ -312,7 +312,8 @@ local
 in
   fun system_output (cmd,args) =
     let
-      val proc = execute (cmd,args) handle e as OS.SysErr _ => die[cmd," failed to execute on ",String.concatWith" "args,"\n",exnMessage e]
+      val proc = execute (cmd,args)
+                 handle e as OS.SysErr _ => die[cmd," failed to execute on ",String.concatWith" "args,"\n",exnMessage e]
       val output = TextIO.inputAll (textInstreamOf proc)
       val status = reap proc
     in
@@ -320,6 +321,15 @@ in
       else die[cmd," failed on ",String.concatWith" "args]
     end
 end
+
+val capture_file = "regression.log"
+val timing_file = "timing.log"
+
+fun system_capture cmd_args =
+  let
+    (* This could be implemented using Posix without relying on the shell *)
+    val status = OS.Process.system(String.concat[cmd_args, " &>", capture_file])
+  in OS.Process.isSuccess status end
 
 val curl_path = "/usr/bin/curl"
 
@@ -342,6 +352,11 @@ datatype api = Waiting | Active | Stopped
              | Job of id | Claim of id * worker_name
              | Append of id * line (* not including newline *)
              | Stop of id | Retry of id
+
+val claim_response = "claimed\n"
+val append_response = "appended\n"
+val stop_response = "stopped\n"
+val log_response = "logged\n"
 
 fun api_to_string Waiting = "/waiting"
   | api_to_string Active = "/active"
@@ -372,6 +387,19 @@ structure API = struct
   val endpoint = "https://cakeml.org/regression.cgi"
   fun curl_cmd api = (curl_path,["--silent","--show-error",String.concat[endpoint,api_to_string api]])
   val send = system_output o curl_cmd
+  fun curl_log id file =
+    (curl_path,["--silent","--show_error","--request","POST",
+                "--data",String.concat["@",file],
+                String.concat[endpoint,"/log/",Int.toString id]])
+  fun append id line =
+    let val response = send (Append(id,line))
+    in assert (response=append_response) ["Unexpected append response: ",response] end
+  fun stop id =
+    let val response = send (Stop id)
+    in assert (response=stop_response) ["Unexpected stop response: ",response] end
+  fun log id file =
+    let val response = system_output (curl_log id file)
+    in assert (response=log_response) ["Unexpected log response: ",response] end
 end
 
 end

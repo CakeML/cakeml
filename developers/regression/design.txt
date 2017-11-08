@@ -28,6 +28,11 @@ Server API:
     returns "appended"
     fails if <id> is not currently active
 
+  log id:
+    append POST data as additional output for job <id>
+    returns "logged"
+    fails if <id> is not currently active
+
   stop id:
     mark job <id> as stopped
     returns "stopped"
