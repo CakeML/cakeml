@@ -17,6 +17,7 @@
   Summary of options:
     --no-poll   : Exit when no waiting jobs are found rather than polling.
                   Will still check for more waiting jobs after completing a job.
+    --no-loop   : Exit after finishing a job, do not check for more waiting jobs.
     --select id : Ignore the waiting jobs list and instead attempt to claim job <id>.
     --resume id : Assume job <id> has previously been claimed by this worker and
                   attempt to start running it again.
@@ -73,6 +74,9 @@ val git_path = "/usr/bin/git"
 val git_clean = (git_path,["clean","-d","--force","-x"])
 fun git_reset sha = (git_path,["reset","--hard","--quiet",sha])
 val git_fetch = (git_path,["fetch","origin"])
+fun git_sha_of head = (git_path,["rev-parse","--verify",head])
+val git_head = git_sha_of "HEAD"
+val git_merge_head = git_sha_of "MERGE_HEAD"
 
 local
   open OS.FileSys
@@ -105,7 +109,7 @@ fun prepare_hol sha =
     val () = ensure_hol_exists ()
     val () = OS.FileSys.chDir HOLDIR
     val output = system_output git_fetch
-    val output = system_output (git_path,["rev-parse","--verify","HEAD"])
+    val output = system_output git_head
     val () =
       if String.isPrefix sha output
       then diag ["re-using HOL working directory at same commit"]
@@ -156,9 +160,11 @@ in
 end
 
 local
+  val resume_file = "resume"
   val time_options = String.concat["--format='%E %Kk' --output='",timing_file,"'"]
+  fun no_skip _ = false
 in
-  fun run_regression id =
+  fun run_regression resumed id =
     let
       val root = OS.FileSys.getDir()
       val holdir = OS.Path.concat(root,HOLDIR)
@@ -173,13 +179,20 @@ in
       val () = assert (OS.FileSys.getDir() = cakemldir) ["impossible failure"]
       val seq = TextIO.openIn("developers/build-sequence")
                 handle e as OS.SysErr _ => die ["failed to open build-sequence: ",exnMessage e]
-      fun loop () =
+      val can_skip =
+        if resumed then (not o equal (file_to_string resume_file)) else no_skip
+        handle (e as IO.Io _) => die["failed to load resume file: ",exnMessage e]
+      fun loop can_skip =
         case TextIO.inputLine seq of NONE => true
         | SOME line =>
           if String.isPrefix "#" line orelse
-             String.isPrefix "\n" line
-          then loop () else
+             String.isPrefix "\n" line orelse
+             can_skip line
+          then loop can_skip else
           let
+            val resume_out = TextIO.openOut resume_file
+            val () = TextIO.output(resume_out,line)
+            and () = TextIO.closeOut resume_out
             val dir = until_space line
             val () = API.append id (String.concat["Starting to build ",dir])
             fun on_failure () =
@@ -195,42 +208,67 @@ in
               if system_capture holmake_cmd then
                 (API.append id (String.concat["Finished ",dir,": ",file_to_line timing_file]);
                  OS.FileSys.chDir cakemldir;
-                 loop ())
+                 loop no_skip)
               else on_failure ()
             else on_failure ()
           end
+      val success = loop can_skip
+      val () =
+        if success then
+          (API.append id "SUCCESS"; API.stop id)
+        else ()
+      val () = OS.FileSys.chDir root
     in
-      if loop () then
-        let
-          val () = API.append id "SUCCESS"
-          val () = API.stop id
-        in true end
-      else false
+      success
     end
 end
 
-fun work id =
+fun validate_resume jid bhol bcml =
+  let
+    val () = diag ["checking HOL for resuming job ",jid]
+    val () = OS.FileSys.chDir HOLDIR
+    val head = system_output git_head
+    val () = assert (head = bhol) ["wrong HOL commit"]
+    val () = OS.FileSys.chDir OS.Path.parentArc
+    val () = diag ["checking CakeML for resuming job ",jid]
+    val () = OS.FileSys.chDir CAKEMLDIR
+    val () =
+      case bcml of
+        Bbr sha => assert (system_output git_head = sha) ["wrong CakeML commit"]
+      | Bpr {head_sha, base_sha} =>
+        (assert (system_output git_head = base_sha) ["wrong CakeML base commit"];
+         assert (system_output git_merge_head = head_sha) ["wrong CakeML head commit"])
+    val () = OS.FileSys.chDir OS.Path.parentArc
+  in
+    true
+  end
+
+fun work resumed id =
   let
     val response = API.send (Job id)
     val jid = Int.toString id
   in
     if String.isPrefix "Error:" response
-    then warn [response] else
+    then (warn [response]; false) else
     let
       val invalid = ["job ",jid," returned invalid response"]
       val {bcml,bhol} = read_bare_snapshot invalid (TextIO.openString response)
-      val () = diag ["preparing HOL for job ",jid]
-      val () = prepare_hol bhol
-      val () = diag ["preparing CakeML for job ",jid]
-      val () = prepare_cakeml bcml
-      val () = diag ["building HOL for job ",jid]
+      val built_hol =
+        if resumed then validate_resume jid bhol bcml
+        else let
+          val () = diag ["preparing HOL for job ",jid]
+          val () = prepare_hol bhol
+          val () = diag ["preparing CakeML for job ",jid]
+          val () = prepare_cakeml bcml
+          val () = diag ["building HOL for job ",jid]
+        in
+          build_hol id
+        end
     in
-      ignore (
-        build_hol id andalso
-        (diag ["running regression for job ",jid];
-         run_regression id))
+      built_hol andalso
+      (diag ["running regression for job ",jid];
+       run_regression resumed id)
     end
-    handle e => die ["unexpected failure: ",exnMessage e]
   end
 
 fun get_int_arg name [] = NONE
@@ -243,6 +281,7 @@ fun main () =
   let
     val args = CommandLine.arguments()
     val no_poll = List.exists (equal"--no-poll") args
+    val no_loop = List.exists (equal"--no-loop") args
     val resume = get_int_arg "--resume" args
     val select = get_int_arg "--select" args
     val name = file_to_line "name"
@@ -260,13 +299,18 @@ fun main () =
           else (OS.Process.sleep poll_delay; loop NONE)
         | (id::_) => (* could prioritise for ids that match our HOL dir *)
           let
-            val response =
-              if Option.isSome resume
-              then claim_response
-              else API.send (Claim(id,name))
-            val () = if response=claim_response
-                     then work id
-                     else warn ["Claim of job ",Int.toString id," failed: ",response]
-          in loop NONE end
-      end
+            val resumed = Option.isSome resume
+            val response = if resumed
+                           then claim_response
+                           else API.send (Claim(id,name))
+            val success =
+              if response=claim_response
+              then work resumed id
+              else (warn ["Claim of job ",Int.toString id," failed: ",response]; false)
+          in
+            if no_loop orelse (resumed andalso not success)
+            then ()
+            else loop NONE
+          end
+      end handle e => die ["unexpected failure: ",exnMessage e]
   in loop resume end

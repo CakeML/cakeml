@@ -50,20 +50,10 @@ Server API:
 
   all failures return text starting with "Error:"
 
-example usages:
-
-  job N failed due to broken proofs:
-    append N [output from regression.log]; stop N
-
-  the worker running job N died:
-    append N "worker <name> fell over"; stop N
-
-some invariants:
-
 each job is on exactly one list: waiting, active, stopped
 if a job changes list, it can only move to the right
 
-Poll automatic behaviours:
+Poller automatic behaviours:
 
   1. add a job to the waiting list:
     - create a new job id
@@ -87,7 +77,7 @@ Poll automatic behaviours:
     - adds a note, "timed out", to the output
     - does stop API actions
 
-targets:
+Targets:
 
   CakeML:
     - branch "master"

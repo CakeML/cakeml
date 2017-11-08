@@ -18,13 +18,40 @@ TODO: Use GitHub webhooks or similar to avoid polling for changes
   Thus the poller won't be run in polling mode, but instead will be the target
   of a webhook that GitHub calls to update our queues.
 
+TODO: Add interface for disowning jobs (1)
+  Currently, you can manually stop a job that is supposedly active and claimed
+  by a worker that has gone rogue or died. It might be nice to support this
+  programmatically as an option to the worker, so it can make the appropriate
+  API calls.
+
 TODO: Make poller stop jobs that have been running too long
 
-TODO: Add interface for disowning jobs? Probably not...
-  Currently, you can manually stop a job that is supposedly active and claimed
-  by a worker that has gone rogue or died. Then another similar job will
-  eventually be added to the queue if necessary. But would it be nice to
-  instead be able to re-use the existing job number?
+TODO: Sort the id lists returned by {active,waiting,stopped}?
+
+TODO: Be smarter about assigning job ids?
+  Currently, we only assign new ids that a greater than all existing ones.
+  Would it be nice to fill in gaps instead? Maybe... When the system is running
+  well, every job will be either properly stopped or superseded, so the only
+  way for there to be a gap is when a waiting job gets superseded.
+
+  Gaps can be filled manually by renaming the highest waiting job into the
+  first gap. Indeed, that strategy could be automated (rather than assigning
+  job ids correctly in the first place). But assigning correctly is probably
+  just as easy.
+
+TODO: Replace calls to the OS shell with SML Basis functionality
+  In regressionLib.sml there is a call to OS.Process.system that passes quite a
+  lot of work off to the shell: setting environment variables, executing a
+  subprocess, and redirecting standard streams. This could all be implemented
+  in the SML Basis, in particular using Posix structure, instead. Doing so
+  might be more reliable?
+
+TODO: Add interface for disowning jobs (2)?
+  After "disowning" (and stopping) a job, another similar job will eventually
+  be added to the queue if necessary. But would it be nice to instead be able
+  to re-use the existing job number? I.e., do not stop the job after disowning
+  but rather return it to the waiting queue? This would require a new API
+  action.
 
 (*
 server = api.sml
