@@ -1,6 +1,0 @@
-INCLUDES = ..
-
-README_SOURCES = $(wildcard *.sml) design.txt
-
-README.md: $(README_SOURCES) readmePrefix ../readme_gen
-	../readme_gen $(README_SOURCES)
