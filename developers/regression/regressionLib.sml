@@ -307,6 +307,12 @@ fun file_to_line f =
     | SOME line => String.extract(line,0,SOME(String.size line - 1))
   end
 
+fun output_to_file (f,s) =
+  let
+    val out = TextIO.openOut f
+    val () = TextIO.output(out,s)
+  in TextIO.closeOut out end
+
 val until_space =
   Substring.string o Substring.takel (not o Char.isSpace) o Substring.full
 
@@ -328,11 +334,14 @@ end
 val capture_file = "regression.log"
 val timing_file = "timing.log"
 
-fun system_capture cmd_args =
+fun system_capture_with redirector cmd_args =
   let
     (* This could be implemented using Posix without relying on the shell *)
-    val status = OS.Process.system(String.concat[cmd_args, " &>", capture_file])
+    val status = OS.Process.system(String.concat[cmd_args, redirector, capture_file])
   in OS.Process.isSuccess status end
+
+val system_capture = system_capture_with " &>"
+val system_capture_append = system_capture_with " &>>"
 
 val curl_path = "/usr/bin/curl"
 

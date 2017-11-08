@@ -27,6 +27,8 @@ TODO: Add interface for disowning jobs (1)
 TODO: Make poller stop jobs that have been running too long
 
 TODO: Sort the id lists returned by {active,waiting,stopped}?
+  Prioritise pull requests?
+  Pull requests could be assigned lower ids by default
 
 TODO: Be smarter about assigning job ids?
   Currently, we only assign new ids that a greater than all existing ones.

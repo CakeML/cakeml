@@ -105,7 +105,7 @@ fun retry id =
 
 datatype request_api = Get of api | Post of id * string
 
-fun get_api() =
+fun get_api () =
   case (OS.Process.getEnv "PATH_INFO",
         OS.Process.getEnv "REQUEST_METHOD") of
     (SOME path_info, SOME "GET")
@@ -143,16 +143,20 @@ fun dispatch_log id data =
   text_response (log id data; log_response)
   handle e => cgi_die [exnMessage e]
 
-fun main() =
+fun dispatch_req (Get api) = dispatch api
+  | dispatch_req (Post (id,data)) = dispatch_log id data
+
+fun main () =
   let
     val () = ensure_queue_dirs cgi_die
-    val () = case get_api() of NONE => cgi_die ["bad usage"]
-             | SOME (Get api) =>
-               let val fd = acquire_lock()
-               in dispatch api before Posix.IO.close fd end
-             | SOME (Post (id,data)) =>
-               let val fd = acquire_lock()
-               in dispatch_log id data before Posix.IO.close fd end
   in
-    OS.Process.exit OS.Process.success
+    case get_api () of
+      NONE => cgi_die ["bad usage"]
+    | SOME req =>
+      let
+        val fd = acquire_lock ()
+      in
+        dispatch_req req before
+        Posix.IO.close fd
+      end
   end

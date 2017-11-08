@@ -7,7 +7,8 @@
   Also assumes the default shell (/bin/sh) understands
     ENV=val ... cmd [args ...] &>file
   to mean redirect both stdout and stderr to file when running
-  cmd on args in an environment augmented by the (ENV,val) pairs.
+  cmd on args in an environment augmented by the (ENV,val) pairs,
+  and &>> instead of &> appends to file instead of truncating it.
 
   Can be run either as a daemon (default) that will keep looking for work by
   polling or as a one-shot command (--no-poll) that will do nothing if no work
@@ -20,7 +21,8 @@
     --no-loop   : Exit after finishing a job, do not check for more waiting jobs.
     --select id : Ignore the waiting jobs list and instead attempt to claim job <id>.
     --resume id : Assume job <id> has previously been claimed by this worker and
-                  attempt to start running it again.
+                  attempt to start running it again. If the job fails again,
+                  exit (even without --no-loop).
 
   All work will be carried out in the current directory
   (or subdirectories of it) with no special permissions.
@@ -49,12 +51,12 @@
          2. Log the captured output
          3. Stop the job
     5. For each directory in the CakeML build sequence
-       1. Append "Starting to build <dir>"
+       1. Append "Starting <dir>"
        2. Holmake in that directory,
             capturing stdout and stderr,
             and capturing time and memory usage
           On failure:
-            1. Append "FAILED: building <dir>"
+            1. Append "FAILED: <dir>"
             2. Log the captured output
             3. Stop the job
        3. Append "Finished <dir>: <time> <memory>"
@@ -108,22 +110,24 @@ fun prepare_hol sha =
   let
     val () = ensure_hol_exists ()
     val () = OS.FileSys.chDir HOLDIR
-    val output = system_output git_fetch
+    val () = ignore (system_output git_fetch)
     val output = system_output git_head
+    val reuse = String.isPrefix sha output
     val () =
-      if String.isPrefix sha output
+      if reuse
       then diag ["re-using HOL working directory at same commit"]
       else (system_output (git_reset sha);
             ignore (system_output git_clean))
+    val () = OS.FileSys.chDir OS.Path.parentArc
   in
-    OS.FileSys.chDir OS.Path.parentArc
+    reuse
   end
 
 fun prepare_cakeml x =
   let
     val () = ensure_cakeml_exists ()
     val () = OS.FileSys.chDir CAKEMLDIR
-    val output = system_output git_fetch
+    val _ = system_output git_fetch
     val _ =
       case x of
         Bbr sha => system_output (git_reset sha)
@@ -140,28 +144,32 @@ local
 in
   fun build_hol id =
     let
-      fun on_failure () =
-        let
-          val () = API.append id "FAILED: building HOL"
-          val () = API.log id capture_file
-          val () = API.stop id
-        in false end
       val () = OS.FileSys.chDir HOLDIR
       val configured =
         OS.FileSys.access("bin/build",[OS.FileSys.A_EXEC])
         orelse system_capture configure_hol
+      val built = configured andalso
+                  system_capture_append "bin/build --nograph"
+      val () = OS.FileSys.chDir OS.Path.parentArc
+      val () = if built then () else
+               (API.append id "FAILED: building HOL";
+                API.log id capture_file;
+                API.stop id)
     in
-      ((configured andalso
-        (system_capture "bin/build --nograph"
-         orelse on_failure ()))
-       orelse on_failure ())
-      before OS.FileSys.chDir OS.Path.parentArc
+      built
     end
 end
 
 local
   val resume_file = "resume"
   val time_options = String.concat["--format='%E %Kk' --output='",timing_file,"'"]
+  val max_dir_length = 50
+  fun pad dir =
+    let
+      val z = String.size dir
+      val n = if z < max_dir_length then max_dir_length - z
+              else (warn ["max_dir_length is too small for ",dir]; 1)
+    in CharVector.tabulate(n,(fn _ => #" ")) end
   fun no_skip _ = false
 in
   fun run_regression resumed id =
@@ -180,7 +188,7 @@ in
       val seq = TextIO.openIn("developers/build-sequence")
                 handle e as OS.SysErr _ => die ["failed to open build-sequence: ",exnMessage e]
       val can_skip =
-        if resumed then (not o equal (file_to_string resume_file)) else no_skip
+        (if resumed then (not o equal (file_to_string resume_file)) else no_skip)
         handle (e as IO.Io _) => die["failed to load resume file: ",exnMessage e]
       fun loop can_skip =
         case TextIO.inputLine seq of NONE => true
@@ -190,27 +198,22 @@ in
              can_skip line
           then loop can_skip else
           let
-            val resume_out = TextIO.openOut resume_file
-            val () = TextIO.output(resume_out,line)
-            and () = TextIO.closeOut resume_out
+            val () = output_to_file (resume_file, line)
             val dir = until_space line
-            val () = API.append id (String.concat["Starting to build ",dir])
-            fun on_failure () =
-              let
-                val () = API.append id (String.concat["FAILED: building ",dir])
-                val () = API.log id capture_file
-                val () = API.stop id
-              in false end
+            val () = API.append id (String.concat["Starting ",dir])
             val entered = (OS.FileSys.chDir dir; true)
                           handle e as OS.SysErr _ => (API.append id (exnMessage e); false)
           in
-            if entered then
-              if system_capture holmake_cmd then
-                (API.append id (String.concat["Finished ",dir,": ",file_to_line timing_file]);
-                 OS.FileSys.chDir cakemldir;
-                 loop no_skip)
-              else on_failure ()
-            else on_failure ()
+            if entered andalso system_capture holmake_cmd then
+              (API.append id
+                (String.concat["Finished ",dir,pad dir,file_to_line timing_file]);
+               OS.FileSys.chDir cakemldir;
+               loop no_skip)
+            else
+              (API.append id (String.concat["FAILED: ",dir]);
+               API.log id capture_file;
+               API.stop id;
+               false)
           end
       val success = loop can_skip
       val () =
@@ -257,7 +260,7 @@ fun work resumed id =
         if resumed then validate_resume jid bhol bcml
         else let
           val () = diag ["preparing HOL for job ",jid]
-          val () = prepare_hol bhol
+          val reused = prepare_hol bhol
           val () = diag ["preparing CakeML for job ",jid]
           val () = prepare_cakeml bcml
           val () = diag ["building HOL for job ",jid]
@@ -300,8 +303,7 @@ fun main () =
         | (id::_) => (* could prioritise for ids that match our HOL dir *)
           let
             val resumed = Option.isSome resume
-            val response = if resumed
-                           then claim_response
+            val response = if resumed then claim_response
                            else API.send (Claim(id,name))
             val success =
               if response=claim_response
