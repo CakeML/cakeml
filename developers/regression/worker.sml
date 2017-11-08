@@ -14,6 +14,13 @@
   is currently available. This means polling or work notifications can be
   handled externally if desired.
 
+  Summary of options:
+    --no-poll   : Exit when no waiting jobs are found rather than polling.
+                  Will still check for more waiting jobs after completing a job.
+    --select id : Ignore the waiting jobs list and instead attempt to claim job <id>.
+    --resume id : Assume job <id> has previously been claimed by this worker and
+                  attempt to start running it again.
+
   All work will be carried out in the current directory
   (or subdirectories of it) with no special permissions.
   Assumes this directory starts empty except for the
@@ -83,6 +90,7 @@ in
       else die [dir," is not a directory"]
     else
       let
+        val () = diag [dir," does not exist: will clone"]
         val status = OS.Process.system (String.concat[git_path," clone ",options,remote," ",dir])
       in
         assert (OS.Process.isSuccess status) ["git clone failed for ",dir]
@@ -99,9 +107,10 @@ fun prepare_hol sha =
     val output = system_output git_fetch
     val output = system_output (git_path,["rev-parse","--verify","HEAD"])
     val () =
-      if String.isPrefix sha output then () else
-      (system_output (git_reset sha);
-       ignore (system_output git_clean))
+      if String.isPrefix sha output
+      then diag ["re-using HOL working directory at same commit"]
+      else (system_output (git_reset sha);
+            ignore (system_output git_clean))
   in
     OS.FileSys.chDir OS.Path.parentArc
   end
@@ -138,10 +147,10 @@ in
         OS.FileSys.access("bin/build",[OS.FileSys.A_EXEC])
         orelse system_capture configure_hol
     in
-      (configured andalso
-       (system_capture "bin/build --nograph"
-        orelse on_failure ()))
-      orelse on_failure ()
+      ((configured andalso
+        (system_capture "bin/build --nograph"
+         orelse on_failure ()))
+       orelse on_failure ())
       before OS.FileSys.chDir OS.Path.parentArc
     end
 end
@@ -158,8 +167,12 @@ in
                       " '",holdir,"/bin/Holmake' --qof"]
       val cakemldir = OS.Path.concat(root,CAKEMLDIR)
       val () = OS.FileSys.chDir CAKEMLDIR
-      (* val () = assert (OS.FileSys.getDir() = cakemldir) ["impossible"] *)
+               handle e as OS.SysErr _ => die ["failed to enter ",CAKEMLDIR,
+                                               "\n","root: ",root,
+                                               "\n",exnMessage e]
+      val () = assert (OS.FileSys.getDir() = cakemldir) ["impossible failure"]
       val seq = TextIO.openIn("developers/build-sequence")
+                handle e as OS.SysErr _ => die ["failed to open build-sequence: ",exnMessage e]
       fun loop () =
         case TextIO.inputLine seq of NONE => true
         | SOME line =>
@@ -199,38 +212,61 @@ end
 fun work id =
   let
     val response = API.send (Job id)
+    val jid = Int.toString id
   in
     if String.isPrefix "Error:" response
     then warn [response] else
     let
-      val invalid = ["job ",Int.toString id," returned invalid response"]
+      val invalid = ["job ",jid," returned invalid response"]
       val {bcml,bhol} = read_bare_snapshot invalid (TextIO.openString response)
+      val () = diag ["preparing HOL for job ",jid]
       val () = prepare_hol bhol
+      val () = diag ["preparing CakeML for job ",jid]
       val () = prepare_cakeml bcml
+      val () = diag ["building HOL for job ",jid]
     in
-      ignore (build_hol id andalso run_regression id)
+      ignore (
+        build_hol id andalso
+        (diag ["running regression for job ",jid];
+         run_regression id))
     end
+    handle e => die ["unexpected failure: ",exnMessage e]
   end
+
+fun get_int_arg name [] = NONE
+  | get_int_arg name [_] = NONE
+  | get_int_arg name (x::y::xs) =
+    if x = name then Int.fromString y
+    else get_int_arg name (y::xs)
 
 fun main () =
   let
-    val no_poll = List.exists (equal"--no-poll") (CommandLine.arguments())
+    val args = CommandLine.arguments()
+    val no_poll = List.exists (equal"--no-poll") args
+    val resume = get_int_arg "--resume" args
+    val select = get_int_arg "--select" args
     val name = file_to_line "name"
-    fun loop () =
+               handle IO.Io _ => die["Could not determine worker name. Try uname -norm >name."]
+    fun loop resume =
       let
         val waiting_ids =
+          case select of SOME id => [id] | NONE =>
+          case resume of SOME id => [id] | NONE =>
           List.map (Option.valOf o Int.fromString)
             (String.tokens Char.isSpace (API.send Waiting))
       in
         case waiting_ids of [] =>
           if no_poll then ()
-          else (OS.Process.sleep poll_delay; loop ())
+          else (OS.Process.sleep poll_delay; loop NONE)
         | (id::_) => (* could prioritise for ids that match our HOL dir *)
           let
-            val response = API.send (Claim(id,name))
+            val response =
+              if Option.isSome resume
+              then claim_response
+              else API.send (Claim(id,name))
             val () = if response=claim_response
                      then work id
-                     else warn ["Claim failed: ",response]
-          in loop () end
+                     else warn ["Claim of job ",Int.toString id," failed: ",response]
+          in loop NONE end
       end
-  in loop () end
+  in loop resume end

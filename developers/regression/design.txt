@@ -19,17 +19,20 @@ Server API:
       - output so far
 
   claim id name:
-    worker <name> claims job <id>
+    worker <name> claims job <id>.
+    <name> is in the query string.
     returns "claimed"
     fails if <id> is not currently waiting
 
   append id line:
-    record <line> as additional output for job <id> with a timestamp
+    record <line> as additional output for job <id> with a timestamp.
+    <line> is in the query string.
     returns "appended"
     fails if <id> is not currently active
 
-  log id:
-    append POST data as additional output for job <id>
+  log id data:
+    append <data> as additional output for job <id>.
+    <data> is POST data.
     returns "logged"
     fails if <id> is not currently active
 

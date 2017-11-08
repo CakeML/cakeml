@@ -109,7 +109,7 @@ fun get_api() =
   case (OS.Process.getEnv "PATH_INFO",
         OS.Process.getEnv "REQUEST_METHOD") of
     (SOME path_info, SOME "GET")
-      => Option.map Get (api_from_string path_info)
+      => Option.map Get (api_from_string path_info (OS.Process.getEnv "QUERY_STRING"))
   | (SOME path_info, SOME "POST")
       => (case String.tokens (equal #"/") path_info of
             ["log",n] =>

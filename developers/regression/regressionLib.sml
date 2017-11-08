@@ -66,15 +66,18 @@ fun month_from_int 1 = Date.Jan
   | month_from_int 12 = Date.Dec
   | month_from_int _ = raise Match
 
-fun die ls = (
-  TextIO.output(TextIO.stdErr,String.concat ls);
-  TextIO.output(TextIO.stdErr,"\n");
-  OS.Process.exit OS.Process.failure;
-  raise (Fail "impossible"))
-
 fun warn ls = (
   TextIO.output(TextIO.stdErr,String.concat ls);
   TextIO.output(TextIO.stdErr,"\n"))
+
+fun die ls = (
+  warn ls;
+  OS.Process.exit OS.Process.failure;
+  raise (Fail "impossible"))
+
+fun diag ls = (
+  TextIO.output(TextIO.stdOut,String.concat ls);
+  TextIO.output(TextIO.stdOut,"\n"))
 
 fun assert b ls = if b then () else die ls
 
@@ -358,37 +361,77 @@ val append_response = "appended\n"
 val stop_response = "stopped\n"
 val log_response = "logged\n"
 
+fun percent_decode s =
+  let
+    fun loop ss acc =
+      let
+        val (chunk,ss) = Substring.splitl (not o equal #"%") ss
+      in
+        if Substring.isEmpty ss then
+          Substring.concat(List.rev(chunk::acc))
+        else
+          let
+            val (ns,ss) = Substring.splitAt(Substring.triml 1 ss,2)
+            val n = #1 (Option.valOf (Int.scan StringCvt.HEX Substring.getc ns))
+            val c = Substring.full (String.str (Char.chr n))
+          in
+            loop ss (c::chunk::acc)
+          end
+      end
+  in
+    loop (Substring.full s) []
+    handle e => die ["percent decode failed on ",s,"\n",exnMessage e]
+  end
+
 fun api_to_string Waiting = "/waiting"
   | api_to_string Active = "/active"
   | api_to_string Stopped = "/stopped"
   | api_to_string (Job id) = String.concat["/job/",Int.toString id]
-  | api_to_string (Claim (id,name)) = String.concat["/claim/",Int.toString id,"/",name]
-  | api_to_string (Append (id,line)) = String.concat["/append/",Int.toString id,"/",line]
+  | api_to_string (Claim (id,name)) = String.concat["/claim/",Int.toString id]
+  | api_to_string (Append (id,line)) = String.concat["/append/",Int.toString id]
   | api_to_string (Stop id) = String.concat["/stop/",Int.toString id]
   | api_to_string (Retry id) = String.concat["/retry/",Int.toString id]
+
+fun api_curl_args (Append (_,line)) = ["--get","--data-urlencode",String.concat["line=",line]]
+  | api_curl_args (Claim  (_,name)) = ["--get","--data-urlencode",String.concat["name=",name]]
+  | api_curl_args _ = []
 
 fun id_from_string n =
   case Int.fromString n of NONE => NONE
   | SOME id => if check_id n id then SOME id else NONE
 
-fun api_from_string s =
+fun read_query prefix s =
+  case String.tokens (equal #"&") s of [s] =>
+    if String.isPrefix (String.concat[prefix,"="]) s then
+      SOME (percent_decode (String.extract(s,String.size prefix + 1,NONE)))
+    else NONE
+  | _ => NONE
+
+fun api_from_string s q =
   if s = "/waiting" then SOME Waiting
   else if s = "/active" then SOME Active
   else if s = "/stopped" then SOME Stopped
   else (case String.tokens (equal #"/") s of
     ["job",n] => Option.map Job (id_from_string n)
-  | ["claim",n,s] => Option.map (fn id => Claim(id,s)) (id_from_string n)
-  | ["append",n,s] => Option.map (fn id => Append(id,s)) (id_from_string n)
+  | ["claim",n] => Option.mapPartial
+                    (fn id => Option.map (fn s => Claim(id,s))
+                              (Option.mapPartial (read_query "name") q))
+                    (id_from_string n)
+  | ["append",n] => Option.mapPartial
+                    (fn id => Option.map (fn s => Append(id,s))
+                              (Option.mapPartial (read_query "line") q))
+                    (id_from_string n)
   | ["stop",n] => Option.map Stop (id_from_string n)
   | ["retry",n] => Option.map Retry (id_from_string n)
   | _ => NONE)
 
 structure API = struct
   val endpoint = "https://cakeml.org/regression.cgi"
-  fun curl_cmd api = (curl_path,["--silent","--show-error",String.concat[endpoint,api_to_string api]])
+  fun curl_cmd api = (curl_path,
+    ["--silent","--show-error"] @ api_curl_args api @ [String.concat[endpoint,api_to_string api]])
   val send = system_output o curl_cmd
   fun curl_log id file =
-    (curl_path,["--silent","--show_error","--request","POST",
+    (curl_path,["--silent","--show-error","--request","POST",
                 "--data",String.concat["@",file],
                 String.concat[endpoint,"/log/",Int.toString id]])
   fun append id line =
