@@ -1,0 +1,72 @@
+#!/usr/bin/env groovy
+
+node("Builder") {
+
+    def build_dir = pwd()  // Record the root build dir
+    def build_image        // The Docker image to run in
+
+    stage('Cleaning') {
+        sh 'ls -A1 | xargs rm -rf'
+    }
+
+    stage('Get CakeML source') {
+        checkout([$class: 'GitSCM', 
+            branches: scm.branches, 
+            doGenerateSubmoduleConfigurations: false, 
+            extensions: [[$class: 'RelativeTargetDirectory', 
+                relativeTargetDir: 'cakeml']], 
+            submoduleCfg: [], 
+            userRemoteConfigs: scm.userRemoteConfigs])
+    }
+
+    stage("Build Docker image") {
+        dir('cakeml/developers') {
+            build_image = docker.build("cake_ml:latest")
+        }
+    }
+
+    stage('PolyML') {
+        checkout([$class: 'GitSCM', 
+            branches: [[name: '*/fixes-5.6']], 
+            doGenerateSubmoduleConfigurations: false, 
+            extensions: [[$class: 'RelativeTargetDirectory', 
+                relativeTargetDir: 'polyml']], 
+            submoduleCfg: [], 
+            userRemoteConfigs: [[url: 'https://github.com/dcjm/polyml.git']]])
+
+        withEnv(['CFLAGS=-fPIC', 'CXXFLAGS=-fPIC']) {
+            build_image.inside('-e HOME=/tmp') {
+                // Need to use 'cd <somedir> &&' here, because using dir(<somedir>) limits permissions
+                sh "cd polyml && ./configure --prefix=${build_dir}/usr"
+                sh 'cd polyml && make'
+                sh 'cd polyml && make compiler'
+                sh 'cd polyml && make install'
+            }
+        }
+    }
+
+    stage('HOL') {
+        checkout([$class: 'GitSCM', 
+            branches: [[name: '*/master']], 
+            doGenerateSubmoduleConfigurations: false, 
+            extensions: [[$class: 'RelativeTargetDirectory', 
+                relativeTargetDir: 'HOL']], 
+            submoduleCfg: [], 
+            userRemoteConfigs: [[url: 'https://github.com/HOL-Theorem-Prover/HOL.git']]])
+
+        build_image.inside('-e HOME=/tmp') {
+            sh "cd HOL && ${build_dir}/usr/bin/poly < tools/smart-configure.sml"
+            sh 'cd HOL && bin/build --nograph'
+        }
+    }
+
+    stage('CakeML') {
+        withEnv(["PATH+EXTRA=${build_dir}/HOL/bin:${build_dir}/usr/bin",  // The PATH+SOMETHING syntax preserves the existing PATH
+                 'LC_ALL=en_AU.UTF-8',
+                 'LANG=en_AU.UTF-8']) {  
+            build_image.inside('-e HOME=/tmp') {
+                sh 'cd cakeml && bash ./developers/build-email.sh'
+            }
+        }
+    }
+}

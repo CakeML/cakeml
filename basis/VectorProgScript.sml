@@ -1,9 +1,9 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-    mlvectorTheory mllistProgTheory basisFunctionsLib
+    mlvectorTheory ListProgTheory basisFunctionsLib
 
-val _ = new_theory"mlvectorProg"
+val _ = new_theory"VectorProg"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
 
@@ -27,10 +27,10 @@ val toList_aux_side_thm = Q.prove(`∀vec n. tolist_aux_side vec n`,
   \\ metis_tac[GREATER_EQ,NOT_LESS_EQUAL,toList_aux_side_def])
   |> update_precondition
 
+val _ = next_ml_names := ["toList"];
 val result = translate toList_def;
 
 
-val result = translate LUPDATE_def;
 val _ = next_ml_names := ["update"];
 val result = translate update_def;
 

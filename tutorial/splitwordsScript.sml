@@ -4,7 +4,7 @@
 
 open preamble
      mlstringTheory
-     mltextioSpecTheory
+     fsFFIPropsTheory
 
 val _ = new_theory"splitwords";
 

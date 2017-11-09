@@ -63,15 +63,16 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
 
-# benchmarks
-compiler/benchmarks
+# examples and tests
+characteristic/examples
+tutorial/solutions
 
-# other examples
 examples
 examples/compilation
 examples/compilation/proofs
 
-# tests
+compiler/benchmarks
+
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests

@@ -1,10 +1,10 @@
 open preamble
-open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib mllistProgTheory;
+open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.prefer_num()
 
 val _ = new_theory "BottomUpMergeSort"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 77 *)
 

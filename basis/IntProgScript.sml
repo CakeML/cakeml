@@ -2,7 +2,7 @@ open preamble
      ml_translatorLib ml_progLib mlintTheory
      mlbasicsProgTheory basisFunctionsLib gcdTheory
 
-val _ = new_theory"mlintProg"
+val _ = new_theory"IntProg"
 
 val _ = translation_extends "mlbasicsProg";
 
@@ -89,6 +89,7 @@ val _ = save_thm("fromChars_ind",
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
+val _ = next_ml_names := ["fromString"];
 val result = translate fromString_def;
 val fromstring_side_def = definition"fromstring_side_def";
 val fromchars_side_def = theorem"fromchars_side_def";

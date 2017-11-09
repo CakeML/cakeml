@@ -2,7 +2,6 @@ open preamble
 open closPropsTheory clos_knownTheory closSemTheory
 open clos_knownPropsTheory
 open bagTheory
-open mp_then
 
 val _ = new_theory "clos_knownProof";
 

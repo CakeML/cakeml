@@ -1,7 +1,4 @@
-open preamble ml_progLib
-     ml_translatorLib cfTacticsLib
-     textio_initProgTheory
-     basisProgTheory basis_ffiLib
+open preamble basis
 
 val _ = new_theory "helloProg"
 

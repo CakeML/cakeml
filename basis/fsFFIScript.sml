@@ -2,14 +2,9 @@ open preamble mlstringTheory cfHeapsBaseTheory
 
 val _ = new_theory"fsFFI"
 
-(* TODO: put these calls in a re-usable option syntax Lib *)
-val _ = monadsyntax.temp_add_monadsyntax();
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
-val _ = temp_overload_on ("SOME", ``SOME``)
-val _ = temp_overload_on ("NONE", ``NONE``)
-val _ = temp_overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = temp_overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+val _ = option_monadsyntax.temp_add_option_monadsyntax();
+
+(* Logical model of filesystem and I/O streams *)
 
 val _ = Datatype` inode = IOStream mlstring | File mlstring`
 
@@ -25,8 +20,6 @@ val _ = Datatype`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
-val _ = monadsyntax.add_monadsyntax();
-
 val get_file_content_def = Define`
     get_file_content fs fd =
       do
@@ -34,7 +27,6 @@ val get_file_content_def = Define`
         c <- ALOOKUP fs.files fnm;
         return (c, off)
       od`
-
 
 (* find smallest unused descriptor index *)
 val nextFD_def = Define`
@@ -51,7 +43,6 @@ val openFile_def = Define`
           ALOOKUP fsys.files (File fnm);
           return (fd, fsys with infds := (nextFD fsys, (File fnm, pos)) :: fsys.infds)
        od
-
 `;
 
 val openFileFS_def = Define`
@@ -60,6 +51,7 @@ val openFileFS_def = Define`
       NONE => fs
     | SOME (_, fs') => fs'
 `;
+
 (* adds a new file in infds and truncate it *)
 val openFile_truncate_def = Define`
   openFile_truncate fnm fsys =
@@ -71,7 +63,7 @@ val openFile_truncate_def = Define`
                           with files updated_by (ALIST_FUPDKEY (File fnm) (\x."")))
       od `;
 
-(* checks if a descriptor index is in the file descriptor *)
+(* checks if a descriptor index is in infds *)
 val validFD_def = Define`
   validFD fd fs ⇔ fd ∈ FDOM (alist_to_fmap fs.infds)
 `;
@@ -123,7 +115,7 @@ val write_def = Define`
     od `;
 
 
-(* remove file from file descriptor *)
+(* remove file from infds *)
 val closeFD_def = Define`
   closeFD fd fsys =
     do
@@ -133,18 +125,14 @@ val closeFD_def = Define`
 `;
 
 
-(* ----------------------------------------------------------------------
-    Making the above available as FFI functions
-   ----------------------------------------------------------------------
+(* Specification of the FFI functions operating on the above model:
+    - open_in
+    - open_out
+    - read
+    - write
+    - close
+*)
 
-    There are four operations to be used in the example:
-
-    1. write char to stdout
-    2. open file
-    3. read char from file descriptor
-    4. close file
-
-   ---------------------------------------------------------------------- *)
 (* truncate byte list after null byte and convert into char list *)
 val getNullTermStr_def = Define`
   getNullTermStr (bytes : word8 list) =
@@ -152,7 +140,7 @@ val getNullTermStr_def = Define`
      in
        if sz = LENGTH bytes then NONE
        else SOME(MAP (CHR o w2n) (TAKE sz bytes))
-`
+`;
 
 (* read file name from the first non null bytes
 *  open the file with read access
@@ -171,7 +159,7 @@ val ffi_open_in_def = Define`
 (* open append:
       contents <- ALOOKUP fs.files (implode fname);
       (fd, fs') <- openFile (implode fname) fs (LENGTH contents);
-      *)
+*)
 
 (* open for writing
 * position: the beginning of the file.
@@ -249,8 +237,9 @@ val ffi_close_def = Define`
       od ++
       return (LUPDATE 1w 0 bytes, fs)
     od`; *)
-
 (* -- *)
+
+(* Packaging up the model as an ffi_part *)
 
 val encode_inode_def = Define`
   (encode_inode (IOStream s) = Cons (Num 0) ((Str o explode) s)) /\

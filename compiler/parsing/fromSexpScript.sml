@@ -3,14 +3,12 @@ open simpleSexpTheory astTheory
 
 val _ = new_theory "fromSexp";
 val _ = set_grammar_ancestry ["simpleSexp", "ast", "location","fpSem"]
-val _ = monadsyntax.temp_add_monadsyntax()
+val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
+(* TODO: move*)
+
+(* cf. similar TODO in cmlPtreeConversionScript.sml *)
 val _ = temp_overload_on ("lift", ``OPTION_MAP``)
-
-val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
@@ -18,10 +16,9 @@ val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_CHOICE_def",
                                         "option.OPTION_MAP2_DEF"]
 
-val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
+(* -- *)
 
-(* TODO: move*)
 val OPTION_APPLY_MAP3 = Q.store_thm("OPTION_APPLY_MAP3",
   `OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z = SOME r ⇔
    ∃a b c. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ f a b c = r`,

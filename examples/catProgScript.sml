@@ -1,8 +1,4 @@
-open preamble mp_then
-     ml_translatorTheory ml_translatorLib ml_progLib
-     cfTacticsBaseLib cfTacticsLib cfLetAutoLib basisFunctionsLib
-     mlstringTheory mlcommandlineProgTheory textio_initProgTheory
-     fsFFIProofTheory basisProgTheory basis_ffiLib
+open preamble basis
 
 val _ = new_theory "catProg"
 
@@ -267,7 +263,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ instantiate
   \\ Cases_on`cl` \\ fs[]
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]);
+  \\ fs[validArg_def,EVERY_MEM]);
 
 val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
             |> SIMP_RULE std_ss [STDIO_def] |> add_basis_proj;
