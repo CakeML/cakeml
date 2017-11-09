@@ -3,7 +3,7 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
      labPropsTheory whileTheory set_sepTheory semanticsPropsTheory
-     word_to_wordProofTheory helperLib alignmentTheory blastLib
+     helperLib alignmentTheory blastLib
      word_bignumTheory wordLangTheory word_bignumProofTheory
      gen_gc_partialTheory gc_sharedTheory;
 local open gen_gcTheory in end
@@ -2421,6 +2421,37 @@ val th = Q.store_thm("assign_CopyByte",
       \\ fs [lookup_inter_alt] \\ rw []
       \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ simp []
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter])));
+
+val th = Q.store_thm("assign_ConfigGC",
+  `op = ConfigGC ==> ^assign_thm_goal`,
+  rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ fs[do_app]
+  \\ every_case_tac \\ fs[]
+  \\ clean_tac
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ fs[assign_def,EVAL ``op_requires_names ConfigGC``]
+  \\ fs [list_Seq_def,eq_eval]
+  \\ fs [case_eq_thms]
+  \\ qpat_abbrev_tac `alll = alloc _ _ _`
+  \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
+  \\ unabbrev_all_tac \\ fs []
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+  \\ Cases_on `names_opt`
+  \\ fs [cut_state_opt_def,cut_state_def,case_eq_thms] \\ rveq \\ fs []
+  \\ rpt_drule (alloc_lemma |> Q.INST [`k`|->`0`])
+  \\ fs [EVAL ``alloc_size 0``,get_names_def]
+  \\ strip_tac \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
+  \\ fs [state_rel_thm,set_var_def,bvi_to_data_def,bviSemTheory.bvl_to_bvi_def,
+         data_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ strip_tac \\ rw []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert
+  \\ fs [] \\ match_mp_tac memory_rel_Unit \\ fs []);
 
 val th = Q.store_thm("assign_WordToInt",
   `op = WordToInt ==> ^assign_thm_goal `,

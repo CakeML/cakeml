@@ -305,6 +305,7 @@ val do_app_def = Define `
          | [Number i] => if 0 <= i /\ i <= 1000000 /\ n < 1000000
                          then Rval (Boolv (i < &n),s) else Error
          | _ => Error)
+    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
 val dec_clock_def = Define `

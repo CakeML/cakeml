@@ -904,6 +904,13 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConfigGC =>
+        (dtcase args of
+         | [v1;v2] =>
+             (list_Seq [Assign 1 (Const 0w);
+                        Alloc 1 (adjust_set (get_names names)); (* runs GC *)
+                        Assign (adjust_var dest) (Const 2w)],l)
+         | _ => (Skip,l))
     | ConsExtend tag =>
         (dtcase args of
          | (old::start::len::tot::rest) =>
