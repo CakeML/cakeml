@@ -2920,15 +2920,11 @@ fun hol2deep tm =
     val h = lemma |> concl |> dest_imp |> fst
     val h_thm = EVAL h
     val lemma = REWRITE_RULE [h_thm] lemma
+    val _ = (rand (concl h_thm) = T) orelse failwith "false pre for w2w"
     val result =
-      if rand (concl h_thm) = T then
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
                         |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
           (hol2deep x1)
-      else let
-        val lemma = REWR_CONV wordsTheory.w2w_def tm
-        in hol2deep (rand (concl lemma))
-           |> CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV (GSYM lemma)))) end
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
