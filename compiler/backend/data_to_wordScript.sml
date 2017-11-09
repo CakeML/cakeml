@@ -892,6 +892,13 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConfigGC =>
+        (dtcase args of
+         | [v1;v2] =>
+             (list_Seq [Assign 1 (Const 0w);
+                        Alloc 1 (adjust_set (get_names names)); (* runs GC *)
+                        Assign (adjust_var dest) (Const 2w)],l)
+         | _ => (Skip,l))
     | ConsExtend tag =>
         (dtcase args of
          | (old::start::len::tot::rest) =>
@@ -1366,7 +1373,7 @@ local val assign_quotation = `
         let fakelen1 = Shift Lsr header1 (Nat k) in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
-        let fakelen2 = Shift Lsr header2 (Nat k) in            
+        let fakelen2 = Shift Lsr header2 (Nat k) in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
