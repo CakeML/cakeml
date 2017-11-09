@@ -3,6 +3,8 @@
 
 set -e
 
+printenv
+
 if [ -n "$bamboo_planRepository_integrationBranch_revision" ]
 then
   echo "Running regression test on $(git log -1 --oneline --no-color ${bamboo_planRepository_revision})"
@@ -24,7 +26,7 @@ source misc.sh
 cd ..
 
 case $(uname -a) in
-  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%U %M'";;
+  Linux* ) TIMECMD="/usr/bin/time -o timing.log -f '%e %K'";;
 esac
 
 echo
@@ -45,6 +47,7 @@ do
   pushd $i > /dev/null 2>&1
   /bin/rm -f timing.log 2> /dev/null
   Holmake cleanAll &&
+  echo -n $(date +'%b %d %T') && echo -n ' ' &&
   if eval $TIMECMD Holmake --qof > regression.log 2>&1
   then
       echo -n "OK: $i"
