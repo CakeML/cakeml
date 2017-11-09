@@ -258,32 +258,23 @@ val do_assocr_test = Q.store_thm ("do_assocr_test",
 
 (* Assumes that tree is rotated right *)
 val do_comml_def = tDefine "do_comml" `
-  do_comml loc opr exp =
+  do_comml ts loc opr exp =
     case opbinargs opr exp of
       NONE => exp
     | SOME (l, r) =>
-        if is_rec loc r then apply_op opr r l
-        else if is_rec loc l then exp else
-          case opbinargs opr (do_comml loc opr r) of
+        if is_rec loc l then exp
+        else if ~term_ok ts Int l then exp
+        else if is_rec loc r then apply_op opr r l
+        else
+          case opbinargs opr (do_comml ts loc opr r) of
             NONE => exp
           | SOME (r1, r2) =>
-              if is_rec loc r2 then
-                apply_op opr r2 (apply_op opr l r1)
-              else if is_rec loc r1 then
+              if is_rec loc r1 then
                 apply_op opr r1 (apply_op opr l r2)
               else exp`
-  (WF_REL_TAC `measure (exp_size o SND o SND)`
+  (WF_REL_TAC `measure (exp_size o SND o SND o SND)`
   \\ rw [opbinargs_def]
   \\ imp_res_tac exp_size_get_bin_args \\ fs []);
-
-val comml_def = Define `
-  (comml loc (If x1 x2 x3) = If x1 (comml loc x2) (comml loc x3)) /\
-  (comml loc (Let xs x) = Let xs (comml loc x)) /\
-  (comml loc (Tick x) = Tick (comml loc x)) /\
-  (comml loc (Op op xs) =
-    if ~(op = Add \/ op = Mult) then Op op xs
-    else do_comml loc (from_op op) (Op op xs)) /\
-  (comml loc exp = exp)`;
 
 (* Test do_comml *)
 
@@ -294,12 +285,12 @@ val succ_tm = ``
   apply_op Plus (Call 0 (SOME 0) [] NONE) (apply_op Plus (Var 0) (Var 1))``;
 
 val do_comml_test1 = Q.store_thm("do_comml_test1",
-  `do_comml 0 Plus ^test_tm = ^succ_tm`, EVAL_TAC);
+  `do_comml [Int; Int] 0 Plus ^test_tm = ^succ_tm`, EVAL_TAC);
 
 val test_tm = ``apply_op Times (Var 0) (Call 0 (SOME 0) [] NONE)``
 val succ_tm = ``apply_op Times (Call 0 (SOME 0) [] NONE) (Var 0)``;
 val do_comml_test2 = Q.store_thm("do_comml_test2",
-  `do_comml 0 Times ^test_tm = ^succ_tm`, EVAL_TAC);
+  `do_comml [Int] 0 Times ^test_tm = ^succ_tm`, EVAL_TAC);
 
 (* --- Simple tail checking before rewriting --- *)
 
@@ -421,6 +412,26 @@ val scan_expr_def = tDefine "scan_expr" `
             [(ts, Any, F, NONE)])`
     (WF_REL_TAC `measure (exp2_size o SND o SND)`);
 
+(* Either comml gets type information from scan_expr, or do_comml is executed
+   twice: inside scan_expr and inside rewrite. *)
+val comml_def = Define `
+  (comml ts loc (If x1 x2 x3) =
+    let t1 = FST (HD (scan_expr ts loc [x1])) in
+    let y2 = comml t1 loc x2 in
+    let y3 = comml t1 loc x3 in
+      If x1 y2 y3) /\
+  (comml ts loc (Let xs x) =
+    let ys = scan_expr ts loc xs in
+    let tt = MAP (FST o SND) ys in
+    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
+    let y  = comml (tt ++ tr) loc x in
+      Let xs y) /\
+  (comml ts loc (Tick x) = Tick (comml ts loc x)) /\
+  (comml ts loc (Op op xs) =
+    if ~(op = Add \/ op = Mult) then Op op xs
+    else do_comml ts loc (from_op op) (Op op xs)) /\
+  (comml ts loc exp = exp)`;
+
 val push_call_def = Define `
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
     Call ticks (SOME n) (args ++ [apply_op op exp (Var acc)]) handler) ∧
@@ -473,9 +484,9 @@ val has_rec_test2 = Q.store_thm("has_rec_test2",
 val check_exp_def = Define `
   check_exp loc arity exp =
     if ~has_rec loc exp then NONE else
-      let expa = assocr exp in
-      let expc = comml loc expa in
       let context = REPLICATE arity Any in
+      let expa = assocr exp in
+      let expc = comml context loc expa in
         case scan_expr context loc [expc] of
           [] => NONE
         | (ts,ty,r,opr)::_ =>
@@ -499,7 +510,7 @@ val compile_exp_def = Define `
     | SOME op =>
       let context  = REPLICATE arity Any in
       let expa = assocr exp in
-      let expc = comml loc expa in
+      let expc = comml context loc expa in
       let (r, opt) = rewrite loc next op arity context expc in
       let aux      = let_wrap arity (id_from_op op) opt in
         SOME (aux, opt)`;
@@ -542,10 +553,12 @@ val check_exp_SOME_simp = Q.store_thm ("check_exp_SOME_simp[simp]",
   `check_exp loc arity exp = SOME op <=>
      ?ts ty r.
        has_rec loc exp /\
-       scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)] = [(ts,ty,r,SOME op)] /\
+       scan_expr (REPLICATE arity Any) loc
+         [comml (REPLICATE arity Any) loc (assocr exp)] = [(ts,ty,r,SOME op)] /\
        ty = op_type op`,
   simp [check_exp_def]
-  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc [comml loc (assocr exp)]) = LENGTH [exp]` by fs []
+  \\ `LENGTH (scan_expr (REPLICATE arity Any) loc
+        [comml (REPLICATE arity Any) loc (assocr exp)]) = LENGTH [exp]` by fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ PairCases_on `h` \\ fs []
   \\ TOP_CASE_TAC \\ fs []

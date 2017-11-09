@@ -230,14 +230,6 @@ val assocr_correct = Q.store_thm("assocr_correct",
   \\ simp [Once evaluate_def, Abbr`expr`] \\ rw []
   \\ metis_tac []);
 
-val comml_correct = Q.store_thm("comml_correct",
-  `!exp env s r t loc.
-     evaluate ([exp], env, s) = (r, t) /\
-     r <> Rerr (Rabort Rtype_error) ==>
-       evaluate ([comml loc exp], env, s) = (r, t)`,
-  cheat (* TODO *)
-  );
-
 val env_rel_def = Define `
   env_rel ty opt acc env1 env2 <=>
     isPREFIX env1 env2 /\
@@ -620,7 +612,7 @@ val do_assocr_op = Q.store_thm("do_assocr_op",
   \\ fs [apply_op_def]);
 
 val comml_op = Q.store_thm("comml_op",
-  `?ys. comml loc (Op op xs) = Op op ys`,
+  `?ys. comml ts loc (Op op xs) = Op op ys`,
   rw [comml_def]
   \\ once_rewrite_tac [do_comml_def]
   \\ fs [opbinargs_def, get_bin_args_def]
@@ -669,6 +661,83 @@ val is_rec_term_ok = Q.store_thm("is_rec_term_ok",
      (is_rec loc exp ==> ~term_ok ts ty exp) /\
      (term_ok ts ty exp ==> ~is_rec loc exp)`,
   Cases \\ rw [is_rec_def, term_ok_def]);
+
+val do_comml_lemma = Q.store_thm("do_comml_lemma",
+  `!ts loc opr exp env (s: 'ffi bviSem$state) r t.
+   ty_rel env ts /\
+   evaluate ([exp], env, s) = (r, t) /\
+   r <> Rerr (Rabort Rtype_error) ==>
+     evaluate ([do_comml ts loc opr exp], env, s) = (r, t)`,
+  recInduct do_comml_ind \\ rw []
+  \\ once_rewrite_tac [do_comml_def]
+  \\ PURE_TOP_CASE_TAC \\ fs []
+  \\ rw [apply_op_def] \\ rfs []
+  >-
+   (qpat_x_assum `_ = (r, t)` mp_tac
+    \\ fs [evaluate_def]
+    \\ CASE_TAC \\ fs []
+    \\ drule term_ok_SING
+    \\ rpt (disch_then drule) \\ strip_tac \\ fs []
+    \\ fs [pair_case_eq, case_eq_thms, case_elim_thms, PULL_EXISTS] \\ rw []
+    \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+    \\ Cases_on `opr` \\ fs [to_op_def]
+    \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ fs [case_eq_thms, case_elim_thms, pair_case_eq] \\ rw []
+    \\ TRY intLib.COOPER_TAC
+    \\ fs [bvlSemTheory.v_to_list_def])
+  \\ PURE_TOP_CASE_TAC \\ fs [] \\ rw []
+  \\ qpat_x_assum `_ = (r, t)` mp_tac
+  \\ fs [evaluate_def]
+  \\ CASE_TAC \\ fs []
+  \\ drule term_ok_SING
+  \\ rpt (disch_then drule) \\ strip_tac \\ fs [] \\ rveq
+  \\ CASE_TAC \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ Cases_on `q = Rerr (Rabort Rtype_error)` \\ fs []
+  \\ fs [pair_case_eq, case_eq_thms, case_elim_thms, PULL_EXISTS] \\ rw []
+  \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rveq
+  \\ Cases_on `opr` \\ fs [to_op_def]
+  \\ fs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+  \\ fs [case_eq_thms, case_elim_thms, pair_case_eq] \\ rw []
+  \\ TRY intLib.COOPER_TAC
+  \\ fs [bvlSemTheory.v_to_list_def]);
+
+val comml_correct = Q.store_thm("comml_correct",
+  `!ts loc exp env (s: 'ffi bviSem$state) r t.
+     evaluate ([exp], env, s) = (r, t) /\
+     ty_rel env ts /\
+     r <> Rerr (Rabort Rtype_error) ==>
+       evaluate ([comml ts loc exp], env, s) = (r, t)`,
+  recInduct comml_ind
+  \\ rw [comml_def, evaluate_def]
+  \\ TRY
+   (Cases_on `evaluate ([Op op xs], env, s)`
+    \\ drule do_comml_lemma
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [`loc`, `from_op op`] mp_tac)
+    \\ fs [evaluate_def]
+    \\ NO_TAC)
+  \\ fs [pair_case_eq, bool_case_eq, case_eq_thms, case_elim_thms, PULL_EXISTS]
+  \\ rw []
+  \\ rpt (qpat_x_assum `(_,_) = evaluate _` (assume_tac o GSYM))
+  \\ TRY (imp_res_tac scan_expr_ty_rel \\ fs [] \\ NO_TAC)
+  \\ sg `ty_rel vs (MAP (FST o SND) (scan_expr ts loc xs))`
+  >- metis_tac [scan_expr_ty_rel]
+  \\ CASE_TAC \\ fs [LAST1_thm]
+  >-
+   (imp_res_tac evaluate_IMP_LENGTH
+    \\ fs [ty_rel_def, LIST_REL_EL_EQN]
+    \\ rfs [LENGTH_EQ_NUM_compute, evaluate_def])
+  \\ first_x_assum drule \\ fs []
+  \\ impl_tac
+  >-
+   (match_mp_tac ty_rel_APPEND \\ simp []
+    \\ Cases_on `scan_expr ts loc xs` \\ fs [LAST1_def]
+    \\ rename1 `LAST1 ys = SOME z`
+    \\ `EVERY (ty_rel env o FST) ys` by metis_tac [scan_expr_ty_rel]
+    \\ imp_res_tac EVERY_LAST1 \\ fs [])
+  \\ rw []);
 
 val op_type_lem = Q.store_thm("op_type_lem[simp]",
   `op <> Noop <=> op_type op <> Any`,
@@ -1179,16 +1248,16 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     >- fs [ty_rel_def, LIST_REL_EL_EQN, EL_REPLICATE]
     \\ drule assocr_correct \\ rw []
     \\ drule comml_correct
+    \\ disch_then drule
     \\ disch_then (qspec_then `loc` mp_tac) \\ rw []
-    \\ first_assum (qspecl_then [`[comml loc (assocr exp)]`, `dec_clock (ticks+1) st_args`] mp_tac)
+    \\ first_assum (qspecl_then [`[comml (REPLICATE (LENGTH a) Any) loc (assocr exp)]`, `dec_clock (ticks+1) st_args`] mp_tac)
     \\ impl_tac
     >-
      (imp_res_tac evaluate_clock
       \\ fs [dec_clock_def])
-    \\ rpt (disch_then drule)
     \\ imp_res_tac evaluate_code_const \\ fs []
-    \\ disch_then (qspecl_then [`c`,`loc`,`REPLICATE (LENGTH a) Any`] mp_tac)
-    \\ rw []
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspec_then `loc` mp_tac) \\ rw []
     \\ first_x_assum (qspecl_then [`op`,`n`] mp_tac)
     \\ simp [compile_exp_def, check_exp_def]
     \\ rw []
@@ -1198,14 +1267,14 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
     >-
      (fs [env_rel_def]
       \\ Cases_on `op` \\ fs [op_id_val_def, op_type_def, EL_APPEND1, EL_LENGTH_APPEND, IS_PREFIX_APPEND, bvlSemTheory.v_to_list_def])
-    \\ first_x_assum (qspecl_then [`[comml loc (assocr exp)]`, `dec_clock (ticks+1) st_args`] mp_tac)
+    \\ first_x_assum (qspecl_then [`[comml (REPLICATE (LENGTH a) Any) loc (assocr exp)]`, `dec_clock (ticks+1) st_args`] mp_tac)
     \\ impl_tac
     >-
      (imp_res_tac evaluate_clock
       \\ fs [dec_clock_def])
+    \\ rpt (disch_then drule) \\ fs []
     \\ rpt (disch_then drule)
-    \\ disch_then (qspecl_then [`c`,`loc`,`REPLICATE (LENGTH a) Any`] mp_tac)
-    \\ rw []
+    \\ disch_then (qspec_then `loc` mp_tac) \\ rw []
     \\ first_x_assum (qspecl_then [`op`, `n`] mp_tac)
     \\ simp [compile_exp_def, check_exp_def]
     \\ rw []
@@ -1318,8 +1387,9 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
      >- fs [pair_case_eq, bool_case_eq, case_eq_thms, case_elim_thms]
      \\ drule assocr_correct \\ rw []
      \\ drule comml_correct
+     \\ disch_then drule
      \\ disch_then (qspec_then `n` mp_tac) \\ rw []
-     \\ first_x_assum (qspecl_then [`[comml n (assocr exp)]`,`dec_clock (ticks+1) s1`] mp_tac)
+     \\ first_x_assum (qspecl_then [`[comml (REPLICATE (LENGTH (FRONT a)) Any) n (assocr exp)]`,`dec_clock (ticks+1) s1`] mp_tac)
      \\ impl_tac
      >-
       (imp_res_tac evaluate_clock
@@ -1390,12 +1460,12 @@ val evaluate_rewrite_tail = Q.store_thm ("evaluate_rewrite_tail",
    >- fs [pair_case_eq, case_eq_thms, case_elim_thms, bool_case_eq]
    \\ strip_tac
    \\ drule comml_correct
+   \\ disch_then drule
    \\ disch_then (qspec_then `x` mp_tac)
    \\ impl_tac
    >- fs [pair_case_eq, case_eq_thms, case_elim_thms, bool_case_eq]
-   \\ strip_tac
-   \\ strip_tac
-   \\ first_assum (qspecl_then [`[comml x (assocr exp)]`,`dec_clock (ticks+1) s1`] mp_tac)
+   \\ ntac 2 strip_tac
+   \\ first_assum (qspecl_then [`[comml (REPLICATE (LENGTH a) Any) x (assocr exp)]`,`dec_clock (ticks+1) s1`] mp_tac)
    \\ impl_tac
    >-
     (imp_res_tac evaluate_clock
