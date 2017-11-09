@@ -877,7 +877,91 @@ val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
 
 fun export_match_thms slist = List.app export slist;
 
-(* Heuristics *)
+(************************************************************************************
+ *
+ * Match heap preconditions
+ *
+ ************************************************************************************)
+(* [match_heap_conditions] *)
+fun match_heap_conditions hcond sub_hcond =
+  let
+      val extract_thms = get_frame_thms ()
+
+      (* Retrieve the extraction triplets *)
+      val extr_triplets = mapfilter convert_extract_thm extract_thms
+      val extr_pairs = List.map (fn (c, w, r) => (mk_sep_imp (c, w), r)) extr_triplets
+
+      (* Decompose the heap conditions *)
+      val hc_hpl = list_dest dest_star hcond |> List.filter (fn x => not (same_const ``emp:hprop`` x))
+      val shc_hpl = list_dest dest_star sub_hcond |>
+			      List.filter (fn x => (not (same_const ``emp:hprop`` x)))
+
+      (* Perfom the matching *)
+      fun try_match obj pat_pair =
+	let
+	    val tsubst = match_term (fst pat_pair) obj |> fst
+	    val eqs = Term.subst tsubst (snd pat_pair)
+	in
+	    convert_eqs_to_subs eqs
+	end
+
+      (* Interior loop *)
+      fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
+        | match_loop_int h1 (h2::hl2) =
+	  if h1 = h2 then ([], hl2)
+	  else
+	      (let
+		  val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
+	      in
+		  (result, hl2)
+	      end
+	       handle HOL_ERR _ =>
+		      let val (results, hl2') = match_loop_int h1 hl2 in (results, h2::hl2') end)
+
+      (* Exterior loop *)
+      fun match_loop_ext (h1::hl1) hl2 =
+	(let
+	    val (res1, hl2') = match_loop_int h1 hl2
+	    val (results, hl1', hl2'') = match_loop_ext hl1 hl2'
+	in
+	    (List.revAppend(res1, results), hl1', hl2'')
+	end
+	 handle HOL_ERR _ =>
+		let val (results, hl1', hl2') = match_loop_ext hl1 hl2 in (results, h1::hl1', hl2') end)
+	| match_loop_ext [] hl2 = ([], [], hl2)
+  in
+      match_loop_ext hc_hpl shc_hpl
+  end;
+
+(* [match_hconds] : match two pre-conditions in order to extract a frame *)
+fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
+  let
+      val sset = get_default_simpset ()
+
+      val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
+			  dest_comb |> fst |> dest_comb |> snd
+      val rw_app_pre = (QCONV (SIMP_CONV sset rewrite_thms) app_pre |> concl |> dest_eq |> snd)
+      val rw_let_pre = (QCONV (SIMP_CONV sset rewrite_thms) let_pre |> concl |> dest_eq |> snd)
+      val (substsl, _, _) = match_heap_conditions let_pre app_pre
+      val filt_subst =
+	  List.filter (fn {redex = x, residue = y} => not (HOLset.member (avoid_tms, x))) substsl
+      val used_subst = List.map (fn {redex = x, residue = y} => x) filt_subst
+
+      (* Instantiate the variables *)
+      val (vars_subst, terms_subst) =
+	  List.partition (fn {redex = x, residue = y} => is_var x) filt_subst
+      val app_spec1 = Thm.INST vars_subst app_spec
+
+      (* And add the other equalities as new hypotheses *)
+      val terms_eqs = List.map (fn {redex = x, residue = y} => mk_eq(x, y)) terms_subst
+      val app_spec2 = List.foldr (fn (eq, th) => ADD_ASSUM eq th) app_spec1 terms_eqs
+      val app_spec3 = List.foldr (fn (eq, th) => DISCH eq th) app_spec2 terms_eqs
+      val app_spec4 = PURE_REWRITE_RULE [AND_IMP_INTRO] app_spec3
+  in
+      (app_spec4, used_subst)
+  end;
+
+(*************** Heuristics *****************************************)
 
 (* For each hypothesis of the app spec the list of possible substitutions
    which make it match with one of the assumptions
@@ -1108,89 +1192,7 @@ val USE_HEURISTICS = ref true;
 fun use_heuristics b = USE_HEURISTICS := true;
 fun using_heuristics () = !USE_HEURISTICS;
 
-(************************************************************************************
- *
- * Matching and simplification functions
- *
- ************************************************************************************)
-(* [match_heap_conditions] *)
-fun match_heap_conditions hcond sub_hcond =
-  let
-      val extract_thms = get_frame_thms ()
-
-      (* Retrieve the extraction triplets *)
-      val extr_triplets = mapfilter convert_extract_thm extract_thms
-      val extr_pairs = List.map (fn (c, w, r) => (mk_sep_imp (c, w), r)) extr_triplets
-
-      (* Decompose the heap conditions *)
-      val hc_hpl = list_dest dest_star hcond |> List.filter (fn x => not (same_const ``emp:hprop`` x))
-      val shc_hpl = list_dest dest_star sub_hcond |>
-			      List.filter (fn x => (not (same_const ``emp:hprop`` x)))
-
-      (* Perfom the matching *)
-      fun try_match obj pat_pair =
-	let
-	    val tsubst = match_term (fst pat_pair) obj |> fst
-	    val eqs = Term.subst tsubst (snd pat_pair)
-	in
-	    convert_eqs_to_subs eqs
-	end
-
-      (* Interior loop *)
-      fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
-        | match_loop_int h1 (h2::hl2) =
-	  if h1 = h2 then ([], hl2)
-	  else
-	      (let
-		  val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
-	      in
-		  (result, hl2)
-	      end
-	       handle HOL_ERR _ =>
-		      let val (results, hl2') = match_loop_int h1 hl2 in (results, h2::hl2') end)
-
-      (* Exterior loop *)
-      fun match_loop_ext (h1::hl1) hl2 =
-	(let
-	    val (res1, hl2') = match_loop_int h1 hl2
-	    val (results, hl1', hl2'') = match_loop_ext hl1 hl2'
-	in
-	    (List.revAppend(res1, results), hl1', hl2'')
-	end
-	 handle HOL_ERR _ =>
-		let val (results, hl1', hl2') = match_loop_ext hl1 hl2 in (results, h1::hl1', hl2') end)
-	| match_loop_ext [] hl2 = ([], [], hl2)
-  in
-      match_loop_ext hc_hpl shc_hpl
-  end;
-
-(* [match_hconds] : match two pre-conditions in order to extract a frame *)
-fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
-  let
-      val sset = get_default_simpset ()
-
-      val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
-			  dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (QCONV (SIMP_CONV sset rewrite_thms) app_pre |> concl |> dest_eq |> snd)
-      val rw_let_pre = (QCONV (SIMP_CONV sset rewrite_thms) let_pre |> concl |> dest_eq |> snd)
-      val (substsl, _, _) = match_heap_conditions let_pre app_pre
-      val filt_subst =
-	  List.filter (fn {redex = x, residue = y} => not (HOLset.member (avoid_tms, x))) substsl
-      val used_subst = List.map (fn {redex = x, residue = y} => x) filt_subst
-
-      (* Instantiate the variables *)
-      val (vars_subst, terms_subst) =
-	  List.partition (fn {redex = x, residue = y} => is_var x) filt_subst
-      val app_spec1 = Thm.INST vars_subst app_spec
-
-      (* And add the other equalities as new hypotheses *)
-      val terms_eqs = List.map (fn {redex = x, residue = y} => mk_eq(x, y)) terms_subst
-      val app_spec2 = List.foldr (fn (eq, th) => ADD_ASSUM eq th) app_spec1 terms_eqs
-      val app_spec3 = List.foldr (fn (eq, th) => DISCH eq th) app_spec2 terms_eqs
-      val app_spec4 = PURE_REWRITE_RULE [AND_IMP_INTRO] app_spec3
-  in
-      (app_spec4, used_subst)
-  end;
+(************* Some simplification functions ************************)
 
 (* [find_equality_types]
    Search through the assumptions list for possible equality types, prove that those are indeed equality types if possible *)
