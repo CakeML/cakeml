@@ -1388,9 +1388,9 @@ local val assign_quotation = `
                          (Op Add [Var 1; Const (2w * bytes_in_word)]));
                        Assign 5 (Op Xor [Const ~0w; Var 5]);
                        Assign 9 (Op Xor [Const ~0w; Var 9]);
-                       Inst (Arith (AddCarry 5 11 5 13));
-                       Inst (Arith (AddCarry 9 11 9 13));
-                       WriteWord64_on_32 c header dest 5 9]))])), l)
+                       Inst (Arith (AddCarry 15 11 5 13));
+                       Inst (Arith (AddCarry 19 11 9 13));
+                       WriteWord64_on_32 c header dest 15 19]))])), l)
       | _ => (Skip, l))
    | WordToInt =>
      (dtcase args of
