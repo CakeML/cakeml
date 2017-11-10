@@ -41,7 +41,8 @@ val assign_def_extras = save_thm("assign_def_extras",LIST_CONJ
    Div_code_def,Mod_code_def, Compare1_code_def, Compare_code_def,
    Equal1_code_def, Equal_code_def, LongDiv1_code_def, LongDiv_code_def,
    ShiftVar_def, generated_bignum_stubs_eq, DivCode_def,
-   AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def, AllocVar_def,
+   AddNumSize_def, AnyHeader_def, WriteWord64_on_32_def,
+   WriteWord32_on_32_def, AllocVar_def,
    WordOp64_on_32_def, WordShift64_on_32_def, Make_ptr_bits_code_def]);
 
 val get_vars_SING = Q.store_thm("get_vars_SING",
@@ -6751,7 +6752,7 @@ val th = Q.store_thm("assign_FP_bop",
       ORELSE qpat_abbrev_tac `ww = fp64_mul _ _ _`
       ORELSE qpat_abbrev_tac `ww = fp64_div _ _ _`)
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
-  \\ impl_tac \\ TRY (rw [] \\ NO_TAC)
+  \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []);
 
