@@ -191,6 +191,8 @@ val compile_def = tDefine"compile" `
                         Var (tra§8) 1; Var (tra§9) 2]]
             (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op (Op ConfigGC)) es) =
+    Op tra ConfigGC (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (FFI n))) es) =
     Op tra (FFI n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Init_global_var n)) es) =
