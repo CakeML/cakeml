@@ -1730,7 +1730,7 @@ val (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
   (* Define the pre conds *)
   val all_pre_vars = List.map ((repeat rator) o fst) pre_var_EvalM_pairs
   val (all_pres_list, vsl) = List.map (fn tm => let
-      val vs = diff (free_vars tm) all_pre_vars
+      val vs = op_set_diff aconv (free_vars tm) all_pre_vars
       val def_tm = list_mk_forall(vs, tm)
     in (def_tm, vs) end) no_quant_pres |> unzip
   val all_pres = list_mk_conj all_pres_list
