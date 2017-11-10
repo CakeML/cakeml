@@ -318,6 +318,53 @@ val v_rel_weakening = Q.prove (
   >- fs [LIST_REL_EL_EQN]
   >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]);
 
+val v_rel_weakening2 = Q.prove (
+  `(!genv v v'.
+    v_rel genv v v'
+    ⇒
+    ∀gc. DISJOINT (FDOM gc) (FDOM genv.c) ⇒ v_rel <| v := genv.v; c := FUNION gc genv.c |> v v') ∧
+   (!genv env env'.
+    env_rel genv env env'
+    ⇒
+    !gc. DISJOINT (FDOM gc) (FDOM genv.c) ⇒ env_rel <| v := genv.v; c := FUNION gc genv.c |> env env') ∧
+   (!genv comp_map shadowers env.
+    global_env_inv genv comp_map shadowers env
+    ⇒
+    !gc. DISJOINT (FDOM gc) (FDOM genv.c) ⇒ global_env_inv <| v := genv.v; c := FUNION gc genv.c |> comp_map shadowers env)`,
+  ho_match_mp_tac v_rel_ind >>
+  srw_tac[][v_rel_eqns]
+  >- fs [LIST_REL_EL_EQN]
+  >- (
+    simp [FLOOKUP_FUNION] >>
+    fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
+    rw [] >>
+    metis_tac [])
+  >- fs [LIST_REL_EL_EQN]
+  >- (srw_tac[][Once v_rel_cases] >>
+      MAP_EVERY qexists_tac [`comp_map`, `env`, `env'`, `t`, `ts`] >>
+      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
+  >- (srw_tac[][Once v_rel_cases] >>
+      MAP_EVERY qexists_tac [`comp_map`, `env`, `env'`, `t`,`ts`] >>
+      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
+  >- (srw_tac[][Once v_rel_cases] >>
+      MAP_EVERY qexists_tac [`comp_map`, `new_vars`, `t1`, `t2`] >>
+      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns, EL_APPEND1] >>
+      srw_tac[][] >>
+      res_tac >>
+      qexists_tac `n` >>
+      srw_tac[][EL_APPEND1] >>
+      map_every qexists_tac [`t2`,`t3`] >>
+      decide_tac)
+  >- fs [LIST_REL_EL_EQN]
+  >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]
+  >- (
+    res_tac >>
+    fs [] >>
+    simp [FLOOKUP_FUNION] >>
+    fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
+    rw [] >>
+    metis_tac []));
+
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀genv v v'.
     f genv v v'
@@ -1993,6 +2040,8 @@ val spect = spectv "t"
 val invariant_def = Define `
   invariant genv idx comp_map env s s_i1 ⇔
     genv_c_ok genv.c ∧
+    (!cn t a. t ≥ idx.tidx ⇒ ((cn,SOME t), a) ∉ FDOM genv.c) ∧
+    (!cn t. t ≥ s.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
     genv.v = s_i1.globals ∧
     global_env_inv genv comp_map {} env ∧
     s_rel genv.c s s_i1 ∧
@@ -2057,6 +2106,151 @@ val global_env_inv_extend = Q.prove (
         fs []))
     >- metis_tac [v_rel_weakening]));
 
+val evaluate_alloc_tags = Q.prove (
+  `!idx ctors ns cids genv comp_map env s s' new_cids.
+   alloc_tags idx.tidx new_cids ctors = (ns, cids) ∧
+   invariant genv idx comp_map env s s' ∧
+   ALL_DISTINCT (MAP FST ctors)
+   ⇒
+   ?genv_c.
+     (!tag typ arity stamp.
+       FLOOKUP genv_c ((tag,typ),arity) = SOME stamp ⇒
+       typ = SOME idx.tidx ∧ ?cn. cn ∈ set (MAP FST ctors) ∧ stamp = TypeStamp cn s.next_type_stamp) ∧
+     invariant
+       (genv with c := FUNION genv_c genv.c)
+       (idx with tidx updated_by SUC)
+       (extend_env <| c := ns; v := nsEmpty |> comp_map)
+       (extend_dec_env env <| v := nsEmpty; c := alist_to_ns (REVERSE (build_constrs s.next_type_stamp ctors)) |>)
+       (s with next_type_stamp updated_by SUC)
+       (s' with next_type_id updated_by SUC)`,
+  Induct_on `ctors` >>
+  rw [alloc_tags_def, build_constrs_def, extend_env_def, extend_dec_env_def] >>
+  rw []
+  >- (
+    qexists_tac `FEMPTY` >>
+    fs [invariant_def, v_rel_eqns, s_rel_cases] >>
+    `genv with c := genv.c = genv` by rw [theorem "global_env_component_equality"] >>
+    metis_tac []) >>
+  rename [`alloc_tags _ _ (c::_) = _`] >>
+  `?cn ts. c = (cn,ts)` by metis_tac [pair_CASES] >>
+  fs [alloc_tags_def] >>
+  rpt (pairarg_tac >> fs []) >>
+  rw [] >>
+  first_x_assum drule >>
+  disch_then drule >>
+  simp [invariant_def, v_rel_eqns, s_rel_cases, extend_env_def, extend_dec_env_def] >>
+  rw [] >>
+  qexists_tac `genv_c |+ (((tag, SOME idx.tidx), LENGTH ts),
+                          TypeStamp cn s.next_type_stamp)` >>
+  rw []
+  >- (
+    fs [FLOOKUP_UPDATE] >>
+    every_case_tac >>
+    fs [] >>
+    metis_tac [])
+  >- (
+    fs [FLOOKUP_UPDATE] >>
+    every_case_tac >>
+    fs [] >>
+    metis_tac [])
+  >- (
+    simp [FUNION_FUPDATE_1] >>
+    simp [genv_c_ok_def, FLOOKUP_UPDATE] >>
+    conj_tac
+    >- (
+      fs [has_bools_def, invariant_def, genv_c_ok_def] >>
+      simp [FLOOKUP_UPDATE] >>
+      fs [FLOOKUP_DEF] >>
+      metis_tac [DECIDE ``x ≥ x : num``]) >>
+    conj_tac
+    >- (
+      fs [has_exns_def, invariant_def, genv_c_ok_def] >>
+      simp [FLOOKUP_UPDATE] >>
+      fs [FLOOKUP_DEF] >>
+      metis_tac [DECIDE ``x ≥ x : num``]) >>
+    conj_tac
+    >- (
+      fs [has_lists_def, invariant_def, genv_c_ok_def] >>
+      simp [FLOOKUP_UPDATE] >>
+      fs [FLOOKUP_DEF] >>
+      metis_tac [DECIDE ``x ≥ x : num``]) >>
+    conj_tac
+    >- (
+      rw []
+      >- fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def]
+      >- (
+        pop_assum mp_tac >>
+        simp [FLOOKUP_FUNION] >>
+        every_case_tac >>
+        rw [] >>
+        PairCases_on `cn2`
+        >- (
+          Cases_on `stamp2` >>
+          fs [invariant_def] >>
+          fs [FLOOKUP_DEF] >>
+          `cn21 ≠ SOME idx.tidx` by metis_tac [PAIR_EQ, DECIDE ``x ≥ x : num``] >>
+          rw [] >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
+          fs [FRANGE_DEF] >>
+          `s'.next_type_id ≥ s'.next_type_id` by decide_tac >>
+          metis_tac [])
+        >- (
+          Cases_on `stamp2` >>
+          res_tac >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
+          res_tac >>
+          fs [invariant_def, FLOOKUP_DEF, genv_c_ok_def]))
+      >- (
+        pop_assum mp_tac >>
+        simp [FLOOKUP_FUNION] >>
+        every_case_tac >>
+        rw [] >>
+        PairCases_on `cn1`
+        >- (
+          Cases_on `stamp1` >>
+          fs [invariant_def] >>
+          fs [FLOOKUP_DEF] >>
+          `cn11 ≠ SOME idx.tidx` by metis_tac [PAIR_EQ, DECIDE ``x ≥ x : num``] >>
+          rw [] >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
+          fs [FRANGE_DEF] >>
+          `s'.next_type_id ≥ s'.next_type_id` by decide_tac >>
+          metis_tac [])
+        >- (
+          Cases_on `stamp1` >>
+          res_tac >>
+          fs [ctor_same_type_def, semanticPrimitivesTheory.ctor_same_type_def, same_type_def] >>
+          res_tac >>
+          fs [invariant_def, FLOOKUP_DEF, genv_c_ok_def]))
+      >- metis_tac [genv_c_ok_def])
+    >- (
+      rpt gen_tac >>
+      strip_tac >>
+      every_case_tac
+      >- (
+        fs [FLOOKUP_FUNION] >>
+        every_case_tac >>
+        fs [invariant_def, FLOOKUP_DEF, FRANGE_DEF] >>
+        rw [] >>
+        metis_tac [DECIDE ``x ≥ x : num``, stamp_11, pair_CASES])
+      >- (
+        fs [FLOOKUP_FUNION] >>
+        every_case_tac >>
+        fs [invariant_def, FLOOKUP_DEF, FRANGE_DEF] >>
+        rw [] >>
+        metis_tac [DECIDE ``x ≥ x : num``, stamp_11, pair_CASES])
+      >- metis_tac [genv_c_ok_def]))
+  >- (
+    simp [FRANGE_FUPDATE, FUNION_FUPDATE_1] >>
+    fs [] >>
+    res_tac >>
+    fs [IN_FRANGE, FDOM_DRESTRICT] >>
+    rw [DRESTRICT_DEF] >>
+    metis_tac [])
+  >- cheat
+  >- cheat
+  >- cheat);
+
 val compile_decs_correct = Q.prove (
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
@@ -2089,6 +2283,7 @@ val compile_decs_correct = Q.prove (
   >- (
     rw [compile_decs_def, evaluate_decs_def, v_rel_eqns, invariant_def] >>
     rw [extend_dec_env_def, evaluate_decs_def, extend_env_def, empty_env_def] >>
+    qexists_tac `genv` >>
     metis_tac []) >>
   conj_tac
   >- (
@@ -2113,7 +2308,9 @@ val compile_decs_correct = Q.prove (
       fs [invariant_def]
       >- metis_tac [evaluate_decs_append_err] >>
       drule compile_decs_num_bindings >>
-      fs []) >>
+      fs [] >>
+      rw []
+      ) >>
     BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[] >>
     first_x_assum drule >>
@@ -2357,10 +2554,11 @@ val compile_decs_correct = Q.prove (
       >- fs [Abbr `cls`, compile_funs_map]))
 
   >- ( (* Type definition *)
+
     rpt (pop_assum mp_tac) >>
     MAP_EVERY qspec_tac [(`genv`,`genv`), (`idx`,`idx`), (`comp_map`,`comp_map`), (`env`,`env`), (`s`,`s`), (`s_i1`, `s_i1`)] >>
     Induct_on `tds`
-    >- (
+    >- ( (* No tds *)
       rw [evaluate_decs_def] >>
       simp [extend_env_def, extend_dec_env_def, build_tdefs_def] >>
       fs [invariant_def] >>
@@ -2371,24 +2569,33 @@ val compile_decs_correct = Q.prove (
     strip_tac >>
     rename [`EVERY check_dup_ctors (td::tds)`] >>
     `?tvs tn ctors. td = (tvs, tn ,ctors)` by metis_tac [pair_CASES] >>
-    simp [] >>
-    Induct_on `ctors` >>
-    rw [evaluate_decs_def]
-    >- (
+    rw [evaluate_decs_def] >>
+    pairarg_tac >>
+    fs [] >>
+    simp [evaluate_dec_def] >>
+
+    >- ( (* And empty td *)
       rw [alloc_tags_def, evaluate_dec_def, toList_def, toListA_def] >>
       fs [] >>
-      `invariant genv idx comp_map env s (s_i1 with <|next_type_id := s_i1.next_type_id + 1; globals updated_by (λg. g)|>)`
-      fs [invariant_def, s_rel_cases]
-
+      `invariant genv (idx with tidx := idx.tidx + 1) comp_map env
+           (s with next_type_stamp := s.next_type_stamp + 1)
+           (s_i1 with <|next_type_id := s_i1.next_type_id + 1; globals updated_by (λg. g)|>)`
+      by fs [invariant_def, s_rel_cases] >>
       first_x_assum drule >>
-      rw []
-
+      rw [evaluate_dec_def] >>
+      fs [toList_def, combinTheory.o_DEF, ADD1] >>
+      qexists_tac `genv'` >>
+      rw [build_tdefs_def, build_constrs_def]) >>
+    rename [`alloc_tags _ LN (cdef::ctors)`] >>
+    `?cn ts. cdef = (cn, ts)` by metis_tac [pair_CASES] >>
     fs [] >>
+    rw [alloc_tags_def, evaluate_dec_def, toList_def, toListA_def] >>
+
+    fs [evaluate_dec_def] >>
     pairarg_tac >>
     simp [evaluate_dec_def] >>
     pairarg_tac >>
     fs [] >>
-    `invariant (genv with c := FUNION genv.c 
 
 
 
