@@ -277,51 +277,6 @@ val inFS_fname_numchars = Q.store_thm("inFS_fname_numchars",
  `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`,
   rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
 
-(* encode/ decode *)
-
-val decode_encode_inode = Q.store_thm(
-  "decode_encode_inode",
-  `∀f. decode_inode (encode_inode f) = return f`,
-  strip_tac >> cases_on`f` >>
-  rw[encode_inode_def, decode_inode_def] >>
-  rpt CASE_TAC >> fs[decode_pair_def]);
-
-val decode_encode_files = Q.store_thm(
-  "decode_encode_files",
-  `∀l. decode_files (encode_files l) = return l`,
-  rw[encode_files_def, decode_files_def] >>
-  match_mp_tac decode_encode_list >>
-  match_mp_tac decode_encode_pair >>
-  simp[implode_explode,decode_encode_inode]);
-
-val encode_files_11 = Q.store_thm("encode_files_11",
-  `encode_files l1 = encode_files l2 ⇒ l1 = l2`,
-  rw[] >>
-  `decode_files (encode_files l1) = decode_files(encode_files l2)` by fs[] >>
-  fs[decode_encode_files]);
-
-val decode_encode_fds = Q.store_thm(
-  "decode_encode_fds",
-  `decode_fds (encode_fds fds) = return fds`,
-  simp[decode_fds_def, encode_fds_def] >>
-  simp[decode_encode_list, decode_encode_pair,decode_encode_inode]);
-
-val encode_fds_11 = Q.store_thm("encode_fds_11",
-  `encode_fds l1 = encode_fds l2 ⇒ l1 = l2`,
-  rw[] >> `decode_fds (encode_fds l1) = decode_fds(encode_fds l2)` by fs[] >>
-  fs[decode_encode_fds]);
-
-val decode_encode_FS = Q.store_thm(
-  "decode_encode_FS[simp]",
-  `decode (encode fs) = return fs`,
-  simp[decode_def, encode_def, decode_encode_files, decode_encode_fds] >>
-  simp[IO_fs_component_equality]);
-
-val encode_11 = Q.store_thm(
-  "encode_11[simp]",
-  `encode fs1 = encode fs2 ⇔ fs1 = fs2`,
-  metis_tac[decode_encode_FS, SOME_11]);
-
 (* ffi lengths *)
 
 val ffi_open_in_length = Q.store_thm("ffi_open_in_length",

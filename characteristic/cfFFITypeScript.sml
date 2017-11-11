@@ -225,12 +225,6 @@ val destSeq_def = new_specification("destSeq_def",["destSeq"],prove(``
   \\ fs [] \\ rw [] \\ EVAL_TAC));
 val _ = export_rewrites ["destSeq_def"];
 
-val encode_pair_def = Define`
-  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
-
-val encode_list_def = Define`
-  encode_list e l = List (MAP e l)`;
-
 (*
 
 val decode_pair_def = Define`
@@ -258,13 +252,5 @@ val decode_encode_list = Q.store_thm(
   simp[OPT_MMAP_def]);
 
 *)
-
-(* make an ffi_next function from base functions and encode/decode *)
-val mk_ffi_next_def = Define`
-  mk_ffi_next (encode,decode,ls) name conf bytes s =
-    OPTION_BIND (ALOOKUP ls name) (λf.
-    OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f conf bytes s) (λ(bytes,s).
-    SOME (bytes,encode s))))`;
 
 val _ = export_theory()

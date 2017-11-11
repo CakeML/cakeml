@@ -65,9 +65,9 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
     \\ qmatch_goalsub_abbrev_tac`IO s u ns`
     \\ map_every qexists_tac [`emp`, `s`, `s`, `u`, `ns`]
     \\ xsimpl
-    \\ fs[Abbr`u`,Abbr`ns`,cfHeapsBaseTheory.mk_ffi_next_def,ffi_getArgs_def,decode_def,GSYM cfHeapsBaseTheory.encode_list_def]
+    \\ fs[Abbr`u`,Abbr`ns`,cfHeapsBaseTheory.mk_ffi_next_def,ffi_getArgs_def,GSYM cfHeapsBaseTheory.encode_list_def,Abbr`s`]
     \\ simp[EVERY_MAP, LENGTH_REPLICATE, Abbr`l`]
-    \\ rw[Abbr`s`,encode_def] \\ fs[EVERY_REPLICATE])
+    \\ rw[encode_def] \\ fs[EVERY_REPLICATE])
   \\ xfun_spec`foo``∀c cv. CHAR c cv ⇒ app p foo [cv] emp (POSTv v. &(BOOL (CHR 0 = c) v))`
   >- (
     rw[]
@@ -108,8 +108,7 @@ val Commandline_cline_spec = Q.store_thm("Commandline_cline_spec",
   \\ DEP_REWRITE_TAC[FILTER_EQ_ID |> SPEC_ALL |> EQ_IMP_RULE |> #2]
   \\ simp[EVERY_MAP,NULL_EQ]
   \\ DEP_REWRITE_TAC[TOKENS_FLAT_MAP_SNOC]
-  \\ fs[EVERY_SNOC,validArg_def,EVERY_MEM,NULL_EQ,MAP_SNOC]
-);
+  \\ fs[EVERY_SNOC,validArg_def,EVERY_MEM,NULL_EQ,MAP_SNOC]);
 
 val hd_v_thm = fetch "ListProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]

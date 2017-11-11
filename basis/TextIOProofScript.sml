@@ -17,7 +17,7 @@ val IOFS_iobuff_def = Define`
     SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v = 258) `;
 
 val IOFS_def = Define `
-  IOFS fs = IOx fs_ffi_part fs * IOFS_iobuff * &wfFS fs`
+  IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs`
 
 val UNIQUE_IOFS = Q.store_thm("UNIQUE_IOFS",
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (IOFS fs1 * H1) s /\
@@ -25,7 +25,7 @@ val UNIQUE_IOFS = Q.store_thm("UNIQUE_IOFS",
   rw[IOFS_def,cfHeapsBaseTheory.IOx_def, fs_ffi_part_def,
      GSYM STAR_ASSOC,encode_def] >>
   IMP_RES_TAC FRAME_UNIQUE_IO >>
-  fs[encode_files_11,encode_fds_11,IO_fs_component_equality]);
+  fs[IO_fs_component_equality]);
 
 val IOFS_FFI_part_hprop = Q.store_thm("IOFS_FFI_part_hprop",
   `FFI_part_hprop (IOFS fs)`,
@@ -477,7 +477,7 @@ val openIn_spec = Q.store_thm(
         map_every qexists_tac[`ns`,`f`,`encode (openFileFS s fs 0)`,`st`]
         >> xsimpl >>
         simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-             ffi_open_in_def, decode_encode_FS, Abbr`fnm`,
+             ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
              getNullTermStr_insert_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
              implode_explode, LENGTH_explode] >>
@@ -513,7 +513,7 @@ val openIn_spec = Q.store_thm(
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`ns`,`f`,`st`,`st`] >> xsimpl >>
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-	   ffi_open_in_def, decode_encode_FS, Abbr`fnm`,
+	   ffi_open_in_def, (* decode_encode_FS, *) Abbr`fnm`,
 	   getNullTermStr_insert_atI, MEM_MAP, ORD_BOUND, ORD_eq_0,
 	   dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
 	   implode_explode, LENGTH_explode] >>
@@ -577,7 +577,7 @@ val close_spec = Q.store_thm(
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
      map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >> xsimpl >>
      unabbrev_all_tac >> CASE_TAC >> rw[] >>
-     fs[mk_ffi_next_def, ffi_close_def, decode_encode_FS,
+     fs[mk_ffi_next_def, ffi_close_def, (* decode_encode_FS, *)
         getNullTermStr_insert_atI, ORD_BOUND, ORD_eq_0,option_eq_some,
         dimword_8, MAP_MAP_o, o_DEF, char_BIJ,
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
@@ -653,7 +653,7 @@ val writei_spec = Q.store_thm("writei_spec",
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
         map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >> xsimpl >>
         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
-           ffi_write_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+           ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
            dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
            HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,write_def,
            get_file_content_def] >>
@@ -687,7 +687,7 @@ val writei_spec = Q.store_thm("writei_spec",
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
      map_every qexists_tac[`ns`,`f`,`encode fs'`,`st`] >> xsimpl >>
      fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
-        ffi_write_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+        ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
         dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
         HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,write_def,
         get_file_content_def] >>
@@ -940,7 +940,7 @@ val read_spec = Q.store_thm("read_spec",
          map_every qexists_tac[`ns`,`f`] >>
          xsimpl >>
          fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
-            decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+            (* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
             dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
             HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
             get_file_content_def,n2w_w2n,w2n_n2w] >> rfs[] >>
@@ -964,7 +964,7 @@ val read_spec = Q.store_thm("read_spec",
       map_every qexists_tac[`ns`,`f`] >>
       xsimpl >>
       fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
-         ffi_read_def,decode_encode_FS,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+         ffi_read_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
          dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
          HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
          get_file_content_def] >> rfs[] >>
