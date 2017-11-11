@@ -745,9 +745,7 @@ val write_spec = Q.store_thm("write_spec",
 	    fs[fsupdate_unchanged,insert_atI_def] >> xsimpl)) >>
   NTAC 2 (xlet_auto >- xsimpl) >>
   PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
-  (* TODO: xlet_auto fails *)
-  `h1::h2::h3::rest = h1::h2::h3::rest` by fs[] >>
-  xlet_auto_spec (SOME writei_spec) >> xsimpl
+  xlet_auto >> xsimpl
   >-(simp[iobuff_loc_def] >> xsimpl >> rw[] >> instantiate >> xsimpl) >>
   xlet_auto >- xsimpl >> reverse xif
   >-(xcon >> xsimpl >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
@@ -1075,7 +1073,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
       qmatch_assum_rename_tac`SUC(SUC(LENGTH buff)) = _` \\
       Cases_on`buff` \\ fs[] \\
       rewrite_tac[GSYM iobuff_loc_def] \\
-      (* TODO: xlet_auto generates bad variables without this *)
+      (* TODO: xapp_spec generates bad variables without this (called by xlet_auto) *)
       qmatch_goalsub_rename_tac`W8ARRAY _ (h1::h2::h3::rest)` \\
       xlet_auto \\ simp[]
       >- xsimpl
