@@ -1487,6 +1487,44 @@ val Eval_length = Q.store_thm("Eval_length",
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
+val Eval_length = Q.store_thm("Eval_length",
+  `!env x1 x2 a n v.
+      Eval env x1 (VECTOR_TYPE a v) ==>
+      Eval env (App Vlength [x1]) (NUM (length v))`,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
+  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
+  asm_exists_tac >> fs[] >>
+  rw [do_app_cases] >>
+  rw [PULL_EXISTS] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
+  rw [] >>
+  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
+
+val force_gc_to_run_def = Define `
+  force_gc_to_run (i1:int) (i2:int) = ()`;
+
+val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
+  `Eval env x1 (INT i1) ==>
+   Eval env x2 (INT i2) ==>
+   Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  asm_exists_tac >> fs [] >>
+  first_x_assum(qspec_then`refs ++ refs'`strip_assume_tac) >>
+  qexists_tac `Conv NONE []` >>
+  qexists_tac `refs' ⧺ refs''` >>
+  qexists_tac `refs ++ refs' ⧺ refs''` >>
+  fs [empty_state_def] >>
+  asm_exists_tac >> fs [] >>
+  fs [do_app_def,INT_def,UNIT_TYPE_def]);
+
+
 (* a few misc. lemmas that help the automation *)
 
 val IMP_PreImp = Q.store_thm("IMP_PreImp",
