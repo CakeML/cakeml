@@ -462,6 +462,9 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
 
       (* Find the app variable *)
       val (app_info'', app_var) = dest_comb app_info'
+      val app_value = get_value env app_var
+
+      (* TODO: evaluate the app variable *)
 
       (* Find the ffi variable *)
       val ffi = dest_comb app_info'' |> snd
@@ -478,7 +481,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val (app_spec5, spec_app_var) = dest_comb app_spec4
       val (spec_params_tm_list, params_tm_list) =
 	  if is_var spec_app_var then
-	      (spec_app_var::spec_params_tm_list, app_var::params_tm_list)
+	      (spec_app_var::spec_params_tm_list, app_value::params_tm_list)
 	  else (spec_params_tm_list, params_tm_list)
 
       (* And the ffi variable written in the specification *)
@@ -877,6 +880,11 @@ val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
 
 fun export_match_thms slist = List.app export slist;
 
+(* Store the last iteration of the manipulated app_spec for debugging purposes, if xlet_auto fails *)
+val debug_app_spec = ref (REFL ``T``)
+fun debug_get_app_spec () = !debug_app_spec
+fun debug_set_app_spec app_spec = (debug_app_spec := app_spec)
+
 (************************************************************************************
  *
  * Match heap preconditions
@@ -1065,7 +1073,7 @@ fun find_possible_instantiations_from_spec asl context_pre app_spec = let
     val tmsl1 = append app_spec_hyps spec_pres
     val pos_insts = (find_possible_instantiations tmsl0 tmsl1)
 		    @(find_possible_instantiations_from_eqs tmsl0 tmsl1)
-in find_possible_instantiations tmsl0 tmsl1 end;
+in pos_insts end;
 
 (* Add a substitution to a map of substitutions *)
 (* TODO: would be more efficient to compute the compatibility between all
@@ -1539,6 +1547,9 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
 
       (* Replace the assumptions in the spec by the original asl *)
       val final_spec = MP_ASSUML ((List.map ASSUME asl)@rw_asl) hsimp_app_spec'
+
+      (* For debugging purposes *)
+      val _ = debug_set_app_spec final_spec 
 
       (* Have all the variables been instantiated? *)
       val _ = if all_instantiated asl let_pre app_info final_spec then final_spec

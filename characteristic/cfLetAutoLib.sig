@@ -92,4 +92,7 @@ signature cfLetAutoLib = sig
 
     (* xlet_auto is the default function to use *)
     val xlet_auto : tactic
+
+    (* debug_get_app_spec returns the last iteration of the manipulated app_spec - very useful when trying to figure out why xlet_auto failed *)
+    val debug_get_app_spec : unit -> thm
 end
