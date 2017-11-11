@@ -28,25 +28,25 @@ val _ = type_abbrev("ffi",``:num -> inner_ffi``)
 
 (* constructors *)
 
-val Num_def = Define `
+val Num_def = zDefine `
   ((Num i):ffi) =
     \n. if n = 0 then iNum 0 else iNum i`
 
-val Str_def = Define `
+val Str_def = zDefine `
   ((Str i):ffi) =
     \n. if n = 0 then iNum 1 else iStr i`
 
-val Cons_def = Define `
+val Cons_def = zDefine `
   ((Cons (x:ffi) (y:ffi)):ffi) =
     \n. if n = 0 then iNum 2 else
           let n = n - 1 in
             if EVEN n then x (n DIV 2) else y (n DIV 2)`
 
-val List_def = Define `
+val List_def = zDefine `
   ((List (xs:ffi list)):ffi) =
     \n. if n = 0 then iNum 3 else FOLDR Cons (Num 0) xs (n-1) `
 
-val Stream_def = Define `
+val Stream_def = zDefine `
   ((Stream i):ffi) =
     \n. if n = 0 then iNum 4 else iStream i`
 
@@ -56,7 +56,7 @@ val factor_count_def = Define `
     if n = 0n then 0 else
     if n MOD k = 0 then 1 + factor_count k (n DIV k) else 0`
 
-val Seq_def = Define `
+val Seq_def = zDefine `
   ((Seq (f:num -> ffi)):ffi) =
     \n. if n = 0 then iNum 5 else
           let n = n - 1 in
@@ -94,7 +94,7 @@ val Cons_11 = store_thm("Cons_11[simp]",
 
 val Cons_NOT_Num = prove(
   ``Cons x y <> Num z``,
-  fs [FUN_EQ_THM] \\ qexists_tac `0` \\ EVAL_TAC);
+  fs [FUN_EQ_THM] \\ qexists_tac `0` \\ fs [Cons_def,Num_def]);
 
 val List_11 = store_thm("List_11[simp]",
   ``!xs ys. List xs = List ys <=> xs = ys``,
@@ -142,7 +142,8 @@ val Seq_11 = store_thm("Seq_11[simp]",
 
 val ffi_distinct = prove(
   ``ALL_DISTINCT [Num n; Str s; Cons x y; List l; Stream ll; Seq f]``,
-  rw [] \\ fs [FUN_EQ_THM] \\ qexists_tac `0` \\ EVAL_TAC)
+  rw [] \\ fs [FUN_EQ_THM] \\ qexists_tac `0`
+  \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def])
   |> SIMP_RULE std_ss [ALL_DISTINCT,MEM,GSYM CONJ_ASSOC] |> GEN_ALL
   |> curry save_thm "ffi_distinct[simp]";
 
@@ -157,7 +158,7 @@ val destNum_def = new_specification("destNum_def",["destNum"],prove(``
     (!ll. destNum (Stream ll) = NONE) /\
     (!f. destNum (Seq f) = NONE)``,
   qexists_tac `\f. if f 0 = iNum 0 then SOME (@n. Num n = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC));
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]));
 val _ = export_rewrites ["destNum_def"];
 
 val destStr_def = new_specification("destStr_def",["destStr"],prove(``
@@ -169,7 +170,7 @@ val destStr_def = new_specification("destStr_def",["destStr"],prove(``
     (!ll. destStr (Stream ll) = NONE) /\
     (!f. destStr (Seq f) = NONE)``,
   qexists_tac `\f. if f 0 = iNum 1 then SOME (@n. Str n = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC));
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]));
 val _ = export_rewrites ["destStr_def"];
 
 val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
@@ -184,7 +185,7 @@ val destCons_def = new_specification("destCons_def",["destCons"],prove(``
     (!ll. destCons (Stream ll) = NONE) /\
     (!f. destCons (Seq f) = NONE)``,
   qexists_tac `\f. if f 0 = iNum 2 then SOME (@n. Cons (FST n) (SND n) = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]
   \\ `!n. FST n = x ∧ SND n = y <=> n = (x,y)` by fs [FORALL_PROD]
   \\ asm_rewrite_tac [] \\ fs []));
 val _ = export_rewrites ["destCons_def"];
@@ -198,7 +199,7 @@ val destList_def = new_specification("destList_def",["destList"],prove(``
     (!ll. destList (Stream ll) = NONE) /\
     (!f. destList (Seq f) = NONE)``,
   qexists_tac `\f. if f 0 = iNum 3 then SOME (@n. List n = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC));
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]));
 val _ = export_rewrites ["destList_def"];
 
 val destStream_def = new_specification("destStream_def",["destStream"],prove(``
@@ -210,7 +211,7 @@ val destStream_def = new_specification("destStream_def",["destStream"],prove(``
     (!ll. destStream (Stream ll) = SOME ll) /\
     (!f. destStream (Seq f) = NONE)``,
   qexists_tac `\f. if f 0 = iNum 4 then SOME (@n. Stream n = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC));
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]));
 val _ = export_rewrites ["destStream_def"];
 
 val destSeq_def = new_specification("destSeq_def",["destSeq"],prove(``
@@ -222,35 +223,7 @@ val destSeq_def = new_specification("destSeq_def",["destSeq"],prove(``
     (!ll. destSeq (Stream ll) = NONE) /\
     (!f. destSeq (Seq f) = SOME f)``,
   qexists_tac `\f. if f 0 = iNum 5 then SOME (@n. Seq n = f) else NONE`
-  \\ fs [] \\ rw [] \\ EVAL_TAC));
+  \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Stream_def,Seq_def]));
 val _ = export_rewrites ["destSeq_def"];
-
-(*
-
-val decode_pair_def = Define`
-  (decode_pair d1 d2 (Cons f1 f2) =
-      OPTION_BIND (d1 f1)
-      (λx. OPTION_BIND (d2 f2)
-      (λy. SOME (x,y)))) ∧
-  (decode_pair _ _ _ = NONE)`;
-
-val decode_encode_pair = Q.store_thm(
-  "decode_encode_pair",
-  `(∀x. d1 (e1 x) = SOME x) ∧ (∀y. d2 (e2 y) = SOME y) ⇒
-   ∀p. decode_pair d1 d2 (encode_pair e1 e2 p) = SOME p`,
-  strip_tac >> Cases >> simp[encode_pair_def, decode_pair_def]);
-
-val decode_list_def = Define`
-  (decode_list d (List fs) = OPT_MMAP d fs) ∧
-  (decode_list d _ = NONE)`;
-
-val decode_encode_list = Q.store_thm(
-  "decode_encode_list[simp]",
-  `(∀x. d (e x) = SOME x) ⇒
-   ∀l. decode_list d (encode_list e l) = SOME l`,
-  strip_tac >> simp[decode_list_def, encode_list_def] >> Induct >>
-  simp[OPT_MMAP_def]);
-
-*)
 
 val _ = export_theory()
