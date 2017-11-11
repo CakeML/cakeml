@@ -1323,6 +1323,30 @@ local val assign_quotation = `
                  WordShift64_on_32 sh n;
                  WriteWord64_on_32 c header dest 33 31],l))
        | _ => (Skip,l))
+    | WordFromWord b => (dtcase args of
+      | [v1] =>
+          if b then
+            (list_Seq [Assign 1 (real_addr c (adjust_var v1));
+                       Assign 1 (Load (Op Add [Var 1;
+                         Const (if dimindex (:'a) = 32
+                                then 2w * bytes_in_word else bytes_in_word)]));
+                       Assign 1 (Op And [Var 1; Const 255w]);
+                       Assign (adjust_var dest) (ShiftVar Lsl 1 2)],l)
+          else
+          (let
+             len = if dimindex (:α) < 64 then 2 else 1
+           in
+             dtcase encode_header c 3 len of
+               NONE => (GiveUp,l)
+             | SOME header =>
+                (if len = 1 then
+                   (list_Seq [Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+                              WriteWord64 c header dest 3],l)
+                 else
+                   (list_Seq [Assign 5 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+                              Assign 3 (Const 0w);
+                              WriteWord64_on_32 c header dest 5 3],l)))
+      | _ => (Skip, l))
     | WordFromInt => (dtcase args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in
@@ -1366,7 +1390,7 @@ local val assign_quotation = `
         let fakelen1 = Shift Lsr header1 (Nat k) in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
-        let fakelen2 = Shift Lsr header2 (Nat k) in            
+        let fakelen2 = Shift Lsr header2 (Nat k) in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
