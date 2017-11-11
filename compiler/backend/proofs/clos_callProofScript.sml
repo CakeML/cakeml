@@ -1355,7 +1355,6 @@ val do_app_thm = Q.prove(
     \\ rw[] \\
     imp_res_tac INJ_MAP_EQ \\
     fs[INJ_DEF] )
-  \\ Cases_on `?b. op = WordFromWord b` THEN1 (fs [do_app_def])
   \\ Cases_on `?b. op = CopyByte b` THEN1 (
     rpt gen_tac
     \\ reverse TOP_CASE_TAC
@@ -1560,7 +1559,7 @@ val do_app_thm = Q.prove(
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
     \\ rw [] \\ fs [] \\ fs [v_rel_def,Boolv_def] \\ rw []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ Cases_on `(?w oo. op = WordOp w oo) \/
+  \\ Cases_on `(?w oo. op = WordOp w oo) \/ (?b. op = WordFromWord b) \/
                op = WordFromInt \/ op = WordToInt \/
                (?w s n. op = WordShift w s n)` THEN1
    (rw [] \\ fs [do_app_def,state_rel_def] \\ every_case_tac \\ fs []
