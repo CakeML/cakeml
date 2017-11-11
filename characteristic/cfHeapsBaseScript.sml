@@ -1,17 +1,19 @@
 open preamble set_sepTheory
-open cfTacticsBaseLib
+open cfTacticsBaseLib cfFFITypeTheory
 
 val _ = new_theory "cfHeapsBase"
 
 (*------------------------------------------------------------------*)
 (** Heaps *)
 
+(* the following is now defined in cfFFITypeTheory
 val _ = Datatype `
   ffi = Str string
       | Num num
       | Cons ffi ffi
       | List (ffi list)
       | Stream (num llist)`
+*)
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
@@ -51,65 +53,6 @@ val SPLIT_TAC = fs [SPLIT_def,SPLIT3_def,SUBSET_DEF,DISJOINT_DEF,DELETE_DEF,IN_I
 val ffi_proj_pack = save_thm("ffi_proj_pack", packLib.pack_type ``:'ffi ffi_proj``);
 val heap_pack = save_thm("heap_pack", packLib.pack_type ``:heap``);
 val hprop_pack = save_thm("hprop_pack", packLib.pack_type ``:hprop``);
-
-(* encoding and decoding into ffi type *)
-
-val destStr_def = Define`
-  (destStr (Str s) = SOME s) ∧
-  (destStr _ = NONE)`;
-val _ = export_rewrites ["destStr_def"]
-
-val destNum_def = Define`
-  (destNum (Num n) = SOME n) ∧
-  (destNum _ = NONE)`;
-val _ = export_rewrites ["destNum_def"]
-
-val destStream_def = Define`
-  (destStream (Stream ll) = SOME ll) ∧
-  (destStream _ = NONE)`;
-val _ = export_rewrites ["destStream_def"]
-
-val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
-  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
-
-val encode_pair_def = Define`
-  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
-
-val decode_pair_def = Define`
-  (decode_pair d1 d2 (Cons f1 f2) =
-      OPTION_BIND (d1 f1)
-      (λx. OPTION_BIND (d2 f2)
-      (λy. SOME (x,y)))) ∧
-  (decode_pair _ _ _ = NONE)`;
-
-val decode_encode_pair = Q.store_thm(
-  "decode_encode_pair",
-  `(∀x. d1 (e1 x) = SOME x) ∧ (∀y. d2 (e2 y) = SOME y) ⇒
-   ∀p. decode_pair d1 d2 (encode_pair e1 e2 p) = SOME p`,
-  strip_tac >> Cases >> simp[encode_pair_def, decode_pair_def]);
-
-val encode_list_def = Define`
-  encode_list e l = List (MAP e l)`;
-
-val decode_list_def = Define`
-  (decode_list d (List fs) = OPT_MMAP d fs) ∧
-  (decode_list d _ = NONE)
-`;
-
-val decode_encode_list = Q.store_thm(
-  "decode_encode_list[simp]",
-  `(∀x. d (e x) = SOME x) ⇒
-   ∀l. decode_list d (encode_list e l) = SOME l`,
-  strip_tac >> simp[decode_list_def, encode_list_def] >> Induct >>
-  simp[OPT_MMAP_def]);
-
-(* make an ffi_next function from base functions and encode/decode *)
-val mk_ffi_next_def = Define`
-  mk_ffi_next (encode,decode,ls) name conf bytes s =
-    OPTION_BIND (ALOOKUP ls name) (λf.
-    OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f conf bytes s) (λ(bytes,s).
-    SOME (bytes,encode s))))`;
 
 (*------------------------------------------------------------------*)
 (** Heap predicates *)
