@@ -536,7 +536,8 @@ val sexpop_def = Define`
   if s = "AallocEmpty" then SOME AallocEmpty else
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
-  if s = "Aupdate" then SOME Aupdate else NONE) ∧
+  if s = "Aupdate" then SOME Aupdate else
+  if s = "ConfigGC" then SOME ConfigGC else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
    ) ∧
@@ -913,6 +914,7 @@ val opsexp_def = Define`
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
+  (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 (* TODO: This proof is not very scalable... *)
