@@ -41,11 +41,16 @@ val ffi_getArgs_length = Q.store_thm("ffi_getArgs_length",
 (* FFI part for the commandline *)
 
 val encode_def = Define`encode = encode_list Str`;
-val decode_def = Define`decode = decode_list destStr`;
 
-val decode_encode = Q.store_thm("decode_encode[simp]",
-  `decode (encode cls) = SOME cls`,
-  EVAL_TAC \\ simp[OPT_MMAP_MAP_o]);
+val encode_11 = prove(
+  ``!x y. encode x = encode y <=> x = y``,
+  Induct \\ Cases_on `y`
+  \\ fs [encode_list_def,encode_def]);
+
+val decode_encode = new_specification("decode_encode",["decode"],
+  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
+        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
+val _ = export_rewrites ["decode_encode"];
 
 val cl_ffi_part_def = Define`
   cl_ffi_part = (encode,decode,[("getArgs",ffi_getArgs)])`;

@@ -15,6 +15,27 @@ val _ = Datatype `
       | Stream (num llist)`
 *)
 
+val encode_pair_def = Define`
+  encode_pair e1 e2 (x,y) = Cons (e1 x) (e2 y)`;
+
+val encode_list_def = Define`
+  encode_list e l = List (MAP e l)`;
+
+val encode_list_11 = store_thm("encode_list_11",
+  ``!xs ys.
+      encode_list f xs = encode_list f ys /\
+      (!x y. f x = f y <=> x = y) ==>
+      xs = ys``,
+  Induct \\ Cases_on `ys` \\ fs [encode_list_def] \\ rw [] \\ fs []);
+
+(* make an ffi_next function from base functions and encode/decode *)
+val mk_ffi_next_def = Define`
+  mk_ffi_next (encode,decode,ls) name conf bytes s =
+    OPTION_BIND (ALOOKUP ls name) (λf.
+    OPTION_BIND (decode s) (λs.
+    OPTION_BIND (f conf bytes s) (λ(bytes,s).
+    SOME (bytes,encode s))))`;
+
 val _ = temp_type_abbrev("loc", ``:num``)
 
 val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> (word8 list # ffi) option``);
