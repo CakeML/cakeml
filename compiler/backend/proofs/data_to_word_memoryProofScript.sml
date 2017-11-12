@@ -1537,10 +1537,29 @@ val cons_nested_thm = Q.store_thm("cons_nested_thm",
     \\ pop_assum kall_tac
     \\ rw [list_to_BlockReps_heap_lookup_0]
     \\ fs [isSomeDataElement_def, list_to_BlockReps_heap_length, Abbr`z`])
-
-
   \\ conj_tac
+
   >- (* heap_ok *) cheat (* TODO *)
+   (
+    fs [heap_ok_def]
+    \\ fs [heap_length_APPEND, FILTER_APPEND]
+    \\ sg `FILTER isForwardPointer Allocd = []`
+    >- metis_tac [list_to_BlockReps_ForwardPointer]
+    \\ fs [isForwardPointer_def] \\ rw []
+    \\ fs [heap_length_def, el_length_def, SUM_APPEND, isForwardPointer_def]
+    \\ fs [GSYM heap_length_def]
+    \\ TRY
+     (rename1 `DataElement zs l d`
+      \\ first_assum (qspecl_then [`zs`,`l`,`d`,`ptr`,`u`] assume_tac) \\ rfs []
+      \\ fs [heap_lookup_APPEND, heap_length_APPEND, heap_length_def, el_length_def]
+      \\ pop_assum mp_tac
+      \\ fs [isSomeDataElement_def, heap_lookup_def, GSYM heap_length_def]
+      \\ rw [] \\ fs []
+      \\ `sp1 = 0 /\ sp = heap_length Allocd` by fs [] \\ fs []
+      \\ NO_TAC)
+    \\ cheat (* TODO *)
+   )
+
   \\ conj_tac
   >- (* gc_kind_inv *) cheat (* TODO *)
   \\ conj_tac
