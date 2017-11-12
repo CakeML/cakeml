@@ -2,13 +2,13 @@ open preamble
      ml_translatorLib ml_progLib ml_translatorTheory
      ArrayProgTheory basisFunctionsLib
 
-val _ = new_theory "CommandlineProg";
+val _ = new_theory "CommandLineProg";
 
 val _ = translation_extends "ArrayProg";
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
-val _ = ml_prog_update (open_module "Commandline")
+val _ = ml_prog_update (open_module "CommandLine")
 
 val e = (append_prog o process_topdecs) `
   fun read16bit a =
