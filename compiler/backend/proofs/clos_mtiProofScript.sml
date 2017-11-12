@@ -819,7 +819,7 @@ val intro1_pat = ``intro_multi max_app [e]``
 fun intro_sing th =
   case gen_find_term
          (fn (bvs,t) => if can (match_term intro1_pat) t andalso
-                           null (intersect bvs (free_vars t))
+                           null (op_intersect aconv bvs (free_vars t))
                         then SOME t
                         else NONE)
                      (concl th)

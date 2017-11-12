@@ -11,7 +11,7 @@ fun smart_dest_mlstring_case tm =
     val (emps,strs) = partition (stringSyntax.is_emptystring o fst) strs
     val (strs,varstrips) =
       let val losers = emps@vars in
-        if null(tl(mk_set(map snd losers)))
+        if null(tl(op_mk_set aconv (map snd losers)))
           then (strs,losers)
         else (hd emps::strs,vars)
       end
