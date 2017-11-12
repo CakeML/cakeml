@@ -226,7 +226,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
 val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
-      case Commandline.arguments () of
+      case CommandLine.arguments () of
         [] => get_file_contents TextIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list

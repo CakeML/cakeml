@@ -235,7 +235,7 @@ val cat1_spec = Q.store_thm (
 );
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val st = get_ml_prog_state();

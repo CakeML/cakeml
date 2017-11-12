@@ -245,7 +245,7 @@ val cat_spec = save_thm(
   cat_spec0 |> SIMP_RULE (srw_ss()) [])
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val cat_main_spec = Q.store_thm("cat_main_spec",

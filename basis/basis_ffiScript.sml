@@ -1,7 +1,7 @@
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
-     CommandlineProofTheory TextIOProofTheory
+     CommandLineProofTheory TextIOProofTheory
 
 val _ = new_theory"basis_ffi";
 

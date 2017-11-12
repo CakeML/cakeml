@@ -614,7 +614,7 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 
 val grep = process_topdecs`
   fun grep u =
-    case Commandline.arguments ()
+    case CommandLine.arguments ()
     of [] => TextIO.prerr_string usage_string
      | [_] => TextIO.prerr_string usage_string
      | (regexp::files) =>

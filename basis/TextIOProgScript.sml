@@ -1,10 +1,10 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     CommandlineProgTheory
+     CommandLineProgTheory
 
 val _ = new_theory"TextIOProg";
 
-val _ = translation_extends "CommandlineProg";
+val _ = translation_extends "CommandLineProg";
 
 val _ = ml_prog_update (open_module "TextIO");
 

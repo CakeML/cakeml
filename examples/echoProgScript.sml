@@ -7,7 +7,7 @@ val _ = translation_extends"basisProg";
 val echo = process_topdecs
   `fun echo u =
       let
-        val cl = Commandline.arguments ()
+        val cl = CommandLine.arguments ()
         val cls = String.concatWith " " cl
         val ok = TextIO.print_string cls
       in TextIO.print_newline() end`;
