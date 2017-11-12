@@ -190,7 +190,7 @@ fun xcf name st =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
         eval_tac,
-        reduce_tac \\ simp [cf_def] \\ reduce_tac \\
+        rpt(CHANGED_TAC(simp[Once cf_def] \\ reduce_tac))\\
         CONV_TAC (
           DEPTH_CONV (
             REWR_CONV letrec_pull_params_repack THENC
@@ -349,7 +349,7 @@ fun xfun_core (g as (_, w)) =
   else
     err_tac "xfun" "goal is not a cf_fun or cf_fun_rec" g
 
-val simp_spec = (CONV_RULE reduce_conv) o (simp_rule [cf_def])
+val simp_spec = CONV_RULE (REPEATC (reduce_conv THENC PURE_ONCE_REWRITE_CONV[cf_def]))
 
 fun xfun qname =
   xpull_check_not_needed \\
