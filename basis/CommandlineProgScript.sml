@@ -9,18 +9,40 @@ val _ = translation_extends "ArrayProg";
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
 val _ = ml_prog_update (open_module "Commandline")
-val e = ``(App Aw8alloc [Lit (IntLit 256); Lit (Word8 0w)])``
 
-val _ = ml_prog_update (add_Dlet (derive_eval_thm "cl_state" e) "cl_state" [])
+val e = (append_prog o process_topdecs) `
+  fun read16bit a =
+    let
+      val w0 = Word8Array.sub a 0
+      val w1 = Word8Array.sub a 1
+    in Word8.toInt w0 + (Word8.toInt w1 * 256) end`
 
-val e = process_topdecs`
+val e = (append_prog o process_topdecs) `
+  fun write16bit a i =
+    (Word8Array.update a 0 (Word8.fromInt i);
+     Word8Array.update a 1 (Word8.fromInt (i div 256)))`
+
+val e = (append_prog o process_topdecs) `
+  fun cloop a n acc =
+    if n = 0 then acc else
+      let
+        val n = n - 1
+        val u = write16bit a n
+        val u = #(get_arg_length) "" a
+        val l = read16bit a
+        val tmp = Word8Array.array (max 2 l) (Word8.fromInt 0)
+        val u = write16bit tmp n
+        val u = #(get_arg) "" tmp
+        val arg = Word8Array.substring tmp 0 l
+      in cloop a n (arg :: acc) end`
+
+val e = (append_prog o process_topdecs) `
   fun cline u =
     let
-      val cs = Word8Array.array 256 (Word8.fromInt 0)
-      val u = #(getArgs) "" cs
-      fun f x = (Char.ord x = 0)
-    in String.tokens f (Word8Array.substring cs 0 256) end`;
-val _ = append_prog e;
+      val a = Word8Array.array 2 (Word8.fromInt 0)
+      val u = #(get_arg_count) "" a
+      val n = read16bit a
+    in cloop a n [] end`;
 
 val _ = (append_prog o process_topdecs) `fun name u = List.hd (cline ())`
 
