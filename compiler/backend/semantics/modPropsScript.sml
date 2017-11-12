@@ -550,20 +550,22 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).defined_types = s.defined_types ∧
    (dec_clock s).defined_mods = s.defined_mods`,
    EVAL_TAC)
+   *)
 
 val evaluate_state_const = Q.store_thm("evaluate_state_const",
   `(∀env (s:'ffi modSem$state) ls s' vs.
-      evaluate env s ls = (s',vs) ⇒
-      s'.defined_types = s.defined_types ∧
-      s'.defined_mods = s.defined_mods) ∧
+      modSem$evaluate env s ls = (s',vs) ⇒
+      s'.next_type_id = s.next_type_id ∧
+      s'.next_exn_id = s.next_exn_id) ∧
    (∀env (s:'ffi modSem$state) v pes ev s' vs.
       evaluate_match env s v pes ev = (s', vs) ⇒
-      s'.defined_types = s.defined_types ∧
-      s'.defined_mods = s.defined_mods)`,
+      s'.next_type_id = s.next_type_id ∧
+      s'.next_exn_id = s.next_exn_id)`,
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][dec_clock_def]);
 
+  (*
 val evaluate_dec_state_const = Q.store_thm("evaluate_dec_state_const",
   `∀env st d res. evaluate_dec env st d = res ⇒
    (FST res).defined_mods = st.defined_mods`,
