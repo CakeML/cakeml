@@ -76,7 +76,7 @@ fun mk_Arrow_of_app_goal t = let
      arguments, or something else
   *)
   val (pred_hyps, other_hyps) = partition (fn p =>
-      exists (fn argv => pred_v p = argv handle HOL_ERR _ => false) argsv_list
+      exists (fn argv => pred_v p ~~ argv handle HOL_ERR _ => false) argsv_list
     ) hyps
   val other_hyps_fvs = free_varsl other_hyps
   (* Mapping with the logical counterparts of v1,...,vn *)
@@ -84,10 +84,10 @@ fun mk_Arrow_of_app_goal t = let
   (* Gives the predicate for an argument value.
      We may need to wrap the predicate using Eq if v appears elsewhere. *)
   fun pred_for v = let
-    val x = assoc v assoc_argsv_args
-    val need_Eq = mem x other_hyps_fvs
+    val x = tassoc v assoc_argsv_args
+    val need_Eq = tmem x other_hyps_fvs
     val base_pred =
-      case List.find (fn p => pred_v p = v) pred_hyps of
+      case List.find (fn p => pred_v p ~~ v) pred_hyps of
           NONE => fail()
         | SOME p => (fst o dest_pred) p
   in if need_Eq then mk_Eq (base_pred, x) else base_pred end
@@ -102,7 +102,7 @@ fun mk_Arrow_of_app_goal t = let
       mk_Arrow (pred_for argv, arrows)
     ) concl_pred (List.rev argsv_list)
   (* re-generalize in the post what was originally quantified *)
-  val other_hyps_vars = intersect t_vars other_hyps_fvs
+  val other_hyps_vars = op_intersect aconv t_vars other_hyps_fvs
   fun mk_list_conj_imp ([], concl) = concl
     | mk_list_conj_imp (hyps, concl) = mk_imp (list_mk_conj hyps, concl)
   val arrows_full_tm =
