@@ -4,7 +4,6 @@ open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
 
-
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
   induct_on `es` >>
@@ -364,6 +363,34 @@ val v_rel_weakening2 = Q.prove (
     fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
     rw [] >>
     metis_tac []));
+
+val drestrict_lem = Q.prove (
+  `f1 SUBMAP f2 ⇒ DRESTRICT f2 (COMPL (FDOM f1)) ⊌ f1 = f2`,
+  rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION] >>
+  every_case_tac >>
+  fs [FLOOKUP_DRESTRICT, SUBMAP_DEF] >>
+  fs [FLOOKUP_DEF] >>
+  rw [] >>
+  metis_tac []);
+
+val global_env_inv_weak = Q.prove (
+  `!genv comp_map shadowers env genv'.
+   global_env_inv genv comp_map shadowers env ∧
+   genv.c ⊑ genv'.c ∧
+   genv.v ≼ genv'.v
+   ⇒
+   global_env_inv genv' comp_map shadowers env`,
+  rw [IS_PREFIX_APPEND] >>
+  imp_res_tac v_rel_weakening >>
+  pop_assum (qspec_then `l` assume_tac) >>
+  imp_res_tac v_rel_weakening2 >>
+  fs [] >>
+  rpt (first_x_assum (qspec_then `DRESTRICT genv'.c (COMPL (FDOM genv.c))` assume_tac)) >>
+  rfs [drestrict_lem] >>
+  fs [DISJOINT_DEF, EXTENSION, FDOM_DRESTRICT] >>
+  fs [GSYM DISJ_ASSOC] >>
+  `<|v := genv.v ⧺ l; c := genv'.c|> = genv'` by rw [theorem "global_env_component_equality"] >>
+  metis_tac []);
 
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀genv v v'.
@@ -1961,22 +1988,24 @@ val compile_decs_num_bindings = Q.prove(
   pairarg_tac >>
   fs []);
 
-  (*
+val env_domain_subset_def = Define `
+  env_domain_subset (var_map : source_to_mod$environment) (env : 'a sem_env)⇔
+    nsDom var_map.v ⊆ nsDom env.v ∧
+    nsDomMod var_map.v ⊆ nsDomMod env.v ∧
+    nsDom var_map.c ⊆ nsDom env.c ∧
+    nsDomMod var_map.c ⊆ nsDomMod env.c`;
+
 val global_env_inv_append = Q.prove (
   `!genv var_map1 var_map2 env1 env2.
-    nsDomMod var_map1 = nsDomMod env1 ∧
-    nsDom var_map1 = nsDom env1 ∧
+    env_domain_subset var_map1 env1 ∧
     global_env_inv genv var_map1 {} env1 ∧
     global_env_inv genv var_map2 {} env2
     ⇒
-    global_env_inv genv (nsAppend var_map1 var_map2) {} (nsAppend env1 env2)`,
-  rw [v_rel_eqns, nsLookup_nsAppend_some] >>
+    global_env_inv genv (extend_env var_map1 var_map2) {} (extend_dec_env env1 env2)`,
+  rw [env_domain_subset_def, v_rel_eqns, nsLookup_nsAppend_some, extend_env_def, extend_dec_env_def] >>
   first_x_assum drule >>
   rw []
-  >- (
-    qexists_tac `n` >>
-    qexists_tac `v'` >>
-    rw [])
+  >- rw []
   >- (
     qexists_tac `n` >>
     qexists_tac `v'` >>
@@ -1985,13 +2014,24 @@ val global_env_inv_append = Q.prove (
     disj2_tac >>
     rw []
     >- (
-      fs [EXTENSION, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
+      fs [SUBSET_DEF, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
       metis_tac [NOT_SOME_NONE, option_nchotomy])
     >- (
-      fs [EXTENSION, namespaceTheory.nsDomMod_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
+      fs [SUBSET_DEF, namespaceTheory.nsDomMod_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
+      metis_tac [NOT_SOME_NONE, option_nchotomy]))
+  >- rw []
+  >- (
+    rw [] >>
+    qexists_tac `cn` >>
+    rw [] >>
+    disj2_tac >>
+    rw []
+    >- (
+      fs [SUBSET_DEF, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
+      metis_tac [pair_CASES, NOT_SOME_NONE, option_nchotomy])
+    >- (
+      fs [SUBSET_DEF, namespaceTheory.nsDomMod_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
       metis_tac [NOT_SOME_NONE, option_nchotomy])));
-
-  *)
 
 val pmatch_lem =
   pmatch
@@ -2055,12 +2095,11 @@ fun spectv v tt = disch_then(qspec_then tt mp_tac o CONV_RULE (RESORT_FORALL_CON
 val spect = spectv "t"
 
 val invariant_def = Define `
-  invariant genv idx comp_map env s s_i1 ⇔
+  invariant genv idx s s_i1 ⇔
     genv_c_ok genv.c ∧
     (!cn t a. t ≥ idx.tidx ⇒ ((cn,SOME t), a) ∉ FDOM genv.c) ∧
     (!cn t. t ≥ s.next_type_stamp ⇒ TypeStamp cn t ∉ FRANGE genv.c) ∧
     genv.v = s_i1.globals ∧
-    global_env_inv genv comp_map {} env ∧
     s_rel genv.c s s_i1 ∧
     idx.vidx = LENGTH s_i1.globals`;
 
@@ -2448,40 +2487,43 @@ val nsAppend_foldl = Q.prove (
   PairCases_on `h` >>
   rw []);
 
-val compile_decs_correct = Q.prove (
+val compile_decs_correct' = Q.prove (
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    invariant genv idx comp_map env s s_i1 ∧
+    invariant genv idx s s_i1 ∧
+    global_env_inv genv comp_map {} env ∧
     source_to_mod$compile_decs t idx comp_map ds = (t', idx', comp_map', ds_i1)
     ⇒
     ?(s'_i1:'a modSem$state) genv' cenv' r_i1.
       modSem$evaluate_decs <| c := FDOM genv.c; v := []; exh_pat := F; check_ctor := T |> s_i1 ds_i1 = (s'_i1,cenv',r_i1) ∧
-      FDOM genv'.c = cenv' ∪ (FDOM genv.c) ∧
+      genv.c SUBMAP genv'.c ∧
+      genv.v ≼ genv'.v ∧
+      FDOM genv'.c = cenv' ∪ FDOM genv.c ∧
       (!env'.
         r = Rval env'
         ⇒
         r_i1 = NONE ∧
-        invariant genv' idx' (extend_env comp_map' comp_map) (extend_dec_env env' env) s' s'_i1) ∧
+        invariant genv' idx' s' s'_i1 ∧
+        env_domain_subset comp_map' env' ∧
+        global_env_inv genv' comp_map' {} env') ∧
       (!err.
         r = Rerr err
         ⇒
-        (* This invariant might be too weak, wrt comp_map' *)
-        ?err_i1 small_idx env' comp_map'.
+        ?err_i1 small_idx.
           small_idx ≤ idx'.vidx ∧
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1) ∧
-          invariant genv' (idx' with vidx := small_idx)
-             (extend_env comp_map' comp_map) (extend_dec_env env' env) s' s'_i1)`,
+          invariant genv' (idx' with vidx := small_idx) s' s'_i1)`,
 
   ho_match_mp_tac terminationTheory.evaluate_decs_ind >>
   simp [terminationTheory.evaluate_decs_def] >>
   conj_tac
   >- (
-    rw [compile_decs_def, evaluate_decs_def, v_rel_eqns, invariant_def] >>
+    rw [compile_decs_def, evaluate_decs_def, v_rel_eqns, invariant_def, env_domain_subset_def] >>
     rw [extend_dec_env_def, evaluate_decs_def, extend_env_def, empty_env_def] >>
     qexists_tac `genv` >>
-    metis_tac []) >>
+    metis_tac [SUBMAP_REFL, IS_PREFIX_REFL]) >>
   conj_tac
   >- (
     rpt gen_tac >>
@@ -2498,9 +2540,10 @@ val compile_decs_correct = Q.prove (
       fs [] >>
       first_x_assum drule >>
       disch_then drule >>
+      disch_then drule >>
       rw [] >>
       simp [PULL_EXISTS] >>
-      MAP_EVERY qexists_tac [`s'_i1`, `genv'`, `cenv'`, `err_i1`, `small_idx`, `env'`, `comp_map'`] >>
+      MAP_EVERY qexists_tac [`s'_i1`, `genv'`, `cenv'`, `err_i1`, `small_idx`] >>
       rw [] >>
       fs [invariant_def]
       >- metis_tac [evaluate_decs_append_err] >>
@@ -2512,6 +2555,7 @@ val compile_decs_correct = Q.prove (
     \\ rw[] >>
     first_x_assum drule >>
     disch_then drule >>
+    disch_then drule >>
     rw [] >>
     `r' ≠ Rerr (Rabort Rtype_error)`
     by (
@@ -2520,6 +2564,9 @@ val compile_decs_correct = Q.prove (
       fs []) >>
     fs [] >>
     first_x_assum drule >>
+    `global_env_inv genv' (extend_env new_env1 comp_map) {} (extend_dec_env a env)`
+    by metis_tac [global_env_inv_append, global_env_inv_weak]
+    disch_then drule >>
     disch_then drule >>
     rw [] >>
     rename1 `evaluate_decs <|v := []; c := cenv1 ∪ FDOM genv.c; exh_pat := F; check_ctor := T |> s1 ds2 = (s2, cenv2, r2)` >>
@@ -2528,6 +2575,8 @@ val compile_decs_correct = Q.prove (
     >- (
       irule evaluate_decs_append >>
       rw [])
+    >- metis_tac [SUBMAP_TRANS]
+    >- metis_tac [IS_PREFIX_TRANS]
     >- (
       fs [combine_dec_result_def] >>
       every_case_tac >>
@@ -2535,15 +2584,24 @@ val compile_decs_correct = Q.prove (
     >- (
       fs [combine_dec_result_def] >>
       every_case_tac >>
-      fs [extend_env_def, extend_dec_env_def] >>
       rw [])
+    >- cheat (*fs [env_domain_subset_def, extend_env_def, extend_dec_env_def, SUBSET_DEF,
+           nsLookup_nsAppend_some, nsLookup_nsDom] >> *)
     >- (
       fs [combine_dec_result_def] >>
       every_case_tac >>
       fs [] >>
       rw [] >>
-      MAP_EVERY qexists_tac [`small_idx`, `extend_dec_env env' a`, `extend_env comp_map'' new_env1`] >>
-      fs [extend_env_def, extend_dec_env_def])) >>
+      imp_res_tac global_env_inv_weak >>
+      drule global_env_inv_append >>
+      fs [extend_dec_env_def])
+    >- (
+      fs [combine_dec_result_def] >>
+      every_case_tac >>
+      fs [] >>
+      rw [] >>
+      MAP_EVERY qexists_tac [`small_idx`] >>
+      fs [])) >>
   rw [compile_decs_def]
   >- ( (* Let *)
     split_pair_case_tac >>
