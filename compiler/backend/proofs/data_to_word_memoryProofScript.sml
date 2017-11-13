@@ -1486,6 +1486,22 @@ val list_to_BlockReps_ForwardPointer = Q.store_thm(
                  |> SIMP_RULE (srw_ss()) [EVERY_MEM])
   \\ Cases_on `x'` \\ fs [isForwardPointer_def, isDataElement_def]);
 
+val list_to_BlockReps_Pointer = Q.store_thm("list_to_BlockReps_Pointer",
+  `!xs x len ys l d.
+     MEM (DataElement ys l d) (list_to_BlockReps conf x len xs) ==>
+       DataElement ys l d = BlockRep cons_tag [x] \/
+       (MEM (HD ys) xs /\
+        ?ptr u.
+          len < ptr /\
+          EL 1 ys = Pointer ptr u /\
+          isSomeDataElement
+            (heap_lookup (ptr - len) (list_to_BlockReps conf x len xs)))`,
+  Induct \\ rw []
+  \\ fs [list_to_BlockReps_def, BlockRep_def]
+  \\ res_tac \\ fs [] \\ rw []
+  \\ fs [heap_lookup_def, heap_length_def, el_length_def]
+  \\ fs [list_to_BlockReps_heap_lookup_0]);
+
 (* HERE *)
 
 val cons_nested_thm = Q.store_thm("cons_nested_thm",
@@ -1518,7 +1534,7 @@ val cons_nested_thm = Q.store_thm("cons_nested_thm",
   >- metis_tac [list_to_BlockReps_heap_length]
   \\ pop_assum (fn th => fs [th])
   \\ `sp > 0` by (fs [Abbr`Allocd`, list_to_BlockReps_heap_length])
-  \\ conj_tac
+  \\ conj_asm1_tac
   >- (* roots_ok *)
    (unabbrev_all_tac
     \\ fs [roots_ok_def] \\ rw []
@@ -1537,15 +1553,17 @@ val cons_nested_thm = Q.store_thm("cons_nested_thm",
     \\ pop_assum kall_tac
     \\ rw [list_to_BlockReps_heap_lookup_0]
     \\ fs [isSomeDataElement_def, list_to_BlockReps_heap_length, Abbr`z`])
-  \\ conj_tac
-
-  >- (* heap_ok *) cheat (* TODO *)
+  \\ conj_asm1_tac
+  >- (* heap_ok *)
    (
     fs [heap_ok_def]
-    \\ fs [heap_length_APPEND, FILTER_APPEND]
+    \\ fs [heap_length_APPEND, FILTER_APPEND, isForwardPointer_def]
+    \\ qpat_x_assum `_ = limit`
+      (assume_tac o SIMP_RULE (srw_ss()) [GSYM heap_length_def]
+                  o SIMP_RULE (srw_ss()) [heap_length_def, el_length_def])
     \\ sg `FILTER isForwardPointer Allocd = []`
     >- metis_tac [list_to_BlockReps_ForwardPointer]
-    \\ fs [isForwardPointer_def] \\ rw []
+    \\ rw []
     \\ fs [heap_length_def, el_length_def, SUM_APPEND, isForwardPointer_def]
     \\ fs [GSYM heap_length_def]
     \\ TRY
@@ -1559,27 +1577,34 @@ val cons_nested_thm = Q.store_thm("cons_nested_thm",
       \\ NO_TAC)
     \\ cheat (* TODO *)
    )
+  \\ conj_asm1_tac
 
-  \\ conj_tac
   >- (* gc_kind_inv *) cheat (* TODO *)
-  \\ conj_tac
-  >- (* heap_lookup list_to_BlockReps *) cheat (* TODO *)
-  \\ conj_tac
-  >- (* heap_length *) cheat (* TODO *)
-  \\ conj_tac
+
+   (
+    fs [gc_kind_inv_def]
+
+   )
+
+  \\ conj_asm1_tac
+  >- (* heap_lookup list_to_BlockReps *)
+   (rw [heap_length_APPEND, heap_lookup_APPEND, heap_length_def, el_length_def,
+        heap_lookup_def])
+  \\ conj_asm1_tac
+  >- (* heap_length *) rw [heap_length_APPEND, heap_length_def, el_length_def]
+  \\ conj_asm1_tac
   >- (* data_up_to *)
-   (fs [data_up_to_def]
+   (fs [data_up_to_def, Abbr`Allocd`]
     \\ fs [heap_length_APPEND, heap_lookup_APPEND, heap_split_APPEND_if,
            list_to_BlockReps_heap_length, EVERY_APPEND] \\ rw []
     \\ fs [case_eq_thms, heap_length_def, el_length_def] \\ rfs []
     \\ fs [list_to_BlockReps_data_up_to])
-  \\ conj_tac
+  \\ conj_asm1_tac
   >- (* INJ *) cheat
-  \\ conj_tac
+  \\ conj_asm1_tac
   >- (* v_inv *) cheat
   \\ rw []
   >- (* bc_ref_inv *) cheat
-  \\ simp [bc_ref_inv_def]
   \\ cheat
   );
 
