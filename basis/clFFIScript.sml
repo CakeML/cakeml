@@ -5,10 +5,10 @@ val _ = new_theory"clFFI";
 
 (* Logical model of the commandline state: simply a list of char lists *)
 
-(* a valid argument has a length that fits 16 bits *)
+(* a valid argument has a length that fits 16 bits and no null bytes *)
 
 val validArg_def = Define`
-    validArg l <=> LENGTH l < 256 * 256`;
+    validArg l <=> LENGTH l < 256 * 256 /\ ~MEM (CHR 0) l`;
 
 (* there are 3 FFI functions over the commandline state: *)
 
