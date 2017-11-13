@@ -81,7 +81,7 @@ fun RENAME_SPEC_ALL varsl th =
       val (v, th') = SPEC_VAR th
       val v' = variant varsl v
   in
-      if v <> v' then
+      if v !~ v' then
 	  RENAME_SPEC_ALL (v'::varsl) (Thm.INST [v |-> v'] th')
       else
 	  RENAME_SPEC_ALL (v::varsl) th'
@@ -1085,7 +1085,7 @@ fun match_heap_conditions hcond sub_hcond =
       (* Interior loop *)
       fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
         | match_loop_int h1 (h2::hl2) =
-	  if h1 = h2 then ([], hl2)
+	  if h1 ~~ h2 then ([], hl2)
 	  else
 	      (let
 		  val result = tryfind (try_match (mk_sep_imp (h1, h2))) extr_pairs
@@ -1328,7 +1328,7 @@ fun simplify_spec let_pre asl app_spec =
       val equalities = mapfilter (fn x => dest_eq x) conjuncts
       fun can_be_subst x y =
 	is_var x andalso not(HOLset.member(knwn_vars, x))
-	andalso not (List.exists (fn z => z = x) (free_vars y))
+	andalso not (List.exists (aconv x) (free_vars y))
       fun subst_f (x, y) =
 	(if can_be_subst x y then (x |-> y)
 	 else if can_be_subst y x then (y |-> x)

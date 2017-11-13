@@ -714,6 +714,18 @@ val WriteWord64_on_32_def = Define `
                           (Nat (shift_length c − shift (:'a)));
                         Const 1w])]:'a wordLang$prog`;
 
+val WriteWord32_on_32_def = Define `
+  WriteWord32_on_32 c header dest i1 =
+     list_Seq
+       [Assign 1 (Lookup NextFree);
+        Store (Op Add [Var 1; Const bytes_in_word]) i1;
+        Assign 3 (Const header); Store (Var 1) 3;
+        Set NextFree (Op Add [Var 1; Const (2w * bytes_in_word)]);
+        Assign (adjust_var dest)
+          (Op Or
+             [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                (Nat (shift_length c − shift (:α))); Const (1w:'a word)])]`
+
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
     case opw of
@@ -1365,21 +1377,73 @@ local val assign_quotation = `
                      (If Test 1 (Imm 16w) Skip
                         (Assign 3 (Op Sub [Const 0w; Var 3])))))
                (WriteWord64 c header dest 3)
-            else GiveUp (* TODO: 32bit *), l))
+            else If Test (adjust_var v1) (Imm 1w)
+              (list_Seq [
+                Assign 3 (Shift Asr (Var (adjust_var v1)) (Nat 2));
+                Assign 5 (Shift Asr (Var (adjust_var v1)) (Nat 31));
+                WriteWord64_on_32 c header dest 3 5
+              ])
+              (list_Seq [
+                Assign 1 (real_addr c (adjust_var v1));
+                Assign 3 (Load (Var 1));
+                Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
+                Assign 7 (ShiftVar Lsr 3 (dimindex (:'a) − c.len_size));
+                If Equal 7 (Imm 1w)
+                  (* bignum of length 1 *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Const 0w))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case *)
+                    (Seq (Assign 9 (Const ~0w))
+                    (Seq (Assign 5 (Op Sub [Const 0w; Var 5]))
+                         (WriteWord64_on_32 c header dest 5 9))))
+                  (* longer bignum *)
+                  (If Test 3 (Imm 16w)
+                    (* positive case *)
+                    (Seq (Assign 9 (Load
+                           (Op Add [Var 1; Const (2w * bytes_in_word)])))
+                         (WriteWord64_on_32 c header dest 5 9))
+                    (* negative case -- messy *)
+                    (list_Seq
+                      [Assign 11 (Const 0w);
+                       Assign 13 (Const 1w);
+                       Assign 9 (Load
+                         (Op Add [Var 1; Const (2w * bytes_in_word)]));
+                       Assign 5 (Op Xor [Const ~0w; Var 5]);
+                       Assign 9 (Op Xor [Const ~0w; Var 9]);
+                       Inst (Arith (AddCarry 15 11 5 13));
+                       Inst (Arith (AddCarry 19 11 9 13));
+                       WriteWord64_on_32 c header dest 15 19]))])), l)
       | _ => (Skip, l))
-    | WordToInt =>
+   | WordToInt =>
      (dtcase args of
       | [v] =>
-         if dimindex(:'a) = 64 then
-           dtcase encode_header c 3 1 of
+        let len = if dimindex(:'a) < 64 then 2 else 1 in
+        (dtcase encode_header c 3 len of
            | NONE => (GiveUp,l)
            | SOME header =>
-             (list_Seq [LoadWord64 c 3 (adjust_var v);
-                        Assign 1 (Shift Lsr (Var 3) (Nat 61));
-                        If Equal 1 (Imm 0w)
-                          (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
-                          (WriteWord64 c header dest 3)], l)
-         else (GiveUp (* TODO: 32bit *) ,l)
+             if len = 1 then
+               (list_Seq [LoadWord64 c 3 (adjust_var v);
+                          Assign 1 (Shift Lsr (Var 3) (Nat 61));
+                          If Equal 1 (Imm 0w)
+                            (Assign (adjust_var dest) (Shift Lsl (Var 3) (Nat 2)))
+                            (WriteWord64 c header dest 3)], l)
+             else
+              (dtcase encode_header c 3 1 of
+               | NONE => (GiveUp,l)
+               | SOME header1 =>
+                 (list_Seq [
+                  Assign 15 (real_addr c (adjust_var v));
+                  Assign 13 (Load (Op Add [Var 15; Const bytes_in_word]));
+                  Assign 11 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+                  If NotEqual 13 (Imm 0w)
+                    (WriteWord64_on_32 c header dest 13 11)
+                    (list_Seq [
+                      Assign 1 (Shift Lsr (Var 11) (Nat 29));
+                      If Equal 1 (Imm 0w)
+                        (Assign (adjust_var dest) (Shift Lsl (Var 11) (Nat 2)))
+                        (WriteWord32_on_32 c header1 dest 11)])],l)))
       | _ => (Skip, l))
     | FFI ffi_index =>
       (dtcase args of

@@ -520,6 +520,7 @@ val add_backend_compset = computeLib.extend_compset
     ,data_to_wordTheory.LoadBignum_def
     ,data_to_wordTheory.WriteWord64_def
     ,data_to_wordTheory.WriteWord64_on_32_def
+    ,data_to_wordTheory.WriteWord32_on_32_def
     ,data_to_wordTheory.WordOp64_on_32_def
     ,data_to_wordTheory.WordShift64_on_32_def
     ,data_to_wordTheory.ShiftVar_def

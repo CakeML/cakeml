@@ -8,7 +8,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP) cake
+all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
 BARE_THYS = ../../translation/riscv/compiler_riscvProgTheory\

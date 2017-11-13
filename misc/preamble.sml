@@ -256,7 +256,7 @@ fun any_match_mp impth th =
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
     val c = first(can (C match_term (concl th))) h
     val th2 = impth
-      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (aconv c))))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
   in
     MATCH_MP th2 th  end
@@ -318,11 +318,11 @@ fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
     val (_,b) = strip_exists b
     val ts = strip_conj b val t = hd ts
     val (tms,_) = match_term t c
-    val tms = filter (C mem vs o #redex) tms
-    val tms = filter (not o C mem ws o #residue) tms
+    val tms = filter (C (op_mem aconv) vs o #redex) tms
+    val tms = filter (not o C (op_mem aconv) ws o #residue) tms
     val xs = map #redex tms
     val ys = map #residue tms
-    fun sorter ls = xs@(filter(not o C mem xs) ls)
+    fun sorter ls = xs@(filter (not o C (op_mem aconv) xs) ls)
     val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
   in
     ttac th

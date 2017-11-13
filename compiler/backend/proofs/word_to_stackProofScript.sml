@@ -6229,7 +6229,7 @@ val comp_correct = Q.store_thm("comp_correct",
      impl_tac>- (
        rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.less_tm)) o concl)))
        \\ rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.leq_tm)) o concl)))
-       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (equal ``(=):num->num->bool``)) o concl)))
+       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (aconv ``(=):num->num->bool``)) o concl)))
        \\ rpt (pop_assum kall_tac)
        \\ rw[]) >>
      disch_then SUBST_ALL_TAC>>
