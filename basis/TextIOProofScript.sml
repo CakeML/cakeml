@@ -14,7 +14,7 @@ val basis_st = get_ml_prog_state;
 
 val IOFS_iobuff_def = Define`
   IOFS_iobuff =
-    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v = 258) `;
+    SEP_EXISTS v. W8ARRAY iobuff_loc v * cond (LENGTH v = 65538) `;
 
 val IOFS_def = Define `
   IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs`
@@ -106,7 +106,7 @@ val FILENAME_def = Define `
   FILENAME s sv =
     (STRING_TYPE s sv ∧
      ¬MEM (CHR 0) (explode s) ∧
-     strlen s < 256)
+     strlen s < 256 * 256)
 `;
 
 val filename_tac = metis_tac[FILENAME_def,EqualityType_NUM_BOOL,EqualityType_def];
@@ -129,13 +129,13 @@ val FILENAME_STRING_UNICITY_L =
 val STRING_FILENAME_UNICITY_R =
   Q.store_thm("STRING_FILENAME_UNICITY_R[xlet_auto_match]",
   `!f fv fv'. STRING_TYPE f fv ==>
-    (FILENAME f fv' <=> fv' = fv /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256)`,
+    (FILENAME f fv' <=> fv' = fv /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256 * 256)`,
   filename_tac);
 
 val STRING_FILENAME_UNICITY_L =
   Q.store_thm("STRING_FILENAME_UNICITY_L[xlet_auto_match]",
   `!f f' fv. STRING_TYPE f fv ==>
-    (FILENAME f' fv <=> f' = f /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256)`,
+    (FILENAME f' fv <=> f' = f /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256 * 256)`,
   filename_tac);
 
 (* exception refinement invariant lemmas *)
@@ -607,7 +607,7 @@ val close_STDIO_spec = Q.store_thm(
 
 val writei_spec = Q.store_thm("writei_spec",
  `wfFS fs ⇒ 0 < n ⇒
-  fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
+  fd <= 255 ⇒ 255 <= LENGTH rest ⇒ i + n <= 255 ⇒
   get_file_content fs fd = SOME(content, pos) ⇒
   WORD (n2w fd:word8) fdv ⇒ WORD (n2w n:word8) nv ⇒ WORD (n2w i:word8) iv ⇒
   bc = h1 :: h2 :: h3 :: rest ⇒
@@ -725,7 +725,7 @@ val writei_spec = Q.store_thm("writei_spec",
 val write_spec = Q.store_thm("write_spec",
   `!n fs fd i pos h1 h2 h3 rest bc fdv nv iv content.
    wfFS fs ⇒
-   fd <= 255 ⇒ LENGTH rest = 255 ⇒ i + n <= 255 ⇒
+   fd <= 255 ⇒ LENGTH rest = 65535 ⇒ i + n <= 255 ⇒
    get_file_content fs fd = SOME(content, pos) ⇒
    WORD (n2w fd:word8) fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
    bc = h1 :: h2 :: h3 :: rest ⇒
@@ -914,7 +914,7 @@ val output_spec = Q.store_thm("output_spec",
 val read_spec = Q.store_thm("read_spec",
   `!fs fd fdv n nv. fd <= 255 ⇒ wfFS fs ⇒
    WORD (n2w fd:word8) fdv ⇒ WORD (n:word8) nv ⇒
-   LENGTH rest = 255 ⇒  w2n n <= 255 ⇒
+   LENGTH rest = 65535 ⇒  w2n n <= 255 ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read" (basis_st())) [fdv;nv]
    (W8ARRAY iobuff_loc (h1 :: h2 :: h3 :: rest) * IOx fs_ffi_part fs)
    (POST
