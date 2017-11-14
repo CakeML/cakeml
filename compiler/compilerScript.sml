@@ -27,12 +27,20 @@ fun term_from_proc cmd args =
     NONE => Term `NONE : mlstring option`
   | SOME s => (Term `SOME (strlit ^(stringSyntax.fromMLstring s))`)
 
-val [git_cmd, poly_cmd, hol_cmd] =
-  map (valOf o str_from_proc "/usr/bin/which") [["git"], ["poly"], ["hol"]]
+val [git_cmd, poly_cmd] =
+  map (valOf o str_from_proc "/usr/bin/which") [["git"], ["poly"]]
 
 val current_version_tm = term_from_proc git_cmd ["rev-parse", "HEAD"]
 val poly_version_tm = term_from_proc poly_cmd ["-v"]
-val hol_version_tm = Term `NONE : mlstring option`
+val hol_version_tm =
+  let
+    val holdir = Option.valOf (OS.Process.getEnv "HOLDIR")
+  in
+    term_from_proc "/bin/sh"
+      ["-c", "cd " ^ holdir ^ " && " ^ git_cmd ^ " rev-parse HEAD"]
+  end
+  handle _ => Term `NONE : mlstring option`
+
 val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
 
