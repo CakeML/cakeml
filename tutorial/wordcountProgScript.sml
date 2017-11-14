@@ -53,7 +53,7 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   (* TODO: xlet_auto doesn't work *)
   xlet_auto_spec(SOME inputLinesFrom_spec) >- (
     xsimpl \\
-    rfs[wfcl_def,validArg_def,EVERY_MEM,LENGTH_explode] ) \\
+    rfs[wfcl_def,validArg_def,EVERY_MEM,GSYM LENGTH_explode] ) \\
   xmatch \\ fs[OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\

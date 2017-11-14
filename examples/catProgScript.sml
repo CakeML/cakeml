@@ -259,7 +259,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xsimpl
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
-  \\ simp[MAP_TL]
+  \\ simp[MAP_TL,NULL_EQ]
   \\ instantiate
   \\ Cases_on`cl` \\ fs[]
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]
