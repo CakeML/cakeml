@@ -10,22 +10,31 @@ val _ = new_theory"compiler";
 
 (* == Build info =========================================================== *)
 
-fun try_term_from_file file =
+fun str_from_proc cmd args =
   let
-    val inp = TextIO.openIn file
-    val str =
-      case TextIO.inputLine inp of
-        NONE => Term `NONE : mlstring option`
-      | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
-    val _ = TextIO.closeIn inp
-  in str end
-  handle _ => Term `NONE : mlstring option`
+    open Unix
+    val proc = execute (cmd, args)
+    val inp = TextIO.inputAll (textInstreamOf proc)
+    val str = String.substring (inp, 0, String.size inp - 1)
+    val stat = reap proc
+  in
+    if OS.Process.isSuccess stat then SOME str else NONE
+  end
+  handle _ => NONE
 
-val current_version_tm = try_term_from_file "COMMIT"
-val poly_version_tm    = try_term_from_file "POLYML"
-val date_str           = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC"
-val date_tm            = Term `strlit^(stringSyntax.fromMLstring date_str)`
-val hol_tm             = Term `NONE : mlstring option`
+fun term_from_proc cmd args =
+  case str_from_proc cmd args of
+    NONE => Term `NONE : mlstring option`
+  | SOME s => (Term `SOME (strlit ^(stringSyntax.fromMLstring s))`)
+
+val [git_cmd, poly_cmd, hol_cmd] =
+  map (valOf o str_from_proc "/usr/bin/which") [["git"], ["poly"], ["hol"]]
+
+val current_version_tm = term_from_proc git_cmd ["rev-parse", "HEAD"]
+val poly_version_tm = term_from_proc poly_cmd ["-v"]
+val hol_version_tm = Term `NONE : mlstring option`
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC"
+val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
 
 (* Information about the current build *)
 val _ = Datatype `
@@ -39,7 +48,7 @@ val current_info_def = Define
   `current_info =
      <| git_commit := ^current_version_tm
       ; date       := ^date_tm
-      ; hol_commit := ^hol_tm
+      ; hol_commit := ^hol_version_tm
       ; polyml     := ^poly_version_tm |>`
 
 val print_option_def = Define `
