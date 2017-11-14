@@ -119,7 +119,7 @@ val do_onefile_spec = Q.store_thm(
   \\ simp[fsFFITheory.get_file_content_def,PULL_EXISTS,FORALL_PROD]
   \\ disch_then(first_assum o (mp_then (Pos (el 2)) mp_tac))
   \\ simp[STD_streams_openFileFS] \\ strip_tac
-  (* TODO: xlet_auto fails here - why? *)
+  (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
                   STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) content)`
