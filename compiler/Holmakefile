@@ -5,18 +5,32 @@ INCLUDES = ../misc ../semantics parsing inference backend\
            backend/x64\
            $(HOLDIR)/examples/formal-languages/context-free
 
-all: compilerTheory.uo compilationLib.uo
+all: compilerTheory.uo compilationLib.uo VERSION_INFO
 .PHONY: all
+
+ifdef POLY
+VERSION_INFO: $(HOLHEAP)
+	@-git rev-parse HEAD > VERSION_CAKEML
+	@-poly -v > VERSION_POLYML
+
+else
+
+VERSION_INFO:
+	@-git rev-parse HEAD > VERSION_CAKEML
+
+endif
+.PHONY: VERSION_INFO
 
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = backend/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-all: $(HOLHEAP)
+all: $(HOLHEAP) VERSION_INFO
 
 BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory ../basis/basisProgTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+
 endif
