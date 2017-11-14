@@ -8,6 +8,60 @@ open preamble
 
 val _ = new_theory"compiler";
 
+(* == Build info =========================================================== *)
+
+fun try_term_from_file file =
+  let
+    val inp = TextIO.openIn file
+    val str =
+      case TextIO.inputLine inp of
+        NONE => Term `NONE : mlstring option`
+      | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+    val _ = TextIO.closeIn inp
+  in str end
+  handle _ => Term `NONE : mlstring option`
+
+val current_version_tm = try_term_from_file "COMMIT"
+val poly_version_tm    = try_term_from_file "POLYML"
+val date_str           = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC"
+val date_tm            = Term `strlit^(stringSyntax.fromMLstring date_str)`
+val hol_tm             = Term `NONE : mlstring option`
+
+(* Information about the current build *)
+val _ = Datatype `
+  current_build_info =
+    <| git_commit : mlstring option
+     ; date       : mlstring
+     ; hol_commit : mlstring option
+     ; polyml     : mlstring option |>`
+
+val current_info_def = Define
+  `current_info =
+     <| git_commit := ^current_version_tm
+      ; date       := ^date_tm
+      ; hol_commit := ^hol_tm
+      ; polyml     := ^poly_version_tm |>`
+
+val print_option_def = Define `
+  print_option h x =
+    case x of
+      NONE => strlit""
+    | SOME y => h ^ strlit": " ^ y ^ strlit"\n"`
+
+val current_build_info_toString_def = Define `
+  current_build_info_toString b =
+    let commit = print_option (strlit"CakeML") b.git_commit in
+    let hol    = print_option (strlit"HOL4") b.hol_commit in
+    let poly   = print_option (strlit"PolyML") b.polyml in
+      (List [
+       (concat
+         [ strlit"The CakeML compiler\n"
+         ; strlit"Build date: "; b.date; strlit"\n\n"
+         ; strlit"Version details:\n"
+         ; commit; hol; poly ])], implode"")`
+
+(* ========================================================================= *)
+
 val _ = Datatype`
   config =
     <| inferencer_config : inferencer_config
@@ -181,6 +235,10 @@ val parse_heap_stack_def = Define`
       | SOME v => v in
     (heap,stack)`
 
+(* Check for version flag *)
+val has_version_flag_def = Define `
+  has_version_flag ls = MEM (strlit"--version") ls`
+
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
@@ -192,6 +250,9 @@ val format_compiler_result_def = Define`
 
 val compile_to_bytes_def = Define `
   compile_to_bytes backend_conf bytes_export cl input =
+  if has_version_flag cl then
+    current_build_info_toString current_info
+  else
     let ext_conf = extend_with_args cl backend_conf in
     let (heap,stack) = parse_heap_stack cl in
     let compiler_conf =
