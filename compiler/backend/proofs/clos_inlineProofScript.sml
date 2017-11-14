@@ -143,9 +143,6 @@ val remove_ticks_Let_IMP_mk_Ticks = store_thm("remove_ticks_Let_IMP_mk_Ticks",
   \\ qexistsl_tac [`t::ts`, `l'`, `e'`]
   \\ fs [mk_Ticks_def]);
 
-
-
-
 val remove_ticks_Raise_IMP_mk_Ticks = store_thm(
   "remove_ticks_Raise_IMP_mk_Ticks",
   ``!x t e. [Raise t e] = remove_ticks [x] ==>
@@ -166,6 +163,21 @@ val remove_ticks_Handle_IMP_mk_Ticks = store_thm(
   \\ res_tac
   \\ qexistsl_tac [`t::ts`, `e1`, `e2`]
   \\ fs [mk_Ticks_def]);
+
+val remove_ticks_Op_IMP_mk_Ticks = store_thm("remove_ticks_Op_IMP_mk_Ticks",
+  ``!x tr op es'. [Op tr op es'] = remove_ticks [x] ==>
+      ?ts es. x = mk_Ticks ts (Op tr op es) /\ es' = remove_ticks es``,
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+  THEN1 (qexistsl_tac [`[]`, `l`] \\ fs [mk_Ticks_def])
+  \\ res_tac  \\ qexistsl_tac [`t::ts`, `es`] \\ fs [mk_Ticks_def]);
+
+val remove_ticks_Fn_IMP_mk_Ticks = store_thm("remove_ticks_Fn_IMP_mk_Ticks",
+  ``(!x tr loc vsopt num_args e'.
+       [Fn tr loc vsopt num_args e'] = remove_ticks [x] ==>
+         ?ts e. x = mk_Ticks ts (Fn tr loc vsopt num_args e) /\ [e'] = remove_ticks [e])``,
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+  THEN1 (qexistsl_tac [`[]`, `x`] \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e`] \\ fs [mk_Ticks_def]);
 
 
 val LIST_REL_APPEND = store_thm("LIST_REL_APPEND",
@@ -189,6 +201,32 @@ val evaluate_mk_Ticks = store_thm("evaluate_mk_Ticks",
   \\ fs [ADD1]);
 
 val bump_assum = fn (pat) => qpat_x_assum pat assume_tac;
+
+val do_app_lemma = prove(
+  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+    case do_app opp ys t of
+      | Rerr err2 => ?err1. do_app opp xs s = Rerr err1 /\ exc_rel v_rel err1 err2
+      | Rval (y, t1) => ?x s1. v_rel x y /\ state_rel s1 t1 /\ do_app opp xs s = Rval (x, s1)``,
+  cheat);
+
+val lookup_vars_lemma = store_thm("lookup_vars_lemma",
+  ``!vs env1 env2. LIST_REL v_rel env1 env2 ==>
+    case lookup_vars vs env2 of
+      | NONE => lookup_vars vs env1 = NONE
+      | SOME l2 => ?l1. LIST_REL v_rel l1 l2 /\ lookup_vars vs env1 = SOME l1``,
+  Induct_on `vs` \\ fs [lookup_vars_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ rw []
+  \\ res_tac
+  \\ Cases_on `lookup_vars vs env2`
+  \\ fs []
+  \\ fs [LIST_REL_EL_EQN]);
+
+val state_rel_IMP_max_app_EQ = store_thm("state_rel_IMP_max_app_EQ",
+  ``!s t. state_rel s t ==> s.max_app = t.max_app``,
+  fs [state_rel_def]);
+
 
 val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
   `(!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
@@ -320,9 +358,52 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ bump_assum `evaluate ([e1], _m _) = _`
     \\ drule evaluate_add_clock \\ fs [])
   THEN1 (* Op *)
-   (cheat)
+   (fs [LENGTH_EQ_NUM_compute] \\ rveq
+    \\ fs [code_rel_def]
+    \\ imp_res_tac remove_ticks_Op_IMP_mk_Ticks \\ rveq
+    \\ fs [remove_ticks_mk_Ticks, remove_ticks_def]
+    \\ simp [evaluate_mk_Ticks, dec_clock_def]
+    \\ fs [evaluate_def]
+    \\ fs [pair_case_eq] \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ disch_then (mp_tac o Q.SPEC `es`) \\ simp []
+    \\ strip_tac
+    \\ reverse (fs [case_eq_thms]) \\ rveq
+    \\ Cases_on `res1` \\ fs []
+    THEN1 (qexists_tac `ck + LENGTH ts` \\ fs [])
+    \\ reverse (Cases_on `op = Install`) \\ fs []
+    THEN1 (* op /= Install *)
+     (fs [case_eq_thms]
+      \\ rw []
+      \\ qexists_tac `ck + LENGTH ts`
+      \\ fs []
+      \\ drule (GEN_ALL do_app_lemma)
+      \\ drule EVERY2_REVERSE \\ strip_tac
+      \\ disch_then drule
+      \\ disch_then (assume_tac o Q.SPEC `op`)
+      \\ rfs []
+      \\ PairCases_on `v1`
+      \\ fs []
+      \\ metis_tac [])
+    THEN1 (* op = Install *)
+     (cheat)
+   )
   THEN1 (* Fn *)
-   (cheat)
+   (fs [LENGTH_EQ_NUM_compute] \\ rveq
+    \\ fs [code_rel_def]
+    \\ imp_res_tac remove_ticks_Fn_IMP_mk_Ticks \\ rveq
+    \\ fs [remove_ticks_mk_Ticks, remove_ticks_def]
+    \\ simp [evaluate_mk_Ticks, dec_clock_def]
+    \\ fs [evaluate_def]
+    \\ qexists_tac `LENGTH ts` \\ fs []
+    \\ imp_res_tac state_rel_IMP_max_app_EQ \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `vsopt` \\ fs [] \\ rveq \\ fs []
+    THEN1 fs [v_rel_rules]
+    \\ drule (Q.SPEC `x` lookup_vars_lemma) \\ strip_tac
+    \\ Cases_on `lookup_vars x env2` \\ fs [] \\ rveq \\ fs []
+    \\ fs [v_rel_rules])
   THEN1 (* Letrec *)
    (cheat)
   THEN1 (* App *)
