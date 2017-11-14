@@ -220,9 +220,11 @@ val arm6_enc36 = replace_at 36 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LO,wor
 
 val arm6_enc_thm = List.tabulate (36, fn i => Array.sub(arm6_enc_thms,i)) |> LIST_CONJ
 
+(* the manual translation of w2w should no longer be necessary
 val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl arm6_enc_thm)))
 
 val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
+*)
 
 val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss()) [Ntimes EncodeARMImmediate_aux_def 16] |> finish |> SIMP_RULE (srw_ss()) [word_2comp_def])
 
