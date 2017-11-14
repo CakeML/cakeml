@@ -1122,7 +1122,7 @@ val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
   drule (GEN_ALL compile_exp_correct) >>
   simp[var_corr_def,SIMP_RULE std_ss [NULL_EQ]NULL_GENLIST] >>
   imp_res_tac state_rel_dec_clock >>
-  disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(equal``state_rel`` o fst o strip_comb)))))) >>
+  disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb)))))) >>
   simp[] >>
   impl_tac >- (
     simp[lookup_def,dataSemTheory.dec_clock_def] >>

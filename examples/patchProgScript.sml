@@ -122,8 +122,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
         else add_stderr fs (explode (notfound_string f2))
         else add_stderr fs (explode (notfound_string f1))))`,
   xcf"patch'"(get_ml_prog_state())
-  (* TODO: why doesn't this work fully auto? *)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (reverse strip_tac
@@ -132,8 +131,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
       \\ xapp \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  (* TODO: why doesn't this work fully auto? *)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (reverse strip_tac

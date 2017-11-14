@@ -435,9 +435,8 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ xmatch
   \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
-  (* TODO: xlet_auto fails *)
-  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * STDIO (lineForwardFD fs fd)`
-  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet_auto >- xsimpl
+  (* TODO: xlet_auto doesn't handle if statements yet *)
   \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)(if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif

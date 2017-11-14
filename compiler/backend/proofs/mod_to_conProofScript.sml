@@ -948,13 +948,14 @@ val do_app = Q.prove (
   rpt gen_tac >>
   Cases_on `s1` >>
   Cases_on `s1_i2` >>
+  Cases_on `op = ConfigGC` THEN1 tac >>
   cases_on `op` >>
   srw_tac[][]
   >- tac
   >- tac
   >- tac
   >- tac
-  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >> 
+  >- (full_simp_tac(srw_ss())[modSemTheory.do_app_def] >>
       cases_on `vs` >>
       full_simp_tac(srw_ss())[] >>
       cases_on `t` >>

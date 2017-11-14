@@ -276,6 +276,7 @@ val _ = Define `
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
     | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
+    | (ConfigGC, [Tapp [] TC_int; Tapp [] TC_int]) => t = Tapp [] TC_tup
     | (FFI n, [Tapp [] TC_string; Tapp [] TC_word8array]) => t = Tapp [] TC_tup
     | _ => F
   )))`;

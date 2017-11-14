@@ -274,7 +274,9 @@ val do_app_thm = Q.prove(
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
           v_rel v w /\ state_rel s2 t2`,
-  Cases_on `?i. op = EqualInt i`
+  Cases_on `op = ConfigGC`
+  THEN1 (fs [do_app_cases_val] \\ rw [] \\ fs [v_rel_simp])
+  \\ Cases_on `?i. op = EqualInt i`
   THEN1 (fs [] \\ fs [do_app_def] \\ every_case_tac \\ fs [])
   \\ reverse (Cases_on `op`) \\ rpt STRIP_TAC
   \\ TRY (full_simp_tac(srw_ss())[do_app_def] >> NO_TAC)
