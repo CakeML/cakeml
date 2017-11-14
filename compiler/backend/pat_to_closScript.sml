@@ -50,8 +50,6 @@ val compile_def = tDefine"compile" `
     Op tra (Cons cn) (REVERSE (MAP compile es))) ∧
   (compile (Var_local tra n) =
     Var tra n) ∧
-  (compile (Var_global tra n) =
-    Op tra (Global n) []) ∧
   (compile (Fun tra e) =
     Fn tra NONE NONE 1 (compile e)) ∧
   (compile (App tra (Op Opapp) es) =
@@ -193,7 +191,7 @@ val compile_def = tDefine"compile" `
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op (FFI n)) es) =
     Op tra (FFI n) (REVERSE (MAP compile es))) ∧
-  (compile (App tra (Op (Init_global_var n)) es) =
+  (compile (App tra (Op (GlobalVarInit n)) es) =
     Let (tra§0) [Op (tra§1) (SetGlobal n) (REVERSE (MAP compile es))]
       (Op (tra§2) (Cons tuple_tag) [])) ∧
   (compile (App tra (Tag_eq n l) es) =
@@ -209,9 +207,6 @@ val compile_def = tDefine"compile" `
     Let (tra§0) [compile e1;compile e2] (Var (tra§1) 1)) ∧
   (compile (Letrec tra es e) =
     Letrec tra NONE NONE (MAP (λe. (1,compile e)) es) (compile e)) ∧
-  (compile (Extend_global tra n) =
-    Let (tra§0) (REPLICATE n (Op (tra§1) AllocGlobal []))
-      (Op (tra§2) (Cons tuple_tag) [])) /\
   (compile (App tra (Op (FP_cmp cmp)) es) =
     (Op tra (FP_cmp cmp) (REVERSE (MAP compile es)))) /\
   (compile (App tra (Op (FP_uop u)) es) =

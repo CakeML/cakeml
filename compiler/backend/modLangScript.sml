@@ -21,7 +21,7 @@ val _ = set_grammar_ancestry ["ast"];
  * types. Type annotations are also gone.
  *)
 
-(* Copied from the semantics, but with AallocEmpty missing. Init_global_var has
+(* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added. *)
 val _ = Datatype `
  op =
@@ -75,7 +75,12 @@ val _ = Datatype `
   | Aupdate
   (* Call a given foreign function *)
   | FFI string
-  | Init_global_var num`;
+  (* Allocate the given number of new global variables *)
+  | GlobalVarAlloc num
+  (* Initialise given global variable *)
+  | GlobalVarInit num
+  (* Get the value of the given global variable *)
+  | GlobalVarLookup num`;
 
 val _ = type_abbrev ("ctor_id", ``:num``);
 (* NONE represents the exception type *)
@@ -96,14 +101,12 @@ val _ = Datatype`
   | Lit tra lit
   | Con tra ((ctor_id # type_id) option) (exp list)
   | Var_local tra varN
-  | Var_global tra num
   | Fun tra varN exp
   | App tra op (exp list)
   | If tra exp exp exp
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
-  | Letrec tra ((varN # varN # exp) list) exp
-  | Extend_global tra num`;
+  | Letrec tra ((varN # varN # exp) list) exp`;
 
 val exp_size_def = definition"exp_size_def";
 
@@ -117,9 +120,7 @@ val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
 
 val _ = Datatype`
  dec =
-    (* The num is how many top-level variables this declaration binds *)
-    Dlet num exp
-  | Dletrec ((varN # varN # exp) list)
+    Dlet exp
   (* The list is indexed by arity, and contains how many constructors have that
    * arity *)
   | Dtype (num list)

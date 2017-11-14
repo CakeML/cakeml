@@ -114,7 +114,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      * require step-indexing *)
     (!x. x ∈ set (MAP FST funs) ⇒
        ?n y e t1 t2 t3.
-         ALOOKUP new_vars x = SOME (Var_global t1 n) ∧
+         ALOOKUP new_vars x = SOME (App t1 (GlobalVarLookup n) []) ∧
          n < LENGTH genv.v ∧
          find_recfun x funs = SOME (y,e) ∧
          EL n genv.v =
@@ -146,7 +146,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
        nsLookup env.v x = SOME v
        ⇒
        ?n v' t.
-         nsLookup comp_map.v x = SOME (Var_global t n) ∧
+         nsLookup comp_map.v x = SOME (App t (GlobalVarLookup n) []) ∧
          n < LENGTH genv.v ∧
          EL n genv.v = SOME v' ∧
          v_rel genv v v') ∧
@@ -189,7 +189,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
        nsLookup env.v x = SOME v
        ⇒
        ?n v' t.
-         nsLookup comp_map.v x = SOME (Var_global t n) ∧
+         nsLookup comp_map.v x = SOME (App t (GlobalVarLookup n) []) ∧
          n < LENGTH genv.v ∧
          EL n genv.v = SOME v' ∧
          v_rel genv v v') ∧
@@ -1260,7 +1260,7 @@ val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
      evaluate$evaluate s env es = res ⇒
      SND res ≠ Rerr (Rabort Rtype_error) ⇒
-     !comp_map s' r env_i1 s_i1 es_i1 locals t ts.
+     !genv comp_map s' r env_i1 s_i1 es_i1 locals t ts.
        res = (s',r) ∧
        genv_c_ok genv.c ∧
        env_all_rel genv comp_map env env_i1 locals ∧
@@ -1270,13 +1270,13 @@ val compile_exp_correct' = Q.prove (
        genv.v = s_i1.globals
        ⇒
        ?s'_i1 r_i1.
-         result_rel (LIST_REL o v_rel) genv r r_i1 ∧
+         result_rel (LIST_REL o v_rel) (genv with v := s'_i1.globals) r r_i1 ∧
          s_rel genv.c s' s'_i1 ∧
          modSem$evaluate env_i1 s_i1 es_i1 = (s'_i1, r_i1)) ∧
    (∀^s env v pes err_v res.
      evaluate$evaluate_match s env v pes err_v = res ⇒
      SND res ≠ Rerr (Rabort Rtype_error) ⇒
-     !comp_map s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals t ts.
+     !genv comp_map s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals t ts.
        (res = (s',r)) ∧
        genv_c_ok genv.c ∧
        env_all_rel genv comp_map env env_i1 locals ∧
@@ -1288,14 +1288,19 @@ val compile_exp_correct' = Q.prove (
        genv.v = s_i1.globals
        ⇒
        ?s'_i1 r_i1.
-         result_rel (LIST_REL o v_rel) genv r r_i1 ∧
+         result_rel (LIST_REL o v_rel) (genv with v := s'_i1.globals) r r_i1 ∧
          s_rel genv.c s' s'_i1 ∧
          modSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1))`,
+
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, modSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
   rpt (split_pair_case_tac >> fs [])
-  >- (
+  >- ( (* sequencing *)
+    fs [GSYM compile_exp_def] >>
+    rpt (pop_assum mp_tac) >>
+    Q.SPEC_TAC (`e2::es`, `es`) >>
+    rw [] >>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     rpt (disch_then drule >> simp[]) >>
@@ -1307,25 +1312,27 @@ val compile_exp_correct' = Q.prove (
     reverse BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       srw_tac[][] >>
       asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
       BasicProvers.TOP_CASE_TAC >> simp[] >>
       BasicProvers.TOP_CASE_TAC >> simp[] >>
       full_simp_tac(srw_ss())[result_rel_cases] ) >>
     strip_tac >>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    imp_res_tac evaluate_globals >>
+    disch_then (qspec_then `genv with v := s''.globals` mp_tac) >>
     pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    `env_all_rel (genv with v := s''.globals) comp_map env env_i1 locals` by cheat >>
     disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
-    rename [`bind_locals traces _ _`] >>
-    disch_then (qspecl_then[`trace`,`traces`] strip_assume_tac)>> rfs[]>>
+    disch_then drule >> simp[] >>
+    disch_then (qspecl_then[`trace`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[])
+    imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[] >>
+    cheat)
   >- (
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
     disch_then (qspecl_then[`t`,`ts`] strip_assume_tac)>> rfs[]>>
@@ -3465,4 +3472,5 @@ val compile_correct = Q.store_thm("compile_correct",
                LESS_EQ_CASES,FST]);
 
                *)
+
 val _ = export_theory ();

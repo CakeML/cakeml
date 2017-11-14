@@ -14,12 +14,11 @@ val _ = new_theory"source_to_mod";
  * Recclosures.
  *)
 
-(* The traces start at 2 because this expression is called only from within
- * compile_exp, where `mk_cons t 1` has been used. *)
-val Bool_def = Define `
- Bool t b =
-  let (t1, t2, t3) = (mk_cons t 2, mk_cons t 3, mk_cons t 4) in
-   (modLang$App t1 (Opb (if b then Leq else Lt)) [Lit t2 (IntLit 0); Lit t3 (IntLit 0)])`;
+val bool_id_def = Define `
+  bool_id = 0n`;
+
+val Bool_def = Define`
+  Bool t b = Con t (SOME (if b then 1 else 0, SOME bool_id)) []`;
 
 val _ = Datatype `
   environment =
@@ -226,7 +225,7 @@ val om_tra_def = Define`
 val alloc_defs_def = Define `
   (alloc_defs n next [] = []) ∧
   (alloc_defs n next (x::xs) =
-    (x, Var_global (Cons om_tra n) next) :: alloc_defs (n + 1) (next + 1) xs)`;
+    (x, App (Cons om_tra n) (GlobalVarLookup next) []) :: alloc_defs (n + 1) (next + 1) xs)`;
 
 val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
   `!n next l. MAP FST (alloc_defs n next l) = l`,
@@ -239,11 +238,13 @@ val alloc_defs_append = Q.store_thm("alloc_defs_append",
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
 
 val make_varls_def = Define`
-  (make_varls n t [] = [])
+  (make_varls n t idx [] = Con t NONE []) ∧
+  (make_varls n t idx [x] = App t (GlobalVarInit idx) [Var_local t x])
   /\
-  (make_varls n t (x::xs) =
+  (make_varls n t idx (x::xs) =
     let t' = Cons t n in
-      Var_local t' x :: make_varls (n+1) t xs)`;
+      Let t' NONE (App t' (GlobalVarInit idx) [Var_local t' x])
+        (make_varls (n+1) t (idx + 1) xs))`;
 
 val empty_env_def = Define `
   empty_env = <| v := nsEmpty; c := nsEmpty |>`;
@@ -280,20 +281,23 @@ val compile_decs_def = tDefine "compile_decs" `
      let n'' = n' + l in
        (n'', (next with vidx := next.vidx + l),
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        [modLang$Dlet l (Mat t2 e'
-          [(compile_pat env p, Con t3 NONE (make_varls 0 t4 xs))])])) ∧
+        [modLang$Dlet (Mat t2 e'
+          [(compile_pat env p, make_varls 0 t4 next.vidx xs)])])) ∧
   (compile_decs n next env [ast$Dletrec locs [(f,x,e)]] =
      (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
      let e' = compile_exp t1 env (ast$Letrec [(f,x,e)] (ast$Var (mk_id [] f))) in
        (n' + 1, (next with vidx := next.vidx + 1),
         <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
-        [modLang$Dlet 1 (Con t4 NONE [e'])])) ∧
+        [modLang$Dlet (App t4 (GlobalVarInit next.vidx) [e'])])) ∧
   (compile_decs n next env [ast$Dletrec locs funs] =
+     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
+     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
      let fun_names = REVERSE (MAP FST funs) in
      let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
        (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
-        [Dletrec (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))])) ∧
+        (MAPi (\i (f,x,e). (Dlet (App t4 (GlobalVarInit (next.vidx + i)) [modLang$Fun t4 x e])))
+              (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))))) ∧
   (compile_decs n next env [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
@@ -332,7 +336,9 @@ val empty_config_def = Define`
 
 val compile_def = Define`
   compile c p =
-    let (_,_,e,p') = compile_decs 1 c.next c.mod_env p in
-    (c with mod_env := e, p')`;
+    let (_,next,e,p') = compile_decs 1n c.next c.mod_env p in
+    (<| next := next; mod_env := e |>,
+     Dlet (Let om_tra NONE (App om_tra (GlobalVarAlloc (next.vidx - c.next.vidx)) []) (modLang$Con om_tra NONE []))
+     :: p')`;
 
 val _ = export_theory();

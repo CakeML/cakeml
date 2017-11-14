@@ -173,7 +173,7 @@ val do_app_def = Define `
     | (Op Opref, [v]) =>
         let (s',n) = (store_alloc (Refv v) s.refs) in
           SOME (s with refs := s', Rval (Loc n))
-    | (Op (Init_global_var idx), [v]) =>
+    | (Op (GlobalVarInit idx), [v]) =>
         if idx < LENGTH s.globals then
           (case EL idx s.globals of
               NONE => SOME ((s with globals := LUPDATE (SOME v) idx s.globals), Rval (Conv tuple_tag []))
@@ -453,10 +453,6 @@ val evaluate_def = tDefine "evaluate"`
       if n < LENGTH env
       then Rval [EL n env]
       else Rerr (Rabort Rtype_error))) ∧
-  (evaluate env s [Var_global _ n] = (s,
-      if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
-      then Rval [THE (EL n s.globals)]
-      else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Fun _ e] = (s, Rval [Closure env e])) ∧
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
@@ -490,22 +486,20 @@ val evaluate_def = tDefine "evaluate"`
    | (s, Rval vs) => evaluate env s [e2]
    | res => res) ∧
   (evaluate env s [Letrec _ funs e] =
-   evaluate ((build_rec_env funs env)++env) s [e]) ∧
-  (evaluate env s [Extend_global _ n] =
-   (s with globals := s.globals++GENLIST(K NONE) n, Rval [Conv tuple_tag []]))`
+   evaluate ((build_rec_env funs env)++env) s [e])`
   (wf_rel_tac`inv_image ($< LEX $<)
   (λx. case x of (_,s,es) => (s.clock,exp1_size es))`
   THEN rpt strip_tac
   THEN imp_res_tac fix_clock_IMP
   THEN imp_res_tac do_if_either_or
-  THEN fs [dec_clock_def])
+  THEN fs [dec_clock_def]);
 
 val evaluate_ind = theorem"evaluate_ind"
 
 val do_app_clock = Q.store_thm("do_app_clock",
   `patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`,
   rpt strip_tac THEN fs[do_app_cases] >> every_case_tac >>
-  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >> rw[])
+  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >> rw[]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
   `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`,

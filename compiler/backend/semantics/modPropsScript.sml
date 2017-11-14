@@ -563,7 +563,8 @@ val evaluate_state_const = Q.store_thm("evaluate_state_const",
       s'.next_exn_id = s.next_exn_id)`,
   ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][dec_clock_def]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> imp_res_tac do_app_const >>
+  srw_tac[][dec_clock_def] >> metis_tac []);
 
   (*
 val evaluate_dec_state_const = Q.store_thm("evaluate_dec_state_const",
@@ -659,6 +660,7 @@ val evaluate_prompt_mods_disjoint = Q.store_thm("evaluate_prompt_mods_disjoint",
   *)
   *)
 
+  (*
 val s = ``s:'ffi modSem$state``;
 
 val evaluate_globals = Q.store_thm("evaluate_globals",
@@ -669,7 +671,6 @@ val evaluate_globals = Q.store_thm("evaluate_globals",
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def]);
 
-  (*
 
 val evaluate_dec_globals = Q.store_thm("evaluate_dec_globals",
   `∀env st d res. evaluate_dec env st d = res ⇒

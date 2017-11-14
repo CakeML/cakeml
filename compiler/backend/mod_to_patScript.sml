@@ -86,8 +86,6 @@ val pure_def = Define `
   ∧
   (pure (Var_local _ _) ⇔ T)
   ∧
-  (pure (Var_global _ _) ⇔ T)
-  ∧
   (pure (Fun _ _) ⇔ T)
   ∧
   (pure (App _ op es) ⇔ pure_list es ∧ pure_op op)
@@ -99,8 +97,6 @@ val pure_def = Define `
   (pure (Seq _ e1 e2) ⇔ pure e1 ∧ pure e2)
   ∧
   (pure (Letrec _ _ e) ⇔ pure e)
-  ∧
-  (pure (Extend_global _ _) ⇔ F)
   ∧
   (pure_list [] ⇔ T)
   ∧
@@ -122,8 +118,6 @@ val ground_def = Define `
   ∧
   (ground n (Var_local _ k) ⇔ k < n)
   ∧
-  (ground _ (Var_global _ _) ⇔ T)
-  ∧
   (ground _ (Fun _ _) ⇔ F)
   ∧
   (ground n (App _ _ es) ⇔ ground_list n es)
@@ -135,8 +129,6 @@ val ground_def = Define `
   (ground n (Seq _ e1 e2) ⇔ ground n e1 ∧ ground n e2)
   ∧
   (ground _ (Letrec _ _ _) ⇔ F)
-  ∧
-  (ground _ (Extend_global _ _) ⇔ T)
   ∧
   (ground_list _ [] ⇔ T)
   ∧
@@ -313,8 +305,6 @@ val compile_exp_def = tDefine"compile_exp" `
     | SOME k => Var_local t k
     | NONE => Lit t (IntLit 0) (* should not happen *)))
   ∧
-  (compile_exp _ (Var_global t n) = Var_global t n)
-  ∧
   (compile_exp bvs (Fun t x e) = Fun t (compile_exp (SOME x::bvs) e))
   ∧
   (compile_exp bvs (App t op es) = App t (Op op) (compile_exps bvs es))
@@ -331,8 +321,6 @@ val compile_exp_def = tDefine"compile_exp" `
   (compile_exp bvs (Letrec t funs e) =
    let bvs = (MAP (SOME o FST) funs) ++ bvs in
    Letrec t (compile_funs bvs funs) (compile_exp bvs e))
-  ∧
-  (compile_exp _ (Extend_global t n) = Extend_global t n)
   ∧
   (compile_exps _ [] = [])
   ∧

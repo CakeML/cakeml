@@ -250,7 +250,7 @@ open bagTheory
 
 (* finding the InitGlobal operations *)
 val op_gbag_def = Define`
-  op_gbag (Op (Init_global_var n)) = BAG_INSERT n {||} ∧
+  op_gbag (Op (GlobalVarInit n)) = BAG_INSERT n {||} ∧
   op_gbag _ = {||}
 `;
 

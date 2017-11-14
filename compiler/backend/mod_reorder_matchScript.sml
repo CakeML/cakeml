@@ -66,7 +66,6 @@ val compile_def = tDefine "compile" `
     (compile [Lit t l] = [Lit t l]) /\
     (compile [Con t n es] = [Con t n (compile es)] ) /\
     (compile [Var_local t v] = [Var_local t v]) /\
-    (compile [Var_global t n] = [Var_global t n]) /\
     (compile [Fun t v e] = [Fun t v (HD (compile [e]))]) /\
     (compile [App t op es] = [App t op (compile es)]) /\
     (compile [If t e1 e2 e3] = [If t (HD (compile [e1])) (HD (compile [e2])) (HD (compile [e3]))]) ∧
@@ -74,7 +73,6 @@ val compile_def = tDefine "compile" `
     (compile [Let t vo e1 e2] = [Let t vo (HD (compile [e1])) (HD (compile [e2]))]) /\
     (compile [Letrec t funs e] =
         [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
-    (compile [Extend_global t n] = [Extend_global t n]) /\
     (compile (x::y::xs) = compile [x] ++ compile (y::xs))`
  (WF_REL_TAC `measure exp6_size`
   \\ simp []
