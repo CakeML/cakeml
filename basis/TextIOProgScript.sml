@@ -26,7 +26,7 @@ val EndOfFile_exn_def = Define `
   EndOfFile_exn v =
     (v = Conv (SOME ("EndOfFile", TypeExn (Long "TextIO" (Short "EndOfFile")))) [])`
 
-val iobuff_e = ``(App Aw8alloc [Lit (IntLit 65538); Lit (Word8 0w)])``
+val iobuff_e = ``(App Aw8alloc [Lit (IntLit 258); Lit (Word8 0w)])``
 val _ = ml_prog_update
           (add_Dlet (derive_eval_thm "iobuff_loc" iobuff_e) "iobuff" [])
 val iobuff_loc_def = definition "iobuff_loc_def"
@@ -104,19 +104,19 @@ val _ = process_topdecs`
 
 val _ = process_topdecs`
 fun openIn fname =
-  let val a = Word8Array.copyVec fname 0 (String.size fname) iobuff 0
-      val a = Word8Array.update iobuff (String.size fname) (Word8.fromInt 0)
-      val a = #(open_in) "" iobuff in
-        if Word8Array.sub iobuff 0 = Word8.fromInt 0
-        then Word8Array.sub iobuff 1
+  let val b = Word8Array.array (String.size fname + 2) (Word8.fromInt 0)
+      val a = Word8Array.copyVec fname 0 (String.size fname) b 0
+      val a = #(open_in) "" b in
+        if Word8Array.sub b 0 = Word8.fromInt 0
+        then Word8Array.sub b 1
         else raise BadFileName
   end
 fun openOut fname =
-  let val a = Word8Array.copyVec fname 0 (String.size fname) iobuff 0
-      val a = Word8Array.update iobuff (String.size fname) (Word8.fromInt 0)
-      val a = #(open_out) "" iobuff in
-        if Word8Array.sub iobuff 0 = Word8.fromInt 0
-        then Word8Array.sub iobuff 1
+  let val b = Word8Array.array (String.size fname + 2) (Word8.fromInt 0)
+      val a = Word8Array.copyVec fname 0 (String.size fname) b 0
+      val a = #(open_out) "" b in
+        if Word8Array.sub b 0 = Word8.fromInt 0
+        then Word8Array.sub b 1
         else raise BadFileName
   end` |> append_prog
 val _ = process_topdecs`
