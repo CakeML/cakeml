@@ -24,7 +24,7 @@ endif
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = backend/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o VERSION_CAKEML VERSION_POLYML
 all: $(HOLHEAP) VERSION_INFO
 
 BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory ../basis/basisProgTheory
