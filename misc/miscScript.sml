@@ -286,74 +286,33 @@ val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
 
 val MEM_LIST_REL = Q.store_thm("MEM_LIST_REL",
   `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`,
-  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-  \\ RES_TAC \\ METIS_TAC []);
+  simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
 
 val LIST_REL_MEM = Q.store_thm("LIST_REL_MEM",
   `!xs ys P. LIST_REL P xs ys <=>
               LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys`,
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
 
-val LIST_REL_REVERSE_EQ =
-  IMP_ANTISYM_RULE
-    (EVERY2_REVERSE |> SPEC_ALL)
-    (EVERY2_REVERSE |> Q.SPECL[`R`,`REVERSE l1`,`REVERSE l2`]
-                    |> SIMP_RULE std_ss [REVERSE_REVERSE])
-  |> SYM |> curry save_thm"LIST_REL_REVERSE_EQ";
+val LIST_REL_REVERSE_EQ = Q.store_thm(
+  "LIST_REL_REVERSE_EQ",
+  ‘LIST_REL R (REVERSE l1) (REVERSE l2) <=> LIST_REL R l1 l2’,
+  simp[EVERY2_REVERSE1]);
 
 val LIST_REL_GENLIST_I = Q.store_thm("LIST_REL_GENLIST_I",
   `!xs. LIST_REL P (GENLIST I (LENGTH xs)) xs =
          !n. n < LENGTH xs ==> P n (EL n xs)`,
-  HO_MATCH_MP_TAC SNOC_INDUCT
-  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,GENLIST,SNOC_APPEND]
-  \\ FULL_SIMP_TAC std_ss [LIST_REL_APPEND_SING]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
-   (Cases_on `n < LENGTH xs`
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1]
-    \\ `n = LENGTH xs` by DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD])
-  THEN1 (`n < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
-    \\ POP_ASSUM MP_TAC \\ Q.PAT_X_ASSUM `!x.bb` (K ALL_TAC)
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1])
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `LENGTH xs`)
-  \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD]);
+  simp[LIST_REL_EL_EQN]);
 
 val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
   `LIST_REL (\v x. lookup v (fromList args) = SOME x)
      (GENLIST I (LENGTH args)) args`,
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
 
-val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
-  `(LIST_REL R (SNOC x xs) yys ⇔ ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
-   (LIST_REL R xxs (SNOC y ys) ⇔ ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
-  rw[LIST_REL_EL_EQN,EQ_IMP_THM] \\ fs[]
-  >- (
-    Q.ISPEC_THEN`yys`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ first_x_assum(qspec_then`LENGTH xs`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  >- (
-    last_x_assum (assume_tac o SYM)
-    \\ Cases_on`n = LENGTH xs`
-    \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
-  >- (
-    Q.ISPEC_THEN`xxs`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[] \\ rw[]
-    >- (first_x_assum(qspec_then`n` mp_tac)\\simp[EL_SNOC])
-    \\ last_x_assum (assume_tac o SYM)
-    \\ first_x_assum(qspec_then`LENGTH ys`mp_tac)\\simp[EL_LENGTH_SNOC] )
-  \\ Cases_on`n = LENGTH xs`
-  \\ fs[EL_APPEND2,EL_APPEND1,EL_LENGTH_SNOC,EL_SNOC] )
-
-val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
-  `l1 <> [] /\ l2 <> [] ==>
-    (LIST_REL A l1 l2 <=> LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
-  map_every (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC])
-  [`l1`,`l2`]);
-
 val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
   ``!xs1 zs.
       LIST_REL P (xs1 ++ xs2) zs ==>
       ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
-                  LIST_REL P xs2 ys2``,
+                LIST_REL P xs2 ys2``,
   Induct \\ full_simp_tac std_ss [APPEND]
   \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
@@ -363,18 +322,34 @@ val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
   ``!xs1 zs.
       LIST_REL P zs (xs1 ++ xs2) ==>
       ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
-                  LIST_REL P ys2 xs2``,
+                LIST_REL P ys2 xs2``,
   Induct \\ full_simp_tac std_ss [APPEND]
   \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
   \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
 
+val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
+  `(LIST_REL R (SNOC x xs) yys ⇔
+      ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
+   (LIST_REL R xxs (SNOC y ys) ⇔
+      ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`,
+  simp[EQ_IMP_THM, PULL_EXISTS, SNOC_APPEND] >> rpt strip_tac
+  >- (imp_res_tac LIST_REL_SPLIT1 >> fs[])
+  >- (imp_res_tac LIST_REL_SPLIT2 >> fs[]));
+
+val LIST_REL_FRONT_LAST = Q.store_thm("LIST_REL_FRONT_LAST",
+  `l1 <> [] /\ l2 <> [] ==>
+    (LIST_REL A l1 l2 <=>
+     LIST_REL A (FRONT l1) (FRONT l2) /\ A (LAST l1) (LAST l2))`,
+  map_every
+    (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES >>
+             fs[LIST_REL_SNOC])
+    [`l1`,`l2`]);
+
 val LIST_REL_APPEND_EQ = Q.store_thm("LIST_REL_APPEND_EQ",
-  `LENGTH x1 = LENGTH x2 ⇒ (LIST_REL R (x1 ++ y1) (x2 ++ y2) = (LIST_REL R x1 x2 /\ LIST_REL R y1 y2))`,
-  rw[EQ_IMP_THM]
-  \\ imp_res_tac LIST_REL_APPEND_IMP
-  \\ match_mp_tac EVERY2_APPEND_suff
-  \\ rw[]);
+  `LENGTH x1 = LENGTH x2 ⇒
+   (LIST_REL R (x1 ++ y1) (x2 ++ y2) <=> LIST_REL R x1 x2 /\ LIST_REL R y1 y2)`,
+  metis_tac[LIST_REL_APPEND_IMP, EVERY2_LENGTH, EVERY2_APPEND_suff]);
 
 val lookup_fromList_outside = Q.store_thm("lookup_fromList_outside",
   `!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)`,
@@ -1066,9 +1041,11 @@ val OPTREL_SOME = Q.store_thm("OPTREL_SOME",
     srw_tac[][optionTheory.OPTREL_def])
 
 val LIST_REL_O = Q.store_thm("LIST_REL_O",
-  `∀R1 R2 l1 l2. LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2`,
+  `∀R1 R2 l1 l2.
+     LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2`,
   rpt gen_tac >>
-  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,O_DEF] >>
+  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,
+       O_DEF] >>
   srw_tac[][] >- (
     full_simp_tac(srw_ss())[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] >>
     qexists_tac`GENLIST f (LENGTH l2)` >>
