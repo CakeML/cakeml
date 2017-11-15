@@ -163,12 +163,12 @@ val map_fromAList = Q.store_thm("map_fromAList",
   simp[wf_fromAList,map_insert])
 
 val _ = overload_on ("LLOOKUP", “λl n. oEL n l”)
-val LLOOKUP_def = listTheory.oEL_def;
-val LLOOKUP_EQ_EL = listTheory.oEL_EQ_EL;
-val LLOOKUP_THM = listTheory.oEL_THM;
-val LLOOOKUP_DROP = listTheory.oEL_DROP;
-val LLOOKUP_TAKE_IMP = listTheory.oEL_TAKE_E;
-val LLOOKUP_LUPDATE = listTheory.oEL_LUPDATE;
+val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
+val LLOOKUP_EQ_EL    = save_thm("LLOOKUP_EQ_EL", listTheory.oEL_EQ_EL);
+val LLOOKUP_THM      = save_thm("LLOOKUP_THM", listTheory.oEL_THM);
+val LLOOOKUP_DROP    = save_thm("LLOOKUP_DROP", listTheory.oEL_DROP);
+val LLOOKUP_TAKE_IMP = save_thm("LLOOKUP_TAKE_IMP", listTheory.oEL_TAKE_E);
+val LLOOKUP_LUPDATE  = save_thm("LLOOKUP_LUPDATE", listTheory.oEL_LUPDATE);
 
 val _ = Datatype `
   app_list = List ('a list) | Append app_list app_list | Nil`
