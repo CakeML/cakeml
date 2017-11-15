@@ -75,6 +75,19 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      LIST_REL f_rel funs1 funs2 ==>
        v_rel (Recclosure l1 args1 env1 funs1 k) (Recclosure l2 args2 env2 funs2 k))`;
 
+val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Number n)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Block n p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Word64 p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (ByteVector p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (RefPtr p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Closure x1 x2 x3 x4 x5)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Recclosure y1 y2 y3 y4 y5)``,
+  prove(``v_rel x (Boolv b) <=> x = Boolv b``,
+        Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
+  prove(``v_rel x Unit <=> x = Unit``,
+        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+
 (* state relation *)
 
 val v_rel_opt_def = Define `
@@ -131,6 +144,18 @@ val remove_ticks_Tick = store_thm("remove_ticks_Tick",
   Induct \\ fs [remove_ticks_def]);
 
 val qexistsl_tac = map_every qexists_tac;
+
+val remove_ticks_If_IMP_mk_Ticks = store_thm("remove_ticks_If_IMP_mk_Ticks",
+  ``!x tr e1' e2' e3'.
+      [If tr e1' e2' e3'] = remove_ticks [x] ==>
+        ?ts e1 e2 e3. x = mk_Ticks ts (If tr e1 e2 e3) /\
+                      e1' = HD (remove_ticks [e1]) /\
+                      e2' = HD (remove_ticks [e2]) /\
+                      e3' = HD (remove_ticks [e3])``,
+  Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
+  THEN1 (qexistsl_tac [`[]`, `x`, `x'`, `x''`] \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `e2`, `e3`] \\ fs [mk_Ticks_def]);
+ 
 
 val remove_ticks_Let_IMP_mk_Ticks = store_thm("remove_ticks_Let_IMP_mk_Ticks",
   ``!x t l e. [Let t l e] = remove_ticks [x] ==>
@@ -284,7 +309,41 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ rw [] \\ fs [] \\ rw [] \\ fs []
     \\ fs [LIST_REL_EL_EQN])
   THEN1 (* If *)
-   (cheat)
+   (fs [LENGTH_EQ_NUM_compute] \\ rveq
+    \\ fs [code_rel_def]
+    \\ imp_res_tac remove_ticks_If_IMP_mk_Ticks \\ rveq
+    \\ fs [remove_ticks_mk_Ticks, remove_ticks_def]
+    \\ simp [evaluate_mk_Ticks]
+    \\ fs [evaluate_def]
+    \\ simp [dec_clock_def]
+    \\ fs [pair_case_eq] \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ disch_then (mp_tac o Q.SPEC `[e1]`) \\ simp []
+    \\ strip_tac
+    \\ reverse (fs [case_eq_thms] \\ rveq \\ Cases_on `res1` \\ fs [])
+    THEN1 (qexists_tac `ck + LENGTH ts` \\ fs [])
+    \\ imp_res_tac evaluate_SING \\ fs [] \\ rveq
+    \\ `(Boolv T = y <=> Boolv T = r1) /\
+        (Boolv F = y <=> Boolv F = r1)` by
+     (qpat_x_assum `v_rel _ _` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ simp [EVAL ``closSem$Boolv T``,EVAL ``closSem$Boolv F``]
+      \\ rw [] \\ eq_tac \\ rw []
+      \\ rpt (pop_assum mp_tac)
+      \\ simp [Once v_rel_cases])
+    \\ ntac 2 (pop_assum (fn th => fs [th]))
+    \\ reverse (Cases_on `Boolv T = r1 \/ Boolv F = r1`) \\ fs [] \\ rveq \\ fs []
+    THEN1 (qexists_tac `ck + LENGTH ts` \\ fs [])
+    \\ TRY (rename1 `evaluate (remove_ticks [e_taken_branch], env2, _) = (res2, t2)`)
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ disch_then (qspec_then `[e_taken_branch]` mp_tac) \\ fs []
+    \\ strip_tac
+    \\ imp_res_tac evaluate_clock \\ fs []
+    \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
+    \\ bump_assum `evaluate ([e1], _, _) = _`
+    \\ drule evaluate_add_clock \\ fs [])
   THEN1 (* Let *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
@@ -400,7 +459,6 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ imp_res_tac state_rel_IMP_max_app_EQ \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
     \\ Cases_on `vsopt` \\ fs [] \\ rveq \\ fs []
-    THEN1 fs [v_rel_rules]
     \\ drule (Q.SPEC `x` lookup_vars_lemma) \\ strip_tac
     \\ Cases_on `lookup_vars x env2` \\ fs [] \\ rveq \\ fs []
     \\ fs [v_rel_rules])
