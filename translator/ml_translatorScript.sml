@@ -998,32 +998,74 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   \\ fs [integer_wordTheory.i2w_def]);
 
 val Eval_w2w = Q.store_thm("Eval_w2w",
-  `dimindex (:'a) <= 64 /\ (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) ==>
+  `dimindex (:'a) <= 64 /\ dimindex (:'b) <= 64 ==>
     Eval env x1 (WORD (w:'b word)) ==>
     Eval env
-      (let w = if dimindex (:'a) <= 8 then W8 else W64 in
-         if dimindex (:'b) <= dimindex (:'a) then
-           App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
-         else
-           App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1])
+      (if (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) then
+         let w = if dimindex (:'a) <= 8 then W8 else W64 in
+           if dimindex (:'b) <= dimindex (:'a) then
+             App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
+           else
+             App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1]
+       else if dimindex (:'b) <= 8 then
+         App (Shift W64 Lsl (64 - dimindex (:'a)))
+           [App (Shift W64 Lsr (8 - dimindex (:'b)))
+              [App (WordFromInt W64) [App (WordToInt W8) [x1]]]]
+       else
+         App (Shift W8 Lsl (8 - dimindex (:'a)))
+           [App (WordFromInt W8) [App (WordToInt W64)
+              [App (Shift W64 Lsr (64 - dimindex (:'b))) [x1]]]])
       (WORD ((w2w w):'a word))`,
-  Cases_on `dimindex (:'a) ≤ 8` \\ fs []
-  \\ IF_CASES_TAC
-  \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-  \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
-  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ once_rewrite_tac [evaluate_cases] \\ fs []
-  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
-  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-  \\ asm_exists_tac \\ fs []
-  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-  \\ fs [empty_state_def]
-  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
-  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
-  \\ rw []
-  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
-  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
-  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]);
+  IF_CASES_TAC THEN1
+   (Cases_on `dimindex (:'a) ≤ 8` \\ fs []
+    \\ IF_CASES_TAC
+    \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ once_rewrite_tac [evaluate_cases] \\ fs []
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
+    \\ rw []
+    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
+    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def])
+  \\ IF_CASES_TAC \\ fs [] \\ rw []
+  THEN1
+   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ simp [do_app_def]
+    \\ fs [shift64_lookup_def,shift8_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
+    \\ rpt strip_tac
+    \\ eq_tac \\ strip_tac \\ fs []
+    \\ rfs [fcpTheory.FCP_BETA,w2w]
+    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
+    \\ rfs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
+    \\ Cases_on `i + dimindex (:α) − 64 < 8`
+    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``])
+  THEN1
+   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ simp [do_app_def]
+    \\ fs [shift64_lookup_def,shift8_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]));
 
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.

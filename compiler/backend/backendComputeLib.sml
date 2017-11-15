@@ -184,7 +184,7 @@ val add_backend_compset = computeLib.extend_compset
     [closLangTheory.pure_def
     ,closLangTheory.pure_op_def
       (* ---- pat_to_clos ---- *)
-    ,pat_to_closTheory.compile_def
+    ,pat_to_closTheory.dest_WordToInt_def
     ,pat_to_closTheory.CopyByteStr_def
     ,pat_to_closTheory.CopyByteAw8_def
     ,pat_to_closTheory.vector_tag_def

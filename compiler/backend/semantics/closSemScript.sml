@@ -269,6 +269,12 @@ val do_app_def = Define `
         Rval (Word64 (i2w i),s)
     | (WordToInt, [Word64 w]) =>
         Rval (Number (&(w2n w)),s)
+    | (WordFromWord T, [Word64 w]) =>
+        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
+    | (WordFromWord F, [Number n]) =>
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => Error
+        | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f ws) =>

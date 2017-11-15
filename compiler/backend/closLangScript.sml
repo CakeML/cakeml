@@ -56,6 +56,7 @@ val _ = Datatype `
      | WordShift word_size shift num
      | WordFromInt
      | WordToInt
+     | WordFromWord bool
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
