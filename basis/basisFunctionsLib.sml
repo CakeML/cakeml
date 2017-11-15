@@ -65,7 +65,7 @@ fun derive_eval_thm v_name e = let
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\
                     match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    rpt strip_tac \\ REFL_TAC)
+                    simp_tac bool_ss [])
                  |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
   val v_tm = v_thm |> concl |> rand |> rand |> rand
   val v_def = define_abbrev true v_name v_tm
