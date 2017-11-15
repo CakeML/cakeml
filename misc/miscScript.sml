@@ -229,23 +229,6 @@ val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
   `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
   Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
 
-val MAP2i_def = Define`
-  (MAP2i f [] [] = []) /\
-  (MAP2i f (h1::t1) (h2::t2) = f 0 h1 h2::MAP2i (f o SUC) t1 t2)`;
-val _ = export_rewrites["MAP2i_def"];
-
-val MAP2i_ind = theorem"MAP2i_ind";
-
-val LENGTH_MAP2i = Q.store_thm("LENGTH_MAP2i[simp]",
-  `∀f l1 l2. LENGTH l1 = LENGTH l2 ⇒ LENGTH (MAP2i f l1 l2) = LENGTH l2`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]);
-
-val EL_MAP2i = Q.store_thm("EL_MAP2i",
-  `∀f l1 l2 n. n < LENGTH l1 ∧ n < LENGTH l2 ⇒
-    EL n (MAP2i f l1 l2) = f n (EL n l1) (EL n l2)`,
-  ho_match_mp_tac MAP2i_ind \\ rw[]
-  \\ Cases_on`n` \\ fs[]);
-
 val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
   `∀xs ys.
      LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
