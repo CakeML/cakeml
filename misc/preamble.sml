@@ -412,4 +412,114 @@ fun simple_match_mp th1 th2 = let
   val (i,t) = match_term x (concl th2)
   in MP (INST i (INST_TYPE t th1)) th2 end
 
+(* ========================================================================= *)
+(* Execute processes on Posix systems and read results from stdout.          *)
+(*                                                                           *)
+(* The implementation is modeled after that of the Unix struct in the PolyML *)
+(* implementation of the SML basis library.                                  *)
+(* ========================================================================= *)
+
+(* Drop-in replacement to Unix.execute, except using Posix.Process.execp
+   for executing the command cmd (instead of Posix.Process.exec). *)
+fun executeWithPath (cmd, args, dir) =
+  let
+    val to_child   = Posix.IO.pipe () (* Pipe child stdin through here *)
+    val from_child = Posix.IO.pipe () (* Pipe child stdout through here *)
+  in
+    case Posix.Process.fork () of
+      NONE => (* Child *)
+
+        (((* Change working directory if necessary *)
+          case dir of NONE => () | SOME d => Posix.FileSys.chdir d;
+
+          (* Close unused file descriptors and redirect stdout *)
+          Posix.IO.close (#outfd to_child);
+          Posix.IO.close (#infd from_child);
+          Posix.IO.dup2 {old = #infd to_child, new = Posix.FileSys.wordToFD 0w0};
+          Posix.IO.dup2 {old = #outfd from_child, new = Posix.FileSys.wordToFD 0w1};
+          Posix.IO.close (#infd to_child);
+          Posix.IO.close (#outfd from_child);
+
+          (* Hand over control to external process *)
+          Posix.Process.execp (cmd, cmd::args);
+
+          (* Ensure we do not reach this point (i.e. should execp fail) *)
+          Posix.Process.exit 0w126           (* 126 command not executable *))
+        handle _ => Posix.Process.exit 0w126 (* 126 command not executable *))
+
+    | SOME pid => (* Parent *)
+        ((* Close unused file descriptors and return a ('a, 'b) proc *)
+         Posix.IO.close (#infd to_child);
+         Posix.IO.close (#outfd from_child);
+         { pid    = pid
+         , infd   = #infd from_child
+         , outfd  = #outfd to_child
+         , result = ref NONE })
+  end
+
+(* Wait for child to exit and fetch its exit status. *)
+fun reap {result = ref(SOME r), ...}       = r
+  | reap (p as {pid, infd, outfd, result}) =
+      let
+        val _ = Posix.IO.close infd;
+        val _ = Posix.IO.close outfd;
+        val (_, status) =
+          Posix.Process.waitpid (Posix.Process.W_CHILD pid, [])
+      in
+        case status of
+          Posix.Process.W_STOPPED _ => reap p
+        | _ => (result := SOME status; status)
+      end
+
+(* Get TextIO.instream reading the stdout of a process. *)
+fun textInstreamOf {infd, ...} =
+  let
+    val prim_rd =
+      Posix.IO.mkTextReader
+        { fd          = infd
+        , name        = "externalProcessTextReader"
+        , initBlkMode = true }
+  in
+    TextIO.mkInstream (TextIO.StreamIO.mkInstream (prim_rd, ""))
+  end
+
+(* Execute command cmd with arguments command an return the result of
+   reading its standard input as a string option. If /anything/ fails we
+   return nothing. *)
+fun readProcess (cmd, args, dir) =
+  let
+    val proc = executeWithPath (cmd, args, dir)
+    val inp  = TextIO.inputAll (textInstreamOf proc)
+    val str  = String.substring (inp, 0, String.size inp - 1)
+    val stat = reap proc
+  in
+    case stat of Posix.Process.W_EXITED => SOME str | _ => NONE
+  end
+  handle _ => NONE
+
+(* Run an external process and get its stdout as a string option term *)
+fun tm_from_proc cmd args =
+  case readProcess (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+fun tm_from_proc_from dir cmd args =
+  case readProcess (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
+
+(* Run an external process and get its stdout as a mlstring option term *)
+fun mlstring_from_proc cmd args =
+  case readProcess (cmd, args, NONE) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+fun mlstring_from_proc_from dir cmd args =
+  case readProcess (cmd, args, SOME dir) of
+    NONE => Term `NONE : string option`
+  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+
+(* ========================================================================= *)
+(* ========================================================================= *)
+
 end
