@@ -282,21 +282,31 @@ val env_rel_el = Q.prove (
       FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
       srw_tac[][]));
 
+val subglobals_def = Define `
+  subglobals g1 g2 ⇔
+    LENGTH g1 ≤ LENGTH g2 ∧
+    !n. n < LENGTH g1 ∧ IS_SOME (EL n g1) ⇒ EL n g1 = EL n g2`;
+
+val subglobals_refl = Q.prove (
+  `!g. subglobals g g`,
+  rw [subglobals_def]);
+
 val v_rel_weakening = Q.prove (
   `(!genv v v'.
     v_rel genv v v'
     ⇒
-    ∀l. v_rel <| v := genv.v++l; c := genv.c |> v v') ∧
+    !genv'. genv.c = genv'.c ∧ subglobals genv.v genv'.v ⇒ v_rel genv' v v') ∧
    (!genv env env'.
     env_rel genv env env'
     ⇒
-    !l. env_rel <| v := genv.v++l; c := genv.c |> env env') ∧
+    !genv'. genv.c = genv'.c ∧ subglobals genv.v genv'.v ⇒ env_rel genv' env env') ∧
    (!genv comp_map shadowers env.
     global_env_inv genv comp_map shadowers env
     ⇒
-    !l.global_env_inv <| v := genv.v++l; c := genv.c |> comp_map shadowers env)`,
+    !genv'. genv.c = genv'.c ∧ subglobals genv.v genv'.v ⇒ global_env_inv genv' comp_map shadowers env)`,
   ho_match_mp_tac v_rel_ind >>
-  srw_tac[][v_rel_eqns]
+  srw_tac[][v_rel_eqns, subglobals_def]
+  >- fs [LIST_REL_EL_EQN]
   >- fs [LIST_REL_EL_EQN]
   >- fs [LIST_REL_EL_EQN]
   >- (srw_tac[][Once v_rel_cases] >>
@@ -313,8 +323,13 @@ val v_rel_weakening = Q.prove (
       qexists_tac `n` >>
       srw_tac[][EL_APPEND1] >>
       map_every qexists_tac [`t2`,`t3`] >>
-      decide_tac)
+      rw [] >>
+      metis_tac [IS_SOME_DEF])
   >- fs [LIST_REL_EL_EQN]
+  >- (
+    res_tac >>
+    rw [] >>
+    metis_tac [IS_SOME_DEF])
   >- metis_tac [DECIDE ``x < y ⇒ x < y + l:num``, EL_APPEND1]);
 
 val v_rel_weakening2 = Q.prove (
@@ -373,24 +388,56 @@ val drestrict_lem = Q.prove (
   rw [] >>
   metis_tac []);
 
-val global_env_inv_weak = Q.prove (
-  `!genv comp_map shadowers env genv'.
-   global_env_inv genv comp_map shadowers env ∧
+val v_rel_weak = Q.prove (
+  `!genv v v' genv'.
+   v_rel genv v v' ∧
    genv.c ⊑ genv'.c ∧
-   genv.v ≼ genv'.v
+   subglobals genv.v genv'.v
    ⇒
-   global_env_inv genv' comp_map shadowers env`,
-  rw [IS_PREFIX_APPEND] >>
-  imp_res_tac v_rel_weakening >>
-  pop_assum (qspec_then `l` assume_tac) >>
+   v_rel genv' v v'`,
+  rw [] >>
   imp_res_tac v_rel_weakening2 >>
   fs [] >>
   rpt (first_x_assum (qspec_then `DRESTRICT genv'.c (COMPL (FDOM genv.c))` assume_tac)) >>
   rfs [drestrict_lem] >>
   fs [DISJOINT_DEF, EXTENSION, FDOM_DRESTRICT] >>
   fs [GSYM DISJ_ASSOC] >>
-  `<|v := genv.v ⧺ l; c := genv'.c|> = genv'` by rw [theorem "global_env_component_equality"] >>
-  metis_tac []);
+  imp_res_tac v_rel_weakening >>
+  fs []);
+
+val env_rel_weak = Q.prove (
+  `!genv env env' genv'.
+   env_rel genv env env' ∧
+   genv.c ⊑ genv'.c ∧
+   subglobals genv.v genv'.v
+   ⇒
+   env_rel genv' env env'`,
+  rw [] >>
+  imp_res_tac v_rel_weakening2 >>
+  fs [] >>
+  rpt (first_x_assum (qspec_then `DRESTRICT genv'.c (COMPL (FDOM genv.c))` assume_tac)) >>
+  rfs [drestrict_lem] >>
+  fs [DISJOINT_DEF, EXTENSION, FDOM_DRESTRICT] >>
+  fs [GSYM DISJ_ASSOC] >>
+  imp_res_tac v_rel_weakening >>
+  fs []);
+
+val global_env_inv_weak = Q.prove (
+  `!genv comp_map shadowers env genv'.
+   global_env_inv genv comp_map shadowers env ∧
+   genv.c ⊑ genv'.c ∧
+   subglobals genv.v genv'.v
+   ⇒
+   global_env_inv genv' comp_map shadowers env`,
+  rw [] >>
+  imp_res_tac v_rel_weakening2 >>
+  fs [] >>
+  rpt (first_x_assum (qspec_then `DRESTRICT genv'.c (COMPL (FDOM genv.c))` assume_tac)) >>
+  rfs [drestrict_lem] >>
+  fs [DISJOINT_DEF, EXTENSION, FDOM_DRESTRICT] >>
+  fs [GSYM DISJ_ASSOC] >>
+  imp_res_tac v_rel_weakening >>
+  fs []);
 
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀genv v v'.
@@ -429,29 +476,15 @@ val (sv_rel_rules, sv_rel_ind, sv_rel_cases) = Hol_reln `
     ⇒
     sv_rel genv (Varray vs) (Varray vs'))`;
 
-val sv_rel_weakening = Q.prove (
-  `(!genv sv sv_i1.
-    sv_rel genv sv sv_i1
-    ⇒
-    ∀l. sv_rel (<| v := genv.v++l; c := genv.c|>) sv sv_i1)`,
-   srw_tac[][sv_rel_cases] >>
-   metis_tac [v_rel_weakening, LIST_REL_EL_EQN]);
-
-val sv_rel_weakening2 = Q.prove (
-  `(!genv sv sv_i1 x y z.
-    DISJOINT (FDOM z) (FDOM y) ∧
-    sv_rel <| v := x; c := y |> sv sv_i1
-    ⇒
-    sv_rel <| v := x; c := FUNION z y|> sv sv_i1)`,
-   rw [sv_rel_cases, LIST_REL_EL_EQN] >>
-   rw []
-   >- (
-     imp_res_tac v_rel_weakening2 >>
-     fs []) >>
-   rfs [] >>
-   res_tac >>
-   imp_res_tac v_rel_weakening2 >>
-   fs []);
+val sv_rel_weak = Q.prove (
+  `!genv sv sv' genv'.
+   sv_rel genv sv sv' ∧
+   genv.c ⊑ genv'.c ∧
+   subglobals genv.v genv'.v
+   ⇒
+   sv_rel genv' sv sv'`,
+  srw_tac[][sv_rel_cases] >>
+  metis_tac [v_rel_weak, LIST_REL_EL_EQN]);
 
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!genv_c s s'.
@@ -463,6 +496,23 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
     ⇒
     s_rel genv_c s s')`;
 
+val s_rel_weak = Q.prove (
+  `!genv_c s s' genv_c'.
+   s_rel genv_c s s' ∧
+   genv_c ⊑ genv_c'
+   ⇒
+   s_rel genv_c' s s'`,
+  srw_tac[][s_rel_cases] >>
+  fs [LIST_REL_EL_EQN] >>
+  rw [] >>
+  rfs [] >>
+  res_tac >>
+  imp_res_tac sv_rel_weak >>
+  fs [] >>
+  pop_assum (qspec_then `<|v := s'.globals; c := genv_c'|>` mp_tac) >>
+  rw [] >>
+  metis_tac [subglobals_refl]);
+
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!genv map env_v_local env env' locals.
     (?l. env_v_local = alist_to_ns l ∧ MAP FST l = locals) ∧
@@ -473,6 +523,20 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
       <| c := env.c; v := nsAppend env_v_local env.v |>
       <| c := FDOM genv.c; v := env'; exh_pat := F; check_ctor := T |>
       locals)`;
+
+val env_all_rel_weak = Q.prove (
+  `!genv map locals env env' genv'.
+   env_all_rel genv map env env' locals ∧
+   genv.c = genv'.c ∧
+   subglobals genv.v genv'.v
+   ⇒
+   env_all_rel genv' map env env' locals`,
+  rw [env_all_rel_cases] >>
+  imp_res_tac env_rel_weak >>
+  imp_res_tac global_env_inv_weak >>
+  MAP_EVERY qexists_tac [`alist_to_ns l`, `env''`, `env'''`] >>
+  rw [] >>
+  metis_tac [SUBMAP_FDOM_SUBSET, SUBSET_TRANS]);
 
 val match_result_rel_def = Define
   `(match_result_rel genv env' (Match env) (Match env_i1) =
@@ -614,15 +678,15 @@ val v_rel_lems = Q.prove (
 val do_app = Q.prove (
   `!genv s1 s2 op vs r s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
-    LIST_REL (sv_rel genv) (FST s1) (FST s1_i1) ∧
-    SND s1 = SND s1_i1 ∧
+    LIST_REL (sv_rel genv) (FST s1) s1_i1.refs ∧
+    SND s1 = s1_i1.ffi ∧
     LIST_REL (v_rel genv) vs vs_i1 ∧
     genv_c_ok genv.c ∧
     op ≠ AallocEmpty
     ⇒
      ∃r_i1 s2_i1.
-       LIST_REL (sv_rel genv) (FST s2) (FST s2_i1) ∧
-       SND s2 = SND s2_i1 ∧
+       LIST_REL (sv_rel genv) (FST s2) s2_i1.refs ∧
+       SND s2 = s2_i1.ffi ∧
        result_rel v_rel genv r r_i1 ∧
        do_app s1_i1 (astOp_to_modOp op) vs_i1 = SOME (s2_i1, r_i1)`,
   rpt gen_tac >>
@@ -642,10 +706,10 @@ val do_app = Q.prove (
       \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >- ((* Shift *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
-      TRY (rename1 `shift8_lookup s w1 n`) >>
-      TRY (rename1 `shift64_lookup s w1 n`) >>
+      TRY (rename1 `shift8_lookup s11 w11 n11`) >>
+      TRY (rename1 `shift64_lookup s11 w11 n11`) >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w1` \\ Cases_on`s` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, modSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -1227,10 +1291,6 @@ val pmatch = Q.prove (
 
 (* compiler correctness *)
 
-val s = mk_var("s",
-  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
-  |> type_subst[alpha |-> ``:'ffi``]);
-
 val opt_bind_lem = Q.prove (
   `opt_bind NONE = \x y.y`,
   rw [FUN_EQ_THM, libTheory.opt_bind_def]);
@@ -1255,6 +1315,51 @@ val evaluate_foldr_let_err = Q.prove (
   rw [] >>
   every_case_tac >>
   fs [opt_bind_lem, env_updated_lem]);
+
+val s = mk_var("s",
+  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
+  |> type_subst[alpha |-> ``:'ffi``]);
+
+val s1 = mk_var("s",
+  ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
+  |> type_subst[alpha |-> ``:'ffi``]);
+
+val do_app_subglobals = Q.prove (
+  `!s op vs s' r.
+    modSem$do_app s op vs = SOME (s',r)
+    ⇒
+    subglobals s.globals s'.globals`,
+  cheat);
+
+val evaluate_subglobals = Q.prove (
+  `(∀env ^s1 es res.
+    modSem$evaluate env s es = res ⇒
+    !s' r.
+      res = (s',r) ⇒ subglobals s.globals s'.globals) ∧
+   (∀env ^s1 v pes err_v res.
+    modSem$evaluate_match env s v pes err_v = res ⇒
+    !s' r.
+      res = (s',r) ⇒ subglobals s.globals s'.globals)`,
+  ho_match_mp_tac evaluate_ind >>
+  rw [evaluate_def] >>
+  rw [subglobals_refl] >>
+  every_case_tac >>
+  fs [subglobals_def] >>
+  rfs []
+  >- metis_tac [LESS_LESS_EQ_TRANS]
+  >- metis_tac [LESS_LESS_EQ_TRANS]
+  >- metis_tac [LESS_LESS_EQ_TRANS]
+  >- (
+    fs [do_opapp_def, dec_clock_def] >>
+    every_case_tac >>
+    fs [] >>
+    rw [] >>
+    metis_tac [LESS_LESS_EQ_TRANS])
+  >- (
+    imp_res_tac do_app_subglobals >>
+    fs [subglobals_def] >>
+    metis_tac [LESS_LESS_EQ_TRANS]) >>
+  metis_tac [LESS_LESS_EQ_TRANS]);
 
 val compile_exp_correct' = Q.prove (
    `(∀^s env es res.
@@ -1291,7 +1396,6 @@ val compile_exp_correct' = Q.prove (
          result_rel (LIST_REL o v_rel) (genv with v := s'_i1.globals) r r_i1 ∧
          s_rel genv.c s' s'_i1 ∧
          modSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1))`,
-
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, modSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
@@ -1318,9 +1422,16 @@ val compile_exp_correct' = Q.prove (
     strip_tac >>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    disch_then (qspec_then `genv with v := s''.globals` mp_tac) >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-    `env_all_rel (genv with v := s''.globals) comp_map env env_i1 locals` by cheat >>
+    imp_res_tac evaluate_subglobals >>
+    fs [] >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    disch_then (qspec_then `genv with v := s2.globals` mp_tac) >>
+    `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+    by (
+      irule env_all_rel_weak >>
+      qexists_tac `genv` >>
+      rw []) >>
+    fs [] >>
     disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
@@ -1328,7 +1439,10 @@ val compile_exp_correct' = Q.prove (
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[] >>
     imp_res_tac evaluate_sing >> full_simp_tac(srw_ss())[] >>
-    cheat)
+    irule v_rel_weak >>
+    fs [] >>
+    qexists_tac `genv with v := s2.globals` >>
+    rw [])
   >- (
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1344,10 +1458,18 @@ val compile_exp_correct' = Q.prove (
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >> simp[] >>
     disch_then drule >> simp[] >>
+    disch_then drule >> simp[] >>
     disch_then (qspecl_then[`t`,`ts`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] )
+    imp_res_tac evaluate_subglobals >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+    by (
+      irule env_all_rel_weak >>
+      qexists_tac `genv` >>
+      rw []) >>
+    first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+    simp [])
   >- ( (* Constructors *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -1363,10 +1485,15 @@ val compile_exp_correct' = Q.prove (
     fs [evaluate_def, compile_exps_reverse]
     >- (
       fs [result_rel_cases, PULL_EXISTS] >>
-      rw [v_rel_eqns, EVERY2_REVERSE])
+      rw [v_rel_eqns, EVERY2_REVERSE] >>
+      res_tac >>
+      fs [EVERY2_REVERSE])
     >- (
       every_case_tac >>
-      fs [result_rel_cases])
+      fs [result_rel_cases] >>
+      res_tac >>
+      fs [] >>
+      rw [])
     >- (
       fs [result_rel_cases, PULL_EXISTS] >>
       rw [v_rel_eqns] >>
@@ -1380,12 +1507,8 @@ val compile_exp_correct' = Q.prove (
       res_tac >>
       fs [] >>
       rw [EVERY2_REVERSE]
-      >- fs [compile_exps_length]
-      >- (
-        imp_res_tac modPropsTheory.evaluate_length >>
-        fs [LENGTH_REVERSE] >>
-        metis_tac [LIST_REL_LENGTH])
-      >- metis_tac [evaluatePropsTheory.evaluate_length, LENGTH_REVERSE])
+      >- fs [compile_exps_length] >>
+      metis_tac [evaluatePropsTheory.evaluate_length, LENGTH_REVERSE])
     >- (
       fs [result_rel_cases, env_all_rel_cases] >>
       rw [] >>
@@ -1416,7 +1539,10 @@ val compile_exp_correct' = Q.prove (
         drule ALOOKUP_MEM >>
         rw [MEM_MAP] >>
         pairarg_tac>>fs[]>>
-        simp [evaluate_def, result_rel_cases])
+        simp [evaluate_def, result_rel_cases] >>
+        irule v_rel_weak >>
+        simp [] >>
+        metis_tac [SUBMAP_REFL, subglobals_refl])
       >- metis_tac [ALOOKUP_MEM,PAIR,FST,MEM_MAP])
     >- ( (* top-level variable *)
       rw [GSYM nsAppend_to_nsBindList,bind_locals_def] >>
@@ -1429,8 +1555,7 @@ val compile_exp_correct' = Q.prove (
       fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
           nsLookup_alist_to_ns_none]>>
       fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF,LAMBDA_PROD]
-      >-
-        (Cases_on`p1`>>fs[])
+      >- (Cases_on`p1`>>fs[])
       >- (
         drule ALOOKUP_MEM >>
         simp[MEM_MAP,MEM_ZIP,EXISTS_PROD]>>
@@ -1439,7 +1564,11 @@ val compile_exp_correct' = Q.prove (
       >- (
         rfs [ALOOKUP_TABULATE] >>
         rw [] >>
-        simp [evaluate_def, result_rel_cases])))
+        simp [evaluate_def, result_rel_cases] >>
+        simp [do_app_def] >>
+        irule v_rel_weak >>
+        simp [] >>
+        metis_tac [SUBMAP_REFL, subglobals_refl])))
   >- (* Closure creation *)
      (srw_tac[][Once v_rel_cases] >>
       full_simp_tac(srw_ss())[env_all_rel_cases] >>
@@ -1450,8 +1579,16 @@ val compile_exp_correct' = Q.prove (
       srw_tac[][] >>
       simp [bind_locals_def, namespaceTheory.nsBindList_def] >>
       fs [ADD1]
-      >- metis_tac [sem_env_eq_lemma] >>
-      metis_tac[LENGTH_MAP])
+      >- metis_tac [sem_env_eq_lemma]
+      >- (
+        irule env_rel_weak >>
+        simp [] >>
+        metis_tac [SUBMAP_REFL, subglobals_refl])
+      >- (
+        irule global_env_inv_weak >>
+        simp [] >>
+        metis_tac [SUBMAP_REFL, subglobals_refl])
+      >- metis_tac[LENGTH_MAP])
   (* App *)
   >- (
     srw_tac [boolSimps.DNF_ss] [PULL_EXISTS]
@@ -1474,6 +1611,7 @@ val compile_exp_correct' = Q.prove (
         rpt var_eq_tac >>
         first_x_assum drule >>
         disch_then drule >>
+        disch_then drule >>
         disch_then(qspecl_then[`t`,`ts`] mp_tac)>>
         simp [] >>
         rw [result_rel_cases, Once v_rel_cases] >>
@@ -1487,6 +1625,7 @@ val compile_exp_correct' = Q.prove (
         simp [REPLICATE, sv_rel_cases])
       >- (
         first_x_assum drule >>
+        disch_then drule >>
         disch_then drule >>
         disch_then(qspecl_then[`t`,`ts`] mp_tac)>>
         rw [] >>
@@ -1504,76 +1643,124 @@ val compile_exp_correct' = Q.prove (
     disch_then drule >>
     disch_then(qspecl_then[`t`] strip_assume_tac)>> rfs[]>>
     full_simp_tac(srw_ss())[compile_exps_reverse] >>
-    full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-    TRY (simp [evaluate_def] >> NO_TAC) >>
     qpat_x_assum`_ = (_,r)`mp_tac >>
-    ntac 2 (BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]) >- (
-      BasicProvers.TOP_CASE_TAC >>
-      drule do_opapp >>
-      full_simp_tac(srw_ss())[] >>
-      imp_res_tac EVERY2_REVERSE >>
-      disch_then drule >> strip_tac >>
-      IF_CASES_TAC >> strip_tac >> full_simp_tac(srw_ss())[] >> rveq >- (
-        full_simp_tac(srw_ss())[] >> asm_exists_tac >> srw_tac[][] >>
-        full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] ) >>
-      rev_full_simp_tac(srw_ss())[] >>
-      imp_res_tac evaluate_globals >>
-      pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-      qmatch_assum_abbrev_tac`_ = _ ss` >>
-      `ss.globals = (dec_clock ss).globals` by EVAL_TAC >>
-      full_simp_tac(srw_ss())[Abbr`ss`] >>
-      first_x_assum drule >>
-      disch_then(qspecl_then [`dec_clock s'_i1`,`t1`,`ts'`] mp_tac)>>
-      impl_tac >- (
-        full_simp_tac(srw_ss())[s_rel_cases,modSemTheory.dec_clock_def,evaluateTheory.dec_clock_def] ) >>
-      strip_tac >> full_simp_tac(srw_ss())[PULL_EXISTS] >>
-      asm_exists_tac >> full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-      full_simp_tac(srw_ss())[s_rel_cases, astOp_to_modOp_def, evaluate_def] >>
-      `env_i1.exh_pat = F ∧ env_i1.check_ctor = T` by fs [env_all_rel_cases] >>
+    reverse BasicProvers.TOP_CASE_TAC
+    >- (
       rw [] >>
-      `env_i1 with v := env_i1' = <| v := env_i1'; c := env_i1.c; exh_pat := F; check_ctor := T |>`
-      by rw [modSemTheory.environment_component_equality] >>
-      fs [env_all_rel_cases]) >>
-    BasicProvers.TOP_CASE_TAC >>
+      first_x_assum (qspec_then `ts` mp_tac) >>
+      rw [] >>
+      rw [evaluate_def] >>
+      fs [result_rel_cases]) >>
+    BasicProvers.TOP_CASE_TAC
+    >- (
+      fs [] >>
+      BasicProvers.TOP_CASE_TAC >>
+      fs [] >>
+      split_pair_case_tac >>
+      fs [] >>
+      drule do_opapp >>
+      fs [] >>
+      first_x_assum (qspec_then `ts` mp_tac) >>
+      rw []
+      >- (
+        fs [result_rel_cases] >>
+        qexists_tac `s'_i1` >>
+        simp [evaluate_def, astOp_to_modOp_def] >>
+        fs [s_rel_cases] >>
+        first_x_assum (qspecl_then [`genv with v := s'_i1.globals`, `REVERSE v'`] mp_tac) >>
+        rw [EVERY2_REVERSE] >>
+        rw [])
+      >- (
+        rw [evaluate_def, astOp_to_modOp_def] >>
+        fs [result_rel_cases] >>
+        first_x_assum (qspecl_then [`genv with v := s'_i1.globals`, `REVERSE v'`] mp_tac) >>
+        rw [EVERY2_REVERSE] >>
+        rw []
+        >- fs [s_rel_cases]
+        >- fs [s_rel_cases] >>
+        imp_res_tac evaluate_subglobals >>
+        fs [] >>
+        rename1 `LIST_REL (v_rel (_ with v := s2.globals))` >>
+        rfs [] >>
+        first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+        simp [] >>
+        disch_then drule >>
+        disch_then (qspec_then `dec_clock s2` mp_tac) >>
+        fs [dec_clock_def, evaluateTheory.dec_clock_def] >>
+        fs [s_rel_cases] >>
+        disch_then (qspecl_then [`t1`, `ts'`] mp_tac) >>
+        simp [] >>
+        fs [env_all_rel_cases])) >>
     BasicProvers.TOP_CASE_TAC >>
     strip_tac >> rveq >>
-    drule do_app >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[] >>
-    imp_res_tac EVERY2_REVERSE >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    simp [GSYM CONJ_ASSOC] >>
-    disch_then drule >>
-    simp [] >>
-    CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[pair_default_qp])[])) >>
-    fs [s_rel_cases] >>
-    rfs [] >>
-    `<|v := s'_i1.globals; c := genv.c|> = genv`
-    by rw [theorem "global_env_component_equality"] >>
     fs [] >>
-    disch_then drule >> strip_tac >>
-    simp[] >>
+    pop_assum mp_tac >>
+    BasicProvers.TOP_CASE_TAC >>
+    BasicProvers.TOP_CASE_TAC >>
+    fs [] >>
+    rw [] >>
+    drule do_app >> full_simp_tac(srw_ss())[] >>
+    first_x_assum (qspec_then `ts` mp_tac) >>
+    rw [evaluate_def] >>
+    imp_res_tac evaluate_subglobals >>
+    fs [] >>
+    rename1 `result_rel (LIST_REL o v_rel) (_ with v := s2.globals) _ _` >>
+    first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+    simp [] >>
+    disch_then (qspec_then `s2` mp_tac) >>
+    fs [s_rel_cases] >>
+    `<|v := s2.globals; c := genv.c|> = genv with v := s2.globals`
+    by rw [theorem "global_env_component_equality"] >>
+    fs [result_rel_cases] >>
+    disch_then (qspec_then `REVERSE v'` mp_tac) >>
+    simp [EVERY2_REVERSE] >>
     `astOp_to_modOp op ≠ Opapp`
     by (
       rw [astOp_to_modOp_def] >>
       Cases_on `op` >>
       simp [] >>
       fs []) >>
-    full_simp_tac(srw_ss())[PULL_EXISTS,result_rel_cases, evaluate_def])
+    rw [] >>
+    imp_res_tac do_app_const >>
+    imp_res_tac do_app_subglobals >>
+    rw []
+    >- (
+      irule v_rel_weak >>
+      qexists_tac `genv with v := s2.globals` >>
+      rw [])
+    >- (
+      fs [LIST_REL_EL_EQN] >>
+      rw [] >>
+      irule sv_rel_weak >>
+      qexists_tac `genv with v := s2.globals` >>
+      rw [])
+    >- (
+      irule v_rel_weak >>
+      qexists_tac `genv with v := s2.globals` >>
+      rw [])
+    >- (
+      fs [LIST_REL_EL_EQN] >>
+      rw [] >>
+      irule sv_rel_weak >>
+      qexists_tac `genv with v := s2.globals` >>
+      rw [])
+    >- (
+      fs [LIST_REL_EL_EQN] >>
+      rw [] >>
+      irule sv_rel_weak >>
+      qexists_tac `genv with v := s2.globals` >>
+      rw []))
   >- ( (* logical operation *)
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
     disch_then drule >>
+    disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
     reverse BasicProvers.TOP_CASE_TAC >- (
       srw_tac[][] >> asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
       full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
       BasicProvers.TOP_CASE_TAC >> srw_tac[][evaluate_def] ) >>
     BasicProvers.TOP_CASE_TAC >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
@@ -1600,14 +1787,24 @@ val compile_exp_correct' = Q.prove (
       rw [] >>
       fs [genv_c_ok_def, has_bools_def, Bool_def, evaluate_def, do_app_def,
           Boolv_def, opb_lookup_def, state_component_equality] >>
+      rw [] >>
+      fs [env_all_rel_cases] >>
+      rw [] >>
+      fs [FLOOKUP_DEF] >>
       metis_tac []) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-    first_x_assum drule >>
+    imp_res_tac evaluate_subglobals >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+    by (
+      irule env_all_rel_weak >>
+      qexists_tac `genv` >>
+      rw []) >>
+    first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+    fs [] >>
+    disch_then drule >>
     disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    asm_exists_tac >> simp[] >>
     asm_exists_tac >> simp[] >>
     full_simp_tac(srw_ss())[do_log_def] >>
     qpat_x_assum`_ = SOME _`mp_tac >>
@@ -1618,28 +1815,38 @@ val compile_exp_correct' = Q.prove (
     full_simp_tac(srw_ss())[Once v_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] >>
     srw_tac[][do_if_def] >>
     fs [genv_c_ok_def, has_bools_def, Boolv_def] >>
+    rw [] >>
+    fs [env_all_rel_cases] >>
+    rw [] >>
+    fs [FLOOKUP_DEF] >>
     metis_tac [])
   >- ( (* if *)
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
     disch_then drule >>
+    disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
     reverse BasicProvers.TOP_CASE_TAC >- (
       srw_tac[][] >> asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
       full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] ) >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluate_subglobals >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+    by (
+      irule env_all_rel_weak >>
+      qexists_tac `genv` >>
+      rw []) >>
     qpat_x_assum`_ ⇒ _`mp_tac >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
+    disch_then (qspec_then `genv with v := s2.globals` mp_tac) >>
+    fs [] >>
     disch_then drule >>
     disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
-    asm_exists_tac >> simp[] >>
     asm_exists_tac >> simp[] >>
     imp_res_tac evaluatePropsTheory.evaluate_length >> full_simp_tac(srw_ss())[] >>
     rename [`evaluate _ _ _ = (_, Rval v)`] >>
@@ -1662,16 +1869,23 @@ val compile_exp_correct' = Q.prove (
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
     disch_then drule >>
+    disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
     reverse BasicProvers.TOP_CASE_TAC >- (
       srw_tac[][] >> asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
       full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] ) >>
     srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-    first_x_assum drule >>
+    imp_res_tac evaluate_subglobals >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+    by (
+      irule env_all_rel_weak >>
+      qexists_tac `genv` >>
+      rw []) >>
+    first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
+    fs [] >>
+    disch_then drule >>
     disch_then drule >>
     simp[] >> strip_tac >>
     qhdtm_x_assum`result_rel`mp_tac >>
@@ -1689,29 +1903,37 @@ val compile_exp_correct' = Q.prove (
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     disch_then drule >>
     disch_then drule >>
+    disch_then drule >>
     disch_then (qspecl_then [`t`,`ts`] strip_assume_tac)>>rfs[]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
     reverse BasicProvers.TOP_CASE_TAC >- (
       Cases_on`xo`>> srw_tac[][compile_exp_def,evaluate_def] >>
       srw_tac[][] >> asm_exists_tac >> simp[] >>
-      asm_exists_tac >> simp[] >>
       full_simp_tac(srw_ss())[result_rel_cases] >> rveq >> full_simp_tac(srw_ss())[] ) >>
     srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_globals >>
-    pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
     qhdtm_x_assum`result_rel`mp_tac >>
     simp[Once result_rel_cases] >> strip_tac >>
-    Cases_on`xo`>> srw_tac[][compile_exp_def,evaluate_def] >- (
-      first_x_assum match_mp_tac >>
-      simp[libTheory.opt_bind_def] >>
+    imp_res_tac evaluate_subglobals >>
+    fs [] >>
+    rename1 `evaluate _ _ [compile_exp _ _ _] = (s2, _)` >>
+    Cases_on`xo` >>
+    fs [namespaceTheory.nsOptBind_def, libTheory.opt_bind_def] >>
+    rw [compile_exp_def,evaluate_def]
+    >- (
+      `env_all_rel (genv with v := s2.globals) comp_map env env_i1 locals`
+      by (
+        irule env_all_rel_weak >>
+        qexists_tac `genv` >>
+        rw []) >>
+      first_x_assum (qspec_then `genv with v := s2.globals` mp_tac) >>
       qpat_abbrev_tac`env2 = env_i1 with v updated_by _` >>
       `env2 = env_i1` by (
         simp[environment_component_equality,Abbr`env2`,libTheory.opt_bind_def] ) >>
-      simp[namespaceTheory.nsOptBind_def] ) >>
+      simp []) >>
     qpat_abbrev_tac`env2 = env_i1 with v updated_by _` >>
-    first_x_assum(qspecl_then[`comp_map`,`env2`]mp_tac) >>
+    first_x_assum(qspecl_then[`genv with v := s2.globals`, `comp_map`,`env2`]mp_tac) >>
     simp[Abbr`env2`] >>
-    disch_then(qspecl_then[`s'_i1`,`x::locals`,`t`,`(t § 2)::ts`] mp_tac)>>
+    disch_then(qspecl_then[`s2`,`x::locals`,`t`,`(t § 2)::ts`] mp_tac)>>
     impl_tac >- (
       full_simp_tac(srw_ss())[env_all_rel_cases] >>
       full_simp_tac(srw_ss())[namespaceTheory.nsOptBind_def,libTheory.opt_bind_def] >>
@@ -1731,7 +1953,10 @@ val compile_exp_correct' = Q.prove (
         cheat) >>
       simp [v_rel_eqns] >>
       imp_res_tac evaluate_sing >>
-      full_simp_tac(srw_ss())[] ) >>
+      full_simp_tac(srw_ss())[] >>
+      irule env_rel_weak >>
+      simp [] >>
+      metis_tac [SUBMAP_REFL]) >>
     strip_tac >>
     asm_exists_tac >> simp[] >>
     fs [GSYM nsAppend_to_nsBindList,bind_locals_def])
@@ -1771,7 +1996,12 @@ val compile_exp_correct' = Q.prove (
     >- metis_tac[]
     >- metis_tac [LENGTH_MAP])
   >- (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
-  >- fs [env_all_rel_cases]
+  >- (
+    fs [env_all_rel_cases] >>
+    rw [] >>
+    irule v_rel_weak >>
+    fs [] >>
+    metis_tac [SUBMAP_REFL, subglobals_refl])
   >- ( (* pattern/expression *)
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
@@ -1862,7 +2092,7 @@ val compile_exp_correct = Q.prove (
     s_rel genv_c s s_i1
     ⇒
     ?s'_i1 r_i1.
-      result_rel (LIST_REL o v_rel) <| v := s_i1.globals; c := genv_c |> r r_i1 ∧
+      result_rel (LIST_REL o v_rel) <| v := s'_i1.globals; c := genv_c |> r r_i1 ∧
       s_rel genv_c s' s'_i1 ∧
       modSem$evaluate <|c := FDOM genv_c; v := []; exh_pat := F; check_ctor := T |> s_i1 (compile_exps t comp_map es) = (s'_i1, r_i1)`,
   rw [] >>
@@ -1877,8 +2107,7 @@ val compile_exp_correct = Q.prove (
   simp [bind_locals_def,namespaceTheory.nsBindList_def] >>
   `comp_map with v := comp_map.v = comp_map`
   by rw [source_to_modTheory.environment_component_equality] >>
-  rw [] >>
-  metis_tac []);
+  rw []);
 
 val ALOOKUP_alloc_defs_EL = Q.prove (
   `!funs l n m.
@@ -1887,7 +2116,7 @@ val ALOOKUP_alloc_defs_EL = Q.prove (
     ⇒
     ∃tt.
     ALOOKUP (alloc_defs m l (MAP FST (REVERSE funs))) (EL n (MAP FST funs)) =
-      SOME (Var_global tt (l + LENGTH funs − (n + 1)))`,
+      SOME (App tt (GlobalVarLookup (l + LENGTH funs − (n + 1))) [])`,
   gen_tac >>
   Induct_on `LENGTH funs` >>
   rw [] >>
@@ -2051,7 +2280,7 @@ val ALOOKUP_alloc_defs = Q.prove (
     ALOOKUP (REVERSE env) x = SOME v
     ⇒
     ∃n t.
-      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (Var_global t (l + n) )∧
+      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (App t (GlobalVarLookup (l + n)) [] )∧
       n < LENGTH (MAP FST env) ∧
       EL n (REVERSE (MAP SOME (MAP SND env))) = SOME v`,
   Induct_on `env` >>
@@ -2082,6 +2311,7 @@ val ALOOKUP_alloc_defs = Q.prove (
     disch_then (qspecl_then [`l`,`tt`] mp_tac) >>
     rw [EL_APPEND_EQN]));
 
+    (*
 val make_varls_trace_exists = Q.prove(`
   ∀ls n t.
   ∃tt.
@@ -2090,6 +2320,7 @@ val make_varls_trace_exists = Q.prove(`
   Induct>>fs[bind_locals_list_def,make_varls_def]>>rw[]>>
   pop_assum(qspecl_then[`n+1`,`t`] strip_assume_tac)>>fs[]>>
   qexists_tac`(t ▷ n) :: tt`>>fs[]);
+  *)
 
 val reverse_bind_locals_list = Q.prove(`
   ∀ls tt.
