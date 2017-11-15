@@ -17,6 +17,7 @@ Vector
 String
 basics
 Int
+Num
 Rat
 Char
 Word64
