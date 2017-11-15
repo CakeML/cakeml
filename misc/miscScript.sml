@@ -2172,16 +2172,6 @@ val GSPEC_o = Q.store_thm(
   `GSPEC f o g = { x | ∃y. (g x, T) = f y }`,
   simp[FUN_EQ_THM, GSPECIFICATION]);
 
-val LIST_RELi_APPEND_I = Q.store_thm(
-  "LIST_RELi_APPEND_I",
-  `LIST_RELi R l1 l2 ∧ LIST_RELi (R o ((+) (LENGTH l1))) m1 m2 ⇒
-   LIST_RELi R (l1 ++ m1) (l2 ++ m2)`,
-  simp[LIST_RELi_EL_EQN] >> rpt strip_tac >>
-  rename1 `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
-  >- simp[EL_APPEND1]
-  >- (simp[EL_APPEND2] >> first_x_assum (qspec_then `i - LENGTH l2` mp_tac) >>
-      simp[]))
-
 val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
   `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`,
   simp[NULL_LENGTH]);
