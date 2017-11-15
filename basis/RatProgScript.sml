@@ -1,10 +1,10 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     mlvectorTheory IntProgTheory basisFunctionsLib
+     mlvectorTheory NumProgTheory basisFunctionsLib
      realTheory realLib RealArith gcdTheory
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "IntProg";
+val _ = translation_extends "NumProg";
 
 val _ = ml_prog_update (open_module "Rat");
 
