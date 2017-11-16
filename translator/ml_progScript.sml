@@ -807,7 +807,8 @@ val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env[compute]",
       first_assum(qspecl_then[`p1`,`p2`] assume_tac)>>rfs[]>>
       Cases_on`nsLookupMod e1.v p1`>>fs[]>>
       rw[]>>
-      first_x_assum(qspecl_then [`p1'`,`p2'++p2`,`e3'`] assume_tac)>>
+      rename[`nsLookupMod _ xx`,`p1 ++ p2`,`xx ++ p3`] >>
+      first_x_assum(qspecl_then[`xx`,`p3++p2`]mp_tac) >>
       fs[])
   THEN1
     (EVAL_TAC>>fs[nsLookupMod_nsAppend]>>eq_tac>>rw[]>>rfs[]
@@ -825,7 +826,8 @@ val nsLookup_merge_env = Q.store_thm("nsLookup_merge_env[compute]",
       first_assum(qspecl_then[`p1`,`p2`] assume_tac)>>rfs[]>>
       Cases_on`nsLookupMod e1.c p1`>>fs[]>>
       rw[]>>
-      first_x_assum(qspecl_then [`p1'`,`p2'++p2`,`e3'`] assume_tac)>>
+      rename[`nsLookupMod _ xx`,`p1 ++ p2`,`xx ++ p3`] >>
+      first_x_assum(qspecl_then[`xx`,`p3++p2`]mp_tac) >>
       fs[])
   );
 

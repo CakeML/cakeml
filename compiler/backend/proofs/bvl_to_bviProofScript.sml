@@ -1,4 +1,4 @@
-open preamble mp_then
+open preamble
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
      bviSemTheory bviPropsTheory;
@@ -1054,14 +1054,14 @@ val do_app_adjust = Q.prove(
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>    
+    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
     srw_tac[][] >>
     qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr k)` >>
     qpat_x_assum `bv_ok s5.refs (RefPtr k)` mp_tac >>
     qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr k')` >>
     DISCH_TAC >>
-    Cases_on`FLOOKUP s5.refs k'`>>full_simp_tac(srw_ss())[]>>    
+    Cases_on`FLOOKUP s5.refs k'`>>full_simp_tac(srw_ss())[]>>
     Cases_on`FLOOKUP s5.refs k`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     Cases_on`x'`>>full_simp_tac(srw_ss())[]>>

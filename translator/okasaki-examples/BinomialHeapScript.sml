@@ -1,12 +1,12 @@
 open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib mllistProgTheory;
+open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
 
 val _ = new_theory "BinomialHeap"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 24 *)
 

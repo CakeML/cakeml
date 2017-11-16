@@ -1,5 +1,5 @@
-This directory contains scripts for automating routine tasks, e.g. for
-running regression tests.
+This directory contains scripts for automating routine tasks, e.g., for
+generating README.md files.
 
 [build-email.sh](build-email.sh):
 This script produces a report on whether a regression test
@@ -7,18 +7,6 @@ succeeded, timed out or failed.
 
 [build-sequence](build-sequence):
 The regression test runs through this list of directories.
-
-[build-travis.sh](build-travis.sh):
-A Travis selftest script. This file is probably obsolete, since
-Travis is no longer supported.
-
-[cached-deps.sh](cached-deps.sh):
-A script for downloading cached state for Travis. This file is
-probably obsolete, since Travis is no longer supported.
-
-[install-deps.sh](install-deps.sh):
-Builds various things for Travis. This file is probably obsolete,
-since Travis is no longer supported.
 
 [misc.sh](misc.sh):
 Functions for displaying time and memory usage.

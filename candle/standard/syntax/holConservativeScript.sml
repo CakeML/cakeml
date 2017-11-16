@@ -552,27 +552,11 @@ val update_conservative = Q.prove (
      >- (imp_res_tac theory_ok_sig >>
          match_mp_tac (SIMP_RULE (srw_ss()) [PULL_EXISTS, upd_to_subst_def] term_ok_remove_upd) >>
          metis_tac []))
- >- (rw [Once proves_cases] >>
-     ntac 9 disj2_tac >>
-     disj1_tac >>
-     fs [upd_to_subst_def, remove_const_eq] >>
-     MAP_EVERY qexists_tac [`term_image (remove_const (tysof ctxt) consts) h1`,
-                            `term_image (remove_const (tysof ctxt) consts) h2`,
-                            `remove_const (tysof ctxt) consts l`,
-                            `remove_const (tysof ctxt) consts m1`,
-                            `remove_const (tysof ctxt) consts m2`,
-                            `remove_const (tysof ctxt) consts r`] >>
-     rw [remove_const_def] >>
-     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
-     LAST_X_ASSUM (qspecl_then [`ctxt`, `ConstSpec consts p`] mp_tac) >>
-     rw [] >>
-     rfs [remove_const_eq, upd_to_subst_def] >>
-     metis_tac [remove_const_aconv, term_image_term_union])
  >- (fs [updates_cases, upd_to_subst_def, conexts_of_upd_def, LET_THM]
      >- (fs [term_image_def] >>
          metis_tac [use_const_spec])
      >- (rw [Once proves_cases] >>
-         ntac 9 disj2_tac >>
+         ntac 8 disj2_tac >>
          imp_res_tac proves_theory_ok >>
          fs [] >>
          fs [theory_ok_def] >>

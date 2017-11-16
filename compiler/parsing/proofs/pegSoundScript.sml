@@ -1,8 +1,6 @@
 open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
      grammarTheory
 
-open mp_then
-
 val _ = new_theory "pegSound";
 val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
 

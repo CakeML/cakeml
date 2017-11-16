@@ -191,9 +191,11 @@ val riscv_simp6 = riscv_enc6
 
 val riscv_enc_thm = reconstruct_case ``riscv_enc i`` rand [riscv_simp1,riscv_simp2,riscv_simp3,riscv_simp4,riscv_simp5,riscv_simp6]
 
+(* the manual translation of w2w should no longer be necessary
 val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl riscv_enc_thm)))
 
 val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
+*)
 
 val res = translate riscv_enc_thm
 

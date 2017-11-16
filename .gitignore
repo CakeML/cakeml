@@ -12,8 +12,9 @@
 # Generated assembly
 *.S
 
-# README.md generator's executable
+# Developer generated executables
 developers/readme_gen
+tutorial/solutions/make_ex
 
 # regression test logs
 regression.log
@@ -23,7 +24,10 @@ timing.log
 *heap
 
 # Translator stuff
-*txt
+*_ml.txt
+*_hol.txt
+*_thm.txt
+*_ast.txt
 
 # Emacs backup files
 *~

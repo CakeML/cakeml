@@ -71,6 +71,8 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Configure the GC *)
+  | ConfigGC
   (* Call a given foreign function *)
   | FFI string`;
 
