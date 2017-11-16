@@ -1502,7 +1502,21 @@ val list_to_BlockReps_Pointer = Q.store_thm("list_to_BlockReps_Pointer",
   \\ fs [heap_lookup_def, heap_length_def, el_length_def]
   \\ fs [list_to_BlockReps_heap_lookup_0]);
 
+val list_to_BlockReps_Ref = Q.store_thm("list_to_BlockReps_Ref",
+  `!xs len x conf.
+     EVERY (\v. ~isRef v) (list_to_BlockReps conf x len xs)`,
+  Induct \\ rw [ list_to_BlockReps_def, BlockRep_def]
+  \\ fs [isRef_def]);
+
+val list_to_BlockReps_NULL = Q.store_thm("list_to_BlockReps_NULL",
+  `list_to_BlockReps conf x len xs <> []`,
+  Cases_on `xs` \\ fs [list_to_BlockReps_def]);
+
 (* HERE *)
+
+fun unlength_tac thms =
+  fs ([heap_length_def, el_length_def, SUM_APPEND] @ thms)
+  \\ fs [GSYM heap_length_def]
 
 val cons_nested_thm = Q.store_thm("cons_nested_thm",
   `abs_ml_inv conf (t::xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
@@ -1578,13 +1592,55 @@ val cons_nested_thm = Q.store_thm("cons_nested_thm",
     \\ cheat (* TODO *)
    )
   \\ conj_asm1_tac
-
-  >- (* gc_kind_inv *) cheat (* TODO *)
-
-   (
-    fs [gc_kind_inv_def]
-
-   )
+  >- (* gc_kind_inv *)
+   (fs [gc_kind_inv_def]
+    \\ Cases_on `conf.gc_kind` \\ fs []
+    \\ Cases_on `gens` \\ fs []
+    \\ fs [gen_state_ok_def]
+    \\ `h1 = ha ++ [Unused (sp + sp1 - 1)] /\ h2 = hb` by
+      unlength_tac [heap_split_APPEND_if, heap_length_APPEND]
+    \\ fs [] \\ rveq
+    \\ fs [PULL_EXISTS]
+    \\ IF_CASES_TAC \\ fs []
+    >- (* Filled the heap *)
+     (`EVERY (\x. ~isRef x) (ha ++ Allocd)` by
+        metis_tac [EVERY_APPEND, list_to_BlockReps_Ref]
+      \\ qexists_tac `ha ++ Allocd`
+      \\ qexists_tac `h2` \\ fs []
+      \\ unlength_tac [heap_split_APPEND_if, heap_length_APPEND]
+      \\ fs [EVERY_MEM]
+      \\ fs [gen_start_ok_def]
+      \\ unlength_tac [heap_split_APPEND_if, heap_length_APPEND]
+      \\ rw [] \\ res_tac \\ fs [] \\ rfs []
+      \\ fs [case_eq_thms] \\ rw []
+      \\ TRY (res_tac \\ fs [] \\ NO_TAC)
+      \\ fs [heap_split_def, el_length_def, case_eq_thms] \\ rw [] \\ fs [MEM]
+      \\ TRY
+       (`e = heap_length ha` by fs [] \\ fs []
+        \\ rw [] \\ res_tac \\ fs [])
+      \\ Cases_on `sp1` \\ fs []
+      \\ `sp = heap_length Allocd` by fs [] \\ fs [])
+    \\ qabbrev_tac
+      `heap1 = ha ++ Allocd ++ [Unused (sp + sp1 - (heap_length Allocd + 1))]`
+    \\ `EVERY (\x. ~isRef x) heap1` by
+      (fs [EVERY_APPEND, Abbr`heap1`]
+       \\ metis_tac [list_to_BlockReps_Ref, isRef_def])
+    \\ qexists_tac `heap1`
+    \\ qexists_tac `h2`
+    \\ qunabbrev_tac `heap1`
+    \\ unlength_tac [heap_split_APPEND_if, heap_length_APPEND]
+    \\ fs [EVERY_MEM]
+    \\ fs [gen_start_ok_def]
+    \\ unlength_tac [heap_split_APPEND_if, heap_length_APPEND]
+    \\ rw [] \\ res_tac \\ fs [] \\ rfs []
+    \\ fs [case_eq_thms] \\ rw []
+    \\ TRY (res_tac \\ fs [] \\ NO_TAC)
+    \\ fs [heap_split_def, el_length_def, case_eq_thms] \\ rw [] \\ fs [MEM]
+    \\ TRY
+     (`e = heap_length ha` by fs [] \\ fs []
+      \\ rw [] \\ res_tac \\ fs []
+      \\ NO_TAC)
+    \\ fs [Abbr`Allocd`, list_to_BlockReps_heap_length, list_to_BlockReps_NULL])
 
   \\ conj_asm1_tac
   >- (* heap_lookup list_to_BlockReps *)
