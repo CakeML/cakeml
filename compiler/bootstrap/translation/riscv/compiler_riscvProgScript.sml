@@ -21,7 +21,7 @@ val res = translate compiler_riscv_def
 val main = process_topdecs`
   fun main u =
     let
-      val cl = Commandline.arguments ()
+      val cl = CommandLine.arguments ()
     in
       case compiler_riscv cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
         (c, e) => (print_app_list c; TextIO.prerr_string e)

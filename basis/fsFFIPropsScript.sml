@@ -105,6 +105,11 @@ val ALOOKUP_validFD = Q.store_thm("ALOOKUP_validFD",
 
 (* getNullTermStr lemmas *)
 
+val getNullTermStr_add_null = Q.store_thm(
+  "getNullTermStr_add_null",
+  `∀cs. ¬MEM 0w cs ⇒ getNullTermStr (cs++(0w::ls)) = SOME (MAP (CHR o w2n) cs)`,
+  simp[getNullTermStr_def,  findi_APPEND, NOT_MEM_findi, findi_def, TAKE_APPEND])
+
 val getNullTermStr_insert_atI = Q.store_thm(
   "getNullTermStr_insert_atI",
   `∀cs l. LENGTH cs < LENGTH l ∧ ¬MEM 0w cs ⇒

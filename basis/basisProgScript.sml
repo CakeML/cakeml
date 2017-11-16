@@ -1,5 +1,5 @@
 open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     CommandlineProofTheory TextIOProofTheory
+     CommandLineProofTheory TextIOProofTheory
 
 val _ = new_theory "basisProg"
 

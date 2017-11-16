@@ -147,7 +147,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
 
 val _ = (append_prog o process_topdecs) `
   fun diff u =
-    case Commandline.arguments () of
+    case CommandLine.arguments () of
         (f1::f2::[]) => diff' f1 f2
       | _ => TextIO.prerr_string usage_string`;
 

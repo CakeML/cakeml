@@ -23,6 +23,6 @@ Word64
 Word8
 Word8Array
 Array
-Commandline
+CommandLine
 TextIO
 basis
