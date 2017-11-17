@@ -337,8 +337,6 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def])) >>
-
-    (*MARKER *)
     fs[patSemTheory.do_app_cases] >> rw[] >>
     rfs[] >>
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
@@ -398,8 +396,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ simp[o_DEF,ORD_CHR,w2n_lt_256,integer_wordTheory.i2w_def]
       \\ `F` by COOPER_TAC) \\
     TRY (
-      rename1`do_shift sh n wz w`
-      \\ Cases_on`wz` \\ Cases_on`w` \\ fs[]
+      rename1`do_shift sh n wz wd`
+      \\ Cases_on`wz` \\ Cases_on`wd` \\ fs[]
       \\ rw[] \\ NO_TAC) >>
     TRY (
       rename1`do_word_from_int wz i`
@@ -486,20 +484,20 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     \\ simp[ETA_THM]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
-    every_case_tac >> fs[] >>
-    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] ) >>
+    fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ fs[] \\ rveq \\
+    imp_res_tac evaluate_length >> fs[LENGTH_eq] >>
+    imp_res_tac patPropsTheory.evaluate_const >> rw[] >> fs[] ) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def] >> rw[] >>
-    every_case_tac >> fs[] >>
-    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] ) >>
+    fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ fs[] \\ rveq \\
+    imp_res_tac evaluate_length >> fs[LENGTH_eq] >>
+    imp_res_tac patPropsTheory.evaluate_const >> rw[] >> fs[] ) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def] >> rw[] >>
-    every_case_tac >> fs[] >>
-    qmatch_assum_abbrev_tac`SND x = _` >>
-    Cases_on`x`>>fs[markerTheory.Abbrev_def] >> rw[] >>
-    pop_assum(assume_tac o SYM) >>
-    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] >>
-    fsrw_tac[ARITH_ss][]) >>
+    fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ fs[] \\ rveq \\
+    imp_res_tac patPropsTheory.evaluate_const \\ fs[] \\
+    Cases_on`r` \\ fs[] \\
+    imp_res_tac evaluate_length >> fs[LENGTH_eq]) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def] >>
     rw[] >> fs[EXISTS_MAP] >>
