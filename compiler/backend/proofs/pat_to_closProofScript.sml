@@ -209,8 +209,9 @@ val LENGTH_eq = Q.prove(
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `0 < max_app ⇒
    (∀env ^s es s' r.
+      evaluate env s es = (s',r) ∧
       s.compile = pure_cc (λe. (pat_to_clos$compile e,[])) cc ∧
-      evaluate env s es = (s',r) ∧ r ≠ Rerr (Rabort Rtype_error) ⇒
+      r ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state max_app cc s) =
         (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`,
   strip_tac >>
@@ -219,7 +220,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rpt gen_tac >> strip_tac >>
-    qpat_x_assum`X = res`mp_tac >>
+    qpat_x_assum`_ = (_,_)`mp_tac >>
     simp[Once evaluate_cons] >>
     split_pair_case_tac >> fs[] >>
     simp[Once evaluate_CONS] >> strip_tac >>
@@ -512,10 +513,10 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     simp[MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ));
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `0 < max_app ⇒
-   semantics env st es ≠ Fail ⇒
-   semantics (MAP compile_v env) (compile_state max_app st) (MAP compile es) =
-   semantics env st es`,
+  `0 < max_app ∧ st.compile = pure_cc (λe. (compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
+   semantics [] (st:('c,'ffi)patSem$state) es ≠ Fail ⇒
+   semantics st.ffi max_app FEMPTY (pure_co (λe. (compile e,[])) o st.compile_oracle) cc (MAP compile es) =
+   semantics [] st es`,
   strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
@@ -530,13 +531,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
       spose_not_then strip_assume_tac >>
       drule (UNDISCH compile_evaluate) >>
       impl_tac >- ( rw[] >> strip_tac >> fs[] ) >>
-      strip_tac >> fs[] ) >>
+      strip_tac >> fs[compile_state_def,initial_state_def]
+      >> rfs[] \\ fs[]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       rw[] >>
       qmatch_assum_abbrev_tac`patSem$evaluate env ss es = _` >>
       qmatch_assum_abbrev_tac`closSem$evaluate bp = _` >>
-      qspecl_then[`env`,`ss`,`es`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      Q.ISPECL_THEN[`env`,`ss`,`es`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
       Q.ISPEC_THEN`bp`(mp_tac o Q.GEN`extra`) (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono) >>
       simp[Abbr`ss`,Abbr`bp`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
@@ -555,8 +557,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
           ntac 3 strip_tac >> rveq >> fs[] >>
-          fs[state_component_equality] >>
-          simp[compile_state_def]) >>
+          rfs[initial_state_def,compile_state_def] \\
+          fs[state_component_equality] ) >>
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
         unabbrev_all_tac >>
         drule (UNDISCH compile_evaluate) >>
@@ -569,7 +571,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
         simp[] >>
         disch_then(qspec_then`k'`mp_tac)>>simp[] >>
         strip_tac >> spose_not_then strip_assume_tac >>
-        rveq >> fsrw_tac[ARITH_ss][compile_state_def] >> rfs[]) >>
+        rfs[initial_state_def,compile_state_def] \\
+        rveq \\ fs[] \\ rfs[]) >>
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
       unabbrev_all_tac >>
       drule (UNDISCH compile_evaluate) >>
@@ -579,6 +582,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
       strip_tac >> rveq >>
       fsrw_tac[ARITH_ss][] >>
+      rfs[initial_state_def,compile_state_def] >>
       reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>>
       qhdtm_x_assum`closSem$evaluate`mp_tac >>
       drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
@@ -586,14 +590,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
       disch_then(qspec_then`k`mp_tac)>>simp[] >>
       rpt strip_tac >> spose_not_then strip_assume_tac >>
       rveq >> fsrw_tac[ARITH_ss][] >>
-      fs[compile_state_def,state_component_equality] >> rfs[]) >>
+      fs[state_component_equality]) >>
     drule (UNDISCH compile_evaluate) >> simp[] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>
       fs[] >> rpt strip_tac >> fs[] ) >>
     strip_tac >>
+    rfs[initial_state_def,compile_state_def] >>
     asm_exists_tac >> simp[] >>
-    simp[compile_state_def] >>
     asm_exists_tac >> simp[]) >>
   strip_tac >>
   simp[closSemTheory.semantics_def] >>
@@ -604,7 +608,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     pop_assum(assume_tac o SYM) >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](UNDISCH compile_evaluate))) >>
     rw[compile_state_with_clock] >>
-    strip_tac >> fs[]) >>
+    strip_tac >> fs[initial_state_def,compile_state_def]
+    \\ rfs[] \\ fs[]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     spose_not_then strip_assume_tac >>
@@ -616,14 +621,18 @@ val compile_semantics = Q.store_thm("compile_semantics",
     rveq >> fs[] >>
     last_x_assum(qspec_then`k`mp_tac) >>
     simp[] >>
-    fs[compile_state_def] >>
+    rfs[initial_state_def,compile_state_def] >> fs[] >>
     asm_exists_tac >> fs[]) >>
   strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  qpat_abbrev_tac`s0 = closSem$initial_state _ _ _ _ _` \\
   specl_args_of_then``patSem$evaluate``(UNDISCH compile_evaluate) mp_tac >>
-  simp[compile_state_def])
+  qpat_abbrev_tac`s1 = compile_state _ _ _` \\
+  `s1 = s0 k` by (
+    simp[Abbr`s1`,Abbr`s0`,initial_state_def,compile_state_def] ) \\
+  srw_tac[QI_ss][])
 
 (* more correctness properties *)
 
