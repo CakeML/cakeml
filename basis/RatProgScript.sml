@@ -1,6 +1,6 @@
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory IntProgTheory basisFunctionsLib
-     realTheory realLib RealArith gcdTheory
+     ratLib gcdTheory ratTheory
 
 val _ = new_theory"RatProg"
 
@@ -8,13 +8,13 @@ val _ = translation_extends "IntProg";
 
 val _ = ml_prog_update (open_module "Rat");
 
-val REAL_TYPE_def = Define `
-  REAL_TYPE (r:real) =
-    \v. ?(n:int) (d:num). (r = (real_of_int n) / (real_of_num d)) /\
-                          gcd (num_of_int n) d = 1 /\ d <> 0 /\
+val RAT_TYPE_def = Define `
+  RAT_TYPE (r:rat) =
+    \v. ?(n:int) (d:num). (r = (rat_of_int n) / &d) /\
+                          gcd (Num (ABS n)) d = 1 /\ d <> 0 /\
                           PAIR_TYPE INT NUM (n,d) v`;
 
-val _ = add_type_inv ``REAL_TYPE`` ``:(int # num)``;
+val _ = add_type_inv ``RAT_TYPE`` ``:(int # num)``;
 
 val pair_of_num_def = Define `
   pair_of_num n = ((& (n:num)):int, 1:num)`;
@@ -24,13 +24,14 @@ val pair_of_num_v_thm = translate pair_of_num_def;
 
 val Eval_REAL_NUM = Q.prove(
   `!v. (NUM --> PAIR_TYPE INT NUM) pair_of_num v ==>
-       (NUM --> REAL_TYPE) ($&) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
-    FORALL_PROD] \\ rw [] \\ res_tac
-  \\ pop_assum (strip_assume_tac o SPEC_ALL)
-  \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ qexists_tac `& x` \\ qexists_tac `1`
-  \\ fs [pair_of_num_def] \\ fs [real_of_int_def])
+       (NUM --> RAT_TYPE) ($&) v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       FORALL_PROD] \\ rw [] \\ res_tac >>
+  rename [‘empty_state with refs := R’] >>
+  pop_assum (qspec_then ‘R’ strip_assume_tac) >>
+  fs [] >> asm_exists_tac >> fs [] >>
+  qexists_tac `& x` >> qexists_tac `1` >>
+  fs [pair_of_num_def])
   |> (fn th => MATCH_MP th pair_of_num_v_thm)
   |> add_user_proved_v_thm;
 
@@ -40,33 +41,33 @@ val pair_le_def = Define `
 val _ = next_ml_names := ["<="];
 val pair_le_v_thm = translate pair_le_def;
 
+val _ = augment_srw_ss [intLib.INT_ARITH_ss]
+
 val Eval_REAL_LE = Q.prove(
   `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> BOOL) pair_le v ==>
-       (REAL_TYPE --> REAL_TYPE --> BOOL) ($<=) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
-    pair_le_def,FORALL_PROD] \\ rw [] \\ res_tac
-  \\ pop_assum (strip_assume_tac o SPEC_ALL)
-  \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ rw [] \\ first_x_assum drule
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
-  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
-  \\ pop_assum mp_tac
-  \\ ntac 2 (qpat_x_assum `~_` mp_tac)
-  \\ rpt (pop_assum kall_tac)
-  \\ fs [BOOL_def] \\ rw [] \\ rveq
-  \\ EQ_TAC \\ rw []
-  \\ fs [realTheory.le_rat]
-  \\ Cases_on `n` \\ fs [real_of_int_def]
-  \\ Cases_on `n'` \\ fs [real_of_int_def]
-  \\ rfs [realTheory.REAL_MUL_LNEG,integerTheory.INT_MUL_CALCULATE]
-  \\ qpat_x_assum `(_ <= _:int)` mp_tac
-  \\ fs [integerTheory.INT_NOT_LE])
+       (RAT_TYPE --> RAT_TYPE --> BOOL) ($<=) v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       pair_le_def,FORALL_PROD] >> rw [] >>
+  rename [‘empty_state with refs := R’] >>
+  first_x_assum (first_assum o
+                 mp_then.mp_then (mp_then.Pos hd)
+                                 (qspec_then ‘R’ strip_assume_tac)) >>
+  fs [] >> asm_exists_tac >> fs []
+  >> rw [] >> first_x_assum drule
+  >> qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
+  >> disch_then (qspec_then `refs2` mp_tac)
+  >> strip_tac >> rpt (asm_exists_tac >> fs []) >>
+  rename [‘BOOL (n1 * &d1 ≤ n2 * &d2) bv’] >>
+  `0q < &d1 ∧ 0q < &d2` by simp[] >>
+  simp[RAT_LDIV_LEQ_POS, RDIV_MUL_OUT, RAT_RDIV_LEQ_POS] >>
+  simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_11,
+                    rat_of_int_LE] >>
+  fs[integerTheory.INT_MUL_COMM])
   |> (fn th => MATCH_MP th pair_le_v_thm)
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := [">="];
-val v = translate real_ge;
+val v = translate rat_geq_def;
 
 val pair_lt_def = Define `
   pair_lt (n1,d1) (n2,d2) = (n1 * & d2 < n2 * (& d1):int)`;
@@ -74,11 +75,11 @@ val pair_lt_def = Define `
 val _ = next_ml_names := ["<"];
 val pair_lt_v_thm = translate pair_lt_def;
 
-val Eval_REAL_LT = Q.prove(
+val Eval_RAT_LT = Q.prove(
   `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> BOOL) pair_lt v ==>
-       (REAL_TYPE --> REAL_TYPE --> BOOL) ($<) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,REAL_TYPE_def,PULL_EXISTS,
-    pair_lt_def,FORALL_PROD] \\ rw [] \\ res_tac
+       (RAT_TYPE --> RAT_TYPE --> BOOL) ($<) v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       pair_lt_def,FORALL_PROD] \\ rw [] \\ res_tac
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ first_x_assum drule
@@ -89,24 +90,22 @@ val Eval_REAL_LT = Q.prove(
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
   \\ rpt (pop_assum kall_tac)
   \\ fs [BOOL_def] \\ rw [] \\ rveq
-  \\ EQ_TAC \\ rw []
-  \\ fs [realTheory.lt_rat]
-  \\ Cases_on `n` \\ fs [real_of_int_def]
-  \\ Cases_on `n'` \\ fs [real_of_int_def]
-  \\ rfs [realTheory.REAL_MUL_LNEG,integerTheory.INT_MUL_CALCULATE]
-  \\ qpat_x_assum `(_ <= _:int)` mp_tac
-  \\ fs [integerTheory.INT_NOT_LE])
+  \\ EQ_TAC \\ rw [] >>
+  rfs[RAT_LDIV_LES_POS, RDIV_MUL_OUT, RAT_RDIV_LES_POS] >>
+  full_simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_11,
+                         rat_of_int_LT] >>
+  fs[integerTheory.INT_MUL_COMM])
   |> (fn th => MATCH_MP th pair_lt_v_thm)
   |> add_user_proved_v_thm;
 
 val _ = next_ml_names := [">"];
-val v = translate real_gt;
+val v = translate rat_gre_def;
 
 val _ = next_ml_names := ["min"];
-val v = translate realTheory.min_def;
+val v = translate rat_min_def;
 
 val _ = next_ml_names := ["max"];
-val v = translate realTheory.max_def;
+val v = translate rat_max_def;
 
 val div_gcd_def = Define `
   div_gcd a b =
@@ -121,31 +120,87 @@ val gcd_LESS_EQ = prove(
   \\ once_rewrite_tac [gcdTheory.gcd_def]
   \\ rw [] \\ fs []);
 
-val PAIR_TYPE_IMP_REAL_TYPE = prove(
-  ``r = real_of_int m / & n /\ n <> 0 ==>
-    PAIR_TYPE INT NUM (div_gcd m n) v ==> REAL_TYPE r v``,
-  fs [REAL_TYPE_def,div_gcd_def] \\ rw []
-  \\ rewrite_tac [CONJ_ASSOC]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ asm_exists_tac \\ fs []
-  \\ pop_assum kall_tac
-  \\ `gcd$gcd (num_of_int m) n <> 0` by fs []
-  \\ `0 < gcd$gcd (num_of_int m) n` by simp []
-  \\ Cases_on `m` \\ simp [ZERO_DIV]
-  \\ fs [DIV_EQ_X,NOT_LESS,gcd_LESS_EQ]
-  \\ rename1 `gcd$gcd m n <> 1`
-  THEN1
-   (qspecl_then [`m`,`n`] mp_tac FACTOR_OUT_GCD \\ fs []
-    \\ strip_tac \\ qabbrev_tac `kk = gcd$gcd m n`
-    \\ pop_assum kall_tac \\ rveq \\ fs [MULT_DIV]
-    \\ rewrite_tac [GSYM REAL_OF_NUM_MUL]
-    \\ match_mp_tac REAL_DIV_LMUL_CANCEL \\ fs [])
-  \\ qspecl_then [`m`,`n`] mp_tac FACTOR_OUT_GCD \\ fs []
-  \\ strip_tac \\ qabbrev_tac `kk = gcd$gcd m n`
-  \\ pop_assum kall_tac \\ rveq \\ fs [MULT_DIV]
-  \\ rewrite_tac [GSYM REAL_OF_NUM_MUL,GSYM integerTheory.INT_MUL]
-  \\ rewrite_tac [integerTheory.INT_NEG_RMUL,realTheory.REAL_NEG_RMUL]
-  \\ simp [integerTheory.INT_DIV_LMUL,REAL_DIV_LMUL_CANCEL]);
+val DIV_EQ_0 = Q.store_thm(
+  "DIV_EQ_0",
+  ‘0 < n ==> ((m DIV n = 0) <=> m < n)’,
+  strip_tac >> IMP_RES_THEN mp_tac DIVISION >>
+  rpt (disch_then (qspec_then `m` assume_tac)) >>
+  qabbrev_tac `q = m DIV n` >> qabbrev_tac `r = m MOD n` >>
+  RM_ALL_ABBREVS_TAC >> rw[] >> eq_tac >> simp[] >>
+  Cases_on ‘q’ >> simp[MULT_CLAUSES]);
+
+val DIV_GCD_NONZERO = Q.store_thm(
+  "DIV_GCD_NONZERO",
+  ‘(0 < m ==> 0 < m DIV gcd m n) /\ (0 < n ==> 0 < n DIV gcd m n)’,
+  rw[] >> ‘gcd m n <> 0’ by simp[GCD_EQ_0]
+  >- (‘~(m < gcd m n)’
+        by metis_tac[dividesTheory.NOT_LT_DIVIDES,
+                     GCD_IS_GREATEST_COMMON_DIVISOR] >>
+      spose_not_then assume_tac >>
+      rev_full_simp_tac bool_ss
+        [DIV_EQ_0, arithmeticTheory.NOT_LT_ZERO_EQ_ZERO,
+         arithmeticTheory.NOT_ZERO_LT_ZERO])
+  >- (‘~(n < gcd m n)’
+        by metis_tac[dividesTheory.NOT_LT_DIVIDES,
+                     GCD_IS_GREATEST_COMMON_DIVISOR] >>
+      spose_not_then assume_tac >>
+      rev_full_simp_tac bool_ss
+        [DIV_EQ_0, arithmeticTheory.NOT_LT_ZERO_EQ_ZERO,
+         arithmeticTheory.NOT_ZERO_LT_ZERO]));
+
+val INT_NEG_DIV_FACTOR = Q.prove(
+  ‘0 < (x:num) ==> (-&(x * y):int / &x = -&y)’,
+  strip_tac >> qspec_then ‘&x’ mp_tac integerTheory.INT_DIVISION >>
+  simp[] >> disch_then (qspec_then ‘-&(x * y)’ strip_assume_tac) >>
+  map_every qabbrev_tac [`D:int = -&(x * y)`, `q = D / &x`, `r = D % &x`] >>
+  Q.UNABBREV_TAC `D` >>
+  qpat_x_assum `_ = _` mp_tac >>
+  disch_then (mp_tac o Q.AP_TERM `int_add &(x:num * y)` ) >>
+  simp_tac bool_ss [integerTheory.INT_ADD_RINV] >>
+  qmatch_abbrev_tac `0i = RHS ==> q:int = -&y` >>
+  ‘RHS = (q + &y) * &x + r’ by simp[Abbr‘RHS’] >>
+  Q.UNABBREV_TAC ‘RHS’ >> pop_assum SUBST_ALL_TAC >>
+  ‘∃rn. r = &rn’ by (Cases_on ‘r’ >> simp[] >> fs[]) >>
+  pop_assum SUBST_ALL_TAC >> fs[] >>
+  Cases_on ‘q + &y’
+  >- (rename [‘q + &y = &n’] >> simp[integerTheory.INT_ADD])
+  >- (rename [‘q + &y = -&n’] >>
+      disch_then (mp_tac o Q.AP_TERM ‘int_add (&n * &x)’) >>
+      simp_tac bool_ss [integerTheory.INT_ADD_ASSOC,
+                        integerTheory.INT_ADD_RID,
+                        GSYM integerTheory.INT_NEG_LMUL,
+                        integerTheory.INT_ADD_RINV] >> simp[] >>
+      Cases_on ‘n’ >> simp[MULT_CLAUSES] >> fs[])
+  >- (rename [‘q + &y = 0’] >> disch_then kall_tac >>
+      ‘q + &y + -&y = -&y’ by metis_tac [integerTheory.INT_ADD_LID] >>
+      metis_tac[integerTheory.INT_ADD_ASSOC, integerTheory.INT_ADD_RID,
+                integerTheory.INT_ADD_RINV]))
+
+val PAIR_TYPE_IMP_RAT_TYPE = prove(
+  ``r = rat_of_int m / & n /\ n <> 0 ==>
+    PAIR_TYPE INT NUM (div_gcd m n) v ==> RAT_TYPE r v``,
+  fs [RAT_TYPE_def,div_gcd_def] \\ rw [] >>
+  goal_assum (first_assum o mp_then (Pos last) mp_tac)
+  >- fs[num_of_int_def] >>
+  `gcd$gcd (num_of_int m) n <> 0` by fs [] >>
+  `0 < gcd$gcd (num_of_int m) n` by simp [] >>
+  Cases_on `m` \\ simp [ZERO_DIV, integerTheory.INT_DIV] >>
+  fs [DIV_EQ_X,NOT_LESS,gcd_LESS_EQ] >> rename1 `gcd$gcd m n <> 1` >>
+  ‘0 < n DIV gcd m n ∧ 0 < m DIV gcd m n’ by simp[DIV_GCD_NONZERO] >>
+  simp[RAT_LDIV_EQ, RDIV_MUL_OUT, RAT_RDIV_EQ, integerTheory.INT_ABS_NUM]
+  >- (simp[RAT_MUL_NUM_CALCULATE] >>
+      qspecl_then [‘m’, ‘n’] mp_tac FACTOR_OUT_GCD >> simp[] >>
+      disch_then (qx_choosel_then [‘p’, ‘q’] strip_assume_tac) >>
+      qabbrev_tac ‘G = gcd$gcd m n’ >> simp[] >>
+      ‘G * q DIV G = q ∧ G * p DIV G = p’ by metis_tac [MULT_COMM, MULT_DIV] >>
+      simp[]) >>
+  qspecl_then [‘m’, ‘n’] mp_tac FACTOR_OUT_GCD >> simp[] >>
+  disch_then (qx_choosel_then [‘p’, ‘q’] strip_assume_tac) >>
+  qabbrev_tac ‘G = gcd$gcd m n’ >> simp[] >>
+  ‘G * q DIV G = q ∧ G * p DIV G = p’ by metis_tac [MULT_COMM, MULT_DIV] >>
+  simp[INT_NEG_DIV_FACTOR, integerTheory.INT_ABS_NEG,
+       integerTheory.INT_ABS_NUM, rat_of_int_ainv] >>
+  simp[RAT_MUL_NUM_CALCULATE]);
 
 val pair_add_def = Define `
   pair_add (n1:int, d1:num) (n2, d2) =
@@ -155,24 +210,27 @@ val _ = next_ml_names := ["+"];
 val pair_add_v_thm = translate pair_add_def;
 
 val Eval_REAL_ADD = Q.prove(
-  `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_add v ==>
-       (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) ($+) v`,
-  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once REAL_TYPE_def,PULL_EXISTS,
-    pair_add_def,FORALL_PROD] \\ rw [] \\ res_tac
-  \\ SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once REAL_TYPE_def,PULL_EXISTS,
-       pair_add_def,FORALL_PROD] \\ rw [] \\ res_tac
-  \\ pop_assum (strip_assume_tac o SPEC_ALL)
-  \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ rw [] \\ first_x_assum drule
-  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
-  \\ disch_then (qspec_then `refs2` mp_tac)
-  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
-  \\ pop_assum mp_tac
-  \\ ntac 2 (qpat_x_assum `~_` mp_tac)
-  \\ rpt (pop_assum kall_tac) \\ rw [] \\ pop_assum mp_tac
-  \\ match_mp_tac PAIR_TYPE_IMP_REAL_TYPE
-  \\ fs [REAL_ADD_RAT]
-  \\ fs [AC REAL_MUL_COMM REAL_MUL_ASSOC])
+  `!v.
+     (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_add v
+       ==>
+     (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) ($+) v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once RAT_TYPE_def,PULL_EXISTS,
+                       pair_add_def,FORALL_PROD] >> rw [] >> res_tac >>
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once RAT_TYPE_def,PULL_EXISTS,
+                       pair_add_def,FORALL_PROD] \\ rw [] \\ res_tac >>
+  pop_assum (strip_assume_tac o SPEC_ALL) >>
+  fs [] \\ asm_exists_tac \\ fs [] >>
+  rw [] \\ first_x_assum drule >>
+  qmatch_goalsub_rename_tac `(empty_state with refs := refs2)` >>
+  disch_then (qspec_then `refs2` mp_tac) >>
+  strip_tac \\ rpt (asm_exists_tac \\ fs []) >>
+  pop_assum mp_tac >>
+  ntac 2 (qpat_x_assum `~_` mp_tac) >>
+  rpt (pop_assum kall_tac) \\ rw [] \\ pop_assum mp_tac >>
+  match_mp_tac PAIR_TYPE_IMP_RAT_TYPE >>
+  simp[GSYM RAT_NO_ZERODIV] >>
+  fs [REAL_ADD_RAT]
+  fs [AC REAL_MUL_COMM REAL_MUL_ASSOC])
   |> (fn th => MATCH_MP th pair_add_v_thm)
   |> add_user_proved_v_thm;
 
@@ -199,7 +257,7 @@ val Eval_REAL_SUB = Q.prove(
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
   \\ rpt (pop_assum kall_tac) \\ rw [] \\ pop_assum mp_tac
-  \\ match_mp_tac PAIR_TYPE_IMP_REAL_TYPE
+  \\ match_mp_tac PAIR_TYPE_IMP_RAT_TYPE
   \\ fs[real_of_int_sub]
   \\ fs [real_sub, real_div, REAL_NEG_LMUL]
   \\ fs [GSYM real_div]
@@ -237,7 +295,7 @@ val Eval_REAL_MUL = Q.prove(
   \\ pop_assum mp_tac
   \\ ntac 2 (qpat_x_assum `~_` mp_tac)
   \\ rpt (pop_assum kall_tac) \\ rw [] \\ pop_assum mp_tac
-  \\ match_mp_tac PAIR_TYPE_IMP_REAL_TYPE
+  \\ match_mp_tac PAIR_TYPE_IMP_RAT_TYPE
   \\ fs [real_of_int_mul]
   \\ match_mp_tac REAL_EQ_RMUL_IMP
   \\ qexists_tac `&(d * d')`
