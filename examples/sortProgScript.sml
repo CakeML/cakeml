@@ -232,9 +232,9 @@ val _ = (append_prog o process_topdecs) `
     val contents_array = Array.fromList contents_list
     in
       (quicksort String.< contents_array;
-       Array.app TextIO.print_string contents_array)
+       Array.app TextIO.print contents_array)
     end
-    handle TextIO.BadFileName => TextIO.prerr_string "Cannot open file"`;
+    handle TextIO.BadFileName => TextIO.output TextIO.stdErr "Cannot open file"`;
 
 val valid_sort_result_def = Define`
   valid_sort_result cl init_fs result_fs ⇔
@@ -326,7 +326,7 @@ val sort_spec = Q.store_thm ("sort_spec",
   >- (
     fs [BadFileName_exn_def] >>
     xcases >>
-    xapp >>
+    xapp_spec output_stderr_spec >>
     xsimpl >>
     DEEP_INTRO_TAC sort_sem_intro >>
     simp[valid_sort_result_def] \\
