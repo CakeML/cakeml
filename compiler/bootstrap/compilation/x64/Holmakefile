@@ -1,20 +1,21 @@
-INCLUDES = ../../translation/x64 ../../../../semantics ../../.. ../../../backend/x64 ../../../encoders/asm ../../../encoders/x64 ../../../../basis
+ARCH = x64
+INCLUDES = ../../translation/$(ARCH) ../../../../semantics ../../.. ../../../backend/$(ARCH) ../../../encoders/asm ../../../encoders/$(ARCH) ../../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../translation/x64/heap
+PARENT_HOLHEAP = ../../translation/$(ARCH)/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP) cake-x64.tar.gz
+all: $(TARGETS) $(HOLHEAP) cake-$(ARCH).tar.gz
 .PHONY: all
 
-BARE_THYS = ../../translation/x64/compiler_x64ProgTheory\
+BARE_THYS = ../../translation/$(ARCH)/compiler_$(ARCH)ProgTheory\
 						../../../../semantics/semanticsComputeLib\
 						../../../compilationLib\
-						../../../backend/x64/x64_configTheory
+						../../../backend/$(ARCH)/$(ARCH)_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
@@ -25,9 +26,9 @@ endif
 basis_ffi.c: ../../../../basis/basis_ffi.c
 	$(CP) $< $@
 
-cake.S: *x64BootstrapScript.sml
+cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-x64.tar.gz: cake.S basis_ffi.c Makefile
-	tar -czf $@ cake.S basis_ffi.c Makefile
+cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile
+	tar -czf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
 
-EXTRA_CLEANS = basis_ffi.c cake.S cake-x64.tar.gz
+EXTRA_CLEANS = basis_ffi.c cake.S cake-$(ARCH).tar.gz

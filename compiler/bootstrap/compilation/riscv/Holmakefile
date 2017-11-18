@@ -1,20 +1,21 @@
-INCLUDES = ../../translation/riscv ../../../../semantics ../../.. ../../../backend/riscv ../../../encoders/asm ../../../encoders/riscv ../../../../basis
+ARCH = riscv
+INCLUDES = ../../translation/$(ARCH) ../../../../semantics ../../.. ../../../backend/$(ARCH) ../../../encoders/asm ../../../encoders/$(ARCH) ../../../../basis
 CLINE_OPTIONS = --qof
 
 ifdef POLY
 HOLHEAP = heap
-PARENT_HOLHEAP = ../../translation/riscv/heap
+PARENT_HOLHEAP = ../../translation/$(ARCH)/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS) $(HOLHEAP) cake-riscv.tar.gz
+all: $(TARGETS) $(HOLHEAP) cake-$(ARCH).tar.gz
 .PHONY: all
 
-BARE_THYS = ../../translation/riscv/compiler_riscvProgTheory\
+BARE_THYS = ../../translation/$(ARCH)/compiler_$(ARCH)ProgTheory\
 						../../../../semantics/semanticsComputeLib\
 						../../../compilationLib\
-						../../../backend/riscv/riscv_configTheory
+						../../../backend/$(ARCH)/$(ARCH)_configTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
@@ -25,9 +26,9 @@ endif
 basis_ffi.c: ../../../../basis/basis_ffi.c
 	$(CP) $< $@
 
-cake.S: *riscvBootstrapScript.sml
+cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-riscv.tar.gz: cake.S basis_ffi.c Makefile
-	tar -czf $@ cake.S basis_ffi.c Makefile
+cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile
+	tar -czf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
 
-EXTRA_CLEANS = basis_ffi.c cake.S cake cake-riscv.tar.gz
+EXTRA_CLEANS = basis_ffi.c cake.S cake-$(ARCH).tar.gz
