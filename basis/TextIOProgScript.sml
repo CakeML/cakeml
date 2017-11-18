@@ -69,11 +69,8 @@ val _ =
 
 (* Output functions on given file descriptor *)
 val _ =
-  process_topdecs` fun write_char fd c =
+  process_topdecs` fun output1 fd c =
     (Word8Array.update iobuff 3 (Word8.fromInt(Char.ord c)); write fd 1 0; ())
-
-    fun print_char c = write_char stdOut c
-    fun prerr_char c = write_char stdErr c
     ` |> append_prog
 
 (* writes a string into a file *)
@@ -86,21 +83,13 @@ val _ =
       val a = write fd n 0 in
          output fd (String.substring s n (z-n))
   end;
-  fun print_string s = output stdOut s;
-  fun prerr_string s = output stdErr s;
+  fun print s = output stdOut s
     ` |> append_prog
 
 val _ = process_topdecs`
   fun print_list ls =
-    case ls of [] => () | (x::xs) => (print_string x; print_list xs)`
+    case ls of [] => () | (x::xs) => (print x; print_list xs)`
        |> append_prog ;
-
-(* val print_newline : unit -> unit *)
-val _ = process_topdecs`
-    fun write_newline fd = write_char fd #"\n"
-    fun print_newline () = write_char stdOut #"\n"
-    fun prerr_newline () = write_char stdErr #"\n"
-    ` |> append_prog
 
 val _ = process_topdecs`
 fun openIn fname =
@@ -147,7 +136,7 @@ fun read_byte fd =
 ` |> append_prog
 
 val _ = (append_prog o process_topdecs)`
-  fun read_char fd = Char.chr(Word8.toInt(read_byte fd))`
+  fun input1 fd = SOME (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => NONE`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,

@@ -396,7 +396,7 @@ val parse_regexp_side = Q.prove(
 val print_matching_lines = process_topdecs`
   fun print_matching_lines match prefix fd =
     case TextIO.inputLine fd of NONE => ()
-    | SOME ln => (if match ln then (TextIO.print_string prefix; TextIO.print_string ln) else ();
+    | SOME ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
@@ -496,7 +496,7 @@ val print_matching_lines_in_file = process_topdecs`
     in (print_matching_lines m (String.concat[file,":"]) fd;
         TextIO.close fd)
     end handle TextIO.BadFileName =>
-        TextIO.prerr_string (notfound_string file)`;
+        TextIO.output TextIO.stdErr (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
 val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
@@ -524,7 +524,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     \\ fs[BadFileName_exn_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
     \\ xlet_auto >- xsimpl
-    \\ xapp \\ instantiate \\ xsimpl
+    \\ xapp_spec output_stderr_spec \\ instantiate \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs`
     \\ xsimpl)
   >- ( xsimpl )
@@ -614,11 +614,11 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 val grep = process_topdecs`
   fun grep u =
     case CommandLine.arguments ()
-    of [] => TextIO.prerr_string usage_string
-     | [_] => TextIO.prerr_string usage_string
+    of [] => TextIO.output TextIO.stdErr usage_string
+     | [_] => TextIO.output TextIO.stdErr usage_string
      | (regexp::files) =>
        case parse_regexp (String.explode regexp) of
-         NONE => TextIO.prerr_string (parse_failure_string regexp)
+         NONE => TextIO.output TextIO.stdErr (parse_failure_string regexp)
        | SOME r =>
            (* abandoning this approach for now ...
          let
@@ -794,7 +794,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ simp[grep_sem_def]
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -809,7 +809,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ simp[grep_sem_def]
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -830,7 +830,7 @@ val grep_spec = Q.store_thm("grep_spec",
   >- (
     xmatch
     \\ xlet_auto >- xsimpl
-    \\ xapp
+    \\ xapp_spec output_stderr_spec
     \\ instantiate
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
