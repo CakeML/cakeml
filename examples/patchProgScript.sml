@@ -149,7 +149,7 @@ val patch'_spec = Q.store_thm("patch'_spec",
 
 val _ = (append_prog o process_topdecs) `
   fun patch u =
-    case Commandline.arguments () of
+    case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
       | _ => TextIO.prerr_string usage_string`
 

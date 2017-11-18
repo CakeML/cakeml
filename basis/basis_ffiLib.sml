@@ -7,7 +7,7 @@ struct
 
 open preamble
 open ml_progLib basis_ffiTheory semanticsLib helperLib set_sepTheory cfHeapsBaseTheory
-     CommandlineProofTheory TextIOProofTheory
+     CommandLineProofTheory TextIOProofTheory
 
 
 val IOFS_tm = prim_mk_const{Thy="TextIOProof",Name="IOFS"};
