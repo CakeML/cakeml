@@ -291,8 +291,4 @@ val () = (append_prog o process_topdecs)`
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = (append_prog o process_topdecs) `
-  fun print s = TextIO.print_string s;
-`
-
 val _ = export_theory();
