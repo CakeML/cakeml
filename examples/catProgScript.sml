@@ -119,7 +119,7 @@ val do_onefile_spec = Q.store_thm(
   \\ simp[fsFFITheory.get_file_content_def,PULL_EXISTS,FORALL_PROD]
   \\ disch_then(first_assum o (mp_then (Pos (el 2)) mp_tac))
   \\ simp[STD_streams_openFileFS] \\ strip_tac
-  (* TODO: xlet_auto fails here - why? *)
+  (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
   *)
   xlet `POSTv u3. &(u3 = Conv NONE []) *
                   STDIO (add_stdout (fastForwardFD (openFileFS fnm fs 0) fd) content)`
@@ -235,7 +235,7 @@ val cat1_spec = Q.store_thm (
 );
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val st = get_ml_prog_state();
@@ -259,7 +259,7 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xsimpl
   \\ fs[EVERY_MAP,EVERY_MEM]
   \\ match_mp_tac LIST_TYPE_mono
-  \\ simp[MAP_TL]
+  \\ simp[MAP_TL,NULL_EQ]
   \\ instantiate
   \\ Cases_on`cl` \\ fs[]
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]

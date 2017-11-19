@@ -683,6 +683,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                   end
         | _ -> Nothing
       end
+    | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) ->
+        Just ((s,t), Rval (Conv Nothing []))
     | (FFI n, [Litv(StrLit conf); Loc lnum]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->

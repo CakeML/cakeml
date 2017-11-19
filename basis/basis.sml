@@ -14,7 +14,7 @@ mlstringTheory
 ListProofTheory
 Word8ArrayProofTheory
 ArrayProofTheory
-CommandlineProofTheory
+CommandLineProofTheory
 TextIOProgTheory TextIOProofTheory
 
 basisProgTheory basisFunctionsLib basis_ffiLib

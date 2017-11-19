@@ -208,10 +208,10 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   imp_res_tac nextFD_leX \\
   imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\
   pop_assum(qspec_then`0`strip_assume_tac) \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
-  xlet_auto_spec(SOME(SPEC_ALL(Q.SPEC`fs'` get_file_contents_spec))) \\
+  xlet_auto >- fs[] \\
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
+  (* TODO: Update xlet_auto so that it can try different specs -
+     xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
   >- xsimpl >>
@@ -226,7 +226,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
 val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
-      case Commandline.arguments () of
+      case CommandLine.arguments () of
         [] => get_file_contents TextIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list

@@ -435,9 +435,8 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ xmatch
   \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
-  (* TODO: xlet_auto fails *)
-  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * STDIO (lineForwardFD fs fd)`
-  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet_auto >- xsimpl
+  (* TODO: xlet_auto doesn't handle if statements yet *)
   \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)(if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif
@@ -614,7 +613,7 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 
 val grep = process_topdecs`
   fun grep u =
-    case Commandline.arguments ()
+    case CommandLine.arguments ()
     of [] => TextIO.prerr_string usage_string
      | [_] => TextIO.prerr_string usage_string
      | (regexp::files) =>

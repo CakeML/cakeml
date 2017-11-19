@@ -168,6 +168,21 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
+val dest_WordToInt_SOME = store_thm("dest_WordToInt_SOME",
+  ``!w es x. dest_WordToInt w es = SOME x <=>
+             ?tra. es = [App tra (Op (Op (WordToInt w))) [x]]``,
+  ho_match_mp_tac dest_WordToInt_ind
+  \\ fs [dest_WordToInt_def]);
+
+val Rabort_Rtype_error_map_error = prove(
+  ``Rabort Rtype_error = map_error_result compile_v e <=>
+    e = Rabort Rtype_error``,
+  Cases_on `e` \\ fs [] \\ eq_tac \\ rw []);
+
+val do_app_WordToInt_Rerr_IMP = prove(
+  ``closSem$do_app WordToInt ws x = Rerr e ==> e = Rabort Rtype_error``,
+  fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
+
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `0 < max_app ⇒
    (∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
@@ -261,7 +276,8 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       simp[evaluate_def] >> rw[] >>
       imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] ) >>
     split_pair_case_tac >> fs[] >>
-    reverse BasicProvers.CASE_TAC >> fs[] >> rfs[] >- (
+    reverse BasicProvers.CASE_TAC >> fs[] >> rfs[]
+    >- (
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
         rw[] >> fs[] ) >>
@@ -282,10 +298,20 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
           every_case_tac >> fs[do_app_def] )
       >- (
         rw[Once evaluate_CONS,evaluate_def] >>
-        rw[do_app_def] )
-      >- (
-        rw[Once evaluate_CONS,evaluate_def] >>
-        rw[do_app_def] )
+        rw[do_app_def] ) >>
+      TRY
+       (qmatch_goalsub_abbrev_tac `dest_WordToInt www` >>
+        Cases_on `dest_WordToInt www es` >>
+        qunabbrev_tac `www` >>
+        fs [dest_WordToInt_SOME] >> rw [] >>
+        fs[evaluate_def,ETA_AX,MAP_REVERSE,compile_def] >>
+        TRY (rw[Once evaluate_CONS,evaluate_def] >> rw[do_app_def] >> NO_TAC) >>
+        TOP_CASE_TAC \\ fs [case_eq_thms,pair_case_eq] >>
+        rveq \\ fs [] >>
+        qabbrev_tac `ws = REVERSE vs` >>
+        `vs = REVERSE ws` by (fs [Abbr `ws`]) \\ rveq >>
+        fs [Rabort_Rtype_error_map_error] >>
+        imp_res_tac do_app_WordToInt_Rerr_IMP \\ fs [])
       >> (
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
@@ -434,6 +460,24 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       \\ rename1 `do_shift sh n wl _`
       \\ Cases_on `wl` \\ fs [semanticPrimitivesPropsTheory.do_shift_def]
       \\ qpat_x_assum `_ = w` (fn thm => rw [GSYM thm])) >>
+    TRY (
+      rename1 `Op (Op (WordFromInt ws55))`
+      \\ Cases_on `ws55` \\ fs [compile_v_def]
+      \\ TOP_CASE_TAC \\ fs [dest_WordToInt_SOME] \\ rveq \\ fs []
+      \\ fs[evaluate_def,do_app_def,integer_wordTheory.w2n_i2w,
+            case_eq_thms,pair_case_eq] \\ rveq \\ fs [w2w_def]
+      \\ fs [some_def]
+      \\ fs [patSemTheory.evaluate_def,case_eq_thms,pair_case_eq]
+      \\ rveq \\ fs []
+      \\ qabbrev_tac `ws = REVERSE vs`
+      \\ `vs = REVERSE ws` by (fs [Abbr `ws`]) \\ rveq
+      \\ fs [patSemTheory.do_app_def,case_eq_thms,pair_case_eq]
+      \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
+      \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
+      \\ fs [patSemTheory.do_app_def,case_eq_thms,pair_case_eq]
+      \\ rveq \\ fs [] \\ Cases_on `l`
+      \\ fs [semanticPrimitivesPropsTheory.do_word_to_int_def]
+      \\ rveq \\ fs [w2w_def]) >>
     fs[state_component_equality,compile_state_def,fmap_eq_flookup,
        ALOOKUP_GENLIST,FLOOKUP_UPDATE,store_assign_def,store_lookup_def]
     \\ rveq \\ simp[EL_LUPDATE] \\ rw[LUPDATE_def,map_replicate,LUPDATE_MAP]
@@ -594,7 +638,10 @@ val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
   rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
   fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
-  rw[contains_App_SOME_def]);
+  rw[contains_App_SOME_def] >>
+  TOP_CASE_TAC >> fs[contains_App_SOME_def] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]);
 
 val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   `∀e. every_Fn_vs_NONE[compile e]`,
@@ -603,7 +650,10 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
   fs[EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST] >>
-  rw[] >> rw[]);
+  rw[] >> rw[] >>
+  TOP_CASE_TAC >> fs[] >>
+  rw[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,GSYM MAP_REVERSE] >>
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]);
 
 val set_globals_eq = Q.store_thm("set_globals_eq",
   `∀e. set_globals e = set_globals (compile e)`,
@@ -614,10 +664,21 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
     (TRY(qpat_x_assum`LENGTH es ≠ A` kall_tac)>>
     TRY(qpat_x_assum`LENGTH es = A` kall_tac)>>
     Induct_on`es`>>fs[]>>NO_TAC)
+  >> TRY
+   (qmatch_goalsub_abbrev_tac `dest_WordToInt www` >>
+    Cases_on `dest_WordToInt www es` >>
+    qunabbrev_tac `www` >>
+    fs [dest_WordToInt_SOME] >> rw [] >>
+    fs[LENGTH_eq,op_gbag_def]>>
+    pop_assum kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    TRY (EVAL_TAC \\ NO_TAC) >>
+    fs [elist_globals_reverse] >>
+    Induct_on`es`>>fs[] \\ EVAL_TAC)
   >>
     fs[LENGTH_eq]>>
     TRY(pop_assum SUBST_ALL_TAC>>fs[bagTheory.COMM_BAG_UNION])>>
-    Induct_on`n`>>fs[REPLICATE,op_gbag_def])
+    Induct_on`n`>>fs[REPLICATE,op_gbag_def]);
 
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `∀e. esgc_free e ⇒ esgc_free (compile e)`,
@@ -625,12 +686,19 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq]
+  >> TRY
+   (qmatch_goalsub_abbrev_tac `dest_WordToInt www` >>
+    Cases_on `dest_WordToInt www es` >>
+    qunabbrev_tac `www` >>
+    fs [dest_WordToInt_SOME] >> rw [] >>
+    fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+    fs [])
   >- (Induct_on`es`>>fs[set_globals_eq])
-  >> Induct_on`n`>>rw[REPLICATE]>> metis_tac[esgc_free_def,EVERY_DEF])
+  >> Induct_on`n`>>rw[REPLICATE]>> metis_tac[esgc_free_def,EVERY_DEF]);
 
 val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (compile e))`,
-  fs[set_globals_eq])
+  fs[set_globals_eq]);
 
 val _ = export_theory()

@@ -245,7 +245,7 @@ val cat_spec = save_thm(
   cat_spec0 |> SIMP_RULE (srw_ss()) [])
 
 val cat_main = process_topdecs`
-  fun cat_main _ = cat (Commandline.arguments())`;
+  fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
 val cat_main_spec = Q.store_thm("cat_main_spec",
@@ -262,17 +262,16 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
   \\ xlet_auto >-(xcon >> xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (simp[COMMANDLINE_def] \\ xpull)
   \\ fs[wfcl_def]
-  \\ xlet`POSTv av. &LIST_TYPE STRING_TYPE (MAP implode (TL cl)) av * STDIO fs * COMMANDLINE cl`
-  >-(xapp \\ xsimpl \\ simp[MAP_TL] \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`cl` \\ xsimpl )
+  \\ xlet_auto >- xsimpl
   \\ xapp
   \\ instantiate
   \\ xsimpl
-  \\ fs[EVERY_MAP,EVERY_MEM]
+  \\ fs[EVERY_MAP,EVERY_MEM,NULL_EQ,MAP_TL]
   \\ match_mp_tac LIST_TYPE_mono
   \\ instantiate
-  \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS,explode_implode]
-  \\ fs[validArg_def,EVERY_MEM,implode_def,EVERY_MAP]
-  \\ Cases_on`cl` \\ fs[]);
+  \\ Cases
+  \\ fs[FILENAME_def,LENGTH_explode,validArg_def]
+  \\ Cases_on`cl` \\ fs[MEM_MAP,PULL_EXISTS,implode_def]);
 
 val spec = cat_main_spec |> SPEC_ALL |> UNDISCH_ALL
             |> SIMP_RULE std_ss [Once STAR_ASSOC,STDIO_def]
