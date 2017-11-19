@@ -9566,4 +9566,50 @@ val memory_rel_copy_array_NONE = store_thm("memory_rel_copy_array_NONE",
   \\ pop_assum mp_tac
   \\ match_mp_tac memory_rel_rearrange \\ fs []);
 
+val memory_rel_space_max = store_thm("memory_rel_space_max",
+  ``memory_rel c be refs old_sp st m dm vars ==>
+    ?next_free trig_gc sp.
+      FLOOKUP st NextFree = SOME (Word next_free) /\
+      FLOOKUP st TriggerGC = SOME (Word trig_gc) /\
+      trig_gc - next_free = bytes_in_word * n2w sp :'a word /\
+      memory_rel c be refs sp st m dm vars /\
+      (good_dimindex (:'a) ==> (dimindex (:α) DIV 8) * sp < dimword (:'a))``,
+  fs [memory_rel_def,heap_in_memory_store_def] \\ strip_tac \\ fs []
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ qexists_tac `sp` \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ rpt (asm_exists_tac \\ fs [])
+  \\ qexists_tac `limit` \\ fs []
+  \\ qexists_tac `a` \\ fs []
+  \\ qexists_tac `sp` \\ fs []
+  \\ qexists_tac `sp1` \\ fs []
+  \\ qexists_tac `gens` \\ fs []
+  \\ rw [] \\ fs [good_dimindex_def]
+  \\ fs [word_ml_inv_def,abs_ml_inv_def,unused_space_inv_def,heap_ok_def]
+  \\ rfs [] \\ rveq \\ fs []);
+
+val append_writes_def = Define `
+  append_writes c ptr hdr [] l = ARB /\
+  append_writes c ptr (hdr:'a word) (x::xs) l =
+    Word hdr :: x ::
+      if xs = [] then [l] else
+        let ptr = (ptr + 3w << (shift_length c - shift (:'a))) in
+          Word ptr :: append_writes c ptr hdr xs l`
+
+val memory_rel_append = store_thm("memory_rel_append",
+  ``memory_rel c be refs sp st m1 dm
+      (ZIP (in1,ws) ++ (list_to_v in2,h)::vars) /\
+    (word_list next_free (append_writes c init_ptr hdr ws h) * SEP_T)
+      (fun2set (m1,dm)) /\
+    LENGTH in1 = LENGTH ws /\ in1 <> [] /\
+    3 * LENGTH in1 <= sp /\ good_dimindex (:'a) /\
+    Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
+    FLOOKUP st CurrHeap = SOME (Word curr) /\
+    FLOOKUP st NextFree = SOME (Word (next_free:'a word)) ==>
+    memory_rel c be refs (sp - 3 * LENGTH in1)
+       (st |+ (NextFree,
+               Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
+       ((list_to_v (in1 ++ in2),Word init_ptr)::vars)``,
+  cheat);
+
 val _ = export_theory();
