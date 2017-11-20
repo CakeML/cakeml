@@ -23,12 +23,9 @@ $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
 endif
 
-basis_ffi.c: ../../../../basis/basis_ffi.c
-	$(CP) $< $@
-
 cake.S: *$(ARCH)BootstrapScript.sml
 
 cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile
-	tar -czf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
 
-EXTRA_CLEANS = basis_ffi.c cake.S cake-$(ARCH).tar.gz
+EXTRA_CLEANS = cake.S cake-$(ARCH).tar.gz
