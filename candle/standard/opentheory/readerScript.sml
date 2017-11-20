@@ -1,6 +1,7 @@
 open preamble
      ml_hol_kernelProgTheory
-     mlstringProgTheory
+     mlintTheory
+     StringProgTheory
 
 val _ = new_theory"reader"
 
@@ -51,8 +52,17 @@ val getNum_def = Define`
   (getNum (Num n) = return n) ∧
   (getNum _ = failwith (strlit"getNum"))`;
 
+(*
 val getName_def = Define`
   (getName (Name n) = return n) ∧
+  (getName _ = failwith (strlit"getName"))`;
+*)
+val getName_def = Define `
+  (getName (Name n) =
+    if n = strlit "\"->\"" then
+      return (strlit "\"fun\"")
+    else
+      return n) /\
   (getName _ = failwith (strlit"getName"))`;
 
 val getList_def = Define`
@@ -262,7 +272,10 @@ val readLine_def = Define`
     do
       (obj,s) <- pop s; n <- getNum obj;
       obj <- peek s;
-      return (insert_dict (Num n) obj s)
+      if n < 0 then
+        failwith (strlit"def")
+      else
+        return (insert_dict (Num n) obj s)
     od
   else if line = strlit"defineConst" then
     do
@@ -341,9 +354,12 @@ val readLine_def = Define`
   else if line = strlit"ref" then
     do
       (obj,s) <- pop s; n <- getNum obj;
-      case lookup (Num n) s.dict of
-      | NONE => failwith (strlit"ref")
-      | SOME obj => return (push obj s)
+      if n < 0 then
+        failwith (strlit"ref")
+      else
+        case lookup (Num n) s.dict of
+          NONE => failwith (strlit"ref")
+        | SOME obj => return (push obj s)
     od
   else if line = strlit"refl" then
     do
@@ -354,9 +370,12 @@ val readLine_def = Define`
   else if line = strlit"remove" then
     do
       (obj,s) <- pop s; n <- getNum obj;
-      case lookup (Num n) s.dict of
-      | NONE => failwith (strlit"remove")
-      | SOME obj => return (push obj (delete_dict (Num n) s))
+      if n < 0 then
+        failwith (strlit"ref")
+      else
+        case lookup (Num n) s.dict of
+          NONE => failwith (strlit"remove")
+        | SOME obj => return (push obj (delete_dict (Num n) s))
     od
   else if line = strlit"subst" then
     do
@@ -410,21 +429,14 @@ val readLine_def = Define`
       (obj,s) <- pop s; n <- getName obj;
       return (push (Type (mk_vartype n)) s)
     od
-  else
-    let ls = explode line in
-    case ls of
-    | [] => failwith (strlit"readLine")
-    | (c::cs) =>
-      if c = #"\"" then
-        return (push (Name (implode (FRONT cs))) s)
-      else if c = #"-" then
-        case fromDecString cs of
-        | NONE => failwith (strlit"readLine")
-        | SOME n => return (push (Num (int_neg(int_of_num n))) s)
-      else
-        case fromDecString ls of
-        | NONE => failwith (strlit"readLine")
-        | SOME n => return (push (Num (int_of_num n)) s)`;
+  else (* Integer literals and names *)
+    case fromString line of
+      SOME n => return (push (Num n) s)
+    | NONE =>
+        case explode line of
+          #"\""::c::cs =>
+            return (push (Name (implode (FRONT (c::cs)))) s)
+        | _ => failwith (strlit"readLine")`;
 
 val readLines_def = Define `
   readLines lls s =
