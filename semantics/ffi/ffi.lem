@@ -35,7 +35,7 @@ let initial_ffi_state oc ffi =
 
 val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_state 'ffi * list word8
 let call_FFI st s conf bytes =
-  if st.final_event = Nothing || s = "" then
+  if st.final_event = Nothing && s <> "" then
     match st.oracle s st.ffi_state conf bytes with
     | Oracle_return ffi' bytes' ->
         if length bytes' = length bytes then
