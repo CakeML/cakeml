@@ -3,11 +3,8 @@
   This is produced by a combination of translation and CF verification.
 *)
 
-open preamble
-     ml_translatorLib cfTacticsLib basisFunctionsLib cfLetAutoLib
-     basisProgTheory basis_ffiLib
-     fsFFITheory fsFFIProofTheory textio_initProgTheory
-     mlstringTheory balanced_mapTheory splitwordsTheory
+open preamble basis
+     splitwordsTheory balanced_mapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
@@ -122,7 +119,7 @@ val res = translate format_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
       TextIO.print_list
         (List.map format_output
@@ -271,7 +268,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
   (*ex *)
-  `hasFreeFD fs ∧ fsFFIProof$inFS_fname fs (File fname) ∧
+  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
    cl = [explode pname; explode fname] ∧
    contents = THE (ALOOKUP fs.files (File fname))
    ⇒
@@ -299,7 +296,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
      a valid filename:
   *)
   reverse(Cases_on`wfcl cl`)
-  >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull \\ rfs[]) \\
+  >- (fs[COMMANDLINE_def] \\ xpull \\ rfs[]) \\
   (*ex *)
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- (xsimpl) \\
@@ -307,8 +304,8 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* trying xlet_auto shows (TODO: in an obscure way) we need a FILENAME assumption *)
   `FILENAME fname fnamev` by (
     fs[FILENAME_def,EVERY_MEM,
-       mlcommandlineProgTheory.wfcl_def,GSYM LENGTH_explode,
-       commandLineFFITheory.validArg_def] ) \\
+       wfcl_def,GSYM LENGTH_explode,
+       validArg_def]) \\
 
   (* TODO: xlet_auto needs to be made to work with STDIO better *)
   (* TODO: inventing this is too hard for the tutorial *)
@@ -321,7 +318,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
   (* To get through the pattern match, try this: *)
   xmatch \\
-  fs[ml_translatorTheory.OPTION_TYPE_def] \\
+  fs[OPTION_TYPE_def] \\
   (* this part solves the validate_pat conjunct *)
   reverse conj_tac >- (EVAL_TAC \\ simp[]) \\
 

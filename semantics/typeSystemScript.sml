@@ -387,6 +387,7 @@ val _ = Define `
     | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
     | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
     | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\ (t2 = Tint) /\ (t = Ttup [])
+    | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
     | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
     | _ => F
   )))`;

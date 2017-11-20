@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_parser_gen";
 
 open slr_parser_genTheory optionTheory;
-open ml_translatorTheory ml_translatorLib mllistProgTheory;
+open ml_translatorTheory ml_translatorLib ListProgTheory;
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 val res = translate push_def;
 val res = translate pop_def;

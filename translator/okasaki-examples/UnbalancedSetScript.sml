@@ -1,10 +1,10 @@
 open preamble
 open okasaki_miscTheory pred_setTheory pred_setSimps
-open ml_translatorLib mllistProgTheory;
+open ml_translatorLib ListProgTheory;
 
 val _ = new_theory "UnbalancedSet"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 14 *)
 

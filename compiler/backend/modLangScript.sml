@@ -73,6 +73,8 @@ val _ = Datatype `
   | Asub
   | Alength
   | Aupdate
+  (* Configure the GC *)
+  | ConfigGC
   (* Call a given foreign function *)
   | FFI string
   (* Allocate the given number of new global variables *)

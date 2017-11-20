@@ -1,9 +1,6 @@
 signature ml_monad_translatorLib =
 sig
-    include ml_translatorLib
-
-    type monadic_translation_parameters = ml_monadStoreLib.monadic_translation_parameters
-    type store_translation_result = ml_monadStoreLib.store_translation_result
+    include ml_monadStoreLib
 
     (* Functions to initialize the translation *)
     val start_static_init_fixed_store_translation :

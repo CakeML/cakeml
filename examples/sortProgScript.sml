@@ -1,7 +1,4 @@
-open preamble mp_then ml_translatorTheory ml_translatorLib ml_progLib;
-open cfTacticsLib basisFunctionsLib cfLetAutoLib;
-open fsFFITheory fsFFIProofTheory textio_initProgTheory mltextioSpecTheory;
-open quicksortProgTheory basis_ffiLib;
+open preamble basis quicksortProgTheory
 
 val _ = new_theory "sortProg";
 
@@ -76,8 +73,7 @@ val SORTED_string_lt_le = Q.store_thm("SORTED_string_lt_le",
 
 val validArg_filename = Q.store_thm ("validArg_filename",
   `validArg (explode x) ∧ STRING_TYPE x v ⇒ FILENAME x v`,
-  rw [commandLineFFITheory.validArg_def, FILENAME_def, EVERY_MEM,
-      mlstringTheory.LENGTH_explode]);
+  rw [validArg_def, FILENAME_def, EVERY_MEM, LENGTH_explode]);
 
 val validArg_filename_list = Q.store_thm ("validArg_filename_list",
   `!x v. EVERY validArg (MAP explode x) ∧ LIST_TYPE STRING_TYPE x v ⇒ LIST_TYPE FILENAME x v`,
@@ -90,7 +86,7 @@ val v_to_string_def = Define `
 val LIST_REL_STRING_TYPE = Q.store_thm("LIST_REL_STRING_TYPE",
   `LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs`,
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
-  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,mlstringTheory.implode_def]);
+  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]);
 (* -- *)
 
 val usage_string_def = Define`
@@ -212,10 +208,10 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   imp_res_tac nextFD_leX \\
   imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\
   pop_assum(qspec_then`0`strip_assume_tac) \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
-  xlet_auto_spec(SOME(SPEC_ALL(Q.SPEC`fs'` get_file_contents_spec))) \\
+  xlet_auto >- fs[] \\
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
-  (* TODO: xlet_auto should be figuring this out *)
+  (* TODO: Update xlet_auto so that it can try different specs -
+     xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
   >- xsimpl
   >- xsimpl >>
@@ -230,7 +226,7 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
 val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
-      case Commandline.arguments () of
+      case CommandLine.arguments () of
         [] => get_file_contents TextIO.stdIn []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
@@ -304,8 +300,8 @@ val sort_spec = Q.store_thm ("sort_spec",
   xmatch >>
   qabbrev_tac `fnames = TL (MAP implode cl)` >>
   qabbrev_tac `inodes = if LENGTH cl > 1 then MAP File fnames else [IOStream(strlit"stdin")]` >>
-  reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull) >>
-  fs[mlcommandlineProgTheory.wfcl_def] >>
+  reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
+  fs[wfcl_def] >>
   reverse(Cases_on`MEM (IOStream(strlit"stdin")) (MAP FST fs.files)`)
   >- (
     fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
@@ -398,7 +394,7 @@ val sort_spec = Q.store_thm ("sort_spec",
         fs[Abbr`args`,LIST_TYPE_def] \\
         fs[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC] \\
         rveq \\ fs[] \\ rveq \\
-        fs[FILENAME_def,commandLineFFITheory.validArg_def,EVERY_MEM] \\
+        fs[FILENAME_def,validArg_def,EVERY_MEM] \\
         match_mp_tac LIST_TYPE_mono \\
         asm_exists_tac \\
         fs[FILENAME_def,MEM_MAP,PULL_EXISTS] )
@@ -411,7 +407,7 @@ val sort_spec = Q.store_thm ("sort_spec",
     assume_tac strict_weak_order_string_cmp \\
     xlet_auto >- (
       xsimpl
-      \\ mp_tac mlstringProgTheory.mlstring_lt_v_thm
+      \\ mp_tac StringProgTheory.mlstring_lt_v_thm
       \\ simp[mlstringTheory.mlstring_lt_inv_image,inv_image_def] )
     \\ xapp >>
     xsimpl >>

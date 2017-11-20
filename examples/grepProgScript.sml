@@ -1,6 +1,4 @@
-open preamble ml_translatorLib ml_progLib
-     cfTacticsLib basisFunctionsLib cfLetAutoLib
-     fsFFIProofTheory textio_initProgTheory basisProgTheory basis_ffiLib
+open preamble basis
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
 
 val _ = new_theory "grepProg";
@@ -140,17 +138,9 @@ val EqualityType_REGEXP_REGEXP_TYPE = Q.store_thm("EqualityType_REGEXP_REGEXP_TY
 val _ = store_eq_thm EqualityType_REGEXP_REGEXP_TYPE;
 (* -- *)
 
-(* TODO: the regexp can be avoided by using listTheory one instead *)
-val zip_eq_zip = Q.store_thm("zip_eq_zip",
-  `regexp$zip = CURRY list$ZIP`,
-  simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac regexpTheory.zip_ind
-  \\ EVAL_TAC \\ rw[ZIP_def]);
+val r = translate regexp_compareW_def;
 
-val r = save_thm("regexp_compareW_ind", regexp_compareW_ind |> REWRITE_RULE[zip_eq_zip,CURRY_DEF])
-val _ = add_preferred_thy"-";
-val r = translate (regexp_compareW_def |> REWRITE_RULE[zip_eq_zip,CURRY_DEF]);
-
+val _ = add_preferred_thy "-";
 val r = save_thm("mergesortN_ind", mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def]);
 
@@ -445,9 +435,8 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   \\ xmatch
   \\ rename1`lineFD _ _ = SOME ln`
   \\ rveq
-  (* TODO: xlet_auto fails *)
-  \\ xlet`POSTv bv. &BOOL (m (implode ln)) bv * STDIO (lineForwardFD fs fd)`
-  >- ( xapp \\ instantiate \\ xsimpl )
+  \\ xlet_auto >- xsimpl
+  (* TODO: xlet_auto doesn't handle if statements yet *)
   \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)(if m (implode ln) then explode pfx ++ ln else ""))`
   >- (
     xif
@@ -624,7 +613,7 @@ val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
 
 val grep = process_topdecs`
   fun grep u =
-    case Commandline.arguments ()
+    case CommandLine.arguments ()
     of [] => TextIO.prerr_string usage_string
      | [_] => TextIO.prerr_string usage_string
      | (regexp::files) =>
@@ -799,10 +788,10 @@ val grep_spec = Q.store_thm("grep_spec",
   strip_tac
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`)>-(fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`)>-(fs[COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- xsimpl
-  \\ Cases_on`cl` \\ fs[mlcommandlineProgTheory.wfcl_def]
-  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  \\ Cases_on`cl` \\ fs[wfcl_def]
+  \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
     \\ xapp
@@ -817,7 +806,7 @@ val grep_spec = Q.store_thm("grep_spec",
     )
   \\ rveq
   \\ rename1`EVERY validArg t`
-  \\ Cases_on`t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
+  \\ Cases_on`t` \\ fs[LIST_TYPE_def]
   >- (
     xmatch
     \\ xapp
@@ -837,7 +826,7 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ qmatch_assum_abbrev_tac`Abbrev(cl = grep::regexp::fls)`
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ Cases_on`parse_regexp regexp` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
+  \\ Cases_on`parse_regexp regexp` \\ fs[OPTION_TYPE_def]
   >- (
     xmatch
     \\ xlet_auto >- xsimpl
@@ -884,7 +873,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ `s1 = s2` suffices_by xsimpl
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
-    \\ simp[all_lines_def,FILTER_MAP,mlstringTheory.strcat_thm,MAP_MAP_o,o_DEF]
+    \\ simp[all_lines_def,FILTER_MAP,strcat_thm,MAP_MAP_o,o_DEF]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -901,7 +890,7 @@ val grep_spec = Q.store_thm("grep_spec",
     \\ imp_res_tac regexp_matcher_with_limit_sound
     \\ rveq \\ fs[])
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]mllistProgTheory.app_spec)
+  \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`λn. STDIO (FOLDL ff I (TAKE n fls) fs)`
   \\ xsimpl
@@ -909,16 +898,16 @@ val grep_spec = Q.store_thm("grep_spec",
   \\ xsimpl
   \\ qexists_tac`STRING_TYPE`
   \\ reverse conj_tac
-  >- ( simp[Abbr`fls`,ml_translatorTheory.LIST_TYPE_def] )
+  >- ( simp[Abbr`fls`,LIST_TYPE_def] )
   \\ rw[] \\ rfs[EL_MAP]
   \\ qmatch_assum_abbrev_tac`STRING_TYPE f xv`
   \\ `validArg (explode f)`
   by (
-    fs[Abbr`fls`,Abbr`f`,mlstringTheory.explode_implode,EVERY_MEM,MEM_EL,PULL_EXISTS]
+    fs[Abbr`fls`,Abbr`f`,explode_implode,EVERY_MEM,MEM_EL,PULL_EXISTS]
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,commandLineFFITheory.validArg_def,Abbr`f`,mlstringTheory.explode_implode,mlstringTheory.implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )

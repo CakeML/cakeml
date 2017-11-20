@@ -16,19 +16,19 @@ fun all_new_evars (old_evars: term list) {instantiation, new_evars} =
   let
     val old_evars_instantiated = List.map (Term.subst instantiation) old_evars
     val new_vars = (free_varsl old_evars_instantiated) @ new_evars
-    val all_new_evars = filter (fn v => mem v (new_evars @ old_evars)) new_vars
+    val all_new_evars = filter (fn v => tmem v (new_evars @ old_evars)) new_vars
   in all_new_evars end
 
 fun all_new_evars_in old_evars inst term =
   let
     val all_new_evars = all_new_evars old_evars inst
     val fvs_term = free_vars term
-  in intersect all_new_evars fvs_term end
+  in op_intersect aconv all_new_evars fvs_term end
 
 (** The original implementation on which are based ecc_conseq_conv and
     match_mp_ecc is due to Thomas Tuerk. *)
 
-(* todo: 
+(* todo:
    - be also able to unify types
 *)
 fun ecc_conseq_conv (ecc: evars_conseq_conv) (t: term): thm =
@@ -44,14 +44,14 @@ let
      ones that appear in [t_body] and that are not evars *)
   val t_body_fvs = free_vars t_body
   val _ = app (fn {redex, ...} =>
-    if not (mem redex evars) andalso mem redex t_body_fvs then (
+    if not (tmem redex evars) andalso tmem redex t_body_fvs then (
       (* print "redex: "; print_term redex; print "\n"; *)
       raise (ERR "Trying to instantiate something that is not an evar"
                  "ecc_conseq_conv")
     ) else ()) sub
 
   (* figure out finally existentially quantified vars *)
-  val new_evars = all_new_evars evars inst 
+  val new_evars = all_new_evars evars inst
   (* val _ = ( *)
   (*   print "new_evars:"; *)
   (*   app (fn v => (print " "; print_term v)) new_evars; *)
@@ -63,7 +63,7 @@ let
       let
         val (l, r) = (dest_eq o concl) thm
         val (L, R) = EQ_IMP_RULE thm
-      in if t_body' = l then R else L end
+      in if t_body' ~~ l then R else L end
       handle HOL_ERR _ => thm
 
   val thm0 = let
@@ -115,8 +115,8 @@ let
     (vs, t1, t2)
   end
 
-  val t_rigids = subtract (free_vars t) evars
-  val rewr_rigids = subtract (free_vars rewr_concl) quant_vars
+  val t_rigids = op_set_diff aconv (free_vars t) evars
+  val rewr_rigids = op_set_diff aconv (free_vars rewr_concl) quant_vars
 
   (* val _ = ( *)
   (*   print "t_rigids:"; app (fn v => (print " "; print_term v)) t_rigids; print "\n"; *)
@@ -140,7 +140,7 @@ let
     val evars' = List.map (Term.subst sub) (quant_vars @ evars)
     val s0 = HOLset.listItems (FVL evars' empty_tmset)
     (* we don't include the old evars that also are new evars *)
-    val s1 = Lib.filter (fn v => Lib.mem v quant_vars) s0
+    val s1 = Lib.filter (fn v => tmem v quant_vars) s0
   in s1 end
   (* val _ = ( *)
   (*   print "new_evars:"; app (fn v => (print " "; print_term v)) new_evars; print "\n" *)
@@ -151,7 +151,7 @@ let
   in ISPECL inst_l rewr_thm end
   (* val _ = pr "thma" thm' *)
 
-  val inst = filter (fn {redex, ...} => mem redex evars) sub
+  val inst = filter (fn {redex, ...} => tmem redex evars) sub
 in
   ({instantiation = inst, new_evars = new_evars}, thm')
 end
@@ -195,7 +195,7 @@ fun term_subst_then
   (List.map (fn {redex,residue} =>
      {redex = redex, residue = Term.subst subst2 residue}
    ) subst1)
-      
+
 infix then_ecc;
 infix orelse_ecc;
 
@@ -251,7 +251,7 @@ fun conj1_ecc (ecc: evars_conseq_conv) {term, evars} =
       val ctx = free_varsl [tm1, tm2]
       val ({instantiation, new_evars}, thm) = ecc {term = tm1, evars = evars}
       val (inst_fresh, new_evars) = foldl (fn (ev, (inst, new_evs)) =>
-          if mem ev tm2_fvs then let
+          if tmem ev tm2_fvs then let
             val ev' = variant ctx ev
           in ({redex = ev, residue = ev'} :: inst, ev' :: new_evs) end
           else (inst, ev :: new_evs)
@@ -274,7 +274,7 @@ fun conj2_ecc (ecc: evars_conseq_conv) {term, evars} =
       val ctx = free_varsl [tm1, tm2]
       val ({instantiation, new_evars}, thm) = ecc {term = tm2, evars = evars}
       val (inst_fresh, new_evars) = foldl (fn (ev, (inst, new_evs)) =>
-          if mem ev tm1_fvs then let
+          if tmem ev tm1_fvs then let
             val ev' = variant ctx ev
           in ({redex = ev, residue = ev'} :: inst, ev' :: new_evs) end
           else (inst, ev :: new_evs)

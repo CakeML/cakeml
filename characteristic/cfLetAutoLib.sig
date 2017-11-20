@@ -3,7 +3,7 @@ signature cfLetAutoLib = sig
     type ssfrag = simpLib.ssfrag
     type simpset = simpLib.simpset
 
-    (* REMARK: some get functions are present in this signature only for development purposes and should eventually be removed - example: get_heuristic_solver *)
+    (* REMARK: some functions are present in this signature only for development purposes and should eventually be removed - example: get_heuristic_solver *)
 
     (* INTRO_REWRITE uses rewrite rules of the form:
        h1 => ... => hn => t1 = t2
@@ -63,16 +63,20 @@ signature cfLetAutoLib = sig
     (* Heuristics *)
     (* A safe solver based on unification *)
     val unification_solver :
-      term list -> thm -> (term, term) subst * (hol_type, hol_type) subst
+      term list -> term -> thm ->
+      (term, term) subst * (hol_type, hol_type) subst
 
     (* A not safe solver, also based on unification *)
     val unif_heuristic_solver :
-      term list -> thm -> (term, term) subst * (hol_type, hol_type) subst
+      term list -> term -> thm ->
+      (term, term) subst * (hol_type, hol_type) subst
 
     val set_heuristic_solver :
-      (term list -> thm -> (term, term) subst * (hol_type, hol_type) subst) -> unit
+      (term list -> term -> thm ->
+         (term, term) subst * (hol_type, hol_type) subst) -> unit
     val get_heuristic_solver :
-      unit -> term list -> thm -> (term, term) subst * (hol_type, hol_type) subst
+      unit -> term list -> term -> thm ->
+      (term, term) subst * (hol_type, hol_type) subst
     val use_heuristics : bool -> unit
     val using_heuristics : unit -> bool
 
@@ -88,4 +92,7 @@ signature cfLetAutoLib = sig
 
     (* xlet_auto is the default function to use *)
     val xlet_auto : tactic
+
+    (* debug_get_app_spec returns the last iteration of the manipulated app_spec - very useful when trying to figure out why xlet_auto failed *)
+    val debug_get_app_spec : unit -> thm
 end

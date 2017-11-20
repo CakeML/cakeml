@@ -360,6 +360,8 @@ val do_app_def = Define `
                   )
         | _ => NONE
       )
+    | (Op ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+         SOME (s, Rval (Conv tuple_tag []))
     | (Op (FFI n), [Litv (StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>

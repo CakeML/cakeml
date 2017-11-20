@@ -1,8 +1,4 @@
-open HolKernel Parse boolLib bossLib
-
-open gramTheory tokenUtilsTheory astTheory
-
-open lcsymtacs
+open preamble gramTheory tokenUtilsTheory astTheory
 
 val _ = new_theory "cmlPtreeConversion"
 
@@ -11,7 +7,6 @@ val _ = new_theory "cmlPtreeConversion"
    ---------------------------------------------------------------------- *)
 
 val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
-val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* handling constructor arities gets very complicated when "open" is
@@ -93,11 +88,9 @@ val mpop_namedscope_def = Define`
     We'll be using the option monad quite a bit in what follows
    ---------------------------------------------------------------------- *)
 
-val _ = overload_on ("monad_bind", ``OPTION_BIND``)
-val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
-val _ = temp_overload_on ("return", ``SOME``)
-val _ = temp_overload_on ("fail", ``NONE``)
+val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
+(* TODO: these should either be temp or moved elsewhere *)
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
                                         "option.OPTION_GUARD_def",
@@ -105,9 +98,9 @@ val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_MAP2_DEF",
                                         "option.OPTION_CHOICE_def"]
 
-val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 val _ = overload_on ("lift", ``option$OPTION_MAP``)
+(* -- *)
 
 val ifM_def = Define`
   ifM bM tM eM =

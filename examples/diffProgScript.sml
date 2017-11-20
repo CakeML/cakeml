@@ -1,7 +1,5 @@
-open preamble ml_translatorLib ml_progLib
-     cfTacticsLib cfLetAutoLib basisFunctionsLib
+open preamble basis
      charsetTheory lcsTheory diffTheory
-     textio_initProgTheory basis_ffiLib basisProgTheory
 
 val _ = new_theory "diffProg";
 
@@ -149,7 +147,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
 
 val _ = (append_prog o process_topdecs) `
   fun diff u =
-    case Commandline.arguments () of
+    case CommandLine.arguments () of
         (f1::f2::[]) => diff' f1 f2
       | _ => TextIO.prerr_string usage_string`;
 
@@ -174,9 +172,9 @@ val diff_spec = Q.store_thm("diff_spec",
                   else add_stderr fs (explode usage_string)) * (COMMANDLINE cl))`,
   strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ reverse(Cases_on`wfcl cl`) >- (fs[mlcommandlineProgTheory.COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
   \\ xlet_auto >- xsimpl
-  \\ Cases_on `cl` \\ fs[mlcommandlineProgTheory.wfcl_def]
+  \\ Cases_on `cl` \\ fs[wfcl_def]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
   >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
@@ -196,7 +194,7 @@ val diff_spec = Q.store_thm("diff_spec",
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `implode h'`
   \\ xsimpl \\ fs[FILENAME_def,mlstringTheory.explode_implode]
   \\ fs[mlstringTheory.implode_def,mlstringTheory.strlen_def]
-  \\ fs[commandLineFFITheory.validArg_def,EVERY_MEM]
+  \\ fs[validArg_def,EVERY_MEM]
   \\ rw[] \\ xsimpl);
 
 val st = get_ml_prog_state();

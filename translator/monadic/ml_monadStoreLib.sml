@@ -1,12 +1,13 @@
 structure ml_monadStoreLib :> ml_monadStoreLib = struct 
 
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
+open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory ml_monadStoreTheory
 open Redblackmap AC_Sort Satisfy
+open ml_translatorLib
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 
@@ -245,10 +246,12 @@ fun create_store_X_hprop refs_manip_list refs_locs arrays_manip_list arrays_refs
       (* Create the heap predicate for the store *)
       val create_ref_hprop_params = List.map (fn (x, _, y, _, _) => (x, y)) refs_manip_list
       val create_ref_hprop_params = zip create_ref_hprop_params refs_locs
-      (* val (name, get_f) = List.hd create_ref_hprop_params *)
+      (* val ((name, get_f), ref_loc) = List.hd create_ref_hprop_params *)
       fun create_ref_hprop ((name, get_f), ref_loc) =
 	let
-	    val ref_inv = dest_abs get_f |> snd |> type_of |> get_type_inv
+	    val ty = dest_abs get_f |> snd |> type_of
+	    val ref_inv = (get_type_inv ty handle HOL_ERR _ =>
+                (register_type ty; get_type_inv ty))
 	    val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
 
 	    val hprop = ``REF_REL ^ref_inv ^ref_loc ^get_term``

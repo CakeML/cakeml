@@ -322,9 +322,11 @@ val decodebitmasks_side = Q.prove(`
 
 val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv)
 
+(* the manual translation of w2w should no longer be necessary
 val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl arm8_enc_thm)))
 
 val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
+*)
 
 val res = translate arm8_enc_thm
 

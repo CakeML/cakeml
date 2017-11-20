@@ -6,21 +6,29 @@
 /* commandLine */
 
 /* argc and argv are exported in cake.S */
-extern int argc;
+extern unsigned int argc;
 extern char **argv;
 
-#define MAXLEN 256
+void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
+  a[0] = (char) argc;
+  a[1] = (char) (argc / 256);
+}
 
-void ffigetArgs (unsigned char *c, long clen, unsigned char *a, long alen) {
-        int i, j, k;
+void ffiget_arg_length (unsigned char *c, long clen, unsigned char *a, long alen) {
+  int i = a[0] + (a[1] * 256);
+  int k = 0;
+  while (argv[i][k] != 0) { k++; }
+  a[0] = (char) k;
+  a[1] = (char) (k / 256);
+}
 
-        for (i = 0, k = 0; (i < argc) && (k < MAXLEN); i++, k++) {
-                for (j = 0; j < strlen(argv[i]) && (k+1 < MAXLEN); j++) {
-                        a[k++] = argv[i][j];
-                }
-        }
-
-        return;
+void ffiget_arg (unsigned char *c, long clen, unsigned char *a, long alen) {
+  int i = a[0] + (a[1] * 256);
+  int k = 0;
+  while (argv[i][k] != 0) {
+    a[k] = argv[i][k];
+    k++;
+  }
 }
 
 /* 0 indicates null fd */
@@ -58,7 +66,7 @@ void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
     a[0] = 1;
   }
   else{
-    a[0] = 0; 
+    a[0] = 0;
     a[1] = nread;
   }
 }
@@ -70,7 +78,7 @@ void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
   }
 
   else{
-    a[0] = 0; 
+    a[0] = 0;
     a[1] = nw;
   }
 }
