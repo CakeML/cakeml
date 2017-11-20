@@ -20,41 +20,28 @@ val hol_version_tm =
   end
   handle _ => Term `NONE : mlstring option`
 
-val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC"
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
 val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
-
-(* Information about the current build *)
-val _ = Datatype `
-  current_build_info =
-    <| git_commit : mlstring option
-     ; date       : mlstring
-     ; hol_commit : mlstring option
-     ; polyml     : mlstring option |>`
-
-val current_info_def = Define
-  `current_info =
-     <| git_commit := ^current_version_tm
-      ; date       := ^date_tm
-      ; hol_commit := ^hol_version_tm
-      ; polyml     := ^poly_version_tm |>`
 
 val print_option_def = Define `
   print_option h x =
     case x of
       NONE => strlit""
-    | SOME y => h ^ strlit": " ^ y ^ strlit"\n"`
+    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"`
 
-val current_build_info_toString_def = Define `
-  current_build_info_toString b =
-    let commit = print_option (strlit"CakeML") b.git_commit in
-    let hol    = print_option (strlit"HOL4") b.hol_commit in
-    let poly   = print_option (strlit"PolyML") b.polyml in
-      (List [
-       (concat
-         [ strlit"The CakeML compiler\n"
-         ; strlit"Build date: "; b.date; strlit"\n\n"
-         ; strlit"Version details:\n"
-         ; commit; hol; poly ])], implode"")`
+val current_build_info_str_tm = EVAL ``
+    let commit = print_option (strlit"CakeML:") ^current_version_tm in
+    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
+    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+      concat
+        [ strlit"The CakeML compiler\n\n"
+        ; strlit"Version details:\n"
+        ; ^date_tm; strlit"\n"
+        ; commit; hol; poly ]``
+  |> concl |> rhs
+
+val current_build_info_str_def = Define `
+  current_build_info_str = ^current_build_info_str_tm`
 
 (* ========================================================================= *)
 
@@ -246,9 +233,6 @@ val format_compiler_result_def = Define`
 
 val compile_to_bytes_def = Define `
   compile_to_bytes backend_conf bytes_export cl input =
-  if has_version_flag cl then
-    current_build_info_toString current_info
-  else
     let ext_conf = extend_with_args cl backend_conf in
     let (heap,stack) = parse_heap_stack cl in
     let compiler_conf =
