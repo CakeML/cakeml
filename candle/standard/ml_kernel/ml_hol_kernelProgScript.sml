@@ -5,11 +5,10 @@ open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
 open holKernelTheory
-
-open ioProgTheory (* TODO temporary *)
+open basisProgTheory
 
 val _ = new_theory "ml_hol_kernelProg";
-val _ = translation_extends "ioProg" (* TODO temporary *)
+val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
 
