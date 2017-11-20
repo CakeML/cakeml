@@ -135,6 +135,12 @@ val r = format_compiler_result_def
         |> spec64
         |> translate;
 
+(* --- These are used in compiler_xxxProgTheory --- *)
+val r = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val r = translate print_option_def
+val r = translate current_build_info_str_def
+(* ------------------------------------------------ *)
+
 val r = translate (compile_to_bytes_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
