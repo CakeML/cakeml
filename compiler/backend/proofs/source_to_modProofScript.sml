@@ -297,6 +297,29 @@ val subglobals_trans = Q.prove (
   res_tac >>
   fs []);
 
+val subglobals_refl_append = Q.prove (
+  `!g1 g2 g3.
+    subglobals (g1 ++ g2) (g1 ++ g3) = subglobals g2 g3 ∧
+    (LENGTH g2 = LENGTH g3 ⇒ subglobals (g2 ++ g1) (g3 ++ g1) = subglobals g2 g3)`,
+  rw [subglobals_def] >>
+  eq_tac >>
+  rw []
+  >- (
+    first_x_assum (qspec_then `n + LENGTH (g1:'a option list)` mp_tac) >>
+    rw [EL_APPEND_EQN])
+  >- (
+    first_x_assum (qspec_then `n - LENGTH (g1:'a option list)` mp_tac) >>
+    rw [EL_APPEND_EQN] >>
+    fs [EL_APPEND_EQN])
+  >- (
+    first_x_assum (qspec_then `n` mp_tac) >>
+    rw [EL_APPEND_EQN])
+  >- (
+    Cases_on `n < LENGTH g3` >>
+    fs [EL_APPEND_EQN] >>
+    rfs [] >>
+    fs []));
+
 val v_rel_weakening = Q.prove (
   `(!genv v v'.
     v_rel genv v v'
@@ -2727,6 +2750,74 @@ val nsAppend_foldl = Q.prove (
   rw []);
   *)
 
+val evaluate_make_varls = Q.prove (
+  `!n t idx vars g g' s env vals.
+    LENGTH g = idx ∧
+    s.globals = g ++ REPLICATE (LENGTH vars) NONE ++ g' ∧
+    LENGTH vals = LENGTH vars ∧
+    (!n. n < LENGTH vals ⇒ ALOOKUP env.v (EL n vars) = SOME (EL n vals))
+    ⇒
+    modSem$evaluate env s [make_varls n t idx vars] =
+    (s with globals := g ++ MAP SOME vals ++ g', Rval [modSem$Conv NONE []])`,
+  ho_match_mp_tac make_varls_ind >>
+  rw [make_varls_def, evaluate_def]
+  >- fs [state_component_equality]
+  >- (
+    every_case_tac >>
+    fs [] >>
+    rfs [do_app_def, state_component_equality, ALOOKUP_NONE] >>
+    rw []
+    >- (
+      imp_res_tac ALOOKUP_MEM >>
+      fs [MEM_MAP] >>
+      metis_tac [FST])
+    >- (
+      fs [EL_APPEND_EQN] >>
+      `1 = SUC 0` by decide_tac >>
+      full_simp_tac bool_ss [REPLICATE] >>
+      fs []) >>
+    `LENGTH g ≤ LENGTH g` by rw [] >>
+    imp_res_tac LUPDATE_APPEND2 >>
+    full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
+    `1 = SUC 0` by decide_tac >>
+    full_simp_tac bool_ss [REPLICATE] >>
+    fs [LUPDATE_compute] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [] >>
+    rw [] >>
+    Cases_on `vals` >>
+    fs []) >>
+  every_case_tac >>
+  fs [] >>
+  rfs [do_app_def, state_component_equality, ALOOKUP_NONE]
+  >- (
+    first_x_assum (qspec_then `0` mp_tac) >>
+    simp [] >>
+    CCONTR_TAC >>
+    fs [] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs [MEM_MAP] >>
+    metis_tac [FST])
+  >- fs [EL_APPEND_EQN] >>
+  `env with v updated_by opt_bind NONE v = env`
+  by rw [environment_component_equality, libTheory.opt_bind_def] >>
+  rw [] >>
+ `LENGTH g ≤ LENGTH g` by rw [] >>
+  imp_res_tac LUPDATE_APPEND2 >>
+  full_simp_tac std_ss [GSYM APPEND_ASSOC] >>
+  fs [LUPDATE_compute] >>
+  first_x_assum (qspecl_then [`g++[SOME x']`, `g'`, `q`, `env`, `TL vals`] mp_tac) >>
+  simp [] >>
+  Cases_on `vals` >>
+  fs [] >>
+  impl_tac
+  >- (
+    rw [] >>
+    first_x_assum (qspec_then `n+1` mp_tac) >>
+    simp [GSYM ADD1]) >>
+  first_x_assum (qspec_then `0` mp_tac) >>
+  rw [state_component_equality]);
+
 val compile_decs_correct' = Q.prove (
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
@@ -2892,17 +2983,7 @@ val compile_decs_correct' = Q.prove (
         fs [s_rel_cases] >>
         fs [v_rel_eqns] >>
         metis_tac []) >>
-
-        (*
-      qmatch_goalsub_abbrev_tac`make_varls A B C`>>
-      qspecl_then [`C`,`A`,`B`] strip_assume_tac make_varls_trace_exists >>
-      unabbrev_all_tac>> simp[]>>
-      every_case_tac >>
-      fs [match_result_rel_def] >>
-      rw []
-      *)
-
-      Cases_on `pmatch env.c st'.refs p answer [] ` >>
+     Cases_on `pmatch env.c st'.refs p answer [] ` >>
       fs []
       >- ( (* No match *)
         rw [PULL_EXISTS] >>
@@ -2916,11 +2997,95 @@ val compile_decs_correct' = Q.prove (
         imp_res_tac evaluate_state_const >>
         metis_tac [])
       >- ( (* Match *)
+
         every_case_tac >>
         fs [match_result_rel_def] >>
+        rename [`evaluate <| v := env; c := _; exh_pat := _; check_ctor := _ |>
+                   s [make_varls _ _ _ _]`] >>
+        `?g1 g2.
+          LENGTH g1 = idx.vidx ∧
+          s.globals = g1++REPLICATE (LENGTH (REVERSE (pat_bindings p []))) NONE++g2`
+        by (
+          qexists_tac `TAKE idx.vidx s.globals` >>
+          qexists_tac `DROP (idx.vidx + LENGTH (pat_bindings p [])) s.globals` >>
+          simp [] >>
+          `idx.vidx ≤ LENGTH genv.v` by decide_tac >>
+          rw [] >>
+          rfs [] >>
+          irule LIST_EQ >>
+          rw [EL_APPEND_EQN, EL_TAKE, EL_REPLICATE, EL_DROP]) >>
+        drule evaluate_make_varls >>
+        disch_then drule >>
+        disch_then (qspecl_then [`0`, `om_tra ▷ t + 3`,
+           `<|v := env; c := FDOM genv.c; exh_pat := F; check_ctor := T|>`,
+           `MAP SND (REVERSE env)`] mp_tac) >>
+        drule (CONJUNCT1 pmatch_bindings) >>
+        strip_tac >>
+        fs []
+        >- (
+          impl_tac
+          >- metis_tac [EL_MAP, alookup_distinct_reverse, ALOOKUP_ALL_DISTINCT_EL,
+                        LENGTH_MAP, LENGTH_REVERSE, MAP_REVERSE,
+                        ALL_DISTINCT_REVERSE] >>
+          rw [] >>
+          qexists_tac `<| v := g1 ⧺ MAP SOME (MAP SND (REVERSE env)) ⧺ g2;
+                          c := genv.c |>` >>
+          conj_tac
+          >- simp [] >>
+          conj_asm1_tac
+          >- (
+            rw [] >>
+            simp_tac std_ss [subglobals_refl_append, GSYM APPEND_ASSOC] >>
+            `LENGTH (REPLICATE (LENGTH (pat_bindings p [])) (NONE:modSem$v option)) =
+             LENGTH (MAP SOME (MAP SND (REVERSE env)))`
+            by (
+              rw [LENGTH_REPLICATE] >>
+              metis_tac [LENGTH_MAP]) >>
+            imp_res_tac subglobals_refl_append >>
+            rw [] >>
+            rw [subglobals_def] >>
+            `n < LENGTH (pat_bindings p [])` by metis_tac [LENGTH_MAP] >>
+            fs [EL_REPLICATE]) >>
+          rw [] >>
+          >- (
+            `LENGTH (pat_bindings p []) = LENGTH env` by metis_tac [LENGTH_MAP] >>
+            rw [EL_APPEND_EQN] >>
+            last_x_assum (qspec_then `n` mp_tac) >>
+            simp [EL_APPEND_EQN])
+          >- metis_tac [evaluate_state_const, s_rel_cases]
+          >- (
+            fs [s_rel_cases] >>
+            irule LIST_REL_mono >>
+            qexists_tac `sv_rel <|v := s_i1.globals; c := genv.c|>` >>
+            rw []
+            >- (
+              irule sv_rel_weak >>
+              qexists_tac `genv` >>
+              rw []) >>
+            metis_tac [])
+          >- (
+            fs [env_domain_eq_def] >>
+            drule (CONJUNCT1 pmatch_bindings) >>
+            simp [GSYM MAP_MAP_o, fst_alloc_defs, EXTENSION]
+            rw [MEM_MAP] >>
+            imp_res_tac env_rel_dom >>
+            fs [] >>
+            metis_tac [FST, MEM_MAP])
+          >- cheat)
+        >- metis_tac [EL_MAP, alookup_distinct_reverse, ALOOKUP_ALL_DISTINCT_EL,
+                      LENGTH_MAP, LENGTH_REVERSE, MAP_REVERSE,
+                      ALL_DISTINCT_REVERSE]) >>
+ 
+
+        >- (
+         rw []
+         fs []
+         metis_tac [LENGTH_MAP]
+
 
         drule pmatch_evaluate_vars_lem >>
         disch_then (qspecl_then [`REVERSE tt`] mp_tac)>>simp[]>>
+
         rfs[reverse_bind_locals_list] >>
         strip_tac >>
         rpt var_eq_tac >>
