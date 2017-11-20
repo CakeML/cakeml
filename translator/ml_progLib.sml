@@ -48,7 +48,7 @@ val ml_name = String.translate
 fun define_abbrev for_eval name tm = let
   val name = ml_name name
   val name = (if is_const_str name then find_name name else name)
-  val tm = if free_vars tm = [] then
+  val tm = if List.null (free_vars tm) then
              mk_eq(mk_var(name,type_of tm),tm)
            else let
              val vs = free_vars tm |> sort

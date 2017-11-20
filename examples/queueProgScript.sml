@@ -4,13 +4,11 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble ml_progLib ioProgLib ml_translatorLib
-     cfTacticsLib basisFunctionsLib ml_translatorTheory
-     cfLetAutoTheory cfLetAutoLib
+open preamble basis
 
 val _ = new_theory "queueProg";
 
-val _ = translation_extends"ioProg";
+val _ = translation_extends"basisProg";
 
 val queue_decls = process_topdecs
    ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
@@ -150,7 +148,7 @@ val full_spec = Q.store_thm("full_spec",
   xlet_auto >- xsimpl >>
   xapp_spec (cf_spec “:'ffi” Translator_spec eq_int_thm) >> xsimpl >>
   fs[ml_translatorTheory.BOOL_def, ml_translatorTheory.NUM_def] >>
-  rpt (goal_assum (first_assum o mp_then.mp_then (mp_then.Pos hd) mp_tac)) >>
+  rpt (goal_assum (first_assum o mp_then (Pos hd) mp_tac)) >>
   imp_res_tac LIST_REL_LENGTH >> simp[] >> metis_tac[]);
 
 val enqueue_spec = Q.store_thm ("enqueue_spec",
@@ -174,7 +172,7 @@ val enqueue_spec = Q.store_thm ("enqueue_spec",
     qpat_x_assum `INT (_ % _) _` mp_tac >> imp_res_tac LIST_REL_LENGTH >>
     ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
     strip_tac >>
-    rpt (goal_assum (first_assum o mp_then.mp_then (mp_then.Pos hd) mp_tac)) >>
+    rpt (goal_assum (first_assum o mp_then (Pos hd) mp_tac)) >>
     simp[lqueue_enqueue]);
 
 val LIST_REL_REL_lqueue_HD = Q.store_thm(
@@ -204,11 +202,11 @@ val dequeue_spec_noexn = Q.prove(
     >- (imp_res_tac LIST_REL_LENGTH >> fs[lqueue_def])
     >- (strip_tac >> fs[]) >>
     dsimp[] >> fs[ml_translatorTheory.NUM_def] >>
-    rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+    rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
     qpat_x_assum ‘INT (_ % _) _’ mp_tac >> imp_res_tac LIST_REL_LENGTH >>
     ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
     strip_tac >>
-    rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+    rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
     Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
     metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
 
@@ -229,11 +227,11 @@ val dequeue_spec = Q.store_thm(
   >- (imp_res_tac LIST_REL_LENGTH >> fs[lqueue_def])
   >- (strip_tac >> fs[]) >>
   dsimp[] >> fs[ml_translatorTheory.NUM_def] >>
-  rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
   qpat_x_assum ‘INT (_ % _) _’ mp_tac >> imp_res_tac LIST_REL_LENGTH >>
   ‘qelvs ≠ []’ by (strip_tac >> fs[]) >> simp[integerTheory.INT_MOD] >>
   strip_tac >>
-  rpt (goal_assum (first_assum o mp_then.mp_then mp_then.Any mp_tac)) >>
+  rpt (goal_assum (first_assum o mp_then Any mp_tac)) >>
   Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
 

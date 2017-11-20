@@ -827,7 +827,7 @@ fun split16_ml_to_app_list (prefix,to_string) def =
     val ints = map wordsSyntax.uint_of_word ls
   in split16_to_app_list (words_line prefix to_string) ints end
 
-fun term_to_app_list eval code_def data_def =
+fun term_to_app_list word_directive eval code_def data_def =
   let
     fun ttal tm =
       if is_Nil tm then Nil
@@ -840,7 +840,7 @@ fun term_to_app_list eval code_def data_def =
            else split16_def_to_app_list ttal eval f data_def
            *)
            then split16_ml_to_app_list ("\t.byte ",byte_to_string) code_def
-           else split16_ml_to_app_list ("\t.quad ",word_to_string) data_def
+           else split16_ml_to_app_list ("\t."^word_directive^" ",word_to_string) data_def
         end
       else if is_List tm then
         dest_List tm |> listSyntax.dest_list |> #1
@@ -874,7 +874,7 @@ fun split16_conv tm =
   RAND_CONV split16_conv ) )
 *)
 
-fun eval_export target_export_defs heap_size stack_size code_def data_def ffi_names_tm out =
+fun eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm out =
   let
     val cs = wordsLib.words_compset()
     val eval = computeLib.CBV_CONV cs;
@@ -894,9 +894,10 @@ fun eval_export target_export_defs heap_size stack_size code_def data_def ffi_na
          lhs(concl code_def),
          lhs(concl data_def)])
     val app_list = eval eval_export_tm |> rconc
-  in print_app_list out (term_to_app_list eval code_def data_def app_list) end
+  in print_app_list out (term_to_app_list word_directive eval code_def data_def app_list) end
 
 fun cbv_to_bytes
+      word_directive
       add_encode_compset backend_config_def names_def target_export_defs
       stack_to_lab_thm lab_prog_def heap_size stack_size
       code_name data_name config_name filename =
@@ -923,7 +924,7 @@ fun cbv_to_bytes
     val out = TextIO.openOut filename
 
     val () = time (
-      eval_export target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
+      eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
 
     val () = TextIO.closeOut out
 
@@ -933,30 +934,35 @@ fun cbv_to_bytes
 
 val cbv_to_bytes_arm8 =
   cbv_to_bytes
+    "quad"
     arm8_targetLib.add_arm8_encode_compset
     arm8_backend_config_def arm8_names_def
     arm8_export_defs
 
 val cbv_to_bytes_arm6 =
   cbv_to_bytes
+    "long"
     arm6_targetLib.add_arm6_encode_compset
     arm6_backend_config_def arm6_names_def
     arm6_export_defs
 
 val cbv_to_bytes_mips =
   cbv_to_bytes
+    "quad"
     mips_targetLib.add_mips_encode_compset
     mips_backend_config_def mips_names_def
     [] (* TODO *)
 
 val cbv_to_bytes_riscv =
   cbv_to_bytes
+    "quad"
     riscv_targetLib.add_riscv_encode_compset
     riscv_backend_config_def riscv_names_def
     riscv_export_defs
 
 val cbv_to_bytes_x64 =
   cbv_to_bytes
+    "quad"
     x64_targetLib.add_x64_encode_compset
     x64_backend_config_def x64_names_def
     x64_export_defs

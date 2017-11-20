@@ -4,12 +4,12 @@
 structure preamble =
 struct
 local open intLib wordsLib in end;
-open set_relationTheory;
+open set_relationTheory; (* comes first so relationTheory takes precedence *)
 open BasicProvers Defn HolKernel Parse SatisfySimps Tactic monadsyntax
      alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
      combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
      listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     optionTheory pairLib pairTheory pred_setTheory
+     mp_then optionTheory pairLib pairTheory pred_setTheory
      quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
      sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
 (* TOOD: move? *)
@@ -24,6 +24,32 @@ val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
 (* -- *)
+
+val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
+val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
+val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
+
+structure option_monadsyntax = struct
+fun temp_add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.temp_add_monadsyntax();
+    val _ = temp_inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = temp_overload_on ("monad_bind", option_bind_tm)
+    val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = temp_overload_on ("assert", option_guard_tm)
+  in () end
+
+fun add_option_monadsyntax() =
+  let
+    val _ = monadsyntax.add_monadsyntax();
+    val _ = inferior_overload_on ("return",optionSyntax.some_tm);
+    val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
+    val _ = overload_on ("monad_bind", option_bind_tm)
+    val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
+    val _ = overload_on ("assert", option_guard_tm)
+  in () end
+end
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
@@ -230,7 +256,7 @@ fun any_match_mp impth th =
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
     val c = first(can (C match_term (concl th))) h
     val th2 = impth
-      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (equal c))))
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(move_conj_left (aconv c))))
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
   in
     MATCH_MP th2 th  end
@@ -292,11 +318,11 @@ fun exists_match_mp_then (ttac:thm_tactic) th (g as (_,w)) =
     val (_,b) = strip_exists b
     val ts = strip_conj b val t = hd ts
     val (tms,_) = match_term t c
-    val tms = filter (C mem vs o #redex) tms
-    val tms = filter (not o C mem ws o #residue) tms
+    val tms = filter (C (op_mem aconv) vs o #redex) tms
+    val tms = filter (not o C (op_mem aconv) ws o #residue) tms
     val xs = map #redex tms
     val ys = map #residue tms
-    fun sorter ls = xs@(filter(not o C mem xs) ls)
+    fun sorter ls = xs@(filter (not o C (op_mem aconv) xs) ls)
     val th = SPECL ys (CONV_RULE (RESORT_FORALL_CONV sorter) th)
   in
     ttac th

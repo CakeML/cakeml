@@ -1,9 +1,9 @@
 open preamble
-open okasaki_miscTheory ml_translatorLib mllistProgTheory;
+open okasaki_miscTheory ml_translatorLib ListProgTheory;
 
 val _ = new_theory "BinaryRandomAccessLists"
 
-val _ = translation_extends "mllistProg";
+val _ = translation_extends "ListProg";
 
 (* Okasaki page 123 *)
 

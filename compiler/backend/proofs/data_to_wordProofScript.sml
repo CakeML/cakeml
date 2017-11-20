@@ -926,6 +926,10 @@ val assign_no_inst = Q.prove(`
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
 
+(*
+inst_ok_less_def
+*)
+
 val comp_no_inst = Q.prove(`
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧

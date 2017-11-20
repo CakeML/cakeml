@@ -1,9 +1,6 @@
-open preamble;
-open semanticPrimitivesTheory;
-open ml_translatorTheory ml_translatorLib ml_progLib;
-open cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib cfLetAutoLib;
-open basisFunctionsLib;
-open mlarrayProgTheory;
+open preamble semanticPrimitivesTheory
+open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
+open basisProgTheory ArrayProofTheory
 
 val _ = new_theory "quicksortProg";
 

@@ -29,7 +29,7 @@ fun mem_conv eq_conv tm =
    (REWR_CONV MEM_CONS
      THENC RATOR_CONV(RAND_CONV(eq_conv))
      THENC OR_CONV
-     THENC (fn tm => if tm = ``T`` then ALL_CONV tm else mem_conv eq_conv tm))
+     THENC (fn tm => if Teq tm then ALL_CONV tm else mem_conv eq_conv tm))
    )
 
 (* TODO: move to listLib, cf. Z3ProofReplay.ALL_DISTINCT_CONV *)
@@ -41,7 +41,7 @@ fun all_distinct_conv eq_conv tm =
       THENC RATOR_CONV(RAND_CONV(RAND_CONV(mem_conv eq_conv)))
       THENC RATOR_CONV(RAND_CONV(NOT_CONV))
       THENC AND_CONV
-      THENC (fn tm => if tm = ``F`` then ALL_CONV tm else all_distinct_conv eq_conv tm)
+      THENC (fn tm => if Feq tm then ALL_CONV tm else all_distinct_conv eq_conv tm)
      )
   )
 

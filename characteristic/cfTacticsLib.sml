@@ -119,7 +119,7 @@ val cf_defs =
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
-   cf_copyaw8aw8_def, cf_log_def, cf_if_def, cf_match_def, cf_ffi_def, 
+   cf_copyaw8aw8_def, cf_log_def, cf_if_def, cf_match_def, cf_ffi_def,
    cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
@@ -190,7 +190,7 @@ fun xcf name st =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THENL [
         eval_tac,
-        reduce_tac \\ simp [cf_def] \\ reduce_tac \\
+        rpt(CHANGED_TAC(simp[Once cf_def] \\ reduce_tac))\\
         CONV_TAC (
           DEPTH_CONV (
             REWR_CONV letrec_pull_params_repack THENC
@@ -245,19 +245,19 @@ fun vname_of_post fallback Qtm = let
   fun vname_res_CASE_lam tm = let
       val body = dest_abs tm |> snd
     in
-      if body = res_CASE_tm then
+      if body ~~ res_CASE_tm then
         List.nth (strip_comb body |> snd, 1)
         |> vname_lam
       else fail ()
     end
   fun vname_POSTv tm = let
       val (base, args) = strip_comb tm
-    in if base = POSTv_tm then vname_lam (List.hd args)
+    in if base ~~ POSTv_tm then vname_lam (List.hd args)
        else fail()
     end
   fun vname_POST tm = let
       val (base, args) = strip_comb tm
-    in if base = POST_tm then vname_lam (List.hd args)
+    in if base ~~ POST_tm then vname_lam (List.hd args)
        else fail()
     end
 in
@@ -349,7 +349,7 @@ fun xfun_core (g as (_, w)) =
   else
     err_tac "xfun" "goal is not a cf_fun or cf_fun_rec" g
 
-val simp_spec = (CONV_RULE reduce_conv) o (simp_rule [cf_def])
+val simp_spec = CONV_RULE (REPEATC (reduce_conv THENC PURE_ONCE_REWRITE_CONV[cf_def]))
 
 fun xfun qname =
   xpull_check_not_needed \\
@@ -415,13 +415,13 @@ fun goal_app_infos tm : hol_type * term =
   in (ffi_ty, f_tm) end
 
 fun is_cf_spec_for f tm =
-  (concl_tm tm |> goal_app_infos |> snd) = f
+  (concl_tm tm |> goal_app_infos |> snd) ~~ f
   handle HOL_ERR _ => false
 
 fun is_arrow_spec_for f tm =
   let val tm = tm |> strip_imp |> #2 in
     ml_translatorSyntax.is_Arrow (tm |> rator |> rator) andalso
-    (rand tm) = f
+    (rand tm) ~~ f
   end handle HOL_ERR _ => false
 
 fun spec_kind_for f tm : spec_kind option =
@@ -476,7 +476,7 @@ fun xspec ffi_ty f (ttac: thm_tactic) (g as (asl, w)) =
 val unfolded_app_reduce_conv =
 let
   fun fail_if_F_conv msg tm =
-    if tm = boolSyntax.F then raise ERR "xapp" msg
+    if Feq tm then raise ERR "xapp" msg
     else REFL tm
 
   val fname_lookup_reduce_conv =
@@ -635,7 +635,7 @@ fun validate_pat_conv tm = let
       eval
   val conv' = (QUANT_CONV conv) THENC simp_conv []
   val th = conv' tm
-in if (rhs o concl) th = boolSyntax.T then th else fail () end
+in if Teq (rhs (concl th)) then th else fail () end
 
 val validate_pat_all_conv =
   REPEATC (

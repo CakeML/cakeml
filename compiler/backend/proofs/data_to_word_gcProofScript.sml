@@ -246,15 +246,25 @@ val EVEN_adjust_var = Q.store_thm("EVEN_adjust_var",
   full_simp_tac(srw_ss())[adjust_var_def,EVEN_MOD2,
     ONCE_REWRITE_RULE[MULT_COMM]MOD_TIMES]);
 
-val adjust_var_NEQ_0 = Q.store_thm("adjust_var_NEQ_0",
+val adjust_var_eq_numeral = store_thm("adjust_var_eq_numeral[simp]",
+  ``adjust_var n = NUMERAL k <=>
+    EVEN (NUMERAL k) /\ NUMERAL k <> 0 /\ n = (NUMERAL k - 2) DIV 2``,
+  qabbrev_tac `kk = NUMERAL k`
+  \\ pop_assum kall_tac
+  \\ fs [adjust_var_def] \\ fs [EVEN_EXISTS]
+  \\ rw [] \\ eq_tac \\ rw []
+  THEN1 (qexists_tac `n+1` \\ fs [])
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ Cases_on `m` \\ fs [ADD1,LEFT_ADD_DISTRIB]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+
+val adjust_var_NEQ_0 = Q.store_thm("adjust_var_NEQ_0[simp]",
   `adjust_var n <> 0`,
-  rpt strip_tac \\ full_simp_tac(srw_ss())[adjust_var_def]);
+  fs [adjust_var_def]);
 
 val adjust_var_NEQ_1 = Q.store_thm("adjust_var_NEQ_1",
   `adjust_var n <> 1`,
-  rpt strip_tac
-  \\ `EVEN (adjust_var n) = EVEN 1` by full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[EVEN_adjust_var]);
+  fs []);
 
 val adjust_var_NEQ = Q.store_thm("adjust_var_NEQ[simp]",
   `adjust_var n <> 0 /\
@@ -265,15 +275,7 @@ val adjust_var_NEQ = Q.store_thm("adjust_var_NEQ[simp]",
     adjust_var n <> 9 /\
     adjust_var n <> 11 /\
     adjust_var n <> 13`,
-  rpt strip_tac \\ fs [adjust_var_NEQ_0]
-  \\ `EVEN (adjust_var n) = EVEN 1` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 3` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 5` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 7` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 9` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 11` by full_simp_tac(srw_ss())[]
-  \\ `EVEN (adjust_var n) = EVEN 13` by full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[EVEN_adjust_var]);
+  fs [adjust_var_NEQ_0]);
 
 val unit_opt_eq = Q.store_thm("unit_opt_eq",
   `(x = y:unit option) <=> (IS_SOME x <=> IS_SOME y)`,

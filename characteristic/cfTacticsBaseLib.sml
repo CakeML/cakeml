@@ -31,7 +31,7 @@ fun NCONV 0 conv = REFL
 fun UNCHANGED_CONV conv t =
   let val thm = conv t
       val (l,r) = dest_eq (concl thm) in
-    if l = r then raise UNCHANGED else thm
+    if l ~~ r then raise UNCHANGED else thm
   end
 
 (*------------------------------------------------------------------*)
@@ -41,7 +41,7 @@ fun gen_try_one_instantiate_tac () = let
   fun to_try_next body = let
     val conjs = strip_conj body
   in
-    case List.find (fn tm => not (mem tm (!already_tried_tms))) conjs of
+    case List.find (fn tm => not (tmem tm (!already_tried_tms))) conjs of
         NONE => fail ()
       | SOME tm => tm
   end
@@ -60,7 +60,7 @@ in tac end
 fun rpt_until_change tac g = let
   val (gl, p) = tac g
 in
-  if set_eq gl [g] then rpt_until_change tac g
+  if goals_eq gl [g] then rpt_until_change tac g
   else (gl, p)
 end
 
@@ -197,7 +197,7 @@ fun fetch_v name st =
 fun fetch_def name st =
   let val v = fetch_v name st
       val v_defs = ml_progLib.get_v_defs st
-      val opt_thm = List.find (fn thm => (lhs o concl) thm = v) v_defs
+      val opt_thm = List.find (aconv v o (lhs o concl)) v_defs
   in valOf opt_thm end
 
 (*------------------------------------------------------------------*)
@@ -227,7 +227,7 @@ in
       end
    else if (is_eq thm_term) then
       (dir,
-        if ((lhs thm_term = t) andalso not (rhs thm_term = t)) then
+        if ((lhs thm_term ~~ t) andalso not (rhs thm_term ~~ t)) then
            if (dir = CONSEQ_CONV_UNKNOWN_direction) then
               thm
            else if (dir = CONSEQ_CONV_STRENGTHEN_direction) then
@@ -444,7 +444,7 @@ let
   val new_ex_vars = let
     val t_vars' = List.map (Term.subst sub) (quant_vars @ t_ex_vars)
     val s0 = HOLset.listItems (FVL t_vars' empty_tmset)
-    val s1 = Lib.filter (fn v => Lib.mem v (quant_vars @ t_ex_vars)) s0
+    val s1 = Lib.filter (fn v => tmem v (quant_vars @ t_ex_vars)) s0
   in s1 end
 
   val thm0 = let
