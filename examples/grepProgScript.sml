@@ -148,7 +148,7 @@ val _ = use_mem_intro := true;
 val r = translate build_or_def;
 val _ = use_mem_intro := false;
 
-val r = translate (normalize_def);
+val r = translate normalize_def;
 
 val r = translate mem_regexp_def;
 val r = translate exec_dfa_def;
@@ -346,13 +346,27 @@ val r = translate (pegexecTheory.peg_exec_def);
 
 (* -- *)
 
-(* TODO: translate shifts as part of a separate module? word module? *)
+val all_charsets_def = Define `
+  all_charsets = Vector (GENLIST (\n. charset_sing (CHR n)) 256)`;
 
-val r = translate (shift_left_def |> spec64 |> CONV_RULE (wordsLib.WORD_CONV));
+val all_charsets_eq = EVAL ``all_charsets``;
 
-(* -- *)
+val charset_sing_eq = prove(
+  ``!c. charset_sing c = sub all_charsets (ORD c)``,
+  Cases
+  \\ `ORD (CHR n) = n` by fs [ORD_CHR]
+  \\ asm_rewrite_tac [sub_def,all_charsets_def]
+  \\ fs [EL_GENLIST]);
 
-val r = translate (charset_sing_def |> SIMP_RULE(srw_ss())[shift_left_rwt]);
+val r = translate all_charsets_eq;
+val r = translate charset_sing_eq;
+
+val charset_sing_side = prove(
+  ``!c. charset_sing_side c = T``,
+  fs [fetch "-" "charset_sing_side_def"] \\ rw []
+  \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `256` \\ fs [ORD_BOUND] \\ EVAL_TAC)
+  |> update_precondition
 
 val _ = use_mem_intro := true;
 val r = translate EscapableChar_def;
