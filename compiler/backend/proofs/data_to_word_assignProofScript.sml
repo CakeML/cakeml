@@ -8208,6 +8208,27 @@ val th = Q.store_thm("assign_FFI",
   \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm => rpt_drule get_var_get_real_addr_lemma >> assume_tac thm)
   \\ simp[]
+  \\ rename1`_ ∧ ffi_name = ""`
+  \\ Cases_on`¬c.call_empty_ffi ∧ ffi_name = ""`
+  >- (
+    fs[wordSemTheory.evaluate_def]
+    \\ ntac 2 strip_tac
+    \\ simp[Unit_def,wordSemTheory.word_exp_def]
+    \\ conj_tac
+    >- (
+      qhdtm_x_assum`call_FFI`mp_tac
+      \\ simp[ffiTheory.call_FFI_def] )
+    \\ simp[wordSemTheory.set_var_def,lookup_insert]
+    \\ conj_tac >- (rw[] \\ metis_tac[])
+    >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert
+    >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ match_mp_tac memory_rel_Unit
+    \\ DEP_REWRITE_TAC[FUPDATE_ELIM]
+    \\ fs[FLOOKUP_DEF,ffiTheory.call_FFI_def])
+  \\ pop_assum (SUBST_ALL_TAC o EQF_INTRO)
+  \\ rewrite_tac[]
+  \\ eval_tac
   \\ qpat_abbrev_tac`tt = t with locals := _`
   \\ `get_var (adjust_var e1) tt = get_var (adjust_var e1) t`
   by fs[Abbr`tt`,wordSemTheory.get_var_def,lookup_insert]
@@ -8219,6 +8240,8 @@ val th = Q.store_thm("assign_FFI",
      (fn thm=> rpt_drule get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tt.store = t.store` by simp[Abbr`tt`]
   \\ simp[]
+  \\ qpat_abbrev_tac`ex1 = if ffi_name = "" then _ else _`
+  \\ qpat_abbrev_tac`ex2 = if ffi_name = "" then _ else _`
   \\ IF_CASES_TAC >- ( fs[shift_def] )
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qpat_x_assum`¬_`kall_tac
@@ -8238,6 +8261,72 @@ val th = Q.store_thm("assign_FFI",
      (fn thm=> rpt_drule get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `ttt.store = t.store` by simp[Abbr`ttt`]
   \\ simp[]
+  \\ qunabbrev_tac`ex1`
+  \\ qunabbrev_tac`ex2`
+  \\ Cases_on`ffi_name = ""` \\ fs[]
+  >- (
+    eval_tac
+    \\ fs[lookup_insert,wordSemTheory.word_exp_def,ffiTheory.call_FFI_def]
+    \\ fs[read_bytearray_def,wordSemTheory.write_bytearray_def]
+    \\ fs[cut_env_adjust_set_insert_ODD]
+    \\ fs[wordSemTheory.cut_env_def] \\ clean_tac
+    \\ reverse IF_CASES_TAC >- (
+      `F` suffices_by rw[]
+      >> pop_assum mp_tac
+      >> fs[cut_state_opt_def]
+      >> drule (#1(EQ_IMP_RULE cut_state_eq_some))
+      >> strip_tac
+      >> clean_tac
+      >> rw[SUBSET_DEF,domain_lookup]
+      >> fs[dataSemTheory.cut_env_def]
+      >> clean_tac >> fs[]
+      >> Cases_on`x=0` >- metis_tac[]
+      >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
+      >> `x ∈ domain ss` by metis_tac[domain_lookup]
+      >> qunabbrev_tac`ss`
+      >> imp_res_tac domain_adjust_set_EVEN
+      >> `∃z. x = adjust_var z`
+      by (
+          simp[adjust_var_def]
+          \\ fs[EVEN_EXISTS]
+          \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB] )
+      >> rveq
+      >> fs[lookup_adjust_var_adjust_set_SOME_UNIT]
+      >> last_x_assum(qspec_then`z`mp_tac)
+      >> simp[lookup_inter]
+      >> fs[IS_SOME_EXISTS]
+      >> disch_then match_mp_tac
+      >> BasicProvers.CASE_TAC
+      >> fs[SUBSET_DEF,domain_lookup]
+      >> res_tac >> fs[])
+    \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac`read_bytearray aa len g`
+    \\ qmatch_asmsub_rename_tac`LENGTH ls + 3`
+    \\ qispl_then[`ls`,`LENGTH ls`,`aa`]mp_tac IMP_read_bytearray_GENLIST
+    \\ impl_tac >- simp[]
+    \\ `len = LENGTH ls`
+    by (
+      simp[Abbr`len`]
+      \\ rfs[good_dimindex_def] \\ rfs[shift_def]
+      \\ simp[bytes_in_word_def,GSYM word_add_n2w]
+      \\ simp[dimword_def] )
+    \\ fs[] \\ strip_tac
+    \\ simp[Unit_def]
+    \\ eval_tac
+    \\ simp[lookup_insert,lookup_inter_alt]
+    \\ ntac 6 strip_tac
+    \\ conj_tac >- fs[adjust_set_def,domain_fromAList]
+    \\ simp[adjust_var_IN_adjust_set]
+    \\ conj_tac >- (
+      rw[] \\
+      fs[cut_state_opt_def] \\
+      fs[cut_state_eq_some] \\
+      clean_tac \\
+      fs[cut_env_def] \\ clean_tac \\
+      simp[lookup_inter_alt] )
+    >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ cheat )
+  \\ eval_tac
   \\ qpat_abbrev_tac`tttt = t with locals := _`
   \\ `get_var (adjust_var e1) tttt = get_var (adjust_var e1) t`
   by fs[Abbr`tttt`,wordSemTheory.get_var_def,lookup_insert]
@@ -8249,11 +8338,14 @@ val th = Q.store_thm("assign_FFI",
      (fn thm=> rpt_drule get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tttt.store = t.store` by simp[Abbr`tttt`]
   \\ simp[]
+  \\ IF_CASES_TAC >- ( fs[shift_def] )
+  \\ simp[]
   \\ qpat_abbrev_tac`ttttt = t with locals := _`
   \\ `get_var (adjust_var e1) ttttt = get_var (adjust_var e1) t`
   by fs[Abbr`ttttt`,wordSemTheory.get_var_def,lookup_insert]
   \\ `get_var (adjust_var e2) tttt = get_var (adjust_var e2) t`
   by fs[Abbr`ttttt`,wordSemTheory.get_var_def,lookup_insert]
+  \\ qpat_x_assum`¬_` kall_tac
   \\ rfs[]
   \\ rpt_drule get_var_get_real_addr_lemma
   \\ qpat_x_assum `get_var _ _ = SOME (WORD _)`
@@ -8443,35 +8535,35 @@ val th = Q.store_thm("assign_FFI",
           \\ drule memory_rel_tl \\ match_mp_tac memory_rel_rearrange
           \\ simp[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
           \\ rw[] \\ rw[] \\ metis_tac[])
-     >> `F` suffices_by rw[]
-     >> pop_assum mp_tac
-     >> fs[cut_state_opt_def]
-     >> drule (#1(EQ_IMP_RULE cut_state_eq_some))
-     >> strip_tac
-     >> clean_tac
-     >> simp[wordSemTheory.cut_env_def]
-     >> rw[SUBSET_DEF,domain_lookup]
-     >> fs[dataSemTheory.cut_env_def]
-     >> clean_tac >> fs[]
-     >> Cases_on`x=0` >- metis_tac[]
-     >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
-     >> `x ∈ domain ss` by metis_tac[domain_lookup]
-     >> qunabbrev_tac`ss`
-     >> imp_res_tac domain_adjust_set_EVEN
-     >> `∃z. x = adjust_var z`
-     by (
-         simp[adjust_var_def]
-         \\ fs[EVEN_EXISTS]
-         \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB] )
-     >> rveq
-     >> fs[lookup_adjust_var_adjust_set_SOME_UNIT]
-     >> last_x_assum(qspec_then`z`mp_tac)
-     >> simp[lookup_inter]
-     >> fs[IS_SOME_EXISTS]
-     >> disch_then match_mp_tac
-     >> BasicProvers.CASE_TAC
-     >> fs[SUBSET_DEF,domain_lookup]
-     >> res_tac >> fs[]);
+   >> `F` suffices_by rw[]
+   >> pop_assum mp_tac
+   >> fs[cut_state_opt_def]
+   >> drule (#1(EQ_IMP_RULE cut_state_eq_some))
+   >> strip_tac
+   >> clean_tac
+   >> simp[wordSemTheory.cut_env_def]
+   >> rw[SUBSET_DEF,domain_lookup]
+   >> fs[dataSemTheory.cut_env_def]
+   >> clean_tac >> fs[]
+   >> Cases_on`x=0` >- metis_tac[]
+   >> qmatch_assum_abbrev_tac`lookup x ss = SOME _`
+   >> `x ∈ domain ss` by metis_tac[domain_lookup]
+   >> qunabbrev_tac`ss`
+   >> imp_res_tac domain_adjust_set_EVEN
+   >> `∃z. x = adjust_var z`
+   by (
+       simp[adjust_var_def]
+       \\ fs[EVEN_EXISTS]
+       \\ Cases_on`m` \\ fs[ADD1,LEFT_ADD_DISTRIB] )
+   >> rveq
+   >> fs[lookup_adjust_var_adjust_set_SOME_UNIT]
+   >> last_x_assum(qspec_then`z`mp_tac)
+   >> simp[lookup_inter]
+   >> fs[IS_SOME_EXISTS]
+   >> disch_then match_mp_tac
+   >> BasicProvers.CASE_TAC
+   >> fs[SUBSET_DEF,domain_lookup]
+   >> res_tac >> fs[]);
 
 val assign_thm = Q.store_thm("assign_thm",
   `^assign_thm_goal`,

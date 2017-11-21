@@ -31,7 +31,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val arm6_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; gc_kind:=Simple|>``
+val arm6_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; call_empty_ffi:=T; gc_kind:=Simple|>``
 val arm6_word_conf = ``<| bitmaps := []:32 word list |>``
 val arm6_stack_conf = ``<|jump:=T;reg_names:=arm6_names|>``
 val arm6_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm6_config;init_clock:=5|>``

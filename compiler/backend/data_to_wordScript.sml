@@ -21,6 +21,7 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
+            ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
 val adjust_var_def = Define `
@@ -1453,6 +1454,7 @@ local val assign_quotation = `
                         (WriteWord32_on_32 c header1 dest 11)])],l)))
       | _ => (Skip, l))
     | FFI ffi_index =>
+      if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
       (dtcase args of
        | [v1; v2] =>
         let addr1 = real_addr c (adjust_var v1) in
@@ -1465,8 +1467,8 @@ local val assign_quotation = `
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
-          Assign 5 (Op Add [addr2; Const bytes_in_word]);
-          Assign 7 (Op Sub [fakelen2; Const (bytes_in_word-1w)]);
+          Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
+          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const (bytes_in_word-1w)]));
           FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)

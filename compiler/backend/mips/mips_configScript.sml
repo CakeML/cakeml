@@ -18,11 +18,11 @@ val mips_names_def = Define `
      insert 1 4 o
      insert 2 5 o
      insert 3 6 o
-     insert 4 7 o     
+     insert 4 7 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 2 o
      insert 5 24 o
-     insert 6 3 o     
+     insert 6 3 o
      insert 24 0 o
      insert 31 1) LN:num num_map`
 
@@ -34,7 +34,7 @@ val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
-val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=T; gc_kind:=Simple|>``
+val mips_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=T; call_empty_ffi:=T; gc_kind:=Simple|>``
 val mips_word_conf = ``<| bitmaps := []:64 word list |>``
 val mips_stack_conf = ``<|jump:=F;reg_names:=mips_names|>``
 val mips_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=mips_config;init_clock:=5|>``
