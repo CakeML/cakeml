@@ -8325,7 +8325,16 @@ val th = Q.store_thm("assign_FFI",
       fs[cut_env_def] \\ clean_tac \\
       simp[lookup_inter_alt] )
     >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ cheat )
+    \\ DEP_REWRITE_TAC[FUPDATE_ELIM]
+    \\ conj_tac >- fs[FLOOKUP_DEF]
+    \\ match_mp_tac memory_rel_insert
+    >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ match_mp_tac memory_rel_Unit \\ fs[]
+    \\ match_mp_tac (MP_CANON (GEN_ALL memory_rel_rearrange))
+    \\ last_assum(part_match_exists_tac rand o concl)
+    \\ simp[] \\ rw[] \\ fs[]
+    \\ fs[join_env_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_toAList,EXISTS_PROD,lookup_inter_alt]
+    \\ metis_tac[])
   \\ eval_tac
   \\ qpat_abbrev_tac`tttt = t with locals := _`
   \\ `get_var (adjust_var e1) tttt = get_var (adjust_var e1) t`
