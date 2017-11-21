@@ -3,7 +3,7 @@ structure compilationLib = struct
 open preamble backendTheory
      arm6_compileLib export_arm6Theory
      arm8_compileLib export_arm8Theory
-     mips_compileLib mips_exportLib
+     mips_compileLib export_mipsTheory
      riscv_compileLib export_riscvTheory
      x64_compileLib export_x64Theory
 
@@ -779,6 +779,10 @@ val x64_export_defs = [
   export_x64Theory.x64_export_def,
   export_x64Theory.ffi_asm_def];
 
+val mips_export_defs = [
+  export_mipsTheory.mips_export_def,
+  export_mipsTheory.ffi_asm_def];
+
 val riscv_export_defs = [
   export_riscvTheory.riscv_export_def,
   export_riscvTheory.ffi_asm_def];
@@ -921,6 +925,7 @@ fun cbv_to_bytes
     val result_thm = PURE_REWRITE_RULE[GSYM code_def, GSYM data_def, GSYM config_def] bootstrap_thm
 
     val ffi_names_tm = extract_ffi_names_tm (#config result)
+
     val out = TextIO.openOut filename
 
     val () = time (
@@ -951,7 +956,7 @@ val cbv_to_bytes_mips =
     "quad"
     mips_targetLib.add_mips_encode_compset
     mips_backend_config_def mips_names_def
-    [] (* TODO *)
+    mips_export_defs
 
 val cbv_to_bytes_riscv =
   cbv_to_bytes
