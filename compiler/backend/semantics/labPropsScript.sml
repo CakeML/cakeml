@@ -65,13 +65,13 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$dec_clock s).link_reg = s.link_reg) ∧
     ((labSem$dec_clock s).code = s.code) ∧
     ((labSem$dec_clock s).ptr_reg = s.ptr_reg) ∧
-    ((labSem$dec_clock s).ptr2_reg = s.ptr2_reg) ∧    
+    ((labSem$dec_clock s).ptr2_reg = s.ptr2_reg) ∧
     ((labSem$dec_clock s).ffi = s.ffi) ∧
     ((labSem$upd_pc x s).len_reg = s.len_reg) ∧
-    ((labSem$upd_pc x s).len2_reg = s.len2_reg) ∧    
+    ((labSem$upd_pc x s).len2_reg = s.len2_reg) ∧
     ((labSem$upd_pc x s).link_reg = s.link_reg) ∧
     ((labSem$upd_pc x s).code = s.code) ∧
-    ((labSem$upd_pc x s).ptr_reg = s.ptr_reg) ∧    
+    ((labSem$upd_pc x s).ptr_reg = s.ptr_reg) ∧
     ((labSem$upd_pc x s).ptr2_reg = s.ptr2_reg) ∧
     ((labSem$upd_pc x s).mem_domain = s.mem_domain) ∧
     ((labSem$upd_pc x s).failed = s.failed) ∧
@@ -81,9 +81,9 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$upd_pc x s).fp_regs = s.fp_regs) ∧
     ((labSem$upd_pc x s).ffi = s.ffi) ∧
     ((labSem$inc_pc s).ptr_reg = s.ptr_reg) ∧
-    ((labSem$inc_pc s).ptr2_reg = s.ptr2_reg) ∧    
+    ((labSem$inc_pc s).ptr2_reg = s.ptr2_reg) ∧
     ((labSem$inc_pc s).len_reg = s.len_reg) ∧
-    ((labSem$inc_pc s).len2_reg = s.len2_reg) ∧    
+    ((labSem$inc_pc s).len2_reg = s.len2_reg) ∧
     ((labSem$inc_pc s).link_reg = s.link_reg) ∧
     ((labSem$inc_pc s).code = s.code) ∧
     ((labSem$inc_pc s).be = s.be) ∧
@@ -133,7 +133,7 @@ val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
    (labSem$fp_upd f x).ptr_reg = x.ptr_reg ∧
    (labSem$fp_upd f x).len_reg = x.len_reg ∧
    (labSem$fp_upd f x).ptr2_reg = x.ptr2_reg ∧
-   (labSem$fp_upd f x).len2_reg = x.len2_reg ∧                                                                                   
+   (labSem$fp_upd f x).len2_reg = x.len2_reg ∧
    (labSem$fp_upd f x).link_reg = x.link_reg ∧
    (labSem$fp_upd f x).code = x.code ∧
    (labSem$fp_upd f x).be = x.be ∧
@@ -281,10 +281,9 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   Cases_on`x`>>fs[] >- (
     every_case_tac >> rw[] >> fs[] >>
     fs[inc_pc_def,dec_clock_def,asm_inst_consts] ) >>
-  Cases_on`a`>>fs[] >>
-  every_case_tac >> rw[] >> fs[] >>
+  Cases_on`a`>>fs[case_eq_thms] >> rw[] >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def] >>
-  pairarg_tac >> fs[] >>
+  TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[] \\
   fs[call_FFI_def] >>
   every_case_tac >> fs[] >> rfs[] >>
   rpt var_eq_tac >> fs[] >>
@@ -346,7 +345,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     drule (GEN_ALL evaluate_pres_final_event) >>
     unabbrev_all_tac >> fs[] >>
     every_case_tac >> fs[] >> rw[] >>
-    fs[IS_PREFIX_APPEND] ) >>
+    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] ) >>
   fs[asm_fetch_def] >>
   Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
   Cases_on`x`>>fs[] >>
