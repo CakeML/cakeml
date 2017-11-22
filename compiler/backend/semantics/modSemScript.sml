@@ -451,6 +451,13 @@ val pat_bindings_def = Define `
   (pats_bindings [] already_bound = already_bound) ∧
   (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))`;
 
+val same_ctor_def = Define `
+  same_ctor check_type n1 n2 ⇔
+    if check_type then
+      n1 = n2
+    else
+      FST n1 = FST n2`;
+
 val pmatch_def = tDefine "pmatch" `
   (pmatch env s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
   (pmatch env s modLang$Pany v' bindings = Match bindings) ∧
@@ -465,12 +472,12 @@ val pmatch_def = tDefine "pmatch" `
     if env.check_ctor ∧
        ((n, LENGTH ps) ∉ env.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
       Match_type_error
-    else if same_ctor n n' ∧ LENGTH ps = LENGTH vs then
+    else if same_ctor env.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
       pmatch_list env s ps vs bindings
     else
       No_match) ∧
   (pmatch env s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if LENGTH ps = LENGTH vs then
+    if env.check_ctor && LENGTH ps = LENGTH vs then
       pmatch_list env s ps vs bindings
     else
       Match_type_error) ∧
@@ -622,7 +629,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet e) =
    case evaluate (env with v := []) s [e] of
-   | (s, Rval [Conv NONE vs]) => (s, Rval ({},vs))
+   | (s, Rval [Conv NONE []]) => (s, Rval {})
    | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
    | (s, Rerr e) => (s, Rerr e)) ∧
   (evaluate_dec env s (Dtype ctors) =
@@ -631,21 +638,17 @@ val evaluate_dec_def = Define`
              { ((idx, SOME s.next_type_id), arity) |
                arity < LENGTH ctors ∧ idx < EL arity ctors }
            else
-             {},
-           []))) ∧
+             {}))) ∧
   (evaluate_dec env s (Dexn arity) =
     (s with next_exn_id := s.next_exn_id + 1,
-     Rval ({((s.next_exn_id, NONE), arity)}, [])))`;
+     Rval ({((s.next_exn_id, NONE), arity)})))`;
 
 val evaluate_decs_def = Define`
   (evaluate_decs env s [] = (s, {}, NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
-   | (s, Rval (new_ctors,new_env)) =>
-     (case evaluate_decs
-             (env with c updated_by $UNION new_ctors)
-             (s with globals updated_by (λg. g ++ MAP SOME new_env))
-             ds of
+   | (s, Rval new_ctors) =>
+     (case evaluate_decs (env with c updated_by $UNION new_ctors) s ds of
       | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
    | (s, Rerr e) => (s, {}, SOME e))`;
 
