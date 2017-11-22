@@ -6,7 +6,7 @@ open preamble
 val _ = new_theory "readerProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
-(* --- Standard translation ------------------------------------------------ *)
+(* --- Translate readerTheory ---------------------------------------------- *)
 
 val _ = translate init_state_def
 val _ = translate mk_BN_def
@@ -36,31 +36,6 @@ val _ = (use_mem_intro := false)
 val _ = translate OPTION_MAP_DEF
 val _ = translate holSyntaxExtraTheory.match_type_def
 
-(* --- Side conditions --- *)
-
-val _ = translate numposrepTheory.l2n_def
-
-val l2n_side = Q.store_thm("l2n_side",
-  `!a0 a1. l2n_side a0 a1 <=> T`,
-  cheat
-  (*fetch "-" "l2n_side_def"*)
-  ) |> update_precondition;
-
-val _ = translate ASCIInumbersTheory.s2n_def
-
-val _ = translate ASCIInumbersTheory.UNHEX_def
-
-val unhex_side = Q.store_thm("unhex_side",
-  `!x1. unhex_side x1 <=> T`,
-  cheat
-  (*fetch "-" "unhex_side_def"*)
-  ) |> update_precondition;
-
-val _ = translate ASCIInumbersTheory.num_from_dec_string_def
-val _ = translate ASCIInumbersTheory.fromDecString_def
-
-(* --- Monadic translation ------------------------------------------------- *)
-
 val _ = m_translate find_axiom_def
 val _ = m_translate getNum_def
 val _ = m_translate getName_def
@@ -78,22 +53,19 @@ val _ = m_translate getNvs_def
 val _ = m_translate getCns_def
 val _ = m_translate getTys_def
 val _ = m_translate getTms_def
-
-val _ = m_translate readLine_def (* Has side conditions *)
+val _ = m_translate readLine_def
 
 val readline_side = Q.store_thm("readline_side",
-  `!v0 v1. readline_side v0 v1 <=> T`,
-  cheat
-  (*fetch "-" "readline_side_def"*)
-  ) |> update_precondition;
-
-val _ = m_translate readLines_def
-val _ = m_translate run_reader_def
+  `!st1 l s. readline_side st1 l s <=> T`,
+  rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
+  |> update_precondition;
 
 (* --- CakeML wrapper ------------------------------------------------------ *)
 
-open ioProgTheory ioProgLib cfTacticsLib basisFunctionsLib rofsFFITheory
-     mlfileioProgTheory
+open basisProgTheory basis_ffiTheory basis_ffiLib basisFunctionsLib
+     cfTacticsLib cfLib fsFFITheory
+open cfMonadTheory cfMonadLib
+open ml_translatorTheory fsFFIPropsTheory
 
 val msg_usage_def = Define `msg_usage = strlit"Usage: reader <article>\n"`
 
@@ -111,63 +83,141 @@ val _ = translate msg_usage_def
 val _ = translate msg_bad_name_def
 val _ = translate msg_failure_def
 
-(* Remove trailing newline from FileIO.inputLine. *)
-val clean_line_def = Define `
-  clean_line s =
-    case explode s of
-      []    => strlit""
-    | c::cs => implode (FRONT (c::cs))
-    `;
+val _ = process_topdecs `
+  fun read_line st0 ins =
+    case TextIO.inputLine ins of
+      NONE    => st0 (* EOF *)
+    | SOME ln =>
+        let val len = String.size ln in
+          if len <= 1 then st0 (* Invalid line; "" or "\n" *)
+          else if String.sub ln 0 = #"#" then st0 (* Comment *)
+          else
+            let
+              val pfx = String.extract ln 0 (SOME (len-1))
+            in
+              readline pfx st0
+            end
+        end`
+  |> append_prog;
 
-(* Remove empty lines if any. *)
-val clean_lines_def = Define `
-  clean_lines ss = FILTER ($<> (strlit"")) (MAP clean_line ss)
-  `;
+val Valid_line_def = Define `
+  Valid_line str <=>
+    STRLEN str > 1 /\
+    ~IS_PREFIX str "#"`;
 
-(* Comments are strings with a leading # character. *)
-val is_comment = Define `
-  is_comment s =
-    case explode s of
-      #"#"::_ => T
-    | _ => F
-  `;
+val str_prefix_def = Define `
+  str_prefix str = extract str 0 (SOME (strlen str - 1))`;
 
-(* Strip lines with comments *)
-val strip_comments = Define `
-  strip_comments ss = FILTER ($<> is_comment) ss
-  `;
+val readline_spec = save_thm (
+  "readline_spec",
+  mk_app_of_ArrowP ``p: 'ffi ffi_proj`` (theorem "readline_v_thm"));
 
-val _ = translate clean_line_def
-val _ = translate clean_lines_def
-val _ = translate is_comment
-val _ = translate strip_comments
+(* Additional definitions *)
+open holKernelTheory ml_monadBaseTheory mlstringTheory
 
+val read_line_spec = Q.store_thm("read_line_spec",
+  `WORD (n2w fd : word8) fdv /\ fd <= 255 /\
+   IS_SOME (get_file_content fs fd) /\
+   STATE_TYPE st stv
+   ==>
+   app (p: 'ffi ffi_proj) ^(fetch_v "read_line" (get_ml_prog_state()))
+     [stv; fdv]
+     (STDIO fs * HOL_STORE refs)
+     (POST
+       (\stov.
+        case lineFD fs fd of
+          NONE =>
+            STDIO (lineForwardFD fs fd) *
+            HOL_STORE refs *
+            &(stov = stv)
+        | SOME ln =>
+            if Valid_line ln then
+              SEP_EXISTS sto refs'.
+                STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
+                &(readLine (str_prefix (strlit ln)) st refs = (Success sto, refs')) *
+                &STATE_TYPE sto stov
+            else
+              STDIO (lineForwardFD fs fd) *
+              HOL_STORE refs *
+              &(stov = stv))
+       (\ev.
+         SEP_EXISTS e ln refs'.
+           STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
+           &(readLine (str_prefix (strlit ln)) st refs = (Failure e, refs')) *
+           &HOL_EXN_TYPE e ev *
+           &(lineFD fs fd = SOME ln /\
+             STRLEN ln > 1 /\
+             ~IS_PREFIX ln "#")))`,
+  xcf "read_line" (get_ml_prog_state())
+  \\ xlet_auto >- xsimpl (* TextIO.inputLine *)
+  \\ Cases_on `lineFD fs fd` \\ fs [OPTION_TYPE_def] \\ xmatch
+  >- (xvar \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xif \\ fs [Valid_line_def]
+  >- (xvar \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >-
+   (`?t. x = #"#"::t` by (Cases_on `x` \\ fs [implode_def]) \\ fs []
+    \\ xvar \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ `OPTION_TYPE NUM (SOME (STRLEN x - 1)) v'` by
+   (fs [OPTION_TYPE_def, NUM_def, INT_def]
+    \\ Cases_on `x` \\ fs []
+    \\ intLib.COOPER_TAC)
+  \\ rveq
+  \\ xlet_auto >- xsimpl
+  \\ xapp \\ xsimpl
+  \\ instantiate \\ xsimpl
+  \\ fs [str_prefix_def]
+  \\ xsimpl
+  \\ `?h t. x = h::t /\ h <> #"#"` by (Cases_on `x` \\ fs [implode_def]) \\ fs []
+  \\ qexists_tac `STDIO (lineForwardFD fs fd)` \\ xsimpl
+  \\ qexists_tac `refs` \\ xsimpl
+  \\ conj_tac
+  \\ rw [implode_def] \\ xsimpl);
+
+(* Read all lines until input is exhausted *)
+val _ = process_topdecs `
+  fun read_lines inp =
+
+
+
+  `
+  |> append_prog;
+
+(*
 val _ = process_topdecs `
   fun read_lines ls =
     let
       val st = run_reader (strip_comments (clean_lines ls))
     in
-      print "OK.\n"
+      TextIO.print_string "OK.\n"
     end
-    handle Fail msg => print_err (msg_failure msg)
+    handle Fail Lsg => TextIO.prerr_string (msg_failure msg)
   ` |> append_prog;
-
+*)
 val _ = process_topdecs `
   fun read_file fname =
-    case FileIO.inputLinesFrom fname of
+    case TextIO.inputLinesFrom fname of
       SOME ls => read_lines ls
-    | NONE    => print_err (msg_bad_name fname)
+    | NONE    => TextIO.prerr_string (msg_bad_name fname)
   ` |> append_prog;
 
 val _ = process_topdecs `
   fun reader_main u =
-    case Commandline.arguments () of
+    case CommandLine.arguments () of
       [fname] => read_file fname
-    | _       => print_err msg_usage
+    | _       => TextIO.prerr_string msg_usage
   ` |> append_prog;
 
 val st   = get_ml_prog_state ();
 val name = "reader_main"
+
+open ml_progLib
 
 (* TODO: Replace with call_thm *)
 val reader_prog_tm =
