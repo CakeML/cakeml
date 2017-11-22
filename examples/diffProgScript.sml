@@ -95,10 +95,10 @@ val r = translate usage_string_def;
 val _ = (append_prog o process_topdecs) `
   fun diff' fname1 fname2 =
     case TextIO.inputLinesFrom fname1 of
-        NONE => TextIO.prerr_string (notfound_string fname1)
+        NONE => TextIO.output TextIO.stdErr (notfound_string fname1)
       | SOME lines1 =>
         case TextIO.inputLinesFrom fname2 of
-            NONE => TextIO.prerr_string (notfound_string fname2)
+            NONE => TextIO.output TextIO.stdErr (notfound_string fname2)
           | SOME lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
 
 val diff'_spec = Q.store_thm("diff'_spec",
@@ -127,7 +127,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
-      \\ xapp \\ xsimpl)
+      \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
@@ -138,7 +138,7 @@ val diff'_spec = Q.store_thm("diff'_spec",
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
-      \\ xapp \\ xsimpl)
+      \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
@@ -149,7 +149,7 @@ val _ = (append_prog o process_topdecs) `
   fun diff u =
     case CommandLine.arguments () of
         (f1::f2::[]) => diff' f1 f2
-      | _ => TextIO.prerr_string usage_string`;
+      | _ => TextIO.output TextIO.stdErr usage_string`;
 
 val diff_spec = Q.store_thm("diff_spec",
   `hasFreeFD fs
@@ -176,17 +176,17 @@ val diff_spec = Q.store_thm("diff_spec",
   \\ xlet_auto >- xsimpl
   \\ Cases_on `cl` \\ fs[wfcl_def]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xmatch
   \\ reverse(Cases_on `t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ (reverse strip_tac >- (EVAL_TAC \\ rw[]))
-  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xapp \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs`
