@@ -116,38 +116,39 @@ val readline_spec = save_thm (
 open holKernelTheory ml_monadBaseTheory mlstringTheory
 
 val read_line_spec = Q.store_thm("read_line_spec",
-  `WORD (n2w fd : word8) fdv /\ fd <= 255 /\
-   IS_SOME (get_file_content fs fd) /\
-   STATE_TYPE st stv
-   ==>
-   app (p: 'ffi ffi_proj) ^(fetch_v "read_line" (get_ml_prog_state()))
-     [stv; fdv]
-     (STDIO fs * HOL_STORE refs)
-     (POST
-       (\stov.
-        case lineFD fs fd of
-          NONE =>
-            STDIO (lineForwardFD fs fd) *
-            HOL_STORE refs *
-            &OPTION_TYPE STATE_TYPE NONE stov
-        | SOME ln =>
-            if Valid_line ln then
-              SEP_EXISTS sto refs'.
-                STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
-                &(readLine (str_prefix (strlit ln)) st refs = (Success sto, refs')) *
-                &OPTION_TYPE STATE_TYPE (SOME sto) stov
-            else
+  `!fs fd fdv st stv refs.
+     WORD (n2w fd : word8) fdv /\ fd <= 255 /\
+     IS_SOME (get_file_content fs fd) /\
+     STATE_TYPE st stv
+     ==>
+     app (p: 'ffi ffi_proj) ^(fetch_v "read_line" (get_ml_prog_state()))
+       [stv; fdv]
+       (STDIO fs * HOL_STORE refs)
+       (POST
+         (\stov.
+          case lineFD fs fd of
+            NONE =>
               STDIO (lineForwardFD fs fd) *
               HOL_STORE refs *
-              &OPTION_TYPE STATE_TYPE (SOME st) stov)
-       (\ev.
-         SEP_EXISTS e ln refs'.
-           STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
-           &(readLine (str_prefix (strlit ln)) st refs = (Failure e, refs')) *
-           &HOL_EXN_TYPE e ev *
-           &(lineFD fs fd = SOME ln /\
-             STRLEN ln > 1 /\
-             ~IS_PREFIX ln "#")))`,
+              &OPTION_TYPE STATE_TYPE NONE stov
+          | SOME ln =>
+              if Valid_line ln then
+                SEP_EXISTS sto refs'.
+                  STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
+                  &(readLine (str_prefix (strlit ln)) st refs = (Success sto, refs')) *
+                  &OPTION_TYPE STATE_TYPE (SOME sto) stov
+              else
+                STDIO (lineForwardFD fs fd) *
+                HOL_STORE refs *
+                &OPTION_TYPE STATE_TYPE (SOME st) stov)
+         (\ev.
+           SEP_EXISTS e ln refs'.
+             STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
+             &(readLine (str_prefix (strlit ln)) st refs = (Failure e, refs')) *
+             &HOL_EXN_TYPE e ev *
+             &(lineFD fs fd = SOME ln /\
+               STRLEN ln > 1 /\
+               ~IS_PREFIX ln "#")))`,
   xcf "read_line" (get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ Cases_on `lineFD fs fd` \\ fs [OPTION_TYPE_def] \\ xmatch
@@ -205,7 +206,7 @@ val _ = process_topdecs `
       go init_state;
       TextIO.closeIn ins
     end
-    handle BadFileName e => TextIO.prerr_string (msg_bad_name file)`
+    handle TextIO.BadFileName e => TextIO.prerr_string (msg_bad_name file)`
   |> append_prog;
 
 val fix_lines_def = Define `
@@ -224,19 +225,105 @@ val read_file_spec = Q.store_thm("read_file_spec",
             (case readLines (fix_lines (splitlines content)) init_state refs of
               (Success s, refs') =>
                   STDIO (add_stdout fs "OK!\n") *
-                  HOL_REFS refs'
+                  HOL_STORE refs'
             | (Failure (Fail e), refs') =>
-                  STDIO (add_to_stderr fs (explode (msg_failure e))) *
-                  HOL_REFS refs'
+                  STDIO (add_stderr fs (explode (msg_failure e))) *
+                  HOL_STORE refs'
             | (Failure (Clash e), refs') =>
-                  STDIO (add_to_stderr fs "KERNEL CLASH.\n") *
-                  HOL_REFS refs')
+                  STDIO (add_stderr fs "KERNEL CLASH.\n") *
+                  HOL_STORE refs')
        | NONE =>
-           STDIO (add_to_stderr fs (explode (msg_bad_name fn))) *
-           HOL_REFS refs))`,
+           STDIO (add_stderr fs (explode (msg_bad_name fn))) *
+           HOL_STORE refs))`,
 
   xcf "read_file" (get_ml_prog_state())
-
+  \\ reverse (Cases_on `STD_streams fs`)
+  >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ xhandle
+    `POST
+      (\u.
+        SEP_EXISTS content.
+          &UNIT_TYPE () u *
+          &(ALOOKUP fs.files (File fnm) = SOME content) *
+          (case readLines (fix_lines (splitlines content)) init_state refs of
+            (Success s, refs') =>
+                STDIO (add_stdout fs "OK!\n") *
+                HOL_STORE refs'
+          | (Failure (Fail e), refs') =>
+                STDIO (add_to_stderr fs (explode (msg_failure e))) *
+                HOL_STORE refs'
+          | (Failure (Clash e), refs') =>
+                STDIO (add_to_stderr fs "KERNEL CLASH.\n") *
+                HOL_STORE refs'))
+      (\e.
+        &BadFileName_exn e *
+        &(~inFS_fname fs (File fnm)) *
+        STDIO fs * HOL_STORE refs)` \\ xsimpl
+  >-
+   (
+    xlet_auto_spec (SOME (SPEC_ALL TextIOProofTheory.openIn_STDIO_spec)) \\ xsimpl
+    \\ imp_res_tac nextFD_leX
+    \\ qspec_then `0` drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD) \\ fs []
+    \\ strip_tac
+    \\ imp_res_tac STD_streams_nextFD
+    \\ qabbrev_tac `fd = nextFD fs`
+    \\ xfun_spec `go`
+      `!m n stg stvg fsg refsg.
+         STATE_TYPE stg stvg /\
+         m = STRLEN content - n /\
+         n <= STRLEN content /\
+         STD_streams fsg /\
+         get_file_content fsg fd = SOME (content, n)
+         ==>
+         app p go [stvg]
+           (STDIO fsg * HOL_STORE refsg)
+           (POSTv u.
+             &UNIT_TYPE () u *
+             (case readLines (fix_lines (splitlines (DROP n content))) init_state refsg of
+               (Success s, refs') =>
+                   STDIO (add_stdout (fastForwardFD fsg fd) "OK!\n") *
+                   HOL_STORE refs'
+             | (Failure (Fail e), refs') =>
+                   STDIO (add_stderr (forwardFD fsg fd n) (explode (msg_failure e))) *
+                   HOL_STORE refs'
+             | (Failure (Clash e), refs') =>
+                   STDIO (add_stderr (forwardFD fsg fd n) "KERNEL CLASH.\n") *
+                   HOL_STORE refs'))`
+    >-
+     (
+      Induct
+      >-
+       (rpt strip_tac
+        \\ `n = STRLEN content` by fs [] \\ fs [] \\ rveq
+        \\ imp_res_tac get_file_content_eof \\ fs []
+        \\ xapp
+        \\ `IS_SOME (get_file_content fsg fd)` by fs []
+        \\ `lineFD fsg fd = NONE` by fs [lineFD_def]
+        \\ xlet_auto_spec
+          (SOME (Q.SPECL [`fsg: IO_fs`,`fd`] read_line_spec)) \\ xsimpl
+        >-
+         (qexists_tac `GC`
+          \\ qexists_tac `refsg`
+          \\ xsimpl)
+        \\ fs [DROP_LENGTH_NIL, fix_lines_def]
+        \\ once_rewrite_tac [readLines_def]
+        \\ fs [st_ex_return_def, OPTION_TYPE_def]
+        \\ xmatch
+        \\ xapp \\ xsimpl
+        \\ imp_res_tac lineFD_NONE_lineForwardFD_fastForwardFD \\ fs []
+        \\ qexists_tac `HOL_STORE refsg` \\ xsimpl
+        \\ qexists_tac `fastForwardFD fsg fd` \\ xsimpl)
+      \\ rpt strip_tac
+      \\ last_assum xapp_spec
+      \\ xlet_auto_spec
+        (SOME (Q.SPECL [`fsg: IO_fs`,`fd`] read_line_spec)) \\ xsimpl
+      >- cheat (* TODO *)
+      >- cheat (* TODO *)
+      \\ cheat (* TODO *)
+     )
+    \\ cheat (* TODO *)
+   )
+  \\ cheat (* TODO *)
   );
 
 val _ = process_topdecs `
