@@ -86,16 +86,16 @@ val _ = translate msg_failure_def
 val _ = process_topdecs `
   fun read_line st0 ins =
     case TextIO.inputLine ins of
-      NONE    => st0 (* EOF *)
+      NONE    => NONE (* EOF *)
     | SOME ln =>
         let val len = String.size ln in
-          if len <= 1 then st0 (* Invalid line; "" or "\n" *)
-          else if String.sub ln 0 = #"#" then st0 (* Comment *)
+          if len <= 1 then SOME st0 (* Invalid line; "" or "\n" *)
+          else if String.sub ln 0 = #"#" then SOME st0 (* Comment *)
           else
             let
               val pfx = String.extract ln 0 (SOME (len-1))
             in
-              readline pfx st0
+              SOME (readline pfx st0)
             end
         end`
   |> append_prog;
@@ -129,17 +129,17 @@ val read_line_spec = Q.store_thm("read_line_spec",
           NONE =>
             STDIO (lineForwardFD fs fd) *
             HOL_STORE refs *
-            &(stov = stv)
+            &OPTION_TYPE STATE_TYPE NONE stov
         | SOME ln =>
             if Valid_line ln then
               SEP_EXISTS sto refs'.
                 STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
                 &(readLine (str_prefix (strlit ln)) st refs = (Success sto, refs')) *
-                &STATE_TYPE sto stov
+                &OPTION_TYPE STATE_TYPE (SOME sto) stov
             else
               STDIO (lineForwardFD fs fd) *
               HOL_STORE refs *
-              &(stov = stv))
+              &OPTION_TYPE STATE_TYPE (SOME st) stov)
        (\ev.
          SEP_EXISTS e ln refs'.
            STDIO (lineForwardFD fs fd) * HOL_STORE refs' *
@@ -149,19 +149,19 @@ val read_line_spec = Q.store_thm("read_line_spec",
              STRLEN ln > 1 /\
              ~IS_PREFIX ln "#")))`,
   xcf "read_line" (get_ml_prog_state())
-  \\ xlet_auto >- xsimpl (* TextIO.inputLine *)
+  \\ xlet_auto >- xsimpl
   \\ Cases_on `lineFD fs fd` \\ fs [OPTION_TYPE_def] \\ xmatch
   >- (xvar \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xif \\ fs [Valid_line_def]
-  >- (xvar \\ xsimpl)
+  >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
    (`?t. x = #"#"::t` by (Cases_on `x` \\ fs [implode_def]) \\ fs []
-    \\ xvar \\ xsimpl)
+    \\ xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ `OPTION_TYPE NUM (SOME (STRLEN x - 1)) v'` by
@@ -170,70 +170,102 @@ val read_line_spec = Q.store_thm("read_line_spec",
     \\ intLib.COOPER_TAC)
   \\ rveq
   \\ xlet_auto >- xsimpl
-  \\ xapp \\ xsimpl
-  \\ instantiate \\ xsimpl
-  \\ fs [str_prefix_def]
+  \\ xlet_auto \\ xsimpl
+  >-
+   (qexists_tac `STDIO (lineForwardFD fs fd)`
+    \\ qexists_tac `refs`
+    \\ xsimpl)
+  >-
+   (fs [implode_def, str_prefix_def]
+    \\ rw [] \\ xsimpl
+    \\ CASE_TAC \\ fs [])
+  \\ xcon
+  >-
+   (fs [implode_def, str_prefix_def]
+    \\ CASE_TAC \\ fs []
+    \\ xsimpl)
   \\ xsimpl
-  \\ `?h t. x = h::t /\ h <> #"#"` by (Cases_on `x` \\ fs [implode_def]) \\ fs []
-  \\ qexists_tac `STDIO (lineForwardFD fs fd)` \\ xsimpl
-  \\ qexists_tac `refs` \\ xsimpl
-  \\ conj_tac
-  \\ rw [implode_def] \\ xsimpl);
+  \\ CASE_TAC \\ fs []
+  \\ fs [implode_def, str_prefix_def]);
 
 (* Read all lines until input is exhausted *)
 val _ = process_topdecs `
-  fun read_lines inp =
+  fun read_file file =
+    let
+      val ins = TextIO.openIn file
 
+      fun go st0 =
+        case read_line st0 ins of
+          NONE => TextIO.print_string "OK!\n"
+        | SOME st1 => go st1
+        handle Fail e => TextIO.prerr_string (msg_failure e)
+             | Clash e => TextIO.prerr_string "KERNEL CLASH.\n"
 
-
-  `
+    in
+      go init_state;
+      TextIO.closeIn ins
+    end
+    handle BadFileName e => TextIO.prerr_string (msg_bad_name file)`
   |> append_prog;
 
-(*
-val _ = process_topdecs `
-  fun read_lines ls =
-    let
-      val st = run_reader (strip_comments (clean_lines ls))
-    in
-      TextIO.print_string "OK.\n"
-    end
-    handle Fail Lsg => TextIO.prerr_string (msg_failure msg)
-  ` |> append_prog;
-*)
-val _ = process_topdecs `
-  fun read_file fname =
-    case TextIO.inputLinesFrom fname of
-      SOME ls => read_lines ls
-    | NONE    => TextIO.prerr_string (msg_bad_name fname)
-  ` |> append_prog;
+val fix_lines_def = Define `
+  fix_lines ss = MAP strlit (FILTER (\s. ~(IS_PREFIX s "#" \/ NULL s)) ss)`;
+
+val read_file_spec = Q.store_thm("read_file_spec",
+  `FILENAME fnm fnv /\
+   hasFreeFD fs
+   ==>
+   app (p: 'ffi ffi_proj) ^(fetch_v "read_file" (get_ml_prog_state())) [fnv]
+     (STDIO fs * HOL_STORE refs)
+     (POSTv u.
+       &UNIT_TYPE () u *
+       (case ALOOKUP fs.files (File fnm) of
+          SOME content =>
+            (case readLines (fix_lines (splitlines content)) init_state refs of
+              (Success s, refs') =>
+                  STDIO (add_stdout fs "OK!\n") *
+                  HOL_REFS refs'
+            | (Failure (Fail e), refs') =>
+                  STDIO (add_to_stderr fs (explode (msg_failure e))) *
+                  HOL_REFS refs'
+            | (Failure (Clash e), refs') =>
+                  STDIO (add_to_stderr fs "KERNEL CLASH.\n") *
+                  HOL_REFS refs')
+       | NONE =>
+           STDIO (add_to_stderr fs (explode (msg_bad_name fn))) *
+           HOL_REFS refs))`,
+
+  xcf "read_file" (get_ml_prog_state())
+
+  );
 
 val _ = process_topdecs `
   fun reader_main u =
     case CommandLine.arguments () of
-      [fname] => read_file fname
-    | _       => TextIO.prerr_string msg_usage
+      [file] => read_file file
+    | _      => TextIO.prerr_string msg_usage
   ` |> append_prog;
 
-val st   = get_ml_prog_state ();
+val st = get_ml_prog_state ();
 val name = "reader_main"
 
-open ml_progLib
+(*open ml_progLib*)
 
-(* TODO: Replace with call_thm *)
-val reader_prog_tm =
-  let
-    val th =
-      call_main_thm_basis
-      |> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
-      |> SPEC(stringSyntax.fromMLstring name)
-      |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
-      |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
-      (*|> C HO_MATCH_MP spec*)
-    val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-    val prog_rewrite = EVAL prog_with_snoc
-  in
-    rhs (concl prog_rewrite)
-  end
+(*[> TODO: Replace with call_thm <]*)
+(*val reader_prog_tm =*)
+  (*let*)
+    (*val th =*)
+      (*call_main_thm_basis*)
+      (*|> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)*)
+      (*|> SPEC(stringSyntax.fromMLstring name)*)
+      (*|> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))*)
+      (*|> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)*)
+      (*[>|> C HO_MATCH_MP spec<]*)
+    (*val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc*)
+    (*val prog_rewrite = EVAL prog_with_snoc*)
+  (*in*)
+    (*rhs (concl prog_rewrite)*)
+  (*end*)
 
 val reader_prog_def = Define `reader_prog = ^reader_prog_tm`
 
