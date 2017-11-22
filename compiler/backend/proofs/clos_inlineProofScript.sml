@@ -2,9 +2,13 @@ open preamble closPropsTheory clos_inlineTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;
 
+val qexistsl_tac = map_every qexists_tac;
+fun bump_assum pat = qpat_x_assum pat assume_tac;
+
+
 val _ = new_theory "clos_inlineProof";
 
-(* More than one resolution of overloading was possible? *)
+
 
 val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks",
   ``!(es:closLang$exp list). LENGTH (remove_ticks es) = LENGTH es``,
@@ -87,14 +91,6 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   prove(``v_rel x Unit <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])])
 
-(*
-val LIST_REL_f_rel_IMP = prove(
-  ``!fns funs1. LIST_REL (f_rel) funs1 fns ==> !x. ~(MEM (0,x) fns)``,
-  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
-  \\ res_tac \\ fs []
-  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def, code_rel_def]);
-*)
-
 (* state relation *)
 
 val v_rel_opt_def = Define `
@@ -144,8 +140,6 @@ val remove_ticks_Tick = store_thm("remove_ticks_Tick",
   ``!x t e. ~([Tick t e] = remove_ticks [x])``,
   Induct \\ fs [remove_ticks_def]);
 
-val qexistsl_tac = map_every qexists_tac;
-
 val remove_ticks_Var_IMP_mk_Ticks = store_thm("remove_ticks_IMP_mk_Ticks",
   ``(!x tr n. [Var tr n] = remove_ticks [x] ==> ?ts. x = mk_Ticks ts (Var tr n))``,
   Induct \\ fs [remove_ticks_def] \\ metis_tac [mk_Ticks_def]);
@@ -158,29 +152,25 @@ val remove_ticks_If_IMP_mk_Ticks = store_thm("remove_ticks_If_IMP_mk_Ticks",
                       e2' = HD (remove_ticks [e2]) /\
                       e3' = HD (remove_ticks [e3])``,
   Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `x`, `x'`, `x''`] \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `e2`, `e3`] \\ fs [mk_Ticks_def]);
- 
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexists_tac `t::ts` \\ metis_tac [mk_Ticks_def]);
+
 val remove_ticks_Let_IMP_mk_Ticks = store_thm("remove_ticks_Let_IMP_mk_Ticks",
   ``!x t l e. [Let t l e] = remove_ticks [x] ==>
               (?ts l' e'. x = mk_Ticks ts (Let t l' e') /\
                l = remove_ticks l' /\
                [e] = remove_ticks [e'])``,
   Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `l`, `x`] \\ fs [mk_Ticks_def])
-  \\ res_tac
-  \\ qexistsl_tac [`t::ts`, `l'`, `e'`]
-  \\ fs [mk_Ticks_def]);
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ res_tac  \\ qexistsl_tac [`t::ts`, `l'`, `e'`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Raise_IMP_mk_Ticks = store_thm(
   "remove_ticks_Raise_IMP_mk_Ticks",
   ``!x t e. [Raise t e] = remove_ticks [x] ==>
             (?ts e'. x = mk_Ticks ts (Raise t e') /\ [e] = remove_ticks [e'])``,
   Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `x`] \\ fs [mk_Ticks_def])
-  \\ res_tac
-  \\ qexistsl_tac [`t::ts`, `e'`]
-  \\ fs [mk_Ticks_def]);
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e'`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Handle_IMP_mk_Ticks = store_thm(
   "remove_ticks_Handle_IMP_mk_Ticks",
@@ -188,24 +178,22 @@ val remove_ticks_Handle_IMP_mk_Ticks = store_thm(
                   (?ts e1 e2. x = mk_Ticks ts (Handle t e1 e2) /\
                    [e1'] = remove_ticks [e1] /\ [e2'] = remove_ticks [e2])``,
   Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `x`, `x'`] \\ fs [mk_Ticks_def])
-  \\ res_tac
-  \\ qexistsl_tac [`t::ts`, `e1`, `e2`]
-  \\ fs [mk_Ticks_def]);
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `e2`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Op_IMP_mk_Ticks = store_thm("remove_ticks_Op_IMP_mk_Ticks",
   ``!x tr op es'. [Op tr op es'] = remove_ticks [x] ==>
       ?ts es. x = mk_Ticks ts (Op tr op es) /\ es' = remove_ticks es``,
   reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `l`] \\ fs [mk_Ticks_def])
-  \\ res_tac  \\ qexistsl_tac [`t::ts`, `es`] \\ fs [mk_Ticks_def]);
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `es`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Fn_IMP_mk_Ticks = store_thm("remove_ticks_Fn_IMP_mk_Ticks",
   ``!x tr loc vsopt num_args e'.
       [Fn tr loc vsopt num_args e'] = remove_ticks [x] ==>
         ?ts e. x = mk_Ticks ts (Fn tr loc vsopt num_args e) /\ [e'] = remove_ticks [e]``,
   reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `x`] \\ fs [mk_Ticks_def])
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
   \\ res_tac \\ qexistsl_tac [`t::ts`, `e`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Letrec_IMP_mk_Ticks = store_thm(
@@ -216,7 +204,7 @@ val remove_ticks_Letrec_IMP_mk_Ticks = store_thm(
                    e' = HD (remove_ticks [e]) /\
                    fns' = MAP (\(num_args, x). (num_args, HD (remove_ticks [x]))) fns``,
   reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `l`, `x`] \\ fs [mk_Ticks_def])
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
   \\ res_tac \\ qexistsl_tac [`t::ts`, `fns`, `e`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_App_IMP_mk_Ticks = store_thm("remove_ticks_App_IMP_mk_Ticks",
@@ -226,7 +214,7 @@ val remove_ticks_App_IMP_mk_Ticks = store_thm("remove_ticks_App_IMP_mk_Ticks",
                    e1' = HD (remove_ticks [e1]) /\
                    es' = remove_ticks es``,
   reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
-  THEN1 (qexistsl_tac [`[]`, `x`, `l`] \\ fs [mk_Ticks_def])
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
   \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `es`] \\ fs [mk_Ticks_def]);
 
 val remove_ticks_Call_IMP_mk_Ticks = store_thm("remove_ticks_Call_IMP_mk_Ticks",
@@ -234,7 +222,10 @@ val remove_ticks_Call_IMP_mk_Ticks = store_thm("remove_ticks_Call_IMP_mk_Ticks",
       ticks' = 0 /\
       ?ts ticks es. x = mk_Ticks ts (Call tr ticks dest es) /\
                     es' = remove_ticks es``,
-  Induct \\ rw [remove_ticks_def] \\ metis_tac [mk_Ticks_def])
+  reverse (Induct \\ rw [remove_ticks_def])
+  THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
+  \\ rpt strip_tac \\ res_tac
+  \\ qexistsl_tac [`t::ts`, `ticks`, `es`] \\ fs [mk_Ticks_def])
 
 val remove_ticks_mk_Ticks = store_thm("remove_ticks_mk_Ticks",
   ``!tr e. remove_ticks [mk_Ticks tr e] = remove_ticks [e]``,
@@ -250,8 +241,6 @@ val evaluate_mk_Ticks = store_thm("evaluate_mk_Ticks",
   \\ fs [mk_Ticks_def, evaluate_def, dec_clock_def]
   THEN1 (IF_CASES_TAC \\ simp [state_component_equality])
   \\ fs [ADD1]);
-
-val bump_assum = fn (pat) => qpat_x_assum pat assume_tac;
 
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
@@ -293,45 +282,40 @@ val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
     (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)``,
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
 
+val v_rel_IMP_v_to_bytes_lemma = prove(
+  ``!y x.
+      v_rel x y ==>
+      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+  ho_match_mp_tac v_to_list_ind \\ rw []
+  \\ fs [v_to_list_def]
+  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ res_tac \\ fs [case_eq_thms]
+  \\ Cases_on `ns` \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `h` \\ fs []);
 
-(*
-val find_code_lemma = store_thm("find_code_lemma",
-  ``!s t l1 l2. state_rel s t /\ LIST_REL v_rel l1 l2 ==>
-      ((find_code dest l1 s.code = NONE) <=>
-       (find_code dest l2 t.code = NONE))``,
-  rpt strip_tac
-  \\ `s.code = t.code` by fs [state_rel_def]
-  \\ fs [find_code_def]
-  \\ simp [case_eq_thms]
-  \\ eq_tac \\ strip_tac \\ simp []
-  \\ fs [pair_case_eq]
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ simp [])
+val v_rel_IMP_v_to_bytes = prove(
+  ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
+  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
 
-val find_code_IMP = store_thm("find_code_NONE_IMP",
-  ``!s t l1 l2 dest. state_rel s t /\ LIST_REL v_rel l1 l2 ==>
-       (!v2. find_code dest l2 t.code = SOME v2 ==>
-               ?args1 args2 exp1 exp2.
-                 LIST_REL v_rel args1 args2 /\
-                 code_rel [exp1] [exp2] /\
-                 find_code dest l1 s.code = SOME (args1, exp2)) /\
-       (find_code dest l2 t.code = NONE ==>
-          find_code dest l1 s.code = NONE)``,
-  rpt strip_tac
-  THEN1
-   (imp_res_tac LIST_REL_LENGTH
-    \\ fs [find_code_def]
-    \\ fs [case_eq_thms, pair_case_eq] \\
-    \\ fs [state_rel_def]
-    \\ qpat_x_assum `FMAP_REL _ s.code t.code` mp_tac
-    \\ simp [FMAP_REL_def]
-    \\ strip_tac
-    \\ rfs [FLOOKUP_DEF]
-    \\ res_tac
-    \\ Cases_on `s.code ' dest`
-    \\ rfs []
-    \\ metis_tac []
-*)
+val v_rel_IMP_v_to_words_lemma = prove(
+  ``!y x.
+      v_rel x y ==>
+      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
+           (v_to_list y = SOME (MAP Word64 ns))``,
+  ho_match_mp_tac v_to_list_ind \\ rw []
+  \\ fs [v_to_list_def]
+  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ res_tac \\ fs [case_eq_thms]
+  \\ Cases_on `ns` \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `h` \\ fs []);
+
+val v_rel_IMP_v_to_words = prove(
+  ``v_rel x y ==> v_to_words y = v_to_words x``,
+  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+
 
 val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
   `(!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
@@ -345,12 +329,13 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
    (!loc_opt f2 args2 (t1:('c,'ffi) closSem$state) res2 t2 f1 args1 s1.
      (evaluate_app loc_opt f2 args2 t1 = (res2,t2)) /\
      v_rel f1 f2 /\ LIST_REL v_rel args1 args2 /\
-     state_rel s1 t1 (* /\ LENGTH args1 <= s1.max_app *) ==>
+     state_rel s1 t1 ==>
      ?ck res1 s2.
        (evaluate_app loc_opt f1 args1 (s1 with clock := s1.clock + ck) = (res1,s2)) /\
        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
        state_rel s2 t2)`,
   (**)
+
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
@@ -495,7 +480,8 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
     \\ bump_assum `evaluate ([e1], _m _) = _`
     \\ drule evaluate_add_clock \\ fs [])
-  THEN1 (* Op *)
+
+ THEN1 (* Op *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
     \\ imp_res_tac remove_ticks_Op_IMP_mk_Ticks \\ rveq
@@ -510,12 +496,10 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ reverse (fs [case_eq_thms]) \\ rveq
     \\ Cases_on `res1` \\ fs []
     THEN1 (qexists_tac `ck + LENGTH ts` \\ fs [])
-    \\ reverse (Cases_on `op = Install`) \\ fs []
+    \\ reverse (Cases_on `op = Install`) \\ fs [] \\ rveq
     THEN1 (* op /= Install *)
-     (fs [case_eq_thms]
-      \\ rw []
-      \\ qexists_tac `ck + LENGTH ts`
-      \\ fs []
+     (fs [case_eq_thms] \\ rw []
+      \\ qexists_tac `ck + LENGTH ts` \\ fs []
       \\ drule (GEN_ALL do_app_lemma)
       \\ drule EVERY2_REVERSE \\ strip_tac
       \\ disch_then drule
@@ -524,9 +508,76 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
       \\ PairCases_on `v1`
       \\ fs []
       \\ metis_tac [])
-    THEN1 (* op = Install *)
-     (cheat)
-   )
+    (* op = Install *)
+    \\ qpat_x_assum `_ = (res2, t2)` mp_tac
+    \\ simp [Once do_install_def]
+    \\ drule EVERY2_REVERSE
+    \\ qabbrev_tac `a1 = REVERSE a`
+    \\ qabbrev_tac `v1 = REVERSE vs`
+    \\ strip_tac
+    \\ Cases_on `a1` \\ fs [] \\ rveq
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
+    \\ Cases_on `t` \\ fs [] \\ rveq
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
+    \\ reverse (Cases_on `t'`) \\ fs [] \\ rveq
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
+    \\ rename1 `v_rel x2 y2` \\ pop_assum mp_tac
+    \\ drule v_rel_IMP_v_to_bytes \\ strip_tac
+    \\ rename1 `v_rel x1 y1` \\ strip_tac
+    \\ drule v_rel_IMP_v_to_words \\ strip_tac \\ fs []
+    \\ Cases_on `v_to_bytes x1` \\ fs [] 
+    THEN1 (fs [do_install_def] \\ rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [])
+    \\ Cases_on `v_to_words x2` \\ fs []
+    THEN1 (fs [do_install_def] \\ rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [])
+    \\ pairarg_tac \\ fs []
+    \\ PairCases_on `progs`
+    \\ Cases_on `s2.compile_oracle 0`
+    \\ PairCases_on `r`
+    \\ `r1 = [] /\ progs1 = []` by
+       (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
+        \\ rveq \\ fs [] \\ metis_tac [SND])
+    \\ rveq \\ fs []    
+    \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
+           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def])
+    \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
+    \\ reverse IF_CASES_TAC
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
+           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+           \\ IF_CASES_TAC \\ fs [shift_seq_def])
+    \\ IF_CASES_TAC
+    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
+           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+           \\ IF_CASES_TAC \\ fs [shift_seq_def])
+    \\ fs [] \\ rveq \\ fs []
+
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ simp [Once do_install_def]
+    \\ rw [] \\ fs [] 
+    \\ `s2.clock = s'.clock /\
+        s2.compile = pure_cc compile_inc s'.compile /\
+        s'.compile_oracle = pure_co compile_inc ∘ s2.compile_oracle`
+          by fs [state_rel_def]
+    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
+    \\ qpat_x_assum `!x. _` mp_tac
+    \\ disch_then (qspec_then `s2 with
+                               <|clock := s'.clock − 1;
+                                 compile_oracle := (λi. s2.compile_oracle (i + 1));
+                                 code := s2.code |++ []|>` mp_tac)
+    \\ disch_then (qspec_then `[r0]` mp_tac)
+    \\ impl_tac
+    THEN1 (rveq \\ fs [state_rel_def, FUPDATE_LIST, pure_co_def, o_DEF])
+    \\ fs [] \\ strip_tac
+    \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
+    \\ imp_res_tac evaluate_clock
+    \\ bump_assum `evalulate (es, _, _) = _`
+    \\ drule evaluate_add_clock \\ fs []
+    \\ disch_then kall_tac
+    \\ fs [do_install_def]
+    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def])
   THEN1 (* Fn *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
@@ -663,7 +714,6 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
   \\ fs [dec_clock_def, ADD1]
   \\ imp_res_tac state_rel_IMP_max_app_EQ
   \\ fs [case_eq_thms] \\ fs [] \\ rveq
-
   THEN1 (* dest_closure returns NONE *)
    (qexists_tac `0` \\ simp []
     \\ fs [dest_closure_def]
@@ -798,58 +848,56 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ imp_res_tac evaluate_clock \\ fs []
     \\ drule evaluate_add_clock \\ fs []) 
 
-  \\ (imp_res_tac dest_closure_SOME_IMP \\ fs [] \\ rveq
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs [dest_closure_def]
-  \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) = SOME (if b then x else y)``]
-  THEN1
-   (IF_CASES_TAC \\ fs [] \\ rveq
-    \\ fs [LENGTH_REVERSE]
-    \\ `LIST_REL v_rel
-          (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE xs ++ [x])) ++ args1 ++ env1)
-          (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env ++ clo_env )`
-       by (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
-           \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-           \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ simp [])
-    \\ first_x_assum drule
-    \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
-    \\ simp [state_rel_clock]
-    \\ disch_then drule
-    \\ strip_tac
-    \\ Cases_on `res1` \\ fs [] \\ rveq
-    \\ qexists_tac `ck` \\ fs [])
-  THEN1
-   (Cases_on `EL i fns` \\ fs []
-    \\ Cases_on `EL i funs1` \\ fs []
-    \\ Cases_on `i < LENGTH fns` \\ fs []
-    \\ bump_assum `LIST_REL f_rel _ _`
-    \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL) \\ fs []
-    \\ disch_then drule \\ simp [] \\ strip_tac
-    \\ fs [f_rel_def] \\ rveq
-    \\ IF_CASES_TAC \\ fs [] \\ rveq
-    \\ fs [LENGTH_REVERSE]
-    \\ rename1 `EL i fns = (num_args, _)`
-    \\ `LIST_REL v_rel (REVERSE (TAKE (num_args - LENGTH args1) (REVERSE xs ++ [x])) ++ args1
-                        ++ GENLIST (Recclosure loc [] env1 funs1) (LENGTH funs1) ++ env1)
-                       (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env
-                        ++ GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) ++ clo_env)`
-       by (irule EVERY2_APPEND_suff \\ simp []
-           \\ reverse (irule EVERY2_APPEND_suff) THEN1 fs [LIST_REL_GENLIST]
-           \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
-           \\ irule EVERY2_APPEND_suff \\ simp []
-           \\ irule EVERY2_REVERSE \\ simp [])
-    \\ first_x_assum drule
-    \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
-    \\ simp [state_rel_clock]
-    \\ disch_then drule 
-    \\ strip_tac
-    \\ Cases_on `res1` \\ fs [] \\ rveq
-    \\ qexists_tac `ck` \\ fs [])
-  )
-
-)
+  THEN (* Solves two subgoals *)
+   (imp_res_tac dest_closure_SOME_IMP \\ fs [] \\ rveq
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ fs [dest_closure_def]
+    \\ fs [METIS_PROVE [] ``(if b then SOME x else SOME y) = SOME (if b then x else y)``]
+    THEN1
+     (IF_CASES_TAC \\ fs [] \\ rveq
+      \\ fs [LENGTH_REVERSE]
+      \\ `LIST_REL v_rel
+            (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE xs ++ [x])) ++ args1 ++ env1)
+            (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env ++ clo_env )`
+         by (ntac 2 (irule EVERY2_APPEND_suff \\ simp [])
+             \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
+             \\ irule EVERY2_APPEND_suff \\ simp []
+             \\ irule EVERY2_REVERSE \\ simp [])
+      \\ first_x_assum drule
+      \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
+      \\ simp [state_rel_clock]
+      \\ disch_then drule
+      \\ strip_tac
+      \\ Cases_on `res1` \\ fs [] \\ rveq
+      \\ qexists_tac `ck` \\ fs [])
+    THEN1
+     (Cases_on `EL i fns` \\ fs []
+      \\ Cases_on `EL i funs1` \\ fs []
+      \\ Cases_on `i < LENGTH fns` \\ fs []
+      \\ bump_assum `LIST_REL f_rel _ _`
+      \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL) \\ fs []
+      \\ disch_then drule \\ simp [] \\ strip_tac
+      \\ fs [f_rel_def] \\ rveq
+      \\ IF_CASES_TAC \\ fs [] \\ rveq
+      \\ fs [LENGTH_REVERSE]
+      \\ rename1 `EL i fns = (num_args, _)`
+      \\ `LIST_REL v_rel (REVERSE (TAKE (num_args - LENGTH args1) (REVERSE xs ++ [x])) ++ args1
+                          ++ GENLIST (Recclosure loc [] env1 funs1) (LENGTH funs1) ++ env1)
+                         (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE ys ++ [y])) ++ arg_env
+                          ++ GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) ++ clo_env)`
+         by (irule EVERY2_APPEND_suff \\ simp []
+             \\ reverse (irule EVERY2_APPEND_suff) THEN1 fs [LIST_REL_GENLIST]
+             \\ irule EVERY2_APPEND_suff \\ simp []
+             \\ irule EVERY2_REVERSE \\ irule EVERY2_TAKE
+             \\ irule EVERY2_APPEND_suff \\ simp []
+             \\ irule EVERY2_REVERSE \\ simp [])
+      \\ first_x_assum drule
+      \\ disch_then (qspec_then `s1 with clock := LENGTH arg_env + t1.clock - num_args` mp_tac)
+      \\ simp [state_rel_clock]
+      \\ disch_then drule 
+      \\ strip_tac
+      \\ Cases_on `res1` \\ fs [] \\ rveq
+      \\ qexists_tac `ck` \\ fs [])))
 
 
 
