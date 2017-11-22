@@ -477,7 +477,7 @@ val pmatch_def = tDefine "pmatch" `
     else
       No_match) ∧
   (pmatch env s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if env.check_ctor && LENGTH ps = LENGTH vs then
+    if env.check_ctor ∧ LENGTH ps = LENGTH vs then
       pmatch_list env s ps vs bindings
     else
       Match_type_error) ∧
@@ -526,9 +526,12 @@ val evaluate_def = tDefine "evaluate"`
    | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
-     case evaluate env s (REVERSE es) of
-     | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
-     | res => res) ∧
+    if env.check_ctor then
+      case evaluate env s (REVERSE es) of
+      | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
+      | res => res
+    else
+      (s, Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Con _ (SOME cn) es] =
     if env.check_ctor ∧ (cn, LENGTH es) ∉ env.c then
       (s, Rerr (Rabort Rtype_error))
