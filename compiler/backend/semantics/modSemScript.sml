@@ -8,7 +8,7 @@ val _ = new_theory "modSem";
  * global definitions.
  *
  * The semantics of modLang differ in that there is no module environment menv, nor
-0* are top-level bindings added to the normal env, thus when a closure is
+ * are top-level bindings added to the normal env, thus when a closure is
  * created, only locals bindings are put into it. There is a global environment
  * genv, which is just a list of the top-level bindings seen so far, with the
  * older bindings nearer the head. Global variable reference expressions simply
@@ -402,7 +402,7 @@ val do_app_def = Define `
             | SOME s' => SOME (s with refs := s', Rval (Conv NONE [])))
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-       SOME ((s,t), Rval (Conv NONE []))
+       SOME (s, Rval (Conv NONE []))
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>

@@ -33,7 +33,7 @@ val CopyByteAw8_def = Define`CopyByteAw8 tra = ^checkF`;
 
 val dest_WordToInt_def = Define `
   (dest_WordToInt w [App _ op [x]] =
-    (if op = (Op (Op (WordToInt w))) then SOME x else NONE)) /\
+    (if op = Op (WordToInt w) then SOME x else NONE)) /\
   (dest_WordToInt w _ = NONE)`
 
 val exp_size_def = patLangTheory.exp_size_def
