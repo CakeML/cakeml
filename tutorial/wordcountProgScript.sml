@@ -23,8 +23,8 @@ val wordcount = process_topdecs`
   fun wordcount u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
-      (TextIO.print_string (Int.toString (wc_lines lines)); TextIO.print_string " ";
-       TextIO.print_string (Int.toString (List.length lines)); TextIO.print_newline())`;
+      (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
+       TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
 val _ = append_prog wordcount;
 
 val wordcount_spec = Q.store_thm("wordcount_spec",
@@ -58,19 +58,14 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
-  (* TODO: xlet_auto fails *)
-  xlet_auto_spec(SOME (SPEC_ALL print_string_spec)) >- xsimpl \\
-  (* TODO: xlet_auto fails *)
-  qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  xlet_auto_spec(SOME (Q.SPEC`fs'` print_string_spec)) >- xsimpl \\
-  xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   (* TODO: xlet_auto fails *)
-  qunabbrev_tac`fs'` \\
   qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  xlet_auto_spec(SOME (Q.SPEC`fs'` print_string_spec)) >- xsimpl \\
-  xlet_auto >- ( xcon \\ xsimpl ) \\
-  xapp \\ xsimpl \\
+  xlet_auto_spec(SOME (Q.SPEC`fs'` (Q.GEN`fs`output1_stdout_spec))) >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xapp_spec output1_stdout_spec \\ xsimpl \\
   (* TODO: STDIO prevents xapp/xsimpl instantiating this already *)
   qunabbrev_tac`fs'` \\
   CONV_TAC SWAP_EXISTS_CONV \\

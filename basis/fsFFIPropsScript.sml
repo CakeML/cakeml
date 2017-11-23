@@ -456,6 +456,12 @@ val fsupdate_A_DELKEY = Q.store_thm("fsupdate_A_DELKEY",
   \\ CASE_TAC \\ CASE_TAC
   \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
 
+val fsupdate_0_numchars = Q.store_thm("fsupdate_0_numchars",
+  `IS_SOME (ALOOKUP fs.infds fd) ⇒
+   fsupdate fs fd n pos content =
+   fsupdate (fs with numchars := THE (LDROP n fs.numchars)) fd 0 pos content`,
+  rw[fsupdate_def] \\ TOP_CASE_TAC \\ fs[]);
+
 (* get_file_content *)
 
 val get_file_content_numchars = Q.store_thm("get_file_content_numchars",
