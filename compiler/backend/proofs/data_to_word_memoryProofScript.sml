@@ -9571,7 +9571,7 @@ val memory_rel_space_max = store_thm("memory_rel_space_max",
     ?next_free trig_gc sp.
       FLOOKUP st NextFree = SOME (Word next_free) /\
       FLOOKUP st TriggerGC = SOME (Word trig_gc) /\
-      trig_gc - next_free = bytes_in_word * n2w sp :'a word /\
+      trig_gc - next_free = bytes_in_word * n2w sp :'a word /\ old_sp <= sp /\
       memory_rel c be refs sp st m dm vars /\
       (good_dimindex (:'a) ==> (dimindex (:α) DIV 8) * sp < dimword (:'a))``,
   fs [memory_rel_def,heap_in_memory_store_def] \\ strip_tac \\ fs []
@@ -9610,6 +9610,11 @@ val memory_rel_append = store_thm("memory_rel_append",
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v (in1 ++ in2),Word init_ptr)::vars)``,
+  cheat);
+
+val memory_rel_list_limit = store_thm("memory_rel_list_limit",
+  ``memory_rel c be refs sp st m dm ((list_to_v xs,w)::vars) ==>
+    3 * (LENGTH xs + 1) * (dimindex (:α) DIV 8) < dimword (:'a)``,
   cheat);
 
 val _ = export_theory();
