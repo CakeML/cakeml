@@ -419,103 +419,71 @@ fun simple_match_mp th1 th2 = let
 (* implementation of the SML basis library.                                  *)
 (* ========================================================================= *)
 
-(* Drop-in replacement to Unix.execute, except using Posix.Process.execp
-   for executing the command cmd (instead of Posix.Process.exec). *)
-fun executeWithPath (cmd, args, dir) =
+fun read_process (cmd, args, dir) =
   let
-    val to_child   = Posix.IO.pipe () (* Pipe child stdin through here *)
-    val from_child = Posix.IO.pipe () (* Pipe child stdout through here *)
+    open Unix
+    open OS
+
+    fun search_paths t []      = NONE
+      | search_paths t (p::ps) =
+          let
+            val cmd = Path.concat (p, t)
+          in
+            if FileSys.access (cmd, [FileSys.A_READ, FileSys.A_EXEC]) then
+              SOME cmd
+            else
+              search_paths t ps
+          end
+
+    fun get_cmd t =
+      case Process.getEnv "PATH" of
+        NONE      => search_paths t ["."]
+      | SOME path =>
+          let
+            val paths = String.tokens (fn c => c = #":") path
+          in
+            search_paths t paths
+          end
+
+    val old_pwd = FileSys.getDir ()
+    val _ =
+      case dir of
+        NONE => ()
+      | SOME d => FileSys.chDir d
   in
-    case Posix.Process.fork () of
-      NONE => (* Child *)
-
-        (((* Change working directory if necessary *)
-          case dir of NONE => () | SOME d => Posix.FileSys.chdir d;
-
-          (* Close unused file descriptors and redirect stdout *)
-          Posix.IO.close (#outfd to_child);
-          Posix.IO.close (#infd from_child);
-          Posix.IO.dup2 {old = #infd to_child, new = Posix.FileSys.wordToFD 0w0};
-          Posix.IO.dup2 {old = #outfd from_child, new = Posix.FileSys.wordToFD 0w1};
-          Posix.IO.close (#infd to_child);
-          Posix.IO.close (#outfd from_child);
-
-          (* Hand over control to external process *)
-          Posix.Process.execp (cmd, cmd::args);
-
-          (* Ensure we do not reach this point (i.e. should execp fail) *)
-          Posix.Process.exit 0w126           (* 126 command not executable *))
-        handle _ => Posix.Process.exit 0w126 (* 126 command not executable *))
-
-    | SOME pid => (* Parent *)
-        ((* Close unused file descriptors and return a ('a, 'b) proc *)
-         Posix.IO.close (#infd to_child);
-         Posix.IO.close (#outfd from_child);
-         { pid    = pid
-         , infd   = #infd from_child
-         , outfd  = #outfd to_child
-         , result = ref NONE })
-  end
-
-(* Wait for child to exit and fetch its exit status. *)
-fun reap {result = ref(SOME r), ...}       = r
-  | reap (p as {pid, infd, outfd, result}) =
-      let
-        val _ = Posix.IO.close infd;
-        val _ = Posix.IO.close outfd;
-        val (_, status) =
-          Posix.Process.waitpid (Posix.Process.W_CHILD pid, [])
-      in
-        case status of
-          Posix.Process.W_STOPPED _ => reap p
-        | _ => (result := SOME status; status)
-      end
-
-(* Get TextIO.instream reading the stdout of a process. *)
-fun textInstreamOf {infd, ...} =
-  let
-    val prim_rd =
-      Posix.IO.mkTextReader
-        { fd          = infd
-        , name        = "externalProcessTextReader"
-        , initBlkMode = true }
-  in
-    TextIO.mkInstream (TextIO.StreamIO.mkInstream (prim_rd, ""))
-  end
-
-(* Execute command cmd with arguments command an return the result of
-   reading its standard input as a string option. If /anything/ fails we
-   return nothing. *)
-fun readProcess (cmd, args, dir) =
-  let
-    val proc = executeWithPath (cmd, args, dir)
-    val inp  = TextIO.inputAll (textInstreamOf proc)
-    val str  = String.substring (inp, 0, String.size inp - 1)
-    val stat = reap proc
-  in
-    case stat of Posix.Process.W_EXITED => SOME str | _ => NONE
+    case get_cmd cmd of
+      NONE => NONE
+    | SOME cmd =>
+        let
+          val proc = execute (cmd, args)
+          val outp = TextIO.inputAll (textInstreamOf proc)
+          val str = String.substring (outp, 0, String.size outp - 1)
+        in
+          if Option.isSome dir then FileSys.chDir old_pwd else ();
+          if Process.isSuccess (reap proc) then SOME str else NONE
+        end
   end
   handle _ => NONE
 
 (* Run an external process and get its stdout as a string option term *)
 fun tm_from_proc cmd args =
-  case readProcess (cmd, args, NONE) of
+  case read_process (cmd, args, NONE) of
     NONE => Term `NONE : string option`
   | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
 
 fun tm_from_proc_from dir cmd args =
-  case readProcess (cmd, args, SOME dir) of
+  case read_process (cmd, args, SOME dir) of
     NONE => Term `NONE : string option`
   | SOME s => Term `SOME ^(stringSyntax.fromMLstring s)`
 
 (* Run an external process and get its stdout as a mlstring option term *)
 fun mlstring_from_proc cmd args =
-  case readProcess (cmd, args, NONE) of
+  case read_process (cmd, args, NONE) of
     NONE => Term `NONE : string option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
 fun mlstring_from_proc_from dir cmd args =
-  case readProcess (cmd, args, SOME dir) of
+  case read_process (cmd, args, SOME dir) of
     NONE => Term `NONE : string option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
