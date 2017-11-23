@@ -1428,7 +1428,7 @@ local val assign_quotation = `
         let fakelen1 = Shift Lsr header1 (Nat k) in
         let addr2 = real_addr c (adjust_var v2) in
         let header2 = Load addr2 in
-        let fakelen2 = Shift Lsr header2 (Nat k) in            
+        let fakelen2 = Shift Lsr header2 (Nat k) in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
@@ -1850,7 +1850,7 @@ val stubs_def = Define`
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
-    (AppendLenLoop_location,4n,AppendLenLoop_code data_conf);
+    (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
     (AppendFastLoop_location,5n,AppendFastLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
