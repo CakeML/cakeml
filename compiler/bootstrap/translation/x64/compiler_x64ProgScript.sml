@@ -23,20 +23,32 @@ val main = process_topdecs`
     let
       val cl = CommandLine.arguments ()
     in
-      case compiler_x64 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
-        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
+      if compiler_has_version_flag cl then
+        TextIO.print_string compiler_current_build_info_str
+      else
+        case compiler_x64 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
+          (c, e) => (print_app_list c; TextIO.prerr_string e)
     end`;
 
 val res = append_prog main;
 
 val st = get_ml_prog_state()
 
+val full_compiler_x64_def = Define `
+  full_compiler_x64 cl inp =
+    if has_version_flag cl then
+      (List [current_build_info_str], implode"", F)
+    else
+      let (a,b) = compiler_x64 cl inp in (a,b,T)`
+
 val main_spec = Q.store_thm("main_spec",
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
-     (POSTv uv. &UNIT_TYPE () uv *
-      (let (out,err) = compiler_x64 (TL(MAP implode cl)) (get_stdin fs) in
-         STDIO (add_stderr (add_stdout (fastForwardFD fs 0) (explode (concat (append out)))) (explode err)))
+     (POSTv uv.
+       &UNIT_TYPE () uv *
+       (let (out,err,b) = full_compiler_x64 (TL (MAP implode cl)) (get_stdin fs) in
+        let fs' = if b then fastForwardFD fs 0 else fs in
+         STDIO (add_stderr (add_stdout fs' (explode (concat (append out)))) (explode err)))
       * COMMANDLINE cl)`,
   xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -63,10 +75,31 @@ val main_spec = Q.store_thm("main_spec",
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
   \\ imp_res_tac stdin_get_file_content
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >-
+   (pairarg_tac \\ fs []
+    \\ rfs [full_compiler_x64_def] \\ rw []
+    \\ xapp
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `current_build_info_str`
+    \\ fs [compilerTheory.current_build_info_str_def,
+           compiler64ProgTheory.compiler_current_build_info_str_v_thm]
+    \\ xsimpl
+    \\ rename1 `add_stdout _ string`
+    \\ fs [concat_def, explode_thm]
+    \\ `!str. ?pos. stderr (add_stdout fs str) pos` by
+      metis_tac [stdo_def, STD_streams_def, STD_streams_add_stdout]
+    \\ pop_assum (qspec_then `string` strip_assume_tac)
+    \\ imp_res_tac add_stdo_nil \\ xsimpl
+    \\ qexists_tac `COMMANDLINE cl` \\ xsimpl
+    \\ qexists_tac `fs` \\ xsimpl)
   \\ xlet_auto >- (xsimpl \\ metis_tac[stdin_v_thm,stdIn_def])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ pairarg_tac \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+  \\ fs [full_compiler_x64_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rw []
+  \\ fs[ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
   (* TODO: xlet_auto: why does xlet_auto not work? *)
   \\ xlet_auto_spec(SOME (Q.SPEC`fastForwardFD fs 0`(Q.GEN`fs`basisProgTheory.print_app_list_spec)))
@@ -94,7 +127,7 @@ val semantics_compiler_prog =
   th
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [STD_streams_add_stderr,STD_streams_add_stdout,STD_streams_fastForwardFD,
-                           AND_IMP_INTRO,GSYM CONJ_ASSOC]
+                           AND_IMP_INTRO,GSYM CONJ_ASSOC, full_compiler_x64_def]
   |> curry save_thm "semantics_compiler_prog";
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -8,6 +8,43 @@ open preamble
 
 val _ = new_theory"compiler";
 
+(* == Build info =========================================================== *)
+
+val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
+val poly_version_tm = mlstring_from_proc "poly" ["-v"]
+val hol_version_tm =
+  let
+    val holdir = Option.valOf (OS.Process.getEnv "HOLDIR")
+  in
+    mlstring_from_proc_from holdir "git" ["rev-parse", "HEAD"]
+  end
+  handle _ => Term `NONE : mlstring option`
+
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
+val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
+
+val print_option_def = Define `
+  print_option h x =
+    case x of
+      NONE => strlit""
+    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"`
+
+val current_build_info_str_tm = EVAL ``
+    let commit = print_option (strlit"CakeML:") ^current_version_tm in
+    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
+    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+      concat
+        [ strlit"The CakeML compiler\n\n"
+        ; strlit"Version details:\n"
+        ; ^date_tm; strlit"\n"
+        ; commit; hol; poly ]``
+  |> concl |> rhs
+
+val current_build_info_str_def = Define `
+  current_build_info_str = ^current_build_info_str_tm`
+
+(* ========================================================================= *)
+
 val _ = Datatype`
   config =
     <| inferencer_config : inferencer_config
@@ -180,6 +217,10 @@ val parse_heap_stack_def = Define`
         NONE => default_stack_sz
       | SOME v => v in
     (heap,stack)`
+
+(* Check for version flag *)
+val has_version_flag_def = Define `
+  has_version_flag ls = MEM (strlit"--version") ls`
 
 val format_compiler_result_def = Define`
   format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
