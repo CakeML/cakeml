@@ -10,19 +10,24 @@ val _ = ml_prog_update (open_module "Rat");
 
 (* connection between real and rat *)
 
+
 val real_of_rat_def = Define `
-  real_of_rat r =
-    let n = frac_nmr (rep_rat r) in
-    let d = frac_dnm (rep_rat r) in
-      real_of_int n / real_of_int d`
+  real_of_rat (r:rat) : real = intreal$real_of_int (RATN r) /  real_of_num (RATD r)
+`;
 
 val real_of_rat_int = store_thm("real_of_rat_int",
   ``real_of_rat (&x) = &x``,
-  cheat);
+  simp[real_of_rat_def, intrealTheory.real_of_int]);
 
 val real_of_rat_le = store_thm("real_of_rat_le",
   ``∀r1 r2. real_of_rat r1 ≤ real_of_rat r2 ⇔ r1 ≤ r2``,
-  cheat);
+  simp[real_of_rat_def] >> rpt gen_tac >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
+  assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
+  map_every qabbrev_tac [‘n1 = RATN r1’, ‘n2 = RATN r2’, ‘d1 = RATD r1’, ‘d2 = RATD r2’] >>
+  ‘0 < d1 ∧ 0 < d2’ by simp[Abbr‘d1’, Abbr‘d2’] >>
+  simp[REAL_LE_LDIV_EQ, mult_ratl, REAL_LE_RDIV_EQ] >> cheat
+);
 
 val real_of_rat_lt = store_thm("real_of_rat_lt",
   ``∀r1 r2. real_of_rat r1 < real_of_rat r2 ⇔ r1 < r2``,
