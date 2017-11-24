@@ -173,22 +173,6 @@ val parse_num_list_def = Define`
          INR s => INR s
        | INL ns => INL (n::ns))`
 
-val parse_nums_def = Define `
-  parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))`
-
-(*
-  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul"]``
-  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul=fdsa"]``
-  EVAL``find_num (strlit "--fl") [strlit "asf";strlit"--f1234"] 5n``
-*)
-
-val find_parse_num_def = Define`
-  (find_parse flag [] = NONE) ∧
-  (find_parse flag (x::xs) =
-    if isPrefix flag x then
-      parse_num
-    else find_parse flag xs)`
-
 val comma_tokens_def = Define `
   (comma_tokens acc xs [] = if NULL xs then acc else acc ++ [implode xs]) /\
   (comma_tokens acc (xs:string) (c::(cs:string)) =
@@ -197,12 +181,15 @@ val comma_tokens_def = Define `
     else
       comma_tokens acc (STRCAT xs [c]) cs)`
 
-val find_parse_nums_def = Define`
-  (find_parse_nums flag [] = NONE) ∧
-  (find_parse_nums flag (x::xs) =
-    if isPrefix flag x then
-      parse_nums (extract x (strlen flag) NONE)
-    else find_parse_nums flag xs)`
+
+val parse_nums_def = Define `
+  parse_nums str = (parse_num_list (comma_tokens [] [] (explode str)))`
+
+(*
+  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul"]``
+  EVAL``find_bool (strlit "--nomul") [strlit "asf";strlit"--nomul=fdsa"]``
+  EVAL``find_num (strlit "--fl") [strlit "asf";strlit"--f1234"] 5n``
+*)
 
 (*
   Each of these is a helper function that extends a conf
