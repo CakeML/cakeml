@@ -1,4 +1,0 @@
-INCLUDES = ../../../../../misc ../../../../../semantics/proofs ../../../../backend/proofs ../../../../encoders/x64/proofs ../../../../backend/x64/proofs ../../../translation/arm8 ..
-ifdef POLY
-HOLHEAP=../heap
-endif
