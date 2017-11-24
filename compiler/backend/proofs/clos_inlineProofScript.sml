@@ -335,7 +335,6 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
        state_rel s2 t2)`,
   (**)
-
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
@@ -356,9 +355,9 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ Cases_on `res1` \\ fs []
     \\ imp_res_tac evaluate_clock \\ fs []
     \\ qexists_tac `ck + ck'` \\ fs []
-    \\ qpat_x_assum `evaluate ([h], env1, _) = _` assume_tac (* move an asm to use with drule *)
+    \\ bump_assum `evaluate ([h], env1, _) = _`
     \\ drule evaluate_add_clock \\ fs []
-    \\ disch_then kall_tac (* drop and ignore the precedent of an implication *)
+    \\ disch_then kall_tac
     \\ imp_res_tac evaluate_SING
     \\ fs [])
   THEN1 (* Var *)
@@ -480,7 +479,6 @@ val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
     \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
     \\ bump_assum `evaluate ([e1], _m _) = _`
     \\ drule evaluate_add_clock \\ fs [])
-
  THEN1 (* Op *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
