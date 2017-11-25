@@ -79,8 +79,6 @@ compiler/parsing/tests
 
 # compiler bootstrap
 compiler/bootstrap/translation
-compiler/bootstrap/translation/x64
-compiler/bootstrap/compilation/x64
-compiler/bootstrap/compilation/x64/proofs
-compiler/bootstrap/translation/riscv
-compiler/bootstrap/compilation/riscv
+compiler/bootstrap/translation
+compiler/bootstrap/compilation/x64/64
+compiler/bootstrap/compilation/x64/64/proofs
