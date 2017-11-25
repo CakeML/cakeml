@@ -348,6 +348,9 @@ fun word_ty_ok ty =
     end
   else false;
 
+val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
+  |> type_of |> dest_type |> snd |> last;
+
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
   val preprocessor_rws = ref ([]:thm list)
@@ -388,6 +391,7 @@ in
     if ty = numSyntax.num then Tapp [] astSyntax.TC_int else
     if ty = stringSyntax.char_ty then Tapp [] astSyntax.TC_char else
     if ty = oneSyntax.one_ty then Tapp [] astSyntax.TC_tup else
+    if ty = mlstring_ty then Tapp [] astSyntax.TC_string else
     if can dest_vartype ty then
       astSyntax.mk_Tvar(stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let
