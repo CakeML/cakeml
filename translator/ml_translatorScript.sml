@@ -1485,8 +1485,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  qexists_tac`EL n l'` >>
-  fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS]);
+  fs [LIST_REL_EL_EQN]);
 
 val Eval_vector = Q.store_thm("Eval_vector",
  `!env x1 a l.
