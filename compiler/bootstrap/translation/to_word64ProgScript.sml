@@ -429,10 +429,10 @@ val assign_rw = Q.prove(`
   rw[]
   >-
     (`0 ≤ 4* -i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
+    metis_tac[integerTheory.INT_ABS_EQ_ID])
   >>
     `0 ≤ 4*i` by intLib.COOPER_TAC>>
-    fs[GSYM integerTheory.INT_ABS_EQ_ID])
+    metis_tac[integerTheory.INT_ABS_EQ_ID])
 
 (* TODO: word_mul should maybe target a real op ?
    TODO: econv might be going too far with case simplification
