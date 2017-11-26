@@ -632,28 +632,30 @@ val evaluate_ind = save_thm("evaluate_ind",
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet e) =
    case evaluate (env with v := []) s [e] of
-   | (s, Rval [Conv NONE []]) => (s, Rval {})
-   | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
-   | (s, Rerr e) => (s, Rerr e)) ∧
+   | (s, Rval [Conv NONE []]) => (s, {}, NONE)
+   | (s, Rval _) => (s, {}, SOME (Rabort Rtype_error))
+   | (s, Rerr e) => (s, {}, SOME e)) ∧
   (evaluate_dec env s (Dtype ctors) =
     (s with next_type_id := s.next_type_id + 1,
-     Rval (if env.check_ctor then
+     if env.check_ctor then
              { ((idx, SOME s.next_type_id), arity) |
                arity < LENGTH ctors ∧ idx < EL arity ctors }
-           else
-             {}))) ∧
+     else
+       {},
+     NONE)) ∧
   (evaluate_dec env s (Dexn arity) =
     (s with next_exn_id := s.next_exn_id + 1,
-     Rval ({((s.next_exn_id, NONE), arity)})))`;
+     {((s.next_exn_id, NONE), arity)},
+     NONE))`;
 
 val evaluate_decs_def = Define`
   (evaluate_decs env s [] = (s, {}, NONE)) ∧
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
-   | (s, Rval new_ctors) =>
+   | (s, new_ctors, NONE) =>
      (case evaluate_decs (env with c updated_by $UNION new_ctors) s ds of
       | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
-   | (s, Rerr e) => (s, {}, SOME e))`;
+   | (s, new_ctors, SOME e) => (s, new_ctors, SOME e))`;
 
 val semantics_def = Define`
   semantics env st prog =
