@@ -348,6 +348,9 @@ fun word_ty_ok ty =
     end
   else false;
 
+val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
+  |> type_of |> dest_type |> snd |> last;
+
   val type_mappings = ref ([]:(hol_type * hol_type) list)
   val other_types = ref ([]:(hol_type * term) list)
   val preprocessor_rws = ref ([]:thm list)
@@ -388,6 +391,7 @@ in
     if ty = numSyntax.num then Tapp [] astSyntax.TC_int else
     if ty = stringSyntax.char_ty then Tapp [] astSyntax.TC_char else
     if ty = oneSyntax.one_ty then Tapp [] astSyntax.TC_tup else
+    if ty = mlstring_ty then Tapp [] astSyntax.TC_string else
     if can dest_vartype ty then
       astSyntax.mk_Tvar(stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let
@@ -2347,6 +2351,7 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_force_gc_to_run,
    Eval_strsub,
    Eval_sub,
    Eval_And,
@@ -2915,15 +2920,11 @@ fun hol2deep tm =
     val h = lemma |> concl |> dest_imp |> fst
     val h_thm = EVAL h
     val lemma = REWRITE_RULE [h_thm] lemma
+    val _ = (rand (concl h_thm) = T) orelse failwith "false pre for w2w"
     val result =
-      if Teq (rand (concl h_thm)) then
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
                         |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
           (hol2deep x1)
-      else let
-        val lemma = REWR_CONV wordsTheory.w2w_def tm
-        in hol2deep (rand (concl lemma))
-           |> CONV_RULE (RAND_CONV (RAND_CONV (REWR_CONV (GSYM lemma)))) end
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
   if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let

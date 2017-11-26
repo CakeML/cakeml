@@ -998,32 +998,74 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   \\ fs [integer_wordTheory.i2w_def]);
 
 val Eval_w2w = Q.store_thm("Eval_w2w",
-  `dimindex (:'a) <= 64 /\ (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) ==>
+  `dimindex (:'a) <= 64 /\ dimindex (:'b) <= 64 ==>
     Eval env x1 (WORD (w:'b word)) ==>
     Eval env
-      (let w = if dimindex (:'a) <= 8 then W8 else W64 in
-         if dimindex (:'b) <= dimindex (:'a) then
-           App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
-         else
-           App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1])
+      (if (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) then
+         let w = if dimindex (:'a) <= 8 then W8 else W64 in
+           if dimindex (:'b) <= dimindex (:'a) then
+             App (Shift w Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
+           else
+             App (Shift w Lsl (dimindex (:'b) - dimindex (:'a))) [x1]
+       else if dimindex (:'b) <= 8 then
+         App (Shift W64 Lsl (64 - dimindex (:'a)))
+           [App (Shift W64 Lsr (8 - dimindex (:'b)))
+              [App (WordFromInt W64) [App (WordToInt W8) [x1]]]]
+       else
+         App (Shift W8 Lsl (8 - dimindex (:'a)))
+           [App (WordFromInt W8) [App (WordToInt W64)
+              [App (Shift W64 Lsr (64 - dimindex (:'b))) [x1]]]])
       (WORD ((w2w w):'a word))`,
-  Cases_on `dimindex (:'a) ≤ 8` \\ fs []
-  \\ IF_CASES_TAC
-  \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-  \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
-  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ once_rewrite_tac [evaluate_cases] \\ fs []
-  \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
-  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-  \\ asm_exists_tac \\ fs []
-  \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
-  \\ fs [empty_state_def]
-  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
-  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
-  \\ rw []
-  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
-  \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
-  \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]);
+  IF_CASES_TAC THEN1
+   (Cases_on `dimindex (:'a) ≤ 8` \\ fs []
+    \\ IF_CASES_TAC
+    \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ once_rewrite_tac [evaluate_cases] \\ fs []
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
+    \\ rw []
+    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
+    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def])
+  \\ IF_CASES_TAC \\ fs [] \\ rw []
+  THEN1
+   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ simp [do_app_def]
+    \\ fs [shift64_lookup_def,shift8_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
+    \\ rpt strip_tac
+    \\ eq_tac \\ strip_tac \\ fs []
+    \\ rfs [fcpTheory.FCP_BETA,w2w]
+    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
+    \\ rfs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
+    \\ Cases_on `i + dimindex (:α) − 64 < 8`
+    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``])
+  THEN1
+   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
+    \\ fs [Eval_def,WORD_def] \\ rpt strip_tac \\ rfs []
+    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ ntac 8 (once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS])
+    \\ once_rewrite_tac [METIS_PROVE [] ``b1/\b2/\b3<=>b2/\(b1/\b3)``]
+    \\ asm_exists_tac \\ fs []
+    \\ once_rewrite_tac [evaluate_cases] \\ fs [PULL_EXISTS]
+    \\ fs [empty_state_def]
+    \\ simp [do_app_def]
+    \\ fs [shift64_lookup_def,shift8_lookup_def]
+    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]));
 
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
@@ -1443,8 +1485,7 @@ val Eval_sub = Q.store_thm("Eval_sub",
   `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  qexists_tac`EL n l'` >>
-  fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS]);
+  fs [LIST_REL_EL_EQN]);
 
 val Eval_vector = Q.store_thm("Eval_vector",
  `!env x1 a l.
@@ -1486,6 +1527,44 @@ val Eval_length = Q.store_thm("Eval_length",
   `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
+
+val Eval_length = Q.store_thm("Eval_length",
+  `!env x1 x2 a n v.
+      Eval env x1 (VECTOR_TYPE a v) ==>
+      Eval env (App Vlength [x1]) (NUM (length v))`,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ffi"])) >>
+  qexists_tac`empty_state.ffi` \\ simp[empty_state_with_ffi_elim] >>
+  asm_exists_tac >> fs[] >>
+  rw [do_app_cases] >>
+  rw [PULL_EXISTS] >>
+  `?l. v = Vector l` by metis_tac [vector_nchotomy] >>
+  rw [] >>
+  fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
+
+val force_gc_to_run_def = Define `
+  force_gc_to_run (i1:int) (i2:int) = ()`;
+
+val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
+  `Eval env x1 (INT i1) ==>
+   Eval env x2 (INT i2) ==>
+   Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`,
+  rw [Eval_def] >>
+  rw [Once evaluate_cases,PULL_EXISTS,empty_state_with_refs_eq] >>
+  ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases))),PULL_EXISTS]) >>
+  first_x_assum(qspec_then`refs`strip_assume_tac) >>
+  asm_exists_tac >> fs [] >>
+  first_x_assum(qspec_then`refs ++ refs'`strip_assume_tac) >>
+  qexists_tac `Conv NONE []` >>
+  qexists_tac `refs' ⧺ refs''` >>
+  qexists_tac `refs ++ refs' ⧺ refs''` >>
+  fs [empty_state_def] >>
+  asm_exists_tac >> fs [] >>
+  fs [do_app_def,INT_def,UNIT_TYPE_def]);
+
 
 (* a few misc. lemmas that help the automation *)
 

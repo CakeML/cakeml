@@ -31,6 +31,27 @@ val checkF = check1
 val CopyByteStr_def = Define`CopyByteStr tra = ^checkT`;
 val CopyByteAw8_def = Define`CopyByteAw8 tra = ^checkF`;
 
+val dest_WordToInt_def = Define `
+  (dest_WordToInt w [App _ op [x]] =
+    (if op = (Op (Op (WordToInt w))) then SOME x else NONE)) /\
+  (dest_WordToInt w _ = NONE)`
+
+val exp_size_def = patLangTheory.exp_size_def
+
+val MEM_exp1_size = prove(
+  ``!es. MEM a es ==> exp_size a < exp1_size es``,
+  Induct_on`es` >> simp[exp_size_def] >>
+  rw[] >> res_tac >> fs[] >> simp[exp_size_def] >>
+  Cases_on`es`>>fs[LENGTH_NIL,exp_size_def] >> simp[] >>
+  Cases_on`t`>>fs[exp_size_def] >> rw[] >> simp[]>>
+  Cases_on`t'`>>fs[exp_size_def] >> rw[] >> simp[]);
+
+val dest_WordToInt_exp_size = prove(
+  ``!w es e. (dest_WordToInt w es = SOME e) ==>
+             exp_size e < exp1_size es``,
+  ho_match_mp_tac (theorem "dest_WordToInt_ind")
+  \\ fs [dest_WordToInt_def] \\ fs [exp_size_def]);
+
 val compile_def = tDefine"compile" `
   (compile (Raise tra e) =
     Raise tra (compile e)) ∧
@@ -107,9 +128,14 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (Op Opref)) es) =
     Op tra Ref (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (WordFromInt W8))) es) =
-      Op (tra§0) Mod ((Op (tra§1) (Const 256) [])::(REVERSE (MAP compile es)))) ∧
+      case dest_WordToInt W64 es of
+      | SOME e => Op tra (WordFromWord T) [compile e]
+      | NONE =>  Op (tra§0) Mod
+          ((Op (tra§1) (Const 256) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op (Op (WordFromInt W64))) es) =
-      Op tra WordFromInt (REVERSE (MAP compile es))) ∧
+      case dest_WordToInt W8 es of
+      | SOME e => Op tra (WordFromWord F) [compile e]
+      | NONE => (Op tra WordFromInt (REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op (Op (WordToInt W8))) es) =
     if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es)) else
                      compile (HD es)) ∧
@@ -191,6 +217,8 @@ val compile_def = tDefine"compile" `
                         Var (tra§8) 1; Var (tra§9) 2]]
             (Op (tra§10) (Cons tuple_tag) []))
          (Raise (tra§11) (Op (tra§12) (Cons subscript_tag) [])))) ∧
+  (compile (App tra (Op (Op ConfigGC)) es) =
+    Op tra ConfigGC (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Op (FFI n))) es) =
     Op tra (FFI n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Init_global_var n)) es) =
@@ -224,11 +252,9 @@ val compile_def = tDefine"compile" `
     WF_REL_TAC `measure exp_size` >>
     simp[exp_size_def] >>
     rpt conj_tac >> rpt gen_tac >>
-    Induct_on`es` >> simp[exp_size_def] >>
-    rw[] >> res_tac >> fs[] >> simp[exp_size_def] >>
-    Cases_on`es`>>fs[LENGTH_NIL,exp_size_def] >> simp[] >>
-    Cases_on`t`>>fs[exp_size_def] >> rw[] >> simp[]>>
-    Cases_on`t'`>>fs[exp_size_def] >> rw[] >> simp[]
+    rw[] >> imp_res_tac MEM_exp1_size >> fs [] >>
+    fs [LENGTH_EQ_NUM_compute,exp_size_def] >>
+    imp_res_tac dest_WordToInt_exp_size >> fs []
   end
 val _ = export_rewrites["compile_def"]
 

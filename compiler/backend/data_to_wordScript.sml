@@ -904,6 +904,13 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
+    | ConfigGC =>
+        (dtcase args of
+         | [v1;v2] =>
+             (list_Seq [Assign 1 (Const 0w);
+                        Alloc 1 (adjust_set (get_names names)); (* runs GC *)
+                        Assign (adjust_var dest) (Const 2w)],l)
+         | _ => (Skip,l))
     | ConsExtend tag =>
         (dtcase args of
          | (old::start::len::tot::rest) =>
@@ -1335,6 +1342,30 @@ local val assign_quotation = `
                  WordShift64_on_32 sh n;
                  WriteWord64_on_32 c header dest 33 31],l))
        | _ => (Skip,l))
+    | WordFromWord b => (dtcase args of
+      | [v1] =>
+          if b then
+            (list_Seq [Assign 1 (real_addr c (adjust_var v1));
+                       Assign 1 (Load (Op Add [Var 1;
+                         Const (if dimindex (:'a) = 32
+                                then 2w * bytes_in_word else bytes_in_word)]));
+                       Assign 1 (Op And [Var 1; Const 255w]);
+                       Assign (adjust_var dest) (ShiftVar Lsl 1 2)],l)
+          else
+          (let
+             len = if dimindex (:α) < 64 then 2 else 1
+           in
+             dtcase encode_header c 3 len of
+               NONE => (GiveUp,l)
+             | SOME header =>
+                (if len = 1 then
+                   (list_Seq [Assign 3 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+                              WriteWord64 c header dest 3],l)
+                 else
+                   (list_Seq [Assign 5 (Shift Lsr (Var (adjust_var v1)) (Nat 2));
+                              Assign 3 (Const 0w);
+                              WriteWord64_on_32 c header dest 5 3],l)))
+      | _ => (Skip, l))
     | WordFromInt => (dtcase args of
       | [v1] =>
         let len = if dimindex(:'a) < 64 then 2 else 1 in

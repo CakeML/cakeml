@@ -21,10 +21,10 @@ val res = translate compiler_riscv_def
 val main = process_topdecs`
   fun main u =
     let
-      val cl = Commandline.arguments ()
+      val cl = CommandLine.arguments ()
     in
       case compiler_riscv cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
-        (c, e) => (print_app_list c; TextIO.prerr_string e)
+        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
     end`;
 
 val res = append_prog main;
@@ -71,7 +71,7 @@ val main_spec = Q.store_thm("main_spec",
   (* TODO: xlet_auto: why does xlet_auto not work? *)
   \\ xlet_auto_spec(SOME (Q.SPEC`fastForwardFD fs 0`(Q.GEN`fs`basisProgTheory.print_app_list_spec)))
   >- xsimpl
-  \\ xapp
+  \\ xapp_spec output_stderr_spec
   \\ xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
   \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)

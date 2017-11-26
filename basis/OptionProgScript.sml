@@ -1,11 +1,9 @@
-open preamble ml_translatorLib ml_progLib std_preludeTheory
+open preamble ml_translatorLib ml_progLib RuntimeProgTheory
      mloptionTheory
 
 val _ = new_theory"OptionProg"
 
-val _ = translation_extends"std_prelude"
-
-val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
+val _ = translation_extends "RuntimeProg"
 
 val _ = ml_prog_update (open_module "Option");
 

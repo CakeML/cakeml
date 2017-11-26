@@ -245,10 +245,11 @@ val x64_simp6 = x64_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |
 
 val x64_enc_thm = reconstruct_case ``x64_enc i`` rand [x64_simp1,x64_simp2,x64_simp3,x64_simp4,x64_simp5,x64_simp6]
 
-(* translate w2ws*)
+(* the manual translation of w2w should no longer be necessary
 val w2ws = mk_set(map type_of ((find_terms (fn t => same_const ``w2w`` t)) (concl x64_enc_thm)))
 
 val res = map (fn ty => let val (l,r) = dom_rng ty in INST_TYPE[alpha|->wordsSyntax.dest_word_type l,beta|->wordsSyntax.dest_word_type r] w2w_def |> translate end) w2ws;
+*)
 
 val res = translate (GEN_ALL x64_enc_thm)
 

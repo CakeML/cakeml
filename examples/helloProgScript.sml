@@ -5,7 +5,7 @@ val _ = new_theory "helloProg"
 val _ = translation_extends"basisProg";
 
 val hello = process_topdecs
-  `fun hello u = TextIO.print_string "Hello World!\n"`
+  `fun hello u = TextIO.print "Hello World!\n"`
 
 val res = ml_prog_update(ml_progLib.add_prog hello pick_name)
 

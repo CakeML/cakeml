@@ -385,9 +385,8 @@ val tokens_toString = Q.prove(
   >> TRY(fs[Once toString_def] >> fs[implode_def,tokens_def,tokens_aux_def,toChar_def,str_def,maxSmall_DEC_def,toChars_thm])
   >> fs[GSYM integerTheory.INT_NOT_LT]
   >> fs[integerTheory.INT_NOT_LT]
-  >> qpat_assum `0 <= n`
-      (fn thm => thm |> REWRITE_RULE[GSYM integerTheory.INT_ABS_EQ_ID] |> assume_tac)
-  >> drule num_le_10 >> fs[]);
+  \\ rw[] \\ fs[TOKENS_def]
+  \\ metis_tac[num_le_10,integerTheory.INT_ABS_EQ_ID]);
 
 val tokens_strcat = Q.prove(
 `l ≠ [] ==>
@@ -465,7 +464,7 @@ val num_from_string_toString_cancel = Q.store_thm("num_from_string_toString_canc
   by (
     qspec_then`Num(ABS(&n))`mp_tac toString_isDigit
     \\ simp[Abbr`ss`]
-    \\ Cases_on`num_to_dec_string (Num(ABS(&n)))` \\ simp[]
+    \\ Cases_on`num_toString n` \\ simp[]
     >- fs[num_to_dec_string_not_nil]
     \\ rpt strip_tac \\ fs[]
     \\ qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC )
@@ -762,13 +761,13 @@ val headers_within_IMP_SOME = Q.store_thm("headers_within_IMP_SOME",
   `headers_within n m (h::t) /\ parse_patch_header h = SOME(q,SOME q',c,tup)
      ==> n <= q /\ q <= m /\ n <= q' /\ q' <= m`,
   rpt strip_tac >> fs[headers_within_def] >> rfs[pairTheory.ELIM_UNCURRY])
-                                    
+
 val headers_within_grow = Q.store_thm("headers_within_grow",
   `headers_within n' m' l /\ n <= n' /\ m' <= m ==> headers_within n m l`,
   Induct_on `l` >> rpt strip_tac >> fs[headers_within_def]
   >> Cases_on `parse_patch_header h` >> fs[pairTheory.ELIM_UNCURRY]
   >> rw[] >> fs[]);
- 
+
 val headers_within_append = Q.store_thm("headers_within_append",
   `headers_within n m (l++l') = (headers_within n m l /\ headers_within n m l')`,
   simp[headers_within_def]);
@@ -864,7 +863,7 @@ val diff_with_lcs_headers_within = Q.store_thm("diff_with_lcs_headers_within",
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then match_mp_tac
-  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)  
+  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
   >> fs[]);
 
 val highly_specific_implication = Q.prove(
@@ -907,13 +906,13 @@ val IS_SUFFIX_DROP = Q.store_thm("IS_SUFFIX_DROP",
   `!l n. IS_SUFFIX l (DROP n l)`,
   Induct >> rpt strip_tac >> rw[DROP_def]
   >> metis_tac[IS_SUFFIX_CONS]);
-                                   
+
 val headers_within_snoc = Q.store_thm("headers_within_snoc",
 `!p1 n l m e. headers_within m (n + LENGTH l) p1 /\ m <= (n + LENGTH l) ==>
   patch_alg_offs n p1 (SNOC e l) = OPTION_MAP (SNOC e) (patch_alg_offs n p1 l)`,
   ho_match_mp_tac IS_SUFFIX_induct
   >> rpt strip_tac
-  >> fs[patch_alg_offs_def,patch_aux_def]            
+  >> fs[patch_alg_offs_def,patch_aux_def]
   >> every_case_tac >> fs[] >> rfs[]
   >> fs[DROP_DROP_T]
   >> TRY(qmatch_goalsub_abbrev_tac `F`
@@ -1016,7 +1015,7 @@ val headers_within_snoc = Q.store_thm("headers_within_snoc",
          >> disch_then kall_tac
          >> `IS_SUFFIX p1 (DROP a4 p1)` by(MATCH_ACCEPT_TAC IS_SUFFIX_DROP)
          >> first_assum drule
-         >> qunabbrev_tac `a4`         
+         >> qunabbrev_tac `a4`
          >> disch_then(qspecl_then [`a5`,`DROP (a5 - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
          >- (qunabbrev_tac `a5`
@@ -1046,7 +1045,7 @@ val headers_within_append1 = Q.store_thm("headers_within_append1",
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then[`n + LENGTH l'`,`m`] assume_tac)
   >> `!opt. lift ($++ (l' ⧺ [x])) opt = lift ($++ l') (lift (CONS x) opt)`
-       by(Cases >> fs[])  
+       by(Cases >> fs[])
   >> fs[ADD1]
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
   >> pop_assum kall_tac
@@ -1074,7 +1073,7 @@ val headers_within_append2 = Q.store_thm("headers_within_append2",
   >> strip_tac >> first_x_assum drule
   >> fs[]
   >> `!opt. lift (combin$C $++ (h::l')) opt = lift (combin$C $++ l') (lift (SNOC h) opt)`
-       by(Cases >> fs[] ) 
+       by(Cases >> fs[] )
        >> fs[ADD1]
   >> pop_assum kall_tac
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
@@ -1154,7 +1153,7 @@ val patch_diff2_cancel = Q.store_thm("patch_diff2_cancel",
   >> pop_assum(qspecl_then [`a1`,`a1`] assume_tac)
   >> drule(GEN_ALL headers_within_grow)
   >> disch_then(qspecl_then [`a1`,`a1 + (LENGTH a3 - a2 + a2)`] mp_tac)
-  >> impl_tac >- (unabbrev_all_tac >> fs[])  
+  >> impl_tac >- (unabbrev_all_tac >> fs[])
   >> qunabbrev_tac `a1` >> strip_tac
   >> drule headers_within_append1'
   >> disch_then(qspec_then `TAKE (LENGTH a3 − a2) a3 ++ longest_common_suffix a3 a4` mp_tac)
@@ -1266,7 +1265,7 @@ val REVERSE_DROP_REVERSE_TAKE = Q.store_thm("REVERSE_DROP_REVERSE_TAKE",
   >> fs[ADD1,NOT_LEQ]
   >> imp_res_tac EQ_LESS_EQ >> fs[]
   >> fs[DROP_LENGTH_TOO_LONG])
-                                           
+
 val diff2_optimal = Q.store_thm("diff2_optimal",
   `!l r r'. lcs l r r' ==>
    LENGTH(FILTER is_patch_line (diff_alg2 r r')) = LENGTH r + LENGTH r' - (2*LENGTH l)`,
@@ -1282,7 +1281,7 @@ val diff2_optimal = Q.store_thm("diff2_optimal",
         >> `LENGTH (longest_common_suffix a1 a2) <= LENGTH a2`
             by(metis_tac[longest_common_suffix_LENGTH])
         >> simp[REVERSE_DROP_REVERSE_TAKE]
-        >> unabbrev_all_tac >> simp[])  
+        >> unabbrev_all_tac >> simp[])
   >> `LENGTH l = LENGTH (longest_common_prefix r r' ++ dynamic_lcs a3 a4 ++ longest_common_suffix a1 a2)`
      by(match_mp_tac lcs_length >> metis_tac[])
   >> fs[diff_with_lcs_optimal]

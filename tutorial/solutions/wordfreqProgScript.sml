@@ -119,7 +119,7 @@ val res = translate format_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (Commandline.arguments()))
+    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
     of SOME lines =>
       TextIO.print_list
         (List.map format_output
@@ -305,7 +305,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   `FILENAME fname fnamev` by (
     fs[FILENAME_def,EVERY_MEM,
        wfcl_def,GSYM LENGTH_explode,
-       validArg_def] ) \\
+       validArg_def]) \\
 
   (* TODO: xlet_auto needs to be made to work with STDIO better *)
   (* TODO: inventing this is too hard for the tutorial *)

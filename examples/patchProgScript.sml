@@ -97,13 +97,13 @@ val r = translate rejected_patch_string_def;
 val _ = (append_prog o process_topdecs) `
   fun patch' fname1 fname2 =
     case TextIO.inputLinesFrom fname1 of
-        NONE => TextIO.prerr_string (notfound_string fname1)
+        NONE => TextIO.output TextIO.stdErr (notfound_string fname1)
       | SOME lines1 =>
         case TextIO.inputLinesFrom fname2 of
-            NONE => TextIO.prerr_string (notfound_string fname2)
+            NONE => TextIO.output TextIO.stdErr (notfound_string fname2)
           | SOME lines2 =>
             case patch_alg lines2 lines1 of
-                NONE => TextIO.prerr_string (rejected_patch_string)
+                NONE => TextIO.output TextIO.stdErr (rejected_patch_string)
               | SOME s => TextIO.print_list s`
 
 val patch'_spec = Q.store_thm("patch'_spec",
@@ -122,38 +122,36 @@ val patch'_spec = Q.store_thm("patch'_spec",
         else add_stderr fs (explode (notfound_string f2))
         else add_stderr fs (explode (notfound_string f1))))`,
   xcf"patch'"(get_ml_prog_state())
-  (* TODO: why doesn't this work fully auto? *)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
-      \\ xapp \\ xsimpl)
+      \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
-  (* TODO: why doesn't this work fully auto? *)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec) >- xsimpl
+  \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
   \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
       \\ xlet_auto >- xsimpl
-      \\ xapp \\ xsimpl)
+      \\ xapp_spec output_stderr_spec \\ xsimpl)
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
   \\ qpat_abbrev_tac `a1 = patch_alg _ _`
   \\ Cases_on `a1` \\ fs[ml_translatorTheory.OPTION_TYPE_def]
   \\ xmatch
-  >- (xapp \\ ACCEPT_TAC(theorem "rejected_patch_string_v_thm"))
+  >- (xapp_spec output_stderr_spec \\ simp[theorem "rejected_patch_string_v_thm"])
   \\ xapp \\ rw[]);
 
 val _ = (append_prog o process_topdecs) `
   fun patch u =
-    case Commandline.arguments () of
+    case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => TextIO.prerr_string usage_string`
+      | _ => TextIO.output TextIO.stdErr usage_string`
 
 val patch_spec = Q.store_thm("patch_spec",
   `hasFreeFD fs
@@ -180,17 +178,17 @@ val patch_spec = Q.store_thm("patch_spec",
   \\ xlet_auto >- xsimpl
   \\ Cases_on `cl` \\ fs[]
   \\ Cases_on `t` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ Cases_on `t'` \\ fs[ml_translatorTheory.LIST_TYPE_def]
-  >- (xmatch \\ xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xmatch \\ xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xmatch
   \\ reverse(Cases_on `t`) \\ fs[ml_translatorTheory.LIST_TYPE_def]
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ (reverse strip_tac >- (EVAL_TAC \\ rw[]))
-  >- (xapp \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
+  >- (xapp_spec output_stderr_spec \\ xsimpl \\ CONV_TAC SWAP_EXISTS_CONV
       \\ qexists_tac `usage_string` \\ simp [theorem "usage_string_v_thm"]
       \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `fs` \\ xsimpl)
   \\ xapp
