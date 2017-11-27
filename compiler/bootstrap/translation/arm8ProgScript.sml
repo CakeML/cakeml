@@ -285,7 +285,7 @@ val Num_rw = Q.prove(`
     else f (Num (ABS len))`,
   rw[]>>
   `0 ≤ len` by intLib.COOPER_TAC>>
-  fs[GSYM integerTheory.INT_ABS_EQ_ID])
+  metis_tac[integerTheory.INT_ABS_EQ_ID])
 
 val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE (srw_ss()++ARITH_ss) [hsb_compute,v2w_Ones,Replicate_def,bitstringTheory.length_pad_left,Ones_def,GSYM bitstringTheory.n2w_v2n,Num_rw]
 |> CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w]
