@@ -422,7 +422,19 @@ val lem = Q.prove(
       metis_tac[SUBSET_TRANS])
   >- (fs[pair_case_eq, result_case_eq] >> rveq >> fs[] >>
       rename1 `closSem$do_app opn` >>
-      Cases_on `opn = Install` >- cheat >>
+      Cases_on `opn = Install` THEN1
+       (rveq \\ fs []
+        \\ reverse (Cases_on `do_install (REVERSE vs) s''`) \\ fs []
+        THEN1 (Cases_on `e` \\ fs [])
+        \\ PairCases_on `a` \\ fs []
+        \\ pop_assum mp_tac
+        \\ fs [do_install_def]
+        \\ fs [case_eq_thms]
+        \\ strip_tac \\ pairarg_tac \\ fs []
+        \\ fs [case_eq_thms,bool_case_eq,pair_case_eq]
+        \\ rveq \\ fs []
+        \\ fs [mapped_globals_def]
+        \\ match_mp_tac SUBSET_TRANS \\ asm_exists_tac \\ fs []) >>
       Cases_on `opn` >>
       fs[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq] >> rw[] >>
       fs[]
@@ -2407,6 +2419,7 @@ set_globals_def
 compile_correct
 state_globals_approx_def
 clos_knownTheory.compile_def
+val_rel_def
 *)
 
 val _ = export_theory();
