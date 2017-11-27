@@ -210,7 +210,10 @@ val wf_close_spt = Q.store_thm("wf_close_spt",
 );
 
 val wf_set_tree_def = Define `
-    wf_set_tree tree = ∀ x  y . (lookup x tree = SOME y) ⇒ domain y ⊆ domain tree
+    wf_set_tree tree ⇔  
+        (∀ x  y . (lookup x tree = SOME y) ⇒ domain y ⊆ domain tree) ∧ 
+        (∀ n x . lookup n tree = SOME x ⇒ wf x) ∧ 
+        wf tree
 `
 val close_spt_thm = Q.store_thm("close_spt_thm",
     `∀ reachable seen tree fullTree x (roots:num set) . 
@@ -229,54 +232,52 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
     recInduct close_spt_ind
     >> rw[] >> once_rewrite_tac [close_spt_def] >> simp[] 
     >> IF_CASES_TAC 
-    >| [
+    >- (
         drule empty_sub >> fs[] >> rw[] >> fs[] >> fs[EXTENSION] >> rw[] >> EQ_TAC >> rw[] 
         >- metis_tac[]
         >> fs[SUBSET_DEF] >> fs[isReachable_def] >> `roots ⊆ domain (reachable)` by fs[SUBSET_DEF] >>
             drule rtc_isAdjacent >> impl_tac >> metis_tac[]
-      ,
-        CASE_TAC >> fs[] >> fs[subspt_domain] >> rw[] >> fs[SUBSET_DEF] >> rw[EXTENSION] 
-        >| [
-            fs[lookup_NONE_domain] >>
-            `getOne (difference seen reachable) ∈ domain (difference seen reachable)`
-                by rw[wf_difference, getOne_domain] >>
-            fs[domain_difference] >> res_tac >> imp_res_tac reachable_domain >>
-            `n ∈ domain fullTree` by metis_tac[] >> fs[domain_lookup] >> rfs[]
-          ,            
-            rfs[EXTENSION] >> pop_assum match_mp_tac >>
-            `∀ n x. lookup n tree = SOME x ⇒ wf x` by (fs[subspt_def, domain_lookup] >> metis_tac[]) >>
-            `getOne (difference seen reachable) ∈ domain (union x seen)` by (
-                rw[domain_union, getOne_domain] >>
-                `domain (difference seen reachable) ⊆ domain seen` by rw[domain_difference] >>
-                `getOne(difference seen reachable)∈ domain(difference seen reachable)` 
-                    by rw[getOne_domain, wf_difference] >>
-                fs[SUBSET_DEF] >> metis_tac [] ) >>
-            `∀k. k = getOne (difference seen reachable) ∨ k ∈ domain reachable ⇒
-                ∀a. isAdjacent fullTree k a ⇒ a ∈ domain (union x seen)` by (
-                pop_assum kall_tac >> strip_tac >> Cases_on `k ∈ domain reachable`
-                >> simp[domain_union] >> metis_tac [domain_union, isAdjacent_def, domain_lookup, SOME_11]) >>
-            `∀k. k ∈ domain (union x seen) ⇒ ∃n. n ∈ roots ∧ isReachable fullTree n k` by (
-                rw[domain_union] >> Cases_on `k ∈ domain seen` >> rw[]
-                >> TRY (metis_tac []) 
-                >> `getOne (difference seen reachable) ∈ domain seen ∧
-                    getOne (difference seen reachable) ∉ domain reachable` 
-                    by ( `getOne(difference seen reachable) ∈ domain (difference seen reachable)` 
-                            by rw[wf_difference, getOne_domain] >>
-                         fs[domain_difference]) >>
-                    res_tac >> qexists_tac `n` >> rw[isReachable_def, Once RTC_CASES2] >> disj2_tac >>
-                    qexists_tac `getOne (difference seen reachable)` >> rw[isAdjacent_def]
-                    >- metis_tac[isReachable_def] >> qexists_tac `x` >>
-                    res_tac >> rw[] >> fs[domain_lookup] >>
-                    qpat_x_assum `wf_set_tree _` assume_tac >> fs[wf_set_tree_def] >>
-                    qpat_x_assum `_ = SOME x` assume_tac >> first_x_assum drule >>
-                    rw[SUBSET_DEF, domain_lookup]
-            ) >>
-            asm_rewrite_tac[] >>
-            simp[wf_insert, wf_difference, wf_union, wf_delete, lookup_delete, wf_close_spt,
-                 domain_union, subspt_delete, lookup_delete] >> 
-            fs[domain_union] >> metis_tac[wf_union]
-           ]
-       ]
+       )
+    >> CASE_TAC >> fs[] >> fs[subspt_domain] >> rw[] >> fs[SUBSET_DEF] >> rw[EXTENSION] 
+    >- (
+        fs[lookup_NONE_domain] >>
+        `getOne (difference seen reachable) ∈ domain (difference seen reachable)`
+            by rw[wf_difference, getOne_domain] >>
+        fs[domain_difference] >> res_tac >> imp_res_tac reachable_domain >>
+        `n ∈ domain fullTree` by metis_tac[] >> fs[domain_lookup] >> rfs[]
+       )  
+    >> rfs[EXTENSION] >> pop_assum match_mp_tac >>
+    `∀ n x. lookup n tree = SOME x ⇒ wf x` by (fs[subspt_def, domain_lookup] >> metis_tac[]) >>
+    `getOne (difference seen reachable) ∈ domain (union x seen)` by (
+        rw[domain_union, getOne_domain] >>
+        `domain (difference seen reachable) ⊆ domain seen` by rw[domain_difference] >>
+        `getOne(difference seen reachable)∈ domain(difference seen reachable)` 
+            by rw[getOne_domain, wf_difference] >>
+         fs[SUBSET_DEF] >> metis_tac [] ) >>
+    `∀k. k = getOne (difference seen reachable) ∨ k ∈ domain reachable ⇒
+        ∀a. isAdjacent fullTree k a ⇒ a ∈ domain (union x seen)` by (
+        pop_assum kall_tac >> strip_tac >> Cases_on `k ∈ domain reachable`
+        >> simp[domain_union] >> metis_tac [domain_union, isAdjacent_def, domain_lookup, SOME_11]) >>
+    `∀k. k ∈ domain (union x seen) ⇒ ∃n. n ∈ roots ∧ isReachable fullTree n k` by (
+        reverse(rw[domain_union] >> Cases_on `k ∈ domain seen` >> rw[])
+        >- metis_tac [] 
+        >> `getOne (difference seen reachable) ∈ domain seen ∧
+            getOne (difference seen reachable) ∉ domain reachable` 
+            by ( `getOne(difference seen reachable) ∈ domain (difference seen reachable)` 
+                    by rw[wf_difference, getOne_domain] >>
+                 fs[domain_difference]) >>
+            res_tac >> qexists_tac `n` >> rw[isReachable_def, Once RTC_CASES2] >> disj2_tac >>
+            qexists_tac `getOne (difference seen reachable)` >> rw[isAdjacent_def]
+            >- metis_tac[isReachable_def] >> qexists_tac `x` >>
+            res_tac >> rw[] >> fs[domain_lookup] >>
+            qpat_x_assum `wf_set_tree _` assume_tac >> fs[wf_set_tree_def] >>
+            qpat_x_assum `_ = SOME x` assume_tac >> qpat_x_assum `∀ x . _` kall_tac >>
+            first_x_assum drule >> rw[SUBSET_DEF, domain_lookup]
+      ) 
+      >> asm_rewrite_tac[] >>
+      simp[wf_insert, wf_difference, wf_union, wf_delete, lookup_delete, wf_close_spt,
+        domain_union, subspt_delete, lookup_delete] >> 
+        fs[domain_union] >> metis_tac[wf_union]
 );
 
 
@@ -285,29 +286,26 @@ val close_spt_thm = Q.store_thm("close_spt_thm",
 
 val closure_spt_def = Define `(closure_spt start tree = close_spt LN (insert start () LN) tree)`;
 
-val closure_spt_thm = 
-        REWRITE_RULE [ConseqConvTheory.AND_CLAUSES_XX] (
-            close_spt_thm |> Q.SPECL [`LN`, `insert start () LN`, `tree`, `tree`]
-            |> SIMP_RULE std_ss [
-                GSYM closure_spt_def, wf_def, wf_insert, subspt_def, domain_def, NOT_IN_EMPTY,
-                domain_insert, SUBSET_DEF
-               ] 
-            |> Q.SPECL[`{start}`]
-            |> SIMP_RULE std_ss [IN_SING, isReachable_def, RTC_REFL, AND_CLAUSES]
-        );
+val closure_spt_lemma = 
+    close_spt_thm |> Q.SPECL [`LN`, `insert start () LN`, `tree`, `tree`]
+        |> SIMP_RULE std_ss [
+            GSYM closure_spt_def, wf_def, wf_insert, subspt_def, domain_def, NOT_IN_EMPTY,
+            domain_insert, SUBSET_DEF
+           ] 
+        |> Q.SPECL[`{start}`]
+        |> SIMP_RULE std_ss [ConseqConvTheory.AND_CLAUSES_XX, IN_SING, Once isReachable_def, RTC_REFL, AND_CLAUSES]
+;
+
 
 val closure_spt_thm = Q.store_thm ("closure_spt_thm",
-    `wf tree ∧ (∀ n x . lookup n tree = SOME x ⇒ wf x) ∧
-    (start ∈ domain tree) ∧ (wf_set_tree tree)
+    `(start ∈ domain tree) ∧ (wf_set_tree tree)
     ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . isReachable tree start a}`
-
-    assume_tac close_spt_thm >>
-    rw[] 
-    simp[closure_spt_def]
-    first_x_assum (qspecl_then [`insert start () LN`, `LN`, `tree`, `tree`, `close_spt LN (insert start () LN) tree`, `{start}` ] assume_tac)
-
+        {a | ∃ n . isReachable tree start a}`,
+    assume_tac closure_spt_lemma >> rw[] >> fs[wf_set_tree_def] >> 
+    first_x_assum match_mp_tac >> rw[]  >> fs[] >> res_tac >> fs[]
 );
+
+
 
 (*********************************************************************************************************************************************************)
 
