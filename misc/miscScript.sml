@@ -98,38 +98,12 @@ val SUM_SET_IN_LT = Q.store_thm("SUM_SET_IN_LT",
   `!s x y. FINITE s /\ x IN s /\ y < x ==> y < SUM_SET s`,
   metis_tac[SUM_SET_IN_LE,LESS_LESS_EQ_TRANS]);
 
-val BIJ_IMP_11 = Q.store_thm("BIJ_IMP_11",
-  `BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)`,
-  full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF] \\ metis_tac []);
-
 val BIJ_support = Q.store_thm("BIJ_support",
   `∀f s' s. BIJ f s' s' ∧ s' ⊆ s ∧ (∀x. x ∉ s' ⇒ f x = x) ⇒ BIJ f s s`,
   rw[BIJ_IFF_INV,SUBSET_DEF]
   >- metis_tac[]
   \\ qexists_tac`λx. if x ∈ s' then g x else x`
   \\ rw[] \\ metis_tac[]);
-
-val FINITE_SURJ = Q.store_thm("FINITE_SURJ",
-  `FINITE s ∧ SURJ f s t ⇒ FINITE t`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac FINITE_INJ);
-
-val SURJ_CARD = Q.store_thm("SURJ_CARD",
-  `∀f s t. SURJ f s t ∧ FINITE s ⇒ CARD t ≤ CARD s`,
-  rw[]
-  \\ imp_res_tac SURJ_INJ_INV
-  \\ imp_res_tac INJ_CARD);
-
-val FINITE_SURJ_BIJ = Q.store_thm("FINITE_SURJ_BIJ",
-  `FINITE s ∧ SURJ f s t ∧ CARD t = CARD s ⇒ BIJ f s t`,
-  rw[BIJ_DEF,INJ_DEF] >- fs[SURJ_DEF]
-  \\ CCONTR_TAC
-  \\ `SURJ f (s DELETE x) t` by (fs[SURJ_DEF] \\ metis_tac[])
-  \\ `FINITE (s DELETE x)` by metis_tac[FINITE_DELETE]
-  \\ imp_res_tac SURJ_CARD
-  \\ rfs[CARD_DELETE]
-  \\ Cases_on`CARD s` \\ rfs[CARD_EQ_0] \\ fs[]);
 
 val CARD_IMAGE_ID_BIJ = Q.store_thm("CARD_IMAGE_ID_BIJ",
   `∀s. FINITE s ⇒ (∀x. x ∈ s ⇒ f x ∈ s) ∧ CARD (IMAGE f s) = CARD s ⇒ BIJ f s s`,
@@ -151,10 +125,6 @@ val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
     OPTION_MAP (f x) (ALOOKUP al x)`,
   gen_tac >> Induct >> simp[] >>
   Cases >> simp[] >> srw_tac[][]);
-
-val FST_EQ_EQUIV = Q.store_thm("FST_EQ_EQUIV",
-  `(FST x = y) <=> ?z. x = (y,z)`,
-  Cases_on `x` \\ full_simp_tac(srw_ss())[]);
 
 val map_fromAList = Q.store_thm("map_fromAList",
   `map f (fromAList ls) = fromAList (MAP (λ(k,v). (k, f v)) ls)`,
@@ -229,19 +199,6 @@ val ZIP_GENLIST1 = Q.store_thm("ZIP_GENLIST1",
   `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`,
   Induct \\ rw[] \\ rw[GENLIST_CONS,o_DEF]);
 
-val LENGTH_MAP2_MIN = Q.store_thm ("LENGTH_MAP2_MIN",
-  `∀xs ys.
-     LENGTH (MAP2 f xs ys) = MIN (LENGTH xs) (LENGTH ys)`,
-  Induct \\ rw []
-  \\ Cases_on `ys` \\ fs [MIN_DEF] \\ EVAL_TAC);
-
-val EL_MAP2 = Q.store_thm("EL_MAP2",
-  `∀ts tt n.
-    n < MIN (LENGTH ts) (LENGTH tt) ⇒
-      EL n (MAP2 f ts tt) = f (EL n ts) (EL n tt)`,
-  Induct \\ rw []
-  \\ Cases_on `tt` \\ Cases_on `n` \\ fs []);
-
 val MAP3_def = Define`
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
@@ -293,11 +250,6 @@ val LIST_REL_MEM = Q.store_thm("LIST_REL_MEM",
               LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys`,
   full_simp_tac(srw_ss())[LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
 
-val LIST_REL_REVERSE_EQ = Q.store_thm(
-  "LIST_REL_REVERSE_EQ",
-  ‘LIST_REL R (REVERSE l1) (REVERSE l2) <=> LIST_REL R l1 l2’,
-  simp[EVERY2_REVERSE1]);
-
 val LIST_REL_GENLIST_I = Q.store_thm("LIST_REL_GENLIST_I",
   `!xs. LIST_REL P (GENLIST I (LENGTH xs)) xs =
          !n. n < LENGTH xs ==> P n (EL n xs)`,
@@ -307,26 +259,6 @@ val LIST_REL_lookup_fromList = Q.store_thm("LIST_REL_lookup_fromList",
   `LIST_REL (\v x. lookup v (fromList args) = SOME x)
      (GENLIST I (LENGTH args)) args`,
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
-
-val LIST_REL_SPLIT1 = store_thm("LIST_REL_SPLIT1",
-  ``!xs1 zs.
-      LIST_REL P (xs1 ++ xs2) zs ==>
-      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P xs1 ys1 /\
-                LIST_REL P xs2 ys2``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
-
-val LIST_REL_SPLIT2 = store_thm("LIST_REL_SPLIT2",
-  ``!xs1 zs.
-      LIST_REL P zs (xs1 ++ xs2) ==>
-      ?ys1 ys2. (zs = ys1 ++ ys2) /\ LIST_REL P ys1 xs1 /\
-                LIST_REL P ys2 xs2``,
-  Induct \\ full_simp_tac std_ss [APPEND]
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
 
 val LIST_REL_SNOC = Q.store_thm("LIST_REL_SNOC",
   `(LIST_REL R (SNOC x xs) yys ⇔
