@@ -24,10 +24,10 @@ val main = process_topdecs`
       val cl = CommandLine.arguments ()
     in
       if compiler_has_version_flag cl then
-        TextIO.print_string compiler_current_build_info_str
+        TextIO.print compiler_current_build_info_str
       else
         case compiler_x64 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
-          (c, e) => (print_app_list c; TextIO.prerr_string e)
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
     end`;
 
 val res = append_prog main;
