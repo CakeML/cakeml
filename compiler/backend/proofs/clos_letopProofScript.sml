@@ -109,6 +109,43 @@ val state_rel_def = Define `
 
 (* *)
 
+val v_rel_IMP_v_to_bytes_lemma = prove(
+  ``!y x.
+      v_rel x y ==>
+      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+  ho_match_mp_tac v_to_list_ind \\ rw []
+  \\ fs [v_to_list_def]
+  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ res_tac \\ fs [case_eq_thms]
+  \\ Cases_on `ns` \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `h` \\ fs []);
+
+val v_rel_IMP_v_to_bytes = prove(
+  ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
+  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
+
+val v_rel_IMP_v_to_words_lemma = prove(
+  ``!y x.
+      v_rel x y ==>
+      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
+           (v_to_list y = SOME (MAP Word64 ns))``,
+  ho_match_mp_tac v_to_list_ind \\ rw []
+  \\ fs [v_to_list_def]
+  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ res_tac \\ fs [case_eq_thms]
+  \\ Cases_on `ns` \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ Cases_on `h` \\ fs []);
+
+val v_rel_IMP_v_to_words = prove(
+  ``v_rel x y ==> v_to_words y = v_to_words x``,
+  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+
+
+(* *)
+
 val dest_op_SOME_IMP = store_thm("dest_op_SOME_IMP",
   ``!x args opp. dest_op x args = SOME opp ==>
       ?t xs. x = Op t opp xs /\
@@ -149,11 +186,44 @@ val var_list_IMP_evaluate = prove(
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
+
+val lookup_vars_lemma = store_thm("lookup_vars_lemma",
+  ``!vs env1 env2. LIST_REL v_rel env1 env2 ==>
+    case lookup_vars vs env1 of
+      | NONE => lookup_vars vs env2 = NONE
+      | SOME l1 => ?l2. LIST_REL v_rel l1 l2 /\ lookup_vars vs env2 = SOME l2``,
+  Induct_on `vs` \\ fs [lookup_vars_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ rw []
+  \\ res_tac
+  \\ Cases_on `lookup_vars vs env1`
+  \\ fs []
+  \\ fs [LIST_REL_EL_EQN]);
+
+val find_code_lemma = store_thm("find_code_lemma",
+  ``!s t p args. state_rel s t ==>
+      find_code p args s.code = NONE /\
+      find_code p args t.code = NONE``,
+  fs [state_rel_def, find_code_def]);
+
+
+val PUSH_IF = store_thm("PUSH_IF",
+  ``!f b x y. (if b then f x else f y) = f (if b then x else y)``,
+  METIS_TAC [])
+
+val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
+  ``dest_closure max_app loc_opt f2 xs = SOME x ==>
+    (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)``,
+  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+
 (* evaluate_let_op *)
 
 val evaluate_let_op = store_thm("evaluate_let_op",
   ``(!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
        evaluate (xs, env1, s1) = (res1, s2) /\
+       (*res1 <> Rerr (Rabort Rtype_error) /\*)
        LIST_REL v_rel env1 env2 /\ state_rel s1 t1 /\
        code_rel xs ys ==>
        ?res2 t2.
@@ -192,7 +262,7 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ imp_res_tac evaluate_SING
     \\ fs [])
   THEN1 (* Var *)
-   (fs [code_rel_def, let_op_def]
+   (fs [code_rel_def, let_op_def] \\ rveq
     \\ fs [evaluate_def]
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -257,26 +327,190 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ disch_then drule
     \\ disch_then (qspecl_then [`t2`, `env2`] assume_tac)
     \\ fs [])
+  THEN1 (* Raise *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]   
+    \\ fs [pair_case_eq]
+    \\ first_x_assum drule
+    \\ ntac 2 (disch_then drule)
+    \\ strip_tac \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_SING \\ fs [])
+  THEN1 (* Handle *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]   
+    \\ fs [pair_case_eq]
+    \\ first_x_assum drule
+    \\ ntac 2 (disch_then drule)
+    \\ strip_tac \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs [])
+  THEN1 (* Op *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]   
+    \\ fs [pair_case_eq]
+    \\ first_x_assum drule
+    \\ ntac 2 (disch_then drule)
+    \\ strip_tac \\ fs []
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ IF_CASES_TAC \\ rveq \\ fs []
+    THEN1
+     (drule EVERY2_REVERSE
+      \\ qabbrev_tac `a1 = REVERSE vs`
+      \\ qabbrev_tac `a2 = REVERSE v'`
+      \\ strip_tac
+      \\ qpat_x_assum `_ = (res1, s2)` mp_tac
+      \\ simp [Once do_install_def]
+      \\ Cases_on `a1`
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
+      \\ Cases_on `t`
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])   
+      \\ reverse (Cases_on `t'`)
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
+      \\ fs [] \\ rveq
+      \\ rename1 `v_rel x2 y2` \\ pop_assum mp_tac
+      \\ drule v_rel_IMP_v_to_bytes \\ strip_tac
+      \\ rename1 `v_rel x1 y1` \\ strip_tac
+      \\ drule v_rel_IMP_v_to_words \\ strip_tac \\ fs []
+      \\ Cases_on `v_to_bytes x1` \\ fs []
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
+      \\ Cases_on `v_to_words x2` \\ fs []
+      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
+      \\ pairarg_tac \\ fs []
+      \\ PairCases_on `progs`     
+      \\ Cases_on `t2.compile_oracle 0`
+      \\ PairCases_on `r`
+      \\ `r1 = [] /\ progs1 = []` by
+         (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
+          \\ rveq \\ fs [] \\ metis_tac [SND])
+      \\ rveq \\ fs []    
+      \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
+      THEN1 (fs [do_install_def] \\ rw []
+             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def])
+      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
+      \\ reverse IF_CASES_TAC
+      THEN1 (fs [do_install_def] \\ rw []
+             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+             \\ IF_CASES_TAC \\ fs [shift_seq_def])
+      \\ IF_CASES_TAC
+      THEN1 (fs [do_install_def] \\ rw []
+             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+             \\ IF_CASES_TAC \\ fs [shift_seq_def])
+      \\ fs [] \\ rveq \\ fs []
+      \\ fs [do_install_def] \\ strip_tac
+      \\ first_x_assum drule
+      \\ qmatch_goalsub_abbrev_tac `Rval (r0, tt)`
+      \\ disch_then (qspec_then `tt` mp_tac)
+      \\ impl_tac
+      THEN1 (qunabbrev_tac `tt`
+             \\ fs [state_rel_def, shift_seq_def, FUPDATE_LIST, o_DEF])
+      \\ strip_tac \\ fs []
+      \\ unabbrev_all_tac \\ fs []
+      \\ rw []
+      \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
+      \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
+      \\ fs [shift_seq_def]
+      \\ rveq \\ fs [])
+   \\ cheat (* op <> Install *))
+  THEN1 (* Fn *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ `t1.max_app = s1.max_app` by fs [state_rel_def]
+    \\ fs []
+    \\ IF_CASES_TAC
+    \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ fs [Once case_eq_thms] \\ rveq
+    THEN1 (fs [code_rel_def])
+    \\ drule (Q.SPEC `vs` lookup_vars_lemma)
+    \\ CASE_TAC \\ strip_tac
+    \\ fs [] \\ rveq \\ fs [code_rel_def])
+  THEN1 (* Letrec *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ qpat_x_assum `_ = (res1, s2)` mp_tac
+    \\ fs [evaluate_def]
+    \\ `t1.max_app = s1.max_app` by fs [state_rel_def]
+    \\ fs [EVERY_MAP]
+    \\ reverse (IF_CASES_TAC \\ IF_CASES_TAC)
+    THEN1 (strip_tac \\ fs [] \\ rveq \\ fs [])
+    \\ TRY (fs [EXISTS_MEM]
+           \\ rename1 `MEM fff fns`
+           \\ fs [EVERY_MEM] \\ res_tac
+           \\ PairCases_on `fff` \\ fs [])
+    \\ strip_tac
+    \\ Cases_on `namesopt` \\ fs []
+    THEN1 (first_x_assum irule \\ fs []
+           \\ irule EVERY2_APPEND_suff \\ fs []
+           \\ fs [LIST_REL_GENLIST] \\ rw []
+           \\ fs [LIST_REL_EL_EQN] \\ rw []
+           \\ fs [EL_MAP]
+           \\ pairarg_tac
+           \\ fs [f_rel_def, code_rel_def])
+    \\ drule (Q.SPEC `x` lookup_vars_lemma)
+    \\ CASE_TAC \\ fs [] \\ rveq \\ fs []
+    \\ strip_tac \\ fs []
+    \\ first_x_assum irule \\ fs []
+    \\ irule EVERY2_APPEND_suff \\ fs []
+    \\ fs [LIST_REL_GENLIST] \\ rw []
+    \\ fs [LIST_REL_EL_EQN] \\ rw []
+    \\ fs [EL_MAP]
+    \\ pairarg_tac
+    \\ fs [f_rel_def, code_rel_def])
+  THEN1 (* App *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ fs [LENGTH_let_op]
+    \\ reverse IF_CASES_TAC
+    \\ fs [] \\ rveq \\ fs []
+    \\ reverse (fs [case_eq_thms, pair_case_eq])
+    \\ rveq \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ strip_tac \\ rveq \\ fs [] (* Closes xs => Rerr *)
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ strip_tac \\ rveq \\ fs [] (* Closes xs => Rval, x1 => Rerr *)
+    \\ rename1 `LIST_REL v_rel y1 yy`
+    \\ imp_res_tac evaluate_SING
+    \\ fs [])
+  THEN1 (* Tick *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ `s1.clock = t1.clock` by fs [state_rel_def]
+    \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
+    \\ first_x_assum irule \\ fs []
+    \\ fs [dec_clock_def, state_rel_def])
+  THEN1 (* Call *)
+   (fs [code_rel_def, let_op_def] \\ rveq
+    \\ fs [evaluate_def]
+    \\ fs [Once case_eq_thms, pair_case_eq]
+    \\ rveq \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then drule
+    \\ strip_tac \\ rveq
+    \\ fs [state_rel_def, find_code_def]
+    \\ rveq \\ fs [])
+  THEN1 (* evaluate_app NIL *)
+   (simp [])
 
-)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
-  THEN1
-   (cheat)
+  (* evaluate_app CONS *)
+  \\ fs [evaluate_def]
+  \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  THEN1 (* dest_closure returns NONE *)
+   (fs [dest_closure_def]
+    \\ Cases_on `f2` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ fs [PUSH_IF]
+    \\ pairarg_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ Cases_on `n < LENGTH l1` \\ fs []
+    \\ bump_assum `LIST_REL f_rel _ _`
+    \\ drule (LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
+    \\ fs [] \\ disch_then drule \\ fs [f_rel_def]
+    \\ strip_tac \\ fs [])
 
+  THEN1 (* dest_closure return SOME Partial_app *)
+    imp_res_tac dest_closure_SOME_IMP
