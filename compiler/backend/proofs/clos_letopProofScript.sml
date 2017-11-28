@@ -584,7 +584,6 @@ val evaluate_let_op = store_thm("evaluate_let_op",
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
     \\ fs [dec_clock_def, state_rel_def]
     \\ irule EVERY2_APPEND_suff \\ fs [])
-
   (* dest_closure returns SOME Full_app *)
   \\ bump_assum `v_rel f1 f2`
   \\ drule (GEN_ALL dest_closure_SOME_Full_app)
@@ -602,9 +601,9 @@ val evaluate_let_op = store_thm("evaluate_let_op",
   \\ unabbrev_all_tac \\ simp []
   \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
   \\ strip_tac \\ fs []
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  \\ fs [case_eq_thms] \\ rveq \\ fs [])
 
-
+(*
   (* Alternate version that doesnt use dest_closure_SOME_Full_app *)
   (* dest_closure returns SOME Full_app *)
   \\ imp_res_tac dest_closure_SOME_IMP
@@ -676,3 +675,4 @@ val evaluate_let_op = store_thm("evaluate_let_op",
   \\ irule EVERY2_DROP
   \\ irule EVERY2_APPEND_suff \\ simp []
   \\ irule EVERY2_REVERSE \\ simp []
+*)
