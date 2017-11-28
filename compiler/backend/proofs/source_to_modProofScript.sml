@@ -1241,11 +1241,11 @@ val compile_exp_correct' = Q.prove (
     strip_tac >> rveq >>
     drule do_app >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[] >>
-    imp_res_tac EVERY2_REVERSE >>
     imp_res_tac evaluate_globals >>
     pop_assum (assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     ONCE_REWRITE_TAC[CONJ_COMM] >>
+    imp_res_tac EVERY2_REVERSE >>
     disch_then drule >>
     full_simp_tac(srw_ss())[s_rel_cases] >>
     CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[pair_default_qp])[])) >>
